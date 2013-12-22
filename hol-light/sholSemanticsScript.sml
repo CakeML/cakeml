@@ -4544,7 +4544,8 @@ val soundness = store_thm("soundness",
     spose_not_then strip_assume_tac >>
     `type_size (Fun ty1 ty2) = type_size ty1` by metis_tac[] >>
     fsrw_tac[ARITH_ss][term_size_def]) >>
-  metis_tac[SELECT_AX_correct])
+  conj_tac >- metis_tac[SELECT_AX_correct] >>
+  cheat (* INFINITY_AX - not true without further assumptions *))
 
 val consistency = store_thm("consistency",
   ``([] |- (Var x Bool === Var x Bool)) ∧

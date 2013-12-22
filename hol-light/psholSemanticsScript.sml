@@ -4561,6 +4561,77 @@ val SELECT_AX_correct = store_thm("SELECT_AX_correct",
     metis_tac[SUBMAP_FUNION,SUBMAP_REFL,SUBMAP_TRANS] ) >>
   metis_tac[semantics_typeset,semantics_11])
 
+val truth_has_type_bool = store_thm("truth_has_type_bool",
+  ``TT has_type Bool``,
+  rw[TT_def] >> rw[Once has_type_cases])
+val _ = export_rewrites["truth_has_type_bool"]
+
+val sequent_truth = store_thm("sequent_truth",
+  ``is_model M ⇒ [] |= TT``,
+  strip_tac >>
+  simp[sequent_def] >>
+  conj_asm2_tac >- (
+    match_mp_tac semantics_has_meaning >>
+    ntac 2 (qexists_tac`FEMPTY`) >>
+    qexists_tac`True` >> simp[] >>
+    first_x_assum match_mp_tac >>
+    simp[TT_def,tyvars_def] ) >>
+  rw[TT_def] >>
+  simp[Once semantics_cases] >>
+  qexists_tac`FEMPTY` >> simp[] >>
+  Q.PAT_ABBREV_TAC`tm = x === x` >>
+  qspecl_then[`{}`,`tm`]mp_tac fresh_term_def >>
+  simp[] >> strip_tac >>
+  `tm has_type Bool` by (
+    simp[Abbr`tm`,EQUATION_HAS_TYPE_BOOL] ) >>
+  `welltyped tm` by PROVE_TAC[welltyped_def] >>
+  imp_res_tac ACONV_welltyped >>
+  imp_res_tac ACONV_TYPE >>
+  imp_res_tac WELLTYPED_LEMMA >>
+  fs[] >>
+  conj_tac >- (
+    rw[] >>
+    spose_not_then strip_assume_tac >>
+    imp_res_tac ACONV_SYM >>
+    imp_res_tac ACONV_VFREE_IN >>
+    fs[Abbr`tm`,vfree_in_equation] >>
+    PROVE_TAC[] ) >>
+  qpat_assum`Bool = X`(assume_tac o SYM) >>
+  conj_asm1_tac >- (
+    simp[SUBSET_DEF,tyvars_def] >>
+    rpt strip_tac >>
+    imp_res_tac ACONV_tvars >>
+    pop_assum(mp_tac o SYM) >>
+    Q.PAT_ABBREV_TAC`fm = fresh_term X Y` >>
+    simp[Abbr`tm`,tvars_def,equation_def,tyvars_def,LIST_UNION_def] >>
+    metis_tac[MEM] ) >>
+  qsuff_tac`semantics FEMPTY τ tm True` >-
+    metis_tac[semantics_aconv,term_valuation_FEMPTY] >>
+  qmatch_assum_abbrev_tac`Abbrev(tm = tt === tt)` >>
+  qspec_then`tt`mp_tac(UNDISCH REFL_correct) >>
+  discharge_hyps >- simp[Abbr`tt`] >>
+  simp[sequent_def] >> strip_tac >>
+  first_x_assum match_mp_tac >>
+  simp[Abbr`tm`] >> fs[EQUATION_HAS_TYPE_BOOL] >>
+  qspecl_then[`typeof tt`,`tt`,`tt`,`{}`,`FDOM τ`]mp_tac(Q.GENL[`τ`,`σ`,`l`,`r`,`ty`] closes_equation) >>
+  simp[GSYM WELLTYPED] >>
+  disch_then kall_tac >>
+  rfs[] >>
+  simp[Abbr`tt`])
+
+val conjunction_has_type_bool = store_thm("conjunction_has_type_bool",
+  ``∀p q. AN p q has_type Bool ⇔ p has_type Bool ∧ q has_type Bool``,
+  simp[AN_def] >>
+  simp[Once has_type_cases] >>
+  simp[Once has_type_cases] >>
+  simp[Once has_type_cases] )
+
+val INFINITY_AX_correct = store_thm("INFINITY_AX_correct",
+  ``is_model M ⇒
+    [] |= EX "f" (Fun Ind Ind) (AN (O1 Ind Ind (Var "f" (Fun Ind Ind)))
+                               (NO (OT Ind Ind (Var "f" (Fun Ind Ind)))))``,
+    cheat)
+
 val soundness = store_thm("soundness",
   ``is_model M ⇒
     (∀ty. type_ok ty ⇒ type_has_meaning ty) ∧
@@ -4645,7 +4716,7 @@ val soundness = store_thm("soundness",
     spose_not_then strip_assume_tac >>
     `type_size (Fun ty ty') = type_size ty` by metis_tac[] >>
     fsrw_tac[ARITH_ss][term_size_def]) >>
-  metis_tac[SELECT_AX_correct])
+  metis_tac[INFINITY_AX_correct,SELECT_AX_correct])
 
 val consistency = store_thm("consistency",
   ``is_model M ⇒
