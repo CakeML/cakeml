@@ -5,6 +5,7 @@ open typeSysPropsTheory typeSoundTheory;
 open terminationTheory bigClockTheory;
 
 val _ = new_theory "bigBigEquiv"
+(*
 
 val big_exp_determ' = Q.store_thm ("big_exp_determ'",
 `(∀s env e r1.
@@ -1024,5 +1025,5 @@ metis_tac [eval_decs'_to_eval_decs_simple_pat, eval_dec'_to_eval_dec_simple_pat,
            eval_ctor_inv_def, result_distinct, error_result_distinct, result_11] >>
 
            *)
-
+           *)
 val _ = export_theory ();
