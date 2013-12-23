@@ -124,12 +124,21 @@ val run_eval_def = Q.store_thm ("run_eval_def",
  (!env cn es.
   run_eval env (Con cn es)
   =
-  if do_con_check (all_env_to_cenv env) cn (LENGTH es) then
-    do vs <- run_eval_list env es;
-       return (Conv cn vs)
-    od
-  else
-    raise Rtype_error) ∧
+  case cn of
+      NONE =>
+        do vs <- run_eval_list env es;
+           return (Conv NONE vs)
+        od
+    | SOME n =>
+       (case lookup n (all_env_to_cenv env) of
+          | NONE => raise Rtype_error
+          | SOME (l,ns) =>
+              if l = LENGTH es then
+                do vs <- run_eval_list env es;
+                   return (Conv (SOME (n,ns)) vs)
+                od
+              else
+                raise Rtype_error)) ∧
  (!env n.
   run_eval env (Var n)
   =
@@ -186,7 +195,7 @@ val run_eval_def = Q.store_thm ("run_eval_def",
    run_eval env (Mat e pes)
    =
    do v <- run_eval env e;
-      run_eval_match env v pes (Conv (SOME (Short "Bind")) [])
+      run_eval_match env v pes (Conv (SOME (Short "Bind",TypeExn)) [])
    od) ∧
  (!env x e1 e2.
    run_eval env (Let x e1 e2)
@@ -237,6 +246,7 @@ val run_eval_def = Q.store_thm ("run_eval_def",
  >- (every_case_tac >>
      metis_tac [run_eval_spec])
  >- (every_case_tac >>
+     fs [do_con_check_def, build_conv_def] >>
      metis_tac [run_eval_spec])
  >- (every_case_tac >>
      PairCases_on `q` >>
@@ -316,7 +326,7 @@ val run_eval_dec_def = Define `
        | (st', Rval v) =>
            (case pmatch (all_env_to_cenv env) (SND st') p v emp of
               | Match env' => (st', Rval (emp, env'))
-              | No_match => (st', Rerr (Rraise (Conv (SOME (Short "Bind")) [])))
+              | No_match => (st', Rerr (Rraise (Conv (SOME (Short "Bind",TypeExn)) [])))
               | Match_type_error => (st', Rerr Rtype_error))
        | (st', Rerr e) => (st', Rerr e)
   else
