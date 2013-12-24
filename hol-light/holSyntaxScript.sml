@@ -555,6 +555,16 @@ val consts_def = Define
 
 val _ = Parse.add_infix("|-",450,Parse.NONASSOC)
 
+val _ = Parse.overload_on("Exists",``λx ty p. Comb (Const "?" (Fun (Fun ty Bool) Bool)) (Abs x ty p)``)
+val _ = Parse.overload_on("Forall",``λx ty p. Comb (Const "!" (Fun (Fun ty Bool) Bool)) (Abs x ty p)``)
+val _ = Parse.overload_on("And",``λp1 p2. Comb (Comb (Const "/\\" (Fun Bool (Fun Bool Bool))) p1) p2``)
+val _ = Parse.overload_on("Truth",``Const "T" Bool``)
+val _ = Parse.overload_on("Falsity",``Const "F" Bool``)
+val _ = Parse.overload_on("Implies",``λp1 p2. Comb (Comb (Const "==>" (Fun Bool (Fun Bool Bool))) p1) p2``)
+val _ = Parse.overload_on("Not",``λp. Comb (Const "~" (Fun Bool Bool)) p``)
+val _ = Parse.overload_on("One_One",``λa b f. Comb (Const "ONE_ONE" (Fun (Fun a b) Bool)) f``)
+val _ = Parse.overload_on("Onto",``λa b f. Comb (Const "ONTO" (Fun (Fun a b) Bool)) f``)
+
 val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"
  `(!n defs. context_ok defs ==> type_ok defs (Tyvar n)) /\
   (!defs. context_ok defs ==> type_ok defs Ind) /\
@@ -643,7 +653,52 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"
     ==> (defs,[]) |- Abs x ty1 (Comb (Var f (Fun ty1 ty2)) (Var x ty1)) === Var f (Fun ty1 ty2)) /\
   (!asl p w ty defs.
      p has_type (Fun ty Bool) /\ (defs,asl) |- Comb p w
-     ==> (defs,asl) |- Comb p (Comb (Select ty) p))`
+     ==> (defs,asl) |- Comb p (Comb (Select ty) p)) /\
+  (!defs.
+    MEM (Constdef "T" (Abs "p" Bool (Var "p" Bool) === Abs "p" Bool (Var "p" Bool))) defs ∧
+    MEM (Constdef "/\\" (Abs "p" Bool
+                          (Abs "q" Bool
+                            (Abs "f" (Fun Bool (Fun Bool Bool))
+                              (Comb (Comb (Var "f" (Fun Bool (Fun Bool Bool))) (Var "p" Bool)) (Var "q" Bool))
+                             ===
+                             Abs "f" (Fun Bool (Fun Bool Bool))
+                               (Comb (Comb (Var "f" (Fun Bool (Fun Bool Bool))) Truth) Truth))))) defs ∧
+    MEM (Constdef "==>" (Abs "p" Bool
+                          (Abs "q" Bool
+                            (And (Var "p" Bool) (Var "q" Bool) === Var "p" Bool)))) defs ∧
+    MEM (Constdef "!" (Abs "P" (Fun (Tyvar "A") Bool)
+                        (Var "P" (Fun (Tyvar "A") Bool) === Abs "x" (Tyvar "A") Truth))) defs ∧
+    MEM (Constdef "?" (Abs "P" (Fun (Tyvar "A") Bool)
+                        (Forall "q" Bool
+                          (Implies
+                            (Forall "x" (Tyvar "A")
+                              (Implies (Comb (Var "P" (Fun (Tyvar "A") Bool)) (Var "x" (Tyvar "A")))
+                                       (Var "q" Bool)))
+                            (Var "q" Bool))))) defs ∧
+    MEM (Constdef "F" (Forall "p" Bool (Var "p" Bool))) defs ∧
+    MEM (Constdef "~" (Abs "p" Bool (Implies (Var "p" Bool) Falsity))) defs ∧
+    MEM (Constdef "ONE_ONE"
+          (Abs "f" (Fun (Tyvar "A") (Tyvar "B"))
+            (Forall "x1" (Tyvar "A")
+              (Forall "x2" (Tyvar "A")
+                (Implies
+                  (Comb (Var "f" (Fun (Tyvar "A") (Tyvar "B"))) (Var "x1" (Tyvar "A"))
+                   ===
+                   Comb (Var "f" (Fun (Tyvar "A") (Tyvar "B"))) (Var "x2" (Tyvar "A")))
+                  (Var "x1" (Tyvar "A")
+                   ===
+                   Var "x2" (Tyvar "A"))))))) defs ∧
+    MEM (Constdef "ONTO"
+          (Abs "f" (Fun (Tyvar "A") (Tyvar "B"))
+            (Forall "y" (Tyvar "B")
+              (Exists "x" (Tyvar "A")
+                (Var "y" (Tyvar "B")
+                 ===
+                 Comb (Var "f" (Fun (Tyvar "A") (Tyvar "B")))
+                      (Var "x" (Tyvar "A"))))))) defs
+    ==> (defs,[]) |- Exists "f" (Fun Ind Ind)
+                       (And (One_One Ind Ind (Var "f" (Fun Ind Ind)))
+                            (Not (Onto Ind Ind (Var "f" (Fun Ind Ind))))))`
 
 val RACONV_TRANS = store_thm("RACONV_TRANS",
   ``∀env tp. RACONV env tp ⇒ ∀vs t. LENGTH vs = LENGTH env ∧ RACONV (ZIP(MAP SND env,vs)) (SND tp,t) ⇒ RACONV (ZIP(MAP FST env,vs)) (FST tp, t)``,
