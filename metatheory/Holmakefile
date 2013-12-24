@@ -14,8 +14,7 @@ ifdef POLY
 HOLHEAP = meta_heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-PRE_BARE_THYS = altBigStepTheory \
-		astTheory \
+PRE_BARE_THYS = astTheory \
 		bigStepTheory \
 		libTheory \
 		semanticPrimitivesTheory \
