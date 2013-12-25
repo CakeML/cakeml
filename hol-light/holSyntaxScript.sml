@@ -655,6 +655,7 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"
      p has_type (Fun ty Bool) /\ (defs,asl) |- Comb p w
      ==> (defs,asl) |- Comb p (Comb (Select ty) p)) /\
   (!defs.
+    context_ok defs ∧
     MEM (Constdef "T" (Abs "p" Bool (Var "p" Bool) === Abs "p" Bool (Var "p" Bool))) defs ∧
     MEM (Constdef "/\\" (Abs "p" Bool
                           (Abs "q" Bool

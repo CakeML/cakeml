@@ -2142,7 +2142,7 @@ val term_valuation_extend_type = store_thm("term_valuation_extend_type",
 
 val _ = Parse.add_infix("|=",450,Parse.NONASSOC)
 
-val sequent_def = Define`
+val sequent_def = xDefine"sequent"`
   sequent0 ^s h c ⇔
            EVERY (λt. t has_type Bool) (c::h) ∧
            EVERY has_meaning (c::h) ∧
