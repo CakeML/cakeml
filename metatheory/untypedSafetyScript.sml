@@ -31,7 +31,7 @@ fs [small_eval_def, e_step_reln_def] >|
      metis_tac [],
  metis_tac [e_step_result_distinct],
  `∀s'' env''' e''' c''.
-    e_step (env',q,Val v,[(Craise (),env'')]) ≠ Estep (env''',s'',e''',c'')`
+    e_step (env',q,Val a,[(Craise (),env'')]) ≠ Estep (env''',s'',e''',c'')`
          by rw [push_def, e_step_def, continue_def] >>
      metis_tac []]);
 

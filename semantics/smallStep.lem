@@ -37,7 +37,7 @@ type exp_or_val =
   | Exp of exp
   | Val of v
 
-type state = all_env * store * exp_or_val * list ctxt
+type state = all_env * store v * exp_or_val * list ctxt
 
 type e_step_result =
   | Estep of state
@@ -49,14 +49,14 @@ type e_step_result =
  * push individual frames onto the context stack instead of finding a redex in a
  * single step *)
 
-val push : all_env -> store -> exp -> ctxt_frame -> list ctxt -> e_step_result
+val push : all_env -> store v -> exp -> ctxt_frame -> list ctxt -> e_step_result
 let push env s e c' cs = Estep (env, s, Exp e, ((c',env)::cs))
 
-val return : all_env -> store -> v -> list ctxt -> e_step_result
+val return : all_env -> store v -> v -> list ctxt -> e_step_result
 let return env s v c = Estep (env, s, Val v, c)
 
 (* apply a context to a value *)
-val continue : store -> v -> list ctxt -> e_step_result
+val continue : store v -> v -> list ctxt -> e_step_result
 let continue s v cs =
   match cs with
     | [] -> Estuck
@@ -176,7 +176,7 @@ let e_step (env, s, ev, c) =
 (* Define a semantic function using the steps *)
 
 val e_step_reln : state -> state -> bool
-val small_eval : all_env -> store -> exp -> list ctxt -> store * result v -> bool
+val small_eval : all_env -> store v -> exp -> list ctxt -> store v * result v v -> bool
 
 let e_step_reln st1 st2 =
   (e_step st1 = Estep st2)
@@ -195,7 +195,7 @@ small_eval env s e c (s', Rerr Rtype_error) =
 and
 small_eval env s e c (s', Rerr Rtimeout_error) = false
 
-val e_diverges : all_env -> store -> exp -> bool
+val e_diverges : all_env -> store v -> exp -> bool
 let e_diverges env s e =
   forall env' s' e' c'.
     (rtc e_step_reln) (env,s,Exp e,[]) (env',s',e',c')

@@ -17,9 +17,9 @@ val _ = new_theory "bigSmallInvariants"
 
 (* ------ Auxiliary relations for proving big/small step equivalence ------ *)
 
-(*val evaluate_ctxt : all_env -> count_store -> ctxt_frame -> v -> count_store * result v -> bool*)
-(*val evaluate_ctxts : count_store -> list ctxt -> result v -> count_store * result v -> bool*)
-(*val evaluate_state : state -> count_store * result v -> bool*)
+(*val evaluate_ctxt : all_env -> count_store v -> ctxt_frame -> v -> count_store v * result v v -> bool*)
+(*val evaluate_ctxts : count_store v -> list ctxt -> result v v -> count_store v * result v v -> bool*)
+(*val evaluate_state : state -> count_store v * result v v -> bool*)
 
 val _ = Hol_reln ` (! env s v.
 T

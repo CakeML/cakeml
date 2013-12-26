@@ -37,34 +37,34 @@ let all_env_to_cenv (menv,cenv,env) = cenv
 let all_env_to_env (menv,cenv,env) = env
 
 (* The result of evaluation *)
-type error_result =
+type error_result 'a =
   | Rtype_error
-  | Rraise of v (* Should only be a value of type exn *)
+  | Rraise of 'a (* Should only be a value of type exn *)
   | Rtimeout_error
 
-type result 'a =
+type result 'a 'b =
   | Rval of 'a
-  | Rerr of error_result
+  | Rerr of error_result 'b
 
 (* Stores *)
 (* The nth item in the list is the value at location n *)
-type store = list v
+type store 'a = list 'a
 
-val empty_store : store
+val empty_store : forall 'a. store 'a
 let empty_store = []
 
-val store_lookup : nat -> store -> maybe v
+val store_lookup : forall 'a. nat -> store 'a -> maybe 'a
 let store_lookup l st =
   if l < List.length st then
     Just (List_extra.nth st l)
   else
     Nothing
 
-val store_alloc : v -> store -> store * nat
+val store_alloc : forall 'a. 'a -> store 'a -> store 'a * nat
 let store_alloc v st =
   ((st ++ [v]), List.length st)
 
-val store_assign : nat -> v -> store -> maybe store
+val store_assign : forall 'a. nat -> 'a -> store 'a -> maybe (store 'a)
 let store_assign n v st =
   if n < List.length st then
     Just (List.update st n v)
@@ -116,10 +116,10 @@ let lit_same_type l1 l2 =
     | _ -> false
   end
 
-type match_result =
+type match_result 'a =
   | No_match
   | Match_type_error
-  | Match of envE
+  | Match of 'a
 
 (* A big-step pattern matcher.  If the value matches the pattern, return an
  * environment with the pattern variables bound to the corresponding sub-terms
@@ -129,7 +129,7 @@ type match_result =
  * number of arguments, and constructors in corresponding positions in the
  * pattern and value come from the same type.  Match_type_error is returned
  * when one of these conditions is violated *)
-val pmatch : envC -> store -> pat -> v -> envE -> match_result
+val pmatch : envC -> store v -> pat -> v -> envE -> match_result envE
 let rec
 pmatch envC s (Pvar x) v' env = Match (bind x v' env)
 and
@@ -188,7 +188,7 @@ let build_rec_env funs cl_env add_to_env =
     funs
 
 (* Lookup in the list of mutually recursive functions *)
-val find_recfun : varN -> list (varN * varN * exp) -> maybe (varN * exp)
+val find_recfun : forall 'a 'b. varN -> list (varN * 'a * 'b) -> maybe ('a * 'b)
 let rec find_recfun n funs =
   match funs with
     | [] -> Nothing
@@ -212,7 +212,7 @@ contains_closure (Recclosure env funs n) = true
 and
 contains_closure (Loc n) = false
 
-val do_uapp : store -> uop -> v -> maybe (store * v)
+val do_uapp : store v -> uop -> v -> maybe (store v * v)
 let do_uapp s uop v =
   match uop with
     | Opderef ->
@@ -273,7 +273,7 @@ and
 do_eq_list _ _ = Eq_val false
 
 (* Do an application *)
-val do_app : all_env -> store -> op -> v -> v -> maybe (all_env * store * exp)
+val do_app : all_env -> store v -> op -> v -> v -> maybe (all_env * store v * exp)
 let do_app env' s op v1 v2 =
   match (op, v1, v2) with
     | (Opapp, Closure (menv, cenv, env) n e, v) ->
@@ -350,14 +350,14 @@ let check_dup_ctors mn_opt cenv tds =
   &&
   all_distinct [ n | forall ((tvs, tn, condefs) MEM tds) ((n, ts) MEM condefs) | true ]
 
-val combine_dec_result : forall 'a 'b. env 'a 'b -> result (env 'a 'b) -> result (env 'a 'b)
+val combine_dec_result : forall 'a 'b 'c. env 'a 'b -> result (env 'a 'b) 'c -> result (env 'a 'b) 'c
 let combine_dec_result env r =
   match r with
     | Rerr e -> Rerr e
     | Rval env' -> Rval (merge env' env)
   end
 
-val combine_mod_result : forall 'a 'b 'c 'd. env 'a 'b -> env 'c 'd -> result (env 'a 'b * env 'c 'd) -> result (env 'a 'b * env 'c 'd)
+val combine_mod_result : forall 'a 'b 'c 'd 'e. env 'a 'b -> env 'c 'd -> result (env 'a 'b * env 'c 'd) 'e -> result (env 'a 'b * env 'c 'd) 'e
 let combine_mod_result menv env r =
   match r with
     | Rerr e -> Rerr e

@@ -29,7 +29,7 @@ val _ = type_abbrev( "tenvS" , ``: (num, t) env``);
 (*val type_env : tenvC -> tenvS -> envE -> tenvE -> bool*)
 
 (* The type of the store *)
-(*val type_s : tenvC -> tenvS -> store -> bool*)
+(*val type_s : tenvC -> tenvS -> store v -> bool*)
 
 (* An evaluation context has the second type when its hole is filled with a
  * value of the first type. *)

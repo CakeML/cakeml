@@ -23,7 +23,7 @@ val _ = new_theory "bigStep"
    functions applications have happened, and raises an exception when the counter
    runs out. *)
 
-val _ = type_abbrev( "count_store" , ``: num # store``);
+val _ = type_abbrev((*  'a *) "count_store" , ``: num # 'a store``);
 
 (*val dec_count : op -> nat -> nat*)
 val _ = Define `

@@ -493,7 +493,7 @@ val big_clocked_total_lem = Q.prove (
      >- (cases_on `err` >>
          fs [] >-
          metis_tac [] >-
-         (`?count2 s2 r2. evaluate_match T (env0,env1,env2) (count1,s1) v l v ((count2,s2),r2)`
+         (`?count2 s2 r2. evaluate_match T (env0,env1,env2) (count1,s1) a l a ((count2,s2),r2)`
                   by metis_tac [eval_handle_total, arithmeticTheory.LESS_TRANS, 
                                 clock_monotone, arithmeticTheory.LESS_OR_EQ, pair_CASES] >>
           metis_tac []) >-

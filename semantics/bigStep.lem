@@ -13,7 +13,7 @@ open import SmallStep
    functions applications have happened, and raises an exception when the counter
    runs out. *)
 
-type count_store = nat * store
+type count_store 'a = nat * store 'a
 
 val dec_count : op -> nat -> nat
 let dec_count op count = 
@@ -22,9 +22,9 @@ let dec_count op count =
   else
     count
 
-indreln [evaluate : bool -> all_env -> count_store -> exp -> count_store * result v -> bool]
-and [evaluate_list : bool -> all_env -> count_store -> list exp -> count_store * result (list v) -> bool]
-and [evaluate_match : bool -> all_env -> count_store -> v -> list (pat * exp) -> v -> count_store * result v -> bool]
+indreln [evaluate : bool -> all_env -> count_store v -> exp -> count_store v * result v v -> bool]
+and [evaluate_list : bool -> all_env -> count_store v -> list exp -> count_store v * result (list v) v -> bool]
+and [evaluate_match : bool -> all_env -> count_store v -> v -> list (pat * exp) -> v -> count_store v * result v v -> bool]
 
 lit : forall ck env l s.
 true
@@ -345,7 +345,7 @@ not (all_distinct (pat_bindings p []))
 ==>
 evaluate_match ck env s v ((p,e)::pes) err_v (s, Rerr Rtype_error)
 
-indreln [evaluate_dec : maybe modN -> all_env -> store -> dec -> store * result (envC * envE) -> bool]
+indreln [evaluate_dec : maybe modN -> all_env -> store v -> dec -> store v * result (envC * envE) v -> bool]
 
 dlet1 : forall mn env p e v env' s1 s2 count.
 evaluate false env (0,s1) e ((count,s2), Rval v) &&
@@ -429,7 +429,7 @@ dexn2 : forall mn env cn ts s.
 ==>
 evaluate_dec mn env s (Dexn cn ts) (s, Rerr Rtype_error)
 
-indreln [evaluate_decs : maybe modN -> all_env -> store -> list dec -> store * envC * result envE -> bool]
+indreln [evaluate_decs : maybe modN -> all_env -> store v -> list dec -> store v * envC * result envE v -> bool]
 
 empty : forall mn env s.
 true
@@ -451,7 +451,7 @@ evaluate_decs mn (menv, merge new_tds cenv, merge new_env env) s2 ds (s3, new_td
 ==>
 evaluate_decs mn (menv,cenv,env) s1 (d::ds) (s3, merge new_tds' new_tds, combine_dec_result new_env r)
 
-indreln [evaluate_top : all_env -> store -> top -> store * envC * result (envM * envE) -> bool]
+indreln [evaluate_top : all_env -> store v -> top -> store v * envC * result (envM * envE) v -> bool]
 
 tdec1 : forall s1 s2 env d new_tds new_env.
 evaluate_dec Nothing env s1 d (s2, Rval (new_tds, new_env))
@@ -488,7 +488,7 @@ elem mn (List.map fst (all_env_to_menv env))
 ==>
 evaluate_top env s (Tmod mn specs ds) (s, emp, Rerr Rtype_error)
 
-indreln [evaluate_prog : all_env -> store -> prog -> store * envC * result (envM * envE) -> bool]
+indreln [evaluate_prog : all_env -> store v -> prog -> store v * envC * result (envM * envE) v -> bool]
 
 empty : forall env s.
 true
@@ -518,7 +518,7 @@ let dec_diverges st env d =
     | Dexn cn ts -> false
   end
 
-indreln [decs_diverges : maybe modN -> all_env -> store -> decs -> bool]
+indreln [decs_diverges : maybe modN -> all_env -> store v -> decs -> bool]
 
 cons1 : forall mn st env d ds.
 dec_diverges env st d
@@ -533,7 +533,7 @@ decs_diverges mn (menv, merge new_tds cenv, merge new_env env) s2 ds
 ==>
 decs_diverges mn (menv,cenv,env) s1 (d::ds)
 
-indreln [top_diverges : all_env -> store -> top -> bool]
+indreln [top_diverges : all_env -> store v -> top -> bool]
 
 tdec : forall st env d.
 dec_diverges env st d
@@ -548,7 +548,7 @@ decs_diverges (Just mn) env s1 ds
 ==>
 top_diverges env s1 (Tmod mn specs ds)
 
-indreln [prog_diverges : all_env -> store -> prog -> bool]
+indreln [prog_diverges : all_env -> store v -> prog -> bool]
 
 cons1 : forall st env top tops.
 top_diverges env st top

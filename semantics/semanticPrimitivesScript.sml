@@ -60,26 +60,26 @@ val _ = Define `
 val _ = Hol_datatype `
  error_result =
     Rtype_error
-  | Rraise of v (* Should only be a value of type exn *)
+  | Rraise of 'a (* Should only be a value of type exn *)
   | Rtimeout_error`;
 
 
 val _ = Hol_datatype `
  result =
     Rval of 'a
-  | Rerr of error_result`;
+  | Rerr of 'b error_result`;
 
 
 (* Stores *)
 (* The nth item in the list is the value at location n *)
-val _ = type_abbrev( "store" , ``: v list``);
+val _ = type_abbrev((*  'a *) "store" , ``: 'a list``);
 
-(*val empty_store : store*)
+(*val empty_store : forall 'a. store 'a*)
 val _ = Define `
  (empty_store = ([]))`;
 
 
-(*val store_lookup : nat -> store -> maybe v*)
+(*val store_lookup : forall 'a. nat -> store 'a -> maybe 'a*)
 val _ = Define `
  (store_lookup l st =  
 (if l < LENGTH st then
@@ -88,13 +88,13 @@ val _ = Define `
     NONE))`;
 
 
-(*val store_alloc : v -> store -> store * nat*)
+(*val store_alloc : forall 'a. 'a -> store 'a -> store 'a * nat*)
 val _ = Define `
  (store_alloc v st =
   ((st ++ [v]), LENGTH st))`;
 
 
-(*val store_assign : nat -> v -> store -> maybe store*)
+(*val store_assign : forall 'a. nat -> 'a -> store 'a -> maybe (store 'a)*)
 val _ = Define `
  (store_assign n v st =  
 (if n < LENGTH st then
@@ -160,7 +160,7 @@ val _ = Hol_datatype `
  match_result =
     No_match
   | Match_type_error
-  | Match of envE`;
+  | Match of 'a`;
 
 
 (* A big-step pattern matcher.  If the value matches the pattern, return an
@@ -171,7 +171,7 @@ val _ = Hol_datatype `
  * number of arguments, and constructors in corresponding positions in the
  * pattern and value come from the same type.  Match_type_error is returned
  * when one of these conditions is violated *)
-(*val pmatch : envC -> store -> pat -> v -> envE -> match_result*)
+(*val pmatch : envC -> store v -> pat -> v -> envE -> match_result envE*)
  val pmatch_defn = Hol_defn "pmatch" `
 
 (pmatch envC s (Pvar x) v' env = (Match (bind x v' env)))
@@ -235,7 +235,7 @@ val _ = Define `
 
 
 (* Lookup in the list of mutually recursive functions *)
-(*val find_recfun : varN -> list (varN * varN * exp) -> maybe (varN * exp)*)
+(*val find_recfun : forall 'a 'b. varN -> list (varN * 'a * 'b) -> maybe ('a * 'b)*)
  val find_recfun_defn = Hol_defn "find_recfun" `
  (find_recfun n funs =  
 ((case funs of
@@ -265,7 +265,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn contains_closure_defn;
 
-(*val do_uapp : store -> uop -> v -> maybe (store * v)*)
+(*val do_uapp : store v -> uop -> v -> maybe (store v * v)*)
 val _ = Define `
  (do_uapp s uop v =  
 ((case uop of
@@ -333,7 +333,7 @@ val _ = Hol_datatype `
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn do_eq_defn;
 
 (* Do an application *)
-(*val do_app : all_env -> store -> op -> v -> v -> maybe (all_env * store * exp)*)
+(*val do_app : all_env -> store v -> op -> v -> v -> maybe (all_env * store v * exp)*)
 val _ = Define `
  (do_app env' s op v1 v2 =  
 ((case (op, v1, v2) of
@@ -425,7 +425,7 @@ val _ = Define `
                               x2 condefs) x2 tds)))`;
 
 
-(*val combine_dec_result : forall 'a 'b. env 'a 'b -> result (env 'a 'b) -> result (env 'a 'b)*)
+(*val combine_dec_result : forall 'a 'b 'c. env 'a 'b -> result (env 'a 'b) 'c -> result (env 'a 'b) 'c*)
 val _ = Define `
  (combine_dec_result env r =  
 ((case r of
@@ -434,7 +434,7 @@ val _ = Define `
   )))`;
 
 
-(*val combine_mod_result : forall 'a 'b 'c 'd. env 'a 'b -> env 'c 'd -> result (env 'a 'b * env 'c 'd) -> result (env 'a 'b * env 'c 'd)*)
+(*val combine_mod_result : forall 'a 'b 'c 'd 'e. env 'a 'b -> env 'c 'd -> result (env 'a 'b * env 'c 'd) 'e -> result (env 'a 'b * env 'c 'd) 'e*)
 val _ = Define `
  (combine_mod_result menv env r =  
 ((case r of

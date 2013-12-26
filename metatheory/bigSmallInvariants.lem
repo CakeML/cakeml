@@ -7,12 +7,12 @@ open import BigStep
 
 (* ------ Auxiliary relations for proving big/small step equivalence ------ *)
 
-val evaluate_ctxt : all_env -> count_store -> ctxt_frame -> v -> count_store * result v -> bool
-val evaluate_ctxts : count_store -> list ctxt -> result v -> count_store * result v -> bool
-val evaluate_state : state -> count_store * result v -> bool
+val evaluate_ctxt : all_env -> count_store v -> ctxt_frame -> v -> count_store v * result v v -> bool
+val evaluate_ctxts : count_store v -> list ctxt -> result v v -> count_store v * result v v -> bool
+val evaluate_state : state -> count_store v * result v v -> bool
 
 indreln
-[evaluate_ctxt : all_env -> count_store -> ctxt_frame -> v -> count_store * result v -> bool]
+[evaluate_ctxt : all_env -> count_store v -> ctxt_frame -> v -> count_store v * result v v -> bool]
 
 raise : forall env s v.
 true
@@ -147,7 +147,7 @@ evaluate_list false env s es (s', Rerr err)
 evaluate_ctxt env s (Ccon cn vs () es) v (s', Rerr err)
 
 indreln
-[evaluate_ctxts : count_store -> list ctxt -> result v -> count_store * result v -> bool]
+[evaluate_ctxts : count_store v -> list ctxt -> result v v -> count_store v * result v v -> bool]
 
 empty : forall res s.
 true
@@ -180,7 +180,7 @@ evaluate_ctxts s' cs res1 res2
 evaluate_ctxts s ((Chandle () pes,env)::cs) (Rerr (Rraise v)) res2
 
 indreln
-[evaluate_state : state -> count_store * result v -> bool]
+[evaluate_state : state -> count_store v * result v v -> bool]
 
 exp : forall env e c res bv s1 s2.
 evaluate false env (0,s1) e (s2, res) &&

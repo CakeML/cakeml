@@ -117,8 +117,11 @@ val small_eval_err_add_ctxt = Q.prove (
   EVERY (\c. ¬?pes env. c = (Chandle () pes, env)) c'
   ⇒
   small_eval env s e c (s', Rerr err) ⇒ small_eval env s e (c++c') (s', Rerr err)`,
- cases_on `err` >>
- rw [small_eval_def]
+ rw [] >>
+ `err = Rtype_error ∨ ?v. err = Rraise v ∨ err = Rtimeout_error` 
+          by (cases_on `err` >> rw []) >>
+ rw [] >>
+ fs [small_eval_def]
  >- (`e_step_reln^* (env,s,Exp e,c++c') (env',s',e',c''++c')`
             by metis_tac [e_step_add_ctxt] >>
      metis_tac [e_single_error_add_ctxt])
@@ -537,7 +540,7 @@ val big_exp_to_small_exp = Q.prove (
      `e_step_reln (env',SND s',Val v,[(Craise (),env'');(Chandle () pes,env)]) (env'',SND s',Val v,[(Cmat () pes v, env)])`
                  by (rw [e_step_reln_def, e_step_def, continue_def, return_def]) >>
      imp_res_tac small_eval_match_thm >>
-     ASSUME_TAC (Q.ISPEC `r:count_store # v result` result_cases) >>
+     ASSUME_TAC (Q.ISPEC `r:v count_store # (v,v) result` result_cases) >>
      rw [] >>
      fs [small_eval_def, alt_small_eval_def] >>
      metis_tac [transitive_def, transitive_RTC, RTC_SINGLE])

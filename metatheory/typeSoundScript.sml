@@ -1809,10 +1809,10 @@ val consistent_con_preservation = Q.prove (
 metis_tac [merge_def,extend_consistent_con]);
 
 val pmatch_append = Q.prove (
-`(!(cenv : envC) (st : store) p v env env' env''.
+`(!(cenv : envC) (st : v store) p v env env' env''.
     (pmatch cenv st p v env = Match env') ⇒
     (pmatch cenv st p v (env++env'') = Match (env'++env''))) ∧
- (!(cenv : envC) (st : store) ps v env env' env''.
+ (!(cenv : envC) (st : v store) ps v env env' env''.
     (pmatch_list cenv st ps v env = Match env') ⇒
     (pmatch_list cenv st ps v (env++env'') = Match (env'++env'')))`,
 ho_match_mp_tac pmatch_ind >>
