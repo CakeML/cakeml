@@ -104,7 +104,7 @@ val indset = ``indset:'U``
 val ch = ``ch:'U->'U``
 val s = ``(^mem,^indset,^ch)``
 
-val hol_seq_def = Define `
+val hol_seq_def = xDefine "hol_seq"`
   hol_seq0 ^s ((defs,hyps),tm) = ?h c. seq_trans ((defs,hyps),tm) (h,c) /\ h |= c`;
 val _ = Parse.overload_on("hol_seq",``hol_seq0 M``)
 
