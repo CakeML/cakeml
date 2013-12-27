@@ -89,7 +89,7 @@ val _ = Hol_datatype `
       refs : (num, bc_value) fmap;
       handler : num;
       output : string;
-      cons_names : (num #  ( conN id)option) list;
+      cons_names : (num #  ( conN id # tid_or_exn)option) list;
       (* artificial state components *)
       inst_length : bc_inst -> num;
       clock :  num option
@@ -250,7 +250,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (bc_find_loc s (Lab l) = (bc_find_loc_aux s.code s.inst_length l( 0)))`;
 
 
-(*val bv_to_ov : list (nat * maybe (id conN)) -> bc_value -> ov*)
+(*val bv_to_ov : list (nat * maybe (id conN * tid_or_exn)) -> bc_value -> ov*)
  val bv_to_ov_defn = Hol_defn "bv_to_ov" `
 
 (bv_to_ov _ (Number i) = (OLit (IntLit i)))

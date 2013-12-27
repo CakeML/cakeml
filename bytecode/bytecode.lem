@@ -70,7 +70,7 @@ type
       refs : map nat bc_value;
       handler : nat;
       output : string;
-      cons_names : list (nat * maybe (id conN));
+      cons_names : list (nat * maybe (id conN * tid_or_exn));
       (* artificial state components *)
       inst_length : bc_inst -> nat;
       clock : maybe nat
@@ -194,7 +194,7 @@ bc_find_loc _ (Addr n) = Just n
 and
 bc_find_loc s (Lab l) = bc_find_loc_aux s.code s.inst_length l 0
 
-val bv_to_ov : list (nat * maybe (id conN)) -> bc_value -> ov
+val bv_to_ov : list (nat * maybe (id conN * tid_or_exn)) -> bc_value -> ov
 let rec
 bv_to_ov _ (Number i) = OLit (IntLit i)
 and

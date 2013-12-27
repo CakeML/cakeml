@@ -8,7 +8,7 @@ open import CompilerLib
 
 type ov =
   | OLit of lit
-  | OConv of maybe (id conN) * list ov
+  | OConv of maybe (id conN * tid_or_exn) * list ov
   | OFn
   | OLoc of nat (* machine, not semantic, address *)
   | OError (* internal machine value (pointer) that should not appear *)
