@@ -1,6 +1,6 @@
 (* The first intermediate language. Removes modules, and removes names for
- * top-level declarations. Also moves their bindings out of  closures.
- * *)
+ * top-level declarations. Also moves their bindings out of closures. Also
+ * removes andalso and orelse and replaces them with if. *)
 
 open import Pervasives
 open import Lib
@@ -19,7 +19,6 @@ type exp_i1 =
   | Fun_i1 of varN * exp_i1
   | Uapp_i1 of uop * exp_i1
   | App_i1 of op * exp_i1 * exp_i1
-  | Log_i1 of lop * exp_i1 * exp_i1
   | If_i1 of exp_i1 * exp_i1 * exp_i1
   | Mat_i1 of exp_i1 * list (pat * exp_i1)
   | Let_i1 of varN * exp_i1 * exp_i1
@@ -39,8 +38,135 @@ type v_i1 =
   | Recclosure_i1 of (envC * env varN v_i1) * list (varN * varN * exp_i1) * varN
   | Loc_i1 of nat
 
-type all_env_i1 = (list v_i1 * envC * env varN v_i1)
+val exp_to_i1 : map modN (map varN nat) -> map varN nat -> exp -> exp_i1
+val exps_to_i1 : map modN (map varN nat) -> map varN nat -> list exp -> list exp_i1
+val pat_exp_to_i1 : map modN (map varN nat) -> map varN nat -> list (pat * exp) -> list (pat * exp_i1)
+val funs_to_i1 : map modN (map varN nat) -> map varN nat -> list (varN * varN * exp) -> list (varN * varN * exp_i1)
+let rec 
+exp_to_i1 menv env (Raise e) = 
+  Raise_i1 (exp_to_i1 menv env e)
+and
+exp_to_i1 menv env (Handle e pes) = 
+  Handle_i1 (exp_to_i1 menv env e) (pat_exp_to_i1 menv env pes)
+and
+exp_to_i1 menv env (Lit l) = 
+  Lit_i1 l 
+and
+exp_to_i1 menv env (Con cn es) = 
+  Con_i1 cn (exps_to_i1 menv env es)
+and
+exp_to_i1 menv env (Var (Short x)) = 
+  match Map.lookup x env with
+    | Nothing -> Var_local_i1 x
+    | Just n -> Var_global_i1 n
+  end
+and
+exp_to_i1 menv env (Var (Long mn x)) =
+  match Map.lookup mn menv with
+    | Nothing -> Var_global_i1 0 (* Can't happen *)
+    | Just env' ->
+        match Map.lookup x env' with
+          | Nothing -> Var_global_i1 0 (* Can't happen *)
+          | Just n -> Var_global_i1 n
+        end
+  end
+and
+exp_to_i1 menv env (Fun x e) =
+  Fun_i1 x (exp_to_i1 menv (Map.delete x env) e) 
+and
+exp_to_i1 menv env (Uapp uop e) =
+  Uapp_i1 uop (exp_to_i1 menv env e)
+and
+exp_to_i1 menv env (App op e1 e2) =
+  App_i1 op (exp_to_i1 menv env e1) (exp_to_i1 menv env e2)
+and
+exp_to_i1 menv env (Log lop e1 e2) =
+  match lop with
+    | And -> If_i1 (exp_to_i1 menv env e1) (exp_to_i1 menv env e2) (Lit_i1 (Bool false))
+    | Or -> If_i1 (exp_to_i1 menv env e1) (Lit_i1 (Bool true)) (exp_to_i1 menv env e2)
+  end
+and
+exp_to_i1 menv env (If e1 e2 e3) =
+  If_i1 (exp_to_i1 menv env e1) (exp_to_i1 menv env e2) (exp_to_i1 menv env e3)
+and
+exp_to_i1 menv env (Mat e pes) =
+  Mat_i1 (exp_to_i1 menv env e) (pat_exp_to_i1 menv env pes)
+and
+exp_to_i1 menv env (Let x e1 e2) =
+  Let_i1 x (exp_to_i1 menv env e1) (exp_to_i1 menv (Map.delete x env) e2)
+and
+exp_to_i1 menv env (Letrec funs e) =
+  let fun_names = List.map (fun (f,x,e) -> f) funs in
+    Letrec_i1 (funs_to_i1 menv (List.foldr Map.delete env fun_names) funs) 
+              (exp_to_i1 menv (List.foldr Map.delete env fun_names) e)
+and
+exps_to_i1 menv env [] = []
+and
+exps_to_i1 menv env (e::es) =
+  exp_to_i1 menv env e :: exps_to_i1 menv env es
+and
+exps_to_i1 menv env [] = []
+and
+pat_exp_to_i1 menv env [] = []
+and
+pat_exp_to_i1 menv env ((p,e)::pes) =
+  (p, exp_to_i1 menv (List.foldr Map.delete env (pat_bindings p [])) e) ::
+  pat_exp_to_i1 menv env pes
+and
+funs_to_i1 menv env [] = []
+and
+funs_to_i1 menv env ((f,x,e)::funs) =
+  (f,x,exp_to_i1 menv (Map.delete x env) e) :: funs_to_i1 menv env funs
 
+val alloc_defs : nat -> list varN -> list (varN * nat)
+let rec alloc_defs next [] = [] 
+and alloc_defs next (x::xs) =
+  (x,next) :: alloc_defs (next + 1) xs
+
+val dec_to_i1 : nat -> maybe modN -> map modN (map varN nat) -> map varN nat -> dec -> nat * env varN nat * dec_i1
+let dec_to_i1 next mn menv env d =
+  match d with
+    | Dlet p e ->
+        let e' = exp_to_i1 menv env e in
+        let xs = pat_bindings p [] in
+        let l = List.length xs in
+          (next + l, 
+           alloc_defs next xs,
+           Dlet_i1 l (Mat_i1 e' [(p, Con_i1 Nothing (List.map Var_local_i1 xs))]))
+    | Dletrec funs ->
+        let fun_names = List.map (fun (f,x,e) -> f) funs in
+          (next + List.length fun_names,
+           alloc_defs next fun_names, 
+           Dletrec_i1 (funs_to_i1 menv (List.foldr Map.delete env fun_names) funs))
+    | Dtype type_def ->
+        (next, [], Dtype_i1 mn type_def)
+    | Dexn cn ts ->
+        (next, [], Dexn_i1 mn cn ts)
+  end
+
+val decs_to_i1 : nat -> maybe modN -> map modN (map varN nat) -> map varN nat -> list dec -> nat * env varN nat * list dec_i1
+let rec 
+decs_to_i1 next mn menv env [] = (next, emp, [])
+and
+decs_to_i1 next mn menv env (d::ds) =
+  let (next1, new_env1, d') = dec_to_i1 next mn menv env d in
+  let (next2, new_env2, ds') = 
+    decs_to_i1 next1 mn menv (List.foldr (fun (k,v) env -> Map.insert k v env) env new_env1) ds 
+  in
+    (next2, new_env1 ++ new_env2, d'::ds')
+
+val top_to_i1 : nat -> map modN (map varN nat) -> map varN nat -> top -> nat * map modN (map varN nat) * map varN nat * list dec_i1
+let top_to_i1 next menv env top =
+  match top with
+    | Tdec d ->
+        let (next', new_env, d') = dec_to_i1 next Nothing menv env d in
+          (next', menv, List.foldr (fun (k,v) env -> Map.insert k v env) env new_env, [d'])
+    | Tmod mn specs ds ->
+        let (next', new_env, ds') = decs_to_i1 next (Just mn) menv env ds in
+          (next', Map.insert mn (List.foldr (fun (k,v) env -> Map.insert k v env) Map.empty new_env) menv, env, ds')
+  end
+
+type all_env_i1 = (list v_i1 * envC * env varN v_i1)
 
 let all_env_i1_to_genv (genv,cenv,env) = genv
 let all_env_i1_to_cenv (genv,cenv,env) = cenv
@@ -148,15 +274,6 @@ let do_app_i1 env' s op v1 v2 =
         | Just st -> Just (env', st, Lit_i1 Unit)
         | Nothing -> Nothing
         end
-    | _ -> Nothing
-  end
-
-val do_log_i1 : lop -> v_i1 -> exp_i1 -> maybe exp_i1
-let do_log_i1 l v e =
-  match (l, v) with
-    | (And, Litv_i1 (Bool true)) -> Just e
-    | (Or, Litv_i1 (Bool false)) -> Just e
-    | (_, Litv_i1 (Bool b)) -> Just (Lit_i1 (Bool b))
     | _ -> Nothing
   end
 
@@ -396,30 +513,6 @@ evaluate_i1 ck env s (App_i1 op e1 e2) (s', Rerr err)
 
 and
 
-log1 : forall ck env op e1 e2 v e' bv s1 s2.
-evaluate_i1 ck env s1 e1 (s2, Rval v) &&
-do_log_i1 op v e2 = Just e' &&
-evaluate_i1 ck env s2 e' bv
-==>
-evaluate_i1 ck env s1 (Log_i1 op e1 e2) bv
-
-and
-
-log2 : forall ck env op e1 e2 v s1 s2.
-evaluate_i1 ck env s1 e1 (s2, Rval v) &&
-(do_log_i1 op v e2 = Nothing)
-==>
-evaluate_i1 ck env s1 (Log_i1 op e1 e2) (s2, Rerr Rtype_error)
-
-and
-
-log3 : forall ck env op e1 e2 err s s'.
-evaluate_i1 ck env s e1 (s', Rerr err)
-==>
-evaluate_i1 ck env s (Log_i1 op e1 e2) (s', Rerr err)
-
-and
-
 if1 : forall ck env e1 e2 e3 v e' bv s1 s2.
 evaluate_i1 ck env s1 e1 (s2, Rval v) &&
 do_if_i1 v e2 e3 = Just e' &&
@@ -558,7 +651,7 @@ evaluate_match_i1 ck env s v ((p,e)::pes) err_v (s, Rerr Rtype_error)
 
 indreln [evaluate_dec_i1 : list v_i1 -> envC -> store v_i1 -> dec_i1 -> store v_i1 * result (envC * list v_i1)  v_i1 -> bool]
 
-dlet1 : forall genv cenv n e vs env' s1 s2 count.
+dlet1 : forall genv cenv n e vs s1 s2 count.
 evaluate_i1 false (genv,cenv,emp) (0,s1) e ((count,s2), Rval (Conv_i1 Nothing vs)) &&
 List.length vs = n
 ==>

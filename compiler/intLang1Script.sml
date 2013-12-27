@@ -9,8 +9,8 @@ val _ = numLib.prefer_num();
 val _ = new_theory "intLang1"
 
 (* The first intermediate language. Removes modules, and removes names for
- * top-level declarations. Also moves their bindings out of  closures.
- * *)
+ * top-level declarations. Also moves their bindings out of closures. Also
+ * removes andalso and orelse and replaces them with if. *)
 
 (*open import Pervasives*)
 (*open import Lib*)
@@ -30,7 +30,6 @@ val _ = Hol_datatype `
   | Fun_i1 of varN => exp_i1
   | Uapp_i1 of uop => exp_i1
   | App_i1 of op => exp_i1 => exp_i1
-  | Log_i1 of lop => exp_i1 => exp_i1
   | If_i1 of exp_i1 => exp_i1 => exp_i1
   | Mat_i1 of exp_i1 => (pat # exp_i1) list
   | Let_i1 of varN => exp_i1 => exp_i1
@@ -55,8 +54,150 @@ val _ = Hol_datatype `
   | Loc_i1 of num`;
 
 
-val _ = type_abbrev( "all_env_i1" , ``: ( v_i1 list # envC # (varN, v_i1) env)``);
+(*val exp_to_i1 : map modN (map varN nat) -> map varN nat -> exp -> exp_i1*)
+(*val exps_to_i1 : map modN (map varN nat) -> map varN nat -> list exp -> list exp_i1*)
+(*val pat_exp_to_i1 : map modN (map varN nat) -> map varN nat -> list (pat * exp) -> list (pat * exp_i1)*)
+(*val funs_to_i1 : map modN (map varN nat) -> map varN nat -> list (varN * varN * exp) -> list (varN * varN * exp_i1)*)
+ val exp_to_i1_defn = Hol_defn "exp_to_i1" `
+ 
+(exp_to_i1 menv env e0 =
+  ((case (menv,env,e0) of
+       ( menv, env, (Raise e) ) => Raise_i1 (exp_to_i1 menv env e)
+     | ( menv, env, (Handle e pes) ) => Handle_i1 (exp_to_i1 menv env e)
+                                          (pat_exp_to_i1 menv env pes)
+     | ( menv, env, (Lit l) ) => Lit_i1 l
+     | ( menv, env, (Con cn es) ) => Con_i1 cn (exps_to_i1 menv env es)
+     | ( menv, env, (Var (Short x)) ) => (case FLOOKUP env x of
+                                               NONE => Var_local_i1 x
+                                           | SOME n => Var_global_i1 n
+                                         )
+     | ( menv, env, (Var (Long mn x)) ) => (case FLOOKUP menv mn of
+                                                 NONE => Var_global_i1 ( 0) (* Can't happen *)
+                                             | SOME env' =>
+                                           (case FLOOKUP env' x of
+                                                 NONE => Var_global_i1 ( 0) (* Can't happen *)
+                                             | SOME n => Var_global_i1 n
+                                           )
+                                           )
+     | ( menv, env, (Fun x e) ) => Fun_i1 x (exp_to_i1 menv (env \\ x) e)
+     | ( menv, env, (Uapp uop e) ) => Uapp_i1 uop (exp_to_i1 menv env e)
+     | ( menv, env, (App op e1 e2) ) => App_i1 op (exp_to_i1 menv env e1)
+                                          (exp_to_i1 menv env e2)
+     | ( menv, env, (Log lop e1 e2) ) => (case lop of
+                                               And => If_i1
+                                                        (exp_to_i1 menv 
+                                                         env e1)
+                                                        (exp_to_i1 menv 
+                                                         env e2)
+                                                        (Lit_i1 (Bool F))
+                                           | Or => If_i1
+                                                     (exp_to_i1 menv env e1)
+                                                     (Lit_i1 (Bool T))
+                                                     (exp_to_i1 menv env e2)
+                                         )
+     | ( menv, env, (If e1 e2 e3) ) => If_i1 (exp_to_i1 menv env e1)
+                                         (exp_to_i1 menv env e2)
+                                         (exp_to_i1 menv env e3)
+     | ( menv, env, (Mat e pes) ) => Mat_i1 (exp_to_i1 menv env e)
+                                       (pat_exp_to_i1 menv env pes)
+     | ( menv, env, (Let x e1 e2) ) => Let_i1 x (exp_to_i1 menv env e1)
+                                         (exp_to_i1 menv (env \\ x) e2)
+     | ( menv, env, (Letrec funs e) ) => let fun_names = (MAP
+                                                            (\ (f,x,e) .  f)
+                                                            funs) in
+                                         Letrec_i1
+                                           (funs_to_i1 menv
+                                              (FOLDR (\ k m. m \\ k) 
+                                               env fun_names) funs)
+                                           (exp_to_i1 menv
+                                              (FOLDR (\ k m. m \\ k) 
+                                               env fun_names) e)
+   )))
+/\
+(exps_to_i1 menv env l =
+  ((case (menv,env,l) of
+       ( menv, env, [] ) => []
+     | ( menv, env, (e::es) ) => exp_to_i1 menv env e ::
+                                   exps_to_i1 menv env es
+   )))
+/\
+(funs_to_i1 menv env l =
+  ((case (menv,env,l) of
+       ( menv, env, [] ) => []
+     | ( menv, env, ((f,x,e)::funs) ) => (f,x,exp_to_i1 menv (env \\ x) e) ::
+                                           funs_to_i1 menv env funs
+   )))
+/\
+(pat_exp_to_i1 menv env l =
+  ((case (menv,env,l) of
+       ( menv, env, [] ) => []
+     | ( menv, env, ((p,e)::pes) ) => (p, exp_to_i1 menv
+                                            (FOLDR (\ k m. m \\ k) env
+                                               (pat_bindings p [])) e) ::
+                                        pat_exp_to_i1 menv env pes
+   )))`;
 
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn exp_to_i1_defn;
+
+(*val alloc_defs : nat -> list varN -> list (varN * nat)*)
+ val alloc_defs_defn = Hol_defn "alloc_defs" `
+ (alloc_defs next [] = ([])) 
+/\ (alloc_defs next (x::xs) =  
+((x,next) :: alloc_defs (next + 1) xs))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn alloc_defs_defn;
+
+(*val dec_to_i1 : nat -> maybe modN -> map modN (map varN nat) -> map varN nat -> dec -> nat * env varN nat * dec_i1*)
+val _ = Define `
+ (dec_to_i1 next mn menv env d =  
+((case d of
+      Dlet p e =>
+        let e' = (exp_to_i1 menv env e) in
+        let xs = (pat_bindings p []) in
+        let l = (LENGTH xs) in
+          ((next + l), 
+           alloc_defs next xs,
+           Dlet_i1 l (Mat_i1 e' [(p, Con_i1 NONE (MAP Var_local_i1 xs))]))
+    | Dletrec funs =>
+        let fun_names = (MAP (\ (f,x,e) .  f) funs) in
+          ((next + LENGTH fun_names),
+           alloc_defs next fun_names, 
+           Dletrec_i1 (funs_to_i1 menv (FOLDR (\ k m. m \\ k) env fun_names) funs))
+    | Dtype type_def =>
+        (next, [], Dtype_i1 mn type_def)
+    | Dexn cn ts =>
+        (next, [], Dexn_i1 mn cn ts)
+  )))`;
+
+
+(*val decs_to_i1 : nat -> maybe modN -> map modN (map varN nat) -> map varN nat -> list dec -> nat * env varN nat * list dec_i1*)
+ val decs_to_i1_defn = Hol_defn "decs_to_i1" `
+ 
+(decs_to_i1 next mn menv env [] = (next, emp, []))
+/\
+(decs_to_i1 next mn menv env (d::ds) =  
+(let (next1, new_env1, d') = (dec_to_i1 next mn menv env d) in
+  let (next2, new_env2, ds') =    
+ (decs_to_i1 next1 mn menv (FOLDR (\ (k,v) env . env |+ (k, v)) env new_env1) ds) 
+  in
+    (next2, (new_env1 ++ new_env2), (d'::ds'))))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn decs_to_i1_defn;
+
+(*val top_to_i1 : nat -> map modN (map varN nat) -> map varN nat -> top -> nat * map modN (map varN nat) * map varN nat * list dec_i1*)
+val _ = Define `
+ (top_to_i1 next menv env top =  
+((case top of
+      Tdec d =>
+        let (next', new_env, d') = (dec_to_i1 next NONE menv env d) in
+          (next', menv, FOLDR (\ (k,v) env . env |+ (k, v)) env new_env, [d'])
+    | Tmod mn specs ds =>
+        let (next', new_env, ds') = (decs_to_i1 next (SOME mn) menv env ds) in
+          (next',menv |+ (mn, (FOLDR (\ (k,v) env . env |+ (k, v)) FEMPTY new_env)), env, ds')
+  )))`;
+
+
+val _ = type_abbrev( "all_env_i1" , ``: ( v_i1 list # envC # (varN, v_i1) env)``);
 
 val _ = Define `
  (all_env_i1_to_genv (genv,cenv,env) = genv)`;
@@ -180,17 +321,6 @@ val _ = Define `
           SOME st => SOME (env', st, Lit_i1 Unit)
         | NONE => NONE
         )
-    | _ => NONE
-  )))`;
-
-
-(*val do_log_i1 : lop -> v_i1 -> exp_i1 -> maybe exp_i1*)
-val _ = Define `
- (do_log_i1 l v e =  
-((case (l, v) of
-      (And, Litv_i1 (Bool T)) => SOME e
-    | (Or, Litv_i1 (Bool F)) => SOME e
-    | (_, Litv_i1 (Bool b)) => SOME (Lit_i1 (Bool b))
     | _ => NONE
   )))`;
 
@@ -388,24 +518,6 @@ evaluate_i1 ck env s1 (App_i1 op e1 e2) (s3, Rerr err))
 ==>
 evaluate_i1 ck env s (App_i1 op e1 e2) (s', Rerr err))
 
-/\ (! ck env op e1 e2 v e' bv s1 s2.
-(evaluate_i1 ck env s1 e1 (s2, Rval v) /\
-((do_log_i1 op v e2 = SOME e') /\
-evaluate_i1 ck env s2 e' bv))
-==>
-evaluate_i1 ck env s1 (Log_i1 op e1 e2) bv)
-
-/\ (! ck env op e1 e2 v s1 s2.
-(evaluate_i1 ck env s1 e1 (s2, Rval v) /\
-(do_log_i1 op v e2 = NONE))
-==>
-evaluate_i1 ck env s1 (Log_i1 op e1 e2) (s2, Rerr Rtype_error))
-
-/\ (! ck env op e1 e2 err s s'.
-(evaluate_i1 ck env s e1 (s', Rerr err))
-==>
-evaluate_i1 ck env s (Log_i1 op e1 e2) (s', Rerr err))
-
 /\ (! ck env e1 e2 e3 v e' bv s1 s2.
 (evaluate_i1 ck env s1 e1 (s2, Rval v) /\
 ((do_if_i1 v e2 e3 = SOME e') /\
@@ -508,7 +620,7 @@ evaluate_match_i1 ck (genv,cenv,env) (count,s) v ((p,e)::pes) err_v ((count,s), 
 ==>
 evaluate_match_i1 ck env s v ((p,e)::pes) err_v (s, Rerr Rtype_error))`;
 
-val _ = Hol_reln ` (! genv cenv n e vs env' s1 s2 count.
+val _ = Hol_reln ` (! genv cenv n e vs s1 s2 count.
 (evaluate_i1 F (genv,cenv,emp) ( 0,s1) e ((count,s2), Rval (Conv_i1 NONE vs)) /\
 (LENGTH vs = n))
 ==>
