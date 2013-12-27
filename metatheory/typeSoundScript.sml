@@ -623,7 +623,7 @@ val pmatch_type_preservation = Q.prove (
      qpat_assum `type_vs tva tenvC senv (v::vs) ts`
              (ASSUME_TAC o SIMP_RULE (srw_ss ()) [Once type_v_cases]) >>
      fs [] >>
-     qpat_assum `type_ps a0 a c d e`
+     qpat_assum `type_ps a0 a1 c d e`
              (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_p_cases]) >>
      fs [] >>
      rw [bind_var_list_append] >>

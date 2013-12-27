@@ -33,7 +33,7 @@ val run_eval_spec_lem = Q.prove (
      rw []
      >- metis_tac []
      >- metis_tac []
-     >- (`?count'' s' r. evaluate T (env0,env1,l) (count',s) e ((count'',s'),r)` by metis_tac [big_clocked_total, pair_CASES] >>
+     >- (`?count'' s' r. evaluate T (env0,env1,a) (count',s) e ((count'',s'),r)` by metis_tac [big_clocked_total, pair_CASES] >>
          metis_tac [])));
 
 val run_eval_spec = 
