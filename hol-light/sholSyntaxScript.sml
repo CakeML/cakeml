@@ -16,7 +16,7 @@ val _ = Hol_datatype`
     | Tydefined of string => term
   ; const_tag
     = Prim
-    | Defined of term
+    | Defined of term list => term
     | Tyabs of string => term
     | Tyrep of string => term`
 
@@ -545,36 +545,36 @@ val _ = Parse.add_infix("|-",450,Parse.NONASSOC)
 
 val _ = Parse.overload_on("closed",``λt. ∀n ty. ¬VFREE_IN (Var n ty) t``)
 
+val Const1_def = Define`
+  Const1 name ty rhs = Const name ty (Defined [Var name ty === rhs] (Var name ty === rhs))`
+
 val pid = ``Abs "p" Bool (Var "p" Bool)``
-val TT_def = Define `TT = Const "T" Bool (Defined (^pid === ^pid))`
+val TT_def = Define `TT = Const1 "T" Bool (^pid === ^pid)`
 
 val AN_ty = ``Fun Bool (Fun Bool Bool)``
-val AN_tm = ``Const "/\\" ^AN_ty
-  (Defined
+val AN_tm = ``Const1 "/\\" ^AN_ty
     (Abs "p" Bool
       (Abs "q" Bool
         (Abs "f" ^AN_ty
            (Comb (Comb (Var "f" ^AN_ty) (Var "p" Bool)) (Var "q" Bool))
          ===
          Abs "f" ^AN_ty
-           (Comb (Comb (Var "f" ^AN_ty) TT) TT)))))``
+           (Comb (Comb (Var "f" ^AN_ty) TT) TT))))``
 val AN_def = Define `AN p = Comb (Comb ^AN_tm p)`
 
-val IM_tm = ``Const "==>" ^AN_ty
-  (Defined
+val IM_tm = ``Const1 "==>" ^AN_ty
     (Abs "p" Bool
       (Abs "q" Bool
-        (AN (Var "p" Bool) (Var "q" Bool) === (Var "p" Bool)))))``
+        (AN (Var "p" Bool) (Var "q" Bool) === (Var "p" Bool))))``
 val IM_def = Define `IM p = Comb (Comb ^IM_tm p)`
 
 val P_ty = ``Fun (Tyvar "A") Bool``
-val FA_def_tm = ``Defined
-  (Abs "P" ^P_ty (Var "P" ^P_ty === Abs "x" (Tyvar "A") TT))``
+val FA_def_tm = ``Abs "P" ^P_ty (Var "P" ^P_ty === Abs "x" (Tyvar "A") TT)``
 val FA_def = Define `FA x ty b =
-  Comb (Const "!" (Fun (Fun ty Bool) Bool) ^FA_def_tm)
+  Comb (Const1 "!" (Fun (Fun ty Bool) Bool) ^FA_def_tm)
        (Abs x ty b)`
 
-val EX_def_tm = ``Defined
+val EX_def_tm = ``
   (Abs "P" ^P_ty
     (FA "q" Bool
       (IM
@@ -582,37 +582,37 @@ val EX_def_tm = ``Defined
                                 (Var "q" Bool)))
         (Var "q" Bool))))``
 val EX_def = Define`EX x ty b =
-  Comb (Const "?" (Fun (Fun ty Bool) Bool) ^EX_def_tm)
+  Comb (Const1 "?" (Fun (Fun ty Bool) Bool) ^EX_def_tm)
        (Abs x ty b)`
 
-val FF_def = Define`FF = Const "F" Bool (Defined (FA "p" Bool (Var "p" Bool)))`
+val FF_def = Define`FF = Const1 "F" Bool (FA "p" Bool (Var "p" Bool))`
 
-val NO_def = Define`NO = Comb (Const "~" (Fun Bool Bool)
-  (Defined (Abs "p" Bool (IM (Var "p" Bool) FF))))`
+val NO_def = Define`NO = Comb (Const1 "~" (Fun Bool Bool)
+  (Abs "p" Bool (IM (Var "p" Bool) FF)))`
 
 val O1_def = Define`O1 a b =
-  Comb (Const "ONE_ONE" (Fun (Fun a b) Bool)
-         (Defined (Abs "f" (Fun (Tyvar "A") (Tyvar "B"))
-                    (FA "x1" (Tyvar "A")
-                      (FA "x2" (Tyvar "A")
-                        (IM (Comb (Var "f" (Fun (Tyvar "A") (Tyvar "B")))
-                                  (Var "x1" (Tyvar "A"))
-                             ===
-                             Comb (Var "f" (Fun (Tyvar "A") (Tyvar "B")))
-                                  (Var "x2" (Tyvar "A")))
-                            (Var "x1" (Tyvar "A")
-                             ===
-                             Var "x2" (Tyvar "A"))))))))`
+  Comb (Const1 "ONE_ONE" (Fun (Fun a b) Bool)
+                (Abs "f" (Fun (Tyvar "A") (Tyvar "B"))
+                  (FA "x1" (Tyvar "A")
+                    (FA "x2" (Tyvar "A")
+                      (IM (Comb (Var "f" (Fun (Tyvar "A") (Tyvar "B")))
+                                (Var "x1" (Tyvar "A"))
+                           ===
+                           Comb (Var "f" (Fun (Tyvar "A") (Tyvar "B")))
+                                (Var "x2" (Tyvar "A")))
+                          (Var "x1" (Tyvar "A")
+                           ===
+                           Var "x2" (Tyvar "A")))))))`
 
 val OT_def = Define`OT a b =
-  Comb (Const "ONTO" (Fun (Fun a b) Bool)
-         (Defined (Abs "f" (Fun (Tyvar "A") (Tyvar "B"))
-                    (FA "y" (Tyvar "B")
-                      (EX "x" (Tyvar "A")
-                         (Var "y" (Tyvar "B")
-                          ===
-                          Comb (Var "f" (Fun (Tyvar "A") (Tyvar "B")))
-                               (Var "x" (Tyvar "A"))))))))`
+  Comb (Const1 "ONTO" (Fun (Fun a b) Bool)
+                (Abs "f" (Fun (Tyvar "A") (Tyvar "B"))
+                  (FA "y" (Tyvar "B")
+                    (EX "x" (Tyvar "A")
+                       (Var "y" (Tyvar "B")
+                        ===
+                        Comb (Var "f" (Fun (Tyvar "A") (Tyvar "B")))
+                             (Var "x" (Tyvar "A")))))))`
 
 val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
  (type_ok (Tyvar a)) ∧ (type_ok Bool) ∧ (type_ok Ind) ∧
@@ -674,12 +674,19 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
    h |- c
    ⇒
    (MAP (VSUBST ilist) h) |- VSUBST ilist c)
-∧ (* new_basic_definition *)
-  (term_ok r ∧ closed r ∧
-   set(tvars r) ⊆ set(tyvars ty) ∧
-   r has_type ty
+∧ (* new_specification *)
+  (eqs |- p ∧
+   LIST_REL
+     (λ(x,ty) e.
+       ∃w. (e = Var x ty === w) ∧
+           closed w ∧
+           set (tvars w) ⊆ set (tyvars ty))
+     vars eqs ∧
+   ALL_DISTINCT vars ∧
+   (∀x ty. VFREE_IN (Var x ty) p ⇒ MEM (x,ty) vars) ∧
+   (ilist = MAP (λ(x,ty). (Const x ty (Defined eqs p) ,Var x ty)) vars)
    ⇒
-   [] |- (Const n ty (Defined r)) === r)
+   [] |- VSUBST ilist p)
 ∧ (* new_basic_type_definition |- abs (rep x) = x *)
   (closed p ∧
    [] |- Comb p w ∧
