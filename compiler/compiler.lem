@@ -77,6 +77,7 @@ let compile_Cexp menv env rsz cs Ce =
   let cs = compile_code_env menv <| cs with next_label = nl |> Ce in
   compile menv env TCNonTail rsz cs Ce
 
+(*
 let compile_fake_exp menv m env rsz cs vs e =
   let Ce = exp_to_Cexp m (e (Con Nothing (List.map (fun v -> Var (Short v)) (List.reverse vs)))) in
   compile_Cexp menv env rsz cs Ce
@@ -194,3 +195,4 @@ compile_top types rs (Tdec dec) =
       contab = ct
     ; rnext_label = cs.next_label |>
   ,(compile_print_dec types dec cs).out)
+ *)

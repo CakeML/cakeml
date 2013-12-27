@@ -94,6 +94,7 @@ mkshift f k (CIf e1 e2 e3) = CIf (mkshift f k e1) (mkshift f k e2) (mkshift f k 
 
 let shift n = mkshift (fun v -> v+n)
 
+(*
 (* remove pattern-matching using continuations *)
 
 type exp_to_Cexp_state =
@@ -338,3 +339,4 @@ env_to_Cenv _ _ [] = []
 and
 env_to_Cenv mv m ((_,v)::env) =
   (v_to_Cv mv m v)::(env_to_Cenv mv m env)
+  *)

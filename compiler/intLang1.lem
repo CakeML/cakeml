@@ -1,0 +1,660 @@
+(* The first intermediate language. Removes modules, and removes names for
+ * top-level declarations. Also moves their bindings out of  closures.
+ * *)
+
+open import Pervasives
+open import Lib
+open import Ast
+open import SemanticPrimitives
+open import List_extra
+open import BigStep
+
+type exp_i1 =
+  | Raise_i1 of exp_i1
+  | Handle_i1 of exp_i1 * list (pat * exp_i1)
+  | Lit_i1 of lit
+  | Con_i1 of maybe (id conN) * list exp_i1
+  | Var_local_i1 of varN
+  | Var_global_i1 of nat
+  | Fun_i1 of varN * exp_i1
+  | Uapp_i1 of uop * exp_i1
+  | App_i1 of op * exp_i1 * exp_i1
+  | Log_i1 of lop * exp_i1 * exp_i1
+  | If_i1 of exp_i1 * exp_i1 * exp_i1
+  | Mat_i1 of exp_i1 * list (pat * exp_i1)
+  | Let_i1 of varN * exp_i1 * exp_i1
+  | Letrec_i1 of list (varN * varN * exp_i1) * exp_i1
+
+type dec_i1 =
+    (* The nat is how many top-level variables this declaration binds *)
+  | Dlet_i1 of nat * exp_i1
+  | Dletrec_i1 of list (varN * varN * exp_i1)
+  | Dtype_i1 of maybe modN * type_def
+  | Dexn_i1 of maybe modN * conN * list t
+
+type v_i1 =
+  | Litv_i1 of lit
+  | Conv_i1 of maybe (id conN * tid_or_exn) * list v_i1 
+  | Closure_i1 of (envC * env varN v_i1) * varN * exp_i1
+  | Recclosure_i1 of (envC * env varN v_i1) * list (varN * varN * exp_i1) * varN
+  | Loc_i1 of nat
+
+type all_env_i1 = (list v_i1 * envC * env varN v_i1)
+
+
+let all_env_i1_to_genv (genv,cenv,env) = genv
+let all_env_i1_to_cenv (genv,cenv,env) = cenv
+let all_env_i1_to_env (genv,cenv,env) = env
+          
+val build_conv_i1 : envC -> maybe (id conN) -> list v_i1 -> maybe v_i1
+let build_conv_i1 envC cn vs =
+  match cn with
+    | Nothing -> 
+        Just (Conv_i1 Nothing vs)
+    | Just id -> 
+        match lookup id envC with
+          | Nothing -> Nothing
+          | Just (len,t) -> Just (Conv_i1 (Just (id, t)) vs)
+        end
+  end
+
+val do_uapp_i1 : store v_i1 -> uop -> v_i1 -> maybe (store v_i1 * v_i1)
+let do_uapp_i1 s uop v =
+  match uop with
+    | Opderef ->
+        match v with
+          | Loc_i1 n ->
+              match store_lookup n s with
+                | Just v -> Just (s,v)
+                | Nothing -> Nothing
+              end
+          | _ -> Nothing
+        end
+    | Opref ->
+        let (s',n) = store_alloc v s in
+          Just (s', Loc_i1 n)
+  end
+
+val build_rec_env_i1 : list (varN * varN * exp_i1) -> (envC * env varN v_i1) -> env varN v_i1 -> env varN v_i1
+let build_rec_env_i1 funs cl_env add_to_env =
+  foldr 
+    (fun (f,x,e) env' -> bind f (Recclosure_i1 cl_env funs f) env') 
+    add_to_env 
+    funs
+
+val do_eq_i1 : v_i1 -> v_i1 -> eq_result
+let rec 
+do_eq_i1 (Litv_i1 l1) (Litv_i1 l2) = 
+  Eq_val (l1 = l2)
+and
+do_eq_i1 (Loc_i1 l1) (Loc_i1 l2) = Eq_val (l1 = l2)
+and
+do_eq_i1 (Conv_i1 cn1 vs1) (Conv_i1 cn2 vs2) =
+  if cn1 = cn2 && (List.length vs1 = List.length vs2) then
+    do_eq_list_i1 vs1 vs2
+  else
+    Eq_val false
+and
+do_eq_i1 (Closure_i1 _ _ _) (Closure_i1 _ _ _) = Eq_closure
+and
+do_eq_i1 (Closure_i1 _ _ _) (Recclosure_i1 _ _ _) = Eq_closure
+and
+do_eq_i1 (Recclosure_i1 _ _ _) (Closure_i1 _ _ _) = Eq_closure
+and
+do_eq_i1 (Recclosure_i1 _ _ _) (Recclosure_i1 _ _ _) = Eq_closure
+and
+do_eq_i1 _ _ = Eq_type_error
+and
+do_eq_list_i1 [] [] = Eq_val true
+and
+do_eq_list_i1 (v1::vs1) (v2::vs2) = 
+  match do_eq_i1 v1 v2 with
+    | Eq_closure -> Eq_closure
+    | Eq_type_error -> Eq_type_error
+    | Eq_val r -> 
+        if not r then
+          Eq_val false
+        else
+          do_eq_list_i1 vs1 vs2
+  end
+and
+do_eq_list_i1 _ _ = Eq_val false
+
+val do_app_i1 : all_env_i1 -> store v_i1 -> op -> v_i1 -> v_i1 -> maybe (all_env_i1 * store v_i1 * exp_i1)
+let do_app_i1 env' s op v1 v2 =
+  match (op, v1, v2) with
+    | (Opapp, Closure_i1 (cenv, env) n e, v) ->
+        Just ((all_env_i1_to_genv env', cenv, bind n v env), s, e)
+    | (Opapp, Recclosure_i1 (cenv, env) funs n, v) ->
+        match find_recfun n funs with
+          | Just (n,e) -> Just ((all_env_i1_to_genv env', cenv, bind n v (build_rec_env_i1 funs (cenv, env) env)), s, e)
+          | Nothing -> Nothing
+        end
+    | (Opn op, Litv_i1 (IntLit n1), Litv_i1 (IntLit n2)) ->
+        if (op = Divide || (op = Modulo)) && (n2 = 0) then
+          Just (env', s, Raise_i1 (Con_i1 (Just (Short "Div")) []))
+        else
+          Just (env', s, Lit_i1 (IntLit (opn_lookup op n1 n2)))
+    | (Opb op, Litv_i1 (IntLit n1), Litv_i1 (IntLit n2)) ->
+        Just (env', s, Lit_i1 (Bool (opb_lookup op n1 n2)))
+    | (Equality, v1, v2) ->
+        match do_eq_i1 v1 v2 with
+          | Eq_type_error -> Nothing
+          | Eq_closure -> Just (env', s, Raise_i1 (Con_i1 (Just (Short "Eq")) []))
+          | Eq_val b -> Just (env', s, Lit_i1 (Bool b))
+        end
+    | (Opassign, (Loc_i1 lnum), v) ->
+        match store_assign lnum v s with
+        | Just st -> Just (env', st, Lit_i1 Unit)
+        | Nothing -> Nothing
+        end
+    | _ -> Nothing
+  end
+
+val do_log_i1 : lop -> v_i1 -> exp_i1 -> maybe exp_i1
+let do_log_i1 l v e =
+  match (l, v) with
+    | (And, Litv_i1 (Bool true)) -> Just e
+    | (Or, Litv_i1 (Bool false)) -> Just e
+    | (_, Litv_i1 (Bool b)) -> Just (Lit_i1 (Bool b))
+    | _ -> Nothing
+  end
+
+val do_if_i1 : v_i1 -> exp_i1 -> exp_i1 -> maybe exp_i1
+let do_if_i1 v e1 e2 =
+  if v = Litv_i1 (Bool true) then
+    Just e1
+  else if v = Litv_i1 (Bool false) then
+    Just e2
+  else
+    Nothing
+
+val pmatch_i1 : envC -> store v_i1 -> pat -> v_i1 -> env varN v_i1 -> match_result (env varN v_i1)
+let rec
+pmatch_i1 envC s (Pvar x) v' env = Match (bind x v' env)
+and
+pmatch_i1 envC s (Plit l) (Litv_i1 l') env =
+  if l = l' then
+    Match env
+  else if lit_same_type l l' then
+    No_match
+  else
+    Match_type_error
+and
+pmatch_i1 envC s (Pcon (Just n) ps) (Conv_i1 (Just (n', t')) vs) env =
+  match lookup n envC with
+    | Just (l, t)->
+        if t = t' && List.length ps = l then
+          if n = n' then
+            pmatch_list_i1 envC s ps vs env
+          else
+            No_match
+        else
+          Match_type_error
+    | _ -> Match_type_error
+  end
+and
+pmatch_i1 envC s (Pcon Nothing ps) (Conv_i1 Nothing vs) env =
+  if List.length ps = List.length vs then
+    pmatch_list_i1 envC s ps vs env
+  else
+    Match_type_error
+and
+pmatch_i1 envC s (Pref p) (Loc_i1 lnum) env =
+  match store_lookup lnum s with
+    | Just v -> pmatch_i1 envC s p v env
+    | Nothing -> Match_type_error
+  end
+and
+pmatch_i1 envC _ _ _ env = Match_type_error
+and
+pmatch_list_i1 envC s [] [] env = Match env
+and
+pmatch_list_i1 envC s (p::ps) (v::vs) env =
+  match pmatch_i1 envC s p v env with
+    | No_match -> No_match
+    | Match_type_error -> Match_type_error
+    | Match env' -> pmatch_list_i1 envC s ps vs env'
+  end
+and
+pmatch_list_i1 envC s _ _ env = Match_type_error
+
+indreln [evaluate_i1 : bool -> all_env_i1 -> count_store v_i1 -> exp_i1 -> count_store v_i1 * result v_i1 v_i1 -> bool]
+and [evaluate_list_i1 : bool -> all_env_i1 -> count_store v_i1 -> list exp_i1 -> count_store v_i1 * result (list v_i1) v_i1 -> bool]
+and [evaluate_match_i1 : bool -> all_env_i1 -> count_store v_i1 -> v_i1 -> list (pat * exp_i1) -> v_i1 -> count_store v_i1 * result v_i1 v_i1 -> bool]
+
+lit : forall ck env l s.
+true
+==>
+evaluate_i1 ck env s (Lit_i1 l) (s, Rval (Litv_i1 l))
+
+and
+
+raise1 : forall ck env e s1 s2 v.
+evaluate_i1 ck s1 env e (s2, Rval v)
+==>
+evaluate_i1 ck s1 env (Raise_i1 e) (s2, Rerr (Rraise v))
+
+and
+
+raise2 : forall ck env e s1 s2 err.
+evaluate_i1 ck s1 env e (s2, Rerr err)
+==>
+evaluate_i1 ck s1 env (Raise_i1 e) (s2, Rerr err)
+
+and
+
+handle1 : forall ck s1 s2 env e v pes.
+evaluate_i1 ck s1 env e (s2, Rval v)
+==>
+evaluate_i1 ck s1 env (Handle_i1 e pes) (s2, Rval v)
+
+and
+
+handle2 : forall ck s1 s2 env e pes v bv.
+evaluate_i1 ck env s1 e (s2, Rerr (Rraise v)) &&
+evaluate_match_i1 ck env s2 v pes v bv
+==>
+evaluate_i1 ck env s1 (Handle_i1 e pes) bv
+
+and
+
+handle3 : forall ck s1 s2 env e pes err.
+evaluate_i1 ck env s1 e (s2, Rerr err) &&
+(err = Rtimeout_error || (err = Rtype_error))
+==>
+evaluate_i1 ck env s1 (Handle_i1 e pes) (s2, Rerr err)
+
+and
+
+con1 : forall ck env cn es vs s s' v.
+do_con_check (all_env_i1_to_cenv env) cn (List.length es) &&
+build_conv_i1 (all_env_i1_to_cenv env) cn vs = Just v &&
+evaluate_list_i1 ck env s es (s', Rval vs)
+==>
+evaluate_i1 ck env s (Con_i1 cn es) (s', Rval v)
+
+and
+
+con2 : forall ck env cn es s.
+not (do_con_check (all_env_i1_to_cenv env) cn (List.length es))
+==>
+evaluate_i1 ck env s (Con_i1 cn es) (s, Rerr Rtype_error)
+
+and
+
+con3 : forall ck env cn es err s s'.
+do_con_check (all_env_i1_to_cenv env) cn (List.length es) &&
+evaluate_list_i1 ck env s es (s', Rerr err)
+==>
+evaluate_i1 ck env s (Con_i1 cn es) (s', Rerr err)
+
+and
+
+var1 : forall ck env n v s.
+(lookup n (all_env_i1_to_env env) = Just v)
+==>
+evaluate_i1 ck env s (Var_local_i1 n) (s, Rval v)
+
+and
+
+var2 : forall ck env n s.
+(lookup n (all_env_i1_to_env env) = Nothing)
+==>
+evaluate_i1 ck env s (Var_local_i1 n) (s, Rerr Rtype_error)
+and
+
+var3 : forall ck env n v s.
+(List.length (all_env_i1_to_genv env) > n) &&
+(List_extra.nth (all_env_i1_to_genv env) n = v)
+==>
+evaluate_i1 ck env s (Var_global_i1 n) (s, Rval v)
+
+and
+
+var4 : forall ck env n s.
+not (List.length (all_env_i1_to_genv env) > n)
+==>
+evaluate_i1 ck env s (Var_global_i1 n) (s, Rerr Rtype_error)
+
+and
+
+fn : forall ck env n e s.
+true
+==>
+evaluate_i1 ck env s (Fun_i1 n e) (s, Rval (Closure_i1 (all_env_i1_to_cenv env, all_env_i1_to_env env) n e))
+
+and
+
+uapp1 : forall ck env uop e v v' s1 s2 count s3.
+evaluate_i1 ck env s1 e ((count,s2), Rval v) &&
+(do_uapp_i1 s2 uop v = Just (s3,v'))
+==>
+evaluate_i1 ck env s1 (Uapp_i1 uop e) ((count,s3), Rval v')
+
+and
+
+uapp2 : forall ck env uop e v s1 s2 count.
+evaluate_i1 ck env s1 e ((count,s2), Rval v) &&
+(do_uapp_i1 s2 uop v = Nothing)
+==>
+evaluate_i1 ck env s1 (Uapp_i1 uop e) ((count,s2), Rerr Rtype_error)
+
+and
+
+uapp3 : forall ck env uop e err s s'.
+evaluate_i1 ck env s e (s', Rerr err)
+==>
+evaluate_i1 ck env s (Uapp_i1 uop e) (s', Rerr err)
+
+and
+
+app1 : forall ck env op e1 e2 v1 v2 env' e3 bv s1 s2 s3 count s4.
+evaluate_i1 ck env s1 e1 (s2, Rval v1) &&
+evaluate_i1 ck env s2 e2 ((count,s3), Rval v2) &&
+do_app_i1 env s3 op v1 v2 = Just (env', s4, e3) &&
+((ck && (op = Opapp)) --> count <> 0) &&
+evaluate_i1 ck env' ((if ck then dec_count op count else count),s4) e3 bv
+==>
+evaluate_i1 ck env s1 (App_i1 op e1 e2) bv
+
+and
+
+app2 : forall ck env op e1 e2 v1 v2 env' e3 s1 s2 s3 count s4.
+evaluate_i1 ck env s1 e1 (s2, Rval v1) &&
+evaluate_i1 ck env s2 e2 ((count,s3), Rval v2) &&
+do_app_i1 env s3 op v1 v2 = Just (env', s4, e3) &&
+count = 0 &&
+op = Opapp &&
+ck
+==>
+evaluate_i1 ck env s1 (App_i1 op e1 e2) ((0,s4), Rerr Rtimeout_error)
+
+and
+
+app3 : forall ck env op e1 e2 v1 v2 s1 s2 s3 count.
+evaluate_i1 ck env s1 e1 (s2, Rval v1) &&
+evaluate_i1 ck env s2 e2 ((count,s3), Rval v2) &&
+do_app_i1 env s3 op v1 v2 = Nothing
+==>
+evaluate_i1 ck env s1 (App_i1 op e1 e2) ((count,s3), Rerr Rtype_error)
+
+and
+
+app4 : forall ck env op e1 e2 v1 err s1 s2 s3.
+evaluate_i1 ck env s1 e1 (s2, Rval v1) &&
+evaluate_i1 ck env s2 e2 (s3, Rerr err)
+==>
+evaluate_i1 ck env s1 (App_i1 op e1 e2) (s3, Rerr err)
+
+and
+
+app5 : forall ck env op e1 e2 err s s'.
+evaluate_i1 ck env s e1 (s', Rerr err)
+==>
+evaluate_i1 ck env s (App_i1 op e1 e2) (s', Rerr err)
+
+and
+
+log1 : forall ck env op e1 e2 v e' bv s1 s2.
+evaluate_i1 ck env s1 e1 (s2, Rval v) &&
+do_log_i1 op v e2 = Just e' &&
+evaluate_i1 ck env s2 e' bv
+==>
+evaluate_i1 ck env s1 (Log_i1 op e1 e2) bv
+
+and
+
+log2 : forall ck env op e1 e2 v s1 s2.
+evaluate_i1 ck env s1 e1 (s2, Rval v) &&
+(do_log_i1 op v e2 = Nothing)
+==>
+evaluate_i1 ck env s1 (Log_i1 op e1 e2) (s2, Rerr Rtype_error)
+
+and
+
+log3 : forall ck env op e1 e2 err s s'.
+evaluate_i1 ck env s e1 (s', Rerr err)
+==>
+evaluate_i1 ck env s (Log_i1 op e1 e2) (s', Rerr err)
+
+and
+
+if1 : forall ck env e1 e2 e3 v e' bv s1 s2.
+evaluate_i1 ck env s1 e1 (s2, Rval v) &&
+do_if_i1 v e2 e3 = Just e' &&
+evaluate_i1 ck env s2 e' bv
+==>
+evaluate_i1 ck env s1 (If_i1 e1 e2 e3) bv
+
+and
+
+if2 : forall ck env e1 e2 e3 v s1 s2.
+evaluate_i1 ck env s1 e1 (s2, Rval v) &&
+do_if_i1 v e2 e3 = Nothing
+==>
+evaluate_i1 ck env s1 (If_i1 e1 e2 e3) (s2, Rerr Rtype_error)
+
+and
+
+if3 : forall ck env e1 e2 e3 err s s'.
+evaluate_i1 ck env s e1 (s', Rerr err)
+==>
+evaluate_i1 ck env s (If_i1 e1 e2 e3) (s', Rerr err)
+
+and
+
+mat1 : forall ck env e pes v bv s1 s2.
+evaluate_i1 ck env s1 e (s2, Rval v) &&
+evaluate_match_i1 ck env s2 v pes (Conv_i1 (Just (Short "Bind", TypeExn)) []) bv
+==>
+evaluate_i1 ck env s1 (Mat_i1 e pes) bv
+
+and
+
+mat2 : forall ck env e pes err s s'.
+evaluate_i1 ck env s e (s', Rerr err)
+==>
+evaluate_i1 ck env s (Mat_i1 e pes) (s', Rerr err)
+
+and
+
+let1 : forall ck genv cenv env n e1 e2 v bv s1 s2.
+evaluate_i1 ck (genv,cenv,env) s1 e1 (s2, Rval v) &&
+evaluate_i1 ck (genv,cenv,bind n v env) s2 e2 bv
+==>
+evaluate_i1 ck (genv,cenv,env) s1 (Let_i1 n e1 e2) bv
+
+and
+
+let2 : forall ck env n e1 e2 err s s'.
+evaluate_i1 ck env s e1 (s', Rerr err)
+==>
+evaluate_i1 ck env s (Let_i1 n e1 e2) (s', Rerr err)
+
+and
+
+letrec1 : forall ck genv cenv env funs e bv s.
+all_distinct (List.map (fun (x,y,z) -> x) funs) &&
+evaluate_i1 ck (genv,cenv,build_rec_env_i1 funs (cenv,env) env) s e bv
+==>
+evaluate_i1 ck (genv,cenv,env) s (Letrec_i1 funs e) bv
+
+and
+
+letrec2 : forall ck env funs e s.
+not (all_distinct (List.map (fun (x,y,z) -> x) funs))
+==>
+evaluate_i1 ck env s (Letrec_i1 funs e) (s, Rerr Rtype_error)
+
+and
+
+empty : forall ck env s.
+true
+==>
+evaluate_list_i1 ck env s [] (s, Rval [])
+
+and
+
+cons1 : forall ck env e es v vs s1 s2 s3.
+evaluate_i1 ck env s1 e (s2, Rval v) &&
+evaluate_list_i1 ck env s2 es (s3, Rval vs)
+==>
+evaluate_list_i1 ck env s1 (e::es) (s3, Rval (v::vs))
+
+and
+
+cons2 : forall ck env e es err s s'.
+evaluate_i1 ck env s e (s', Rerr err)
+==>
+evaluate_list_i1 ck env s (e::es) (s', Rerr err)
+
+and
+
+cons3 : forall ck env e es v err s1 s2 s3.
+evaluate_i1 ck env s1 e (s2, Rval v) &&
+evaluate_list_i1 ck env s2 es (s3, Rerr err)
+==>
+evaluate_list_i1 ck env s1 (e::es) (s3, Rerr err)
+
+and
+
+mat_empty : forall ck env v err_v s.
+true
+==>
+evaluate_match_i1 ck env s v [] err_v (s, Rerr (Rraise err_v))
+
+and
+
+mat_cons1 : forall ck genv cenv env env' v p pes e bv err_v s count.
+all_distinct (pat_bindings p []) &&
+(pmatch_i1 cenv s p v env = Match env') &&
+evaluate_i1 ck (genv,cenv,env') (count,s) e bv
+==>
+evaluate_match_i1 ck (genv,cenv,env) (count,s) v ((p,e)::pes) err_v bv
+
+and
+
+mat_cons2 : forall ck genv cenv env v p e pes bv s count err_v.
+all_distinct (pat_bindings p []) &&
+(pmatch_i1 cenv s p v env = No_match) &&
+evaluate_match_i1 ck (genv,cenv,env) (count,s) v pes err_v bv
+==>
+evaluate_match_i1 ck (genv,cenv,env) (count,s) v ((p,e)::pes) err_v bv
+
+and
+
+mat_cons3 : forall ck genv cenv env v p e pes s count err_v.
+(pmatch_i1 cenv s p v env = Match_type_error)
+==>
+evaluate_match_i1 ck (genv,cenv,env) (count,s) v ((p,e)::pes) err_v ((count,s), Rerr Rtype_error)
+
+and
+
+mat_cons4 : forall ck env v p e pes s err_v.
+not (all_distinct (pat_bindings p []))
+==>
+evaluate_match_i1 ck env s v ((p,e)::pes) err_v (s, Rerr Rtype_error)
+
+indreln [evaluate_dec_i1 : list v_i1 -> envC -> store v_i1 -> dec_i1 -> store v_i1 * result (envC * list v_i1)  v_i1 -> bool]
+
+dlet1 : forall genv cenv n e vs env' s1 s2 count.
+evaluate_i1 false (genv,cenv,emp) (0,s1) e ((count,s2), Rval (Conv_i1 Nothing vs)) &&
+List.length vs = n
+==>
+evaluate_dec_i1 genv cenv s1 (Dlet_i1 n e) (s2, Rval (emp, vs))
+
+and
+
+dlet3 : forall genv cenv n e vs s1 s2 count.
+evaluate_i1 false (genv,cenv,emp) (0,s1) e ((count,s2), Rval (Conv_i1 Nothing vs)) &&
+List.length vs <> n
+==>
+evaluate_dec_i1 genv cenv s1 (Dlet_i1 n e) (s2, Rerr Rtype_error)
+
+and
+
+dlet4 : forall genv cenv n e v s1 s2 count.
+evaluate_i1 false (genv,cenv,emp) (0,s1) e ((count,s2), Rval v) &&
+not (exists vs. v = Conv_i1 Nothing vs)
+==>
+evaluate_dec_i1 genv cenv s1 (Dlet_i1 n e) (s2, Rerr Rtype_error)
+
+and
+
+dlet5 : forall genv cenv n e err s count s'.
+evaluate_i1 false (genv,cenv,emp) (0,s) e ((count,s'), Rerr err)
+==>
+evaluate_dec_i1 genv cenv s (Dlet_i1 n e) (s', Rerr err)
+
+and
+
+dletrec1 : forall genv cenv funs s.
+all_distinct (List.map (fun (x,y,z) -> x) funs)
+==>
+evaluate_dec_i1 genv cenv s (Dletrec_i1 funs) (s, Rval (emp, List.map snd (build_rec_env_i1 funs (cenv,emp) emp)))
+
+and
+
+dletrec2 : forall genv cenv funs s.
+not (all_distinct (List.map (fun (x,y,z) -> x) funs))
+==>
+evaluate_dec_i1 genv cenv s (Dletrec_i1 funs) (s, Rerr Rtype_error)
+
+and
+
+dtype1 : forall mn genv cenv tds s.
+check_dup_ctors mn cenv tds
+==>
+evaluate_dec_i1 genv cenv s (Dtype_i1 mn tds) (s, Rval (build_tdefs mn tds, []))
+
+and
+
+dtype2 : forall mn genv cenv tds s.
+not (check_dup_ctors mn cenv tds)
+==>
+evaluate_dec_i1 genv cenv s (Dtype_i1 mn tds) (s, Rerr Rtype_error)
+
+and
+
+dexn1 : forall mn genv cenv cn ts s.
+(lookup (mk_id mn cn) cenv = Nothing)
+==>
+evaluate_dec_i1 genv cenv s (Dexn_i1 mn cn ts) (s, Rval (bind (mk_id mn cn) (List.length ts, TypeExn) emp, []))
+
+and
+
+dexn2 : forall mn genv cenv cn ts s.
+(lookup (mk_id mn cn) cenv <> Nothing)
+==>
+evaluate_dec_i1 genv cenv s (Dexn_i1 mn cn ts) (s, Rerr Rtype_error)
+
+val combine_dec_result_i1 : forall 'a 'b. list 'a -> result (list 'a) 'b -> result (list 'a) 'b
+let combine_dec_result_i1 env r =
+  match r with
+    | Rerr e -> Rerr e
+    | Rval env' -> Rval (env ++ env') 
+  end
+
+
+indreln [evaluate_decs_i1 : list v_i1 -> envC -> store v_i1 -> list dec_i1 -> store v_i1 * envC * result (list v_i1) v_i1 -> bool]
+
+empty : forall genv cenv s.
+true
+==>
+evaluate_decs_i1 genv cenv s [] (s, emp, Rval [])
+
+and
+
+cons1 : forall s1 s2 genv cenv d ds e.
+evaluate_dec_i1 genv cenv s1 d (s2, Rerr e)
+==>
+evaluate_decs_i1 genv cenv s1 (d::ds) (s2, emp, Rerr e)
+
+and
+
+cons2 : forall s1 s2 s3 genv cenv d ds new_tds' new_tds new_env r.
+evaluate_dec_i1 genv cenv s1 d (s2, Rval (new_tds,new_env)) &&
+evaluate_decs_i1 (genv ++ new_env) (merge new_tds cenv) s2 ds (s3, new_tds', r)
+==>
+evaluate_decs_i1 genv cenv s1 (d::ds) (s3, merge new_tds' new_tds, combine_dec_result_i1 new_env r)

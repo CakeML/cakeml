@@ -84,7 +84,7 @@ val _ = Hol_datatype `
  Ce =
     Ctype_error
   | Ctimeout_error
-  | Craise of Cv`;
+  | Craise0 of Cv`;
 
 
 val _ = Hol_datatype `
@@ -239,7 +239,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 val _ = Hol_reln ` (! menv s env exp s' v.
 (Cevaluate menv s env exp (s', Cval v))
 ==>
-Cevaluate menv s env (CRaise exp) (s', Cexc (Craise v)))
+Cevaluate menv s env (CRaise exp) (s', Cexc (Craise0 v)))
 
 /\ (! menv s env exp s' err.
 (Cevaluate menv s env exp (s', Cexc err))
@@ -251,13 +251,13 @@ Cevaluate menv s env (CRaise exp) (s', Cexc err))
 ==>
 Cevaluate menv s1 env (CHandle e1 e2) (s2, Cval v))
 /\ (! menv s1 env e1 e2 s2 v res.
-(Cevaluate menv s1 env e1 (s2, Cexc (Craise v)) /\
+(Cevaluate menv s1 env e1 (s2, Cexc (Craise0 v)) /\
 Cevaluate menv s2 (v::env) e2 res)
 ==>
 Cevaluate menv s1 env (CHandle e1 e2) res)
 /\ (! menv s1 env e1 e2 s2 err.
 (Cevaluate menv s1 env e1 (s2, Cexc err) /\
-(! v. ~ (err = Craise v)))
+(! v. ~ (err = Craise0 v)))
 ==>
 Cevaluate menv s1 env (CHandle e1 e2) (s2, Cexc err))
 
