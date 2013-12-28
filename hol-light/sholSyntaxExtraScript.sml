@@ -690,6 +690,19 @@ val FINITE_VFREE_IN_list = store_thm("FINITE_VFREE_IN_list",
   simp[FINITE_UNION])
 val _ = export_rewrites["FINITE_VFREE_IN_list"]
 
+val FINITE_MEM_Var = store_thm("FINITE_MEM_Var",
+  ``∀ls. FINITE {(x,ty) | MEM (Var x ty) ls}``,
+  Induct >> simp[] >>
+  Cases >> simp[] >>
+  qmatch_assum_abbrev_tac`FINITE P` >>
+  qmatch_abbrev_tac`FINITE Q` >>
+  `Q = (s,t) INSERT P` by (
+    simp[Abbr`P`,Abbr`Q`,EXTENSION] >>
+    metis_tac[] ) >>
+  pop_assum SUBST1_TAC >>
+  simp[FINITE_INSERT] )
+val _ = export_rewrites["FINITE_MEM_Var"]
+
 val bv_names_rename_bvars = store_thm("bv_names_rename_bvars",
   ``∀names env tm.
     LENGTH (bv_names tm) ≤ LENGTH names ⇒
@@ -882,6 +895,14 @@ val RACONV_VFREE_IN = store_thm("RACONV_VFREE_IN",
 val ACONV_VFREE_IN = store_thm("ACONV_VFREE_IN",
   ``∀t1 t2 x ty. ACONV t1 t2 ∧ VFREE_IN (Var x ty) t1 ⇒ VFREE_IN (Var x ty) t2``,
   rw[ACONV_def] >> imp_res_tac RACONV_VFREE_IN >> fs[ALPHAVARS_def])
+
+val ACONV_closed = store_thm("ACONV_closed",
+  ``∀t1 t2. ACONV t1 t2 ⇒ (closed t1 ⇔ closed t2)``,
+  qsuff_tac`∀t1 t2. ACONV t1 t2 ∧ closed t1 ⇒ closed t2` >-
+    metis_tac[ACONV_SYM] >>
+  rw[] >> spose_not_then strip_assume_tac >>
+  imp_res_tac ACONV_VFREE_IN >>
+  metis_tac[ACONV_SYM])
 
 val tvars_VFREE_IN_subset = store_thm("tvars_VFREE_IN_subset",
   ``∀tm s. VFREE_IN s tm ⇒ set (tvars s) ⊆ set (tvars tm)``,

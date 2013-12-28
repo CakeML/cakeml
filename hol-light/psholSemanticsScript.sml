@@ -39,27 +39,6 @@ val INFINITE_INJ_NOT_SURJ = store_thm("INFINITE_INJ_NOT_SURJ",
   Cases >> simp[arithmeticTheory.FUNPOW_SUC] >> fs[INJ_IFF] >>
   metis_tac[] )
 
-val FINITE_MEM_Var = store_thm("FINITE_MEM_Var",
-  ``∀ls. FINITE {(x,ty) | MEM (Var x ty) ls}``,
-  Induct >> simp[] >>
-  Cases >> simp[] >>
-  qmatch_assum_abbrev_tac`FINITE P` >>
-  qmatch_abbrev_tac`FINITE Q` >>
-  `Q = (s,t) INSERT P` by (
-    simp[Abbr`P`,Abbr`Q`,EXTENSION] >>
-    metis_tac[] ) >>
-  pop_assum SUBST1_TAC >>
-  simp[FINITE_INSERT] )
-val _ = export_rewrites["FINITE_MEM_Var"]
-
-val ACONV_closed = store_thm("ACONV_closed",
-  ``∀t1 t2. ACONV t1 t2 ⇒ (closed t1 ⇔ closed t2)``,
-  qsuff_tac`∀t1 t2. ACONV t1 t2 ∧ closed t1 ⇒ closed t2` >-
-    metis_tac[ACONV_SYM] >>
-  rw[] >> spose_not_then strip_assume_tac >>
-  imp_res_tac ACONV_VFREE_IN >>
-  metis_tac[ACONV_SYM])
-
 val discharge_hyps_keep =
   match_mp_tac(PROVE[]``(p ∧ (p ∧ q ==> r)) ==> ((p ==> q) ==> r)``) >> conj_tac
 
@@ -4887,11 +4866,11 @@ val SELECT_AX_correct = store_thm("SELECT_AX_correct",
 
 val truth_has_type_bool = store_thm("truth_has_type_bool",
   ``TT has_type Bool``,
-  rw[TT_def] >> rw[Once has_type_cases])
+  rw[TT_def,Const1_def] >> rw[Once has_type_cases])
 val _ = export_rewrites["truth_has_type_bool"]
 
 val closed_truth = store_thm("closed_truth",
-  ``closed TT``, rw[TT_def])
+  ``closed TT``, rw[TT_def,Const1_def])
 val _ = export_rewrites["closed_truth"]
 
 val semantics_truth = store_thm("semantics_truth",
@@ -4900,7 +4879,7 @@ val semantics_truth = store_thm("semantics_truth",
     term_valuation τ σ
     ⇒
     semantics σ τ TT True``,
-  rw[TT_def] >>
+  rw[TT_def,Const1_def] >>
   simp[Once semantics_cases] >>
   qexists_tac`FEMPTY` >> simp[] >>
   Q.PAT_ABBREV_TAC`tm = x === x` >>
@@ -4952,12 +4931,12 @@ val sequent_truth = store_thm("sequent_truth",
     ntac 2 (qexists_tac`FEMPTY`) >>
     qexists_tac`True` >> simp[] >>
     first_x_assum match_mp_tac >>
-    simp[TT_def,tyvars_def] ) >>
+    simp[TT_def,Const1_def,tyvars_def] ) >>
   rw[semantics_truth])
 
 val conjunction_has_type_bool = store_thm("conjunction_has_type_bool",
   ``∀p q. AN p q has_type Bool ⇔ p has_type Bool ∧ q has_type Bool``,
-  simp[AN_def] >>
+  simp[AN_def,Const1_def] >>
   simp[Once has_type_cases] >>
   simp[Once has_type_cases] >>
   simp[Once has_type_cases] )
@@ -4980,7 +4959,7 @@ val semantics_and = store_thm("semantics_and",
       (Abstract boolset (Funspace boolset boolset)
         (λp. Abstract boolset boolset (λq. Boolean (p = True ∧ q = True))))``,
   Q.PAT_ABBREV_TAC`tm:term = (Abs X Y Z)` >>
-  rw[Once semantics_cases] >>
+  rw[Once semantics_cases,Const1_def] >>
   imp_res_tac is_model_is_set_theory >>
   qspecl_then[`{}`,`tm`]mp_tac fresh_term_def >> rw[] >>
   `tm has_type Fun Bool (Fun Bool Bool)` by (
@@ -5000,7 +4979,7 @@ val semantics_and = store_thm("semantics_and",
   simp[tyvars_def] >>
   imp_res_tac ACONV_tvars >> pop_assum (assume_tac o SYM) >>
   `tvars tm = []` by (
-    simp[Abbr`tm`,tvars_def,tyvars_def,equation_def,TT_def] ) >>
+    simp[Abbr`tm`,tvars_def,tyvars_def,equation_def,TT_def,Const1_def] ) >>
   simp[] >>
   qexists_tac`FEMPTY`>>simp[] >>
   qmatch_abbrev_tac`semantics x y z w` >>
@@ -5148,7 +5127,7 @@ val semantics_conjunction = store_thm("semantics_conjunction",
     semantics σ τ p2 m2
     ⇒
     semantics σ τ (AN p1 p2) (Boolean (m1 = True ∧ m2 = True))``,
-  rw[AN_def] >>
+  rw[AN_def,Const1_def] >>
   imp_res_tac is_model_is_set_theory >>
   rw[Once semantics_cases] >>
   imp_res_tac WELLTYPED_LEMMA >>
@@ -5173,6 +5152,7 @@ val semantics_conjunction = store_thm("semantics_conjunction",
     simp[] >>
     match_mp_tac ABSTRACT_IN_FUNSPACE >>
     simp[boolean_in_boolset] ) >>
+  simp[GSYM Const1_def] >>
   match_mp_tac (UNDISCH semantics_and) >>
   simp[])
 
@@ -5199,7 +5179,7 @@ val semantics_implies = store_thm("semantics_implies",
       (Abstract boolset (Funspace boolset boolset)
         (λp. Abstract boolset boolset (λq. Boolean (p = True ⇒ q = True))))``,
   Q.PAT_ABBREV_TAC`tm:term = (Abs X Y Z)` >>
-  rw[Once semantics_cases] >>
+  rw[Once semantics_cases,Const1_def] >>
   imp_res_tac is_model_is_set_theory >>
   qspecl_then[`{}`,`tm`]mp_tac fresh_term_def >> rw[] >>
   qabbrev_tac`p = Var "p" Bool` >>
@@ -5219,13 +5199,13 @@ val semantics_implies = store_thm("semantics_implies",
   imp_res_tac ACONV_welltyped >>
   imp_res_tac ACONV_TYPE >> pop_assum (assume_tac o SYM) >> rfs[] >>
   `closed tm` by (
-    simp[Abbr`tm`,vfree_in_equation,AN_def,Abbr`p`,Abbr`q`] >>
+    simp[Abbr`tm`,vfree_in_equation,AN_def,Abbr`p`,Abbr`q`,Const1_def] >>
     PROVE_TAC[] ) >>
   imp_res_tac ACONV_closed >>
   simp[tyvars_def] >>
   imp_res_tac ACONV_tvars >> pop_assum (assume_tac o SYM) >>
   `tvars tm = []` by (
-    simp[Abbr`tm`,tvars_def,tyvars_def,equation_def,AN_def,Abbr`p`,Abbr`q`] ) >>
+    simp[Abbr`tm`,tvars_def,tyvars_def,equation_def,AN_def,Abbr`p`,Abbr`q`,Const1_def] ) >>
   simp[] >>
   qexists_tac`FEMPTY`>>simp[] >>
   qmatch_abbrev_tac`semantics x y z w` >>
@@ -5287,7 +5267,7 @@ val semantics_implication = store_thm("semantics_implication",
     semantics σ τ p2 m2
     ⇒
     semantics σ τ (IM p1 p2) (Boolean (m1 = True ⇒ m2 = True))``,
-  rw[IM_def] >>
+  rw[IM_def,Const1_def] >>
   imp_res_tac is_model_is_set_theory >>
   rw[Once semantics_cases] >>
   imp_res_tac WELLTYPED_LEMMA >>
@@ -5312,6 +5292,7 @@ val semantics_implication = store_thm("semantics_implication",
     simp[] >>
     match_mp_tac ABSTRACT_IN_FUNSPACE >>
     simp[boolean_in_boolset] ) >>
+  simp[GSYM Const1_def] >>
   match_mp_tac (UNDISCH semantics_implies) >>
   simp[])
 
@@ -5330,7 +5311,7 @@ val semantics_implication_matchable = store_thm("semantics_implication_matchable
 
 val implication_has_type_bool = store_thm("implication_has_type_bool",
   ``∀p q. IM p q has_type Bool ⇔ p has_type Bool ∧ q has_type Bool``,
-  rw[IM_def] >>
+  rw[IM_def,Const1_def] >>
   rw[Once has_type_cases] >>
   rw[Once has_type_cases] >>
   rw[Once has_type_cases] )
@@ -5345,7 +5326,7 @@ val semantics_universal = store_thm("semantics_universal",
     semantics σ τ ^(rand(rator(rhs(concl(SPEC_ALL FA_def)))))
       (Abstract (Funspace mty boolset) boolset
         (λp. Boolean (∀x. x <: mty ⇒ p ' x = True)))``,
-  rw[] >>
+  rw[Const1_def] >>
   imp_res_tac is_model_is_set_theory >>
   simp[Once semantics_cases] >>
   Q.PAT_ABBREV_TAC`tm:term = (Abs X Y Z)` >>
@@ -5365,7 +5346,7 @@ val semantics_universal = store_thm("semantics_universal",
   simp[tyvars_def] >>
   imp_res_tac ACONV_tvars >> pop_assum (assume_tac o SYM) >>
   `tvars tm = ["A"]` by (
-    simp[Abbr`tm`,tvars_def,tyvars_def,equation_def,TT_def,LIST_UNION_def,LIST_INSERT_def] ) >>
+    simp[Abbr`tm`,tvars_def,tyvars_def,equation_def,TT_def,LIST_UNION_def,LIST_INSERT_def,Const1_def] ) >>
   simp[] >>
   qexists_tac`FEMPTY|+("A",ty)`>>simp[FLOOKUPD_def,FLOOKUP_UPDATE] >>
   match_mp_tac (MP_CANON (CONJUNCT2 (UNDISCH semantics_simple_inst))) >>
@@ -5464,7 +5445,7 @@ val semantics_forall = store_thm("semantics_forall",
     typeset τ ty mty
     ⇒
     semantics σ τ (FA x ty p) (Boolean (∀mx. mx <: mty ⇒ mp mx = True))``,
-  rw[FA_def] >>
+  rw[FA_def,Const1_def] >>
   imp_res_tac is_model_is_set_theory >>
   simp[Once semantics_cases] >>
   imp_res_tac WELLTYPED_LEMMA >>
@@ -5495,6 +5476,7 @@ val semantics_forall = store_thm("semantics_forall",
     simp[boolean_def] >>
     rw[true_neq_false] >> fs[] >>
     metis_tac[apply_abstract] ) >>
+  simp[GSYM Const1_def] >>
   match_mp_tac (UNDISCH semantics_universal) >>
   simp[])
 
@@ -5513,7 +5495,7 @@ val semantics_forall_matchable = store_thm("semantics_forall_matchable",
 
 val forall_has_type_bool = store_thm("forall_has_type_bool",
   ``FA x ty p has_type Bool ⇔ p has_type Bool``,
-  rw[FA_def] >>
+  rw[FA_def,Const1_def] >>
   rw[Once has_type_cases] >>
   rw[Once has_type_cases] >>
   rw[Once has_type_cases])
@@ -5521,7 +5503,7 @@ val forall_has_type_bool = store_thm("forall_has_type_bool",
 val semantics_falsity = store_thm("semantics_falsity",
   ``is_model M ⇒
     ∀σ τ. type_valuation τ ∧ term_valuation τ σ ⇒ semantics σ τ FF False``,
-  rw[FF_def] >>
+  rw[FF_def,Const1_def] >>
   imp_res_tac is_model_is_set_theory >>
   rw[Once semantics_cases] >>
   qexists_tac`FEMPTY` >>
@@ -5543,7 +5525,7 @@ val semantics_falsity = store_thm("semantics_falsity",
     imp_res_tac ACONV_SYM >>
     imp_res_tac ACONV_VFREE_IN >>
     pop_assum mp_tac >>
-    simp_tac(srw_ss())[Abbr`tm`,FA_def] >>
+    simp_tac(srw_ss())[Abbr`tm`,FA_def,Const1_def] >>
     PROVE_TAC[] ) >>
   qpat_assum`Bool = X`(assume_tac o SYM) >>
   conj_asm1_tac >- (
@@ -5552,7 +5534,7 @@ val semantics_falsity = store_thm("semantics_falsity",
     imp_res_tac ACONV_tvars >>
     pop_assum(mp_tac o SYM) >>
     Q.PAT_ABBREV_TAC`fm = fresh_term X Y` >>
-    simp[Abbr`tm`,FA_def,tvars_def,equation_def,tyvars_def,LIST_UNION_def] >>
+    simp[Abbr`tm`,FA_def,tvars_def,equation_def,tyvars_def,LIST_UNION_def,Const1_def] >>
     metis_tac[MEM] ) >>
   qsuff_tac`semantics FEMPTY τ tm False` >-
     metis_tac[semantics_aconv,term_valuation_FEMPTY] >>
@@ -5570,7 +5552,7 @@ val semantics_falsity = store_thm("semantics_falsity",
 
 val falsity_has_type_bool = store_thm("falsity_has_type_bool",
   ``FF has_type Bool``,
-  rw[FF_def] >> rw[Once has_type_cases])
+  rw[FF_def,Const1_def] >> rw[Once has_type_cases])
 val _ = export_rewrites["falsity_has_type_bool"]
 
 val semantics_negation = store_thm("semantics_negation",
@@ -5582,7 +5564,7 @@ val semantics_negation = store_thm("semantics_negation",
       ⇒ semantics σ τ (NO p) (Boolean (mp ≠ True))``,
   strip_tac >>
   imp_res_tac is_model_is_set_theory >>
-  rw[NO_def] >>
+  rw[NO_def,Const1_def] >>
   simp[Once semantics_cases] >>
   qexists_tac`Abstract boolset boolset (λm. Boolean (m ≠ True))` >>
   qexists_tac`mp` >>
@@ -5614,7 +5596,7 @@ val semantics_negation = store_thm("semantics_negation",
     imp_res_tac ACONV_SYM >>
     imp_res_tac ACONV_VFREE_IN >>
     pop_assum mp_tac >>
-    simp_tac(srw_ss())[Abbr`tm`,IM_def,FF_def] >>
+    simp_tac(srw_ss())[Abbr`tm`,IM_def,FF_def,Const1_def] >>
     PROVE_TAC[] ) >>
   qpat_assum`Fun Bool Bool = X`(assume_tac o SYM) >>
   conj_asm1_tac >- (
@@ -5623,7 +5605,7 @@ val semantics_negation = store_thm("semantics_negation",
     imp_res_tac ACONV_tvars >>
     pop_assum(mp_tac o SYM) >>
     Q.PAT_ABBREV_TAC`fm = fresh_term X Y` >>
-    simp[Abbr`tm`,IM_def,tvars_def,tyvars_def,LIST_UNION_def,FF_def] >>
+    simp[Abbr`tm`,IM_def,tvars_def,tyvars_def,LIST_UNION_def,FF_def,Const1_def] >>
     metis_tac[MEM] ) >>
   qmatch_abbrev_tac`semantics x y z w` >>
   qsuff_tac`semantics x y tm w` >-
@@ -5650,7 +5632,7 @@ val semantics_negation = store_thm("semantics_negation",
 
 val negation_has_type_bool = store_thm("negation_has_type_bool",
   ``NO p has_type Bool ⇔ p has_type Bool``,
-  rw[NO_def] >>
+  rw[NO_def,Const1_def] >>
   rw[Once has_type_cases] >>
   rw[Once has_type_cases])
 
@@ -5664,7 +5646,7 @@ val semantics_existential = store_thm("semantics_existential",
     semantics σ τ ^(rand(rator(rhs(concl(SPEC_ALL EX_def)))))
       (Abstract (Funspace mty boolset) boolset
         (λp. Boolean (∃x. x <: mty ∧ p ' x = True)))``,
-  rw[] >>
+  rw[Const1_def] >>
   imp_res_tac is_model_is_set_theory >>
   simp[Once semantics_cases] >>
   Q.PAT_ABBREV_TAC`tm:term = (Abs X Y Z)` >>
@@ -5682,13 +5664,13 @@ val semantics_existential = store_thm("semantics_existential",
   imp_res_tac ACONV_welltyped >>
   imp_res_tac ACONV_TYPE >> pop_assum (assume_tac o SYM) >> rfs[] >>
   `closed tm` by (
-    simp[Abbr`tm`,FA_def,IM_def] >>
+    simp[Abbr`tm`,FA_def,IM_def,Const1_def] >>
     PROVE_TAC[] ) >>
   imp_res_tac ACONV_closed >>
   simp[tyvars_def] >>
   imp_res_tac ACONV_tvars >> pop_assum (assume_tac o SYM) >>
   `tvars tm = ["A"]` by (
-    simp[Abbr`tm`,tvars_def,tyvars_def,FA_def,IM_def,LIST_UNION_def,LIST_INSERT_def] ) >>
+    simp[Abbr`tm`,tvars_def,tyvars_def,FA_def,Const1_def,IM_def,LIST_UNION_def,LIST_INSERT_def] ) >>
   simp[] >>
   qexists_tac`FEMPTY|+("A",ty)`>>simp[FLOOKUPD_def,FLOOKUP_UPDATE] >>
   match_mp_tac (MP_CANON (CONJUNCT2 (UNDISCH semantics_simple_inst))) >>
@@ -5781,7 +5763,7 @@ val semantics_exists = store_thm("semantics_exists",
     typeset τ ty mty
     ⇒
     semantics σ τ (EX x ty p) (Boolean (∃mx. mx <: mty ∧ mp mx = True))``,
-  rw[EX_def] >>
+  rw[EX_def,Const1_def] >>
   imp_res_tac is_model_is_set_theory >>
   simp[Once semantics_cases] >>
   imp_res_tac WELLTYPED_LEMMA >>
@@ -5812,6 +5794,7 @@ val semantics_exists = store_thm("semantics_exists",
     simp[boolean_def] >>
     rw[true_neq_false] >> fs[] >>
     metis_tac[apply_abstract] ) >>
+  simp[GSYM Const1_def] >>
   match_mp_tac (UNDISCH semantics_existential) >>
   simp[])
 
@@ -5830,7 +5813,7 @@ val semantics_exists_matchable = store_thm("semantics_exists_matchable",
 
 val exists_has_type_bool = store_thm("exists_has_type_bool",
   ``EX x ty p has_type Bool ⇔ p has_type Bool``,
-  rw[EX_def] >>
+  rw[EX_def,Const1_def] >>
   rw[Once has_type_cases] >>
   rw[Once has_type_cases] >>
   rw[Once has_type_cases])
@@ -5847,7 +5830,7 @@ val semantics_one_one = store_thm("semantics_one_one",
     (∀x. x <: ma ⇒ mf x <: mb)
     ⇒
     semantics σ τ (O1 a b f) (Boolean (∀x y. x <: ma ∧ y <: ma ∧ mf x = mf y ⇒ x = y))``,
-  rw[O1_def] >>
+  rw[O1_def,Const1_def] >>
   imp_res_tac is_model_is_set_theory >>
   rw[Once semantics_cases] >>
   imp_res_tac WELLTYPED_LEMMA >>
@@ -5880,13 +5863,13 @@ val semantics_one_one = store_thm("semantics_one_one",
   imp_res_tac ACONV_welltyped >>
   imp_res_tac ACONV_TYPE >> pop_assum (assume_tac o SYM) >> rfs[] >>
   `closed tm` by (
-    simp[Abbr`tm`,FA_def,IM_def,vfree_in_equation] >>
+    simp[Abbr`tm`,FA_def,IM_def,Const1_def,vfree_in_equation] >>
     PROVE_TAC[] ) >>
   imp_res_tac ACONV_closed >>
   simp[tyvars_def] >>
   imp_res_tac ACONV_tvars >> pop_assum (assume_tac o SYM) >>
   `tvars tm = ["B";"A"]` by (
-    simp[Abbr`tm`,tvars_def,FA_def,IM_def,equation_def,tyvars_def,LIST_UNION_def,LIST_INSERT_def] ) >>
+    simp[Abbr`tm`,tvars_def,FA_def,IM_def,Const1_def,equation_def,tyvars_def,LIST_UNION_def,LIST_INSERT_def] ) >>
   simp[] >>
   qexists_tac`FEMPTY|+("A",a)|+("B",b)`>>simp[FLOOKUPD_def,FLOOKUP_UPDATE] >>
   match_mp_tac (MP_CANON (CONJUNCT2 (UNDISCH semantics_simple_inst))) >>
@@ -5989,7 +5972,7 @@ val semantics_one_one = store_thm("semantics_one_one",
 
 val one_one_has_type_bool = store_thm("one_one_has_type_bool",
   ``O1 a b f has_type Bool ⇔ f has_type (Fun a b)``,
-  rw[O1_def] >>
+  rw[O1_def,Const1_def] >>
   rw[Once has_type_cases] >>
   rw[Once has_type_cases])
 
@@ -6005,7 +5988,7 @@ val semantics_onto = store_thm("semantics_onto",
     (∀x. x <: ma ⇒ mf x <: mb)
     ⇒
     semantics σ τ (OT a b f) (Boolean (∀y. y <: mb ⇒ ∃x. x <: ma ∧ y = mf x))``,
-  rw[OT_def] >>
+  rw[OT_def,Const1_def] >>
   imp_res_tac is_model_is_set_theory >>
   rw[Once semantics_cases] >>
   imp_res_tac WELLTYPED_LEMMA >>
@@ -6038,13 +6021,13 @@ val semantics_onto = store_thm("semantics_onto",
   imp_res_tac ACONV_welltyped >>
   imp_res_tac ACONV_TYPE >> pop_assum (assume_tac o SYM) >> rfs[] >>
   `closed tm` by (
-    simp[Abbr`tm`,EX_def,FA_def,vfree_in_equation] >>
+    simp[Abbr`tm`,EX_def,FA_def,Const1_def,vfree_in_equation] >>
     PROVE_TAC[] ) >>
   imp_res_tac ACONV_closed >>
   simp[tyvars_def] >>
   imp_res_tac ACONV_tvars >> pop_assum (assume_tac o SYM) >>
   `tvars tm = ["B";"A"]` by (
-    simp[Abbr`tm`,tvars_def,FA_def,EX_def,equation_def,tyvars_def,LIST_UNION_def,LIST_INSERT_def] ) >>
+    simp[Abbr`tm`,tvars_def,FA_def,EX_def,Const1_def,equation_def,tyvars_def,LIST_UNION_def,LIST_INSERT_def] ) >>
   simp[] >>
   qexists_tac`FEMPTY|+("A",a)|+("B",b)`>>simp[FLOOKUPD_def,FLOOKUP_UPDATE] >>
   match_mp_tac (MP_CANON (CONJUNCT2 (UNDISCH semantics_simple_inst))) >>
@@ -6133,7 +6116,7 @@ val semantics_onto = store_thm("semantics_onto",
 
 val onto_has_type_bool = store_thm("onto_has_type_bool",
   ``OT a b f has_type Bool ⇔ f has_type (Fun a b)``,
-  rw[OT_def] >>
+  rw[OT_def,Const1_def] >>
   rw[Once has_type_cases] >>
   rw[Once has_type_cases])
 
@@ -6152,7 +6135,7 @@ val INFINITY_AX_correct = store_thm("INFINITY_AX_correct",
     first_x_assum(qspecl_then[`FEMPTY`,`FEMPTY`]mp_tac) >>
     simp[] >>
     discharge_hyps >- (
-      simp[EX_def,AN_def,O1_def,NO_def,OT_def,tyvars_def] ) >>
+      simp[EX_def,Const1_def,AN_def,O1_def,NO_def,OT_def,tyvars_def] ) >>
     rw[] >>
     ntac 2 (qexists_tac`FEMPTY`) >>
     HINT_EXISTS_TAC >>
@@ -6296,7 +6279,7 @@ val soundness = store_thm("soundness",
   conj_tac >- metis_tac[DEDUCT_ANTISYM_correct] >>
   conj_tac >- metis_tac[INST_TYPE_correct] >>
   conj_tac >- metis_tac[INST_correct] >>
-  conj_tac >- metis_tac[new_basic_definition_correct] >>
+  conj_tac >- metis_tac[SIMP_RULE(srw_ss())[LET_THM]new_specification_correct] >>
   conj_tac >- metis_tac[new_basic_type_definition_correct] >>
   conj_tac >- metis_tac[new_basic_type_definition_correct] >>
   conj_tac >- (
@@ -6317,8 +6300,6 @@ val consistency = store_thm("consistency",
   conj_tac >- (
     simp[Once proves_cases] >>
     disj1_tac >>
-    qexists_tac`Var x Bool` >>
-    simp[] >>
     simp[Once proves_cases] >>
     disj1_tac >>
     simp[Once proves_cases] ) >>
