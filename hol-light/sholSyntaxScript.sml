@@ -16,7 +16,7 @@ val _ = Hol_datatype`
     | Tydefined of string => term
   ; const_tag
     = Prim
-    | Defined of term list => term
+    | Defined of num => term list => term
     | Tyabs of string => term
     | Tyrep of string => term`
 
@@ -546,7 +546,7 @@ val _ = Parse.add_infix("|-",450,Parse.NONASSOC)
 val _ = Parse.overload_on("closed",``λt. ∀n ty. ¬VFREE_IN (Var n ty) t``)
 
 val Const1_def = Define`
-  Const1 name ty rhs = Const name ty (Defined [Var name ty === rhs] (Var name ty === rhs))`
+  Const1 name ty rhs = Const name ty (Defined 0 [Var name ty === rhs] (Var name ty === rhs))`
 
 val pid = ``Abs "p" Bool (Var "p" Bool)``
 val TT_def = Define `TT = Const1 "T" Bool (^pid === ^pid)`
@@ -684,7 +684,7 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
      vars eqs ∧
    ALL_DISTINCT vars ∧
    (∀x ty. VFREE_IN (Var x ty) p ⇒ MEM (x,ty) vars) ∧
-   (ilist = MAP (λ(x,ty). (Const x ty (Defined eqs p) ,Var x ty)) vars)
+   (ilist = GENLIST (λn. let (x,ty) = EL n vars in (Const x ty (Defined n eqs p), Var x ty)) (LENGTH eqs))
    ⇒
    [] |- VSUBST ilist p)
 ∧ (* new_basic_type_definition |- abs (rep x) = x *)

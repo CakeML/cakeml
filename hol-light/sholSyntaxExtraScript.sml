@@ -2,13 +2,18 @@ open HolKernel boolLib boolSimps bossLib lcsymtacs sholSyntaxTheory miscLib
 open SatisfySimps miscTheory pairTheory listTheory pred_setTheory finite_mapTheory alistTheory sortingTheory stringTheory relationTheory holSyntaxLibTheory
 val _ = new_theory"sholSyntaxExtra"
 
+val equation_11 = store_thm("equation_11",
+  ``l1 === r1 = l2 === r2 ⇔ l1 = l2 ∧ r1 = r2``,
+  rw[equation_def,EQ_IMP_THM])
+val _ = export_rewrites["equation_11"]
+
 val vfree_in_equation = store_thm("vfree_in_equation",
   ``VFREE_IN v (s === t) ⇔ (v = Equal (typeof s)) ∨ VFREE_IN v s ∨ VFREE_IN v t``,
   rw[equation_def,VFREE_IN_def] >> metis_tac[])
 
 val type_ind = save_thm("type_ind",
   TypeBase.induction_of``:type``
-  |> Q.SPECL[`K T`,`P`,`K T`,`K T`,`EVERY P`]
+  |> Q.SPECL[`K T`,`P`,`K T`,`K T`,`EVERY P`,`K T`]
   |> SIMP_RULE std_ss [EVERY_DEF]
   |> UNDISCH_ALL
   |> CONJUNCT1
