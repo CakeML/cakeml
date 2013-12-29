@@ -532,18 +532,18 @@ val tvars_def = Define`
   (tvars (Abs n ty t) = LIST_UNION (tyvars ty) (tvars t))`
 
 val _ = Hol_datatype`def
-  = Constdef of string => term
+  = Constdef of (string # term) list => term
   | Typedef of string => term => string => string`
 
 val types_aux_def = Define`
-  (types_aux (Constdef s t) = []) /\
+  (types_aux (Constdef eqs p) = []) /\
   (types_aux (Typedef tyname t a r) = [(tyname,LENGTH (tvars t))])`
 
 val types_def = Define
  `types defs = FLAT (MAP types_aux defs)++[("ind",0);("bool",0);("fun",2)]`
 
 val consts_aux_def = Define
- `(consts_aux (Constdef s t) = [(s,typeof t)]) /\
+ `(consts_aux (Constdef eqs p) = MAP (\(s,t). (s, typeof t)) eqs) /\
   (consts_aux (Typedef tyname t a r) =
      let rep_type = domain (typeof t) in
      let abs_type = Tyapp tyname (MAP Tyvar (STRING_SORT (tvars t))) in
@@ -564,6 +564,8 @@ val _ = Parse.overload_on("Implies",``λp1 p2. Comb (Comb (Const "==>" (Fun Bool
 val _ = Parse.overload_on("Not",``λp. Comb (Const "~" (Fun Bool Bool)) p``)
 val _ = Parse.overload_on("One_One",``λa b f. Comb (Const "ONE_ONE" (Fun (Fun a b) Bool)) f``)
 val _ = Parse.overload_on("Onto",``λa b f. Comb (Const "ONTO" (Fun (Fun a b) Bool)) f``)
+
+val _ = Parse.overload_on("CD1",``λn t. Constdef [(n,t)] (Var n (typeof t) === t)``)
 
 val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"
  `(!n defs. context_ok defs ==> type_ok defs (Tyvar n)) /\
@@ -619,15 +621,20 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"
                                             term_ok defs s') /\
         (defs, asl) |- p
         ==> (defs, MAP (VSUBST ilist) asl) |- VSUBST ilist p) /\
-  (!asl p s t defs.
+  (!asl p eqs c defs.
         (defs, asl) |- p /\
-        CLOSED t /\ welltyped t /\ term_ok defs t /\
-        ~(MEM s (MAP FST (consts defs))) /\
-        (!v. MEM v (tvars t) ==> MEM v (tyvars (typeof t)))
-        ==> (CONS (Constdef s t) defs, asl) |- p) /\
-  (!n t defs.
-        context_ok defs /\ MEM (Constdef n t) defs
-        ==> (defs, []) |- Const n (typeof t) === t) /\
+        (defs, MAP (\(s,t). Var s (typeof t) === t) eqs) |- c /\
+        EVERY
+          (\t. CLOSED t /\
+               (!v. MEM v (tvars t) ==> MEM v (tyvars (typeof t))))
+          (MAP SND eqs) /\
+        (!x ty. VFREE_IN (Var x ty) c ==> MEM (x,ty) (MAP (\(s,t). (s,typeof t)) eqs)) /\
+        ALL_DISTINCT (MAP FST eqs ++ MAP FST (consts defs))
+        ==> (CONS (Constdef eqs c) defs, asl) |- p) /\
+  (!eqs p ilist defs.
+        context_ok defs /\ MEM (Constdef eqs p) defs /\
+        (ilist = MAP (\(s,t). (Const s (typeof t),Var s (typeof t))) eqs)
+        ==> (defs, []) |- VSUBST ilist p) /\
   (!asl p tyname t a r defs x rep_type abs_type y d.
         (d = Typedef tyname t a r) /\
         (abs_type = Tyapp tyname (MAP Tyvar (STRING_SORT (tvars t)))) /\
@@ -656,29 +663,29 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"
      ==> (defs,asl) |- Comb p (Comb (Select ty) p)) /\
   (!defs.
     context_ok defs ∧
-    MEM (Constdef "T" (Abs "p" Bool (Var "p" Bool) === Abs "p" Bool (Var "p" Bool))) defs ∧
-    MEM (Constdef "/\\" (Abs "p" Bool
+    MEM (CD1 "T" (Abs "p" Bool (Var "p" Bool) === Abs "p" Bool (Var "p" Bool))) defs ∧
+    MEM (CD1 "/\\" (Abs "p" Bool
                           (Abs "q" Bool
                             (Abs "f" (Fun Bool (Fun Bool Bool))
                               (Comb (Comb (Var "f" (Fun Bool (Fun Bool Bool))) (Var "p" Bool)) (Var "q" Bool))
                              ===
                              Abs "f" (Fun Bool (Fun Bool Bool))
                                (Comb (Comb (Var "f" (Fun Bool (Fun Bool Bool))) Truth) Truth))))) defs ∧
-    MEM (Constdef "==>" (Abs "p" Bool
+    MEM (CD1 "==>" (Abs "p" Bool
                           (Abs "q" Bool
                             (And (Var "p" Bool) (Var "q" Bool) === Var "p" Bool)))) defs ∧
-    MEM (Constdef "!" (Abs "P" (Fun (Tyvar "A") Bool)
+    MEM (CD1 "!" (Abs "P" (Fun (Tyvar "A") Bool)
                         (Var "P" (Fun (Tyvar "A") Bool) === Abs "x" (Tyvar "A") Truth))) defs ∧
-    MEM (Constdef "?" (Abs "P" (Fun (Tyvar "A") Bool)
+    MEM (CD1 "?" (Abs "P" (Fun (Tyvar "A") Bool)
                         (Forall "q" Bool
                           (Implies
                             (Forall "x" (Tyvar "A")
                               (Implies (Comb (Var "P" (Fun (Tyvar "A") Bool)) (Var "x" (Tyvar "A")))
                                        (Var "q" Bool)))
                             (Var "q" Bool))))) defs ∧
-    MEM (Constdef "F" (Forall "p" Bool (Var "p" Bool))) defs ∧
-    MEM (Constdef "~" (Abs "p" Bool (Implies (Var "p" Bool) Falsity))) defs ∧
-    MEM (Constdef "ONE_ONE"
+    MEM (CD1 "F" (Forall "p" Bool (Var "p" Bool))) defs ∧
+    MEM (CD1 "~" (Abs "p" Bool (Implies (Var "p" Bool) Falsity))) defs ∧
+    MEM (CD1 "ONE_ONE"
           (Abs "f" (Fun (Tyvar "A") (Tyvar "B"))
             (Forall "x1" (Tyvar "A")
               (Forall "x2" (Tyvar "A")
@@ -689,7 +696,7 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"
                   (Var "x1" (Tyvar "A")
                    ===
                    Var "x2" (Tyvar "A"))))))) defs ∧
-    MEM (Constdef "ONTO"
+    MEM (CD1 "ONTO"
           (Abs "f" (Fun (Tyvar "A") (Tyvar "B"))
             (Forall "y" (Tyvar "B")
               (Exists "x" (Tyvar "A")
