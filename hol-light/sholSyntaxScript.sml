@@ -545,8 +545,9 @@ val _ = Parse.add_infix("|-",450,Parse.NONASSOC)
 
 val _ = Parse.overload_on("closed",``λt. ∀n ty. ¬VFREE_IN (Var n ty) t``)
 
-val Const1_def = Define`
-  Const1 name ty rhs = Const name ty (Defined 0 [Var name ty === rhs] (Var name ty === rhs))`
+val typeof_shadow_def = Define`typeof_shadow = typeof`
+val _ = Parse.overload_on("Const1",``λname ty rhs.
+  Const name ty (Defined 0 [Var name (typeof_shadow rhs) === rhs] (Var name (typeof_shadow rhs) === rhs))``)
 
 val pid = ``Abs "p" Bool (Var "p" Bool)``
 val TT_def = Define `TT = Const1 "T" Bool (^pid === ^pid)`
