@@ -33,15 +33,22 @@ val op \\ = op THEN;
 
 (* -- part 1 -- *)
 
+val _ = Hol_datatype`
+  deftag = Consttag of num => (string # holSyntax$term) list => holSyntax$term
+         | Abstag of holSyntax$term
+         | Reptag of holSyntax$term`
+
 val const_def_def = Define `
   const_def n defs =
     case defs of
     | [] => NONE
-    | (Constdef name tm::defs) =>
-         if n = name then SOME (0,tm) else const_def n defs
+    | (Constdef eqs p::defs) =>
+         (case find_index n (MAP FST eqs) 0 of
+         | SOME i => SOME (Consttag i eqs p)
+         | NONE => const_def n defs)
     | (Typedef name tm abs rep::defs) =>
-         if n = abs then SOME (1,tm) else
-         if n = rep then SOME (2,tm) else const_def n defs
+         if n = abs then SOME (Abstag tm) else
+         if n = rep then SOME (Reptag tm) else const_def n defs
     | d::defs => const_def n defs`
 
 val type_def_def = Define `
@@ -77,16 +84,18 @@ val (term_rules,term_ind,term_cases) = xHol_reln "term" `
   (type defs ty ty1 /\ term defs x x1 ==>
    term defs (Abs s ty x) (Abs s ty1 x1)) /\
   (type defs ty ty1 /\
-   (const_def s defs = SOME (0,tm)) /\ term defs tm tm1 ==>
-   term defs (Const s ty) (Const s ty1 (Defined tm1))) /\
+   (const_def s defs = SOME (Consttag i eqs p)) /\
+   LIST_REL (λ(s,t) e. term defs (Var s (typeof t) === t) e) eqs eqs1 /\
+   term defs p p1 ==>
+   term defs (Const s ty) (Const s ty1 (Defined i eqs1 p1))) /\
   (type defs ty ty1 /\
-   (const_def s defs = SOME (1,tm)) /\
+   (const_def s defs = SOME (Abstag tm)) /\
    (type_def n defs = SOME (tm,s,s')) /\
    (∀tm n' s'. (MEM (Typedef n' tm s s') defs) ⇒ (n' = n)) /\
    term defs tm tm1 ==>
    term defs (Const s ty) (Const s ty1 (Tyabs n tm1))) /\
   (type defs ty ty1 /\
-   (const_def s defs = SOME (2,tm)) /\
+   (const_def s defs = SOME (Reptag tm)) /\
    (type_def n defs = SOME (tm,s',s)) /\
    (∀tm n' s'. (MEM (Typedef n' tm s' s) defs) ⇒ (n' = n)) /\
    term defs tm tm1 ==>
@@ -116,19 +125,27 @@ val type_def_MEM = prove(
   Cases >> simp[] >> rw[])
 
 val const_def_MEM_0 = prove(
-  ``∀defs n tm. const_def n defs = SOME (0,tm) ⇒ MEM (Constdef n tm) defs``,
+  ``∀defs n i eqs tm. const_def n defs = SOME (Consttag i eqs tm) ⇒
+      MEM (Constdef eqs tm) defs ∧
+      find_index n (MAP FST eqs) 0 = SOME i``,
   Induct >> simp[Once const_def_def] >>
-  Cases >> simp[] >> rw[])
+  Cases >> simp[] >> rw[] >>
+  TRY(pop_assum mp_tac >> BasicProvers.CASE_TAC) >>
+  METIS_TAC[])
 
 val const_def_MEM_1 = prove(
-  ``∀defs n tm. const_def n defs = SOME (1,tm) ⇒ ∃x y z. MEM (Typedef x y n z) defs``,
+  ``∀defs n tm. const_def n defs = SOME (Abstag tm) ⇒ ∃x y z. MEM (Typedef x y n z) defs``,
   Induct >> simp[Once const_def_def] >>
-  Cases >> simp[] >> rw[] >> METIS_TAC[])
+  Cases >> simp[] >> rw[] >>
+  TRY(pop_assum mp_tac >> BasicProvers.CASE_TAC) >>
+  METIS_TAC[])
 
 val const_def_MEM_2 = prove(
-  ``∀defs n m tm. const_def n defs = SOME (m,tm) ∧ m ≠ 0 ∧ m ≠ 1 ⇒ ∃x y z. MEM (Typedef x y z n) defs``,
+  ``∀defs n m tm. const_def n defs = SOME (Reptag tm) ⇒ ∃x y z. MEM (Typedef x y z n) defs``,
   Induct >> simp[Once const_def_def] >>
-  Cases >> simp[] >> rw[] >> METIS_TAC[])
+  Cases >> simp[] >> rw[] >>
+  TRY(pop_assum mp_tac >> BasicProvers.CASE_TAC) >>
+  METIS_TAC[])
 
 val MEM_Typedef_MEM_types = store_thm("MEM_Typedef_MEM_types",
   ``∀defs n tm a r. MEM (Typedef n tm a r) defs ⇒
@@ -149,15 +166,14 @@ val MEM_Typedef_MEM_consts = store_thm("MEM_Typedef_MEM_consts",
   METIS_TAC[])
 
 val MEM_Constdef_MEM_consts = prove(
-  ``∀defs n tm. MEM (Constdef n tm) defs ⇒
+  ``∀defs n eqs tm. MEM (Constdef eqs tm) defs ∧ MEM n (MAP FST eqs) ⇒
     MEM n (MAP FST (FLAT (MAP consts_aux defs)))``,
   Induct >> simp[] >>
   rw[consts_def,consts_aux_def] >>
   rw[consts_def,consts_aux_def] >>
   fs[consts_def] >>
+  fs[MEM_MAP,EXISTS_PROD] >>
   METIS_TAC[])
-
-val neq210 = prove(``2:int ≠ 0 ∧ 2 ≠ 1``,simp[])
 
 val good_defs_imp = store_thm("good_defs_imp",
   ``good_defs defs ⇒
@@ -170,16 +186,16 @@ val good_defs_imp = store_thm("good_defs_imp",
   qmatch_abbrev_tac`X = NONE` >>
   Cases_on`X` >> fs[markerTheory.Abbrev_def] >>
   pop_assum (assume_tac o SYM) >>
-  PairCases_on`x` >>
+  (PairCases_on`x` ORELSE Cases_on`x`)>>
   imp_res_tac type_def_MEM >>
   imp_res_tac MEM_Typedef_MEM_types >>
-  TRY (Cases_on`x0 = 0` >> Cases_on`x0 = 1`) >>
   fs[] >> rfs[] >>
   imp_res_tac const_def_MEM_0 >>
   imp_res_tac const_def_MEM_1 >>
   imp_res_tac const_def_MEM_2 >>
   imp_res_tac MEM_Constdef_MEM_consts >>
   imp_res_tac MEM_Typedef_MEM_consts >>
+  imp_res_tac find_index_is_MEM >>
   fs[] >> rfs[] >>
   fs[types_def,consts_def,ALL_DISTINCT_APPEND] >>
   METIS_TAC[])
@@ -201,9 +217,14 @@ val term_type_11 = prove(
     fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
     rw[LIST_EQ_REWRITE] >> rfs[MEM_ZIP] >> fs[MEM_ZIP] >>
     METIS_TAC[] )
-  >> (strip_tac >> simp[Once term_cases] >> rw[] >> rfs[] >>
-    METIS_TAC[type_def_MEM,const_def_MEM_1,const_def_MEM_2,neq210
-             ,const_def_MEM_0,MEM_Constdef_MEM_consts,MEM_Typedef_MEM_consts]))
+  >> strip_tac >> simp[Once term_cases] >> rw[] >> rfs[] >>
+  TRY (
+    fs[EVERY_MEM,EVERY2_EVERY,LIST_EQ_REWRITE] >>
+    rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
+    fs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
+    fs[UNCURRY] >> NO_TAC) >>
+  METIS_TAC[type_def_MEM,const_def_MEM_1,const_def_MEM_2
+           ,const_def_MEM_0,MEM_Constdef_MEM_consts,MEM_Typedef_MEM_consts])
 
 val term_type_11_inv = prove(
   ``∀defs. good_defs defs ⇒
@@ -348,7 +369,14 @@ val RACONV_IMP = prove(
        simp_tac(srw_ss()++ARITH_ss)[] >>
        strip_tac ) >>
      rpt BasicProvers.VAR_EQ_TAC >> rfs[] >>
-     metis_tac[term_type_11,const_def_MEM_1,const_def_MEM_2,const_def_MEM_0,neq210
+     TRY (
+       fs[EVERY_MEM,EVERY2_EVERY,LIST_EQ_REWRITE] >>
+       rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
+       fs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
+       fs[UNCURRY,EL_MAP] >>
+       rfs[UNCURRY,EL_MAP] >>
+       metis_tac[term_type_11] ) >>
+     metis_tac[term_type_11,const_def_MEM_1,const_def_MEM_2,const_def_MEM_0
      ,MEM_Constdef_MEM_consts,MEM_Typedef_MEM_consts,MEM_Typedef_MEM_types,type_def_MEM] ) >>
    fs[Q.SPEC`Abs X Y Z`(CONJUNCT2 (SPEC_ALL term_cases))] >>
    rw[RACONV] >- metis_tac[term_type_11] >>
@@ -487,7 +515,7 @@ val LIST_REL_term_FILTER_ACONV = prove(
   METIS_TAC[ACONV_IMP,ACONV_IMP_inv])
 
 val safe_def_names_def = Define`
-  (safe_def_names defs (Constdef n t) ⇔ n ∉ set (MAP FST (consts defs))) ∧
+  (safe_def_names defs (Constdef eqs p) ⇔ DISJOINT (set (MAP FST eqs)) (set (MAP FST (consts defs)))) ∧
   (safe_def_names defs (Typedef n t a r) ⇔
     n ∉ set (MAP FST (types defs)) ∧
     a ∉ set (MAP FST (consts defs)) ∧
@@ -511,24 +539,32 @@ val term_type_cons = prove(
     first_x_assum match_mp_tac >>
     rw[safe_def_names_def] )
   >- (
+    qexists_tac`eqs` >>
     qexists_tac`tm` >>
-    reverse conj_tac >- METIS_TAC[] >>
+    res_tac >> simp[] >>
+    reverse conj_tac >- (
+      fs[EVERY2_EVERY,EVERY_MEM] >>
+      rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,UNCURRY] ) >>
     Cases_on`d`>>simp[Once const_def_def] >>
-    rw[] >>
+    BasicProvers.CASE_TAC >> rw[] >>
     imp_res_tac const_def_MEM_0 >>
+    imp_res_tac find_index_is_MEM >>
     imp_res_tac MEM_Constdef_MEM_consts >>
     fs[safe_def_names_def,consts_def] >>
-    rw[] >> fs[] )
+    rw[] >> fs[pred_setTheory.IN_DISJOINT] >>
+    METIS_TAC[])
   >- (
     qexists_tac`s'` >> qexists_tac`tm` >>
     imp_res_tac const_def_MEM_1 >>
     imp_res_tac MEM_Typedef_MEM_consts >>
     res_tac >> simp[] >>
     Cases_on`d`>>simp[Once const_def_def] >>
+    BasicProvers.CASE_TAC >>
     rw[] >> rw[Once type_def_def] >>
-    fs[safe_def_names_def] >>
+    fs[safe_def_names_def,pred_setTheory.IN_DISJOINT] >>
     imp_res_tac type_def_MEM >>
     imp_res_tac MEM_Typedef_MEM_types >>
+    imp_res_tac find_index_is_MEM >>
     fs[types_def,consts_def] >> rw[] >>
     METIS_TAC[])
   >- (
@@ -538,10 +574,12 @@ val term_type_cons = prove(
     imp_res_tac MEM_Typedef_MEM_consts >>
     res_tac >> simp[] >>
     Cases_on`d`>>simp[Once const_def_def] >>
+    BasicProvers.CASE_TAC >>
     rw[] >> rw[Once type_def_def] >>
-    fs[safe_def_names_def] >>
+    fs[safe_def_names_def,pred_setTheory.IN_DISJOINT] >>
     imp_res_tac type_def_MEM >>
     imp_res_tac MEM_Typedef_MEM_types >>
+    imp_res_tac find_index_is_MEM >>
     fs[types_def,consts_def] >> rw[] >>
     METIS_TAC[const_def_MEM_2]))
 
@@ -1012,16 +1050,28 @@ val INST_FILTER = store_thm("INST_FILTER",
   rw[])
 
 val MEM_Constdef_const_def = store_thm("MEM_Constdef_const_def",
-  ``∀defs n t. ALL_DISTINCT (MAP FST (consts defs)) ∧ MEM (Constdef n t) defs ⇒ const_def n defs = SOME (0,t)``,
+  ``∀defs n i eqs p.
+    ALL_DISTINCT (MAP FST (consts defs)) ∧
+    MEM (Constdef eqs p) defs ∧
+    find_index n (MAP FST eqs) 0 = SOME i
+    ⇒ const_def n defs = SOME (Consttag i eqs p)``,
   Induct >> simp[] >>
   Cases >> simp[consts_def,consts_aux_def] >>
-  rw[Once const_def_def] >>
+  rw[Once const_def_def] >> simp[] >>
   imp_res_tac MEM_Constdef_MEM_consts >>
   fs[consts_def] >> fs[] >>
+  TRY(BasicProvers.CASE_TAC)>>
   spose_not_then strip_assume_tac >>
   res_tac >>
   imp_res_tac MEM_Constdef_MEM_consts >>
-  fs[consts_def] >> fs[] )
+  imp_res_tac find_index_is_MEM >>
+  fs[consts_def] >> fs[] >>
+  fs[ALL_DISTINCT_APPEND] >-
+    METIS_TAC[] >>
+  fs[MEM_MAP,GSYM LEFT_FORALL_IMP_THM,FORALL_PROD,EXISTS_PROD,MEM_FLAT] >>
+  res_tac >>
+  fs[consts_aux_def] >>
+  METIS_TAC[])
 
 val term_subterm = prove(
   ``∀tm defs tm1 t0. good_defs defs ∧ term defs tm tm1 ∧ VFREE_IN t0 tm ⇒ ∃t1. term defs t0 t1 ∧ VFREE_IN t1 tm1``,
@@ -1132,11 +1182,13 @@ val TERM_UNION_FILTER_NIL = store_thm("TERM_UNION_FILTER_NIL",
 val _ = export_rewrites["TERM_UNION_FILTER_NIL"]
 
 val def_ok_def = Define`
-  (def_ok (Constdef n t) ⇔ CLOSED t ∧ set (tvars t) ⊆ set (tyvars (typeof t))) ∧
+  (def_ok (Constdef eqs p) ⇔
+    EVERY (λt. CLOSED t ∧ set (tvars t) ⊆ set (tyvars (typeof t)))
+     (MAP SND eqs)) ∧
   (def_ok (Typedef n t a r) ⇔ ∃rty. CLOSED t ∧ t has_type Fun rty Bool)`
 
 val deftm_def = Define`
-  deftm (Constdef n t) = [t;Const n (typeof t)] ∧
+  deftm (Constdef eqs p) = MAP SND eqs ++ MAP (λ(s,t).Const s (typeof t)) eqs ∧
   deftm (Typedef n t a r) =
   let rty = domain(typeof t) in
   let aty = Tyapp n (MAP Tyvar (STRING_SORT (tvars t))) in
@@ -1145,33 +1197,38 @@ val deftm_def = Define`
 val defcnds_ok_def = Define`
   (defcnds_ok [] ⇔ T) ∧
   (defcnds_ok ((Typedef _ t _ _)::defs) ⇔ (∃w. (defs,[]) |- Comb t w) ∧ defcnds_ok defs) ∧
-  (defcnds_ok ((Constdef _ t)::defs) ⇔ term_ok defs t ∧ defcnds_ok defs)`
+  (defcnds_ok ((Constdef eqs p)::defs) ⇔ term_ok defs p ∧ EVERY (term_ok defs) (MAP SND eqs) ∧ defcnds_ok defs)`
 
 fun memdef n =
   last(CONJUNCTS holSyntaxTheory.proves_rules)
   |> SPEC_ALL |> concl |> dest_imp |> fst |> strip_conj
   |> C (curry List.nth) n
 
+val term_equation_matchable = store_thm("term_equation_matchable",
+  ``∀z x y x1 y1 defs.
+    z = x1 === y1 ∧ term defs x x1 ∧ term defs y y1 ∧ x === y has_type Bool ∧ good_defs defs
+    ⇒ term defs (x === y) z``,
+  METIS_TAC[term_equation])
+
 val term_Truth = store_thm("term_Truth",
   ``good_defs defs ∧ ^(memdef 1)
     ⇒
     term defs Truth TT``,
-    rw[good_defs_def] >>
-    simp[Once term_cases,TT_def] >>
+  rw[good_defs_def] >>
+  simp[Once term_cases,TT_def] >>
+  simp[Once term_cases,typeof_shadow_def] >>
+  simp[PULL_EXISTS,EXISTS_PROD] >>
+  qspecl_then[`defs`,`"T"`]imp_res_tac MEM_Constdef_const_def >>
+  fs[find_index_def] >>
+  match_mp_tac term_equation_matchable >>
+  simp[good_defs_def,holSyntaxTheory.EQUATION_HAS_TYPE_BOOL,welltyped_equation] >>
+  conj_tac >- (
     simp[Once term_cases] >>
-    qspecl_then[`defs`,`"T"`]imp_res_tac MEM_Constdef_const_def >>
-    simp[] >>
-    Q.PAT_ABBREV_TAC`p1 = holSyntax$Abs XX Y Z` >>
-    Q.PAT_ABBREV_TAC`p2 = Abs XX Y Z` >>
-    qspecl_then[`p1`,`p1`,`p2===p2`]mp_tac term_equation >>
-    discharge_hyps >- (
-      simp[Abbr`p1`,holSyntaxTheory.EQUATION_HAS_TYPE_BOOL,good_defs_def] ) >>
-    simp[] >> disch_then kall_tac >>
-    map_every qexists_tac[`p2`,`p2`] >>
-    simp[Abbr`p2`,Abbr`p1`,Once term_cases] >>
-    simp[Once term_cases] >>
-    simp[Once term_cases] >>
-    simp[Once term_cases] )
+    simp[Once term_cases,holSyntaxTheory.equation_def,typeof_shadow_def] >>
+    simp[Once term_cases,equation_def] ) >>
+  match_mp_tac term_equation_matchable >>
+  simp[holSyntaxTheory.EQUATION_HAS_TYPE_BOOL,good_defs_def] >>
+  rpt (simp[Once term_cases]))
 
 val term_And = store_thm("term_And",
   ``good_defs defs ∧
@@ -1185,24 +1242,27 @@ val term_And = store_thm("term_And",
   imp_res_tac holSyntaxTheory.WELLTYPED_LEMMA >>
   simp[Once term_cases,AN_def,holSyntaxTheory.WELLTYPED] >>
   ntac 4 (simp[Once term_cases]) >>
-  imp_res_tac MEM_Constdef_const_def >> simp[] >>
-  ntac 6 (simp[Once term_cases]) >>
-  Q.PAT_ABBREV_TAC`l1 = holSyntax$Abs XX Y Z` >>
-  Q.PAT_ABBREV_TAC`l2 = Abs XX Y Z` >>
-  Q.PAT_ABBREV_TAC`r1 = holSyntax$Abs XX Y Z` >>
-  Q.PAT_ABBREV_TAC`r2 = Abs XX Y Z` >>
-  qspecl_then[`l1`,`r1`,`l2===r2`]mp_tac term_equation >>
-  discharge_hyps >- (
-    simp[Abbr`l1`,Abbr`r1`,holSyntaxTheory.EQUATION_HAS_TYPE_BOOL,good_defs_def] ) >>
-  simp[] >> disch_then kall_tac >>
-  simp[PULL_EXISTS] >>
-  map_every qexists_tac[`l2`,`r2`] >>
-  simp[holSyntaxTheory.WELLTYPED] >>
-  unabbrev_all_tac >>
-  ntac 28 (simp[Once term_cases]) >>
+  imp_res_tac MEM_Constdef_const_def >>
+  fs[find_index_def] >>
+  ntac 2 (simp[Once term_cases]) >>
+  simp[holSyntaxTheory.WELLTYPED,typeof_shadow_def] >>
   conj_tac >- (
-    match_mp_tac term_Truth >>
-    simp[good_defs_def] ) >>
+    match_mp_tac term_equation_matchable >>
+    simp[] >>
+    ntac 5 (simp[Once term_cases]) >>
+    conj_tac >- (
+      simp[holSyntaxTheory.equation_def] >>
+      simp[Once term_cases,equation_def] ) >>
+    simp[good_defs_def,holSyntaxTheory.EQUATION_HAS_TYPE_BOOL,welltyped_equation] >>
+    ntac 4 (simp[Once term_cases]) >>
+    match_mp_tac term_equation_matchable >>
+    simp[] >>
+    ntac 28 (simp[Once term_cases]) >>
+    conj_tac >- (
+      match_mp_tac term_Truth >>
+      simp[good_defs_def] ) >>
+    simp[good_defs_def] >>
+    simp[holSyntaxTheory.EQUATION_HAS_TYPE_BOOL] ) >>
   simp[Once holSyntaxTheory.has_type_cases] >>
   simp[Once holSyntaxTheory.has_type_cases] )
 
@@ -1216,26 +1276,26 @@ val term_Implies = store_thm("term_Implies",
   imp_res_tac holSyntaxTheory.WELLTYPED_LEMMA >>
   simp[Once term_cases,IM_def,holSyntaxTheory.WELLTYPED] >>
   ntac 6 (simp[Once term_cases]) >>
-  imp_res_tac MEM_Constdef_const_def >> simp[] >>
-  ntac 4 (simp[Once term_cases]) >>
-  reverse conj_tac >- (
-    simp[Once holSyntaxTheory.has_type_cases] >>
-    simp[Once holSyntaxTheory.has_type_cases] ) >>
-  simp[holSyntaxTheory.WELLTYPED] >>
-  match_mp_tac (MP_CANON(DISCH_ALL(snd(EQ_IMP_RULE(UNDISCH (SPEC_ALL term_equation)))))) >>
-  simp[holSyntaxTheory.EQUATION_HAS_TYPE_BOOL,good_defs_def] >>
-  Q.PAT_ABBREV_TAC`x1 = AN X Y` >>
-  Q.PAT_ABBREV_TAC`y1 = Var X Y` >>
-  map_every qexists_tac[`x1`,`y1`] >>
-  simp[Abbr`x1`,Abbr`y1`] >>
-  reverse conj_tac >- (
-    simp[Once term_cases] >>
-    simp[Once term_cases] ) >>
-  match_mp_tac term_And >>
-  simp[good_defs_def] >>
-  ntac 4( simp[Once term_cases]) >>
-  simp[Once holSyntaxTheory.has_type_cases] >>
-  simp[Once holSyntaxTheory.has_type_cases] )
+  imp_res_tac MEM_Constdef_const_def >>
+  fs[find_index_def] >>
+  simp[holSyntaxTheory.WELLTYPED,typeof_shadow_def] >>
+  conj_tac >- (
+    match_mp_tac term_equation_matchable >> simp[] >>
+    ntac 5 (simp[Once term_cases]) >>
+    simp[holSyntaxTheory.EQUATION_HAS_TYPE_BOOL,welltyped_equation,good_defs_def] >>
+    conj_tac >- (
+      simp[holSyntaxTheory.equation_def,equation_def,Once term_cases] ) >>
+    ntac 4 (simp[Once term_cases]) >>
+    match_mp_tac term_equation_matchable >>
+    simp[] >>
+    conj_tac >- (
+      match_mp_tac term_And >>
+      simp[good_defs_def] >>
+      ntac 4 (simp[Once term_cases]) >>
+      ntac 2 (simp[Once holSyntaxTheory.has_type_cases]) ) >>
+    simp[holSyntaxTheory.EQUATION_HAS_TYPE_BOOL,good_defs_def] >>
+    ntac 2 (simp[Once term_cases]) ) >>
+  ntac 2 (simp[Once holSyntaxTheory.has_type_cases]) )
 
 val term_Forall = store_thm("term_Forall",
   ``good_defs defs ∧ ^(memdef 1) ∧ ^(memdef 4) ∧
@@ -1247,22 +1307,22 @@ val term_Forall = store_thm("term_Forall",
   rw[good_defs_def] >>
   imp_res_tac holSyntaxTheory.WELLTYPED_LEMMA >>
   simp[Once term_cases,FA_def,holSyntaxTheory.WELLTYPED] >>
+  simp[Once term_cases] >>
+  imp_res_tac MEM_Constdef_const_def >>
+  fs[find_index_def] >>
+  simp[holSyntaxTheory.WELLTYPED,typeof_shadow_def] >>
+  ntac 3( simp[Once term_cases]) >>
   conj_tac >- (
+    match_mp_tac term_equation_matchable >>
+    simp[] >>
+    ntac 5 (simp[Once term_cases]) >>
+    conj_tac >- (
+      simp[holSyntaxTheory.equation_def,equation_def,Once term_cases] ) >>
     ntac 4 (simp[Once term_cases]) >>
-    imp_res_tac MEM_Constdef_const_def >> simp[] >>
-    ntac 4 (simp[Once term_cases]) >>
-    match_mp_tac (MP_CANON(DISCH_ALL(snd(EQ_IMP_RULE(UNDISCH (SPEC_ALL term_equation)))))) >>
-    simp[holSyntaxTheory.EQUATION_HAS_TYPE_BOOL,good_defs_def] >>
-    Q.PAT_ABBREV_TAC`l1 = Var X Y` >>
-    Q.PAT_ABBREV_TAC`r1 = Abs X Y Z` >>
-    map_every qexists_tac[`l1`,`r1`] >>
-    simp[Abbr`l1`,Abbr`r1`] >>
-    simp[Once term_cases] >>
-    simp[Once term_cases] >>
-    simp[Once term_cases] >>
-    simp[Once term_cases] >>
-    simp[Once term_cases] >>
-    simp[Once term_cases] >>
+    simp[holSyntaxTheory.EQUATION_HAS_TYPE_BOOL,welltyped_equation,good_defs_def] >>
+    match_mp_tac term_equation_matchable >> simp[] >>
+    ntac 6 (simp[Once term_cases]) >>
+    simp[holSyntaxTheory.EQUATION_HAS_TYPE_BOOL,welltyped_equation,good_defs_def] >>
     match_mp_tac term_Truth >>
     simp[good_defs_def] ) >>
   simp[Once term_cases] >>
@@ -1418,6 +1478,7 @@ val proves_IMP = store_thm("proves_IMP",
     conj_tac >- METIS_TAC[LIST_REL_term_UNION] >>
     match_mp_tac(List.nth(CONJUNCTS proves_rules,16)) >>
     METIS_TAC[ACONV_IMP]) >>
+
   conj_tac >- (
     rw[seq_trans_def] >>
     qspecl_then[`l1`,`r1`,`c1`]mp_tac term_equation >>
