@@ -579,6 +579,8 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"
   (!defs t1 t2. term_ok defs (Comb t1 t2) ==> term_ok defs t1) /\
   (!defs t1 t2. term_ok defs (Comb t1 t2) ==> term_ok defs t2) /\
   (!defs x ty tm. term_ok defs (Abs x ty tm) ==> term_ok defs tm) /\
+  (!defs x t eqs p. context_ok defs /\ MEM (Constdef eqs p) defs /\ MEM (x,t) eqs
+                     ==> term_ok defs (Const x (typeof t))) /\
   (!defs h c t. (defs,h) |- c /\ MEM t (c::h) ==> term_ok defs t) /\
 
   (context_ok []) /\
