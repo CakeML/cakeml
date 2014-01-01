@@ -135,7 +135,7 @@ val (semantics_rules,semantics_ind,semantics_cases) = xHol_reln"semantics"`
        (λp. let mp = (mty suchthat Holds p) in
             ch (if ∃x. x <: mp then mp else mty)))) ∧
 
-  (n < LENGTH eqs ∧ EL n eqs = Var s ty0 === t0 ∧
+  (n < LENGTH eqs ∧ EL n eqs = (s,t0) ∧
    t = fresh_term {} t0 ∧ welltyped t ∧ closed t ∧
    set(tvars t) ⊆ set (tyvars (typeof t)) ∧
    tyinst tyin (typeof t) = ty ∧
@@ -3910,7 +3910,7 @@ val _ = export_rewrites["simple_inst_FEMPTY"]
 val new_specification_correct = store_thm("new_specification_correct",
   ``is_model M ⇒
     ∀eqs p vars ilist.
-      eqs |= p ∧
+      MAP (λ(s,t). Var s (typeof t) === t) eqs |= p ∧
       ^(snd(dest_conj(fst(dest_imp(concl(SPEC_ALL(List.nth(CONJUNCTS proves_rules,25))))))))
     ⇒ [] |= VSUBST ilist p``,
   strip_tac >>
@@ -3949,75 +3949,60 @@ val new_specification_correct = store_thm("new_specification_correct",
          GSYM LEFT_FORALL_IMP_THM,UNCURRY,FORALL_PROD] >>
     spose_not_then strip_assume_tac >> fs[] ) >>
   rw[] >>
-  `∃τ' σ' w m.
+  `∃τ' σ' m.
      type_valuation τ' ∧ term_valuation τ' σ' ∧ τ ⊑ τ' ∧ σ ⊑ σ' ∧
      ∀n. n < LENGTH eqs ⇒
-        EL n eqs = UNCURRY Var (EL n vars) === (w n) ∧
-        semantics σ' τ' (w n) (m n)` by (
+        semantics σ' τ' (SND (EL n eqs)) (m n)` by (
     imp_res_tac is_model_is_set_theory >>
-    Q.ISPEC_THEN`BIGUNION (IMAGE (set o tvars) (set eqs))`
+    Q.ISPEC_THEN`BIGUNION (IMAGE (set o tvars o SND) (set eqs))`
       mp_tac(UNDISCH covering_type_valuation_exists) >>
     simp[GSYM LEFT_FORALL_IMP_THM] >>
     disch_then(qspec_then`τ`mp_tac) >>
     disch_then(qx_choose_then`τ'`strip_assume_tac) >>
     qexists_tac`τ'` >>
-    Q.ISPEC_THEN`BIGUNION (IMAGE (λe. {(x,ty) | VFREE_IN (Var x ty) e}) (set eqs))`mp_tac (UNDISCH covering_sigma_exists_gen) >>
+    Q.ISPEC_THEN`set (MAP (λ(x,t). (x,typeof t)) eqs)`mp_tac (UNDISCH covering_sigma_exists_gen) >>
     discharge_hyps >- simp[GSYM LEFT_FORALL_IMP_THM] >>
     disch_then (qspecl_then[`τ'`,`σ`]mp_tac) >>
     discharge_hyps >- (
       simp[UNCURRY] >>
       conj_asm1_tac >- metis_tac[term_valuation_extend_type] >>
-      rw[] >>
+      simp[MEM_MAP,GSYM LEFT_FORALL_IMP_THM,UNCURRY] >>
       fs[EVERY2_EVERY,EVERY_MEM] >>
       rfs[MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
-      first_x_assum(qspec_then`n`mp_tac) >>
-      simp[EL_ZIP,UNCURRY] >> rw[] >>
-      first_x_assum(qspec_then`n`mp_tac) >>
-      simp[equation_has_meaning_iff] >>
-      fs[vfree_in_equation] >> rw[] >> rfs[] >>
-      fs[type_has_meaning_def] >>
+      rw[] >>
+      qpat_assum`∀n. n < LENGTH eqs ⇒ has_meaning X`(qspec_then`n`mp_tac) >>
+      simp[EL_MAP,UNCURRY,equation_has_meaning_iff,type_has_meaning_def] >>
+      rw[] >>
       first_x_assum match_mp_tac >>
       simp[] >>
       match_mp_tac SUBSET_TRANS >>
       HINT_EXISTS_TAC >> simp[] >>
       simp[SUBSET_DEF] >> rw[] >>
-      qexists_tac`set (tvars (EL n eqs))` >>
+      qexists_tac`set (tvars (SND (EL n eqs)))` >>
       conj_tac >- (
         imp_res_tac has_meaning_welltyped >>
         fs[WELLTYPED] >>
         imp_res_tac tyvars_typeof_subset_tvars >>
-        simp[equation_def,tvars_def] ) >>
+        fs[SUBSET_DEF] ) >>
       metis_tac[MEM_EL] ) >>
     disch_then(qx_choose_then`σ'`strip_assume_tac) >>
     qexists_tac`σ'` >>
     simp[GSYM SKOLEM_THM] >>
     rw[RIGHT_EXISTS_IMP_THM] >>
-    fs[EVERY_MEM,MEM_EL,GSYM LEFT_FORALL_IMP_THM,EVERY2_EVERY] >>
-    rfs[EL_ZIP,UNCURRY] >>
-    first_assum(qspec_then`n`mp_tac) >>
-    discharge_hyps >- simp[] >>
-    disch_then(qx_choose_then`w`strip_assume_tac) >>
-    qexists_tac`w` >> simp[] >>
-    qmatch_assum_abbrev_tac`EL n eqs = l === w` >>
-    `has_meaning (l === w)` by (metis_tac[]) >>
-    pop_assum mp_tac >>
-    simp[equation_has_meaning_iff] >>
-    strip_tac >>
-    rfs[] >>
-    fs[has_meaning_def] >>
+    qpat_assum`EVERY has_meaning X`mp_tac >>
+    simp[EVERY_MEM,MEM_MAP,GSYM LEFT_FORALL_IMP_THM,MEM_EL] >>
+    disch_then(qspec_then`n`mp_tac) >>
+    simp[UNCURRY,equation_has_meaning_iff] >>
+    simp[has_meaning_def] >> rw[] >>
     first_x_assum match_mp_tac >>
     simp[closes_def] >>
-    match_mp_tac SUBSET_TRANS >>
-    qmatch_assum_abbrev_tac`BIGUNION P ⊆ Q` >>
-    qexists_tac`BIGUNION P` >>
-    simp[Abbr`P`,SUBSET_DEF] >>
-    rw[] >>
-    qexists_tac`set (tvars (EL n eqs))` >>
-    conj_tac >- ( simp[equation_def,tvars_def] ) >>
-    metis_tac[MEM_EL]) >>
+    qpat_assum`EVERY X (MAP SND eqs)`mp_tac >>
+    simp[EVERY_MEM,MEM_MAP,GSYM LEFT_FORALL_IMP_THM,MEM_EL] >>
+    fs[SUBSET_DEF,PULL_EXISTS,MEM_EL] ) >>
   match_mp_tac semantics_reduce >>
   map_every qexists_tac[`τ'`,`σ'`] >>
   simp[] >> fs[] >>
+  qmatch_assum_abbrev_tac`ALL_DISTINCT vars` >>
   qabbrev_tac`ss = alist_to_fmap (GENLIST (λn. (EL n vars, m n)) (LENGTH eqs))` >>
   qspecl_then[`p`,`ilist_to_fmap ilist`,`ss`,`σ'`,`τ'`]mp_tac (UNDISCH semantics_simple_subst) >>
   discharge_hyps_keep >- (
@@ -4040,16 +4025,14 @@ val new_specification_correct = store_thm("new_specification_correct",
       simp[REV_ASSOCD_ALOOKUP] >>
       `MAP SND ilist = MAP (UNCURRY Var) vars` by (
         simp[Abbr`ilist`,LIST_EQ_REWRITE] >>
-        fs[EVERY2_EVERY] >>
-        simp[EL_MAP,UNCURRY] ) >>
+        simp[Abbr`vars`,EL_MAP,UNCURRY]) >>
       `ALL_DISTINCT (MAP (UNCURRY Var) vars)` by (
         match_mp_tac ALL_DISTINCT_MAP_INJ >>
         simp[FORALL_PROD] ) >>
       `MAP FST (MAP (λ(x,y). (y,x)) ilist) = MAP SND ilist` by (
         simp[MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
         simp[Abbr`ilist`,LIST_EQ_REWRITE] >>
-        fs[EVERY2_EVERY] >>
-        simp[EL_MAP,UNCURRY] ) >>
+        simp[Abbr`vars`,EL_MAP,UNCURRY] ) >>
       strip_tac >>
       `∃t. MEM (Const q r t, Var q r) ilist` by (
         simp[Abbr`ilist`] >>
@@ -4082,8 +4065,7 @@ val new_specification_correct = store_thm("new_specification_correct",
       Q.PAT_ABBREV_TAC`kk = Var X Y` >>
       `MAP FST al = MAP (UNCURRY Var) vars` by (
         simp[LIST_EQ_REWRITE,Abbr`al`,Abbr`ilist`] >>
-        fs[EVERY2_EVERY] >>
-        simp[EL_MAP,UNCURRY] ) >>
+        simp[Abbr`vars`,EL_MAP,UNCURRY] ) >>
       `ALL_DISTINCT (MAP FST al)` by (
         simp[] >>
         match_mp_tac ALL_DISTINCT_MAP_INJ >>
@@ -4100,46 +4082,43 @@ val new_specification_correct = store_thm("new_specification_correct",
       simp[] >>
       rw[Abbr`kk`,Abbr`vv`] >>
       simp[Once semantics_cases] >>
-      qexists_tac`w n` >>
-      qexists_tac`typeof (w n)` >>
+      qexists_tac`SND(EL n eqs)` >>
       qexists_tac`FEMPTY` >>
       simp[] >>
-      `n < LENGTH eqs` by fs[EVERY2_EVERY,Abbr`ilist`] >>
-      simp[EL_MAP] >>
-      fs[EVERY2_EVERY,EVERY_MEM] >>
-      first_x_assum(qspec_then`EL n vars,EL n eqs`mp_tac) >>
-      simp[MEM_ZIP,UNCURRY] >>
-      discharge_hyps >- ( qexists_tac`n` >> simp[UNCURRY] ) >>
-      strip_tac >>
-      qspecl_then[`∅`,`w n`]mp_tac fresh_term_def >>
+      `n < LENGTH eqs` by fs[Abbr`ilist`] >> simp[] >>
+      `k = (FST (EL n eqs), typeof (SND (EL n eqs)))` by (
+        qpat_assum`Var X Y = Z`mp_tac >>
+        simp[EL_MAP,Abbr`ilist`,UNCURRY] >>
+        simp[Abbr`vars`,EL_MAP,UNCURRY] >>
+        Cases_on`k`>>simp[]) >>
+      simp[] >>
+      Q.PAT_ABBREV_TAC`w = SND (EL n eqs)` >>
+      qspecl_then[`∅`,`w`]mp_tac fresh_term_def >>
       simp[] >> strip_tac >>
-      `EL n eqs has_type Bool` by metis_tac[MEM_EL] >>
-      pop_assum mp_tac >>
-      simp[EQUATION_HAS_TYPE_BOOL] >> strip_tac >>
+      qpat_assum`EVERY X (MAP SND eqs)`mp_tac >>
+      simp[EVERY_MAP,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
+      disch_then(qspec_then`n`mp_tac) >>
+      simp[] >> strip_tac >>
       imp_res_tac ACONV_welltyped >>
       imp_res_tac ACONV_TYPE >>
-      fs[UNCURRY,WELLTYPED] >>
-      fs[EL_MAP] >>
-      `k = EL n vars` by (
-        fs[Abbr`ilist`] >>
-        Cases_on`k`>>fs[]>>
-        Cases_on`EL n vars`>>fs[] ) >>
-      simp[] >>
+      fs[WELLTYPED] >>
       conj_tac >- metis_tac[VFREE_IN_ACONV] >>
       conj_tac >- metis_tac[ACONV_tvars] >>
-      qmatch_assum_abbrev_tac`ALOOKUP ll k = SOME v` >>
+      qmatch_assum_abbrev_tac`ALOOKUP ll kk = SOME v` >>
       `MAP FST ll = vars` by (
-        simp[LIST_EQ_REWRITE,Abbr`ll`,EL_MAP] ) >>
-      `MEM (k,m n) ll` by (
+        simp[LIST_EQ_REWRITE,Abbr`ll`,EL_MAP,Abbr`vars`] ) >>
+      `MEM (EL n vars,m n) ll` by (
         simp[Abbr`ll`,MEM_GENLIST] >> metis_tac[] ) >>
       `v = m n` by (
+        fs[Abbr`vars`] >> rfs[EL_MAP,UNCURRY] >>
         imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >> rfs[] ) >>
-      qsuff_tac`semantics FEMPTY τ' (w n) (m n)` >- (
-        qspecl_then[`FEMPTY`,`τ'`,`w n`,`fresh_term ∅ (w n)`]mp_tac semantics_aconv >>
+      qsuff_tac`semantics FEMPTY τ' w (m n)` >- (
+        qspecl_then[`FEMPTY`,`τ'`,`w`,`fresh_term ∅ w`]mp_tac semantics_aconv >>
         simp[WELLTYPED] ) >>
       match_mp_tac semantics_reduce >>
       map_every qexists_tac[`τ'`,`σ'`] >>
-      rpt (conj_asm1_tac >- simp[]) >>
+      qunabbrev_tac`w` >>
+      rpt(conj_asm1_tac >- simp[]) >>
       imp_res_tac semantics_closes >>
       fs[SUBMAP_FEMPTY,closes_def] ) >>
     conj_tac >- (
@@ -4153,8 +4132,9 @@ val new_specification_correct = store_thm("new_specification_correct",
         match_mp_tac tvars_subset_VSUBST >>
         simp[Abbr`ilist`,MEM_GENLIST,GSYM LEFT_FORALL_IMP_THM,UNCURRY] >>
         simp[Once has_type_cases] ) >>
-      simp[Abbr`ss`,MEM_MAP,MEM_GENLIST,EXISTS_PROD] >>
-      metis_tac[MEM_EL,EVERY2_EVERY] ) >>
+      simp[Abbr`ss`,MEM_MAP,MEM_GENLIST,EXISTS_PROD,Abbr`vars`] >>
+      fs[MEM_EL,PULL_EXISTS,MEM_MAP] >>
+      metis_tac[EL_MAP]) >>
     metis_tac[has_meaning_welltyped] ) >>
   strip_tac >>
   simp[] >>
@@ -4171,18 +4151,13 @@ val new_specification_correct = store_thm("new_specification_correct",
     first_x_assum(qspec_then`n`mp_tac) >>
     rw[] >>
     imp_res_tac semantics_typeset >>
-    qsuff_tac`SND (EL n vars) = typeof (w n)` >- metis_tac[] >>
-    fs[EVERY_MEM,MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
-    rpt(first_x_assum(qspec_then`n`mp_tac)) >>
-    simp[EQUATION_HAS_TYPE_BOOL,UNCURRY] ) >>
-  simp[EVERY_MEM] >>
-  rator_x_assum`EVERY2`mp_tac >>
-  simp[EVERY2_EVERY,EVERY_MEM,GSYM AND_IMP_INTRO,MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,UNCURRY] >>
-  simp[MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
+    qsuff_tac`SND (EL n vars) = typeof (SND (EL n eqs))` >- metis_tac[] >>
+    simp[Abbr`vars`,EL_MAP,UNCURRY]) >>
+  simp[EVERY_MEM,MEM_MAP,PULL_EXISTS,UNCURRY,MEM_EL] >>
   rw[] >>
   match_mp_tac (UNDISCH semantics_equation) >>
   imp_res_tac is_model_is_set_theory >>
-  simp[UNCURRY,boolean_eq_true] >>
+  simp[boolean_eq_true] >>
   simp[Once semantics_cases,FLOOKUP_FUNION] >>
   simp[Abbr`ss`] >>
   Q.PAT_ABBREV_TAC`ll:((string#type)#'U)list = GENLIST X Y` >>
@@ -4194,27 +4169,25 @@ val new_specification_correct = store_thm("new_specification_correct",
       conj_tac >- (
         rw[] >> fs[] >>
         fs[EL_ALL_DISTINCT_EL_EQ] >>
-        metis_tac[] ) >>
+        metis_tac[LENGTH_MAP] ) >>
       simp[ALL_DISTINCT_GENLIST] >>
-      metis_tac[EL_ALL_DISTINCT_EL_EQ] ) >>
+      metis_tac[EL_ALL_DISTINCT_EL_EQ,LENGTH_MAP] ) >>
     simp[Abbr`ll`,MEM_GENLIST] >>
     metis_tac[] ) >>
-  simp[] >>
-  ntac 2 (first_x_assum(qspec_then`n`mp_tac)) >>
-  simp[] >> ntac 2 strip_tac >>
-  conj_tac >- (
-    match_mp_tac semantics_extend >>
-    map_every qexists_tac[`FEMPTY`,`τ'`] >>
-    simp[SUBMAP_FEMPTY] >>
-    match_mp_tac semantics_reduce >>
-    map_every qexists_tac[`τ'`,`σ'`] >>
-    simp[SUBMAP_FEMPTY] >>
-    fs[closes_def] >>
-    imp_res_tac semantics_closes >>
-    fs[closes_def] ) >>
-  fs[EVERY_MEM,MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
-  last_x_assum(qspec_then`n`mp_tac) >>
-  simp[EQUATION_HAS_TYPE_BOOL,UNCURRY] )
+  pop_assum mp_tac >>
+  simp[Abbr`vars`,EL_MAP,UNCURRY] >> strip_tac >>
+  match_mp_tac semantics_extend >>
+  map_every qexists_tac[`FEMPTY`,`τ'`] >>
+  simp[SUBMAP_FEMPTY] >>
+  match_mp_tac semantics_reduce >>
+  map_every qexists_tac[`τ'`,`σ'`] >>
+  simp[SUBMAP_FEMPTY] >>
+  qpat_assum`EVERY X (MAP SND eqs)`mp_tac >>
+  simp[EVERY_MAP,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
+  rw[] >>
+  res_tac >>
+  imp_res_tac semantics_closes >>
+  fs[closes_def] )
 
 val has_meaning_type_has_meaning = store_thm("has_meaning_type_has_meaning",
   ``is_model M ⇒ ∀tm. has_meaning tm ⇒ type_has_meaning (typeof tm)``,
@@ -6276,6 +6249,46 @@ val soundness = store_thm("soundness",
   conj_tac >- metis_tac[INST_TYPE_correct] >>
   conj_tac >- metis_tac[INST_correct] >>
   conj_tac >- metis_tac[SIMP_RULE(srw_ss())[LET_THM]new_specification_correct] >>
+  conj_tac >- (
+    rw[] >>
+    match_mp_tac semantics_has_meaning >>
+    fs[sequent_def] >>
+    simp[Once semantics_cases] >>
+    qpat_assum`EVERY has_meaning X`mp_tac >>
+    simp[EVERY_MAP,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
+    disch_then(qspec_then`i`mp_tac) >>
+    simp[has_meaning_def] >> strip_tac >>
+    first_x_assum(qspecl_then[`τ`,`σ`]mp_tac) >>
+    simp[] >> strip_tac >>
+    pop_assum mp_tac >>
+    simp[UNCURRY] >>
+    qmatch_abbrev_tac`semantics σ τ (l === r) m ⇒ Z` >>
+    strip_tac >> qunabbrev_tac`Z` >>
+    qspecl_then[`σ`,`τ`,`l`,`r`,`m`]mp_tac (UNDISCH semantics_equation_imp) >>
+    simp[Abbr`l`,Abbr`r`] >> strip_tac >>
+    map_every qexists_tac[`σ`,`τ`,`mt`,`SND (EL i eqs)`,`FEMPTY`] >>
+    simp[] >>
+    qpat_assum`X = EL i Z`mp_tac >>
+    simp[EL_MAP,UNCURRY] >> strip_tac >>
+    qpat_assum`EVERY X (MAP SND eqs)`mp_tac >>
+    simp[EVERY_MAP,EVERY_MEM,MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
+    disch_then(qspec_then`i`mp_tac) >>
+    simp[] >> strip_tac >>
+    qspecl_then[`∅`,`SND (EL i eqs)`]mp_tac fresh_term_def >>
+    simp[] >> strip_tac >>
+    imp_res_tac ACONV_welltyped >>
+    imp_res_tac ACONV_tvars >>
+    imp_res_tac ACONV_TYPE >>
+    fs[] >>
+    qsuff_tac`semantics FEMPTY τ (SND (EL i eqs)) mt` >-
+      metis_tac[semantics_aconv,term_valuation_FEMPTY
+               ,ACONV_VFREE_IN,ACONV_SYM] >>
+    match_mp_tac semantics_reduce >>
+    map_every qexists_tac[`τ`,`σ`] >>
+    simp[SUBMAP_FEMPTY,closes_def] >>
+    imp_res_tac semantics_closes >>
+    fs[closes_def] >>
+    metis_tac[SUBMAP_TRANS] ) >>
   conj_tac >- metis_tac[new_basic_type_definition_correct] >>
   conj_tac >- metis_tac[new_basic_type_definition_correct] >>
   conj_tac >- (

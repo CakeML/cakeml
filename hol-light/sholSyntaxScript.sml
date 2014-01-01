@@ -16,7 +16,7 @@ val _ = Hol_datatype`
     | Tydefined of string => term
   ; const_tag
     = Prim
-    | Defined of num => term list => term
+    | Defined of num => (string#term) list => term
     | Tyabs of string => term
     | Tyrep of string => term`
 
@@ -547,7 +547,7 @@ val _ = Parse.overload_on("closed",``λt. ∀n ty. ¬VFREE_IN (Var n ty) t``)
 
 val typeof_shadow_def = Define`typeof_shadow = typeof`
 val _ = Parse.overload_on("Const1",``λname ty rhs.
-  Const name ty (Defined 0 [Var name (typeof_shadow rhs) === rhs] (Var name (typeof_shadow rhs) === rhs))``)
+  Const name ty (Defined 0 [(name,rhs)] (Var name (typeof_shadow rhs) === rhs))``)
 
 val pid = ``Abs "p" Bool (Var "p" Bool)``
 val TT_def = Define `TT = Const1 "T" Bool (^pid === ^pid)`
@@ -676,18 +676,24 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
    ⇒
    (MAP (VSUBST ilist) h) |- VSUBST ilist c)
 ∧ (* new_specification *)
-  (eqs |- p ∧
-   LIST_REL
-     (λ(x,ty) e.
-       ∃w. (e = Var x ty === w) ∧
-           closed w ∧
-           set (tvars w) ⊆ set (tyvars ty))
-     vars eqs ∧
-   ALL_DISTINCT vars ∧
+  (MAP (λ(s,t). Var s (typeof t) === t) eqs |- p ∧
+   EVERY
+     (λt. closed t ∧ welltyped t ∧ set (tvars t) ⊆ set (tyvars (typeof t)))
+     (MAP SND eqs) ∧
+   vars = MAP (λ(s,t). (s,typeof t)) eqs ∧ ALL_DISTINCT vars ∧
    (∀x ty. VFREE_IN (Var x ty) p ⇒ MEM (x,ty) vars) ∧
    (ilist = GENLIST (λn. let (x,ty) = EL n vars in (Const x ty (Defined n eqs p), Var x ty)) (LENGTH eqs))
    ⇒
    [] |- VSUBST ilist p)
+∧ (MAP (λ(s,t). Var s (typeof t) === t) eqs |- p ∧
+   EVERY
+     (λt. closed t ∧ welltyped t ∧ set (tvars t) ⊆ set (tyvars (typeof t)))
+     (MAP SND eqs) ∧
+   vars = MAP (λ(s,t). (s,typeof t)) eqs ∧ ALL_DISTINCT vars ∧
+   (∀x ty. VFREE_IN (Var x ty) p ⇒ MEM (x,ty) vars) ∧
+   i < LENGTH eqs ∧ (s,ty) = EL i vars
+   ⇒
+   term_ok (Const s ty (Defined i eqs p)))
 ∧ (* new_basic_type_definition |- abs (rep x) = x *)
   (closed p ∧
    [] |- Comb p w ∧

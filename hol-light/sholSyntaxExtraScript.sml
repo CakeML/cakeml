@@ -13,7 +13,7 @@ val vfree_in_equation = store_thm("vfree_in_equation",
 
 val type_ind = save_thm("type_ind",
   TypeBase.induction_of``:type``
-  |> Q.SPECL[`K T`,`P`,`K T`,`K T`,`EVERY P`,`K T`]
+  |> Q.SPECL[`K T`,`P`,`K T`,`K T`,`K T`,`K T`,`EVERY P`]
   |> SIMP_RULE std_ss [EVERY_DEF]
   |> UNDISCH_ALL
   |> CONJUNCT1
