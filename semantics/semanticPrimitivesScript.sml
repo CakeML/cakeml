@@ -236,7 +236,7 @@ val _ = Define `
 
 (* Lookup in the list of mutually recursive functions *)
 (*val find_recfun : forall 'a 'b. varN -> list (varN * 'a * 'b) -> maybe ('a * 'b)*)
- val find_recfun_defn = Hol_defn "find_recfun" `
+ val _ = Define `
  (find_recfun n funs =  
 ((case funs of
       [] => NONE
@@ -247,7 +247,6 @@ val _ = Define `
           find_recfun n funs
   )))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn find_recfun_defn;
 
 (* Check whether a value contains a closure, but don't indirect through the store *)
 (*val contains_closure : v -> bool*)
@@ -454,13 +453,12 @@ val _ = Define `
 (dec_to_cenv mn _ = ([]))`;
 
 
- val decs_to_cenv_defn = Hol_defn "decs_to_cenv" `
+ val _ = Define `
 
 (decs_to_cenv mn [] = ([]))
 /\
 (decs_to_cenv mn (d::ds) = (decs_to_cenv mn ds ++ dec_to_cenv mn d))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn decs_to_cenv_defn;
 
  val _ = Define `
 

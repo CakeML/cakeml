@@ -101,10 +101,6 @@ val _ = uncurry (register "elab_e") (
   `MEM z (MAP SND pes)` by (rw[MEM_MAP,EXISTS_PROD]>>metis_tac[]) >>
   Q.ISPEC_THEN`ast_exp_size`imp_res_tac SUM_MAP_MEM_bound >> fsrw_tac[ARITH_ss][]))
 
-val _ = uncurry (register "elab_spec") (
-  tprove_no_defn ((elab_spec_def,elab_spec_ind),
-  WF_REL_TAC`measure (LENGTH o SND o SND)` >> simp[]))
-
 val _ = uncurry (register "elab_t") (
   tprove_no_defn ((elab_t_def,elab_t_ind),
   WF_REL_TAC`measure (ast_t_size o SND)` >>
@@ -120,27 +116,12 @@ val (pmatch_def, pmatch_ind) =
                              | INR (s,a,ps,b,c) => pat1_size ps)`);
 val _ = register "pmatch" pmatch_def pmatch_ind;
 
-(*
-val (pmatch'_def, pmatch'_ind) =
-  tprove_no_defn ((pmatch'_def, pmatch'_ind),
-  wf_rel_tac
-  `inv_image $< (λx. case x of INL (s,p,b,c) => pat_size p
-                             | INR (s,ps,b,c) => pat1_size ps)`);
-val _ = register "pmatch'" pmatch'_def pmatch'_ind;
-*)
-
 val (contains_closure_def, contains_closure_ind) =
   tprove_no_defn ((contains_closure_def, contains_closure_ind),
   wf_rel_tac `measure v_size`
   THEN Induct_on `vs` THEN rw [v_size_def] THEN1 decide_tac
   THEN RES_TAC THEN POP_ASSUM (ASSUME_TAC o Q.SPEC `cn`) THEN decide_tac);
 val _ = register "contains_closure" contains_closure_def contains_closure_ind;
-
-val (find_recfun_def, find_recfun_ind) =
-  tprove_no_defn ((find_recfun_def, find_recfun_ind),
-  WF_REL_TAC `measure (λ(x,y). LENGTH y)` >>
-  rw []);
-val _ = register "find_recfun" find_recfun_def find_recfun_ind;
 
 val (type_subst_def, type_subst_ind) =
   tprove_no_defn ((type_subst_def, type_subst_ind),
@@ -182,19 +163,6 @@ res_tac >>
 decide_tac);
 val _ = register "deBruijn_inc" deBruijn_inc_def deBruijn_inc_ind;
 
-val (bind_var_list2_def,bind_var_list2_ind) =
-  tprove_no_defn ((bind_var_list2_def,bind_var_list2_ind),
-wf_rel_tac `measure (LENGTH o FST)` >>
-srw_tac [] []);
-val _ = register "bind_var_list2" bind_var_list2_def bind_var_list2_ind;
-
-
-val (bind_var_list_def,bind_var_list_ind) =
-  tprove_no_defn ((bind_var_list_def,bind_var_list_ind),
-wf_rel_tac `measure (LENGTH o FST o SND)` >>
-srw_tac [] []);
-val _ = register "bind_var_list" bind_var_list_def bind_var_list_ind;
-
 val (is_value_def,is_value_ind) =
   tprove_no_defn ((is_value_def,is_value_ind),
 wf_rel_tac `measure (exp_size)` >>
@@ -211,59 +179,4 @@ wf_rel_tac `inv_image $< (λx. case x of INL (v1,v2) => v_size v1
                                       | INR (vs1,vs2) => v7_size vs1)`);
 val _ = register "do_eq" do_eq_def do_eq_ind;
 
-(*
-val (deBruijn_subst_p_def,deBruijn_subst_p_ind) =
-  tprove_no_defn ((deBruijn_subst_p_def,deBruijn_subst_p_ind),
-wf_rel_tac `measure (pat_size o SND o SND)` >>
-srw_tac [] [] >>
-induct_on `ps` >>
-srw_tac [] [pat_size_def] >>
-res_tac >>
-decide_tac);
-val _ = register "deBruijn_subst_p" deBruijn_subst_p_def deBruijn_subst_p_ind;
-
-val (deBruijn_subst_e_def,deBruijn_subst_e_ind) =
-  tprove_no_defn ((deBruijn_subst_e_def,deBruijn_subst_e_ind),
-wf_rel_tac `measure (exp_size o SND o SND)` >>
-srw_tac [] [] >|
-[decide_tac,
- decide_tac,
- decide_tac,
- decide_tac,
- induct_on `funs` >>
-     srw_tac [] [exp_size_def] >>
-     srw_tac [] [exp_size_def] >>
-     res_tac >>
-     decide_tac,
- induct_on `pes` >>
-     srw_tac [] [exp_size_def] >>
-     srw_tac [] [exp_size_def] >>
-     res_tac >>
-     decide_tac,
- decide_tac,
- decide_tac,
- decide_tac,
- decide_tac,
- decide_tac,
- decide_tac,
- induct_on `es` >>
-     srw_tac [] [exp_size_def] >>
-     res_tac >>
-     decide_tac,
- decide_tac,
- decide_tac,
- decide_tac,
- decide_tac]);
-val _ = register "deBruijn_subst_e" deBruijn_subst_e_def deBruijn_subst_e_ind;
-
-val (deBruijn_subst_v_def,deBruijn_subst_v_ind) =
-  tprove_no_defn ((deBruijn_subst_v_def,deBruijn_subst_v_ind),
-wf_rel_tac `measure (v_size o SND)` >>
-srw_tac [] [] >>
-induct_on `vs` >>
-srw_tac [] [v_size_def] >>
-res_tac >>
-decide_tac);
-val _ = register "deBruijn_subst_v" deBruijn_subst_v_def deBruijn_subst_v_ind;
-*)
 val _ = export_theory ();

@@ -199,6 +199,8 @@ let rec find_recfun n funs =
           find_recfun n funs
   end
 
+declare termination_argument find_recfun = automatic
+
 (* Check whether a value contains a closure, but don't indirect through the store *)
 val contains_closure : v -> bool
 let rec
@@ -377,6 +379,8 @@ let rec
 decs_to_cenv mn [] = []
 and
 decs_to_cenv mn (d::ds) = decs_to_cenv mn ds ++ dec_to_cenv mn d
+
+declare termination_argument decs_to_cenv = automatic
 
 let rec
 top_to_cenv (Tdec d) = dec_to_cenv Nothing d

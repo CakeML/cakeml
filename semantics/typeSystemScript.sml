@@ -74,7 +74,7 @@ val _ = Define `
 
 
 (*val lookup_tenv : varN -> nat -> tenvE -> maybe (nat * t)*) 
- val lookup_tenv_defn = Hol_defn "lookup_tenv" `
+ val _ = Define `
 
 (lookup_tenv n inc Empty = NONE)
 /\
@@ -86,7 +86,6 @@ val _ = Define `
   else
     lookup_tenv n inc e))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn lookup_tenv_defn;
 
 (*val bind_tenv : varN -> nat -> t -> tenvE -> tenvE*)
 val _ = Define `
@@ -107,7 +106,7 @@ val _ = Define `
 
 
 (*val num_tvs : tenvE -> nat*)
- val num_tvs_defn = Hol_defn "num_tvs" `
+ val _ = Define `
  
 (num_tvs Empty =( 0))
 /\
@@ -115,7 +114,6 @@ val _ = Define `
 /\
 (num_tvs (Bind_name n tvs t e) = (num_tvs e))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn num_tvs_defn;
 
 (* A pattern matches values of a certain type and extends the type environment
  * with the pattern's binders. The number is the maximum deBruijn type variable
@@ -236,24 +234,21 @@ val _ = Define `
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn type_subst_defn;
 
 (*val bind_var_list : nat -> list (varN * t) -> tenvE -> tenvE*)
- val bind_var_list_defn = Hol_defn "bind_var_list" `
+ val _ = Define `
 
 (bind_var_list tvs [] tenv = tenv)
 /\
 (bind_var_list tvs ((n,t)::binds) tenv =  
 (bind_tenv n tvs t (bind_var_list tvs binds tenv)))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn bind_var_list_defn;
 
 (*val bind_var_list2 : env varN (nat * t) -> tenvE -> tenvE*)
- val bind_var_list2_defn = Hol_defn "bind_var_list2" `
+ val _ = Define `
 
 (bind_var_list2 [] tenv = tenv)
 /\
 (bind_var_list2 ((n,(tvs,t))::binds) tenv =  
 (bind_tenv n tvs t (bind_var_list2 binds tenv)))`;
-
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn bind_var_list2_defn;
 
 
 (* For the value restriction on let-based polymorphism *)

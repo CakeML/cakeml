@@ -253,6 +253,8 @@ elab_decs mn type_bound ctors (d::ds) =
   in
     (merge type_bound'' type_bound', merge ctors'' ctors', (d'::ds'))
 
+declare termination_argument elab_decs = automatic
+
 let rec 
 elab_spec mn type_bound [] = []
 and
@@ -268,6 +270,8 @@ elab_spec mn type_bound (Ast_Stype_opq tvs tn::spec) =
 and
 elab_spec mn type_bound (Ast_Sexn cn ts::spec) =
   Sexn cn (List.map (elab_t type_bound) ts) :: elab_spec mn type_bound spec
+
+declare termination_argument elab_spec = automatic
 
 let rec
 elab_top type_bound ctors (Ast_Tdec d) =
@@ -287,3 +291,6 @@ elab_prog type_bound ctors (top::prog) =
     elab_prog (merge type_bound' type_bound) (merge ctors' ctors) prog
   in
     (merge type_bound'' type_bound', merge ctors'' ctors', (top'::prog'))
+
+declare termination_argument elab_prog = automatic
+      

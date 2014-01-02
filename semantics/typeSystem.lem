@@ -65,6 +65,8 @@ lookup_tenv n inc (Bind_name n' tvs t e) =
   else
     lookup_tenv n inc e
 
+declare termination_argument lookup_tenv = automatic
+
 val bind_tenv : varN -> nat -> t -> tenvE -> tenvE
 let bind_tenv n tvs t e = Bind_name n tvs t e
 
@@ -86,6 +88,8 @@ and
 num_tvs (Bind_tvar tvs e) = tvs + num_tvs e
 and
 num_tvs (Bind_name n tvs t e) = num_tvs e
+
+declare termination_argument num_tvs = automatic
 
 (* A pattern matches values of a certain type and extends the type environment
  * with the pattern's binders. The number is the maximum deBruijn type variable
@@ -197,6 +201,8 @@ and
 bind_var_list tvs ((n,t)::binds) tenv =
   bind_tenv n tvs t (bind_var_list tvs binds tenv)
 
+declare termination_argument bind_var_list = automatic
+
 val bind_var_list2 : env varN (nat * t) -> tenvE -> tenvE
 let rec
 bind_var_list2 [] tenv = tenv
@@ -204,6 +210,7 @@ and
 bind_var_list2 ((n,(tvs,t))::binds) tenv =
   bind_tenv n tvs t (bind_var_list2 binds tenv)
 
+declare termination_argument bind_var_list2 = automatic
 
 (* For the value restriction on let-based polymorphism *)
 val is_value : exp -> bool

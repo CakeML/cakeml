@@ -280,7 +280,7 @@ val _ = Define `
    Dexn cn (MAP (elab_t type_bound) ts)))`;
 
 
- val elab_decs_defn = Hol_defn "elab_decs" `
+ val _ = Define `
 
 (elab_decs mn type_bound ctors [] = ([],emp,[]))
 /\
@@ -291,9 +291,8 @@ val _ = Define `
   in
     (merge type_bound'' type_bound', merge ctors'' ctors', (d'::ds'))))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn elab_decs_defn;
 
- val elab_spec_defn = Hol_defn "elab_spec" `
+ val _ = Define `
  
 (elab_spec mn type_bound [] = ([]))
 /\
@@ -310,7 +309,6 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (elab_spec mn type_bound (Ast_Sexn cn ts::spec) =  
 (Sexn cn (MAP (elab_t type_bound) ts) :: elab_spec mn type_bound spec))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn elab_spec_defn;
 
  val _ = Define `
 
@@ -323,7 +321,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
       (type_bound,ctors,Tmod mn (OPTION_MAP (elab_spec (SOME mn) type_bound) spec) ds')))`;
 
 
- val elab_prog_defn = Hol_defn "elab_prog" `
+ val _ = Define `
 
 (elab_prog type_bound ctors [] = ([],emp,[]))
 /\
@@ -334,6 +332,6 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   in
     (merge type_bound'' type_bound', merge ctors'' ctors', (top'::prog'))))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn elab_prog_defn;
+      
 val _ = export_theory()
 
