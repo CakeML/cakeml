@@ -3,21 +3,48 @@ open libTheory astTheory semanticPrimitivesTheory typeSystemTheory elabTheory;
 
 val _ = new_theory "termination";
 
-(* ------------------ Termination proofs for MiniMLTheory ----------------- *)
+val ast_pats_size_def = Define `ast_pats_size = ast_pat1_size`;
+val pats_size_def = Define `pats_size = pat1_size`;
 
-val tac = Induct >- rw[exp_size_def,pat_size_def,v_size_def,ast_exp_size_def,ast_t_size_def] >>
-  srw_tac [ARITH_ss][exp_size_def,pat_size_def,v_size_def,ast_exp_size_def,ast_t_size_def]
-fun tm t1 t2 =  ``∀ls. ^t1 ls = SUM (MAP ^t2 ls) + LENGTH ls``
-fun size_thm name t1 t2 = store_thm(name,tm t1 t2,tac)
-val exp1_size_thm = size_thm "exp1_size_thm" ``exp1_size`` ``exp2_size``
-val exp3_size_thm = size_thm "exp3_size_thm" ``exp3_size`` ``exp5_size``
-val exp6_size_thm = size_thm "exp6_size_thm" ``exp6_size`` ``exp_size``
-val pat1_size_thm = size_thm "pat1_size_thm" ``pat1_size`` ``pat_size``
-(*val v1_size_thm = size_thm "v1_size_thm" ``v1_size`` ``v2_size``*)
-(*val v3_size_thm = size_thm "v3_size_thm" ``v3_size`` ``v_size``*)
-val ast_exp6_size_thm = size_thm "ast_exp6_size_thm" ``ast_exp6_size`` ``ast_exp_size``
-val ast_exp3_size_thm = size_thm "ast_exp3_size_thm" ``ast_exp3_size`` ``ast_exp5_size``
-val ast_t1_size_thm = size_thm "ast_t1_size_thm" ``ast_t1_size`` ``ast_t_size``
+val ast_exps_size_def = Define `ast_exps_size = ast_exp6_size`;
+val ast_pes_size_def = Define `ast_pes_size = ast_exp3_size`;
+val ast_funs_size_def = Define `ast_funs_size = ast_exp1_size`;
+
+val exps_size_def = Define `exps_size = exp6_size`;
+val pes_size_def = Define `pes_size = exp3_size`;
+val funs_size_def = Define `funs_size = exp1_size`;
+
+val vs_size_def = Define `vs_size = v7_size`;
+val envE_size_def = Define `envE_size = v5_size`;
+val envM_size_def = Define `envM_size = v3_size`;
+
+val ast_ts_size_def = Define `ast_ts_size = ast_t1_size`;
+
+val size_abbrevs = save_thm ("size_abbrevs",
+LIST_CONJ [ast_pats_size_def, pats_size_def, 
+           ast_exps_size_def, ast_pes_size_def, ast_funs_size_def, 
+           exps_size_def, pes_size_def, funs_size_def, 
+           vs_size_def, envE_size_def, envM_size_def, ast_ts_size_def]);
+
+val _ = export_rewrites["size_abbrevs"];
+
+val tac = Induct >- rw[exp_size_def,pat_size_def,v_size_def,ast_exp_size_def,ast_t_size_def,
+                       size_abbrevs] >>
+  full_simp_tac (srw_ss()++ARITH_ss)[exp_size_def,pat_size_def,v_size_def,ast_exp_size_def,ast_t_size_def, size_abbrevs];
+fun tm t1 t2 =  ``∀ls. ^t1 ls = SUM (MAP ^t2 ls) + LENGTH ls``;
+fun size_thm name t1 t2 = store_thm(name,tm t1 t2,tac);
+
+val ast_exps_size_thm = size_thm "ast_exps_size_thm" ``ast_exps_size`` ``ast_exp_size``;
+val ast_pes_size_thm = size_thm "ast_pes_size_thm" ``ast_pes_size`` ``ast_exp5_size``;
+val ast_funs_size_thm = size_thm "ast_funs_size_thm" ``ast_funs_size`` ``ast_exp2_size``;
+val exps_size_thm = size_thm "exps_size_thm" ``exps_size`` ``exp_size``;
+val pes_size_thm = size_thm "pes_size_thm" ``pes_size`` ``exp5_size``;
+val funs_size_thm = size_thm "funs_size_thm" ``funs_size`` ``exp2_size``;
+val pats_size_thm = size_thm "pats_size_thm" ``pats_size`` ``pat_size``;
+val vs_size_thm = size_thm "vs_size_thm" ``vs_size`` ``v_size``;
+val envE_size_thm = size_thm "envE_size_thm" ``envE_size`` ``v6_size``;
+val envM_size_thm = size_thm "envM_size_thm" ``envM_size`` ``v4_size``;
+val ast_t1_size_thm = size_thm "ast_t1_size_thm" ``ast_t1_size`` ``ast_t_size``;
 
 val SUM_MAP_exp2_size_thm = store_thm(
 "SUM_MAP_exp2_size_thm",
@@ -85,27 +112,30 @@ fun register name def ind =
       val _ = computeLib.add_persistent_funs [name ^ "_def"];
   in
     ()
-  end
+  end;
 
 val _ = uncurry (register "elab_p") (
   tprove_no_defn ((elab_p_def, elab_p_ind),
-  wf_rel_tac`inv_image $< (λx. case x of INL (_,p) => ast_pat_size p | INR (_,l) => ast_pat1_size l)`));
+  wf_rel_tac`inv_image $< (λx. case x of INL (_,p) => ast_pat_size p | INR (_,l) => ast_pats_size l)` >>
+  srw_tac [ARITH_ss] [size_abbrevs, ast_pat_size_def]));
 
+  (*
 val _ = uncurry (register "elab_e") (
   tprove_no_defn ((elab_e_def, elab_e_ind),
-  WF_REL_TAC`inv_image $< (λx. case x of INL (_,e) => ast_exp_size e | INR (_,l) => ast_exp1_size l)` >>
-  simp[ast_exp_size_def,ast_exp6_size_thm,ast_exp3_size_thm,SUM_MAP_ast_exp5_size_thm] >>
+  WF_REL_TAC`inv_image $< (λx. case x of INL (_,e) => ast_exp_size e | INR (_,l) => ast_funs_size l)` >>
+  simp[size_abbrevs, ast_exp_size_def,ast_exps_size_thm,ast_funs_size_thm,SUM_MAP_ast_exp5_size_thm] >>
   rw[] >>
   Q.ISPEC_THEN`ast_exp_size`imp_res_tac SUM_MAP_MEM_bound >> fsrw_tac[ARITH_ss][]>>
   qmatch_assum_rename_tac`MEM (p,z) pes`[]>>
   `MEM z (MAP SND pes)` by (rw[MEM_MAP,EXISTS_PROD]>>metis_tac[]) >>
-  Q.ISPEC_THEN`ast_exp_size`imp_res_tac SUM_MAP_MEM_bound >> fsrw_tac[ARITH_ss][]))
+  Q.ISPEC_THEN`ast_exp_size`imp_res_tac SUM_MAP_MEM_bound >> fsrw_tac[ARITH_ss][]
+  *)
 
 val _ = uncurry (register "elab_t") (
   tprove_no_defn ((elab_t_def,elab_t_ind),
   WF_REL_TAC`measure (ast_t_size o SND)` >>
   srw_tac[ARITH_ss][ast_t_size_def,ast_t1_size_thm]>>
-  Q.ISPEC_THEN`ast_t_size`imp_res_tac SUM_MAP_MEM_bound >> fsrw_tac[ARITH_ss][]))
+  Q.ISPEC_THEN`ast_t_size`imp_res_tac SUM_MAP_MEM_bound >> fsrw_tac[ARITH_ss][]));
 
 val _ = export_rewrites["lib.lookup_def"];
 
@@ -113,7 +143,8 @@ val (pmatch_def, pmatch_ind) =
   tprove_no_defn ((pmatch_def, pmatch_ind),
   wf_rel_tac
   `inv_image $< (λx. case x of INL (s,a,p,b,c) => pat_size  p
-                             | INR (s,a,ps,b,c) => pat1_size ps)`);
+                             | INR (s,a,ps,b,c) => pats_size ps)` >>
+  srw_tac [ARITH_ss] [size_abbrevs, pat_size_def]);
 val _ = register "pmatch" pmatch_def pmatch_ind;
 
 val (contains_closure_def, contains_closure_ind) =
@@ -176,7 +207,8 @@ val _ = register "is_value" is_value_def is_value_ind;
 val (do_eq_def,do_eq_ind) =
   tprove_no_defn ((do_eq_def,do_eq_ind),
 wf_rel_tac `inv_image $< (λx. case x of INL (v1,v2) => v_size v1
-                                      | INR (vs1,vs2) => v7_size vs1)`);
+                                      | INR (vs1,vs2) => vs_size vs1)` >>
+srw_tac [ARITH_ss] [size_abbrevs, v_size_def]);
 val _ = register "do_eq" do_eq_def do_eq_ind;
 
 val _ = export_theory ();
