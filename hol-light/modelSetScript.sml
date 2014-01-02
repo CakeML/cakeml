@@ -475,7 +475,7 @@ val CARTESIAN_EXISTS = prove(
   fs[inset_def] >>
   metis_tac[ELEMENT_IN_LEVEL,LEVEL_PAIR])
 
-val product_def =
+val PRODUCT_def =
   new_specification("PRODUCT_def",["product"],
     SIMP_RULE std_ss [SKOLEM_THM] CARTESIAN_EXISTS)
 
@@ -565,7 +565,7 @@ val IN_POWERSET = Q.prove
 
 val IN_PRODUCT = Q.prove
  (`!z s t. z <: product s t <=> ?x y. (z = pair x y) /\ x <: s /\ y <: t`,
-  metis_tac[product_def]);;
+  metis_tac[PRODUCT_def]);;
 
 val IN_COMPREHENSION = Q.prove
  (`!p s x. x <: (s suchthat p) <=> x <: s /\ p x`,
@@ -629,5 +629,47 @@ val BOOLEAN_EQ_TRUE = store_thm("BOOLEAN_EQ_TRUE",
   ``∀b. boolean b = true ⇔ b``,
   metis_tac[boolean_def,TRUE_NE_FALSE])
 
-val _ = export_theory()
+val in_funspace_abstract = store_thm("in_funspace_abstract",
+  ``∀z s t. z <: funspace s t ∧ (∃z. z <: s) ∧ (∃z. z <: t) ⇒
+    ∃f. z = abstract s t f ∧ (∀x. x <: s ⇒ f x <: t)``,
+  rw[funspace_def,suchthat_def,powerset_def] >>
+  qexists_tac`λx. @y. pair x y <: z` >>
+  conj_tac >- (
+    match_mp_tac EXTENSIONALITY_NONEMPTY >>
+    simp[abstract_def] >>
+    conj_tac >- (
+      fs[EXISTS_UNIQUE_THM] >>
+      metis_tac[] ) >>
+    simp[suchthat_def] >>
+    conj_tac >- (
+      simp[PRODUCT_def] >>
+      srw_tac[DNF_ss][] >>
+      simp[RIGHT_EXISTS_AND_THM] >>
+      qmatch_assum_rename_tac`y <: s`[] >>
+      qexists_tac`y` >> simp[] >>
+      first_x_assum(qspec_then`y`mp_tac) >>
+      simp[] >>
+      simp[EXISTS_UNIQUE_THM] >>
+      strip_tac >>
+      qmatch_assum_rename_tac`pair y x <: z`[] >>
+      fs[subset_def] >>
+      `pair y x <: product s t` by metis_tac[] >>
+      fs[PRODUCT_def,PAIR_INJ] >>
+      SELECT_ELIM_TAC >>
+      metis_tac[] ) >>
+    rw[] >>
+    EQ_TAC >> strip_tac >- (
+      fs[subset_def] >>
+      rw[] >>
+      SELECT_ELIM_TAC >>
+      fs[EXISTS_UNIQUE_THM] >>
+      fs[PRODUCT_def] >>
+      metis_tac[PAIR_INJ] ) >>
+    fs[PRODUCT_def,subset_def,EXISTS_UNIQUE_THM] >>
+    metis_tac[]) >>
+  rw[] >>
+  fs[subset_def,EXISTS_UNIQUE_THM,PRODUCT_def] >>
+  SELECT_ELIM_TAC >>
+  metis_tac[PAIR_INJ])
 
+val _ = export_theory()

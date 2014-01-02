@@ -1,10 +1,12 @@
-open HolKernel boolLib bossLib helperLib pairTheory lcsymtacs
+open HolKernel boolLib bossLib pairTheory lcsymtacs
 open ml_translatorTheory sideTheory replDecsTheory replDecsProofsTheory compileCallReplStepDecTheory
 open semanticPrimitivesTheory listTheory
 
-val _ = new_theory "x64Correct"
+val _ = new_theory "bootstrap_lemmas"
 
 infix \\ val op \\ = op THEN;
+
+val RW = REWRITE_RULE
 
 val _ = Globals.max_print_depth := 50
 
@@ -108,7 +110,7 @@ val check_ctors_decs_ml_repl_step_decls = prove(
 val decs_to_cenv_ml_repl_step_decls = let
   val pat = ``decs_to_cenv NONE ml_repl_step_decls = xxx``
   in ml_repl_stepTheory.ml_repl_step_translator_state_thm
-     |> RW [markerTheory.Abbrev_def,TAG_def]
+     |> REWRITE_RULE [markerTheory.Abbrev_def,TAG_def]
      |> CONJUNCTS
      |> filter (fn th => can (match_term pat) (concl th)) |> hd end
 
@@ -559,6 +561,10 @@ val env_rs_repl_decs_inp_out = store_thm("env_rs_repl_decs_inp_out",
 
 *)
 
+val IMP_IMP = prove(
+  ``!b c d.b /\ (c ==> d) ==> ((b ==> c) ==> d)``,
+  METIS_TAC []);
+
 val bc_eval_bootstrap_lcode = store_thm("bc_eval_bootstrap_lcode",
   ``∀bs.
        (bs.code = REVERSE bootstrap_lcode) ∧ length_ok bs.inst_length /\
@@ -573,7 +579,7 @@ val bc_eval_bootstrap_lcode = store_thm("bc_eval_bootstrap_lcode",
   \\ REPEAT STRIP_TAC
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `bs`)
   \\ FULL_SIMP_TAC std_ss []
-  \\ MATCH_MP_TAC set_sepTheory.IMP_IMP
+  \\ MATCH_MP_TAC IMP_IMP
   \\ SIMP_TAC std_ss [compile_term_out_EQ_bootstrap_lcode]
   \\ REPEAT STRIP_TAC
   \\ Q.EXISTS_TAC `bs'`
@@ -855,123 +861,96 @@ val COMPILER_RUN_INV_repl_step = store_thm("COMPILER_RUN_INV_repl_step",
                           astTheory.pat_bindings_def]);
 
 
+(* instances of Block *)
+
+fun tag_for str = let
+  val cnmap =
+    compileReplDecsTheory.repl_decs_compiled
+    |> concl |> rand |> rand |> rator |> rand |> rand
+  val tm = stringSyntax.fromMLstring str
+  val pat = ``(SOME (Short ^tm),n:num)``
+  val raw = find_term (can (match_term pat)) cnmap |> rand
+  in ``^raw + block_tag`` |> EVAL |> concl |> rand end
+
+val nil_tag_def  = Define `nil_tag  = ^(tag_for "nil")`;
+val cons_tag_def = Define `cons_tag = ^(tag_for "::")`;
+val pair_tag_def = Define `pair_tag = ^(tag_for "Pair")`;
+
+val BlockNil_def  = Define `BlockNil = Block nil_tag []`;
+val BlockCons_def = Define `BlockCons (x,y) = Block cons_tag [x;y]`;
+val BlockPair_def = Define `BlockPair (x,y) = Block pair_tag [x;y]`;
+
+val BlockList_def = Define `
+  (BlockList [] = BlockNil) /\
+  (BlockList (x::xs) = BlockCons(x,BlockList xs))`;
+
+val BlockBool_def = Define `BlockBool b = Block (bool_to_tag b) []`;
+val BlockSome_def = Define `BlockSome x = Block ^(tag_for "Some") [x]`;
+
+val BlockInl_def = Define `BlockInl x = Block ^(tag_for "Inl") [x]`;
+val BlockInr_def = Define `BlockInr x = Block ^(tag_for "Inr") [x]`;
+
+val errors_tag_def  = Define `errors_tag = ^(tag_for "Errors")`;
+val others_tag_def  = Define `others_tag = ^(tag_for "Others")`;
+val longs_tag_def   = Define `longs_tag = ^(tag_for "Longs")`;
+val numbers_tag_def = Define `numbers_tag = ^(tag_for "Numbers")`;
+val strings_tag_def = Define `strings_tag = ^(tag_for "Strings")`;
+
+val BlockOtherS_def  = Define `BlockOtherS x  = Block others_tag [x]`;
+val BlockLongS_def   = Define `BlockLongS x   = Block longs_tag [x]`;
+val BlockNumberS_def = Define `BlockNumberS x = Block numbers_tag [x]`;
+val BlockStringS_def = Define `BlockStringS x = Block strings_tag [x]`;
+val BlockErrorS_def  = Define `BlockErrorS    = Block errors_tag []`;
+
+val Chr_def = Define `Chr c = Number (& (ORD c))`;
+
+val BlockSym_def = Define `
+  (BlockSym (StringS s) = BlockStringS (BlockList (MAP Chr s))) /\
+  (BlockSym (OtherS s) = BlockOtherS (BlockList (MAP Chr s))) /\
+  (BlockSym (LongS s) = BlockLongS (BlockList (MAP Chr s))) /\
+  (BlockSym (ErrorS) = BlockErrorS) /\
+  (BlockSym (NumberS n) = BlockNumberS (Number n))`;
+
+val BlockNum3_def = Define `
+  BlockNum3 (x,y,z) =
+    BlockPair (Number (&x), BlockPair (Number (&y),Number (&z)))`;
 
 
+(* theorems used by x86-64 proofs *)
 
+val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
+  ``COMPILER_RUN_INV bs inp outp /\ OUTPUT_TYPE (INR (msg,s)) outp ==>
+    ?x outp_ptr inp_ptr rest s_bc_val.
+      (bs.stack = x::(RefPtr outp_ptr)::(RefPtr inp_ptr)::rest) /\
+      inp_ptr IN FDOM bs.refs /\
+      (FLOOKUP bs.refs outp_ptr =
+         SOME (BlockInr (BlockPair (BlockList (MAP Chr msg),s_bc_val)))) /\
+      !ts.
+        let inp_bc_val = BlockSome (BlockPair (BlockList (MAP BlockSym ts),s_bc_val))
+        in
+          ?new_inp.
+            INPUT_TYPE (SOME (ts,s)) new_inp /\
+            COMPILER_RUN_INV (bs with refs := bs.refs |+ (inp_ptr,inp_bc_val))
+              new_inp outp``,
+  cheat); (* requires digging through the details of env_rs *)
 
+val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
+  ``COMPILER_RUN_INV bs inp outp /\ OUTPUT_TYPE (INL (m,code,s)) outp ==>
+    ?x outp_ptr inp_ptr rest m_bc_val s_bc_val.
+      (bs.stack = x::(RefPtr outp_ptr)::(RefPtr inp_ptr)::rest) /\
+      inp_ptr IN FDOM bs.refs /\
+      (FLOOKUP bs.refs outp_ptr =
+         SOME (BlockInl (BlockPair (m_bc_val,
+                 BlockPair (BlockList (MAP BlockNum3 code),s_bc_val))))) /\
+      !ts b.
+        let inp_bc_val = BlockSome (BlockPair (BlockList (MAP BlockSym ts),
+                                      BlockPair (BlockBool b,s_bc_val)))
+        in
+          ?new_inp.
+            INPUT_TYPE (SOME (ts,b,s)) new_inp /\
+            COMPILER_RUN_INV (bs with refs := bs.refs |+ (inp_ptr,inp_bc_val))
+              new_inp outp``,
+  cheat); (* requires digging through the details of env_rs *)
 
-
-
-
-
-
-
-(*
-
-COMPILER_RUN_INV_STEP
-
-repl_step_do_app
-
-bc_eval_bootstrap_lcode |> RW [repl_decs_s_def]
-compile_call_bc_eval
-*)
-
-
-
-
-
-
-(*
-val DeclAssum_ml_repl_step_decls = prove(
-  ``DeclAssum ml_repl_step_decls ml_repl_step_decls_env``,
-  simp[DeclAssum_def] >>
-  simp[Decls_def] >>
-  cheat (* ml_repl_step_decls_cenv_env_s_def and decs/decs' equivalence *))
-  (* easier proof might be to do decs/decs' equivalence for the special case
-  when only Letrec and Let(Fun (to avoid induction at expression level) *)
-
-val repl_step_closure_def =
-  new_specification("repl_step_closure_def",["repl_step_closure"],
-
-open sideTheory
-
-repl_step_side_thm
-
-
-  |> SPEC ``ml_repl_step_decls_env``
-  |> RW[DeclAssum_ml_repl_step_decls,Eval_def]
-  |> SIMP_RULE(srw_ss())[Once AltBigStepTheory.evaluate'_cases]
-  |> SIMP_RULE(srw_ss())[Arrow_def,AppReturns_def,evaluate_closure_def,Eq_def]
-  |> GEN_ALL |> Q.SPEC`NONE` |> SIMP_RULE(srw_ss())[std_preludeTheory.OPTION_TYPE_def]
-
-  ml_repl_step_translator_state_thm
-  |> EVAL
-  ml_repl_step_decls_cenv_env_s_def
-  ml_repl_step_decls
-*)
-
-
-
-   (*
-   going further (as in below) is probably not worth it
-
-   val ss = SIMP_CONV (srw_ss())
-   val th2 =
-     th1 |> CONV_RULE (LAND_CONV (
-     ss[Once BigStepTheory.evaluate_dec_cases,call_repl_step_dec_def]
-     THENC ss[Once BigStepTheory.evaluate_cases]
-     THENC ss[Once BigStepTheory.evaluate_cases,LibTheory.emp_def,SemanticPrimitivesTheory.do_app_def]
-     THENC ss[last(CONJUNCTS repl_decs_env_front),SemanticPrimitivesTheory.lookup_var_id_def]
-     THENC ss[AstTheory.pat_bindings_def]
-     THENC ss[Once BigStepTheory.evaluate_cases]
-     THENC ss[Once BigStepTheory.evaluate_cases,SemanticPrimitivesTheory.lookup_var_id_def,LibTheory.bind_def]
-     THENC ss[SemanticPrimitivesTheory.do_app_def]
-     THENC ss[Once BigStepTheory.evaluate_cases]
-     THENC ss[Once BigStepTheory.evaluate_cases]
-     THENC ss[Once BigStepTheory.evaluate_cases]))
-   val th3 =
-     th2 |> CONV_RULE (LAND_CONV (
-     ss[Once BigStepTheory.evaluate_cases]
-     THENC ss[SemanticPrimitivesTheory.lookup_var_id_def]
-     ))
-
-     THENC ss[SemanticPrimitivesTheory.do_app_def]
-
-     print_find"cenv_bind_div"
-
-  set_trace"Goalstack.print_goal_at_top"0
-  set_trace"Goalstack.howmany_printed_assums"10
-
-  print_find "closed_context"
-  print_apropos``closed_context []``
-  *)
-
-(*
-
-val entire_x64_implementation_def = Define `
-  entire_x64_implementation p =
-    {(p:word64,[0x88w:word8])} UNION bignum_code (p + 999w)`;
-
-val out_def = Define `
-  (out (Diverge) = ("",F)) /\
-  (out (Terminate) = ("",T)) /\
-  (out (Result r rest) =
-     let (str,res) = out rest in
-       (r ++ str,res))`;
-
-
-
-val x64_correct = store_thm("x64_correct",
-  ``TEMPORAL X64_MODEL (entire_x64_implementation p)
-      (T_IMPLIES (INIT_STATE init)
-                 (T_DISJ (EVENTUALLY (SEP_EXISTS output result bools. zHEAP_OUTPUT (first_cs init,output) *
-                                         cond (repl bools init.init_input result /\ (out result = (output,T)))))
-                 (T_DISJ (ALWAYS (EVENTUALLY (SEP_EXISTS output result bools. zHEAP_OK output *
-                                         cond (repl bools init.init_input result /\ (out result = (output,F))))))
-                         (EVENTUALLY (SEP_EXISTS output rest result bools success. zHEAP_ERROR output *
-                                         cond (repl bools init.init_input result /\ (out result = (output ++ rest,success))))))))``,
-  cheat);
-
-*)
 
 val _ = export_theory()
