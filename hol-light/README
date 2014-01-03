@@ -5,9 +5,13 @@ sholSyntaxExtraScript.sml
 
 modelSetScript.sml
     Defines the context (a kind of set theory) in which we will construct our model of stateless HOL.
+polySetScript.sml
+    An alternative, cleaner set theory.
 
 sholSemanticsScript.sml
     Defines the semantics of (stateless) HOL, and proves soundness and consistency of the inference system.
+psholSemanticsScript.sml
+    The same, but based on polySet instead. The rest assumes this version.
 
 holSyntaxScript.sml
     Defines the inference system for stateful HOL.
