@@ -43,7 +43,7 @@ val _ = Hol_datatype `
 
 val _ = Hol_datatype `
   def = (* Axiomdef of hol_term
-      | *) Constdef of string => hol_term
+      | *) Constdef of hol_term list => hol_term
       | Typedef of string => hol_term => string => string`;
 
 (*
@@ -178,6 +178,12 @@ val _ = Define `
     | (h::t) => do h <- f h ;
                    t <- map f t ;
                    return (h::t) od`
+
+val _ = Define `
+  app f l =
+    case l of
+      [] => return ()
+    | (h::t) => do f h ; app f t od`
 
 val _ = Define `
   forall p l =
@@ -1112,6 +1118,28 @@ val new_axiom_def = Define `
     od`;
 *)
 
+val _ = Define`
+  new_specification (Sequent eqs p) =
+    do vars <-
+         map (\e. do (l,r) <- dest_eq e;
+                     (s,ty) <- dest_var l;
+                     if ~(freesin [] r) then
+                       failwith "new_specification: a witness is not closed"
+                     else if ~(subset (type_vars_in_term r) (tyvars ty)) then
+                       failwith "new_specification: a witness's type variables are not in its type"
+                     else return (s,ty) od) eqs ;
+       if ~(freesin (MAP (UNCURRY Var) vars) p) then
+         failwith "new_specification: a free variable is not in the assumptions"
+       else do
+         app new_constant vars ;
+         add_def (Constdef eqs p) ;
+         let ilist = MAP (\(s,ty). (Const s ty, Var s ty)) vars in
+         let p = vsubst_aux ilist p in
+         return (Sequent [] p) od od`
+
+val _ = Define`
+  new_basic_definition tm = do th <- ASSUME tm ; new_specification th od`
+
 (*
   let new_basic_definition tm =
     let l,r = dest_eq tm in
@@ -1123,6 +1151,8 @@ val new_axiom_def = Define `
       let c = new_constant(cname,ty); mk_const(cname,[]) in
       Sequent([],mk_eq(c,r))
 *)
+
+(*
 
 val _ = Define `
   new_basic_definition tm =
@@ -1138,6 +1168,7 @@ val _ = Define `
          eq <- mk_eq(c,r) ;
          return (Sequent [] eq)
        od od`
+*)
 
 (*
   let new_basic_type_definition tyname (absname,repname) (Sequent(asl,c)) =
