@@ -6,6 +6,7 @@ val _ = new_theory "typeSysProps";
 
 val check_dup_ctors_def = semanticPrimitivesTheory.check_dup_ctors_def;
 val build_tdefs_def = semanticPrimitivesTheory.build_tdefs_def;
+val find_recfun_def = semanticPrimitivesTheory.find_recfun_def;
 
 val all_distinct_map_inj = Q.prove (
 `!f l. (!x y. (f x = f y) ⇒ (x = y)) ⇒ (ALL_DISTINCT (MAP f l) = ALL_DISTINCT l)`,

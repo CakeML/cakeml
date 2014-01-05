@@ -78,6 +78,7 @@ val (Cv_to_ov_def,Cv_to_ov_ind) = register "Cv_to_ov" (
   Q.ISPEC_THEN `Cv_size` imp_res_tac SUM_MAP_MEM_bound >>
   srw_tac[ARITH_ss][]))
 
+  (*
 val (v_to_ov_def,v_to_ov_ind) = register "v_to_ov" (
   tprove_no_defn ((v_to_ov_def,v_to_ov_ind),
   WF_REL_TAC `measure (v_size o SND)` >>
@@ -283,4 +284,5 @@ val _ = export_rewrites
 ,"toIntLang.opn_to_prim2_def"
 ,"do_Ceq_def"];
 
+*)
 val _ = export_theory()

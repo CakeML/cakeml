@@ -60,82 +60,78 @@ val _ = Hol_datatype `
 (*val funs_to_i1 : map modN (map varN nat) -> map varN nat -> list (varN * varN * exp) -> list (varN * varN * exp_i1)*)
  val exp_to_i1_defn = Hol_defn "exp_to_i1" `
  
-(exp_to_i1 menv env e0 =
-  ((case (menv,env,e0) of
-       ( menv, env, (Raise e) ) => Raise_i1 (exp_to_i1 menv env e)
-     | ( menv, env, (Handle e pes) ) => Handle_i1 (exp_to_i1 menv env e)
-                                          (pat_exp_to_i1 menv env pes)
-     | ( menv, env, (Lit l) ) => Lit_i1 l
-     | ( menv, env, (Con cn es) ) => Con_i1 cn (exps_to_i1 menv env es)
-     | ( menv, env, (Var (Short x)) ) => (case FLOOKUP env x of
-                                               NONE => Var_local_i1 x
-                                           | SOME n => Var_global_i1 n
-                                         )
-     | ( menv, env, (Var (Long mn x)) ) => (case FLOOKUP menv mn of
-                                                 NONE => Var_global_i1 ( 0) (* Can't happen *)
-                                             | SOME env' =>
-                                           (case FLOOKUP env' x of
-                                                 NONE => Var_global_i1 ( 0) (* Can't happen *)
-                                             | SOME n => Var_global_i1 n
-                                           )
-                                           )
-     | ( menv, env, (Fun x e) ) => Fun_i1 x (exp_to_i1 menv (env \\ x) e)
-     | ( menv, env, (Uapp uop e) ) => Uapp_i1 uop (exp_to_i1 menv env e)
-     | ( menv, env, (App op e1 e2) ) => App_i1 op (exp_to_i1 menv env e1)
-                                          (exp_to_i1 menv env e2)
-     | ( menv, env, (Log lop e1 e2) ) => (case lop of
-                                               And => If_i1
-                                                        (exp_to_i1 menv 
-                                                         env e1)
-                                                        (exp_to_i1 menv 
-                                                         env e2)
-                                                        (Lit_i1 (Bool F))
-                                           | Or => If_i1
-                                                     (exp_to_i1 menv env e1)
-                                                     (Lit_i1 (Bool T))
-                                                     (exp_to_i1 menv env e2)
-                                         )
-     | ( menv, env, (If e1 e2 e3) ) => If_i1 (exp_to_i1 menv env e1)
-                                         (exp_to_i1 menv env e2)
-                                         (exp_to_i1 menv env e3)
-     | ( menv, env, (Mat e pes) ) => Mat_i1 (exp_to_i1 menv env e)
-                                       (pat_exp_to_i1 menv env pes)
-     | ( menv, env, (Let x e1 e2) ) => Let_i1 x (exp_to_i1 menv env e1)
-                                         (exp_to_i1 menv (env \\ x) e2)
-     | ( menv, env, (Letrec funs e) ) => let fun_names = (MAP
-                                                            (\ (f,x,e) .  f)
-                                                            funs) in
-                                         Letrec_i1
-                                           (funs_to_i1 menv
-                                              (FOLDR (\ k m. m \\ k) 
-                                               env fun_names) funs)
-                                           (exp_to_i1 menv
-                                              (FOLDR (\ k m. m \\ k) 
-                                               env fun_names) e)
-   )))
+(exp_to_i1 menv env (Raise e) =  
+ (Raise_i1 (exp_to_i1 menv env e)))
 /\
-(exps_to_i1 menv env l =
-  ((case (menv,env,l) of
-       ( menv, env, [] ) => []
-     | ( menv, env, (e::es) ) => exp_to_i1 menv env e ::
-                                   exps_to_i1 menv env es
-   )))
+(exp_to_i1 menv env (Handle e pes) =  
+ (Handle_i1 (exp_to_i1 menv env e) (pat_exp_to_i1 menv env pes)))
 /\
-(funs_to_i1 menv env l =
-  ((case (menv,env,l) of
-       ( menv, env, [] ) => []
-     | ( menv, env, ((f,x,e)::funs) ) => (f,x,exp_to_i1 menv (env \\ x) e) ::
-                                           funs_to_i1 menv env funs
-   )))
+(exp_to_i1 menv env (Lit l) =  
+ (Lit_i1 l)) 
 /\
-(pat_exp_to_i1 menv env l =
-  ((case (menv,env,l) of
-       ( menv, env, [] ) => []
-     | ( menv, env, ((p,e)::pes) ) => (p, exp_to_i1 menv
-                                            (FOLDR (\ k m. m \\ k) env
-                                               (pat_bindings p [])) e) ::
-                                        pat_exp_to_i1 menv env pes
-   )))`;
+(exp_to_i1 menv env (Con cn es) =  
+ (Con_i1 cn (exps_to_i1 menv env es)))
+/\
+(exp_to_i1 menv env (Var (Short x)) =  
+ ((case FLOOKUP env x of
+      NONE => Var_local_i1 x
+    | SOME n => Var_global_i1 n
+  )))
+/\
+(exp_to_i1 menv env (Var (Long mn x)) =  
+((case FLOOKUP menv mn of
+      NONE => Var_global_i1( 0) (* Can't happen *)
+    | SOME env' =>
+        (case FLOOKUP env' x of
+            NONE => Var_global_i1( 0) (* Can't happen *)
+          | SOME n => Var_global_i1 n
+        )
+  )))
+/\
+(exp_to_i1 menv env (Fun x e) =  
+(Fun_i1 x (exp_to_i1 menv (env \\ x) e))) 
+/\
+(exp_to_i1 menv env (Uapp uop e) =  
+(Uapp_i1 uop (exp_to_i1 menv env e)))
+/\
+(exp_to_i1 menv env (App op e1 e2) =  
+(App_i1 op (exp_to_i1 menv env e1) (exp_to_i1 menv env e2)))
+/\
+(exp_to_i1 menv env (Log lop e1 e2) =  
+((case lop of
+      And => If_i1 (exp_to_i1 menv env e1) (exp_to_i1 menv env e2) (Lit_i1 (Bool F))
+    | Or => If_i1 (exp_to_i1 menv env e1) (Lit_i1 (Bool T)) (exp_to_i1 menv env e2)
+  )))
+/\
+(exp_to_i1 menv env (If e1 e2 e3) =  
+(If_i1 (exp_to_i1 menv env e1) (exp_to_i1 menv env e2) (exp_to_i1 menv env e3)))
+/\
+(exp_to_i1 menv env (Mat e pes) =  
+(Mat_i1 (exp_to_i1 menv env e) (pat_exp_to_i1 menv env pes)))
+/\
+(exp_to_i1 menv env (Let x e1 e2) =  
+(Let_i1 x (exp_to_i1 menv env e1) (exp_to_i1 menv (env \\ x) e2)))
+/\
+(exp_to_i1 menv env (Letrec funs e) =  
+(let fun_names = (MAP (\ (f,x,e) .  f) funs) in
+    Letrec_i1 (funs_to_i1 menv (FOLDR (\ k m. m \\ k) env fun_names) funs) 
+              (exp_to_i1 menv (FOLDR (\ k m. m \\ k) env fun_names) e)))
+/\
+(exps_to_i1 menv env [] = ([]))
+/\
+(exps_to_i1 menv env (e::es) =  
+(exp_to_i1 menv env e :: exps_to_i1 menv env es))
+/\
+(pat_exp_to_i1 menv env [] = ([]))
+/\
+(pat_exp_to_i1 menv env ((p,e)::pes) =  
+((p, exp_to_i1 menv (FOLDR (\ k m. m \\ k) env (pat_bindings p [])) e) ::
+  pat_exp_to_i1 menv env pes))
+/\
+(funs_to_i1 menv env [] = ([]))
+/\
+(funs_to_i1 menv env ((f,x,e)::funs) =  
+((f,x,exp_to_i1 menv (env \\ x) e) :: funs_to_i1 menv env funs))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn exp_to_i1_defn;
 

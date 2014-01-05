@@ -105,8 +105,6 @@ and
 exps_to_i1 menv env (e::es) =
   exp_to_i1 menv env e :: exps_to_i1 menv env es
 and
-exps_to_i1 menv env [] = []
-and
 pat_exp_to_i1 menv env [] = []
 and
 pat_exp_to_i1 menv env ((p,e)::pes) =
