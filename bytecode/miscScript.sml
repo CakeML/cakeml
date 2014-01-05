@@ -4,6 +4,42 @@ val _ = new_theory "misc"
 
 (* TODO: move/categorize *)
 
+val INFINITE_INJ_NOT_SURJ = store_thm("INFINITE_INJ_NOT_SURJ",
+  ``∀s. INFINITE s ⇔ (s ≠ ∅) ∧ (∃f. INJ f s s ∧ ¬SURJ f s s)``,
+  rw[EQ_IMP_THM] >- (
+    PROVE_TAC[INFINITE_INHAB,MEMBER_NOT_EMPTY] )
+  >- (
+    fs[infinite_num_inj] >>
+    qexists_tac`λx. if ∃n. x = f n then f (SUC (LEAST n. x = f n)) else x` >>
+    conj_asm1_tac >- (
+      fs[INJ_IFF] >>
+      conj_asm1_tac >- rw[] >>
+      rw[] >- (
+        numLib.LEAST_ELIM_TAC >>
+        conj_tac >- PROVE_TAC[] >>
+        rw[] ) >>
+      numLib.LEAST_ELIM_TAC >>
+      rw[] >>
+      metis_tac[] ) >>
+    fs[SURJ_DEF,INJ_IFF] >>
+    qexists_tac`f 0` >>
+    simp[] >>
+    rw[] >>
+    metis_tac[]) >>
+  fs[SURJ_DEF] >- (fs[INJ_IFF] >> metis_tac[]) >>
+  simp[infinite_num_inj] >>
+  qexists_tac`λn. FUNPOW f n x` >>
+  simp[INJ_IFF] >>
+  conj_asm1_tac >- (
+    Induct >>
+    simp[arithmeticTheory.FUNPOW_SUC] >>
+    fs[INJ_IFF] ) >>
+  Induct >> simp[] >- (
+    Cases >> simp[arithmeticTheory.FUNPOW_SUC] >>
+    metis_tac[] ) >>
+  Cases >> simp[arithmeticTheory.FUNPOW_SUC] >> fs[INJ_IFF] >>
+  metis_tac[] )
+
 val MAP_SND_FILTER_NEQ = store_thm("MAP_SND_FILTER_NEQ",
   ``MAP SND (FILTER (λ(x,y). y ≠ z) ls) =
     FILTER ($<> z) (MAP SND ls)``,

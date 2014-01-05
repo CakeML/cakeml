@@ -2,43 +2,6 @@ open HolKernel boolLib boolSimps SatisfySimps bossLib lcsymtacs miscTheory miscL
 val _ = numLib.prefer_num()
 val _ = new_theory"psholSemantics"
 
-(* TODO: move *)
-val INFINITE_INJ_NOT_SURJ = store_thm("INFINITE_INJ_NOT_SURJ",
-  ``∀s. INFINITE s ⇔ (s ≠ ∅) ∧ (∃f. INJ f s s ∧ ¬SURJ f s s)``,
-  rw[EQ_IMP_THM] >- (
-    PROVE_TAC[INFINITE_INHAB,MEMBER_NOT_EMPTY] )
-  >- (
-    fs[infinite_num_inj] >>
-    qexists_tac`λx. if ∃n. x = f n then f (SUC (LEAST n. x = f n)) else x` >>
-    conj_asm1_tac >- (
-      fs[INJ_IFF] >>
-      conj_asm1_tac >- rw[] >>
-      rw[] >- (
-        numLib.LEAST_ELIM_TAC >>
-        conj_tac >- PROVE_TAC[] >>
-        rw[] ) >>
-      numLib.LEAST_ELIM_TAC >>
-      rw[] >>
-      metis_tac[] ) >>
-    fs[SURJ_DEF,INJ_IFF] >>
-    qexists_tac`f 0` >>
-    simp[] >>
-    rw[] >>
-    metis_tac[]) >>
-  fs[SURJ_DEF] >- (fs[INJ_IFF] >> metis_tac[]) >>
-  simp[infinite_num_inj] >>
-  qexists_tac`λn. FUNPOW f n x` >>
-  simp[INJ_IFF] >>
-  conj_asm1_tac >- (
-    Induct >>
-    simp[arithmeticTheory.FUNPOW_SUC] >>
-    fs[INJ_IFF] ) >>
-  Induct >> simp[] >- (
-    Cases >> simp[arithmeticTheory.FUNPOW_SUC] >>
-    metis_tac[] ) >>
-  Cases >> simp[arithmeticTheory.FUNPOW_SUC] >> fs[INJ_IFF] >>
-  metis_tac[] )
-
 val discharge_hyps_keep =
   match_mp_tac(PROVE[]``(p ∧ (p ∧ q ==> r)) ==> ((p ==> q) ==> r)``) >> conj_tac
 
@@ -54,35 +17,6 @@ val mem = ``mem:'U->'U->bool``
 val indset = ``indset:'U``
 val ch = ``ch:'U->'U``
 val s = ``(^mem,^indset,^ch)``
-
-val _ = Parse.overload_on("M",s)
-
-val is_choice_def = Define`
-  is_choice ^mem ch = ∀x. (∃a. a <: x) ⇒ ch x <: x`
-
-val is_infinite_def = Define`
-  is_infinite ^mem s = INFINITE {a | a <: s}`
-
-val is_model_def = Define`
-  is_model ^s ⇔
-    is_set_theory mem ∧
-    is_infinite mem indset ∧
-    is_choice mem ch`
-
-val is_model_is_set_theory = store_thm("is_model_is_set_theory",
-  ``is_model M ⇒ is_set_theory ^mem``,
-  rw[is_model_def])
-
-val indset_inhabited = store_thm("indset_inhabited",
-  ``is_infinite ^mem indset ⇒ ∃i. i <: indset``,
-  rw[is_infinite_def] >> imp_res_tac INFINITE_INHAB >>
-  fs[] >> metis_tac[])
-
-val funspace_inhabited = store_thm("funspace_inhabited",
-  ``is_set_theory ^mem ⇒ ∀s t. (∃x. x <: s) ∧ (∃x. x <: t) ⇒ ∃f. f <: Funspace s t``,
-  rw[] >> qexists_tac`Abstract s t (λx. @x. x <: t)` >>
-  match_mp_tac (MP_CANON abstract_in_funspace) >>
-  metis_tac[])
 
 val type_valuation_def = Define`
   type_valuation0 ^s τ ⇔ ∀x. x ∈ FRANGE τ ⇒ ∃y. y <: x`

@@ -333,4 +333,37 @@ val in_funspace_abstract = store_thm("in_funspace_abstract",
   rfs[EXISTS_UNIQUE_THM,mem_product] >>
   metis_tac[pair_inj])
 
+val indset = ``indset:'U``
+val ch = ``ch:'U->'U``
+val s = ``(^mem,^indset,^ch)``
+
+val _ = Parse.overload_on("M",s)
+
+val is_choice_def = Define`
+  is_choice ^mem ch = ∀x. (∃a. a <: x) ⇒ ch x <: x`
+
+val is_infinite_def = Define`
+  is_infinite ^mem s = INFINITE {a | a <: s}`
+
+val is_model_def = Define`
+  is_model ^s ⇔
+    is_set_theory mem ∧
+    is_infinite mem indset ∧
+    is_choice mem ch`
+
+val is_model_is_set_theory = store_thm("is_model_is_set_theory",
+  ``is_model M ⇒ is_set_theory ^mem``,
+  rw[is_model_def])
+
+val indset_inhabited = store_thm("indset_inhabited",
+  ``is_infinite ^mem indset ⇒ ∃i. i <: indset``,
+  rw[is_infinite_def] >> imp_res_tac INFINITE_INHAB >>
+  fs[] >> metis_tac[])
+
+val funspace_inhabited = store_thm("funspace_inhabited",
+  ``is_set_theory ^mem ⇒ ∀s t. (∃x. x <: s) ∧ (∃x. x <: t) ⇒ ∃f. f <: Funspace s t``,
+  rw[] >> qexists_tac`Abstract s t (λx. @x. x <: t)` >>
+  match_mp_tac (MP_CANON abstract_in_funspace) >>
+  metis_tac[])
+
 val _ = export_theory()
