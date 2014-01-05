@@ -194,15 +194,6 @@ val _ = Define`
 *)
 
 val _ = Define `
-  check_all_distinct ls acc msg =
-    case ls of
-      [] => return ()
-    | (h::t) =>
-      if MEM h acc then
-        failwith (msg h)
-      else check_all_distinct t (h::acc) msg`
-
-val _ = Define `
   forall p l =
     case l of
       [] => return T
@@ -397,12 +388,19 @@ val _ = Define `
        else do ts <- get_the_term_constants ;
                set_the_term_constants ((name,ty)::ts) od od`;
 
+val _ = Define`
+  first_dup ls acc =
+  case ls of
+  | [] => NONE
+  | (h::t) =>
+    if MEM h acc then SOME h else first_dup t (h::acc)`
+
 val _ = Define `
   new_constants ls =
     do cs <- get_the_term_constants ;
-       check_all_distinct (MAP FST ls) (MAP FST cs)
-         (\name. "new_constants: "++name++" appears twice or has already been declared");
-       set_the_term_constants (ls++cs) od`;
+       case first_dup (MAP FST ls) (MAP FST cs) of
+       | SOME name => failwith ("new_constants: "++name++" appears twice or has already been declared")
+       | NONE => set_the_term_constants (ls++cs) od`;
 
 (*
   let rec type_of tm =

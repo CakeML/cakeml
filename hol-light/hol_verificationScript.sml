@@ -2990,16 +2990,12 @@ val hol_ty_is_Fun = prove(
 val STRCAT_SHADOW_def = zDefine`
   STRCAT_SHADOW = STRCAT`
 
-val check_all_distinct_thm = prove(
-  ``∀ls acc msg s res s'. check_all_distinct ls acc msg s = (res,s') ⇒
-    s' = s ∧
-    (∀u. res = HolRes u ⇒ ALL_DISTINCT ls ∧ (∀x. MEM x ls ⇒ ¬MEM x acc))``,
-  Induct >> simp[Once check_all_distinct_def,ex_return_def] >>
+val first_dup_thm = prove(
+  ``∀ls acc. (first_dup ls acc = NONE) ⇒ ALL_DISTINCT ls ∧ (∀x. MEM x ls ⇒ ¬MEM x acc)``,
+  Induct >> simp[Once first_dup_def] >>
   rpt gen_tac >>
-  BasicProvers.CASE_TAC >- (
-    simp[failwith_def] >> rw[] ) >>
-  strip_tac >>
-  res_tac >>
+  BasicProvers.CASE_TAC >>
+  strip_tac >> res_tac >>
   simp[] >> fs[] >>
   METIS_TAC[])
 
@@ -3012,14 +3008,13 @@ val new_constants_thm = prove(
   simp_tac std_ss [new_constants_def,GSYM STRCAT_SHADOW_def] >>
   simp[ex_bind_def,get_the_term_constants_def] >>
   rpt gen_tac >>
-  BasicProvers.CASE_TAC >>
-  imp_res_tac check_all_distinct_thm >>
+  reverse BasicProvers.CASE_TAC >- (
+    simp[failwith_def] >> rw[] ) >>
+  imp_res_tac first_dup_thm >>
   strip_tac >>
-  Cases_on`q`>>fs[]>>
-  rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
-  Cases_on`a`>>fs[] >>
+  Cases_on`res`>>
   fs[set_the_term_constants_def] >>
-  rpt BasicProvers.VAR_EQ_TAC >>
+  rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
   simp[ALL_DISTINCT_APPEND])
 
 val new_specification_thm = prove(

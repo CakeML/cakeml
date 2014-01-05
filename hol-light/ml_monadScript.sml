@@ -17,6 +17,7 @@ infix \\ val op \\ = op THEN;
 
 val _ = register_type ``:'a # 'b``;
 val _ = register_type ``:'a list``;
+val _ = register_type ``:'a option``;
 
 val CHAR_def = Define `
   CHAR (c:char) = NUM (ORD c)`;
