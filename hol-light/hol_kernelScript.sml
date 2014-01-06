@@ -388,12 +388,14 @@ val _ = Define `
        else do ts <- get_the_term_constants ;
                set_the_term_constants ((name,ty)::ts) od od`;
 
+local open ml_translatorTheory in
 val _ = Define`
   first_dup ls acc =
   case ls of
   | [] => NONE
   | (h::t) =>
-    if MEM h acc then SOME h else first_dup t (h::acc)`
+    if MEMBER h acc then SOME h else first_dup t (h::acc)`
+end
 
 val _ = Define `
   new_constants ls =

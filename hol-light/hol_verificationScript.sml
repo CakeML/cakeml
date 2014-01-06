@@ -2990,13 +2990,14 @@ val hol_ty_is_Fun = prove(
 val STRCAT_SHADOW_def = zDefine`
   STRCAT_SHADOW = STRCAT`
 
+val m = GSYM ml_translatorTheory.MEMBER_INTRO
 val first_dup_thm = prove(
   ``∀ls acc. (first_dup ls acc = NONE) ⇒ ALL_DISTINCT ls ∧ (∀x. MEM x ls ⇒ ¬MEM x acc)``,
-  Induct >> simp[Once first_dup_def] >>
+  Induct >> simp[Once first_dup_def,m] >>
   rpt gen_tac >>
   BasicProvers.CASE_TAC >>
   strip_tac >> res_tac >>
-  simp[] >> fs[] >>
+  simp[m] >> fs[m] >>
   METIS_TAC[])
 
 val new_constants_thm = prove(
