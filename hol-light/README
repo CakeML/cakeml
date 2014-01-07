@@ -8,10 +8,8 @@ modelSetScript.sml
 polySetScript.sml
     An alternative, cleaner set theory.
 
-sholSemanticsScript.sml
-    Defines the semantics of (stateless) HOL, and proves soundness and consistency of the inference system.
 psholSemanticsScript.sml
-    The same, but based on polySet instead. The rest assumes this version.
+    Defines the semantics of (stateless) HOL, and proves soundness and consistency of the inference system.
 
 holSyntaxScript.sml
     Defines the inference system for stateful HOL.
