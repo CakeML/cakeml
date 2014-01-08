@@ -13,6 +13,7 @@ EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 PRE_BARE_THYS1 = astTheory \
 		tokensTheory \
 		libTheory \
+		initialEnvTheory \
 		semanticPrimitivesTheory
 
 PRE_BARE_THYS2 = cmlParseTheory lexer_implTheory

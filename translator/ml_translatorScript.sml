@@ -688,8 +688,8 @@ val evaluate_empty_store_lemma = prove(
   |> SIMP_RULE std_ss [PULL_EXISTS,AND_IMP_INTRO];
 
 val _ = temp_overload_on("has_emp_no_fail",
-  ``\x. (SND (FST x) = empty_store:store) /\
-        ~(SND x = (Rerr Rtype_error):'a result) (*/\
+  ``\x. (SND (FST x) = empty_store:'a store) /\
+        ~(SND x = (Rerr Rtype_error):('b,'c) result) (*/\
         ~(SND x = (Rerr (Rraise Bind_error)):'a result)*)``)
 
 val sind = IndDefLib.derive_strong_induction(evaluate_rules,evaluate_ind);
@@ -716,10 +716,10 @@ val do_app_lemma = prove(
   \\ FULL_SIMP_TAC (srw_ss()) [empty_store_def]);
 
 val pmatch_lemma = prove(
-  ``(!cenv (s:store) (p:pat) v env x.
+  ``(!cenv (s:v store) (p:pat) v env x.
       (pmatch cenv empty_store p v env = x) /\ x <> Match_type_error ==>
       !s. (pmatch cenv s p v env = x)) /\
-    (!cenv (s:store) (p:pat list) vs env x.
+    (!cenv (s:v store) (p:pat list) vs env x.
       (pmatch_list cenv empty_store p vs env = x) /\ x <> Match_type_error ==>
       !s. (pmatch_list cenv s p vs env = x))``,
   HO_MATCH_MP_TAC pmatch_ind \\ REPEAT STRIP_TAC
@@ -1300,4 +1300,5 @@ val check_dup_ctors_thm = save_thm("check_dup_ctors_thm",
   |> REWRITE_RULE [lookup_eq_NONE]);
 
   *)
+
 val _ = export_theory();
