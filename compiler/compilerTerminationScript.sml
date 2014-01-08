@@ -78,11 +78,10 @@ val (Cv_to_ov_def,Cv_to_ov_ind) = register "Cv_to_ov" (
   Q.ISPEC_THEN `Cv_size` imp_res_tac SUM_MAP_MEM_bound >>
   srw_tac[ARITH_ss][]))
 
-  (*
 val (v_to_ov_def,v_to_ov_ind) = register "v_to_ov" (
   tprove_no_defn ((v_to_ov_def,v_to_ov_ind),
   WF_REL_TAC `measure (v_size o SND)` >>
-  rw[v3_size_thm] >>
+  rw[SIMP_RULE (std_ss) [vs_size_def] vs_size_thm] >>
   Q.ISPEC_THEN `v_size` imp_res_tac SUM_MAP_MEM_bound >>
   srw_tac[ARITH_ss][]))
 
@@ -96,6 +95,7 @@ val (mkshift_def,mkshift_ind) = register "mkshift" (
   Q.ISPEC_THEN`Cexp2_size`imp_res_tac SUM_MAP_MEM_bound >>
   fsrw_tac[ARITH_ss][Cexp_size_def]))
 
+(* TODO
 val (exp_to_Cexp_def,exp_to_Cexp_ind) = register "exp_to_Cexp" (
   tprove_no_defn ((exp_to_Cexp_def,exp_to_Cexp_ind),
   WF_REL_TAC `inv_image $< (λx. case x of
@@ -110,6 +110,7 @@ val (v_to_Cv_def,v_to_Cv_ind) = register "v_to_Cv" (
     | INL (_,_,v) => v_size v
     | INR (INL (_,_, vs)) => v3_size vs
     | INR (INR (_,_, env)) => v1_size env)`))
+    *)
 
 val (compile_envref_def, compile_envref_ind) = register "compile_envref" (
   tprove_no_defn ((compile_envref_def, compile_envref_ind),
@@ -268,6 +269,22 @@ val (do_Ceq_def,do_Ceq_ind) = register "do_Ceq" (
 
 (* export rewrites *)
 
+(* TODO: add missing *)
+val _ = export_rewrites
+["toBytecode.emit_def","toBytecode.get_label_def","toBytecode.emit_ceref_def","toBytecode.emit_ceenv_def"
+,"toBytecode.prim1_to_bc_def","toBytecode.prim2_to_bc_def"
+,"free_vars_def","no_closures_def"
+,"Cv_to_ov_def","v_to_ov_def"
+,"toBytecode.compile_varref_def","compile_envref_def"
+,"mkshift_def"
+,"label_closures_def"
+,"intLang.doPrim2_def","intLang.CevalPrim2_def","intLang.CevalUpd_def","intLang.CevalPrim1_def"
+,"free_labs_def","no_labs_def","all_labs_def"
+,"intLang.CDiv_excv_def","intLang.CBind_excv_def","intLang.CEq_excv_def"
+,"intLang.CDiv_exc_def","intLang.CBind_exc_def","intLang.CEq_exc_def"
+,"do_Ceq_def"];
+
+(*
 val _ = export_rewrites
 ["toBytecode.emit_def","toBytecode.get_label_def","toBytecode.emit_ceref_def","toBytecode.emit_ceenv_def"
 ,"toBytecode.prim1_to_bc_def","toBytecode.prim2_to_bc_def","compiler.cmap_def","toIntLang.cbv_def"
@@ -283,6 +300,6 @@ val _ = export_rewrites
 ,"intLang.CDiv_exc_def","intLang.CBind_exc_def","intLang.CEq_exc_def"
 ,"toIntLang.opn_to_prim2_def"
 ,"do_Ceq_def"];
-
 *)
+
 val _ = export_theory()
