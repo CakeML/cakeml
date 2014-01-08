@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib boolSimps pairTheory alistTheory listTheory rich_listTheory pred_setTheory finite_mapTheory lcsymtacs SatisfySimps quantHeuristicsLib miscLib
-open libTheory semanticPrimitivesTheory astTheory bigStepTheory typeSystemTheory terminationTheory bigClockTheory bigBigEquivTheory replTheory miscTheory
+open libTheory semanticPrimitivesTheory astTheory bigStepTheory typeSystemTheory terminationTheory bigClockTheory replTheory miscTheory
 val _ = new_theory "semanticsExtra"
 
 (* ALOOKUPs *)
@@ -39,7 +39,7 @@ val _ = Parse.overload_on("pat_vars",``λp. set (pat_bindings p [])``)
 (* misc *)
 
 val evaluate_list_MAP_Var = store_thm("evaluate_list_MAP_Var",
-  ``∀vs ck menv cenv s env. set vs ⊆ set (MAP FST env) ⇒ evaluate_list ck menv cenv s env (MAP (Var o Short) vs) (s,Rval (MAP (THE o ALOOKUP env) vs))``,
+  ``∀vs ck menv cenv s env. set vs ⊆ set (MAP FST env) ⇒ evaluate_list ck (menv,cenv,env) s (MAP (Var o Short) vs) (s,Rval (MAP (THE o ALOOKUP env) vs))``,
   Induct >> simp[Once evaluate_cases] >>
   rw[] >> rw[Once evaluate_cases,semanticPrimitivesTheory.lookup_var_id_def] >>
   Cases_on`ALOOKUP env h`>>simp[] >>
@@ -81,26 +81,27 @@ val every_result_rwt = store_thm("every_result_rwt",
   Cases_on`res`>>rw[]>>Cases_on`e`>>rw[])
 
 val evaluate_dec_decs = store_thm("evaluate_dec_decs",
-  ``evaluate_dec mn menv cenv s env dec (s',res) =
-    evaluate_decs mn menv cenv s env [dec] (s',(case res of Rval (cenv',_) => cenv' | _ => []),map_result SND res)``,
+  ``evaluate_dec mn env s dec (s',res) =
+    evaluate_decs mn env s [dec] (s',(case res of Rval (cenv',_) => cenv' | _ => []),map_result SND res)``,
   simp[Once evaluate_decs_cases] >>
   Cases_on`res`>>simp[] >>
   simp[Once evaluate_decs_cases,semanticPrimitivesTheory.combine_dec_result_def] >>
   simp[libTheory.emp_def,libTheory.merge_def] >>
-  Cases_on`a`>>simp[])
-
+  Cases_on`a`>>simp[] >>
+  metis_tac [pair_CASES]);
+ 
 val evaluate_decs_divergence_take = store_thm("evaluate_decs_divergence_take",
   ``∀ds mn menv cenv s env.
-    (∀res. ¬ evaluate_decs mn menv cenv s env ds res)
+    (∀res. ¬ evaluate_decs mn (menv,cenv,env) s ds res)
     ⇒
     ∃n s' cenv' env'.
     n < LENGTH ds ∧
-    evaluate_decs mn menv cenv s env (TAKE n ds) (s',cenv',Rval env') ∧
-    (∀res. ¬ evaluate_dec mn menv (cenv'++cenv) s' (env'++env) (EL n ds) res)``,
+    evaluate_decs mn (menv,cenv,env) s (TAKE n ds) (s',cenv',Rval env') ∧
+    (∀res. ¬ evaluate_dec mn (menv, cenv'++cenv, env'++env) s' (EL n ds) res)``,
   Induct >>
   simp[Once evaluate_decs_cases] >>
   qx_gen_tac`d` >> rpt strip_tac >>
-  Cases_on`∃res. evaluate_dec mn menv cenv s env d res` >- (
+  Cases_on`∃res. evaluate_dec mn (menv,cenv,env) s d res` >- (
     fs[] >>
     PairCases_on`res`>>fs[] >>
     Cases_on`res1`>>fs[]>-(
@@ -133,13 +134,13 @@ val evaluate_decs_divergence_take = store_thm("evaluate_decs_divergence_take",
 
 val evaluate_decs_divergence = store_thm("evaluate_decs_divergence",
   ``∀ds mn menv cenv s env.
-    (∀res. ¬ evaluate_decs mn menv cenv s env ds res)
+    (∀res. ¬ evaluate_decs mn (menv,cenv,env) s ds res)
     ⇒
     ∃d ds'.
     d ::ds' = ds ∧
-    ∀res. evaluate_dec mn menv cenv s env d res ⇒
+    ∀res. evaluate_dec mn (menv,cenv,env) s d res ⇒
     ∃s' cenv' env'. res = (s',Rval (cenv',env')) ∧
-    ∀res. ¬ evaluate_decs mn menv (cenv'++cenv) s' (env'++env) ds' res``,
+    ∀res. ¬ evaluate_decs mn (menv,cenv'++cenv,env'++env) s' ds' res``,
   Induct >> simp[Once evaluate_decs_cases] >>
   qx_gen_tac`d` >> rpt strip_tac >>
   PairCases_on`res`>>fs[] >>
@@ -164,7 +165,7 @@ val pmatch_tac =
     qmatch_assum_rename_tac `ALOOKUP cenv n = SOME p`[] >>
     PairCases_on `p` >> fs[] >>
     Cases_on `ALOOKUP cenv n'` >> fs[] >- (
-      rw[pmatch_def] ) >>
+      rw[pmatch_def, pat_bindings_def] ) >>
     qmatch_assum_rename_tac `ALOOKUP cenv n' = SOME p`[] >>
     PairCases_on `p` >> fs[] >>
     rw[pmatch_def,pat_bindings_def] >>
@@ -234,7 +235,7 @@ val build_rec_env_MAP = store_thm("build_rec_env_MAP",
   PairCases_on`h` >> rw[])
 
 val evaluate_dec_err_cenv_emp = store_thm("evaluate_dec_err_cenv_emp",
-  ``∀mn menv cenv s env d res. evaluate_dec mn menv cenv s env d res ⇒
+  ``∀mn env s d res. evaluate_dec mn env s d res ⇒
     ∀err. SND res = Rerr err ∧ err ≠ Rtype_error ⇒ dec_to_cenv mn d = []``,
   ho_match_mp_tac evaluate_dec_ind >> simp[dec_to_cenv_def])
 
@@ -363,16 +364,16 @@ BasicProvers.EVERY_CASE_TAC >>
 rw[] >>rw[])
 
 val evaluate_dec_new_dec_vs = store_thm("evaluate_dec_new_dec_vs",
-  ``∀mn menv cenv s env dec res.
-    evaluate_dec mn menv cenv s env dec res ⇒
+  ``∀mn env s dec res.
+    evaluate_dec mn env s dec res ⇒
     ∀tds vs. (SND res = Rval (tds,vs)) ⇒ MAP FST vs = new_dec_vs dec``,
   ho_match_mp_tac evaluate_dec_ind >>
   simp[libTheory.emp_def] >> rw[] >>
   imp_res_tac pmatch_dom >> fs[])
 
 val evaluate_decs_new_decs_vs = store_thm("evaluate_decs_new_decs_vs",
-  ``∀mn menv cenv s env decs res.
-    evaluate_decs mn menv cenv s env decs res ⇒
+  ``∀mn env s decs res.
+    evaluate_decs mn env s decs res ⇒
     ∀env'. SND (SND res) = Rval env' ⇒ MAP FST env' = new_decs_vs decs``,
   ho_match_mp_tac evaluate_decs_ind >>
   simp[libTheory.emp_def,semanticPrimitivesTheory.combine_dec_result_def] >>
@@ -387,7 +388,7 @@ val (evaluate_match_with_rules,evaluate_match_with_ind,evaluate_match_with_cases
   (* evaluate_rules |> SIMP_RULE (srw_ss()) [] |> concl |> strip_conj |>
      Lib.filter (fn tm => tm |> strip_forall |> snd |> strip_imp |> snd |>
      strip_comb |> fst |> same_const ``evaluate_match``) *)
-   `(evaluate_match_with P (cenv) (cs:count_store) env v [] err_v (cs,Rerr (Rraise err_v))) ∧
+   `(evaluate_match_with P (cenv) (cs: v count_store) env v [] err_v (cs,Rerr (Rraise err_v))) ∧
     (ALL_DISTINCT (pat_bindings p []) ∧
      (pmatch cenv (SND cs) p v env = Match env') ∧ P cenv cs env' (p,e) bv ⇒
      evaluate_match_with P cenv cs env v ((p,e)::pes) err_v bv) ∧
@@ -400,6 +401,7 @@ val (evaluate_match_with_rules,evaluate_match_with_ind,evaluate_match_with_cases
     (¬ALL_DISTINCT (pat_bindings p []) ⇒
      evaluate_match_with P cenv cs env v ((p,e)::pes) err_v (cs,Rerr Rtype_error))`
 
+(* TODO 
 val evaluate_match_with_evaluate = store_thm(
 "evaluate_match_with_evaluate",
 ``evaluate_match ck menv = evaluate_match_with (λcenv cs env pe bv. evaluate ck menv cenv cs env (SND pe) bv)``,
@@ -424,6 +426,7 @@ evaluate_strongind
 |> DISCH_ALL
 |> Q.GENL [`P1`,`P0`]
 |> SIMP_RULE (srw_ss()) [evaluate_match_with_rules])
+*)
 
 (* pmatch *)
 
@@ -487,13 +490,14 @@ strip_tac >- (
   pop_assum(qspec_then`LENGTH l`mp_tac) >>
   simp_tac(srw_ss())[TAKE_LENGTH_APPEND,DROP_LENGTH_APPEND] ) >>
 strip_tac >- rw[pmatch_def] >>
-NTAC 2 (strip_tac >- (
+strip_tac >- cheat >>
+strip_tac >- (
   rw[pmatch_def] >>
   pop_assum (qspec_then`n`mp_tac) >>
   Cases_on `pmatch cenv s p v (TAKE n env)`>>fs[] >>
   strip_tac >> res_tac >>
   pop_assum(qspec_then`LENGTH l`mp_tac) >>
-  simp_tac(srw_ss())[TAKE_LENGTH_APPEND,DROP_LENGTH_APPEND] )) >>
+  simp_tac(srw_ss())[TAKE_LENGTH_APPEND,DROP_LENGTH_APPEND] ) >>
 strip_tac >- rw[pmatch_def])
 
 val pmatch_plit = store_thm(
@@ -574,6 +578,7 @@ val all_cns_exp_def = tDefine "all_cns_exp"`
                | INR (INR (INR pes)) => exp3_size pes)`)
 val _ = export_rewrites["all_cns_exp_def"]
 
+(* TODO 
 val all_cns_def = tDefine "all_cns"`
   (all_cns (Litv _) = {}) ∧
   (all_cns (Conv cn vs) = cn INSERT BIGUNION (IMAGE all_cns (set vs))) ∧
@@ -581,7 +586,7 @@ val all_cns_def = tDefine "all_cns"`
   (all_cns (Recclosure env defs _) = BIGUNION (IMAGE all_cns (env_range env)) ∪ all_cns_defs defs) ∧
   (all_cns (Loc _) = {})`
   (WF_REL_TAC `measure v_size` >>
-   srw_tac[ARITH_ss][v1_size_thm,v3_size_thm,SUM_MAP_v2_size_thm] >>
+   srw_tac[ARITH_ss][vs_size_thm,envE_size_thm(*,SUM_MAP_v2_size_thm*)] >>
    Q.ISPEC_THEN`v_size`imp_res_tac SUM_MAP_MEM_bound >>
    fsrw_tac[ARITH_ss][])
 val all_cns_def = save_thm("all_cns_def",SIMP_RULE(srw_ss()++ETA_ss)[]all_cns_def)
@@ -590,6 +595,7 @@ val _ = export_rewrites["all_cns_def"]
 val all_cns_list_MAP = store_thm("all_cns_list_MAP",
   ``∀es. all_cns_list es = BIGUNION (IMAGE all_cns_exp (set es))``,
   Induct >> simp[])
+  *)
 
 val all_cns_defs_MAP = store_thm("all_cns_defs_MAP",
   ``∀ds. all_cns_defs ds = BIGUNION (IMAGE all_cns_exp (set (MAP (SND o SND) ds)))``,
@@ -599,6 +605,7 @@ val all_cns_pes_MAP = store_thm("all_cns_pes_MAP",
   ``∀ps. all_cns_pes ps = BIGUNION (IMAGE all_cns_pat (set (MAP FST ps))) ∪ BIGUNION (IMAGE all_cns_exp (set (MAP SND ps)))``,
   Induct >>simp[]>>qx_gen_tac`x`>>PairCases_on`x`>>simp[] >> metis_tac[UNION_COMM,UNION_ASSOC]);
 
+  (* TODO
 val do_app_all_cns = store_thm("do_app_all_cns",
   ``∀cns s env op v1 v2 s' env' exp.
       all_cns v1 ⊆ cns ∧ all_cns v2 ⊆ cns ∧
@@ -668,10 +675,12 @@ val do_log_all_cns = store_thm("do_log_all_cns",
 val do_if_all_cns = store_thm("do_if_all_cns",
   ``∀cns v e1 e2 e3. all_cns v ⊆ cns ∧ all_cns_exp e1 ⊆ cns ∧ all_cns_exp e2 ⊆ cns ∧ (do_if v e1 e2 = SOME e3) ⇒ all_cns_exp e3 ⊆ cns``,
   gen_tac >> Cases >> rw[do_if_def] >> fs[])
+  *)
 
 val cenv_dom_def = Define `
 cenv_dom cenv = NONE INSERT set (MAP (SOME o FST) cenv)`;
 
+(* TODO
 val cenv_bind_div_eq_cenv_dom = store_thm("cenv_bind_div_eq_cenv_dom",
   ``cenv_bind_div_eq cenv ⇒
     SOME(Short "Bind") ∈ cenv_dom cenv ∧
@@ -865,9 +874,11 @@ val evaluate_dec_all_cns = store_thm("evaluate_dec_all_cns",
   imp_res_tac (CONJUNCT1 evaluate_all_cns) >>
   rev_full_simp_tac pure_ss [] >>
   rfs[] >> rpt BasicProvers.VAR_EQ_TAC >> rfs[] >> metis_tac[cenv_bind_div_eq_cenv_dom] )
+  *)
 
 (* all_locs *)
 
+(* TODO
 val all_locs_def = tDefine "all_locs"`
   (all_locs (Litv _) = {}) ∧
   (all_locs (Conv _ vs) = BIGUNION (IMAGE all_locs (set vs))) ∧
@@ -1159,9 +1170,11 @@ val check_dup_ctors_NOT_MEM = store_thm("check_dup_ctors_NOT_MEM",
     metis_tac[] ) >>
   first_x_assum (match_mp_tac o MP_CANON) >>
   simp[] >> metis_tac[])
+  *)
 
 (* closed *)
 
+(* TODO
 val (closed_rules,closed_ind,closed_cases) = Hol_reln`
 (closed (menv:envM) (Litv l)) ∧
 (EVERY (closed menv) vs ⇒ closed menv (Conv cn vs)) ∧
@@ -1667,6 +1680,7 @@ val evaluate_decs_closed_context = store_thm("evaluate_decs_closed_context",
   pop_assum(assume_tac o AP_TERM``LIST_TO_SET:string list -> string set``) >>
   fsrw_tac[DNF_ss][cenv_dom_def,MEM_MAP,EXTENSION] >>
   metis_tac[]);
+  *)
 
 (* result_rel *)
 
@@ -1750,18 +1764,18 @@ rw[] >> Cases_on `x` >> fs[exc_rel_sym])
 (* determinism *)
 
 val evaluate_dec_determ = store_thm("evaluate_dec_determ",
-  ``∀mn menv (cenv:envC) s env d r1.
-    evaluate_dec mn menv cenv s env d r1 ⇒
-    ∀r2. evaluate_dec mn menv cenv s env d r2 ⇒ r2 = r1``,
+  ``∀mn env s d r1.
+    evaluate_dec mn env s d r1 ⇒
+    ∀r2. evaluate_dec mn env s d r2 ⇒ r2 = r1``,
   ho_match_mp_tac evaluate_dec_ind >>
   rpt conj_tac >>
   rw[Once evaluate_dec_cases] >>
   imp_res_tac big_exp_determ >> fs[] )
 
 val evaluate_decs_determ = store_thm("evaluate_decs_determ",
-  ``∀mn menv cenv s env ds res.
-    evaluate_decs mn menv cenv s env ds res ⇒
-    ∀r2. evaluate_decs mn menv cenv s env ds r2 ⇒ r2 = res``,
+  ``∀mn env s ds res.
+    evaluate_decs mn env s ds res ⇒
+    ∀r2. evaluate_decs mn env s ds r2 ⇒ r2 = res``,
   ho_match_mp_tac evaluate_decs_ind >>
   rpt conj_tac >>
   rpt gen_tac >> strip_tac >>
@@ -1774,22 +1788,22 @@ val evaluate_decs_determ = store_thm("evaluate_decs_determ",
 
 val evaluate_lit = Q.store_thm(
 "evaluate_lit",
-`!ck menv cenv s env l r.
-  (evaluate ck menv cenv s env (Lit l) r = (r = (s,Rval (Litv l))))`,
+`!ck env s l r.
+  (evaluate ck env s (Lit l) r = (r = (s,Rval (Litv l))))`,
 rw [Once evaluate_cases]);
 
 val evaluate_var = store_thm(
 "evaluate_var",
-``∀ck menv cenv s env n r. evaluate ck menv cenv s env (Var n) r =
-  (∃v topt. (lookup_var_id n menv env = SOME v) ∧ (r = (s, Rval v))) ∨
-  ((lookup_var_id n menv env = NONE) ∧ (r = (s, Rerr Rtype_error)))``,
+``∀ck env s n r. evaluate ck env s (Var n) r =
+  (∃v topt. (lookup_var_id n env = SOME v) ∧ (r = (s, Rval v))) ∨
+  ((lookup_var_id n env = NONE) ∧ (r = (s, Rerr Rtype_error)))``,
 rw [Once evaluate_cases] >>
 metis_tac [])
 
 val evaluate_fun = store_thm(
 "evaluate_fun",
-``∀ck menv cenv s env n e r.
-  evaluate ck menv cenv s env (Fun n e) r = (r = (s, Rval (Closure env n e)))``,
+``∀ck env s n e r.
+  evaluate ck env s (Fun n e) r = (r = (s, Rval (Closure env n e)))``,
 rw [Once evaluate_cases])
 
 val _ = export_rewrites["evaluate_lit","evaluate_fun"];
