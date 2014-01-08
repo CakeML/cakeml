@@ -1059,14 +1059,13 @@ val MEMBER_INTRO = store_thm("MEMBER_INTRO",
   ``(MEM = MEMBER) /\ (MEM x = MEMBER x) /\ (MEM x ys = MEMBER x ys)``,
   FULL_SIMP_TAC std_ss [FUN_EQ_THM,MEM_EQ_MEMBER]);
 
-(*
 val evaluate_match_SKIP = store_thm("evaluate_match_SKIP",
   ``evaluate_match F (menv,cenv,env) (c,empty_store) (Conv (SOME (Short s1, t1)) args1)
       ((Pcon (SOME (Short s2)) pats2,exp2)::pats) errv (x,Rval res) <=>
     case lookup (Short s2) cenv of
        | NONE => F
        | SOME (l, t2) =>
-           if t2 ≠ t1 then
+           if t2 ≠ t1 ∨ (LENGTH pats2 ≠ l) then
              F
            else if s1 <> s2 then
       ALL_DISTINCT (pat_bindings (Pcon (SOME (Short s2)) pats2) []) /\
@@ -1074,23 +1073,29 @@ val evaluate_match_SKIP = store_thm("evaluate_match_SKIP",
     else
       evaluate_match F (menv,cenv,env) (c,empty_store) (Conv (SOME (Short s1, t1)) args1)
         ((Pcon (SOME (Short s2)) pats2,exp2)::pats) errv (x,Rval res)``,
+ rw [] >>
+ ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,pmatch_def] >>
+ BasicProvers.EVERY_CASE_TAC >>
+ fs [] >>
+ rw [] >>
+ eq_tac >>
+ rw []
+ >- (rw [] >>
+     ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,pmatch_def] >>
+     BasicProvers.EVERY_CASE_TAC >>
+     fs [] >>
+     rw [])
+ >- (rw [] >>
+     ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,pmatch_def] >>
+     BasicProvers.EVERY_CASE_TAC >>
+     fs [] >>
+     rw [])
+ >- (pop_assum (assume_tac o SIMP_RULE (srw_ss()) [Once evaluate_cases]) >>
+     fs [pmatch_def] >>
+     BasicProvers.EVERY_CASE_TAC >>
+     fs []));
 
-  SRW_TAC [] []
-  \\ ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,pmatch_def]
-  \\ BasicProvers.EVERY_CASE_TAC
-  \\ fs []
-
-  CCONTR_TAC >>
-  fs []
-  rw []
-
-  fs [Once evaluate_cases]
-  fs [pmatch_def] >>
-  eve
-
-
-  metis_tac []
-
+(*
 (* Connecting to evaluate_dec instead of evaluate_dec' *)
 
 val DeclsC_def = Define `
