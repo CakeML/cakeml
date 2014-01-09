@@ -113,14 +113,6 @@ elab_p ctors (Ast_Pvar n) = Pvar n
 and
 elab_p ctors (Ast_Plit l) = Plit l
 and
-elab_p ctors (Ast_Pcon (Just (Short cn)) ps) =
-  match lookup cn ctors with
-    | Just cid ->
-        Pcon (Just cid) (elab_ps ctors ps)
-    | Nothing ->
-        Pcon (Just (Short cn)) (elab_ps ctors ps)
-  end
-and
 elab_p ctors (Ast_Pcon cn ps) =
   Pcon cn (elab_ps ctors ps)
 and
@@ -155,14 +147,6 @@ elab_e ctors (Ast_Lit l) =
 and 
 elab_e ctors (Ast_Var id) =
   Var id
-and
-elab_e ctors (Ast_Con (Just (Short cn)) es) =
-  match lookup cn ctors with
-    | Just cid ->
-        Con (Just cid) (List.map (elab_e ctors) es)
-    | Nothing ->
-        Con (Just (Short cn)) (List.map (elab_e ctors) es)
-  end
 and
 elab_e ctors (Ast_Con cn es) =
   Con cn (List.map (elab_e ctors) es)

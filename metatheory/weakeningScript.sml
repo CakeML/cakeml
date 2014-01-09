@@ -38,6 +38,7 @@ tenvC_one_mod tenvC mn =
     ⇒
     (mn = mn')`;
 
+    (*
 val build_ctor_tenv_one_mod = Q.prove (
 `!mn tdecs.
   tenvC_one_mod (build_ctor_tenv mn tdecs) mn`,
@@ -61,6 +62,7 @@ fs [] >>
 Cases_on `mn` >>
 Cases_on `mn'` >>
 fs [mk_id_def]);
+*)
 
 val tenvC_one_mod_merge = Q.prove (
 `!tenvC1 tenvC2 mn.
@@ -441,63 +443,13 @@ val type_v_freevars = Q.store_thm ("type_v_freevars",
  >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ,
                arithmeticTheory.GREATER_EQ]);
 
-val lookup_restrict_tenvC = Q.store_thm ("lookup_restrict_tenvC",
-`!cn cns tenvC.
- (lookup cn (restrict_tenvC tenvC cns) = SOME x) ⇒
- MEM cn cns ∧
- (lookup cn tenvC = SOME x)`,
- induct_on `tenvC` >>
- rw [lookup_def, restrict_tenvC_def] >>
- PairCases_on `h` >>
- fs [restrict_tenvC_def] >>
- rw []
- >- (cases_on `MEM h0 cns` >>
-     fs [] >>
-     metis_tac [])
- >- (cases_on `MEM cn cns` >>
-     fs [] >>
-     metis_tac [])
- >- (cases_on `MEM h0 cns` >>
-     fs [] >>
-     metis_tac []));
-
-val lookup_restrict_tenvC_notin = Q.prove (
-`!cn cns tenvC.
-  (lookup cn (restrict_tenvC tenvC cns) = NONE)
-  ⇒
-  cn ∉ set cns ∨ lookup cn tenvC = NONE`,
- induct_on `tenvC` >>
- rw [restrict_tenvC_def] >>
- PairCases_on `h` >>
- fs [restrict_tenvC_def] >>
- every_case_tac >>
- fs []);
-
-val restrict_tenvC_weakening = Q.prove (
-`!tenvC cns tenvC'.
-  weakC tenvC tenvC' ⇒ weakC (restrict_tenvC tenvC cns) (restrict_tenvC tenvC' cns)`,
- rw [weakC_def] >>
- FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `cn`) >>
- every_case_tac >>
- imp_res_tac lookup_restrict_tenvC >>
- fs [] >>
- rw [] >>
- imp_res_tac lookup_restrict_tenvC_notin >>
- fs []);
-
-val restrict_tenvC_empty = Q.prove (
-`!tenvC. restrict_tenvC tenvC [] = []`,
-induct_on `tenvC` >>
-rw [restrict_tenvC_def] >>
-PairCases_on `h` >>
-rw [restrict_tenvC_def]);
-
+(*
 val consistent_con_env_weakening = Q.prove (
-`!(tenvC:tenvC) (envC:envC) tenvC'.
-  consistent_con_env envC (restrict_tenvC tenvC (MAP FST envC)) ∧
-  weakC tenvC' tenvC
+`!tenvCT (tenvC:tenvC) (envC:envC) tenvCT'.
+  consistent_con_env tenvCT envC tenvC ∧
+  weakCT tenvCT' tenvCT
   ⇒
-  consistent_con_env envC (restrict_tenvC tenvC' (MAP FST envC))`,
+  consistent_con_env tenvCT' envC tenvC`,
  rw [consistent_con_env_def] >>
  imp_res_tac restrict_tenvC_weakening >>
  pop_assum (assume_tac o Q.SPEC `MAP FST (envC:envC)`) >>
@@ -868,4 +820,5 @@ fs [lookup_notin] >>
 PairCases_on `x'` >>
 fs []);
 
+*)
 val _ = export_theory ();

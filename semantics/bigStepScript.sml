@@ -316,22 +316,23 @@ evaluate_dec mn env s (Dletrec funs) (s, Rval (emp, build_rec_env funs env emp))
 evaluate_dec mn env s (Dletrec funs) (s, Rerr Rtype_error))
 
 /\ (! mn env tds s.
-(check_dup_ctors mn (all_env_to_cenv env) tds)
+(check_dup_ctors tds)
 ==>
 evaluate_dec mn env s (Dtype tds) (s, Rval (build_tdefs mn tds, emp)))
 
 /\ (! mn env tds s.
-(~ (check_dup_ctors mn (all_env_to_cenv env) tds))
+(~ (check_dup_ctors tds))
 ==>
 evaluate_dec mn env s (Dtype tds) (s, Rerr Rtype_error))
 
 /\ (! mn env cn ts s.
-(lookup (mk_id mn cn) (all_env_to_cenv env) = NONE)
+(lookup (Short cn) (all_env_to_cenv env) = NONE)
 ==>
-evaluate_dec mn env s (Dexn cn ts) (s, Rval (bind (mk_id mn cn) (LENGTH ts, TypeExn) emp, emp)))
+evaluate_dec mn env s (Dexn cn ts) (s, Rval (bind (Short cn) (LENGTH ts, TypeExn) emp, emp)))
 
 /\ (! mn env cn ts s.
-( ~ ((lookup (mk_id mn cn) (all_env_to_cenv env)) = NONE))
+(* TODO: Allow it to be bound to a constructor for a non-exception *)
+( ~ ((lookup (Short cn) (all_env_to_cenv env)) = NONE))
 ==>
 evaluate_dec mn env s (Dexn cn ts) (s, Rerr Rtype_error))`;
 
@@ -365,13 +366,13 @@ evaluate_top env s1 (Tdec d) (s2, emp, Rerr err))
  (~ (MEM mn (MAP FST (all_env_to_menv env))) /\
 evaluate_decs (SOME mn) env s1 ds (s2, new_tds, Rval new_env))
 ==>
-evaluate_top env s1 (Tmod mn specs ds) (s2, new_tds, Rval ([(mn,new_env)], emp)))
+evaluate_top env s1 (Tmod mn specs ds) (s2, add_mod_prefix mn new_tds, Rval ([(mn,new_env)], emp)))
 
 /\ (! s1 s2 env ds mn specs new_tds err.
  (~ (MEM mn (MAP FST (all_env_to_menv env))) /\
 evaluate_decs (SOME mn) env s1 ds (s2, new_tds, Rerr err))
 ==>
-evaluate_top env s1 (Tmod mn specs ds) (s2, new_tds, Rerr err))
+evaluate_top env s1 (Tmod mn specs ds) (s2, add_mod_prefix mn new_tds, Rerr err))
 
 /\ (! env s mn specs ds.
 (MEM mn (MAP FST (all_env_to_menv env)))

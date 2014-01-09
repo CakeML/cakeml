@@ -158,26 +158,26 @@ check_freevars dbmax tvs (Tvar_db n) = n < dbmax
 val check_ctor_tenv :
    maybe modN -> tenvC -> list (list tvarN * typeN * list (conN * list t)) -> bool
 let check_ctor_tenv mn tenvC tds =
-  check_dup_ctors mn tenvC tds &&  
-(List.all
+  check_dup_ctors tds &&  
+  List.all
     (fun (tvs,tn,ctors) ->
        all_distinct tvs &&
        List.all
          (fun (cn,ts) -> (List.all (check_freevars 0 tvs) ts))
          ctors)
     tds &&  
-(all_distinct (List.map (fun (_,tn,_) -> tn) tds) &&
+  all_distinct (List.map (fun (_,tn,_) -> tn) tds) &&
   List.all
     (fun (tvs,tn,ctors) ->
        List.all (fun (_,(_,_,tn')) -> TypeId (mk_id mn tn) <> tn') tenvC)
-    tds))
+    tds
 
 val build_ctor_tenv : maybe modN -> list (list tvarN * typeN * list (conN * list t)) -> tenvC
 let build_ctor_tenv mn tds =
   concat
     (List.map
        (fun (tvs,tn,ctors) ->
-          List.map (fun (cn,ts) -> (mk_id mn cn,(tvs,ts, TypeId (mk_id mn tn)))) ctors)
+          List.map (fun (cn,ts) -> (Short cn,(tvs,ts, TypeId (mk_id mn tn)))) ctors)
        tds)
 
 (* Simultaneous substitution of types for type variables in a type *)
@@ -521,10 +521,11 @@ type_d mn menv cenv tenv (Dtype tdecs) (build_ctor_tenv mn tdecs) emp
 and
 
 dexn : forall mn menv cenv tenv cn ts.
-(lookup (mk_id mn cn) cenv = Nothing) &&
+(* TODO: Allow it to be bound to a non-exn constructor *)
+(lookup (Short cn) cenv = Nothing) &&
 List.all (check_freevars 0 []) ts
 ==>
-type_d mn menv cenv tenv (Dexn cn ts) (bind (mk_id mn cn) ([], ts, TypeExn) emp) emp
+type_d mn menv cenv tenv (Dexn cn ts) (bind (Short cn) ([], ts, TypeExn) emp) emp
 
 indreln [ type_ds : maybe modN -> tenvM -> tenvC -> tenvE -> list dec -> tenvC -> env varN (nat * t) -> bool]
 
@@ -567,9 +568,10 @@ type_specs mn cenv tenv (Stype td :: specs) cenv' tenv'
 and
 
 sexn : forall mn cenv tenv cn ts specs cenv' tenv'.
-(lookup (mk_id mn cn) cenv = Nothing) &&
+(* TODO: Allow it to be bound to a non-exn constructor *)
+(lookup (Short cn) cenv = Nothing) &&
 (List.all (check_freevars 0 []) ts &&
-type_specs mn (bind (mk_id mn cn) ([], ts, TypeExn) cenv) tenv specs cenv' tenv')
+type_specs mn (bind (Short cn) ([], ts, TypeExn) cenv) tenv specs cenv' tenv')
 ==>
 type_specs mn cenv tenv (Sexn cn ts :: specs) cenv' tenv'
 
@@ -591,9 +593,9 @@ let weakE tenv_impl tenv_spec =
             | Just (tvs_impl, t_impl) ->
                 exists subst. 
                   List.length subst = tvs_impl &&                  
-(check_freevars tvs_impl [] t_impl &&                  
-(List.all (check_freevars tvs_spec []) subst &&                  
-(deBruijn_subst 0 subst t_impl = t_spec)))
+                  check_freevars tvs_impl [] t_impl &&                  
+                  List.all (check_freevars tvs_spec []) subst &&                  
+                  deBruijn_subst 0 subst t_impl = t_spec
           end
         | Nothing -> true
     end
@@ -606,9 +608,9 @@ let weakC cenv_impl cenv_spec =
             | Nothing -> false
             | Just (tvs_impl, ts_impl, tn_impl) ->
                 tn_spec = tn_impl &&                
-(
-                (* For simplicity, we reject matches that differ only by renaming of bound type variables *)tvs_spec = tvs_impl &&                
-(ts_spec = ts_impl)) 
+                (* For simplicity, we reject matches that differ only by renaming of bound type variables *)
+                tvs_spec = tvs_impl &&                
+                ts_spec = ts_impl
           end
       | Nothing -> true
     end
@@ -624,8 +626,8 @@ and
 
 some : forall mn cenv tenv specs tenv' cenv'.
 weakE tenv tenv' &&
-(weakC cenv cenv' &&
-type_specs mn emp emp specs cenv' tenv')
+weakC cenv cenv' &&
+type_specs mn emp emp specs cenv' tenv'
 ==>
 check_signature mn cenv tenv (Just specs) cenv' tenv'
 
@@ -643,7 +645,7 @@ not (elem mn (List.map fst menv)) &&
 (type_ds (Just mn) menv cenv tenv ds cenv' tenv' &&
 check_signature (Just mn) cenv' tenv' spec cenv'' tenv'')
 ==>
-type_top menv cenv tenv (Tmod mn spec ds) [(mn,tenv'')] cenv'' emp
+type_top menv cenv tenv (Tmod mn spec ds) [(mn,tenv'')] (add_mod_prefix mn cenv'') emp
 
 indreln [type_prog : tenvM -> tenvC -> tenvE -> list top -> tenvM -> tenvC -> env varN (nat * t) -> bool]
 

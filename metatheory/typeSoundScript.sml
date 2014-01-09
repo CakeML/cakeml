@@ -30,10 +30,26 @@ val build_rec_env_merge = Q.store_thm ("build_rec_env_merge",
   merge (MAP (λ(fn,n,e). (fn, Recclosure env funs fn)) funs) env'`,
 rw [build_rec_env_def, build_rec_env_help_lem]);
 
+val consistent_con_env_lookup = Q.prove (
+`!tenvCT envC tenvC cn tvs ts tn.
+  consistent_con_env tenvCT envC tenvC ∧
+  lookup cn tenvC = SOME (tvs,ts,tn)
+  ⇒
+  lookup (cn,tn) tenvCT = SOME (tvs, ts)`,
+ rw [consistent_con_env_def] >>
+ cases_on `lookup cn envC` >>
+ fs [] >>
+ res_tac >>
+ fs [] >>
+ PairCases_on `x` >>
+ res_tac >>
+ fs [] >>
+ rw []);
+ 
 val type_ctxts_freevars = Q.prove (
-`!tvs tenvC tenvS cs t1 t2.
-  type_ctxts tvs tenvC tenvS cs t1 t2 ⇒
-  tenvC_ok tenvC ⇒
+`!tvs tenvCT tenvS cs t1 t2.
+  type_ctxts tvs tenvCT tenvS cs t1 t2 ⇒
+  tenvCT_ok tenvCT ⇒
   check_freevars tvs [] t1 ∧ check_freevars tvs [] t2`,
  ho_match_mp_tac type_ctxts_ind >>
  rw [type_ctxt_cases, check_freevars_def, Tbool_def] >>
@@ -47,12 +63,15 @@ val type_ctxts_freevars = Q.prove (
      fs [] >>
      fs [Once context_invariant_cases] >>
      metis_tac [type_p_freevars])
- >- (imp_res_tac lookup_con_ok >>
+ >- (imp_res_tac tenvCT_ok_lookup >>
      fs [] >>
      match_mp_tac check_freevars_subst_single >>
      rw [] >>
+     imp_res_tac consistent_con_env_lookup >>
+     res_tac >>
+     fs [] >>
      metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ,
-                arithmeticTheory.GREATER_EQ, restrict_tenvC_ok])
+                arithmeticTheory.GREATER_EQ])
  >- rw [Texn_def, check_freevars_def]
  >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ, arithmeticTheory.GREATER_EQ]
  >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ, arithmeticTheory.GREATER_EQ]
@@ -72,12 +91,15 @@ val type_ctxts_freevars = Q.prove (
      metis_tac [type_p_freevars])
  >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ, arithmeticTheory.GREATER_EQ]
  >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ, arithmeticTheory.GREATER_EQ]
- >- (imp_res_tac lookup_con_ok >>
+ >- (imp_res_tac tenvCT_ok_lookup >>
      fs [] >>
      match_mp_tac check_freevars_subst_single >>
      rw [] >>
+     imp_res_tac consistent_con_env_lookup >>
+     res_tac >>
+     fs [] >>
      metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ,
-                arithmeticTheory.GREATER_EQ, restrict_tenvC_ok])
+                arithmeticTheory.GREATER_EQ])
  >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ, arithmeticTheory.GREATER_EQ]
  >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ, arithmeticTheory.GREATER_EQ]);
 
@@ -225,19 +247,19 @@ metis_tac [Tfn_def, type_funs_Tfn, t_distinct, t_11, tc0_distinct, tid_exn_not];
 (* Well-typed pattern matches either match or not, but they don't raise type
  * errors *)
 val pmatch_type_progress = Q.prove (
-`(∀ cenv st p v env t tenv tenvS tvs tvs'' tenvC cns.
-  consistent_con_env cenv (restrict_tenvC tenvC cns) ∧
-  type_p tvs'' (restrict_tenvC tenvC cns) p t tenv ∧
-  type_v tvs tenvC tenvS v t ∧
-  type_s tenvC tenvS st
+`(∀cenv st p v env t tenv tenvS tvs tvs'' tenvC tenvCT.
+  consistent_con_env tenvCT cenv tenvC ∧
+  type_p tvs'' tenvC p t tenv ∧
+  type_v tvs tenvCT tenvS v t ∧
+  type_s tenvCT tenvS st
   ⇒
   (pmatch cenv st p v env = No_match) ∨
   (∃env'. pmatch cenv st p v env = Match env')) ∧
- (∀ cenv st ps vs env ts tenv tenvS tvs tvs'' tenvC cns.
-  consistent_con_env cenv (restrict_tenvC tenvC cns) ∧
-  type_ps tvs'' (restrict_tenvC tenvC cns) ps ts tenv ∧
-  type_vs tvs tenvC tenvS vs ts ∧
-  type_s tenvC tenvS st
+ (∀cenv st ps vs env ts tenv tenvS tvs tvs'' tenvC tenvCT.
+  consistent_con_env tenvCT cenv tenvC ∧
+  type_ps tvs'' tenvC ps ts tenv ∧
+  type_vs tvs tenvCT tenvS vs ts ∧
+  type_s tenvCT tenvS st
   ⇒
   (pmatch_list cenv st ps vs env = No_match) ∨
   (∃env'. pmatch_list cenv st ps vs env = Match env'))`,
@@ -252,15 +274,13 @@ val pmatch_type_progress = Q.prove (
      rw [] >>
      cases_on `lookup n cenv` >>
      rw [] >>
+     imp_res_tac consistent_con_env_lookup >>
      fs [consistent_con_env_def] >-
      metis_tac [NOT_SOME_NONE] >>
      PairCases_on `x` >>
      fs [] >>
      rw [] >>
-     fs [] >>
-     imp_res_tac lookup_restrict_tenvC >>
-     fs [] >>
-     rw []
+     fs [tid_exn_to_tc_11]
      >- metis_tac [] >>
      metis_tac [type_ps_length, type_vs_length_lem, LENGTH_MAP, SOME_11, PAIR_EQ])
  >- (fs [Once type_p_cases, Once type_v_cases] >>
@@ -268,7 +288,6 @@ val pmatch_type_progress = Q.prove (
      rw [] >>
      fs [tid_exn_to_tc_11] >>
      fs [] >>
-     imp_res_tac lookup_restrict_tenvC >>
      fs [] >>
      rw [] >>
      every_case_tac >>
@@ -312,7 +331,7 @@ val pmatch_type_progress = Q.prove (
  >- tac
  >- (qpat_assum `type_ps tvs tenvC (p::ps) ts tenv`
          (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_p_cases]) >>
-     qpat_assum `type_vs tvs tenvC tenvS (v::vs) ts`
+     qpat_assum `type_vs tvs tenvCT tenvS (v::vs) ts`
          (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
      fs [] >>
      rw [] >>
@@ -357,14 +376,14 @@ cases_on `c` >>
 rw [final_state_def]);
 
 val eq_same_type = Q.prove (
-`(!v1 v2 tvs tenvC cns tenvS t.
-  type_v tvs tenvC tenvS v1 t ∧
-  type_v tvs tenvC tenvS v2 t 
+`(!v1 v2 tvs tenvCT cns tenvS t.
+  type_v tvs tenvCT tenvS v1 t ∧
+  type_v tvs tenvCT tenvS v2 t 
   ⇒
   do_eq v1 v2 ≠ Eq_type_error) ∧
-(!vs1 vs2 tvs tenvC cns tenvS ts.
-  type_vs tvs tenvC tenvS vs1 ts ∧
-  type_vs tvs tenvC tenvS vs2 ts 
+(!vs1 vs2 tvs tenvCT cns tenvS ts.
+  type_vs tvs tenvCT tenvS vs1 ts ∧
+  type_vs tvs tenvCT tenvS vs2 ts 
   ⇒
   do_eq_list vs1 vs2 ≠ Eq_type_error)`,
  ho_match_mp_tac do_eq_ind >>

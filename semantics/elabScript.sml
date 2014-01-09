@@ -136,14 +136,6 @@ val _ = type_abbrev( "ctor_env" , ``: (conN, ( conN id)) env``);
 /\
 (elab_p ctors (Ast_Plit l) = (Plit l))
 /\
-(elab_p ctors (Ast_Pcon (SOME (Short cn)) ps) =  
-((case lookup cn ctors of
-      SOME cid =>
-        Pcon (SOME cid) (elab_ps ctors ps)
-    | NONE =>
-        Pcon (SOME (Short cn)) (elab_ps ctors ps)
-  )))
-/\
 (elab_p ctors (Ast_Pcon cn ps) =  
 (Pcon cn (elab_ps ctors ps)))
 /\
@@ -181,14 +173,6 @@ val _ = type_abbrev( "tdef_env" , ``: (typeN, ast$tc0) env``);
 /\ 
 (elab_e ctors (Ast_Var id) =  
 (Var id))
-/\
-(elab_e ctors (Ast_Con (SOME (Short cn)) es) =  
-((case lookup cn ctors of
-      SOME cid =>
-        Con (SOME cid) (MAP (elab_e ctors) es)
-    | NONE =>
-        Con (SOME (Short cn)) (MAP (elab_e ctors) es)
-  )))
 /\
 (elab_e ctors (Ast_Con cn es) =  
 (Con cn (MAP (elab_e ctors) es)))

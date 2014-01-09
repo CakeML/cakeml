@@ -404,28 +404,29 @@ evaluate_dec mn env s (Dletrec funs) (s, Rerr Rtype_error)
 and
 
 dtype1 : forall mn env tds s.
-check_dup_ctors mn (all_env_to_cenv env) tds
+check_dup_ctors tds
 ==>
 evaluate_dec mn env s (Dtype tds) (s, Rval (build_tdefs mn tds, emp))
 
 and
 
 dtype2 : forall mn env tds s.
-not (check_dup_ctors mn (all_env_to_cenv env) tds)
+not (check_dup_ctors tds)
 ==>
 evaluate_dec mn env s (Dtype tds) (s, Rerr Rtype_error)
 
 and
 
 dexn1 : forall mn env cn ts s.
-(lookup (mk_id mn cn) (all_env_to_cenv env) = Nothing)
+(lookup (Short cn) (all_env_to_cenv env) = Nothing)
 ==>
-evaluate_dec mn env s (Dexn cn ts) (s, Rval (bind (mk_id mn cn) (List.length ts, TypeExn) emp, emp))
+evaluate_dec mn env s (Dexn cn ts) (s, Rval (bind (Short cn) (List.length ts, TypeExn) emp, emp))
 
 and
 
 dexn2 : forall mn env cn ts s.
-(lookup (mk_id mn cn) (all_env_to_cenv env) <> Nothing)
+(* TODO: Allow it to be bound to a constructor for a non-exception *)
+(lookup (Short cn) (all_env_to_cenv env) <> Nothing)
 ==>
 evaluate_dec mn env s (Dexn cn ts) (s, Rerr Rtype_error)
 
@@ -471,7 +472,7 @@ tmod1 : forall s1 s2 env ds mn specs new_tds new_env.
 not (elem mn (List.map fst (all_env_to_menv env))) &&
 evaluate_decs (Just mn) env s1 ds (s2, new_tds, Rval new_env)
 ==>
-evaluate_top env s1 (Tmod mn specs ds) (s2, new_tds, Rval ([(mn,new_env)], emp))
+evaluate_top env s1 (Tmod mn specs ds) (s2, add_mod_prefix mn new_tds, Rval ([(mn,new_env)], emp))
 
 and
 
@@ -479,7 +480,7 @@ tmod2 : forall s1 s2 env ds mn specs new_tds err.
 not (elem mn (List.map fst (all_env_to_menv env))) &&
 evaluate_decs (Just mn) env s1 ds (s2, new_tds, Rerr err)
 ==>
-evaluate_top env s1 (Tmod mn specs ds) (s2, new_tds, Rerr err)
+evaluate_top env s1 (Tmod mn specs ds) (s2, add_mod_prefix mn new_tds, Rerr err)
 
 and
 

@@ -400,24 +400,16 @@ val _ = Define `
       (\ (tvs, tn, condefs) . 
          MAP
            (\ (conN, ts) . 
-              (mk_id mn conN, (LENGTH ts, TypeId (mk_id mn tn))))
+              (Short conN, (LENGTH ts, TypeId (mk_id mn tn))))
            condefs)
       tds)))`;
 
 
-(* Checks that no constructor is defined twice *)
-(* TODO: This gives a class error for some reason *)
-(*
-val check_dup_ctors :
-    forall 'a. option modN -> env (id conN) 'a -> list (list tvarN * typeN * list (conN * list t)) -> bool
-*)
+(* Checks that no constructor is defined twice in a type *)
+(*val check_dup_ctors : list (list tvarN * typeN * list (conN * list t)) -> bool*)
 val _ = Define `
- (check_dup_ctors mn_opt cenv tds =  
-((! ((tvs, tn, condefs) :: 
-  LIST_TO_SET tds) ((n, ts) :: LIST_TO_SET condefs).
-     lookup (mk_id mn_opt n) cenv = NONE)
-  /\
-  ALL_DISTINCT (let x2 = 
+ (check_dup_ctors tds =  
+(ALL_DISTINCT (let x2 = 
   ([]) in  FOLDR
    (\(tvs, tn, condefs) x2 .  FOLDR
                                 (\(n, ts) x2 .  if T then n :: x2 else x2) 
@@ -440,6 +432,15 @@ val _ = Define `
       Rerr e => Rerr e
     | Rval (menv',env') => Rval (merge menv' menv, merge env' env)
   )))`;
+
+
+(*val add_mod_prefix : forall 'a 'b. modN -> env (id 'a) 'b -> env (id 'a) 'b*)
+ val _ = Define `
+ (add_mod_prefix mn [] = ([]))
+/\
+(add_mod_prefix mn ((Short x, v)::env) = ((Long mn x, v) :: add_mod_prefix mn env))
+/\
+(add_mod_prefix mn ((Long mn' x, v)::env) = ((Long mn' x, v) :: add_mod_prefix mn env))`;
 
 
 (* Constructor environment implied by declarations *)
