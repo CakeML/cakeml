@@ -1,6 +1,6 @@
 open HolKernel boolLib bossLib pairTheory lcsymtacs
 open ml_translatorTheory sideTheory replDecsTheory replDecsProofsTheory compileCallReplStepDecTheory
-open semanticPrimitivesTheory listTheory
+open semanticPrimitivesTheory listTheory miscLib
 
 val _ = new_theory "bootstrap_lemmas"
 
@@ -451,8 +451,6 @@ val repl_decs_env_front = let
     |> ss [semanticPrimitivesTheory.combine_dec_result_def,libTheory.merge_def,libTheory.emp_def,libTheory.bind_def]
   in th end
 
-(*
-
 val env_rs_repl_decs_inp_out = store_thm("env_rs_repl_decs_inp_out",
   ``env_rs [] (cenv ++ init_envC) (0,s)
       repl_decs_env new_compiler_state 0 rd bs' ==>
@@ -473,7 +471,7 @@ val env_rs_repl_decs_inp_out = store_thm("env_rs_repl_decs_inp_out",
   qpat_assum`EVERY2 P X Y`mp_tac >>
   qpat_assum`EVERY2 P X Cs`mp_tac >>
   simp_tac bool_ss [miscTheory.EVERY2_MAP] >>
-  simp[CompilerLibTheory.el_check_def] >>
+  simp[compilerLibTheory.el_check_def] >>
   `∃x y z w. new_compiler_state.renv = x::y::z::w` by (
     REWRITE_TAC[new_compiler_state_renv] >>
     EVAL_TAC >> SRW_TAC[][] ) >>
@@ -525,7 +523,7 @@ val env_rs_repl_decs_inp_out = store_thm("env_rs_repl_decs_inp_out",
   simp[toBytecodeProofsTheory.s_refs_def] >>
   rpt BasicProvers.VAR_EQ_TAC >>
   ntac 2 (pop_assum mp_tac) >>
-  simp[CompilerLibTheory.el_check_def] >>
+  simp[compilerLibTheory.el_check_def] >>
   qpat_assum`LIST_REL P Cw X`kall_tac >>
   qpat_assum`syneq X Cx`kall_tac >>
   qpat_assum`LIST_REL P X Cw`kall_tac >>
@@ -558,8 +556,6 @@ val env_rs_repl_decs_inp_out = store_thm("env_rs_repl_decs_inp_out",
     qexists_tac`LENGTH ml_repl_step_decls_s+1`,
     qexists_tac`LENGTH ml_repl_step_decls_s+0`] >>
   simp[listTheory.EL_MAP])
-
-*)
 
 val IMP_IMP = prove(
   ``!b c d.b /\ (c ==> d) ==> ((b ==> c) ==> d)``,
@@ -918,6 +914,327 @@ val BlockNum3_def = Define `
 
 (* theorems used by x86-64 proofs *)
 
+val LIST_TYPE_CHAR_BlockList = prove(
+  ``(FLOOKUP cm (SOME (Short "nil")) = SOME (nil_tag - block_tag)) ∧
+    (FLOOKUP cm (SOME (Short "::")) = SOME (cons_tag - block_tag))
+  ⇒
+    ∀s l v b.
+      LIST_TYPE CHAR s l ∧ syneq (v_to_Cv m cm l) v ∧ Cv_bv pp v b
+    ⇒ (b = BlockList (MAP Chr s))``,
+  strip_tac >>
+  simp[GSYM AND_IMP_INTRO] >>
+  Induct >> simp[mini_preludeTheory.LIST_TYPE_def] >- (
+    simp[Once compilerTerminationTheory.v_to_Cv_def] >>
+    simp[Once intLangTheory.syneq_cases,PULL_EXISTS] >>
+    simp[Once toBytecodeProofsTheory.Cv_bv_cases,PULL_EXISTS,nil_tag_def] >>
+    simp[compilerTerminationTheory.v_to_Cv_def,BlockList_def,BlockNil_def,nil_tag_def] ) >>
+  simp[PULL_EXISTS] >>
+  simp[compilerTerminationTheory.v_to_Cv_def] >>
+  simp[Once intLangTheory.syneq_cases,PULL_EXISTS] >>
+  simp[Once toBytecodeProofsTheory.Cv_bv_cases,PULL_EXISTS,cons_tag_def] >>
+  simp[BlockList_def,BlockCons_def,cons_tag_def] >>
+  simp[std_preludeTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+  simp[compilerTerminationTheory.v_to_Cv_def,PULL_FORALL] >>
+  simp[Once toBytecodeProofsTheory.Cv_bv_cases] >>
+  simp[Chr_def] >> metis_tac[])
+
+val LIST_TYPE_exists = prove(
+  ``∀x. (∀a. MEM a x ⇒ ∃v. A a v) ⇒ ∃l. LIST_TYPE A x l``,
+  Induct >>
+  simp[mini_preludeTheory.LIST_TYPE_def] >>
+  METIS_TAC[])
+
+val OPTION_TYPE_AST_ID_TYPE_LIST_TYPE_CHAR = prove(
+  ``∃v. OPTION_TYPE (AST_ID_TYPE (LIST_TYPE CHAR)) p v``,
+  Cases_on`p` >> simp[std_preludeTheory.OPTION_TYPE_def] >>
+  Cases_on`x`>>simp[ml_repl_stepTheory.AST_ID_TYPE_def] >>
+  rw[GSYM PULL_EXISTS] >>
+  MATCH_MP_TAC LIST_TYPE_exists >>
+  simp[std_preludeTheory.CHAR_def] >>
+  simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] )
+
+val COMPILER_COMPILER_STATE_TYPE_exists = prove(
+  ``∀s. ∃v. COMPILER_COMPILER_STATE_TYPE s v``,
+  Cases >> PairCases_on`p` >>
+  simp[ml_repl_stepTheory.COMPILER_COMPILER_STATE_TYPE_def] >>
+  simp[mini_preludeTheory.PAIR_TYPE_def,PULL_EXISTS] >>
+  simp[std_preludeTheory.FMAP_TYPE_def,PULL_EXISTS,std_preludeTheory.FMAP_EQ_ALIST_def] >>
+  simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+  CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
+  qexists_tac`fmap_to_alist f` >>
+  qexists_tac`fmap_to_alist p0` >> simp[] >>
+  simp[GSYM PULL_EXISTS] >>
+  conj_tac >- (
+    MATCH_MP_TAC LIST_TYPE_exists >>
+    qx_gen_tac`p`>>PairCases_on`p` >>
+    simp[mini_preludeTheory.PAIR_TYPE_def,PULL_EXISTS] >>
+    simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+    simp[OPTION_TYPE_AST_ID_TYPE_LIST_TYPE_CHAR] ) >>
+  conj_tac >- (
+    MATCH_MP_TAC LIST_TYPE_exists >>
+    qx_gen_tac`p`>>PairCases_on`p` >>
+    simp[mini_preludeTheory.PAIR_TYPE_def,PULL_EXISTS] >>
+    simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+    simp[OPTION_TYPE_AST_ID_TYPE_LIST_TYPE_CHAR] ) >>
+  conj_tac >- (
+    MATCH_MP_TAC LIST_TYPE_exists >>
+    qx_gen_tac`p`>>PairCases_on`p` >>
+    simp[mini_preludeTheory.PAIR_TYPE_def,PULL_EXISTS] >>
+    simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+    strip_tac >> MATCH_MP_TAC LIST_TYPE_exists >>
+    simp[std_preludeTheory.CHAR_def] >>
+    simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] ) >>
+  MATCH_MP_TAC LIST_TYPE_exists >>
+  qx_gen_tac`p`>>PairCases_on`p` >>
+  simp[mini_preludeTheory.PAIR_TYPE_def,PULL_EXISTS] >>
+  strip_tac >>
+  simp[GSYM PULL_EXISTS] >> conj_tac >>
+  MATCH_MP_TAC LIST_TYPE_exists >>
+  simp[std_preludeTheory.CHAR_def] >>
+  TRY(qx_gen_tac`p`>>PairCases_on`p`) >>
+  simp[mini_preludeTheory.PAIR_TYPE_def,PULL_EXISTS] >>
+  simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def]>>
+  strip_tac >> MATCH_MP_TAC LIST_TYPE_exists >>
+  simp[std_preludeTheory.CHAR_def] >>
+  simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def])
+
+val tac =
+    qx_gen_tac`p`>>PairCases_on`p` >>
+    simp[mini_preludeTheory.PAIR_TYPE_def,PULL_EXISTS] >>
+    simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def]
+
+val ltchartac =
+  MATCH_MP_TAC LIST_TYPE_exists >>
+  simp[std_preludeTheory.CHAR_def] >>
+  simp[mini_preludeTheory.PAIR_TYPE_def,PULL_EXISTS] >>
+  simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def]
+
+val infer_t_ind =
+  (TypeBase.induction_of``:infer_t``)
+  |> Q.SPECL[`P`,`EVERY P`]
+  |> SIMP_RULE (srw_ss())[]
+  |> UNDISCH_ALL
+  |> CONJUNCT1
+  |> DISCH_ALL
+  |> Q.GEN`P`
+
+val UNIFY_INFER_T_TYPE_exists = prove(
+  ``∀a. ∃v. UNIFY_INFER_T_TYPE a v``,
+  HO_MATCH_MP_TAC infer_t_ind >>
+  simp[ml_repl_stepTheory.UNIFY_INFER_T_TYPE_def] >>
+  simp[NUM_def,ml_translatorTheory.INT_def] >>
+  simp[GSYM PULL_EXISTS,EVERY_MEM] >> rw[] >>
+  TRY(Cases_on`t`)>>
+  simp[ml_repl_stepTheory.AST_TC0_TYPE_def,PULL_EXISTS] >>
+  TRY(Cases_on`i`)>>simp[ml_repl_stepTheory.AST_ID_TYPE_def]>>
+  simp[GSYM PULL_EXISTS] >> rw[] >> ltchartac )
+
+val t_ind =
+  (TypeBase.induction_of``:t``)
+  |> Q.SPECL[`P`,`EVERY P`]
+  |> SIMP_RULE (srw_ss())[]
+  |> UNDISCH_ALL
+  |> CONJUNCT1
+  |> DISCH_ALL
+  |> Q.GEN`P`
+
+val AST_T_TYPE_exists = prove(
+  ``∀a. ∃v. AST_T_TYPE a v``,
+  HO_MATCH_MP_TAC t_ind >>
+  simp[ml_repl_stepTheory.AST_T_TYPE_def] >>
+  simp[NUM_def,ml_translatorTheory.INT_def] >>
+  rw[] >- ltchartac >>
+  Cases_on`a`>>
+  simp[ml_repl_stepTheory.AST_TC0_TYPE_def,PULL_EXISTS] >>
+  TRY(Cases_on`i`>>simp[ml_repl_stepTheory.AST_ID_TYPE_def]>>
+      simp[GSYM PULL_EXISTS] >> rw[] >> ltchartac ) >>
+  TRY (MATCH_MP_TAC LIST_TYPE_exists) >>
+  fs[EVERY_MEM])
+
+val REPL_FUN_REPL_FUN_STATE_TYPE_exists = prove(
+ ``∀s. ∃v. REPL_FUN_REPL_FUN_STATE_TYPE s v``,
+ Cases >>
+ PairCases_on`p` >>
+ PairCases_on`p0` >>
+ Cases_on`c`>>
+ PairCases_on`p` >>
+ simp[ml_repl_stepTheory.REPL_FUN_REPL_FUN_STATE_TYPE_def] >>
+ simp[mini_preludeTheory.PAIR_TYPE_def,PULL_EXISTS] >>
+ simp[GSYM PULL_EXISTS] >>
+ conj_tac >- (
+   MATCH_MP_TAC LIST_TYPE_exists >> tac >>
+   Cases_on`p1`>>
+   simp[ml_repl_stepTheory.AST_TC0_TYPE_def,PULL_EXISTS] >>
+   TRY ltchartac >>
+   simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
+   Cases_on`i`>>simp[ml_repl_stepTheory.AST_ID_TYPE_def]>>
+   simp[GSYM PULL_EXISTS] >> rw[] >> ltchartac ) >>
+ conj_tac >- (
+   MATCH_MP_TAC LIST_TYPE_exists >>
+   tac >>
+   strip_tac >> simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
+   Cases_on`p1'`>>simp[ml_repl_stepTheory.AST_ID_TYPE_def]>>
+   simp[GSYM PULL_EXISTS] >> rw[] >> ltchartac ) >>
+ conj_tac >- (
+   MATCH_MP_TAC LIST_TYPE_exists >>
+   tac >> simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
+   tac >> simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
+   simp[UNIFY_INFER_T_TYPE_exists] ) >>
+ conj_tac >- (
+   MATCH_MP_TAC LIST_TYPE_exists >>
+   tac >>
+   strip_tac >>
+   Cases_on`p0`>>simp[ml_repl_stepTheory.AST_ID_TYPE_def,PULL_EXISTS]>>
+   Cases_on`p3`>>simp[ml_repl_stepTheory.SEMANTICPRIMITIVES_TID_OR_EXN_TYPE_def]>>
+   TRY(Cases_on`i`>>simp[ml_repl_stepTheory.AST_ID_TYPE_def,PULL_EXISTS])>>
+   simp[GSYM PULL_EXISTS] >> rw[] >>
+   TRY ltchartac >> rw[] >> TRY ltchartac >>
+   simp[AST_T_TYPE_exists] ) >>
+ conj_tac >- (
+   MATCH_MP_TAC LIST_TYPE_exists >>
+   tac >> simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
+   simp[UNIFY_INFER_T_TYPE_exists] ) >>
+ simp[COMPILER_COMPILER_STATE_TYPE_exists])
+
+val INPUT_TYPE_exists = prove(
+  ``∃inp. INPUT_TYPE (SOME (ts,s)) inp``,
+  simp[INPUT_TYPE_def,std_preludeTheory.OPTION_TYPE_def,PULL_EXISTS] >>
+  PairCases_on`s` >>
+  simp[mini_preludeTheory.PAIR_TYPE_def,PULL_EXISTS] >>
+  simp[ml_translatorTheory.BOOL_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+  simp[std_preludeTheory.FMAP_TYPE_def,PULL_EXISTS,std_preludeTheory.FMAP_EQ_ALIST_def] >>
+  simp[GSYM PULL_EXISTS] >> rw[REPL_FUN_REPL_FUN_STATE_TYPE_exists] >- (
+    MATCH_MP_TAC LIST_TYPE_exists >>
+    Cases >>
+    simp[ml_repl_stepTheory.LEXER_FUN_SYMBOL_TYPE_def] >> rw[] >>
+    simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+    ltchartac ) >>
+  CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
+  qexists_tac`fmap_to_alist s2` >>
+  simp[] >>
+  MATCH_MP_TAC LIST_TYPE_exists >>
+  Cases >> simp[mini_preludeTheory.PAIR_TYPE_def,PULL_EXISTS] >>
+  simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def])
+
+val LIST_TYPE_closed = prove(
+  ``∀x. (∀a v. MEM a x ∧ A a v ⇒ closed env v) ⇒ ∀l. LIST_TYPE A x l ⇒ closed env l``,
+  Induct >>
+  simp[mini_preludeTheory.LIST_TYPE_def] >>
+  simp[PULL_EXISTS] >> METIS_TAC[])
+
+val REPL_FUN_REPL_FUN_STATE_TYPE_closed = prove(
+  ``REPL_FUN_REPL_FUN_STATE_TYPE a v ⇒ closed [] v``,
+  Cases_on`a`>>simp[ml_repl_stepTheory.REPL_FUN_REPL_FUN_STATE_TYPE_def,PULL_EXISTS] >>
+  PairCases_on`p0` >>
+  simp[mini_preludeTheory.PAIR_TYPE_def,PULL_EXISTS] >>
+  PairCases_on`p` >>
+  simp[mini_preludeTheory.PAIR_TYPE_def,PULL_EXISTS] >>
+  rw[] >>
+  cheat)
+
+val INPUT_TYPE_closed = prove(
+  ``INPUT_TYPE x y ⇒ closed [] y``,
+  simp[INPUT_TYPE_def] >>
+  Cases_on`x` >>
+  simp[std_preludeTheory.OPTION_TYPE_def] >>
+  rw[] >> simp[] >>
+  qmatch_assum_rename_tac `PAIR_TYPE X Y s p`["X","Y"] >>
+  PairCases_on`s` >>
+  fs[mini_preludeTheory.PAIR_TYPE_def] >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  fs[ml_translatorTheory.BOOL_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+  fs[std_preludeTheory.FMAP_TYPE_def] >>
+  rw[] >- (
+    qmatch_rename_tac`closed [] ls`[] >>
+    qmatch_assum_abbrev_tac`LIST_TYPE A vv ls` >>
+    Q.ISPECL_THEN[`[]:envM`,`A`,`vv`](match_mp_tac o MP_CANON) (GEN_ALL LIST_TYPE_closed) >>
+    simp[Abbr`A`] >>
+    Cases >> simp[ml_repl_stepTheory.LEXER_FUN_SYMBOL_TYPE_def,PULL_EXISTS] >>
+    simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+    rw[] >>
+    qmatch_assum_abbrev_tac`LIST_TYPE B s bb` >>
+    Q.ISPECL_THEN[`[]:envM`,`B`,`s`](match_mp_tac o MP_CANON) (GEN_ALL LIST_TYPE_closed) >>
+    simp[Abbr`B`,std_preludeTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] )
+  >- (
+    qmatch_rename_tac`closed [] ls`[] >>
+    qmatch_assum_abbrev_tac`LIST_TYPE A vv ls` >>
+    Q.ISPECL_THEN[`[]:envM`,`A`,`vv`](match_mp_tac o MP_CANON) (GEN_ALL LIST_TYPE_closed) >>
+    simp[Abbr`A`] >>
+    Cases >> simp[mini_preludeTheory.PAIR_TYPE_def,PULL_EXISTS] >>
+    simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] )
+  >> METIS_TAC[REPL_FUN_REPL_FUN_STATE_TYPE_closed])
+
+val LIST_TYPE_all_cns = prove(
+  ``∀x. (∀a v. MEM a x ∧ A a v ⇒ all_cns v ⊆ s) ⇒
+    ∀l. LIST_TYPE A x l ⇒ all_cns l ⊆ {SOME(Short"nil");SOME(Short"::")} ∪ s``,
+  Induct >>
+  simp[mini_preludeTheory.LIST_TYPE_def] >>
+  simp[PULL_EXISTS] >>
+  fs[pred_setTheory.SUBSET_DEF] >>
+  METIS_TAC[])
+
+(*
+val INPUT_TYPE_all_cns = prove(
+  ``INPUT_TYPE x y ⇒ (all_cns y ⊆
+    {SOME(Short"None");
+     SOME(Short"Some");
+     SOME(Short"Pair");
+     SOME(Short"Errors");
+     SOME(Short"Others");
+     SOME(Short"Longs");
+     SOME(Short"Numbers");
+     SOME(Short"Strings");
+     SOME(Short"Repl_fun_state");
+     })``,
+  simp[INPUT_TYPE_def] >>
+  Cases_on`x` >>
+  simp[std_preludeTheory.OPTION_TYPE_def] >>
+  rw[] >>
+  simp[semanticsExtraTheory.all_cns_def] >>
+  qmatch_assum_rename_tac `PAIR_TYPE X Y s p`["X","Y"] >>
+  PairCases_on`s` >>
+  fs[mini_preludeTheory.PAIR_TYPE_def] >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  fs[ml_translatorTheory.BOOL_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+  fs[std_preludeTheory.FMAP_TYPE_def] >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  LEXER_FUN_SYMBOL_TYPE_def
+*)
+
+val INPUT_TYPE_all_cns_repl_decs_cenv = prove(
+  ``INPUT_TYPE x y ⇒ all_cns y ⊆ cenv_dom (repl_decs_cenv ++ init_envC)``,
+  simp[semanticsExtraTheory.cenv_dom_def,pred_setTheory.SUBSET_DEF] >>
+  strip_tac >>
+  (*
+  imp_res_tac INPUT_TYPE_all_cns
+  *)
+  cheat)
+
+val LIST_TYPE_all_locs = prove(
+  ``∀x. (∀a v. MEM a x ∧ A a v ⇒ (all_locs v = {})) ⇒
+    ∀l. LIST_TYPE A x l ⇒ (all_locs l = {})``,
+  Induct >>
+  simp[mini_preludeTheory.LIST_TYPE_def] >>
+  simp[PULL_EXISTS] >>
+  fs[pred_setTheory.SUBSET_DEF] >>
+  METIS_TAC[])
+
+val INPUT_TYPE_all_locs = prove(
+  ``INPUT_TYPE x y ⇒ (all_locs y = {})``,
+  simp[INPUT_TYPE_def] >>
+  Cases_on`x` >>
+  simp[std_preludeTheory.OPTION_TYPE_def] >>
+  rw[] >>
+  simp[semanticsExtraTheory.all_locs_def] >>
+  qmatch_assum_rename_tac `PAIR_TYPE X Y s p`["X","Y"] >>
+  PairCases_on`s` >>
+  fs[mini_preludeTheory.PAIR_TYPE_def] >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  fs[ml_translatorTheory.BOOL_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+  fs[std_preludeTheory.FMAP_TYPE_def] >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  cheat)
+
 val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
   ``COMPILER_RUN_INV bs inp outp /\ OUTPUT_TYPE (INR (msg,s)) outp ==>
     ?x outp_ptr inp_ptr rest s_bc_val.
@@ -932,6 +1249,71 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
             INPUT_TYPE (SOME (ts,s)) new_inp /\
             COMPILER_RUN_INV (bs with refs := bs.refs |+ (inp_ptr,inp_bc_val))
               new_inp outp``,
+  simp[COMPILER_RUN_INV_def] >> strip_tac >> simp[] >>
+  imp_res_tac env_rs_repl_decs_inp_out >>
+  simp[GSYM PULL_EXISTS] >>
+  conj_tac >- fs[finite_mapTheory.FLOOKUP_DEF] >>
+  fs[rich_listTheory.EL_APPEND2] >>
+  fs[OUTPUT_TYPE_def] >>
+  fs[std_preludeTheory.SUM_TYPE_def] >>
+  BasicProvers.VAR_EQ_TAC >>
+  fs[compilerTerminationTheory.v_to_Cv_def] >>
+  pop_assum mp_tac >>
+  simp[] >>
+  simp[Once intLangTheory.syneq_cases] >> rw[] >>
+  qpat_assum`Cv_bv X Y out`mp_tac >>
+  simp[Once toBytecodeProofsTheory.Cv_bv_cases] >>
+  rw[] >>
+  `FLOOKUP (cmap new_compiler_state.contab) (SOME (Short "Inr")) = SOME (13-block_tag)` by (
+    REWRITE_TAC[new_compiler_state_contab] >>
+    EVAL_TAC ) >>
+  fs[BlockInr_def] >>
+  qpat_assum`PAIR_TYPE X Y Z A`mp_tac >>
+  simp[Once mini_preludeTheory.PAIR_TYPE_def] >>
+  rw[] >>
+  fs[compilerTerminationTheory.v_to_Cv_def] >>
+  `FLOOKUP (cmap new_compiler_state.contab) (SOME (Short "Pair")) = SOME (pair_tag-block_tag)` by (
+    REWRITE_TAC[new_compiler_state_contab] >>
+    EVAL_TAC) >>
+  fs[] >>
+  qpat_assum`syneq (CConv X Y) Z`mp_tac >>
+  simp[Once intLangTheory.syneq_cases] >> rw[] >>
+  qpat_assum`Cv_bv X Y out`mp_tac >>
+  simp[Once toBytecodeProofsTheory.Cv_bv_cases] >>
+  rw[] >>
+  simp[BlockPair_def,pair_tag_def] >>
+  conj_tac >- (
+    MATCH_MP_TAC (MP_CANON (GEN_ALL LIST_TYPE_CHAR_BlockList)) >>
+    qmatch_assum_abbrev_tac `Cv_bv pp v y` >>
+    qmatch_assum_abbrev_tac `syneq (v_to_Cv m cm l) v` >>
+    map_every qexists_tac[`pp`,`m`,`cm`,`l`,`v`] >>
+    simp[] >>
+    qunabbrev_tac`cm` >>
+    REWRITE_TAC[new_compiler_state_contab] >>
+    EVAL_TAC ) >>
+  gen_tac >>
+  qx_choose_then`new_inp`strip_assume_tac INPUT_TYPE_exists >>
+  qexists_tac`new_inp` >> simp[] >>
+  reverse conj_tac >- (
+    fs[semanticsExtraTheory.closed_context_def] >>
+    conj_asm1_tac >- METIS_TAC[INPUT_TYPE_closed] >>
+    conj_tac >- (
+      fs[semanticsExtraTheory.closed_under_cenv_def] >>
+      rw[] >> TRY (METIS_TAC[]) >>
+      MATCH_MP_TAC (GEN_ALL INPUT_TYPE_all_cns_repl_decs_cenv) >>
+      metis_tac[] ) >>
+    conj_tac >- (
+      fs[semanticsExtraTheory.closed_under_menv_def] ) >>
+    rw[] >> TRY (METIS_TAC[]) >>
+    imp_res_tac INPUT_TYPE_all_locs >>
+    simp[] ) >>
+  qexists_tac`rd` >>
+  MATCH_MP_TAC compilerProofsTheory.env_rs_change_store >>
+  qexists_tac`rd` >>
+  qmatch_assum_abbrev_tac`env_rs [] ee cs repl_decs_env new_compiler_state 0 rd bs` >>
+  qexists_tac`cs` >> qexists_tac`bs` >>
+  simp[bytecodeTheory.bc_state_component_equality] >>
+  simp[Abbr`cs`] >>
   cheat); (* requires digging through the details of env_rs *)
 
 val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
