@@ -477,6 +477,7 @@ every_case_tac);
 val consistent_con_env_weakening = Q.prove (
 `!tenvCT (tenvC:tenvC) (envC:envC) tenvCT'.
   consistent_con_env tenvCT envC tenvC ∧
+  tenvCT_ok tenvCT' ∧
   weakCT tenvCT' tenvCT
   ⇒
   consistent_con_env tenvCT' envC tenvC`,
@@ -494,18 +495,22 @@ val consistent_con_env_weakening = Q.prove (
 val type_v_weakening = Q.store_thm ("type_v_weakening",
 `(!tvs tenvCT tenvS v t. type_v tvs tenvCT tenvS v t ⇒
     !tvs' tenvCT' tenvS'. 
+      tenvCT_ok tenvCT' ∧
       ((tvs = 0) ∨ (tvs = tvs')) ∧ weakCT tenvCT' tenvCT ∧ weakS tenvS' tenvS ⇒
       type_v tvs' tenvCT' tenvS' v t) ∧
  (!tvs tenvCT tenvS vs ts. type_vs tvs tenvCT tenvS vs ts ⇒
     !tvs' tenvCT' tenvS'. 
+      tenvCT_ok tenvCT' ∧
       ((tvs = 0) ∨ (tvs = tvs')) ∧ weakCT tenvCT' tenvCT ∧ weakS tenvS' tenvS ⇒
       type_vs tvs' tenvCT' tenvS' vs ts) ∧
  (!tenvCT tenvS env tenv. type_env tenvCT tenvS env tenv ⇒
     !tenvCT' tenvS'. 
+      tenvCT_ok tenvCT' ∧
       weakCT tenvCT' tenvCT ∧ weakS tenvS' tenvS ⇒
       type_env tenvCT' tenvS' env tenv) ∧
  (!tenvS tenvCT envM tenvM. consistent_mod_env tenvS tenvCT envM tenvM ⇒
     !tenvCT' tenvS'. 
+      tenvCT_ok tenvCT' ∧
       weakCT tenvCT' tenvCT ∧ weakS tenvS' tenvS ⇒
       consistent_mod_env tenvS' tenvCT' envM tenvM)`,
  ho_match_mp_tac type_v_strongind >>
@@ -560,32 +565,31 @@ val type_v_weakening = Q.store_thm ("type_v_weakening",
      metis_tac [])
  >- rw [bind_def, emp_def, bind_tvar_def, bind_tenv_def]);
 
- (*
 val type_ctxt_weakening = Q.store_thm ("type_ctxt_weakening",
-`∀tvs tenvM tenvC tenvS tenv c t1 t2 tenvM' tenvC' tenvS' tenv'.
-    type_ctxt tvs tenvM tenvC (restrict_tenvC tenvC cns) tenvS tenv c t1 t2 ∧
-    tenvM_ok tenvM' ∧ tenv_ok tenv ∧ (num_tvs tenv = 0) ∧ 
-    weakM tenvM' tenvM ∧ weakC tenvC' tenvC ∧ weakS tenvS' tenvS ∧ weak_tenvE tenv' tenv ⇒
-    type_ctxt tvs tenvM' tenvC' (restrict_tenvC tenvC' cns) tenvS' tenv' c t1 t2`,
-rw [type_ctxt_cases] >|
-[fs [RES_FORALL] >>
+`∀tvs tenvM tenvCT tenvS tenv c t1 t2 tenvM' tenvCT' tenvS' tenv' tenvC tenvC'.
+    type_ctxt tvs tenvM tenvCT tenvC tenvS tenv c t1 t2 ∧
+    tenvCT_ok tenvCT' ∧ tenvM_ok tenvM' ∧ tenv_ok tenv ∧ (num_tvs tenv = 0) ∧ 
+    weakM tenvM' tenvM ∧ weakC tenvC' tenvC ∧ weakCT tenvCT' tenvCT ∧ weakS tenvS' tenvS ∧ weak_tenvE tenv' tenv ⇒
+    type_ctxt tvs tenvM' tenvCT' tenvC' tenvS' tenv' c t1 t2`,
+ rw [type_ctxt_cases]
+ >- (fs [RES_FORALL] >>
      rw [] >>
      PairCases_on `x` >>
      rw [] >>
      res_tac >>
      fs [] >>
-     metis_tac [restrict_tenvC_weakening, type_e_weakening, weak_tenvE_bind_var_list, type_p_weakening, DECIDE ``!x:num. x ≥ 0``],
- metis_tac [type_e_weakening, weak_tenvE_refl, restrict_tenvC_weakening],
- metis_tac [type_v_weakening],
- metis_tac [type_e_weakening, restrict_tenvC_weakening],
- metis_tac [type_e_weakening, restrict_tenvC_weakening],
- fs [RES_FORALL] >>
+     metis_tac [type_e_weakening, weak_tenvE_bind_var_list, type_p_weakening, DECIDE ``!x:num. x ≥ 0``])
+ >- metis_tac [type_e_weakening, weak_tenvE_refl]
+ >- metis_tac [type_v_weakening]
+ >- metis_tac [type_e_weakening]
+ >- metis_tac [type_e_weakening]
+ >- (fs [RES_FORALL] >>
      rw [] 
      >- (PairCases_on `x` >>
          rw [] >>
          res_tac >>
          fs [] >>
-         metis_tac [restrict_tenvC_weakening, type_e_weakening, weak_tenvE_bind_var_list, type_p_weakening, DECIDE ``!x:num. x ≥ x``]) >>
+         metis_tac [type_e_weakening, weak_tenvE_bind_var_list, type_p_weakening, DECIDE ``!x:num. x ≥ x``]) >>
      fs [Once type_v_cases, Texn_def, Tfn_def, Tref_def] >>
      imp_res_tac type_funs_Tfn >>
      fs [Tfn_def, tid_exn_to_tc_11] >>
@@ -593,59 +597,64 @@ rw [type_ctxt_cases] >|
      fs [tid_exn_to_tc_def] >>
      cases_on `tvs'` >>
      fs [] >>
-     metis_tac [ZIP, LENGTH, weak_tenvC_lookup, type_v_weakening],
- metis_tac [restrict_tenvC_weakening, check_freevars_add, gt_0, type_e_weakening, weak_tenvE_bind],
- fs [tid_exn_to_tc_11] >>
+     metis_tac [ZIP, LENGTH, weak_tenvCT_lookup, type_v_weakening])
+ >- metis_tac [check_freevars_add, gt_0, type_e_weakening, weak_tenvE_bind]
+ >- (fs [tid_exn_to_tc_11] >>
      qexists_tac `ts1` >>
      qexists_tac `ts2` >>
      qexists_tac `t` >>
      qexists_tac `tvs'` >>
      rw [] >>
-     metis_tac [gt_0, check_freevars_add, EVERY_MEM, type_e_weakening,restrict_tenvC_weakening, 
-                weak_tenvE_bind_tvar, type_v_weakening, weak_tenvC_lookup],
- qexists_tac `ts1` >>
+     metis_tac [gt_0, check_freevars_add, EVERY_MEM, type_e_weakening,
+                weak_tenvE_bind_tvar, type_v_weakening, weak_tenvC_lookup])
+ >- (qexists_tac `ts1` >>
      qexists_tac `ts2` >>
      rw [] >>
-     metis_tac [gt_0, check_freevars_add, EVERY_MEM, type_e_weakening,restrict_tenvC_weakening, 
-                weak_tenvE_bind_tvar, type_v_weakening, weak_tenvC_lookup]]);
+     metis_tac [gt_0, check_freevars_add, EVERY_MEM, type_e_weakening,
+                weak_tenvE_bind_tvar, type_v_weakening, weak_tenvC_lookup]));
 
 val type_ctxts_weakening = Q.store_thm ("type_ctxts_weakening",
-`∀tvs tenvC tenvS cs t1 t2. type_ctxts tvs tenvC tenvS cs t1 t2 ⇒
-  !tenvC' tenvS'.
-    weakC tenvC' tenvC ∧ weakS tenvS' tenvS ⇒
-    type_ctxts tvs tenvC' tenvS' cs t1 t2`,
+`∀tvs tenvCT tenvS cs t1 t2. type_ctxts tvs tenvCT tenvS cs t1 t2 ⇒
+  !tenvCT' tenvS'.
+    tenvCT_ok tenvCT' ∧ weakCT tenvCT' tenvCT ∧ weakS tenvS' tenvS ⇒
+    type_ctxts tvs tenvCT' tenvS' cs t1 t2`,
  ho_match_mp_tac type_ctxts_ind >>
  rw [] >>
  rw [Once type_ctxts_cases]
  >- (qexists_tac `tenvM` >>
+     qexists_tac `tenvC` >>
      qexists_tac `tenv` >>
      qexists_tac `t1'` >>
      rw [] >-
      metis_tac [type_v_weakening] >-
      metis_tac [consistent_con_env_weakening] >-
-     metis_tac [type_v_weakening, restrict_tenvC_weakening] >>
+     metis_tac [type_v_weakening] >>
      match_mp_tac type_ctxt_weakening >>
-     metis_tac [weak_tenvE_refl,restrict_tenvC_weakening,weakM_refl,
+     metis_tac [weak_tenvE_refl,weakM_refl,weakC_refl,
                 weak_tenvE_bind, weak_tenvE_bind_tvar2, type_v_freevars, type_v_weakening])
  >- (qexists_tac `tenvM` >>
+     qexists_tac `tenvC` >>
      qexists_tac `tenv` >>
      qexists_tac `t1'` >>
      rw [] >-
      metis_tac [type_v_weakening] >-
      metis_tac [consistent_con_env_weakening] >-
-     metis_tac [type_v_weakening, restrict_tenvC_weakening] >>
+     metis_tac [type_v_weakening] >>
      match_mp_tac type_ctxt_weakening >>
-     metis_tac [weak_tenvE_refl,weakM_refl, restrict_tenvC_weakening,
+     metis_tac [weak_tenvE_refl,weakM_refl, weakC_refl,
                 weak_tenvE_bind, weak_tenvE_bind_tvar2, type_v_freevars, type_v_weakening]));
 
 val type_s_weakening = Q.store_thm ("type_s_weakening",
-`!tenvC tenvS st tenvC'. 
-  type_s tenvC tenvS st ∧
-  weakC tenvC' tenvC
+`!tenvCT tenvS st tenvCT'. 
+  tenvCT_ok tenvCT' ∧
+  type_s tenvCT tenvS st ∧
+  weakCT tenvCT' tenvCT
   ⇒
-  type_s tenvC' tenvS st`,
+  type_s tenvCT' tenvS st`,
 rw [type_s_def] >>
 metis_tac [type_v_weakening, weakS_refl]);
+
+(*
 
 val weak_other_mods_def = Define `
 weak_other_mods mn tenvC' tenvC =

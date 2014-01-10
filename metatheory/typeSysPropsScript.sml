@@ -1366,7 +1366,8 @@ rw [consistent_con_env_def, lookup_append] >>
 every_case_tac >>
 rw [] >>
 res_tac >>
-fs []);
+fs [] >>
+metis_tac [tenvC_ok_merge, merge_def]);
 
 val build_tdefs_cons = Q.prove (
 `!tvs tn ctors tds.
@@ -1768,4 +1769,3 @@ cases_on `y` >>
 rw [tid_exn_to_tc_def]);
 
 val _ = export_theory ();
-
