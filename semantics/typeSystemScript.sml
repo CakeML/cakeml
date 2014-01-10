@@ -347,11 +347,10 @@ type_e menv cenv tenv e Texn)
 type_e menv cenv tenv (Raise e) t)
 
 /\ (! menv cenv tenv e pes t.
-(type_e menv cenv tenv e t /\
-(( ~ (pes = [])) /\
+(type_e menv cenv tenv e t /\ (~ (pes = []) /\
 (! ((p,e) :: LIST_TO_SET pes). ? tenv'.
    ALL_DISTINCT (pat_bindings p []) /\   
-(type_p (num_tvs tenv) cenv p Texn tenv' /\
+   (type_p (num_tvs tenv) cenv p Texn tenv' /\
    type_e menv cenv (bind_var_list( 0) tenv' tenv) e t))))
 ==>
 type_e menv cenv tenv (Handle e pes) t)
@@ -409,11 +408,10 @@ type_e menv cenv tenv e3 t))
 type_e menv cenv tenv (If e1 e2 e3) t)
 
 /\ (! menv cenv tenv e pes t1 t2.
-(type_e menv cenv tenv e t1 /\
-(( ~ (pes = [])) /\
+(type_e menv cenv tenv e t1 /\ (~ (pes = []) /\
 (! ((p,e) :: LIST_TO_SET pes) . ? tenv'.
    ALL_DISTINCT (pat_bindings p []) /\   
-(type_p (num_tvs tenv) cenv p t1 tenv' /\
+   (type_p (num_tvs tenv) cenv p t1 tenv' /\
    type_e menv cenv (bind_var_list( 0) tenv' tenv) e t2))))
 ==>
 type_e menv cenv tenv (Mat e pes) t2)
