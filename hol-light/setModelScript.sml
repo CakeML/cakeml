@@ -201,7 +201,7 @@ val P_EVERY_EQ_LIST = prove(
 val lem = prove(``EVERY ($= c) a ∧ EVERY ($= c) b ∧ LENGTH a = LENGTH b ⇒ a = b``,
   simp[LIST_EQ_REWRITE,EVERY_MEM,MEM_EL,PULL_EXISTS] >> metis_tac[])
 
-val list_model_exists = prove(
+val l_model_exists = prove(
   ``∃(is_v_rep : α list -> bool).
    ∃(in_rep : α list -> α list -> bool).
    (∃x. is_v_rep x) ∧
@@ -209,7 +209,8 @@ val list_model_exists = prove(
    (∀x P. is_v_rep x ⇒ ∃y. is_v_rep y ∧ ∀a. is_v_rep a ⇒ (in_rep a y ⇔ (in_rep a x ∧ P a))) ∧
    (∀x. is_v_rep x ⇒ ∃y. is_v_rep y ∧ (∀a. is_v_rep a ⇒ (in_rep a y ⇔ (∀b. is_v_rep b ⇒ in_rep b a ⇒ in_rep b x)))) ∧
    (∀x. is_v_rep x ⇒ ∃y. is_v_rep y ∧ (∀a. is_v_rep a ⇒ (in_rep a y ⇔ (∃b. is_v_rep b ∧ in_rep a b ∧ in_rep b x)))) ∧
-   (∀x y. is_v_rep x ∧ is_v_rep y ⇒ ∃z. is_v_rep z ∧ (∀a. is_v_rep a ⇒ (in_rep a z ⇔ (a = x ∨ a = y))))``,
+   (∀x y. is_v_rep x ∧ is_v_rep y ⇒ ∃z. is_v_rep z ∧ (∀a. is_v_rep a ⇒ (in_rep a z ⇔ (a = x ∨ a = y)))) ∧
+   (∀x. is_v_rep x ⇒ ∃y. is_v_rep y ∧ (∀a. is_v_rep a ∧ in_rep a x ⇒ in_rep y x))``,
   qexists_tac`EVERY ((=) ARB)` >>
   qexists_tac`λl1 l2. BIT (LENGTH l1) (LENGTH l2)` >>
   conj_tac >- (qexists_tac`[]` >> simp[]) >>
@@ -336,96 +337,119 @@ val list_model_exists = prove(
     simp[numposrepTheory.BIT_num_from_bin_list] >>
     fs[Abbr`ll`] >>
     rw[] >> metis_tac[] ) >>
-  rw[] >>
-  qabbrev_tac`xx = LENGTH x` >>
-  qabbrev_tac`yy = LENGTH y` >>
-  qexists_tac`GENLIST (K ARB) (num_from_bin_list
-    (GENLIST (λa. if a = xx ∨ a = yy then 1 else 0) (SUC (MAX xx yy))))` >>
-  simp[EVERY_GENLIST] >>
-  rw[] >>
-  qmatch_abbrev_tac`BIT aa (num_from_bin_list ll) ⇔ P` >>
-  `EVERY ($> 2) ll` by (
-    simp[Abbr`ll`,EVERY_GENLIST] >> rw[] ) >>
-  EQ_TAC >- (
-    strip_tac >>
-    `¬(LENGTH ll ≤ aa)` by metis_tac[BIT_num_from_bin_list_leading] >>
-    fs[arithmeticTheory.NOT_LESS_EQUAL] >>
+  conj_tac >- (
+    rw[] >>
+    qabbrev_tac`xx = LENGTH x` >>
+    qabbrev_tac`yy = LENGTH y` >>
+    qexists_tac`GENLIST (K ARB) (num_from_bin_list
+      (GENLIST (λa. if a = xx ∨ a = yy then 1 else 0) (SUC (MAX xx yy))))` >>
+    simp[EVERY_GENLIST] >>
+    rw[] >>
+    qmatch_abbrev_tac`BIT aa (num_from_bin_list ll) ⇔ P` >>
+    `EVERY ($> 2) ll` by (
+      simp[Abbr`ll`,EVERY_GENLIST] >> rw[] ) >>
+    EQ_TAC >- (
+      strip_tac >>
+      `¬(LENGTH ll ≤ aa)` by metis_tac[BIT_num_from_bin_list_leading] >>
+      fs[arithmeticTheory.NOT_LESS_EQUAL] >>
+      simp[Abbr`P`] >>
+      qpat_assum`BIT X Y`mp_tac >>
+      simp[numposrepTheory.BIT_num_from_bin_list] >>
+      fs[Abbr`ll`] >>
+      BasicProvers.CASE_TAC >> simp[] >>
+      metis_tac[lem] ) >>
     simp[Abbr`P`] >>
-    qpat_assum`BIT X Y`mp_tac >>
+    strip_tac >>
+    `aa < LENGTH ll` by (
+      fs[Abbr`ll`] >>
+      qmatch_abbrev_tac`q < SUC r` >>
+      rfs[] >>
+      qsuff_tac`q <= r` >- DECIDE_TAC >>
+      simp[Abbr`r`] ) >>
     simp[numposrepTheory.BIT_num_from_bin_list] >>
-    fs[Abbr`ll`] >>
-    BasicProvers.CASE_TAC >> simp[] >>
-    metis_tac[lem] ) >>
-  simp[Abbr`P`] >>
-  strip_tac >>
-  `aa < LENGTH ll` by (
-    fs[Abbr`ll`] >>
-    qmatch_abbrev_tac`q < SUC r` >>
-    rfs[] >>
-    qsuff_tac`q <= r` >- DECIDE_TAC >>
-    simp[Abbr`r`] ) >>
-  simp[numposrepTheory.BIT_num_from_bin_list] >>
-  fs[Abbr`ll`])
+    fs[Abbr`ll`]) >>
+  rw[] >>
+  Cases_on`LENGTH x=0`>>simp[BIT_ZERO] >- (
+    qexists_tac`[]` >> simp[] ) >>
+  qexists_tac`GENLIST (K ARB) (LOG2 (LENGTH x))` >>
+  simp[BIT_LOG2,EVERY_GENLIST])
 
-val is_listV_def = new_specification("is_listV_def",["is_listV"],list_model_exists)
+val is_lV_def = new_specification("is_lV_def",["is_lV"],l_model_exists)
 
-val listV_tyax = new_type_definition("listV",
-  is_listV_def |> SIMP_RULE std_ss [GSYM PULL_EXISTS] |> CONJUNCT1)
-val listV_bij = define_new_type_bijections
-  {ABS="mk_listV",REP="dest_listV",name="listV_bij",tyax=listV_tyax}
-val mk_listV_11     = prove_abs_fn_one_one listV_bij
-val mk_listV_onto   = prove_abs_fn_onto    listV_bij
-val dest_listV_11   = prove_rep_fn_one_one listV_bij
-val dest_listV_onto = prove_rep_fn_onto    listV_bij
+val lV_tyax = new_type_definition("lV",
+  is_lV_def |> SIMP_RULE std_ss [GSYM PULL_EXISTS] |> CONJUNCT1)
+val lV_bij = define_new_type_bijections
+  {ABS="mk_lV",REP="dest_lV",name="lV_bij",tyax=lV_tyax}
+val dest_lV_11   = prove_rep_fn_one_one lV_bij
 
-val listV_mem_rep_def =
-  new_specification("listV_mem_rep_def",["listV_mem_rep"],is_listV_def)
+val lV_mem_rep_def =
+  new_specification("lV_mem_rep_def",["lV_mem_rep"],is_lV_def)
 
-val listV_mem_def = Define`listV_mem x y = listV_mem_rep (dest_listV x) (dest_listV y)`
+val lV_mem_def = Define`lV_mem x y = lV_mem_rep (dest_lV x) (dest_lV y)`
 
-val is_set_theory_listV = store_thm("is_set_theory_listV",
-  ``is_set_theory listV_mem``,
+val is_set_theory_lV = store_thm("is_set_theory_lV",
+  ``is_set_theory lV_mem``,
   simp[is_set_theory_def] >>
   conj_tac >- (
     simp[extensional_def] >>
-    simp[listV_mem_def] >>
+    simp[lV_mem_def] >>
     rw[] >>
-    qspecl_then[`dest_listV x`,`dest_listV y`]mp_tac
-      (List.nth(CONJUNCTS listV_mem_rep_def,1)) >>
-    simp[listV_bij,dest_listV_11] >> rw[] >>
-    metis_tac[listV_bij] ) >>
+    qspecl_then[`dest_lV x`,`dest_lV y`]mp_tac
+      (List.nth(CONJUNCTS lV_mem_rep_def,1)) >>
+    simp[lV_bij,dest_lV_11] >> rw[] >>
+    metis_tac[lV_bij] ) >>
   conj_tac >- (
     simp[is_separation_def,GSYM SKOLEM_THM] >>
     rw[] >>
-    qspecl_then[`dest_listV x`,`P o mk_listV`]mp_tac
-      (List.nth(CONJUNCTS listV_mem_rep_def,2)) >>
-    simp[listV_bij] >>
-    simp[listV_mem_def] >>
-    metis_tac[listV_bij] ) >>
+    qspecl_then[`dest_lV x`,`P o mk_lV`]mp_tac
+      (List.nth(CONJUNCTS lV_mem_rep_def,2)) >>
+    simp[lV_bij] >>
+    simp[lV_mem_def] >>
+    metis_tac[lV_bij] ) >>
   conj_tac >- (
     simp[is_power_def,GSYM SKOLEM_THM] >>
     rw[] >>
-    qspecl_then[`dest_listV x`]mp_tac
-      (List.nth(CONJUNCTS listV_mem_rep_def,3)) >>
-    simp[listV_bij] >>
-    simp[listV_mem_def] >>
-    metis_tac[listV_bij] ) >>
+    qspecl_then[`dest_lV x`]mp_tac
+      (List.nth(CONJUNCTS lV_mem_rep_def,3)) >>
+    simp[lV_bij] >>
+    simp[lV_mem_def] >>
+    metis_tac[lV_bij] ) >>
   conj_tac >- (
     simp[is_union_def,GSYM SKOLEM_THM] >>
     rw[] >>
-    qspecl_then[`dest_listV x`]mp_tac
-      (List.nth(CONJUNCTS listV_mem_rep_def,4)) >>
-    simp[listV_bij] >>
-    simp[listV_mem_def] >>
-    metis_tac[listV_bij] ) >>
+    qspecl_then[`dest_lV x`]mp_tac
+      (List.nth(CONJUNCTS lV_mem_rep_def,4)) >>
+    simp[lV_bij] >>
+    simp[lV_mem_def] >>
+    metis_tac[lV_bij] ) >>
   simp[is_upair_def,GSYM SKOLEM_THM] >>
   rw[] >>
-  qspecl_then[`dest_listV x`]mp_tac
-    (List.nth(CONJUNCTS listV_mem_rep_def,5)) >>
-  simp[listV_bij] >>
-  simp[listV_mem_def] >>
-  metis_tac[listV_bij] )
+  qspecl_then[`dest_lV x`]mp_tac
+    (List.nth(CONJUNCTS lV_mem_rep_def,5)) >>
+  simp[lV_bij] >>
+  simp[lV_mem_def] >>
+  metis_tac[lV_bij] )
 
+val lV_choice_exists = prove(
+  ``∃ch. is_choice lV_mem ch``,
+  simp[is_choice_def,GSYM SKOLEM_THM] >>
+  rw[] >> simp[lV_mem_def] >>
+  qspecl_then[`dest_lV x`]mp_tac
+    (List.nth(CONJUNCTS lV_mem_rep_def,6)) >>
+  simp[lV_bij] >>
+  metis_tac[lV_bij] )
+
+val lV_choice_def =
+  new_specification("lV_choice_def",["lV_choice"],lV_choice_exists)
+
+val lV_indset_def =
+  new_specification("lV_indset_def",["lV_indset"],
+    METIS_PROVE[]``∃i:α lV. (∃x:α lV. is_infinite lV_mem x) ⇒ is_infinite lV_mem i``)
+
+val is_model_lV = store_thm("is_model_lV",
+  ``(∃I:α lV. is_infinite lV_mem I) ⇒
+    is_model (lV_mem,lV_indset:α lV,lV_choice)``,
+  simp[is_model_def,is_set_theory_lV,lV_choice_def,lV_indset_def])
 
 val WF_inset = store_thm("WF_inset",
   ``WF modelSet$<:``,
@@ -442,76 +466,4 @@ val WF_inset = store_thm("WF_inset",
 
 val inset_ind = MATCH_MP WF_INDUCTION_THM WF_inset
 
-(*
-val emptyR_def = tDefine "emptyR"`
-  emptyR (x:V) y ⇔ (∀z. ¬(z <: x) ∧ ¬(z <: y)) ∨
-                   ((∀a. a <: x ⇒ ∃b. b <: y ∧ (b <: y ⇒ emptyR a b)) ∧
-                    (∀b. b <: y ⇒ ∃a. a <: x ∧ (a <: x ⇒ emptyR a b)))`
-(WF_REL_TAC`RPROD $<: $<:` >> simp[pairTheory.RPROD_DEF,WF_inset])
-val emptyR_ind = theorem"emptyR_ind"
-
-val emptyR_refl = prove(
-  ``∀x. emptyR x x``,
-  ho_match_mp_tac inset_ind >>
-  rw[] >>
-  simp[Once emptyR_def] >>
-  metis_tac[])
-*)
-
-(*
-val emptyR_in
-
-val EQUIV_EQC_emptyR = prove(
-  ``EQUIV (EQC emptyR)``,
-  simp[EQUIV_def,GSYM ALT_equivalence])
-
-val inset_rsp = prove(
-  ``∀x1 y1 x2 y2. emptyR x1 y1 ∧ emptyR x2 y2 ⇒ (x1 <: x2 ⇔ y1 <: y2)``,
-  rpt gen_tac >>
-  map_every qid_spec_tac[`y1`,`x1`,`y2`,`x2`] >>
-
-  ho_match_mp_tac emptyR_ind >>
-  rw[] >>
-  pop_assum mp_tac >>
-  simp[Once emptyR_def] >>
-  strip_tac >- fs[] >>
-  qpat_assum`emptyR X Y`mp_tac >>
-  simp[Once emptyR_def] >>
-  strip_tac >- (
-    EQ_TAC >> strip_tac >> res_tac >> rfs[] >>
-    last_x_assum(qspecl_then[`x1`,`b`]mp_tac) >>
-    simp[]
-
-    metis_tac[]
-
-  map_every qid_spec_tac[`y2`,`x2`] >>
-  ho_match_mp_tac EQC_INDUCTION
-  print_find"EQC"
-  EQC_ind
-  rw[emptyR_def] >> fs[] >>
-  simp[inset_def]
-  element_def
-  print_find"level_emp"
-
-val ths = quotient.define_equivalence_type {
-  name="U",
-  equiv=EQUIV_EQC_emptyR,
-  defs = [
-    {def_name="inset_def",
-     fname="Umem",
-     func=``modelSet$<:``,
-     fixity=NONE}],
-  welldefs = [],
-  old_thms = []
-}
-
-
-val mem_is_set_theory = store_thm("mem_is_set_theory",
-  ``is_set_theory modelSet$<:``,
-  simp[is_set_theory_def] >>
-  conj_tac >- (
-    simp[extensional_def] >>
-    print_find"extensional"
-
-*)
 val _ = export_theory()
