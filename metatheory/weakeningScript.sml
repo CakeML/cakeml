@@ -443,7 +443,37 @@ val type_v_freevars = Q.store_thm ("type_v_freevars",
  >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ,
                arithmeticTheory.GREATER_EQ]);
 
-(*
+val weakCT_def = Define `
+weakCT cenv_impl cenv_spec ⇔
+  ∀cn tn.
+    case lookup (cn,tn) cenv_spec of
+        NONE => T
+      | SOME (tvs_spec,ts_spec) =>
+          case lookup (cn,tn) cenv_impl of
+            NONE => F
+          | SOME (tvs_impl,ts_impl) =>
+              tvs_spec = tvs_impl ∧
+              ts_spec = ts_impl`;
+
+val weak_tenvCT_lookup = Q.prove (
+`∀cn tenvCT tenvCT' tvs ts tn.
+  weakCT tenvCT' tenvCT ∧
+  (lookup (cn,tn) tenvCT = SOME (tvs,ts))
+  ⇒
+  (lookup (cn,tn) tenvCT' = SOME (tvs,ts))`,
+rw [weakCT_def] >>
+FIRST_X_ASSUM (MP_TAC o Q.SPECL [`cn`, `tn`]) >>
+rw [] >>
+cases_on `lookup (cn,tn) tenvCT'` >>
+fs [] >>
+PairCases_on `x` >>
+fs []);
+
+val weakCT_refl = Q.store_thm ("weakCT_refl",
+`!tenvCT. weakCT tenvCT tenvCT`,
+rw [weakCT_def] >>
+every_case_tac);
+
 val consistent_con_env_weakening = Q.prove (
 `!tenvCT (tenvC:tenvC) (envC:envC) tenvCT'.
   consistent_con_env tenvCT envC tenvC ∧
@@ -451,77 +481,78 @@ val consistent_con_env_weakening = Q.prove (
   ⇒
   consistent_con_env tenvCT' envC tenvC`,
  rw [consistent_con_env_def] >>
- imp_res_tac restrict_tenvC_weakening >>
- pop_assum (assume_tac o Q.SPEC `MAP FST (envC:envC)`) >>
- fs [weakC_def] >>
- pop_assum (assume_tac o Q.SPEC `cn`) >>
+ fs [weakCT_def] >>
+ FIRST_X_ASSUM (assume_tac o Q.SPECL [`cn`,`t`]) >>
  every_case_tac >>
- fs [] >>
- imp_res_tac lookup_restrict_tenvC >>
- imp_res_tac lookup_restrict_tenvC_notin >>
  fs [] >>
  rw [] >>
  res_tac >>
- imp_res_tac lookup_notin);
+ imp_res_tac lookup_notin >>
+ fs [] >>
+ metis_tac []);
 
 val type_v_weakening = Q.store_thm ("type_v_weakening",
-`(!tvs tenvC tenvS v t. type_v tvs tenvC tenvS v t ⇒
-    !tvs' tenvC' tenvS'. 
-      ((tvs = 0) ∨ (tvs = tvs')) ∧ weakC tenvC' tenvC ∧ weakS tenvS' tenvS ⇒
-      type_v tvs' tenvC' tenvS' v t) ∧
- (!tvs tenvC tenvS vs ts. type_vs tvs tenvC tenvS vs ts ⇒
-    !tvs' tenvC' tenvS'. 
-      ((tvs = 0) ∨ (tvs = tvs')) ∧ weakC tenvC' tenvC ∧ weakS tenvS' tenvS ⇒
-      type_vs tvs' tenvC' tenvS' vs ts) ∧
- (!tenvC tenvS env tenv. type_env tenvC tenvS env tenv ⇒
-    !tenvC' tenvS'. 
-      weakC tenvC' tenvC ∧ weakS tenvS' tenvS ⇒
-      type_env tenvC' tenvS' env tenv) ∧
- (!tenvS tenvC envM tenvM. consistent_mod_env tenvS tenvC envM tenvM ⇒
-    !tenvC' tenvS'. 
-      weakC tenvC' tenvC ∧ weakS tenvS' tenvS ⇒
-      consistent_mod_env tenvS' tenvC' envM tenvM)`,
+`(!tvs tenvCT tenvS v t. type_v tvs tenvCT tenvS v t ⇒
+    !tvs' tenvCT' tenvS'. 
+      ((tvs = 0) ∨ (tvs = tvs')) ∧ weakCT tenvCT' tenvCT ∧ weakS tenvS' tenvS ⇒
+      type_v tvs' tenvCT' tenvS' v t) ∧
+ (!tvs tenvCT tenvS vs ts. type_vs tvs tenvCT tenvS vs ts ⇒
+    !tvs' tenvCT' tenvS'. 
+      ((tvs = 0) ∨ (tvs = tvs')) ∧ weakCT tenvCT' tenvCT ∧ weakS tenvS' tenvS ⇒
+      type_vs tvs' tenvCT' tenvS' vs ts) ∧
+ (!tenvCT tenvS env tenv. type_env tenvCT tenvS env tenv ⇒
+    !tenvCT' tenvS'. 
+      weakCT tenvCT' tenvCT ∧ weakS tenvS' tenvS ⇒
+      type_env tenvCT' tenvS' env tenv) ∧
+ (!tenvS tenvCT envM tenvM. consistent_mod_env tenvS tenvCT envM tenvM ⇒
+    !tenvCT' tenvS'. 
+      weakCT tenvCT' tenvCT ∧ weakS tenvS' tenvS ⇒
+      consistent_mod_env tenvS' tenvCT' envM tenvM)`,
  ho_match_mp_tac type_v_strongind >>
  rw [] >>
  rw [Once type_v_cases]
  >- (fs [EVERY_MEM] >>
-     metis_tac [weak_tenvC_lookup, check_freevars_add, gt_0])
+     metis_tac [weak_tenvCT_lookup, check_freevars_add, gt_0])
  >- (fs [EVERY_MEM] >>
-     metis_tac [weak_tenvC_lookup, check_freevars_add, gt_0])
+     metis_tac [weak_tenvCT_lookup, check_freevars_add, gt_0])
  >- (fs [Tfn_def] >>
      qexists_tac `tenvM` >>
+     qexists_tac `tenvC` >>
      qexists_tac `tenv` >>
      rw [] >-
      metis_tac [consistent_con_env_weakening] >-
      metis_tac [check_freevars_add, gt_0] >>
      match_mp_tac (hd (CONJUNCTS type_e_weakening)) >>
-     metis_tac [weak_tenvE_refl, restrict_tenvC_weakening, weakM_refl,
+     metis_tac [weak_tenvE_refl, weakM_refl, weakC_refl,
                 weak_tenvE_bind, weak_tenvE_bind_tvar2, type_v_freevars])
  >- (fs [Tfn_def] >>
      qexists_tac `tenvM` >>
+     qexists_tac `tenvC` >>
      qexists_tac `tenv` >>
      rw [] >-
      metis_tac [consistent_con_env_weakening] >>
      match_mp_tac (hd (CONJUNCTS type_e_weakening)) >>
-     metis_tac [weak_tenvE_refl, restrict_tenvC_weakening,weakM_refl,
+     metis_tac [weak_tenvE_refl, weakC_refl,weakM_refl,
                 weak_tenvE_bind, weak_tenvE_bind_tvar2, type_v_freevars])
  >- (fs [Tfn_def] >>
      qexists_tac `tenvM` >>
+     qexists_tac `tenvC` >>
      qexists_tac `tenv` >>
      qexists_tac `tenv'` >>
      rw [] >-
      metis_tac [consistent_con_env_weakening] >>
      match_mp_tac (hd (tl (tl (CONJUNCTS type_e_weakening)))) >>
-     metis_tac [weak_tenvE_refl,weakM_refl, restrict_tenvC_weakening,
+     metis_tac [weak_tenvE_refl,weakM_refl, weakC_refl,
                 weak_tenvE_bind_var_list, weak_tenvE_bind_tvar2, type_v_freevars])
  >- (fs [Tfn_def] >>
      qexists_tac `tenvM` >>
+     qexists_tac `tenvC` >>
      qexists_tac `tenv` >>
      qexists_tac `tenv'` >>
      rw [] >-
      metis_tac [consistent_con_env_weakening] >>
      match_mp_tac (hd (tl (tl (CONJUNCTS type_e_weakening)))) >>
-     metis_tac [weak_tenvE_refl,weakM_refl, restrict_tenvC_weakening,
+     metis_tac [weak_tenvE_refl,weakM_refl, weakC_refl,
                 weak_tenvE_bind_var_list, weak_tenvE_bind_tvar2, type_v_freevars]) 
  >- (fs [weakS_def] >>
      metis_tac [])
@@ -529,6 +560,7 @@ val type_v_weakening = Q.store_thm ("type_v_weakening",
      metis_tac [])
  >- rw [bind_def, emp_def, bind_tvar_def, bind_tenv_def]);
 
+ (*
 val type_ctxt_weakening = Q.store_thm ("type_ctxt_weakening",
 `∀tvs tenvM tenvC tenvS tenv c t1 t2 tenvM' tenvC' tenvS' tenv'.
     type_ctxt tvs tenvM tenvC (restrict_tenvC tenvC cns) tenvS tenv c t1 t2 ∧
@@ -821,4 +853,5 @@ PairCases_on `x'` >>
 fs []);
 
 *)
+
 val _ = export_theory ();

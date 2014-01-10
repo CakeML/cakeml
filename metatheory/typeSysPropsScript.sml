@@ -42,16 +42,6 @@ val same_module_def = Define `
 (same_module _ _ = F)`;
 *)
 
-val tenvC_ok_def = Define `
-tenvC_ok tenvC ⇔ 
-  ALL_DISTINCT (MAP FST tenvC) ∧
-  EVERY (\(cn,tvs,ts,tn). EVERY (check_freevars 0 tvs) ts) tenvC`;
-
-val tenvCT_ok_def = Define `
-tenvCT_ok tenvCT ⇔
-  ALL_DISTINCT (MAP FST tenvCT) ∧
-  EVERY (\((cn,tn),(tvs,ts)). EVERY (check_freevars 0 tvs) ts) tenvCT`;
-
 val disjoint_env_def = Define `
   disjoint_env e1 e2 =
     DISJOINT (set (MAP FST e1)) (set (MAP FST e2))`;
@@ -59,7 +49,7 @@ val disjoint_env_def = Define `
 val tenvC_ok_merge = Q.store_thm ("tenvC_ok_merge",
 `!tenvC1 tenvC2.
   tenvC_ok (merge tenvC1 tenvC2) = 
-  (tenvC_ok tenvC1 ∧ tenvC_ok tenvC2 ∧ disjoint_env tenvC1 tenvC2)`, 
+  (tenvC_ok tenvC1 ∧ tenvC_ok tenvC2)`, 
 rw [tenvC_ok_def, merge_def, ALL_DISTINCT_APPEND] >>
 eq_tac >>
 rw [disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
@@ -92,6 +82,15 @@ every_case_tac >>
 rw [] >>
 fs [] >>
 metis_tac []);
+
+val lookup_notin = Q.store_thm ("lookup_notin",
+`!x e. (lookup x e = NONE) = ~MEM x (MAP FST e)`,
+induct_on `e` >>
+rw [lookup_def] >>
+cases_on `h` >>
+fs [lookup_def] >>
+every_case_tac >>
+fs []);
 
 val tenvM_ok_lookup = Q.store_thm ("tenvM_ok_lookup",
 `!n tenvM tenvC tenv.
@@ -161,15 +160,6 @@ val lookup_con_disjoint = Q.store_thm ("lookup_con_disjoint",
   ⇒
   (lookup x (merge tenvC2 tenvC1) = SOME v)`,
 metis_tac [lookup_disjoint]);
-
-val lookup_notin = Q.store_thm ("lookup_notin",
-`!x e. (lookup x e = NONE) = ~MEM x (MAP FST e)`,
-induct_on `e` >>
-rw [lookup_def] >>
-cases_on `h` >>
-fs [lookup_def] >>
-every_case_tac >>
-fs []);
 
 val bind_var_list_append = Q.store_thm ("bind_var_list_append",
 `!n te1 te2 te3.

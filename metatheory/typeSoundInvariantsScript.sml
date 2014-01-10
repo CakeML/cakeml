@@ -21,12 +21,25 @@ val _ = type_abbrev( "tenvS" , ``: (num, t) env``);
 (* Constructor type environments keyed by constructor namd and type *)
 val _ = type_abbrev( "tenvCT" , ``: (( conN id # tid_or_exn), ( tvarN list # t list)) env``);
 
+val _ = Define `
+ (tenvC_ok tenvC =  
+(EVERY (\ (cn,(tvs,ts,tn)) .  EVERY (check_freevars( 0) tvs) ts) tenvC))`;
+
+
+val _ = Define `
+ (tenvCT_ok tenvCT =  
+(ALL_DISTINCT (MAP FST tenvCT) /\
+  EVERY (\ ((cn,tn),(tvs,ts)) .  EVERY (check_freevars( 0) tvs) ts) tenvCT))`;
+
+
 (* Check that a constructor type environment is consistent with a runtime type
  * enviroment, using the full type keyed constructor type environment to ensure
  * that the correct types are used. *)
 (*val consistent_con_env : tenvCT -> envC -> tenvC -> bool*)
 val _ = Define `
  (consistent_con_env tenvCT envC tenvC =  
+(tenvC_ok tenvC /\  
+(tenvCT_ok tenvCT /\  
 ((! cn n t.    
 (lookup cn envC = SOME (n, t))
     ==>    
@@ -38,7 +51,7 @@ val _ = Define `
   (! cn.    
 (lookup cn envC = NONE)
     ==>    
-(lookup cn tenvC = NONE))))`;
+(lookup cn tenvC = NONE))))))`;
 
 
 (* A value has a type *)
