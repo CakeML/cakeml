@@ -1,11 +1,11 @@
-INCLUDES = ../../bytecode $(HOLDIR)/examples/set-theory/hol_sets
+INCLUDES = ../.. $(HOLDIR)/examples/set-theory/hol_sets
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
 HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = $(HOLDIR)/examples/set-theory/hol_sets/cardinalTheory ../../bytecode/miscTheory
+BARE_THYS = $(HOLDIR)/examples/set-theory/hol_sets/cardinalTheory ../../miscTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 

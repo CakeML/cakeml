@@ -1,7 +1,8 @@
 open HolKernel boolLib boolSimps bossLib lcsymtacs pairTheory listTheory pred_setTheory sortingTheory stringTheory holSyntaxLibTheory
-val _ = numLib.prefer_num()
+val _ = tight_equality()
 val _ = new_theory "holSyntax"
 
+val _ = Parse.temp_type_abbrev("stype",``:type``)
 val _ = Hol_datatype`type
   = Tyvar of string
   | Tyapp of string => type list`
@@ -16,11 +17,12 @@ val domain_def = save_thm("domain_def",SIMP_RULE(srw_ss())[]domain_def)
 val codomain_def = save_thm("codomain_def",SIMP_RULE(srw_ss())[]codomain_def)
 val _ = export_rewrites["domain_def","codomain_def"]
 
+val _ = Parse.temp_type_abbrev("sterm",``:term``)
 val _ = Hol_datatype`term
-  = Var of string => type
-  | Const of string => type
+  = Var of string => holSyntax$type
+  | Const of string => holSyntax$type
   | Comb of term => term
-  | Abs of string => type => term`
+  | Abs of string => holSyntax$type => term`
 
 val _ = Parse.overload_on("Equal",``λty. Const "=" (Fun ty (Fun ty Bool))``)
 val _ = Parse.overload_on("Select",``λty. Const "@" (Fun (Fun ty Bool) ty)``)
@@ -532,8 +534,8 @@ val tvars_def = Define`
   (tvars (Abs n ty t) = LIST_UNION (tyvars ty) (tvars t))`
 
 val _ = Hol_datatype`def
-  = Constdef of (string # term) list => term
-  | Typedef of string => term => string => string`
+  = Constdef of (string # holSyntax$term) list => holSyntax$term
+  | Typedef of string => holSyntax$term => string => string`
 
 val types_aux_def = Define`
   (types_aux (Constdef eqs p) = []) /\
@@ -744,7 +746,7 @@ val ACONV_SYM = store_thm("ACONV_SYM",
   rw[ACONV_def] >> imp_res_tac RACONV_SYM >> fs[])
 
 val type_ind = save_thm("type_ind",
-  TypeBase.induction_of``:type``
+  TypeBase.induction_of``:holSyntax$type``
   |> Q.SPECL[`P`,`EVERY P`]
   |> SIMP_RULE std_ss [EVERY_DEF]
   |> UNDISCH_ALL

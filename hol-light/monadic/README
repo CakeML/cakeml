@@ -1,0 +1,5 @@
+hol_kernelScript.sml
+    Defines the HOL light kernel as monadic functions in HOL4.
+
+hol_verificationScript.sml
+    Proves that the monadic functions respect the stateful inference rules.

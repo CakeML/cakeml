@@ -1,4 +1,4 @@
-INCLUDES= .. ../../semantics ../../bytecode ../../metatheory ../../lem_lib_stub
+INCLUDES= .. ../.. ../../semantics ../../bytecode ../../metatheory ../../lem_lib_stub
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY

@@ -1,0 +1,5 @@
+holSyntaxScript.sml
+  Defines the inference system for stateful HOL.
+
+holSemanticsScript.sml
+  Define semantics for stateful HOL by translation to the stateless system.

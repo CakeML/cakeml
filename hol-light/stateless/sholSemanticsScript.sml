@@ -1,6 +1,6 @@
 open HolKernel boolLib boolSimps SatisfySimps bossLib lcsymtacs miscTheory miscLib pred_setTheory pairTheory listTheory finite_mapTheory alistTheory holSyntaxLibTheory sholSyntaxTheory sholSyntaxExtraTheory setSpecTheory sortingTheory stringTheory
-val _ = numLib.prefer_num()
-val _ = new_theory"psholSemantics"
+val _ = tight_equality()
+val _ = new_theory"sholSemantics"
 
 val discharge_hyps_keep =
   match_mp_tac(PROVE[]``(p ∧ (p ∧ q ==> r)) ==> ((p ==> q) ==> r)``) >> conj_tac

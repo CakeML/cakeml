@@ -2955,7 +2955,7 @@ val THM_term_ok_bool = prove(
     EVERY (λt. term_ok (hol_defs defs) t ∧ typeof t = Bool) (MAP hol_tm (p::asl))``,
   simp[THM_def] >> strip_tac >>
   imp_res_tac soundness >>
-  fs[hol_seq_def,seq_trans_def,psholSemanticsTheory.sequent_def] >>
+  fs[hol_seq_def,seq_trans_def,sholSemanticsTheory.sequent_def] >>
   fs[EVERY_MEM,EVERY2_EVERY] >>
   rfs[MEM_ZIP,PULL_EXISTS,EL_MAP] >>
   fs[MEM_MAP,MEM_EL,PULL_EXISTS] >>
@@ -3431,7 +3431,7 @@ val sequent_has_type_bool = prove(
   ntac 2 strip_tac >>
   imp_res_tac soundness >>
   fs[hol_seq_def] >>
-  fs[psholSemanticsTheory.sequent_def,seq_trans_def] >>
+  fs[sholSemanticsTheory.sequent_def,seq_trans_def] >>
   `good_defs d` by METIS_TAC[proves_IMP,FST] >>
   fs[EVERY_MEM] >>
   `welltyped c' ∧ ∀t. MEM t h' ⇒ welltyped t` by

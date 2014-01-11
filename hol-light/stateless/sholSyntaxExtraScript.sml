@@ -1,5 +1,6 @@
 open HolKernel boolLib boolSimps bossLib lcsymtacs sholSyntaxTheory miscLib
 open SatisfySimps miscTheory pairTheory listTheory pred_setTheory finite_mapTheory alistTheory sortingTheory stringTheory relationTheory holSyntaxLibTheory
+val _ = tight_equality()
 val _ = new_theory"sholSyntaxExtra"
 
 val equation_11 = store_thm("equation_11",
@@ -35,10 +36,10 @@ val TYPE_SUBST_tyvars = store_thm("TYPE_SUBST_tyvars",
   fs[MEM_LIST_UNION] >> metis_tac[])
 
 val tvars_VSUBST_subset = store_thm("tvars_VSUBST_subset",
-  ``∀t sub. set (tvars (VSUBST sub t)) ⊆ set (tvars t) ∪ set (FLAT (MAP (tvars o FST) sub))``,
+  ``∀t subst. set (tvars (VSUBST subst t)) ⊆ set (tvars t) ∪ set (FLAT (MAP (tvars o FST) subst))``,
   Induct >> simp[VSUBST_def,tvars_def] >- (
     rw[SUBSET_DEF,MEM_FLAT] >>
-    Q.ISPECL_THEN[`sub`,`Var s t`,`Var s t`]mp_tac REV_ASSOCD_MEM >>
+    Q.ISPECL_THEN[`subst`,`Var s t`,`Var s t`]mp_tac REV_ASSOCD_MEM >>
     rw[] >> fs[tvars_def] >>
     disj2_tac >> HINT_EXISTS_TAC >> simp[MEM_MAP] >>
     HINT_EXISTS_TAC >> simp[] )
@@ -104,12 +105,12 @@ val INST_CORE_tvars = store_thm("INST_CORE_tvars",
   `env2 = env4` by (
     simp[Abbr`env2`,Abbr`env4`]) >>
   fs[] >>
-  Q.PAT_ABBREV_TAC`sub = [(Var X Y,Var A Z)]` >>
-  `INST_CORE env4 tyin (VSUBST sub t) = INST_CORE env4 tyin' (VSUBST sub t)` by (
+  Q.PAT_ABBREV_TAC`subst = [(Var X Y,Var A Z)]` >>
+  `INST_CORE env4 tyin (VSUBST subst t) = INST_CORE env4 tyin' (VSUBST subst t)` by (
     first_x_assum match_mp_tac >>
     rw[] >- (
       imp_res_tac (SIMP_RULE std_ss [SUBSET_DEF] tvars_VSUBST_subset) >>
-      fs[Abbr`sub`,tvars_def] ) >>
+      fs[Abbr`subst`,tvars_def] ) >>
     metis_tac[] ) >>
   fs[])
 
@@ -319,7 +320,7 @@ val VSUBST_frees = store_thm("VSUBST_frees",
     rw[Abbr`P1`,Abbr`P2`,EXISTS_MEM,FORALL_PROD] >>
     unabbrev_all_tac >> rw[MEM_FILTER] >> rw[EXISTS_PROD] >>
     rw[EQ_IMP_THM] >> fs[REV_ASSOCD_ALOOKUP] >>
-    qmatch_assum_rename_tac`MEM (z,y) ill`[] >>
+    qmatch_assum_rename_tac`MEM (z:term,y) ill`[] >>
     `∃x ty. y = Var x ty` by metis_tac[] >>
     first_x_assum(qspecl_then[`x`,`ty`]mp_tac) >>
     (discharge_hyps >- (rw[] >> fs[])) >>

@@ -1,4 +1,4 @@
-INCLUDES = ../semantics ../bytecode ../lem_lib_stub
+INCLUDES = .. ../semantics ../bytecode ../lem_lib_stub
 
 OPTIONS = QUIT_ON_FAILURE
 

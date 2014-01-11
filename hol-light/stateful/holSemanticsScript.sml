@@ -1,11 +1,11 @@
 open HolKernel Parse boolLib bossLib lcsymtacs miscTheory miscLib;
-
+val _ = tight_equality()
 val _ = new_theory "holSemantics";
 
 open holSyntaxTheory holSyntaxLibTheory;
 open sholSyntaxTheory;
 open sholSyntaxExtraTheory;
-open psholSemanticsTheory;
+open sholSemanticsTheory;
 open listTheory arithmeticTheory combinTheory pairTheory;
 
 (*
@@ -1792,14 +1792,6 @@ val proves_IMP = store_thm("proves_IMP",
       simp[Abbr`hh`,MEM_MAP,EXISTS_PROD] >>
       METIS_TAC[] ) >>
     conj_asm1_tac >- simp[defcnds_ok_def] >>
-    (*
-      conj_tac >- (
-        simp[Once holSyntaxTheory.proves_cases] >>
-        METIS_TAC[] ) >>
-      simp[EVERY_MEM,EVERY_MAP,FORALL_PROD] >>
-      fs[MEM_MAP,EXISTS_PROD,GSYM LEFT_FORALL_IMP_THM] >>
-      METIS_TAC[] ) >>
-    *)
     simp[DISJ_IMP_THM] >>
     simp[FORALL_AND_THM] >>
     simp[GSYM CONJ_ASSOC] >>
@@ -1963,7 +1955,7 @@ val proves_IMP = store_thm("proves_IMP",
         fs[EL_ALL_DISTINCT_EL_EQ,EL_MAP] >>
         METIS_TAC[] ) >>
       rw[] >>
-      qmatch_assum_abbrev_tac`VFREE_IN X Y` >>
+      qmatch_assum_abbrev_tac`sholSyntax$VFREE_IN X Y` >>
       qspecl_then[`Y`,`defs`,`c'`,`X`]mp_tac term_subterm_inv >>
       simp[Abbr`X`] >>
       disch_then(qx_choose_then`v`strip_assume_tac) >>
@@ -2124,9 +2116,9 @@ val proves_IMP = store_thm("proves_IMP",
       imp_res_tac CLOSED_IMP >>
       imp_res_tac tvars_IMP >>
       fs[UNCURRY] >>
-      qpat_assum`welltyped X`mp_tac >>
+      qpat_assum`sholSyntax$welltyped X`mp_tac >>
       simp_tac(srw_ss())[Once WELLTYPED] >>
-      simp[Once equation_def,SimpR``$has_type``,EQUATION_HAS_TYPE_BOOL] >>
+      simp[Once equation_def,SimpR``sholSyntax$has_type``,EQUATION_HAS_TYPE_BOOL] >>
       strip_tac >>
       imp_res_tac term_welltyped >>
       fs[holSyntaxTheory.WELLTYPED] >>
@@ -2157,9 +2149,9 @@ val proves_IMP = store_thm("proves_IMP",
       disch_then(qspec_then`n`mp_tac) >> simp[] >>
       qpat_assum`X = EL n eqs`(assume_tac o SYM) >> simp[] >>
       fs[] >>
-      qpat_assum`welltyped X`mp_tac >>
+      qpat_assum`sholSyntax$welltyped X`mp_tac >>
       simp_tac(srw_ss())[Once WELLTYPED] >>
-      simp[Once equation_def,SimpR``$has_type``,EQUATION_HAS_TYPE_BOOL] >>
+      simp[Once equation_def,SimpR``sholSyntax$has_type``,EQUATION_HAS_TYPE_BOOL] >>
       strip_tac >>
       imp_res_tac term_welltyped >>
       fs[holSyntaxTheory.WELLTYPED] >>
@@ -2531,7 +2523,7 @@ val proves_IMP = store_thm("proves_IMP",
       simp[Once proves_cases] >>
       ntac 2 disj2_tac >> disj1_tac >>
       qexists_tac`Equal (typeof (Comb abs1 rep1))` >>
-      Q.PAT_ABBREV_TAC`ty = typeof X` >>
+      Q.PAT_ABBREV_TAC`ty = sholSyntax$typeof X` >>
       simp[Once proves_cases] >>
       ntac 1 disj2_tac >> disj1_tac >>
       qexists_tac`var1` >>
@@ -2594,7 +2586,7 @@ val proves_IMP = store_thm("proves_IMP",
       simp[Once proves_cases] >>
       ntac 2 disj2_tac >> disj1_tac >>
       qexists_tac`Equal (typeof (Comb abs1 (Comb rep1 var1)))` >>
-      Q.PAT_ABBREV_TAC`ty = typeof X` >>
+      Q.PAT_ABBREV_TAC`ty = sholSyntax$typeof X` >>
       simp[Once proves_cases] >>
       ntac 1 disj2_tac >> disj1_tac >>
       qexists_tac`var1` >>
@@ -2691,9 +2683,9 @@ val proves_IMP = store_thm("proves_IMP",
   simp[Once term_cases] >>
   simp[Once(Q.SPEC`Const X Y`(CONJUNCT2 (SPEC_ALL term_cases))),PULL_EXISTS] >>
   Q.PAT_ABBREV_TAC`p1 = holSyntax$Var XX (Fun Z Bool)` >>
-  Q.PAT_ABBREV_TAC`p2 = Var XX (Fun Z Bool)` >>
+  Q.PAT_ABBREV_TAC`p2 = sholSyntax$Var XX (Fun Z Bool)` >>
   Q.PAT_ABBREV_TAC`q1 = holSyntax$Abs  X Y Z` >>
-  Q.PAT_ABBREV_TAC`q2 = Abs  X Y Z` >>
+  Q.PAT_ABBREV_TAC`q2 = sholSyntax$Abs  X Y Z` >>
   qspecl_then[`p1`,`q1`,`p2===q2`]mp_tac term_equation >>
   discharge_hyps >- (
     simp[Abbr`p1`,Abbr`q1`,holSyntaxTheory.EQUATION_HAS_TYPE_BOOL] ) >>
@@ -2889,7 +2881,7 @@ val _ = export_rewrites["type_ok_Bool"]
 val consistency = store_thm("consistency",
   ``is_model M ⇒
     (∀d. context_ok d ⇒ (d,[]) |- (Var x Bool === Var x Bool)) ∧
-    (∀d. ¬ ((d,[]) |- Var x Bool === Var (VARIANT (Var x Bool) x Bool) Bool))``,
+    (∀d. ¬ ((d,[]) |- Var x Bool === Var (sholSyntax$VARIANT (Var x Bool) x Bool) Bool))``,
   strip_tac >>
   conj_tac >- (
     rpt strip_tac >>
@@ -2906,19 +2898,19 @@ val consistency = store_thm("consistency",
   fs[seq_trans_def] >>
   qmatch_assum_abbrev_tac`term d (l === r) c1` >>
   qspecl_then[`d`,`l`,`r`,`c1`]mp_tac (Q.GEN`defs`term_equation) >>
-  simp[holSyntaxTheory.EQUATION_HAS_TYPE_BOOL] >>
-  simp[Abbr`l`,Abbr`r`] >>
-  simp[Once term_cases] >>
-  simp[Once term_cases] >>
-  simp[Once term_cases] >>
-  simp[Once term_cases] >>
+  discharge_hyps >- (
+    simp[holSyntaxTheory.EQUATION_HAS_TYPE_BOOL] >>
+    simp[Abbr`l`,Abbr`r`] ) >>
+  `term d (l === r) c1 = T` by (rfs[]>>fs[])>>
+  pop_assum SUBST1_TAC >>
+  simp [Abbr`l`,Abbr`r`] >>
   METIS_TAC[consistency])
 
 val term_ok_welltyped = store_thm("term_ok_welltyped",
   ``is_model M ⇒ ∀defs tm. term_ok defs tm ⇒ welltyped tm``,
   rw[] >>
   imp_res_tac proves_IMP >>
-  METIS_TAC[term_welltyped,psholSemanticsTheory.soundness,psholSemanticsTheory.has_meaning_welltyped])
+  METIS_TAC[term_welltyped,sholSemanticsTheory.soundness,sholSemanticsTheory.has_meaning_welltyped])
 
 val proves_cons_def = store_thm("proves_cons_def",
   ``is_model M ⇒ ∀defs h c d. (defs,h) |- c ⇒ context_ok (d::defs) ⇒ (d::defs,h) |- c``,

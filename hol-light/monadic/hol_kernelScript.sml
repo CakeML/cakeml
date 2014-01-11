@@ -1,7 +1,7 @@
 open HolKernel Parse boolLib bossLib;
 
 val _ = new_theory "hol_kernel";
-
+val _ = Parse.clear_overloads_on","
 open stringTheory listTheory sortingTheory;
 
 
