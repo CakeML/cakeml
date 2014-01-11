@@ -201,17 +201,20 @@ val P_EVERY_EQ_LIST = prove(
 val lem = prove(``EVERY ($= c) a ∧ EVERY ($= c) b ∧ LENGTH a = LENGTH b ⇒ a = b``,
   simp[LIST_EQ_REWRITE,EVERY_MEM,MEM_EL,PULL_EXISTS] >> metis_tac[])
 
-val l_model_exists = prove(
-  ``∃(is_v_rep : α list -> bool).
-   ∃(in_rep : α list -> α list -> bool).
+val is_lset_theory_def = Define`
+  is_lset_theory is_v_rep in_rep ⇔
    (∃x. is_v_rep x) ∧
    (∀x y. is_v_rep x ∧ is_v_rep y ⇒ ((x = y) ⇔ (∀a. is_v_rep a ⇒ (in_rep a x ⇔ in_rep a y)))) ∧
    (∀x P. is_v_rep x ⇒ ∃y. is_v_rep y ∧ ∀a. is_v_rep a ⇒ (in_rep a y ⇔ (in_rep a x ∧ P a))) ∧
    (∀x. is_v_rep x ⇒ ∃y. is_v_rep y ∧ (∀a. is_v_rep a ⇒ (in_rep a y ⇔ (∀b. is_v_rep b ⇒ in_rep b a ⇒ in_rep b x)))) ∧
    (∀x. is_v_rep x ⇒ ∃y. is_v_rep y ∧ (∀a. is_v_rep a ⇒ (in_rep a y ⇔ (∃b. is_v_rep b ∧ in_rep a b ∧ in_rep b x)))) ∧
    (∀x y. is_v_rep x ∧ is_v_rep y ⇒ ∃z. is_v_rep z ∧ (∀a. is_v_rep a ⇒ (in_rep a z ⇔ (a = x ∨ a = y)))) ∧
-   (∀x. is_v_rep x ⇒ ∃y. is_v_rep y ∧ (∀a. is_v_rep a ∧ in_rep a x ⇒ in_rep y x))``,
+   (∀x. is_v_rep x ⇒ ∃y. is_v_rep y ∧ (∀a. is_v_rep a ∧ in_rep a x ⇒ in_rep y x))`
+
+val l_model_exists = store_thm("l_model_exists",
+  ``∃(is_lV : α list -> bool) (mem : α list -> α list -> bool). is_lset_theory is_lV mem``,
   qexists_tac`EVERY ((=) ARB)` >>
+  REWRITE_TAC[is_lset_theory_def] >>
   qexists_tac`λl1 l2. BIT (LENGTH l1) (LENGTH l2)` >>
   conj_tac >- (qexists_tac`[]` >> simp[]) >>
   conj_tac >- (
@@ -374,7 +377,7 @@ val l_model_exists = prove(
   qexists_tac`GENLIST (K ARB) (LOG2 (LENGTH x))` >>
   simp[BIT_LOG2,EVERY_GENLIST])
 
-val is_lV_def = new_specification("is_lV_def",["is_lV"],l_model_exists)
+val is_lV_def = new_specification("is_lV_def",["is_lV"],REWRITE_RULE[is_lset_theory_def]l_model_exists)
 
 val lV_tyax = new_type_definition("lV",
   is_lV_def |> SIMP_RULE std_ss [GSYM PULL_EXISTS] |> CONJUNCT1)
