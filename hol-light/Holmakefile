@@ -1,15 +1,15 @@
-INCLUDES = ../bytecode ../translator ../semantics $(HOLDIR)/examples/set-theory/hol_sets
+INCLUDES = ../bytecode ../translator ../semantics ./set-theory
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
-HOLHEAP = local-hol-heap
+HOLHEAP = heap
 PARENT_HOLHEAP = ../translator/local-hol-heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 SEM_BARE_THYS = astTheory libTheory altBigStepTheory semanticPrimitivesTheory
 TRANS_BARE_THYS = print_astTheory print_astTerminationTheory
 
-BARE_THYS = $(patsubst %,../semantics/%,$(SEM_BARE_THYS)) $(patsubst %,../translator/%,$(TRANS_BARE_THYS)) $(HOLDIR)/examples/set-theory/hol_sets/cardinalTheory ../bytecode/miscTheory
+BARE_THYS = $(patsubst %,../semantics/%,$(SEM_BARE_THYS)) $(patsubst %,../translator/%,$(TRANS_BARE_THYS)) ../bytecode/miscTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 

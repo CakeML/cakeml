@@ -1,4 +1,4 @@
-open HolKernel boolLib boolSimps SatisfySimps bossLib lcsymtacs miscTheory miscLib pred_setTheory pairTheory listTheory finite_mapTheory alistTheory holSyntaxLibTheory sholSyntaxTheory sholSyntaxExtraTheory polySetTheory sortingTheory stringTheory
+open HolKernel boolLib boolSimps SatisfySimps bossLib lcsymtacs miscTheory miscLib pred_setTheory pairTheory listTheory finite_mapTheory alistTheory holSyntaxLibTheory sholSyntaxTheory sholSyntaxExtraTheory setSpecTheory sortingTheory stringTheory
 val _ = numLib.prefer_num()
 val _ = new_theory"psholSemantics"
 

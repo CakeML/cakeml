@@ -1,4 +1,5 @@
-open HolKernel boolLib bossLib lcsymtacs miscLib modelSetTheory polySetTheory quotientTheory relationTheory listTheory bitTheory
+open HolKernel boolLib bossLib lcsymtacs miscLib setSpecTheory listTheory bitTheory
+val _ = tight_equality()
 val _ = new_theory"setModel"
 
 (* TOOD: move *)
@@ -453,20 +454,5 @@ val is_model_lV = store_thm("is_model_lV",
   ``(∃I:α lV. is_infinite lV_mem I) ⇒
     is_model (lV_mem,lV_indset:α lV,lV_choice)``,
   simp[is_model_def,is_set_theory_lV,lV_choice_def,lV_indset_def])
-
-val WF_inset = store_thm("WF_inset",
-  ``WF modelSet$<:``,
-  simp[WF_DEF] >> rw[] >>
-  Induct_on`level w` >> TRY (
-    rw[] >>
-    qexists_tac`w` >> rw[] >>
-    fs[inset_def] >> NO_TAC) >>
-  rw[] >>
-  reverse(Cases_on`∃u. u <: w ∧ B u`) >> fs[] >- (
-    qexists_tac`w` >> rw[] >> metis_tac[] ) >>
-  first_x_assum(qspec_then`u`mp_tac) >>
-  fs[inset_def])
-
-val inset_ind = MATCH_MP WF_INDUCTION_THM WF_inset
 
 val _ = export_theory()
