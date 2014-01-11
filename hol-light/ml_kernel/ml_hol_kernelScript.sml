@@ -197,6 +197,7 @@ val mem_derive_case_of = type_mem derive_case_of;
 
 val ty = ``:'a # 'b``; val _ = mem_derive_case_of ty;
 val ty = ``:'a list``; val _ = mem_derive_case_of ty;
+val ty = ``:'a option``; val _ = mem_derive_case_of ty;
 val ty = ``:hol_type``; val _ = mem_derive_case_of ty;
 val ty = ``:hol_term``; val _ = mem_derive_case_of ty;
 val ty = ``:thm``; val _ = mem_derive_case_of ty;
@@ -742,6 +743,9 @@ val def = MK_COMB_def |> m_translate
 val def = ABS_def |> m_translate
 val def = BETA_def |> m_translate
 val def = DEDUCT_ANTISYM_RULE_def |> m_translate
+val def = first_dup_def |> REWRITE_RULE[MEMBER_INTRO] |> translate
+val def = new_constants_def |> m_translate
+val def = new_specification_def |> m_translate
 val def = new_basic_definition_def |> m_translate
 val def = (INST_TYPE_def |> SIMP_RULE std_ss [LET_DEF]) |> m_translate
 val def = (INST_def |> SIMP_RULE std_ss [LET_DEF]) |> m_translate

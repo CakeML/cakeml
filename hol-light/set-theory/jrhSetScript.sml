@@ -1,6 +1,6 @@
 open HolKernel boolLib boolSimps bossLib lcsymtacs pred_setTheory cardinalTheory pairTheory
-val _ = numLib.prefer_num()
-val _ = new_theory"modelSet"
+val _ = tight_equality()
+val _ = new_theory"jrhSet"
 
 val ind_model_exists = prove(
   ``∃x. (@s:num->bool. s ≠ {} ∧ FINITE s) x``,
@@ -671,5 +671,23 @@ val in_funspace_abstract = store_thm("in_funspace_abstract",
   fs[subset_def,EXISTS_UNIQUE_THM,PRODUCT_def] >>
   SELECT_ELIM_TAC >>
   metis_tac[PAIR_INJ])
+
+open relationTheory
+
+val WF_inset = store_thm("WF_inset",
+  ``WF $<:``,
+  simp[WF_DEF] >> rw[] >>
+  Induct_on`level w` >> TRY (
+    rw[] >>
+    qexists_tac`w` >> rw[] >>
+    fs[inset_def] >> NO_TAC) >>
+  rw[] >>
+  reverse(Cases_on`∃u. u <: w ∧ B u`) >> fs[] >- (
+    qexists_tac`w` >> rw[] >> metis_tac[] ) >>
+  first_x_assum(qspec_then`u`mp_tac) >>
+  fs[inset_def])
+
+val inset_ind =
+  save_thm("inset_ind",MATCH_MP WF_INDUCTION_THM WF_inset)
 
 val _ = export_theory()

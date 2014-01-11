@@ -1,28 +1,18 @@
-sholSyntaxScript.sml
-    Defines the inference system for stateless HOL.
-sholSyntaxExtraScript.sml
-    Miscellaneous theorems about pieces of the stateless inference system.
+set-theory/
+  Specifies the set-theoretic context in which we will construct our model of
+  HOL.
 
-modelSetScript.sml
-    Defines the context (a kind of set theory) in which we will construct our model of stateless HOL.
+stateless/
+  Defines the inference system for stateless HOL and proves soundness and
+  consistency.
 
-sholSemanticsScript.sml
-    Defines the semantics of (stateless) HOL, and proves soundness and consistency of the inference system.
+stateful/
+  Defines the inference system for stateful HOL and proves soundness and
+  consistency, by translation to stateless.
 
-holSyntaxScript.sml
-    Defines the inference system for stateful HOL.
+monadic/
+  Defines the HOL light kernel as monadic functions in HOL4, and proves it
+  implements the stateful inference system.
 
-holSemanticsScript.sml
-    Define semantics for stateful HOL by translation to the stateless system.
-
-hol_kernelScript.sml
-    Defines the HOL light kernel as monadic functions in HOL4.
-
-hol_verificationScript.sml
-    Proves that the monadic functions respect the stateful inference rules.
-
-ml_monadScript.sml
-    A few lemmas that are used in translating the monadic functions from hol_kernelScript.sml
-
-ml_hol_kernelScript.sml
-    Proof-producing translation of all functions from hol_kernelScript.sml into CakeML
+ml_kernel/
+  Synthesised CakeML implementation of the HOL Light kernel.

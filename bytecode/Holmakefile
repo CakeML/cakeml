@@ -1,4 +1,4 @@
-INCLUDES = ../semantics ../lem_lib_stub
+INCLUDES = .. ../semantics ../lem_lib_stub
 
 OPTIONS = QUIT_ON_FAILURE
 

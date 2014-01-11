@@ -1,0 +1,13 @@
+holSyntaxLibScript.sml
+  Some helper functions used to define the syntax (for both stateful and
+  stateless HOL).
+
+sholSyntaxScript.sml
+  Defines the stateless HOL inference system: terms, types, and theorems.
+
+sholSyntaxExtraScript.sml
+  Miscellaneous theorems about pieces of the stateless inference system.
+
+sholSemanticsScript.sml
+  Defines the semantics of stateless HOL against a model of set theory, and
+  proves soundness and consistency of the inference system.

@@ -1,0 +1,15 @@
+INCLUDES = ../.. ../stateless
+OPTIONS = QUIT_ON_FAILURE
+
+ifdef POLY
+HOLHEAP = heap
+PARENT_HOLHEAP = ../stateless/heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+
+BARE_THYS = ../../miscLib ../stateless/holSyntaxLibTheory ../stateless/sholSemanticsTheory
+
+DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
+endif

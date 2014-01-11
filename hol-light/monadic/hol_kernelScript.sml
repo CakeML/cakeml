@@ -1,7 +1,7 @@
 open HolKernel Parse boolLib bossLib;
 
 val _ = new_theory "hol_kernel";
-
+val _ = Parse.clear_overloads_on","
 open stringTheory listTheory sortingTheory;
 
 
@@ -43,7 +43,7 @@ val _ = Hol_datatype `
 
 val _ = Hol_datatype `
   def = (* Axiomdef of hol_term
-      | *) Constdef of string => hol_term
+      | *) Constdef of (string # hol_term) list => hol_term
       | Typedef of string => hol_term => string => string`;
 
 (*
@@ -178,6 +178,20 @@ val _ = Define `
     | (h::t) => do h <- f h ;
                    t <- map f t ;
                    return (h::t) od`
+
+(*
+val _ = Define `
+  app f l =
+    case l of
+      [] => return ()
+    | (h::t) => do f h ; app f t od`
+
+val _ = Define`
+  first p l =
+    case l of
+      [] => NONE
+    | (h::t) => if p h then SOME h else first p t`
+*)
 
 val _ = Define `
   forall p l =
@@ -373,6 +387,22 @@ val _ = Define `
          failwith ("new_constant: constant "++name++" has already been declared")
        else do ts <- get_the_term_constants ;
                set_the_term_constants ((name,ty)::ts) od od`;
+
+local open ml_translatorTheory in
+val _ = Define`
+  first_dup ls acc =
+  case ls of
+  | [] => NONE
+  | (h::t) =>
+    if MEMBER h acc then SOME h else first_dup t (h::acc)`
+end
+
+val _ = Define `
+  new_constants ls =
+    do cs <- get_the_term_constants ;
+       case first_dup (MAP FST ls) (MAP FST cs) of
+       | SOME name => failwith ("new_constants: "++name++" appears twice or has already been declared")
+       | NONE => set_the_term_constants (ls++cs) od`;
 
 (*
   let rec type_of tm =
@@ -1112,6 +1142,29 @@ val new_axiom_def = Define `
     od`;
 *)
 
+val _ = Define`
+  new_specification (Sequent eqs p) =
+    do eqs <-
+         map (\e. do (l,r) <- dest_eq e;
+                     (s,ty) <- dest_var l;
+                     if ~(freesin [] r) then
+                       failwith ("new_specification: witness for "++s++" not closed")
+                     else if ~(subset (type_vars_in_term r) (tyvars ty)) then
+                       failwith ("new_specification: type variables for "++s++" not contained in the type")
+                     else return ((s,ty),r) od) eqs ;
+       let vars = MAP FST eqs in
+       if ~(freesin (MAP (UNCURRY Var) vars) p) then
+         failwith "new_specification: specification not closed by the definitions"
+       else do
+         new_constants vars ;
+         add_def (Constdef (MAP (\((s,ty),r). (s,r)) eqs) p) ;
+         let ilist = MAP (\(s,ty). (Const s ty, Var s ty)) vars in
+         let p = vsubst_aux ilist p in
+         return (Sequent [] p) od od`
+
+val _ = Define`
+  new_basic_definition tm = do th <- ASSUME tm ; new_specification th od`
+
 (*
   let new_basic_definition tm =
     let l,r = dest_eq tm in
@@ -1123,6 +1176,8 @@ val new_axiom_def = Define `
       let c = new_constant(cname,ty); mk_const(cname,[]) in
       Sequent([],mk_eq(c,r))
 *)
+
+(*
 
 val _ = Define `
   new_basic_definition tm =
@@ -1138,6 +1193,7 @@ val _ = Define `
          eq <- mk_eq(c,r) ;
          return (Sequent [] eq)
        od od`
+*)
 
 (*
   let new_basic_type_definition tyname (absname,repname) (Sequent(asl,c)) =
