@@ -164,28 +164,6 @@ every_case_tac >>
 rw [] >>
 fs []);
 
-val disjoint_env_weakC = Q.store_thm ("disjoint_env_weakC",
-`!tenvC tenvC'.
-  disjoint_env tenvC' tenvC ⇒
-  weakC (merge tenvC' tenvC) tenvC`,
-rw [weakC_def] >>
-cases_on `lookup cn tenvC` >>
-rw [] >>
-cases_on `lookup cn (merge tenvC' tenvC)` >>
-rw [] >-
-metis_tac [NOT_SOME_NONE, lookup_disjoint, disjoint_env_def, DISJOINT_SYM] >>
-PairCases_on `x` >>
-fs [lookup_append, merge_def] >>
-PairCases_on `x'` >>
-rw [] >>
-cases_on `lookup cn tenvC'` >>
-fs [] >>
-rw [] >>
-fs [disjoint_env_def, DISJOINT_DEF] >>
-imp_res_tac lookup_in2 >>
-fs [EXTENSION] >>
-metis_tac []);
-
 val weakC_merge = Q.store_thm ("weakC_merge",
 `!tenvC1 tenvC2 tenvC3.
   weakC tenvC1 tenvC2
@@ -473,6 +451,28 @@ val weakCT_refl = Q.store_thm ("weakCT_refl",
 `!tenvCT. weakCT tenvCT tenvCT`,
 rw [weakCT_def] >>
 every_case_tac);
+
+val disjoint_env_weakCT = Q.store_thm ("disjoint_env_weakCT",
+`!tenvC tenvC'.
+  disjoint_env tenvC' tenvC ⇒
+  weakCT (merge tenvC' tenvC) tenvC`,
+rw [weakCT_def] >>
+cases_on `lookup (cn,tn) tenvC` >>
+rw [] >>
+cases_on `lookup (cn,tn) (merge tenvC' tenvC)` >>
+rw [] >-
+metis_tac [NOT_SOME_NONE, lookup_disjoint, disjoint_env_def, DISJOINT_SYM] >>
+PairCases_on `x` >>
+fs [lookup_append, merge_def] >>
+PairCases_on `x'` >>
+rw [] >>
+cases_on `lookup (cn,tn) tenvC'` >>
+fs [] >>
+rw [] >>
+fs [disjoint_env_def, DISJOINT_DEF] >>
+imp_res_tac lookup_in2 >>
+fs [EXTENSION] >>
+metis_tac []);
 
 val consistent_con_env_weakening = Q.prove (
 `!tenvCT (tenvC:tenvC) (envC:envC) tenvCT'.

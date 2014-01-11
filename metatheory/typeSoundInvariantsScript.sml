@@ -28,8 +28,8 @@ val _ = Define `
 
 val _ = Define `
  (tenvCT_ok tenvCT =  
-(ALL_DISTINCT (MAP FST tenvCT) /\
-  EVERY (\ ((cn,tn),(tvs,ts)) .  EVERY (check_freevars( 0) tvs) ts) tenvCT))`;
+(
+  (*all_distinct (List.map fst tenvCT) &&*)EVERY (\ ((cn,tn),(tvs,ts)) .  EVERY (check_freevars( 0) tvs) ts) tenvCT))`;
 
 
 (* Check that a constructor type environment is consistent with a runtime type

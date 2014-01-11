@@ -15,7 +15,7 @@ let tenvC_ok tenvC =
   List.all (fun (cn,(tvs,ts,tn)) -> List.all (check_freevars 0 tvs) ts) tenvC
 
 let tenvCT_ok tenvCT =
-  all_distinct (List.map fst tenvCT) &&
+  (*all_distinct (List.map fst tenvCT) &&*)
   List.all (fun ((cn,tn),(tvs,ts)) -> List.all (check_freevars 0 tvs) ts) tenvCT
 
 (* Check that a constructor type environment is consistent with a runtime type
