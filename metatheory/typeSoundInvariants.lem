@@ -11,12 +11,25 @@ type tenvS = env nat t
 (* Constructor type environments keyed by constructor namd and type *)
 type tenvCT = env (id conN * tid_or_exn) (list tvarN * list t)
 
-let tenvC_ok tenvC =
-  List.all (fun (cn,(tvs,ts,tn)) -> List.all (check_freevars 0 tvs) ts) tenvC
+val same_module : id conN -> tid_or_exn -> bool
+let rec same_module (Short x) _ = true
+and
+same_module (Long mn1 x) (TypeId (Long mn2 y)) = (mn1 = mn2)
+and
+same_module _ TypeExn = true
+and
+same_module _ _ = false
 
+declare termination_argument same_module = automatic
+
+val tenvC_ok : tenvC -> bool
+let tenvC_ok tenvC =
+  List.all (fun (cn,(tvs,ts,tn)) -> same_module cn tn && List.all (check_freevars 0 tvs) ts) tenvC
+
+val tenvCT_ok : tenvCT -> bool
 let tenvCT_ok tenvCT =
   (*all_distinct (List.map fst tenvCT) &&*)
-  List.all (fun ((cn,tn),(tvs,ts)) -> List.all (check_freevars 0 tvs) ts) tenvCT
+  List.all (fun ((cn,tn),(tvs,ts)) -> same_module cn tn && List.all (check_freevars 0 tvs) ts) tenvCT
 
 (* Check that a constructor type environment is consistent with a runtime type
  * enviroment, using the full type keyed constructor type environment to ensure

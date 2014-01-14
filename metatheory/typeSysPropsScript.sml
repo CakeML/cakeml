@@ -1,4 +1,5 @@
 (* Theorems about type_e, type_es, and type_funs *)
+
 open preamble rich_listTheory optionTheory;
 open libTheory astTheory typeSystemTheory typeSoundInvariantsTheory terminationTheory;
 
@@ -32,19 +33,14 @@ cases_on `keys` >>
 cases_on `vals` >>
 fs []);
 
-(*
-(* Non exception constructors must be defined in the same module as the type
- * they construct *)
-val same_module_def = Define `
-(same_module (Short x) (TypeId (Short y)) = T) ∧
-(same_module (Long mn1 x) (TypeId (Long mn2 y)) = (mn1 = mn2)) ∧
-(same_module _ TypeExn = T) ∧
-(same_module _ _ = F)`;
-*)
 
 val disjoint_env_def = Define `
   disjoint_env e1 e2 =
     DISJOINT (set (MAP FST e1)) (set (MAP FST e2))`;
+
+val tenvC_ok_CTmap = Q.store_thm ("tenvC_ok_CTmap",
+`!tenvC. tenvC_ok tenvC = tenvCT_ok (toCTmap tenvC)`,
+ rw [tenvC_ok_def, tenvCT_ok_def]
 
 val tenvC_ok_merge = Q.store_thm ("tenvC_ok_merge",
 `!tenvC1 tenvC2.
@@ -1355,6 +1351,20 @@ rw [build_ctor_tenv_def]);
 val toCTmap_def = Define `
 toCTmap tenvC = MAP (\(cn,(tvs,ts,t)). ((cn,t),(tvs,ts))) tenvC`;
 
+val tenvC_ok_CTmap = Q.store_thm ("tenvC_ok_CTmap",
+`!tenvC. tenvC_ok tenvC = tenvCT_ok (toCTmap tenvC)`,
+ rw [toCTmap_def, EVERY_MEM, tenvC_ok_def, tenvCT_ok_def] >>
+ eq_tac >>
+ rw [] >>
+ fs [MEM_MAP] >>
+ rw []
+ >- (res_tac >>
+     PairCases_on `y` >>
+     fs [])
+ >- (res_tac >> 
+     PairCases_on `e` >>
+     fs []));
+
 val check_ctor_tenvC_ok_lem = Q.prove (
 `!mn tenvC c. check_ctor_tenv mn tenvC c ⇒ 
   EVERY (\(cn,tvs,ts,tn). EVERY (check_freevars 0 tvs) ts) (build_ctor_tenv mn c)`,
@@ -1477,7 +1487,22 @@ val check_dup_ctor_lem2 = Q.prove (
 val check_ctor_tenvC_ok = Q.store_thm ("check_ctor_tenvC_ok",
 `!mn tenvC c. check_ctor_tenv mn tenvC c ⇒ tenvC_ok (build_ctor_tenv mn c)`,
  rw [tenvC_ok_def] >>
- metis_tac [check_ctor_tenvC_ok_lem]);
+ imp_res_tac check_ctor_tenvC_ok_lem >>
+ fs [EVERY_MEM] >>
+ rw [] >>
+ PairCases_on `e` >>
+ fs [] >>
+ rw []
+ >- (fs [build_ctor_tenv_def, MEM_FLAT, MEM_MAP] >>
+     rw [] >>
+     PairCases_on `y` >>
+     fs [MEM_MAP] >>
+     rw [] >>
+     PairCases_on `y` >>
+     fs [] >>
+     rw [same_module_def])
+ >- (res_tac >>
+     fs []));
 
 val check_dup_ctors_cons = Q.store_thm ("check_dup_ctors_cons",
 `!tvs ts ctors tds.
@@ -1514,39 +1539,13 @@ val check_ctor_tenv_dups = Q.store_thm ("check_ctor_tenv_dups",
 
 val check_ctor_tenvCT_ok = Q.store_thm ("check_ctor_tenvCT_ok",
 `!mn tenvC c. check_ctor_tenv mn tenvC c ⇒ tenvCT_ok (toCTmap (build_ctor_tenv mn c))`,
- rw [tenvCT_ok_def]
- (*
- >- (induct_on `c` >>
-     rw [build_ctor_tenv_empty, toCTmap_def] >>
-     PairCases_on `h` >>
-     fs [build_ctor_tenv_cons] >>
-     imp_res_tac check_ctor_tenv_cons >>
-     res_tac >>
-     rw [ALL_DISTINCT_APPEND] >>
-     fs [toCTmap_def]
-     >- (fs [check_ctor_tenv_def, check_dup_ctors_def, LET_THM] >>
-         metis_tac [check_dup_ctor_lem])
-     >- (fs [MEM_MAP] >>
-         rw [] >>
-         CCONTR_TAC >>
-         fs [] >>
-         rw [] >>
-         PairCases_on `y` >>
-         fs [] >>
-         PairCases_on `y''` >>
-         fs [] >>
-         rw [] >>
-         fs [check_ctor_tenv_def, EVERY_MEM] >>
-         fs [check_ctor_tenv_def, EVERY_MEM, check_dup_ctors_def, LET_THM] >>
-         metis_tac [check_dup_ctor_lem2]))
-         *)
- >- (imp_res_tac check_ctor_tenvC_ok_lem >>
-     fs [EVERY_MEM, toCTmap_def, MEM_MAP] >>
-     rw [] >>
-     PairCases_on `y` >>
-     rw [] >>
-     res_tac >>
-     fs []));
+ rw [] >>
+ imp_res_tac check_ctor_tenvC_ok >>
+ fs [tenvC_ok_def, tenvCT_ok_def, EVERY_MEM, toCTmap_def, MEM_MAP] >>
+ rw [] >>
+ res_tac >>
+ PairCases_on `y` >>
+ fs []);
 
 val toCTmap_lookup = Q.prove (
 `!cn tenvC tvs ts t.
@@ -1792,46 +1791,56 @@ rw [] >|
      fs [bvl2_append, merge_def, num_tvs_bvl2] >>
      metis_tac [tenv_ok_bvl2]]);
 
-     (*
-val type_d_tenvC_ok = Q.store_thm ("type_d_tenvC_ok",
+val type_d_tenvCT_ok = Q.store_thm ("type_d_tenvCT_ok",
 `!tvs tenvM tenvC tenv d tenvC' tenv' tenvM'' tenvC''.
   type_d tvs tenvM tenvC tenv d tenvC' tenv'
   ⇒
-  tenvC_ok tenvC'`,
-rw [type_d_cases] >>
-imp_res_tac type_p_bvl >>
-rw [bvl2_to_bvl] >|
-[rw [tenvC_ok_def, emp_def],
- rw [emp_def, disjoint_env_def],
- rw [tenvC_ok_def, emp_def],
- rw [emp_def, disjoint_env_def],
- rw [tenvC_ok_def, emp_def],
- rw [emp_def, disjoint_env_def],
- metis_tac [check_ctor_tenvC_ok],
- metis_tac [disjoint_env_def, DISJOINT_SYM],
- rw [tenvC_ok_def, bind_def, emp_def],
- rw [tenvC_ok_def, bind_def, emp_def, disjoint_env_def] >>
-     imp_res_tac lookup_notin]);
+  tenvCT_ok (toCTmap tenvC') ∧
+  disjoint_env (toCTmap tenvC) (toCTmap tenvC')`,
+ rw [type_d_cases, toCTmap_def] >>
+ imp_res_tac type_p_bvl >>
+ rw [bvl2_to_bvl]
+ >- rw [tenvCT_ok_def, emp_def]
+ >- rw [disjoint_env_def, DISJOINT_DEF, EXTENSION, emp_def]
+ >- rw [tenvCT_ok_def, emp_def]
+ >- rw [disjoint_env_def, DISJOINT_DEF, EXTENSION, emp_def]
+ >- rw [tenvCT_ok_def, emp_def]
+ >- rw [disjoint_env_def, DISJOINT_DEF, EXTENSION, emp_def]
+ >- metis_tac [toCTmap_def, check_ctor_tenvCT_ok]
+ >- metis_tac [toCTmap_def, DISJOINT_SYM, disjoint_env_def, check_ctor_disjoint_env]
+ >- rw [tenvCT_ok_def, bind_def, emp_def, same_module_def]
+ >- (rw [tenvCT_ok_def, bind_def, emp_def, disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
+     imp_res_tac lookup_notin >>
+     fs [MEM_MAP] >>
+     rw [] >>
+     PairCases_on `y` >>
+     fs [] >>
+     CCONTR_TAC >>
+     fs [] >>
+     rw [] >>
+     PairCases_on `y'` >>
+     fs [] >>
+     rw [] >>
+     metis_tac [FST]))
 
-val type_ds_tenvC_ok = Q.store_thm ("type_ds_tenvC_ok",
+val type_ds_tenvCT_ok = Q.store_thm ("type_ds_tenvCT_ok",
 `!tvs tenvM tenvC tenv ds tenvC' tenv'.
   type_ds tvs tenvM tenvC tenv ds tenvC' tenv' ⇒
-  tenvC_ok tenvC' ∧
-  disjoint_env tenvC' tenvC`,
-ho_match_mp_tac type_ds_ind >>
-rw [] >|
-[rw [tenvC_ok_def, emp_def],
- rw [disjoint_env_def, emp_def],
- imp_res_tac type_d_tenvC_ok >>
-     rw [tenvC_ok_merge] >>
-     fs [bvl2_append, merge_def, num_tvs_bvl2, disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
-     rw [] >>
-     metis_tac [],
- imp_res_tac type_d_tenvC_ok >>
+  tenvCT_ok (toCTmap tenvC') ∧
+  disjoint_env (toCTmap tenvC') (toCTmap tenvC)`,
+ ho_match_mp_tac type_ds_ind >>
+ rw []
+ >- rw [tenvCT_ok_def, emp_def, toCTmap_def]
+ >- rw [disjoint_env_def, tenvCT_ok_def, emp_def, toCTmap_def]
+ >- (imp_res_tac type_d_tenvCT_ok >>
+     fs [merge_def, toCTmap_append] >>
+     fs [GSYM merge_def, tenvCT_ok_merge])
+ >- (imp_res_tac type_d_tenvCT_ok >>
+     fs [merge_def, toCTmap_append] >>
+     fs [GSYM merge_def, tenvCT_ok_merge] >>
      fs [num_tvs_bvl2, merge_def, disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
      rw [] >>
-     metis_tac [type_d_tenvC_ok]]);
-     *)
+     metis_tac []));
 
 val type_specs_tenv_ok = Q.store_thm ("type_specs_tenv_ok",
 `!tvs tenvC tenv specs tenvC' tenv'.
