@@ -1,9 +1,0 @@
-Theorem about result of compiler bootstrapping
-
-bootstrapScript.sml
-    proves a theorem describing the action of running the bytecode
-    that implements the compiler. The bytecode was created by running
-    the compiler on itself
-
-bootstrap_lemmaScript.sml
-    proof of a lemma that is used in the script above
