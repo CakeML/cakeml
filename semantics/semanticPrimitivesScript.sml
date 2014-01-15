@@ -331,6 +331,11 @@ val _ = Hol_datatype `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn do_eq_defn;
 
+(*val exn_env : all_env*)
+val _ = Define `
+ (exn_env = (emp, MAP (\ cn .  (Short cn, ( 0, TypeExn))) ["Bind"; "Div"; "Eq"], emp))`;
+
+                   
 (* Do an application *)
 (*val do_app : all_env -> store v -> op -> v -> v -> maybe (all_env * store v * exp)*)
 val _ = Define `
@@ -345,7 +350,7 @@ val _ = Define `
         )
     | (Opn op, Litv (IntLit n1), Litv (IntLit n2)) =>
         if ((op = Divide) \/ (op = Modulo)) /\ (n2 =( 0 : int)) then
-          SOME (env', s, Raise (Con (SOME (Short "Div")) []))
+          SOME (exn_env, s, Raise (Con (SOME (Short "Div")) []))
         else
           SOME (env', s, Lit (IntLit (opn_lookup op n1 n2)))
     | (Opb op, Litv (IntLit n1), Litv (IntLit n2)) =>
@@ -353,7 +358,7 @@ val _ = Define `
     | (Equality, v1, v2) =>
         (case do_eq v1 v2 of
             Eq_type_error => NONE
-          | Eq_closure => SOME (env', s, Raise (Con (SOME (Short "Eq")) []))
+          | Eq_closure => SOME (exn_env, s, Raise (Con (SOME (Short "Eq")) []))
           | Eq_val b => SOME (env', s, Lit (Bool b))
         )
     | (Opassign, (Loc lnum), v) =>

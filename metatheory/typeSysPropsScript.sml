@@ -33,14 +33,9 @@ cases_on `keys` >>
 cases_on `vals` >>
 fs []);
 
-
 val disjoint_env_def = Define `
   disjoint_env e1 e2 =
     DISJOINT (set (MAP FST e1)) (set (MAP FST e2))`;
-
-val tenvC_ok_CTmap = Q.store_thm ("tenvC_ok_CTmap",
-`!tenvC. tenvC_ok tenvC = tenvCT_ok (toCTmap tenvC)`,
- rw [tenvC_ok_def, tenvCT_ok_def]
 
 val tenvC_ok_merge = Q.store_thm ("tenvC_ok_merge",
 `!tenvC1 tenvC2.

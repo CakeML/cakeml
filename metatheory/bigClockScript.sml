@@ -11,15 +11,16 @@ val do_app_cases = Q.store_thm ("do_app_cases",
   ((?op' n1 n2. 
     (op = Opn op') ∧ (v1 = Litv (IntLit n1)) ∧ (v2 = Litv (IntLit n2)) ∧
     ((((op' = Divide) ∨ (op' = Modulo)) ∧ (n2 = 0)) ∧ 
-     (st' = st) ∧ (env' = env) ∧ (v3 = Raise (Con (SOME (Short "Div")) [])) ∨
+     (st' = st) ∧ (env' = exn_env) ∧ (v3 = Raise (Con (SOME (Short "Div")) [])) ∨
      ~(((op' = Divide) ∨ (op' = Modulo)) ∧ (n2 = 0)) ∧
      (st' = st) ∧ (env' = env) ∧ (v3 = Lit (IntLit (opn_lookup op' n1 n2))))) ∨
   (?op' n1 n2.
     (op = Opb op') ∧ (v1 = Litv (IntLit n1)) ∧ (v2 = Litv (IntLit n2)) ∧
     (st = st') ∧ (env = env') ∧ (v3 = Lit (Bool (opb_lookup op' n1 n2)))) ∨
-  ((op = Equality) ∧ (st = st') ∧ (env = env') ∧
-      ((?b. (do_eq v1 v2 = Eq_val b) ∧ (v3 = Lit (Bool b))) ∨
-       ((do_eq v1 v2 = Eq_closure) ∧ (v3 = Raise (Con (SOME (Short "Eq")) []))))) ∨
+  ((op = Equality) ∧ (st = st') ∧
+      ((?b. (do_eq v1 v2 = Eq_val b) ∧ (v3 = Lit (Bool b)) ∧ (env = env')) ∨
+       ((do_eq v1 v2 = Eq_closure) ∧ (v3 = Raise (Con (SOME (Short "Eq")) []) ∧
+       (env' = exn_env))))) ∨
   (∃menv'' cenv'' env'' n e.
     (op = Opapp) ∧ (v1 = Closure (menv'',cenv'',env'') n e) ∧
     (st' = st) ∧ (env' = (menv'',cenv'',bind n v2 env'')) ∧ (v3 = e)) ∨

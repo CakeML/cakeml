@@ -90,14 +90,6 @@ val _ = Define `
 (*val type_state : nat -> tenvCT -> tenvS -> state -> t -> bool*)
 (*val context_invariant : nat -> list ctxt -> nat -> bool*)
 
-(*val envC_has_exns : envC -> bool*)
-val _ = Define `
- (envC_has_exns envC =
-  ((lookup (Short "Bind") envC = SOME ( 0,TypeExn)) /\
-  ((lookup (Short "Div") envC = SOME ( 0,TypeExn)) /\  
-(lookup (Short "Eq") envC = SOME ( 0,TypeExn)))))`;
-
-
 (* Type programs without imposing signatures.  This is needed for the type
  * soundness proof *)
 (*val type_top_ignore_sig : tenvM -> tenvC -> tenvE -> top -> tenvM -> tenvC -> env varN (nat * t) -> bool*)
@@ -158,22 +150,20 @@ type_v tvs cenv senv (Conv NONE vs) (Tapp ts TC_tup))
 /\ (! tvs menv tenvC tenvCT senv envC envM env tenv n e t1 t2.
 (consistent_con_env tenvCT envC tenvC /\
 (tenvM_ok menv /\
-(envC_has_exns envC /\
 (consistent_mod_env senv tenvCT envM menv /\
 (type_env tenvCT senv env tenv /\
 (check_freevars tvs [] t1 /\
-type_e menv tenvC (bind_tenv n( 0) t1 (bind_tvar tvs tenv)) e t2))))))
+type_e menv tenvC (bind_tenv n( 0) t1 (bind_tvar tvs tenv)) e t2)))))
 ==>
 type_v tvs tenvCT senv (Closure (envM, envC, env) n e) (Tfn t1 t2))
 
 /\ (! tvs menv tenvC tenvCT senv envM envC env funs n t tenv tenv'.
 (consistent_con_env tenvCT envC tenvC /\
 (tenvM_ok menv /\
-(envC_has_exns envC /\
 (consistent_mod_env senv tenvCT envM menv /\
 (type_env tenvCT senv env tenv /\
 (type_funs menv tenvC (bind_var_list( 0) tenv' (bind_tvar tvs tenv)) funs tenv' /\
-(lookup n tenv' = SOME t)))))))
+(lookup n tenv' = SOME t))))))
 ==>
 type_v tvs tenvCT senv (Recclosure (envM, envC, env) funs n) t)
 
@@ -389,10 +379,9 @@ type_ctxts tvs tenvC senv [] t t)
 (type_env tenvCT senv env tenv /\
 (consistent_con_env tenvCT envC tenvC /\
 (tenvM_ok tenvM /\
-(envC_has_exns envC /\
 (consistent_mod_env senv tenvCT envM tenvM /\
 (type_ctxt tvs tenvM tenvCT tenvC senv tenv c t1 t2 /\
-type_ctxts (if is_ccon c /\ poly_context cs then tvs else  0) tenvCT senv cs t2 t3))))))
+type_ctxts (if is_ccon c /\ poly_context cs then tvs else  0) tenvCT senv cs t2 t3)))))
 ==>
 type_ctxts tvs tenvCT senv ((c,(envM,envC,env))::cs) t1 t3)`;
 
@@ -400,13 +389,12 @@ val _ = Hol_reln ` (! dec_tvs tenvM tenvC tenvCT senv envM envC s env e c t1 t2 
 (context_invariant dec_tvs c tvs /\
 (consistent_con_env tenvCT envC tenvC /\
 (tenvM_ok tenvM /\
-(envC_has_exns envC /\
 (consistent_mod_env senv tenvCT envM tenvM /\
 (type_ctxts tvs tenvCT senv c t1 t2 /\
 (type_env tenvCT senv env tenv /\
 (type_s tenvCT senv s /\
 (type_e tenvM tenvC (bind_tvar tvs tenv) e t1 /\
-(( ~ (tvs =( 0))) ==> is_value e))))))))))
+(( ~ (tvs =( 0))) ==> is_value e)))))))))
 ==>
 type_state dec_tvs tenvCT senv ((envM, envC, env), s, Exp e, c) t2)
 

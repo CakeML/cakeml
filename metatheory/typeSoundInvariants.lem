@@ -74,12 +74,6 @@ val type_ctxts : nat -> tenvCT -> tenvS -> list ctxt -> t -> t -> bool
 val type_state : nat -> tenvCT -> tenvS -> state -> t -> bool
 val context_invariant : nat -> list ctxt -> nat -> bool
 
-val envC_has_exns : envC -> bool
-let envC_has_exns envC =
-  lookup (Short "Bind") envC = Just (0,TypeExn) &&
-  lookup (Short "Div") envC = Just (0,TypeExn) &&
-  lookup (Short "Eq") envC = Just (0,TypeExn)
-
 (* Type programs without imposing signatures.  This is needed for the type
  * soundness proof *)
 val type_top_ignore_sig : tenvM -> tenvC -> tenvE -> top -> tenvM -> tenvC -> env varN (nat * t) -> bool
@@ -162,7 +156,6 @@ and
 closure : forall tvs menv tenvC tenvCT senv envC envM env tenv n e t1 t2.
 consistent_con_env tenvCT envC tenvC &&
 tenvM_ok menv &&
-envC_has_exns envC &&
 consistent_mod_env senv tenvCT envM menv &&
 type_env tenvCT senv env tenv &&
 check_freevars tvs [] t1 &&
@@ -175,7 +168,6 @@ and
 recclosure : forall tvs menv tenvC tenvCT senv envM envC env funs n t tenv tenv'.
 consistent_con_env tenvCT envC tenvC &&
 tenvM_ok menv &&
-envC_has_exns envC &&
 consistent_mod_env senv tenvCT envM menv &&
 type_env tenvCT senv env tenv &&
 type_funs menv tenvC (bind_var_list 0 tenv' (bind_tvar tvs tenv)) funs tenv' &&
@@ -454,7 +446,6 @@ cons : forall tvs tenvM tenvC tenvCT senv c envM envC env cs tenv t1 t2 t3.
 type_env tenvCT senv env tenv &&
 consistent_con_env tenvCT envC tenvC &&
 tenvM_ok tenvM &&
-envC_has_exns envC &&
 consistent_mod_env senv tenvCT envM tenvM &&
 type_ctxt tvs tenvM tenvCT tenvC senv tenv c t1 t2 &&
 type_ctxts (if is_ccon c && poly_context cs then tvs else 0) tenvCT senv cs t2 t3
@@ -468,7 +459,6 @@ exp : forall dec_tvs tenvM tenvC tenvCT senv envM envC s env e c t1 t2 tenv tvs.
 context_invariant dec_tvs c tvs &&
 consistent_con_env tenvCT envC tenvC &&
 tenvM_ok tenvM &&
-envC_has_exns envC &&
 consistent_mod_env senv tenvCT envM tenvM &&
 type_ctxts tvs tenvCT senv c t1 t2 &&
 type_env tenvCT senv env tenv &&
