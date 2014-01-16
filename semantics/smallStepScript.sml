@@ -183,7 +183,7 @@ val _ = Define `
           | App op e1 e2 => push env s e1 (Capp1 op ()  e2) c
           | Log l e1 e2 => push env s e1 (Clog l ()  e2) c
           | If e1 e2 e3 => push env s e1 (Cif ()  e2 e3) c
-          | Mat e pes => push env s e (Cmat ()  pes (Conv (SOME (Short "Bind", TypeExn)) [])) c
+          | Mat e pes => push env s e (Cmat ()  pes (Conv (SOME ("Bind", TypeExn NONE)) [])) c
           | Let n e1 e2 => push env s e1 (Clet n ()  e2) c
           | Letrec funs e =>
               if ~ (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs)) then

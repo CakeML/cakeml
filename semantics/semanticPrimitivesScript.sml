@@ -13,10 +13,12 @@ val _ = new_theory "semanticPrimitives"
 (*open import Lib*)
 (*open import Ast*)
 
+(* The type that a constructor builds is either a named datatype or an exception.
+ * For exceptions, we also keep the module that the exception was declared in. *)
 val _ = Hol_datatype `
  tid_or_exn = 
     TypeId of typeN id
-  | TypeExn`;
+  | TypeExn of  modN option`;
 
 
 (* Maps each constructor to its arity and which type it is from *)
@@ -27,7 +29,7 @@ val _ = Hol_datatype `
  v =
     Litv of lit
   (* Constructor application. *)
-  | Conv of  ( conN id # tid_or_exn)option => v list 
+  | Conv of  (conN # tid_or_exn)option => v list 
   (* Function closures
      The environment is used for the free variables in the function *)
   | Closure of ( (modN, ( (varN, v)env))env # envC # (varN, v) env) => varN => exp
@@ -140,7 +142,7 @@ val _ = Define `
     | SOME id => 
         (case lookup id envC of
             NONE => NONE
-          | SOME (len,t) => SOME (Conv (SOME (id, t)) vs)
+          | SOME (len,t) => SOME (Conv (SOME (id_to_n id, t)) vs)
         )
   )))`;
 
@@ -161,6 +163,19 @@ val _ = Hol_datatype `
     No_match
   | Match_type_error
   | Match of 'a`;
+
+
+(*val same_tid : tid_or_exn -> tid_or_exn -> bool*)
+ val _ = Define `
+ (same_tid (TypeId tn1) (TypeId tn2) = (tn1 = tn2))
+/\ (same_tid (TypeExn _) (TypeExn _) = T)
+/\ (same_tid _ _ = F)`;
+
+
+(*val same_ctor : conN * tid_or_exn -> conN * tid_or_exn -> bool*)
+ val _ = Define `
+ (same_ctor (cn1, TypeExn mn1) (cn2, TypeExn mn2) = ((cn1 = cn2) /\ (mn1 = mn2)))
+/\ (same_ctor (cn1, _) (cn2, _) = (cn1 = cn2))`;
 
 
 (* A big-step pattern matcher.  If the value matches the pattern, return an
@@ -187,8 +202,8 @@ val _ = Hol_datatype `
 (pmatch envC s (Pcon (SOME n) ps) (Conv (SOME (n', t')) vs) env =  
 ((case lookup n envC of
       SOME (l, t)=>
-        if (t = t') /\ (LENGTH ps = l) then
-          if n = n' then
+        if same_tid t t' /\ (LENGTH ps = l) then
+          if same_ctor (id_to_n n, t) (n',t') then
             pmatch_list envC s ps vs env
           else
             No_match
@@ -333,7 +348,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (*val exn_env : all_env*)
 val _ = Define `
- (exn_env = (emp, MAP (\ cn .  (Short cn, ( 0, TypeExn))) ["Bind"; "Div"; "Eq"], emp))`;
+ (exn_env = (emp, MAP (\ cn .  (Short cn, ( 0, TypeExn NONE))) ["Bind"; "Div"; "Eq"], emp))`;
 
                    
 (* Do an application *)
@@ -454,7 +469,7 @@ val _ = Define `
 
 (dec_to_cenv mn (Dtype tds) = (build_tdefs mn tds))
 /\
-(dec_to_cenv mn (Dexn cn ts) = (bind (mk_id mn cn) (LENGTH ts,TypeExn) emp))
+(dec_to_cenv mn (Dexn cn ts) = (bind (mk_id mn cn) (LENGTH ts,TypeExn mn) emp))
 /\
 (dec_to_cenv mn _ = ([]))`;
 

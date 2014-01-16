@@ -160,7 +160,7 @@ let e_step (env, s, ev, c) =
           | App op e1 e2 -> push env s e1 (Capp1 op () e2) c
           | Log l e1 e2 -> push env s e1 (Clog l () e2) c
           | If e1 e2 e3 -> push env s e1 (Cif () e2 e3) c
-          | Mat e pes -> push env s e (Cmat () pes (Conv (Just (Short "Bind", TypeExn)) [])) c
+          | Mat e pes -> push env s e (Cmat () pes (Conv (Just ("Bind", TypeExn Nothing)) [])) c
           | Let n e1 e2 -> push env s e1 (Clet n () e2) c
           | Letrec funs e ->
               if not (all_distinct (List.map (fun (x,y,z) -> x) funs)) then

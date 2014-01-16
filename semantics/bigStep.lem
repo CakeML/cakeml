@@ -235,7 +235,7 @@ and
 
 mat1 : forall ck env e pes v bv s1 s2.
 evaluate ck env s1 e (s2, Rval v) &&
-evaluate_match ck env s2 v pes (Conv (Just (Short "Bind", TypeExn)) []) bv
+evaluate_match ck env s2 v pes (Conv (Just ("Bind", TypeExn Nothing)) []) bv
 ==>
 evaluate ck env s1 (Mat e pes) bv
 
@@ -361,7 +361,7 @@ evaluate false env (0,s1) e ((count,s2), Rval v) &&
 all_distinct (pat_bindings p []) &&
 (pmatch (all_env_to_cenv env) s2 p v emp = No_match)
 ==>
-evaluate_dec mn env s1 (Dlet p e) (s2, Rerr (Rraise (Conv (Just (Short "Bind", TypeExn)) [])))
+evaluate_dec mn env s1 (Dlet p e) (s2, Rerr (Rraise (Conv (Just ("Bind", TypeExn Nothing)) [])))
 
 and
 
@@ -418,15 +418,14 @@ evaluate_dec mn env s (Dtype tds) (s, Rerr Rtype_error)
 and
 
 dexn1 : forall mn env cn ts s.
-(lookup (Short cn) (all_env_to_cenv env) = Nothing)
+List.all (fun (cn',(_,tn)) -> tn <> TypeExn mn || id_to_n cn' <> cn) (all_env_to_cenv env)
 ==>
-evaluate_dec mn env s (Dexn cn ts) (s, Rval (bind (Short cn) (List.length ts, TypeExn) emp, emp))
+evaluate_dec mn env s (Dexn cn ts) (s, Rval (bind (Short cn) (List.length ts, TypeExn mn) emp, emp))
 
 and
 
 dexn2 : forall mn env cn ts s.
-(* TODO: Allow it to be bound to a constructor for a non-exception *)
-(lookup (Short cn) (all_env_to_cenv env) <> Nothing)
+not (List.all (fun (cn',(_,tn)) -> tn <> TypeExn mn || id_to_n cn' <> cn) (all_env_to_cenv env))
 ==>
 evaluate_dec mn env s (Dexn cn ts) (s, Rerr Rtype_error)
 

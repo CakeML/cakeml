@@ -82,6 +82,13 @@ let mk_id mn_opt n =
     | Just mn -> Long mn n
   end
 
+val id_to_n : forall 'a. id 'a -> 'a
+let id_to_n id = 
+  match id with
+    | Short n -> n
+    | Long _ n -> n
+  end
+
 (* Types
  * 0-ary type applications represent unparameterised types (e.g., num or string)
  *)

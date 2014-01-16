@@ -3,9 +3,11 @@ import List_extra
 open import Lib
 open import Ast
 
+(* The type that a constructor builds is either a named datatype or an exception.
+ * For exceptions, we also keep the module that the exception was declared in. *)
 type tid_or_exn = 
   | TypeId of id typeN
-  | TypeExn
+  | TypeExn of maybe modN
 
 (* Maps each constructor to its arity and which type it is from *)
 type envC = env (id conN) (nat * tid_or_exn)
@@ -14,7 +16,7 @@ type envC = env (id conN) (nat * tid_or_exn)
 type v =
   | Litv of lit
   (* Constructor application. *)
-  | Conv of maybe (id conN * tid_or_exn) * list v 
+  | Conv of maybe (conN * tid_or_exn) * list v 
   (* Function closures
      The environment is used for the free variables in the function *)
   | Closure of (env modN (env varN v) * envC * env varN v) * varN * exp
@@ -103,7 +105,7 @@ let build_conv envC cn vs =
     | Just id -> 
         match lookup id envC with
           | Nothing -> Nothing
-          | Just (len,t) -> Just (Conv (Just (id, t)) vs)
+          | Just (len,t) -> Just (Conv (Just (id_to_n id, t)) vs)
         end
   end
 
@@ -120,6 +122,15 @@ type match_result 'a =
   | No_match
   | Match_type_error
   | Match of 'a
+
+val same_tid : tid_or_exn -> tid_or_exn -> bool
+let rec same_tid (TypeId tn1) (TypeId tn2) = tn1 = tn2
+and same_tid (TypeExn _) (TypeExn _) = true
+and same_tid _ _ = false
+
+val same_ctor : conN * tid_or_exn -> conN * tid_or_exn -> bool
+let rec same_ctor (cn1, TypeExn mn1) (cn2, TypeExn mn2) = cn1 = cn2 && mn1 = mn2
+and same_ctor (cn1, _) (cn2, _) = cn1 = cn2
 
 (* A big-step pattern matcher.  If the value matches the pattern, return an
  * environment with the pattern variables bound to the corresponding sub-terms
@@ -144,8 +155,8 @@ and
 pmatch envC s (Pcon (Just n) ps) (Conv (Just (n', t')) vs) env =
   match lookup n envC with
     | Just (l, t)->
-        if t = t' && List.length ps = l then
-          if n = n' then
+        if same_tid t t' && List.length ps = l then
+          if same_ctor (id_to_n n, t) (n',t') then
             pmatch_list envC s ps vs env
           else
             No_match
@@ -275,7 +286,7 @@ and
 do_eq_list _ _ = Eq_val false
 
 val exn_env : all_env
-let exn_env = (emp, List.map (fun cn -> (Short cn, (0, TypeExn))) ["Bind"; "Div"; "Eq"], emp)
+let exn_env = (emp, List.map (fun cn -> (Short cn, (0, TypeExn Nothing))) ["Bind"; "Div"; "Eq"], emp)
                    
 (* Do an application *)
 val do_app : all_env -> store v -> op -> v -> v -> maybe (all_env * store v * exp)
@@ -376,7 +387,7 @@ declare termination_argument add_mod_prefix = automatic
 let rec
 dec_to_cenv mn (Dtype tds) = build_tdefs mn tds
 and
-dec_to_cenv mn (Dexn cn ts) = bind (mk_id mn cn) (List.length ts,TypeExn) emp
+dec_to_cenv mn (Dexn cn ts) = bind (mk_id mn cn) (List.length ts,TypeExn mn) emp
 and
 dec_to_cenv mn _ = []
 

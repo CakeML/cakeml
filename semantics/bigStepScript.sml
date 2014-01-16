@@ -191,7 +191,7 @@ evaluate ck env s (If e1 e2 e3) (s', Rerr err))
 
 /\ (! ck env e pes v bv s1 s2.
 (evaluate ck env s1 e (s2, Rval v) /\
-evaluate_match ck env s2 v pes (Conv (SOME (Short "Bind", TypeExn)) []) bv)
+evaluate_match ck env s2 v pes (Conv (SOME ("Bind", TypeExn NONE)) []) bv)
 ==>
 evaluate ck env s1 (Mat e pes) bv)
 
@@ -285,7 +285,7 @@ evaluate_dec mn env s1 (Dlet p e) (s2, Rval (emp, env')))
 (ALL_DISTINCT (pat_bindings p []) /\
 (pmatch (all_env_to_cenv env) s2 p v emp = No_match)))
 ==>
-evaluate_dec mn env s1 (Dlet p e) (s2, Rerr (Rraise (Conv (SOME (Short "Bind", TypeExn)) []))))
+evaluate_dec mn env s1 (Dlet p e) (s2, Rerr (Rraise (Conv (SOME ("Bind", TypeExn NONE)) []))))
 
 /\ (! mn env p e v s1 s2 count.
 (evaluate F env ( 0,s1) e ((count,s2), Rval v) /\
@@ -326,13 +326,16 @@ evaluate_dec mn env s (Dtype tds) (s, Rval (build_tdefs mn tds, emp)))
 evaluate_dec mn env s (Dtype tds) (s, Rerr Rtype_error))
 
 /\ (! mn env cn ts s.
-(lookup (Short cn) (all_env_to_cenv env) = NONE)
+(EVERY (\p .  (case (p ) of
+     ( (cn',(_,tn)) ) => (tn <> TypeExn mn) \/ (id_to_n cn' <> cn)
+ )) (all_env_to_cenv env))
 ==>
-evaluate_dec mn env s (Dexn cn ts) (s, Rval (bind (Short cn) (LENGTH ts, TypeExn) emp, emp)))
+evaluate_dec mn env s (Dexn cn ts) (s, Rval (bind (Short cn) (LENGTH ts, TypeExn mn) emp, emp)))
 
 /\ (! mn env cn ts s.
-(* TODO: Allow it to be bound to a constructor for a non-exception *)
-( ~ ((lookup (Short cn) (all_env_to_cenv env)) = NONE))
+(~ (EVERY (\p .  (case (p ) of
+     ( (cn',(_,tn)) ) => (tn <> TypeExn mn) \/ (id_to_n cn' <> cn)
+ )) (all_env_to_cenv env)))
 ==>
 evaluate_dec mn env s (Dexn cn ts) (s, Rerr Rtype_error))`;
 

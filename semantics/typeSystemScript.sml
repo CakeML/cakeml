@@ -216,6 +216,17 @@ val _ = Define `
        tds)))`;
 
 
+(* Check that an exception definition defines no already defined (or duplicate)
+ * constructors, and that the arguments have no free type variables. *)
+(*val check_exn_tenv : maybe modN -> tenvC -> conN -> list t -> bool*)
+val _ = Define `
+ (check_exn_tenv mn tenvC cn ts =  
+(EVERY (check_freevars( 0) []) ts /\
+  EVERY (\p .  (case (p ) of
+     ( (cn',(_,_,tn)) ) => (tn <> TypeExn mn) \/ (id_to_n cn' <> cn)
+ )) tenvC))`;
+
+
 (* Simultaneous substitution of types for type variables in a type *)
 (*val type_subst : env tvarN t -> t -> t*)
  val type_subst_defn = Hol_defn "type_subst" `
@@ -272,7 +283,7 @@ val _ = Define `
  (tid_exn_to_tc t =  
 ((case t of
       TypeId tid => TC_name tid
-    | TypeExn => TC_exn
+    | TypeExn _ => TC_exn
   )))`;
 
 
@@ -491,11 +502,9 @@ type_d mn menv cenv tenv (Dletrec funs) emp (tenv_add_tvs tvs tenv'))
 type_d mn menv cenv tenv (Dtype tdecs) (build_ctor_tenv mn tdecs) emp)
 
 /\ (! mn menv cenv tenv cn ts.
-(
-(* TODO: Allow it to be bound to a non-exn constructor *)(lookup (Short cn) cenv = NONE) /\
-EVERY (check_freevars( 0) []) ts)
+(check_exn_tenv mn cenv cn ts)
 ==>
-type_d mn menv cenv tenv (Dexn cn ts) (bind (Short cn) ([], ts, TypeExn) emp) emp)`;
+type_d mn menv cenv tenv (Dexn cn ts) (bind (Short cn) ([], ts, TypeExn mn) emp) emp)`;
 
 val _ = Hol_reln ` (! mn menv cenv tenv.
 T
@@ -526,10 +535,8 @@ type_specs mn (merge (build_ctor_tenv mn td) cenv) tenv specs cenv' tenv')
 type_specs mn cenv tenv (Stype td :: specs) cenv' tenv')
 
 /\ (! mn cenv tenv cn ts specs cenv' tenv'.
-(
-(* TODO: Allow it to be bound to a non-exn constructor *)(lookup (Short cn) cenv = NONE) /\
-(EVERY (check_freevars( 0) []) ts /\
-type_specs mn (bind (Short cn) ([], ts, TypeExn) cenv) tenv specs cenv' tenv'))
+(check_exn_tenv mn cenv cn ts /\
+type_specs mn (bind (Short cn) ([], ts, TypeExn mn) cenv) tenv specs cenv' tenv')
 ==>
 type_specs mn cenv tenv (Sexn cn ts :: specs) cenv' tenv')
 

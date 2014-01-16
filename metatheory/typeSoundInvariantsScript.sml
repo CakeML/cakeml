@@ -18,31 +18,20 @@ val _ = new_theory "typeSoundInvariants"
 (* Store typing *)
 val _ = type_abbrev( "tenvS" , ``: (num, t) env``);
 
-(* Constructor type environments keyed by constructor namd and type *)
-val _ = type_abbrev( "tenvCT" , ``: (( conN id # tid_or_exn), ( tvarN list # t list)) env``);
-
-(*val same_module : id conN -> tid_or_exn -> bool*)
- val _ = Define `
- (same_module (Short x) _ = T)
-/\
-(same_module (Long mn1 x) (TypeId (Long mn2 y)) = (mn1 = mn2))
-/\
-(same_module _ TypeExn = T)
-/\
-(same_module _ _ = F)`;
-
+(* Global constructor type environments keyed by constructor namd and type *)
+val _ = type_abbrev( "tenvCT" , ``: ((conN # tid_or_exn), ( tvarN list # t list)) env``);
 
 (*val tenvC_ok : tenvC -> bool*)
 val _ = Define `
  (tenvC_ok tenvC =  
-(EVERY (\ (cn,(tvs,ts,tn)) .  same_module cn tn /\ EVERY (check_freevars( 0) tvs) ts) tenvC))`;
+(EVERY (\ (cn,(tvs,ts,tn)) .  EVERY (check_freevars( 0) tvs) ts) tenvC))`;
 
 
 (*val tenvCT_ok : tenvCT -> bool*)
 val _ = Define `
  (tenvCT_ok tenvCT =  
 (
-  (*all_distinct (List.map fst tenvCT) &&*)EVERY (\ ((cn,tn),(tvs,ts)) .  same_module cn tn /\ EVERY (check_freevars( 0) tvs) ts) tenvCT))`;
+  (*all_distinct (List.map fst tenvCT) &&*)EVERY (\ ((cn,tn),(tvs,ts)) .  EVERY (check_freevars( 0) tvs) ts) tenvCT))`;
 
 
 (* Check that a constructor type environment is consistent with a runtime type
@@ -58,7 +47,7 @@ val _ = Define `
     ==>    
 (? tvs ts.      
 (lookup cn tenvC = SOME (tvs, ts, t)) /\
-      ((lookup (cn,t) tenvCT = SOME (tvs, ts)) /\      
+      ((lookup (id_to_n cn,t) tenvCT = SOME (tvs, ts)) /\      
 (LENGTH ts = n))))
   /\
   (! cn.    

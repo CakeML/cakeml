@@ -20,7 +20,7 @@ val _ = Define `
  (init_envC =  
 ((Short "nil", ( 0, TypeId (Short "list"))) ::  
 ((Short "::", ( 2, TypeId (Short "list"))) ::
-  MAP (\ cn .  (Short cn, ( 0, TypeExn))) ["Bind"; "Div"; "Eq"])))`;
+  MAP (\ cn .  (Short cn, ( 0, TypeExn NONE))) ["Bind"; "Div"; "Eq"])))`;
 
 
 (*val init_env : envE*)
@@ -69,7 +69,7 @@ val _ = Define `
  (init_tenvC =  
 ((Short "nil", (["'a"], [], TypeId (Short "list"))) ::  
 ((Short "::", (["'a"], [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))], TypeId (Short "list"))) ::
-  MAP (\ cn .  (Short cn, ([], [], TypeExn))) ["Bind"; "Div"; "Eq"])))`;
+  MAP (\ cn .  (Short cn, ([], [], TypeExn NONE))) ["Bind"; "Div"; "Eq"])))`;
 
 
 (*val init_type_bindings : tdef_env*)

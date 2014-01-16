@@ -112,6 +112,15 @@ val _ = Define `
   )))`;
 
 
+(*val id_to_n : forall 'a. id 'a -> 'a*)
+val _ = Define `
+ (id_to_n id =  
+ ((case id of
+      Short n => n
+    | Long _ n => n
+  )))`;
+
+
 (* Types
  * 0-ary type applications represent unparameterised types (e.g., num or string)
  *)
