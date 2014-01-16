@@ -3,4 +3,6 @@ INCLUDES = .. ../semantics ../lem_lib_stub
 OPTIONS = QUIT_ON_FAILURE
 
 compilerLibScript.sml printerScript.sml bytecodeScript.sml: compilerLib.lem printer.lem bytecode.lem
-	lem -auxiliary_level none $(patsubst %,-i ../semantics/%.lem,lib ast semanticPrimitives) -hol compilerLib.lem -hol printer.lem -hol bytecode.lem -hol
+	if [ -x lem ];\
+	then lem -auxiliary_level none $(patsubst %,-i ../semantics/%.lem,lib ast semanticPrimitives) -hol compilerLib.lem -hol printer.lem -hol bytecode.lem;\
+	else touch compilerLibScript.sml printerScript.sml bytecodeScript.sml; fi
