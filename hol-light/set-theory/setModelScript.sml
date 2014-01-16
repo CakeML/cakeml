@@ -1,5 +1,5 @@
 open HolKernel boolLib bossLib lcsymtacs miscLib setSpecTheory listTheory bitTheory
-val _ = tight_equality()
+val _ = temp_tight_equality()
 val _ = new_theory"setModel"
 
 (* TOOD: move *)

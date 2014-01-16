@@ -1,6 +1,6 @@
 open HolKernel boolLib boolSimps bossLib lcsymtacs sholSyntaxTheory miscLib
 open SatisfySimps miscTheory pairTheory listTheory pred_setTheory finite_mapTheory alistTheory sortingTheory stringTheory relationTheory holSyntaxLibTheory
-val _ = tight_equality()
+val _ = temp_tight_equality()
 val _ = new_theory"sholSyntaxExtra"
 
 val equation_11 = store_thm("equation_11",

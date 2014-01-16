@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib lcsymtacs miscTheory miscLib;
-val _ = tight_equality()
+val _ = temp_tight_equality()
 val _ = new_theory "holSemantics";
 
 open holSyntaxTheory holSyntaxLibTheory;
