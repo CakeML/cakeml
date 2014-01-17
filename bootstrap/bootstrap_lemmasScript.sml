@@ -1135,6 +1135,132 @@ val LIST_TYPE_closed = prove(
   simp[mini_preludeTheory.LIST_TYPE_def] >>
   simp[PULL_EXISTS] >> METIS_TAC[])
 
+val PAIR_TYPE_closed = prove(
+  ``∀a. (∀x y. A x y ⇒ closed env y) ∧
+    (∀x y. B x y ⇒ closed env y) ∧
+    PAIR_TYPE A B a b ⇒
+    closed env b``,
+  gen_tac >>
+  PairCases_on`a` >>
+  simp[mini_preludeTheory.PAIR_TYPE_def] >>
+  rw[] >>
+  MATCH_MP_TAC (CONJUNCT1 (CONJUNCT2 (SPEC_ALL semanticsExtraTheory.closed_rules))) >>
+  rw[] >> METIS_TAC[])
+
+val OPTION_TYPE_closed = prove(
+  ``∀a. (∀x y. A x y ⇒ closed env y) ∧ OPTION_TYPE A a b ⇒ closed env b``,
+  Cases >> simp[std_preludeTheory.OPTION_TYPE_def] >> rw[] >>
+  MATCH_MP_TAC (CONJUNCT1 (CONJUNCT2 (SPEC_ALL semanticsExtraTheory.closed_rules))) >>
+  rw[] >> METIS_TAC[])
+
+val AST_ID_TYPE_closed = prove(
+  ``∀a. (∀x y. A x y ⇒ closed env y) ∧ AST_ID_TYPE A a b ⇒ closed env b``,
+  Cases >> simp[ml_repl_stepTheory.AST_ID_TYPE_def] >> rw[] >>
+  MATCH_MP_TAC (CONJUNCT1 (CONJUNCT2 (SPEC_ALL semanticsExtraTheory.closed_rules))) >>
+  rw[] >> TRY(METIS_TAC[]) >>
+  qmatch_abbrev_tac`closed env z` >>
+  qmatch_assum_rename_tac`B c d`[] >>
+  qmatch_assum_abbrev_tac`LIST_TYPE A ll x` >>
+  Q.ISPEC_THEN`ll`(MATCH_MP_TAC o MP_CANON) LIST_TYPE_closed >>
+  simp[Abbr`A`,std_preludeTheory.CHAR_def] >>
+  rw[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def])
+
+val AST_TC0_TYPE_closed = prove(
+  ``∀a. AST_TC0_TYPE a b ⇒ closed env b``,
+  Cases >>
+  simp[ml_repl_stepTheory.AST_TC0_TYPE_def] >>
+  rw[] >>
+  MATCH_MP_TAC (CONJUNCT1 (CONJUNCT2 (SPEC_ALL semanticsExtraTheory.closed_rules))) >>
+  rw[] >>
+  qmatch_abbrev_tac`closed env x` >>
+  qmatch_assum_abbrev_tac`AST_ID_TYPE A ll x` >>
+  Q.ISPEC_THEN`ll`(MATCH_MP_TAC o MP_CANON) AST_ID_TYPE_closed >>
+  simp[Abbr`A`] >>
+  rw[] >>
+  unabbrev_all_tac >>
+  qmatch_abbrev_tac`closed env x` >>
+  qmatch_assum_abbrev_tac`LIST_TYPE A ll x` >>
+  Q.ISPEC_THEN`ll`(MATCH_MP_TAC o MP_CANON) LIST_TYPE_closed >>
+  simp[Abbr`A`] >>
+  rw[std_preludeTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] )
+
+val UNIFY_INFER_T_TYPE_closed = prove(
+  ``∀a b. UNIFY_INFER_T_TYPE a b ⇒ closed env b``,
+  HO_MATCH_MP_TAC infer_t_ind >>
+  simp[ml_repl_stepTheory.UNIFY_INFER_T_TYPE_def] >>
+  rw[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+  MATCH_MP_TAC (CONJUNCT1 (CONJUNCT2 (SPEC_ALL semanticsExtraTheory.closed_rules))) >>
+  rw[] >>
+  TRY (MATCH_MP_TAC (GEN_ALL AST_TC0_TYPE_closed) >> HINT_EXISTS_TAC >> rw[]) >>
+  qmatch_abbrev_tac`closed env x` >>
+  qmatch_assum_abbrev_tac`LIST_TYPE A ll x` >>
+  Q.ISPEC_THEN`ll`(MATCH_MP_TAC o MP_CANON) LIST_TYPE_closed >>
+  simp[Abbr`A`] >>
+  fs[EVERY_MEM] >> METIS_TAC[])
+
+val AST_T_TYPE_closed = prove(
+  ``∀a b. AST_T_TYPE a b ⇒ closed env b``,
+  HO_MATCH_MP_TAC t_ind >>
+  simp[ml_repl_stepTheory.AST_T_TYPE_def] >>
+  rw[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+  MATCH_MP_TAC (CONJUNCT1 (CONJUNCT2 (SPEC_ALL semanticsExtraTheory.closed_rules))) >>
+  rw[] >>
+  TRY (MATCH_MP_TAC (GEN_ALL AST_TC0_TYPE_closed) >> HINT_EXISTS_TAC >> rw[]) >>
+  qmatch_abbrev_tac`closed env x` >>
+  qmatch_assum_abbrev_tac`LIST_TYPE A ll x` >>
+  Q.ISPEC_THEN`ll`(MATCH_MP_TAC o MP_CANON) LIST_TYPE_closed >>
+  simp[Abbr`A`] >>
+  rw[std_preludeTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+  fs[EVERY_MEM] >> METIS_TAC[])
+
+val SEMANTICPRIMITIVES_TID_OR_EXN_TYPE_closed = prove(
+  ``∀a b. SEMANTICPRIMITIVES_TID_OR_EXN_TYPE a b ⇒ closed env b``,
+  Cases >> simp[ml_repl_stepTheory.SEMANTICPRIMITIVES_TID_OR_EXN_TYPE_def] >>
+  rw[] >>
+  MATCH_MP_TAC (CONJUNCT1 (CONJUNCT2 (SPEC_ALL semanticsExtraTheory.closed_rules))) >>
+  rw[] >>
+  qmatch_abbrev_tac`closed env x` >>
+  qmatch_assum_abbrev_tac`AST_ID_TYPE A ll x` >>
+  Q.ISPEC_THEN`ll`(MATCH_MP_TAC o MP_CANON) AST_ID_TYPE_closed >>
+  simp[Abbr`A`] >>
+  rw[] >> unabbrev_all_tac >>
+  qmatch_abbrev_tac`closed env x` >>
+  qmatch_assum_abbrev_tac`LIST_TYPE A ll x` >>
+  Q.ISPEC_THEN`ll`(MATCH_MP_TAC o MP_CANON) LIST_TYPE_closed >>
+  simp[Abbr`A`] >>
+  rw[std_preludeTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def])
+
+val COMPILER_COMPILER_STATE_TYPE_closed = prove(
+  ``COMPILER_COMPILER_STATE_TYPE x y ⇒ closed [] y``,
+  Cases_on`x` >>
+  PairCases_on`p` >>
+  simp[ml_repl_stepTheory.COMPILER_COMPILER_STATE_TYPE_def] >>
+  simp[mini_preludeTheory.PAIR_TYPE_def,PULL_EXISTS] >>
+  simp[std_preludeTheory.FMAP_TYPE_def,PULL_EXISTS,std_preludeTheory.FMAP_EQ_ALIST_def] >>
+  simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+  rw[] >>
+  rpt (
+    qmatch_abbrev_tac`closed [] x` >>
+    ((
+      qmatch_assum_abbrev_tac`LIST_TYPE A ll x` >>
+      Q.ISPEC_THEN`ll`(MATCH_MP_TAC o MP_CANON) LIST_TYPE_closed >>
+      simp[Abbr`A`]
+    ) ORELSE (
+      qmatch_assum_abbrev_tac`PAIR_TYPE A B ll x` >>
+      Q.ISPEC_THEN`ll`(MATCH_MP_TAC o MP_CANON) PAIR_TYPE_closed >>
+      simp[Abbr`A`,Abbr`B`]
+    ) ORELSE (
+      qmatch_assum_abbrev_tac`OPTION_TYPE A ll x` >>
+      Q.ISPEC_THEN`ll`(MATCH_MP_TAC o MP_CANON) OPTION_TYPE_closed >>
+      simp[Abbr`A`]
+    ) ORELSE (
+      qmatch_assum_abbrev_tac`AST_ID_TYPE A ll x` >>
+      Q.ISPEC_THEN`ll`(MATCH_MP_TAC o MP_CANON) AST_ID_TYPE_closed >>
+      simp[Abbr`A`]
+    )) >>
+    rw[std_preludeTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+    unabbrev_all_tac ))
+
 val REPL_FUN_REPL_FUN_STATE_TYPE_closed = prove(
   ``REPL_FUN_REPL_FUN_STATE_TYPE a v ⇒ closed [] v``,
   Cases_on`a`>>simp[ml_repl_stepTheory.REPL_FUN_REPL_FUN_STATE_TYPE_def,PULL_EXISTS] >>
@@ -1143,7 +1269,33 @@ val REPL_FUN_REPL_FUN_STATE_TYPE_closed = prove(
   PairCases_on`p` >>
   simp[mini_preludeTheory.PAIR_TYPE_def,PULL_EXISTS] >>
   rw[] >>
-  cheat)
+  TRY(MATCH_MP_TAC (GEN_ALL COMPILER_COMPILER_STATE_TYPE_closed) >>
+      HINT_EXISTS_TAC >> rw[] ) >>
+  rpt (
+    TRY (MATCH_MP_TAC (GEN_ALL AST_TC0_TYPE_closed) >> HINT_EXISTS_TAC >> rw[]) >>
+    TRY (MATCH_MP_TAC (GEN_ALL UNIFY_INFER_T_TYPE_closed) >> HINT_EXISTS_TAC >> rw[]) >>
+    TRY (MATCH_MP_TAC (GEN_ALL AST_T_TYPE_closed) >> HINT_EXISTS_TAC >> rw[]) >>
+    TRY (MATCH_MP_TAC (GEN_ALL SEMANTICPRIMITIVES_TID_OR_EXN_TYPE_closed) >> HINT_EXISTS_TAC >> rw[]) >>
+    qmatch_abbrev_tac`closed [] x` >>
+    ((
+      qmatch_assum_abbrev_tac`LIST_TYPE A ll x` >>
+      Q.ISPEC_THEN`ll`(MATCH_MP_TAC o MP_CANON) LIST_TYPE_closed >>
+      simp[Abbr`A`]
+    ) ORELSE (
+      qmatch_assum_abbrev_tac`PAIR_TYPE A B ll x` >>
+      Q.ISPEC_THEN`ll`(MATCH_MP_TAC o MP_CANON) PAIR_TYPE_closed >>
+      simp[Abbr`A`,Abbr`B`]
+    ) ORELSE (
+      qmatch_assum_abbrev_tac`OPTION_TYPE A ll x` >>
+      Q.ISPEC_THEN`ll`(MATCH_MP_TAC o MP_CANON) OPTION_TYPE_closed >>
+      simp[Abbr`A`]
+    ) ORELSE (
+      qmatch_assum_abbrev_tac`AST_ID_TYPE A ll x` >>
+      Q.ISPEC_THEN`ll`(MATCH_MP_TAC o MP_CANON) AST_ID_TYPE_closed >>
+      simp[Abbr`A`]
+    )) >>
+    rw[std_preludeTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+    unabbrev_all_tac ))
 
 val INPUT_TYPE_closed = prove(
   ``INPUT_TYPE x y ⇒ closed [] y``,
