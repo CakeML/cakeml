@@ -1232,6 +1232,23 @@ val LIST_TYPE_all_locs = prove(
   fs[pred_setTheory.SUBSET_DEF] >>
   METIS_TAC[])
 
+val INPUT_TYPE_no_closures = prove(
+  ``INPUT_TYPE x y ⇒ ¬contains_closure y``,
+  simp[INPUT_TYPE_def] >>
+  Cases_on`x` >>
+  simp[std_preludeTheory.OPTION_TYPE_def] >>
+  rw[] >>
+  simp[terminationTheory.contains_closure_def] >>
+  qmatch_assum_rename_tac `PAIR_TYPE X Y s p`["X","Y"] >>
+  PairCases_on`s` >>
+  fs[mini_preludeTheory.PAIR_TYPE_def] >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  fs[ml_translatorTheory.BOOL_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+  fs[std_preludeTheory.FMAP_TYPE_def] >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  simp[terminationTheory.contains_closure_def] >>
+  cheat)
+
 val INPUT_TYPE_all_locs = prove(
   ``INPUT_TYPE x y ⇒ (all_locs y = {})``,
   simp[INPUT_TYPE_def] >>
@@ -1247,6 +1264,18 @@ val INPUT_TYPE_all_locs = prove(
   fs[std_preludeTheory.FMAP_TYPE_def] >>
   rpt BasicProvers.VAR_EQ_TAC >>
   cheat)
+
+val EVERY_APPEND_lemma = prove(
+  ``EVERY P ls ∧ P x ∧ n < LENGTH ls ⇒ EVERY P (TAKE n ls ++ [x] ++ DROP (n + 1) ls)``,
+  simp[EVERY_MEM] >> strip_tac >>
+  `n ≤ LENGTH ls` by DECIDE_TAC >>
+  `n + 1 <= LENGTH ls` by DECIDE_TAC >>
+  METIS_TAC[rich_listTheory.MEM_TAKE,rich_listTheory.MEM_DROP])
+
+val IN_vlabs_list_EVERY = prove(
+  ``(∀cd. cd ∈ vlabs_list vs ⇒ Z cd) ⇔ (EVERY (λs. ∀cd. cd ∈ s ⇒ Z cd) (MAP vlabs vs))``,
+  simp[intLangExtraTheory.vlabs_list_MAP,EVERY_MAP,EVERY_MEM,PULL_EXISTS] >>
+  METIS_TAC[])
 
 val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
   ``COMPILER_RUN_INV bs inp outp /\ OUTPUT_TYPE (INR (msg,s)) outp ==>
@@ -1389,7 +1418,70 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
       cheat ) >>
     simp[rich_listTheory.EL_APPEND2] >>
     simp[rich_listTheory.EL_DROP] ) >>
-  cheat); (* requires digging through the details of env_rs *)
+  conj_tac >- (
+    REWRITE_TAC[Once (GSYM APPEND_ASSOC)] >>
+    match_mp_tac miscTheory.EVERY2_APPEND_suff >>
+    simp[Abbr`Cs1`,Abbr`Cs2`] >>
+    qpat_assum`EVERY2 syneq X Cs`mp_tac >>
+    Q.ISPECL_THEN[`LENGTH l1`,`Cs`](assume_tac o SYM) TAKE_DROP >>
+    pop_assum SUBST1_TAC >>
+    qmatch_abbrev_tac`LIST_REL syneq (l1 ++ l2) (Cl1 ++ Cl2) ==> X` >>
+    strip_tac >>
+    Q.ISPECL_THEN[`Cl2`,`l2`,`Cl1`,`l1`,`syneq`]mp_tac
+      (GEN_ALL(snd(EQ_IMP_RULE miscTheory.EVERY2_APPEND))) >>
+    discharge_hyps >- (
+      simp[] >>
+      conj_asm1_tac >- (
+        simp[Abbr`Cl1`,Abbr`l1`,Abbr`Cl2`] >>
+        fs[] >> simp[] ) >>
+      fs[EVERY2_EVERY] ) >>
+    strip_tac >>
+    imp_res_tac EVERY2_LENGTH >>
+    simp[TAKE_APPEND1,rich_listTheory.DROP_APPEND2] >>
+    simp[Abbr`Cl2`,Abbr`Cl1`,Abbr`l2`] >>
+    fs[] ) >>
+  conj_tac >- (
+    rw[] >>
+    fs[compilerLibTheory.el_check_def] >>
+    metis_tac[MEM_EL] ) >>
+  conj_tac >- (
+    qunabbrev_tac`Cs1`>>
+    qunabbrev_tac`Cs2`>>
+    MATCH_MP_TAC EVERY_APPEND_lemma >>
+    simp[] >>
+    fs[intLangExtraTheory.closed_vlabs_def] >>
+    MATCH_MP_TAC toIntLangProofsTheory.no_closures_all_vlabs >>
+    MATCH_MP_TAC (GEN_ALL INPUT_TYPE_no_closures) >>
+    METIS_TAC[] ) >>
+  conj_tac >- (
+    REWRITE_TAC[IN_vlabs_list_EVERY] >>
+    REWRITE_TAC[EVERY_MAP] >>
+    qunabbrev_tac`Cs1`>>
+    qunabbrev_tac`Cs2`>>
+    MATCH_MP_TAC EVERY_APPEND_lemma >>
+    qpat_assum`closed_vlabs A B X Y Z`mp_tac >>
+    simp[intLangExtraTheory.closed_vlabs_def,IN_vlabs_list_EVERY,EVERY_MAP] >>
+    strip_tac >>
+    imp_res_tac INPUT_TYPE_no_closures >>
+    imp_res_tac toIntLangProofsTheory.no_closures_vlabs >>
+    simp[] ) >>
+  simp[] >>
+  fs[intLangExtraTheory.closed_Clocs_def] >>
+  `∃xx. Cs = Cs1 ++ [xx] ++ Cs2` by (
+    simp[Abbr`Cs1`,Abbr`Cs2`] >>
+    simp[LIST_EQ_REWRITE] >>
+    qexists_tac`EL (LENGTH l1) Cs` >>
+    rw[] >>
+    Cases_on`x < LENGTH l1`>>
+    simp[rich_listTheory.EL_APPEND1,rich_listTheory.EL_APPEND2,rich_listTheory.EL_TAKE] >>
+    Cases_on`x = LENGTH l1`>>
+    simp[rich_listTheory.EL_APPEND1,rich_listTheory.EL_APPEND2,rich_listTheory.EL_TAKE] >>
+    simp[rich_listTheory.EL_DROP] ) >>
+  fs[pred_setTheory.SUBSET_DEF,PULL_EXISTS] >>
+  rw[] >> simp[] >>
+  TRY (res_tac >> DECIDE_TAC) >>
+  imp_res_tac INPUT_TYPE_all_locs >>
+  fs[toIntLangProofsTheory.all_Clocs_v_to_Cv]);
 
 val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
   ``COMPILER_RUN_INV bs inp outp /\ OUTPUT_TYPE (INL (m,code,s)) outp ==>
