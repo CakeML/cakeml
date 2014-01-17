@@ -84,8 +84,5 @@ Directory structure:
     An implementation of HOL Light (http://www.cl.cam.ac.uk/~jrh13/hol-light/)
     in CakeML.
 
-- clockScript.sml
-    A proof outline of our divergence preservation technique.
-
 - COPYING
     Copyright notice, license, and disclaimer.

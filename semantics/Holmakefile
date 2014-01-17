@@ -6,7 +6,9 @@ LEMS = $(patsubst %,%.lem,$(SRC))
 GENS = $(patsubst %,%Script.sml,$(SRC))
 
 $(GENS): $(LEMS)
-	lem -auxiliary_level none -hol $(LEMS)
+	if [ -x lem ];\
+	then lem -auxiliary_level none -hol $(LEMS);\
+	else touch $(GENS); fi
 
 ifdef POLY
 HOLHEAP = sem_heap

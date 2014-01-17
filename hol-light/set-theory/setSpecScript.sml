@@ -1,5 +1,5 @@
 open HolKernel SatisfySimps boolLib boolSimps bossLib lcsymtacs pred_setTheory cardinalTheory pairTheory
-val _ = tight_equality()
+val _ = temp_tight_equality()
 val _ = new_theory"setSpec"
 
 (* http://www.lemma-one.com/ProofPower/specs/spc002.pdf *)

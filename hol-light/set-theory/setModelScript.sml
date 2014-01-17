@@ -1,5 +1,5 @@
 open HolKernel boolLib bossLib lcsymtacs miscLib setSpecTheory listTheory bitTheory
-val _ = tight_equality()
+val _ = temp_tight_equality()
 val _ = new_theory"setModel"
 
 (* TOOD: move *)
@@ -202,8 +202,8 @@ val P_EVERY_EQ_LIST = prove(
 val lem = prove(``EVERY ($= c) a ∧ EVERY ($= c) b ∧ LENGTH a = LENGTH b ⇒ a = b``,
   simp[LIST_EQ_REWRITE,EVERY_MEM,MEM_EL,PULL_EXISTS] >> metis_tac[])
 
-val is_lset_theory_def = Define`
-  is_lset_theory is_v_rep in_rep ⇔
+val is_set_theory_pred_def = Define`
+  is_set_theory_pred is_v_rep in_rep ⇔
    (∃x. is_v_rep x) ∧
    (∀x y. is_v_rep x ∧ is_v_rep y ⇒ ((x = y) ⇔ (∀a. is_v_rep a ⇒ (in_rep a x ⇔ in_rep a y)))) ∧
    (∀x P. is_v_rep x ⇒ ∃y. is_v_rep y ∧ ∀a. is_v_rep a ⇒ (in_rep a y ⇔ (in_rep a x ∧ P a))) ∧
@@ -213,9 +213,9 @@ val is_lset_theory_def = Define`
    (∀x. is_v_rep x ⇒ ∃y. is_v_rep y ∧ (∀a. is_v_rep a ∧ in_rep a x ⇒ in_rep y x))`
 
 val l_model_exists = store_thm("l_model_exists",
-  ``∃(is_lV : α list -> bool) (mem : α list -> α list -> bool). is_lset_theory is_lV mem``,
+  ``∃(P : α list -> bool) (mem : α list -> α list -> bool). is_set_theory_pred P mem``,
   qexists_tac`EVERY ((=) ARB)` >>
-  REWRITE_TAC[is_lset_theory_def] >>
+  REWRITE_TAC[is_set_theory_pred_def] >>
   qexists_tac`λl1 l2. BIT (LENGTH l1) (LENGTH l2)` >>
   conj_tac >- (qexists_tac`[]` >> simp[]) >>
   conj_tac >- (
@@ -378,81 +378,81 @@ val l_model_exists = store_thm("l_model_exists",
   qexists_tac`GENLIST (K ARB) (LOG2 (LENGTH x))` >>
   simp[BIT_LOG2,EVERY_GENLIST])
 
-val is_lV_def = new_specification("is_lV_def",["is_lV"],REWRITE_RULE[is_lset_theory_def]l_model_exists)
+val is_V_def = new_specification("is_V_def",["is_V"],REWRITE_RULE[is_set_theory_pred_def]l_model_exists)
 
-val lV_tyax = new_type_definition("lV",
-  is_lV_def |> SIMP_RULE std_ss [GSYM PULL_EXISTS] |> CONJUNCT1)
-val lV_bij = define_new_type_bijections
-  {ABS="mk_lV",REP="dest_lV",name="lV_bij",tyax=lV_tyax}
-val dest_lV_11   = prove_rep_fn_one_one lV_bij
+val V_tyax = new_type_definition("V",
+  is_V_def |> SIMP_RULE std_ss [GSYM PULL_EXISTS] |> CONJUNCT1)
+val V_bij = define_new_type_bijections
+  {ABS="mk_V",REP="dest_V",name="V_bij",tyax=V_tyax}
+val dest_V_11   = prove_rep_fn_one_one V_bij
 
-val lV_mem_rep_def =
-  new_specification("lV_mem_rep_def",["lV_mem_rep"],is_lV_def)
+val V_mem_rep_def =
+  new_specification("V_mem_rep_def",["V_mem_rep"],is_V_def)
 
-val lV_mem_def = Define`lV_mem x y = lV_mem_rep (dest_lV x) (dest_lV y)`
+val V_mem_def = Define`V_mem x y = V_mem_rep (dest_V x) (dest_V y)`
 
-val is_set_theory_lV = store_thm("is_set_theory_lV",
-  ``is_set_theory lV_mem``,
+val is_set_theory_V = store_thm("is_set_theory_V",
+  ``is_set_theory V_mem``,
   simp[is_set_theory_def] >>
   conj_tac >- (
     simp[extensional_def] >>
-    simp[lV_mem_def] >>
+    simp[V_mem_def] >>
     rw[] >>
-    qspecl_then[`dest_lV x`,`dest_lV y`]mp_tac
-      (List.nth(CONJUNCTS lV_mem_rep_def,1)) >>
-    simp[lV_bij,dest_lV_11] >> rw[] >>
-    metis_tac[lV_bij] ) >>
+    qspecl_then[`dest_V x`,`dest_V y`]mp_tac
+      (List.nth(CONJUNCTS V_mem_rep_def,1)) >>
+    simp[V_bij,dest_V_11] >> rw[] >>
+    metis_tac[V_bij] ) >>
   conj_tac >- (
     simp[is_separation_def,GSYM SKOLEM_THM] >>
     rw[] >>
-    qspecl_then[`dest_lV x`,`P o mk_lV`]mp_tac
-      (List.nth(CONJUNCTS lV_mem_rep_def,2)) >>
-    simp[lV_bij] >>
-    simp[lV_mem_def] >>
-    metis_tac[lV_bij] ) >>
+    qspecl_then[`dest_V x`,`P o mk_V`]mp_tac
+      (List.nth(CONJUNCTS V_mem_rep_def,2)) >>
+    simp[V_bij] >>
+    simp[V_mem_def] >>
+    metis_tac[V_bij] ) >>
   conj_tac >- (
     simp[is_power_def,GSYM SKOLEM_THM] >>
     rw[] >>
-    qspecl_then[`dest_lV x`]mp_tac
-      (List.nth(CONJUNCTS lV_mem_rep_def,3)) >>
-    simp[lV_bij] >>
-    simp[lV_mem_def] >>
-    metis_tac[lV_bij] ) >>
+    qspecl_then[`dest_V x`]mp_tac
+      (List.nth(CONJUNCTS V_mem_rep_def,3)) >>
+    simp[V_bij] >>
+    simp[V_mem_def] >>
+    metis_tac[V_bij] ) >>
   conj_tac >- (
     simp[is_union_def,GSYM SKOLEM_THM] >>
     rw[] >>
-    qspecl_then[`dest_lV x`]mp_tac
-      (List.nth(CONJUNCTS lV_mem_rep_def,4)) >>
-    simp[lV_bij] >>
-    simp[lV_mem_def] >>
-    metis_tac[lV_bij] ) >>
+    qspecl_then[`dest_V x`]mp_tac
+      (List.nth(CONJUNCTS V_mem_rep_def,4)) >>
+    simp[V_bij] >>
+    simp[V_mem_def] >>
+    metis_tac[V_bij] ) >>
   simp[is_upair_def,GSYM SKOLEM_THM] >>
   rw[] >>
-  qspecl_then[`dest_lV x`]mp_tac
-    (List.nth(CONJUNCTS lV_mem_rep_def,5)) >>
-  simp[lV_bij] >>
-  simp[lV_mem_def] >>
-  metis_tac[lV_bij] )
+  qspecl_then[`dest_V x`]mp_tac
+    (List.nth(CONJUNCTS V_mem_rep_def,5)) >>
+  simp[V_bij] >>
+  simp[V_mem_def] >>
+  metis_tac[V_bij] )
 
-val lV_choice_exists = prove(
-  ``∃ch. is_choice lV_mem ch``,
+val V_choice_exists = prove(
+  ``∃ch. is_choice V_mem ch``,
   simp[is_choice_def,GSYM SKOLEM_THM] >>
-  rw[] >> simp[lV_mem_def] >>
-  qspecl_then[`dest_lV x`]mp_tac
-    (List.nth(CONJUNCTS lV_mem_rep_def,6)) >>
-  simp[lV_bij] >>
-  metis_tac[lV_bij] )
+  rw[] >> simp[V_mem_def] >>
+  qspecl_then[`dest_V x`]mp_tac
+    (List.nth(CONJUNCTS V_mem_rep_def,6)) >>
+  simp[V_bij] >>
+  metis_tac[V_bij] )
 
-val lV_choice_def =
-  new_specification("lV_choice_def",["lV_choice"],lV_choice_exists)
+val V_choice_def =
+  new_specification("V_choice_def",["V_choice"],V_choice_exists)
 
-val lV_indset_def =
-  new_specification("lV_indset_def",["lV_indset"],
-    METIS_PROVE[]``∃i:α lV. (∃x:α lV. is_infinite lV_mem x) ⇒ is_infinite lV_mem i``)
+val V_indset_def =
+  new_specification("V_indset_def",["V_indset"],
+    METIS_PROVE[]``∃i:α V. (∃x:α V. is_infinite V_mem x) ⇒ is_infinite V_mem i``)
 
-val is_model_lV = store_thm("is_model_lV",
-  ``(∃I:α lV. is_infinite lV_mem I) ⇒
-    is_model (lV_mem,lV_indset:α lV,lV_choice)``,
-  simp[is_model_def,is_set_theory_lV,lV_choice_def,lV_indset_def])
+val is_model_V = store_thm("is_model_V",
+  ``(∃I:α V. is_infinite V_mem I) ⇒
+    is_model (V_mem,V_indset:α V,V_choice)``,
+  simp[is_model_def,is_set_theory_V,V_choice_def,V_indset_def])
 
 val _ = export_theory()

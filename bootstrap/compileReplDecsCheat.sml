@@ -1,5 +1,5 @@
 open HolKernel boolLib bossLib lcsymtacs ml_repl_stepTheory replDecsTheory
-val _ = new_theory"compileReplDecsCheat"
+val _ = new_theory"compileReplDecs"
 
 val ct = ``init_compiler_state.contab``
 val m = ``<|bvars:=[];mvars:=FEMPTY;cnmap:=cmap(^ct)|>``

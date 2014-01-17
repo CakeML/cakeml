@@ -5,3 +5,13 @@ compileReplDecsScript.sml
     evaluate the compiler on repl_decs
 compileCallReplStepDecScript.sml
     evaluate the compiler on the call of call_repl_step
+
+labels_computeLib.sml, labels_computeTheory.sml
+    utilities for calculating the offsets of labels in the bootstrapped code
+
+compileReplDecsCheat.sml
+    version of compileReplDecsScript.sml that simply asserts (with cheated
+    proof) the result of the bootstrap rather than calculating it anew
+
+toggle-cheat.sh
+    script to toggle whether to use the cheated bootstrap or not

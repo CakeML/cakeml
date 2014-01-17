@@ -1,5 +1,5 @@
 open HolKernel boolLib boolSimps SatisfySimps bossLib lcsymtacs miscTheory miscLib pred_setTheory pairTheory listTheory finite_mapTheory alistTheory holSyntaxLibTheory sholSyntaxTheory sholSyntaxExtraTheory setSpecTheory sortingTheory stringTheory
-val _ = tight_equality()
+val _ = temp_tight_equality()
 val _ = new_theory"sholSemantics"
 
 val discharge_hyps_keep =

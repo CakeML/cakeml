@@ -1,5 +1,5 @@
 open HolKernel boolLib boolSimps bossLib lcsymtacs pairTheory listTheory pred_setTheory holSyntaxLibTheory
-val _ = tight_equality()
+val _ = temp_tight_equality()
 val _ = new_theory "sholSyntax"
 
 val _ = Hol_datatype`

@@ -29,7 +29,6 @@ val Arrow_def = Define `
   Arrow a b f =
     \v. !x. AppReturns (a x) v (b (f x))`;
 
-val _ = add_infix("-->",400,HOLgrammars.RIGHT)
 val _ = overload_on ("-->",``Arrow``)
 
 val Eq_def = Define `
