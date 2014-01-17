@@ -469,7 +469,7 @@ val _ = Define `
 
 (dec_to_cenv mn (Dtype tds) = (build_tdefs mn tds))
 /\
-(dec_to_cenv mn (Dexn cn ts) = (bind (mk_id mn cn) (LENGTH ts,TypeExn mn) emp))
+(dec_to_cenv mn (Dexn cn ts) = (bind (Short cn) (LENGTH ts,TypeExn mn) emp))
 /\
 (dec_to_cenv mn _ = ([]))`;
 

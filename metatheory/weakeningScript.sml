@@ -660,7 +660,7 @@ weakC_only_other_mods mn tenvC' tenvC =
   !id tvs ts tn.
     (MEM (id, tvs, ts, tn) tenvC' ∧ ¬MEM (id, tvs, ts, tn) tenvC)
     ⇒
-    (?mn' x. mn ≠ SOME mn' ∧ (tn = TypeId (Long mn' x)))`;
+    (?mn' x. mn ≠ SOME mn' ∧ (tn = TypeId (Long mn' x) ∨ tn = TypeExn (SOME mn')))`;
 
 val weakC_only_other_mods_merge = Q.prove (
 `!mn tenvC1 tenvC2 tenvC3.

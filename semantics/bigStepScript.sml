@@ -326,18 +326,9 @@ evaluate_dec mn env s (Dtype tds) (s, Rval (build_tdefs mn tds, emp)))
 evaluate_dec mn env s (Dtype tds) (s, Rerr Rtype_error))
 
 /\ (! mn env cn ts s.
-(EVERY (\p .  (case (p ) of
-     ( (cn',(_,tn)) ) => (tn <> TypeExn mn) \/ (id_to_n cn' <> cn)
- )) (all_env_to_cenv env))
+T
 ==>
-evaluate_dec mn env s (Dexn cn ts) (s, Rval (bind (Short cn) (LENGTH ts, TypeExn mn) emp, emp)))
-
-/\ (! mn env cn ts s.
-(~ (EVERY (\p .  (case (p ) of
-     ( (cn',(_,tn)) ) => (tn <> TypeExn mn) \/ (id_to_n cn' <> cn)
- )) (all_env_to_cenv env)))
-==>
-evaluate_dec mn env s (Dexn cn ts) (s, Rerr Rtype_error))`;
+evaluate_dec mn env s (Dexn cn ts) (s, Rval (bind (Short cn) (LENGTH ts, TypeExn mn) emp, emp)))`;
 
 val _ = Hol_reln ` (! mn env s.
 T

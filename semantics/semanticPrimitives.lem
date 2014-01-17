@@ -387,7 +387,7 @@ declare termination_argument add_mod_prefix = automatic
 let rec
 dec_to_cenv mn (Dtype tds) = build_tdefs mn tds
 and
-dec_to_cenv mn (Dexn cn ts) = bind (mk_id mn cn) (List.length ts,TypeExn mn) emp
+dec_to_cenv mn (Dexn cn ts) = bind (Short cn) (List.length ts,TypeExn mn) emp
 and
 dec_to_cenv mn _ = []
 
