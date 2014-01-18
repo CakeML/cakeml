@@ -1331,49 +1331,399 @@ val INPUT_TYPE_closed = prove(
 
 val LIST_TYPE_all_cns = prove(
   ``∀x. (∀a v. MEM a x ∧ A a v ⇒ all_cns v ⊆ s) ⇒
-    ∀l. LIST_TYPE A x l ⇒ all_cns l ⊆ {SOME(Short"nil");SOME(Short"::")} ∪ s``,
+    ∀l. LIST_TYPE A x l ∧ {SOME(Short"nil");SOME(Short"::")} ⊆ s
+    ⇒ all_cns l ⊆ s``,
   Induct >>
   simp[mini_preludeTheory.LIST_TYPE_def] >>
   simp[PULL_EXISTS] >>
   fs[pred_setTheory.SUBSET_DEF] >>
   METIS_TAC[])
 
-(*
-val INPUT_TYPE_all_cns = prove(
-  ``INPUT_TYPE x y ⇒ (all_cns y ⊆
-    {SOME(Short"None");
-     SOME(Short"Some");
-     SOME(Short"Pair");
+val PAIR_TYPE_all_cns = prove(
+  ``∀x y. (∀x y. A x y ⇒ all_cns y ⊆ s) ∧
+          (∀x y. B x y ⇒ all_cns y ⊆ s) ∧
+          (SOME(Short"Pair"))∈s ∧
+          PAIR_TYPE A B x y ⇒ all_cns y ⊆ s``,
+  Cases >> simp[mini_preludeTheory.PAIR_TYPE_def] >>
+  rw[] >> rw[semanticsExtraTheory.all_cns_def] >>
+  METIS_TAC[])
+
+val LEXER_FUN_SYMBOL_TYPE_all_cns = prove(
+  ``∀x y. LEXER_FUN_SYMBOL_TYPE x y ∧ {
+     SOME(Short"nil");
+     SOME(Short"::");
      SOME(Short"Errors");
      SOME(Short"Others");
      SOME(Short"Longs");
      SOME(Short"Numbers");
-     SOME(Short"Strings");
+     SOME(Short"Strings")} ⊆ s
+  ⇒ all_cns y ⊆ s
+  ``,
+  Cases >> simp[ml_repl_stepTheory.LEXER_FUN_SYMBOL_TYPE_def] >> rw[] >>
+  simp[semanticsExtraTheory.all_cns_def] >>
+  fs[ml_translatorTheory.INT_def] >>
+  MATCH_MP_TAC pred_setTheory.SUBSET_TRANS >>
+  qexists_tac`{SOME(Short "nil"); SOME (Short "::")}` >>
+  (conj_tac >- (
+    MATCH_MP_TAC (MP_CANON (Q.ISPEC`CHAR`(Q.GEN`A` LIST_TYPE_all_cns))) >>
+    rw[std_preludeTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+    HINT_EXISTS_TAC >>rw[] )) >>
+  simp[] )
+
+val OPTION_TYPE_all_cns = prove(
+  ``∀x y. (∀x y. A x y ⇒ all_cns y ⊆ s) ∧
+          {SOME(Short"Some");SOME(Short"None")} ⊆ s ∧
+          OPTION_TYPE A x y ⇒ all_cns y ⊆ s``,
+  Cases >> simp[std_preludeTheory.OPTION_TYPE_def] >>
+  rw[] >> rw[semanticsExtraTheory.all_cns_def] >>
+  METIS_TAC[])
+
+val AST_ID_TYPE_all_cns = prove(
+  ``∀x y. (∀x y. A x y ⇒ all_cns y ⊆ s) ∧
+          {SOME(Short"Short");SOME(Short"Long");SOME(Short"nil");SOME(Short"::")} ⊆ s ∧
+          AST_ID_TYPE A x y ⇒ all_cns y ⊆ s``,
+  Cases >> simp[ml_repl_stepTheory.AST_ID_TYPE_def] >>
+  rw[] >> rw[semanticsExtraTheory.all_cns_def] >>
+  qmatch_abbrev_tac`all_cns x ⊆ s` >>
+  TRY (
+    qmatch_assum_abbrev_tac`LIST_TYPE B ll x` >>
+    Q.ISPEC_THEN`ll`(match_mp_tac o MP_CANON o GEN_ALL) LIST_TYPE_all_cns >>
+    map_every qexists_tac [`ll`,`B`] >> simp[] >>
+    rw[Abbr`B`] >>
+    fs[std_preludeTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def]) >>
+  METIS_TAC[])
+
+val COMPILER_COMPILER_STATE_TYPE_all_cns = prove(
+  ``∀x y. COMPILER_COMPILER_STATE_TYPE x y ∧
+    {SOME(Short"None");
+     SOME(Short"Some");
+     SOME(Short"Pair");
+     SOME(Short"nil");
+     SOME(Short"::");
+     SOME(Short"Short");
+     SOME(Short"Long");
+     SOME(Short"Compiler_state")
+    } ⊆ s
+  ⇒ all_cns y ⊆ s
+   ``,
+  Cases >> simp[ml_repl_stepTheory.COMPILER_COMPILER_STATE_TYPE_def,PULL_EXISTS] >>
+  PairCases_on`p` >>
+  simp[mini_preludeTheory.PAIR_TYPE_def,PULL_EXISTS,std_preludeTheory.FMAP_TYPE_def] >>
+  simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+  rpt strip_tac >>
+  rpt (
+    qmatch_abbrev_tac`all_cns x ⊆ s` >>
+    ((
+      qmatch_assum_abbrev_tac`LIST_TYPE A ll x` >>
+      Q.ISPEC_THEN`ll`(match_mp_tac o MP_CANON o GEN_ALL) LIST_TYPE_all_cns >>
+      map_every qexists_tac [`ll`,`A`] >> simp[] >>
+      rw[Abbr`A`]
+     ) ORELSE (
+      qmatch_assum_abbrev_tac`PAIR_TYPE A B ll x` >>
+      Q.ISPEC_THEN`ll`(match_mp_tac o MP_CANON o GEN_ALL) PAIR_TYPE_all_cns >>
+      map_every qexists_tac [`ll`,`B`,`A`] >> simp[] >>
+      rw[Abbr`A`,Abbr`B`]
+     ) ORELSE (
+      qmatch_assum_abbrev_tac`OPTION_TYPE A ll x` >>
+      Q.ISPEC_THEN`ll`(match_mp_tac o MP_CANON o GEN_ALL) OPTION_TYPE_all_cns >>
+      map_every qexists_tac [`ll`,`A`] >> simp[] >>
+      rw[Abbr`A`]
+     ) ORELSE (
+      qmatch_assum_abbrev_tac`AST_ID_TYPE A ll x` >>
+      Q.ISPEC_THEN`ll`(match_mp_tac o MP_CANON o GEN_ALL) AST_ID_TYPE_all_cns >>
+      map_every qexists_tac [`ll`,`A`] >> simp[] >>
+      rw[Abbr`A`]
+     )) >>
+    fs[std_preludeTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+    unabbrev_all_tac ))
+
+val AST_TC0_TYPE_all_cns = prove(
+  ``∀x y. AST_TC0_TYPE x y ∧
+    {SOME(Short"Tc_exn");
+     SOME(Short"Tc_tup");
+     SOME(Short"Tc_fn");
+     SOME(Short"Tc_ref");
+     SOME(Short"Tc_unit");
+     SOME(Short"Tc_bool");
+     SOME(Short"Tc_int");
+     SOME(Short"Tc_name");
+     SOME(Short"nil");
+     SOME(Short"::");
+     SOME(Short"Short");
+     SOME(Short"Long")
+    } ⊆ s
+  ⇒ all_cns y ⊆ s``,
+  Cases >> simp[ml_repl_stepTheory.AST_TC0_TYPE_def] >>
+  rw[] >> rw[semanticsExtraTheory.all_cns_def] >>
+  qmatch_abbrev_tac`all_cns x ⊆ s` >>
+  qmatch_assum_abbrev_tac`AST_ID_TYPE A ll x` >>
+  Q.ISPEC_THEN`ll`(match_mp_tac o MP_CANON o GEN_ALL) AST_ID_TYPE_all_cns >>
+  map_every qexists_tac [`ll`,`A`] >> simp[] >>
+  rw[Abbr`A`] >>
+  unabbrev_all_tac >>
+  qmatch_abbrev_tac`all_cns x ⊆ s` >>
+  qmatch_assum_abbrev_tac`LIST_TYPE A ll x` >>
+  Q.ISPEC_THEN`ll`(match_mp_tac o MP_CANON o GEN_ALL) LIST_TYPE_all_cns >>
+  map_every qexists_tac [`ll`,`A`] >> simp[] >>
+  rw[Abbr`A`] >>
+  fs[std_preludeTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def])
+
+val UNIFY_INFER_T_TYPE_all_cns = prove(
+  ``∀x y. UNIFY_INFER_T_TYPE x y ∧
+    {SOME(Short"Infer_tuvar");
+     SOME(Short"Infer_tapp");
+     SOME(Short"Infer_tvar_db");
+     SOME(Short"Tc_exn");
+     SOME(Short"Tc_tup");
+     SOME(Short"Tc_fn");
+     SOME(Short"Tc_ref");
+     SOME(Short"Tc_unit");
+     SOME(Short"Tc_bool");
+     SOME(Short"Tc_int");
+     SOME(Short"Tc_name");
+     SOME(Short"nil");
+     SOME(Short"::");
+     SOME(Short"Short");
+     SOME(Short"Long")
+    } ⊆ s
+  ⇒ all_cns y ⊆ s``,
+  HO_MATCH_MP_TAC infer_t_ind >>
+  simp[ml_repl_stepTheory.UNIFY_INFER_T_TYPE_def] >>
+  rw[] >> rw[semanticsExtraTheory.all_cns_def] >>
+  fs[std_preludeTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+  qmatch_abbrev_tac`all_cns x ⊆ s` >>
+  TRY (
+    qmatch_assum_abbrev_tac`AST_TC0_TYPE ll x` >>
+    Q.ISPEC_THEN`ll`(match_mp_tac o MP_CANON o GEN_ALL) AST_TC0_TYPE_all_cns >>
+    qexists_tac`ll` >> rw[] ) >>
+  qmatch_assum_abbrev_tac`LIST_TYPE A ll x` >>
+  Q.ISPEC_THEN`ll`(match_mp_tac o MP_CANON o GEN_ALL) LIST_TYPE_all_cns >>
+  map_every qexists_tac [`ll`,`A`] >> simp[] >>
+  rw[Abbr`A`] >>
+  fs[EVERY_MEM] >> METIS_TAC[])
+
+val AST_T_TYPE_all_cns = prove(
+  ``∀x y. AST_T_TYPE x y ∧
+    {SOME(Short"Tvar");
+     SOME(Short"Tvar_db");
+     SOME(Short"Tapp");
+     SOME(Short"Tc_exn");
+     SOME(Short"Tc_tup");
+     SOME(Short"Tc_fn");
+     SOME(Short"Tc_ref");
+     SOME(Short"Tc_unit");
+     SOME(Short"Tc_bool");
+     SOME(Short"Tc_int");
+     SOME(Short"Tc_name");
+     SOME(Short"nil");
+     SOME(Short"::");
+     SOME(Short"Short");
+     SOME(Short"Long")
+    } ⊆ s
+  ⇒ all_cns y ⊆ s``,
+  HO_MATCH_MP_TAC t_ind >>
+  simp[ml_repl_stepTheory.AST_T_TYPE_def] >>
+  rw[] >> rw[semanticsExtraTheory.all_cns_def] >>
+  fs[std_preludeTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+  qmatch_abbrev_tac`all_cns z ⊆ s` >>
+  TRY (
+    qmatch_assum_abbrev_tac`AST_TC0_TYPE ll z` >>
+    Q.ISPEC_THEN`ll`(match_mp_tac o MP_CANON o GEN_ALL) AST_TC0_TYPE_all_cns >>
+    qexists_tac`ll` >> rw[] ) >>
+  qmatch_assum_abbrev_tac`LIST_TYPE A ll z` >>
+  Q.ISPEC_THEN`ll`(match_mp_tac o MP_CANON o GEN_ALL) LIST_TYPE_all_cns >>
+  map_every qexists_tac [`ll`,`A`] >> simp[] >>
+  rw[Abbr`A`] >>
+  fs[std_preludeTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+  fs[EVERY_MEM] >> METIS_TAC[])
+
+val SEMANTICPRIMITIVES_TID_OR_EXN_TYPE_all_cns = prove(
+  ``∀x y. SEMANTICPRIMITIVES_TID_OR_EXN_TYPE x y ∧
+    {SOME(Short"Typeid");
+     SOME(Short"Typeexn");
+     SOME(Short"nil");
+     SOME(Short"::");
+     SOME(Short"Short");
+     SOME(Short"Long")
+     } ⊆ s
+  ⇒ all_cns y ⊆ s``,
+  Cases >>
+  simp[ml_repl_stepTheory.SEMANTICPRIMITIVES_TID_OR_EXN_TYPE_def] >>
+  rw[] >> rw[semanticsExtraTheory.all_cns_def] >>
+  qmatch_abbrev_tac`all_cns z ⊆ s` >>
+  qmatch_assum_abbrev_tac`AST_ID_TYPE A ll x` >>
+  Q.ISPEC_THEN`ll`(match_mp_tac o MP_CANON o GEN_ALL) AST_ID_TYPE_all_cns >>
+  map_every qexists_tac [`ll`,`A`] >> simp[] >>
+  rw[Abbr`A`] >>
+  unabbrev_all_tac >>
+  qmatch_abbrev_tac`all_cns z ⊆ s` >>
+  qmatch_assum_abbrev_tac`LIST_TYPE A ll z` >>
+  Q.ISPEC_THEN`ll`(match_mp_tac o MP_CANON o GEN_ALL) LIST_TYPE_all_cns >>
+  map_every qexists_tac [`ll`,`A`] >> simp[] >>
+  rw[Abbr`A`] >>
+  fs[std_preludeTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] )
+
+val REPL_FUN_REPL_FUN_STATE_TYPE_all_cns = prove(
+  ``∀x y. REPL_FUN_REPL_FUN_STATE_TYPE x y ∧
+    {SOME(Short"None");
+     SOME(Short"Some");
+     SOME(Short"Pair");
+     SOME(Short"nil");
+     SOME(Short"::");
+     SOME(Short"Typeid");
+     SOME(Short"Typeexn");
+     SOME(Short"Tvar");
+     SOME(Short"Tvar_db");
+     SOME(Short"Tapp");
+     SOME(Short"Infer_tuvar");
+     SOME(Short"Infer_tapp");
+     SOME(Short"Infer_tvar_db");
+     SOME(Short"Short");
+     SOME(Short"Long");
+     SOME(Short"Tc_exn");
+     SOME(Short"Tc_tup");
+     SOME(Short"Tc_fn");
+     SOME(Short"Tc_ref");
+     SOME(Short"Tc_unit");
+     SOME(Short"Tc_bool");
+     SOME(Short"Tc_int");
+     SOME(Short"Tc_name");
+     SOME(Short"Compiler_state");
+     SOME(Short"Repl_fun_state")
+    } ⊆ s
+  ⇒ all_cns y ⊆ s``,
+  Cases >>
+  PairCases_on`p0`>>
+  PairCases_on`p`>>
+  simp[ml_repl_stepTheory.REPL_FUN_REPL_FUN_STATE_TYPE_def] >>
+  simp[semanticsExtraTheory.all_cns_def,PULL_EXISTS,mini_preludeTheory.PAIR_TYPE_def] >>
+  rw[] >>
+  TRY (
+    MATCH_MP_TAC (MP_CANON COMPILER_COMPILER_STATE_TYPE_all_cns) >>
+    qexists_tac`c` >> rw[] >> NO_TAC) >>
+  rpt (
+    qmatch_abbrev_tac`all_cns x ⊆ s` >>
+    ((
+      qmatch_assum_abbrev_tac`LIST_TYPE A ll x` >>
+      Q.ISPEC_THEN`ll`(match_mp_tac o MP_CANON o GEN_ALL) LIST_TYPE_all_cns >>
+      map_every qexists_tac [`ll`,`A`] >> simp[] >>
+      rw[Abbr`A`]
+     ) ORELSE (
+      qmatch_assum_abbrev_tac`PAIR_TYPE A B ll x` >>
+      Q.ISPEC_THEN`ll`(match_mp_tac o MP_CANON o GEN_ALL) PAIR_TYPE_all_cns >>
+      map_every qexists_tac [`ll`,`B`,`A`] >> simp[] >>
+      rw[Abbr`A`,Abbr`B`]
+     ) ORELSE (
+      qmatch_assum_abbrev_tac`OPTION_TYPE A ll x` >>
+      Q.ISPEC_THEN`ll`(match_mp_tac o MP_CANON o GEN_ALL) OPTION_TYPE_all_cns >>
+      map_every qexists_tac [`ll`,`A`] >> simp[] >>
+      rw[Abbr`A`]
+     ) ORELSE (
+      qmatch_assum_abbrev_tac`AST_ID_TYPE A ll x` >>
+      Q.ISPEC_THEN`ll`(match_mp_tac o MP_CANON o GEN_ALL) AST_ID_TYPE_all_cns >>
+      map_every qexists_tac [`ll`,`A`] >> simp[] >>
+      rw[Abbr`A`]
+     ) ORELSE (
+      qmatch_assum_abbrev_tac`AST_TC0_TYPE ll x` >>
+      Q.ISPEC_THEN`ll`(match_mp_tac o MP_CANON o GEN_ALL) AST_TC0_TYPE_all_cns >>
+      qexists_tac`ll` >> rw[]
+     ) ORELSE (
+      qmatch_assum_abbrev_tac`UNIFY_INFER_T_TYPE ll x` >>
+      Q.ISPEC_THEN`ll`(match_mp_tac o MP_CANON o GEN_ALL) UNIFY_INFER_T_TYPE_all_cns >>
+      qexists_tac`ll` >> rw[]
+     ) ORELSE (
+      qmatch_assum_abbrev_tac`AST_T_TYPE ll x` >>
+      Q.ISPEC_THEN`ll`(match_mp_tac o MP_CANON o GEN_ALL) AST_T_TYPE_all_cns >>
+      qexists_tac`ll` >> rw[]
+     ) ORELSE (
+      qmatch_assum_abbrev_tac`SEMANTICPRIMITIVES_TID_OR_EXN_TYPE ll x` >>
+      Q.ISPEC_THEN`ll`(match_mp_tac o MP_CANON o GEN_ALL) SEMANTICPRIMITIVES_TID_OR_EXN_TYPE_all_cns >>
+      qexists_tac`ll` >> rw[]
+     )) >>
+    fs[std_preludeTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+    unabbrev_all_tac ))
+
+val INPUT_TYPE_all_cns = prove(
+  ``INPUT_TYPE x y ∧
+    {SOME(Short"None");
+     SOME(Short"Some");
+     SOME(Short"Pair");
+     SOME(Short"nil");
+     SOME(Short"::");
+     SOME(Short"Typeid");
+     SOME(Short"Typeexn");
+     SOME(Short"Tvar");
+     SOME(Short"Tvar_db");
+     SOME(Short"Tapp");
+     SOME(Short"Infer_tuvar");
+     SOME(Short"Infer_tapp");
+     SOME(Short"Infer_tvar_db");
+     SOME(Short"Short");
+     SOME(Short"Long");
+     SOME(Short"Tc_exn");
+     SOME(Short"Tc_tup");
+     SOME(Short"Tc_fn");
+     SOME(Short"Tc_ref");
+     SOME(Short"Tc_unit");
+     SOME(Short"Tc_bool");
+     SOME(Short"Tc_int");
+     SOME(Short"Tc_name");
+     SOME(Short"Compiler_state");
      SOME(Short"Repl_fun_state");
-     })``,
+     SOME(Short"Errors");
+     SOME(Short"Others");
+     SOME(Short"Longs");
+     SOME(Short"Numbers");
+     SOME(Short"Strings")} ⊆ s
+  ⇒ all_cns y ⊆ s``,
   simp[INPUT_TYPE_def] >>
   Cases_on`x` >>
   simp[std_preludeTheory.OPTION_TYPE_def] >>
   rw[] >>
   simp[semanticsExtraTheory.all_cns_def] >>
-  qmatch_assum_rename_tac `PAIR_TYPE X Y s p`["X","Y"] >>
-  PairCases_on`s` >>
+  qmatch_assum_rename_tac `PAIR_TYPE X Y q p`["X","Y"] >>
+  PairCases_on`q` >>
   fs[mini_preludeTheory.PAIR_TYPE_def] >>
   rpt BasicProvers.VAR_EQ_TAC >>
   fs[ml_translatorTheory.BOOL_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
   fs[std_preludeTheory.FMAP_TYPE_def] >>
-  rpt BasicProvers.VAR_EQ_TAC >>
-  LEXER_FUN_SYMBOL_TYPE_def
-*)
+  rw[] >>
+  rpt (
+    qmatch_abbrev_tac`all_cns x ⊆ s` >>
+    ((
+      qmatch_assum_abbrev_tac`LIST_TYPE A ll x` >>
+      Q.ISPEC_THEN`ll`(match_mp_tac o MP_CANON o GEN_ALL) LIST_TYPE_all_cns >>
+      map_every qexists_tac [`ll`,`A`] >> simp[] >>
+      rw[Abbr`A`]
+     ) ORELSE (
+      qmatch_assum_abbrev_tac`PAIR_TYPE A B ll x` >>
+      Q.ISPEC_THEN`ll`(match_mp_tac o MP_CANON o GEN_ALL) PAIR_TYPE_all_cns >>
+      map_every qexists_tac [`ll`,`B`,`A`] >> simp[] >>
+      rw[Abbr`A`,Abbr`B`]
+     ) ORELSE (
+      qmatch_assum_abbrev_tac`LEXER_FUN_SYMBOL_TYPE ll x` >>
+      Q.ISPEC_THEN`ll`(match_mp_tac o MP_CANON o GEN_ALL) LEXER_FUN_SYMBOL_TYPE_all_cns >>
+      qexists_tac`ll` >> rw[]
+     ) ORELSE (
+      qmatch_assum_abbrev_tac`REPL_FUN_REPL_FUN_STATE_TYPE ll x` >>
+      Q.ISPEC_THEN`ll`(match_mp_tac o MP_CANON o GEN_ALL) REPL_FUN_REPL_FUN_STATE_TYPE_all_cns >>
+      qexists_tac`ll` >> rw[]
+     )) >>
+    fs[std_preludeTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+    unabbrev_all_tac ))
 
-val INPUT_TYPE_all_cns_repl_decs_cenv = prove(
+val INPUT_TYPE_all_cns_repl_decs_cenv = time prove(
   ``INPUT_TYPE x y ⇒ all_cns y ⊆ cenv_dom (repl_decs_cenv ++ init_envC)``,
-  simp[semanticsExtraTheory.cenv_dom_def,pred_setTheory.SUBSET_DEF] >>
-  strip_tac >>
-  (*
-  imp_res_tac INPUT_TYPE_all_cns
-  *)
-  cheat)
+  rw[] >>
+  imp_res_tac INPUT_TYPE_all_cns >>
+  first_x_assum MATCH_MP_TAC >>
+  simp[semanticsExtraTheory.cenv_dom_def,pred_setTheory.SUBSET_DEF,MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
+  simp[repl_decs_cenv_def] >>
+  simp[ml_repl_step_decls_cenv] >>
+  rw[] >>
+  REWRITE_TAC[decs_to_cenv_ml_repl_step_decls] >>
+  REWRITE_TAC[MEM,astTheory.id_11,pairTheory.PAIR_EQ] >>
+  EVAL_TAC >> simp[])
 
 val LIST_TYPE_all_locs = prove(
   ``∀x. (∀a v. MEM a x ∧ A a v ⇒ (all_locs v = {})) ⇒
