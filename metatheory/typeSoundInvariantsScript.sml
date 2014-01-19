@@ -18,13 +18,20 @@ val _ = new_theory "typeSoundInvariants"
 (* Store typing *)
 val _ = type_abbrev( "tenvS" , ``: (num, t) env``);
 
-(* Global constructor type environments keyed by constructor namd and type *)
+(* Global constructor type environments keyed by constructor name and type *)
 val _ = type_abbrev( "tenvCT" , ``: ((conN # tid_or_exn), ( tvarN list # t list)) env``);
+
+(*val flat_tenvC_ok : flat_tenvC -> bool*)
+val _ = Define `
+ (flat_tenvC_ok tenvC =  
+(EVERY (\ (cn,(tvs,ts,tn)) .  EVERY (check_freevars( 0) tvs) ts) tenvC))`;
+
 
 (*val tenvC_ok : tenvC -> bool*)
 val _ = Define `
- (tenvC_ok tenvC =  
-(EVERY (\ (cn,(tvs,ts,tn)) .  EVERY (check_freevars( 0) tvs) ts) tenvC))`;
+ (tenvC_ok (mtenvC, tenvC) =  
+(EVERY (\p .  (case (p ) of ( (_,tenvC) ) => flat_tenvC_ok tenvC )) mtenvC /\
+  flat_tenvC_ok tenvC))`;
 
 
 (*val tenvCT_ok : tenvCT -> bool*)
@@ -43,17 +50,17 @@ val _ = Define `
 (tenvC_ok tenvC /\  
 (tenvCT_ok tenvCT /\  
 ((! cn n t.    
-(lookup cn envC = SOME (n, t))
+(lookup_con_id cn envC = SOME (n, t))
     ==>    
 (? tvs ts.      
-(lookup cn tenvC = SOME (tvs, ts, t)) /\
+(lookup_con_id cn tenvC = SOME (tvs, ts, t)) /\
       ((lookup (id_to_n cn,t) tenvCT = SOME (tvs, ts)) /\      
 (LENGTH ts = n))))
   /\
   (! cn.    
-(lookup cn envC = NONE)
+(lookup_con_id cn envC = NONE)
     ==>    
-(lookup cn tenvC = NONE))))))`;
+(lookup_con_id cn tenvC = NONE))))))`;
 
 
 (* A value has a type *)
@@ -79,21 +86,28 @@ val _ = Define `
 (*val type_state : nat -> tenvCT -> tenvS -> state -> t -> bool*)
 (*val context_invariant : nat -> list ctxt -> nat -> bool*)
 
+                                                     (*
 (* Type programs without imposing signatures.  This is needed for the type
  * soundness proof *)
-(*val type_top_ignore_sig : tenvM -> tenvC -> tenvE -> top -> tenvM -> tenvC -> env varN (nat * t) -> bool*)
+val type_top_ignore_sig : tenvM -> tenvC -> tenvE -> top -> tenvM -> tenvC -> env varN (nat * t) -> bool
 
-val _ = Hol_reln ` (! menv cenv tenv d cenv' tenv'.
-(type_d NONE menv cenv tenv d cenv' tenv')
+indreln
+[type_top_ignore_sig : tenvM -> tenvC -> tenvE -> top -> tenvM -> tenvC -> env varN (nat * t) -> bool]
+
+dec : forall menv cenv tenv d cenv' tenv'.
+type_d Nothing menv cenv tenv d cenv' tenv'
 ==>
-type_top_ignore_sig menv cenv tenv (Tdec d) emp cenv' tenv')
+type_top_ignore_sig menv cenv tenv (Tdec d) emp cenv' tenv'
 
-/\ (! menv cenv tenv mn spec ds cenv' tenv'.
- (~ (MEM mn (MAP FST menv)) /\
-type_ds (SOME mn) menv cenv tenv ds cenv' tenv')
+and
+
+md : forall menv cenv tenv mn spec ds cenv' tenv'. 
+not (List.elem mn (List.map fst menv)) &&
+type_ds (Just mn) menv cenv tenv ds cenv' tenv'
 ==>
-type_top_ignore_sig menv cenv tenv (Tmod mn spec ds) [(mn,tenv')] (add_mod_prefix mn cenv') emp)`;
+type_top_ignore_sig menv cenv tenv (Tmod mn spec ds) [(mn,tenv')] (add_mod_prefix mn cenv') emp
 
+                                                      *)
  val _ = Define `
  
 (tenv_ok Empty = T)
@@ -329,7 +343,7 @@ type_ctxt tvs menv all_cenv cenv senv tenv (Clet n ()  e) t1 t2)
 (type_vs tvs all_cenv senv (REVERSE vs)
         (MAP (type_subst (ZIP (tvs', ts'))) ts1) /\
 (type_es menv cenv (bind_tvar tvs tenv) es (MAP (type_subst (ZIP (tvs', ts'))) ts2) /\
-(lookup cn cenv = SOME (tvs', ((ts1++[t])++ts2), tn))))))
+(lookup_con_id cn cenv = SOME (tvs', ((ts1++[t])++ts2), tn))))))
 ==>
 type_ctxt tvs menv all_cenv cenv senv tenv (Ccon (SOME cn) vs ()  es) (type_subst (ZIP (tvs', ts')) t)
           (Tapp ts' (tid_exn_to_tc tn)))

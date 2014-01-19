@@ -17,10 +17,11 @@ val _ = new_theory "initialEnv"
 
 (*val init_envC : envC*)
 val _ = Define `
- (init_envC =  
-((Short "nil", ( 0, TypeId (Short "list"))) ::  
-((Short "::", ( 2, TypeId (Short "list"))) ::
-  MAP (\ cn .  (Short cn, ( 0, TypeExn NONE))) ["Bind"; "Div"; "Eq"])))`;
+ (init_envC =
+  (emp,   
+(("nil", ( 0, TypeId (Short "list"))) ::   
+(("::", ( 2, TypeId (Short "list"))) ::
+   MAP (\ cn .  (cn, ( 0, TypeExn NONE))) ["Bind"; "Div"; "Eq"]))))`;
 
 
 (*val init_env : envE*)
@@ -66,10 +67,11 @@ val _ = Define `
 
 (*val init_tenvC : tenvC*)
 val _ = Define `
- (init_tenvC =  
-((Short "nil", (["'a"], [], TypeId (Short "list"))) ::  
-((Short "::", (["'a"], [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))], TypeId (Short "list"))) ::
-  MAP (\ cn .  (Short cn, ([], [], TypeExn NONE))) ["Bind"; "Div"; "Eq"])))`;
+ (init_tenvC =
+  (emp,   
+(("nil", (["'a"], [], TypeId (Short "list"))) ::   
+(("::", (["'a"], [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))], TypeId (Short "list"))) ::
+   MAP (\ cn .  (cn, ([], [], TypeExn NONE))) ["Bind"; "Div"; "Eq"]))))`;
 
 
 (*val init_type_bindings : tdef_env*)

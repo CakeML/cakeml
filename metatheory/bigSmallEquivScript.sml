@@ -460,11 +460,12 @@ val small_eval_match_thm = Q.prove (
       cases_on `e'`] >>
      fs [alt_small_eval_def] >>
      rw [Once RTC_CASES1, e_step_reln_def] >>
-     PairCases_on `env` >>
+     `?menv cenv envE. env = (menv,cenv,envE)` by (PairCases_on `env` >> metis_tac []) >>
      fs [all_env_to_cenv_def, all_env_to_env_def] >|
      [rw [e_step_def, push_def, continue_def] >>
           metis_tac [],
-      pop_assum (ASSUME_TAC o Q.SPEC `(env0,env1,env2')`) >>
+      rw [] >>
+          pop_assum (ASSUME_TAC o Q.SPEC `(menv,cenv,envE)`) >>
           fs [] >>
           qexists_tac `env'` >>
           qexists_tac `e'` >>

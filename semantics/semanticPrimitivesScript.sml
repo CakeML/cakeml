@@ -22,7 +22,14 @@ val _ = Hol_datatype `
 
 
 (* Maps each constructor to its arity and which type it is from *)
-val _ = type_abbrev( "envC" , ``: (( conN id), (num # tid_or_exn)) env``);
+val _ = type_abbrev( "flat_envC" , ``: (conN, (num # tid_or_exn)) env``);
+val _ = type_abbrev( "envC" , ``: (modN, flat_envC) env # flat_envC``);
+
+(*val merge_envC : envC -> envC -> envC*)
+val _ = Define `
+ (merge_envC (mcenv1,cenv1) (mcenv2,cenv2) = 
+  (merge mcenv1 mcenv2, merge cenv1 cenv2))`;
+
 
 (* Value forms *)
 val _ = Hol_datatype `
@@ -118,6 +125,19 @@ val _ = Define `
   )))`;
 
 
+(*val lookup_con_id : forall 'a. id conN -> env modN (env conN 'a) * env conN 'a -> maybe 'a*)
+val _ = Define `
+ (lookup_con_id id (mcenv,cenv) =  
+((case id of
+      Short x => lookup x cenv
+    | Long x y =>
+        (case lookup x mcenv of
+            NONE => NONE
+          | SOME cenv => lookup y cenv
+        )
+  )))`;
+
+
 (* Other primitives *)
 (* Check that a constructor is properly applied *)
 (*val do_con_check : envC -> maybe (id conN) -> nat -> bool*)
@@ -126,7 +146,7 @@ val _ = Define `
 ((case n_opt of
       NONE => T
     | SOME n =>
-        (case lookup n cenv of
+        (case lookup_con_id n cenv of
             NONE => F
           | SOME (l',ns) => l = l'
         )
@@ -140,7 +160,7 @@ val _ = Define `
       NONE => 
         SOME (Conv NONE vs)
     | SOME id => 
-        (case lookup id envC of
+        (case lookup_con_id id envC of
             NONE => NONE
           | SOME (len,t) => SOME (Conv (SOME (id_to_n id, t)) vs)
         )
@@ -200,7 +220,7 @@ val _ = Hol_datatype `
     Match_type_error))
 /\
 (pmatch envC s (Pcon (SOME n) ps) (Conv (SOME (n', t')) vs) env =  
-((case lookup n envC of
+((case lookup_con_id n envC of
       SOME (l, t)=>
         if same_tid t t' /\ (LENGTH ps = l) then
           if same_ctor (id_to_n n, t) (n',t') then
@@ -348,7 +368,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (*val exn_env : all_env*)
 val _ = Define `
- (exn_env = (emp, MAP (\ cn .  (Short cn, ( 0, TypeExn NONE))) ["Bind"; "Div"; "Eq"], emp))`;
+ (exn_env = (emp, (emp, MAP (\ cn .  (cn, ( 0, TypeExn NONE))) ["Bind"; "Div"; "Eq"]), emp))`;
 
                    
 (* Do an application *)
@@ -411,8 +431,8 @@ val _ = Define `
 
 (* Semantic helpers for definitions *)
 
-(* Add the given type definition to the given constructor environment *)
-(*val build_tdefs : maybe modN -> list (list tvarN * typeN * list (conN * list t)) -> envC*)
+(* Build a constructor environment for the type definition tds *)
+(*val build_tdefs : maybe modN -> list (list tvarN * typeN * list (conN * list t)) -> flat_envC*)
 val _ = Define `
  (build_tdefs mn tds =  
 (FLAT
@@ -420,7 +440,7 @@ val _ = Define `
       (\ (tvs, tn, condefs) . 
          MAP
            (\ (conN, ts) . 
-              (Short conN, (LENGTH ts, TypeId (mk_id mn tn))))
+              (conN, (LENGTH ts, TypeId (mk_id mn tn))))
            condefs)
       tds)))`;
 
@@ -454,22 +474,13 @@ val _ = Define `
   )))`;
 
 
-(*val add_mod_prefix : forall 'a 'b. modN -> env (id 'a) 'b -> env (id 'a) 'b*)
- val _ = Define `
- (add_mod_prefix mn [] = ([]))
-/\
-(add_mod_prefix mn ((Short x, v)::env) = ((Long mn x, v) :: add_mod_prefix mn env))
-/\
-(add_mod_prefix mn ((Long mn' x, v)::env) = ((Long mn' x, v) :: add_mod_prefix mn env))`;
-
-
 (* Constructor environment implied by declarations *)
 
  val _ = Define `
 
 (dec_to_cenv mn (Dtype tds) = (build_tdefs mn tds))
 /\
-(dec_to_cenv mn (Dexn cn ts) = (bind (Short cn) (LENGTH ts,TypeExn mn) emp))
+(dec_to_cenv mn (Dexn cn ts) = (bind cn (LENGTH ts,TypeExn mn) emp))
 /\
 (dec_to_cenv mn _ = ([]))`;
 
@@ -481,11 +492,12 @@ val _ = Define `
 (decs_to_cenv mn (d::ds) = (decs_to_cenv mn ds ++ dec_to_cenv mn d))`;
 
 
+(*val top_to_cenv : top -> envC*)
  val _ = Define `
 
-(top_to_cenv (Tdec d) = (dec_to_cenv NONE d))
+(top_to_cenv (Tdec d) = (emp, dec_to_cenv NONE d))
 /\
-(top_to_cenv (Tmod mn _ ds) = (decs_to_cenv (SOME mn) ds))`;
+(top_to_cenv (Tmod mn _ ds) = ([(mn,decs_to_cenv (SOME mn) ds)], emp))`;
 
 
 (* conversions to strings *)

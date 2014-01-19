@@ -10,7 +10,12 @@ type tid_or_exn =
   | TypeExn of maybe modN
 
 (* Maps each constructor to its arity and which type it is from *)
-type envC = env (id conN) (nat * tid_or_exn)
+type flat_envC = env conN (nat * tid_or_exn)
+type envC = env modN flat_envC * flat_envC
+
+val merge_envC : envC -> envC -> envC
+let merge_envC (mcenv1,cenv1) (mcenv2,cenv2) = 
+  (merge mcenv1 mcenv2, merge cenv1 cenv2)
 
 (* Value forms *)
 type v =
@@ -84,6 +89,17 @@ let lookup_var_id id (menv,cenv,env) =
         end
   end
 
+val lookup_con_id : forall 'a. id conN -> env modN (env conN 'a) * env conN 'a -> maybe 'a
+let lookup_con_id id (mcenv,cenv) =
+  match id with
+    | Short x -> lookup x cenv
+    | Long x y ->
+        match lookup x mcenv with
+          | Nothing -> Nothing
+          | Just cenv -> lookup y cenv
+        end
+  end
+
 (* Other primitives *)
 (* Check that a constructor is properly applied *)
 val do_con_check : envC -> maybe (id conN) -> nat -> bool
@@ -91,7 +107,7 @@ let do_con_check cenv n_opt l =
   match n_opt with
     | Nothing -> true
     | Just n ->
-        match lookup n cenv with
+        match lookup_con_id n cenv with
           | Nothing -> false
           | Just (l',ns) -> l = l'
         end
@@ -103,7 +119,7 @@ let build_conv envC cn vs =
     | Nothing -> 
         Just (Conv Nothing vs)
     | Just id -> 
-        match lookup id envC with
+        match lookup_con_id id envC with
           | Nothing -> Nothing
           | Just (len,t) -> Just (Conv (Just (id_to_n id, t)) vs)
         end
@@ -153,7 +169,7 @@ pmatch envC s (Plit l) (Litv l') env =
     Match_type_error
 and
 pmatch envC s (Pcon (Just n) ps) (Conv (Just (n', t')) vs) env =
-  match lookup n envC with
+  match lookup_con_id n envC with
     | Just (l, t)->
         if same_tid t t' && List.length ps = l then
           if same_ctor (id_to_n n, t) (n',t') then
@@ -286,7 +302,7 @@ and
 do_eq_list _ _ = Eq_val false
 
 val exn_env : all_env
-let exn_env = (emp, List.map (fun cn -> (Short cn, (0, TypeExn Nothing))) ["Bind"; "Div"; "Eq"], emp)
+let exn_env = (emp, (emp, List.map (fun cn -> (cn, (0, TypeExn Nothing))) ["Bind"; "Div"; "Eq"]), emp)
                    
 (* Do an application *)
 val do_app : all_env -> store v -> op -> v -> v -> maybe (all_env * store v * exp)
@@ -342,15 +358,15 @@ let do_if v e1 e2 =
 
 (* Semantic helpers for definitions *)
 
-(* Add the given type definition to the given constructor environment *)
-val build_tdefs : maybe modN -> list (list tvarN * typeN * list (conN * list t)) -> envC
+(* Build a constructor environment for the type definition tds *)
+val build_tdefs : maybe modN -> list (list tvarN * typeN * list (conN * list t)) -> flat_envC
 let build_tdefs mn tds =
   concat
     (List.map
       (fun (tvs, tn, condefs) ->
          List.map
            (fun (conN, ts) ->
-              (Short conN, (List.length ts, TypeId (mk_id mn tn))))
+              (conN, (List.length ts, TypeId (mk_id mn tn))))
            condefs)
       tds)
 
@@ -373,21 +389,12 @@ let combine_mod_result menv env r =
     | Rval (menv',env') -> Rval (merge menv' menv, merge env' env)
   end
 
-val add_mod_prefix : forall 'a 'b. modN -> env (id 'a) 'b -> env (id 'a) 'b
-let rec add_mod_prefix mn [] = []
-and
-add_mod_prefix mn ((Short x, v)::env) = (Long mn x, v) :: add_mod_prefix mn env
-and
-add_mod_prefix mn ((Long mn' x, v)::env) = (Long mn' x, v) :: add_mod_prefix mn env
-
-declare termination_argument add_mod_prefix = automatic
-
 (* Constructor environment implied by declarations *)
 
 let rec
 dec_to_cenv mn (Dtype tds) = build_tdefs mn tds
 and
-dec_to_cenv mn (Dexn cn ts) = bind (Short cn) (List.length ts,TypeExn mn) emp
+dec_to_cenv mn (Dexn cn ts) = bind cn (List.length ts,TypeExn mn) emp
 and
 dec_to_cenv mn _ = []
 
@@ -398,10 +405,11 @@ decs_to_cenv mn (d::ds) = decs_to_cenv mn ds ++ dec_to_cenv mn d
 
 declare termination_argument decs_to_cenv = automatic
 
+val top_to_cenv : top -> envC
 let rec
-top_to_cenv (Tdec d) = dec_to_cenv Nothing d
+top_to_cenv (Tdec d) = (emp, dec_to_cenv Nothing d)
 and
-top_to_cenv (Tmod mn _ ds) = decs_to_cenv (Just mn) ds
+top_to_cenv (Tmod mn _ ds) = ([(mn,decs_to_cenv (Just mn) ds)], emp)
 
 (* conversions to strings *)
 

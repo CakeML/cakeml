@@ -430,10 +430,11 @@ rw [] >>
 `exp_size e < exp_size (Mat e' ((p,e)::l)) ∧
  exp_size (Mat e' l) < exp_size (Mat e' ((p,e)::l))`
          by srw_tac [ARITH_ss] [exp_size_def] >>
-PairCases_on `env` >>
-`(pmatch env1 s p v env2 = Match_type_error) ∨ 
- (pmatch env1 s p v env2 = No_match) ∨ 
- (?env'. pmatch env1 s p v env2 = Match env')`
+`?menv cenv envE. env = (menv,cenv,envE)` by (PairCases_on `env` >> metis_tac []) >>
+rw [] >>
+`(pmatch cenv s p v envE = Match_type_error) ∨ 
+ (pmatch cenv s p v envE = No_match) ∨ 
+ (?env'. pmatch cenv s p v envE = Match env')`
             by metis_tac [match_result_nchotomy] >>
 rw [] >>
 metis_tac [arithmeticTheory.LESS_TRANS]);
@@ -456,10 +457,11 @@ rw [] >>
 `exp_size e < exp_size (Handle e' ((p,e)::l)) ∧
  exp_size (Handle e' l) < exp_size (Handle e' ((p,e)::l))`
          by srw_tac [ARITH_ss] [exp_size_def] >>
-PairCases_on `env` >>
-`(pmatch env1 s p v env2 = Match_type_error) ∨ 
- (pmatch env1 s p v env2 = No_match) ∨ 
- (?env'. pmatch env1 s p v env2 = Match env')`
+`?menv cenv envE. env = (menv,cenv,envE)` by (PairCases_on `env` >> metis_tac []) >>
+rw [] >>
+`(pmatch cenv s p v envE = Match_type_error) ∨ 
+ (pmatch cenv s p v envE = No_match) ∨ 
+ (?env'. pmatch cenv s p v envE = Match env')`
             by metis_tac [match_result_nchotomy] >>
 rw [] >>
 metis_tac [arithmeticTheory.LESS_TRANS]);
@@ -479,7 +481,7 @@ val big_clocked_total_lem = Q.prove (
  rw [] >>
  `?count e. count_e = (count,e)` by (PairCases_on `count_e` >> fs []) >>
  rw [] >>
- fs [FORALL_PROD, LEX_DEF_THM] >>
+ fs [Once FORALL_PROD, LEX_DEF_THM] >>
  cases_on `e` >>
  rw [Once evaluate_cases] 
  >- ((* Raise *)
@@ -487,14 +489,15 @@ val big_clocked_total_lem = Q.prove (
      metis_tac [result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, pair_CASES])
  >- ((* Handle *)
      `exp_size e' < exp_size (Handle e' l)` by srw_tac [ARITH_ss] [exp_size_def] >>
-     PairCases_on `env` >>
-     `?count1 s1 r1. evaluate T (env0,env1,env2) (count',s) e' ((count1,s1),r1)` by metis_tac [] >>
+     `?menv mcenv cenv envE. env = (menv,(mcenv,cenv),envE)` by (PairCases_on `env` >> metis_tac []) >>
+     rw [] >>
+     `?count1 s1 r1. evaluate T (menv,(mcenv,cenv),envE) (count',s) e' ((count1,s1),r1)` by metis_tac [] >>
      `(?err. r1 = Rerr err) ∨ (?v. r1 = Rval v)` by (cases_on `r1` >> metis_tac []) >>
      rw [] 
      >- (cases_on `err` >>
          fs [] >-
          metis_tac [] >-
-         (`?count2 s2 r2. evaluate_match T (env0,env1,env2) (count1,s1) a l a ((count2,s2),r2)`
+         (`?count2 s2 r2. evaluate_match T (menv,(mcenv,cenv),envE) (count1,s1) a l a ((count2,s2),r2)`
                   by metis_tac [eval_handle_total, arithmeticTheory.LESS_TRANS, 
                                 clock_monotone, arithmeticTheory.LESS_OR_EQ, pair_CASES] >>
           metis_tac []) >-
@@ -515,10 +518,11 @@ val big_clocked_total_lem = Q.prove (
      `exp_size e' < exp_size (App o' e' e0) ∧
       exp_size e0 < exp_size (App o' e' e0)`
             by srw_tac [ARITH_ss] [exp_size_def] >>
-     PairCases_on `env` >>
-     `?count1 s1 r1. evaluate T (env0,env1,env2) (count',s) e' ((count1,s1),r1)`
+     `?menv mcenv cenv envE. env = (menv,(mcenv,cenv),envE)` by (PairCases_on `env` >> metis_tac []) >>
+     rw [] >>
+     `?count1 s1 r1. evaluate T (menv,(mcenv,cenv),envE) (count',s) e' ((count1,s1),r1)`
             by metis_tac [] >>
-     `?count2 s2 r2. evaluate T (env0,env1,env2) (count1,s1) e0 ((count2,s2),r2)`
+     `?count2 s2 r2. evaluate T (menv,(mcenv,cenv),envE) (count1,s1) e0 ((count2,s2),r2)`
             by metis_tac [clock_monotone, arithmeticTheory.LESS_OR_EQ] >>
      `(?err. r1 = Rerr err) ∨ (?v. r1 = Rval v)` by (cases_on `r1` >> metis_tac []) >>
      rw [] >-
@@ -526,7 +530,7 @@ val big_clocked_total_lem = Q.prove (
      `(?err. r2 = Rerr err) ∨ (?v. r2 = Rval v)` by (cases_on `r2` >> metis_tac []) >>
      rw [] >-
      metis_tac [clock_monotone, arithmeticTheory.LESS_OR_EQ] >>
-     `(do_app (env0,env1,env2) s2 o' v v' = NONE) ∨ (?s3 env' e2. do_app (env0,env1,env2) s2 o' v v' = SOME (s3,env',e2))`
+     `(do_app (menv,(mcenv,cenv),envE) s2 o' v v' = NONE) ∨ (?s3 env' e2. do_app (menv,(mcenv,cenv),envE) s2 o' v v' = SOME (s3,env',e2))`
                 by metis_tac [optionTheory.option_nchotomy, pair_CASES] >-
      metis_tac [] >>
      cases_on `o' = Opapp` >|
@@ -586,9 +590,10 @@ val big_clocked_total_lem = Q.prove (
      `(?err. r1 = Rerr err) ∨ (?v. r1 = Rval v)` by (cases_on `r1` >> metis_tac []) >>
      rw [] >-
      metis_tac [] >>
-     `?count2 s2 r2. evaluate_match T env (count1,s1) v l (Conv (SOME ("Bind", TypeExn NONE)) []) ((count2,s2),r2)`
-               by metis_tac [eval_match_total, arithmeticTheory.LESS_TRANS, 
-                             pair_CASES, clock_monotone, arithmeticTheory.LESS_OR_EQ] >>
+     `?s2 count2 r2. evaluate_match T env (count1,s1) v l (Conv (SOME ("Bind", TypeExn NONE)) []) ((count2,s2),r2)`
+               by (match_mp_tac eval_match_total >>
+                   metis_tac [arithmeticTheory.LESS_TRANS,
+                              pair_CASES, clock_monotone, arithmeticTheory.LESS_OR_EQ]) >>
      metis_tac [])
  >- ((* Let *)
      `exp_size e' < exp_size (Let s' e' e0) ∧

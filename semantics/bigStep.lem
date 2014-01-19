@@ -345,7 +345,7 @@ not (all_distinct (pat_bindings p []))
 ==>
 evaluate_match ck env s v ((p,e)::pes) err_v (s, Rerr Rtype_error)
 
-indreln [evaluate_dec : maybe modN -> all_env -> store v -> dec -> store v * result (envC * envE) v -> bool]
+indreln [evaluate_dec : maybe modN -> all_env -> store v -> dec -> store v * result (flat_envC * envE) v -> bool]
 
 dlet1 : forall mn env p e v env' s1 s2 count.
 evaluate false env (0,s1) e ((count,s2), Rval v) &&
@@ -420,9 +420,9 @@ and
 dexn1 : forall mn env cn ts s.
 true
 ==>
-evaluate_dec mn env s (Dexn cn ts) (s, Rval (bind (Short cn) (List.length ts, TypeExn mn) emp, emp))
+evaluate_dec mn env s (Dexn cn ts) (s, Rval (bind cn (List.length ts, TypeExn mn) emp, emp))
 
-indreln [evaluate_decs : maybe modN -> all_env -> store v -> list dec -> store v * envC * result envE v -> bool]
+indreln [evaluate_decs : maybe modN -> all_env -> store v -> list dec -> store v * flat_envC * result envE v -> bool]
 
 empty : forall mn env s.
 true
@@ -440,7 +440,7 @@ and
 
 cons2 : forall mn s1 s2 s3 menv cenv env d ds new_tds' new_tds new_env r.
 evaluate_dec mn (menv,cenv,env) s1 d (s2, Rval (new_tds,new_env)) &&
-evaluate_decs mn (menv, merge new_tds cenv, merge new_env env) s2 ds (s3, new_tds', r)
+evaluate_decs mn (menv, merge_envC (emp,new_tds) cenv, merge new_env env) s2 ds (s3, new_tds', r)
 ==>
 evaluate_decs mn (menv,cenv,env) s1 (d::ds) (s3, merge new_tds' new_tds, combine_dec_result new_env r)
 
@@ -449,14 +449,14 @@ indreln [evaluate_top : all_env -> store v -> top -> store v * envC * result (en
 tdec1 : forall s1 s2 env d new_tds new_env.
 evaluate_dec Nothing env s1 d (s2, Rval (new_tds, new_env))
 ==>
-evaluate_top env s1 (Tdec d) (s2, new_tds, Rval (emp, new_env))
+evaluate_top env s1 (Tdec d) (s2, (emp,new_tds), Rval (emp, new_env))
 
 and
 
 tdec2 : forall s1 s2 env d err.
 evaluate_dec Nothing env s1 d (s2, Rerr err)
 ==>
-evaluate_top env s1 (Tdec d) (s2, emp, Rerr err)
+evaluate_top env s1 (Tdec d) (s2, (emp,emp), Rerr err)
 
 and
 
@@ -464,7 +464,7 @@ tmod1 : forall s1 s2 env ds mn specs new_tds new_env.
 not (elem mn (List.map fst (all_env_to_menv env))) &&
 evaluate_decs (Just mn) env s1 ds (s2, new_tds, Rval new_env)
 ==>
-evaluate_top env s1 (Tmod mn specs ds) (s2, add_mod_prefix mn new_tds, Rval ([(mn,new_env)], emp))
+evaluate_top env s1 (Tmod mn specs ds) (s2, ([(mn,new_tds)], emp), Rval ([(mn,new_env)], emp))
 
 and
 
@@ -472,29 +472,29 @@ tmod2 : forall s1 s2 env ds mn specs new_tds err.
 not (elem mn (List.map fst (all_env_to_menv env))) &&
 evaluate_decs (Just mn) env s1 ds (s2, new_tds, Rerr err)
 ==>
-evaluate_top env s1 (Tmod mn specs ds) (s2, add_mod_prefix mn new_tds, Rerr err)
+evaluate_top env s1 (Tmod mn specs ds) (s2, ([(mn,new_tds)], emp), Rerr err)
 
 and
 
 tmod3 : forall env s mn specs ds.
 elem mn (List.map fst (all_env_to_menv env))
 ==>
-evaluate_top env s (Tmod mn specs ds) (s, emp, Rerr Rtype_error)
+evaluate_top env s (Tmod mn specs ds) (s, (emp,emp), Rerr Rtype_error)
 
 indreln [evaluate_prog : all_env -> store v -> prog -> store v * envC * result (envM * envE) v -> bool]
 
 empty : forall env s.
 true
 ==>
-evaluate_prog env s [] (s, emp, Rval (emp, emp))
+evaluate_prog env s [] (s, (emp,emp), Rval (emp, emp))
 
 and
 
 cons1 : forall s1 s2 s3 menv cenv env top tops new_mods new_tds new_tds' new_env r.
 evaluate_top (menv,cenv,env) s1 top (s2, new_tds, Rval (new_mods,new_env)) &&
-evaluate_prog (merge new_mods menv,merge new_tds cenv, merge new_env env) s2 tops (s3, new_tds', r)
+evaluate_prog (merge new_mods menv, merge_envC new_tds cenv, merge new_env env) s2 tops (s3,new_tds',r)
 ==>
-evaluate_prog (menv,cenv,env) s1 (top::tops) (s3, merge new_tds' new_tds, combine_mod_result new_mods new_env r)
+evaluate_prog (menv,cenv,env) s1 (top::tops) (s3, merge_envC new_tds' new_tds, combine_mod_result new_mods new_env r)
 
 and
 
@@ -522,7 +522,7 @@ and
 
 cons2 : forall mn s1 s2 menv cenv env d ds new_tds new_env.
 evaluate_dec mn (menv,cenv,env) s1 d (s2, Rval (new_tds, new_env)) &&
-decs_diverges mn (menv, merge new_tds cenv, merge new_env env) s2 ds
+decs_diverges mn (menv,merge_envC (emp,new_tds) cenv, merge new_env env) s2 ds
 ==>
 decs_diverges mn (menv,cenv,env) s1 (d::ds)
 
@@ -552,6 +552,6 @@ and
 
 cons2 : forall s1 s2 menv cenv env top tops new_mods new_tds new_env.
 evaluate_top (menv,cenv,env) s1 top (s2, new_tds, Rval (new_mods, new_env)) &&
-prog_diverges (merge new_mods menv, merge new_tds cenv, merge new_env env) s2 tops
+prog_diverges (merge new_mods menv, merge_envC new_tds cenv, merge new_env env) s2 tops
 ==>
 prog_diverges (menv,cenv,env) s1 (top::tops)

@@ -55,7 +55,14 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (* constructor type environments: each constructor has a type
  * forall tyvars. t list -> (tyvars) typeN *)
-val _ = type_abbrev( "tenvC" , ``: (( conN id), ( tvarN list # t list # tid_or_exn)) env``);
+val _ = type_abbrev( "flat_tenvC" , ``: (conN, ( tvarN list # t list # tid_or_exn)) env``);
+val _ = type_abbrev( "tenvC" , ``: (modN, flat_tenvC) env # flat_tenvC``);
+
+(*val merge_tenvC : tenvC -> tenvC -> tenvC*)
+val _ = Define `
+ (merge_tenvC (mcenv1,cenv1) (mcenv2,cenv2) = 
+  (merge mcenv1 mcenv2, merge cenv1 cenv2))`;
+
 
 (* Type environments *)
 val _ = Hol_datatype `
@@ -133,13 +140,13 @@ val _ = Define `
                 list (varN * t) -> bool*)
 
 (* Check a declaration and update the top-level environments *)
-(*val type_d : maybe modN -> tenvM -> tenvC -> tenvE -> dec -> tenvC -> env varN (nat * t) -> bool*)
+(*val type_d : maybe modN -> tenvM -> tenvC -> tenvE -> dec -> flat_tenvC -> env varN (nat * t) -> bool*)
 
-(*val type_ds : maybe modN -> tenvM -> tenvC -> tenvE -> list dec -> tenvC -> env varN (nat * t) -> bool*)
+(*val type_ds : maybe modN -> tenvM -> tenvC -> tenvE -> list dec -> flat_tenvC -> env varN (nat * t) -> bool*)
 (*val weakE : env varN (nat * t) -> env varN (nat * t) -> bool*)
 (*val weakC : tenvC -> tenvC -> bool*)
-(*val check_signature : maybe modN -> tenvC -> env varN (nat * t) -> maybe specs -> tenvC -> env varN (nat * t) -> bool*)
-(*val type_specs : maybe modN -> tenvC -> env varN (nat * t) -> specs -> tenvC -> env varN (nat * t) -> bool*)
+(*val check_signature : maybe modN -> flat_tenvC -> env varN (nat * t) -> maybe specs -> flat_tenvC -> env varN (nat * t) -> bool*)
+(*val type_specs : maybe modN -> flat_tenvC -> env varN (nat * t) -> specs -> flat_tenvC -> env varN (nat * t) -> bool*)
 (*val type_prog : tenvM -> tenvC -> tenvE -> list top -> tenvM -> tenvC -> env varN (nat * t) -> bool*)
 
 (* Check that the operator can have type (t1 -> t2 -> t3) *)
@@ -183,9 +190,21 @@ val _ = Define `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn check_freevars_defn;
 
-(* Check that a type definition defines no already defined (or duplicate)
- * constructors or types, and that the free type variables of each constructor
- * argument type are included in the type's type parameters. *)
+(*val check_new_type : id typeN -> tenvC -> bool*)
+val _ = Define `
+ (check_new_type tn (mtenvC,tenvC) =  
+(EVERY (\p .  (case (p ) of ( (_,(_,_,tn')) ) => TypeId tn <> tn' )) tenvC /\
+  EVERY (\p .  (case (p ) of
+     ( (_, tenvC) ) => EVERY
+                         (\p .  (case (p ) of
+                                    ( (_,(_,_,tn')) ) => TypeId tn <> tn'
+                                )) tenvC
+ )) mtenvC))`;
+
+
+(* Check that a type definition defines no already defined types or duplicate
+ * constructors, and that the free type variables of each constructor argument
+ * type are included in the type's type parameters. *)
 (*val check_ctor_tenv :
    maybe modN -> tenvC -> list (list tvarN * typeN * list (conN * list t)) -> bool*)
 val _ = Define `
@@ -201,19 +220,32 @@ val _ = Define `
   (ALL_DISTINCT (MAP (\p .  
   (case (p ) of ( (_,tn,_) ) => tn )) tds) /\
   EVERY
-    (\ (tvs,tn,ctors) . 
-       EVERY (\p .  (case (p ) of ( (_,(_,_,tn')) ) => TypeId (mk_id mn tn) <> tn' )) tenvC)
+    (\ (tvs,tn,ctors) .  check_new_type (mk_id mn tn) tenvC)
     tds))))`;
 
 
-(*val build_ctor_tenv : maybe modN -> list (list tvarN * typeN * list (conN * list t)) -> tenvC*)
+(*val build_ctor_tenv : maybe modN -> list (list tvarN * typeN * list (conN * list t)) -> flat_tenvC*)
 val _ = Define `
  (build_ctor_tenv mn tds =  
 (FLAT
     (MAP
        (\ (tvs,tn,ctors) . 
-          MAP (\ (cn,ts) .  (Short cn,(tvs,ts, TypeId (mk_id mn tn)))) ctors)
+          MAP (\ (cn,ts) .  (cn,(tvs,ts, TypeId (mk_id mn tn)))) ctors)
        tds)))`;
+
+
+(*val check_new_exn : maybe modN -> conN -> tenvC -> bool*)
+val _ = Define `
+ (check_new_exn mn cn (mtenvC,tenvC) =  
+(EVERY (\p .  (case (p ) of ( (cn',(_,_,tn)) ) => (TypeExn mn <> tn) \/ (cn' <> cn) )) tenvC /\
+  EVERY (\p .  (case (p ) of
+     ( (_, tenvC) ) => EVERY
+                         (\p .  (case (p ) of
+                                    ( (cn',(_,_,tn)) ) => (TypeExn mn <> tn)
+                                                            \/ (cn' <> cn)
+                                )) tenvC
+ )) mtenvC))`;
+
 
 
 (* Check that an exception definition defines no already defined (or duplicate)
@@ -222,9 +254,7 @@ val _ = Define `
 val _ = Define `
  (check_exn_tenv mn tenvC cn ts =  
 (EVERY (check_freevars( 0) []) ts /\
-  EVERY (\p .  (case (p ) of
-     ( (cn',(_,_,tn)) ) => (tn <> TypeExn mn) \/ (id_to_n cn' <> cn)
- )) tenvC))`;
+  check_new_exn mn cn tenvC))`;
 
 
 (* Simultaneous substitution of types for type variables in a type *)
@@ -311,7 +341,7 @@ type_p tvs cenv (Plit Unit) Tunit [])
 (EVERY (check_freevars tvs []) ts' /\
 ((LENGTH ts' = LENGTH tvs') /\
 (type_ps tvs cenv ps (MAP (type_subst (ZIP (tvs', ts'))) ts) tenv /\
-(lookup cn cenv = SOME (tvs', ts, tn)))))
+(lookup_con_id cn cenv = SOME (tvs', ts, tn)))))
 ==>
 type_p tvs cenv (Pcon (SOME cn) ps) (Tapp ts' (tid_exn_to_tc tn)) tenv)
 
@@ -370,7 +400,7 @@ type_e menv cenv tenv (Handle e pes) t)
 (EVERY (check_freevars (num_tvs tenv) []) ts' /\
 ((LENGTH tvs = LENGTH ts') /\
 (type_es menv cenv tenv es (MAP (type_subst (ZIP (tvs, ts'))) ts) /\
-(lookup cn cenv = SOME (tvs, ts, tn)))))
+(lookup_con_id cn cenv = SOME (tvs, ts, tn)))))
 ==>
 type_e menv cenv tenv (Con (SOME cn) es) (Tapp ts' (tid_exn_to_tc tn)))
 
@@ -504,7 +534,7 @@ type_d mn menv cenv tenv (Dtype tdecs) (build_ctor_tenv mn tdecs) emp)
 /\ (! mn menv cenv tenv cn ts.
 (check_exn_tenv mn cenv cn ts)
 ==>
-type_d mn menv cenv tenv (Dexn cn ts) (bind (Short cn) ([], ts, TypeExn mn) emp) emp)`;
+type_d mn menv cenv tenv (Dexn cn ts) (bind cn ([], ts, TypeExn mn) emp) emp)`;
 
 val _ = Hol_reln ` (! mn menv cenv tenv.
 T
@@ -513,7 +543,7 @@ type_ds mn menv cenv tenv [] emp emp)
 
 /\ (! mn menv cenv tenv d ds cenv' tenv' cenv'' tenv''.
 (type_d mn menv cenv tenv d cenv' tenv' /\
-type_ds mn menv (merge cenv' cenv) (bind_var_list2 tenv' tenv) ds cenv'' tenv'')
+type_ds mn menv (merge_tenvC (emp,cenv') cenv) (bind_var_list2 tenv' tenv) ds cenv'' tenv'')
 ==>
 type_ds mn menv cenv tenv (d::ds) (merge cenv'' cenv') (merge tenv'' tenv'))`;
 
@@ -529,14 +559,14 @@ type_specs mn cenv (bind x (LENGTH fvs, type_subst (ZIP (fvs, (MAP Tvar_db (COUN
 type_specs mn cenv tenv (Sval x t :: specs) cenv' tenv') 
 
 /\ (! mn cenv tenv td specs cenv' tenv'.
-(check_ctor_tenv mn cenv td /\
+(check_ctor_tenv mn ((emp,cenv):tenvC) td /\
 type_specs mn (merge (build_ctor_tenv mn td) cenv) tenv specs cenv' tenv')
 ==>
 type_specs mn cenv tenv (Stype td :: specs) cenv' tenv')
 
 /\ (! mn cenv tenv cn ts specs cenv' tenv'.
-(check_exn_tenv mn cenv cn ts /\
-type_specs mn (bind (Short cn) ([], ts, TypeExn mn) cenv) tenv specs cenv' tenv')
+(check_exn_tenv mn ((emp,cenv):tenvC) cn ts /\
+type_specs mn (bind cn ([], ts, TypeExn mn) cenv) tenv specs cenv' tenv')
 ==>
 type_specs mn cenv tenv (Sexn cn ts :: specs) cenv' tenv')
 
@@ -566,7 +596,7 @@ val _ = Define `
 
 
 val _ = Define `
- (weakC cenv_impl cenv_spec =  
+ (flat_weakC cenv_impl cenv_spec =  
 (! cn.
     (case lookup cn cenv_spec of
         SOME (tvs_spec,ts_spec,tn_spec) =>
@@ -589,7 +619,7 @@ check_signature mn cenv tenv NONE cenv tenv)
 
 /\ (! mn cenv tenv specs tenv' cenv'.
 (weakE tenv tenv' /\
-(weakC cenv cenv' /\
+(flat_weakC cenv cenv' /\
 type_specs mn emp emp specs cenv' tenv'))
 ==>
 check_signature mn cenv tenv (SOME specs) cenv' tenv')`;
@@ -597,24 +627,24 @@ check_signature mn cenv tenv (SOME specs) cenv' tenv')`;
 val _ = Hol_reln ` (! menv cenv tenv d cenv' tenv'.
 (type_d NONE menv cenv tenv d cenv' tenv')
 ==>
-type_top menv cenv tenv (Tdec d) emp cenv' tenv')
+type_top menv cenv tenv (Tdec d) emp (emp,cenv') tenv')
 
 /\ (! menv cenv tenv mn spec ds cenv' tenv' cenv'' tenv''.
 (~ (MEM mn (MAP FST menv)) /\
 (type_ds (SOME mn) menv cenv tenv ds cenv' tenv' /\
 check_signature (SOME mn) cenv' tenv' spec cenv'' tenv''))
 ==>
-type_top menv cenv tenv (Tmod mn spec ds) [(mn,tenv'')] (add_mod_prefix mn cenv'') emp)`;
+type_top menv cenv tenv (Tmod mn spec ds) [(mn,tenv'')] ([(mn,cenv'')], emp) emp)`;
 
 val _ = Hol_reln ` (! menv cenv tenv.
 T
 ==>
-type_prog menv cenv tenv [] emp emp emp)
+type_prog menv cenv tenv [] emp (emp,emp) emp)
 
 /\ (! menv cenv tenv top tops menv' cenv' tenv' menv'' cenv'' tenv''.
 (type_top menv cenv tenv top menv' cenv' tenv' /\
-type_prog (merge menv' menv) (merge cenv' cenv) (bind_var_list2 tenv' tenv) tops menv'' cenv'' tenv'')
+type_prog (merge menv' menv) (merge_tenvC cenv' cenv) (bind_var_list2 tenv' tenv) tops menv'' cenv'' tenv'')
 ==>
-type_prog menv cenv tenv (top :: tops) (merge menv'' menv') (merge cenv'' cenv') (merge tenv'' tenv'))`;
+type_prog menv cenv tenv (top :: tops) (merge menv'' menv') (merge_tenvC cenv'' cenv') (merge tenv'' tenv'))`;
 val _ = export_theory()
 

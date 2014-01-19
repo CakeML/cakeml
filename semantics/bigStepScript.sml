@@ -328,7 +328,7 @@ evaluate_dec mn env s (Dtype tds) (s, Rerr Rtype_error))
 /\ (! mn env cn ts s.
 T
 ==>
-evaluate_dec mn env s (Dexn cn ts) (s, Rval (bind (Short cn) (LENGTH ts, TypeExn mn) emp, emp)))`;
+evaluate_dec mn env s (Dexn cn ts) (s, Rval (bind cn (LENGTH ts, TypeExn mn) emp, emp)))`;
 
 val _ = Hol_reln ` (! mn env s.
 T
@@ -342,47 +342,47 @@ evaluate_decs mn env s1 (d::ds) (s2, emp, Rerr e))
 
 /\ (! mn s1 s2 s3 menv cenv env d ds new_tds' new_tds new_env r.
 (evaluate_dec mn (menv,cenv,env) s1 d (s2, Rval (new_tds,new_env)) /\
-evaluate_decs mn (menv, merge new_tds cenv, merge new_env env) s2 ds (s3, new_tds', r))
+evaluate_decs mn (menv, merge_envC (emp,new_tds) cenv, merge new_env env) s2 ds (s3, new_tds', r))
 ==>
 evaluate_decs mn (menv,cenv,env) s1 (d::ds) (s3, merge new_tds' new_tds, combine_dec_result new_env r))`;
 
 val _ = Hol_reln ` (! s1 s2 env d new_tds new_env.
 (evaluate_dec NONE env s1 d (s2, Rval (new_tds, new_env)))
 ==>
-evaluate_top env s1 (Tdec d) (s2, new_tds, Rval (emp, new_env)))
+evaluate_top env s1 (Tdec d) (s2, (emp,new_tds), Rval (emp, new_env)))
 
 /\ (! s1 s2 env d err.
 (evaluate_dec NONE env s1 d (s2, Rerr err))
 ==>
-evaluate_top env s1 (Tdec d) (s2, emp, Rerr err))
+evaluate_top env s1 (Tdec d) (s2, (emp,emp), Rerr err))
 
 /\ (! s1 s2 env ds mn specs new_tds new_env.
  (~ (MEM mn (MAP FST (all_env_to_menv env))) /\
 evaluate_decs (SOME mn) env s1 ds (s2, new_tds, Rval new_env))
 ==>
-evaluate_top env s1 (Tmod mn specs ds) (s2, add_mod_prefix mn new_tds, Rval ([(mn,new_env)], emp)))
+evaluate_top env s1 (Tmod mn specs ds) (s2, ([(mn,new_tds)], emp), Rval ([(mn,new_env)], emp)))
 
 /\ (! s1 s2 env ds mn specs new_tds err.
  (~ (MEM mn (MAP FST (all_env_to_menv env))) /\
 evaluate_decs (SOME mn) env s1 ds (s2, new_tds, Rerr err))
 ==>
-evaluate_top env s1 (Tmod mn specs ds) (s2, add_mod_prefix mn new_tds, Rerr err))
+evaluate_top env s1 (Tmod mn specs ds) (s2, ([(mn,new_tds)], emp), Rerr err))
 
 /\ (! env s mn specs ds.
 (MEM mn (MAP FST (all_env_to_menv env)))
 ==>
-evaluate_top env s (Tmod mn specs ds) (s, emp, Rerr Rtype_error))`;
+evaluate_top env s (Tmod mn specs ds) (s, (emp,emp), Rerr Rtype_error))`;
 
 val _ = Hol_reln ` (! env s.
 T
 ==>
-evaluate_prog env s [] (s, emp, Rval (emp, emp)))
+evaluate_prog env s [] (s, (emp,emp), Rval (emp, emp)))
 
 /\ (! s1 s2 s3 menv cenv env top tops new_mods new_tds new_tds' new_env r.
 (evaluate_top (menv,cenv,env) s1 top (s2, new_tds, Rval (new_mods,new_env)) /\
-evaluate_prog (merge new_mods menv,merge new_tds cenv, merge new_env env) s2 tops (s3, new_tds', r))
+evaluate_prog (merge new_mods menv, merge_envC new_tds cenv, merge new_env env) s2 tops (s3,new_tds',r))
 ==>
-evaluate_prog (menv,cenv,env) s1 (top::tops) (s3, merge new_tds' new_tds, combine_mod_result new_mods new_env r))
+evaluate_prog (menv,cenv,env) s1 (top::tops) (s3, merge_envC new_tds' new_tds, combine_mod_result new_mods new_env r))
 
 /\ (! s1 s2 env top tops err new_tds.
 (evaluate_top env s1 top (s2, new_tds, Rerr err))
@@ -406,7 +406,7 @@ decs_diverges mn env st (d::ds))
 
 /\ (! mn s1 s2 menv cenv env d ds new_tds new_env.
 (evaluate_dec mn (menv,cenv,env) s1 d (s2, Rval (new_tds, new_env)) /\
-decs_diverges mn (menv, merge new_tds cenv, merge new_env env) s2 ds)
+decs_diverges mn (menv,merge_envC (emp,new_tds) cenv, merge new_env env) s2 ds)
 ==>
 decs_diverges mn (menv,cenv,env) s1 (d::ds))`;
 
@@ -428,7 +428,7 @@ prog_diverges env st (top::tops))
 
 /\ (! s1 s2 menv cenv env top tops new_mods new_tds new_env.
 (evaluate_top (menv,cenv,env) s1 top (s2, new_tds, Rval (new_mods, new_env)) /\
-prog_diverges (merge new_mods menv, merge new_tds cenv, merge new_env env) s2 tops)
+prog_diverges (merge new_mods menv, merge_envC new_tds cenv, merge new_env env) s2 tops)
 ==>
 prog_diverges (menv,cenv,env) s1 (top::tops))`;
 val _ = export_theory()

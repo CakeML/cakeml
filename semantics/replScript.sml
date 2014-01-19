@@ -36,11 +36,11 @@ update_repl_state ast state type_bindings ctors tenvM tenvC tenv store envC r =
         <| type_bindings := type_bindings ++ state.type_bindings;
            ctors := ctors ++ state.ctors;
            tenvM := tenvM ++ state.tenvM;
-           tenvC := tenvC ++ state.tenvC;
+           tenvC := merge_tenvC tenvC state.tenvC;
            tenv := bind_var_list2 tenv state.tenv;
            store := store;
            envM := envM ++ state.envM;
-           envC := envC ++ state.envC;
+           envC := merge_envC envC state.envC;
            envE := envE ++ state.envE |>
     | Rerr _ =>
         (* We need to record the attempted module names (if any), so that it
@@ -55,7 +55,7 @@ update_repl_state ast state type_bindings ctors tenvM tenvC tenv store envC r =
         * they don't go in the constructor type environment, the programmer
         * can't refer to any of them, so it doesn't matter much. *)
         state with <| store := store;
-                      envC := top_to_cenv ast ++ state.envC;
+                      envC := merge_envC (top_to_cenv ast) state.envC;
                       envM := strip_mod_env tenvM ++ state.envM;
                       tenvM := strip_mod_env tenvM ++ state.tenvM |>`;
 
@@ -63,7 +63,7 @@ val print_envM_def = Define `
 print_envM envM = CONCAT (MAP (λ(x,m). "module " ++ x ++ " = <structure>\n") envM)`;
 
 val print_envC_def = Define `
-print_envC envC = CONCAT (MAP (λ(x,c). id_to_string x ++ " = <constructor>\n") envC)`;
+print_envC (menvC,envC) = CONCAT (MAP (λ(x,c). x ++ " = <constructor>\n") envC)`;
 
 val print_lit_def = Define `
 (print_lit (IntLit i) = int_to_string i) ∧

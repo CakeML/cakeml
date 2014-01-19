@@ -8,12 +8,17 @@ open import TypeSystem
 (* Store typing *)
 type tenvS = env nat t
 
-(* Global constructor type environments keyed by constructor namd and type *)
+(* Global constructor type environments keyed by constructor name and type *)
 type tenvCT = env (conN * tid_or_exn) (list tvarN * list t)
 
-val tenvC_ok : tenvC -> bool
-let tenvC_ok tenvC =
+val flat_tenvC_ok : flat_tenvC -> bool
+let flat_tenvC_ok tenvC =
   List.all (fun (cn,(tvs,ts,tn)) -> List.all (check_freevars 0 tvs) ts) tenvC
+
+val tenvC_ok : tenvC -> bool
+let tenvC_ok (mtenvC, tenvC) =
+  List.all (fun (_,tenvC) -> flat_tenvC_ok tenvC) mtenvC &&
+  flat_tenvC_ok tenvC
 
 val tenvCT_ok : tenvCT -> bool
 let tenvCT_ok tenvCT =
@@ -28,17 +33,17 @@ let consistent_con_env tenvCT envC tenvC =
   tenvC_ok tenvC &&
   tenvCT_ok tenvCT &&
   (forall cn n t.
-    lookup cn envC = Just (n, t)
+    lookup_con_id cn envC = Just (n, t)
     -->
     exists tvs ts.
-      lookup cn tenvC = Just (tvs, ts, t) &&
+      lookup_con_id cn tenvC = Just (tvs, ts, t) &&
       lookup (id_to_n cn,t) tenvCT = Just (tvs, ts) &&
       List.length ts = n)
   &&
   (forall cn.
-    lookup cn envC = Nothing
+    lookup_con_id cn envC = Nothing
     -->
-    lookup cn tenvC = Nothing)
+    lookup_con_id cn tenvC = Nothing)
 
 (* A value has a type *)
 (* The number is how many deBruijn type variables are bound in the context. *)
@@ -63,6 +68,7 @@ val type_ctxts : nat -> tenvCT -> tenvS -> list ctxt -> t -> t -> bool
 val type_state : nat -> tenvCT -> tenvS -> state -> t -> bool
 val context_invariant : nat -> list ctxt -> nat -> bool
 
+                                                     (*
 (* Type programs without imposing signatures.  This is needed for the type
  * soundness proof *)
 val type_top_ignore_sig : tenvM -> tenvC -> tenvE -> top -> tenvM -> tenvC -> env varN (nat * t) -> bool
@@ -83,6 +89,7 @@ type_ds (Just mn) menv cenv tenv ds cenv' tenv'
 ==>
 type_top_ignore_sig menv cenv tenv (Tmod mn spec ds) [(mn,tenv')] (add_mod_prefix mn cenv') emp
 
+                                                      *)
 let rec 
 tenv_ok Empty = true
 and
@@ -393,7 +400,7 @@ List.length tvs' = List.length ts' &&
 type_vs tvs all_cenv senv (List.reverse vs)
         (List.map (type_subst (ZIP tvs' ts')) ts1) &&
 type_es menv cenv (bind_tvar tvs tenv) es (List.map (type_subst (ZIP tvs' ts')) ts2) &&
-lookup cn cenv = Just (tvs', ts1++[t]++ts2, tn)
+lookup_con_id cn cenv = Just (tvs', ts1++[t]++ts2, tn)
 ==>
 type_ctxt tvs menv all_cenv cenv senv tenv (Ccon (Just cn) vs () es) (type_subst (ZIP tvs' ts') t)
           (Tapp ts' (tid_exn_to_tc tn))
