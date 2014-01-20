@@ -36,6 +36,38 @@ cases_on `keys` >>
 cases_on `vals` >>
 fs []);
 
+val lookup_append = Q.store_thm ("lookup_append",
+`!x e1 e2.
+  lookup x (e1++e2) =
+     case lookup x e1 of
+        | NONE => lookup x e2
+        | SOME v => SOME v`,
+induct_on `e1` >>
+rw [lookup_def] >>
+every_case_tac >>
+PairCases_on `h` >>
+fs [lookup_def] >>
+rw [] >>
+fs []);
+
+val lookup_append_none = Q.store_thm ("lookup_append_none",
+`!x e1 e2. 
+  (lookup x (e1++e2) = NONE) = ((lookup x e1 = NONE) ∧ (lookup x e2 = NONE))`,
+rw [lookup_append] >>
+eq_tac >>
+rw [] >>
+cases_on `lookup x e1` >>
+rw [] >>
+fs []);
+
+val lookup_reverse_none = Q.store_thm ("lookup_reverse_none",
+`!x tenvC.
+  (lookup x (REVERSE tenvC) = NONE) = (lookup x tenvC = NONE)`,
+induct_on `tenvC` >>
+rw [] >>
+cases_on `h` >>
+rw [lookup_def,lookup_append_none]);
+
 val disjoint_env_def = Define `
   disjoint_env e1 e2 =
     DISJOINT (set (MAP FST e1)) (set (MAP FST e2))`;
@@ -1311,38 +1343,6 @@ fs [deBruijn_subst_def, deBruijn_subst_tenvE_def,
           fs [] >>
           metis_tac [mem_lem]]]);
 
-val lookup_append = Q.store_thm ("lookup_append",
-`!x e1 e2.
-  lookup x (e1++e2) =
-     case lookup x e1 of
-        | NONE => lookup x e2
-        | SOME v => SOME v`,
-induct_on `e1` >>
-rw [lookup_def] >>
-every_case_tac >>
-PairCases_on `h` >>
-fs [lookup_def] >>
-rw [] >>
-fs []);
-
-val lookup_append_none = Q.store_thm ("lookup_append_none",
-`!x e1 e2. 
-  (lookup x (e1++e2) = NONE) = ((lookup x e1 = NONE) ∧ (lookup x e2 = NONE))`,
-rw [lookup_append] >>
-eq_tac >>
-rw [] >>
-cases_on `lookup x e1` >>
-rw [] >>
-fs []);
-
-val lookup_reverse_none = Q.store_thm ("lookup_reverse_none",
-`!x tenvC.
-  (lookup x (REVERSE tenvC) = NONE) = (lookup x tenvC = NONE)`,
-induct_on `tenvC` >>
-rw [] >>
-cases_on `h` >>
-rw [lookup_def,lookup_append_none]);
-
 val lookup_none_lem = Q.prove (
 `!x h0 h1 h2 h3.
   (lookup x (MAP (λ(cn,ts). (cn,h0,ts,TypeId (mk_id mn h1))) h2) = NONE)
@@ -1752,37 +1752,32 @@ val lookup_build_ctor_short = Q.prove (
  every_case_tac >>
  fs [] >>
  rw []);
+ *)
 
-val to_ctMap_lookup2 = Q.prove (
+val to_ctMap_lookup = Q.prove (
 `!cn mn tds tvs ts t x.
   lookup cn (build_ctor_tenv mn tds) = SOME (tvs,ts,t) ∧
-  lookup (id_to_n cn,t) (to_ctMap (build_ctor_tenv mn tds)) = SOME x
+  lookup (cn,t) (flat_to_ctMap (build_ctor_tenv mn tds)) = SOME x
   ⇒
   x = (tvs,ts)`,
  induct_on `tds` >>
- rw [build_ctor_tenv_empty, to_ctMap_def] >>
+ rw [build_ctor_tenv_empty, flat_to_ctMap_def] >>
  `?tvs tn ctors. h = (tvs,tn,ctors)` by (PairCases_on `h` >> rw []) >>
  rw [] >>
- imp_res_tac check_ctor_tenv_cons >>
  fs [lookup_append, build_ctor_tenv_cons] >>
  every_case_tac >>
  fs [] >>
- imp_res_tac lookup_build_ctor_short >>
  rw [] 
- >- metis_tac [to_ctMap_def]
- >- metis_tac [to_ctMap_def, to_ctMap_lookup]
- >- (imp_res_tac to_ctMap_lookup_lem >>
-     fs [to_ctMap_def, id_to_n_def])
- >- (`?x. cn = Short x` 
-            by (imp_res_tac lookup_in2 >>
-                fs [MEM_MAP] >>
-                rw [] >>
-                PairCases_on `y'` >>
-                fs []) >>
+ >- metis_tac [flat_to_ctMap_def]
+ >- metis_tac [flat_to_ctMap_def, flat_to_ctMap_lookup_not_none]
+ >- metis_tac [flat_to_ctMap_def, flat_to_ctMap_lookup_none, NOT_SOME_NONE]
+ >- (induct_on `ctors` >>
+     fs [] >>
      rw [] >>
-     imp_res_tac to_ctMap_lookup_lem2 >>
-     fs [id_to_n_def, to_ctMap_def]));
-     *)
+     PairCases_on `h` >>
+     fs [] >>
+     every_case_tac >>
+     fs []));
 
 val ctor_env_to_tdefs = Q.prove (
 `!mn tds cn n t tvs ts.
@@ -1976,6 +1971,23 @@ val check_ctor_disjoint_env = Q.store_thm ("check_ctor_disjoint_env",
  fs [] >>
  metis_tac []);
 
+val check_exn_tenv_disjoint = Q.store_thm ("check_exn_tenv_disjoint",
+`!tvs tenvC cn ts.
+  check_exn_tenv tvs tenvC cn ts
+  ⇒
+  disjoint_env (flat_to_ctMap (bind cn ([],ts,TypeExn tvs) emp)) (to_ctMap tenvC)`,
+ rw [bind_def, disjoint_env_def, DISJOINT_DEF,EXTENSION, MEM_MAP, flat_to_ctMap_def] >>
+ fs [check_exn_tenv_def, check_new_exn_thm, to_ctMap_to_types_thm, ctMap_to_types_def] >>
+ CCONTR_TAC >>
+ fs [] >>
+ rw [] >>
+ PairCases_on `y'` >>
+ fs [MEM_MAP] >>
+ rw [] >>
+ fs [METIS_PROVE [] ``x ∨ y ⇔ ~y ⇒ x``] >>
+ res_tac >>
+ fs [emp_def]);
+
 val extend_consistent_con = Q.store_thm ("extend_consistent_con",
 `!envC tenvC tds.
   check_ctor_tenv mn tenvC tds ∧
@@ -1989,7 +2001,6 @@ val extend_consistent_con = Q.store_thm ("extend_consistent_con",
      metis_tac [check_ctor_tenvC_ok])
  >- (rw [ctMap_ok_merge, GSYM merge_def] >>
      metis_tac [check_ctor_ctMap_ok])
-
  >- (fs [lookup_con_id_def, emp_def] >>
      every_case_tac >>
      fs [id_to_n_def] >>
@@ -2003,48 +2014,58 @@ val extend_consistent_con = Q.store_thm ("extend_consistent_con",
      imp_res_tac flat_to_ctMap_lookup_none >>
      fs []
      >- metis_tac [NOT_SOME_NONE, flat_to_ctMap_lookup_none, lookup_none]
-
-
-
-
-     
+     >- (PairCases_on `x` >>
+         imp_res_tac flat_to_ctMap_lookup_not_none >>
+         fs [] >>
+         imp_res_tac ctor_env_to_tdefs >>
+         fs [] >>
+         rw [] >>
+         fs [])
+     >- (PairCases_on `x` >>
+         imp_res_tac ctor_env_to_tdefs  >>
+         fs [] >>
+         rw [] >>
+         metis_tac [pair_CASES, to_ctMap_lookup])
+     >- (res_tac >>
+         fs [lookup_append] >>
+         rw [] >>
+         every_case_tac >>
+         imp_res_tac check_ctor_disjoint_env >>
+         fs [disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
+         imp_res_tac lookup_in2 >>
+         metis_tac []))
  >- (fs [lookup_con_id_def, emp_def] >>
      every_case_tac >>
      fs [] >>
      rw [] >>
-     metis_tac [NOT_SOME_NONE, pair_CASES,ctor_env_to_tdefs])
-     
-     
-     every_case_tac
- 
- every_case_tac >>
+     metis_tac [NOT_SOME_NONE, pair_CASES,ctor_env_to_tdefs]));
 
-      
+val extend_consistent_con_exn = Q.store_thm ("extend_consistent_con_exn",
+`∀mn tenvC cn ts cenv.
+  check_exn_tenv mn tenvC cn ts ∧
+  consistent_con_env (to_ctMap tenvC) cenv tenvC
+  ⇒
+  consistent_con_env (merge (flat_to_ctMap (bind cn ([],ts,TypeExn mn) [])) (to_ctMap tenvC))
+                     (merge_envC (emp, bind cn (LENGTH ts,TypeExn mn) []) cenv)
+                     (merge_tenvC (emp, bind cn ([],ts,TypeExn mn) []) tenvC)`,
+ rw [check_exn_tenv_def, consistent_con_env_def, bind_def, ctMap_ok_merge,
+     flat_to_ctMap_def, ctMap_ok_def, tenvC_ok_merge, tenvC_ok_def,
+     flat_tenvC_ok_def, lookup_con_id_merge_emp] >>
+ fs [emp_def, lookup_con_id_def] >>
  every_case_tac >>
+ fs [id_to_n_def] >>
+ rw [merge_def, lookup_append] >>
+ res_tac >>
+ fs [check_new_exn_thm, to_ctMap_to_types_thm, ctMap_to_types_def, MEM_MAP,
+     FORALL_PROD]  >>
+ PairCases_on `tenvC` >>
+ fs [lookup_con_id_def] >>
+ every_case_tac >>
+ fs [] >>
+ imp_res_tac lookup_in2 >>
+ fs [MEM_MAP] >>
  rw [] >>
- fs [lookup_none] >>
- fs [GSYM lookup_none, SIMP_RULE (srw_ss()) [merge_def] ctMap_ok_merge, 
-     SIMP_RULE (srw_ss()) [merge_def] tenvC_ok_merge, to_ctMap_append]
- >- metis_tac [check_ctor_tenvC_ok]
- >- (rw [check_ctor_tenvC_ok]
-     >- metis_tac [check_ctor_ctMap_ok])
- >- (res_tac >>
-     fs [lookup_append] >>
-     rw [] >>
-     every_case_tac >>
-     imp_res_tac check_ctor_disjoint_env >>
-     fs [disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
-     imp_res_tac lookup_in2 >>
-     metis_tac [])
- >- (PairCases_on `x` >>
-     rw [lookup_append] >>
-     every_case_tac >>
-     rw []
-     >- metis_tac [ctor_env_to_tdefs, SOME_11, PAIR_EQ]
-     >- metis_tac [ctor_env_to_tdefs, SOME_11, PAIR_EQ,to_ctMap_lookup] 
-     >- metis_tac [to_ctMap_lookup2, ctor_env_to_tdefs, SOME_11,
-     PAIR_EQ,to_ctMap_lookup] 
-     >- metis_tac [ctor_env_to_tdefs, SOME_11, PAIR_EQ]));
+ metis_tac [pair_CASES, FST]);
 
 val lemma = Q.prove (
 `!f a b c. (\(x,y,z). f x y z) (a,b,c) = f a b c`,
@@ -2197,58 +2218,47 @@ rw [] >|
      fs [bvl2_append, merge_def, num_tvs_bvl2] >>
      metis_tac [tenv_ok_bvl2]]);
 
-     (*
 val type_d_ctMap_ok = Q.store_thm ("type_d_ctMap_ok",
 `!tvs tenvM tenvC tenv d tenvC' tenv' tenvM'' tenvC''.
   type_d tvs tenvM tenvC tenv d tenvC' tenv'
   ⇒
-  ctMap_ok (to_ctMap tenvC') ∧
-  disjoint_env (to_ctMap tenvC) (to_ctMap tenvC')`,
- rw [type_d_cases, to_ctMap_def] >>
+  ctMap_ok (flat_to_ctMap tenvC') ∧
+  disjoint_env (to_ctMap tenvC) (flat_to_ctMap tenvC')`,
+ rw [type_d_cases, flat_to_ctMap_def] >>
  imp_res_tac type_p_bvl >>
- rw [bvl2_to_bvl]
+ rw [bvl2_to_bvl] >>
+ imp_res_tac check_ctor_ctMap_ok
  >- rw [ctMap_ok_def, emp_def]
  >- rw [disjoint_env_def, DISJOINT_DEF, EXTENSION, emp_def]
  >- rw [ctMap_ok_def, emp_def]
  >- rw [disjoint_env_def, DISJOINT_DEF, EXTENSION, emp_def]
  >- rw [ctMap_ok_def, emp_def]
  >- rw [disjoint_env_def, DISJOINT_DEF, EXTENSION, emp_def]
- >- metis_tac [to_ctMap_def, check_ctor_ctMap_ok]
- >- metis_tac [to_ctMap_def, DISJOINT_SYM, disjoint_env_def, check_ctor_disjoint_env]
+ >- metis_tac [flat_to_ctMap_def]
+ >- metis_tac [flat_to_ctMap_def, DISJOINT_SYM, disjoint_env_def, check_ctor_disjoint_env]
  >- (rw [ctMap_ok_def, bind_def, emp_def] >>
      fs [check_exn_tenv_def])
- >- (rw [id_to_n_def, ctMap_ok_def, bind_def, emp_def, disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
-     fs [EVERY_MEM,check_exn_tenv_def, MEM_MAP] >>
-     rw [] >>
-     PairCases_on `y` >>
-     fs [] >>
-     CCONTR_TAC >>
-     fs [] >>
-     rw [] >>
-     PairCases_on `y'` >>
-     fs [] >>
-     rw [] >>
-     res_tac >>
-     fs [id_to_n_def]));
+ >- metis_tac [flat_to_ctMap_def, DISJOINT_SYM, disjoint_env_def, check_exn_tenv_disjoint]);
 
 val type_ds_ctMap_ok = Q.store_thm ("type_ds_ctMap_ok",
 `!tvs tenvM tenvC tenv ds tenvC' tenv'.
   type_ds tvs tenvM tenvC tenv ds tenvC' tenv' ⇒
-  ctMap_ok (to_ctMap tenvC') ∧
-  disjoint_env (to_ctMap tenvC') (to_ctMap tenvC)`,
+  ctMap_ok (flat_to_ctMap tenvC') ∧
+  disjoint_env (flat_to_ctMap tenvC') (to_ctMap tenvC)`,
  ho_match_mp_tac type_ds_ind >>
  rw []
- >- rw [ctMap_ok_def, emp_def, to_ctMap_def]
- >- rw [disjoint_env_def, ctMap_ok_def, emp_def, to_ctMap_def]
+ >- rw [ctMap_ok_def, emp_def, flat_to_ctMap_def]
+ >- rw [disjoint_env_def, ctMap_ok_def, emp_def, flat_to_ctMap_def]
  >- (imp_res_tac type_d_ctMap_ok >>
-     fs [merge_def, to_ctMap_append] >>
+     fs [merge_def, flat_to_ctMap_def] >>
      fs [GSYM merge_def, ctMap_ok_merge])
  >- (imp_res_tac type_d_ctMap_ok >>
-     fs [merge_def, to_ctMap_append] >>
+     fs [merge_def, flat_to_ctMap_def] >>
      fs [num_tvs_bvl2, merge_def, disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
      rw [] >>
+     PairCases_on `tenvC` >>
+     fs [flat_to_ctMap_def, merge_tenvC_def, merge_def, emp_def, to_ctMap_def] >>
      metis_tac []));
-     *)
 
 val type_specs_tenv_ok = Q.store_thm ("type_specs_tenv_ok",
 `!tvs tenvC tenv specs tenvC' tenv'.
