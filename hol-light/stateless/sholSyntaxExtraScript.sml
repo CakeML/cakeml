@@ -1440,4 +1440,154 @@ val ACONV_INST = store_thm("ACONV_INST",
   rw[] >> imp_res_tac ACONV_welltyped >>
   fs[ACONV_db] >> imp_res_tac INST_dbINST >> rw[] )
 
+val INST_has_type_Bool = store_thm("INST_has_type_Bool",
+  ``c has_type Bool ⇒ INST tyin c has_type Bool``,
+  rw[] >>
+  qspecl_then[`{x | ∃ty. VFREE_IN (Var x ty) c}`,`c`]mp_tac fresh_term_def >>
+  simp[] >> strip_tac >>
+  qmatch_assum_abbrev_tac`ACONV c c1` >>
+  qspecl_then[`tyin`,`c1`]mp_tac INST_simple_inst >>
+  simp[] >>
+  discharge_hyps >- (
+    fs[IN_DISJOINT] >>
+    metis_tac[ACONV_VFREE_IN,ACONV_SYM] ) >>
+  strip_tac >>
+  imp_res_tac WELLTYPED_LEMMA >>
+  `welltyped c` by metis_tac[welltyped_def] >>
+  imp_res_tac ACONV_INST >>
+  pop_assum(qspec_then`tyin`strip_assume_tac) >>
+  imp_res_tac ACONV_welltyped >>
+  `typeof c1 = Bool` by metis_tac[ACONV_TYPE] >>
+  qsuff_tac`INST tyin c1 has_type Bool` >-
+    metis_tac[ACONV_TYPE,WELLTYPED_LEMMA,ACONV_welltyped,WELLTYPED,ACONV_SYM] >>
+  simp[] >>
+  imp_res_tac simple_inst_has_type >>
+  rfs[] )
+
+val VSUBST_has_type_Bool = store_thm("VSUBST_has_type_Bool",
+  ``(∀s s'. MEM (s',s) ilist ⇒ ∃x ty. s' has_type ty ∧ s = Var x ty) ∧ c has_type Bool
+    ⇒ VSUBST ilist c has_type Bool``,
+  rw[] >>
+  qspecl_then[`{y | ∃ty u. VFREE_IN (Var y ty) u ∧ MEM u (MAP FST ilist)}`,`c`]mp_tac fresh_term_def >>
+  simp[] >> strip_tac >>
+  qmatch_assum_abbrev_tac`ACONV c c1` >>
+  qspecl_then[`c1`,`ilist`]mp_tac VSUBST_simple_subst >>
+  simp[] >>
+  discharge_hyps >- metis_tac[] >>
+  strip_tac >>
+  imp_res_tac WELLTYPED_LEMMA >>
+  `welltyped c` by metis_tac[welltyped_def] >>
+  imp_res_tac ACONV_VSUBST >>
+  imp_res_tac ACONV_welltyped >>
+  `typeof c1 = Bool` by metis_tac[ACONV_TYPE] >>
+  qsuff_tac`VSUBST ilist c1 has_type Bool` >-
+    metis_tac[ACONV_TYPE,WELLTYPED_LEMMA,ACONV_welltyped,WELLTYPED,ACONV_SYM] >>
+  simp[] >>
+  match_mp_tac(MP_CANON simple_subst_has_type) >>
+  simp[FEVERY_ALL_FLOOKUP,FLOOKUP_ilist_to_fmap,FORALL_PROD,REV_ASSOCD_ALOOKUP] >>
+  conj_tac >- metis_tac[WELLTYPED] >>
+  rw[] >> BasicProvers.CASE_TAC >> simp[] >- (
+    fs[ALOOKUP_FAILS,MEM_MAP,FORALL_PROD,EXISTS_PROD] ) >>
+  imp_res_tac ALOOKUP_MEM >>
+  fs[MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
+  res_tac >> fs[] >> rw[])
+
+val proves_welltyped = store_thm("proves_welltyped",
+  ``(∀ty. type_ok ty ⇒ T) ∧
+    (∀tm. term_ok tm ⇒ welltyped tm) ∧
+    (∀h c. h |- c ⇒ EVERY (λt. t has_type Bool) (c::h))``,
+  ho_match_mp_tac proves_ind >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rw[EVERY_MEM,welltyped_def] >>
+    metis_tac[] ) >>
+  strip_tac >- rw[EQUATION_HAS_TYPE_BOOL] >>
+  strip_tac >- (
+    rw[EQUATION_HAS_TYPE_BOOL] >- (
+      metis_tac[ACONV_TYPE] ) >>
+    match_mp_tac ALL_BOOL_TERM_UNION >> rw[] ) >>
+  strip_tac >- (
+    rw[EQUATION_HAS_TYPE_BOOL] >- (
+      metis_tac[] ) >>
+    match_mp_tac ALL_BOOL_TERM_UNION >> rw[] ) >>
+  strip_tac >- ( rw[EQUATION_HAS_TYPE_BOOL] ) >>
+  strip_tac >- ( rw[EQUATION_HAS_TYPE_BOOL] ) >>
+  strip_tac >- ( rw[EQUATION_HAS_TYPE_BOOL] ) >>
+  strip_tac >- (
+    rw[EQUATION_HAS_TYPE_BOOL] >- (
+      metis_tac[ACONV_TYPE,WELLTYPED_LEMMA,WELLTYPED] ) >>
+    match_mp_tac ALL_BOOL_TERM_UNION >> rw[] ) >>
+  strip_tac >- (
+    rw[EQUATION_HAS_TYPE_BOOL] >>
+    TRY (metis_tac[welltyped_def,WELLTYPED_LEMMA]) >>
+    match_mp_tac ALL_BOOL_TERM_UNION >>
+    fs[EVERY_MEM,MEM_FILTER] ) >>
+  strip_tac >- (
+    rw[INST_has_type_Bool,EVERY_MEM,MEM_MAP] >>
+    metis_tac[INST_has_type_Bool] ) >>
+  strip_tac >- (
+    rw[EVERY_MEM,MEM_MAP] >>
+    match_mp_tac VSUBST_has_type_Bool >>
+    metis_tac[] ) >>
+  strip_tac >- (
+    rw[] >>
+    match_mp_tac VSUBST_has_type_Bool >>
+    simp[MEM_GENLIST,PULL_EXISTS] >> rw[] >>
+    rfs[EL_MAP,UNCURRY] >>
+    simp[Once has_type_cases] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[EQUATION_HAS_TYPE_BOOL] >>
+  strip_tac >- (
+    rpt strip_tac >>
+    fs[] >>
+    qpat_assum`X has_type Y`(strip_assume_tac o SIMP_RULE (srw_ss()) [Once has_type_cases]) >>
+    simp[EQUATION_HAS_TYPE_BOOL] >>
+    imp_res_tac WELLTYPED_LEMMA >>
+    conj_tac >- (
+      metis_tac[welltyped_def,domain_def,EL,HD] ) >>
+    qmatch_abbrev_tac`welltyped eq ∧ P` >>
+    `eq has_type Bool` by (
+      simp[Abbr`eq`,EQUATION_HAS_TYPE_BOOL] ) >>
+    imp_res_tac WELLTYPED_LEMMA >>
+    conj_tac >- metis_tac[welltyped_def] >>
+    rw[] ) >>
+  strip_tac >- rw[EQUATION_HAS_TYPE_BOOL] >>
+  strip_tac >- (
+    rw[EQUATION_HAS_TYPE_BOOL] >>
+    simp[Once has_type_cases] >>
+    HINT_EXISTS_TAC >> simp[] >>
+    simp[Once has_type_cases] >>
+    qexists_tac`Fun ty Bool` >>
+    simp[] >>
+    simp[Once has_type_cases] ) >>
+  rw[EX_def] >>
+  simp[Once has_type_cases] >>
+  simp[Once has_type_cases] >>
+  simp[Once has_type_cases] >>
+  simp[AN_def] >>
+  simp[Once has_type_cases] >>
+  simp[Once has_type_cases] >>
+  simp[Once has_type_cases] >>
+  simp[O1_def,NO_def,OT_def,Once has_type_cases] >>
+  simp[Once has_type_cases] >>
+  simp[Once has_type_cases] >>
+  simp[Once has_type_cases] >>
+  simp[Once has_type_cases] >>
+  simp[Once has_type_cases] >>
+  simp[Once has_type_cases] >>
+  simp[Once has_type_cases] )
+
 val _ = export_theory()
