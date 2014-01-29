@@ -2904,7 +2904,19 @@ val type_is_Bool = prove(
 
 val sequent_has_type_bool = store_thm("sequent_has_type_bool",
   ``(d,h) |- c ⇒ EVERY (λt. t has_type Bool) (c::h)``,
-  cheat)
+  strip_tac >> imp_res_tac proves_IMP >>
+  imp_res_tac sholSyntaxExtraTheory.proves_welltyped >>
+  fs[seq_trans_def,EVERY_MEM,EVERY2_EVERY,FORALL_PROD] >>
+  rfs[MEM_ZIP,PULL_EXISTS,MEM_EL] >>
+  rw[] >> res_tac >>
+  qmatch_assum_abbrev_tac`(zz:sholSyntax$term) has_type Bool` >>
+  qmatch_assum_abbrev_tac`term d yy zz` >>
+  `welltyped zz` by METIS_TAC[sholSyntaxTheory.welltyped_def] >>
+  `welltyped yy` by METIS_TAC[term_welltyped] >>
+  fs[WELLTYPED] >>
+  imp_res_tac has_type_IMP >>
+  imp_res_tac sholSyntaxTheory.WELLTYPED_LEMMA >>
+  METIS_TAC[type_is_Bool])
 
 val THM_term_ok_bool = prove(
   ``good_defs (hol_defs defs) ∧ THM defs (Sequent asl p) ⇒
