@@ -2910,7 +2910,7 @@ val term_ok_welltyped = store_thm("term_ok_welltyped",
   METIS_TAC[term_welltyped])
 
 val proves_cons_def = store_thm("proves_cons_def",
-  ``is_model M ⇒ ∀defs h c d. (defs,h) |- c ⇒ context_ok (d::defs) ⇒ (d::defs,h) |- c``,
+  ``∀defs h c d. (defs,h) |- c ⇒ context_ok (d::defs) ⇒ (d::defs,h) |- c``,
   rw[] >>
   Cases_on`d` >- (
     match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,24)) >>
