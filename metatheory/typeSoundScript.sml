@@ -2124,6 +2124,36 @@ rw [] >>
 every_case_tac >>
 fs []);
 
+val to_ctMap_merge_empty = Q.prove (
+`!flat_tenvC tenvC.
+  to_ctMap (merge_tenvC ([],flat_tenvC) tenvC) = flat_to_ctMap flat_tenvC ++ to_ctMap tenvC`,
+ rw [] >>
+ PairCases_on `tenvC` >>
+ rw [to_ctMap_def, merge_tenvC_def, merge_def, flat_to_ctMap_def]);
+
+val merge_envC_empty_assoc = Q.prove (
+`!envC1 envC2 envC3.
+  merge_envC ([],envC1) (merge_envC ([],envC2) envC3)
+  =
+  merge_envC ([],envC1++envC2) envC3`,
+ rw [] >>
+ PairCases_on `envC3` >>
+ rw [merge_envC_def, merge_def]);
+
+val merge_tenvC_empty_assoc = Q.prove (
+`!tenvC1 tenvC2 tenvC3.
+  merge_tenvC ([],tenvC1) (merge_tenvC ([],tenvC2) tenvC3)
+  =
+  merge_tenvC ([],tenvC1++tenvC2) tenvC3`,
+ rw [] >>
+ PairCases_on `tenvC3` >>
+ rw [merge_tenvC_def, merge_def]);
+
+val flat_to_ctMap_append = Q.prove (
+`!tenvC1 tenvC2.
+  flat_to_ctMap (tenvC1++tenvC2) = flat_to_ctMap tenvC1 ++ flat_to_ctMap tenvC2`,
+rw [flat_to_ctMap_def]);
+
 val type_env_merge_bvl2 = Q.prove (
 `!tenvM tenvC tenvS env1 tenv1 env2 tenv2.
   type_env tenvC tenvS env2 (bind_var_list2 tenv2 Empty) ∧
@@ -2213,49 +2243,54 @@ val decs_type_soundness = Q.store_thm ("decs_type_soundness",
                    by (cases_on `r` >> metis_tac [pair_CASES]) >>
      fs [] >>
      rw []
-     >- (rw [] >>
+     >- (fs [to_ctMap_merge_empty, emp_def] >>
+         rw [] >>
          `¬decs_diverges mn (menv, merge_envC ([],cenv'') cenv, env'' ++ env) st' ds` by metis_tac [] >>
          qpat_assum `∀tenvS' menv' cenv'' env' st'. P tenvS' menv' cenv'' env' st'`
                     (MP_TAC o Q.SPECL [`tenvS'`, `menv`, `merge_envC ([],cenv'') cenv`, `env''++env`, `st'`]) >>
          rw [] >>
-         MAP_EVERY qexists_tac [`st''`, `combine_dec_result env'' r`, `merge cenv''' cenv''`, `tenvS''`] >>
+         MAP_EVERY qexists_tac [`st'''`, `combine_dec_result env'' r`, `merge cenv''' cenv''`, `tenvS'''`] >>
          rw []
          >- (cases_on `r` >>
              rw [combine_dec_result_def])
          >- metis_tac [merge_def, result_case_def]
          >- metis_tac [store_type_extension_trans]
-         >- (fs [disjoint_env_def, to_ctMap_def] >>
+         >- (fs [disjoint_env_def, flat_to_ctMap_append] >>
              metis_tac [DISJOINT_SYM])
          >- (cases_on `r` >> 
              fs [combine_dec_result_def] >> 
              rw [] >>
-             metis_tac [APPEND_ASSOC, merge_def])
+             metis_tac [APPEND_ASSOC, merge_def, flat_to_ctMap_append, merge_envC_empty_assoc, 
+                        merge_tenvC_empty_assoc])
          >- (cases_on `r` >> 
              fs [combine_dec_result_def] >> 
              rw [] >>
-             metis_tac [APPEND_ASSOC, merge_def])
+             metis_tac [APPEND_ASSOC, merge_def, flat_to_ctMap_append, merge_envC_empty_assoc, 
+                        merge_tenvC_empty_assoc])
          >- (cases_on `r` >> 
-             fs [combine_dec_result_def] >> 
+             fs [combine_dec_result_def, flat_to_ctMap_append] >> 
              rw [])
          >- (cases_on `r` >> 
              fs [combine_dec_result_def] >> 
              rw [] >>
-             `ctMap_ok (to_ctMap (tenvC' ++ cenv' ++ tenvC))` by metis_tac [consistent_con_env_def] >>
-             metis_tac [type_env_merge_bvl2,
-             type_v_weakening,store_type_extension_weakS, to_ctMap_append,
+             `ctMap_ok (flat_to_ctMap tenvC' ++ flat_to_ctMap cenv' ++ to_ctMap tenvC)` by metis_tac [consistent_con_env_def] >>
+             metis_tac [type_env_merge_bvl2, type_v_weakening,store_type_extension_weakS, flat_to_ctMap_append,
                         disjoint_env_weakCT,disjoint_env_def, DISJOINT_SYM, disjoint_env_def, APPEND_ASSOC, merge_def, weakM_refl])
          >- (cases_on `r` >> 
              fs [combine_dec_result_def] >> 
              rw [] >>
-             metis_tac [merge_def, bvl2_append]))
+             metis_tac [merge_def, bvl2_append, flat_to_ctMap_append]))
      >- (MAP_EVERY qexists_tac [`st'`, `Rerr err`, `[]`, `tenvS'`] >>
          rw [] >>
          imp_res_tac type_d_ctMap_ok >>
          imp_res_tac type_ds_ctMap_ok
-         >- (fs [disjoint_env_def, flat_to_ctMap_def] >>
+         >- (fs [disjoint_env_def, flat_to_ctMap_append, to_ctMap_merge_empty] >>
              metis_tac [DISJOINT_SYM])
          >- (MAP_EVERY qexists_tac [`tenvC'++cenv'`, `[]`] >>
-             rw []))));
+             rw [flat_to_ctMap_def] >>
+             PairCases_on `tenvC` >>
+             PairCases_on `cenv` >>
+             rw [merge_envC_def, merge_tenvC_def, merge_def]))));
 
              (*
 val tenvC_ok_pres2 = Q.prove (

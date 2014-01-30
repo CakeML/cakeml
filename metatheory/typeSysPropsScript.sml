@@ -1420,8 +1420,8 @@ flat_to_ctMap tenvC =
 
 val to_ctMap_def = Define `
 to_ctMap tenvC = 
-  FLAT (MAP (\(mn, tenvC). flat_to_ctMap tenvC) (FST tenvC)) ++
-  flat_to_ctMap (SND tenvC)`;
+  flat_to_ctMap (SND tenvC) ++
+  FLAT (MAP (\(mn, tenvC). flat_to_ctMap tenvC) (FST tenvC))`;
 
 val tenvC_ok_ctMap = Q.store_thm ("tenvC_ok_ctMap",
 `!tenvC. tenvC_ok tenvC = ctMap_ok (to_ctMap tenvC)`,
@@ -1432,6 +1432,10 @@ val tenvC_ok_ctMap = Q.store_thm ("tenvC_ok_ctMap",
      rw [] >>
      PairCases_on `tenvC` >>
      fs [tenvC_ok_def]
+     >- (PairCases_on `y` >>
+         fs [EVERY_MEM, flat_tenvC_ok_def] >>
+         res_tac >>
+         fs []) 
      >- (PairCases_on `e` >>
          fs [MEM_FLAT, MEM_MAP, EVERY_MEM, flat_tenvC_ok_def] >>
          rw [] >>
@@ -1444,13 +1448,9 @@ val tenvC_ok_ctMap = Q.store_thm ("tenvC_ok_ctMap",
          res_tac >>
          fs [] >>
          res_tac >>
-         fs [])
-     >- (PairCases_on `y` >>
-         fs [EVERY_MEM, flat_tenvC_ok_def] >>
-         res_tac >>
          fs []))
  >- (PairCases_on `tenvC` >>
-     rw [tenvC_ok_def, flat_tenvC_ok_def, EVERY_MEM]
+     rw [tenvC_ok_def, flat_tenvC_ok_def, EVERY_MEM] 
      >- (PairCases_on `p` >>
          rw [] >>
          PairCases_on `e` >>
@@ -1827,28 +1827,34 @@ val to_ctMap_to_types_thm = Q.store_thm ("to_ctMap_to_types_thm",
  rw [flat_to_ctMap_def, EXTENSION, to_ctMap_def] >>
  eq_tac >>
  rw []
+ >- (disj1_tac >>
+     fs [MEM_FLAT, MEM_MAP] >>
+     rw [] >>
+     PairCases_on `y` >>
+     rw [EXISTS_PROD] >>
+     metis_tac [])
  >- (disj2_tac >>
      fs [MEM_MAP] >>
      rw [] >>
      PairCases_on `y` >>
      rw [EXISTS_PROD] >>
      fs [MEM_MAP] >>
-     metis_tac [])
- >- (disj1_tac >>
-     fs [MEM_MAP] >>
-     rw [] >>
      PairCases_on `y` >>
-     fs [MEM_MAP] >>
+     fs [MEM_FLAT, MEM_MAP] >>
      rw [] >>
-     qexists_tac `(\(cn,tvs,ts,tn). ((cn, tn), tvs, ts)) y` >>
-     PairCases_on `y` >>
-     rw [MEM_FLAT, MEM_MAP] >>
-     qexists_tac `flat_to_ctMap y1` >>
-     rw [flat_to_ctMap_def, MEM_MAP]
+     MAP_EVERY qexists_tac [`y1'`, `y2`, `MAP (\(a,b,c,d).((a, d), b, c)) y1`] >>
+     rw [MEM_MAP]
      >- (qexists_tac `(y0,y1)` >>
          rw [])
      >- (qexists_tac `(y0',y1',y2,y3)` >>
          rw []))
+ >- (disj1_tac >>
+     fs [MEM_MAP] >>
+     rw [] >>
+     qexists_tac `y'` >>
+     fs [MEM_MAP] >>
+     PairCases_on `y'` >>
+     rw [])
  >- (disj2_tac >>
      fs [MEM_FLAT, MEM_MAP] >>
      rw [] >>
@@ -1859,12 +1865,6 @@ val to_ctMap_to_types_thm = Q.store_thm ("to_ctMap_to_types_thm",
      fs [] >>
      qexists_tac `set (MAP (\(a,b,c,d).(a, d)) y'1)` >>
      rw [MEM_MAP, EXISTS_PROD, EXTENSION] >>
-     metis_tac [])
- >- (disj1_tac >>
-     fs [MEM_FLAT, MEM_MAP] >>
-     rw [] >>
-     PairCases_on `y'` >>
-     rw [EXISTS_PROD] >>
      metis_tac []));
 
 val check_new_type_thm = Q.store_thm ("check_new_type_thm",
