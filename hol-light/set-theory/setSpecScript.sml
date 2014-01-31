@@ -366,4 +366,43 @@ val funspace_inhabited = store_thm("funspace_inhabited",
   match_mp_tac (MP_CANON abstract_in_funspace) >>
   metis_tac[])
 
+val tuple_def = Define`
+  (tuple0 ^mem [] = ∅) ∧
+  (tuple0 ^mem (a::as) = (a, tuple0 ^mem as))`
+val _ = Parse.overload_on("tuple",``tuple0 ^mem``)
+
+val pair_not_empty = store_thm("pair_not_empty",
+  ``is_set_theory ^mem ⇒ (x,y) ≠ ∅``,
+  rw[] >>
+  imp_res_tac is_extensional >>
+  fs[extensional_def,mem_empty] >>
+  pop_assum kall_tac >>
+  simp[pair_def,mem_upair] >>
+  metis_tac[])
+
+val tuple_empty = store_thm("tuple_empty",
+  ``is_set_theory ^mem ⇒ ∀ls. tuple ls = ∅ ⇔ ls = []``,
+  strip_tac >> Cases >> simp[tuple_def] >>
+  simp[pair_not_empty] )
+
+val tuple_inj = store_thm("tuple_inj",
+  ``is_set_theory ^mem ⇒
+    ∀l1 l2. tuple l1 = tuple l2 ⇔ l1 = l2``,
+  strip_tac >>
+  Induct >> simp[tuple_def] >- metis_tac[tuple_empty] >>
+  gen_tac >> Cases >> simp[tuple_def,pair_not_empty] >>
+  simp[pair_inj])
+
+val bigcross_def = Define`
+  (bigcross0 ^mem [] = One) ∧
+  (bigcross0 ^mem (a::as) = a × (bigcross0 ^mem as))`
+val _ = Parse.overload_on("bigcross",``bigcross0 ^mem``)
+
+val mem_bigcross = store_thm("mem_bigcross",
+  ``is_set_theory ^mem ⇒
+    ∀ls x. (mem x (bigcross ls) ⇔ ∃xs. x = tuple xs ∧ LIST_REL mem xs ls)``,
+  strip_tac >> Induct >>
+  simp[bigcross_def,tuple_def,mem_one] >>
+  simp[mem_product,PULL_EXISTS,tuple_def])
+
 val _ = export_theory()
