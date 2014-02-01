@@ -6,7 +6,7 @@ LEMS = $(patsubst %,%.lem,$(SRC))
 GENS = $(patsubst %,%Script.sml,$(SRC))
 
 $(GENS): $(LEMS)
-	if [ -x lem ];\
+	if type lem;\
 	then lem -auxiliary_level none -hol $(LEMS);\
 	else touch $(GENS); fi
 
