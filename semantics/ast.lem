@@ -5,6 +5,7 @@ type lit =
   | IntLit of integer
   | Bool of bool
   | Unit
+  | String of string
 
 (* Built-in binary operations (including function application) *)
 

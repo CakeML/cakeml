@@ -15,7 +15,8 @@ val _ = Hol_datatype `
  lit =
     IntLit of int
   | Bool of bool
-  | Unit`;
+  | Unit
+  | String of string`;
 
 
 (* Built-in binary operations (including function application) *)

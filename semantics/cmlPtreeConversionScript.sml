@@ -440,6 +440,12 @@ val ptree_Pattern_def = Define`
             i <- destIntT t ;
             SOME (Ast_Plit (IntLit i))
           od ++
+          do
+            lf <- destLf vic;
+            t <- destTOK lf;
+            s <- destStringT t ;
+            SOME (Ast_Plit (String s))
+          od ++
           if vic = Lf (TOK UnderbarT) then SOME (Ast_Pvar "_")
           else NONE
         | [lb; rb] =>
@@ -558,6 +564,12 @@ val ptree_Expr_def = Define`
                 t <- destTOK lf;
                 i <- destIntT t ;
                 SOME (Ast_Lit (IntLit i))
+              od ++
+              do
+                lf <- destLf single;
+                t <- destTOK lf;
+                s <- destStringT t;
+                SOME (Ast_Lit (String s))
               od ++
               do
                 s <- ptree_FQV single;
