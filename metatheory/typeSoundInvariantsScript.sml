@@ -19,7 +19,7 @@ val _ = new_theory "typeSoundInvariants"
 val _ = type_abbrev( "tenvS" , ``: (num, t) env``);
 
 (* Global constructor type environments keyed by constructor name and type *)
-val _ = type_abbrev( "ctMap" , ``: ((conN # tid_or_exn), ( tvarN list # t list)) env``);
+val _ = type_abbrev( "ctMap" , ``: ((conN # tid_or_exn), ( tvarN list # t list)) fmap``);
 
 (*val flat_tenvC_ok : flat_tenvC -> bool*)
 val _ = Define `
@@ -37,7 +37,7 @@ val _ = Define `
 (*val ctMap_ok : ctMap -> bool*)
 val _ = Define `
  (ctMap_ok ctMap =  
-(EVERY (\ ((cn,tn),(tvs,ts)) .  EVERY (check_freevars( 0) tvs) ts) ctMap))`;
+(FEVERY (UNCURRY (\ (cn,tn) (tvs,ts) .  EVERY (check_freevars( 0) tvs) ts)) ctMap))`;
 
 
 (* Check that a constructor type environment is consistent with a runtime type
@@ -53,7 +53,7 @@ val _ = Define `
     ==>    
 (? tvs ts.      
 (lookup_con_id cn tenvC = SOME (tvs, ts, t)) /\
-      ((lookup (id_to_n cn,t) ctMap = SOME (tvs, ts)) /\      
+      ((FLOOKUP ctMap (id_to_n cn,t) = SOME (tvs, ts)) /\      
 (LENGTH ts = n))))
   /\
   (! cn.    
@@ -140,7 +140,7 @@ type_v tvs cenv senv (Litv Unit) Tunit)
 (EVERY (check_freevars tvs []) ts' /\
 ((LENGTH tvs' = LENGTH ts') /\
 (type_vs tvs cenv senv vs (MAP (type_subst (ZIP (tvs', ts'))) ts) /\
-(lookup (cn, tn) cenv = SOME (tvs',ts)))))
+(FLOOKUP cenv (cn, tn) = SOME (tvs',ts)))))
 ==>
 type_v tvs cenv senv (Conv (SOME (cn,tn)) vs) (Tapp ts' (tid_exn_to_tc tn)))
 

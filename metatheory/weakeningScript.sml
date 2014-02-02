@@ -177,17 +177,33 @@ every_case_tac >>
 rw [] >>
 fs []);
 
-(*
-val weakC_merge = Q.store_thm ("weakC_merge",
+val flat_weakC_merge = Q.prove (
 `!tenvC1 tenvC2 tenvC3.
-  weakC tenvC1 tenvC2
+  flat_weakC tenvC1 tenvC2
   ⇒
-  weakC (merge tenvC3 tenvC1) (merge tenvC3 tenvC2)`,
-rw [weakC_def, merge_def, lookup_append] >>
+  flat_weakC (merge tenvC3 tenvC1) (merge tenvC3 tenvC2)`,
+rw [merge_def, lookup_append, flat_weakC_def] >>
 pop_assum (mp_tac o Q.SPEC `cn`) >>
 rw [] >>
 every_case_tac);
 
+val weakC_merge = Q.store_thm ("weakC_merge",
+`!tenvC1 tenvC2 tenvC3.
+  weakC tenvC1 tenvC2
+  ⇒
+  weakC (merge_tenvC tenvC3 tenvC1) (merge_tenvC tenvC3 tenvC2)`,
+ rw [weakC_def] >>
+ PairCases_on `tenvC1` >>
+ PairCases_on `tenvC2` >>
+ PairCases_on `tenvC3` >>
+ fs [merge_tenvC_def]
+ >- metis_tac [flat_weakC_merge]
+ >- (fs [merge_def, lookup_append] >>
+     every_case_tac >>
+     fs [] >>
+     rw [flat_weakC_refl]));
+
+(*
 val weakC_merge2 = Q.store_thm ("weakC_merge2",
 `!tenvC1 tenvC2 tenvC3.
   disjoint_env tenvC1 tenvC3 ∧
@@ -835,7 +851,23 @@ val type_d_weakening = Q.store_thm ("type_d_weakening",
  >- metis_tac [check_ctor_tenv_weakening]
  >- metis_tac [check_exn_tenv_weakening]);
 
- (*
+val to_ctMap_merge_empty = Q.store_thm ("to_ctMap_merge_empty",
+`!flat_tenvC tenvC.
+  to_ctMap (merge_tenvC ([],flat_tenvC) tenvC) = flat_to_ctMap flat_tenvC ++ to_ctMap tenvC`,
+ rw [] >>
+ PairCases_on `tenvC` >>
+ rw [to_ctMap_def, merge_tenvC_def, merge_def, flat_to_ctMap_def]);
+
+val merge_envC_empty_assoc = Q.prove (
+`!envC1 envC2 envC3.
+  merge_envC ([],envC1) (merge_envC ([],envC2) envC3)
+  =
+  merge_envC ([],envC1++envC2) envC3`,
+ rw [] >>
+ PairCases_on `envC3` >>
+ rw [merge_envC_def, merge_def]);
+
+
 val type_ds_weakening = Q.store_thm ("type_ds_weakening",
 `!mn tenvM tenvC tenv ds tenvC' tenv'.
   type_ds mn tenvM tenvC tenv ds tenvC' tenv' ⇒
@@ -850,13 +882,13 @@ val type_ds_weakening = Q.store_thm ("type_ds_weakening",
  `weakCT_only_other_mods mn (merge (flat_to_ctMap cenv') (to_ctMap tenvC''))
                             (merge (flat_to_ctMap cenv') (to_ctMap tenvC))`
           by metis_tac [weakCT_only_other_mods_merge] >>
- `tenvC_ok (merge cenv' tenvC'')` 
+ `tenvC_ok (merge_tenvC (emp,cenv') tenvC'')` 
         by (`type_d mn tenvM'' tenvC'' tenv d cenv' tenv'` by metis_tac [type_d_weakening] >>
             imp_res_tac type_d_ctMap_ok >>
-            rw [tenvC_ok_merge] >>
-            metis_tac [tenvC_ok_ctMap]) >>
- metis_tac [type_d_weakening, weakC_merge]);
- *)
+            rw [tenvC_ok_merge, tenvC_ok_ctMap, to_ctMap_def, emp_def,
+                SIMP_RULE (srw_ss()) [merge_def] ctMap_ok_merge] >>
+            rw [ctMap_ok_def]) >>
+ metis_tac [type_d_weakening, weakC_merge, emp_def, merge_def, to_ctMap_merge_empty]);
 
      (*
 val weakC_not_NONE = Q.store_thm ("weakC_not_NONE",

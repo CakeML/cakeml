@@ -9,7 +9,7 @@ open import TypeSystem
 type tenvS = env nat t
 
 (* Global constructor type environments keyed by constructor name and type *)
-type ctMap = env (conN * tid_or_exn) (list tvarN * list t)
+type ctMap = Map.map (conN * tid_or_exn) (list tvarN * list t)
 
 val flat_tenvC_ok : flat_tenvC -> bool
 let flat_tenvC_ok tenvC =
@@ -22,7 +22,7 @@ let tenvC_ok (mtenvC, tenvC) =
 
 val ctMap_ok : ctMap -> bool
 let ctMap_ok ctMap =
-  List.all (fun ((cn,tn),(tvs,ts)) -> List.all (check_freevars 0 tvs) ts) ctMap
+  Map.all (fun (cn,tn) (tvs,ts) -> List.all (check_freevars 0 tvs) ts) ctMap
 
 (* Check that a constructor type environment is consistent with a runtime type
  * enviroment, using the full type keyed constructor type environment to ensure
@@ -36,7 +36,7 @@ let consistent_con_env ctMap envC tenvC =
     -->
     exists tvs ts.
       lookup_con_id cn tenvC = Just (tvs, ts, t) &&
-      lookup (id_to_n cn,t) ctMap = Just (tvs, ts) &&
+      Map.lookup (id_to_n cn,t) ctMap = Just (tvs, ts) &&
       List.length ts = n)
   &&
   (forall cn.
@@ -135,7 +135,7 @@ conv_some : forall tvs cenv senv cn vs tvs' tn ts' ts.
 List.all (check_freevars tvs []) ts' &&
 List.length tvs' = List.length ts' &&
 type_vs tvs cenv senv vs (List.map (type_subst (ZIP tvs' ts')) ts) &&
-lookup (cn, tn) cenv = Just (tvs',ts)
+Map.lookup (cn, tn) cenv = Just (tvs',ts)
 ==>
 type_v tvs cenv senv (Conv (Just (cn,tn)) vs) (Tapp ts' (tid_exn_to_tc tn))
 
