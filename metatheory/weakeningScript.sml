@@ -816,10 +816,6 @@ val type_d_weakening = Q.store_thm ("type_d_weakening",
  >- metis_tac [check_ctor_tenv_weakening]
  >- metis_tac [check_exn_tenv_weakening]);
 
-val flat_to_ctMap_list_append = Q.store_thm ("flat_to_ctMap_list_append",
-`!tenvC1 tenvC2. flat_to_ctMap_list (tenvC1 ++ tenvC2) = flat_to_ctMap_list tenvC1 ++ flat_to_ctMap_list tenvC2`,
-rw [flat_to_ctMap_list_def]);
-
 val to_ctMap_merge = Q.store_thm ("to_ctMap_merge",
 `!tenvC1 tenvC2.
   DISJOINT (FDOM (to_ctMap tenvC1)) (FDOM (to_ctMap tenvC2)) ⇒

@@ -2336,6 +2336,10 @@ val type_d_ctMap_ok = Q.store_thm ("type_d_ctMap_ok",
      fs [FDOM_FUPDATE_LIST, flat_to_ctMap_def, flat_to_ctMap_list_def] >>
      metis_tac [emp_def,DISJOINT_SYM]));
 
+val flat_to_ctMap_list_append = Q.store_thm ("flat_to_ctMap_list_append",
+`!tenvC1 tenvC2. flat_to_ctMap_list (tenvC1 ++ tenvC2) = flat_to_ctMap_list tenvC1 ++ flat_to_ctMap_list tenvC2`,
+rw [flat_to_ctMap_list_def]);
+
 val type_ds_ctMap_ok = Q.store_thm ("type_ds_ctMap_ok",
 `!tvs tenvM tenvC tenv ds tenvC' tenv'.
   type_ds tvs tenvM tenvC tenv ds tenvC' tenv' ⇒
