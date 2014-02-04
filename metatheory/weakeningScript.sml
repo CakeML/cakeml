@@ -20,7 +20,6 @@ val fmap_eq_flookup = Q.store_thm ("fmap_eq_flookup",
      >- metis_tac [NOT_SOME_NONE]
      >- metis_tac [SOME_11]));
 
-
 val weakC_def = Define `
   weakC tenvC tenvC' ⇔
   flat_weakC (SND tenvC) (SND tenvC') ∧
@@ -28,75 +27,6 @@ val weakC_def = Define `
     lookup mn (FST tenvC') = SOME flat_tenvC'
     ⇒
     ?flat_tenvC. lookup mn (FST tenvC) = SOME flat_tenvC ∧ flat_weakC flat_tenvC flat_tenvC'`;
-
-(*
-val weakC_mods_def = Define `
-weakC_mods tenvC1 tenvC2 =
-  { mn | 
-    ?cn x. 
-      (lookup (mk_id mn cn) tenvC1 = SOME x) ∧ (lookup (mk_id mn cn) tenvC2 = NONE) }`;
-
-val weakC_mods_merge = Q.prove (
-`!tenvC1 tenvC2 tenvC3. 
-  ALL_DISTINCT (MAP FST (merge tenvC1 tenvC2)) ⇒
-  (weakC_mods (merge tenvC1 tenvC2) (merge tenvC1 tenvC3) =
-   weakC_mods tenvC2 tenvC3)`,
-rw [weakC_mods_def, merge_def, lookup_append, EXTENSION] >>
-eq_tac >>
-rw [] >-
-metis_tac [option_case_def, NOT_SOME_NONE, SOME_11, option_nchotomy] >>
-qexists_tac `cn` >>
-qexists_tac `x'` >>
-rw [] >>
-cases_on `lookup (mk_id x cn) tenvC1` >>
-rw [] >>
-fs [ALL_DISTINCT_APPEND] >>
-imp_res_tac lookup_in2 >>
-metis_tac []);
-
-val tenvC_one_mod_def = Define `
-tenvC_one_mod tenvC mn =
-  !mn' cn x. 
-    (lookup (mk_id mn' cn) tenvC = SOME x)  
-    ⇒
-    (mn = mn')`;
-
-val build_ctor_tenv_one_mod = Q.prove (
-`!mn tdecs.
-  tenvC_one_mod (build_ctor_tenv mn tdecs) mn`,
-rw [tenvC_one_mod_def, lookup_def, build_ctor_tenv_def] >>
-induct_on `tdecs` >>
-rw [] >>
-fs [lookup_append] >>
-PairCases_on `h` >>
-fs [] >>
-cases_on `lookup (mk_id mn' cn) (MAP (λ(cn,ts). (mk_id mn cn,h0,ts,TypeId (mk_id mn h1))) h2)` >>
-fs [] >>
-rw [] >>
-pop_assum mp_tac >>
-pop_assum (fn _ => all_tac) >>
-induct_on `h2` >>
-rw [lookup_def] >>
-PairCases_on `h` >>
-fs [] >>
-cases_on `mk_id mn h0' = mk_id mn' cn` >>
-fs [] >>
-Cases_on `mn` >>
-Cases_on `mn'` >>
-fs [mk_id_def]);
-
-val tenvC_one_mod_merge = Q.prove (
-`!tenvC1 tenvC2 mn.
-  tenvC_one_mod tenvC1 mn ∧
-  tenvC_one_mod tenvC2 mn
-  ⇒
-  tenvC_one_mod (merge tenvC1 tenvC2) mn`,
-rw [tenvC_one_mod_def, merge_def, lookup_append] >>
-every_case_tac >>
-fs [] >>
-metis_tac []);
-
-*)
 
 val weak_tenvE_def = Define `
 weak_tenvE tenv tenv' = 
@@ -216,22 +146,6 @@ val weakC_merge = Q.store_thm ("weakC_merge",
      every_case_tac >>
      fs [] >>
      rw [flat_weakC_refl]));
-
-(*
-val weakC_merge2 = Q.store_thm ("weakC_merge2",
-`!tenvC1 tenvC2 tenvC3.
-  disjoint_env tenvC1 tenvC3 ∧
-  weakC tenvC1 tenvC2
-  ⇒
-  weakC (merge tenvC1 tenvC3) (merge tenvC2 tenvC3)`,
-rw [weakC_def, merge_def, lookup_append] >>
-pop_assum (mp_tac o Q.SPEC `cn`) >>
-rw [] >>
-every_case_tac >>
-imp_res_tac lookup_in2 >>
-fs [disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
-metis_tac []);
-*)
 
 val weak_tenvE_freevars = Q.prove (
 `!tenv tenv' tvs t.
@@ -690,45 +604,6 @@ val weakCT_only_other_mods_merge = Q.prove (
 rw [weakCT_only_other_mods_def] >>
 metis_tac []);
 
-(*
-val check_dup_ctors_weakening = Q.store_thm ("check_dup_ctors_weakening",
-`!mn tenvC tdecs tenvC'.
-  check_dup_ctors mn tenvC tdecs ∧
-  weakC tenvC' tenvC ∧
-  weak_other_mods mn tenvC' tenvC
-  ⇒
-  check_dup_ctors mn tenvC' tdecs`,
-rw [check_dup_ctors_def, RES_FORALL] >>
-PairCases_on `x` >>
-rw [] >>
-PairCases_on `x` >>
-rw [] >>
-res_tac >>
-fs [] >>
-res_tac >>
-fs [] >>
-metis_tac [weak_other_mods_def]);
-
-val check_ctor_tenv_weakening_lem = Q.prove (
-`!tenvC id x y z.
- ALL_DISTINCT (MAP FST tenvC) ⇒
- ((lookup id tenvC = SOME (x,y,z))
-  =
-  MEM (id,x,y,z) tenvC)`,
-Induct_on `tenvC` >>
-rw [] >>
-PairCases_on `h` >>
-fs [] >>
-every_case_tac >>
-rw [] >>
-fs [MEM_MAP] >>
-eq_tac >>
-rw [] >>
-metis_tac [FST]);
-
-
-*)
-
 val check_new_type_weakening = Q.prove (
 `!mn tn tenvC tenvC'.
   check_new_type (mk_id mn tn) tenvC ∧
@@ -863,17 +738,6 @@ val to_ctMap_merge_empty = Q.store_thm ("to_ctMap_merge_empty",
  fs [] >>
  rw []);
 
- (*
-val merge_envC_empty_assoc = Q.prove (
-`!envC1 envC2 envC3.
-  merge_envC ([],envC1) (merge_envC ([],envC2) envC3)
-  =
-  merge_envC ([],envC1++envC2) envC3`,
- rw [] >>
- PairCases_on `envC3` >>
- rw [merge_envC_def, merge_def]);
- *)
-
 val ctMap_ok_tenvC_ok = Q.store_thm ("ctMap_ok_tenvC_ok",
 `!tenvC. 
   ALL_DISTINCT (MAP FST (REVERSE (flat_to_ctMap_list tenvC))) ∧ ctMap_ok (flat_to_ctMap tenvC) ⇒ tenvC_ok ([],tenvC)`,
@@ -907,78 +771,5 @@ val type_ds_weakening = Q.store_thm ("type_ds_weakening",
             rw [tenvC_ok_merge, tenvC_ok_ctMap, to_ctMap_def, emp_def] >>
             metis_tac [ctMap_ok_tenvC_ok, MAP_REVERSE, ALL_DISTINCT_REVERSE]) >>
  metis_tac [type_d_weakening, weakC_merge, emp_def, merge_def, to_ctMap_merge_empty]);
-
-     (*
-val weakC_not_NONE = Q.store_thm ("weakC_not_NONE",
-`!tenvC1 tenvC2 l.
-  weakC tenvC1 tenvC2 ∧
-  weakC_mods tenvC1 tenvC2 ⊆ set (MAP SOME l)
-  ⇒
-  weak_other_mods NONE tenvC1 tenvC2`,
-rw [MEM_MAP, weakC_def, weak_other_mods_def, weakC_mods_def, SUBSET_DEF] >>
-pop_assum (mp_tac o Q.SPEC `NONE`) >>
-pop_assum (mp_tac o Q.SPEC `mk_id NONE cn`) >>
-rw [] >>
-every_case_tac >>
-metis_tac [NOT_SOME_NONE, SOME_11, option_case_def, option_nchotomy, mk_id_def]);
-
-val weakC_not_SOME = Q.store_thm ("weakC_not_SOME",
-`!tenvC1 tenvC2 mn l.
-  mn ∉ set l ∧
-  weakC tenvC1 tenvC2 ∧
-  weakC_mods tenvC1 tenvC2 ⊆ set (MAP SOME l)
-  ⇒
-  weak_other_mods (SOME mn) tenvC1 tenvC2`,
-rw [MEM_MAP, weakC_def, weak_other_mods_def, weakC_mods_def, SUBSET_DEF] >>
-pop_assum (mp_tac o Q.SPEC `(SOME mn)`) >>
-pop_assum (mp_tac o Q.SPEC `mk_id (SOME mn) cn`) >>
-rw [] >>
-every_case_tac >>
-metis_tac [NOT_SOME_NONE, SOME_11, option_case_def, option_nchotomy, mk_id_def]);
-
-val type_d_mod = Q.store_thm ("type_d_mod",
-`∀mn tenvM tenvC tenv d tenvC' tenv'.
-  type_d mn tenvM tenvC tenv d tenvC' tenv'
-  ⇒
-  tenvC_one_mod tenvC' mn`,
-rw [type_d_cases, emp_def] >|
-[rw [tenvC_one_mod_def],
- rw [tenvC_one_mod_def],
- rw [tenvC_one_mod_def],
- metis_tac [build_ctor_tenv_one_mod],
- rw [tenvC_one_mod_def] >>
-     fs [bind_def, mk_id_def] >>
-     every_case_tac >>
-     fs [bind_def, mk_id_def]]);
-
-val type_ds_mod = Q.store_thm ("type_ds_mod",
-`∀mn tenvM tenvC tenv ds tenvC' tenv'.
-  type_ds mn tenvM tenvC tenv ds tenvC' tenv'
-  ⇒
-  tenvC_one_mod tenvC' mn`,
-ho_match_mp_tac type_ds_ind >>
-rw [emp_def] >-
-rw [tenvC_one_mod_def] >>
-metis_tac [tenvC_one_mod_merge, type_d_mod]);
-
-val weakC_disjoint = Q.store_thm ("weakC_disjoint",
-`!tenvC1 tenvC2 tenvC3.
-  weakC tenvC1 tenvC2 ∧
-  disjoint_env tenvC1 tenvC3
-  ⇒
-  disjoint_env tenvC2 tenvC3`,
-rw [weakC_def, disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
-pop_assum (mp_tac o Q.SPEC `x`) >>
-pop_assum (mp_tac o Q.SPEC `x`) >>
-rw [] >>
-rw [] >>
-`lookup x tenvC1 = NONE` by metis_tac [lookup_in2, option_nchotomy] >>
-fs [] >>
-cases_on `lookup x tenvC2` >>
-fs [lookup_notin] >>
-PairCases_on `x'` >>
-fs []);
-
-*)
 
 val _ = export_theory ();
