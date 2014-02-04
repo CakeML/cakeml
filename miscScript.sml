@@ -1,4 +1,4 @@
-open HolKernel bossLib boolLib boolSimps listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory arithmeticTheory pairTheory sortingTheory relationTheory lcsymtacs miscLib
+open HolKernel bossLib boolLib boolSimps optionTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory arithmeticTheory pairTheory sortingTheory relationTheory lcsymtacs miscLib
 (* Misc. lemmas (without any compiler constants) *)
 val _ = new_theory "misc"
 
@@ -1333,5 +1333,56 @@ val f_o_f_FUPDATE_compose = store_thm("f_o_f_FUPDATE_compose",
   qmatch_assum_rename_tac`y <> k`[] >>
   `y ∈ FDOM (f1 f_o_f f2)` by rw[f_o_f_DEF] >>
   rw[f_o_f_DEF])
+
+  (* --------- SO additions --------- *)
+val alookup_distinct_reverse = Q.store_thm ("alookup_distinct_reverse",
+`!l k. ALL_DISTINCT (MAP FST l) ⇒ (ALOOKUP (REVERSE l) k = ALOOKUP l k)`,
+ Induct_on `l` >>
+ rw [] >>
+ PairCases_on `h` >>
+ fs [] >>
+ BasicProvers.EVERY_CASE_TAC >>
+ fs [ALOOKUP_APPEND] >>
+ rw [] >>
+ BasicProvers.EVERY_CASE_TAC >>
+ fs [] >>
+ imp_res_tac ALOOKUP_MEM >>
+ fs [MEM_MAP] >>
+ metis_tac [FST]);
+
+val fevery_funion = Q.store_thm ("fevery_funion",
+`!P m1 m2. FEVERY P m1 ∧ FEVERY P m2 ⇒ FEVERY P (FUNION m1 m2)`,
+ rw [FEVERY_ALL_FLOOKUP, FLOOKUP_FUNION] >>
+ BasicProvers.EVERY_CASE_TAC >>
+ fs []);
+
+val flookup_fupdate_list = Q.store_thm ("flookup_fupdate_list",
+`!l k m.
+  FLOOKUP (m |++ l) k =
+  case ALOOKUP (REVERSE l) k of
+     | SOME v => SOME v
+     | NONE => FLOOKUP m k`,
+ ho_match_mp_tac ALOOKUP_ind >>
+ rw [FUPDATE_LIST_THM, ALOOKUP_def, FLOOKUP_UPDATE] >>
+ BasicProvers.FULL_CASE_TAC >>
+ fs [ALOOKUP_APPEND] >>
+ BasicProvers.EVERY_CASE_TAC >>
+ fs [FLOOKUP_UPDATE] >>
+ rw [] >>
+ imp_res_tac FLOOKUP_FUPDATE_LIST_ALOOKUP_NONE >>
+ imp_res_tac FLOOKUP_FUPDATE_LIST_ALOOKUP_SOME >>
+ fs [FLOOKUP_UPDATE]);
+
+val fmap_eq_flookup = Q.store_thm ("fmap_eq_flookup",
+`!m1 m2. (m1 = m2) = !k. FLOOKUP m1 k = FLOOKUP m2 k`,
+ rw [FLOOKUP_DEF, GSYM fmap_EQ_THM] >>
+ eq_tac >>
+ rw [EXTENSION]
+ >- metis_tac [NOT_SOME_NONE]
+ >- (Cases_on `x ∉ FDOM m2` >>
+     fs []
+     >- metis_tac [NOT_SOME_NONE]
+     >- metis_tac [SOME_11]));
+
 
 val _ = export_theory()

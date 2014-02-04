@@ -9,17 +9,6 @@ open terminationTheory;
 
 val _ = new_theory "weakening";
 
-val fmap_eq_flookup = Q.store_thm ("fmap_eq_flookup",
-`!m1 m2. (m1 = m2) = !k. FLOOKUP m1 k = FLOOKUP m2 k`,
- rw [FLOOKUP_DEF, GSYM fmap_EQ_THM] >>
- eq_tac >>
- rw [EXTENSION]
- >- metis_tac [NOT_SOME_NONE]
- >- (cases_on `x ∉ FDOM m2` >>
-     fs []
-     >- metis_tac [NOT_SOME_NONE]
-     >- metis_tac [SOME_11]));
-
 val weak_tenvE_def = Define `
 weak_tenvE tenv tenv' = 
   (num_tvs tenv ≥ num_tvs tenv' ∧

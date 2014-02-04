@@ -13,52 +13,6 @@ val same_tid_def = semanticPrimitivesTheory.same_tid_def;
 val lookup_con_id_def = semanticPrimitivesTheory.lookup_con_id_def;
 val merge_envC_def = semanticPrimitivesTheory.merge_envC_def;
 
-val alookup_distinct_reverse = Q.store_thm ("alookup_distinct_reverse",
-`!l k. ALL_DISTINCT (MAP FST l) ⇒ (ALOOKUP (REVERSE l) k = ALOOKUP l k)`,
- induct_on `l` >>
- rw [] >>
- PairCases_on `h` >>
- fs [] >>
- every_case_tac >>
- fs [ALOOKUP_APPEND] >>
- rw [] >>
- every_case_tac >>
- fs [] >>
- imp_res_tac ALOOKUP_MEM >>
- fs [MEM_MAP] >>
- metis_tac [FST]);
-
-val fevery_funion = Q.store_thm ("fevery_funion",
-`!P m1 m2. FEVERY P m1 ∧ FEVERY P m2 ⇒ FEVERY P (FUNION m1 m2)`,
- rw [FEVERY_ALL_FLOOKUP, FLOOKUP_FUNION] >>
- every_case_tac >>
- fs []);
-
-val flookup_fupdate_list = Q.store_thm ("flookup_fupdate_list",
-`!l k m.
-  FLOOKUP (m |++ l) k =
-  case ALOOKUP (REVERSE l) k of
-     | SOME v => SOME v
-     | NONE => FLOOKUP m k`,
- ho_match_mp_tac ALOOKUP_ind >>
- rw [FUPDATE_LIST_THM, ALOOKUP_def, FLOOKUP_UPDATE] >>
- full_case_tac >>
- fs [ALOOKUP_APPEND] >>
- every_case_tac >>
- fs [FLOOKUP_UPDATE] >>
- rw [] >>
- imp_res_tac FLOOKUP_FUPDATE_LIST_ALOOKUP_NONE >>
- imp_res_tac FLOOKUP_FUPDATE_LIST_ALOOKUP_SOME >>
- fs [FLOOKUP_UPDATE]);
-
-val all_distinct_map_inj = Q.prove (
-`!f l. (!x y. (f x = f y) ⇒ (x = y)) ⇒ (ALL_DISTINCT (MAP f l) = ALL_DISTINCT l)`,
-Induct_on `l` >>
-rw [] >>
-res_tac >>
-rw [MEM_MAP] >>
-metis_tac []);
-
 val mem_lem = Q.prove (
 `!x y l. MEM (x,y) l ⇒ ∃z. (x = FST z) ∧ z ∈ set l`,
 induct_on `l` >>
