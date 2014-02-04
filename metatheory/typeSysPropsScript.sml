@@ -107,17 +107,13 @@ rw [] >>
 cases_on `h` >>
 rw [lookup_def,lookup_append_none]);
 
-val disjoint_env_def = Define `
-  disjoint_env e1 e2 =
-    DISJOINT (set (MAP FST e1)) (set (MAP FST e2))`;
-
 val flat_tenvC_ok_merge = Q.prove (
 `!tenvC1 tenvC2.
   flat_tenvC_ok (merge tenvC1 tenvC2) = 
   (flat_tenvC_ok tenvC1 ∧ flat_tenvC_ok tenvC2)`, 
 rw [flat_tenvC_ok_def, merge_def, ALL_DISTINCT_APPEND] >>
 eq_tac >>
-rw [disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
+rw [DISJOINT_DEF, EXTENSION] >>
 metis_tac []);
 
 val tenvC_ok_merge = Q.store_thm ("tenvC_ok_merge",
@@ -264,26 +260,6 @@ induct_on `ps` >>
 rw [Once type_p_cases] >>
 rw [] >>
 metis_tac []);
-
-val lookup_disjoint = Q.store_thm ("lookup_disjoint",
-`!x v e e'. (lookup x e = SOME v) ∧ disjoint_env e e' ⇒
-  (lookup x (merge e' e) = SOME v)`,
-induct_on `e'` >>
-rw [disjoint_env_def, merge_def, lookup_def] >>
-cases_on `h` >>
-fs [merge_def, lookup_def] >>
-fs [Once DISJOINT_SYM, DISJOINT_INSERT] >>
-`q ≠ x` by metis_tac [lookup_in2] >>
-fs [disjoint_env_def] >>
-metis_tac [DISJOINT_SYM]);
-
-val lookup_con_disjoint = Q.store_thm ("lookup_con_disjoint",
-`!x v tenvC1 tenvC2.
-  (lookup x tenvC1 = SOME v) ∧
-  disjoint_env tenvC1 tenvC2
-  ⇒
-  (lookup x (merge tenvC2 tenvC1) = SOME v)`,
-metis_tac [lookup_disjoint]);
 
 val bind_var_list_append = Q.store_thm ("bind_var_list_append",
 `!n te1 te2 te3.
@@ -1839,7 +1815,7 @@ val check_exn_tenv_disjoint = Q.store_thm ("check_exn_tenv_disjoint",
   check_exn_tenv tvs tenvC cn ts
   ⇒
   DISJOINT (FDOM (flat_to_ctMap (bind cn ([]:tvarN list,ts,TypeExn tvs) emp))) (FDOM (to_ctMap tenvC))`,
- rw [FDOM_FUPDATE_LIST, bind_def, disjoint_env_def, DISJOINT_DEF,EXTENSION, MEM_MAP, flat_to_ctMap_def] >>
+ rw [FDOM_FUPDATE_LIST, bind_def, DISJOINT_DEF,EXTENSION, MEM_MAP, flat_to_ctMap_def] >>
  fs [flat_to_ctMap_list_def, check_exn_tenv_def, check_new_exn_thm, to_ctMap_to_types_thm] >>
  CCONTR_TAC >>
  fs [] >>
