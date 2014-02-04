@@ -1364,8 +1364,7 @@ val defthm_def = Define`
   defthm _ = []`
 
 val proves_IMP = store_thm("proves_IMP",
-  ``is_model M ⇒
-    (∀defs ty. type_ok defs ty ⇒ context_ok defs ∧ good_defs defs ∧ ∃ty1. type defs ty ty1 ∧ type_ok ty1) ∧
+  ``(∀defs ty. type_ok defs ty ⇒ context_ok defs ∧ good_defs defs ∧ ∃ty1. type defs ty ty1 ∧ type_ok ty1) ∧
     (∀defs tm. term_ok defs tm ⇒ context_ok defs ∧ good_defs defs ∧ ∃tm1. term defs tm tm1 ∧ term_ok tm1) ∧
     (∀defs. context_ok defs ⇒
       good_defs defs ∧
@@ -1381,7 +1380,6 @@ val proves_IMP = store_thm("proves_IMP",
       (∀t. MEM t (FLAT (MAP deftm (FST dh))) ⇒ term_ok (FST dh) t ∧ ∃t1. term (FST dh) t t1 ∧ term_ok t1) ∧
       (∀h c. MEM (h,c) (FLAT (MAP defthm (FST dh))) ⇒ ∃h1 c1. seq_trans ((FST dh,h),c) (h1,c1) ∧ h1 |- c1) ∧
       ∃h1 c1. seq_trans (dh,c) (h1,c1) ∧ h1 |- c1)``,
-  strip_tac >>
   HO_MATCH_MP_TAC holSyntaxTheory.proves_strongind >>
   conj_tac >- ( rw[] >> simp[Once term_cases,Once proves_cases] ) >>
   conj_tac >- ( rw[] >> rw[Once term_cases] >> rw[Once proves_cases] ) >>
@@ -1488,7 +1486,7 @@ val proves_IMP = store_thm("proves_IMP",
     rw[seq_trans_def] >> rfs[] >>
     qspecl_then[`tm`,`tm`,`tm1 === tm1`]mp_tac term_equation >>
     simp[holSyntaxTheory.EQUATION_HAS_TYPE_BOOL] >>
-    `welltyped tm1` by METIS_TAC[soundness,has_meaning_welltyped] >>
+    `welltyped tm1` by METIS_TAC[proves_welltyped] >>
     `welltyped tm` by METIS_TAC[term_welltyped] >>
     simp[] >> strip_tac >>
     qexists_tac`tm1 === tm1` >>
@@ -1497,8 +1495,8 @@ val proves_IMP = store_thm("proves_IMP",
   conj_tac >- (
     rw[seq_trans_def] >>
     `∀t. MEM t (c1::h1) ∨ MEM t (c1'::h1') ⇒ t has_type Bool` by (
-      imp_res_tac soundness >>
-      fs[sequent_def,EVERY_MEM] >>
+      imp_res_tac proves_welltyped >>
+      fs[EVERY_MEM] >>
       METIS_TAC[] ) >>
     `welltyped (l === m1) ∧ welltyped (m2 === r)` by METIS_TAC[term_welltyped,welltyped_def,MEM] >>
     fs[welltyped_equation,holSyntaxTheory.EQUATION_HAS_TYPE_BOOL] >>
@@ -1522,7 +1520,7 @@ val proves_IMP = store_thm("proves_IMP",
     qspecl_then[`l1`,`r1`,`c1`]mp_tac term_equation >>
     simp[holSyntaxTheory.EQUATION_HAS_TYPE_BOOL] >>
     `∀t. MEM t (c1::h1) ∨ MEM t (c1'::h1') ⇒ t has_type Bool` by (
-      imp_res_tac soundness >> fs[sequent_def,EVERY_MEM] >>
+      imp_res_tac proves_welltyped >> fs[EVERY_MEM] >>
       METIS_TAC[] ) >>
     `welltyped (l1 === r1) ∧ welltyped (l2 === r2)` by (
       imp_res_tac term_welltyped >>
@@ -1554,8 +1552,8 @@ val proves_IMP = store_thm("proves_IMP",
     qspecl_then[`l`,`r`,`c1`]mp_tac term_equation >>
     simp[] >>
     `c1 has_type Bool` by (
-      imp_res_tac soundness >>
-      fs[sequent_def] ) >>
+      imp_res_tac proves_welltyped >>
+      fs[] ) >>
     `l === r has_type Bool` by (
       simp[GSYM welltyped_equation] >>
       metis_tac[term_welltyped,welltyped_def] ) >>
@@ -1576,7 +1574,7 @@ val proves_IMP = store_thm("proves_IMP",
     rw[seq_trans_def] >> rfs[] >>
     qspecl_then[`Comb (Abs x ty tm) (Var x ty)`,`tm`]mp_tac term_equation >>
     simp[holSyntaxTheory.EQUATION_HAS_TYPE_BOOL] >>
-    `welltyped tm1` by METIS_TAC[soundness,has_meaning_welltyped] >>
+    `welltyped tm1` by METIS_TAC[proves_welltyped] >>
     `welltyped tm` by METIS_TAC[term_welltyped] >>
     simp[] >> strip_tac >>
     srw_tac[boolSimps.DNF_ss][] >>
@@ -1600,9 +1598,9 @@ val proves_IMP = store_thm("proves_IMP",
     qexists_tac`TERM_UNION h1 h1'` >>
     qspecl_then[`p`,`c`,`c1`]mp_tac term_equation >>
     `welltyped c1` by (
-      imp_res_tac soundness >>
-      fs[sequent_def,welltyped_def] >>
-      METIS_TAC[] ) >>
+      imp_res_tac proves_welltyped >>
+      fs[EVERY_MEM] >>
+      METIS_TAC[welltyped_def] ) >>
     `welltyped (p === c)` by METIS_TAC[term_welltyped] >>
     fs[welltyped_equation] >>
     strip_tac >>
@@ -1620,8 +1618,7 @@ val proves_IMP = store_thm("proves_IMP",
     discharge_hyps >- (
       simp[holSyntaxTheory.EQUATION_HAS_TYPE_BOOL] >>
       `c1 has_type Bool ∧ c1' has_type Bool` by (
-        imp_res_tac soundness >>
-        fs[sequent_def] ) >>
+        imp_res_tac proves_welltyped >> fs[] ) >>
       conj_asm1_tac >- METIS_TAC[welltyped_def,term_welltyped] >>
       conj_asm1_tac >- METIS_TAC[welltyped_def,term_welltyped] >>
       fs[holSyntaxTheory.WELLTYPED] >>
@@ -1671,9 +1668,9 @@ val proves_IMP = store_thm("proves_IMP",
       qexists_tac`ty1` >>
       simp[]) >>
     `∀t. MEM t (c1::h1) ⇒ welltyped t` by (
-      imp_res_tac soundness >>
-      fs[sequent_def,EVERY_MEM] >>
-      METIS_TAC[has_meaning_welltyped] ) >>
+      imp_res_tac proves_welltyped >>
+      fs[EVERY_MEM] >>
+      METIS_TAC[welltyped_def] ) >>
     qexists_tac`MAP (INST tyin1) h1` >>
     qexists_tac`INST tyin1 c1` >>
     reverse conj_tac >- (
@@ -1825,7 +1822,7 @@ val proves_IMP = store_thm("proves_IMP",
         conj_asm1_tac >- (
           simp[Once proves_cases,MEM_EL] >>
           METIS_TAC[]) >>
-        METIS_TAC[soundness,has_meaning_welltyped] ) >>
+        METIS_TAC[proves_welltyped] ) >>
     `term_ok defs c'` by (
       simp[Once holSyntaxTheory.proves_cases] >>
       METIS_TAC[] ) >>
@@ -2030,9 +2027,9 @@ val proves_IMP = store_thm("proves_IMP",
       qmatch_assum_abbrev_tac`term defs (e1 === e2) e` >>
       qspecl_then[`e1`,`e2`,`e`]mp_tac term_equation >>
       `welltyped e` by (
-        imp_res_tac soundness >>
-        fs[sequent_def,EVERY_MEM] >>
-        METIS_TAC[MEM_EL,has_meaning_welltyped] ) >>
+        imp_res_tac proves_welltyped >>
+        fs[EVERY_MEM] >>
+        METIS_TAC[MEM_EL,welltyped_def] ) >>
       imp_res_tac term_welltyped >>
       fs[welltyped_equation] >> rw[Abbr`e`] >>
       simp[Abbr`e1`] >> fs[EXISTS_PROD] >>
@@ -2506,11 +2503,10 @@ val proves_IMP = store_thm("proves_IMP",
         HINT_EXISTS_TAC >>
         simp[]) >>
       qmatch_assum_abbrev_tac`term ddefs (ll === rr) e1` >>
-      `has_meaning e1` by METIS_TAC[soundness,sequent_def,MEM,EVERY_MEM] >>
       `welltyped (ll === rr)` by (
         imp_res_tac term_welltyped >>
-        simp[] >>
-        METIS_TAC[has_meaning_welltyped] ) >>
+        imp_res_tac proves_welltyped >>
+        fs[] >> METIS_TAC[welltyped_def] ) >>
       qspecl_then[`ddefs`,`ll`,`rr`,`e1`]mp_tac (Q.GEN`defs`term_equation) >>
       fs[welltyped_equation] >>
       simp[Abbr`ll`] >>
@@ -2563,11 +2559,11 @@ val proves_IMP = store_thm("proves_IMP",
         HINT_EXISTS_TAC >>
         simp[]) >>
       qmatch_assum_abbrev_tac`term ddefs (ll === rr) e1` >>
-      `has_meaning e1` by METIS_TAC[soundness,sequent_def,MEM,EVERY_MEM] >>
       `welltyped (ll === rr)` by (
         imp_res_tac term_welltyped >>
-        simp[] >>
-        METIS_TAC[has_meaning_welltyped] ) >>
+        imp_res_tac proves_welltyped >>
+        fs[] >>
+        METIS_TAC[welltyped_def] ) >>
       qspecl_then[`ddefs`,`ll`,`rr`,`e1`]mp_tac (Q.GEN`defs`term_equation) >>
       fs[welltyped_equation] >>
       simp[Abbr`ll`] >>
@@ -2907,13 +2903,14 @@ val consistency = store_thm("consistency",
   METIS_TAC[consistency])
 
 val term_ok_welltyped = store_thm("term_ok_welltyped",
-  ``is_model M ⇒ ∀defs tm. term_ok defs tm ⇒ welltyped tm``,
+  ``∀defs tm. term_ok defs tm ⇒ welltyped tm``,
   rw[] >>
   imp_res_tac proves_IMP >>
-  METIS_TAC[term_welltyped,sholSemanticsTheory.soundness,sholSemanticsTheory.has_meaning_welltyped])
+  imp_res_tac proves_welltyped >> fs[] >>
+  METIS_TAC[term_welltyped])
 
 val proves_cons_def = store_thm("proves_cons_def",
-  ``is_model M ⇒ ∀defs h c d. (defs,h) |- c ⇒ context_ok (d::defs) ⇒ (d::defs,h) |- c``,
+  ``∀defs h c d. (defs,h) |- c ⇒ context_ok (d::defs) ⇒ (d::defs,h) |- c``,
   rw[] >>
   Cases_on`d` >- (
     match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,24)) >>

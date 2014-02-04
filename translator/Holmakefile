@@ -3,7 +3,7 @@ OPTIONS = QUIT_ON_FAILURE
 
 print_ast_deps = ../semantics/lib.lem ../semantics/tokens.lem ../semantics/ast.lem
 print_astScript.sml : $(print_ast_deps) print_ast.lem
-	if [ -x lem ];\
+	if type lem;\
 	then lem -auxiliary_level none $(patsubst %,-i %,$(print_ast_deps)) -hol print_ast.lem;\
 	else touch print_astScript.sml; fi
 

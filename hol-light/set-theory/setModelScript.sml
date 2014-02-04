@@ -1,4 +1,4 @@
-open HolKernel boolLib bossLib lcsymtacs miscLib setSpecTheory listTheory bitTheory
+open HolKernel boolLib bossLib lcsymtacs miscLib setSpecTheory listTheory bitTheory sumTheory
 val _ = temp_tight_equality()
 val _ = new_theory"setModel"
 
@@ -192,16 +192,6 @@ val BIT_num_from_bin_list_leading = store_thm("BIT_num_from_bin_list_leading",
   simp[numposrepTheory.l2n_lt] )
 (* move all above *)
 
-val P_EVERY_EQ_LIST = prove(
-  ``∀ls c. EVERY ($= c) ls ⇒ (∀P. P ls ⇔ P (GENLIST (K c) (LENGTH ls)))``,
-  rw[] >>
-  AP_TERM_TAC >>
-  simp[LIST_EQ_REWRITE] >>
-  fs[EVERY_MEM,MEM_EL,PULL_EXISTS])
-
-val lem = prove(``EVERY ($= c) a ∧ EVERY ($= c) b ∧ LENGTH a = LENGTH b ⇒ a = b``,
-  simp[LIST_EQ_REWRITE,EVERY_MEM,MEM_EL,PULL_EXISTS] >> metis_tac[])
-
 val is_set_theory_pred_def = Define`
   is_set_theory_pred is_v_rep in_rep ⇔
    (∃x. is_v_rep x) ∧
@@ -213,27 +203,22 @@ val is_set_theory_pred_def = Define`
    (∀x. is_v_rep x ⇒ ∃y. is_v_rep y ∧ (∀a. is_v_rep a ∧ in_rep a x ⇒ in_rep y x))`
 
 val l_model_exists = store_thm("l_model_exists",
-  ``∃(P : α list -> bool) (mem : α list -> α list -> bool). is_set_theory_pred P mem``,
-  qexists_tac`EVERY ((=) ARB)` >>
+  ``∃(P : α+num -> bool) (mem : α+num -> α+num -> bool). is_set_theory_pred P mem``,
+  qexists_tac`ISR` >>
   REWRITE_TAC[is_set_theory_pred_def] >>
-  qexists_tac`λl1 l2. BIT (LENGTH l1) (LENGTH l2)` >>
-  conj_tac >- (qexists_tac`[]` >> simp[]) >>
+  qexists_tac`λl1 l2. BIT (OUTR l1) (OUTR l2)` >>
+  conj_tac >- (qexists_tac`INR 0` >> simp[]) >>
   conj_tac >- (
-    simp[LIST_EQ_REWRITE,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
-    rpt gen_tac >> strip_tac >>
-    EQ_TAC >> simp[] >>
-    strip_tac >>
-    reverse conj_asm1_tac >- metis_tac[] >>
+    simp[FORALL_SUM] >>
+    rw[] >> EQ_TAC >> simp[] >> strip_tac >>
     (C_BIT_11 |> SPEC_ALL |> EQ_IMP_RULE |> fst |> MATCH_MP_TAC) >>
-    rw[] >>
-    first_x_assum(qspec_then`GENLIST (K ARB) z`mp_tac) >>
-    simp[EL_GENLIST] ) >>
+    rw[]) >>
   conj_tac >- (
-    rw[] >>
-    qexists_tac`GENLIST (K ARB) (num_from_bin_list
-      (GENLIST (λn. if ODD (EL n (num_to_bin_list (LENGTH x))) ∧
-                       P (GENLIST (K ARB) n) then 1 else 0)
-        (LENGTH (num_to_bin_list (LENGTH x)))))` >>
+    rw[FORALL_SUM] >>
+    qexists_tac`INR (num_from_bin_list
+      (GENLIST (λn. if ODD (EL n (num_to_bin_list (OUTR x))) ∧
+                       P (INR n) then 1 else 0)
+        (LENGTH (num_to_bin_list (OUTR x)))))` >>
     simp[EVERY_GENLIST] >>
     rw[] >>
     qmatch_abbrev_tac`BIT aa (num_from_bin_list ll) ⇔ BIT aa xx ∧ P a` >>
@@ -246,13 +231,7 @@ val l_model_exists = store_thm("l_model_exists",
       simp[BITV_THM,SBIT_def] >>
       BasicProvers.CASE_TAC >> simp[] >>
       simp[Abbr`aa`] >>
-      qspecl_then[`a`,`ARB`]mp_tac P_EVERY_EQ_LIST >>
-      discharge_hyps >- simp[] >>
-      disch_then(qspec_then`P`mp_tac) >>
-      strip_tac >>
-      simp[] >>
-      BasicProvers.CASE_TAC >>
-      simp[] ) >>
+      rw[]) >>
     fs[numposrepTheory.num_to_bin_list_def,numposrepTheory.LENGTH_n2l] >>
     rfs[Abbr`ll`] >>
     simp[BIT_num_from_bin_list_leading] >>
@@ -262,8 +241,8 @@ val l_model_exists = store_thm("l_model_exists",
     simp[LOG2_def] ) >>
   conj_tac >- (
     rw[] >>
-    qabbrev_tac`xx = LENGTH x` >>
-    qexists_tac`GENLIST (K ARB) (num_from_bin_list
+    qabbrev_tac`xx = OUTR x` >>
+    qexists_tac`INR (num_from_bin_list
       (GENLIST (λa. if (∀b. BIT b a ⇒ BIT b xx) then 1 else 0) (2 * (SUC xx))))` >>
     simp[EVERY_GENLIST] >> rw[] >>
     EQ_TAC >- (
@@ -286,7 +265,7 @@ val l_model_exists = store_thm("l_model_exists",
       Cases_on`aa=0`>>simp[]>>
       spose_not_then strip_assume_tac >>
       fs[arithmeticTheory.NOT_LESS] >>
-      first_x_assum(qspec_then`GENLIST (K ARB) (LOG2 aa)`mp_tac) >>
+      first_x_assum(qspec_then`INR (LOG2 aa)`mp_tac) >>
       simp[EVERY_GENLIST,BIT_LOG2] >>
       MATCH_MP_TAC NOT_BIT_GT_TWOEXP >>
       qspec_then`aa`mp_tac logrootTheory.LOG_MOD >>
@@ -303,12 +282,12 @@ val l_model_exists = store_thm("l_model_exists",
     simp[numposrepTheory.BIT_num_from_bin_list] >>
     fs[Abbr`ll`] >>
     rw[] >> fs[] >>
-    first_x_assum(qspec_then`GENLIST (K ARB) b`mp_tac) >>
+    first_x_assum(qspec_then`INR b`mp_tac) >>
     simp[EVERY_GENLIST] ) >>
   conj_tac >- (
     rw[] >>
-    qabbrev_tac`xx = LENGTH x` >>
-    qexists_tac`GENLIST (K ARB) (num_from_bin_list
+    qabbrev_tac`xx = OUTR x` >>
+    qexists_tac`INR (num_from_bin_list
       (GENLIST (λa. if (∃b. BIT b xx ∧ BIT a b) then 1 else 0)
       (LENGTH (num_to_bin_list xx))))` >>
     simp[EVERY_GENLIST] >> rw[] >>
@@ -322,7 +301,7 @@ val l_model_exists = store_thm("l_model_exists",
       qpat_assum`BIT X Y`mp_tac >>
       simp[numposrepTheory.BIT_num_from_bin_list] >>
       fs[Abbr`ll`] >> rw[] >>
-      qexists_tac`GENLIST (K ARB) b` >>
+      qexists_tac`INR b` >>
       simp[EVERY_GENLIST] ) >>
     strip_tac >>
     `aa < LENGTH ll` by (
@@ -330,9 +309,9 @@ val l_model_exists = store_thm("l_model_exists",
       simp[numposrepTheory.num_to_bin_list_def] >>
       simp[numposrepTheory.LENGTH_n2l] >>
       rw[] >> fs[BIT_ZERO] >>
-      `¬(LOG2 xx < LENGTH b)` by metis_tac[NOT_BIT_GT_LOG2] >>
+      `¬(LOG2 xx < OUTR b)` by metis_tac[NOT_BIT_GT_LOG2] >>
       fs[arithmeticTheory.NOT_LESS] >>
-      `¬(LENGTH b < 2 ** aa)` by metis_tac[NOT_BIT_GT_TWOEXP] >>
+      `¬(OUTR b < 2 ** aa)` by metis_tac[NOT_BIT_GT_TWOEXP] >>
       fs[arithmeticTheory.NOT_LESS] >>
       fs[LOG2_def] >>
       qsuff_tac`aa < 2 ** aa` >- DECIDE_TAC >>
@@ -343,9 +322,9 @@ val l_model_exists = store_thm("l_model_exists",
     rw[] >> metis_tac[] ) >>
   conj_tac >- (
     rw[] >>
-    qabbrev_tac`xx = LENGTH x` >>
-    qabbrev_tac`yy = LENGTH y` >>
-    qexists_tac`GENLIST (K ARB) (num_from_bin_list
+    qabbrev_tac`xx = OUTR x` >>
+    qabbrev_tac`yy = OUTR y` >>
+    qexists_tac`INR (num_from_bin_list
       (GENLIST (λa. if a = xx ∨ a = yy then 1 else 0) (SUC (MAX xx yy))))` >>
     simp[EVERY_GENLIST] >>
     rw[] >>
@@ -361,7 +340,7 @@ val l_model_exists = store_thm("l_model_exists",
       simp[numposrepTheory.BIT_num_from_bin_list] >>
       fs[Abbr`ll`] >>
       BasicProvers.CASE_TAC >> simp[] >>
-      metis_tac[lem] ) >>
+      Cases_on`a`>>Cases_on`y`>>Cases_on`x`>>fs[]) >>
     simp[Abbr`P`] >>
     strip_tac >>
     `aa < LENGTH ll` by (
@@ -373,9 +352,9 @@ val l_model_exists = store_thm("l_model_exists",
     simp[numposrepTheory.BIT_num_from_bin_list] >>
     fs[Abbr`ll`]) >>
   rw[] >>
-  Cases_on`LENGTH x=0`>>simp[BIT_ZERO] >- (
-    qexists_tac`[]` >> simp[] ) >>
-  qexists_tac`GENLIST (K ARB) (LOG2 (LENGTH x))` >>
+  Cases_on`OUTR x=0`>>simp[BIT_ZERO] >- (
+    qexists_tac`INR 0` >> simp[] ) >>
+  qexists_tac`INR (LOG2 (OUTR x))` >>
   simp[BIT_LOG2,EVERY_GENLIST])
 
 val is_V_def = new_specification("is_V_def",["is_V"],REWRITE_RULE[is_set_theory_pred_def]l_model_exists)
