@@ -14,9 +14,9 @@ val _ = new_theory "ast"
 val _ = Hol_datatype `
  lit =
     IntLit of int
+  | String of string
   | Bool of bool
-  | Unit
-  | String of string`;
+  | Unit`;
 
 
 (* Built-in binary operations (including function application) *)
@@ -120,6 +120,7 @@ val _ = Hol_datatype `
  tc0 = 
     TC_name of typeN id
   | TC_int
+  | TC_string
   | TC_bool
   | TC_unit
   | TC_ref
@@ -138,6 +139,9 @@ val _ = Hol_datatype `
 
 val _ = Define `
  (Tint = (Tapp [] TC_int))`;
+
+val _ = Define `
+ (Tstring = (Tapp [] TC_string))`;
 
 val _ = Define `
  (Tunit = (Tapp [] TC_unit))`;

@@ -408,7 +408,7 @@ val type_v_freevars = Q.store_thm ("type_v_freevars",
    tenv_ok tenv ∧ (num_tvs tenv = 0))`,
 ho_match_mp_tac type_v_strongind >>
 rw [check_freevars_def, tenv_ok_def, bind_tenv_def, num_tvs_def, bind_tvar_def,
-    Tfn_def, Tbool_def, Tint_def, Tunit_def, Tref_def] >-
+    Tfn_def, Tbool_def, Tint_def, Tstring_def, Tunit_def, Tref_def] >-
 metis_tac [] >>
 res_tac >|
 [metis_tac [num_tvs_def, type_e_freevars, bind_tenv_def, bind_tvar_def,

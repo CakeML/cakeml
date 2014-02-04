@@ -74,6 +74,13 @@ type_v tvs menv cenv senv (Litv (IntLit n)) Tint
 
 and
 
+lit_string : forall tvs menv cenv senv s.
+true
+==>
+type_v tvs menv cenv senv (Litv (String s)) Tstring
+
+and
+
 lit_unit : forall tvs menv cenv senv.
 true
 ==>

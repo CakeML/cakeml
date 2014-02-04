@@ -296,6 +296,11 @@ T
 ==>
 type_p tvs cenv (Plit (IntLit n)) Tint [])
 
+/\ (! tvs cenv s.
+T
+==>
+type_p tvs cenv (Plit (String s)) Tstring [])
+
 /\ (! tvs cenv.
 T
 ==>
@@ -339,6 +344,11 @@ type_e menv cenv tenv (Lit (Bool b)) Tbool)
 T
 ==>
 type_e menv cenv tenv (Lit (IntLit n)) Tint)
+
+/\ (! menv cenv tenv s.
+T
+==>
+type_e menv cenv tenv (Lit (String s)) Tstring)
 
 /\ (! menv cenv tenv.
 T

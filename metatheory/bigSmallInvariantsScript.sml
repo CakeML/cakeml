@@ -33,7 +33,7 @@ evaluate_ctxt menv cenv s env (Chandle ()  pes) v (s, Rval v))
 
 /\ (! menv cenv env op e2 v1 v2 env' e3 bv s1 s2 count s3.
 (evaluate F menv cenv s1 env e2 ((count,s2), Rval v2) /\
-((do_app s2 env op v1 v2 = (SOME (s3,env', e3))) /\
+((do_app s2 env op v1 v2 = SOME (s3,env', e3)) /\
 evaluate F menv cenv (count, s3) env' e3 bv))
 ==>
 evaluate_ctxt menv cenv s1 env (Capp1 op ()  e2) v1 bv)
@@ -50,7 +50,7 @@ evaluate_ctxt menv cenv s1 env (Capp1 op ()  e2) v1 ((count, s2), Rerr Rtype_err
 evaluate_ctxt menv cenv s env (Capp1 op ()  e2) v1 (s', Rerr err))
 
 /\ (! menv cenv env op v1 v2 env' e3 bv s1 s2 count.
-((do_app s1 env op v1 v2 = (SOME (s2, env', e3))) /\
+((do_app s1 env op v1 v2 = SOME (s2, env', e3)) /\
 evaluate F menv cenv (count, s2) env' e3 bv)
 ==>
 evaluate_ctxt menv cenv (count,s1) env (Capp2 op v1 () ) v2 bv)
@@ -61,7 +61,7 @@ evaluate_ctxt menv cenv (count,s1) env (Capp2 op v1 () ) v2 bv)
 evaluate_ctxt menv cenv (count,s) env (Capp2 op v1 () ) v2 ((count, s), Rerr Rtype_error))
 
 /\ (! menv cenv env uop v v' s1 s2 count.
-(do_uapp s1 uop v = (SOME (s2,v')))
+(do_uapp s1 uop v = SOME (s2,v'))
 ==>
 evaluate_ctxt menv cenv (count,s1) env (Cuapp uop () ) v ((count,s2), Rval v'))
 
@@ -71,7 +71,7 @@ evaluate_ctxt menv cenv (count,s1) env (Cuapp uop () ) v ((count,s2), Rval v'))
 evaluate_ctxt menv cenv (count,s) env (Cuapp uop () ) v ((count,s), Rerr Rtype_error))
 
 /\ (! menv cenv env op e2 v e' bv s.
-((do_log op v e2 = (SOME e')) /\
+((do_log op v e2 = SOME e') /\
 evaluate F menv cenv s env e' bv)
 ==>
 evaluate_ctxt menv cenv s env (Clog op ()  e2) v bv)
@@ -82,7 +82,7 @@ evaluate_ctxt menv cenv s env (Clog op ()  e2) v bv)
 evaluate_ctxt menv cenv s env (Clog op ()  e2) v (s, Rerr Rtype_error))
 
 /\ (! menv cenv env e2 e3 v e' bv s.
-((do_if v e2 e3 = (SOME e')) /\
+((do_if v e2 e3 = SOME e') /\
 evaluate F menv cenv s env e' bv)
 ==>
 evaluate_ctxt menv cenv s env (Cif ()  e2 e3) v bv)
@@ -103,18 +103,18 @@ evaluate_ctxt menv cenv s env (Cmat ()  pes err_v) v bv)
 evaluate_ctxt menv cenv s env (Clet n ()  e2) v bv)
 
 /\ (! menv cenv env cn es vs v vs' s1 s2.
-(do_con_check cenv cn (((LENGTH vs) + (LENGTH es)) + 1) /\
+(do_con_check cenv cn ((LENGTH vs + LENGTH es) + 1) /\
 evaluate_list F menv cenv s1 env es (s2, Rval vs'))
 ==>
-evaluate_ctxt menv cenv s1 env (Ccon cn vs ()  es) v (s2, Rval (Conv cn (((REVERSE vs) ++ [v]) ++ vs'))))
+evaluate_ctxt menv cenv s1 env (Ccon cn vs ()  es) v (s2, Rval (Conv cn ((REVERSE vs ++ [v]) ++ vs'))))
 
 /\ (! menv cenv env cn es vs v s.
-((~ (do_con_check cenv cn (((LENGTH vs) + (LENGTH es)) + 1))))
+(~ (do_con_check cenv cn ((LENGTH vs + LENGTH es) + 1)))
 ==>
 evaluate_ctxt menv cenv s env (Ccon cn vs ()  es) v (s, Rerr Rtype_error))
 
 /\ (! menv cenv env cn es vs v err s s'.
-(do_con_check cenv cn (((LENGTH vs) + (LENGTH es)) + 1) /\
+(do_con_check cenv cn ((LENGTH vs + LENGTH es) + 1) /\
 evaluate_list F menv cenv s env es (s', Rerr err))
 ==>
 evaluate_ctxt menv cenv s env (Ccon cn vs ()  es) v (s', Rerr err))`;
