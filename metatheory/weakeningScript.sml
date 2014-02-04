@@ -3,6 +3,7 @@ open optionTheory rich_listTheory alistTheory;
 open miscTheory;
 open libTheory astTheory typeSystemTheory typeSysPropsTheory;
 open semanticPrimitivesTheory;
+open libPropsTheory;
 open typeSoundInvariantsTheory;
 open terminationTheory;
 

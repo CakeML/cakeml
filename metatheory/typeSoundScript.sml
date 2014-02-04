@@ -4,6 +4,7 @@ open miscTheory;
 open libTheory astTheory typeSystemTheory semanticPrimitivesTheory;
 open smallStepTheory bigStepTheory replTheory;
 open terminationTheory;
+open libPropsTheory;
 open weakeningTheory typeSysPropsTheory bigSmallEquivTheory;
 open initialEnvTheory;
 open typeSoundInvariantsTheory bigClockTheory;
