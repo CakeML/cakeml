@@ -58,10 +58,10 @@ metis_tac [small_exp_safety2, small_exp_safety1]);
 
 val untyped_safety_dec = Q.store_thm ("untyped_safety_dec",
 `!mn s env d. (∃r. evaluate_dec mn env s d r) = ~dec_diverges env s d`,
-rw [Once evaluate_dec_cases, dec_diverges_def] >>
-cases_on `d` >>
-rw [] >|
-[eq_tac >>
+ rw [Once evaluate_dec_cases, dec_diverges_def] >>
+ cases_on `d` >>
+ rw []
+ >- (eq_tac >>
      rw [GSYM untyped_safety_exp] >-
      metis_tac [small_big_exp_equiv, big_unclocked] >-
      metis_tac [small_big_exp_equiv, big_unclocked] >-
@@ -75,26 +75,25 @@ rw [] >|
      cases_on `r1` >>
      fs [] >>
      cases_on `ALL_DISTINCT (pat_bindings p [])` >>
-     fs [] >|
-     [cases_on `pmatch (all_env_to_cenv env) r0 p a emp` >>
-          fs [] >|
-          [qexists_tac `(r0, Rerr (Rraise (Conv (SOME (Short "Bind", TypeExn)) [])))` >>
-               rw [] >>
-               metis_tac [small_big_exp_equiv, big_unclocked],
-           qexists_tac `(r0, Rerr Rtype_error)` >>
-               rw [] >>
-               metis_tac [small_big_exp_equiv, big_unclocked],
-           fs [merge_def, emp_def] >-
-               metis_tac [small_big_exp_equiv, big_unclocked] >>
-               `?r. evaluate_decs mn menv cenv r0 (l ++ env) ds r` by metis_tac [] >>
-               PairCases_on `r` >>
-               metis_tac [APPEND, small_big_exp_equiv, big_unclocked]],
-      qexists_tac `(r0,Rerr e')` >>
-          rw [] >>
-          metis_tac [small_big_exp_equiv, big_unclocked]],
- metis_tac [],
- metis_tac [],
- metis_tac []]);
+     fs []
+     >- (cases_on `pmatch (all_env_to_cenv env) r0 p a emp` >>
+         fs []
+         >- (qexists_tac `(r0, Rerr (Rraise (Conv (SOME ("Bind", TypeExn NONE)) [])))` >>
+             rw [] >>
+             metis_tac [small_big_exp_equiv, big_unclocked])
+         >- (qexists_tac `(r0, Rerr Rtype_error)` >>
+             rw [] >>
+             metis_tac [small_big_exp_equiv, big_unclocked])
+         >- (fs [merge_def, emp_def] >-
+             metis_tac [small_big_exp_equiv, big_unclocked] >>
+             `?r. evaluate_decs mn menv cenv r0 (l ++ env) ds r` by metis_tac [] >>
+             PairCases_on `r` >>
+             metis_tac [APPEND, small_big_exp_equiv, big_unclocked]))
+     >- (qexists_tac `(r0,Rerr e')` >>
+         rw [] >>
+         metis_tac [small_big_exp_equiv, big_unclocked]))
+ >- metis_tac []
+ >- metis_tac []);
 
 val untyped_safety_decs = Q.store_thm ("untyped_safety_decs",
 `!mn s env ds. (?r. evaluate_decs mn env s ds r) = ~decs_diverges mn env s ds`,
