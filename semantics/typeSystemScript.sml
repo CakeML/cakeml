@@ -144,7 +144,6 @@ val _ = Define `
 
 (*val type_ds : maybe modN -> tenvM -> tenvC -> tenvE -> list dec -> flat_tenvC -> env varN (nat * t) -> bool*)
 (*val weakE : env varN (nat * t) -> env varN (nat * t) -> bool*)
-(*val weakC : tenvC -> tenvC -> bool*)
 (*val check_signature : maybe modN -> flat_tenvC -> env varN (nat * t) -> maybe specs -> flat_tenvC -> env varN (nat * t) -> bool*)
 (*val type_specs : maybe modN -> flat_tenvC -> env varN (nat * t) -> specs -> flat_tenvC -> env varN (nat * t) -> bool*)
 (*val type_prog : tenvM -> tenvC -> tenvE -> list top -> tenvM -> tenvC -> env varN (nat * t) -> bool*)
@@ -595,6 +594,7 @@ val _ = Define `
     )))`;
 
 
+(*val flat_weakC : flat_tenvC -> flat_tenvC -> bool*)
 val _ = Define `
  (flat_weakC cenv_impl cenv_spec =  
 (! cn.

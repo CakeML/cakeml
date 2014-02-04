@@ -40,6 +40,40 @@ val _ = Define `
 (FEVERY (UNCURRY (\ (cn,tn) (tvs,ts) .  EVERY (check_freevars( 0) tvs) ts)) ctMap))`;
 
 
+(* Convert from a lexically scoped constructor environment to the global one *)
+(*val flat_to_ctMap_list : flat_tenvC -> env (conN * tid_or_exn) (list tvarN * list t)*)
+val _ = Define `
+ (flat_to_ctMap_list tenvC =  
+ (MAP (\ (cn,(tvs,ts,t)) .  ((cn,t),(tvs,ts))) tenvC))`;
+
+
+(*val to_ctMap_list : tenvC -> env (conN * tid_or_exn) (list tvarN * list t)*)
+val _ = Define `
+ (to_ctMap_list tenvC =  
+ (flat_to_ctMap_list (SND tenvC) ++
+  FLAT (MAP (\ (mn, tenvC) .  flat_to_ctMap_list tenvC) (FST tenvC))))`;
+
+
+(*val flat_to_ctMap : flat_tenvC -> ctMap*)
+val _ = Define `
+ (flat_to_ctMap tenvC = (FUPDATE_LIST FEMPTY (REVERSE (flat_to_ctMap_list tenvC))))`;
+
+
+(*val to_ctMap : tenvC -> ctMap*)
+val _ = Define `
+ (to_ctMap tenvC = (FUPDATE_LIST FEMPTY (REVERSE (to_ctMap_list tenvC))))`;
+
+
+(* Get the modules that are used by the constructors *)
+(*val ctMap_to_mods : ctMap -> set (maybe modN)*)
+val _ = Define `
+ (ctMap_to_mods ctMap =
+  (({ SOME mn |  mn | ? cn tn. (cn,TypeId (Long mn tn)) IN (FDOM ctMap) } UNION
+   (if (? cn tn. (cn,TypeId (Short tn)) IN (FDOM ctMap)) then {NONE} else {})) UNION
+   { mn |  mn | ? cn. (cn,TypeExn mn) IN (FDOM ctMap) }))`;
+
+
+
 (* Check that a constructor type environment is consistent with a runtime type
  * enviroment, using the full type keyed constructor type environment to ensure
  * that the correct types are used. *)
@@ -85,28 +119,6 @@ val _ = Define `
 (*val type_state : nat -> ctMap -> tenvS -> state -> t -> bool*)
 (*val context_invariant : nat -> list ctxt -> nat -> bool*)
 
-                                                     (*
-(* Type programs without imposing signatures.  This is needed for the type
- * soundness proof *)
-val type_top_ignore_sig : tenvM -> tenvC -> tenvE -> top -> tenvM -> tenvC -> env varN (nat * t) -> bool
-
-indreln
-[type_top_ignore_sig : tenvM -> tenvC -> tenvE -> top -> tenvM -> tenvC -> env varN (nat * t) -> bool]
-
-dec : forall menv cenv tenv d cenv' tenv'.
-type_d Nothing menv cenv tenv d cenv' tenv'
-==>
-type_top_ignore_sig menv cenv tenv (Tdec d) emp cenv' tenv'
-
-and
-
-md : forall menv cenv tenv mn spec ds cenv' tenv'. 
-not (List.elem mn (List.map fst menv)) &&
-type_ds (Just mn) menv cenv tenv ds cenv' tenv'
-==>
-type_top_ignore_sig menv cenv tenv (Tmod mn spec ds) [(mn,tenv')] (add_mod_prefix mn cenv') emp
-
-                                                      *)
  val _ = Define `
  
 (tenv_ok Empty = T)
@@ -407,5 +419,68 @@ type_state dec_tvs ctMap senv ((envM, envC, env), s, Exp e, c) t2)
 type_v tvs ctMap senv v t1)))
 ==>
 type_state dec_tvs ctMap senv ((envM, envC, env), s, Val v, c) t2)`;
+
+(* The first argument has strictly more bindings than the second. *)
+(*val weakM_def : tenvM -> tenvM -> bool*)
+val _ = Define `
+ (weakM tenvM tenvM' =  
+(! mn tenv'.
+    (lookup mn tenvM' = SOME tenv')
+    ==>
+    (? tenv. (lookup mn tenvM = SOME tenv) /\ weakE tenv tenv')))`;
+
+
+(*val weakC_def : tenvC -> tenvC -> bool*)
+val _ = Define `
+ (weakC tenvC tenvC' =  
+(flat_weakC (SND tenvC) (SND tenvC') /\  
+(! mn flat_tenvC'.    
+(lookup mn (FST tenvC') = SOME flat_tenvC')
+    ==>    
+(? flat_tenvC. (lookup mn (FST tenvC) = SOME flat_tenvC) /\ flat_weakC flat_tenvC flat_tenvC'))))`;
+
+
+(* The global constructor type environment has the primitive exceptions in it *)
+(*val ctMap_has_exns : ctMap -> bool*)
+val _ = Define `
+ (ctMap_has_exns ctMap =  
+((FLOOKUP ctMap ("Bind", TypeExn NONE) = SOME ([],[])) /\  
+((FLOOKUP ctMap ("Div", TypeExn NONE) = SOME ([],[])) /\
+  (FLOOKUP ctMap ("Eq", TypeExn NONE) = SOME ([],[])))))`;
+
+
+(* The constructors that are missing from the second map are all declared in
+ * modules. *)
+(*val weakenCT_only_mods : ctMap -> ctMap -> bool*)
+val _ = Define `
+  (weakenCT_only_mods ctMap1 ctMap2 =    
+((! id tvs ts tn. 
+       (FLOOKUP ctMap1 (id, TypeId (Short tn)) = SOME (tvs, ts)) ==>
+       (FLOOKUP ctMap2 (id, TypeId (Short tn)) = SOME (tvs, ts))) /\
+    (! id tvs ts. 
+       (FLOOKUP ctMap1 (id, TypeExn NONE) = SOME (tvs, ts)) ==> 
+       (FLOOKUP ctMap2 (id, TypeExn NONE) = SOME (tvs, ts)))))`;
+
+
+(* For using the type soundess theorem, we have to know there are good
+ * constructor and module type environments that don't have bits hidden by a
+ * signature. *)
+val _ = Define `
+ (type_sound_invariants (tenvM,tenvC,tenv,envM,envC,envE,store) =  
+(? tenvS tenvM_no_sig tenvC_no_sig. 
+    tenvM_ok tenvM_no_sig /\    
+ (ctMap_has_exns (to_ctMap tenvC_no_sig) /\    
+(tenvM_ok tenvM /\
+    ((ctMap_to_mods (to_ctMap tenvC_no_sig) SUBSET (LIST_TO_SET (MAP SOME (MAP FST tenvM_no_sig)) UNION {NONE})) /\
+    ((MAP FST tenvM_no_sig = MAP FST tenvM) /\
+    ((MAP FST tenvM_no_sig = MAP FST (FST tenvC_no_sig)) /\    
+(consistent_mod_env tenvS (to_ctMap tenvC_no_sig) envM tenvM_no_sig /\    
+(consistent_con_env (to_ctMap tenvC_no_sig) envC tenvC_no_sig /\    
+(type_env (to_ctMap tenvC_no_sig) tenvS envE tenv /\    
+(type_s (to_ctMap tenvC_no_sig) tenvS store /\    
+(weakM tenvM_no_sig tenvM /\    
+(weakC tenvC_no_sig tenvC /\
+    weakenCT_only_mods (to_ctMap tenvC_no_sig) (to_ctMap tenvC))))))))))))))`;
+
 val _ = export_theory()
 

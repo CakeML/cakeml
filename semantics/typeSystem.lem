@@ -118,7 +118,6 @@ val type_d : maybe modN -> tenvM -> tenvC -> tenvE -> dec -> flat_tenvC -> env v
 
 val type_ds : maybe modN -> tenvM -> tenvC -> tenvE -> list dec -> flat_tenvC -> env varN (nat * t) -> bool
 val weakE : env varN (nat * t) -> env varN (nat * t) -> bool
-val weakC : tenvC -> tenvC -> bool
 val check_signature : maybe modN -> flat_tenvC -> env varN (nat * t) -> maybe specs -> flat_tenvC -> env varN (nat * t) -> bool
 val type_specs : maybe modN -> flat_tenvC -> env varN (nat * t) -> specs -> flat_tenvC -> env varN (nat * t) -> bool
 val type_prog : tenvM -> tenvC -> tenvE -> list top -> tenvM -> tenvC -> env varN (nat * t) -> bool
@@ -618,6 +617,7 @@ let weakE tenv_impl tenv_spec =
         | Nothing -> true
     end
 
+val flat_weakC : flat_tenvC -> flat_tenvC -> bool
 let flat_weakC cenv_impl cenv_spec =
   forall cn.
     match lookup cn cenv_spec with

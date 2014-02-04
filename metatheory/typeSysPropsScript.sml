@@ -1421,21 +1421,6 @@ val build_ctor_tenv_empty = Q.store_thm ("build_ctor_tenv_empty",
 `build_ctor_tenv mn [] = []`,
 rw [build_ctor_tenv_def]);
 
-val flat_to_ctMap_list_def = Define `
-flat_to_ctMap_list tenvC = 
-  MAP (\(cn,(tvs,ts,t)). ((cn,t),(tvs,ts))) tenvC`;
-
-val to_ctMap_list_def = Define `
-to_ctMap_list tenvC = 
-  flat_to_ctMap_list (SND tenvC) ++
-  FLAT (MAP (\(mn, tenvC). flat_to_ctMap_list tenvC) (FST tenvC))`;
-
-val flat_to_ctMap_def = Define `
-flat_to_ctMap tenvC = FEMPTY |++ REVERSE (flat_to_ctMap_list tenvC)`;
-
-val to_ctMap_def = Define `
-to_ctMap tenvC = FEMPTY |++ REVERSE (to_ctMap_list tenvC)`;
-
 val tenvC_ok_ctMap = Q.store_thm ("tenvC_ok_ctMap",
 `!tenvC. tenvC_ok tenvC ⇒ ctMap_ok (to_ctMap tenvC)`,
  rw [to_ctMap_list_def, flat_to_ctMap_list_def, to_ctMap_def, EVERY_MEM, tenvC_ok_def, 

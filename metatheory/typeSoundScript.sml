@@ -1040,12 +1040,6 @@ cases_on `h0` >>
 fs [] >>
 metis_tac [NOT_EVERY]);
 
-val ctMap_has_exns_def = Define `
-ctMap_has_exns ctMap =
-  ((FLOOKUP ctMap ("Bind", TypeExn NONE) = SOME ([],[])) ∧
-   (FLOOKUP ctMap ("Div", TypeExn NONE) = SOME ([],[])) ∧
-   (FLOOKUP ctMap ("Eq", TypeExn NONE) = SOME ([],[])))`;
-
 val type_v_exn = Q.prove (
 `!tvs cenv senv.
   ctMap_has_exns cenv ⇒
@@ -2262,19 +2256,6 @@ val tenvM_ok_pres = Q.prove (
 induct_on `tenvM` >>
 rw [tenvM_ok_def, bind_def]);
 
-val ctMap_to_mods_def = Define `
-ctMap_to_mods ctMap ⇔ 
-  ({ SOME mn | mn | ∃cn tn. (cn,TypeId (Long mn tn)) ∈ (FDOM ctMap) } ∪
-   (if (∃cn tn. (cn,TypeId (Short tn)) ∈ (FDOM ctMap)) then {NONE} else {}) ∪
-   { mn | mn | ∃cn. (cn,TypeExn mn) ∈ (FDOM ctMap) })`;
-
-val weakenCT_only_mods_def = Define `
-  weakenCT_only_mods ctMap1 ctMap2 ⇔
-    (!id tvs ts tn. (FLOOKUP ctMap1 (id, TypeId (Short tn)) = SOME (tvs, ts)) ⇒ 
-                    (FLOOKUP ctMap2 (id, TypeId (Short tn)) = SOME (tvs, ts))) ∧
-    (!id tvs ts. (FLOOKUP ctMap1 (id, TypeExn NONE) = SOME (tvs, ts)) ⇒ 
-                 (FLOOKUP ctMap2 (id, TypeExn NONE) = SOME (tvs, ts)))`;
-
 val weakenCT_only_mods_pres = Q.prove (
 `!ctMap1 ctMap2 ctMap'.
   weakenCT_only_mods ctMap1 ctMap2 ∧
@@ -2288,26 +2269,6 @@ val weakenCT_only_mods_pres = Q.prove (
  fs [SUBSET_DEF] >>
  res_tac >>
  fs []);
-
-(* For using the type soundess theorem, we have to know there are good
- * constructor and module type environments that don't have bits hidden by a
- * signature. *)
-val type_sound_invariants_def = Define `
-type_sound_invariants (tenvM,tenvC,tenv,envM,envC,envE,store) ⇔
-  ?tenvS tenvM_no_sig tenvC_no_sig. 
-    tenvM_ok tenvM_no_sig ∧ 
-    ctMap_has_exns (to_ctMap tenvC_no_sig) ∧
-    tenvM_ok tenvM ∧
-    ctMap_to_mods (to_ctMap tenvC_no_sig) ⊆ set (MAP SOME (MAP FST tenvM_no_sig)) ∪ {NONE} ∧
-    MAP FST tenvM_no_sig = MAP FST tenvM ∧
-    MAP FST tenvM_no_sig = MAP FST (FST tenvC_no_sig) ∧
-    consistent_mod_env tenvS (to_ctMap tenvC_no_sig) envM tenvM_no_sig ∧
-    consistent_con_env (to_ctMap tenvC_no_sig) envC tenvC_no_sig ∧
-    type_env (to_ctMap tenvC_no_sig) tenvS envE tenv ∧
-    type_s (to_ctMap tenvC_no_sig) tenvS store ∧
-    weakM tenvM_no_sig tenvM ∧
-    weakC tenvC_no_sig tenvC ∧
-    weakenCT_only_mods (to_ctMap tenvC_no_sig) (to_ctMap tenvC)`;
 
 val update_type_sound_inv_def = Define `
 update_type_sound_inv top (tenvM:tenvM,tenvC:tenvC,tenv:tenvE,envM:envM,envC:envC,envE:envE,store) tenvM' tenvC' tenv' store' envC' r =

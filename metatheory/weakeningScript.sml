@@ -20,28 +20,12 @@ val fmap_eq_flookup = Q.store_thm ("fmap_eq_flookup",
      >- metis_tac [NOT_SOME_NONE]
      >- metis_tac [SOME_11]));
 
-val weakC_def = Define `
-  weakC tenvC tenvC' ⇔
-  flat_weakC (SND tenvC) (SND tenvC') ∧
-  ∀mn flat_tenvC'.
-    lookup mn (FST tenvC') = SOME flat_tenvC'
-    ⇒
-    ?flat_tenvC. lookup mn (FST tenvC) = SOME flat_tenvC ∧ flat_weakC flat_tenvC flat_tenvC'`;
-
 val weak_tenvE_def = Define `
 weak_tenvE tenv tenv' = 
   (num_tvs tenv ≥ num_tvs tenv' ∧
    ∀n inc tvs t. 
     (lookup_tenv n inc tenv' = SOME (tvs,t)) ⇒
     (lookup_tenv n inc tenv = SOME (tvs,t)))`;
-
-val weakM_def = Define `
-weakM tenvM tenvM' =
-  !mn tenv'.
-    (lookup mn tenvM' = SOME tenv')
-    ⇒
-    (?tenv. (lookup mn tenvM = SOME tenv) ∧
-            weakE tenv tenv')`;
 
 val weakS_def = Define `
 weakS tenvS tenvS' =
