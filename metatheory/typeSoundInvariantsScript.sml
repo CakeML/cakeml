@@ -71,7 +71,7 @@ type_v tvs menv cenv senv (Litv (IntLit n)) Tint)
 /\ (! tvs menv cenv senv s.
 T
 ==>
-type_v tvs menv cenv senv (Litv (String s)) Tstring)
+type_v tvs menv cenv senv (Litv (StrLit s)) Tstring)
 
 /\ (! tvs menv cenv senv.
 T

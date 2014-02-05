@@ -93,7 +93,7 @@ val lit_same_type : lit -> lit -> bool
 let lit_same_type l1 l2 =
   match (l1,l2) with
     | (IntLit _, IntLit _) -> true
-    | (String _, String _) -> true
+    | (StrLit _, StrLit _) -> true
     | (Bool _, Bool _) -> true
     | (Unit, Unit) -> true
     | _ -> false

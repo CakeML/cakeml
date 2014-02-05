@@ -203,7 +203,7 @@ val canonical_values_thm = Q.prove (
 `∀tvs tenvM tenvC tenvS v t1 t2.
   (type_v tvs tenvM tenvC tenvS v (Tref t1) ⇒ (∃n. v = Loc n)) ∧
   (type_v tvs tenvM tenvC tenvS v Tint ⇒ (∃n. v = Litv (IntLit n))) ∧
-  (type_v tvs tenvM tenvC tenvS v Tstring ⇒ (∃s. v = Litv (String s))) ∧
+  (type_v tvs tenvM tenvC tenvS v Tstring ⇒ (∃s. v = Litv (StrLit s))) ∧
   (type_v tvs tenvM tenvC tenvS v Tbool ⇒ (∃n. v = Litv (Bool n))) ∧
   (type_v tvs tenvM tenvC tenvS v Tunit ⇒ (∃n. v = Litv Unit)) ∧
   (type_v tvs tenvM tenvC tenvS v (Tfn t1 t2) ⇒

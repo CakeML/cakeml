@@ -124,7 +124,7 @@ val _ = Define `
  (lit_same_type l1 l2 =  
 ((case (l1,l2) of
       (IntLit _, IntLit _) => T
-    | (String _, String _) => T
+    | (StrLit _, StrLit _) => T
     | (Bool _, Bool _) => T
     | (Unit, Unit) => T
     | _ => F

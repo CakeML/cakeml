@@ -252,7 +252,7 @@ and
 plit_string : forall tvs cenv s.
 true
 ==>
-type_p tvs cenv (Plit (String s)) Tstring []
+type_p tvs cenv (Plit (StrLit s)) Tstring []
 
 and
 
@@ -322,7 +322,7 @@ and
 lit_string : forall menv cenv tenv s.
 true
 ==>
-type_e menv cenv tenv (Lit (String s)) Tstring
+type_e menv cenv tenv (Lit (StrLit s)) Tstring
 
 and
 

@@ -77,7 +77,7 @@ val string_escape_def = Define`
 
 val print_lit_def = Define `
 (print_lit (IntLit i) = int_to_string i) ∧
-(print_lit (String s) = "\""++string_escape s++"\"") ∧
+(print_lit (StrLit s) = "\""++string_escape s++"\"") ∧
 (print_lit (Bool T) = "true") ∧
 (print_lit (Bool F) = "false") ∧
 (print_lit Unit = "()")`;

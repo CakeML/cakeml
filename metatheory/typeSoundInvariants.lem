@@ -77,7 +77,7 @@ and
 lit_string : forall tvs menv cenv senv s.
 true
 ==>
-type_v tvs menv cenv senv (Litv (String s)) Tstring
+type_v tvs menv cenv senv (Litv (StrLit s)) Tstring
 
 and
 

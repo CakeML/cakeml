@@ -14,7 +14,7 @@ val _ = new_theory "ast"
 val _ = Hol_datatype `
  lit =
     IntLit of int
-  | String of string
+  | StrLit of string
   | Bool of bool
   | Unit`;
 

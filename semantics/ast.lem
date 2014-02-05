@@ -3,7 +3,7 @@ open import Pervasives
 (* Literal constants *)
 type lit =
   | IntLit of integer
-  | String of string
+  | StrLit of string
   | Bool of bool
   | Unit
 
