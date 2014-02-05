@@ -65,19 +65,9 @@ print_envM envM = CONCAT (MAP (λ(x,m). "module " ++ x ++ " = <structure>\n") en
 val print_envC_def = Define `
 print_envC envC = CONCAT (MAP (λ(x,c). id_to_string x ++ " = <constructor>\n") envC)`;
 
-val string_escape_def = Define`
-  (string_escape [] = []) ∧
-  (string_escape (c::cs) =
-     (if c = #"\n" then "\\n"
-      else if c = #"\t" then "\\t"
-      else if c = #"\\" then "\\\\"
-      else if c = #"\"" then "\\\""
-      else [c])
-     ++ string_escape cs)`
-
 val print_lit_def = Define `
 (print_lit (IntLit i) = int_to_string i) ∧
-(print_lit (StrLit s) = "\""++string_escape s++"\"") ∧
+(print_lit (StrLit s) = string_to_string s) ∧
 (print_lit (Bool T) = "true") ∧
 (print_lit (Bool F) = "false") ∧
 (print_lit Unit = "()")`;

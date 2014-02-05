@@ -111,7 +111,10 @@ val _ = Define `
  (closure_tag : num =( 3))`;
 
 val _ = Define `
- (block_tag : num =( 4))`;
+ (string_tag : num =( 4))`;
+
+val _ = Define `
+ (block_tag : num =( 5))`;
 
 
 val _ = Define `

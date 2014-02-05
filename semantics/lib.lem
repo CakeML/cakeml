@@ -1,10 +1,14 @@
 open import Pervasives
 import List_extra
+import String
 
 (* TODO: look for these in the built-in library *)
 
 val int_to_num : integer -> nat
 declare hol target_rep function int_to_num = `Num`
+
+val num_to_int : nat -> integer
+declare hol target_rep function num_to_int = `int_of_num`
 
 val num_to_string : nat -> string
 declare hol target_rep function num_to_string = `num_to_dec_string`
@@ -20,6 +24,9 @@ declare hol    target_rep function count_list = `COUNT_LIST`
 
 val (^) : string -> string -> string
 declare hol target_rep function (^) = infix `++`
+
+val char_to_num : char -> nat
+declare hol target_rep function char_to_num = `ORD`
 
 (* The builtin List.zip maps to list_combine in HOL, but I want to map to ZIP *)
 val ZIP : forall 'a 'b. list 'a -> list 'b -> list ('a * 'b)

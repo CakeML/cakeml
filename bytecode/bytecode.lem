@@ -84,7 +84,8 @@ bool_to_tag true = 1
 
 let unit_tag : nat = 2
 let closure_tag : nat = 3
-let block_tag : nat = 4
+let string_tag : nat = 4
+let block_tag : nat = 5
 
 let bool_to_val b = Block (bool_to_tag b) []
 let unit_val = Block unit_tag []
