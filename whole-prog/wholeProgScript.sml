@@ -36,7 +36,6 @@ int_to_string2 z =
 val bc_inst_to_string_def = Define `
 (bc_inst_to_string (Stack Pop) = "pop") ∧
 (bc_inst_to_string (Stack (Pops n)) = "pops " ++ toString n) ∧
-(bc_inst_to_string (Stack (Shift n1 n2)) = "shift " ++ toString n1 ++ " " ++ toString n2) ∧
 (bc_inst_to_string (Stack (PushInt i)) = "pushInt " ++ int_to_string2 i) ∧
 (bc_inst_to_string (Stack (Cons n1 n2)) = "cons " ++ toString n1 ++ " " ++ toString n2) ∧
 (bc_inst_to_string (Stack (Load n)) = "load " ++ toString n) ∧
@@ -56,7 +55,6 @@ val bc_inst_to_string_def = Define `
 (bc_inst_to_string (Jump l) = "jump " ++ bc_loc_to_string l) ∧
 (bc_inst_to_string (JumpIf l) = "jumpIf " ++ bc_loc_to_string l) ∧
 (bc_inst_to_string (Call l) = "call " ++ bc_loc_to_string l) ∧
-(bc_inst_to_string JumpPtr = "jumpPtr") ∧
 (bc_inst_to_string CallPtr = "callPtr") ∧
 (bc_inst_to_string (PushPtr l)= "pushPtr " ++ bc_loc_to_string l) ∧
 (bc_inst_to_string Return = "return") ∧
@@ -90,8 +88,6 @@ val encode_bc_inst_def = Define `
 (encode_bc_inst (Stack Pop) = SOME [0w]) ∧
 (encode_bc_inst (Stack (Pops n)) = 
   OPTION_MAP (\w. [1w; w]) (encode_num n)) ∧
-(encode_bc_inst (Stack (Shift n1 n2)) = 
-  OPTION_BIND (encode_num n1) (\w1. OPTION_BIND (encode_num n2) (\w2. SOME [2w; w1; w2]))) ∧
 (encode_bc_inst (Stack (PushInt i)) = 
   if i < 0 then
     OPTION_MAP (\w. [3w; w]) (encode_num (Num (-i)))
@@ -122,7 +118,6 @@ val encode_bc_inst_def = Define `
 (encode_bc_inst (Jump l) = encode_loc 20w l) ∧
 (encode_bc_inst (JumpIf l) = encode_loc 22w l) ∧
 (encode_bc_inst (Call l) = encode_loc 24w l) ∧
-(encode_bc_inst JumpPtr = SOME [26w]) ∧
 (encode_bc_inst CallPtr = SOME [27w]) ∧
 (encode_bc_inst (PushPtr l) = encode_loc 28w l) ∧
 (encode_bc_inst Return = SOME [30w]) ∧
@@ -133,9 +128,9 @@ val encode_bc_inst_def = Define `
 (encode_bc_inst Update = SOME [35w]) ∧
 (encode_bc_inst Stop = SOME [36w]) ∧
 (encode_bc_inst Tick = SOME [37w]) ∧
-(encode_bc_inst Print = SOME [38w]) ∧
+(encode_bc_inst Print = SOME [26w]) ∧
 (encode_bc_inst (PrintC c) = 
-  OPTION_MAP (\w. [39w; w]) (encode_char c))`;
+  OPTION_MAP (\w. [2w; w]) (encode_char c))`;
 
 val decode_num_def = Define `
 decode_num wl =
@@ -166,8 +161,6 @@ decode_bc_inst wl =
            SOME (Stack Pop, rest)
          else if tag = 1w then
            option_map_fst (\n. Stack (Pops n)) (decode_num rest)
-         else if tag = 2w then
-           OPTION_BIND (decode_num rest) (\(n1, rest). OPTION_BIND (decode_num rest) (\(n2, rest). SOME (Stack (Shift n1 n2), rest)))
          else if tag = 3w then
            option_map_fst (\n. Stack (PushInt (-&n))) (decode_num rest)
          else if tag = 4w then
@@ -214,8 +207,6 @@ decode_bc_inst wl =
            option_map_fst (\n. Call (Lab n)) (decode_num rest)
          else if tag = 25w then
            option_map_fst (\n. Call (Addr n)) (decode_num rest)
-         else if tag = 26w then
-           SOME (JumpPtr, rest)
          else if tag = 27w then
            SOME (CallPtr, rest)
          else if tag = 28w then
@@ -238,9 +229,9 @@ decode_bc_inst wl =
            SOME (Stop, rest)
          else if tag = 37w then
            SOME (Tick, rest)
-         else if tag = 38w then
+         else if tag = 26w then
            SOME (Print, rest)
-         else if tag = 39w then
+         else if tag = 2w then
            option_map_fst (\c. PrintC c) (decode_char rest)
          else
            NONE`;
