@@ -2300,6 +2300,15 @@ val compile_append_out = store_thm("compile_append_out",
     fs[uses_label_thm,code_labels_ok_def] >>
     rw[] >> metis_tac[] ) >>
   strip_tac >- tac >>
+  strip_tac >- (
+    simp[compile_def] >> rw[] >>
+    SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``pushret``2"z"] >>
+    qspecl_then[`t`,`z`]mp_tac(pushret_append_out) >> rw[] >> fs[Abbr`z`] >>
+    simp[FOLDL_emit_append_out,FILTER_APPEND,ALL_DISTINCT_APPEND,FILTER_REVERSE,ALL_DISTINCT_REVERSE] >>
+    fs[GSYM FILTER_EQ_NIL,combinTheory.o_DEF,EVERY_MAP,EVERY_REVERSE] >>
+    SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``ALL_DISTINCT``1"ls"] >>
+    `ls = []` by simp[Abbr`ls`,FILTER_EQ_NIL,EVERY_MAP] >>
+    fs[code_labels_ok_def,uses_label_thm,EXISTS_MEM,MEM_MAP,PULL_EXISTS] ) >>
   strip_tac >- tac >>
   strip_tac >- tac >>
   strip_tac >- (
@@ -3742,32 +3751,35 @@ fun tac18 t =
     map_every qid_spec_tac[`code`,`bc1`] >> simp[FORALL_AND_THM] >>
     conj_asm1_tac >- (
       ntac 2 gen_tac >> strip_tac >>
-      Cases_on`l`>>rw[compile_def,LET_THM,code_for_push_def,pushret_def]>>
+      Cases_on`l`>>rw[compile_def,LET_THM,code_for_push_def,pushret_def,FOLDL_emit_append_out]>>
       qpat_assum`X = REVERSE code`(assume_tac o SIMP_RULE std_ss [Once SWAP_REVERSE]) >> fs[] >>
-      qmatch_assum_abbrev_tac `code = [x]` >>
-      `bc_fetch bs = SOME x` by (
-        match_mp_tac bc_fetch_next_addr >>
-        qexists_tac `bc0` >>
-        rw[Abbr`x`]) >> (
-      rw[Once Cv_bv_cases] >>
-      map_every qexists_tac [`bs.refs`,`rd`,`bs.clock`] >> reverse (rw[]) >- (
-        match_mp_tac Cenv_bs_imp_incsz_irr >>
-        qexists_tac`bs with code := bce` >>
-        rw[bc_state_component_equality]  ) >>
-      rw[RTC_eq_NRC] >>
-      qexists_tac `SUC 0` >>
-      rw[NRC] >>
-      rw[bc_eval1_thm] >>
-      rw[bc_eval1_def,Abbr`x`] >>
-      rw[bc_eval_stack_def] >>
-      srw_tac[ARITH_ss][bump_pc_def,FILTER_APPEND,SUM_APPEND,ADD1] >>
-      simp[bc_state_component_equality])) >>
+      TRY (
+        qmatch_assum_abbrev_tac `code = [x]` >>
+        `bc_fetch bs = SOME x` by (
+          match_mp_tac bc_fetch_next_addr >>
+          qexists_tac `bc0` >>
+          rw[Abbr`x`]) >> (
+        rw[Once Cv_bv_cases] >>
+        map_every qexists_tac [`bs.refs`,`rd`,`bs.clock`] >> reverse (rw[]) >- (
+          match_mp_tac Cenv_bs_imp_incsz_irr >>
+          qexists_tac`bs with code := bce` >>
+          rw[bc_state_component_equality]  ) >>
+        rw[RTC_eq_NRC] >>
+        qexists_tac `SUC 0` >>
+        rw[NRC] >>
+        rw[bc_eval1_thm] >>
+        rw[bc_eval1_def,Abbr`x`] >>
+        rw[bc_eval_stack_def] >>
+        srw_tac[ARITH_ss][bump_pc_def,FILTER_APPEND,SUM_APPEND,ADD1] >>
+        simp[bc_state_component_equality])) >>
+      cheat) >>
     rpt gen_tac >> strip_tac >>
     rpt gen_tac >> strip_tac >>
     qspecl_then[`cmnv`,`cenv`,`TCNonTail`,`sz`,`cs`,`(CLit l)`]strip_assume_tac(CONJUNCT1 compile_append_out) >> fs[] >>
     fs[Once SWAP_REVERSE] >>
     `code = REVERSE bc ++ (retbc (LENGTH args) (LENGTH klvs))` by (
-      Cases_on`l`>>fs[compile_def,pushret_def] >> rw[] >> fs[Once SWAP_REVERSE]) >>
+      Cases_on`l`>>fs[compile_def,pushret_def,LET_THM,FOLDL_emit_append_out] >>
+      rw[] >> fs[Once SWAP_REVERSE]) >>
     match_mp_tac code_for_push_return >> simp[] >> fs[] >>
     qmatch_assum_abbrev_tac`code_for_push rd menv bs bce bc0 ccode s s renv v cmnv cenv rsz csz` >>
     map_every qexists_tac [`menv`,`bc0`,`ccode`,`renv`,`cmnv`,`cenv`,`rsz`,`csz`] >> rw[] >>
