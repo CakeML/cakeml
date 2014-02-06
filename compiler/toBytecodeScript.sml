@@ -399,7 +399,7 @@ a b c x y z
 (pushret t (emit s [Stack (PushInt i)])))
 /\
 (compile _ _ t _ s (CLit (StrLit r)) =  
-(let r = ( r) in
+(let r = (EXPLODE r) in
   let s = (emit s (MAP (Stack o (PushInt o (int_of_num o ORD))) r)) in
   pushret t (emit s [Stack (Cons string_tag (LENGTH r))])))
 /\

@@ -468,14 +468,14 @@ val _ = Define `
 ((if c = #"\n" then "\\n"
    else if c = #"\t" then "\\t"
    else if c = #"\\" then "\\\\"
-   else  [c])
+   else IMPLODE [c])
   ++(string_escape cs)))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn string_escape_defn;
 
 val _ = Define `
  (string_to_string s =  
-("\""++((string_escape ( s))++"\"")))`;
+("\""++((string_escape (EXPLODE s))++"\"")))`;
 
 val _ = export_theory()
 

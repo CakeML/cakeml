@@ -51,13 +51,18 @@ val _ = new_constant("CONCAT",``:string list -> string``)
 val _ = ConstMapML.prim_insert(``CONCAT``,(false,"","CONCAT",type_of``CONCAT``))
 val CONCAT_thm = mk_thm([],mk_eq(``FLAT:string list -> string``,``CONCAT``))
 val STRING_thm = mk_thm([],mk_eq(``CONS:char -> string -> string``,``STRING``))
+val _ = new_constant("NIL_CHAR_LIST",``:char list``)
+val _ = ConstMapML.prim_insert(``NIL_CHAR_LIST``,(false,"","[]",type_of``NIL_CHAR_LIST``))
+val NIL_thm = mk_thm([],mk_eq(``NIL:char list``,``NIL_CHAR_LIST``))
 
 val defs = map EmitML.DEFN [
 optionTheory.OPTION_BIND_def,
 fapply_def,
-semanticPrimitivesTheory.int_to_string_def,
-CONV_RULE(RAND_CONV(STRIP_QUANT_CONV(RAND_CONV(PURE_REWRITE_CONV[STRING_thm]))))
-  semanticPrimitivesTheory.string_escape_def,
+semanticPrimitivesTheory.int_to_string_def
+]@[EmitML.DEFN_NOSIG
+(CONV_RULE(LAND_CONV(LAND_CONV(PURE_REWRITE_CONV[NIL_thm])))
+ semanticPrimitivesTheory.string_escape_def)]@
+map EmitML.DEFN[
 semanticPrimitivesTheory.string_to_string_def,
 semanticPrimitivesTheory.id_to_string_def,
 the_def,
@@ -92,6 +97,7 @@ val _ = EmitML.eSML "bytecode" (
 ::(EmitML.MLSIG "type ('a,'b) fmap = ('a,'b) fmapML.fmap")
 ::(EmitML.MLSTRUCT "fun STRING c s = String.^(Char.toString c,s);")
 ::(EmitML.MLSTRUCT "val CONCAT = String.concat;")
+::(EmitML.MLSIG "val string_escape : char list -> string")
 ::data@defs)
 
 val _ = export_theory ();
