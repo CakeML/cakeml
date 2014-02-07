@@ -1523,8 +1523,97 @@ val flat_to_ctMap_list_append = Q.store_thm ("flat_to_ctMap_list_append",
 `!tenvC1 tenvC2. flat_to_ctMap_list (tenvC1 ++ tenvC2) = flat_to_ctMap_list tenvC1 ++ flat_to_ctMap_list tenvC2`,
 rw [flat_to_ctMap_list_def]);
 
+val to_ctMap_merge = Q.store_thm ("to_ctMap_merge",
+`!tenvC1 tenvC2.
+  DISJOINT (FDOM (to_ctMap tenvC1)) (FDOM (to_ctMap tenvC2)) ⇒
+  to_ctMap (merge_tenvC tenvC1 tenvC2) = FUNION (to_ctMap tenvC1) (to_ctMap tenvC2)`,
+ rw [fmap_eq_flookup, FLOOKUP_FUNION] >>
+ every_case_tac
+ >- (PairCases_on `tenvC1` >>
+     PairCases_on `tenvC2` >>
+     fs [merge_def, to_ctMap_def, merge_tenvC_def, to_ctMap_list_def] >>
+     fs [flookup_fupdate_list] >>
+     every_case_tac >>
+     fs [REVERSE_APPEND, ALOOKUP_APPEND, flat_to_ctMap_list_append] >>
+     every_case_tac >>
+     fs [])
+ >- (`FLOOKUP (to_ctMap tenvC2) k = NONE`
+              by (PairCases_on `tenvC1` >>
+                  PairCases_on `tenvC2` >>
+                  fs [to_ctMap_def, DISJOINT_DEF, to_ctMap_list_def, EXTENSION,
+                      FDOM_FUPDATE_LIST, MEM_MAP, MEM_FLAT, flookup_fupdate_list] >>
+                  every_case_tac >>
+                  fs [ALOOKUP_NONE, REVERSE_APPEND, ALOOKUP_APPEND] >>
+                  every_case_tac >>
+                  imp_res_tac ALOOKUP_MEM >>
+                  fs [MEM_FLAT, MEM_MAP] >>
+                  metis_tac [FST]) >>
+     PairCases_on `tenvC1` >>
+     PairCases_on `tenvC2` >>
+     fs [merge_def, to_ctMap_def, merge_tenvC_def, to_ctMap_list_def] >>
+     fs [flookup_fupdate_list] >>
+     every_case_tac >>
+     fs [REVERSE_APPEND, ALOOKUP_APPEND, flat_to_ctMap_list_append] >>
+     every_case_tac >>
+     fs []));
+
+val to_ctMap_merge_empty = Q.store_thm ("to_ctMap_merge_empty",
+`!flat_tenvC tenvC.
+  to_ctMap (merge_tenvC ([],flat_tenvC) tenvC) = FUNION (flat_to_ctMap flat_tenvC) (to_ctMap tenvC)`,
+ rw [] >>
+ PairCases_on `tenvC` >>
+ rw [to_ctMap_def, merge_tenvC_def, merge_def, flat_to_ctMap_def, to_ctMap_list_def] >>
+ rw [fmap_eq_flookup, FLOOKUP_FUNION, flookup_fupdate_list] >>
+ every_case_tac >>
+ fs [REVERSE_APPEND, ALOOKUP_APPEND, flat_to_ctMap_list_append] >>
+ every_case_tac >>
+ fs [] >>
+ rw []);
+
+val ctMap_ok_tenvC_ok = Q.store_thm ("ctMap_ok_tenvC_ok",
+`!tenvC. 
+  ALL_DISTINCT (MAP FST (REVERSE (flat_to_ctMap_list tenvC))) ∧ ctMap_ok (flat_to_ctMap tenvC) ⇒ tenvC_ok ([],tenvC)`,
+ rw [flat_to_ctMap_list_def, flat_to_ctMap_def, ctMap_ok_def, tenvC_ok_def, flat_tenvC_ok_def] >>
+ imp_res_tac FEVERY_FUPDATE_LIST >>
+ fs [EVERY_MEM, EVERY_MAP] >>
+ rw [] >>
+ PairCases_on `e` >>
+ fs [MEM_MAP] >>
+ rw [] >>
+ res_tac >>
+ fs []);
+
 (* ---------- type_v, type_vs, type_env, consistent_mod_env ---------- *)
 
+val type_v_freevars = Q.store_thm ("type_v_freevars",
+`(!tvs tenvC tenvS v t. type_v tvs tenvC tenvS v t ⇒
+   check_freevars tvs [] t) ∧
+ (!tvs tenvC tenvS vs ts. type_vs tvs tenvC tenvS vs ts ⇒
+   EVERY (check_freevars tvs []) ts) ∧
+ (!tenvC tenvS env tenv. type_env tenvC tenvS env tenv ⇒
+   tenv_ok tenv ∧ (num_tvs tenv = 0)) ∧
+ (!tenvS tenvC envM tenvM. consistent_mod_env tenvS tenvC envM tenvM ⇒
+   T)`,
+ ho_match_mp_tac type_v_strongind >>
+ rw [check_freevars_def, tenv_ok_def, bind_tenv_def, num_tvs_def, bind_tvar_def,
+     Tfn_def, Tbool_def, Tint_def, Tunit_def, Tref_def] >-
+ metis_tac [] >>
+ res_tac
+ >- metis_tac [num_tvs_def, type_e_freevars, bind_tenv_def, bind_tvar_def,
+               tenv_ok_def, arithmeticTheory.ADD, arithmeticTheory.ADD_COMM]
+ >- metis_tac [num_tvs_def, type_e_freevars, bind_tenv_def, bind_tvar_def,
+               tenv_ok_def, arithmeticTheory.ADD, arithmeticTheory.ADD_COMM]
+ >- metis_tac [num_tvs_def, type_e_freevars, bind_tenv_def, bind_tvar_def,
+               tenv_ok_def, arithmeticTheory.ADD, arithmeticTheory.ADD_COMM]
+ >- metis_tac [type_funs_Tfn, num_tvs_bind_var_list]
+ >- (imp_res_tac type_funs_Tfn >>
+     rw [] >>
+     fs [Tfn_def] >>
+     rw [] >>
+     metis_tac [type_funs_Tfn, num_tvs_bind_var_list, num_tvs_def,
+                arithmeticTheory.ADD, arithmeticTheory.ADD_COMM])
+ >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ,
+               arithmeticTheory.GREATER_EQ]);
 
 (* ---------- constructor checking stuff ---------- *)
 (* check_new_type, check_ctor_tenv, build_ctor_tenv, check_new_exn,
