@@ -2663,6 +2663,35 @@ val code_for_return_append_code = store_thm("code_for_return_append_code",
   HINT_EXISTS_TAC >>
   simp[bc_state_component_equality])
 
+(* compiling strings *)
+
+val compile_string_thm = store_thm("compile_string_thm",
+  ``∀f ls code bs bc0 bc1 bs'.
+      code = MAP (Stack o PushInt o f) ls ∧
+      bs.code = bc0 ++ code ++ bc1 ∧
+      bs.pc = next_addr bs.inst_length bc0 ∧
+      bs' = bs with <| pc := next_addr bs.inst_length (bc0 ++ code)
+                     ; stack := REVERSE (MAP (Number o f) ls) ++ bs.stack
+                     |>
+      ⇒ bc_next^* bs bs'``,
+  gen_tac >> Induct >> simp[] >> rw[] >- (
+    pop_assum (SUBST1_TAC o SYM) >> rw[] ) >>
+  `bc_fetch bs = SOME (Stack (PushInt (f h)))` by (
+    match_mp_tac bc_fetch_next_addr >>
+    qexists_tac`bc0` >> rw[] ) >>
+  simp[Once RTC_CASES1] >> disj2_tac >>
+  qexists_tac`bump_pc bs with stack := Number (f h) :: bs.stack` >>
+  conj_tac >- (
+    simp[bc_eval1_thm,bc_eval1_def,bc_eval_stack_def] ) >>
+  qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+  qmatch_assum_abbrev_tac`bs.code = bc0 ++ c0 ++ c1 ++ bc1` >>
+  first_x_assum(qspecl_then[`c1`,`bs1`,`bc0++c0`,`bc1`]mp_tac) >>
+  simp[Abbr`bs1`,bump_pc_def,Abbr`c0`,SUM_APPEND,FILTER_APPEND] >>
+  qmatch_abbrev_tac`bc_next^* bs1 bs2' ⇒ bc_next^* bs1 bs2` >>
+  `bs2' = bs2` by (
+    simp[Abbr`bs2`,Abbr`bs2'`,bc_state_component_equality,FILTER_APPEND,SUM_APPEND] )
+  >> rw[])
+
 (* compile *)
 
 val compile_bindings_thm = store_thm("compile_bindings_thm",
@@ -3796,7 +3825,25 @@ fun tac18 t =
         srw_tac[ARITH_ss][bump_pc_def,FILTER_APPEND,SUM_APPEND,ADD1] >>
         simp[bc_state_component_equality])) >>
       simp[PULL_EXISTS,Once Cv_bv_cases] >>
-      cheat) >>
+      map_every qexists_tac[`bs.refs`,`rd`,`bs.clock`] >>
+      conj_tac >- (
+        Q.ISPECL_THEN[`$& o ORD`,`EXPLODE s'`]mp_tac compile_string_thm >>
+        simp[] >> disch_then(qspecl_then[`bs`,`bc0`]mp_tac) >> simp[] >>
+        qmatch_abbrev_tac`bc_next^* bs bs1 ⇒ bc_next^* bs bs2` >>
+        strip_tac >>
+        simp[Once RTC_CASES2] >> disj2_tac >>
+        qexists_tac`bs1` >> simp[] >>
+        `bc_fetch bs1 = SOME(Stack(Cons string_tag (STRLEN (EXPLODE s'))))` by (
+          match_mp_tac bc_fetch_next_addr >>
+          simp[Abbr`bs1`] >> CONV_TAC SWAP_EXISTS_CONV >>
+          qexists_tac`bc1` >> simp[] ) >>
+        simp[bc_eval1_thm,bc_eval1_def,bc_eval_stack_def,bump_pc_def] >>
+        simp[Abbr`bs1`,Abbr`bs2`,bc_state_component_equality,SUM_APPEND,FILTER_APPEND] >>
+        simp[TAKE_APPEND2,DROP_APPEND2,stringTheory.IMPLODE_EXPLODE_I] ) >>
+      simp[] >>
+      match_mp_tac Cenv_bs_imp_incsz_irr >>
+      qexists_tac`bs with code := bce` >>
+      simp[]) >>
     rpt gen_tac >> strip_tac >>
     rpt gen_tac >> strip_tac >>
     qspecl_then[`cmnv`,`cenv`,`TCNonTail`,`sz`,`cs`,`(CLit l)`]strip_assume_tac(CONJUNCT1 compile_append_out) >> fs[] >>
