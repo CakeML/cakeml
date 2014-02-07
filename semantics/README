@@ -4,6 +4,9 @@ The *.lem files are specified in Lem source
 (http://www.cs.kent.ac.uk/~sao/lem/), and the corresponding *Script.sml files
 are the HOL source generated from them by Lem.
 
+lib.lem
+    Setup some HOL library in Lem, and define environments and lookup.
+
 lexer_funScript.sml
     A functional specification of a lexing from strings to token lists
 
@@ -44,12 +47,6 @@ bigStep.lem
     The big-step and small-step semantics are proven equivalent in the
     metatheory directory.
 
-altBigStep.lem
-    An alternate big-step semantics used by the HOL-to-CakeML translator.  For
-    well-typed programs, if the program evaluates to a value or error in it,
-    then the program evaluates to the same value or error in the bigStep.lem
-    semantics (proved in metatheory).
-
 terminationScript.sml
     Termination proofs for recursive functions defined in the .lem files
 
@@ -58,3 +55,8 @@ initialEnv.lem
 
 replScript.sml
     Pulls everything together into a semantics for the CakeML repl
+
+proofs/
+    Proofs of basic properties of the semantics, including determinism and a 
+    clocked interpreter.
+

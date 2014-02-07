@@ -8,6 +8,9 @@ val _ = numLib.prefer_num();
 
 val _ = new_theory "typeSoundInvariants"
 
+(* Type system for values, evaluation contexts, and the small-step sematnics'
+ * states. The invariant that is used for type soundness. *)
+
 (*open import Pervasives*)
 (*open import Lib*)
 (*open import Ast*)
@@ -71,7 +74,6 @@ val _ = Define `
   (({ SOME mn |  mn | ? cn tn. (cn,TypeId (Long mn tn)) IN (FDOM ctMap) } UNION
    (if (? cn tn. (cn,TypeId (Short tn)) IN (FDOM ctMap)) then {NONE} else {})) UNION
    { mn |  mn | ? cn. (cn,TypeExn mn) IN (FDOM ctMap) }))`;
-
 
 
 (* Check that a constructor type environment is consistent with a runtime type

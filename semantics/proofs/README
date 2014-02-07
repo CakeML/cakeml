@@ -1,0 +1,14 @@
+Theorems about basic properties of CakeML
+
+libPropsScript.sml
+    Properties of environment lookup
+
+bigClockScript.sml
+    Various theorems about the clocked big step semantics, and how it relates
+    to the unclocked one.  In particular, the unclocked semantics ignores the
+    clock and cannot timeout; and the clocked semantics always gets a result
+    (exceptional or otherwise) or times out.
+
+determScript.sml
+    Determinism for the big-step semantics.
+

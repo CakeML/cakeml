@@ -24,11 +24,13 @@ PRE_BARE_THYS = astTheory \
 		tokensTheory \
 		typeSystemTheory \
 		terminationTheory \
-		tokenUtilsTheory
+		tokenUtilsTheory \
+		proofs/libPropsTheory \
+		proofs/bigClockTheory
 
 BARE_THYS = $(patsubst %,../semantics/%,$(PRE_BARE_THYS))
 
-DEPS = $(patsubst %,%.uo,$(BARE_THYS)) ../semantics/proofs/libPropsTheory.uo ../semantics/sem_heap
+DEPS = $(patsubst %,%.uo,$(BARE_THYS)) ../semantics/sem_heap
 
 $(HOLHEAP): $(DEPS)
 	$(protect $(HOLDIR)/bin/buildheap) -b ../semantics/sem_heap -o $(HOLHEAP) $(BARE_THYS)

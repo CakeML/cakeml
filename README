@@ -18,6 +18,9 @@ Directory structure:
     - small step semantics
     - big step semantics
     - a type system
+    - a verified, clocked interpreter (in the proofs/ sub-directory)
+    - basic facts about the semantics (including determinism) in the proofs/
+      sub-directory
     The definition is (mostly) expressed in
     Lem (http://www.cs.kent.ac.uk/~sao/lem),
     but the generated HOL is also included.
@@ -25,9 +28,7 @@ Directory structure:
 - metatheory
     Proofs about CakeML, including
     - type soundness
-    - determinism
     - equivalence of the big and small step semantics
-    - a verified clocked interpreter
 
 - parsing
     Lexer and PEG parser for CakeML.

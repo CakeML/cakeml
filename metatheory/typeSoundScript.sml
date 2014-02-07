@@ -7,7 +7,7 @@ open terminationTheory;
 open libPropsTheory;
 open weakeningTheory typeSysPropsTheory bigSmallEquivTheory;
 open initialEnvTheory;
-open typeSoundInvariantsTheory bigClockTheory;
+open typeSoundInvariantsTheory evalPropsTheory;
 
 val _ = new_theory "typeSound";
 
@@ -15,22 +15,6 @@ val type_v_cases_eqn = List.nth (CONJUNCTS type_v_cases, 0);
 val type_vs_cases_eqn = List.nth (CONJUNCTS type_v_cases, 1);
 val type_env_cases = List.nth (CONJUNCTS type_v_cases, 2);
 val consistent_mod_cases = List.nth (CONJUNCTS type_v_cases, 3);
-
-val build_rec_env_help_lem = Q.prove (
-`∀funs env funs'.
-FOLDR (λ(f,x,e) env'. bind f (Recclosure env funs' f) env') env' funs =
-merge (MAP (λ(fn,n,e). (fn, Recclosure env funs' fn)) funs) env'`,
-Induct >>
-rw [merge_def, bind_def] >>
-PairCases_on `h` >>
-rw []);
-
-(* Alternate definition for build_rec_env *)
-val build_rec_env_merge = Q.store_thm ("build_rec_env_merge",
-`∀funs funs' env env'.
-  build_rec_env funs env env' =
-  merge (MAP (λ(fn,n,e). (fn, Recclosure env funs fn)) funs) env'`,
-rw [build_rec_env_def, build_rec_env_help_lem]);
 
 val consistent_con_env_lookup = Q.prove (
 `!ctMap envC tenvC cn tvs ts tn.
@@ -1834,19 +1818,6 @@ val exp_type_soundness = Q.store_thm ("exp_type_soundness",
      cases_on `t'` >>
      fs [final_state_def, type_ctxt_cases] >>
      metis_tac [small_eval_def, result_distinct, result_11, error_result_distinct]));
-
-val pmatch_append = Q.prove (
-`(!(cenv : envC) (st : v store) p v env env' env''.
-    (pmatch cenv st p v env = Match env') ⇒
-    (pmatch cenv st p v (env++env'') = Match (env'++env''))) ∧
- (!(cenv : envC) (st : v store) ps v env env' env''.
-    (pmatch_list cenv st ps v env = Match env') ⇒
-    (pmatch_list cenv st ps v (env++env'') = Match (env'++env'')))`,
-ho_match_mp_tac pmatch_ind >>
-rw [pmatch_def, bind_def] >>
-every_case_tac >>
-fs [] >>
-metis_tac []);
 
 val ctMap_ok_pres = Q.prove (
 `!mn tenvM tenvC tenv d tenvC' tenv'.

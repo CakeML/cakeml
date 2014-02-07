@@ -1,7 +1,7 @@
 open preamble;
 open optionTheory;
 open libTheory semanticPrimitivesTheory bigStepTheory smallStepTheory;
-open bigSmallInvariantsTheory bigClockTheory;
+open bigSmallInvariantsTheory evalPropsTheory determTheory bigClockTheory;
 
 val _ = new_theory "bigSmallEquiv";
 

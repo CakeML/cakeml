@@ -1,3 +1,6 @@
+(* Type system for values, evaluation contexts, and the small-step sematnics'
+ * states. The invariant that is used for type soundness. *)
+
 open import Pervasives
 open import Lib
 open import Ast
@@ -46,7 +49,6 @@ let ctMap_to_mods ctMap =
   ({ Just mn | forall mn | exists cn tn. (cn,TypeId (Long mn tn)) IN (Map.domain ctMap) } union
    (if (exists cn tn. (cn,TypeId (Short tn)) IN (Map.domain ctMap)) then {Nothing} else {}) union
    { mn | forall mn | exists cn. (cn,TypeExn mn) IN (Map.domain ctMap) })
-
 
 (* Check that a constructor type environment is consistent with a runtime type
  * enviroment, using the full type keyed constructor type environment to ensure

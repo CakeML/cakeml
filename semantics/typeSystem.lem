@@ -5,7 +5,32 @@ open import Ast
 (* Only to get check_dup_ctors *)
 open import SemanticPrimitives 
 
-(* Type substitution *)
+(* Check that the free type variables are in the given list.  Every deBruijn
+ * variable must be smaller than the first argument.  So if it is 0, no deBruijn
+ * indices are permitted. *)
+val check_freevars : nat -> list tvarN -> t -> bool
+let rec
+check_freevars dbmax tvs (Tvar tv) =
+  elem tv tvs
+and
+check_freevars dbmax tvs (Tapp ts tn) =
+  List.all (check_freevars dbmax tvs) ts
+and
+check_freevars dbmax tvs (Tvar_db n) = n < dbmax
+
+(* Simultaneous substitution of types for type variables in a type *)
+val type_subst : env tvarN t -> t -> t
+let rec
+type_subst s (Tvar tv) =
+  match lookup tv s with
+    | Nothing -> Tvar tv
+    | Just(t) -> t
+  end
+and
+type_subst s (Tapp ts tn) =
+  Tapp (List.map (type_subst s) ts) tn
+and
+type_subst s (Tvar_db n) = Tvar_db n
 
 (* Increment the deBruijn indices in a type by n levels, skipping all levels
  * less than skip. *)
@@ -96,6 +121,24 @@ num_tvs (Bind_name n tvs t e) = num_tvs e
 
 declare termination_argument num_tvs = automatic
 
+val bind_var_list : nat -> list (varN * t) -> tenvE -> tenvE
+let rec
+bind_var_list tvs [] tenv = tenv
+and
+bind_var_list tvs ((n,t)::binds) tenv =
+  bind_tenv n tvs t (bind_var_list tvs binds tenv)
+
+declare termination_argument bind_var_list = automatic
+
+val bind_var_list2 : env varN (nat * t) -> tenvE -> tenvE
+let rec
+bind_var_list2 [] tenv = tenv
+and
+bind_var_list2 ((n,(tvs,t))::binds) tenv =
+  bind_tenv n tvs t (bind_var_list2 binds tenv)
+
+declare termination_argument bind_var_list2 = automatic
+
 (* A pattern matches values of a certain type and extends the type environment
  * with the pattern's binders. The number is the maximum deBruijn type variable
  * allowed. *)
@@ -143,19 +186,6 @@ let type_uop uop t1 t2 =
     | _ -> false
   end
 
-(* Check that the free type variables are in the given list.  Every deBruijn
- * variable must be smaller than the first argument.  So if it is 0, no deBruijn
- * indices are permitted. *)
-val check_freevars : nat -> list tvarN -> t -> bool
-let rec
-check_freevars dbmax tvs (Tvar tv) =
-  elem tv tvs
-and
-check_freevars dbmax tvs (Tapp ts tn) =
-  List.all (check_freevars dbmax tvs) ts
-and
-check_freevars dbmax tvs (Tvar_db n) = n < dbmax
-
 val check_new_type : id typeN -> tenvC -> bool
 let check_new_type tn (mtenvC,tenvC) =
   List.all (fun (_,(_,_,tn')) -> TypeId tn <> tn') tenvC &&
@@ -200,38 +230,6 @@ val check_exn_tenv : maybe modN -> tenvC -> conN -> list t -> bool
 let check_exn_tenv mn tenvC cn ts =
   List.all (check_freevars 0 []) ts &&
   check_new_exn mn cn tenvC
-
-(* Simultaneous substitution of types for type variables in a type *)
-val type_subst : env tvarN t -> t -> t
-let rec
-type_subst s (Tvar tv) =
-  match lookup tv s with
-    | Nothing -> Tvar tv
-    | Just(t) -> t
-  end
-and
-type_subst s (Tapp ts tn) =
-  Tapp (List.map (type_subst s) ts) tn
-and
-type_subst s (Tvar_db n) = Tvar_db n
-
-val bind_var_list : nat -> list (varN * t) -> tenvE -> tenvE
-let rec
-bind_var_list tvs [] tenv = tenv
-and
-bind_var_list tvs ((n,t)::binds) tenv =
-  bind_tenv n tvs t (bind_var_list tvs binds tenv)
-
-declare termination_argument bind_var_list = automatic
-
-val bind_var_list2 : env varN (nat * t) -> tenvE -> tenvE
-let rec
-bind_var_list2 [] tenv = tenv
-and
-bind_var_list2 ((n,(tvs,t))::binds) tenv =
-  bind_tenv n tvs t (bind_var_list2 binds tenv)
-
-declare termination_argument bind_var_list2 = automatic
 
 (* For the value restriction on let-based polymorphism *)
 val is_value : exp -> bool

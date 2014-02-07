@@ -1,13 +1,13 @@
 open preamble;
+(* Prove that the small step semantics never gets stuck if there is still work
+ * to do (i.e., it must detect all type errors).  Thus, it either diverges or
+ * gives a result, and it can't do both. *)
+
 open libTheory astTheory bigStepTheory smallStepTheory semanticPrimitivesTheory
 open determTheory bigSmallEquivTheory
 open terminationTheory bigClockTheory;
 
 val _ = new_theory "untypedSafety";
-
-(* Prove that the small step semantics never gets stuck if there is still work
- * to do (i.e., it must detect all type errors).  Thus, it either diverges or
- * gives a result, and it can't do both. *)
 
 val untyped_safety_exp_step = Q.prove (
 `∀env s e c.

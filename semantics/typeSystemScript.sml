@@ -15,7 +15,38 @@ val _ = new_theory "typeSystem"
 (* Only to get check_dup_ctors *)
 (*open import SemanticPrimitives*) 
 
-(* Type substitution *)
+(* Check that the free type variables are in the given list.  Every deBruijn
+ * variable must be smaller than the first argument.  So if it is 0, no deBruijn
+ * indices are permitted. *)
+(*val check_freevars : nat -> list tvarN -> t -> bool*)
+ val check_freevars_defn = Hol_defn "check_freevars" `
+
+(check_freevars dbmax tvs (Tvar tv) =  
+(MEM tv tvs))
+/\
+(check_freevars dbmax tvs (Tapp ts tn) =  
+(EVERY (check_freevars dbmax tvs) ts))
+/\
+(check_freevars dbmax tvs (Tvar_db n) = (n < dbmax))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn check_freevars_defn;
+
+(* Simultaneous substitution of types for type variables in a type *)
+(*val type_subst : env tvarN t -> t -> t*)
+ val type_subst_defn = Hol_defn "type_subst" `
+
+(type_subst s (Tvar tv) =  
+((case lookup tv s of
+      NONE => Tvar tv
+    | SOME(t) => t
+  )))
+/\
+(type_subst s (Tapp ts tn) =  
+(Tapp (MAP (type_subst s) ts) tn))
+/\
+(type_subst s (Tvar_db n) = (Tvar_db n))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn type_subst_defn;
 
 (* Increment the deBruijn indices in a type by n levels, skipping all levels
  * less than skip. *)
@@ -122,6 +153,24 @@ val _ = Define `
 (num_tvs (Bind_name n tvs t e) = (num_tvs e))`;
 
 
+(*val bind_var_list : nat -> list (varN * t) -> tenvE -> tenvE*)
+ val _ = Define `
+
+(bind_var_list tvs [] tenv = tenv)
+/\
+(bind_var_list tvs ((n,t)::binds) tenv =  
+(bind_tenv n tvs t (bind_var_list tvs binds tenv)))`;
+
+
+(*val bind_var_list2 : env varN (nat * t) -> tenvE -> tenvE*)
+ val _ = Define `
+
+(bind_var_list2 [] tenv = tenv)
+/\
+(bind_var_list2 ((n,(tvs,t))::binds) tenv =  
+(bind_tenv n tvs t (bind_var_list2 binds tenv)))`;
+
+
 (* A pattern matches values of a certain type and extends the type environment
  * with the pattern's binders. The number is the maximum deBruijn type variable
  * allowed. *)
@@ -172,22 +221,6 @@ val _ = Define `
     | _ => F
   )))`;
 
-
-(* Check that the free type variables are in the given list.  Every deBruijn
- * variable must be smaller than the first argument.  So if it is 0, no deBruijn
- * indices are permitted. *)
-(*val check_freevars : nat -> list tvarN -> t -> bool*)
- val check_freevars_defn = Hol_defn "check_freevars" `
-
-(check_freevars dbmax tvs (Tvar tv) =  
-(MEM tv tvs))
-/\
-(check_freevars dbmax tvs (Tapp ts tn) =  
-(EVERY (check_freevars dbmax tvs) ts))
-/\
-(check_freevars dbmax tvs (Tvar_db n) = (n < dbmax))`;
-
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn check_freevars_defn;
 
 (*val check_new_type : id typeN -> tenvC -> bool*)
 val _ = Define `
@@ -254,41 +287,6 @@ val _ = Define `
  (check_exn_tenv mn tenvC cn ts =  
 (EVERY (check_freevars( 0) []) ts /\
   check_new_exn mn cn tenvC))`;
-
-
-(* Simultaneous substitution of types for type variables in a type *)
-(*val type_subst : env tvarN t -> t -> t*)
- val type_subst_defn = Hol_defn "type_subst" `
-
-(type_subst s (Tvar tv) =  
-((case lookup tv s of
-      NONE => Tvar tv
-    | SOME(t) => t
-  )))
-/\
-(type_subst s (Tapp ts tn) =  
-(Tapp (MAP (type_subst s) ts) tn))
-/\
-(type_subst s (Tvar_db n) = (Tvar_db n))`;
-
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn type_subst_defn;
-
-(*val bind_var_list : nat -> list (varN * t) -> tenvE -> tenvE*)
- val _ = Define `
-
-(bind_var_list tvs [] tenv = tenv)
-/\
-(bind_var_list tvs ((n,t)::binds) tenv =  
-(bind_tenv n tvs t (bind_var_list tvs binds tenv)))`;
-
-
-(*val bind_var_list2 : env varN (nat * t) -> tenvE -> tenvE*)
- val _ = Define `
-
-(bind_var_list2 [] tenv = tenv)
-/\
-(bind_var_list2 ((n,(tvs,t))::binds) tenv =  
-(bind_tenv n tvs t (bind_var_list2 binds tenv)))`;
 
 
 (* For the value restriction on let-based polymorphism *)

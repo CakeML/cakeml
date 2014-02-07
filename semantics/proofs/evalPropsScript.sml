@@ -7,6 +7,19 @@ open terminationTheory;
 
 val _ = new_theory "evalProps";
 
+val pmatch_append = Q.store_thm ("pmatch_append",
+`(!(cenv : envC) (st : v store) p v env env' env''.
+    (pmatch cenv st p v env = Match env') ⇒
+    (pmatch cenv st p v (env++env'') = Match (env'++env''))) ∧
+ (!(cenv : envC) (st : v store) ps v env env' env''.
+    (pmatch_list cenv st ps v env = Match env') ⇒
+    (pmatch_list cenv st ps v (env++env'') = Match (env'++env'')))`,
+ho_match_mp_tac pmatch_ind >>
+rw [pmatch_def, bind_def] >>
+every_case_tac >>
+fs [] >>
+metis_tac []);
+
 val do_app_cases = Q.store_thm ("do_app_cases",
 `!st env op v1 v2 st' env' v3.
   (do_app env st op v1 v2 = SOME (env',st',v3))
@@ -69,6 +82,22 @@ val do_app_cases = Q.store_thm ("do_app_cases",
      rw [] >>
      every_case_tac >>
      metis_tac []));
+
+val build_rec_env_help_lem = Q.prove (
+`∀funs env funs'.
+FOLDR (λ(f,x,e) env'. bind f (Recclosure env funs' f) env') env' funs =
+merge (MAP (λ(fn,n,e). (fn, Recclosure env funs' fn)) funs) env'`,
+Induct >>
+rw [merge_def, bind_def] >>
+PairCases_on `h` >>
+rw []);
+
+(* Alternate definition for build_rec_env *)
+val build_rec_env_merge = Q.store_thm ("build_rec_env_merge",
+`∀funs funs' env env'.
+  build_rec_env funs env env' =
+  merge (MAP (λ(fn,n,e). (fn, Recclosure env funs fn)) funs) env'`,
+rw [build_rec_env_def, build_rec_env_help_lem]);
 
 val do_con_check_build_conv = Q.store_thm ("do_con_check_build_conv",
 `!tenvC cn vs l.

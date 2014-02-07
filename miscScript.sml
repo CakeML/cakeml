@@ -1384,5 +1384,10 @@ val fmap_eq_flookup = Q.store_thm ("fmap_eq_flookup",
      >- metis_tac [NOT_SOME_NONE]
      >- metis_tac [SOME_11]));
 
+val mem_exists_set = Q.store_thm ("mem_exists_set",
+`!x y l. MEM (x,y) l ⇒ ∃z. (x = FST z) ∧ z ∈ set l`,
+Induct_on `l` >>
+rw [] >>
+metis_tac [FST]);
 
 val _ = export_theory()
