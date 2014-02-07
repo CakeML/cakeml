@@ -85,6 +85,16 @@ cases_on `mn = mn'` >>
 fs [] >>
 metis_tac [weakE_refl, tenvM_ok_lookup]);
 
+val weakM_bind' = Q.store_thm ("weakM_bind'",
+`!mn tenv' tenvM' tenv tenvM.
+  weakE tenv' tenv ∧
+  weakM tenvM' tenvM
+  ⇒
+  weakM (bind mn tenv' tenvM') (bind mn tenv tenvM)`,
+rw [weakM_def, bind_def, lookup_def] >>
+full_case_tac >>
+fs []);
+
 val weakS_bind = Q.store_thm ("weakS_bind",
 `!l t tenvS.
   (lookup l tenvS = NONE) ⇒
@@ -119,6 +129,34 @@ val weakC_merge = Q.store_thm ("weakC_merge",
      every_case_tac >>
      fs [] >>
      rw [flat_weakC_refl]));
+
+val weakC_merge_one_mod = Q.store_thm ("weakC_merge_one_mod",
+`!tenvC1 tenvC2 flat_tenvC mn.
+  mn ∉ set (MAP FST (FST tenvC1)) ∧
+  weakC tenvC1 tenvC2
+  ⇒
+  weakC (merge_tenvC ([(mn, flat_tenvC)],emp) tenvC1) tenvC2`,
+ rw [weakC_def] >>
+ PairCases_on `tenvC1` >>
+ fs [merge_tenvC_def, merge_def, emp_def] >>
+ every_case_tac >>
+ rw [] >>
+ res_tac >>
+ imp_res_tac lookup_in2);
+
+val weakC_merge_one_mod2 = Q.store_thm ("weakC_merge_one_mod2",
+`!tenvC1 tenvC2 flat_tenvC1 flat_tenvC2 mn.
+  flat_weakC flat_tenvC1 flat_tenvC2 ∧
+  weakC tenvC1 tenvC2
+  ⇒
+  weakC (merge_tenvC ([(mn, flat_tenvC1)],emp) tenvC1) (merge_tenvC ([(mn, flat_tenvC2)],emp) tenvC2)`,
+ rw [weakC_def, emp_def] >>
+ PairCases_on `tenvC1` >>
+ PairCases_on `tenvC2` >>
+ fs [merge_tenvC_def, merge_def] >>
+ every_case_tac >>
+ fs [] >>
+ rw []);
 
 val weak_tenvE_freevars = Q.prove (
 `!tenv tenv' tvs t.
@@ -634,6 +672,34 @@ val type_d_weakening = Q.store_thm ("type_d_weakening",
  >- metis_tac [check_ctor_tenv_weakening]
  >- metis_tac [check_exn_tenv_weakening]);
 
+val consistent_con_env_weakening = Q.store_thm ("consistent_con_env_weakening",
+`!ctMap envC tenvC ctMap'.
+  consistent_con_env ctMap envC tenvC ∧
+  ctMap_ok ctMap' ∧
+  weakCT ctMap' ctMap
+  ⇒
+  consistent_con_env ctMap' envC tenvC`,
+ rw [weakCT_def, consistent_con_env_def] >>
+ PairCases_on `envC` >>
+ fs [lookup_con_id_def] >>
+ every_case_tac >>
+ fs []
+ >- (FIRST_X_ASSUM (mp_tac o Q.SPECL [`Short a`, `n`, `t`]) >>
+     rw [] >>
+     metis_tac [FLOOKUP_SUBMAP])
+ >- (FIRST_X_ASSUM (mp_tac o Q.SPECL [`Long s a`, `n`, `t`]) >>
+     rw [] >>
+     metis_tac [FLOOKUP_SUBMAP]));
+
+val ctMap_to_mods_weakening = Q.store_thm ("ctMap_to_mods_weakening",
+`!ctMap ctMap' mn.
+  ctMap_to_mods ctMap' ⊆ {SOME mn} ∧
+  weakCT ctMap' ctMap
+  ⇒
+  ctMap_to_mods ctMap ⊆ {SOME mn}`,
+ rw [weakCT_def, ctMap_to_mods_def, SUBSET_DEF, SUBMAP_DEF] >>
+ metis_tac [SOME_11]);
+
 val type_ds_weakening = Q.store_thm ("type_ds_weakening",
 `!mn tenvM tenvC tenv ds tenvC' tenv'.
   type_ds mn tenvM tenvC tenv ds tenvC' tenv' ⇒
@@ -654,5 +720,74 @@ val type_ds_weakening = Q.store_thm ("type_ds_weakening",
             rw [tenvC_ok_merge, tenvC_ok_ctMap, to_ctMap_def, emp_def] >>
             metis_tac [ctMap_ok_tenvC_ok, MAP_REVERSE, ALL_DISTINCT_REVERSE]) >>
  metis_tac [type_d_weakening, weakC_merge, emp_def, merge_def, to_ctMap_merge_empty]);
+
+val weakenCT_only_mods_pres = Q.store_thm ("weakenCT_only_mods_pres",
+`!ctMap1 ctMap2 ctMap'.
+  weakenCT_only_mods ctMap1 ctMap2 ∧
+  ctMap_to_mods ctMap' ⊆ {SOME mn}
+  ⇒
+  weakenCT_only_mods (FUNION ctMap' ctMap1) ctMap2`,
+ rw [weakenCT_only_mods_def, FLOOKUP_FUNION, ctMap_to_mods_def] >>
+ every_case_tac >>
+ fs [FLOOKUP_DEF] >>
+ res_tac >>
+ fs [SUBSET_DEF] >>
+ res_tac >>
+ fs []);
+
+val weaken_CT_only_mods_add = Q.store_thm ("weaken_CT_only_mods_add",
+`!mn tn flat_tenvC tenvC flat_tenvC' tenvC'.
+  ctMap_to_mods (flat_to_ctMap flat_tenvC) ⊆ {SOME mn} ∧
+  ctMap_to_mods (flat_to_ctMap flat_tenvC') ⊆ {SOME mn} ∧
+  weakenCT_only_mods (to_ctMap tenvC) (to_ctMap tenvC')
+  ⇒
+  weakenCT_only_mods (FUNION (flat_to_ctMap flat_tenvC) (to_ctMap tenvC)) (to_ctMap (merge_tenvC ([(mn,flat_tenvC')],[]) tenvC'))`,
+ rw [weakenCT_only_mods_def, FLOOKUP_FUNION, ctMap_to_mods_def] >>
+ every_case_tac >>
+ fs [SUBSET_DEF] >>
+ res_tac >>
+ fs []
+ >- (PairCases_on `tenvC'` >>
+     rw [merge_tenvC_def, merge_def, to_ctMap_def, flookup_fupdate_list] >>
+     every_case_tac >>
+     rw []
+     >- (fs [to_ctMap_def, flookup_fupdate_list] >>
+         every_case_tac >>
+         fs [to_ctMap_list_def, ALOOKUP_NONE] >>
+         imp_res_tac ALOOKUP_MEM >>
+         fs [MEM_MAP, MEM_FLAT] >>
+         metis_tac [FST])
+     >- (fs [to_ctMap_def, flookup_fupdate_list, to_ctMap_list_def, ALOOKUP_APPEND, flat_to_ctMap_def,
+             FDOM_FUPDATE_LIST] >>
+         every_case_tac >>
+         fs [] >>
+         imp_res_tac ALOOKUP_MEM >>
+         fs [MEM_MAP, MEM_FLAT] >>
+         metis_tac [FST]))
+ >- (fs [FLOOKUP_DEF] >>
+     metis_tac [])
+ >- (PairCases_on `tenvC'` >>
+     rw [merge_tenvC_def, merge_def, to_ctMap_def, flookup_fupdate_list] >>
+     every_case_tac >>
+     rw []
+     >- (fs [to_ctMap_def, flookup_fupdate_list] >>
+         every_case_tac >>
+         fs [to_ctMap_list_def, ALOOKUP_NONE] >>
+         imp_res_tac ALOOKUP_MEM >>
+         fs [MEM_MAP, MEM_FLAT] >>
+         metis_tac [FST])
+     >- (fs [to_ctMap_def, flookup_fupdate_list, to_ctMap_list_def, ALOOKUP_APPEND, flat_to_ctMap_def,
+             FDOM_FUPDATE_LIST] >>
+         every_case_tac >>
+         fs [] >>
+         imp_res_tac ALOOKUP_MEM >>
+         fs [MEM_MAP] >>
+         metis_tac [NOT_SOME_NONE, FST]))
+ >- (fs [FLOOKUP_DEF] >>
+     metis_tac [NOT_SOME_NONE]));
+
+val weakenCT_only_mods_refl = Q.store_thm ("weakenCT_only_mods_refl",
+`!ctMap. weakenCT_only_mods ctMap ctMap`,
+rw [weakenCT_only_mods_def]);
 
 val _ = export_theory ();

@@ -106,4 +106,31 @@ rw [do_con_check_def, build_conv_def] >>
 every_case_tac >>
 fs []);
 
+val merge_envC_empty_assoc = Q.store_thm ("merge_envC_empty_assoc",
+`!envC1 envC2 envC3.
+  merge_envC ([],envC1) (merge_envC ([],envC2) envC3)
+  =
+  merge_envC ([],envC1++envC2) envC3`,
+ rw [] >>
+ PairCases_on `envC3` >>
+ rw [merge_envC_def, merge_def]);
+
+val same_ctor_and_same_tid = Q.store_thm ("same_ctor_and_same_tid",
+`!cn1 tn1 cn2 tn2.
+  same_tid tn1 tn2 ∧
+  same_ctor (cn1,tn1) (cn2,tn2)
+  ⇒
+  tn1 = tn2 ∧ cn1 = cn2`,
+ cases_on `tn1` >>
+ cases_on `tn2` >>
+ fs [same_tid_def, same_ctor_def]);
+
+val same_tid_sym = Q.store_thm ("same_tid_sym",
+`!tn1 tn2. same_tid tn1 tn2 = same_tid tn2 tn1`,
+ cases_on `tn1` >>
+ cases_on `tn2` >>
+ rw [same_tid_def] >>
+ metis_tac []);
+
+
 val _ = export_theory ();
