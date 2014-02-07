@@ -28,6 +28,9 @@ declare hol target_rep function (^) = infix `++`
 val char_to_num : char -> nat
 declare hol target_rep function char_to_num = `ORD`
 
+val num_to_char : nat -> char
+declare hol target_rep function num_to_char = `CHR`
+
 (* The builtin List.zip maps to list_combine in HOL, but I want to map to ZIP *)
 val ZIP : forall 'a 'b. list 'a -> list 'b -> list ('a * 'b)
 let inline ZIP = List_extra.zip_same_length

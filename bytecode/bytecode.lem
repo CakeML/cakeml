@@ -96,6 +96,13 @@ and
 is_Block _ = false
 
 let rec
+is_Number (Number _) = true
+and
+is_Number _ = false
+
+let rec dest_Number (Number i) = i
+
+let rec
 can_Print (Number _) = true
 and
 can_Print (Block n vs) = not (n = block_tag) || can_Print_list vs
@@ -195,6 +202,18 @@ bc_find_loc _ (Addr n) = Just n
 and
 bc_find_loc s (Lab l) = bc_find_loc_aux s.code s.inst_length l 0
 
+(* conversion to observable values *)
+
+val bvs_to_chars : list bc_value -> list char -> maybe (list char)
+let rec
+bvs_to_chars [] ac = Just (List.reverse ac)
+and
+bvs_to_chars (Number i::vs) ac =
+  bvs_to_chars vs ((num_to_char (int_to_num i))::ac)
+and
+bvs_to_chars _ _ = Nothing
+declare termination_argument bvs_to_chars = automatic
+
 val bv_to_ov : list (nat * maybe (id conN)) -> bc_value -> ov
 let rec
 bv_to_ov _ (Number i) = OLit (IntLit i)
@@ -204,6 +223,11 @@ bv_to_ov m (Block n vs) =
   if n = (bool_to_tag true) then OLit (Bool true) else
   if n = unit_tag then OLit Unit else
   if n = closure_tag then OFn else
+  if n = string_tag then
+    match bvs_to_chars vs [] with
+    | Nothing -> OError
+    | Just cs -> OLit (StrLit (String.toString cs))
+    end else
   OConv (the Nothing (Lib.lookup (n-block_tag) m)) (List.map (bv_to_ov m) vs)
 and
 bv_to_ov _ (RefPtr n) = OLoc n

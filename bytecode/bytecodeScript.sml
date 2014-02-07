@@ -131,6 +131,17 @@ val _ = Define `
 (is_Block _ = F)`;
 
 
+ val _ = Define `
+
+(is_Number (Number _) = T)
+/\
+(is_Number _ = F)`;
+
+
+ val _ = Define `
+ (dest_Number (Number i) = i)`;
+
+
  val can_Print_defn = Hol_defn "can_Print" `
 
 (can_Print (Number _) = T)
@@ -253,6 +264,19 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (bc_find_loc s (Lab l) = (bc_find_loc_aux s.code s.inst_length l( 0)))`;
 
 
+(* conversion to observable values *)
+
+(*val bvs_to_chars : list bc_value -> list char -> maybe (list char)*)
+ val _ = Define `
+
+(bvs_to_chars [] ac = (SOME (REVERSE ac)))
+/\
+(bvs_to_chars (Number i::vs) ac =  
+(bvs_to_chars vs ((CHR (Num i))::ac)))
+/\
+(bvs_to_chars _ _ = NONE)`;
+
+
 (*val bv_to_ov : list (nat * maybe (id conN)) -> bc_value -> ov*)
  val bv_to_ov_defn = Hol_defn "bv_to_ov" `
 
@@ -263,6 +287,11 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   if n = (bool_to_tag T) then OLit (Bool T) else
   if n = unit_tag then OLit Unit else
   if n = closure_tag then OFn else
+  if n = string_tag then
+    (case bvs_to_chars vs [] of
+      NONE => OError
+    | SOME cs => OLit (StrLit (IMPLODE cs))
+    ) else
   OConv (the NONE (lib$lookup (n - block_tag) m)) (MAP (bv_to_ov m) vs)))
 /\
 (bv_to_ov _ (RefPtr n) = (OLoc n))

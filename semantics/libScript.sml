@@ -30,6 +30,8 @@ val _ = new_theory "lib"
 
 (*val char_to_num : char -> nat*)
 
+(*val num_to_char : nat -> char*)
+
 (* The builtin List.zip maps to list_combine in HOL, but I want to map to ZIP *)
 (*val ZIP : forall 'a 'b. list 'a -> list 'b -> list ('a * 'b)*)
 

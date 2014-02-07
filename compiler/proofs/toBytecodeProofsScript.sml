@@ -15,6 +15,7 @@ val _ = export_rewrites["with_same_sm"]
 
 val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
   (Cv_bv pp (CLitv (IntLit k)) (Number k)) ∧
+  (Cv_bv pp (CLitv (StrLit s)) (Block string_tag (MAP (Number o $& o ORD) s))) ∧
   (Cv_bv pp (CLitv (Bool b)) (bool_to_val b)) ∧
   (Cv_bv pp (CLitv Unit) unit_val) ∧
   ((el_check m (FST pp).sm = SOME p) ⇒ Cv_bv pp (CLoc m) (RefPtr p)) ∧
@@ -54,6 +55,12 @@ val Cv_bv_ov = store_thm("Cv_bv_ov",
   strip_tac >- rw[bv_to_ov_def] >>
   strip_tac >- (
     rw[bv_to_ov_def] >>
+    rw[bvs_to_chars_thm,EVERY_MAP] >>
+    rw[LIST_EQ_REWRITE,
+       stringTheory.IMPLODE_EXPLODE_I,
+       EL_MAP,stringTheory.CHR_ORD]) >>
+  strip_tac >- (
+    rw[bv_to_ov_def] >>
     Cases_on `b` >> fs[] ) >>
   strip_tac >- rw[bv_to_ov_def] >>
   strip_tac >- rw[bv_to_ov_def,el_check_def] >>
@@ -75,6 +82,7 @@ val Cv_bv_syneq = store_thm("Cv_bv_syneq",
         (∀v1 v2. V v1 v2 ⇒ v1 < LENGTH env1 ∧ v2 < LENGTH env2 ∧ syneq (EL v1 env1) (EL v2 env2))
         ⇒ benv_bvs pp bvs ce env2 defs2)``,
   ho_match_mp_tac (Cv_bv_strongind) >>
+  strip_tac >- ( simp[Once Cv_bv_cases] ) >>
   strip_tac >- ( simp[Once Cv_bv_cases] ) >>
   strip_tac >- ( simp[Once Cv_bv_cases] ) >>
   strip_tac >- ( simp[Once Cv_bv_cases] ) >>
@@ -168,6 +176,7 @@ val Cv_bv_SUBMAP = store_thm("Cv_bv_SUBMAP",
   strip_tac >- rw[Once Cv_bv_cases,LENGTH_NIL] >>
   strip_tac >- rw[Once Cv_bv_cases,LENGTH_NIL] >>
   strip_tac >- rw[Once Cv_bv_cases,LENGTH_NIL] >>
+  strip_tac >- rw[Once Cv_bv_cases,LENGTH_NIL] >>
   strip_tac >- (
     rw[Once Cv_bv_cases,LENGTH_NIL] >>
     fs[el_check_def,IS_PREFIX_THM,EVERY2_EVERY,EVERY_MEM,FORALL_PROD,LENGTH_NIL] >>
@@ -196,6 +205,12 @@ val no_closures_Cv_bv_equal = store_thm("no_closures_Cv_bv_equal",
   >- (
     rw[EQ_IMP_THM] >> rw[] >>
     fs[Once Cv_bv_cases] )
+  >- (
+    rw[EQ_IMP_THM] >> rw[] >>
+    fs[Once Cv_bv_cases] >>
+    rw[] >> (TRY(Cases_on`b`)) >> fsrw_tac[ARITH_ss][] >>
+    fs[LIST_EQ_REWRITE] >> rfs[EL_MAP] >>
+    metis_tac[stringTheory.ORD_11])
   >- (
     rw[EQ_IMP_THM] >> rw[] >>
     Cases_on `b` >>
@@ -245,6 +260,7 @@ val Cv_bv_l2a_mono = store_thm("Cv_bv_l2a_mono",
   gen_tac >>
   PairCases_on `pp` >> simp[] >>
   ho_match_mp_tac Cv_bv_ind >>
+  strip_tac >- rw[Once Cv_bv_cases] >>
   strip_tac >- rw[Once Cv_bv_cases] >>
   strip_tac >- rw[Once Cv_bv_cases] >>
   strip_tac >- rw[Once Cv_bv_cases] >>
@@ -1129,6 +1145,12 @@ val helper_tac =
    rw [] >>
    TRY (TRY (Cases_on `b`) >> TRY (Cases_on `b'`) >> TRY (Cases_on `b''`) >> full_simp_tac (srw_ss()++ARITH_ss) [] >> NO_TAC);
 
+val bc_equal_list_Number = prove(
+  ``∀f. (∀x y. f x = f y ⇔ x = y) ⇒
+      ∀l1 l2. bc_equal_list (MAP (Number o f) l1) (MAP (Number o f) l2) = Eq_val (l1 = l2)``,
+  gen_tac >> strip_tac >> Induct >> TRY Cases >> simp[bc_equal_def] >>
+  gen_tac >> Cases >> simp[bc_equal_def] >> rw[])
+
 val do_Ceq_to_bc_equal = Q.prove (
 `ALL_DISTINCT (FST pp).sm ⇒
  (!v1 v2 bv1 bv2.
@@ -1146,7 +1168,8 @@ val do_Ceq_to_bc_equal = Q.prove (
  strip_tac >>
  ho_match_mp_tac do_Ceq_ind >>
  rw [] >-
- helper_tac >-
+ (helper_tac >> TRY(fs[LIST_EQ_REWRITE]>>NO_TAC) >>
+  match_mp_tac bc_equal_list_Number >> rw[stringTheory.ORD_11] ) >-
  (helper_tac >> metis_tac [ALL_DISTINCT_EL_IMP]) >-
  (helper_tac >> fs[EVERY2_EVERY] >> metis_tac []) >-
  (helper_tac >> fs[EVERY2_EVERY] >> metis_tac []) >-
@@ -3772,6 +3795,7 @@ fun tac18 t =
         rw[bc_eval_stack_def] >>
         srw_tac[ARITH_ss][bump_pc_def,FILTER_APPEND,SUM_APPEND,ADD1] >>
         simp[bc_state_component_equality])) >>
+      simp[PULL_EXISTS,Once Cv_bv_cases] >>
       cheat) >>
     rpt gen_tac >> strip_tac >>
     rpt gen_tac >> strip_tac >>

@@ -59,9 +59,12 @@ val defs = map EmitML.DEFN [
 optionTheory.OPTION_BIND_def,
 fapply_def,
 semanticPrimitivesTheory.int_to_string_def
-]@[EmitML.DEFN_NOSIG
+]@
+map EmitML.DEFN_NOSIG[
 (CONV_RULE(LAND_CONV(LAND_CONV(PURE_REWRITE_CONV[NIL_thm])))
- semanticPrimitivesTheory.string_escape_def)]@
+  semanticPrimitivesTheory.string_escape_def),
+bvs_to_chars_def
+]@
 map EmitML.DEFN[
 semanticPrimitivesTheory.string_to_string_def,
 semanticPrimitivesTheory.id_to_string_def,
@@ -75,7 +78,7 @@ bump_pc_def,bool_to_tag_def,unit_tag_def,closure_tag_def,string_tag_def,block_ta
 bool_to_val_def,unit_val_def,
 can_Print_def,
 bc_equality_result_to_val_def,
-bv_to_ov_def,
+PURE_REWRITE_RULE[NIL_thm]bv_to_ov_def,
 bc_equal_def,
 bc_eval_stack_def,
 PURE_REWRITE_RULE[CONCAT_thm,STRING_thm] bc_eval1_def,
@@ -97,7 +100,8 @@ val _ = EmitML.eSML "bytecode" (
 ::(EmitML.MLSIG "type ('a,'b) fmap = ('a,'b) fmapML.fmap")
 ::(EmitML.MLSTRUCT "fun STRING c s = String.^(Char.toString c,s);")
 ::(EmitML.MLSTRUCT "val CONCAT = String.concat;")
-::(EmitML.MLSIG "val string_escape : char list -> string")
-::data@defs)
+::data@defs@
+[EmitML.MLSIG "val string_escape : char list -> string",
+ EmitML.MLSIG "val bvs_to_chars : bc_value list -> char list -> char list option"])
 
 val _ = export_theory ();
