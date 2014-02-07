@@ -92,6 +92,7 @@ val print_result_def = Define `
 val tc_to_string_def = Define `
 (tc_to_string (TC_name id) ⇔ id_to_string id) ∧
 (tc_to_string TC_int ⇔ "<int>") ∧
+(tc_to_string TC_string ⇔ "<string>") ∧
 (tc_to_string TC_bool ⇔ "<bool>") ∧
 (tc_to_string TC_unit ⇔ "<unit>") ∧
 (tc_to_string TC_ref ⇔ "<ref>") ∧
