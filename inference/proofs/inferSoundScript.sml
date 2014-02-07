@@ -1,122 +1,9 @@
 open preamble;
 open rich_listTheory;
+open miscTheory;
 open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
 open initialEnvTheory;
 open typeSysPropsTheory;
-
-val fupdate_list_map = Q.prove (
-`!l f x y.
-  x ∈ FDOM (FEMPTY |++ l)
-   ⇒
-     ((FEMPTY |++ MAP (\(a,b). (a, f b)) l) ' x = f ((FEMPTY |++ l) ' x))`,
-     rpt gen_tac >>
-     Q.ISPECL_THEN[`FST`,`f o SND`,`l`,`FEMPTY:α|->γ`]mp_tac(GSYM finite_mapTheory.FOLDL_FUPDATE_LIST) >>
-     simp[LAMBDA_PROD] >>
-     disch_then kall_tac >>
-     qid_spec_tac`l` >>
-     ho_match_mp_tac SNOC_INDUCT >>
-     simp[FUPDATE_LIST_THM] >>
-     simp[FOLDL_SNOC,FORALL_PROD,FAPPLY_FUPDATE_THM,FDOM_FUPDATE_LIST,MAP_SNOC,finite_mapTheory.FUPDATE_LIST_SNOC] >>
-     rw[] >> rw[])
-
-val fdom_fupdate_list2 = Q.prove (
-`∀kvl fm. FDOM (fm |++ kvl) = (FDOM fm DIFF set (MAP FST kvl)) ∪ set (MAP FST kvl)`,
-rw [FDOM_FUPDATE_LIST, EXTENSION] >>
-metis_tac []);
-
-val map_fst = Q.prove (
-`!l f. MAP FST (MAP (\(x,y). (x, f y)) l) = MAP FST l`,
-induct_on `l` >>
-rw [] >>
-PairCases_on `h` >>
-fs []);
-
-val lookup_all_distinct = Q.prove (
-`!l x y.
-  ALL_DISTINCT (MAP FST l) ∧
-  MEM (x,y) l
-  ⇒
-  (lookup x l = SOME y)`,
-Induct_on `l` >>
-rw [lookup_def] >>
-rw [lookup_def] >>
-PairCases_on `h` >>
-rw [] >>
-fs [MEM_MAP] >>
-metis_tac [FST]);
-
-val flookup_update_list_none = Q.prove (
-`!x m l.
-  (FLOOKUP (m |++ l) x = NONE)
-  =
-  ((FLOOKUP m x = NONE) ∧ (lookup x l = NONE))`,
-induct_on `l` >>
-rw [FUPDATE_LIST_THM] >>
-PairCases_on `h` >>
-rw [FLOOKUP_DEF]);
-
-val flookup_update_list_some = Q.prove (
-`!x m l y. 
-  (FLOOKUP (m |++ l) x = SOME y)
-  =
-  ((lookup x (REVERSE l) = SOME y) ∨
-   ((lookup x l = NONE) ∧ (FLOOKUP m x = SOME y)))`,
-Induct_on `l` >>
-rw [FUPDATE_LIST_THM] >>
-PairCases_on `h` >>
-rw [lookup_append, FLOOKUP_UPDATE] >|
-[cases_on `lookup h0 (REVERSE l)` >>
-     rw [] >>
-     metis_tac [lookup_reverse_none, optionTheory.NOT_SOME_NONE],
- cases_on `lookup x (REVERSE l)` >>
-     rw []]);
-
-val every_count_list = Q.prove (
-`!P n. EVERY P (COUNT_LIST n) = (!m. m < n ⇒ P m)`,
-induct_on `n` >>
-rw [COUNT_LIST_def, EVERY_MAP] >>
-eq_tac >>
-rw [] >>
-cases_on `m` >>
-rw [] >>
-`n' < n` by decide_tac >>
-metis_tac []);
-
-val filter_helper = Q.prove (
-`!x l1 l2. ~MEM x l2 ⇒ MEM x (FILTER (\x. x ∉ set l2) l1) = MEM x l1`,
-induct_on `l1` >>
-rw [] >>
-metis_tac []);
-
-val nub_append = Q.prove (
-`!l1 l2.
-  nub (l1++l2) = nub (FILTER (\x. ~MEM x l2) l1) ++ nub l2`,
-induct_on `l1` >>
-rw [nub_def] >>
-fs [] >>
-full_case_tac >>
-rw [] >>
-metis_tac [filter_helper]);
-
-val list_to_set_diff = Q.prove (
-`!l1 l2. set l2 DIFF set l1 = set (FILTER (\x. x ∉ set l1) l2)`,
-induct_on `l2` >>
-rw []);
-
-val card_eqn_help = Q.prove (
-`!l1 l2. CARD (set l2) - CARD (set l1 ∩ set l2) = CARD (set (FILTER (\x. x ∉ set l1) l2))`,
-rw [Once INTER_COMM] >>
-SIMP_TAC list_ss [GSYM CARD_DIFF] >>
-metis_tac [list_to_set_diff]);
-
-val length_nub_append = Q.prove (
-`!l1 l2. LENGTH (nub (l1 ++ l2)) = LENGTH (nub l1) + LENGTH (nub (FILTER (\x. ~MEM x l1) l2))`,
-rw [GSYM ALL_DISTINCT_CARD_LIST_TO_SET, all_distinct_nub, GSYM nub_set] >>
-fs [FINITE_LIST_TO_SET, CARD_UNION_EQN] >>
-ASSUME_TAC (Q.SPECL [`l1`, `l2`] card_eqn_help) >>
-`CARD (set l1 ∩ set l2) ≤ CARD (set l2)` 
-           by metis_tac [CARD_INTER_LESS_EQ, FINITE_LIST_TO_SET, INTER_COMM] >>
-decide_tac);
 
 val o_f_id = Q.prove (
 `!m. (\x.x) o_f m = m`,
@@ -131,24 +18,6 @@ induct_on `tenv` >>
 rw [lookup_tenv_def] >>
 rw [deBruijn_inc_deBruijn_inc] >>
 metis_tac [arithmeticTheory.ADD_ASSOC]);
-
-val every_zip_snd = Q.prove (
-`!l1 l2 P.
-(LENGTH l1 = LENGTH l2) ⇒
-(EVERY (\x. P (SND x)) (ZIP (l1,l2)) = EVERY P l2)`,
-induct_on `l1` >>
-rw [] >>
-cases_on `l2` >>
-fs []);
-
-val every_zip_fst = Q.prove (
-`!l1 l2 P.
-(LENGTH l1 = LENGTH l2) ⇒
-(EVERY (\x. P (FST x)) (ZIP (l1,l2)) = EVERY P l1)`,
-induct_on `l1` >>
-rw [] >>
-cases_on `l2` >>
-fs []);
 
 val every_shim = Q.prove (
 `!l P. EVERY (\(x,y). P y) l = EVERY P (MAP SND l)`,
@@ -177,19 +46,6 @@ decide_tac >-
 decide_tac >>
 metis_tac []);
 *)
-
-val fmap_to_list = Q.prove (
-`!m. ?l. ALL_DISTINCT (MAP FST l) ∧ (m = FEMPTY |++ l)`,
-ho_match_mp_tac fmap_INDUCT >>
-rw [FUPDATE_LIST_THM] >|
-[qexists_tac `[]` >>
-     rw [FUPDATE_LIST_THM],
- qexists_tac `(x,y)::l` >>
-     rw [FUPDATE_LIST_THM] >>
-     fs [FDOM_FUPDATE_LIST] >>
-     rw [FUPDATE_FUPDATE_LIST_COMMUTES] >>
-     fs [LIST_TO_SET_MAP] >>
-     metis_tac [FST]]);
 
 val _ = new_theory "inferSound";
 
@@ -599,9 +455,14 @@ val check_menv_def = Define `
 check_menv menv =
   EVERY (\(mn,env). EVERY (\(x, (tvs,t)). check_t tvs {} t) env) menv`;
 
-val check_cenv_def = Define `
-check_cenv (cenv : tenvC) = 
+val check_flat_cenv_def = Define `
+check_flat_cenv (cenv : flat_tenvC) = 
   EVERY (\(cn,(tvs,ts,t)). EVERY (check_freevars 0 tvs) ts) cenv`;
+
+val check_cenv_def = Define `
+check_cenv (mcenv, cenv) ⇔
+  EVERY (\(cn,cenv'). check_flat_cenv cenv') mcenv ∧
+  check_flat_cenv cenv`;
 
 val check_s_def = Define `
 check_s tvs uvs s = 

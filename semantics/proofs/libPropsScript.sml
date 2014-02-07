@@ -74,4 +74,44 @@ fs [lookup_def] >>
 every_case_tac >>
 fs []);
 
+val lookup_all_distinct = Q.store_thm ("lookup_all_distinct",
+`!l x y.
+  ALL_DISTINCT (MAP FST l) ∧
+  MEM (x,y) l
+  ⇒
+  (lookup x l = SOME y)`,
+Induct_on `l` >>
+rw [lookup_def] >>
+rw [lookup_def] >>
+PairCases_on `h` >>
+rw [] >>
+fs [MEM_MAP] >>
+metis_tac [FST]);
+
+val flookup_update_list_none = Q.store_thm ("flookup_update_list_none",
+`!x m l.
+  (FLOOKUP (m |++ l) x = NONE)
+  =
+  ((FLOOKUP m x = NONE) ∧ (lookup x l = NONE))`,
+induct_on `l` >>
+rw [FUPDATE_LIST_THM] >>
+PairCases_on `h` >>
+rw [FLOOKUP_DEF]);
+
+val flookup_update_list_some = Q.store_thm ("flookup_update_list_some",
+`!x m l y. 
+  (FLOOKUP (m |++ l) x = SOME y)
+  =
+  ((lookup x (REVERSE l) = SOME y) ∨
+   ((lookup x l = NONE) ∧ (FLOOKUP m x = SOME y)))`,
+Induct_on `l` >>
+rw [FUPDATE_LIST_THM] >>
+PairCases_on `h` >>
+rw [lookup_append, FLOOKUP_UPDATE] >|
+[cases_on `lookup h0 (REVERSE l)` >>
+     rw [] >>
+     metis_tac [lookup_reverse_none, optionTheory.NOT_SOME_NONE],
+ cases_on `lookup x (REVERSE l)` >>
+     rw []]);
+
 val _ = export_theory ();

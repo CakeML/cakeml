@@ -1390,4 +1390,129 @@ Induct_on `l` >>
 rw [] >>
 metis_tac [FST]);
 
+val nub_def = Define `
+(nub [] = []) ∧
+(nub (x::l) =
+  if MEM x l then
+    nub l
+  else
+    x :: nub l)`;
+
+val nub_set = Q.store_thm ("nub_set",
+`!l. set l = set (nub l)`,
+Induct >>
+rw [nub_def, EXTENSION] >>
+metis_tac []);
+
+val all_distinct_nub = Q.store_thm ("all_distinct_nub",
+`!l. ALL_DISTINCT (nub l)`,
+Induct >>
+rw [nub_def] >>
+metis_tac [nub_set]);
+
+val fupdate_list_map = Q.store_thm ("fupdate_list_map",
+`!l f x y.
+  x ∈ FDOM (FEMPTY |++ l)
+   ⇒
+     ((FEMPTY |++ MAP (\(a,b). (a, f b)) l) ' x = f ((FEMPTY |++ l) ' x))`,
+     rpt gen_tac >>
+     Q.ISPECL_THEN[`FST`,`f o SND`,`l`,`FEMPTY:α|->γ`]mp_tac(GSYM finite_mapTheory.FOLDL_FUPDATE_LIST) >>
+     simp[LAMBDA_PROD] >>
+     disch_then kall_tac >>
+     qid_spec_tac`l` >>
+     ho_match_mp_tac SNOC_INDUCT >>
+     simp[FUPDATE_LIST_THM] >>
+     simp[FOLDL_SNOC,FORALL_PROD,FAPPLY_FUPDATE_THM,FDOM_FUPDATE_LIST,MAP_SNOC,finite_mapTheory.FUPDATE_LIST_SNOC] >>
+     rw[] >> rw[])
+
+val fdom_fupdate_list2 = Q.store_thm ("fdom_fupdate_list2",
+`∀kvl fm. FDOM (fm |++ kvl) = (FDOM fm DIFF set (MAP FST kvl)) ∪ set (MAP FST kvl)`,
+rw [FDOM_FUPDATE_LIST, EXTENSION] >>
+metis_tac []);
+
+val map_fst = Q.store_thm ("map_fst",
+`!l f. MAP FST (MAP (\(x,y). (x, f y)) l) = MAP FST l`,
+Induct_on `l` >>
+rw [] >>
+PairCases_on `h` >>
+fs []);
+
+val every_count_list = Q.store_thm ("every_count_list",
+`!P n. EVERY P (COUNT_LIST n) = (!m. m < n ⇒ P m)`,
+Induct_on `n` >>
+rw [COUNT_LIST_def, EVERY_MAP] >>
+eq_tac >>
+rw [] >>
+Cases_on `m` >>
+rw [] >>
+`n' < n` by decide_tac >>
+metis_tac []);
+
+val filter_helper = Q.prove (
+`!x l1 l2. ~MEM x l2 ⇒ MEM x (FILTER (\x. x ∉ set l2) l1) = MEM x l1`,
+Induct_on `l1` >>
+rw [] >>
+metis_tac []);
+
+val nub_append = Q.store_thm ("nub_append",
+`!l1 l2.
+  nub (l1++l2) = nub (FILTER (\x. ~MEM x l2) l1) ++ nub l2`,
+Induct_on `l1` >>
+rw [nub_def] >>
+fs [] >>
+BasicProvers.FULL_CASE_TAC >>
+rw [] >>
+metis_tac [filter_helper]);
+
+val list_to_set_diff = Q.store_thm ("list_to_set_diff",
+`!l1 l2. set l2 DIFF set l1 = set (FILTER (\x. x ∉ set l1) l2)`,
+Induct_on `l2` >>
+rw []);
+
+val card_eqn_help = Q.prove (
+`!l1 l2. CARD (set l2) - CARD (set l1 ∩ set l2) = CARD (set (FILTER (\x. x ∉ set l1) l2))`,
+rw [Once INTER_COMM] >>
+SIMP_TAC list_ss [GSYM CARD_DIFF] >>
+metis_tac [list_to_set_diff]);
+
+val length_nub_append = Q.store_thm ("length_nub_append",
+`!l1 l2. LENGTH (nub (l1 ++ l2)) = LENGTH (nub l1) + LENGTH (nub (FILTER (\x. ~MEM x l1) l2))`,
+rw [GSYM ALL_DISTINCT_CARD_LIST_TO_SET, all_distinct_nub, GSYM nub_set] >>
+fs [FINITE_LIST_TO_SET, CARD_UNION_EQN] >>
+ASSUME_TAC (Q.SPECL [`l1`, `l2`] card_eqn_help) >>
+`CARD (set l1 ∩ set l2) ≤ CARD (set l2)` 
+           by metis_tac [CARD_INTER_LESS_EQ, FINITE_LIST_TO_SET, INTER_COMM] >>
+decide_tac);
+
+val fmap_to_list = Q.store_thm ("fmap_to_list",
+`!m. ?l. ALL_DISTINCT (MAP FST l) ∧ (m = FEMPTY |++ l)`,
+ho_match_mp_tac fmap_INDUCT >>
+rw [FUPDATE_LIST_THM] >|
+[qexists_tac `[]` >>
+     rw [FUPDATE_LIST_THM],
+ qexists_tac `(x,y)::l` >>
+     rw [FUPDATE_LIST_THM] >>
+     fs [FDOM_FUPDATE_LIST] >>
+     rw [FUPDATE_FUPDATE_LIST_COMMUTES] >>
+     fs [LIST_TO_SET_MAP] >>
+     metis_tac [FST]]);
+
+val every_zip_snd = Q.store_thm ("every_zip_snd",
+`!l1 l2 P.
+(LENGTH l1 = LENGTH l2) ⇒
+(EVERY (\x. P (SND x)) (ZIP (l1,l2)) = EVERY P l2)`,
+Induct_on `l1` >>
+rw [] >>
+Cases_on `l2` >>
+fs []);
+
+val every_zip_fst = Q.store_thm ("every_zip_fst",
+`!l1 l2 P.
+(LENGTH l1 = LENGTH l2) ⇒
+(EVERY (\x. P (FST x)) (ZIP (l1,l2)) = EVERY P l1)`,
+Induct_on `l1` >>
+rw [] >>
+Cases_on `l2` >>
+fs []);
+
 val _ = export_theory()

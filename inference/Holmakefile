@@ -15,7 +15,7 @@ UNIF_BARE_THYS = collapseTheory \
 		unifDefTheory \
 		unifPropsTheory
 
-BARE_THYS = $(patsubst %,../semantics/%,$(SEM_BARE_THYS)) $(patsubst %,$(HOLDIR)/examples/unification/triangular/first-order/%,$(UNIF_BARE_THYS))
+BARE_THYS = ../miscTheory $(patsubst %,../semantics/%,$(SEM_BARE_THYS)) $(patsubst %,$(HOLDIR)/examples/unification/triangular/first-order/%,$(UNIF_BARE_THYS))
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 

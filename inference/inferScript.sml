@@ -1,28 +1,8 @@
-open preamble astTheory typeSystemTheory;
+open preamble miscTheory astTheory typeSystemTheory;
 open unifyTheory;
 open stringTheory monadsyntax;
 
 val _ = new_theory "infer";
-
-val nub_def = Define `
-(nub [] = []) ∧
-(nub (x::l) =
-  if MEM x l then
-    nub l
-  else
-    x :: nub l)`;
-
-val nub_set = Q.store_thm ("nub_set",
-`!l. set l = set (nub l)`,
-Induct >>
-rw [nub_def, EXTENSION] >>
-metis_tac []);
-
-val all_distinct_nub = Q.store_thm ("all_distinct_nub",
-`!l. ALL_DISTINCT (nub l)`,
-Induct >>
-rw [nub_def] >>
-metis_tac [nub_set]);
 
 (* 'a is the type of the state, 'b is the type of successful computations, and
  * 'c is the type of exceptions *)
@@ -206,6 +186,14 @@ val infer_deBruijn_subst_def = tDefine "infer_deBruijn_subst" `
  res_tac >>
  decide_tac);
 
+val lookup_tenvC_st_ex_def = Define `
+(lookup_tenvC_st_ex (Short cn) (cenvm, cenv) =
+  lookup_st_ex (\x.x) cn cenv) ∧
+(lookup_tenvC_st_ex (Long mn cn) (cenvm, cenv) =
+  do cenv' <- lookup_st_ex (\x. id_to_string (Long x cn)) mn cenvm;
+     lookup_st_ex (\x. id_to_string (Long mn x)) cn cenv'
+  od)`;
+
 val infer_p_def = tDefine "infer_p" `
 (infer_p (cenv:tenvC) (Pvar n) =
   do t <- fresh_uvar;
@@ -224,7 +212,7 @@ val infer_p_def = tDefine "infer_p" `
            return (Infer_Tapp ts TC_tup, tenv)
         od
     | SOME cn =>
-        do (tvs',ts,tn) <- lookup_st_ex id_to_string cn cenv;
+        do (tvs',ts,tn) <- lookup_tenvC_st_ex cn cenv;
            (ts'',tenv) <- infer_ps cenv ps;
            ts' <- n_fresh_uvar (LENGTH tvs');
            () <- add_constraints ts'' (MAP (infer_type_subst (ZIP(tvs',ts'))) ts);
@@ -323,7 +311,7 @@ val infer_e_def = tDefine "infer_e" `
           return (Infer_Tapp ts TC_tup)
        od
     | SOME cn =>
-       do (tvs',ts,tn) <- lookup_st_ex id_to_string cn cenv;
+       do (tvs',ts,tn) <- lookup_tenvC_st_ex cn cenv;
           ts'' <- infer_es menv cenv env es;
           ts' <- n_fresh_uvar (LENGTH tvs');
           () <- add_constraints ts'' (MAP (infer_type_subst (ZIP(tvs',ts'))) ts);
@@ -471,8 +459,8 @@ val infer_d_def = Define `
   else
     failwith "Bad type definition") ∧
 (infer_d mn menv cenv env (Dexn cn ts) =
-  if lookup (mk_id mn cn) cenv = NONE ∧ EVERY (check_freevars 0 []) ts then
-    return (bind (mk_id mn cn) ([], ts, TypeExn) emp, [])
+  if check_exn_tenv mn cenv cn ts then
+    return (bind cn ([], ts, TypeExn mn) emp, [])
   else
     failwith "Bad type definition")`;
 
@@ -482,8 +470,8 @@ val infer_ds_def = Define `
 (infer_ds mn menv cenv env (d::ds) =
   do
     (cenv',env') <- infer_d mn menv cenv env d;
-    (cenv'',env'') <- infer_ds mn menv (cenv' ++ cenv) (env' ++ env) ds;
-    return (cenv'' ++ cenv', env'' ++ env')
+    (cenv'',env'') <- infer_ds mn menv (merge_tenvC ([],cenv') cenv) (env' ++ env) ds;
+    return (merge cenv'' cenv', env'' ++ env')
   od)`;
 
 val t_to_freevars_def = Define `
@@ -500,6 +488,7 @@ val t_to_freevars_def = Define `
      return (fvs1++fvs2)
   od)`;
 
+(*
 val check_specs_def = Define `
 (check_specs mn cenv env [] =
   return (cenv,env)) ∧
@@ -509,14 +498,14 @@ val check_specs_def = Define `
      check_specs mn cenv (bind x (LENGTH fvs', infer_type_subst (ZIP (fvs', MAP Infer_Tvar_db (COUNT_LIST (LENGTH fvs')))) t) env) specs
   od) ∧
 (check_specs mn cenv env (Stype td :: specs) =
-  do () <- guard (check_ctor_tenv mn cenv td) "Bad type definition";
+  do () <- guard (check_ctor_tenv mn (emp,cenv) td) "Bad type definition";
      check_specs mn (merge (build_ctor_tenv mn td) cenv) env specs
   od) ∧
-(check_specs mn (cenv : tenvC) env (Sexn cn ts :: specs) =
-  do () <- guard ((lookup (mk_id mn cn) cenv = NONE) ∧ EVERY (check_freevars 0 []) ts) "Bad exception definition";
-     check_specs mn (bind (mk_id mn cn) ([], ts, TypeExn) cenv) env specs
+(check_specs mn cenv env (Sexn cn ts :: specs) =
+  do () <- guard check_exn_tenv mn (emp,cenv) cn ts "Bad exception definition";
+     check_specs mn (bind mn ([], ts, TypeExn mn) cenv) env specs
   od) ∧
-(check_specs mn (cenv : tenvC) env (Stype_opq tvs tn :: specs) =
+(check_specs mn cenv env (Stype_opq tvs tn :: specs) =
   do () <- guard (EVERY (\(cn,(x,y,tn')). TypeId (mk_id mn tn) ≠ tn') cenv) "Duplicate type definition";
      () <- guard (ALL_DISTINCT tvs) "Duplicate type variables";
      check_specs mn cenv env specs
@@ -532,6 +521,7 @@ val check_weakC_def = Define `
                   (tvs_spec = tvs_impl) ∧
                   (ts_spec = ts_impl))
         cenv_spec)`;
+        *)
 
 val check_weakE_def = Define `
 (check_weakE env_impl [] = return ()) ∧
@@ -546,6 +536,7 @@ val check_weakE_def = Define `
            check_weakE env_impl env_spec
         od)`;
 
+        (*
 val check_signature_def = Define `
 (check_signature mn cenv env NONE = 
   return (cenv, env)) ∧
@@ -580,6 +571,7 @@ val infer_prog_def = Define `
     return (menv''++menv', cenv'' ++ cenv', env'' ++ env')
   od)`;
 
+  *)
 
 val Infer_Tfn_def = Define `
 Infer_Tfn t1 t2 = Infer_Tapp [t1;t2] TC_fn`;
