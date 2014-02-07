@@ -979,4 +979,16 @@ metis_tac [small_exp_to_big_exp, big_exp_to_small_exp, big_unclocked,
            one_step_backward_type_error, evaluate_state_val_no_ctxt,
            remove_count_def, SND]);
 
+(* ---------------------- Small step determinacy ------------------------- *)
+
+val small_exp_determ = Q.store_thm ("small_exp_determ",
+`!env s e r1 r2.
+  small_eval env s e [] r1 ∧ small_eval env s e [] r2
+  ⇒
+  (r1 = r2)`,
+rw [] >>
+PairCases_on `r1` >>
+PairCases_on `r2` >>
+metis_tac [big_exp_determ, small_big_exp_equiv, PAIR_EQ]);
+           
 val _ = export_theory ();
