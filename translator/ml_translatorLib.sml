@@ -2020,6 +2020,8 @@ val IF_TAKEN = prove(
 val Num_ABS_pat = Eval_Num_ABS |> concl |> rand |> rand |> rand
 
 val int_of_num_pat = Eval_int_of_num |> concl |> rand |> rand |> rand
+val int_of_num_o_pat = Eval_int_of_num_o |> concl |> rand |> rand |> rand
+val o_int_of_num_pat = Eval_o_int_of_num |> concl |> rand |> rand |> rand
 
 (*
 val tm = rhs
@@ -2141,6 +2143,18 @@ fun hol2deep tm =
     val th1 = hol2deep x1
     val result = MATCH_MP Eval_int_of_num th1
     in check_inv "int_of_num" tm result end else
+  (* $& o f *)
+  if can (match_term int_of_num_o_pat) tm then let
+    val x1 = tm |> rand |> rand
+    val th1 = hol2deep x1
+    val result = MATCH_MP Eval_int_of_num_o th1
+    in check_inv "int_of_num_o" tm result end else
+  (* f o $& *)
+  if can (match_term o_int_of_num_pat) tm then let
+    val x1 = tm |> rand |> rand
+    val th1 = hol2deep x1
+    val result = MATCH_MP Eval_o_int_of_num th1
+    in check_inv "o_int_of_num" tm result end else
   (* let expressions *)
   if can dest_let tm andalso is_abs (fst (dest_let tm)) then let
     val (x,y) = dest_let tm
