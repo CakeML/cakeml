@@ -448,6 +448,10 @@ val Eval_Num_ABS = store_thm("Eval_Num_ABS",
 
 end;
 
+val Eval_int_of_num = store_thm("Eval_int_of_num",
+  ``Eval env x1 (NUM n) ==>
+    Eval env x1 (INT (int_of_num n))``,
+  SIMP_TAC std_ss [NUM_def]);
 
 (* arithmetic for num *)
 

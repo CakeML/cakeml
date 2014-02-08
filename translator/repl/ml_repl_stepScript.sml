@@ -64,11 +64,6 @@ val butlastn_side_def = prove(
   SIMP_TAC std_ss [fetch "-" "butlastn_side_def"])
   |> update_precondition;
 
-(* TODO: This needs to be special-cased! It should not become an ML function *)
-val _ = translate (prove(
-  ``int_of_num 0 = 0 ∧ int_of_num (SUC n) = int_of_num n + 1``,
-  SIMP_TAC(srw_ss())[int_of_num,INT_1]))
-
 val _ = translate compile_top_def;
 
 (* elaborator *)
