@@ -89,7 +89,7 @@ val _ = Hol_datatype `
       refs : (num, bc_value) fmap;
       handler : num;
       output : string;
-      cons_names : (num #  ( conN id # tid_or_exn)option) list;
+      cons_names : (num #  (conN # tid_or_exn)option) list;
       (* artificial state components *)
       inst_length : bc_inst -> num;
       clock :  num option
@@ -111,7 +111,10 @@ val _ = Define `
  (closure_tag : num =( 3))`;
 
 val _ = Define `
- (block_tag : num =( 4))`;
+ (string_tag : num =( 4))`;
+
+val _ = Define `
+ (block_tag : num =( 5))`;
 
 
 val _ = Define `
@@ -126,6 +129,17 @@ val _ = Define `
 (is_Block (Block _ _) = T)
 /\
 (is_Block _ = F)`;
+
+
+ val _ = Define `
+
+(is_Number (Number _) = T)
+/\
+(is_Number _ = F)`;
+
+
+ val _ = Define `
+ (dest_Number (Number i) = i)`;
 
 
  val can_Print_defn = Hol_defn "can_Print" `
@@ -250,7 +264,20 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (bc_find_loc s (Lab l) = (bc_find_loc_aux s.code s.inst_length l( 0)))`;
 
 
-(*val bv_to_ov : list (nat * maybe (id conN * tid_or_exn)) -> bc_value -> ov*)
+(* conversion to observable values *)
+
+(*val bvs_to_chars : list bc_value -> list char -> maybe (list char)*)
+ val _ = Define `
+
+(bvs_to_chars [] ac = (SOME (REVERSE ac)))
+/\
+(bvs_to_chars (Number i::vs) ac =  
+(bvs_to_chars vs ((CHR (Num i))::ac)))
+/\
+(bvs_to_chars _ _ = NONE)`;
+
+
+(*val bv_to_ov : list (nat * maybe (conN * tid_or_exn)) -> bc_value -> ov*)
  val bv_to_ov_defn = Hol_defn "bv_to_ov" `
 
 (bv_to_ov _ (Number i) = (OLit (IntLit i)))
@@ -260,6 +287,11 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   if n = (bool_to_tag T) then OLit (Bool T) else
   if n = unit_tag then OLit Unit else
   if n = closure_tag then OFn else
+  if n = string_tag then
+    (case bvs_to_chars vs [] of
+      NONE => OError
+    | SOME cs => OLit (StrLit (IMPLODE cs))
+    ) else
   OConv (the NONE (lib$lookup (n - block_tag) m)) (MAP (bv_to_ov m) vs)))
 /\
 (bv_to_ov _ (RefPtr n) = (OLoc n))

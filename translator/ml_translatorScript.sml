@@ -439,6 +439,21 @@ val Eval_Num_ABS = store_thm("Eval_Num_ABS",
 
 end;
 
+val Eval_int_of_num = store_thm("Eval_int_of_num",
+  ``Eval env x1 (NUM n) ==>
+    Eval env x1 (INT (int_of_num n))``,
+  SIMP_TAC std_ss [NUM_def]);
+
+val Eval_int_of_num_o = store_thm("Eval_int_of_num_o",
+  ``Eval env x1 ((A --> NUM) f) ==>
+    Eval env x1 ((A --> INT) (int_of_num o f))``,
+  SIMP_TAC std_ss [NUM_def,Arrow_def]);
+
+val Eval_o_int_of_num = store_thm("Eval_o_int_of_num",
+  ``Eval env x1 ((INT --> A) f) ==>
+    Eval env x1 ((NUM --> A) (f o int_of_num))``,
+  SIMP_TAC std_ss [NUM_def,Arrow_def,Eval_def]
+  \\ METIS_TAC[]);
 
 (* arithmetic for num *)
 

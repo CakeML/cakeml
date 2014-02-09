@@ -145,6 +145,11 @@ T
 ==>
 type_v tvs cenv senv (Litv (IntLit n)) Tint)
 
+/\ (! tvs cenv senv s.
+T
+==>
+type_v tvs cenv senv (Litv (StrLit s)) Tstring)
+
 /\ (! tvs cenv senv.
 T
 ==>

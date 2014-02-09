@@ -15,6 +15,12 @@ val isInt_def = Define`
 `;
 val _ = export_rewrites ["isInt_def"]
 
+val isString_def = Define`
+  isString (StringT _) = T ∧
+  isString _ = F
+`;
+val _ = export_rewrites ["isString_def"]
+
 val isAlphaT_def = Define`
   isAlphaT (AlphaT s) = T ∧
   isAlphaT _ = F
@@ -79,5 +85,11 @@ val destIntT_def = Define`
   (destIntT _ = NONE)
 `;
 val _ = export_rewrites ["destIntT_def"]
+
+val destStringT_def = Define`
+  (destStringT (StringT s) = SOME s) ∧
+  (destStringT _ = NONE)
+`;
+val _ = export_rewrites ["destStringT_def"]
 
 val _ = export_theory()

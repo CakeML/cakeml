@@ -494,6 +494,7 @@ val type_e_closed = store_thm("type_e_closed",
   strip_tac >- simp[] >>
   strip_tac >- simp[] >>
   strip_tac >- simp[] >>
+  strip_tac >- simp[] >>
   strip_tac >- (
     simp[RES_FORALL_THM,FORALL_PROD,tenv_names_bind_var_list] >>
     rpt gen_tac >> strip_tac >>
@@ -665,6 +666,7 @@ val type_to_string_lem = Q.prove (
     cases_on `ts` >>
     rw [inf_type_to_string_def, type_to_string_def, convert_t_def] >>
     fs [] >-
+    metis_tac [] >-
     metis_tac [] >-
     metis_tac [] >-
     metis_tac [] >-

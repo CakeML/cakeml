@@ -8,7 +8,7 @@ open import CompilerLib
 
 type ov =
   | OLit of lit
-  | OConv of maybe (id conN * tid_or_exn) * list ov
+  | OConv of maybe (conN * tid_or_exn) * list ov
   | OFn
   | OLoc of nat (* machine, not semantic, address *)
   | OError (* internal machine value (pointer) that should not appear *)
@@ -26,6 +26,8 @@ v_to_ov s (Loc n) = OLoc (List_extra.nth s n)
 
 let rec
 ov_to_string (OLit (IntLit (i:integer))) = int_to_string i
+and
+ov_to_string (OLit (StrLit s)) = string_to_string s
 and
 ov_to_string (OLit (Bool true)) = "true"
 and

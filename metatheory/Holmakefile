@@ -26,7 +26,8 @@ PRE_BARE_THYS = astTheory \
 		terminationTheory \
 		tokenUtilsTheory \
 		proofs/libPropsTheory \
-		proofs/bigClockTheory
+		proofs/bigClockTheory \
+		proofs/astPropsTheory
 
 BARE_THYS = $(patsubst %,../semantics/%,$(PRE_BARE_THYS))
 

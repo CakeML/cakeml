@@ -17,4 +17,3 @@ parsing/testing
 compiler/tests
 whole-prog
 whole-prog/tests
-translator/repl/proofs

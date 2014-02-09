@@ -3,7 +3,7 @@ open optionTheory rich_listTheory alistTheory;
 open miscTheory;
 open libTheory astTheory typeSystemTheory typeSysPropsTheory;
 open semanticPrimitivesTheory;
-open libPropsTheory;
+open libPropsTheory astPropsTheory;
 open typeSoundInvariantsTheory;
 open terminationTheory;
 
@@ -340,6 +340,7 @@ rw [Once type_e_cases] >|
  metis_tac [weak_tenvE_freevars, weak_tenvE_bind],
  metis_tac [weak_tenvE_bind, weak_tenvE_freevars],
  metis_tac [],
+ metis_tac [],
  fs [RES_FORALL] >>
      qexists_tac `t` >>
      rw [] >>
@@ -351,6 +352,7 @@ rw [Once type_e_cases] >|
  metis_tac [weak_tenvE_bind, weak_tenvE_bind_tvar],
  metis_tac [weak_tenvE_bind, weak_tenvE_bind_tvar],
  metis_tac [weak_tenvE_bind_var_list, weak_tenvE_bind_tvar],
+ metis_tac [weak_tenvE_bind, weak_tenvE_bind_tvar, weak_tenvE_freevars],
  metis_tac [weak_tenvE_bind, weak_tenvE_bind_tvar, weak_tenvE_freevars]]);
 
 val type_e_weakening = Q.store_thm ("type_e_weakening",
@@ -436,7 +438,7 @@ val type_v_weakening = Q.store_thm ("type_v_weakening",
      metis_tac [weak_ctMap_lookup, check_freevars_add, gt_0])
  >- (fs [EVERY_MEM] >>
      metis_tac [weak_ctMap_lookup, check_freevars_add, gt_0])
- >- (fs [Tfn_def] >>
+ >- (fs [] >>
      qexists_tac `tenvM` >>
      qexists_tac `tenvC` >>
      qexists_tac `tenv` >>
@@ -446,7 +448,7 @@ val type_v_weakening = Q.store_thm ("type_v_weakening",
      match_mp_tac (hd (CONJUNCTS type_e_weakening)) >>
      metis_tac [weak_tenvE_refl, weakM_refl, weakC_refl,
                 weak_tenvE_bind, weak_tenvE_bind_tvar2, type_v_freevars])
- >- (fs [Tfn_def] >>
+ >- (fs [] >>
      qexists_tac `tenvM` >>
      qexists_tac `tenvC` >>
      qexists_tac `tenv` >>
@@ -455,7 +457,7 @@ val type_v_weakening = Q.store_thm ("type_v_weakening",
      match_mp_tac (hd (CONJUNCTS type_e_weakening)) >>
      metis_tac [weak_tenvE_refl, weakC_refl,weakM_refl,
                 weak_tenvE_bind, weak_tenvE_bind_tvar2, type_v_freevars])
- >- (fs [Tfn_def] >>
+ >- (fs [] >>
      qexists_tac `tenvM` >>
      qexists_tac `tenvC` >>
      qexists_tac `tenv` >>
@@ -465,7 +467,7 @@ val type_v_weakening = Q.store_thm ("type_v_weakening",
      match_mp_tac (hd (tl (tl (CONJUNCTS type_e_weakening)))) >>
      metis_tac [weak_tenvE_refl,weakM_refl, weakC_refl,
                 weak_tenvE_bind_var_list, weak_tenvE_bind_tvar2, type_v_freevars])
- >- (fs [Tfn_def] >>
+ >- (fs [] >>
      qexists_tac `tenvM` >>
      qexists_tac `tenvC` >>
      qexists_tac `tenv` >>
@@ -506,9 +508,9 @@ val type_ctxt_weakening = Q.store_thm ("type_ctxt_weakening",
          res_tac >>
          fs [] >>
          metis_tac [type_e_weakening, weak_tenvE_bind_var_list, type_p_weakening, DECIDE ``!x:num. x ≥ x``]) >>
-     fs [Once type_v_cases, Texn_def, Tfn_def, Tref_def] >>
+     fs [Once type_v_cases] >>
      imp_res_tac type_funs_Tfn >>
-     fs [Tfn_def] >>
+     fs [] >>
      cases_on `tn` >>
      fs [tid_exn_to_tc_def] >>
      cases_on `tvs'` >>

@@ -1,6 +1,7 @@
 (* Intermediate Language to Bytecode *)
 
 open import Pervasives
+import String
 
 open import Lib
 open import Ast
@@ -344,6 +345,11 @@ compile menv env t sz s (CHandle e1 e2) =
 and
 compile _ _ t _ s (CLit (IntLit i)) =
   pushret t (emit s [Stack (PushInt i)])
+and
+compile _ _ t _ s (CLit (StrLit r)) =
+  let r = String.toCharList r in
+  let s = emit s (List.map (comb Stack (comb PushInt (comb num_to_int char_to_num))) r) in
+  pushret t (emit s [Stack (Cons string_tag (List.length r))])
 and
 compile _ _ t _ s (CLit (Bool b)) =
   pushret t (emit s [Stack (Cons (bool_to_tag b) 0)])

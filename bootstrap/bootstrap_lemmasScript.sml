@@ -1485,6 +1485,7 @@ val AST_TC0_TYPE_all_cns = prove(
      SOME(Short"Tc_unit");
      SOME(Short"Tc_bool");
      SOME(Short"Tc_int");
+     SOME(Short"Tc_string");
      SOME(Short"Tc_name");
      SOME(Short"nil");
      SOME(Short"::");
@@ -1519,6 +1520,7 @@ val UNIFY_INFER_T_TYPE_all_cns = prove(
      SOME(Short"Tc_unit");
      SOME(Short"Tc_bool");
      SOME(Short"Tc_int");
+     SOME(Short"Tc_string");
      SOME(Short"Tc_name");
      SOME(Short"nil");
      SOME(Short"::");
@@ -1553,6 +1555,7 @@ val AST_T_TYPE_all_cns = prove(
      SOME(Short"Tc_unit");
      SOME(Short"Tc_bool");
      SOME(Short"Tc_int");
+     SOME(Short"Tc_string");
      SOME(Short"Tc_name");
      SOME(Short"nil");
      SOME(Short"::");
@@ -1626,6 +1629,7 @@ val REPL_FUN_REPL_FUN_STATE_TYPE_all_cns = prove(
      SOME(Short"Tc_unit");
      SOME(Short"Tc_bool");
      SOME(Short"Tc_int");
+     SOME(Short"Tc_string");
      SOME(Short"Tc_name");
      SOME(Short"Compiler_state");
      SOME(Short"Repl_fun_state")
@@ -1706,6 +1710,7 @@ val INPUT_TYPE_all_cns = prove(
      SOME(Short"Tc_unit");
      SOME(Short"Tc_bool");
      SOME(Short"Tc_int");
+     SOME(Short"Tc_string");
      SOME(Short"Tc_name");
      SOME(Short"Compiler_state");
      SOME(Short"Repl_fun_state");
@@ -2284,8 +2289,8 @@ val IN_vlabs_list_EVERY = prove(
   METIS_TAC[])
 
 val LIST_TYPE_Cv_bv = prove(
-  ``(FLOOKUP m (SOME(Short"nil")) = SOME (nil_tag - 4)) ∧
-    (FLOOKUP m (SOME(Short"::")) = SOME (cons_tag - 4))
+  ``(FLOOKUP m (SOME(Short"nil")) = SOME (nil_tag - block_tag)) ∧
+    (FLOOKUP m (SOME(Short"::")) = SOME (cons_tag - block_tag))
   ⇒
     ∀ls v. LIST_TYPE A ls v ∧ (∀x y. MEM x ls ∧ A x y ⇒ Cv_bv pp (v_to_Cv mv m y) (f x)) ⇒
       Cv_bv pp (v_to_Cv mv m v) (BlockList (MAP f ls))``,
@@ -2295,7 +2300,7 @@ val LIST_TYPE_Cv_bv = prove(
    simp[PULL_EXISTS,compilerTerminationTheory.v_to_Cv_def] >>
    rw[] >>
    simp[Once toBytecodeProofsTheory.Cv_bv_cases,BlockList_def] >>
-   simp[BlockCons_def,cons_tag_def])
+   simp[BlockCons_def,cons_tag_def]) |> SIMP_RULE (srw_ss())[]
 
 val LEXER_FUN_SYMBOL_TYPE_Cv_bv = prove(
   ``(FLOOKUP m (SOME (Short"Errors")) = SOME (errors_tag - block_tag)) ∧
@@ -2352,7 +2357,7 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
   qpat_assum`Cv_bv X Y out`mp_tac >>
   simp[Once toBytecodeProofsTheory.Cv_bv_cases] >>
   rw[] >>
-  `FLOOKUP (cmap new_compiler_state.contab) (SOME (Short "Inr")) = SOME (13-block_tag)` by (
+  `FLOOKUP (cmap new_compiler_state.contab) (SOME (Short "Inr")) = SOME (14-block_tag)` by (
     REWRITE_TAC[new_compiler_state_contab] >>
     EVAL_TAC ) >>
   fs[BlockInr_def] >>
@@ -2584,7 +2589,7 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
   qpat_assum`Cv_bv X Y out`mp_tac >>
   simp[Once toBytecodeProofsTheory.Cv_bv_cases] >>
   rw[] >>
-  `FLOOKUP (cmap new_compiler_state.contab) (SOME (Short "Inl")) = SOME (14-block_tag)` by (
+  `FLOOKUP (cmap new_compiler_state.contab) (SOME (Short "Inl")) = SOME (15-block_tag)` by (
     REWRITE_TAC[new_compiler_state_contab] >>
     EVAL_TAC ) >>
   fs[BlockInl_def] >>

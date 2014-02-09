@@ -3,6 +3,7 @@ open import Pervasives
 (* Literal constants *)
 type lit =
   | IntLit of integer
+  | StrLit of string
   | Bool of bool
   | Unit
 
@@ -95,6 +96,7 @@ let id_to_n id =
 type tc = 
   | TC_name of id typeN
   | TC_int
+  | TC_string
   | TC_bool
   | TC_unit
   | TC_ref
@@ -109,6 +111,7 @@ type t =
   | Tapp of list t * tc
 
 let Tint = Tapp [] TC_int
+let Tstring = Tapp [] TC_string
 let Tunit = Tapp [] TC_unit
 let Tbool = Tapp [] TC_bool
 let Tref t = Tapp [t] TC_ref

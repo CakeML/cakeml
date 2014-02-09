@@ -203,6 +203,8 @@ val infer_p_def = tDefine "infer_p" `
   return (Infer_Tapp [] TC_bool, [])) ∧
 (infer_p cenv (Plit (IntLit i)) =
   return (Infer_Tapp [] TC_int, [])) ∧
+(infer_p cenv (Plit (StrLit s)) =
+  return (Infer_Tapp [] TC_string, [])) ∧
 (infer_p cenv (Plit Unit) =
   return (Infer_Tapp [] TC_unit, [])) ∧
 (infer_p cenv (Pcon cn_opt ps) =
@@ -291,6 +293,8 @@ val infer_e_def = tDefine "infer_e" `
   return (Infer_Tapp [] TC_bool)) ∧
 (infer_e menv cenv tenv (Lit (IntLit i)) =
   return (Infer_Tapp [] TC_int)) ∧
+(infer_e menv cenv tenv (Lit (StrLit s)) =
+  return (Infer_Tapp [] TC_string)) ∧
 (infer_e menv cenv tenv (Lit Unit) =
   return (Infer_Tapp [] TC_unit)) ∧
 (infer_e menv cenv env (Var (Short n)) =

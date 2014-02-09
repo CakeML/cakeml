@@ -19,7 +19,7 @@ val _ = new_theory "printer"
 val _ = Hol_datatype `
  ov =
     OLit of lit
-  | OConv of  ( conN id # tid_or_exn)option => ov list
+  | OConv of  (conN # tid_or_exn)option => ov list
   | OFn
   | OLoc of num (* machine, not semantic, address *)
   | OError`;
@@ -42,6 +42,8 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
  val _ = Define `
 
 (ov_to_string (OLit (IntLit (i:int))) = (int_to_string i))
+/\
+(ov_to_string (OLit (StrLit s)) = (string_to_string s))
 /\
 (ov_to_string (OLit (Bool T)) = "true")
 /\

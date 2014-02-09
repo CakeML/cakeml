@@ -67,6 +67,7 @@ print_envC (menvC,envC) = CONCAT (MAP (λ(x,c). x ++ " = <constructor>\n") envC)
 
 val print_lit_def = Define `
 (print_lit (IntLit i) = int_to_string i) ∧
+(print_lit (StrLit s) = string_to_string s) ∧
 (print_lit (Bool T) = "true") ∧
 (print_lit (Bool F) = "false") ∧
 (print_lit Unit = "()")`;
@@ -91,6 +92,7 @@ val print_result_def = Define `
 val tc_to_string_def = Define `
 (tc_to_string (TC_name id) ⇔ id_to_string id) ∧
 (tc_to_string TC_int ⇔ "<int>") ∧
+(tc_to_string TC_string ⇔ "<string>") ∧
 (tc_to_string TC_bool ⇔ "<bool>") ∧
 (tc_to_string TC_unit ⇔ "<unit>") ∧
 (tc_to_string TC_ref ⇔ "<ref>") ∧

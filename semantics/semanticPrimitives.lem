@@ -1,5 +1,6 @@
 open import Pervasives
 import List_extra
+import String
 open import Lib
 open import Ast
 
@@ -129,6 +130,7 @@ val lit_same_type : lit -> lit -> bool
 let lit_same_type l1 l2 =
   match (l1,l2) with
     | (IntLit _, IntLit _) -> true
+    | (StrLit _, StrLit _) -> true
     | (Bool _, Bool _) -> true
     | (Unit, Unit) -> true
     | _ -> false
@@ -421,3 +423,16 @@ id_to_string (Long x y) = x^"."^y
 let int_to_string z =
   if z < 0 then "~"^(num_to_string (int_to_num (~ z)))
   else num_to_string (int_to_num z)
+
+let rec
+string_escape [] = ""
+and
+string_escape (c::cs) =
+  (if c = #'\n' then "\\n"
+   else if c = #'\t' then "\\t"
+   else if c = #'\\' then "\\\\"
+   else String.toString [c])
+  ^(string_escape cs)
+
+let string_to_string s =
+  "\""^(string_escape (String.toCharList s))^"\""
