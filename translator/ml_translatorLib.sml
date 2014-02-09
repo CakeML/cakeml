@@ -2145,13 +2145,13 @@ fun hol2deep tm =
     in check_inv "int_of_num" tm result end else
   (* $& o f *)
   if can (match_term int_of_num_o_pat) tm then let
-    val x1 = tm |> rand |> rand
+    val x1 = tm |> rand
     val th1 = hol2deep x1
     val result = MATCH_MP Eval_int_of_num_o th1
     in check_inv "int_of_num_o" tm result end else
   (* f o $& *)
   if can (match_term o_int_of_num_pat) tm then let
-    val x1 = tm |> rand |> rand
+    val x1 = tm |> rator |> rand
     val th1 = hol2deep x1
     val result = MATCH_MP Eval_o_int_of_num th1
     in check_inv "o_int_of_num" tm result end else
