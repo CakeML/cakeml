@@ -188,6 +188,7 @@ rw [] >|
 val tid_exn_not = Q.prove (
 `(!tn. tid_exn_to_tc tn ≠ TC_bool) ∧
  (!tn. tid_exn_to_tc tn ≠ TC_int) ∧
+ (!tn. tid_exn_to_tc tn ≠ TC_string) ∧
  (!tn. tid_exn_to_tc tn ≠ TC_ref) ∧
  (!tn. tid_exn_to_tc tn ≠ TC_unit) ∧
  (!tn. tid_exn_to_tc tn ≠ TC_tup) ∧
@@ -202,6 +203,7 @@ val canonical_values_thm = Q.prove (
 `∀tvs tenvM tenvC tenvS v t1 t2.
   (type_v tvs tenvM tenvC tenvS v (Tref t1) ⇒ (∃n. v = Loc n)) ∧
   (type_v tvs tenvM tenvC tenvS v Tint ⇒ (∃n. v = Litv (IntLit n))) ∧
+  (type_v tvs tenvM tenvC tenvS v Tstring ⇒ (∃s. v = Litv (StrLit s))) ∧
   (type_v tvs tenvM tenvC tenvS v Tbool ⇒ (∃n. v = Litv (Bool n))) ∧
   (type_v tvs tenvM tenvC tenvS v Tunit ⇒ (∃n. v = Litv Unit)) ∧
   (type_v tvs tenvM tenvC tenvS v (Tfn t1 t2) ⇒
@@ -209,7 +211,7 @@ val canonical_values_thm = Q.prove (
     (∃env funs n. v = Recclosure env funs n))`,
 rw [] >>
 fs [Once type_v_cases, deBruijn_subst_def] >>
-fs [Tfn_def, Tint_def, Tbool_def, Tunit_def, Tref_def] >>
+fs [Tfn_def, Tint_def, Tstring_def, Tbool_def, Tunit_def, Tref_def] >>
 rw [] >>
 TRY (Cases_on `tn`) >>
 fs [tid_exn_to_tc_def] >>
@@ -218,7 +220,7 @@ metis_tac [Tfn_def, type_funs_Tfn, t_distinct, t_11, tc0_distinct]);
 val tac =
 fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
 rw [] >>
-fs [deBruijn_subst_def, Tbool_def, Tunit_def, Tint_def, Tref_def, tid_exn_not, Tfn_def] >>
+fs [deBruijn_subst_def, Tbool_def, Tunit_def, Tint_def, Tstring_def, Tref_def, tid_exn_not, Tfn_def] >>
 metis_tac [Tfn_def, type_funs_Tfn, t_distinct, t_11, tc0_distinct, tid_exn_not];
 
 (* Well-typed pattern matches either match or not, but they don't raise type
@@ -246,7 +248,7 @@ val pmatch_type_progress = Q.prove (
  fs [lit_same_type_def] 
  >- (fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
      rw [] >>
-     fs [Tint_def, Tbool_def, Tref_def, Tunit_def])
+     fs [Tint_def, Tstring_def, Tbool_def, Tref_def, Tunit_def])
  >- (fs [Once (hd (CONJUNCTS type_v_cases)),
      Once (hd (CONJUNCTS type_p_cases))] >>
      rw [] >>
@@ -363,7 +365,7 @@ val eq_same_type = Q.prove (
  ho_match_mp_tac do_eq_ind >>
  rw [do_eq_def] >>
  rw [hd (CONJUNCTS type_v_cases)] >>
- rw [Tbool_def, Tint_def, Tref_def, Tunit_def, Tfn_def] >>
+ rw [Tbool_def, Tint_def, Tstring_def, Tref_def, Tunit_def, Tfn_def] >>
  CCONTR_TAC >>
  fs [] >>
  rw [] >>
@@ -465,7 +467,7 @@ val exp_type_progress = Q.prove (
           fs [type_s_def] >>
           rw [] >>
           imp_res_tac type_funs_Tfn >>
-          fs [tid_exn_not, Tbool_def, Tint_def, Tref_def, Tunit_def, Tfn_def] >>
+          fs [tid_exn_not, Tbool_def, Tint_def, Tstring_def, Tref_def, Tunit_def, Tfn_def] >>
           metis_tac [optionTheory.NOT_SOME_NONE],
       every_case_tac >>
           fs [],
@@ -800,7 +802,7 @@ rw [Once type_v_cases] >>
 pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
 rw [deBruijn_inc_def, deBruijn_subst_def] >>
 rw [deBruijn_inc_def, deBruijn_subst_def] >>
-fs [check_freevars_def, Tfn_def, Tint_def, Tbool_def, Tref_def, Tunit_def] >>
+fs [check_freevars_def, Tfn_def, Tint_def, Tstring_def, Tbool_def, Tref_def, Tunit_def] >>
 rw [deBruijn_inc_def, deBruijn_subst_def] >>
 rw [nil_deBruijn_inc, deBruijn_subst_check_freevars, type_subst_lem3,
     nil_deBruijn_subst] >|
@@ -2550,9 +2552,9 @@ rw [evaluate_top_cases] >|
                metis_tac [weakC_merge']]]]);
 
 val tac2 =
-rw [Once type_v_cases, type_env_eqn, Tfn_def, Tint_def, Tbool_def] >>
+rw [Once type_v_cases, type_env_eqn, Tfn_def, Tint_def, Tstring_def, Tbool_def] >>
 NTAC 6 (rw [Once type_e_cases, check_freevars_def, num_tvs_def, bind_tenv_def,
-            lookup_tenv_def, bind_tvar_def, Tfn_def, Tint_def, type_op_def, 
+            lookup_tenv_def, bind_tvar_def, Tfn_def, Tint_def, Tstring_def, type_op_def, 
             type_uop_def, t_lookup_var_id_def, deBruijn_inc_def, deBruijn_subst_def,
             METIS_PROVE [] ``(?x. P ∧ Q x) = (P ∧ ?x. Q x)``, Tbool_def,
             Tref_def]) >>

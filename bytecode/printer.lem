@@ -27,6 +27,8 @@ v_to_ov s (Loc n) = OLoc (List_extra.nth s n)
 let rec
 ov_to_string (OLit (IntLit (i:integer))) = int_to_string i
 and
+ov_to_string (OLit (StrLit s)) = string_to_string s
+and
 ov_to_string (OLit (Bool true)) = "true"
 and
 ov_to_string (OLit (Bool false)) = "false"

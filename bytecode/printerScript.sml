@@ -43,6 +43,8 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (ov_to_string (OLit (IntLit (i:int))) = (int_to_string i))
 /\
+(ov_to_string (OLit (StrLit s)) = (string_to_string s))
+/\
 (ov_to_string (OLit (Bool T)) = "true")
 /\
 (ov_to_string (OLit (Bool F)) = "false")

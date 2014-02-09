@@ -306,7 +306,7 @@ val firstSet_nEbase = Store_thm(
   "firstSet_nEbase",
   ``firstSet cmlG [NT (mkNT nEbase)] =
       {LetT; LparT; LbrackT} ∪ firstSet cmlG [NT (mkNT nFQV)] ∪ {IntT i | T} ∪
-      firstSet cmlG [NT (mkNT nConstructorName)]``,
+      {StringT s | T} ∪ firstSet cmlG [NT (mkNT nConstructorName)]``,
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
   dsimp[Once EXTENSION] >> gen_tac >> eq_tac >> rw[] >> simp[]);
 
@@ -571,7 +571,7 @@ val firstSet_nPtuple = Store_thm(
 val firstSet_nPbase = Store_thm(
   "firstSet_nPbase",
   ``firstSet cmlG (NN nPbase :: rest) =
-      {LparT; UnderbarT; LbrackT} ∪ {IntT i | T } ∪
+      {LparT; UnderbarT; LbrackT} ∪ {IntT i | T } ∪ {StringT s | T } ∪
       firstSet cmlG [NN nConstructorName] ∪ firstSet cmlG [NN nV]``,
   simp[SimpLHS, firstSetML_eqn] >>
   simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
@@ -628,6 +628,7 @@ val NOTIN_firstSet_nV = Store_thm(
     RbrackT ∉ firstSet cmlG [NN nV] ∧
     InT ∉ firstSet cmlG [NN nV] ∧
     IntT i ∉ firstSet cmlG [NN nV] ∧
+    StringT s ∉ firstSet cmlG [NN nV] ∧
     ThenT ∉ firstSet cmlG [NN nV] ∧
     ElseT ∉ firstSet cmlG [NN nV] ∧
     CaseT ∉ firstSet cmlG [NN nV] ∧
@@ -653,6 +654,7 @@ val NOTIN_firstSet_nFQV = Store_thm(
     RbrackT ∉ firstSet cmlG [NN nFQV] ∧
     InT ∉ firstSet cmlG [NN nFQV] ∧
     IntT i ∉ firstSet cmlG [NN nFQV] ∧
+    StringT s ∉ firstSet cmlG [NN nFQV] ∧
     AndT ∉ firstSet cmlG [NN nFQV] ∧
     ThenT ∉ firstSet cmlG [NN nFQV] ∧
     ElseT ∉ firstSet cmlG [NN nFQV] ∧
@@ -682,6 +684,7 @@ val NOTIN_firstSet_nConstructorName = Store_thm(
     IfT ∉ firstSet cmlG [NN nConstructorName] ∧
     InT ∉ firstSet cmlG [NN nConstructorName] ∧
     IntT i ∉ firstSet cmlG [NN nConstructorName] ∧
+    StringT s ∉ firstSet cmlG [NN nConstructorName] ∧
     LbrackT ∉ firstSet cmlG [NN nConstructorName] ∧
     LetT ∉ firstSet cmlG [NN nConstructorName] ∧
     LparT ∉ firstSet cmlG [NN nConstructorName] ∧
@@ -1164,14 +1167,14 @@ val stoppers_def = Define`
   (stoppers nLetDec = nestoppers DELETE AndT) ∧
   (stoppers nLetDecs = nestoppers DIFF {AndT; FunT; ValT; SemicolonT}) ∧
   (stoppers nPapp =
-     UNIV DIFF ({LparT; UnderbarT; LbrackT} ∪ { IntT i | T } ∪
+     UNIV DIFF ({LparT; UnderbarT; LbrackT} ∪ { IntT i | T } ∪ { StringT s | T } ∪
                 firstSet cmlG [NN nV] ∪ firstSet cmlG [NN nConstructorName])) ∧
   (stoppers nPattern =
-     UNIV DIFF ({LparT; UnderbarT; LbrackT; SymbolT "::"} ∪ { IntT i | T } ∪
+     UNIV DIFF ({LparT; UnderbarT; LbrackT; SymbolT "::"} ∪ { IntT i | T } ∪ { StringT s | T } ∪
                 firstSet cmlG [NN nV] ∪ firstSet cmlG [NN nConstructorName])) ∧
   (stoppers nPatternList =
      UNIV DIFF ({CommaT; LparT; UnderbarT; LbrackT; SymbolT "::"} ∪
-                {IntT i | T} ∪
+                {IntT i | T} ∪ { StringT s | T } ∪
                 firstSet cmlG [NN nV] ∪ firstSet cmlG [NN nConstructorName])) ∧
   (stoppers nPE = nestoppers) ∧
   (stoppers nPE' = BarT INSERT nestoppers) ∧
@@ -1883,6 +1886,7 @@ val completeness = store_thm(
           match_mp_tac peg_respects_firstSets >> simp[] >>
           metis_tac [firstSets_nV_nConstructorName, firstSet_nonempty_fringe])
       >- simp[peg_respects_firstSets]
+      >- simp[peg_respects_firstSets,peg_eval_tok_NONE]
       >- (simp[NT_rank_def] >>
           erule mp_tac
             (MATCH_MP fringe_length_not_nullable nullable_Ptuple) >>
@@ -1931,6 +1935,7 @@ val completeness = store_thm(
           asm_match `ptree_fringe pt = MAP TK pfx` >> qexists_tac `pt` >>
           simp[NT_rank_def] >>
           Cases_on `sfx` >> fs[peg_respects_firstSets, not_peg0_peg_eval_NIL_NONE])
+      >- (fs[MAP_EQ_CONS] >> simp[peg_respects_firstSets])
       >- (fs[MAP_EQ_CONS] >> simp[peg_respects_firstSets])
       >- (DISJ1_TAC >>
           erule mp_tac (MATCH_MP fringe_length_not_nullable nullable_Ptuple) >>
@@ -2199,6 +2204,7 @@ val completeness = store_thm(
       fs[])
   >- (print_tac "nEbase" >> note_tac "** Slow nEbase beginning" >> stdstart
       >- (note_tac "Ebase:Eseq (not Int)" >> simp[peg_eval_tok_NONE])
+      >- (note_tac "Ebase:Eseq (not String)" >> simp[peg_eval_tok_NONE])
       >- (note_tac "Ebase:Eseq (not ())" >> simp[peg_eval_tok_NONE] >>
           erule mp_tac (MATCH_MP fringe_length_not_nullable nullable_Eseq) >>
           simp[] >> asm_match `ptree_fringe pt = MAP TK f` >> Cases_on `f` >>
@@ -2243,11 +2249,12 @@ val completeness = store_thm(
           CONV_TAC SWAP_VARS_CONV >> Q.REFINE_EXISTS_TAC `[pt2]` >>
           asimp[peg_EbaseParenFn_def, peg_eval_tok_NONE])
       >- (note_tac "Ebase:() (not Int)" >> simp[peg_eval_tok_NONE])
+      >- (note_tac "Ebase:() (not String)" >> simp[peg_eval_tok_NONE])
       >- (note_tac "Ebase:FQV" >>
           erule mp_tac (MATCH_MP fringe_length_not_nullable nullable_FQV) >>
           simp[] >> Cases_on `pfx` >> fs[] >> DISJ2_TAC >>
           asm_match `ptree_fringe fpt = TK h :: MAP TK t` >>
-          `¬isInt h ∧ h ≠ LparT ∧ h ≠ LetT ∧ h ≠ LbrackT`
+          `¬isInt h ∧ ¬isString h ∧ h ≠ LparT ∧ h ≠ LetT ∧ h ≠ LbrackT`
             by (IMP_RES_THEN mp_tac firstSet_nonempty_fringe >>
                 Cases_on `h` >> simp[]) >>
           simp[peg_eval_tok_NONE] >> DISJ2_TAC >>
@@ -2259,7 +2266,7 @@ val completeness = store_thm(
                                  nullable_ConstructorName) >>
           simp[] >> Cases_on `pfx` >> fs[] >> DISJ2_TAC >>
           asm_match `ptree_fringe fpt = TK h :: MAP TK t` >>
-          `¬isInt h ∧ h ≠ LparT ∧ h ≠ LetT ∧ h ≠ LbrackT`
+          `¬isInt h ∧ ¬isString h ∧ h ≠ LparT ∧ h ≠ LetT ∧ h ≠ LbrackT`
             by (IMP_RES_THEN mp_tac firstSet_nonempty_fringe >>
                 Cases_on `h` >> simp[]) >>
           simp[peg_eval_tok_NONE] >> DISJ2_TAC >>
@@ -2274,7 +2281,9 @@ val completeness = store_thm(
           `h ∈ firstSet cmlG [NN nConstructorName]`
             by metis_tac [firstSet_nonempty_fringe] >>
           fs[firstSet_nConstructorName])
+      >- (note_tac "Ebase:string (not Int)" >> simp[peg_eval_tok_NONE])
       >- (note_tac "Ebase:let (not Int)" >> simp[peg_eval_tok_NONE])
+      >- (note_tac "Ebase:let (not String)" >> simp[peg_eval_tok_NONE])
       >- (note_tac "Ebase:let (not LparT)" >> simp[peg_eval_tok_NONE])
       >- (note_tac "Ebase:let-in-end" >> DISJ2_TAC >> conj_tac
           >- simp[peg_eval_tok_NONE, peg_EbaseParen_def] >>
@@ -2283,12 +2292,14 @@ val completeness = store_thm(
           first_assum (unify_firstconj kall_tac) >> asimp[] >>
           normlist >> simp[])
       >- (note_tac "Ebase:[] not int" >> simp[peg_eval_tok_NONE])
+      >- (note_tac "Ebase:[] not string" >> simp[peg_eval_tok_NONE])
       >- (note_tac "Ebase:[] not LparT" >> simp[peg_eval_tok_NONE])
       >- (note_tac "Ebase:[]" >> simp[peg_eval_tok_NONE] >>
           DISJ2_TAC >> conj_tac
           >- simp[peg_eval_tok_NONE, peg_EbaseParen_def] >>
           simp[peg_respects_firstSets])
       >- (note_tac "Ebase:[..] not int" >> simp[peg_eval_tok_NONE])
+      >- (note_tac "Ebase:[..] not string" >> simp[peg_eval_tok_NONE])
       >- (note_tac "Ebase:[..] not LparT" >> simp[peg_eval_tok_NONE]) >>
       note_tac "Ebase:[..]" >> DISJ2_TAC >>
       conj_tac

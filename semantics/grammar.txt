@@ -16,6 +16,7 @@ Literal ::= IntegerLiteral    // IntLit i
          |  "true"            // Bool T
          |  "false"           // Bool F
          |  "()"              // Unit
+         |  StringLiteral     // String s
 
 (* See http://www.mlton.org/OperatorPrecedence *)
 Ebase ::=

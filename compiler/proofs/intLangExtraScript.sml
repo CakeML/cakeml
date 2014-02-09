@@ -240,14 +240,10 @@ val Cevaluate_vlabs = store_thm("Cevaluate_vlabs",
     metis_tac[MEM_EL]) >>
   strip_tac >- rw[] >>
   strip_tac >- (
-    rw [] >>
-    Cases_on `p2` >>
-    fs [] >>
-    TRY (Cases_on `v1` >> Cases_on `v2` >> fs [] >> Cases_on `l` >> Cases_on `l'` >>
+    rw [] >> Cases_on `p2` >> fs [] >>
+    TRY (Cases_on `v1` >> Cases_on `v2` >> fs [] >> Cases_on `l` >> TRY (Cases_on `l'`) >>
          fs [] >> rw [] >> NO_TAC) >>
-    Cases_on `do_Ceq v1 v2` >>
-    fs [] >>
-    rw []) >>
+    Cases_on `do_Ceq v1 v2` >> fs [] >> rw []) >>
   strip_tac >- rw[] >>
   strip_tac >- (
     ntac 7 gen_tac >>
@@ -308,14 +304,10 @@ val tac =
     metis_tac[MEM_EL]) >>
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
   strip_tac >- (
-    rw [] >>
-    Cases_on `p2` >>
-    fs [] >>
-    TRY (Cases_on `v1` >> Cases_on `v2` >> fs [] >> Cases_on `l` >> Cases_on `l'` >>
+    rw [] >> Cases_on `p2` >> fs [] >>
+    TRY (Cases_on `v1` >> Cases_on `v2` >> fs [] >> Cases_on `l` >> TRY(Cases_on `l'`) >>
          fs [] >> rw [] >> NO_TAC) >>
-    Cases_on `do_Ceq v1 v2` >>
-    fs [] >>
-    rw []) >>
+    Cases_on `do_Ceq v1 v2` >> fs [] >> rw []) >>
   strip_tac >- rw[] >>
   strip_tac >- (
     ntac 7 gen_tac >>
@@ -1196,6 +1188,12 @@ val mvars_def = tDefine"mvars"`
     | INR (INR (INR (def))) => Cexp2_size def)`)
 val _ = export_rewrites["mvars_def"]
 
+val doPrim2_CLitv_type_error = store_thm("doPrim2_CLitv_type_error",
+  ``doPrim2 ty op (CLitv l) (CConv n vs) = Cexc Ctype_error ∧
+    doPrim2 ty op (CLitv l) (CRecClos env defs s) = Cexc Ctype_error``,
+  Cases_on`l`>>rw[])
+val _ = export_rewrites["doPrim2_CLitv_type_error"]
+
 (* Clocs *)
 
 val all_Clocs_def = tDefine "all_Clocs"`
@@ -1212,11 +1210,8 @@ val _ = export_rewrites["all_Clocs_def"]
 val CevalPrim2_Clocs = store_thm("CevaluatePrim2_Clocs",
   ``∀p2 v1 v2 v. ((CevalPrim2 p2 v1 v2 = Cval v) ∨ (CevalPrim2 p2 v1 v2 = Cexc (Craise v))) ⇒ (all_Clocs v = {})``,
   Cases >> fs[] >>
-  TRY (Cases >> Cases >> fs [] >>Cases_on`l` >> Cases_on `l'` >> fs[] >> rw[] >> rw[] >> NO_TAC) >>
-  rw [] >>
-  Cases_on `do_Ceq v1 v2` >>
-  fs [] >>
-  rw []);
+  TRY (Cases >> Cases >> fs [] >>Cases_on`l` >> TRY(Cases_on `l'`) >> fs[] >> rw[] >> rw[] >> NO_TAC) >>
+  rw [] >> Cases_on `do_Ceq v1 v2` >> fs [] >> rw []);
 
 val Cevaluate_Clocs = store_thm("Cevaluate_Clocs",
   ``(∀menv s env exp res. Cevaluate menv s env exp res ⇒
@@ -2100,7 +2095,6 @@ val CevalPrim2_closed = store_thm(
 Cases >> rw [Cclosed_cases] >>
 Cases_on `do_Ceq v1 v2` >>
 rw [Cclosed_cases])
-
 val _ = export_rewrites["CevalPrim2_closed"];
 
 val CevalPrim1_closed = store_thm(
