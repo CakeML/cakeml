@@ -492,7 +492,6 @@ val t_to_freevars_def = Define `
      return (fvs1++fvs2)
   od)`;
 
-(*
 val check_specs_def = Define `
 (check_specs mn cenv env [] =
   return (cenv,env)) ∧
@@ -502,12 +501,12 @@ val check_specs_def = Define `
      check_specs mn cenv (bind x (LENGTH fvs', infer_type_subst (ZIP (fvs', MAP Infer_Tvar_db (COUNT_LIST (LENGTH fvs')))) t) env) specs
   od) ∧
 (check_specs mn cenv env (Stype td :: specs) =
-  do () <- guard (check_ctor_tenv mn (emp,cenv) td) "Bad type definition";
+  do () <- guard (check_ctor_tenv mn ((emp,cenv):tenvC) td) "Bad type definition";
      check_specs mn (merge (build_ctor_tenv mn td) cenv) env specs
   od) ∧
 (check_specs mn cenv env (Sexn cn ts :: specs) =
-  do () <- guard check_exn_tenv mn (emp,cenv) cn ts "Bad exception definition";
-     check_specs mn (bind mn ([], ts, TypeExn mn) cenv) env specs
+  do () <- guard (check_exn_tenv mn ((emp,cenv):tenvC) cn ts) "Bad exception definition";
+     check_specs mn (bind cn ([], ts, TypeExn mn) cenv) env specs
   od) ∧
 (check_specs mn cenv env (Stype_opq tvs tn :: specs) =
   do () <- guard (EVERY (\(cn,(x,y,tn')). TypeId (mk_id mn tn) ≠ tn') cenv) "Duplicate type definition";
@@ -515,8 +514,8 @@ val check_specs_def = Define `
      check_specs mn cenv env specs
   od)`;
 
-val check_weakC_def = Define `
-(check_weakC cenv_impl cenv_spec =
+val check_flat_weakC_def = Define `
+(check_flat_weakC cenv_impl cenv_spec =
   EVERY (\(cn, (tvs_spec, ts_spec, tn_spec)).
             case lookup cn cenv_impl of
               | NONE => F
@@ -525,7 +524,6 @@ val check_weakC_def = Define `
                   (tvs_spec = tvs_impl) ∧
                   (ts_spec = ts_impl))
         cenv_spec)`;
-        *)
 
 val check_weakE_def = Define `
 (check_weakE env_impl [] = return ()) ∧
@@ -540,13 +538,12 @@ val check_weakE_def = Define `
            check_weakE env_impl env_spec
         od)`;
 
-        (*
 val check_signature_def = Define `
 (check_signature mn cenv env NONE = 
   return (cenv, env)) ∧
 (check_signature mn cenv env (SOME specs) =
   do (cenv', env') <- check_specs mn [] [] specs;
-     () <- guard (check_weakC cenv cenv') "Signature mismatch";
+     () <- guard (check_flat_weakC cenv cenv') "Signature mismatch";
      () <- check_weakE env env';
      return (cenv',env')
   od)`;
@@ -555,27 +552,25 @@ val infer_top_def = Define `
 (infer_top menv cenv env (Tdec d) =
   do
     (cenv',env') <- infer_d NONE menv cenv env d;
-    return (emp, cenv', env')
+    return (emp, (emp,cenv'), env')
   od) ∧
 (infer_top menv cenv env (Tmod mn spec ds1) =
   do
     () <- guard (~MEM mn (MAP FST menv)) ("Duplicate module: " ++ mn);
     (cenv',env') <- infer_ds (SOME mn) menv cenv env ds1;
     (cenv'',env'') <- check_signature (SOME mn) cenv' env' spec;
-    return ([(mn,env'')], cenv'', emp)
+    return ([(mn,env'')], ([(mn,cenv'')],emp), emp)
   od)`;
 
 val infer_prog_def = Define `
 (infer_prog menv cenv env [] =
-  return ([],[],[])) ∧
+  return ([],([],[]),[])) ∧
 (infer_prog menv cenv env (top::ds) =
   do
     (menv',cenv',env') <- infer_top menv cenv env top;
-    (menv'', cenv'', env'') <- infer_prog menv (cenv' ++ cenv) (env' ++ env) ds;
-    return (menv''++menv', cenv'' ++ cenv', env'' ++ env')
+    (menv'', cenv'', env'') <- infer_prog menv (merge_tenvC cenv' cenv) (env' ++ env) ds;
+    return (menv''++menv', merge_tenvC cenv'' cenv', env'' ++ env')
   od)`;
-
-  *)
 
 val Infer_Tfn_def = Define `
 Infer_Tfn t1 t2 = Infer_Tapp [t1;t2] TC_fn`;

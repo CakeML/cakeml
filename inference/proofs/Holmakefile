@@ -1,4 +1,4 @@
-INCLUDES=.. ../.. ../../semantics ../../metatheory
+INCLUDES=.. ../.. ../../semantics ../../semantics/proofs ../../metatheory
 OPTIONS = QUIT_ON_FAILURE
 ifdef POLY
 HOLHEAP = ../heap
