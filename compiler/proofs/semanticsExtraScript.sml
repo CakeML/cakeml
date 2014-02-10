@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib boolSimps pairTheory alistTheory listTheory rich_listTheory pred_setTheory finite_mapTheory lcsymtacs SatisfySimps quantHeuristicsLib miscLib
-open libTheory semanticPrimitivesTheory astTheory bigStepTheory typeSystemTheory terminationTheory bigClockTheory replTheory miscTheory
+open libTheory semanticPrimitivesTheory astTheory bigStepTheory typeSystemTheory terminationTheory evalPropsTheory replTheory miscTheory
 val _ = new_theory "semanticsExtra"
 
 (* ALOOKUPs *)
@@ -345,7 +345,7 @@ val do_prim_app_FV = store_thm(
   (op ≠ Opapp) ∧
   (do_app s env op v1 v2 = SOME (s',env',exp)) ⇒
   (FV exp = {})``,
-rw[bigClockTheory.do_app_cases] >> rw[])
+rw[do_app_cases] >> rw[])
 
 val do_log_FV = store_thm(
 "do_log_FV",
@@ -616,7 +616,7 @@ val do_app_all_cns = store_thm("do_app_all_cns",
       BIGUNION (IMAGE all_cns (set s')) ⊆ cns ∧
       BIGUNION (IMAGE all_cns (env_range env')) ⊆ cns ∧
       all_cns_exp exp ⊆ cns ∪ {SOME(Short"Div");SOME(Short"Eq")}``,
- rw [bigClockTheory.do_app_cases] >>
+ rw [do_app_cases] >>
  fs [all_cns_def, bind_def]
  >- fs[SUBSET_DEF]
  >- (
@@ -917,7 +917,7 @@ val do_app_locs = store_thm("do_app_locs",
     ⇒
     LENGTH s ≤ LENGTH s' ∧
     (∀v. MEM v (MAP SND env') ∨ MEM v s' ⇒ all_locs v ⊆ count (LENGTH s'))``,
-  rw [bigClockTheory.do_app_cases, SUBSET_DEF] >>
+  rw [do_app_cases, SUBSET_DEF] >>
   simp[contains_closure_def,libTheory.bind_def]>>
   rw[astTheory.opn_lookup_def,astTheory.opb_lookup_def] >> simp[] >> fs[] >>
   fsrw_tac[DNF_ss][SUBSET_DEF] >>
@@ -1248,7 +1248,7 @@ ntac 4 gen_tac >> Cases
   rw[do_app_def] >>
   fs[closed_cases])
 >- (
-  fs [bigClockTheory.do_app_cases] >>
+  fs [do_app_cases] >>
   rw [] >>
   fs [])
 >- (

@@ -48,7 +48,7 @@ val _ = Hol_datatype `
 val _ = Hol_datatype `
  v_i1 =
     Litv_i1 of lit
-  | Conv_i1 of  ( conN id # tid_or_exn)option => v_i1 list 
+  | Conv_i1 of  (conN # tid_or_exn)option => v_i1 list 
   | Closure_i1 of (envC # (varN, v_i1) env) => varN => exp_i1
   | Recclosure_i1 of (envC # (varN, v_i1) env) => (varN # varN # exp_i1) list => varN
   | Loc_i1 of num`;
@@ -212,9 +212,9 @@ val _ = Define `
       NONE => 
         SOME (Conv_i1 NONE vs)
     | SOME id => 
-        (case lookup id envC of
+        (case lookup_con_id id envC of
             NONE => NONE
-          | SOME (len,t) => SOME (Conv_i1 (SOME (id, t)) vs)
+          | SOME (len,t) => SOME (Conv_i1 (SOME (id_to_n id, t)) vs)
         )
   )))`;
 
@@ -288,6 +288,11 @@ val _ = Define `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn do_eq_i1_defn;
 
+(*val exn_env_i1 : all_env_i1*)
+val _ = Define `
+ (exn_env_i1 = ([], (emp, MAP (\ cn .  (cn, ( 0, TypeExn NONE))) ["Bind"; "Div"; "Eq"]), emp))`;
+
+
 (*val do_app_i1 : all_env_i1 -> store v_i1 -> op -> v_i1 -> v_i1 -> maybe (all_env_i1 * store v_i1 * exp_i1)*)
 val _ = Define `
  (do_app_i1 env' s op v1 v2 =  
@@ -301,7 +306,7 @@ val _ = Define `
         )
     | (Opn op, Litv_i1 (IntLit n1), Litv_i1 (IntLit n2)) =>
         if ((op = Divide) \/ (op = Modulo)) /\ (n2 =( 0 : int)) then
-          SOME (env', s, Raise_i1 (Con_i1 (SOME (Short "Div")) []))
+          SOME (exn_env_i1, s, Raise_i1 (Con_i1 (SOME (Short "Div")) []))
         else
           SOME (env', s, Lit_i1 (IntLit (opn_lookup op n1 n2)))
     | (Opb op, Litv_i1 (IntLit n1), Litv_i1 (IntLit n2)) =>
@@ -309,7 +314,7 @@ val _ = Define `
     | (Equality, v1, v2) =>
         (case do_eq_i1 v1 v2 of
             Eq_type_error => NONE
-          | Eq_closure => SOME (env', s, Raise_i1 (Con_i1 (SOME (Short "Eq")) []))
+          | Eq_closure => SOME (exn_env_i1, s, Raise_i1 (Con_i1 (SOME (Short "Eq")) []))
           | Eq_val b => SOME (env', s, Lit_i1 (Bool b))
         )
     | (Opassign, (Loc_i1 lnum), v) =>
@@ -346,10 +351,10 @@ val _ = Define `
     Match_type_error))
 /\
 (pmatch_i1 envC s (Pcon (SOME n) ps) (Conv_i1 (SOME (n', t')) vs) env =  
-((case lookup n envC of
+((case lookup_con_id n envC of
       SOME (l, t)=>
-        if (t = t') /\ (LENGTH ps = l) then
-          if n = n' then
+        if same_tid t t' /\ (LENGTH ps = l) then
+          if same_ctor (id_to_n n, t) (n',t') then
             pmatch_list_i1 envC s ps vs env
           else
             No_match
@@ -534,7 +539,7 @@ evaluate_i1 ck env s (If_i1 e1 e2 e3) (s', Rerr err))
 
 /\ (! ck env e pes v bv s1 s2.
 (evaluate_i1 ck env s1 e (s2, Rval v) /\
-evaluate_match_i1 ck env s2 v pes (Conv_i1 (SOME (Short "Bind", TypeExn)) []) bv)
+evaluate_match_i1 ck env s2 v pes (Conv_i1 (SOME ("Bind", TypeExn NONE)) []) bv)
 ==>
 evaluate_i1 ck env s1 (Mat_i1 e pes) bv)
 
@@ -649,24 +654,19 @@ evaluate_dec_i1 genv cenv s (Dletrec_i1 funs) (s, Rval (emp, MAP SND (build_rec_
 evaluate_dec_i1 genv cenv s (Dletrec_i1 funs) (s, Rerr Rtype_error))
 
 /\ (! mn genv cenv tds s.
-(check_dup_ctors mn cenv tds)
+(check_dup_ctors tds)
 ==>
 evaluate_dec_i1 genv cenv s (Dtype_i1 mn tds) (s, Rval (build_tdefs mn tds, [])))
 
 /\ (! mn genv cenv tds s.
-(~ (check_dup_ctors mn cenv tds))
+(~ (check_dup_ctors tds))
 ==>
 evaluate_dec_i1 genv cenv s (Dtype_i1 mn tds) (s, Rerr Rtype_error))
 
 /\ (! mn genv cenv cn ts s.
-(lookup (mk_id mn cn) cenv = NONE)
+T
 ==>
-evaluate_dec_i1 genv cenv s (Dexn_i1 mn cn ts) (s, Rval (bind (mk_id mn cn) (LENGTH ts, TypeExn) emp, [])))
-
-/\ (! mn genv cenv cn ts s.
-( ~ ((lookup (mk_id mn cn) cenv) = NONE))
-==>
-evaluate_dec_i1 genv cenv s (Dexn_i1 mn cn ts) (s, Rerr Rtype_error))`;
+evaluate_dec_i1 genv cenv s (Dexn_i1 mn cn ts) (s, Rval (bind cn (LENGTH ts, TypeExn mn) emp, [])))`;
 
 (*val combine_dec_result_i1 : forall 'a 'b. list 'a -> result (list 'a) 'b -> result (list 'a) 'b*)
 val _ = Define `
@@ -675,7 +675,6 @@ val _ = Define `
       Rerr e => Rerr e
     | Rval env' => Rval (env ++ env') 
   )))`;
-
 
 
 val _ = Hol_reln ` (! genv cenv s.
@@ -690,7 +689,7 @@ evaluate_decs_i1 genv cenv s1 (d::ds) (s2, emp, Rerr e))
 
 /\ (! s1 s2 s3 genv cenv d ds new_tds' new_tds new_env r.
 (evaluate_dec_i1 genv cenv s1 d (s2, Rval (new_tds,new_env)) /\
-evaluate_decs_i1 (genv ++ new_env) (merge new_tds cenv) s2 ds (s3, new_tds', r))
+evaluate_decs_i1 (genv ++ new_env) (merge_envC (emp,new_tds) cenv) s2 ds (s3, new_tds', r))
 ==>
 evaluate_decs_i1 genv cenv s1 (d::ds) (s3, merge new_tds' new_tds, combine_dec_result_i1 new_env r))`;
 val _ = export_theory()

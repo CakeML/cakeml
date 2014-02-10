@@ -3,6 +3,7 @@ open optionTheory;
 open libTheory astTheory semanticPrimitivesTheory bigStepTheory terminationTheory;
 open bigClockTheory;
 open intLang1Theory;
+open evalPropsTheory;
 
 val _ = new_theory "toIntLang1Proof";
 
@@ -292,6 +293,7 @@ val do_eq_i1 = Q.prove (
  every_case_tac >>
  metis_tac []);
 
+ (*
 val do_app_i1 = Q.prove (
 `!mods tops env s1 s2 op v1 v2 e env' env_i1. 
   (op ≠ Opapp) ∧
@@ -307,7 +309,8 @@ val do_app_i1 = Q.prove (
  every_case_tac >>
  fs [store_assign_def] >>
  rw [LUPDATE_MAP] >>
- metis_tac [do_eq_i1, eq_result_11, eq_result_distinct])
+ metis_tac [do_eq_i1, eq_result_11, eq_result_distinct]);
+ *)
 
 val exp_to_i1_correct = Q.prove (
 `(∀b env s e res. 
@@ -368,7 +371,7 @@ val exp_to_i1_correct = Q.prove (
      rw []
      >- (pop_assum mp_tac >>
          pop_assum (fn _ => all_tac) >>
-         induct_on `env2` >>
+         induct_on `env3` >>
          rw [] >>
          PairCases_on `h` >>
          fs [v_to_i1_def] >>
@@ -388,6 +391,7 @@ val exp_to_i1_correct = Q.prove (
      fs [v_to_i1_def, env_all_to_i1_def, all_env_i1_to_cenv_def, all_env_i1_to_env_def] >>
      rw [])
  >- metis_tac [s_to_i1_def, do_uapp_i1]
+ (*
  >- (Cases_on `op ≠ Opapp` >>
      fs [s_to_i1_def]
      >- metis_tac [do_app_i1] >>
@@ -414,10 +418,9 @@ val exp_to_i1_correct = Q.prove (
 metis_tac []
 
      >- cheat)
- >- (Cases_on `op ≠ Opapp` >>
-     fs [s_to_i1_def]
-     >- metis_tac [do_app_i1]
-     >- cheat)
+     *)
+ >- cheat
+ >- cheat
  >- cheat
  >- metis_tac []
  >- metis_tac []
