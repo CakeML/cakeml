@@ -189,7 +189,7 @@ val weak_tenvE_bind_tvar2 = Q.prove (
   weak_tenvE (bind_tvar tvs tenv') (bind_tvar 0 tenv)`,
 rw [weak_tenvE_def, num_tvs_def, bind_tvar_def, lookup_tenv_def] >>
 full_simp_tac (srw_ss()++ARITH_ss) [] >>
-metis_tac [lookup_tenv_inc]);
+metis_tac [lookup_tenv_inc_tvs]);
 
 val weak_tenvE_bind_var_list = Q.prove (
 `!tenv'' tenv tenv' n tvs t .

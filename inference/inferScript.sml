@@ -604,4 +604,84 @@ init_type_env =
    ("!", (1, Infer_Tfn (Infer_Tref (Infer_Tvar_db 0)) (Infer_Tvar_db 0)));
    ("ref", (1, Infer_Tfn (Infer_Tvar_db 0) (Infer_Tref (Infer_Tvar_db 0))))]`;
 
+(* The following aren't needed to run the inferencer, but are useful in the proofs
+ * about it *)
+
+val infer_deBruijn_inc_def = tDefine "infer_deBruijn_inc" `
+(infer_deBruijn_inc n (Infer_Tvar_db m) = 
+  Infer_Tvar_db (m + n)) ∧
+(infer_deBruijn_inc n (Infer_Tapp ts tn) =
+  Infer_Tapp (MAP (infer_deBruijn_inc n) ts) tn) ∧
+(infer_deBruijn_inc n (Infer_Tuvar m) = 
+  Infer_Tuvar m)`
+(WF_REL_TAC `measure (infer_t_size o SND)` >>
+ rw [] >>
+ induct_on `ts` >>
+ rw [infer_t_size_def] >>
+ res_tac >>
+ decide_tac);
+
+val infer_subst_def = tDefine "infer_subst" `
+(infer_subst s (Infer_Tvar_db n) = Infer_Tvar_db n) ∧
+(infer_subst s (Infer_Tapp ts tc) = Infer_Tapp (MAP (infer_subst s) ts) tc) ∧
+(infer_subst s (Infer_Tuvar n) =
+  case FLOOKUP s n of
+      NONE => Infer_Tuvar n
+    | SOME m => Infer_Tvar_db m)`
+(wf_rel_tac `measure (infer_t_size o SND)` >>
+ rw [] >>
+ induct_on `ts` >>
+ srw_tac[ARITH_ss] [infer_t_size_def] >>
+ res_tac >>
+ decide_tac);
+
+val pure_add_constraints_def = Define `
+(pure_add_constraints s [] s' = (s = s')) ∧
+(pure_add_constraints s1 ((t1,t2)::rest) s' = 
+  ?s2. (t_unify s1 t1 t2 = SOME s2) ∧
+       pure_add_constraints s2 rest s')`;
+
+val check_t_def = tDefine "check_t" `
+(check_t n uvars (Infer_Tuvar v) = (v ∈ uvars)) ∧
+(check_t n uvars (Infer_Tvar_db n') = 
+  (n' < n)) ∧
+(check_t n uvars (Infer_Tapp ts tc) = EVERY (check_t n uvars) ts)`
+(WF_REL_TAC `measure (infer_t_size o SND o SND)` >>
+ rw [] >>
+ induct_on `ts` >>
+ rw [infer_t_size_def] >>
+ res_tac >>
+ decide_tac);
+
+val check_env_def = Define `
+check_env uvars env =
+  EVERY (\(x, (tvs,t)). check_t tvs uvars t) env`;
+
+val check_menv_def = Define `
+check_menv menv =
+  EVERY (\(mn,env). EVERY (\(x, (tvs,t)). check_t tvs {} t) env) menv`;
+
+val check_flat_cenv_def = Define `
+check_flat_cenv (cenv : flat_tenvC) = 
+  EVERY (\(cn,(tvs,ts,t)). EVERY (check_freevars 0 tvs) ts) cenv`;
+
+val check_cenv_def = Define `
+check_cenv (mcenv, cenv) ⇔
+  EVERY (\(cn,cenv'). check_flat_cenv cenv') mcenv ∧
+  check_flat_cenv cenv`;
+
+val check_s_def = Define `
+check_s tvs uvs s = 
+  !uv. uv ∈ FDOM s ⇒ check_t tvs uvs (s ' uv)`;
+
+(* Adding the constraints extra_constraints moves the constraint set from s1 to
+ * s2, and s2 is required to be complete in that it assigns to (at least) all
+ * the uvars ≤ next_uvar, and when we apply it to any uvar, we get back a type
+ * without any uvars in it. *)
+val sub_completion_def = Define `
+sub_completion tvs next_uvar s1 extra_constraints s2 =
+  (pure_add_constraints s1 extra_constraints s2 ∧
+   (count next_uvar SUBSET FDOM s2) ∧
+   (!uv. uv ∈ FDOM s2 ⇒ check_t tvs {} (t_walkstar s2 (Infer_Tuvar uv))))`;
+
 val _ = export_theory ();

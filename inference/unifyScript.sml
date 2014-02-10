@@ -1,6 +1,7 @@
 open preamble finite_mapTheory optionTheory libTheory astTheory; 
 open unifPropsTheory unifDefTheory walkTheory walkstarTheory collapseTheory;
 open substTheory;
+open libPropsTheory;
 
 val option_map_case = prove (
   ``!f opt. 
@@ -923,5 +924,134 @@ rw [] >>
         by metis_tac [FUN_EQ_THM, t_vars_def, combinTheory.o_DEF] >>
 metis_tac [decode_right_inverse, decode_left_inverse, t_wfs_def,
            encode_walkstar]);
+
+(* ---------- Lemmas about unification that don't need to go into the encoding ----------*)
+
+val t_unify_apply = Q.store_thm ("t_unify_apply",
+`!s1 s2 t1 t2.
+  t_wfs s1 ∧
+  (t_unify s1 t1 t2 = SOME s2)
+  ⇒
+  (t_walkstar s2 t1 = t_walkstar s2 t2)`,
+metis_tac [t_unify_unifier]);
+
+val t_unify_apply2 = Q.store_thm ("t_unify_apply2",
+`!s1 s2 t1' t2' t1 t2.
+  t_wfs s1 ∧
+  (t_unify s1 t1' t2' = SOME s2) ∧
+  (t_walkstar s1 t1 = t_walkstar s1 t2)
+  ⇒
+  (t_walkstar s2 t1 = t_walkstar s2 t2)`,
+rw [] >>
+`t_wfs s2 ∧ s1 SUBMAP s2` by metis_tac [t_unify_unifier] >>
+metis_tac [t_walkstar_SUBMAP]);
+
+val t_unify_wfs = Q.store_thm ("t_unify_wfs",
+`!s1 t1 t2 s2.
+  t_wfs s1 ∧
+  (t_unify s1 t1 t2 = SOME s2)
+  ⇒
+  t_wfs s2`,
+metis_tac [t_unify_unifier]);
+
+val finite_t_rangevars = Q.store_thm ("finite_t_rangevars",
+`!t. FINITE (t_rangevars t)`,
+rw [t_rangevars_eqn, t_vars_def] >>
+rw [termTheory.FINITE_vars]);
+
+val t_walkstar_eqn1 = Q.store_thm("t_walkstar_eqn1",
+`!s idx ts tc.
+  t_wfs s ⇒ 
+  (t_walkstar s (Infer_Tvar_db idx) = Infer_Tvar_db idx) ∧
+  (t_walkstar s (Infer_Tapp ts tc) = Infer_Tapp (MAP (t_walkstar s) ts) tc)`,
+rw [t_walkstar_eqn, t_walk_eqn]);
+
+val oc_tvar_db = Q.store_thm ("oc_tvar_db",
+`!s uv tvs. t_wfs s ⇒ ~t_oc s (Infer_Tvar_db tvs) uv`,
+rw [] >>
+imp_res_tac t_oc_eqn >>
+pop_assum (fn _ => all_tac) >>
+pop_assum (fn _ => all_tac) >>
+pop_assum (ASSUME_TAC o Q.SPECL [`uv`, `Infer_Tvar_db tvs`]) >>
+rw [t_walk_eqn]);
+
+val oc_unit = Q.store_thm ("oc_unit",
+`!s uv tc. t_wfs s ⇒ ~t_oc s (Infer_Tapp [] tc) uv`,
+rw [] >>
+imp_res_tac t_oc_eqn >>
+pop_assum (fn _ => all_tac) >>
+pop_assum (fn _ => all_tac) >>
+pop_assum (ASSUME_TAC o Q.SPECL [`uv`, `Infer_Tapp [] tc'`]) >>
+rw [t_walk_eqn]);
+
+val no_vars_lem = Q.store_thm ("no_vars_lem",
+`!e l f.
+  MEM e l ∧ set (MAP f l) = {{}} 
+  ⇒
+  (f e = {})`,
+induct_on `l` >>
+rw [] >>
+fs [MEM_MAP, EXTENSION] >>
+metis_tac []);
+
+val no_vars_extend_subst_vwalk = Q.store_thm ("no_vars_extend_subst_vwalk",
+`!s. t_wfs s ⇒
+   !n s'. t_wfs (s |++ s') ∧
+         DISJOINT (FDOM s) (FDOM (FEMPTY |++ s')) ∧
+         (!n'. t_vwalk s n ≠ Infer_Tuvar n')
+         ⇒
+         t_vwalk (s |++ s') n = t_vwalk s n`,
+strip_tac >>
+strip_tac >>
+imp_res_tac (DISCH_ALL t_vwalk_ind) >>
+pop_assum ho_match_mp_tac >>
+rw [] >>
+pop_assum mp_tac >>
+imp_res_tac t_vwalk_eqn >>
+ONCE_ASM_REWRITE_TAC [] >>
+pop_assum (fn _ => all_tac) >>
+pop_assum (fn _ => all_tac) >>
+cases_on `FLOOKUP (s |++ s') n` >>
+rw [] >>
+fs [flookup_update_list_none, flookup_update_list_some] >>
+cases_on `FLOOKUP s n` >>
+fs [t_vars_eqn] >|
+[fs [DISJOINT_DEF, EXTENSION, FLOOKUP_DEF, FDOM_FUPDATE_LIST] >>
+     imp_res_tac lookup_in2 >>
+     fs [MEM_MAP] >>
+     metis_tac [],
+ cases_on `x` >>
+     fs [] >>
+     rw [] >>
+     fs [] >>
+     metis_tac [t_vwalk_eqn]]);
+
+val no_vars_extend_subst = Q.store_thm ("no_vars_extend_subst",
+`!s. t_wfs s ⇒
+  !t s'. t_wfs (s |++ s') ∧
+         DISJOINT (FDOM s) (FDOM (FEMPTY |++ s')) ∧
+         (t_vars (t_walkstar s t) = {})
+         ⇒
+         t_walkstar (s |++ s') t = t_walkstar s t`,
+strip_tac >>
+strip_tac >>
+imp_res_tac t_walkstar_ind >>
+pop_assum ho_match_mp_tac >>
+rw [] >>
+cases_on `t` >>
+rw [t_walkstar_eqn, t_walk_eqn] >>
+fs [t_walk_eqn] >>
+pop_assum mp_tac >>
+rw [t_walkstar_eqn, t_walk_eqn, t_vars_eqn] >>
+rw [MAP_EQ_f] >-
+metis_tac [no_vars_lem, MAP_MAP_o, combinTheory.o_DEF] >>
+cases_on `t_vwalk s n` >>
+fs [] >>
+rw [no_vars_extend_subst_vwalk] >>
+rw [MAP_EQ_f] >>
+fs [t_vars_eqn] >>
+rw [] >>
+fs [] >>
+metis_tac [no_vars_lem, MAP_MAP_o, combinTheory.o_DEF]);
 
 val _ = export_theory ();

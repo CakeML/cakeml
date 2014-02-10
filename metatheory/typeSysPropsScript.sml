@@ -616,6 +616,16 @@ rw [deBruijn_inc_def, lookup_tenv_def] >>
 rw [] >>
 metis_tac [deBruijn_inc_deBruijn_inc]);
 
+val lookup_tenv_inc = Q.store_thm ("lookup_tenv_inc",
+`!x inc tenv tvs t inc2.
+  (lookup_tenv x inc tenv = SOME (tvs,t))
+  ⇒
+  (lookup_tenv x (inc2 + inc) tenv = SOME (tvs, deBruijn_inc tvs inc2 t))`,
+induct_on `tenv` >>
+rw [lookup_tenv_def] >>
+rw [deBruijn_inc_deBruijn_inc] >>
+metis_tac [arithmeticTheory.ADD_ASSOC]);
+
 val type_e_freevars_lem2 = Q.prove (
 `!tenvE targs n t inc.
   EVERY (check_freevars (inc + num_tvs tenvE) []) targs ∧
@@ -663,7 +673,7 @@ rw [lookup_tenv_def, num_tvs_def, tenv_ok_def] >|
      metis_tac [arithmeticTheory.ADD_ASSOC, arithmeticTheory.ADD_COMM],
  metis_tac []]);
 
-val lookup_tenv_inc = Q.store_thm ("lookup_tenv_inc",
+val lookup_tenv_inc_tvs = Q.store_thm ("lookup_tenv_inc_tvs",
 `!tvs l tenv n t.
   tenv_ok tenv ∧
   (num_tvs tenv = 0)

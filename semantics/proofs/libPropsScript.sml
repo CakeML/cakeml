@@ -65,6 +65,15 @@ every_case_tac >>
 fs [] >>
 metis_tac []);
 
+val lookup_in3 = Q.store_thm ("lookup_in3",
+`!x env v. (lookup x env = SOME v) ⇒ MEM (x,v) env`,
+ induct_on `env` >>
+ rw [] >>
+ PairCases_on `h` >>
+ fs [] >>
+ every_case_tac >>
+ fs []);
+
 val lookup_notin = Q.store_thm ("lookup_notin",
 `!x e. (lookup x e = NONE) = ~MEM x (MAP FST e)`,
 induct_on `e` >>
@@ -113,5 +122,11 @@ rw [lookup_append, FLOOKUP_UPDATE] >|
      metis_tac [lookup_reverse_none, optionTheory.NOT_SOME_NONE],
  cases_on `lookup x (REVERSE l)` >>
      rw []]);
+
+val lookup_map = Q.store_thm ("lookup_map",
+`!n env v f. 
+  (lookup n env = SOME v) ⇒ (lookup n (MAP (\(x,y). (x, f y)) env) = SOME (f v))`,
+ho_match_mp_tac lookup_ind >>
+rw []);
 
 val _ = export_theory ();

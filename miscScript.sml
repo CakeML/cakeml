@@ -1543,4 +1543,22 @@ pop_assum (fn _ => all_tac) >>
 pop_assum (mp_tac o GSYM o Q.SPEC `f o SUC`) >>
 rw [MAP_MAP_o]);
 
+val mem_to_flookup = Q.store_thm ("mem_to_flookup",
+`!x y l. ALL_DISTINCT (MAP FST l) ∧ MEM (x,y) l ⇒ (FLOOKUP (FEMPTY |++ l) x = SOME y)`,
+ Induct_on `l` >>
+ rw [] >>
+ fs [flookup_fupdate_list] >>
+ BasicProvers.EVERY_CASE_TAC >>
+ fs [ALOOKUP_APPEND] >>
+ BasicProvers.EVERY_CASE_TAC >>
+ fs [] >>
+ imp_res_tac ALOOKUP_MEM >>
+ imp_res_tac alookup_distinct_reverse >>
+ fs [] >>
+ res_tac >>
+ BasicProvers.EVERY_CASE_TAC >>
+ fs [MEM_MAP] >>
+ rw [] >>
+ metis_tac [FST]);
+
 val _ = export_theory()

@@ -1,0 +1,6 @@
+inferPropsScript.sml
+    Proofs about the inference algorithm itself. Mostly that it preserves good
+    states and environments.
+
+inferSoundScript.sml
+    Proof that the type inference algorithm is sound.
