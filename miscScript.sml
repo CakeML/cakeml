@@ -1449,7 +1449,7 @@ rw [] >>
 metis_tac []);
 
 val filter_helper = Q.prove (
-`!x l1 l2. ~MEM x l2 ⇒ MEM x (FILTER (\x. x ∉ set l2) l1) = MEM x l1`,
+`!x l1 l2. ~MEM x l2 ⇒ (MEM x (FILTER (\x. x ∉ set l2) l1) = MEM x l1)`,
 Induct_on `l1` >>
 rw [] >>
 metis_tac []);
@@ -1514,5 +1514,33 @@ Induct_on `l1` >>
 rw [] >>
 Cases_on `l2` >>
 fs []);
+
+val flookup_thm = Q.store_thm ("flookup_thm",
+`!f x v. ((FLOOKUP f x = NONE) = (x ∉ FDOM f)) ∧
+         ((FLOOKUP f x = SOME v) = (x ∈ FDOM f ∧ (f ' x = v)))`,
+rw [FLOOKUP_DEF]);
+
+val count_add1 = Q.store_thm ("count_add1",
+`!n. count (n + 1) = n INSERT count n`,
+metis_tac [COUNT_SUC, arithmeticTheory.ADD1]);
+
+val count_list_sub1 = Q.store_thm ("count_list_sub1",
+`!n. (n ≠ 0) ⇒ (COUNT_LIST n = 0::MAP SUC (COUNT_LIST (n - 1)))`,
+Induct_on `n` >>
+ONCE_REWRITE_TAC [COUNT_LIST_def] >>
+fs []);
+
+val el_map_count = Q.store_thm ("el_map_count",
+`!n f m. n < m ⇒ (EL n (MAP f (COUNT_LIST m)) = f n)`,
+Induct_on `n` >>
+rw [] >>
+Cases_on `m` >>
+fs [COUNT_LIST_def] >>
+`n < SUC n'` by decide_tac >>
+res_tac >>
+fs [COUNT_LIST_def] >>
+pop_assum (fn _ => all_tac) >>
+pop_assum (mp_tac o GSYM o Q.SPEC `f o SUC`) >>
+rw [MAP_MAP_o]);
 
 val _ = export_theory()
