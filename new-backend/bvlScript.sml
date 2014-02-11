@@ -27,15 +27,15 @@ infix \\ val op \\ = op THEN;
    and binding perspective are lumped together in bvl_op. *)
 
 val _ = Hol_datatype `
-  bvl_op = bGlobal of num
-         | bCons of num
-         | bEl of num
-         | bAdd
-         | bSub
+  bvl_op = Global of num
+         | Cons of num
+         | El of num
+         | Add
+         | Sub
          (* This list is incomplete *)
-         | bRef
-         | bDeref
-         | bUpdate `
+         | Ref
+         | Deref
+         | Update `
 
 (* There are only a handful of "interesting" operations. *)
 
@@ -44,27 +44,27 @@ val _ = Hol_datatype `
 
 (* The optional number in the call expression below is the label to
    which the call will target. If that component is NONE, then the
-   target address is read from the end of the target list, i.e. in
+   target address is read from the end of the argument list, i.e. in
    case of NONE, the last bvl_exp in the argument list must evaluate
    to a CodePointer. *)
 
 val _ = Hol_datatype `
-  bvl_exp = bVar of num
-          | bIf of bvl_exp => bvl_exp => bvl_exp
-          | bLet of bvl_exp list => bvl_exp
-          | bRaise of bvl_exp
-          | bHandle of bvl_exp => bvl_exp
-          | bTick of bvl_exp
-          | bCall of num option => bvl_exp list
-          | bOp of bvl_op => bvl_exp list `
+  bvl_exp = Var of num
+          | If of bvl_exp => bvl_exp => bvl_exp
+          | Let of bvl_exp list => bvl_exp
+          | Raise of bvl_exp
+          | Handle of bvl_exp => bvl_exp
+          | Tick of bvl_exp
+          | Call of num option => bvl_exp list
+          | Op of bvl_op => bvl_exp list `
 
 (* --- Semantics of BVL --- *)
 
 val _ = Hol_datatype `
-  bvl_result = bResult of 'a
-             | bException of bc_value
-             | bTimeOut
-             | bError `
+  bvl_result = Result of 'a
+             | Exception of bc_value
+             | TimeOut
+             | Error `
 
 val _ = Hol_datatype `
   bvl_state =
@@ -76,11 +76,11 @@ val _ = Hol_datatype `
 val bEvalOp_def = Define `
   bEvalOp op vs (s:bvl_state) =
     case (op,vs) of
-    | (bGlobal n,[]) => (case FLOOKUP s.globals n of
+    | (Global n,[]) => (case FLOOKUP s.globals n of
                         | SOME v => SOME (v,s)
                         | NONE => NONE)
-    | (bAdd,[Number n1; Number n2]) => SOME (Number (n1 + n2),s)
-    | (bSub,[Number n1; Number n2]) => SOME (Number (n1 - n2),s)
+    | (Add,[Number n1; Number n2]) => SOME (Number (n1 + n2),s)
+    | (Sub,[Number n1; Number n2]) => SOME (Number (n1 - n2),s)
     (* This definition is incomplete *)
     | _ => NONE`;
 
@@ -139,50 +139,50 @@ val check_clock_lemma = prove(
    defined to evaluate a list of bvl_exp expressions. *)
 
 val bEval_def = tDefine "bEval" `
-  (bEval ([],env,s) = (bResult [],s)) /\
+  (bEval ([],env,s) = (Result [],s)) /\
   (bEval (x::y::xs,env,s) =
      case bEval ([x],env,s) of
-     | (bResult v1,s1) =>
+     | (Result v1,s1) =>
          (case bEval (y::xs,env,check_clock s1 s) of
-          | (bResult vs,s2) => (bResult (HD v1::vs),s2)
+          | (Result vs,s2) => (Result (HD v1::vs),s2)
           | res => res)
      | res => res) /\
-  (bEval ([bVar n],env,s) =
-     if n < LENGTH env then (bResult [EL n env],s) else (bError,s)) /\
-  (bEval ([bIf x1 x2 x3],env,s) =
+  (bEval ([Var n],env,s) =
+     if n < LENGTH env then (Result [EL n env],s) else (Error,s)) /\
+  (bEval ([If x1 x2 x3],env,s) =
      case bEval ([x1],env,s) of
-     | (bResult vs,s1) =>
+     | (Result vs,s1) =>
           if bool_to_val T = HD vs then bEval([x2],env,check_clock s1 s) else
           if bool_to_val F = HD vs then bEval([x3],env,check_clock s1 s) else
-            (bError,s)
+            (Error,s)
      | res => res) /\
-  (bEval ([bLet xs x2],env,s) =
+  (bEval ([Let xs x2],env,s) =
      case bEval (xs,env,s) of
-     | (bResult vs,s1) => bEval ([x2],vs,check_clock s1 s)
+     | (Result vs,s1) => bEval ([x2],vs++env,check_clock s1 s)
      | res => res) /\
-  (bEval ([bRaise x1],env,s) =
+  (bEval ([Raise x1],env,s) =
      case bEval ([x1],env,s) of
-     | (bResult vs,s) => (bException (HD vs),s)
+     | (Result vs,s) => (Exception (HD vs),s)
      | res => res) /\
-  (bEval ([bHandle x1 x2],env,s1) =
+  (bEval ([Handle x1 x2],env,s1) =
      case bEval ([x1],env,s1) of
-     | (bException v,s) => bEval ([x2],v::env,check_clock s s1)
+     | (Exception v,s) => bEval ([x2],v::env,check_clock s s1)
      | res => res) /\
-  (bEval ([bOp op xs],env,s) =
+  (bEval ([Op op xs],env,s) =
      case bEval (xs,env,s) of
-     | (bResult vs,s) => (case bEvalOp op vs s of
-                          | NONE => (bError,s)
-                          | SOME (v,s) => (bResult [v],s))
+     | (Result vs,s) => (case bEvalOp op vs s of
+                          | NONE => (Error,s)
+                          | SOME (v,s) => (Result [v],s))
      | res => res) /\
-  (bEval ([bTick x],env,s) =
-     if s.clock = 0 then (bTimeOut,s) else bEval ([x],env,dec_clock s)) /\
-  (bEval ([bCall dest xs],env,s1) =
+  (bEval ([Tick x],env,s) =
+     if s.clock = 0 then (TimeOut,s) else bEval ([x],env,dec_clock s)) /\
+  (bEval ([Call dest xs],env,s1) =
      case bEval (xs,env,s1) of
-     | (bResult vs,s) =>
+     | (Result vs,s) =>
          (case find_code dest vs s of
-          | NONE => (bError,s)
+          | NONE => (Error,s)
           | SOME (args,exp) =>
-              if (s.clock = 0) \/ (s1.clock = 0) then (bTimeOut,s) else
+              if (s.clock = 0) \/ (s1.clock = 0) then (TimeOut,s) else
                   bEval ([exp],args,dec_clock (check_clock s s1)))
      | res => res)`
  (WF_REL_TAC `(inv_image (measure I LEX measure bvl_exp1_size)
@@ -190,7 +190,7 @@ val bEval_def = tDefine "bEval" `
   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
   \\ TRY (MATCH_MP_TAC check_clock_lemma \\ DECIDE_TAC)
   \\ EVAL_TAC \\ Cases_on `s.clock <= s1.clock`
-  \\ FULL_SIMP_TAC (srw_ss()) [] \\ TRY DECIDE_TAC);
+  \\ FULL_SIMP_TAC (srw_ss()) [] \\ DECIDE_TAC);
 
 (* We prove that the clock never increases. *)
 
