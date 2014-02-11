@@ -1,0 +1,13 @@
+INCLUDES = ../bytecode/
+OPTIONS=QUIT_ON_FAILURE
+
+ifdef POLY
+HOLHEAP = local-hol-heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+
+BARE_THYS = ../bytecode/bytecodeTheory
+DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) $(BARE_THYS)
+endif
