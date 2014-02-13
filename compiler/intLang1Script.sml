@@ -45,6 +45,16 @@ val _ = Hol_datatype `
   | Dexn_i1 of  modN option => conN => t list`;
 
 
+(* A prompt is a list of declarations that must execute `atomically'; it
+ * corresponds to a module body in the source language. If any of the
+ * declarations results in an exception reaching the prompt's top level, none
+ * of the declaration binding are installed. The module name is book-keeping
+ * for the constructors *)
+val _ = Hol_datatype `
+ prompt_i1 =
+    Prompt_i1 of  modN option => dec_i1 list`;
+
+
 val _ = Hol_datatype `
  v_i1 =
     Litv_i1 of lit
@@ -174,22 +184,22 @@ val _ = Define `
 (decs_to_i1 next mn menv env (d::ds) =  
 (let (next1, new_env1, d') = (dec_to_i1 next mn menv env d) in
   let (next2, new_env2, ds') =    
- (decs_to_i1 next1 mn menv (FOLDR (\ (k,v) env . env |+ (k, v)) env new_env1) ds) 
+ (decs_to_i1 next1 mn menv (FOLDL (\ env (k,v) . env |+ (k, v)) env new_env1) ds) 
   in
     (next2, (new_env1 ++ new_env2), (d'::ds'))))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn decs_to_i1_defn;
 
-(*val top_to_i1 : nat -> map modN (map varN nat) -> map varN nat -> top -> nat * map modN (map varN nat) * map varN nat * list dec_i1*)
+(*val top_to_i1 : nat -> map modN (map varN nat) -> map varN nat -> top -> nat * map modN (map varN nat) * map varN nat * prompt_i1*)
 val _ = Define `
  (top_to_i1 next menv env top =  
 ((case top of
       Tdec d =>
         let (next', new_env, d') = (dec_to_i1 next NONE menv env d) in
-          (next', menv, FOLDR (\ (k,v) env . env |+ (k, v)) env new_env, [d'])
+          (next', menv, FOLDL (\ env (k,v) . env |+ (k, v)) env new_env, Prompt_i1 NONE [d'])
     | Tmod mn specs ds =>
         let (next', new_env, ds') = (decs_to_i1 next (SOME mn) menv env ds) in
-          (next',menv |+ (mn, (FOLDR (\ (k,v) env . env |+ (k, v)) FEMPTY new_env)), env, ds')
+          (next',menv |+ (mn, (FOLDL (\ env (k,v) . env |+ (k, v)) FEMPTY new_env)), env, Prompt_i1 (SOME mn) ds')
   )))`;
 
 
@@ -692,5 +702,61 @@ evaluate_decs_i1 genv cenv s1 (d::ds) (s2, emp, Rerr e))
 evaluate_decs_i1 (genv ++ new_env) (merge_envC (emp,new_tds) cenv) s2 ds (s3, new_tds', r))
 ==>
 evaluate_decs_i1 genv cenv s1 (d::ds) (s3, merge new_tds' new_tds, combine_dec_result_i1 new_env r))`;
+
+ val _ = Define `
+
+(dec_to_cenv_i1 (Dtype_i1 mn tds) = (build_tdefs mn tds))
+/\
+(dec_to_cenv_i1 (Dexn_i1 mn cn ts) = (bind cn (LENGTH ts,TypeExn mn) emp))
+/\
+(dec_to_cenv_i1 _ = ([]))`;
+
+
+ val decs_to_cenv_i1_defn = Hol_defn "decs_to_cenv_i1" `
+
+(decs_to_cenv_i1 [] = ([]))
+/\
+(decs_to_cenv_i1 (d::ds) = (decs_to_cenv_i1 ds ++ dec_to_cenv_i1 d))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn decs_to_cenv_i1_defn;
+
+(*val mod_cenv : maybe modN -> flat_envC -> envC*)
+val _ = Define `
+ (mod_cenv mn cenv =  
+((case mn of
+      NONE => ([],cenv)
+    | SOME mn => ([(mn,cenv)],[])
+  )))`;
+
+
+ val _ = Define `
+
+(dec_to_dummy_env (Dlet_i1 n e) = n)
+/\
+(dec_to_dummy_env (Dletrec_i1 funs) = (LENGTH funs))
+/\
+(dec_to_dummy_env _ =( 0))`;
+ 
+
+ val _ = Define `
+
+(decs_to_dummy_env [] =( 0))
+/\
+(decs_to_dummy_env (d::ds) = (decs_to_dummy_env ds + dec_to_dummy_env d))`;
+
+
+val _ = Hol_reln ` (! genv cenv s1 ds s2 cenv' env mn.
+(evaluate_decs_i1 genv cenv s1 ds (s2,cenv',Rval env))
+==>
+evaluate_prompt_i1 genv cenv s1 (Prompt_i1 mn ds) (s2, mod_cenv mn cenv', env, NONE))
+
+/\ (! genv cenv s1 mn ds s2 cenv' err.
+(evaluate_decs_i1 genv cenv s1 ds (s2,cenv',Rerr err))
+==>
+evaluate_prompt_i1 genv cenv s1 (Prompt_i1 mn ds) (s2, 
+                                                   mod_cenv mn (decs_to_cenv_i1 ds), 
+                                                   GENLIST (\n .  
+  (case (n ) of ( _ ) => Litv_i1 Unit )) (decs_to_dummy_env ds),
+                                                   SOME err))`;
 val _ = export_theory()
 
