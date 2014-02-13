@@ -416,41 +416,63 @@ val do_uapp_i1 = Q.prove (
  >- fs [store_lookup_def] >>
  metis_tac [store_lookup_vs_to_i1]);
 
-     (*
 
 val do_eq_i1 = Q.prove (
-`(!v1 v2 mods tops r.
-  do_eq v1 v2 = r
+`(!v1 v2 bindings r v1_i1 v2_i1.
+  do_eq v1 v2 = r ∧
+  v_to_i1 bindings v1 v1_i1 ∧
+  v_to_i1 bindings v2 v2_i1
   ⇒ 
-  do_eq_i1 (v_to_i1 mods tops v1) (v_to_i1 mods tops v2) = r) ∧
- (!vs1 vs2 mods tops r.
-  do_eq_list vs1 vs2 = r
+  do_eq_i1 v1_i1 v2_i1 = r) ∧
+ (!vs1 vs2 bindings r vs1_i1 vs2_i1.
+  do_eq_list vs1 vs2 = r ∧
+  vs_to_i1 bindings vs1 vs1_i1 ∧
+  vs_to_i1 bindings vs2 vs2_i1
   ⇒ 
-  do_eq_list_i1 (vs_to_i1 mods tops vs1) (vs_to_i1 mods tops vs2) = r)`,
+  do_eq_list_i1 vs1_i1 vs2_i1 = r)`,
  ho_match_mp_tac do_eq_ind >>
- rw [do_eq_i1_def, do_eq_def, v_to_i1_def] >>
+ rw [do_eq_i1_def, do_eq_def, v_to_i1_eqns] >>
  rw [] >>
- fs [length_vs_to_i1]
- >- (PairCases_on `v1` >> PairCases_on `v5` >> rw [do_eq_i1_def, v_to_i1_def])
- >- (PairCases_on `v8` >> PairCases_on `v11` >> ntac 2 (rw [do_eq_i1_def, v_to_i1_def]))
- >- (PairCases_on `v14` >> PairCases_on `v17` >> ntac 2 (rw [do_eq_i1_def, v_to_i1_def]))
- >- (PairCases_on `v20` >> PairCases_on `v23` >> ntac 2 (rw [do_eq_i1_def, v_to_i1_def]))
- >- (PairCases_on `v56` >> ntac 2 (rw [do_eq_i1_def, v_to_i1_def]))
- >- (PairCases_on `v59` >> ntac 2 (rw [do_eq_i1_def, v_to_i1_def]))
- >- (PairCases_on `v76` >> ntac 2 (rw [do_eq_i1_def, v_to_i1_def]))
- >- (PairCases_on `v79` >> ntac 2 (rw [do_eq_i1_def, v_to_i1_def]))
- >- (PairCases_on `v36` >> ntac 2 (rw [do_eq_i1_def, v_to_i1_def]))
- >- (PairCases_on `v36` >> ntac 2 (rw [do_eq_i1_def, v_to_i1_def]))
- >- (PairCases_on `v36` >> ntac 2 (rw [do_eq_i1_def, v_to_i1_def]))
- >- (PairCases_on `v39` >> ntac 2 (rw [do_eq_i1_def, v_to_i1_def]))
- >- (PairCases_on `v39` >> ntac 2 (rw [do_eq_i1_def, v_to_i1_def]))
- >- (PairCases_on `v39` >> ntac 2 (rw [do_eq_i1_def, v_to_i1_def]))
- >- (PairCases_on `v136` >> ntac 2 (rw [do_eq_i1_def, v_to_i1_def]))
- >- (PairCases_on `v139` >> ntac 2 (rw [do_eq_i1_def, v_to_i1_def])) >>
+ rw [do_eq_i1_def, do_eq_def, v_to_i1_eqns] >>
+ imp_res_tac length_vs_to_i1 >>
+ fs []
+ >- metis_tac []
+ >- (fs [Once v_to_i1_cases] >>
+     rw [do_eq_i1_def])
+ >- (fs [Once v_to_i1_cases] >>
+     rw [do_eq_i1_def])
+ >- (fs [Once v_to_i1_cases] >>
+     rw [do_eq_i1_def])
+ >- (fs [Once v_to_i1_cases] >>
+     rw [do_eq_i1_def])
+ >- (fs [Once v_to_i1_cases] >>
+     rw [do_eq_i1_def])
+ >- (fs [Once v_to_i1_cases] >>
+     rw [do_eq_i1_def])
+ >- (fs [Once v_to_i1_cases] >>
+     rw [do_eq_i1_def])
+ >- (fs [Once v_to_i1_cases] >>
+     rw [do_eq_i1_def])
+ >- (fs [Once v_to_i1_cases] >>
+     rw [do_eq_i1_def])
+ >- (fs [Once v_to_i1_cases] >>
+     rw [do_eq_i1_def])
+ >- (fs [Once v_to_i1_cases] >>
+     rw [do_eq_i1_def])
+ >- (fs [Once v_to_i1_cases] >>
+     rw [do_eq_i1_def])
+ >- (fs [Once v_to_i1_cases] >>
+     rw [do_eq_i1_def])
+ >- (fs [Once v_to_i1_cases] >>
+     rw [do_eq_i1_def])
+ >- (fs [Once v_to_i1_cases] >>
+     rw [do_eq_i1_def])
+ >- (fs [Once v_to_i1_cases] >>
+     rw [do_eq_i1_def]) >>
+ res_tac >>
  every_case_tac >>
+ fs [] >>
  metis_tac []);
-
- *)
 
 val env_all_to_i1_exn = Q.prove (
 `!genv tops mods. env_all_to_i1 (genv,mods,tops) exn_env (exn_env_i1 genv) {}`,
@@ -488,8 +510,10 @@ val do_app_i1 = Q.prove (
  >- metis_tac []
  >- metis_tac []
  >- metis_tac []
- >- cheat
- >- cheat
+ >- (every_case_tac >>
+     metis_tac [do_eq_i1, eq_result_11, eq_result_distinct])
+ >- (every_case_tac >>
+     metis_tac [do_eq_i1, eq_result_distinct, env_all_to_i1_exn])
  >- (qpat_assum `v_to_i1 (genv,mods,tops) (Closure (menv'',cenv'',env'') n e) v1_i1` mp_tac >>
      rw [Once v_to_i1_cases] >>
      rw [] >>
