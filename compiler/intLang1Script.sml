@@ -288,9 +288,9 @@ val _ = Define `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn do_eq_i1_defn;
 
-(*val exn_env_i1 : all_env_i1*)
+(*val exn_env_i1 : list v_i1 -> all_env_i1*)
 val _ = Define `
- (exn_env_i1 = ([], (emp, MAP (\ cn .  (cn, ( 0, TypeExn NONE))) ["Bind"; "Div"; "Eq"]), emp))`;
+ (exn_env_i1 genv = (genv, (emp, MAP (\ cn .  (cn, ( 0, TypeExn NONE))) ["Bind"; "Div"; "Eq"]), emp))`;
 
 
 (*val do_app_i1 : all_env_i1 -> store v_i1 -> op -> v_i1 -> v_i1 -> maybe (all_env_i1 * store v_i1 * exp_i1)*)
@@ -306,7 +306,7 @@ val _ = Define `
         )
     | (Opn op, Litv_i1 (IntLit n1), Litv_i1 (IntLit n2)) =>
         if ((op = Divide) \/ (op = Modulo)) /\ (n2 =( 0 : int)) then
-          SOME (exn_env_i1, s, Raise_i1 (Con_i1 (SOME (Short "Div")) []))
+          SOME (exn_env_i1 (all_env_i1_to_genv env'), s, Raise_i1 (Con_i1 (SOME (Short "Div")) []))
         else
           SOME (env', s, Lit_i1 (IntLit (opn_lookup op n1 n2)))
     | (Opb op, Litv_i1 (IntLit n1), Litv_i1 (IntLit n2)) =>
@@ -314,7 +314,7 @@ val _ = Define `
     | (Equality, v1, v2) =>
         (case do_eq_i1 v1 v2 of
             Eq_type_error => NONE
-          | Eq_closure => SOME (exn_env_i1, s, Raise_i1 (Con_i1 (SOME (Short "Eq")) []))
+          | Eq_closure => SOME (exn_env_i1 (all_env_i1_to_genv env'), s, Raise_i1 (Con_i1 (SOME (Short "Eq")) []))
           | Eq_val b => SOME (env', s, Lit_i1 (Bool b))
         )
     | (Opassign, (Loc_i1 lnum), v) =>
