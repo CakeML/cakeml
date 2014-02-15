@@ -961,8 +961,8 @@ val exp_to_i1_correct = Q.prove (
      fs [METIS_PROVE [] ``(((?x. P x) ∧ R ⇒ Q) ⇔ !x. P x ∧ R ⇒ Q) ∧ ((R ∧ (?x. P x) ⇒ Q) ⇔ !x. R ∧ P x ⇒ Q) ``])); 
 
 val dec_res_to_new_genv_def = Define `
-(dec_res_to_new_genv genv (Rval (cenv, env)) = genv ++ env) ∧
-(dec_res_to_new_genv genv (Rerr _) = genv)`;
+(dec_res_to_new_genv genv n (Rval (cenv, env)) = genv ++ env) ∧
+(dec_res_to_new_genv genv n (Rerr _) = genv ++ GENLIST (\x. Litv_i1 Unit) n)`;
 
 val dec_res_to_new_env_def = Define `
 (dec_res_to_new_env env (Rval (cenv, env')) = env' ++ env) ∧
@@ -1143,14 +1143,13 @@ val dec_to_i1_correct = Q.prove (
   ⇒
   ?s'_i1 r_i1 genv' env' cenv'.
     evaluate_dec_i1 genv cenv s_i1 d_i1 (s'_i1,r_i1) ∧
-    genv' = dec_res_to_new_genv genv r_i1 ∧
+    genv' = dec_res_to_new_genv genv (dec_to_dummy_env d_i1) r_i1 ∧
     cenv' = dec_res_to_new_cenv cenv r_i1 ∧
     env' = dec_res_to_new_env env r ∧
     next' = LENGTH genv' ∧
     s_to_i1' genv' s' s'_i1 ∧
     result_to_i1 (λgenv (envC,env) (envC',env'). envC = envC' ∧ ?env''. env_to_i1 genv env env'' ∧ env' = MAP SND env'') genv' r r_i1 ∧
     global_env_inv genv' mods (tops |++ tops') menv {} env'`,
-
  rw [evaluate_dec_cases, evaluate_dec_i1_cases, dec_to_i1_def] >>
  every_case_tac >>
  fs [LET_THM] >>
@@ -1205,116 +1204,73 @@ val dec_to_i1_correct = Q.prove (
      rw [] >>
      pop_assum (fn _ => all_tac) >>
      fs [DRESTRICT_UNIV, result_to_i1_cases, all_env_to_cenv_def] >>
-     `match_result_to_i1 genv [] (No_match) (pmatch_i1 cenv s''' p v'' [])`
+     `match_result_to_i1 genv [] No_match (pmatch_i1 cenv s''' p v'' [])`
              by metis_tac [emp_def, APPEND, pmatch_to_i1_correct, v_to_i1_eqns] >>
      cases_on `pmatch_i1 cenv s''' p v'' []` >>
      fs [match_result_to_i1_def] >>
      rw [] >>
-     ONCE_REWRITE_TAC [evaluate_i1_cases] >>
-     rw [] >>
-     ONCE_REWRITE_TAC [hd (tl (tl (CONJUNCTS evaluate_i1_cases)))] >>
-     rw [] >>
-     ONCE_REWRITE_TAC [hd (tl (tl (CONJUNCTS evaluate_i1_cases)))] >>
-     rw [evaluate_i1_con, do_con_check_def, build_conv_i1_def] >>
-     qexists_tac `s'''` >>
-     rw [RIGHT_EXISTS_AND_THM]
-     >- (qexists_tac `0` >>
-         disj1_tac >>
-         MAP_EVERY qexists_tac [`v''`, `(0,s''')`] >>
+     MAP_EVERY qexists_tac [`s'''`, `Rerr (Rraise (Conv_i1 (SOME ("Bind",TypeExn NONE)) []))`] >>
+     rw [dec_res_to_new_genv_def, dec_to_dummy_env_def]
+     >- (ONCE_REWRITE_TAC [evaluate_i1_cases] >>
+         rw [] >>
+         ONCE_REWRITE_TAC [hd (tl (tl (CONJUNCTS evaluate_i1_cases)))] >>
+         rw [] >>
+         ONCE_REWRITE_TAC [hd (tl (tl (CONJUNCTS evaluate_i1_cases)))] >>
+         rw [evaluate_i1_con, do_con_check_def, build_conv_i1_def] >>
+         qexists_tac `0` >>
          rw [] >>
          metis_tac [big_unclocked])
-     >- cheat
-     >- cheat)
+     >- metis_tac [v_to_i1_weakening, s_to_i1_cases, s_to_i1'_cases]
+     >- rw [v_to_i1_eqns]
+     >- (rw [GSYM FUPDATE_LIST] >>
+         cheat))
  >- (`env_all_to_i1 genv mods tops (menv,cenv,env) (genv,cenv,[]) {}`
            by fs [env_all_to_i1_cases, v_to_i1_eqns] >>
      imp_res_tac exp_to_i1_correct >>
      fs [s_to_i1_cases] >>
      res_tac >>
      fs [] >>
-     res_tac >>
-     fs [] >>
      rw [] >>
-     pop_assum (fn _ => all_tac) >>
-     fs [DRESTRICT_UNIV, result_to_i1_cases, all_env_to_cenv_def] >>
-     `match_result_to_i1 genv [] (No_match) (pmatch_i1 cenv s''' p v'' [])`
-             by metis_tac [emp_def, APPEND, pmatch_to_i1_correct, v_to_i1_eqns] >>
-     cases_on `pmatch_i1 cenv s''' p v'' []` >>
-     fs [match_result_to_i1_def] >>
-     rw [] >>
-     ONCE_REWRITE_TAC [evaluate_i1_cases] >>
-     rw [] >>
-     ONCE_REWRITE_TAC [hd (tl (tl (CONJUNCTS evaluate_i1_cases)))] >>
-     rw [] >>
-     ONCE_REWRITE_TAC [hd (tl (tl (CONJUNCTS evaluate_i1_cases)))] >>
-     rw [evaluate_i1_con, do_con_check_def, build_conv_i1_def] >>
-     qexists_tac `s'''` >>
-     rw [RIGHT_EXISTS_AND_THM]
-     >- (qexists_tac `0` >>
-         disj1_tac >>
-         MAP_EVERY qexists_tac [`v''`, `(0,s''')`] >>
-         rw [] >>
-         metis_tac [big_unclocked])
-     >- cheat
-     >- cheat)
-
-
-
-    
-     >- cheat
-     >- (rw [Once evaluate_i1_cases] >>
-         qexists_tac `count'` >>
-         disj1_tac >>
-         MAP_EVERY qexists_tac [`v''`, `(count',s''')`] >>
-         rw [] >>
-         rw [Once evaluate_i1_cases] >>
-         disj2_tac >>
-         rw []
-         >- (`env_to_i1 (genv,mods,tops) [] []` by rw [v_to_i1_eqns]
-             imp_res_tac pmatch_to_i1_correct >>
-             fs [emp_def] >>
-             rw [] >>
-             cases_on `pmatch_i1 cenv s''' p v'' []` >>
-             fs [match_result_to_i1_def])
-         >- rw [Once evaluate_i1_cases])
-     >- cheat)
-
- >- (imp_res_tac exp_to_i1_correct >>
-     fs [s_to_i1_cases] >>
-     res_tac >>
-     fs [] >>
      res_tac >>
      fs [] >>
      rw [] >>
      ntac 5 (pop_assum (fn _ => all_tac)) >>
      fs [DRESTRICT_UNIV, result_to_i1_cases, all_env_to_cenv_def] >>
-     rw [dec_res_to_new_genv_def, dec_res_to_new_cenv_def]
-     >-
-
-     >- cheat
-     >- (rw [Once evaluate_i1_cases] >>
-         qexists_tac `count'` >>
-         disj1_tac >>
-         MAP_EVERY qexists_tac [`v''`, `(count',s''')`] >>
-         rw [] >>
-         rw [Once evaluate_i1_cases] >>
-         disj2_tac >>
-         rw []
-         >- (`env_to_i1 (genv,mods,tops) [] []` by rw [v_to_i1_eqns]
-             imp_res_tac pmatch_to_i1_correct >>
-             fs [emp_def] >>
+     rw []
+     >- (MAP_EVERY qexists_tac [`s'''`, `Rerr (Rraise v')`] >>
+         rw [dec_res_to_new_genv_def, dec_to_dummy_env_def]
+         >- (ONCE_REWRITE_TAC [evaluate_i1_cases] >>
              rw [] >>
-             cases_on `pmatch_i1 cenv s''' p v'' []` >>
-             fs [match_result_to_i1_def])
-         >- rw [Once evaluate_i1_cases])
-     >- cheat)
-
-
+             ONCE_REWRITE_TAC [hd (tl (tl (CONJUNCTS evaluate_i1_cases)))] >>
+             rw [] >>
+             ONCE_REWRITE_TAC [hd (tl (tl (CONJUNCTS evaluate_i1_cases)))] >>
+             rw [evaluate_i1_con, do_con_check_def, build_conv_i1_def] >>
+             qexists_tac `0` >>
+             rw [] >>
+             metis_tac [big_unclocked])
+         >- metis_tac [v_to_i1_weakening, s_to_i1_cases, s_to_i1'_cases]
+         >- metis_tac [v_to_i1_weakening]
+         >- (rw [GSYM FUPDATE_LIST] >>
+             cheat))
+     >- (qexists_tac `s'''` >>
+         rw [dec_res_to_new_genv_def, dec_to_dummy_env_def]
+         >- (ONCE_REWRITE_TAC [evaluate_i1_cases] >>
+             rw [] >>
+             ONCE_REWRITE_TAC [hd (tl (tl (CONJUNCTS evaluate_i1_cases)))] >>
+             rw [] >>
+             ONCE_REWRITE_TAC [hd (tl (tl (CONJUNCTS evaluate_i1_cases)))] >>
+             rw [evaluate_i1_con, do_con_check_def, build_conv_i1_def] >>
+             qexists_tac `0` >>
+             rw [] >>
+             metis_tac [big_unclocked])
+         >- metis_tac [v_to_i1_weakening, s_to_i1_cases, s_to_i1'_cases]
+         >- (rw [GSYM FUPDATE_LIST] >>
+             cheat)))
  >- cheat
- >- fs [v_to_i1_eqns]
- >- fs [v_to_i1_eqns]
  >- fs [v_to_i1_eqns]
  >- fs [v_to_i1_eqns]);
 
+ (*
 val decs_to_i1_correct = Q.prove (
 `!next mn mods tops ds menv cenv cenv' env s s' r genv s_i1 s'_i1 next' tops' ds_i1.
   r ≠ Rerr Rtype_error ∧
