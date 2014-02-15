@@ -42,6 +42,42 @@ val compl_insert = Q.prove (
  rw [EXTENSION] >>
  metis_tac []);
 
+val drestrict_iter_list = Q.prove (
+`!m l. FOLDR (\k m. m \\ k) m l = DRESTRICT m (COMPL (set l))`,
+ induct_on `l` >>
+ rw [DRESTRICT_UNIV, compl_insert, DRESTRICT_DOMSUB]);
+
+val pat_bindings_accum = Q.prove (
+`(!p acc. pat_bindings p acc = pat_bindings p [] ++ acc) ∧
+ (!ps acc. pats_bindings ps acc = pats_bindings ps [] ++ acc)`,
+ Induct >>
+ rw []
+ >- rw [pat_bindings_def]
+ >- rw [pat_bindings_def]
+ >- metis_tac [APPEND_ASSOC, pat_bindings_def]
+ >- metis_tac [APPEND_ASSOC, pat_bindings_def]
+ >- rw [pat_bindings_def]
+ >- metis_tac [APPEND_ASSOC, pat_bindings_def]);
+
+val pmatch_extend = Q.prove (
+`(!cenv s p v env env' env''.
+  pmatch cenv s p v env = Match env'
+  ⇒
+  ?env''. env' = env'' ++ env ∧ MAP FST env'' = pat_bindings p []) ∧
+ (!cenv s ps vs env env' env''.
+  pmatch_list cenv s ps vs env = Match env'
+  ⇒
+  ?env''. env' = env'' ++ env ∧ MAP FST env'' = pats_bindings ps [])`,
+ ho_match_mp_tac pmatch_ind >>
+ rw [pat_bindings_def, pmatch_def, bind_def] >>
+ every_case_tac >>
+ fs [] >>
+ rw [] >>
+ res_tac >>
+ qexists_tac `env'''++env''` >>
+ rw [] >>
+ metis_tac [pat_bindings_accum]);
+
 fun register name def ind =
   let val _ = save_thm (name ^ "_def", def);
       val _ = save_thm (name ^ "_ind", ind);
@@ -58,6 +94,14 @@ val (exp_to_i1_def, exp_to_i1_ind) =
                                         | INR (INR (INR (x,y,funs))) => funs_size funs)` >>
   srw_tac [ARITH_ss] [size_abbrevs, exp_size_def]);
 val _ = register "exp_to_i1_ind" exp_to_i1_def exp_to_i1_ind;
+
+val (pmatch_i1_def, pmatch_i1_ind) =
+  tprove_no_defn ((pmatch_i1_def, pmatch_i1_ind),
+  wf_rel_tac `inv_image $< (\x. case x of INL (a,x,p,y,z) => pat_size p
+                                        | INR (a,x,ps,y,z) => pats_size ps)` >>
+  srw_tac [ARITH_ss] [size_abbrevs, pat_size_def]);
+val _ = register "pmatch_i1_ind" pmatch_i1_def pmatch_i1_ind;
+
 
 val (do_eq_i1_def, do_eq_i1_ind) =
   tprove_no_defn ((do_eq_i1_def, do_eq_i1_ind),
@@ -224,6 +268,36 @@ val (env_all_to_i1_rules, env_all_to_i1_ind, env_all_to_i1_cases) = Hol_reln `
   ⇒
   env_all_to_i1 (genv,mods,tops) (menv,cenv,env++env') (genv,cenv,env_i1) locals)`;
 
+  (*
+val v_to_i1_weakening = Q.prove (
+`(!bindings v v_i1.
+  v_to_i1 bindings v v_i1
+  ⇒
+  !genv mods tops l. bindings = (genv,mods,tops) ⇒ v_to_i1 (genv,mods,tops|++l) v v_i1) ∧
+ (!bindings vs vs_i1.
+  vs_to_i1 bindings vs vs_i1
+  ⇒
+  !genv mods tops l. bindings = (genv,mods,tops) ⇒ vs_to_i1 (genv,mods,tops|++l) vs vs_i1) ∧
+ (!bindings env env_i1.
+  env_to_i1 bindings env env_i1
+  ⇒
+  !genv mods tops l. bindings = (genv,mods,tops) ⇒ env_to_i1 (genv,mods,tops|++l) env env_i1) ∧
+ (!bindings map shadowers env.
+  global_env_inv_flat bindings map shadowers env
+  ⇒
+  !genv mods tops l. bindings = (genv,mods,tops) ⇒ global_env_inv_flat (genv,mods,tops|++l) map shadowers env) ∧
+ (!bindings menv shadowers env.
+  global_env_inv bindings menv shadowers env
+  ⇒
+  !genv mods tops l. bindings = (genv,mods,tops) ⇒ global_env_inv (genv,mods,tops|++l) menv shadowers env)`,
+ ho_match_mp_tac v_to_i1_ind >>
+ rw [v_to_i1_eqns]
+ >- (rw [Once v_to_i1_cases] >>
+     MAP_EVERY qexists_tac [`env`, `env'`] >>
+     fs [FDOM_FUPDATE_LIST, SUBSET_DEF, v_to_i1_eqns] >>
+     rw []
+     *)
+
 val env_to_i1_append = Q.prove (
 `!bindings env1 env2 env1' env2'.
   env_to_i1 bindings env1 env1' ∧
@@ -340,6 +414,13 @@ val global_env_inv_lookup_mod3 = Q.prove (
  res_tac >>
  full_simp_tac (srw_ss()++ARITH_ss) [] >>
  metis_tac []);
+
+val global_env_inv_add_locals = Q.prove (
+`!bindings menv locals1 locals2 env.
+  global_env_inv bindings menv locals1 env
+  ⇒
+  global_env_inv bindings menv (locals2 ∪ locals1) env`,
+ rw [v_to_i1_eqns]);
 
 val env_to_i1_dom = Q.prove (
 `!bindings env env_i1.
@@ -526,6 +607,69 @@ val do_app_i1 = Q.prove (
      >- (metis_tac [length_vs_to_i1]) >>
      rw [] >>
      metis_tac [vs_to_i1_lupdate]));
+
+val match_result_to_i1_def = Define 
+`(match_result_to_i1 bindings env' (Match env) (Match env_i1) = 
+   ?env''. env = env'' ++ env' ∧ env_to_i1 bindings env'' env_i1) ∧
+ (match_result_to_i1 bindings env' No_match No_match = T) ∧
+ (match_result_to_i1 bindings env' Match_type_error Match_type_error = T) ∧
+ (match_result_to_i1 bindings env' _ _ = F)`;
+
+val pmatch_to_i1_correct = Q.prove (
+`(!cenv s p v env r env' env'' bindings env_i1 s_i1 v_i1.
+  pmatch cenv s p v env = r ∧
+  env = env' ++ env'' ∧
+  s_to_i1' bindings s s_i1 ∧
+  v_to_i1 bindings v v_i1 ∧
+  env_to_i1 bindings env' env_i1
+  ⇒
+  ?r_i1.
+    pmatch_i1 cenv s_i1 p v_i1 env_i1 = r_i1 ∧
+    match_result_to_i1 bindings env'' r r_i1) ∧
+ (!cenv s ps vs env r env' env'' bindings env_i1 s_i1 vs_i1.
+  pmatch_list cenv s ps vs env = r ∧
+  env = env' ++ env'' ∧
+  s_to_i1' bindings s s_i1 ∧
+  vs_to_i1 bindings vs vs_i1 ∧
+  env_to_i1 bindings env' env_i1
+  ⇒
+  ?r_i1.
+    pmatch_list_i1 cenv s_i1 ps vs_i1 env_i1 = r_i1 ∧
+    match_result_to_i1 bindings env'' r r_i1)`,
+ ho_match_mp_tac pmatch_ind >>
+ rw [pmatch_def, pmatch_i1_def] >>
+ fs [match_result_to_i1_def, bind_def, pmatch_i1_def, v_to_i1_eqns]
+ >- (every_case_tac >>
+     fs [match_result_to_i1_def])
+ >- (every_case_tac >>
+     fs [match_result_to_i1_def] >>
+     metis_tac [length_vs_to_i1])
+ >- (every_case_tac >>
+     fs [match_result_to_i1_def, s_to_i1'_cases]
+     >- (fs [store_lookup_def] >>
+         metis_tac [length_vs_to_i1])
+     >- (fs [store_lookup_def] >>
+         metis_tac [length_vs_to_i1])
+     >- metis_tac [store_lookup_vs_to_i1])
+ >- (fs [Once v_to_i1_cases] >>
+     rw [pmatch_i1_def, match_result_to_i1_def])
+ >- (fs [Once v_to_i1_cases])
+ >- (fs [Once v_to_i1_cases] >>
+     rw [pmatch_i1_def, match_result_to_i1_def])
+ >- (fs [Once v_to_i1_cases])
+ >- (fs [Once v_to_i1_cases] >>
+     rw [pmatch_i1_def, match_result_to_i1_def])
+ >- (fs [Once v_to_i1_cases])
+ >- (every_case_tac >>
+     fs [match_result_to_i1_def] >>
+     rw [] >>
+     pop_assum mp_tac >>
+     pop_assum mp_tac >>
+     res_tac >>
+     rw [] >>
+     CCONTR_TAC >>
+     fs [match_result_to_i1_def] >>
+     metis_tac [match_result_to_i1_def, match_result_distinct]));
 
 val exp_to_i1_correct = Q.prove (
 `(∀b env s e res. 
@@ -752,9 +896,40 @@ val exp_to_i1_correct = Q.prove (
  >- metis_tac []
  >- metis_tac []
  >- (* Pattern matching *)
-    cheat
+    (pop_assum mp_tac >>
+     rw [] >>
+     fs [s_to_i1_cases, env_all_to_i1_cases] >>
+     rw [] >>
+     `match_result_to_i1 (genv,mods,tops) env''' (Match env') (pmatch_i1 cenv s'' p v_i1 env_i1')`
+                   by metis_tac [pmatch_to_i1_correct] >>
+     cases_on `pmatch_i1 cenv s'' p v_i1 env_i1'` >>
+     fs [match_result_to_i1_def] >>
+     rw [] >>
+     fs [METIS_PROVE [] ``(((?x. P x) ∧ R ⇒ Q) ⇔ !x. P x ∧ R ⇒ Q) ∧ ((R ∧ (?x. P x) ⇒ Q) ⇔ !x. R ∧ P x ⇒ Q) ``] >>
+     FIRST_X_ASSUM (qspecl_then [`genv`, `mods`, `tops`, `env''''`, `env'''`, `a`, `s''`] mp_tac) >>
+     rw [] >>
+     fs [] >>
+     imp_res_tac pmatch_extend >>
+     fs [APPEND_11] >>
+     rw [] >>
+     imp_res_tac global_env_inv_add_locals >>
+     fs [] >>
+     rw [] >>
+     MAP_EVERY qexists_tac [`(c,s'''')`, `r_i1`] >>
+     rw [] >>
+     fs [COMPL_UNION, drestrict_iter_list] >>
+     metis_tac [INTER_COMM])
  >- (* Pattern matching *)
-    cheat);
+    (pop_assum mp_tac >>
+     rw [] >>
+     fs [s_to_i1_cases, env_all_to_i1_cases] >>
+     rw [] >>
+     `match_result_to_i1 (genv,mods,tops) env'' (No_match) (pmatch_i1 cenv s'' p v_i1 env_i1')`
+                   by metis_tac [pmatch_to_i1_correct] >>
+     cases_on `pmatch_i1 cenv s'' p v_i1 env_i1'` >>
+     fs [match_result_to_i1_def] >>
+     rw [] >>
+     fs [METIS_PROVE [] ``(((?x. P x) ∧ R ⇒ Q) ⇔ !x. P x ∧ R ⇒ Q) ∧ ((R ∧ (?x. P x) ⇒ Q) ⇔ !x. R ∧ P x ⇒ Q) ``])); 
 
 val dec_res_to_new_genv_def = Define `
 (dec_res_to_new_genv genv (Rval (cenv, env)) = genv ++ env) ∧
@@ -776,6 +951,7 @@ val decs_res_to_new_env_def = Define `
 (decs_res_to_new_env env (Rval env') = env' ++ env) ∧
 (decs_res_to_new_env env (Rerr _) = env)`;
 
+(*
 val dec_to_i1_correct = Q.prove (
 `!next mn mods tops d menv cenv env s s' r genv s_i1 s'_i1 next' tops' d_i1.
   r ≠ Rerr Rtype_error ∧
@@ -797,21 +973,92 @@ val dec_to_i1_correct = Q.prove (
  fs [LET_THM] >>
  rw [FUPDATE_LIST, dec_res_to_new_genv_def, dec_res_to_new_cenv_def, result_to_i1_eqns, 
      dec_res_to_new_env_def, emp_def, v_to_i1_eqns]
- >- cheat
- >- cheat
- >- cheat
+
+ >- (imp_res_tac exp_to_i1_correct >>
+     fs [s_to_i1_cases] >>
+     res_tac >>
+     fs [] >>
+     res_tac >>
+     fs [] >>
+     rw [] >>
+     pop_assum (fn _ => all_tac) >>
+     fs [DRESTRICT_UNIV, result_to_i1_cases, all_env_to_cenv_def] >>
+     rw [] >>
+     cheat)
+
+
+ >- (imp_res_tac exp_to_i1_correct >>
+     fs [s_to_i1_cases] >>
+     res_tac >>
+     fs [] >>
+     res_tac >>
+     fs [] >>
+     rw [] >>
+     pop_assum (fn _ => all_tac) >>
+     fs [DRESTRICT_UNIV, result_to_i1_cases, all_env_to_cenv_def] >>
+     rw [] >>
+     qexists_tac `s'''` >>
+     rw []
+     >- cheat
+     >- (rw [Once evaluate_i1_cases] >>
+         qexists_tac `count'` >>
+         disj1_tac >>
+         MAP_EVERY qexists_tac [`v''`, `(count',s''')`] >>
+         rw [] >>
+         rw [Once evaluate_i1_cases] >>
+         disj2_tac >>
+         rw []
+         >- (`env_to_i1 (genv,mods,tops) [] []` by rw [v_to_i1_eqns]
+             imp_res_tac pmatch_to_i1_correct >>
+             fs [emp_def] >>
+             rw [] >>
+             cases_on `pmatch_i1 cenv s''' p v'' []` >>
+             fs [match_result_to_i1_def])
+         >- rw [Once evaluate_i1_cases])
+     >- cheat)
+
+ >- (imp_res_tac exp_to_i1_correct >>
+     fs [s_to_i1_cases] >>
+     res_tac >>
+     fs [] >>
+     res_tac >>
+     fs [] >>
+     rw [] >>
+     ntac 5 (pop_assum (fn _ => all_tac)) >>
+     fs [DRESTRICT_UNIV, result_to_i1_cases, all_env_to_cenv_def] >>
+     rw [dec_res_to_new_genv_def, dec_res_to_new_cenv_def]
+     >-
+
+     >- cheat
+     >- (rw [Once evaluate_i1_cases] >>
+         qexists_tac `count'` >>
+         disj1_tac >>
+         MAP_EVERY qexists_tac [`v''`, `(count',s''')`] >>
+         rw [] >>
+         rw [Once evaluate_i1_cases] >>
+         disj2_tac >>
+         rw []
+         >- (`env_to_i1 (genv,mods,tops) [] []` by rw [v_to_i1_eqns]
+             imp_res_tac pmatch_to_i1_correct >>
+             fs [emp_def] >>
+             rw [] >>
+             cases_on `pmatch_i1 cenv s''' p v'' []` >>
+             fs [match_result_to_i1_def])
+         >- rw [Once evaluate_i1_cases])
+     >- cheat)
+
+
  >- cheat
  >- fs [env_all_to_i1_cases]
  >- fs [env_all_to_i1_cases]);
 
- (*
 val decs_to_i1_correct = Q.prove (
 `!next mn mods tops ds menv cenv cenv' env s s' r genv s_i1 s'_i1 next' tops' ds_i1.
   r ≠ Rerr Rtype_error ∧
   evaluate_decs mn (menv,cenv,env) s ds (s',cenv',r) ∧
   env_all_to_i1 (genv,mods,tops) (menv,cenv,env) (genv,cenv,[]) {} ∧
   s_to_i1' (genv,mods,tops) s s_i1 ∧
-  (next',tops',ds_i1) = decs_to_i1 next mn mods tops ds
+  decs_to_i1 next mn mods tops ds =(next',tops',ds_i1)
   ⇒
   ?s'_i1 r_i1 genv' env'.
     genv' = decs_res_to_new_genv genv r_i1 ∧
@@ -820,6 +1067,7 @@ val decs_to_i1_correct = Q.prove (
     result_to_i1 (\bindings env env'. ?env''. env_to_i1 bindings env env'' ∧ env' = MAP SND env'') (genv',mods,tops|++tops') r r_i1 ∧
     evaluate_decs_i1 genv cenv s_i1 ds_i1 (s'_i1,cenv',r_i1) ∧
     env_all_to_i1 (genv',mods,tops |++ tops') (menv,merge_envC ([],cenv') cenv,env') (genv',merge_envC ([],cenv') cenv,[]) {}`,
+    cheat);
 
  induct_on `ds` >>
  rw [decs_to_i1_def] >>
@@ -883,6 +1131,9 @@ val decs_to_i1_correct = Q.prove (
  >- cheat
  >- cheat);
 
+     *)
+
+     (*
 val result_to_new_env_def = Define `
 result_to_new_env menv env r =
   case r of
@@ -898,17 +1149,18 @@ val top_to_i1_correct = Q.prove (
   (next',mods',tops',prompt) = top_to_i1 next mods tops t ∧
   (menv',env') = result_to_new_env menv env r
   ⇒
-  ?s'_i1 r_i1 genv' err.
+  ?s'_i1 r_i1 genv' cenv'' err env''.
+    genv' = genv ++ env'' ∧
+    cenv'' = merge_envC cenv' cenv ∧
     s_to_i1' (genv',mods',tops') s' s'_i1 ∧
-    evaluate_prompt_i1 genv cenv s_i1 prompt (s'_i1,cenv',genv',err) ∧
-    env_all_to_i1 (genv',mods',tops') (menv',cenv',env') (genv',cenv',[]) {}`,
+    evaluate_prompt_i1 genv cenv s_i1 prompt (s'_i1,cenv',env'',err) ∧
+    env_all_to_i1 (genv',mods',tops') (menv',cenv'',env') (genv',cenv'',[]) {}`,
 
  rw [evaluate_top_cases, evaluate_prompt_i1_cases, top_to_i1_def, LET_THM, 
      result_to_new_env_def] >>
  fs [] >>
  rw []
- >- (
-     `?next'' tops'' d_i1. dec_to_i1 next NONE mods tops d = (next'',tops'',d_i1)` by metis_tac [pair_CASES] >>
+ >- (`?next'' tops'' d_i1. dec_to_i1 next NONE mods tops d = (next'',tops'',d_i1)` by metis_tac [pair_CASES] >>
      fs [] >>
      rw [] >>
      imp_res_tac dec_to_i1_correct >>
@@ -916,15 +1168,73 @@ val top_to_i1_correct = Q.prove (
      `?new_tds' env'. v' = (new_tds',env')` by metis_tac [pair_CASES] >>
      rw [] >>
      fs [dec_res_to_new_cenv_def, dec_res_to_new_genv_def, fupdate_list_foldl] >>
-     MAP_EVERY qexists_tac [`s'_i1`, `genv++env'`, `NONE`] >>
+     MAP_EVERY qexists_tac [`s'_i1`, `NONE`, `env'`] >>
+     rw [emp_def] >>
+     rw [Once evaluate_decs_i1_cases] >>
+     rw [Once evaluate_decs_i1_cases, combine_dec_result_i1_def, emp_def, merge_def] >>
+     qexists_tac `new_tds` >>
+     rw [mod_cenv_def])
+ >- (`?next'' tops'' d_i1. dec_to_i1 next NONE mods tops d = (next'',tops'',d_i1)` by metis_tac [pair_CASES] >>
+     fs [] >>
+     rw [] >>
+     `(Rerr err : (flat_envC # envE, v) result) ≠ Rerr Rtype_error` by rw [] >>
+     `∃s'_i1 r_i1 genv' env' cenv'.
+       genv' = dec_res_to_new_genv genv r_i1 ∧
+       cenv' = dec_res_to_new_cenv cenv r_i1 ∧
+       env' = dec_res_to_new_env env (Rerr err: (flat_envC # envE, v) result) ∧
+       s_to_i1' (genv',mods,tops |++ tops'') s' s'_i1 ∧
+       result_to_i1
+         (λbindings (envC,env) (envC',env').
+            envC = envC' ∧
+            ∃env''. env_to_i1 bindings env env'' ∧ env' = MAP SND env'')
+         (genv',mods,tops) (Rerr err) r_i1 ∧
+       evaluate_dec_i1 genv cenv s_i1 d_i1 (s'_i1,r_i1) ∧
+       env_all_to_i1 (genv',mods,tops |++ tops'') (menv,cenv',env')
+         (genv',cenv',[]) ∅`
+                 by metis_tac [dec_to_i1_correct] >>
+     rw [mod_cenv_def, emp_def] >>
+
+     fs [dec_res_to_new_env_def, result_to_i1_cases] >>
+     fs [dec_res_to_new_cenv_def, dec_res_to_new_genv_def, fupdate_list_foldl] >>
+     fs [] >>
+     MAP_EVERY qexists_tac [`s'_i1`, `SOME err`, `[]`] >>
      rw []
-     >- (rw [Once evaluate_decs_i1_cases] >>
-         rw [Once evaluate_decs_i1_cases, combine_dec_result_i1_def, emp_def, merge_def] >>
-         qexists_tac `new_tds` >>
-         rw [add_cenv_def] >>
-         cheat)
-     
+
+     PairCases_on `cenv` >>
+     fs [merge_envC_def, merge_def, dec_res_to_new_genv_def, dec_res_to_new_cenv_def]
      metis_tac []
+
+     `?new_tds' env'. v' = (new_tds',env')` by metis_tac [pair_CASES] >>
+     rw [] >>
+     rw [emp_def] >>
+     rw [Once evaluate_decs_i1_cases] >>
+     rw [Once evaluate_decs_i1_cases, combine_dec_result_i1_def, emp_def, merge_def] >>
+     qexists_tac `new_tds` >>
+     rw [mod_cenv_def])
+     
+(`?next'' tops'' ds_i1. decs_to_i1 next (SOME mn) mods tops ds = (next'',tops'',ds_i1)` by metis_tac [pair_CASES] >>
+     fs [] >>
+     rw [] >>
+     `Rval new_env ≠ Rerr (Rtype_error :v error_result)` by rw [] >>
+
+`?s'_i1 r_i1 genv' env'.
+    genv' = decs_res_to_new_genv genv r_i1 ∧
+    env' = decs_res_to_new_env env (Rval new_env:(envE, v) result) ∧
+    s_to_i1' (genv',mods,tops |++ tops'') s' s'_i1 ∧
+    result_to_i1 (\bindings env env'. ?env''. env_to_i1 bindings env env'' ∧ env' = MAP SND env'') (genv',mods,tops|++tops'') (Rval new_env) r_i1 ∧
+    evaluate_decs_i1 genv cenv s_i1 ds_i1 (s'_i1,new_tds,r_i1) ∧
+    env_all_to_i1 (genv',mods,tops |++ tops'') (menv,merge_envC ([],new_tds) cenv,env') (genv',merge_envC ([],new_tds) cenv,[]) {}`
+         by metis_tac [decs_to_i1_correct] >>
+
+     fs [result_to_i1_eqns, dec_res_to_new_env_def] >>
+     rw [] >>
+     fs [dec_res_to_new_cenv_def, dec_res_to_new_genv_def, fupdate_list_foldl, decs_res_to_new_genv_def] >>
+     MAP_EVERY qexists_tac [`s'_i1`, `NONE`, `MAP SND env'''`] >>
+     rw [emp_def] >>
+     rw [Once evaluate_decs_i1_cases] >>
+     rw [Once evaluate_decs_i1_cases, combine_dec_result_i1_def, emp_def, merge_def] >>
+     qexists_tac `new_tds` >>
+     rw [mod_cenv_def])
 
      *)
 val _ = export_theory ();
