@@ -159,7 +159,7 @@ val _ = Define `
 ((case d of
       Dlet p e =>
         let e' = (exp_to_i1 menv env e) in
-        let xs = (pat_bindings p []) in
+        let xs = (REVERSE (pat_bindings p [])) in
         let l = (LENGTH xs) in
           ((next + l), 
            alloc_defs next xs,

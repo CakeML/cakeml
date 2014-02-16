@@ -134,7 +134,7 @@ let dec_to_i1 next mn menv env d =
   match d with
     | Dlet p e ->
         let e' = exp_to_i1 menv env e in
-        let xs = pat_bindings p [] in
+        let xs = List.reverse (pat_bindings p []) in
         let l = List.length xs in
           (next + l, 
            alloc_defs next xs,
