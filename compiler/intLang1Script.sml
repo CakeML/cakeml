@@ -678,30 +678,21 @@ T
 ==>
 evaluate_dec_i1 genv cenv s (Dexn_i1 mn cn ts) (s, Rval (bind cn (LENGTH ts, TypeExn mn) emp, [])))`;
 
-(*val combine_dec_result_i1 : forall 'a 'b. list 'a -> result (list 'a) 'b -> result (list 'a) 'b*)
-val _ = Define `
- (combine_dec_result_i1 env r =  
-((case r of
-      Rerr e => Rerr e
-    | Rval env' => Rval (env ++ env') 
-  )))`;
-
-
 val _ = Hol_reln ` (! genv cenv s.
 T
 ==>
-evaluate_decs_i1 genv cenv s [] (s, emp, Rval []))
+evaluate_decs_i1 genv cenv s [] (s, emp, [], NONE))
 
 /\ (! s1 s2 genv cenv d ds e.
 (evaluate_dec_i1 genv cenv s1 d (s2, Rerr e))
 ==>
-evaluate_decs_i1 genv cenv s1 (d::ds) (s2, emp, Rerr e))
+evaluate_decs_i1 genv cenv s1 (d::ds) (s2, emp, [], SOME e))
 
-/\ (! s1 s2 s3 genv cenv d ds new_tds' new_tds new_env r.
+/\ (! s1 s2 s3 genv cenv d ds new_tds' new_tds new_env new_env' r.
 (evaluate_dec_i1 genv cenv s1 d (s2, Rval (new_tds,new_env)) /\
-evaluate_decs_i1 (genv ++ new_env) (merge_envC (emp,new_tds) cenv) s2 ds (s3, new_tds', r))
+evaluate_decs_i1 (genv ++ new_env) (merge_envC (emp,new_tds) cenv) s2 ds (s3, new_tds', new_env', r))
 ==>
-evaluate_decs_i1 genv cenv s1 (d::ds) (s3, merge new_tds' new_tds, combine_dec_result_i1 new_env r))`;
+evaluate_decs_i1 genv cenv s1 (d::ds) (s3, merge new_tds' new_tds, (new_env ++ new_env'), r))`;
 
  val _ = Define `
 
@@ -746,17 +737,17 @@ val _ = Define `
 
 
 val _ = Hol_reln ` (! genv cenv s1 ds s2 cenv' env mn.
-(evaluate_decs_i1 genv cenv s1 ds (s2,cenv',Rval env))
+(evaluate_decs_i1 genv cenv s1 ds (s2,cenv',env,NONE))
 ==>
 evaluate_prompt_i1 genv cenv s1 (Prompt_i1 mn ds) (s2, mod_cenv mn cenv', env, NONE))
 
-/\ (! genv cenv s1 mn ds s2 cenv' err.
-(evaluate_decs_i1 genv cenv s1 ds (s2,cenv',Rerr err))
+/\ (! genv cenv s1 mn ds s2 cenv' env err.
+(evaluate_decs_i1 genv cenv s1 ds (s2,cenv',env,SOME err))
 ==>
 evaluate_prompt_i1 genv cenv s1 (Prompt_i1 mn ds) (s2, 
-                                                   mod_cenv mn (decs_to_cenv_i1 ds), 
-                                                   GENLIST (\n .  
-  (case (n ) of ( _ ) => Litv_i1 Unit )) (decs_to_dummy_env ds),
+                                                   mod_cenv mn (decs_to_cenv_i1 ds),                                                   
+ (env ++ GENLIST (\n .  
+  (case (n ) of ( _ ) => Litv_i1 Unit )) (decs_to_dummy_env ds - LENGTH env)),
                                                    SOME err))`;
 val _ = export_theory()
 
