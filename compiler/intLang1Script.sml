@@ -745,7 +745,7 @@ evaluate_prompt_i1 genv cenv s1 (Prompt_i1 mn ds) (s2, mod_cenv mn cenv', env, N
 (evaluate_decs_i1 genv cenv s1 ds (s2,cenv',env,SOME err))
 ==>
 evaluate_prompt_i1 genv cenv s1 (Prompt_i1 mn ds) (s2, 
-                                                   mod_cenv mn (decs_to_cenv_i1 ds),                                                   
+                                                   mod_cenv mn cenv',                                                   
  (env ++ GENLIST (\n .  
   (case (n ) of ( _ ) => Litv_i1 Unit )) (decs_to_dummy_env ds - LENGTH env)),
                                                    SOME err))`;

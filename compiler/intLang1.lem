@@ -794,6 +794,6 @@ prompt_err1 : forall genv cenv s1 mn ds s2 cenv' env err.
 evaluate_decs_i1 genv cenv s1 ds (s2,cenv',env,Just err)
 ==>
 evaluate_prompt_i1 genv cenv s1 (Prompt_i1 mn ds) (s2, 
-                                                   mod_cenv mn (decs_to_cenv_i1 ds), 
+                                                   mod_cenv mn cenv', 
                                                    env ++ List.genlist (fun _ -> Litv_i1 Unit) (decs_to_dummy_env ds - List.length env),
                                                    Just err)
