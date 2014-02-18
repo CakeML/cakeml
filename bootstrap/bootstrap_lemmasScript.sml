@@ -2794,4 +2794,17 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
   imp_res_tac INPUT_TYPE_all_locs >>
   fs[toIntLangProofsTheory.all_Clocs_v_to_Cv]);
 
+val stack_length =
+  compileReplDecsTheory.repl_decs_compiled |> concl |> rand
+         |> dest_pair |> snd |> dest_pair |> snd
+         |> dest_pair |> snd |> dest_pair |> fst;
+
+val repl_decs_stack_length_def = Define `
+  repl_decs_stack_length = ^stack_length`;
+
+val COMPILER_RUN_INV_STACK_LENGTH = store_thm("COMPILER_RUN_INV_STACK_LENGTH",
+  ``COMPILER_RUN_INV bs inp outp ==>
+    (LENGTH bs.stack = repl_decs_stack_length)``,
+  cheat); (* follows form some compiler invariant? *)
+
 val _ = export_theory()
