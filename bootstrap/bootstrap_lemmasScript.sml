@@ -2805,6 +2805,7 @@ val repl_decs_stack_length_def = Define `
 val COMPILER_RUN_INV_STACK_LENGTH = store_thm("COMPILER_RUN_INV_STACK_LENGTH",
   ``COMPILER_RUN_INV bs inp outp ==>
     (LENGTH bs.stack = repl_decs_stack_length)``,
-  cheat); (* follows form some compiler invariant? *)
+  rw[COMPILER_RUN_INV_def,compilerProofsTheory.env_rs_def,LET_THM,toBytecodeProofsTheory.Cenv_bs_def] >>
+  fs[new_compiler_state_rsz,repl_decs_stack_length_def]);
 
 val _ = export_theory()
