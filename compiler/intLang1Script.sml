@@ -146,12 +146,11 @@ val _ = Hol_datatype `
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn exp_to_i1_defn;
 
 (*val alloc_defs : nat -> list varN -> list (varN * nat)*)
- val alloc_defs_defn = Hol_defn "alloc_defs" `
+ val _ = Define `
  (alloc_defs next [] = ([])) 
 /\ (alloc_defs next (x::xs) =  
 ((x,next) :: alloc_defs (next + 1) xs))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn alloc_defs_defn;
 
 (*val dec_to_i1 : nat -> maybe modN -> map modN (map varN nat) -> map varN nat -> dec -> nat * env varN nat * dec_i1*)
 val _ = Define `
@@ -165,7 +164,7 @@ val _ = Define `
            alloc_defs next xs,
            Dlet_i1 l (Mat_i1 e' [(p, Con_i1 NONE (MAP Var_local_i1 xs))]))
     | Dletrec funs =>
-        let fun_names = (MAP (\ (f,x,e) .  f) funs) in
+        let fun_names = (REVERSE (MAP (\ (f,x,e) .  f) funs)) in
           ((next + LENGTH fun_names),
            alloc_defs next fun_names, 
            Dletrec_i1 (funs_to_i1 menv (FOLDR (\ k m. m \\ k) env fun_names) funs))
@@ -201,6 +200,17 @@ val _ = Define `
         let (next', new_env, ds') = (decs_to_i1 next (SOME mn) menv env ds) in
           (next',menv |+ (mn, (FOLDL (\ env (k,v) . env |+ (k, v)) FEMPTY new_env)), env, Prompt_i1 (SOME mn) ds')
   )))`;
+
+
+(*val prog_to_i1 : nat -> map modN (map varN nat) -> map varN nat -> list top -> nat * map modN (map varN nat) * map varN nat * list prompt_i1*)
+ val _ = Define `
+ 
+(prog_to_i1 next menv env [] = (next, menv, env, []))
+/\ 
+(prog_to_i1 next menv env (p::ps) =  
+ (let (next', menv', env',p') = (top_to_i1 next menv env p) in
+  let (next'', menv'', env'',ps') = (prog_to_i1 next' menv' env' ps) in
+    (next'',menv'',env'',(p'::ps'))))`;
 
 
 val _ = type_abbrev( "all_env_i1" , ``: ( v_i1 list # envC # (varN, v_i1) env)``);
@@ -749,5 +759,21 @@ evaluate_prompt_i1 genv cenv s1 (Prompt_i1 mn ds) (s2,
  (env ++ GENLIST (\n .  
   (case (n ) of ( _ ) => Litv_i1 Unit )) (decs_to_dummy_env ds - LENGTH env)),
                                                    SOME err))`;
+
+val _ = Hol_reln ` (! genv cenv s.
+T
+==>
+evaluate_prog_i1 genv cenv s [] (s, ([],[]), [], NONE))
+
+/\ (! genv cenv s1 prompt prompts s2 cenv2 env2 s3 cenv3 env3 r.
+(evaluate_prompt_i1 genv cenv s1 prompt (s2, cenv2, env2, NONE) /\
+evaluate_prog_i1 (genv++env2) (merge_envC cenv2 cenv) s2 prompts (s3, cenv3, env3, r))
+==>
+evaluate_prog_i1 genv cenv s1 (prompt::prompts) (s3, merge_envC cenv3 cenv2, (env2++env3), r))
+
+/\ (! genv cenv s1 prompt prompts s2 cenv2 env2 err.
+(evaluate_prompt_i1 genv cenv s1 prompt (s2, cenv2, env2, SOME err))
+==>
+evaluate_prog_i1 genv cenv s1 (prompt::prompts) (s2, cenv2, env2, SOME err))`;
 val _ = export_theory()
 

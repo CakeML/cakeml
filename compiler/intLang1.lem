@@ -129,6 +129,8 @@ let rec alloc_defs next [] = []
 and alloc_defs next (x::xs) =
   (x,next) :: alloc_defs (next + 1) xs
 
+declare termination_argument alloc_defs = automatic
+
 val dec_to_i1 : nat -> maybe modN -> map modN (map varN nat) -> map varN nat -> dec -> nat * env varN nat * dec_i1
 let dec_to_i1 next mn menv env d =
   match d with
@@ -140,7 +142,7 @@ let dec_to_i1 next mn menv env d =
            alloc_defs next xs,
            Dlet_i1 l (Mat_i1 e' [(p, Con_i1 Nothing (List.map Var_local_i1 xs))]))
     | Dletrec funs ->
-        let fun_names = List.map (fun (f,x,e) -> f) funs in
+        let fun_names = List.reverse (List.map (fun (f,x,e) -> f) funs) in
           (next + List.length fun_names,
            alloc_defs next fun_names, 
            Dletrec_i1 (funs_to_i1 menv (List.foldr Map.delete env fun_names) funs))
@@ -171,6 +173,17 @@ let top_to_i1 next menv env top =
         let (next', new_env, ds') = decs_to_i1 next (Just mn) menv env ds in
           (next', Map.insert mn (List.foldl (fun env (k,v) -> Map.insert k v env) Map.empty new_env) menv, env, Prompt_i1 (Just mn) ds')
   end
+
+val prog_to_i1 : nat -> map modN (map varN nat) -> map varN nat -> list top -> nat * map modN (map varN nat) * map varN nat * list prompt_i1
+let rec 
+prog_to_i1 next menv env [] = (next, menv, env, [])
+and 
+prog_to_i1 next menv env (p::ps) = 
+  let (next', menv', env',p') = top_to_i1 next menv env p in
+  let (next'', menv'', env'',ps') = prog_to_i1 next' menv' env' ps in
+    (next'',menv'',env'',p'::ps')
+
+declare termination_argument prog_to_i1 = automatic
 
 type all_env_i1 = (list v_i1 * envC * env varN v_i1)
 
@@ -797,3 +810,25 @@ evaluate_prompt_i1 genv cenv s1 (Prompt_i1 mn ds) (s2,
                                                    mod_cenv mn cenv', 
                                                    env ++ List.genlist (fun _ -> Litv_i1 Unit) (decs_to_dummy_env ds - List.length env),
                                                    Just err)
+
+indreln [evaluate_prog_i1 : list v_i1 -> envC -> store v_i1 -> list prompt_i1 -> store v_i1 * envC * list v_i1 * maybe (error_result v_i1) -> bool]
+
+prog_empty : forall genv cenv s.
+true
+==>
+evaluate_prog_i1 genv cenv s [] (s, ([],[]), [], Nothing)
+
+and
+
+prog_cons_var : forall genv cenv s1 prompt prompts s2 cenv2 env2 s3 cenv3 env3 r.
+evaluate_prompt_i1 genv cenv s1 prompt (s2, cenv2, env2, Nothing) &&
+evaluate_prog_i1 (genv++env2) (merge_envC cenv2 cenv) s2 prompts (s3, cenv3, env3, r)
+==>
+evaluate_prog_i1 genv cenv s1 (prompt::prompts) (s3, merge_envC cenv3 cenv2, env2++env3, r)
+
+and
+
+prog_cons_err : forall genv cenv s1 prompt prompts s2 cenv2 env2 err.
+evaluate_prompt_i1 genv cenv s1 prompt (s2, cenv2, env2, Just err)
+==>
+evaluate_prog_i1 genv cenv s1 (prompt::prompts) (s2, cenv2, env2, Just err)
