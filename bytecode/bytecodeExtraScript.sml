@@ -7,26 +7,26 @@ val real_inst_length_def = zDefine `
   real_inst_length bc =
    case bc of
      Stack Pop => 0
-   | Stack (Pops v25) => if v25 < 268435456 then 4 else 1
+   | Stack (Pops v25) => if v25 <= 268435455 then 4 else 1
    | Stack (PushInt v28) =>
-       if v28 < 268435456 then if v28 < 0 then 1 else 4 else 1
+       if v28 <= 268435455 then if v28 < 0 then 1 else 4 else 1
    | Stack (Cons v29 v30) =>
-       if v29 < 268435456 then
+       if v29 < 4096 /\ v30 < 32768 then
          if v30 = 0 then 4 else if v30 < 32768 then 34 else 1
        else 1
-   | Stack (Load v31) => if v31 < 268435456 then 4 else 1
-   | Stack (Store v32) => if v32 < 268435456 then 4 else 1
-   | Stack (LoadRev v33) => 5
-   | Stack (El v34) => if v34 < 268435456 then 6 else 1
-   | Stack (TagEq v35) => if v35 < 268435456 then 28 else 1
+   | Stack (Load v31) => if v31 <= 268435455 then 4 else 1
+   | Stack (Store v32) => if v32 <= 268435455 then 4 else 1
+   | Stack (LoadRev v33) => if v33 <= 268435455 then 5 else 1
+   | Stack (El v34) => if v34 <= 268435455 then 6 else 1
+   | Stack (TagEq v35) => if v35 <= 268435455 then 28 else 1
    | Stack IsBlock => 25
    | Stack Equal => 5
    | Stack Add => 3
    | Stack Sub => 3
    | Stack Mult => 8
-   | Stack Div => 11
-   | Stack Mod => 11
-   | Stack Less => 11
+   | Stack Div => 20
+   | Stack Mod => 23
+   | Stack Less => 24
    | Label l => 0
    | Jump _ => 2
    | JumpIf _ => 5
@@ -42,7 +42,7 @@ val real_inst_length_def = zDefine `
    | Stop => 9
    | Tick => 1
    | Print => 5
-   | PrintC v13 => 25`
+   | PrintC v13 => 33:num`;
 
 val thms = ([],``!bc. x = real_inst_length bc``)
   |> (Cases THEN TRY (Cases_on `b`)) |> fst |> map (rand o snd)

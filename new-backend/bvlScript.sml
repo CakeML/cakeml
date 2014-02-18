@@ -71,7 +71,8 @@ val _ = Hol_datatype `
     <| globals : num |-> bc_value
      ; refs    : num |-> bc_value
      ; clock   : num
-     ; code    : num |-> (num # bvl_exp # num) |> `
+     ; code    : num |-> (num # bvl_exp # num)
+     ; output  : string |> `
 
 val bEvalOp_def = Define `
   bEvalOp op vs (s:bvl_state) =
@@ -158,7 +159,7 @@ val bEval_def = tDefine "bEval" `
      | res => res) /\
   (bEval ([Let xs x2],env,s) =
      case bEval (xs,env,s) of
-     | (Result vs,s1) => bEval ([x2],vs++env,check_clock s1 s)
+     | (Result vs,s1) => bEval ([x2],REVERSE vs++env,check_clock s1 s)
      | res => res) /\
   (bEval ([Raise x1],env,s) =
      case bEval ([x1],env,s) of
@@ -183,7 +184,7 @@ val bEval_def = tDefine "bEval" `
           | NONE => (Error,s)
           | SOME (args,exp) =>
               if (s.clock = 0) \/ (s1.clock = 0) then (TimeOut,s) else
-                  bEval ([exp],args,dec_clock (check_clock s s1)))
+                  bEval ([exp],REVERSE args,dec_clock (check_clock s s1)))
      | res => res)`
  (WF_REL_TAC `(inv_image (measure I LEX measure bvl_exp1_size)
                             (\(xs,env,s). (s.clock,xs)))`
