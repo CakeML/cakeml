@@ -3448,7 +3448,7 @@ val zHEAP_Load_Base = prove(
        {(p,[0x49w; 0x8Bw; 0xA9w; 0x98w; 0x00w; 0x00w; 0x00w])}
        (zHEAP (cs,x1,x2,x3,x4,refs,stack,s,NONE) * ~zS * zPC (p+7w))``,
     cheat); (* stack cheat *)
-<
+
 val zHEAP_Base_ADD8 = prove(
     ``SPEC X64_MODEL (* x64_encodeLib.x64_encode "add r5,8" *)
        (zHEAP (cs,x1,x2,x3,x4,refs,stack,s,NONE) * ~zS * zPC p)
