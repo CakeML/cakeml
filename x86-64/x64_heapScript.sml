@@ -1,4 +1,4 @@
-
+print_match ["rich_list"] ``EL (LENGTH xs) (xs ++ ys)``
 open HolKernel Parse boolLib bossLib;
 
 val _ = new_theory "x64_heap";
@@ -3228,35 +3228,199 @@ gg goal
 
 (* LoadRev *)
 
-val x64_mov_r0_r5 = prove(
-  ``SPEC X64_MODEL
-      (zPC p * zR 0x5w (base - n2w (8 * offset)) * zSTACK (base,ss) *
-       zR 0w r0 * cond (offset + k < LENGTH ss))
-      {(p,[0x48w; 0x8Bw; 0x85w] ++ IMM32 (-n2w (8 * k)))}  (* mov r0,[r5-8*k] *)
-      (zPC (p+7w) * zR 0x5w (base - n2w (8 * offset)) * zSTACK (base,ss) *
-       zR 0w (EL (offset + k) (REVERSE ss)))``,
-  cheat); (* stack cheat *)
+val sw2sw_lemma =
+  sw2sw_def |> INST_TYPE [``:'a``|->``:32``,``:'b``|->``:64``]
+            |> SIMP_RULE (srw_ss()) [] |> GSYM
 
-val zHEAP_LoadRev = let (* place holder *)
-  val th = x64_mov_r0_r5
-           |> DISCH ``base - n2w (8 * offset) = w:word64``
-           |> SIMP_RULE std_ss [] |> RW [GSYM SPEC_MOVE_COND]
+val sub_imm32_lemma = prove(
+  ``(offset:num) < 2 ** 28 ==>
+    (base + sw2sw (- (n2w:num->word32) (8 * offset)) =
+     base - n2w (8 * offset):word64)``,
+  SIMP_TAC (srw_ss()) [sw2sw_def] \\ REPEAT STRIP_TAC
+  \\ `(8 * offset) < 4294967296` by DECIDE_TAC
+  \\ `(8 * offset) < 18446744073709551616` by DECIDE_TAC
+  \\ FULL_SIMP_TAC std_ss []
+  \\ Cases_on `offset = 0` \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
+  \\ `(4294967296 - 8 * offset) < 4294967296` by DECIDE_TAC
+  \\ FULL_SIMP_TAC std_ss [bitTheory.SIGN_EXTEND_def,LET_DEF]
+  \\ Cases_on `BIT 31 (4294967296 - 8 * offset)`
+  THEN1 (IMP_RES_TAC (DECIDE ``m < n ==> (k + (n - m) = (k+n) - m:num)``)
+         \\ FULL_SIMP_TAC std_ss []) \\ FULL_SIMP_TAC std_ss []
+  \\ FULL_SIMP_TAC std_ss [bitTheory.BIT_def,bitTheory.BITS_THM2]
+  \\ POP_ASSUM MP_TAC
+  \\ `(4294967296 - 8 * offset) < 4294967296` by DECIDE_TAC
+  \\ FULL_SIMP_TAC std_ss [DIV_EQ_X]
+  \\ REPEAT STRIP_TAC
+  \\ DECIDE_TAC);
+
+val x64_mov_r0_r5 = let
+  val ((th,_,_),_) = prog_x64Lib.x64_spec_memory64 "488B85"
+  val th = th |> Q.INST [`rip`|->`p`,`imm32`|->`- n2w (8 * offset)`,`r5`|->`base`]
+  val th = RW [GSYM IMM32_def,sw2sw_lemma,UNDISCH sub_imm32_lemma] th
+  val th = th |> DISCH_ALL |> RW [GSYM SPEC_MOVE_COND]
+  val th = th |> Q.INST [`base`|->`base - extra`]
   val pc = get_pc th
+  val pre = ``w2n (extra + n2w (8 * offset)) DIV 8 < LENGTH (stack:word64 list) /\
+              (w2n ((extra:word64) + n2w (8 * offset)) MOD 8 = 0) /\
+              offset < 2 ** 28``
+  val th = th |> Q.INST [`r4`|->`rsp`,`df`|->`dm`,`f`|->`m`,`rip`|->`p`,
+                         `base`|->`base-8w`]
+  val th = SPEC_FRAME_RULE th ``zR1 RSP rsp *
+             zR1 zGhost_stack_top top * zR1 zGhost_stack_bottom base *
+             cond (stack_ok rsp top base stack dm m /\ ^pre)``
+  val (th,goal) = SPEC_WEAKEN_RULE th ``(^pc * zR 0x5w (base - 8w - extra) *
+      zR 0x0w (EL (w2n (extra + n2w (8 * offset)) DIV 8) (REVERSE stack)) *
+      zSTACK (base,stack))``
+  val lemma = prove(goal,
+    SIMP_TAC std_ss [SEP_IMP_def,zSTACK_def,SEP_CLAUSES,SEP_EXISTS_THM]
+    \\ REPEAT STRIP_TAC \\ Q.LIST_EXISTS_TAC [`rsp`,`top`,`dm`,`m`]
+    \\ FULL_SIMP_TAC (std_ss++sep_cond_ss) [cond_STAR]
+    \\ IMP_RES_TAC stack_ok_REV_EL
+    \\ FULL_SIMP_TAC (std_ss++star_ss) [zR_def,WORD_SUB_PLUS])
+  val th = MP th lemma
+  val th = th |> Q.GENL (rev [`rsp`,`top`,`dm`,`m`])
+              |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
+  val (th,goal) = SPEC_STRENGTHEN_RULE th
+    ``zPC p * zR 0x5w (base - 0x8w - extra) *
+      zR 0x0w r0 * zSTACK (base,stack) * cond (^pre)``
+  val lemma = prove(goal,
+    SIMP_TAC std_ss [SEP_IMP_def,zSTACK_def,SEP_CLAUSES,SEP_EXISTS_THM]
+    \\ REPEAT STRIP_TAC \\ Q.LIST_EXISTS_TAC [`rsp`,`top`,`dm`,`m`]
+    \\ FULL_SIMP_TAC (std_ss++sep_cond_ss) [cond_STAR]
+    \\ IMP_RES_TAC stack_ok_REV_EL
+    \\ FULL_SIMP_TAC (std_ss++star_ss) [zR_def,WORD_SUB_PLUS])
+  val th = MP th lemma
+  in th end;
+
+val LENGTH_LESS_REV = prove(
+  ``!xs m. m < LENGTH xs ==> ?ys z zs. (xs = ys ++ z::zs) /\ (LENGTH zs = m)``,
+  recInduct SNOC_INDUCT \\ SIMP_TAC std_ss [LENGTH,LENGTH_SNOC]
+  \\ SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
+  \\ Cases_on `m` \\ FULL_SIMP_TAC std_ss [LENGTH_NIL,APPEND,CONS_11,APPEND_NIL]
+  THEN1 (METIS_TAC []) \\ RES_TAC \\ Q.LIST_EXISTS_TAC [`ys`,`z`,`zs ++ [x]`]
+  \\ FULL_SIMP_TAC std_ss [APPEND,LENGTH,GSYM APPEND_ASSOC,LENGTH_APPEND,ADD1]);
+
+val LENGTH_EQ_IMP_EL = prove(
+  ``(LENGTH xs = k) ==> (EL k (REVERSE xs ++ y::ys) = y)``,
+  METIS_TAC [EL_LENGTH,LENGTH_MAP,LENGTH_REVERSE]);
+
+val LENGTH_EQ_IMP_EL_MAP = prove(
+  ``(LENGTH xs = k) ==> (EL k (MAP f (REVERSE xs) ++ y::ys) = y)``,
+  METIS_TAC [EL_LENGTH,LENGTH_MAP,LENGTH_REVERSE]);
+
+val EL_APPEND_LEMMA = prove(
+  ``(k = LENGTH xs + l) ==> (EL k (xs ++ ys) = EL l ys)``,
+  FULL_SIMP_TAC std_ss [rich_listTheory.EL_APPEND2]);
+
+val zHEAP_LoadRev = let
+  val th = x64_mov_r0_r5
+           |> DISCH ``base - 8w - extra = w:word64``
+           |> SIMP_RULE std_ss [] |> RW [GSYM SPEC_MOVE_COND]
+           |> Q.INST [`offset`|->`offset+1`]
+  val pc = get_pc th
+  val pre = ``offset + s.base_offset < LENGTH (stack:bc_value list) /\
+              offset + 1 < 268435456``
   val target = ``~zS * zPC p * zVALS cs vals *
-      cond (heap_inv (cs,x1,x2,x3,x4,refs,stack,s,NONE) vals)``
+      cond (heap_inv (cs,x1,x2,x3,x4,refs,stack,s,NONE) vals /\ ^pre)``
   val (th,goal) = expand_pre th target
   val lemma = prove(goal, SIMP_TAC (std_ss++star_ss) [zVALS_def,SEP_IMP_REFL])
   val th = MP th lemma |> DISCH_ALL |> DISCH T
                        |> PURE_REWRITE_RULE [AND_IMP_INTRO]
+  val th = th |> Q.INST [`extra`|->`8w + n2w (8 * s.base_offset) + n2w (8 * LENGTH cs.rest_of_stack)`]
+  val th = RW1 [STACK_LENGTH_LEMMA] th
   val th = MATCH_MP SPEC_WEAKEN_LEMMA th
-  val th = th |> Q.SPEC `zHEAP (cs,x1,x2,x3,x4,refs,l2,s,NONE) * ~zS *^pc`
+  val th = th |> Q.SPEC `zHEAP (cs,EL (offset + s.base_offset) (REVERSE stack),
+                                x2,x3,x4,refs,stack,s,NONE) * ~zS *^pc`
   val goal = th |> concl |> dest_imp |> fst
-  val lemma = prove(goal,cheat) (* stack cheat *)
+(*
+  gg goal
+*)
+  val lemma = prove(goal,
+    SIMP_TAC std_ss [LET_DEF,SEP_CLAUSES]
+    \\ SIMP_TAC std_ss [zHEAP_def,SEP_IMP_def,SEP_CLAUSES,SEP_EXISTS_THM]
+    \\ SIMP_TAC std_ss [Once heap_inv_def] \\ STRIP_TAC
+    \\ FULL_SIMP_TAC std_ss [stack_inv_def]
+    \\ Q.PAT_ASSUM `xxx = cs.stack_trunk` (ASSUME_TAC o GSYM)
+    \\ FULL_SIMP_TAC std_ss []
+    \\ FULL_SIMP_TAC std_ss [word_add_n2w]
+    \\ `8 + 8 * s.base_offset + 8 * LENGTH cs.rest_of_stack + 8 * (offset + 1) =
+        8 * (2 + s.base_offset + LENGTH cs.rest_of_stack + offset)` by DECIDE_TAC
+    \\ FULL_SIMP_TAC std_ss []
+    \\ `8 * (2 + s.base_offset + LENGTH cs.rest_of_stack + offset) < 2**64` by
+     (`LENGTH stack = LENGTH roots` by ALL_TAC THEN1
+       (FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,EVERY2_def,APPEND]
+        \\ IMP_RES_TAC EVERY2_IMP_LENGTH)
+      \\ Q.PAT_ASSUM `8 * LENGTH vals.stack < ll` MP_TAC
+      \\ FULL_SIMP_TAC (srw_ss()) [] \\ DECIDE_TAC)
+    \\ FULL_SIMP_TAC std_ss [w2n_n2w,EVAL ``dimword (:64)``]
+    \\ FULL_SIMP_TAC std_ss [RW1 [MULT_COMM] MOD_EQ_0]
+    \\ FULL_SIMP_TAC std_ss [RW1 [MULT_COMM] MULT_DIV]
+    \\ STRIP_TAC THEN1
+     (STRIP_TAC THEN1
+        (SIMP_TAC std_ss [word_arith_lemma1] \\ NTAC 2 AP_TERM_TAC \\ DECIDE_TAC)
+      \\ FULL_SIMP_TAC std_ss [LENGTH,LENGTH_APPEND,LENGTH_MAP]
+      \\ FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,
+           APPEND,EVERY2_def]
+      \\ IMP_RES_TAC EVERY2_IMP_LENGTH \\ DECIDE_TAC)
+    \\ `(EL (2 + s.base_offset + LENGTH cs.rest_of_stack + offset)
+          (REVERSE (MAP (x64_addr vs.current_heap) roots ++
+            0x1w::cs.ret_address::cs.rest_of_stack))) =
+         EL (offset + s.base_offset)
+          (REVERSE (MAP (x64_addr vs.current_heap) roots))` by ALL_TAC THEN1
+     (FULL_SIMP_TAC std_ss [REVERSE_APPEND,APPEND]
+      \\ MATCH_MP_TAC EL_APPEND_LEMMA
+      \\ FULL_SIMP_TAC (srw_ss()) [] \\ DECIDE_TAC)
+    \\ FULL_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
+    \\ Q.EXISTS_TAC `vals with reg0 := (EL (offset + s.base_offset) (REVERSE (MAP
+         (x64_addr vs.current_heap) roots)))`
+    \\ SIMP_TAC (std_ss++sep_cond_ss) [cond_STAR]
+    \\ REVERSE STRIP_TAC
+    THEN1 (SIMP_TAC (srw_ss()) [zVALS_def] \\ FULL_SIMP_TAC (std_ss++star_ss) [])
+    \\ POP_ASSUM (K ALL_TAC)
+    \\ SIMP_TAC (srw_ss()) [heap_inv_def]
+    \\ Q.LIST_EXISTS_TAC [`vs`,`EL (offset + s.base_offset) (REVERSE roots)`,
+         `r2`,`r3`,`r4`,`roots`,`heap`,`a`,`sp`]
+    \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND,stack_inv_def]
+    \\ SIMP_TAC std_ss [CONJ_ASSOC]
+    \\ REVERSE STRIP_TAC
+    THEN1 FULL_SIMP_TAC std_ss [word_sub_def,AC WORD_ADD_COMM WORD_ADD_ASSOC]
+    \\ REVERSE STRIP_TAC
+    THEN1 FULL_SIMP_TAC std_ss [word_sub_def,AC WORD_ADD_COMM WORD_ADD_ASSOC]
+    \\ SIMP_TAC std_ss [GSYM rich_listTheory.MAP_REVERSE]
+    \\ `LENGTH stack = LENGTH roots` by ALL_TAC THEN1
+     (FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,EVERY2_def]
+      \\ IMP_RES_TAC EVERY2_IMP_LENGTH)
+    \\ `offset + s.base_offset < LENGTH roots` by DECIDE_TAC
+    \\ IMP_RES_TAC LENGTH_LESS_REV
+    \\ FULL_SIMP_TAC std_ss [REVERSE_APPEND,REVERSE_DEF]
+    \\ SIMP_TAC std_ss [MAP_APPEND,MAP,GSYM APPEND_ASSOC,APPEND]
+    \\ IMP_RES_TAC LENGTH_EQ_IMP_EL
+    \\ ASM_SIMP_TAC std_ss [LENGTH_EQ_IMP_EL]
+    \\ REVERSE STRIP_TAC
+    THEN1 (MATCH_MP_TAC LENGTH_EQ_IMP_EL_MAP \\ FULL_SIMP_TAC std_ss [])
+    \\ Q.PAT_ASSUM `abs_ml_inv xx yy zz tt` MP_TAC
+    \\ FULL_SIMP_TAC std_ss [LENGTH_APPEND,LENGTH]
+    \\ `LENGTH ys' = LENGTH ys` by DECIDE_TAC
+    \\ Q.PAT_ASSUM `LENGTH ys' = LENGTH ys` MP_TAC
+    \\ REPEAT (POP_ASSUM (K ALL_TAC))
+    \\ FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def] \\ REPEAT STRIP_TAC
+    \\ FULL_SIMP_TAC std_ss [roots_ok_def,MEM,MEM_APPEND]
+    THEN1 (FULL_SIMP_TAC std_ss [MEM_APPEND,SUBSET_DEF,MEM_MAP] \\ METIS_TAC [])
+    \\ Q.EXISTS_TAC `f` \\ FULL_SIMP_TAC std_ss []
+    \\ Q.PAT_ASSUM `LENGTH ys' = LENGTH ys` ASSUME_TAC
+    \\ FULL_SIMP_TAC std_ss [EVERY2_APPEND,LENGTH_MAP,EVERY2_def]
+    \\ FULL_SIMP_TAC std_ss [reachable_refs_def,MEM_APPEND,MEM_MAP,MEM]
+    \\ METIS_TAC [])
   val th = MP th lemma
+  val th = RW1 [GSYM STACK_LENGTH_LEMMA] th
   val th = Q.GEN `vals` th |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
   val (th,goal) = SPEC_STRENGTHEN_RULE th
-    ``zHEAP (cs, x1, x2, x3, x4, refs, stack, s, NONE) * ~zS * zPC p``
-  val lemma = prove(goal,cheat) (* stack cheat *)
+    ``zHEAP (cs, x1, x2, x3, x4, refs, stack, s, NONE) * ~zS * zPC p * cond ^pre``
+  val lemma = prove(goal,
+    SIMP_TAC (std_ss++sep_cond_ss) [zHEAP_def,SEP_IMP_REFL,SEP_CLAUSES,
+         AC CONJ_ASSOC CONJ_COMM]
+    \\ SIMP_TAC (std_ss++star_ss) [zHEAP_def,SEP_IMP_REFL,SEP_CLAUSES,
+         AC CONJ_ASSOC CONJ_COMM])
   val th = MP th lemma
   val th = th |> DISCH_ALL |> RW [AND_IMP_INTRO] |> RW [GSYM SPEC_MOVE_COND]
   in th end;
@@ -3284,7 +3448,7 @@ val zHEAP_Load_Base = prove(
        {(p,[0x49w; 0x8Bw; 0xA9w; 0x98w; 0x00w; 0x00w; 0x00w])}
        (zHEAP (cs,x1,x2,x3,x4,refs,stack,s,NONE) * ~zS * zPC (p+7w))``,
     cheat); (* stack cheat *)
-
+<
 val zHEAP_Base_ADD8 = prove(
     ``SPEC X64_MODEL (* x64_encodeLib.x64_encode "add r5,8" *)
        (zHEAP (cs,x1,x2,x3,x4,refs,stack,s,NONE) * ~zS * zPC p)
@@ -9935,10 +10099,6 @@ gg goal
 
 
 (* load pointer *)
-
-val sw2sw_lemma =
-  sw2sw_def |> INST_TYPE [``:'a``|->``:32``,``:'b``|->``:64``]
-            |> SIMP_RULE (srw_ss()) [] |> GSYM
 
 val zHEAP_LOAD_PTR = let
   val ((th,_,_),_) = prog_x64Lib.x64_spec_memory64 "4805"
