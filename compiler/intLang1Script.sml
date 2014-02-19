@@ -165,9 +165,10 @@ val _ = Define `
            Dlet_i1 l (Mat_i1 e' [(p, Con_i1 NONE (MAP Var_local_i1 xs))]))
     | Dletrec funs =>
         let fun_names = (REVERSE (MAP (\ (f,x,e) .  f) funs)) in
+        let env' = (alloc_defs next fun_names) in
           ((next + LENGTH fun_names),
-           alloc_defs next fun_names, 
-           Dletrec_i1 (funs_to_i1 menv (FOLDR (\ k m. m \\ k) env fun_names) funs))
+           env',
+           Dletrec_i1 (funs_to_i1 menv (FOLDL (\ env (k,v) . env |+ (k, v)) env env') (REVERSE funs)))
     | Dtype type_def =>
         (next, [], Dtype_i1 mn type_def)
     | Dexn cn ts =>
@@ -664,14 +665,9 @@ evaluate_dec_i1 genv cenv s1 (Dlet_i1 n e) (s2, Rerr Rtype_error))
 evaluate_dec_i1 genv cenv s (Dlet_i1 n e) (s', Rerr err))
 
 /\ (! genv cenv funs s.
-(ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs))
+T
 ==>
-evaluate_dec_i1 genv cenv s (Dletrec_i1 funs) (s, Rval (emp, MAP SND (build_rec_env_i1 funs (cenv,emp) emp))))
-
-/\ (! genv cenv funs s.
-(~ (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs)))
-==>
-evaluate_dec_i1 genv cenv s (Dletrec_i1 funs) (s, Rerr Rtype_error))
+evaluate_dec_i1 genv cenv s (Dletrec_i1 funs) (s, Rval (emp, MAP (\ (f,x,e) .  Recclosure_i1 (cenv,[]) funs f) funs)))
 
 /\ (! mn genv cenv tds s.
 (check_dup_ctors tds)

@@ -1279,28 +1279,32 @@ val global_env_inv_extend = Q.prove (
      >- metis_tac [lookup_reverse]
      >- metis_tac [alookup_distinct_reverse, MAP_REVERSE, fst_alloc_defs, ALL_DISTINCT_REVERSE]));
 
-val funs_to_i1_length = Q.prove (
-`!funs. LENGTH funs = LENGTH (funs_to_i1 mods tops funs)`,
+val funs_to_i1_map = Q.prove (
+`!mods tops funs.
+  funs_to_i1 mods tops funs = MAP (\(f,x,e). (f,x,exp_to_i1 mods (tops\\x) e)) funs`,
  induct_on `funs` >>
  rw [exp_to_i1_def] >>
  PairCases_on `h` >>
  rw [exp_to_i1_def]);
 
- (*
 val letrec_env_to_i1 = Q.prove (
-`env_to_i1 genv (MAP (λ(fn,n,e). (fn,Recclosure (menv,cenv,env) funs' fn)) funs)
-                (REVERSE (MAP (λ(fn,n,e). (fn, Recclosure_i1 (cenv,[]) (funs_to_i1 mods tops (REVERSE funs')) fn)) (funs_to_i1 mods tops funs)))`
+`!mods tops mods' tops' funs funs'.
+  env_to_i1 genv (MAP (λ(fn,n,e). (fn,Recclosure (menv,cenv,env) funs' fn)) funs)
+  (MAP
+     (λ(p1,p1',p2).
+        (p1,
+         Recclosure_i1 (cenv,[])
+           (REVERSE
+              (MAP (λ(f,x,e). (f,x,exp_to_i1 mods (tops' \\ x) e))
+                 funs')) p1')) funs)`,
 
  induct_on `funs` >>
  rw [v_to_i1_eqns, exp_to_i1_def] >>
  PairCases_on `h` >>
- rw [v_to_i1_eqns] >>
- MAP_EVERY qexists_tac [`Recclosure_i1 (cenv,[]) (funs_to_i1 mods tops (REVERSE funs')) h0`, `(REVERSE (MAP (λ(fn,n,e). (fn, Recclosure_i1 (cenv,[]) (funs_to_i1 mods tops (REVERSE funs')) fn)) (funs_to_i1 mods tops funs)))`] >>
- fs [GSYM MAP_REVERSE, exp_to_i1_def] >>
- rw []
-
-rw [Once v_to_i1_cases]
-*)
+ fs [v_to_i1_eqns] >>
+ rw [Once v_to_i1_cases] >>
+ MAP_EVERY qexists_tac [`mods`, `tops`, `[]`, `env`] >>
+ rw [funs_to_i1_map]
 
 val dec_to_i1_correct = Q.prove (
 `!mn mods tops d menv cenv env s s' r genv s_i1 next' tops' d_i1.
@@ -1437,12 +1441,16 @@ val dec_to_i1_correct = Q.prove (
          qexists_tac `0` >>
          rw [] >>
          metis_tac [big_unclocked]))
- >- (MAP_EVERY qexists_tac [`s_i1`, `Rval ([], MAP SND (build_rec_env_i1 (funs_to_i1 mods (FOLDR (λk m. m \\ k) tops (REVERSE (MAP (λ(f,x,e). f) funs))) funs) (cenv,[]) []))`] >>
-     rw [GSYM funs_to_i1_dom] >>
-     qexists_tac `build_rec_env_i1 (funs_to_i1 mods (FOLDR (λk m. m \\ k) tops (REVERSE (MAP (λ(f,x,e). f) funs))) funs) (cenv,[]) []` >>
-     rw [GSYM FUPDATE_LIST]
-     >- rw [build_rec_env_i1_merge, merge_def, funs_to_i1_length]
-     >- (rw [build_rec_env_merge,build_rec_env_i1_merge,merge_def] >>
+ >- (rw [fupdate_list_foldl] >>
+     Q.ABBREV_TAC `tops' = (tops |++ alloc_defs (LENGTH genv) (REVERSE (MAP (λ(f,x,e). f) funs)))` >>
+     qexists_tac `MAP (λ(f,x,e). (f,Recclosure_i1 (cenv,[]) (funs_to_i1 mods tops' (REVERSE funs)) x)) (funs_to_i1 mods tops' (REVERSE funs))` >>
+     rw [GSYM funs_to_i1_dom, ALL_DISTINCT_REVERSE, MAP_REVERSE, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+     >- rw [build_rec_env_i1_merge, merge_def, funs_to_i1_map]
+     >- (
+         
+         rw [build_rec_env_merge,merge_def, MAP_REVERSE, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, 
+             funs_to_i1_map] >>
+
          cheat)
      >- metis_tac [v_to_i1_weakening, s_to_i1'_cases]
      >- (rw [MAP_MAP_o, combinTheory.o_DEF, fst_alloc_defs, build_rec_env_merge, merge_def, MAP_EQ_f] >>

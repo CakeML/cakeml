@@ -143,9 +143,10 @@ let dec_to_i1 next mn menv env d =
            Dlet_i1 l (Mat_i1 e' [(p, Con_i1 Nothing (List.map Var_local_i1 xs))]))
     | Dletrec funs ->
         let fun_names = List.reverse (List.map (fun (f,x,e) -> f) funs) in
+        let env' = alloc_defs next fun_names in
           (next + List.length fun_names,
-           alloc_defs next fun_names, 
-           Dletrec_i1 (funs_to_i1 menv (List.foldr Map.delete env fun_names) funs))
+           env',
+           Dletrec_i1 (funs_to_i1 menv (List.foldl (fun env (k,v) -> Map.insert k v env) env env') (List.reverse funs)))
     | Dtype type_def ->
         (next, [], Dtype_i1 mn type_def)
     | Dexn cn ts ->
@@ -705,16 +706,9 @@ evaluate_dec_i1 genv cenv s (Dlet_i1 n e) (s', Rerr err)
 and
 
 dletrec1 : forall genv cenv funs s.
-all_distinct (List.map (fun (x,y,z) -> x) funs)
+true
 ==>
-evaluate_dec_i1 genv cenv s (Dletrec_i1 funs) (s, Rval (emp, List.map snd (build_rec_env_i1 funs (cenv,emp) emp)))
-
-and
-
-dletrec2 : forall genv cenv funs s.
-not (all_distinct (List.map (fun (x,y,z) -> x) funs))
-==>
-evaluate_dec_i1 genv cenv s (Dletrec_i1 funs) (s, Rerr Rtype_error)
+evaluate_dec_i1 genv cenv s (Dletrec_i1 funs) (s, Rval (emp, List.map (fun (f,x,e) -> Recclosure_i1 (cenv,[]) funs f) funs))
 
 and
 
