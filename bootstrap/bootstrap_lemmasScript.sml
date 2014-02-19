@@ -396,18 +396,6 @@ val LIST_TYPE_CHAR_11 =
   |> SPEC_ALL |> REWRITE_RULE[Once(GSYM AND_IMP_INTRO)]
   |> UNDISCH |> prove_hyps_by (METIS_TAC[CHAR_11]) |> GEN_ALL
 
-val OPTION_TYPE_11 = prove(
-  ``∀P o1 v1 o2 v2.
-    (∀x1. (o1 = SOME x1) ⇒
-          ∀v1 x2 v2.
-            P x1 v1 ∧ P x2 v2 ⇒
-              types_match v1 v2 ∧ ((v1 = v2) ⇔ (x1 = x2))) ∧
-    OPTION_TYPE P o1 v1 ∧ OPTION_TYPE P o2 v2 ⇒
-    types_match v1 v2 ∧ ((v1 = v2) ⇔ (o1 = o2))``,
-  gen_tac >> Cases >> gen_tac >> Cases >>
-  simp[std_preludeTheory.OPTION_TYPE_def,types_match_Conv,PULL_EXISTS] >>
-  simp[types_match_list_1] >> metis_tac[])
-
 val types_match_Conv = prove(
   ``types_match (Conv x y) z ⇔ ∃x' y'. (z = Conv x' y') ∧ (x ≠ x' ∨ types_match_list y y')``,
   Cases_on`z` >> simp[types_match_def])
@@ -425,6 +413,36 @@ val types_match_list_1 = prove(
 val types_match_list_2 = prove(
   ``types_match_list [x;y] z ⇔ ∃w v. (z = [w;v]) ∧ types_match x w ∧ types_match y v``,
   Cases_on`z`>>simp[types_match_def,types_match_list_1,PULL_EXISTS] >> metis_tac[])
+
+val types_match_list_3 = prove(
+  ``types_match_list [x;y;z] w ⇔ ∃a b c. (w = [a;b;c]) ∧ types_match x a ∧ types_match y b ∧ types_match z c``,
+  Cases_on`w`>>simp[types_match_def,types_match_list_2,PULL_EXISTS] >> metis_tac[])
+
+val OPTION_TYPE_11 = prove(
+  ``∀P o1 v1 o2 v2.
+    (∀x1. (o1 = SOME x1) ⇒
+          ∀v1 x2 v2.
+            P x1 v1 ∧ P x2 v2 ⇒
+              types_match v1 v2 ∧ ((v1 = v2) ⇔ (x1 = x2))) ∧
+    OPTION_TYPE P o1 v1 ∧ OPTION_TYPE P o2 v2 ⇒
+    types_match v1 v2 ∧ ((v1 = v2) ⇔ (o1 = o2))``,
+  gen_tac >> Cases >> gen_tac >> Cases >>
+  simp[std_preludeTheory.OPTION_TYPE_def,types_match_Conv,PULL_EXISTS] >>
+  simp[types_match_list_1] >> metis_tac[])
+
+val PAIR_TYPE_11 = prove(
+  ``∀P1 P2 o1 v1 o2 v2.
+    (∀v1a v2a v1d v2d a d.
+        P1 (FST o1) v1a ∧ P1 a v2a  ∧
+        P2 (SND o1) v1d ∧ P2 d v2d
+        ⇒
+        types_match v1a v2a ∧ ((v1a = v2a) ⇔ (FST o1 = a)) ∧
+        types_match v1d v2d ∧ ((v1d = v2d) ⇔ (SND o1 = d))) ∧
+    PAIR_TYPE P1 P2 o1 v1 ∧ PAIR_TYPE P1 P2 o2 v2 ⇒
+    types_match v1 v2 ∧ ((v1 = v2) ⇔ (o1 = o2))``,
+  ntac 2 gen_tac >> Cases >> gen_tac >> Cases >>
+  simp[mini_preludeTheory.PAIR_TYPE_def,types_match_Conv,PULL_EXISTS] >>
+  simp[types_match_list_2] >> metis_tac[])
 
 val AST_ID_TYPE_11 = prove(
  ``∀P x1 v1 x2 v2.
@@ -527,11 +545,160 @@ val AST_PAT_TYPE_11 = prove(
   Cases_on`x2`>>fs[ml_repl_stepTheory.AST_PAT_TYPE_def]>>BasicProvers.VAR_EQ_TAC>>
   METIS_TAC[LIST_TYPE_CHAR_11])
 
+val AST_LOP_TYPE_11 = prove(
+  ``∀x1 v1 x2 v2.
+    AST_LOP_TYPE x1 v1 ∧ AST_LOP_TYPE x2 v2 ⇒
+    types_match v1 v2 ∧ ((v1 = v2) ⇔ (x1 = x2))``,
+  Cases >>
+  simp[ml_repl_stepTheory.AST_LOP_TYPE_def,PULL_EXISTS] >>
+  simp[INT_def,BOOL_def,types_match_Conv,PULL_EXISTS,types_match_list_1] >>
+  Cases >>
+  simp[ml_repl_stepTheory.AST_LOP_TYPE_def,PULL_EXISTS] >>
+  simp[INT_def,BOOL_def,types_match_Conv,PULL_EXISTS,types_match_list_1] >>
+  simp[types_match_def] >>
+  METIS_TAC[LIST_TYPE_CHAR_11])
+
+val AST_UOP_TYPE_11 = prove(
+  ``∀x1 v1 x2 v2.
+    AST_UOP_TYPE x1 v1 ∧ AST_UOP_TYPE x2 v2 ⇒
+    types_match v1 v2 ∧ ((v1 = v2) ⇔ (x1 = x2))``,
+  Cases >>
+  simp[ml_repl_stepTheory.AST_UOP_TYPE_def,PULL_EXISTS] >>
+  simp[INT_def,BOOL_def,types_match_Conv,PULL_EXISTS,types_match_list_1] >>
+  Cases >>
+  simp[ml_repl_stepTheory.AST_UOP_TYPE_def,PULL_EXISTS] >>
+  simp[INT_def,BOOL_def,types_match_Conv,PULL_EXISTS,types_match_list_1] >>
+  simp[types_match_def] >>
+  METIS_TAC[LIST_TYPE_CHAR_11])
+
+val AST_OPN_TYPE_11 = prove(
+  ``∀x1 v1 x2 v2.
+    AST_OPN_TYPE x1 v1 ∧ AST_OPN_TYPE x2 v2 ⇒
+    types_match v1 v2 ∧ ((v1 = v2) ⇔ (x1 = x2))``,
+  Cases >>
+  simp[ml_repl_stepTheory.AST_OPN_TYPE_def,PULL_EXISTS] >>
+  simp[INT_def,BOOL_def,types_match_Conv,PULL_EXISTS,types_match_list_1] >>
+  Cases >>
+  simp[ml_repl_stepTheory.AST_OPN_TYPE_def,PULL_EXISTS] >>
+  simp[INT_def,BOOL_def,types_match_Conv,PULL_EXISTS,types_match_list_1] >>
+  simp[types_match_def] >>
+  METIS_TAC[LIST_TYPE_CHAR_11])
+
+val AST_OPB_TYPE_11 = prove(
+  ``∀x1 v1 x2 v2.
+    AST_OPB_TYPE x1 v1 ∧ AST_OPB_TYPE x2 v2 ⇒
+    types_match v1 v2 ∧ ((v1 = v2) ⇔ (x1 = x2))``,
+  Cases >>
+  simp[ml_repl_stepTheory.AST_OPB_TYPE_def,PULL_EXISTS] >>
+  simp[INT_def,BOOL_def,types_match_Conv,PULL_EXISTS,types_match_list_1] >>
+  Cases >>
+  simp[ml_repl_stepTheory.AST_OPB_TYPE_def,PULL_EXISTS] >>
+  simp[INT_def,BOOL_def,types_match_Conv,PULL_EXISTS,types_match_list_1] >>
+  simp[types_match_def] >>
+  METIS_TAC[LIST_TYPE_CHAR_11])
+
+val AST_OP_TYPE_11 = prove(
+  ``∀x1 v1 x2 v2.
+    AST_OP_TYPE x1 v1 ∧ AST_OP_TYPE x2 v2 ⇒
+    types_match v1 v2 ∧ ((v1 = v2) ⇔ (x1 = x2))``,
+  Cases >>
+  simp[ml_repl_stepTheory.AST_OP_TYPE_def,PULL_EXISTS] >>
+  simp[INT_def,BOOL_def,types_match_Conv,PULL_EXISTS,types_match_list_1] >>
+  Cases >>
+  simp[ml_repl_stepTheory.AST_OP_TYPE_def,PULL_EXISTS] >>
+  simp[INT_def,BOOL_def,types_match_Conv,PULL_EXISTS,types_match_list_1] >>
+  simp[types_match_def] >>
+  METIS_TAC[LIST_TYPE_CHAR_11,AST_OPN_TYPE_11,AST_OPB_TYPE_11])
+
+val AST_LIT_TYPE_11 = prove(
+  ``∀x1 v1 x2 v2.
+    AST_LIT_TYPE x1 v1 ∧ AST_LIT_TYPE x2 v2 ⇒
+    types_match v1 v2 ∧ ((v1 = v2) ⇔ (x1 = x2))``,
+  Cases >>
+  simp[ml_repl_stepTheory.AST_LIT_TYPE_def,PULL_EXISTS] >>
+  simp[INT_def,BOOL_def,types_match_Conv,PULL_EXISTS,types_match_list_1] >>
+  Cases >>
+  simp[ml_repl_stepTheory.AST_LIT_TYPE_def,PULL_EXISTS] >>
+  simp[INT_def,BOOL_def,types_match_Conv,PULL_EXISTS,types_match_list_1] >>
+  simp[types_match_def] >>
+  METIS_TAC[LIST_TYPE_CHAR_11])
+
 val AST_EXP_TYPE_11 = prove(
   ``∀x1 v1 x2 v2.
     AST_EXP_TYPE x1 v1 ∧ AST_EXP_TYPE x2 v2 ⇒
     types_match v1 v2 ∧ ((v1 = v2) ⇔ (x1 = x2))``,
-  cheat)
+  HO_MATCH_MP_TAC ml_repl_stepTheory.AST_EXP_TYPE_ind >>
+  simp[ml_repl_stepTheory.AST_EXP_TYPE_def,PULL_EXISTS,
+       types_match_Conv,types_match_list_1,types_match_list_2,types_match_list_3] >>
+  rpt conj_tac >>
+  rpt gen_tac >> STRIP_TAC >> Cases_on`x2` >>
+  fs[ml_repl_stepTheory.AST_EXP_TYPE_def] >>
+  simp[ml_repl_stepTheory.AST_EXP_TYPE_def,PULL_EXISTS,
+       types_match_Conv,types_match_list_1,types_match_list_2,types_match_list_3] >>
+  rpt gen_tac >> TRY (disch_then assume_tac) >> fs[] >>
+  TRY (
+    qmatch_abbrev_tac`(types_match vv11 vv12 ∧ types_match vv21 vv22) ∧
+                      ((vv11 = vv12) ∧ (vv21 = vv22) ⇔ (xx11 = xx12) ∧ (xx21 = xx22))` >>
+    qsuff_tac`(types_match vv11 vv12 ∧ ((vv11 = vv12) ⇔ (xx11 = xx12))) ∧
+              (types_match vv21 vv22 ∧ ((vv21 = vv22) ⇔ (xx21 = xx22)))` >- PROVE_TAC[] >>
+    conj_tac >> unabbrev_all_tac ) >>
+  TRY (
+    qmatch_abbrev_tac`(types_match vv11 vv12 ∧ types_match vv21 vv22 ∧ types_match vv31 vv32) ∧
+                      ((vv11 = vv12) ∧ (vv21 = vv22) ∧ (vv31 = vv32) ⇔ (xx11 = xx12) ∧ (xx21 = xx22) ∧ (xx31 = xx32))` >>
+    qsuff_tac`(types_match vv11 vv12 ∧ ((vv11 = vv12) ⇔ (xx11 = xx12))) ∧
+              (types_match vv21 vv22 ∧ ((vv21 = vv22) ⇔ (xx21 = xx22))) ∧
+              (types_match vv31 vv32 ∧ ((vv31 = vv32) ⇔ (xx31 = xx32)))` >- PROVE_TAC[] >>
+    conj_tac >|[ALL_TAC,conj_tac] >> unabbrev_all_tac ) >>
+  rpt (
+    TRY(
+      qmatch_abbrev_tac`A ∧ B ∧ types_match X Y`>>
+      REWRITE_TAC[Once CONJ_ASSOC]>>conj_tac>-metis_tac[]>>unabbrev_all_tac) >>
+    qmatch_abbrev_tac`types_match vv1 vv2 ∧ ((vv1 = vv2) ⇔ (xx1 = xx2))` >>
+    ((
+      qmatch_assum_abbrev_tac`LIST_TYPE A xx1 vv1` >>
+      qmatch_assum_abbrev_tac`LIST_TYPE A xx2 vv2` >>
+      TRY (METIS_TAC[LIST_TYPE_CHAR_11]) >>
+      Q.ISPECL_THEN[`A`,`xx1`,`vv1`,`xx2`,`vv2`]mp_tac LIST_TYPE_11 >>
+      discharge_hyps >> simp[]
+     ) ORELSE (
+      qmatch_assum_abbrev_tac`PAIR_TYPE A B xx1 vv1` >> rfs[] >> fs[] >>
+      qmatch_assum_abbrev_tac`PAIR_TYPE A B xx2 vv2` >>
+      Q.ISPECL_THEN[`A`,`B`,`xx1`,`vv1`,`xx2`,`vv2`]mp_tac PAIR_TYPE_11 >>
+      discharge_hyps (* >|[
+        simp[]>>gen_tac>>strip_tac>>strip_tac>>rpt gen_tac>>strip_tac>>
+        REWRITE_TAC[Once CONJ_ASSOC] >>
+        TRY (qmatch_abbrev_tac`(C1 ∧ C2) ∧ (C3 ∧ C4)`>>conj_tac)
+        ,simp[]] *) >> simp[]
+     ) ORELSE (
+      qmatch_assum_abbrev_tac`OPTION_TYPE A xx1 vv1` >>
+      qmatch_assum_abbrev_tac`OPTION_TYPE A xx2 vv2` >>
+      Q.ISPECL_THEN[`A`,`xx1`,`vv1`,`xx2`,`vv2`]mp_tac OPTION_TYPE_11 >>
+      discharge_hyps >> simp[]
+     ) ORELSE (
+      qmatch_assum_abbrev_tac`AST_EXP_TYPE xx1 vv1` >>
+      qmatch_assum_abbrev_tac`AST_EXP_TYPE xx2 vv2` >>
+      METIS_TAC[]
+     ) ORELSE (
+      qmatch_assum_abbrev_tac`AST_LOP_TYPE xx1 vv1` >>
+      qmatch_assum_abbrev_tac`AST_LOP_TYPE xx2 vv2` >>
+      METIS_TAC[AST_LOP_TYPE_11]
+     ) ORELSE (
+      qmatch_assum_abbrev_tac`AST_OP_TYPE xx1 vv1` >>
+      qmatch_assum_abbrev_tac`AST_OP_TYPE xx2 vv2` >>
+      METIS_TAC[AST_OP_TYPE_11]
+     ) ORELSE (
+      qmatch_assum_abbrev_tac`AST_UOP_TYPE xx1 vv1` >>
+      qmatch_assum_abbrev_tac`AST_UOP_TYPE xx2 vv2` >>
+      METIS_TAC[AST_UOP_TYPE_11]
+     ) ORELSE (
+      qmatch_assum_abbrev_tac`AST_LIT_TYPE xx1 vv1` >>
+      qmatch_assum_abbrev_tac`AST_LIT_TYPE xx2 vv2` >>
+      METIS_TAC[AST_LIT_TYPE_11]
+     )) >>
+    unabbrev_all_tac >>
+    rpt (gen_tac ORELSE (disch_then strip_assume_tac)) >>
+    TRY(metis_tac[])) >>
+  cheat )
 
 (* Equality Types -- should be in improved automation... *)
 
