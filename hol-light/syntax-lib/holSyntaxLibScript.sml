@@ -1,4 +1,4 @@
-open HolKernel boolLib bossLib lcsymtacs pairTheory listTheory pred_setTheory stringTheory sortingTheory arithmeticTheory
+open HolKernel boolLib bossLib lcsymtacs pairTheory listTheory alistTheory pred_setTheory stringTheory sortingTheory arithmeticTheory
 val _ = temp_tight_equality()
 val _ = new_theory"holSyntaxLib"
 infix \\ val op \\ = op THEN;

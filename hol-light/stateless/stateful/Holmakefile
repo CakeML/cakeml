@@ -1,12 +1,12 @@
-INCLUDES = ../.. ../../translator ../stateful
+INCLUDES = ../../.. ../../syntax-lib ..
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
 HOLHEAP = heap
-PARENT_HOLHEAP = ../stateful/heap
+PARENT_HOLHEAP = ../heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../../miscLib ../stateful/holSemanticsTheory ../../translator/ml_translatorTheory
+BARE_THYS = ../../../miscLib ../../syntax-lib/holSyntaxLibTheory ../sholSemanticsTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
