@@ -1,4 +1,4 @@
-print_match ["rich_list"] ``EL (LENGTH xs) (xs ++ ys)``
+
 open HolKernel Parse boolLib bossLib;
 
 val _ = new_theory "x64_heap";
