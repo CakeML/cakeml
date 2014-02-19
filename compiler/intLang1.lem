@@ -708,7 +708,7 @@ and
 dletrec1 : forall genv cenv funs s.
 true
 ==>
-evaluate_dec_i1 genv cenv s (Dletrec_i1 funs) (s, Rval (emp, List.map (fun (f,x,e) -> Recclosure_i1 (cenv,[]) funs f) funs))
+evaluate_dec_i1 genv cenv s (Dletrec_i1 funs) (s, Rval (emp, List.map (fun (f,x,e) -> Closure_i1 (cenv,[]) x e) funs))
 
 and
 

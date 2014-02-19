@@ -9,6 +9,14 @@ open evalPropsTheory;
 
 val _ = new_theory "toIntLang1Proof";
 
+val find_recfun_thm = Q.prove (
+`!n funs f x e.
+  (find_recfun n [] = NONE) ∧
+  (find_recfun n ((f,x,e)::funs) = 
+    if f = n then SOME (x,e) else find_recfun n funs)`,
+rw [] >>
+rw [Once find_recfun_def]);
+
 val lookup_reverse = Q.prove (
 `!env x.
   ALL_DISTINCT (MAP FST env)
@@ -155,6 +163,7 @@ val (v_to_i1_rules, v_to_i1_ind, v_to_i1_cases) = Hol_reln `
   ⇒ 
   v_to_i1 genv (Closure (menv,cenv,env++env') x e) 
                (Closure_i1 (cenv, env_i1) x (exp_to_i1 mods (DRESTRICT tops (COMPL (set (MAP FST env_i1))) \\ x) e))) ∧
+(* For expression level let recs *)
 (!genv mods tops menv cenv env funs x env' env_i1.
   env_to_i1 genv env env_i1 ∧
   set (MAP FST env') DIFF set (MAP FST env) ⊆ FDOM tops ∧
@@ -162,6 +171,14 @@ val (v_to_i1_rules, v_to_i1_ind, v_to_i1_cases) = Hol_reln `
   ⇒
   v_to_i1 genv (Recclosure (menv,cenv,env++env') funs x) 
                (Recclosure_i1 (cenv,env_i1) (funs_to_i1 mods (DRESTRICT tops (COMPL (set (MAP FST env_i1) ∪ set (MAP FST funs)))) funs) x)) ∧
+(* For top-level let recs *)
+(!genv mods tops menv cenv env funs x y e.
+  set (MAP FST env) ∪ set (MAP FST funs) ⊆ FDOM tops ∧
+  find_recfun x funs = SOME (y,e) ∧
+  global_env_inv genv mods tops menv {} (build_rec_env funs (menv,cenv,env) env)
+  ⇒
+  v_to_i1 genv (Recclosure (menv,cenv,env) funs x) 
+               (Closure_i1 (cenv,[]) y (exp_to_i1 mods (tops \\ y) e))) ∧
 (!genv loc.
   v_to_i1 genv (Loc loc) (Loc_i1 loc)) ∧
 (!genv.
@@ -323,6 +340,9 @@ val v_to_i1_weakening = Q.prove (
      fs [FDOM_FUPDATE_LIST, SUBSET_DEF, v_to_i1_eqns])
  >- (rw [Once v_to_i1_cases] >>
      MAP_EVERY qexists_tac [`mods`, `tops`, `env`, `env'`] >>
+     fs [FDOM_FUPDATE_LIST, SUBSET_DEF, v_to_i1_eqns])
+ >- (rw [Once v_to_i1_cases] >>
+     MAP_EVERY qexists_tac [`mods`, `tops`] >>
      fs [FDOM_FUPDATE_LIST, SUBSET_DEF, v_to_i1_eqns])
  >- metis_tac [DECIDE ``x < y ⇒ x < y + l:num``, EL_APPEND1]
  >- metis_tac []);
@@ -668,14 +688,14 @@ val do_app_rec_help = Q.prove (
      (funs_to_i1 mods'
         (DRESTRICT tops'
            (COMPL (set (MAP FST env_i1') ∪ set (MAP FST funs')))) funs))`,
-induct_on `funs` >>
-rw [v_to_i1_eqns, exp_to_i1_def] >>
-PairCases_on `h` >>
-rw [v_to_i1_eqns, exp_to_i1_def] >>
-rw [Once v_to_i1_cases] >>
-MAP_EVERY qexists_tac [`mods'`, `tops'`, `env'`, `env'''`] >>
-rw [] >>
-fs [v_to_i1_eqns]);
+ induct_on `funs` >>
+ rw [v_to_i1_eqns, exp_to_i1_def] >>
+ PairCases_on `h` >>
+ rw [v_to_i1_eqns, exp_to_i1_def] >>
+ rw [Once v_to_i1_cases] >>
+ MAP_EVERY qexists_tac [`mods'`, `tops'`, `env'`, `env'''`] >>
+ rw [] >>
+ fs [v_to_i1_eqns]);
 
 (* Alternate definition for build_rec_env_i1 *)
 val build_rec_env_i1_merge = Q.store_thm ("build_rec_env_i1_merge",
@@ -723,23 +743,33 @@ val do_app_i1 = Q.prove (
      rw [Once v_to_i1_cases] >>
      rw [] >>
      imp_res_tac find_recfun_to_i1 >>
-     rw [] >>
-     qexists_tac `n'' INSERT set (MAP FST env_i1') ∪ set (MAP FST funs)` >>
-     rw [DRESTRICT_DOMSUB, compl_insert, env_all_to_i1_cases] >>
-     MAP_EVERY qexists_tac [`mods'`, `tops'`] >>
-     rw [] >>
-     MAP_EVERY qexists_tac [`bind n'' v2 (build_rec_env funs (menv'',cenv'',env' ++ env''') env')`, `env'''`] >>
-     rw [bind_def, build_rec_env_merge, merge_def, EXTENSION]
-     >- (rw [MEM_MAP, EXISTS_PROD] >>
-         imp_res_tac env_to_i1_dom >>
-         metis_tac [pair_CASES, FST, MEM_MAP, EXISTS_PROD, LAMBDA_PROD])
-     >- metis_tac [INSERT_SING_UNION, global_env_inv_add_locals, UNION_COMM]
-     >- (fs [v_to_i1_eqns, build_rec_env_i1_merge, merge_def] >>
-         match_mp_tac env_to_i1_append >>
+     rw []
+     >- (qexists_tac `n'' INSERT set (MAP FST env_i1') ∪ set (MAP FST funs)` >>
+         rw [DRESTRICT_DOMSUB, compl_insert, env_all_to_i1_cases] >>
+         MAP_EVERY qexists_tac [`mods'`, `tops'`] >>
          rw [] >>
-         match_mp_tac do_app_rec_help >>
+         MAP_EVERY qexists_tac [`bind n'' v2 (build_rec_env funs (menv'',cenv'',env' ++ env''') env')`, `env'''`] >>
+         rw [bind_def, build_rec_env_merge, merge_def, EXTENSION]
+         >- (rw [MEM_MAP, EXISTS_PROD] >>
+             imp_res_tac env_to_i1_dom >>
+             metis_tac [pair_CASES, FST, MEM_MAP, EXISTS_PROD, LAMBDA_PROD])
+         >- metis_tac [INSERT_SING_UNION, global_env_inv_add_locals, UNION_COMM]
+         >- (fs [v_to_i1_eqns, build_rec_env_i1_merge, merge_def] >>
+             match_mp_tac env_to_i1_append >>
+             rw [] >>
+             match_mp_tac do_app_rec_help >>
+             rw [] >>
+             fs [v_to_i1_eqns]))
+     >- (qexists_tac `{n''}` >>
+         rw [DRESTRICT_UNIV, GSYM DRESTRICT_DOMSUB, compl_insert, env_all_to_i1_cases] >>
+         MAP_EVERY qexists_tac [`mods'`, `tops'`] >>
          rw [] >>
-         fs [v_to_i1_eqns]))
+         MAP_EVERY qexists_tac [`[(n'',v2)]`, `build_rec_env funs (menv'',cenv'',env'') env''`] >>
+         rw [bind_def, build_rec_env_merge, merge_def, EXTENSION]
+         >- (fs [v_to_i1_eqns] >>
+             rw [] >>
+             fs [build_rec_env_merge, merge_def, lookup_append])
+         >- (fs [v_to_i1_eqns, build_rec_env_i1_merge, merge_def])))
  >- (every_case_tac >>
      fs [store_assign_def, s_to_i1'_cases]
      >- (metis_tac [length_vs_to_i1]) >>
@@ -1287,24 +1317,32 @@ val funs_to_i1_map = Q.prove (
  PairCases_on `h` >>
  rw [exp_to_i1_def]);
 
-val letrec_env_to_i1 = Q.prove (
-`!mods tops mods' tops' funs funs'.
-  env_to_i1 genv (MAP (λ(fn,n,e). (fn,Recclosure (menv,cenv,env) funs' fn)) funs)
-  (MAP
-     (λ(p1,p1',p2).
-        (p1,
-         Recclosure_i1 (cenv,[])
-           (REVERSE
-              (MAP (λ(f,x,e). (f,x,exp_to_i1 mods (tops' \\ x) e))
-                 funs')) p1')) funs)`,
-
- induct_on `funs` >>
- rw [v_to_i1_eqns, exp_to_i1_def] >>
+val env_to_i1_el = Q.prove (
+`!genv env env_i1. 
+  env_to_i1 genv env env_i1 ⇔ 
+  LENGTH env = LENGTH env_i1 ∧ !n. n < LENGTH env ⇒ (FST (EL n env) = FST (EL n env_i1)) ∧ v_to_i1 genv (SND (EL n env)) (SND (EL n env_i1))`,
+ induct_on `env` >>
+ rw [v_to_i1_eqns]
+ >- (cases_on `env_i1` >>
+     fs []) >>
  PairCases_on `h` >>
- fs [v_to_i1_eqns] >>
- rw [Once v_to_i1_cases] >>
- MAP_EVERY qexists_tac [`mods`, `tops`, `[]`, `env`] >>
- rw [funs_to_i1_map]
+ rw [v_to_i1_eqns] >>
+ eq_tac >>
+ rw [] >>
+ rw []
+ >- (cases_on `n` >>
+     fs [])
+ >- (cases_on `n` >>
+     fs [])
+ >- (cases_on `env_i1` >>
+     fs [] >>
+     FIRST_ASSUM (qspecl_then [`0`] mp_tac) >>
+     SIMP_TAC (srw_ss()) [] >>
+     rw [] >>
+     qexists_tac `SND h` >>
+     rw [] >>
+     FIRST_X_ASSUM (qspecl_then [`SUC n`] mp_tac) >>
+     rw []));
 
 val dec_to_i1_correct = Q.prove (
 `!mn mods tops d menv cenv env s s' r genv s_i1 next' tops' d_i1.
@@ -1443,15 +1481,23 @@ val dec_to_i1_correct = Q.prove (
          metis_tac [big_unclocked]))
  >- (rw [fupdate_list_foldl] >>
      Q.ABBREV_TAC `tops' = (tops |++ alloc_defs (LENGTH genv) (REVERSE (MAP (λ(f,x,e). f) funs)))` >>
-     qexists_tac `MAP (λ(f,x,e). (f,Recclosure_i1 (cenv,[]) (funs_to_i1 mods tops' (REVERSE funs)) x)) (funs_to_i1 mods tops' (REVERSE funs))` >>
-     rw [GSYM funs_to_i1_dom, ALL_DISTINCT_REVERSE, MAP_REVERSE, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+     qexists_tac `MAP (λ(f,x,e). (f, Closure_i1 (cenv,[]) x e)) (funs_to_i1 mods tops' (REVERSE funs))` >>
+     rw [GSYM funs_to_i1_dom, ALL_DISTINCT_REVERSE, MAP_REVERSE, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
      >- rw [build_rec_env_i1_merge, merge_def, funs_to_i1_map]
-     >- (
-         
-         rw [build_rec_env_merge,merge_def, MAP_REVERSE, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, 
-             funs_to_i1_map] >>
-
-         cheat)
+     >- (rw [build_rec_env_merge,merge_def, MAP_REVERSE, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
+             funs_to_i1_map, env_to_i1_el] >>
+         rw [EL_MAP] >>
+         `?f x e. EL n funs = (f,x,e)` by metis_tac [pair_CASES] >>
+         rw [] >>
+         rw [Once v_to_i1_cases] >>
+         MAP_EVERY qexists_tac [`mods`, `tops'`, `e`] >>
+         rw [] >>
+         UNABBREV_ALL_TAC >>
+         rw [SUBSET_DEF, FDOM_FUPDATE_LIST]
+         >- cheat
+         >- cheat
+         >- cheat
+         >- cheat)
      >- metis_tac [v_to_i1_weakening, s_to_i1'_cases]
      >- (rw [MAP_MAP_o, combinTheory.o_DEF, fst_alloc_defs, build_rec_env_merge, merge_def, MAP_EQ_f] >>
          PairCases_on `x` >>
@@ -1471,8 +1517,8 @@ val dec_to_i1_num_bindings = Q.prove (
  rw [dec_to_i1_def] >>
  every_case_tac >>
  fs [LET_THM] >>
- rw [dec_to_dummy_env_def] >>
- metis_tac [funs_to_i1_length]); 
+ rw [dec_to_dummy_env_def, funs_to_i1_map] >>
+ metis_tac []); 
 
 val decs_to_i1_num_bindings = Q.prove (
 `!next mn mods tops ds next' tops' ds_i1.

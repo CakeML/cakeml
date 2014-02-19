@@ -667,7 +667,7 @@ evaluate_dec_i1 genv cenv s (Dlet_i1 n e) (s', Rerr err))
 /\ (! genv cenv funs s.
 T
 ==>
-evaluate_dec_i1 genv cenv s (Dletrec_i1 funs) (s, Rval (emp, MAP (\ (f,x,e) .  Recclosure_i1 (cenv,[]) funs f) funs)))
+evaluate_dec_i1 genv cenv s (Dletrec_i1 funs) (s, Rval (emp, MAP (\ (f,x,e) .  Closure_i1 (cenv,[]) x e) funs)))
 
 /\ (! mn genv cenv tds s.
 (check_dup_ctors tds)
