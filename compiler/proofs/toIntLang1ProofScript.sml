@@ -1396,8 +1396,36 @@ val global_env_inv_extend2 = Q.prove (
  imp_res_tac ALOOKUP_MEM >>
  metis_tac [MEM_REVERSE, MEM_MAP, FST]);
 
+val alloc_defs_append = Q.prove (
+`!n l1 l2. alloc_defs n (l1++l2) = alloc_defs n l1 ++ alloc_defs (n + LENGTH l1) l2`,
+ induct_on `l1` >>
+ srw_tac [ARITH_ss] [alloc_defs_def, arithmeticTheory.ADD1]);
+
+val letrec_global_env_lem = Q.prove (
+`!funs funs' menv cenv env v x x' genv.
+  lookup x (MAP (λ(fn,n,e). (fn,Recclosure (menv,cenv,env) funs' fn)) funs) = SOME v ∧
+  ALOOKUP (REVERSE (alloc_defs (LENGTH genv) (REVERSE (MAP (λ(f,x,e). f) funs)))) x = SOME x'
+  ⇒
+  v = SND (EL (LENGTH funs + LENGTH genv - (SUC x')) (MAP (λ(fn,n,e). (fn,Recclosure (menv,cenv,env) funs' fn)) funs))`,
+ induct_on `funs` >>
+ rw [alloc_defs_append] >>
+ PairCases_on `h` >>
+ fs [REVERSE_APPEND, alloc_defs_def, ALOOKUP_APPEND] >>
+ every_case_tac >>
+ fs [] >>
+ srw_tac [ARITH_ss] [arithmeticTheory.ADD1] >>
+ res_tac >>
+ rw [arithmeticTheory.ADD1] >>
+ imp_res_tac alookup_alloc_defs_bounds_rev >>
+ fs [] >>
+ `LENGTH funs + LENGTH genv − x' = SUC (LENGTH funs + LENGTH genv − (x'+1))` by decide_tac >>
+ rw []);
+
 val letrec_global_env = Q.prove (
 `!genv.
+  ALL_DISTINCT (MAP (\(x,y,z). x) funs) ∧
+  global_env_inv genv mods tops menv {} env
+  ⇒
   global_env_inv (genv ++ MAP (λ(p1,p1',p2). Closure_i1 (cenv,[]) p1' p2) 
                                (funs_to_i1 mods (tops |++ alloc_defs (LENGTH genv) (REVERSE (MAP (λ(f,x,e). f) funs))) 
                                                 (REVERSE funs)))
@@ -1406,7 +1434,8 @@ val letrec_global_env = Q.prove (
                [] 
                ∅ 
                (build_rec_env funs (menv,cenv,env) [])`,
- rw [v_to_i1_eqns, build_rec_env_merge, merge_def, flookup_fupdate_list] >>
+ rw [build_rec_env_merge, merge_def] >>
+ rw [v_to_i1_eqns, flookup_fupdate_list] >>
  every_case_tac >>
  rw [funs_to_i1_map, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
  >- (imp_res_tac ALOOKUP_NONE >>
@@ -1420,7 +1449,29 @@ val letrec_global_env = Q.prove (
      metis_tac [])
  >- (imp_res_tac alookup_alloc_defs_bounds_rev >>
      fs [])
- >- cheat);
+ >- (imp_res_tac letrec_global_env_lem >>
+     imp_res_tac alookup_alloc_defs_bounds_rev >>
+     rw [EL_APPEND2] >>
+     fs [] >>
+     srw_tac [ARITH_ss] [EL_MAP, EL_REVERSE] >>
+     `(PRE (LENGTH funs + LENGTH genv − x')) = (LENGTH funs + LENGTH genv − SUC x')` by decide_tac >>
+     rw [] >>
+     `?f x e. EL (LENGTH funs + LENGTH genv − SUC x') funs = (f,x,e)` by metis_tac [pair_CASES] >>
+     rw [Once v_to_i1_cases] >>
+     MAP_EVERY qexists_tac [`mods`, 
+                            `tops |++ alloc_defs (LENGTH genv) (REVERSE (MAP (λ(f,x,e). f) funs))`,
+                            `e`] >>
+     rw []
+     >- cheat
+     >- cheat
+     >- (`LENGTH funs + LENGTH genv − SUC x' < LENGTH funs` by decide_tac >>
+         metis_tac [find_recfun_el])
+     >- (rw [build_rec_env_merge, merge_def] >>
+         match_mp_tac global_env_inv_extend2 >>
+         rw [fst_alloc_defs, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+         >- metis_tac [v_to_i1_weakening]
+     
+     cheat));
 
 val dec_to_i1_correct = Q.prove (
 `!mn mods tops d menv cenv env s s' r genv s_i1 next' tops' d_i1.
