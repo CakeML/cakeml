@@ -432,12 +432,13 @@ val OPTION_TYPE_11 = prove(
 
 val PAIR_TYPE_11 = prove(
   ``∀P1 P2 o1 v1 o2 v2.
-    (∀v1a v2a v1d v2d a d.
-        P1 (FST o1) v1a ∧ P1 a v2a  ∧
-        P2 (SND o1) v1d ∧ P2 d v2d
+    (∀a d. (o1 = (a,d)) ⇒
+       ∀v1a v2a v1d v2d a2 d2.
+        P1 a v1a ∧ P1 a2 v2a  ∧
+        P2 d v1d ∧ P2 d2 v2d
         ⇒
-        types_match v1a v2a ∧ ((v1a = v2a) ⇔ (FST o1 = a)) ∧
-        types_match v1d v2d ∧ ((v1d = v2d) ⇔ (SND o1 = d))) ∧
+        types_match v1a v2a ∧ ((v1a = v2a) ⇔ (a = a2)) ∧
+        types_match v1d v2d ∧ ((v1d = v2d) ⇔ (d = d2))) ∧
     PAIR_TYPE P1 P2 o1 v1 ∧ PAIR_TYPE P1 P2 o2 v2 ⇒
     types_match v1 v2 ∧ ((v1 = v2) ⇔ (o1 = o2))``,
   ntac 2 gen_tac >> Cases >> gen_tac >> Cases >>
@@ -675,6 +676,11 @@ val AST_EXP_TYPE_11 = prove(
       Q.ISPECL_THEN[`A`,`xx1`,`vv1`,`xx2`,`vv2`]mp_tac OPTION_TYPE_11 >>
       discharge_hyps >> simp[]
      ) ORELSE (
+      qmatch_assum_abbrev_tac`AST_ID_TYPE A xx1 vv1` >>
+      qmatch_assum_abbrev_tac`AST_ID_TYPE A xx2 vv2` >>
+      Q.ISPECL_THEN[`A`,`xx1`,`vv1`,`xx2`,`vv2`]mp_tac AST_ID_TYPE_11 >>
+      discharge_hyps >> simp[]
+     ) ORELSE (
       qmatch_assum_abbrev_tac`AST_EXP_TYPE xx1 vv1` >>
       qmatch_assum_abbrev_tac`AST_EXP_TYPE xx2 vv2` >>
       METIS_TAC[]
@@ -687,6 +693,10 @@ val AST_EXP_TYPE_11 = prove(
       qmatch_assum_abbrev_tac`AST_OP_TYPE xx2 vv2` >>
       METIS_TAC[AST_OP_TYPE_11]
      ) ORELSE (
+      qmatch_assum_abbrev_tac`AST_PAT_TYPE xx1 vv1` >>
+      qmatch_assum_abbrev_tac`AST_PAT_TYPE xx2 vv2` >>
+      METIS_TAC[AST_PAT_TYPE_11]
+     ) ORELSE (
       qmatch_assum_abbrev_tac`AST_UOP_TYPE xx1 vv1` >>
       qmatch_assum_abbrev_tac`AST_UOP_TYPE xx2 vv2` >>
       METIS_TAC[AST_UOP_TYPE_11]
@@ -697,8 +707,15 @@ val AST_EXP_TYPE_11 = prove(
      )) >>
     unabbrev_all_tac >>
     rpt (gen_tac ORELSE (disch_then strip_assume_tac)) >>
-    TRY(metis_tac[])) >>
-  cheat )
+    rpt BasicProvers.VAR_EQ_TAC >> fs[mini_preludeTheory.PAIR_TYPE_def] >>
+    TRY(
+      qmatch_abbrev_tac`types_match X Y ∧ Z ∧ types_match XX YY ∧ ZZ`>>
+      REWRITE_TAC[Once CONJ_ASSOC]>>conj_tac>>unabbrev_all_tac) >>
+    TRY(
+      qmatch_abbrev_tac`A ∧ types_match X Y ∧ B`>>
+      conj_tac >> unabbrev_all_tac) >>
+    TRY(metis_tac[LIST_TYPE_CHAR_11,AST_PAT_TYPE_11,SND])) >>
+  TRY(METIS_TAC[]))
 
 (* Equality Types -- should be in improved automation... *)
 
