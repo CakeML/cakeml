@@ -1,6 +1,40 @@
-(* The first intermediate language. Removes modules, and removes names for
- * top-level declarations. Also moves their bindings out of closures. Also
- * removes andalso and orelse and replaces them with if. *)
+(* The first intermediate language (IL1). Removes modules, and introduces
+ * special variable references for referring to top-level bindings.  Also
+ * removes andalso and orelse and replaces them with if. 
+ *
+ * The AST of IL1 differs from the source language by having two variable
+ * reference forms, one to reference local bindings (still by name) and one to
+ * reference global bindings (by index). At the top level, modules are gone.
+ * However a Prompt is introduced to group declarations whose bindings should
+ * all be installed by the REPL only if none of them encounters an exception
+ * (one of the functions that modules perform in the source language).
+ * Top-level lets and letrecs no longer bind names (or have patterns), and the
+ * lets come with just a number indicating how many bindings to install in the
+ * global environment.
+ * 
+ * The values of IL1 differ in that the closures do not contain a module
+ * environment.
+ *
+ * The semantics of IL1 differ in that there is no module environment menv, nor
+ * are top-level bindings added to the normal env, thus when a closure is
+ * created, only locals bindings are put into it. There is a global environment
+ * genv, which is just a list of the top-level bindings seen so far, with the
+ * older bindings nearer the head. Global variable reference expressions simply
+ * index into global environment. Top-level let rec declarations evaluate to
+ * closures, rather than to recursive closures, since the recursion can be
+ * handled through the genv. The expressions bound to top-level lets must
+ * evaluate to a tuple with exactly as many things in it as the number of
+ * bindings that the let will bind.
+ *
+ * The translator to IL1 keeps two mappings, one mapping module paths to
+ * indices into the genv, and the other mapping top-level non-module bindings
+ * to genv indices. All variable references are replaced with global references
+ * to the genv index if they are in the mappings. This includes top-level
+ * letrec names which are all put into the mapping before translating any of
+ * the let rec functions. This enables the semantics of let rec to just create
+ * Closures rather than Recclosures.
+ *
+ * *)
 
 open import Pervasives
 open import Lib
