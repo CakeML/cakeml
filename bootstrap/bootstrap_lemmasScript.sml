@@ -360,6 +360,38 @@ val REPL_FUN_REPL_FUN_STATE_TYPE_no_closures = prove(
     fs[std_preludeTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
     unabbrev_all_tac ))
 
+val GRAMMAR_PARSETREE_TYPE_no_closures = prove(
+  (*
+  ``∀A B a b.
+      (∀x y. (a = Lf (TOK x)) ∧ A x y ⇒ no_closures y) ∧
+      (∀x y z. ((a = Lf (NT (INL x))) ∨ (a = Nd (INL x) z)) ∧ B x y ⇒ no_closures y) ∧
+      GRAMMAR_PARSETREE_TYPE A B a b ⇒
+      no_closures b``,
+      *)
+  ``∀A B a b.
+      (∀x y. A x y ⇒ no_closures y) ∧
+      (∀x y. B x y ⇒ no_closures y) ∧
+      GRAMMAR_PARSETREE_TYPE A B a b ⇒
+      no_closures b``,
+  HO_MATCH_MP_TAC ml_repl_stepTheory.GRAMMAR_PARSETREE_TYPE_ind >>
+  simp[ml_repl_stepTheory.GRAMMAR_PARSETREE_TYPE_def,PULL_EXISTS] >>
+  conj_tac >> ntac 2 gen_tac >> Cases >> rw[std_preludeTheory.SUM_TYPE_def] >>
+  fs[NUM_def,INT_def,ml_repl_stepTheory.GRAMMAR_SYMBOL_TYPE_def] >>
+  TRY (Cases_on`s`>>fs[std_preludeTheory.SUM_TYPE_def,NUM_def,INT_def]) >>
+  res_tac >> METIS_TAC[LIST_TYPE_no_closures])
+
+val TOKENS_TOKEN_TYPE_no_closures = prove(
+  ``∀x y. TOKENS_TOKEN_TYPE x y ⇒ no_closures y``,
+  Cases >> simp[ml_repl_stepTheory.TOKENS_TOKEN_TYPE_def,PULL_EXISTS,NUM_def,INT_def] >>
+  rw[] >>
+  MATCH_MP_TAC (MP_CANON (Q.ISPEC`CHAR`(Q.GEN`A`LIST_TYPE_no_closures))) >>
+  simp[std_preludeTheory.CHAR_def,NUM_def,INT_def] >>
+  METIS_TAC[])
+
+val GRAM_MMLNONT_TYPE_no_closures = prove(
+  ``∀x y. GRAM_MMLNONT_TYPE x y ⇒ no_closures y``,
+  Cases >> simp[ml_repl_stepTheory.GRAM_MMLNONT_TYPE_def])
+
 (* one_one theorems for types - should be more automatic *)
 
 val EqualityType_thm = prove(
@@ -717,6 +749,81 @@ val AST_EXP_TYPE_11 = prove(
     TRY(metis_tac[LIST_TYPE_CHAR_11,AST_PAT_TYPE_11,SND])) >>
   TRY(METIS_TAC[]))
 
+val GRAMMAR_SYMBOL_TYPE_11 = prove(
+  ``∀a1 b1 a2 b2.
+    (∀x1 x2 y1 y2. A x1 y1 ∧ A x2 y2 ⇒ types_match y1 y2 ∧ ((y1 = y2) ⇔ (x1 = x2))) ∧
+    (∀x1 x2 y1 y2. B x1 y1 ∧ B x2 y2 ⇒ types_match y1 y2 ∧ ((y1 = y2) ⇔ (x1 = x2))) ∧
+    GRAMMAR_SYMBOL_TYPE A B a1 b1 ∧
+    GRAMMAR_SYMBOL_TYPE A B a2 b2
+    ⇒
+    types_match b1 b2 ∧ ((b1 = b2) ⇔ (a1 = a2))``,
+  Cases >> simp[ml_repl_stepTheory.GRAMMAR_SYMBOL_TYPE_def,PULL_EXISTS
+               ,types_match_Conv,types_match_list_1] >>
+  Cases >> simp[ml_repl_stepTheory.GRAMMAR_SYMBOL_TYPE_def,PULL_EXISTS
+               ,types_match_Conv,types_match_list_1] >>
+  rw[] >> TRY(METIS_TAC[])>>
+  qmatch_assum_rename_tac`SUM_TYPE B NUM aa bb`[]>>
+  qpat_assum`SUM_TYPE B NUM aa bb`mp_tac >>
+  qmatch_assum_rename_tac`SUM_TYPE B NUM cc dd`[]>>
+  strip_tac >>
+  Cases_on`aa`>>Cases_on`cc`>>fs[std_preludeTheory.SUM_TYPE_def,NUM_def,INT_def] >>
+  simp[types_match_Conv,types_match_list_1] >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  simp[types_match_def] >> METIS_TAC[])
+
+val GRAMMAR_PARSETREE_TYPE_11 = prove(
+  ``∀A B a1 b1 a2 b2.
+      (∀x1 x2 y1 y2. A x1 y1 ∧ A x2 y2 ⇒ types_match y1 y2 ∧ ((y1 = y2) ⇔ (x1 = x2))) ∧
+      (∀x1 x2 y1 y2. B x1 y1 ∧ B x2 y2 ⇒ types_match y1 y2 ∧ ((y1 = y2) ⇔ (x1 = x2))) ∧
+      GRAMMAR_PARSETREE_TYPE A B a1 b1 ∧
+      GRAMMAR_PARSETREE_TYPE A B a2 b2
+      ⇒
+      types_match b1 b2 ∧ ((b1 = b2) ⇔ (a1 = a2))``,
+  HO_MATCH_MP_TAC ml_repl_stepTheory.GRAMMAR_PARSETREE_TYPE_ind >>
+  simp[ml_repl_stepTheory.GRAMMAR_PARSETREE_TYPE_def,PULL_EXISTS,types_match_Conv
+      ,types_match_list_1,types_match_list_2] >>
+  rpt conj_tac >>
+  rpt gen_tac >> STRIP_TAC >> Cases_on`a2` >>
+  fs[ml_repl_stepTheory.GRAMMAR_PARSETREE_TYPE_def
+    ,std_preludeTheory.SUM_TYPE_def,NUM_def,INT_def
+    ,ml_repl_stepTheory.GRAMMAR_SYMBOL_TYPE_def] >>
+  rpt gen_tac >> rpt (disch_then STRIP_ASSUME_TAC) >>
+  rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
+  TRY (
+    qmatch_assum_rename_tac`SUM_TYPE B NUM aa bb`[]>>
+    qpat_assum`SUM_TYPE B NUM aa bb`mp_tac >>
+    qmatch_assum_rename_tac`SUM_TYPE B NUM cc dd`[]>>
+    strip_tac >>
+    Cases_on`aa`>>Cases_on`cc`>>fs[std_preludeTheory.SUM_TYPE_def,NUM_def,INT_def] >>
+    simp[types_match_Conv,types_match_list_1] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    qmatch_assum_rename_tac`LIST_TYPE D aa bb`["D"]>>
+    qpat_assum`LIST_TYPE D aa bb`mp_tac>>
+    qmatch_assum_rename_tac`LIST_TYPE D cc dd`["D"]>>
+    strip_tac >>
+    Q.ISPECL_THEN[`GRAMMAR_PARSETREE_TYPE A B`,`cc`,`dd`,`aa`,`bb`]mp_tac LIST_TYPE_11 >>
+    discharge_hyps >- ( res_tac >> METIS_TAC[] ) >>
+    simp[types_match_def] >> METIS_TAC[]) >>
+  MATCH_MP_TAC GRAMMAR_SYMBOL_TYPE_11 >>
+  METIS_TAC[])
+
+val TOKENS_TOKEN_TYPE_11 = prove(
+  ``∀x1 y1 x2 y2. TOKENS_TOKEN_TYPE x1 y1 ∧ TOKENS_TOKEN_TYPE x2 y2 ⇒
+                  types_match y1 y2 ∧ ((y1 = y2) ⇔ (x1 = x2)) ``,
+  Cases >> simp[ml_repl_stepTheory.TOKENS_TOKEN_TYPE_def,types_match_Conv,types_match_list_1,PULL_EXISTS,NUM_def,INT_def] >>
+  Cases >> simp[ml_repl_stepTheory.TOKENS_TOKEN_TYPE_def,types_match_Conv,types_match_list_1,PULL_EXISTS,NUM_def,INT_def] >>
+  simp[types_match_list_2,types_match_def] >>
+  METIS_TAC[LIST_TYPE_CHAR_11])
+
+val GRAM_MMLNONT_TYPE_11 = prove(
+  ``∀x1 y1 x2 y2. GRAM_MMLNONT_TYPE x1 y1 ∧ GRAM_MMLNONT_TYPE x2 y2 ⇒
+                  types_match y1 y2 ∧ ((y1 = y2) ⇔ (x1 = x2)) ``,
+  HO_MATCH_MP_TAC(TypeBase.induction_of``:MMLnonT``)>>
+  simp[ml_repl_stepTheory.GRAM_MMLNONT_TYPE_def,types_match_Conv,PULL_EXISTS] >>
+  rpt conj_tac >>
+  HO_MATCH_MP_TAC(TypeBase.induction_of``:MMLnonT``)>>
+  simp[ml_repl_stepTheory.GRAM_MMLNONT_TYPE_def,types_match_Conv,PULL_EXISTS])
+
 (* Equality Types -- should be in improved automation... *)
 
 val v_ind =
@@ -735,11 +842,13 @@ val equality_types = prove(
     EqualityType AST_EXP_TYPE``,
   conj_tac >- METIS_TAC[EqualityType_thm,AST_T_TYPE_no_closures,AST_T_TYPE_11] >>
   conj_tac >- METIS_TAC[EqualityType_thm,AST_PAT_TYPE_no_closures,AST_PAT_TYPE_11] >>
-  conj_tac >- cheat >>
-  (*
-    METIS_TAC[EqualityType_thm,
-    GRAMMAR_PARSETREE_TYPE_TOKENS_TOKEN_TYPE_GRAM_MMLNONT_TYPE_no_closures,
-    GRAMMAR_PARSETREE_TYPE_TOKENS_TOKEN_TYPE_GRAM_MMLNONT_TYPE_11] >> *)
+  conj_tac >- (
+    simp[EqualityType_thm] >>
+    conj_tac >- (
+      METIS_TAC[GRAMMAR_PARSETREE_TYPE_no_closures,TOKENS_TOKEN_TYPE_no_closures,GRAM_MMLNONT_TYPE_no_closures] ) >>
+    rpt gen_tac >> strip_tac >>
+    MATCH_MP_TAC (MP_CANON (Q.ISPECL[`TOKENS_TOKEN_TYPE`,`GRAM_MMLNONT_TYPE`]GRAMMAR_PARSETREE_TYPE_11)) >>
+    METIS_TAC[TOKENS_TOKEN_TYPE_11,GRAM_MMLNONT_TYPE_11] ) >>
   METIS_TAC[EqualityType_thm,AST_EXP_TYPE_no_closures,AST_EXP_TYPE_11])
 
 (* --- Decl for repl_decs --- *)
