@@ -136,7 +136,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (* The constructor names that are in scope, the global mapping of constructor
  * names (with types so that they are unique, and its inverse *)
-val _ = type_abbrev( "cenv_mapping" , ``: num # (( conN id), num) fmap # (( modN option # tid_or_exn # conN), num) fmap # (num, ( modN option # tid_or_exn # conN)) fmap``);
+val _ = type_abbrev( "cenv_mapping" , ``: num # (( conN id), num) fmap # ((tid_or_exn # conN), num) fmap # (num, (tid_or_exn # conN)) fmap``);
 
 (*val lookup_tag : maybe (id conN) -> cenv_mapping -> nat*)
 val _ = Define `
@@ -229,7 +229,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (*val alloc_tag : maybe modN -> tid_or_exn -> conN -> cenv_mapping -> cenv_mapping*)
 val _ = Define `
  (alloc_tag mn tn cn (next, cenv,val_cenv,inv0) =
-  ((next+ 1),cenv |+ ((mk_id mn cn), next),val_cenv |+ ((mn,tn,cn), next),inv0 |+ (next, (mn,tn,cn))))`;
+  ((next+ 1),cenv |+ ((mk_id mn cn), next),val_cenv |+ ((tn,cn), next),inv0 |+ (next, (tn,cn))))`;
 
 
 (*val alloc_tags : maybe modN -> cenv_mapping -> type_def -> cenv_mapping*)
@@ -773,16 +773,16 @@ val _ = Define `
                  (Short "Eq", eq_tag); 
                  (Short "::", cons_tag);
                  (Short "nil", nil_tag)],
-   FUPDATE_LIST FEMPTY [((NONE, TypeExn NONE, "Div"), div_tag); 
-                 ((NONE, TypeExn NONE, "Bind"), bind_tag); 
-                 ((NONE, TypeExn NONE, "Eq"), eq_tag); 
-                 ((NONE, TypeId (Short "list"), "::"), cons_tag);
-                 ((NONE, TypeId (Short "list"), "nil"), nil_tag)],
-   FUPDATE_LIST FEMPTY [(div_tag, (NONE, TypeExn NONE, "Div")); 
-                 (bind_tag, (NONE, TypeExn NONE, "Bind")); 
-                 (eq_tag, (NONE, TypeExn NONE, "Eq")); 
-                 (cons_tag, (NONE, TypeId (Short "list"), "::"));
-                 (nil_tag, (NONE, TypeId (Short "list"), "nil"))]))`;
+   FUPDATE_LIST FEMPTY [((TypeExn NONE, "Div"), div_tag); 
+                 ((TypeExn NONE, "Bind"), bind_tag); 
+                 ((TypeExn NONE, "Eq"), eq_tag); 
+                 ((TypeId (Short "list"), "::"), cons_tag);
+                 ((TypeId (Short "list"), "nil"), nil_tag)],
+   FUPDATE_LIST FEMPTY [(div_tag, (TypeExn NONE, "Div")); 
+                 (bind_tag, (TypeExn NONE, "Bind")); 
+                 (eq_tag, (TypeExn NONE, "Eq")); 
+                 (cons_tag, (TypeId (Short "list"), "::"));
+                 (nil_tag, (TypeId (Short "list"), "nil"))]))`;
 
 
 

@@ -128,20 +128,20 @@ val (exp_to_i1_def, exp_to_i1_ind) =
                                         | INR (INR (INL (x,y,pes))) => pes_size pes
                                         | INR (INR (INR (x,y,funs))) => funs_size funs)` >>
   srw_tac [ARITH_ss] [size_abbrevs, exp_size_def]);
-val _ = register "exp_to_i1_ind" exp_to_i1_def exp_to_i1_ind;
+val _ = register "exp_to_i1" exp_to_i1_def exp_to_i1_ind;
 
 val (pmatch_i1_def, pmatch_i1_ind) =
   tprove_no_defn ((pmatch_i1_def, pmatch_i1_ind),
   wf_rel_tac `inv_image $< (\x. case x of INL (a,x,p,y,z) => pat_size p
                                         | INR (a,x,ps,y,z) => pats_size ps)` >>
   srw_tac [ARITH_ss] [size_abbrevs, pat_size_def]);
-val _ = register "pmatch_i1_ind" pmatch_i1_def pmatch_i1_ind;
+val _ = register "pmatch_i1" pmatch_i1_def pmatch_i1_ind;
 
 val (do_eq_i1_def, do_eq_i1_ind) =
   tprove_no_defn ((do_eq_i1_def, do_eq_i1_ind),
   wf_rel_tac `inv_image $< (\x. case x of INL (x,y) => v_i1_size x
                                         | INR (xs,ys) => v_i14_size xs)`);
-val _ = register "do_eq_i1_ind" do_eq_i1_def do_eq_i1_ind;
+val _ = register "do_eq_i1" do_eq_i1_def do_eq_i1_ind;
 
 val pmatch_i1_extend = Q.prove (
 `(!cenv s p v env env' env''.

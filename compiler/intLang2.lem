@@ -101,7 +101,7 @@ pats_bindings_i2 (p::ps) already_bound =
 
 (* The constructor names that are in scope, the global mapping of constructor
  * names (with types so that they are unique, and its inverse *)
-type cenv_mapping = nat * map (id conN) nat * map (maybe modN * tid_or_exn * conN) nat * map nat (maybe modN * tid_or_exn * conN)
+type cenv_mapping = nat * map (id conN) nat * map (tid_or_exn * conN) nat * map nat (tid_or_exn * conN)
 
 val lookup_tag : maybe (id conN) -> cenv_mapping -> nat
 let lookup_tag cn (next,cenv,val_cenv,inv) = 
@@ -185,7 +185,7 @@ funs_to_i2 cenv ((f,x,e)::funs) =
 
 val alloc_tag : maybe modN -> tid_or_exn -> conN -> cenv_mapping -> cenv_mapping
 let alloc_tag mn tn cn (next, cenv,val_cenv,inv) =
-  (next+1,Map.insert (mk_id mn cn) next cenv, Map.insert (mn,tn,cn) next val_cenv, Map.insert next (mn,tn,cn) inv)
+  (next+1,Map.insert (mk_id mn cn) next cenv, Map.insert (tn,cn) next val_cenv, Map.insert next (tn,cn) inv)
 
 val alloc_tags : maybe modN -> cenv_mapping -> type_def -> cenv_mapping
 let rec 
@@ -809,16 +809,16 @@ let init_cenv_mapping =
                  (Short "Eq", eq_tag); 
                  (Short "::", cons_tag);
                  (Short "nil", nil_tag)],
-   Map.fromList [((Nothing, TypeExn Nothing, "Div"), div_tag); 
-                 ((Nothing, TypeExn Nothing, "Bind"), bind_tag); 
-                 ((Nothing, TypeExn Nothing, "Eq"), eq_tag); 
-                 ((Nothing, TypeId (Short "list"), "::"), cons_tag);
-                 ((Nothing, TypeId (Short "list"), "nil"), nil_tag)],
-   Map.fromList [(div_tag, (Nothing, TypeExn Nothing, "Div")); 
-                 (bind_tag, (Nothing, TypeExn Nothing, "Bind")); 
-                 (eq_tag, (Nothing, TypeExn Nothing, "Eq")); 
-                 (cons_tag, (Nothing, TypeId (Short "list"), "::"));
-                 (nil_tag, (Nothing, TypeId (Short "list"), "nil"))])
+   Map.fromList [((TypeExn Nothing, "Div"), div_tag); 
+                 ((TypeExn Nothing, "Bind"), bind_tag); 
+                 ((TypeExn Nothing, "Eq"), eq_tag); 
+                 ((TypeId (Short "list"), "::"), cons_tag);
+                 ((TypeId (Short "list"), "nil"), nil_tag)],
+   Map.fromList [(div_tag, (TypeExn Nothing, "Div")); 
+                 (bind_tag, (TypeExn Nothing, "Bind")); 
+                 (eq_tag, (TypeExn Nothing, "Eq")); 
+                 (cons_tag, (TypeId (Short "list"), "::"));
+                 (nil_tag, (TypeId (Short "list"), "nil"))])
 
 
 
