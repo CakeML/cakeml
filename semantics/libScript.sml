@@ -13,17 +13,7 @@ val _ = new_theory "lib"
 
 (* TODO: look for these in the built-in library *)
 
-(*val int_to_num : integer -> nat*)
-
-(*val num_to_string : nat -> string*)
-
-(*val all_distinct : forall 'a. list 'a -> bool*)
-
 (*val rtc : forall 'a. ('a -> 'a -> bool) -> ('a -> 'a -> bool)*)
-
-(*val count_list : nat -> list nat*)
-
-(*val ^ : string -> string -> string*)
 
 (* The builtin List.zip maps to list_combine in HOL, but I want to map to ZIP *)
 (*val ZIP : forall 'a 'b. list 'a -> list 'b -> list ('a * 'b)*)

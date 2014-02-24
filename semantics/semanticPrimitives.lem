@@ -1,5 +1,6 @@
 open import Pervasives
 import List_extra
+import String_extra
 open import Lib
 open import Ast
 
@@ -330,7 +331,7 @@ let check_dup_ctors mn_opt cenv tds =
   (forall ((tvs, tn, condefs) MEM tds) ((n, ts) MEM condefs).
      lookup (mk_id mn_opt n) cenv = Nothing)
   &&
-  all_distinct [ n | forall ((tvs, tn, condefs) MEM tds) ((n, ts) MEM condefs) | true ]
+  List_extra.all_distinct [ n | forall ((tvs, tn, condefs) MEM tds) ((n, ts) MEM condefs) | true ]
 
 val combine_dec_result : forall 'a 'b. env 'a 'b -> result (env 'a 'b) -> result (env 'a 'b)
 let combine_dec_result env r =
@@ -372,6 +373,7 @@ id_to_string (Short s) = s
 and
 id_to_string (Long x y) = x^"."^y
 
+val int_to_string : integer -> string
 let int_to_string z =
-  if z < 0 then "~"^(num_to_string (int_to_num (~ z)))
-  else num_to_string (int_to_num z)
+  if z < 0 then "~"^(String_extra.show (naturalFromInteger (~ z)))
+  else String_extra.show (naturalFromInteger z)

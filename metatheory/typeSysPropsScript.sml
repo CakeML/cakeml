@@ -1766,9 +1766,9 @@ qpat_assum `A ⇒ B` match_mp_tac >>
 rw [bind_def, bind_var_list2_def, bind_tenv_def, tenv_ok_def, num_tvs_bvl2,
     num_tvs_def] >>
 match_mp_tac check_freevars_subst_single >>
-rw [rich_listTheory.LENGTH_COUNT_LIST, EVERY_MAP] >>
+rw [LENGTH_GENLIST, EVERY_MAP] >>
 rw [EVERY_MEM] >>
-fs [rich_listTheory.MEM_COUNT_LIST, check_freevars_def] >>
+fs [MEM_GENLIST, check_freevars_def] >>
 metis_tac [check_freevars_add, DECIDE ``!x:num. x ≥ 0``]);
 
 val type_specs_tenvC_ok = Q.store_thm ("type_specs_tenvC_ok",

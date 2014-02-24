@@ -17,6 +17,7 @@ val _ = new_theory "compiler"
 (*open import ToIntLang*)
 (*open import ToBytecode*)
 (*open import Bytecode*)
+(*open String_extra*)
 
 val _ = type_abbrev( "contab" , ``: (( ( conN id)option), num) fmap # (num #  ( conN id)option) list # num``);
 (*val cmap : contab -> Map.map (maybe (id conN)) nat*)

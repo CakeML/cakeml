@@ -6,17 +6,11 @@ import List_extra
 val least : (nat -> bool) -> nat
 declare hol target_rep function least = `$LEAST`
 
-val string_concat : list string -> string
-declare hol target_rep function string_concat = `CONCAT`
-
 val snoc_char : char -> string -> string
 declare hol target_rep function snoc_char = `SNOC`
 
 val all2 : forall 'a 'b. ('a -> 'b -> bool) -> list 'a -> list 'b -> bool
 declare hol target_rep function all2 = `EVERY2`
-
-val EXPLODE : string -> list char
-declare hol target_rep function EXPLODE = `EXPLODE`
 
 let rec el_check n ls = if n < List.length ls then Just (List_extra.nth ls n) else Nothing
 

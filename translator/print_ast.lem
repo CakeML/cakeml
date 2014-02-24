@@ -2,30 +2,16 @@ open import Pervasives
 open import Lib
 open import Ast
 open import Tokens
-
-val CHR : nat -> string
-declare hol target_rep function CHR n = `STRING` (`CHR` n) ""
-
-val string_first : string -> string
-declare hol target_rep function string_first s = `STRING` (`SUB` (s,(0:nat))) ""
-
-val first_ord : string -> nat
-declare hol target_rep function first_ord s = `ORD` (`SUB` (s,(0:nat)))
-
-let rec num_to_string n acc =
-  if n = 0 then
-    acc
-  else
-    num_to_string (n / 10) (CHR (n mod 10 + 48) ^ acc)
+open import String_extra
 
 val int_to_string : integer -> string
 let int_to_string n =
   if n = 0 then
     "0"
   else if n > 0 then
-    num_to_string (int_to_num n) ""
+    show (naturalFromInteger n)
   else
-    "~" ^ num_to_string (int_to_num (0 - n)) ""
+    "~" ^ show (naturalFromInteger (0 - n))
 
 val spaces : nat -> string -> string
 let rec 
@@ -39,8 +25,8 @@ let space_append s1 s2 =
   if s2 = "" then
     s1
   else 
-    let f = string_first s2 in
-      if f = ")"  || f = " " || f = "," then
+    let f = nth s2 0 in
+      if f = #')'  || f = #' ' || f = #',' then
     s1 ^ s2
   else
     s1 ^ " " ^ s2
@@ -93,7 +79,7 @@ and
 tok_to_string LparT s = 
   if s = "" then
     "("
-  else if string_first s = "*" then
+  else if nth s 0 = #'*' then
     "( " ^ s
   else
     "(" ^ s
@@ -129,7 +115,7 @@ type tok_tree = L of token | N of tok_tree * tok_tree
 
 (*val (^^) : forall 'a. 'a tree -> 'a tree -> 'a tree*)
 val (^^) : tok_tree -> tok_tree -> tok_tree
-let inline {hol} (^^) x y = N x y
+let inline (^^) x y = N x y
 
 (*val tree_to_list : forall 'a. 'a tree -> 'a list -> 'a list*)
 val tree_to_list : tok_tree -> list token -> list token
@@ -142,7 +128,7 @@ tree_to_list (N x1 x2) acc = tree_to_list x1 (tree_to_list x2 acc)
  * antiquote seem stronger than strings.  See the specification in
  * print_astProofsScript. *)
 let is_sml_infix s =
-  let c = first_ord s in
+  let c = ord (nth s 0) in
     if c < 65 (* "A" *) then
       if c < 60 (* "<" *) then
         s = "*" ||

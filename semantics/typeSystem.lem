@@ -545,7 +545,7 @@ and
 
 sval : forall mn cenv tenv x t specs cenv' tenv' fvs.
 check_freevars 0 fvs t &&
-type_specs mn cenv (bind x (List.length fvs, type_subst (ZIP fvs (List.map Tvar_db (count_list (List.length fvs)))) t) tenv) specs cenv' tenv'
+type_specs mn cenv (bind x (List.length fvs, type_subst (ZIP fvs (List.map Tvar_db (genlist (fun x -> x) (List.length fvs)))) t) tenv) specs cenv' tenv'
 ==>
 type_specs mn cenv tenv (Sval x t :: specs) cenv' tenv' 
 

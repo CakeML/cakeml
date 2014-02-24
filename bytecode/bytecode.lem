@@ -1,5 +1,6 @@
 open import Pervasives
 import Map_extra
+import String_extra
 
 open import Lib
 open import Ast
@@ -360,7 +361,7 @@ bc_fetch s = Just Print
 && can_Print x
 ==>
 bc_next s (<|bump_pc s with stack = xs;
-  output = string_concat [s.output;ov_to_string (bv_to_ov s.cons_names x)]|>)
+  output = String_extra.stringConcat [s.output;ov_to_string (bv_to_ov s.cons_names x)]|>)
 and
 printC : forall s c.
 bc_fetch s = Just (PrintC c)
