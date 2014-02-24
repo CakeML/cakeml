@@ -1220,10 +1220,14 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
     simp[] >> rw[] >> simp[] >>
     simp[print_envC_def]))
 
+val only_chars_lemma = prove(
+  ``∀s. only_chars (MAP (Number o $& o ORD) s)``,
+  Induct >> simp [only_chars_def,is_char_def,stringTheory.ORD_BOUND]);
+
 val Cv_bv_can_Print = save_thm("Cv_bv_can_Print",prove(
   ``(∀Cv bv. Cv_bv pp Cv bv ⇒ can_Print bv) ∧
     (∀bvs ce env defs. benv_bvs pp bvs ce env defs ⇒ T)``,
-  ho_match_mp_tac Cv_bv_ind >> simp[] >>
+  ho_match_mp_tac Cv_bv_ind >> simp[only_chars_lemma,only_chars_def] >>
   simp[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >> rw[] >>
   rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,MEM_EL])
   |> CONJUNCT1)
