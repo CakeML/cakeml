@@ -23,7 +23,7 @@ val find_recfun_thm = Q.prove (
 rw [] >>
 rw [Once find_recfun_def]);
 
-val find_recfun_lookup = Q.prove (
+val find_recfun_lookup = Q.store_thm ("find_recfun_lookup",
 `!n funs. find_recfun n funs = lookup n funs`,
  induct_on `funs` >>
  rw [find_recfun_thm] >>
@@ -82,7 +82,7 @@ val drestrict_iter_list = Q.prove (
  induct_on `l` >>
  rw [DRESTRICT_UNIV, compl_insert, DRESTRICT_DOMSUB]);
 
-val pat_bindings_accum = Q.prove (
+val pat_bindings_accum = Q.store_thm ("pat_bindings_accum",
 `(!p acc. pat_bindings p acc = pat_bindings p [] ++ acc) ∧
  (!ps acc. pats_bindings ps acc = pats_bindings ps [] ++ acc)`,
  Induct >>
