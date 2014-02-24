@@ -3670,7 +3670,7 @@ gg goal
       \\ FULL_SIMP_TAC std_ss [heap_vars_ok_def])
     \\ FULL_SIMP_TAC std_ss [getTag_def,WORD_SUB_ADD,word_mul_n2w]
     \\ SEP_R_TAC \\ FULL_SIMP_TAC std_ss [GSYM word_mul_n2w,getContent_def]
-    \\ `LENGTH l < 2 ** 32` by cheat (* minor inv change? *)
+    \\ `LENGTH l < 2 ** 32` by ALL_TAC THEN1 (FULL_SIMP_TAC std_ss [])
     \\ `LENGTH xs < 2 ** 32` by ALL_TAC THEN1
       (IMP_RES_TAC EVERY2_IMP_LENGTH \\ FULL_SIMP_TAC std_ss [])
     \\ `((0x10000w * n2w (LENGTH xs) + 0x10w * n2w n) >>> 16):word64 =
@@ -3784,7 +3784,6 @@ gg goal
          x64_payload_def,SEP_CLAUSES,cond_STAR,MAP,LET_DEF,LENGTH,one_list_def,
          x64_addr_def,WORD_MUL_LSL,BlockRep_def]
     \\ SIMP_TAC std_ss [WORD_ADD_ASSOC,WORD_SUB_ADD]
-    \\ `LENGTH xs < 2 ** 32` by cheat (* minor inv change? *)
     \\ `r2 = Data (2w * n2w (Num i))` by ALL_TAC THEN1
      (`small_int i` by ALL_TAC THEN1
         (FULL_SIMP_TAC std_ss [small_int_def] \\ intLib.COOPER_TAC)
@@ -7564,7 +7563,7 @@ val zHEAP_ALLOC_FAIL_OR_RETURN = let
   val th = th |> DISCH ``needed < 4294967296n``
               |> SIMP_RULE std_ss [] |> UNDISCH_ALL
   val th = RW1 [EQ_SYM_EQ] th
-  val th1 = zHEAP_GC |> Q.INST [`r13`|->`ret`,`r14`|->`n2w (8 * needed)`]
+  val th1 = zHEAP_GC |> Q.INST [`ttt13`|->`ret`,`ttt14`|->`n2w (8 * needed)`]
   val th = SPEC_COMPOSE_RULE [th1,th]
   val th = SPEC_COMPOSE_RULE [zHEAP_CALL_ALLOC,th]
   val th = abbreviate_code "alloc" ``cs.alloc_ptr`` th
@@ -8008,13 +8007,15 @@ gg goal
       (POP_ASSUM MP_TAC \\ MATCH_MP_TAC cons_rev_lemma \\ FULL_SIMP_TAC std_ss [])
     \\ POP_ASSUM MP_TAC \\ POP_ASSUM (K ALL_TAC) \\ STRIP_TAC
     \\ `l < sp` by DECIDE_TAC
-    \\ IMP_RES_TAC (cons_thm |> Q.INST [`stack`|->`x::ts ++ ys`])
-    \\ POP_ASSUM (K ALL_TAC)
-    \\ POP_ASSUM MP_TAC
-    \\ REPEAT (Q.PAT_ASSUM `xx ==> yy` (K ALL_TAC))
-    \\ ASM_SIMP_TAC std_ss [GSYM LENGTH_NIL,LENGTH_REVERSE]
-    \\ FULL_SIMP_TAC std_ss []
+    \\ MP_TAC (cons_thm |> Q.INST [`stack`|->`([x1; x2; x3; x4] ++ zs2)`,
+         `roots`|->`REVERSE ys1 ++ ([r1; r2; r3; r4] ++ ys2)`,
+         `l`|->`LENGTH (REVERSE (zs1:bc_value list))`,
+         `xs`|->`(REVERSE zs1)`,`limit`|->`cs.heap_limit`,`tag`|->`n`]
+             |> INST_TYPE [``:'a``|->``:63``,``:'b``|->``:64``])
+    \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
+     (ASM_SIMP_TAC std_ss [GSYM LENGTH_NIL,LENGTH_REVERSE] \\ DECIDE_TAC)
     \\ STRIP_TAC
+    \\ `LENGTH (REVERSE zs1) = l` by FULL_SIMP_TAC std_ss [LENGTH_REVERSE]
     \\ FULL_SIMP_TAC std_ss [EVAL ``el_length (BlockRep n rs)``]
     \\ Q.ABBREV_TAC `header = n2w l << 16 + (n2w n << 4) : word64`
     \\ `(TAKE l (zs1 ++ zs2) = zs1) /\ (DROP l (zs1 ++ zs2) = zs2)` by ALL_TAC

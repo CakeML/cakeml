@@ -59,7 +59,7 @@ val bc_value_inv_def = tDefine "bc_value_inv" `
      if vs = [] then (x = Data ((2w * n2w n + 1w):'a word)) /\ (n < 2 ** 62) else
        ?ptr xs.
          EVERY2 (\v x. bc_value_inv v (x,f,heap)) vs xs /\
-         (x = Pointer ptr) /\ n < 4096 /\
+         (x = Pointer ptr) /\ n < 4096 /\ LENGTH vs < 2**32 /\
          (heap_lookup ptr heap =
             SOME (BlockRep n xs))) /\
   (bc_value_inv (StackPtr n) (x,f,heap) = (x = Data (n2w n)))`
@@ -510,7 +510,7 @@ val EVERY2_LENGTH = prove(
 
 val cons_thm = store_thm("cons_thm",
   ``abs_ml_inv (xs ++ stack) refs (roots,heap,a,sp) limit /\
-    LENGTH xs < sp /\ xs <> [] /\ tag < 4096 ==>
+    LENGTH xs < sp /\ xs <> [] /\ tag < 4096 /\ LENGTH xs < 2**32 ==>
     ?rs roots2 heap2.
       (roots = rs ++ roots2) /\ (LENGTH rs = LENGTH xs) /\
       (heap_store_unused a sp (BlockRep tag rs) heap = (heap2,T)) /\
