@@ -269,12 +269,12 @@ val _ = Define `
 (*val check_new_exn : maybe modN -> conN -> tenvC -> bool*)
 val _ = Define `
  (check_new_exn mn cn (mtenvC,tenvC) =  
-(EVERY (\p .  (case (p ) of ( (cn',(_,_,tn)) ) => (TypeExn mn <> tn) \/ (cn' <> cn) )) tenvC /\
+(EVERY (\p .  (case (p ) of ( (cn',(_,_,tn)) ) => (TypeExn mn <> tn) \/ ~ (cn' = cn) )) tenvC /\
   EVERY (\p .  (case (p ) of
      ( (_, tenvC) ) => EVERY
                          (\p .  (case (p ) of
                                     ( (cn',(_,_,tn)) ) => (TypeExn mn <> tn)
-                                                            \/ (cn' <> cn)
+                                                            \/ ~ (cn' = cn)
                                 )) tenvC
  )) mtenvC))`;
 
@@ -561,7 +561,7 @@ type_specs mn cenv tenv [] cenv tenv)
 
 /\ (! mn cenv tenv x t specs cenv' tenv' fvs.
 (check_freevars( 0) fvs t /\
-type_specs mn cenv (bind x (LENGTH fvs, type_subst (ZIP (fvs, (MAP Tvar_db (COUNT_LIST (LENGTH fvs))))) t) tenv) specs cenv' tenv')
+type_specs mn cenv (bind x (LENGTH fvs, type_subst (ZIP (fvs, (MAP Tvar_db (GENLIST (\ x .  x) (LENGTH fvs))))) t) tenv) specs cenv' tenv')
 ==>
 type_specs mn cenv tenv (Sval x t :: specs) cenv' tenv') 
 

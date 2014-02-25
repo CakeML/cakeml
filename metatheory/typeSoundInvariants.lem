@@ -7,6 +7,7 @@ open import Ast
 open import SemanticPrimitives
 open import SmallStep
 open import TypeSystem
+import List_extra
 
 (* Store typing *)
 type tenvS = env nat t
@@ -332,7 +333,7 @@ and
 
 handle : forall tvs menv all_cenv cenv senv tenv pes t.
 (forall ((p,e) MEM pes). exists tenv'.
-   all_distinct (pat_bindings p []) &&
+   List.allDistinct (pat_bindings p []) &&
    type_p (num_tvs tenv) cenv p Texn tenv' &&
    type_e menv cenv (bind_var_list 0 tenv' tenv) e t)
 ==>
@@ -387,7 +388,7 @@ and
 mat : forall tvs menv all_cenv cenv senv tenv t1 t2 pes err_v.
 ((pes = []) --> (check_freevars tvs [] t1 && check_freevars 0 [] t2)) &&
 (forall ((p,e) MEM pes) . exists tenv'.
-   all_distinct (pat_bindings p []) &&
+   List.allDistinct (pat_bindings p []) &&
    type_p tvs cenv p t1 tenv' &&
    type_e menv cenv (bind_var_list 0 tenv' tenv) e t2) &&
 type_v 0 all_cenv senv err_v Texn

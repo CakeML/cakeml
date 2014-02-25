@@ -200,12 +200,12 @@ let check_ctor_tenv mn tenvC tds =
   check_dup_ctors tds &&  
   List.all
     (fun (tvs,tn,ctors) ->
-       all_distinct tvs &&
+       List.allDistinct tvs &&
        List.all
          (fun (cn,ts) -> (List.all (check_freevars 0 tvs) ts))
          ctors)
     tds &&  
-  all_distinct (List.map (fun (_,tn,_) -> tn) tds) &&
+  List.allDistinct (List.map (fun (_,tn,_) -> tn) tds) &&
   List.all
     (fun (tvs,tn,ctors) -> check_new_type (mk_id mn tn) tenvC)
     tds
@@ -371,7 +371,7 @@ handle : forall menv cenv tenv e pes t.
 type_e menv cenv tenv e t &&
 pes <> [] &&
 (forall ((p,e) MEM pes). exists tenv'.
-   all_distinct (pat_bindings p []) &&   
+   List.allDistinct (pat_bindings p []) &&   
    type_p (num_tvs tenv) cenv p Texn tenv' &&
    type_e menv cenv (bind_var_list 0 tenv' tenv) e t)
 ==>
@@ -451,7 +451,7 @@ mat : forall menv cenv tenv e pes t1 t2.
 type_e menv cenv tenv e t1 &&
 pes <> [] &&
 (forall ((p,e) MEM pes) . exists tenv'.
-   all_distinct (pat_bindings p []) &&   
+   List.allDistinct (pat_bindings p []) &&   
    type_p (num_tvs tenv) cenv p t1 tenv' &&
    type_e menv cenv (bind_var_list 0 tenv' tenv) e t2)
 ==>
@@ -522,7 +522,7 @@ indreln [type_d : maybe modN -> tenvM -> tenvC -> tenvE -> dec -> flat_tenvC -> 
 
 dlet_poly : forall tvs mn menv cenv tenv p e t tenv'.
 is_value e &&
-all_distinct (pat_bindings p []) &&
+List.allDistinct (pat_bindings p []) &&
 type_p tvs cenv p t tenv' &&
 type_e menv cenv (bind_tvar tvs tenv) e t
 ==>
@@ -531,7 +531,7 @@ type_d mn menv cenv tenv (Dlet p e) emp (tenv_add_tvs tvs tenv')
 and
 
 dlet_mono : forall mn menv cenv tenv p e t tenv'.
-all_distinct (pat_bindings p []) &&
+List.allDistinct (pat_bindings p []) &&
 type_p 0 cenv p t tenv' &&
 type_e menv cenv tenv e t
 ==>
@@ -584,7 +584,7 @@ and
 
 sval : forall mn cenv tenv x t specs cenv' tenv' fvs.
 check_freevars 0 fvs t &&
-type_specs mn cenv (bind x (List.length fvs, type_subst (ZIP fvs (List.map Tvar_db (count_list (List.length fvs)))) t) tenv) specs cenv' tenv'
+type_specs mn cenv (bind x (List.length fvs, type_subst (ZIP fvs (List.map Tvar_db (genlist (fun x -> x) (List.length fvs)))) t) tenv) specs cenv' tenv'
 ==>
 type_specs mn cenv tenv (Sval x t :: specs) cenv' tenv' 
 
@@ -607,7 +607,7 @@ type_specs mn cenv tenv (Sexn cn ts :: specs) cenv' tenv'
 and
 
 stype_opq : forall mn cenv tenv tn specs cenv' tenv' tvs.
-all_distinct tvs &&
+List.allDistinct tvs &&
 (List.all (fun (_,(_,_,tn')) -> TypeId (mk_id mn tn) <> tn') cenv &&
 type_specs mn cenv tenv specs cenv' tenv')
 ==>

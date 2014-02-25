@@ -1,6 +1,7 @@
 open import Pervasives
 import List_extra
 import String
+import String_extra
 open import Lib
 open import Ast
 
@@ -375,7 +376,7 @@ let build_tdefs mn tds =
 (* Checks that no constructor is defined twice in a type *)
 val check_dup_ctors : list (list tvarN * typeN * list (conN * list t)) -> bool
 let check_dup_ctors tds =
-  all_distinct [ n | forall ((tvs, tn, condefs) MEM tds) ((n, ts) MEM condefs) | true ]
+  List.allDistinct [ n | forall ((tvs, tn, condefs) MEM tds) ((n, ts) MEM condefs) | true ]
 
 val combine_dec_result : forall 'a 'b 'c. env 'a 'b -> result (env 'a 'b) 'c -> result (env 'a 'b) 'c
 let combine_dec_result env r =
@@ -420,9 +421,11 @@ id_to_string (Short s) = s
 and
 id_to_string (Long x y) = x^"."^y
 
+val int_to_string : integer -> string
 let int_to_string z =
-  if z < 0 then "~"^(num_to_string (int_to_num (~ z)))
-  else num_to_string (int_to_num z)
+  if z < 0 then "~"^(String_extra.show (naturalFromInteger (~ z)))
+  else String_extra.show (naturalFromInteger z)
+
 
 let rec
 string_escape [] = ""
