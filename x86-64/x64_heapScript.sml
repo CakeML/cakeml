@@ -4239,6 +4239,8 @@ val _ = map (zHEAP_IS_CONST ``2:num``) (tl (up_to 10));
 val _ = map (zHEAP_IS_CONST ``3:num``) (tl (up_to 10));
 val _ = map (zHEAP_IS_CONST ``4:num``) (tl (up_to 10));
 
+val _ = zHEAP_IS_CONST ``1:num`` 92;
+
 val zHEAP_1EQ0 = zHEAP_IS_CONST ``1:num`` 0;
 val zHEAP_2EQ0 = zHEAP_IS_CONST ``2:num`` 0;
 val zHEAP_3EQ0 = zHEAP_IS_CONST ``3:num`` 0;
@@ -5338,7 +5340,6 @@ val zHEAP_EXPLODE_BLOCK_SIMPLE = let
   val th = MP th lemma
   val _ = add_compiled [th];
   in th end;
-
 
 (* explode two Blocks *)
 
@@ -7097,7 +7098,10 @@ val print_true = zHEAP_PRINT_MSG "true"
 val print_false = zHEAP_PRINT_MSG "false"
 val print_cons = zHEAP_PRINT_MSG "<constructor>"
 
-val zHEAP_PRINT_HELLO = zHEAP_PRINT_MSG "Here\n"
+val _ = zHEAP_PRINT_MSG "\\n"
+val _ = zHEAP_PRINT_MSG "\\t"
+val _ = zHEAP_PRINT_MSG "\\\\"
+val _ = zHEAP_PRINT_MSG "\""
 
 (* terminate, i.e. clean up and call return pointer *)
 
@@ -9278,17 +9282,89 @@ val _ = store_bignum_op zHEAP_Mul
 val _ = store_bignum_op zHEAP_Dec
 *)
 
+(* print string *)
+
+val (bc_print_chars_res,bc_print_chars_def,bc_print_chars_pre_def) = x64_compile `
+  bc_print_chars (x1,stack,s) =
+    let (x1,stack) = (HD stack, TL stack) in
+      if isBlock x1 then (x1,stack,s) else
+      if getNumber x1 = 9 then
+        let s = s with output := s.output ++ "\\t" in
+          bc_print_chars (x1,stack,s)
+      else if getNumber x1 = 10 then
+        let s = s with output := s.output ++ "\\n" in
+          bc_print_chars (x1,stack,s)
+      else  if getNumber x1 = 92 then
+        let s = s with output := s.output ++ "\\\\" in
+          bc_print_chars (x1,stack,s)
+      else
+        let s = s with output := s.output ++ [CHR (Num (getNumber x1))] in
+          bc_print_chars (x1,stack,s)`
+
+val bc_print_chars = prove(
+  ``!xs x1 b s.
+      isBlock b /\ only_chars xs ==>
+      bc_print_chars_pre (x1,xs ++ b::stack,s) /\
+      (bc_print_chars (x1,xs ++ b::stack,s) =
+       (b,stack,s with output := s.output ++
+           string_escape (MAP (CHR o Num o getNumber) xs)))``,
+  Induct THEN1
+   (ONCE_REWRITE_TAC [bc_print_chars_def,bc_print_chars_pre_def]
+    \\ NTAC 2 Cases \\ ASM_SIMP_TAC (srw_ss()) [APPEND,LET_DEF,HD,TL,
+          canCompare_def,isBlock_def,only_chars_def,
+          semanticPrimitivesTheory.string_escape_def]
+    \\ Cases \\ SRW_TAC [] (TypeBase.updates_of ``:zheap_state``))
+  \\ Cases \\ FULL_SIMP_TAC std_ss [only_chars_def,is_char_def,APPEND]
+  \\ REPEAT STRIP_TAC \\ SIMP_TAC std_ss []
+  \\ ONCE_REWRITE_TAC [bc_print_chars_def,bc_print_chars_pre_def]
+  \\ ASM_SIMP_TAC (srw_ss()) [APPEND,LET_DEF,HD,TL,
+          canCompare_def,isBlock_def,only_chars_def,getNumber_def]
+  \\ Cases_on `i = 9` \\ Cases_on `i = 10` \\ Cases_on `i = 92`
+  \\ FULL_SIMP_TAC (srw_ss()) [
+        semanticPrimitivesTheory.string_escape_def,isNumber_def]
+  \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ `CHR (Num i) <> #"\n" /\ CHR (Num i) <> #"\t" /\
+      CHR (Num i) <> #"\\"` by ALL_TAC THEN1
+   (Cases_on `i` \\ SRW_TAC [] [CHR_11]
+    \\ TRY (`F` by intLib.COOPER_TAC)
+    \\ `n < 256` by intLib.COOPER_TAC
+    \\ FULL_SIMP_TAC std_ss [CHR_11] \\ intLib.COOPER_TAC)
+  \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND]);
+
+val zHEAP_PRINT_STRING_BLOCK = let
+  val th0 = SPEC_COMPOSE_RULE [zHEAP_PUSH1,zHEAP_EXPLODE_BLOCK_SIMPLE]
+  val th1 =
+    bc_print_chars_res
+    |> Q.INST [`stack`|->`xs++b::stack`]
+    |> DISCH ``isBlock b /\ only_chars xs``
+    |> SIMP_RULE std_ss [bc_print_chars,LET_DEF]
+    |> RW [GSYM SPEC_MOVE_COND,SEP_CLAUSES]
+  val th = SPEC_COMPOSE_RULE [th0,th1]
+  val th = SPEC_COMPOSE_RULE [zHEAP_PUSH3,zHEAP_PUSH2,th,zHEAP_POP2,zHEAP_POP3]
+    |> SIMP_RULE std_ss [HD,TL,NOT_CONS_NIL,CONJ_ASSOC,SEP_CLAUSES]
+  val _ = add_compiled [th]
+  in th end
+
+val (_,bc_print_str_def,bc_print_str_pre_def) = x64_compile `
+  bc_print_str (x1,s) =
+    let s = s with output := s.output ++ "\"" in
+    let s = s with output := STRCAT s.output (string_escape
+                (MAP (CHR o Num o getNumber) (getContent x1))) in
+    let s = s with output := s.output ++ "\"" in
+      (x1,s)`
+
 (* print *)
 
-val (bc_print_res,bc_print_def,bc_print_pre_def) = x64_compile `
-  bc_print (x1,x2:bc_value,s) =
+val (bc_print_aux_res,bc_print_aux_def,bc_print_aux_pre_def) = x64_compile `
+  bc_print_aux (x1:bc_value,x2:bc_value,s) =
     if s.local.printing_on = 0x0w then
       (x1,x2,s)
     else if isNumber x1 then
-      let x2 = Number 0 in
       let s = s with output := append_number s.output x1 in
         (x1,x2,s)
     else if isBlock x1 then
+      let x2 = x1 in
       let x1 = Number (&getTag x1) in
         if getNumber x1 = 0 then (* true *)
           let s = s with output := STRCAT s.output "false" in (x1,x2,s)
@@ -9299,11 +9375,21 @@ val (bc_print_res,bc_print_def,bc_print_pre_def) = x64_compile `
           let s = s with output := STRCAT s.output ")" in (x1,x2,s)
         else if getNumber x1 = 3 then (* closure_tag *)
           let s = s with output := STRCAT s.output "<fn>" in (x1,x2,s)
+        else if getNumber x1 = 4 then (* string_tag *)
+          let x1 = x2 in
+          let (x1,s) = bc_print_str (x1,s) in (x1,x2,s)
         else (* constructor *)
           let s = s with output := STRCAT s.output "<constructor>" in (x1,x2,s)
     else (* RefPtr, since CodePtr and StackPtr forbidden *)
       let s = s with output := STRCAT s.output "<ref>" in
         (x1,x2,s)`
+
+val (bc_print_res,bc_print_def,bc_print_pre_def) = x64_compile `
+  bc_print (x1:bc_value,x2:bc_value,s) =
+    let (x1,x2,s) = bc_print_aux (x1,x2,s) in
+    let x1 = Number 0 in
+    let x2 = x1 in
+      (x1,x2,s)`
 
 val bc_value1_size_thm = store_thm("bc_value1_size_thm",
   ``!ls. bc_value1_size ls = SUM (MAP bc_value_size ls) + LENGTH ls``,
@@ -9317,32 +9403,40 @@ val (better_bv_to_ov_def,better_bv_to_ov_ind) =
   Q.ISPEC_THEN `bc_value_size` IMP_RES_TAC SUM_MAP_MEM_bound THEN
   SRW_TAC [ARITH_ss][])
 
+val bvs_to_chars_lemma = prove(
+  ``!l xs.
+       only_chars l ==> (bvs_to_chars l xs =
+                           SOME (REVERSE xs ++ MAP (CHR o Num o getNumber) l))``,
+  Induct THEN1 (EVAL_TAC \\ SIMP_TAC std_ss [])
+  \\ Cases \\ ASM_SIMP_TAC std_ss [only_chars_def,is_char_def,bvs_to_chars_def]
+  \\ SRW_TAC [] [getNumber_def]);
+
 val bc_print_thm = prove(
-  ``canCompare x1 ==>
+  ``can_Print x1 ==>
     bc_print_pre (x1,x2,s) /\
     (bc_print (x1,x2,s) =
-      (if s.local.printing_on = 0x0w then x1 else
-       if isNumber x1 then x1 else
-       if isBlock x1 then Number (& (getTag x1)) else x1,
-       if s.local.printing_on = 0x0w then x2 else
-       if isNumber x1 then Number 0 else x2,
+      (Number 0,Number 0,
        if s.local.printing_on = 0x0w then s else
        s with output := s.output ++ ov_to_string (bv_to_ov ARB x1)))``,
-  cheat) (* printing *)
-(*
-  Cases_on `x1` \\ FULL_SIMP_TAC (srw_ss()) [canCompare_def,
+  Cases_on `x1` \\ FULL_SIMP_TAC (srw_ss()) [canCompare_def,bc_print_aux_def,
     bc_print_def,bc_print_pre_def,isBlock_def,isNumber_def,LET_DEF,
-    getNumber_def,better_bv_to_ov_def,ov_to_string_def,
-    semanticPrimitivesTheory.int_to_string_def,
+    getNumber_def,better_bv_to_ov_def,ov_to_string_def,can_Print_def,
+    semanticPrimitivesTheory.int_to_string_def,bc_print_aux_pre_def,
     multiwordTheory.int_to_str_def,getTag_def,append_number_def]
   \\ Cases_on `s.local.printing_on = 0x0w` \\ ASM_SIMP_TAC std_ss []
+  \\ REVERSE (Cases_on `n = 4`)
   \\ SRW_TAC [] [] \\ FULL_SIMP_TAC (srw_ss()) [ov_to_string_def]
-  \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND])
-*)
+  \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ FULL_SIMP_TAC std_ss [bc_print_str_def,bc_print_str_pre_def,LET_DEF,
+        is_Block_def,getContent_def] THEN1 EVAL_TAC
+  \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ AP_THM_TAC \\ AP_TERM_TAC \\ AP_TERM_TAC
+  \\ FULL_SIMP_TAC (srw_ss()) [bvs_to_chars_lemma,ov_to_string_def,
+       semanticPrimitivesTheory.string_to_string_def])
 
 val zHEAP_RAW_PRINT =
   bc_print_res
-    |> DISCH ``canCompare x1``
+    |> DISCH ``can_Print x1``
     |> SIMP_RULE std_ss [bc_print_thm,SEP_CLAUSES,LET_DEF]
     |> RW [GSYM SPEC_MOVE_COND]
 
@@ -11345,6 +11439,11 @@ val ic_PrintC_test_thm = prove(
     getNumber_def,LET_DEF,isSmall_def,canCompare_def,small_int_def]
   \\ SRW_TAC [] [isNumber_def,getNumber_def] \\ intLib.COOPER_TAC);
 
+val real_inst_length_limit = prove(
+  ``!bc. real_inst_length bc < 35``,
+  Cases \\ SIMP_TAC (srw_ss()) [bytecodeExtraTheory.real_inst_length_def]
+  \\ Cases_on `b` \\ SRW_TAC [] []);
+
 fun ASSERT_TAC P goal = if P goal then ALL_TAC goal
                         else (print "ASSERT_TAC failed."; NO_TAC goal);
 
@@ -11354,7 +11453,8 @@ val ic_Any_thm = prove(
         cs.code_heap_length /\
       (s.code_mode = SOME F) ==>
       ?x1 x2 x3.
-        ic_Any_pre (Number (& n1),Number (& n2),Number (& n3),s,cs) /\
+        ((* LENGTH s.code + 400 <= cs.code_heap_length ==> *)
+         ic_Any_pre (Number (& n1),Number (& n2),Number (& n3),s,cs)) /\
         (ic_Any (Number (& n1),Number (& n2),Number (& n3),s,cs) =
            (x1,x2,x3,s with code := s.code ++ x64 (LENGTH s.code) (num_bc (n1,n2,n3)),cs))``,
   REVERSE (Cases \\ NTAC 22 (TRY (Cases_on `n`) \\ TRY (Cases_on `n'`)))
@@ -11434,6 +11534,9 @@ val ic_Any_thm = prove(
           ``IMM32 (n2w n) ++ xs`` |> REWRITE_CONV [IMM32_def,APPEND] |> GSYM,
           small_offset_def,LENGTH,EVAL ``IMM32 (n2w n)``,
           APPEND_ASSOC,APPEND,SNOC_APPEND,getNumber_def]
+    \\ TRY (REPEAT STRIP_TAC \\ intLib.COOPER_TAC)
+    \\ TRY (`F` by intLib.COOPER_TAC)
+    \\ REPEAT STRIP_TAC
     \\ SRW_TAC [] [WORD_MUL_LSL,word_mul_n2w,w2n_n2w,word_add_n2w]
     \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND,GSYM ADD_ASSOC]
     \\ FULL_SIMP_TAC std_ss [AC MULT_COMM MULT_ASSOC,ORD_BOUND_LARGE,lemma]
@@ -13359,6 +13462,27 @@ val ov_to_string_bc_adjust = prove(
   Induct \\ SIMP_TAC std_ss [ov_to_string_def,bc_adjust_def,canCompare_def]
   \\ EVAL_TAC \\ SRW_TAC [] [ov_to_string_def,bvs_to_chars_bc_adjust]);
 
+val only_chars_bc_adjust = prove(
+  ``!data. only_chars data ==>
+           (MAP (bc_adjust (cb,sb,ev)) data = data)``,
+  Induct \\ EVAL_TAC \\ Cases \\ EVAL_TAC
+  \\ ASM_SIMP_TAC std_ss [only_chars_def,is_char_def]);
+
+val can_Print_bc_adjust = prove(
+  ``!cb sb ev y.
+       can_Print y ==>
+       can_Print (bc_adjust (cb,sb,ev) y) /\
+       (ov_to_string (bv_to_ov m (bc_adjust (cb,sb,ev) y)) =
+        ov_to_string (bv_to_ov m y))``,
+  HO_MATCH_MP_TAC (fetch "-" "bc_adjust_ind")
+  \\ FULL_SIMP_TAC std_ss [bc_adjust_def,can_Print_def,
+       ov_to_string_def,better_bv_to_ov_def]
+  \\ NTAC 6 STRIP_TAC \\ Cases_on `tag = string_tag`
+  \\ FULL_SIMP_TAC std_ss [EVAL ``string_tag <> block_tag``]
+  \\ FULL_SIMP_TAC std_ss [only_chars_bc_adjust] \\ SRW_TAC [] []
+  \\ FULL_SIMP_TAC std_ss [EVERY_MEM] \\ EVAL_TAC
+  \\ FULL_SIMP_TAC std_ss [MEM_MAP,PULL_EXISTS]);
+
 val zBC_HEAP_THM = prove(
   ``EVEN (w2n cb) /\ (cs.stack_trunk - n2w (8 * SUC (LENGTH stack)) = sb) /\
     (s.base_offset = LENGTH stack + 1) ==>
@@ -14250,10 +14374,8 @@ val zBC_HEAP_THM = prove(
          isRefPtr_def,getRefPtr_def]
     \\ FULL_SIMP_TAC (srw_ss()) [word_mul_n2w]
     \\ Q.MATCH_ASSUM_RENAME_TAC `s1.stack = y::xs` []
-    \\ `canCompare y` by ALL_TAC THEN1
-      (Cases_on `y` \\ FULL_SIMP_TAC std_ss [can_Print_def,canCompare_def])
     \\ STRIP_TAC THEN1
-     (STRIP_TAC THEN1 (POP_ASSUM MP_TAC \\ Cases_on `y` \\ EVAL_TAC)
+     (STRIP_TAC THEN1 (ASM_SIMP_TAC std_ss [can_Print_bc_adjust])
       \\ FULL_SIMP_TAC std_ss [EVEN_w2n] \\ Q.PAT_ASSUM `~cb ' 0` MP_TAC
       \\ SIMP_TAC std_ss [GSYM word_mul_n2w] \\ blastLib.BBLAST_TAC)
     \\ IMP_RES_TAC ov_to_string_bc_adjust
@@ -14263,11 +14385,11 @@ val zBC_HEAP_THM = prove(
     \\ SIMP_TAC std_ss [SEP_IMP_def,SEP_EXISTS_THM] \\ REPEAT STRIP_TAC
     \\ Cases_on `s.local.printing_on = 0x0w`
     \\ FULL_SIMP_TAC (srw_ss()) [SEP_DISJ_def]
-    THEN1 (Q.LIST_EXISTS_TAC [`x2`,`x3`]
+    THEN1 (Q.LIST_EXISTS_TAC [`Number 0`,`x3`]
       \\ FULL_SIMP_TAC (std_ss++star_ss) [GSYM ADD_ASSOC])
-    \\ Q.LIST_EXISTS_TAC [`if isNumber (bc_adjust (cb,sb,ev) y)
-         then Number 0 else x2`,`x3`]
-    \\ FULL_SIMP_TAC (std_ss++star_ss) [GSYM ADD_ASSOC])
+    \\ Q.LIST_EXISTS_TAC [`Number 0`,`x3`]
+    \\ FULL_SIMP_TAC (std_ss++star_ss) [GSYM ADD_ASSOC]
+    \\ METIS_TAC [can_Print_bc_adjust])
   THEN1 (* PrintC *)
    (SIMP_TAC std_ss [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF]
     \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
