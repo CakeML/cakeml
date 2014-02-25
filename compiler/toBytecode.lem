@@ -348,7 +348,7 @@ compile _ _ t _ s (CLit (IntLit i)) =
 and
 compile _ _ t _ s (CLit (StrLit r)) =
   let r = String.toCharList r in
-  let s = emit s (List.map (comb Stack (comb PushInt (comb num_to_int char_to_num))) r) in
+  let s = emit s (List.map (comb Stack (comb PushInt (comb integerFromNat String_extra.ord))) r) in
   pushret t (emit s [Stack (Cons string_tag (List.length r))])
 and
 compile _ _ t _ s (CLit (Bool b)) =

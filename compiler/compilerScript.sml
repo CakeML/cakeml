@@ -162,9 +162,9 @@ let rec
 compile_print_vals _ _ [] s = s
 and
 compile_print_vals types n (v::vs) s =
-  let s = emit s (List.map PrintC (EXPLODE (string_concat ["val ";v;":"; tystr types v;" = "]))) in
+  let s = emit s (List.map PrintC (toCharList (String_extra.stringConcat ["val ";v;":"; tystr types v;" = "]))) in
   let s = emit s [Stack(Load n); Print] in
-  let s = emit s (List.map PrintC (EXPLODE "\n")) in
+  let s = emit s (List.map PrintC (toCharList "\n")) in
     compile_print_vals types (n+1) vs s
 
 let rec
@@ -172,7 +172,7 @@ compile_print_ctors [] s = s
 and
 compile_print_ctors ((c,_)::cs) s =
   compile_print_ctors cs
-    (emit s (List.map PrintC (EXPLODE (string_concat [c;" = <constructor>\n"]))))
+    (emit s (List.map PrintC (toCharList (String_extra.stringConcat [c;" = <constructor>\n"]))))
 declare termination_argument compile_print_ctors = automatic
 
 let rec
@@ -196,7 +196,7 @@ compile_print_dec types (Dletrec defs) s =
 let rec
 compile_top _ rs (Tmod mn _ decs) =
   let (ct,env,cs) = compile_decs_wrap (Just mn) rs decs in
-  let str = string_concat["structure ";mn;" = <structure>\n"] in
+  let str = String_extra.stringConcat["structure ";mn;" = <structure>\n"] in
   (<| rs with
       contab = ct
     ; rnext_label = cs.next_label
@@ -207,7 +207,7 @@ compile_top _ rs (Tmod mn _ decs) =
     ; rmenv = Map.insert mn [] rs.rmenv
     ; rnext_label = cs.next_label
     |>
-  ,(emit cs (List.map PrintC (EXPLODE str))).out)
+  ,(emit cs (List.map PrintC (toCharList str))).out)
 and
 compile_top types rs (Tdec dec) =
   let (ct,env,cs) = compile_decs_wrap Nothing rs [dec] in

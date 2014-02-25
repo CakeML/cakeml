@@ -1589,9 +1589,10 @@ rw [check_specs_def, success_eqns] >|
      `check_freevars 0 (nub fvs) t` by metis_tac [check_freevars_nub] >>
      qexists_tac `nub fvs` >>
      rw [] >>
-     fs [LENGTH_MAP, convert_t_subst, bind_def, convert_env2_def, LENGTH_COUNT_LIST] >>
+     fs [LENGTH_MAP, convert_t_subst, bind_def, convert_env2_def,
+         LENGTH_COUNT_LIST,LENGTH_GENLIST] >>
      fs [MAP_MAP_o, combinTheory.o_DEF, convert_t_def] >>
-     metis_tac [],
+     metis_tac [COUNT_LIST_GENLIST, combinTheory.I_DEF],
  rw [Once type_specs_cases] >>
      metis_tac [],
  rw [Once type_specs_cases] >>

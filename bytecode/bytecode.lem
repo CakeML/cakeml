@@ -221,7 +221,7 @@ let rec
 bvs_to_chars [] ac = Just (List.reverse ac)
 and
 bvs_to_chars (Number i::vs) ac =
-  bvs_to_chars vs ((num_to_char (int_to_num i))::ac)
+  bvs_to_chars vs ((String_extra.chr (natFromInteger i))::ac)
 and
 bvs_to_chars _ _ = Nothing
 declare termination_argument bvs_to_chars = automatic

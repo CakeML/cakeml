@@ -396,7 +396,7 @@ val RTC_bc_next_output_IS_PREFIX = store_thm("RTC_bc_next_output_IS_PREFIX",
 val bvs_to_chars_thm = store_thm("bvs_to_chars_thm",
   ``∀bvs ac. bvs_to_chars bvs ac =
       if EVERY is_Number bvs then
-         SOME(REVERSE ac ++ MAP (CHR o Num o dest_Number) bvs)
+         SOME(REVERSE ac ++ MAP (CHR o Num o ABS o dest_Number) bvs)
       else NONE``,
   Induct >> simp[bvs_to_chars_def] >>
   Cases >> rw[bvs_to_chars_def])

@@ -610,7 +610,7 @@ evaluate_i2 ck env s (Let_i2 n e1 e2) (s', Rerr err)
 and
 
 letrec1 : forall ck genv env funs e bv s.
-all_distinct (List.map (fun (x,y,z) -> x) funs) &&
+List.allDistinct (List.map (fun (x,y,z) -> x) funs) &&
 evaluate_i2 ck (genv,build_rec_env_i2 funs env env) s e bv
 ==>
 evaluate_i2 ck (genv,env) s (Letrec_i2 funs e) bv
@@ -618,7 +618,7 @@ evaluate_i2 ck (genv,env) s (Letrec_i2 funs e) bv
 and
 
 letrec2 : forall ck env funs e s.
-not (all_distinct (List.map (fun (x,y,z) -> x) funs))
+not (List.allDistinct (List.map (fun (x,y,z) -> x) funs))
 ==>
 evaluate_i2 ck env s (Letrec_i2 funs e) (s, Rerr Rtype_error)
 
@@ -662,7 +662,7 @@ evaluate_match_i2 ck env s v [] err_v (s, Rerr (Rraise err_v))
 and
 
 mat_cons1 : forall ck genv env env' v p pes e bv err_v s count.
-all_distinct (pat_bindings_i2 p []) &&
+List.allDistinct (pat_bindings_i2 p []) &&
 (pmatch_i2 s p v env = Match env') &&
 evaluate_i2 ck (genv,env') (count,s) e bv
 ==>
@@ -671,7 +671,7 @@ evaluate_match_i2 ck (genv,env) (count,s) v ((p,e)::pes) err_v bv
 and
 
 mat_cons2 : forall ck genv env v p e pes bv s count err_v.
-all_distinct (pat_bindings_i2 p []) &&
+List.allDistinct (pat_bindings_i2 p []) &&
 (pmatch_i2 s p v env = No_match) &&
 evaluate_match_i2 ck (genv,env) (count,s) v pes err_v bv
 ==>
@@ -687,7 +687,7 @@ evaluate_match_i2 ck (genv,env) (count,s) v ((p,e)::pes) err_v ((count,s), Rerr 
 and
 
 mat_cons4 : forall ck env v p e pes s err_v.
-not (all_distinct (pat_bindings_i2 p []))
+not (List.allDistinct (pat_bindings_i2 p []))
 ==>
 evaluate_match_i2 ck env s v ((p,e)::pes) err_v (s, Rerr Rtype_error)
 

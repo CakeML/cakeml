@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib;
 val _ = new_theory "ml_translator";
 local open intLib in end;
 open astTheory libTheory semanticPrimitivesTheory bigStepTheory;
-open terminationTheory bigClockTheory;
+open terminationTheory determTheory evalPropsTheory bigClockTheory;
 open arithmeticTheory listTheory combinTheory pairTheory;
 open integerTheory;
 open lcsymtacs;
@@ -207,8 +207,8 @@ val Eval_Bool_Not = store_thm("Eval_Bool_Not",
   SIMP_TAC std_ss [Eval_def,NUM_def,BOOL_def] \\ SIMP_TAC std_ss []
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ FULL_SIMP_TAC (srw_ss()) [bigClockTheory.do_app_cases]
-  \\ Q.LIST_EXISTS_TAC [`(Litv (Bool b1))`, `Litv (Bool F)`, `Lit (Bool ~b1)`,
+  \\ FULL_SIMP_TAC (srw_ss()) [do_app_cases]
+  \\ Q.LIST_EXISTS_TAC [`(Litv (Bool b1))`, `Litv (Bool F)`, `env`, `Lit (Bool ~b1)`,
                         `0,empty_store`, `empty_store`]
   \\ FULL_SIMP_TAC std_ss []
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
@@ -620,8 +620,8 @@ val Eval_Equality = store_thm("Eval_Equality",
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
   \\ Q.LIST_EXISTS_TAC [`res`,`res'`]
-  \\ FULL_SIMP_TAC (srw_ss()) [bigClockTheory.do_app_cases]
-  \\ Q.EXISTS_TAC `Lit (Bool (res = res'))`
+  \\ FULL_SIMP_TAC (srw_ss()) [do_app_cases]
+  \\ Q.LIST_EXISTS_TAC [`env`, `Lit (Bool (res = res'))`]
   \\ Q.LIST_EXISTS_TAC [`0,empty_store`, `empty_store`, `0`] \\ FULL_SIMP_TAC std_ss []
   \\ ONCE_REWRITE_TAC [evaluate_cases]
   \\ FULL_SIMP_TAC (srw_ss()) []
@@ -640,7 +640,7 @@ val DeclAssum_def = Define `
 val Decls_Dtype = store_thm("Decls_Dtype",
   ``!mn menv cenv s env tds cenv1 s1 env1.
       Decls mn menv cenv s env [Dtype tds] cenv1 s1 env1 <=>
-      check_dup_ctors mn cenv tds /\ (cenv1 = build_tdefs mn tds) /\
+      check_dup_ctors tds /\ (cenv1 = build_tdefs mn tds) /\
       (env1 = emp) /\ (s1 = s)``,
   SIMP_TAC std_ss [Decls_def]
   \\ ONCE_REWRITE_TAC [evaluate_decs_cases] \\ SIMP_TAC (srw_ss()) []
@@ -841,6 +841,12 @@ val combine_dec_result_rerr = Q.prove (
      combine_dec_result new_env (Rerr err) = Rerr err`,
   rw [combine_dec_result_def]);
 
+val merge_envC_empty = Q.prove (
+`!cenv. merge_envC ([],[]) cenv = cenv`,
+ rw [] >>
+ PairCases_on `cenv` >>
+ rw [merge_envC_def, merge_def]);
+
 val Decls_APPEND = store_thm("Decls_APPEND",
   ``!s1 s3 mn menv cenv1 cenv4 ds1 ds2 env1 env4.
       Decls mn menv cenv1 s1 env1 (ds1 ++ ds2) cenv4 s3 env4 =
@@ -848,10 +854,10 @@ val Decls_APPEND = store_thm("Decls_APPEND",
          (cenv4 = merge cenv3 cenv2) /\
          (env4 = merge env3 env2) /\
          Decls mn menv cenv1 s1 env1 ds1 cenv2 s2 env2 /\
-         Decls mn menv (merge cenv2 cenv1) s2 (merge env2 env1) ds2 cenv3 s3 env3``,
+         Decls mn menv (merge_envC ([],cenv2) cenv1) s2 (merge env2 env1) ds2 cenv3 s3 env3``,
   Induct_on `ds1` \\ FULL_SIMP_TAC std_ss [APPEND,Decls_def]
   THEN1 (ONCE_REWRITE_TAC [evaluate_decs_cases]
-         \\ SIMP_TAC (srw_ss()) [merge_def, emp_def])
+         \\ SIMP_TAC (srw_ss()) [merge_def, emp_def, merge_envC_empty])
   \\ SIMP_TAC (srw_ss()) [Once evaluate_decs_cases]
   \\ FULL_SIMP_TAC std_ss []
   \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
@@ -868,14 +874,14 @@ val Decls_APPEND = store_thm("Decls_APPEND",
        qexists_tac `new_env` >>
        qexists_tac `Rval (merge env3 a)` >>
        rw [combine_dec_result_rval, merge_def] >>
-       fs [merge_def] >>
+       fs [merge_def, merge_envC_empty_assoc, emp_def] >>
        metis_tac [merge_def],
    rw [] >>
        Cases_on `r` >>
        fs [combine_dec_result_rval, combine_dec_result_rerr] >>
        res_tac >>
        rw [] >>
-       metis_tac [APPEND_ASSOC, combine_dec_result_rval, merge_def]]);
+       metis_tac [APPEND_ASSOC, combine_dec_result_rval, merge_def, merge_envC_empty_assoc, emp_def]]);
 
 val Decls_CONS = save_thm("Decls_CONS",
   ``Decls mn menv cenv1 s1 env1 ([d] ++ ds) cenv2 s2 env2``
