@@ -138,9 +138,13 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
  * names (with types so that they are unique), and its inverse. *)
 val _ = type_abbrev( "cenv_mapping" , ``: num # (( conN id), num) fmap # ((conN # tid_or_exn), num) fmap # (num, (conN # tid_or_exn)) fmap``);
 
-(*val lookup_tag : maybe (id conN) -> cenv_mapping -> nat*)
 val _ = Define `
- (lookup_tag cn (next,cenv,val_cenv,inv0) =  
+ (cenv_mapping_to_lex_cenv (next,lex_cenv,cenv,inverse_cenv) = lex_cenv)`;
+
+
+(*val lookup_tag : maybe (id conN) -> map (id conN) nat -> nat*)
+val _ = Define `
+ (lookup_tag cn cenv =  
  ((case cn of
       NONE => tuple_tag
     | SOME id =>
@@ -151,7 +155,7 @@ val _ = Define `
   )))`;
 
 
-(*val pat_to_i2 : cenv_mapping -> pat -> pat_i2*)
+(*val pat_to_i2 : map (id conN) nat -> pat -> pat_i2*)
  val pat_to_i2_defn = Hol_defn "pat_to_i2" `
 
 (pat_to_i2 cenv (Pvar x) = (Pvar_i2 x))
@@ -165,10 +169,10 @@ val _ = Define `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn pat_to_i2_defn;
 
-(*val exp_to_i2 : cenv_mapping -> exp_i1 -> exp_i2*)
-(*val exps_to_i2 : cenv_mapping -> list exp_i1 -> list exp_i2*)
-(*val pat_exp_to_i2 : cenv_mapping -> list (pat * exp_i1) -> list (pat_i2 * exp_i2)*)
-(*val funs_to_i2 : cenv_mapping -> list (varN * varN * exp_i1) -> list (varN * varN * exp_i2)*)
+(*val exp_to_i2 : map (id conN) nat -> exp_i1 -> exp_i2*)
+(*val exps_to_i2 : map (id conN) nat -> list exp_i1 -> list exp_i2*)
+(*val pat_exp_to_i2 : map (id conN) nat -> list (pat * exp_i1) -> list (pat_i2 * exp_i2)*)
+(*val funs_to_i2 : map (id conN) nat -> list (varN * varN * exp_i1) -> list (varN * varN * exp_i2)*)
  val exp_to_i2_defn = Hol_defn "exp_to_i2" `
  
 (exp_to_i2 cenv (Raise_i1 e) =  
@@ -253,10 +257,10 @@ val _ = Define `
 ((case d of
       Dlet_i1 n e => 
         let (cenv', ds') = (decs_to_i2 cenv ds) in
-          (cenv', (Dlet_i2 n (exp_to_i2 cenv e)::ds'))
+          (cenv', (Dlet_i2 n (exp_to_i2 (cenv_mapping_to_lex_cenv cenv) e)::ds'))
     | Dletrec_i1 funs =>
         let (cenv', ds') = (decs_to_i2 cenv ds) in
-          (cenv', (Dletrec_i2 (funs_to_i2 cenv funs)::ds'))
+          (cenv', (Dletrec_i2 (funs_to_i2 (cenv_mapping_to_lex_cenv cenv) funs)::ds'))
     | Dtype_i1 mn type_def =>
         decs_to_i2 (alloc_tags mn cenv type_def) ds
     | Dexn_i1 mn cn ts =>
