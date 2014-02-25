@@ -263,7 +263,7 @@ evaluate ck menv cenv s env (Let n e1 e2) (s', Rerr err)
 and
 
 letrec1 : forall ck menv cenv env funs e bv s.
-all_distinct (List.map (fun (x,y,z) -> x) funs) &&
+List.allDistinct (List.map (fun (x,y,z) -> x) funs) &&
 evaluate ck menv cenv s (build_rec_env funs env env) e bv
 ==>
 evaluate ck menv cenv s env (Letrec funs e) bv
@@ -271,7 +271,7 @@ evaluate ck menv cenv s env (Letrec funs e) bv
 and
 
 letrec2 : forall ck menv cenv env funs e s.
-not (all_distinct (List.map (fun (x,y,z) -> x) funs))
+not (List.allDistinct (List.map (fun (x,y,z) -> x) funs))
 ==>
 evaluate ck menv cenv s env (Letrec funs e) (s, Rerr Rtype_error)
 
@@ -315,7 +315,7 @@ evaluate_match ck menv cenv s env v [] err_v (s, Rerr (Rraise err_v))
 and
 
 mat_cons1 : forall ck menv cenv env v p e pes env' bv err_v s count.
-all_distinct (pat_bindings p []) &&
+List.allDistinct (pat_bindings p []) &&
 ((pmatch cenv s p v env = Match env') &&
 evaluate ck menv cenv (count,s) env' e bv)
 ==>
@@ -324,7 +324,7 @@ evaluate_match ck menv cenv (count,s) env v ((p,e)::pes) err_v bv
 and
 
 mat_cons2 : forall ck menv cenv env v p e pes bv s count err_v.
-all_distinct (pat_bindings p []) &&
+List.allDistinct (pat_bindings p []) &&
 ((pmatch cenv s p v env = No_match) &&
 evaluate_match ck menv cenv (count,s) env v pes err_v bv)
 ==>
@@ -340,7 +340,7 @@ evaluate_match ck menv cenv (count,s) env v ((p,e)::pes) err_v ((count,s), Rerr 
 and
 
 mat_cons4 : forall ck menv cenv env v p e pes s err_v.
-not (all_distinct (pat_bindings p []))
+not (allDistinct (pat_bindings p []))
 ==>
 evaluate_match ck menv cenv s env v ((p,e)::pes) err_v (s, Rerr Rtype_error)
 
@@ -349,7 +349,7 @@ indreln [evaluate_dec : maybe modN -> envM -> envC -> store -> envE -> dec -> st
 
 dlet1 : forall mn menv cenv env p e v env' s1 s2 count.
 evaluate false menv cenv (0,s1) env e ((count,s2), Rval v) &&
-(all_distinct (pat_bindings p []) &&
+(List.allDistinct (pat_bindings p []) &&
 (pmatch cenv s2 p v emp = Match env'))
 ==>
 evaluate_dec mn menv cenv s1 env (Dlet p e) (s2, Rval (emp, env'))
@@ -358,7 +358,7 @@ and
 
 dlet2 : forall mn menv cenv env p e v s1 s2 count.
 evaluate false menv cenv (0,s1) env e ((count,s2), Rval v) &&
-(all_distinct (pat_bindings p []) &&
+(List.allDistinct (pat_bindings p []) &&
 (pmatch cenv s2 p v emp = No_match))
 ==>
 evaluate_dec mn menv cenv s1 env (Dlet p e) (s2, Rerr (Rraise (Conv (Just (Short "Bind")) [])))
@@ -367,7 +367,7 @@ and
 
 dlet3 : forall mn menv cenv env p e v s1 s2 count.
 evaluate false menv cenv (0,s1) env e ((count,s2), Rval v) &&
-(all_distinct (pat_bindings p []) &&
+(List.allDistinct (pat_bindings p []) &&
 (pmatch cenv s2 p v emp = Match_type_error))
 ==>
 evaluate_dec mn menv cenv s1 env (Dlet p e) (s2, Rerr Rtype_error)
@@ -375,7 +375,7 @@ evaluate_dec mn menv cenv s1 env (Dlet p e) (s2, Rerr Rtype_error)
 and
 
 dlet4 : forall mn menv cenv env p e s.
-not (all_distinct (pat_bindings p []))
+not (List.allDistinct (pat_bindings p []))
 ==>
 evaluate_dec mn menv cenv s env (Dlet p e) (s, Rerr Rtype_error)
 
@@ -383,21 +383,21 @@ and
 
 dlet5 : forall mn menv cenv env p e err s count s'.
 evaluate false menv cenv (0,s) env e ((count,s'), Rerr err) &&
-all_distinct (pat_bindings p [])
+List.allDistinct (pat_bindings p [])
 ==>
 evaluate_dec mn menv cenv s env (Dlet p e) (s', Rerr err)
 
 and
 
 dletrec1 : forall mn menv cenv env funs s.
-all_distinct (List.map (fun (x,y,z) -> x) funs)
+List.allDistinct (List.map (fun (x,y,z) -> x) funs)
 ==>
 evaluate_dec mn menv cenv s env (Dletrec funs) (s, Rval (emp, build_rec_env funs env emp))
 
 and
 
 dletrec2 : forall mn menv cenv env funs s.
-not (all_distinct (List.map (fun (x,y,z) -> x) funs))
+not (List.allDistinct (List.map (fun (x,y,z) -> x) funs))
 ==>
 evaluate_dec mn menv cenv s env (Dletrec funs) (s, Rerr Rtype_error)
 
@@ -513,7 +513,7 @@ evaluate_prog menv cenv s1 env (top::tops) (s2, new_tds, Rerr err)
 
 let dec_diverges menv cenv st env d =
   match d with
-    | Dlet p e -> all_distinct (pat_bindings p []) && e_diverges menv cenv st env e
+    | Dlet p e -> List.allDistinct (pat_bindings p []) && e_diverges menv cenv st env e
     | Dletrec funs -> false
     | Dtype tds -> false
     | Dexn cn ts -> false

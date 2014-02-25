@@ -13,12 +13,6 @@ fun register name def ind =
     ()
   end
 
-val (num_to_string_def, num_to_string_ind) =
-  tprove_no_defn ((num_to_string_def, num_to_string_ind),
-  wf_rel_tac `measure (\(x,y).x)` >>
-  srw_tac [ARITH_ss] []);
-val _ = register "num_to_string" num_to_string_def num_to_string_ind;
-
 val (spaces_def, spaces_ind) =
   tprove_no_defn ((spaces_def, spaces_ind),
   wf_rel_tac `measure (\(x,y).x)` >>

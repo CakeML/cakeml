@@ -89,7 +89,7 @@ let continue envM envC s v cs =
     | (Cmat () [] err_v, env) :: c ->
         Estep (envM, envC, s, env, Val err_v, ((Craise (), env) ::c))
     | (Cmat () ((p,e)::pes) err_v, env) :: c ->
-        if all_distinct (pat_bindings p []) then
+        if allDistinct (pat_bindings p []) then
           match pmatch envC s p v env with
             | Match_type_error -> Etype_error
             | No_match -> Estep (envM, envC, s, env, Val v, ((Cmat () pes err_v,env)::c))
@@ -156,7 +156,7 @@ let e_step (envM, envC, s, env, ev, c) =
           | Mat e pes -> push envM envC s env e (Cmat () pes (Conv (Just (Short "Bind")) [])) c
           | Let n e1 e2 -> push envM envC s env e1 (Clet n () e2) c
           | Letrec funs e ->
-              if not (all_distinct (List.map (fun (x,y,z) -> x) funs)) then
+              if not (allDistinct (List.map (fun (x,y,z) -> x) funs)) then
                 Etype_error
               else
                 Estep (envM,envC, s, build_rec_env funs env env, Exp e, c)

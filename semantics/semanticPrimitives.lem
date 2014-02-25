@@ -331,7 +331,7 @@ let check_dup_ctors mn_opt cenv tds =
   (forall ((tvs, tn, condefs) MEM tds) ((n, ts) MEM condefs).
      lookup (mk_id mn_opt n) cenv = Nothing)
   &&
-  List_extra.all_distinct [ n | forall ((tvs, tn, condefs) MEM tds) ((n, ts) MEM condefs) | true ]
+  List.allDistinct [ n | forall ((tvs, tn, condefs) MEM tds) ((n, ts) MEM condefs) | true ]
 
 val combine_dec_result : forall 'a 'b. env 'a 'b -> result (env 'a 'b) -> result (env 'a 'b)
 let combine_dec_result env r =
