@@ -1,7 +1,3 @@
-holSyntaxLibScript.sml
-  Some helper functions used to define the syntax (for both stateful and
-  stateless HOL).
-
 sholSyntaxScript.sml
   Defines the stateless HOL inference system: terms, types, and theorems.
 
@@ -11,3 +7,15 @@ sholSyntaxExtraScript.sml
 sholSemanticsScript.sml
   Defines the semantics of stateless HOL against a model of set theory, and
   proves soundness and consistency of the inference system.
+
+stateful/
+  Defines the inference system for stateful HOL and proves soundness and
+  consistency, by translation to stateless.
+
+monadic/
+  Defines the HOL light kernel as monadic functions in HOL4, and proves it
+  implements the stateful inference system.
+
+ml_kernel/
+  Synthesised CakeML implementation of the HOL Light kernel.
+

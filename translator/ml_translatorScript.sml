@@ -583,7 +583,7 @@ val EqualityType_NUM_BOOL = store_thm("EqualityType_NUM_BOOL",
     EqualityType BOOL /\ EqualityType UNIT_TYPE``,
   EVAL_TAC \\ FULL_SIMP_TAC (srw_ss()) [no_closures_def, types_match_def]);
 
-val no_closures_IMP_NOT_contains_closure = prove(
+val no_closures_IMP_NOT_contains_closure = store_thm("no_closures_IMP_NOT_contains_closure",
   ``!res. no_closures res ==> ~contains_closure res``,
   HO_MATCH_MP_TAC contains_closure_ind
   \\ SIMP_TAC std_ss [no_closures_def,EVERY_MEM,contains_closure_def,

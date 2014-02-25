@@ -91,22 +91,22 @@ val dec_clock_def = Define `
 (* Functions for looking up function definitions *)
 
 val find_loc_def = Define `
-  find_loc loc (s:bvl_state) =
-    if (?x p. FLOOKUP s.code p = SOME (loc,x))
-    then SOME (@x. ?p. FLOOKUP s.code p = SOME (loc,x))
+  find_loc loc code =
+    if (?x p. FLOOKUP code p = SOME (loc,x))
+    then SOME (@x. ?p. FLOOKUP code p = SOME (loc,x))
     else NONE`
 
 val find_code_def = Define `
-  (find_code (SOME p) args s =
-     case FLOOKUP s.code p of
+  (find_code (SOME p) args code =
+     case FLOOKUP code p of
      | NONE => NONE
      | SOME (_,exp,arity) => if LENGTH args = arity then SOME (args,exp)
                                                     else NONE) /\
-  (find_code NONE args s =
+  (find_code NONE args code =
      if args = [] then NONE else
        case LAST args of
        | CodePtr loc =>
-           (case find_loc loc s of
+           (case find_loc loc code of
             | NONE => NONE
             | SOME (exp,arity) => if LENGTH args = arity + 1
                                   then SOME (FRONT args,exp)
@@ -180,7 +180,7 @@ val bEval_def = tDefine "bEval" `
   (bEval ([Call dest xs],env,s1) =
      case bEval (xs,env,s1) of
      | (Result vs,s) =>
-         (case find_code dest vs s of
+         (case find_code dest vs s.code of
           | NONE => (Error,s)
           | SOME (args,exp) =>
               if (s.clock = 0) \/ (s1.clock = 0) then (TimeOut,s) else
@@ -199,7 +199,7 @@ val check_clock_IMP = prove(
   ``n <= (check_clock r s).clock ==> n <= s.clock``,
   SRW_TAC [] [check_clock_def] \\ DECIDE_TAC);
 
-val bEvalOp_clock = prove(
+val bEvalOp_clock = store_thm("bEvalOp_clock",
   ``(bEvalOp op args s1 = SOME (res,s2)) ==> s2.clock <= s1.clock``,
   SIMP_TAC std_ss [bEvalOp_def]
   \\ REPEAT BasicProvers.FULL_CASE_TAC

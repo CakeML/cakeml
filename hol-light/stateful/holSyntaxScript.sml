@@ -1,8 +1,9 @@
-open HolKernel boolLib boolSimps bossLib lcsymtacs pairTheory listTheory pred_setTheory sortingTheory stringTheory holSyntaxLibTheory
+open HolKernel boolLib boolSimps bossLib lcsymtacs pred_setTheory listTheory holSyntaxLibTheory
 val _ = temp_tight_equality()
 val _ = new_theory "holSyntax"
 
-val _ = Parse.temp_type_abbrev("stype",``:type``)
+(* HOL types *)
+
 val _ = Hol_datatype`type
   = Tyvar of string
   | Tyapp of string => type list`
@@ -17,15 +18,18 @@ val domain_def = save_thm("domain_def",SIMP_RULE(srw_ss())[]domain_def)
 val codomain_def = save_thm("codomain_def",SIMP_RULE(srw_ss())[]codomain_def)
 val _ = export_rewrites["domain_def","codomain_def"]
 
-val _ = Parse.temp_type_abbrev("sterm",``:term``)
+(* HOL terms *)
+
 val _ = Hol_datatype`term
-  = Var of string => holSyntax$type
-  | Const of string => holSyntax$type
+  = Var of string => type
+  | Const of string => type
   | Comb of term => term
-  | Abs of string => holSyntax$type => term`
+  | Abs of string => type => term`
 
 val _ = Parse.overload_on("Equal",``λty. Const "=" (Fun ty (Fun ty Bool))``)
 val _ = Parse.overload_on("Select",``λty. Const "@" (Fun (Fun ty Bool) ty)``)
+
+(* Assignment of types to terms (where possible) *)
 
 val _ = Parse.add_infix("has_type",450,Parse.NONASSOC)
 
@@ -39,6 +43,8 @@ val (has_type_rules,has_type_ind,has_type_cases) = Hol_reln`
   (t has_type rty ⇒
    (Abs n dty t) has_type (Fun dty rty))`
 
+(* A term is welltyped if it has a type. typeof calculates it. *)
+
 val welltyped_def = Define`
   welltyped tm = ∃ty. tm has_type ty`
 
@@ -49,37 +55,8 @@ val typeof_def = Define`
   (typeof (Abs n ty t) = Fun ty (typeof t))`
 val _ = export_rewrites["typeof_def"]
 
-val WELLTYPED_LEMMA = store_thm("WELLTYPED_LEMMA",
-  ``∀tm ty. tm has_type ty ⇒ (typeof tm = ty)``,
-  ho_match_mp_tac has_type_ind >>
-  simp[typeof_def,has_type_rules,codomain_def])
-
-val WELLTYPED = store_thm("WELLTYPED",
-  ``∀tm. welltyped tm ⇔ tm has_type (typeof tm)``,
-  simp[welltyped_def] >> metis_tac[WELLTYPED_LEMMA])
-
-val WELLTYPED_CLAUSES = store_thm("WELLTYPED_CLAUSES",
- ``(!n ty. welltyped(Var n ty)) /\
-   (!n ty. welltyped(Const n ty)) /\
-   (!s t. welltyped (Comb s t) <=>
-            welltyped s /\ welltyped t /\
-            ?rty. typeof s = Fun (typeof t) rty) /\
-   (!n ty t. welltyped (Abs n ty t) = welltyped t)``,
-  REPEAT STRIP_TAC THEN REWRITE_TAC[welltyped_def] THEN
-  rw[Once has_type_cases] >>
-  metis_tac[WELLTYPED,WELLTYPED_LEMMA])
-val _ = export_rewrites["WELLTYPED_CLAUSES"]
-
-val _ = Parse.add_infix("===",460,Parse.RIGHT)
-
-val equation_def = xDefine "equation"`
-  (s === t) = Comb (Comb (Equal(typeof s)) s) t`
-
-val EQUATION_HAS_TYPE_BOOL = store_thm("EQUATION_HAS_TYPE_BOOL",
-  ``∀s t. (s === t) has_type Bool
-          ⇔ welltyped s ∧ welltyped t ∧ (typeof s = typeof t)``,
-  rw[equation_def] >> rw[Ntimes has_type_cases 3] >>
-  metis_tac[WELLTYPED_LEMMA,WELLTYPED])
+(* Alpha-equivalence, as a relation parameterised by the
+   lists of variables bound above the terms. *)
 
 val (RACONV_rules,RACONV_ind,RACONV_cases) = Hol_reln`
   (ALPHAVARS env (Var x1 ty1,Var x2 ty2)
@@ -90,62 +67,13 @@ val (RACONV_rules,RACONV_ind,RACONV_cases) = Hol_reln`
   ((ty1 = ty2) ∧ RACONV ((Var x1 ty1,Var x2 ty2)::env) (t1,t2)
     ⇒ RACONV env (Abs x1 ty1 t1,Abs x2 ty2 t2))`
 
-val RACONV = store_thm("RACONV",
- ``(RACONV env (Var x1 ty1,Var x2 ty2) <=>
-        ALPHAVARS env (Var x1 ty1,Var x2 ty2)) /\
-   (RACONV env (Var x1 ty1,Const x2 ty2) <=> F) /\
-   (RACONV env (Var x1 ty1,Comb l2 r2) <=> F) /\
-   (RACONV env (Var x1 ty1,Abs x2 ty2 t2) <=> F) /\
-   (RACONV env (Const x1 ty1,Var x2 ty2) <=> F) /\
-   (RACONV env (Const x1 ty1,Const x2 ty2) <=> (x1 = x2) /\ (ty1 = ty2)) /\
-   (RACONV env (Const x1 ty1,Comb l2 r2) <=> F) /\
-   (RACONV env (Const x1 ty1,Abs x2 ty2 t2) <=> F) /\
-   (RACONV env (Comb l1 r1,Var x2 ty2) <=> F) /\
-   (RACONV env (Comb l1 r1,Const x2 ty2) <=> F) /\
-   (RACONV env (Comb l1 r1,Comb l2 r2) <=>
-        RACONV env (l1,l2) /\ RACONV env (r1,r2)) /\
-   (RACONV env (Comb l1 r1,Abs x2 ty2 t2) <=> F) /\
-   (RACONV env (Abs x1 ty1 t1,Var x2 ty2) <=> F) /\
-   (RACONV env (Abs x1 ty1 t1,Const x2 ty2) <=> F) /\
-   (RACONV env (Abs x1 ty1 t1,Comb l2 r2) <=> F) /\
-   (RACONV env (Abs x1 ty1 t1,Abs x2 ty2 t2) <=>
-        (ty1 = ty2) /\ RACONV (CONS (Var x1 ty1,Var x2 ty2) env) (t1,t2))``,
-  REPEAT CONJ_TAC THEN simp[Once RACONV_cases] >> metis_tac[])
+(* Alpha-equivalence as a function on closed terms. *)
 
 val ACONV_def = Define`
   ACONV t1 t2 ⇔ RACONV [] (t1,t2)`
 
-val RACONV_REFL = store_thm("RACONV_REFL",
-  ``∀t env. EVERY (UNCURRY $=) env ⇒ RACONV env (t,t)``,
-  Induct >> simp[RACONV,ALPHAVARS_REFL])
-
-val ACONV_REFL = store_thm("ACONV_REFL",
-  ``∀t. ACONV t t``,
-  simp[ACONV_def,RACONV_REFL])
-val _ = export_rewrites["ACONV_REFL"]
-
-val ALPHAVARS_TYPE = store_thm("ALPHAVARS_TYPE",
-  ``∀env s t. ALPHAVARS env (s,t) ∧
-              EVERY (λ(x,y). welltyped x ∧ welltyped y
-                             ∧ (typeof x = typeof y)) env ∧
-              welltyped s ∧ welltyped t
-              ⇒ typeof s = typeof t``,
-  Induct >> simp[ALPHAVARS_def,FORALL_PROD] >> rw[] >> rw[])
-
-val RACONV_TYPE = store_thm("RACONV_TYPE",
-  ``∀env p. RACONV env p
-            ⇒ EVERY (λ(x,y). welltyped x ∧ welltyped y
-                             ∧ (typeof x = typeof y)) env ∧
-              welltyped (FST p) ∧ welltyped (SND p)
-              ⇒ typeof (FST p) = typeof (SND p)``,
-  ho_match_mp_tac RACONV_ind >>
-  simp[FORALL_PROD,typeof_def,WELLTYPED_CLAUSES] >>
-  rw[] >> imp_res_tac ALPHAVARS_TYPE >>
-  fs[typeof_def,WELLTYPED_CLAUSES])
-
-val ACONV_TYPE = store_thm("ACONV_TYPE",
-  ``∀s t. ACONV s t ⇒ welltyped s ∧ welltyped t ⇒ (typeof s = typeof t)``,
-  rw[ACONV_def] >> imp_res_tac RACONV_TYPE >> fs[])
+(* Alpha-respecting union of two lists of terms.
+   May retain duplicates in the second list. *)
 
 val TERM_UNION_def = Define`
   TERM_UNION [] l2 = l2 ∧
@@ -153,19 +81,7 @@ val TERM_UNION_def = Define`
     let subun = TERM_UNION t l2 in
     if EXISTS (ACONV h) subun then subun else h::subun`
 
-val TERM_UNION_NONEW = store_thm("TERM_UNION_NONEW",
-  ``∀l1 l2 x. MEM x (TERM_UNION l1 l2) ⇒ MEM x l1 ∨ MEM x l2``,
-  Induct >> simp[TERM_UNION_def] >> rw[] >> metis_tac[])
-
-val TERM_UNION_THM = store_thm("TERM_UNION_THM",
-  ``∀l1 l2 x. MEM x l1 ∨ MEM x l2
-              ⇒ ∃y. MEM y (TERM_UNION l1 l2) ∧ ACONV x y``,
-  Induct >> simp[TERM_UNION_def] >> rw[EXISTS_MEM] >> metis_tac[ACONV_REFL])
-
-val ALL_BOOL_TERM_UNION = store_thm("ALL_BOOL_TERM_UNION",
-  ``EVERY (λa. a has_type Bool) l1 ∧ EVERY (λa. a has_type Bool) l2
-    ⇒ EVERY (λa. a has_type Bool) (TERM_UNION l1 l2)``,
-  rw[EVERY_MEM] >> metis_tac[TERM_UNION_NONEW])
+(* Whether a variables (or constant) occurs free in a term. *)
 
 val VFREE_IN_def = Define`
   (VFREE_IN v (Var x ty) ⇔ (Var x ty = v)) ∧
@@ -174,31 +90,13 @@ val VFREE_IN_def = Define`
   (VFREE_IN v (Abs x ty t) ⇔ (Var x ty ≠ v) ∧ VFREE_IN v t)`
 val _ = export_rewrites["VFREE_IN_def"]
 
-val VFREE_IN_RACONV = store_thm("VFREE_IN_RACONV",
-  ``∀env p. RACONV env p
-            ⇒ ∀x ty. VFREE_IN (Var x ty) (FST p) ∧
-                     ¬(∃y. MEM (Var x ty,y) env) ⇔
-                     VFREE_IN (Var x ty) (SND p) ∧
-                     ¬(∃y. MEM (y,Var x ty) env)``,
-  ho_match_mp_tac RACONV_ind >> simp[VFREE_IN_def] >>
-  reverse conj_tac >- metis_tac[] >>
-  Induct >> simp[ALPHAVARS_def,FORALL_PROD] >> rw[] >> metis_tac[])
-
-val VFREE_IN_ACONV = store_thm("VFREE_IN_ACONV",
-  ``∀s t x ty. ACONV s t ⇒ (VFREE_IN (Var x ty) s ⇔ VFREE_IN (Var x ty) t)``,
-  rw[ACONV_def] >> imp_res_tac VFREE_IN_RACONV >> fs[])
+(* Closed terms: those with no free variables. *)
 
 val CLOSED_def = Define`
   CLOSED tm = ∀x ty. ¬(VFREE_IN (Var x ty) tm)`
 
-val TYPE_SUBST_def = tDefine"TYPE_SUBST"`
-  (TYPE_SUBST i (Tyvar v) = REV_ASSOCD (Tyvar v) i (Tyvar v)) ∧
-  (TYPE_SUBST i (Tyapp v tys) = Tyapp v (MAP (TYPE_SUBST i) tys)) ∧
-  (TYPE_SUBST i (Fun ty1 ty2) = Fun (TYPE_SUBST i ty1) (TYPE_SUBST i ty2))`
-(WF_REL_TAC`measure (type_size o SND)` >> simp[] >>
- gen_tac >> Induct >> simp[definition"type_size_def"] >> rw[] >>
- simp[] >> res_tac >> simp[])
-val _ = export_rewrites["TYPE_SUBST_def"]
+(* Producing a variant of a variable, guaranteed
+   to not be free in a given term. *)
 
 val VFREE_IN_FINITE = store_thm("VFREE_IN_FINITE",
   ``∀t. FINITE {x | VFREE_IN x t}``,
@@ -250,6 +148,19 @@ val VARIANT_THM = store_thm("VARIANT_THM",
   ``∀t x ty. ¬VFREE_IN (Var (VARIANT t x ty) ty) t``,
   metis_tac[VARIANT_def,VARIANT_PRIMES_def])
 
+(* Substitution for type variables in a type. *)
+
+val TYPE_SUBST_def = tDefine"TYPE_SUBST"`
+  (TYPE_SUBST i (Tyvar v) = REV_ASSOCD (Tyvar v) i (Tyvar v)) ∧
+  (TYPE_SUBST i (Tyapp v tys) = Tyapp v (MAP (TYPE_SUBST i) tys)) ∧
+  (TYPE_SUBST i (Fun ty1 ty2) = Fun (TYPE_SUBST i ty1) (TYPE_SUBST i ty2))`
+(WF_REL_TAC`measure (type_size o SND)` >> simp[] >>
+ gen_tac >> Induct >> simp[definition"type_size_def"] >> rw[] >>
+ simp[] >> res_tac >> simp[])
+val _ = export_rewrites["TYPE_SUBST_def"]
+
+(* Substitution for term variables in a term. *)
+
 val VSUBST_def = Define`
   (VSUBST ilist (Var x ty) = REV_ASSOCD (Var x ty) ilist (Var x ty)) ∧
   (VSUBST ilist (Const x ty) = Const x ty) ∧
@@ -263,81 +174,8 @@ val VSUBST_def = Define`
          Abs z ty (VSUBST ilist'' t)
     else Abs x ty t')`
 
-val VSUBST_HAS_TYPE = store_thm("VSUBST_HAS_TYPE",
-  ``∀tm ty ilist.
-      tm has_type ty ∧
-      (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. (s = Var x ty) ∧ s' has_type ty)
-      ⇒ (VSUBST ilist tm) has_type ty``,
-  Induct >> simp[VSUBST_def]
-  >- (
-    map_every qx_gen_tac[`x`,`ty`,`tty`] >>
-    Induct >> simp[REV_ASSOCD,FORALL_PROD] >>
-    srw_tac[DNF_ss][] >> rw[] >> fs[] >>
-    qpat_assum`X has_type tty`mp_tac >>
-    simp[Once has_type_cases]>>rw[]>>rw[])
-  >- (
-    simp[Once has_type_cases] >> rw[] >>
-    rw[Once has_type_cases] >> metis_tac[] )
-  >- (
-    map_every qx_gen_tac[`ty`,`x`,`fty`,`ilist`] >>
-    simp[Once has_type_cases] >> rw[] >>
-    simp[Once has_type_cases] >>
-    first_x_assum match_mp_tac >> simp[] >>
-    simp[MEM_FILTER] >> rw[] >> TRY(metis_tac[]) >>
-    simp[Once has_type_cases]))
-
-val VSUBST_WELLTYPED = store_thm("VSUBST_WELLTYPED",
-  ``∀tm ty ilist.
-      welltyped tm ∧
-      (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. (s = Var x ty) ∧ s' has_type ty)
-      ⇒ welltyped (VSUBST ilist tm)``,
-  metis_tac[VSUBST_HAS_TYPE,welltyped_def])
-
-val VFREE_IN_VSUBST = store_thm("VFREE_IN_VSUBST",
-  ``∀tm u uty ilist.
-      VFREE_IN (Var u uty) (VSUBST ilist tm) ⇔
-        ∃y ty. VFREE_IN (Var y ty) tm ∧
-               VFREE_IN (Var u uty) (REV_ASSOCD (Var y ty) ilist (Var y ty))``,
-  Induct >> simp[VFREE_IN_def,VSUBST_def] >- metis_tac[] >>
-  map_every qx_gen_tac[`xty`,`x`,`u`,`uty`,`ilist`] >>
-  qmatch_abbrev_tac`VFREE_IN vu (if p then Abs vx xty (VSUBST l1 tm) else Abs x xty (VSUBST l2 tm)) ⇔ q` >>
-  qsuff_tac`VFREE_IN vu (Abs (if p then vx else x) xty (VSUBST (if p then l1 else l2) tm)) ⇔ q` >- metis_tac[] >>
-  simp[VFREE_IN_def,Abbr`vu`] >>
-  rw[] >- (
-    simp[Abbr`q`,Abbr`l1`,REV_ASSOCD,Abbr`l2`,REV_ASSOCD_FILTER] >>
-    EQ_TAC >- (
-      rw[] >>
-      pop_assum mp_tac >> rw[VFREE_IN_def] >> fs[] >>
-      metis_tac[] ) >>
-    qmatch_assum_abbrev_tac`Abbrev(vx = VARIANT t x xty)` >>
-    qspecl_then[`t`,`x`,`xty`]mp_tac VARIANT_THM >> strip_tac >>
-    qmatch_assum_abbrev_tac`Abbrev(t = VSUBST ll tm)` >>
-    rfs[Abbr`t`] >>
-    fs[Abbr`vx`] >> strip_tac >>
-    (conj_tac >- (
-      spose_not_then strip_assume_tac >>
-      first_x_assum(qspecl_then[`y`,`ty`]mp_tac) >>
-      simp[Abbr`ll`,REV_ASSOCD_FILTER])) >>
-    map_every qexists_tac[`y`,`ty`] >> simp[]) >>
-  simp[Abbr`q`,Abbr`l2`,REV_ASSOCD_FILTER,Abbr`l1`,Abbr`vx`] >>
-  EQ_TAC >- (
-    rw[] >>
-    pop_assum mp_tac >> rw[VFREE_IN_def] >> fs[] >>
-    metis_tac[] ) >>
-  fs[EXISTS_MEM,EVERY_MEM,markerTheory.Abbrev_def,MEM_FILTER,FORALL_PROD] >>
-  simp[GSYM LEFT_FORALL_IMP_THM] >>
-  rpt gen_tac >>
-  Cases_on`∃a. MEM (a,Var y ty) ilist ∧ VFREE_IN (Var x xty) a` >- (
-    fs[] >> first_x_assum(qspecl_then[`a`,`Var y ty`]mp_tac) >>
-    simp[] >> rw[] >> fs[] >> fs[VFREE_IN_def] >>
-    metis_tac[] ) >> fs[] >>
-  Cases_on`VFREE_IN (Var u uty) (REV_ASSOCD (Var y ty) ilist (Var y ty))`>>simp[] >>
-  Cases_on`Var u uty = Var y ty`>- (
-    fs[] >> metis_tac[] ) >>
-  Q.ISPECL_THEN[`ilist`,`Var y ty`,`Var y ty`]mp_tac REV_ASSOCD_MEM >>
-  strip_tac >> fs[] >>
-  fs[VFREE_IN_def] >>
-  metis_tac[])
+(* A measure on terms, used in proving
+   termination of type instantiation. *)
 
 val sizeof_def = Define`
   sizeof (Var x ty) = 1 ∧
@@ -360,6 +198,8 @@ val SIZEOF_VSUBST = store_thm("SIZEOF_VSUBST",
 val sizeof_positive = store_thm("sizeof_positive",
   ``∀t. 0 < sizeof t``,
   Induct >> simp[])
+
+(* Instantiation of type variables in terms *)
 
 val INST_CORE_def = tDefine"INST_CORE"`
   (INST_CORE env tyin (Var x ty) =
@@ -390,134 +230,9 @@ val INST_CORE_def = tDefine"INST_CORE"`
     if IS_RESULT tres then Result(Abs x' ty' (RESULT tres)) else tres)`
 (WF_REL_TAC`measure (sizeof o SND o SND)` >> simp[SIZEOF_VSUBST])
 
-val INST_CORE_HAS_TYPE = store_thm("INST_CORE_HAS_TYPE",
-  ``∀n tm env tyin.
-      welltyped tm ∧ (sizeof tm = n) ∧
-      (∀s s'. MEM (s,s') env ⇒
-              ∃x ty. (s = Var x ty) ∧
-                     (s' = Var x (TYPE_SUBST tyin ty)))
-      ⇒ (∃x ty. (INST_CORE env tyin tm = Clash(Var x (TYPE_SUBST tyin ty))) ∧
-                VFREE_IN (Var x ty) tm ∧
-                REV_ASSOCD (Var x (TYPE_SUBST tyin ty))
-                  env (Var x ty) ≠ Var x ty)
-      ∨ (∀x ty. VFREE_IN (Var x ty) tm
-                ⇒ REV_ASSOCD (Var x (TYPE_SUBST tyin ty))
-                    env (Var x ty) = Var x ty) ∧
-        (∃tm'. INST_CORE env tyin tm = Result tm' ∧
-               tm' has_type (TYPE_SUBST tyin (typeof tm)) ∧
-               (∀u uty. VFREE_IN (Var u uty) tm' ⇔
-                        ∃oty. VFREE_IN (Var u oty) tm ∧
-                              uty = TYPE_SUBST tyin oty))``,
-  gen_tac >> completeInduct_on`n` >>
-  Induct >> simp[Once INST_CORE_def] >>
-  TRY (
-    simp[Once INST_CORE_def] >>
-    simp[Once has_type_cases] >>
-    NO_TAC )
-  >- (
-    pop_assum kall_tac >> rw[] >>
-    simp[Once INST_CORE_def] >>
-    simp[Once has_type_cases] >>
-    metis_tac[] )
-  >- (
-    rpt gen_tac >> strip_tac >>
-    fs[] >> BasicProvers.VAR_EQ_TAC >>
-    fsrw_tac[ARITH_ss][] >>
-    simp[Once INST_CORE_def] >>
-    first_assum(qspec_then`sizeof tm`mp_tac) >>
-    first_x_assum(qspec_then`sizeof tm'`mp_tac) >> simp[] >>
-    disch_then(qspecl_then[`tm'`,`env`,`tyin`]mp_tac) >> simp[] >>
-    qmatch_abbrev_tac`P ⇒ Q` >> strip_tac >>
-    qunabbrev_tac`Q` >>
-    disch_then(qspecl_then[`tm`,`env`,`tyin`]mp_tac) >>
-    simp[] >>
-    qunabbrev_tac`P` >>
-    reverse (strip_tac >> fs[]) >- (
-      simp[Once has_type_cases] >>
-      metis_tac[] ) >>
-    metis_tac[] )
-  >- (
-    rpt gen_tac >> strip_tac >>
-    fs[] >> BasicProvers.VAR_EQ_TAC >>
-    fsrw_tac[ARITH_ss][] >>
-    Q.PAT_ABBREV_TAC`env' = X::env` >>
-    Q.PAT_ABBREV_TAC`tm' = VSUBST X tm` >>
-    Q.PAT_ABBREV_TAC`env'' = X::env` >>
-    `sizeof tm' = sizeof tm` by (
-      simp[Abbr`tm'`,SIZEOF_VSUBST] ) >>
-    `welltyped tm'` by (
-      simp[Abbr`tm'`] >>
-      match_mp_tac VSUBST_WELLTYPED >>
-      simp[] >> simp[Once has_type_cases] ) >>
-    first_x_assum(qspec_then`sizeof tm`mp_tac) >> simp[] >>
-    simp[Once INST_CORE_def] >>
-    disch_then(fn th =>
-      qspecl_then[`tm`,`env'`,`tyin`]mp_tac th >>
-      qspecl_then[`tm'`,`env''`,`tyin`]mp_tac th >>
-      qspecl_then[`tm`,`[]`,`tyin`]mp_tac th) >> simp[] >>
-    qmatch_abbrev_tac`a ⇒ b` >> strip_tac >> qunabbrev_tac`b` >>
-    qmatch_abbrev_tac`(p ⇒ q) ⇒ r` >>
-    `p` by (
-      unabbrev_all_tac >> rw[] >> metis_tac[]) >>
-    simp[] >> map_every qunabbrev_tac[`p`,`q`,`r`] >> pop_assum kall_tac >>
-    qmatch_abbrev_tac`x ⇒ (p ⇒ q) ⇒ r` >>
-    `p` by (
-      unabbrev_all_tac >> rw[] >> metis_tac[]) >>
-    simp[] >> map_every qunabbrev_tac[`x`,`p`,`q`,`r`] >> pop_assum kall_tac >>
-    qunabbrev_tac`a` >>
-    fs[] >- (
-      rw[] >> fs[] >> fs[Abbr`env''`,Abbr`env'`,REV_ASSOCD] ) >>
-    strip_tac >> fs[] >- (
-      strip_tac >> fs[] >- (
-        fs[Abbr`env''`,Abbr`env'`,REV_ASSOCD,Abbr`tm'`,VFREE_IN_VSUBST] >>
-        rw[] >> fs[] >>
-        BasicProvers.EVERY_CASE_TAC >> fs[] >>
-        rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
-        metis_tac[VARIANT_THM] ) >>
-      fs[Abbr`env''`,Abbr`env'`,REV_ASSOCD,Abbr`tm'`,VFREE_IN_VSUBST] >>
-      simp[Once has_type_cases] >>
-      BasicProvers.EVERY_CASE_TAC >> fs[] >>
-      rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
-      rw[] >> fs[] >>
-      metis_tac[VARIANT_THM,theorem"term_11"]) >>
-    strip_tac >> fs[] >- (
-      rw[] >> fs[] >>
-      fs[Abbr`env''`,Abbr`env'`,REV_ASSOCD,Abbr`tm'`,VFREE_IN_VSUBST] >>
-      BasicProvers.EVERY_CASE_TAC >> fs[] >>
-      rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
-      simp[Once has_type_cases] >>
-      TRY (
-        qmatch_assum_abbrev_tac`tz has_type TYPE_SUBST tyin (typeof (VSUBST ez tm))` >>
-        `typeof (VSUBST ez tm) = typeof tm` by (
-          match_mp_tac WELLTYPED_LEMMA >>
-          match_mp_tac VSUBST_HAS_TYPE >>
-          conj_tac >- metis_tac[WELLTYPED] >>
-          simp[Abbr`ez`] >>
-          simp[Once has_type_cases] ) >>
-        unabbrev_all_tac >> fs[] >>
-        fs[GSYM LEFT_FORALL_IMP_THM] >>
-        first_x_assum(qspecl_then[`x'`,`ty'`,`x'`,`ty'`]mp_tac) >>
-        simp[] >> BasicProvers.CASE_TAC >> simp[] >> strip_tac >> fs[] >>
-        `VFREE_IN (Var x' (TYPE_SUBST tyin ty')) tm''` by metis_tac[] >>
-        metis_tac[VARIANT_THM]) >>
-      TRY (
-        EQ_TAC >> rw[] >> fs[] >>
-        rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
-        pop_assum mp_tac >> rw[] >> fs[] >>
-        TRY (
-          qexists_tac`oty`>>simp[] >>
-          map_every qexists_tac[`u`,`oty`] >>
-          simp[] >> NO_TAC) >>
-        metis_tac[VARIANT_THM,theorem"term_11",VSUBST_HAS_TYPE,WELLTYPED] ) >>
-      metis_tac[VARIANT_THM,theorem"term_11",VSUBST_HAS_TYPE,WELLTYPED] ) >>
-    rw[] >> fs[] >>
-    fs[Abbr`env''`,Abbr`env'`,REV_ASSOCD,Abbr`tm'`,VFREE_IN_VSUBST] >>
-    BasicProvers.EVERY_CASE_TAC >> fs[] >>
-    rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
-    simp[Once has_type_cases] >>
-    metis_tac[VARIANT_THM,theorem"term_11"]))
-
 val INST_def = Define`INST tyin tm = RESULT(INST_CORE [] tyin tm)`
+
+(* Type variables in a type. *)
 
 val tyvars_def = tDefine"tyvars"`
   tyvars (Tyvar v) = [v] ∧
@@ -527,15 +242,42 @@ val tyvars_def = tDefine"tyvars"`
  simp[definition"type_size_def"] >> rw[] >>
  simp[] >> res_tac >> simp[])
 
+(* Type variables in a term. *)
+
 val tvars_def = Define`
   (tvars (Var n ty) = tyvars ty) /\
   (tvars (Const n ty) = tyvars ty) /\
   (tvars (Comb s t) = LIST_UNION (tvars s) (tvars t)) /\
   (tvars (Abs n ty t) = LIST_UNION (tyvars ty) (tvars t))`
 
+(* Syntax for equations *)
+
+val _ = Parse.add_infix("===",460,Parse.RIGHT)
+
+val equation_def = xDefine "equation"`
+  (s === t) = Comb (Comb (Equal(typeof s)) s) t`
+
+(* Context of updates to the theory *)
+(*
+
 val _ = Hol_datatype`def
-  = Constdef of (string # holSyntax$term) list => holSyntax$term
-  | Typedef of string => holSyntax$term => string => string`
+  (* Conservative definition of new constants by specification
+     ConstSpec witnesses proposition *)
+  = ConstSpec of (string # term) list => term
+  (* Conservative definition of a new type
+     TypeDefn name predicate abs_name rep_name *)
+  | TypeDefn of string => term => string => string
+  (* NewType name arity *)
+  | NewType of string => num
+  (* NewConst name type *)
+  | NewConst of string => type
+  (* NewAxiom proposition *)
+  | NewAxiom of term`
+
+val init_ctxt_def = Define`
+  init_ctxt = [NewConst "=" (Fun (Tyvar"A") (Fun (Tyvar"A") Bool))
+              ;NewType "bool" 0
+              ;NewType "fun" 2]`
 
 val types_aux_def = Define`
   (types_aux (Constdef eqs p) = []) /\
@@ -555,8 +297,6 @@ val consts_aux_def = Define
 val consts_def = Define
  `consts defs = FLAT (MAP consts_aux defs)++[("@",typeof(Select(Tyvar"A")));("=",typeof(Equal(Tyvar"A")))]`
 
-val _ = Parse.add_infix("|-",450,Parse.NONASSOC)
-
 val _ = Parse.overload_on("Exists",``λx ty p. Comb (Const "?" (Fun (Fun ty Bool) Bool)) (Abs x ty p)``)
 val _ = Parse.overload_on("Forall",``λx ty p. Comb (Const "!" (Fun (Fun ty Bool) Bool)) (Abs x ty p)``)
 val _ = Parse.overload_on("And",``λp1 p2. Comb (Comb (Const "/\\" (Fun Bool (Fun Bool Bool))) p1) p2``)
@@ -568,6 +308,16 @@ val _ = Parse.overload_on("One_One",``λa b f. Comb (Const "ONE_ONE" (Fun (Fun a
 val _ = Parse.overload_on("Onto",``λa b f. Comb (Const "ONTO" (Fun (Fun a b) Bool)) f``)
 
 val _ = Parse.overload_on("CD1",``λn t. Constdef [(n,t)] (Var n (typeof t) === t)``)
+
+(* Signature of known types and constants *)
+
+(* a type operator name is mapped to its arity *)
+val _ = Parse.type_abbrev("tysig",``:(string,num) list``)
+
+(* a constant name is mapped to its type *)
+val _ = Parse.type_abbrev("consig",``:string |-> type``)
+
+val _ = Parse.add_infix("|-",450,Parse.NONASSOC)
 
 val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"
  `(!n defs. context_ok defs ==> type_ok defs (Tyvar n)) /\
@@ -712,59 +462,5 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"
                        (And (One_One Ind Ind (Var "f" (Fun Ind Ind)))
                             (Not (Onto Ind Ind (Var "f" (Fun Ind Ind))))))`
 
-val RACONV_TRANS = store_thm("RACONV_TRANS",
-  ``∀env tp. RACONV env tp ⇒ ∀vs t. LENGTH vs = LENGTH env ∧ RACONV (ZIP(MAP SND env,vs)) (SND tp,t) ⇒ RACONV (ZIP(MAP FST env,vs)) (FST tp, t)``,
-  ho_match_mp_tac RACONV_ind >> simp[RACONV] >>
-  conj_tac >- (
-    Induct >- simp[ALPHAVARS_def] >>
-    Cases >> simp[ALPHAVARS_def] >>
-    rw[] >> Cases_on`vs`>>fs[] >>
-    Cases_on`t`>>fs[RACONV]>>
-    fs[ALPHAVARS_def] >> rw[] >>
-    metis_tac[RACONV] ) >>
-  conj_tac >- ( rw[] >> Cases_on`t`>>fs[RACONV] ) >>
-  conj_tac >- ( rw[] >> Cases_on`t`>>fs[RACONV] ) >>
-  rw[] >>
-  Cases_on`t`>>fs[RACONV]>>rw[]>>
-  metis_tac[LENGTH,ZIP])
-
-val ACONV_TRANS = store_thm("ACONV_TRANS",
-  ``∀t1 t2 t3. ACONV t1 t2 ∧ ACONV t2 t3 ⇒ ACONV t1 t3``,
-  rw[ACONV_def] >> imp_res_tac RACONV_TRANS >> fs[LENGTH_NIL])
-
-val RACONV_SYM = store_thm("RACONV_SYM",
-  ``∀env tp. RACONV env tp ⇒ RACONV (MAP (λ(x,y). (y,x)) env) (SND tp,FST tp)``,
-  ho_match_mp_tac RACONV_ind >> simp[] >>
-  conj_tac >- (
-    Induct >> simp[ALPHAVARS_def,RACONV] >>
-    Cases >> simp[] >>
-    rw[] >> res_tac >> fs[RACONV]) >>
-  simp[RACONV])
-
-val ACONV_SYM = store_thm("ACONV_SYM",
-  ``∀t1 t2. ACONV t1 t2 ⇒ ACONV t2 t1``,
-  rw[ACONV_def] >> imp_res_tac RACONV_SYM >> fs[])
-
-val type_ind = save_thm("type_ind",
-  TypeBase.induction_of``:holSyntax$type``
-  |> Q.SPECL[`P`,`EVERY P`]
-  |> SIMP_RULE std_ss [EVERY_DEF]
-  |> UNDISCH_ALL
-  |> CONJUNCT1
-  |> DISCH_ALL
-  |> Q.GEN`P`)
-
-val tyvars_ALL_DISTINCT = store_thm("tyvars_ALL_DISTINCT",
-  ``∀ty. ALL_DISTINCT (tyvars ty)``,
-  ho_match_mp_tac type_ind >>
-  rw[tyvars_def] >>
-  Induct_on`l` >> simp[] >>
-  rw[ALL_DISTINCT_LIST_UNION])
-val _ = export_rewrites["tyvars_ALL_DISTINCT"]
-
-val tvars_ALL_DISTINCT = store_thm("tvars_ALL_DISTINCT",
-  ``∀tm. ALL_DISTINCT (tvars tm)``,
-  Induct >> simp[tvars_def,ALL_DISTINCT_LIST_UNION])
-val _ = export_rewrites["tvars_ALL_DISTINCT"]
-
+*)
 val _ = export_theory()

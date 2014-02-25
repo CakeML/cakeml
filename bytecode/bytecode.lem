@@ -103,9 +103,20 @@ is_Number _ = false
 let rec dest_Number (Number i) = i
 
 let rec
+is_char (Number n) = (0 <= n && n < 256)
+and
+is_char _ = false
+
+let rec
+only_chars [] = true
+and
+only_chars (x::xs) = is_char x && only_chars xs
+
+let rec
 can_Print (Number _) = true
 and
-can_Print (Block n vs) = not (n = block_tag) || can_Print_list vs
+can_Print (Block n vs) = (not (n = string_tag) || only_chars vs) &&
+                         (not (n = block_tag) || can_Print_list vs)
 and
 can_Print (CodePtr _) = false
 and

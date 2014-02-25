@@ -1,0 +1,4 @@
+holSyntaxLibScript.sml
+  Some helper functions used to define the syntax (for both stateful and
+  stateless HOL).
+

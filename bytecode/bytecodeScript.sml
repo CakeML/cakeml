@@ -142,11 +142,27 @@ val _ = Define `
  (dest_Number (Number i) = i)`;
 
 
+ val _ = Define `
+
+(is_char (Number n) = ((( 0 : int) <= n) /\ (n <( 256 : int))))
+/\
+(is_char _ = F)`;
+
+
+ val only_chars_defn = Hol_defn "only_chars" `
+
+(only_chars [] = T)
+/\
+(only_chars (x::xs) = (is_char x /\ only_chars xs))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn only_chars_defn;
+
  val can_Print_defn = Hol_defn "can_Print" `
 
 (can_Print (Number _) = T)
 /\
-(can_Print (Block n vs) = (~ (n = block_tag) \/ can_Print_list vs))
+(can_Print (Block n vs) = ((~ (n = string_tag) \/ only_chars vs) /\
+                         (~ (n = block_tag) \/ can_Print_list vs)))
 /\
 (can_Print (CodePtr _) = F)
 /\

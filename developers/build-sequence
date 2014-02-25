@@ -12,7 +12,13 @@ translator
 translator/repl
 bootstrap
 x86-64
-hol-light
+hol-light/set-theory
+hol-light/syntax-lib
+hol-light/stateless
+hol-light/stateless/stateful
+hol-light/stateless/monadic
+hol-light/stateless/ml_kernel
+hol-light/stateful
 parsing/testing
 compiler/tests
 whole-prog

@@ -2,13 +2,23 @@ set-theory/
   Specifies the set-theoretic context in which we will construct our model of
   HOL.
 
+syntax-lib/
+  Common helpers used for manipulating (deeply embedded) HOL syntax
+
 stateless/
   Defines the inference system for stateless HOL and proves soundness and
-  consistency.
+  consistency. Also, defines stateful HOL with semantics by translation to
+  stateless, and synthesises a verified CakeML implementation.
 
 stateful/
-  Defines the inference system for stateful HOL and proves soundness and
-  consistency, by translation to stateless.
+  Defines the inference system for stateful HOL, gives a direct semantics (i.e.
+  ignoring the stateless version), and proves soundness and consistency.
+
+  In this version, the inference system has support for adding new axioms, and
+  therefore the three mathematical axioms are not baked in. Also, the semantics
+  for new_specification is more correct (in particular, more abstract).
+
+  The remaining directories mirror the stateless development for this system.
 
 monadic/
   Defines the HOL light kernel as monadic functions in HOL4, and proves it
