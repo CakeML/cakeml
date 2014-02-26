@@ -555,7 +555,7 @@ val vs_to_i2_append1 = Q.prove (
 
 val vs_to_i2_append = Q.prove (
 `!cenv vs1 vs1' vs2 vs2'.
-  LENGTH vs2 = LENGTH vs2'
+  (LENGTH vs2 = LENGTH vs2' ∨ LENGTH vs1 = LENGTH vs1')
   ⇒
   (vs_to_i2 cenv (vs1++vs2) (vs1'++vs2') ⇔
    vs_to_i2 cenv vs1 vs1' ∧ vs_to_i2 cenv vs2 vs2')`,
@@ -1045,19 +1045,67 @@ rw [merge_envC_def, merge_def]);
 
 (*
 val alloc_tag_cenv_inv = Q.prove (
-`!envC mn cenv types clengths.
+`!envC mn cenv types clengths x l t.
   cenv_inv envC cenv clengths ∧
-  lookup x new_tds = SOME (l, t)
+  (x,t) ∉ FDOM clengths ∧
+  (x,t) ∉ FDOM (FST (SND (SND cenv)))
   ⇒
   ?clengths'. 
-    cenv_inv (merge_envC ([],new_tds) envC) (alloc_tag mn t x cenv) clengths' ∧
+    cenv_inv (merge_envC ([],bind x (l,t) emp) envC) (alloc_tag mn t x cenv) clengths' ∧
     cenv_weak (cenv_mapping_to_cenv cenv clengths) (cenv_mapping_to_cenv (alloc_tag mn t x cenv) clengths')`,
 
  rw [] >>
- PairCases_on `cenv` >>
- rw [alloc_tag_def, cenv_mapping_to_cenv_def, cenv_inv_def, cenv_weak_def] >>
+ `?next lex_cenv type_cenv inverse_cenv. cenv = (next,lex_cenv,type_cenv,inverse_cenv)` 
+         by metis_tac [pair_CASES] >>
+ fs [bind_def, emp_def, cenv_inv_def, alloc_tag_def] >>
  qexists_tac `clengths |+ ((x,t),l)` >>
- rw [FLOOKUP_UPDATE]
+ rw []
+ >- (`(cn = Short x ∧ l = num_args ∧ t' = t) ∨ 
+      lookup_con_id cn envC = SOME (num_args,t')`
+             by (PairCases_on `envC` >>
+                 fs [merge_envC_def, merge_def, lookup_con_id_def] >>
+                     every_case_tac >>
+                     fs []) >>
+     rw [FLOOKUP_UPDATE] >>
+     fs [id_to_n_def] >>
+     res_tac >>
+     fs [FLOOKUP_DEF])
+ >- (`(cn = Short x ∧ l = num_args ∧ t' = t) ∨ 
+      lookup_con_id cn envC = SOME (num_args,t') ∧ cn ≠ Short x`
+             by (PairCases_on `envC` >>
+                 fs [merge_envC_def, merge_def, lookup_con_id_def] >>
+                     every_case_tac >>
+                     fs []) >>
+     rw [FLOOKUP_UPDATE] >>
+     fs []
+     >- fs [id_to_n_def]
+
+cheat
+
+cases_on `mn` >> fs [mk_id_def]
+
+rw []
+     every_case_tac >>
+     fs []
+
+metis_tac []
+
+     res_tac >>
+     metis_tac [SOME_11]
+     fs [FLOOKUP_DEF] >>
+     
+
+     
+    
+
+ rw [emp_def, bind_def, alloc_tag_def, cenv_mapping_to_cenv_def, cenv_inv_def, cenv_weak_def] >>
+ PairCases_on `envC` >>
+ fs [merge_def, lookup_con_id_def, merge_envC_def] >>
+ rw [] >>
+ every_case_tac >>
+ fs [] >>
+ rw [id_to_n_def, FLOOKUP_UPDATE]
+ *)
 
 val alloc_tags_cenv_inv = Q.prove (
 `!envC mn cenv types clengths.
@@ -1156,13 +1204,15 @@ val decs_to_i2_correct = Q.prove (
     s_to_i2' (cenv_mapping_to_cenv cenv_mapping clengths) s1 s1_i2 ∧
     vs_to_i2 (cenv_mapping_to_cenv cenv_mapping clengths) genv genv_i2
     ⇒
-    ?r_i2 genv'_i2 s'_i2 res_i2 clengths'.
+    ?genv'_i2 s'_i2 res_i2 clengths'.
       evaluate_decs_i2 genv_i2 s1_i2 ds_i2 (s'_i2,genv'_i2,res_i2) ∧
-      cenv_inv (merge_envC (emp,envC') envC) cenv_mapping' clengths' ∧
+      cenv_inv (merge_envC (mod_cenv mn envC') envC) cenv_mapping' clengths' ∧
       vs_to_i2 (cenv_mapping_to_cenv cenv_mapping' clengths') genv' genv'_i2 ∧
       s_to_i2' (cenv_mapping_to_cenv cenv_mapping' clengths') s' s'_i2 ∧
       (res = NONE ∧ res_i2 = NONE ∨
        ?err err_i2. res = SOME err ∧ res_i2 = SOME err_i2 ∧ result_to_i2 (\a b c. T) (cenv_mapping_to_cenv cenv_mapping' clengths') (Rerr err) (Rerr err_i2))`,
+cheat);
+(*
  ho_match_mp_tac evaluate_decs_i1_ind >>
  rw [decs_to_i2_def] >>
  every_case_tac >>
@@ -1262,9 +1312,30 @@ val decs_to_i2_correct = Q.prove (
  >- (fs [merge_envC_empty_assoc, merge_def, emp_def] >>
      FIRST_X_ASSUM match_mp_tac >>
      metis_tac [extend_cenv_inv2, v_to_i2_weakening, s_to_i2'_cases, alloc_tag_cenv_inv]));
+     *)
 
+val dummy_env_to_i2 = Q.prove (
+`!ds cenv cenv' ds'.
+  decs_to_i2 cenv ds = (cenv',ds')
+  ⇒
+  decs_to_dummy_env ds = decs_to_dummy_env_i2 ds'`,
+ induct_on `ds` >>
+ rw [decs_to_i2_def, decs_to_dummy_env_def, decs_to_dummy_env_i2_def] >>
+ rw [decs_to_i2_def, decs_to_dummy_env_def, decs_to_dummy_env_i2_def] >>
+ every_case_tac >>
+ fs [LET_THM, dec_to_dummy_env_def]
+ >- (Cases_on `decs_to_i2 cenv ds` >>
+     fs [] >>
+     rw [decs_to_dummy_env_i2_def, dec_to_dummy_env_i2_def] >>
+     metis_tac [])
+ >- (Cases_on `decs_to_i2 cenv ds` >>
+     fs [] >>
+     rw [decs_to_dummy_env_i2_def, dec_to_dummy_env_i2_def,
+         funs_to_i2_map] >>
+     metis_tac [])
+ >- metis_tac []
+ >- metis_tac []);
 
-     (*
 val prompt_to_i2_correct = Q.prove (
 `!genv envC s prompt r.
   evaluate_prompt_i1 genv envC s prompt r
@@ -1284,7 +1355,6 @@ val prompt_to_i2_correct = Q.prove (
       s_to_i2' (cenv_mapping_to_cenv cenv_mapping' clengths') s' s'_i2 ∧
       (res = NONE ∧ res_i2 = NONE ∨
        ?err err_i2. res = SOME err ∧ res_i2 = SOME err_i2 ∧ result_to_i2 (\a b c. T) (cenv_mapping_to_cenv cenv_mapping' clengths') (Rerr err) (Rerr err_i2))`,
-
  rw [evaluate_prompt_i1_cases, evaluate_prompt_i2_cases, prompt_to_i2_def] >>
  every_case_tac >>
  fs [LET_THM] >>
@@ -1292,8 +1362,35 @@ val prompt_to_i2_correct = Q.prove (
  `?cenv_mapping' prompt_i2. decs_to_i2 cenv_mapping ds = (cenv_mapping',prompt_i2)` by metis_tac [pair_CASES] >>
  fs [] >>
  rw []
- metis_tac [ decs_to_i2_correct, NOT_SOME_NONE]
+ >- metis_tac [decs_to_i2_correct, NOT_SOME_NONE] >>
+ `?s'_i2 genv'_i2 err_i2 clengths'.
+    evaluate_decs_i2 genv_i2 s1_i2 prompt_i2' (s'_i2,genv'_i2,SOME err_i2) ∧
+    cenv_inv (merge_envC (mod_cenv mn cenv') envC) cenv_mapping' clengths' ∧
+    vs_to_i2 (cenv_mapping_to_cenv cenv_mapping' clengths') env genv'_i2 ∧
+    s_to_i2' (cenv_mapping_to_cenv cenv_mapping' clengths') s' s'_i2 ∧
+    result_to_i2 (λa (b:'a) (c:'b). T) (cenv_mapping_to_cenv cenv_mapping' clengths') (Rerr err) (Rerr err_i2)`
+       by (imp_res_tac (SIMP_RULE (srw_ss()) [PULL_FORALL] decs_to_i2_correct) >>
+           fs [] >>
+           rpt (pop_assum mp_tac) >>
+           rw [] >>
+           metis_tac []) >>
+ Q.LIST_EXISTS_TAC [`genv'_i2 ++ GENLIST (λn. Litv_i2 Unit) (decs_to_dummy_env_i2 prompt_i2' − LENGTH genv'_i2)`,
+                    `s'_i2`,
+                    `SOME err_i2`,
+                    `clengths'`] >>
+ rw []
+ >- (qexists_tac `genv'_i2` >>
+     rw [])
+ >- (`LENGTH env = LENGTH genv'_i2` by metis_tac [length_vs_to_i2] >>
+     `vs_to_i2 (cenv_mapping_to_cenv cenv_mapping' clengths') 
+               (GENLIST (λn. Litv_i1 Unit) (decs_to_dummy_env ds − LENGTH env))
+               (GENLIST (λn. Litv_i2 Unit) (decs_to_dummy_env_i2 prompt_i2' − LENGTH env))`
+                  by (imp_res_tac dummy_env_to_i2 >>
+                      rw [] >>
+                      rpt (pop_assum (fn _ => all_tac)) >>
+                      Q.SPEC_TAC (`decs_to_dummy_env_i2 prompt_i2' − LENGTH genv'_i2`, `nn`) >>
+                      induct_on `nn` >>
+                      rw [v_to_i2_eqns, GENLIST, SNOC_APPEND, vs_to_i2_append1]) >>
+     metis_tac [vs_to_i2_append]))
 
- *)
- *)
 val _ = export_theory ();
