@@ -134,159 +134,187 @@ val _ = Hol_datatype `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn pat_bindings_i2_defn;
 
-(* The constructor names that are in scope, the global mapping of constructor
- * names (with types so that they are unique), and its inverse. *)
-val _ = type_abbrev( "cenv_mapping" , ``: num # (( conN id), num) fmap # ((conN # tid_or_exn), num) fmap # (num, (conN # tid_or_exn)) fmap``);
+val _ = type_abbrev( "flat_tag_env" , ``: (conN, num) fmap``);
+val _ = type_abbrev( "tag_env" , ``: (modN, flat_tag_env) fmap # flat_tag_env``);
 
+(*val lookup_tag_flat : conN -> flat_tag_env -> nat*)
 val _ = Define `
- (cenv_mapping_to_lex_cenv (next,lex_cenv,cenv,inverse_cenv) = lex_cenv)`;
-
-
-(*val lookup_tag : maybe (id conN) -> map (id conN) nat -> nat*)
-val _ = Define `
- (lookup_tag cn cenv =  
- ((case cn of
+ (lookup_tag_flat cn ftagenv =  
+((case FLOOKUP ftagenv cn of
       NONE => tuple_tag
-    | SOME id =>
-        (case FLOOKUP cenv id of
-                  NONE => 0 (* Can't happen *)
-                | SOME n => n
+    | SOME n => n
+  )))`;
+
+
+(*val lookup_tag_env : maybe (id conN) -> tag_env -> nat*)
+val _ = Define `
+ (lookup_tag_env id (mtagenv,tagenv) =  
+((case id of
+      NONE => tuple_tag
+    | SOME (Short x) => lookup_tag_flat x tagenv
+    | SOME (Long x y) =>
+        (case FLOOKUP mtagenv x of
+            NONE => tuple_tag
+          | SOME tagenv => lookup_tag_flat y tagenv
         )
   )))`;
 
 
-(*val pat_to_i2 : map (id conN) nat -> pat -> pat_i2*)
+(*val pat_to_i2 : tag_env -> pat -> pat_i2*)
  val pat_to_i2_defn = Hol_defn "pat_to_i2" `
 
-(pat_to_i2 cenv (Pvar x) = (Pvar_i2 x))
+(pat_to_i2 tagenv (Pvar x) = (Pvar_i2 x))
 /\ 
-(pat_to_i2 cenv (Plit l) = (Plit_i2 l))
+(pat_to_i2 tagenv (Plit l) = (Plit_i2 l))
 /\ 
-(pat_to_i2 cenv (Pcon con_id ps) =  
- (Pcon_i2 (lookup_tag con_id cenv) (MAP (pat_to_i2 cenv) ps)))
+(pat_to_i2 tagenv (Pcon con_id ps) =  
+ (Pcon_i2 (lookup_tag_env con_id tagenv) (MAP (pat_to_i2 tagenv) ps)))
 /\ 
-(pat_to_i2 cenv (Pref p) = (Pref_i2 (pat_to_i2 cenv p)))`;
+(pat_to_i2 tagenv (Pref p) = (Pref_i2 (pat_to_i2 tagenv p)))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn pat_to_i2_defn;
 
-(*val exp_to_i2 : map (id conN) nat -> exp_i1 -> exp_i2*)
-(*val exps_to_i2 : map (id conN) nat -> list exp_i1 -> list exp_i2*)
-(*val pat_exp_to_i2 : map (id conN) nat -> list (pat * exp_i1) -> list (pat_i2 * exp_i2)*)
-(*val funs_to_i2 : map (id conN) nat -> list (varN * varN * exp_i1) -> list (varN * varN * exp_i2)*)
+(*val exp_to_i2 : tag_env -> exp_i1 -> exp_i2*)
+(*val exps_to_i2 : tag_env -> list exp_i1 -> list exp_i2*)
+(*val pat_exp_to_i2 : tag_env -> list (pat * exp_i1) -> list (pat_i2 * exp_i2)*)
+(*val funs_to_i2 : tag_env -> list (varN * varN * exp_i1) -> list (varN * varN * exp_i2)*)
  val exp_to_i2_defn = Hol_defn "exp_to_i2" `
  
-(exp_to_i2 cenv (Raise_i1 e) =  
- (Raise_i2 (exp_to_i2 cenv e)))
+(exp_to_i2 tagenv (Raise_i1 e) =  
+ (Raise_i2 (exp_to_i2 tagenv e)))
 /\
-(exp_to_i2 cenv (Handle_i1 e pes) =  
- (Handle_i2 (exp_to_i2 cenv e) (pat_exp_to_i2 cenv pes)))
+(exp_to_i2 tagenv (Handle_i1 e pes) =  
+ (Handle_i2 (exp_to_i2 tagenv e) (pat_exp_to_i2 tagenv pes)))
 /\
-(exp_to_i2 cenv (Lit_i1 l) =  
+(exp_to_i2 tagenv (Lit_i1 l) =  
  (Lit_i2 l)) 
 /\
-(exp_to_i2 cenv (Con_i1 cn es) =  
- (Con_i2 (lookup_tag cn cenv) (exps_to_i2 cenv es)))
+(exp_to_i2 tagenv (Con_i1 cn es) =  
+ (Con_i2 (lookup_tag_env cn tagenv) (exps_to_i2 tagenv es)))
 /\
-(exp_to_i2 cenv (Var_local_i1 x) = (Var_local_i2 x))
+(exp_to_i2 tagenv (Var_local_i1 x) = (Var_local_i2 x))
 /\
-(exp_to_i2 cenv (Var_global_i1 x) = (Var_global_i2 x))
+(exp_to_i2 tagenv (Var_global_i1 x) = (Var_global_i2 x))
 /\
-(exp_to_i2 cenv (Fun_i1 x e) =  
-(Fun_i2 x (exp_to_i2 cenv e))) 
+(exp_to_i2 tagenv (Fun_i1 x e) =  
+(Fun_i2 x (exp_to_i2 tagenv e))) 
 /\
-(exp_to_i2 cenv (Uapp_i1 uop e) =  
-(Uapp_i2 uop (exp_to_i2 cenv e)))
+(exp_to_i2 tagenv (Uapp_i1 uop e) =  
+(Uapp_i2 uop (exp_to_i2 tagenv e)))
 /\
-(exp_to_i2 cenv (App_i1 op e1 e2) =  
-(App_i2 op (exp_to_i2 cenv e1) (exp_to_i2 cenv e2)))
+(exp_to_i2 tagenv (App_i1 op e1 e2) =  
+(App_i2 op (exp_to_i2 tagenv e1) (exp_to_i2 tagenv e2)))
 /\
-(exp_to_i2 cenv (If_i1 e1 e2 e3) =  
-(If_i2 (exp_to_i2 cenv e1) (exp_to_i2 cenv e2) (exp_to_i2 cenv e3)))
+(exp_to_i2 tagenv (If_i1 e1 e2 e3) =  
+(If_i2 (exp_to_i2 tagenv e1) (exp_to_i2 tagenv e2) (exp_to_i2 tagenv e3)))
 /\
-(exp_to_i2 cenv (Mat_i1 e pes) =  
-(Mat_i2 (exp_to_i2 cenv e) (pat_exp_to_i2 cenv pes)))
+(exp_to_i2 tagenv (Mat_i1 e pes) =  
+(Mat_i2 (exp_to_i2 tagenv e) (pat_exp_to_i2 tagenv pes)))
 /\
-(exp_to_i2 cenv (Let_i1 x e1 e2) =  
-(Let_i2 x (exp_to_i2 cenv e1) (exp_to_i2 cenv e2)))
+(exp_to_i2 tagenv (Let_i1 x e1 e2) =  
+(Let_i2 x (exp_to_i2 tagenv e1) (exp_to_i2 tagenv e2)))
 /\
-(exp_to_i2 cenv (Letrec_i1 funs e) =  
-(Letrec_i2 (funs_to_i2 cenv funs) 
-            (exp_to_i2 cenv e)))
+(exp_to_i2 tagenv (Letrec_i1 funs e) =  
+(Letrec_i2 (funs_to_i2 tagenv funs) 
+            (exp_to_i2 tagenv e)))
 /\
-(exps_to_i2 cenv [] = ([]))
+(exps_to_i2 tagenv [] = ([]))
 /\
-(exps_to_i2 cenv (e::es) =  
-(exp_to_i2 cenv e :: exps_to_i2 cenv es))
+(exps_to_i2 tagenv (e::es) =  
+(exp_to_i2 tagenv e :: exps_to_i2 tagenv es))
 /\
-(pat_exp_to_i2 cenv [] = ([]))
+(pat_exp_to_i2 tagenv [] = ([]))
 /\
-(pat_exp_to_i2 cenv ((p,e)::pes) =  
-((pat_to_i2 cenv p, exp_to_i2 cenv e) :: pat_exp_to_i2 cenv pes))
+(pat_exp_to_i2 tagenv ((p,e)::pes) =  
+((pat_to_i2 tagenv p, exp_to_i2 tagenv e) :: pat_exp_to_i2 tagenv pes))
 /\
-(funs_to_i2 cenv [] = ([]))
+(funs_to_i2 tagenv [] = ([]))
 /\
-(funs_to_i2 cenv ((f,x,e)::funs) =  
-((f,x,exp_to_i2 cenv e) :: funs_to_i2 cenv funs))`;
+(funs_to_i2 tagenv ((f,x,e)::funs) =  
+((f,x,exp_to_i2 tagenv e) :: funs_to_i2 tagenv funs))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn exp_to_i2_defn;
 
-(*val alloc_tag : maybe modN -> tid_or_exn -> conN -> cenv_mapping -> cenv_mapping*)
+(* The constructor names that are in scope, the global mapping of constructor
+ * names (with types so that they are unique), and its inverse. *)
+val _ = type_abbrev( "tagenv_state" , ``: num # tag_env # (num, (conN # tid_or_exn)) fmap # (conN # num) list``);
+
 val _ = Define `
- (alloc_tag mn tn cn (next, cenv,val_cenv,inv0) =
-  ((next+ 1),cenv |+ ((mk_id mn cn), next),val_cenv |+ ((cn,tn), next),inv0 |+ (next, (cn,tn))))`;
+ (get_tagenv (next,tagenv,inv0,acc) = tagenv)`;
 
 
-(*val alloc_tags : maybe modN -> cenv_mapping -> type_def -> cenv_mapping*)
+(*val insert_tag_env : conN -> nat -> tag_env -> tag_env*)
+val _ = Define `
+ (insert_tag_env cn tag (mtagenv,ftagenv) =
+  (mtagenv,ftagenv |+ (cn, tag)))`;
+
+
+(*val alloc_tag : tid_or_exn -> conN -> tagenv_state -> tagenv_state*)
+val _ = Define `
+ (alloc_tag tn cn (next,tagenv,inv0,acc) =
+  ((next+ 1),insert_tag_env cn next tagenv,inv0 |+ (next, (cn,tn)), ((cn,next)::acc)))`;
+
+
+(*val alloc_tags : maybe modN -> tagenv_state -> type_def -> tagenv_state*)
  val _ = Define `
  
-(alloc_tags mn cenv [] = cenv)
+(alloc_tags mn st [] = st)
 /\
-(alloc_tags mn cenv ((tvs,tn,constrs)::types) =  
- (let cenv' =    
-(FOLDR (\ (cn,ts) cenv' .  alloc_tag mn (TypeId (mk_id mn tn)) cn cenv') cenv constrs)
+(alloc_tags mn st ((tvs,tn,constrs)::types) =  
+ (let st' =    
+(FOLDL (\ st' (cn,ts) .  alloc_tag (TypeId (mk_id mn tn)) cn st') st constrs)
   in
-    alloc_tags mn cenv' types))`;
+    alloc_tags mn st' types))`;
 
 
-(*val decs_to_i2 : cenv_mapping -> list dec_i1 -> cenv_mapping * list dec_i2*)
+(*val decs_to_i2 : tagenv_state -> list dec_i1 -> tagenv_state * list dec_i2*)
  val _ = Define `
  
-(decs_to_i2 cenv [] = (cenv,[]))
+(decs_to_i2 st [] = (st,[]))
 /\
-(decs_to_i2 cenv (d::ds) =  
+(decs_to_i2 st (d::ds) =  
 ((case d of
       Dlet_i1 n e => 
-        let (cenv', ds') = (decs_to_i2 cenv ds) in
-          (cenv', (Dlet_i2 n (exp_to_i2 (cenv_mapping_to_lex_cenv cenv) e)::ds'))
+        let (st', ds') = (decs_to_i2 st ds) in
+          (st', (Dlet_i2 n (exp_to_i2 (get_tagenv st) e)::ds'))
     | Dletrec_i1 funs =>
-        let (cenv', ds') = (decs_to_i2 cenv ds) in
-          (cenv', (Dletrec_i2 (funs_to_i2 (cenv_mapping_to_lex_cenv cenv) funs)::ds'))
+        let (st', ds') = (decs_to_i2 st ds) in
+          (st', (Dletrec_i2 (funs_to_i2 (get_tagenv st) funs)::ds'))
     | Dtype_i1 mn type_def =>
-        decs_to_i2 (alloc_tags mn cenv type_def) ds
+        decs_to_i2 (alloc_tags mn st type_def) ds
     | Dexn_i1 mn cn ts =>
-        decs_to_i2 (alloc_tag mn (TypeExn mn) cn cenv) ds
+        decs_to_i2 (alloc_tag (TypeExn mn) cn st) ds
   )))`;
 
 
-(*val prompt_to_i2 : cenv_mapping -> prompt_i1 -> cenv_mapping * prompt_i2*)
+(*val mod_tagenv : maybe modN -> list (conN * nat) -> tag_env -> tag_env*)
 val _ = Define `
- (prompt_to_i2 cenv prompt =  
+ (mod_tagenv mn l (mtagenv,tagenv) =  
+((case mn of
+      NONE => (mtagenv,FOLDL (\ env (k,v) . env |+ (k, v)) tagenv l)
+    | SOME mn => (mtagenv |+ (mn, (FUPDATE_LIST FEMPTY l)),tagenv)
+  )))`;
+
+
+(*val prompt_to_i2 : (nat * tag_env * map nat (conN * tid_or_exn)) -> prompt_i1 -> (nat * tag_env * map nat (conN * tid_or_exn)) * prompt_i2*)
+val _ = Define `
+ (prompt_to_i2 (next,tagenv,inv0) prompt =  
 ((case prompt of
       Prompt_i1 mn ds =>
-        let (cenv', ds') = (decs_to_i2 cenv ds) in
-          (cenv', Prompt_i2 ds')
+        let ((next',tagenv',inv',acc'), ds') = (decs_to_i2 (next,tagenv,inv0,[]) ds) in
+          ((next',mod_tagenv mn acc' tagenv',inv'), Prompt_i2 ds')
   )))`;
 
 
-(*val prog_to_i2 : cenv_mapping -> list prompt_i1 -> cenv_mapping * list prompt_i2*)
+(*val prog_to_i2 : (nat * tag_env * map nat (conN * tid_or_exn)) -> list prompt_i1 -> (nat * tag_env * map nat (conN * tid_or_exn)) * list prompt_i2*)
  val _ = Define `
  
-(prog_to_i2 cenv [] = (cenv, []))
+(prog_to_i2 st [] = (st, []))
 /\ 
-(prog_to_i2 cenv (p::ps) =  
- (let (cenv',p') = (prompt_to_i2 cenv p) in
-  let (cenv'',ps') = (prog_to_i2 cenv' ps) in
-    (cenv'',(p'::ps'))))`;
+(prog_to_i2 st (p::ps) =  
+ (let (st',p') = (prompt_to_i2 st p) in
+  let (st'',ps') = (prog_to_i2 st' ps) in
+    (st'',(p'::ps'))))`;
 
 
 (*val do_uapp_i2 : store v_i2 -> uop -> v_i2 -> maybe (store v_i2 * v_i2)*)
@@ -768,20 +796,16 @@ evaluate_prog_i2 genv s1 (prompt::prompts) (s3, (env2++env3), r))
 ==>
 evaluate_prog_i2 genv s1 (prompt::prompts) (s2, env2, SOME err))`;
 
-(*val init_cenv_mapping : cenv_mapping*)
+(*val init_tagenv_state : (nat * tag_env * map nat (conN * tid_or_exn))*)
 val _ = Define `
- (init_cenv_mapping =
+ (init_tagenv_state =
   ( 6,
-   FUPDATE_LIST FEMPTY [(Short "Div", div_tag); 
-                 (Short "Bind", bind_tag); 
-                 (Short "Eq", eq_tag); 
-                 (Short "::", cons_tag);
-                 (Short "nil", nil_tag)],
-   FUPDATE_LIST FEMPTY [(("Div", TypeExn NONE), div_tag); 
-                 (("Bind", TypeExn NONE), bind_tag); 
-                 (("Eq", TypeExn NONE), eq_tag); 
-                 (("::", TypeId (Short "list")), cons_tag);
-                 (("nil", TypeId (Short "list")), nil_tag)],
+   (FEMPTY,
+    FUPDATE_LIST FEMPTY [("Div", div_tag); 
+                  ("Bind", bind_tag); 
+                  ("Eq", eq_tag); 
+                  ("::", cons_tag);
+                  ("nil", nil_tag)]),
    FUPDATE_LIST FEMPTY [(div_tag, ("Div", TypeExn NONE)); 
                  (bind_tag, ("Bind", TypeExn NONE)); 
                  (eq_tag, ("Eq", TypeExn NONE)); 
