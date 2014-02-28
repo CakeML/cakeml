@@ -14,6 +14,9 @@ val same_tid_def = semanticPrimitivesTheory.same_tid_def;
 val lookup_con_id_def = semanticPrimitivesTheory.lookup_con_id_def;
 val merge_envC_def = semanticPrimitivesTheory.merge_envC_def;
 val lookup_var_id_def = semanticPrimitivesTheory.lookup_var_id_def;
+val build_tdefs_cons = evalPropsTheory.build_tdefs_cons;
+val check_dup_ctors_thm = evalPropsTheory.check_dup_ctors_thm;
+val check_dup_ctors_cons = evalPropsTheory.check_dup_ctors_cons;
 
 val type_env_cases = List.nth (CONJUNCTS type_v_cases, 2);
 val consistent_mod_cases = List.nth (CONJUNCTS type_v_cases, 3);
@@ -2052,13 +2055,6 @@ val lookup_ctor_none = Q.store_thm ("lookup_ctor_none",
  >- metis_tac [lookup_ctor_none_lem]
  >- metis_tac [build_ctor_tenv_def, build_tdefs_def, lookup_reverse_none]);
 
-val build_tdefs_cons = Q.prove (
-`!tvs tn ctors tds.
-  build_tdefs mn ((tvs,tn,ctors)::tds) =
-    (MAP (\(conN,ts). (conN, LENGTH ts, TypeId (mk_id mn tn)))
-        ctors) ++ build_tdefs mn tds`,
-rw [build_tdefs_def]);
-
 val build_ctor_tenv_cons = Q.prove (
 `∀tvs tn ctors tds.
   build_ctor_tenv mn ((tvs,tn,ctors)::tds) =
@@ -2068,28 +2064,6 @@ rw [build_ctor_tenv_def]);
 val build_ctor_tenv_empty = Q.store_thm ("build_ctor_tenv_empty",
 `build_ctor_tenv mn [] = []`,
 rw [build_ctor_tenv_def]);
-
-val check_ctor_foldr_flat_map = Q.prove (
-`!c. (FOLDR
-         (λ(tvs,tn,condefs) x2.
-            FOLDR (λ(n,ts) x2. n::x2) x2 condefs) [] c)
-    =
-    FLAT (MAP (\(tvs,tn,condefs). (MAP (λ(n,ts). n)) condefs) c)`,
-induct_on `c` >>
-rw [LET_THM] >>
-PairCases_on `h` >>
-fs [LET_THM] >>
-pop_assum (fn _ => all_tac) >>
-induct_on `h2` >>
-rw [] >>
-PairCases_on `h` >>
-rw []);
-
-val check_dup_ctors_thm = Q.store_thm ("check_dup_ctors_thm",
-`!tds.
-  check_dup_ctors tds =
-    ALL_DISTINCT (FLAT (MAP (\(tvs,tn,condefs). (MAP (λ(n,ts). n)) condefs) tds))`,
-metis_tac [check_dup_ctors_def,check_ctor_foldr_flat_map]);
 
 val check_ctor_tenvC_ok = Q.store_thm ("check_ctor_tenvC_ok",
 `!mn tenvC c. check_ctor_tenv mn tenvC c ⇒ flat_tenvC_ok (build_ctor_tenv mn c)`,
@@ -2105,22 +2079,6 @@ val check_ctor_tenvC_ok = Q.store_thm ("check_ctor_tenvC_ok",
  fs [] >>
  res_tac >>
  fs []);
-
-val check_dup_ctors_cons = Q.store_thm ("check_dup_ctors_cons",
-`!tvs ts ctors tds.
-  check_dup_ctors ((tvs,ts,ctors)::tds)
-  ⇒
-  check_dup_ctors tds`,
-induct_on `tds` >>
-rw [check_dup_ctors_def, LET_THM, RES_FORALL] >>
-PairCases_on `h` >>
-fs [] >>
-pop_assum MP_TAC >>
-pop_assum (fn _ => all_tac) >>
-induct_on `ctors` >>
-rw [] >>
-PairCases_on `h` >>
-fs []);
 
 val check_ctor_tenv_cons = Q.prove (
 `!tvs ts ctors tds tenvC.
