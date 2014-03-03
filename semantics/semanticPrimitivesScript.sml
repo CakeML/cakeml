@@ -483,6 +483,12 @@ val _ = Define `
   )))`;
 
 
+val _ = Define `
+ (strip_mod_env tenvM =  
+(MAP (\ (n,tenv) .  (n,[])) tenvM))`;
+
+
+
 (* Constructor environment implied by declarations *)
 
  val _ = Define `

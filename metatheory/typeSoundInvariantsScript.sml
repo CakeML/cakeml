@@ -475,9 +475,10 @@ val _ = Define `
  * constructor and module type environments that don't have bits hidden by a
  * signature. *)
 val _ = Define `
- (type_sound_invariants (tenvM,tenvC,tenv,envM,envC,envE,store) =  
-(? tenvS tenvM_no_sig tenvC_no_sig. 
-    tenvM_ok tenvM_no_sig /\    
+ (type_sound_invariants (tdecs1,tenvM,tenvC,tenv,tdecs2,envM,envC,envE,store) =  
+(? tenvS tenvM_no_sig tenvC_no_sig.    
+ (tdecs2 SUBSET tdecs1) /\    
+(tenvM_ok tenvM_no_sig /\    
  (ctMap_has_exns (to_ctMap tenvC_no_sig) /\    
 (tenvM_ok tenvM /\
     ((ctMap_to_mods (to_ctMap tenvC_no_sig) SUBSET (LIST_TO_SET (MAP SOME (MAP FST tenvM_no_sig)) UNION {NONE})) /\
@@ -489,7 +490,17 @@ val _ = Define `
 (type_s (to_ctMap tenvC_no_sig) tenvS store /\    
 (weakM tenvM_no_sig tenvM /\    
 (weakC tenvC_no_sig tenvC /\
-    weakenCT_only_mods (to_ctMap tenvC_no_sig) (to_ctMap tenvC))))))))))))))`;
+    weakenCT_only_mods (to_ctMap tenvC_no_sig) (to_ctMap tenvC)))))))))))))))`;
+
+
+val _ = Define `
+ (update_type_sound_inv top ((tdecs1: tid_or_exn set),(tenvM:tenvM),(tenvC:tenvC),(tenv:tenvE),(tdecs2: tid_or_exn set),(envM:envM),(envC:envC),(envE:envE),store) tdecs1' tenvM' tenvC' tenv' store' tdecs2' envC' r =  
+((case r of
+       Rval (envM',envE') => 
+         (tdecs1',(tenvM'++tenvM),merge_tenvC tenvC' tenvC,bind_var_list2 tenv' tenv,
+          tdecs2',(envM'++envM),merge_envC envC' envC,(envE'++envE),store')
+     | Rerr _ => (tdecs1',(strip_mod_env tenvM'++tenvM),tenvC,tenv,tdecs2',(strip_mod_env tenvM'++envM),merge_envC (top_to_cenv top) envC,envE,store')
+  )))`;
 
 val _ = export_theory()
 

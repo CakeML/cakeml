@@ -25,10 +25,6 @@ repl_result =
   | Diverge
   | Result of string => repl_result`;
 
-val strip_mod_env_def = Define `
-strip_mod_env tenvM =
-  MAP (\(n,tenv). (n,[])) tenvM`;
-
 val update_repl_state_def = Define `
 update_repl_state ast state type_bindings ctors tdecs tenvM tenvC tenv store envC r =
   case r of

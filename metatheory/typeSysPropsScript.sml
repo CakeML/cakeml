@@ -2570,6 +2570,17 @@ val type_d_mod = Q.store_thm ("type_d_mod",
 
 (* ---------- type_ds ---------- *)
 
+val type_ds_tdecs_subset = Q.store_thm ("type_ds_tdecs_subset",
+`!mn tdecs tenvM tenvC tenv ds tdecs' tenvC' tenv'.
+  type_ds mn tdecs tenvM tenvC tenv ds tdecs' tenvC' tenv'
+  ⇒
+  tdecs ⊆ tdecs'`,
+ ho_match_mp_tac type_ds_ind >>
+ rw [] >>
+ fs [type_d_cases] >>
+ rw [] >>
+ fs [SUBSET_DEF]);
+
 val type_ds_tenv_ok = Q.store_thm ("type_ds_tenv_ok",
 `!tvs tdecs tenvM tenvC tenv ds tdecs' tenvC' tenv'.
   type_ds tvs tdecs tenvM tenvC tenv ds tdecs' tenvC' tenv' ⇒

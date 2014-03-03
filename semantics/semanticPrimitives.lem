@@ -396,6 +396,10 @@ let combine_mod_result menv env r =
     | Rval (menv',env') -> Rval (merge menv' menv, merge env' env)
   end
 
+let strip_mod_env tenvM =
+  List.map (fun (n,tenv) -> (n,[])) tenvM
+
+
 (* Constructor environment implied by declarations *)
 
 let rec
