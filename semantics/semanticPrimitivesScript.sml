@@ -20,7 +20,13 @@ val _ = new_theory "semanticPrimitives"
 val _ = Hol_datatype `
  tid_or_exn = 
     TypeId of typeN id
-  | TypeExn of  modN option`;
+  | TypeExn of conN id`;
+
+
+(*val type_defs_to_new_tdecs : maybe modN -> type_def -> set tid_or_exn*)
+val _ = Define `
+ (type_defs_to_new_tdecs mn tdefs =  
+(LIST_TO_SET (MAP (\ (tvs,tn,ctors) .  TypeId (mk_id mn tn)) tdefs)))`;
 
 
 (* Maps each constructor to its arity and which type it is from *)
@@ -371,7 +377,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (*val exn_env : all_env*)
 val _ = Define `
- (exn_env = (emp, (emp, MAP (\ cn .  (cn, ( 0, TypeExn NONE))) ["Bind"; "Div"; "Eq"]), emp))`;
+ (exn_env = (emp, (emp, MAP (\ cn .  (cn, ( 0, TypeExn (Short cn)))) ["Bind"; "Div"; "Eq"]), emp))`;
 
                    
 (* Do an application *)
@@ -483,7 +489,7 @@ val _ = Define `
 
 (dec_to_cenv mn (Dtype tds) = (build_tdefs mn tds))
 /\
-(dec_to_cenv mn (Dexn cn ts) = (bind cn (LENGTH ts,TypeExn mn) emp))
+(dec_to_cenv mn (Dexn cn ts) = (bind cn (LENGTH ts,TypeExn (mk_id mn cn)) emp))
 /\
 (dec_to_cenv mn _ = ([]))`;
 

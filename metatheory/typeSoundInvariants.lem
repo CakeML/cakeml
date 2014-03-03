@@ -49,7 +49,8 @@ val ctMap_to_mods : ctMap -> set (maybe modN)
 let ctMap_to_mods ctMap =
   ({ Just mn | forall mn | exists cn tn. (cn,TypeId (Long mn tn)) IN (Map.domain ctMap) } union
    (if (exists cn tn. (cn,TypeId (Short tn)) IN (Map.domain ctMap)) then {Nothing} else {}) union
-   { mn | forall mn | exists cn. (cn,TypeExn mn) IN (Map.domain ctMap) })
+   { Just mn | forall mn | exists cn cn'. (cn,TypeExn (Long mn cn')) IN (Map.domain ctMap) } union
+   (if (exists cn tn. (cn,TypeExn (Short tn)) IN (Map.domain ctMap)) then {Nothing} else {}))
 
 (* Check that a constructor type environment is consistent with a runtime type
  * enviroment, using the full type keyed constructor type environment to ensure
@@ -504,9 +505,9 @@ let weakC tenvC tenvC' =
 (* The global constructor type environment has the primitive exceptions in it *)
 val ctMap_has_exns : ctMap -> bool
 let ctMap_has_exns ctMap =
-  (Map.lookup ("Bind", TypeExn Nothing) ctMap = Just ([],[])) &&
-  (Map.lookup ("Div", TypeExn Nothing) ctMap = Just ([],[])) &&
-  (Map.lookup ("Eq", TypeExn Nothing) ctMap = Just ([],[]))
+  (Map.lookup ("Bind", TypeExn (Short "Bind")) ctMap = Just ([],[])) &&
+  (Map.lookup ("Div", TypeExn (Short "Div")) ctMap = Just ([],[])) &&
+  (Map.lookup ("Eq", TypeExn (Short "Eq")) ctMap = Just ([],[]))
 
 (* The constructors that are missing from the second map are all declared in
  * modules. *)
@@ -515,9 +516,9 @@ let  weakenCT_only_mods ctMap1 ctMap2 =
     (forall id tvs ts tn. 
        (Map.lookup (id, TypeId (Short tn)) ctMap1 = Just (tvs, ts)) -->
        (Map.lookup (id, TypeId (Short tn)) ctMap2 = Just (tvs, ts))) &&
-    (forall id tvs ts. 
-       (Map.lookup (id, TypeExn Nothing) ctMap1 = Just (tvs, ts)) --> 
-       (Map.lookup (id, TypeExn Nothing) ctMap2 = Just (tvs, ts)))
+    (forall id tvs ts cn. 
+       (Map.lookup (id, TypeExn (Short cn)) ctMap1 = Just (tvs, ts)) --> 
+       (Map.lookup (id, TypeExn (Short cn)) ctMap2 = Just (tvs, ts)))
 
 (* For using the type soundess theorem, we have to know there are good
  * constructor and module type environments that don't have bits hidden by a

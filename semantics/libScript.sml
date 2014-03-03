@@ -16,6 +16,9 @@ val _ = new_theory "lib"
 
 (*val rtc : forall 'a. ('a -> 'a -> bool) -> ('a -> 'a -> bool)*)
 
+(*val disjoint : forall 'a. set 'a -> set 'a -> bool*)
+
+
 (* The builtin List.zip maps to list_combine in HOL, but I want to map to ZIP *)
 (*val ZIP : forall 'a 'b. list 'a -> list 'b -> list ('a * 'b)*)
 

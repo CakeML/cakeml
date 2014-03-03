@@ -2179,7 +2179,7 @@ val check_new_type_thm = Q.store_thm ("check_new_type_thm",
      rw []));
 
 val check_new_exn_thm = Q.store_thm ("check_new_exn_thm",
-`!mn cn tenvC. check_new_exn mn cn tenvC ⇔ (cn,TypeExn mn) ∉ tenvC_to_types tenvC`,
+`!mn cn tenvC. check_new_exn mn cn tenvC ⇔ (cn,TypeExn (mk_id mn cn)) ∉ tenvC_to_types tenvC`,
  rw [] >>
  PairCases_on `tenvC` >>
  fs [check_new_exn_def, tenvC_to_types_def] >>
@@ -2239,10 +2239,10 @@ val check_ctor_disjoint_env = Q.store_thm ("check_ctor_disjoint_env",
  rw [EXISTS_PROD]);
 
 val check_exn_tenv_disjoint = Q.store_thm ("check_exn_tenv_disjoint",
-`!tvs tenvC cn ts.
-  check_exn_tenv tvs tenvC cn ts
+`!mn tenvC cn ts.
+  check_exn_tenv mn tenvC cn ts
   ⇒
-  DISJOINT (FDOM (flat_to_ctMap (bind cn ([]:tvarN list,ts,TypeExn tvs) emp))) (FDOM (to_ctMap tenvC))`,
+  DISJOINT (FDOM (flat_to_ctMap (bind cn ([]:tvarN list,ts,TypeExn (mk_id mn cn)) emp))) (FDOM (to_ctMap tenvC))`,
  rw [FDOM_FUPDATE_LIST, bind_def, DISJOINT_DEF,EXTENSION, MEM_MAP, flat_to_ctMap_def] >>
  fs [flat_to_ctMap_list_def, check_exn_tenv_def, check_new_exn_thm, to_ctMap_to_types_thm] >>
  CCONTR_TAC >>
@@ -2353,9 +2353,9 @@ val extend_consistent_con_exn = Q.store_thm ("extend_consistent_con_exn",
   check_exn_tenv mn tenvC cn ts ∧
   consistent_con_env (to_ctMap tenvC) cenv tenvC
   ⇒
-  consistent_con_env (FUNION (flat_to_ctMap (bind cn ([],ts,TypeExn mn) [])) (to_ctMap tenvC))
-                     (merge_envC (emp, bind cn (LENGTH ts,TypeExn mn) []) cenv)
-                     (merge_tenvC (emp, bind cn ([],ts,TypeExn mn) []) tenvC)`,
+  consistent_con_env (FUNION (flat_to_ctMap (bind cn ([],ts,TypeExn (mk_id mn cn)) [])) (to_ctMap tenvC))
+                     (merge_envC (emp, bind cn (LENGTH ts,TypeExn (mk_id mn cn)) []) cenv)
+                     (merge_tenvC (emp, bind cn ([],ts,TypeExn (mk_id mn cn)) []) tenvC)`,
  rw [check_exn_tenv_def, consistent_con_env_def, bind_def, FEVERY_ALL_FLOOKUP,
      flat_to_ctMap_def, ctMap_ok_def, tenvC_ok_merge, tenvC_ok_def,
      flat_tenvC_ok_def, lookup_con_id_merge_emp, emp_def] >>
@@ -2488,8 +2488,8 @@ val type_ctxts_freevars = Q.store_thm ("type_ctxts_freevars",
 (* ---------- type_d ---------- *)
 
 val type_d_tenv_ok = Q.store_thm ("type_d_tenv_ok",
-`!tvs tenvM tenvC tenv d tenvC' tenv' tenvM'' tenvC''.
-  type_d tvs tenvM tenvC tenv d tenvC' tenv' ∧
+`!tvs tdecs tenvM tenvC tenv d tdecs' tenvC' tenv' tenvM'' tenvC''.
+  type_d tvs tdecs tenvM tenvC tenv d tdecs' tenvC' tenv' ∧
   (num_tvs tenv = 0)
   ⇒
   tenv_ok (bind_var_list2 tenv' Empty)`,
@@ -2502,8 +2502,8 @@ rw [bvl2_to_bvl] >|
  rw [bind_var_list2_def, emp_def, tenv_ok_def]]);
 
 val type_d_ctMap_ok = Q.store_thm ("type_d_ctMap_ok",
-`!tvs tenvM tenvC tenv d tenvC' tenv' tenvM'' tenvC''.
-  type_d tvs tenvM tenvC tenv d tenvC' tenv'
+`!tvs tdecs tenvM tenvC tenv d tdecs' tenvC' tenv' tenvM'' tenvC''.
+  type_d tvs tdecs tenvM tenvC tenv d tdecs' tenvC' tenv'
   ⇒
   ctMap_ok (flat_to_ctMap tenvC') ∧
   ALL_DISTINCT (MAP FST (flat_to_ctMap_list tenvC')) ∧
@@ -2531,8 +2531,8 @@ val type_d_ctMap_ok = Q.store_thm ("type_d_ctMap_ok",
      metis_tac [emp_def,DISJOINT_SYM]));
 
 val ctMap_ok_pres = Q.store_thm ("ctMap_ok_pres",
-`!mn tenvM tenvC tenv d tenvC' tenv'.
-  type_d mn tenvM tenvC tenv d tenvC' tenv' ∧
+`!mn tdecs tenvM tenvC tenv d tdecs' tenvC' tenv'.
+  type_d mn tdecs tenvM tenvC tenv d tecs' tenvC' tenv' ∧
   ctMap_ok (to_ctMap tenvC)
   ⇒
   ctMap_ok (FUNION (flat_to_ctMap tenvC') (to_ctMap tenvC)) ∧
@@ -2546,8 +2546,8 @@ val ctMap_ok_pres = Q.store_thm ("ctMap_ok_pres",
  metis_tac [DISJOINT_SYM]);
 
 val type_d_mod = Q.store_thm ("type_d_mod",
-`!mn tenvM tenvC tenv d tenvC' tenv'.
-  type_d mn tenvM tenvC tenv d tenvC' tenv'
+`!mn tdecs tenvM tenvC tenv d tdecs' tenvC' tenv'.
+  type_d mn tdecs tenvM tenvC tenv d tdecs' tenvC' tenv'
   ⇒
   ctMap_to_mods (flat_to_ctMap tenvC') ⊆ { mn }`,
  rw [type_d_cases, ctMap_to_mods_def, emp_def, SUBSET_DEF, bind_def, flat_to_ctMap_def,
@@ -2571,8 +2571,8 @@ val type_d_mod = Q.store_thm ("type_d_mod",
 (* ---------- type_ds ---------- *)
 
 val type_ds_tenv_ok = Q.store_thm ("type_ds_tenv_ok",
-`!tvs tenvM tenvC tenv ds tenvC' tenv'.
-  type_ds tvs tenvM tenvC tenv ds tenvC' tenv' ⇒
+`!tvs tdecs tenvM tenvC tenv ds tdecs' tenvC' tenv'.
+  type_ds tvs tdecs tenvM tenvC tenv ds tdecs' tenvC' tenv' ⇒
   (num_tvs tenv = 0) ⇒
   tenv_ok (bind_var_list2 tenv' Empty)`,
 ho_match_mp_tac type_ds_ind >>
@@ -2583,8 +2583,8 @@ rw [] >|
      metis_tac [tenv_ok_bvl2]]);
 
 val type_ds_ctMap_ok = Q.store_thm ("type_ds_ctMap_ok",
-`!tvs tenvM tenvC tenv ds tenvC' tenv'.
-  type_ds tvs tenvM tenvC tenv ds tenvC' tenv' ⇒
+`!tvs tdecs tenvM tenvC tenv ds tdecs' tenvC' tenv'.
+  type_ds tvs tdecs tenvM tenvC tenv ds tdecs' tenvC' tenv' ⇒
   ctMap_ok (flat_to_ctMap tenvC') ∧
   DISJOINT (FDOM (flat_to_ctMap tenvC')) (FDOM (to_ctMap tenvC)) ∧
   ALL_DISTINCT (MAP FST (flat_to_ctMap_list tenvC'))`,
@@ -2621,8 +2621,8 @@ val type_ds_ctMap_ok = Q.store_thm ("type_ds_ctMap_ok",
      metis_tac []));
 
 val type_ds_mod = Q.store_thm ("type_ds_mod",
-`!mn tenvM tenvC tenv ds tenvC' tenv'.
-  type_ds mn tenvM tenvC tenv ds tenvC' tenv'
+`!mn tdecs tenvM tenvC tenv ds tdecs' tenvC' tenv'.
+  type_ds mn tdecs tenvM tenvC tenv ds tdecs' tenvC' tenv'
   ⇒
   ctMap_to_mods (flat_to_ctMap tenvC') ⊆ { mn }`,
  induct_on `ds` >>

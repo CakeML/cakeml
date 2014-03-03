@@ -235,7 +235,7 @@ small_eval_step_tac);
 val small_eval_match = Q.prove (
 `!env s e1 pes c r err_v.
   small_eval env s (Mat e1 pes) c r =
-  small_eval env s e1 ((Cmat () pes (Conv (SOME ("Bind", TypeExn NONE)) []),env)::c) r`,
+  small_eval env s e1 ((Cmat () pes (Conv (SOME ("Bind", TypeExn (Short "Bind"))) []),env)::c) r`,
 small_eval_step_tac);
 
 val small_eval_let = Q.prove (
@@ -734,7 +734,7 @@ val big_exp_to_small_exp = Q.prove (
      rw [] >>
      fs [small_eval_def, alt_small_eval_def] >>
      metis_tac [transitive_def, transitive_RTC, e_step_add_ctxt, APPEND])
- >- (`small_eval env (SND s) e ([] ++ [(Cmat () pes (Conv (SOME ("Bind", TypeExn NONE)) []),env)]) (SND s', Rerr err)`
+ >- (`small_eval env (SND s) e ([] ++ [(Cmat () pes (Conv (SOME ("Bind", TypeExn (Short "Bind"))) []),env)]) (SND s', Rerr err)`
              by (match_mp_tac small_eval_err_add_ctxt >>
                  rw []) >>
      fs [])

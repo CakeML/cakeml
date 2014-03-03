@@ -191,7 +191,7 @@ evaluate ck env s (If e1 e2 e3) (s', Rerr err))
 
 /\ (! ck env e pes v bv s1 s2.
 (evaluate ck env s1 e (s2, Rval v) /\
-evaluate_match ck env s2 v pes (Conv (SOME ("Bind", TypeExn NONE)) []) bv)
+evaluate_match ck env s2 v pes (Conv (SOME ("Bind", TypeExn (Short "Bind"))) []) bv)
 ==>
 evaluate ck env s1 (Mat e pes) bv)
 
@@ -273,37 +273,39 @@ evaluate_match ck (menv,cenv,env) (count,s) v ((p,e)::pes) err_v ((count,s), Rer
 ==>
 evaluate_match ck env s v ((p,e)::pes) err_v (s, Rerr Rtype_error))`;
 
-val _ = Hol_reln ` (! mn env p e v env' s1 s2 count.
+(* The set tid_or_exn part of the state tracks all of the types and exceptions
+ * that have been declared *)
+val _ = Hol_reln ` (! mn env p e v env' s1 s2 count tdecs.
 (evaluate F env ( 0,s1) e ((count,s2), Rval v) /\
 (ALL_DISTINCT (pat_bindings p []) /\
 (pmatch (all_env_to_cenv env) s2 p v emp = Match env')))
 ==>
-evaluate_dec mn env s1 (Dlet p e) (s2, Rval (emp, env')))
+evaluate_dec mn env (s1,tdecs) (Dlet p e) ((s2,tdecs), Rval (emp, env')))
 
-/\ (! mn env p e v s1 s2 count.
+/\ (! mn env p e v s1 s2 count tdecs.
 (evaluate F env ( 0,s1) e ((count,s2), Rval v) /\
 (ALL_DISTINCT (pat_bindings p []) /\
 (pmatch (all_env_to_cenv env) s2 p v emp = No_match)))
 ==>
-evaluate_dec mn env s1 (Dlet p e) (s2, Rerr (Rraise (Conv (SOME ("Bind", TypeExn NONE)) []))))
+evaluate_dec mn env (s1,tdecs) (Dlet p e) ((s2, tdecs), Rerr (Rraise (Conv (SOME ("Bind", TypeExn (Short "Bind"))) []))))
 
-/\ (! mn env p e v s1 s2 count.
+/\ (! mn env p e v s1 s2 count tdecs.
 (evaluate F env ( 0,s1) e ((count,s2), Rval v) /\
 (ALL_DISTINCT (pat_bindings p []) /\
 (pmatch (all_env_to_cenv env) s2 p v emp = Match_type_error)))
 ==>
-evaluate_dec mn env s1 (Dlet p e) (s2, Rerr Rtype_error))
+evaluate_dec mn env (s1,tdecs) (Dlet p e) ((s2,tdecs), Rerr Rtype_error))
 
 /\ (! mn env p e s.
 (~ (ALL_DISTINCT (pat_bindings p [])))
 ==>
 evaluate_dec mn env s (Dlet p e) (s, Rerr Rtype_error))
 
-/\ (! mn env p e err s count s'.
+/\ (! mn env p e err s count s' tdecs.
 (evaluate F env ( 0,s) e ((count,s'), Rerr err) /\
 ALL_DISTINCT (pat_bindings p []))
 ==>
-evaluate_dec mn env s (Dlet p e) (s', Rerr err))
+evaluate_dec mn env (s,tdecs) (Dlet p e) ((s',tdecs), Rerr err))
 
 /\ (! mn env funs s.
 (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs))
@@ -315,20 +317,28 @@ evaluate_dec mn env s (Dletrec funs) (s, Rval (emp, build_rec_env funs env emp))
 ==>
 evaluate_dec mn env s (Dletrec funs) (s, Rerr Rtype_error))
 
-/\ (! mn env tds s.
-(check_dup_ctors tds)
+/\ (! mn env tds s tdecs new_tdecs.
+(check_dup_ctors tds /\
+((new_tdecs = type_defs_to_new_tdecs mn tds) /\
+DISJOINT new_tdecs tdecs))
 ==>
-evaluate_dec mn env s (Dtype tds) (s, Rval (build_tdefs mn tds, emp)))
+evaluate_dec mn env (s,tdecs) (Dtype tds) ((s,(new_tdecs UNION tdecs)), Rval (build_tdefs mn tds, emp)))
 
-/\ (! mn env tds s.
-(~ (check_dup_ctors tds))
+/\ (! mn env tds s tdecs.
+(~ (check_dup_ctors tds) \/
+~ (DISJOINT (type_defs_to_new_tdecs mn tds) tdecs))
 ==>
-evaluate_dec mn env s (Dtype tds) (s, Rerr Rtype_error))
+evaluate_dec mn env (s,tdecs) (Dtype tds) ((s,tdecs), Rerr Rtype_error))
 
-/\ (! mn env cn ts s.
-T
+/\ (! mn env cn ts s tdecs.
+(~ (TypeExn (mk_id mn cn) IN tdecs))
 ==>
-evaluate_dec mn env s (Dexn cn ts) (s, Rval (bind cn (LENGTH ts, TypeExn mn) emp, emp)))`;
+evaluate_dec mn env (s,tdecs) (Dexn cn ts) ((s, ({TypeExn (mk_id mn cn)} UNION tdecs)), Rval (bind cn (LENGTH ts, TypeExn (mk_id mn cn)) emp, emp)))
+
+/\ (! mn env cn ts s tdecs.
+(TypeExn (mk_id mn cn) IN tdecs)
+==>
+evaluate_dec mn env (s,tdecs) (Dexn cn ts) ((s,tdecs), Rerr Rtype_error))`;
 
 val _ = Hol_reln ` (! mn env s.
 T
@@ -390,9 +400,9 @@ evaluate_prog (menv,cenv,env) s1 (top::tops) (s3, merge_envC new_tds' new_tds, c
 evaluate_prog env s1 (top::tops) (s2, new_tds, Rerr err))`;
 
 val _ = Define `
- (dec_diverges st env d =  
+ (dec_diverges env (st,tdecs) d =  
 ((case d of
-      Dlet p e => ALL_DISTINCT (pat_bindings p []) /\ e_diverges st env e
+      Dlet p e => ALL_DISTINCT (pat_bindings p []) /\ e_diverges env st e
     | Dletrec funs => F
     | Dtype tds => F
     | Dexn cn ts => F

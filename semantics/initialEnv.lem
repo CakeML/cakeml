@@ -10,7 +10,7 @@ let init_envC =
   (emp,
    ("nil", (0, TypeId (Short "list"))) ::
    ("::", (2, TypeId (Short "list"))) ::
-   List.map (fun cn -> (cn, (0, TypeExn Nothing))) ["Bind"; "Div"; "Eq"])
+   List.map (fun cn -> (cn, (0, TypeExn (Short cn)))) ["Bind"; "Div"; "Eq"])
 
 val init_env : envE
 let init_env =
@@ -54,7 +54,7 @@ let init_tenvC =
   (emp,
    ("nil", (["'a"], [], TypeId (Short "list"))) ::
    ("::", (["'a"], [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))], TypeId (Short "list"))) ::
-   List.map (fun cn -> (cn, ([], [], TypeExn Nothing))) ["Bind"; "Div"; "Eq"])
+   List.map (fun cn -> (cn, ([], [], TypeExn (Short cn)))) ["Bind"; "Div"; "Eq"])
 
 val init_type_bindings : tdef_env
 let init_type_bindings =
@@ -64,3 +64,10 @@ let init_type_bindings =
    ("exn", TC_exn);
    ("unit", TC_unit);
    ("list", TC_name (Short "list"))]
+
+val init_type_decs : set tid_or_exn
+let init_type_decs = 
+  { TypeId (Short "list");
+    TypeExn (Short "Bind");
+    TypeExn (Short "Div");
+    TypeExn (Short "Eq") }

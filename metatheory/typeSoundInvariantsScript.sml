@@ -72,9 +72,10 @@ val _ = Define `
 (*val ctMap_to_mods : ctMap -> set (maybe modN)*)
 val _ = Define `
  (ctMap_to_mods ctMap =
-  (({ SOME mn |  mn | ? cn tn. (cn,TypeId (Long mn tn)) IN (FDOM ctMap) } UNION
+  ((({ SOME mn |  mn | ? cn tn. (cn,TypeId (Long mn tn)) IN (FDOM ctMap) } UNION
    (if (? cn tn. (cn,TypeId (Short tn)) IN (FDOM ctMap)) then {NONE} else {})) UNION
-   { mn |  mn | ? cn. (cn,TypeExn mn) IN (FDOM ctMap) }))`;
+   { SOME mn |  mn | ? cn cn'. (cn,TypeExn (Long mn cn')) IN (FDOM ctMap) }) UNION
+   (if (? cn tn. (cn,TypeExn (Short tn)) IN (FDOM ctMap)) then {NONE} else {})))`;
 
 
 (* Check that a constructor type environment is consistent with a runtime type
@@ -452,9 +453,9 @@ val _ = Define `
 (*val ctMap_has_exns : ctMap -> bool*)
 val _ = Define `
  (ctMap_has_exns ctMap =  
-((FLOOKUP ctMap ("Bind", TypeExn NONE) = SOME ([],[])) /\  
-((FLOOKUP ctMap ("Div", TypeExn NONE) = SOME ([],[])) /\
-  (FLOOKUP ctMap ("Eq", TypeExn NONE) = SOME ([],[])))))`;
+((FLOOKUP ctMap ("Bind", TypeExn (Short "Bind")) = SOME ([],[])) /\  
+((FLOOKUP ctMap ("Div", TypeExn (Short "Div")) = SOME ([],[])) /\
+  (FLOOKUP ctMap ("Eq", TypeExn (Short "Eq")) = SOME ([],[])))))`;
 
 
 (* The constructors that are missing from the second map are all declared in
@@ -465,9 +466,9 @@ val _ = Define `
 ((! id tvs ts tn. 
        (FLOOKUP ctMap1 (id, TypeId (Short tn)) = SOME (tvs, ts)) ==>
        (FLOOKUP ctMap2 (id, TypeId (Short tn)) = SOME (tvs, ts))) /\
-    (! id tvs ts. 
-       (FLOOKUP ctMap1 (id, TypeExn NONE) = SOME (tvs, ts)) ==> 
-       (FLOOKUP ctMap2 (id, TypeExn NONE) = SOME (tvs, ts)))))`;
+    (! id tvs ts cn. 
+       (FLOOKUP ctMap1 (id, TypeExn (Short cn)) = SOME (tvs, ts)) ==> 
+       (FLOOKUP ctMap2 (id, TypeExn (Short cn)) = SOME (tvs, ts)))))`;
 
 
 (* For using the type soundess theorem, we have to know there are good

@@ -21,7 +21,7 @@ val _ = Define `
   (emp,   
 (("nil", ( 0, TypeId (Short "list"))) ::   
 (("::", ( 2, TypeId (Short "list"))) ::
-   MAP (\ cn .  (cn, ( 0, TypeExn NONE))) ["Bind"; "Div"; "Eq"]))))`;
+   MAP (\ cn .  (cn, ( 0, TypeExn (Short cn)))) ["Bind"; "Div"; "Eq"]))))`;
 
 
 (*val init_env : envE*)
@@ -71,7 +71,7 @@ val _ = Define `
   (emp,   
 (("nil", (["'a"], [], TypeId (Short "list"))) ::   
 (("::", (["'a"], [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))], TypeId (Short "list"))) ::
-   MAP (\ cn .  (cn, ([], [], TypeExn NONE))) ["Bind"; "Div"; "Eq"]))))`;
+   MAP (\ cn .  (cn, ([], [], TypeExn (Short cn)))) ["Bind"; "Div"; "Eq"]))))`;
 
 
 (*val init_type_bindings : tdef_env*)
@@ -83,6 +83,15 @@ val _ = Define `
    ("exn", TC_exn);
    ("unit", TC_unit);
    ("list", TC_name (Short "list"))]))`;
+
+
+(*val init_type_decs : set tid_or_exn*)
+val _ = Define `
+ (init_type_decs =  
+ ({ TypeId (Short "list");
+    TypeExn (Short "Bind");
+    TypeExn (Short "Div");
+    TypeExn (Short "Eq") }))`;
 
 val _ = export_theory()
 

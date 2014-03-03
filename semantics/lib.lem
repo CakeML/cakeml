@@ -7,6 +7,10 @@ import String
 val rtc : forall 'a. ('a -> 'a -> bool) -> ('a -> 'a -> bool)
 declare hol    target_rep function rtc = `RTC`
 
+val disjoint : forall 'a. set 'a -> set 'a -> bool
+declare hol    target_rep function disjoint = `DISJOINT`
+
+
 (* The builtin List.zip maps to list_combine in HOL, but I want to map to ZIP *)
 val ZIP : forall 'a 'b. list 'a -> list 'b -> list ('a * 'b)
 let inline ZIP = List_extra.zipSameLength

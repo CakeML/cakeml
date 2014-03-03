@@ -235,7 +235,7 @@ and
 
 mat1 : forall ck env e pes v bv s1 s2.
 evaluate ck env s1 e (s2, Rval v) &&
-evaluate_match ck env s2 v pes (Conv (Just ("Bind", TypeExn Nothing)) []) bv
+evaluate_match ck env s2 v pes (Conv (Just ("Bind", TypeExn (Short "Bind"))) []) bv
 ==>
 evaluate ck env s1 (Mat e pes) bv
 
@@ -345,32 +345,34 @@ not (List.allDistinct (pat_bindings p []))
 ==>
 evaluate_match ck env s v ((p,e)::pes) err_v (s, Rerr Rtype_error)
 
-indreln [evaluate_dec : maybe modN -> all_env -> store v -> dec -> store v * result (flat_envC * envE) v -> bool]
+(* The set tid_or_exn part of the state tracks all of the types and exceptions
+ * that have been declared *)
+indreln [evaluate_dec : maybe modN -> all_env -> (store v * set tid_or_exn) -> dec -> (store v * set tid_or_exn) * result (flat_envC * envE) v -> bool]
 
-dlet1 : forall mn env p e v env' s1 s2 count.
+dlet1 : forall mn env p e v env' s1 s2 count tdecs.
 evaluate false env (0,s1) e ((count,s2), Rval v) &&
 List.allDistinct (pat_bindings p []) &&
 (pmatch (all_env_to_cenv env) s2 p v emp = Match env')
 ==>
-evaluate_dec mn env s1 (Dlet p e) (s2, Rval (emp, env'))
+evaluate_dec mn env (s1,tdecs) (Dlet p e) ((s2,tdecs), Rval (emp, env'))
 
 and
 
-dlet2 : forall mn env p e v s1 s2 count.
+dlet2 : forall mn env p e v s1 s2 count tdecs.
 evaluate false env (0,s1) e ((count,s2), Rval v) &&
 List.allDistinct (pat_bindings p []) &&
 (pmatch (all_env_to_cenv env) s2 p v emp = No_match)
 ==>
-evaluate_dec mn env s1 (Dlet p e) (s2, Rerr (Rraise (Conv (Just ("Bind", TypeExn Nothing)) [])))
+evaluate_dec mn env (s1,tdecs) (Dlet p e) ((s2, tdecs), Rerr (Rraise (Conv (Just ("Bind", TypeExn (Short "Bind"))) [])))
 
 and
 
-dlet3 : forall mn env p e v s1 s2 count.
+dlet3 : forall mn env p e v s1 s2 count tdecs.
 evaluate false env (0,s1) e ((count,s2), Rval v) &&
 List.allDistinct (pat_bindings p []) &&
 (pmatch (all_env_to_cenv env) s2 p v emp = Match_type_error)
 ==>
-evaluate_dec mn env s1 (Dlet p e) (s2, Rerr Rtype_error)
+evaluate_dec mn env (s1,tdecs) (Dlet p e) ((s2,tdecs), Rerr Rtype_error)
 
 and
 
@@ -381,11 +383,11 @@ evaluate_dec mn env s (Dlet p e) (s, Rerr Rtype_error)
 
 and
 
-dlet5 : forall mn env p e err s count s'.
+dlet5 : forall mn env p e err s count s' tdecs.
 evaluate false env (0,s) e ((count,s'), Rerr err) &&
 List.allDistinct (pat_bindings p [])
 ==>
-evaluate_dec mn env s (Dlet p e) (s', Rerr err)
+evaluate_dec mn env (s,tdecs) (Dlet p e) ((s',tdecs), Rerr err)
 
 and
 
@@ -403,26 +405,36 @@ evaluate_dec mn env s (Dletrec funs) (s, Rerr Rtype_error)
 
 and
 
-dtype1 : forall mn env tds s.
-check_dup_ctors tds
+dtype1 : forall mn env tds s tdecs new_tdecs.
+check_dup_ctors tds &&
+new_tdecs = type_defs_to_new_tdecs mn tds &&
+disjoint new_tdecs tdecs
 ==>
-evaluate_dec mn env s (Dtype tds) (s, Rval (build_tdefs mn tds, emp))
+evaluate_dec mn env (s,tdecs) (Dtype tds) ((s,new_tdecs union tdecs), Rval (build_tdefs mn tds, emp))
 
 and
 
-dtype2 : forall mn env tds s.
-not (check_dup_ctors tds)
+dtype2 : forall mn env tds s tdecs.
+not (check_dup_ctors tds) ||
+not (disjoint (type_defs_to_new_tdecs mn tds) tdecs)
 ==>
-evaluate_dec mn env s (Dtype tds) (s, Rerr Rtype_error)
+evaluate_dec mn env (s,tdecs) (Dtype tds) ((s,tdecs), Rerr Rtype_error)
 
 and
 
-dexn1 : forall mn env cn ts s.
-true
+dexn1 : forall mn env cn ts s tdecs.
+not (TypeExn (mk_id mn cn) IN tdecs)
 ==>
-evaluate_dec mn env s (Dexn cn ts) (s, Rval (bind cn (List.length ts, TypeExn mn) emp, emp))
+evaluate_dec mn env (s,tdecs) (Dexn cn ts) ((s, {TypeExn (mk_id mn cn)} union tdecs), Rval (bind cn (List.length ts, TypeExn (mk_id mn cn)) emp, emp))
 
-indreln [evaluate_decs : maybe modN -> all_env -> store v -> list dec -> store v * flat_envC * result envE v -> bool]
+and
+
+dexn2 : forall mn env cn ts s tdecs.
+TypeExn (mk_id mn cn) IN tdecs
+==>
+evaluate_dec mn env (s,tdecs) (Dexn cn ts) ((s,tdecs), Rerr Rtype_error)
+
+indreln [evaluate_decs : maybe modN -> all_env -> (store v * set tid_or_exn) -> list dec -> (store v * set tid_or_exn) * flat_envC * result envE v -> bool]
 
 empty : forall mn env s.
 true
@@ -444,7 +456,7 @@ evaluate_decs mn (menv, merge_envC (emp,new_tds) cenv, merge new_env env) s2 ds 
 ==>
 evaluate_decs mn (menv,cenv,env) s1 (d::ds) (s3, merge new_tds' new_tds, combine_dec_result new_env r)
 
-indreln [evaluate_top : all_env -> store v -> top -> store v * envC * result (envM * envE) v -> bool]
+indreln [evaluate_top : all_env -> (store v * set tid_or_exn) -> top -> (store v * set tid_or_exn) * envC * result (envM * envE) v -> bool]
 
 tdec1 : forall s1 s2 env d new_tds new_env.
 evaluate_dec Nothing env s1 d (s2, Rval (new_tds, new_env))
@@ -481,7 +493,7 @@ elem mn (List.map fst (all_env_to_menv env))
 ==>
 evaluate_top env s (Tmod mn specs ds) (s, (emp,emp), Rerr Rtype_error)
 
-indreln [evaluate_prog : all_env -> store v -> prog -> store v * envC * result (envM * envE) v -> bool]
+indreln [evaluate_prog : all_env -> (store v * set tid_or_exn) -> prog -> (store v * set tid_or_exn) * envC * result (envM * envE) v -> bool]
 
 empty : forall env s.
 true
@@ -503,15 +515,15 @@ evaluate_top env s1 top (s2, new_tds, Rerr err)
 ==>
 evaluate_prog env s1 (top::tops) (s2, new_tds, Rerr err)
 
-let dec_diverges st env d =
+let dec_diverges env (st,tdecs) d =
   match d with
-    | Dlet p e -> List.allDistinct (pat_bindings p []) && e_diverges st env e
+    | Dlet p e -> List.allDistinct (pat_bindings p []) && e_diverges env st e
     | Dletrec funs -> false
     | Dtype tds -> false
     | Dexn cn ts -> false
   end
 
-indreln [decs_diverges : maybe modN -> all_env -> store v -> decs -> bool]
+indreln [decs_diverges : maybe modN -> all_env -> (store v * set tid_or_exn) -> decs -> bool]
 
 cons1 : forall mn st env d ds.
 dec_diverges env st d
@@ -526,7 +538,7 @@ decs_diverges mn (menv,merge_envC (emp,new_tds) cenv, merge new_env env) s2 ds
 ==>
 decs_diverges mn (menv,cenv,env) s1 (d::ds)
 
-indreln [top_diverges : all_env -> store v -> top -> bool]
+indreln [top_diverges : all_env -> (store v * set tid_or_exn) -> top -> bool]
 
 tdec : forall st env d.
 dec_diverges env st d
@@ -541,7 +553,7 @@ decs_diverges (Just mn) env s1 ds
 ==>
 top_diverges env s1 (Tmod mn specs ds)
 
-indreln [prog_diverges : all_env -> store v -> prog -> bool]
+indreln [prog_diverges : all_env -> (store v * set tid_or_exn) -> prog -> bool]
 
 cons1 : forall st env top tops.
 top_diverges env st top

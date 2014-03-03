@@ -9,7 +9,11 @@ open import Ast
  * For exceptions, we also keep the module that the exception was declared in. *)
 type tid_or_exn = 
   | TypeId of id typeN
-  | TypeExn of maybe modN
+  | TypeExn of id conN
+
+val type_defs_to_new_tdecs : maybe modN -> type_def -> set tid_or_exn
+let type_defs_to_new_tdecs mn tdefs =
+  Set.fromList (List.map (fun (tvs,tn,ctors) -> TypeId (mk_id mn tn)) tdefs)
 
 (* Maps each constructor to its arity and which type it is from *)
 type flat_envC = env conN (nat * tid_or_exn)
@@ -305,7 +309,7 @@ and
 do_eq_list _ _ = Eq_val false
 
 val exn_env : all_env
-let exn_env = (emp, (emp, List.map (fun cn -> (cn, (0, TypeExn Nothing))) ["Bind"; "Div"; "Eq"]), emp)
+let exn_env = (emp, (emp, List.map (fun cn -> (cn, (0, TypeExn (Short cn)))) ["Bind"; "Div"; "Eq"]), emp)
                    
 (* Do an application *)
 val do_app : all_env -> store v -> op -> v -> v -> maybe (all_env * store v * exp)
@@ -397,7 +401,7 @@ let combine_mod_result menv env r =
 let rec
 dec_to_cenv mn (Dtype tds) = build_tdefs mn tds
 and
-dec_to_cenv mn (Dexn cn ts) = bind cn (List.length ts,TypeExn mn) emp
+dec_to_cenv mn (Dexn cn ts) = bind cn (List.length ts,TypeExn (mk_id mn cn)) emp
 and
 dec_to_cenv mn _ = []
 
