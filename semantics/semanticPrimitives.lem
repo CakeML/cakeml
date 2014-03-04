@@ -396,32 +396,6 @@ let combine_mod_result menv env r =
     | Rval (menv',env') -> Rval (merge menv' menv, merge env' env)
   end
 
-let strip_mod_env tenvM =
-  List.map (fun (n,tenv) -> (n,[])) tenvM
-
-
-(* Constructor environment implied by declarations *)
-
-let rec
-dec_to_cenv mn (Dtype tds) = build_tdefs mn tds
-and
-dec_to_cenv mn (Dexn cn ts) = bind cn (List.length ts,TypeExn (mk_id mn cn)) emp
-and
-dec_to_cenv mn _ = []
-
-let rec
-decs_to_cenv mn [] = []
-and
-decs_to_cenv mn (d::ds) = decs_to_cenv mn ds ++ dec_to_cenv mn d
-
-declare termination_argument decs_to_cenv = automatic
-
-val top_to_cenv : top -> envC
-let rec
-top_to_cenv (Tdec d) = (emp, dec_to_cenv Nothing d)
-and
-top_to_cenv (Tmod mn _ ds) = ([(mn,decs_to_cenv (Just mn) ds)], emp)
-
 (* conversions to strings *)
 
 let rec

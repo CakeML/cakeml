@@ -11,6 +11,14 @@ open typeSoundInvariantsTheory evalPropsTheory;
 
 val _ = new_theory "typeSound";
 
+val type_d_mdecls = Q.store_thm ("type_d_mdecls",
+`!mn tdecs1 tenvM tenvC tenv d tdecs1' cenv' tenv'.
+  type_d mn tdecs1 tenvM tenvC tenv d tdecs1' cenv' tenv'
+  ⇒
+  FST tdecs1 = FST tdecs1'`,
+ rw [type_d_cases] >>
+ rw []);
+
 val type_v_cases_eqn = SIMP_RULE (srw_ss()) [] (List.nth (CONJUNCTS type_v_cases, 0));
 val type_vs_cases_eqn = SIMP_RULE (srw_ss()) [] (List.nth (CONJUNCTS type_v_cases, 1));
 val type_env_cases = SIMP_RULE (srw_ss()) [] (List.nth (CONJUNCTS type_v_cases, 2));
@@ -1421,13 +1429,14 @@ val dec_type_soundness = Q.store_thm ("dec_type_soundness",
   consistent_mod_env tenvS (to_ctMap tenvC) menv tenvM ∧
   type_env (to_ctMap tenvC) tenvS env tenv ∧
   type_s (to_ctMap tenvC) tenvS st ∧
-  tdecs2 ⊆ tdecs1
+  consistent_decls tdecs2 tdecs1 ∧
+  mn ∉ IMAGE SOME (FST tdecs1)
   ⇒
   dec_diverges (menv,cenv,env) (st,tdecs2) d ∨
   ?st' r tenvS' tdecs2'. 
      (r ≠ Rerr Rtype_error) ∧ 
      evaluate_dec mn (menv,cenv,env) (st,tdecs2) d ((st',tdecs2'), r) ∧
-     tdecs2' ⊆ tdecs1' ∧
+     consistent_decls tdecs2' tdecs1' ∧
      store_type_extension tenvS tenvS' ∧
      type_s (to_ctMap tenvC) tenvS' st' ∧
      DISJOINT (FDOM (flat_to_ctMap tenvC')) (FDOM (to_ctMap tenvC)) ∧
@@ -1536,9 +1545,38 @@ val dec_type_soundness = Q.store_thm ("dec_type_soundness",
      fs [emp_def] >>
      rw []
      >- metis_tac [check_ctor_tenv_dups]
-     >- (fs [SUBSET_DEF, DISJOINT_DEF, EXTENSION] >>
-         metis_tac [])
-     >- fs [SUBSET_DEF]
+     >- (fs [RES_FORALL,SUBSET_DEF, DISJOINT_DEF, EXTENSION, consistent_decls_def] >>
+         rw [] >>
+         CCONTR_TAC >>
+         fs [] >>
+         res_tac >>
+         every_case_tac >>
+         fs [type_defs_to_new_tdecs_def, MEM_MAP] >>
+         PairCases_on `y` >>
+         fs [FORALL_PROD] >>
+         rw []
+         >- metis_tac [] >>
+         cases_on `mn` >>
+         fs [mk_id_def] >>
+         rw [])
+     >- (fs [consistent_decls_def, RES_FORALL] >>
+         rw [] >>
+         every_case_tac >>
+         fs [MEM_MAP, type_defs_to_new_tdecs_def]
+         >- (PairCases_on `y` >>
+             fs [EXISTS_PROD] >>
+             rw [] >>
+             metis_tac [])
+         >- (PairCases_on `y` >>
+             fs [EXISTS_PROD] >>
+             rw [] >>
+             metis_tac [])
+         >- (res_tac >>
+             every_case_tac >>
+             fs [])
+         >- (res_tac >>
+             every_case_tac >>
+             fs []))
      >- metis_tac [store_type_extension_refl]
      >- metis_tac [check_ctor_disjoint_env]
      >- (rpt (pop_assum (fn _ => all_tac)) >>
@@ -1561,9 +1599,22 @@ val dec_type_soundness = Q.store_thm ("dec_type_soundness",
      `DISJOINT (FDOM (flat_to_ctMap (bind cn ([]:tvarN list,ts,TypeExn (mk_id mn cn)) []))) (FDOM (to_ctMap tenvC))`
                  by metis_tac [emp_def, check_exn_tenv_disjoint] >>
      rw []
-     >- (fs [SUBSET_DEF] >>
-         metis_tac [])
-     >- fs [SUBSET_DEF]
+     >- (fs [consistent_decls_def, RES_FORALL] >>
+         CCONTR_TAC >>
+         fs [] >>
+         res_tac >>
+         every_case_tac >>
+         fs []
+         >- metis_tac [] >>
+         cases_on `mn` >>
+         fs [mk_id_def])
+     >- (fs [consistent_decls_def, RES_FORALL] >>
+         rw [] >>
+         rw [] >>
+         every_case_tac >>
+         rw [] >>
+         res_tac >>
+         fs [])
      >- rw [store_type_extension_def, merge_def]
      >- rw [bind_def]
      >- metis_tac [extend_consistent_con_exn, merge_def, emp_def]
@@ -1621,13 +1672,14 @@ val decs_type_soundness = Q.store_thm ("decs_type_soundness",
   consistent_con_env (to_ctMap tenvC) cenv tenvC ∧
   type_env (to_ctMap tenvC) tenvS env tenv ∧
   type_s (to_ctMap tenvC) tenvS st ∧
-  tdecs2 ⊆ tdecs1
+  consistent_decls tdecs2 tdecs1 ∧
+  mn ∉ IMAGE SOME (FST tdecs1)
   ⇒
   decs_diverges mn (menv,cenv,env) (st,tdecs2) ds ∨
   ?st' r cenv' tenvS' tdecs2'. 
      (r ≠ Rerr Rtype_error) ∧ 
      evaluate_decs mn (menv,cenv,env) (st,tdecs2) ds ((st',tdecs2'), cenv', r) ∧
-     tdecs2' ⊆ tdecs1' ∧
+     consistent_decls tdecs2' tdecs1' ∧
      store_type_extension tenvS tenvS' ∧
      DISJOINT (FDOM (flat_to_ctMap tenvC')) (FDOM (to_ctMap tenvC)) ∧
      (!err.
@@ -1660,7 +1712,7 @@ val decs_type_soundness = Q.store_thm ("decs_type_soundness",
  >- (`?st' r tenvS' tdecs2'. 
         (r ≠ Rerr Rtype_error) ∧ 
         evaluate_dec mn (menv,cenv,env) (st,tdecs2) d ((st',tdecs2'),r) ∧
-        tdecs2' ⊆ tdecs1' ∧
+        consistent_decls tdecs2' tdecs1' ∧
         store_type_extension tenvS tenvS' ∧
         type_s (to_ctMap tenvC) tenvS' st' ∧
         DISJOINT (FDOM (flat_to_ctMap cenv')) (FDOM (to_ctMap tenvC)) ∧
@@ -1670,7 +1722,7 @@ val decs_type_soundness = Q.store_thm ("decs_type_soundness",
           consistent_con_env (FUNION (flat_to_ctMap cenv') (to_ctMap tenvC)) (merge_envC (emp,cenv'') cenv) (merge_tenvC (emp,cenv') tenvC) ∧
           type_env (FUNION (flat_to_ctMap cenv') (to_ctMap tenvC)) tenvS' (env''++env) (bind_var_list2 tenv' tenv) ∧
           type_env (FUNION (flat_to_ctMap cenv') (to_ctMap tenvC)) tenvS' env'' (bind_var_list2 tenv' Empty)`
-                     by metis_tac [dec_type_soundness] >>
+                     by metis_tac [SIMP_RULE (srw_ss()) [] dec_type_soundness] >>
      `ctMap_has_exns (FUNION (flat_to_ctMap cenv') (to_ctMap tenvC))` by metis_tac [still_has_exns] >>
      `ctMap_ok (FUNION (flat_to_ctMap cenv') (to_ctMap tenvC))` by metis_tac [ctMap_ok_pres, consistent_con_env_def] >>
      `consistent_mod_env tenvS' (FUNION (flat_to_ctMap cenv') (to_ctMap tenvC)) menv tenvM` 
@@ -1679,6 +1731,7 @@ val decs_type_soundness = Q.store_thm ("decs_type_soundness",
                      by metis_tac [merge_def, disjoint_env_weakCT, weakM_refl, type_s_weakening] >>
      `(?cenv'' env''. r = Rval (cenv'',env'')) ∨ (?err. r = Rerr err)` 
                    by (cases_on `r` >> metis_tac [pair_CASES]) >>
+     `∀x. mn = SOME x ⇒ x ∉ FST tdecs1'` by metis_tac [type_d_mdecls] >>
      fs [] >>
      rw []
      >- (fs [to_ctMap_merge_empty, emp_def] >>
@@ -1732,6 +1785,8 @@ val decs_type_soundness = Q.store_thm ("decs_type_soundness",
          rw [] >>
          imp_res_tac type_d_ctMap_ok >>
          imp_res_tac type_ds_ctMap_ok
+         >- fs [consistent_decls_def, RES_FORALL]
+
          >- metis_tac [type_ds_tdecs_subset, SUBSET_TRANS]
          >- (fs [flat_to_ctMap_append, to_ctMap_merge_empty] >>
              metis_tac [DISJOINT_SYM])

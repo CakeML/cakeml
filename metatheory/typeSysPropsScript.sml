@@ -2570,17 +2570,6 @@ val type_d_mod = Q.store_thm ("type_d_mod",
 
 (* ---------- type_ds ---------- *)
 
-val type_ds_tdecs_subset = Q.store_thm ("type_ds_tdecs_subset",
-`!mn tdecs tenvM tenvC tenv ds tdecs' tenvC' tenv'.
-  type_ds mn tdecs tenvM tenvC tenv ds tdecs' tenvC' tenv'
-  ⇒
-  tdecs ⊆ tdecs'`,
- ho_match_mp_tac type_ds_ind >>
- rw [] >>
- fs [type_d_cases] >>
- rw [] >>
- fs [SUBSET_DEF]);
-
 val type_ds_tenv_ok = Q.store_thm ("type_ds_tenv_ok",
 `!tvs tdecs tenvM tenvC tenv ds tdecs' tenvC' tenv'.
   type_ds tvs tdecs tenvM tenvC tenv ds tdecs' tenvC' tenv' ⇒
@@ -2648,8 +2637,8 @@ val type_ds_mod = Q.store_thm ("type_ds_mod",
 (* ---------- type_specs ---------- *)
 
 val type_specs_tenv_ok = Q.store_thm ("type_specs_tenv_ok",
-`!tvs tenvC tenv specs tenvC' tenv'.
-  type_specs tvs tenvC tenv specs tenvC' tenv' ⇒
+`!tvs decls tenvC tenv specs decls' tenvC' tenv'.
+  type_specs tvs decls tenvC tenv specs decls' tenvC' tenv' ⇒
   tenv_ok (bind_var_list2 tenv Empty) ⇒
   tenv_ok (bind_var_list2 tenv' Empty)`,
 ho_match_mp_tac type_specs_ind >>
@@ -2664,8 +2653,8 @@ fs [MEM_GENLIST, check_freevars_def] >>
 metis_tac [check_freevars_add, DECIDE ``!x:num. x ≥ 0``]);
 
 val type_specs_mod = Q.store_thm ("type_specs_mod",
-`!mn tenvC tenv specs tenvC' tenv'.
-  type_specs mn tenvC tenv specs tenvC' tenv'
+`!mn decls tenvC tenv specs decls' tenvC' tenv'.
+  type_specs mn decls tenvC tenv specs decls' tenvC' tenv'
   ⇒
   !mn'. mn = SOME mn' ⇒
   ctMap_to_mods (flat_to_ctMap tenvC) ⊆ {mn}

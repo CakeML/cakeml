@@ -483,38 +483,6 @@ val _ = Define `
   )))`;
 
 
-val _ = Define `
- (strip_mod_env tenvM =  
-(MAP (\ (n,tenv) .  (n,[])) tenvM))`;
-
-
-
-(* Constructor environment implied by declarations *)
-
- val _ = Define `
-
-(dec_to_cenv mn (Dtype tds) = (build_tdefs mn tds))
-/\
-(dec_to_cenv mn (Dexn cn ts) = (bind cn (LENGTH ts,TypeExn (mk_id mn cn)) emp))
-/\
-(dec_to_cenv mn _ = ([]))`;
-
-
- val _ = Define `
-
-(decs_to_cenv mn [] = ([]))
-/\
-(decs_to_cenv mn (d::ds) = (decs_to_cenv mn ds ++ dec_to_cenv mn d))`;
-
-
-(*val top_to_cenv : top -> envC*)
- val _ = Define `
-
-(top_to_cenv (Tdec d) = (emp, dec_to_cenv NONE d))
-/\
-(top_to_cenv (Tmod mn _ ds) = ([(mn,decs_to_cenv (SOME mn) ds)], emp))`;
-
-
 (* conversions to strings *)
 
  val _ = Define `

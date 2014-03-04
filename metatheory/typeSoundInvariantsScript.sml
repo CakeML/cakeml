@@ -471,13 +471,26 @@ val _ = Define `
        (FLOOKUP ctMap2 (id, TypeExn (Short cn)) = SOME (tvs, ts)))))`;
 
 
+(* The run-time declared constructors and exceptions are all either declared in
+ * the type system, or from modules that have been declared *)
+
+(*val consistent_decls : set tid_or_exn -> decls -> bool*)
+val _ = Define `
+ (consistent_decls decls (mdecls,tdecls,edecls) =  
+(! (d :: decls).
+    (case d of
+        TypeExn cid => (cid IN edecls) \/ (? mn cn. (cid = Long mn cn) /\ (mn IN mdecls))
+      | TypeId tid => (tid IN tdecls) \/ (? mn tn. (tid = Long mn tn) /\ (mn IN mdecls))
+    )))`;
+
+
 (* For using the type soundess theorem, we have to know there are good
  * constructor and module type environments that don't have bits hidden by a
  * signature. *)
 val _ = Define `
- (type_sound_invariants (tdecs1,tenvM,tenvC,tenv,tdecs2,envM,envC,envE,store) =  
-(? tenvS tenvM_no_sig tenvC_no_sig.    
- (tdecs2 SUBSET tdecs1) /\    
+ (type_sound_invariants (decls1,tenvM,tenvC,tenv,decls2,envM,envC,envE,store) =  
+(? tenvS tenvM_no_sig tenvC_no_sig. 
+    consistent_decls decls1 decls2 /\    
 (tenvM_ok tenvM_no_sig /\    
  (ctMap_has_exns (to_ctMap tenvC_no_sig) /\    
 (tenvM_ok tenvM /\
@@ -494,12 +507,12 @@ val _ = Define `
 
 
 val _ = Define `
- (update_type_sound_inv top ((tdecs1: tid_or_exn set),(tenvM:tenvM),(tenvC:tenvC),(tenv:tenvE),(tdecs2: tid_or_exn set),(envM:envM),(envC:envC),(envE:envE),store) tdecs1' tenvM' tenvC' tenv' store' tdecs2' envC' r =  
+ (update_type_sound_inv top ((decls1:decls),(tenvM:tenvM),(tenvC:tenvC),(tenv:tenvE),(decls2: tid_or_exn set),(envM:envM),(envC:envC),(envE:envE),store) decls1' tenvM' tenvC' tenv' store' decls2' envC' r =  
 ((case r of
        Rval (envM',envE') => 
-         (tdecs1',(tenvM'++tenvM),merge_tenvC tenvC' tenvC,bind_var_list2 tenv' tenv,
-          tdecs2',(envM'++envM),merge_envC envC' envC,(envE'++envE),store')
-     | Rerr _ => (tdecs1',(strip_mod_env tenvM'++tenvM),tenvC,tenv,tdecs2',(strip_mod_env tenvM'++envM),merge_envC (top_to_cenv top) envC,envE,store')
+         (decls1',(tenvM'++tenvM),merge_tenvC tenvC' tenvC,bind_var_list2 tenv' tenv,
+          decls2',(envM'++envM),merge_envC envC' envC,(envE'++envE),store')
+     | Rerr _ => (decls1',tenvM,tenvC,tenv,decls2',envM,envC,envE,store')
   )))`;
 
 val _ = export_theory()

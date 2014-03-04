@@ -10,13 +10,13 @@ val _ = Hol_datatype `
 repl_state = <| (* Elaborator state *)
                 type_bindings : tdef_env; ctors : ctor_env;
                 (* Type system state *)
-                tdecs : tid_or_exn set; tenvM : tenvM; tenvC : tenvC; tenv : tenvE;
+                tdecs : decls; tenvM : tenvM; tenvC : tenvC; tenv : tenvE;
                 (* Semantics state *)
                 envM : envM; envC : envC; store : (v store # tid_or_exn set); envE : envE |>`;
 
 val init_repl_state_def = Define`
   init_repl_state = <| type_bindings := init_type_bindings; ctors := [];
-                       tdecs := {}; tenvM := []; tenvC := init_tenvC; tenv := init_tenv;
+                       tdecs := ({},{},{}); tenvM := []; tenvC := init_tenvC; tenv := init_tenv;
                        envM := []; envC := init_envC; store := ([],{}); envE := init_env |>`
 
 val _ = Hol_datatype `
@@ -43,18 +43,10 @@ update_repl_state ast state type_bindings ctors tdecs tenvM tenvC tenv store env
         (* We need to record the attempted module names (if any), so that it
         * can't be defined later.  To avoid the situation where a failing module
         * defines some datatype constructors and puts them into the store before
-        * failing.  Then a later same-name module could redefine the constructos
-        * with different types.  But its bindings aren't available, so strip
-        * them out.  For similar reasons we must remember the constructors that
-        * have been defined in the operational semantics (but not the type
-        * system).  Here we use all of the constructors from the module, but we
-        * could also just use the ones whose definitions were reached.  Since
-        * they don't go in the constructor type environment, the programmer
-        * can't refer to any of them, so it doesn't matter much. *)
-        state with <| store := store;
-                      envC := merge_envC (top_to_cenv ast) state.envC;
-                      envM := strip_mod_env tenvM ++ state.envM;
-                      tenvM := strip_mod_env tenvM ++ state.tenvM |>`;
+        * failing. *)
+        state with <| tdecs := (case state.tdecs of 
+                                 (mdecs,tdecs,edecs) => 
+                                   set (MAP FST tenvM) ∪ mdecs, tdecs, edecs) |>`;
 
 val print_envM_def = Define `
 print_envM envM = CONCAT (MAP (λ(x,m). "module " ++ x ++ " = <structure>\n") envM)`;
