@@ -433,7 +433,7 @@ val infer_e_def = tDefine "infer_e" `
  rw []);
 
 val infer_d_def = Define `
-(infer_d mn menv cenv env (Dlet p e) = 
+(infer_d mn tdecs menv cenv env (Dlet p e) = 
   do () <- init_state;
      n <- get_next_uvar;
      t1 <- infer_e menv cenv env e;
@@ -443,9 +443,9 @@ val infer_d_def = Define `
      ts <- apply_subst_list (MAP SND env');
      (num_tvs, s, ts') <- return (generalise_list n 0 FEMPTY ts);
      () <- guard (num_tvs = 0 ∨ is_value e) "Value restriction violated";
-     return ([], ZIP (MAP FST env', MAP (\t. (num_tvs, t)) ts'))
+     return (tdecs, [], ZIP (MAP FST env', MAP (\t. (num_tvs, t)) ts'))
   od) ∧
-(infer_d mn menv cenv env (Dletrec funs) =
+(infer_d mn tdecs menv cenv env (Dletrec funs) =
   do () <- guard (ALL_DISTINCT (MAP FST funs)) "Duplicate function name";
      () <- init_state;
      next <- get_next_uvar;
@@ -455,16 +455,16 @@ val infer_d_def = Define `
      () <- add_constraints uvars funs_ts;
      ts <- apply_subst_list uvars;
      (num_gen,s,ts') <- return (generalise_list next 0 FEMPTY ts);
-     return ([], list$MAP2 (\(f,x,e) t. (f,(num_gen,t))) funs ts')
+     return (tdecs, [], list$MAP2 (\(f,x,e) t. (f,(num_gen,t))) funs ts')
   od) ∧
-(infer_d mn menv cenv env (Dtype tdecs) =
-  if check_ctor_tenv mn cenv tdecs then
-    return (build_ctor_tenv mn tdecs, [])
+(infer_d mn tdecs menv cenv env (Dtype tdefs) =
+  if check_ctor_tenv mn cenv tdefs then
+    return (tdecs, build_ctor_tenv mn tdefs, [])
   else
     failwith "Bad type definition") ∧
-(infer_d mn menv cenv env (Dexn cn ts) =
+(infer_d mn tdecs menv cenv env (Dexn cn ts) =
   if check_exn_tenv mn cenv cn ts then
-    return (bind cn ([], ts, TypeExn mn) emp, [])
+    return (tdecs, bind cn ([], ts, TypeExn (mk_id mn cn) emp, [])
   else
     failwith "Bad type definition")`;
 
