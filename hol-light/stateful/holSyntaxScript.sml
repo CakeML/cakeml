@@ -161,6 +161,7 @@ val TYPE_SUBST_def = tDefine"TYPE_SUBST"`
   (TYPE_SUBST i (Fun ty1 ty2) = Fun (TYPE_SUBST i ty1) (TYPE_SUBST i ty2))`
 (type_rec_tac "SND")
 val _ = export_rewrites["TYPE_SUBST_def"]
+val _ = Parse.overload_on("is_instance",``λty0 ty. ∃i. ty = TYPE_SUBST i ty0``)
 
 (* Substitution for term variables in a term. *)
 
@@ -314,6 +315,7 @@ val terms_of_def_def = Define`
 val axioms_of_def_def = Define`
   (axioms_of_def (NewAxiom prop) = [prop]) ∧
   (axioms_of_def _ = [])`
+val _ = Parse.overload_on("axioms",``λctxt. FLAT (MAP axioms_of_def ctxt)``)
 
 (* Good types/terms in context *)
 
@@ -329,7 +331,7 @@ val term_ok_def = Define`
   (term_ok ctxt (Const name ty) ⇔
      ∃ty0. MEM (name,ty0) (consts ctxt) ∧
            type_ok ctxt ty ∧
-           ∃i. ty = TYPE_SUBST i ty0) ∧
+           is_instance ty0 ty) ∧
   (term_ok ctxt (Comb tm1 tm2) ⇔
      term_ok ctxt tm1 ∧
      term_ok ctxt tm2 ∧
