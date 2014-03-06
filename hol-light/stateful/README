@@ -1,8 +1,12 @@
 holSyntaxScript.sml
   Defines the HOL inference system.
+holSyntaxExtraScript.sml
+  Some lemmas about the syntactic functions.
 
 holSemanticsScript.sml
   Define semantics for HOL sequents.
+holSemanticsExtraScript.sml
+  Some lemmas about the semantics.
 
 holSoundnessScript.sml
   Proves soundness and consistency of HOL.
