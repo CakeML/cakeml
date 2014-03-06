@@ -258,9 +258,9 @@ val _ = Parse.add_infix("===",460,Parse.RIGHT)
 val equation_def = xDefine "equation"`
   (s === t) = Comb (Comb (Equal(typeof s)) s) t`
 
-(* Context of updates to the theory *)
+(* Theory context is a sequence of updates *)
 
-val _ = Hol_datatype`def
+val _ = Hol_datatype`update
   (* Conservative definition of new constants by specification
      ConstSpec witnesses proposition *)
   = ConstSpec of (string # term) list => term
@@ -274,16 +274,26 @@ val _ = Hol_datatype`def
   (* NewAxiom proposition *)
   | NewAxiom of term`
 
+(* We can extract a signature from such a context (see sigof below) *)
+
+val _ = Parse.type_abbrev("tyenv",``:string |-> num``)
+val _ = Parse.type_abbrev("tmenv",``:string |-> type``)
+val _ = Parse.type_abbrev("sig",``:tyenv#tmenv``)
+
+(* Standard signature includes the minimal type operators and constants *)
+
+val is_std_sig_def = Define`
+  is_std_sig ((tyenv,tmenv):sig) ⇔
+    FLOOKUP tyenv "fun" = SOME 2 ∧
+    FLOOKUP tyenv "bool" = SOME 0 ∧
+    FLOOKUP tmenv "=" = SOME (Fun (Tyvar"A") (Fun (Tyvar"A") Bool))`
+
 val init_ctxt_def = Define`
   init_ctxt = [NewConst "=" (Fun (Tyvar"A") (Fun (Tyvar"A") Bool))
               ;NewType "bool" 0
               ;NewType "fun" 2]`
 
 (* Projecting out pieces of the context *)
-
-val _ = Parse.type_abbrev("tyenv",``:string |-> num``)
-val _ = Parse.type_abbrev("tmenv",``:string |-> type``)
-val _ = Parse.type_abbrev("sig",``:tyenv#tmenv``)
 
   (* Introduced types and consts *)
 val types_of_def_def = Define`

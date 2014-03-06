@@ -75,35 +75,50 @@ val is_term_assignment_def = xDefine "is_term_assignment"`
       tmenv`
 val _ = Parse.overload_on("is_term_assignment",``is_term_assignment0 ^mem``)
 
-(* An intererpretation is a pair of assignments *)
+(* A complete valuation is a pair of type/term valuations.
+   An interpretation is a pair of assignments. *)
 
-val _ = Parse.type_abbrev("interp",``:'U tyass # 'U tmass``)
+val _ = Parse.type_abbrev("valuation", ``:'U tyval # 'U tmval``)
+
+val is_valuation_def = xDefine "is_valuation"`
+  is_valuation0 ^mem δ (τ,σ) ⇔
+    is_type_valuation τ ∧
+    is_term_valuation τ δ σ`
+val _ = Parse.overload_on("is_valuation",``is_valuation0 ^mem``)
+
+val _ = Parse.type_abbrev("interpretation",``:'U tyass # 'U tmass``)
 
 (* Semantics of terms. *)
 
 val termsem_def = xDefine "termsem"`
-  (termsem0 ^mem τ σ (i:'U interp) (Var x ty) = σ (x,ty)) ∧
-  (termsem0 ^mem τ σ (δ,γ) (Const name ty) = γ name ty τ) ∧
-  (termsem0 ^mem τ σ i (Comb t1 t2) =
-   termsem0 ^mem τ σ i t1 ' (termsem0 ^mem τ σ i t2)) ∧
-  (termsem0 ^mem τ σ (δ,γ) (Abs x ty b) =
+  (termsem0 ^mem (τ,σ) (i:'U interpretation) (Var x ty) = σ (x,ty)) ∧
+  (termsem0 ^mem (v:'U valuation) (δ,γ) (Const name ty) = γ name ty τ) ∧
+  (termsem0 ^mem (τ,σ) i (Comb t1 t2) =
+   termsem0 ^mem (τ,σ) i t1 ' (termsem0 ^mem (τ,σ) i t2)) ∧
+  (termsem0 ^mem (τ,σ) (δ,γ) (Abs x ty b) =
    Abstract (typesem τ δ ty) (typesem τ δ (typeof b))
-     (λm. termsem0 ^mem τ (((x,ty)=+m)σ) (δ,γ) b))`
+     (λm. termsem0 ^mem (τ,((x,ty)=+m)σ) (δ,γ) b))`
 val _ = Parse.overload_on("termsem",``termsem0 ^mem``)
 
 (* Satisfaction of sequents. *)
 
-val _ = Parse.add_infix("satisfies",450,Parse.NONASSOC)
-
 val satisfies_def = xDefine"satisfies"`
   satisfies0 ^mem i (h,c) ⇔
     EVERY (λt. t has_type Bool) (c::h) ∧
-    ∀τ σ.
-      is_type_valuation τ ∧
-      is_term_valuation τ (FST i) σ ∧
-      EVERY (λt. termsem τ σ i t = True) h
-    ⇒ termsem τ σ i c = True`
+    ∀v. is_valuation (FST i) v ∧
+        EVERY (λt. termsem v i t = True) h
+      ⇒ termsem v i c = True`
+val _ = Parse.add_infix("satisfies",450,Parse.NONASSOC)
 val _ = Parse.overload_on("satisfies",``satisfies0 ^mem``)
+
+(* A interpretation of a theory is a pair of assignments to the constants and
+   types in the theory. *)
+
+val is_interpretation_def = xDefine "is_interpretation"`
+  is_interpretation0 ^mem (tyenv,tmenv) (δ,γ) ⇔
+    is_type_assignment tyenv δ ∧
+    is_term_assignment tmenv δ γ`
+val _ = Parse.overload_on("is_interpretation",``is_interpretation0 ^mem``)
 
 (* The assignments are standard if they interpret fun, bool, and = according
    to the standard model. *)
@@ -123,31 +138,36 @@ val is_std_interpretation_def = xDefine "is_std_interpretation"`
                  (λx. Abstract mty boolset (λy. Boolean (x = y))))`
 val _ = Parse.overload_on("is_std_interpretation",``is_std_interpretation0 ^mem``)
 
-(* A interpretation of a theory is a pair of standard assignments to the
-   constants and types in the theory. *)
-
-val is_interpretation_def = xDefine "is_interpretation"`
-  is_interpretation0 ^mem (tyenv,tmenv) (δ,γ) ⇔
-    is_type_assignment tyenv δ ∧
-    is_term_assignment tmenv δ γ ∧
-    is_std_interpretation (δ,γ)`
-val _ = Parse.overload_on("is_interpretation",``is_interpretation0 ^mem``)
-
-(* A model of a theory is a good interpretation that satisfies all the axioms. *)
+(* A model of a theory is a standard interpretation that satisfies all the
+   axioms. *)
 
 val is_model_def = xDefine"is_model"`
   is_model0 ^mem (sig, axs) i ⇔
     is_interpretation sig i ∧
+    is_std_interpretation i ∧
     EVERY (λp. i satisfies ([],p)) axs`
 val _ = Parse.overload_on("is_model",``is_model0 ^mem``)
 
 (* Validity of sequents. *)
 
-val _ = Parse.add_infix("|=",450,Parse.NONASSOC)
-
 val entails_def = xDefine"entails"`
   entails0 ^mem (ctxt,h) c ⇔
-    ∀i. is_model (sigof ctxt, axioms ctxt) i ⇒ i satisfies (h,c)`
+    is_std_sig (sigof ctxt) ∧
+    ∀i. is_model (sigof ctxt, axioms ctxt) i
+        ⇒ i satisfies (h,c)`
+val _ = Parse.add_infix("|=",450,Parse.NONASSOC)
 val _ = Parse.overload_on("|=",``entails0 ^mem``)
+
+
+(* Collect standard signature, standard interpretation and valuation up in one
+   predicate *)
+
+val is_structure_def = xDefine"is_structure"`
+  is_structure0 ^mem sig val int ⇔
+    is_std_sig sig ∧
+    is_valuation (FST int) val ∧
+    is_std_interpretation int ∧
+    is_interpretation sig int`
+val _ = Parse.overload_on("is_structure",``is_structure0 ^mem``)
 
 val _ = export_theory()
