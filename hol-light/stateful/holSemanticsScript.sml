@@ -153,6 +153,7 @@ val _ = Parse.overload_on("is_model",``is_model0 ^mem``)
 val entails_def = xDefine"entails"`
   entails0 ^mem (ctxt,h) c ⇔
     is_std_sig (sigof ctxt) ∧
+    EVERY (term_ok (sigof ctxt)) (c::h) ∧
     ∀i. is_model (sigof ctxt, axioms ctxt) i
         ⇒ i satisfies (h,c)`
 val _ = Parse.add_infix("|=",450,Parse.NONASSOC)

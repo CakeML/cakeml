@@ -123,6 +123,35 @@ val ACONV_TYPE = store_thm("ACONV_TYPE",
   ``∀s t. ACONV s t ⇒ welltyped s ∧ welltyped t ⇒ (typeof s = typeof t)``,
   rw[ACONV_def] >> imp_res_tac RACONV_TYPE >> fs[])
 
+val RACONV_welltyped = store_thm("RACONV_welltyped",
+  ``∀t1 env t2.
+    EVERY (λ(x,y). welltyped x ∧ welltyped y ∧ typeof x = typeof y) env ∧
+    welltyped t1 ∧ RACONV env (t1,t2) ⇒
+    welltyped t2``,
+  Induct >>
+  simp[Once RACONV_cases] >- (
+    rw[] >> rw[WELLTYPED_CLAUSES] )
+  >- (
+    rw[WELLTYPED_CLAUSES] >>
+    pop_assum mp_tac >>
+    simp[Once RACONV_cases] >>
+    rw[] >> rw[WELLTYPED_CLAUSES] >>
+    metis_tac[RACONV_TYPE,FST,SND] )
+  >- (
+    rw[Once RACONV_cases] >>
+    pop_assum mp_tac >>
+    rw[Once RACONV_cases] >>
+    rw[WELLTYPED_CLAUSES] >>
+    first_x_assum match_mp_tac >>
+    qmatch_assum_abbrev_tac`RACONV env' pp` >>
+    qexists_tac`env'` >>
+    simp[Abbr`env'`]))
+
+val ACONV_welltyped = store_thm("ACONV_welltyped",
+  ``∀t1 t2. ACONV t1 t2 ∧ welltyped t1 ⇒ welltyped t2``,
+  rw[ACONV_def] >>
+  metis_tac[RACONV_welltyped,EVERY_DEF])
+
 (* VFREE_IN lemmas *)
 
 val VFREE_IN_RACONV = store_thm("VFREE_IN_RACONV",
@@ -150,9 +179,8 @@ val TERM_UNION_THM = store_thm("TERM_UNION_THM",
               ⇒ ∃y. MEM y (TERM_UNION l1 l2) ∧ ACONV x y``,
   Induct >> simp[TERM_UNION_def] >> rw[EXISTS_MEM] >> metis_tac[ACONV_REFL])
 
-val ALL_BOOL_TERM_UNION = store_thm("ALL_BOOL_TERM_UNION",
-  ``EVERY (λa. a has_type Bool) l1 ∧ EVERY (λa. a has_type Bool) l2
-    ⇒ EVERY (λa. a has_type Bool) (TERM_UNION l1 l2)``,
+val EVERY_TERM_UNION = store_thm("EVERY_TERM_UNION",
+  ``EVERY P l1 ∧ EVERY P l2 ⇒ EVERY P (TERM_UNION l1 l2)``,
   rw[EVERY_MEM] >> metis_tac[TERM_UNION_NONEW])
 
 (* VSUBST lemmas *)
@@ -384,5 +412,30 @@ val EQUATION_HAS_TYPE_BOOL = store_thm("EQUATION_HAS_TYPE_BOOL",
           ⇔ welltyped s ∧ welltyped t ∧ (typeof s = typeof t)``,
   rw[equation_def] >> rw[Ntimes has_type_cases 3] >>
   metis_tac[WELLTYPED_LEMMA,WELLTYPED])
+
+(* term_ok *)
+
+val term_ok_welltyped = store_thm("term_ok_welltyped",
+  ``∀sig t. term_ok sig t ⇒ welltyped t``,
+  Cases >> Induct >> simp[term_ok_def])
+
+val term_ok_type_ok = store_thm("term_ok_type_ok",
+  ``∀sig t. is_std_sig sig ∧ term_ok sig t
+          ⇒ type_ok (FST sig) (typeof t)``,
+  Cases >> Induct >> simp[term_ok_def] >> rw[] >>
+  fs[is_std_sig_def,type_ok_def])
+
+val term_ok_equation = store_thm("term_ok_equation",
+  ``is_std_sig sig ⇒
+      (term_ok sig (s === t) ⇔
+        term_ok sig s ∧ term_ok sig t ∧
+        typeof t = typeof s)``,
+  Cases_on`sig` >> rw[equation_def,term_ok_def] >>
+  rw[EQ_IMP_THM] >>
+  imp_res_tac term_ok_welltyped >>
+  imp_res_tac term_ok_type_ok >>
+  fs[is_std_sig_def,type_ok_def] >>
+  qexists_tac`[(typeof s,Tyvar "A")]` >>
+  rw[holSyntaxLibTheory.REV_ASSOCD_def])
 
 val _ = export_theory()

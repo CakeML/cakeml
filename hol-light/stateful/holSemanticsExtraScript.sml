@@ -1,5 +1,5 @@
 open HolKernel boolLib boolSimps bossLib lcsymtacs listTheory finite_mapTheory
-open miscTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory setSpecTheory
+open miscTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory setSpecTheory
 val _ = temp_tight_equality()
 val _ = new_theory"holSemanticsExtra"
 
@@ -8,6 +8,8 @@ val mem = ``mem:'U->'U->bool``
 val is_std_interpretation_is_type = store_thm("is_std_interpretation_is_type",
   ``is_std_interpretation i ⇒ is_std_type_assignment (FST i)``,
   Cases_on`i` >> simp[is_std_interpretation_def])
+
+(* typesem *)
 
 val typesem_inhabited = store_thm("typesem_inhabited",
   ``is_set_theory ^mem ⇒
@@ -33,6 +35,8 @@ val typesem_Fun = store_thm("typesem_Fun",
     typesem τ δ (Fun dom rng) =
     Funspace (typesem τ δ dom) (typesem τ δ rng)``,
   rw[is_std_type_assignment_def,typesem_def])
+
+(* termsem *)
 
 val termsem_clauses = store_thm("termsem_clauses",
   ``(∀v i x ty. termsem v i (Var x ty) = (SND v) (x,ty)) ∧
@@ -109,17 +113,7 @@ val termsem_Equal = store_thm("termsem_Equal",
   Cases >> Cases >>
   rw[is_std_interpretation_def,termsem_clauses])
 
-val term_ok_equation = store_thm("term_ok_equation",
-  ``is_std_sig sig ⇒
-      (term_ok sig (s === t) ⇔
-        term_ok sig s ∧ term_ok sig t ∧
-        welltyped t ∧ welltyped s ∧
-        typeof t = typeof s ∧
-        type_ok (FST sig) (typeof s))``,
-  Cases_on`sig` >> rw[equation_def,term_ok_def,type_ok_def,is_std_sig_def] >>
-  rw[EQ_IMP_THM] >>
-  qexists_tac`[(typeof s,Tyvar "A")]` >>
-  rw[holSyntaxLibTheory.REV_ASSOCD_def])
+(* equations *)
 
 val termsem_equation = store_thm("termsem_equation",
   ``is_set_theory ^mem ⇒
@@ -144,5 +138,42 @@ val termsem_equation = store_thm("termsem_equation",
     unabbrev_all_tac >> simp[] >>
     metis_tac[termsem_typesem,boolean_in_boolset] ) >>
   unabbrev_all_tac >> simp[])
+
+(* aconv *)
+
+val termsem_raconv = store_thm("termsem_raconv",
+  ``is_set_theory ^mem ⇒
+    ∀env tp. RACONV env tp ⇒
+      ∀v1 v2 i.
+        (FST v2 = FST v1) ∧
+        (∀x1 ty1 x2 ty2.
+          ALPHAVARS env (Var x1 ty1,Var x2 ty2) ⇒
+            (termsem v1 i (Var x1 ty1) =
+             termsem v2 i (Var x2 ty2))) ∧
+        EVERY (λ(x,y). welltyped x ∧ welltyped y ∧ typeof x = typeof y) env ∧
+        welltyped (FST tp) ∧ welltyped (SND tp)
+        ⇒
+        termsem v1 i (FST tp) = termsem v2 i (SND tp)``,
+  strip_tac >>
+  ho_match_mp_tac RACONV_strongind >>
+  rpt conj_tac >> simp[termsem_clauses] >>
+  TRY (metis_tac[]) >>
+  rpt gen_tac >> strip_tac >>
+  rpt gen_tac >> strip_tac >>
+  qmatch_assum_abbrev_tac`RACONV env1 p1` >>
+  qspecl_then[`env1`,`p1`]mp_tac RACONV_TYPE >>
+  simp[Abbr`env1`,Abbr`p1`] >> strip_tac >>
+  rpt AP_TERM_TAC >> simp[FUN_EQ_THM] >>
+  rw[] >> first_x_assum (match_mp_tac o MP_CANON) >>
+  simp[ALPHAVARS_def,combinTheory.APPLY_UPDATE_THM] >>
+  rw[] >> fs[])
+
+val termsem_aconv = store_thm("termsem_aconv",
+  ``is_set_theory ^mem ⇒
+    ∀v i t1 t2. ACONV t1 t2 ∧ welltyped t1 ⇒ termsem v i t1 = termsem v i t2``,
+  rw[ACONV_def] >>
+  imp_res_tac termsem_raconv >>
+  rfs[ALPHAVARS_def] >>
+  metis_tac[ACONV_welltyped,ACONV_def])
 
 val _ = export_theory()
