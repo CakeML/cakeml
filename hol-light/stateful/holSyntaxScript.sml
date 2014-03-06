@@ -1,4 +1,4 @@
-open HolKernel boolLib boolSimps bossLib lcsymtacs pred_setTheory listTheory holSyntaxLibTheory
+open HolKernel boolLib boolSimps bossLib lcsymtacs pred_setTheory listTheory alistTheory holSyntaxLibTheory
 val _ = temp_tight_equality()
 val _ = new_theory "holSyntax"
 
@@ -281,6 +281,10 @@ val init_ctxt_def = Define`
 
 (* Projecting out pieces of the context *)
 
+val _ = Parse.type_abbrev("tyenv",``:string |-> num``)
+val _ = Parse.type_abbrev("tmenv",``:string |-> type``)
+val _ = Parse.type_abbrev("sig",``:tyenv#tmenv``)
+
   (* Introduced types and consts *)
 val types_of_def_def = Define`
   (types_of_def (ConstSpec _ _) = []) ∧
@@ -300,8 +304,11 @@ val consts_of_def_def = Define`
   (consts_of_def (NewConst name type) = [(name,type)]) ∧
   (consts_of_def (NewAxiom _) = [])`
 
-val _ = Parse.overload_on("types",``λctxt. FLAT (MAP types_of_def ctxt)``)
-val _ = Parse.overload_on("consts",``λctxt. FLAT (MAP consts_of_def ctxt)``)
+val _ = Parse.overload_on("type_list",``λctxt. FLAT (MAP types_of_def ctxt)``)
+val _ = Parse.overload_on("types",``λctxt. alist_to_fmap (type_list ctxt)``)
+val _ = Parse.overload_on("const_list",``λctxt. FLAT (MAP consts_of_def ctxt)``)
+val _ = Parse.overload_on("consts",``λctxt. alist_to_fmap (const_list ctxt)``)
+val _ = Parse.overload_on("sigof",``λctxt. (types ctxt, consts ctxt)``)
 
   (* Required terms (no types are required directly) *)
 val terms_of_def_def = Define`
@@ -320,46 +327,46 @@ val _ = Parse.overload_on("axioms",``λctxt. FLAT (MAP axioms_of_def ctxt)``)
 (* Good types/terms in context *)
 
 val type_ok_def = tDefine "type_ok"`
-   (type_ok ctxt (Tyvar _) ⇔ T) ∧
-   (type_ok ctxt (Tyapp name args) ⇔
-      MEM (name,LENGTH args) (types ctxt) ∧
-      EVERY (type_ok ctxt) args)`
+   (type_ok tyenv (Tyvar _) ⇔ T) ∧
+   (type_ok tyenv (Tyapp name args) ⇔
+      FLOOKUP tyenv name = SOME (LENGTH args) ∧
+      EVERY (type_ok tyenv) args)`
 (type_rec_tac "SND")
 
 val term_ok_def = Define`
-  (term_ok ctxt (Var x ty) ⇔ type_ok ctxt ty) ∧
-  (term_ok ctxt (Const name ty) ⇔
-     ∃ty0. MEM (name,ty0) (consts ctxt) ∧
-           type_ok ctxt ty ∧
+  (term_ok (tyenv,tmenv) (Var x ty) ⇔ type_ok tyenv ty) ∧
+  (term_ok (tyenv,tmenv) (Const name ty) ⇔
+     ∃ty0. FLOOKUP tmenv name = SOME ty0 ∧
+           type_ok tyenv ty ∧
            is_instance ty0 ty) ∧
-  (term_ok ctxt (Comb tm1 tm2) ⇔
-     term_ok ctxt tm1 ∧
-     term_ok ctxt tm2 ∧
+  (term_ok sig (Comb tm1 tm2) ⇔
+     term_ok sig tm1 ∧
+     term_ok sig tm2 ∧
      welltyped (Comb tm1 tm2)) ∧
-  (term_ok ctxt (Abs x ty tm) ⇔
-     type_ok ctxt ty ∧
-     term_ok ctxt tm)`
+  (term_ok (tyenv,tmenv) (Abs x ty tm) ⇔
+     type_ok tyenv ty ∧
+     term_ok (tyenv,tmenv) tm)`
 
 (* Internal consistency of context *)
 
 val linear_context_def = Define`
   (linear_context [] ⇔ T) ∧
   (linear_context (def::ctxt) ⇔
-   EVERY (term_ok ctxt) (terms_of_def def) ∧
+   EVERY (term_ok (sigof ctxt)) (terms_of_def def) ∧
    EVERY (λp. p has_type Bool) (axioms_of_def def) ∧
    linear_context ctxt)`
 
 val context_ok_def = Define`
   context_ok ctxt ⇔
-    ALL_DISTINCT (MAP FST (types ctxt)) ∧
-    ALL_DISTINCT (MAP FST (consts ctxt)) ∧
+    ALL_DISTINCT (MAP FST (type_list ctxt)) ∧
+    ALL_DISTINCT (MAP FST (const_list ctxt)) ∧
     linear_context ctxt`
 
 val _ = Parse.add_infix("|-",450,Parse.NONASSOC)
 
 val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
   (* REFL *)
-  (context_ok ctxt ∧ term_ok ctxt t
+  (context_ok ctxt ∧ term_ok (sigof ctxt) t
    ⇒ (ctxt, []) |- t === t) ∧
 
   (* TRANS *)
@@ -375,17 +382,17 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
    ⇒ (ctxt, TERM_UNION asl1 asl2) |- Comb l1 l2 === Comb r1 r2) ∧
 
   (* ABS *)
-  (¬(EXISTS (VFREE_IN (Var x ty)) asl) ∧ type_ok ctxt ty ∧
+  (¬(EXISTS (VFREE_IN (Var x ty)) asl) ∧ type_ok (types ctxt) ty ∧
    (ctxt, asl) |- l === r
    ⇒ (ctxt, asl) |- (Abs x ty l) === (Abs x ty r)) ∧
 
   (* BETA *)
-  (context_ok ctxt ∧ term_ok ctxt t ∧ type_ok ctxt ty
+  (context_ok ctxt ∧ term_ok (sigof ctxt) t ∧ type_ok (types ctxt) ty
    ⇒ (defs, []) |- Comb (Abs x ty t) (Var x ty) === t) ∧
 
   (* ASSUME *)
-  (context_ok ctxt ∧ p has_type Bool ∧ term_ok ctxt p
-   ⇒ (defs, [p]) |- p) ∧
+  (context_ok ctxt ∧ p has_type Bool ∧ term_ok (sigof ctxt) p
+   ⇒ (ctxt, [p]) |- p) ∧
 
   (* EQ_MP *)
   ((ctxt, asl1) |- p === q ∧
@@ -400,13 +407,13 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
             |- c1 === c2) ∧
 
   (* INST_TYPE *)
-  ((EVERY (type_ok ctxt) (MAP FST tyin)) ∧
+  ((EVERY (type_ok (types ctxt)) (MAP FST tyin)) ∧
    (ctxt, asl) |- p
    ⇒ (ctxt, MAP (INST tyin) asl) |- INST tyin p) ∧
 
   (* INST *)
   ((∀s s'. MEM (s',s) ilist ⇒
-             ∃x ty. (s = Var x ty) ∧ s' has_type ty ∧ term_ok ctxt s') ∧
+             ∃x ty. (s = Var x ty) ∧ s' has_type ty ∧ term_ok (sigof ctxt) s') ∧
    (ctxt, asl) |- p
    ⇒ (ctxt, MAP (VSUBST ilist) asl) |- VSUBST ilist p) ∧
 
@@ -414,10 +421,10 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
   ((abs_type = Tyapp name (MAP Tyvar (STRING_SORT (tvars pred)))) ∧
    (ctxt, []) |- Comb pred witness ∧
    CLOSED pred /\ pred has_type (Fun rep_type Bool) ∧
-   ¬(MEM name (MAP FST (types ctxt))) ∧
-   ¬(MEM abs (MAP FST (consts ctxt))) ∧
-   ¬(MEM rep (MAP FST (consts ctxt))) ∧
-   ¬(abs = rep) ∧
+   name ∉ (FDOM (types ctxt)) ∧
+   abs ∉ (FDOM (consts ctxt)) ∧
+   rep ∉ (FDOM (consts ctxt)) ∧
+   abs ≠ rep ∧
    ((ctxt, asl) |- p  ∨
     ((asl,p) = ([],
        Comb (Const abs (Fun rep_type abs_type))
@@ -438,7 +445,7 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
      (MAP SND eqs) ∧
    (∀x ty. VFREE_IN (Var x ty) prop ⇒
              MEM (x,ty) (MAP (λ(s,t). (s,typeof t)) eqs)) ∧
-   (∀s. MEM s (MAP FST eqs) ⇒ ¬(MEM s (MAP FST (consts defs)))) ∧
+   (∀s. MEM s (MAP FST eqs) ⇒ s ∉ (FDOM (consts defs))) ∧
    ALL_DISTINCT (MAP FST eqs) ∧
    ((ctxt, asl) |- p ∨
     (let ilist = MAP (λ(s,t). let ty = typeof t in (Const s ty,Var s ty)) eqs in
@@ -447,18 +454,18 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
 
   (* new_type *)
   ((ctxt, asl) |- p ∧
-   ¬(MEM name (MAP FST (types ctxt)))
+   name ∉ (FDOM (types ctxt))
    ⇒ ((NewType name arity)::ctxt, asl) |- p) ∧
 
   (* new_constant *)
   ((ctxt, asl) |- p ∧
-   ¬(MEM name (MAP FST (consts ctxt))) ∧
-   type_ok ctxt ty
+   name ∉ (FDOM (consts ctxt)) ∧
+   type_ok (types ctxt) ty
    ⇒ ((NewConst name ty)::ctxt, asl) |- p) ∧
 
   (* new_axiom *)
   (prop has_type Bool ∧
-   term_ok ctxt prop ∧
+   term_ok (sigof ctxt) prop ∧
    ((ctxt, asl) |- p ∨
     ((asl,p) = ([],prop)))
    ⇒ ((NewAxiom prop)::ctxt, asl) |- p)`
