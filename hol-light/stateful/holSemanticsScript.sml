@@ -104,7 +104,6 @@ val _ = Parse.overload_on("termsem",``termsem0 ^mem``)
 
 val satisfies_def = xDefine"satisfies"`
   satisfies0 ^mem i (h,c) ⇔
-    EVERY (λt. t has_type Bool) (c::h) ∧
     ∀v. is_valuation (FST i) v ∧
         EVERY (λt. termsem v i t = True) h
       ⇒ termsem v i c = True`
@@ -154,6 +153,7 @@ val entails_def = xDefine"entails"`
   entails0 ^mem (ctxt,h) c ⇔
     is_std_sig (sigof ctxt) ∧
     EVERY (term_ok (sigof ctxt)) (c::h) ∧
+    EVERY (λt. t has_type Bool) (c::h) ∧
     ∀i. is_model (sigof ctxt, axioms ctxt) i
         ⇒ i satisfies (h,c)`
 val _ = Parse.add_infix("|=",450,Parse.NONASSOC)

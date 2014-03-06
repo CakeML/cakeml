@@ -36,6 +36,12 @@ val typesem_Fun = store_thm("typesem_Fun",
     Funspace (typesem τ δ dom) (typesem τ δ rng)``,
   rw[is_std_type_assignment_def,typesem_def])
 
+val typesem_Bool = store_thm("typesem_Bool",
+  ``∀τ δ.
+    is_std_type_assignment δ ⇒
+    typesem τ δ Bool = boolset``,
+  rw[is_std_type_assignment_def,typesem_def])
+
 (* termsem *)
 
 val termsem_clauses = store_thm("termsem_clauses",
@@ -175,5 +181,22 @@ val termsem_aconv = store_thm("termsem_aconv",
   imp_res_tac termsem_raconv >>
   rfs[ALPHAVARS_def] >>
   metis_tac[ACONV_welltyped,ACONV_def])
+
+(* semantics only depends on valuation of free variables *)
+val termsem_frees = store_thm("termsem_frees",
+  ``∀v i t v'.
+      FST v = FST v' ∧
+      (∀x ty. VFREE_IN (Var x ty) t ⇒ (SND v) (x,ty) = (SND v') (x,ty))
+      ⇒ termsem v i t = termsem v' i t``,
+  ho_match_mp_tac termsem_niceind >>
+  simp[termsem_clauses] >>
+  conj_tac >- metis_tac[] >>
+  rw[] >> rpt AP_TERM_TAC >>
+  simp[FUN_EQ_THM] >> rw[] >>
+  Q.PAT_ABBREV_TAC`vv = ((X,Y (SND v')):'U valuation)` >>
+  first_x_assum(qspecl_then[`m`,`vv`]mp_tac) >>
+  simp[Abbr`vv`] >> disch_then match_mp_tac >>
+  rw[combinTheory.APPLY_UPDATE_THM] >>
+  first_x_assum match_mp_tac >> fs[])
 
 val _ = export_theory()
