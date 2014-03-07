@@ -455,7 +455,7 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
      (MAP SND eqs) ∧
    (∀x ty. VFREE_IN (Var x ty) prop ⇒
              MEM (x,ty) (MAP (λ(s,t). (s,typeof t)) eqs)) ∧
-   (∀s. MEM s (MAP FST eqs) ⇒ s ∉ (FDOM (consts defs))) ∧
+   (∀s. MEM s (MAP FST eqs) ⇒ s ∉ (FDOM (consts ctxt))) ∧
    ALL_DISTINCT (MAP FST eqs) ∧
    ((ctxt, asl) |- p ∨
     (let ilist = MAP (λ(s,t). let ty = typeof t in (Const s ty,Var s ty)) eqs in

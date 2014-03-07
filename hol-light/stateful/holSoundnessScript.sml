@@ -1,5 +1,5 @@
-open HolKernel boolLib bossLib lcsymtacs listTheory
-open setSpecTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
+open HolKernel boolLib bossLib lcsymtacs listTheory finite_mapTheory alistTheory pred_setTheory pairTheory
+open miscLib setSpecTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
 val _ = temp_tight_equality()
 val _ = new_theory"holSoundness"
 
@@ -290,7 +290,105 @@ val new_axiom_correct = store_thm("new_axiom_correct",
   rpt gen_tac >> strip_tac >> simp[] >> rw[] >- (
     first_x_assum match_mp_tac >>
     match_mp_tac is_model_reduce >>
-    metis_tac[rich_listTheory.CONS_APPEND,finite_mapTheory.SUBMAP_REFL] ) >>
+    metis_tac[rich_listTheory.CONS_APPEND,SUBMAP_REFL] ) >>
   fs[is_model_def])
+
+val new_specification_correct = store_thm("new_specification_correct",
+  ``is_set_theory ^mem ⇒
+    ∀ctxt eqs prop asl p.
+    (ctxt, MAP (λ(s,t). Var s (typeof t) === t) eqs) |= prop ∧
+    EVERY
+      (λt. CLOSED t ∧
+           (∀v. MEM v (tvars t) ⇒ MEM v (tyvars (typeof t))))
+      (MAP SND eqs) ∧
+    (∀x ty. VFREE_IN (Var x ty) prop ⇒
+              MEM (x,ty) (MAP (λ(s,t). (s,typeof t)) eqs)) ∧
+    (∀s. MEM s (MAP FST eqs) ⇒ s ∉ (FDOM (consts ctxt))) ∧
+    ALL_DISTINCT (MAP FST eqs) ∧
+    ((ctxt, asl) |= p ∨
+     (let ilist = MAP (λ(s,t). let ty = typeof t in (Const s ty,Var s ty)) eqs in
+        (asl,p) = ([],VSUBST ilist prop)))
+    ⇒ ((ConstSpec eqs prop)::ctxt,asl) |= p``,
+  strip_tac >> rpt gen_tac >>
+  Q.PAT_ABBREV_TAC`D ⇔ A ∨ B` >>
+  simp[entails_def,types_of_def_def,consts_of_def_def,axioms_of_def_def] >>
+  rpt gen_tac >> strip_tac >>
+  Q.PAT_ABBREV_TAC`cs:(string |-> type) = alist_to_fmap Z` >>
+  `consts ctxt ⊑ cs ⊌ consts ctxt` by (
+    match_mp_tac SUBMAP_FUNION >>
+    simp[Abbr`cs`,IN_DISJOINT] >>
+    fs[MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
+    metis_tac[] ) >>
+  conj_asm1_tac >- (
+    match_mp_tac is_std_sig_extend >>
+    metis_tac[SUBMAP_REFL] ) >>
+  conj_asm1_tac >- (
+    fs[Abbr`D`,EVERY_MEM,entails_def,LET_THM] >> rw[] >>
+    TRY (match_mp_tac term_ok_VSUBST >> conj_tac) >>
+    TRY (
+      match_mp_tac term_ok_extend >>
+      map_every qexists_tac[`types ctxt`,`consts ctxt`] >>
+      simp[] >> NO_TAC) >>
+    rw[MEM_MAP,EXISTS_PROD,term_ok_def,Abbr`cs`,FLOOKUP_FUNION] >>
+    rw[Once has_type_cases] >>
+    rw[ALOOKUP_MAP] >>
+    imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
+    rw[] >>
+    fs[MEM_MAP,PULL_EXISTS] >>
+    qmatch_assum_abbrev_tac`MEM eq eqs` >>
+    last_x_assum(qspec_then`eq`mp_tac) >>
+    simp[Abbr`eq`,term_ok_equation,term_ok_def] ) >>
+  conj_asm1_tac >- (
+    fs[Abbr`D`,entails_def,LET_THM] >>
+    match_mp_tac VSUBST_HAS_TYPE >>
+    simp[MEM_MAP,PULL_EXISTS,FORALL_PROD] >>
+    rw[Once has_type_cases] ) >>
+  rpt strip_tac >>
+  `is_model (sigof ctxt,axioms ctxt) i` by (
+    match_mp_tac is_model_reduce >>
+    metis_tac[APPEND,SUBMAP_REFL] ) >>
+  fs[Abbr`D`,LET_THM,entails_def] >>
+  fs[satisfies_def] >> rw[] >>
+  first_x_assum(qspec_then`i`mp_tac) >> rw[] >>
+  qabbrev_tac`vv = λ(x,ty).
+    case ALOOKUP eqs x of
+    | NONE => SND v (x,ty)
+    | SOME t => if ty ≠ typeof t then SND v (x,ty) else termsem i v t` >>
+  first_x_assum(qspec_then`(FST v,vv)`mp_tac) >>
+  discharge_hyps >- (
+    conj_asm1_tac >- (
+      Cases_on`v`>>fs[is_valuation_def,is_term_valuation_def] >>
+      simp[Abbr`vv`] >> rw[] >>
+      Cases_on`i`>>fs[is_model_def,is_interpretation_def,is_term_assignment_def] >>
+      BasicProvers.CASE_TAC >> rw[] >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs[EVERY_MAP,EVERY_MEM] >>
+      match_mp_tac (UNDISCH termsem_typesem) >>
+      simp[is_valuation_def,is_term_valuation_def] >>
+      qexists_tac`sigof ctxt` >>
+      simp[is_interpretation_def,is_term_assignment_def] >>
+      imp_res_tac is_std_interpretation_is_type >> fs[] >>
+      fs[FORALL_PROD] >>
+      metis_tac[term_ok_equation]) >>
+    simp[EVERY_MAP,EVERY_MEM,FORALL_PROD] >>
+    `is_structure (sigof ctxt) i (FST v,vv)` by (
+      fs[is_structure_def,is_model_def] ) >>
+    qx_genl_tac[`x`,`t`] >> strip_tac >>
+    `term_ok (sigof ctxt) (Var x (typeof t) === t)` by (
+      fs[EVERY_MAP,EVERY_MEM,FORALL_PROD] ) >>
+    imp_res_tac (UNDISCH termsem_equation) >>
+    simp[boolean_eq_true,termsem_def] >>
+    simp[Abbr`vv`] >>
+    imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
+    simp[] >>
+    match_mp_tac termsem_frees >>
+    simp[] >>
+    fs[EVERY_MAP,EVERY_MEM,FORALL_PROD] >>
+    metis_tac[CLOSED_def] ) >>
+  cheat)
+
+(*
+val new_type_definition_correct = store_thm("new_type_definition_correct",
+*)
 
 val _ = export_theory()

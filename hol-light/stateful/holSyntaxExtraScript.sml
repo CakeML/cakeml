@@ -12,6 +12,20 @@ val type_ind = save_thm("type_ind",
   |> DISCH_ALL
   |> Q.GEN`P`)
 
+(* type substitution *)
+
+val TYPE_SUBST_NIL = store_thm("TYPE_SUBST_NIL",
+  ``∀ty. TYPE_SUBST [] ty = ty``,
+  ho_match_mp_tac type_ind >>
+  rw[REV_ASSOCD,MAP_EQ_ID] >>
+  fs[EVERY_MEM])
+val _ = export_rewrites["TYPE_SUBST_NIL"]
+
+val is_instance_refl = store_thm("is_instance_refl",
+  ``∀ty. is_instance ty ty``,
+  rw[] >> qexists_tac`[]` >> rw[])
+val _ = export_rewrites["is_instance_refl"]
+
 (* Welltyped terms *)
 
 val WELLTYPED_LEMMA = store_thm("WELLTYPED_LEMMA",
@@ -438,6 +452,26 @@ val term_ok_equation = store_thm("term_ok_equation",
   fs[is_std_sig_def,type_ok_def] >>
   qexists_tac`[(typeof s,Tyvar "A")]` >>
   rw[holSyntaxLibTheory.REV_ASSOCD_def])
+
+val term_ok_VSUBST = store_thm("term_ok_VSUBST",
+  ``∀sig tm ilist.
+    term_ok sig tm ∧
+    (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty ∧ term_ok sig s')
+    ⇒
+    term_ok sig (VSUBST ilist tm)``,
+  Cases >> Induct >> simp[VSUBST_def,term_ok_def] >- (
+    ntac 2 gen_tac >> Induct >> simp[REV_ASSOCD,term_ok_def] >>
+    Cases >> simp[REV_ASSOCD] >> rw[term_ok_def] >> metis_tac[])
+  >- (
+    rw[] >>
+    imp_res_tac VSUBST_WELLTYPED >>
+    imp_res_tac WELLTYPED >>
+    imp_res_tac VSUBST_HAS_TYPE >>
+    metis_tac[WELLTYPED_LEMMA] ) >>
+  rw[term_ok_def] >>
+  first_x_assum match_mp_tac >>
+  rw[term_ok_def,MEM_FILTER] >>
+  simp[Once has_type_cases])
 
 (* extending the context *)
 
