@@ -531,25 +531,31 @@ let consistent_decls decls (mdecls,tdecls,edecls) =
       | TypeId tid -> tid IN tdecls || exists mn tn. tid = Long mn tn && mn IN mdecls
     end
 
+val consistent_ctMap : decls -> ctMap -> bool
+let consistent_ctMap (mdecls,tdecls,edecls) ctMap =
+  forall ((cn,tid) IN Map.domain ctMap).
+    match tid with
+      | TypeId tn -> tn IN tdecls
+      | TypeExn cn -> cn IN edecls
+    end
+
 (* For using the type soundess theorem, we have to know there are good
  * constructor and module type environments that don't have bits hidden by a
  * signature. *)
 let type_sound_invariants (decls1,tenvM,tenvC,tenv,decls2,envM,envC,envE,store) =
-  exists tenvS tenvM_no_sig tenvC_no_sig. 
-    consistent_decls decls1 decls2 &&
+  exists ctMap tenvS decls_no_sig tenvM_no_sig tenvC_no_sig. 
+    consistent_decls decls2 decls1 &&
+    consistent_ctMap decls1 ctMap &&
+    ctMap_has_exns ctMap &&
     tenvM_ok tenvM_no_sig && 
-    ctMap_has_exns (to_ctMap tenvC_no_sig) &&
     tenvM_ok tenvM &&
-    ctMap_to_mods (to_ctMap tenvC_no_sig) subset Set.fromList (List.map Just (List.map fst tenvM_no_sig)) union {Nothing} &&
-    List.map fst tenvM_no_sig = List.map fst tenvM &&
-    List.map fst tenvM_no_sig = List.map fst (fst tenvC_no_sig) &&
-    consistent_mod_env tenvS (to_ctMap tenvC_no_sig) envM tenvM_no_sig &&
-    consistent_con_env (to_ctMap tenvC_no_sig) envC tenvC_no_sig &&
-    type_env (to_ctMap tenvC_no_sig) tenvS envE tenv &&
-    type_s (to_ctMap tenvC_no_sig) tenvS store &&
+    consistent_mod_env tenvS ctMap envM tenvM_no_sig &&
+    consistent_con_env ctMap envC tenvC_no_sig &&
+    type_env ctMap tenvS envE tenv &&
+    type_s ctMap tenvS store &&
     weakM tenvM_no_sig tenvM &&
     weakC tenvC_no_sig tenvC &&
-    weakenCT_only_mods (to_ctMap tenvC_no_sig) (to_ctMap tenvC)
+    weak_decls decls_no_sig decls1
 
 let update_type_sound_inv top ((decls1:decls),(tenvM:tenvM),(tenvC:tenvC),(tenv:tenvE),(decls2:set tid_or_exn),(envM:envM),(envC:envC),(envE:envE),store) decls1' tenvM' tenvC' tenv' store' decls2' envC' r =
   match r with

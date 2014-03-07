@@ -484,26 +484,34 @@ val _ = Define `
     )))`;
 
 
+(*val consistent_ctMap : decls -> ctMap -> bool*)
+val _ = Define `
+ (consistent_ctMap (mdecls,tdecls,edecls) ctMap =  
+(! ((cn,tid) :: FDOM ctMap).
+    (case tid of
+        TypeId tn => tn IN tdecls
+      | TypeExn cn => cn IN edecls
+    )))`;
+
+
 (* For using the type soundess theorem, we have to know there are good
  * constructor and module type environments that don't have bits hidden by a
  * signature. *)
 val _ = Define `
  (type_sound_invariants (decls1,tenvM,tenvC,tenv,decls2,envM,envC,envE,store) =  
-(? tenvS tenvM_no_sig tenvC_no_sig. 
-    consistent_decls decls1 decls2 /\    
+(? ctMap tenvS decls_no_sig tenvM_no_sig tenvC_no_sig. 
+    consistent_decls decls2 decls1 /\    
+(consistent_ctMap decls1 ctMap /\    
+(ctMap_has_exns ctMap /\    
 (tenvM_ok tenvM_no_sig /\    
- (ctMap_has_exns (to_ctMap tenvC_no_sig) /\    
-(tenvM_ok tenvM /\
-    ((ctMap_to_mods (to_ctMap tenvC_no_sig) SUBSET (LIST_TO_SET (MAP SOME (MAP FST tenvM_no_sig)) UNION {NONE})) /\
-    ((MAP FST tenvM_no_sig = MAP FST tenvM) /\
-    ((MAP FST tenvM_no_sig = MAP FST (FST tenvC_no_sig)) /\    
-(consistent_mod_env tenvS (to_ctMap tenvC_no_sig) envM tenvM_no_sig /\    
-(consistent_con_env (to_ctMap tenvC_no_sig) envC tenvC_no_sig /\    
-(type_env (to_ctMap tenvC_no_sig) tenvS envE tenv /\    
-(type_s (to_ctMap tenvC_no_sig) tenvS store /\    
+ (tenvM_ok tenvM /\    
+(consistent_mod_env tenvS ctMap envM tenvM_no_sig /\    
+(consistent_con_env ctMap envC tenvC_no_sig /\    
+(type_env ctMap tenvS envE tenv /\    
+(type_s ctMap tenvS store /\    
 (weakM tenvM_no_sig tenvM /\    
 (weakC tenvC_no_sig tenvC /\
-    weakenCT_only_mods (to_ctMap tenvC_no_sig) (to_ctMap tenvC)))))))))))))))`;
+    weak_decls decls_no_sig decls1))))))))))))`;
 
 
 val _ = Define `

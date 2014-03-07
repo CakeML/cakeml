@@ -793,5 +793,63 @@ val weaken_CT_only_mods_add = Q.store_thm ("weaken_CT_only_mods_add",
 val weakenCT_only_mods_refl = Q.store_thm ("weakenCT_only_mods_refl",
 `!ctMap. weakenCT_only_mods ctMap ctMap`,
 rw [weakenCT_only_mods_def]);
+val type_d_mdecls = Q.store_thm ("type_d_mdecls",
+`!mn tdecs1 tenvM tenvC tenv d tdecs1' cenv' tenv'.
+  type_d mn tdecs1 tenvM tenvC tenv d tdecs1' cenv' tenv'
+  ⇒
+  FST tdecs1 = FST tdecs1'`,
+ rw [type_d_cases] >>
+ rw []);
+
+val weak_decls_refl = Q.store_thm ("weak_decls_refl",
+`!decls. weak_decls decls decls`,
+ rw [] >>
+ PairCases_on `decls` >>
+ rw [weak_decls_def]);
+
+val weak_decls_trans = Q.store_thm ("weak_decls_trans",
+`!decls1 decls2 decls3. 
+  weak_decls decls1 decls2 ∧
+  weak_decls decls2 decls3
+  ⇒
+  weak_decls decls1 decls3`,
+ rw [] >>
+ PairCases_on `decls1` >>
+ PairCases_on `decls2` >>
+ PairCases_on `decls3` >>
+ fs [weak_decls_def, SUBSET_DEF]);
+
+val type_d_weak_decls = Q.store_thm ("type_d_weak_decls",
+`!mn tdecs1 tenvM tenvC tenv d tdecs1' cenv' tenv'.
+  type_d mn tdecs1 tenvM tenvC tenv d tdecs1' cenv' tenv'
+  ⇒
+  weak_decls tdecs1' tdecs1`,
+ rw [type_d_cases] >>
+ rw [weak_decls_refl, weak_decls_def]);
+
+val type_ds_weak_decls = Q.store_thm ("type_ds_weak_decls",
+`!mn tdecs1 tenvM tenvC tenv ds tdecs1' cenv' tenv'.
+  type_ds mn tdecs1 tenvM tenvC tenv ds tdecs1' cenv' tenv'
+  ⇒
+  weak_decls tdecs1' tdecs1`,
+ ho_match_mp_tac type_ds_ind >>
+ rw [weak_decls_refl] >>
+ metis_tac [type_d_weak_decls, weak_decls_trans]);
+
+val consistent_decls_weakening = Q.store_thm ("consistent_decls_weakening",
+`!decls1 decls2 decls3. 
+  consistent_decls decls1 decls3 ∧
+  weak_decls decls2 decls3
+  ⇒
+  consistent_decls decls1 decls2`,
+ rw [] >>
+ PairCases_on `decls2` >>
+ PairCases_on `decls3` >>
+ fs [consistent_decls_def, RES_FORALL, weak_decls_def] >>
+ rw [] >>
+ every_case_tac >>
+ fs [SUBSET_DEF] >>
+ res_tac >>
+ fs []);
 
 val _ = export_theory ();

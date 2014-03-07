@@ -464,18 +464,18 @@ val infer_d_def = Define `
     failwith "Bad type definition") ∧
 (infer_d mn tdecs menv cenv env (Dexn cn ts) =
   if check_exn_tenv mn cenv cn ts then
-    return (tdecs, bind cn ([], ts, TypeExn (mk_id mn cn) emp, [])
+    return (tdecs, bind cn ([], ts, TypeExn (mk_id mn cn)) emp, [])
   else
     failwith "Bad type definition")`;
 
 val infer_ds_def = Define `
-(infer_ds mn menv cenv env [] =
-  return ([],[])) ∧
-(infer_ds mn menv cenv env (d::ds) =
+(infer_ds mn tdecs menv cenv env [] =
+  return (tdecs, [],[])) ∧
+(infer_ds mn tdecs menv cenv env (d::ds) =
   do
-    (cenv',env') <- infer_d mn menv cenv env d;
-    (cenv'',env'') <- infer_ds mn menv (merge_tenvC ([],cenv') cenv) (env' ++ env) ds;
-    return (merge cenv'' cenv', env'' ++ env')
+    (tdecs',cenv',env') <- infer_d mn tdecs menv cenv env d;
+    (tdecs'',cenv'',env'') <- infer_ds mn tdecs' menv (merge_tenvC ([],cenv') cenv) (env' ++ env) ds;
+    return (tdecs'', merge cenv'' cenv', env'' ++ env')
   od)`;
 
 val t_to_freevars_def = Define `
@@ -506,7 +506,7 @@ val check_specs_def = Define `
   od) ∧
 (check_specs mn cenv env (Sexn cn ts :: specs) =
   do () <- guard (check_exn_tenv mn ((emp,cenv):tenvC) cn ts) "Bad exception definition";
-     check_specs mn (bind cn ([], ts, TypeExn mn) cenv) env specs
+     check_specs mn (bind cn ([], ts, TypeExn (mk_id mn cn)) cenv) env specs
   od) ∧
 (check_specs mn cenv env (Stype_opq tvs tn :: specs) =
   do () <- guard (EVERY (\(cn,(x,y,tn')). TypeId (mk_id mn tn) ≠ tn') cenv) "Duplicate type definition";
@@ -549,17 +549,17 @@ val check_signature_def = Define `
   od)`;
 
 val infer_top_def = Define `
-(infer_top menv cenv env (Tdec d) =
+(infer_top tdecs menv cenv env (Tdec d) =
   do
-    (cenv',env') <- infer_d NONE menv cenv env d;
-    return (emp, (emp,cenv'), env')
+    (tdecs',cenv',env') <- infer_d NONE tdecs menv cenv env d;
+    return (tdecs',emp, (emp,cenv'), env')
   od) ∧
-(infer_top menv cenv env (Tmod mn spec ds1) =
+(infer_top tdecs menv cenv env (Tmod mn spec ds1) =
   do
     () <- guard (~MEM mn (MAP FST menv)) ("Duplicate module: " ++ mn);
-    (cenv',env') <- infer_ds (SOME mn) menv cenv env ds1;
+    (tdecs',cenv',env') <- infer_ds (SOME mn) tdecs menv cenv env ds1;
     (cenv'',env'') <- check_signature (SOME mn) cenv' env' spec;
-    return ([(mn,env'')], ([(mn,cenv'')],emp), emp)
+    return (tdecs',[(mn,env'')], ([(mn,cenv'')],emp), emp)
   od)`;
 
 val infer_prog_def = Define `
