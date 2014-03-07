@@ -281,13 +281,16 @@ val new_constant_correct = store_thm("new_constant_correct",
   map_every qexists_tac[`tyenv`,`tmenv`,`axs`] >>
   simp[Abbr`tmenv`])
 
-(*
 val new_axiom_correct = store_thm("new_axiom_correct",
   ``∀ctxt p h c.
-    ((ctxt,h) |= c ∨ (h,c) = ([],p))
+    p has_type Bool ∧ term_ok (sigof ctxt) p ∧
+    ((ctxt,h) |= c ∨ ((h,c) = ([],p) ∧ is_std_sig (sigof ctxt)))
     ⇒ ((NewAxiom p)::ctxt, h) |= c``,
   simp[entails_def,types_of_def_def,consts_of_def_def,axioms_of_def_def] >>
-  rpt gen_tac >> strip_tac >> strip_tac
-*)
+  rpt gen_tac >> strip_tac >> simp[] >> rw[] >- (
+    first_x_assum match_mp_tac >>
+    match_mp_tac is_model_reduce >>
+    metis_tac[rich_listTheory.CONS_APPEND,finite_mapTheory.SUBMAP_REFL] ) >>
+  fs[is_model_def])
 
 val _ = export_theory()

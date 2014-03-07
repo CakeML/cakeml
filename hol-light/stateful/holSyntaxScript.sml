@@ -477,7 +477,7 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
   (prop has_type Bool ∧
    term_ok (sigof ctxt) prop ∧
    ((ctxt, asl) |- p ∨
-    ((asl,p) = ([],prop)))
+    ((asl,p) = ([],prop) ∧ context_ok ctxt))
    ⇒ ((NewAxiom prop)::ctxt, asl) |- p)`
 
 (*
