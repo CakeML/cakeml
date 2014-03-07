@@ -1,5 +1,5 @@
-open HolKernel boolLib boolSimps bossLib lcsymtacs listTheory finite_mapTheory
-open miscTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory setSpecTheory
+open HolKernel boolLib boolSimps bossLib lcsymtacs listTheory finite_mapTheory alistTheory pairTheory pred_setTheory
+open miscLib miscTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory setSpecTheory
 val _ = temp_tight_equality()
 val _ = new_theory"holSemanticsExtra"
 
@@ -168,6 +168,116 @@ val termsem_frees = store_thm("termsem_frees",
   first_x_assum match_mp_tac >>
   rw[combinTheory.APPLY_UPDATE_THM,FUN_EQ_THM] >>
   first_x_assum match_mp_tac >> fs[])
+
+(* TODO: move. List of updates to a function *)
+
+val UPDATE_LIST_def = Define`
+  UPDATE_LIST = FOLDL (combin$C (UNCURRY UPDATE))`
+val _ = Parse.add_infix("=++",500,Parse.LEFT)
+val _ = Parse.overload_on("=++",``UPDATE_LIST``)
+
+val UPDATE_LIST_THM = store_thm("UPDATE_LIST_THM",
+  ``∀f. (f =++ [] = f) ∧ ∀h t. (f =++ (h::t) = (FST h =+ SND h) f =++ t)``,
+  rw[UPDATE_LIST_def,pairTheory.UNCURRY])
+
+val APPLY_UPDATE_LIST_ALOOKUP = store_thm("APPLY_UPDATE_LIST_ALOOKUP",
+  ``∀ls f x. (f =++ ls) x = case ALOOKUP (REVERSE ls) x of NONE => f x | SOME y => y``,
+  Induct >> simp[UPDATE_LIST_THM,ALOOKUP_APPEND] >>
+  Cases >> simp[combinTheory.APPLY_UPDATE_THM] >>
+  rw[] >> BasicProvers.CASE_TAC)
+
+val ALOOKUP_MAP_dest_var = store_thm("ALOOKUP_MAP_dest_var",
+  ``∀ls f x ty.
+      EVERY (λs. ∃x ty. s = Var x ty) (MAP FST ls) ⇒
+      ALOOKUP (MAP (dest_var ## f) ls) (x,ty) =
+      OPTION_MAP f (ALOOKUP ls (Var x ty))``,
+  Induct >> simp[] >> Cases >> simp[EVERY_MEM,EVERY_MAP] >>
+  rw[] >> fs[])
+
+val ALOOKUP_FILTER = store_thm("ALOOKUP_FILTER",
+  ``∀ls x. ALOOKUP (FILTER (λ(k,v). P k) ls) x =
+           if P x then ALOOKUP ls x else NONE``,
+  Induct >> simp[] >> Cases >> simp[] >> rw[] >> fs[] >> metis_tac[])
+
+(* semantics of substitution *)
+
+val termsem_simple_subst = store_thm("termsem_simple_subst",
+  ``is_set_theory ^mem ⇒
+    ∀tm ilist.
+      welltyped tm ∧
+      DISJOINT (set (bv_names tm)) {y | ∃ty u. VFREE_IN (Var y ty) u ∧ MEM u (MAP FST ilist)} ∧
+      (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty)
+      ⇒
+      ∀i v. termsem i v (simple_subst ilist tm) =
+            termsem i
+              (FST v, SND v =++
+                      MAP ((dest_var ## termsem i v) o (λ(s',s). (s,s')))
+                          (REVERSE ilist))
+              tm``,
+  strip_tac >> Induct >> simp[termsem_def] >- (
+    simp[REV_ASSOCD_ALOOKUP,APPLY_UPDATE_LIST_ALOOKUP,rich_listTheory.MAP_REVERSE] >>
+    rw[] >> BasicProvers.CASE_TAC >> rw[termsem_def] >- (
+      imp_res_tac ALOOKUP_FAILS >>
+      BasicProvers.CASE_TAC >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs[MEM_MAP,EXISTS_PROD] >>
+      res_tac >> fs[] >> metis_tac[] ) >>
+    rw[GSYM MAP_MAP_o] >>
+    qmatch_assum_abbrev_tac`ALOOKUP ls (Var s ty) = SOME x` >>
+    Q.ISPECL_THEN[`ls`,`termsem i v`,`s`,`ty`]mp_tac ALOOKUP_MAP_dest_var >>
+    discharge_hyps >- (simp[EVERY_MAP,EVERY_MEM,FORALL_PROD,Abbr`ls`] >> metis_tac[]) >>
+    rw[]) >>
+  rw[] >>
+  Q.PAT_ABBREV_TAC`il = FILTER X ilist` >>
+  `simple_subst il tm has_type typeof tm` by (
+    match_mp_tac (MP_CANON simple_subst_has_type) >>
+    imp_res_tac WELLTYPED >>
+    fs[Abbr`il`,EVERY_MEM,EVERY_FILTER,FORALL_PROD] >>
+    rw[] >> res_tac >> rw[] ) >>
+  imp_res_tac WELLTYPED_LEMMA >> rw[] >>
+  rpt AP_TERM_TAC >> simp[FUN_EQ_THM] >> rw[] >>
+  qmatch_abbrev_tac `termsem i vv xx = yy` >>
+  first_x_assum(qspec_then`il`mp_tac) >>
+  discharge_hyps >- (
+    simp[Abbr`il`] >> fs[IN_DISJOINT,MEM_FILTER,MEM_MAP,EXISTS_PROD] >>
+    metis_tac[] ) >>
+  disch_then(qspecl_then[`i`,`vv`]mp_tac) >>
+  rw[Abbr`vv`,Abbr`yy`] >>
+  rpt AP_THM_TAC >> rpt AP_TERM_TAC >>
+  simp[FUN_EQ_THM,APPLY_UPDATE_LIST_ALOOKUP,rich_listTheory.MAP_REVERSE] >>
+  Cases >>
+  simp[GSYM MAP_MAP_o] >>
+  BasicProvers.CASE_TAC >>
+  qmatch_assum_abbrev_tac`ALOOKUP (MAP (dest_var ## f) ls) (z,ty) = X` >>
+  qunabbrev_tac`X` >>
+  Q.ISPECL_THEN[`ls`,`f`,`z`,`ty`]mp_tac ALOOKUP_MAP_dest_var >>
+  (discharge_hyps >- (simp[EVERY_MAP,EVERY_MEM,FORALL_PROD,Abbr`ls`,Abbr`il`,MEM_FILTER] >> metis_tac[])) >>
+  qmatch_assum_abbrev_tac`Abbrev(il = FILTER P ilist)` >>
+  qmatch_assum_abbrev_tac`Abbrev(ls = MAP sw il)` >>
+  `ls = FILTER (P o sw) (MAP sw ilist)` by (
+    simp[Abbr`ls`,Abbr`il`] >>
+    simp[rich_listTheory.FILTER_MAP] >>
+    simp[Abbr`P`,Abbr`sw`,combinTheory.o_DEF,UNCURRY,LAMBDA_PROD] ) >>
+  qunabbrev_tac`ls` >>
+  simp[ALOOKUP_FILTER,Abbr`P`,Abbr`sw`,combinTheory.o_DEF,LAMBDA_PROD] >- (
+    rw[combinTheory.APPLY_UPDATE_THM,APPLY_UPDATE_LIST_ALOOKUP] >>
+    qmatch_assum_abbrev_tac`P ⇒ ALOOKUP ls vv = NONE` >>
+    Q.ISPECL_THEN[`ls`,`termsem i v`,`z`,`ty`]mp_tac ALOOKUP_MAP_dest_var >>
+    discharge_hyps >- (simp[EVERY_MAP,EVERY_MEM,FORALL_PROD,Abbr`ls`] >> metis_tac[]) >>
+    rw[] >> fs[Abbr`P`] ) >>
+  simp[combinTheory.APPLY_UPDATE_THM,APPLY_UPDATE_LIST_ALOOKUP] >>
+  rw[Abbr`f`] >>
+  qmatch_assum_abbrev_tac`ALOOKUP ls vv = SOME zz` >>
+  Q.ISPECL_THEN[`ls`,`termsem i v`,`z`,`ty`]mp_tac ALOOKUP_MAP_dest_var >>
+  (discharge_hyps >- (simp[EVERY_MAP,EVERY_MEM,FORALL_PROD,Abbr`ls`] >> metis_tac[])) >>
+  rw[] >> fs[Abbr`zz`] >>
+  match_mp_tac termsem_frees >>
+  rw[combinTheory.APPLY_UPDATE_THM] >>
+  imp_res_tac ALOOKUP_MEM >>
+  fs[Abbr`ls`,MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
+  metis_tac[])
+
+(* TODO: semantics of instantiation *)
 
 (* term_assignment dependency on type assignment *)
 
