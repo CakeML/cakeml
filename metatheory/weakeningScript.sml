@@ -852,4 +852,22 @@ val consistent_decls_weakening = Q.store_thm ("consistent_decls_weakening",
  res_tac >>
  fs []);
 
+val consistent_ctMap_weakening = Q.store_thm ("consistent_ctMap_weakening",
+`!ctMap tdecls tdecls'.
+  consistent_ctMap tdecls ctMap ∧
+  weak_decls tdecls' tdecls
+  ⇒
+  consistent_ctMap tdecls' ctMap`,
+ rw [] >>
+ PairCases_on `tdecls` >>
+ PairCases_on `tdecls'` >>
+ fs [weak_decls_def, consistent_ctMap_def, RES_FORALL] >>
+ rw [] >>
+ PairCases_on `x` >>
+ rw [] >>
+ every_case_tac >>
+ fs [] >>
+ res_tac >>
+ fs [SUBSET_DEF]);
+
 val _ = export_theory ();
