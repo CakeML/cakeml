@@ -1,4 +1,5 @@
-open HolKernel boolLib boolSimps bossLib lcsymtacs pairTheory listTheory pred_setTheory sortingTheory stringTheory holSyntaxLibTheory holSyntaxTheory
+open HolKernel boolLib boolSimps bossLib lcsymtacs pairTheory listTheory finite_mapTheory pred_setTheory sortingTheory stringTheory
+open miscTheory holSyntaxLibTheory holSyntaxTheory
 val _ = temp_tight_equality()
 val _ = new_theory"holSyntaxExtra"
 
@@ -437,5 +438,35 @@ val term_ok_equation = store_thm("term_ok_equation",
   fs[is_std_sig_def,type_ok_def] >>
   qexists_tac`[(typeof s,Tyvar "A")]` >>
   rw[holSyntaxLibTheory.REV_ASSOCD_def])
+
+(* extending the context *)
+
+val is_std_sig_extend = store_thm("is_std_sig_extend",
+  ``∀tyenv tmenv tyenv' tmenv'.
+    tyenv ⊑ tyenv' ∧ tmenv ⊑ tmenv' ∧
+    is_std_sig (tyenv,tmenv) ⇒
+    is_std_sig (tyenv',tmenv')``,
+  rw[is_std_sig_def] >>
+  imp_res_tac FLOOKUP_SUBMAP)
+
+val type_ok_extend = store_thm("type_ok_extend",
+  ``∀t tyenv tyenv'.
+    tyenv ⊑ tyenv' ∧
+    type_ok tyenv t ⇒
+    type_ok tyenv' t``,
+  ho_match_mp_tac type_ind >>
+  rw[type_ok_def,EVERY_MEM] >>
+  res_tac >>
+  imp_res_tac FLOOKUP_SUBMAP)
+
+val term_ok_extend = store_thm("term_ok_extend",
+  ``∀t tyenv tmenv tyenv' tmenv'.
+    tyenv ⊑ tyenv' ∧ tmenv ⊑ tmenv' ∧
+    term_ok (tyenv,tmenv) t ⇒
+    term_ok (tyenv',tmenv') t``,
+  Induct >> simp[term_ok_def] >> rw[] >>
+  imp_res_tac type_ok_extend >>
+  imp_res_tac FLOOKUP_SUBMAP >>
+  metis_tac[])
 
 val _ = export_theory()

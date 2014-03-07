@@ -18,7 +18,7 @@ val REFL_correct = store_thm("REFL_correct",
   rw[entails_def,satisfies_def,EQUATION_HAS_TYPE_BOOL] >>
   imp_res_tac term_ok_welltyped >>
   `term_ok (sigof ctxt) (t === t)` by rw[term_ok_equation] >>
-  `is_structure (sigof ctxt) v i` by (
+  `is_structure (sigof ctxt) i σ τ` by (
     rw[is_structure_def] >> fs[is_model_def] ) >>
   imp_res_tac term_ok_type_ok >> fs[] >>
   imp_res_tac termsem_equation >>
@@ -28,10 +28,10 @@ val binary_inference_rule = store_thm("binary_inference_rule",
   ``is_set_theory ^mem ⇒
     ∀ctxt h1 h2 p1 p2 q.
     q has_type Bool ∧ term_ok (sigof ctxt) q ∧
-    (∀v i. is_structure (sigof ctxt) v i ∧
-           termsem v i p1 = True ∧
-           termsem v i p2 = True ⇒
-           termsem v i q = True) ∧
+    (∀i σ τ. is_structure (sigof ctxt) i σ τ ∧
+           termsem i p1 σ τ = True ∧
+           termsem i p2 σ τ = True ⇒
+           termsem i q σ τ = True) ∧
     (ctxt,h1) |= p1 ∧ (ctxt,h2) |= p2
     ⇒ (ctxt, TERM_UNION h1 h2) |= q``,
   strip_tac >>
@@ -111,33 +111,28 @@ val BETA_correct = store_thm("BETA_correct",
   conj_asm1_tac >- (
     simp[term_ok_equation,term_ok_def] ) >>
   rw[satisfies_def] >>
-  `is_structure (sigof ctxt) v i` by (
+  `is_structure (sigof ctxt) i σ τ` by (
     rw[is_structure_def] >> fs[is_model_def] ) >>
   imp_res_tac (UNDISCH termsem_equation) >>
   rw[boolean_eq_true,termsem_clauses] >>
-  qmatch_abbrev_tac`(Abstract mty mtyb f ' e) = termsem v i t` >>
+  qmatch_abbrev_tac`(Abstract mty mtyb f ' e) = termsem i t σ τ` >>
   `Abstract mty mtyb f ' e = f e` by (
     match_mp_tac (MP_CANON apply_abstract) >>
     simp[Abbr`f`,Abbr`e`] >>
     conj_tac >- (
-      Cases_on`v`>>fs[is_valuation_def] >>
       Cases_on`i`>>fs[is_structure_def,is_interpretation_def] >>
       imp_res_tac (UNDISCH typesem_inhabited) >>
-      fs[is_term_valuation_def,Abbr`mty`] >>
-      first_x_assum match_mp_tac >> metis_tac[] ) >>
+      fs[is_term_valuation_def,Abbr`mty`] ) >>
     simp[Abbr`mtyb`] >>
-    qmatch_abbrev_tac`termsem vv i t <: typesem xx yy zz` >>
-    `xx = FST vv` by simp[Abbr`xx`,Abbr`vv`] >>
-    map_every qunabbrev_tac[`xx`,`yy`,`zz`] >> pop_assum SUBST1_TAC >>
     match_mp_tac (UNDISCH termsem_typesem) >>
     qexists_tac`sigof ctxt` >>
     fs[is_structure_def] >>
     imp_res_tac is_std_interpretation_is_type >>
-    simp[Abbr`vv`] >>
-    Cases_on`v`>>fs[is_valuation_def,is_term_valuation_def] >>
-    simp[combinTheory.APPLY_UPDATE_THM]) >>
+    fs[is_term_valuation_def] >>
+    rw[combinTheory.APPLY_UPDATE_THM]) >>
   simp[Abbr`f`,Abbr`e`] >>
-  simp[combinTheory.APPLY_UPDATE_ID])
+  match_mp_tac termsem_frees >>
+  rw[combinTheory.APPLY_UPDATE_THM])
 
 val ABS_correct = store_thm("ABS_correct",
   ``is_set_theory ^mem ⇒
@@ -151,22 +146,23 @@ val ABS_correct = store_thm("ABS_correct",
   conj_asm1_tac >- rfs[term_ok_equation,term_ok_def] >>
   fs[satisfies_def] >> rw[] >>
   first_x_assum(qspec_then`i`mp_tac) >> rw[] >>
-  `is_structure (sigof ctxt) v i` by (
+  `is_structure (sigof ctxt) i σ τ` by (
     fs[is_model_def,is_structure_def] ) >>
   imp_res_tac termsem_equation >>
   rw[boolean_eq_true,termsem_clauses] >>
   match_mp_tac (UNDISCH abstract_eq) >>
   qx_gen_tac`m` >> strip_tac >> simp[] >>
-  Q.PAT_ABBREV_TAC`vv = (X:'U valuation)` >>
-  `is_valuation (FST i) vv` by (
-    Cases_on`v`>>fs[Abbr`vv`,is_valuation_def,is_term_valuation_def] >>
+  Q.PAT_ABBREV_TAC`ss = (X:'U tmval)` >>
+  `∀v ty. ss (v,ty) τ <: typesem (FST i) ty τ` by (
+    fs[Abbr`ss`,is_term_valuation_def] >>
     simp[combinTheory.APPLY_UPDATE_THM] >> rw[] >> rw[] ) >>
   simp[CONJ_ASSOC] >>
   conj_tac >- (
     fs[is_structure_def] >>
     metis_tac[termsem_typesem,is_std_interpretation_is_type
              ,pairTheory.FST,term_ok_equation]) >>
-  first_x_assum(qspec_then`vv`mp_tac) >>
+
+  first_x_assum(qspecl_then[`τ`,`ss`]mp_tac) >>
   `is_structure (sigof ctxt) vv i` by (
     fs[is_structure_def] ) >>
   imp_res_tac (UNDISCH termsem_equation) >>
@@ -222,5 +218,42 @@ val DEDUCT_ANTISYM_correct = store_thm("DEDUCT_ANTISYM_correct",
     imp_res_tac WELLTYPED_LEMMA >>
     metis_tac[typesem_Bool]) >>
   metis_tac[mem_boolset])
+
+val INST_correct = store_thm("INST_correct",
+  ``is_set_theory ^mem ⇒
+    ∀ctxt h c.
+      (∀s s'. MEM (s',s) ilist ⇒
+              ∃x ty. (s = Var x ty) ∧ s' has_type ty ∧ term_ok (sigof ctxt) s') ∧
+      (ctxt, h) |= c
+    ⇒ (ctxt, MAP (VSUBST ilist) h) |= VSUBST ilist c``,
+  cheat)
+
+val INST_TYPE_correct = store_thm("INST_TYPE_correct",
+  ``is_set_theory ^mem ⇒
+    ∀ctxt h c.
+      EVERY (type_ok (types ctxt)) (MAP FST tyin) ∧
+      (ctxt, h) |= c
+    ⇒ (ctxt, MAP (INST tyin) h) |= INST tyin c``,
+  cheat)
+
+val new_type_correct = store_thm("new_type_correct",
+  ``∀ctxt h c name arity.
+      name ∉ (FDOM (types ctxt)) ∧
+      (ctxt,h) |= c
+      ⇒ ((NewType name arity)::ctxt,h) |= c``,
+  simp[entails_def,types_of_def_def,consts_of_def_def,axioms_of_def_def] >>
+  rpt gen_tac >> strip_tac >>
+  conj_asm1_tac >- (
+    match_mp_tac is_std_sig_extend >>
+    map_every qexists_tac[`types ctxt`,`consts ctxt`] >>
+    simp[] ) >>
+  conj_asm1_tac >- (
+    fs[EVERY_MEM] >> rw[] >>
+    match_mp_tac term_ok_extend >>
+    map_every qexists_tac[`types ctxt`,`consts ctxt`] >>
+    simp[] ) >>
+
+
+
 
 val _ = export_theory()
