@@ -1,4 +1,4 @@
-open HolKernel boolLib boolSimps bossLib lcsymtacs holSyntaxTheory setSpecTheory
+open HolKernel boolLib boolSimps bossLib lcsymtacs holSyntaxTheory holSyntaxExtraTheory setSpecTheory
 val _ = temp_tight_equality()
 val _ = new_theory"holSemantics"
 
@@ -44,21 +44,20 @@ val typesem_def = tDefine "typesem"`
     (δ name) (MAP (typesem δ τ) args))`
   (type_rec_tac "SND o SND")
 
-(* A term assignment is a map from constant names to semantic functions. Each
-   function takes an instance of the type of the constant, and returns the
-   (polymorphic) meaning of the constant at that type. The assignment is with
-   respect to an environment and is only constrained for defined constants and
-   correct instances of their types. *)
+(* A term assignment is a map from a constant name to a polymorphic value, that
+   is a function from a type valuation to an element of the constant's type
+   under that valuation. The assignment is with respect to an environment and
+   is only constrained for defined constants. The assignment is only allowed to
+   depend on the valuation of variables that occur in the type. *)
 
-val _ = Parse.type_abbrev("tmass",``:string -> type -> 'U tyval -> 'U``)
+val _ = Parse.type_abbrev("tmass",``:string -> 'U tyval -> 'U``)
 
 val is_term_assignment_def = xDefine "is_term_assignment"`
   is_term_assignment0 ^mem tmenv δ (γ:'U tmass) ⇔
     FEVERY
-      (λ(name,ty0).
-        ∀ty. is_instance ty0 ty ⇒
-          ∀τ. is_type_valuation τ ⇒
-                γ name ty τ <: typesem δ τ ty)
+      (λ(name,ty).
+        ∀τ. is_type_valuation τ ⇒
+              γ name (λx. if MEM x (tyvars ty) then τ x else ARB) <: typesem δ τ ty)
       tmenv`
 val _ = Parse.overload_on("is_term_assignment",``is_term_assignment0 ^mem``)
 
@@ -85,25 +84,46 @@ val is_valuation_def = xDefine"is_valuation"`
     is_term_valuation δ τ σ`
 val _ = Parse.overload_on("is_valuation",``is_valuation0 ^mem``)
 
+(* term assignment for instances of constants *)
+
+val instance_def = new_specification("instance_def",["instance"],
+  prove(``∃f. ∀(Γ:sig) (i:'U interpretation) name ty ty0 tyin.
+              FLOOKUP (SND Γ) name = SOME ty0 ∧
+              ty = TYPE_SUBST tyin ty0
+              ⇒
+              f Γ i name ty =
+              λτ. (SND i) name (λx. if MEM x (tyvars ty0)
+                                    then typesem (FST i) τ (TYPE_SUBST tyin (Tyvar x))
+                                    else ARB)``,
+    simp[GSYM SKOLEM_THM] >> rw[] >>
+    Cases_on`FLOOKUP (SND Γ) name`>>simp[] >>
+    qmatch_assum_rename_tac`FLOOKUP (SND Γ) name = SOME ty0`[] >>
+    Cases_on`is_instance ty0 ty` >> fs[] >>
+    qmatch_assum_rename_tac`ty = TYPE_SUBST tyin ty0`[] >>
+    qho_match_abbrev_tac`∃f. ∀tyin. P tyin ⇒ f = Q tyin` >>
+    qexists_tac`Q tyin` >>
+    rw[Abbr`P`,Abbr`Q`,FUN_EQ_THM] >> rpt AP_TERM_TAC >>
+    rw[FUN_EQ_THM] >> rw[] >> metis_tac[TYPE_SUBST_tyvars]))
+
 (* Semantics of terms. *)
 
 val termsem_def = xDefine "termsem"`
-  (termsem0 ^mem (i:'U interpretation) (v:'U valuation) (Var x ty) = SND v (x,ty)) ∧
-  (termsem0 ^mem i v (Const name ty) = SND i name ty (FST v)) ∧
-  (termsem0 ^mem i v (Comb t1 t2) =
-   termsem0 ^mem i v t1 ' (termsem0 ^mem i v t2)) ∧
-  (termsem0 ^mem i v (Abs x ty b) =
+  (termsem0 ^mem Γ (i:'U interpretation) (v:'U valuation) (Var x ty) = SND v (x,ty)) ∧
+  (termsem0 ^mem Γ i v (Const name ty) = instance Γ i name ty (FST v)) ∧
+  (termsem0 ^mem Γ i v (Comb t1 t2) =
+   termsem0 ^mem Γ i v t1 ' (termsem0 ^mem Γ i v t2)) ∧
+  (termsem0 ^mem Γ i v (Abs x ty b) =
    Abstract (typesem (FST i) (FST v) ty) (typesem (FST i) (FST v) (typeof b))
-     (λm. termsem0 ^mem i (FST v, ((x,ty)=+m)(SND v)) b))`
+     (λm. termsem0 ^mem Γ i (FST v, ((x,ty)=+m)(SND v)) b))`
 val _ = Parse.overload_on("termsem",``termsem0 ^mem``)
 
 (* Satisfaction of sequents. *)
 
 val satisfies_def = xDefine"satisfies"`
-  satisfies0 ^mem i (h,c) ⇔
+  satisfies0 ^mem (tmenv,i) (h,c) ⇔
     ∀v. is_valuation (FST i) v ∧
-      EVERY (λt. termsem i v t = True) h
-      ⇒ termsem i v c = True`
+      EVERY (λt. termsem tmenv i v t = True) h
+      ⇒ termsem tmenv i v c = True`
 val _ = Parse.add_infix("satisfies",450,Parse.NONASSOC)
 val _ = Parse.overload_on("satisfies",``satisfies0 ^mem``)
 
@@ -120,18 +140,17 @@ val _ = Parse.overload_on("is_interpretation",``is_interpretation0 ^mem``)
    to the standard model. *)
 
 val is_std_type_assignment_def = xDefine "is_std_type_assignment"`
-  is_std_type_assignment0 ^mem δ ⇔
+  is_std_type_assignment0 ^mem (δ:'U tyass) ⇔
     (δ "fun" = λls. case ls of [dom;rng] => Funspace dom rng | _ => ∅) ∧
     (δ "bool" = λls. case ls of [] => boolset | _ => ∅)`
 val _ = Parse.overload_on("is_std_type_assignment",``is_std_type_assignment0 ^mem``)
 
 val is_std_interpretation_def = xDefine "is_std_interpretation"`
-  is_std_interpretation0 ^mem (δ,γ) ⇔
+  is_std_interpretation0 ^mem ((δ,γ):'U interpretation) ⇔
     is_std_type_assignment δ ∧
-    ∀ty. γ "=" (Fun ty (Fun ty Bool)) =
-         λτ. let mty = typesem δ τ ty in
-               (Abstract mty (Funspace mty boolset)
-                 (λx. Abstract mty boolset (λy. Boolean (x = y))))`
+    γ "=" = λτ.
+        (Abstract (τ"A") (Funspace (τ"A") boolset)
+          (λx. Abstract (τ"A") boolset (λy. Boolean (x = y))))`
 val _ = Parse.overload_on("is_std_interpretation",``is_std_interpretation0 ^mem``)
 
 (* A model of a theory is a standard interpretation that satisfies all the
@@ -141,7 +160,7 @@ val is_model_def = xDefine"is_model"`
   is_model0 ^mem (sig, axs) i ⇔
     is_interpretation sig i ∧
     is_std_interpretation i ∧
-    EVERY (λp. i satisfies ([],p)) axs`
+    EVERY (λp. (sig,i) satisfies ([],p)) axs`
 val _ = Parse.overload_on("is_model",``is_model0 ^mem``)
 
 (* Validity of sequents. *)
@@ -152,7 +171,7 @@ val entails_def = xDefine"entails"`
     EVERY (term_ok (sigof ctxt)) (c::h) ∧
     EVERY (λt. t has_type Bool) (c::h) ∧
     ∀i. is_model (sigof ctxt, axioms ctxt) i
-        ⇒ i satisfies (h,c)`
+        ⇒ (sigof ctxt, i) satisfies (h,c)`
 val _ = Parse.add_infix("|=",450,Parse.NONASSOC)
 val _ = Parse.overload_on("|=",``entails0 ^mem``)
 

@@ -32,11 +32,11 @@ val is_instance_refl = store_thm("is_instance_refl",
   rw[] >> qexists_tac`[]` >> rw[])
 val _ = export_rewrites["is_instance_refl"]
 
-val swap_ff = prove(
+val swap_ff = store_thm("swap_ff",
   ``∀f g. (λ(x,y). (y,x)) o (f ## g) = (g ## f) o (λ(x,y). (y,x))``,
   rw[FUN_EQ_THM,FORALL_PROD])
 
-val ff_def = prove(
+val ff_def = store_thm("ff_def",
   ``∀f g. (f ## g) = λ(x,y). (f x, g y)``,
   rw[FUN_EQ_THM,FORALL_PROD,PAIR_MAP_THM])
 
@@ -50,6 +50,20 @@ val TYPE_SUBST_compose = store_thm("TYPE_SUBST_compose",
   simp[MAP_MAP_o,swap_ff] >> simp[GSYM MAP_MAP_o] >>
   simp[ff_def,ALOOKUP_MAP] >>
   BasicProvers.CASE_TAC >> simp[TYPE_SUBST_def,REV_ASSOCD_ALOOKUP])
+
+val TYPE_SUBST_tyvars = store_thm("TYPE_SUBST_tyvars",
+  ``∀ty tyin tyin'.
+    (TYPE_SUBST tyin ty = TYPE_SUBST tyin' ty) ⇔
+    ∀x. MEM x (tyvars ty) ⇒
+        REV_ASSOCD (Tyvar x) tyin' (Tyvar x) =
+        REV_ASSOCD (Tyvar x) tyin  (Tyvar x)``,
+  ho_match_mp_tac type_ind >>
+  simp[tyvars_def] >>
+  conj_tac >- metis_tac[] >>
+  Induct >> simp[] >>
+  gen_tac >> strip_tac >> fs[] >>
+  rpt gen_tac >> EQ_TAC >> strip_tac >> fs[] >>
+  fs[MEM_LIST_UNION] >> metis_tac[])
 
 (* Welltyped terms *)
 
@@ -471,6 +485,25 @@ val EQUATION_HAS_TYPE_BOOL = store_thm("EQUATION_HAS_TYPE_BOOL",
   rw[equation_def] >> rw[Ntimes has_type_cases 3] >>
   metis_tac[WELLTYPED_LEMMA,WELLTYPED])
 
+(* type_ok *)
+
+val type_ok_TYPE_SUBST = store_thm("type_ok_TYPE_SUBST",
+  ``∀s tyin ty.
+      type_ok s ty ∧
+      EVERY (type_ok s) (MAP FST tyin)
+    ⇒ type_ok s (TYPE_SUBST tyin ty)``,
+  gen_tac >> ho_match_mp_tac TYPE_SUBST_ind >>
+  simp[type_ok_def] >> rw[EVERY_MAP,EVERY_MEM] >>
+  fs[FORALL_PROD] >>
+  metis_tac[REV_ASSOCD_MEM,type_ok_def])
+
+val type_ok_TYPE_SUBST_imp = store_thm("type_ok_TYPE_SUBST_imp",
+  ``∀s tyin ty. type_ok s (TYPE_SUBST tyin ty) ⇒
+                ∀x. MEM x (tyvars ty) ⇒ type_ok s (TYPE_SUBST tyin (Tyvar x))``,
+  gen_tac >> ho_match_mp_tac TYPE_SUBST_ind >>
+  simp[tyvars_def,MEM_FOLDR_LIST_UNION,type_ok_def] >> rw[] >>
+  fs[EVERY_MAP,EVERY_MEM] >> metis_tac[])
+
 (* term_ok *)
 
 val term_ok_welltyped = store_thm("term_ok_welltyped",
@@ -516,16 +549,6 @@ val term_ok_VSUBST = store_thm("term_ok_VSUBST",
   rw[term_ok_def,MEM_FILTER] >>
   simp[Once has_type_cases])
 
-val type_ok_TYPE_SUBST = store_thm("type_ok_TYPE_SUBST",
-  ``∀s tyin ty.
-      type_ok s ty ∧
-      EVERY (type_ok s) (MAP FST tyin)
-    ⇒ type_ok s (TYPE_SUBST tyin ty)``,
-  gen_tac >> ho_match_mp_tac TYPE_SUBST_ind >>
-  simp[type_ok_def] >> rw[EVERY_MAP,EVERY_MEM] >>
-  fs[FORALL_PROD] >>
-  metis_tac[REV_ASSOCD_MEM,type_ok_def])
-
 val term_ok_INST_CORE = store_thm("term_ok_INST_CORE",
   ``∀sig env tyin tm.
       term_ok sig tm ∧
@@ -564,6 +587,29 @@ val term_ok_INST = store_thm("term_ok_INST",
     term_ok sig (INST tyin tm)``,
   rw[INST_def] >>
   metis_tac[INST_CORE_NIL_IS_RESULT,term_ok_welltyped,term_ok_INST_CORE,MEM])
+
+val term_ok_raconv = store_thm("term_ok_raconv",
+  ``∀env tp. RACONV env tp ⇒
+      ∀sig.
+      EVERY (λ(s,s'). welltyped s ∧ welltyped s' ∧ typeof s = typeof s' ∧ type_ok (FST sig) (typeof s)) env ⇒
+      term_ok sig (FST tp) ⇒ term_ok sig (SND tp)``,
+  ho_match_mp_tac RACONV_strongind >>
+  rw[] >> Cases_on`sig`>>fs[term_ok_def] >- (
+    imp_res_tac ALPHAVARS_MEM >> fs[EVERY_MEM,FORALL_PROD] >>
+    res_tac >> fs[] >> rw[] ) >>
+  qspecl_then[`s1`,`env`,`s2`]mp_tac RACONV_welltyped >>
+  qspecl_then[`t1`,`env`,`t2`]mp_tac RACONV_welltyped >>
+  discharge_hyps >- (fs[EVERY_MEM,FORALL_PROD] >> metis_tac[]) >> strip_tac >>
+  discharge_hyps >- (fs[EVERY_MEM,FORALL_PROD] >> metis_tac[]) >> strip_tac >>
+  qspecl_then[`env`,`s1,s2`]mp_tac RACONV_TYPE >> simp[] >>
+  discharge_hyps >- (fs[EVERY_MEM,FORALL_PROD] >> metis_tac[]) >> strip_tac >>
+  qspecl_then[`env`,`t1,t2`]mp_tac RACONV_TYPE >> simp[] >>
+  discharge_hyps >- (fs[EVERY_MEM,FORALL_PROD] >> metis_tac[]) >> strip_tac >>
+  metis_tac[])
+
+val term_ok_aconv = store_thm("term_ok_aconv",
+  ``∀sig t1 t2. ACONV t1 t2 ∧ term_ok sig t1 ⇒ term_ok sig t2``,
+  rw[ACONV_def] >> imp_res_tac term_ok_raconv >> fs[])
 
 (* de Bruijn terms, for showing alpha-equivalence respect
    by substitution and instantiation *)
