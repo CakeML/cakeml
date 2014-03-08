@@ -224,6 +224,15 @@ val termsem_extend = store_thm("termsem_extend",
   imp_res_tac FLOOKUP_SUBMAP >>
   fs[Abbr`sig`,Abbr`ty`])
 
+val satisfies_extend = store_thm("satisfies_extend",
+  ``∀tyenv tmenv tyenv' tmenv' tm i h c.
+      tmenv ⊑ tmenv' ∧ tyenv ⊑ tyenv' ∧
+      EVERY (term_ok (tyenv,tmenv)) (c::h) ⇒
+      (((tyenv,tmenv),i) satisfies (h,c) ⇔
+       ((tyenv',tmenv'),i) satisfies (h,c))``,
+  rw[satisfies_def,EQ_IMP_THM] >> fs[EVERY_MEM] >>
+  metis_tac[term_ok_extend,termsem_extend])
+
 (* TODO: move. List of updates to a function *)
 
 val UPDATE_LIST_def = Define`
@@ -467,6 +476,6 @@ val is_model_reduce = store_thm("is_model_reduce",
      is_model ((tyenv,tmenv),axs) i``,
   Cases >> rw[holSemanticsTheory.is_model_def] >>
   fs[EVERY_APPEND] >> imp_res_tac is_interpretation_reduce >>
-  fs[EVERY_MEM,satisfies_def] >> rw[] >> metis_tac[termsem_extend])
+  fs[EVERY_MEM] >> metis_tac[satisfies_extend,EVERY_DEF])
 
 val _ = export_theory()

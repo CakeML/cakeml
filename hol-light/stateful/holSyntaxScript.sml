@@ -334,6 +334,8 @@ val axioms_of_def_def = Define`
   (axioms_of_def _ = [])`
 val _ = Parse.overload_on("axioms",``λctxt. FLAT (MAP axioms_of_def ctxt)``)
 
+val _ = export_rewrites["types_of_def_def","consts_of_def_def","terms_of_def_def","axioms_of_def_def"]
+
 (* Good types/terms in context *)
 
 val type_ok_def = tDefine "type_ok"`
@@ -363,14 +365,15 @@ val linear_context_def = Define`
   (linear_context [] ⇔ T) ∧
   (linear_context (def::ctxt) ⇔
    EVERY (term_ok (sigof ctxt)) (terms_of_def def) ∧
-   EVERY (λp. p has_type Bool) (axioms_of_def def) ∧
    linear_context ctxt)`
 
 val context_ok_def = Define`
   context_ok ctxt ⇔
     ALL_DISTINCT (MAP FST (type_list ctxt)) ∧
     ALL_DISTINCT (MAP FST (const_list ctxt)) ∧
-    linear_context ctxt`
+    EVERY (λp. p has_type Bool) (axioms ctxt) ∧
+    linear_context ctxt ∧
+    IS_SUFFIX ctxt init_ctxt`
 
 val _ = Parse.add_infix("|-",450,Parse.NONASSOC)
 
@@ -385,8 +388,8 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
    ⇒ (ctxt, [p]) |- p) ∧
 
   (* BETA *)
-  (context_ok ctxt ∧ term_ok (sigof ctxt) t ∧ type_ok (types ctxt) ty
-   ⇒ (defs, []) |- Comb (Abs x ty t) (Var x ty) === t) ∧
+  (context_ok ctxt ∧ type_ok (types ctxt) ty ∧ term_ok (sigof ctxt) t
+   ⇒ (ctxt, []) |- Comb (Abs x ty t) (Var x ty) === t) ∧
 
   (* DEDUCT_ANTISYM *)
   ((ctxt, asl1) |- c1 ∧

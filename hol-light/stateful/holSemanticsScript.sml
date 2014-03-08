@@ -120,10 +120,10 @@ val _ = Parse.overload_on("termsem",``termsem0 ^mem``)
 (* Satisfaction of sequents. *)
 
 val satisfies_def = xDefine"satisfies"`
-  satisfies0 ^mem (tmenv,i) (h,c) ⇔
+  satisfies0 ^mem (sig,i) (h,c) ⇔
     ∀v. is_valuation (FST i) v ∧
-      EVERY (λt. termsem tmenv i v t = True) h
-      ⇒ termsem tmenv i v c = True`
+      EVERY (λt. termsem sig i v t = True) h
+      ⇒ termsem sig i v c = True`
 val _ = Parse.add_infix("satisfies",450,Parse.NONASSOC)
 val _ = Parse.overload_on("satisfies",``satisfies0 ^mem``)
 
@@ -167,7 +167,7 @@ val _ = Parse.overload_on("is_model",``is_model0 ^mem``)
 
 val entails_def = xDefine"entails"`
   entails0 ^mem (ctxt,h) c ⇔
-    is_std_sig (sigof ctxt) ∧
+    context_ok ctxt ∧
     EVERY (term_ok (sigof ctxt)) (c::h) ∧
     EVERY (λt. t has_type Bool) (c::h) ∧
     ∀i. is_model (sigof ctxt, axioms ctxt) i

@@ -3,6 +3,14 @@ open miscLib miscTheory holSyntaxLibTheory holSyntaxTheory
 val _ = temp_tight_equality()
 val _ = new_theory"holSyntaxExtra"
 
+val context_ok_sig = store_thm("context_ok_sig",
+  ``context_ok ctxt ⇒ is_std_sig (sigof ctxt)``,
+  rw[context_ok_def,is_std_sig_def,init_ctxt_def,rich_listTheory.IS_SUFFIX_APPEND] >> rw[] >>
+  rw[ALOOKUP_APPEND] >> BasicProvers.CASE_TAC >>
+  imp_res_tac ALOOKUP_MEM >>
+  fs[ALL_DISTINCT_APPEND,MEM_FLAT,MEM_MAP,FORALL_PROD,PULL_EXISTS] >>
+  metis_tac[])
+
 val type_ind = save_thm("type_ind",
   TypeBase.induction_of``:holSyntax$type``
   |> Q.SPECL[`P`,`EVERY P`]
@@ -1454,14 +1462,6 @@ val fresh_term_def = new_specification("fresh_term_def",["fresh_term"],
 
 (* extending the context *)
 
-val is_std_sig_extend = store_thm("is_std_sig_extend",
-  ``∀tyenv tmenv tyenv' tmenv'.
-    tyenv ⊑ tyenv' ∧ tmenv ⊑ tmenv' ∧
-    is_std_sig (tyenv,tmenv) ⇒
-    is_std_sig (tyenv',tmenv')``,
-  rw[is_std_sig_def] >>
-  imp_res_tac FLOOKUP_SUBMAP)
-
 val type_ok_extend = store_thm("type_ok_extend",
   ``∀t tyenv tyenv'.
     tyenv ⊑ tyenv' ∧
@@ -1480,6 +1480,24 @@ val term_ok_extend = store_thm("term_ok_extend",
   Induct >> simp[term_ok_def] >> rw[] >>
   imp_res_tac type_ok_extend >>
   imp_res_tac FLOOKUP_SUBMAP >>
+  metis_tac[])
+
+val context_ok_axioms_ok = store_thm("context_ok_axioms_ok",
+  ``∀ctxt.
+      context_ok ctxt ⇒
+      EVERY (λp. term_ok (sigof ctxt) p) (axioms ctxt)``,
+  Induct >> rw[context_ok_def,linear_context_def] >- (
+    Cases_on`h`>>fs[axioms_of_def_def,terms_of_def_def] >>
+    simp[types_of_def_def,consts_of_def_def,FUNION_FEMPTY_1] ) >>
+  fs[context_ok_def,EVERY_MEM,ALL_DISTINCT_APPEND,rich_listTheory.IS_SUFFIX_APPEND] >>
+  Cases_on`l`>>fs[]>-(fs[init_ctxt_def]) >>
+  gen_tac >> reverse strip_tac >- fs[init_ctxt_def] >>
+  last_x_assum(qspec_then`p`mp_tac) >> simp[] >> strip_tac >>
+  match_mp_tac term_ok_extend >>
+  qmatch_assum_abbrev_tac`term_ok (tyenv,tmenv) p` >>
+  map_every qexists_tac[`tyenv`,`tmenv`] >> simp[] >>
+  conj_tac >> match_mp_tac SUBMAP_FUNION >>
+  fs[ALL_DISTINCT_APPEND,IN_DISJOINT,Abbr`tyenv`,Abbr`tmenv`] >>
   metis_tac[])
 
 val _ = export_theory()
