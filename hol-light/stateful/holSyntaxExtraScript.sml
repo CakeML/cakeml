@@ -12,9 +12,6 @@ val type_ind = save_thm("type_ind",
   |> DISCH_ALL
   |> Q.GEN`P`)
 
-val dest_tyvar_def = Define`dest_tyvar (Tyvar a) = a`
-val _ = export_rewrites["dest_tyvar_def"]
-
 val dest_var_def = Define`dest_var (Var x ty) = (x,ty)`
 val _ = export_rewrites["dest_var_def"]
 
