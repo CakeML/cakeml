@@ -119,8 +119,7 @@ val termsem_equation = store_thm("termsem_equation",
 (* aconv *)
 
 val termsem_raconv = store_thm("termsem_raconv",
-  ``is_set_theory ^mem ⇒
-    ∀env tp. RACONV env tp ⇒
+  ``∀env tp. RACONV env tp ⇒
       ∀i v1 v2.
         (FST v1 = FST v2) ∧
         (∀x1 ty1 x2 ty2.
@@ -131,7 +130,6 @@ val termsem_raconv = store_thm("termsem_raconv",
         welltyped (FST tp) ∧ welltyped (SND tp)
         ⇒
         termsem i v1 (FST tp) = termsem i v2 (SND tp)``,
-  strip_tac >>
   ho_match_mp_tac RACONV_strongind >>
   rpt conj_tac >> simp[termsem_def] >>
   TRY (metis_tac[]) >>
@@ -147,8 +145,7 @@ val termsem_raconv = store_thm("termsem_raconv",
   rw[] >> fs[])
 
 val termsem_aconv = store_thm("termsem_aconv",
-  ``is_set_theory ^mem ⇒
-    ∀i v t1 t2. ACONV t1 t2 ∧ welltyped t1 ⇒ termsem i v t1 = termsem i v t2``,
+  ``∀i v t1 t2. ACONV t1 t2 ∧ welltyped t1 ⇒ termsem i v t1 = termsem i v t2``,
   rw[ACONV_def] >>
   imp_res_tac termsem_raconv >>
   rfs[ALPHAVARS_def] >>
@@ -194,6 +191,14 @@ val ALOOKUP_MAP_dest_var = store_thm("ALOOKUP_MAP_dest_var",
   Induct >> simp[] >> Cases >> simp[EVERY_MEM,EVERY_MAP] >>
   rw[] >> fs[])
 
+val ALOOKUP_MAP_dest_tyvar = store_thm("ALOOKUP_MAP_dest_tyvar",
+  ``∀ls f x.
+      EVERY (λs. ∃x. s = Tyvar x) (MAP FST ls) ⇒
+      ALOOKUP (MAP (dest_tyvar ## f) ls) x =
+      OPTION_MAP f (ALOOKUP ls (Tyvar x))``,
+  Induct >> simp[] >> Cases >> simp[EVERY_MEM,EVERY_MAP] >>
+  rw[] >> fs[])
+
 val ALOOKUP_FILTER = store_thm("ALOOKUP_FILTER",
   ``∀ls x. ALOOKUP (FILTER (λ(k,v). P k) ls) x =
            if P x then ALOOKUP ls x else NONE``,
@@ -202,8 +207,7 @@ val ALOOKUP_FILTER = store_thm("ALOOKUP_FILTER",
 (* semantics of substitution *)
 
 val termsem_simple_subst = store_thm("termsem_simple_subst",
-  ``is_set_theory ^mem ⇒
-    ∀tm ilist.
+  ``∀tm ilist.
       welltyped tm ∧
       DISJOINT (set (bv_names tm)) {y | ∃ty u. VFREE_IN (Var y ty) u ∧ MEM u (MAP FST ilist)} ∧
       (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty)
@@ -214,7 +218,7 @@ val termsem_simple_subst = store_thm("termsem_simple_subst",
                       MAP ((dest_var ## termsem i v) o (λ(s',s). (s,s')))
                           (REVERSE ilist))
               tm``,
-  strip_tac >> Induct >> simp[termsem_def] >- (
+  Induct >> simp[termsem_def] >- (
     simp[REV_ASSOCD_ALOOKUP,APPLY_UPDATE_LIST_ALOOKUP,rich_listTheory.MAP_REVERSE] >>
     rw[] >> BasicProvers.CASE_TAC >> rw[termsem_def] >- (
       imp_res_tac ALOOKUP_FAILS >>
@@ -277,7 +281,135 @@ val termsem_simple_subst = store_thm("termsem_simple_subst",
   fs[Abbr`ls`,MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
   metis_tac[])
 
-(* TODO: semantics of instantiation *)
+val termsem_VSUBST = store_thm("termsem_VSUBST",
+  `` ∀tm ilist.
+      welltyped tm ∧
+      (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty) ⇒
+      ∀i v.
+       termsem i v (VSUBST ilist tm) =
+       termsem i (FST v,
+                  SND v =++
+                  MAP ((dest_var ## termsem i v) o (λ(s',s). (s,s')))
+                    (REVERSE ilist)) tm``,
+  rw[] >>
+  Q.ISPECL_THEN[`{y | ∃ty u. VFREE_IN (Var y ty) u ∧ MEM u (MAP FST ilist)}`,`tm`]mp_tac fresh_term_def >>
+  simp[] >>
+  Q.PAT_ABBREV_TAC`fm = fresh_term X tm` >> strip_tac >>
+  `ACONV (VSUBST ilist tm) (VSUBST ilist fm)` by (
+    match_mp_tac ACONV_VSUBST >> metis_tac[] ) >>
+  `welltyped (VSUBST ilist tm)` by metis_tac[VSUBST_WELLTYPED] >>
+  `termsem i v (VSUBST ilist tm) = termsem i v (VSUBST ilist fm)` by
+    metis_tac[termsem_aconv] >>
+  `VSUBST ilist fm = simple_subst ilist fm` by
+    metis_tac[VSUBST_simple_subst] >>
+  rw[] >>
+  `welltyped fm` by metis_tac[ACONV_welltyped] >>
+  metis_tac[termsem_simple_subst,termsem_aconv])
+
+(* semantics of instantiation *)
+
+val typesem_TYPE_SUBST = store_thm("typesem_TYPE_SUBST",
+  ``∀tyin ty δ τ.
+      (∀s. MEM s (MAP SND tyin) ⇒ ∃a. s = Tyvar a) ⇒
+      typesem δ τ (TYPE_SUBST tyin ty) =
+      typesem δ (τ =++ (MAP ((dest_tyvar ## typesem δ τ) o (λ(s,s'). (s',s))) (REVERSE tyin))) ty``,
+  ho_match_mp_tac TYPE_SUBST_ind >> simp[typesem_def] >>
+  strip_tac >- (
+    simp[REV_ASSOCD_ALOOKUP,APPLY_UPDATE_LIST_ALOOKUP,rich_listTheory.MAP_REVERSE] >>
+    rw[] >> BasicProvers.CASE_TAC >> rw[typesem_def] >- (
+      imp_res_tac ALOOKUP_FAILS >>
+      BasicProvers.CASE_TAC >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs[MEM_MAP,EXISTS_PROD] >>
+      res_tac >> fs[] >> metis_tac[] ) >>
+    rw[GSYM MAP_MAP_o] >>
+    qmatch_assum_abbrev_tac`ALOOKUP ls (Tyvar s) = SOME x` >>
+    Q.ISPECL_THEN[`ls`,`typesem δ τ`,`s`]mp_tac ALOOKUP_MAP_dest_tyvar >>
+    discharge_hyps >- (fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,Abbr`ls`,MEM_MAP,PULL_EXISTS] >> metis_tac[]) >>
+    rw[]) >>
+  rw[] >>
+  rpt AP_TERM_TAC >>
+  simp[MAP_MAP_o,MAP_EQ_f])
+
+val tac =
+    rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+    simp[FUN_EQ_THM] >>
+    rw[APPLY_UPDATE_LIST_ALOOKUP,rich_listTheory.MAP_REVERSE] >>
+    rw[REV_ASSOCD_ALOOKUP,GSYM MAP_MAP_o] >>
+    Q.PAT_ABBREV_TAC`ls:(type#type)list = MAP Z tyin` >>
+    Q.ISPECL_THEN[`ls`,`typesem δ τ`,`x`]mp_tac ALOOKUP_MAP_dest_tyvar >>
+    discharge_hyps >- (fs[EVERY_MAP,EVERY_MEM,Abbr`ls`,MEM_MAP,PULL_EXISTS,EXISTS_PROD,FORALL_PROD] >> metis_tac[]) >>
+    rw[] >>
+    Cases_on`ALOOKUP ls (Tyvar x)`>>simp[typesem_def]
+
+val termsem_simple_inst = store_thm("termsem_simple_inst",
+  ``∀tm tyin.
+      welltyped tm ∧
+      ALL_DISTINCT (bv_names tm) ∧
+      DISJOINT (set (bv_names tm)) {x | ∃ty. VFREE_IN (Var x ty) tm} ∧
+      (∀s. MEM s (MAP SND tyin) ⇒ ∃x. s = Tyvar x)
+      ⇒
+      ∀i v. termsem i v (simple_inst tyin tm) =
+            termsem (FST i, λs ty τ. SND i s (TYPE_SUBST tyin ty) (FST v))
+              ((λx. typesem (FST i) (FST v) (TYPE_SUBST tyin (Tyvar x))),
+               (λ(x,ty). SND v (x, TYPE_SUBST tyin ty)))
+              tm``,
+  Induct >> simp[termsem_def] >- (
+    rw[] >>
+    fs[ALL_DISTINCT_APPEND,IN_DISJOINT] >>
+    metis_tac[] ) >>
+  rw[] >>
+  qmatch_abbrev_tac`Abstract d1 r1 f1 = Abstract d2 r2 f2` >>
+  `d2 = d1` by (
+    match_mp_tac EQ_SYM >>
+    unabbrev_all_tac >>
+    qmatch_abbrev_tac`typesem δ τ (TYPE_SUBST tyin ty) = X` >>
+    Q.ISPECL_THEN[`tyin`,`ty`,`δ`,`τ`]mp_tac typesem_TYPE_SUBST >>
+    simp[] >> disch_then kall_tac >> tac) >>
+  `r2 = r1` by (
+    unabbrev_all_tac >>
+    qspecl_then[`tm`,`tyin`]mp_tac simple_inst_has_type >> rw[] >>
+    imp_res_tac WELLTYPED_LEMMA >> rw[] >>
+    qmatch_abbrev_tac`X = typesem δ τ (TYPE_SUBST tyin ty)` >>
+    Q.ISPECL_THEN[`tyin`,`ty`,`δ`,`τ`]mp_tac typesem_TYPE_SUBST >>
+    simp[Abbr`X`] >> disch_then kall_tac >>
+    tac ) >>
+  rw[] >> rpt AP_TERM_TAC >>
+  unabbrev_all_tac >> rw[FUN_EQ_THM] >>
+  first_x_assum(qspec_then`tyin`mp_tac) >>
+  discharge_hyps >- ( fs[IN_DISJOINT] >> metis_tac[] ) >>
+  rw[] >>
+  match_mp_tac termsem_frees >>
+  rw[] >>
+  rw[combinTheory.APPLY_UPDATE_THM] >>
+  metis_tac[])
+
+val termsem_INST = store_thm("termsem_INST",
+  ``∀tm tyin.
+      welltyped tm ∧
+      (∀s. MEM s (MAP SND tyin) ⇒ ∃x. s = Tyvar x) ⇒
+      ∀i v.
+        termsem i v (INST tyin tm) =
+        termsem (FST i, λs ty τ. SND i s (TYPE_SUBST tyin ty) (FST v))
+          ((λx. typesem (FST i) (FST v) (TYPE_SUBST tyin (Tyvar x))),
+           (λ(x,ty). SND v (x, TYPE_SUBST tyin ty)))
+          tm``,
+  rw[] >>
+  Q.ISPECL_THEN[`{x | ∃ty. VFREE_IN (Var x ty) tm}`,`tm`]mp_tac fresh_term_def >>
+  simp[] >>
+  Q.PAT_ABBREV_TAC`fm = fresh_term X tm` >> strip_tac >>
+  `ACONV (INST tyin tm) (INST tyin fm)` by (
+    match_mp_tac ACONV_INST >> metis_tac[] ) >>
+  `welltyped (INST tyin tm)` by metis_tac[INST_WELLTYPED] >>
+  `termsem i v (INST tyin tm) = termsem i v (INST tyin fm)` by
+    metis_tac[termsem_aconv] >>
+  `{x | ∃ty. VFREE_IN (Var x ty) tm} = {x | ∃ty. VFREE_IN (Var x ty) fm}` by (
+    simp[EXTENSION] >> metis_tac[VFREE_IN_ACONV] ) >>
+  `INST tyin fm = simple_inst tyin fm` by
+    metis_tac[INST_simple_inst] >>
+  rw[] >>
+  `welltyped fm` by metis_tac[ACONV_welltyped] >>
+  metis_tac[SIMP_RULE(srw_ss())[]termsem_simple_inst,termsem_aconv])
 
 (* term_assignment dependency on type assignment *)
 

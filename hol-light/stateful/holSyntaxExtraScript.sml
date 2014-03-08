@@ -12,6 +12,9 @@ val type_ind = save_thm("type_ind",
   |> DISCH_ALL
   |> Q.GEN`P`)
 
+val dest_tyvar_def = Define`dest_tyvar (Tyvar a) = a`
+val _ = export_rewrites["dest_tyvar_def"]
+
 val dest_var_def = Define`dest_var (Var x ty) = (x,ty)`
 val _ = export_rewrites["dest_var_def"]
 
@@ -413,6 +416,13 @@ val INST_CORE_NIL_IS_RESULT = store_thm("INST_CORE_NIL_IS_RESULT",
   rw[] >>
   qspecl_then[`sizeof tm`,`tm`,`[]`,`tyin`]mp_tac INST_CORE_HAS_TYPE >>
   simp[] >> rw[] >> rw[] >> fs[REV_ASSOCD])
+
+val INST_WELLTYPED = store_thm("INST_WELLTYPED",
+  ``∀tm tyin.  welltyped tm ⇒ welltyped (INST tyin tm)``,
+  rw[INST_def] >>
+  qspecl_then[`tyin`,`tm`]mp_tac INST_CORE_NIL_IS_RESULT >> rw[] >>
+  qspecl_then[`sizeof tm`,`tm`,`[]`,`tyin`]mp_tac INST_CORE_HAS_TYPE >>
+  rw[] >> fs[] >> metis_tac[welltyped_def])
 
 (* tyvars and tvars *)
 
@@ -1098,6 +1108,10 @@ val simple_subst_has_type = store_thm("simple_subst_has_type",
   rw[Once has_type_cases] >>
   first_x_assum match_mp_tac >>
   fs[EVERY_FILTER,EVERY_MEM])
+
+val simple_inst_has_type = store_thm("simple_inst_has_type",
+  ``∀tm tyin. welltyped tm ⇒ simple_inst tyin tm has_type (TYPE_SUBST tyin (typeof tm))``,
+  Induct >> rw[] >> rw[Once has_type_cases] >> fs[] >> metis_tac[] )
 
 (* rename bound variables from a source of names *)
 
