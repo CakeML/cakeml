@@ -255,7 +255,15 @@ val INST_TYPE_correct = store_thm("INST_TYPE_correct",
       EVERY (type_ok (types ctxt)) (MAP FST tyin) ∧
       (ctxt, h) |= c
     ⇒ (ctxt, MAP (INST tyin) h) |= INST tyin c``,
-  cheat)
+  rw[entails_def,term_ok_INST,EVERY_MAP,EVERY_MEM] >>
+  TRY ( match_mp_tac INST_HAS_TYPE >> metis_tac[TYPE_SUBST_Bool] ) >>
+  fs[satisfies_def] >> rw[] >>
+  qspecl_then[`c`,`tyin`]mp_tac termsem_INST >>
+  discharge_hyps >- metis_tac[welltyped_def] >>
+  disch_then(qspecl_then[`i`,`v`]SUBST1_TAC) >>
+  first_x_assum(match_mp_tac o MP_CANON) >>
+  simp[] >>
+  cheat (* false? *))
 
 val new_type_correct = store_thm("new_type_correct",
   ``∀ctxt h c name arity.

@@ -24,10 +24,32 @@ val TYPE_SUBST_NIL = store_thm("TYPE_SUBST_NIL",
   fs[EVERY_MEM])
 val _ = export_rewrites["TYPE_SUBST_NIL"]
 
+val TYPE_SUBST_Bool = store_thm("TYPE_SUBST_Bool",
+  ``∀tyin. TYPE_SUBST tyin Bool = Bool``, rw[TYPE_SUBST_def])
+
 val is_instance_refl = store_thm("is_instance_refl",
   ``∀ty. is_instance ty ty``,
   rw[] >> qexists_tac`[]` >> rw[])
 val _ = export_rewrites["is_instance_refl"]
+
+val swap_ff = prove(
+  ``∀f g. (λ(x,y). (y,x)) o (f ## g) = (g ## f) o (λ(x,y). (y,x))``,
+  rw[FUN_EQ_THM,FORALL_PROD])
+
+val ff_def = prove(
+  ``∀f g. (f ## g) = λ(x,y). (f x, g y)``,
+  rw[FUN_EQ_THM,FORALL_PROD,PAIR_MAP_THM])
+
+val TYPE_SUBST_compose = store_thm("TYPE_SUBST_compose",
+  ``∀tyin1 ty tyin2.
+    TYPE_SUBST tyin2 (TYPE_SUBST tyin1 ty) =
+    TYPE_SUBST ((MAP (TYPE_SUBST tyin2 ## I) tyin1) ++ tyin2) ty``,
+  ho_match_mp_tac TYPE_SUBST_ind >>
+  rw[TYPE_SUBST_def,MAP_MAP_o,combinTheory.o_DEF,MAP_EQ_f] >>
+  rw[REV_ASSOCD_ALOOKUP,ALOOKUP_APPEND] >>
+  simp[MAP_MAP_o,swap_ff] >> simp[GSYM MAP_MAP_o] >>
+  simp[ff_def,ALOOKUP_MAP] >>
+  BasicProvers.CASE_TAC >> simp[TYPE_SUBST_def,REV_ASSOCD_ALOOKUP])
 
 (* Welltyped terms *)
 
@@ -414,12 +436,17 @@ val INST_CORE_NIL_IS_RESULT = store_thm("INST_CORE_NIL_IS_RESULT",
   qspecl_then[`sizeof tm`,`tm`,`[]`,`tyin`]mp_tac INST_CORE_HAS_TYPE >>
   simp[] >> rw[] >> rw[] >> fs[REV_ASSOCD])
 
-val INST_WELLTYPED = store_thm("INST_WELLTYPED",
-  ``∀tm tyin.  welltyped tm ⇒ welltyped (INST tyin tm)``,
+val INST_HAS_TYPE = store_thm("INST_HAS_TYPE",
+  ``∀tm ty tyin ty'. tm has_type ty ∧ ty' = TYPE_SUBST tyin ty ⇒ INST tyin tm has_type ty'``,
   rw[INST_def] >>
   qspecl_then[`tyin`,`tm`]mp_tac INST_CORE_NIL_IS_RESULT >> rw[] >>
   qspecl_then[`sizeof tm`,`tm`,`[]`,`tyin`]mp_tac INST_CORE_HAS_TYPE >>
-  rw[] >> fs[] >> metis_tac[welltyped_def])
+  `welltyped tm` by metis_tac[welltyped_def] >> fs[] >>
+  rw[] >> fs[] >> metis_tac[WELLTYPED_LEMMA])
+
+val INST_WELLTYPED = store_thm("INST_WELLTYPED",
+  ``∀tm tyin.  welltyped tm ⇒ welltyped (INST tyin tm)``,
+  metis_tac[INST_HAS_TYPE,WELLTYPED_LEMMA,WELLTYPED])
 
 (* tyvars and tvars *)
 
@@ -488,6 +515,55 @@ val term_ok_VSUBST = store_thm("term_ok_VSUBST",
   first_x_assum match_mp_tac >>
   rw[term_ok_def,MEM_FILTER] >>
   simp[Once has_type_cases])
+
+val type_ok_TYPE_SUBST = store_thm("type_ok_TYPE_SUBST",
+  ``∀s tyin ty.
+      type_ok s ty ∧
+      EVERY (type_ok s) (MAP FST tyin)
+    ⇒ type_ok s (TYPE_SUBST tyin ty)``,
+  gen_tac >> ho_match_mp_tac TYPE_SUBST_ind >>
+  simp[type_ok_def] >> rw[EVERY_MAP,EVERY_MEM] >>
+  fs[FORALL_PROD] >>
+  metis_tac[REV_ASSOCD_MEM,type_ok_def])
+
+val term_ok_INST_CORE = store_thm("term_ok_INST_CORE",
+  ``∀sig env tyin tm.
+      term_ok sig tm ∧
+      EVERY (type_ok (FST sig)) (MAP FST tyin) ∧
+      (∀s s'. MEM (s,s') env ⇒ ∃x ty. s = Var x ty ∧ s' = Var x (TYPE_SUBST tyin ty)) ∧
+      IS_RESULT (INST_CORE env tyin tm)
+      ⇒
+      term_ok sig (RESULT (INST_CORE env tyin tm))``,
+  Cases >> ho_match_mp_tac INST_CORE_ind >>
+  simp[term_ok_def,INST_CORE_def] >>
+  rw[term_ok_def,type_ok_TYPE_SUBST] >- (
+    HINT_EXISTS_TAC >> rw[] >-
+      metis_tac[type_ok_TYPE_SUBST] >>
+    metis_tac[TYPE_SUBST_compose] ) >>
+  Cases_on`INST_CORE env tyin tm`>>fs[] >>
+  Cases_on`INST_CORE env tyin tm'`>>fs[] >>
+  qspecl_then[`sizeof tm`,`tm`,`env`,`tyin`]mp_tac INST_CORE_HAS_TYPE >>
+  qspecl_then[`sizeof tm'`,`tm'`,`env`,`tyin`]mp_tac INST_CORE_HAS_TYPE >>
+  rw[] >> imp_res_tac WELLTYPED_LEMMA >> simp[] >>
+  TRY (
+    first_x_assum match_mp_tac >>
+    conj_tac >>
+    TRY (
+      match_mp_tac term_ok_VSUBST >>
+      rw[] >>
+      rw[Once has_type_cases] >>
+      rw[term_ok_def] ) >>
+    rw[] >>
+    metis_tac[] ) >>
+  simp[welltyped_def] >> PROVE_TAC[])
+
+val term_ok_INST = store_thm("term_ok_INST",
+  ``∀sig tyin tm.
+    term_ok sig tm ∧
+    EVERY (type_ok (FST sig)) (MAP FST tyin) ⇒
+    term_ok sig (INST tyin tm)``,
+  rw[INST_def] >>
+  metis_tac[INST_CORE_NIL_IS_RESULT,term_ok_welltyped,term_ok_INST_CORE,MEM])
 
 (* de Bruijn terms, for showing alpha-equivalence respect
    by substitution and instantiation *)
