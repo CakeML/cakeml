@@ -225,7 +225,29 @@ val INST_correct = store_thm("INST_correct",
               ∃x ty. (s = Var x ty) ∧ s' has_type ty ∧ term_ok (sigof ctxt) s') ∧
       (ctxt, h) |= c
     ⇒ (ctxt, MAP (VSUBST ilist) h) |= VSUBST ilist c``,
-  cheat)
+  rw[entails_def,term_ok_VSUBST,EVERY_MAP,EVERY_MEM] >>
+  TRY ( match_mp_tac VSUBST_HAS_TYPE >> metis_tac[] ) >>
+  fs[satisfies_def] >> rw[] >>
+  qspecl_then[`c`,`ilist`]mp_tac termsem_VSUBST >>
+  discharge_hyps >- metis_tac[welltyped_def] >>
+  disch_then(qspecl_then[`i`,`v`]SUBST1_TAC) >>
+  first_x_assum(match_mp_tac o MP_CANON) >>
+  simp[] >>
+  conj_tac >- (
+    Cases_on`v`>>
+    fs[is_valuation_def] >>
+    fs[is_term_valuation_def,APPLY_UPDATE_LIST_ALOOKUP,rich_listTheory.MAP_REVERSE] >>
+    rw[] >>
+    BasicProvers.CASE_TAC >- metis_tac[] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,UNCURRY,EXISTS_PROD] >>
+    res_tac >> imp_res_tac WELLTYPED_LEMMA >> fs[] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    match_mp_tac (UNDISCH termsem_typesem) >>
+    rw[is_valuation_def,is_term_valuation_def] >>
+    fs[is_model_def] >> metis_tac[is_std_interpretation_is_type] ) >>
+  fs[EVERY_MAP,EVERY_MEM] >>
+  metis_tac[termsem_VSUBST,welltyped_def])
 
 val INST_TYPE_correct = store_thm("INST_TYPE_correct",
   ``is_set_theory ^mem ⇒
