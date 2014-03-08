@@ -375,6 +375,48 @@ val context_ok_def = Define`
 val _ = Parse.add_infix("|-",450,Parse.NONASSOC)
 
 val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
+  (* ABS *)
+  (¬(EXISTS (VFREE_IN (Var x ty)) asl) ∧ type_ok (types ctxt) ty ∧
+   (ctxt, asl) |- l === r
+   ⇒ (ctxt, asl) |- (Abs x ty l) === (Abs x ty r)) ∧
+
+  (* ASSUME *)
+  (context_ok ctxt ∧ p has_type Bool ∧ term_ok (sigof ctxt) p
+   ⇒ (ctxt, [p]) |- p) ∧
+
+  (* BETA *)
+  (context_ok ctxt ∧ term_ok (sigof ctxt) t ∧ type_ok (types ctxt) ty
+   ⇒ (defs, []) |- Comb (Abs x ty t) (Var x ty) === t) ∧
+
+  (* DEDUCT_ANTISYM *)
+  ((ctxt, asl1) |- c1 ∧
+   (ctxt, asl2) |- c2
+   ⇒ (ctxt, TERM_UNION (FILTER((~) o ACONV c2) asl1)
+                       (FILTER((~) o ACONV c1) asl2))
+            |- c1 === c2) ∧
+
+  (* EQ_MP *)
+  ((ctxt, asl1) |- p === q ∧
+   (ctxt, asl2) |- p' ∧ ACONV p p'
+   ⇒ (ctxt, TERM_UNION asl1 asl2) |- q) ∧
+
+  (* INST *)
+  ((∀s s'. MEM (s',s) ilist ⇒
+             ∃x ty. (s = Var x ty) ∧ s' has_type ty ∧ term_ok (sigof ctxt) s') ∧
+   (ctxt, asl) |- p
+   ⇒ (ctxt, MAP (VSUBST ilist) asl) |- VSUBST ilist p) ∧
+
+  (* INST_TYPE *)
+  ((EVERY (type_ok (types ctxt)) (MAP FST tyin)) ∧
+   (ctxt, asl) |- p
+   ⇒ (ctxt, MAP (INST tyin) asl) |- INST tyin p) ∧
+
+  (* MK_COMB *)
+  ((ctxt, asl1) |- l1 === r1 ∧
+   (ctxt, asl2) |- l2 === r2 ∧
+   welltyped(Comb l1 l2)
+   ⇒ (ctxt, TERM_UNION asl1 asl2) |- Comb l1 l2 === Comb r1 r2) ∧
+
   (* REFL *)
   (context_ok ctxt ∧ term_ok (sigof ctxt) t
    ⇒ (ctxt, []) |- t === t) ∧
@@ -385,67 +427,18 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
    ACONV m1 m2
    ⇒ (ctxt, TERM_UNION asl1 asl2) |- l === r) ∧
 
-  (* MK_COMB *)
-  ((ctxt, asl1) |- l1 === r1 ∧
-   (ctxt, asl2) |- l2 === r2 ∧
-   welltyped(Comb l1 l2)
-   ⇒ (ctxt, TERM_UNION asl1 asl2) |- Comb l1 l2 === Comb r1 r2) ∧
+  (* new_axiom *)
+  (prop has_type Bool ∧
+   term_ok (sigof ctxt) prop ∧
+   ((ctxt, asl) |- p ∨
+    ((asl,p) = ([],prop) ∧ context_ok ctxt))
+   ⇒ ((NewAxiom prop)::ctxt, asl) |- p) ∧
 
-  (* ABS *)
-  (¬(EXISTS (VFREE_IN (Var x ty)) asl) ∧ type_ok (types ctxt) ty ∧
-   (ctxt, asl) |- l === r
-   ⇒ (ctxt, asl) |- (Abs x ty l) === (Abs x ty r)) ∧
-
-  (* BETA *)
-  (context_ok ctxt ∧ term_ok (sigof ctxt) t ∧ type_ok (types ctxt) ty
-   ⇒ (defs, []) |- Comb (Abs x ty t) (Var x ty) === t) ∧
-
-  (* ASSUME *)
-  (context_ok ctxt ∧ p has_type Bool ∧ term_ok (sigof ctxt) p
-   ⇒ (ctxt, [p]) |- p) ∧
-
-  (* EQ_MP *)
-  ((ctxt, asl1) |- p === q ∧
-   (ctxt, asl2) |- p' ∧ ACONV p p'
-   ⇒ (ctxt, TERM_UNION asl1 asl2) |- q) ∧
-
-  (* DEDUCT_ANTISYM *)
-  ((ctxt, asl1) |- c1 ∧
-   (ctxt, asl2) |- c2
-   ⇒ (ctxt, TERM_UNION (FILTER((~) o ACONV c2) asl1)
-                       (FILTER((~) o ACONV c1) asl2))
-            |- c1 === c2) ∧
-
-  (* INST_TYPE *)
-  ((EVERY (type_ok (types ctxt)) (MAP FST tyin)) ∧
-   (ctxt, asl) |- p
-   ⇒ (ctxt, MAP (INST tyin) asl) |- INST tyin p) ∧
-
-  (* INST *)
-  ((∀s s'. MEM (s',s) ilist ⇒
-             ∃x ty. (s = Var x ty) ∧ s' has_type ty ∧ term_ok (sigof ctxt) s') ∧
-   (ctxt, asl) |- p
-   ⇒ (ctxt, MAP (VSUBST ilist) asl) |- VSUBST ilist p) ∧
-
-  (* new_type_definition *)
-  ((abs_type = Tyapp name (MAP Tyvar (STRING_SORT (tvars pred)))) ∧
-   (ctxt, []) |- Comb pred witness ∧
-   CLOSED pred /\ pred has_type (Fun rep_type Bool) ∧
-   name ∉ (FDOM (types ctxt)) ∧
-   abs ∉ (FDOM (consts ctxt)) ∧
-   rep ∉ (FDOM (consts ctxt)) ∧
-   abs ≠ rep ∧
-   ((ctxt, asl) |- p  ∨
-    ((asl,p) = ([],
-       Comb (Const abs (Fun rep_type abs_type))
-              (Comb (Const rep (Fun abs_type rep_type))
-                    (Var x abs_type)) === Var x abs_type)) ∨
-    ((asl,p) = ([],
-       Comb t (Var x rep_type) ===
-          Comb (Const rep (Fun abs_type rep_type))
-               (Comb (Const abs (Fun rep_type abs_type))
-                     (Var x rep_type)) === Var x rep_type)))
-   ⇒ ((TypeDefn name pred abs rep)::ctxt, asl) |- p) ∧
+  (* new_constant *)
+  ((ctxt, asl) |- p ∧
+   name ∉ (FDOM (consts ctxt)) ∧
+   type_ok (types ctxt) ty
+   ⇒ ((NewConst name ty)::ctxt, asl) |- p) ∧
 
   (* new_specification *)
   ((ctxt, MAP (λ(s,t). Var s (typeof t) === t) eqs) |- prop ∧
@@ -467,18 +460,25 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
    name ∉ (FDOM (types ctxt))
    ⇒ ((NewType name arity)::ctxt, asl) |- p) ∧
 
-  (* new_constant *)
-  ((ctxt, asl) |- p ∧
-   name ∉ (FDOM (consts ctxt)) ∧
-   type_ok (types ctxt) ty
-   ⇒ ((NewConst name ty)::ctxt, asl) |- p) ∧
-
-  (* new_axiom *)
-  (prop has_type Bool ∧
-   term_ok (sigof ctxt) prop ∧
-   ((ctxt, asl) |- p ∨
-    ((asl,p) = ([],prop) ∧ context_ok ctxt))
-   ⇒ ((NewAxiom prop)::ctxt, asl) |- p)`
+  (* new_type_definition *)
+  ((abs_type = Tyapp name (MAP Tyvar (STRING_SORT (tvars pred)))) ∧
+   (ctxt, []) |- Comb pred witness ∧
+   CLOSED pred /\ pred has_type (Fun rep_type Bool) ∧
+   name ∉ (FDOM (types ctxt)) ∧
+   abs ∉ (FDOM (consts ctxt)) ∧
+   rep ∉ (FDOM (consts ctxt)) ∧
+   abs ≠ rep ∧
+   ((ctxt, asl) |- p  ∨
+    ((asl,p) = ([],
+       Comb (Const abs (Fun rep_type abs_type))
+              (Comb (Const rep (Fun abs_type rep_type))
+                    (Var x abs_type)) === Var x abs_type)) ∨
+    ((asl,p) = ([],
+       Comb t (Var x rep_type) ===
+          Comb (Const rep (Fun abs_type rep_type))
+               (Comb (Const abs (Fun rep_type abs_type))
+                     (Var x rep_type)) === Var x rep_type)))
+   ⇒ ((TypeDefn name pred abs rep)::ctxt, asl) |- p)`
 
 (*
 
