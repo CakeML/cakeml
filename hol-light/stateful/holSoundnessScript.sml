@@ -29,9 +29,9 @@ val binary_inference_rule = store_thm("binary_inference_rule",
     ∀ctxt h1 h2 p1 p2 q.
     q has_type Bool ∧ term_ok (sigof ctxt) q ∧
     (∀i v. is_structure (sigof ctxt) i v ∧
-           termsem i v p1 = True ∧
-           termsem i v p2 = True ⇒
-           termsem i v q = True) ∧
+           termsem (sigof ctxt) i v p1 = True ∧
+           termsem (sigof ctxt) i v p2 = True ⇒
+           termsem (sigof ctxt) i v q = True) ∧
     (ctxt,h1) |= p1 ∧ (ctxt,h2) |= p2
     ⇒ (ctxt, TERM_UNION h1 h2) |= q``,
   strip_tac >>
@@ -115,7 +115,7 @@ val BETA_correct = store_thm("BETA_correct",
     rw[is_structure_def] >> fs[is_model_def] ) >>
   imp_res_tac (UNDISCH termsem_equation) >>
   rw[boolean_eq_true,termsem_def] >>
-  qmatch_abbrev_tac`(Abstract mty mtyb f ' e) = termsem i v τ` >>
+  qmatch_abbrev_tac`(Abstract mty mtyb f ' e) = termsem Γ i v τ` >>
   `Abstract mty mtyb f ' e = f e` by (
     match_mp_tac (MP_CANON apply_abstract) >>
     simp[Abbr`f`,Abbr`e`] >>
@@ -124,7 +124,6 @@ val BETA_correct = store_thm("BETA_correct",
       fs[is_valuation_def,is_term_valuation_def,Abbr`mty`]) >>
     simp[Abbr`mtyb`] >>
     match_mp_tac (UNDISCH termsem_typesem) >>
-    qexists_tac`sigof ctxt` >>
     fs[is_structure_def] >>
     imp_res_tac is_std_interpretation_is_type >>
     Cases_on`v`>>
@@ -167,7 +166,7 @@ val ABS_correct = store_thm("ABS_correct",
   imp_res_tac (UNDISCH termsem_equation) >>
   simp[boolean_eq_true] >> disch_then match_mp_tac >>
   fs[EVERY_MEM] >> rw[] >>
-  qsuff_tac`termsem i vv t = termsem i v t`>-metis_tac[] >>
+  qsuff_tac`termsem (sigof ctxt) i vv t = termsem (sigof ctxt) i v t`>-metis_tac[] >>
   match_mp_tac termsem_frees >>
   simp[Abbr`vv`,combinTheory.APPLY_UPDATE_THM] >>
   rw[] >> metis_tac[])
@@ -209,8 +208,8 @@ val DEDUCT_ANTISYM_correct = store_thm("DEDUCT_ANTISYM_correct",
   `b ⇒ c` by (
     unabbrev_all_tac >> rw[] >>
     metis_tac[TERM_UNION_THM,termsem_aconv,welltyped_def] ) >>
-  `termsem i v p1 <: boolset ∧
-   termsem i v p2 <: boolset` by (
+  `termsem (sigof ctxt) i v p1 <: boolset ∧
+   termsem (sigof ctxt) i v p2 <: boolset` by (
     fs[is_structure_def] >>
     imp_res_tac is_std_interpretation_is_type >>
     imp_res_tac termsem_typesem >>
@@ -230,7 +229,7 @@ val INST_correct = store_thm("INST_correct",
   fs[satisfies_def] >> rw[] >>
   qspecl_then[`c`,`ilist`]mp_tac termsem_VSUBST >>
   discharge_hyps >- metis_tac[welltyped_def] >>
-  disch_then(qspecl_then[`i`,`v`]SUBST1_TAC) >>
+  disch_then(qspecl_then[`sigof ctxt`,`i`,`v`]SUBST1_TAC) >>
   first_x_assum(match_mp_tac o MP_CANON) >>
   simp[] >>
   conj_tac >- (
@@ -258,12 +257,26 @@ val INST_TYPE_correct = store_thm("INST_TYPE_correct",
   rw[entails_def,term_ok_INST,EVERY_MAP,EVERY_MEM] >>
   TRY ( match_mp_tac INST_HAS_TYPE >> metis_tac[TYPE_SUBST_Bool] ) >>
   fs[satisfies_def] >> rw[] >>
-  qspecl_then[`c`,`tyin`]mp_tac termsem_INST >>
+  qspecl_then[`sigof ctxt`,`c`,`tyin`]mp_tac termsem_INST >>
   discharge_hyps >- metis_tac[welltyped_def] >>
   disch_then(qspecl_then[`i`,`v`]SUBST1_TAC) >>
   first_x_assum(match_mp_tac o MP_CANON) >>
   simp[] >>
-  cheat (* false? *))
+  conj_tac >- (
+    Cases_on`v`>>
+    fs[is_valuation_def] >>
+    conj_tac >- (
+      fs[is_type_valuation_def] >> rw[] >>
+      match_mp_tac (UNDISCH typesem_inhabited) >>
+      Cases_on`i`>>fs[is_model_def,is_interpretation_def] >>
+      qexists_tac`types ctxt` >> simp[is_type_valuation_def] >>
+      fs[FORALL_PROD] >>
+      metis_tac[holSyntaxLibTheory.REV_ASSOCD_MEM,type_ok_def] ) >>
+    fs[is_term_valuation_def,APPLY_UPDATE_LIST_ALOOKUP,rich_listTheory.MAP_REVERSE] >>
+    rw[] >>
+    simp[Once (typesem_TYPE_SUBST |> SIMP_RULE(srw_ss())[] |> GSYM)]) >>
+  fs[EVERY_MAP,EVERY_MEM] >>
+  metis_tac[SIMP_RULE(srw_ss())[]termsem_INST,welltyped_def])
 
 val new_type_correct = store_thm("new_type_correct",
   ``∀ctxt h c name arity.
