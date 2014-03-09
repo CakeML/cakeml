@@ -328,13 +328,17 @@ val terms_of_def_def = Define`
   (terms_of_def (NewConst _ _) = []) ∧
   (terms_of_def (NewAxiom prop) = [prop])`
 
-  (* Axioms *)
-val axioms_of_def_def = Define`
-  (axioms_of_def (NewAxiom prop) = [prop]) ∧
-  (axioms_of_def (ConstSpec eqs prop) =
-   let ilist = MAP (λ(s,t). let ty = typeof t in (Const s ty,Var s ty)) eqs in
-     [VSUBST ilist prop]) ∧
-  (axioms_of_def (TypeDefn name pred abs_name rep_name) =
+  (* Axioms: we divide them into axiomatic extensions and conservative
+     extensions, we will prove that the latter preserve consistency *)
+val axexts_of_def_def = Define`
+  axexts_of_def (NewAxiom prop) = [prop] ∧
+  axexts_of_def _ = []`
+
+val conexts_of_def_def = Define`
+  (conexts_of_def (ConstSpec eqs prop) =
+    let ilist = MAP (λ(s,t). let ty = typeof t in (Const s ty,Var s ty)) eqs in
+      [VSUBST ilist prop]) ∧
+  (conexts_of_def (TypeDefn name pred abs_name rep_name) =
     let abs_type = Tyapp name (MAP Tyvar (STRING_SORT (tvars pred))) in
     let rep_type = domain (typeof pred) in
     let abs = Const abs_name (Fun rep_type abs_type) in
@@ -343,10 +347,15 @@ val axioms_of_def_def = Define`
     let r = Var "r" rep_type in
       [Comb abs (Comb rep a) === a;
        Comb pred r === (Comb rep (Comb abs r) === r)]) ∧
-  (axioms_of_def _ = [])`
+  (conexts_of_def _ = [])`
+
+val _ = Parse.overload_on("axexts",``λctxt. FLAT (MAP axexts_of_def ctxt)``)
+val _ = Parse.overload_on("conexts",``λctxt. FLAT (MAP conexts_of_def ctxt)``)
+
+val _ = Parse.overload_on("axioms_of_def",``λdef. axexts_of_def def ++ conexts_of_def def``)
 val _ = Parse.overload_on("axioms",``λctxt. FLAT (MAP axioms_of_def ctxt)``)
 
-val _ = export_rewrites["types_of_def_def","consts_of_def_def","terms_of_def_def"]
+val _ = export_rewrites["types_of_def_def","consts_of_def_def","terms_of_def_def","axexts_of_def_def"]
 
 (* Good types/terms in context *)
 
@@ -446,13 +455,16 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
   (prop has_type Bool ∧
    term_ok (sigof ctxt) prop ∧
    ((ctxt, asl) |- p ∨
-    ((asl,p) = ([],prop) ∧ context_ok ctxt))
+    (asl = [] ∧ context_ok ctxt ∧
+     MEM p (axioms_of_def (NewAxiom prop))))
    ⇒ ((NewAxiom prop)::ctxt, asl) |- p) ∧
 
   (* new_constant *)
-  ((ctxt, asl) |- p ∧
-   name ∉ (FDOM (consts ctxt)) ∧
-   type_ok (types ctxt) ty
+  (name ∉ (FDOM (consts ctxt)) ∧
+   type_ok (types ctxt) ty ∧
+   ((ctxt, asl) |- p ∨
+    (asl = [] ∧ context_ok ctxt ∧
+     MEM p (axioms_of_def (NewConst name ty))))
    ⇒ ((NewConst name ty)::ctxt, asl) |- p) ∧
 
   (* new_specification *)
@@ -470,8 +482,10 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
    ⇒ ((ConstSpec eqs prop)::ctxt, asl) |- p) ∧
 
   (* new_type *)
-  ((ctxt, asl) |- p ∧
-   name ∉ (FDOM (types ctxt))
+  (name ∉ (FDOM (types ctxt)) ∧
+   ((ctxt, asl) |- p ∨
+    (asl = [] ∧ context_ok ctxt ∧
+     MEM p (axioms_of_def (NewType name arity))))
    ⇒ ((NewType name arity)::ctxt, asl) |- p) ∧
 
   (* new_type_definition *)
