@@ -298,13 +298,13 @@ val new_axiom_correct = store_thm("new_axiom_correct",
   simp[entails_def] >>
   rpt gen_tac >> strip_tac >> simp[] >>
   (conj_tac >- (
-     fs[context_ok_def,linear_context_def] >>
+     fs[context_ok_def,linear_context_def,axioms_of_def_def] >>
      metis_tac[IS_SUFFIX_CONS])) >>
   rw[] >- (
     first_x_assum match_mp_tac >>
     match_mp_tac is_model_reduce >>
     metis_tac[rich_listTheory.CONS_APPEND,SUBMAP_REFL,context_ok_axioms_ok] ) >>
-  fs[is_model_def])
+  fs[is_model_def,axioms_of_def_def])
 
 val new_constant_correct = store_thm("new_constant_correct",
   ``∀ctxt h c name ty.
@@ -312,10 +312,10 @@ val new_constant_correct = store_thm("new_constant_correct",
       name ∉ (FDOM (consts ctxt)) ∧
       type_ok (types ctxt) ty
       ⇒ ((NewConst name ty)::ctxt,h) |= c``,
-  simp[entails_def,types_of_def_def,consts_of_def_def,axioms_of_def_def] >>
+  simp[entails_def,axioms_of_def_def] >>
   rpt gen_tac >> strip_tac >>
   conj_asm1_tac >- (
-    fs[context_ok_def] >>
+    fs[context_ok_def,axioms_of_def_def] >>
     fs[linear_context_def,ALL_DISTINCT_APPEND,IS_SUFFIX_CONS] ) >>
   `consts ctxt ⊑ consts ctxt |+ (name,ty)` by simp[] >>
   `EVERY (term_ok (sigof ctxt)) (c::h)` by ( fs[EVERY_MEM,satisfies_def] ) >>
@@ -343,8 +343,7 @@ val new_specification_correct = store_thm("new_specification_correct",
     (∀s. MEM s (MAP FST eqs) ⇒ s ∉ (FDOM (consts ctxt))) ∧
     ALL_DISTINCT (MAP FST eqs) ∧
     ((ctxt, asl) |= p ∨
-     (let ilist = MAP (λ(s,t). let ty = typeof t in (Const s ty,Var s ty)) eqs in
-        (asl,p) = ([],VSUBST ilist prop)))
+     (asl = [] ∧ MEM p (axioms_of_def (ConstSpec eqs prop))))
     ⇒ ((ConstSpec eqs prop)::ctxt,asl) |= p``,
   strip_tac >> rpt gen_tac >>
   Q.PAT_ABBREV_TAC`D ⇔ A ∨ B` >>
@@ -358,12 +357,17 @@ val new_specification_correct = store_thm("new_specification_correct",
     metis_tac[] ) >>
   imp_res_tac context_ok_sig >>
   conj_asm1_tac >- (
-    fs[context_ok_def,IS_SUFFIX_CONS] >>
+    fs[context_ok_def,IS_SUFFIX_CONS,axioms_of_def_def,LET_THM,ALL_DISTINCT_APPEND] >>
+    simp[MAP_MAP_o,combinTheory.o_DEF,ETA_AX,UNCURRY] >>
+    conj_tac >- (
+      match_mp_tac VSUBST_HAS_TYPE >>
+      simp[MEM_MAP,PULL_EXISTS,FORALL_PROD] >>
+      simp[Once has_type_cases] ) >>
     fs[linear_context_def,ALL_DISTINCT_APPEND,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
     asm_simp_tac(srw_ss()++boolSimps.ETA_ss)[] >>
     fs[EVERY_MAP,term_ok_equation,EVERY_MEM,UNCURRY] ) >>
   conj_asm1_tac >- (
-    fs[Abbr`D`,EVERY_MEM,entails_def,LET_THM] >> rw[] >>
+    fs[Abbr`D`,EVERY_MEM,entails_def,LET_THM,axioms_of_def_def] >> rw[] >>
     TRY (match_mp_tac term_ok_VSUBST >> conj_tac) >>
     TRY (
       match_mp_tac term_ok_extend >>
@@ -379,7 +383,7 @@ val new_specification_correct = store_thm("new_specification_correct",
     last_x_assum(qspec_then`eq`mp_tac) >>
     simp[Abbr`eq`,term_ok_equation,term_ok_def] ) >>
   conj_asm1_tac >- (
-    fs[Abbr`D`,entails_def,LET_THM] >>
+    fs[Abbr`D`,entails_def,LET_THM,axioms_of_def_def] >>
     match_mp_tac VSUBST_HAS_TYPE >>
     simp[MEM_MAP,PULL_EXISTS,FORALL_PROD] >>
     rw[Once has_type_cases] ) >>
@@ -389,82 +393,18 @@ val new_specification_correct = store_thm("new_specification_correct",
     metis_tac[APPEND,SUBMAP_REFL,context_ok_axioms_ok] ) >>
   fs[Abbr`D`,LET_THM,entails_def] >- (
     metis_tac[satisfies_extend,SUBMAP_REFL,EVERY_DEF] ) >>
-  fs[satisfies_def] >> rw[] >>
-  first_x_assum(qspec_then`i`mp_tac) >> rw[] >>
-  qabbrev_tac`vv = λ(x,ty).
-    case ALOOKUP eqs x of
-    | NONE => SND v (x,ty)
-    | SOME t => if ty ≠ typeof t then SND v (x,ty) else termsem (sigof ctxt) i v t` >>
-  first_x_assum(qspec_then`(FST v,vv)`mp_tac) >>
-  discharge_hyps >- (
-    conj_asm1_tac >- (
-      Cases_on`v`>>fs[is_valuation_def,is_term_valuation_def] >>
-      simp[Abbr`vv`] >> rw[] >>
-      Cases_on`i`>>fs[is_model_def,is_interpretation_def,is_term_assignment_def] >>
-      BasicProvers.CASE_TAC >> rw[] >>
-      imp_res_tac ALOOKUP_MEM >>
-      fs[EVERY_MAP,EVERY_MEM] >>
-      match_mp_tac (UNDISCH termsem_typesem) >>
-      simp[is_valuation_def,is_term_valuation_def] >>
-      simp[is_interpretation_def,is_term_assignment_def] >>
-      imp_res_tac is_std_interpretation_is_type >> fs[] >>
-      fs[FORALL_PROD] >>
-      metis_tac[term_ok_equation]) >>
-    simp[EVERY_MAP,EVERY_MEM,FORALL_PROD] >>
-    `is_structure (sigof ctxt) i (FST v,vv)` by (
-      fs[is_structure_def,is_model_def] ) >>
-    qx_genl_tac[`x`,`t`] >> strip_tac >>
-    `term_ok (sigof ctxt) (Var x (typeof t) === t)` by (
-      fs[EVERY_MAP,EVERY_MEM,FORALL_PROD] ) >>
-    imp_res_tac (UNDISCH termsem_equation) >>
-    simp[boolean_eq_true,termsem_def] >>
-    simp[Abbr`vv`] >>
-    imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
-    simp[] >>
-    match_mp_tac termsem_frees >>
-    simp[] >>
-    fs[EVERY_MAP,EVERY_MEM,FORALL_PROD] >>
-    metis_tac[CLOSED_def] ) >>
-  rw[] >>
-  qmatch_abbrev_tac`termsem Γ i v (VSUBST ilist tm) = True` >>
-  qspecl_then[`tm`,`ilist`]mp_tac termsem_VSUBST >>
-  discharge_hyps >- (
-    simp[welltyped_def,Abbr`ilist`,MEM_MAP,EXISTS_PROD,PULL_EXISTS] >>
-    metis_tac[has_type_rules] ) >>
-  simp[] >> disch_then kall_tac >>
-  qspecl_then[`types ctxt`,`consts ctxt`,`FST Γ`,`SND Γ`,`tm`]mp_tac termsem_extend >>
-  discharge_hyps >- simp[Abbr`Γ`] >>
-  simp[Abbr`Γ`] >> disch_then kall_tac >>
-  qpat_assum`X = True`(SUBST1_TAC o SYM) >>
-  match_mp_tac termsem_frees >>
-  simp[Abbr`vv`] >>
-  simp[APPLY_UPDATE_LIST_ALOOKUP,rich_listTheory.MAP_REVERSE] >>
-  rw[] >> res_tac >>
-  pop_assum mp_tac >>
-  simp_tac(srw_ss())[MEM_MAP,PULL_EXISTS,FORALL_PROD] >> rw[] >>
-  imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >> simp[] >>
-  simp[Abbr`ilist`,MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD] >>
-  BasicProvers.CASE_TAC >- (
-    imp_res_tac ALOOKUP_FAILS >>
-    fs[MEM_MAP,FORALL_PROD] >>
-    metis_tac[] ) >>
-  imp_res_tac ALOOKUP_MEM >>
-  fs[MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
-  simp[termsem_def] >>
-  cheat (* probably false - need a different witness above? *))
+  fs[is_model_def,EVERY_MEM])
 
 val new_type_correct = store_thm("new_type_correct",
   ``∀ctxt h c name arity.
-      name ∉ (FDOM (types ctxt)) ∧
-      EVERY (term_ok (sigof ctxt)) (axioms ctxt) ∧
-      (ctxt,h) |= c
+      (ctxt,h) |= c ∧
+      name ∉ (FDOM (types ctxt))
       ⇒ ((NewType name arity)::ctxt,h) |= c``,
   simp[entails_def,types_of_def_def,consts_of_def_def,axioms_of_def_def] >>
   rpt gen_tac >> strip_tac >>
   conj_asm1_tac >- (
-    match_mp_tac is_std_sig_extend >>
-    map_every qexists_tac[`types ctxt`,`consts ctxt`] >>
-    simp[] ) >>
+    fs[context_ok_def,axioms_of_def_def,linear_context_def] >>
+    metis_tac[IS_SUFFIX_CONS]) >>
   conj_asm1_tac >- (
     fs[EVERY_MEM] >> rw[] >>
     match_mp_tac term_ok_extend >>
@@ -473,16 +413,123 @@ val new_type_correct = store_thm("new_type_correct",
   rw[] >>
   `EVERY (term_ok (sigof ctxt)) (c::h)` by (
     fs[EVERY_MEM] ) >>
+  `types ctxt ⊑ types ctxt |+ (name,arity)` by simp[] >>
   qsuff_tac`(sigof ctxt,i) satisfies (h,c)` >- (
     metis_tac[satisfies_extend,SUBMAP_REFL] ) >>
   first_x_assum match_mp_tac >>
   match_mp_tac is_model_reduce >>
   qmatch_assum_abbrev_tac`is_model ((tyenv,tmenv),axs) i` >>
   map_every qexists_tac[`tyenv`,`tmenv`,`axs`] >>
-  simp[Abbr`tyenv`,Abbr`tmenv`])
+  simp[Abbr`tyenv`,Abbr`tmenv`] >>
+  imp_res_tac context_ok_axioms_ok >>
+  fs[Abbr`axs`] >> fsrw_tac[boolSimps.ETA_ss][])
+
+val new_type_definition_correct = store_thm("new_type_definition_correct",
+  ``∀ctxt h c name pred abs rep rep_type witness.
+    (ctxt,[]) |= Comb pred witness ∧
+    CLOSED pred ∧ pred has_type (Fun rep_type Bool) ∧
+    name ∉ (FDOM (types ctxt)) ∧
+    abs ∉ (FDOM (consts ctxt)) ∧
+    rep ∉ (FDOM (consts ctxt)) ∧
+    abs ≠ rep ∧
+    ((ctxt, h) |= c ∨
+     (h = [] ∧ MEM c (axioms_of_def (TypeDefn name pred abs rep))))
+    ⇒ ((TypeDefn name pred abs rep)::ctxt, h) |= c``,
+  strip_tac >> rpt gen_tac >>
+  Q.PAT_ABBREV_TAC`D ⇔ A ∨ B` >>
+  simp[entails_def] >>
+  strip_tac >>
+  Q.PAT_ABBREV_TAC`ts:(string |-> num) = Z` >>
+  Q.PAT_ABBREV_TAC`cs:(string |-> type) = Z` >>
+  `consts ctxt ⊑ cs ∧ types ctxt ⊑ ts` by (
+    rw[Abbr`cs`,Abbr`ts`] >>
+    rw[SUBMAP_DEF,FAPPLY_FUPDATE_THM] >>
+    rw[] >> fs[] >> NO_TAC) >>
+  imp_res_tac context_ok_sig >>
+  `welltyped pred` by metis_tac[welltyped_def] >>
+  imp_res_tac WELLTYPED_LEMMA >>
+  conj_asm1_tac >- (
+    fs[context_ok_def,IS_SUFFIX_CONS,axioms_of_def_def,LET_THM,ALL_DISTINCT_APPEND] >>
+    simp[EQUATION_HAS_TYPE_BOOL] >>
+    conj_tac >- (
+      qmatch_abbrev_tac`welltyped e ∧ Z` >>
+      qsuff_tac`e has_type Bool` >- metis_tac[WELLTYPED_LEMMA,welltyped_def] >>
+      simp[Abbr`e`,EQUATION_HAS_TYPE_BOOL] ) >>
+    fs[linear_context_def,ALL_DISTINCT_APPEND,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
+    fs[term_ok_def]) >>
+  `name ∉ {"fun";"bool"} ∧ abs ≠ "=" ∧ rep ≠ "="` by (
+    rfs[context_ok_def,rich_listTheory.IS_SUFFIX_APPEND,init_ctxt_def] >>
+    rw[] >> fs[] ) >>
+  `is_std_sig (ts,cs)` by (
+    fs[is_std_sig_def,Abbr`cs`,Abbr`ts`,FLOOKUP_UPDATE] ) >>
+  conj_asm1_tac >- (
+    `term_ok (ts,cs) pred` by (
+      fs[term_ok_def] >>
+      match_mp_tac term_ok_extend >>
+      metis_tac[] ) >>
+    `type_ok ts rep_type` by (
+      fs[term_ok_def] >>
+      imp_res_tac term_ok_type_ok >>
+      match_mp_tac type_ok_extend >>
+      metis_tac[FST] ) >>
+    fs[Abbr`D`,EVERY_MEM,entails_def,LET_THM,axioms_of_def_def] >> rw[] >>
+    TRY (
+      match_mp_tac term_ok_extend >>
+      map_every qexists_tac[`types ctxt`,`consts ctxt`] >>
+      simp[] >> NO_TAC)
+    >- (
+      simp[term_ok_equation,term_ok_def] >>
+      simp[Abbr`cs`,FLOOKUP_UPDATE,type_ok_def,Abbr`ts`,EVERY_MAP] >>
+      fs[is_std_sig_def] ) >>
+    simp[term_ok_equation,term_ok_def,Abbr`cs`,FLOOKUP_UPDATE,type_ok_def,Abbr`ts`,EVERY_MAP] >>
+    fs[is_std_sig_def] >>
+    qmatch_abbrev_tac`typeof e = Bool` >>
+    (qsuff_tac`e has_type Bool` >- metis_tac[WELLTYPED_LEMMA]) >>
+    simp[Abbr`e`,EQUATION_HAS_TYPE_BOOL] ) >>
+  conj_asm1_tac >- (
+    fs[Abbr`D`,entails_def,context_ok_def,EVERY_MEM] ) >>
+  rw[Abbr`D`] >>
+  `is_model (sigof ctxt,axioms ctxt) i` by (
+    match_mp_tac is_model_reduce >>
+    metis_tac[APPEND,SUBMAP_REFL,context_ok_axioms_ok] ) >>
+  fs[entails_def] >- (
+      metis_tac[satisfies_extend,SUBMAP_REFL,EVERY_DEF] ) >>
+  fs[is_model_def,EVERY_MEM])
+
+val soundness = store_thm("soundness",
+  ``is_set_theory ^mem ⇒ ∀ctxtasl p. ctxtasl |- p ⇒ ctxtasl |= p``,
+  strip_tac >> match_mp_tac proves_ind >>
+  conj_tac >- metis_tac[ABS_correct] >>
+  conj_tac >- metis_tac[ASSUME_correct] >>
+  conj_tac >- metis_tac[BETA_correct] >>
+  conj_tac >- metis_tac[DEDUCT_ANTISYM_correct] >>
+  conj_tac >- metis_tac[EQ_MP_correct] >>
+  conj_tac >- metis_tac[INST_correct] >>
+  conj_tac >- metis_tac[INST_TYPE_correct] >>
+  conj_tac >- metis_tac[MK_COMB_correct] >>
+  conj_tac >- metis_tac[REFL_correct] >>
+  conj_tac >- metis_tac[TRANS_correct] >>
+  conj_tac >- metis_tac[new_axiom_correct] >>
+  conj_tac >- metis_tac[new_constant_correct] >>
+  conj_tac >- metis_tac[new_specification_correct] >>
+  conj_tac >- metis_tac[new_type_correct] >>
+  metis_tac[new_type_definition_correct])
 
 (*
-val new_type_definition_correct = store_thm("new_type_definition_correct",
+val consistency = store_thm("consistency",
+  ``is_set_theory ^mem ⇒
+    ∀ctxt. context_ok ctxt ∧
+           FILTER (λu. ∃p. u = NewAxiom p) ctxt = [] ⇒
+      (ctxt,[]) |- (Var "x" Bool === Var "x" Bool) ∧
+      ¬((ctxt,[]) |- (Var "x" Bool === Var "y" Bool))``,
+  rw[] >- (
+    match_mp_tac (List.nth(CONJUNCTS proves_rules,8)) >>
+    simp[term_ok_def,type_ok_def] >>
+    imp_res_tac context_ok_sig >>
+    fs[is_std_sig_def] ) >>
+  spose_not_then strip_assume_tac >>
+  imp_res_tac soundness >>
+  fs[entails_def]
 *)
 
 val _ = export_theory()

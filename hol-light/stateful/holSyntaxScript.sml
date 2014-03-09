@@ -331,10 +331,22 @@ val terms_of_def_def = Define`
   (* Axioms *)
 val axioms_of_def_def = Define`
   (axioms_of_def (NewAxiom prop) = [prop]) ∧
+  (axioms_of_def (ConstSpec eqs prop) =
+   let ilist = MAP (λ(s,t). let ty = typeof t in (Const s ty,Var s ty)) eqs in
+     [VSUBST ilist prop]) ∧
+  (axioms_of_def (TypeDefn name pred abs_name rep_name) =
+    let abs_type = Tyapp name (MAP Tyvar (STRING_SORT (tvars pred))) in
+    let rep_type = domain (typeof pred) in
+    let abs = Const abs_name (Fun rep_type abs_type) in
+    let rep = Const rep_name (Fun abs_type rep_type) in
+    let a = Var "a" abs_type in
+    let r = Var "r" rep_type in
+      [Comb abs (Comb rep a) === a;
+       Comb pred r === (Comb rep (Comb abs r) === r)]) ∧
   (axioms_of_def _ = [])`
 val _ = Parse.overload_on("axioms",``λctxt. FLAT (MAP axioms_of_def ctxt)``)
 
-val _ = export_rewrites["types_of_def_def","consts_of_def_def","terms_of_def_def","axioms_of_def_def"]
+val _ = export_rewrites["types_of_def_def","consts_of_def_def","terms_of_def_def"]
 
 (* Good types/terms in context *)
 
@@ -454,8 +466,7 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
    (∀s. MEM s (MAP FST eqs) ⇒ s ∉ (FDOM (consts ctxt))) ∧
    ALL_DISTINCT (MAP FST eqs) ∧
    ((ctxt, asl) |- p ∨
-    (let ilist = MAP (λ(s,t). let ty = typeof t in (Const s ty,Var s ty)) eqs in
-       (asl,p) = ([],VSUBST ilist prop)))
+    (asl = [] ∧ MEM p (axioms_of_def (ConstSpec eqs prop))))
    ⇒ ((ConstSpec eqs prop)::ctxt, asl) |- p) ∧
 
   (* new_type *)
@@ -464,23 +475,14 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
    ⇒ ((NewType name arity)::ctxt, asl) |- p) ∧
 
   (* new_type_definition *)
-  ((abs_type = Tyapp name (MAP Tyvar (STRING_SORT (tvars pred)))) ∧
-   (ctxt, []) |- Comb pred witness ∧
+  ((ctxt, []) |- Comb pred witness ∧
    CLOSED pred /\ pred has_type (Fun rep_type Bool) ∧
    name ∉ (FDOM (types ctxt)) ∧
    abs ∉ (FDOM (consts ctxt)) ∧
    rep ∉ (FDOM (consts ctxt)) ∧
    abs ≠ rep ∧
-   ((ctxt, asl) |- p  ∨
-    ((asl,p) = ([],
-       Comb (Const abs (Fun rep_type abs_type))
-              (Comb (Const rep (Fun abs_type rep_type))
-                    (Var x abs_type)) === Var x abs_type)) ∨
-    ((asl,p) = ([],
-       Comb t (Var x rep_type) ===
-          Comb (Const rep (Fun abs_type rep_type))
-               (Comb (Const abs (Fun rep_type abs_type))
-                     (Var x rep_type)) === Var x rep_type)))
+   ((ctxt, asl) |- p ∨
+    (asl = [] ∧ MEM p (axioms_of_def (TypeDefn name pred abs rep))))
    ⇒ ((TypeDefn name pred abs rep)::ctxt, asl) |- p)`
 
 (*
