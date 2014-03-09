@@ -1490,10 +1490,10 @@ val context_ok_axioms_ok = store_thm("context_ok_axioms_ok",
   (reverse(Cases_on`context_ok ctxt`)>- (
     rfs[ALL_DISTINCT_APPEND,context_ok_def] >>
     fs[rich_listTheory.IS_SUFFIX_APPEND,init_ctxt_def] >>
-    Cases_on`l`>>fs[conexts_of_def_def] )) >>
-  fs[] >- (Cases_on`h`>>fs[conexts_of_def_def] >> simp[FUNION_FEMPTY_1])
+    Cases_on`l`>>fs[conexts_of_upd_def] )) >>
+  fs[] >- (Cases_on`h`>>fs[conexts_of_upd_def] >> simp[FUNION_FEMPTY_1])
   >- (
-    Cases_on`h`>>fs[conexts_of_def_def] >>
+    Cases_on`h`>>fs[conexts_of_upd_def] >>
     simp[FUNION_FEMPTY_1] >- (
       match_mp_tac term_ok_VSUBST >>
       simp[MEM_MAP,PULL_EXISTS,UNCURRY,term_ok_def] >>
@@ -1555,7 +1555,7 @@ val context_ok_axioms_ok = store_thm("context_ok_axioms_ok",
     simp[Abbr`e`,EQUATION_HAS_TYPE_BOOL] ) >>
   fs[context_ok_def,EVERY_MEM,ALL_DISTINCT_APPEND,rich_listTheory.IS_SUFFIX_APPEND] >>
   Cases_on`l`>>fs[]>>
-  gen_tac >> reverse strip_tac >- fs[init_ctxt_def,conexts_of_def_def] >>
+  gen_tac >> reverse strip_tac >- fs[init_ctxt_def,conexts_of_upd_def] >>
   last_x_assum(qspec_then`p`mp_tac) >> simp[] >> strip_tac >>
   match_mp_tac term_ok_extend >>
   qmatch_assum_abbrev_tac`term_ok (tyenv,tmenv) p` >>

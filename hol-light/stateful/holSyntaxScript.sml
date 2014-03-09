@@ -60,8 +60,8 @@ val typeof_def = Define`
   (typeof (Abs n ty t) = Fun ty (typeof t))`
 val _ = export_rewrites["typeof_def"]
 
-(* Alpha-equivalence, as a relation parameterised by the
-   lists of variables bound above the terms. *)
+(* Auxiliary relation used to define alpha-equivalence. This relation is
+   parameterised by the lists of variables bound above the terms. *)
 
 val (RACONV_rules,RACONV_ind,RACONV_cases) = Hol_reln`
   (ALPHAVARS env (Var x1 ty1,Var x2 ty2)
@@ -72,13 +72,13 @@ val (RACONV_rules,RACONV_ind,RACONV_cases) = Hol_reln`
   ((ty1 = ty2) ∧ RACONV ((Var x1 ty1,Var x2 ty2)::env) (t1,t2)
     ⇒ RACONV env (Abs x1 ty1 t1,Abs x2 ty2 t2))`
 
-(* Alpha-equivalence as a function on closed terms. *)
+(* Alpha-equivalence. *)
 
 val ACONV_def = Define`
   ACONV t1 t2 ⇔ RACONV [] (t1,t2)`
 
 (* Alpha-respecting union of two lists of terms.
-   May retain duplicates in the second list. *)
+   Retain duplicates in the second list. *)
 
 val TERM_UNION_def = Define`
   TERM_UNION [] l2 = l2 ∧
@@ -295,50 +295,58 @@ val init_ctxt_def = Define`
 
 (* Projecting out pieces of the context *)
 
-  (* Introduced types and consts *)
-val types_of_def_def = Define`
-  (types_of_def (ConstSpec _ _) = []) ∧
-  (types_of_def (TypeDefn name pred _ _) = [(name,LENGTH (tvars pred))]) ∧
-  (types_of_def (NewType name arity) = [(name,arity)]) ∧
-  (types_of_def (NewConst _ _) = []) ∧
-  (types_of_def (NewAxiom _) = [])`
+  (* Types and consts introduced by an update *)
+val types_of_upd_def = Define`
+  (types_of_upd (ConstSpec _ _) = []) ∧
+  (types_of_upd (TypeDefn name pred _ _) = [(name,LENGTH (tvars pred))]) ∧
+  (types_of_upd (NewType name arity) = [(name,arity)]) ∧
+  (types_of_upd (NewConst _ _) = []) ∧
+  (types_of_upd (NewAxiom _) = [])`
 
-val consts_of_def_def = Define`
-  (consts_of_def (ConstSpec eqs prop) = MAP (λ(s,t). (s, typeof t)) eqs) ∧
-  (consts_of_def (TypeDefn name pred abs rep) =
+val consts_of_upd_def = Define`
+  (consts_of_upd (ConstSpec eqs prop) = MAP (λ(s,t). (s, typeof t)) eqs) ∧
+  (consts_of_upd (TypeDefn name pred abs rep) =
      let rep_type = domain (typeof pred) in
      let abs_type = Tyapp name (MAP Tyvar (STRING_SORT (tvars pred))) in
        [(abs, Fun rep_type abs_type);
         (rep, Fun abs_type rep_type)]) ∧
-  (consts_of_def (NewType _ _) = []) ∧
-  (consts_of_def (NewConst name type) = [(name,type)]) ∧
-  (consts_of_def (NewAxiom _) = [])`
+  (consts_of_upd (NewType _ _) = []) ∧
+  (consts_of_upd (NewConst name type) = [(name,type)]) ∧
+  (consts_of_upd (NewAxiom _) = [])`
 
-val _ = Parse.overload_on("type_list",``λctxt. FLAT (MAP types_of_def ctxt)``)
+val _ = Parse.overload_on("type_list",``λctxt. FLAT (MAP types_of_upd ctxt)``)
 val _ = Parse.overload_on("types",``λctxt. alist_to_fmap (type_list ctxt)``)
-val _ = Parse.overload_on("const_list",``λctxt. FLAT (MAP consts_of_def ctxt)``)
+val _ = Parse.overload_on("const_list",``λctxt. FLAT (MAP consts_of_upd ctxt)``)
 val _ = Parse.overload_on("consts",``λctxt. alist_to_fmap (const_list ctxt)``)
 val _ = Parse.overload_on("sigof",``λctxt. (types ctxt, consts ctxt)``)
 
-  (* Required terms (no types are required directly) *)
-val terms_of_def_def = Define`
-  (terms_of_def (ConstSpec eqs prop) = (prop::(MAP SND eqs))) ∧
-  (terms_of_def (TypeDefn name pred abs rep) = [pred]) ∧
-  (terms_of_def (NewType _ _) = []) ∧
-  (terms_of_def (NewConst _ _) = []) ∧
-  (terms_of_def (NewAxiom prop) = [prop])`
+  (* Types and terms required by an update (types of required terms not
+     mentioned explicitly) *)
+val types_req_by_upd_def = Define`
+  (types_req_by_upd (ConstSpec _ _) = []) ∧
+  (types_req_by_upd (TypeDefn _ _ _ _) = []) ∧
+  (types_req_by_upd (NewType _ _) = []) ∧
+  (types_req_by_upd (NewConst _ ty) = [ty]) ∧
+  (types_req_by_upd (NewAxiom _) = [])`
+
+val terms_req_by_upd_def = Define`
+  (terms_req_by_upd (ConstSpec eqs prop) = (prop::(MAP SND eqs))) ∧
+  (terms_req_by_upd (TypeDefn name pred abs rep) = [pred]) ∧
+  (terms_req_by_upd (NewType _ _) = []) ∧
+  (terms_req_by_upd (NewConst _ _) = []) ∧
+  (terms_req_by_upd (NewAxiom prop) = [prop])`
 
   (* Axioms: we divide them into axiomatic extensions and conservative
      extensions, we will prove that the latter preserve consistency *)
-val axexts_of_def_def = Define`
-  axexts_of_def (NewAxiom prop) = [prop] ∧
-  axexts_of_def _ = []`
+val axexts_of_upd_def = Define`
+  axexts_of_upd (NewAxiom prop) = [prop] ∧
+  axexts_of_upd _ = []`
 
-val conexts_of_def_def = Define`
-  (conexts_of_def (ConstSpec eqs prop) =
+val conexts_of_upd_def = Define`
+  (conexts_of_upd (ConstSpec eqs prop) =
     let ilist = MAP (λ(s,t). let ty = typeof t in (Const s ty,Var s ty)) eqs in
       [VSUBST ilist prop]) ∧
-  (conexts_of_def (TypeDefn name pred abs_name rep_name) =
+  (conexts_of_upd (TypeDefn name pred abs_name rep_name) =
     let abs_type = Tyapp name (MAP Tyvar (STRING_SORT (tvars pred))) in
     let rep_type = domain (typeof pred) in
     let abs = Const abs_name (Fun rep_type abs_type) in
@@ -347,15 +355,17 @@ val conexts_of_def_def = Define`
     let r = Var "r" rep_type in
       [Comb abs (Comb rep a) === a;
        Comb pred r === (Comb rep (Comb abs r) === r)]) ∧
-  (conexts_of_def _ = [])`
+  (conexts_of_upd _ = [])`
 
-val _ = Parse.overload_on("axexts",``λctxt. FLAT (MAP axexts_of_def ctxt)``)
-val _ = Parse.overload_on("conexts",``λctxt. FLAT (MAP conexts_of_def ctxt)``)
+val _ = Parse.overload_on("axexts",``λctxt. FLAT (MAP axexts_of_upd ctxt)``)
+val _ = Parse.overload_on("conexts",``λctxt. FLAT (MAP conexts_of_upd ctxt)``)
 
-val _ = Parse.overload_on("axioms_of_def",``λdef. axexts_of_def def ++ conexts_of_def def``)
-val _ = Parse.overload_on("axioms",``λctxt. FLAT (MAP axioms_of_def ctxt)``)
+val _ = Parse.overload_on("axioms_of_upd",``λdef. axexts_of_upd def ++ conexts_of_upd def``)
+val _ = Parse.overload_on("axioms",``λctxt. FLAT (MAP axioms_of_upd ctxt)``)
 
-val _ = export_rewrites["types_of_def_def","consts_of_def_def","terms_of_def_def","axexts_of_def_def"]
+val _ = export_rewrites["types_req_by_upd_def","terms_req_by_upd_def"
+                       ,"types_of_upd_def","consts_of_upd_def"
+                       ,"axexts_of_upd_def"]
 
 (* Good types/terms in context *)
 
@@ -384,8 +394,9 @@ val term_ok_def = Define`
 
 val linear_context_def = Define`
   (linear_context [] ⇔ T) ∧
-  (linear_context (def::ctxt) ⇔
-   EVERY (term_ok (sigof ctxt)) (terms_of_def def) ∧
+  (linear_context (upd::ctxt) ⇔
+   EVERY (type_ok (types ctxt)) (types_req_by_upd upd) ∧
+   EVERY (term_ok (sigof ctxt)) (terms_req_by_upd upd) ∧
    linear_context ctxt)`
 
 val context_ok_def = Define`
@@ -456,7 +467,7 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
    term_ok (sigof ctxt) prop ∧
    ((ctxt, asl) |- p ∨
     (asl = [] ∧ context_ok ctxt ∧
-     MEM p (axioms_of_def (NewAxiom prop))))
+     MEM p (axioms_of_upd (NewAxiom prop))))
    ⇒ ((NewAxiom prop)::ctxt, asl) |- p) ∧
 
   (* new_constant *)
@@ -464,7 +475,7 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
    type_ok (types ctxt) ty ∧
    ((ctxt, asl) |- p ∨
     (asl = [] ∧ context_ok ctxt ∧
-     MEM p (axioms_of_def (NewConst name ty))))
+     MEM p (axioms_of_upd (NewConst name ty))))
    ⇒ ((NewConst name ty)::ctxt, asl) |- p) ∧
 
   (* new_specification *)
@@ -478,14 +489,14 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
    (∀s. MEM s (MAP FST eqs) ⇒ s ∉ (FDOM (consts ctxt))) ∧
    ALL_DISTINCT (MAP FST eqs) ∧
    ((ctxt, asl) |- p ∨
-    (asl = [] ∧ MEM p (axioms_of_def (ConstSpec eqs prop))))
+    (asl = [] ∧ MEM p (axioms_of_upd (ConstSpec eqs prop))))
    ⇒ ((ConstSpec eqs prop)::ctxt, asl) |- p) ∧
 
   (* new_type *)
   (name ∉ (FDOM (types ctxt)) ∧
    ((ctxt, asl) |- p ∨
     (asl = [] ∧ context_ok ctxt ∧
-     MEM p (axioms_of_def (NewType name arity))))
+     MEM p (axioms_of_upd (NewType name arity))))
    ⇒ ((NewType name arity)::ctxt, asl) |- p) ∧
 
   (* new_type_definition *)
@@ -496,7 +507,7 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
    rep ∉ (FDOM (consts ctxt)) ∧
    abs ≠ rep ∧
    ((ctxt, asl) |- p ∨
-    (asl = [] ∧ MEM p (axioms_of_def (TypeDefn name pred abs rep))))
+    (asl = [] ∧ MEM p (axioms_of_upd (TypeDefn name pred abs rep))))
    ⇒ ((TypeDefn name pred abs rep)::ctxt, asl) |- p)`
 
 val _ = Parse.overload_on("ConstDef",``λx t. ConstSpec [(x,t)] (Var x (typeof t) === t)``)
