@@ -587,6 +587,7 @@ val weakCT_only_other_mods_merge = Q.prove (
 rw [weakCT_only_other_mods_def] >>
 metis_tac []);
 
+(*
 val check_new_type_weakening = Q.prove (
 `!mn tn tenvC tenvC'.
   check_new_type (mk_id mn tn) tenvC ∧
@@ -660,21 +661,19 @@ val check_exn_tenv_weakening = Q.store_thm ("check_exn_tenv_weakening",
  PairCases_on `tenvC'` >>
  fs [check_exn_tenv_def] >>
  metis_tac [check_new_exn_weakening]);
+ *)
 
 val type_d_weakening = Q.store_thm ("type_d_weakening",
 `!mn tdecs tenvM tenvC tenv d tdecs' tenvC' tenv' tenvM'' tenvC''.
   type_d mn tdecs tenvM tenvC tenv d tdecs' tenvC' tenv' ∧
   weakM tenvM'' tenvM ∧ weakC tenvC'' tenvC ∧
-  tenvC_ok tenvC'' ∧
-  weakCT_only_other_mods mn (to_ctMap tenvC'') (to_ctMap tenvC)
+  tenvC_ok tenvC''
   ⇒
   type_d mn tdecs tenvM'' tenvC'' tenv d tdecs' tenvC' tenv'`,
  rw [type_d_cases]
  >- metis_tac [type_p_weakening, type_e_weakening, weak_tenvE_refl, DECIDE ``!x:num. x ≥ x``]
  >- metis_tac [type_p_weakening, type_e_weakening, weak_tenvE_refl, DECIDE ``!x:num. x ≥ x``]
- >- metis_tac [type_p_weakening, type_e_weakening, weak_tenvE_refl, DECIDE ``!x:num. x ≥ x``]
- >- metis_tac [check_ctor_tenv_weakening]
- >- metis_tac [check_exn_tenv_weakening]);
+ >- metis_tac [type_p_weakening, type_e_weakening, weak_tenvE_refl, DECIDE ``!x:num. x ≥ x``]);
 
 val consistent_con_env_weakening = Q.store_thm ("consistent_con_env_weakening",
 `!ctMap envC tenvC ctMap'.
@@ -869,5 +868,56 @@ val consistent_ctMap_weakening = Q.store_thm ("consistent_ctMap_weakening",
  fs [] >>
  res_tac >>
  fs [SUBSET_DEF]);
+
+val type_ds_ctMap_disjoint = Q.store_thm ("type_ds_ctMap_disjoint",
+`∀mn (tdecs1:decls) tenvM tenvC tenv ds tdecs1' tenvC' tenv'.
+  type_ds mn tdecs1 tenvM tenvC tenv ds tdecs1' tenvC' tenv' 
+  ⇒
+  !(ctMap:ctMap). consistent_ctMap tdecs1 ctMap
+  ⇒
+  DISJOINT (FDOM (flat_to_ctMap tenvC')) (FDOM ctMap)`,
+ ho_match_mp_tac type_ds_ind >>
+ rw []
+ >- rw [flat_to_ctMap_def, emp_def, flat_to_ctMap_list_def, FDOM_FUPDATE_LIST] >>
+ rw [flat_to_ctMap_def, merge_def, flat_to_ctMap_list_append, FDOM_FUPDATE_LIST,
+     DISJOINT_DEF, EXTENSION, REVERSE_APPEND] >>
+ imp_res_tac type_d_ctMap_disjoint >>
+ fs [DISJOINT_DEF, EXTENSION, flat_to_ctMap_def, FDOM_FUPDATE_LIST] >>
+ metis_tac [consistent_ctMap_weakening, type_d_weak_decls]);
+
+ (*
+val type_ds_ctMap_ok = Q.store_thm ("type_ds_ctMap_ok",
+`!tvs tdecs tenvM tenvC tenv ds tdecs' tenvC' tenv'.
+  type_ds tvs tdecs tenvM tenvC tenv ds tdecs' tenvC' tenv' ⇒
+  ctMap_ok (flat_to_ctMap tenvC') ∧
+  ALL_DISTINCT (MAP FST (flat_to_ctMap_list tenvC'))`,
+ ho_match_mp_tac type_ds_strongind >>
+ rw []
+ >- rw [ctMap_ok_def, emp_def, flat_to_ctMap_def, flat_to_ctMap_list_def,
+        FEVERY_ALL_FLOOKUP, flookup_fupdate_list]
+ >- rw [flat_to_ctMap_def, flat_to_ctMap_list_def, FDOM_FUPDATE_LIST, emp_def]
+ >- (imp_res_tac type_d_ctMap_ok >>
+     fs [merge_def, flat_to_ctMap_def] >>
+     fs [ctMap_ok_def, FEVERY_ALL_FLOOKUP, flookup_fupdate_list] >>
+     rw [] >>
+     every_case_tac >>
+     fs [] >>
+     rw [] >>
+     fs [flat_to_ctMap_list_def, ALOOKUP_APPEND, REVERSE_APPEND] >>
+     every_case_tac >>
+     fs [])
+ >- (rw [merge_def, flat_to_ctMap_list_append, ALL_DISTINCT_APPEND] >>
+     imp_res_tac type_d_ctMap_ok >>
+     imp_res_tac type_ds_ctMap_disjoint >>
+
+
+
+     PairCases_on `tenvC` >>
+     fs [merge_tenvC_def, DISJOINT_DEF, EXTENSION, flat_to_ctMap_def,
+         to_ctMap_def, MEM_MAP, MEM_REVERSE, FDOM_FUPDATE_LIST,
+         to_ctMap_list_def, MEM_FLAT, flat_to_ctMap_list_append, merge_def] >>
+     metis_tac []));
+
+     *) 
 
 val _ = export_theory ();

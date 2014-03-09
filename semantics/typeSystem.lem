@@ -199,17 +199,12 @@ let type_uop uop t1 t2 =
     | _ -> false
   end
 
-val check_new_type : id typeN -> tenvC -> bool
-let check_new_type tn (mtenvC,tenvC) =
-  List.all (fun (_,(_,_,tn')) -> TypeId tn <> tn') tenvC &&
-  List.all (fun (_, tenvC) -> List.all (fun (_,(_,_,tn')) -> TypeId tn <> tn') tenvC) mtenvC
-
 (* Check that a type definition defines no already defined types or duplicate
  * constructors, and that the free type variables of each constructor argument
  * type are included in the type's type parameters. *)
 val check_ctor_tenv :
-   maybe modN -> tenvC -> list (list tvarN * typeN * list (conN * list t)) -> bool
-let check_ctor_tenv mn tenvC tds =
+   maybe modN -> list (list tvarN * typeN * list (conN * list t)) -> bool
+let check_ctor_tenv mn tds =
   check_dup_ctors tds &&  
   List.all
     (fun (tvs,tn,ctors) ->
@@ -218,10 +213,7 @@ let check_ctor_tenv mn tenvC tds =
          (fun (cn,ts) -> (List.all (check_freevars 0 tvs) ts))
          ctors)
     tds &&  
-  List.allDistinct (List.map (fun (_,tn,_) -> tn) tds) &&
-  List.all
-    (fun (tvs,tn,ctors) -> check_new_type (mk_id mn tn) tenvC)
-    tds
+  List.allDistinct (List.map (fun (_,tn,_) -> tn) tds)
 
 val build_ctor_tenv : maybe modN -> list (list tvarN * typeN * list (conN * list t)) -> flat_tenvC
 let build_ctor_tenv mn tds =
@@ -231,17 +223,11 @@ let build_ctor_tenv mn tds =
           List.map (fun (cn,ts) -> (cn,(tvs,ts, TypeId (mk_id mn tn)))) ctors)
        tds)
 
-val check_new_exn : maybe modN -> conN -> tenvC -> bool
-let check_new_exn mn cn (mtenvC,tenvC) =
-  List.all (fun (cn',(_,_,tn)) -> TypeExn (mk_id mn cn) <> tn || cn' <> cn) tenvC &&
-  List.all (fun (_, tenvC) -> List.all (fun (cn',(_,_,tn)) -> TypeExn (mk_id mn cn) <> tn || cn' <> cn) tenvC) mtenvC
-
 (* Check that an exception definition defines no already defined (or duplicate)
  * constructors, and that the arguments have no free type variables. *)
-val check_exn_tenv : maybe modN -> tenvC -> conN -> list t -> bool
-let check_exn_tenv mn tenvC cn ts =
-  List.all (check_freevars 0 []) ts &&
-  check_new_exn mn cn tenvC
+val check_exn_tenv : maybe modN -> conN -> list t -> bool
+let check_exn_tenv mn cn ts =
+  List.all (check_freevars 0 []) ts
 
 (* For the value restriction on let-based polymorphism *)
 val is_value : exp -> bool
@@ -559,7 +545,7 @@ type_d mn decls menv cenv tenv (Dletrec funs) decls emp (tenv_add_tvs tvs tenv')
 and
 
 dtype : forall mn menv cenv tenv tdefs mdecls edecls tdecls new_tdecls.
-check_ctor_tenv mn cenv tdefs &&
+check_ctor_tenv mn tdefs &&
 new_tdecls = Set.fromList (List.map (fun (tvs,tn,ctors) -> (mk_id mn tn)) tdefs) &&
 disjoint new_tdecls tdecls
 ==>
@@ -568,7 +554,7 @@ type_d mn (mdecls,tdecls,edecls) menv cenv tenv (Dtype tdefs) (mdecls,new_tdecls
 and
 
 dexn : forall mn menv cenv tenv cn ts mdecls edecls tdecls.
-check_exn_tenv mn cenv cn ts &&
+check_exn_tenv mn cn ts &&
 not (mk_id mn cn IN edecls)
 ==>
 type_d mn (mdecls,tdecls,edecls) menv cenv tenv (Dexn cn ts) (mdecls,tdecls,{mk_id mn cn} union edecls) (bind cn ([], ts, TypeExn (mk_id mn cn)) emp) emp
@@ -606,7 +592,7 @@ type_specs mn decls cenv tenv (Sval x t :: specs) decls' cenv' tenv'
 and
 
 stype : forall mn cenv tenv td specs cenv' tenv' mdecls edecls tdecls new_tdecls decls'.
-check_ctor_tenv mn ((emp,cenv):tenvC) td &&
+check_ctor_tenv mn td &&
 new_tdecls = Set.fromList (List.map (fun (tvs,tn,ctors) -> (mk_id mn tn)) td) &&
 disjoint new_tdecls tdecls &&
 type_specs mn (mdecls,new_tdecls union tdecls,edecls) (merge (build_ctor_tenv mn td) cenv) tenv specs decls' cenv' tenv'
@@ -616,7 +602,7 @@ type_specs mn (mdecls,tdecls,edecls) cenv tenv (Stype td :: specs) decls' cenv' 
 and
 
 sexn : forall mn cenv tenv cn ts specs cenv' tenv' mdecls edecls tdecls decls'.
-check_exn_tenv mn ((emp,cenv):tenvC) cn ts &&
+check_exn_tenv mn cn ts &&
 not (mk_id mn cn IN edecls) &&
 type_specs mn (mdecls,tdecls,{mk_id mn cn} union edecls) (bind cn ([], ts, TypeExn (mk_id mn cn)) cenv) tenv specs decls' cenv' tenv'
 ==>

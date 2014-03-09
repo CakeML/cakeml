@@ -235,25 +235,13 @@ val _ = Define `
   )))`;
 
 
-(*val check_new_type : id typeN -> tenvC -> bool*)
-val _ = Define `
- (check_new_type tn (mtenvC,tenvC) =  
-(EVERY (\p .  (case (p ) of ( (_,(_,_,tn')) ) => TypeId tn <> tn' )) tenvC /\
-  EVERY (\p .  (case (p ) of
-     ( (_, tenvC) ) => EVERY
-                         (\p .  (case (p ) of
-                                    ( (_,(_,_,tn')) ) => TypeId tn <> tn'
-                                )) tenvC
- )) mtenvC))`;
-
-
 (* Check that a type definition defines no already defined types or duplicate
  * constructors, and that the free type variables of each constructor argument
  * type are included in the type's type parameters. *)
 (*val check_ctor_tenv :
-   maybe modN -> tenvC -> list (list tvarN * typeN * list (conN * list t)) -> bool*)
+   maybe modN -> list (list tvarN * typeN * list (conN * list t)) -> bool*)
 val _ = Define `
- (check_ctor_tenv mn tenvC tds =  
+ (check_ctor_tenv mn tds =  
 (check_dup_ctors tds /\  
   (EVERY
     (\ (tvs,tn,ctors) . 
@@ -262,11 +250,8 @@ val _ = Define `
          (\ (cn,ts) .  (EVERY (check_freevars( 0) tvs) ts))
          ctors)
     tds /\  
-  (ALL_DISTINCT (MAP (\p .  
-  (case (p ) of ( (_,tn,_) ) => tn )) tds) /\
-  EVERY
-    (\ (tvs,tn,ctors) .  check_new_type (mk_id mn tn) tenvC)
-    tds))))`;
+  ALL_DISTINCT (MAP (\p .  
+  (case (p ) of ( (_,tn,_) ) => tn )) tds))))`;
 
 
 (*val build_ctor_tenv : maybe modN -> list (list tvarN * typeN * list (conN * list t)) -> flat_tenvC*)
@@ -279,30 +264,12 @@ val _ = Define `
        tds)))`;
 
 
-(*val check_new_exn : maybe modN -> conN -> tenvC -> bool*)
-val _ = Define `
- (check_new_exn mn cn (mtenvC,tenvC) =  
-(EVERY (\p .  (case (p ) of
-     ( (cn',(_,_,tn)) ) => (TypeExn (mk_id mn cn) <> tn) \/ ~ (cn' = cn)
- )) tenvC /\
-  EVERY (\p .  (case (p ) of
-     ( (_, tenvC) ) => EVERY
-                         (\p .  (case (p ) of
-                                    ( (cn',(_,_,tn)) ) => (TypeExn
-                                                             (mk_id mn cn) <>
-                                                             tn) \/
-                                                            ~ (cn' = cn)
-                                )) tenvC
- )) mtenvC))`;
-
-
 (* Check that an exception definition defines no already defined (or duplicate)
  * constructors, and that the arguments have no free type variables. *)
-(*val check_exn_tenv : maybe modN -> tenvC -> conN -> list t -> bool*)
+(*val check_exn_tenv : maybe modN -> conN -> list t -> bool*)
 val _ = Define `
- (check_exn_tenv mn tenvC cn ts =  
-(EVERY (check_freevars( 0) []) ts /\
-  check_new_exn mn cn tenvC))`;
+ (check_exn_tenv mn cn ts =  
+(EVERY (check_freevars( 0) []) ts))`;
 
 
 (* For the value restriction on let-based polymorphism *)
@@ -550,14 +517,14 @@ type_d mn decls menv cenv tenv (Dlet p e) decls emp (tenv_add_tvs( 0) tenv'))
 type_d mn decls menv cenv tenv (Dletrec funs) decls emp (tenv_add_tvs tvs tenv'))
 
 /\ (! mn menv cenv tenv tdefs mdecls edecls tdecls new_tdecls.
-(check_ctor_tenv mn cenv tdefs /\
+(check_ctor_tenv mn tdefs /\
 ((new_tdecls = LIST_TO_SET (MAP (\ (tvs,tn,ctors) .  (mk_id mn tn)) tdefs)) /\
 DISJOINT new_tdecls tdecls))
 ==>
 type_d mn (mdecls,tdecls,edecls) menv cenv tenv (Dtype tdefs) (mdecls,(new_tdecls UNION tdecls),edecls) (build_ctor_tenv mn tdefs) emp)
 
 /\ (! mn menv cenv tenv cn ts mdecls edecls tdecls.
-(check_exn_tenv mn cenv cn ts /\
+(check_exn_tenv mn cn ts /\
 ~ (mk_id mn cn IN edecls))
 ==>
 type_d mn (mdecls,tdecls,edecls) menv cenv tenv (Dexn cn ts) (mdecls,tdecls,({mk_id mn cn} UNION edecls)) (bind cn ([], ts, TypeExn (mk_id mn cn)) emp) emp)`;
@@ -585,7 +552,7 @@ type_specs mn decls cenv (bind x (LENGTH fvs, type_subst (ZIP (fvs, (MAP Tvar_db
 type_specs mn decls cenv tenv (Sval x t :: specs) decls' cenv' tenv') 
 
 /\ (! mn cenv tenv td specs cenv' tenv' mdecls edecls tdecls new_tdecls decls'.
-(check_ctor_tenv mn ((emp,cenv):tenvC) td /\
+(check_ctor_tenv mn td /\
 ((new_tdecls = LIST_TO_SET (MAP (\ (tvs,tn,ctors) .  (mk_id mn tn)) td)) /\
 (DISJOINT new_tdecls tdecls /\
 type_specs mn (mdecls,(new_tdecls UNION tdecls),edecls) (merge (build_ctor_tenv mn td) cenv) tenv specs decls' cenv' tenv')))
@@ -593,7 +560,7 @@ type_specs mn (mdecls,(new_tdecls UNION tdecls),edecls) (merge (build_ctor_tenv 
 type_specs mn (mdecls,tdecls,edecls) cenv tenv (Stype td :: specs) decls' cenv' tenv')
 
 /\ (! mn cenv tenv cn ts specs cenv' tenv' mdecls edecls tdecls decls'.
-(check_exn_tenv mn ((emp,cenv):tenvC) cn ts /\
+(check_exn_tenv mn cn ts /\
 (~ (mk_id mn cn IN edecls) /\
 type_specs mn (mdecls,tdecls,({mk_id mn cn} UNION edecls)) (bind cn ([], ts, TypeExn (mk_id mn cn)) cenv) tenv specs decls' cenv' tenv'))
 ==>
