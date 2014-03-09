@@ -521,21 +521,4 @@ val soundness = store_thm("soundness",
   conj_tac >- metis_tac[new_type_correct] >>
   metis_tac[new_type_definition_correct])
 
-(*
-val consistency = store_thm("consistency",
-  ``is_set_theory ^mem ⇒
-    ∀ctxt. context_ok ctxt ∧
-           FILTER (λu. ∃p. u = NewAxiom p) ctxt = [] ⇒
-      (ctxt,[]) |- (Var "x" Bool === Var "x" Bool) ∧
-      ¬((ctxt,[]) |- (Var "x" Bool === Var "y" Bool))``,
-  rw[] >- (
-    match_mp_tac (List.nth(CONJUNCTS proves_rules,8)) >>
-    simp[term_ok_def,type_ok_def] >>
-    imp_res_tac context_ok_sig >>
-    fs[is_std_sig_def] ) >>
-  spose_not_then strip_assume_tac >>
-  imp_res_tac soundness >>
-  fs[entails_def]
-*)
-
 val _ = export_theory()

@@ -4,9 +4,17 @@ holSyntaxExtraScript.sml
   Some lemmas about the syntactic functions.
 
 holSemanticsScript.sml
-  Define semantics for HOL sequents.
+  Define semantics for HOL sequents, in particular the notion of entailment
+  i.e. valid sequents, which are those that satisfied by any model of the
+  theory context.
 holSemanticsExtraScript.sml
   Some lemmas about the semantics.
 
 holSoundnessScript.sml
-  Proves soundness and consistency of HOL.
+  Proves soundness of the inference system: any provable sequent is valid.
+
+holConsistencyScript.sml
+  Proves consistency of the inference system: in any context whose axiomatic
+  extensions are satisfiable, there exist both provable and unprovable
+  sequents. As part of this, need to show that conservative extensions are
+  consistency-preserving.
