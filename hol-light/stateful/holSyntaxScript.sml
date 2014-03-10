@@ -516,6 +516,7 @@ val _ = Parse.overload_on("And",``λp1 p2. Comb (Comb (Const "/\\" (Fun Bool (Fu
 val _ = Parse.overload_on("Implies",``λp1 p2. Comb (Comb (Const "==>" (Fun Bool (Fun Bool Bool))) p1) p2``)
 val _ = Parse.overload_on("Forall",``λx ty p. Comb (Const "!" (Fun (Fun ty Bool) Bool)) (Abs x ty p)``)
 val _ = Parse.overload_on("Exists",``λx ty p. Comb (Const "?" (Fun (Fun ty Bool) Bool)) (Abs x ty p)``)
+val _ = Parse.overload_on("Or",``λp1 p2. Comb (Comb (Const "\\/" (Fun Bool (Fun Bool Bool))) p1) p2``)
 val _ = Parse.overload_on("Falsity",``Const "F" Bool``)
 val _ = Parse.overload_on("Not",``λp. Comb (Const "~" (Fun Bool Bool)) p``)
 val _ = Parse.overload_on("One_One",``λf. Comb (Const "ONE_ONE" (Fun (typeof f) Bool)) f``)
@@ -531,6 +532,8 @@ val bool_ctxt_def = Define`
     let    q =    Var "q" Bool in
     let Absq =    Abs "q" Bool in
     let  FAq = Forall "q" Bool in
+    let    r =    Var "r" Bool in
+    let  FAr = Forall "r" Bool in
     let    f =    Var "f" (Fun Bool (Fun Bool Bool)) in
     let Absf =    Abs "f" (Fun Bool (Fun Bool Bool)) in
     let    P =    Var "P" (Fun A Bool) in
@@ -562,6 +565,7 @@ val bool_ctxt_def = Define`
     ;ConstDef "==>" (Absp (Absq (And p q === Var "p" Bool)))
     ;ConstDef "!" (AbsP (P === Absx Truth))
     ;ConstDef "?" (AbsP (FAq (Implies (FAx (Implies (Comb P x) q)) q)))
+    ;ConstDef "\\/" (Absp (Absq (FAr (Implies (Implies p r) (Implies (Implies q r) r)))))
     ;ConstDef "F" (FAp p)
     ;ConstDef "~" (Absp (Implies p Falsity))
      (* INFINITY_AX *)
