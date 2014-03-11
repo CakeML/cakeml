@@ -388,6 +388,55 @@ val new_constant_correct = store_thm("new_constant_correct",
   imp_res_tac ALOOKUP_MEM >>
   fs[MEM_MAP,EXISTS_PROD] >> metis_tac[])
 
+val new_type_correct = store_thm("new_type_correct",
+  ``is_set_theory ^mem ⇒
+    ∀ctxt name arity.
+     theory_ok (thyof ctxt) ∧
+     name ∉ FDOM (tysof ctxt) ⇒
+     ∀i. i models (thyof ctxt) ⇒
+       ∃i'. i' models (thyof (NewType name arity::ctxt))``,
+  rw[models_def] >>
+  qexists_tac`((name =+ (K boolset)) (tyaof i),tmaof i)` >>
+  simp[conexts_of_upd_def] >>
+  conj_asm1_tac >- (
+    fs[is_interpretation_def,is_term_assignment_def,is_type_assignment_def,FEVERY_ALL_FLOOKUP,FLOOKUP_UPDATE] >>
+    simp[combinTheory.APPLY_UPDATE_THM] >> rw[] >- metis_tac[boolean_in_boolset] >>
+    qmatch_abbrev_tac`x <: typesem δ' τ ty` >>
+    `typesem δ' τ ty = typesem (tyaof i) τ ty` by (
+      match_mp_tac typesem_consts >>
+      rw[Abbr`δ'`,combinTheory.APPLY_UPDATE_THM] >>
+      qexists_tac`tysof ctxt` >>
+      conj_asm1_tac >- (
+        fs[theory_ok_def] >>
+        first_x_assum match_mp_tac >>
+        imp_res_tac ALOOKUP_MEM >>
+        imp_res_tac ALOOKUP_SOME_FAPPLY_alist_to_fmap >>
+        simp[IN_FRANGE,MEM_MAP,EXISTS_PROD,PULL_EXISTS] >>
+        metis_tac[] ) >>
+      rw[type_ok_def] >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs[MEM_MAP,EXISTS_PROD,PULL_EXISTS] >>
+      metis_tac[] ) >>
+    rw[Abbr`x`] ) >>
+  conj_tac >- (
+    imp_res_tac theory_ok_sig >>
+    fs[is_std_interpretation_def,combinTheory.APPLY_UPDATE_THM,is_std_sig_def] >>
+    fs[is_std_type_assignment_def,combinTheory.APPLY_UPDATE_THM] >>
+    imp_res_tac ALOOKUP_MEM >> rw[] >>
+    fs[MEM_MAP,FORALL_PROD] >> metis_tac[] ) >>
+  rw[] >>
+  match_mp_tac satisfies_extend >>
+  map_every qexists_tac[`tysof ctxt`,`tmsof ctxt`] >>
+  rw[] >- fs[theory_ok_def] >>
+  match_mp_tac satisfies_consts >>
+  imp_res_tac theory_ok_sig >>
+  qexists_tac`i` >> simp[] >>
+  conj_tac >- (Cases_on`ctxt`>>fs[]) >>
+  conj_tac >- fs[theory_ok_def] >>
+  rw[type_ok_def,combinTheory.APPLY_UPDATE_THM] >>
+  imp_res_tac ALOOKUP_MEM >>
+  fs[MEM_MAP,EXISTS_PROD] >> metis_tac[])
+
 (*
 val is_consistent_def = xDefine "is_consistent_def"`
   is_consistent0 ^mem ctxt ⇔
