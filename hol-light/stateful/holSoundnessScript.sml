@@ -44,7 +44,7 @@ val ABS_correct = store_thm("ABS_correct",
   match_mp_tac (UNDISCH abstract_eq) >>
   qx_gen_tac`m` >> strip_tac >> simp[] >>
   Q.PAT_ABBREV_TAC`vv = (X:'U valuation)` >>
-  `is_valuation (FST i) vv` by (
+  `is_valuation (tysof thy) (FST i) vv` by (
     Cases_on`v`>>
     fs[is_valuation_def,Abbr`vv`,is_term_valuation_def] >>
     rw[combinTheory.APPLY_UPDATE_THM] >> rw[]) >>
@@ -221,7 +221,8 @@ val INST_TYPE_correct = store_thm("INST_TYPE_correct",
       metis_tac[holSyntaxLibTheory.REV_ASSOCD_MEM,type_ok_def] ) >>
     fs[is_term_valuation_def,APPLY_UPDATE_LIST_ALOOKUP,rich_listTheory.MAP_REVERSE] >>
     rw[] >>
-    simp[Once (typesem_TYPE_SUBST |> SIMP_RULE(srw_ss())[] |> GSYM)]) >>
+    simp[Once (typesem_TYPE_SUBST |> SIMP_RULE(srw_ss())[] |> GSYM)] >>
+    metis_tac[type_ok_TYPE_SUBST |> SIMP_RULE(srw_ss())[EVERY_MAP,EVERY_MEM]]) >>
   fs[EVERY_MAP,EVERY_MEM] >>
   metis_tac[SIMP_RULE(srw_ss())[]termsem_INST,welltyped_def])
 
@@ -296,6 +297,40 @@ val proves_sound = store_thm("proves_sound",
   conj_tac >- metis_tac[REFL_correct] >>
   conj_tac >- metis_tac[TRANS_correct] >>
   rw[entails_def,theory_ok_def,models_def])
+
+val proves_consistent = store_thm("proves_consistent",
+  ``is_set_theory ^mem ⇒
+    ∀ctxt. theory_ok (thyof ctxt) ∧ (∃i. i models (thyof ctxt)) ⇒
+      (thyof ctxt,[]) |- (Var "x" Bool === Var "x" Bool) ∧
+      ¬((thyof ctxt,[]) |- (Var "x" Bool === Var "y" Bool))``,
+  rw[] >- (
+    match_mp_tac (List.nth(CONJUNCTS proves_rules,8)) >>
+    simp[term_ok_def,type_ok_def] >>
+    imp_res_tac theory_ok_sig >>
+    fs[is_std_sig_def] ) >>
+  spose_not_then strip_assume_tac >>
+  imp_res_tac proves_sound >>
+  fs[entails_def] >>
+  first_x_assum(qspec_then`i`mp_tac) >>
+  simp[satisfies_def] >>
+  qexists_tac`(K boolset),
+              λ(x,ty). if (x,ty) = ("x",Bool) then True else
+                       if (x,ty) = ("y",Bool) then False else
+                       @v. v <: typesem (tyaof i) (K boolset) ty` >>
+  conj_asm1_tac >- (
+    simp[is_valuation_def] >>
+    conj_asm1_tac >- (simp[is_type_valuation_def,mem_boolset] >> PROVE_TAC[]) >>
+    fs[models_def,is_term_valuation_def,is_interpretation_def] >>
+    imp_res_tac is_std_interpretation_is_type >>
+    imp_res_tac typesem_Bool >>
+    rw[mem_boolset] >>
+    metis_tac[typesem_inhabited] ) >>
+  qmatch_abbrev_tac`termsem sig i v (s === t) ≠ True` >>
+  qspecl_then[`sig`,`i`,`v`,`s`,`t`]mp_tac(UNDISCH termsem_equation) >>
+  discharge_hyps >- (
+    simp[term_ok_equation,is_structure_def] >>
+    fs[models_def,Abbr`sig`,theory_ok_def] ) >>
+  simp[Abbr`s`,Abbr`t`,termsem_def,boolean_eq_true,Abbr`v`,true_neq_false])
 
 (*
 val new_axiom_correct = store_thm("new_axiom_correct",

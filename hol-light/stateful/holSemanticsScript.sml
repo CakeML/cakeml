@@ -68,8 +68,8 @@ val _ = Parse.overload_on("is_term_assignment",``is_term_assignment0 ^mem``)
 val _ = Parse.type_abbrev("tmval",``:string # type -> 'U``)
 
 val is_term_valuation_def = xDefine "is_term_valuation"`
-  is_term_valuation0 ^mem δ τ (σ:'U tmval) ⇔
-    ∀v ty. σ (v,ty) <: typesem δ τ ty`
+  is_term_valuation0 ^mem tyenv δ τ (σ:'U tmval) ⇔
+    ∀v ty. type_ok tyenv ty ⇒ σ (v,ty) <: typesem δ τ ty`
 val _ = Parse.overload_on("is_term_valuation",``is_term_valuation0 ^mem``)
 
 (* An interpretation is a pair of assignments.
@@ -83,9 +83,9 @@ val _ = Parse.overload_on("tyvof",``FST:'U valuation->'U tyval``)
 val _ = Parse.overload_on("tmvof",``SND:'U valuation->'U tmval``)
 
 val is_valuation_def = xDefine"is_valuation"`
-  is_valuation0 ^mem δ v ⇔
+  is_valuation0 ^mem tyenv δ v ⇔
     is_type_valuation (tyvof v) ∧
-    is_term_valuation δ (tyvof v) (tmvof v)`
+    is_term_valuation tyenv δ (tyvof v) (tmvof v)`
 val _ = Parse.overload_on("is_valuation",``is_valuation0 ^mem``)
 
 (* term assignment for instances of constants *)
@@ -125,7 +125,7 @@ val _ = Parse.overload_on("termsem",``termsem0 ^mem``)
 
 val satisfies_def = xDefine"satisfies"`
   satisfies0 ^mem i (sig,h,c) ⇔
-    ∀v. is_valuation (tyaof i) v ∧
+    ∀v. is_valuation (tysof sig) (tyaof i) v ∧
       EVERY (λt. termsem sig i v t = True) h
       ⇒ termsem sig i v c = True`
 val _ = Parse.add_infix("satisfies",450,Parse.NONASSOC)
@@ -188,7 +188,7 @@ val is_structure_def = xDefine"is_structure"`
     is_std_sig sig ∧
     is_std_interpretation int ∧
     is_interpretation sig int ∧
-    is_valuation (tyaof int) val`
+    is_valuation (tysof sig) (tyaof int) val`
 val _ = Parse.overload_on("is_structure",``is_structure0 ^mem``)
 
 val _ = export_theory()

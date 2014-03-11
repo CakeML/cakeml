@@ -63,7 +63,7 @@ val termsem_typesem = store_thm("termsem_typesem",
   ``is_set_theory ^mem ⇒
     ∀sig i tm v δ τ.
       δ = FST i ∧ τ = FST v ∧
-      is_valuation δ v ∧
+      is_valuation (tysof sig) δ v ∧
       is_interpretation sig i ∧
       is_std_type_assignment δ ∧
       term_ok sig tm
@@ -72,7 +72,7 @@ val termsem_typesem = store_thm("termsem_typesem",
   strip_tac >> ntac 2 Cases >> Induct
   >- (
     Cases_on`v`>>
-    simp[termsem_def,is_valuation_def,is_term_valuation_def] )
+    simp[termsem_def,is_valuation_def,is_term_valuation_def,term_ok_def] )
   >- (
     Cases_on`v`>>
     simp[termsem_def,term_ok_def] >> rw[] >>
