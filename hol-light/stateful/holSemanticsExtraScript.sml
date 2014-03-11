@@ -410,7 +410,6 @@ val termsem_INST = store_thm("termsem_INST",
   `welltyped fm` by metis_tac[ACONV_welltyped] >>
   metis_tac[SIMP_RULE(srw_ss())[]termsem_simple_inst,termsem_aconv,term_ok_aconv])
 
-(*
 (* extending the context doesn't change the semantics *)
 
 val termsem_extend = store_thm("termsem_extend",
@@ -430,15 +429,22 @@ val termsem_extend = store_thm("termsem_extend",
   imp_res_tac FLOOKUP_SUBMAP >>
   fs[Abbr`sig`,Abbr`ty`])
 
+val is_valuation_reduce = store_thm("is_valuation_reduce",
+  ``∀tyenv tyenv' δ v. tyenv ⊑ tyenv' ∧ is_valuation tyenv' δ v ⇒
+    is_valuation tyenv δ v``,
+  rw[is_valuation_def,is_term_valuation_def] >>
+  metis_tac[type_ok_extend])
+
 val satisfies_extend = store_thm("satisfies_extend",
   ``∀tyenv tmenv tyenv' tmenv' tm i h c.
       tmenv ⊑ tmenv' ∧ tyenv ⊑ tyenv' ∧
-      EVERY (term_ok (tyenv,tmenv)) (c::h) ⇒
-      (i satisfies ((tyenv,tmenv),h,c) ⇔
-       i satisfies ((tyenv',tmenv'),h,c))``,
-  rw[satisfies_def,EQ_IMP_THM] >> fs[EVERY_MEM] >>
-  metis_tac[term_ok_extend,termsem_extend])
+      EVERY (term_ok (tyenv,tmenv)) (c::h) ∧
+      i satisfies ((tyenv,tmenv),h,c) ⇒
+      i satisfies ((tyenv',tmenv'),h,c)``,
+  rw[satisfies_def] >> fs[EVERY_MEM] >>
+  metis_tac[term_ok_extend,termsem_extend,is_valuation_reduce])
 
+(*
 (* for models, reducing the context *)
 
 val is_type_assignment_reduce = store_thm("is_type_assignment_reduce",

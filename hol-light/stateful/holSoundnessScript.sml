@@ -1,5 +1,5 @@
 open HolKernel boolLib bossLib lcsymtacs listTheory finite_mapTheory alistTheory pred_setTheory pairTheory
-open miscLib setSpecTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
+open miscLib miscTheory setSpecTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
 val _ = temp_tight_equality()
 val _ = new_theory"holSoundness"
 
@@ -353,6 +353,41 @@ val init_ctxt_has_model = store_thm("init_ctxt_has_model",
   metis_tac[])
 
 (*
+val new_constant_correct = store_thm("new_constant_correct",
+  ``is_set_theory ^mem ⇒
+    ∀ctxt name ty.
+     theory_ok (thyof ctxt) ∧
+     name ∉ (FDOM (tmsof ctxt)) ∧
+     type_ok (tysof ctxt) ty ⇒
+      ∀i. i models (thyof ctxt) ⇒
+        ∃i'. i' models (thyof (NewConst name ty::ctxt))``,
+  rw[models_def] >>
+  qexists_tac`(tyaof i, (name =+ λτ. @v. v <: typesem (tyaof i) τ ty) (tmaof i))` >>
+  simp[conexts_of_upd_def] >>
+  conj_asm1_tac >- (
+    fs[is_interpretation_def,is_term_assignment_def,FEVERY_ALL_FLOOKUP,FLOOKUP_UPDATE] >>
+    simp[combinTheory.APPLY_UPDATE_THM] >> rw[] >>
+    qmatch_abbrev_tac`(@v. v <: (typesem δ τ' ty)) <: x` >>
+    `typesem δ τ' ty = typesem δ τ ty` by (
+      match_mp_tac typesem_tyvars >> simp[Abbr`τ'`] ) >>
+    metis_tac[typesem_inhabited] ) >>
+  conj_tac >- (
+    imp_res_tac theory_ok_sig >>
+    fs[is_std_interpretation_def,combinTheory.APPLY_UPDATE_THM,is_std_sig_def] >>
+    imp_res_tac ALOOKUP_MEM >> rw[] >>
+    fs[MEM_MAP,FORALL_PROD] >> metis_tac[] ) >>
+  rw[] >>
+  match_mp_tac satisfies_extend >>
+  map_every qexists_tac[`tysof ctxt`,`tmsof ctxt`] >>
+  rw[] >- fs[theory_ok_def] >>
+  fs[satisfies_def] >>
+
+val is_consistent_def = xDefine "is_consistent_def"`
+  is_consistent0 ^mem ctxt ⇔
+    ∀i. i models (sigof ctxt, set (axexts ctxt)) ⇒
+        ∃i'. i' models (thyof ctxt)`
+val _ = Parse.overload_on("is_consistent",``is_consistent0 ^mem``)
+
 val new_axiom_correct = store_thm("new_axiom_correct",
   ``∀ctxt p h c.
     p has_type Bool ∧ term_ok (sigof ctxt) p ∧
