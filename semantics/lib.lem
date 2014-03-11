@@ -33,7 +33,7 @@ declare hol target_rep function num_to_char = `CHR`
 
 (* The builtin List.zip maps to list_combine in HOL, but I want to map to ZIP *)
 val ZIP : forall 'a 'b. list 'a -> list 'b -> list ('a * 'b)
-let inline ZIP = List_extra.zip_same_length
+let inline ZIP = List_extra.zipSameLength
 
 (* Environments *)
 type env 'a 'b = list ('a*'b)
