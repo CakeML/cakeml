@@ -637,10 +637,9 @@ val _ = Hol_reln ` (! menv cenv tenv d cenv' tenv' decls decls'.
 type_top decls menv cenv tenv (Tdec d) decls' emp (emp,cenv') tenv')
 
 /\ (! menv cenv tenv mn spec ds cenv' tenv' cenv'' tenv'' mdecls tdecls edecls decls' mdecls'' tdecls'' edecls''.
-(~ (MEM mn (MAP FST menv)) /\
 (~ (mn IN mdecls) /\
 (type_ds (SOME mn) (mdecls,tdecls,edecls) menv cenv tenv ds decls' cenv' tenv' /\
-check_signature (SOME mn) (mdecls,tdecls,edecls) decls' cenv' tenv' spec (mdecls'',tdecls'',edecls'') cenv'' tenv'')))
+check_signature (SOME mn) (mdecls,tdecls,edecls) decls' cenv' tenv' spec (mdecls'',tdecls'',edecls'') cenv'' tenv''))
 ==>
 type_top (mdecls,tdecls,edecls) menv cenv tenv (Tmod mn spec ds) (({mn} UNION mdecls''),tdecls'',edecls'') [(mn,tenv'')] ([(mn,cenv'')], emp) emp)`;
 

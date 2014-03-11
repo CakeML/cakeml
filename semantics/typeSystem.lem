@@ -683,7 +683,6 @@ type_top decls menv cenv tenv (Tdec d) decls' emp (emp,cenv') tenv'
 and
 
 tmod : forall menv cenv tenv mn spec ds cenv' tenv' cenv'' tenv'' mdecls tdecls edecls decls' mdecls'' tdecls'' edecls''.
-not (elem mn (List.map fst menv)) &&
 not (mn IN mdecls) &&
 type_ds (Just mn) (mdecls,tdecls,edecls) menv cenv tenv ds decls' cenv' tenv' &&
 check_signature (Just mn) (mdecls,tdecls,edecls) decls' cenv' tenv' spec (mdecls'',tdecls'',edecls'') cenv'' tenv''

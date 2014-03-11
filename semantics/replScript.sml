@@ -12,12 +12,12 @@ repl_state = <| (* Elaborator state *)
                 (* Type system state *)
                 tdecs : decls; tenvM : tenvM; tenvC : tenvC; tenv : tenvE;
                 (* Semantics state *)
-                envM : envM; envC : envC; store : (v store # tid_or_exn set); envE : envE |>`;
+                envM : envM; envC : envC; store : (v store # tid_or_exn set # modN set); envE : envE |>`;
 
 val init_repl_state_def = Define`
   init_repl_state = <| type_bindings := init_type_bindings; ctors := [];
                        tdecs := ({},{},{}); tenvM := []; tenvC := init_tenvC; tenv := init_tenv;
-                       envM := []; envC := init_envC; store := ([],{}); envE := init_env |>`
+                       envM := []; envC := init_envC; store := ([],{},{}); envE := init_env |>`
 
 val _ = Hol_datatype `
 repl_result =

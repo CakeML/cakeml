@@ -356,32 +356,32 @@ evaluate_decs mn (menv, merge_envC (emp,new_tds) cenv, merge new_env env) s2 ds 
 ==>
 evaluate_decs mn (menv,cenv,env) s1 (d::ds) (s3, merge new_tds' new_tds, combine_dec_result new_env r))`;
 
-val _ = Hol_reln ` (! s1 s2 env d new_tds new_env.
-(evaluate_dec NONE env s1 d (s2, Rval (new_tds, new_env)))
+val _ = Hol_reln ` (! s1 s2 env d new_tds new_env tdecls1 tdecls2 mdecls.
+(evaluate_dec NONE env (s1,tdecls1) d ((s2,tdecls2), Rval (new_tds, new_env)))
 ==>
-evaluate_top env s1 (Tdec d) (s2, (emp,new_tds), Rval (emp, new_env)))
+evaluate_top env (s1,tdecls1,mdecls) (Tdec d) ((s2,tdecls2,mdecls), (emp,new_tds), Rval (emp, new_env)))
 
-/\ (! s1 s2 env d err.
-(evaluate_dec NONE env s1 d (s2, Rerr err))
+/\ (! s1 s2 env d err tdecls1 tdecls2 mdecls.
+(evaluate_dec NONE env (s1,tdecls1) d ((s2,tdecls2), Rerr err))
 ==>
-evaluate_top env s1 (Tdec d) (s2, (emp,emp), Rerr err))
+evaluate_top env (s1,tdecls1,mdecls) (Tdec d) ((s2,tdecls2,mdecls), (emp,emp), Rerr err))
 
-/\ (! s1 s2 env ds mn specs new_tds new_env.
- (~ (MEM mn (MAP FST (all_env_to_menv env))) /\
-evaluate_decs (SOME mn) env s1 ds (s2, new_tds, Rval new_env))
+/\ (! s1 s2 env ds mn specs new_tds new_env tdecls1 tdecls2 mdecls.
+(~ (mn IN mdecls) /\
+evaluate_decs (SOME mn) env (s1,tdecls1) ds ((s2,tdecls2), new_tds, Rval new_env))
 ==>
-evaluate_top env s1 (Tmod mn specs ds) (s2, ([(mn,new_tds)], emp), Rval ([(mn,new_env)], emp)))
+evaluate_top env (s1,tdecls1,mdecls) (Tmod mn specs ds) ((s2,tdecls2,({mn} UNION mdecls)), ([(mn,new_tds)], emp), Rval ([(mn,new_env)], emp)))
 
-/\ (! s1 s2 env ds mn specs new_tds err.
- (~ (MEM mn (MAP FST (all_env_to_menv env))) /\
-evaluate_decs (SOME mn) env s1 ds (s2, new_tds, Rerr err))
+/\ (! s1 s2 env ds mn specs new_tds err tdecls1 tdecls2 mdecls.
+(~ (mn IN mdecls) /\
+evaluate_decs (SOME mn) env (s1,tdecls1) ds ((s2,tdecls2), new_tds, Rerr err))
 ==>
-evaluate_top env s1 (Tmod mn specs ds) (s2, ([(mn,new_tds)], emp), Rerr err))
+evaluate_top env (s1,tdecls1,mdecls) (Tmod mn specs ds) ((s2,tdecls2,({mn} UNION mdecls)), ([(mn,new_tds)], emp), Rerr err))
 
-/\ (! env s mn specs ds.
-(MEM mn (MAP FST (all_env_to_menv env)))
+/\ (! env s mn specs ds tdecls mdecls.
+(mn IN mdecls)
 ==>
-evaluate_top env s (Tmod mn specs ds) (s, (emp,emp), Rerr Rtype_error))`;
+evaluate_top env (s,tdecls,mdecls) (Tmod mn specs ds) ((s,tdecls,mdecls), (emp,emp), Rerr Rtype_error))`;
 
 val _ = Hol_reln ` (! env s.
 T
@@ -420,16 +420,16 @@ decs_diverges mn (menv,merge_envC (emp,new_tds) cenv, merge new_env env) s2 ds)
 ==>
 decs_diverges mn (menv,cenv,env) s1 (d::ds))`;
 
-val _ = Hol_reln ` (! st env d.
-(dec_diverges env st d)
+val _ = Hol_reln ` (! st env d tdecls mdecls.
+(dec_diverges env (st,tdecls) d)
 ==>
-top_diverges env st (Tdec d))
+top_diverges env (st,tdecls,mdecls) (Tdec d))
 
-/\ (! env s1 ds mn specs.
-(~ (MEM mn (MAP FST (all_env_to_menv env))) /\
-decs_diverges (SOME mn) env s1 ds)
+/\ (! env s1 ds mn specs tdecls mdecls.
+(~ (mn IN mdecls) /\
+decs_diverges (SOME mn) env (s1,tdecls) ds)
 ==>
-top_diverges env s1 (Tmod mn specs ds))`;
+top_diverges env (s1,tdecls,mdecls) (Tmod mn specs ds))`;
 
 val _ = Hol_reln ` (! st env top tops.
 (top_diverges env st top)

@@ -360,17 +360,17 @@ val run_eval_decs_def = Define `
     | (st',Rerr err) => (st',emp,Rerr err))`;
 
 val run_eval_top_def = Define `
-(run_eval_top env st (Tdec d) = 
-  case run_eval_dec NONE env st d of
-       (st', Rval (cenv', env')) => (st', (emp,cenv'), Rval (emp, env'))
-     | (st', Rerr err) => (st', (emp,emp), Rerr err)) ∧
-(run_eval_top env st (Tmod mn specs ds) =
-  if ~MEM mn (MAP FST (all_env_to_menv env)) then
-    case run_eval_decs (SOME mn) env st ds of
-         (st', cenv', Rval env') => (st', ([(mn,cenv')],emp), (Rval ([(mn, env')], emp)))
-       | (st', cenv', Rerr err) => (st', ([(mn,cenv')],emp), Rerr err)
+(run_eval_top env (st,tdecls,mdecls) (Tdec d) = 
+  case run_eval_dec NONE env (st,tdecls) d of
+       ((st',tdecls'), Rval (cenv', env')) => ((st',tdecls',mdecls), (emp,cenv'), Rval (emp, env'))
+     | ((st',tdecls'), Rerr err) => ((st',tdecls',mdecls), (emp,emp), Rerr err)) ∧
+(run_eval_top env (st,tdecls,mdecls) (Tmod mn specs ds) =
+  if mn ∉ mdecls then
+    case run_eval_decs (SOME mn) env (st,tdecls) ds of
+         ((st',tdecls'), cenv', Rval env') => ((st',tdecls',{mn} ∪ mdecls), ([(mn,cenv')],emp), (Rval ([(mn, env')], emp)))
+       | ((st',tdecls'), cenv', Rerr err) => ((st',tdecls',{mn} ∪ mdecls), ([(mn,cenv')],emp), Rerr err)
   else
-    (st, (emp,emp), Rerr Rtype_error))`;
+    ((st,tdecls,mdecls), (emp,emp), Rerr Rtype_error))`;
 
 val run_eval_prog_def = Define `
 (run_eval_prog env st [] = (st, (emp,emp), Rval (emp, emp))) ∧
@@ -423,10 +423,10 @@ val run_eval_decs_spec = Q.store_thm ("run_eval_decs_spec",
      rw []));
 
 val run_eval_top_spec = Q.store_thm ("run_eval_top_spec",
-`!st tdecs env top st' tdecs' cenv' r.
-  (run_eval_top env (st,tdecs) top = ((st',tdecs'),cenv', r)) ∧
+`!st tdecs mdecs env top st' tdecs' mdecs' cenv' r.
+  (run_eval_top env (st,tdecs,mdecs) top = ((st',tdecs',mdecs'),cenv', r)) ∧
   r ≠ Rerr Rtimeout_error ⇒ 
-  evaluate_top env (SND st,tdecs) top ((SND st',tdecs'), cenv', r)`,
+  evaluate_top env (SND st,tdecs,mdecs) top ((SND st',tdecs',mdecs'), cenv', r)`,
  cases_on `top` >>
  rw [evaluate_top_cases, run_eval_top_def]  >>
  every_case_tac >>
@@ -439,24 +439,24 @@ val run_eval_top_spec = Q.store_thm ("run_eval_top_spec",
  metis_tac []);
 
 val run_eval_prog_spec = Q.store_thm ("run_eval_prog_spec",
-`!env st tdecs prog st' tdecs' cenv' r.
-  (run_eval_prog env (st,tdecs) prog = ((st',tdecs'),cenv', r)) ∧
+`!env st tdecs mdecs prog st' tdecs' mdecs' cenv' r.
+  (run_eval_prog env (st,tdecs,mdecs) prog = ((st',tdecs',mdecs'),cenv', r)) ∧
   r ≠ Rerr Rtimeout_error ⇒ 
-  evaluate_prog env (SND st,tdecs) prog ((SND st',tdecs'),cenv', r)`,
+  evaluate_prog env (SND st,tdecs,mdecs) prog ((SND st',tdecs',mdecs'),cenv', r)`,
  induct_on `prog` >>
  rw [run_eval_prog_def, Once evaluate_prog_cases] >>
  every_case_tac >>
- `?s tdecs. q = (s,tdecs)` by metis_tac [pair_CASES] >>
+ `?s tdecs mdecs. q = (s,tdecs,mdecs)` by metis_tac [pair_CASES] >>
  rw [] >>
  imp_res_tac run_eval_top_spec >>
  fs [] >>
  rw [] >>
  PairCases_on `env` >>
  fs [all_env_to_cenv_def, all_env_to_menv_def, all_env_to_env_def]
- >- (MAP_EVERY qexists_tac [`SND s,tdecs''`, `q''`, `q'`, `q''''`, `r'`, `Rval (q''''', r'')`] >>
+ >- (MAP_EVERY qexists_tac [`SND s,tdecs'',mdecs''`, `q''`, `q'`, `q''''`, `r'`, `Rval (q''''', r'')`] >>
      rw [combine_mod_result_def])
  >- (disj1_tac >>
-     MAP_EVERY qexists_tac [`SND s,tdecs''`, `q''`, `q'`, `q''''`, `r'`, `Rerr e`] >>
+     MAP_EVERY qexists_tac [`SND s,tdecs'',mdecs''`, `q''`, `q'`, `q''''`, `r'`, `Rerr e`] >>
      rw [combine_mod_result_def]));
 
 val _ = export_theory ();
