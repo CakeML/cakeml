@@ -21,6 +21,10 @@ val type_ind = save_thm("type_ind",
 val dest_var_def = Define`dest_var (Var x ty) = (x,ty)`
 val _ = export_rewrites["dest_var_def"]
 
+val theory_ok_sig = store_thm("theory_ok_sig",
+  ``∀thy. theory_ok thy ⇒ is_std_sig (sigof thy)``,
+  Cases >> rw[theory_ok_def])
+
 (* type substitution *)
 
 val TYPE_SUBST_NIL = store_thm("TYPE_SUBST_NIL",
@@ -1461,77 +1465,6 @@ val fresh_term_def = new_specification("fresh_term_def",["fresh_term"],
     simp[TAKE_LENGTH_ID_rwt] >>
     fs[IN_DISJOINT] >>
     metis_tac[]))
-
-(* provable terms are ok and of type bool *)
-
-val proves_theory_ok = store_thm("proves_theory_ok",
-  ``∀thyh c. thyh |- c ⇒ theory_ok (FST thyh)``,
-  ho_match_mp_tac proves_ind >> rw[])
-
-val theory_ok_sig = store_thm("theory_ok_sig",
-  ``∀thy. theory_ok thy ⇒ is_std_sig (sigof thy)``,
-  Cases >> rw[theory_ok_def])
-
-val proves_term_ok = store_thm("proves_term_ok",
-  ``∀thyh c. thyh |- c ⇒
-      EVERY (λp. term_ok (sigof (FST thyh)) p ∧ p has_type Bool) (c::(SND thyh))``,
-  ho_match_mp_tac proves_strongind >>
-  strip_tac >- (
-    rw[EQUATION_HAS_TYPE_BOOL] >>
-    imp_res_tac proves_theory_ok >>
-    imp_res_tac theory_ok_sig >>
-    fs[term_ok_equation,term_ok_def]) >>
-  strip_tac >- rw[EQUATION_HAS_TYPE_BOOL] >>
-  strip_tac >- (
-    rw[EQUATION_HAS_TYPE_BOOL] >>
-    imp_res_tac term_ok_welltyped >>
-    imp_res_tac theory_ok_sig >>
-    rw[term_ok_equation,term_ok_def]) >>
-  strip_tac >- (
-    rw[EQUATION_HAS_TYPE_BOOL] >>
-    imp_res_tac proves_theory_ok >>
-    imp_res_tac theory_ok_sig >>
-    fs[term_ok_equation] >>
-    imp_res_tac WELLTYPED_LEMMA >> fs[] >>
-    simp[WELLTYPED] >>
-    match_mp_tac EVERY_TERM_UNION >>
-    simp[EVERY_FILTER] >> fs[EVERY_MEM] ) >>
-  strip_tac >- (
-    rw[EQUATION_HAS_TYPE_BOOL] >>
-    imp_res_tac proves_theory_ok >>
-    imp_res_tac theory_ok_sig >>
-    fs[term_ok_equation] >>
-    imp_res_tac ACONV_TYPE >> imp_res_tac ACONV_welltyped >> fs[] >-
-      metis_tac[WELLTYPED_LEMMA,WELLTYPED,term_ok_welltyped] >>
-    match_mp_tac EVERY_TERM_UNION >> fs[] ) >>
-  strip_tac >- (
-    rw[term_ok_VSUBST,EVERY_MAP] >> fs[EVERY_MEM] >>
-    metis_tac[term_ok_VSUBST,VSUBST_HAS_TYPE] ) >>
-  strip_tac >- (
-    rw[term_ok_INST,EVERY_MAP] >> fs[EVERY_MEM] >>
-    metis_tac[SIMP_RULE(srw_ss())[EVERY_MAP,EVERY_MEM]term_ok_INST,INST_HAS_TYPE,TYPE_SUBST_Bool] ) >>
-  strip_tac >- (
-    rw[EQUATION_HAS_TYPE_BOOL] >>
-    imp_res_tac proves_theory_ok >>
-    imp_res_tac theory_ok_sig >>
-    fs[term_ok_equation,term_ok_def] >>
-    metis_tac[EVERY_TERM_UNION]) >>
-  strip_tac >- (
-    rw[EQUATION_HAS_TYPE_BOOL] >>
-    imp_res_tac term_ok_welltyped >>
-    imp_res_tac theory_ok_sig >>
-    rw[term_ok_equation,term_ok_def]) >>
-  strip_tac >- (
-    rw[EQUATION_HAS_TYPE_BOOL] >>
-    imp_res_tac proves_theory_ok >>
-    imp_res_tac theory_ok_sig >>
-    imp_res_tac term_ok_welltyped >>
-    fs[term_ok_equation] >>
-    fs[EQUATION_HAS_TYPE_BOOL] >>
-    imp_res_tac ACONV_TYPE >>
-    simp[] >>
-    match_mp_tac EVERY_TERM_UNION >> fs[] ) >>
-  rw[theory_ok_def])
 
 (*
 (* signature extensions preserve ok *)
