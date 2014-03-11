@@ -1533,7 +1533,6 @@ val proves_term_ok = store_thm("proves_term_ok",
     match_mp_tac EVERY_TERM_UNION >> fs[] ) >>
   rw[theory_ok_def])
 
-(*
 (* signature extensions preserve ok *)
 
 val type_ok_extend = store_thm("type_ok_extend",
@@ -1561,6 +1560,139 @@ val is_std_sig_extend = store_thm("is_std_sig_extend",
     is_std_sig (tyenv,tmenv) ∧ tyenv ⊑ tyenv' ∧ tmenv ⊑ tmenv' ⇒
     is_std_sig (tyenv',tmenv')``,
   rw[is_std_sig_def] >> imp_res_tac FLOOKUP_SUBMAP)
+
+(* updates preserve ok *)
+
+val updates_theory_ok = store_thm("updates_theory_ok",
+  ``∀upd ctxt. upd updates ctxt ⇒ theory_ok (thyof ctxt) ⇒ theory_ok (thyof (upd::ctxt))``,
+  ho_match_mp_tac updates_ind >>
+  strip_tac >- (
+    rw[conexts_of_upd_def] >>
+    fs[theory_ok_def] >>
+    metis_tac[] ) >>
+  strip_tac >- (
+    rw[conexts_of_upd_def] >>
+    fs[theory_ok_def] >>
+    conj_tac >- metis_tac[IN_FRANGE_DOMSUB_suff] >>
+    `tmsof ctxt ⊑ tmsof ctxt |+ (name,ty)` by simp[] >>
+    metis_tac[is_std_sig_extend,term_ok_extend,SUBMAP_REFL] ) >>
+  strip_tac >- (
+    rw[conexts_of_upd_def] >>
+    imp_res_tac proves_term_ok >>
+    fs[theory_ok_def,EVERY_MAP] >>
+    rfs[term_ok_equation,UNCURRY,EQUATION_HAS_TYPE_BOOL] >>
+    Q.PAT_ABBREV_TAC`tms' = X ⊌ tmsof ctxt` >>
+    `tmsof ctxt ⊑ tms'` by (
+      simp[Abbr`tms'`] >>
+      match_mp_tac SUBMAP_FUNION >>
+      fs[IN_DISJOINT,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
+      metis_tac[] ) >>
+    conj_tac >- (
+      simp[Abbr`tms'`] >>
+      ho_match_mp_tac IN_FRANGE_FUNION_suff >> fs[] >>
+      ho_match_mp_tac IN_FRANGE_alist_to_fmap_suff >>
+      fs[EVERY_MEM,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,MEM_MAP,PULL_EXISTS] >>
+      fs[term_ok_def] ) >>
+    reverse conj_tac >- metis_tac[is_std_sig_extend,SUBMAP_REFL] >>
+    gen_tac >> reverse strip_tac >- metis_tac[term_ok_extend,SUBMAP_REFL] >>
+    simp[] >>
+    conj_tac >- (
+      match_mp_tac term_ok_VSUBST >>
+      simp[Abbr`ilist`,MEM_MAP,PULL_EXISTS,UNCURRY,Once has_type_cases,term_ok_def] >>
+      conj_tac >- metis_tac[term_ok_extend,SUBMAP_REFL] >>
+      simp[Abbr`tms'`,FLOOKUP_FUNION,ALOOKUP_MAP,FORALL_PROD] >> rw[] >>
+      imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >> rw[] >>
+      fs[EVERY_MEM,term_ok_def,FORALL_PROD] >>
+      metis_tac[is_instance_refl] ) >>
+    match_mp_tac VSUBST_HAS_TYPE >>
+    simp[Abbr`ilist`,MEM_MAP,PULL_EXISTS,UNCURRY,Once has_type_cases] ) >>
+  strip_tac >- (
+    rw[conexts_of_upd_def] >>
+    fs[theory_ok_def] >>
+    `tysof ctxt ⊑ tysof ctxt |+ (name,arity)` by simp[] >>
+    metis_tac[is_std_sig_extend,term_ok_extend,type_ok_extend,SUBMAP_REFL] ) >>
+  rw[conexts_of_upd_def] >>
+  fs[theory_ok_def] >>
+  Q.PAT_ABBREV_TAC`tms' = X ⊌ tmsof ctxt` >>
+  Q.PAT_ABBREV_TAC`tys' = tysof ctxt |+ X` >>
+  `tmsof ctxt ⊑ tms'` by (
+    simp[Abbr`tms'`] >>
+    match_mp_tac SUBMAP_FUNION >>
+    fs[IN_DISJOINT] >>
+    metis_tac[] ) >>
+  `tysof ctxt ⊑ tys'` by (
+    simp[Abbr`tys'`] ) >>
+  `is_std_sig (tys',tms')` by metis_tac[is_std_sig_extend] >>
+  imp_res_tac proves_term_ok >> fs[term_ok_def] >>
+  imp_res_tac term_ok_type_ok >>
+  conj_tac >- (
+    simp[Abbr`tms'`] >>
+    ho_match_mp_tac IN_FRANGE_FUNION_suff >>
+    reverse conj_tac >- metis_tac[type_ok_extend] >>
+    ho_match_mp_tac IN_FRANGE_FUPDATE_suff >>
+    simp[type_ok_def] >>
+    fs[is_std_sig_def] >>
+    imp_res_tac WELLTYPED_LEMMA >>
+    unabbrev_all_tac >>
+    simp[type_ok_def,FLOOKUP_UPDATE,EVERY_MAP] >>
+    metis_tac[type_ok_extend,term_ok_type_ok] ) >>
+  simp[] >>
+  imp_res_tac WELLTYPED_LEMMA >>
+  `name ∉ {"fun";"bool"}` by (
+    fs[is_std_sig_def] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,EXISTS_PROD] >>
+    metis_tac[] ) >>
+  pop_assum mp_tac >> simp[] >> strip_tac >>
+  Q.PAT_ABBREV_TAC`eq1 = l1 === r1` >>
+  Q.PAT_ABBREV_TAC`eq2 = l2 === r` >>
+  Q.PAT_ABBREV_TAC`eq3 = l3 === r3` >>
+  `type_ok tys' rep_type` by (
+    match_mp_tac type_ok_extend >>
+    HINT_EXISTS_TAC >> fs[type_ok_def] ) >>
+  `term_ok (tys',tms') eq1` by (
+    unabbrev_all_tac >>
+    simp[term_ok_equation,term_ok_def,type_ok_def,FLOOKUP_FUNION,FLOOKUP_UPDATE,EVERY_MAP] >>
+    fs[is_std_sig_def] ) >>
+  `term_ok (tys',tms') pred` by metis_tac[term_ok_extend] >>
+  `eq1 has_type Bool` by (
+    unabbrev_all_tac >> simp[EQUATION_HAS_TYPE_BOOL] ) >>
+  `eq2 has_type Bool` by (
+    unabbrev_all_tac >> simp[EQUATION_HAS_TYPE_BOOL] ) >>
+  imp_res_tac WELLTYPED_LEMMA >>
+  `eq3 has_type Bool` by (
+    unabbrev_all_tac >> simp[EQUATION_HAS_TYPE_BOOL,welltyped_equation] ) >>
+  `term_ok (tys',tms') eq3` by (
+    unabbrev_all_tac >>
+    simp[term_ok_equation,term_ok_def,type_ok_def,FLOOKUP_FUNION,FLOOKUP_UPDATE,EVERY_MAP] >>
+    fs[is_std_sig_def] ) >>
+  metis_tac[term_ok_extend])
+
+val extends_ind = store_thm("extends_ind",
+  ``∀P. (∀upd ctxt. upd updates ctxt ∧ P ctxt ⇒ P (upd::ctxt)) ⇒
+    ∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒ P ctxt1 ⇒ P ctxt2``,
+  gen_tac >> strip_tac >>
+  simp[extends_def] >>
+  CONV_TAC SWAP_FORALL_CONV >>
+  ho_match_mp_tac RTC_INDUCT >>
+  rw[] >> first_x_assum match_mp_tac >>
+  rw[])
+
+val extends_theory_ok = store_thm("extends_theory_ok",
+  ``∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒ theory_ok (thyof ctxt1) ⇒ theory_ok (thyof ctxt2)``,
+  ho_match_mp_tac extends_ind >> metis_tac[updates_theory_ok])
+
+(*
+
+val update_sig_submap = store_thm("update_sig_submap",
+  ``∀upd ctxt. upd updates ctxt ⇒
+      tysof (sigof ctxt) ⊑ (tysof (sigof (upd::ctxt))) ∧
+      tmsof (sigof ctxt) ⊑ (tmsof (sigof (upd::ctxt)))``,
+   ho_match_mp_tac updates_ind >> rw[] >>
+   match_mp_tac SUBMAP_FUNION >> fs[IN_DISJOINT] >>
+   fs[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
+   metis_tac[])
+
 
 (* Internal consistency of context *)
 
@@ -1760,25 +1892,6 @@ val context_ok_update = store_thm("context_ok_update",
   `eq has_type Bool` by (
     simp[Abbr`eq`,EQUATION_HAS_TYPE_BOOL] ) >>
   metis_tac[WELLTYPED_LEMMA])
-
-val update_sig_submap = store_thm("update_sig_submap",
-  ``∀upd ctxt. upd updates ctxt ⇒
-      tysof (sigof ctxt) ⊑ (tysof (sigof (upd::ctxt))) ∧
-      tmsof (sigof ctxt) ⊑ (tmsof (sigof (upd::ctxt)))``,
-   ho_match_mp_tac updates_ind >> rw[] >>
-   match_mp_tac SUBMAP_FUNION >> fs[IN_DISJOINT] >>
-   fs[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
-   metis_tac[])
-
-val extends_ind = store_thm("extends_ind",
-  ``∀P. (∀upd ctxt. upd updates ctxt ∧ P ctxt ⇒ P (upd::ctxt)) ⇒
-    ∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒ P ctxt1 ⇒ P ctxt2``,
-  gen_tac >> strip_tac >>
-  simp[extends_def] >>
-  CONV_TAC SWAP_FORALL_CONV >>
-  ho_match_mp_tac RTC_INDUCT >>
-  rw[] >> first_x_assum match_mp_tac >>
-  rw[])
 
 val context_ok_extension = store_thm("context_ok_extension",
   ``∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒
