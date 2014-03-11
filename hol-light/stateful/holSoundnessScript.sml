@@ -352,7 +352,6 @@ val init_ctxt_has_model = store_thm("init_ctxt_has_model",
   match_mp_tac (UNDISCH funspace_inhabited) >>
   metis_tac[])
 
-(*
 val new_constant_correct = store_thm("new_constant_correct",
   ``is_set_theory ^mem ⇒
     ∀ctxt name ty.
@@ -380,8 +379,16 @@ val new_constant_correct = store_thm("new_constant_correct",
   match_mp_tac satisfies_extend >>
   map_every qexists_tac[`tysof ctxt`,`tmsof ctxt`] >>
   rw[] >- fs[theory_ok_def] >>
-  fs[satisfies_def] >>
+  match_mp_tac satisfies_consts >>
+  imp_res_tac theory_ok_sig >>
+  qexists_tac`i` >> simp[] >>
+  conj_tac >- (Cases_on`ctxt`>>fs[]) >>
+  conj_tac >- fs[theory_ok_def] >>
+  rw[term_ok_def,combinTheory.APPLY_UPDATE_THM] >>
+  imp_res_tac ALOOKUP_MEM >>
+  fs[MEM_MAP,EXISTS_PROD] >> metis_tac[])
 
+(*
 val is_consistent_def = xDefine "is_consistent_def"`
   is_consistent0 ^mem ctxt ⇔
     ∀i. i models (sigof ctxt, set (axexts ctxt)) ⇒

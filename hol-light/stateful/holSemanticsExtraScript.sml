@@ -444,6 +444,75 @@ val satisfies_extend = store_thm("satisfies_extend",
   rw[satisfies_def] >> fs[EVERY_MEM] >>
   metis_tac[term_ok_extend,termsem_extend,is_valuation_reduce])
 
+(* semantics only depends on interpretation of things in the term *)
+
+val typesem_consts = store_thm("typesem_consts",
+  ``∀ty τ δ δ' tyenv. type_ok tyenv ty ∧ (∀name args. type_ok tyenv (Tyapp name args) ⇒ δ' name = δ name) ⇒
+                    typesem δ' τ ty = typesem δ τ ty``,
+  ho_match_mp_tac type_ind >> simp[typesem_def,type_ok_def] >> rw[] >>
+  qmatch_abbrev_tac`δ' name args1 = δ name args2` >>
+  `args1 = args2` by (
+    unabbrev_all_tac >>
+    simp[MAP_EQ_f] >>
+    fs[EVERY_MEM] >>
+    metis_tac[] ) >>
+  simp[] >> AP_THM_TAC >>
+  first_x_assum match_mp_tac >>
+  metis_tac[])
+
+val termsem_consts = store_thm("termsem_consts",
+  ``∀tm Γ i v i'.
+      is_std_sig Γ ∧ term_ok Γ tm ∧
+      (∀name args. type_ok (tysof Γ) (Tyapp name args) ⇒ tyaof i' name = tyaof i name) ∧
+      (∀name ty. term_ok Γ (Const name ty) ⇒ tmaof i' name = tmaof i name)
+      ⇒
+      termsem Γ i' v tm = termsem Γ i v tm``,
+  Induct >> simp[termsem_def] >- (
+    rw[term_ok_def] >>
+    imp_res_tac instance_def >>
+    qmatch_abbrev_tac`instance Γ i' s ty τ = X` >>
+    qmatch_assum_abbrev_tac`Abbrev(ty = TYPE_SUBST tyin ty0)` >>
+    first_x_assum(qspecl_then[`tyin`,`ty`]mp_tac) >>
+    simp[Abbr`ty`] >> disch_then kall_tac >>
+    qmatch_abbrev_tac`f1 x1 = f2 x2` >>
+    `x1 = x2` by (
+      unabbrev_all_tac >>
+      simp[FUN_EQ_THM] >>
+      rw[] >>
+      match_mp_tac typesem_consts >>
+      imp_res_tac type_ok_TYPE_SUBST_imp >>
+      fs[] >> metis_tac[] ) >>
+    simp[] >> AP_THM_TAC >>
+    unabbrev_all_tac >>
+    metis_tac[]) >>
+  fs[term_ok_def] >- metis_tac[] >>
+  rw[term_ok_def] >>
+  qmatch_abbrev_tac`Abstract d1 r1 f1 = Abstract d2 r2 f2` >>
+  `d1 = d2 ∧ r1 = r2` by (
+    unabbrev_all_tac >> rw[] >>
+    match_mp_tac typesem_consts >>
+    metis_tac[term_ok_type_ok] ) >>
+  simp[] >> rpt AP_TERM_TAC >> rw[FUN_EQ_THM] >>
+  unabbrev_all_tac >> fs[] >>
+  metis_tac[])
+
+val satisfies_consts = store_thm("satisfies_consts",
+  ``∀i i' sig h c.
+    is_std_sig sig ∧
+    EVERY (term_ok sig) (c::h) ∧
+    (∀name args. type_ok (tysof sig) (Tyapp name args) ⇒ tyaof i' name = tyaof i name) ∧
+    (∀name ty. term_ok sig (Const name ty) ⇒ tmaof i' name = tmaof i name) ∧
+    i satisfies (sig,h,c)
+    ⇒
+    i' satisfies (sig,h,c)``,
+  rw[satisfies_def] >>
+  qsuff_tac`termsem sig i v c = True` >- metis_tac[termsem_consts] >>
+  first_x_assum match_mp_tac >>
+  reverse conj_tac >- ( fs[EVERY_MEM] >> metis_tac[termsem_consts] ) >>
+  fs[is_valuation_def] >>
+  fs[is_term_valuation_def] >>
+  metis_tac[typesem_consts])
+
 (*
 (* for models, reducing the context *)
 
