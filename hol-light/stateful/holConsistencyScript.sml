@@ -5,10 +5,11 @@ val _ = new_theory"holConsistency"
 
 val mem = ``mem:'U->'U->bool``
 
-val consistent_context_def = xDefine "consistent_context"`
-  consistent_context0 ^mem ctxt ⇔
-    ∀i. is_model (sigof ctxt, axexts ctxt) i ⇒
-        ∃i'. is_model (sigof ctxt, axioms ctxt) i'`
+val is_consistent_def = xDefine "is_consistent_def"`
+  is_consistent0 ^mem ctxt ⇔
+    ∀i. i models (sigof ctxt, set (axexts ctxt)) ⇒
+        ∃i'. i' models (thyof ctxt)`
+val _ = Parse.overload_on("is_consistent",``is_consistent0 ^mem``)
 
 (*
 val consistency = store_thm("consistency",

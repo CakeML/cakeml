@@ -113,9 +113,7 @@ val termsem_typesem = store_thm("termsem_typesem",
 
 val Equalsem =
   is_std_interpretation_def
-  |> SPEC_VAR |> snd
-  |> Q.SPECL [`FST (i:'U interpretation)`,`SND i`]
-  |> concl |> rhs
+  |> SPEC_ALL |> concl |> rhs
   |> strip_conj |> tl |> hd |> rhs
 
 val termsem_Equal = store_thm("termsem_Equal",
@@ -204,34 +202,6 @@ val termsem_frees = store_thm("termsem_frees",
   first_x_assum match_mp_tac >>
   rw[combinTheory.APPLY_UPDATE_THM,FUN_EQ_THM] >>
   first_x_assum match_mp_tac >> fs[])
-
-(* extending the context doesn't change the semantics *)
-
-val termsem_extend = store_thm("termsem_extend",
-  ``∀tyenv tmenv tyenv' tmenv' tm.
-      tmenv ⊑ tmenv' ∧
-      term_ok (tyenv,tmenv) tm ⇒
-      ∀i v. termsem (tyenv',tmenv') i v tm =
-            termsem (tyenv,tmenv) i v tm``,
-  ntac 4 gen_tac >> Induct >> simp[termsem_def,term_ok_def] >>
-  rw[] >>
-  qmatch_abbrev_tac`X = instance sig int name ty t` >>
-  qspecl_then[`sig`,`int`,`name`,`ty`]mp_tac instance_def >>
-  fs[Abbr`sig`,Abbr`ty`,Abbr`X`] >>
-  disch_then kall_tac >>
-  qmatch_abbrev_tac`instance sig int name ty t = X` >>
-  qspecl_then[`sig`,`int`,`name`,`ty`]mp_tac instance_def >>
-  imp_res_tac FLOOKUP_SUBMAP >>
-  fs[Abbr`sig`,Abbr`ty`])
-
-val satisfies_extend = store_thm("satisfies_extend",
-  ``∀tyenv tmenv tyenv' tmenv' tm i h c.
-      tmenv ⊑ tmenv' ∧ tyenv ⊑ tyenv' ∧
-      EVERY (term_ok (tyenv,tmenv)) (c::h) ⇒
-      (((tyenv,tmenv),i) satisfies (h,c) ⇔
-       ((tyenv',tmenv'),i) satisfies (h,c))``,
-  rw[satisfies_def,EQ_IMP_THM] >> fs[EVERY_MEM] >>
-  metis_tac[term_ok_extend,termsem_extend])
 
 (* TODO: move. List of updates to a function *)
 
@@ -440,6 +410,35 @@ val termsem_INST = store_thm("termsem_INST",
   `welltyped fm` by metis_tac[ACONV_welltyped] >>
   metis_tac[SIMP_RULE(srw_ss())[]termsem_simple_inst,termsem_aconv,term_ok_aconv])
 
+(*
+(* extending the context doesn't change the semantics *)
+
+val termsem_extend = store_thm("termsem_extend",
+  ``∀tyenv tmenv tyenv' tmenv' tm.
+      tmenv ⊑ tmenv' ∧
+      term_ok (tyenv,tmenv) tm ⇒
+      ∀i v. termsem (tyenv',tmenv') i v tm =
+            termsem (tyenv,tmenv) i v tm``,
+  ntac 4 gen_tac >> Induct >> simp[termsem_def,term_ok_def] >>
+  rw[] >>
+  qmatch_abbrev_tac`X = instance sig int name ty t` >>
+  qspecl_then[`sig`,`int`,`name`,`ty`]mp_tac instance_def >>
+  fs[Abbr`sig`,Abbr`ty`,Abbr`X`] >>
+  disch_then kall_tac >>
+  qmatch_abbrev_tac`instance sig int name ty t = X` >>
+  qspecl_then[`sig`,`int`,`name`,`ty`]mp_tac instance_def >>
+  imp_res_tac FLOOKUP_SUBMAP >>
+  fs[Abbr`sig`,Abbr`ty`])
+
+val satisfies_extend = store_thm("satisfies_extend",
+  ``∀tyenv tmenv tyenv' tmenv' tm i h c.
+      tmenv ⊑ tmenv' ∧ tyenv ⊑ tyenv' ∧
+      EVERY (term_ok (tyenv,tmenv)) (c::h) ⇒
+      (i satisfies ((tyenv,tmenv),h,c) ⇔
+       i satisfies ((tyenv',tmenv'),h,c))``,
+  rw[satisfies_def,EQ_IMP_THM] >> fs[EVERY_MEM] >>
+  metis_tac[term_ok_extend,termsem_extend])
+
 (* for models, reducing the context *)
 
 val is_type_assignment_reduce = store_thm("is_type_assignment_reduce",
@@ -467,15 +466,16 @@ val is_interpretation_reduce = store_thm("is_interpretation_reduce",
   imp_res_tac is_type_assignment_reduce >>
   imp_res_tac is_term_assignment_reduce)
 
-val is_model_reduce = store_thm("is_model_reduce",
+val models_reduce = store_thm("models_reduce",
   ``∀i tyenv tmenv axs tyenv' tmenv' axs'.
-     tyenv ⊑ tyenv' ∧ tmenv ⊑ tmenv' ∧ (∃ls. axs' = ls ++ axs) ∧
-     is_model ((tyenv',tmenv'),axs') i ∧
-     EVERY (term_ok (tyenv,tmenv)) axs
+     tyenv ⊑ tyenv' ∧ tmenv ⊑ tmenv' ∧ (axs ⊆ axs') ∧
+     i models ((tyenv',tmenv'),axs') ∧
+     (∀p. p ∈ axs ⇒ (term_ok (tyenv,tmenv)) p)
      ⇒
-     is_model ((tyenv,tmenv),axs) i``,
-  Cases >> rw[holSemanticsTheory.is_model_def] >>
-  fs[EVERY_APPEND] >> imp_res_tac is_interpretation_reduce >>
-  fs[EVERY_MEM] >> metis_tac[satisfies_extend,EVERY_DEF])
+     i models ((tyenv,tmenv),axs)``,
+  Cases >> rw[models_def] >>
+  imp_res_tac is_interpretation_reduce >>
+  fs[SUBSET_DEF] >> metis_tac[satisfies_extend,EVERY_DEF])
+*)
 
 val _ = export_theory()
