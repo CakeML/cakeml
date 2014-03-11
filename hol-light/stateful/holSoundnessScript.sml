@@ -332,6 +332,26 @@ val proves_consistent = store_thm("proves_consistent",
     fs[models_def,Abbr`sig`,theory_ok_def] ) >>
   simp[Abbr`s`,Abbr`t`,termsem_def,boolean_eq_true,Abbr`v`,true_neq_false])
 
+val init_ctxt_has_model = store_thm("init_ctxt_has_model",
+  ``is_set_theory ^mem ⇒ ∃i. i models (thyof init_ctxt)``,
+  rw[models_def,init_ctxt_def,conexts_of_upd_def] >>
+  rw[is_std_interpretation_def,is_std_type_assignment_def,EXISTS_PROD] >>
+  qho_match_abbrev_tac`∃f g. P f g ∧ (f x1 = y1 ∧ f x2 = y2) ∧ (g x3 = y3)` >>
+  qexists_tac`λx. if x = x1 then y1 else if x = x2 then y2 else ARB` >>
+  qexists_tac`K y3` >>
+  rw[Abbr`x1`,Abbr`x2`,Abbr`P`] >>
+  rw[is_interpretation_def,is_type_assignment_def,is_term_assignment_def] >>
+  rw[FEVERY_FUPDATE,Abbr`y2`,Abbr`y1`,Abbr`y3`,FEVERY_FEMPTY] >>
+  rw[typesem_def,tyvars_def] >>
+  TRY (
+    match_mp_tac (UNDISCH abstract_in_funspace) >> rw[] >>
+    match_mp_tac (UNDISCH abstract_in_funspace) >> rw[boolean_in_boolset] ) >>
+  BasicProvers.CASE_TAC >> fs[] >- metis_tac[boolean_in_boolset] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  match_mp_tac (UNDISCH funspace_inhabited) >>
+  metis_tac[])
+
 (*
 val new_axiom_correct = store_thm("new_axiom_correct",
   ``∀ctxt p h c.

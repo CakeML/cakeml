@@ -1682,6 +1682,13 @@ val extends_theory_ok = store_thm("extends_theory_ok",
   ``∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒ theory_ok (thyof ctxt1) ⇒ theory_ok (thyof ctxt2)``,
   ho_match_mp_tac extends_ind >> metis_tac[updates_theory_ok])
 
+(* init_ctxt ok *)
+
+val init_theory_ok = store_thm("init_theory_ok",
+  ``theory_ok (thyof init_ctxt)``,
+  rw[theory_ok_def,init_ctxt_def,type_ok_def,FLOOKUP_UPDATE,conexts_of_upd_def] >>
+  rw[is_std_sig_def,FLOOKUP_UPDATE])
+
 (*
 
 val update_sig_submap = store_thm("update_sig_submap",
