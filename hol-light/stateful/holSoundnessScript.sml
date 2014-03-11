@@ -1,5 +1,5 @@
 open HolKernel boolLib bossLib lcsymtacs listTheory finite_mapTheory alistTheory pred_setTheory pairTheory
-open miscLib miscTheory setSpecTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
+open miscLib miscTheory setSpecTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
 val _ = temp_tight_equality()
 val _ = new_theory"holSoundness"
 
@@ -387,6 +387,202 @@ val new_constant_correct = store_thm("new_constant_correct",
   rw[term_ok_def,combinTheory.APPLY_UPDATE_THM] >>
   imp_res_tac ALOOKUP_MEM >>
   fs[MEM_MAP,EXISTS_PROD] >> metis_tac[])
+
+val new_specification_correct = store_thm("new_specification_correct",
+  ``is_set_theory ^mem ⇒
+    ∀ctxt eqs prop.
+     theory_ok (thyof ctxt) ∧
+     (thyof ctxt, MAP (λ(s,t). Var s (typeof t) === t) eqs) |- prop ∧
+     EVERY
+       (λt. CLOSED t ∧
+            (∀v. MEM v (tvars t) ⇒ MEM v (tyvars (typeof t))))
+       (MAP SND eqs) ∧
+     (∀x ty. VFREE_IN (Var x ty) prop ⇒
+               MEM (x,ty) (MAP (λ(s,t). (s,typeof t)) eqs)) ∧
+     (∀s. MEM s (MAP FST eqs) ⇒ s ∉ (FDOM (tmsof ctxt))) ∧
+     ALL_DISTINCT (MAP FST eqs) ⇒
+    ∀i. i models (thyof ctxt) ⇒
+      ∃i'. i' models (thyof (ConstSpec eqs prop::ctxt))``,
+  rw[models_def] >>
+  qexists_tac`(tyaof i, (tmaof i) =++ MAP (λ(s,t). (s, λτ. termsem (sigof ctxt) i (τ,ARB) t)) (REVERSE eqs))` >>
+  conj_asm1_tac >- (
+    fs[is_interpretation_def,is_term_assignment_def,FEVERY_ALL_FLOOKUP,FLOOKUP_FUNION] >>
+    simp[ALOOKUP_MAP,APPLY_UPDATE_LIST_ALOOKUP,rich_listTheory.MAP_REVERSE] >>
+    rpt gen_tac >>
+    BasicProvers.CASE_TAC >> fs[] >> rw[] >>
+    qmatch_abbrev_tac`termsem sig i t1 t <: x` >>
+    imp_res_tac theory_ok_sig >>
+    `termsem sig i t1 t = termsem sig i (τ,SND t1) t` by (
+      match_mp_tac termsem_tyfrees >>
+      imp_res_tac ALOOKUP_MEM >>
+      imp_res_tac proves_term_ok >>
+      fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS] >>
+      rfs[term_ok_equation] >>
+      conj_tac >- metis_tac[] >>
+      rw[Abbr`t1`] >> metis_tac[] ) >>
+    `is_valuation (tysof sig) (tyaof i) (τ,λ(x,ty). @v. v <: typesem (tyaof i) τ ty)` by (
+      fs[is_valuation_def,is_term_valuation_def] >> rw[] >>
+      SELECT_ELIM_TAC >> simp[] >>
+      match_mp_tac (UNDISCH typesem_inhabited) >>
+      fs[Abbr`sig`] >> metis_tac[] ) >>
+    qmatch_assum_abbrev_tac`is_valuation tyenv δ v` >>
+    `termsem sig i (τ,tmvof t1) t = termsem sig i v t` by (
+      match_mp_tac termsem_frees >>
+      simp[Abbr`v`] >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,CLOSED_def] >>
+      metis_tac[] ) >>
+    rw[] >>
+    match_mp_tac (UNDISCH termsem_typesem) >>
+    unabbrev_all_tac >> simp[] >>
+    fs[is_interpretation_def] >>
+    fs[is_term_assignment_def,FEVERY_ALL_FLOOKUP] >>
+    imp_res_tac is_std_interpretation_is_type >> simp[] >>
+    imp_res_tac proves_term_ok >>
+    fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS] >>
+    rfs[term_ok_equation] >>
+    imp_res_tac ALOOKUP_MEM >>
+    metis_tac[] ) >>
+  conj_tac >- (
+    fs[is_std_interpretation_def,APPLY_UPDATE_LIST_ALOOKUP,rich_listTheory.MAP_REVERSE,ALOOKUP_MAP] >>
+    BasicProvers.CASE_TAC >> fs[] >>
+    imp_res_tac ALOOKUP_MEM >>
+    imp_res_tac theory_ok_sig  >>
+    fs[is_std_sig_def] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,EXISTS_PROD] >>
+    metis_tac[] ) >>
+  simp[conexts_of_upd_def] >>
+  gen_tac >> reverse strip_tac >- (
+    match_mp_tac satisfies_extend >>
+    imp_res_tac proves_sound >>
+    fs[entails_def] >>
+    first_x_assum(qspec_then`i`mp_tac) >>
+    discharge_hyps >- fs[models_def] >> strip_tac >>
+    map_every qexists_tac[`tysof ctxt`,`tmsof ctxt`] >>
+    fs[theory_ok_def] >>
+    conj_tac >- (
+      match_mp_tac SUBMAP_FUNION >>
+      fs[IN_DISJOINT,MAP_MAP_o,combinTheory.o_DEF,ETA_AX,UNCURRY] >>
+      metis_tac[] ) >>
+    match_mp_tac satisfies_consts >>
+    qexists_tac`i` >> simp[] >>
+    simp[term_ok_def,APPLY_UPDATE_LIST_ALOOKUP,rich_listTheory.MAP_REVERSE,ALOOKUP_MAP] >>
+    rw[] >> imp_res_tac ALOOKUP_MEM >>
+    BasicProvers.CASE_TAC >> fs[] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,EXISTS_PROD,PULL_EXISTS] >>
+    metis_tac[] ) >>
+  imp_res_tac proves_sound >> pop_assum mp_tac >>
+  rw[entails_def] >>
+  first_x_assum(qspec_then`i`mp_tac) >>
+  discharge_hyps >- fs[models_def] >>
+  rw[satisfies_def] >>
+  qmatch_abbrev_tac`termsem sig ii v (VSUBST ilist tm) = True` >>
+  qspecl_then[`tm`,`ilist`]mp_tac termsem_VSUBST >>
+  discharge_hyps >- (
+    simp[welltyped_def,Abbr`ilist`,MEM_MAP,PULL_EXISTS,FORALL_PROD] >>
+    metis_tac[has_type_rules] ) >>
+  simp[] >> disch_then kall_tac >>
+  qmatch_abbrev_tac`termsem sig ii vv tm = True` >>
+  `tmsof ctxt ⊑ tmsof sig` by (
+    simp[Abbr`sig`] >>
+    match_mp_tac SUBMAP_FUNION >>
+    fs[IN_DISJOINT,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
+    metis_tac[] ) >>
+  `termsem sig ii vv tm = termsem (sigof ctxt) ii vv tm` by (
+    fs[Abbr`sig`] >> metis_tac[termsem_extend] ) >>
+  `termsem (sigof ctxt) ii vv tm = termsem (sigof ctxt) i vv tm` by (
+    match_mp_tac termsem_consts >>
+    simp[Abbr`ii`] >>
+    imp_res_tac theory_ok_sig >>
+    fs[term_ok_def] >>
+    simp[APPLY_UPDATE_LIST_ALOOKUP,rich_listTheory.MAP_REVERSE,ALOOKUP_MAP] >>
+    rw[] >> imp_res_tac ALOOKUP_MEM >>
+    BasicProvers.CASE_TAC >> fs[] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,EXISTS_PROD,PULL_EXISTS] >>
+    metis_tac[] ) >>
+  rw[] >>
+  first_x_assum match_mp_tac >>
+  conj_asm1_tac >- (
+    fs[Abbr`vv`,is_valuation_def,is_term_valuation_def] >>
+    simp[APPLY_UPDATE_LIST_ALOOKUP,rich_listTheory.MAP_REVERSE] >>
+    rw[] >>
+    BasicProvers.CASE_TAC >- metis_tac[] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,Abbr`ilist`,EXISTS_PROD] >>
+    rpt BasicProvers.VAR_EQ_TAC >> fs[termsem_def] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    rpt (qpat_assum `termsem X Y Z tm = A`kall_tac) >>
+    qmatch_abbrev_tac`instance sig ii name ty τ <: x` >>
+    qspecl_then[`sig`,`ii`,`name`,`ty`]mp_tac instance_def >>
+    simp[Abbr`sig`,FLOOKUP_FUNION,ALOOKUP_MAP] >>
+    imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
+    simp[] >>
+    disch_then(qspec_then`[]`mp_tac) >>
+    simp[] >> disch_then kall_tac >>
+    simp[Abbr`ii`,APPLY_UPDATE_LIST_ALOOKUP,rich_listTheory.MAP_REVERSE,ALOOKUP_MAP] >>
+    `is_valuation (tysof ctxt) (tyaof i) (τ,λ(x,ty). @v. v <: typesem (tyaof i) τ ty)` by (
+      fs[is_valuation_def,is_term_valuation_def] >> rw[] >>
+      SELECT_ELIM_TAC >> simp[] >>
+      match_mp_tac (UNDISCH typesem_inhabited) >>
+      fs[is_interpretation_def] >> metis_tac[] ) >>
+    qmatch_abbrev_tac`termsem sig i (v1,v2) tt <: tysem` >>
+    qmatch_assum_abbrev_tac`is_valuation (tysof ctxt) (tyaof i) (τ,σ)` >>
+    `termsem sig i (v1,v2) tt = termsem sig i (τ,v2) tt` by (
+      match_mp_tac termsem_tyfrees >>
+      simp[Abbr`v1`,REV_ASSOCD,typesem_def,Abbr`sig`] >>
+      imp_res_tac theory_ok_sig >>
+      fs[EVERY_MAP,term_ok_equation,LAMBDA_PROD] >>
+      fs[EVERY_MEM,FORALL_PROD] >>
+      rw[] >> metis_tac[] ) >>
+    `termsem sig i (τ,v2) tt = termsem sig i (τ,σ) tt` by (
+       match_mp_tac termsem_frees >>
+       fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,CLOSED_def] >>
+       metis_tac[] ) >>
+    rw[Abbr`tysem`,Abbr`ty`] >>
+    match_mp_tac (UNDISCH termsem_typesem) >>
+    fs[Abbr`sig`] >>
+    imp_res_tac is_std_interpretation_is_type >>
+    imp_res_tac theory_ok_sig >>
+    fs[EVERY_MAP,term_ok_equation,LAMBDA_PROD,EVERY_MEM,FORALL_PROD] >>
+    metis_tac[] ) >>
+  imp_res_tac theory_ok_sig >>
+  `is_structure (sigof ctxt) i vv` by (
+    fs[is_structure_def] ) >>
+  simp[EVERY_MAP,EVERY_MEM,FORALL_PROD] >> rw[] >>
+  fs[EVERY_MAP,LAMBDA_PROD,EVERY_MEM,FORALL_PROD] >>
+  simp[termsem_equation,boolean_eq_true,termsem_def] >>
+  simp[Abbr`vv`,APPLY_UPDATE_LIST_ALOOKUP,rich_listTheory.MAP_REVERSE] >>
+  BasicProvers.CASE_TAC >- (
+    imp_res_tac ALOOKUP_FAILS >>
+    fs[MEM_MAP,Abbr`ilist`,EXISTS_PROD,PULL_EXISTS] >>
+    metis_tac[] ) >>
+  imp_res_tac ALOOKUP_MEM >>
+  fs[MEM_MAP,Abbr`ilist`,EXISTS_PROD,PULL_EXISTS] >>
+  simp[termsem_def] >>
+  qmatch_abbrev_tac`instance sig ii name ty τ = X` >>
+  qspecl_then[`sig`,`ii`,`name`,`ty`]mp_tac instance_def >>
+  simp[Abbr`sig`,FLOOKUP_FUNION,ALOOKUP_MAP] >>
+  imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
+  simp[] >>
+  disch_then(qspec_then`[]`mp_tac) >>
+  simp[] >> disch_then kall_tac >>
+  simp[Abbr`ii`,APPLY_UPDATE_LIST_ALOOKUP,rich_listTheory.MAP_REVERSE,ALOOKUP_MAP] >>
+  qmatch_abbrev_tac`termsem sig i (v1,v2) tt = termsem sig i (v3,v4) tt` >>
+  `termsem sig i (v1,v2) tt = termsem sig i (v3,v2) tt` by (
+    match_mp_tac termsem_tyfrees >>
+    simp[Abbr`sig`,Abbr`v1`,REV_ASSOCD,typesem_def] >>
+    imp_res_tac theory_ok_sig >>
+    fs[EVERY_MAP,term_ok_equation,LAMBDA_PROD] >>
+    fs[EVERY_MEM,FORALL_PROD] >>
+    rw[] >> metis_tac[] ) >>
+  `termsem sig i (v3,v2) tt = termsem sig i (v3,v4) tt` by (
+    match_mp_tac termsem_frees >> simp[] >>
+    fs[EVERY_MAP,LAMBDA_PROD,EVERY_MEM,FORALL_PROD,CLOSED_def] >>
+    metis_tac[] ) >>
+  rw[Abbr`v4`])
 
 val new_type_correct = store_thm("new_type_correct",
   ``is_set_theory ^mem ⇒

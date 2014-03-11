@@ -483,6 +483,20 @@ val tvars_ALL_DISTINCT = store_thm("tvars_ALL_DISTINCT",
   Induct >> simp[tvars_def,ALL_DISTINCT_LIST_UNION])
 val _ = export_rewrites["tvars_ALL_DISTINCT"]
 
+val tyvars_TYPE_SUBST = store_thm("tyvars_TYPE_SUBST",
+  ``∀ty tyin. set (tyvars (TYPE_SUBST tyin ty)) =
+      { v | ∃x. MEM x (tyvars ty) ∧ MEM v (tyvars (REV_ASSOCD (Tyvar x) tyin (Tyvar x))) }``,
+  ho_match_mp_tac type_ind >> simp[tyvars_def] >>
+  simp[EXTENSION,EVERY_MEM,MEM_FOLDR_LIST_UNION,PULL_EXISTS,MEM_MAP] >> rw[] >>
+  metis_tac[] )
+
+val tyvars_typeof_subset_tvars = store_thm("tyvars_typeof_subset_tvars",
+  ``∀tm ty. tm has_type ty ⇒ set (tyvars ty) ⊆ set (tvars tm)``,
+  ho_match_mp_tac has_type_ind >>
+  simp[tvars_def] >>
+  simp[SUBSET_DEF,MEM_LIST_UNION,tyvars_def] >>
+  metis_tac[])
+
 (* Equations *)
 
 val EQUATION_HAS_TYPE_BOOL = store_thm("EQUATION_HAS_TYPE_BOOL",

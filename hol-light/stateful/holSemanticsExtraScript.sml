@@ -203,6 +203,42 @@ val termsem_frees = store_thm("termsem_frees",
   rw[combinTheory.APPLY_UPDATE_THM,FUN_EQ_THM] >>
   first_x_assum match_mp_tac >> fs[])
 
+val typesem_frees = store_thm("typesem_frees",
+  ``∀ty τ1 τ2 δ.
+      (∀a. MEM a (tyvars ty) ⇒ τ1 a = τ2 a) ⇒
+      typesem δ τ1 ty = typesem δ τ2 ty``,
+  ho_match_mp_tac type_ind >>
+  simp[tyvars_def,MEM_FOLDR_LIST_UNION,typesem_def,PULL_EXISTS] >>
+  rw[] >> rpt AP_TERM_TAC >> simp[MAP_EQ_f] >>
+  fs[EVERY_MEM] >> metis_tac[])
+
+val termsem_tyfrees = store_thm("termsem_tyfrees",
+  ``∀Γ i t v1 v2.
+      term_ok Γ t ∧
+      SND v1 = SND v2 ∧
+      (∀a. MEM a (tvars t) ⇒ FST v1 a = FST v2 a)
+      ⇒ termsem Γ i v1 t = termsem Γ i v2 t``,
+  ntac 2 gen_tac >> Induct >>
+  simp[termsem_def,tvars_def,term_ok_def] >- (
+    rw[] >>
+    qmatch_abbrev_tac`instance Γ i name ty τ = X` >>
+    qspecl_then[`Γ`,`i`,`name`,`ty`]mp_tac instance_def >>
+    simp[Abbr`ty`] >> disch_then kall_tac >>
+    rpt AP_TERM_TAC >> simp[FUN_EQ_THM] >> rw[] >>
+    match_mp_tac typesem_frees >>
+    rw[] >>
+    first_x_assum match_mp_tac >>
+    rw[tyvars_TYPE_SUBST] >>
+    metis_tac[] ) >>
+  rw[] >- PROVE_TAC[] >>
+  qmatch_abbrev_tac`Abstract d1 r1 f1 = Abstract d2 r2 f2` >>
+  `d1 = d2 ∧ r1 = r2` by (
+    unabbrev_all_tac >> rw[]  >>
+    match_mp_tac typesem_tyvars >>
+    metis_tac[tyvars_typeof_subset_tvars,SUBSET_DEF,term_ok_welltyped,WELLTYPED] ) >>
+  rw[] >> rpt AP_TERM_TAC >>
+  unabbrev_all_tac >> rw[FUN_EQ_THM])
+
 (* TODO: move. List of updates to a function *)
 
 val UPDATE_LIST_def = Define`
