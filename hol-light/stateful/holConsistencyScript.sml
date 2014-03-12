@@ -768,12 +768,44 @@ val min_hol_consistent = store_thm("min_hol_consistent",
   fs[init_ctxt_def] >>
   metis_tac[])
 
+(*
+val add_axiom = prove(
+  ``∀P p ctxt.
+        (∀i. i models (thyof ctxt) ∧ P i ⇒ i satisfies (sigof ctxt, [], p)) ∧
+        (∃i. i models (thyof ctxt) ∧ P i)
+        ⇒
+      ∃i. i models (thyof (NewAxiom p::ctxt))``,
+  rw[models_def,conexts_of_upd_def] >> rw[] >> metis_tac[])
+
+val pull_let = prove(
+  ``(∃i. i models thyof (REVERSE (let X = Y in f i X) ++ z)) ⇔
+    ∀X. Abbrev (X = Y) ⇒ ∃i. i models thyof (REVERSE (f i X) ++ z)``,
+  simp[] >> metis_tac[markerTheory.Abbrev_def])
+
+fun unlet_tac var =
+  qho_match_abbrev_tac`∃i. i models thyof (REVERSE (let A = XXX in fff i A) ++ init_ctxt)` >>
+  REWRITE_TAC[pull_let] >> X_GEN_TAC var>>strip_tac >>
+  map_every qunabbrev_tac[`XXX`,`fff`] >> BETA_TAC
+
+fun unlet_all (g as (asl,w)) = let
+  val t = w |> strip_exists |> snd |> rand |> rand |> rand |> rand |> rand |> rator |> rand |> rand
+  fun get_all t = let
+    val (x,t) = t |> dest_comb |> fst |> dest_comb |> snd |> dest_abs
+    in x::(get_all t) end handle _ => []
+  in map_every unlet_tac (get_all t) end g
+
 val bool_ctxt_has_model = store_thm("bool_context_has_model",
   ``is_model M ⇒ ∃i. i models (thyof bool_ctxt)``,
   strip_tac >>
   REWRITE_TAC[bool_ctxt_def,REVERSE_APPEND,REVERSE_REVERSE] >>
-  simp_tac std_ss [LET_THM,APPEND,REVERSE_REV,REV_DEF] >>
+  unlet_all >>
+  simp_tac std_ss [APPEND,REVERSE_REV,REV_DEF] >>
   imp_res_tac is_model_is_set_theory >>
+  match_mp_tac add_axiom >>
+  qexists_tac`λi. tyaof i "ind" = (K indset)` >>
+  conj_tac >- (
+    rw[]
+
   cheat)
 
 val hol_consistent = store_thm("hol_consistent",
@@ -790,5 +822,6 @@ val hol_consistent = store_thm("hol_consistent",
   simp[bool_theory_ok,EVERY_MEM] >>
   imp_res_tac bool_ctxt_has_model >>
   qexists_tac`i` >> simp[])
+*)
 
 val _ = export_theory()

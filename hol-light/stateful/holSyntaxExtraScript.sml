@@ -509,6 +509,10 @@ val welltyped_equation = store_thm("welltyped_equation",
   ``∀s t. welltyped (s === t) ⇔ s === t has_type Bool``,
   simp[EQUATION_HAS_TYPE_BOOL] >> simp[equation_def])
 
+val typeof_equation = store_thm("typeof_equation",
+  ``welltyped (l === r) ⇒ (typeof (l === r)) = Bool``,
+  rw[welltyped_equation] >> imp_res_tac WELLTYPED_LEMMA >> rw[])
+
 val vfree_in_equation = store_thm("vfree_in_equation",
   ``VFREE_IN v (s === t) ⇔ (v = Equal (typeof s)) ∨ VFREE_IN v s ∨ VFREE_IN v t``,
   rw[equation_def,VFREE_IN_def] >> metis_tac[])
@@ -1708,6 +1712,9 @@ val init_theory_ok = store_thm("init_theory_ok",
   rw[is_std_sig_def,FLOOKUP_UPDATE])
 
 (* recover constant definition as a special case of specification *)
+
+val _ = Parse.overload_on("ConstDef",``λx t. ConstSpec [(x,t)] (Var x (typeof t) === t)``)
+
 val ConstDef_updates = store_thm("ConstDef_updates",
   ``∀name tm ctxt.
     theory_ok (thyof ctxt) ∧
@@ -1725,138 +1732,5 @@ val ConstDef_updates = store_thm("ConstDef_updates",
   imp_res_tac theory_ok_sig >>
   imp_res_tac term_ok_type_ok >>
   simp[EQUATION_HAS_TYPE_BOOL,term_ok_equation,term_ok_def])
-
-(* bool extends init *)
-
-val Exists_has_type_Bool = store_thm("Exists_has_type_Bool",
-  ``∀x ty p. Exists x ty p has_type Bool ⇔ p has_type Bool``,
-  rpt (rw[Once has_type_cases]))
-
-val And_has_type_Bool = store_thm("And_has_type_Bool",
-  ``∀p q. And p q has_type Bool ⇔ p has_type Bool ∧ q has_type Bool``,
-  rpt (rw[Once has_type_cases]))
-
-val One_One_has_type_Bool = store_thm("One_One_has_type_Bool",
-  ``∀f. One_One f has_type Bool ⇔ welltyped f``,
-  ntac 2 (rw[Once has_type_cases]) >> rw[WELLTYPED])
-
-val Onto_has_type_Bool = store_thm("Onto_has_type_Bool",
-  ``∀f. Onto f has_type Bool ⇔ welltyped f``,
-  ntac 2 (rw[Once has_type_cases]) >> rw[WELLTYPED])
-
-val Not_has_type_Bool = store_thm("Not_has_type_Bool",
-  ``∀p. Not p has_type Bool ⇔ p has_type Bool``,
-  rpt(rw[Once has_type_cases]))
-
-val tyvar_inst_exists = prove(
-  ``∃i. ty = REV_ASSOCD (Tyvar x) i y``,
-  qexists_tac`[(ty,Tyvar x)]` >>
-  rw[REV_ASSOCD])
-
-val tyvar_inst_exists_2 = prove(
-  ``x1 ≠ x2 ⇒
-    ∃i. ty1 = REV_ASSOCD (Tyvar x1) i y1 ∧
-        ty2 = REV_ASSOCD (Tyvar x2) i y2``,
-  rw[] >>
-  qexists_tac`[(ty1,Tyvar x1);(ty2,Tyvar x2)]` >>
-  rw[REV_ASSOCD])
-
-val typeof_equation = prove(
-  ``welltyped (l === r) ⇒ (typeof (l === r)) = Bool``,
-  rw[welltyped_equation] >> imp_res_tac WELLTYPED_LEMMA >> rw[])
-
-val ConstDef_tac =
-  fs[GSYM extends_def] >>
-  match_mp_tac ConstDef_updates >>
-  conj_asm1_tac >- (
-    match_mp_tac (MP_CANON extends_theory_ok) >>
-    qexists_tac`init_ctxt` >>
-    simp[init_theory_ok] ) >>
-  conj_asm1_tac >- (
-    imp_res_tac theory_ok_sig >>
-    unabbrev_all_tac >>
-    fs[term_ok_def,type_ok_def,term_ok_equation,FLOOKUP_UPDATE] >>
-    simp[welltyped_equation,EQUATION_HAS_TYPE_BOOL] >>
-    simp[init_ctxt_def,typeof_equation,welltyped_equation,EQUATION_HAS_TYPE_BOOL] >>
-    simp[tyvar_inst_exists] ) >>
-  conj_tac >- simp[init_ctxt_def] >>
-  conj_tac >- (
-    unabbrev_all_tac >>
-    simp[CLOSED_def,vfree_in_equation] >>
-    rpt (pop_assum kall_tac) >>
-    metis_tac[] ) >>
-  unabbrev_all_tac >>
-  simp[tvars_def,tyvars_def,equation_def,SUBSET_DEF] >>
-  rpt (pop_assum kall_tac) >>
-  metis_tac[]
-
-val bool_extends_init = store_thm("bool_extends_init",
-  ``bool_ctxt extends init_ctxt``,
-  rw[bool_ctxt_def] >>
-  rw[extends_def] >>
-  rw[REVERSE_APPEND] >>
-  simp[Once RTC_CASES1] >>
-  conj_tac >- (
-    rw[updates_cases] >- (
-      rw[Abbr`Exh`
-        ,Exists_has_type_Bool
-        ,And_has_type_Bool
-        ,One_One_has_type_Bool
-        ,Not_has_type_Bool
-        ,Onto_has_type_Bool
-        ,Abbr`h`] >>
-      rpt (rw[Once has_type_cases])) >>
-    unabbrev_all_tac >>
-    rw[term_ok_def,type_ok_def,FLOOKUP_UPDATE] >>
-    rw[init_ctxt_def,tyvar_inst_exists,tyvar_inst_exists_2] >>
-    simp[typeof_equation,welltyped_equation,EQUATION_HAS_TYPE_BOOL]) >>
-  simp[Once RTC_CASES1] >>
-  conj_tac >- (
-    rw[updates_cases] >>
-    rw[init_ctxt_def] ) >>
-  simp[Once RTC_CASES1] >>
-  conj_asm2_tac >- ConstDef_tac >>
-  simp[Once RTC_CASES1] >>
-  conj_asm2_tac >- ConstDef_tac >>
-  simp[Once RTC_CASES1] >>
-  conj_asm2_tac >- ConstDef_tac >>
-  simp[Once RTC_CASES1] >>
-  conj_asm2_tac >- ConstDef_tac >>
-  simp[Once RTC_CASES1] >>
-  conj_asm2_tac >- ConstDef_tac >>
-  simp[Once RTC_CASES1] >>
-  conj_asm2_tac >- ConstDef_tac >>
-  simp[Once RTC_CASES1] >>
-  conj_asm2_tac >- ConstDef_tac >>
-  simp[Once RTC_CASES1] >>
-  conj_asm2_tac >- ConstDef_tac >>
-  simp[Once RTC_CASES1] >>
-  conj_asm2_tac >- ConstDef_tac >>
-  simp[Once RTC_CASES1] >>
-  conj_asm2_tac >- ConstDef_tac >>
-  simp[Once RTC_CASES1] >>
-  conj_tac >- (
-    rw[updates_cases] >- (
-      unabbrev_all_tac >>
-      rpt (rw[Once has_type_cases])) >>
-    unabbrev_all_tac >>
-    rw[term_ok_def,type_ok_def,FLOOKUP_UPDATE] >>
-    rw[init_ctxt_def] ) >>
-  simp[Once RTC_CASES1] >>
-  conj_tac >- (
-    rw[updates_cases] >>
-    unabbrev_all_tac >>
-    rw[init_ctxt_def,type_ok_def] ) >>
-  simp[Once RTC_CASES1] >>
-  unabbrev_all_tac >>
-  assume_tac init_theory_ok >>
-  imp_res_tac theory_ok_sig >>
-  fs[] >>
-  rw[updates_cases,term_ok_equation,EQUATION_HAS_TYPE_BOOL,term_ok_def,type_ok_def] >>
-  rw[init_ctxt_def])
-
-val bool_theory_ok = store_thm("bool_theory_ok",
-  ``theory_ok (thyof bool_ctxt)``,
-  metis_tac[extends_theory_ok,init_theory_ok,bool_extends_init])
 
 val _ = export_theory()
