@@ -158,6 +158,13 @@ val type_funs : tenvM -> tenvC -> tenvE -> list (varN * varN * exp) ->
 
 type decls = set modN * set (id typeN) * set (id conN)
 
+val empty_decls : decls
+let empty_decls = ({},{},{})
+
+val union_decls : decls -> decls -> decls
+let union_decls (m1,t1,e1) (m2,t2,e2) =
+  (m1 union m2, t1 union t2, e1 union e2)
+
 (* Check a declaration and update the top-level environments
  * The arguments are in order:
  * - the module that the declaration is in
@@ -175,7 +182,7 @@ val type_d : maybe modN -> decls -> tenvM -> tenvC -> tenvE -> dec -> decls -> f
 val type_ds : maybe modN -> decls -> tenvM -> tenvC -> tenvE -> list dec -> decls -> flat_tenvC -> env varN (nat * t) -> bool
 val weakE : env varN (nat * t) -> env varN (nat * t) -> bool
 val check_signature : maybe modN -> decls -> decls -> flat_tenvC -> env varN (nat * t) -> maybe specs -> decls -> flat_tenvC -> env varN (nat * t) -> bool
-val type_specs : maybe modN -> decls -> flat_tenvC -> env varN (nat * t) -> specs -> decls -> flat_tenvC -> env varN (nat * t) -> bool
+val type_specs : maybe modN -> decls -> specs -> decls -> flat_tenvC -> env varN (nat * t) -> bool
 val type_prog : decls -> tenvM -> tenvC -> tenvE -> list top -> decls -> tenvM -> tenvC -> env varN (nat * t) -> bool
 
 (* Check that the operator can have type (t1 -> t2 -> t3) *)
@@ -524,7 +531,7 @@ List.allDistinct (pat_bindings p []) &&
 type_p tvs cenv p t tenv' &&
 type_e menv cenv (bind_tvar tvs tenv) e t
 ==>
-type_d mn decls menv cenv tenv (Dlet p e) decls emp (tenv_add_tvs tvs tenv')
+type_d mn decls menv cenv tenv (Dlet p e) empty_decls emp (tenv_add_tvs tvs tenv')
 
 and
 
@@ -533,14 +540,14 @@ List.allDistinct (pat_bindings p []) &&
 type_p 0 cenv p t tenv' &&
 type_e menv cenv tenv e t
 ==>
-type_d mn decls menv cenv tenv (Dlet p e) decls emp (tenv_add_tvs 0 tenv')
+type_d mn decls menv cenv tenv (Dlet p e) empty_decls emp (tenv_add_tvs 0 tenv')
 
 and
 
 dletrec : forall mn menv cenv tenv funs tenv' tvs decls.
 type_funs menv cenv (bind_var_list 0 tenv' (bind_tvar tvs tenv)) funs tenv'
 ==>
-type_d mn decls menv cenv tenv (Dletrec funs) decls emp (tenv_add_tvs tvs tenv')
+type_d mn decls menv cenv tenv (Dletrec funs) empty_decls emp (tenv_add_tvs tvs tenv')
 
 and
 
@@ -549,7 +556,7 @@ check_ctor_tenv mn tdefs &&
 new_tdecls = Set.fromList (List.map (fun (tvs,tn,ctors) -> (mk_id mn tn)) tdefs) &&
 disjoint new_tdecls tdecls
 ==>
-type_d mn (mdecls,tdecls,edecls) menv cenv tenv (Dtype tdefs) (mdecls,new_tdecls union tdecls,edecls) (build_ctor_tenv mn tdefs) emp
+type_d mn (mdecls,tdecls,edecls) menv cenv tenv (Dtype tdefs) ({},new_tdecls,{}) (build_ctor_tenv mn tdefs) emp
 
 and
 
@@ -557,66 +564,65 @@ dexn : forall mn menv cenv tenv cn ts mdecls edecls tdecls.
 check_exn_tenv mn cn ts &&
 not (mk_id mn cn IN edecls)
 ==>
-type_d mn (mdecls,tdecls,edecls) menv cenv tenv (Dexn cn ts) (mdecls,tdecls,{mk_id mn cn} union edecls) (bind cn ([], ts, TypeExn (mk_id mn cn)) emp) emp
+type_d mn (mdecls,tdecls,edecls) menv cenv tenv (Dexn cn ts) ({},{},{mk_id mn cn}) (bind cn ([], ts, TypeExn (mk_id mn cn)) emp) emp
  
 indreln [ type_ds : maybe modN -> decls -> tenvM -> tenvC -> tenvE -> list dec -> decls -> flat_tenvC -> env varN (nat * t) -> bool]
 
 empty : forall mn menv cenv tenv decls.
 true
 ==>
-type_ds mn decls menv cenv tenv [] decls emp emp
+type_ds mn decls menv cenv tenv [] empty_decls emp emp
 
 and
 
 cons : forall mn menv cenv tenv d ds cenv' tenv' cenv'' tenv'' decls decls' decls''.
 type_d mn decls menv cenv tenv d decls' cenv' tenv' &&
-type_ds mn decls' menv (merge_tenvC (emp,cenv') cenv) (bind_var_list2 tenv' tenv) ds decls'' cenv'' tenv''
+type_ds mn (union_decls decls' decls) menv (merge_tenvC (emp,cenv') cenv) (bind_var_list2 tenv' tenv) ds decls'' cenv'' tenv''
 ==>
-type_ds mn decls menv cenv tenv (d::ds) decls'' (merge cenv'' cenv') (merge tenv'' tenv')
+type_ds mn decls menv cenv tenv (d::ds) (union_decls decls'' decls') (merge cenv'' cenv') (merge tenv'' tenv')
 
-indreln [type_specs : maybe modN -> decls -> flat_tenvC -> env varN (nat * t) -> specs -> decls -> flat_tenvC -> env varN (nat * t) -> bool]
+indreln [type_specs : maybe modN -> decls -> specs -> decls -> flat_tenvC -> env varN (nat * t) -> bool]
 
-empty : forall cenv tenv mn decls.
+empty : forall mn decls.
 true
 ==>
-type_specs mn decls cenv tenv [] decls cenv tenv
+type_specs mn decls [] empty_decls emp emp
 
 and
 
-sval : forall mn cenv tenv x t specs cenv' tenv' fvs decls decls'.
+sval : forall mn x t specs cenv tenv fvs decls decls'.
 check_freevars 0 fvs t &&
-type_specs mn decls cenv (bind x (List.length fvs, type_subst (ZIP fvs (List.map Tvar_db (genlist (fun x -> x) (List.length fvs)))) t) tenv) specs decls' cenv' tenv'
+type_specs mn decls specs decls' cenv tenv
 ==>
-type_specs mn decls cenv tenv (Sval x t :: specs) decls' cenv' tenv' 
+type_specs mn decls (Sval x t :: specs) decls' cenv (bind x (List.length fvs, type_subst (ZIP fvs (List.map Tvar_db (genlist (fun x -> x) (List.length fvs)))) t) tenv) 
 
 and
 
-stype : forall mn cenv tenv td specs cenv' tenv' mdecls edecls tdecls new_tdecls decls'.
+stype : forall mn cenv tenv td specs mdecls edecls tdecls new_tdecls decls'.
 check_ctor_tenv mn td &&
 new_tdecls = Set.fromList (List.map (fun (tvs,tn,ctors) -> (mk_id mn tn)) td) &&
 disjoint new_tdecls tdecls &&
-type_specs mn (mdecls,new_tdecls union tdecls,edecls) (merge (build_ctor_tenv mn td) cenv) tenv specs decls' cenv' tenv'
+type_specs mn (mdecls,new_tdecls union tdecls,edecls) specs decls' cenv tenv
 ==>
-type_specs mn (mdecls,tdecls,edecls) cenv tenv (Stype td :: specs) decls' cenv' tenv'
+type_specs mn (mdecls,tdecls,edecls) (Stype td :: specs) (union_decls ({},new_tdecls,{}) decls') (merge (build_ctor_tenv mn td) cenv) tenv
 
 and
 
-sexn : forall mn cenv tenv cn ts specs cenv' tenv' mdecls edecls tdecls decls'.
+sexn : forall mn cenv tenv cn ts specs mdecls edecls tdecls decls'.
 check_exn_tenv mn cn ts &&
 not (mk_id mn cn IN edecls) &&
-type_specs mn (mdecls,tdecls,{mk_id mn cn} union edecls) (bind cn ([], ts, TypeExn (mk_id mn cn)) cenv) tenv specs decls' cenv' tenv'
+type_specs mn (mdecls,tdecls,{mk_id mn cn} union edecls) specs decls' cenv tenv
 ==>
-type_specs mn (mdecls,tdecls,edecls) cenv tenv (Sexn cn ts :: specs) decls' cenv' tenv'
+type_specs mn (mdecls,tdecls,edecls) (Sexn cn ts :: specs) (union_decls ({},{},{mk_id mn cn}) decls') (bind cn ([], ts, TypeExn (mk_id mn cn)) cenv) tenv
 
 and
 
-stype_opq : forall mn cenv tenv tn specs cenv' tenv' tvs mdecls edecls tdecls decls'.
+stype_opq : forall mn cenv tenv tn specs tvs mdecls edecls tdecls decls'.
 List.allDistinct tvs &&
-List.all (fun (_,(_,_,tn')) -> TypeId (mk_id mn tn) <> tn') cenv &&
 not (mk_id mn tn IN tdecls) &&
-type_specs mn (mdecls,{mk_id mn tn} union tdecls,edecls) cenv tenv specs decls' cenv' tenv'
+type_specs mn (mdecls,{mk_id mn tn} union tdecls,edecls) specs decls' cenv tenv
 ==>
-type_specs mn (mdecls,tdecls,edecls) cenv tenv (Stype_opq tvs tn :: specs) decls' cenv' tenv'
+type_specs mn (mdecls,tdecls,edecls) (Stype_opq tvs tn :: specs) (union_decls ({},{mk_id mn tn},{}) decls') cenv tenv
 
 let weakE tenv_impl tenv_spec =
   forall x.
@@ -652,7 +658,7 @@ let flat_weakC cenv_impl cenv_spec =
 
 val weak_decls : decls -> decls -> bool
 let weak_decls (mdecs_impl, tdecs_impl, edecs_impl) (mdecs_spec, tdecs_spec, edecs_spec) =  
-  mdecs_spec subset mdecs_impl &&
+  mdecs_impl = mdecs_spec &&
   tdecs_spec subset tdecs_impl &&
   edecs_spec subset edecs_impl
 
@@ -669,7 +675,7 @@ some : forall mn cenv tenv specs tenv' cenv' init_decls decls decls'.
 weakE tenv tenv' &&
 flat_weakC cenv cenv' &&
 weak_decls decls decls' &&
-type_specs mn decls emp emp specs decls' cenv' tenv'
+type_specs mn init_decls specs decls' cenv' tenv'
 ==>
 check_signature mn init_decls decls cenv tenv (Just specs) decls' cenv' tenv'
 
@@ -694,12 +700,12 @@ indreln [type_prog : decls -> tenvM -> tenvC -> tenvE -> list top -> decls -> te
 empty : forall menv cenv tenv decls.
 true
 ==>
-type_prog decls menv cenv tenv [] decls emp (emp,emp) emp
+type_prog decls menv cenv tenv [] empty_decls emp (emp,emp) emp
 
 and
 
 cons : forall menv cenv tenv top tops menv' cenv' tenv' menv'' cenv'' tenv'' decls decls' decls''.
 type_top decls menv cenv tenv top decls' menv' cenv' tenv' &&
-type_prog decls' (merge menv' menv) (merge_tenvC cenv' cenv) (bind_var_list2 tenv' tenv) tops decls'' menv'' cenv'' tenv''
+type_prog (union_decls decls' decls) (merge menv' menv) (merge_tenvC cenv' cenv) (bind_var_list2 tenv' tenv) tops decls'' menv'' cenv'' tenv''
 ==>
-type_prog decls menv cenv tenv (top :: tops) decls'' (merge menv'' menv') (merge_tenvC cenv'' cenv') (merge tenv'' tenv')
+type_prog decls menv cenv tenv (top :: tops) (union_decls decls'' decls') (merge menv'' menv') (merge_tenvC cenv'' cenv') (merge tenv'' tenv')

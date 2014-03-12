@@ -71,3 +71,7 @@ let init_type_decs =
     TypeExn (Short "Bind");
     TypeExn (Short "Div");
     TypeExn (Short "Eq") }
+
+val init_decls : decls
+let init_decls = 
+  ({}, { Short "list" }, { Short "Bind"; Short "Div"; Short "Eq" })

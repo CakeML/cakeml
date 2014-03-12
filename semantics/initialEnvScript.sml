@@ -93,5 +93,11 @@ val _ = Define `
     TypeExn (Short "Div");
     TypeExn (Short "Eq") }))`;
 
+
+(*val init_decls : decls*)
+val _ = Define `
+ (init_decls = 
+  ({}, { Short "list" }, { Short "Bind"; Short "Div"; Short "Eq" }))`;
+
 val _ = export_theory()
 
