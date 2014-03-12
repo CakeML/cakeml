@@ -5424,7 +5424,7 @@ fun tac18 t =
         simp[code_for_return_def] >>
         disch_then(qx_choosel_then[`bvr`,`rfr`,`smr`,`ckr`]strip_assume_tac) >>
         map_every qexists_tac [`rfr`,`bvr`,`smr`,`ckr`] >>
-        simp[Abbr`bs2`,Abbr`P`] >>
+        simp[Abbr`bs2`,Abbr`P`] >> fs[] >>
         metis_tac[SUBMAP_TRANS,IS_PREFIX_TRANS]) >>
       rpt gen_tac >>
       Cases_on`t`>>simp[Once SWAP_REVERSE] >> strip_tac >- (
@@ -5445,8 +5445,8 @@ fun tac18 t =
           disch_then(qx_choosel_then[`bv`,`rf'`,`rd'''`,`ck'''`]strip_assume_tac) >>
           map_every qexists_tac[`rf'`,`rd'''`,`ck'''`,`bv`] >>
           fs[] >>
-          reverse conj_tac >- metis_tac[IS_PREFIX_TRANS,SUBMAP_TRANS] >>
-          simp[Abbr`bs2`] ) >>
+          rfs[Abbr`bs2`] >>
+          metis_tac[IS_PREFIX_TRANS,SUBMAP_TRANS]) >>
         rw[] >>
         qmatch_assum_abbrev_tac`Cevaluate menv (cka,s'') env' exp' Z` >> qunabbrev_tac`Z` >>
         tac0 `∃bs'. bc_next^* bs bs' ∧ P bs'` >>
@@ -5508,9 +5508,8 @@ fun tac18 t =
         simp[code_for_return_def,Abbr`P`] >>
         disch_then(qx_choosel_then[`bv`,`rf'`,`rd'''`,`ck'''`]strip_assume_tac) >>
         map_every qexists_tac[`rf'`,`bv`,`rd'''`,`ck'''`] >>
-        fs[] >>
-        reverse conj_tac >- metis_tac[IS_PREFIX_TRANS,SUBMAP_TRANS] >>
-        simp[Abbr`bs2`] ) >>
+        fs[] >> rfs[Abbr`bs2`] >>
+        metis_tac[IS_PREFIX_TRANS,SUBMAP_TRANS]) >>
       simp[GSYM AND_IMP_INTRO] >> strip_tac >>
       tac20 >>
       strip_tac >>

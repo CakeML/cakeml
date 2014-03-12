@@ -13,7 +13,7 @@ infix \\ val op \\ = op THEN;
 (* refinement invariant *)
 
 val small_int_def = Define `
-  small_int i = 0 <= i /\ (i:int) < & (2 ** 62)`;
+  small_int i = - & (2 ** 61) < i /\ (i:int) < & (2 ** 61)`;
 
 val mw_def = tDefine "mw" `
   mw n = if n = 0 then []:'a word list else
@@ -48,7 +48,9 @@ val _ = DefnBase.export_cong "EVERY2_cong"
 
 val bc_value_inv_def = tDefine "bc_value_inv" `
   (bc_value_inv (Number i) (x,f,heap:('a,'b) ml_heap) =
-     if small_int i then (x = Data ((2w * n2w (Num i)):'a word)) else
+     if small_int i then
+       (x = Data (((2w * (if i < 0 then 0w - n2w (Num (-i)) else n2w (Num i))))))
+     else
        ?ptr. (x = Pointer ptr) /\
              (heap_lookup ptr heap =
                 SOME (DataOnly (i < 0) ((mw (Num (ABS i))):'b word list)))) /\
@@ -56,7 +58,7 @@ val bc_value_inv_def = tDefine "bc_value_inv" `
   (bc_value_inv (RefPtr n) (x,f,heap) =
      (x = Pointer (f ' n)) /\ n IN FDOM f) /\
   (bc_value_inv (Block n vs) (x,f,heap) =
-     if vs = [] then (x = Data ((2w * n2w n + 1w):'a word)) /\ (n < 2 ** 62) else
+     if vs = [] then (x = Data ((2w * n2w n + 1w):'a word)) /\ (n < 2 ** 61) else
        ?ptr xs.
          EVERY2 (\v x. bc_value_inv v (x,f,heap)) vs xs /\
          (x = Pointer ptr) /\ n < 4096 /\ LENGTH vs < 2**32 /\
@@ -568,7 +570,7 @@ val cons_thm = store_thm("cons_thm",
 
 val cons_thm_EMPTY = store_thm("cons_thm_EMPTY",
   ``abs_ml_inv stack refs (roots,heap:('a,'b) ml_heap,a,sp) limit /\
-    tag < 2 ** 62 ==>
+    tag < 2 ** 61 ==>
     abs_ml_inv ((Block tag [])::stack) refs
                 (Data (2w * n2w tag + 1w)::roots,heap,a,sp) limit``,
   SIMP_TAC std_ss [abs_ml_inv_def] \\ REPEAT STRIP_TAC
