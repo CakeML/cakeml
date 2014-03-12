@@ -416,7 +416,7 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
     conj_tac >- (
       match_mp_tac (UNDISCH termsem_typesem) >>
       simp[Abbr`δ`] ) >>
-    simp[holds_def] ) >>
+    simp[holds_def,Abbr`mpred`] >> NO_TAC) >>
   `∀τ. typesem ((name =+ mty) δ) τ (typeof witness) = typesem δ τ (typeof witness)` by (
     gen_tac >>
     match_mp_tac typesem_consts >>
