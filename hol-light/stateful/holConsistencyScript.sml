@@ -719,23 +719,32 @@ val extends_consistent = store_thm("extends_consistent",
   ``is_set_theory ^mem ⇒
     ∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒
       ∀i. theory_ok (thyof ctxt1) ∧ i models (thyof ctxt1) ∧
-        ¬EXISTS (λupd. ∃p. upd = NewAxiom p) ctxt2
+          (∀p. MEM (NewAxiom p) ctxt2 ⇒ MEM (NewAxiom p) ctxt1)
         ⇒
         ∃i'. i' models (thyof ctxt2)``,
   rw[] >>
   Q.ISPEC_THEN
     `λctxt. theory_ok (thyof ctxt) ∧
             ∃ls. ctxt = ls ++ ctxt1 ∧
-              (¬EXISTS (λupd. ∃p. upd = NewAxiom p) ls ⇒
-               ∃i.  i models (thyof ctxt))`
+              ((∀p. MEM (NewAxiom p) ls ⇒ MEM (NewAxiom p) ctxt1) ⇒
+               ∃i. i models (thyof ctxt))`
     mp_tac extends_ind >>
   discharge_hyps >- (
     rpt gen_tac >> strip_tac >>
     full_simp_tac std_ss [] >>
     conj_asm1_tac >- metis_tac[updates_theory_ok] >>
     qexists_tac`upd::ls` >> simp_tac std_ss [APPEND] >>
-    full_simp_tac std_ss [listTheory.EXISTS_DEF] >>
-    metis_tac[updates_consistent] ) >>
+    strip_tac >>
+    full_simp_tac std_ss [MEM] >>
+    reverse(Cases_on`∃p. upd = NewAxiom p`) >-
+      metis_tac[updates_consistent] >>
+    qmatch_assum_rename_tac`j models thyof ctxt`[] >>
+    qexists_tac`j` >>
+    rfs[models_def,conexts_of_upd_def] >>
+    `MEM p (axiom_list ctxt1)` by (
+      simp[MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+      qexists_tac`NewAxiom p` >> simp[] ) >>
+    metis_tac[]) >>
   disch_then(qspecl_then[`ctxt1`,`ctxt2`]mp_tac) >>
   simp[PULL_EXISTS] >>
   disch_then(qspec_then`i`mp_tac) >> simp[] >>
@@ -758,5 +767,28 @@ val min_hol_consistent = store_thm("min_hol_consistent",
   qexists_tac`i` >> simp[] >>
   fs[init_ctxt_def] >>
   metis_tac[])
+
+val bool_ctxt_has_model = store_thm("bool_context_has_model",
+  ``is_model M ⇒ ∃i. i models (thyof bool_ctxt)``,
+  strip_tac >>
+  REWRITE_TAC[bool_ctxt_def,REVERSE_APPEND,REVERSE_REVERSE] >>
+  simp_tac std_ss [LET_THM,APPEND,REVERSE_REV,REV_DEF] >>
+  imp_res_tac is_model_is_set_theory >>
+  cheat)
+
+val hol_consistent = store_thm("hol_consistent",
+  ``is_model M ⇒
+    ∀ctxt. ctxt extends bool_ctxt ∧ (∀p. MEM (NewAxiom p) ctxt ⇒ MEM (NewAxiom p) bool_ctxt) ⇒
+      (thyof ctxt,[]) |- (Var "x" Bool === Var "x" Bool) ∧
+      ¬((thyof ctxt,[]) |- (Var "x" Bool === Var "y" Bool))``,
+  strip_tac >> gen_tac >> strip_tac >>
+  imp_res_tac is_model_is_set_theory >>
+  match_mp_tac (UNDISCH proves_consistent) >>
+  conj_tac >- metis_tac[extends_theory_ok,bool_theory_ok] >>
+  match_mp_tac (MP_CANON (UNDISCH extends_consistent)) >>
+  qexists_tac`bool_ctxt` >>
+  simp[bool_theory_ok,EVERY_MEM] >>
+  imp_res_tac bool_ctxt_has_model >>
+  qexists_tac`i` >> simp[])
 
 val _ = export_theory()
