@@ -702,4 +702,61 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
     simp[Abbr`a`,mem_sub,holds_def] ) >>
   metis_tac[mem_boolset])
 
+val updates_consistent = store_thm("updates_consistent",
+  ``is_set_theory ^mem ⇒
+    ∀upd ctxt. upd updates ctxt ⇒
+      theory_ok (thyof ctxt) ⇒
+      ∀i. i models (thyof ctxt) ∧ (∀p. upd ≠ NewAxiom p) ⇒ ∃i'. i' models (thyof (upd::ctxt))``,
+  strip_tac >>
+  ho_match_mp_tac updates_ind >>
+  conj_tac >- simp[] >>
+  conj_tac >- metis_tac[update_distinct,new_constant_correct] >>
+  conj_tac >- metis_tac[update_distinct,new_specification_correct] >>
+  conj_tac >- metis_tac[update_distinct,new_type_correct] >>
+  metis_tac[update_distinct,new_type_definition_correct])
+
+val extends_consistent = store_thm("extends_consistent",
+  ``is_set_theory ^mem ⇒
+    ∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒
+      ∀i. theory_ok (thyof ctxt1) ∧ i models (thyof ctxt1) ∧
+        ¬EXISTS (λupd. ∃p. upd = NewAxiom p) ctxt2
+        ⇒
+        ∃i'. i' models (thyof ctxt2)``,
+  rw[] >>
+  Q.ISPEC_THEN
+    `λctxt. theory_ok (thyof ctxt) ∧
+            ∃ls. ctxt = ls ++ ctxt1 ∧
+              (¬EXISTS (λupd. ∃p. upd = NewAxiom p) ls ⇒
+               ∃i.  i models (thyof ctxt))`
+    mp_tac extends_ind >>
+  discharge_hyps >- (
+    rpt gen_tac >> strip_tac >>
+    full_simp_tac std_ss [] >>
+    conj_asm1_tac >- metis_tac[updates_theory_ok] >>
+    qexists_tac`upd::ls` >> simp_tac std_ss [APPEND] >>
+    full_simp_tac std_ss [listTheory.EXISTS_DEF] >>
+    metis_tac[updates_consistent] ) >>
+  disch_then(qspecl_then[`ctxt1`,`ctxt2`]mp_tac) >>
+  simp[PULL_EXISTS] >>
+  disch_then(qspec_then`i`mp_tac) >> simp[] >>
+  strip_tac >>
+  first_x_assum match_mp_tac >>
+  fs[EVERY_MEM])
+
+val min_hol_consistent = store_thm("min_hol_consistent",
+  ``is_set_theory ^mem ⇒
+    ∀ctxt. ctxt extends init_ctxt ∧ (∀p. MEM (NewAxiom p) ctxt ⇒ MEM (NewAxiom p) init_ctxt) ⇒
+      (thyof ctxt,[]) |- (Var "x" Bool === Var "x" Bool) ∧
+      ¬((thyof ctxt,[]) |- (Var "x" Bool === Var "y" Bool))``,
+  strip_tac >> gen_tac >> strip_tac >>
+  match_mp_tac (UNDISCH proves_consistent) >>
+  conj_tac >- metis_tac[extends_theory_ok,init_theory_ok] >>
+  match_mp_tac (MP_CANON (UNDISCH extends_consistent)) >>
+  qexists_tac`init_ctxt` >>
+  simp[init_theory_ok,EVERY_MEM] >>
+  imp_res_tac init_ctxt_has_model >>
+  qexists_tac`i` >> simp[] >>
+  fs[init_ctxt_def] >>
+  metis_tac[])
+
 val _ = export_theory()
