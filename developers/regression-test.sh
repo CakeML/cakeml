@@ -41,6 +41,16 @@ do
       else
           echo
       fi
+      if [ -x selftest.exe ]
+      then
+        if ./selftest.exe >> regression.log 2>&1
+        then
+          echo "OK: $i (selftest)"
+        else
+          echo "FAILED: $i (selftest)"
+          exit 1
+        fi
+      fi
   else
       echo "FAILED: $i"
       exit 1
