@@ -1,4 +1,4 @@
-open HolKernel boolLib bossLib lcsymtacs relationTheory pred_setTheory finite_mapTheory
+open HolKernel boolLib bossLib lcsymtacs relationTheory listTheory pred_setTheory finite_mapTheory
 open miscLib holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
 val _ = temp_tight_equality()
 val _ = new_theory"holBool"
@@ -49,6 +49,18 @@ val tyvar_inst_exists = prove(
   qexists_tac`[(ty,Tyvar a)]` >>
   rw[REV_ASSOCD])
 
+val term_ok_clauses = store_thm("term_ok_clauses",
+  ``is_std_sig sig ⇒
+    (term_ok sig (Var s ty) ⇔ type_ok (tysof sig) ty) ∧
+    (type_ok (tysof sig) (Tyvar a) ⇔ T) ∧
+    (type_ok (tysof sig) Bool ⇔ T) ∧
+    (type_ok (tysof sig) (Fun ty1 ty2) ⇔ type_ok (tysof sig) ty1 ∧ type_ok (tysof sig) ty2) ∧
+    (term_ok sig (Comb t1 t2) ⇔ term_ok sig t1 ∧ term_ok sig t2 ∧ welltyped (Comb t1 t2)) ∧
+    (term_ok sig (t1 === t2) ⇔ term_ok sig t1 ∧ term_ok sig t2 ∧ typeof t1 = typeof t2) ∧
+    (term_ok sig (Abs s ty t) ⇔ type_ok (tysof sig) ty ∧ term_ok sig t)``,
+  rw[term_ok_def,type_ok_def,term_ok_equation] >>
+  fs[is_std_sig_def] >> metis_tac[])
+
 val ConstDef_tac =
   pop_assum(assume_tac o REWRITE_RULE[GSYM extends_def]) >>
   match_mp_tac ConstDef_updates >>
@@ -56,12 +68,20 @@ val ConstDef_tac =
     match_mp_tac (MP_CANON extends_theory_ok) >>
     qexists_tac`ctxt` >> simp[] ) >>
   conj_asm1_tac >- (
-    imp_res_tac theory_ok_sig >>
-    fs[term_ok_def,type_ok_def,term_ok_equation,FLOOKUP_UPDATE] >>
-    simp[welltyped_equation,EQUATION_HAS_TYPE_BOOL] >>
-    simp[typeof_equation,welltyped_equation,EQUATION_HAS_TYPE_BOOL] >>
-    simp[tyvar_inst_exists] >>
-    fs[is_std_sig_def] >> NO_TAC) >>
+    qmatch_abbrev_tac`term_ok sig tm` >>
+    `is_std_sig sig` by (
+      imp_res_tac theory_ok_sig >>
+      ntac 2 (pop_assum mp_tac) >>
+      simp_tac bool_ss [pairTheory.FST] ) >>
+    qunabbrev_tac`tm` >>
+    asm_simp_tac pure_ss [term_ok_clauses,WELLTYPED_CLAUSES,typeof_def] >>
+    simp_tac pure_ss [term_ok_def] >>
+    simp_tac (srw_ss()) [Abbr`sig`,FLOOKUP_UPDATE,type_ok_def] >>
+    simp[type_ok_def,typeof_equation,welltyped_equation,EQUATION_HAS_TYPE_BOOL,tyvar_inst_exists] >>
+    pop_assum mp_tac >>
+    EVAL_TAC >>
+    simp_tac bool_ss [GSYM alistTheory.alist_to_fmap_def,alistTheory.ALOOKUP_EQ_FLOOKUP] >>
+    NO_TAC) >>
   conj_tac >- (
     qpat_assum`DISJOINT X Y`mp_tac >>
     rpt (pop_assum kall_tac) >>
@@ -74,6 +94,11 @@ val ConstDef_tac =
   rpt (pop_assum kall_tac) >>
   metis_tac[]
 
+fun pull_tac () =
+  REWRITE_TAC[Once RTC_CASES1] >> disj2_tac >>
+  BETA_TAC >> REWRITE_TAC[CONS_11] >> simp_tac bool_ss [] >>
+  conj_asm2_tac
+
 val bool_extends = store_thm("bool_extends",
   ``∀ctxt.
       theory_ok (thyof ctxt) ∧
@@ -82,22 +107,14 @@ val bool_extends = store_thm("bool_extends",
   REWRITE_TAC[mk_bool_ctxt_def] >>
   REWRITE_TAC[extends_def] >>
   ntac 2 strip_tac >>
-  simp_tac (std_ss++listSimps.LIST_ss) [Once RTC_CASES1] >> disj2_tac >>
-  conj_asm2_tac >- ConstDef_tac >>
-  simp_tac (std_ss++listSimps.LIST_ss) [Once RTC_CASES1] >> disj2_tac >>
-  conj_asm2_tac >- ConstDef_tac >>
-  simp_tac (std_ss++listSimps.LIST_ss) [Once RTC_CASES1] >> disj2_tac >>
-  conj_asm2_tac >- ConstDef_tac >>
-  simp_tac (std_ss++listSimps.LIST_ss) [Once RTC_CASES1] >> disj2_tac >>
-  conj_asm2_tac >- ConstDef_tac >>
-  simp_tac (std_ss++listSimps.LIST_ss) [Once RTC_CASES1] >> disj2_tac >>
-  conj_asm2_tac >- ConstDef_tac >>
-  simp_tac (std_ss++listSimps.LIST_ss) [Once RTC_CASES1] >> disj2_tac >>
-  conj_asm2_tac >- ConstDef_tac >>
-  simp_tac (std_ss++listSimps.LIST_ss) [Once RTC_CASES1] >> disj2_tac >>
-  conj_asm2_tac >- ConstDef_tac >>
-  simp_tac (std_ss++listSimps.LIST_ss) [Once RTC_CASES1] >>
-  conj_asm2_tac >- ConstDef_tac >>
+  pull_tac() >- ConstDef_tac >>
+  pull_tac() >- ConstDef_tac >>
+  pull_tac() >- ConstDef_tac >>
+  pull_tac() >- ConstDef_tac >>
+  pull_tac() >- ConstDef_tac >>
+  pull_tac() >- ConstDef_tac >>
+  pull_tac() >- ConstDef_tac >>
+  pull_tac() >- ConstDef_tac >>
   rw[Once RTC_CASES1])
 
 val bool_extends_init = store_thm("bool_extends_init",
