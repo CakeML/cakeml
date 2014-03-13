@@ -4,7 +4,7 @@ open miscTheory;
 open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
 open libPropsTheory astPropsTheory;
 
-local open typeSysPropsTheory in
+local open evalPropsTheory in
 val check_dup_ctors_cons = check_dup_ctors_cons;
 end;
 
@@ -1641,8 +1641,9 @@ rw [COUNT_LIST_def, check_env_def] >|
  fs [GSYM check_env_def] >>
      fs [MAP2_MAP, COUNT_LIST_def] >>
      metis_tac [helper_lemma, LENGTH_COUNT_LIST]]);
+
 val check_build_ctor_tenv = Q.prove (
-`!mn cenv l. check_ctor_tenv mn cenv l ⇒ check_flat_cenv (build_ctor_tenv mn l)`,
+`!mn cenv l. check_ctor_tenv mn l ⇒ check_flat_cenv (build_ctor_tenv mn l)`,
 induct_on `l` >>
 rw [check_flat_cenv_def, build_ctor_tenv_def, check_ctor_tenv_def] >|
 [PairCases_on `h` >>
@@ -2064,8 +2065,8 @@ rw [] >|
           metis_tac [check_t_more2, check_t_more5, arithmeticTheory.ADD_0]]]);
 
 val infer_d_check = Q.store_thm ("infer_d_check",
-`!mn menv cenv env d st1 st2 cenv' env' tenv.
-  infer_d mn menv cenv env d st1 = (Success (cenv',env'), st2) ∧
+`!mn decls menv cenv env d st1 st2 decls' cenv' env' tenv.
+  infer_d mn decls menv cenv env d st1 = (Success (decls',cenv',env'), st2) ∧
   check_menv menv ∧
   check_cenv cenv ∧
   check_env {} env
@@ -2075,6 +2076,7 @@ val infer_d_check = Q.store_thm ("infer_d_check",
 cases_on `d` >>
 REPEAT GEN_TAC >>
 STRIP_TAC >>
+`?mdecls tdecls edecls. decls = (mdecls,tdecls,edecls)` by metis_tac [pair_CASES] >>
 fs [infer_d_def, success_eqns] >>
 fs [emp_def] >|
 [`?t env. v' = (t,env)` by (PairCases_on `v'` >> metis_tac []) >>
@@ -2156,8 +2158,8 @@ fs [emp_def] >|
      fs [check_env_def, check_flat_cenv_def, bind_def, check_exn_tenv_def]]);
 
 val infer_ds_check = Q.store_thm ("infer_ds_check",
-`!mn menv cenv env ds st1 st2 cenv' env' tenv.
-  infer_ds mn menv cenv env ds st1 = (Success (cenv',env'), st2) ∧
+`!mn decls menv cenv env ds st1 st2 decls' cenv' env' tenv.
+  infer_ds mn decls menv cenv env ds st1 = (Success (decls', cenv',env'), st2) ∧
   check_menv menv ∧
   check_cenv cenv ∧
   check_env {} env
@@ -2168,17 +2170,17 @@ val infer_ds_check = Q.store_thm ("infer_ds_check",
  rw [infer_ds_def, success_eqns]
  >- rw [check_flat_cenv_def]
  >- rw [check_env_def] >>
- PairCases_on `v'` >>
+ `?decls'' cenv'' env''. v' = (decls'',cenv'',env'')` by metis_tac [pair_CASES] >>
  fs [success_eqns] >>
- PairCases_on `v'` >>
+ `?decls''' cenv''' env'''. v'' = (decls''',cenv''',env''')` by metis_tac [pair_CASES] >>
  fs [success_eqns] >>
  rw [] >>
- `check_env {} v'1 ∧ check_flat_cenv v'0` by metis_tac [infer_d_check] >>
- `check_env {} (v'1 ++ env) ∧ check_cenv (merge_tenvC ([],v'0) cenv)` 
+ `check_env {} env'' ∧ check_flat_cenv cenv''` by metis_tac [infer_d_check] >>
+ `check_env {} (env'' ++ env) ∧ check_cenv (merge_tenvC ([],cenv'') cenv)` 
             by (fs [check_env_def, check_cenv_def] >>
                 PairCases_on `cenv` >>
                 fs [merge_tenvC_def, check_cenv_def, merge_def, check_flat_cenv_def]) >>
- `check_env {} v'1' ∧ check_flat_cenv v'0'` by metis_tac [] >>
+ `check_env {} env''' ∧ check_flat_cenv cenv'''` by metis_tac [] >>
  fs [check_flat_cenv_def, check_env_def, merge_def]);
      
 
@@ -2256,33 +2258,33 @@ rw [EVERY_MAP, nub_def, count_list_one, check_t_def] >>
 metis_tac [check_lem, check_lem2]);
 
 val check_specs_check = Q.store_thm ("check_specs_check",
-`!mn cenv env specs st cenv' env' st'.
+`!mn mdecls tdecls edecls cenv env specs st decls' cenv' env' st'.
   check_flat_cenv cenv ∧
   check_env {} env ∧
-  (check_specs mn cenv env specs st = (Success (cenv',env'), st'))
+  (check_specs mn (mdecls,tdecls,edecls) cenv env specs st = (Success (decls',cenv',env'), st'))
   ⇒
   check_flat_cenv cenv' ∧
   check_env {} env'`,
-ho_match_mp_tac check_specs_ind >>
-STRIP_TAC >>
-REPEAT GEN_TAC >-
-(rw [check_specs_def, success_eqns, bind_def] >>
- metis_tac []) >>
-STRIP_TAC >>
-REPEAT GEN_TAC >>
-STRIP_TAC >>
-REPEAT GEN_TAC >>
-STRIP_TAC >>
-fs [check_specs_def, success_eqns, check_env_bind] >|
-[metis_tac [t_to_freevars_check2],
- metis_tac [check_build_ctor_tenv, check_flat_cenv_def, merge_def, EVERY_APPEND],
- fs [bind_def, emp_def, check_flat_cenv_def, check_exn_tenv_def] >>
-     metis_tac [],
- metis_tac []]);
+ ho_match_mp_tac check_specs_ind >>
+ STRIP_TAC >>
+ REPEAT GEN_TAC >-
+ (rw [check_specs_def, success_eqns, bind_def] >>
+  metis_tac []) >>
+ STRIP_TAC >>
+ REPEAT GEN_TAC >>
+ STRIP_TAC >>
+ REPEAT GEN_TAC >>
+ STRIP_TAC >>
+ fs [check_specs_def, success_eqns, check_env_bind] >|
+ [metis_tac [t_to_freevars_check2],
+  metis_tac [check_build_ctor_tenv, check_flat_cenv_def, merge_def, EVERY_APPEND],
+  fs [bind_def, emp_def, check_flat_cenv_def, check_exn_tenv_def] >>
+      metis_tac [],
+  metis_tac []]);
 
 val infer_top_invariant = Q.store_thm ("infer_top_invariant",
-`!menv cenv env top st1 menv' cenv' env' st2.
-  (infer_top menv cenv env top st1 = (Success (menv', cenv', env'), st2)) ∧
+`!decls menv cenv env top st1 decls' menv' cenv' env' st2.
+  (infer_top decls menv cenv env top st1 = (Success (decls', menv', cenv', env'), st2)) ∧
   check_menv menv ∧
   check_cenv cenv ∧
   check_env {} env
@@ -2290,39 +2292,41 @@ val infer_top_invariant = Q.store_thm ("infer_top_invariant",
   check_menv menv' ∧
   check_cenv cenv' ∧
   check_env {} env'`,
-cases_on `top` >|
-[cases_on `o'` >|
-     [rw [infer_top_def, success_eqns] >>
-          PairCases_on `v'` >>
-          fs [success_eqns] >>
-          PairCases_on `v'` >>
-          fs [success_eqns] >>
-          fs [check_signature_def, success_eqns] >>
-          rw [] >>
-          `check_flat_cenv v'0 ∧ check_env {} v'1` by metis_tac [infer_ds_check] >>
-          rw [check_menv_def, check_env_def, emp_def] >>
-          fs [check_env_def, check_cenv_def, check_flat_cenv_def],
-      rw [infer_top_def, success_eqns] >>
-          PairCases_on `v'` >>
-          fs [success_eqns] >>
-          PairCases_on `v'` >>
-          fs [success_eqns] >>
-          fs [check_signature_def, success_eqns] >>
-          rw [] >>
-          PairCases_on `v'` >>
-          fs [success_eqns] >>
-          rw [] >>
-          `check_flat_cenv [] ∧ check_env {} ([]:(tvarN, num # infer_t) env)` 
-                    by rw [check_env_def, check_flat_cenv_def] >>
-          `check_flat_cenv v'0' ∧ check_env {} v'1'` by metis_tac [check_specs_check] >>
-          rw [check_menv_def, check_env_def, emp_def] >>
-          fs [check_env_def, check_cenv_def]],
- rw [infer_top_def, success_eqns] >>
+ rpt gen_tac >>
+ `?mdecls tdecls edecls. decls = (mdecls,tdecls,edecls)` by metis_tac [pair_CASES] >>
+ cases_on `top`
+ >- (cases_on `o'` 
+     >- (rw [infer_top_def, success_eqns] >>
+         `?decls'' cenv'' env''. v' = (decls'',cenv'',env'')` by metis_tac [pair_CASES] >>
+         fs [success_eqns] >>
+         `?mdecls''' tdecls''' edecls''' cenv''' env'''. v'' = ((mdecls''',tdecls''',edecls'''),cenv''',env''')` by metis_tac [pair_CASES] >>
+         fs [success_eqns] >>
+         fs [check_signature_def, success_eqns] >>
+         rw [] >>
+         `check_flat_cenv cenv'' ∧ check_env {} env''` by metis_tac [infer_ds_check] >>
+         rw [check_menv_def, check_env_def, emp_def] >>
+         fs [check_env_def, check_cenv_def, check_flat_cenv_def])
+     >- (rw [infer_top_def, success_eqns] >>
+         `?decls'' cenv'' env''. v' = (decls'',cenv'',env'')` by metis_tac [pair_CASES] >>
+         fs [success_eqns] >>
+         `?mdecls''' tdecls''' edecls''' cenv''' env'''. v'' = ((mdecls''',tdecls''',edecls'''),cenv''',env''')` by metis_tac [pair_CASES] >>
+         fs [success_eqns] >>
+         fs [check_signature_def, success_eqns] >>
+         rw [] >>
+         `?decls'''' cenv'''' env''''. v''' = (decls'''',cenv'''',env'''')` by metis_tac [pair_CASES] >>
+         fs [success_eqns] >>
+         rw [] >>
+         `check_flat_cenv [] ∧ check_env {} ([]:(tvarN, num # infer_t) env)` 
+                   by rw [check_env_def, check_flat_cenv_def] >>
+         `check_flat_cenv cenv''' ∧ check_env {} env'''` by metis_tac [check_specs_check] >>
+         rw [check_menv_def, check_env_def, emp_def] >>
+         fs [check_env_def, check_cenv_def]))
+ >- (rw [infer_top_def, success_eqns] >>
      PairCases_on `v'` >>
      fs [success_eqns] >>
      rw [] >>
      TRY(rw[check_menv_def,emp_def]>>NO_TAC)>>
      fs [check_cenv_def, emp_def, check_flat_cenv_def] >>
-     metis_tac [infer_d_check, check_flat_cenv_def]]);
+     metis_tac [infer_d_check, check_flat_cenv_def]));
 
 val _ = export_theory ();

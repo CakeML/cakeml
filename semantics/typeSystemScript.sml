@@ -217,8 +217,8 @@ val _ = Define `
 
 (*val type_ds : maybe modN -> decls -> tenvM -> tenvC -> tenvE -> list dec -> decls -> flat_tenvC -> env varN (nat * t) -> bool*)
 (*val weakE : env varN (nat * t) -> env varN (nat * t) -> bool*)
-(*val check_signature : maybe modN -> decls -> decls -> flat_tenvC -> env varN (nat * t) -> maybe specs -> decls -> flat_tenvC -> env varN (nat * t) -> bool*)
-(*val type_specs : maybe modN -> decls -> specs -> decls -> flat_tenvC -> env varN (nat * t) -> bool*)
+(*val check_signature : maybe modN -> decls -> flat_tenvC -> env varN (nat * t) -> maybe specs -> decls -> flat_tenvC -> env varN (nat * t) -> bool*)
+(*val type_specs : maybe modN -> specs -> decls -> flat_tenvC -> env varN (nat * t) -> bool*)
 (*val type_prog : decls -> tenvM -> tenvC -> tenvE -> list top -> decls -> tenvM -> tenvC -> env varN (nat * t) -> bool*)
 
 (* Check that the operator can have type (t1 -> t2 -> t3) *)
@@ -551,38 +551,35 @@ type_ds mn (union_decls decls' decls) menv (merge_tenvC (emp,cenv') cenv) (bind_
 ==>
 type_ds mn decls menv cenv tenv (d::ds) (union_decls decls'' decls') (merge cenv'' cenv') (merge tenv'' tenv'))`;
 
-val _ = Hol_reln ` (! mn decls.
+val _ = Hol_reln ` (! mn. 
 T
 ==>
-type_specs mn decls [] empty_decls emp emp)
+type_specs mn [] empty_decls emp emp)
 
-/\ (! mn x t specs cenv tenv fvs decls decls'.
+/\ (! mn x t specs cenv tenv fvs decls.
 (check_freevars( 0) fvs t /\
-type_specs mn decls specs decls' cenv tenv)
+type_specs mn specs decls cenv tenv)
 ==>
-type_specs mn decls (Sval x t :: specs) decls' cenv (bind x (LENGTH fvs, type_subst (ZIP (fvs, (MAP Tvar_db (GENLIST (\ x .  x) (LENGTH fvs))))) t) tenv)) 
+type_specs mn (Sval x t :: specs) decls cenv (tenv ++ [(x, (LENGTH fvs, type_subst (ZIP (fvs, (MAP Tvar_db (GENLIST (\ x .  x) (LENGTH fvs))))) t))])) 
 
-/\ (! mn cenv tenv td specs mdecls edecls tdecls new_tdecls decls'.
+/\ (! mn cenv tenv td specs new_tdecls decls.
 (check_ctor_tenv mn td /\
 ((new_tdecls = LIST_TO_SET (MAP (\ (tvs,tn,ctors) .  (mk_id mn tn)) td)) /\
-(DISJOINT new_tdecls tdecls /\
-type_specs mn (mdecls,(new_tdecls UNION tdecls),edecls) specs decls' cenv tenv)))
+type_specs mn specs decls cenv tenv))
 ==>
-type_specs mn (mdecls,tdecls,edecls) (Stype td :: specs) (union_decls ({},new_tdecls,{}) decls') (merge (build_ctor_tenv mn td) cenv) tenv)
+type_specs mn (Stype td :: specs) (union_decls decls ({},new_tdecls,{})) (merge cenv (build_ctor_tenv mn td)) tenv)
 
-/\ (! mn cenv tenv cn ts specs mdecls edecls tdecls decls'.
+/\ (! mn cenv tenv cn ts specs decls.
 (check_exn_tenv mn cn ts /\
-(~ (mk_id mn cn IN edecls) /\
-type_specs mn (mdecls,tdecls,({mk_id mn cn} UNION edecls)) specs decls' cenv tenv))
+type_specs mn specs decls cenv tenv)
 ==>
-type_specs mn (mdecls,tdecls,edecls) (Sexn cn ts :: specs) (union_decls ({},{},{mk_id mn cn}) decls') (bind cn ([], ts, TypeExn (mk_id mn cn)) cenv) tenv)
+type_specs mn (Sexn cn ts :: specs) (union_decls decls ({},{},{mk_id mn cn})) (cenv ++ [(cn,([], ts, TypeExn (mk_id mn cn)))]) tenv)
 
-/\ (! mn cenv tenv tn specs tvs mdecls edecls tdecls decls'.
+/\ (! mn cenv tenv tn specs tvs decls.
 (ALL_DISTINCT tvs /\
-(~ (mk_id mn tn IN tdecls) /\
-type_specs mn (mdecls,({mk_id mn tn} UNION tdecls),edecls) specs decls' cenv tenv))
+type_specs mn specs decls cenv tenv)
 ==>
-type_specs mn (mdecls,tdecls,edecls) (Stype_opq tvs tn :: specs) (union_decls ({},{mk_id mn tn},{}) decls') cenv tenv)`;
+type_specs mn (Stype_opq tvs tn :: specs) (union_decls decls ({},{mk_id mn tn},{})) cenv tenv)`;
 
 val _ = Define `
  (weakE tenv_impl tenv_spec =  
@@ -628,18 +625,18 @@ val _ = Define `
 (edecs_spec SUBSET edecs_impl))))`;
 
 
-val _ = Hol_reln ` (! mn cenv tenv init_decls decls.
+val _ = Hol_reln ` (! mn cenv tenv decls.
 T
 ==>
-check_signature mn init_decls decls cenv tenv NONE decls cenv tenv)
+check_signature mn decls cenv tenv NONE decls cenv tenv)
 
-/\ (! mn cenv tenv specs tenv' cenv' init_decls decls decls'.
+/\ (! mn cenv tenv specs tenv' cenv' decls decls'.
 (weakE tenv tenv' /\
 (flat_weakC cenv cenv' /\
 (weak_decls decls decls' /\
-type_specs mn init_decls specs decls' cenv' tenv')))
+type_specs mn specs decls' cenv' tenv')))
 ==>
-check_signature mn init_decls decls cenv tenv (SOME specs) decls' cenv' tenv')`;
+check_signature mn decls cenv tenv (SOME specs) decls' cenv' tenv')`;
 
 val _ = Hol_reln ` (! menv cenv tenv d cenv' tenv' decls decls'.
 (type_d NONE decls menv cenv tenv d decls' cenv' tenv')
@@ -649,7 +646,7 @@ type_top decls menv cenv tenv (Tdec d) decls' emp (emp,cenv') tenv')
 /\ (! menv cenv tenv mn spec ds cenv' tenv' cenv'' tenv'' mdecls tdecls edecls decls' mdecls'' tdecls'' edecls''.
 (~ (mn IN mdecls) /\
 (type_ds (SOME mn) (mdecls,tdecls,edecls) menv cenv tenv ds decls' cenv' tenv' /\
-check_signature (SOME mn) (mdecls,tdecls,edecls) decls' cenv' tenv' spec (mdecls'',tdecls'',edecls'') cenv'' tenv''))
+check_signature (SOME mn) decls' cenv' tenv' spec (mdecls'',tdecls'',edecls'') cenv'' tenv''))
 ==>
 type_top (mdecls,tdecls,edecls) menv cenv tenv (Tmod mn spec ds) (({mn} UNION mdecls''),tdecls'',edecls'') [(mn,tenv'')] ([(mn,cenv'')], emp) emp)`;
 

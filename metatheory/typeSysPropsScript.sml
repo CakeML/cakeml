@@ -2486,22 +2486,26 @@ val type_ds_tenvC_ok = Q.store_thm ("type_ds_tenvC_ok",
 (* ---------- type_specs ---------- *)
 
 val type_specs_tenv_ok = Q.store_thm ("type_specs_tenv_ok",
-`!tvs decls specs decls' tenvC' tenv'.
-  type_specs tvs decls specs decls' tenvC' tenv' ⇒
+`!tvs specs decls' tenvC' tenv'.
+  type_specs tvs specs decls' tenvC' tenv' ⇒
   tenv_ok (bind_var_list2 tenv' Empty)`,
-ho_match_mp_tac type_specs_ind >>
-rw [bind_var_list2_def, emp_def, tenv_ok_def] >>
-rw [bind_def, bind_var_list2_def, bind_tenv_def, tenv_ok_def, num_tvs_bvl2,
-    num_tvs_def] >>
-match_mp_tac check_freevars_subst_single >>
-rw [LENGTH_GENLIST, EVERY_MAP] >>
-rw [EVERY_MEM] >>
-fs [MEM_GENLIST, check_freevars_def] >>
-metis_tac [check_freevars_add, DECIDE ``!x:num. x ≥ 0``]);
+ ho_match_mp_tac type_specs_ind >>
+ rw [bind_var_list2_def, emp_def, tenv_ok_def] >>
+ rw [bind_def, bind_var_list2_def, bind_tenv_def, tenv_ok_def, num_tvs_bvl2, num_tvs_def] >>
+ induct_on `tenv'` >>
+ rw []
+ >- (rw [bind_def, bind_var_list2_def, bind_tenv_def, tenv_ok_def, num_tvs_bvl2, num_tvs_def] >>
+     match_mp_tac check_freevars_subst_single >>
+     rw [LENGTH_GENLIST, EVERY_MAP] >>
+     rw [EVERY_MEM] >>
+     fs [MEM_GENLIST, check_freevars_def] >>
+     metis_tac [check_freevars_add, DECIDE ``!x:num. x ≥ 0``])
+ >- (PairCases_on `h` >>
+     fs [bind_def, bind_var_list2_def, bind_tenv_def, tenv_ok_def, num_tvs_bvl2, num_tvs_def]));
 
 val type_specs_no_mod = Q.store_thm ("type_specs_no_mod",
-`!mn decls specs decls' tenvC tenv.
-  type_specs mn decls specs decls' tenvC tenv ⇒
+`!mn specs decls' tenvC tenv.
+  type_specs mn specs decls' tenvC tenv ⇒
   FST decls' = {}`,
  ho_match_mp_tac type_specs_strongind >>
  rw [empty_decls_def] >>
