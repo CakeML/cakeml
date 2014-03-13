@@ -550,6 +550,17 @@ val satisfies_consts = store_thm("satisfies_consts",
   fs[is_term_valuation_def] >>
   metis_tac[typesem_consts])
 
+(* valuations exist *)
+
+val valuation_exists = store_thm("valuation_exists",
+  ``is_set_theory ^mem ⇒
+    ∀tyenv δ. is_type_assignment tyenv δ ⇒
+      ∃v. is_valuation tyenv δ v``,
+  rw[is_valuation_def] >>
+  qexists_tac`K boolset, λ(x,ty). @v. v <: typesem δ (K boolset) ty` >>
+  conj_asm1_tac >- (simp[is_type_valuation_def] >> metis_tac[boolean_in_boolset]) >>
+  fs[is_term_valuation_def] >> metis_tac[typesem_inhabited])
+
 (*
 (* for models, reducing the context *)
 
