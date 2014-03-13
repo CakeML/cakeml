@@ -301,7 +301,7 @@ and
 do_eq_list_i1 _ _ = Eq_val false
 
 val exn_env_i1 : list v_i1 -> all_env_i1
-let exn_env_i1 genv = (genv, (emp, List.map (fun cn -> (cn, (0, TypeExn Nothing))) ["Bind"; "Div"; "Eq"]), emp)
+let exn_env_i1 genv = (genv, (emp, List.map (fun cn -> (cn, (0, TypeExn (Short cn)))) ["Bind"; "Div"; "Eq"]), emp)
 
 val do_app_i1 : all_env_i1 -> store v_i1 -> op -> v_i1 -> v_i1 -> maybe (all_env_i1 * store v_i1 * exp_i1)
 let do_app_i1 env' s op v1 v2 =
@@ -596,7 +596,7 @@ and
 
 mat1 : forall ck env e pes v bv s1 s2.
 evaluate_i1 ck env s1 e (s2, Rval v) &&
-evaluate_match_i1 ck env s2 v pes (Conv_i1 (Just ("Bind", TypeExn Nothing)) []) bv
+evaluate_match_i1 ck env s2 v pes (Conv_i1 (Just ("Bind", TypeExn (Short "Bind"))) []) bv
 ==>
 evaluate_i1 ck env s1 (Mat_i1 e pes) bv
 
@@ -763,7 +763,7 @@ and
 dexn1 : forall mn genv cenv cn ts s.
 true
 ==>
-evaluate_dec_i1 genv cenv s (Dexn_i1 mn cn ts) (s, Rval (bind cn (List.length ts, TypeExn mn) emp, []))
+evaluate_dec_i1 genv cenv s (Dexn_i1 mn cn ts) (s, Rval (bind cn (List.length ts, TypeExn (mk_id mn cn)) emp, []))
 
 indreln [evaluate_decs_i1 : list v_i1 -> envC -> store v_i1 -> list dec_i1 -> store v_i1 * flat_envC * list v_i1 * maybe (error_result v_i1) -> bool]
 
@@ -790,7 +790,7 @@ evaluate_decs_i1 genv cenv s1 (d::ds) (s3, merge new_tds' new_tds, new_env ++ ne
 let rec
 dec_to_cenv_i1 (Dtype_i1 mn tds) = build_tdefs mn tds
 and
-dec_to_cenv_i1 (Dexn_i1 mn cn ts) = bind cn (List.length ts,TypeExn mn) emp
+dec_to_cenv_i1 (Dexn_i1 mn cn ts) = bind cn (List.length ts,TypeExn (mk_id mn cn)) emp
 and
 dec_to_cenv_i1 _ = []
 
@@ -799,7 +799,7 @@ decs_to_cenv_i1 [] = []
 and
 decs_to_cenv_i1 (d::ds) = decs_to_cenv_i1 ds ++ dec_to_cenv_i1 d
 
-declare termination_argument decs_to_cenv = automatic
+declare termination_argument decs_to_cenv_i1 = automatic
 
 val mod_cenv : maybe modN -> flat_envC -> envC
 let mod_cenv mn cenv =

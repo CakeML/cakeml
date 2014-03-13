@@ -345,7 +345,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (*val exn_env_i1 : list v_i1 -> all_env_i1*)
 val _ = Define `
- (exn_env_i1 genv = (genv, (emp, MAP (\ cn .  (cn, ( 0, TypeExn NONE))) ["Bind"; "Div"; "Eq"]), emp))`;
+ (exn_env_i1 genv = (genv, (emp, MAP (\ cn .  (cn, ( 0, TypeExn (Short cn)))) ["Bind"; "Div"; "Eq"]), emp))`;
 
 
 (*val do_app_i1 : all_env_i1 -> store v_i1 -> op -> v_i1 -> v_i1 -> maybe (all_env_i1 * store v_i1 * exp_i1)*)
@@ -594,7 +594,7 @@ evaluate_i1 ck env s (If_i1 e1 e2 e3) (s', Rerr err))
 
 /\ (! ck env e pes v bv s1 s2.
 (evaluate_i1 ck env s1 e (s2, Rval v) /\
-evaluate_match_i1 ck env s2 v pes (Conv_i1 (SOME ("Bind", TypeExn NONE)) []) bv)
+evaluate_match_i1 ck env s2 v pes (Conv_i1 (SOME ("Bind", TypeExn (Short "Bind"))) []) bv)
 ==>
 evaluate_i1 ck env s1 (Mat_i1 e pes) bv)
 
@@ -716,7 +716,7 @@ evaluate_dec_i1 genv cenv s (Dtype_i1 mn tds) (s, Rerr Rtype_error))
 /\ (! mn genv cenv cn ts s.
 T
 ==>
-evaluate_dec_i1 genv cenv s (Dexn_i1 mn cn ts) (s, Rval (bind cn (LENGTH ts, TypeExn mn) emp, [])))`;
+evaluate_dec_i1 genv cenv s (Dexn_i1 mn cn ts) (s, Rval (bind cn (LENGTH ts, TypeExn (mk_id mn cn)) emp, [])))`;
 
 val _ = Hol_reln ` (! genv cenv s.
 T
@@ -738,18 +738,17 @@ evaluate_decs_i1 genv cenv s1 (d::ds) (s3, merge new_tds' new_tds, (new_env ++ n
 
 (dec_to_cenv_i1 (Dtype_i1 mn tds) = (build_tdefs mn tds))
 /\
-(dec_to_cenv_i1 (Dexn_i1 mn cn ts) = (bind cn (LENGTH ts,TypeExn mn) emp))
+(dec_to_cenv_i1 (Dexn_i1 mn cn ts) = (bind cn (LENGTH ts,TypeExn (mk_id mn cn)) emp))
 /\
 (dec_to_cenv_i1 _ = ([]))`;
 
 
- val decs_to_cenv_i1_defn = Hol_defn "decs_to_cenv_i1" `
+ val _ = Define `
 
 (decs_to_cenv_i1 [] = ([]))
 /\
 (decs_to_cenv_i1 (d::ds) = (decs_to_cenv_i1 ds ++ dec_to_cenv_i1 d))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn decs_to_cenv_i1_defn;
 
 (*val mod_cenv : maybe modN -> flat_envC -> envC*)
 val _ = Define `

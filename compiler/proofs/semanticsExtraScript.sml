@@ -234,10 +234,12 @@ val build_rec_env_MAP = store_thm("build_rec_env_MAP",
   Induct >> rw[bind_def] >>
   PairCases_on`h` >> rw[])
 
+  (*
 val evaluate_dec_err_cenv_emp = store_thm("evaluate_dec_err_cenv_emp",
   ``∀mn env s d res. evaluate_dec mn env s d res ⇒
     ∀err. SND res = Rerr err ∧ err ≠ Rtype_error ⇒ dec_to_cenv mn d = []``,
   ho_match_mp_tac evaluate_dec_ind >> simp[dec_to_cenv_def])
+  *)
 
 val new_dec_cns_def = Define`
   (new_dec_cns (Dtype ts) = (MAP FST (FLAT (MAP (SND o SND) ts)))) ∧

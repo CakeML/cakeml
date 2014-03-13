@@ -1712,9 +1712,6 @@ val infer_top_sound = Q.store_thm ("infer_top_sound",
 
 (* ---------- the initial type and inference environments correspond ---------- *)
 
-val init_infer_decls_def = Define `
-init_infer_decls = ([],[Short "list"],[Short "Bind"; Short "Div"; Short "Eq"])`;
-
 val infer_init_thm = Q.store_thm ("infer_init_thm",
 `infer_sound_invariant [] ([],[]) init_type_env ∧
  (convert_decls init_infer_decls = init_decls) ∧

@@ -283,7 +283,7 @@ val _ = Define `
     | Dtype_i1 mn type_def =>
         decs_to_i2 (alloc_tags mn st type_def) ds
     | Dexn_i1 mn cn ts =>
-        decs_to_i2 (alloc_tag (TypeExn mn) cn st) ds
+        decs_to_i2 (alloc_tag (TypeExn (mk_id mn cn)) cn st) ds
   )))`;
 
 
@@ -806,9 +806,9 @@ val _ = Define `
                   ("Eq", eq_tag); 
                   ("::", cons_tag);
                   ("nil", nil_tag)]),
-   FUPDATE_LIST FEMPTY [(div_tag, ("Div", TypeExn NONE)); 
-                 (bind_tag, ("Bind", TypeExn NONE)); 
-                 (eq_tag, ("Eq", TypeExn NONE)); 
+   FUPDATE_LIST FEMPTY [(div_tag, ("Div", TypeExn (Short "Div"))); 
+                 (bind_tag, ("Bind", TypeExn (Short "Bind"))); 
+                 (eq_tag, ("Eq", TypeExn (Short "Eq"))); 
                  (cons_tag, ("::", TypeId (Short "list")));
                  (nil_tag, ("nil", TypeId (Short "list")))]))`;
 
