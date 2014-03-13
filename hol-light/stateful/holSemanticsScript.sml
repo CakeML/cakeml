@@ -149,11 +149,25 @@ val is_std_type_assignment_def = xDefine "is_std_type_assignment"`
     (δ "bool" = λls. case ls of [] => boolset | _ => ∅)`
 val _ = Parse.overload_on("is_std_type_assignment",``is_std_type_assignment0 ^mem``)
 
+local
+  open Parse
+  val hs = HardSpace 1
+  fun bs n = BreakSpace(1,n)
+in
+val _ = Parse.add_rule{term_name = "interprets",
+                       fixity = Infix (NONASSOC,450),
+                       pp_elements = [TOK "interprets", hs, TM, hs, TOK "on", bs 2, TM, hs, TOK "as", bs 2],
+                       paren_style = OnlyIfNecessary,
+                       block_style = (AroundEachPhrase, (PP.INCONSISTENT, 0))}
+end
+val interprets_def = Define`
+  γ interprets name on vs as f ⇔ ∀τ. (∀v. v ∉ vs ⇒ τ v = ARB) ⇒ γ name τ = f τ`
+
 val is_std_interpretation_def = xDefine "is_std_interpretation"`
   is_std_interpretation0 ^mem (i:'U interpretation) ⇔
     is_std_type_assignment (tyaof i) ∧
-    tmaof i "=" = λτ.
-        (Abstract (τ"A") (Funspace (τ"A") boolset)
+    tmaof i interprets "=" on {"A"} as
+    λτ. (Abstract (τ"A") (Funspace (τ"A") boolset)
           (λx. Abstract (τ"A") boolset (λy. Boolean (x = y))))`
 val _ = Parse.overload_on("is_std_interpretation",``is_std_interpretation0 ^mem``)
 

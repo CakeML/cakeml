@@ -114,7 +114,8 @@ val termsem_typesem = store_thm("termsem_typesem",
 val Equalsem =
   is_std_interpretation_def
   |> SPEC_ALL |> concl |> rhs
-  |> strip_conj |> tl |> hd |> rhs
+  |> strip_conj |> last
+  |> strip_comb |> snd |> last
 
 val termsem_Equal = store_thm("termsem_Equal",
   ``∀Γ i v ty.
@@ -124,8 +125,8 @@ val termsem_Equal = store_thm("termsem_Equal",
   qspecl_then[`Γ`,`i`,`"="`]mp_tac instance_def >>
   Cases_on`Γ`>>fs[is_std_sig_def]>>
   disch_then(qspec_then`[(ty,Tyvar"A")]`mp_tac)>>
-  simp[REV_ASSOCD] >>
-  Cases_on`i`>>fs[is_std_interpretation_def,typesem_def,tyvars_def,LET_THM])
+  simp[REV_ASSOCD] >> disch_then kall_tac >>
+  fs[is_std_interpretation_def,typesem_def,tyvars_def,LET_THM,interprets_def])
 
 (* equations *)
 

@@ -43,12 +43,12 @@ val init_ctxt_has_model = store_thm("init_ctxt_has_model",
   ``is_set_theory ^mem ⇒ ∃i. i models (thyof init_ctxt)``,
   rw[models_def,init_ctxt_def,conexts_of_upd_def] >>
   rw[is_std_interpretation_def,is_std_type_assignment_def,EXISTS_PROD] >>
-  qho_match_abbrev_tac`∃f g. P f g ∧ (f x1 = y1 ∧ f x2 = y2) ∧ (g x3 = y3)` >>
+  qho_match_abbrev_tac`∃f g. P f g ∧ (f x1 = y1 ∧ f x2 = y2) ∧ (g interprets x3 on z3 as y3)` >>
   qexists_tac`λx. if x = x1 then y1 else if x = x2 then y2 else ARB` >>
   qexists_tac`K y3` >>
-  rw[Abbr`x1`,Abbr`x2`,Abbr`P`] >>
+  rw[Abbr`x1`,Abbr`x2`,Abbr`P`,interprets_def] >>
   rw[is_interpretation_def,is_type_assignment_def,is_term_assignment_def] >>
-  rw[FEVERY_FUPDATE,Abbr`y2`,Abbr`y1`,Abbr`y3`,FEVERY_FEMPTY] >>
+  rw[FEVERY_FUPDATE,Abbr`y2`,Abbr`y1`,Abbr`y3`,FEVERY_FEMPTY,Abbr`z3`] >>
   rw[typesem_def,tyvars_def] >>
   TRY (
     match_mp_tac (UNDISCH abstract_in_funspace) >> rw[] >>
@@ -79,7 +79,7 @@ val new_constant_correct = store_thm("new_constant_correct",
     metis_tac[typesem_inhabited] ) >>
   conj_tac >- (
     imp_res_tac theory_ok_sig >>
-    fs[is_std_interpretation_def,combinTheory.APPLY_UPDATE_THM,is_std_sig_def] >>
+    fs[is_std_interpretation_def,combinTheory.APPLY_UPDATE_THM,is_std_sig_def,interprets_def] >>
     imp_res_tac ALOOKUP_MEM >> rw[] >>
     fs[MEM_MAP,FORALL_PROD] >> metis_tac[] ) >>
   rw[] >>
@@ -151,7 +151,7 @@ val new_specification_correct = store_thm("new_specification_correct",
     imp_res_tac ALOOKUP_MEM >>
     metis_tac[] ) >>
   conj_tac >- (
-    fs[is_std_interpretation_def,APPLY_UPDATE_LIST_ALOOKUP,rich_listTheory.MAP_REVERSE,ALOOKUP_MAP] >>
+    fs[is_std_interpretation_def,APPLY_UPDATE_LIST_ALOOKUP,rich_listTheory.MAP_REVERSE,ALOOKUP_MAP,interprets_def] >>
     BasicProvers.CASE_TAC >> fs[] >>
     imp_res_tac ALOOKUP_MEM >>
     imp_res_tac theory_ok_sig  >>
@@ -323,7 +323,7 @@ val new_type_correct = store_thm("new_type_correct",
     rw[Abbr`x`] ) >>
   conj_tac >- (
     imp_res_tac theory_ok_sig >>
-    fs[is_std_interpretation_def,combinTheory.APPLY_UPDATE_THM,is_std_sig_def] >>
+    fs[is_std_interpretation_def,combinTheory.APPLY_UPDATE_THM,is_std_sig_def,interprets_def] >>
     fs[is_std_type_assignment_def,combinTheory.APPLY_UPDATE_THM] >>
     imp_res_tac ALOOKUP_MEM >> rw[] >>
     fs[MEM_MAP,FORALL_PROD] >> metis_tac[] ) >>
@@ -522,7 +522,7 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
       metis_tac[] ) >>
     simp[] ) >>
   conj_asm1_tac >- (
-    fs[is_std_interpretation_def,combinTheory.APPLY_UPDATE_THM] ) >>
+    fs[is_std_interpretation_def,combinTheory.APPLY_UPDATE_THM,interprets_def] ) >>
   `is_std_sig (tys',tms')` by (
     fs[is_std_sig_def,Abbr`tms'`,Abbr`tys'`,FLOOKUP_UPDATE] ) >>
   gen_tac >> reverse strip_tac >- (
