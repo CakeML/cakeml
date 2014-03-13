@@ -561,6 +561,15 @@ val valuation_exists = store_thm("valuation_exists",
   conj_asm1_tac >- (simp[is_type_valuation_def] >> metis_tac[boolean_in_boolset]) >>
   fs[is_term_valuation_def] >> metis_tac[typesem_inhabited])
 
+(* identity instance *)
+
+val identity_instance = store_thm("identity_instance",
+  ``∀sig (i:'U interpretation) name ty τ. FLOOKUP (tmsof sig) name = SOME ty ⇒
+      instance sig i name ty = λτ. tmaof i name (λx. if MEM x (tyvars ty) then τ x else ARB)``,
+  rw[] >>
+  qspecl_then[`sig`,`i`,`name`,`ty`,`ty`,`[]`]mp_tac instance_def >>
+  rw[FUN_EQ_THM,typesem_def])
+
 (*
 (* for models, reducing the context *)
 

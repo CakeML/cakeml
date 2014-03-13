@@ -28,18 +28,20 @@ val _ = Parse.temp_overload_on("AbsP",``Abs "P" (Fun A Bool)``)
 val _ = Parse.temp_overload_on("x",``Var "x" A``)
 val _ = Parse.temp_overload_on("Absx",``Abs "x" A``)
 val _ = Parse.temp_overload_on("FAx",``Forall "x" A``)
+val Truth_def = ``Absp p === Absp p``
+val And_def = ``Absp (Absq (Absf (Comb (Comb f p) q) === Absf (Comb (Comb f Truth) Truth)))``
+val Implies_def = ``Absp (Absq (And p q === p))``
+val Forall_def = ``AbsP (P === Absx Truth)``
 val mk_bool_ctxt_def = Define`
   mk_bool_ctxt ctxt =
     ConstDef "~" (Absp (Implies p Falsity)) ::
     ConstDef "F" (FAp p) ::
     ConstDef "\\/" (Absp (Absq (FAr (Implies (Implies p r) (Implies (Implies q r) r))))) ::
     ConstDef "?" (AbsP (FAq (Implies (FAx (Implies (Comb P x) q)) q))) ::
-    ConstDef "!" (AbsP (P === Absx Truth)) ::
-    ConstDef "==>" (Absp (Absq (And p q === p))) ::
-    ConstDef "/\\"
-      (Absp (Absq (Absf (Comb (Comb f p) q) ===
-                   Absf (Comb (Comb f Truth) Truth)))) ::
-    ConstDef "T" (Absp p === Absp p) ::
+    ConstDef "!" ^Forall_def ::
+    ConstDef "==>" ^Implies_def ::
+    ConstDef "/\\" ^And_def ::
+    ConstDef "T"  ^Truth_def ::
     ctxt`
 
 (* bool is a good extension *)
@@ -122,7 +124,57 @@ val bool_extends_init = store_thm("bool_extends_init",
   match_mp_tac bool_extends >> simp[init_theory_ok] >>
   simp[init_ctxt_def])
 
-open holSemanticsTheory
+val is_bool_sig_def = Define`
+  is_bool_sig (sig:sig) ⇔
+  is_std_sig sig ∧
+  FLOOKUP (tmsof sig) "T" = SOME Bool ∧
+  FLOOKUP (tmsof sig) "F" = SOME Bool ∧
+  FLOOKUP (tmsof sig) "==>" = SOME (Fun Bool (Fun Bool Bool)) ∧
+  FLOOKUP (tmsof sig) "/\\" = SOME (Fun Bool (Fun Bool Bool)) ∧
+  FLOOKUP (tmsof sig) "\\/" = SOME (Fun Bool (Fun Bool Bool)) ∧
+  FLOOKUP (tmsof sig) "~" = SOME (Fun Bool Bool) ∧
+  FLOOKUP (tmsof sig) "!" = SOME (Fun (Fun A Bool) Bool) ∧
+  FLOOKUP (tmsof sig) "?" = SOME (Fun (Fun A Bool) Bool)`
+
+val bool_has_bool_sig = store_thm("bool_has_bool_sig",
+  ``∀ctxt. is_std_sig (sigof ctxt)
+  ⇒ is_bool_sig (sigof (mk_bool_ctxt ctxt))``,
+  rw[is_bool_sig_def] >- (
+    fs[is_std_sig_def,mk_bool_ctxt_def,FLOOKUP_UPDATE] ) >>
+  EVAL_TAC)
+
+val is_bool_sig_std = store_thm("is_bool_sig_std",
+  ``is_bool_sig sig ⇒ is_std_sig sig``, rw[is_bool_sig_def])
+
+(* Boolean terms are ok *)
+val bool_term_ok = store_thm("bool_term_ok",
+  ``∀sig. is_bool_sig sig ⇒
+    term_ok sig Truth ∧
+    (∀p1 p2. term_ok sig (And p1 p2) ⇔ term_ok sig p1 ∧ term_ok sig p2 ∧ typeof p1 = Bool ∧ typeof p2 = Bool) ∧
+    (∀p1 p2. term_ok sig (Implies p1 p2) ⇔ term_ok sig p1 ∧ term_ok sig p2 ∧ typeof p1 = Bool ∧ typeof p2 = Bool) ∧
+    (∀z ty p. term_ok sig (Forall z ty p) ⇔ type_ok (tysof sig) ty ∧ term_ok sig p ∧ typeof p = Bool) ∧
+    (∀z ty p. term_ok sig (Exists z ty p) ⇔ type_ok (tysof sig) ty ∧ term_ok sig p ∧ typeof p = Bool) ∧
+    (∀p1 p2. term_ok sig (Or p1 p2) ⇔ term_ok sig p1 ∧ term_ok sig p2 ∧ typeof p1 = Bool ∧ typeof p2 = Bool) ∧
+    term_ok sig Falsity ∧
+    (∀p. term_ok sig (Not p) ⇔ term_ok sig p ∧ typeof p = Bool)``,
+  rw[] >> imp_res_tac is_bool_sig_std >> rw[term_ok_clauses] >>
+  rw[term_ok_def] >> fs[is_bool_sig_def] >> rw[term_ok_clauses,tyvar_inst_exists] >>
+  PROVE_TAC[term_ok_welltyped])
+
+open holSemanticsTheory holSemanticsExtraTheory setSpecTheory
+
+val bool_sig_instances = store_thm("bool_sig_instances",
+  ``is_bool_sig sig ⇒
+    instance sig (i:'U interpretation) "T" Bool = (K (tmaof i "T" (K ARB))) ∧
+    instance sig i "F" Bool = (K (tmaof i "F" (K ARB))) ∧
+    instance sig i "==>" (Fun Bool (Fun Bool Bool)) = (K (tmaof i "==>" (K ARB))) ∧
+    instance sig i "/\\" (Fun Bool (Fun Bool Bool)) = (K (tmaof i "/\\" (K ARB))) ∧
+    instance sig i "\\/" (Fun Bool (Fun Bool Bool)) = (K (tmaof i "\\/" (K ARB))) ∧
+    instance sig i "~" (Fun Bool Bool) = (K (tmaof i "~" (K ARB))) ∧
+    instance sig i "!" (Fun (Fun A Bool) Bool) = (λτ. tmaof i "!" (λx. if x = "A" then τ x else ARB)) ∧
+    instance sig i "?" (Fun (Fun A Bool) Bool) = (λτ. tmaof i "?" (λx. if x = "A" then τ x else ARB))``,
+  rw[is_bool_sig_def] >> imp_res_tac identity_instance >> rw[FUN_EQ_THM] >>
+  rpt AP_TERM_TAC >> rw[FUN_EQ_THM,tyvars_def])
 
 val mem = ``mem:'U->'U->bool``
 
@@ -148,6 +200,36 @@ val is_bool_interpretation_def = xDefine"is_bool_interpretation"`
     tmaof i interprets "~" on ∅ as K (Abstract boolset boolset (λp. Boolean (p ≠ True)))`
 val _ = Parse.overload_on("is_bool_interpretation",``is_bool_interpretation0 ^mem``)
 
+val apply_abstract_matchable = store_thm("apply_abstract_matchable",
+  ``∀f x s t u. x <: s ∧ f x <: t ∧ is_set_theory ^mem ∧ f x = u ⇒ Abstract s t f ' x = u``,
+  metis_tac[apply_abstract])
+
+val boolrel_in_funspace = prove(
+  ``is_set_theory ^mem ⇒ Boolrel R <: Funspace boolset (Funspace boolset boolset)``,
+  strip_tac >> match_mp_tac (UNDISCH abstract_in_funspace) >> rw[] >>
+  match_mp_tac (UNDISCH abstract_in_funspace) >> rw[boolean_in_boolset] )
+val _ = augment_srw_ss[rewrites[boolrel_in_funspace]]
+
+fun init_tac q =
+  fs[models_def] >>
+  first_x_assum(qspec_then q mp_tac) >>
+  discharge_hyps >- (unabbrev_all_tac >> EVAL_TAC) >>
+  simp[satisfies_def] >>
+  qspecl_then[`tysof sig`,`tyaof i`]mp_tac (UNDISCH valuation_exists) >>
+  discharge_hyps >- fs[is_interpretation_def] >> strip_tac >>
+  disch_then(qspec_then`v`mp_tac) >> simp[] >>
+  `is_structure sig i v` by fs[is_structure_def] >>
+  Q.PAT_ABBREV_TAC`eq = l1 === r1` >>
+  `term_ok sig eq` by (
+    unabbrev_all_tac >>
+    simp[term_ok_clauses,EQUATION_HAS_TYPE_BOOL,welltyped_equation,typeof_equation,bool_term_ok] >>
+    simp[term_ok_def] >>
+    qpat_assum`is_std_sig X`mp_tac >>
+    EVAL_TAC >> simp_tac bool_ss [GSYM alistTheory.alist_to_fmap_def,alistTheory.ALOOKUP_EQ_FLOOKUP,is_instance_refl]) >>
+    simp[termsem_equation,Abbr`eq`,boolean_eq_true] >>
+    simp[termsem_def,typeof_equation,welltyped_equation,EQUATION_HAS_TYPE_BOOL] >>
+    simp[bool_sig_instances,interprets_def,combinTheory.K_DEF] >> rw[]
+
 (*
 val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
   ``is_set_theory ^mem ⇒
@@ -158,48 +240,168 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
   simp[is_bool_interpretation_def] >>
   conj_asm1_tac >- fs[models_def] >>
   qabbrev_tac`ctx = mk_bool_ctxt ctxt` >>
-  qabbrev_tac`thy = thyof ctx` >>
   qabbrev_tac`sig = sigof ctx` >>
   imp_res_tac theory_ok_sig >>
+  `is_bool_sig sig` by (
+    unabbrev_all_tac >>
+    match_mp_tac bool_has_bool_sig >>
+    pop_assum mp_tac >> EVAL_TAC ) >>
   `FLOOKUP (tysof sig) "bool" = SOME 0` by (
-    pop_assum mp_tac >>
-    simp[is_std_sig_def,Abbr`sig`,Abbr`ctx`,Abbr`thy`])
+    qpat_assum`is_std_sig sig` mp_tac >>
+    simp[is_std_sig_def,Abbr`sig`,Abbr`ctx`]) >>
+  `FLOOKUP (tysof sig) "fun" = SOME 2` by (
+    qpat_assum`is_std_sig sig` mp_tac >>
+    simp[is_std_sig_def,Abbr`sig`,Abbr`ctx`]) >>
   conj_asm1_tac >- (
     fs[models_def] >>
-    first_x_assum(qspec_then`Const "T" Bool === (Absp p === Absp p)`mp_tac) >>
+    first_x_assum(qspec_then`Const "T" Bool === ^Truth_def`mp_tac) >>
     discharge_hyps >- (unabbrev_all_tac >> EVAL_TAC) >>
     simp[satisfies_def] >>
-    qspecl_then[`tysof thy`,`tyaof i`]mp_tac (UNDISCH valuation_exists) >>
+    qspecl_then[`tysof sig`,`tyaof i`]mp_tac (UNDISCH valuation_exists) >>
     discharge_hyps >- fs[is_interpretation_def] >> strip_tac >>
     disch_then(qspec_then`v`mp_tac) >> simp[] >>
-    `is_structure (sigof thy) i v` by fs[is_structure_def] >>
-    `term_ok (sigof thy) (Truth === Absp p === Absp p)` by (
-      fs[Abbr`thy`,term_ok_equation,term_ok_def,type_ok_def,Abbr`sig`,Abbr`ctx`
-        ,typeof_equation,welltyped_equation,EQUATION_HAS_TYPE_BOOL] >>
-      EVAL_TAC >> simp[]) >>
-    `term_ok (sigof (mk_bool_ctxt ctxt)) (Absp p === Absp p)` by (
+    `is_structure sig i v` by fs[is_structure_def] >>
+    `term_ok sig (Truth === Absp p === Absp p)` by (
+      asm_simp_tac (srw_ss()) [term_ok_clauses,typeof_equation,welltyped_equation,EQUATION_HAS_TYPE_BOOL,bool_term_ok] ) >>
+    `term_ok sig (Absp p === Absp p)` by (
+      simp[term_ok_equation,term_ok_clauses] ) >>
+    rfs[Abbr`sig`,termsem_equation,boolean_eq_true,termsem_def] >>
+    simp[bool_sig_instances,interprets_def] >>
+    rw[combinTheory.K_DEF] >>
+    `τ = λx. ARB` by simp[FUN_EQ_THM] >>
+    simp[boolean_def]) >>
+  conj_asm1_tac >- (
+    init_tac `Const "/\\" (Fun Bool (Fun Bool Bool)) === ^And_def` >>
+    `τ = λx. ARB` by simp[FUN_EQ_THM] >> rw[] >> ntac 2 (pop_assum kall_tac) >>
+    imp_res_tac is_std_interpretation_is_type >>
+    imp_res_tac typesem_Bool >> simp[] >>
+    match_mp_tac (UNDISCH abstract_eq) >>
+    imp_res_tac typesem_Fun >>
+    qx_gen_tac`b1` >> strip_tac >> simp[] >>
+    conj_asm1_tac >- (
+      match_mp_tac (UNDISCH abstract_in_funspace) >>
+      qx_gen_tac`b2` >> strip_tac >> simp[] >>
+      Q.PAT_ABBREV_TAC`eq = l1 === r1` >>
+      Q.PAT_ABBREV_TAC`vv = X:'U valuation` >>
+      `term_ok sig eq` by (
+        unabbrev_all_tac >>
+        simp[term_ok_clauses,EQUATION_HAS_TYPE_BOOL,welltyped_equation,typeof_equation,bool_term_ok] ) >>
+      `is_structure sig i vv` by (
+        fs[is_structure_def,Abbr`vv`,is_valuation_def,is_term_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
+        rw[] >> metis_tac[] ) >>
+      qunabbrev_tac`eq` >>
+      simp[termsem_equation,boolean_in_boolset] ) >>
+    conj_asm1_tac >- (
+      match_mp_tac (UNDISCH abstract_in_funspace) >>
+      simp[boolean_in_boolset] ) >>
+    match_mp_tac(UNDISCH abstract_eq) >>
+    qx_gen_tac`b2` >> simp[] >> strip_tac >>
+    simp[boolean_in_boolset] >>
+    Q.PAT_ABBREV_TAC`vv = X:'U valuation` >>
+    `is_structure sig i vv` by (
+      fs[is_structure_def,Abbr`vv`,is_valuation_def,is_term_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
+      rw[] >> metis_tac[] ) >>
+    Q.PAT_ABBREV_TAC`eq = l1 === r1` >>
+    `term_ok sig eq` by (
       unabbrev_all_tac >>
-      fs[term_ok_equation,term_ok_def,type_ok_def
-        ,typeof_equation,welltyped_equation,EQUATION_HAS_TYPE_BOOL] ) >>
-    rfs[Abbr`thy`,Abbr`sig`,termsem_equation,boolean_eq_true,termsem_def] >>
-    qspecl_then[`sigof ctx`,`i`,`"T"`,`Bool`,`Bool`,`[]`]mp_tac instance_def >>
-    simp[Abbr`ctx`] >>
-    discharge_hyps >- EVAL_TAC >> simp[tyvars_def]
-    is_std_interpretation_def
+      simp[term_ok_clauses,EQUATION_HAS_TYPE_BOOL,welltyped_equation,typeof_equation,bool_term_ok] ) >>
+    qunabbrev_tac`eq` >>
+    simp[termsem_equation,boolean_in_boolset] >>
+    simp[termsem_def] >>
+    simp[combinTheory.APPLY_UPDATE_THM,Abbr`vv`] >>
+    simp[bool_sig_instances] >> fs[interprets_def] >>
+    rw[boolean_def] >>
+    qmatch_assum_abbrev_tac`f1 = f2` >>
+    `f1 ' (Boolrel $/\) = False` by (
+      qpat_assum`f1 = f2`kall_tac >>
+      simp[Abbr`f1`] >>
+      match_mp_tac apply_abstract_matchable >> simp[] >>
+      conj_asm1_tac >- (
+        match_mp_tac (UNDISCH apply_in_rng) >> qexists_tac`boolset` >> simp[] >>
+        match_mp_tac (UNDISCH apply_in_rng) >> qexists_tac`boolset` >> simp[] ) >>
+      `Boolrel $/\ ' b1 = Abstract boolset boolset (λb2. Boolean (b1 = True ∧ b2 = True))` by (
+        match_mp_tac apply_abstract_matchable >>
+        simp[] ) >>
+      simp[] >>
+      match_mp_tac apply_abstract_matchable >>
+      simp[boolean_def,mem_boolset] ) >>
+    `f2 ' (Boolrel $/\) = True` by (
+      simp[Abbr`f2`] >>
+      match_mp_tac apply_abstract_matchable >> simp[] >>
+      conj_asm1_tac >- (
+        match_mp_tac (UNDISCH apply_in_rng) >> qexists_tac`boolset` >> simp[mem_boolset] >>
+        match_mp_tac (UNDISCH apply_in_rng) >> qexists_tac`boolset` >> simp[mem_boolset] ) >>
+      `Boolrel $/\ ' True = Abstract boolset boolset (λb2. Boolean (b2 = True))` by (
+        match_mp_tac apply_abstract_matchable >> simp[mem_boolset] >>
+        match_mp_tac (UNDISCH abstract_in_funspace) >>
+        simp[boolean_in_boolset]) >>
+      simp[] >>
+      match_mp_tac apply_abstract_matchable >>
+    simp[boolean_def,mem_boolset] ) >>
+    metis_tac[] ) >>
+  conj_asm1_tac >- (
+    init_tac `Const "==>" (Fun Bool (Fun Bool Bool)) === ^Implies_def` >>
+    `τ = λx. ARB` by simp[FUN_EQ_THM] >> rw[] >> ntac 2 (pop_assum kall_tac) >>
+    imp_res_tac is_std_interpretation_is_type >>
+    imp_res_tac typesem_Bool >> simp[] >>
+    match_mp_tac (UNDISCH abstract_eq) >>
+    imp_res_tac typesem_Fun >>
+    qx_gen_tac`b1` >> strip_tac >> simp[] >>
+    conj_asm1_tac >- (
+      match_mp_tac (UNDISCH abstract_in_funspace) >>
+      qx_gen_tac`b2` >> strip_tac >> simp[] >>
+      Q.PAT_ABBREV_TAC`eq = l1 === r1` >>
+      Q.PAT_ABBREV_TAC`vv = X:'U valuation` >>
+      `term_ok sig eq` by (
+        unabbrev_all_tac >>
+        simp[term_ok_clauses,EQUATION_HAS_TYPE_BOOL,welltyped_equation,typeof_equation,bool_term_ok] ) >>
+      `is_structure sig i vv` by (
+        fs[is_structure_def,Abbr`vv`,is_valuation_def,is_term_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
+        rw[] >> metis_tac[] ) >>
+      qunabbrev_tac`eq` >>
+      simp[termsem_equation,boolean_in_boolset] ) >>
+    conj_asm1_tac >- (
+      match_mp_tac (UNDISCH abstract_in_funspace) >>
+      simp[boolean_in_boolset] ) >>
+    match_mp_tac(UNDISCH abstract_eq) >>
+    qx_gen_tac`b2` >> simp[] >> strip_tac >>
+    simp[boolean_in_boolset] >>
+    Q.PAT_ABBREV_TAC`vv = X:'U valuation` >>
+    `is_structure sig i vv` by (
+      fs[is_structure_def,Abbr`vv`,is_valuation_def,is_term_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
+      rw[] >> metis_tac[] ) >>
+    Q.PAT_ABBREV_TAC`eq = l1 === r1` >>
+    `term_ok sig eq` by (
+      unabbrev_all_tac >>
+      simp[term_ok_clauses,EQUATION_HAS_TYPE_BOOL,welltyped_equation,typeof_equation,bool_term_ok] ) >>
+    qunabbrev_tac`eq` >>
+    simp[termsem_equation,boolean_in_boolset] >>
+    simp[termsem_def] >>
+    simp[combinTheory.APPLY_UPDATE_THM,Abbr`vv`] >>
+    simp[bool_sig_instances] >> fs[interprets_def] >>
+    `Boolrel $/\ ' b1 = Abstract boolset boolset (λb2. Boolean (b1 = True ∧ b2 = True))` by (
+      match_mp_tac apply_abstract_matchable >> simp[] >>
+      match_mp_tac (UNDISCH abstract_in_funspace) >> simp[boolean_in_boolset]) >>
+    `Boolrel $/\ ' b1 ' b2 =  Boolean (b1 = True ∧ b2 = True)` by (
+      simp[] >>
+      match_mp_tac apply_abstract_matchable >> simp[boolean_in_boolset] ) >>
+    simp[boolean_def] >> rw[] >> fs[] >>
+    metis_tac[mem_boolset] ) >>
+  conj_asm1_tac >- (
+    init_tac `Const "!" (Fun (Fun A Bool) Bool) === ^Forall_def` >>
+    qmatch_assum_abbrev_tac `tmaof i name ff = yy` >>
+    `τ = ff` by (
+      simp[FUN_EQ_THM,Abbr`ff`] >> rw[]
+
+    `τ = λx. ARB` by simp[FUN_EQ_THM] >> rw[] >> ntac 2 (pop_assum kall_tac) >>
+    imp_res_tac is_std_interpretation_is_type >>
+    imp_res_tac typesem_Bool >> simp[] >>
+    match_mp_tac (UNDISCH abstract_eq) >>
+    imp_res_tac typesem_Fun >>
 *)
 
+
 (*
-val is_bool_sig_def = Define`
-  is_bool_sig (sig:sig) ⇔
-  is_std_sig sig ∧
-  FLOOKUP (tmsof sig) "T" = SOME Bool ∧
-  FLOOKUP (tmsof sig) "F" = SOME Bool ∧
-  FLOOKUP (tmsof sig) "==>" = SOME (Fun Bool (Fun Bool Bool)) ∧
-  FLOOKUP (tmsof sig) "/\\" = SOME (Fun Bool (Fun Bool Bool)) ∧
-  FLOOKUP (tmsof sig) "\\/" = SOME (Fun Bool (Fun Bool Bool)) ∧
-  FLOOKUP (tmsof sig) "~" = SOME (Fun Bool Bool) ∧
-  FLOOKUP (tmsof sig) "!" = SOME (Fun (Fun A Bool) Bool) ∧
-  FLOOKUP (tmsof sig) "?" = SOME (Fun (Fun A Bool) Bool)`
 
 val Exists_has_type_Bool = store_thm("Exists_has_type_Bool",
   ``∀x ty p. Exists x ty p has_type Bool ⇔ p has_type Bool``,
