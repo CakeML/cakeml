@@ -1,4 +1,4 @@
-open HolKernel boolLib boolSimps bossLib lcsymtacs pred_setTheory listTheory holSyntaxLibTheory
+open HolKernel boolLib boolSimps bossLib lcsymtacs pred_setTheory listTheory alistTheory holSyntaxLibTheory
 val _ = temp_tight_equality()
 val _ = new_theory "holSyntax"
 
@@ -8,15 +8,19 @@ val _ = Hol_datatype`type
   = Tyvar of string
   | Tyapp of string => type list`
 
-val _ = Parse.overload_on("Bool",``Tyapp "bool" []``)
-val _ = Parse.overload_on("Ind",``Tyapp "ind" []``)
 val _ = Parse.overload_on("Fun",``λs t. Tyapp "fun" [s;t]``)
+val _ = Parse.overload_on("Bool",``Tyapp "bool" []``)
 
 val domain_def = Define`domain (Fun s t) = s`
 val codomain_def = Define`codomain (Fun s t) = t`
 val domain_def = save_thm("domain_def",SIMP_RULE(srw_ss())[]domain_def)
 val codomain_def = save_thm("codomain_def",SIMP_RULE(srw_ss())[]codomain_def)
 val _ = export_rewrites["domain_def","codomain_def"]
+
+fun type_rec_tac proj =
+(WF_REL_TAC(`measure (type_size o `@[QUOTE proj]@`)`) >> simp[] >>
+ gen_tac >> Induct >> simp[definition"type_size_def"] >> rw[] >>
+ simp[] >> res_tac >> simp[])
 
 (* HOL terms *)
 
@@ -27,7 +31,6 @@ val _ = Hol_datatype`term
   | Abs of string => type => term`
 
 val _ = Parse.overload_on("Equal",``λty. Const "=" (Fun ty (Fun ty Bool))``)
-val _ = Parse.overload_on("Select",``λty. Const "@" (Fun (Fun ty Bool) ty)``)
 
 (* Assignment of types to terms (where possible) *)
 
@@ -55,8 +58,8 @@ val typeof_def = Define`
   (typeof (Abs n ty t) = Fun ty (typeof t))`
 val _ = export_rewrites["typeof_def"]
 
-(* Alpha-equivalence, as a relation parameterised by the
-   lists of variables bound above the terms. *)
+(* Auxiliary relation used to define alpha-equivalence. This relation is
+   parameterised by the lists of variables bound above the terms. *)
 
 val (RACONV_rules,RACONV_ind,RACONV_cases) = Hol_reln`
   (ALPHAVARS env (Var x1 ty1,Var x2 ty2)
@@ -67,13 +70,13 @@ val (RACONV_rules,RACONV_ind,RACONV_cases) = Hol_reln`
   ((ty1 = ty2) ∧ RACONV ((Var x1 ty1,Var x2 ty2)::env) (t1,t2)
     ⇒ RACONV env (Abs x1 ty1 t1,Abs x2 ty2 t2))`
 
-(* Alpha-equivalence as a function on closed terms. *)
+(* Alpha-equivalence. *)
 
 val ACONV_def = Define`
   ACONV t1 t2 ⇔ RACONV [] (t1,t2)`
 
 (* Alpha-respecting union of two lists of terms.
-   May retain duplicates in the second list. *)
+   Retain duplicates in the second list. *)
 
 val TERM_UNION_def = Define`
   TERM_UNION [] l2 = l2 ∧
@@ -154,10 +157,9 @@ val TYPE_SUBST_def = tDefine"TYPE_SUBST"`
   (TYPE_SUBST i (Tyvar v) = REV_ASSOCD (Tyvar v) i (Tyvar v)) ∧
   (TYPE_SUBST i (Tyapp v tys) = Tyapp v (MAP (TYPE_SUBST i) tys)) ∧
   (TYPE_SUBST i (Fun ty1 ty2) = Fun (TYPE_SUBST i ty1) (TYPE_SUBST i ty2))`
-(WF_REL_TAC`measure (type_size o SND)` >> simp[] >>
- gen_tac >> Induct >> simp[definition"type_size_def"] >> rw[] >>
- simp[] >> res_tac >> simp[])
+(type_rec_tac "SND")
 val _ = export_rewrites["TYPE_SUBST_def"]
+val _ = Parse.overload_on("is_instance",``λty0 ty. ∃i. ty = TYPE_SUBST i ty0``)
 
 (* Substitution for term variables in a term. *)
 
@@ -237,17 +239,14 @@ val INST_def = Define`INST tyin tm = RESULT(INST_CORE [] tyin tm)`
 val tyvars_def = tDefine"tyvars"`
   tyvars (Tyvar v) = [v] ∧
   tyvars (Tyapp v tys) = FOLDR (λx y. LIST_UNION (tyvars x) y) [] tys`
-(WF_REL_TAC`measure type_size` >> simp[] >>
- gen_tac >> Induct >>
- simp[definition"type_size_def"] >> rw[] >>
- simp[] >> res_tac >> simp[])
+(type_rec_tac "I")
 
 (* Type variables in a term. *)
 
 val tvars_def = Define`
-  (tvars (Var n ty) = tyvars ty) /\
-  (tvars (Const n ty) = tyvars ty) /\
-  (tvars (Comb s t) = LIST_UNION (tvars s) (tvars t)) /\
+  (tvars (Var n ty) = tyvars ty) ∧
+  (tvars (Const n ty) = tyvars ty) ∧
+  (tvars (Comb s t) = LIST_UNION (tvars s) (tvars t)) ∧
   (tvars (Abs n ty t) = LIST_UNION (tyvars ty) (tvars t))`
 
 (* Syntax for equations *)
@@ -257,14 +256,128 @@ val _ = Parse.add_infix("===",460,Parse.RIGHT)
 val equation_def = xDefine "equation"`
   (s === t) = Comb (Comb (Equal(typeof s)) s) t`
 
-(* Context of updates to the theory *)
-(*
+(* Signature of a theory: indicates the defined type operators, with arities,
+   and defined constants, with types. *)
 
-val _ = Hol_datatype`def
-  (* Conservative definition of new constants by specification
+val _ = Parse.type_abbrev("tyenv",``:string |-> num``)
+val _ = Parse.type_abbrev("tmenv",``:string |-> type``)
+val _ = Parse.type_abbrev("sig",``:tyenv # tmenv``)
+val _ = Parse.overload_on("tysof",``FST:sig->tyenv``)
+val _ = Parse.overload_on("tmsof",``SND:sig->tmenv``)
+
+(* Well-formedness of types/terms with respect to a signature *)
+
+val type_ok_def = tDefine "type_ok"`
+   (type_ok tyenv (Tyvar _) ⇔ T) ∧
+   (type_ok tyenv (Tyapp name args) ⇔
+      FLOOKUP tyenv name = SOME (LENGTH args) ∧
+      EVERY (type_ok tyenv) args)`
+(type_rec_tac "SND")
+
+val term_ok_def = Define`
+  (term_ok sig (Var x ty) ⇔ type_ok (tysof sig) ty) ∧
+  (term_ok sig (Const name ty) ⇔
+     ∃ty0. FLOOKUP (tmsof sig) name = SOME ty0 ∧
+           type_ok (tysof sig) ty ∧
+           is_instance ty0 ty) ∧
+  (term_ok sig (Comb tm1 tm2) ⇔
+     term_ok sig tm1 ∧
+     term_ok sig tm2 ∧
+     welltyped (Comb tm1 tm2)) ∧
+  (term_ok sig (Abs x ty tm) ⇔
+     type_ok (tysof sig) ty ∧
+     term_ok sig tm)`
+
+(* A theory is a signature together with a set of axioms. It is well-formed if
+   the types of the constants are all ok, the axioms are all ok terms of type
+   bool, and the signature is standard. *)
+
+val _ = Parse.type_abbrev("thy",``:sig # term set``)
+val _ = Parse.overload_on("sigof",``FST:thy->sig``)
+val _ = Parse.overload_on("axsof",``SND:thy->term set``)
+val _ = Parse.overload_on("tysof",``tysof o sigof``)
+val _ = Parse.overload_on("tmsof",``tmsof o sigof``)
+
+val is_std_sig_def = Define`
+  is_std_sig (sig:sig) ⇔
+    FLOOKUP (tysof sig) "fun" = SOME 2 ∧
+    FLOOKUP (tysof sig) "bool" = SOME 0 ∧
+    FLOOKUP (tmsof sig) "=" = SOME (Fun (Tyvar"A") (Fun (Tyvar"A") Bool))`
+
+val theory_ok_def = Define`
+  theory_ok (thy:thy) ⇔
+    (∀ty. ty ∈ FRANGE (tmsof thy) ⇒ type_ok (tysof thy) ty) ∧
+    (∀p. p ∈ (axsof thy) ⇒ term_ok (sigof thy) p ∧ p has_type Bool) ∧
+    is_std_sig (sigof thy)`
+
+(* Sequents provable from a theory *)
+
+val _ = Parse.add_infix("|-",450,Parse.NONASSOC)
+
+val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
+  (* ABS *)
+  (¬(EXISTS (VFREE_IN (Var x ty)) h) ∧ type_ok (tysof thy) ty ∧
+   (thy, h) |- l === r
+   ⇒ (thy, h) |- (Abs x ty l) === (Abs x ty r)) ∧
+
+  (* ASSUME *)
+  (theory_ok thy ∧ p has_type Bool ∧ term_ok (sigof thy) p
+   ⇒ (thy, [p]) |- p) ∧
+
+  (* BETA *)
+  (theory_ok thy ∧ type_ok (tysof thy) ty ∧ term_ok (sigof thy) t
+   ⇒ (thy, []) |- Comb (Abs x ty t) (Var x ty) === t) ∧
+
+  (* DEDUCT_ANTISYM *)
+  ((thy, h1) |- c1 ∧
+   (thy, h2) |- c2
+   ⇒ (thy, TERM_UNION (FILTER((~) o ACONV c2) h1)
+                      (FILTER((~) o ACONV c1) h2))
+           |- c1 === c2) ∧
+
+  (* EQ_MP *)
+  ((thy, h1) |- p === q ∧
+   (thy, h2) |- p' ∧ ACONV p p'
+   ⇒ (thy, TERM_UNION h1 h2) |- q) ∧
+
+  (* INST *)
+  ((∀s s'. MEM (s',s) ilist ⇒
+             ∃x ty. (s = Var x ty) ∧ s' has_type ty ∧ term_ok (sigof thy) s') ∧
+   (thy, h) |- c
+   ⇒ (thy, MAP (VSUBST ilist) h) |- VSUBST ilist c) ∧
+
+  (* INST_TYPE *)
+  ((EVERY (type_ok (tysof thy)) (MAP FST tyin)) ∧
+   (thy, h) |- c
+   ⇒ (thy, MAP (INST tyin) h) |- INST tyin c) ∧
+
+  (* MK_COMB *)
+  ((thy, h1) |- l1 === r1 ∧
+   (thy, h2) |- l2 === r2 ∧
+   welltyped(Comb l1 l2)
+   ⇒ (thy, TERM_UNION h1 h2) |- Comb l1 l2 === Comb r1 r2) ∧
+
+  (* REFL *)
+  (theory_ok thy ∧ term_ok (sigof thy) t
+   ⇒ (thy, []) |- t === t) ∧
+
+  (* TRANS *)
+  ((thy, h1) |- l === m1 ∧
+   (thy, h2) |- m2 === r ∧
+   ACONV m1 m2
+   ⇒ (thy, TERM_UNION h1 h2) |- l === r) ∧
+
+  (* axioms *)
+  (theory_ok thy ∧ c ∈ (axsof thy)
+   ⇒ (thy, []) |- c)`
+
+(* A context is a sequence of updates *)
+
+val _ = Hol_datatype`update
+  (* Definition of new constants by specification
      ConstSpec witnesses proposition *)
   = ConstSpec of (string # term) list => term
-  (* Conservative definition of a new type
+  (* Definition of a new type operator
      TypeDefn name predicate abs_name rep_name *)
   | TypeDefn of string => term => string => string
   (* NewType name arity *)
@@ -274,193 +387,187 @@ val _ = Hol_datatype`def
   (* NewAxiom proposition *)
   | NewAxiom of term`
 
+(* Projecting out pieces of the context *)
+
+  (* Types and constants introduced by an update *)
+val types_of_upd_def = Define`
+  (types_of_upd (ConstSpec _ _) = []) ∧
+  (types_of_upd (TypeDefn name pred _ _) = [(name,LENGTH (tvars pred))]) ∧
+  (types_of_upd (NewType name arity) = [(name,arity)]) ∧
+  (types_of_upd (NewConst _ _) = []) ∧
+  (types_of_upd (NewAxiom _) = [])`
+
+val consts_of_upd_def = Define`
+  (consts_of_upd (ConstSpec eqs prop) = MAP (λ(s,t). (s, typeof t)) eqs) ∧
+  (consts_of_upd (TypeDefn name pred abs rep) =
+     let rep_type = domain (typeof pred) in
+     let abs_type = Tyapp name (MAP Tyvar (STRING_SORT (tvars pred))) in
+       [(abs, Fun rep_type abs_type);
+        (rep, Fun abs_type rep_type)]) ∧
+  (consts_of_upd (NewType _ _) = []) ∧
+  (consts_of_upd (NewConst name type) = [(name,type)]) ∧
+  (consts_of_upd (NewAxiom _) = [])`
+
+val _ = Parse.overload_on("type_list",``λctxt. FLAT (MAP types_of_upd ctxt)``)
+val _ = Parse.overload_on("tysof",``λctxt. alist_to_fmap (type_list ctxt)``)
+val _ = Parse.overload_on("const_list",``λctxt. FLAT (MAP consts_of_upd ctxt)``)
+val _ = Parse.overload_on("tmsof",``λctxt. alist_to_fmap (const_list ctxt)``)
+
+  (* From this we can recover a signature *)
+val _ = Parse.overload_on("sigof",``λctxt:update list. (tysof ctxt, tmsof ctxt)``)
+
+  (* Axioms: we divide them into axiomatic extensions and conservative
+     extensions, we will prove that the latter preserve consistency *)
+val axexts_of_upd_def = Define`
+  axexts_of_upd (NewAxiom prop) = [prop] ∧
+  axexts_of_upd _ = []`
+
+val conexts_of_upd_def = Define`
+  (conexts_of_upd (ConstSpec eqs prop) =
+    let ilist = MAP (λ(s,t). let ty = typeof t in (Const s ty,Var s ty)) eqs in
+      [VSUBST ilist prop]) ∧
+  (conexts_of_upd (TypeDefn name pred abs_name rep_name) =
+    let abs_type = Tyapp name (MAP Tyvar (STRING_SORT (tvars pred))) in
+    let rep_type = domain (typeof pred) in
+    let abs = Const abs_name (Fun rep_type abs_type) in
+    let rep = Const rep_name (Fun abs_type rep_type) in
+    let a = Var "a" abs_type in
+    let r = Var "r" rep_type in
+      [Comb abs (Comb rep a) === a;
+       Comb pred r === (Comb rep (Comb abs r) === r)]) ∧
+  (conexts_of_upd _ = [])`
+
+val _ = Parse.overload_on("axexts",``λctxt. FLAT (MAP axexts_of_upd ctxt)``)
+val _ = Parse.overload_on("conexts",``λctxt. FLAT (MAP conexts_of_upd ctxt)``)
+
+val _ = Parse.overload_on("axioms_of_upd",``λupd. axexts_of_upd upd ++ conexts_of_upd upd``)
+val _ = Parse.overload_on("axiom_list",``λctxt. FLAT (MAP axioms_of_upd ctxt)``)
+val _ = Parse.overload_on("axsof",``λctxt. set (axiom_list ctxt)``)
+
+val _ = export_rewrites["types_of_upd_def","consts_of_upd_def","axexts_of_upd_def"]
+
+  (* Now we can recover the theory associated with a context *)
+val _ = Parse.overload_on("thyof",``λctxt:update list. (sigof ctxt, axsof ctxt)``)
+
+(* Principles for extending the context *)
+
+val _ = Parse.add_infix("updates",450,Parse.NONASSOC)
+
+val (updates_rules,updates_ind,updates_cases) = Hol_reln`
+  (* new_axiom *)
+  (prop has_type Bool ∧
+   term_ok (sigof ctxt) prop
+   ⇒ (NewAxiom prop) updates ctxt) ∧
+
+  (* new_constant *)
+  (name ∉ (FDOM (tmsof ctxt)) ∧
+   type_ok (tysof ctxt) ty
+   ⇒ (NewConst name ty) updates ctxt) ∧
+
+  (* new_specification *)
+  ((thyof ctxt, MAP (λ(s,t). Var s (typeof t) === t) eqs) |- prop ∧
+   EVERY
+     (λt. CLOSED t ∧
+          (∀v. MEM v (tvars t) ⇒ MEM v (tyvars (typeof t))))
+     (MAP SND eqs) ∧
+   (∀x ty. VFREE_IN (Var x ty) prop ⇒
+             MEM (x,ty) (MAP (λ(s,t). (s,typeof t)) eqs)) ∧
+   (∀s. MEM s (MAP FST eqs) ⇒ s ∉ (FDOM (tmsof ctxt))) ∧
+   ALL_DISTINCT (MAP FST eqs)
+   ⇒ (ConstSpec eqs prop) updates ctxt) ∧
+
+  (* new_type *)
+  (name ∉ (FDOM (tysof ctxt))
+   ⇒ (NewType name arity) updates ctxt) ∧
+
+  (* new_type_definition *)
+  ((thyof ctxt, []) |- Comb pred witness ∧
+   CLOSED pred /\ pred has_type (Fun rep_type Bool) ∧
+   name ∉ (FDOM (tysof ctxt)) ∧
+   abs ∉ (FDOM (tmsof ctxt)) ∧
+   rep ∉ (FDOM (tmsof ctxt)) ∧
+   abs ≠ rep
+   ⇒ (TypeDefn name pred abs rep) updates ctxt)`
+
+val extends_def = Define`
+  extends ⇔ RTC (λctxt2 ctxt1. ∃upd. ctxt2 = upd::ctxt1 ∧ upd updates ctxt1)`
+val _ = Parse.add_infix("extends",450,Parse.NONASSOC)
+
+(* Context for the theory of Booleans and asserting the mathematical axioms *)
+
 val init_ctxt_def = Define`
   init_ctxt = [NewConst "=" (Fun (Tyvar"A") (Fun (Tyvar"A") Bool))
               ;NewType "bool" 0
               ;NewType "fun" 2]`
 
-val types_aux_def = Define`
-  (types_aux (Constdef eqs p) = []) /\
-  (types_aux (Typedef tyname t a r) = [(tyname,LENGTH (tvars t))])`
+  (* Standard signature includes the minimal type operators and constants *)
 
-val types_def = Define
- `types defs = FLAT (MAP types_aux defs)++[("ind",0);("bool",0);("fun",2)]`
-
-val consts_aux_def = Define
- `(consts_aux (Constdef eqs p) = MAP (\(s,t). (s, typeof t)) eqs) /\
-  (consts_aux (Typedef tyname t a r) =
-     let rep_type = domain (typeof t) in
-     let abs_type = Tyapp tyname (MAP Tyvar (STRING_SORT (tvars t))) in
-       [(a,Fun rep_type abs_type);
-        (r,Fun abs_type rep_type)])`
-
-val consts_def = Define
- `consts defs = FLAT (MAP consts_aux defs)++[("@",typeof(Select(Tyvar"A")));("=",typeof(Equal(Tyvar"A")))]`
-
-val _ = Parse.overload_on("Exists",``λx ty p. Comb (Const "?" (Fun (Fun ty Bool) Bool)) (Abs x ty p)``)
-val _ = Parse.overload_on("Forall",``λx ty p. Comb (Const "!" (Fun (Fun ty Bool) Bool)) (Abs x ty p)``)
-val _ = Parse.overload_on("And",``λp1 p2. Comb (Comb (Const "/\\" (Fun Bool (Fun Bool Bool))) p1) p2``)
+val _ = Parse.overload_on("ConstDef",``λx t. ConstSpec [(x,t)] (Var x (typeof t) === t)``)
 val _ = Parse.overload_on("Truth",``Const "T" Bool``)
-val _ = Parse.overload_on("Falsity",``Const "F" Bool``)
+val _ = Parse.overload_on("And",``λp1 p2. Comb (Comb (Const "/\\" (Fun Bool (Fun Bool Bool))) p1) p2``)
 val _ = Parse.overload_on("Implies",``λp1 p2. Comb (Comb (Const "==>" (Fun Bool (Fun Bool Bool))) p1) p2``)
+val _ = Parse.overload_on("Forall",``λx ty p. Comb (Const "!" (Fun (Fun ty Bool) Bool)) (Abs x ty p)``)
+val _ = Parse.overload_on("Exists",``λx ty p. Comb (Const "?" (Fun (Fun ty Bool) Bool)) (Abs x ty p)``)
+val _ = Parse.overload_on("Or",``λp1 p2. Comb (Comb (Const "\\/" (Fun Bool (Fun Bool Bool))) p1) p2``)
+val _ = Parse.overload_on("Falsity",``Const "F" Bool``)
 val _ = Parse.overload_on("Not",``λp. Comb (Const "~" (Fun Bool Bool)) p``)
-val _ = Parse.overload_on("One_One",``λa b f. Comb (Const "ONE_ONE" (Fun (Fun a b) Bool)) f``)
-val _ = Parse.overload_on("Onto",``λa b f. Comb (Const "ONTO" (Fun (Fun a b) Bool)) f``)
+val _ = Parse.overload_on("Select",``λty. Const "@" (Fun (Fun ty Bool) ty)``)
+val _ = Parse.overload_on("One_One",``λf. Comb (Const "ONE_ONE" (Fun (typeof f) Bool)) f``)
+val _ = Parse.overload_on("Onto",``λf. Comb (Const "ONTO" (Fun (typeof f) Bool)) f``)
+val _ = Parse.overload_on("Ind",``Tyapp "ind" []``)
 
-val _ = Parse.overload_on("CD1",``λn t. Constdef [(n,t)] (Var n (typeof t) === t)``)
+val bool_ctxt_def = Define`
+  bool_ctxt = REVERSE (REVERSE init_ctxt ++
+    let    A =  Tyvar "A" in
+    let    B =  Tyvar "B" in
+    let    p =    Var "p" Bool in
+    let Absp =    Abs "p" Bool in
+    let  FAp = Forall "p" Bool in
+    let    q =    Var "q" Bool in
+    let Absq =    Abs "q" Bool in
+    let  FAq = Forall "q" Bool in
+    let    r =    Var "r" Bool in
+    let  FAr = Forall "r" Bool in
+    let    f =    Var "f" (Fun Bool (Fun Bool Bool)) in
+    let Absf =    Abs "f" (Fun Bool (Fun Bool Bool)) in
+    let    P =    Var "P" (Fun A Bool) in
+    let AbsP =    Abs "P" (Fun A Bool) in
+    let    x =    Var "x" A in
+    let Absx =    Abs "x" A in
+    let  FAx = Forall "x" A in
+    let  EXx = Exists "x" A in
+    let    g =    Var "f" (Fun A B) in
+    let Absg =    Abs "f" (Fun A B) in
+    let   x1 =    Var "x1" A in
+    let FAx1 = Forall "x1" A in
+    let   x2 =    Var "x2" A in
+    let FAx2 = Forall "x2" A in
+    let    y =    Var "y" B in
+    let  FAy = Forall "y" B in
+    let    h =    Var "f" (Fun Ind Ind) in
+    let  Exh = Exists "f" (Fun Ind Ind) in
+    [(* ETA_AX *)
+     NewAxiom ((Absx (Comb g x)) === g)
+     (* SELECT_AX *)
+    ;NewConst "@" (Fun (Fun A Bool) A)
+    ;NewAxiom (Comb P (Comb (Select A) P))
+     (* connectives and quantifiers *)
+    ;ConstDef "T" (Absp p === Absp p)
+    ;ConstDef "/\\"
+       (Absp (Absq (Absf (Comb (Comb f p) q) ===
+                    Absf (Comb (Comb f Truth) Truth))))
+    ;ConstDef "==>" (Absp (Absq (And p q === Var "p" Bool)))
+    ;ConstDef "!" (AbsP (P === Absx Truth))
+    ;ConstDef "?" (AbsP (FAq (Implies (FAx (Implies (Comb P x) q)) q)))
+    ;ConstDef "\\/" (Absp (Absq (FAr (Implies (Implies p r) (Implies (Implies q r) r)))))
+    ;ConstDef "F" (FAp p)
+    ;ConstDef "~" (Absp (Implies p Falsity))
+     (* INFINITY_AX *)
+    ;ConstDef "ONE_ONE"
+       (Absg (FAx1 (FAx2 (Implies (Comb g x1 === Comb g x2) (x1 === x2)))))
+    ;ConstDef "ONTO" (Absg (FAy (EXx (y === Comb g x))))
+    ;NewType "ind" 0
+    ;NewAxiom (Exh (And (One_One h) (Not (Onto h))))
+    ])`
 
-(* Signature of known types and constants *)
-
-(* a type operator name is mapped to its arity *)
-val _ = Parse.type_abbrev("tysig",``:(string,num) list``)
-
-(* a constant name is mapped to its type *)
-val _ = Parse.type_abbrev("consig",``:string |-> type``)
-
-val _ = Parse.add_infix("|-",450,Parse.NONASSOC)
-
-val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"
- `(!n defs. context_ok defs ==> type_ok defs (Tyvar n)) /\
-  (!defs. context_ok defs ==> type_ok defs Ind) /\
-  (!defs tm ty. term_ok defs tm /\ tm has_type ty ==> type_ok defs ty) /\
-  (!defs n ls ty. type_ok defs (Tyapp n ls) /\ MEM ty ls ==> type_ok defs ty) /\
-
-  (!defs x ty. type_ok defs ty ==> term_ok defs (Var x ty)) /\
-  (!defs t1 t2. term_ok defs t1 /\ term_ok defs t2 /\ welltyped (Comb t1 t2) ==> term_ok defs (Comb t1 t2)) /\
-  (!defs x ty tm. term_ok defs tm /\ type_ok defs ty ==> term_ok defs (Abs x ty tm)) /\
-  (!defs t1 t2. term_ok defs (Comb t1 t2) ==> term_ok defs t1) /\
-  (!defs t1 t2. term_ok defs (Comb t1 t2) ==> term_ok defs t2) /\
-  (!defs x ty tm. term_ok defs (Abs x ty tm) ==> term_ok defs tm) /\
-  (!defs x t eqs p. context_ok defs /\ MEM (Constdef eqs p) defs /\ MEM (x,t) eqs
-                     ==> term_ok defs (Const x (typeof t))) /\
-  (!defs h c t. (defs,h) |- c /\ MEM t (c::h) ==> term_ok defs t) /\
-
-  (context_ok []) /\
-  (!defs h c. (defs,h) |- c ==> context_ok defs) /\
-
-  (!t defs.
-        context_ok defs /\ term_ok defs t
-        ==> (defs, []) |- t === t) /\
-  (!asl1 asl2 l m1 m2 r defs.
-        (defs, asl1) |- l === m1 /\ (defs, asl2) |- m2 === r /\ ACONV m1 m2
-        ==> (defs, TERM_UNION asl1 asl2) |- l === r) /\
-  (!asl1 l1 r1 asl2 l2 r2 defs.
-        (defs, asl1) |- l1 === r1 /\
-        (defs, asl2) |- l2 === r2 /\ welltyped(Comb l1 l2)
-        ==> (defs, TERM_UNION asl1 asl2) |- Comb l1 l2 === Comb r1 r2) /\
-  (!asl x ty l r defs.
-        ~(EXISTS (VFREE_IN (Var x ty)) asl) /\ type_ok defs ty /\
-        (defs, asl) |- l === r
-        ==> (defs, asl) |- (Abs x ty l) === (Abs x ty r)) /\
-  (!x ty t defs.
-        context_ok defs /\ term_ok defs t /\ type_ok defs ty
-        ==> (defs, []) |- Comb (Abs x ty t) (Var x ty) === t) /\
-  (!p defs.
-        context_ok defs /\ p has_type Bool /\ term_ok defs p
-        ==> (defs, [p]) |- p) /\
-  (!asl1 asl2 p q p' defs.
-        (defs, asl1) |- p === q /\ (defs, asl2) |- p' /\ ACONV p p'
-        ==> (defs, TERM_UNION asl1 asl2) |- q) /\
-  (!asl1 asl2 c1 c2 defs.
-        (defs, asl1) |- c1 /\ (defs, asl2) |- c2
-        ==> (defs, TERM_UNION (FILTER((~) o ACONV c2) asl1)
-                              (FILTER((~) o ACONV c1) asl2))
-               |- c1 === c2) /\
-  (!tyin asl p defs.
-        (!s s'. MEM (s',s) tyin ==> type_ok defs s') /\
-        (defs, asl) |- p
-        ==> (defs, MAP (INST tyin) asl) |- INST tyin p) /\
-  (!ilist asl p defs.
-        (!s s'. MEM (s',s) ilist ==> ?x ty. (s = Var x ty) /\ s' has_type ty /\
-                                            term_ok defs s') /\
-        (defs, asl) |- p
-        ==> (defs, MAP (VSUBST ilist) asl) |- VSUBST ilist p) /\
-  (!asl p eqs c defs.
-        (defs, asl) |- p /\
-        (defs, MAP (\(s,t). Var s (typeof t) === t) eqs) |- c /\
-        EVERY
-          (\t. CLOSED t /\
-               (!v. MEM v (tvars t) ==> MEM v (tyvars (typeof t))))
-          (MAP SND eqs) /\
-        (!x ty. VFREE_IN (Var x ty) c ==> MEM (x,ty) (MAP (\(s,t). (s,typeof t)) eqs)) /\
-        ALL_DISTINCT (MAP FST eqs ++ MAP FST (consts defs))
-        ==> (CONS (Constdef eqs c) defs, asl) |- p) /\
-  (!eqs p ilist defs.
-        context_ok defs /\ MEM (Constdef eqs p) defs /\
-        (ilist = MAP (\(s,t). (Const s (typeof t),Var s (typeof t))) eqs)
-        ==> (defs, []) |- VSUBST ilist p) /\
-  (!asl p tyname t a r defs x rep_type abs_type y d.
-        (d = Typedef tyname t a r) /\
-        (abs_type = Tyapp tyname (MAP Tyvar (STRING_SORT (tvars t)))) /\
-        (defs, []) |- Comb t y /\
-        CLOSED t /\ t has_type (Fun rep_type Bool) /\
-        ~(MEM tyname (MAP FST (types defs))) /\
-        ~(MEM a (MAP FST (consts defs))) /\
-        ~(MEM r (MAP FST (consts defs))) /\
-        ~(a = r) /\
-        ( (defs, asl) |- p  \/
-          ((asl,p) = ([],
-             Comb (Const a (Fun rep_type abs_type))
-                    (Comb (Const r (Fun abs_type rep_type))
-                          (Var x abs_type)) === Var x abs_type)) \/
-          ((asl,p) = ([],
-             Comb t (Var x rep_type) ===
-                Comb (Const r (Fun abs_type rep_type))
-                     (Comb (Const a (Fun rep_type abs_type))
-                           (Var x rep_type)) === Var x rep_type)) )
-        ==> (CONS d defs, asl) |- p) /\
-  (!ty1 ty2 defs.
-    context_ok defs /\ type_ok defs ty1 /\ type_ok defs ty2
-    ==> (defs,[]) |- Abs x ty1 (Comb (Var f (Fun ty1 ty2)) (Var x ty1)) === Var f (Fun ty1 ty2)) /\
-  (!asl p w ty defs.
-     p has_type (Fun ty Bool) /\ (defs,asl) |- Comb p w
-     ==> (defs,asl) |- Comb p (Comb (Select ty) p)) /\
-  (!defs.
-    context_ok defs ∧
-    MEM (CD1 "T" (Abs "p" Bool (Var "p" Bool) === Abs "p" Bool (Var "p" Bool))) defs ∧
-    MEM (CD1 "/\\" (Abs "p" Bool
-                          (Abs "q" Bool
-                            (Abs "f" (Fun Bool (Fun Bool Bool))
-                              (Comb (Comb (Var "f" (Fun Bool (Fun Bool Bool))) (Var "p" Bool)) (Var "q" Bool))
-                             ===
-                             Abs "f" (Fun Bool (Fun Bool Bool))
-                               (Comb (Comb (Var "f" (Fun Bool (Fun Bool Bool))) Truth) Truth))))) defs ∧
-    MEM (CD1 "==>" (Abs "p" Bool
-                          (Abs "q" Bool
-                            (And (Var "p" Bool) (Var "q" Bool) === Var "p" Bool)))) defs ∧
-    MEM (CD1 "!" (Abs "P" (Fun (Tyvar "A") Bool)
-                        (Var "P" (Fun (Tyvar "A") Bool) === Abs "x" (Tyvar "A") Truth))) defs ∧
-    MEM (CD1 "?" (Abs "P" (Fun (Tyvar "A") Bool)
-                        (Forall "q" Bool
-                          (Implies
-                            (Forall "x" (Tyvar "A")
-                              (Implies (Comb (Var "P" (Fun (Tyvar "A") Bool)) (Var "x" (Tyvar "A")))
-                                       (Var "q" Bool)))
-                            (Var "q" Bool))))) defs ∧
-    MEM (CD1 "F" (Forall "p" Bool (Var "p" Bool))) defs ∧
-    MEM (CD1 "~" (Abs "p" Bool (Implies (Var "p" Bool) Falsity))) defs ∧
-    MEM (CD1 "ONE_ONE"
-          (Abs "f" (Fun (Tyvar "A") (Tyvar "B"))
-            (Forall "x1" (Tyvar "A")
-              (Forall "x2" (Tyvar "A")
-                (Implies
-                  (Comb (Var "f" (Fun (Tyvar "A") (Tyvar "B"))) (Var "x1" (Tyvar "A"))
-                   ===
-                   Comb (Var "f" (Fun (Tyvar "A") (Tyvar "B"))) (Var "x2" (Tyvar "A")))
-                  (Var "x1" (Tyvar "A")
-                   ===
-                   Var "x2" (Tyvar "A"))))))) defs ∧
-    MEM (CD1 "ONTO"
-          (Abs "f" (Fun (Tyvar "A") (Tyvar "B"))
-            (Forall "y" (Tyvar "B")
-              (Exists "x" (Tyvar "A")
-                (Var "y" (Tyvar "B")
-                 ===
-                 Comb (Var "f" (Fun (Tyvar "A") (Tyvar "B")))
-                      (Var "x" (Tyvar "A"))))))) defs
-    ==> (defs,[]) |- Exists "f" (Fun Ind Ind)
-                       (And (One_One Ind Ind (Var "f" (Fun Ind Ind)))
-                            (Not (Onto Ind Ind (Var "f" (Fun Ind Ind))))))`
-
-*)
 val _ = export_theory()

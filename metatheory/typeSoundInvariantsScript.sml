@@ -51,31 +51,19 @@ val _ = Define `
  (MAP (\ (cn,(tvs,ts,t)) .  ((cn,t),(tvs,ts))) tenvC))`;
 
 
-(*val to_ctMap_list : tenvC -> env (conN * tid_or_exn) (list tvarN * list t)*)
-val _ = Define `
- (to_ctMap_list tenvC =  
- (flat_to_ctMap_list (SND tenvC) ++
-  FLAT (MAP (\ (mn, tenvC) .  flat_to_ctMap_list tenvC) (FST tenvC))))`;
-
-
 (*val flat_to_ctMap : flat_tenvC -> ctMap*)
 val _ = Define `
  (flat_to_ctMap tenvC = (FUPDATE_LIST FEMPTY (REVERSE (flat_to_ctMap_list tenvC))))`;
 
 
-(*val to_ctMap : tenvC -> ctMap*)
+(* Get the modules that are used by the type and exception definitions *)
+(*val decls_to_mods : decls -> set (maybe modN)*)
 val _ = Define `
- (to_ctMap tenvC = (FUPDATE_LIST FEMPTY (REVERSE (to_ctMap_list tenvC))))`;
-
-
-(* Get the modules that are used by the constructors *)
-(*val ctMap_to_mods : ctMap -> set (maybe modN)*)
-val _ = Define `
- (ctMap_to_mods ctMap =
-  ((({ SOME mn |  mn | ? cn tn. (cn,TypeId (Long mn tn)) IN (FDOM ctMap) } UNION
-   (if (? cn tn. (cn,TypeId (Short tn)) IN (FDOM ctMap)) then {NONE} else {})) UNION
-   { SOME mn |  mn | ? cn cn'. (cn,TypeExn (Long mn cn')) IN (FDOM ctMap) }) UNION
-   (if (? cn tn. (cn,TypeExn (Short tn)) IN (FDOM ctMap)) then {NONE} else {})))`;
+ (decls_to_mods (mdecls,tdecls,edecls) =  
+((({ SOME mn |  mn | ? tn. (Long mn tn) IN tdecls } UNION
+  { SOME mn |  mn | ? cn. (Long mn cn) IN edecls }) UNION
+  { NONE |  tn | Short tn IN tdecls }) UNION
+  { NONE |  tn | Short tn IN edecls }))`;
 
 
 (* Check that a constructor type environment is consistent with a runtime type
@@ -225,9 +213,8 @@ consistent_mod_env tenvS tenvC [] [])
 
 /\ (! tenvS tenvC mn env menv mn' tenv tenvM.
 ((mn = mn') /\
-(~ (MEM mn (MAP FST tenvM)) /\
 (type_env tenvC tenvS env (bind_var_list2 tenv Empty) /\
-consistent_mod_env tenvS tenvC menv tenvM)))
+consistent_mod_env tenvS tenvC menv tenvM))
 ==>
 consistent_mod_env tenvS tenvC ((mn,env)::menv) ((mn',tenv)::tenvM))`;
 
@@ -458,17 +445,14 @@ val _ = Define `
   (FLOOKUP ctMap ("Eq", TypeExn (Short "Eq")) = SOME ([],[])))))`;
 
 
-(* The constructors that are missing from the second map are all declared in
- * modules. *)
-(*val weakenCT_only_mods : ctMap -> ctMap -> bool*)
+(* The types and exceptions that are missing are all declared in modules. *)
+(*val weak_decls_only_mods : decls -> decls -> bool*)
 val _ = Define `
-  (weakenCT_only_mods ctMap1 ctMap2 =    
-((! id tvs ts tn. 
-       (FLOOKUP ctMap1 (id, TypeId (Short tn)) = SOME (tvs, ts)) ==>
-       (FLOOKUP ctMap2 (id, TypeId (Short tn)) = SOME (tvs, ts))) /\
-    (! id tvs ts cn. 
-       (FLOOKUP ctMap1 (id, TypeExn (Short cn)) = SOME (tvs, ts)) ==> 
-       (FLOOKUP ctMap2 (id, TypeExn (Short cn)) = SOME (tvs, ts)))))`;
+  (weak_decls_only_mods (mdecls1,tdecls1,edecls1) (mdecls2,tdecls2,edecls2) =    
+((! tn. 
+       ((Short tn IN tdecls1) ==> (Short tn IN tdecls2))) /\
+    (! cn. 
+       ((Short cn IN edecls1) ==> (Short cn IN edecls2)))))`;
 
 
 (* The run-time declared constructors and exceptions are all either declared in
@@ -494,14 +478,20 @@ val _ = Define `
     )))`;
 
 
+(*val decls_ok : decls -> bool*)
+val _ = Define `
+ (decls_ok (mdecls,tdecls,edecls) =  
+(decls_to_mods (mdecls,tdecls,edecls) SUBSET ({NONE} UNION IMAGE SOME mdecls)))`;
+
+
 (* For using the type soundess theorem, we have to know there are good
  * constructor and module type environments that don't have bits hidden by a
  * signature. *)
 val _ = Define `
  (type_sound_invariants (decls1,tenvM,tenvC,tenv,decls2,envM,envC,envE,store) =  
 (? ctMap tenvS decls_no_sig tenvM_no_sig tenvC_no_sig. 
-    consistent_decls decls2 decls1 /\    
-(consistent_ctMap decls1 ctMap /\    
+    consistent_decls decls2 decls_no_sig /\    
+(consistent_ctMap decls_no_sig ctMap /\    
 (ctMap_has_exns ctMap /\    
 (tenvM_ok tenvM_no_sig /\    
  (tenvM_ok tenvM /\    
@@ -510,17 +500,19 @@ val _ = Define `
 (type_env ctMap tenvS envE tenv /\    
 (type_s ctMap tenvS store /\    
 (weakM tenvM_no_sig tenvM /\    
-(weakC tenvC_no_sig tenvC /\
-    weak_decls decls_no_sig decls1))))))))))))`;
+(weakC tenvC_no_sig tenvC /\    
+(decls_ok decls_no_sig /\    
+(weak_decls decls_no_sig decls1 /\
+    weak_decls_only_mods decls_no_sig decls1))))))))))))))`;
 
 
 val _ = Define `
  (update_type_sound_inv top ((decls1:decls),(tenvM:tenvM),(tenvC:tenvC),(tenv:tenvE),(decls2: tid_or_exn set),(envM:envM),(envC:envC),(envE:envE),store) decls1' tenvM' tenvC' tenv' store' decls2' envC' r =  
 ((case r of
        Rval (envM',envE') => 
-         (decls1',(tenvM'++tenvM),merge_tenvC tenvC' tenvC,bind_var_list2 tenv' tenv,
+         (union_decls decls1' decls1,(tenvM'++tenvM),merge_tenvC tenvC' tenvC,bind_var_list2 tenv' tenv,
           decls2',(envM'++envM),merge_envC envC' envC,(envE'++envE),store')
-     | Rerr _ => (decls1',tenvM,tenvC,tenv,decls2',envM,envC,envE,store')
+     | Rerr _ => (union_decls decls1' decls1,tenvM,tenvC,tenv,decls2',envM,envC,envE,store')
   )))`;
 
 val _ = export_theory()

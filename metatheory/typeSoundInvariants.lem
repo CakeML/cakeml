@@ -33,24 +33,16 @@ val flat_to_ctMap_list : flat_tenvC -> env (conN * tid_or_exn) (list tvarN * lis
 let flat_to_ctMap_list tenvC = 
   List.map (fun (cn,(tvs,ts,t)) -> ((cn,t),(tvs,ts))) tenvC
 
-val to_ctMap_list : tenvC -> env (conN * tid_or_exn) (list tvarN * list t)
-let to_ctMap_list tenvC = 
-  flat_to_ctMap_list (snd tenvC) ++
-  List.concat (List.map (fun (mn, tenvC) -> flat_to_ctMap_list tenvC) (fst tenvC))
-
 val flat_to_ctMap : flat_tenvC -> ctMap
 let flat_to_ctMap tenvC = Map.fromList (List.reverse (flat_to_ctMap_list tenvC))
 
-val to_ctMap : tenvC -> ctMap
-let to_ctMap tenvC = Map.fromList (List.reverse (to_ctMap_list tenvC))
-
-(* Get the modules that are used by the constructors *)
-val ctMap_to_mods : ctMap -> set (maybe modN)
-let ctMap_to_mods ctMap =
-  ({ Just mn | forall mn | exists cn tn. (cn,TypeId (Long mn tn)) IN (Map.domain ctMap) } union
-   (if (exists cn tn. (cn,TypeId (Short tn)) IN (Map.domain ctMap)) then {Nothing} else {}) union
-   { Just mn | forall mn | exists cn cn'. (cn,TypeExn (Long mn cn')) IN (Map.domain ctMap) } union
-   (if (exists cn tn. (cn,TypeExn (Short tn)) IN (Map.domain ctMap)) then {Nothing} else {}))
+(* Get the modules that are used by the type and exception definitions *)
+val decls_to_mods : decls -> set (maybe modN)
+let decls_to_mods (mdecls,tdecls,edecls) =
+  { Just mn | forall mn | exists tn. (Long mn tn) IN tdecls } union
+  { Just mn | forall mn | exists cn. (Long mn cn) IN edecls } union
+  { Nothing | forall tn | Short tn IN tdecls } union
+  { Nothing | forall tn | Short tn IN edecls }
 
 (* Check that a constructor type environment is consistent with a runtime type
  * enviroment, using the full type keyed constructor type environment to ensure
@@ -232,7 +224,6 @@ and
 
 cons : forall tenvS tenvC mn env menv mn' tenv tenvM.
 (mn = mn') &&
-not (List.elem mn (List.map fst tenvM)) &&
 type_env tenvC tenvS env (bind_var_list2 tenv Empty) &&
 consistent_mod_env tenvS tenvC menv tenvM
 ==>
@@ -509,16 +500,13 @@ let ctMap_has_exns ctMap =
   (Map.lookup ("Div", TypeExn (Short "Div")) ctMap = Just ([],[])) &&
   (Map.lookup ("Eq", TypeExn (Short "Eq")) ctMap = Just ([],[]))
 
-(* The constructors that are missing from the second map are all declared in
- * modules. *)
-val weakenCT_only_mods : ctMap -> ctMap -> bool
-let  weakenCT_only_mods ctMap1 ctMap2 =
-    (forall id tvs ts tn. 
-       (Map.lookup (id, TypeId (Short tn)) ctMap1 = Just (tvs, ts)) -->
-       (Map.lookup (id, TypeId (Short tn)) ctMap2 = Just (tvs, ts))) &&
-    (forall id tvs ts cn. 
-       (Map.lookup (id, TypeExn (Short cn)) ctMap1 = Just (tvs, ts)) --> 
-       (Map.lookup (id, TypeExn (Short cn)) ctMap2 = Just (tvs, ts)))
+(* The types and exceptions that are missing are all declared in modules. *)
+val weak_decls_only_mods : decls -> decls -> bool
+let  weak_decls_only_mods (mdecls1,tdecls1,edecls1) (mdecls2,tdecls2,edecls2) =
+    (forall tn. 
+       (Short tn IN tdecls1 --> Short tn IN tdecls2)) &&
+    (forall cn. 
+       (Short cn IN edecls1 --> Short cn IN edecls2))
 
 (* The run-time declared constructors and exceptions are all either declared in
  * the type system, or from modules that have been declared *)
@@ -539,13 +527,17 @@ let consistent_ctMap (mdecls,tdecls,edecls) ctMap =
       | TypeExn cn -> cn IN edecls
     end
 
+val decls_ok : decls -> bool
+let decls_ok (mdecls,tdecls,edecls) =
+  decls_to_mods (mdecls,tdecls,edecls) subset ({Nothing} union Set.map Just mdecls)
+
 (* For using the type soundess theorem, we have to know there are good
  * constructor and module type environments that don't have bits hidden by a
  * signature. *)
 let type_sound_invariants (decls1,tenvM,tenvC,tenv,decls2,envM,envC,envE,store) =
   exists ctMap tenvS decls_no_sig tenvM_no_sig tenvC_no_sig. 
-    consistent_decls decls2 decls1 &&
-    consistent_ctMap decls1 ctMap &&
+    consistent_decls decls2 decls_no_sig &&
+    consistent_ctMap decls_no_sig ctMap &&
     ctMap_has_exns ctMap &&
     tenvM_ok tenvM_no_sig && 
     tenvM_ok tenvM &&
@@ -555,12 +547,14 @@ let type_sound_invariants (decls1,tenvM,tenvC,tenv,decls2,envM,envC,envE,store) 
     type_s ctMap tenvS store &&
     weakM tenvM_no_sig tenvM &&
     weakC tenvC_no_sig tenvC &&
-    weak_decls decls_no_sig decls1
+    decls_ok decls_no_sig &&
+    weak_decls decls_no_sig decls1 &&
+    weak_decls_only_mods decls_no_sig decls1
 
 let update_type_sound_inv top ((decls1:decls),(tenvM:tenvM),(tenvC:tenvC),(tenv:tenvE),(decls2:set tid_or_exn),(envM:envM),(envC:envC),(envE:envE),store) decls1' tenvM' tenvC' tenv' store' decls2' envC' r =
   match r with
      | Rval (envM',envE') -> 
-         (decls1',tenvM'++tenvM,merge_tenvC tenvC' tenvC,bind_var_list2 tenv' tenv,
+         (union_decls decls1' decls1,tenvM'++tenvM,merge_tenvC tenvC' tenvC,bind_var_list2 tenv' tenv,
           decls2',envM'++envM,merge_envC envC' envC,envE'++envE,store')
-     | Rerr _ -> (decls1',tenvM,tenvC,tenv,decls2',envM,envC,envE,store')
+     | Rerr _ -> (union_decls decls1' decls1,tenvM,tenvC,tenv,decls2',envM,envC,envE,store')
   end
