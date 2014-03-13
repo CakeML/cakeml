@@ -1,5 +1,6 @@
 open HolKernel boolLib bossLib lcsymtacs relationTheory pred_setTheory finite_mapTheory
-open holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
+open miscLib holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
+val _ = temp_tight_equality()
 val _ = new_theory"holBool"
 
 val _ = Parse.overload_on("Truth",``Const "T" Bool``)
@@ -103,6 +104,72 @@ val bool_extends_init = store_thm("bool_extends_init",
   ``mk_bool_ctxt init_ctxt extends init_ctxt``,
   match_mp_tac bool_extends >> simp[init_theory_ok] >>
   simp[init_ctxt_def])
+
+open holSemanticsTheory
+
+val mem = ``mem:'U->'U->bool``
+
+val _ = Parse.temp_overload_on("Boolrel",
+  ``λr.  (Abstract boolset (Funspace boolset boolset)
+           (λp. (Abstract boolset boolset
+              (λq. Boolean (r (p = True) (q = True))))))``)
+
+val is_bool_interpretation_def = xDefine"is_bool_interpretation"`
+  is_bool_interpretation0 ^mem i ⇔
+    is_std_interpretation i ∧
+    tmaof i interprets "T" on ∅ as K True ∧
+    tmaof i interprets "/\\" on ∅ as K (Boolrel $/\) ∧
+    tmaof i interprets "==>" on ∅ as K (Boolrel $==>) ∧
+    tmaof i interprets "!" on {"A"} as
+       (λτ. Abstract (Funspace (τ"A") boolset) boolset
+              (λP. Boolean (∀x. x <: (τ"A") ⇒ Holds P x))) ∧
+    tmaof i interprets "?" on {"A"} as
+       (λτ. Abstract (Funspace (τ"A") boolset) boolset
+              (λP. Boolean (∃x. x <: (τ"A") ∧ Holds P x))) ∧
+    tmaof i interprets "\\/" on ∅ as K (Boolrel $\/) ∧
+    tmaof i interprets "F" on ∅ as K False ∧
+    tmaof i interprets "~" on ∅ as K (Abstract boolset boolset (λp. Boolean (p ≠ True)))`
+val _ = Parse.overload_on("is_bool_interpretation",``is_bool_interpretation0 ^mem``)
+
+(*
+val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
+  ``is_set_theory ^mem ⇒
+    ∀ctxt i. theory_ok (thyof (mk_bool_ctxt ctxt)) ∧
+             i models (thyof (mk_bool_ctxt ctxt)) ⇒
+             is_bool_interpretation i``,
+  rw[] >>
+  simp[is_bool_interpretation_def] >>
+  conj_asm1_tac >- fs[models_def] >>
+  qabbrev_tac`ctx = mk_bool_ctxt ctxt` >>
+  qabbrev_tac`thy = thyof ctx` >>
+  qabbrev_tac`sig = sigof ctx` >>
+  imp_res_tac theory_ok_sig >>
+  `FLOOKUP (tysof sig) "bool" = SOME 0` by (
+    pop_assum mp_tac >>
+    simp[is_std_sig_def,Abbr`sig`,Abbr`ctx`,Abbr`thy`])
+  conj_asm1_tac >- (
+    fs[models_def] >>
+    first_x_assum(qspec_then`Const "T" Bool === (Absp p === Absp p)`mp_tac) >>
+    discharge_hyps >- (unabbrev_all_tac >> EVAL_TAC) >>
+    simp[satisfies_def] >>
+    qspecl_then[`tysof thy`,`tyaof i`]mp_tac (UNDISCH valuation_exists) >>
+    discharge_hyps >- fs[is_interpretation_def] >> strip_tac >>
+    disch_then(qspec_then`v`mp_tac) >> simp[] >>
+    `is_structure (sigof thy) i v` by fs[is_structure_def] >>
+    `term_ok (sigof thy) (Truth === Absp p === Absp p)` by (
+      fs[Abbr`thy`,term_ok_equation,term_ok_def,type_ok_def,Abbr`sig`,Abbr`ctx`
+        ,typeof_equation,welltyped_equation,EQUATION_HAS_TYPE_BOOL] >>
+      EVAL_TAC >> simp[]) >>
+    `term_ok (sigof (mk_bool_ctxt ctxt)) (Absp p === Absp p)` by (
+      unabbrev_all_tac >>
+      fs[term_ok_equation,term_ok_def,type_ok_def
+        ,typeof_equation,welltyped_equation,EQUATION_HAS_TYPE_BOOL] ) >>
+    rfs[Abbr`thy`,Abbr`sig`,termsem_equation,boolean_eq_true,termsem_def] >>
+    qspecl_then[`sigof ctx`,`i`,`"T"`,`Bool`,`Bool`,`[]`]mp_tac instance_def >>
+    simp[Abbr`ctx`] >>
+    discharge_hyps >- EVAL_TAC >> simp[tyvars_def]
+    is_std_interpretation_def
+*)
 
 (*
 val is_bool_sig_def = Define`
