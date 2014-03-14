@@ -570,6 +570,14 @@ val satisfies_consts = store_thm("satisfies_consts",
 
 (* valuations exist *)
 
+val term_valuation_exists = store_thm("term_valuation_exists",
+  ``is_set_theory ^mem ⇒
+    ∀tyenv δ τ. is_type_valuation τ ∧ is_type_assignment tyenv δ ⇒
+      ∃σ. is_valuation tyenv δ (τ,σ)``,
+  rw[is_valuation_def,is_term_valuation_def] >>
+  qexists_tac`λ(x,ty). @v. v <: typesem δ τ ty` >> rw[] >>
+  metis_tac[typesem_inhabited])
+
 val valuation_exists = store_thm("valuation_exists",
   ``is_set_theory ^mem ⇒
     ∀tyenv δ. is_type_assignment tyenv δ ⇒
