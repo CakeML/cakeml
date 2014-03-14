@@ -363,6 +363,7 @@ val new_type_correct = store_thm("new_type_correct",
   imp_res_tac ALOOKUP_MEM >>
   fs[MEM_MAP,EXISTS_PROD] >> metis_tac[])
 
+val eqsh_def = new_definition("eqsh",``eqsh = $=``)
 val new_type_definition_correct = store_thm("new_type_definition_correct",
   ``is_set_theory ^mem ⇒
     ∀ctxt h c name pred abs rep rep_type witness.
@@ -396,7 +397,7 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
   qabbrev_tac`mty = λargs. typesem δ (tv args) rep_type suchthat Holds (mpred (tv args))` >>
   qabbrev_tac`mrep = λargs. Abstract (mty args) (typesem δ (tv args) rep_type)  I` >>
   qabbrev_tac`mabs = λargs. Abstract (typesem δ (tv args) rep_type) (mty args)
-                           (λv. if Holds (mpred τ) v then v else @v. v <: mty args)` >>
+                           (λv. if Holds (mpred (tv args)) v then v else @v. v <: mty args)` >>
   imp_res_tac proves_sound >>
   imp_res_tac proves_term_ok >>
   fs[term_ok_def] >>
@@ -450,20 +451,6 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
   `∀x. MEM x (tyvars (typeof witness)) ∨ MEM x (tvars pred) ⇔ MEM x (tvars pred)` by (
     rw[] >> imp_res_tac tyvars_typeof_subset_tvars >> fs[SUBSET_DEF,tyvars_def] >>
     metis_tac[]) >>
-  `∀τ y. typesem δ (λx. if MEM x (tvars pred) then τ x else y) (typeof witness) =
-         typesem δ τ (typeof witness)` by (
-    rpt gen_tac >> match_mp_tac typesem_tyvars >> rw[] >> metis_tac[]) >>
-  `∀τ y. mpred (λx. if MEM x (tvars pred) then τ x else y) =
-         mpred τ` by (
-    rpt gen_tac >> simp[Abbr`mpred`] >>
-    qmatch_abbrev_tac`termsem sig i (v1,v2) pred = termsem sig i (v3,v4) pred` >>
-    `termsem sig i (v1,v2) pred = termsem sig i (v3,v2) pred` by (
-      match_mp_tac termsem_tyfrees >>
-      fs[Abbr`sig`,Abbr`v1`] ) >>
-    `termsem sig i (v3,v2) pred = termsem sig i (v3,v4) pred` by (
-      match_mp_tac termsem_frees >>
-      fs[CLOSED_def] ) >>
-    unabbrev_all_tac >> simp[] ) >>
   `∀τ. tv (MAP τ argv) = (λx. if MEM x (tvars pred) then τ x else boolset)` by (
     simp[Abbr`tv`,FUN_EQ_THM] >> rw[] >- (
       simp[APPLY_UPDATE_LIST_ALOOKUP] >>
@@ -476,13 +463,38 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
     simp[APPLY_UPDATE_LIST_ALOOKUP] >>
     BasicProvers.CASE_TAC  >> imp_res_tac ALOOKUP_MEM >>
     fs[MEM_ZIP] >> metis_tac[MEM_EL]) >>
-  `STRING_SORT (tyvars (Fun (typeof witness) abs_type)) = argv` by (
-    simp[Abbr`argv`] >>
-    print_apropos``SORTED STRING_SORT l1 = STRING_SORT l2``
-    print_find"STRING_SORT"
-    unabbrev_all_tac >>
-    simp[tyvars_def]
-
+  `∀τ y. mpred (λx. if MEM x (tvars pred) then τ x else y) =
+         mpred τ` by (
+    rpt gen_tac >> simp[Abbr`mpred`] >>
+    qmatch_abbrev_tac`termsem sig i (v1,v2) pred = termsem sig i (v3,v4) pred` >>
+    `termsem sig i (v1,v2) pred = termsem sig i (v3,v2) pred` by (
+      match_mp_tac termsem_tyfrees >>
+      fs[Abbr`sig`,Abbr`v1`] ) >>
+    `termsem sig i (v3,v2) pred = termsem sig i (v3,v4) pred` by (
+      match_mp_tac termsem_frees >>
+      fs[CLOSED_def] ) >>
+    unabbrev_all_tac >> simp[] ) >>
+  `∀τ y. typesem δ (λx. if MEM x (tvars pred) then τ x else y) (typeof witness) =
+         typesem δ τ (typeof witness)` by (
+    rpt gen_tac >> match_mp_tac typesem_tyvars >> rw[] >> metis_tac[]) >>
+  `eqsh (STRING_SORT (tyvars (Fun (typeof witness) abs_type))) argv` by (
+    simp[Abbr`argv`,eqsh_def] >>
+    qmatch_abbrev_tac`STRING_SORT l1 = STRING_SORT l2` >>
+    qsuff_tac`set l1 = set l2` >- (
+      simp[EXTENSION] >>
+      `ALL_DISTINCT l1 ∧ ALL_DISTINCT l2` by metis_tac [tvars_ALL_DISTINCT,tyvars_ALL_DISTINCT] >>
+      metis_tac[STRING_SORT_EQ,sortingTheory.MEM_PERM,sortingTheory.PERM_ALL_DISTINCT] ) >>
+    simp[Abbr`l1`,Abbr`l2`,tyvars_def,Abbr`abs_type`,EXTENSION,MEM_FOLDR_LIST_UNION,MEM_MAP,PULL_EXISTS] ) >>
+  `eqsh (STRING_SORT (tyvars (Fun abs_type (typeof witness)))) argv` by (
+    simp[Abbr`argv`,eqsh_def] >>
+    qmatch_abbrev_tac`STRING_SORT l1 = STRING_SORT l2` >>
+    qsuff_tac`set l1 = set l2` >- (
+      simp[EXTENSION] >>
+      `ALL_DISTINCT l1 ∧ ALL_DISTINCT l2` by metis_tac [tvars_ALL_DISTINCT,tyvars_ALL_DISTINCT] >>
+      metis_tac[STRING_SORT_EQ,sortingTheory.MEM_PERM,sortingTheory.PERM_ALL_DISTINCT] ) >>
+    simp[Abbr`l1`,Abbr`l2`,tyvars_def,Abbr`abs_type`,EXTENSION,MEM_FOLDR_LIST_UNION,MEM_MAP,PULL_EXISTS] >>
+    imp_res_tac tyvars_typeof_subset_tvars >> fs[SUBSET_DEF,tyvars_def] >>
+    metis_tac[]) >>
   qexists_tac`(name =+ mty) δ,
               (abs =+ mabs) ((rep =+ mrep) (tmaof i))` >>
   conj_asm1_tac >- (
@@ -501,20 +513,20 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
       `a = c` by (
         simp[Abbr`a`,Abbr`c`] >>
         match_mp_tac typesem_frees >>
-
-        simp[tyvars_def] ) >>
+        fs[eqsh_def] >> rw[] >>
+        imp_res_tac tyvars_typeof_subset_tvars >>
+        fs[tyvars_def,SUBSET_DEF]) >>
       `b = d` by (
         simp[Abbr`b`,Abbr`d`,Abbr`mty`,Abbr`abs_type`,typesem_def
             ,combinTheory.APPLY_UPDATE_THM,MAP_MAP_o,combinTheory.o_DEF] >>
-        simp[tyvars_def,MEM_FOLDR_LIST_UNION] >>
-        simp[MEM_MAP,PULL_EXISTS,tyvars_def,Abbr`argv`] ) >>
+        fs[eqsh_def]) >>
       simp[] >>
       match_mp_tac (UNDISCH abstract_in_funspace) >>
       simp[Abbr`f`,Abbr`c`,Abbr`d`,Abbr`a`,Abbr`b`] >>
       gen_tac >> strip_tac >> BasicProvers.CASE_TAC >- (
         rw[Abbr`abs_type`,typesem_def,combinTheory.APPLY_UPDATE_THM,MAP_MAP_o,combinTheory.o_DEF,Abbr`mty`] >>
         simp[mem_sub] >>
-        rfs[tyvars_def,MEM_FOLDR_LIST_UNION,MEM_MAP,PULL_EXISTS,Abbr`argv`] ) >>
+        rfs[tyvars_def,MEM_FOLDR_LIST_UNION,MEM_MAP,PULL_EXISTS,Abbr`argv`,eqsh_def] ) >>
       SELECT_ELIM_TAC >> simp[] >>
       match_mp_tac (UNDISCH typesem_inhabited) >>
       qexists_tac`tys'` >> simp[] >>
@@ -524,10 +536,12 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
       simp[Abbr`mrep`] >>
       qmatch_abbrev_tac`Abstract a b f <: Funspace c d` >>
       `a = c` by (
+        rfs[eqsh_def] >>
         simp[Abbr`a`,Abbr`c`,Abbr`mty`,Abbr`b`,Abbr`abs_type`,typesem_def,combinTheory.APPLY_UPDATE_THM] >>
-        simp[MAP_MAP_o,typesem_def,Abbr`d`,tyvars_def,MEM_FOLDR_LIST_UNION,PULL_EXISTS,MEM_MAP,Abbr`argv`] >>
+        simp[MAP_MAP_o,typesem_def,Abbr`d`,tyvars_def,MEM_FOLDR_LIST_UNION,PULL_EXISTS,MEM_MAP,Abbr`argv`,eqsh_def] >>
         fs[DISJ_COMM] ) >>
       `b = d` by (
+        rfs[eqsh_def] >>
         simp[Abbr`b`,Abbr`d`,Abbr`mty`,Abbr`abs_type`,typesem_def
             ,combinTheory.APPLY_UPDATE_THM,MAP_MAP_o,combinTheory.o_DEF] >>
         simp[tyvars_def,MEM_FOLDR_LIST_UNION] >>
@@ -601,8 +615,9 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
     disch_then(qspec_then`[]`mp_tac)>>simp[] >> disch_then kall_tac >>
     simp[Abbr`ii`,combinTheory.APPLY_UPDATE_THM] >>
     simp[REV_ASSOCD,typesem_def] >>
-    simp[Abbr`mrep`,tyvars_def,Abbr`abs_type`,MEM_FOLDR_LIST_UNION,MEM_MAP,PULL_EXISTS,Abbr`argv`,Abbr`mty`] >>
-    fs[DISJ_COMM] >>
+    rpt(qpat_assum`eqsh X Y`mp_tac) >>
+    simp[eqsh_def] >> ntac 2 (disch_then kall_tac) >>
+    simp[Abbr`mrep`,Abbr`argv`,combinTheory.o_DEF,typesem_def,Abbr`abs_type`,Abbr`mty`] >>
     PairCases_on`v` >>
     simp[Abbr`mabs`,ETA_AX] >>
     qmatch_abbrev_tac`Abstract a b f ' (Abstract b a I ' c) = c` >> rfs[] >>
@@ -680,8 +695,9 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
     simp[Abbr`x`] >>
     match_mp_tac termsem_frees >>
     fs[CLOSED_def] ) >>
-  simp[Abbr`mrep`,tyvars_def,Abbr`abs_type`,MEM_FOLDR_LIST_UNION,MEM_MAP,PULL_EXISTS,Abbr`argv`,Abbr`mty`] >>
-  fs[DISJ_COMM] >>
+  rpt(qpat_assum`eqsh X Y`mp_tac) >>
+  simp[eqsh_def] >> ntac 2 (disch_then kall_tac) >>
+  simp[Abbr`mrep`,Abbr`argv`,combinTheory.o_DEF,typesem_def,Abbr`abs_type`,Abbr`mty`] >>
   PairCases_on`v` >>
   simp[Abbr`mabs`,ETA_AX] >>
   qmatch_abbrev_tac`f ' x = Boolean (Abstract a b I ' (Abstract b a g ' x) = x)` >>
@@ -735,6 +751,7 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
     SELECT_ELIM_TAC >> conj_tac >- metis_tac[] >>
     simp[Abbr`a`,mem_sub,holds_def] ) >>
   metis_tac[mem_boolset])
+val _ = delete_const"eqsh"
 
 val updates_consistent = store_thm("updates_consistent",
   ``is_set_theory ^mem ⇒

@@ -267,18 +267,17 @@ val STRING_SORT_SORTED = store_thm("STRING_SORT_SORTED",
   rw[] >> fs[relationTheory.transitive_def] >>
   METIS_TAC[])
 
-(*
 val STRING_SORT_EQ = store_thm("STRING_SORT_EQ",
-  ``∀l1 l2. STRING_SORT l1 = STRING_SORT l2 ⇔ PERM l1 l2``,
-  rw[EQ_IMP_THM] >>
-  `transitive $< ∧ antisymmetric $<`
- SORTED_PERM_EQ
-  Induct >> simp[STRING_SORT_def] >- (
-    Cases >> simp[INORDER_INSERT_def] ) >>
-  simp[INORDER_INSERT_def]
-  print_apropos``QSORT R l1 = QSORT R l2``
-  SORTED_EQ
-*)
+  ``∀l1 l2. ALL_DISTINCT l1 ∧ ALL_DISTINCT l2 ⇒
+      (STRING_SORT l1 = STRING_SORT l2 ⇔ PERM l1 l2)``,
+  rw[] >>
+  imp_res_tac PERM_STRING_SORT >>
+  `transitive string_lt ∧ antisymmetric string_lt` by (
+    simp[relationTheory.transitive_def,relationTheory.antisymmetric_def] >>
+    METIS_TAC[string_lt_trans,string_lt_antisym] ) >>
+  `SORTED $< (STRING_SORT l1) ∧ SORTED $< (STRING_SORT l2)`
+    by METIS_TAC[STRING_SORT_SORTED] >>
+  METIS_TAC[SORTED_PERM_EQ,PERM_REFL,PERM_SYM,PERM_TRANS])
 
 val ALL_DISTINCT_LIST_UNION = store_thm("ALL_DISTINCT_LIST_UNION",
   ``∀l1 l2. ALL_DISTINCT l2 ⇒ ALL_DISTINCT (LIST_UNION l1 l2)``,
