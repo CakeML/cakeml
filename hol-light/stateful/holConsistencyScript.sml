@@ -51,6 +51,7 @@ val init_ctxt_has_model = store_thm("init_ctxt_has_model",
   rw[FEVERY_FUPDATE,Abbr`y2`,Abbr`y1`,Abbr`y3`,FEVERY_FEMPTY,Abbr`z3`] >>
   rw[typesem_def,tyvars_def] >>
   TRY (
+    rw[INORDER_INSERT_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def] >>
     match_mp_tac (UNDISCH abstract_in_funspace) >> rw[] >>
     match_mp_tac (UNDISCH abstract_in_funspace) >> rw[boolean_in_boolset] ) >>
   BasicProvers.CASE_TAC >> fs[] >- metis_tac[boolean_in_boolset] >>
@@ -68,14 +69,20 @@ val new_constant_correct = store_thm("new_constant_correct",
       ∀i. i models (thyof ctxt) ⇒
         ∃i'. i' models (thyof (NewConst name ty::ctxt))``,
   rw[models_def] >>
-  qexists_tac`(tyaof i, (name =+ λτ. @v. v <: typesem (tyaof i) τ ty) (tmaof i))` >>
+  qexists_tac`(tyaof i,
+    (name =+ λl. @v. v <: typesem (tyaof i) ((K boolset) =++ (REVERSE(ZIP(STRING_SORT (tyvars ty),l)))) ty)
+    (tmaof i))` >>
   simp[conexts_of_upd_def] >>
   conj_asm1_tac >- (
     fs[is_interpretation_def,is_term_assignment_def,FEVERY_ALL_FLOOKUP,FLOOKUP_UPDATE] >>
     simp[combinTheory.APPLY_UPDATE_THM] >> rw[] >>
     qmatch_abbrev_tac`(@v. v <: (typesem δ τ' ty)) <: x` >>
     `typesem δ τ' ty = typesem δ τ ty` by (
-      match_mp_tac typesem_tyvars >> simp[Abbr`τ'`] ) >>
+      match_mp_tac typesem_tyvars >>
+      simp[Abbr`τ'`,APPLY_UPDATE_LIST_ALOOKUP,ZIP_MAP] >>
+      rw[] >> BasicProvers.CASE_TAC >>
+      fs[ALOOKUP_FAILS] >> imp_res_tac ALOOKUP_MEM >>
+      fs[MEM_MAP]) >>
     metis_tac[typesem_inhabited] ) >>
   conj_tac >- (
     imp_res_tac theory_ok_sig >>
@@ -111,7 +118,10 @@ val new_specification_correct = store_thm("new_specification_correct",
     ∀i. i models (thyof ctxt) ⇒
       ∃i'. i' models (thyof (ConstSpec eqs prop::ctxt))``,
   rw[models_def] >>
-  qexists_tac`(tyaof i, (tmaof i) =++ MAP (λ(s,t). (s, λτ. termsem (sigof ctxt) i (τ,ARB) t)) (REVERSE eqs))` >>
+  qexists_tac`(tyaof i,
+    (tmaof i) =++
+      MAP (λ(s,t). (s, λl. termsem (sigof ctxt) i ((K boolset)=++(REVERSE(ZIP(STRING_SORT(tyvars(typeof t)),l))),ARB) t))
+          (REVERSE eqs))` >>
   conj_asm1_tac >- (
     fs[is_interpretation_def,is_term_assignment_def,FEVERY_ALL_FLOOKUP,FLOOKUP_FUNION] >>
     simp[ALOOKUP_MAP,APPLY_UPDATE_LIST_ALOOKUP,rich_listTheory.MAP_REVERSE] >>
@@ -126,7 +136,10 @@ val new_specification_correct = store_thm("new_specification_correct",
       fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS] >>
       rfs[term_ok_equation] >>
       conj_tac >- metis_tac[] >>
-      rw[Abbr`t1`] >> metis_tac[] ) >>
+      rw[Abbr`t1`,APPLY_UPDATE_LIST_ALOOKUP,ZIP_MAP] >>
+      BasicProvers.CASE_TAC >>
+      fs[ALOOKUP_FAILS] >> imp_res_tac ALOOKUP_MEM >>
+      fs[MEM_MAP] >> metis_tac[] ) >>
     `is_valuation (tysof sig) (tyaof i) (τ,λ(x,ty). @v. v <: typesem (tyaof i) τ ty)` by (
       fs[is_valuation_def,is_term_valuation_def] >> rw[] >>
       SELECT_ELIM_TAC >> simp[] >>
@@ -243,7 +256,12 @@ val new_specification_correct = store_thm("new_specification_correct",
       imp_res_tac theory_ok_sig >>
       fs[EVERY_MAP,term_ok_equation,LAMBDA_PROD] >>
       fs[EVERY_MEM,FORALL_PROD] >>
-      rw[] >> metis_tac[] ) >>
+      conj_tac >- metis_tac[] >>
+      simp[APPLY_UPDATE_LIST_ALOOKUP,ZIP_MAP] >>
+      rw[] >>
+      BasicProvers.CASE_TAC >> fs[ALOOKUP_FAILS] >>
+      imp_res_tac ALOOKUP_MEM >> fs[MEM_MAP,EXISTS_PROD,Abbr`ty`] >>
+      rw[typesem_def] >> metis_tac[]) >>
     `termsem sig i (τ,v2) tt = termsem sig i (τ,σ) tt` by (
        match_mp_tac termsem_frees >>
        fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,CLOSED_def] >>
@@ -284,7 +302,12 @@ val new_specification_correct = store_thm("new_specification_correct",
     imp_res_tac theory_ok_sig >>
     fs[EVERY_MAP,term_ok_equation,LAMBDA_PROD] >>
     fs[EVERY_MEM,FORALL_PROD] >>
-    rw[] >> metis_tac[] ) >>
+    conj_tac >- metis_tac[]>>
+    simp[APPLY_UPDATE_LIST_ALOOKUP,ZIP_MAP] >>
+    rw[] >>
+    BasicProvers.CASE_TAC >> fs[ALOOKUP_FAILS] >>
+    imp_res_tac ALOOKUP_MEM >> fs[MEM_MAP,EXISTS_PROD] >>
+    rw[typesem_def] >> metis_tac[]) >>
   `termsem sig i (v3,v2) tt = termsem sig i (v3,v4) tt` by (
     match_mp_tac termsem_frees >> simp[] >>
     fs[EVERY_MAP,LAMBDA_PROD,EVERY_MEM,FORALL_PROD,CLOSED_def] >>
@@ -366,16 +389,14 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
   qunabbrev_tac`Y` >>
   qabbrev_tac`argv = STRING_SORT (tvars pred)` >>
   qabbrev_tac`tv:'U list -> 'U tyval = λargs a.
-      (case find_index a (STRING_SORT (tvars pred)) 0 of
-       | SOME n => EL n args
-       | NONE => boolset)` >>
+    (K boolset =++ (REVERSE(ZIP((STRING_SORT(tvars pred),args))))) a` >>
   qabbrev_tac`δ = tyaof i` >>
   qabbrev_tac`sv:'U tyval->'U tmval = λτ (x,ty). @v. v <: typesem δ τ ty` >>
   qabbrev_tac`mpred = λτ. termsem (sigof ctxt) i (τ, sv τ) pred` >>
   qabbrev_tac`mty = λargs. typesem δ (tv args) rep_type suchthat Holds (mpred (tv args))` >>
-  qabbrev_tac`mrep = λτ. Abstract (mty (MAP τ argv)) (typesem δ τ rep_type)  I` >>
-  qabbrev_tac`mabs = λτ. Abstract (typesem δ τ rep_type) (mty (MAP τ argv))
-                           (λv. if Holds (mpred τ) v then v else @v. v <: mty (MAP τ argv))` >>
+  qabbrev_tac`mrep = λargs. Abstract (mty args) (typesem δ (tv args) rep_type)  I` >>
+  qabbrev_tac`mabs = λargs. Abstract (typesem δ (tv args) rep_type) (mty args)
+                           (λv. if Holds (mpred τ) v then v else @v. v <: mty args)` >>
   imp_res_tac proves_sound >>
   imp_res_tac proves_term_ok >>
   fs[term_ok_def] >>
@@ -386,9 +407,11 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
   `∀ls. EVERY inhabited ls ∧ LENGTH ls = LENGTH (tvars pred)
     ⇒ is_type_valuation (tv ls)` by (
     simp[is_type_valuation_def,Abbr`tv`] >> rw[] >>
+    simp[APPLY_UPDATE_LIST_ALOOKUP] >>
     BasicProvers.CASE_TAC >- metis_tac[boolean_in_boolset] >>
-    fs[EVERY_MEM,MEM_EL,PULL_EXISTS,Abbr`argv`] >>
-    imp_res_tac find_index_LESS_LENGTH >> fs[] >> NO_TAC ) >>
+    imp_res_tac ALOOKUP_MEM >>
+    rfs[MEM_ZIP,Abbr`argv`,EVERY_MEM] >>
+    metis_tac[MEM_EL] ) >>
   `is_std_type_assignment ((name =+ mty) δ)` by (
     fs[is_std_type_assignment_def,combinTheory.APPLY_UPDATE_THM,Abbr`δ`] ) >>
   `∀τ. is_type_valuation τ ⇒ is_term_valuation (tysof ctxt) δ τ (sv τ)` by (
@@ -443,13 +466,23 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
     unabbrev_all_tac >> simp[] ) >>
   `∀τ. tv (MAP τ argv) = (λx. if MEM x (tvars pred) then τ x else boolset)` by (
     simp[Abbr`tv`,FUN_EQ_THM] >> rw[] >- (
+      simp[APPLY_UPDATE_LIST_ALOOKUP] >>
       `MEM x argv` by simp[Abbr`argv`] >>
-      imp_res_tac find_index_MEM >>
-      rpt(first_x_assum(qspec_then`0`strip_assume_tac)) >>
+      BasicProvers.CASE_TAC >>
+      fs[ALOOKUP_FAILS,MEM_ZIP] >- metis_tac[MEM_EL] >>
+      imp_res_tac ALOOKUP_MEM >> fs[MEM_ZIP] >>
       simp[EL_MAP] ) >>
     `¬MEM x argv` by simp[Abbr`argv`] >>
-    `find_index x argv 0 = NONE` by metis_tac[find_index_NOT_MEM] >>
-    simp[] ) >>
+    simp[APPLY_UPDATE_LIST_ALOOKUP] >>
+    BasicProvers.CASE_TAC  >> imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_ZIP] >> metis_tac[MEM_EL]) >>
+  `STRING_SORT (tyvars (Fun (typeof witness) abs_type)) = argv` by (
+    simp[Abbr`argv`] >>
+    print_apropos``SORTED STRING_SORT l1 = STRING_SORT l2``
+    print_find"STRING_SORT"
+    unabbrev_all_tac >>
+    simp[tyvars_def]
+
   qexists_tac`(name =+ mty) δ,
               (abs =+ mabs) ((rep =+ mrep) (tmaof i))` >>
   conj_asm1_tac >- (
@@ -468,6 +501,7 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
       `a = c` by (
         simp[Abbr`a`,Abbr`c`] >>
         match_mp_tac typesem_frees >>
+
         simp[tyvars_def] ) >>
       `b = d` by (
         simp[Abbr`b`,Abbr`d`,Abbr`mty`,Abbr`abs_type`,typesem_def

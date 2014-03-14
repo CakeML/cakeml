@@ -79,7 +79,7 @@ val termsem_typesem = store_thm("termsem_typesem",
     qmatch_abbrev_tac`instance sig ii name ty τ <: X` >>
     qspecl_then[`sig`,`ii`,`name`,`ty`]mp_tac instance_def >>
     rw[Abbr`ty`,Abbr`ii`,Abbr`sig`] >>
-    simp[Once typesem_TYPE_SUBST,Abbr`X`] >>
+    simp[Once typesem_TYPE_SUBST,Abbr`X`,combinTheory.o_DEF] >>
     qmatch_abbrev_tac`X <: typesem δ τi ty0` >>
     fs[is_interpretation_def,is_term_assignment_def,FEVERY_ALL_FLOOKUP] >>
     first_x_assum (qspecl_then[`name`,`ty0`]mp_tac) >>
@@ -91,7 +91,9 @@ val termsem_typesem = store_thm("termsem_typesem",
       match_mp_tac (UNDISCH typesem_inhabited) >>
       imp_res_tac type_ok_TYPE_SUBST_imp >>
       fs[is_valuation_def] >> metis_tac[] ) >>
-    qmatch_abbrev_tac`a <: b ⇒ a <: b'` >>
+    qmatch_abbrev_tac`a <: b ⇒ a' <: b'` >>
+    `a' = a` by (
+      unabbrev_all_tac >> rpt AP_TERM_TAC >> simp[MAP_EQ_f] ) >>
     `b' = b` by (
       unabbrev_all_tac >>
       match_mp_tac typesem_tyvars >> rw[] ) >>
@@ -118,15 +120,28 @@ val Equalsem =
   |> strip_comb |> snd |> last
 
 val termsem_Equal = store_thm("termsem_Equal",
-  ``∀Γ i v ty.
-      is_std_sig Γ ∧ is_std_interpretation i ⇒
-      termsem Γ i v (Equal ty) = ^Equalsem (K (typesem (FST i) (FST v) ty))``,
-  rw[termsem_def,LET_THM] >>
-  qspecl_then[`Γ`,`i`,`"="`]mp_tac instance_def >>
-  Cases_on`Γ`>>fs[is_std_sig_def]>>
+  ``is_set_theory ^mem ⇒
+    ∀Γ i v ty.
+      is_structure Γ i v ∧ type_ok (tysof Γ) ty ⇒
+      termsem Γ i v (Equal ty) = ^Equalsem [typesem (FST i) (FST v) ty]``,
+  rw[termsem_def,LET_THM] >> fs[is_structure_def] >>
+  qspecl_then[`Γ`,`i`,`"="`]mp_tac instance_def >> fs[is_std_sig_def]>>
   disch_then(qspec_then`[(ty,Tyvar"A")]`mp_tac)>>
   simp[REV_ASSOCD] >> disch_then kall_tac >>
-  fs[is_std_interpretation_def,typesem_def,tyvars_def,LET_THM,interprets_def])
+  Q.PAT_ABBREV_TAC`aa = tyvars X` >>
+  `aa = ["A"]` by simp[tyvars_def,Abbr`aa`,LIST_UNION_def,LIST_INSERT_def] >>
+  Q.PAT_ABBREV_TAC`tt = typesem (tyaof i) Y o TYPE_SUBST Z o Tyvar` >>
+  `is_type_valuation tt` by (
+    simp[Abbr`tt`,is_type_valuation_def] >>
+    rw[REV_ASSOCD,typesem_def] >- (
+      match_mp_tac (UNDISCH typesem_inhabited) >>
+      fs[is_valuation_def,is_interpretation_def] >>
+      metis_tac[] ) >>
+    fs[is_valuation_def,is_type_valuation_def] ) >>
+  qunabbrev_tac`aa` >>
+  fs[is_std_interpretation_def,interprets_def] >>
+  `STRING_SORT ["A"] = ["A"]` by simp[STRING_SORT_def,INORDER_INSERT_def] >>
+  simp[] >> simp[Abbr`tt`,REV_ASSOCD])
 
 (* equations *)
 
@@ -136,14 +151,17 @@ val termsem_equation = store_thm("termsem_equation",
     is_structure sig i v ∧
     term_ok sig (s === t)
     ⇒ termsem sig i v (s === t) = Boolean (termsem sig i v s = termsem sig i v t)``,
-  rw[is_structure_def] >> rfs[term_ok_equation] >>
+  rw[] >>
+  `is_std_sig sig ∧ is_std_interpretation i` by fs[is_structure_def] >>
+  fs[term_ok_equation] >>
+  imp_res_tac term_ok_type_ok >>
   simp[equation_def,termsem_def,termsem_Equal] >>
   imp_res_tac is_std_interpretation_is_type >>
   qho_match_abbrev_tac`Abstract a b f ' x ' y = z` >>
   `Abstract a b f ' x = f x` by (
     match_mp_tac (UNDISCH apply_abstract) >>
     unabbrev_all_tac >> simp[] >>
-    conj_tac >- metis_tac[termsem_typesem] >>
+    conj_tac >- metis_tac[is_structure_def,termsem_typesem] >>
     match_mp_tac (UNDISCH abstract_in_funspace) >>
     simp[boolean_in_boolset] ) >>
   simp[Abbr`f`,Abbr`b`] >>
@@ -151,7 +169,7 @@ val termsem_equation = store_thm("termsem_equation",
   `Abstract a b f ' y = f y `  by (
     match_mp_tac (UNDISCH apply_abstract) >>
     unabbrev_all_tac >> simp[] >>
-    metis_tac[termsem_typesem,boolean_in_boolset] ) >>
+    metis_tac[termsem_typesem,boolean_in_boolset,is_structure_def] ) >>
   unabbrev_all_tac >> simp[])
 
 (* aconv *)
@@ -225,7 +243,7 @@ val termsem_tyfrees = store_thm("termsem_tyfrees",
     qmatch_abbrev_tac`instance Γ i name ty τ = X` >>
     qspecl_then[`Γ`,`i`,`name`,`ty`]mp_tac instance_def >>
     simp[Abbr`ty`] >> disch_then kall_tac >>
-    rpt AP_TERM_TAC >> simp[FUN_EQ_THM] >> rw[] >>
+    rpt AP_TERM_TAC >> simp[FUN_EQ_THM,MAP_EQ_f] >> rw[] >>
     match_mp_tac typesem_frees >>
     rw[] >>
     first_x_assum match_mp_tac >>
@@ -392,7 +410,7 @@ val termsem_simple_inst = store_thm("termsem_simple_inst",
     qmatch_abbrev_tac`instance sig int name (TYPE_SUBST i2 ty0) t1 =
                       instance sig int name (TYPE_SUBST i1 ty0) t2` >>
     qspecl_then[`sig`,`int`,`name`]mp_tac instance_def >> simp[Abbr`sig`] >>
-    disch_then kall_tac >> rpt AP_TERM_TAC >> rw[FUN_EQ_THM] >> rw[] >>
+    disch_then kall_tac >> rpt AP_TERM_TAC >> rw[FUN_EQ_THM,MAP_EQ_f] >> rw[] >>
     rw[Once REV_ASSOCD_ALOOKUP,Abbr`i2`,ALOOKUP_APPEND,MAP_MAP_o,swap_ff] >>
     rw[ff_def,GSYM MAP_MAP_o,ALOOKUP_MAP] >>
     rw[REV_ASSOCD_ALOOKUP] >> BasicProvers.CASE_TAC >> fs[typesem_def] >>
@@ -514,7 +532,7 @@ val termsem_consts = store_thm("termsem_consts",
     qmatch_abbrev_tac`f1 x1 = f2 x2` >>
     `x1 = x2` by (
       unabbrev_all_tac >>
-      simp[FUN_EQ_THM] >>
+      simp[FUN_EQ_THM,MAP_EQ_f] >>
       rw[] >>
       match_mp_tac typesem_consts >>
       imp_res_tac type_ok_TYPE_SUBST_imp >>
@@ -565,10 +583,10 @@ val valuation_exists = store_thm("valuation_exists",
 
 val identity_instance = store_thm("identity_instance",
   ``∀sig (i:'U interpretation) name ty τ. FLOOKUP (tmsof sig) name = SOME ty ⇒
-      instance sig i name ty = λτ. tmaof i name (λx. if MEM x (tyvars ty) then τ x else ARB)``,
+      instance sig i name ty = λτ. tmaof i name (MAP τ (STRING_SORT (tyvars ty)))``,
   rw[] >>
   qspecl_then[`sig`,`i`,`name`,`ty`,`ty`,`[]`]mp_tac instance_def >>
-  rw[FUN_EQ_THM,typesem_def])
+  rw[FUN_EQ_THM,typesem_def,combinTheory.o_DEF,ETA_AX])
 
 (*
 (* for models, reducing the context *)
