@@ -4,6 +4,13 @@ val _ = new_theory"holSyntaxLib"
 infix \\ val op \\ = op THEN;
 
 (* TOOD: move? *)
+val SORTED_FILTER = store_thm("SORTED_FILTER",
+  ``∀R ls P. transitive R ∧ SORTED R ls ⇒ SORTED R (FILTER P ls)``,
+  ho_match_mp_tac SORTED_IND >>
+  rw[] >> rw[] >> rfs[SORTED_EQ] >> fs[SORTED_EQ] >>
+  first_x_assum(qspec_then`P`mp_tac) >> rw[] >>
+  rfs[SORTED_EQ] >> fs[MEM_FILTER])
+
 val LENGTH_EQ_FILTER_FILTER = store_thm("LENGTH_EQ_FILTER_FILTER",
   ``!xs. EVERY (\x. (P x \/ Q x) /\ ~(P x /\ Q x)) xs ==>
          (LENGTH xs = LENGTH (FILTER P xs) + LENGTH (FILTER Q xs))``,
@@ -246,6 +253,32 @@ val ALL_DISTINCT_STRING_SORT = store_thm("ALL_DISTINCT_STRING_SORT",
   ``∀ls. ALL_DISTINCT ls ⇒ ALL_DISTINCT (STRING_SORT ls)``,
   metis_tac[PERM_STRING_SORT,ALL_DISTINCT_PERM])
 val _ = export_rewrites["ALL_DISTINCT_STRING_SORT"]
+
+val STRING_SORT_SORTED = store_thm("STRING_SORT_SORTED",
+  ``∀ls. SORTED $< (STRING_SORT ls)``,
+  Induct >> simp[STRING_SORT_def,INORDER_INSERT_def] >>
+  rw[] >> match_mp_tac SORTED_APPEND >>
+  conj_asm1_tac >- METIS_TAC [string_lt_trans,relationTheory.transitive_def] >>
+  simp[MEM_FILTER] >> fs[GSYM STRING_SORT_def] >>
+  simp[SORTED_FILTER] >>
+  conj_tac >- (
+    match_mp_tac SORTED_APPEND >>
+    simp[SORTED_FILTER,MEM_FILTER] ) >>
+  rw[] >> fs[relationTheory.transitive_def] >>
+  METIS_TAC[])
+
+(*
+val STRING_SORT_EQ = store_thm("STRING_SORT_EQ",
+  ``∀l1 l2. STRING_SORT l1 = STRING_SORT l2 ⇔ PERM l1 l2``,
+  rw[EQ_IMP_THM] >>
+  `transitive $< ∧ antisymmetric $<`
+ SORTED_PERM_EQ
+  Induct >> simp[STRING_SORT_def] >- (
+    Cases >> simp[INORDER_INSERT_def] ) >>
+  simp[INORDER_INSERT_def]
+  print_apropos``QSORT R l1 = QSORT R l2``
+  SORTED_EQ
+*)
 
 val ALL_DISTINCT_LIST_UNION = store_thm("ALL_DISTINCT_LIST_UNION",
   ``∀l1 l2. ALL_DISTINCT l2 ⇒ ALL_DISTINCT (LIST_UNION l1 l2)``,
