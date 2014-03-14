@@ -1,0 +1,32 @@
+holSyntaxScript.sml
+  Defines the HOL inference system.
+holSyntaxExtraScript.sml
+  Some lemmas about the syntactic functions.
+
+holSemanticsScript.sml
+  Define semantics for HOL sequents, in particular the notion of entailment
+  i.e. valid sequents, which are those that satisfied by any model of the
+  theory context.
+holSemanticsExtraScript.sml
+  Some lemmas about the semantics.
+
+holSoundnessScript.sml
+  Proves soundness of the inference system: any provable sequent is valid.
+
+holConsistencyScript.sml
+  Proves consistency of the inference system: the initial context has a model,
+  and starting from any context with a model, any context reached by
+  non-axiomatic extensions has both provable and unprovable sequents. Soundness
+  of the context extension rules is proved here.
+
+holBoolScript.sml
+  Defines a mechanism for extending a context by the theory of Booleans
+  (connectives and quantifiers), and shows that this is a valid non-axiomatic
+  extension. Also defines the intended semantics of the Boolean constants and
+  shows that the definitions are correct.
+
+holAxiomsScript.sml
+  Defines mechanisms for extending a context with each of the three
+  mathematical axioms. Prove that the resulting contexts still have models
+  (i.e. these axioms are consistent). (For the axiom of infinity, this requires
+  an additional assumption on the set theory.)
