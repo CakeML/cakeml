@@ -1,6 +1,8 @@
+syntax/
+  Syntax of the HOL inference system.
+
 semantics/
-  Syntax, semantics, and metatheory (soundness, consistency) for the HOL
-  inference system.
+  Semantics, and metatheory (soundness, consistency) for the above.
 
 monadic/
   Implementation of the HOL Light kernel as monadic functions in HOL (i.e. a

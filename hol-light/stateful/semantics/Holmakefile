@@ -1,4 +1,4 @@
-INCLUDES = ../../.. ../../syntax-lib ../../set-theory
+INCLUDES = ../../.. ../../syntax-lib ../../set-theory ../syntax
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
@@ -6,7 +6,7 @@ HOLHEAP = heap
 PARENT_HOLHEAP = ../../set-theory/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../../../miscLib ../../syntax-lib/holSyntaxLibTheory ../../set-theory/setSpecTheory
+BARE_THYS = ../../../miscLib ../../syntax-lib/holSyntaxLibTheory ../../set-theory/setSpecTheory ../syntax/holAxiomsSyntaxTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
