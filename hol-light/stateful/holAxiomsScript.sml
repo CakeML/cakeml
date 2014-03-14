@@ -1,5 +1,5 @@
-open HolKernel boolLib bossLib lcsymtacs relationTheory setSpecTheory
-open miscLib holBoolTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
+open HolKernel boolLib bossLib lcsymtacs relationTheory pairTheory listTheory finite_mapTheory alistTheory
+open miscLib miscTheory setSpecTheory holBoolTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
 val _ = new_theory"holAxioms"
 
 val mem = ``mem:'U->'U->bool``
@@ -62,9 +62,143 @@ val _ = Parse.temp_overload_on("P",``Var "P" (Fun A Bool)``)
 (* SELECT_AX *)
 val mk_select_ctxt_def = Define`
   mk_select_ctxt ctxt =
-    NewAxiom (Comb P (Comb (Select A) P)) ::
+    NewAxiom (Implies (Comb P x) (Comb P (Comb (Select A) P))) ::
     NewConst "@" (Fun (Fun A Bool) A) ::
     ctxt`
+
+val select_extends = store_thm("select_extends",
+  ``∀ctxt. is_std_sig (sigof ctxt) ∧
+           "@" ∉ FDOM (tmsof ctxt) ∧
+           (FLOOKUP (tmsof ctxt) "==>" = SOME (Fun Bool (Fun Bool Bool)))
+    ⇒ mk_select_ctxt ctxt extends ctxt``,
+  rw[extends_def] >>
+  rw[Once RTC_CASES1] >> disj2_tac >>
+  rw[Once RTC_CASES1] >> reverse(rw[mk_select_ctxt_def]) >- (
+    rw[updates_cases,type_ok_def] >> fs[is_std_sig_def] ) >>
+  rw[updates_cases,term_ok_def,type_ok_def] >- (
+    rpt(simp[Once has_type_cases]) ) >>
+  fs[is_std_sig_def,FLOOKUP_UPDATE])
+
+val select_has_model = store_thm("select_has_model",
+  ``is_set_theory ^mem ⇒
+    ∀ctxt.
+      "@" ∉ FDOM (tmsof ctxt) ∧
+      (FLOOKUP (tmsof ctxt) "==>" = SOME (Fun Bool (Fun Bool Bool))) ∧
+      theory_ok (thyof ctxt)
+      ⇒
+      ∀i. i models (thyof ctxt) ∧
+          tmaof i interprets "==>" on [] as
+            (K (Abstract boolset (Funspace boolset boolset)
+                   (λp. Abstract boolset boolset
+                       (λq. Boolean ((p = True) ⇒ (q = True))))))
+      ⇒ ∃i'. i' models (thyof (mk_select_ctxt ctxt))``,
+  rw[models_def,mk_select_ctxt_def,conexts_of_upd_def] >>
+  qexists_tac`(tyaof i, ("@" =+ λl. Abstract (Funspace (HD l) boolset) (HD l)
+    (λp. case some v. v <: HD l ∧ Holds p v of NONE => @v. v <: HD l | SOME v => v)) (tmaof i))` >>
+  imp_res_tac is_std_interpretation_is_type >>
+  imp_res_tac typesem_Fun >>
+  conj_asm1_tac >- (
+    fs[is_interpretation_def,is_term_assignment_def,FEVERY_ALL_FLOOKUP,FLOOKUP_UPDATE] >>
+    rw[] >> rw[combinTheory.APPLY_UPDATE_THM] >>
+    rw[typesem_def,tyvars_def,STRING_SORT_def,LIST_UNION_def,INORDER_INSERT_def,LIST_INSERT_def] >>
+    fs[is_std_type_assignment_def] >>
+    match_mp_tac (UNDISCH abstract_in_funspace) >>
+    rw[holds_def] >> fs[is_type_valuation_def] >>
+    qho_match_abbrev_tac`(case ($some Q) of NONE => R | SOME v => v) <: τ"A"` >>
+    qho_match_abbrev_tac`Z ($some Q)` >>
+    match_mp_tac optionTheory.some_intro >>
+    unabbrev_all_tac >> simp[] >> metis_tac[] ) >>
+  conj_tac >- (
+    fs[is_std_interpretation_def,combinTheory.APPLY_UPDATE_THM,interprets_def] ) >>
+  reverse(rw[]) >- (
+    match_mp_tac satisfies_extend >>
+    map_every qexists_tac[`tysof ctxt`,`tmsof ctxt`] >>
+    simp[] >>
+    conj_asm1_tac >- fs[theory_ok_def] >>
+    match_mp_tac satisfies_consts >>
+    imp_res_tac theory_ok_sig >>
+    fs[] >> qexists_tac`i` >>
+    simp[] >>
+    simp[combinTheory.APPLY_UPDATE_THM] >>
+    rw[] >> fs[term_ok_def] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,EXISTS_PROD] >>
+    metis_tac[] ) >>
+  simp[satisfies_def] >>
+  gen_tac >> strip_tac >>
+  qmatch_abbrev_tac`termsem sig ii v tm = True` >>
+  `FLOOKUP (tmsof sig) "@" = SOME (Fun (Fun A Bool) A)` by simp[Abbr`sig`,FLOOKUP_UPDATE] >>
+  `FLOOKUP (tmsof sig) "==>" = SOME (Fun Bool (Fun Bool Bool))` by simp[Abbr`sig`,FLOOKUP_UPDATE] >>
+  imp_res_tac identity_instance >>
+  simp[Abbr`tm`,termsem_def] >>
+  simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def] >>
+  simp[Abbr`ii`,combinTheory.APPLY_UPDATE_THM] >>
+  fs[interprets_def] >>
+  last_x_assum(qspec_then`tyvof v`mp_tac) >>
+  discharge_hyps >- fs[is_valuation_def] >>
+  simp[] >> disch_then kall_tac >>
+  qmatch_abbrev_tac`(Abstract bs fbs fi ' fz) ' fy = True` >>
+  `fi fz <: fbs` by (
+    unabbrev_all_tac >> simp[] >>
+    match_mp_tac (UNDISCH abstract_in_funspace) >>
+    simp[boolean_in_boolset] ) >>
+  qmatch_assum_abbrev_tac`Abbrev(fz = fp ' fx)` >>
+  Q.PAT_ABBREV_TAC`fa = tyvof v "A"` >>
+  `fx <: fa ∧ fp <: Funspace fa boolset` by (
+    fs[is_valuation_def,is_term_valuation_def] >>
+    first_assum(qspecl_then[`"P"`,`Fun A Bool`]mp_tac) >>
+    first_x_assum(qspecl_then[`"x"`,`A`]mp_tac) >>
+    imp_res_tac typesem_Bool >>
+    simp[type_ok_def,typesem_def] >>
+    imp_res_tac theory_ok_sig >>
+    fs[is_std_sig_def] ) >>
+  `fz <: bs` by (
+    unabbrev_all_tac >>
+    match_mp_tac (UNDISCH apply_in_rng) >>
+    PROVE_TAC[] ) >>
+  `Abstract bs fbs fi ' fz = fi fz` by (
+    match_mp_tac (UNDISCH apply_abstract) >>
+    simp[] ) >>
+  rfs[] >>
+  simp[Abbr`fi`] >>
+  match_mp_tac apply_abstract_matchable >>
+  qmatch_assum_abbrev_tac`Abbrev(fy = fp ' fm)` >>
+  qmatch_assum_abbrev_tac`Abbrev(fm = fo ' fp)` >>
+  `fo <: Funspace (Funspace fa bs) fa` by (
+    simp[Abbr`fo`] >>
+    match_mp_tac (UNDISCH abstract_in_funspace) >>
+    rw[holds_def] >>
+    qho_match_abbrev_tac`(case ($some Q) of NONE => R | SOME a => a) <: fa` >>
+    qho_match_abbrev_tac`Z ($some Q)` >>
+    match_mp_tac optionTheory.some_intro >>
+    unabbrev_all_tac >> simp[] >> metis_tac[] ) >>
+  `fm <: fa` by (
+    unabbrev_all_tac >>
+    match_mp_tac (UNDISCH apply_in_rng) >>
+    PROVE_TAC[] ) >>
+  `fy <: bs` by (
+    unabbrev_all_tac >>
+    match_mp_tac (UNDISCH apply_in_rng) >>
+    PROVE_TAC[] ) >>
+  simp[Abbr`bs`,boolean_in_boolset,boolean_eq_true] >>
+  simp[Abbr`fz`,Abbr`fy`] >>
+  simp[GSYM holds_def] >> strip_tac >>
+  simp[Abbr`fm`] >>
+  qmatch_assum_abbrev_tac`Abbrev(fo = Abstract (Funspace fa boolset) fa fs)` >>
+  `fo ' fp = fs fp` by (
+    unabbrev_all_tac >>
+    match_mp_tac (UNDISCH apply_abstract) >> simp[] >>
+    rw[holds_def] >>
+    qho_match_abbrev_tac`(case ($some Q) of NONE => R | SOME a => a) <: fa` >> rfs[] >>
+    qho_match_abbrev_tac`Z ($some Q)` >>
+    match_mp_tac optionTheory.some_intro >>
+    unabbrev_all_tac >> simp[] >> metis_tac[] ) >>
+  simp[Abbr`fs`] >>
+  qho_match_abbrev_tac`Holds fp (case ($some Q) of NONE => R | SOME a => a)` >>
+  qho_match_abbrev_tac`Z ($some Q)` >>
+  match_mp_tac optionTheory.some_intro >>
+  unabbrev_all_tac >> simp[] >>
+  metis_tac[])
 
 val _ = Parse.temp_overload_on("B",``Tyvar "B"``)
 val _ = Parse.overload_on("One_One",``λf. Comb (Const "ONE_ONE" (Fun (typeof f) Bool)) f``)
