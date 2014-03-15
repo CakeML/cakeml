@@ -1,8 +1,6 @@
 open HolKernel Parse boolLib bossLib;
-
-val _ = new_theory "hol_kernel";
-val _ = Parse.clear_overloads_on","
 open stringTheory listTheory sortingTheory;
+val _ = new_theory "hol_kernel";
 
 
 (*
@@ -795,7 +793,7 @@ val my_term_size_vsubst_aux = prove(
     THEN Cases_on `h'`
     THEN ASM_SIMP_TAC (srw_ss()) [EVERY_DEF,Once (fetch "-" "rev_assocd_def")]
     THEN FULL_SIMP_TAC (srw_ss()) []
-    THEN SRW_TAC [] [] THEN Cases_on `q`
+    THEN Cases THEN SRW_TAC [] [] THEN Cases_on `q`
     THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "is_var_def",my_term_size_def])
   THEN ASM_SIMP_TAC (srw_ss()) [my_term_size_def,
          Once (fetch "-" "vsubst_aux_def"),LET_DEF]
