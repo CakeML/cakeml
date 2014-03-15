@@ -36,13 +36,15 @@ val _ = Hol_datatype `
 
 (*
   For purposes of stating our final soundness theorem, we also keep
-  track of what definitions have happened.
+  track of what definitions and other context updates have happened.
 *)
 
 val _ = Hol_datatype `
-  def = Axiomdef of hol_term
-      | Constdef of (string # hol_term) list => hol_term
-      | Typedef of string => hol_term => string => string`;
+  def = NewAxiom of hol_term
+      | NewConst of string => hol_type
+      | NewType of string => num
+      | ConstSpec of (string # hol_term) list => hol_term
+      | TypeDefn of string => hol_term => string => string`;
 
 (*
   We define a record that holds the state, i.e.
@@ -227,12 +229,17 @@ val _ = Define `
     else the_type_constants := (name,arity)::(!the_type_constants)
 *)
 
+val add_def = Define `
+  add_def d = do defs <- get_the_definitions ;
+                 set_the_definitions (d::defs) od`;
+
 val _ = Define `
   new_type (name,arity) =
     do ok <- can get_type_arity name ;
        if ok then failwith ("new_type: " ++ name ++ " has alreay been declared")
              else do ts <- get_the_type_constants ;
-                     set_the_type_constants ((name,arity)::ts) od od`;
+                     set_the_type_constants ((name,arity)::ts);
+                     add_def (NewType name arity) od od`;
 
 (*
   let mk_type(tyop,args) =
@@ -380,21 +387,8 @@ val _ = Define `
        if ok then
          failwith ("new_constant: constant "++name++" has already been declared")
        else do ts <- get_the_term_constants ;
-               set_the_term_constants ((name,ty)::ts) od od`;
-
-val _ = Define`
-  first_dup ls acc =
-  case ls of
-  | [] => NONE
-  | (h::t) =>
-    if MEM h acc then SOME h else first_dup t (h::acc)`
-
-val _ = Define `
-  new_constants ls =
-    do cs <- get_the_term_constants ;
-       case first_dup (MAP FST ls) (MAP FST cs) of
-       | SOME name => failwith ("new_constants: "++name++" appears twice or has already been declared")
-       | NONE => set_the_term_constants (ls++cs) od`;
+               set_the_term_constants ((name,ty)::ts) ;
+               add_def (NewConst name ty) od od`;
 
 (*
   let rec type_of tm =
@@ -1112,10 +1106,6 @@ val _ = Define `axioms = get_the_axioms`;
     else failwith "new_axiom: Not a proposition"
 *)
 
-val add_def = Define `
-  add_def d = do defs <- get_the_definitions ;
-                 set_the_definitions (d::defs) od`;
-
 val new_axiom_def = Define `
   new_axiom tm =
     do ty <- type_of tm ;
@@ -1124,11 +1114,25 @@ val new_axiom_def = Define `
          do th <- return (Sequent [] tm) ;
             ax <- get_the_axioms ;
             set_the_axioms (th :: ax) ;
-            add_def (Axiomdef tm) ;
+            add_def (NewAxiom tm) ;
             return th od
        else
          failwith "new_axiom: Not a proposition"
     od`;
+
+val _ = Define`
+  first_dup ls acc =
+  case ls of
+  | [] => NONE
+  | (h::t) =>
+    if MEM h acc then SOME h else first_dup t (h::acc)`
+
+val _ = Define `
+  new_constants ls =
+    do cs <- get_the_term_constants ;
+       case first_dup (MAP FST ls) (MAP FST cs) of
+       | SOME name => failwith ("new_constants: "++name++" appears twice or has already been declared")
+       | NONE => set_the_term_constants (ls++cs) od`;
 
 val _ = Define`
   new_specification (Sequent eqs p) =
@@ -1145,7 +1149,7 @@ val _ = Define`
          failwith "new_specification: specification not closed by the definitions"
        else do
          new_constants vars ;
-         add_def (Constdef (MAP (\((s,ty),r). (s,r)) eqs) p) ;
+         add_def (ConstSpec (MAP (\((s,ty),r). (s,r)) eqs) p) ;
          let ilist = MAP (\(s,ty). (Const s ty, Var s ty)) vars in
          let p = vsubst_aux ilist p in
          return (Sequent [] p) od od`
@@ -1223,7 +1227,7 @@ val new_basic_type_definition_def = Define `
     do rty <- type_of x ;
        y <- try new_type (tyname,LENGTH tyvars)
                          "new_basic_type_definition: Type already defined" ;
-       y <- add_def (Typedef tyname P absname repname) ;
+       y <- add_def (TypeDefn tyname P absname repname) ;
        aty <- mk_type(tyname,tyvars) ;
        ty <- mk_fun_ty aty rty ;
        y <- new_constant(repname,ty) ;

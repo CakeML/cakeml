@@ -13,7 +13,7 @@ infix \\ val op \\ = op THEN;
 (* Translations from implementation types to model types.                    *)
 (* ------------------------------------------------------------------------- *)
 
-val _ = temp_overload_on("impossible_term",``holSyntax$Const "=" (Tyvar "a")``);
+val _ = temp_overload_on("impossible_term",``holSyntax$Comb (Var "x" Bool) (Var "x" Bool)``);
 
 val hol_ty_def = tDefine "hol_ty" `
   (hol_ty (hol_kernel$Tyvar v) = holSyntax$Tyvar v) /\
@@ -30,31 +30,32 @@ val hol_tm_def = Define `
   (hol_tm (Abs (Var v ty) x) = Abs v (hol_ty ty) (hol_tm x)) /\
   (hol_tm _ = impossible_term)`;
 
-val hol_defs_def = Define `
-  (hol_defs [] = []) /\
-  (hol_defs (Constdef eqs tm::defs) =
-    (Constdef (MAP (\(s,t). (s, hol_tm t)) eqs) (hol_tm tm)) :: hol_defs defs) /\
-  (hol_defs (Typedef s1 tm s2 s3 :: defs) =
-    (Typedef s1 (hol_tm tm) s2 s3) :: hol_defs defs)`;
+val hol_def_def = Define`
+  (hol_def (NewAxiom prop) = NewAxiom (hol_tm prop)) ∧
+  (hol_def (NewConst s ty) = NewConst s (hol_ty ty)) ∧
+  (hol_def (NewType s n) = NewType s n) ∧
+  (hol_def (ConstSpec eqs tm) =
+    ConstSpec (MAP (\(s,t). (s, hol_tm t)) eqs) (hol_tm tm)) ∧
+  (hol_def (TypeDefn s1 tm s2 s3) =
+    TypeDefn s1 (hol_tm tm) s2 s3)`
 
-val hol_def_def = Define `
-  hol_def d = HD (hol_defs [d])`;
+val _ = Parse.overload_on("hol_defs",``λdefs. MAP hol_def defs``)
 
 (* ------------------------------------------------------------------------- *)
 (* type_ok, term_ok, context_ok and |- for implementation types.             *)
 (* ------------------------------------------------------------------------- *)
 
 val TYPE_def = Define `
-  TYPE defs ty = type_ok (hol_defs defs) (hol_ty ty)`;
+  TYPE defs ty = type_ok (tysof (hol_defs defs)) (hol_ty ty)`;
 
 val TERM_def = Define `
-  TERM defs tm = term_ok (hol_defs defs) (hol_tm tm)`;
+  TERM defs tm = term_ok (sigof (hol_defs defs)) (hol_tm tm)`;
 
 val CONTEXT_def = Define `
-  CONTEXT defs = context_ok (hol_defs defs)`;
+  CONTEXT defs = (hol_defs defs) extends init_ctxt`;
 
 val THM_def = Define `
-  THM defs (Sequent asl c) = ((hol_defs defs, MAP hol_tm asl) |- hol_tm c)`;
+  THM defs (Sequent asl c) = ((thyof (hol_defs defs), MAP hol_tm asl) |- hol_tm c)`;
 
 (* ------------------------------------------------------------------------- *)
 (* State invariant - types/terms can be extracted from defs                  *)
@@ -62,13 +63,11 @@ val THM_def = Define `
 
 val STATE_def = Define `
   STATE state defs =
-    let hds = hol_defs defs in
-      (defs = state.the_definitions) /\ context_ok hds /\
-      (state.the_type_constants = types hds) /\
-      ALL_DISTINCT (MAP FST state.the_type_constants) /\
-      ALL_DISTINCT (MAP FST state.the_term_constants) /\
-      TERM defs state.the_clash_var /\
-      (consts hds = MAP (\(name,ty). (name, hol_ty ty)) state.the_term_constants)`;
+    let ctxt = hol_defs defs in
+      (defs = state.the_definitions) /\ CONTEXT defs /\
+      (state.the_type_constants = type_list ctxt) /\
+      (MAP (λ(name,ty). (name, hol_ty ty)) state.the_term_constants = const_list ctxt) /\
+      TERM defs state.the_clash_var`;
 
 val STATE_def = STATE_def |> SIMP_RULE std_ss [LET_DEF];
 
@@ -78,16 +77,11 @@ val STATE_def = STATE_def |> SIMP_RULE std_ss [LET_DEF];
 
 val term_ok_impossible_term = prove(
   ``~(term_ok defs impossible_term)``,
-  strip_tac >>
-  spose_not_then strip_assume_tac >>
-  imp_res_tac proves_IMP >>
-  qpat_assum`term X Y Z`mp_tac >>
-  simp[Once term_cases])
+  simp[term_ok_def])
 
 val impossible_term_thm = prove(
   ``TERM defs tm ==> hol_tm tm <> impossible_term``,
   SIMP_TAC std_ss [TERM_def] \\ REPEAT STRIP_TAC
-  \\ Cases_on `tm` \\ Cases_on `h`
   \\ FULL_SIMP_TAC (srw_ss()) [hol_tm_def,term_ok_impossible_term])
 
 val Abs_Var = prove(
