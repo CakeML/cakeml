@@ -178,69 +178,7 @@ val select_has_model = store_thm("select_has_model",
   unabbrev_all_tac >> simp[] >>
   metis_tac[])
 
-open pred_setTheory
-
-(*
-val _ = Parse.temp_overload_on("Boolrel",
-  ``λr.  (Abstract boolset (Funspace boolset boolset)
-           (λp. (Abstract boolset boolset
-              (λq. Boolean (r (p = True) (q = True))))))``)
-
-val is_infinity_interpretation_def = xDefine"is_infinity_interpretation"`
-  is_infinity_interpretation0 ^mem i ⇔
-    is_std_interpretation i ∧
-    is_infinite ^mem (tyaof i "ind" []) ∧
-    tmaof i interprets "/\\" on [] as K (Boolrel $/\) ∧
-    tmaof i interprets "==>" on [] as K (Boolrel $==>) ∧
-    tmaof i interprets "!" on ["A"] as
-       (λl. Abstract (Funspace (HD l) boolset) boolset
-              (λP. Boolean (∀x. x <: (HD l) ⇒ Holds P x))) ∧
-    tmaof i interprets "?" on ["A"] as
-       (λl. Abstract (Funspace (HD l) boolset) boolset
-              (λP. Boolean (∃x. x <: (HD l) ∧ Holds P x))) ∧
-    tmaof i interprets "ONTO" on ["A";"B"] as
-       (λl. Abstract (Funspace (EL 0 l) (EL 1 l)) boolset
-              (λf. Boolean (∀y. y <: (EL 0 l) ⇒ ∃x. f ' x = y))) ∧
-    tmaof i interprets "ONE_ONE" on ["A";"B"] as
-       (λl. Abstract (Funspace (EL 0 l) (EL 1 l)) boolset
-              (λf. Boolean (∀x1 x2. x1 <: (EL 0 l) ∧
-                                    x2 <: (EL 0 l) ∧
-                                    (f ' x1 = f ' x2) ⇒ (x1 = x2))))`
-val _ = Parse.overload_on("is_infinity_interpretation",``is_infinity_interpretation0 ^mem``)
-
-val infinity_has_infinity_interpretation = store_thm("infinity_has_infinity_interpretation",
-  ``is_set_theory ^mem ⇒
-    ∀ctxt i.
-      theory_ok (thyof (mk_infinity_ctxt ctxt)) ∧
-      i models (thyof (mk_infinity_ctxt ctxt)) ∧
-      tmaof i interprets "/\\" on [] as K (Boolrel $/\) ∧
-      tmaof i interprets "==>" on [] as K (Boolrel $==>) ∧
-      tmaof i interprets "!" on ["A"] as
-         (λl. Abstract (Funspace (HD l) boolset) boolset
-                (λP. Boolean (∀x. x <: (HD l) ⇒ Holds P x))) ∧
-      tmaof i interprets "?" on ["A"] as
-         (λl. Abstract (Funspace (HD l) boolset) boolset
-                (λP. Boolean (∃x. x <: (HD l) ∧ Holds P x)))
-      ⇒
-      is_infinity_interpretation i``,
-  rw[] >>
-  simp[is_infinity_interpretation_def] >>
-  conj_asm1_tac >- fs[models_def] >>
-  conj_asm2_tac >- (
-    fs[models_def] >>
-    first_x_assum(qspec_then`Exh (And (One_One h) (Not (Onto h)))`mp_tac) >>
-    discharge_hyps >- EVAL_TAC >>
-    simp[satisfies_def] >>
-    `∃v. is_valuation (tysof (mk_infinity_ctxt ctxt)) (tyaof i) v` by (
-      match_mp_tac (UNDISCH valuation_exists) >>
-      fs[is_interpretation_def] ) >>
-    disch_then(qspec_then`v`mp_tac) >> simp[] >>
-    imp_res_tac is_std_interpretation_is_type >>
-    imp_res_tac typesem_Fun >>
-    imp_res_tac typesem_Bool >>
-    simp[termsem_def,combinTheory.APPLY_UPDATE_THM] >>
-    simp[typesem_def] >>
-*)
+open pred_setTheory holConsistencyTheory
 
 val infinity_has_model = store_thm("infinity_has_model",
   ``is_set_theory ^mem ∧ (∃inf. is_infinite ^mem inf) ⇒
@@ -267,8 +205,77 @@ val infinity_has_model = store_thm("infinity_has_model",
                    (λP. Boolean (∃x. x <: (HD l) ∧ Holds P x)))
       ⇒ ∃i'. i' models (thyof (mk_infinity_ctxt ctxt))``,
   rw[models_def] >>
+  `∃ctxt1 p. mk_infinity_ctxt ctxt = (NewAxiom p)::(NewType "ind" 0)::ctxt1` by simp[mk_infinity_ctxt_def] >>
   `mk_infinity_ctxt ctxt extends ctxt` by (
     match_mp_tac infinity_extends >> simp[] ) >>
+  `ctxt1 extends ctxt` by (
+    rfs[extends_def] >>
+    pop_assum mp_tac >>
+    simp[Once RTC_CASES1] >>
+    rw[] >> fs[mk_infinity_ctxt_def] >>
+    pop_assum mp_tac >>
+    simp[Once RTC_CASES1] >>
+    rw[]) >>
+  qspecl_then[`ctxt`,`ctxt1`]mp_tac (UNDISCH extends_consistent) >>
+  simp[] >>
+  disch_then(qspec_then`i`mp_tac) >>
+  simp[models_def] >>
+  discharge_hyps >- (
+    fs[mk_infinity_ctxt_def] >> rw[] ) >>
+  disch_then(qx_choose_then`i1`strip_assume_tac) >>
+  simp[conexts_of_upd_def] >>
+  qexists_tac`(("ind" =+ (K inf)) (tyaof i1), tmaof i1)` >>
+  `¬(MEM "ind" (MAP FST (type_list ctxt1)))` by (
+    qpat_assum`X = Y::Z`mp_tac >>
+    simp[mk_infinity_ctxt_def] >>
+    rw[] >> rw[] ) >>
+  conj_asm1_tac >- (
+    fs[is_interpretation_def,is_type_assignment_def,is_term_assignment_def
+      ,FEVERY_ALL_FLOOKUP,combinTheory.APPLY_UPDATE_THM] >>
+    rw[] >- (
+      fs[is_infinite_def] >>
+      imp_res_tac IN_INFINITE_NOT_FINITE >>
+      first_x_assum(qspec_then`{}`mp_tac) >>
+      simp[] ) >>
+    rfs[FLOOKUP_UPDATE] >>
+    qsuff_tac`typesem (("ind" =+ K inf) (tyaof i1)) τ v = typesem (tyaof i1) τ v` >- rw[] >>
+    match_mp_tac typesem_consts >>
+    qexists_tac`tysof ctxt1` >>
+    conj_tac >- (
+      imp_res_tac extends_theory_ok >>
+      fs[theory_ok_def] >>
+      first_x_assum match_mp_tac >>
+      imp_res_tac ALOOKUP_IN_FRANGE) >>
+    simp[type_ok_def,combinTheory.APPLY_UPDATE_THM] >>
+    rw[] >> imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,EXISTS_PROD] >>
+    metis_tac[]) >>
+  imp_res_tac is_std_interpretation_is_type >>
+  conj_asm1_tac >- (
+    fs[is_std_interpretation_def,combinTheory.APPLY_UPDATE_THM
+      ,is_std_type_assignment_def] ) >>
+  reverse(rw[]) >- (
+    match_mp_tac satisfies_extend >>
+    map_every qexists_tac[`tysof ctxt1`,`tmsof ctxt1`] >>
+    simp[] >>
+    imp_res_tac extends_theory_ok >>
+    fs[theory_ok_def] >>
+    match_mp_tac satisfies_consts >>
+    qexists_tac`i1` >>
+    simp[combinTheory.APPLY_UPDATE_THM] >>
+    rw[type_ok_def] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,EXISTS_PROD] >>
+    metis_tac[] ) >>
+  `p = Exh (And (One_One h) (Not (Onto h)))` by (
+    qpat_assum`X = Y::Z`mp_tac >>
+    simp[mk_infinity_ctxt_def] ) >>
+  simp[satisfies_def] >>
+
+
+
+
+
   imp_res_tac is_std_interpretation_is_type >>
   qexists_tac`(("ind" =+ (K inf)) (tyaof i),
                ("ONTO" =+
@@ -317,6 +324,8 @@ val infinity_has_model = store_thm("infinity_has_model",
     fs[MEM_MAP,EXISTS_PROD] >> PROVE_TAC[] ) >>
   conj_asm1_tac >- (
     fs[is_std_interpretation_def,combinTheory.APPLY_UPDATE_THM,interprets_def] ) >>
-  cheat)
+  Q.PAT_ABBREV_TAC`sig = sigof X` >>
+  simp[mk_infinity_ctxt_def,conexts_of_upd_def]
+
 
 val _ = export_theory()

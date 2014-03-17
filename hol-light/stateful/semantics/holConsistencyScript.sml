@@ -60,19 +60,35 @@ val init_ctxt_has_model = store_thm("init_ctxt_has_model",
   match_mp_tac (UNDISCH funspace_inhabited) >>
   metis_tac[])
 
+val subinterpretation_def = Define`
+  subinterpretation ctxt i i' ⇔
+  (∀name args. type_ok (tysof ctxt) (Tyapp name args) ⇒ tyaof i' name = tyaof i name) ∧
+  (∀name ty. term_ok (sigof ctxt) (Const name ty) ⇒ tmaof i' name = tmaof i name)`
+
+val consistent_update_def = xDefine"consistent_update"`
+  consistent_update0 ^mem ctxt upd ⇔
+    ∀i. i models (thyof ctxt) ⇒
+      ∃i'. subinterpretation ctxt i i' ∧
+           i' models (thyof (upd::ctxt))`
+val _ = Parse.overload_on("consistent_update",``consistent_update0 ^mem``)
+
 val new_constant_correct = store_thm("new_constant_correct",
   ``is_set_theory ^mem ⇒
     ∀ctxt name ty.
      theory_ok (thyof ctxt) ∧
      name ∉ (FDOM (tmsof ctxt)) ∧
      type_ok (tysof ctxt) ty ⇒
-      ∀i. i models (thyof ctxt) ⇒
-        ∃i'. i' models (thyof (NewConst name ty::ctxt))``,
-  rw[models_def] >>
+     consistent_update ctxt (NewConst name ty)``,
+  rw[] >> REWRITE_TAC[consistent_update_def,subinterpretation_def] >>
+  gen_tac >> strip_tac >>
   qexists_tac`(tyaof i,
     (name =+ λl. @v. v <: typesem (tyaof i) ((K boolset) =++ (REVERSE(ZIP(STRING_SORT (tyvars ty),l)))) ty)
     (tmaof i))` >>
-  simp[conexts_of_upd_def] >>
+  conj_asm1_tac >- (
+    simp[term_ok_def,combinTheory.APPLY_UPDATE_THM] >> rw[] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,EXISTS_PROD] >> PROVE_TAC[] ) >>
+  fs[models_def,conexts_of_upd_def] >>
   conj_asm1_tac >- (
     fs[is_interpretation_def,is_term_assignment_def,FEVERY_ALL_FLOOKUP,FLOOKUP_UPDATE] >>
     simp[combinTheory.APPLY_UPDATE_THM] >> rw[] >>
@@ -98,9 +114,7 @@ val new_constant_correct = store_thm("new_constant_correct",
   qexists_tac`i` >> simp[] >>
   conj_tac >- (Cases_on`ctxt`>>fs[]) >>
   conj_tac >- fs[theory_ok_def] >>
-  rw[term_ok_def,combinTheory.APPLY_UPDATE_THM] >>
-  imp_res_tac ALOOKUP_MEM >>
-  fs[MEM_MAP,EXISTS_PROD] >> metis_tac[])
+  metis_tac[])
 
 val new_specification_correct = store_thm("new_specification_correct",
   ``is_set_theory ^mem ⇒
@@ -115,13 +129,19 @@ val new_specification_correct = store_thm("new_specification_correct",
                MEM (x,ty) (MAP (λ(s,t). (s,typeof t)) eqs)) ∧
      (∀s. MEM s (MAP FST eqs) ⇒ s ∉ (FDOM (tmsof ctxt))) ∧
      ALL_DISTINCT (MAP FST eqs) ⇒
-    ∀i. i models (thyof ctxt) ⇒
-      ∃i'. i' models (thyof (ConstSpec eqs prop::ctxt))``,
-  rw[models_def] >>
+    consistent_update ctxt (ConstSpec eqs prop)``,
+  rw[] >> REWRITE_TAC[consistent_update_def,subinterpretation_def] >>
+  gen_tac >> strip_tac >>
   qexists_tac`(tyaof i,
     (tmaof i) =++
       MAP (λ(s,t). (s, λl. termsem (sigof ctxt) i ((K boolset)=++(REVERSE(ZIP(STRING_SORT(tyvars(typeof t)),l))),ARB) t))
           (REVERSE eqs))` >>
+  conj_asm1_tac >- (
+    simp[term_ok_def,ALOOKUP_MAP,APPLY_UPDATE_LIST_ALOOKUP,rich_listTheory.MAP_REVERSE] >>
+    rw[] >> BasicProvers.CASE_TAC >> fs[] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,EXISTS_PROD] >> PROVE_TAC[] ) >>
+  fs[models_def] >>
   conj_asm1_tac >- (
     fs[is_interpretation_def,is_term_assignment_def,FEVERY_ALL_FLOOKUP,FLOOKUP_FUNION] >>
     simp[ALOOKUP_MAP,APPLY_UPDATE_LIST_ALOOKUP,rich_listTheory.MAP_REVERSE] >>
@@ -319,10 +339,15 @@ val new_type_correct = store_thm("new_type_correct",
     ∀ctxt name arity.
      theory_ok (thyof ctxt) ∧
      name ∉ FDOM (tysof ctxt) ⇒
-     ∀i. i models (thyof ctxt) ⇒
-       ∃i'. i' models (thyof (NewType name arity::ctxt))``,
-  rw[models_def] >>
+     consistent_update ctxt (NewType name arity)``,
+  rw[] >> REWRITE_TAC[consistent_update_def,subinterpretation_def] >>
+  gen_tac >> strip_tac >>
   qexists_tac`((name =+ (K boolset)) (tyaof i),tmaof i)` >>
+  conj_tac >- (
+    simp[type_ok_def,combinTheory.APPLY_UPDATE_THM] >>
+    rw[] >> imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,EXISTS_PROD] >> PROVE_TAC[] ) >>
+  fs[models_def] >>
   simp[conexts_of_upd_def] >>
   conj_asm1_tac >- (
     fs[is_interpretation_def,is_term_assignment_def,is_type_assignment_def,FEVERY_ALL_FLOOKUP,FLOOKUP_UPDATE] >>
@@ -373,9 +398,8 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
     abs ∉ (FDOM (tmsof ctxt)) ∧
     rep ∉ (FDOM (tmsof ctxt)) ∧
     abs ≠ rep ⇒
-    ∀i. i models (thyof ctxt) ⇒
-      ∃i'. i' models (thyof (TypeDefn name pred abs rep::ctxt))``,
-  rw[models_def,LET_THM] >>
+    consistent_update ctxt (TypeDefn name pred abs rep)``,
+  rw[consistent_update_def,subinterpretation_def,models_def,LET_THM] >>
   Q.PAT_ABBREV_TAC`tys' = tysof ctxt |+ X` >>
   Q.PAT_ABBREV_TAC`tms' = tmsof ctxt |+ X |+ Y` >>
   imp_res_tac WELLTYPED_LEMMA >>
@@ -497,6 +521,10 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
     metis_tac[]) >>
   qexists_tac`(name =+ mty) δ,
               (abs =+ mabs) ((rep =+ mrep) (tmaof i))` >>
+  conj_tac >- (
+    simp[term_ok_def,type_ok_def,combinTheory.APPLY_UPDATE_THM] >>
+    rw[] >> imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,EXISTS_PROD] >> PROVE_TAC[] ) >>
   conj_asm1_tac >- (
     fs[is_interpretation_def] >>
     conj_asm1_tac >- (
@@ -756,8 +784,8 @@ val _ = delete_const"eqsh"
 val updates_consistent = store_thm("updates_consistent",
   ``is_set_theory ^mem ⇒
     ∀upd ctxt. upd updates ctxt ⇒
-      theory_ok (thyof ctxt) ⇒
-      ∀i. i models (thyof ctxt) ∧ (∀p. upd ≠ NewAxiom p) ⇒ ∃i'. i' models (thyof (upd::ctxt))``,
+      theory_ok (thyof ctxt) ∧ (∀p. upd ≠ NewAxiom p) ⇒
+      consistent_update ctxt upd``,
   strip_tac >>
   ho_match_mp_tac updates_ind >>
   conj_tac >- simp[] >>
@@ -766,29 +794,71 @@ val updates_consistent = store_thm("updates_consistent",
   conj_tac >- metis_tac[update_distinct,new_type_correct] >>
   metis_tac[update_distinct,new_type_definition_correct])
 
+val subinterpretation_reduce = store_thm("subinterpretation_reduce",
+  ``∀ls ctxt i i'. subinterpretation (ls++ctxt) i i' ∧
+                 DISJOINT (FDOM (tysof ls)) (FDOM (tysof ctxt)) ∧
+                 DISJOINT (FDOM (tmsof ls)) (FDOM (tmsof ctxt))
+    ⇒ subinterpretation ctxt i i'``,
+  rw[subinterpretation_def] >>
+  first_x_assum match_mp_tac >|
+  [qexists_tac`args`>>
+   match_mp_tac type_ok_extend >>
+   qexists_tac`tysof ctxt`
+  ,qexists_tac`ty` >>
+   match_mp_tac term_ok_extend >>
+   qexists_tac`tysof ctxt` >>
+   qexists_tac`tmsof ctxt`] >>
+  simp[] >>
+  TRY conj_tac >>
+  match_mp_tac SUBMAP_FUNION >>
+  fs[IN_DISJOINT] >>
+  metis_tac[])
+
+val subinterpretation_trans = store_thm("subinterpretation_trans",
+  ``∀ctxt i1 i2 i3. subinterpretation ctxt i1 i2 ∧ subinterpretation ctxt i2 i3
+    ⇒ subinterpretation ctxt i1 i3``,
+  rw[subinterpretation_def] >> metis_tac[])
+
 val extends_consistent = store_thm("extends_consistent",
   ``is_set_theory ^mem ⇒
     ∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒
       ∀i. theory_ok (thyof ctxt1) ∧ i models (thyof ctxt1) ∧
           (∀p. MEM (NewAxiom p) ctxt2 ⇒ MEM (NewAxiom p) ctxt1)
         ⇒
-        ∃i'. i' models (thyof ctxt2)``,
+        ∃i'. subinterpretation ctxt1 i i' ∧ i' models (thyof ctxt2)``,
   rw[] >>
   Q.ISPEC_THEN
     `λctxt. theory_ok (thyof ctxt) ∧
             ∃ls. ctxt = ls ++ ctxt1 ∧
+                 DISJOINT (FDOM (tysof ls)) (FDOM (tysof ctxt1)) ∧
+                 DISJOINT (FDOM (tmsof ls)) (FDOM (tmsof ctxt1)) ∧
               ((∀p. MEM (NewAxiom p) ls ⇒ MEM (NewAxiom p) ctxt1) ⇒
-               ∃i. i models (thyof ctxt))`
+               ∃i'. subinterpretation ctxt1 i i' ∧
+                    i' models (thyof ctxt))`
     mp_tac extends_ind >>
   discharge_hyps >- (
     rpt gen_tac >> strip_tac >>
     full_simp_tac std_ss [] >>
     conj_asm1_tac >- metis_tac[updates_theory_ok] >>
     qexists_tac`upd::ls` >> simp_tac std_ss [APPEND] >>
+    conj_asm1_tac >- fs[updates_cases] >>
+    conj_asm1_tac >- (
+      fs[updates_cases,LET_THM] >>
+      fs[IN_DISJOINT,MAP_MAP_o,UNCURRY,combinTheory.o_DEF,ETA_AX] >>
+      metis_tac[] ) >>
     strip_tac >>
     full_simp_tac std_ss [MEM] >>
-    reverse(Cases_on`∃p. upd = NewAxiom p`) >-
-      metis_tac[updates_consistent] >>
+    reverse(Cases_on`∃p. upd = NewAxiom p`) >- (
+      imp_res_tac updates_consistent >> pop_assum kall_tac >>
+      pop_assum mp_tac >> discharge_hyps >- metis_tac[] >>
+      BasicProvers.VAR_EQ_TAC >>
+      disch_then(imp_res_tac o SIMP_RULE std_ss [consistent_update_def]) >>
+      qmatch_assum_rename_tac`z models thyof (upd::(ls++ctxt1))`[] >>
+      qexists_tac`z` >> simp[] >>
+      match_mp_tac subinterpretation_reduce >>
+      qexists_tac`ls` >> fs[IN_DISJOINT] >>
+
+      metis_tac[updates_consistent,consistent_update_def,subinterpretation_reduce] >>
     qmatch_assum_rename_tac`j models thyof ctxt`[] >>
     qexists_tac`j` >>
     rfs[models_def,conexts_of_upd_def] >>
