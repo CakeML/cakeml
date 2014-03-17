@@ -474,6 +474,25 @@ val lookup_con_id_mod_cons = Q.store_thm ("lookup_con_id_mod_cons",
     lookup_con_id (Long mn cn) (envC1,flat_envC2)`,
 rw [lookup_con_id_def]);
 
+val merge_envC_assoc = Q.store_thm ("merge_envC_assoc",
+`∀envC1 envC2 envC3.
+  merge_envC envC1 (merge_envC envC2 envC3) =
+  merge_envC (merge_envC envC1 envC2) envC3`,
+rw [] >>
+PairCases_on `envC1` >>
+PairCases_on `envC2` >>
+PairCases_on `envC3` >>
+rw [merge_envC_def, merge_def]);
+
+val merge_tenvC_assoc = Q.store_thm ("merge_tenvC_assoc",
+`∀tenvC1 tenvC2 tenvC3.
+  merge_tenvC tenvC1 (merge_tenvC tenvC2 tenvC3) =
+  merge_tenvC (merge_tenvC tenvC1 tenvC2) tenvC3`,
+rw [] >>
+PairCases_on `tenvC1` >>
+PairCases_on `tenvC2` >>
+PairCases_on `tenvC3` >>
+rw [merge_tenvC_def, merge_def])
 
 (* ---------- tenv stuff ---------- *)
 (* bind_tvar, bind_var_list, bind_var_list2, lookup_tenv, bind_tenv,

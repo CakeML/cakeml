@@ -585,7 +585,7 @@ val infer_prog_def = Define `
 (infer_prog decls menv cenv env (top::ds) =
   do
     (decls',menv',cenv',env') <- infer_top decls menv cenv env top;
-    (decls'', menv'', cenv'', env'') <- infer_prog (append_decls decls' decls) menv (merge_tenvC cenv' cenv) (env' ++ env) ds;
+    (decls'', menv'', cenv'', env'') <- infer_prog (append_decls decls' decls) (menv'++menv) (merge_tenvC cenv' cenv) (env' ++ env) ds;
     return (append_decls decls'' decls', menv''++menv', merge_tenvC cenv'' cenv', env'' ++ env')
   od)`;
 
