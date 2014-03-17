@@ -507,7 +507,7 @@ val _ = Define `
 
 
 val _ = Define `
- (update_type_sound_inv top ((decls1:decls),(tenvM:tenvM),(tenvC:tenvC),(tenv:tenvE),(decls2: tid_or_exn set),(envM:envM),(envC:envC),(envE:envE),store) decls1' tenvM' tenvC' tenv' store' decls2' envC' r =  
+ (update_type_sound_inv ((decls1:decls),(tenvM:tenvM),(tenvC:tenvC),(tenv:tenvE),(decls2: tid_or_exn set),(envM:envM),(envC:envC),(envE:envE),store) decls1' tenvM' tenvC' tenv' store' decls2' envC' r =  
 ((case r of
        Rval (envM',envE') => 
          (union_decls decls1' decls1,(tenvM'++tenvM),merge_tenvC tenvC' tenvC,bind_var_list2 tenv' tenv,
