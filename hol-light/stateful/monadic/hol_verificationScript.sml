@@ -2304,46 +2304,27 @@ val INST_thm = store_thm("INST_thm",
 (* Verification of definition functions                                      *)
 (* ------------------------------------------------------------------------- *)
 
-val term_ok_cons = store_thm("term_ok_cons",
-  ``∀defs t d. term_ok defs t ∧ context_ok (d::defs) ⇒ term_ok (d::defs) t``,
-  rw[] >>
-  qsuff_tac`term_ok (d::defs) (t === t)` >- simp[term_ok_equation] >>
-  match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,11)) >>
-  map_every qexists_tac[`[]`,`t === t`] >> simp[] >>
-  match_mp_tac (MP_CANON proves_cons_def) >>
-  imp_res_tac proves_IMP >> simp[] >>
-  match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,14)) >>
-  simp[])
-
-val type_ok_cons = store_thm("type_ok_cons",
-  ``∀defs t d. type_ok defs t ∧ context_ok (d::defs) ⇒ type_ok (d::defs) t``,
-  rw[] >>
-  qsuff_tac`term_ok (d::defs) (Var x t)` >- simp[term_ok_Var] >>
-  match_mp_tac term_ok_cons >> simp[term_ok_Var])
-
 val TYPE_CONS_EXTEND = store_thm("TYPE_CONS_EXTEND",
   ``STATE s (d::defs) /\ TYPE defs ty ==> TYPE (d::defs) ty``,
   simp[STATE_def,TYPE_def] >> strip_tac >>
-  last_x_assum(assume_tac o SYM) >>
-  Cases_on`d` >> rw[hol_defs_def] >>
-  match_mp_tac type_ok_cons >>
-  fs[hol_defs_def])
+  match_mp_tac type_ok_extend >>
+  HINT_EXISTS_TAC >>
+  imp_res_tac CONTEXT_ALL_DISTINCT >>
+  Cases_on`d`>>fs[hol_def_def,SUBMAP_FUNION] >>
+  match_mp_tac SUBMAP_FUNION >>
+  fs[pred_setTheory.IN_DISJOINT])
 
 val TERM_CONS_EXTEND = store_thm("TERM_CONS_EXTEND",
   ``STATE s (d::defs) /\ TERM defs tm ==> TERM (d::defs) tm``,
   simp[STATE_def,TERM_def] >> strip_tac >>
-  last_x_assum(assume_tac o SYM) >>
-  Cases_on`d` >> rw[hol_defs_def] >>
-  match_mp_tac term_ok_cons >>
-  fs[hol_defs_def])
-
-val THM_CONS_EXTEND = store_thm("THM_CONS_EXTEND",
-  ``STATE s (d::defs) /\ THM defs th ==> THM (d::defs) th``,
-  Cases_on`th` >> simp[STATE_def,THM_def] >> strip_tac >>
-  last_x_assum(assume_tac o SYM) >>
-  Cases_on`d` >> rw[hol_defs_def] >>
-  match_mp_tac (MP_CANON proves_cons_def) >>
-  fs[hol_defs_def])
+  match_mp_tac term_ok_extend >>
+  map_every qexists_tac[`tysof(hol_defs defs)`,`tmsof(hol_defs defs)`] >>
+  imp_res_tac CONTEXT_ALL_DISTINCT >>
+  Cases_on`d`>>fs[hol_def_def,SUBMAP_FUNION,LET_THM] >>
+  TRY conj_tac >> match_mp_tac SUBMAP_FUNION >>
+  fs[pred_setTheory.IN_DISJOINT] >>
+  fs[ALL_DISTINCT_APPEND] >>
+  METIS_TAC[])
 
 val freesin_IMP = prove(
   ``!rhs vars.
@@ -2380,63 +2361,45 @@ val MEM_type_vars_in_term = prove(
        tvars_def,MEM_LIST_UNION]
   \\ IMP_RES_TAC TERM_Var \\ FULL_SIMP_TAC std_ss [pred_setTheory.IN_UNION]);
 
-val type_is_Bool = prove(
-  ``type defs ty Bool ⇔ (ty = Bool)``,
-  Cases_on`ty`>>simp[Once term_cases])
-
-val sequent_has_type_bool = store_thm("sequent_has_type_bool",
+val sequent_has_type_bool = prove(
   ``(d,h) |- c ⇒ EVERY (λt. t has_type Bool) (c::h)``,
-  strip_tac >> imp_res_tac proves_IMP >>
-  imp_res_tac sholSyntaxExtraTheory.proves_welltyped >>
-  fs[seq_trans_def,EVERY_MEM,EVERY2_EVERY,FORALL_PROD] >>
-  rfs[MEM_ZIP,PULL_EXISTS,MEM_EL] >>
-  rw[] >> res_tac >>
-  qmatch_assum_abbrev_tac`(zz:sholSyntax$term) has_type Bool` >>
-  qmatch_assum_abbrev_tac`term d yy zz` >>
-  `welltyped zz` by METIS_TAC[sholSyntaxTheory.welltyped_def] >>
-  `welltyped yy` by METIS_TAC[term_welltyped] >>
-  fs[WELLTYPED] >>
-  imp_res_tac has_type_IMP >>
-  imp_res_tac sholSyntaxTheory.WELLTYPED_LEMMA >>
-  METIS_TAC[type_is_Bool])
+  strip_tac >> imp_res_tac proves_term_ok >> fs[EVERY_MEM])
 
 val THM_term_ok_bool = prove(
-  ``good_defs (hol_defs defs) ∧ THM defs (Sequent asl p) ⇒
-    EVERY (λt. term_ok (hol_defs defs) t ∧ typeof t = Bool) (MAP hol_tm (p::asl))``,
+  ``THM defs (Sequent asl p) ⇒
+    EVERY (λt. term_ok (sigof (hol_defs defs)) t ∧ (typeof t = Bool)) (MAP hol_tm (p::asl))``,
   REPEAT STRIP_TAC
   \\ IMP_RES_TAC THM
   \\ FULL_SIMP_TAC std_ss [THM_def]
   \\ IMP_RES_TAC sequent_has_type_bool
-  \\ IMP_RES_TAC proves_IMP
+  \\ IMP_RES_TAC proves_term_ok
   \\ FULL_SIMP_TAC std_ss [TERM_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,MEM]
   \\ NTAC 2 STRIP_TAC
   \\ FULL_SIMP_TAC std_ss []
   \\ METIS_TAC [WELLTYPED_LEMMA])
 
 val hol_ty_is_Fun = prove(
-  ``hol_ty x = Fun y z ⇔ ∃y0 z0. x = Tyapp "fun" [y0;z0] ∧ y = hol_ty y0 ∧ z = hol_ty z0``,
+  ``(hol_ty x = Fun y z) ⇔ ∃y0 z0. (x = Tyapp "fun" [y0;z0]) ∧ (y = hol_ty y0) ∧ (z = hol_ty z0)``,
   Cases_on`x`>>simp[hol_ty_def,MAP_EQ_2] >>
   METIS_TAC[])
 
 val STRCAT_SHADOW_def = zDefine`
   STRCAT_SHADOW = STRCAT`
 
-val m = GSYM ml_translatorTheory.MEMBER_INTRO
 val first_dup_thm = prove(
   ``∀ls acc. (first_dup ls acc = NONE) ⇒ ALL_DISTINCT ls ∧ (∀x. MEM x ls ⇒ ¬MEM x acc)``,
-  Induct >> simp[Once first_dup_def,m] >>
+  Induct >> simp[Once first_dup_def] >>
   rpt gen_tac >>
   BasicProvers.CASE_TAC >>
   strip_tac >> res_tac >>
-  simp[m] >> fs[m] >>
-  METIS_TAC[])
+  fs[MEM] >> METIS_TAC[])
 
 val new_constants_thm = prove(
-  ``∀ls s res s'. new_constants ls s = (res,s') ⇒
-      (∀u. res = HolRes u ∧ ALL_DISTINCT (MAP FST s.the_term_constants) ⇒
+  ``∀ls s res s'. (new_constants ls s = (res,s')) ⇒
+      (∀u. (res = HolRes u) ∧ ALL_DISTINCT (MAP FST s.the_term_constants) ⇒
            ALL_DISTINCT (MAP FST ls ++ MAP FST s.the_term_constants) ∧
-           s' = s with the_term_constants := ls++s.the_term_constants) ∧
-      (∀msg. res = HolErr msg ⇒ s' = s)``,
+           (s' = s with the_term_constants := ls++s.the_term_constants)) ∧
+      (∀msg. (res = HolErr msg) ⇒ (s' = s))``,
   simp_tac std_ss [new_constants_def,GSYM STRCAT_SHADOW_def] >>
   simp[ex_bind_def,get_the_term_constants_def] >>
   rpt gen_tac >>
