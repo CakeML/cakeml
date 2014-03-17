@@ -1,4 +1,4 @@
-open HolKernel boolLib bossLib lcsymtacs relationTheory finite_mapTheory
+open HolKernel boolLib bossLib lcsymtacs relationTheory finite_mapTheory pred_setTheory
 open holBoolSyntaxTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
 val _ = new_theory"holAxiomsSyntax"
 
@@ -62,13 +62,74 @@ val _ = Parse.temp_overload_on("h",``Var "f" (Fun A B)``)
 val _ = Parse.temp_overload_on("Exh",``Exists "f" (Fun Ind Ind)``)
 
  (* INFINITY_AX *)
-val mk_inf_ctxt_def = Define`
-  mk_inf_ctxt ctxt =
+val mk_infinity_ctxt_def = Define`
+  mk_infinity_ctxt ctxt =
     NewAxiom (Exh (And (One_One h) (Not (Onto h)))) ::
     NewType "ind" 0 ::
     ConstDef "ONTO" (Absg (FAy (EXx (y === Comb g x)))) ::
     ConstDef "ONE_ONE"
       (Absg (FAx1 (FAx2 (Implies (Comb g x1 === Comb g x2) (x1 === x2))))) ::
     ctxt`
+
+val tyvar_inst_exists = prove(
+  ``∃i. ty = REV_ASSOCD (Tyvar a) i b``,
+  qexists_tac`[(ty,Tyvar a)]` >>
+  rw[REV_ASSOCD])
+
+val infinity_extends = store_thm("infinity_extends",
+  ``∀ctxt. theory_ok (thyof ctxt) ∧
+           DISJOINT (FDOM (tmsof ctxt)) {"ONE_ONE";"ONTO"} ∧
+           "ind" ∉ FDOM (tysof ctxt) ∧
+           (FLOOKUP (tmsof ctxt) "==>" = SOME (Fun Bool (Fun Bool Bool))) ∧
+           (FLOOKUP (tmsof ctxt) "/\\" = SOME (Fun Bool (Fun Bool Bool))) ∧
+           (FLOOKUP (tmsof ctxt) "!" = SOME (Fun (Fun A Bool) Bool)) ∧
+           (FLOOKUP (tmsof ctxt) "?" = SOME (Fun (Fun A Bool) Bool)) ∧
+           (FLOOKUP (tmsof ctxt) "~" = SOME (Fun Bool Bool))
+       ⇒ mk_infinity_ctxt ctxt extends ctxt``,
+  rw[extends_def] >>
+  imp_res_tac theory_ok_sig >>
+  `ALOOKUP (type_list ctxt) "fun" = SOME 2` by fs[is_std_sig_def] >>
+  `ALOOKUP (type_list ctxt) "bool" = SOME 0` by fs[is_std_sig_def] >>
+  rw[Once RTC_CASES1] >> disj2_tac >>
+  simp_tac std_ss [mk_infinity_ctxt_def] >>
+  Q.PAT_ABBREV_TAC`cd1 = ConstDef X Y` >>
+  Q.PAT_ABBREV_TAC`cd2 = ConstDef X Y` >>
+  rw[] >- (
+    rw[updates_cases] >- (
+      rpt(rw[Once has_type_cases])) >>
+    simp[Abbr`cd1`,Abbr`cd2`] >>
+    rw[term_ok_def,FLOOKUP_UPDATE,type_ok_def,tyvar_inst_exists
+      ,FUNION_FEMPTY_1,FLOOKUP_FUNION]) >>
+  rw[Once RTC_CASES1] >- rw[Abbr`cd1`,Abbr`cd2`,updates_cases] >>
+  simp[Once RTC_CASES1] >>
+  conj_asm2_tac >- (
+    qunabbrev_tac`cd1` >>
+    match_mp_tac ConstDef_updates >>
+    full_simp_tac bool_ss [GSYM extends_def] >>
+    imp_res_tac extends_theory_ok >>
+    conj_tac >- rw[] >>
+    conj_tac >- (
+      match_mp_tac term_ok_extend >>
+      map_every qexists_tac[`tysof ctxt`,`tmsof ctxt`] >>
+      qpat_assum`DISJOINT X Y`mp_tac >>
+      simp[Abbr`cd2`,IN_DISJOINT] >>
+      strip_tac >> conj_tac >- PROVE_TAC[] >>
+      fs[] >>
+      simp[term_ok_def,type_ok_def,tyvar_inst_exists,welltyped_equation
+          ,EQUATION_HAS_TYPE_BOOL,typeof_equation,term_ok_equation] ) >>
+    conj_tac >- (fs[Abbr`cd2`,IN_DISJOINT] >> PROVE_TAC[] ) >>
+    simp[CLOSED_def,tvars_def,tyvars_def,equation_def] >>
+    PROVE_TAC[] ) >>
+  simp[Once RTC_CASES1] >>
+  qunabbrev_tac`cd2` >>
+  match_mp_tac ConstDef_updates >>
+  full_simp_tac bool_ss [GSYM extends_def] >>
+  imp_res_tac extends_theory_ok >>
+  fs[IN_DISJOINT] >>
+  simp[CLOSED_def,tvars_def,tyvars_def] >>
+  simp[term_ok_def,type_ok_def,welltyped_equation,EQUATION_HAS_TYPE_BOOL
+      ,typeof_equation,term_ok_equation] >>
+  simp[equation_def,tvars_def,tyvars_def] >>
+  PROVE_TAC[])
 
 val _ = export_theory()
