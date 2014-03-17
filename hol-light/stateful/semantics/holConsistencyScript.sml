@@ -819,6 +819,10 @@ val subinterpretation_trans = store_thm("subinterpretation_trans",
     ⇒ subinterpretation ctxt i1 i3``,
   rw[subinterpretation_def] >> metis_tac[])
 
+val subinterpretation_refl = store_thm("subinterpretation_refl",
+  ``∀ctxt i. subinterpretation ctxt i i``,
+  rw[subinterpretation_def])
+
 val extends_consistent = store_thm("extends_consistent",
   ``is_set_theory ^mem ⇒
     ∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒
@@ -855,10 +859,11 @@ val extends_consistent = store_thm("extends_consistent",
       disch_then(imp_res_tac o SIMP_RULE std_ss [consistent_update_def]) >>
       qmatch_assum_rename_tac`z models thyof (upd::(ls++ctxt1))`[] >>
       qexists_tac`z` >> simp[] >>
+      match_mp_tac subinterpretation_trans >>
+      qmatch_assum_rename_tac`subinterpretation ctxt1 i m`[] >>
+      qexists_tac`m` >> simp[] >>
       match_mp_tac subinterpretation_reduce >>
-      qexists_tac`ls` >> fs[IN_DISJOINT] >>
-
-      metis_tac[updates_consistent,consistent_update_def,subinterpretation_reduce] >>
+      qexists_tac`ls` >> fs[IN_DISJOINT] ) >>
     qmatch_assum_rename_tac`j models thyof ctxt`[] >>
     qexists_tac`j` >>
     rfs[models_def,conexts_of_upd_def] >>
@@ -868,7 +873,7 @@ val extends_consistent = store_thm("extends_consistent",
     metis_tac[]) >>
   disch_then(qspecl_then[`ctxt1`,`ctxt2`]mp_tac) >>
   simp[PULL_EXISTS] >>
-  disch_then(qspec_then`i`mp_tac) >> simp[] >>
+  disch_then(qspec_then`i`mp_tac) >> simp[subinterpretation_refl] >>
   strip_tac >>
   first_x_assum match_mp_tac >>
   fs[EVERY_MEM])
@@ -880,14 +885,7 @@ val min_hol_consistent = store_thm("min_hol_consistent",
       ¬((thyof ctxt,[]) |- (Var "x" Bool === Var "y" Bool))``,
   strip_tac >> gen_tac >> strip_tac >>
   match_mp_tac (UNDISCH proves_consistent) >>
-  conj_tac >- metis_tac[extends_theory_ok,init_theory_ok] >>
-  match_mp_tac (MP_CANON (UNDISCH extends_consistent)) >>
-  qexists_tac`init_ctxt` >>
-  simp[init_theory_ok,EVERY_MEM] >>
-  imp_res_tac init_ctxt_has_model >>
-  qexists_tac`i` >> simp[] >>
-  fs[init_ctxt_def] >>
-  metis_tac[])
+  metis_tac[extends_theory_ok,extends_consistent,init_theory_ok,init_ctxt_has_model])
 
 (*
 val add_axiom = prove(
