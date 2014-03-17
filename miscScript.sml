@@ -1116,6 +1116,13 @@ val IN_FRANGE = store_thm(
 ``!f v. v IN FRANGE f ⇔ ?k. k IN FDOM f /\ (f ' k = v)``,
 SRW_TAC[][FRANGE_DEF])
 
+val ALOOKUP_IN_FRANGE = store_thm("ALOOKUP_IN_FRANGE",
+  ``∀ls k v. (ALOOKUP ls k = SOME v) ⇒ v ∈ FRANGE (alist_to_fmap ls)``,
+  Induct >> simp[] >> Cases >> simp[] >> rw[] >>
+  simp[IN_FRANGE,DOMSUB_FAPPLY_THM] >>
+  full_simp_tac std_ss [Once(SYM (CONJUNCT1 ALOOKUP_EQ_FLOOKUP)),FLOOKUP_DEF] >>
+  fs[] >> METIS_TAC[])
+
 val FRANGE_FUPDATE_LIST_SUBSET = store_thm(
 "FRANGE_FUPDATE_LIST_SUBSET",
 ``∀ls fm. FRANGE (fm |++ ls) ⊆ FRANGE fm ∪ (set (MAP SND ls))``,

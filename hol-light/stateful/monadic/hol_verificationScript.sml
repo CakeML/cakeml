@@ -8,14 +8,6 @@ val _ = temp_overload_on ("return", ``ex_return``);
 
 infix \\ val op \\ = op THEN;
 
-(* TODO: move *)
-val ALOOKUP_IN_FRANGE = store_thm("ALOOKUP_IN_FRANGE",
-  ``∀ls k v. (ALOOKUP ls k = SOME v) ⇒ v ∈ FRANGE (alist_to_fmap ls)``,
-  Induct >> simp[] >> Cases >> simp[] >> rw[] >>
-  simp[IN_FRANGE,DOMSUB_FAPPLY_THM] >>
-  full_simp_tac std_ss [Once(SYM (CONJUNCT1 ALOOKUP_EQ_FLOOKUP)),FLOOKUP_DEF] >>
-  fs[] >> METIS_TAC[])
-
 val rev_assocd_thm = prove(
   ``rev_assocd = REV_ASSOCD``,
   SIMP_TAC std_ss [FUN_EQ_THM] \\ Induct_on `x'`
