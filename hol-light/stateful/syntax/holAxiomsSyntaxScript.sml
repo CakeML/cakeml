@@ -58,7 +58,7 @@ val _ = Parse.temp_overload_on("x2",``Var "x2" A``)
 val _ = Parse.temp_overload_on("FAx2",``Forall "x2" A``)
 val _ = Parse.temp_overload_on("y",``Var "y" B``)
 val _ = Parse.temp_overload_on("FAy",``Forall "y" B``)
-val _ = Parse.temp_overload_on("h",``Var "f" (Fun A B)``)
+val _ = Parse.temp_overload_on("h",``Var "f" (Fun Ind Ind)``)
 val _ = Parse.temp_overload_on("Exh",``Exists "f" (Fun Ind Ind)``)
 
  (* INFINITY_AX *)
@@ -99,7 +99,9 @@ val infinity_extends = store_thm("infinity_extends",
       rpt(rw[Once has_type_cases])) >>
     simp[Abbr`cd1`,Abbr`cd2`] >>
     rw[term_ok_def,FLOOKUP_UPDATE,type_ok_def,tyvar_inst_exists
-      ,FUNION_FEMPTY_1,FLOOKUP_FUNION]) >>
+      ,FUNION_FEMPTY_1,FLOOKUP_FUNION] >>
+    qexists_tac`[(Ind,A);(Ind,B)]` >>
+    simp[REV_ASSOCD]) >>
   rw[Once RTC_CASES1] >- rw[Abbr`cd1`,Abbr`cd2`,updates_cases] >>
   simp[Once RTC_CASES1] >>
   conj_asm2_tac >- (
