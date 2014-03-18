@@ -1,6 +1,6 @@
 open HolKernel boolLib bossLib lcsymtacs relationTheory pairTheory listTheory finite_mapTheory alistTheory
 open miscLib miscTheory holBoolTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holAxiomsSyntaxTheory
-open setSpecTheory holSemanticsTheory holSemanticsExtraTheory
+open setSpecTheory holSemanticsTheory holSemanticsExtraTheory  holConsistencyTheory
 
 val _ = new_theory"holAxioms"
 
@@ -67,12 +67,16 @@ val select_has_model = store_thm("select_has_model",
             (K (Abstract boolset (Funspace boolset boolset)
                    (λp. Abstract boolset boolset
                        (λq. Boolean ((p = True) ⇒ (q = True))))))
-      ⇒ ∃i'. i' models (thyof (mk_select_ctxt ctxt))``,
+      ⇒ ∃i'. subinterpretation ctxt i i' ∧
+             i' models (thyof (mk_select_ctxt ctxt))``,
   rw[models_def,mk_select_ctxt_def,conexts_of_upd_def] >>
   qexists_tac`(tyaof i, ("@" =+ λl. Abstract (Funspace (HD l) boolset) (HD l)
     (λp. case some v. v <: HD l ∧ Holds p v of NONE => @v. v <: HD l | SOME v => v)) (tmaof i))` >>
   imp_res_tac is_std_interpretation_is_type >>
   imp_res_tac typesem_Fun >>
+  conj_tac >- (
+    simp[subinterpretation_def,combinTheory.APPLY_UPDATE_THM,term_ok_def] >>
+    rw[] >> imp_res_tac ALOOKUP_MEM >> fs[MEM_MAP,EXISTS_PROD] >> metis_tac[] ) >>
   conj_asm1_tac >- (
     fs[is_interpretation_def,is_term_assignment_def,FEVERY_ALL_FLOOKUP,FLOOKUP_UPDATE] >>
     rw[] >> rw[combinTheory.APPLY_UPDATE_THM] >>
@@ -176,7 +180,7 @@ val select_has_model = store_thm("select_has_model",
   unabbrev_all_tac >> simp[] >>
   metis_tac[])
 
-open pred_setTheory holConsistencyTheory
+open pred_setTheory
 
 val _ = Parse.temp_overload_on("h",``Var "f" (Fun Ind Ind)``)
 val _ = Parse.temp_overload_on("Exh",``Exists "f" (Fun Ind Ind)``)
@@ -248,7 +252,8 @@ val infinity_has_model = store_thm("infinity_has_model",
                    (λP. Boolean (∃x. x <: (HD l) ∧ Holds P x))) ∧
           tmaof i interprets "~" on [] as
             K (Abstract boolset boolset (λp. Boolean (p ≠ True)))
-      ⇒ ∃i'. i' models (thyof (mk_infinity_ctxt ctxt))``,
+      ⇒ ∃i'. subinterpretation ctxt i i' ∧
+             i' models (thyof (mk_infinity_ctxt ctxt))``,
   rw[models_def] >>
   `∃ctxt1 p. mk_infinity_ctxt ctxt = (NewAxiom p)::(NewType "ind" 0)::ctxt1` by simp[mk_infinity_ctxt_def] >>
   `mk_infinity_ctxt ctxt extends ctxt` by (
@@ -279,6 +284,13 @@ val infinity_has_model = store_thm("infinity_has_model",
     imp_res_tac IN_INFINITE_NOT_FINITE >>
     first_x_assum(qspec_then`{}`mp_tac) >>
     simp[] ) >>
+  conj_tac >- (
+    match_mp_tac subinterpretation_trans >>
+    qexists_tac`i1` >> simp[] >>
+    simp[subinterpretation_def,type_ok_def,combinTheory.APPLY_UPDATE_THM] >>
+    rw[] >> imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,EXISTS_PROD] >>
+    metis_tac[]) >>
   conj_asm1_tac >- (
     fs[is_interpretation_def,is_type_assignment_def,is_term_assignment_def
       ,FEVERY_ALL_FLOOKUP,combinTheory.APPLY_UPDATE_THM] >>
