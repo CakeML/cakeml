@@ -65,11 +65,11 @@ val is_bool_interpretation_def = xDefine"is_bool_interpretation"`
     tmaof i interprets "~" on [] as K (Abstract boolset boolset (λp. Boolean (p ≠ True)))`
 val _ = Parse.overload_on("is_bool_interpretation",``is_bool_interpretation0 ^mem``)
 
-val boolrel_in_funspace = prove(
+val boolrel_in_funspace = store_thm("boolrel_in_funspace",
   ``is_set_theory ^mem ⇒ Boolrel R <: Funspace boolset (Funspace boolset boolset)``,
   strip_tac >> match_mp_tac (UNDISCH abstract_in_funspace) >> rw[] >>
   match_mp_tac (UNDISCH abstract_in_funspace) >> rw[boolean_in_boolset] )
-val _ = augment_srw_ss[rewrites[boolrel_in_funspace]]
+val _ = export_rewrites["boolrel_in_funspace"]
 
 fun init_tac q =
   fs[models_def] >>
@@ -120,10 +120,10 @@ val apply_abstract_tac = rpt ( (
     match_mp_tac (UNDISCH apply_in_rng) >>
     HINT_EXISTS_TAC >> rw[]
 
-val apply_boolrel = prove(
+val apply_boolrel = store_thm("apply_boolrel",
   ``is_set_theory ^mem ⇒
-    ∀b1 b2. b1 <: boolset ∧ b2 <: boolset ⇒
-      Boolrel R ' b1 ' b2 = Boolean (R (b1 = True) (b2 = True))``,
+    ∀b1 b2 b3. b1 <: boolset ∧ b2 <: boolset ∧ (b3 = Boolean (R (b1 = True) (b2 = True))) ⇒
+      Boolrel R ' b1 ' b2 = b3 ``,
   rw[] >>
   `Boolrel R ' b1 = Abstract boolset boolset (λb2. Boolean (R (b1 = True) (b2 = True)))` by (
     match_mp_tac apply_abstract_matchable >>
@@ -365,10 +365,10 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
       match_mp_tac apply_abstract_matchable >>
       rw[Abbr`i2`] >>
       apply_abstract_tac ) >>
-    simp[Abbr`i2`] >>
-    simp[apply_boolrel,boolean_in_boolset,boolean_eq_true,Abbr`Z`] >>
+    fs[Abbr`i2`] >>
+    simp[SIMP_RULE(srw_ss())[]apply_boolrel,boolean_in_boolset,boolean_eq_true,Abbr`Z`] >>
     `∀x. x <: tyvof v "A" ⇒ pp ' x <: boolset` by (rw[] >> apply_abstract_tac) >>
-    simp[apply_boolrel,boolean_eq_true] >>
+    simp[SIMP_RULE(srw_ss())[]apply_boolrel,boolean_eq_true] >>
     ntac 20 (pop_assum kall_tac) >>
     simp[boolean_def] >>
     metis_tac[mem_boolset] ) >>
@@ -408,7 +408,7 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
       rw[Abbr`ff`] >>
       apply_abstract_tac ) >>
     rw[holds_def] >>
-    simp[apply_boolrel,Abbr`ff`,boolean_in_boolset,Abbr`Z`] >>
+    simp[SIMP_RULE(srw_ss())[]apply_boolrel,Abbr`ff`,boolean_in_boolset,Abbr`Z`] >>
     simp[boolean_def] >>
     metis_tac[mem_boolset] ) >>
   conj_asm1_tac >- (
@@ -445,7 +445,7 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
   fs[interprets_def] >>
   rpt (last_x_assum(qspec_then`τ`mp_tac)>>simp[]>>strip_tac) >>
   match_mp_tac (UNDISCH abstract_eq) >>
-  simp[boolean_in_boolset,apply_boolrel,combinTheory.APPLY_UPDATE_THM,mem_boolset,boolean_def] >>
+  simp[boolean_in_boolset,SIMP_RULE(srw_ss())[]apply_boolrel,combinTheory.APPLY_UPDATE_THM,mem_boolset,boolean_def] >>
   rw[] >> rw[] >> fs[])
 
 val _ = export_theory()
