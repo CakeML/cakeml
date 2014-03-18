@@ -1555,6 +1555,12 @@ val proves_term_ok = store_thm("proves_term_ok",
     match_mp_tac EVERY_TERM_UNION >> fs[] ) >>
   rw[theory_ok_def])
 
+(* extension is transitive *)
+
+val extends_trans = store_thm("extends_trans",
+  ``∀c1 c2 c3. c1 extends c2 ∧ c2 extends c3 ⇒ c1 extends c3``,
+  rw[extends_def] >> metis_tac[RTC_TRANSITIVE,transitive_def])
+
 (* signature extensions preserve ok *)
 
 val type_ok_extend = store_thm("type_ok_extend",
