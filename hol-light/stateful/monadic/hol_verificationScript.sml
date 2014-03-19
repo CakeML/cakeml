@@ -2445,8 +2445,7 @@ val new_basic_definition_thm = store_thm("new_basic_definition_thm",
   ``TERM defs tm /\ STATE s defs ==>
     case new_basic_definition tm s of
     | (HolErr msg, s') => (s' = s)
-    | (HolRes th, s') => (?d. (* def_ok (hol_def d) (hol_defs defs) /\ *)
-                              THM (d::defs) th /\
+    | (HolRes th, s') => (?d. THM (d::defs) th /\
                               STATE s' (d::defs))``,
   rw[] >>
   simp[new_basic_definition_def,ex_bind_def] >>
@@ -2738,5 +2737,105 @@ val new_basic_type_definition_thm = store_thm("new_basic_type_definition_thm",
   simp[Abbr`s2`,hol_def_def,conexts_of_upd_def] >>
   imp_res_tac QSORT_type_vars_in_term >>
   simp[equation_def,Abbr`vs`,MAP_MAP_o,combinTheory.o_DEF,hol_ty_def,ETA_AX])
+
+(* ------------------------------------------------------------------------- *)
+(* Verification of context extension functions                               *)
+(* ------------------------------------------------------------------------- *)
+
+val new_type_thm = store_thm("new_type_thm",
+  ``STATE s defs ⇒
+    case new_type (name,arity) s of
+    | (HolErr msg, s') => (s' = s)
+    | (HolRes (), s') => (?d. STATE s' (d::defs))``,
+  rw[new_type_def,ex_bind_def,add_type_def,can_def,get_type_arity_def,get_the_type_constants_def
+    ,otherwise_def,ex_return_def,failwith_def] >>
+  BasicProvers.CASE_TAC >>
+  BasicProvers.CASE_TAC >>
+  imp_res_tac assoc_thm >>
+  rw[set_the_type_constants_def,add_def_def,ex_bind_def
+    ,get_the_definitions_def,set_the_definitions_def] >>
+  qexists_tac`NewType name arity` >>
+  fs[STATE_def,hol_def_def] >>
+  conj_asm1_tac >- (
+    fs[CONTEXT_def,hol_def_def] >>
+    simp[extends_def,Once relationTheory.RTC_CASES1] >>
+    disj2_tac >> simp[GSYM extends_def] >>
+    rfs[updates_cases,MEM_MAP,EXISTS_PROD] ) >>
+  rfs[TERM_def] >>
+  MATCH_MP_TAC term_ok_extend >>
+  map_every qexists_tac[`tysof (hol_defs defs)`,`tmsof (hol_defs defs)`] >>
+  simp[hol_def_def] >> rw[] >>
+  MATCH_MP_TAC SUBMAP_FUNION >>
+  fs[pred_setTheory.IN_DISJOINT] >>
+  fs[MEM_MAP,EXISTS_PROD])
+
+val new_constant_thm = store_thm("new_constant_thm",
+  ``STATE s defs ∧ TYPE defs ty ⇒
+    case new_constant (name,ty) s of
+    | (HolErr msg, s') => (s' = s)
+    | (HolRes (), s') => (?d. STATE s' (d::defs))``,
+  rw[new_constant_def,ex_bind_def] >>
+  qspecl_then[`[(name,ty)]`,`s`]mp_tac add_constants_thm >>
+  Cases_on`add_constants [(name,ty)] s`>>simp[] >>
+  Cases_on`q`>>simp[oneTheory.one] >>
+  imp_res_tac STATE_ALL_DISTINCT >> rw[] >>
+  rw[add_def_def,ex_bind_def,get_the_definitions_def,set_the_definitions_def] >>
+  qexists_tac`NewConst name ty` >>
+  fs[STATE_def,hol_def_def] >>
+  conj_asm1_tac >- (
+    fs[CONTEXT_def,hol_def_def] >>
+    simp[extends_def,Once relationTheory.RTC_CASES1] >>
+    disj2_tac >> simp[GSYM extends_def] >>
+    rfs[updates_cases,MEM_MAP,EXISTS_PROD] >>
+    conj_tac >- (
+      qpat_assum`X = const_list Y`(assume_tac o SYM) >>
+      simp[MEM_MAP,EXISTS_PROD] ) >>
+    fs[TYPE_def] ) >>
+  rfs[TERM_def] >>
+  MATCH_MP_TAC term_ok_extend >>
+  map_every qexists_tac[`tysof (hol_defs defs)`,`tmsof (hol_defs defs)`] >>
+  simp[hol_def_def] >> rw[] >>
+  MATCH_MP_TAC SUBMAP_FUNION >>
+  fs[pred_setTheory.IN_DISJOINT] >>
+  fs[MEM_MAP,EXISTS_PROD] >>
+  qpat_assum`X = const_list Y`(assume_tac o SYM) >>
+  simp[MEM_MAP,EXISTS_PROD] )
+
+val new_axiom_thm = store_thm("new_axiom_thm",
+  ``STATE s defs ∧ TERM defs p ⇒
+    case new_axiom p s of
+    | (HolErr msg, s') => (s' = s)
+    | (HolRes th, s') => (?d. THM (d::defs) th ∧ STATE s' (d::defs))``,
+  rw[new_axiom_def,ex_bind_def] >>
+  imp_res_tac type_of_thm >> rw[] >>
+  qspecl_then[`"bool"`,`[]`,`s`]mp_tac mk_type_thm >>
+  Cases_on`mk_type ("bool",[]) s`>>simp[] >>
+  Cases_on`q`>>simp[]>>strip_tac>>
+  BasicProvers.CASE_TAC >> simp[failwith_def,ex_return_def] >>
+  simp[get_the_axioms_def,set_the_axioms_def] >>
+  simp[add_def_def,ex_bind_def,get_the_definitions_def,set_the_definitions_def] >>
+  qexists_tac`NewAxiom p` >>
+  conj_asm2_tac >- (
+    REWRITE_TAC[THM_def] >>
+    `MAP hol_tm [] = []` by simp[] >> POP_ASSUM SUBST1_TAC >>
+    MATCH_MP_TAC(List.nth(CONJUNCTS proves_rules,10)) >>
+    reverse conj_tac >- simp[hol_def_def] >>
+    METIS_TAC[STATE_def,CONTEXT_def,extends_theory_ok,init_theory_ok] ) >>
+  fs[STATE_def,hol_def_def] >>
+  conj_asm1_tac >- (
+    imp_res_tac term_type >>
+    fs[CONTEXT_def,hol_def_def] >>
+    simp[extends_def,Once relationTheory.RTC_CASES1] >>
+    disj2_tac >> simp[GSYM extends_def] >>
+    rfs[updates_cases,MEM_MAP,EXISTS_PROD] >>
+    fs[hol_ty_def] >>
+    fs[TERM_def] >>
+    METIS_TAC[term_ok_welltyped,WELLTYPED]) >>
+  rfs[TERM_def] >>
+  MATCH_MP_TAC term_ok_extend >>
+  map_every qexists_tac[`tysof (hol_defs defs)`,`tmsof (hol_defs defs)`] >>
+  simp[hol_def_def] >> rw[] >>
+  MATCH_MP_TAC SUBMAP_FUNION >>
+  fs[pred_setTheory.IN_DISJOINT])
 
 val _ = export_theory();
