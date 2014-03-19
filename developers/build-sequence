@@ -20,6 +20,7 @@ hol-light/stateless/monadic
 hol-light/stateless/ml_kernel
 hol-light/stateful/syntax
 hol-light/stateful/semantics
+hol-light/stateful/monadic
 parsing/testing
 compiler/tests
 whole-prog
