@@ -233,13 +233,17 @@ val add_def = Define `
   add_def d = do defs <- get_the_definitions ;
                  set_the_definitions (d::defs) od`;
 
+val _ = Define`
+  add_type (name,arity) =
+    do ok <- can get_type_arity name ;
+       if ok then failwith ("new_type: " ++ name ++ " has already been declared")
+             else do ts <- get_the_type_constants ;
+                     set_the_type_constants ((name,arity)::ts) od od`
+
 val _ = Define `
   new_type (name,arity) =
-    do ok <- can get_type_arity name ;
-       if ok then failwith ("new_type: " ++ name ++ " has alreay been declared")
-             else do ts <- get_the_type_constants ;
-                     set_the_type_constants ((name,arity)::ts);
-                     add_def (NewType name arity) od od`;
+    do add_type (name,arity);
+       add_def (NewType name arity) od`;
 
 (*
   let mk_type(tyop,args) =
@@ -373,22 +377,6 @@ val _ = temp_overload_on("bty",``mk_vartype "B"``);
 val _ = Define `
   get_const_type s =
     do l <- get_the_term_constants ; assoc s l od`;
-
-(*
-  let new_constant(name,ty) =
-    if can get_const_type name then
-      failwith ("new_constant: constant "^name^" has already been declared")
-    else the_term_constants := (name,ty)::(!the_term_constants)
-*)
-
-val _ = Define `
-  new_constant (name,ty) =
-    do ok <- can get_const_type name ;
-       if ok then
-         failwith ("new_constant: constant "++name++" has already been declared")
-       else do ts <- get_the_term_constants ;
-               set_the_term_constants ((name,ty)::ts) ;
-               add_def (NewConst name ty) od od`;
 
 (*
   let rec type_of tm =
@@ -1128,10 +1116,10 @@ val _ = Define`
     if MEM h acc then SOME h else first_dup t (h::acc)`
 
 val _ = Define `
-  new_constants ls =
+  add_constants ls =
     do cs <- get_the_term_constants ;
        case first_dup (MAP FST ls) (MAP FST cs) of
-       | SOME name => failwith ("new_constants: "++name++" appears twice or has already been declared")
+       | SOME name => failwith ("add_constants: "++name++" appears twice or has already been declared")
        | NONE => set_the_term_constants (ls++cs) od`;
 
 val _ = Define`
@@ -1148,11 +1136,23 @@ val _ = Define`
        if ~(freesin (MAP (UNCURRY Var) vars) p) then
          failwith "new_specification: specification not closed by the definitions"
        else do
-         new_constants vars ;
+         add_constants vars ;
          add_def (ConstSpec (MAP (\((s,ty),r). (s,r)) eqs) p) ;
          let ilist = MAP (\(s,ty). (Const s ty, Var s ty)) vars in
          let p = vsubst_aux ilist p in
          return (Sequent [] p) od od`
+
+(*
+  let new_constant(name,ty) =
+    if can get_const_type name then
+      failwith ("new_constant: constant "^name^" has already been declared")
+    else the_term_constants := (name,ty)::(!the_term_constants)
+*)
+
+val _ = Define `
+  new_constant (name,ty) =
+    do add_constants [(name,ty)] ;
+       add_def (NewConst name ty) od`;
 
 val _ = Define`
   new_basic_definition tm = do th <- ASSUME tm ; new_specification th od`
@@ -1214,8 +1214,10 @@ val _ = Define `
 val new_basic_type_definition_def = Define `
   new_basic_type_definition tyname absname repname thm =
     case thm of (Sequent asl c) =>
-    do ok1 <- can get_const_type absname ;
+    do ok0 <- can get_type_arity tyname ;
+       ok1 <- can get_const_type absname ;
        ok2 <- can get_const_type repname ;
+    if ok0 then failwith "new_basic_type_definition: Type already defined" else
     if ok1 \/ ok2 then failwith "new_basic_type_definition: Constant(s) already in use" else
     if absname = repname then failwith "new_basic_type_definition: Constants must be distinct" else
     if ~(asl = []) then
@@ -1225,15 +1227,13 @@ val new_basic_type_definition_def = Define `
       failwith "new_basic_type_definition: Predicate is not closed" else
     let tyvars = MAP Tyvar (QSORT string_le (type_vars_in_term P)) in
     do rty <- type_of x ;
-       y <- try new_type (tyname,LENGTH tyvars)
-                         "new_basic_type_definition: Type already defined" ;
-       y <- add_def (TypeDefn tyname P absname repname) ;
+       add_type (tyname, LENGTH tyvars) ;
        aty <- mk_type(tyname,tyvars) ;
-       ty <- mk_fun_ty aty rty ;
-       y <- new_constant(repname,ty) ;
+       repty <- mk_fun_ty aty rty ;
+       absty <- mk_fun_ty rty aty ;
+       add_constants[(absname,absty);(repname,repty)] ;
+       add_def (TypeDefn tyname P absname repname) ;
        rep <- mk_const(repname,[]) ;
-       ty <- mk_fun_ty rty aty ;
-       y <- new_constant(absname,ty) ;
        abs <- mk_const(absname,[]) ;
        a <- return (mk_var("a",aty)) ;
        r <- return (mk_var("r",rty)) ;
