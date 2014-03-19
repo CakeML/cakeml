@@ -4,6 +4,16 @@ val _ = new_theory "misc"
 
 (* TODO: move/categorize *)
 
+val SORTED_weaken = store_thm("SORTED_weaken",
+  ``∀R R' ls. SORTED R ls /\ (!x y. MEM x ls /\ MEM y ls /\ R x y ==> R' x y)
+      ==> SORTED R' ls``,
+  NTAC 2 GEN_TAC THEN
+  Induct THEN SRW_TAC[][] THEN
+  Cases_on`ls` THEN
+  FULL_SIMP_TAC(srw_ss())[sortingTheory.SORTED_DEF] THEN
+  FIRST_X_ASSUM MATCH_MP_TAC THEN
+  METIS_TAC[])
+
 val INFINITE_INJ_NOT_SURJ = store_thm("INFINITE_INJ_NOT_SURJ",
   ``∀s. INFINITE s ⇔ (s ≠ ∅) ∧ (∃f. INJ f s s ∧ ¬SURJ f s s)``,
   rw[EQ_IMP_THM] >- (
