@@ -1,0 +1,7 @@
+ml_monadScript.sml
+  A few lemmas that are used in translating the monadic functions from
+  ../monadic/hol_kernelScript.sml
+
+ml_hol_kernelScript.sml
+  Proof-producing translation of all functions from
+  ../monadic/hol_kernelScript.sml into CakeML
