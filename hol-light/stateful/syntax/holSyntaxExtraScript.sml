@@ -1739,4 +1739,30 @@ val ConstDef_updates = store_thm("ConstDef_updates",
   imp_res_tac term_ok_type_ok >>
   simp[EQUATION_HAS_TYPE_BOOL,term_ok_equation,term_ok_def])
 
+(* extensions have all distinct names *)
+
+val updates_ALL_DISTINCT = store_thm("updates_ALL_DISTINCT",
+  ``∀upd ctxt. upd updates ctxt ⇒
+      (ALL_DISTINCT (MAP FST (type_list ctxt)) ⇒
+       ALL_DISTINCT (MAP FST (type_list (upd::ctxt)))) ∧
+      (ALL_DISTINCT (MAP FST (const_list ctxt)) ⇒
+       ALL_DISTINCT (MAP FST (const_list (upd::ctxt))))``,
+  ho_match_mp_tac updates_ind >> simp[] >>
+  rw[ALL_DISTINCT_APPEND,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX])
+
+val extends_ALL_DISTINCT = store_thm("extends_ALL_DISTINCT",
+  ``∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒
+      (ALL_DISTINCT (MAP FST (type_list ctxt1)) ⇒
+       ALL_DISTINCT (MAP FST (type_list ctxt2))) ∧
+      (ALL_DISTINCT (MAP FST (const_list ctxt1)) ⇒
+       ALL_DISTINCT (MAP FST (const_list ctxt2)))``,
+  simp[IMP_CONJ_THM,FORALL_AND_THM] >> conj_tac >>
+  ho_match_mp_tac extends_ind >>
+  METIS_TAC[updates_ALL_DISTINCT])
+
+val init_ALL_DISTINCT = store_thm("init_ALL_DISTINCT",
+  ``ALL_DISTINCT (MAP FST (const_list init_ctxt)) ∧
+    ALL_DISTINCT (MAP FST (type_list init_ctxt))``,
+  EVAL_TAC)
+
 val _ = export_theory()

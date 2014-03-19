@@ -250,8 +250,16 @@ val MEM_STRING_SORT = store_thm("MEM_STRING_SORT",
 val _ = export_rewrites["MEM_STRING_SORT"]
 
 val ALL_DISTINCT_STRING_SORT = store_thm("ALL_DISTINCT_STRING_SORT",
-  ``∀ls. ALL_DISTINCT ls ⇒ ALL_DISTINCT (STRING_SORT ls)``,
-  metis_tac[PERM_STRING_SORT,ALL_DISTINCT_PERM])
+  ``!xs. ALL_DISTINCT (STRING_SORT xs)``,
+  Induct
+  >> FULL_SIMP_TAC std_ss [STRING_SORT_def,FOLDR,ALL_DISTINCT,INORDER_INSERT_def]
+  >> FULL_SIMP_TAC std_ss [ALL_DISTINCT_APPEND,MEM_FILTER,MEM,MEM_APPEND,
+       ALL_DISTINCT,stringTheory.string_lt_nonrefl]
+  >> REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
+  >> TRY (MATCH_MP_TAC FILTER_ALL_DISTINCT)
+  >> FULL_SIMP_TAC std_ss []
+  >> METIS_TAC [stringTheory.string_lt_antisym,stringTheory.string_lt_trans,
+        stringTheory.string_lt_cases]);
 val _ = export_rewrites["ALL_DISTINCT_STRING_SORT"]
 
 val STRING_SORT_SORTED = store_thm("STRING_SORT_SORTED",

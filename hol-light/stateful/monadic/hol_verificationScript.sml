@@ -8,6 +8,17 @@ val _ = temp_overload_on ("return", ``ex_return``);
 
 infix \\ val op \\ = op THEN;
 
+(* TODO: move *)
+val SORTED_weaken = store_thm("SORTED_weaken",
+  ``∀R R' ls. SORTED R ls /\ (!x y. MEM x ls /\ MEM y ls /\ R x y ==> R' x y)
+      ==> SORTED R' ls``,
+  NTAC 2 GEN_TAC THEN
+  Induct THEN SRW_TAC[][] THEN
+  Cases_on`ls` THEN
+  FULL_SIMP_TAC(srw_ss())[sortingTheory.SORTED_DEF] THEN
+  FIRST_X_ASSUM MATCH_MP_TAC THEN
+  METIS_TAC[])
+
 val rev_assocd_thm = prove(
   ``rev_assocd = REV_ASSOCD``,
   SIMP_TAC std_ss [FUN_EQ_THM] \\ Induct_on `x'`
@@ -97,31 +108,6 @@ val Abs_Var = prove(
 (* ------------------------------------------------------------------------- *)
 (* invariant lemmas                                                          *)
 (* ------------------------------------------------------------------------- *)
-
-(* TODO: move*)
-val updates_ALL_DISTINCT = store_thm("updates_ALL_DISTINCT",
-  ``∀upd ctxt. upd updates ctxt ⇒
-      (ALL_DISTINCT (MAP FST (type_list ctxt)) ⇒
-       ALL_DISTINCT (MAP FST (type_list (upd::ctxt)))) ∧
-      (ALL_DISTINCT (MAP FST (const_list ctxt)) ⇒
-       ALL_DISTINCT (MAP FST (const_list (upd::ctxt))))``,
-  ho_match_mp_tac updates_ind >> simp[] >>
-  rw[ALL_DISTINCT_APPEND,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX])
-
-val extends_ALL_DISTINCT = store_thm("extends_ALL_DISTINCT",
-  ``∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒
-      (ALL_DISTINCT (MAP FST (type_list ctxt1)) ⇒
-       ALL_DISTINCT (MAP FST (type_list ctxt2))) ∧
-      (ALL_DISTINCT (MAP FST (const_list ctxt1)) ⇒
-       ALL_DISTINCT (MAP FST (const_list ctxt2)))``,
-  simp[IMP_CONJ_THM,FORALL_AND_THM] >> conj_tac >>
-  ho_match_mp_tac extends_ind >>
-  METIS_TAC[updates_ALL_DISTINCT])
-
-val init_ALL_DISTINCT = store_thm("init_ALL_DISTINCT",
-  ``ALL_DISTINCT (MAP FST (const_list init_ctxt)) ∧
-    ALL_DISTINCT (MAP FST (type_list init_ctxt))``,
-  EVAL_TAC)
 
 val CONTEXT_ALL_DISTINCT = prove(
   ``CONTEXT defs ⇒ ALL_DISTINCT (MAP FST (type_list (hol_defs defs))) ∧
@@ -2676,104 +2662,24 @@ val new_basic_definition_thm = store_thm("new_basic_definition_thm",
   Cases_on`ASSUME tm s` >>
   imp_res_tac ASSUME_thm >>
   Cases_on`q`>>fs[] >>
-  imp_res_tac new_specification_thm ) |> UNDISCH
-
-val MEM_STRING_SORT = prove(
-  ``!xs x. MEM x (STRING_SORT xs) = MEM x xs``,
-  Induct \\ FULL_SIMP_TAC std_ss
-    [STRING_SORT_def,FOLDR,INORDER_INSERT_def,MEM_APPEND,MEM_FILTER,MEM]
-  \\ REPEAT STRIP_TAC \\ Cases_on `MEM x xs` \\ FULL_SIMP_TAC std_ss []
-  \\ METIS_TAC [stringTheory.string_lt_cases]);
-
-val ALL_DISTINCT_STRING_SORT = prove(
-  ``!xs. ALL_DISTINCT (STRING_SORT xs)``,
-  Induct
-  \\ FULL_SIMP_TAC std_ss [STRING_SORT_def,FOLDR,ALL_DISTINCT,INORDER_INSERT_def]
-  \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT_APPEND,MEM_FILTER,MEM,MEM_APPEND,
-       ALL_DISTINCT,stringTheory.string_lt_nonrefl]
-  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
-  \\ TRY (MATCH_MP_TAC FILTER_ALL_DISTINCT)
-  \\ FULL_SIMP_TAC std_ss []
-  \\ METIS_TAC [stringTheory.string_lt_antisym,stringTheory.string_lt_trans,
-        stringTheory.string_lt_cases]);
-
-val SORTED_CONS = prove(
-  ``!x. SORTED $<= (x::xs) <=> SORTED $<= xs /\ !y. MEM (y:string) xs ==> x <= y``,
-  Induct_on `xs` \\ FULL_SIMP_TAC std_ss [sortingTheory.SORTED_DEF,MEM]
-  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [] \\ RES_TAC
-  \\ METIS_TAC [stringTheory.string_lt_antisym,stringTheory.string_lt_trans,
-        stringTheory.string_lt_cases,stringTheory.string_le_def]);
-
-val SORTED_APPEND = prove(
-  ``!xs ys.
-      SORTED $<= xs /\ SORTED $<= ys /\
-      (!x y. MEM x xs /\ MEM y ys ==> x <= y:string) ==> SORTED $<= (xs ++ ys)``,
-  Induct \\ SIMP_TAC std_ss [sortingTheory.SORTED_DEF,MEM,APPEND]
-  \\ SIMP_TAC std_ss [SORTED_CONS,MEM_APPEND] \\ METIS_TAC []);
-
-val SORTED_FILTER = prove(
-  ``!xs. SORTED $<= (xs:string list) ==> SORTED $<= (FILTER P xs)``,
-  Induct \\ SIMP_TAC std_ss [sortingTheory.SORTED_DEF,FILTER]
-  \\ SRW_TAC [] [SORTED_CONS,MEM_FILTER]);
-
-val SORTED_STRING_SORT = prove(
-  ``!xs. SORTED $<= (STRING_SORT xs)``,
-  Induct
-  \\ FULL_SIMP_TAC std_ss [STRING_SORT_def,FOLDR,ALL_DISTINCT,INORDER_INSERT_def]
-  \\ FULL_SIMP_TAC std_ss [sortingTheory.SORTED_DEF,MEM_FILTER,MEM,MEM_APPEND,
-       ALL_DISTINCT,stringTheory.string_lt_nonrefl]
-  \\ REPEAT STRIP_TAC \\ MATCH_MP_TAC SORTED_APPEND
-  \\ REPEAT STRIP_TAC \\ TRY (MATCH_MP_TAC SORTED_APPEND)
-  \\ REPEAT STRIP_TAC \\ TRY (MATCH_MP_TAC SORTED_FILTER)
-  \\ FULL_SIMP_TAC std_ss [MEM_FILTER,MEM,sortingTheory.SORTED_DEF]
-  \\ FULL_SIMP_TAC std_ss [stringTheory.string_le_def,MEM,MEM_APPEND,MEM_FILTER]
-  \\ METIS_TAC [stringTheory.string_lt_antisym,stringTheory.string_lt_trans,
-        stringTheory.string_lt_cases]);
-
-val SORTED_EQ = prove(
-  ``!xs ys. SORTED $<= xs /\ SORTED $<= (ys:string list) /\
-            ALL_DISTINCT xs /\ ALL_DISTINCT ys /\
-            (!x. MEM x xs = MEM x ys) ==> (xs = ys)``,
-  Induct THEN1 (Cases \\ SIMP_TAC std_ss [MEM] \\ METIS_TAC [])
-  \\ Cases_on `ys` \\ FULL_SIMP_TAC std_ss [MEM] THEN1 METIS_TAC []
-  \\ FULL_SIMP_TAC std_ss [SORTED_CONS,ALL_DISTINCT,CONS_11]
-  \\ NTAC 2 STRIP_TAC \\ REVERSE (`h' = h` by ALL_TAC) THEN1 METIS_TAC []
-  \\ Q.PAT_ASSUM `!ys. bbb ==> (xxx = yyy)` (K ALL_TAC)
-  \\ CCONTR_TAC \\ `MEM h xs /\ MEM h' t` by METIS_TAC [] \\ RES_TAC
-  \\ FULL_SIMP_TAC std_ss [stringTheory.string_le_def]
-  \\ FULL_SIMP_TAC std_ss []
-  \\ METIS_TAC [stringTheory.string_lt_antisym,stringTheory.string_lt_trans,
-        stringTheory.string_lt_cases])
-
-val PART_LEMMA = prove(
-  ``!xs t1 t2 P. (FST (PART P xs t1 t2) = REVERSE (FILTER P xs) ++ t1) /\
-                 (SND (PART P xs t1 t2) = REVERSE (FILTER (\x. ~(P x)) xs) ++ t2)``,
-  Induct \\ FULL_SIMP_TAC (srw_ss()) [sortingTheory.PART_DEF,FILTER]
-  \\ SRW_TAC [] []);
-
-val ALL_DISTINCT_QSORT = prove(
-  ``!R xs. ALL_DISTINCT xs ==> ALL_DISTINCT (QSORT R xs)``,
-  HO_MATCH_MP_TAC sortingTheory.QSORT_IND
-  \\ REPEAT STRIP_TAC \\ ASM_SIMP_TAC std_ss [sortingTheory.QSORT_DEF]
-  \\ Cases_on `PARTITION (\y. R y h) t` \\ FULL_SIMP_TAC std_ss [LET_DEF]
-  \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT_APPEND,ALL_DISTINCT,MEM,MEM_APPEND,
-       sortingTheory.QSORT_MEM,sortingTheory.PARTITION_DEF]
-  \\ (PART_LEMMA |> Q.SPECL [`t`,`[]`,`[]`,`(\y:'a. R y (h:'a))`] |> MP_TAC)
-  \\ FULL_SIMP_TAC std_ss [APPEND_NIL] \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss []
-  \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT_REVERSE,FILTER_ALL_DISTINCT,
-       MEM_REVERSE,MEM_FILTER] \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []);
+  imp_res_tac new_specification_thm )
 
 val ALL_DISTINCT_union = prove(
   ``!xs. ALL_DISTINCT (hol_kernel$union xs ys) = ALL_DISTINCT ys``,
   Induct \\ SIMP_TAC (srw_ss()) [union_def,Once itlist_def,insert_def]
   \\ SRW_TAC [] [] \\ FULL_SIMP_TAC std_ss [union_def]);
 
+val type_IND = hol_type_induction
+  |> Q.SPECL[`P`,`EVERY P`]
+  |> SIMP_RULE (srw_ss())[]
+  |> UNDISCH_ALL |> CONJUNCT1 |> DISCH_ALL
+  |> Q.GEN`P`
+
 val ALL_DISTINCT_tyvars_ALT = prove(
   ``!h. ALL_DISTINCT (tyvars (h:hol_type))``,
   HO_MATCH_MP_TAC type_IND \\ REPEAT STRIP_TAC
   \\ SIMP_TAC (srw_ss()) [Once hol_kernelTheory.tyvars_def]
-  \\ Induct_on `tys` \\ SIMP_TAC (srw_ss()) [Once itlist_def,MAP]
+  \\ Induct_on `l` \\ SIMP_TAC (srw_ss()) [Once itlist_def,MAP]
   \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT_union]);
 
 val ALL_DISTINCT_type_vars_in_term = prove(
@@ -2785,22 +2691,27 @@ val ALL_DISTINCT_type_vars_in_term = prove(
 val QSORT_type_vars_in_term = prove(
   ``TERM defs P /\ STATE st defs ==>
     (QSORT $<= (type_vars_in_term P) = STRING_SORT (tvars (hol_tm P)))``,
-  REPEAT STRIP_TAC \\ MATCH_MP_TAC SORTED_EQ \\ STRIP_TAC THEN1
-   (MATCH_MP_TAC sortingTheory.QSORT_SORTED
-    \\ FULL_SIMP_TAC std_ss [relationTheory.transitive_def,relationTheory.total_def]
-    \\ SRW_TAC [] [stringTheory.string_le_def]
-    \\ METIS_TAC [stringTheory.string_lt_antisym,stringTheory.string_lt_trans,
-        stringTheory.string_lt_cases])
-  \\ FULL_SIMP_TAC std_ss [sortingTheory.QSORT_MEM]
-  \\ IMP_RES_TAC MEM_type_vars_in_term
-  \\ FULL_SIMP_TAC std_ss [MEM_STRING_SORT,ALL_DISTINCT_STRING_SORT,
-        SORTED_STRING_SORT,tvars_ALL_DISTINCT]
-  \\ MATCH_MP_TAC ALL_DISTINCT_QSORT
-  \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT_type_vars_in_term]);
-
-val STATE_IMP_LEMMA = prove(
-  ``STATE s defs ==> context_ok (hol_defs defs)``,
-  FULL_SIMP_TAC std_ss [STATE_def,LET_DEF]);
+  REPEAT STRIP_TAC \\
+  MATCH_MP_TAC (MP_CANON sortingTheory.SORTED_PERM_EQ) \\
+  qexists_tac`$<=` >>
+  conj_asm1_tac >- (
+    simp[relationTheory.transitive_def,relationTheory.antisymmetric_def,stringTheory.string_le_def] >>
+    METIS_TAC[stringTheory.string_lt_antisym,stringTheory.string_lt_trans] ) >>
+  conj_tac >- (
+    MATCH_MP_TAC sortingTheory.QSORT_SORTED >>
+    simp[relationTheory.total_def,stringTheory.string_le_def] >>
+    METIS_TAC[stringTheory.string_lt_cases] ) >>
+  conj_tac >- (
+    MATCH_MP_TAC SORTED_weaken >>
+    qexists_tac`$<` >>
+    simp[STRING_SORT_SORTED,stringTheory.string_le_def] ) >>
+  MATCH_MP_TAC (MP_CANON sortingTheory.PERM_ALL_DISTINCT) >>
+  conj_tac >- (
+    METIS_TAC[sortingTheory.ALL_DISTINCT_PERM
+             ,sortingTheory.QSORT_PERM
+             ,ALL_DISTINCT_type_vars_in_term] ) >>
+  simp[ALL_DISTINCT_STRING_SORT] >>
+  METIS_TAC[sortingTheory.QSORT_MEM,MEM_type_vars_in_term])
 
 val domain_type_def = Define `
   domain_type ty = term_type (Comb (Var "a" ty) ARB)`
@@ -2816,16 +2727,12 @@ val term_type_SIMP = prove(
   \\ SIMP_TAC (srw_ss()) [Once term_type_def]);
 
 val get_type_arity_fun = prove(
-  ``ALL_DISTINCT (MAP FST s.the_type_constants) ∧
-    s.the_type_constants = types (hol_defs defs)
-    ⇒ get_type_arity "fun" s = (HolRes 2,s)``,
+  ``CONTEXT s.the_definitions ∧
+    (s.the_type_constants = type_list (hol_defs s.the_definitions))
+    ⇒ (get_type_arity "fun" s = (HolRes 2,s))``,
   qspecl_then[`"fun"`,`s`]mp_tac get_type_arity_thm >>
-  Cases_on`get_type_arity "fun" s`>>simp[] >>
-  rw[] >>
-  fs[types_def] >>
-  reverse(Cases_on`q`)>>fs[]>-METIS_TAC[]>>
-  rfs[ALL_DISTINCT_APPEND,MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
-  METIS_TAC[])
+  Cases_on`get_type_arity "fun" s`>>simp[] >> rw[] >>
+  METIS_TAC[CONTEXT_fun,hol_result_distinct,hol_result_11,hol_result_nchotomy])
 
 val new_basic_type_definition_thm = store_thm("new_basic_type_definition_thm",
   ``THM defs th /\ STATE s defs ==>
@@ -2871,12 +2778,9 @@ val new_basic_type_definition_thm = store_thm("new_basic_type_definition_thm",
   \\ SIMP_TAC (srw_ss()) [mk_fun_ty_def]
   \\ SIMP_TAC (srw_ss()) [mk_type_def,try_def,otherwise_def]
   \\ NTAC 1 (SIMP_TAC (srw_ss()) [Once ex_bind_def,ex_return_def])
-  \\ Q.ABBREV_TAC `s2 = (s with
-           <|the_type_constants :=
-               (tyname,LENGTH (STRING_SORT
-                   (tvars (hol_tm P))))::s.the_type_constants;
-             the_definitions :=
-               Typedef tyname P absname repname::s.the_definitions|>)`
+  \\ Q.PAT_ABBREV_TAC `s2 = (s with
+           <|the_type_constants := Y::s.the_type_constants;
+             the_definitions := X|>)`
   \\ `get_type_arity "fun" s2 = (HolRes 2, s2)` by (
     match_mp_tac (GEN_ALL get_type_arity_fun) >>
     fs[STATE_def,Abbr`s2`] >>
