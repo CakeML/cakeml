@@ -61,6 +61,7 @@ val _ = Hol_datatype `
   | Con_i1 of  ( conN id)option => exp_i1 list
   | Var_local_i1 of varN
   | Var_global_i1 of num
+  | Init_global_i1 of num => exp_i1
   | Fun_i1 of varN => exp_i1
   | Uapp_i1 of uop => exp_i1
   | App_i1 of op => exp_i1 => exp_i1
@@ -248,7 +249,7 @@ val _ = Define `
     (next'',menv'',env'',(p'::ps'))))`;
 
 
-val _ = type_abbrev( "all_env_i1" , ``: ( v_i1 list # envC # (varN, v_i1) env)``);
+val _ = type_abbrev( "all_env_i1" , ``: ( ( v_i1 option)list # envC # (varN, v_i1) env)``);
 
 val _ = Define `
  (all_env_i1_to_genv (genv,cenv,env) = genv)`;
@@ -343,7 +344,7 @@ val _ = Define `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn do_eq_i1_defn;
 
-(*val exn_env_i1 : list v_i1 -> all_env_i1*)
+(*val exn_env_i1 : list (maybe v_i1) -> all_env_i1*)
 val _ = Define `
  (exn_env_i1 genv = (genv, (emp, MAP (\ cn .  (cn, ( 0, TypeExn (Short cn)))) ["Bind"; "Div"; "Eq"]), emp))`;
 
@@ -504,11 +505,18 @@ evaluate_i1 ck env s (Var_local_i1 n) (s, Rval v))
 (lookup n (all_env_i1_to_env env) = NONE)
 ==>
 evaluate_i1 ck env s (Var_local_i1 n) (s, Rerr Rtype_error))
+
 /\ (! ck env n v s.
 ((LENGTH (all_env_i1_to_genv env) > n) /\
-(EL n (all_env_i1_to_genv env) = v))
+(EL n (all_env_i1_to_genv env) = SOME v))
 ==>
 evaluate_i1 ck env s (Var_global_i1 n) (s, Rval v))
+
+/\ (! ck env n s.
+((LENGTH (all_env_i1_to_genv env) > n) /\
+(EL n (all_env_i1_to_genv env) = NONE))
+==>
+evaluate_i1 ck env s (Var_global_i1 n) (s, Rerr Rtype_error))
 
 /\ (! ck env n s.
 (~ (LENGTH (all_env_i1_to_genv env) > n))
@@ -738,7 +746,7 @@ evaluate_decs_i1 genv cenv s1 (d::ds) (s2, emp, [], SOME e))
 
 /\ (! s1 s2 s3 genv cenv d ds new_tds' new_tds new_env new_env' r.
 (evaluate_dec_i1 genv cenv s1 d (s2, Rval (new_tds,new_env)) /\
-evaluate_decs_i1 (genv ++ new_env) (merge_envC (emp,new_tds) cenv) s2 ds (s3, new_tds', new_env', r))
+evaluate_decs_i1 (genv ++ MAP SOME new_env) (merge_envC (emp,new_tds) cenv) s2 ds (s3, new_tds', new_env', r))
 ==>
 evaluate_decs_i1 genv cenv s1 (d::ds) (s3, merge new_tds' new_tds, (new_env ++ new_env'), r))`;
 
@@ -798,7 +806,7 @@ evaluate_prog_i1 genv cenv s [] (s, ([],[]), [], NONE))
 
 /\ (! genv cenv s1 prompt prompts s2 cenv2 env2 s3 cenv3 env3 r.
 (evaluate_prompt_i1 genv cenv s1 prompt (s2, cenv2, env2, NONE) /\
-evaluate_prog_i1 (genv++env2) (merge_envC cenv2 cenv) s2 prompts (s3, cenv3, env3, r))
+evaluate_prog_i1 (genv++MAP SOME env2) (merge_envC cenv2 cenv) s2 prompts (s3, cenv3, env3, r))
 ==>
 evaluate_prog_i1 genv cenv s1 (prompt::prompts) (s3, merge_envC cenv3 cenv2, (env2++env3), r))
 
