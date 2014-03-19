@@ -2415,22 +2415,20 @@ val new_specification_thm = store_thm("new_specification_thm",
   simp[ex_bind_def,ex_return_def] >>
   rpt strip_tac >>
   Q.PAT_ABBREV_TAC`(f:hol_term -> hol_refs -> (((string#hol_type)#hol_term) hol_result#hol_refs)) = X` >>
-  `EVERY (λt. term_ok (hol_defs defs) t ∧ typeof t = Bool) (MAP hol_tm (h::l))` by (
-    match_mp_tac THM_term_ok_bool >>
-    fs[STATE_def] >>
-    METIS_TAC[proves_IMP] ) >>
+  `EVERY (λt. term_ok (sigof (hol_defs defs)) t ∧ (typeof t = Bool)) (MAP hol_tm (h::l))` by (
+    match_mp_tac THM_term_ok_bool >> fs[STATE_def]) >>
   `∀l defs s s'.
-    STATE s defs ∧ EVERY (λt. term_ok (hol_defs defs) t ∧ typeof t = Bool) (MAP hol_tm l)
-    ⇒ (∀res. map f l s = (HolRes res,s') ⇒
+    STATE s defs ∧ EVERY (λt. term_ok (sigof (hol_defs defs)) t ∧ (typeof t = Bool)) (MAP hol_tm l)
+    ⇒ (∀res. (map f l s = (HolRes res,s')) ⇒
      (s' = s) ∧
      LIST_REL
        (λe ((s,ty),t).
-         let ty = hol_ty ty in let t = hol_tm t in
-         hol_tm e = Var s ty === t ∧ t has_type ty ∧
+         let (ty = hol_ty ty) in let (t = hol_tm t) in
+         (hol_tm e = Var s ty === t) ∧ t has_type ty ∧
          CLOSED t ∧ (∀v. MEM v (tvars t) ⇒ MEM v (tyvars (typeof t))) ∧
-         term_ok (hol_defs defs) t ∧ type_ok (hol_defs defs) ty)
+         term_ok (sigof (hol_defs defs)) t ∧ type_ok (tysof (hol_defs defs)) ty)
        l res) ∧
-     (∀msg. map f l s = (HolErr msg,s') ⇒ s' = s)` by (
+     (∀msg. (map f l s = (HolErr msg,s')) ⇒ (s' = s))` by (
     pop_assum kall_tac >> pop_assum mp_tac >> ntac 2 (pop_assum kall_tac) >> strip_tac >>
     Induct >- simp[map_def,ex_return_def] >>
     simp[Once map_def,ex_bind_def] >>
@@ -2494,9 +2492,9 @@ val new_specification_thm = store_thm("new_specification_thm",
     simp[] >>
     simp[Once CONJ_SYM,GSYM CONJ_ASSOC] >>
     Cases_on`v`>>TRY(
-      fs[dest_var_def,failwith_def] >> NO_TAC) >>
+      fs[hol_kernelTheory.dest_var_def,failwith_def] >> NO_TAC) >>
     qpat_assum`dest_var Z X = Y`mp_tac >>
-    simp[dest_var_def,ex_return_def] >> strip_tac >>
+    simp[hol_kernelTheory.dest_var_def,ex_return_def] >> strip_tac >>
     rpt BasicProvers.VAR_EQ_TAC >>
     conj_tac >- (
       simp[equation_def,hol_tm_def] ) >>
@@ -2521,8 +2519,8 @@ val new_specification_thm = store_thm("new_specification_thm",
     rpt BasicProvers.VAR_EQ_TAC >> fs[TYPE_11] >>
     rpt BasicProvers.VAR_EQ_TAC >>
     conj_tac >- (
-      fs[holSyntaxTheory.WELLTYPED] >>
-      imp_res_tac holSyntaxTheory.WELLTYPED_LEMMA >>
+      fs[holSyntaxExtraTheory.WELLTYPED] >>
+      imp_res_tac holSyntaxExtraTheory.WELLTYPED_LEMMA >>
       METIS_TAC[] ) >>
     conj_tac >- (
       simp[CLOSED_def] >>
@@ -2531,10 +2529,11 @@ val new_specification_thm = store_thm("new_specification_thm",
       fs[subset_def,EVERY_MEM] >>
       METIS_TAC[MEM_type_vars_in_term,tyvars_thm] ) >>
     conj_asm1_tac >- (
-      fs[hol_tm_def,term_ok_Comb] ) >>
+      fs[hol_tm_def,term_ok_def] ) >>
     conj_tac >- (
-      simp[Once proves_cases] >>
-      fs[WELLTYPED] >> METIS_TAC[] ) >>
+      imp_res_tac term_ok_type_ok >>
+      fs[STATE_def] >> imp_res_tac CONTEXT_std_sig >> fs[] >>
+      METIS_TAC[]) >>
     first_x_assum(qspecl_then[`defs`,`r`]mp_tac) >>
     simp[] ) >>
   first_x_assum(qspecl_then[`l`,`defs`,`s`]mp_tac) >>
@@ -2548,7 +2547,9 @@ val new_specification_thm = store_thm("new_specification_thm",
   qspecl_then[`MAP FST a`,`s`]mp_tac new_constants_thm >>
   simp[] >>
   `ALL_DISTINCT (MAP FST s.the_term_constants)` by (
-    fs[STATE_def] ) >>
+    imp_res_tac STATE_ALL_DISTINCT >> fs[STATE_def] >>
+    qpat_assum`X = const_list Y`(assume_tac o SYM) >> fs[] >>
+    fs[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX]) >>
   Cases_on`q`>>simp[] >>
   simp[oneTheory.one] >>
   strip_tac >>
@@ -2556,53 +2557,71 @@ val new_specification_thm = store_thm("new_specification_thm",
   qpat_assum`map f l r = X`kall_tac >>
   qunabbrev_tac`f` >>
   Q.PAT_ABBREV_TAC`theta:(hol_term#hol_term)list = MAP X (MAP FST a)` >>
-  Q.PAT_ABBREV_TAC`d = Constdef X h` >>
+  Q.PAT_ABBREV_TAC`d = ConstSpec X h` >>
   Q.PAT_ABBREV_TAC`s':hol_refs = X` >>
   qexists_tac`d` >>
   reverse conj_asm2_tac >- (
     fs[STATE_def,Abbr`s'`] >>
-    simp[hol_defs_def,Abbr`d`] >>
-    fs[consts_def,types_def,types_aux_def,consts_aux_def] >>
-    qpat_assum`X = MAP Z s.the_term_constants`(assume_tac o SYM) >>
+    simp[hol_def_def,Abbr`d`] >>
     simp[MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
-    rfs[] >>
-    simp[TERM_def,hol_defs_def] >>
     conj_asm1_tac >- (
-      simp[Once proves_cases] >>
-      map_every qexists_tac[`[]`,`Tt`] >>
-      match_mp_tac(List.nth(CONJUNCTS proves_rules,24)) >>
-      simp[truth_thm] >>
-      fs[THM_def] >>
-      simp[MAP_MAP_o,combinTheory.o_DEF] >>
-      Q.PAT_ABBREV_TAC`l':holSyntax$term list = MAP X a` >>
-      `l' = MAP hol_tm l` by (
-        simp[LIST_EQ_REWRITE,Abbr`l'`] >>
-        fs[EVERY2_EVERY,EVERY_MEM] >>
-        rfs[MEM_ZIP,MEM_EL,PULL_EXISTS,EL_MAP,UNCURRY] >>
-        simp[equation_def] >>
-        METIS_TAC[WELLTYPED_LEMMA] ) >>
-      simp[EVERY_MAP] >>
-      fs[EVERY2_EVERY,EVERY_MEM] >>
-      rfs[MEM_ZIP,MEM_EL,PULL_EXISTS,EL_MAP,UNCURRY] >>
+      fs[CONTEXT_def,hol_def_def] >>
+      simp[extends_def] >>
+      simp[Once relationTheory.RTC_CASES1] >> disj2_tac >>
+      simp[GSYM extends_def] >> rfs[] >>
+      simp[updates_cases] >>
       conj_tac >- (
-        rw[] >>
-        qmatch_assum_abbrev_tac`(hol_defs defs,asl) |- hol_tm h` >>
-        `TERM defs h` by simp[TERM_def] >>
-        imp_res_tac freesin_IMP >>
-        fs[MEM_MAP,MEM_EL,PULL_EXISTS] >>
-        rpt BasicProvers.VAR_EQ_TAC >>
-        qexists_tac`n` >>
-        simp[EL_MAP] >>
-        fs[UNCURRY] >>
-        fs[TYPE_11] >>
-        METIS_TAC[] ) >>
-      qpat_assum`MAP X s.the_term_constants = Y`(ASSUME_TAC o SYM) >>
-      simp[consts_def,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
-      fs[MAP_MAP_o,combinTheory.o_DEF] ) >>
-    conj_asm1_tac >- (
-      match_mp_tac term_ok_cons >>
-      simp[UNCURRY,MAP_MAP_o,combinTheory.o_DEF] >>
-      fs[TERM_def] ) >>
+        fs[THM_def] >>
+        qmatch_abbrev_tac`(thy,hh) |- cc` >>
+        qmatch_assum_abbrev_tac`(thy,hh1) |- cc` >>
+        `hh = hh1` by (
+          UNABBREV_ALL_TAC >>
+          simp[MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
+          fs[EVERY2_EVERY] >>
+          rfs[EVERY_MEM,MEM_ZIP,PULL_EXISTS,UNCURRY] >>
+          simp[LIST_EQ_REWRITE,EL_MAP] >>
+          simp[equation_def] >>
+          METIS_TAC[WELLTYPED_LEMMA] ) >>
+        rw[] ) >>
+      simp[EVERY_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
+      fs[EVERY2_EVERY] >>
+      rfs[EVERY_MEM,MEM_ZIP,PULL_EXISTS,UNCURRY] >>
+      simp[MEM_MAP,PULL_EXISTS] >>
+      simp[Once MEM_EL,PULL_EXISTS] >>
+      conj_tac >- (
+        imp_res_tac freesin_IMP >> rw[] >>
+        res_tac >>
+        rfs[TERM_def,PULL_EXISTS,MEM_MAP] >>
+        res_tac >>
+        qmatch_assum_rename_tac`MEM z a`[] >>
+        qexists_tac`z` >>
+        PairCases_on`z`>>fs[]>>
+        fs[Once MEM_EL,PULL_EXISTS] >>
+        METIS_TAC[WELLTYPED_LEMMA,SND,FST] ) >>
+      simp[Once MEM_EL,PULL_EXISTS] >>
+      fs[ALL_DISTINCT_APPEND,MAP_MAP_o,combinTheory.o_DEF] >>
+      qpat_assum`X = FLAT Y`(assume_tac o SYM) >> fs[] >>
+      fs[MEM_MAP,PULL_EXISTS,UNCURRY] >>
+      METIS_TAC[MEM_EL,FST] ) >>
+    reverse conj_asm1_tac >- (
+      fs[TERM_def,hol_def_def] >>
+      match_mp_tac term_ok_extend >>
+      map_every qexists_tac[`tysof (hol_defs defs)`,`tmsof (hol_defs defs)`] >>
+      simp[] >>
+      match_mp_tac SUBMAP_FUNION >>
+      simp[pred_setTheory.IN_DISJOINT] >>
+      fs[ALL_DISTINCT_APPEND] >>
+      simp[MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
+      simp[MEM_MAP,PULL_EXISTS] >>
+      fs[MEM_MAP,PULL_EXISTS] >>
+      disj2_tac >> rw[] >>
+      spose_not_then STRIP_ASSUME_TAC >>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      res_tac >>
+      fs[GSYM combinTheory.o_DEF,GSYM MAP_MAP_o] >>
+      qpat_assum`X = FLAT Y`(assume_tac o SYM) >>
+      fs[MEM_MAP,PULL_EXISTS,UNCURRY] >>
+      METIS_TAC[FST] ) >>
     simp[MAP_EQ_f] >>
     fs[EVERY2_EVERY,EVERY_MEM] >>
     rfs[MEM_ZIP,UNCURRY,PULL_EXISTS] >>
@@ -2628,17 +2647,16 @@ val new_specification_thm = store_thm("new_specification_thm",
       simp[Abbr`s'`,MEM_MAP] >>
       METIS_TAC[] ) >>
     simp[TYPE_def] >>
-    simp[Once proves_cases] >>
-    fs[TERM_def,hol_tm_def] >>
-    METIS_TAC[has_type_rules] ) >>
+    fs[TERM_def,hol_tm_def,term_ok_def]) >>
   strip_tac >> simp[] >>
-  match_mp_tac(List.nth(CONJUNCTS proves_rules,25)) >>
-  fs[STATE_def] >>
-  qmatch_assum_abbrev_tac`Abbrev(d=Constdef eqs h)` >>
-  qexists_tac`MAP (λ(s,t). (s,hol_tm t)) eqs` >>
-  simp[Abbr`s'`,Abbr`d`,hol_defs_def,PULL_EXISTS] >>
-  simp[Abbr`theta`,Abbr`eqs`] >>
-  simp[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,hol_tm_def] >>
+  match_mp_tac(List.nth(CONJUNCTS proves_rules,10)) >>
+  conj_tac >- (
+    fs[STATE_def,CONTEXT_def] >>
+    imp_res_tac extends_theory_ok >>
+    fs[init_theory_ok] >> rfs[] ) >>
+  simp[Abbr`d`,conexts_of_upd_def,hol_def_def] >>
+  disj1_tac >> AP_THM_TAC >> AP_TERM_TAC >>
+  simp[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,hol_tm_def,Abbr`theta`] >>
   simp[MAP_EQ_f] >>
   fs[EVERY2_EVERY,EVERY_MEM,MEM_EL,PULL_EXISTS,UNCURRY] >>
   rfs[EL_ZIP,PULL_EXISTS] >>
