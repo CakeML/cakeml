@@ -16,6 +16,19 @@ val fmap_inverse_def = Define `
 fmap_inverse m1 m2 =
   !k. k ∈ FDOM m1 ⇒ ?v. FLOOKUP m1 k = SOME v ∧ FLOOKUP m2 v = SOME k`;
 
+val map_some_eq = Q.prove (
+`!l1 l2. MAP SOME l1 = MAP SOME l2 ⇔ l1 = l2`,
+ induct_on `l1` >>
+ rw [] >>
+ Cases_on `l2` >>
+ rw []);
+
+val map_some_eq_append = Q.prove (
+`!l1 l2 l3. MAP SOME l1 ++ MAP SOME l2 = MAP SOME l3 ⇔ l1 ++ l2 = l3`,
+metis_tac [map_some_eq, MAP_APPEND]);
+
+val _ = augment_srw_ss [rewrites [map_some_eq,map_some_eq_append]];
+
 val lookup_reverse = Q.prove (
 `∀x l.
  ALL_DISTINCT (MAP FST l) ⇒
@@ -118,9 +131,9 @@ val funs_to_i2_map = Q.prove (
 
 val has_exns_def = Define `
 has_exns gtagenv ⇔
-  FLOOKUP gtagenv ("Bind", TypeExn NONE) = SOME (bind_tag,0:num) ∧
-  FLOOKUP gtagenv ("Div", TypeExn NONE) = SOME (div_tag,0) ∧
-  FLOOKUP gtagenv ("Eq", TypeExn NONE) = SOME (eq_tag,0)`;
+  FLOOKUP gtagenv ("Bind", TypeExn (Short "Bind")) = SOME (bind_tag,0:num) ∧
+  FLOOKUP gtagenv ("Div", TypeExn (Short "Div")) = SOME (div_tag,0) ∧
+  FLOOKUP gtagenv ("Eq", TypeExn (Short "Eq")) = SOME (eq_tag,0)`;
 
 val cenv_inv_def = Define `
 cenv_inv envC tagenv gtagenv ⇔
@@ -509,7 +522,7 @@ val (env_all_to_i2_rules, env_all_to_i2_ind, env_all_to_i2_cases) = Hol_reln `
   vs_to_i2 gtagenv genv genv_i2 ∧
   env_to_i2 gtagenv env env_i2
   ⇒
-  env_all_to_i2 tagenv (genv,envC,env) (genv_i2,env_i2) gtagenv)`;
+  env_all_to_i2 tagenv (MAP SOME genv,envC,env) (MAP SOME genv_i2,env_i2) gtagenv)`;
 
 val env_to_i2_append = Q.prove (
 `!gtagenv env1 env2 env1' env2'.
@@ -591,9 +604,9 @@ val do_uapp_correct = Q.prove (
   ∃s'_i2 v'_i2.
     s_to_i2' gtagenv s' s'_i2 ∧
     v_to_i2 gtagenv v' v'_i2 ∧
-    do_uapp_i2 s_i2 uop v_i2 = SOME (s'_i2,v'_i2)`,
+    do_uapp_i2 s_i2 (uop_to_i2 uop) v_i2 = SOME (s'_i2,v'_i2)`,
  cases_on `uop` >>
- rw [do_uapp_i1_def, do_uapp_i2_def, LET_THM, store_alloc_def, s_to_i2'_cases] >>
+ rw [uop_to_i2_def, do_uapp_i1_def, do_uapp_i2_def, LET_THM, store_alloc_def, s_to_i2'_cases] >>
  rw [vs_to_i2_append1, v_to_i2_eqns]
  >- metis_tac [length_vs_to_i2] >>
  every_case_tac >>
@@ -609,6 +622,8 @@ val exn_env_i2_correct = Q.prove (
     (exn_env_i2 (all_env_i2_to_genv env_i2)) gtagenv`,
  rw [env_all_to_i2_cases, exn_env_i1_def, exn_env_i2_def, emp_def, v_to_i2_eqns,
      all_env_i1_to_genv_def, all_env_i2_to_genv_def, init_tagenv_state_def] >>
+ qexists_tac `genv` >>
+ qexists_tac `genv_i2` >>
  fs [cenv_inv_def, lookup_con_id_def] >>
  rw [] >>
  every_case_tac >>
@@ -755,7 +770,8 @@ val do_app_i2_correct = Q.prove (
      >- (qexists_tac `tagenv'` >>
          rw [] >>
          fs [env_all_to_i2_cases, bind_def] >>
-         rw [v_to_i2_eqns, all_env_i1_to_genv_def, all_env_i2_to_genv_def, get_tagenv_def])
+         rw [v_to_i2_eqns, all_env_i1_to_genv_def, all_env_i2_to_genv_def, get_tagenv_def] >>
+         metis_tac [])
      >- (CCONTR_TAC >>
          fs [] >>
          rw [] >>
@@ -773,8 +789,7 @@ val do_app_i2_correct = Q.prove (
              build_rec_env_i1_merge, build_rec_env_i2_merge, merge_def] >>
          fs [funs_to_i2_map]
          >- (match_mp_tac env_to_i2_append >>
-             rw [funs_to_i2_map, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, env_to_i2_el,
-                 EL_MAP] >>
+             rw [funs_to_i2_map, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, env_to_i2_el, EL_MAP] >>
              `?f x e. EL n l' = (f,x,e)` by metis_tac [pair_CASES] >>
              rw [] >>
              rw [Once v_to_i2_cases] >>
@@ -885,7 +900,10 @@ val exp_to_i2_correct = Q.prove (
     (fs [env_all_to_i2_cases, all_env_i2_to_genv_def] >>
      rw [] >>
      fs [all_env_i1_to_genv_def] >>
-     metis_tac [genv_to_i2_lookup, length_vs_to_i2])
+     `n < LENGTH genv` by decide_tac >>
+     `LENGTH genv_i2 = LENGTH genv` by metis_tac [length_vs_to_i2] >>
+     fs [EL_MAP] >>
+     metis_tac [genv_to_i2_lookup])
  >- (rw [Once v_to_i2_cases] >>
      fs [env_all_to_i2_cases] >>
      rw [all_env_i1_to_env_def, all_env_i2_to_env_def, all_env_i1_to_cenv_def] >>
@@ -895,7 +913,7 @@ val exp_to_i2_correct = Q.prove (
      rw [] >>
      fs [s_to_i2_cases] >>
      rw [] >>
-     `?s3_i2 v'_i2. do_uapp_i2 s''' uop v'' = SOME (s3_i2, v'_i2) ∧
+     `?s3_i2 v'_i2. do_uapp_i2 s''' (uop_to_i2 uop) v'' = SOME (s3_i2, v'_i2) ∧
        s_to_i2' gtagenv s3 s3_i2 ∧ v_to_i2 gtagenv v' v'_i2` by metis_tac [do_uapp_correct] >>
      metis_tac [])
  >- metis_tac []
@@ -992,6 +1010,7 @@ val exp_to_i2_correct = Q.prove (
                            gtagenv`
          by (fs [env_all_to_i2_cases] >>
              rw [build_rec_env_i1_merge, build_rec_env_i2_merge, merge_def] >>
+             rw [] >>
              match_mp_tac env_to_i2_append >>
              rw [] >>
              rw [funs_to_i2_map, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, env_to_i2_el, EL_MAP] >>
@@ -1152,16 +1171,20 @@ val alloc_tag_cenv_inv = Q.prove (
      res_tac >>
      full_simp_tac (srw_ss()++ARITH_ss) [get_next_def]));
 
-val alloc_tags_cenv_inv = Q.prove (
-`!flat_envC envC gtagenv tagenv_st flat_defs.
+val alloc_tags_cenv_inv1 = Q.prove (
+`!flat_envC envC gtagenv tagenv_st flat_defs tids.
   cenv_inv (merge_envC ([],flat_envC) envC) (get_tagenv tagenv_st) gtagenv ∧
   ALL_DISTINCT (MAP FST flat_defs) ∧
   EVERY (\(cn,l,t). (cn,t) ∉ FDOM gtagenv) flat_defs ∧
   (!cn t tag l. FLOOKUP gtagenv (cn,t) = SOME (tag,l) ⇒ get_next tagenv_st > tag) ∧
+  IMAGE SND (FDOM gtagenv) ⊆ tids ∧
   get_next tagenv_st > tuple_tag
   ⇒
   ?gtagenv'. 
     cenv_inv (merge_envC ([],REVERSE flat_defs++flat_envC) envC) (get_tagenv (FOLDL (λst' (cn,l,t). alloc_tag t cn st') tagenv_st flat_defs)) gtagenv' ∧
+    IMAGE SND (FDOM gtagenv') ⊆ set (MAP (λ(cn,l,t). t) flat_defs) ∪ tids ∧
+    get_next (FOLDL (λst' (cn,l,t). alloc_tag t cn st') tagenv_st flat_defs) > tuple_tag ∧
+    (!cn t tag l. FLOOKUP gtagenv' (cn,t) = SOME (tag,l) ⇒ get_next (FOLDL (λst' (cn,l,t). alloc_tag t cn st') tagenv_st flat_defs) > tag) ∧
     gtagenv_weak gtagenv gtagenv'`,
  induct_on `flat_defs` >>
  rw [merge_envC_empty]
@@ -1189,9 +1212,22 @@ val alloc_tags_cenv_inv = Q.prove (
                      res_tac >>
                      fs [get_next_def] >>
                      decide_tac) >>
- res_tac >>
  fs [merge_envC_empty_assoc, emp_def, bind_def] >>
- metis_tac [gtagenv_weak_trans, APPEND, APPEND_ASSOC]);
+ `IMAGE SND (FDOM (gtagenv |+ ((cn,t),get_next (next,tagenv,inv_tagenv,acc),l))) ⊆ t INSERT tids` 
+          by (fs [SUBSET_DEF] >>
+              rw [] >>
+              metis_tac [SND]) >>
+ FIRST_X_ASSUM (qspecl_then [`(cn,l,t)::flat_envC`, `envC`, `gtagenv |+ ((cn,t),get_next (next,tagenv,inv_tagenv,acc),l)`,
+                             `alloc_tag t cn (next,tagenv,inv_tagenv,acc)`, `t INSERT tids`] mp_tac) >>
+ rw [] >>
+ res_tac >>
+ qexists_tac `gtagenv'` >>
+ rw []
+ >- metis_tac [APPEND, APPEND_ASSOC]
+ >- (fs [SUBSET_DEF] >>
+     metis_tac [])
+ >- res_tac
+ >- metis_tac [gtagenv_weak_trans]);
 
 val cenv_inv_rev = Q.prove (
 `ALL_DISTINCT (MAP FST flat_defs) ⇒
@@ -1203,25 +1239,67 @@ val cenv_inv_rev = Q.prove (
  rw [] >>
  metis_tac [lookup_con_id_rev]);
 
-val alloc_tags_cenv_inv = Q.prove (
-`!flat_envC envC gtagenv tagenv_st mn type_defs.
+val alloc_tags_invariant_def = Define `
+alloc_tags_invariant tids tagenv_st gtagenv ⇔
+  IMAGE SND (FDOM gtagenv) ⊆ tids ∧
+  get_next tagenv_st > tuple_tag ∧
+  (!cn t tag l. FLOOKUP gtagenv (cn,t) = SOME (tag,l) ⇒ get_next tagenv_st > tag)`;
+
+val alloc_tags_cenv_inv2 = Q.prove (
+`!envC gtagenv tagenv_st mn type_defs tids.
+  alloc_tags_invariant tids tagenv_st gtagenv ∧
   cenv_inv envC (get_tagenv tagenv_st) gtagenv ∧
   check_dup_ctors type_defs ∧
-  get_next tagenv_st > tuple_tag ∧
-  (!cn t tag l. FLOOKUP gtagenv (cn,t) = SOME (tag,l) ⇒ get_next tagenv_st > tag) ∧
-  EVERY (λ(cn,l,t). (cn,t) ∉ FDOM gtagenv) (FLAT (MAP (λ(tvs,tn,condefs).  MAP (λ(n,ts). (n,LENGTH ts,TypeId (mk_id mn tn))) condefs) type_defs))
+  EVERY (λ(cn,l,t). (cn,t) ∉ FDOM gtagenv) (FLAT (MAP (λ(tvs,tn,condefs). MAP (λ(n,ts). (n,LENGTH ts,TypeId (mk_id mn tn))) condefs) type_defs))
   ⇒
   ?gtagenv'. 
     cenv_inv (merge_envC ([], build_tdefs mn type_defs) envC) (get_tagenv (alloc_tags mn tagenv_st type_defs)) gtagenv' ∧
+    alloc_tags_invariant (set (MAP (\(cn,l,t). t) (FLAT (MAP (λ(tvs,tn,condefs). MAP (λ(n,ts). (n,LENGTH ts,TypeId (mk_id mn tn))) condefs) type_defs))) ∪ tids) (alloc_tags mn tagenv_st type_defs) gtagenv' ∧
     gtagenv_weak gtagenv gtagenv'`,
- REWRITE_TAC [alloc_tags_flat, build_tdefs_def, check_dup_ctors_flat] >>
+ REWRITE_TAC [alloc_tags_invariant_def, alloc_tags_flat, build_tdefs_def, check_dup_ctors_flat, type_defs_to_new_tdecs_def] >>
  rpt GEN_TAC >>
  Q.SPEC_TAC (`FLAT (MAP (λ(tvs,tn,condefs).  MAP (λ(n,ts). (n,LENGTH ts,TypeId (mk_id mn tn))) condefs) type_defs)`,
              `flat_defs`) >>
+ rw [GSYM CONJ_ASSOC] >>
+ match_mp_tac (SIMP_RULE (srw_ss()) [merge_envC_empty, cenv_inv_rev] (Q.SPEC `[]` alloc_tags_cenv_inv1)) >>
  rw [] >>
- match_mp_tac (SIMP_RULE (srw_ss()) [merge_envC_empty, cenv_inv_rev] (Q.SPEC `[]` alloc_tags_cenv_inv)) >>
- rw [] >>
+ fs [] >>
  metis_tac []);
+
+val alloc_tags_cenv_inv3_lem = Q.prove (
+`!mn type_defs x.
+  set (MAP (λ(cn,l,t). t) (FLAT (MAP (λ(tvs,tn,condefs).  MAP (λ(n,ts). (n,LENGTH ts,TypeId (mk_id mn tn))) condefs) type_defs))) ∪ x ⊆
+  set (MAP (λ(tvs,tn,ctors). TypeId (mk_id mn tn)) type_defs) ∪ x`,
+ induct_on `type_defs` >>
+ fs [SUBSET_DEF] >>
+ rw []
+ >-(rw [MEM_MAP,MEM_FLAT] >>
+    PairCases_on `h` >>
+    rw [MEM_MAP,EXISTS_PROD] >>
+    fs [MEM_MAP] >>
+    rw [] >>
+    PairCases_on`y'` >>
+    rw [])
+    >- metis_tac []);
+
+val alloc_tags_cenv_inv3 = Q.prove (
+`!envC gtagenv tagenv_st mn type_defs tids.
+  alloc_tags_invariant tids tagenv_st gtagenv ∧
+  cenv_inv envC (get_tagenv tagenv_st) gtagenv ∧
+  check_dup_ctors type_defs ∧
+  EVERY (λ(cn,l,t). (cn,t) ∉ FDOM gtagenv) (FLAT (MAP (λ(tvs,tn,condefs). MAP (λ(n,ts). (n,LENGTH ts,TypeId (mk_id mn tn))) condefs) type_defs))
+  ⇒
+  ?gtagenv'. 
+    cenv_inv (merge_envC ([], build_tdefs mn type_defs) envC) (get_tagenv (alloc_tags mn tagenv_st type_defs)) gtagenv' ∧
+    alloc_tags_invariant (type_defs_to_new_tdecs mn type_defs ∪ tids) (alloc_tags mn tagenv_st type_defs) gtagenv' ∧
+    gtagenv_weak gtagenv gtagenv'`,
+ rw [] >> 
+ imp_res_tac alloc_tags_cenv_inv2 >>
+ rw [type_defs_to_new_tdecs_def] >>
+ fs [alloc_tags_invariant_def] >>
+ qexists_tac `gtagenv'` >>
+ rw [] >>
+ metis_tac [alloc_tags_cenv_inv3_lem, SUBSET_TRANS]);
 
 val recfun_helper = Q.prove (
 `cenv_inv envC tagenv gtagenv
@@ -1238,22 +1316,26 @@ rw [v_to_i2_eqns] >>
 metis_tac []);
 
 val decs_to_i2_correct = Q.prove (
-`!genv envC s1 ds r.
-  evaluate_decs_i1 genv envC s1 ds r
+`!genv_opt envC s ds r.
+  evaluate_decs_i1 genv_opt envC s ds r
   ⇒
-  !s1_i2 genv_i2 tagenv_st ds_i2 tagenv_st' genv' envC' s' res gtagenv.
-    r = (s', envC', genv', res) ∧
+  !genv s1 tids s1_i2 genv_i2 tagenv_st ds_i2 tagenv_st' genv' envC' s' tids' res gtagenv.
+    genv_opt = MAP SOME genv ∧
+    s = (s1,tids) ∧
+    r = ((s',tids'), envC', genv', res) ∧
     res ≠ SOME Rtype_error ∧
     (tagenv_st', ds_i2) = decs_to_i2 tagenv_st ds ∧
     cenv_inv envC (get_tagenv tagenv_st) gtagenv ∧
     s_to_i2' gtagenv s1 s1_i2 ∧
-    vs_to_i2 gtagenv genv genv_i2
+    vs_to_i2 gtagenv genv genv_i2 ∧
+    alloc_tags_invariant tids tagenv_st gtagenv
     ⇒
     ?genv'_i2 s'_i2 res_i2 gtagenv'.
       gtagenv_weak gtagenv gtagenv' ∧
-      evaluate_decs_i2 genv_i2 s1_i2 ds_i2 (s'_i2,genv'_i2,res_i2) ∧
+      evaluate_decs_i2 (MAP SOME genv_i2) s1_i2 ds_i2 (s'_i2,genv'_i2,res_i2) ∧
       vs_to_i2 gtagenv' genv' genv'_i2 ∧
       s_to_i2' gtagenv' s' s'_i2 ∧
+      alloc_tags_invariant tids' tagenv_st' gtagenv' ∧
       (res = NONE ∧ res_i2 = NONE ∧ cenv_inv (merge_envC (emp,envC') envC) (get_tagenv tagenv_st') gtagenv' ∨
        ?err err_i2. res = SOME err ∧ res_i2 = SOME err_i2 ∧ result_to_i2 (\a b c. T) gtagenv' (Rerr err) (Rerr err_i2))`,
  ho_match_mp_tac evaluate_decs_i1_ind >>
@@ -1267,16 +1349,16 @@ val decs_to_i2_correct = Q.prove (
      fs [] >>
      rw [Once evaluate_decs_i2_cases] >>
      fs [s_to_i2'_cases] >>
-     `env_all_to_i2 (get_tagenv tagenv_st) (genv,envC,emp) (genv_i2,[]) gtagenv`
+     `env_all_to_i2 (get_tagenv tagenv_st) (MAP SOME genv,envC,emp) (MAP SOME genv_i2,[]) gtagenv`
                  by (fs [env_all_to_i2_cases] >>
                      rw [emp_def, v_to_i2_eqns] >>
                      every_case_tac >>
                      metis_tac []) >>
-     `?s'_i2 r_i2 count' s'.
+     `?s'_i2 r_i2 count' s''.
         result_to_i2 v_to_i2 gtagenv (Rerr e) r_i2 ∧
-        s'_i2 = (count',s') ∧
-        vs_to_i2 gtagenv s2 s' ∧
-        evaluate_i2 F (genv_i2,[]) (0,s1_i2) (exp_to_i2 (get_tagenv tagenv_st) e') (s'_i2,r_i2)`
+        s'_i2 = (count',s'') ∧
+        vs_to_i2 gtagenv s' s'' ∧
+        evaluate_i2 F (MAP SOME genv_i2,[]) (0,s1_i2) (exp_to_i2 (get_tagenv tagenv_st) e') (s'_i2,r_i2)`
            by (imp_res_tac exp_to_i2_correct >>
                fs [] >>
                pop_assum mp_tac >>
@@ -1289,19 +1371,20 @@ val decs_to_i2_correct = Q.prove (
      rw [evaluate_dec_i2_cases] >>
      fs [emp_def, result_to_i2_cases, v_to_i2_eqns] >>
      rw [merge_envC_empty] >>
+     `alloc_tags_invariant tids tagenv_st' gtagenv` by cheat >>
      metis_tac [gtagenv_weak_refl])
  >- (`?tagenv_st' ds_i2. decs_to_i2 tagenv_st ds = (tagenv_st', ds_i2)` by metis_tac [pair_CASES] >>
      fs [] >>
      rw [Once evaluate_decs_i2_cases] >>
      fs [s_to_i2'_cases] >>
-     `env_all_to_i2 (get_tagenv tagenv_st) (genv,envC,emp) (genv_i2,[]) gtagenv`
+     `env_all_to_i2 (get_tagenv tagenv_st) (MAP SOME genv,envC,emp) (MAP SOME genv_i2,[]) gtagenv`
                  by (fs [env_all_to_i2_cases] >>
                      rw [emp_def, v_to_i2_eqns] >>
                      every_case_tac >>
                      metis_tac []) >>
      `?count' s' r_i2. result_to_i2 v_to_i2 gtagenv (Rval (Conv_i1 NONE new_env)) r_i2 ∧
-                vs_to_i2 gtagenv s1' s' ∧
-                evaluate_i2 F (genv_i2,[]) (0,s1_i2) (exp_to_i2 (get_tagenv tagenv_st) e) ((count',s'),r_i2)` 
+                vs_to_i2 gtagenv s2 s' ∧
+                evaluate_i2 F (MAP SOME genv_i2,[]) (0,s1_i2) (exp_to_i2 (get_tagenv tagenv_st) e) ((count',s'),r_i2)` 
                      by (imp_res_tac exp_to_i2_correct >>
                          fs [] >>
                          pop_assum mp_tac >>
@@ -1316,11 +1399,8 @@ val decs_to_i2_correct = Q.prove (
      rw [] >>
      `vs_to_i2 gtagenv (genv ++ new_env) (genv_i2++vs')` 
                   by metis_tac [vs_to_i2_append, length_vs_to_i2] >>
-     res_tac >>
-     fs [] >>
-     pop_assum mp_tac >>
+     FIRST_X_ASSUM (qspecl_then [`s'`, `genv_i2 ++ vs'`, `tagenv_st`, `ds_i2'`, `tagenv_st'`, `gtagenv`] mp_tac) >>
      rw [] >>
-     pop_assum (fn _ => all_tac) >>
      fs [emp_def, merge_def] >>
      `vs_to_i2 gtagenv'' (new_env ++ new_env') (vs' ++ genv'_i2)`
                   by metis_tac [vs_to_i2_append, length_vs_to_i2, v_to_i2_weakening] >>
@@ -1333,21 +1413,29 @@ val decs_to_i2_correct = Q.prove (
                (genv ++ MAP (\(f,x,e). Closure_i1 (envC,[]) x e) l)
                (genv_i2 ++ MAP (\(f,x,e). Closure_i2 [] x (exp_to_i2 (get_tagenv tagenv_st) e)) l)`
               by metis_tac [recfun_helper, length_vs_to_i2, vs_to_i2_append] >>
-     res_tac >>
-     pop_assum mp_tac >>
+     FIRST_X_ASSUM (qspecl_then [`s1_i2`, `genv_i2 ++ MAP (λ(f,x,e).  Closure_i2 [] x (exp_to_i2 (get_tagenv tagenv_st) e)) l`, `tagenv_st`, `ds_i2'`, `tagenv_st'`, `gtagenv`] mp_tac) >>
      rw [] >>
      rw [Once evaluate_decs_i2_cases, evaluate_dec_i2_cases] >>
-     `vs_to_i2 gtagenv''
+     `vs_to_i2 gtagenv'
                (MAP (\(f,x,e). Closure_i1 (envC,[]) x e) l ++ new_env') 
                (MAP (\(f,x,e). Closure_i2 [] x (exp_to_i2 (get_tagenv tagenv_st) e)) l ++ genv'_i2)`
                by metis_tac [recfun_helper, v_to_i2_weakening, vs_to_i2_append, length_vs_to_i2] >>
-     rw [funs_to_i2_map, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+     fs [funs_to_i2_map, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
      >- metis_tac [] >>
      fs [result_to_i2_cases] >>
      metis_tac [])
  >- (`?gtagenv'. cenv_inv (merge_envC ([],build_tdefs o' l) envC) (get_tagenv (alloc_tags o' tagenv_st l)) gtagenv' ∧
+                 alloc_tags_invariant (type_defs_to_new_tdecs o' l ∪ tids) (alloc_tags o' tagenv_st l) gtagenv' ∧
                  gtagenv_weak gtagenv gtagenv'`
-             by metis_tac [alloc_tags_cenv_inv] >>
+             by (match_mp_tac alloc_tags_cenv_inv3 >>
+                 rw [EVERY_MAP, MEM_FLAT, EVERY_MEM, MEM_MAP, EXISTS_PROD] >>
+                 fs [MEM_MAP] >>
+                 rw [] >>
+                 PairCases_on `y` >>
+                 rw [] >>
+                 fs [alloc_tags_invariant_def, SUBSET_DEF, DISJOINT_DEF, type_defs_to_new_tdecs_def, EXTENSION,
+                     MEM_MAP, FORALL_PROD] >>
+                 metis_tac [SND]) >>
      fs [merge_envC_empty_assoc, merge_def, emp_def] >>
      `s_to_i2' gtagenv' s1 s1_i2 ∧ vs_to_i2 gtagenv' genv genv_i2` 
                  by metis_tac [v_to_i2_weakening, s_to_i2'_cases] >>
@@ -1355,20 +1443,28 @@ val decs_to_i2_correct = Q.prove (
                                  `ds_i2`, `tagenv_st'`, `gtagenv'` ] mp_tac) >>
      rw [] >>
      metis_tac [gtagenv_weak_trans])
- >- (`?gtagenv'. cenv_inv (merge_envC ([],bind s (LENGTH l,TypeExn o') emp) envC) 
-                          (get_tagenv (alloc_tag (TypeExn o') s tagenv_st)) 
-                          gtagenv' ∧
+ >- (`?gtagenv'. cenv_inv (merge_envC ([],bind s (LENGTH l,TypeExn (mk_id o' s)) emp) envC) 
+                          (get_tagenv (alloc_tag (TypeExn (mk_id o' s)) s tagenv_st)) gtagenv' ∧
+                 alloc_tags_invariant ({TypeExn (mk_id o' s)} ∪ tids) (alloc_tag (TypeExn (mk_id o' s)) s tagenv_st) gtagenv' ∧
                  gtagenv_weak gtagenv gtagenv'`
-             by metis_tac [alloc_tag_cenv_inv] >>
+             by (fs [alloc_tags_invariant_def] >>
+                 imp_res_tac alloc_tags_cenv_inv1 >>
+                 pop_assum (qspecl_then [`bind s (LENGTH l,TypeExn (mk_id o' s)) emp`] mp_tac) >>
+                 `(s,TypeExn (mk_id o' s)) ∉ FDOM gtagenv`
+                          by (fs [SUBSET_DEF] >>
+                              metis_tac [SND]) >>
+                 rw [bind_def, emp_def] >>
+                 pop_assum (qspecl_then [`[]`, `envC`] mp_tac) >>
+                 rw [merge_envC_empty] >>
+                 metis_tac []) >>
      fs [merge_envC_empty_assoc, merge_def, emp_def] >>
      `s_to_i2' gtagenv' s1 s1_i2 ∧ vs_to_i2 gtagenv' genv genv_i2` 
                  by metis_tac [v_to_i2_weakening, s_to_i2'_cases] >>
-     FIRST_X_ASSUM (qspecl_then [`s1_i2`, `genv_i2`, `alloc_tag (TypeExn o') s tagenv_st`,
+     FIRST_X_ASSUM (qspecl_then [`s1_i2`, `genv_i2`, `alloc_tag (TypeExn (mk_id o' s)) s tagenv_st`,
                                  `ds_i2`, `tagenv_st'`, `gtagenv'` ] mp_tac) >>
      rw [] >>
      metis_tac [gtagenv_weak_trans]));
 
-     (*
 val dummy_env_to_i2 = Q.prove (
 `!ds cenv cenv' ds'.
   decs_to_i2 cenv ds = (cenv',ds')
@@ -1392,22 +1488,26 @@ val dummy_env_to_i2 = Q.prove (
  >- metis_tac []);
 
 val prompt_to_i2_correct = Q.prove (
-`!genv envC s prompt r.
-  evaluate_prompt_i1 genv envC s prompt r
+`!genv_opt envC s_mods prompt r.
+  evaluate_prompt_i1 genv_opt envC s_mods prompt r
   ⇒
-  !s1_i2 genv_i2 tagenv_st prompt_i2 genv' envC' s' res gtagenv tagenv_st'.
-    r = (s', envC', genv', res) ∧
+  !genv s tids s1_i2 genv_i2 tagenv_st prompt_i2 genv' envC' s' tids' res gtagenv tagenv_st'.
+    genv_opt = MAP SOME genv ∧
+    s_mods = (s,tids) ∧
+    r = ((s',tids'), envC', genv', res) ∧
     res ≠ SOME Rtype_error ∧
     (tagenv_st', prompt_i2) = prompt_to_i2 tagenv_st prompt ∧
     cenv_inv envC (FST (SND tagenv_st)) gtagenv ∧
     s_to_i2' gtagenv s s1_i2 ∧
-    vs_to_i2 gtagenv genv genv_i2
+    vs_to_i2 gtagenv genv genv_i2 ∧
+    alloc_tags_invariant tids tagenv_st gtagenv
     ⇒
     ?genv'_i2 s'_i2 res_i2 gtagenv'.
-      evaluate_prompt_i2 genv_i2 s1_i2 prompt_i2 (s'_i2,genv'_i2,res_i2) ∧
+      evaluate_prompt_i2 (MAP SOME genv_i2) s1_i2 prompt_i2 (s'_i2,genv'_i2,res_i2) ∧
       cenv_inv (merge_envC envC' envC) (FST (SND tagenv_st')) gtagenv' ∧
       vs_to_i2 gtagenv' genv' genv'_i2 ∧
       s_to_i2' gtagenv' s' s'_i2 ∧
+      alloc_tags_invariant tids' tagenv_st' gtagenv' ∧
       (res = NONE ∧ res_i2 = NONE ∨
        ?err err_i2. res = SOME err ∧ res_i2 = SOME err_i2 ∧ result_to_i2 (\a b c. T) gtagenv' (Rerr err) (Rerr err_i2))`,
  rw [evaluate_prompt_i1_cases, evaluate_prompt_i2_cases] >>
@@ -1419,9 +1519,11 @@ val prompt_to_i2_correct = Q.prove (
  `?next' tagenv' inv_tagenv' acc ds_i2. decs_to_i2 (next,tagenv,inv_tagenv,[]) ds = ((next',tagenv',inv_tagenv',acc),ds_i2)` by metis_tac [pair_CASES] >>
  fs [] >>
  rw []
+
+
  >- metis_tac [decs_to_i2_correct, NOT_SOME_NONE, PAIR_EQ, get_tagenv_def] >>
  `?s'_i2 genv'_i2 err_i2 clengths'.
-    evaluate_decs_i2 genv_i2 s1_i2 prompt_i2' (s'_i2,genv'_i2,SOME err_i2) ∧
+    evaluate_decs_i2 (MAP SOME genv_i2) s1_i2 prompt_i2' (s'_i2,genv'_i2,SOME err_i2) ∧
     cenv_inv (merge_envC (mod_cenv mn cenv') envC) cenv_mapping' clengths' ∧
     vs_to_i2 (cenv_mapping_to_cenv cenv_mapping' clengths') env genv'_i2 ∧
     s_to_i2' (cenv_mapping_to_cenv cenv_mapping' clengths') s' s'_i2 ∧
@@ -1449,6 +1551,5 @@ val prompt_to_i2_correct = Q.prove (
                       induct_on `nn` >>
                       rw [v_to_i2_eqns, GENLIST, SNOC_APPEND, vs_to_i2_append1]) >>
      metis_tac [vs_to_i2_append]))
-     *)
-     *)
+
 val _ = export_theory ();

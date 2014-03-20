@@ -25,6 +25,10 @@ val _ = new_theory "intLang2"
  * Cond and nil are always 4 and 5. It also keeps a reverse mapping for use by
  * the REPL printer.
  *
+ * The expressions include the unary operation for initialising the global
+ * store, even though it can't be used until IL3. However, including it here
+ * means that the IL2->IL3 translation can just be (\x.x).
+ *
  *)
 
 (*open import Pervasives*)
@@ -65,6 +69,12 @@ val _ = Define `
  (nil_tag =( 5))`;
 
 
+val _ = Hol_datatype `
+ uop_i2 = 
+    Opderef_i2
+  | Opref_i2
+  | Init_global_var_i2 of num`;
+
 
 val _ = Hol_datatype `
  pat_i2 =
@@ -83,7 +93,7 @@ val _ = Hol_datatype `
   | Var_local_i2 of varN
   | Var_global_i2 of num
   | Fun_i2 of varN => exp_i2
-  | Uapp_i2 of uop => exp_i2
+  | Uapp_i2 of uop_i2 => exp_i2
   | App_i2 of op => exp_i2 => exp_i2
   | If_i2 of exp_i2 => exp_i2 => exp_i2
   | Mat_i2 of exp_i2 => (pat_i2 # exp_i2) list
@@ -174,6 +184,15 @@ val _ = Define `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn pat_to_i2_defn;
 
+(*val uop_to_i2 : uop -> uop_i2*)
+val _ = Define `
+ (uop_to_i2 uop =  
+ ((case uop of
+      Opderef => Opderef_i2
+    | Opref => Opref_i2
+  )))`;
+
+
 (*val exp_to_i2 : tag_env -> exp_i1 -> exp_i2*)
 (*val exps_to_i2 : tag_env -> list exp_i1 -> list exp_i2*)
 (*val pat_exp_to_i2 : tag_env -> list (pat * exp_i1) -> list (pat_i2 * exp_i2)*)
@@ -200,7 +219,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (Fun_i2 x (exp_to_i2 tagenv e))) 
 /\
 (exp_to_i2 tagenv (Uapp_i1 uop e) =  
-(Uapp_i2 uop (exp_to_i2 tagenv e)))
+(Uapp_i2 (uop_to_i2 uop) (exp_to_i2 tagenv e)))
 /\
 (exp_to_i2 tagenv (App_i1 op e1 e2) =  
 (App_i2 op (exp_to_i2 tagenv e1) (exp_to_i2 tagenv e2)))
@@ -317,11 +336,11 @@ val _ = Define `
     (st'',(p'::ps'))))`;
 
 
-(*val do_uapp_i2 : store v_i2 -> uop -> v_i2 -> maybe (store v_i2 * v_i2)*)
+(*val do_uapp_i2 : store v_i2 -> uop_i2 -> v_i2 -> maybe (store v_i2 * v_i2)*)
 val _ = Define `
  (do_uapp_i2 s uop v =  
 ((case uop of
-      Opderef =>
+      Opderef_i2 =>
         (case v of
             Loc_i2 n =>
               (case store_lookup n s of
@@ -330,9 +349,10 @@ val _ = Define `
               )
           | _ => NONE
         )
-    | Opref =>
+    | Opref_i2 =>
         let (s',n) = (store_alloc v s) in
           SOME (s', Loc_i2 n)
+    | Init_global_var_i2 idx => NONE
   )))`;
 
 
@@ -386,7 +406,7 @@ val _ = Define `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn do_eq_i2_defn;
 
-val _ = type_abbrev( "all_env_i2" , ``: ( v_i2 list # (varN, v_i2) env)``);
+val _ = type_abbrev( "all_env_i2" , ``: ( ( v_i2 option)list # (varN, v_i2) env)``);
 
 val _ = Define `
  (all_env_i2_to_genv (genv,env) = genv)`;
@@ -395,7 +415,7 @@ val _ = Define `
  (all_env_i2_to_env (genv,env) = env)`;
 
 
-(*val exn_env_i2 : list v_i2 -> all_env_i2*)
+(*val exn_env_i2 : list (maybe v_i2) -> all_env_i2*)
 val _ = Define `
  (exn_env_i2 genv = (genv, emp))`;
 
@@ -538,11 +558,18 @@ evaluate_i2 ck env s (Var_local_i2 n) (s, Rval v))
 (lookup n (all_env_i2_to_env env) = NONE)
 ==>
 evaluate_i2 ck env s (Var_local_i2 n) (s, Rerr Rtype_error))
+
 /\ (! ck env n v s.
 ((LENGTH (all_env_i2_to_genv env) > n) /\
-(EL n (all_env_i2_to_genv env) = v))
+(EL n (all_env_i2_to_genv env) = SOME v))
 ==>
 evaluate_i2 ck env s (Var_global_i2 n) (s, Rval v))
+
+/\ (! ck env n s.
+((LENGTH (all_env_i2_to_genv env) > n) /\
+(EL n (all_env_i2_to_genv env) = NONE))
+==>
+evaluate_i2 ck env s (Var_global_i2 n) (s, Rerr Rtype_error))
 
 /\ (! ck env n s.
 (~ (LENGTH (all_env_i2_to_genv env) > n))
@@ -749,7 +776,7 @@ evaluate_decs_i2 genv s1 (d::ds) (s2, [], SOME e))
 
 /\ (! s1 s2 s3 genv d ds new_env new_env' r.
 (evaluate_dec_i2 genv s1 d (s2, Rval new_env) /\
-evaluate_decs_i2 (genv ++ new_env) s2 ds (s3, new_env', r))
+evaluate_decs_i2 (genv ++ MAP SOME new_env) s2 ds (s3, new_env', r))
 ==>
 evaluate_decs_i2 genv s1 (d::ds) (s3, (new_env ++ new_env'), r))`;
 
@@ -787,7 +814,7 @@ evaluate_prog_i2 genv s [] (s, [], NONE))
 
 /\ (! genv s1 prompt prompts s2 env2 s3 env3 r.
 (evaluate_prompt_i2 genv s1 prompt (s2, env2, NONE) /\
-evaluate_prog_i2 (genv++env2) s2 prompts (s3, env3, r))
+evaluate_prog_i2 (genv++MAP SOME env2) s2 prompts (s3, env3, r))
 ==>
 evaluate_prog_i2 genv s1 (prompt::prompts) (s3, (env2++env3), r))
 

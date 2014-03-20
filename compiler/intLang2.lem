@@ -15,6 +15,10 @@
  * Cond and nil are always 4 and 5. It also keeps a reverse mapping for use by
  * the REPL printer.
  *
+ * The expressions include the unary operation for initialising the global
+ * store, even though it can't be used until IL3. However, including it here
+ * means that the IL2->IL3 translation can just be (\x.x).
+ *
  *)
 
 open import Pervasives
@@ -43,6 +47,10 @@ let cons_tag = 4
 val nil_tag : nat
 let nil_tag = 5
 
+type uop_i2 = 
+  | Opderef_i2
+  | Opref_i2
+  | Init_global_var_i2 of nat
 
 type pat_i2 =
   | Pvar_i2 of varN
@@ -58,7 +66,7 @@ type exp_i2 =
   | Var_local_i2 of varN
   | Var_global_i2 of nat
   | Fun_i2 of varN * exp_i2
-  | Uapp_i2 of uop * exp_i2
+  | Uapp_i2 of uop_i2 * exp_i2
   | App_i2 of op * exp_i2 * exp_i2
   | If_i2 of exp_i2 * exp_i2 * exp_i2
   | Mat_i2 of exp_i2 * list (pat_i2 * exp_i2)
@@ -132,6 +140,13 @@ pat_to_i2 tagenv (Pcon con_id ps) =
 and 
 pat_to_i2 tagenv (Pref p) = Pref_i2 (pat_to_i2 tagenv p)
 
+val uop_to_i2 : uop -> uop_i2
+let uop_to_i2 uop = 
+  match uop with
+    | Opderef -> Opderef_i2
+    | Opref -> Opref_i2
+  end
+
 val exp_to_i2 : tag_env -> exp_i1 -> exp_i2
 val exps_to_i2 : tag_env -> list exp_i1 -> list exp_i2
 val pat_exp_to_i2 : tag_env -> list (pat * exp_i1) -> list (pat_i2 * exp_i2)
@@ -157,7 +172,7 @@ exp_to_i2 tagenv (Fun_i1 x e) =
   Fun_i2 x (exp_to_i2 tagenv e) 
 and
 exp_to_i2 tagenv (Uapp_i1 uop e) =
-  Uapp_i2 uop (exp_to_i2 tagenv e)
+  Uapp_i2 (uop_to_i2 uop) (exp_to_i2 tagenv e)
 and
 exp_to_i2 tagenv (App_i1 op e1 e2) =
   App_i2 op (exp_to_i2 tagenv e1) (exp_to_i2 tagenv e2)
@@ -262,10 +277,10 @@ prog_to_i2 st (p::ps) =
 
 declare termination_argument prog_to_i2 = automatic
 
-val do_uapp_i2 : store v_i2 -> uop -> v_i2 -> maybe (store v_i2 * v_i2)
+val do_uapp_i2 : store v_i2 -> uop_i2 -> v_i2 -> maybe (store v_i2 * v_i2)
 let do_uapp_i2 s uop v =
   match uop with
-    | Opderef ->
+    | Opderef_i2 ->
         match v with
           | Loc_i2 n ->
               match store_lookup n s with
@@ -274,9 +289,10 @@ let do_uapp_i2 s uop v =
               end
           | _ -> Nothing
         end
-    | Opref ->
+    | Opref_i2 ->
         let (s',n) = store_alloc v s in
           Just (s', Loc_i2 n)
+    | Init_global_var_i2 idx -> Nothing
   end
 
 val build_rec_env_i2 : list (varN * varN * exp_i2) -> env varN v_i2 -> env varN v_i2 -> env varN v_i2
@@ -324,12 +340,12 @@ do_eq_list_i2 (v1::vs1) (v2::vs2) =
 and
 do_eq_list_i2 _ _ = Eq_val false
 
-type all_env_i2 = (list v_i2 * env varN v_i2)
+type all_env_i2 = (list (maybe v_i2) * env varN v_i2)
 
 let all_env_i2_to_genv (genv,env) = genv
 let all_env_i2_to_env (genv,env) = env
 
-val exn_env_i2 : list v_i2 -> all_env_i2
+val exn_env_i2 : list (maybe v_i2) -> all_env_i2
 let exn_env_i2 genv = (genv, emp)
 
 val do_app_i2 : all_env_i2 -> store v_i2 -> op -> v_i2 -> v_i2 -> maybe (all_env_i2 * store v_i2 * exp_i2)
@@ -485,17 +501,26 @@ var2 : forall ck env n s.
 (lookup n (all_env_i2_to_env env) = Nothing)
 ==>
 evaluate_i2 ck env s (Var_local_i2 n) (s, Rerr Rtype_error)
+
 and
 
 var3 : forall ck env n v s.
 (List.length (all_env_i2_to_genv env) > n) &&
-(List_extra.nth (all_env_i2_to_genv env) n = v)
+(List_extra.nth (all_env_i2_to_genv env) n = Just v)
 ==>
 evaluate_i2 ck env s (Var_global_i2 n) (s, Rval v)
 
 and
 
 var4 : forall ck env n s.
+(List.length (all_env_i2_to_genv env) > n) &&
+(List_extra.nth (all_env_i2_to_genv env) n = Nothing)
+==>
+evaluate_i2 ck env s (Var_global_i2 n) (s, Rerr Rtype_error)
+
+and
+
+var5 : forall ck env n s.
 not (List.length (all_env_i2_to_genv env) > n)
 ==>
 evaluate_i2 ck env s (Var_global_i2 n) (s, Rerr Rtype_error)
@@ -715,7 +740,7 @@ not (List.allDistinct (pat_bindings_i2 p []))
 ==>
 evaluate_match_i2 ck env s v ((p,e)::pes) err_v (s, Rerr Rtype_error)
 
-indreln [evaluate_dec_i2 : list v_i2 -> store v_i2 -> dec_i2 -> store v_i2 * result (list v_i2) v_i2 -> bool]
+indreln [evaluate_dec_i2 : list (maybe v_i2) -> store v_i2 -> dec_i2 -> store v_i2 * result (list v_i2) v_i2 -> bool]
 
 dlet1 : forall genv n e vs s1 s2 count.
 evaluate_i2 false (genv,emp) (0,s1) e ((count,s2), Rval (Conv_i2 tuple_tag vs)) &&
@@ -753,7 +778,7 @@ true
 ==>
 evaluate_dec_i2 genv s (Dletrec_i2 funs) (s, Rval (List.map (fun (f,x,e) -> Closure_i2 [] x e) funs))
 
-indreln [evaluate_decs_i2 : list v_i2 -> store v_i2 -> list dec_i2 -> store v_i2 * list v_i2 * maybe (error_result v_i2) -> bool]
+indreln [evaluate_decs_i2 : list (maybe v_i2) -> store v_i2 -> list dec_i2 -> store v_i2 * list v_i2 * maybe (error_result v_i2) -> bool]
 
 empty : forall genv s.
 true
@@ -771,7 +796,7 @@ and
 
 cons2 : forall s1 s2 s3 genv d ds new_env new_env' r.
 evaluate_dec_i2 genv s1 d (s2, Rval new_env) &&
-evaluate_decs_i2 (genv ++ new_env) s2 ds (s3, new_env', r)
+evaluate_decs_i2 (genv ++ List.map Just new_env) s2 ds (s3, new_env', r)
 ==>
 evaluate_decs_i2 genv s1 (d::ds) (s3, new_env ++ new_env', r)
 
@@ -787,7 +812,7 @@ decs_to_dummy_env_i2 (d::ds) = decs_to_dummy_env_i2 ds + dec_to_dummy_env_i2 d
 
 declare termination_argument decs_to_dummy_env_i2 = automatic
 
-indreln [evaluate_prompt_i2 : list v_i2 -> store v_i2 -> prompt_i2 -> store v_i2 * list v_i2 * maybe (error_result v_i2) -> bool]
+indreln [evaluate_prompt_i2 : list (maybe v_i2) -> store v_i2 -> prompt_i2 -> store v_i2 * list v_i2 * maybe (error_result v_i2) -> bool]
 
 prompt_val : forall genv s1 ds s2 env.
 evaluate_decs_i2 genv s1 ds (s2,env,Nothing)
@@ -803,7 +828,7 @@ evaluate_prompt_i2 genv s1 (Prompt_i2 ds) (s2,
                                            env ++ List.genlist (fun _ -> Litv_i2 Unit) (decs_to_dummy_env_i2 ds - List.length env),
                                            Just err)
 
-indreln [evaluate_prog_i2 : list v_i2 -> store v_i2 -> list prompt_i2 -> store v_i2 * list v_i2 * maybe (error_result v_i2) -> bool]
+indreln [evaluate_prog_i2 : list (maybe v_i2) -> store v_i2 -> list prompt_i2 -> store v_i2 * list v_i2 * maybe (error_result v_i2) -> bool]
 
 prog_empty : forall genv s.
 true
@@ -814,7 +839,7 @@ and
 
 prog_cons_var : forall genv s1 prompt prompts s2 env2 s3 env3 r.
 evaluate_prompt_i2 genv s1 prompt (s2, env2, Nothing) &&
-evaluate_prog_i2 (genv++env2) s2 prompts (s3, env3, r)
+evaluate_prog_i2 (genv++List.map Just env2) s2 prompts (s3, env3, r)
 ==>
 evaluate_prog_i2 genv s1 (prompt::prompts) (s3, env2++env3, r)
 
