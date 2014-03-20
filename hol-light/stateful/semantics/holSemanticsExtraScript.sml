@@ -258,36 +258,6 @@ val termsem_tyfrees = store_thm("termsem_tyfrees",
   rw[] >> rpt AP_TERM_TAC >>
   unabbrev_all_tac >> rw[FUN_EQ_THM])
 
-(* TODO: move. List of updates to a function *)
-
-val UPDATE_LIST_def = Define`
-  UPDATE_LIST = FOLDL (combin$C (UNCURRY UPDATE))`
-val _ = Parse.add_infix("=++",500,Parse.LEFT)
-val _ = Parse.overload_on("=++",``UPDATE_LIST``)
-
-val UPDATE_LIST_THM = store_thm("UPDATE_LIST_THM",
-  ``∀f. (f =++ [] = f) ∧ ∀h t. (f =++ (h::t) = (FST h =+ SND h) f =++ t)``,
-  rw[UPDATE_LIST_def,pairTheory.UNCURRY])
-
-val APPLY_UPDATE_LIST_ALOOKUP = store_thm("APPLY_UPDATE_LIST_ALOOKUP",
-  ``∀ls f x. (f =++ ls) x = case ALOOKUP (REVERSE ls) x of NONE => f x | SOME y => y``,
-  Induct >> simp[UPDATE_LIST_THM,ALOOKUP_APPEND] >>
-  Cases >> simp[combinTheory.APPLY_UPDATE_THM] >>
-  rw[] >> BasicProvers.CASE_TAC)
-
-val ALOOKUP_FILTER = store_thm("ALOOKUP_FILTER",
-  ``∀ls x. ALOOKUP (FILTER (λ(k,v). P k) ls) x =
-           if P x then ALOOKUP ls x else NONE``,
-  Induct >> simp[] >> Cases >> simp[] >> rw[] >> fs[] >> metis_tac[])
-
-val ALOOKUP_MAP_dest_var = store_thm("ALOOKUP_MAP_dest_var",
-  ``∀ls f x ty.
-      EVERY (λs. ∃x ty. s = Var x ty) (MAP FST ls) ⇒
-      ALOOKUP (MAP (dest_var ## f) ls) (x,ty) =
-      OPTION_MAP f (ALOOKUP ls (Var x ty))``,
-  Induct >> simp[] >> Cases >> simp[EVERY_MEM,EVERY_MAP] >>
-  rw[] >> fs[])
-
 (* semantics of substitution *)
 
 val termsem_simple_subst = store_thm("termsem_simple_subst",

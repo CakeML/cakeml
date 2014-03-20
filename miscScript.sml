@@ -4,6 +4,26 @@ val _ = new_theory "misc"
 
 (* TODO: move/categorize *)
 
+val UPDATE_LIST_def = Define`
+  UPDATE_LIST = FOLDL (combin$C (UNCURRY UPDATE))`
+val _ = Parse.add_infix("=++",500,Parse.LEFT)
+val _ = Parse.overload_on("=++",``UPDATE_LIST``)
+
+val UPDATE_LIST_THM = store_thm("UPDATE_LIST_THM",
+  ``∀f. (f =++ [] = f) ∧ ∀h t. (f =++ (h::t) = (FST h =+ SND h) f =++ t)``,
+  rw[UPDATE_LIST_def,pairTheory.UNCURRY])
+
+val APPLY_UPDATE_LIST_ALOOKUP = store_thm("APPLY_UPDATE_LIST_ALOOKUP",
+  ``∀ls f x. (f =++ ls) x = case ALOOKUP (REVERSE ls) x of NONE => f x | SOME y => y``,
+  Induct >> simp[UPDATE_LIST_THM,ALOOKUP_APPEND] >>
+  Cases >> simp[combinTheory.APPLY_UPDATE_THM] >>
+  rw[] >> BasicProvers.CASE_TAC)
+
+val IS_SUFFIX_CONS = store_thm("IS_SUFFIX_CONS",
+  ``∀l1 l2 a. IS_SUFFIX l1 l2 ⇒ IS_SUFFIX (a::l1) l2``,
+  rw[rich_listTheory.IS_SUFFIX_APPEND] >>
+  qexists_tac`a::l` >>rw[])
+
 val SORTED_weaken = store_thm("SORTED_weaken",
   ``∀R R' ls. SORTED R ls /\ (!x y. MEM x ls /\ MEM y ls /\ R x y ==> R' x y)
       ==> SORTED R' ls``,
@@ -82,6 +102,11 @@ val ALOOKUP_ZIP_MAP_SND = store_thm("ALOOKUP_ZIP_MAP_SND",
       (ALOOKUP (ZIP(l1,MAP f l2)) = OPTION_MAP f o (ALOOKUP (ZIP(l1,l2))))``,
   Induct >> simp[LENGTH_NIL,LENGTH_NIL_SYM,FUN_EQ_THM] >>
   gen_tac >> Cases >> simp[] >> rw[] >> rw[])
+
+val ALOOKUP_FILTER = store_thm("ALOOKUP_FILTER",
+  ``∀ls x. ALOOKUP (FILTER (λ(k,v). P k) ls) x =
+           if P x then ALOOKUP ls x else NONE``,
+  Induct >> simp[] >> Cases >> simp[] >> rw[] >> fs[] >> metis_tac[])
 
 val find_index_def = Define`
   (find_index _ [] _ = NONE) ∧

@@ -3,12 +3,6 @@ open miscLib miscTheory holSyntaxLibTheory holSyntaxTheory
 val _ = temp_tight_equality()
 val _ = new_theory"holSyntaxExtra"
 
-(* TODO: move *)
-val IS_SUFFIX_CONS = store_thm("IS_SUFFIX_CONS",
-  ``∀l1 l2 a. IS_SUFFIX l1 l2 ⇒ IS_SUFFIX (a::l1) l2``,
-  rw[rich_listTheory.IS_SUFFIX_APPEND] >>
-  qexists_tac`a::l` >>rw[])
-
 val type_ind = save_thm("type_ind",
   TypeBase.induction_of``:holSyntax$type``
   |> Q.SPECL[`P`,`EVERY P`]
@@ -18,8 +12,18 @@ val type_ind = save_thm("type_ind",
   |> DISCH_ALL
   |> Q.GEN`P`)
 
+(* deconstructing variables *)
+
 val dest_var_def = Define`dest_var (Var x ty) = (x,ty)`
 val _ = export_rewrites["dest_var_def"]
+
+val ALOOKUP_MAP_dest_var = store_thm("ALOOKUP_MAP_dest_var",
+  ``∀ls f x ty.
+      EVERY (λs. ∃x ty. s = Var x ty) (MAP FST ls) ⇒
+      ALOOKUP (MAP (dest_var ## f) ls) (x,ty) =
+      OPTION_MAP f (ALOOKUP ls (Var x ty))``,
+  Induct >> simp[] >> Cases >> simp[EVERY_MEM,EVERY_MAP] >>
+  rw[] >> fs[])
 
 (* type substitution *)
 
