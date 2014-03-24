@@ -1099,7 +1099,8 @@ val check_dup_ctors_flat = Q.prove (
 `!defs.
   check_dup_ctors defs =
   ALL_DISTINCT (MAP FST (build_tdefs mn defs))`,
- rw [check_dup_ctors_thm, MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, build_tdefs_def]);
+ rw [check_dup_ctors_thm, MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, build_tdefs_def,
+     MAP_REVERSE, ALL_DISTINCT_REVERSE]);
 
 val gtagenv_weak_refl = Q.prove (
 `!gtagenv envC tagenv. 
@@ -1244,20 +1245,27 @@ val alloc_tag_wf = Q.prove (
 
 val alt_alloc_tags_def = Define `
 alt_alloc_tags mn next tdefs =
-  ZIP (MAP FST (build_tdefs mn tdefs), MAP (\x. next + x) (COUNT_LIST (LENGTH (build_tdefs mn tdefs))))`;
+  ZIP (MAP FST (build_tdefs mn tdefs), REVERSE (MAP (\x. next + x) (COUNT_LIST (LENGTH (build_tdefs mn tdefs)))))`;
+
+val count_list_lem = Q.prove (
+`!n l1 l2.
+ MAP (λx. n + x) (COUNT_LIST (l1 + l2 + 1)) =
+ [n] ++ MAP (λx. n + SUC x) (COUNT_LIST l2) ++ MAP (λx. n + SUC l2 + x) (COUNT_LIST l1)`,
+cheat);
 
 val alt_alloc_tags_cons = Q.prove (
 `!mn next tdefs tvs tn ctors.
   alt_alloc_tags mn next ((tvs,tn,ctors)::tdefs) =
-  ZIP (MAP FST ctors, MAP (\x. next + x) (COUNT_LIST (LENGTH ctors))) ++ alt_alloc_tags mn (next+LENGTH ctors) tdefs`,
+  alt_alloc_tags mn (next+LENGTH ctors) tdefs ++ REVERSE (ZIP (MAP FST ctors, MAP (\x. next + x) (COUNT_LIST (LENGTH ctors))))`,
  induct_on `ctors` >>
- rw [alt_alloc_tags_def, COUNT_LIST_def, build_tdefs_def]
- >- (PairCases_on `h` >>
-     rw [])
- >- (rw [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, MAP_FLAT, ZIP_APPEND,
-         COUNT_LIST_ADD, LENGTH_COUNT_LIST, LENGTH_MAP, LENGTH_FLAT, FST_pair] >>
-     `!x. next+SUC (x+LENGTH ctors) = next + SUC (LENGTH ctors) + x` by decide_tac >>
-     rw []));
+ rw [alt_alloc_tags_def, COUNT_LIST_def, build_tdefs_cons, MAP_REVERSE] >>
+ rw [REVERSE_ZIP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_pair, ZIP_APPEND, LENGTH_COUNT_LIST] >>
+ `[(FST h, next)] = ZIP ([FST h], [next])` by rw [] >>
+ ASM_SIMP_TAC (std_ss) [ZIP_APPEND, LENGTH, LENGTH_COUNT_LIST, LENGTH_REVERSE, LENGTH_MAP, LENGTH_APPEND] >>
+ pop_assum (fn _ => all_tac) >>
+ PairCases_on `h` >>
+ rw [] >>
+ rw [MAP_MAP_o, combinTheory.o_DEF, count_list_lem]);
 
 val get_next_lem = Q.prove (
 `!mn tn tagenv_st ctors.
