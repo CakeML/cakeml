@@ -1645,12 +1645,12 @@ rw [COUNT_LIST_def, check_env_def] >|
 val check_build_ctor_tenv = Q.prove (
 `!mn cenv l. check_ctor_tenv mn l ⇒ check_flat_cenv (build_ctor_tenv mn l)`,
 induct_on `l` >>
-rw [check_flat_cenv_def, build_ctor_tenv_def, check_ctor_tenv_def] >|
+rw [EVERY_REVERSE, check_flat_cenv_def, build_ctor_tenv_def, check_ctor_tenv_def] >|
 [PairCases_on `h` >>
      rw [EVERY_MAP] >>
      fs [remove_pair_lem] >>
      fs [every_shim, EVERY_MAP],
- fs [check_flat_cenv_def, build_ctor_tenv_def, check_ctor_tenv_def] >>
+ fs [check_flat_cenv_def, build_ctor_tenv_def, check_ctor_tenv_def, EVERY_REVERSE] >>
      `check_dup_ctors l` 
                 by (PairCases_on `h` >> metis_tac [check_dup_ctors_cons]) >>
      metis_tac []]);

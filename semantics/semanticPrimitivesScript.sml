@@ -444,14 +444,15 @@ val _ = Define `
 (*val build_tdefs : maybe modN -> list (list tvarN * typeN * list (conN * list t)) -> flat_envC*)
 val _ = Define `
  (build_tdefs mn tds =  
-(FLAT
-    (MAP
-      (\ (tvs, tn, condefs) . 
-         MAP
-           (\ (conN, ts) . 
-              (conN, (LENGTH ts, TypeId (mk_id mn tn))))
-           condefs)
-      tds)))`;
+(REVERSE
+    (FLAT
+      (MAP
+        (\ (tvs, tn, condefs) . 
+           MAP
+             (\ (conN, ts) . 
+                (conN, (LENGTH ts, TypeId (mk_id mn tn))))
+             condefs)
+        tds))))`;
 
 
 (* Checks that no constructor is defined twice in a type *)

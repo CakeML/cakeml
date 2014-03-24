@@ -135,8 +135,7 @@ val same_tid_sym = Q.store_thm ("same_tid_sym",
 val build_tdefs_cons = Q.store_thm ("build_tdefs_cons",
 `(!tvs tn ctors tds mn.
   build_tdefs mn ((tvs,tn,ctors)::tds) =
-    (MAP (\(conN,ts). (conN, LENGTH ts, TypeId (mk_id mn tn)))
-        ctors) ++ build_tdefs mn tds) ∧
+    build_tdefs mn tds ++ REVERSE (MAP (\(conN,ts). (conN, LENGTH ts, TypeId (mk_id mn tn))) ctors)) ∧
  (!mn. build_tdefs mn [] = [])`,
 rw [build_tdefs_def]);
 

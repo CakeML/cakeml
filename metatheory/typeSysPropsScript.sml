@@ -2027,20 +2027,20 @@ val lookup_ctor_none = Q.store_thm ("lookup_ctor_none",
  Induct >>
  rw [] >-
  fs [build_ctor_tenv_def, build_tdefs_def, lookup_def] >>
- rw [build_ctor_tenv_def, build_tdefs_def, lookup_def] >>
+ rw [REVERSE_APPEND,build_ctor_tenv_def, build_tdefs_def, lookup_def] >>
  PairCases_on `h` >>
  rw [lookup_append_none] >>
  eq_tac >>
  rw []
- >- metis_tac [lookup_ctor_none_lem]
  >- metis_tac [build_ctor_tenv_def, build_tdefs_def, lookup_reverse_none]
- >- metis_tac [lookup_ctor_none_lem]
- >- metis_tac [build_ctor_tenv_def, build_tdefs_def, lookup_reverse_none]);
+ >- metis_tac [lookup_ctor_none_lem, MAP_REVERSE]
+ >- metis_tac [build_ctor_tenv_def, build_tdefs_def, lookup_reverse_none]
+ >- metis_tac [lookup_ctor_none_lem, MAP_REVERSE]);
 
 val build_ctor_tenv_cons = Q.prove (
 `∀tvs tn ctors tds.
   build_ctor_tenv mn ((tvs,tn,ctors)::tds) =
-    (MAP (λ(cn,ts). (cn,tvs,ts,TypeId (mk_id mn tn))) ctors ++ build_ctor_tenv mn tds)`,
+    build_ctor_tenv mn tds ++ REVERSE (MAP (λ(cn,ts). (cn,tvs,ts,TypeId (mk_id mn tn))) ctors)`,
 rw [build_ctor_tenv_def]);
 
 val build_ctor_tenv_empty = Q.store_thm ("build_ctor_tenv_empty",
@@ -2106,57 +2106,79 @@ val ctor_env_to_tdefs = Q.prove (
  PairCases_on `h` >>
  fs [build_ctor_tenv_cons, build_tdefs_cons] >>
  fs [lookup_append] >>
- every_case_tac >>
- fs [] >>
- rw [] >>
- induct_on `h2` >>
- rw [] >>
- PairCases_on `h` >>
- fs [] >>
- every_case_tac >>
- rw []);
+ cases_on `lookup cn (build_tdefs mn tds)` >>
+ rw []
+ >- (cases_on `lookup cn (build_ctor_tenv mn tds)` >>
+     fs []
+     >- (fs [GSYM MAP_REVERSE] >>
+         rpt (pop_assum mp_tac) >>
+         Q.SPEC_TAC (`REVERSE h2`, `h2`) >>
+         induct_on `h2` >>
+         rw [] >>
+         PairCases_on `h` >>
+         fs [] >>
+         rw [] >>
+         fs [])
+     >- metis_tac [NOT_SOME_NONE])
+ >- (cases_on `lookup cn (build_ctor_tenv mn tds)` >>
+     fs []
+     >- metis_tac [lookup_ctor_none, NOT_SOME_NONE]
+     >- (rw [] >>
+         res_tac >>
+         fs [])));
 
 val check_dup_ctors_distinct = Q.prove (
 `!tds mn.
   check_dup_ctors tds ⇒ ALL_DISTINCT (MAP FST (flat_to_ctMap_list (build_ctor_tenv mn tds)))`,
  induct_on `tds` >>
- rw [check_dup_ctors_thm, build_ctor_tenv_def, flat_to_ctMap_list_def,
-     ALL_DISTINCT_APPEND] >>
+ rw [check_dup_ctors_thm, build_ctor_tenv_def, flat_to_ctMap_list_def,REVERSE_APPEND, ALL_DISTINCT_APPEND] >>
  fs [flat_to_ctMap_list_def, build_ctor_tenv_def, check_dup_ctors_thm, MEM_MAP, MAP_MAP_o, combinTheory.o_DEF] >>
  rw [] >>
  PairCases_on `h` >>
- fs [MAP_FLAT, MEM_MAP, MAP_MAP_o, combinTheory.o_DEF]
- >- (induct_on `h2` >>
-    rw [] >>
-    PairCases_on `h` >>
-    fs [MEM_FLAT, MEM_MAP] >>
-    rw [] >>
-    PairCases_on `x` >>
-    rw [] >>
-    CCONTR_TAC >>
-    fs [] >>
-    rw [] >>
-    LAST_X_ASSUM (mp_tac o Q.SPEC `(h0',x1)`) >>
-    rw [])
- >- (rw [] >>
-     PairCases_on `y` >>
-     fs [] >>
-     res_tac >>
+ fs [MAP_FLAT, MEM_MAP, MAP_MAP_o, combinTheory.o_DEF, REVERSE_APPEND, GSYM MAP_REVERSE]
+ >- (`?l. h2 = REVERSE l` by (qexists_tac `REVERSE h2` >> rw []) >>
+     rw [] >>
+     fs [MAP_REVERSE, ALL_DISTINCT_REVERSE] >>
+     induct_on `l` >>
+     rw [] >>
+     PairCases_on `h` >>
      fs [MEM_FLAT, MEM_MAP] >>
+     rw [] >>
+     PairCases_on `x` >>
+     rw [] >>
      CCONTR_TAC >>
      fs [] >>
      rw [] >>
+     LAST_X_ASSUM (mp_tac o Q.SPEC `(h0',x1)`) >>
+     rw [])
+ >- (fs [MAP_REVERSE, ALL_DISTINCT_REVERSE] >>
+     fs [MEM_FLAT, MEM_MAP] >>
+     rw [] >>
+     PairCases_on `y` >>
+     fs [] >>
      PairCases_on `y'` >>
      fs [MEM_MAP] >>
+     rw [FORALL_PROD] >>
+     PairCases_on `y` >>
+     fs [] >>
      rw [] >>
-     PairCases_on `y'` >>
-     fs [MEM_MAP] >>
+     CCONTR_TAC >>
+     fs [] >>
      rw [] >>
-     FIRST_X_ASSUM (mp_tac o Q.SPEC `MAP FST (y'2:(β, γ) alist)`) >>
+     fs [] >>
+     rw [] >>
+     `y1 = h1` by (fs [mk_id_def] >> every_case_tac >> fs []) >>
+     rw [] >>
+     FIRST_X_ASSUM (mp_tac o Q.SPEC `p_1`) >>
      rw [MEM_MAP]
-     >- (qexists_tac `(y'0,y'1,y'2)` >>
+     >- (qexists_tac `(p_1,p_1'')` >>
          rw [FST_pair])
-     >- metis_tac [FST]));
+     >- (rw [EXISTS_PROD, LAMBDA_PROD] >>
+         qexists_tac `MAP FST y2` >>
+         rw []
+         >- metis_tac [FST_pair] >>
+         rw [MEM_MAP] >>
+         metis_tac [FST])));
 
 (* ---------- consistent_con_env ---------- *)
 

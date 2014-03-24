@@ -268,11 +268,12 @@ val _ = Define `
 (*val build_ctor_tenv : maybe modN -> list (list tvarN * typeN * list (conN * list t)) -> flat_tenvC*)
 val _ = Define `
  (build_ctor_tenv mn tds =  
-(FLAT
-    (MAP
-       (\ (tvs,tn,ctors) . 
-          MAP (\ (cn,ts) .  (cn,(tvs,ts, TypeId (mk_id mn tn)))) ctors)
-       tds)))`;
+(REVERSE
+    (FLAT
+      (MAP
+         (\ (tvs,tn,ctors) . 
+            MAP (\ (cn,ts) .  (cn,(tvs,ts, TypeId (mk_id mn tn)))) ctors)
+         tds))))`;
 
 
 (* Check that an exception definition defines no already defined (or duplicate)

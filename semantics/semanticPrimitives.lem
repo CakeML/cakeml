@@ -368,14 +368,15 @@ let do_if v e1 e2 =
 (* Build a constructor environment for the type definition tds *)
 val build_tdefs : maybe modN -> list (list tvarN * typeN * list (conN * list t)) -> flat_envC
 let build_tdefs mn tds =
-  concat
-    (List.map
-      (fun (tvs, tn, condefs) ->
-         List.map
-           (fun (conN, ts) ->
-              (conN, (List.length ts, TypeId (mk_id mn tn))))
-           condefs)
-      tds)
+  List.reverse
+    (concat
+      (List.map
+        (fun (tvs, tn, condefs) ->
+           List.map
+             (fun (conN, ts) ->
+                (conN, (List.length ts, TypeId (mk_id mn tn))))
+             condefs)
+        tds))
 
 (* Checks that no constructor is defined twice in a type *)
 val check_dup_ctors : list (list tvarN * typeN * list (conN * list t)) -> bool
