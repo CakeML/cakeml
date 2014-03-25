@@ -1286,9 +1286,9 @@ val alloc_tags_eqn = Q.prove (
   (get_next (alloc_tags mn tagenv_st tdefs) =
     get_next tagenv_st + LENGTH (alt_alloc_tags mn (get_next tagenv_st) tdefs)) ∧
   (get_tagenv (alloc_tags mn tagenv_st tdefs) =
-    FOLDL (\tagenv (cn,tag). insert_tag_env cn tag tagenv) (get_tagenv tagenv_st) (alt_alloc_tags mn (get_next tagenv_st) tdefs)) ∧
+    FOLDL (\tagenv (cn,tag). insert_tag_env cn tag tagenv) (get_tagenv tagenv_st) (REVERSE (alt_alloc_tags mn (get_next tagenv_st) tdefs))) ∧
   (get_tagacc (alloc_tags mn tagenv_st tdefs) =
-    REVERSE (alt_alloc_tags mn (get_next tagenv_st) tdefs) ++ get_tagacc tagenv_st)`,
+    alt_alloc_tags mn (get_next tagenv_st) tdefs ++ get_tagacc tagenv_st)`,
  induct_on `tdefs`
  >- srw_tac [ARITH_ss] [get_next_def, get_tagenv_def, get_tagacc_def, alloc_tags_def, 
                         alt_alloc_tags_def, build_tdefs_def, COUNT_LIST_def, FUPDATE_LIST] >>
@@ -1309,7 +1309,7 @@ val alloc_tags_eqn = Q.prove (
      PairCases_on `tagenv_st` >>
      rw [get_tagenv_def, alloc_tag_def, get_next_def, MAP_MAP_o, combinTheory.o_DEF] >>
      `!x. x + (tagenv_st0 + 1) = SUC x + tagenv_st0` by decide_tac >>
-     rw [])
+     rw [REVERSE_APPEND])
  >- (PairCases_on `h` >>
      srw_tac [ARITH_ss] [LET_THM, alt_alloc_tags_cons, alloc_tags_def, get_next_lem] >>
      Q.SPEC_TAC (`tagenv_st`, `tagenv_st`) >>
@@ -1326,18 +1326,16 @@ val alloc_tags_invariant_lem = Q.prove (
 `gtagenv_weak (gtagenv |+ ((cn,t),next,l)) gtagenv' ∧
  flat_envC_tagged flat_defs
          (FEMPTY |++
-          REVERSE
-            (ZIP
+            ZIP
                (MAP FST flat_defs,
-                MAP (λx. next + 1 + x)
+                REVERSE (MAP (λx. next + 1 + x)
                   (COUNT_LIST (LENGTH flat_defs))))) gtagenv'
                   ⇒
  flat_envC_tagged ((cn,l,t)::flat_defs)
   (FEMPTY |++
-   (REVERSE
       (ZIP
          (MAP FST flat_defs,
-          MAP (λx. next + x)
+          REVERSE (MAP (λx. next + x)
             (MAP SUC (COUNT_LIST (LENGTH flat_defs))))) ++ [(cn,next)]))
   gtagenv'`,
  rw [flat_envC_tagged_def, lookup_tag_flat_def] >>
@@ -1371,10 +1369,10 @@ val alloc_tags_invariant = Q.prove (
   ⇒
   ?gtagenv'. 
     gtagenv_wf gtagenv' ∧
-    flat_envC_tagged flat_defs (FEMPTY |++ (REVERSE (ZIP (MAP FST flat_defs, MAP (λx. next + x) (COUNT_LIST (LENGTH flat_defs)))))) gtagenv' ∧
+    flat_envC_tagged flat_defs (FEMPTY |++ ZIP (MAP FST flat_defs, REVERSE (MAP (λx. next + x) (COUNT_LIST (LENGTH flat_defs))))) gtagenv' ∧
     IMAGE SND (FDOM gtagenv') ⊆ set (MAP (λ(cn,l,t). t) flat_defs) ∪ tids ∧
-    next + LENGTH (ZIP (MAP FST flat_defs, MAP (λx. next + x) (COUNT_LIST (LENGTH flat_defs)))) > tuple_tag ∧
-    (!cn t tag l. FLOOKUP gtagenv' (cn,t) = SOME (tag,l) ⇒ next + LENGTH (ZIP (MAP FST flat_defs, MAP (λx. next + x) (COUNT_LIST (LENGTH flat_defs)))) > tag) ∧
+    next + LENGTH (ZIP (MAP FST flat_defs, REVERSE (MAP (λx. next + x) (COUNT_LIST (LENGTH flat_defs))))) > tuple_tag ∧
+    (!cn t tag l. FLOOKUP gtagenv' (cn,t) = SOME (tag,l) ⇒ next + LENGTH (ZIP (MAP FST flat_defs, REVERSE (MAP (λx. next + x) (COUNT_LIST (LENGTH flat_defs))))) > tag) ∧
     gtagenv_weak gtagenv gtagenv'`,
  induct_on `flat_defs` >>
  rw [COUNT_LIST_def, merge_envC_empty]
@@ -1444,7 +1442,7 @@ val alloc_tags_thm = Q.prove (
   ⇒
   ?gtagenv'. 
     gtagenv_wf gtagenv' ∧
-    flat_envC_tagged (build_tdefs mn type_defs) (FEMPTY |++ REVERSE (alt_alloc_tags mn (get_next tagenv_st) type_defs)) gtagenv' ∧
+    flat_envC_tagged (build_tdefs mn type_defs) (FEMPTY |++ alt_alloc_tags mn (get_next tagenv_st) type_defs) gtagenv' ∧
     alloc_tags_invariant (type_defs_to_new_tdecs mn type_defs ∪ tids) (alloc_tags mn tagenv_st type_defs) gtagenv' ∧
     gtagenv_weak gtagenv gtagenv'`,
  rw [alloc_tags_eqn, alloc_tags_invariant_def, alt_alloc_tags_def, check_dup_ctors_flat] >> 
