@@ -4,7 +4,7 @@ OPTIONS = QUIT_ON_FAILURE
 
 SEMANTICSI = lib ast semanticPrimitives bigStep
 BYTECODEI = compilerLib printer bytecode
-COMPILER = intLang1 intLang2 intLang toIntLang toBytecode compiler
+COMPILER = intLang1 intLang2 intLang3 intLang toIntLang toBytecode compiler
 GEN_SCRIPTS =  $(patsubst %,%Script.sml,$(COMPILER))
 
 LEMI = $(patsubst %,../semantics/%.lem,$(SEMANTICSI)) $(patsubst %,../bytecode/%.lem,$(BYTECODEI))

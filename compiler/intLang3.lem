@@ -1,0 +1,80 @@
+(* The third intermediate language (IL3). Removes declarations.
+ *
+ * The AST of IL3 differs from IL2 in that there is no declarations level, the
+ * program is represented by a sequence of expressions.
+ *
+ * The values of IL3 are the same as IL2.
+ *
+ * The semantics of IL3 differ in that the global environment is now store-like
+ * rather than environment-like. The expressions for extending and initialising
+ * it modify the global environment (instread of just rasing a type error).
+ *
+ * The translator to IL3 maps a declaration to an expression that sets of the
+ * global environment in the right way.
+ *
+ *)
+
+open import Pervasives
+open import Lib
+open import Ast
+open import SemanticPrimitives
+open import List_extra
+open import BigStep
+open import IntLang2
+
+val init_globals : nat -> nat -> list (pat_i2 * exp_i2)
+let rec init_globals next 0 = []
+and init_globals next num =
+  let var = "x" ^ String_extra.show num in
+    (Pvar_i2 var, Uapp_i2 (Init_global_var_i2 (next+num)) (Var_local_i2 var)) :: init_globals next (num - 1)
+
+declare termination_argument init_globals = automatic
+
+val init_global_funs : nat -> list (varN * varN * exp_i2) -> list exp_i2
+let rec init_global_funs next [] = []
+and init_global_funs next ((f,x,e)::funs) =
+  Uapp_i2 (Init_global_var_i2 next) (Fun_i2 x e) :: init_global_funs (next+1) funs
+
+declare termination_argument init_global_funs = automatic
+
+val decs_to_i3 : nat -> list dec_i2 -> list exp_i2
+let rec decs_to_i3 next [] = []
+and decs_to_i3 next (d::ds) =
+  match d with
+    | Dlet_i2 n e ->
+        Mat_i2 e (init_globals next n) :: decs_to_i3 (next+n) ds
+    | Dletrec_i2 funs ->
+        let n = List.length funs in
+          init_global_funs next funs ++ decs_to_i3 (next+n) ds 
+  end
+
+declare termination_argument decs_to_i3 = automatic
+
+val num_defs : list dec_i2 -> nat
+let rec num_defs [] = 0
+and num_defs (d::ds) =
+  match d with
+    | Dlet_i2 n e -> n + num_defs ds
+    | Dletrec_i2 funs -> List.length funs + num_defs ds
+  end
+
+declare termination_argument num_defs = automatic
+
+val prompt_to_i3 : nat -> prompt_i2 -> nat * list exp_i2
+let prompt_to_i3 next prompt =
+  match prompt with
+    | Prompt_i2 ds ->
+        let n = num_defs ds in
+          (next+n, [Extend_global_i2 n; Handle_i2 (Con_i2 tuple_tag (decs_to_i3 next ds)) [(Pvar_i2 "x", Var_local_i2 "x")]])
+  end
+
+val prog_to_i3 : nat -> list prompt_i2 -> nat * list exp_i2
+let rec 
+prog_to_i3 next [] = (next, [])
+and 
+prog_to_i3 next (p::ps) = 
+  let (next',p') = prompt_to_i3 next p in
+  let (next'',ps') = prog_to_i3 next' ps in
+    (next'',p'++ps')
+
+declare termination_argument prog_to_i2 = automatic

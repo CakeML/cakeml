@@ -27,7 +27,8 @@ val _ = new_theory "intLang2"
  *
  * The expressions include the unary operation for initialising the global
  * store, even though it can't be used until IL3. However, including it here
- * means that the IL2->IL3 translation can just be (\x.x).
+ * means that the IL2->IL3 translation can just be (\x.x). Also includes the
+ * expression for extending the global store
  *
  *)
 
@@ -98,7 +99,8 @@ val _ = Hol_datatype `
   | If_i2 of exp_i2 => exp_i2 => exp_i2
   | Mat_i2 of exp_i2 => (pat_i2 # exp_i2) list
   | Let_i2 of varN => exp_i2 => exp_i2
-  | Letrec_i2 of (varN # varN # exp_i2) list => exp_i2`;
+  | Letrec_i2 of (varN # varN # exp_i2) list => exp_i2
+  | Extend_global_i2 of num`;
 
 
 val _ = Hol_datatype `
@@ -685,6 +687,11 @@ evaluate_i2 ck (genv,env) s (Letrec_i2 funs e) bv)
 (~ (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs)))
 ==>
 evaluate_i2 ck env s (Letrec_i2 funs e) (s, Rerr Rtype_error))
+
+/\ (! ck env n s.
+T
+==>
+evaluate_i2 ck env s (Extend_global_i2 n) (s, Rerr Rtype_error))
 
 /\ (! ck env s.
 T
