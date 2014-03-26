@@ -347,22 +347,22 @@ type all_env_i2 = (list (maybe v_i2) * env varN v_i2)
 let all_env_i2_to_genv (genv,env) = genv
 let all_env_i2_to_env (genv,env) = env
 
-val exn_env_i2 : list (maybe v_i2) -> all_env_i2
-let exn_env_i2 genv = (genv, emp)
+val exn_env_i2 : env varN v_i2
+let exn_env_i2 = emp
 
-val do_app_i2 : all_env_i2 -> store v_i2 -> op -> v_i2 -> v_i2 -> maybe (all_env_i2 * store v_i2 * exp_i2)
+val do_app_i2 : env varN v_i2 -> store v_i2 -> op -> v_i2 -> v_i2 -> maybe (env varN v_i2 * store v_i2 * exp_i2)
 let do_app_i2 env' s op v1 v2 =
   match (op, v1, v2) with
     | (Opapp, Closure_i2 env n e, v) ->
-        Just ((all_env_i2_to_genv env', bind n v env), s, e)
+        Just (bind n v env, s, e)
     | (Opapp, Recclosure_i2 env funs n, v) ->
         match find_recfun n funs with
-          | Just (n,e) -> Just ((all_env_i2_to_genv env', bind n v (build_rec_env_i2 funs env env)), s, e)
+          | Just (n,e) -> Just (bind n v (build_rec_env_i2 funs env env), s, e)
           | Nothing -> Nothing
         end
     | (Opn op, Litv_i2 (IntLit n1), Litv_i2 (IntLit n2)) ->
         if (op = Divide || (op = Modulo)) && (n2 = 0) then
-          Just (exn_env_i2 (all_env_i2_to_genv env'), s, Raise_i2 (Con_i2 div_tag []))
+          Just (exn_env_i2, s, Raise_i2 (Con_i2 div_tag []))
         else
           Just (env', s, Lit_i2 (IntLit (opn_lookup op n1 n2)))
     | (Opb op, Litv_i2 (IntLit n1), Litv_i2 (IntLit n2)) ->
@@ -370,7 +370,7 @@ let do_app_i2 env' s op v1 v2 =
     | (Equality, v1, v2) ->
         match do_eq_i2 v1 v2 with
           | Eq_type_error -> Nothing
-          | Eq_closure -> Just (exn_env_i2 (all_env_i2_to_genv env'), s, Raise_i2 (Con_i2 eq_tag []))
+          | Eq_closure -> Just (exn_env_i2, s, Raise_i2 (Con_i2 eq_tag []))
           | Eq_val b -> Just (env', s, Lit_i2 (Bool b))
         end
     | (Opassign, (Loc_i2 lnum), v) ->
@@ -559,35 +559,35 @@ evaluate_i2 ck env s (Uapp_i2 uop e) (s', Rerr err)
 
 and
 
-app1 : forall ck env op e1 e2 v1 v2 env' e3 bv s1 s2 s3 count s4.
-evaluate_i2 ck env s1 e1 (s2, Rval v1) &&
-evaluate_i2 ck env s2 e2 ((count,s3), Rval v2) &&
+app1 : forall ck genv env op e1 e2 v1 v2 env' e3 bv s1 s2 s3 count s4.
+evaluate_i2 ck (genv,env) s1 e1 (s2, Rval v1) &&
+evaluate_i2 ck (genv,env) s2 e2 ((count,s3), Rval v2) &&
 do_app_i2 env s3 op v1 v2 = Just (env', s4, e3) &&
 ((ck && (op = Opapp)) --> count <> 0) &&
-evaluate_i2 ck env' ((if ck then dec_count op count else count),s4) e3 bv
+evaluate_i2 ck (genv,env') ((if ck then dec_count op count else count),s4) e3 bv
 ==>
-evaluate_i2 ck env s1 (App_i2 op e1 e2) bv
+evaluate_i2 ck (genv,env) s1 (App_i2 op e1 e2) bv
 
 and
 
-app2 : forall ck env op e1 e2 v1 v2 env' e3 s1 s2 s3 count s4.
-evaluate_i2 ck env s1 e1 (s2, Rval v1) &&
-evaluate_i2 ck env s2 e2 ((count,s3), Rval v2) &&
+app2 : forall ck genv env op e1 e2 v1 v2 env' e3 s1 s2 s3 count s4.
+evaluate_i2 ck (genv,env) s1 e1 (s2, Rval v1) &&
+evaluate_i2 ck (genv,env) s2 e2 ((count,s3), Rval v2) &&
 do_app_i2 env s3 op v1 v2 = Just (env', s4, e3) &&
 count = 0 &&
 op = Opapp &&
 ck
 ==>
-evaluate_i2 ck env s1 (App_i2 op e1 e2) ((0,s4), Rerr Rtimeout_error)
+evaluate_i2 ck (genv,env) s1 (App_i2 op e1 e2) ((0,s4), Rerr Rtimeout_error)
 
 and
 
-app3 : forall ck env op e1 e2 v1 v2 s1 s2 s3 count.
-evaluate_i2 ck env s1 e1 (s2, Rval v1) &&
-evaluate_i2 ck env s2 e2 ((count,s3), Rval v2) &&
+app3 : forall ck genv env op e1 e2 v1 v2 s1 s2 s3 count.
+evaluate_i2 ck (genv,env) s1 e1 (s2, Rval v1) &&
+evaluate_i2 ck (genv,env) s2 e2 ((count,s3), Rval v2) &&
 do_app_i2 env s3 op v1 v2 = Nothing
 ==>
-evaluate_i2 ck env s1 (App_i2 op e1 e2) ((count,s3), Rerr Rtype_error)
+evaluate_i2 ck (genv,env) s1 (App_i2 op e1 e2) ((count,s3), Rerr Rtype_error)
 
 and
 

@@ -417,25 +417,25 @@ val _ = Define `
  (all_env_i2_to_env (genv,env) = env)`;
 
 
-(*val exn_env_i2 : list (maybe v_i2) -> all_env_i2*)
+(*val exn_env_i2 : env varN v_i2*)
 val _ = Define `
- (exn_env_i2 genv = (genv, emp))`;
+ (exn_env_i2 = emp)`;
 
 
-(*val do_app_i2 : all_env_i2 -> store v_i2 -> op -> v_i2 -> v_i2 -> maybe (all_env_i2 * store v_i2 * exp_i2)*)
+(*val do_app_i2 : env varN v_i2 -> store v_i2 -> op -> v_i2 -> v_i2 -> maybe (env varN v_i2 * store v_i2 * exp_i2)*)
 val _ = Define `
  (do_app_i2 env' s op v1 v2 =  
 ((case (op, v1, v2) of
       (Opapp, Closure_i2 env n e, v) =>
-        SOME ((all_env_i2_to_genv env', bind n v env), s, e)
+        SOME (bind n v env, s, e)
     | (Opapp, Recclosure_i2 env funs n, v) =>
         (case find_recfun n funs of
-            SOME (n,e) => SOME ((all_env_i2_to_genv env', bind n v (build_rec_env_i2 funs env env)), s, e)
+            SOME (n,e) => SOME (bind n v (build_rec_env_i2 funs env env), s, e)
           | NONE => NONE
         )
     | (Opn op, Litv_i2 (IntLit n1), Litv_i2 (IntLit n2)) =>
         if ((op = Divide) \/ (op = Modulo)) /\ (n2 =( 0 : int)) then
-          SOME (exn_env_i2 (all_env_i2_to_genv env'), s, Raise_i2 (Con_i2 div_tag []))
+          SOME (exn_env_i2, s, Raise_i2 (Con_i2 div_tag []))
         else
           SOME (env', s, Lit_i2 (IntLit (opn_lookup op n1 n2)))
     | (Opb op, Litv_i2 (IntLit n1), Litv_i2 (IntLit n2)) =>
@@ -443,7 +443,7 @@ val _ = Define `
     | (Equality, v1, v2) =>
         (case do_eq_i2 v1 v2 of
             Eq_type_error => NONE
-          | Eq_closure => SOME (exn_env_i2 (all_env_i2_to_genv env'), s, Raise_i2 (Con_i2 eq_tag []))
+          | Eq_closure => SOME (exn_env_i2, s, Raise_i2 (Con_i2 eq_tag []))
           | Eq_val b => SOME (env', s, Lit_i2 (Bool b))
         )
     | (Opassign, (Loc_i2 lnum), v) =>
@@ -600,31 +600,31 @@ evaluate_i2 ck env s1 (Uapp_i2 uop e) ((count,s2), Rerr Rtype_error))
 ==>
 evaluate_i2 ck env s (Uapp_i2 uop e) (s', Rerr err))
 
-/\ (! ck env op e1 e2 v1 v2 env' e3 bv s1 s2 s3 count s4.
-(evaluate_i2 ck env s1 e1 (s2, Rval v1) /\
-(evaluate_i2 ck env s2 e2 ((count,s3), Rval v2) /\
+/\ (! ck genv env op e1 e2 v1 v2 env' e3 bv s1 s2 s3 count s4.
+(evaluate_i2 ck (genv,env) s1 e1 (s2, Rval v1) /\
+(evaluate_i2 ck (genv,env) s2 e2 ((count,s3), Rval v2) /\
 ((do_app_i2 env s3 op v1 v2 = SOME (env', s4, e3)) /\
 (((ck /\ (op = Opapp)) ==> ~ (count =( 0))) /\
-evaluate_i2 ck env' ((if ck then dec_count op count else count),s4) e3 bv))))
+evaluate_i2 ck (genv,env') ((if ck then dec_count op count else count),s4) e3 bv))))
 ==>
-evaluate_i2 ck env s1 (App_i2 op e1 e2) bv)
+evaluate_i2 ck (genv,env) s1 (App_i2 op e1 e2) bv)
 
-/\ (! ck env op e1 e2 v1 v2 env' e3 s1 s2 s3 count s4.
-(evaluate_i2 ck env s1 e1 (s2, Rval v1) /\
-(evaluate_i2 ck env s2 e2 ((count,s3), Rval v2) /\
+/\ (! ck genv env op e1 e2 v1 v2 env' e3 s1 s2 s3 count s4.
+(evaluate_i2 ck (genv,env) s1 e1 (s2, Rval v1) /\
+(evaluate_i2 ck (genv,env) s2 e2 ((count,s3), Rval v2) /\
 ((do_app_i2 env s3 op v1 v2 = SOME (env', s4, e3)) /\
 ((count = 0) /\
 ((op = Opapp) /\
 ck)))))
 ==>
-evaluate_i2 ck env s1 (App_i2 op e1 e2) (( 0,s4), Rerr Rtimeout_error))
+evaluate_i2 ck (genv,env) s1 (App_i2 op e1 e2) (( 0,s4), Rerr Rtimeout_error))
 
-/\ (! ck env op e1 e2 v1 v2 s1 s2 s3 count.
-(evaluate_i2 ck env s1 e1 (s2, Rval v1) /\
-(evaluate_i2 ck env s2 e2 ((count,s3), Rval v2) /\
+/\ (! ck genv env op e1 e2 v1 v2 s1 s2 s3 count.
+(evaluate_i2 ck (genv,env) s1 e1 (s2, Rval v1) /\
+(evaluate_i2 ck (genv,env) s2 e2 ((count,s3), Rval v2) /\
 (do_app_i2 env s3 op v1 v2 = NONE)))
 ==>
-evaluate_i2 ck env s1 (App_i2 op e1 e2) ((count,s3), Rerr Rtype_error))
+evaluate_i2 ck (genv,env) s1 (App_i2 op e1 e2) ((count,s3), Rerr Rtype_error))
 
 /\ (! ck env op e1 e2 v1 err s1 s2 s3.
 (evaluate_i2 ck env s1 e1 (s2, Rval v1) /\
