@@ -626,7 +626,7 @@ val exn_env_i2_correct = Q.prove (
   env_all_to_i2 tagenv env env_i2 gtagenv
   ⇒
   env_all_to_i2 (FST (SND init_tagenv_state)) (exn_env_i1 (all_env_i1_to_genv env))
-    (exn_env_i2 (all_env_i2_to_genv env_i2)) gtagenv`,
+    (all_env_i2_to_genv env_i2, exn_env_i2) gtagenv`,
  rw [env_all_to_i2_cases, exn_env_i1_def, exn_env_i2_def, emp_def, v_to_i2_eqns,
      all_env_i1_to_genv_def, all_env_i2_to_genv_def, init_tagenv_state_def] >>
  qexists_tac `genv` >>
@@ -715,15 +715,15 @@ val do_eq_i2 = Q.prove (
  metis_tac []);
 
 val do_app_i2_correct = Q.prove (
-`!env s op v1 v2 s' e env' tagenv s_i2 v1_i2 v2_i2 env_i2 gtagenv.
+`!env s op v1 v2 s' e env' tagenv s_i2 v1_i2 v2_i2 env_i2 gtagenv genv.
   do_app_i1 env s op v1 v2 = SOME (env',s',e) ∧
-  env_all_to_i2 tagenv env env_i2 gtagenv ∧
+  env_all_to_i2 tagenv env (genv,env_i2) gtagenv ∧
   s_to_i2' gtagenv s s_i2 ∧
   v_to_i2 gtagenv v1 v1_i2 ∧
   v_to_i2 gtagenv v2 v2_i2
   ⇒
   ∃s'_i2 env'_i2 tagenv'.
-    env_all_to_i2 tagenv' env' env'_i2 gtagenv ∧
+    env_all_to_i2 tagenv' env' (genv,env'_i2) gtagenv ∧
     s_to_i2' gtagenv s' s'_i2 ∧
     do_app_i2 env_i2 s_i2 op v1_i2 v2_i2 = SOME (env'_i2,s'_i2,exp_to_i2 tagenv' e)`,
  cases_on `op` >>
@@ -740,11 +740,11 @@ val do_app_i2_correct = Q.prove (
      rw [exp_to_i2_def]
      >- (qexists_tac `FST (SND init_tagenv_state)` >>
          rw []
-         >- metis_tac [exn_env_i2_correct]
+         >- metis_tac [exn_env_i2_correct, all_env_i2_to_genv_def]
          >- rw [init_tagenv_state_def, flookup_fupdate_list, lookup_tag_env_def, lookup_tag_flat_def])
      >- (qexists_tac `FST (SND init_tagenv_state)` >>
          rw []
-         >- metis_tac [exn_env_i2_correct]
+         >- metis_tac [exn_env_i2_correct, all_env_i2_to_genv_def]
          >- rw [init_tagenv_state_def, flookup_fupdate_list, lookup_tag_env_def, lookup_tag_flat_def])
      >- metis_tac []
      >- metis_tac [])
@@ -766,7 +766,7 @@ val do_app_i2_correct = Q.prove (
      >- metis_tac [do_eq_i2, eq_result_11, eq_result_distinct]
      >- (qexists_tac `FST (SND init_tagenv_state)` >>
          rw []
-         >- metis_tac [exn_env_i2_correct]
+         >- metis_tac [exn_env_i2_correct, all_env_i2_to_genv_def]
          >- rw [init_tagenv_state_def, flookup_fupdate_list, lookup_tag_env_def, lookup_tag_flat_def])
      >- metis_tac [do_eq_i2, eq_result_11, eq_result_distinct]
      >- metis_tac [do_eq_i2, eq_result_11, eq_result_distinct])
@@ -932,8 +932,10 @@ val exp_to_i2_correct = Q.prove (
      fs [s_to_i2_cases] >>
      rw [] >>
      (qspecl_then [`env`, `s3`, `op`, `v1`, `v2`, `s4`, `e''`, `env'`,
-                   `tagenv`, `s'''''''`, `v'`, `v''`, `env_i2`, `gtagenv`] mp_tac) do_app_i2_correct >>
+                   `tagenv`, `s'''''''`, `v'`, `v''`, `SND env_i2`, `gtagenv`, `FST env_i2`] mp_tac) do_app_i2_correct >>
      rw [] >>
+     PairCases_on `env_i2` >>
+     fs [] >>
      metis_tac [])
  >- (* App *)
     (LAST_X_ASSUM (qspecl_then [`tagenv`, `env_i2`, `s_i2`, `gtagenv`] mp_tac) >>
@@ -943,8 +945,10 @@ val exp_to_i2_correct = Q.prove (
      fs [s_to_i2_cases] >>
      rw [] >>
      (qspecl_then [`env`, `s3`, `op`, `v1`, `v2`, `s4`, `e''`, `env'`,
-                   `tagenv`, `s'''''''`, `v'`, `v''`, `env_i2`, `gtagenv`] mp_tac) do_app_i2_correct >>
+                   `tagenv`, `s'''''''`, `v'`, `v''`, `SND env_i2`, `gtagenv`, `FST env_i2`] mp_tac) do_app_i2_correct >>
      rw [] >>
+     PairCases_on `env_i2` >>
+     fs [] >>
      metis_tac [])
  >- (* App *)
     (LAST_X_ASSUM (qspecl_then [`tagenv`, `env_i2`, `s_i2`, `gtagenv`] mp_tac) >>
@@ -953,7 +957,7 @@ val exp_to_i2_correct = Q.prove (
      rw [] >>
      fs [s_to_i2_cases] >>
      rw [] >>
-     metis_tac [do_app_i2_correct])
+     metis_tac [do_app_i2_correct, pair_CASES])
  >- metis_tac []
  >- metis_tac []
  >- metis_tac []
@@ -1358,6 +1362,7 @@ val alloc_tags_invariant_lem = Q.prove (
      rpt (pop_assum mp_tac) >>
      rw []));
 
+     (*
 val alloc_tags_invariant = Q.prove (
 `!gtagenv next flat_defs tids.
   gtagenv_wf gtagenv ∧
@@ -1542,7 +1547,6 @@ val decs_to_i2_inv_weak = Q.prove (
      fs [alloc_tag_def, alloc_tags_invariant_def, get_next_def] >>
      metis_tac [DECIDE ``x > y ⇒ x + 1 > y:num``]));
 
-     (*
 val decs_to_i2_correct = Q.prove (
 `!genv_opt envC s ds r.
   evaluate_decs_i1 genv_opt envC s ds r
