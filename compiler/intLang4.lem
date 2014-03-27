@@ -17,11 +17,16 @@ open import SemanticPrimitives
 open import Ast
 (* import BigStep  - lem bug, need to open it *)
 open import BigStep
-import IntLang2
+open import IntLang2
+open import CompilerLib
 (*
 open import Lib
 open import List_extra
 *)
+
+(* TODO: Lem's builtin find index has a different type *)
+val find_index : forall 'a. 'a -> list 'a -> nat -> maybe nat
+declare hol target_rep function find_index = `misc$find_index` (* to pick up the definition in miscTheory *)
 
 (* TODO: move *)
 type store_genv 'a = store 'a * list (maybe 'a)
@@ -55,6 +60,136 @@ type v_i4 =
   | Closure_i4 of list v_i4 * exp_i4
   | Recclosure_i4 of list v_i4 * list exp_i4 * nat
   | Loc_i4 of nat
+
+val uop_to_i4 : uop_i2 -> uop_i4
+let rec
+uop_to_i4 Opderef_i2 = Opderef_i4
+and
+uop_to_i4 Opref_i2 = Opref_i4
+and
+uop_to_i4 (Init_global_var_i2 n) = Init_global_var_i4 n
+
+(* bind elements 0..n of block in reverse order above e (first element of block
+ * becomes most recently bound) *)
+val Let_Els_i4 : exp_i4 -> nat -> exp_i4 -> exp_i4
+let rec
+Let_Els_i4 _ 0 e = e
+and
+Let_Els_i4 block n e =
+  Let_i4 (Uapp_i4 (El_i4 (n-1)) block)
+    (Let_Els_i4 block (n-1) e)
+
+(* return an expression that evaluates to whether the pattern matches the most
+ * recently bound variable *)
+val pat_to_i4 : pat_i2 -> exp_i4
+(* return an expression that evaluates to whether all the m patterns match the
+ * m most recently bound variables; n counts 0..m *)
+val pats_to_i4 : nat -> list pat_i2 -> exp_i4
+let rec
+pat_to_i4 (Pvar_i2 _) = Lit_i4 (Bool true)
+and
+pat_to_i4 (Plit_i2 l) = App_i4 Equality (Var_local_i4 0) (Lit_i4 l)
+and
+pat_to_i4 (Pcon_i2 tag ps) =
+  If_i4 (Uapp_i4 (Tag_eq_i4 tag) (Var_local_i4 0))
+    (Let_Els_i4 (Var_local_i4 0) (List.length ps) (pats_to_i4 0 ps))
+    (Lit_i4 (Bool false))
+and
+pat_to_i4 (Pref_i2 p) =
+  Let_i4 (Uapp_i4 Opderef_i4 (Var_local_i4 0))
+    (pat_to_i4 p)
+and
+pats_to_i4 _ [] = Lit_i4 (Bool true)
+and
+pats_to_i4 n (p::ps) =
+  If_i4 (Let_i4 (Var_local_i4 n) (pat_to_i4 p))
+    (pats_to_i4 (n+1) ps)
+    (Lit_i4 (Bool false))
+
+(* bind the variables in the pattern in order above the expression, assuming
+ * the pattern matches the value at the most recently bound variable *)
+val Let_Pat_i4 : pat_i2 -> exp_i4 -> exp_i4
+let rec
+Let_Pat_i4 (Pvar_i2 _) e = e
+and
+Let_Pat_i4 (Plit_i2 _) e = e
+and
+Let_Pat_i4 (Pcon_i2 _ ps) e = Var_local_i4 0 (* TODO *)
+and
+Let_Pat_i4 (Pref_i2 p) e =
+  Let_i4 (Uapp_i4 Opderef_i4 (Var_local_i4 0))
+    (Let_Pat_i4 p e)
+
+val exp_to_i4 : list varN -> exp_i2 -> exp_i4
+val exps_to_i4 : list varN -> list exp_i2 -> list exp_i4
+val funs_to_i4 : list varN -> list (varN * varN * exp_i2) -> list exp_i4
+val pes_to_i4 : list varN -> list (pat_i2 * exp_i2) -> exp_i4
+let rec
+exp_to_i4 bvs (Raise_i2 e) = Raise_i4 (exp_to_i4 bvs e)
+and
+exp_to_i4 bvs (Handle_i2 e1 pes) =
+  let e1 = exp_to_i4 bvs e1 in
+  let e2 = pes_to_i4 bvs pes in
+  Handle_i4 e1 e2
+and
+exp_to_i4 _ (Lit_i2 l) = Lit_i4 l
+and
+exp_to_i4 bvs (Con_i2 tag es) = Con_i4 tag (exps_to_i4 bvs es)
+and
+exp_to_i4 bvs (Var_local_i2 x) = Var_local_i4 (the 0 (find_index x bvs 0))
+and
+exp_to_i4 bvs (Var_global_i2 n) = Var_global_i4 n
+and
+exp_to_i4 bvs (Fun_i2 x e) = Fun_i4 (exp_to_i4 (x::bvs) e)
+and
+exp_to_i4 bvs (Uapp_i2 uop e) = Uapp_i4 (uop_to_i4 uop) (exp_to_i4 bvs e)
+and
+exp_to_i4 bvs (App_i2 op e1 e2) =
+  let e1 = exp_to_i4 bvs e1 in
+  let e2 = exp_to_i4 bvs e2 in
+  App_i4 op e1 e2
+and
+exp_to_i4 bvs (If_i2 e1 e2 e3) =
+  let e1 = exp_to_i4 bvs e1 in
+  let e2 = exp_to_i4 bvs e2 in
+  let e3 = exp_to_i4 bvs e3 in
+  If_i4 e1 e2 e3
+and
+exp_to_i4 bvs (Mat_i2 e pes) =
+  let e1 = exp_to_i4 bvs e in
+  let e2 = pes_to_i4 bvs pes in
+  Let_i4 e1 e2
+and
+exp_to_i4 bvs (Let_i2 x e1 e2) =
+  let e1 = exp_to_i4 bvs e1 in
+  let e2 = exp_to_i4 (x::bvs) e2 in
+  Let_i4 e1 e2
+and
+exp_to_i4 bvs (Letrec_i2 funs e) =
+  let bvs = (List.map (fun (f,_,_) -> f) funs) ++ bvs in
+  let es = funs_to_i4 bvs funs in
+  let e = exp_to_i4 bvs e in
+  Letrec_i4 es e
+and
+exp_to_i4 _ (Extend_global_i2 n) = Extend_global_i4 n
+and
+exps_to_i4 _ [] = []
+and
+exps_to_i4 bvs (e::es) =
+  exp_to_i4 bvs e :: exps_to_i4 bvs es
+and
+funs_to_i4 _ [] = []
+and
+funs_to_i4 bvs ((_,x,e)::funs) =
+  exp_to_i4 (x::bvs) e :: funs_to_i4 bvs funs
+and
+pes_to_i4 bvs [] = Raise_i4 (Var_local_i4 0)
+and
+pes_to_i4 bvs ((p,e)::pes) =
+  If_i4 (pat_to_i4 p)
+    (let bvs = pat_bindings_i2 p bvs in
+     Let_Pat_i4 p (exp_to_i4 bvs e))
+    (pes_to_i4 bvs pes)
 
 val do_uapp_i4 : store_genv v_i4 -> uop_i4 -> v_i4 -> maybe (store_genv v_i4 * v_i4)
 let do_uapp_i4 (s,genv) uop v =
@@ -153,7 +288,7 @@ let do_app_i4 env' s op v1 v2 =
           Nothing
     | (Opn op, Litv_i4 (IntLit n1), Litv_i4 (IntLit n2)) ->
         if (op = Divide || (op = Modulo)) && (n2 = 0) then
-          Just (exn_env_i4, s, Raise_i4 (Con_i4 IntLang2.div_tag []))
+          Just (exn_env_i4, s, Raise_i4 (Con_i4 div_tag []))
         else
           Just (env', s, Lit_i4 (IntLit (opn_lookup op n1 n2)))
     | (Opb op, Litv_i4 (IntLit n1), Litv_i4 (IntLit n2)) ->
@@ -161,7 +296,7 @@ let do_app_i4 env' s op v1 v2 =
     | (Equality, v1, v2) ->
         match do_eq_i4 v1 v2 with
           | Eq_type_error -> Nothing
-          | Eq_closure -> Just (exn_env_i4, s, Raise_i4 (Con_i4 IntLang2.eq_tag []))
+          | Eq_closure -> Just (exn_env_i4, s, Raise_i4 (Con_i4 eq_tag []))
           | Eq_val b -> Just (env', s, Lit_i4 (Bool b))
         end
     | (Opassign, (Loc_i4 lnum), v) ->
