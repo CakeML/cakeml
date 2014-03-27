@@ -1,0 +1,438 @@
+(* The fourth intermediate language (IL4). Removes pattern-matching and
+ * variable names.
+ *
+ * The AST of IL4 differs from IL3 in that it uses de Bruijn indices, there are
+ * no Mat expressions, Handle expressions are simplified to catch and bind any
+ * exception without matching on it, and there are new Tag_eq and El
+ * expressions for checking the constructor of a compound value and retrieving
+ * its arguments. 
+ *
+ * The values and semantics of IL4 are the same as IL3, modulo the changes to
+ * expressions.
+ *
+ *)
+
+open import Pervasives
+open import SemanticPrimitives
+open import Ast
+(* import BigStep  - lem bug, need to open it *)
+open import BigStep
+import IntLang2
+(*
+open import Lib
+open import List_extra
+*)
+
+(* TODO: move *)
+type store_genv 'a = store 'a * list (maybe 'a)
+type count_store_genv 'a = count_store 'a * list (maybe 'a)
+
+type uop_i4 =
+  | Opderef_i4
+  | Opref_i4
+  | Init_global_var_i4 of nat
+  | Tag_eq_i4 of nat
+  | El_i4 of nat
+
+type exp_i4 =
+  | Raise_i4 of exp_i4
+  | Handle_i4 of exp_i4 * exp_i4
+  | Lit_i4 of lit
+  | Con_i4 of nat * list exp_i4
+  | Var_local_i4 of nat
+  | Var_global_i4 of nat
+  | Fun_i4 of exp_i4
+  | Uapp_i4 of uop_i4 * exp_i4
+  | App_i4 of op * exp_i4 * exp_i4
+  | If_i4 of exp_i4 * exp_i4 * exp_i4
+  | Let_i4 of exp_i4 * exp_i4
+  | Letrec_i4 of list exp_i4 * exp_i4
+  | Extend_global_i4 of nat
+
+type v_i4 =
+  | Litv_i4 of lit
+  | Conv_i4 of nat * list v_i4
+  | Closure_i4 of list v_i4 * exp_i4
+  | Recclosure_i4 of list v_i4 * list exp_i4 * nat
+  | Loc_i4 of nat
+
+val do_uapp_i4 : store_genv v_i4 -> uop_i4 -> v_i4 -> maybe (store_genv v_i4 * v_i4)
+let do_uapp_i4 (s,genv) uop v =
+  match uop with
+    | Opderef_i4 ->
+        match v with
+          | Loc_i4 n ->
+              match store_lookup n s with
+                | Just v -> Just ((s,genv),v)
+                | Nothing -> Nothing
+              end
+          | _ -> Nothing
+        end
+    | Opref_i4 ->
+        let (s',n) = store_alloc v s in
+          Just ((s',genv), Loc_i4 n)
+    | Init_global_var_i4 idx ->
+        if idx < List.length genv then
+          match List_extra.nth genv idx with
+            | Nothing -> Just ((s, List.update genv idx (Just v)), Litv_i4 Unit)
+            | Just _ -> Nothing
+          end
+        else
+          Nothing
+    | Tag_eq_i4 n ->
+        match v with
+          | Conv_i4 tag _ ->
+              Just ((s,genv), Litv_i4 (Bool (tag = n)))
+          | _ -> Nothing
+        end
+    | El_i4 n ->
+        match v with
+          | Conv_i4 _ vs ->
+              if n < List.length vs then
+                Just ((s,genv), List_extra.nth vs n)
+              else
+                Nothing
+          | _ -> Nothing
+        end
+  end
+
+val build_rec_env_i4 : list exp_i4 -> list v_i4 -> list v_i4
+let build_rec_env_i4 funs cl_env =
+  List.genlist (Recclosure_i4 cl_env funs) (List.length funs)
+
+val exn_env_i4 : list v_i4
+let exn_env_i4 = []
+
+val do_eq_i4 : v_i4 -> v_i4 -> eq_result
+let rec
+do_eq_i4 (Litv_i4 l1) (Litv_i4 l2) =
+  Eq_val (l1 = l2)
+and
+do_eq_i4 (Loc_i4 l1) (Loc_i4 l2) = Eq_val (l1 = l2)
+and
+do_eq_i4 (Conv_i4 tag1 vs1) (Conv_i4 tag2 vs2) =
+  if tag1 = tag2 && (List.length vs1 = List.length vs2) then
+    do_eq_list_i4 vs1 vs2
+  else
+    Eq_val false
+and
+do_eq_i4 (Closure_i4 _ _) (Closure_i4 _ _) = Eq_closure
+and
+do_eq_i4 (Closure_i4 _ _) (Recclosure_i4 _ _ _) = Eq_closure
+and
+do_eq_i4 (Recclosure_i4 _ _ _) (Closure_i4 _ _) = Eq_closure
+and
+do_eq_i4 (Recclosure_i4 _ _ _) (Recclosure_i4 _ _ _) = Eq_closure
+and
+do_eq_i4 _ _ = Eq_type_error
+and
+do_eq_list_i4 [] [] = Eq_val true
+and
+do_eq_list_i4 (v1::vs1) (v2::vs2) =
+  match do_eq_i4 v1 v2 with
+    | Eq_closure -> Eq_closure
+    | Eq_type_error -> Eq_type_error
+    | Eq_val r ->
+        if not r then
+          Eq_val false
+        else
+          do_eq_list_i4 vs1 vs2
+  end
+and
+do_eq_list_i4 _ _ = Eq_val false
+
+val do_app_i4 : list v_i4 -> store v_i4 -> op -> v_i4 -> v_i4 -> maybe (list v_i4 * store v_i4 * exp_i4)
+let do_app_i4 env' s op v1 v2 =
+  match (op, v1, v2) with
+    | (Opapp, Closure_i4 env e, v) ->
+        Just (v::env, s, e)
+    | (Opapp, Recclosure_i4 env funs n, v) ->
+        if n < List.length funs then
+          Just (v::(build_rec_env_i4 funs env)++env, s, List_extra.nth funs n)
+        else
+          Nothing
+    | (Opn op, Litv_i4 (IntLit n1), Litv_i4 (IntLit n2)) ->
+        if (op = Divide || (op = Modulo)) && (n2 = 0) then
+          Just (exn_env_i4, s, Raise_i4 (Con_i4 IntLang2.div_tag []))
+        else
+          Just (env', s, Lit_i4 (IntLit (opn_lookup op n1 n2)))
+    | (Opb op, Litv_i4 (IntLit n1), Litv_i4 (IntLit n2)) ->
+        Just (env', s, Lit_i4 (Bool (opb_lookup op n1 n2)))
+    | (Equality, v1, v2) ->
+        match do_eq_i4 v1 v2 with
+          | Eq_type_error -> Nothing
+          | Eq_closure -> Just (exn_env_i4, s, Raise_i4 (Con_i4 IntLang2.eq_tag []))
+          | Eq_val b -> Just (env', s, Lit_i4 (Bool b))
+        end
+    | (Opassign, (Loc_i4 lnum), v) ->
+        match store_assign lnum v s with
+        | Just st -> Just (env', st, Lit_i4 Unit)
+        | Nothing -> Nothing
+        end
+    | _ -> Nothing
+  end
+
+val do_if_i4 : v_i4 -> exp_i4 -> exp_i4 -> maybe exp_i4
+let do_if_i4 v e1 e2 =
+  if v = Litv_i4 (Bool true) then
+    Just e1
+  else if v = Litv_i4 (Bool false) then
+    Just e2
+  else
+    Nothing
+
+indreln [evaluate_i4 : bool -> list v_i4 -> count_store_genv v_i4 -> exp_i4 -> count_store_genv v_i4 * result v_i4 v_i4 -> bool]
+and [evaluate_list_i4 : bool -> list v_i4 -> count_store_genv v_i4 -> list exp_i4 -> count_store_genv v_i4 * result (list v_i4) v_i4 -> bool]
+
+lit : forall ck env l s.
+true
+==>
+evaluate_i4 ck env s (Lit_i4 l) (s, Rval (Litv_i4 l))
+
+and
+
+raise1 : forall ck env e s1 s2 v.
+evaluate_i4 ck s1 env e (s2, Rval v)
+==>
+evaluate_i4 ck s1 env (Raise_i4 e) (s2, Rerr (Rraise v))
+
+and
+
+raise2 : forall ck env e s1 s2 err.
+evaluate_i4 ck s1 env e (s2, Rerr err)
+==>
+evaluate_i4 ck s1 env (Raise_i4 e) (s2, Rerr err)
+
+and
+
+handle1 : forall ck s1 s2 env e1 v e2.
+evaluate_i4 ck s1 env e1 (s2, Rval v)
+==>
+evaluate_i4 ck s1 env (Handle_i4 e1 e2) (s2, Rval v)
+
+and
+
+handle2 : forall ck s1 s2 env e1 e2 v bv.
+evaluate_i4 ck env s1 e1 (s2, Rerr (Rraise v)) &&
+evaluate_i4 ck (v::env) s2 e2 bv
+==>
+evaluate_i4 ck env s1 (Handle_i4 e1 e2) bv
+
+and
+
+handle3 : forall ck s1 s2 env e1 e2 err.
+evaluate_i4 ck env s1 e1 (s2, Rerr err) &&
+(err = Rtimeout_error || (err = Rtype_error))
+==>
+evaluate_i4 ck env s1 (Handle_i4 e1 e2) (s2, Rerr err)
+
+and
+
+con1 : forall ck env tag es vs s s'.
+evaluate_list_i4 ck env s es (s', Rval vs)
+==>
+evaluate_i4 ck env s (Con_i4 tag es) (s', Rval (Conv_i4 tag vs))
+
+and
+
+con3 : forall ck env tag es err s s'.
+evaluate_list_i4 ck env s es (s', Rerr err)
+==>
+evaluate_i4 ck env s (Con_i4 tag es) (s', Rerr err)
+
+and
+
+var1 : forall ck env n s.
+List.length env > n
+==>
+evaluate_i4 ck env s (Var_local_i4 n) (s, Rval (List_extra.nth env n))
+
+and
+
+var2 : forall ck env n s.
+not (List.length env > n)
+==>
+evaluate_i4 ck env s (Var_local_i4 n) (s, Rerr Rtype_error)
+
+and
+
+var3 : forall ck env n v s genv.
+(List.length genv > n) &&
+(List_extra.nth genv n = Just v)
+==>
+evaluate_i4 ck env (s,genv) (Var_global_i4 n) ((s,genv), Rval v)
+
+and
+
+var4 : forall ck env n s genv.
+(List.length genv > n) &&
+(List_extra.nth genv n = Nothing)
+==>
+evaluate_i4 ck env (s,genv) (Var_global_i4 n) ((s,genv), Rerr Rtype_error)
+
+and
+
+var5 : forall ck env n s genv.
+not (List.length genv > n)
+==>
+evaluate_i4 ck env (s,genv) (Var_global_i4 n) ((s,genv), Rerr Rtype_error)
+
+and
+
+fn : forall ck env e s.
+true
+==>
+evaluate_i4 ck env s (Fun_i4 e) (s, Rval (Closure_i4 env e))
+
+and
+
+uapp1 : forall ck env uop e v v' s1 s2 count s3 genv2 genv3.
+evaluate_i4 ck env s1 e (((count,s2),genv2), Rval v) &&
+(do_uapp_i4 (s2,genv2) uop v = Just ((s3,genv3),v'))
+==>
+evaluate_i4 ck env s1 (Uapp_i4 uop e) (((count,s3),genv3), Rval v')
+
+and
+
+uapp2 : forall ck env uop e v s1 s2 count genv2.
+evaluate_i4 ck env s1 e (((count,s2),genv2), Rval v) &&
+(do_uapp_i4 (s2,genv2) uop v = Nothing)
+==>
+evaluate_i4 ck env s1 (Uapp_i4 uop e) (((count,s2),genv2), Rerr Rtype_error)
+
+and
+
+uapp3 : forall ck env uop e err s s'.
+evaluate_i4 ck env s e (s', Rerr err)
+==>
+evaluate_i4 ck env s (Uapp_i4 uop e) (s', Rerr err)
+
+and
+
+app1 : forall ck env op e1 e2 v1 v2 env' e3 bv s1 s2 s3 count s4 genv3.
+evaluate_i4 ck env s1 e1 (s2, Rval v1) &&
+evaluate_i4 ck env s2 e2 (((count,s3),genv3), Rval v2) &&
+do_app_i4 env s3 op v1 v2 = Just (env', s4, e3) &&
+((ck && (op = Opapp)) --> count <> 0) &&
+evaluate_i4 ck env' (((if ck then BigStep.dec_count op count else count),s4),genv3) e3 bv
+==>
+evaluate_i4 ck env s1 (App_i4 op e1 e2) bv
+
+and
+
+app2 : forall ck env op e1 e2 v1 v2 env' e3 s1 s2 s3 count s4 genv3.
+evaluate_i4 ck env s1 e1 (s2, Rval v1) &&
+evaluate_i4 ck env s2 e2 (((count,s3),genv3), Rval v2) &&
+do_app_i4 env s3 op v1 v2 = Just (env', s4, e3) &&
+count = 0 &&
+op = Opapp &&
+ck
+==>
+evaluate_i4 ck env s1 (App_i4 op e1 e2) (((0,s4),genv3),Rerr Rtimeout_error)
+
+and
+
+app3 : forall ck env op e1 e2 v1 v2 s1 s2 s3 count genv3.
+evaluate_i4 ck env s1 e1 (s2, Rval v1) &&
+evaluate_i4 ck env s2 e2 (((count,s3),genv3),Rval v2) &&
+do_app_i4 env s3 op v1 v2 = Nothing
+==>
+evaluate_i4 ck env s1 (App_i4 op e1 e2) (((count,s3),genv3), Rerr Rtype_error)
+
+and
+
+app4 : forall ck env op e1 e2 v1 err s1 s2 s3.
+evaluate_i4 ck env s1 e1 (s2, Rval v1) &&
+evaluate_i4 ck env s2 e2 (s3, Rerr err)
+==>
+evaluate_i4 ck env s1 (App_i4 op e1 e2) (s3, Rerr err)
+
+and
+
+app5 : forall ck env op e1 e2 err s s'.
+evaluate_i4 ck env s e1 (s', Rerr err)
+==>
+evaluate_i4 ck env s (App_i4 op e1 e2) (s', Rerr err)
+
+and
+
+if1 : forall ck env e1 e2 e3 v e' bv s1 s2.
+evaluate_i4 ck env s1 e1 (s2, Rval v) &&
+do_if_i4 v e2 e3 = Just e' &&
+evaluate_i4 ck env s2 e' bv
+==>
+evaluate_i4 ck env s1 (If_i4 e1 e2 e3) bv
+
+and
+
+if2 : forall ck env e1 e2 e3 v s1 s2.
+evaluate_i4 ck env s1 e1 (s2, Rval v) &&
+do_if_i4 v e2 e3 = Nothing
+==>
+evaluate_i4 ck env s1 (If_i4 e1 e2 e3) (s2, Rerr Rtype_error)
+
+and
+
+if3 : forall ck env e1 e2 e3 err s s'.
+evaluate_i4 ck env s e1 (s', Rerr err)
+==>
+evaluate_i4 ck env s (If_i4 e1 e2 e3) (s', Rerr err)
+
+and
+
+let1 : forall ck env e1 e2 v bv s1 s2.
+evaluate_i4 ck env s1 e1 (s2, Rval v) &&
+evaluate_i4 ck (v::env) s2 e2 bv
+==>
+evaluate_i4 ck env s1 (Let_i4 e1 e2) bv
+
+and
+
+let2 : forall ck env e1 e2 err s s'.
+evaluate_i4 ck env s e1 (s', Rerr err)
+==>
+evaluate_i4 ck env s (Let_i4 e1 e2) (s', Rerr err)
+
+and
+
+letrec1 : forall ck env funs e bv s.
+evaluate_i4 ck ((build_rec_env_i4 funs env)++env) s e bv
+==>
+evaluate_i4 ck env s (Letrec_i4 funs e) bv
+
+and
+
+extend : forall ck env n s genv.
+true
+==>
+evaluate_i4 ck env (s,genv) (Extend_global_i4 n) ((s,genv++List.genlist (fun _ -> Nothing) n), Rval (Litv_i4 Unit))
+
+and
+
+empty : forall ck env s.
+true
+==>
+evaluate_list_i4 ck env s [] (s, Rval [])
+
+and
+
+cons1 : forall ck env e es v vs s1 s2 s3.
+evaluate_i4 ck env s1 e (s2, Rval v) &&
+evaluate_list_i4 ck env s2 es (s3, Rval vs)
+==>
+evaluate_list_i4 ck env s1 (e::es) (s3, Rval (v::vs))
+
+and
+
+cons2 : forall ck env e es err s s'.
+evaluate_i4 ck env s e (s', Rerr err)
+==>
+evaluate_list_i4 ck env s (e::es) (s', Rerr err)
+
+and
+
+cons3 : forall ck env e es v err s1 s2 s3.
+evaluate_i4 ck env s1 e (s2, Rval v) &&
+evaluate_list_i4 ck env s2 es (s3, Rerr err)
+==>
+evaluate_list_i4 ck env s1 (e::es) (s3, Rerr err)
