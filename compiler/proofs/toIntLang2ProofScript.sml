@@ -98,7 +98,7 @@ val (pmatch_i2_def, pmatch_i2_ind) =
   wf_rel_tac `inv_image $< (\x. case x of INL (x,p,y,z) => pat_i2_size p
                                         | INR (x,ps,y,z) => pat_i21_size ps)` >>
   srw_tac [ARITH_ss] [pat_i2_size_def]);
-val _ = register "pmatch_i2" pmatch_i1_def pmatch_i2_ind;
+val _ = register "pmatch_i2" pmatch_i2_def pmatch_i2_ind;
 
 val (do_eq_i2_def, do_eq_i2_ind) =
   tprove_no_defn ((do_eq_i2_def, do_eq_i2_ind),
