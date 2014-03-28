@@ -105,11 +105,14 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (* return an expression that evaluates to whether all the m patterns match the
  * m most recently bound variables; n counts 0..m *)
 (*val pats_to_i4 : nat -> list pat_i2 -> exp_i4*)
- val _ = Define `
+ val pat_to_i4_defn = Hol_defn "pat_to_i4" `
 
 (pat_to_i4 (Pvar_i2 _) = (Lit_i4 (Bool T)))
 /\
 (pat_to_i4 (Plit_i2 l) = (App_i4 Equality (Var_local_i4( 0)) (Lit_i4 l)))
+/\
+(pat_to_i4 (Pcon_i2 tag []) =  
+(App_i4 Equality (Var_local_i4( 0)) (Con_i4 tag [])))
 /\
 (pat_to_i4 (Pcon_i2 tag ps) =  
 (If_i4 (Uapp_i4 (Tag_eq_i4 tag) (Var_local_i4( 0)))
@@ -127,6 +130,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
     (pats_to_i4 (n+ 1) ps)
     (Lit_i4 (Bool F))))`;
 
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn pat_to_i4_defn;
 
 (* given a pattern in a context of bound variables where the most recently
  * bound variable is the value to be matched, return a function that binds new

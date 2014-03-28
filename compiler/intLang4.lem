@@ -90,6 +90,9 @@ pat_to_i4 (Pvar_i2 _) = Lit_i4 (Bool true)
 and
 pat_to_i4 (Plit_i2 l) = App_i4 Equality (Var_local_i4 0) (Lit_i4 l)
 and
+pat_to_i4 (Pcon_i2 tag []) =
+  App_i4 Equality (Var_local_i4 0) (Con_i4 tag [])
+and
 pat_to_i4 (Pcon_i2 tag ps) =
   If_i4 (Uapp_i4 (Tag_eq_i4 tag) (Var_local_i4 0))
     (Let_Els_i4 0 (List.length ps) (pats_to_i4 0 ps))
@@ -105,8 +108,6 @@ pats_to_i4 n (p::ps) =
   If_i4 (Let_i4 (Var_local_i4 n) (pat_to_i4 p))
     (pats_to_i4 (n+1) ps)
     (Lit_i4 (Bool false))
-declare termination_argument pat_to_i4 = automatic
-declare termination_argument pats_to_i4 = automatic
 
 (* given a pattern in a context of bound variables where the most recently
  * bound variable is the value to be matched, return a function that binds new

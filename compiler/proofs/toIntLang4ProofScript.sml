@@ -19,6 +19,12 @@ val (exp_to_i4_def, exp_to_i4_ind) =
 val _ = register "exp_to_i4" exp_to_i4_def exp_to_i4_ind;
 val _ = export_rewrites["exp_to_i4_def","intLang4.uop_to_i4_def"]
 
+val (pat_to_i4_def, pat_to_i4_ind) =
+  tprove_no_defn ((pat_to_i4_def, pat_to_i4_ind),
+  WF_REL_TAC `inv_image $< (\x. case x of INL p => pat_i2_size p
+                                        | INR (n,ps) => pat_i21_size ps)`);
+val _ = register "pat_to_i4" pat_to_i4_def pat_to_i4_ind;
+
 val (row_to_i4_def, row_to_i4_ind) =
   tprove_no_defn ((row_to_i4_def, row_to_i4_ind),
   WF_REL_TAC `inv_image $< (\x. case x of INL (bvs,p) => pat_i2_size p
@@ -334,9 +340,11 @@ EVAL
 val _ = Parse.overload_on("COND",``If_i4``)
 val _ = Parse.overload_on("tageq", ``λn v. Uapp_i4 (Tag_eq_i4 n) (Var_local_i4 v)``)
 val _ = Parse.overload_on("isSOME", ``λv. Uapp_i4 (Tag_eq_i4 0) (Var_local_i4 v)``)
-val _ = Parse.overload_on("isNONE", ``λv. Uapp_i4 (Tag_eq_i4 1) (Var_local_i4 v)``)
+val _ = Parse.overload_on("isNONEtag", ``λv. Uapp_i4 (Tag_eq_i4 1) (Var_local_i4 v)``)
+val _ = Parse.overload_on("isNONE", ``λv. App_i4 Equality (Var_local_i4 v) (Con_i4 1 [])``)
 val _ = Parse.overload_on("isINL", ``λv. Uapp_i4 (Tag_eq_i4 2) (Var_local_i4 v)``)
-val _ = Parse.overload_on("isNIL", ``λv. Uapp_i4 (Tag_eq_i4 4) (Var_local_i4 v)``)
+val _ = Parse.overload_on("isNILtag", ``λv. Uapp_i4 (Tag_eq_i4 4) (Var_local_i4 v)``)
+val _ = Parse.overload_on("isNIL", ``λv. App_i4 Equality (Var_local_i4 v) (Con_i4 4 [])``)
 val _ = Parse.overload_on("isCONS", ``λv. Uapp_i4 (Tag_eq_i4 5) (Var_local_i4 v)``)
 val _ = Parse.overload_on("el", ``λn v. Uapp_i4 (El_i4 n) (Var_local_i4 v)``)
 val _ = Parse.overload_on("true", ``Lit_i4 (Bool T)``)
