@@ -86,16 +86,16 @@ val _ = Hol_datatype `
 (uop_to_i4 (Init_global_var_i2 n) = (Init_global_var_i4 n))`;
 
 
-(* bind elements 0..n of block in reverse order above e (first element of block
+(* bind elements 0..k of the variable n in reverse order above e (first element
  * becomes most recently bound) *)
-(*val Let_Els_i4 : exp_i4 -> nat -> exp_i4 -> exp_i4*)
+(*val Let_Els_i4 : nat -> nat -> exp_i4 -> exp_i4*)
  val Let_Els_i4_defn = Hol_defn "Let_Els_i4" `
 
 (Let_Els_i4 _ 0 e = e)
 /\
-(Let_Els_i4 block n e =  
-(Let_i4 (Uapp_i4 (El_i4 (n -  1)) block)
-    (Let_Els_i4 block (n -  1) e)))`;
+(Let_Els_i4 n k e =  
+(Let_i4 (Uapp_i4 (El_i4 (k -  1)) (Var_local_i4 n))
+    (Let_Els_i4 (n+ 1) (k -  1) e)))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn Let_Els_i4_defn;
 
@@ -105,7 +105,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (* return an expression that evaluates to whether all the m patterns match the
  * m most recently bound variables; n counts 0..m *)
 (*val pats_to_i4 : nat -> list pat_i2 -> exp_i4*)
- val pat_to_i4_defn = Hol_defn "pat_to_i4" `
+ val _ = Define `
 
 (pat_to_i4 (Pvar_i2 _) = (Lit_i4 (Bool T)))
 /\
@@ -113,7 +113,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (pat_to_i4 (Pcon_i2 tag ps) =  
 (If_i4 (Uapp_i4 (Tag_eq_i4 tag) (Var_local_i4( 0)))
-    (Let_Els_i4 (Var_local_i4( 0)) (LENGTH ps) (pats_to_i4( 0) ps))
+    (Let_Els_i4( 0) (LENGTH ps) (pats_to_i4( 0) ps))
     (Lit_i4 (Bool F))))
 /\
 (pat_to_i4 (Pref_i2 p) =  
@@ -127,77 +127,81 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
     (pats_to_i4 (n+ 1) ps)
     (Lit_i4 (Bool F))))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn pat_to_i4_defn;
 
-(* bind the variables in the pattern in order above the expression, assuming
- * the pattern matches the value at the most recently bound variable *)
-(*val Let_Pat_i4 : pat_i2 -> exp_i4 -> exp_i4*)
- val Let_Pat_i4_defn = Hol_defn "Let_Pat_i4" `
+(* given a pattern in a context of bound variables where the most recently
+ * bound variable is the value to be matched, return a function that binds new
+ * variables (including all the pattern variables) over an expression and the
+ * new context of bound variables for the expression as well as the number of
+ * newly bound variables *)
+(*val row_to_i4 : list (maybe varN) -> pat_i2 -> list (maybe varN) * nat * (exp_i4 -> exp_i4)*)
+(*val cols_to_i4 : list (maybe varN) -> nat -> nat -> list pat_i2 -> list (maybe varN) * nat * (exp_i4 -> exp_i4)*)
+ val row_to_i4_defn = Hol_defn "row_to_i4" `
 
-(Let_Pat_i4 (Pvar_i2 _) e = e)
+(row_to_i4 (NONE::bvs) (Pvar_i2 x) = ((SOME x::bvs), 0, (\ e .  e)))
 /\
-(Let_Pat_i4 (Plit_i2 _) e = e)
+(row_to_i4 bvs (Plit_i2 _) = (bvs, 0, (\ e .  e)))
 /\
-(Let_Pat_i4 (Pcon_i2 _ ps) e = (Var_local_i4( 0))) (* TODO *)
+(row_to_i4 bvs (Pcon_i2 _ ps) = (cols_to_i4 bvs( 0)( 0) ps))
 /\
-(Let_Pat_i4 (Pref_i2 p) e =  
-(Let_i4 (Uapp_i4 Opderef_i4 (Var_local_i4( 0)))
-    (Let_Pat_i4 p e)))`;
+(row_to_i4 bvs (Pref_i2 p) =  
+(let (bvs,m,f) = (row_to_i4 (NONE::bvs) p) in
+    (bvs,( 1+m), (\ e .  Let_i4 (Uapp_i4 Opderef_i4 (Var_local_i4( 0))) (f e)))))
+/\
+(row_to_i4 _ _ = ([], 0, (\ e .  e))) (* should not happen *)
+/\
+(cols_to_i4 bvs _ _ [] = (bvs, 0, (\ e .  e)))
+/\
+(cols_to_i4 bvs n k (p::ps) =  
+(let (bvs,m,f) = (row_to_i4 (NONE::bvs) p) in
+  let (bvs,ms,fs) = (cols_to_i4 bvs ((n+ 1)+m) (k+ 1) ps) in
+    (bvs,(( 1+m)+ms),       
+(\ e . 
+           Let_i4 (Uapp_i4 (El_i4 k) (Var_local_i4 n))
+             (f (fs e))))))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn Let_Pat_i4_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn row_to_i4_defn;
 
-(*val exp_to_i4 : list varN -> exp_i2 -> exp_i4*)
-(*val exps_to_i4 : list varN -> list exp_i2 -> list exp_i4*)
-(*val funs_to_i4 : list varN -> list (varN * varN * exp_i2) -> list exp_i4*)
-(*val pes_to_i4 : list varN -> list (pat_i2 * exp_i2) -> exp_i4*)
+(* translate to i4 under a context of bound variables *)
+(*val exp_to_i4 : list (maybe varN) -> exp_i2 -> exp_i4*)
+(*val exps_to_i4 : list (maybe varN) -> list exp_i2 -> list exp_i4*)
+(*val funs_to_i4 : list (maybe varN) -> list (varN * varN * exp_i2) -> list exp_i4*)
+(* assumes the value being matched is most recently bound *)
+(*val pes_to_i4 : list (maybe varN) -> list (pat_i2 * exp_i2) -> exp_i4*)
  val exp_to_i4_defn = Hol_defn "exp_to_i4" `
 
 (exp_to_i4 bvs (Raise_i2 e) = (Raise_i4 (exp_to_i4 bvs e)))
 /\
 (exp_to_i4 bvs (Handle_i2 e1 pes) =  
-(let e1 = (exp_to_i4 bvs e1) in
-  let e2 = (pes_to_i4 bvs pes) in
-  Handle_i4 e1 e2))
+(Handle_i4 (exp_to_i4 bvs e1) (pes_to_i4 (NONE::bvs) pes)))
 /\
 (exp_to_i4 _ (Lit_i2 l) = (Lit_i4 l))
 /\
 (exp_to_i4 bvs (Con_i2 tag es) = (Con_i4 tag (exps_to_i4 bvs es)))
 /\
-(exp_to_i4 bvs (Var_local_i2 x) = (Var_local_i4 (the( 0) (misc$find_index x bvs( 0)))))
+(exp_to_i4 bvs (Var_local_i2 x) = (Var_local_i4 (the( 0) (misc$find_index (SOME x) bvs( 0)))))
 /\
 (exp_to_i4 bvs (Var_global_i2 n) = (Var_global_i4 n))
 /\
-(exp_to_i4 bvs (Fun_i2 x e) = (Fun_i4 (exp_to_i4 (x::bvs) e)))
+(exp_to_i4 bvs (Fun_i2 x e) = (Fun_i4 (exp_to_i4 (SOME x::bvs) e)))
 /\
 (exp_to_i4 bvs (Uapp_i2 uop e) = (Uapp_i4 (uop_to_i4 uop) (exp_to_i4 bvs e)))
 /\
 (exp_to_i4 bvs (App_i2 op e1 e2) =  
-(let e1 = (exp_to_i4 bvs e1) in
-  let e2 = (exp_to_i4 bvs e2) in
-  App_i4 op e1 e2))
+(App_i4 op (exp_to_i4 bvs e1) (exp_to_i4 bvs e2)))
 /\
 (exp_to_i4 bvs (If_i2 e1 e2 e3) =  
-(let e1 = (exp_to_i4 bvs e1) in
-  let e2 = (exp_to_i4 bvs e2) in
-  let e3 = (exp_to_i4 bvs e3) in
-  If_i4 e1 e2 e3))
+(If_i4 (exp_to_i4 bvs e1) (exp_to_i4 bvs e2) (exp_to_i4 bvs e3)))
 /\
 (exp_to_i4 bvs (Mat_i2 e pes) =  
-(let e1 = (exp_to_i4 bvs e) in
-  let e2 = (pes_to_i4 bvs pes) in
-  Let_i4 e1 e2))
+(Let_i4 (exp_to_i4 bvs e) (pes_to_i4 (NONE::bvs) pes)))
 /\
 (exp_to_i4 bvs (Let_i2 x e1 e2) =  
-(let e1 = (exp_to_i4 bvs e1) in
-  let e2 = (exp_to_i4 (x::bvs) e2) in
-  Let_i4 e1 e2))
+(Let_i4 (exp_to_i4 bvs e1) (exp_to_i4 (SOME x::bvs) e2)))
 /\
 (exp_to_i4 bvs (Letrec_i2 funs e) =  
 (let bvs = ((MAP (\p .  
-  (case (p ) of ( (f,_,_) ) => f )) funs) ++ bvs) in
-  let es = (funs_to_i4 bvs funs) in
-  let e = (exp_to_i4 bvs e) in
-  Letrec_i4 es e))
+  (case (p ) of ( (f,_,_) ) => SOME f )) funs) ++ bvs) in
+  Letrec_i4 (funs_to_i4 bvs funs) (exp_to_i4 bvs e)))
 /\
 (exp_to_i4 _ (Extend_global_i2 n) = (Extend_global_i4 n))
 /\
@@ -209,17 +213,16 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (funs_to_i4 _ [] = ([]))
 /\
 (funs_to_i4 bvs ((_,x,e)::funs) =  
-(exp_to_i4 (x::bvs) e :: funs_to_i4 bvs funs))
-/\
-(pes_to_i4 bvs [] = (Raise_i4 (Var_local_i4( 0))))
+(exp_to_i4 (SOME x::bvs) e :: funs_to_i4 bvs funs))
 /\
 (pes_to_i4 bvs ((p,e)::pes) =  
 (If_i4 (pat_to_i4 p)
-    (let bvs = (pat_bindings_i2 p bvs) in
-     Let_Pat_i4 p (exp_to_i4 bvs e))
-    (pes_to_i4 bvs pes)))`;
+    ((case row_to_i4 bvs p of (bvs,_,f) => f (exp_to_i4 bvs e) ))
+    (pes_to_i4 bvs pes)))
+/\
+(pes_to_i4 _ _ = (Var_local_i4( 0)))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn exp_to_i4_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn exp_to_i4_defn; (* should not happen *)
 
 (*val do_uapp_i4 : store_genv v_i4 -> uop_i4 -> v_i4 -> maybe (store_genv v_i4 * v_i4)*)
 val _ = Define `
