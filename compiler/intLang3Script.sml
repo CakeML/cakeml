@@ -119,7 +119,7 @@ val _ = Define `
   )))`;
 
 
-val _ = type_abbrev( "count_store_genv" , ``: v_i2 count_store # ( v_i2 option) list``);
+val _ = type_abbrev((*  'a *) "count_store_genv" , ``: 'a count_store # ( 'a option) list``);
 
 val _ = Hol_reln ` (! ck env l s.
 T

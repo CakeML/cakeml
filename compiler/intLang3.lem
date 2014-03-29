@@ -104,11 +104,11 @@ let do_uapp_i3 (s,genv) uop v =
           Nothing
   end
 
-type count_store_genv = count_store v_i2 * list (maybe v_i2)
+type count_store_genv 'a = count_store 'a * list (maybe 'a)
 
-indreln [evaluate_i3 : bool -> env varN v_i2 -> count_store_genv -> exp_i2 -> count_store_genv * result v_i2 v_i2 -> bool]
-and [evaluate_list_i3 : bool -> env varN v_i2 -> count_store_genv -> list exp_i2 -> count_store_genv * result (list v_i2) v_i2 -> bool]
-and [evaluate_match_i3 : bool -> env varN v_i2 -> count_store_genv -> v_i2 -> list (pat_i2 * exp_i2) -> v_i2 -> count_store_genv * result v_i2 v_i2 -> bool]
+indreln [evaluate_i3 : bool -> env varN v_i2 -> count_store_genv v_i2 -> exp_i2 -> count_store_genv v_i2 * result v_i2 v_i2 -> bool]
+and [evaluate_list_i3 : bool -> env varN v_i2 -> count_store_genv v_i2 -> list exp_i2 -> count_store_genv v_i2 * result (list v_i2) v_i2 -> bool]
+and [evaluate_match_i3 : bool -> env varN v_i2 -> count_store_genv v_i2 -> v_i2 -> list (pat_i2 * exp_i2) -> v_i2 -> count_store_genv v_i2 * result v_i2 v_i2 -> bool]
 
 lit : forall ck env l s.
 true

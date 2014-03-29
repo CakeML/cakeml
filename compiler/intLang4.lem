@@ -15,9 +15,9 @@
 open import Pervasives
 open import SemanticPrimitives
 open import Ast
-(* import BigStep  - lem bug, need to open it *)
 open import BigStep
 open import IntLang2
+open import IntLang3
 open import CompilerLib
 (*
 open import Lib
@@ -30,7 +30,6 @@ declare hol target_rep function find_index = `misc$find_index` (* to pick up the
 
 (* TODO: move *)
 type store_genv 'a = store 'a * list (maybe 'a)
-type count_store_genv 'a = count_store 'a * list (maybe 'a)
 
 type uop_i4 =
   | Opderef_i4
