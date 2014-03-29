@@ -208,7 +208,7 @@ val _ = Define `
 /\
 (ground_i4 _ (Var_global_i4 _) = T)
 /\
-(ground_i4 n (Fun_i4 e) = (ground_i4 (n+ 1) e))
+(ground_i4 n (Fun_i4 e) = F)
 /\
 (ground_i4 n (Uapp_i4 _ e) = (ground_i4 n e))
 /\
@@ -218,7 +218,7 @@ val _ = Define `
 /\
 (ground_i4 n (Let_i4 e1 e2) = (ground_i4 n e1 /\ ground_i4 (n+ 1) e2))
 /\
-(ground_i4 n (Letrec_i4 es e) = (ground_list_i4 ((n+LENGTH es)+ 1) es /\ ground_i4 (n+LENGTH es) e))
+(ground_i4 n (Letrec_i4 es e) = F)
 /\
 (ground_i4 _ (Extend_global_i4 _) = T)
 /\

@@ -184,7 +184,7 @@ ground_i4 n (Var_local_i4 k) = k < n
 and
 ground_i4 _ (Var_global_i4 _) = true
 and
-ground_i4 n (Fun_i4 e) = ground_i4 (n+1) e
+ground_i4 n (Fun_i4 e) = false
 and
 ground_i4 n (Uapp_i4 _ e) = ground_i4 n e
 and
@@ -194,7 +194,7 @@ ground_i4 n (If_i4 e1 e2 e3) = ground_i4 n e1 && ground_i4 n e2 && ground_i4 n e
 and
 ground_i4 n (Let_i4 e1 e2) = ground_i4 n e1 && ground_i4 (n+1) e2
 and
-ground_i4 n (Letrec_i4 es e) = ground_list_i4 (n+List.length es+1) es && ground_i4 (n+List.length es) e
+ground_i4 n (Letrec_i4 es e) = false
 and
 ground_i4 _ (Extend_global_i4 _) = true
 and
