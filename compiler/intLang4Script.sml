@@ -96,6 +96,40 @@ val _ = Define `
   )))`;
 
 
+(*val fo_i4 : exp_i4 -> bool*)
+ val _ = Define `
+
+(fo_i4 (Raise_i4 _) = T)
+/\
+(fo_i4 (Handle_i4 e1 e2) = (fo_i4 e1 /\ fo_i4 e2))
+/\
+(fo_i4 (Lit_i4 _) = T)
+/\
+(fo_i4 (Con_i4 _ es) = (fo_list_i4 es))
+/\
+(fo_i4 (Var_local_i4 _) = F)
+/\
+(fo_i4 (Var_global_i4 _) = F)
+/\
+(fo_i4 (Fun_i4 _) = F)
+/\
+(fo_i4 (Uapp_i4 uop _) = ((uop <> Opderef_i4) /\ (! n. uop <> El_i4 n)))
+/\
+(fo_i4 (App_i4 op _ _) = (op <> Opapp))
+/\
+(fo_i4 (If_i4 _ e2 e3) = (fo_i4 e2 /\ fo_i4 e3))
+/\
+(fo_i4 (Let_i4 _ e2) = (fo_i4 e2))
+/\
+(fo_i4 (Letrec_i4 _ e) = (fo_i4 e))
+/\
+(fo_i4 (Extend_global_i4 _) = T)
+/\
+(fo_list_i4 [] = T)
+/\
+(fo_list_i4 (e::es) = (fo_i4 e /\ fo_list_i4 es))`;
+
+
 (*val pure_uop_i4 : uop_i4 -> bool*)
  val _ = Define `
 
@@ -117,7 +151,7 @@ val _ = Define `
 /\
 (pure_op (Opb _) = T)
 /\
-(pure_op Equality = T)
+(pure_op Equality = F)
 /\
 (pure_op Opapp = F)
 /\
@@ -143,7 +177,8 @@ val _ = Define `
 /\
 (pure_i4 (Uapp_i4 uop e) = (pure_uop_i4 uop /\ pure_i4 e))
 /\
-(pure_i4 (App_i4 op e1 e2) = (pure_op op /\ (pure_i4 e1 /\ pure_i4 e2)))
+(pure_i4 (App_i4 op e1 e2) = (pure_i4 e1 /\ (pure_i4 e2 /\
+  (pure_op op \/ ((op = Equality) /\ (fo_i4 e1 /\ fo_i4 e2))))))
 /\
 (pure_i4 (If_i4 e1 e2 e3) = (pure_i4 e1 /\ (pure_i4 e2 /\ pure_i4 e3)))
 /\
