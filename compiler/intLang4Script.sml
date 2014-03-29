@@ -39,7 +39,7 @@ open import List_extra
 
 (* TODO: move *)
 val _ = type_abbrev((*  'a *) "store_genv" , ``: 'a store # ( 'a option) list``);
-val _ = type_abbrev((*  'a *) "count_store_genv" , ``: 'a count_store # ( 'a option) list``);
+val _ = type_abbrev((*  'a *) "count_store_genv0" , ``: 'a count_store # ( 'a option) list``);
 
 val _ = Hol_datatype `
  uop_i4 =

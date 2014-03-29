@@ -11,27 +11,6 @@ open evalPropsTheory;
 
 val _ = new_theory "toIntLang3Proof";
 
-fun register name def ind =
-  let val _ = save_thm (name ^ "_def", def);
-      val _ = save_thm (name ^ "_ind", ind);
-      val _ = computeLib.add_persistent_funs [name ^ "_def"];
-  in
-    ()
-  end;
-
-(*
-val (pat_to_i2_def, pat_to_i2_ind) =
-  tprove_no_defn ((pat_to_i2_def, pat_to_i2_ind),
-  wf_rel_tac `inv_image $< (\(x,p). pat_size p)` >>
-  srw_tac [ARITH_ss] [pat_size_def] >>
-  induct_on `ps` >>
-  srw_tac [ARITH_ss] [pat_size_def] >>
-  srw_tac [ARITH_ss] [pat_size_def] >>
-  res_tac >>
-  decide_tac);
-val _ = register "pat_to_i2" pat_to_i2_def pat_to_i2_ind;
-*)
-
 val exp_to_i3_correct = Q.prove (
 `(∀b env s e res. 
    evaluate_i2 b env s e res ⇒ 

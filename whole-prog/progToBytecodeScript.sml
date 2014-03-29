@@ -2,8 +2,9 @@ open wordsLib intLib;
 open preamble;
 open lexer_implTheory replTheory bytecodeLabelsTheory;
 
-val _ = new_theory "wholeProg";
+val _ = new_theory "progToBytecode";
 
+(*
 val tac = (WF_REL_TAC `measure (LENGTH o SND)` THEN REPEAT STRIP_TAC
            THEN IMP_RES_TAC lex_until_toplevel_semicolon_LESS);
 
@@ -369,5 +370,6 @@ val whole_prog_compile_encode_def = Define `
          Failure error_msg => NONE
        | Success code => 
            encode_bc_insts code`;
+           *)
 
 val _ = export_theory ();

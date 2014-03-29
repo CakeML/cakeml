@@ -6,6 +6,7 @@ open libPropsTheory;
 open bigClockTheory;
 open intLang1Theory;
 open evalPropsTheory;
+open compilerTerminationTheory;
 
 val _ = new_theory "toIntLang1Proof";
 
@@ -112,36 +113,6 @@ val pmatch_extend = Q.prove (
  qexists_tac `env'''++env''` >>
  rw [] >>
  metis_tac [pat_bindings_accum]);
-
-fun register name def ind =
-  let val _ = save_thm (name ^ "_def", def);
-      val _ = save_thm (name ^ "_ind", ind);
-      val _ = computeLib.add_persistent_funs [name ^ "_def"];
-  in
-    ()
-  end;
-
-val (exp_to_i1_def, exp_to_i1_ind) =
-  tprove_no_defn ((exp_to_i1_def, exp_to_i1_ind),
-  wf_rel_tac `inv_image $< (\x. case x of INL (x,y,e) => exp_size e
-                                        | INR (INL (x,y,es)) => exps_size es
-                                        | INR (INR (INL (x,y,pes))) => pes_size pes
-                                        | INR (INR (INR (x,y,funs))) => funs_size funs)` >>
-  srw_tac [ARITH_ss] [size_abbrevs, exp_size_def]);
-val _ = register "exp_to_i1" exp_to_i1_def exp_to_i1_ind;
-
-val (pmatch_i1_def, pmatch_i1_ind) =
-  tprove_no_defn ((pmatch_i1_def, pmatch_i1_ind),
-  wf_rel_tac `inv_image $< (\x. case x of INL (a,x,p,y,z) => pat_size p
-                                        | INR (a,x,ps,y,z) => pats_size ps)` >>
-  srw_tac [ARITH_ss] [size_abbrevs, pat_size_def]);
-val _ = register "pmatch_i1" pmatch_i1_def pmatch_i1_ind;
-
-val (do_eq_i1_def, do_eq_i1_ind) =
-  tprove_no_defn ((do_eq_i1_def, do_eq_i1_ind),
-  wf_rel_tac `inv_image $< (\x. case x of INL (x,y) => v_i1_size x
-                                        | INR (xs,ys) => v_i14_size xs)`);
-val _ = register "do_eq_i1" do_eq_i1_def do_eq_i1_ind;
 
 val pmatch_i1_extend = Q.prove (
 `(!cenv s p v env env' env''.

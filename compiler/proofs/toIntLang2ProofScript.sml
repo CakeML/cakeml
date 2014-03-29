@@ -9,6 +9,7 @@ open intLang1Theory;
 open intLang2Theory;
 open toIntLang1ProofTheory;
 open evalPropsTheory;
+open compilerTerminationTheory;
 
 val _ = new_theory "toIntLang2Proof";
 
@@ -64,47 +65,6 @@ rw [] >>
 cases_on `t1` >>
 cases_on `t2` >>
 fs [same_tid_def, same_ctor_def]);
-
-fun register name def ind =
-  let val _ = save_thm (name ^ "_def", def);
-      val _ = save_thm (name ^ "_ind", ind);
-      val _ = computeLib.add_persistent_funs [name ^ "_def"];
-  in
-    ()
-  end;
-
-val (pat_to_i2_def, pat_to_i2_ind) =
-  tprove_no_defn ((pat_to_i2_def, pat_to_i2_ind),
-  wf_rel_tac `inv_image $< (\(x,p). pat_size p)` >>
-  srw_tac [ARITH_ss] [pat_size_def] >>
-  induct_on `ps` >>
-  srw_tac [ARITH_ss] [pat_size_def] >>
-  srw_tac [ARITH_ss] [pat_size_def] >>
-  res_tac >>
-  decide_tac);
-val _ = register "pat_to_i2" pat_to_i2_def pat_to_i2_ind;
-
-val (exp_to_i2_def, exp_to_i2_ind) =
-  tprove_no_defn ((exp_to_i2_def, exp_to_i2_ind),
-  wf_rel_tac `inv_image $< (\x. case x of INL (x,e) => exp_i1_size e
-                                        | INR (INL (x,es)) => exp_i16_size es
-                                        | INR (INR (INL (x,pes))) => exp_i13_size pes
-                                        | INR (INR (INR (x,funs))) => exp_i11_size funs)` >>
-  srw_tac [ARITH_ss] [exp_i1_size_def]);
-val _ = register "exp_to_i2" exp_to_i2_def exp_to_i2_ind;
-
-val (pmatch_i2_def, pmatch_i2_ind) =
-  tprove_no_defn ((pmatch_i2_def, pmatch_i2_ind),
-  wf_rel_tac `inv_image $< (\x. case x of INL (x,p,y,z) => pat_i2_size p
-                                        | INR (x,ps,y,z) => pat_i21_size ps)` >>
-  srw_tac [ARITH_ss] [pat_i2_size_def]);
-val _ = register "pmatch_i2" pmatch_i2_def pmatch_i2_ind;
-
-val (do_eq_i2_def, do_eq_i2_ind) =
-  tprove_no_defn ((do_eq_i2_def, do_eq_i2_ind),
-  wf_rel_tac `inv_image $< (\x. case x of INL (x,y) => v_i2_size x
-                                        | INR (xs,ys) => v_i23_size xs)`);
-val _ = register "do_eq_i2" do_eq_i2_def do_eq_i2_ind;
 
 val build_rec_env_i2_help_lem = Q.prove (
 `∀funs env funs'.

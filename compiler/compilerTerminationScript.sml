@@ -1,5 +1,6 @@
 open HolKernel boolLib boolSimps bossLib Defn pairTheory pred_setTheory listTheory finite_mapTheory state_transformerTheory lcsymtacs
 open terminationTheory compilerLibTheory intLangTheory toIntLangTheory toBytecodeTheory compilerTheory printerTheory bytecodeTheory
+open intLang1Theory intLang2Theory;
 val _ = new_theory "compilerTermination"
 
 (* size helper theorems *)
@@ -265,6 +266,62 @@ val (bv_to_ov_def,bv_to_ov_ind) = register "bv_to_ov" (
 val (do_Ceq_def,do_Ceq_ind) = register "do_Ceq" (
   tprove_no_defn((do_Ceq_def,do_Ceq_ind),
   WF_REL_TAC`measure (\x. case x of INL (cv,_) => Cv_size cv | INR (cvs,_) => Cv1_size cvs)`));
+
+val (exp_to_i1_def, exp_to_i1_ind) =
+  tprove_no_defn ((exp_to_i1_def, exp_to_i1_ind),
+  WF_REL_TAC `inv_image $< (\x. case x of INL (x,y,e) => exp_size e
+                                        | INR (INL (x,y,es)) => exps_size es
+                                        | INR (INR (INL (x,y,pes))) => pes_size pes
+                                        | INR (INR (INR (x,y,funs))) => funs_size funs)` >>
+  srw_tac [ARITH_ss] [size_abbrevs, astTheory.exp_size_def]);
+val _ = register "exp_to_i1" (exp_to_i1_def,exp_to_i1_ind);
+
+val (pmatch_i1_def, pmatch_i1_ind) =
+  tprove_no_defn ((pmatch_i1_def, pmatch_i1_ind),
+  WF_REL_TAC `inv_image $< (\x. case x of INL (a,x,p,y,z) => pat_size p
+                                        | INR (a,x,ps,y,z) => pats_size ps)` >>
+  srw_tac [ARITH_ss] [size_abbrevs, astTheory.pat_size_def]);
+val _ = register "pmatch_i1" (pmatch_i1_def,pmatch_i1_ind);
+
+val (do_eq_i1_def, do_eq_i1_ind) =
+  tprove_no_defn ((do_eq_i1_def, do_eq_i1_ind),
+  WF_REL_TAC `inv_image $< (\x. case x of INL (x,y) => v_i1_size x
+                                        | INR (xs,ys) => v_i14_size xs)`);
+val _ = register "do_eq_i1" (do_eq_i1_def,do_eq_i1_ind);
+
+val (pat_to_i2_def, pat_to_i2_ind) =
+  tprove_no_defn ((pat_to_i2_def, pat_to_i2_ind),
+  WF_REL_TAC `inv_image $< (\(x,p). pat_size p)` >>
+  srw_tac [ARITH_ss] [astTheory.pat_size_def] >>
+  Induct_on `ps` >>
+  srw_tac [ARITH_ss] [astTheory.pat_size_def] >>
+  srw_tac [ARITH_ss] [astTheory.pat_size_def] >>
+  res_tac >>
+  decide_tac);
+val _ = register "pat_to_i2" (pat_to_i2_def,pat_to_i2_ind);
+
+val (exp_to_i2_def, exp_to_i2_ind) =
+  tprove_no_defn ((exp_to_i2_def, exp_to_i2_ind),
+  WF_REL_TAC `inv_image $< (\x. case x of INL (x,e) => exp_i1_size e
+                                        | INR (INL (x,es)) => exp_i16_size es
+                                        | INR (INR (INL (x,pes))) => exp_i13_size pes
+                                        | INR (INR (INR (x,funs))) => exp_i11_size funs)` >>
+  srw_tac [ARITH_ss] [exp_i1_size_def]);
+
+val _ = register "exp_to_i2" (exp_to_i2_def,exp_to_i2_ind);
+
+val (pmatch_i2_def, pmatch_i2_ind) =
+  tprove_no_defn ((pmatch_i2_def, pmatch_i2_ind),
+  WF_REL_TAC `inv_image $< (\x. case x of INL (x,p,y,z) => pat_i2_size p
+                                        | INR (x,ps,y,z) => pat_i21_size ps)` >>
+  srw_tac [ARITH_ss] [pat_i2_size_def]);
+val _ = register "pmatch_i2" (pmatch_i2_def,pmatch_i2_ind);
+
+val (do_eq_i2_def, do_eq_i2_ind) =
+  tprove_no_defn ((do_eq_i2_def, do_eq_i2_ind),
+  WF_REL_TAC `inv_image $< (\x. case x of INL (x,y) => v_i2_size x
+                                        | INR (xs,ys) => v_i23_size xs)`);
+val _ = register "do_eq_i2" (do_eq_i2_def,do_eq_i2_ind);
 
 
 (* export rewrites *)
