@@ -17,7 +17,10 @@ val (exp_to_i4_def, exp_to_i4_ind) =
                                         | INR (INR (INL (bvs,funs))) => exp_i21_size funs
                                         | INR (INR (INR (bvs,pes))) => exp_i23_size pes)`);
 val _ = register "exp_to_i4" exp_to_i4_def exp_to_i4_ind;
-val _ = export_rewrites["exp_to_i4_def","intLang4.uop_to_i4_def"]
+val _ = export_rewrites["exp_to_i4_def"
+  ,"intLang4.uop_to_i4_def"
+  ,"intLang4.pure_uop_i4_def"
+  ,"intLang4.pure_op_def"]
 
 val (pat_to_i4_def, pat_to_i4_ind) =
   tprove_no_defn ((pat_to_i4_def, pat_to_i4_ind),
@@ -333,6 +336,91 @@ val evaluate_i3_preserves_good = store_thm("evaluate_i3_preserves_good",
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   rw[])
+
+val evaluate_i4_lit = store_thm("evaluate_i4_lit",
+  ``∀ck env s l res.
+      evaluate_i4 ck env s (Lit_i4 l) res ⇔ (res = (s,Rval(Litv_i4 l)))``,
+  rw[Once evaluate_i4_cases])
+val _ = export_rewrites["evaluate_i4_lit"]
+
+val sIf_i4_correct = store_thm("sIf_i4_correct",
+  ``∀ck env s e1 e2 e3 res.
+    evaluate_i4 ck env s (If_i4 e1 e2 e3) res ∧
+    (SND res ≠ Rerr Rtype_error) ⇒
+    evaluate_i4 ck env s (sIf_i4 e1 e2 e3) res``,
+  rpt gen_tac >>
+  Cases_on`e2=Lit_i4(Bool T) ∧ e3=Lit_i4(Bool F)` >- (
+    simp[sIf_i4_def] >>
+    simp[Once evaluate_i4_cases,do_if_i4_def] >>
+    rw[] >> simp[] >> fs[] >>
+    qpat_assum`X = Y`mp_tac >> rw[] >> fs[] ) >>
+  simp[sIf_i4_def] >>
+  Cases_on`e1`>>simp[]>>
+  Cases_on`l`>>simp[]>>
+  simp[Once evaluate_i4_cases] >>
+  simp[do_if_i4_def] >> rw[])
+
+(*
+val pure_i4_correct = store_thm("pure_i4_correct",
+  ``(∀e. pure_i4 e ⇒
+         ∀ck env s. (∃v. evaluate_i4 ck env s e (s,Rval v)) ∨
+                    evaluate_i4 ck env s e (s,Rerr Rtype_error)) ∧
+    (∀es. pure_list_i4 es ⇒
+         ∀ck env s. (∃vs. evaluate_list_i4 ck env s es (s,Rval vs)) ∨
+                    evaluate_list_i4 ck env s es (s,Rerr Rtype_error))``,
+  ho_match_mp_tac(TypeBase.induction_of(``:exp_i4``)) >>
+  simp[pure_i4_def] >> rw[] >> fs[]
+  >- (simp[Once evaluate_i4_cases] >> PROVE_TAC[evaluate_i4_rules])
+  >- (simp[Once evaluate_i4_cases] >> PROVE_TAC[evaluate_i4_rules])
+  >- (simp[Once evaluate_i4_cases] >> PROVE_TAC[evaluate_i4_rules])
+  >- (ntac 2 (simp[Once evaluate_i4_cases]) >> PROVE_TAC[evaluate_i4_rules,pair_CASES,optionTheory.option_CASES])
+  >- (simp[Once evaluate_i4_cases] >> PROVE_TAC[evaluate_i4_rules])
+  >- (
+    first_x_assum(qspecl_then[`ck`,`env`,`s`]strip_assume_tac) >- (
+      simp[Once evaluate_i4_cases] >>
+      PairCases_on`s` >> simp[] >>
+      qmatch_abbrev_tac`X ∨ Y` >> qunabbrev_tac`Y` >>
+      simp[Once evaluate_i4_cases] >>
+      Cases_on`u`>>fs[do_uapp_i4_def,Abbr`X`] >>
+      simp[DISJ_ASSOC] >> disj1_tac >>
+      qho_match_abbrev_tac`(∃v1 v2 s1 s2. P v2 s1 s2 ∧ Q v1 v2 s1 s2) ∨ (∃v2. P2 v2 ∧ Q2 v2)` >>
+      `P2 v = P v s1 s2` by ( unabbrev_all_tac >> simp[] ) >>
+      `Q2 v = ¬(∃v1. Q v1 v s1 s2)` by (
+        unabbrev_all_tac >> simp[] >>
+        BasicProvers.CASE_TAC >>
+        BasicProvers.CASE_TAC ) >>
+      metis_tac[] ) >>
+    disj2_tac >>
+    simp[Once evaluate_i4_cases] )
+  >- (
+    qmatch_assum_rename_tac`pure_op op`[] >>
+    last_x_assum(qspecl_then[`ck`,`env`,`s`]strip_assume_tac) >- (
+      simp[Once evaluate_i4_cases] >>
+      qmatch_abbrev_tac`X ∨ Y` >> qunabbrev_tac`Y` >>
+      simp[Once evaluate_i4_cases] >>
+      Cases_on`op`>>fs[do_app_i4_def,Abbr`X`]
+
+      last_x_assum(qspecl_then[`ck`,`env`,`s`]strip_assume_tac) >- (
+        simp[Once evaluate_i4_cases] >>
+        Cases_on`op`>>fs[do_app_i4_def]
+
+
+  simp[Once evaluate_i4_cases] >>
+
+val sLet_i4_correct = store_thm("sLet_i4_correct",
+  ``∀ck env s e1 e2 res.
+    evaluate_i4 ck env s (Let_i4 e1 e2) res ⇒
+    evaluate_i4 ck env s (sLet_i4 e1 e2) res``,
+  rpt gen_tac >>
+  reverse(Cases_on`e2`) >> rw[sLet_i4_def] >- (
+    Cases_on`n`>>rw[sLet_i4_def]>>
+    pop_assum mp_tac >>
+    rw[Once evaluate_i4_cases] >> rw[] >>
+    pop_assum mp_tac >>
+    simp[Once evaluate_i4_cases] ) >>
+  pop_assum mp_tac >>
+  rw[Once evaluate_i4_cases]
+*)
 
 val Let_Els_i4_correct = prove(
   ``∀n k e tag vs env ck s res us.
@@ -1009,6 +1097,8 @@ val _ = Parse.overload_on("el", ``λn v. Uapp_i4 (El_i4 n) (Var_local_i4 v)``)
 val _ = Parse.overload_on("true", ``Lit_i4 (Bool T)``)
 val _ = Parse.overload_on("false", ``Lit_i4 (Bool F)``)
 val _ = Parse.overload_on("pair", ``λx y. Con_i4 6 [x;y]``)
+val _ = Parse.overload_on("Let", ``Let_i4``)
+val _ = Parse.overload_on("Var", ``Var_local_i4``)
 val tm = rhs(concl th)
 
 *)

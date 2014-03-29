@@ -86,6 +86,124 @@ val _ = Hol_datatype `
 (uop_to_i4 (Init_global_var_i2 n) = (Init_global_var_i4 n))`;
 
 
+(*val sIf_i4 : exp_i4 -> exp_i4 -> exp_i4 -> exp_i4*)
+val _ = Define `
+
+(sIf_i4 e1 e2 e3 =  
+(if (e2 = Lit_i4 (Bool T)) /\ (e3 = Lit_i4 (Bool F)) then e1 else
+  (case e1 of
+    Lit_i4 (Bool b) => if b then e2 else e3
+  | _ => If_i4 e1 e2 e3
+  )))`;
+
+
+(*val pure_uop_i4 : uop_i4 -> bool*)
+ val _ = Define `
+
+(pure_uop_i4 Opderef_i4 = T)
+/\
+(pure_uop_i4 Opref_i4 = F)
+/\
+(pure_uop_i4 (Init_global_var_i4 _) = F)
+/\
+(pure_uop_i4 (Tag_eq_i4 _) = T)
+/\
+(pure_uop_i4 (El_i4 _) = T)`;
+
+
+(*val pure_op : op -> bool*)
+ val _ = Define `
+
+(pure_op (Opn opn) = ((opn <> Divide) /\ (opn <> Modulo)))
+/\
+(pure_op (Opb _) = T)
+/\
+(pure_op Equality = T)
+/\
+(pure_op Opapp = F)
+/\
+(pure_op Opassign = F)`;
+
+
+(*val pure_i4 : exp_i4 -> bool*)
+ val _ = Define `
+
+(pure_i4 (Raise_i4 _) = F)
+/\
+(pure_i4 (Handle_i4 e1 _) = (pure_i4 e1))
+/\
+(pure_i4 (Lit_i4 _) = T)
+/\
+(pure_i4 (Con_i4 _ es) = (pure_list_i4 es))
+/\
+(pure_i4 (Var_local_i4 _) = T)
+/\
+(pure_i4 (Var_global_i4 _) = T)
+/\
+(pure_i4 (Fun_i4 _) = T)
+/\
+(pure_i4 (Uapp_i4 uop e) = (pure_uop_i4 uop /\ pure_i4 e))
+/\
+(pure_i4 (App_i4 op e1 e2) = (pure_op op /\ (pure_i4 e1 /\ pure_i4 e2)))
+/\
+(pure_i4 (If_i4 e1 e2 e3) = (pure_i4 e1 /\ (pure_i4 e2 /\ pure_i4 e3)))
+/\
+(pure_i4 (Let_i4 e1 e2) = (pure_i4 e1 /\ pure_i4 e2))
+/\
+(pure_i4 (Letrec_i4 _ e) = (pure_i4 e))
+/\
+(pure_i4 (Extend_global_i4 _) = F)
+/\
+(pure_list_i4 [] = T)
+/\
+(pure_list_i4 (e::es) = (pure_i4 e /\ pure_list_i4 es))`;
+
+
+(*val ground_i4 : nat -> exp_i4 -> bool*)
+ val _ = Define `
+
+(ground_i4 n (Raise_i4 e) = (ground_i4 n e))
+/\
+(ground_i4 n (Handle_i4 e1 e2) = (ground_i4 n e1 /\ ground_i4 (n+ 1) e2))
+/\
+(ground_i4 _ (Lit_i4 _) = T)
+/\
+(ground_i4 n (Con_i4 _ es) = (ground_list_i4 n es))
+/\
+(ground_i4 n (Var_local_i4 k) = (k < n))
+/\
+(ground_i4 _ (Var_global_i4 _) = T)
+/\
+(ground_i4 n (Fun_i4 e) = (ground_i4 (n+ 1) e))
+/\
+(ground_i4 n (Uapp_i4 _ e) = (ground_i4 n e))
+/\
+(ground_i4 n (App_i4 _ e1 e2) = (ground_i4 n e1 /\ ground_i4 n e2))
+/\
+(ground_i4 n (If_i4 e1 e2 e3) = (ground_i4 n e1 /\ (ground_i4 n e2 /\ ground_i4 n e3)))
+/\
+(ground_i4 n (Let_i4 e1 e2) = (ground_i4 n e1 /\ ground_i4 (n+ 1) e2))
+/\
+(ground_i4 n (Letrec_i4 es e) = (ground_list_i4 ((n+LENGTH es)+ 1) es /\ ground_i4 (n+LENGTH es) e))
+/\
+(ground_i4 _ (Extend_global_i4 _) = T)
+/\
+(ground_list_i4 _ [] = T)
+/\
+(ground_list_i4 n (e::es) = (ground_i4 n e /\ ground_list_i4 n es))`;
+
+
+(*val sLet_i4 : exp_i4 -> exp_i4 -> exp_i4*)
+ val _ = Define `
+
+(sLet_i4 e1 (Var_local_i4 0) = e1)
+/\
+(sLet_i4 e1 e2 =  
+(if pure_i4 e1 /\ ground_i4( 0) e2
+  then e2
+  else Let_i4 e1 e2))`;
+
+
 (* bind elements 0..k of the variable n in reverse order above e (first element
  * becomes most recently bound) *)
 (*val Let_Els_i4 : nat -> nat -> exp_i4 -> exp_i4*)
@@ -94,8 +212,8 @@ val _ = Hol_datatype `
 (Let_Els_i4 _ 0 e = e)
 /\
 (Let_Els_i4 n k e =  
-(Let_i4 (Uapp_i4 (El_i4 (k -  1)) (Var_local_i4 n))
-    (Let_Els_i4 (n+ 1) (k -  1) e)))`;
+(sLet_i4 (Uapp_i4 (El_i4 (k -  1)) (Var_local_i4 n))
+     (Let_Els_i4 (n+ 1) (k -  1) e)))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn Let_Els_i4_defn;
 
@@ -115,18 +233,18 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (App_i4 Equality (Var_local_i4( 0)) (Con_i4 tag [])))
 /\
 (pat_to_i4 (Pcon_i2 tag ps) =  
-(If_i4 (Uapp_i4 (Tag_eq_i4 tag) (Var_local_i4( 0)))
+(sIf_i4 (Uapp_i4 (Tag_eq_i4 tag) (Var_local_i4( 0)))
     (Let_Els_i4( 0) (LENGTH ps) (pats_to_i4( 0) ps))
     (Lit_i4 (Bool F))))
 /\
 (pat_to_i4 (Pref_i2 p) =  
-(Let_i4 (Uapp_i4 Opderef_i4 (Var_local_i4( 0)))
+(sLet_i4 (Uapp_i4 Opderef_i4 (Var_local_i4( 0)))
     (pat_to_i4 p)))
 /\
 (pats_to_i4 _ [] = (Lit_i4 (Bool T)))
 /\
 (pats_to_i4 n (p::ps) =  
-(If_i4 (Let_i4 (Var_local_i4 n) (pat_to_i4 p))
+(sIf_i4 (sLet_i4 (Var_local_i4 n) (pat_to_i4 p))
     (pats_to_i4 (n+ 1) ps)
     (Lit_i4 (Bool F))))`;
 
@@ -149,7 +267,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (row_to_i4 bvs (Pref_i2 p) =  
 (let (bvs,m,f) = (row_to_i4 (NONE::bvs) p) in
-    (bvs,( 1+m), (\ e .  Let_i4 (Uapp_i4 Opderef_i4 (Var_local_i4( 0))) (f e)))))
+    (bvs,( 1+m), (\ e .  sLet_i4 (Uapp_i4 Opderef_i4 (Var_local_i4( 0))) (f e)))))
 /\
 (row_to_i4 _ _ = ([], 0, (\ e .  e))) (* should not happen *)
 /\
@@ -160,7 +278,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   let (bvs,ms,fs) = (cols_to_i4 bvs ((n+ 1)+m) (k+ 1) ps) in
     (bvs,(( 1+m)+ms),       
 (\ e . 
-           Let_i4 (Uapp_i4 (El_i4 k) (Var_local_i4 n))
+           sLet_i4 (Uapp_i4 (El_i4 k) (Var_local_i4 n))
              (f (fs e))))))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn row_to_i4_defn;
@@ -184,7 +302,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (exp_to_i4 bvs (Var_local_i2 x) = (Var_local_i4 (the( 0) (misc$find_index (SOME x) bvs( 0)))))
 /\
-(exp_to_i4 bvs (Var_global_i2 n) = (Var_global_i4 n))
+(exp_to_i4 _ (Var_global_i2 n) = (Var_global_i4 n))
 /\
 (exp_to_i4 bvs (Fun_i2 x e) = (Fun_i4 (exp_to_i4 (SOME x::bvs) e)))
 /\
@@ -194,13 +312,13 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (App_i4 op (exp_to_i4 bvs e1) (exp_to_i4 bvs e2)))
 /\
 (exp_to_i4 bvs (If_i2 e1 e2 e3) =  
-(If_i4 (exp_to_i4 bvs e1) (exp_to_i4 bvs e2) (exp_to_i4 bvs e3)))
+(sIf_i4 (exp_to_i4 bvs e1) (exp_to_i4 bvs e2) (exp_to_i4 bvs e3)))
 /\
 (exp_to_i4 bvs (Mat_i2 e pes) =  
-(Let_i4 (exp_to_i4 bvs e) (pes_to_i4 (NONE::bvs) pes)))
+(sLet_i4 (exp_to_i4 bvs e) (pes_to_i4 (NONE::bvs) pes)))
 /\
 (exp_to_i4 bvs (Let_i2 x e1 e2) =  
-(Let_i4 (exp_to_i4 bvs e1) (exp_to_i4 (SOME x::bvs) e2)))
+(sLet_i4 (exp_to_i4 bvs e1) (exp_to_i4 (SOME x::bvs) e2)))
 /\
 (exp_to_i4 bvs (Letrec_i2 funs e) =  
 (let bvs = ((MAP (\p .  
@@ -219,8 +337,11 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (funs_to_i4 bvs ((_,x,e)::funs) =  
 (exp_to_i4 (SOME x::bvs) e :: funs_to_i4 bvs funs))
 /\
+(pes_to_i4 bvs [(p,e)] = 
+  ((case row_to_i4 bvs p of (bvs,_,f) => f (exp_to_i4 bvs e) )))
+/\
 (pes_to_i4 bvs ((p,e)::pes) =  
-(If_i4 (pat_to_i4 p)
+(sIf_i4 (pat_to_i4 p)
     ((case row_to_i4 bvs p of (bvs,_,f) => f (exp_to_i4 bvs e) ))
     (pes_to_i4 bvs pes)))
 /\
