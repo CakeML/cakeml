@@ -18,12 +18,13 @@ val _ = new_theory "intLang2"
  * name environment.
  *
  * The semantics of IL2 differ in that there is no constructor name
- * environment.
+ * environment, and pattern matches that fall off the end give a type error.
  *
  * The translator to IL2 keeps a mapping of constructors to their tags. The
  * tuple constructor is always 0. Div, Bind, and Eq are always 1, 2, and 3.
  * Cond and nil are always 4 and 5. It also keeps a reverse mapping for use by
- * the REPL printer.
+ * the REPL printer. It also adds an extra case to non-exhaustive pattern
+ * matches. At the moment, it just adds the default case to all matches.
  *
  * The expressions include the unary operation for initialising the global
  * store, even though it can't be used until IL3. However, including it here
@@ -195,6 +196,21 @@ val _ = Define `
   )))`;
 
 
+(*val exhaustive_match : tag_env -> list (pat * exp_i1) -> bool*)
+val _ = Define `
+ (exhaustive_match tagenv pes = F)`;
+
+
+(*val add_default_case : bool -> tag_env -> list (pat * exp_i1) -> list (pat * exp_i1)*)
+val _ = Define `
+ (add_default_case is_handle tagenv pes =  
+(if exhaustive_match tagenv pes then
+    pes
+  else
+    let exp = (if is_handle then Var_local_i1 "x" else Con_i1 (SOME (Short "Bind")) []) in
+    pes ++ [(Pvar "x", Raise_i1 exp)]))`;
+
+
 (*val exp_to_i2 : tag_env -> exp_i1 -> exp_i2*)
 (*val exps_to_i2 : tag_env -> list exp_i1 -> list exp_i2*)
 (*val pat_exp_to_i2 : tag_env -> list (pat * exp_i1) -> list (pat_i2 * exp_i2)*)
@@ -205,7 +221,7 @@ val _ = Define `
  (Raise_i2 (exp_to_i2 tagenv e)))
 /\
 (exp_to_i2 tagenv (Handle_i1 e pes) =  
- (Handle_i2 (exp_to_i2 tagenv e) (pat_exp_to_i2 tagenv pes)))
+ (Handle_i2 (exp_to_i2 tagenv e) (pat_exp_to_i2 tagenv (add_default_case T tagenv pes))))
 /\
 (exp_to_i2 tagenv (Lit_i1 l) =  
  (Lit_i2 l)) 
@@ -230,7 +246,7 @@ val _ = Define `
 (If_i2 (exp_to_i2 tagenv e1) (exp_to_i2 tagenv e2) (exp_to_i2 tagenv e3)))
 /\
 (exp_to_i2 tagenv (Mat_i1 e pes) =  
-(Mat_i2 (exp_to_i2 tagenv e) (pat_exp_to_i2 tagenv pes)))
+(Mat_i2 (exp_to_i2 tagenv e) (pat_exp_to_i2 tagenv (add_default_case F tagenv pes))))
 /\
 (exp_to_i2 tagenv (Let_i1 x e1 e2) =  
 (Let_i2 x (exp_to_i2 tagenv e1) (exp_to_i2 tagenv e2)))
@@ -531,7 +547,7 @@ evaluate_i2 ck s1 env (Handle_i2 e pes) (s2, Rval v))
 
 /\ (! ck s1 s2 env e pes v bv.
 (evaluate_i2 ck env s1 e (s2, Rerr (Rraise v)) /\
-evaluate_match_i2 ck env s2 v pes v bv)
+evaluate_match_i2 ck env s2 v pes bv)
 ==>
 evaluate_i2 ck env s1 (Handle_i2 e pes) bv)
 
@@ -657,7 +673,7 @@ evaluate_i2 ck env s (If_i2 e1 e2 e3) (s', Rerr err))
 
 /\ (! ck env e pes v bv s1 s2.
 (evaluate_i2 ck env s1 e (s2, Rval v) /\
-evaluate_match_i2 ck env s2 v pes (Conv_i2 bind_tag []) bv)
+evaluate_match_i2 ck env s2 v pes bv)
 ==>
 evaluate_i2 ck env s1 (Mat_i2 e pes) bv)
 
@@ -715,34 +731,34 @@ evaluate_list_i2 ck env s2 es (s3, Rerr err))
 ==>
 evaluate_list_i2 ck env s1 (e::es) (s3, Rerr err))
 
-/\ (! ck env v err_v s.
+/\ (! ck env v s.
 T
 ==>
-evaluate_match_i2 ck env s v [] err_v (s, Rerr (Rraise err_v)))
+evaluate_match_i2 ck env s v [] (s, Rerr Rtype_error))
 
-/\ (! ck genv env env' v p pes e bv err_v s count.
+/\ (! ck genv env env' v p pes e bv s count.
 (ALL_DISTINCT (pat_bindings_i2 p []) /\
 ((pmatch_i2 s p v env = Match env') /\
 evaluate_i2 ck (genv,env') (count,s) e bv))
 ==>
-evaluate_match_i2 ck (genv,env) (count,s) v ((p,e)::pes) err_v bv)
+evaluate_match_i2 ck (genv,env) (count,s) v ((p,e)::pes) bv)
 
-/\ (! ck genv env v p e pes bv s count err_v.
+/\ (! ck genv env v p e pes bv s count.
 (ALL_DISTINCT (pat_bindings_i2 p []) /\
 ((pmatch_i2 s p v env = No_match) /\
-evaluate_match_i2 ck (genv,env) (count,s) v pes err_v bv))
+evaluate_match_i2 ck (genv,env) (count,s) v pes bv))
 ==>
-evaluate_match_i2 ck (genv,env) (count,s) v ((p,e)::pes) err_v bv)
+evaluate_match_i2 ck (genv,env) (count,s) v ((p,e)::pes) bv)
 
-/\ (! ck genv env v p e pes s count err_v.
+/\ (! ck genv env v p e pes s count.
 (pmatch_i2 s p v env = Match_type_error)
 ==>
-evaluate_match_i2 ck (genv,env) (count,s) v ((p,e)::pes) err_v ((count,s), Rerr Rtype_error))
+evaluate_match_i2 ck (genv,env) (count,s) v ((p,e)::pes) ((count,s), Rerr Rtype_error))
 
-/\ (! ck env v p e pes s err_v.
+/\ (! ck env v p e pes s.
 (~ (ALL_DISTINCT (pat_bindings_i2 p [])))
 ==>
-evaluate_match_i2 ck env s v ((p,e)::pes) err_v (s, Rerr Rtype_error))`;
+evaluate_match_i2 ck env s v ((p,e)::pes) (s, Rerr Rtype_error))`;
 
 val _ = Hol_reln ` (! genv n e vs s1 s2 count.
 (evaluate_i2 F (genv,emp) ( 0,s1) e ((count,s2), Rval (Conv_i2 tuple_tag vs)) /\

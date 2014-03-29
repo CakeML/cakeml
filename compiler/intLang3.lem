@@ -108,7 +108,7 @@ type count_store_genv 'a = count_store 'a * list (maybe 'a)
 
 indreln [evaluate_i3 : bool -> env varN v_i2 -> count_store_genv v_i2 -> exp_i2 -> count_store_genv v_i2 * result v_i2 v_i2 -> bool]
 and [evaluate_list_i3 : bool -> env varN v_i2 -> count_store_genv v_i2 -> list exp_i2 -> count_store_genv v_i2 * result (list v_i2) v_i2 -> bool]
-and [evaluate_match_i3 : bool -> env varN v_i2 -> count_store_genv v_i2 -> v_i2 -> list (pat_i2 * exp_i2) -> v_i2 -> count_store_genv v_i2 * result v_i2 v_i2 -> bool]
+and [evaluate_match_i3 : bool -> env varN v_i2 -> count_store_genv v_i2 -> v_i2 -> list (pat_i2 * exp_i2) -> count_store_genv v_i2 * result v_i2 v_i2 -> bool]
 
 lit : forall ck env l s.
 true
@@ -140,7 +140,7 @@ and
 
 handle2 : forall ck s1 s2 env e pes v bv.
 evaluate_i3 ck env s1 e (s2, Rerr (Rraise v)) &&
-evaluate_match_i3 ck env s2 v pes v bv
+evaluate_match_i3 ck env s2 v pes bv
 ==>
 evaluate_i3 ck env s1 (Handle_i2 e pes) bv
 
@@ -308,7 +308,7 @@ and
 
 mat1 : forall ck env e pes v bv s1 s2.
 evaluate_i3 ck env s1 e (s2, Rval v) &&
-evaluate_match_i3 ck env s2 v pes (Conv_i2 bind_tag []) bv
+evaluate_match_i3 ck env s2 v pes bv
 ==>
 evaluate_i3 ck env s1 (Mat_i2 e pes) bv
 
@@ -388,39 +388,39 @@ evaluate_list_i3 ck env s1 (e::es) (s3, Rerr err)
 
 and
 
-mat_empty : forall ck env v err_v s.
+mat_empty : forall ck env v s.
 true
 ==>
-evaluate_match_i3 ck env s v [] err_v (s, Rerr (Rraise err_v))
+evaluate_match_i3 ck env s v [] (s, Rerr Rtype_error)
 
 and
 
-mat_cons1 : forall ck env env' v p pes e bv err_v s count genv.
+mat_cons1 : forall ck env env' v p pes e bv s count genv.
 List.allDistinct (pat_bindings_i2 p []) &&
 (pmatch_i2 s p v env = Match env') &&
 evaluate_i3 ck env' ((count,s),genv) e bv
 ==>
-evaluate_match_i3 ck env ((count,s),genv) v ((p,e)::pes) err_v bv
+evaluate_match_i3 ck env ((count,s),genv) v ((p,e)::pes) bv
 
 and
 
-mat_cons2 : forall ck genv env v p e pes bv s count err_v.
+mat_cons2 : forall ck genv env v p e pes bv s count.
 List.allDistinct (pat_bindings_i2 p []) &&
 (pmatch_i2 s p v env = No_match) &&
-evaluate_match_i3 ck env ((count,s),genv) v pes err_v bv
+evaluate_match_i3 ck env ((count,s),genv) v pes bv
 ==>
-evaluate_match_i3 ck env ((count,s),genv) v ((p,e)::pes) err_v bv
+evaluate_match_i3 ck env ((count,s),genv) v ((p,e)::pes) bv
 
 and
 
-mat_cons3 : forall ck genv env v p e pes s count err_v.
+mat_cons3 : forall ck genv env v p e pes s count.
 (pmatch_i2 s p v env = Match_type_error)
 ==>
-evaluate_match_i3 ck env ((count,s),genv) v ((p,e)::pes) err_v (((count,s),genv), Rerr Rtype_error)
+evaluate_match_i3 ck env ((count,s),genv) v ((p,e)::pes) (((count,s),genv), Rerr Rtype_error)
 
 and
 
-mat_cons4 : forall ck env v p e pes s err_v.
+mat_cons4 : forall ck env v p e pes s.
 not (List.allDistinct (pat_bindings_i2 p []))
 ==>
-evaluate_match_i3 ck env s v ((p,e)::pes) err_v (s, Rerr Rtype_error)
+evaluate_match_i3 ck env s v ((p,e)::pes) (s, Rerr Rtype_error)

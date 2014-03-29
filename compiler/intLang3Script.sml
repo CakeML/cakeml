@@ -143,7 +143,7 @@ evaluate_i3 ck s1 env (Handle_i2 e pes) (s2, Rval v))
 
 /\ (! ck s1 s2 env e pes v bv.
 (evaluate_i3 ck env s1 e (s2, Rerr (Rraise v)) /\
-evaluate_match_i3 ck env s2 v pes v bv)
+evaluate_match_i3 ck env s2 v pes bv)
 ==>
 evaluate_i3 ck env s1 (Handle_i2 e pes) bv)
 
@@ -269,7 +269,7 @@ evaluate_i3 ck env s (If_i2 e1 e2 e3) (s', Rerr err))
 
 /\ (! ck env e pes v bv s1 s2.
 (evaluate_i3 ck env s1 e (s2, Rval v) /\
-evaluate_match_i3 ck env s2 v pes (Conv_i2 bind_tag []) bv)
+evaluate_match_i3 ck env s2 v pes bv)
 ==>
 evaluate_i3 ck env s1 (Mat_i2 e pes) bv)
 
@@ -327,33 +327,33 @@ evaluate_list_i3 ck env s2 es (s3, Rerr err))
 ==>
 evaluate_list_i3 ck env s1 (e::es) (s3, Rerr err))
 
-/\ (! ck env v err_v s.
+/\ (! ck env v s.
 T
 ==>
-evaluate_match_i3 ck env s v [] err_v (s, Rerr (Rraise err_v)))
+evaluate_match_i3 ck env s v [] (s, Rerr Rtype_error))
 
-/\ (! ck env env' v p pes e bv err_v s count genv.
+/\ (! ck env env' v p pes e bv s count genv.
 (ALL_DISTINCT (pat_bindings_i2 p []) /\
 ((pmatch_i2 s p v env = Match env') /\
 evaluate_i3 ck env' ((count,s),genv) e bv))
 ==>
-evaluate_match_i3 ck env ((count,s),genv) v ((p,e)::pes) err_v bv)
+evaluate_match_i3 ck env ((count,s),genv) v ((p,e)::pes) bv)
 
-/\ (! ck genv env v p e pes bv s count err_v.
+/\ (! ck genv env v p e pes bv s count.
 (ALL_DISTINCT (pat_bindings_i2 p []) /\
 ((pmatch_i2 s p v env = No_match) /\
-evaluate_match_i3 ck env ((count,s),genv) v pes err_v bv))
+evaluate_match_i3 ck env ((count,s),genv) v pes bv))
 ==>
-evaluate_match_i3 ck env ((count,s),genv) v ((p,e)::pes) err_v bv)
+evaluate_match_i3 ck env ((count,s),genv) v ((p,e)::pes) bv)
 
-/\ (! ck genv env v p e pes s count err_v.
+/\ (! ck genv env v p e pes s count.
 (pmatch_i2 s p v env = Match_type_error)
 ==>
-evaluate_match_i3 ck env ((count,s),genv) v ((p,e)::pes) err_v (((count,s),genv), Rerr Rtype_error))
+evaluate_match_i3 ck env ((count,s),genv) v ((p,e)::pes) (((count,s),genv), Rerr Rtype_error))
 
-/\ (! ck env v p e pes s err_v.
+/\ (! ck env v p e pes s.
 (~ (ALL_DISTINCT (pat_bindings_i2 p [])))
 ==>
-evaluate_match_i3 ck env s v ((p,e)::pes) err_v (s, Rerr Rtype_error))`;
+evaluate_match_i3 ck env s v ((p,e)::pes) (s, Rerr Rtype_error))`;
 val _ = export_theory()
 

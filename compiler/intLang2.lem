@@ -8,12 +8,13 @@
  * name environment.
  *
  * The semantics of IL2 differ in that there is no constructor name
- * environment.
+ * environment, and pattern matches that fall off the end give a type error.
  *
  * The translator to IL2 keeps a mapping of constructors to their tags. The
  * tuple constructor is always 0. Div, Bind, and Eq are always 1, 2, and 3.
  * Cond and nil are always 4 and 5. It also keeps a reverse mapping for use by
- * the REPL printer.
+ * the REPL printer. It also adds an extra case to non-exhaustive pattern
+ * matches. At the moment, it just adds the default case to all matches.
  *
  * The expressions include the unary operation for initialising the global
  * store, even though it can't be used until IL3. However, including it here
@@ -149,6 +150,17 @@ let uop_to_i2 uop =
     | Opref -> Opref_i2
   end
 
+val exhaustive_match : tag_env -> list (pat * exp_i1) -> bool
+let exhaustive_match tagenv pes = false
+
+val add_default_case : bool -> tag_env -> list (pat * exp_i1) -> list (pat * exp_i1)
+let add_default_case is_handle tagenv pes =
+  if exhaustive_match tagenv pes then
+    pes
+  else
+    let exp = if is_handle then Var_local_i1 "x" else Con_i1 (Just (Short "Bind")) [] in
+    pes ++ [(Pvar "x", Raise_i1 exp)]
+
 val exp_to_i2 : tag_env -> exp_i1 -> exp_i2
 val exps_to_i2 : tag_env -> list exp_i1 -> list exp_i2
 val pat_exp_to_i2 : tag_env -> list (pat * exp_i1) -> list (pat_i2 * exp_i2)
@@ -158,7 +170,7 @@ exp_to_i2 tagenv (Raise_i1 e) =
   Raise_i2 (exp_to_i2 tagenv e)
 and
 exp_to_i2 tagenv (Handle_i1 e pes) = 
-  Handle_i2 (exp_to_i2 tagenv e) (pat_exp_to_i2 tagenv pes)
+  Handle_i2 (exp_to_i2 tagenv e) (pat_exp_to_i2 tagenv (add_default_case true tagenv pes))
 and
 exp_to_i2 tagenv (Lit_i1 l) = 
   Lit_i2 l 
@@ -183,7 +195,7 @@ exp_to_i2 tagenv (If_i1 e1 e2 e3) =
   If_i2 (exp_to_i2 tagenv e1) (exp_to_i2 tagenv e2) (exp_to_i2 tagenv e3)
 and
 exp_to_i2 tagenv (Mat_i1 e pes) =
-  Mat_i2 (exp_to_i2 tagenv e) (pat_exp_to_i2 tagenv pes)
+  Mat_i2 (exp_to_i2 tagenv e) (pat_exp_to_i2 tagenv (add_default_case false tagenv pes))
 and
 exp_to_i2 tagenv (Let_i1 x e1 e2) =
   Let_i2 x (exp_to_i2 tagenv e1) (exp_to_i2 tagenv e2)
@@ -432,7 +444,7 @@ pmatch_list_i2 s _ _ env = Match_type_error
 
 indreln [evaluate_i2 : bool -> all_env_i2 -> count_store v_i2 -> exp_i2 -> count_store v_i2 * result v_i2 v_i2 -> bool]
 and [evaluate_list_i2 : bool -> all_env_i2 -> count_store v_i2 -> list exp_i2 -> count_store v_i2 * result (list v_i2) v_i2 -> bool]
-and [evaluate_match_i2 : bool -> all_env_i2 -> count_store v_i2 -> v_i2 -> list (pat_i2 * exp_i2) -> v_i2 -> count_store v_i2 * result v_i2 v_i2 -> bool]
+and [evaluate_match_i2 : bool -> all_env_i2 -> count_store v_i2 -> v_i2 -> list (pat_i2 * exp_i2) -> count_store v_i2 * result v_i2 v_i2 -> bool]
 
 lit : forall ck env l s.
 true
@@ -464,7 +476,7 @@ and
 
 handle2 : forall ck s1 s2 env e pes v bv.
 evaluate_i2 ck env s1 e (s2, Rerr (Rraise v)) &&
-evaluate_match_i2 ck env s2 v pes v bv
+evaluate_match_i2 ck env s2 v pes bv
 ==>
 evaluate_i2 ck env s1 (Handle_i2 e pes) bv
 
@@ -632,7 +644,7 @@ and
 
 mat1 : forall ck env e pes v bv s1 s2.
 evaluate_i2 ck env s1 e (s2, Rval v) &&
-evaluate_match_i2 ck env s2 v pes (Conv_i2 bind_tag []) bv
+evaluate_match_i2 ck env s2 v pes bv
 ==>
 evaluate_i2 ck env s1 (Mat_i2 e pes) bv
 
@@ -712,42 +724,42 @@ evaluate_list_i2 ck env s1 (e::es) (s3, Rerr err)
 
 and
 
-mat_empty : forall ck env v err_v s.
+mat_empty : forall ck env v s.
 true
 ==>
-evaluate_match_i2 ck env s v [] err_v (s, Rerr (Rraise err_v))
+evaluate_match_i2 ck env s v [] (s, Rerr Rtype_error)
 
 and
 
-mat_cons1 : forall ck genv env env' v p pes e bv err_v s count.
+mat_cons1 : forall ck genv env env' v p pes e bv s count.
 List.allDistinct (pat_bindings_i2 p []) &&
 (pmatch_i2 s p v env = Match env') &&
 evaluate_i2 ck (genv,env') (count,s) e bv
 ==>
-evaluate_match_i2 ck (genv,env) (count,s) v ((p,e)::pes) err_v bv
+evaluate_match_i2 ck (genv,env) (count,s) v ((p,e)::pes) bv
 
 and
 
-mat_cons2 : forall ck genv env v p e pes bv s count err_v.
+mat_cons2 : forall ck genv env v p e pes bv s count.
 List.allDistinct (pat_bindings_i2 p []) &&
 (pmatch_i2 s p v env = No_match) &&
-evaluate_match_i2 ck (genv,env) (count,s) v pes err_v bv
+evaluate_match_i2 ck (genv,env) (count,s) v pes bv
 ==>
-evaluate_match_i2 ck (genv,env) (count,s) v ((p,e)::pes) err_v bv
+evaluate_match_i2 ck (genv,env) (count,s) v ((p,e)::pes) bv
 
 and
 
-mat_cons3 : forall ck genv env v p e pes s count err_v.
+mat_cons3 : forall ck genv env v p e pes s count.
 (pmatch_i2 s p v env = Match_type_error)
 ==>
-evaluate_match_i2 ck (genv,env) (count,s) v ((p,e)::pes) err_v ((count,s), Rerr Rtype_error)
+evaluate_match_i2 ck (genv,env) (count,s) v ((p,e)::pes) ((count,s), Rerr Rtype_error)
 
 and
 
-mat_cons4 : forall ck env v p e pes s err_v.
+mat_cons4 : forall ck env v p e pes s.
 not (List.allDistinct (pat_bindings_i2 p []))
 ==>
-evaluate_match_i2 ck env s v ((p,e)::pes) err_v (s, Rerr Rtype_error)
+evaluate_match_i2 ck env s v ((p,e)::pes) (s, Rerr Rtype_error)
 
 indreln [evaluate_dec_i2 : list (maybe v_i2) -> store v_i2 -> dec_i2 -> store v_i2 * result (list v_i2) v_i2 -> bool]
 
