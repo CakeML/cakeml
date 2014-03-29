@@ -1,5 +1,5 @@
 open HolKernel boolLib boolSimps bossLib lcsymtacs listTheory alistTheory pairTheory
-open Defn miscLib miscTheory intLang2Theory toIntLang2ProofTheory intLang3Theory intLang4Theory
+open Defn miscLib miscTheory intLang2Theory intLang3Theory intLang4Theory compilerTerminationTheory
 val _ = new_theory"toIntLang4Proof"
 
 fun register name def ind =
@@ -19,6 +19,8 @@ val (exp_to_i4_def, exp_to_i4_ind) =
 val _ = register "exp_to_i4" exp_to_i4_def exp_to_i4_ind;
 val _ = export_rewrites["exp_to_i4_def"
   ,"intLang4.uop_to_i4_def"
+  ,"intLang4.fo_i4_def"
+  ,"intLang4.ground_i4_def"
   ,"intLang4.pure_uop_i4_def"
   ,"intLang4.pure_op_def"]
 
@@ -360,7 +362,73 @@ val sIf_i4_correct = store_thm("sIf_i4_correct",
   simp[Once evaluate_i4_cases] >>
   simp[do_if_i4_def] >> rw[])
 
-(*
+val no_closures_i4_def = tDefine"no_closures_i4"`
+  (no_closures_i4 (Litv_i4 _) ⇔ T) ∧
+  (no_closures_i4 (Conv_i4 _ vs) ⇔ EVERY no_closures_i4 vs) ∧
+  (no_closures_i4 (Closure_i4 _ _) = F) ∧
+  (no_closures_i4 (Recclosure_i4 _ _ _) = F) ∧
+  (no_closures_i4 (Loc_i4 _) = T)`
+(WF_REL_TAC`measure v_i4_size`>>gen_tac>>Induct>>
+ simp[v_i4_size_def]>>rw[]>>res_tac>>simp[])
+val _ = export_rewrites["no_closures_i4_def"]
+
+val evaluate_i4_raise_rval = store_thm("evaluate_i4_raise_rval",
+  ``∀ck env s e s' v. ¬evaluate_i4 ck env s (Raise_i4 e) (s', Rval v)``,
+  rw[Once evaluate_i4_cases])
+val _ = export_rewrites["evaluate_i4_raise_rval"]
+
+val fo_i4_correct = store_thm("fo_i4_correct",
+  ``(∀e. fo_i4 e ⇒
+       ∀ck env s s' v.
+         evaluate_i4 ck env s e (s',Rval v) ⇒
+         no_closures_i4 v) ∧
+    (∀es. fo_list_i4 es ⇒
+       ∀ck env s s' vs.
+         evaluate_list_i4 ck env s es (s',Rval vs) ⇒
+         EVERY no_closures_i4 vs)``,
+  ho_match_mp_tac(TypeBase.induction_of(``:exp_i4``))>>
+  simp[] >> reverse(rpt conj_tac) >> rpt gen_tac >> strip_tac >>
+  simp[Once evaluate_i4_cases] >> rpt gen_tac >>
+  TRY strip_tac >> fs[] >> simp[PULL_EXISTS,ETA_AX] >>
+  TRY (metis_tac[])
+  >- (pop_assum mp_tac >> simp[Once evaluate_i4_cases])
+  >- (pop_assum mp_tac >> simp[Once evaluate_i4_cases,PULL_EXISTS])
+  >- (
+    simp[do_if_i4_def]>>
+    rpt gen_tac >>
+    rw[] >> metis_tac[] )
+  >- (
+    qmatch_assum_rename_tac`op ≠ Opapp`[]>>
+    rpt gen_tac >>
+    Cases_on`op`>>Cases_on`v1`>>TRY(Cases_on`l:lit`)>>Cases_on`v2`>>TRY(Cases_on`l:lit`)>>
+    simp[do_app_i4_def]>>rw[]>>fs[do_eq_i4_def]>>rw[]>>fs[]>>
+    qpat_assum`X = Y`mp_tac >> BasicProvers.CASE_TAC >> fs[] >> rw[] >> fs[] >>
+    qpat_assum`X = Y`mp_tac >> BasicProvers.CASE_TAC >> fs[] >> rw[] >> fs[] )
+  >- (
+    qmatch_assum_rename_tac`uop ≠ Opderef_i4`[]>>
+    rpt gen_tac >>
+    Cases_on`uop`>>fs[do_uapp_i4_def,LET_THM,semanticPrimitivesTheory.store_alloc_def]>>
+    TRY BasicProvers.CASE_TAC >> rw[] >> rw[]))
+
+val do_eq_no_closures_i4 = store_thm("do_eq_no_closures_i4",
+  ``(∀v1 v2. no_closures_i4 v1 ∧ no_closures_i4 v2 ⇒ do_eq_i4 v1 v2 ≠ Eq_closure) ∧
+    (∀vs1 vs2. EVERY no_closures_i4 vs1 ∧ EVERY no_closures_i4 vs2 ⇒ do_eq_list_i4 vs1 vs2 ≠ Eq_closure)``,
+  ho_match_mp_tac do_eq_i4_ind >>
+  rw[do_eq_i4_def,ETA_AX] >> fs[] >>
+  BasicProvers.CASE_TAC >> rw[] >> fs[])
+
+val evaluate_i4_determ = store_thm("evaluate_i4_determ",
+  ``(∀ck env s e res1. evaluate_i4 ck env s e res1 ⇒
+       ∀res2. evaluate_i4 ck env s e res2 ⇒ (res2 = res1)) ∧
+    (∀ck env s e res1. evaluate_list_i4 ck env s e res1 ⇒
+       ∀res2. evaluate_list_i4 ck env s e res2 ⇒ (res2 = res1))``,
+  ho_match_mp_tac evaluate_i4_ind >>
+  rpt conj_tac >>
+  rpt gen_tac >> strip_tac >>
+  simp_tac(srw_ss())[Once evaluate_i4_cases] >>
+  gen_tac >> strip_tac >>
+  rpt (res_tac >> fs[] >> rpt BasicProvers.VAR_EQ_TAC))
+
 val pure_i4_correct = store_thm("pure_i4_correct",
   ``(∀e. pure_i4 e ⇒
          ∀ck env s. (∃v. evaluate_i4 ck env s e (s,Rval v)) ∨
@@ -394,40 +462,251 @@ val pure_i4_correct = store_thm("pure_i4_correct",
     simp[Once evaluate_i4_cases] )
   >- (
     qmatch_assum_rename_tac`pure_op op`[] >>
-    last_x_assum(qspecl_then[`ck`,`env`,`s`]strip_assume_tac) >- (
+    qmatch_assum_rename_tac`pure_i4 e2`[] >>
+    qpat_assum`pure_i4 e2`mp_tac >>
+    qmatch_assum_rename_tac`pure_i4 e1`[] >>
+    strip_tac >>
+    Cases_on`evaluate_i4 ck env s (App_i4 op e1 e2) (s,Rerr Rtype_error)` >> simp[] >>
+    fs[SIMP_RULE(srw_ss())[](Q.SPECL [`ck`,`env`,`s`,`App_i4 op e1 e2`](CONJUNCT1 evaluate_i4_cases))] >>
+    last_x_assum(qspecl_then[`ck`,`env`,`s`]strip_assume_tac) >> fs[] >>
+    first_x_assum(qspecl_then[`v`,`s`]mp_tac)>>simp[]>>strip_tac>>
+    last_x_assum(qspecl_then[`ck`,`env`,`s`]strip_assume_tac) >> fs[] >>
+    qmatch_assum_rename_tac`evaluate_i4 ck env s e2 (s,Rval v2)`[]>>
+    PairCases_on`s`>>fs[]>>
+    first_x_assum(qspecl_then[`v`,`v2`,`((s0,s1),s2)`]mp_tac)>>simp[]>>strip_tac>>
+    Cases_on`do_app_i4 env s1 op v v2`>>fs[]>>
+    PairCases_on`x`>>
+    first_x_assum(qspecl_then[`v`,`v2`,`x0`,`x2`,`(s0,s1),s2`,`s1`,`s0`,`x1`,`s2`]mp_tac)>>
+    simp[]>>
+    Cases_on`op=Opapp`>>fs[]>>strip_tac>>
+    CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
+    map_every qexists_tac[`s2`,`x1`,`s0`,`s1`,`(s0,s1),s2`,`x2`,`x0`,`v2`,`v`]>>
+    simp[]>>
+    Cases_on`op`>>Cases_on`v`>>TRY(Cases_on`l:lit`)>>Cases_on`v2`>>TRY(Cases_on`l:lit`)>>
+    fs[do_app_i4_def] >> rfs[] >> rw[bigStepTheory.dec_count_def] )
+  >- (
+    qmatch_assum_rename_tac`pure_i4 e2`[] >>
+    qpat_assum`pure_i4 e2`mp_tac >>
+    qmatch_assum_rename_tac`pure_i4 e1`[] >>
+    strip_tac >>
+    Cases_on`evaluate_i4 ck env s (App_i4 Equality e1 e2) (s,Rerr Rtype_error)` >> simp[] >>
+    fs[SIMP_RULE(srw_ss())[](Q.SPECL [`ck`,`env`,`s`,`App_i4 op e1 e2`](CONJUNCT1 evaluate_i4_cases))] >>
+    last_x_assum(qspecl_then[`ck`,`env`,`s`]strip_assume_tac) >> fs[] >>
+    first_x_assum(qspecl_then[`v`,`s`]mp_tac)>>simp[]>>strip_tac>>
+    last_x_assum(qspecl_then[`ck`,`env`,`s`]strip_assume_tac) >> fs[] >>
+    qmatch_assum_rename_tac`evaluate_i4 ck env s e2 (s,Rval v2)`[]>>
+    PairCases_on`s`>>fs[]>>
+    first_x_assum(qspecl_then[`v`,`v2`,`((s0,s1),s2)`]mp_tac)>>simp[]>>strip_tac>>
+    Cases_on`do_app_i4 env s1 Equality v v2`>>fs[]>>
+    PairCases_on`x`>>
+    first_x_assum(qspecl_then[`v`,`v2`,`x0`,`x2`,`(s0,s1),s2`,`s1`,`s0`,`x1`,`s2`]mp_tac)>>
+    simp[]>> strip_tac>>
+    CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
+    map_every qexists_tac[`s2`,`x1`,`s0`,`s1`,`(s0,s1),s2`,`x2`,`x0`,`v2`,`v`]>>
+    fs[do_app_i4_def] >>
+    imp_res_tac fo_i4_correct >>
+    Cases_on`do_eq_i4 v v2`>>fs[]>>rw[bigStepTheory.dec_count_def]>>
+    imp_res_tac do_eq_no_closures_i4 )
+  >- (
+    qmatch_abbrev_tac`X ∨ Y`>>
+    Cases_on`Y`>>fs[markerTheory.Abbrev_def]>>
+    fs[SIMP_RULE(srw_ss())[](Q.SPECL [`ck`,`env`,`s`,`If_i4 e1 e2 e3`](CONJUNCT1 evaluate_i4_cases))] >>
+    last_x_assum(qspecl_then[`ck`,`env`,`s`]strip_assume_tac) >> fs[] >>
+    first_x_assum(qspec_then`v`strip_assume_tac)>>fs[]>>
+    qmatch_assum_rename_tac`do_if_i4 v1 e2 e3 ≠ NONE`[]>>
+    Cases_on`do_if_i4 v1 e2 e3`>>fs[]>>
+    first_x_assum(qspecl_then[`v1`,`x`,`s`]strip_assume_tac)>>fs[]>>
+    rw[] >> fs[do_if_i4_def] >>
+    CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
+    map_every qexists_tac[`s`,`x`,`v1`] >>
+    rw[] >>
+    qpat_assum`X = Y`mp_tac >> rw[] >>
+    metis_tac[] )
+  >- (
+    qmatch_abbrev_tac`X ∨ Y`>>
+    Cases_on`Y`>>fs[markerTheory.Abbrev_def]>>rw[]>>
+    fs[SIMP_RULE(srw_ss())[](Q.SPECL [`ck`,`env`,`s`,`Let_i4 e1 e2`](CONJUNCT1 evaluate_i4_cases))] >>
+    last_x_assum(qspecl_then[`ck`,`env`,`s`]strip_assume_tac) >> fs[] >>
+    first_x_assum(qspecl_then[`v`,`s`]strip_assume_tac)>>fs[]>>
+    metis_tac[] )
+  >- (
+    simp[Once evaluate_i4_cases] >>
+    Q.PAT_ABBREV_TAC`renv = build_rec_env_i4 X Y ++ z` >>
+    first_x_assum(qspecl_then[`ck`,`renv`,`s`]strip_assume_tac) >> fs[] >-
+      metis_tac[] >>
+    disj2_tac >>
+    simp[Once evaluate_i4_cases] )
+  >- simp[Once evaluate_i4_cases]
+  >- (
+    simp[Once evaluate_i4_cases] >>
+    simp[SIMP_RULE(srw_ss())[](Q.SPECL [`ck`,`env`,`s`,`e::es`](CONJUNCT2 evaluate_i4_cases))] >>
+    metis_tac[]))
+
+val TAKE_CONS = prove(
+  ``TAKE (n+1) env = v::TAKE n env2 ⇔ ∃env1. env = v::env1 ∧ TAKE n env1 = TAKE n env2``,
+  Cases_on`env`>>simp[])
+
+val ground_i4_correct = store_thm("ground_i4_correct",
+  ``(∀e n. ground_i4 n e ⇒
+      (∀ck env1 env2 s res.
+          n ≤ LENGTH env1 ∧ n ≤ LENGTH env2 ∧
+          (TAKE n env2 = TAKE n env1) ∧
+          evaluate_i4 ck env1 s e res ⇒
+          evaluate_i4 ck env2 s e res)) ∧
+    (∀es n. ground_list_i4 n es ⇒
+      (∀ck env1 env2 s res.
+          n ≤ LENGTH env1 ∧ n ≤ LENGTH env2 ∧
+          (TAKE n env2 = TAKE n env1) ∧
+          evaluate_list_i4 ck env1 s es res ⇒
+          evaluate_list_i4 ck env2 s es res))``,
+  ho_match_mp_tac(TypeBase.induction_of(``:exp_i4``)) >>
+  rw[] >> pop_assum mp_tac >- (
+    rw[Once evaluate_i4_cases] >>
+    simp[Once evaluate_i4_cases] >>
+    metis_tac[] )
+  >- (
+    first_x_assum(qspec_then`n+1`strip_assume_tac)>>
+    first_x_assum(qspec_then`n`strip_assume_tac)>>
+    rfs[] >>
+    first_x_assum(qspecl_then[`ck`,`env1`,`env2`,`s`]mp_tac) >>
+    simp[] >> strip_tac >>
+    rw[Once evaluate_i4_cases] >>
+    res_tac >>
+    simp[Once evaluate_i4_cases] >>
+    fsrw_tac[ARITH_ss][TAKE_CONS,PULL_EXISTS,arithmeticTheory.ADD1] >>
+    metis_tac[] )
+  >- (
+    rw[Once evaluate_i4_cases] >>
+    simp[Once evaluate_i4_cases] >>
+    metis_tac[] )
+  >- (
+    rw[Once evaluate_i4_cases] >>
+    simp[Once evaluate_i4_cases] >>
+    fs[LIST_EQ_REWRITE] >>
+    rfs[rich_listTheory.EL_TAKE] )
+  >- (
+    rw[Once evaluate_i4_cases] >>
+    simp[Once evaluate_i4_cases] )
+  >- (
+    rw[Once evaluate_i4_cases] >>
+    simp[Once evaluate_i4_cases] >>
+    metis_tac[] )
+  >- (
+    rpt(first_x_assum(qspec_then`n`strip_assume_tac)) >> rfs[] >>
+    first_x_assum(qspecl_then[`ck`,`env1`,`env2`,`s`]mp_tac) >>
+    simp[] >> strip_tac >>
+    reverse(rw[Once evaluate_i4_cases])
+    >- simp[Once evaluate_i4_cases]
+    >- (
       simp[Once evaluate_i4_cases] >>
-      qmatch_abbrev_tac`X ∨ Y` >> qunabbrev_tac`Y` >>
+      metis_tac[] ) >>
+    TRY (
+      qmatch_assum_rename_tac`do_app_i4 env1 s3 Opapp v1 v2 = SOME X`["X"] >>
+      rw[Once evaluate_i4_cases] >>
+      disj2_tac >> disj1_tac >>
+      map_every qexists_tac[`v1`,`v2`] >>
+      fs[do_app_i4_def]>>Cases_on`v1`>>fs[]>>rw[]>>
+      metis_tac[] )
+    >- (
+      qmatch_assum_rename_tac`do_app_i4 env1 s3 op v1 v2 = X`["X"] >>
       simp[Once evaluate_i4_cases] >>
-      Cases_on`op`>>fs[do_app_i4_def,Abbr`X`]
+      disj2_tac >> disj1_tac >>
+      map_every qexists_tac[`v1`,`v2`,`s2`] >>
+      conj_tac >- metis_tac[] >>
+      conj_tac >- metis_tac[] >>
+      Cases_on`op`>>Cases_on`v1`>>TRY(Cases_on`l:lit`)>>fs[do_app_i4_def]>>
+      Cases_on`v2`>>TRY(Cases_on`l:lit`)>>fs[do_app_i4_def,do_eq_i4_def]>>
+      rw[]>>fs[]>>fs[]>>rfs[]>>
+      pop_assum mp_tac >> BasicProvers.CASE_TAC ) >>
+    qmatch_assum_rename_tac`do_app_i4 env1 s3 op v1 v2 = X`["X"] >>
+    simp[Once evaluate_i4_cases] >>
+    disj1_tac >>
+    map_every qexists_tac[`v1`,`v2`] >>
+    CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
+    qexists_tac`genv3` >>
+    CONV_TAC SWAP_EXISTS_CONV >>
+    qexists_tac`count'` >>
+    CONV_TAC SWAP_EXISTS_CONV >>
+    qexists_tac`s3` >>
+    CONV_TAC SWAP_EXISTS_CONV >>
+    qexists_tac`s2` >>
+    simp[GSYM PULL_EXISTS] >>
+    conj_tac >- metis_tac[] >>
+    Cases_on`op`>>Cases_on`v1`>>TRY(Cases_on`l:lit`)>>fs[do_app_i4_def]>>
+    Cases_on`v2`>>TRY(Cases_on`l:lit`)>>fs[do_app_i4_def,do_eq_i4_def]>>
+    rw[]>>fs[]>>fs[]>>rfs[]>>rw[]>>fs[]>>
+    BasicProvers.CASE_TAC>>fs[]>>rw[]>>fs[])
+  >- (
+    reverse(rw[Once evaluate_i4_cases]) >>
+    simp[Once evaluate_i4_cases]
+    >- metis_tac[]
+    >- metis_tac[] >>
+    disj1_tac >>
+    qexists_tac`v` >>
+    qpat_assum`do_if_i4 X Y Z = A`mp_tac >>
+    simp[do_if_i4_def] >>
+    rw[] >>
+    metis_tac[] )
+  >- (
+    first_x_assum(qspec_then`n+1`strip_assume_tac)>>
+    first_x_assum(qspec_then`n`strip_assume_tac)>>
+    rfs[] >>
+    first_x_assum(qspecl_then[`ck`,`env1`,`env2`,`s`]mp_tac) >>
+    simp[] >> strip_tac >>
+    rw[Once evaluate_i4_cases] >>
+    res_tac >>
+    simp[Once evaluate_i4_cases] >>
+    fsrw_tac[ARITH_ss][TAKE_CONS,PULL_EXISTS,arithmeticTheory.ADD1] >>
+    metis_tac[] )
+  >- (
+    rw[Once evaluate_i4_cases] >>
+    simp[Once evaluate_i4_cases] >>
+    metis_tac[] )
+  >- (
+    rw[Once evaluate_i4_cases] >>
+    simp[Once evaluate_i4_cases] >>
+    metis_tac[] )
+  >- (
+    rw[Once evaluate_i4_cases] >>
+    simp[Once evaluate_i4_cases] >>
+    metis_tac[] ))
 
-      last_x_assum(qspecl_then[`ck`,`env`,`s`]strip_assume_tac) >- (
-        simp[Once evaluate_i4_cases] >>
-        Cases_on`op`>>fs[do_app_i4_def]
-
-
-  simp[Once evaluate_i4_cases] >>
+val sLet_i4_thm = store_thm("sLet_i4_thm",
+  ``sLet_i4 e1 e2 =
+    if e2 = Var_local_i4 0 then e1 else
+    if pure_i4 e1 ∧ ground_i4 0 e2 then e2 else
+    Let_i4 e1 e2``,
+  Cases_on`e2`>>rw[sLet_i4_def]>>
+  Cases_on`n`>>rw[sLet_i4_def])
 
 val sLet_i4_correct = store_thm("sLet_i4_correct",
   ``∀ck env s e1 e2 res.
-    evaluate_i4 ck env s (Let_i4 e1 e2) res ⇒
+    evaluate_i4 ck env s (Let_i4 e1 e2) res ∧
+    SND res ≠ Rerr Rtype_error ⇒
     evaluate_i4 ck env s (sLet_i4 e1 e2) res``,
-  rpt gen_tac >>
-  reverse(Cases_on`e2`) >> rw[sLet_i4_def] >- (
-    Cases_on`n`>>rw[sLet_i4_def]>>
+  rw[sLet_i4_thm] >- (
+    last_x_assum mp_tac >>
+    simp[Once evaluate_i4_cases] >>
+    rw[] >> rw[] >>
     pop_assum mp_tac >>
-    rw[Once evaluate_i4_cases] >> rw[] >>
-    pop_assum mp_tac >>
-    simp[Once evaluate_i4_cases] ) >>
-  pop_assum mp_tac >>
-  rw[Once evaluate_i4_cases]
-*)
+    rw[Once evaluate_i4_cases] ) >>
+  qpat_assum`evaluate_i4 A B C D E` mp_tac >>
+  imp_res_tac pure_i4_correct >>
+  first_x_assum(qspecl_then[`s`,`env`,`ck`]strip_assume_tac) >>
+  rw[Once evaluate_i4_cases] >> rw[] >>
+  imp_res_tac evaluate_i4_determ >> fs[] >> rw[] >>
+  qspecl_then[`e2`,`0`]mp_tac(CONJUNCT1 ground_i4_correct) >>
+  rw[] >> res_tac >>
+  metis_tac[])
 
 val Let_Els_i4_correct = prove(
   ``∀n k e tag vs env ck s res us.
     LENGTH us = n ∧ k ≤ LENGTH vs ∧
-    evaluate_i4 ck (TAKE k vs ++ us ++ (Conv_i4 tag vs::env)) s e res ⇒
+    evaluate_i4 ck (TAKE k vs ++ us ++ (Conv_i4 tag vs::env)) s e res ∧
+    SND res ≠ Rerr Rtype_error ⇒
     evaluate_i4 ck (us ++ (Conv_i4 tag vs::env)) s (Let_Els_i4 n k e) res``,
   ho_match_mp_tac Let_Els_i4_ind >> rw[Let_Els_i4_def] >>
+  match_mp_tac sLet_i4_correct >>
   rw[Once evaluate_i4_cases] >>
   disj1_tac >>
   rw[Once evaluate_i4_cases] >>
@@ -448,7 +727,7 @@ val Let_Els_i4_correct = prove(
   ``∀n k e tag vs env ck s res us enve.
     LENGTH us = n ∧ k ≤ LENGTH vs ∧
     evaluate_i4 ck (TAKE k vs ++ us ++ (Conv_i4 tag vs::env)) s e res ∧
-    (enve = us ++ (Conv_i4 tag vs::env))
+    (enve = us ++ (Conv_i4 tag vs::env)) ∧ SND res ≠ Rerr Rtype_error
     ⇒
     evaluate_i4 ck enve s (Let_Els_i4 n k e) res``,
   metis_tac[Let_Els_i4_correct])
@@ -535,6 +814,8 @@ val pmatch_list_i2_pairwise = store_thm("pmatch_list_i2_pairwise",
   Induct >> Cases_on`vs` >> simp[pmatch_i2_def] >>
   rpt gen_tac >> BasicProvers.CASE_TAC >> strip_tac >>
   res_tac >> simp[] >> metis_tac[pmatch_list_i2_any])
+
+(*
 
 val pat_to_i4_Match = prove(
   ``(∀p v s env env' env4 ck count genv.
@@ -1061,6 +1342,7 @@ val exp_to_i4_correct = store_thm("exp_to_i4_correct",
   strip_tac >- rw[] >>
   rw[])
 
+*)
 
 (*
 (* 0 = SOME, 1 = NONE, 2 = INL, 3 = INR, 4 = NIL, 5 = CONS, 6 = PAIR *)
