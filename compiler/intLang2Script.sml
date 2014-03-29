@@ -147,7 +147,7 @@ val _ = Hol_datatype `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn pat_bindings_i2_defn;
 
-val _ = type_abbrev( "flat_tag_env" , ``: (conN, num) fmap``);
+val _ = type_abbrev( "flat_tag_env" , ``: (conN, (num #  ( conN list)option)) fmap``);
 val _ = type_abbrev( "tag_env" , ``: (modN, flat_tag_env) fmap # flat_tag_env``);
 
 (*val lookup_tag_flat : conN -> flat_tag_env -> nat*)
@@ -155,7 +155,7 @@ val _ = Define `
  (lookup_tag_flat cn ftagenv =  
 ((case FLOOKUP ftagenv cn of
       NONE => tuple_tag
-    | SOME n => n
+    | SOME (n,ctors) => n
   )))`;
 
 
@@ -274,22 +274,22 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (* The constructor names that are in scope, the global mapping of constructor
  * names (with types so that they are unique), and its inverse. *)
-val _ = type_abbrev( "tagenv_state" , ``: num # tag_env # (num, (conN # tid_or_exn)) fmap # (conN # num) list``);
+val _ = type_abbrev( "tagenv_state" , ``: num # tag_env # (num, (conN # tid_or_exn)) fmap # (conN # (num #  ( conN list)option)) list``);
 
 val _ = Define `
  (get_tagenv (next,tagenv,inv0,acc) = tagenv)`;
 
 
-(*val insert_tag_env : conN -> nat -> tag_env -> tag_env*)
+(*val insert_tag_env : conN -> (nat * maybe (list conN)) -> tag_env  -> tag_env*)
 val _ = Define `
  (insert_tag_env cn tag (mtagenv,ftagenv) =
   (mtagenv,ftagenv |+ (cn, tag)))`;
 
 
-(*val alloc_tag : tid_or_exn -> conN -> tagenv_state -> tagenv_state*)
+(*val alloc_tag : maybe (list conN) -> tid_or_exn -> conN -> tagenv_state -> tagenv_state*)
 val _ = Define `
- (alloc_tag tn cn (next,tagenv,inv0,acc) =
-  ((next+ 1),insert_tag_env cn next tagenv,inv0 |+ (next, (cn,tn)), ((cn,next)::acc)))`;
+ (alloc_tag all_ctors tn cn (next,tagenv,inv0,acc) =
+  ((next+ 1),insert_tag_env cn (next,all_ctors) tagenv,inv0 |+ (next, (cn,tn)), ((cn,(next,all_ctors))::acc)))`;
 
 
 (*val alloc_tags : maybe modN -> tagenv_state -> type_def -> tagenv_state*)
@@ -298,8 +298,9 @@ val _ = Define `
 (alloc_tags mn st [] = st)
 /\
 (alloc_tags mn st ((tvs,tn,constrs)::types) =  
- (let st' =    
-(FOLDL (\ st' (cn,ts) .  alloc_tag (TypeId (mk_id mn tn)) cn st') st constrs)
+ (let all_constrs = (SOME (MAP (\ (cn,ts) .  cn) constrs)) in
+  let st' =    
+(FOLDL (\ st' (cn,ts) .  alloc_tag all_constrs (TypeId (mk_id mn tn)) cn st') st constrs)
   in
     alloc_tags mn st' types))`;
 
@@ -320,11 +321,11 @@ val _ = Define `
     | Dtype_i1 mn type_def =>
         decs_to_i2 (alloc_tags mn st type_def) ds
     | Dexn_i1 mn cn ts =>
-        decs_to_i2 (alloc_tag (TypeExn (mk_id mn cn)) cn st) ds
+        decs_to_i2 (alloc_tag NONE (TypeExn (mk_id mn cn)) cn st) ds
   )))`;
 
 
-(*val mod_tagenv : maybe modN -> list (conN * nat) -> tag_env -> tag_env*)
+(*val mod_tagenv : maybe modN -> list (conN * (nat * maybe (list conN))) -> tag_env -> tag_env*)
 val _ = Define `
  (mod_tagenv mn l (mtagenv,tagenv) =  
 ((case mn of
@@ -851,11 +852,11 @@ val _ = Define `
  (init_tagenv_state =
   ( 6,
    (FEMPTY,
-    FUPDATE_LIST FEMPTY [("Div", div_tag); 
-                  ("Bind", bind_tag); 
-                  ("Eq", eq_tag); 
-                  ("::", cons_tag);
-                  ("nil", nil_tag)]),
+    FUPDATE_LIST FEMPTY [("Div", (div_tag, NONE)); 
+                  ("Bind", (bind_tag,NONE)); 
+                  ("Eq", (eq_tag, NONE)); 
+                  ("::", (cons_tag, SOME ["::"; "nil"]));
+                  ("nil", (nil_tag, SOME ["::"; "nil"]))]),
    FUPDATE_LIST FEMPTY [(div_tag, ("Div", TypeExn (Short "Div"))); 
                  (bind_tag, ("Bind", TypeExn (Short "Bind"))); 
                  (eq_tag, ("Eq", TypeExn (Short "Eq"))); 

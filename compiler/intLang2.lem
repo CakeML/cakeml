@@ -110,14 +110,16 @@ and
 pats_bindings_i2 (p::ps) already_bound =
   pats_bindings_i2 ps (pat_bindings_i2 p already_bound)
 
-type flat_tag_env = Map.map conN nat
+(* Maps a constructor name to its tag and to all of the constructor names of
+ * its type, for use in exhaustiveness checking *)
+type flat_tag_env = Map.map conN (nat * maybe (list conN))
 type tag_env = Map.map modN flat_tag_env * flat_tag_env
 
 val lookup_tag_flat : conN -> flat_tag_env -> nat
 let lookup_tag_flat cn ftagenv =
   match Map.lookup cn ftagenv with
     | Nothing -> tuple_tag
-    | Just n -> n
+    | Just (n,ctors) -> n
   end
 
 val lookup_tag_env : maybe (id conN) -> tag_env -> nat
@@ -221,25 +223,26 @@ funs_to_i2 tagenv ((f,x,e)::funs) =
 
 (* The constructor names that are in scope, the global mapping of constructor
  * names (with types so that they are unique), and its inverse. *)
-type tagenv_state = nat * tag_env * map nat (conN * tid_or_exn) * list (conN * nat)
+type tagenv_state = nat * tag_env * map nat (conN * tid_or_exn) * list (conN * (nat * maybe (list conN)))
 
 let get_tagenv (next,tagenv,inv,acc) = tagenv
 
-val insert_tag_env : conN -> nat -> tag_env -> tag_env
+val insert_tag_env : conN -> (nat * maybe (list conN)) -> tag_env  -> tag_env
 let insert_tag_env cn tag (mtagenv,ftagenv) =
   (mtagenv,Map.insert cn tag ftagenv)
 
-val alloc_tag : tid_or_exn -> conN -> tagenv_state -> tagenv_state
-let alloc_tag tn cn (next,tagenv,inv,acc) =
-  (next+1,insert_tag_env cn next tagenv, Map.insert next (cn,tn) inv, (cn,next)::acc)
+val alloc_tag : maybe (list conN) -> tid_or_exn -> conN -> tagenv_state -> tagenv_state
+let alloc_tag all_ctors tn cn (next,tagenv,inv,acc) =
+  (next+1,insert_tag_env cn (next,all_ctors) tagenv, Map.insert next (cn,tn) inv, (cn,(next,all_ctors))::acc)
 
 val alloc_tags : maybe modN -> tagenv_state -> type_def -> tagenv_state
 let rec 
 alloc_tags mn st [] = st
 and
 alloc_tags mn st ((tvs,tn,constrs)::types) = 
+  let all_constrs = Just (List.map (fun (cn,ts) -> cn) constrs) in
   let st' =
-    List.foldl (fun st' (cn,ts) -> alloc_tag (TypeId (mk_id mn tn)) cn st') st constrs
+    List.foldl (fun st' (cn,ts) -> alloc_tag all_constrs (TypeId (mk_id mn tn)) cn st') st constrs
   in
     alloc_tags mn st' types
 
@@ -260,12 +263,12 @@ decs_to_i2 st (d::ds) =
     | Dtype_i1 mn type_def ->
         decs_to_i2 (alloc_tags mn st type_def) ds
     | Dexn_i1 mn cn ts ->
-        decs_to_i2 (alloc_tag (TypeExn (mk_id mn cn)) cn st) ds
+        decs_to_i2 (alloc_tag Nothing (TypeExn (mk_id mn cn)) cn st) ds
   end
 
 declare termination_argument decs_to_i2 = automatic
 
-val mod_tagenv : maybe modN -> list (conN * nat) -> tag_env -> tag_env
+val mod_tagenv : maybe modN -> list (conN * (nat * maybe (list conN))) -> tag_env -> tag_env
 let mod_tagenv mn l (mtagenv,tagenv) =
   match mn with
     | Nothing -> (mtagenv,List.foldl (fun env (k,v) -> Map.insert k v env) tagenv l)
@@ -875,11 +878,11 @@ val init_tagenv_state : (nat * tag_env * map nat (conN * tid_or_exn))
 let init_tagenv_state =
   (6,
    (Map.empty,
-    Map.fromList [("Div", div_tag); 
-                  ("Bind", bind_tag); 
-                  ("Eq", eq_tag); 
-                  ("::", cons_tag);
-                  ("nil", nil_tag)]),
+    Map.fromList [("Div", (div_tag, Nothing)); 
+                  ("Bind", (bind_tag,Nothing)); 
+                  ("Eq", (eq_tag, Nothing)); 
+                  ("::", (cons_tag, Just ["::"; "nil"]));
+                  ("nil", (nil_tag, Just ["::"; "nil"]))]),
    Map.fromList [(div_tag, ("Div", TypeExn (Short "Div"))); 
                  (bind_tag, ("Bind", TypeExn (Short "Bind"))); 
                  (eq_tag, ("Eq", TypeExn (Short "Eq"))); 
