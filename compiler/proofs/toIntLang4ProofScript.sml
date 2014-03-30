@@ -266,8 +266,8 @@ val evaluate_i3_preserves_good = store_thm("evaluate_i3_preserves_good",
       good_env_s_i2 env s ⇒
       good_env_s_i2 env (FST ress) ∧
       every_result good_vs_i2 good_v_i2 (SND ress)) ∧
-    (∀ck env s v pes ev res. evaluate_match_i3 ck env s v pes ev res ⇒
-      good_env_s_i2 env s ∧ good_v_i2 v ∧ good_v_i2 ev ⇒
+    (∀ck env s v pes res. evaluate_match_i3 ck env s v pes res ⇒
+      good_env_s_i2 env s ∧ good_v_i2 v ⇒
       good_env_s_i2 env (FST res) ∧
       every_result good_v_i2 good_v_i2 (SND res))``,
   ho_match_mp_tac evaluate_i3_ind >>
