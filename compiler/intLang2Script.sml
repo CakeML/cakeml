@@ -147,6 +147,8 @@ val _ = Hol_datatype `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn pat_bindings_i2_defn;
 
+(* Maps a constructor name to its tag and to all of the constructor names of
+ * its type, for use in exhaustiveness checking *)
 val _ = type_abbrev( "flat_tag_env" , ``: (conN, (num #  ( conN list)option)) fmap``);
 val _ = type_abbrev( "tag_env" , ``: (modN, flat_tag_env) fmap # flat_tag_env``);
 
