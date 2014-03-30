@@ -562,23 +562,29 @@ rw [] >|
 
 val dec_evaluate_not_timeout = Q.store_thm ("dec_evaluate_not_timeout",
 `!mn s env d s' r.
-  evaluate_dec mn env s d (s', r) ⇒ r ≠ Rerr Rtimeout_error`,
+  evaluate_dec F mn env s d (s', r) ⇒ r ≠ Rerr Rtimeout_error`,
 rw [evaluate_dec_cases] >>
+PairCases_on `s''` >>
+PairCases_on `s'''` >>
 metis_tac [big_unclocked]);
 
 val decs_evaluate_not_timeout = Q.store_thm ("decs_evaluate_not_timeout",
-`!mn env s ds r.
-  evaluate_decs mn env s ds r ⇒
-    !s' cenv' r'. r = (s', cenv', r') ⇒ r' ≠ Rerr Rtimeout_error`,
+`!ck mn env s ds r.
+  evaluate_decs ck mn env s ds r ⇒
+    !s' cenv' r'. ck = F ∧ r = (s', cenv', r') ⇒ r' ≠ Rerr Rtimeout_error`,
 ho_match_mp_tac evaluate_decs_ind >>
-rw [] >-
-metis_tac [dec_evaluate_not_timeout] >>
+rw [] >>
+rw []
+>- (CCONTR_TAC >>
+    fs [] >>
+    imp_res_tac dec_evaluate_not_timeout >>
+    fs []) >>
 cases_on `r` >>
 rw [combine_dec_result_def]);
 
 val top_evaluate_not_timeout = Q.store_thm ("top_evaluate_not_timeout",
 `!mn env s top s' cenv' r.
-  evaluate_top env s top (s', cenv', r) ⇒ r ≠ Rerr Rtimeout_error`,
+  evaluate_top F env s top (s', cenv', r) ⇒ r ≠ Rerr Rtimeout_error`,
 rw [evaluate_top_cases] >>
 metis_tac [dec_evaluate_not_timeout, decs_evaluate_not_timeout]);
 

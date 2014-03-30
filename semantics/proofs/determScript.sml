@@ -34,10 +34,10 @@ rw [] >>
 metis_tac []);
 
 val dec_determ = Q.store_thm ("dec_determ",
-`!mn s env d r1.
-  evaluate_dec mn env s d r1 ⇒
+`!ck mn s env d r1.
+  evaluate_dec ck mn env s d r1 ⇒
   !r2.
-    evaluate_dec mn env s d r2
+    evaluate_dec ck mn env s d r2
     ⇒
     (r1 = r2)`,
 rw [evaluate_dec_cases] >>
@@ -45,10 +45,10 @@ metis_tac [big_exp_determ, result_11,
 result_distinct,PAIR_EQ,NOT_EXISTS,NOT_EVERY, match_result_11, match_result_distinct, optionTheory.SOME_11]);
 
 val decs_determ = Q.store_thm ("decs_determ",
-`!mn env s ds r1.
-  evaluate_decs mn env s ds r1 ⇒
+`!ck mn env s ds r1.
+  evaluate_decs ck mn env s ds r1 ⇒
   !r2.
-    evaluate_decs mn env s ds r2
+    evaluate_decs ck mn env s ds r2
     ⇒
     (r1 = r2)`,
 HO_MATCH_MP_TAC evaluate_decs_ind >>
@@ -60,10 +60,10 @@ metis_tac [dec_determ, result_11, result_distinct,PAIR_EQ,
            match_result_11, match_result_distinct, optionTheory.SOME_11]);
 
 val top_determ = Q.store_thm ("top_determ",
-`!env s top r1.
-  evaluate_top env s top r1 ⇒
+`!ck env s top r1.
+  evaluate_top ck env s top r1 ⇒
   !r2.
-    evaluate_top env s top r2
+    evaluate_top ck env s top r2
     ⇒
     (r1 = r2)`,
 rw [evaluate_top_cases] >>
@@ -72,10 +72,10 @@ metis_tac [dec_determ, result_11, result_distinct,PAIR_EQ,
            decs_determ]);
 
 val prog_determ = Q.store_thm ("prog_determ",
-`!env s ds r1.
-  evaluate_prog env s ds r1 ⇒
+`!ck env s ds r1.
+  evaluate_prog ck env s ds r1 ⇒
   !r2.
-    evaluate_prog env s ds r2
+    evaluate_prog ck env s ds r2
     ⇒
     (r1 = r2)`,
 HO_MATCH_MP_TAC evaluate_prog_ind >>

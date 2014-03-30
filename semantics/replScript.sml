@@ -12,12 +12,12 @@ repl_state = <| (* Elaborator state *)
                 (* Type system state *)
                 tdecs : decls; tenvM : tenvM; tenvC : tenvC; tenv : tenvE;
                 (* Semantics state *)
-                envM : envM; envC : envC; store : (v store # tid_or_exn set # modN set); envE : envE |>`;
+                envM : envM; envC : envC; store : (v count_store # tid_or_exn set # modN set); envE : envE |>`;
 
 val init_repl_state_def = Define`
   init_repl_state = <| type_bindings := init_type_bindings;
                        tdecs := init_decls; tenvM := []; tenvC := init_tenvC; tenv := init_tenv;
-                       envM := []; envC := init_envC; store := ([],{},{}); envE := init_env |>`
+                       envM := []; envC := init_envC; store := ((0,[]),{},{}); envE := init_env |>`
 
 val _ = Hol_datatype `
 repl_result =
@@ -43,7 +43,8 @@ update_repl_state ast state type_bindings tdecs tenvM tenvC tenv store envC r =
         * can't be defined later.  To avoid the situation where a failing module
         * defines some datatype constructors and puts them into the store before
         * failing. *)
-        state with <| tdecs := (case state.tdecs of 
+        state with <| store := store;
+                      tdecs := (case state.tdecs of 
                                  (mdecs,tdecs,edecs) => 
                                    set (MAP FST tenvM) ∪ mdecs, tdecs, edecs) |>`;
 
@@ -107,6 +108,9 @@ val tenv_to_string_map_def = Define `
 (tenv_to_string_map ((x, (_, t)) :: tenv) ⇔
   tenv_to_string_map tenv |+ (x, type_to_string t))`;
 
+val remove_count_def = Define `
+remove_count ((count,store),tdecls,mods) = (store,tdecls,mods)`;
+
 val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
 
 (!state.
@@ -115,7 +119,7 @@ val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
 (!state type_errors ast asts top rest type_bindings' tdecs' tenvM' tenvC' tenv' store' envC' r.
   (elab_top state.type_bindings ast = (type_bindings', top)) ∧
   (type_top state.tdecs state.tenvM state.tenvC state.tenv top tdecs' tenvM' tenvC' tenv') ∧
-  evaluate_top (state.envM, state.envC, state.envE) state.store top (store',envC',r) ∧
+  evaluate_top F (state.envM, state.envC, state.envE) state.store top (store',envC',r) ∧
   ast_repl (update_repl_state top state type_bindings' tdecs' tenvM' tenvC' tenv' store' envC' r) type_errors asts rest
   ⇒
   ast_repl state (F::type_errors) (SOME ast::asts) (Result (print_result (tenv_to_string_map tenv') top envC' r) rest)) ∧
@@ -124,7 +128,7 @@ val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
   (elab_top state.type_bindings ast =
    (type_bindings', top)) ∧
   (type_top state.tdecs state.tenvM state.tenvC state.tenv top tdecs' tenvM' tenvC' tenv') ∧
-  top_diverges (state.envM, state.envC, state.envE) state.store top
+  top_diverges (state.envM, state.envC, state.envE) (remove_count state.store) top
   ⇒
   ast_repl state (F::type_errors) (SOME ast::asts) Diverge) ∧
 

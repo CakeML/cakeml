@@ -1444,14 +1444,14 @@ decs_type_sound_invariant mn tdecs1 tdecs2 ctMap tenvS tenvM tenvC tenv st menv 
   mn ∉ IMAGE SOME (FST tdecs1)`;
 
 val dec_type_soundness = Q.store_thm ("dec_type_soundness",
-`!mn tenvM tenvC tenv d tenvC' tenv' tenvS menv cenv env st tdecs1 tdecs1' tdecs2 ctMap.
+`!mn tenvM tenvC tenv d tenvC' tenv' tenvS ck menv cenv env count st tdecs1 tdecs1' tdecs2 ctMap.
   type_d mn tdecs1 tenvM tenvC tenv d tdecs1' tenvC' tenv' ∧
   decs_type_sound_invariant mn tdecs1 tdecs2 ctMap tenvS tenvM tenvC tenv st menv cenv env
   ⇒
   dec_diverges (menv,cenv,env) (st,tdecs2) d ∨
   ?st' r tenvS' tdecs2'. 
      (r ≠ Rerr Rtype_error) ∧ 
-     evaluate_dec mn (menv,cenv,env) (st,tdecs2) d ((st',tdecs2'), r) ∧
+     evaluate_dec F mn (menv,cenv,env) ((count,st),tdecs2) d (((count,st'),tdecs2'), r) ∧
      consistent_decls tdecs2' (union_decls tdecs1' tdecs1) ∧
      store_type_extension tenvS tenvS' ∧
      type_s ctMap tenvS' st' ∧
@@ -1477,10 +1477,11 @@ val dec_type_soundness = Q.store_thm ("dec_type_soundness",
      >- (`(pmatch cenv st2 p a [] = No_match) ∨
           (?new_env. pmatch cenv st2 p a [] = Match new_env)`
                    by (metis_tac [pmatch_type_progress])
-         >- (MAP_EVERY qexists_tac [`st2`, `Rerr (Rraise (Conv (SOME ("Bind", TypeExn (Short "Bind"))) []))`, `tenvS'`,`tdecs2`] >>
+         >- (MAP_EVERY qexists_tac [`st2`, `Rerr (Rraise (Conv (SOME ("Bind", TypeExn (Short "Bind"))) []))`, 
+                                    `tenvS'`,`tdecs2`] >>
              rw [] >>
              metis_tac [small_big_exp_equiv, all_env_to_cenv_def])
-         >- (MAP_EVERY qexists_tac [`st2`, `Rval ([],new_env)`, `tenvS'`, `tdecs2`] >>
+         >- (MAP_EVERY qexists_tac [`st2`, `Rval ([],new_env)`, `tenvS'`,`tdecs2`] >>
              `pmatch cenv st2 p a ([]++env) = Match (new_env++env)`
                       by metis_tac [pmatch_append] >>
              `type_env ctMap tenvS [] Empty` by metis_tac [type_v_rules, emp_def] >>
@@ -1686,13 +1687,13 @@ val still_has_exns = Q.prove (
 val decs_type_soundness = Q.store_thm ("decs_type_soundness",
 `!mn tdecs1 tenvM tenvC tenv ds tdecs1' tenvC' tenv'.
   type_ds mn tdecs1 tenvM tenvC tenv ds tdecs1' tenvC' tenv' ⇒
-  ∀tenvS menv cenv env st tdecs2 ctMap.
+  ∀tenvS menv cenv env st tdecs2 ctMap count.
   decs_type_sound_invariant mn tdecs1 tdecs2 ctMap tenvS tenvM tenvC tenv st menv cenv env
   ⇒
   decs_diverges mn (menv,cenv,env) (st,tdecs2) ds ∨
   ?st' r cenv' tenvS' tdecs2'. 
      (r ≠ Rerr Rtype_error) ∧ 
-     evaluate_decs mn (menv,cenv,env) (st,tdecs2) ds ((st',tdecs2'), cenv', r) ∧
+     evaluate_decs F mn (menv,cenv,env) ((count,st),tdecs2) ds (((count,st'),tdecs2'), cenv', r) ∧
      consistent_decls tdecs2' (union_decls tdecs1' tdecs1) ∧
      store_type_extension tenvS tenvS' ∧
      (!err.
@@ -1727,7 +1728,7 @@ val decs_type_soundness = Q.store_thm ("decs_type_soundness",
      >- metis_tac [type_v_rules, emp_def])
  >- (`?st' r tenvS' tdecs2'. 
         (r ≠ Rerr Rtype_error) ∧ 
-        evaluate_dec mn (menv,cenv,env) (st,tdecs2) d ((st',tdecs2'),r) ∧
+        evaluate_dec F mn (menv,cenv,env) ((count',st),tdecs2) d (((count',st'),tdecs2'),r) ∧
         consistent_decls tdecs2' (union_decls decls' tdecs1) ∧
         store_type_extension tenvS tenvS' ∧
         type_s ctMap tenvS' st' ∧
@@ -1858,7 +1859,7 @@ val top_type_soundness = Q.store_thm ("top_type_soundness",
                       metis_tac [consistent_con_env_def]) >>
      `?r store2 tenvS' decls2'.
         r ≠ Rerr Rtype_error ∧
-        evaluate_dec NONE (envM, envC, envE) (store1,decls2) d ((store2,decls2'),r) ∧
+        evaluate_dec F NONE (envM, envC, envE) ((count,store1),decls2) d (((count,store2),decls2'),r) ∧
         consistent_decls decls2' (union_decls decls1' decls_no_sig) ∧
         store_type_extension tenvS tenvS' ∧
         type_s ctMap tenvS' store2 ∧
@@ -1925,7 +1926,7 @@ val top_type_soundness = Q.store_thm ("top_type_soundness",
                       metis_tac [consistent_con_env_def]) >>
      `?store2 r cenv2 tenvS' tdecs2'.
         r ≠ Rerr Rtype_error ∧
-        evaluate_decs (SOME mn) (envM, envC, envE) (store1,decls2) ds ((store2,tdecs2'),cenv2,r) ∧
+        evaluate_decs F (SOME mn) (envM, envC, envE) ((count,store1),decls2) ds (((count,store2),tdecs2'),cenv2,r) ∧
         consistent_decls tdecs2' (union_decls decls' decls_no_sig) ∧
         store_type_extension tenvS tenvS' ∧
         (∀err.
