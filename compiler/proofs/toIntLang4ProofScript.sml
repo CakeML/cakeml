@@ -1290,32 +1290,47 @@ val exp_to_i4_correct = store_thm("exp_to_i4_correct",
     rw[] >> simp[Once evaluate_i4_cases] ) >>
   strip_tac >- (
     rw[] >>
-    Cases_on`pes`>>simp[]>-(
+    reverse(Cases_on`pes`)>>simp[]>|[
+      match_mp_tac sIf_i4_correct >>
+      simp[Once evaluate_i4_cases] >>
+      reverse conj_tac >- (
+        Cases_on`SND res`>>fs[]>>Cases_on`e`>>fs[])>>
+      disj1_tac >>
+      qexists_tac`Litv_i4 (Bool T)` >>
+      simp[do_if_i4_def] >>
+      imp_res_tac(CONJUNCT1 pat_to_i4_correct) >> fs[] >>
+      Q.PAT_ABBREV_TAC`s2 = X:v_i4 count_store_genv` >>
+      qexists_tac`s2` >> simp[Abbr`s2`] >>
+      pop_assum kall_tac
+    ,
       fs[good_env_s_i2_def] >>
       qmatch_assum_abbrev_tac`P ⇒ Q` >>
       `P` by metis_tac[CONJUNCT1 pmatch_i2_preserves_good] >>
-      unabbrev_all_tac >> fs[] >>
-      `∃bvs n f. row_to_i4 (NONE::MAP (SOME o FST) env) p = (bvs,n,f)` by (
-        simp[GSYM EXISTS_PROD] ) >> simp[] >>
-      fs[Once(CONJUNCT1 pmatch_i2_nil)] >>
-      Cases_on`pmatch_i2 s p v []`>>fs[]>>
-      qmatch_assum_rename_tac`menv ++ env = envX`[] >> BasicProvers.VAR_EQ_TAC >>
-      qmatch_abbrev_tac`evaluate_i4 ck (v4::env4) s4 (f (exp_to_i4 bvs exp)) res4` >>
-      fs[]
-
-      cheat (* row_to_i4 *)) >>
-    match_mp_tac sIf_i4_correct >>
-    simp[Once evaluate_i4_cases] >>
-    reverse conj_tac >- (
-      Cases_on`SND res`>>fs[]>>Cases_on`e`>>fs[])>>
-    disj1_tac >>
-    qexists_tac`Litv_i4 (Bool T)` >>
-    simp[do_if_i4_def] >>
-    imp_res_tac(CONJUNCT1 pat_to_i4_correct) >> fs[] >>
+      unabbrev_all_tac >> fs[]
+    ] >>
+    `∃bvs n f. row_to_i4 (NONE::MAP (SOME o FST) env) p = (bvs,n,f)` by (
+      simp[GSYM EXISTS_PROD] ) >> simp[] >>
+    fs[Once(CONJUNCT1 pmatch_i2_nil)] >>
+    Cases_on`pmatch_i2 s p v []`>>fs[]>>
+    qmatch_assum_rename_tac`menv ++ env = envX`[] >> BasicProvers.VAR_EQ_TAC >>
+    qmatch_abbrev_tac`evaluate_i4 ck (v4::env4) s4 (f (exp_to_i4 bvs exp)) res4` >>
+    fs[] >>
+    qmatch_assum_abbrev_tac`row_to_i4 (NONE::bvs0) p = X` >>
+    (row_to_i4_correct
+     |> CONJUNCT1
+     |> SIMP_RULE (srw_ss())[]
+     |> Q.SPECL[`p`,`bvs0`,`s`,`v`]
+     |> mp_tac) >>
+    simp[Abbr`X`] >> strip_tac >>
+    simp[Abbr`s4`,map_count_store_genv_def] >>
+    first_x_assum match_mp_tac >>
+    fs[map_count_store_genv_def] >>
     Q.PAT_ABBREV_TAC`s2 = X:v_i4 count_store_genv` >>
-    qexists_tac`s2` >> simp[Abbr`s2`] >>
-    pop_assum kall_tac >>
-    cheat (* row_to_i4 *)) >>
+    (reverse conj_tac >- (
+       simp[Abbr`res4`] >>
+       Cases_on`SND res`>>fs[]>>
+       Cases_on`e`>>fs[] )) >>
+    cheat (* exp_to_i4 shifting *)) >>
   strip_tac >- (
     rw[] >>
     Cases_on`pes`>>fs[]>-(
