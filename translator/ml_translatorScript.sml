@@ -665,12 +665,12 @@ val Decls_def = Define `
   Decls mn env s1 ds env2 s2 =
     ?menv1 cenv1 env1 new_tds res_env.
       (env = (menv1,cenv1,env1)) /\
-      evaluate_decs mn env s1 ds (s2,new_tds, Rval res_env) /\
+      evaluate_decs F mn env s1 ds (s2,new_tds, Rval res_env) /\
       (env2 = (menv1,merge_envC (emp,new_tds) cenv1,merge res_env env1))`;
 
 val DeclAssum_def = Define `
   DeclAssum ds env tys =
-    Decls NONE ([],init_envC,init_env) ([],{}) ds env ([],tys)`;
+    Decls NONE ([],init_envC,init_env) ((0,[]),{}) ds env ((0,[]),tys)`;
 
 val write_tds_def = Define `
   write_tds mn tds ((menv1,cenv1,env1):all_env) =
@@ -696,7 +696,7 @@ val Decls_Dlet = store_thm("Decls_Dlet",
   ``!mn env s1 v e s2 env2.
       Decls mn env s1 [Dlet (Pvar v) e] env2 s2 <=>
       ?x. (SND s2 = SND s1) /\
-          evaluate F env (0,FST s1) e ((0,FST s2),Rval x) /\
+          evaluate F env (FST s1) e ((FST s2),Rval x) /\
           (env2 = write v x env)``,
   SIMP_TAC std_ss [Decls_def]
   \\ ONCE_REWRITE_TAC [evaluate_decs_cases] \\ SIMP_TAC (srw_ss()) []
@@ -707,7 +707,7 @@ val Decls_Dlet = store_thm("Decls_Dlet",
   \\ FULL_SIMP_TAC std_ss [PULL_EXISTS] \\ REPEAT STRIP_TAC
   \\ PairCases_on `env` \\ Cases_on `s1` \\ Cases_on `s2`
   \\ FULL_SIMP_TAC std_ss [write_def,merge_envC_def,merge_def,APPEND,emp_def]
-  \\ METIS_TAC [big_unclocked]);
+  \\ METIS_TAC [big_unclocked, pair_CASES]);
 
 val FOLDR_LEMMA = prove(
   ``!xs ys. FOLDR (\(x1,x2,x3) x4. bind x1 (f x1 x2 x3) x4) [] xs ++ ys =
@@ -930,7 +930,7 @@ val Decls_CONS = store_thm("Decls_CONS",
   \\ SIMP_TAC (srw_ss()) [Once evaluate_decs_cases]
   \\ FULL_SIMP_TAC std_ss [PULL_EXISTS]
   \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [``evaluate_decs a0 a1 a2 [] a4``
+  \\ FULL_SIMP_TAC std_ss [``evaluate_decs F a0 a1 a2 [] a4``
         |> SIMP_CONV (srw_ss()) [Once evaluate_decs_cases]]
   \\ Cases_on `cenv1`
   \\ FULL_SIMP_TAC std_ss [merge_envC_def,emp_def,APPEND,merge_def]
@@ -987,7 +987,8 @@ val DeclAssum_Dlet = store_thm("DeclAssum_Dlet",
   \\ Cases_on `q` \\ FULL_SIMP_TAC std_ss []
   \\ FULL_SIMP_TAC std_ss [GSYM empty_store_def]
   \\ IMP_RES_TAC evaluate_empty_store
-  \\ FULL_SIMP_TAC std_ss [empty_store_def]);
+  \\ FULL_SIMP_TAC std_ss [empty_store_def, Decls_def]
+  \\ metis_tac [decs_unclocked]);
 
 val DeclAssum_Dletrec_LEMMA = prove(
   ``!funs xs.
@@ -1036,9 +1037,12 @@ val DeclAssum_Dlet_INTRO = store_thm("DeclAssum_Dlet_INTRO",
              Eval env (Var (Short v)) P)``,
   rw [DeclAssum_def,SNOC_APPEND,PULL_EXISTS,Decls_Dlet,Decls_APPEND]
   \\ FULL_SIMP_TAC std_ss [GSYM empty_store_def]
+  \\ Cases_on `s2` \\ FULL_SIMP_TAC std_ss []
+  \\ Cases_on `q` \\ FULL_SIMP_TAC std_ss []
   \\ IMP_RES_TAC evaluate_empty_store
   \\ FULL_SIMP_TAC std_ss [empty_store_def]
-  \\ Cases_on `s2` \\ FULL_SIMP_TAC std_ss []
+  \\ `q' = 0` by metis_tac [big_unclocked]
+  \\ FULL_SIMP_TAC std_ss []
   \\ RES_TAC
   \\ FULL_SIMP_TAC std_ss [Eval_Var_SIMP]
   \\ FULL_SIMP_TAC std_ss [Eval_def]
