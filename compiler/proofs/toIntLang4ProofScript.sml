@@ -257,6 +257,26 @@ val do_app_i2_preserves_good = prove(
   rw[] >> imp_res_tac MEM_LUPDATE_E >> rw[] >>
   rw[EVERY_MAP,EVERY_MEM] >> metis_tac[MEM_MAP])
 
+val pmatch_i2_preserves_good = prove(
+  ``(∀s p v env env'.
+     EVERY good_v_i2 (MAP SND env) ∧
+     EVERY good_v_i2 s ∧
+     good_v_i2 v ∧
+     pmatch_i2 s p v env = Match env' ⇒
+     EVERY good_v_i2 (MAP SND env')) ∧
+    (∀s ps vs env env'.
+     EVERY good_v_i2 (MAP SND env) ∧
+     EVERY good_v_i2 s ∧
+     EVERY good_v_i2 vs ∧
+     pmatch_list_i2 s ps vs env = Match env' ⇒
+     EVERY good_v_i2 (MAP SND env'))``,
+  ho_match_mp_tac pmatch_i2_ind >>
+  rw[pmatch_i2_def,libTheory.bind_def] >> fs[] >>
+  pop_assum mp_tac >> BasicProvers.CASE_TAC >>fs[]>>rw[]>>
+  first_x_assum match_mp_tac >>
+  fs[semanticPrimitivesTheory.store_lookup_def,EVERY_MEM]>>
+  fs[MEM_EL,PULL_EXISTS] >> rw[])
+
 val evaluate_i3_preserves_good = store_thm("evaluate_i3_preserves_good",
   ``(∀ck env s exp res. evaluate_i3 ck env s exp res ⇒
       good_env_s_i2 env s ⇒
@@ -334,7 +354,10 @@ val evaluate_i3_preserves_good = store_thm("evaluate_i3_preserves_good",
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
-  strip_tac >- ( rw[] >> cheat ) >>
+  strip_tac >- (
+    rw[] >>
+    imp_res_tac pmatch_i2_preserves_good >>
+    fs[good_env_s_i2_def]) >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   rw[])
