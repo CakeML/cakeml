@@ -650,4 +650,16 @@ evaluate T env (count-count',s0) e ((0, s'), r')`,
  `count'' = 0 + count'' ∧ count' = (count' - count'') + count'':num` by decide_tac >>
  metis_tac [sub_from_counter]);
 
+val dec_unclocked = Q.store_thm ("dec_unclocked",
+`!mn count s env d count' s' r env tdecls tdecls'.
+  (evaluate_dec F mn env ((count, s),tdecls) d (((count',s'), tdecls'), r)
+   ⇒
+   (r ≠ Rerr Rtimeout_error) ∧
+   (count = count')) ∧
+  (evaluate_dec F mn env ((count, s),tdecls) d (((count,s'), tdecls'), r)
+   =
+   evaluate_dec F mn env ((count', s),tdecls) d (((count',s'), tdecls'), r))`,
+ rw [evaluate_dec_cases] >>
+ metis_tac [big_unclocked]);
+
 val _ = export_theory ();
