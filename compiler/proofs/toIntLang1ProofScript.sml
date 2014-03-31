@@ -1607,15 +1607,15 @@ val letrec_global_env = Q.prove (
      >- metis_tac [letrec_global_env_lem3]));
 
 val dec_to_i1_correct = Q.prove (
-`!mn mods tops d menv cenv env s s' r genv s_i1 next' tops' d_i1 tdecs tdecs'.
+`!ck mn mods tops d menv cenv env s s' r genv s_i1 next' tops' d_i1 tdecs tdecs'.
   r ≠ Rerr Rtype_error ∧
-  evaluate_dec mn (menv,cenv,env) (s,tdecs) d ((s',tdecs'),r) ∧
+  evaluate_dec ck mn (menv,cenv,env) (s,tdecs) d ((s',tdecs'),r) ∧
   global_env_inv genv mods tops menv {} env ∧
-  s_to_i1' genv s s_i1 ∧
+  s_to_i1 genv s s_i1 ∧
   dec_to_i1 (LENGTH genv) mn mods tops d = (next',tops',d_i1)
   ⇒
   ?s'_i1 r_i1.
-    evaluate_dec_i1 genv cenv (s_i1,tdecs) d_i1 ((s'_i1,tdecs'),r_i1) ∧
+    evaluate_dec_i1 ck genv cenv (s_i1,tdecs) d_i1 ((s'_i1,tdecs'),r_i1) ∧
     (!cenv' env'.
       r = Rval (cenv',env')
       ⇒
@@ -1623,7 +1623,7 @@ val dec_to_i1_correct = Q.prove (
         r_i1 = Rval (cenv', MAP SND env'_i1) ∧
         next' = LENGTH (genv ++ MAP SOME (MAP SND env'_i1)) ∧
         env_to_i1 (genv ++ MAP SOME (MAP SND env'_i1)) env' (REVERSE env'_i1) ∧
-        s_to_i1' (genv ++ MAP SOME (MAP SND env'_i1)) s' s'_i1 ∧
+        s_to_i1 (genv ++ MAP SOME (MAP SND env'_i1)) s' s'_i1 ∧
         MAP FST env' = REVERSE (MAP FST tops') ∧
         global_env_inv (genv ++ MAP SOME (MAP SND env'_i1)) FEMPTY (FEMPTY |++ tops') [] {} env') ∧
     (!err.
@@ -1632,7 +1632,7 @@ val dec_to_i1_correct = Q.prove (
       ?err_i1.
         r_i1 = Rerr err_i1 ∧
         result_to_i1 (\a b c. T) genv (Rerr err) (Rerr err_i1) ∧
-        s_to_i1' genv s' s'_i1)`,
+        s_to_i1 genv s' s'_i1)`,
  rw [evaluate_dec_cases, evaluate_dec_i1_cases, dec_to_i1_def] >>
  every_case_tac >>
  fs [LET_THM] >>
@@ -1640,14 +1640,15 @@ val dec_to_i1_correct = Q.prove (
  >- (`env_all_to_i1 genv mods tops (menv,cenv,env) (genv,cenv,[]) {}`
            by fs [env_all_to_i1_cases, v_to_i1_eqns] >>
      imp_res_tac exp_to_i1_correct >>
-     fs [s_to_i1_cases] >>
-     res_tac >>
      fs [] >>
      res_tac >>
      fs [] >>
      rw [] >>
-     pop_assum (fn _ => all_tac) >>
      fs [DRESTRICT_UNIV, result_to_i1_cases, all_env_to_cenv_def] >>
+     rw [] >>
+     fs [s_to_i1_cases] >>
+     rw [] >>
+     pop_assum (fn _ => all_tac) >>
      `match_result_to_i1 genv [] (Match env') (pmatch_i1 cenv s''' p v'' [])`
              by metis_tac [emp_def, APPEND, pmatch_to_i1_correct, v_to_i1_eqns] >>
      cases_on `pmatch_i1 cenv s''' p v'' []` >>
@@ -1661,8 +1662,8 @@ val dec_to_i1_correct = Q.prove (
      imp_res_tac pmatch_i1_eval_list >>
      pop_assum mp_tac >>
      rw [] >>
-     pop_assum (qspecl_then [`genv`, `0`, `F`] strip_assume_tac) >>
-     MAP_EVERY qexists_tac [`s'''`, `Rval ([], MAP SND (REVERSE a))`] >>
+     pop_assum (qspecl_then [`genv`, `count'`, `ck`] strip_assume_tac) >>
+     MAP_EVERY qexists_tac [`(count',s''')`, `Rval ([], MAP SND (REVERSE a))`] >>
      rw [RIGHT_EXISTS_AND_THM] >>
      `pat_bindings p [] = MAP FST env'` 
             by (imp_res_tac pmatch_extend >>

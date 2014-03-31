@@ -685,7 +685,7 @@ evaluate_match_i1 ck (genv,cenv,env) (count,s) v ((p,e)::pes) err_v ((count,s), 
 evaluate_match_i1 ck env s v ((p,e)::pes) err_v (s, Rerr Rtype_error))`;
 
 val _ = Hol_reln ` (! ck genv cenv n e vs s1 s2 tdecs.
-(evaluate_i1 F (genv,cenv,emp) s1 e (s2, Rval (Conv_i1 NONE vs)) /\
+(evaluate_i1 ck (genv,cenv,emp) s1 e (s2, Rval (Conv_i1 NONE vs)) /\
 (LENGTH vs = n))
 ==>
 evaluate_dec_i1 ck genv cenv (s1,tdecs) (Dlet_i1 n e) ((s2,tdecs), Rval (emp, vs)))

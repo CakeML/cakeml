@@ -770,7 +770,7 @@ val _ = Hol_reln ` (! ck genv n e vs s1 s2.
 evaluate_dec_i2 ck genv s1 (Dlet_i2 n e) (s2, Rval vs))
 
 /\ (! ck genv n e vs s1 s2.
-(evaluate_i2 F (genv,emp) s1 e (s2, Rval (Conv_i2 tuple_tag vs)) /\ ~ ((LENGTH vs) = n))
+(evaluate_i2 ck (genv,emp) s1 e (s2, Rval (Conv_i2 tuple_tag vs)) /\ ~ ((LENGTH vs) = n))
 ==>
 evaluate_dec_i2 ck genv s1 (Dlet_i2 n e) (s2, Rerr Rtype_error))
 

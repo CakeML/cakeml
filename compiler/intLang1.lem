@@ -719,7 +719,7 @@ evaluate_match_i1 ck env s v ((p,e)::pes) err_v (s, Rerr Rtype_error)
 indreln [evaluate_dec_i1 : bool -> list (maybe v_i1) -> envC -> count_store v_i1 * set tid_or_exn -> dec_i1 -> (count_store v_i1 * set tid_or_exn) * result (flat_envC * list v_i1)  v_i1 -> bool]
 
 dlet1 : forall ck genv cenv n e vs s1 s2 tdecs.
-evaluate_i1 false (genv,cenv,emp) s1 e (s2, Rval (Conv_i1 Nothing vs)) &&
+evaluate_i1 ck (genv,cenv,emp) s1 e (s2, Rval (Conv_i1 Nothing vs)) &&
 List.length vs = n
 ==>
 evaluate_dec_i1 ck genv cenv (s1,tdecs) (Dlet_i1 n e) ((s2,tdecs), Rval (emp, vs))
