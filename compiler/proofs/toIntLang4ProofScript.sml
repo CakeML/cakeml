@@ -796,7 +796,7 @@ val pmatch_list_i2_pairwise = store_thm("pmatch_list_i2_pairwise",
       EVERY2 (λp v. ∀env. ∃env'. pmatch_i2 s p v env = Match env') ps vs``,
   Induct >> Cases_on`vs` >> simp[pmatch_i2_def] >>
   rpt gen_tac >> BasicProvers.CASE_TAC >> strip_tac >>
-  res_tac >> simp[] >> metis_tac[pmatch_list_i2_any])
+  res_tac >> simp[] >> metis_tac[pmatch_i2_any_match])
 
 val pmatch_list_i2_SNOC_nil = store_thm("pmatch_list_i2_SNOC_nil",
   ``∀p ps v vs s env.
