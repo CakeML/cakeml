@@ -415,7 +415,7 @@ val _ = Hol_reln ` (! mn st env d ds.
 decs_diverges mn env st (d::ds)) 
 
 /\ (! mn s1 s2 menv cenv env d ds new_tds new_env count tdecs tdecs'.
-(evaluate_dec F mn (menv,cenv,env) (( 0,s1),tdecs) d (((count,s2),tdecs'), Rval (new_tds, new_env)) /\
+(evaluate_dec F mn (menv,cenv,env) ((count,s1),tdecs) d (((count,s2),tdecs'), Rval (new_tds, new_env)) /\
 decs_diverges mn (menv,merge_envC (emp,new_tds) cenv, merge new_env env) (s2,tdecs') ds)
 ==>
 decs_diverges mn (menv,cenv,env) (s1,tdecs) (d::ds))`;
@@ -437,7 +437,7 @@ val _ = Hol_reln ` (! st env top tops.
 prog_diverges env st (top::tops))
 
 /\ (! s1 s2 menv cenv env top tops new_mods new_tds new_env tdecs tdecs' mods mods' count.
-(evaluate_top F (menv,cenv,env) (( 0,s1),tdecs,mods) top (((count,s2), tdecs',mods'), new_tds, Rval (new_mods, new_env)) /\
+(evaluate_top F (menv,cenv,env) ((count,s1),tdecs,mods) top (((count,s2), tdecs',mods'), new_tds, Rval (new_mods, new_env)) /\
 prog_diverges (merge new_mods menv, merge_envC new_tds cenv, merge new_env env) (s2,tdecs',mods') tops)
 ==>
 prog_diverges (menv,cenv,env) (s1,tdecs,mods) (top::tops))`;

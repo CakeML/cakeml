@@ -533,7 +533,7 @@ decs_diverges mn env st (d::ds)
 and
 
 cons2 : forall mn s1 s2 menv cenv env d ds new_tds new_env count tdecs tdecs'.
-evaluate_dec false mn (menv,cenv,env) ((0,s1),tdecs) d (((count,s2),tdecs'), Rval (new_tds, new_env)) &&
+evaluate_dec false mn (menv,cenv,env) ((count,s1),tdecs) d (((count,s2),tdecs'), Rval (new_tds, new_env)) &&
 decs_diverges mn (menv,merge_envC (emp,new_tds) cenv, merge new_env env) (s2,tdecs') ds
 ==>
 decs_diverges mn (menv,cenv,env) (s1,tdecs) (d::ds)
@@ -563,7 +563,7 @@ prog_diverges env st (top::tops)
 and
 
 cons2 : forall s1 s2 menv cenv env top tops new_mods new_tds new_env tdecs tdecs' mods mods' count.
-evaluate_top false (menv,cenv,env) ((0,s1),tdecs,mods) top (((count,s2), tdecs',mods'), new_tds, Rval (new_mods, new_env)) &&
+evaluate_top false (menv,cenv,env) ((count,s1),tdecs,mods) top (((count,s2), tdecs',mods'), new_tds, Rval (new_mods, new_env)) &&
 prog_diverges (merge new_mods menv, merge_envC new_tds cenv, merge new_env env) (s2,tdecs',mods') tops
 ==>
 prog_diverges (menv,cenv,env) (s1,tdecs,mods) (top::tops)
