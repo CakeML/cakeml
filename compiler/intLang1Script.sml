@@ -684,71 +684,71 @@ evaluate_match_i1 ck (genv,cenv,env) (count,s) v ((p,e)::pes) err_v ((count,s), 
 ==>
 evaluate_match_i1 ck env s v ((p,e)::pes) err_v (s, Rerr Rtype_error))`;
 
-val _ = Hol_reln ` (! genv cenv n e vs s1 s2 count tdecs.
-(evaluate_i1 F (genv,cenv,emp) ( 0,s1) e ((count,s2), Rval (Conv_i1 NONE vs)) /\
+val _ = Hol_reln ` (! ck genv cenv n e vs s1 s2 tdecs.
+(evaluate_i1 F (genv,cenv,emp) s1 e (s2, Rval (Conv_i1 NONE vs)) /\
 (LENGTH vs = n))
 ==>
-evaluate_dec_i1 genv cenv (s1,tdecs) (Dlet_i1 n e) ((s2,tdecs), Rval (emp, vs)))
+evaluate_dec_i1 ck genv cenv (s1,tdecs) (Dlet_i1 n e) ((s2,tdecs), Rval (emp, vs)))
 
-/\ (! genv cenv n e vs s1 s2 count tdecs.
-(evaluate_i1 F (genv,cenv,emp) ( 0,s1) e ((count,s2), Rval (Conv_i1 NONE vs)) /\ ~ ((LENGTH vs) = n))
+/\ (! ck genv cenv n e vs s1 s2 tdecs.
+(evaluate_i1 ck (genv,cenv,emp) s1 e (s2, Rval (Conv_i1 NONE vs)) /\ ~ ((LENGTH vs) = n))
 ==>
-evaluate_dec_i1 genv cenv (s1,tdecs) (Dlet_i1 n e) ((s2,tdecs), Rerr Rtype_error))
+evaluate_dec_i1 ck genv cenv (s1,tdecs) (Dlet_i1 n e) ((s2,tdecs), Rerr Rtype_error))
 
-/\ (! genv cenv n e v s1 s2 count tdecs.
-(evaluate_i1 F (genv,cenv,emp) ( 0,s1) e ((count,s2), Rval v) /\
+/\ (! ck genv cenv n e v s1 s2 tdecs.
+(evaluate_i1 ck (genv,cenv,emp) s1 e (s2, Rval v) /\
 ~ (? vs. v = Conv_i1 NONE vs))
 ==>
-evaluate_dec_i1 genv cenv (s1,tdecs) (Dlet_i1 n e) ((s2,tdecs), Rerr Rtype_error))
+evaluate_dec_i1 ck genv cenv (s1,tdecs) (Dlet_i1 n e) ((s2,tdecs), Rerr Rtype_error))
 
-/\ (! genv cenv n e err s count s' tdecs.
-(evaluate_i1 F (genv,cenv,emp) ( 0,s) e ((count,s'), Rerr err))
+/\ (! ck genv cenv n e err s s' tdecs.
+(evaluate_i1 ck (genv,cenv,emp) s e (s', Rerr err))
 ==>
-evaluate_dec_i1 genv cenv (s,tdecs) (Dlet_i1 n e) ((s',tdecs), Rerr err))
+evaluate_dec_i1 ck genv cenv (s,tdecs) (Dlet_i1 n e) ((s',tdecs), Rerr err))
 
-/\ (! genv cenv funs s.
+/\ (! ck genv cenv funs s.
 T
 ==>
-evaluate_dec_i1 genv cenv s (Dletrec_i1 funs) (s, Rval (emp, MAP (\ (f,x,e) .  Closure_i1 (cenv,[]) x e) funs)))
+evaluate_dec_i1 ck genv cenv s (Dletrec_i1 funs) (s, Rval (emp, MAP (\ (f,x,e) .  Closure_i1 (cenv,[]) x e) funs)))
 
-/\ (! mn genv cenv tds s tdecs new_tdecs.
+/\ (! ck mn genv cenv tds s tdecs new_tdecs.
 (check_dup_ctors tds /\
 ((new_tdecs = type_defs_to_new_tdecs mn tds) /\
 DISJOINT new_tdecs tdecs))
 ==>
-evaluate_dec_i1 genv cenv (s,tdecs) (Dtype_i1 mn tds) ((s,(new_tdecs UNION tdecs)), Rval (build_tdefs mn tds, [])))
+evaluate_dec_i1 ck genv cenv (s,tdecs) (Dtype_i1 mn tds) ((s,(new_tdecs UNION tdecs)), Rval (build_tdefs mn tds, [])))
 
-/\ (! mn genv cenv tds s tdecs.
+/\ (! ck mn genv cenv tds s tdecs.
 (~ (check_dup_ctors tds) \/
 ~ (DISJOINT (type_defs_to_new_tdecs mn tds) tdecs))
 ==>
-evaluate_dec_i1 genv cenv (s,tdecs) (Dtype_i1 mn tds) ((s,tdecs), Rerr Rtype_error))
+evaluate_dec_i1 ck genv cenv (s,tdecs) (Dtype_i1 mn tds) ((s,tdecs), Rerr Rtype_error))
 
-/\ (! mn genv cenv cn ts s tdecs.
+/\ (! ck mn genv cenv cn ts s tdecs.
 (~ (TypeExn (mk_id mn cn) IN tdecs))
 ==>
-evaluate_dec_i1 genv cenv (s,tdecs) (Dexn_i1 mn cn ts) ((s, ({TypeExn (mk_id mn cn)} UNION tdecs)), Rval (bind cn (LENGTH ts, TypeExn (mk_id mn cn)) emp, [])))
+evaluate_dec_i1 ck genv cenv (s,tdecs) (Dexn_i1 mn cn ts) ((s, ({TypeExn (mk_id mn cn)} UNION tdecs)), Rval (bind cn (LENGTH ts, TypeExn (mk_id mn cn)) emp, [])))
 
-/\ (! mn genv cenv cn ts s tdecs.
+/\ (! ck mn genv cenv cn ts s tdecs.
 (TypeExn (mk_id mn cn) IN tdecs)
 ==>
-evaluate_dec_i1 genv cenv (s,tdecs) (Dexn_i1 mn cn ts) ((s,tdecs), Rerr Rtype_error))`;
+evaluate_dec_i1 ck genv cenv (s,tdecs) (Dexn_i1 mn cn ts) ((s,tdecs), Rerr Rtype_error))`;
 
-val _ = Hol_reln ` (! genv cenv s.
+val _ = Hol_reln ` (! ck genv cenv s.
 T
 ==>
-evaluate_decs_i1 genv cenv s [] (s, emp, [], NONE))
+evaluate_decs_i1 ck genv cenv s [] (s, emp, [], NONE))
 
-/\ (! s1 s2 genv cenv d ds e.
-(evaluate_dec_i1 genv cenv s1 d (s2, Rerr e))
+/\ (! ck s1 s2 genv cenv d ds e.
+(evaluate_dec_i1 ck genv cenv s1 d (s2, Rerr e))
 ==>
-evaluate_decs_i1 genv cenv s1 (d::ds) (s2, emp, [], SOME e))
+evaluate_decs_i1 ck genv cenv s1 (d::ds) (s2, emp, [], SOME e))
 
-/\ (! s1 s2 s3 genv cenv d ds new_tds' new_tds new_env new_env' r.
-(evaluate_dec_i1 genv cenv s1 d (s2, Rval (new_tds,new_env)) /\
-evaluate_decs_i1 (genv ++ MAP SOME new_env) (merge_envC (emp,new_tds) cenv) s2 ds (s3, new_tds', new_env', r))
+/\ (! ck s1 s2 s3 genv cenv d ds new_tds' new_tds new_env new_env' r.
+(evaluate_dec_i1 ck genv cenv s1 d (s2, Rval (new_tds,new_env)) /\
+evaluate_decs_i1 ck (genv ++ MAP SOME new_env) (merge_envC (emp,new_tds) cenv) s2 ds (s3, new_tds', new_env', r))
 ==>
-evaluate_decs_i1 genv cenv s1 (d::ds) (s3, merge new_tds' new_tds, (new_env ++ new_env'), r))`;
+evaluate_decs_i1 ck genv cenv s1 (d::ds) (s3, merge new_tds' new_tds, (new_env ++ new_env'), r))`;
 
 (*val mod_cenv : maybe modN -> flat_envC -> envC*)
 val _ = Define `
@@ -784,35 +784,35 @@ val _ = Define `
 (decs_to_dummy_env (d::ds) = (decs_to_dummy_env ds + dec_to_dummy_env d))`;
 
 
-val _ = Hol_reln ` (! genv cenv s1 tdecs1 mods ds s2 tdecs2 cenv' env mn.
-(evaluate_decs_i1 genv cenv (s1,tdecs1) ds ((s2,tdecs2),cenv',env,NONE))
+val _ = Hol_reln ` (! ck genv cenv s1 tdecs1 mods ds s2 tdecs2 cenv' env mn.
+(evaluate_decs_i1 ck genv cenv (s1,tdecs1) ds ((s2,tdecs2),cenv',env,NONE))
 ==>
-evaluate_prompt_i1 genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds) ((s2,tdecs2,update_mod_state mn mods), mod_cenv mn cenv', env, NONE))
+evaluate_prompt_i1 ck genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds) ((s2,tdecs2,update_mod_state mn mods), mod_cenv mn cenv', env, NONE))
 
-/\ (! genv cenv s1 tdecs1 mods mn ds s2 tdecs2 cenv' env err.
-(evaluate_decs_i1 genv cenv (s1,tdecs1) ds ((s2,tdecs2),cenv',env,SOME err))
+/\ (! ck genv cenv s1 tdecs1 mods mn ds s2 tdecs2 cenv' env err.
+(evaluate_decs_i1 ck genv cenv (s1,tdecs1) ds ((s2,tdecs2),cenv',env,SOME err))
 ==>
-evaluate_prompt_i1 genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds) 
+evaluate_prompt_i1 ck genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds) 
                                                   ((s2,tdecs2,update_mod_state mn mods),
                                                    mod_cenv mn cenv',                                                   
  (env ++ GENLIST (\n .  
   (case (n ) of ( _ ) => Litv_i1 Unit )) (decs_to_dummy_env ds - LENGTH env)),
                                                    SOME err))`;
 
-val _ = Hol_reln ` (! genv cenv s.
+val _ = Hol_reln ` (! ck genv cenv s.
 T
 ==>
-evaluate_prog_i1 genv cenv s [] (s, ([],[]), [], NONE))
+evaluate_prog_i1 ck genv cenv s [] (s, ([],[]), [], NONE))
 
-/\ (! genv cenv s1 prompt prompts s2 cenv2 env2 s3 cenv3 env3 r.
-(evaluate_prompt_i1 genv cenv s1 prompt (s2, cenv2, env2, NONE) /\
-evaluate_prog_i1 (genv++MAP SOME env2) (merge_envC cenv2 cenv) s2 prompts (s3, cenv3, env3, r))
+/\ (! ck genv cenv s1 prompt prompts s2 cenv2 env2 s3 cenv3 env3 r.
+(evaluate_prompt_i1 ck genv cenv s1 prompt (s2, cenv2, env2, NONE) /\
+evaluate_prog_i1 ck (genv++MAP SOME env2) (merge_envC cenv2 cenv) s2 prompts (s3, cenv3, env3, r))
 ==>
-evaluate_prog_i1 genv cenv s1 (prompt::prompts) (s3, merge_envC cenv3 cenv2, (env2++env3), r))
+evaluate_prog_i1 ck genv cenv s1 (prompt::prompts) (s3, merge_envC cenv3 cenv2, (env2++env3), r))
 
-/\ (! genv cenv s1 prompt prompts s2 cenv2 env2 err.
-(evaluate_prompt_i1 genv cenv s1 prompt (s2, cenv2, env2, SOME err))
+/\ (! ck genv cenv s1 prompt prompts s2 cenv2 env2 err.
+(evaluate_prompt_i1 ck genv cenv s1 prompt (s2, cenv2, env2, SOME err))
 ==>
-evaluate_prog_i1 genv cenv s1 (prompt::prompts) (s2, cenv2, env2, SOME err))`;
+evaluate_prog_i1 ck genv cenv s1 (prompt::prompts) (s2, cenv2, env2, SOME err))`;
 val _ = export_theory()
 

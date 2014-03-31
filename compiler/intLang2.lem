@@ -764,65 +764,65 @@ not (List.allDistinct (pat_bindings_i2 p []))
 ==>
 evaluate_match_i2 ck env s v ((p,e)::pes) (s, Rerr Rtype_error)
 
-indreln [evaluate_dec_i2 : list (maybe v_i2) -> store v_i2 -> dec_i2 -> store v_i2 * result (list v_i2) v_i2 -> bool]
+indreln [evaluate_dec_i2 : bool -> list (maybe v_i2) -> count_store v_i2 -> dec_i2 -> count_store v_i2 * result (list v_i2) v_i2 -> bool]
 
-dlet1 : forall genv n e vs s1 s2 count.
-evaluate_i2 false (genv,emp) (0,s1) e ((count,s2), Rval (Conv_i2 tuple_tag vs)) &&
+dlet1 : forall ck genv n e vs s1 s2.
+evaluate_i2 ck (genv,emp) s1 e (s2, Rval (Conv_i2 tuple_tag vs)) &&
 List.length vs = n
 ==>
-evaluate_dec_i2 genv s1 (Dlet_i2 n e) (s2, Rval vs)
+evaluate_dec_i2 ck genv s1 (Dlet_i2 n e) (s2, Rval vs)
 
 and
 
-dlet3 : forall genv n e vs s1 s2 count.
-evaluate_i2 false (genv,emp) (0,s1) e ((count,s2), Rval (Conv_i2 tuple_tag vs)) &&
+dlet3 : forall ck genv n e vs s1 s2.
+evaluate_i2 false (genv,emp) s1 e (s2, Rval (Conv_i2 tuple_tag vs)) &&
 List.length vs <> n
 ==>
-evaluate_dec_i2 genv s1 (Dlet_i2 n e) (s2, Rerr Rtype_error)
+evaluate_dec_i2 ck genv s1 (Dlet_i2 n e) (s2, Rerr Rtype_error)
 
 and
 
-dlet4 : forall genv n e v s1 s2 count.
-evaluate_i2 false (genv,emp) (0,s1) e ((count,s2), Rval v) &&
+dlet4 : forall ck genv n e v s1 s2.
+evaluate_i2 ck (genv,emp) s1 e (s2, Rval v) &&
 not (exists vs. v = Conv_i2 tuple_tag vs)
 ==>
-evaluate_dec_i2 genv s1 (Dlet_i2 n e) (s2, Rerr Rtype_error)
+evaluate_dec_i2 ck genv s1 (Dlet_i2 n e) (s2, Rerr Rtype_error)
 
 and
 
-dlet5 : forall genv n e err s count s'.
-evaluate_i2 false (genv,emp) (0,s) e ((count,s'), Rerr err)
+dlet5 : forall ck genv n e err s s'.
+evaluate_i2 ck (genv,emp) s e (s', Rerr err)
 ==>
-evaluate_dec_i2 genv s (Dlet_i2 n e) (s', Rerr err)
+evaluate_dec_i2 ck genv s (Dlet_i2 n e) (s', Rerr err)
 
 and
 
-dletrec1 : forall genv funs s.
+dletrec1 : forall ck genv funs s.
 true
 ==>
-evaluate_dec_i2 genv s (Dletrec_i2 funs) (s, Rval (List.map (fun (f,x,e) -> Closure_i2 [] x e) funs))
+evaluate_dec_i2 ck genv s (Dletrec_i2 funs) (s, Rval (List.map (fun (f,x,e) -> Closure_i2 [] x e) funs))
 
-indreln [evaluate_decs_i2 : list (maybe v_i2) -> store v_i2 -> list dec_i2 -> store v_i2 * list v_i2 * maybe (error_result v_i2) -> bool]
+indreln [evaluate_decs_i2 : bool -> list (maybe v_i2) -> count_store v_i2 -> list dec_i2 -> count_store v_i2 * list v_i2 * maybe (error_result v_i2) -> bool]
 
-empty : forall genv s.
+empty : forall ck genv s.
 true
 ==>
-evaluate_decs_i2 genv s [] (s, [], Nothing)
+evaluate_decs_i2 ck genv s [] (s, [], Nothing)
 
 and
 
-cons1 : forall s1 s2 genv d ds e.
-evaluate_dec_i2 genv s1 d (s2, Rerr e)
+cons1 : forall ck s1 s2 genv d ds e.
+evaluate_dec_i2 ck genv s1 d (s2, Rerr e)
 ==>
-evaluate_decs_i2 genv s1 (d::ds) (s2, [], Just e)
+evaluate_decs_i2 ck genv s1 (d::ds) (s2, [], Just e)
 
 and
 
-cons2 : forall s1 s2 s3 genv d ds new_env new_env' r.
-evaluate_dec_i2 genv s1 d (s2, Rval new_env) &&
-evaluate_decs_i2 (genv ++ List.map Just new_env) s2 ds (s3, new_env', r)
+cons2 : forall ck s1 s2 s3 genv d ds new_env new_env' r.
+evaluate_dec_i2 ck genv s1 d (s2, Rval new_env) &&
+evaluate_decs_i2 ck (genv ++ List.map Just new_env) s2 ds (s3, new_env', r)
 ==>
-evaluate_decs_i2 genv s1 (d::ds) (s3, new_env ++ new_env', r)
+evaluate_decs_i2 ck genv s1 (d::ds) (s3, new_env ++ new_env', r)
 
 let rec
 dec_to_dummy_env_i2 (Dlet_i2 n e) = n
@@ -836,43 +836,43 @@ decs_to_dummy_env_i2 (d::ds) = decs_to_dummy_env_i2 ds + dec_to_dummy_env_i2 d
 
 declare termination_argument decs_to_dummy_env_i2 = automatic
 
-indreln [evaluate_prompt_i2 : list (maybe v_i2) -> store v_i2 -> prompt_i2 -> store v_i2 * list v_i2 * maybe (error_result v_i2) -> bool]
+indreln [evaluate_prompt_i2 : bool -> list (maybe v_i2) -> count_store v_i2 -> prompt_i2 -> count_store v_i2 * list v_i2 * maybe (error_result v_i2) -> bool]
 
-prompt_val : forall genv s1 ds s2 env.
-evaluate_decs_i2 genv s1 ds (s2,env,Nothing)
+prompt_val : forall ck genv s1 ds s2 env.
+evaluate_decs_i2 ck genv s1 ds (s2,env,Nothing)
 ==>
-evaluate_prompt_i2 genv s1 (Prompt_i2 ds) (s2, env, Nothing)
+evaluate_prompt_i2 ck genv s1 (Prompt_i2 ds) (s2, env, Nothing)
 
 and
 
-prompt_err1 : forall genv s1 ds s2 env err.
-evaluate_decs_i2 genv s1 ds (s2,env,Just err)
+prompt_err1 : forall ck genv s1 ds s2 env err.
+evaluate_decs_i2 ck genv s1 ds (s2,env,Just err)
 ==>
-evaluate_prompt_i2 genv s1 (Prompt_i2 ds) (s2, 
+evaluate_prompt_i2 ck genv s1 (Prompt_i2 ds) (s2, 
                                            env ++ List.genlist (fun _ -> Litv_i2 Unit) (decs_to_dummy_env_i2 ds - List.length env),
                                            Just err)
 
-indreln [evaluate_prog_i2 : list (maybe v_i2) -> store v_i2 -> list prompt_i2 -> store v_i2 * list v_i2 * maybe (error_result v_i2) -> bool]
+indreln [evaluate_prog_i2 : bool -> list (maybe v_i2) -> count_store v_i2 -> list prompt_i2 -> count_store v_i2 * list v_i2 * maybe (error_result v_i2) -> bool]
 
-prog_empty : forall genv s.
+prog_empty : forall ck genv s.
 true
 ==>
-evaluate_prog_i2 genv s [] (s, [], Nothing)
+evaluate_prog_i2 ck genv s [] (s, [], Nothing)
 
 and
 
-prog_cons_var : forall genv s1 prompt prompts s2 env2 s3 env3 r.
-evaluate_prompt_i2 genv s1 prompt (s2, env2, Nothing) &&
-evaluate_prog_i2 (genv++List.map Just env2) s2 prompts (s3, env3, r)
+prog_cons_var : forall ck genv s1 prompt prompts s2 env2 s3 env3 r.
+evaluate_prompt_i2 ck genv s1 prompt (s2, env2, Nothing) &&
+evaluate_prog_i2 ck (genv++List.map Just env2) s2 prompts (s3, env3, r)
 ==>
-evaluate_prog_i2 genv s1 (prompt::prompts) (s3, env2++env3, r)
+evaluate_prog_i2 ck genv s1 (prompt::prompts) (s3, env2++env3, r)
 
 and
 
-prog_cons_err : forall genv s1 prompt prompts s2 env2 err.
-evaluate_prompt_i2 genv s1 prompt (s2, env2, Just err)
+prog_cons_err : forall ck genv s1 prompt prompts s2 env2 err.
+evaluate_prompt_i2 ck genv s1 prompt (s2, env2, Just err)
 ==>
-evaluate_prog_i2 genv s1 (prompt::prompts) (s2, env2, Just err)
+evaluate_prog_i2 ck genv s1 (prompt::prompts) (s2, env2, Just err)
 
 val init_tagenv_state : (nat * tag_env * map nat (conN * tid_or_exn))
 let init_tagenv_state =

@@ -763,48 +763,48 @@ evaluate_match_i2 ck (genv,env) (count,s) v ((p,e)::pes) ((count,s), Rerr Rtype_
 ==>
 evaluate_match_i2 ck env s v ((p,e)::pes) (s, Rerr Rtype_error))`;
 
-val _ = Hol_reln ` (! genv n e vs s1 s2 count.
-(evaluate_i2 F (genv,emp) ( 0,s1) e ((count,s2), Rval (Conv_i2 tuple_tag vs)) /\
+val _ = Hol_reln ` (! ck genv n e vs s1 s2.
+(evaluate_i2 ck (genv,emp) s1 e (s2, Rval (Conv_i2 tuple_tag vs)) /\
 (LENGTH vs = n))
 ==>
-evaluate_dec_i2 genv s1 (Dlet_i2 n e) (s2, Rval vs))
+evaluate_dec_i2 ck genv s1 (Dlet_i2 n e) (s2, Rval vs))
 
-/\ (! genv n e vs s1 s2 count.
-(evaluate_i2 F (genv,emp) ( 0,s1) e ((count,s2), Rval (Conv_i2 tuple_tag vs)) /\ ~ ((LENGTH vs) = n))
+/\ (! ck genv n e vs s1 s2.
+(evaluate_i2 F (genv,emp) s1 e (s2, Rval (Conv_i2 tuple_tag vs)) /\ ~ ((LENGTH vs) = n))
 ==>
-evaluate_dec_i2 genv s1 (Dlet_i2 n e) (s2, Rerr Rtype_error))
+evaluate_dec_i2 ck genv s1 (Dlet_i2 n e) (s2, Rerr Rtype_error))
 
-/\ (! genv n e v s1 s2 count.
-(evaluate_i2 F (genv,emp) ( 0,s1) e ((count,s2), Rval v) /\
+/\ (! ck genv n e v s1 s2.
+(evaluate_i2 ck (genv,emp) s1 e (s2, Rval v) /\
 ~ (? vs. v = Conv_i2 tuple_tag vs))
 ==>
-evaluate_dec_i2 genv s1 (Dlet_i2 n e) (s2, Rerr Rtype_error))
+evaluate_dec_i2 ck genv s1 (Dlet_i2 n e) (s2, Rerr Rtype_error))
 
-/\ (! genv n e err s count s'.
-(evaluate_i2 F (genv,emp) ( 0,s) e ((count,s'), Rerr err))
+/\ (! ck genv n e err s s'.
+(evaluate_i2 ck (genv,emp) s e (s', Rerr err))
 ==>
-evaluate_dec_i2 genv s (Dlet_i2 n e) (s', Rerr err))
+evaluate_dec_i2 ck genv s (Dlet_i2 n e) (s', Rerr err))
 
-/\ (! genv funs s.
+/\ (! ck genv funs s.
 T
 ==>
-evaluate_dec_i2 genv s (Dletrec_i2 funs) (s, Rval (MAP (\ (f,x,e) .  Closure_i2 [] x e) funs)))`;
+evaluate_dec_i2 ck genv s (Dletrec_i2 funs) (s, Rval (MAP (\ (f,x,e) .  Closure_i2 [] x e) funs)))`;
 
-val _ = Hol_reln ` (! genv s.
+val _ = Hol_reln ` (! ck genv s.
 T
 ==>
-evaluate_decs_i2 genv s [] (s, [], NONE))
+evaluate_decs_i2 ck genv s [] (s, [], NONE))
 
-/\ (! s1 s2 genv d ds e.
-(evaluate_dec_i2 genv s1 d (s2, Rerr e))
+/\ (! ck s1 s2 genv d ds e.
+(evaluate_dec_i2 ck genv s1 d (s2, Rerr e))
 ==>
-evaluate_decs_i2 genv s1 (d::ds) (s2, [], SOME e))
+evaluate_decs_i2 ck genv s1 (d::ds) (s2, [], SOME e))
 
-/\ (! s1 s2 s3 genv d ds new_env new_env' r.
-(evaluate_dec_i2 genv s1 d (s2, Rval new_env) /\
-evaluate_decs_i2 (genv ++ MAP SOME new_env) s2 ds (s3, new_env', r))
+/\ (! ck s1 s2 s3 genv d ds new_env new_env' r.
+(evaluate_dec_i2 ck genv s1 d (s2, Rval new_env) /\
+evaluate_decs_i2 ck (genv ++ MAP SOME new_env) s2 ds (s3, new_env', r))
 ==>
-evaluate_decs_i2 genv s1 (d::ds) (s3, (new_env ++ new_env'), r))`;
+evaluate_decs_i2 ck genv s1 (d::ds) (s3, (new_env ++ new_env'), r))`;
 
  val _ = Define `
 
@@ -820,34 +820,34 @@ evaluate_decs_i2 genv s1 (d::ds) (s3, (new_env ++ new_env'), r))`;
 (decs_to_dummy_env_i2 (d::ds) = (decs_to_dummy_env_i2 ds + dec_to_dummy_env_i2 d))`;
 
 
-val _ = Hol_reln ` (! genv s1 ds s2 env.
-(evaluate_decs_i2 genv s1 ds (s2,env,NONE))
+val _ = Hol_reln ` (! ck genv s1 ds s2 env.
+(evaluate_decs_i2 ck genv s1 ds (s2,env,NONE))
 ==>
-evaluate_prompt_i2 genv s1 (Prompt_i2 ds) (s2, env, NONE))
+evaluate_prompt_i2 ck genv s1 (Prompt_i2 ds) (s2, env, NONE))
 
-/\ (! genv s1 ds s2 env err.
-(evaluate_decs_i2 genv s1 ds (s2,env,SOME err))
+/\ (! ck genv s1 ds s2 env err.
+(evaluate_decs_i2 ck genv s1 ds (s2,env,SOME err))
 ==>
-evaluate_prompt_i2 genv s1 (Prompt_i2 ds) (s2,                                           
+evaluate_prompt_i2 ck genv s1 (Prompt_i2 ds) (s2,                                           
  (env ++ GENLIST (\n .  
   (case (n ) of ( _ ) => Litv_i2 Unit )) (decs_to_dummy_env_i2 ds - LENGTH env)),
                                            SOME err))`;
 
-val _ = Hol_reln ` (! genv s.
+val _ = Hol_reln ` (! ck genv s.
 T
 ==>
-evaluate_prog_i2 genv s [] (s, [], NONE))
+evaluate_prog_i2 ck genv s [] (s, [], NONE))
 
-/\ (! genv s1 prompt prompts s2 env2 s3 env3 r.
-(evaluate_prompt_i2 genv s1 prompt (s2, env2, NONE) /\
-evaluate_prog_i2 (genv++MAP SOME env2) s2 prompts (s3, env3, r))
+/\ (! ck genv s1 prompt prompts s2 env2 s3 env3 r.
+(evaluate_prompt_i2 ck genv s1 prompt (s2, env2, NONE) /\
+evaluate_prog_i2 ck (genv++MAP SOME env2) s2 prompts (s3, env3, r))
 ==>
-evaluate_prog_i2 genv s1 (prompt::prompts) (s3, (env2++env3), r))
+evaluate_prog_i2 ck genv s1 (prompt::prompts) (s3, (env2++env3), r))
 
-/\ (! genv s1 prompt prompts s2 env2 err.
-(evaluate_prompt_i2 genv s1 prompt (s2, env2, SOME err))
+/\ (! ck genv s1 prompt prompts s2 env2 err.
+(evaluate_prompt_i2 ck genv s1 prompt (s2, env2, SOME err))
 ==>
-evaluate_prog_i2 genv s1 (prompt::prompts) (s2, env2, SOME err))`;
+evaluate_prog_i2 ck genv s1 (prompt::prompts) (s2, env2, SOME err))`;
 
 (*val init_tagenv_state : (nat * tag_env * map nat (conN * tid_or_exn))*)
 val _ = Define `
