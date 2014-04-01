@@ -1,7 +1,7 @@
 open preamble;
 open intLib wordsLib unifyLib;
 open astTheory initialEnvTheory lexer_implTheory;
-open intLang1Theory intLang2Theory intLang3Theory intLang4Theory;
+open compilerTerminationTheory;
 
 val _ = new_theory "progToMc";
 
@@ -41,6 +41,6 @@ val x = ``"val x = 1;"``
 
 val x = ``"fun append xs ys = case xs of [] => ys | (x::xs) => x :: append xs ys; fun reverse xs = case xs of [] => [] | x::xs => append (reverse xs) [x];"``
 
-EVAL ``compile ^x``;
+val th = EVAL ``compile ^x``;
 
 val _ = export_theory ();
