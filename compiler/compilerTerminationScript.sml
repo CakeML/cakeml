@@ -1,6 +1,6 @@
 open HolKernel boolLib boolSimps bossLib Defn pairTheory pred_setTheory listTheory finite_mapTheory state_transformerTheory lcsymtacs
 open terminationTheory compilerLibTheory intLangTheory toIntLangTheory toBytecodeTheory compilerTheory printerTheory bytecodeTheory
-open intLang1Theory intLang2Theory;
+open intLang1Theory intLang2Theory intLang4Theory;
 val _ = new_theory "compilerTermination"
 
 (* size helper theorems *)
@@ -326,8 +326,46 @@ val (do_eq_i2_def, do_eq_i2_ind) =
                                         | INR (xs,ys) => v_i23_size xs)`);
 val _ = register "do_eq_i2" (do_eq_i2_def,do_eq_i2_ind);
 
+val (exp_to_i4_def, exp_to_i4_ind) =
+  tprove_no_defn ((exp_to_i4_def, exp_to_i4_ind),
+  WF_REL_TAC `inv_image $< (\x. case x of INL (bvs,e) => exp_i2_size e
+                                        | INR (INL (bvs,es)) => exp_i26_size es
+                                        | INR (INR (INL (bvs,funs))) => exp_i21_size funs
+                                        | INR (INR (INR (bvs,pes))) => exp_i23_size pes)`);
+val _ = register "exp_to_i4" (exp_to_i4_def,exp_to_i4_ind);
+
+val (pat_to_i4_def, pat_to_i4_ind) =
+  tprove_no_defn ((pat_to_i4_def, pat_to_i4_ind),
+  WF_REL_TAC `inv_image $< (\x. case x of INL p => pat_i2_size p
+                                        | INR (n,ps) => pat_i21_size ps)`);
+val _ = register "pat_to_i4" (pat_to_i4_def,pat_to_i4_ind);
+
+val (row_to_i4_def, row_to_i4_ind) =
+  tprove_no_defn ((row_to_i4_def, row_to_i4_ind),
+  WF_REL_TAC `inv_image $< (\x. case x of INL (bvs,p) => pat_i2_size p
+                                        | INR (bvs,n,k,ps) => pat_i21_size ps)`);
+val _ = register "row_to_i4" (row_to_i4_def,row_to_i4_ind);
+
+val (Let_Els_i4_def, Let_Els_i4_ind) =
+  tprove_no_defn ((Let_Els_i4_def, Let_Els_i4_ind),
+  WF_REL_TAC `measure (FST o SND)`);
+val _ = register "Let_Els_i4" (Let_Els_i4_def,Let_Els_i4_ind);
+
+val (do_eq_i4_def, do_eq_i4_ind) =
+  tprove_no_defn ((do_eq_i4_def, do_eq_i4_ind),
+  WF_REL_TAC`inv_image $< (\x. case x of INL (v1,v2) => v_i4_size v1
+                                       | INR (vs1,vs2) => v_i41_size vs1)`);
+val _ = register "do_eq_i4" (do_eq_i4_def,do_eq_i4_ind);
+
 
 (* export rewrites *)
+val _ = export_rewrites
+  ["exp_to_i4_def"
+  ,"intLang4.uop_to_i4_def"
+  ,"intLang4.fo_i4_def"
+  ,"intLang4.ground_i4_def"
+  ,"intLang4.pure_uop_i4_def"
+  ,"intLang4.pure_op_def"]
 
 (* TODO: add missing *)
 val _ = export_rewrites
