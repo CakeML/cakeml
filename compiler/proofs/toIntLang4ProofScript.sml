@@ -93,6 +93,61 @@ val _ = export_rewrites["good_vs_i2_EVERY"]
 
 (* TODO: move *)
 
+val exc_rel_def = Define`
+  (exc_rel R (Rraise v1) (Rraise v2) = R v1 v2) ∧
+  (exc_rel _ Rtype_error Rtype_error = T) ∧
+  (exc_rel _ Rtimeout_error Rtimeout_error = T) ∧
+  (exc_rel _ _ _ = F)`
+val _ = export_rewrites["exc_rel_def"]
+
+val exc_rel_raise1 = store_thm("exc_rel_raise1",
+  ``exc_rel R (Rraise v) e = ∃v'. (e = Rraise v') ∧ R v v'``,
+  Cases_on`e`>>rw[])
+val exc_rel_raise2 = store_thm("exc_rel_raise2",
+  ``exc_rel R e (Rraise v) = ∃v'. (e = Rraise v') ∧ R v' v``,
+  Cases_on`e`>>rw[])
+val exc_rel_type_error = store_thm("exc_rel_type_error",
+  ``(exc_rel R Rtype_error e = (e = Rtype_error)) ∧
+    (exc_rel R e Rtype_error = (e = Rtype_error))``,
+  Cases_on`e`>>rw[])
+val exc_rel_timeout_error = store_thm("exc_rel_timeout_error",
+  ``(exc_rel R Rtimeout_error e = (e = Rtimeout_error)) ∧
+    (exc_rel R e Rtimeout_error = (e = Rtimeout_error))``,
+  Cases_on`e`>>rw[])
+val _ = export_rewrites["exc_rel_raise1","exc_rel_raise2","exc_rel_type_error","exc_rel_timeout_error"]
+
+val result_rel_def = Define`
+(result_rel R1 _ (Rval v1) (Rval v2) = R1 v1 v2) ∧
+(result_rel _ R2 (Rerr e1) (Rerr e2) = exc_rel R2 e1 e2) ∧
+(result_rel _ _ _ _ = F)`
+val _ = export_rewrites["result_rel_def"]
+
+val result_rel_Rval = store_thm(
+"result_rel_Rval",
+``result_rel R1 R2 (Rval v) r = ∃v'. (r = Rval v') ∧ R1 v v'``,
+Cases_on `r` >> rw[])
+val result_rel_Rerr1 = store_thm(
+"result_rel_Rerr1",
+``result_rel R1 R2 (Rerr e) r = ∃e'. (r = Rerr e') ∧ exc_rel R2 e e'``,
+Cases_on `r` >> rw[EQ_IMP_THM])
+val result_rel_Rerr2 = store_thm(
+"result_rel_Rerr2",
+``result_rel R1 R2 r (Rerr e) = ∃e'. (r = Rerr e') ∧ exc_rel R2 e' e``,
+Cases_on `r` >> rw[EQ_IMP_THM])
+val _ = export_rewrites["result_rel_Rval","result_rel_Rerr1","result_rel_Rerr2"]
+
+val exc_rel_refl = store_thm(
+"exc_rel_refl",
+  ``(∀x. R x x) ⇒ ∀x. exc_rel R x x``,
+strip_tac >> Cases >> rw[])
+val _ = export_rewrites["exc_rel_refl"];
+
+val result_rel_refl = store_thm(
+"result_rel_refl",
+``(∀x. R1 x x) ∧ (∀x. R2 x x) ⇒ ∀x. result_rel R1 R2 x x``,
+strip_tac >> Cases >> rw[])
+val _ = export_rewrites["result_rel_refl"]
+
 val map_error_result_def = Define`
   (map_error_result f (Rraise e) = Rraise (f e)) ∧
   (map_error_result f Rtype_error = Rtype_error) ∧
@@ -1092,6 +1147,481 @@ val row_to_i4_correct = prove(
   simp[rich_listTheory.EL_APPEND2] >>
   simp[EL_MAP])
 
+val bind_i4_def = Define`
+  (bind_i4 V 0 0 ⇔ T) ∧
+  (bind_i4 V (SUC n1) (SUC n2) ⇔ V n1 n2) ∧
+  (bind_i4 V _ _ ⇔ F)`
+
+val (exp_i4_rules,exp_i4_ind,exp_i4_cases) = Hol_reln`
+  (exp_i4 V e1 e2
+   ⇒ exp_i4 V (Raise_i4 e1) (Raise_i4 e2)) ∧
+  (exp_i4 V e11 e21 ∧ exp_i4 (bind_i4 V) e12 e22
+   ⇒ exp_i4 V (Handle_i4 e11 e12) (Handle_i4 e21 e22)) ∧
+  (exp_i4 V (Lit_i4 l) (Lit_i4 l)) ∧
+  (LIST_REL (exp_i4 V) es1 es2
+   ⇒ exp_i4 V (Con_i4 tag es1) (Con_i4 tag es2)) ∧
+  (V k1 k2
+   ⇒ exp_i4 V (Var_local_i4 k1) (Var_local_i4 k2)) ∧
+  (exp_i4 V (Var_global_i4 k) (Var_global_i4 k)) ∧
+  (exp_i4 (bind_i4 V) e1 e2
+   ⇒ exp_i4 V (Fun_i4 e1) (Fun_i4 e2)) ∧
+  (exp_i4 V e1 e2
+   ⇒ exp_i4 V (Uapp_i4 uop e1) (Uapp_i4 uop e2)) ∧
+  (exp_i4 V e11 e21 ∧ exp_i4 V e12 e22
+   ⇒ exp_i4 V (App_i4 op e11 e12) (App_i4 op e21 e22)) ∧
+  (exp_i4 V e11 e21 ∧ exp_i4 V e12 e22 ∧ exp_i4 V e13 e23
+   ⇒ exp_i4 V (If_i4 e11 e12 e13) (If_i4 e21 e22 e23)) ∧
+  (exp_i4 V e11 e21 ∧ exp_i4 (bind_i4 V) e12 e22
+   ⇒ exp_i4 V (Let_i4 e11 e12) (Let_i4 e21 e22)) ∧
+  (LIST_REL (exp_i4 (FUNPOW bind_i4 (SUC (LENGTH es1)) V)) es1 es2 ∧
+   exp_i4 (FUNPOW bind_i4 (LENGTH es1) V) e1 e2
+   ⇒ exp_i4 V (Letrec_i4 es1 e1) (Letrec_i4 es2 e2)) ∧
+  (exp_i4 V (Extend_global_i4 n) (Extend_global_i4 n))`
+
+val bind_i4_mono = store_thm("bind_i4_mono",
+  ``(∀x y. V1 x y ⇒ V2 x y) ⇒ bind_i4 V1 x y ⇒ bind_i4 V2 x y``,
+  Cases_on`x`>>Cases_on`y`>>rw[bind_i4_def])
+
+val _ = export_mono"bind_i4_mono"
+
+val FUNPOW_mono = store_thm("FUNPOW_mono",
+  ``(∀x y. R1 x y ⇒ R2 x y) ∧
+    (∀R1 R2. (∀x y. R1 x y ⇒ R2 x y) ⇒ ∀x y. f R1 x y ⇒ f R2 x y) ⇒
+    ∀n x y. FUNPOW f n R1 x y ⇒ FUNPOW f n R2 x y``,
+  strip_tac >> Induct >> simp[] >>
+  simp[arithmeticTheory.FUNPOW_SUC] >>
+  first_x_assum match_mp_tac >> rw[])
+
+val exp_i4_mono = store_thm("exp_i4_mono",
+  ``(∀x y. V1 x y ⇒ V2 x y) ⇒
+    exp_i4 V1 e1 e2 ⇒
+    exp_i4 V2 e1 e2``,
+  strip_tac >> strip_tac >> last_x_assum mp_tac >>
+  qid_spec_tac`V2` >> pop_assum mp_tac >>
+  map_every qid_spec_tac[`e2`,`e1`,`V1`] >>
+  ho_match_mp_tac exp_i4_ind >>
+  strip_tac >- ( rw[] >> rw[Once exp_i4_cases] ) >>
+  strip_tac >- (
+    rw[] >>
+    rw[Once exp_i4_cases] >>
+    first_x_assum match_mp_tac >>
+    match_mp_tac bind_i4_mono >> rw[] ) >>
+  strip_tac >- ( rw[] >> rw[Once exp_i4_cases] ) >>
+  strip_tac >- (
+    rw[] >> rw[Once exp_i4_cases] >>
+    match_mp_tac (MP_CANON (GEN_ALL EVERY2_mono)) >>
+    HINT_EXISTS_TAC >> simp[] ) >>
+  strip_tac >- ( rw[] >> rw[Once exp_i4_cases] ) >>
+  strip_tac >- ( rw[] >> rw[Once exp_i4_cases] ) >>
+  strip_tac >- (
+    rw[] >> rw[Once exp_i4_cases] >>
+    first_x_assum match_mp_tac >>
+    match_mp_tac bind_i4_mono >> rw[] ) >>
+  strip_tac >- ( rw[] >> rw[Once exp_i4_cases] ) >>
+  strip_tac >- ( rw[] >> rw[Once exp_i4_cases] ) >>
+  strip_tac >- ( rw[] >> rw[Once exp_i4_cases] ) >>
+  strip_tac >- (
+    rw[] >> rw[Once exp_i4_cases] >>
+    first_x_assum match_mp_tac >>
+    match_mp_tac bind_i4_mono >> rw[] ) >>
+  strip_tac >- (
+    rw[] >> rw[Once exp_i4_cases] >> TRY (
+      match_mp_tac (MP_CANON (GEN_ALL EVERY2_mono)) >>
+      HINT_EXISTS_TAC >> simp[] >> rw[] >>
+      first_x_assum match_mp_tac >>
+      match_mp_tac FUNPOW_mono >>
+      simp[] >> rpt gen_tac >>
+      strip_tac >> rpt gen_tac >>
+      match_mp_tac bind_i4_mono >>
+      simp[] ) >>
+    first_x_assum match_mp_tac >>
+    match_mp_tac FUNPOW_mono >>
+    simp[] >> rpt gen_tac >>
+    strip_tac >> rpt gen_tac >>
+    match_mp_tac bind_i4_mono >>
+    simp[] ) >>
+  ( rw[] >> rw[Once exp_i4_cases] ))
+
+val _ = export_mono"exp_i4_mono"
+
+val env_i4_def = Define`
+  env_i4 R env1 env2 k1 k2 ⇔
+    k1 < LENGTH env1 ∧ k2 < LENGTH env2 ∧ R (EL k1 env1) (EL k2 env2)`
+
+val env_i4_mono = store_thm("env_i4_mono",
+  ``(∀x y. R1 x y ⇒ R2 x y) ⇒
+    env_i4 R1 env1 env2 k1 k2 ⇒
+    env_i4 R2 env1 env2 k1 k2``,
+  rw[env_i4_def])
+val _ = export_mono"env_i4_mono"
+
+val bindn_i4_def = Define`bindn_i4 = FUNPOW bind_i4`
+
+val bindn_i4_mono = store_thm("bindn_i4_mono",
+  ``(∀x y. R1 x y ⇒ R2 x y) ⇒
+    bindn_i4 n R1 x y ⇒ bindn_i4 n R2 x y``,
+  rw[bindn_i4_def] >>
+  match_mp_tac (MP_CANON FUNPOW_mono) >>
+  simp[] >> metis_tac[bind_i4_mono] )
+val _ = export_mono"bindn_i4_mono"
+
+val bindn_i4_thm = store_thm("bindn_i4_thm",
+  ``∀n k1 k2.
+    bindn_i4 n R k1 k2 ⇔
+    if k1 < n ∧ k2 < n then k1 = k2
+    else n ≤ k1 ∧ n ≤ k2 ∧ R (k1-n) (k2-n)``,
+  Induct>>simp[bindn_i4_def,arithmeticTheory.FUNPOW_SUC] >>
+  Cases>>Cases>>simp[bind_i4_def,GSYM bindn_i4_def])
+
+val (v_i4_rules,v_i4_ind,v_i4_cases) = Hol_reln`
+  (v_i4 (Litv_i4 l) (Litv_i4 l)) ∧
+  (LIST_REL v_i4 vs1 vs2
+   ⇒ v_i4 (Conv_i4 tag vs1) (Conv_i4 tag vs2)) ∧
+  (exp_i4 (bind_i4 (env_i4 v_i4 env1 env2)) exp1 exp2
+   ⇒ v_i4 (Closure_i4 env1 exp1) (Closure_i4 env2 exp2)) ∧
+  (LIST_REL (exp_i4 (bindn_i4 (SUC (LENGTH funs1)) (env_i4 v_i4 env1 env2))) funs1 funs2
+   ⇒ v_i4 (Recclosure_i4 env1 funs1 n) (Recclosure_i4 env2 funs2 n)) ∧
+  (v_i4 (Loc_i4 n) (Loc_i4 n))`
+
+val v_i4_lit = store_thm("v_i4_lit",
+  ``(v_i4 (Litv_i4 l) v2 ⇔ (v2 = Litv_i4 l)) ∧
+    (v_i4 v1 (Litv_i4 l) ⇔ (v1 = Litv_i4 l))``,
+  rw[Once v_i4_cases] >> rw[Once v_i4_cases] )
+val _ = export_rewrites["v_i4_lit"]
+
+val v_i4_loc = store_thm("v_i4_loc",
+  ``(v_i4 (Loc_i4 l) v2 ⇔ (v2 = Loc_i4 l)) ∧
+    (v_i4 v1 (Loc_i4 l) ⇔ (v1 = Loc_i4 l))``,
+  rw[Once v_i4_cases] >> rw[Once v_i4_cases] )
+val _ = export_rewrites["v_i4_loc"]
+
+val csg_i4_def = Define`
+  csg_i4 R ((c1,s1),g1) (((c2,s2),g2):'a count_store_genv) ⇔
+    c1 = c2 ∧ LIST_REL R s1 s2 ∧ LIST_REL (OPTION_REL R) g1 g2`
+
+val env_i4_cons = prove(
+  ``R v1 v2 ∧
+    bind_i4 (env_i4 R env1 env2) k1 k2
+    ⇒ env_i4 R (v1::env1) (v2::env2) k1 k2``,
+  Cases_on`k1`>>Cases_on`k2`>>rw[env_i4_def,bind_i4_def])
+
+val evaluate_i4_exp_i4 = store_thm("evaluate_i4_exp_i4",
+  ``(∀ck env1 s1 e1 res1. evaluate_i4 ck env1 s1 e1 res1 ⇒
+       ∀env2 s2 e2.
+         exp_i4 (env_i4 v_i4 env1 env2) e1 e2 ∧
+         csg_i4 v_i4 s1 s2 ⇒
+         ∃res2.
+           evaluate_i4 ck env2 s2 e2 res2 ∧
+           csg_i4 v_i4 (FST res1) (FST res2) ∧
+           result_rel v_i4 v_i4 (SND res1) (SND res2)) ∧
+    (∀ck env1 s1 es1 res1. evaluate_list_i4 ck env1 s1 es1 res1 ⇒
+       ∀env2 s2 es2.
+         LIST_REL (exp_i4 (env_i4 v_i4 env1 env2)) es1 es2 ∧
+         csg_i4 v_i4 s1 s2 ⇒
+         ∃res2.
+           evaluate_list_i4 ck env2 s2 es2 res2 ∧
+           csg_i4 v_i4 (FST res1) (FST res2) ∧
+           result_rel (LIST_REL v_i4) v_i4 (SND res1) (SND res2))``,
+  ho_match_mp_tac evaluate_i4_ind >>
+  strip_tac >- (
+    rw[Once exp_i4_cases] >>
+    rw[Once v_i4_cases] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once exp_i4_cases] >>
+    rw[Once evaluate_i4_cases,PULL_EXISTS] >>
+    fs[EXISTS_PROD,PULL_EXISTS] >>
+    metis_tac[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once exp_i4_cases] >>
+    rw[Once evaluate_i4_cases,PULL_EXISTS] >>
+    fs[EXISTS_PROD,PULL_EXISTS] >>
+    metis_tac[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once exp_i4_cases] >>
+    rw[Once evaluate_i4_cases,PULL_EXISTS] >>
+    fs[EXISTS_PROD,PULL_EXISTS] >>
+    metis_tac[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once exp_i4_cases] >>
+    last_x_assum(qspecl_then[`env2`,`s2`,`e21`]mp_tac) >>
+    rw[] >>
+    rw[Once evaluate_i4_cases,PULL_EXISTS] >>
+    qmatch_assum_rename_tac`v_i4 v1 v2`[] >>
+    qmatch_assum_rename_tac`exp_i4 R e12 e22`["R"] >>
+    qmatch_assum_abbrev_tac`csg_i4 v_i4 s3 s4` >>
+    first_x_assum(qspecl_then[`v2::env2`,`s4`,`e22`]mp_tac) >>
+    simp[] >>
+    discharge_hyps >- ( metis_tac[exp_i4_mono,env_i4_cons] ) >>
+    rw[] >> Cases_on`res2`>>fs[] >>
+    metis_tac[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once exp_i4_cases] >>
+    rw[Once evaluate_i4_cases,PULL_EXISTS] >>
+    fs[EXISTS_PROD,PULL_EXISTS] >>
+    metis_tac[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once exp_i4_cases] >>
+    rw[Once evaluate_i4_cases,PULL_EXISTS] >>
+    fs[EXISTS_PROD,PULL_EXISTS] >>
+    rw[Once v_i4_cases] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once exp_i4_cases] >>
+    rw[Once evaluate_i4_cases,PULL_EXISTS] >>
+    fs[EXISTS_PROD,PULL_EXISTS] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once exp_i4_cases] >>
+    rw[Once evaluate_i4_cases,PULL_EXISTS] >>
+    fs[EXISTS_PROD,PULL_EXISTS] >>
+    PairCases_on`s2` >> fs[env_i4_def] >>
+    simp[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once exp_i4_cases] >>
+    rw[Once evaluate_i4_cases,PULL_EXISTS] >>
+    fs[EXISTS_PROD,PULL_EXISTS] >>
+    PairCases_on`s2` >> fs[env_i4_def] >>
+    simp[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once exp_i4_cases] >>
+    rw[Once evaluate_i4_cases,PULL_EXISTS] >>
+    fs[EXISTS_PROD,PULL_EXISTS] >>
+    PairCases_on`s2` >> fs[env_i4_def] >>
+    PairCases_on`s` >> fs[csg_i4_def] >> rw[] >>
+    rfs[EVERY2_EVERY,EVERY_MEM,PULL_EXISTS] >>
+    fs[MEM_ZIP,PULL_EXISTS] >>
+    first_x_assum(qspec_then`n`mp_tac) >>
+    simp[optionTheory.OPTREL_def] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once exp_i4_cases] >>
+    rw[Once evaluate_i4_cases,PULL_EXISTS] >>
+    fs[EXISTS_PROD,PULL_EXISTS] >>
+    PairCases_on`s2` >> fs[env_i4_def] >>
+    PairCases_on`s` >> fs[csg_i4_def] >> rw[] >>
+    rfs[EVERY2_EVERY,EVERY_MEM,PULL_EXISTS] >>
+    fs[MEM_ZIP,PULL_EXISTS] >>
+    first_assum(qspec_then`n`mp_tac) >>
+    discharge_hyps >- simp[] >>
+    rw[optionTheory.OPTREL_def] >>
+    map_every qexists_tac[`s21`,`s22`] >>
+    simp[MEM_ZIP,PULL_EXISTS] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once exp_i4_cases] >>
+    rw[Once evaluate_i4_cases,PULL_EXISTS] >>
+    fs[EXISTS_PROD,PULL_EXISTS] >>
+    PairCases_on`s2` >> fs[env_i4_def] >>
+    PairCases_on`s` >> fs[csg_i4_def] >> rw[] >>
+    metis_tac[EVERY2_LENGTH] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once exp_i4_cases] >>
+    rw[Once v_i4_cases,PULL_EXISTS] >>
+    rw[Once evaluate_i4_cases] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once exp_i4_cases] >>
+    rw[Once evaluate_i4_cases,PULL_EXISTS] >>
+    qmatch_assum_rename_tac`exp_i4 (env_i4 v_i4 env1 env2) e1 e2`[] >>
+    qmatch_assum_rename_tac`csg_i4 v_i4 s1 s4`[] >>
+    first_x_assum(qspecl_then[`env2`,`s4`,`e2`]mp_tac) >>
+    rw[EXISTS_PROD,PULL_EXISTS] >>
+    fs[csg_i4_def] >> rw[] >>
+    qmatch_assum_rename_tac`evaluate_i4 ck env2 s4 e2 (((c,s),g),Rval w)`[] >>
+    CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
+    map_every qexists_tac[`g`,`s`,`w`] >> rw[] >>
+    Cases_on`uop`>>
+    fs[do_uapp_i4_def,semanticPrimitivesTheory.store_alloc_def,LET_THM] >> rw[] >>
+    imp_res_tac EVERY2_LENGTH >>
+    TRY ( rw[Once v_i4_cases] >> rw[] >> NO_TAC ) >>
+    TRY ( match_mp_tac EVERY2_APPEND_suff >> rw[] >> NO_TAC ) >>
+    TRY (
+      fs[EVERY2_EVERY,EVERY_MEM,MEM_ZIP,PULL_EXISTS,optionTheory.OPTREL_def] >>
+      res_tac >> fs[] >> rw[MEM_ZIP] >> rw[optionTheory.OPTREL_def,EL_LUPDATE] >>
+      rw[Once v_i4_cases] >> NO_TAC) >>
+    qpat_assum`v_i4 v w`mp_tac >>
+    Cases_on`v`>>fs[] >>
+    simp[SIMP_RULE(srw_ss())[](Q.SPECL[`Conv_i4 X Y`,`z`]v_i4_cases)]>>
+    rw[] >>
+    fs[semanticPrimitivesTheory.store_lookup_def] >>
+    rw[]>>fs[]>>rw[]>>fs[EVERY2_EVERY,EVERY_MEM]>>
+    fs[MEM_ZIP,PULL_EXISTS] >> rfs[MEM_ZIP,PULL_EXISTS] >>
+    rw[Once v_i4_cases] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once exp_i4_cases] >>
+    rw[Once evaluate_i4_cases,PULL_EXISTS] >>
+    qmatch_assum_rename_tac`exp_i4 (env_i4 v_i4 env1 env2) e1 e2`[] >>
+    qmatch_assum_rename_tac`csg_i4 v_i4 s1 s4`[] >>
+    first_x_assum(qspecl_then[`env2`,`s4`,`e2`]mp_tac) >>
+    rw[EXISTS_PROD,PULL_EXISTS] >>
+    fs[csg_i4_def] >> rw[] >>
+    qmatch_assum_rename_tac`evaluate_i4 ck env2 s4 e2 (((c,s),g),Rval w)`[] >>
+    map_every qexists_tac[`s`,`g`] >>
+    simp[] >> disj1_tac >>
+    qexists_tac`w` >> simp[] >>
+    fs[EVERY2_EVERY,EVERY_MEM] >>
+    rfs[MEM_ZIP,PULL_EXISTS] >>
+    Cases_on`uop`>>
+    fs[do_uapp_i4_def,LET_THM
+      ,semanticPrimitivesTheory.store_alloc_def
+      ,semanticPrimitivesTheory.store_lookup_def] >>
+    rw[]>>fs[]>>TRY(
+      res_tac >> fs[optionTheory.OPTREL_def] >> fs[] >> NO_TAC) >>
+    qpat_assum`v_i4 v w`mp_tac >>
+    Cases_on`v`>>fs[]>>simp[Once v_i4_cases]>>rw[]>>rw[]>>
+    imp_res_tac EVERY2_LENGTH >> simp[] >> fs[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once exp_i4_cases] >>
+    rw[Once evaluate_i4_cases,PULL_EXISTS] >>
+    fs[EXISTS_PROD,PULL_EXISTS] >>
+    metis_tac[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once exp_i4_cases] >>
+    rw[Once evaluate_i4_cases,PULL_EXISTS] >>
+    cheat ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once exp_i4_cases] >>
+    rw[Once evaluate_i4_cases,PULL_EXISTS] >>
+    cheat ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once exp_i4_cases] >>
+    rw[Once evaluate_i4_cases,PULL_EXISTS] >>
+    cheat ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once exp_i4_cases] >>
+    rw[Once evaluate_i4_cases,PULL_EXISTS] >>
+    fs[EXISTS_PROD,PULL_EXISTS] >>
+    metis_tac[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once exp_i4_cases] >>
+    rw[Once evaluate_i4_cases,PULL_EXISTS] >>
+    fs[EXISTS_PROD,PULL_EXISTS] >>
+    metis_tac[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once exp_i4_cases] >>
+    rw[Once evaluate_i4_cases,PULL_EXISTS] >>
+    qmatch_assum_rename_tac`do_if_i4 v e2 e3 = SOME en`[] >>
+    last_x_assum(qspecl_then[`env2`,`s2`,`e21`]mp_tac) >>
+    simp[] >> disch_then(qx_choose_then`res2`strip_assume_tac) >>
+    Cases_on`∃b. v = Litv_i4 (Bool b)`>>fs[do_if_i4_def]>>fs[]>>rw[]>>
+    last_x_assum(qspecl_then[`env2`,`FST res2`,`if b then e22 else e23`]mp_tac) >>
+    discharge_hyps >- (rw[]>>fs[]>>rw[]) >>
+    disch_then(qx_choose_then`res3`strip_assume_tac) >>
+    qexists_tac`res3` >> simp[] >>
+    disj1_tac >>
+    qexists_tac`Litv_i4 (Bool b)` >> simp[] >>
+    Cases_on`res2` >> rw[] >> fs[] >> rw[] >>
+    metis_tac[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once exp_i4_cases] >>
+    rw[Once evaluate_i4_cases,PULL_EXISTS] >>
+    simp[Once EXISTS_PROD,PULL_EXISTS] >>
+    qmatch_assum_rename_tac`csg_i4 v_i4 s1 s4`[] >>
+    last_x_assum(qspecl_then[`env2`,`s4`,`e21`]mp_tac) >>
+    simp[] >> disch_then(qx_choose_then`res2`strip_assume_tac) >>
+    qexists_tac`FST res2` >> simp[] >>
+    disj2_tac >> disj1_tac >>
+    Cases_on`res2`>>fs[] >>
+    HINT_EXISTS_TAC >>
+    fs[do_if_i4_def] >>
+    rw[]>>fs[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once exp_i4_cases] >>
+    rw[Once evaluate_i4_cases,PULL_EXISTS] >>
+    fs[EXISTS_PROD,PULL_EXISTS] >>
+    metis_tac[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once exp_i4_cases] >>
+    last_x_assum(qspecl_then[`env2`,`s2`,`e21`]mp_tac) >>
+    rw[] >>
+    rw[Once evaluate_i4_cases,PULL_EXISTS] >>
+    qmatch_assum_rename_tac`v_i4 v1 v2`[] >>
+    qmatch_assum_rename_tac`exp_i4 R e12 e22`["R"] >>
+    qmatch_assum_abbrev_tac`csg_i4 v_i4 s3 s4` >>
+    first_x_assum(qspecl_then[`v2::env2`,`s4`,`e22`]mp_tac) >>
+    simp[] >>
+    discharge_hyps >- ( metis_tac[exp_i4_mono,env_i4_cons] ) >>
+    rw[] >> Cases_on`res2`>>fs[] >>
+    metis_tac[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once exp_i4_cases] >>
+    rw[Once evaluate_i4_cases,PULL_EXISTS] >>
+    fs[EXISTS_PROD,PULL_EXISTS] >>
+    metis_tac[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once exp_i4_cases] >>
+    rw[Once evaluate_i4_cases,PULL_EXISTS] >>
+    qmatch_assum_rename_tac`exp_i4 R e1 e2`["R"] >>
+    first_x_assum(qspecl_then[`build_rec_env_i4 es2 env2 ++ env2`,`s2`,`e2`]mp_tac) >>
+    simp[] >>
+    discharge_hyps >- (
+      match_mp_tac (MP_CANON (GEN_ALL exp_i4_mono)) >>
+      HINT_EXISTS_TAC >> simp[bindn_i4_thm,GSYM bindn_i4_def] >>
+      simp[env_i4_def,build_rec_env_i4_def] >>
+      imp_res_tac EVERY2_LENGTH >>
+      rw[] >> simp[rich_listTheory.EL_APPEND2,rich_listTheory.EL_APPEND1] >>
+      simp[Once v_i4_cases,bindn_i4_def] >> fs[] ) >>
+    simp[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once exp_i4_cases] >>
+    rw[Once evaluate_i4_cases,PULL_EXISTS] >>
+    PairCases_on`s` >>
+    PairCases_on`s2`>>fs[csg_i4_def] >>
+    match_mp_tac EVERY2_APPEND_suff >>
+    simp[] >> simp[EVERY2_EVERY,EVERY_MEM] >>
+    simp[MEM_ZIP,PULL_EXISTS,optionTheory.OPTREL_def] ) >>
+  strip_tac >- ( rw[] >> rw[Once evaluate_i4_cases] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    Cases_on`es2`>>simp[] >>
+    simp[Once evaluate_i4_cases,PULL_EXISTS] >>
+    fs[EXISTS_PROD,PULL_EXISTS] >>
+    metis_tac[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    Cases_on`es2`>>simp[] >>
+    simp[Once evaluate_i4_cases,PULL_EXISTS] >>
+    fs[EXISTS_PROD,PULL_EXISTS] >>
+    metis_tac[] ) >>
+  rpt gen_tac >> strip_tac >>
+  Cases_on`es2`>>simp[] >>
+  simp[Once evaluate_i4_cases,PULL_EXISTS] >>
+  fs[EXISTS_PROD,PULL_EXISTS] >>
+  metis_tac[] )
+
+(*
+val exp_to_i4_shift = store_thm("exp_to_i4_shift",
+  ``(∀bvs e bvs'.
+       FILTER
+       ⇒
+       ∀
+       exp_i4 exp_to_i4 bvs' e = exp_to_i4 bvs e
+  exp_to_i4_def
+  exp_to_i4_ind
+
 val exp_to_i4_correct = store_thm("exp_to_i4_correct",
   ``(∀ck env s exp res. evaluate_i3 ck env s exp res ⇒
      (SND res ≠ Rerr Rtype_error) ∧ good_env_s_i2 env s ⇒
@@ -1348,6 +1878,7 @@ val exp_to_i4_correct = store_thm("exp_to_i4_correct",
     qexists_tac`s2` >> simp[Abbr`s2`] ) >>
   strip_tac >- rw[] >>
   rw[])
+*)
 
 (*
 (* 0 = SOME, 1 = NONE, 2 = INL, 3 = INR, 4 = NIL, 5 = CONS, 6 = PAIR *)
