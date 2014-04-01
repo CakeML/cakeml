@@ -5,7 +5,7 @@ ifdef POLY
 HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../parsing/cmlParseTheory ../inference/inferTheory ../compiler/compilerTerminationTheory ../parsing/lexer_implTheory ../bytecode/bytecodeLabelsTheory ../semantics/typeSystemTheory ../semantics/lexer_funTheory ../compiler/intLang1Theory ../compiler/intLang2Theory ../compiler/intLang3Theory
+BARE_THYS = ../parsing/cmlParseTheory ../inference/inferTheory ../compiler/compilerTerminationTheory ../parsing/lexer_implTheory ../bytecode/bytecodeLabelsTheory ../semantics/typeSystemTheory ../semantics/lexer_funTheory ../compiler/intLang1Theory ../compiler/intLang2Theory ../compiler/intLang3Theory ../compiler/intLang4Theory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
