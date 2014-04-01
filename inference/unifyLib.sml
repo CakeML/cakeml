@@ -47,7 +47,7 @@ fun t_walkstar_conv tm = let
   val th2 = EVAL (rhs(concl th1))
   in TRANS th1 th2 end
 
-val _ = convs
+val convs =
 [(``t_unify``,3,t_unify_conv)
 ,(``t_vwalk``,2,t_vwalk_conv)
 ,(``t_walkstar``,2,t_walkstar_conv)
@@ -58,7 +58,7 @@ in
 
 fun add_unify_compset compset =
   (computeLib.add_thms funs compset
-  ;Lib.app (Lib.C computeLib.add_conv compset) convs
+  ;List.app (Lib.C computeLib.add_conv compset) convs
   )
 
 end
