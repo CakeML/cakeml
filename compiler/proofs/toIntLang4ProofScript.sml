@@ -1831,13 +1831,30 @@ val evaluate_i4_exp_i4 = store_thm("evaluate_i4_exp_i4",
 
 (*
 val exp_to_i4_shift = store_thm("exp_to_i4_shift",
-  ``(∀bvs e bvs'.
-       FILTER
+  ``(∀bvs1 e bvs2 V.
+       (∀k1 k2. V k1 k2 ⇒ k1 < LENGTH bvs1 ∧ k2 < LENGTH bvs2 ∧
+                (EL k1 bvs1 = EL k2 bvs2))
        ⇒
-       ∀
-       exp_i4 exp_to_i4 bvs' e = exp_to_i4 bvs e
-  exp_to_i4_def
+       exp_i4 V (exp_to_i4 bvs1 e) (exp_to_i4 bvs2 e)) ∧
+    (∀bvs1 es bvs2 V.
+       (∀k1 k2. V k1 k2 ⇒ k1 < LENGTH bvs1 ∧ k2 < LENGTH bvs2 ∧
+                (EL k1 bvs1 = EL k2 bvs2))
+       ⇒
+       LIST_REL (exp_i4 V) (exps_to_i4 bvs1 es) (exps_to_i4 bvs2 es)) ∧
+    (∀bvs1 funs bvs2 V.
+       (∀k1 k2. V k1 k2 ⇒ k1 < LENGTH bvs1 ∧ k2 < LENGTH bvs2 ∧
+                (EL k1 bvs1 = EL k2 bvs2))
+       ⇒
+       LIST_REL (exp_i4 (bindn_i4 (SUC (LENGTH funs)) V)) (funs_to_i4 bvs1 funs) (funs_to_i4 bvs2 funs)) ∧
+    (∀bvs1 pes bvs2 V.
+       (∀k1 k2. V k1 k2 ⇒ k1 < LENGTH bvs1 ∧ k2 < LENGTH bvs2 ∧
+                (EL k1 bvs1 = EL k2 bvs2))
+       ⇒
+
+       ``
   exp_to_i4_ind
+  exp_to_i4_def
+  exp_i4_rules
 
 val exp_to_i4_correct = store_thm("exp_to_i4_correct",
   ``(∀ck env s exp res. evaluate_i3 ck env s exp res ⇒
