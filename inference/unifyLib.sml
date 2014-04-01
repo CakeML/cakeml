@@ -1,6 +1,6 @@
 structure unifyLib = struct
 local
-open HolKernel bossLib lcsymtacs
+open HolKernel boolLib bossLib lcsymtacs
 
 val t_unify_wfs = prove(
  ``t_wfs s ∧ (t_unify s t1 t2 = SOME sx) ==> t_wfs sx``,
