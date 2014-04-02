@@ -525,7 +525,7 @@ val Eseq_encode_def = Define`
   (Eseq_encode (e::es) =
    do
      body <- Eseq_encode es;
-     SOME(Let "_" e body)
+     SOME(Let NONE e body)
    od)
 `
 
@@ -597,7 +597,7 @@ val ptree_Expr_def = Define`
               eseq <- ptree_Eseq ept;
               e <- Eseq_encode eseq;
               SOME(FOLDR (λdf acc. case df of
-                                       INL (v,e0) => Let v e0 acc
+                                       INL (v,e0) => Let (SOME v) e0 acc
                                      | INR fds => Letrec fds acc)
                          e
                          letdecs)

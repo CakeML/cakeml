@@ -202,7 +202,7 @@ val run_eval_def = Q.store_thm ("run_eval_def",
    run_eval env (Let x e1 e2)
    =
    do v1 <- run_eval env e1;
-      run_eval (all_env_to_menv env, all_env_to_cenv env, bind x v1 (all_env_to_env env)) e2
+      run_eval (all_env_to_menv env, all_env_to_cenv env, opt_bind x v1 (all_env_to_env env)) e2
    od) ∧
  (!env funs e.
    run_eval env (Letrec funs e)

@@ -202,7 +202,7 @@ evaluate ck env s (Mat e pes) (s', Rerr err))
 
 /\ (! ck menv cenv env n e1 e2 v bv s1 s2.
 (evaluate ck (menv,cenv,env) s1 e1 (s2, Rval v) /\
-evaluate ck (menv,cenv,bind n v env) s2 e2 bv)
+evaluate ck (menv,cenv,opt_bind n v env) s2 e2 bv)
 ==>
 evaluate ck (menv,cenv,env) s1 (Let n e1 e2) bv)
 

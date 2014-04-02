@@ -30,7 +30,7 @@ val _ = Hol_datatype `
   | Cif of unit => exp => exp
   (* The value is raised if none of the patterns match *)
   | Cmat of unit => (pat # exp) list => v
-  | Clet of varN => unit => exp
+  | Clet of  varN option => unit => exp
   (* Evaluating a constructor's arguments
    * The v list should be in reverse order. *)
   | Ccon of  ( conN id)option => v list => unit => exp list
@@ -119,7 +119,7 @@ val _ = Define `
         else
           Etype_error
     | (Clet n ()  e, (menv, cenv, env)) :: c =>
-        Estep ((menv, cenv, bind n v env), s, Exp e, c)
+        Estep ((menv, cenv, opt_bind n v env), s, Exp e, c)
     | (Ccon n vs ()  [], env) :: c =>
         if do_con_check (all_env_to_cenv env) n (LENGTH vs + 1) then
            (case build_conv (all_env_to_cenv env) n (REVERSE (v::vs)) of

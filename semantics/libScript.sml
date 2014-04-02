@@ -47,6 +47,15 @@ val _ = Define `
  (bind n v e = ((n,v)::e))`;
 
 
+(*val opt_bind : forall 'a 'b. maybe 'a -> 'b -> env 'a 'b -> env 'a 'b*)
+val _ = Define `
+ (opt_bind n v e =  
+ ((case n of 
+      NONE => e
+    | SOME n' => (n',v)::e
+  )))`;
+
+
 (*val merge : forall 'a 'b. env 'a 'b -> env 'a 'b -> env 'a 'b*)
 val _ = Define `
  (merge e1 e2 = (e1 ++ e2))`;

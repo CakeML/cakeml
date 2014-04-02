@@ -502,8 +502,8 @@ val big_clocked_total_lem = Q.prove (
                               pair_CASES, clock_monotone, arithmeticTheory.LESS_OR_EQ]) >>
      metis_tac [])
  >- ((* Let *)
-     `exp_size e' < exp_size (Let s' e' e0) ∧
-      exp_size e0 < exp_size (Let s' e' e0)`
+    `exp_size e' < exp_size (Let o' e' e0) ∧
+      exp_size e0 < exp_size (Let o' e' e0)`
             by srw_tac [ARITH_ss] [exp_size_def] >>
      metis_tac [result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, pair_CASES,
                 clock_monotone, arithmeticTheory.LESS_OR_EQ]) 

@@ -19,7 +19,7 @@ type ctxt_frame =
   | Cif of unit * exp * exp
   (* The value is raised if none of the patterns match *)
   | Cmat of unit * list (pat * exp) * v
-  | Clet of varN * unit * exp
+  | Clet of maybe varN * unit * exp
   (* Evaluating a constructor's arguments
    * The v list should be in reverse order. *)
   | Ccon of maybe (id conN) * list v * unit * list exp
@@ -98,7 +98,7 @@ let continue s v cs =
         else
           Etype_error
     | (Clet n () e, (menv, cenv, env)) :: c ->
-        Estep ((menv, cenv, bind n v env), s, Exp e, c)
+        Estep ((menv, cenv, opt_bind n v env), s, Exp e, c)
     | (Ccon n vs () [], env) :: c ->
         if do_con_check (all_env_to_cenv env) n (List.length vs + 1) then
            match build_conv (all_env_to_cenv env) n (reverse (v::vs)) with

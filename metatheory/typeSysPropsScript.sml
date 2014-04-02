@@ -1019,7 +1019,7 @@ val type_e_freevars = Q.store_thm ("type_e_freevars",
    EVERY (check_freevars (num_tvs tenvE) []) (MAP SND env))`,
 ho_match_mp_tac type_e_strongind >>
 rw [check_freevars_def, bind_tenv_def, num_tvs_def, type_uop_cases, type_op_cases,
-    tenv_ok_def, bind_tvar_def, bind_var_list_def] >>
+    tenv_ok_def, bind_tvar_def, bind_var_list_def, opt_bind_tenv_def] >>
 fs [check_freevars_def] >|
 [metis_tac [deBruijn_subst_check_freevars],
  metis_tac [type_e_freevars_lem4, arithmeticTheory.ADD],
@@ -1029,6 +1029,12 @@ fs [check_freevars_def] >|
      qpat_assum `!x. P x` (ASSUME_TAC o Q.SPEC `(FST h, SND h)`) >>
      fs [] >>
      metis_tac [type_p_freevars, tenv_ok_bind_var_list],
+ every_case_tac >>
+     fs [num_tvs_def, tenv_ok_def],
+ every_case_tac >>
+     fs [num_tvs_def, tenv_ok_def],
+ every_case_tac >>
+     fs [num_tvs_def, tenv_ok_def],
  metis_tac [tenv_ok_bind_var_list_funs, num_tvs_bind_var_list],
  metis_tac [tenv_ok_bind_var_list_tvs, num_tvs_bind_var_list, bind_tvar_def]]);
 
@@ -1075,10 +1081,10 @@ val type_e_subst = Q.store_thm ("type_e_subst",
  ho_match_mp_tac type_e_strongind >>
  rw [] >>
  ONCE_REWRITE_TAC [type_e_cases] >>
- rw [deBruijn_subst_def, deBruijn_subst_tenvE_def, 
+ rw [deBruijn_subst_def, deBruijn_subst_tenvE_def, opt_bind_tenv_def, 
      bind_tvar_rewrites, bind_tenv_def, num_tvs_def, OPTION_MAP_DEF,
      num_tvs_db_merge, num_tvs_deBruijn_subst_tenvE] >>
- fs [deBruijn_subst_def, deBruijn_subst_tenvE_def, 
+ fs [deBruijn_subst_def, deBruijn_subst_tenvE_def, opt_bind_tenv_def, 
      bind_tvar_rewrites, bind_tenv_def, num_tvs_def, OPTION_MAP_DEF,
      num_tvs_db_merge, num_tvs_deBruijn_subst_tenvE, tenv_ok_def] >>
  `tenv_ok tenvE2` by metis_tac [tenv_ok_db_merge, bind_tvar_def, tenv_ok_def]
@@ -1210,51 +1216,30 @@ val type_e_subst = Q.store_thm ("type_e_subst",
           rw [bind_tvar_rewrites] >>
           fs [MAP_MAP_o, combinTheory.o_DEF, deBruijn_inc_deBruijn_inc] >>
           metis_tac [],
-      qpat_assum `∀tenvE1' targs' tvs''.
-                     check_freevars (tvs + (num_tvs tenvE1 + LENGTH targs)) [] t ∧
-                     EVERY (check_freevars tvs'' []) targs' ∧
-                     (Bind_name n tvs t
-                        (db_merge tenvE1 (bind_tvar (LENGTH targs) tenvE2)) =
-                      db_merge tenvE1' (bind_tvar (LENGTH targs') tenvE2)) ⇒
-                     type_e tenvM tenvC
-                       (db_merge (deBruijn_subst_tenvE targs' tenvE1')
-                          (bind_tvar tvs'' tenvE2))
-                       e'
-                       (deBruijn_subst (num_tvs tenvE1')
-                          (MAP (deBruijn_inc 0 (num_tvs tenvE1')) targs') t')`
+      every_case_tac >>
+          fs [tenv_ok_def] >>
+          FIRST_X_ASSUM
                  (MP_TAC o 
-                  Q.SPECL [`Bind_name n tvs t tenvE1`, `targs`, `tvs'`]) >>
+                  Q.SPECL [`Bind_name x tvs t tenvE1`, `targs`, `tvs'`]) >>
           rw [bind_tvar_rewrites, db_merge_def, deBruijn_subst_tenvE_def, 
               num_tvs_def] >>
           imp_res_tac type_e_freevars >>
-          fs [tenv_ok_def, num_tvs_def, bind_tvar_rewrites, num_tvs_db_merge] >>
-          fs [MAP_MAP_o, combinTheory.o_DEF, deBruijn_inc_deBruijn_inc] >>
-          metis_tac [arithmeticTheory.ADD, arithmeticTheory.ADD_ASSOC, arithmeticTheory.ADD_COMM]])
+          fs [tenv_ok_def, num_tvs_def, bind_tvar_rewrites, num_tvs_db_merge]])
  >- (disj2_tac >>
      rw [] >>
      qexists_tac `deBruijn_subst (num_tvs tenvE1)
                         (MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs) t` >>
      fs [deBruijn_inc0] >>
      rw [] >>
-     qpat_assum `∀tenvE1' targs' tvs'.
-                     check_freevars (skip' + LENGTH targs) [] t ∧
-                     EVERY (check_freevars tvs' []) targs' ∧
-                     (Bind_name n 0 t
-                        (db_merge tenvE1 (bind_tvar (LENGTH targs) tenvE2)) =
-                      db_merge tenvE1' (bind_tvar (LENGTH targs') tenvE2)) ⇒
-                     type_e tenvM tenvC
-                       (db_merge (deBruijn_subst_tenvE targs' tenvE1')
-                          (bind_tvar tvs' tenvE2))
-                       e'
-                       (deBruijn_subst (num_tvs tenvE1')
-                          (MAP (deBruijn_inc 0 (num_tvs tenvE1')) targs') t')`
+     every_case_tac >>
+     fs [] >>
+     FIRST_X_ASSUM
                  (MP_TAC o 
-                  Q.SPECL [`Bind_name n 0 t tenvE1`, `targs`, `tvs`]) >>
+                  Q.SPECL [`Bind_name x 0 t tenvE1`, `targs`, `tvs`]) >>
      rw [bind_tvar_rewrites, db_merge_def, deBruijn_subst_tenvE_def, 
          num_tvs_def] >>
      imp_res_tac type_e_freevars >>
-     fs [tenv_ok_def, num_tvs_def, bind_tvar_rewrites, num_tvs_db_merge] >>
-     metis_tac [arithmeticTheory.ADD, arithmeticTheory.ADD_ASSOC, arithmeticTheory.ADD_COMM])
+     fs [tenv_ok_def, num_tvs_def, bind_tvar_rewrites, num_tvs_db_merge])
  >- (qexists_tac `MAP (λ(x,t').
                  (x,
                   deBruijn_subst (tvs + num_tvs tenvE1)

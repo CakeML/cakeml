@@ -743,7 +743,7 @@ val big_exp_to_small_exp = Q.prove (
                     (env',SND s',Val v,[(Clet n () e',(menv,cenv,env))])`
              by metis_tac [e_step_add_ctxt, APPEND] >>
      `e_step_reln (env',SND s',Val v,[(Clet n () e',(menv,cenv,env))])
-                  ((menv,cenv,bind n v env),SND s',Exp e',[])`
+                  ((menv,cenv,opt_bind n v env),SND s',Exp e',[])`
              by rw [e_step_def, e_step_reln_def, continue_def, push_def] >>
      match_mp_tac small_eval_prefix >>
      metis_tac [transitive_RTC, RTC_SINGLE, transitive_def])

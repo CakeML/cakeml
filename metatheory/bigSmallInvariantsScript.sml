@@ -98,7 +98,7 @@ evaluate_ctxt env s (Cif ()  e2 e3) v (s, Rerr Rtype_error))
 evaluate_ctxt env s (Cmat ()  pes err_v) v bv)
 
 /\ (! menv cenv env n e2 v bv s.
-(evaluate F (menv, cenv, bind n v env) s e2 bv)
+(evaluate F (menv, cenv, opt_bind n v env) s e2 bv)
 ==>
 evaluate_ctxt (menv,cenv,env) s (Clet n ()  e2) v bv)
 
