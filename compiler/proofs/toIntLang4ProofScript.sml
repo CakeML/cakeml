@@ -1448,6 +1448,73 @@ val csg_i4_trans = store_thm("csg_i4_trans",
   Cases >> Cases >> Cases >> simp[] >>
   metis_tac[])
 
+val do_app_i4_v_i4 = store_thm("do_app_i4_v_i4",
+  ``∀env s op v1 v2 env' s' v1' v2'.
+      LIST_REL v_i4 s s' ∧
+      v_i4 v1 v1' ∧ v_i4 v2 v2' ⇒
+      OPTION_REL
+        (λ(env1,s1,e1) (env2,s2,e2).
+          LIST_REL v_i4 s1 s2 ∧
+          exp_i4 (LENGTH env1) (LENGTH env2) (env_i4 v_i4 env1 env2) e1 e2)
+        (do_app_i4 env s op v1 v2)
+        (do_app_i4 env' s' op v1' v2')``,
+  Cases_on`op`>>fs[do_app_i4_def] >- (
+    Cases_on`v2`>>TRY(Cases_on`l:lit`)>>
+    Cases_on`v1`>>TRY(Cases_on`l:lit`)>>
+    fs[optionTheory.OPTREL_def]>>
+    TRY ( simp[Once v_i4_cases,PULL_EXISTS] >> NO_TAC ) >>
+    TRY ( ntac 2 (simp[Once v_i4_cases,PULL_EXISTS]) >> NO_TAC ) >>
+    BasicProvers.CASE_TAC >- ( ntac 2 (simp[Once exp_i4_cases])) >>
+    simp[Once exp_i4_cases] )
+  >- (
+    Cases_on`v2`>>TRY(Cases_on`l:lit`)>>
+    Cases_on`v1`>>TRY(Cases_on`l:lit`)>>
+    fs[optionTheory.OPTREL_def]>>
+    TRY ( simp[Once v_i4_cases,PULL_EXISTS] >> NO_TAC ) >>
+    TRY ( ntac 2 (simp[Once v_i4_cases,PULL_EXISTS]) >> NO_TAC ) >>
+    simp[Once exp_i4_cases] )
+  >- (
+    rw[] >>
+    BasicProvers.CASE_TAC >>
+    imp_res_tac do_eq_i4_v_i4 >>
+    fs[optionTheory.OPTREL_def] >>
+    simp[Once exp_i4_cases] >>
+    simp[Once exp_i4_cases] )
+  >- (
+    Cases_on`v1`>>fs[optionTheory.OPTREL_def]>>
+    simp[Once v_i4_cases,PULL_EXISTS] >> rw[] >- (
+      match_mp_tac (MP_CANON (GEN_ALL exp_i4_mono)) >>
+      HINT_EXISTS_TAC >>
+      simp[bind_i4_thm,env_i4_def] >>
+      Cases >> Cases >> simp[] ) >>
+    qmatch_abbrev_tac`X ∨ Y` >>
+    imp_res_tac EVERY2_LENGTH >>
+    qsuff_tac`¬X ⇒ Y`>-metis_tac[]>>
+    unabbrev_all_tac >> simp[] >>
+    strip_tac >> simp[] >>
+    rfs[EVERY2_EVERY,EVERY_MEM] >>
+    fs[MEM_ZIP,PULL_EXISTS] >>
+    match_mp_tac (MP_CANON (GEN_ALL exp_i4_mono)) >>
+    simp[build_rec_env_i4_def] >> res_tac >>
+    fsrw_tac[ARITH_ss][arithmeticTheory.ADD1] >>
+    qmatch_assum_abbrev_tac`exp_i4 z1 z2 V e1 e2` >>
+    qexists_tac`V` >>
+    simp[Abbr`V`,bindn_i4_thm] >>
+    reverse conj_tac >- metis_tac[arithmeticTheory.ADD_SYM,arithmeticTheory.ADD_ASSOC] >>
+    Cases >> Cases >> rw[env_i4_def] >> fsrw_tac[ARITH_ss][arithmeticTheory.ADD1] >>
+    simp[rich_listTheory.EL_APPEND1,rich_listTheory.EL_APPEND2] >>
+    simp[Once v_i4_cases] >>
+    rfs[EVERY2_EVERY,EVERY_MEM] >>
+    fs[MEM_ZIP,PULL_EXISTS,arithmeticTheory.ADD1,Abbr`z1`,Abbr`z2`] >>
+    PROVE_TAC[arithmeticTheory.ADD_SYM,arithmeticTheory.ADD_ASSOC] )
+  >- (
+    Cases_on`v1`>>fs[optionTheory.OPTREL_def]>>
+    TRY(simp[Once v_i4_cases,PULL_EXISTS]>>NO_TAC) >>
+    rw[semanticPrimitivesTheory.store_assign_def] >>
+    fs[EVERY2_EVERY,EVERY_MEM] >> simp[] >>
+    rfs[MEM_ZIP,PULL_EXISTS,EL_LUPDATE] >>
+    rw[] >> rw[Once exp_i4_cases]))
+
 val evaluate_i4_exp_i4 = store_thm("evaluate_i4_exp_i4",
   ``(∀ck env1 s1 e1 res1. evaluate_i4 ck env1 s1 e1 res1 ⇒
        ∀env2 s2 e2.
@@ -1639,196 +1706,29 @@ val evaluate_i4_exp_i4 = store_thm("evaluate_i4_exp_i4",
     qmatch_assum_rename_tac`csg_i4 v_i4 s11 (FST res11)`[] >>
     last_x_assum(qspecl_then[`env2`,`FST res11`,`e22`]mp_tac) >>
     rw[] >>
-    Cases_on`op`>>fs[do_app_i4_def] >- (
-      Cases_on`v2`>>TRY(Cases_on`l:lit`)>>
-      Cases_on`v1`>>TRY(Cases_on`l:lit`)>>fs[]>>
-      last_x_assum mp_tac >>
-      BasicProvers.CASE_TAC >- (
-        strip_tac >>
-        rpt BasicProvers.VAR_EQ_TAC >>
-        rpt(qpat_assum`T`kall_tac) >>
-        last_x_assum mp_tac  >>
-        simp[SIMP_RULE(srw_ss())[](Q.SPECL[`X`,`A`,`B`,`Raise_i4 Y`] exp_i4_cases),PULL_EXISTS] >>
-        simp[Once exp_i4_cases,PULL_EXISTS,bigStepTheory.dec_count_def] >>
-        simp[Once evaluate_i4_cases,PULL_EXISTS] >>
-        simp[Once evaluate_i4_cases,PULL_EXISTS] >>
-        simp[Once evaluate_i4_cases,PULL_EXISTS] >>
-        simp[Once evaluate_i4_cases,PULL_EXISTS] >>
-        simp[Once evaluate_i4_cases,PULL_EXISTS] >>
-        disch_then(qspec_then`FST res2`mp_tac) >>
-        simp[Once v_i4_cases] >> strip_tac >>
-        qexists_tac`FST (res2), Rerr (Rraise (Conv_i4 div_tag []))` >>
-        simp[PULL_EXISTS] >>
-        simp[Once v_i4_cases] >>
-        disj1_tac >>
-        qmatch_assum_abbrev_tac`SND res11 = Rval v1` >>
-        qmatch_assum_abbrev_tac`SND res2 = Rval v2` >>
-        map_every qexists_tac[`v1`,`v2`] >>
-        simp[Abbr`v1`,Abbr`v2`] >>
-        qexists_tac`FST res11` >>
-        Cases_on`res11` >>
-        PairCases_on`res2`>>
-        fs[] >>
-        map_every qexists_tac[`res21`,`res20`,`res22`] >>
-        simp[] >>
-        simp[Once evaluate_i4_cases] >>
-        simp[Once evaluate_i4_cases] >>
-        simp[Once evaluate_i4_cases] ) >>
-      strip_tac >>
-      rpt BasicProvers.VAR_EQ_TAC >>
-      rpt(qpat_assum`T`kall_tac) >>
-      last_x_assum mp_tac >>
-      simp[Once exp_i4_cases,bigStepTheory.dec_count_def] >>
-      disch_then(qspec_then`FST res2`mp_tac) >>
-      simp[] >> strip_tac >>
-      qmatch_assum_abbrev_tac`result_rel v_i4 v_i4 (SND res1) rv` >>
-      qexists_tac`FST res2,rv` >>
-      simp[Abbr`rv`] >>
-      qmatch_assum_abbrev_tac`SND res11 = Rval v1` >>
-      qmatch_assum_abbrev_tac`SND res2 = Rval v2` >>
-      map_every qexists_tac[`v1`,`v2`] >>
-      simp[Abbr`v1`,Abbr`v2`] >>
-      Cases_on`res11` >> PairCases_on`res2`>> fs[] >>
-      metis_tac[] )
-    >- (
-      Cases_on`v2`>>TRY(Cases_on`l:lit`)>>
-      Cases_on`v1`>>TRY(Cases_on`l:lit`)>>fs[]>>
-      rw[] >>
-      last_x_assum mp_tac >>
-      simp[Once exp_i4_cases,bigStepTheory.dec_count_def] >>
-      disch_then(qspec_then`FST res2`mp_tac) >>
-      simp[] >> strip_tac >>
-      qmatch_assum_abbrev_tac`result_rel v_i4 v_i4 (SND res1) rv` >>
-      qexists_tac`FST res2,rv` >>
-      simp[Abbr`rv`] >>
-      qmatch_assum_abbrev_tac`SND res11 = Rval v1` >>
-      qmatch_assum_abbrev_tac`SND res2 = Rval v2` >>
-      map_every qexists_tac[`v1`,`v2`] >>
-      simp[Abbr`v1`,Abbr`v2`] >>
-      Cases_on`res11` >> PairCases_on`res2`>> fs[] >>
-      metis_tac[] )
-    >- (
-      last_x_assum mp_tac >>
-      BasicProvers.CASE_TAC >- (
-        rw[] >>
-        last_x_assum mp_tac >>
-        simp[Once exp_i4_cases,bigStepTheory.dec_count_def] >>
-        disch_then(qspec_then`FST res2`mp_tac) >>
-        simp[] >> strip_tac >>
-        qmatch_assum_abbrev_tac`result_rel v_i4 v_i4 (SND res1) rv` >>
-        qexists_tac`FST res2,rv` >>
-        simp[Abbr`rv`] >>
-        imp_res_tac do_eq_i4_v_i4 >>
-        qmatch_assum_rename_tac`SND res2 = Rval v21`[] >>
-        map_every qexists_tac[`v11`,`v21`] >>
-        fs[] >>
-        PairCases_on`res2`>>
-        PairCases_on`res11`>>
-        fs[] >> metis_tac[] ) >>
-      rw[] >>
-      last_x_assum mp_tac >>
-      simp[Once exp_i4_cases,bigStepTheory.dec_count_def,PULL_EXISTS] >>
-      simp[Once exp_i4_cases] >>
-      simp[Once evaluate_i4_cases,PULL_EXISTS] >>
-      simp[Once evaluate_i4_cases,PULL_EXISTS] >>
-      simp[Once evaluate_i4_cases,PULL_EXISTS] >>
-      simp[Once evaluate_i4_cases,PULL_EXISTS] >>
-      simp[Once evaluate_i4_cases,PULL_EXISTS] >>
-      disch_then(qspec_then`FST res2`mp_tac) >>
-      simp[] >> strip_tac >>
-      qexists_tac`FST res2,Rerr(Rraise(Conv_i4 eq_tag []))` >>
-      simp[] >>
-      disj1_tac >>
-      qmatch_assum_rename_tac`SND res2 = Rval v21`[] >>
-      map_every qexists_tac[`v11`,`v21`] >>
-      imp_res_tac do_eq_i4_v_i4 >>
-      fs[] >>
-      PairCases_on`res2`>>
-      PairCases_on`res11`>>
-      fs[] >>
-      simp[SIMP_RULE(srw_ss())[](Q.SPECL[`ck`,`X`,`Y`,`Raise_i4 Z`,`ress`](CONJUNCT1 evaluate_i4_cases))] >>
-      simp[SIMP_RULE(srw_ss())[](Q.SPECL[`ck`,`X`,`Y`,`Con_i4 Z A`,`ress`](CONJUNCT1 evaluate_i4_cases))] >>
-      simp[Once(CONJUNCT2 evaluate_i4_cases)] >>
-      simp[Once(CONJUNCT2 evaluate_i4_cases)] >>
-      metis_tac[] )
-    >- (
-      Cases_on`v1`>>fs[]>>rw[]>-(
-        qmatch_assum_rename_tac`v_i4 v2 v4`[]>>
-        qpat_assum`v_i4 X v11`mp_tac >>
-        simp[Once v_i4_cases] >> rw[] >>
-        qmatch_assum_rename_tac`exp_i4 A B (bind_i4 (env_i4 v_i4 ev1 ev2)) b1 b2`["A","B"] >>
-        PairCases_on`res2`>>fs[]>>
-        first_x_assum(qspecl_then[`v4::ev2`,`(if ck then res20-1 else res20,res21),res22`,`b2`]mp_tac) >>
-        discharge_hyps >- (
-          fs[csg_i4_def,bigStepTheory.dec_count_def] >>
-          metis_tac[exp_i4_mono,env_i4_cons]) >>
-        strip_tac >>
-        qexists_tac`res2` >> simp[] >>
-        disj1_tac >>
-        qexists_tac`Closure_i4 ev2 b2` >>
-        qexists_tac`v4` >> simp[] >>
-        qexists_tac`FST res11` >>
-        Cases_on`res11`>>fs[]>>
-        simp[bigStepTheory.dec_count_def] >>
-        fs[csg_i4_def] >>
-        metis_tac[] ) >>
-      qmatch_assum_rename_tac`v_i4 v2 v4`[]>>
-      qpat_assum`v_i4 X v11`mp_tac >>
-      simp[Once v_i4_cases] >> rw[] >>
-      qmatch_assum_rename_tac`LIST_REL (exp_i4 A B (bindn_i4 (SUC (LENGTH fs1)) (env_i4 v_i4 ev1 ev2))) fs1 fs2`["A","B"] >>
-      PairCases_on`res2`>>fs[]>>
-      first_x_assum(qspecl_then[`v4::(build_rec_env_i4 fs2 ev2 ++ ev2)`
-                               ,`(if ck then res20-1 else res20,res21),res22`
-                               ,`EL n fs2`]mp_tac) >>
-      discharge_hyps >- (
-        fs[csg_i4_def,bigStepTheory.dec_count_def] >>
-        match_mp_tac (MP_CANON (GEN_ALL exp_i4_mono)) >>
-        fs[EVERY2_EVERY,EVERY_MEM] >>
-        rfs[MEM_ZIP,PULL_EXISTS] >>
-        qexists_tac`bindn_i4 (SUC (LENGTH fs1)) (env_i4 v_i4 ev1 ev2)` >>
-        simp[bindn_i4_thm,env_i4_def,build_rec_env_i4_def] >>
-        reverse conj_tac >- (
-          first_x_assum(qspec_then`n`mp_tac) >>
-          simp[arithmeticTheory.ADD1] >>
-          metis_tac[arithmeticTheory.ADD_ASSOC,arithmeticTheory.ADD_SYM]) >>
-        Cases >> Cases >> rw[] >> simp[rich_listTheory.EL_APPEND2,rich_listTheory.EL_APPEND1] >>
-        simp[Once v_i4_cases,EVERY2_EVERY,EVERY_MEM,MEM_ZIP,PULL_EXISTS] ) >>
-      strip_tac >>
-      qexists_tac`res2` >> simp[] >>
-      disj1_tac >>
-      qexists_tac`Recclosure_i4 ev2 fs2 n` >>
-      qexists_tac`v4` >> simp[] >>
-      qexists_tac`FST res11` >>
-      Cases_on`res11`>>fs[] >>
-      simp[bigStepTheory.dec_count_def] >>
-      fs[csg_i4_def] >>
-      metis_tac[EVERY2_LENGTH] )
-    >- (
-      Cases_on`v1`>>fs[]>>
-      last_x_assum mp_tac >>
-      rw[semanticPrimitivesTheory.store_assign_def] >>
-      fs[bigStepTheory.dec_count_def] >>
-      last_x_assum mp_tac >>
-      simp[Once exp_i4_cases] >>
-      qmatch_assum_rename_tac`v_i4 v2 v4`[] >>
-      PairCases_on`res2`>>fs[] >>
-      disch_then(qspec_then`((res20, LUPDATE v4 n res21),res22)`mp_tac) >>
-      discharge_hyps >- (
-        fs[csg_i4_def] >>
-        match_mp_tac EVERY2_LUPDATE_same >>
-        simp[] ) >>
-      strip_tac >>
-      qexists_tac`((res20,LUPDATE v4 n res21),res22),Rval (Litv_i4 Unit)` >>
-      simp[] >>
-      qexists_tac`Loc_i4 n` >>
-      qexists_tac`v4` >>
-      simp[] >>
-      map_every qexists_tac[`env2`,`Lit_i4 Unit`,`FST res11`] >>
-      Cases_on`res11`>>fs[] >>
-      qexists_tac`res21` >> simp[] >>
-      fs[csg_i4_def] >>
-      imp_res_tac EVERY2_LENGTH >>
-      fs[] )) >>
+    srw_tac[DNF_ss][] >> disj1_tac >>
+    CONV_TAC(RESORT_EXISTS_CONV(fn ls => tl ls @[hd ls])) >>
+    qexists_tac`v11` >>
+    qmatch_assum_rename_tac`v_i4 v2 v22`[] >>
+    qexists_tac`v22` >>
+    qspecl_then[`env1`,`s3`,`op`,`v1`,`v2`]mp_tac do_app_i4_v_i4 >>
+    simp[optionTheory.OPTREL_def] >>
+    disch_then(qspecl_then[`env2`,`SND(FST(FST res2))`,`v11`,`v22`]mp_tac) >>
+    discharge_hyps >- (
+      PairCases_on`res2`>>fs[csg_i4_def] ) >>
+    disch_then(qx_choose_then`res5`strip_assume_tac) >>
+    PairCases_on`res5`>>fs[] >>
+    map_every qexists_tac[`res50`,`res52`,`FST res11`,`SND(FST(FST res2))`,`FST(FST(FST res2))`,`res51`] >>
+    Cases_on`res11`>>fs[] >>
+    qexists_tac`SND (FST res2)` >>
+    PairCases_on`res2`>>fs[] >>
+    Q.PAT_ABBREV_TAC`s50:v_i4 count_store_genv = X` >>
+    first_x_assum(qspecl_then[`res50`,`s50`,`res52`]mp_tac) >>
+    simp[] >>
+    discharge_hyps >- ( fs[Abbr`s50`,csg_i4_def] ) >>
+    disch_then(qx_choose_then`res6`strip_assume_tac) >>
+    qexists_tac`res6`>>simp[] >>
+    fs[csg_i4_def] ) >>
   strip_tac >- (
     rpt gen_tac >> strip_tac >>
     rw[Once exp_i4_cases] >>
