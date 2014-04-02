@@ -334,7 +334,11 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (exp_to_i4 bvs (Con_i2 tag es) = (Con_i4 tag (exps_to_i4 bvs es)))
 /\
-(exp_to_i4 bvs (Var_local_i2 x) = (Var_local_i4 (the( 0) (misc$find_index (SOME x) bvs( 0)))))
+(exp_to_i4 bvs (Var_local_i2 x) =  
+((case misc$find_index (SOME x) bvs( 0) of
+    SOME k => Var_local_i4 k
+  | NONE => Lit_i4 Unit (* should not happen *)
+  )))
 /\
 (exp_to_i4 _ (Var_global_i2 n) = (Var_global_i4 n))
 /\
@@ -379,7 +383,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
     ((case row_to_i4 bvs p of (bvs,_,f) => f (exp_to_i4 bvs e) ))
     (pes_to_i4 bvs pes)))
 /\
-(pes_to_i4 _ _ = (Var_local_i4( 0)))`;
+(pes_to_i4 _ _ = (Lit_i4 Unit))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn exp_to_i4_defn; (* should not happen *)
 

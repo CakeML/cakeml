@@ -299,7 +299,11 @@ exp_to_i4 _ (Lit_i2 l) = Lit_i4 l
 and
 exp_to_i4 bvs (Con_i2 tag es) = Con_i4 tag (exps_to_i4 bvs es)
 and
-exp_to_i4 bvs (Var_local_i2 x) = Var_local_i4 (the 0 (find_index (Just x) bvs 0))
+exp_to_i4 bvs (Var_local_i2 x) =
+  match find_index (Just x) bvs 0 with
+  | Just k -> Var_local_i4 k
+  | Nothing -> Lit_i4 Unit (* should not happen *)
+  end
 and
 exp_to_i4 _ (Var_global_i2 n) = Var_global_i4 n
 and
@@ -343,7 +347,7 @@ pes_to_i4 bvs ((p,e)::pes) =
     (let (bvs,_,f) = row_to_i4 bvs p in f (exp_to_i4 bvs e))
     (pes_to_i4 bvs pes)
 and
-pes_to_i4 _ _ = Var_local_i4 0 (* should not happen *)
+pes_to_i4 _ _ = Lit_i4 Unit (* should not happen *)
 
 val do_uapp_i4 : store_genv v_i4 -> uop_i4 -> v_i4 -> maybe (store_genv v_i4 * v_i4)
 let do_uapp_i4 (s,genv) uop v =
