@@ -2000,6 +2000,118 @@ val exp_i4_sIf = store_thm("exp_i4_sIf",
     BasicProvers.CASE_TAC>>rw[] ) >>
   simp[Once exp_i4_cases])
 
+val fo_list_i4_EVERY = store_thm("fo_list_i4_EVERY",
+  ``∀ls. fo_list_i4 ls ⇔ EVERY fo_i4 ls``,
+  Induct >> simp[fo_i4_def])
+val _ = export_rewrites["fo_list_i4_EVERY"]
+
+val pure_list_i4_EVERY = store_thm("pure_list_i4_EVERY",
+  ``∀ls. pure_list_i4 ls ⇔ EVERY pure_i4 ls``,
+  Induct >> simp[pure_i4_def])
+val _ = export_rewrites["pure_list_i4_EVERY"]
+
+val exp_i4_fo = store_thm("exp_i4_fo",
+  ``∀z1 z2 V e1 e2. exp_i4 z1 z2 V e1 e2 ⇒
+      (fo_i4 e1 ⇔ fo_i4 e2)``,
+  ho_match_mp_tac exp_i4_ind >>
+  simp[fo_i4_def] >>
+  rw[EVERY_MEM,EVERY2_EVERY,EQ_IMP_THM] >>
+  rfs[MEM_ZIP,PULL_EXISTS] >>
+  rfs[MEM_EL,PULL_EXISTS] )
+
+val exp_i4_pure = store_thm("exp_i4_pure",
+  ``∀z1 z2 V e1 e2. exp_i4 z1 z2 V e1 e2 ⇒
+    (pure_i4 e1 ⇔ pure_i4 e2)``,
+  ho_match_mp_tac (theorem"exp_i4_strongind") >>
+  simp[pure_i4_def] >>
+  rw[EVERY_MEM,EVERY2_EVERY,EQ_IMP_THM] >>
+  rfs[MEM_ZIP,PULL_EXISTS] >>
+  rfs[MEM_EL,PULL_EXISTS] >>
+  fs[] >> imp_res_tac exp_i4_fo >> rw[])
+
+val bind_i4_inv = store_thm("bind_i4_inv",
+  ``∀V. bind_i4 (inv V) = inv (bind_i4 V)``,
+  rw[FUN_EQ_THM,bind_i4_thm,relationTheory.inv_DEF] >>
+  rw[])
+val _ = export_rewrites["bind_i4_inv"]
+
+val bindn_i4_inv = store_thm("bindn_i4_inv",
+  ``∀V n. bindn_i4 n (inv V) = inv (bindn_i4 n V)``,
+  rw[FUN_EQ_THM,bindn_i4_thm,relationTheory.inv_DEF] >>
+  rw[] >> simp[] >> fs[] >> simp[])
+val _ = export_rewrites["bindn_i4_inv"]
+
+val exp_i4_sym = store_thm("exp_i4_sym",
+  ``∀z1 z2 V e1 e2. exp_i4 z1 z2 V e1 e2 ⇒ exp_i4 z2 z1 (inv V) e2 e1``,
+  ho_match_mp_tac exp_i4_ind >> rw[] >>
+  simp[Once exp_i4_cases] >>
+  rfs[EVERY2_EVERY,EVERY_MEM] >>
+  fs[MEM_ZIP,PULL_EXISTS,relationTheory.inv_DEF] )
+
+val ground_list_i4_EVERY = store_thm("ground_list_i4_EVERY",
+  ``∀n ls. ground_list_i4 n ls ⇔ EVERY (ground_i4 n) ls``,
+  gen_tac >> Induct >> simp[])
+val _ = export_rewrites["ground_list_i4_EVERY"]
+
+val exp_i4_imp_ground = store_thm("exp_i4_imp_ground",
+  ``∀z1 z2 V e1 e2. exp_i4 z1 z2 V e1 e2 ⇒
+      ∀n. (∀k1 k2. k1 ≤ n ⇒ (V k1 k2 ⇔ (k1 = k2))) ∧ ground_i4 n e1 ⇒ ground_i4 n e2``,
+  ho_match_mp_tac exp_i4_ind >>
+  simp[] >> rw[] >>
+  TRY (
+    first_x_assum match_mp_tac >>
+    simp[bind_i4_thm] >>
+    rw[] >> simp[] >> NO_TAC) >>
+  TRY (DECIDE_TAC) >>
+  rfs[EVERY2_EVERY,EVERY_MEM] >>
+  fs[MEM_ZIP,PULL_EXISTS] >>
+  rfs[MEM_EL,PULL_EXISTS] >>
+  fs[arithmeticTheory.LESS_OR_EQ] >>
+  res_tac >> rw[])
+
+(*
+val exp_i4_unbind = store_thm("exp_i4_unbind",
+  ``∀z1 z2 V e1 e2. exp_i4 z1 z2 V e1 e2 ⇒
+      ∀y1 y2 U.
+        y1 ≤ z1 ∧ y2 ≤ z2 ∧
+        (∀k1 k2. k1 ≤ y1 ∧ k2 ≤ y2 ⇒ (U k1 k2 ⇔ V k1 k2)) ∧
+        ground_i4 y1 e1 ∧ ground_i4 y2 e2 ⇒
+        exp_i4 y1 y2 U e1 e2``,
+  ho_match_mp_tac exp_i4_ind >>
+  simp[] >> rw[] >>
+  simp[Once exp_i4_cases] >> fs[] >>
+  TRY (
+      first_x_assum match_mp_tac >> simp[] >>
+      simp[bind_i4_thm] ) >>
+  rfs[EVERY2_EVERY,EVERY_MEM] >>
+  fs[MEM_ZIP,PULL_EXISTS] >>
+  rfs[MEM_EL,PULL_EXISTS])
+
+val exp_i4_sLet = store_thm("exp_i4_sLet",
+  ``exp_i4 z1 z2 V (Let_i4 e1 e2) (Let_i4 f1 f2) ⇒
+    exp_i4 z1 z2 V (sLet_i4 e1 e2) (sLet_i4 f1 f2)``,
+  rw[sLet_i4_thm] >>
+  qpat_assum`exp_i4 z1 z2 V X Y`mp_tac >>
+  simp[Once exp_i4_cases] >> strip_tac >>
+  TRY (
+    qpat_assum`exp_i4 Z1 Z2 VV (Var_local_i4 A) B`mp_tac >>
+    simp[Once exp_i4_cases] >> rw[bind_i4_thm] ) >>
+  TRY (
+    qpat_assum`exp_i4 Z1 Z2 VV B (Var_local_i4 A)`mp_tac >>
+    simp[Once exp_i4_cases] >> rw[bind_i4_thm] ) >>
+  imp_res_tac exp_i4_pure >> fs[] >>
+  TRY (
+    imp_res_tac exp_i4_sym >>
+    imp_res_tac exp_i4_imp_ground >>
+    qpat_assum`P ⇒ Q`mp_tac >>
+    discharge_hyps >- (
+      simp[bind_i4_thm,relationTheory.inv_DEF] ) >>
+    rw[] >> NO_TAC) >>
+  match_mp_tac (MP_CANON exp_i4_unbind) >>
+  map_every qexists_tac[`z1+1`,`z2+1`,`bind_i4 V`] >>
+  simp[]
+*)
+
 (*
 val exp_to_i4_shift = store_thm("exp_to_i4_shift",
   ``(∀bvs1 e z1 z2 bvs2 V.
