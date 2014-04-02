@@ -208,7 +208,7 @@ val _ = Define `
 /\
 (ground_i4 _ (Var_global_i4 _) = T)
 /\
-(ground_i4 n (Fun_i4 e) = F)
+(ground_i4 _ (Fun_i4 _) = F)
 /\
 (ground_i4 n (Uapp_i4 _ e) = (ground_i4 n e))
 /\
