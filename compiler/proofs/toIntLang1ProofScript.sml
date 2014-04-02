@@ -1682,20 +1682,19 @@ val dec_to_i1_correct = Q.prove (
  >- (`env_all_to_i1 genv mods tops (menv,cenv,env) (genv,cenv,[]) {}`
            by fs [env_all_to_i1_cases, v_to_i1_eqns] >>
      imp_res_tac exp_to_i1_correct >>
-     fs [s_to_i1_cases] >>
-     res_tac >>
      fs [] >>
      res_tac >>
      fs [] >>
      rw [] >>
+     fs [DRESTRICT_UNIV, result_to_i1_cases, all_env_to_cenv_def, s_to_i1_cases] >>
+     rw [] >>
      pop_assum (fn _ => all_tac) >>
-     fs [DRESTRICT_UNIV, result_to_i1_cases, all_env_to_cenv_def] >>
      `match_result_to_i1 genv [] No_match (pmatch_i1 cenv s''' p v'' [])`
              by metis_tac [emp_def, APPEND, pmatch_to_i1_correct, v_to_i1_eqns] >>
      cases_on `pmatch_i1 cenv s''' p v'' []` >>
      fs [match_result_to_i1_def] >>
      rw [] >>
-     MAP_EVERY qexists_tac [`s'''`, `Rerr (Rraise (Conv_i1 (SOME ("Bind",TypeExn (Short "Bind"))) []))`] >>
+     MAP_EVERY qexists_tac [`(count',s''')`, `Rerr (Rraise (Conv_i1 (SOME ("Bind",TypeExn (Short "Bind"))) []))`] >>
      rw []
      >- (ONCE_REWRITE_TAC [evaluate_i1_cases] >>
          rw [] >>
@@ -1703,45 +1702,39 @@ val dec_to_i1_correct = Q.prove (
          rw [] >>
          ONCE_REWRITE_TAC [hd (tl (tl (CONJUNCTS evaluate_i1_cases)))] >>
          rw [evaluate_i1_con, do_con_check_def, build_conv_i1_def] >>
-         qexists_tac `0` >>
-         rw [] >>
-         metis_tac [big_unclocked])
+         disj1_tac >>
+         qexists_tac `v''` >>
+         qexists_tac `(count',s''')` >>
+         rw [])
      >- rw [v_to_i1_eqns])
  >- (`env_all_to_i1 genv mods tops (menv,cenv,env) (genv,cenv,[]) {}`
            by fs [env_all_to_i1_cases, v_to_i1_eqns] >>
      imp_res_tac exp_to_i1_correct >>
+     fs [] >>
+     res_tac >>
+     fs [] >>
+     rw [] >>
      fs [s_to_i1_cases] >>
-     res_tac >>
-     fs [] >>
      rw [] >>
-     res_tac >>
-     fs [] >>
-     rw [] >>
-     ntac 5 (pop_assum (fn _ => all_tac)) >>
+     pop_assum (fn _ => all_tac) >>
      fs [DRESTRICT_UNIV, result_to_i1_cases, all_env_to_cenv_def] >>
      rw []
-     >- (MAP_EVERY qexists_tac [`s'''`, `Rerr (Rraise v')`] >>
+     >- (MAP_EVERY qexists_tac [`(c',s''''')`, `Rerr (Rraise v')`] >>
          rw [dec_to_dummy_env_def] >>
          ONCE_REWRITE_TAC [evaluate_i1_cases] >>
          rw [] >>
          ONCE_REWRITE_TAC [hd (tl (tl (CONJUNCTS evaluate_i1_cases)))] >>
          rw [] >>
          ONCE_REWRITE_TAC [hd (tl (tl (CONJUNCTS evaluate_i1_cases)))] >>
-         rw [evaluate_i1_con, do_con_check_def, build_conv_i1_def] >>
-         qexists_tac `0` >>
-         rw [] >>
-         metis_tac [big_unclocked])
-     >- (qexists_tac `s'''` >>
+         rw [evaluate_i1_con, do_con_check_def, build_conv_i1_def])
+     >- (qexists_tac `(c',s''''')` >>
          rw [dec_to_dummy_env_def] >>
          ONCE_REWRITE_TAC [evaluate_i1_cases] >>
          rw [] >>
          ONCE_REWRITE_TAC [hd (tl (tl (CONJUNCTS evaluate_i1_cases)))] >>
          rw [] >>
          ONCE_REWRITE_TAC [hd (tl (tl (CONJUNCTS evaluate_i1_cases)))] >>
-         rw [evaluate_i1_con, do_con_check_def, build_conv_i1_def] >>
-         qexists_tac `0` >>
-         rw [] >>
-         metis_tac [big_unclocked]))
+         rw [evaluate_i1_con, do_con_check_def, build_conv_i1_def]))
  >- (rw [fupdate_list_foldl] >>
      Q.ABBREV_TAC `tops' = (tops |++ alloc_defs (LENGTH genv) (REVERSE (MAP (λ(f,x,e). f) funs)))` >>
      qexists_tac `MAP (λ(f,x,e). (f, Closure_i1 (cenv,[]) x e)) (funs_to_i1 mods tops' (REVERSE funs))` >>
@@ -1768,7 +1761,7 @@ val dec_to_i1_correct = Q.prove (
          >- rw [MAP_REVERSE, fst_alloc_defs, FST_triple]
          >- metis_tac [find_recfun_el]
          >- metis_tac [MAP_REVERSE, letrec_global_env_lem3])
-     >- metis_tac [v_to_i1_weakening, s_to_i1'_cases]
+     >- metis_tac [v_to_i1_weakening, s_to_i1'_cases, s_to_i1_cases]
      >- (rw [MAP_MAP_o, combinTheory.o_DEF, fst_alloc_defs, build_rec_env_merge, merge_def, MAP_EQ_f] >>
          PairCases_on `x` >>
          rw [])
@@ -1810,17 +1803,17 @@ val decs_to_i1_num_bindings = Q.prove (
  decide_tac);
 
 val decs_to_i1_correct = Q.prove (
-`!mn mods tops ds menv cenv env s s' r genv s_i1 tdecs s'_i1 tdecs' next' tops' ds_i1 cenv'.
+`!ck mn mods tops ds menv cenv env s s' r genv s_i1 tdecs s'_i1 tdecs' next' tops' ds_i1 cenv'.
   r ≠ Rerr Rtype_error ∧
-  evaluate_decs mn (menv,cenv,env) (s,tdecs) ds ((s',tdecs'),cenv',r) ∧
+  evaluate_decs ck mn (menv,cenv,env) (s,tdecs) ds ((s',tdecs'),cenv',r) ∧
   global_env_inv genv mods tops menv {} env ∧
-  s_to_i1' genv s s_i1 ∧
+  s_to_i1 genv s s_i1 ∧
   decs_to_i1 (LENGTH genv) mn mods tops ds = (next',tops',ds_i1)
   ⇒
   ∃s'_i1 new_genv new_genv' new_env' r_i1.
    new_genv' = MAP SND new_genv ∧
-   evaluate_decs_i1 genv cenv (s_i1,tdecs) ds_i1 ((s'_i1,tdecs'),cenv',new_genv',r_i1) ∧
-   s_to_i1' (genv ++ MAP SOME new_genv') s' s'_i1 ∧
+   evaluate_decs_i1 ck genv cenv (s_i1,tdecs) ds_i1 ((s'_i1,tdecs'),cenv',new_genv',r_i1) ∧
+   s_to_i1 (genv ++ MAP SOME new_genv') s' s'_i1 ∧
    (!new_env.
      r = Rval new_env
      ⇒
@@ -1838,7 +1831,7 @@ val decs_to_i1_correct = Q.prove (
        result_to_i1 (\a b c. T) (genv ++ MAP SOME new_genv') (Rerr err) (Rerr err_i1))`,
  induct_on `ds` >>
  rw [decs_to_i1_def] >>
- qpat_assum `evaluate_decs a b c d e` (mp_tac o SIMP_RULE (srw_ss()) [Once evaluate_decs_cases]) >>
+ qpat_assum `evaluate_decs a b c d e f` (mp_tac o SIMP_RULE (srw_ss()) [Once evaluate_decs_cases]) >>
  rw [Once evaluate_decs_i1_cases, emp_def, FUPDATE_LIST, result_to_i1_eqns]
  >- rw [v_to_i1_eqns] >>
  fs [LET_THM] >>
@@ -1880,7 +1873,7 @@ val decs_to_i1_correct = Q.prove (
                    fs [combine_dec_result_def]) >>
      `global_env_inv (genv ++ MAP SOME (MAP SND env'_i1)) mods (tops |++ tops'') menv ∅ (new_env ++ env)`
              by metis_tac [v_to_i1_weakening, global_env_inv_extend2] >>
-     FIRST_X_ASSUM (qspecl_then [`mn`, `mods`, `tops |++ tops''`, `menv`, 
+     FIRST_X_ASSUM (qspecl_then [`ck`, `mn`, `mods`, `tops |++ tops''`, `menv`, 
                                  `merge_envC ([],new_tds) cenv`, `new_env ++ env`,
                                  `s2'`, `s'`, `r'`, `genv ++ MAP SOME (MAP SND env'_i1)`, `s'_i1`,
                                  `tdecs2`, `tdecs'`, `next'`, `tops'''`, `ds_i1'`, `new_tds'`] mp_tac) >>
@@ -1961,17 +1954,17 @@ val to_i1_invariant_def = Define `
 to_i1_invariant genv mods tops menv env s s_i1 mod_names ⇔
   set (MAP FST menv) ⊆ mod_names ∧
   global_env_inv genv mods tops menv {} env ∧
-  s_to_i1' genv s s_i1`;
+  s_to_i1 genv s s_i1`;
 
 val top_to_i1_correct = Q.store_thm ("top_to_i1_correct",
-`!mods tops t menv cenv env s s' r genv s_i1 next' tops' mods' prompt_i1 cenv' tdecs tdecs' mod_names mod_names'.
+`!mods tops t ck menv cenv env s s' r genv s_i1 next' tops' mods' prompt_i1 cenv' tdecs tdecs' mod_names mod_names'.
   r ≠ Rerr Rtype_error ∧
   to_i1_invariant genv mods tops menv env s s_i1 mod_names ∧
-  evaluate_top (menv,cenv,env) (s,tdecs,mod_names) t ((s',tdecs',mod_names'),cenv',r) ∧
+  evaluate_top ck (menv,cenv,env) (s,tdecs,mod_names) t ((s',tdecs',mod_names'),cenv',r) ∧
   top_to_i1 (LENGTH genv) mods tops t = (next',mods',tops',prompt_i1)
   ⇒
   ∃s'_i1 new_genv r_i1.
-   evaluate_prompt_i1 genv cenv (s_i1,tdecs,mod_names) prompt_i1 ((s'_i1,tdecs',mod_names'),cenv',new_genv,r_i1) ∧
+   evaluate_prompt_i1 ck genv cenv (s_i1,tdecs,mod_names) prompt_i1 ((s'_i1,tdecs',mod_names'),cenv',new_genv,r_i1) ∧
    next' = LENGTH  (genv ++ MAP SOME new_genv) ∧
    (!new_menv new_env.
      r = Rval (new_menv, new_env)
@@ -2025,7 +2018,7 @@ val top_to_i1_correct = Q.store_thm ("top_to_i1_correct",
              metis_tac [dec_to_i1_num_bindings])
          >- metis_tac [s_to_i1'_cases, v_to_i1_weakening]
          >- metis_tac [s_to_i1'_cases, v_to_i1_weakening]
-         >- metis_tac [s_to_i1'_cases, v_to_i1_weakening])
+         >- metis_tac [s_to_i1_cases, s_to_i1'_cases, v_to_i1_weakening])
      >- (MAP_EVERY qexists_tac [`s'_i1`, `GENLIST (\n. Litv_i1 Unit) (decs_to_dummy_env [d_i1])`] >>
          rw []
          >- (ONCE_REWRITE_TAC [evaluate_decs_i1_cases] >>
@@ -2037,7 +2030,7 @@ val top_to_i1_correct = Q.store_thm ("top_to_i1_correct",
          >- (rw [decs_to_dummy_env_def] >>
              metis_tac [dec_to_i1_num_bindings])
          >- metis_tac [s_to_i1'_cases, v_to_i1_weakening]
-         >- metis_tac [s_to_i1'_cases, v_to_i1_weakening]))
+         >- metis_tac [s_to_i1_cases, s_to_i1'_cases, v_to_i1_weakening]))
  >- (`?next'' tops'' ds_i1. decs_to_i1 (LENGTH genv) (SOME mn) mods tops ds = (next'',tops'',ds_i1)` by metis_tac [pair_CASES] >>
      fs [] >>
      rw [] >>
@@ -2071,17 +2064,17 @@ val top_to_i1_correct = Q.store_thm ("top_to_i1_correct",
                     by (fs [SUBSET_DEF] >>
                         metis_tac []) >>
          metis_tac [global_env_inv_extend_mod_err])
-     >- metis_tac [s_to_i1'_cases, v_to_i1_weakening]));
+     >- metis_tac [s_to_i1_cases, s_to_i1'_cases, v_to_i1_weakening]));
 
 val prog_to_i1_correct = Q.store_thm ("prog_to_i1_correct",
-`!mods tops menv cenv env s prog s' r genv s_i1 next' tops' mods'  cenv' prog_i1 tdecs mod_names tdecs' mod_names'.
+`!mods tops ck menv cenv env s prog s' r genv s_i1 next' tops' mods'  cenv' prog_i1 tdecs mod_names tdecs' mod_names'.
   r ≠ Rerr Rtype_error ∧
-  evaluate_prog (menv,cenv,env) (s,tdecs,mod_names) prog ((s',tdecs',mod_names'),cenv',r) ∧
+  evaluate_prog ck (menv,cenv,env) (s,tdecs,mod_names) prog ((s',tdecs',mod_names'),cenv',r) ∧
   to_i1_invariant genv mods tops menv env s s_i1 mod_names ∧
   prog_to_i1 (LENGTH genv) mods tops prog = (next',mods',tops',prog_i1)
   ⇒
   ∃s'_i1 new_genv r_i1.
-   evaluate_prog_i1 genv cenv (s_i1,tdecs,mod_names) prog_i1 ((s'_i1,tdecs',mod_names'),cenv',new_genv,r_i1) ∧
+   evaluate_prog_i1 ck genv cenv (s_i1,tdecs,mod_names) prog_i1 ((s'_i1,tdecs',mod_names'),cenv',new_genv,r_i1) ∧
    (!new_menv new_env.
      r = Rval (new_menv, new_env)
      ⇒
@@ -2102,13 +2095,13 @@ val prog_to_i1_correct = Q.store_thm ("prog_to_i1_correct",
  `?next' mods' tops' prog_i1. prog_to_i1 next'' mods'' tops'' prog = (next',mods',tops',prog_i1)` by metis_tac [pair_CASES] >>
  fs [] >>
  rw [] >>
- qpat_assum `evaluate_prog a b c d` (mp_tac o SIMP_RULE (srw_ss()) [Once evaluate_prog_cases]) >>
+ qpat_assum `evaluate_prog a b c d e` (mp_tac o SIMP_RULE (srw_ss()) [Once evaluate_prog_cases]) >>
  rw [] >>
  rw [Once evaluate_prog_i1_cases] >>
  `?s2' tdecs2' mod_names2'. s2 = (s2',tdecs2',mod_names2')` by metis_tac [pair_CASES] >>
  rw []
  >- (`∃s'_i1 new_genv.
-      evaluate_prompt_i1 genv cenv (s_i1,tdecs,mod_names) prompt_i1
+      evaluate_prompt_i1 ck genv cenv (s_i1,tdecs,mod_names) prompt_i1
          ((s'_i1,tdecs2',mod_names2'),new_tds,new_genv,NONE) ∧
       next'' = LENGTH genv + LENGTH (MAP SOME new_genv) ∧
       to_i1_invariant (genv ++ MAP SOME new_genv) mods'' tops'' (new_mods ++ menv) (new_env ++ env) s2' s'_i1 mod_names2'`
@@ -2116,7 +2109,7 @@ val prog_to_i1_correct = Q.store_thm ("prog_to_i1_correct",
                      fs [] >>
                      metis_tac []) >>
      fs [merge_def] >>
-     FIRST_X_ASSUM (qspecl_then [`mods''`, `tops''`, `new_mods ++ menv`, `merge_envC new_tds cenv`, `new_env ++ env`, `s2'`, `s'`, `r'`, `genv++MAP SOME new_genv`, `s'_i1`] mp_tac) >>
+     FIRST_X_ASSUM (qspecl_then [`mods''`, `tops''`, `ck`, `new_mods ++ menv`, `merge_envC new_tds cenv`, `new_env ++ env`, `s2'`, `s'`, `r'`, `genv++MAP SOME new_genv`, `s'_i1`] mp_tac) >>
      rw [] >>
      FIRST_X_ASSUM (qspecl_then [`new_tds'`, `tdecs2'`, `mod_names2'`, `tdecs'`, `mod_names'`] mp_tac) >>
      rw [] >>
@@ -2172,8 +2165,8 @@ val initial_i1_invariant = Q.prove (
  >- rw [v_to_i1_eqns, s_to_i1'_cases]);
 
 val init_to_i1_invariant = Q.store_thm ("init_to_i1_invariant",
-`to_i1_invariant init_genv init_mods init_tops [] init_env [] [] {}`,
- rw [to_i1_invariant_def] >>
+`!count. to_i1_invariant init_genv init_mods init_tops [] init_env (count,[]) (count,[]) {}`,
+ rw [to_i1_invariant_def, s_to_i1_cases] >>
  metis_tac [initial_i1_invariant]);
 
 val _ = export_theory ();
