@@ -1331,6 +1331,11 @@ fs [EVERY_MAP, check_t_def, check_env_bind, check_env_merge, check_t_infer_db_su
  decide_tac,
  res_tac >>
      fs [check_t_def] >>
+     pop_assum match_mp_tac  >>
+     rw [opt_bind_def] >>
+     every_case_tac >>
+     fs [] >>
+     rw [GSYM bind_def, check_env_bind] >>
      metis_tac [check_env_more, DECIDE ``x:num ≤ x + 1``],
  res_tac >>
      fs [check_env_merge, check_env_letrec_lem] >>
@@ -1543,8 +1548,10 @@ rw [] >|
                   by rw [check_t_def] >>
      qpat_assum `!t1 t2 st st' tvs. P t1 t2 st st' tvs` match_mp_tac >>
      metis_tac [infer_st_rewrs, check_s_more],
- `check_env (count st''.next_uvar) (bind x (0,t1) env)`
-         by (rw [check_env_bind] >>
+ `check_env (count st''.next_uvar) (opt_bind x (0,t1) env)`
+         by (rw [opt_bind_def] >>
+             every_case_tac >>
+             fs [GSYM bind_def, check_env_bind] >>
              metis_tac [infer_e_check_t, check_env_more, infer_e_next_uvar_mono]) >>
      metis_tac [infer_e_wfs],
  `check_env (count (st with next_uvar := st.next_uvar + LENGTH funs).next_uvar)
