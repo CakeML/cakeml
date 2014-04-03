@@ -2430,16 +2430,58 @@ val row_to_i4_nil = store_thm("row_to_i4_nil",
 
 val row_to_i4_shift = store_thm("row_to_i4_shift",
   ``(∀bvs p bvs1 n1 f z1 z2 V e1 e2.
-       row_to_i4 bvs p = (bvs1,n1,f) ∧
+       row_to_i4 bvs p = (bvs1,n1,f) ∧ 0 < z1 ∧ 0 < z2 ∧ V 0 0 ∧ bvs ≠ [] ∧
        exp_i4 (z1 + n1) (z2 + n1) (bindn_i4 n1 V) e1 e2
        ⇒
        exp_i4 z1 z2 V (f e1) (f e2)) ∧
-    (∀bvs ps n k bvs1 n1 f z1 z2 V e1 e2.
-       cols_to_i4 bvs ps n k = (bvs1,n1,f) ∧
-       exp_i4 (z1 + n + n1) (z2 + n + n1) (bindn_i4 (n+n1) V) e1 e2
+    (∀bvs n k ps bvs1 n1 f z1 z2 V e1 e2.
+       cols_to_i4 bvs n k ps = (bvs1,n1,f) ∧ bvs ≠ [] ∧ ps ≠ [] ∧
+       n < z1 ∧ n < z2 ∧ V n n ∧
+       exp_i4 (z1 + n1) (z2 + n1) (bindn_i4 (n1) V) e1 e2
        ⇒
        exp_i4 z1 z2 V (f e1) (f e2))``,
-  ho_match_mp_tac row_to_i4_ind >> simp[row_to_i4_def] >> cheat)
+  ho_match_mp_tac row_to_i4_ind >>
+  simp[row_to_i4_def] >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    `∃bvs1 n1 f. cols_to_i4 bvs 0 0 ps = (bvs1,n1,f)` by simp[GSYM EXISTS_PROD] >>
+    Cases_on`ps`>>fs[row_to_i4_def] >> rw[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    `∃bvs1 n f. row_to_i4 (NONE::bvs) p = (bvs1,n,f)` by simp[GSYM EXISTS_PROD] >>
+    fs[] >>
+    rpt gen_tac >> strip_tac >>
+    match_mp_tac exp_i4_sLet >>
+    simp[Once exp_i4_cases] >>
+    simp[Once exp_i4_cases] >>
+    simp[Once exp_i4_cases] >>
+    first_x_assum match_mp_tac >>
+    fsrw_tac[ARITH_ss][arithmeticTheory.ADD1] >>
+    simp[bind_i4_thm] ) >>
+  rpt gen_tac >> strip_tac >>
+  rpt gen_tac >> strip_tac >>
+  `∃bvs0 n0 f0. row_to_i4 (NONE::bvs) p = (bvs0,n0,f0)` by simp[GSYM EXISTS_PROD] >>
+  fs[] >>
+  `∃bvs2 n2 f2. cols_to_i4 bvs0 (n0+n+1) (k+1) ps = (bvs2,n2,f2)` by simp[GSYM EXISTS_PROD] >>
+  fsrw_tac[ARITH_ss][] >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  simp[] >>
+  match_mp_tac exp_i4_sLet >>
+  simp[Once exp_i4_cases] >>
+  simp[Once exp_i4_cases] >>
+  simp[Once exp_i4_cases] >>
+  first_x_assum(match_mp_tac o MP_CANON) >>
+  simp[bind_i4_thm] >>
+  Cases_on`ps=[]`>>fs[row_to_i4_def] >- (
+    rw[] >> fsrw_tac[ARITH_ss][arithmeticTheory.ADD1] ) >>
+  first_x_assum(match_mp_tac o MP_CANON) >>
+  simp[] >>
+  qspecl_then[`NONE::bvs`,`p`]mp_tac(CONJUNCT1 row_to_i4_acc) >>
+  simp[] >> disch_then(qspec_then`bvs`mp_tac) >> simp[] >>
+  strip_tac >> Cases_on`bvs0`>>fs[] >>
+  conj_tac >- simp[bindn_i4_thm,arithmeticTheory.ADD1] >>
+  fs[bindn_i4_def,GSYM arithmeticTheory.FUNPOW_ADD,arithmeticTheory.ADD1] >>
+  fsrw_tac[ARITH_ss][])
 
 val exp_to_i4_shift = store_thm("exp_to_i4_shift",
   ``(∀bvs1 e z1 z2 bvs2 V.
@@ -2578,9 +2620,11 @@ val exp_to_i4_shift = store_thm("exp_to_i4_shift",
     simp[] >> strip_tac >> fs[] >>
     first_x_assum(qspecl_then[`ls++bvs2`,`bindn_i4 (LENGTH ls) V`]mp_tac) >>
     simp[rich_listTheory.FILTER_APPEND,bindn_i4_bvs_V] >>
-    rpt BasicProvers.VAR_EQ_TAC >>
+    rpt BasicProvers.VAR_EQ_TAC >> strip_tac >>
     qspecl_then[`NONE::bvs1`,`p`]mp_tac(CONJUNCT1 row_to_i4_shift) >>
-    simp[arithmeticTheory.ADD1]) >>
+    simp[arithmeticTheory.ADD1] >>
+    disch_then match_mp_tac >> simp[bind_i4_thm] >>
+    fsrw_tac[ARITH_ss][arithmeticTheory.ADD1]) >>
   strip_tac >- (
     rw[] >>
     match_mp_tac exp_i4_sIf >>
@@ -2595,9 +2639,11 @@ val exp_to_i4_shift = store_thm("exp_to_i4_shift",
     simp[] >> strip_tac >> fs[] >>
     last_x_assum(qspecl_then[`ls++bvs2`,`bindn_i4 (LENGTH ls) V`]mp_tac) >>
     simp[rich_listTheory.FILTER_APPEND,bindn_i4_bvs_V] >>
-    rpt BasicProvers.VAR_EQ_TAC >>
+    rpt BasicProvers.VAR_EQ_TAC >> strip_tac >>
     qspecl_then[`NONE::bvs1`,`p`]mp_tac(CONJUNCT1 row_to_i4_shift) >>
-    simp[arithmeticTheory.ADD1]) >>
+    simp[arithmeticTheory.ADD1] >>
+    disch_then match_mp_tac >> simp[bind_i4_thm] >>
+    fsrw_tac[ARITH_ss][arithmeticTheory.ADD1]) >>
    rw[])
 
 (*
