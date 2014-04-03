@@ -312,7 +312,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (let (bvs,m,f) = (row_to_i4 (NONE::bvs) p) in
     (bvs,( 1+m), (\ e .  sLet_i4 (Uapp_i4 Opderef_i4 (Var_local_i4( 0))) (f e)))))
 /\
-(row_to_i4 _ _ = ([], 0, (\ e .  e))) (* should not happen *)
+(row_to_i4 bvs _ = (bvs, 0, (\ e .  e))) (* should not happen *)
 /\
 (cols_to_i4 bvs _ _ [] = (bvs, 0, (\ e .  e)))
 /\

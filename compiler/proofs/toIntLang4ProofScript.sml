@@ -2202,20 +2202,108 @@ val exp_i4_sLet = store_thm("exp_i4_sLet",
 
 (*
 val row_to_i4_acc = store_thm("row_to_i4_acc",
-  ``(∀Nbvs p bvs N. Nbvs = N::bvs ⇒
-       row_to_i4 Nbvs p =
-       let (bvs1,n1,f1) = row_to_i4 [N] p in
-         (bvs1++bvs,n1,f1)) ∧
-    (∀bvs n k ps.
-        cols_to_i4 bvs n k ps =
-        let (bvs1,n1,f1) = cols_to_i4 [] n k ps in
-        (bvs1++bvs,n1,f1))``,
+  ``(∀Nbvs p bvs1 N. Nbvs = N::bvs1 ⇒
+       ∀bvs2 r1 n1 f1 r2 n2 f2.
+         row_to_i4 (N::bvs1) p = (r1,n1,f1) ∧
+         row_to_i4 (N::bvs2) p = (r2,n2,f2) ⇒
+         n1 = n2 ∧ f1 = f2 ∧
+         ∃ls. r1 = ls ++ bvs1 ∧
+              r2 = ls ++ bvs2 ∧
+              LENGTH ls = SUC n1) ∧
+    (∀bvsk0 n k ps bvsk N bvs1.
+        bvsk0 = bvsk ++ (N::bvs1) ∧ LENGTH bvsk = n ⇒
+      ∀bvs2 r1 n1 f1 r2 n2 f2.
+        cols_to_i4 (bvsk++(N::bvs1)) n k ps = (r1,n1,f1) ∧
+        cols_to_i4 (bvsk++(N::bvs2)) n k ps = (r2,n2,f2) ⇒
+        n1 = n2 ∧ f1 = f2 ∧
+        ∃ls. r1 = ls ++ bvsk ++ (N::bvs1) ∧
+             r2 = ls ++ bvsk ++ (N::bvs2) ∧
+             LENGTH ls = n1)``,
   ho_match_mp_tac row_to_i4_ind >>
-  simp[row_to_i4_def] >>
-  rw[]
-  simp[UNCURRY]
-  row_to_i4_def
-*)
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >> fs[] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    rw[row_to_i4_def] >> simp[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >> fs[] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    rw[row_to_i4_def] >> simp[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> simp[LENGTH_NIL] >>
+    strip_tac >> rpt gen_tac >> strip_tac >>
+    rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
+    simp_tac std_ss [row_to_i4_def] >>
+    rpt gen_tac >> strip_tac >>
+    first_x_assum(qspec_then`bvs2`mp_tac) >>
+    simp[] >> strip_tac >>
+    qexists_tac`ls++[N]` >>
+    simp[]) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rpt gen_tac >> strip_tac >>
+    rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
+    simp_tac std_ss [row_to_i4_def] >>
+    simp[] >>
+    `∃r1 n1 f1. row_to_i4 (NONE::N::bvs1) p = (r1,n1,f1)` by simp[GSYM EXISTS_PROD] >>
+    fs[] >> rpt gen_tac >>
+    `∃r2 n2 f2. row_to_i4 (NONE::N::bvs2) p = (r2,n2,f2)` by simp[GSYM EXISTS_PROD] >>
+    fs[] >> strip_tac >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    first_x_assum(qspec_then`N::bvs2`mp_tac) >>
+    simp[] >> rw[] >> simp[] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rpt gen_tac >> simp[] >> strip_tac >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    simp[row_to_i4_def] ) >>
+  strip_tac >- simp[row_to_i4_def] >>
+  rpt gen_tac >> strip_tac >>
+  rpt gen_tac >> strip_tac >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  rpt gen_tac >>
+  simp_tac std_ss [row_to_i4_def] >>
+  `∃r01 n01 f01. row_to_i4 (NONE::(bvsk ++ (N::bvs1))) p = (r01,n01,f01)` by simp[GSYM EXISTS_PROD] >>
+  `∃r02 n02 f02. row_to_i4 (NONE::(bvsk ++ (N::bvs2))) p = (r02,n02,f02)` by simp[GSYM EXISTS_PROD] >>
+  ntac 2 (pop_assum mp_tac) >>
+  simp_tac (srw_ss()) [LET_THM] >>
+  `∃r11 n11 f11. cols_to_i4 r01 (LENGTH bvsk + 1 + n01) (k+1) ps = (r11,n11,f11)` by simp[GSYM EXISTS_PROD] >>
+  `∃r12 n12 f12. cols_to_i4 r02 (LENGTH bvsk + 1 + n02) (k+1) ps = (r12,n12,f12)` by simp[GSYM EXISTS_PROD] >>
+  ntac 2 (pop_assum mp_tac) >>
+  simp_tac (srw_ss()) [LET_THM] >>
+  ntac 5 strip_tac >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  qpat_assum`∀X. Y`mp_tac >>
+  ntac 2 (pop_assum mp_tac) >>
+  simp_tac (std_ss++listSimps.LIST_ss) [] >>
+  ntac 2 strip_tac >>
+  disch_then(qspec_then`bvsk ++ N::bvs2`mp_tac) >>
+  ntac 2 (pop_assum mp_tac) >>
+  simp_tac (std_ss++listSimps.LIST_ss) [] >>
+  ntac 3 strip_tac >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  qpat_assum`∀X. Y`mp_tac >>
+  ntac 3 (pop_assum mp_tac) >>
+  simp_tac (std_ss++listSimps.LIST_ss) [] >>
+  ntac 3 strip_tac >>
+  disch_then(qspec_then`ls ++ bvsk`mp_tac) >>
+  pop_assum mp_tac >>
+  simp_tac (std_ss++listSimps.LIST_ss++ARITH_ss) [arithmeticTheory.ADD1] >>
+  strip_tac >>
+  disch_then(qspec_then`bvs2`mp_tac) >>
+  ntac 2 (last_x_assum mp_tac) >>
+  simp_tac (std_ss++listSimps.LIST_ss++ARITH_ss) [arithmeticTheory.ADD1] >>
+  ntac 3 strip_tac >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  simp[])
+
+val row_to_i4_nil = store_thm("row_to_i4_nil",
+  ``row_to_i4 (N::bvs1) p = let (r1,n1,f1) = row_to_i4 [N] p in (r1++bvs1,n1,f1)``,
+  rw[] >>
+  qspecl_then[`[N]`,`p`]mp_tac (CONJUNCT1 row_to_i4_acc) >>
+  simp[] >>
+  disch_then(qspec_then`bvs1`mp_tac) >>
+  `∃x y z. row_to_i4 (N::bvs1) p = (x,y,z)` by simp[GSYM EXISTS_PROD] >>
+  simp[])
 
 val exp_to_i4_shift = store_thm("exp_to_i4_shift",
   ``(∀bvs1 e z1 z2 bvs2 V.
