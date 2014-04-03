@@ -50,16 +50,6 @@ and decs_to_i3 next (d::ds) =
 
 declare termination_argument decs_to_i3 = automatic
 
-val num_defs : list dec_i2 -> nat
-let rec num_defs [] = 0
-and num_defs (d::ds) =
-  match d with
-    | Dlet_i2 n e -> n + num_defs ds
-    | Dletrec_i2 funs -> List.length funs + num_defs ds
-  end
-
-declare termination_argument num_defs = automatic
-
 val prompt_to_i3 : nat -> prompt_i2 -> nat * exp_i2
 let prompt_to_i3 next prompt =
   match prompt with

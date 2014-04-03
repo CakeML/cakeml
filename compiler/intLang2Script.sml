@@ -808,29 +808,24 @@ evaluate_decs_i2 ck genv s1 (d::ds) (s3, (new_env ++ new_env'), r))`;
 
  val _ = Define `
 
-(dec_to_dummy_env_i2 (Dlet_i2 n e) = n)
-/\
-(dec_to_dummy_env_i2 (Dletrec_i2 funs) = (LENGTH funs))`;
-
-
- val _ = Define `
-
-(decs_to_dummy_env_i2 [] =( 0))
-/\
-(decs_to_dummy_env_i2 (d::ds) = (decs_to_dummy_env_i2 ds + dec_to_dummy_env_i2 d))`;
+(num_defs l =((case (l) of
+     ( [] ) => 0
+   | ( (Dlet_i2 n e::ds) ) => n + num_defs ds
+   | ( (Dletrec_i2 funs::ds) ) => LENGTH funs + num_defs ds
+ )))`;
 
 
 val _ = Hol_reln ` (! ck genv s1 ds s2 env.
 (evaluate_decs_i2 ck genv s1 ds (s2,env,NONE))
 ==>
-evaluate_prompt_i2 ck genv s1 (Prompt_i2 ds) (s2, env, NONE))
+evaluate_prompt_i2 ck genv s1 (Prompt_i2 ds) (s2, MAP SOME env, NONE))
 
 /\ (! ck genv s1 ds s2 env err.
 (evaluate_decs_i2 ck genv s1 ds (s2,env,SOME err))
 ==>
 evaluate_prompt_i2 ck genv s1 (Prompt_i2 ds) (s2,                                           
- (env ++ GENLIST (\n .  
-  (case (n ) of ( _ ) => Litv_i2 Unit )) (decs_to_dummy_env_i2 ds - LENGTH env)),
+ (MAP SOME env ++ GENLIST (\n .  
+  (case (n ) of ( _ ) => NONE )) (num_defs ds - LENGTH env)),
                                            SOME err))`;
 
 val _ = Hol_reln ` (! ck genv s.
@@ -840,7 +835,7 @@ evaluate_prog_i2 ck genv s [] (s, [], NONE))
 
 /\ (! ck genv s1 prompt prompts s2 env2 s3 env3 r.
 (evaluate_prompt_i2 ck genv s1 prompt (s2, env2, NONE) /\
-evaluate_prog_i2 ck (genv++MAP SOME env2) s2 prompts (s3, env3, r))
+evaluate_prog_i2 ck (genv++env2) s2 prompts (s3, env3, r))
 ==>
 evaluate_prog_i2 ck genv s1 (prompt::prompts) (s3, (env2++env3), r))
 

@@ -838,12 +838,12 @@ decs_to_dummy_env (d::ds) = decs_to_dummy_env ds + dec_to_dummy_env d
 
 declare termination_argument decs_to_dummy_env = automatic
 
-indreln [evaluate_prompt_i1 : bool -> list (maybe v_i1) -> envC -> count_store v_i1 * set tid_or_exn * set modN -> prompt_i1 -> (count_store v_i1 * set tid_or_exn * set modN) * envC * list v_i1 * maybe (error_result v_i1) -> bool]
+indreln [evaluate_prompt_i1 : bool -> list (maybe v_i1) -> envC -> count_store v_i1 * set tid_or_exn * set modN -> prompt_i1 -> (count_store v_i1 * set tid_or_exn * set modN) * envC * list (maybe v_i1) * maybe (error_result v_i1) -> bool]
 
 prompt_val : forall ck genv cenv s1 tdecs1 mods ds s2 tdecs2 cenv' env mn.
 evaluate_decs_i1 ck genv cenv (s1,tdecs1) ds ((s2,tdecs2),cenv',env,Nothing)
 ==>
-evaluate_prompt_i1 ck genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds) ((s2,tdecs2,update_mod_state mn mods), mod_cenv mn cenv', env, Nothing)
+evaluate_prompt_i1 ck genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds) ((s2,tdecs2,update_mod_state mn mods), mod_cenv mn cenv', List.map Just env, Nothing)
 
 and
 
@@ -853,10 +853,10 @@ evaluate_decs_i1 ck genv cenv (s1,tdecs1) ds ((s2,tdecs2),cenv',env,Just err)
 evaluate_prompt_i1 ck genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds) 
                                                   ((s2,tdecs2,update_mod_state mn mods),
                                                    mod_cenv mn cenv', 
-                                                   env ++ List.genlist (fun _ -> Litv_i1 Unit) (decs_to_dummy_env ds - List.length env),
+                                                   List.map Just env ++ List.genlist (fun _ -> Nothing) (decs_to_dummy_env ds - List.length env),
                                                    Just err)
 
-indreln [evaluate_prog_i1 : bool -> list (maybe v_i1) -> envC -> count_store v_i1 * set tid_or_exn * set modN -> list prompt_i1 -> (count_store v_i1 * set tid_or_exn * set modN) * envC * list v_i1 * maybe (error_result v_i1) -> bool]
+indreln [evaluate_prog_i1 : bool -> list (maybe v_i1) -> envC -> count_store v_i1 * set tid_or_exn * set modN -> list prompt_i1 -> (count_store v_i1 * set tid_or_exn * set modN) * envC * list (maybe v_i1) * maybe (error_result v_i1) -> bool]
 
 prog_empty : forall ck genv cenv s.
 true
@@ -867,7 +867,7 @@ and
 
 prog_cons_var : forall ck genv cenv s1 prompt prompts s2 cenv2 env2 s3 cenv3 env3 r.
 evaluate_prompt_i1 ck genv cenv s1 prompt (s2, cenv2, env2, Nothing) &&
-evaluate_prog_i1 ck (genv++List.map Just env2) (merge_envC cenv2 cenv) s2 prompts (s3, cenv3, env3, r)
+evaluate_prog_i1 ck (genv++env2) (merge_envC cenv2 cenv) s2 prompts (s3, cenv3, env3, r)
 ==>
 evaluate_prog_i1 ck genv cenv s1 (prompt::prompts) (s3, merge_envC cenv3 cenv2, env2++env3, r)
 

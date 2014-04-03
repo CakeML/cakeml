@@ -138,6 +138,12 @@ SIMP_CONV (srw_ss()) [Once evaluate_i3_cases] ``evaluate_match_i3 b env s v [] (
 val eval_match_i3_var = 
 SIMP_CONV (srw_ss()) [Once evaluate_i3_cases, eval_match_i3_nil, eval_i3_var, pmatch_i2_def] ``evaluate_match_i3 b env s v [(Pvar_i2 var, Var_local_i2 var)] (s',r)``;
 
+val (result_to_i3_rules, result_to_i3_ind, result_to_i3_cases) = Hol_reln `
+(∀v. result_to_i3 NONE (Rval v)) ∧
+(∀err. result_to_i3 (SOME (Rraise err)) (Rval err)) ∧
+(result_to_i3 (SOME Rtype_error) (Rerr Rtype_error)) ∧
+(result_to_i3 (SOME Rtimeout_error) (Rerr Rtimeout_error))`;
+
 val decs_to_i3_correct = Q.prove (
 `!ck genv s ds s' new_env r next.
   evaluate_decs_i2 ck genv s ds (s',new_env,r) ∧
@@ -145,7 +151,9 @@ val decs_to_i3_correct = Q.prove (
   ⇒
   ?r_i3.
     result_to_i3 r r_i3 ∧ 
-    evaluate_list_i3 ck [] (s,genv ++ GENLIST (\x. NONE) (num_defs ds)) (decs_to_i3 next ds) ((s',genv ++ MAP SOME new_env),r_i3)`
+    evaluate_i3 ck [] (s,genv ++ GENLIST (\x. NONE) (num_defs ds)) (decs_to_i3 next ds)
+                ((s',genv ++ MAP SOME new_env ++ GENLIST (\x. NONE) (num_defs ds - LENGTH new_env)),r_i3)`,
+cheat);
 
  induct_on `ds` >>
  rw [decs_to_i3_def] 
@@ -160,43 +168,47 @@ val decs_to_i3_correct = Q.prove (
  imp_res_tac exp_to_i3_correct >>
  fs [emp_def] >>
  pop_assum mp_tac >>
- rw [eval_i3_mat]
- >- (rw [result_to_i3_cases] >>
-     disj1_tac >>
-     disj2_tac >>
-
-
-
+ rw [eval_i3_mat, opt_bind_def]
+ >- cheat
+ >- (res_tac >>
+     pop_assum (qspecl_then [`next + LENGTH new_env'`] strip_assume_tac) >>
+     qexists_tac `r_i3` >>
+     rw [] >>
+     fs [result_to_i3_cases] >>
+     rw [GENLIST_APPEND]
 
  res_tac
 metis_tac []
 
-val (result_to_i3_rules, result_to_i3_ind, result_to_i3_cases) = Hol_reln `
-(∀v. result_to_i3 NONE (Rval v)) ∧
-(∀err. result_to_i3 (SOME (Rraise err)) (Rval err)) ∧
-(result_to_i3 (SOME Rtype_error) (Rerr Rtype_error)) ∧
-(result_to_i3 (SOME Rtimeout_error) (Rerr Rtimeout_error))`;
+
+val prompt_num_defs_def = Define `
+prompt_num_defs (Prompt_i2 ds) = num_defs ds`;
 
 val prompt_to_i3_correct =
-`!ck genv s p new_env s' r next next' es.
+`!ck genv s p new_env s' r next next' e.
   evaluate_prompt_i2 ck genv s p (s',new_env,r) ∧
   r ≠ SOME Rtype_error ∧
-  ((next',es) = prompt_to_i3 next p)
+  ((next',e) = prompt_to_i3 next p)
   ⇒
   ?r_i3.
     result_to_i3 r r_i3 ∧
-    evaluate_list_i3 ck [] (s,genv) es ((s',genv++MAP SOME new_env),r_i3)`,
+    evaluate_i3 ck [] (s,genv) e ((s',genv++new_env),r_i3)`,
 
  rw [evaluate_prompt_i2_cases, prompt_to_i3_def] >>
  fs [LET_THM] >>
- rw [result_to_i3_cases] >>
  ONCE_REWRITE_TAC [evaluate_i3_cases] >>
  rw [eval_i3_extend_genv] >>
  ONCE_REWRITE_TAC [evaluate_i3_cases] >>
+ rw [eval_i3_con, eval_match_i3_var, pat_bindings_i2_def, bind_def, lookup_def, opt_bind_def, prompt_num_defs_def] >>
+ imp_res_tac decs_to_i3_correct >>
+ fs [result_to_i3_cases] 
+ >- metis_tac [] >>
+ pop_assum mp_tac >>
  rw [] >>
- ONCE_REWRITE_TAC [evaluate_i3_cases] >>
- rw [eval_i3_con, eval_match_i3_var, pat_bindings_i2_def, bind_def, lookup_def] >>
- 
+ pop_assum (qspecl_then [`next`] mp_tac) >>
+ rw []
+
+ metis_tac []
 
 
 val _ = export_theory ();

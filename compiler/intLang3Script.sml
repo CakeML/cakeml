@@ -60,16 +60,6 @@ val _ = new_theory "intLang3"
   )))`;
 
 
-(*val num_defs : list dec_i2 -> nat*)
- val _ = Define `
- (num_defs [] =( 0))
-/\ (num_defs (d::ds) =  
-((case d of
-      Dlet_i2 n e => n + num_defs ds
-    | Dletrec_i2 funs => LENGTH funs + num_defs ds
-  )))`;
-
-
 (*val prompt_to_i3 : nat -> prompt_i2 -> nat * exp_i2*)
 val _ = Define `
  (prompt_to_i3 next prompt =  

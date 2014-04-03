@@ -825,23 +825,22 @@ evaluate_decs_i2 ck (genv ++ List.map Just new_env) s2 ds (s3, new_env', r)
 evaluate_decs_i2 ck genv s1 (d::ds) (s3, new_env ++ new_env', r)
 
 let rec
-dec_to_dummy_env_i2 (Dlet_i2 n e) = n
+num_defs [] = 0
 and
-dec_to_dummy_env_i2 (Dletrec_i2 funs) = List.length funs
-
-let rec
-decs_to_dummy_env_i2 [] = 0
+num_defs (Dlet_i2 n e::ds) = n + num_defs ds
 and
-decs_to_dummy_env_i2 (d::ds) = decs_to_dummy_env_i2 ds + dec_to_dummy_env_i2 d
+num_defs (Dletrec_i2 funs::ds) = List.length funs + num_defs ds
+and
+num_defs (_::ds) = num_defs ds
 
-declare termination_argument decs_to_dummy_env_i2 = automatic
+declare termination_argument num_defs = automatic
 
-indreln [evaluate_prompt_i2 : bool -> list (maybe v_i2) -> count_store v_i2 -> prompt_i2 -> count_store v_i2 * list v_i2 * maybe (error_result v_i2) -> bool]
+indreln [evaluate_prompt_i2 : bool -> list (maybe v_i2) -> count_store v_i2 -> prompt_i2 -> count_store v_i2 * list (maybe v_i2) * maybe (error_result v_i2) -> bool]
 
 prompt_val : forall ck genv s1 ds s2 env.
 evaluate_decs_i2 ck genv s1 ds (s2,env,Nothing)
 ==>
-evaluate_prompt_i2 ck genv s1 (Prompt_i2 ds) (s2, env, Nothing)
+evaluate_prompt_i2 ck genv s1 (Prompt_i2 ds) (s2, List.map Just env, Nothing)
 
 and
 
@@ -849,10 +848,10 @@ prompt_err1 : forall ck genv s1 ds s2 env err.
 evaluate_decs_i2 ck genv s1 ds (s2,env,Just err)
 ==>
 evaluate_prompt_i2 ck genv s1 (Prompt_i2 ds) (s2, 
-                                           env ++ List.genlist (fun _ -> Litv_i2 Unit) (decs_to_dummy_env_i2 ds - List.length env),
+                                           List.map Just env ++ List.genlist (fun _ -> Nothing) (num_defs ds - List.length env),
                                            Just err)
 
-indreln [evaluate_prog_i2 : bool -> list (maybe v_i2) -> count_store v_i2 -> list prompt_i2 -> count_store v_i2 * list v_i2 * maybe (error_result v_i2) -> bool]
+indreln [evaluate_prog_i2 : bool -> list (maybe v_i2) -> count_store v_i2 -> list prompt_i2 -> count_store v_i2 * list (maybe v_i2) * maybe (error_result v_i2) -> bool]
 
 prog_empty : forall ck genv s.
 true
@@ -863,7 +862,7 @@ and
 
 prog_cons_var : forall ck genv s1 prompt prompts s2 env2 s3 env3 r.
 evaluate_prompt_i2 ck genv s1 prompt (s2, env2, Nothing) &&
-evaluate_prog_i2 ck (genv++List.map Just env2) s2 prompts (s3, env3, r)
+evaluate_prog_i2 ck (genv++env2) s2 prompts (s3, env3, r)
 ==>
 evaluate_prog_i2 ck genv s1 (prompt::prompts) (s3, env2++env3, r)
 
