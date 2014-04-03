@@ -2161,6 +2161,23 @@ val exp_i4_sLet = store_thm("exp_i4_sLet",
   disch_then(qspecl_then[`0`,`1`,`1`,`V`]mp_tac) >>
   simp[bindn_i4_def] )
 
+(*
+val row_to_i4_acc = store_thm("row_to_i4_acc",
+  ``(∀Nbvs p bvs N. Nbvs = N::bvs ⇒
+       row_to_i4 Nbvs p =
+       let (bvs1,n1,f1) = row_to_i4 [N] p in
+         (bvs1++bvs,n1,f1)) ∧
+    (∀bvs n k ps.
+        cols_to_i4 bvs n k ps =
+        let (bvs1,n1,f1) = cols_to_i4 [] n k ps in
+        (bvs1++bvs,n1,f1))``,
+  ho_match_mp_tac row_to_i4_ind >>
+  simp[row_to_i4_def] >>
+  rw[]
+  simp[UNCURRY]
+  row_to_i4_def
+*)
+
 val exp_to_i4_shift = store_thm("exp_to_i4_shift",
   ``(∀bvs1 e z1 z2 bvs2 V.
        (set (FILTER IS_SOME bvs1) = set (FILTER IS_SOME bvs2)) ∧
