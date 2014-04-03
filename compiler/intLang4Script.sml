@@ -364,8 +364,11 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (exp_to_i4 bvs (Mat_i2 e pes) =  
 (sLet_i4 (exp_to_i4 bvs e) (pes_to_i4 (NONE::bvs) pes)))
 /\
-(exp_to_i4 bvs (Let_i2 x e1 e2) =  
-(sLet_i4 (exp_to_i4 bvs e1) (exp_to_i4 (x::bvs) e2)))
+(exp_to_i4 bvs (Let_i2 (SOME x) e1 e2) =  
+(sLet_i4 (exp_to_i4 bvs e1) (exp_to_i4 (SOME x::bvs) e2)))
+/\
+(exp_to_i4 bvs (Let_i2 NONE e1 e2) =  
+(Seq_i4 (exp_to_i4 bvs e1) (exp_to_i4 bvs e2)))
 /\
 (exp_to_i4 bvs (Letrec_i2 funs e) =  
 (let bvs = ((MAP (\p .  
