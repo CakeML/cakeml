@@ -62,6 +62,7 @@ val _ = Hol_datatype `
   | App_i4 of op => exp_i4 => exp_i4
   | If_i4 of exp_i4 => exp_i4 => exp_i4
   | Let_i4 of exp_i4 => exp_i4
+  | Seq_i4 of exp_i4 => exp_i4
   | Letrec_i4 of exp_i4 list => exp_i4
   | Extend_global_i4 of num`;
 
@@ -120,6 +121,8 @@ val _ = Define `
 (fo_i4 (If_i4 _ e2 e3) = (fo_i4 e2 /\ fo_i4 e3))
 /\
 (fo_i4 (Let_i4 _ e2) = (fo_i4 e2))
+/\
+(fo_i4 (Seq_i4 _ e2) = (fo_i4 e2))
 /\
 (fo_i4 (Letrec_i4 _ e) = (fo_i4 e))
 /\
@@ -184,6 +187,8 @@ val _ = Define `
 /\
 (pure_i4 (Let_i4 e1 e2) = (pure_i4 e1 /\ pure_i4 e2))
 /\
+(pure_i4 (Seq_i4 e1 e2) = (pure_i4 e1 /\ pure_i4 e2))
+/\
 (pure_i4 (Letrec_i4 _ e) = (pure_i4 e))
 /\
 (pure_i4 (Extend_global_i4 _) = F)
@@ -218,6 +223,8 @@ val _ = Define `
 /\
 (ground_i4 n (Let_i4 e1 e2) = (ground_i4 n e1 /\ ground_i4 (n+ 1) e2))
 /\
+(ground_i4 n (Seq_i4 e1 e2) = (ground_i4 n e1 /\ ground_i4 n e2))
+/\
 (ground_i4 n (Letrec_i4 es e) = F)
 /\
 (ground_i4 _ (Extend_global_i4 _) = T)
@@ -233,8 +240,10 @@ val _ = Define `
 (sLet_i4 e1 (Var_local_i4 0) = e1)
 /\
 (sLet_i4 e1 e2 =  
-(if pure_i4 e1 /\ ground_i4( 0) e2
+(if ground_i4( 0) e2
+  then if pure_i4 e1
   then e2
+  else Seq_i4 e1 e2
   else Let_i4 e1 e2))`;
 
 
@@ -356,7 +365,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (sLet_i4 (exp_to_i4 bvs e) (pes_to_i4 (NONE::bvs) pes)))
 /\
 (exp_to_i4 bvs (Let_i2 x e1 e2) =  
-(sLet_i4 (exp_to_i4 bvs e1) (exp_to_i4 (SOME x::bvs) e2)))
+(sLet_i4 (exp_to_i4 bvs e1) (exp_to_i4 (x::bvs) e2)))
 /\
 (exp_to_i4 bvs (Letrec_i2 funs e) =  
 (let bvs = ((MAP (\p .  
@@ -681,6 +690,17 @@ evaluate_i4 ck env s1 (Let_i4 e1 e2) bv)
 (evaluate_i4 ck env s e1 (s', Rerr err))
 ==>
 evaluate_i4 ck env s (Let_i4 e1 e2) (s', Rerr err))
+
+/\ (! ck env e1 e2 v bv s1 s2.
+(evaluate_i4 ck env s1 e1 (s2, Rval v) /\
+evaluate_i4 ck env s2 e2 bv)
+==>
+evaluate_i4 ck env s1 (Seq_i4 e1 e2) bv)
+
+/\ (! ck env e1 e2 err s s'.
+(evaluate_i4 ck env s e1 (s', Rerr err))
+==>
+evaluate_i4 ck env s (Seq_i4 e1 e2) (s', Rerr err))
 
 /\ (! ck env funs e bv s.
 (evaluate_i4 ck ((build_rec_env_i4 funs env)++env) s e bv)

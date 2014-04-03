@@ -174,6 +174,16 @@ rw [weak_tenvE_def, num_tvs_def, bind_tenv_def, lookup_tenv_def] >>
 every_case_tac >>
 rw []);
 
+val weak_tenvE_opt_bind = Q.prove (
+`!tenv tenv' n tvs t.
+  weak_tenvE tenv' tenv ⇒
+  weak_tenvE (opt_bind_tenv n tvs t tenv') (opt_bind_tenv n tvs t tenv)`,
+rw [weak_tenvE_def, num_tvs_def, opt_bind_tenv_def, lookup_tenv_def] >>
+every_case_tac >>
+fs [lookup_tenv_def, num_tvs_def] >>
+every_case_tac >>
+fs []);
+
 val weak_tenvE_bind_tvar = Q.prove (
 `!tenv tenv' n tvs t.
   weak_tenvE tenv' tenv ⇒
@@ -349,8 +359,8 @@ rw [Once type_e_cases] >|
      res_tac >>
      fs [] >>
      metis_tac [type_p_weakening, weak_tenvE_def, weak_tenvE_bind_var_list],
- metis_tac [weak_tenvE_bind, weak_tenvE_bind_tvar],
- metis_tac [weak_tenvE_bind, weak_tenvE_bind_tvar],
+ metis_tac [weak_tenvE_opt_bind, weak_tenvE_bind_tvar],
+ metis_tac [weak_tenvE_opt_bind, weak_tenvE_bind_tvar],
  metis_tac [weak_tenvE_bind_var_list, weak_tenvE_bind_tvar],
  metis_tac [weak_tenvE_bind, weak_tenvE_bind_tvar, weak_tenvE_freevars],
  metis_tac [weak_tenvE_bind, weak_tenvE_bind_tvar, weak_tenvE_freevars]]);
@@ -516,7 +526,7 @@ val type_ctxt_weakening = Q.store_thm ("type_ctxt_weakening",
      cases_on `tvs'` >>
      fs [] >>
      metis_tac [ZIP, LENGTH, weak_ctMap_lookup, type_v_weakening])
- >- metis_tac [check_freevars_add, gt_0, type_e_weakening, weak_tenvE_bind]
+ >- metis_tac [check_freevars_add, gt_0, type_e_weakening, weak_tenvE_opt_bind]
  >- (qexists_tac `ts1` >>
      qexists_tac `ts2` >>
      qexists_tac `t` >>

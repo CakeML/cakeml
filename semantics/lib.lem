@@ -35,6 +35,13 @@ declare termination_argument lookup = automatic
 val bind : forall 'a 'b. 'a -> 'b -> env 'a 'b -> env 'a 'b
 let bind n v e = (n,v)::e
 
+val opt_bind : forall 'a 'b. maybe 'a -> 'b -> env 'a 'b -> env 'a 'b
+let opt_bind n v e = 
+  match n with 
+    | Nothing -> e
+    | Just n' -> (n',v)::e
+  end
+
 val merge : forall 'a 'b. env 'a 'b -> env 'a 'b -> env 'a 'b
 let merge e1 e2 = e1 ++ e2
 

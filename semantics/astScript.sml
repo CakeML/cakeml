@@ -197,8 +197,7 @@ val _ = Hol_datatype `
   | If of exp => exp => exp
   (* Pattern matching *)
   | Mat of exp => (pat # exp) list
-  (* The number is how many type variables are bound. *)
-  | Let of varN => exp => exp
+  | Let of  varN option => exp => exp
   (* Local definition of (potentially) mutually recursive functions
    * The first varN is the function's name, and the second varN is its
    * parameter. *)

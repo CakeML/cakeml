@@ -30,8 +30,8 @@ compile p =
             | Success x =>
                 let (x,y,z,asts_i1) = prog_to_i1 0 FEMPTY (FEMPTY |++ alloc_defs 0 (MAP FST init_env)) asts' in
                 let (x,asts_i2) = prog_to_i2 init_tagenv_state asts_i1 in
-                let (x,asts_i3) = prog_to_i3 0 asts_i2 in
-                let asts_i4 = MAP (exp_to_i4 []) asts_i3 in
+                let (x,ast_i3) = prog_to_i3 0 asts_i2 in
+                let asts_i4 = exp_to_i4 [] ast_i3 in
                   Success asts_i4`;
 
 val _ = computeLib.add_funs [pat_bindings_def, intLang3Theory.prog_to_i3_def];

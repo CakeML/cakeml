@@ -1020,15 +1020,21 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
      metis_tac [] >>
      `t_wfs st''.subst` by metis_tac [infer_e_wfs] >>
      imp_res_tac t_unify_wfs >>
-     `tenv_inv s ((x,0,t1)::env) 
-                 (bind_tenv x 0 (convert_t (t_walkstar s t1)) tenv)` 
-            by (match_mp_tac tenv_inv_extend0 >>
-                rw [] >>
-                fs []) >>
-     `num_tvs (bind_tenv x 0 (convert_t (t_walkstar s t1)) tenv) = num_tvs tenv` 
-            by (rw [num_tvs_def, bind_tenv_def]) >>
+     `tenv_inv s (opt_bind x (0,t1) env) 
+                 (opt_bind_tenv x 0 (convert_t (t_walkstar s t1)) tenv)` 
+            by (cases_on `x` >>
+                fs [opt_bind_def, opt_bind_tenv_def, GSYM bind_tenv_def] >>
+                match_mp_tac tenv_inv_extend0 >>
+                rw []) >>
+     `num_tvs (opt_bind_tenv x 0 (convert_t (t_walkstar s t1)) tenv) = num_tvs tenv` 
+            by (cases_on `x` >>
+                rw [opt_bind_tenv_def] >>
+                rw [num_tvs_def, bind_tenv_def]) >>
      `check_t 0 (count st''.next_uvar) t1` by metis_tac [infer_e_check_t] >>
      `check_env (count st''.next_uvar) env` by metis_tac [infer_e_next_uvar_mono, check_env_more] >>
+     `check_env (count st''.next_uvar) (opt_bind x (0,t1) env)` 
+               by (cases_on `x` >>
+                   fs [opt_bind_def, check_env_def]) >>
      metis_tac [],
  (* Letrec *)
      `t_wfs (st with next_uvar := st.next_uvar + LENGTH funs).subst`

@@ -67,7 +67,7 @@ val _ = Hol_datatype `
   | App_i1 of op => exp_i1 => exp_i1
   | If_i1 of exp_i1 => exp_i1 => exp_i1
   | Mat_i1 of exp_i1 => (pat # exp_i1) list
-  | Let_i1 of varN => exp_i1 => exp_i1
+  | Let_i1 of  varN option => exp_i1 => exp_i1
   | Letrec_i1 of (varN # varN # exp_i1) list => exp_i1`;
 
 
@@ -154,8 +154,11 @@ val _ = Hol_datatype `
 (exp_to_i1 menv env (Mat e pes) =  
 (Mat_i1 (exp_to_i1 menv env e) (pat_exp_to_i1 menv env pes)))
 /\
-(exp_to_i1 menv env (Let x e1 e2) =  
-(Let_i1 x (exp_to_i1 menv env e1) (exp_to_i1 menv (env \\ x) e2)))
+(exp_to_i1 menv env (Let (SOME x) e1 e2) =  
+(Let_i1 (SOME x) (exp_to_i1 menv env e1) (exp_to_i1 menv (env \\ x) e2)))
+/\
+(exp_to_i1 menv env (Let NONE e1 e2) =  
+(Let_i1 NONE (exp_to_i1 menv env e1) (exp_to_i1 menv env e2)))
 /\
 (exp_to_i1 menv env (Letrec funs e) =  
 (let fun_names = (MAP (\ (f,x,e) .  f) funs) in
@@ -613,7 +616,7 @@ evaluate_i1 ck env s (Mat_i1 e pes) (s', Rerr err))
 
 /\ (! ck genv cenv env n e1 e2 v bv s1 s2.
 (evaluate_i1 ck (genv,cenv,env) s1 e1 (s2, Rval v) /\
-evaluate_i1 ck (genv,cenv,bind n v env) s2 e2 bv)
+evaluate_i1 ck (genv,cenv,opt_bind n v env) s2 e2 bv)
 ==>
 evaluate_i1 ck (genv,cenv,env) s1 (Let_i1 n e1 e2) bv)
 

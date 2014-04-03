@@ -30,22 +30,22 @@ and init_globals next num =
 
 declare termination_argument init_globals = automatic
 
-val init_global_funs : nat -> list (varN * varN * exp_i2) -> list exp_i2
-let rec init_global_funs next [] = []
+val init_global_funs : nat -> list (varN * varN * exp_i2) -> exp_i2
+let rec init_global_funs next [] = Lit_i2 Unit
 and init_global_funs next ((f,x,e)::funs) =
-  Uapp_i2 (Init_global_var_i2 next) (Fun_i2 x e) :: init_global_funs (next+1) funs
+  Let_i2 Nothing (Uapp_i2 (Init_global_var_i2 next) (Fun_i2 x e)) (init_global_funs (next+1) funs)
 
 declare termination_argument init_global_funs = automatic
 
-val decs_to_i3 : nat -> list dec_i2 -> list exp_i2
-let rec decs_to_i3 next [] = []
+val decs_to_i3 : nat -> list dec_i2 -> exp_i2
+let rec decs_to_i3 next [] = Lit_i2 Unit
 and decs_to_i3 next (d::ds) =
   match d with
     | Dlet_i2 n e ->
-        Mat_i2 e (init_globals next n) :: decs_to_i3 (next+n) ds
+        Let_i2 Nothing (Mat_i2 e (init_globals next n)) (decs_to_i3 (next+n) ds)
     | Dletrec_i2 funs ->
         let n = List.length funs in
-          init_global_funs next funs ++ decs_to_i3 (next+n) ds 
+          Let_i2 Nothing (init_global_funs next funs) (decs_to_i3 (next+n) ds)
   end
 
 declare termination_argument decs_to_i3 = automatic
@@ -65,17 +65,17 @@ let prompt_to_i3 next prompt =
   match prompt with
     | Prompt_i2 ds ->
         let n = num_defs ds in
-          (next+n, Let_i2 "_" (Extend_global_i2 n) (Handle_i2 (Con_i2 tuple_tag (decs_to_i3 next ds)) [(Pvar_i2 "x", Var_local_i2 "x")]))
+          (next+n, Let_i2 Nothing (Extend_global_i2 n) (Handle_i2 (decs_to_i3 next ds) [(Pvar_i2 "x", Var_local_i2 "x")]))
   end
 
-val prog_to_i3 : nat -> list prompt_i2 -> nat * list exp_i2
+val prog_to_i3 : nat -> list prompt_i2 -> nat * exp_i2
 let rec 
-prog_to_i3 next [] = (next, [])
+prog_to_i3 next [] = (next, Lit_i2 Unit)
 and 
 prog_to_i3 next (p::ps) = 
   let (next',p') = prompt_to_i3 next p in
   let (next'',ps') = prog_to_i3 next' ps in
-    (next'',p'::ps')
+    (next'',Let_i2 Nothing p' ps')
 
 declare termination_argument prog_to_i2 = automatic
 
@@ -323,7 +323,7 @@ and
 
 let1 : forall ck env n e1 e2 v bv s1 s2.
 evaluate_i3 ck env s1 e1 (s2, Rval v) &&
-evaluate_i3 ck (bind n v env) s2 e2 bv
+evaluate_i3 ck (opt_bind n v env) s2 e2 bv
 ==>
 evaluate_i3 ck env s1 (Let_i2 n e1 e2) bv
 

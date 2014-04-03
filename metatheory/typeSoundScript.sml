@@ -948,8 +948,10 @@ val exp_type_preservation = Q.prove (
          PairCases_on `h` >>
          fs [] >>
          metis_tac [num_tvs_bind_var_list, type_e_freevars, type_v_freevars, tenv_ok_bind_var_list, type_p_freevars])
-     >- (fs [Once type_ctxts_cases, type_ctxt_cases, Once context_invariant_cases] >>
-         metis_tac [tenv_ok_def, arithmeticTheory.ADD_0, num_tvs_def, bind_tenv_def, type_e_freevars, type_v_freevars])
+     >- (fs [Once type_ctxts_cases, type_ctxt_cases, Once context_invariant_cases, opt_bind_tenv_def] >>
+         every_case_tac >>
+         fs [] >>
+         metis_tac [opt_bind_tenv_def, tenv_ok_def, arithmeticTheory.ADD_0, num_tvs_def, type_e_freevars, type_v_freevars])
      >- (fs [Once type_ctxts_cases, type_ctxt_cases, Once context_invariant_cases] >>
          metis_tac [bind_tvar_def, EVERY_DEF, type_e_freevars, type_v_freevars, check_freevars_def, EVERY_APPEND])
      >- (fs [Once type_ctxts_cases, type_ctxt_cases, Once context_invariant_cases] >>
@@ -1102,17 +1104,20 @@ val exp_type_preservation = Q.prove (
          rw [] >>
          metis_tac [bind_tvar_def, pmatch_type_preservation])
      >- (fs [is_ccon_def] >>
-         rw [Once type_env_cases, bind_def] >>
+         rw [Once type_env_cases, opt_bind_def] >>
          qexists_tac `tenvS` >>
          rw [] >>
          qexists_tac `tenvM` >>
          qexists_tac `tenvC` >>
          qexists_tac `t2` >>
-         qexists_tac `bind_tenv s tvs t1 tenv` >>
+         qexists_tac `opt_bind_tenv o' tvs t1 tenv` >>
          qexists_tac `0` >> 
-         rw [emp_def, bind_tenv_def] >>
+         rw [emp_def, opt_bind_tenv_def] >>
          rw [bind_tvar_def] >>
-         metis_tac [bind_tenv_def])
+         every_case_tac >>
+         fs [bind_tenv_def, bind_def, opt_bind_tenv_def] >>
+         qpat_assum `type_env x0 x1 x2 x3` (mp_tac o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
+         rw [emp_def, bind_def, bind_tenv_def])
      >- metis_tac [do_con_check_build_conv, NOT_SOME_NONE]
      >- metis_tac [do_con_check_build_conv, NOT_SOME_NONE]
      >- metis_tac [do_con_check_build_conv, NOT_SOME_NONE]

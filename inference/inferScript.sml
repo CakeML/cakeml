@@ -377,7 +377,7 @@ val infer_e_def = tDefine "infer_e" `
   else
     *)
     do t1 <- infer_e menv cenv env e1;
-       t2 <- infer_e menv cenv (bind x (0,t1) env) e2;
+       t2 <- infer_e menv cenv (opt_bind x (0,t1) env) e2;
        return t2
     od) ∧
 (* Don't do polymorphism for non-top-level let recs

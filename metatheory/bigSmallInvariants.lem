@@ -118,7 +118,7 @@ evaluate_ctxt env s (Cmat () pes err_v) v bv
 and
 
 lt : forall menv cenv env n e2 v bv s.
-evaluate false (menv, cenv, bind n v env) s e2 bv
+evaluate false (menv, cenv, opt_bind n v env) s e2 bv
 ==>
 evaluate_ctxt (menv,cenv,env) s (Clet n () e2) v bv
 

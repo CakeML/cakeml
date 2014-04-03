@@ -130,6 +130,15 @@ val _ = Define `
  (bind_tenv n tvs t e = (Bind_name n tvs t e))`;
 
 
+(*val opt_bind_tenv : maybe varN -> nat -> t -> tenvE -> tenvE*)
+val _ = Define `
+ (opt_bind_tenv n tvs t e =  
+ ((case n of
+      NONE => e
+    | SOME n' => Bind_name n' tvs t e
+  )))`;
+
+
 (*val t_lookup_var_id : id varN -> tenvM -> tenvE -> maybe (nat * t)*)
 val _ = Define `
  (t_lookup_var_id id tenvM tenvE =  
@@ -462,13 +471,13 @@ type_e menv cenv tenv (Mat e pes) t2)
 /\ (! menv cenv tenv n e1 e2 t1 t2 tvs.
 (is_value e1 /\
 (type_e menv cenv (bind_tvar tvs tenv) e1 t1 /\
-type_e menv cenv (bind_tenv n tvs t1 tenv) e2 t2))
+type_e menv cenv (opt_bind_tenv n tvs t1 tenv) e2 t2))
 ==>
 type_e menv cenv tenv (Let n e1 e2) t2)
 
 /\ (! menv cenv tenv n e1 e2 t1 t2.
 (type_e menv cenv tenv e1 t1 /\
-type_e menv cenv (bind_tenv n( 0) t1 tenv) e2 t2)
+type_e menv cenv (opt_bind_tenv n( 0) t1 tenv) e2 t2)
 ==>
 type_e menv cenv tenv (Let n e1 e2) t2)
 

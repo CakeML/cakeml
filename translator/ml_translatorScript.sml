@@ -124,10 +124,10 @@ val Eval_Fun_And = store_thm("Eval_Fun_And",
 val Eval_Let = store_thm("Eval_Let",
   ``Eval env exp (a res) /\
     (!v. a res v ==> Eval (write name v env) body (b (f res))) ==>
-    Eval env (Let name exp body) (b (LET f res))``,
+    Eval env (Let (SOME name) exp body) (b (LET f res))``,
   SIMP_TAC std_ss [Eval_def,Arrow_def] \\ REPEAT STRIP_TAC
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ RES_TAC \\ Q.EXISTS_TAC `res''` \\ FULL_SIMP_TAC std_ss [LET_DEF,bind_def]
+  \\ RES_TAC \\ Q.EXISTS_TAC `res''` \\ FULL_SIMP_TAC std_ss [LET_DEF,opt_bind_def]
   \\ `?menv cenv eenv. env = (menv,cenv,eenv)` by METIS_TAC [PAIR]
   \\ FULL_SIMP_TAC std_ss []
   \\ Q.LIST_EXISTS_TAC [`res'`,`0,empty_store`]
@@ -445,7 +445,7 @@ val th2 = Eval_INT_LESS  |> Q.SPECL [`k`,`0`]
 val th = MATCH_MP Eval_If (LIST_CONJ (map (DISCH T) [th2,th_sub,th1]))
          |> REWRITE_RULE [CONTAINER_def]
 val code =
-  ``Let "k" x1
+  ``Let (SOME "k") x1
        (If (App (Opb Lt) (Var (Short "k")) (Lit (IntLit 0)))
           (App (Opn Minus) (Lit (IntLit 0)) (Var (Short "k")))
           (Var (Short "k")))``
@@ -523,7 +523,7 @@ val th2 = Eval_INT_LESS  |> Q.SPECL [`k`,`0`]
 val th = MATCH_MP Eval_If (LIST_CONJ (map (DISCH T) [th2,th0,th1]))
          |> REWRITE_RULE [CONTAINER_def]
 val code =
-  ``Let "k" (App (Opn Minus) x1 x2)
+  ``Let (SOME "k") (App (Opn Minus) x1 x2)
       (If (App (Opb Lt) (Var (Short "k")) (Lit (IntLit 0)))
           (Lit (IntLit 0)) (Var (Short "k"))): exp``
 

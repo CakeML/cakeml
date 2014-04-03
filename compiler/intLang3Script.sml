@@ -40,23 +40,23 @@ val _ = new_theory "intLang3"
     (Pvar_i2 var, Uapp_i2 (Init_global_var_i2 (next+num)) (Var_local_i2 var)) :: init_globals next (num -  1)))`;
 
 
-(*val init_global_funs : nat -> list (varN * varN * exp_i2) -> list exp_i2*)
+(*val init_global_funs : nat -> list (varN * varN * exp_i2) -> exp_i2*)
  val _ = Define `
- (init_global_funs next [] = ([]))
+ (init_global_funs next [] = (Lit_i2 Unit))
 /\ (init_global_funs next ((f,x,e)::funs) =  
-(Uapp_i2 (Init_global_var_i2 next) (Fun_i2 x e) :: init_global_funs (next+ 1) funs))`;
+(Let_i2 NONE (Uapp_i2 (Init_global_var_i2 next) (Fun_i2 x e)) (init_global_funs (next+ 1) funs)))`;
 
 
-(*val decs_to_i3 : nat -> list dec_i2 -> list exp_i2*)
+(*val decs_to_i3 : nat -> list dec_i2 -> exp_i2*)
  val _ = Define `
- (decs_to_i3 next [] = ([]))
+ (decs_to_i3 next [] = (Lit_i2 Unit))
 /\ (decs_to_i3 next (d::ds) =  
 ((case d of
       Dlet_i2 n e =>
-        Mat_i2 e (init_globals next n) :: decs_to_i3 (next+n) ds
+        Let_i2 NONE (Mat_i2 e (init_globals next n)) (decs_to_i3 (next+n) ds)
     | Dletrec_i2 funs =>
         let n = (LENGTH funs) in
-          init_global_funs next funs ++ decs_to_i3 (next+n) ds 
+          Let_i2 NONE (init_global_funs next funs) (decs_to_i3 (next+n) ds)
   )))`;
 
 
@@ -76,19 +76,19 @@ val _ = Define `
 ((case prompt of
       Prompt_i2 ds =>
         let n = (num_defs ds) in
-          ((next+n), Let_i2 "_" (Extend_global_i2 n) (Handle_i2 (Con_i2 tuple_tag (decs_to_i3 next ds)) [(Pvar_i2 "x", Var_local_i2 "x")]))
+          ((next+n), Let_i2 NONE (Extend_global_i2 n) (Handle_i2 (decs_to_i3 next ds) [(Pvar_i2 "x", Var_local_i2 "x")]))
   )))`;
 
 
-(*val prog_to_i3 : nat -> list prompt_i2 -> nat * list exp_i2*)
+(*val prog_to_i3 : nat -> list prompt_i2 -> nat * exp_i2*)
  val prog_to_i3_defn = Hol_defn "prog_to_i3" `
  
-(prog_to_i3 next [] = (next, []))
+(prog_to_i3 next [] = (next, Lit_i2 Unit))
 /\ 
 (prog_to_i3 next (p::ps) =  
  (let (next',p') = (prompt_to_i3 next p) in
   let (next'',ps') = (prog_to_i3 next' ps) in
-    (next'',(p'::ps'))))`;
+    (next'',Let_i2 NONE p' ps')))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn prog_to_i3_defn;
 
@@ -280,7 +280,7 @@ evaluate_i3 ck env s (Mat_i2 e pes) (s', Rerr err))
 
 /\ (! ck env n e1 e2 v bv s1 s2.
 (evaluate_i3 ck env s1 e1 (s2, Rval v) /\
-evaluate_i3 ck (bind n v env) s2 e2 bv)
+evaluate_i3 ck (opt_bind n v env) s2 e2 bv)
 ==>
 evaluate_i3 ck env s1 (Let_i2 n e1 e2) bv)
 

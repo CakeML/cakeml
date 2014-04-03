@@ -340,7 +340,7 @@ type_ctxt tvs menv all_cenv cenv senv tenv (Cmat ()  pes err_v) t1 t2)
 
 /\ (! tvs menv all_cenv cenv senv tenv e t1 t2 n.
 (check_freevars tvs [] t1 /\
-type_e menv cenv (bind_tenv n tvs t1 tenv) e t2)
+type_e menv cenv (opt_bind_tenv n tvs t1 tenv) e t2)
 ==>
 type_ctxt tvs menv all_cenv cenv senv tenv (Clet n ()  e) t1 t2)
 
