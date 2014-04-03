@@ -75,7 +75,7 @@ and
 prog_to_i3 next (p::ps) = 
   let (next',p') = prompt_to_i3 next p in
   let (next'',ps') = prog_to_i3 next' ps in
-    (next'',p'++ps')
+    (next'',p'::ps')
 
 declare termination_argument prog_to_i2 = automatic
 

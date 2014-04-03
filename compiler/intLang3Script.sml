@@ -70,13 +70,13 @@ val _ = new_theory "intLang3"
   )))`;
 
 
-(*val prompt_to_i3 : nat -> prompt_i2 -> nat * list exp_i2*)
+(*val prompt_to_i3 : nat -> prompt_i2 -> nat * exp_i2*)
 val _ = Define `
  (prompt_to_i3 next prompt =  
 ((case prompt of
       Prompt_i2 ds =>
         let n = (num_defs ds) in
-          ((next+n), [Extend_global_i2 n; Handle_i2 (Con_i2 tuple_tag (decs_to_i3 next ds)) [(Pvar_i2 "x", Var_local_i2 "x")]])
+          ((next+n), Let_i2 "_" (Extend_global_i2 n) (Handle_i2 (Con_i2 tuple_tag (decs_to_i3 next ds)) [(Pvar_i2 "x", Var_local_i2 "x")]))
   )))`;
 
 
@@ -88,7 +88,7 @@ val _ = Define `
 (prog_to_i3 next (p::ps) =  
  (let (next',p') = (prompt_to_i3 next p) in
   let (next'',ps') = (prog_to_i3 next' ps) in
-    (next'',(p'++ps'))))`;
+    (next'',(p'::ps'))))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn prog_to_i3_defn;
 
