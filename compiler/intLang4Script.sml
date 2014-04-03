@@ -225,7 +225,7 @@ val _ = Define `
 /\
 (ground_i4 n (Seq_i4 e1 e2) = (ground_i4 n e1 /\ ground_i4 n e2))
 /\
-(ground_i4 n (Letrec_i4 es e) = F)
+(ground_i4 _ (Letrec_i4 _ _) = F)
 /\
 (ground_i4 _ (Extend_global_i4 _) = T)
 /\
