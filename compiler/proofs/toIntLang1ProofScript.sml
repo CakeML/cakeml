@@ -1101,15 +1101,22 @@ val exp_to_i1_correct = Q.prove (
      res_tac >>
      fs [] >>
      rw [] >>
-     `env_all_to_i1 genv mods tops (menv,cenv,bind n v env) 
-                    (genv, cenv, (n,v')::env') (n INSERT locals)`
+     cases_on `n` >>
+     fs [opt_bind_def, exp_to_i1_def]
+     >- metis_tac [compl_insert, DRESTRICT_DOMSUB, bind_def] >>
+     `env_all_to_i1 genv mods tops (menv,cenv,bind x v env) 
+                    (genv, cenv, (x,v')::env') (x INSERT locals)`
                 by (fs [env_all_to_i1_cases] >>
-                    MAP_EVERY qexists_tac [`bind n v env''`, `env'''`] >>
+                    MAP_EVERY qexists_tac [`bind x v env''`, `env'''`] >>
                     fs [bind_def, v_to_i1_eqns] >>
                     rw []) >>
      metis_tac [compl_insert, DRESTRICT_DOMSUB, bind_def])
- >- metis_tac []
- >- metis_tac []
+ >- (cases_on `n` >>
+     fs [exp_to_i1_def] >>
+     metis_tac [])
+ >- (cases_on `n` >>
+     fs [exp_to_i1_def] >>
+     metis_tac [])
  >- (* Letrec *)
     (rw [markerTheory.Abbrev_def] >>
      pop_assum mp_tac >>
