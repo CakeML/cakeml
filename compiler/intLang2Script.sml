@@ -99,7 +99,7 @@ val _ = Hol_datatype `
   | App_i2 of op => exp_i2 => exp_i2
   | If_i2 of exp_i2 => exp_i2 => exp_i2
   | Mat_i2 of exp_i2 => (pat_i2 # exp_i2) list
-  | Let_i2 of varN => exp_i2 => exp_i2
+  | Let_i2 of  varN option => exp_i2 => exp_i2
   | Letrec_i2 of (varN # varN # exp_i2) list => exp_i2
   | Extend_global_i2 of num`;
 
@@ -687,7 +687,7 @@ evaluate_i2 ck env s (Mat_i2 e pes) (s', Rerr err))
 
 /\ (! ck genv env n e1 e2 v bv s1 s2.
 (evaluate_i2 ck (genv,env) s1 e1 (s2, Rval v) /\
-evaluate_i2 ck (genv,bind n v env) s2 e2 bv)
+evaluate_i2 ck (genv,opt_bind n v env) s2 e2 bv)
 ==>
 evaluate_i2 ck (genv,env) s1 (Let_i2 n e1 e2) bv)
 

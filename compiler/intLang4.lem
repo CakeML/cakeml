@@ -50,6 +50,7 @@ type exp_i4 =
   | App_i4 of op * exp_i4 * exp_i4
   | If_i4 of exp_i4 * exp_i4 * exp_i4
   | Let_i4 of exp_i4 * exp_i4
+  | Seq_i4 of exp_i4 * exp_i4
   | Letrec_i4 of list exp_i4 * exp_i4
   | Extend_global_i4 of nat
 
@@ -100,6 +101,8 @@ and
 fo_i4 (If_i4 _ e2 e3) = fo_i4 e2 && fo_i4 e3
 and
 fo_i4 (Let_i4 _ e2) = fo_i4 e2
+and
+fo_i4 (Seq_i4 _ e2) = fo_i4 e2
 and
 fo_i4 (Letrec_i4 _ e) = fo_i4 e
 and
@@ -160,6 +163,8 @@ pure_i4 (If_i4 e1 e2 e3) = pure_i4 e1 && pure_i4 e2 && pure_i4 e3
 and
 pure_i4 (Let_i4 e1 e2) = pure_i4 e1 && pure_i4 e2
 and
+pure_i4 (Seq_i4 e1 e2) = pure_i4 e1 && pure_i4 e2
+and
 pure_i4 (Letrec_i4 _ e) = pure_i4 e
 and
 pure_i4 (Extend_global_i4 _) = false
@@ -194,6 +199,8 @@ ground_i4 n (If_i4 e1 e2 e3) = ground_i4 n e1 && ground_i4 n e2 && ground_i4 n e
 and
 ground_i4 n (Let_i4 e1 e2) = ground_i4 n e1 && ground_i4 (n+1) e2
 and
+ground_i4 n (Seq_i4 e1 e2) = ground_i4 n e1 && ground_i4 n e2
+and
 ground_i4 n (Letrec_i4 es e) = false
 and
 ground_i4 _ (Extend_global_i4 _) = true
@@ -209,8 +216,10 @@ let rec
 sLet_i4 e1 (Var_local_i4 0) = e1
 and
 sLet_i4 e1 e2 =
-  if pure_i4 e1 && ground_i4 0 e2
+  if ground_i4 0 e2
+  then if pure_i4 e1
   then e2
+  else Seq_i4 e1 e2
   else Let_i4 e1 e2
 
 (* bind elements 0..k of the variable n in reverse order above e (first element
@@ -321,7 +330,7 @@ exp_to_i4 bvs (Mat_i2 e pes) =
   sLet_i4 (exp_to_i4 bvs e) (pes_to_i4 (Nothing::bvs) pes)
 and
 exp_to_i4 bvs (Let_i2 x e1 e2) =
-  sLet_i4 (exp_to_i4 bvs e1) (exp_to_i4 (Just x::bvs) e2)
+  sLet_i4 (exp_to_i4 bvs e1) (exp_to_i4 (x::bvs) e2)
 and
 exp_to_i4 bvs (Letrec_i2 funs e) =
   let bvs = (List.map (fun (f,_,_) -> Just f) funs) ++ bvs in
@@ -685,6 +694,21 @@ let2 : forall ck env e1 e2 err s s'.
 evaluate_i4 ck env s e1 (s', Rerr err)
 ==>
 evaluate_i4 ck env s (Let_i4 e1 e2) (s', Rerr err)
+
+and
+
+seq1 : forall ck env e1 e2 v bv s1 s2.
+evaluate_i4 ck env s1 e1 (s2, Rval v) &&
+evaluate_i4 ck env s2 e2 bv
+==>
+evaluate_i4 ck env s1 (Seq_i4 e1 e2) bv
+
+and
+
+seq2 : forall ck env e1 e2 err s s'.
+evaluate_i4 ck env s e1 (s', Rerr err)
+==>
+evaluate_i4 ck env s (Seq_i4 e1 e2) (s', Rerr err)
 
 and
 

@@ -56,7 +56,7 @@ type exp_i1 =
   | App_i1 of op * exp_i1 * exp_i1
   | If_i1 of exp_i1 * exp_i1 * exp_i1
   | Mat_i1 of exp_i1 * list (pat * exp_i1)
-  | Let_i1 of varN * exp_i1 * exp_i1
+  | Let_i1 of maybe varN * exp_i1 * exp_i1
   | Letrec_i1 of list (varN * varN * exp_i1) * exp_i1
 
 type dec_i1 =
@@ -135,8 +135,11 @@ and
 exp_to_i1 menv env (Mat e pes) =
   Mat_i1 (exp_to_i1 menv env e) (pat_exp_to_i1 menv env pes)
 and
-exp_to_i1 menv env (Let x e1 e2) =
-  Let_i1 x (exp_to_i1 menv env e1) (exp_to_i1 menv (Map.delete x env) e2)
+exp_to_i1 menv env (Let (Just x) e1 e2) =
+  Let_i1 (Just x) (exp_to_i1 menv env e1) (exp_to_i1 menv (Map.delete x env) e2)
+and
+exp_to_i1 menv env (Let Nothing e1 e2) =
+  Let_i1 Nothing (exp_to_i1 menv env e1) (exp_to_i1 menv env e2)
 and
 exp_to_i1 menv env (Letrec funs e) =
   let fun_names = List.map (fun (f,x,e) -> f) funs in
@@ -621,7 +624,7 @@ and
 
 let1 : forall ck genv cenv env n e1 e2 v bv s1 s2.
 evaluate_i1 ck (genv,cenv,env) s1 e1 (s2, Rval v) &&
-evaluate_i1 ck (genv,cenv,bind n v env) s2 e2 bv
+evaluate_i1 ck (genv,cenv,opt_bind n v env) s2 e2 bv
 ==>
 evaluate_i1 ck (genv,cenv,env) s1 (Let_i1 n e1 e2) bv
 
