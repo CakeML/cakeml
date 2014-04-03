@@ -2140,6 +2140,11 @@ val exp_i4_imp_ground = store_thm("exp_i4_imp_ground",
   fs[arithmeticTheory.LESS_OR_EQ] >>
   res_tac >> rw[])
 
+val bindn_i4_0 = store_thm("bindn_i4_0",
+  ``∀V. bindn_i4 0 V = V``,
+  rw[bindn_i4_def])
+val _ = export_rewrites["bindn_i4_0"]
+
 val bind_bindn_i4 = store_thm("bind_bindn_i4",
   ``(bind_i4 (bindn_i4 n V) = bindn_i4 (SUC n) V) ∧
     (bindn_i4 n (bind_i4 V) = bindn_i4 (SUC n) V)``,
@@ -2200,7 +2205,125 @@ val exp_i4_sLet = store_thm("exp_i4_sLet",
   disch_then(qspecl_then[`0`,`1`,`1`,`V`]mp_tac) >>
   simp[bindn_i4_def] )
 
+val ground_i4_sIf = store_thm("ground_i4_sIf",
+  ``ground_i4 n (If_i4 e1 e2 e3) ⇒
+    ground_i4 n (sIf_i4 e1 e2 e3)``,
+  rw[sIf_i4_def] >>
+  Cases_on`e1`>> fs[] >>
+  BasicProvers.CASE_TAC >> fs[] >> rw[])
+
+val ground_i4_inc = store_thm("ground_i4_inc",
+  ``(∀e n. ground_i4 n e ⇒ ∀m. n ≤ m ⇒ ground_i4 m e) ∧
+    (∀es n. ground_list_i4 n es ⇒ ∀m. n ≤ m ⇒ ground_list_i4 m es)``,
+  ho_match_mp_tac(TypeBase.induction_of(``:exp_i4``)) >>
+  simp[] >> rw[] >>
+  first_x_assum (match_mp_tac o MP_CANON) >>
+  metis_tac[arithmeticTheory.LE_ADD_RCANCEL])
+
+val ground_i4_sLet = store_thm("ground_i4_sLet",
+  ``ground_i4 n (Let_i4 e1 e2) ⇒
+    ground_i4 n (sLet_i4 e1 e2)``,
+  rw[sLet_i4_thm] >>
+  match_mp_tac(MP_CANON(CONJUNCT1 ground_i4_inc))>>
+  qexists_tac`0`>>simp[])
+
+val ground_i4_Let_Els = store_thm("ground_i4_Let_Els",
+  ``∀k m n e.
+    ground_i4 (n+k) e ∧ m < n ⇒
+    ground_i4 n (Let_Els_i4 m k e)``,
+  Induct >> simp[Let_Els_i4_def] >>
+  rw[] >>
+  match_mp_tac ground_i4_sLet >>
+  simp[] >>
+  first_x_assum match_mp_tac >>
+  fsrw_tac[ARITH_ss][arithmeticTheory.ADD1])
+
+val pat_to_i4_ground = store_thm("pat_to_i4_ground",
+  ``(∀p. ground_i4 1 (pat_to_i4 p)) ∧
+    (∀n ps. ground_i4 (n + LENGTH ps) (pats_to_i4 n ps))``,
+  ho_match_mp_tac pat_to_i4_ind >>
+  simp[pat_to_i4_def] >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    match_mp_tac ground_i4_sIf >>
+    simp[] >>
+    match_mp_tac ground_i4_Let_Els >>
+    simp[] >>
+    match_mp_tac (MP_CANON(CONJUNCT1 ground_i4_inc)) >>
+    HINT_EXISTS_TAC >> simp[]) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    match_mp_tac ground_i4_sLet >> simp[] >>
+    match_mp_tac (MP_CANON(CONJUNCT1 ground_i4_inc)) >>
+    qexists_tac`1`>>simp[] ) >>
+  rpt gen_tac >> strip_tac >>
+  match_mp_tac ground_i4_sIf >> simp[] >>
+  fsrw_tac[ARITH_ss][arithmeticTheory.ADD1] >>
+  match_mp_tac ground_i4_sLet >> simp[] >>
+  match_mp_tac (MP_CANON(CONJUNCT1 ground_i4_inc)) >>
+  HINT_EXISTS_TAC >> simp[])
+
+val ground_exp_i4_refl = store_thm("ground_exp_i4_refl",
+  ``(∀e n. ground_i4 n e ⇒
+       ∀z1 z2 V. n ≤ z1 ∧ n ≤ z2 ⇒ exp_i4 z1 z2 (bindn_i4 n V) e e) ∧
+    (∀es n. ground_list_i4 n es ⇒
+       ∀z1 z2 V. n ≤ z1 ∧ n ≤ z2 ⇒ EVERY2 (exp_i4 z1 z2 (bindn_i4 n V)) es es)``,
+  ho_match_mp_tac(TypeBase.induction_of(``:exp_i4``)) >>
+  simp[] >> rw[] >>
+  simp[Once exp_i4_cases] >> TRY (
+    first_x_assum (match_mp_tac o MP_CANON) >>
+    simp[arithmeticTheory.ADD1] >>
+    NO_TAC) >>
+  simp[bindn_i4_thm])
+
 (*
+val Let_Els_i4_exp_i4 = store_thm("Let_Els_i4_exp_i4",
+  ``∀k n e1 e2 z1 z2 V.
+      exp_i4 (z1+n) (z2+n) (bindn_i4 n V) e1 e2 ⇒
+      exp_i4 z1 z2 V (Let_Els_i4 n k e1) (Let_Els_i4 n k e2)``,
+  Induct >> simp[Let_Els_i4_def] >- (
+    rpt gen_tac >> strip_tac >>
+    qspecl_then[`z1`,`z2`,`V`,`e1`,`e2`]mp_tac exp_i4_unbind >>
+    simp[]
+    exp_i4_imp_ground
+    bindn_i4_def
+    exps
+  conj_tac >- (
+    Cases >> simp[Let_Els_i4_def] >- simp[bindn_i4_def] >>
+    rpt gen_tac >> strip_tac >>
+    match_mp_tac exp_i4_sLet >>
+    simp[Once exp_i4_cases] >>
+    simp[Once exp_i4_cases] >>
+    simp[Once exp_i4_cases] >>
+
+    simp[bindn_i4_thm]
+
+val pat_to_i4_exp_i4_refl = store_thm("pat_to_i4_exp_i4_refl",
+  ``(∀p z1 z2 V. exp_i4 (SUC z1) (SUC z2) (bind_i4 V) (pat_to_i4 p) (pat_to_i4 p)) ∧
+    (∀n ps z1 z2 V. exp_i4 (z1+n) (z2+n) (bindn_i4 n V) (pats_to_i4 n ps) (pats_to_i4 n ps))``,
+  ho_match_mp_tac pat_to_i4_ind >>
+  simp[pat_to_i4_def] >>
+  strip_tac >- (
+    simp[Once exp_i4_cases] >>
+    simp[Once exp_i4_cases] >>
+    simp[bind_i4_thm] ) >>
+  strip_tac >- (
+    simp[Once exp_i4_cases] >>
+    simp[Once exp_i4_cases] >>
+    simp[Once exp_i4_cases] >>
+    simp[bind_i4_thm] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rpt gen_tac >>
+    match_mp_tac exp_i4_sIf >>
+    simp[Once exp_i4_cases] >>
+    conj_tac >- (
+      simp[Once exp_i4_cases] >>
+      simp[Once exp_i4_cases] >>
+      simp[bind_i4_thm] ) >>
+    Let_Els_i4_correct
+*)
+
 val row_to_i4_acc = store_thm("row_to_i4_acc",
   ``(∀Nbvs p bvs1 N. Nbvs = N::bvs1 ⇒
        ∀bvs2 r1 n1 f1 r2 n2 f2.
@@ -2304,6 +2427,19 @@ val row_to_i4_nil = store_thm("row_to_i4_nil",
   disch_then(qspec_then`bvs1`mp_tac) >>
   `∃x y z. row_to_i4 (N::bvs1) p = (x,y,z)` by simp[GSYM EXISTS_PROD] >>
   simp[])
+
+val row_to_i4_shift = store_thm("row_to_i4_shift",
+  ``(∀bvs p bvs1 n1 f z1 z2 V e1 e2.
+       row_to_i4 bvs p = (bvs1,n1,f) ∧
+       exp_i4 (z1 + n1) (z2 + n1) (bindn_i4 n1 V) e1 e2
+       ⇒
+       exp_i4 z1 z2 V (f e1) (f e2)) ∧
+    (∀bvs ps n k bvs1 n1 f z1 z2 V e1 e2.
+       cols_to_i4 bvs ps n k = (bvs1,n1,f) ∧
+       exp_i4 (z1 + n + n1) (z2 + n + n1) (bindn_i4 (n+n1) V) e1 e2
+       ⇒
+       exp_i4 z1 z2 V (f e1) (f e2))``,
+  ho_match_mp_tac row_to_i4_ind >> simp[row_to_i4_def] >> cheat)
 
 val exp_to_i4_shift = store_thm("exp_to_i4_shift",
   ``(∀bvs1 e z1 z2 bvs2 V.
@@ -2435,12 +2571,33 @@ val exp_to_i4_shift = store_thm("exp_to_i4_shift",
     match_mp_tac bind_i4_bvs_V >> rw[] ) >>
   strip_tac >- (
     rw[] >>
-    cheat ) >>
+    qspecl_then[`NONE::bvs1`,`p`]mp_tac(CONJUNCT1 row_to_i4_acc) >> simp[] >>
+    disch_then(qspec_then`bvs2`mp_tac) >>
+    `∃r1 n1 f1. row_to_i4 (NONE::bvs1) p = (r1,n1,f1)` by simp[GSYM EXISTS_PROD] >>
+    `∃r2 n2 f2. row_to_i4 (NONE::bvs2) p = (r2,n2,f2)` by simp[GSYM EXISTS_PROD] >>
+    simp[] >> strip_tac >> fs[] >>
+    first_x_assum(qspecl_then[`ls++bvs2`,`bindn_i4 (LENGTH ls) V`]mp_tac) >>
+    simp[rich_listTheory.FILTER_APPEND,bindn_i4_bvs_V] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    qspecl_then[`NONE::bvs1`,`p`]mp_tac(CONJUNCT1 row_to_i4_shift) >>
+    simp[arithmeticTheory.ADD1]) >>
   strip_tac >- (
     rw[] >>
     match_mp_tac exp_i4_sIf >>
     simp[Once exp_i4_cases] >>
-    cheat ) >>
+    conj_tac >- (
+      qspecl_then[`pat_to_i4 p`,`1`]mp_tac(CONJUNCT1 ground_exp_i4_refl) >>
+      simp[pat_to_i4_ground,bindn_i4_def] ) >>
+    `∃r1 n1 f1. row_to_i4 (NONE::bvs1) p = (r1,n1,f1)` by simp[GSYM EXISTS_PROD] >>
+    `∃r2 n2 f2. row_to_i4 (NONE::bvs2) p = (r2,n2,f2)` by simp[GSYM EXISTS_PROD] >>
+    qspecl_then[`NONE::bvs1`,`p`]mp_tac(CONJUNCT1 row_to_i4_acc) >> simp[] >>
+    disch_then(qspec_then`bvs2`mp_tac) >>
+    simp[] >> strip_tac >> fs[] >>
+    last_x_assum(qspecl_then[`ls++bvs2`,`bindn_i4 (LENGTH ls) V`]mp_tac) >>
+    simp[rich_listTheory.FILTER_APPEND,bindn_i4_bvs_V] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    qspecl_then[`NONE::bvs1`,`p`]mp_tac(CONJUNCT1 row_to_i4_shift) >>
+    simp[arithmeticTheory.ADD1]) >>
    rw[])
 
 (*
