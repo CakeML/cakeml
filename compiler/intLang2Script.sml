@@ -808,11 +808,11 @@ evaluate_decs_i2 ck genv s1 (d::ds) (s3, (new_env ++ new_env'), r))`;
 
  val _ = Define `
 
-(num_defs l =((case (l) of
-     ( [] ) => 0
-   | ( (Dlet_i2 n e::ds) ) => n + num_defs ds
-   | ( (Dletrec_i2 funs::ds) ) => LENGTH funs + num_defs ds
- )))`;
+(num_defs [] =( 0))
+/\
+(num_defs (Dlet_i2 n _::ds) = (n + num_defs ds))
+/\
+(num_defs (Dletrec_i2 funs::ds) = (LENGTH funs + num_defs ds))`;
 
 
 val _ = Hol_reln ` (! ck genv s1 ds s2 env.

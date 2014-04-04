@@ -1940,7 +1940,7 @@ val global_env_inv_extend_mod_err = Q.prove (
   mn ∉ set (MAP FST menv) ∧
   global_env_inv genv mods tops menv ∅ env
   ⇒
-  global_env_inv (genv ++ MAP SOME (MAP SND new_genv) ++ MAP SOME new_genv')
+  global_env_inv (genv ++ MAP SOME (MAP SND new_genv) ++ new_genv')
                  (mods |+ (mn,FEMPTY |++ tops')) tops menv ∅ env`,
  rw [last (CONJUNCTS v_to_i1_eqns)]
  >- metis_tac [v_to_i1_weakening] >>
@@ -1972,19 +1972,19 @@ val top_to_i1_correct = Q.store_thm ("top_to_i1_correct",
   ⇒
   ∃s'_i1 new_genv r_i1.
    evaluate_prompt_i1 ck genv cenv (s_i1,tdecs,mod_names) prompt_i1 ((s'_i1,tdecs',mod_names'),cenv',new_genv,r_i1) ∧
-   next' = LENGTH  (genv ++ MAP SOME new_genv) ∧
+   next' = LENGTH  (genv ++ new_genv) ∧
    (!new_menv new_env.
      r = Rval (new_menv, new_env)
      ⇒
      r_i1 = NONE ∧
-     to_i1_invariant (genv ++ MAP SOME new_genv) mods' tops' (new_menv++menv) (new_env++env) s' s'_i1 mod_names') ∧
+     to_i1_invariant (genv ++ new_genv) mods' tops' (new_menv++menv) (new_env++env) s' s'_i1 mod_names') ∧
    (!err.
      r = Rerr err
      ⇒
      ?err_i1.
        r_i1 = SOME err_i1 ∧
-       result_to_i1 (\a b c. T) (genv ++ MAP SOME new_genv) (Rerr err) (Rerr err_i1) ∧
-       to_i1_invariant (genv ++ MAP SOME new_genv) mods' tops menv env s' s'_i1 mod_names')`,
+       result_to_i1 (\a b c. T) (genv ++ new_genv) (Rerr err) (Rerr err_i1) ∧
+       to_i1_invariant (genv ++ new_genv) mods' tops menv env s' s'_i1 mod_names')`,
  rw [evaluate_top_cases, evaluate_prompt_i1_cases, top_to_i1_def, LET_THM, to_i1_invariant_def] >>
  fs [] >>
  rw []
@@ -1995,7 +1995,7 @@ val top_to_i1_correct = Q.store_thm ("top_to_i1_correct",
      fs [result_to_i1_cases] >>
      fs [fupdate_list_foldl] >>
      rw [] >>
-     MAP_EVERY qexists_tac [`s'_i1`, `MAP SND env'_i1`] >>
+     MAP_EVERY qexists_tac [`s'_i1`, `MAP SOME (MAP SND env'_i1)`] >>
      rw [emp_def, mod_cenv_def, update_mod_state_def] >>
      rw [Once evaluate_decs_i1_cases] >>
      rw [Once evaluate_decs_i1_cases, emp_def, merge_def] >>
@@ -2013,7 +2013,7 @@ val top_to_i1_correct = Q.store_thm ("top_to_i1_correct",
      fs [fupdate_list_foldl] >>
      fs [] >>
      rw []
-     >- (MAP_EVERY qexists_tac [`s'_i1`, `GENLIST (\n. Litv_i1 Unit) (decs_to_dummy_env [d_i1])`, `SOME (Rraise v')`] >>
+     >- (MAP_EVERY qexists_tac [`s'_i1`, `GENLIST (\n. NONE) (decs_to_dummy_env [d_i1])`, `SOME (Rraise v')`] >>
          rw []
          >- (ONCE_REWRITE_TAC [evaluate_decs_i1_cases] >>
              rw [] >>
@@ -2026,7 +2026,7 @@ val top_to_i1_correct = Q.store_thm ("top_to_i1_correct",
          >- metis_tac [s_to_i1'_cases, v_to_i1_weakening]
          >- metis_tac [s_to_i1'_cases, v_to_i1_weakening]
          >- metis_tac [s_to_i1_cases, s_to_i1'_cases, v_to_i1_weakening])
-     >- (MAP_EVERY qexists_tac [`s'_i1`, `GENLIST (\n. Litv_i1 Unit) (decs_to_dummy_env [d_i1])`] >>
+     >- (MAP_EVERY qexists_tac [`s'_i1`, `GENLIST (\n. NONE) (decs_to_dummy_env [d_i1])`] >>
          rw []
          >- (ONCE_REWRITE_TAC [evaluate_decs_i1_cases] >>
              rw [] >>
@@ -2044,7 +2044,7 @@ val top_to_i1_correct = Q.store_thm ("top_to_i1_correct",
      imp_res_tac decs_to_i1_correct >>
      fs [] >>
      rw [mod_cenv_def, emp_def] >>
-     MAP_EVERY qexists_tac [`s'_i1`, `MAP SND new_genv`] >>
+     MAP_EVERY qexists_tac [`s'_i1`, `MAP SOME (MAP SND new_genv)`] >>
      rw [fupdate_list_foldl, update_mod_state_def] >>
      fs [SUBSET_DEF] >>
      metis_tac [global_env_inv_extend_mod])
@@ -2055,7 +2055,7 @@ val top_to_i1_correct = Q.store_thm ("top_to_i1_correct",
      pop_assum mp_tac >>
      rw [mod_cenv_def, emp_def] >>
      MAP_EVERY qexists_tac [`s'_i1`, 
-                            `MAP SND new_genv ++ GENLIST (λn. Litv_i1 Unit) (decs_to_dummy_env ds_i1 − LENGTH (MAP SND new_genv))`, 
+                            `MAP SOME (MAP SND new_genv) ++ GENLIST (λn. NONE) (decs_to_dummy_env ds_i1 − LENGTH (MAP SND new_genv))`, 
                             `SOME err_i1`] >>
      rw [] 
      >- (MAP_EVERY qexists_tac [`MAP SND new_genv`] >>
@@ -2085,15 +2085,15 @@ val prog_to_i1_correct = Q.store_thm ("prog_to_i1_correct",
    (!new_menv new_env.
      r = Rval (new_menv, new_env)
      ⇒
-     next' = LENGTH (genv ++ MAP SOME new_genv) ∧
+     next' = LENGTH (genv ++ new_genv) ∧
      r_i1 = NONE ∧
-     to_i1_invariant (genv ++ MAP SOME new_genv) mods' tops' (new_menv++menv) (new_env++env) s' s'_i1 mod_names') ∧
+     to_i1_invariant (genv ++ new_genv) mods' tops' (new_menv++menv) (new_env++env) s' s'_i1 mod_names') ∧
    (!err.
      r = Rerr err
      ⇒
      ?err_i1.
        r_i1 = SOME err_i1 ∧
-       result_to_i1 (\a b c. T) (genv ++ MAP SOME new_genv) (Rerr err) (Rerr err_i1))`,
+       result_to_i1 (\a b c. T) (genv ++ new_genv) (Rerr err) (Rerr err_i1))`,
  induct_on `prog` >>
  rw [LET_THM, prog_to_i1_def]
  >- fs [Once evaluate_prog_cases, Once evaluate_prog_i1_cases, emp_def] >>
@@ -2110,13 +2110,13 @@ val prog_to_i1_correct = Q.store_thm ("prog_to_i1_correct",
  >- (`∃s'_i1 new_genv.
       evaluate_prompt_i1 ck genv cenv (s_i1,tdecs,mod_names) prompt_i1
          ((s'_i1,tdecs2',mod_names2'),new_tds,new_genv,NONE) ∧
-      next'' = LENGTH genv + LENGTH (MAP SOME new_genv) ∧
-      to_i1_invariant (genv ++ MAP SOME new_genv) mods'' tops'' (new_mods ++ menv) (new_env ++ env) s2' s'_i1 mod_names2'`
+      next'' = LENGTH genv + LENGTH new_genv ∧
+      to_i1_invariant (genv ++ new_genv) mods'' tops'' (new_mods ++ menv) (new_env ++ env) s2' s'_i1 mod_names2'`
                  by (imp_res_tac top_to_i1_correct >>
                      fs [] >>
                      metis_tac []) >>
      fs [merge_def] >>
-     FIRST_X_ASSUM (qspecl_then [`mods''`, `tops''`, `ck`, `new_mods ++ menv`, `merge_envC new_tds cenv`, `new_env ++ env`, `s2'`, `s'`, `r'`, `genv++MAP SOME new_genv`, `s'_i1`] mp_tac) >>
+     FIRST_X_ASSUM (qspecl_then [`mods''`, `tops''`, `ck`, `new_mods ++ menv`, `merge_envC new_tds cenv`, `new_env ++ env`, `s2'`, `s'`, `r'`, `genv++new_genv`, `s'_i1`] mp_tac) >>
      rw [] >>
      FIRST_X_ASSUM (qspecl_then [`new_tds'`, `tdecs2'`, `mod_names2'`, `tdecs'`, `mod_names'`] mp_tac) >>
      rw [] >>

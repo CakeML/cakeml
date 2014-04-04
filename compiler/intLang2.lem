@@ -827,11 +827,9 @@ evaluate_decs_i2 ck genv s1 (d::ds) (s3, new_env ++ new_env', r)
 let rec
 num_defs [] = 0
 and
-num_defs (Dlet_i2 n e::ds) = n + num_defs ds
+num_defs (Dlet_i2 n _::ds) = n + num_defs ds
 and
 num_defs (Dletrec_i2 funs::ds) = List.length funs + num_defs ds
-and
-num_defs (_::ds) = num_defs ds
 
 declare termination_argument num_defs = automatic
 
