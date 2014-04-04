@@ -20,7 +20,11 @@ val _ = new_theory "intLang3"
  * it modify the global environment (instread of just rasing a type error).
  *
  * The translator to IL3 maps a declaration to an expression that sets of the
- * global environment in the right way.
+ * global environment in the right way. If evaluating the expression results in
+ * an exception, then the exception is handled, and a constructor tagged 1
+ * containing the exception is returned. Otherwise, an empty constructor with
+ * tag 0 is returned. This is a slight abuse, it would be better to use the
+ * tags for NONE and SOME, but they are part of IL2's state, not IL3's.
  *
  *)
 
@@ -32,12 +36,11 @@ val _ = new_theory "intLang3"
 (*open import BigStep*)
 (*open import IntLang2*)
 
-(*val init_globals : nat -> nat -> list (pat_i2 * exp_i2)*)
+(*val init_globals : list varN -> nat -> exp_i2*)
  val _ = Define `
- (init_globals next 0 = ([]))
-/\ (init_globals next num =  
-(let var =  (STRCAT"x" (num_to_dec_string num)) in
-    (Pvar_i2 var, Uapp_i2 (Init_global_var_i2 (next+num)) (Var_local_i2 var)) :: init_globals next (num -  1)))`;
+ (init_globals [] idx = (Lit_i2 Unit))
+/\ (init_globals (x::vars) idx =  
+(Let_i2 NONE (Uapp_i2 (Init_global_var_i2 idx) (Var_local_i2 x)) (init_globals vars (idx + 1))))`;
 
 
 (*val init_global_funs : nat -> list (varN * varN * exp_i2) -> exp_i2*)
@@ -53,7 +56,8 @@ val _ = new_theory "intLang3"
 /\ (decs_to_i3 next (d::ds) =  
 ((case d of
       Dlet_i2 n e =>
-        Let_i2 NONE (Mat_i2 e (init_globals next n)) (decs_to_i3 (next+n) ds)
+        let vars = (GENLIST (\ n .   STRCAT"x" (num_to_dec_string n)) n) in
+          Let_i2 NONE (Mat_i2 e [(Pcon_i2 tuple_tag (MAP Pvar_i2 vars), init_globals vars next)]) (decs_to_i3 (next+n) ds)
     | Dletrec_i2 funs =>
         let n = (LENGTH funs) in
           Let_i2 NONE (init_global_funs next funs) (decs_to_i3 (next+n) ds)
@@ -66,19 +70,19 @@ val _ = Define `
 ((case prompt of
       Prompt_i2 ds =>
         let n = (num_defs ds) in
-          ((next+n), Let_i2 NONE (Extend_global_i2 n) (Handle_i2 (decs_to_i3 next ds) [(Pvar_i2 "x", Var_local_i2 "x")]))
+          ((next+n), Let_i2 NONE (Extend_global_i2 n) (Handle_i2 (Let_i2 NONE (decs_to_i3 next ds) (Con_i2( 0) [])) [(Pvar_i2 "x", Con_i2( 1) [Var_local_i2 "x"])]))
   )))`;
 
 
 (*val prog_to_i3 : nat -> list prompt_i2 -> nat * exp_i2*)
  val prog_to_i3_defn = Hol_defn "prog_to_i3" `
  
-(prog_to_i3 next [] = (next, Lit_i2 Unit))
+(prog_to_i3 next [] = (next, Con_i2( 0) []))
 /\ 
 (prog_to_i3 next (p::ps) =  
  (let (next',p') = (prompt_to_i3 next p) in
   let (next'',ps') = (prog_to_i3 next' ps) in
-    (next'',Let_i2 NONE p' ps')))`;
+    (next'',Mat_i2 p' [(Pcon_i2( 0) [], ps'); (Pvar_i2 "x", Var_local_i2 "x")])))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn prog_to_i3_defn;
 
