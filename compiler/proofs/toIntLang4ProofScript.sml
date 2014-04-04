@@ -2759,37 +2759,40 @@ val find_index_APPEND = store_thm("find_index_APPEND",
   BasicProvers.CASE_TAC >>
   simp[arithmeticTheory.ADD1])
 
-val find_index_in_FILTER_EQ = store_thm("find_index_in_FILTER_EQ",
-  ``∀P l1 l2 x n1 n2 j1 j2.
-      FILTER P l1 = l2 ∧
+val find_index_in_FILTER_ZIP_EQ = store_thm("find_index_in_FILTER_ZIP_EQ",
+  ``∀P l1 l2 x n1 n2 v1 j1 j2.
+      LENGTH l1 = LENGTH v1 ∧
+      FILTER (P o FST) (ZIP(l1,v1)) = l2 ∧
       find_index x l1 n1 = SOME (n1+j1) ∧
-      find_index x l2 n2 = SOME (n2+j2) ∧
+      find_index x (MAP FST l2) n2 = SOME (n2+j2) ∧
       P x
       ⇒
       j1 < LENGTH l1 ∧ j2 < LENGTH l2 ∧
-      EL j1 l1 = EL j2 l2``,
+      EL j1 (ZIP(l1,v1)) = EL j2 l2``,
   gen_tac >> Induct >> simp[find_index_def] >>
   rpt gen_tac >>
   BasicProvers.CASE_TAC >- (
     strip_tac >> fs[] >>
     Cases_on`j1`>>fsrw_tac[ARITH_ss][]>>
     fs[find_index_def] >>
-    Cases_on`j2`>>fsrw_tac[ARITH_ss][]) >>
+    Cases_on`j2`>>fsrw_tac[ARITH_ss][] >>
+    Cases_on`v1`>>fsrw_tac[ARITH_ss][find_index_def]) >>
   strip_tac >>
+  Cases_on`v1`>>fs[] >>
   Cases_on`P h`>>fs[find_index_def] >- (
     rfs[] >>
     imp_res_tac find_index_LESS_LENGTH >>
     fsrw_tac[ARITH_ss][] >>
     first_x_assum(qspecl_then[`x`,`n1+1`]mp_tac) >>
     simp[] >>
-    disch_then(qspec_then`n2+1`mp_tac) >> simp[] >>
+    disch_then(qspecl_then[`n2+1`,`t`]mp_tac) >> simp[] >>
     Cases_on`j1=0`>>fsrw_tac[ARITH_ss][]>>
     Cases_on`j2=0`>>fsrw_tac[ARITH_ss][]>>
     disch_then(qspecl_then[`PRE j1`,`PRE j2`]mp_tac) >>
     simp[rich_listTheory.EL_CONS] ) >>
   first_x_assum(qspecl_then[`x`,`n1+1`]mp_tac) >>
   simp[] >>
-  disch_then(qspec_then`n2`mp_tac) >> simp[] >>
+  disch_then(qspecl_then[`n2`,`t`]mp_tac) >> simp[] >>
   imp_res_tac find_index_LESS_LENGTH >>
   fsrw_tac[ARITH_ss][] >>
   Cases_on`j1=0`>>fsrw_tac[ARITH_ss][]>>
@@ -3308,15 +3311,15 @@ val exp_to_i4_correct = store_thm("exp_to_i4_correct",
        imp_res_tac find_index_LESS_LENGTH >>
        fs[] >> simp[rich_listTheory.EL_APPEND1,EL_MAP] >>
        qmatch_assum_rename_tac`k2 < LENGTH l2`[] >>
-       `MAP (SOME o FST) menv = FILTER IS_SOME l2` by (
-         qpat_assum`X = MAP Y Z`(mp_tac o Q.AP_TERM`MAP FST`) >>
-         simp[GSYM rich_listTheory.FILTER_MAP,MAP_MAP_o,MAP_ZIP,combinTheory.o_DEF,UNCURRY] ) >>
-       Q.ISPEC_THEN`l2`mp_tac(CONV_RULE SWAP_FORALL_CONV find_index_in_FILTER_EQ) >>
+       Q.ISPEC_THEN`l2`mp_tac(CONV_RULE SWAP_FORALL_CONV (INST_TYPE[beta|->``:v_i4``]find_index_in_FILTER_ZIP_EQ)) >>
        disch_then(qspec_then`IS_SOME`mp_tac) >>
-       pop_assum(SUBST1_TAC o SYM) >> simp[] >>
+       disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV(op@ o (partition(equal"v1" o fst o dest_var))))) >>
+       disch_then(qspec_then`menv4`mp_tac) >>
+       simp[] >>
        disch_then(qspecl_then[`SOME x`,`0`,`0`]mp_tac) >>
-       simp[EL_MAP] >>
-       cheat )) >>
+       simp[MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
+       fs[combinTheory.o_DEF,UNCURRY] >>
+       simp[EL_ZIP,EL_MAP,UNCURRY])) >>
     disch_then(qx_choose_then`res5`strip_assume_tac) >>
     fs[Abbr`s4`,map_count_store_genv_def] >>
     qexists_tac`res5` >> simp[Abbr`P`] >>
