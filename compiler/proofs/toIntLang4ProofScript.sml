@@ -2,49 +2,174 @@ open HolKernel boolLib boolSimps bossLib lcsymtacs listTheory alistTheory pairTh
 open Defn miscLib miscTheory intLang2Theory intLang3Theory intLang4Theory compilerTerminationTheory
 val _ = new_theory"toIntLang4Proof"
 
-val v_to_i4_def = tDefine"v_to_i4"`
-  (v_to_i4 (Litv_i2 l) = Litv_i4 l) ∧
-  (v_to_i4 (Conv_i2 tag vs) = Conv_i4 tag (vs_to_i4 vs)) ∧
-  (v_to_i4 (Closure_i2 env x e) =
-    Closure_i4
-      (MAP v_to_i4 (MAP SND env))
-      (exp_to_i4 (SOME x :: MAP (SOME o FST) env) e)) ∧
-  (v_to_i4 (Recclosure_i2 env funs f) =
-    Recclosure_i4
-      (MAP v_to_i4 (MAP SND env))
-      (funs_to_i4 (MAP (SOME o FST) funs ++ MAP (SOME o FST) env) funs)
-      (the (LENGTH funs) (find_index f (MAP FST funs) 0))) ∧
-  (v_to_i4 (Loc_i2 n) = Loc_i4 n) ∧
-  (vs_to_i4 [] = []) ∧
-  (vs_to_i4 (v::vs) = v_to_i4 v :: vs_to_i4 vs)`
-(WF_REL_TAC`inv_image $< (\x. case x of INL v => v_i2_size v
-                                      | INR vs => v_i23_size vs)` >>
- simp[] >> conj_tac >> rpt gen_tac >> Induct_on`env` >> simp[] >>
- Cases >> simp[v_i2_size_def] >> rw[] >> res_tac >> simp[])
-val v_to_i4_def = save_thm("v_to_i4_def",
-  v_to_i4_def |> SIMP_RULE (srw_ss()++ETA_ss) [MAP_MAP_o])
-val _ = export_rewrites["v_to_i4_def"]
+(* TODO: move *)
 
-val good_v_i2_def = tDefine"good_v_i2"`
-  (good_v_i2 (Litv_i2 _) ⇔ T) ∧
-  (good_v_i2 (Conv_i2 _ vs) ⇔ good_vs_i2 vs) ∧
-  (good_v_i2 (Closure_i2 env _ _) ⇔ good_vs_i2 (MAP SND env)) ∧
-  (good_v_i2 (Recclosure_i2 env funs f) ⇔
-   good_vs_i2 (MAP SND env) ∧
-   ALL_DISTINCT (MAP FST funs) ∧ MEM f (MAP FST funs)) ∧
-  (good_v_i2 (Loc_i2 _) ⇔ T) ∧
-  (good_vs_i2 [] ⇔ T) ∧
-  (good_vs_i2 (v::vs) ⇔ good_v_i2 v ∧ good_vs_i2 vs)`
-(WF_REL_TAC`inv_image $< (\x. case x of INL v => v_i2_size v
-                                      | INR vs => v_i23_size vs)` >>
- simp[] >> conj_tac >> rpt gen_tac >> Induct_on`env` >> simp[v_i2_size_def] >>
- Cases >> simp[v_i2_size_def] >> rw[] >> res_tac >> simp[])
-val _ = export_rewrites["good_v_i2_def"]
+(* provide witnesses to make the first conjunct under the goal's existential
+   prefix match the given term *)
+fun match_exists_tac tm (g as (_,w)) =
+  let
+    val (vs,b) = strip_exists w
+    val cs = strip_conj b val c = hd cs
+    val (tms,_) = match_term c tm
+    val xs = map #redex tms
+    val ys = map #residue tms
+    fun sorter ls = xs@(List.filter(not o Lib.C Lib.mem xs)ls)
+  in
+    CONV_TAC(RESORT_EXISTS_CONV sorter) >>
+    map_every exists_tac ys
+  end g
 
-val good_vs_i2_EVERY = store_thm("good_vs_i2_EVERY",
-  ``∀vs. good_vs_i2 vs ⇔ EVERY good_v_i2 vs``,
-  Induct >> simp[])
-val _ = export_rewrites["good_vs_i2_EVERY"]
+(* if the first conjunct under the goal's existential prefix matches the term
+   except for some places where it has structure and the term just has variables,
+   then pair split all those variables *)
+fun split_pair_match tm (g as (_,w)) =
+  let
+    val (vs,b) = strip_exists w
+    val cs = strip_conj b val c = hd cs
+    val cs = op::(strip_comb c)
+    val ts = op::(strip_comb tm)
+    val ss = map2 (total o match_term) ts cs
+    val vs = map ((fn x => map #redex (Option.valOf x) handle _ => []) o
+                  (Option.map fst)) ss
+    val vs = flatten vs
+    val _ = assert (not o (equal [])) vs
+  in
+    map_every PairCases_on (map (C cons [] o ANTIQUOTE) vs)
+  end g
+
+(* the theorem is of the form [!x1 ... xn. P ==> ?y1 ... ym. Q /\ ...]
+   the goal is of the form [?z1 ... zk. Q' /\ ...]
+   instantiate the xs as necessary to make Q and Q' match as much as possible
+   (complete match impossible if some of Q's variables are the ys) *)
+fun exists_match_mp_then (ttac:thm_tactic) th (g as (_,w)) =
+  let
+    val (ws,b) = strip_exists w
+    val cs = strip_conj b val c = hd cs
+    val (vs,t) = strip_forall (concl th)
+    val vs = map (fst o dest_var o variant (free_vars b)) vs
+    val th = CONV_RULE (RENAME_VARS_CONV vs) th
+    val (vs,t) = strip_forall (concl th)
+    val (_,b) = dest_imp t
+    val (_,b) = strip_exists b
+    val ts = strip_conj b val t = hd ts
+    val (tms,_) = match_term t c
+    val tms = filter (C mem vs o #redex) tms
+    val tms = filter (not o C mem ws o #residue) tms
+    val xs = map #redex tms
+    val ys = map #residue tms
+    fun sorter ls = xs@(filter(not o C mem xs) ls)
+    val th = SPECL ys (CONV_RULE (RESORT_FORALL_CONV sorter) th)
+  in
+    ttac th
+  end g
+
+(* the theorem is of the form [!x1..n. P ==> Q]
+   the goal is of the form [?y1..n. Q' /\ ...]
+   replace the goal with [?y1..n. P /\ ...] by
+   making the Q and Q' match *)
+fun exists_suff_tac th (g as (_,w)) =
+  let
+    val (ws,b) = strip_exists w
+    val bs = strip_conj b
+    val th = GEN_ALL(PART_MATCH (snd o dest_imp) th (hd bs))
+    val (vs,c) = strip_forall (concl th)
+    val (b',_) = dest_imp c
+  in
+    suff_tac(list_mk_exists(ws,list_mk_conj(b'::tl bs))) >- metis_tac[th]
+  end g
+
+val ALOOKUP_find_index_SOME = prove(
+  ``∀env. ALOOKUP env k = SOME v ⇒
+      ∀m. ∃i. (find_index k (MAP FST env) m = SOME (m+i)) ∧
+          (v = EL i (MAP SND env))``,
+  Induct >> simp[] >> Cases >> rw[find_index_def] >-
+    (qexists_tac`0`>>simp[]) >> fs[] >>
+  first_x_assum(qspec_then`m+1`mp_tac)>>rw[]>>rw[]>>
+  qexists_tac`SUC i`>>simp[])
+|> SPEC_ALL |> UNDISCH_ALL |> Q.SPEC`0` |> DISCH_ALL |> SIMP_RULE (srw_ss())[]
+val ALOOKUP_find_index_SOME = store_thm("ALOOKUP_find_index_SOME",
+  ``ALOOKUP env k = SOME v ⇒
+    ∃i. (find_index k (MAP FST env) 0 = SOME i) ∧
+        i < LENGTH env ∧ (v = SND (EL i env))``,
+  rw[] >> imp_res_tac ALOOKUP_find_index_SOME >>
+  imp_res_tac find_index_LESS_LENGTH >> fs[EL_MAP])
+val ALOOKUP_find_index_NONE = store_thm("ALOOKUP_find_index_NONE",
+  ``(ALOOKUP env k = NONE) ⇒ (find_index k (MAP FST env) m = NONE)``,
+  rw[ALOOKUP_FAILS] >> rw[GSYM find_index_NOT_MEM,MEM_MAP,EXISTS_PROD])
+
+val find_index_APPEND = store_thm("find_index_APPEND",
+  ``∀l1 l2 x n. find_index x (l1 ++ l2) n =
+    case find_index x l1 n of
+    | NONE => find_index x l2 (n + LENGTH l1)
+    | SOME x => SOME x``,
+  Induct >> simp[find_index_def] >> rw[] >>
+  BasicProvers.CASE_TAC >>
+  simp[arithmeticTheory.ADD1])
+
+val find_index_in_FILTER_ZIP_EQ = store_thm("find_index_in_FILTER_ZIP_EQ",
+  ``∀P l1 l2 x n1 n2 v1 j1 j2.
+      LENGTH l1 = LENGTH v1 ∧
+      FILTER (P o FST) (ZIP(l1,v1)) = l2 ∧
+      find_index x l1 n1 = SOME (n1+j1) ∧
+      find_index x (MAP FST l2) n2 = SOME (n2+j2) ∧
+      P x
+      ⇒
+      j1 < LENGTH l1 ∧ j2 < LENGTH l2 ∧
+      EL j1 (ZIP(l1,v1)) = EL j2 l2``,
+  gen_tac >> Induct >> simp[find_index_def] >>
+  rpt gen_tac >>
+  BasicProvers.CASE_TAC >- (
+    strip_tac >> fs[] >>
+    Cases_on`j1`>>fsrw_tac[ARITH_ss][]>>
+    fs[find_index_def] >>
+    Cases_on`j2`>>fsrw_tac[ARITH_ss][] >>
+    Cases_on`v1`>>fsrw_tac[ARITH_ss][find_index_def]) >>
+  strip_tac >>
+  Cases_on`v1`>>fs[] >>
+  Cases_on`P h`>>fs[find_index_def] >- (
+    rfs[] >>
+    imp_res_tac find_index_LESS_LENGTH >>
+    fsrw_tac[ARITH_ss][] >>
+    first_x_assum(qspecl_then[`x`,`n1+1`]mp_tac) >>
+    simp[] >>
+    disch_then(qspecl_then[`n2+1`,`t`]mp_tac) >> simp[] >>
+    Cases_on`j1=0`>>fsrw_tac[ARITH_ss][]>>
+    Cases_on`j2=0`>>fsrw_tac[ARITH_ss][]>>
+    disch_then(qspecl_then[`PRE j1`,`PRE j2`]mp_tac) >>
+    simp[rich_listTheory.EL_CONS] ) >>
+  first_x_assum(qspecl_then[`x`,`n1+1`]mp_tac) >>
+  simp[] >>
+  disch_then(qspecl_then[`n2`,`t`]mp_tac) >> simp[] >>
+  imp_res_tac find_index_LESS_LENGTH >>
+  fsrw_tac[ARITH_ss][] >>
+  Cases_on`j1=0`>>fsrw_tac[ARITH_ss][]>>
+  disch_then(qspec_then`PRE j1`mp_tac) >>
+  simp[rich_listTheory.EL_CONS] )
+
+val FUNPOW_mono = store_thm("FUNPOW_mono",
+  ``(∀x y. R1 x y ⇒ R2 x y) ∧
+    (∀R1 R2. (∀x y. R1 x y ⇒ R2 x y) ⇒ ∀x y. f R1 x y ⇒ f R2 x y) ⇒
+    ∀n x y. FUNPOW f n R1 x y ⇒ FUNPOW f n R2 x y``,
+  strip_tac >> Induct >> simp[] >>
+  simp[arithmeticTheory.FUNPOW_SUC] >>
+  first_x_assum match_mp_tac >> rw[])
+
+val LIST_REL_trans = store_thm("LIST_REL_trans",
+  ``∀l1 l2 l3. (∀n. n < LENGTH l1 ∧ R (EL n l1) (EL n l2) ∧ R (EL n l2) (EL n l3) ⇒ R (EL n l1) (EL n l3)) ∧
+      LIST_REL R l1 l2 ∧ LIST_REL R l2 l3 ⇒ LIST_REL R l1 l3``,
+  Induct >> simp[] >> rw[] >> fs[] >> rw[] >- (
+    first_x_assum(qspec_then`0`mp_tac)>>rw[] ) >>
+  first_x_assum match_mp_tac >>
+  qexists_tac`ys` >> rw[] >>
+  first_x_assum(qspec_then`SUC n`mp_tac)>>simp[])
+
+val LIST_REL_APPEND_SING = store_thm("LIST_REL_APPEND_SING",
+  ``LIST_REL R (l1 ++ [x1]) (l2 ++ [x2]) ⇔
+    LIST_REL R l1 l2 ∧ R x1 x2``,
+  rw[EQ_IMP_THM] >> TRY (
+    match_mp_tac EVERY2_APPEND_suff >> simp[]) >>
+  imp_res_tac EVERY2_APPEND >> fs[])
+val _ = export_rewrites["LIST_REL_APPEND_SING"]
 
 (* TODO: move *)
 
@@ -150,46 +275,9 @@ val every_result_def = Define`
   (every_result P1 P2 (Rerr e) = (every_error_result P2 e))`
 val _ = export_rewrites["every_result_def"]
 
-val map_count_store_genv_def = Define`
-  map_count_store_genv f (csg:'a count_store_genv) =
-    ((FST(FST csg), MAP f (SND(FST csg))), MAP (OPTION_MAP f) (SND csg))`
-
-val lookup_ALOOKUP = store_thm(
-"lookup_ALOOKUP",
+val lookup_ALOOKUP = store_thm("lookup_ALOOKUP",
 ``lookup = combin$C ALOOKUP``,
 fs[FUN_EQ_THM] >> gen_tac >> Induct >- rw[] >> Cases >> rw[])
-(*
-val _ = augment_srw_ss[rewrites [lookup_ALOOKUP]];
-*)
-
-(* TODO: move *)
-val ALOOKUP_find_index_SOME = prove(
-  ``∀env. ALOOKUP env k = SOME v ⇒
-      ∀m. ∃i. (find_index k (MAP FST env) m = SOME (m+i)) ∧
-          (v = EL i (MAP SND env))``,
-  Induct >> simp[] >> Cases >> rw[find_index_def] >-
-    (qexists_tac`0`>>simp[]) >> fs[] >>
-  first_x_assum(qspec_then`m+1`mp_tac)>>rw[]>>rw[]>>
-  qexists_tac`SUC i`>>simp[])
-|> SPEC_ALL |> UNDISCH_ALL |> Q.SPEC`0` |> DISCH_ALL |> SIMP_RULE (srw_ss())[]
-val ALOOKUP_find_index_SOME = prove(
-  ``ALOOKUP env k = SOME v ⇒
-    ∃i. (find_index k (MAP FST env) 0 = SOME i) ∧
-        i < LENGTH env ∧ (v = SND (EL i env))``,
-  rw[] >> imp_res_tac ALOOKUP_find_index_SOME >>
-  imp_res_tac find_index_LESS_LENGTH >> fs[EL_MAP])
-val ALOOKUP_find_index_NONE = prove(
-  ``(ALOOKUP env k = NONE) ⇒ (find_index k (MAP FST env) m = NONE)``,
-  rw[ALOOKUP_FAILS] >> rw[GSYM find_index_NOT_MEM,MEM_MAP,EXISTS_PROD])
-
-val build_rec_env_i2_MAP = store_thm("build_rec_env_i2_MAP",
-  ``build_rec_env_i2 funs cle env = MAP (λ(f,cdr). (f, (Recclosure_i2 cle funs f))) funs ++ env``,
-  rw[build_rec_env_i2_def] >>
-  qho_match_abbrev_tac `FOLDR (f funs) env funs = MAP (g funs) funs ++ env` >>
-  qsuff_tac `∀funs env funs0. FOLDR (f funs0) env funs = MAP (g funs0) funs ++ env` >- rw[]  >>
-  unabbrev_all_tac >> simp[] >>
-  Induct >> rw[libTheory.bind_def] >>
-  PairCases_on`h` >> rw[])
 
 val lookup_find_index_SOME = prove(
   ``∀env. lookup n env = SOME v ⇒
@@ -208,54 +296,43 @@ qx_gen_tac `d` >>
 PairCases_on `d` >>
 rw[semanticPrimitivesTheory.find_recfun_def])
 
-val vs_to_i4_MAP = store_thm("vs_to_i4_MAP",
-  ``∀vs. vs_to_i4 vs = MAP v_to_i4 vs``,
+val build_rec_env_i2_MAP = store_thm("build_rec_env_i2_MAP",
+  ``build_rec_env_i2 funs cle env = MAP (λ(f,cdr). (f, (Recclosure_i2 cle funs f))) funs ++ env``,
+  rw[build_rec_env_i2_def] >>
+  qho_match_abbrev_tac `FOLDR (f funs) env funs = MAP (g funs) funs ++ env` >>
+  qsuff_tac `∀funs env funs0. FOLDR (f funs0) env funs = MAP (g funs0) funs ++ env` >- rw[]  >>
+  unabbrev_all_tac >> simp[] >>
+  Induct >> rw[libTheory.bind_def] >>
+  PairCases_on`h` >> rw[])
+
+val map_count_store_genv_def = Define`
+  map_count_store_genv f (csg:'a count_store_genv) =
+    ((FST(FST csg), MAP f (SND(FST csg))), MAP (OPTION_MAP f) (SND csg))`
+
+(* --- *)
+
+(* TODO: move *)
+
+val good_v_i2_def = tDefine"good_v_i2"`
+  (good_v_i2 (Litv_i2 _) ⇔ T) ∧
+  (good_v_i2 (Conv_i2 _ vs) ⇔ good_vs_i2 vs) ∧
+  (good_v_i2 (Closure_i2 env _ _) ⇔ good_vs_i2 (MAP SND env)) ∧
+  (good_v_i2 (Recclosure_i2 env funs f) ⇔
+   good_vs_i2 (MAP SND env) ∧
+   ALL_DISTINCT (MAP FST funs) ∧ MEM f (MAP FST funs)) ∧
+  (good_v_i2 (Loc_i2 _) ⇔ T) ∧
+  (good_vs_i2 [] ⇔ T) ∧
+  (good_vs_i2 (v::vs) ⇔ good_v_i2 v ∧ good_vs_i2 vs)`
+(WF_REL_TAC`inv_image $< (\x. case x of INL v => v_i2_size v
+                                      | INR vs => v_i23_size vs)` >>
+ simp[] >> conj_tac >> rpt gen_tac >> Induct_on`env` >> simp[v_i2_size_def] >>
+ Cases >> simp[v_i2_size_def] >> rw[] >> res_tac >> simp[])
+val _ = export_rewrites["good_v_i2_def"]
+
+val good_vs_i2_EVERY = store_thm("good_vs_i2_EVERY",
+  ``∀vs. good_vs_i2 vs ⇔ EVERY good_v_i2 vs``,
   Induct >> simp[])
-val _ = export_rewrites["vs_to_i4_MAP"]
-
-val funs_to_i4_MAP = store_thm("funs_to_i4_MAP",
-  ``∀funs bvs. funs_to_i4 bvs funs = MAP (λ(f,x,e). exp_to_i4 (SOME x::bvs) e) funs``,
-  Induct >> simp[FORALL_PROD])
-
-val do_eq_i4_correct = prove(
-  ``(∀v1 v2. do_eq_i2 v1 v2 = do_eq_i4 (v_to_i4 v1) (v_to_i4 v2)) ∧
-    (∀vs1 vs2. do_eq_list_i2 vs1 vs2 = do_eq_list_i4 (vs_to_i4 vs1) (vs_to_i4 vs2))``,
-  ho_match_mp_tac do_eq_i2_ind >>
-  simp[do_eq_i2_def,do_eq_i4_def] >>
-  rw[] >> BasicProvers.CASE_TAC >> rw[])
-
-val the_less_rwt = prove(
-  ``the X Y < (X:num) ⇔ ∃z. (Y = SOME z) ∧ z < X``,
-  Cases_on`Y`>>simp[compilerLibTheory.the_def])
-
-val do_app_i4_correct = prove(
-  ``∀op v1 v2 env s.
-     good_v_i2 v1 ⇒
-     (do_app_i4 (MAP (v_to_i4 o SND) env) (MAP v_to_i4 s) op (v_to_i4 v1) (v_to_i4 v2) =
-      OPTION_MAP (λ(env,s,exp). (MAP (v_to_i4 o SND) env, MAP v_to_i4 s, exp_to_i4 (MAP (SOME o FST) env) exp))
-        (do_app_i2 env s op v1 v2))``,
-  Cases_on`op`>>TRY(Cases_on`o':opn`)>>Cases_on`v1`>>TRY(Cases_on`l:lit`)>>Cases_on`v2`>>TRY(Cases_on`l:lit`)>>
-  simp[do_app_i2_def,do_app_i4_def,exn_env_i4_def,exn_env_i2_def
-      ,libTheory.emp_def,libTheory.bind_def,do_eq_i4_correct,do_eq_i4_def]>>rw[]>>
-  fs[find_recfun_ALOOKUP,funs_to_i4_MAP] >- (
-    BasicProvers.CASE_TAC >> simp[] >> rw[] >>
-    BasicProvers.CASE_TAC >> simp[] >> rw[] ) >>
-  fs[the_less_rwt] >>
-  BasicProvers.CASE_TAC >>
-  imp_res_tac ALOOKUP_find_index_NONE >>
-  imp_res_tac ALOOKUP_find_index_SOME >>
-  fs[] >> rw[] >> fs[semanticPrimitivesTheory.store_assign_def] >> rw[] >>
-  TRY ( rw[LIST_EQ_REWRITE] >> simp[EL_MAP,EL_LUPDATE] >> rw[funs_to_i4_MAP] >> NO_TAC) >>
-  simp[build_rec_env_i2_MAP,build_rec_env_i4_def,EXISTS_PROD,EL_MAP,UNCURRY] >>
-  BasicProvers.CASE_TAC >> rw[MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
-  rw[LIST_EQ_REWRITE,EL_MAP,funs_to_i4_MAP] >>
-  imp_res_tac find_index_ALL_DISTINCT_EL >>
-  first_x_assum(qspec_then`x`mp_tac) >>
-  (discharge_hyps >- simp[]) >>
-  disch_then(qspec_then`0`mp_tac) >>
-  ntac 2 (pop_assum kall_tac) >>
-  asm_simp_tac(std_ss)[EL_MAP] >>
-  simp[])
+val _ = export_rewrites["good_vs_i2_EVERY"]
 
 val good_env_s_i2_def = Define`
   good_env_s_i2 env (s:v_i2 count_store_genv) ⇔
@@ -399,6 +476,174 @@ val evaluate_i3_preserves_good = store_thm("evaluate_i3_preserves_good",
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   rw[])
+
+val pmatch_i2_any_match = store_thm("pmatch_i2_any_match",
+  ``(∀s p v env env'. pmatch_i2 s p v env = Match env' ⇒
+       ∀env. ∃env'. pmatch_i2 s p v env = Match env') ∧
+    (∀s ps vs env env'. pmatch_list_i2 s ps vs env = Match env' ⇒
+       ∀env. ∃env'. pmatch_list_i2 s ps vs env = Match env')``,
+  ho_match_mp_tac pmatch_i2_ind >>
+  rw[pmatch_i2_def] >>
+  pop_assum mp_tac >>
+  BasicProvers.CASE_TAC >>
+  fs[] >> strip_tac >> fs[] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  metis_tac[semanticPrimitivesTheory.match_result_distinct])
+
+val pmatch_i2_any_no_match = store_thm("pmatch_i2_any_no_match",
+  ``(∀s p v env. pmatch_i2 s p v env = No_match ⇒
+       ∀env. pmatch_i2 s p v env = No_match) ∧
+    (∀s ps vs env. pmatch_list_i2 s ps vs env = No_match ⇒
+       ∀env. pmatch_list_i2 s ps vs env = No_match)``,
+  ho_match_mp_tac pmatch_i2_ind >>
+  rw[pmatch_i2_def] >>
+  pop_assum mp_tac >>
+  BasicProvers.CASE_TAC >>
+  fs[] >> strip_tac >> fs[] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  imp_res_tac pmatch_i2_any_match >>
+  metis_tac[semanticPrimitivesTheory.match_result_distinct])
+
+val pmatch_i2_any_match_error = store_thm("pmatch_i2_any_match_error",
+  ``(∀s p v env. pmatch_i2 s p v env = Match_type_error ⇒
+       ∀env. pmatch_i2 s p v env = Match_type_error) ∧
+    (∀s ps vs env. pmatch_list_i2 s ps vs env = Match_type_error ⇒
+       ∀env. pmatch_list_i2 s ps vs env = Match_type_error)``,
+  rw[] >> qmatch_abbrev_tac`X = Y` >> Cases_on`X` >> fs[markerTheory.Abbrev_def] >>
+  metis_tac[semanticPrimitivesTheory.match_result_distinct
+           ,pmatch_i2_any_no_match,pmatch_i2_any_match])
+
+val pmatch_list_i2_pairwise = store_thm("pmatch_list_i2_pairwise",
+  ``∀ps vs s env env'. pmatch_list_i2 s ps vs env = Match env' ⇒
+      EVERY2 (λp v. ∀env. ∃env'. pmatch_i2 s p v env = Match env') ps vs``,
+  Induct >> Cases_on`vs` >> simp[pmatch_i2_def] >>
+  rpt gen_tac >> BasicProvers.CASE_TAC >> strip_tac >>
+  res_tac >> simp[] >> metis_tac[pmatch_i2_any_match])
+
+val pmatch_list_i2_SNOC_nil = store_thm("pmatch_list_i2_SNOC_nil",
+  ``∀p ps v vs s env.
+      (pmatch_list_i2 s [] (SNOC v vs) env = Match_type_error) ∧
+      (pmatch_list_i2 s (SNOC p ps) [] env = Match_type_error)``,
+  Cases_on`ps`>>Cases_on`vs`>>simp[pmatch_i2_def])
+val _ = export_rewrites["pmatch_list_i2_SNOC_nil"]
+
+val pmatch_list_i2_SNOC = store_thm("pmatch_list_i2_SNOC",
+  ``∀ps vs p v s env. LENGTH ps = LENGTH vs ⇒
+      pmatch_list_i2 s (SNOC p ps) (SNOC v vs) env =
+      case pmatch_list_i2 s ps vs env of
+      | Match env' => pmatch_i2 s p v env'
+      | res => res``,
+  Induct >> Cases_on`vs` >> simp[pmatch_i2_def] >> rw[] >>
+  BasicProvers.CASE_TAC)
+
+val map_match_def = Define`
+  (map_match f (Match env) = Match (f env)) ∧
+  (map_match f x = x)`
+val _ = export_rewrites["map_match_def"]
+
+val pmatch_i2_APPEND = store_thm("pmatch_i2_APPEND",
+  ``(∀s p v env n.
+      (pmatch_i2 s p v env =
+       map_match (combin$C APPEND (DROP n env)) (pmatch_i2 s p v (TAKE n env)))) ∧
+    (∀s ps vs env n.
+      (pmatch_list_i2 s ps vs env =
+       map_match (combin$C APPEND (DROP n env)) (pmatch_list_i2 s ps vs (TAKE n env))))``,
+  ho_match_mp_tac pmatch_i2_ind >>
+  rw[pmatch_i2_def,libTheory.bind_def]
+  >- ( BasicProvers.CASE_TAC >> fs[] ) >>
+  pop_assum (qspec_then`n`mp_tac) >>
+  Cases_on `pmatch_i2 s p v (TAKE n env)`>>fs[] >>
+  strip_tac >> res_tac >>
+  qmatch_assum_rename_tac`pmatch_i2 s p v (TAKE n env) = Match env1`[] >>
+  pop_assum(qspec_then`LENGTH env1`mp_tac) >>
+  simp_tac(srw_ss())[rich_listTheory.TAKE_LENGTH_APPEND,rich_listTheory.DROP_LENGTH_APPEND] )
+
+val pmatch_i2_nil = save_thm("pmatch_i2_nil",
+  LIST_CONJ [
+    pmatch_i2_APPEND
+    |> CONJUNCT1
+    |> Q.SPECL[`s`,`p`,`v`,`env`,`0`]
+    |> SIMP_RULE(srw_ss())[]
+  ,
+    pmatch_i2_APPEND
+    |> CONJUNCT2
+    |> Q.SPECL[`s`,`ps`,`vs`,`env`,`0`]
+    |> SIMP_RULE(srw_ss())[]
+  ])
+
+(* --- *)
+
+val v_to_i4_def = tDefine"v_to_i4"`
+  (v_to_i4 (Litv_i2 l) = Litv_i4 l) ∧
+  (v_to_i4 (Conv_i2 tag vs) = Conv_i4 tag (vs_to_i4 vs)) ∧
+  (v_to_i4 (Closure_i2 env x e) =
+    Closure_i4
+      (MAP v_to_i4 (MAP SND env))
+      (exp_to_i4 (SOME x :: MAP (SOME o FST) env) e)) ∧
+  (v_to_i4 (Recclosure_i2 env funs f) =
+    Recclosure_i4
+      (MAP v_to_i4 (MAP SND env))
+      (funs_to_i4 (MAP (SOME o FST) funs ++ MAP (SOME o FST) env) funs)
+      (the (LENGTH funs) (find_index f (MAP FST funs) 0))) ∧
+  (v_to_i4 (Loc_i2 n) = Loc_i4 n) ∧
+  (vs_to_i4 [] = []) ∧
+  (vs_to_i4 (v::vs) = v_to_i4 v :: vs_to_i4 vs)`
+(WF_REL_TAC`inv_image $< (\x. case x of INL v => v_i2_size v
+                                      | INR vs => v_i23_size vs)` >>
+ simp[] >> conj_tac >> rpt gen_tac >> Induct_on`env` >> simp[] >>
+ Cases >> simp[v_i2_size_def] >> rw[] >> res_tac >> simp[])
+val v_to_i4_def = save_thm("v_to_i4_def",
+  v_to_i4_def |> SIMP_RULE (srw_ss()++ETA_ss) [MAP_MAP_o])
+val _ = export_rewrites["v_to_i4_def"]
+
+val vs_to_i4_MAP = store_thm("vs_to_i4_MAP",
+  ``∀vs. vs_to_i4 vs = MAP v_to_i4 vs``,
+  Induct >> simp[])
+val _ = export_rewrites["vs_to_i4_MAP"]
+
+val funs_to_i4_MAP = store_thm("funs_to_i4_MAP",
+  ``∀funs bvs. funs_to_i4 bvs funs = MAP (λ(f,x,e). exp_to_i4 (SOME x::bvs) e) funs``,
+  Induct >> simp[FORALL_PROD])
+
+val do_eq_i4_correct = prove(
+  ``(∀v1 v2. do_eq_i2 v1 v2 = do_eq_i4 (v_to_i4 v1) (v_to_i4 v2)) ∧
+    (∀vs1 vs2. do_eq_list_i2 vs1 vs2 = do_eq_list_i4 (vs_to_i4 vs1) (vs_to_i4 vs2))``,
+  ho_match_mp_tac do_eq_i2_ind >>
+  simp[do_eq_i2_def,do_eq_i4_def] >>
+  rw[] >> BasicProvers.CASE_TAC >> rw[])
+
+val the_less_rwt = prove(
+  ``the X Y < (X:num) ⇔ ∃z. (Y = SOME z) ∧ z < X``,
+  Cases_on`Y`>>simp[compilerLibTheory.the_def])
+
+val do_app_i4_correct = prove(
+  ``∀op v1 v2 env s.
+     good_v_i2 v1 ⇒
+     (do_app_i4 (MAP (v_to_i4 o SND) env) (MAP v_to_i4 s) op (v_to_i4 v1) (v_to_i4 v2) =
+      OPTION_MAP (λ(env,s,exp). (MAP (v_to_i4 o SND) env, MAP v_to_i4 s, exp_to_i4 (MAP (SOME o FST) env) exp))
+        (do_app_i2 env s op v1 v2))``,
+  Cases_on`op`>>TRY(Cases_on`o':opn`)>>Cases_on`v1`>>TRY(Cases_on`l:lit`)>>Cases_on`v2`>>TRY(Cases_on`l:lit`)>>
+  simp[do_app_i2_def,do_app_i4_def,exn_env_i4_def,exn_env_i2_def
+      ,libTheory.emp_def,libTheory.bind_def,do_eq_i4_correct,do_eq_i4_def]>>rw[]>>
+  fs[find_recfun_ALOOKUP,funs_to_i4_MAP] >- (
+    BasicProvers.CASE_TAC >> simp[] >> rw[] >>
+    BasicProvers.CASE_TAC >> simp[] >> rw[] ) >>
+  fs[the_less_rwt] >>
+  BasicProvers.CASE_TAC >>
+  imp_res_tac ALOOKUP_find_index_NONE >>
+  imp_res_tac ALOOKUP_find_index_SOME >>
+  fs[] >> rw[] >> fs[semanticPrimitivesTheory.store_assign_def] >> rw[] >>
+  TRY ( rw[LIST_EQ_REWRITE] >> simp[EL_MAP,EL_LUPDATE] >> rw[funs_to_i4_MAP] >> NO_TAC) >>
+  simp[build_rec_env_i2_MAP,build_rec_env_i4_def,EXISTS_PROD,EL_MAP,UNCURRY] >>
+  BasicProvers.CASE_TAC >> rw[MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
+  rw[LIST_EQ_REWRITE,EL_MAP,funs_to_i4_MAP] >>
+  imp_res_tac find_index_ALL_DISTINCT_EL >>
+  first_x_assum(qspec_then`x`mp_tac) >>
+  (discharge_hyps >- simp[]) >>
+  disch_then(qspec_then`0`mp_tac) >>
+  ntac 2 (pop_assum kall_tac) >>
+  asm_simp_tac(std_ss)[EL_MAP] >>
+  simp[])
 
 val evaluate_i4_lit = store_thm("evaluate_i4_lit",
   ``∀ck env s l res.
@@ -812,65 +1057,6 @@ val Let_Els_i4_correct = prove(
     evaluate_i4 ck enve s (Let_Els_i4 n k e) res``,
   metis_tac[Let_Els_i4_correct])
 
-val pmatch_i2_any_match = store_thm("pmatch_i2_any_match",
-  ``(∀s p v env env'. pmatch_i2 s p v env = Match env' ⇒
-       ∀env. ∃env'. pmatch_i2 s p v env = Match env') ∧
-    (∀s ps vs env env'. pmatch_list_i2 s ps vs env = Match env' ⇒
-       ∀env. ∃env'. pmatch_list_i2 s ps vs env = Match env')``,
-  ho_match_mp_tac pmatch_i2_ind >>
-  rw[pmatch_i2_def] >>
-  pop_assum mp_tac >>
-  BasicProvers.CASE_TAC >>
-  fs[] >> strip_tac >> fs[] >>
-  BasicProvers.CASE_TAC >> fs[] >>
-  metis_tac[semanticPrimitivesTheory.match_result_distinct])
-
-val pmatch_i2_any_no_match = store_thm("pmatch_i2_any_no_match",
-  ``(∀s p v env. pmatch_i2 s p v env = No_match ⇒
-       ∀env. pmatch_i2 s p v env = No_match) ∧
-    (∀s ps vs env. pmatch_list_i2 s ps vs env = No_match ⇒
-       ∀env. pmatch_list_i2 s ps vs env = No_match)``,
-  ho_match_mp_tac pmatch_i2_ind >>
-  rw[pmatch_i2_def] >>
-  pop_assum mp_tac >>
-  BasicProvers.CASE_TAC >>
-  fs[] >> strip_tac >> fs[] >>
-  BasicProvers.CASE_TAC >> fs[] >>
-  imp_res_tac pmatch_i2_any_match >>
-  metis_tac[semanticPrimitivesTheory.match_result_distinct])
-
-val pmatch_i2_any_match_error = store_thm("pmatch_i2_any_match_error",
-  ``(∀s p v env. pmatch_i2 s p v env = Match_type_error ⇒
-       ∀env. pmatch_i2 s p v env = Match_type_error) ∧
-    (∀s ps vs env. pmatch_list_i2 s ps vs env = Match_type_error ⇒
-       ∀env. pmatch_list_i2 s ps vs env = Match_type_error)``,
-  rw[] >> qmatch_abbrev_tac`X = Y` >> Cases_on`X` >> fs[markerTheory.Abbrev_def] >>
-  metis_tac[semanticPrimitivesTheory.match_result_distinct
-           ,pmatch_i2_any_no_match,pmatch_i2_any_match])
-
-val pmatch_list_i2_pairwise = store_thm("pmatch_list_i2_pairwise",
-  ``∀ps vs s env env'. pmatch_list_i2 s ps vs env = Match env' ⇒
-      EVERY2 (λp v. ∀env. ∃env'. pmatch_i2 s p v env = Match env') ps vs``,
-  Induct >> Cases_on`vs` >> simp[pmatch_i2_def] >>
-  rpt gen_tac >> BasicProvers.CASE_TAC >> strip_tac >>
-  res_tac >> simp[] >> metis_tac[pmatch_i2_any_match])
-
-val pmatch_list_i2_SNOC_nil = store_thm("pmatch_list_i2_SNOC_nil",
-  ``∀p ps v vs s env.
-      (pmatch_list_i2 s [] (SNOC v vs) env = Match_type_error) ∧
-      (pmatch_list_i2 s (SNOC p ps) [] env = Match_type_error)``,
-  Cases_on`ps`>>Cases_on`vs`>>simp[pmatch_i2_def])
-val _ = export_rewrites["pmatch_list_i2_SNOC_nil"]
-
-val pmatch_list_i2_SNOC = store_thm("pmatch_list_i2_SNOC",
-  ``∀ps vs p v s env. LENGTH ps = LENGTH vs ⇒
-      pmatch_list_i2 s (SNOC p ps) (SNOC v vs) env =
-      case pmatch_list_i2 s ps vs env of
-      | Match env' => pmatch_i2 s p v env'
-      | res => res``,
-  Induct >> Cases_on`vs` >> simp[pmatch_i2_def] >> rw[] >>
-  BasicProvers.CASE_TAC)
-
 val pat_to_i4_correct = prove(
   ``(∀p v s env res env4 ck count genv.
        pmatch_i2 s p v env = res ∧ res ≠ Match_type_error ⇒
@@ -979,41 +1165,6 @@ val pat_to_i4_correct = prove(
            ,pmatch_i2_any_match
            ,pmatch_i2_any_no_match
            ,semanticPrimitivesTheory.match_result_distinct])
-
-val map_match_def = Define`
-  (map_match f (Match env) = Match (f env)) ∧
-  (map_match f x = x)`
-val _ = export_rewrites["map_match_def"]
-
-val pmatch_i2_APPEND = store_thm("pmatch_i2_APPEND",
-  ``(∀s p v env n.
-      (pmatch_i2 s p v env =
-       map_match (combin$C APPEND (DROP n env)) (pmatch_i2 s p v (TAKE n env)))) ∧
-    (∀s ps vs env n.
-      (pmatch_list_i2 s ps vs env =
-       map_match (combin$C APPEND (DROP n env)) (pmatch_list_i2 s ps vs (TAKE n env))))``,
-  ho_match_mp_tac pmatch_i2_ind >>
-  rw[pmatch_i2_def,libTheory.bind_def]
-  >- ( BasicProvers.CASE_TAC >> fs[] ) >>
-  pop_assum (qspec_then`n`mp_tac) >>
-  Cases_on `pmatch_i2 s p v (TAKE n env)`>>fs[] >>
-  strip_tac >> res_tac >>
-  qmatch_assum_rename_tac`pmatch_i2 s p v (TAKE n env) = Match env1`[] >>
-  pop_assum(qspec_then`LENGTH env1`mp_tac) >>
-  simp_tac(srw_ss())[rich_listTheory.TAKE_LENGTH_APPEND,rich_listTheory.DROP_LENGTH_APPEND] )
-
-val pmatch_i2_nil = save_thm("pmatch_i2_nil",
-  LIST_CONJ [
-    pmatch_i2_APPEND
-    |> CONJUNCT1
-    |> Q.SPECL[`s`,`p`,`v`,`env`,`0`]
-    |> SIMP_RULE(srw_ss())[]
-  ,
-    pmatch_i2_APPEND
-    |> CONJUNCT2
-    |> Q.SPECL[`s`,`ps`,`vs`,`env`,`0`]
-    |> SIMP_RULE(srw_ss())[]
-  ])
 
 val row_to_i4_correct = prove(
   ``(∀Nbvs0 p bvs0 s v menv bvs1 n f.
@@ -1168,14 +1319,6 @@ val bind_i4_thm = store_thm("bind_i4_thm",
       V (x-1) (y-1)``,
   gen_tac >> Cases >> Cases >> rw[bind_i4_def])
 
-val FUNPOW_mono = store_thm("FUNPOW_mono",
-  ``(∀x y. R1 x y ⇒ R2 x y) ∧
-    (∀R1 R2. (∀x y. R1 x y ⇒ R2 x y) ⇒ ∀x y. f R1 x y ⇒ f R2 x y) ⇒
-    ∀n x y. FUNPOW f n R1 x y ⇒ FUNPOW f n R2 x y``,
-  strip_tac >> Induct >> simp[] >>
-  simp[arithmeticTheory.FUNPOW_SUC] >>
-  first_x_assum match_mp_tac >> rw[])
-
 val bindn_i4_mono = store_thm("bindn_i4_mono",
   ``(∀x y. R1 x y ⇒ R2 x y) ⇒
     bindn_i4 n R1 x y ⇒ bindn_i4 n R2 x y``,
@@ -1304,15 +1447,6 @@ val bindn_i4_O = store_thm("bindn_i4_O",
   >- (qexists_tac`y+n` >> simp[]) >>
   (qexists_tac`y-n` >> simp[]))
 val _ = export_rewrites["bindn_i4_O"]
-
-val LIST_REL_trans = store_thm("LIST_REL_trans",
-  ``∀l1 l2 l3. (∀n. n < LENGTH l1 ∧ R (EL n l1) (EL n l2) ∧ R (EL n l2) (EL n l3) ⇒ R (EL n l1) (EL n l3)) ∧
-      LIST_REL R l1 l2 ∧ LIST_REL R l2 l3 ⇒ LIST_REL R l1 l3``,
-  Induct >> simp[] >> rw[] >> fs[] >> rw[] >- (
-    first_x_assum(qspec_then`0`mp_tac)>>rw[] ) >>
-  first_x_assum match_mp_tac >>
-  qexists_tac`ys` >> rw[] >>
-  first_x_assum(qspec_then`SUC n`mp_tac)>>simp[])
 
 val exp_i4_trans = prove(
   ``∀z1 z2 V1 e1 e2. exp_i4 z1 z2 V1 e1 e2 ⇒
@@ -2008,14 +2142,6 @@ val exc_rel_v_i4_trans =
   |> UNDISCH
   |> prove_hyps_by(metis_tac[v_i4_trans])
 
-val LIST_REL_APPEND_SING = store_thm("LIST_REL_APPEND_SING",
-  ``LIST_REL R (l1 ++ [x1]) (l2 ++ [x2]) ⇔
-    LIST_REL R l1 l2 ∧ R x1 x2``,
-  rw[EQ_IMP_THM] >> TRY (
-    match_mp_tac EVERY2_APPEND_suff >> simp[]) >>
-  imp_res_tac EVERY2_APPEND >> fs[])
-val _ = export_rewrites["LIST_REL_APPEND_SING"]
-
 val bvs_V_def = Define`
   bvs_V bvs1 bvs2 V ⇔
   ∀x k1 k2.
@@ -2295,54 +2421,6 @@ val ground_exp_i4_refl = store_thm("ground_exp_i4_refl",
     simp[arithmeticTheory.ADD1] >>
     NO_TAC) >>
   simp[bindn_i4_thm])
-
-(*
-val Let_Els_i4_exp_i4 = store_thm("Let_Els_i4_exp_i4",
-  ``∀k n e1 e2 z1 z2 V.
-      exp_i4 (z1+n) (z2+n) (bindn_i4 n V) e1 e2 ⇒
-      exp_i4 z1 z2 V (Let_Els_i4 n k e1) (Let_Els_i4 n k e2)``,
-  Induct >> simp[Let_Els_i4_def] >- (
-    rpt gen_tac >> strip_tac >>
-    qspecl_then[`z1`,`z2`,`V`,`e1`,`e2`]mp_tac exp_i4_unbind >>
-    simp[]
-    exp_i4_imp_ground
-    bindn_i4_def
-    exps
-  conj_tac >- (
-    Cases >> simp[Let_Els_i4_def] >- simp[bindn_i4_def] >>
-    rpt gen_tac >> strip_tac >>
-    match_mp_tac exp_i4_sLet >>
-    simp[Once exp_i4_cases] >>
-    simp[Once exp_i4_cases] >>
-    simp[Once exp_i4_cases] >>
-
-    simp[bindn_i4_thm]
-
-val pat_to_i4_exp_i4_refl = store_thm("pat_to_i4_exp_i4_refl",
-  ``(∀p z1 z2 V. exp_i4 (SUC z1) (SUC z2) (bind_i4 V) (pat_to_i4 p) (pat_to_i4 p)) ∧
-    (∀n ps z1 z2 V. exp_i4 (z1+n) (z2+n) (bindn_i4 n V) (pats_to_i4 n ps) (pats_to_i4 n ps))``,
-  ho_match_mp_tac pat_to_i4_ind >>
-  simp[pat_to_i4_def] >>
-  strip_tac >- (
-    simp[Once exp_i4_cases] >>
-    simp[Once exp_i4_cases] >>
-    simp[bind_i4_thm] ) >>
-  strip_tac >- (
-    simp[Once exp_i4_cases] >>
-    simp[Once exp_i4_cases] >>
-    simp[Once exp_i4_cases] >>
-    simp[bind_i4_thm] ) >>
-  strip_tac >- (
-    rpt gen_tac >> strip_tac >>
-    rpt gen_tac >>
-    match_mp_tac exp_i4_sIf >>
-    simp[Once exp_i4_cases] >>
-    conj_tac >- (
-      simp[Once exp_i4_cases] >>
-      simp[Once exp_i4_cases] >>
-      simp[bind_i4_thm] ) >>
-    Let_Els_i4_correct
-*)
 
 val row_to_i4_acc = store_thm("row_to_i4_acc",
   ``(∀Nbvs p bvs1 N. Nbvs = N::bvs1 ⇒
@@ -2666,80 +2744,6 @@ val exp_to_i4_shift = store_thm("exp_to_i4_shift",
     fsrw_tac[ARITH_ss][arithmeticTheory.ADD1]) >>
    rw[])
 
-(* provide witnesses to make the first conjunct under the goal's existential
-   prefix match the given term *)
-fun match_exists_tac tm (g as (_,w)) =
-  let
-    val (vs,b) = strip_exists w
-    val cs = strip_conj b val c = hd cs
-    val (tms,_) = match_term c tm
-    val xs = map #redex tms
-    val ys = map #residue tms
-    fun sorter ls = xs@(List.filter(not o Lib.C Lib.mem xs)ls)
-  in
-    CONV_TAC(RESORT_EXISTS_CONV sorter) >>
-    map_every exists_tac ys
-  end g
-
-(* if the first conjunct under the goal's existential prefix matches the term
-   except for some places where it has structure and the term just has variables,
-   then pair split all those variables *)
-fun split_pair_match tm (g as (_,w)) =
-  let
-    val (vs,b) = strip_exists w
-    val cs = strip_conj b val c = hd cs
-    val cs = op::(strip_comb c)
-    val ts = op::(strip_comb tm)
-    val ss = map2 (total o match_term) ts cs
-    val vs = map ((fn x => map #redex (Option.valOf x) handle _ => []) o
-                  (Option.map fst)) ss
-    val vs = flatten vs
-    val _ = assert (not o (equal [])) vs
-  in
-    map_every PairCases_on (map (C cons [] o ANTIQUOTE) vs)
-  end g
-
-(* the theorem is of the form [!x1 ... xn. P ==> ?y1 ... ym. Q /\ ...]
-   the goal is of the form [?z1 ... zk. Q' /\ ...]
-   instantiate the xs as necessary to make Q and Q' match as much as possible
-   (complete match impossible if some of Q's variables are the ys) *)
-fun exists_match_mp_then (ttac:thm_tactic) th (g as (_,w)) =
-  let
-    val (ws,b) = strip_exists w
-    val cs = strip_conj b val c = hd cs
-    val (vs,t) = strip_forall (concl th)
-    val vs = map (fst o dest_var o variant (free_vars b)) vs
-    val th = CONV_RULE (RENAME_VARS_CONV vs) th
-    val (vs,t) = strip_forall (concl th)
-    val (_,b) = dest_imp t
-    val (_,b) = strip_exists b
-    val ts = strip_conj b val t = hd ts
-    val (tms,_) = match_term t c
-    val tms = filter (C mem vs o #redex) tms
-    val tms = filter (not o C mem ws o #residue) tms
-    val xs = map #redex tms
-    val ys = map #residue tms
-    fun sorter ls = xs@(filter(not o C mem xs) ls)
-    val th = SPECL ys (CONV_RULE (RESORT_FORALL_CONV sorter) th)
-  in
-    ttac th
-  end g
-
-(* the theorem is of the form [!x1..n. P ==> Q]
-   the goal is of the form [?y1..n. Q' /\ ...]
-   replace the goal with [?y1..n. P /\ ...] by
-   making the Q and Q' match *)
-fun exists_suff_tac th (g as (_,w)) =
-  let
-    val (ws,b) = strip_exists w
-    val bs = strip_conj b
-    val th = GEN_ALL(PART_MATCH (snd o dest_imp) th (hd bs))
-    val (vs,c) = strip_forall (concl th)
-    val (b',_) = dest_imp c
-  in
-    suff_tac(list_mk_exists(ws,list_mk_conj(b'::tl bs))) >- metis_tac[th]
-  end g
-
 val csg_i4_count = prove(
   ``csg_i4 R csg1 csg2 ⇒ FST(FST csg2) = FST(FST csg1)``,
   PairCases_on`csg1` >>
@@ -2749,55 +2753,6 @@ val csg_i4_count = prove(
 val map_count_store_genv_count = prove(
   ``FST(FST (map_count_store_genv f csg)) = FST(FST csg)``,
   PairCases_on`csg`>>simp[map_count_store_genv_def])
-
-val find_index_APPEND = store_thm("find_index_APPEND",
-  ``∀l1 l2 x n. find_index x (l1 ++ l2) n =
-    case find_index x l1 n of
-    | NONE => find_index x l2 (n + LENGTH l1)
-    | SOME x => SOME x``,
-  Induct >> simp[find_index_def] >> rw[] >>
-  BasicProvers.CASE_TAC >>
-  simp[arithmeticTheory.ADD1])
-
-val find_index_in_FILTER_ZIP_EQ = store_thm("find_index_in_FILTER_ZIP_EQ",
-  ``∀P l1 l2 x n1 n2 v1 j1 j2.
-      LENGTH l1 = LENGTH v1 ∧
-      FILTER (P o FST) (ZIP(l1,v1)) = l2 ∧
-      find_index x l1 n1 = SOME (n1+j1) ∧
-      find_index x (MAP FST l2) n2 = SOME (n2+j2) ∧
-      P x
-      ⇒
-      j1 < LENGTH l1 ∧ j2 < LENGTH l2 ∧
-      EL j1 (ZIP(l1,v1)) = EL j2 l2``,
-  gen_tac >> Induct >> simp[find_index_def] >>
-  rpt gen_tac >>
-  BasicProvers.CASE_TAC >- (
-    strip_tac >> fs[] >>
-    Cases_on`j1`>>fsrw_tac[ARITH_ss][]>>
-    fs[find_index_def] >>
-    Cases_on`j2`>>fsrw_tac[ARITH_ss][] >>
-    Cases_on`v1`>>fsrw_tac[ARITH_ss][find_index_def]) >>
-  strip_tac >>
-  Cases_on`v1`>>fs[] >>
-  Cases_on`P h`>>fs[find_index_def] >- (
-    rfs[] >>
-    imp_res_tac find_index_LESS_LENGTH >>
-    fsrw_tac[ARITH_ss][] >>
-    first_x_assum(qspecl_then[`x`,`n1+1`]mp_tac) >>
-    simp[] >>
-    disch_then(qspecl_then[`n2+1`,`t`]mp_tac) >> simp[] >>
-    Cases_on`j1=0`>>fsrw_tac[ARITH_ss][]>>
-    Cases_on`j2=0`>>fsrw_tac[ARITH_ss][]>>
-    disch_then(qspecl_then[`PRE j1`,`PRE j2`]mp_tac) >>
-    simp[rich_listTheory.EL_CONS] ) >>
-  first_x_assum(qspecl_then[`x`,`n1+1`]mp_tac) >>
-  simp[] >>
-  disch_then(qspecl_then[`n2`,`t`]mp_tac) >> simp[] >>
-  imp_res_tac find_index_LESS_LENGTH >>
-  fsrw_tac[ARITH_ss][] >>
-  Cases_on`j1=0`>>fsrw_tac[ARITH_ss][]>>
-  disch_then(qspec_then`PRE j1`mp_tac) >>
-  simp[rich_listTheory.EL_CONS] )
 
 val exp_to_i4_correct = store_thm("exp_to_i4_correct",
   ``(∀ck env s exp res. evaluate_i3 ck env s exp res ⇒
