@@ -115,21 +115,21 @@ pats_bindings_i2 (p::ps) already_bound =
 type flat_tag_env = Map.map conN (nat * maybe (list conN))
 type tag_env = Map.map modN flat_tag_env * flat_tag_env
 
-val lookup_tag_flat : conN -> flat_tag_env -> nat
+val lookup_tag_flat : conN -> flat_tag_env -> (nat * maybe (list conN))
 let lookup_tag_flat cn ftagenv =
   match Map.lookup cn ftagenv with
-    | Nothing -> tuple_tag
-    | Just (n,ctors) -> n
+    | Nothing -> (tuple_tag, Just [])
+    | Just (n,ctors) -> (n,ctors)
   end
 
-val lookup_tag_env : maybe (id conN) -> tag_env -> nat
+val lookup_tag_env : maybe (id conN) -> tag_env -> (nat * maybe (list conN))
 let lookup_tag_env id (mtagenv,tagenv) =
   match id with
-    | Nothing -> tuple_tag
+    | Nothing -> (tuple_tag, Just [])
     | Just (Short x) -> lookup_tag_flat x tagenv
     | Just (Long x y) ->
         match Map.lookup x mtagenv with
-          | Nothing -> tuple_tag
+          | Nothing -> (tuple_tag, Just [])
           | Just tagenv -> lookup_tag_flat y tagenv
         end
   end
@@ -141,7 +141,7 @@ and
 pat_to_i2 tagenv (Plit l) = Plit_i2 l
 and 
 pat_to_i2 tagenv (Pcon con_id ps) = 
-  Pcon_i2 (lookup_tag_env con_id tagenv) (List.map (pat_to_i2 tagenv) ps)
+  Pcon_i2 (fst (lookup_tag_env con_id tagenv)) (List.map (pat_to_i2 tagenv) ps)
 and 
 pat_to_i2 tagenv (Pref p) = Pref_i2 (pat_to_i2 tagenv p)
 
@@ -178,7 +178,7 @@ exp_to_i2 tagenv (Lit_i1 l) =
   Lit_i2 l 
 and
 exp_to_i2 tagenv (Con_i1 cn es) = 
-  Con_i2 (lookup_tag_env cn tagenv) (exps_to_i2 tagenv es)
+  Con_i2 (fst (lookup_tag_env cn tagenv)) (exps_to_i2 tagenv es)
 and
 exp_to_i2 tagenv (Var_local_i1 x) = Var_local_i2 x
 and

@@ -152,24 +152,24 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 val _ = type_abbrev( "flat_tag_env" , ``: (conN, (num #  ( conN list)option)) fmap``);
 val _ = type_abbrev( "tag_env" , ``: (modN, flat_tag_env) fmap # flat_tag_env``);
 
-(*val lookup_tag_flat : conN -> flat_tag_env -> nat*)
+(*val lookup_tag_flat : conN -> flat_tag_env -> (nat * maybe (list conN))*)
 val _ = Define `
  (lookup_tag_flat cn ftagenv =  
 ((case FLOOKUP ftagenv cn of
-      NONE => tuple_tag
-    | SOME (n,ctors) => n
+      NONE => (tuple_tag, SOME [])
+    | SOME (n,ctors) => (n,ctors)
   )))`;
 
 
-(*val lookup_tag_env : maybe (id conN) -> tag_env -> nat*)
+(*val lookup_tag_env : maybe (id conN) -> tag_env -> (nat * maybe (list conN))*)
 val _ = Define `
  (lookup_tag_env id (mtagenv,tagenv) =  
 ((case id of
-      NONE => tuple_tag
+      NONE => (tuple_tag, SOME [])
     | SOME (Short x) => lookup_tag_flat x tagenv
     | SOME (Long x y) =>
         (case FLOOKUP mtagenv x of
-            NONE => tuple_tag
+            NONE => (tuple_tag, SOME [])
           | SOME tagenv => lookup_tag_flat y tagenv
         )
   )))`;
@@ -183,7 +183,7 @@ val _ = Define `
 (pat_to_i2 tagenv (Plit l) = (Plit_i2 l))
 /\ 
 (pat_to_i2 tagenv (Pcon con_id ps) =  
- (Pcon_i2 (lookup_tag_env con_id tagenv) (MAP (pat_to_i2 tagenv) ps)))
+ (Pcon_i2 (FST (lookup_tag_env con_id tagenv)) (MAP (pat_to_i2 tagenv) ps)))
 /\ 
 (pat_to_i2 tagenv (Pref p) = (Pref_i2 (pat_to_i2 tagenv p)))`;
 
@@ -229,7 +229,7 @@ val _ = Define `
  (Lit_i2 l)) 
 /\
 (exp_to_i2 tagenv (Con_i1 cn es) =  
- (Con_i2 (lookup_tag_env cn tagenv) (exps_to_i2 tagenv es)))
+ (Con_i2 (FST (lookup_tag_env cn tagenv)) (exps_to_i2 tagenv es)))
 /\
 (exp_to_i2 tagenv (Var_local_i1 x) = (Var_local_i2 x))
 /\

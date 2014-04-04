@@ -111,12 +111,14 @@ envC_tagged envC tagenv gtagenv =
   (!cn num_args t.
     lookup_con_id cn envC = SOME (num_args, t)
     ⇒
-    ?tag.
-      lookup_tag_env (SOME cn) tagenv = tag ∧
-      FLOOKUP gtagenv (id_to_n cn, t) = SOME (tag,num_args))`;
+    ?tag ctors.
+      lookup_tag_env (SOME cn) tagenv = (tag, ctors) ∧
+      FLOOKUP gtagenv (id_to_n cn, t) = SOME (tag,num_args) ∧
+      !cn' x ctors'.
+        ctors = SOME ctors' ∧ FLOOKUP gtagenv (cn',t) = SOME x ⇒ MEM cn' ctors')`;
 
 val cenv_inv_def = Define `
-cenv_inv envC (tagenv:(tvarN |-> tvarN |-> num # conN list option) # (tvarN |-> num # conN list option)) gtagenv ⇔
+cenv_inv envC tagenv gtagenv ⇔
  envC_tagged envC tagenv gtagenv ∧
  gtagenv_wf gtagenv`;
 
@@ -202,6 +204,7 @@ gtagenv_weak gtagenv1 gtagenv2 ⇔
      ⇒
      cn = cn' ∧ t1 = t2)`;
 
+     (*
 val v_to_i2_weakening = Q.prove (
 `(!gtagenv v v_i2.
   v_to_i2 gtagenv v v_i2
@@ -244,6 +247,7 @@ val v_to_i2_weakening = Q.prove (
          metis_tac [FLOOKUP_SUBMAP])
      >- metis_tac []
      >- metis_tac []));
+     *)
 
 val (result_to_i2_rules, result_to_i2_ind, result_to_i2_cases) = Hol_reln `
 (∀gtagenv v v'. 
@@ -784,7 +788,7 @@ val do_app_i2_correct = Q.prove (
      metis_tac [vs_to_i2_lupdate, s_to_i2'_cases]));
 
 val lookup_tag_env_NONE = Q.prove (
-`lookup_tag_env NONE tagenv = tuple_tag`,
+`lookup_tag_env NONE tagenv = (tuple_tag, SOME [])`,
 PairCases_on `tagenv` >>
 rw [lookup_tag_env_def]);
 
@@ -845,7 +849,7 @@ val exp_to_i2_correct = Q.prove (
      rw [] >>
      fs [env_all_to_i2_cases, build_conv_i1_def] >>
      rw [] >>
-     MAP_EVERY qexists_tac [`s'_i2`, `Rval (Conv_i2 (lookup_tag_env cn tagenv) v')`] >>
+     MAP_EVERY qexists_tac [`s'_i2`, `Rval (Conv_i2 (FST (lookup_tag_env cn tagenv)) v')`] >>
      rw [] >>
      Cases_on `cn` >>
      fs [] >>
