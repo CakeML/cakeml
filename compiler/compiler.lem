@@ -8,6 +8,7 @@ open import ToIntLang
 open import ToBytecode
 open import Bytecode
 open String_extra
+open import IntLang2
 
 type contab = Map.map (maybe (id conN)) nat * list (nat * maybe (id conN)) * nat
 val cmap : contab -> Map.map (maybe (id conN)) nat
@@ -25,18 +26,18 @@ val cpam : compiler_state -> list (nat * maybe (id conN))
 let rec cpam s = match s.contab with (_,w,_) -> w end
 
 let init_compiler_state =
-  <| contab = ((Map.insert (Just(Short"Eq")) eq_exc_cn
-               (Map.insert (Just(Short"Div")) div_exc_cn
-               (Map.insert (Just(Short"Bind")) bind_exc_cn
-               (Map.insert (Just(Short"::")) cons_exc_cn
-               (Map.insert (Just(Short"nil")) nil_exc_cn
-               (Map.insert Nothing tuple_cn Map.empty))))))
-              ,[(eq_exc_cn,Just(Short"Eq"))
-               ;(div_exc_cn,Just(Short"Div"))
-               ;(bind_exc_cn,Just(Short"Bind"))
-               ;(cons_exc_cn,Just(Short"::"))
-               ;(nil_exc_cn,Just(Short"nil"))
-               ;(tuple_cn,Nothing)]
+  <| contab = ((Map.insert (Just(Short"Eq")) eq_tag
+               (Map.insert (Just(Short"Div")) div_tag
+               (Map.insert (Just(Short"Bind")) bind_tag
+               (Map.insert (Just(Short"::")) cons_tag
+               (Map.insert (Just(Short"nil")) nil_tag
+               (Map.insert Nothing tuple_tag Map.empty))))))
+              ,[(eq_tag,Just(Short"Eq"))
+               ;(div_tag,Just(Short"Div"))
+               ;(bind_tag,Just(Short"Bind"))
+               ;(cons_tag,Just(Short"::"))
+               ;(nil_tag,Just(Short"nil"))
+               ;(tuple_tag,Nothing)]
               ,6)
    ; renv = []
    ; rmenv = Map.empty
@@ -73,10 +74,10 @@ compile_news cs i (_::vs) =
   let cs = emit cs [Stack (Store 1)] in
   compile_news cs (i+1) vs
 
-let compile_Cexp menv env rsz cs Ce =
+let compile_Cexp env rsz cs Ce =
   let (Ce,nl) = label_closures (List.length env) cs.next_label Ce in
-  let cs = compile_code_env menv <| cs with next_label = nl |> Ce in
-  compile menv env TCNonTail rsz cs Ce
+  let cs = compile_code_env <| cs with next_label = nl |> Ce in
+  compile env TCNonTail rsz cs Ce
 
 (*
 let compile_fake_exp menv m env rsz cs vs e =

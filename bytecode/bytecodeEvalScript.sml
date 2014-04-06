@@ -15,8 +15,6 @@ val bc_eval_stack_def = Define`
 ∧ (bc_eval_stack (Store k) (y::xs) =
    if k < LENGTH xs ∧ 0 < LENGTH xs
    then SOME (TAKE k xs ++ y :: (DROP (k+1) xs)) else NONE)
-∧ (bc_eval_stack (LoadRev k) xs =
-   if k < LENGTH xs then SOME (EL k (REVERSE xs)::xs) else NONE)
 ∧ (bc_eval_stack (El k) ((Block tag ys)::xs) =
    if k < LENGTH ys then SOME (EL k ys::xs) else NONE)
 ∧ (bc_eval_stack (TagEq t) ((Block tag ys)::xs) =
@@ -166,6 +164,15 @@ val bc_eval1_def = Define`
         SOME (bump_pc s with <| stack := xs ;
                                 refs := s.refs |+ (ptr,x) |>)
       else NONE
+  | (Galloc n, _) => SOME (bump_pc s with <| globals := s.globals ++ (GENLIST (λx. NONE) n) |>)
+  | (Gupdate n, x::xs) =>
+    if n < LENGTH s.globals then
+      SOME (bump_pc s with <| stack := xs; globals := LUPDATE (SOME x) n s.globals |>)
+    else NONE
+  | (Gread n, xs) =>
+    if n < LENGTH s.globals ∧ IS_SOME (EL n s.globals)
+    then SOME (bump_pc s with <| stack := (THE (EL n s.globals))::xs |>)
+    else NONE
   | (Tick, _) =>
     (case s.clock of
      | NONE => SOME (bump_pc s)
@@ -242,6 +249,13 @@ Cases_on `inst` >> fs[GSYM bc_eval_stack_thm]
   qmatch_assum_rename_tac `s1.stack = x::y::t` [] >>
   Cases_on `y` >> fs [] >>
   rw[bc_next_cases] )
+>- ( rw[bc_next_cases] )
+>- (
+  Cases_on`s1.stack`>>fs[]>>
+  rw[bc_next_cases] )
+>- (
+  rw[bc_next_cases] >>
+  Cases_on`EL n s1.globals`>>fs[] )
 >- (
   pop_assum mp_tac >>
   BasicProvers.EVERY_CASE_TAC >>

@@ -54,24 +54,18 @@ val _ = new_theory "toBytecode"
 /\
 (label_closures _ j (CVar x) = (CVar x, j))
 /\
+(label_closures _ j (CGvar x) = (CGvar x, j))
+/\
 (label_closures _ j (CLit l) = (CLit l, j))
 /\
 (label_closures ez j (CCon cn es) =  
 (let (es,j) = (label_closures_list ez j es) in
   (CCon cn es,j)))
 /\
-(label_closures ez j (CTagEq e n) =  
-(let (e,j) = (label_closures ez j e) in
-  (CTagEq e n,j)))
-/\
-(label_closures ez j (CProj e n) =  
-(let (e,j) = (label_closures ez j e) in
-  (CProj e n,j)))
-/\
-(label_closures ez j (CLet e1 e2) =  
+(label_closures ez j (CLet bd e1 e2) =  
 (let (e1,j) = (label_closures ez j e1) in
-  let (e2,j) = (label_closures (ez+ 1) j e2) in
-  (CLet e1 e2, j)))
+  let (e2,j) = (label_closures (if bd then ez+ 1 else ez) j e2) in
+  (CLet bd e1 e2, j)))
 /\
 (label_closures ez j (CLetrec defs e) =  
 (let defs = (MAP SND (FILTER (IS_NONE o FST) defs)) in
@@ -104,6 +98,8 @@ val _ = new_theory "toBytecode"
   let (e2,j) = (label_closures ez j e2) in
   let (e3,j) = (label_closures ez j e3) in
   (CIf e1 e2 e3, j)))
+/\
+(label_closures _ j (CExtG n) = (CExtG n, j))
 /\
 (label_closures_list _ j [] = ([],j))
 /\
@@ -144,7 +140,13 @@ val _ = Hol_datatype `
 /\
 (prim1_to_bc CDer = Deref)
 /\
-(prim1_to_bc CIsBlock = (Stack IsBlock))`;
+(prim1_to_bc CIsBlock = (Stack IsBlock))
+/\
+(prim1_to_bc (CTagEq n) = (Stack (TagEq (n+block_tag))))
+/\
+(prim1_to_bc (CProj n) = (Stack (El n)))
+/\
+(prim1_to_bc (CInitG n) = (Gupdate n))`;
 
 
  val _ = Define `
@@ -187,7 +189,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (compile_varref sz s (CTLet n) = (emit s [Stack (Load (sz - n))]))
 /\
-(compile_varref _  s (CTDec n) = (emit s [Stack (LoadRev n)]))
+(compile_varref _  s (CTDec n) = (emit s [Gread n]))
 /\
 (compile_varref sz s (CTEnv x) = (compile_envref sz s x))`;
 
@@ -381,62 +383,59 @@ a b c x y z
 
  val compile_defn = Hol_defn "compile" `
 
-(compile menv env _ sz s (CRaise e) =  
-(let s = (compile menv env TCNonTail sz s e) in
+(compile env _ sz s (CRaise e) =  
+(let s = (compile env TCNonTail sz s e) in
   emit s [PopExc; Return]))
 /\
-(compile menv env t sz s (CHandle e1 e2) =  
+(compile env t sz s (CHandle e1 e2) =  
 (let (s,n0) = (get_label s) in
   let (s,n1) = (get_label s) in
   let s = (emit s [PushPtr (Lab n0); PushExc]) in
-  let s = (compile menv env TCNonTail (sz+ 2) s e1) in
+  let s = (compile env TCNonTail (sz+ 2) s e1) in
   let s = (pushret t (emit s [PopExc; Stack (Pops( 1))])) in
   let s = (emit s [Jump (Lab n1); Label n0]) in
-  let s = (compile_bindings menv env t sz e2( 0) s( 1)) in
+  let s = (compile_bindings env t sz e2( 0) s( 1)) in
   emit s [Label n1]))
 /\
-(compile _ _ t _ s (CLit (IntLit i)) =  
+(compile _ t _ s (CLit (IntLit i)) =  
 (pushret t (emit s [Stack (PushInt i)])))
 /\
-(compile _ _ t _ s (CLit (StrLit r)) =  
+(compile _ t _ s (CLit (StrLit r)) =  
 (let r = (EXPLODE r) in
   let s = (emit s (MAP (Stack o (PushInt o (int_of_num o ORD))) r)) in
   pushret t (emit s [Stack (Cons string_tag (LENGTH r))])))
 /\
-(compile _ _ t _ s (CLit (Bool b)) =  
+(compile _ t _ s (CLit (Bool b)) =  
 (pushret t (emit s [Stack (Cons (bool_to_tag b)( 0))])))
 /\
-(compile _ _ t _ s (CLit Unit) =  
+(compile _ t _ s (CLit Unit) =  
 (pushret t (emit s [Stack (Cons unit_tag( 0))])))
 /\
-(compile menv env t sz s (CVar id) = (pushret t
+(compile env t sz s (CVar vn) = (pushret t
   (compile_varref sz s
-    ((case (case id of
-             Short vn => el_check vn env
-           | Long mn vn => OPTION_MAP CTDec (el_check vn (fapply [] mn menv))
-           )
-     of SOME x => x
-     | NONE => CTLet( 0) (* should not happen *) )))))
+    ((case el_check vn env of
+       SOME x => x
+     | NONE => CTLet( 0) (* should not happen *)
+     )))))
 /\
-(compile menv env t sz s (CCon n es) =  
-(pushret t (emit (compile_nts menv env sz s es) [Stack (Cons (n+block_tag) (LENGTH es))])))
+(compile _ t sz s (CGvar n) = (pushret t (compile_varref sz s (CTDec n))))
 /\
-(compile menv env t sz s (CTagEq e n) =  
-(pushret t (emit (compile menv env TCNonTail sz s e) [Stack (TagEq (n+block_tag))])))
+(compile env t sz s (CCon n es) =  
+(pushret t (emit (compile_nts env sz s es) [Stack (Cons (n+block_tag) (LENGTH es))])))
 /\
-(compile menv env t sz s (CProj e n) =  
-(pushret t (emit (compile menv env TCNonTail sz s e) [Stack (El n)])))
+(compile env t sz s (CLet F e1 e2) =  
+(compile env t (sz+ 1) (compile env TCNonTail sz s e1) e2))
 /\
-(compile menv env t sz s (CLet e eb) =  
-(compile_bindings menv env t sz eb( 0) (compile menv env TCNonTail sz s e)( 1)))
+(compile env t sz s (CLet T e eb) =  
+(compile_bindings env t sz eb( 0) (compile env TCNonTail sz s e)( 1)))
 /\
-(compile menv env t sz s (CLetrec defs eb) =  
+(compile env t sz s (CLetrec defs eb) =  
 (let s = (compile_closures env sz s defs) in
-  compile_bindings menv env t sz eb( 0) s (LENGTH defs)))
+  compile_bindings env t sz eb( 0) s (LENGTH defs)))
 /\
-(compile menv env t sz s (CCall ck e es) =  
+(compile env t sz s (CCall ck e es) =  
 (let n = (LENGTH es) in
-  let s = (compile_nts menv env sz s (e::es)) in
+  let s = (compile_nts env sz s (e::es)) in
   (case t of
     TCNonTail =>
     (* argn, ..., arg2, arg1, Block 0 [CodePtr c; env], *)
@@ -463,40 +462,42 @@ a b c x y z
     emit s ((if ck then [Tick] else [])++[Return])
   )))
 /\
-(compile menv env t sz s (CPrim1 uop e) =  
-(pushret t (emit (compile menv env TCNonTail sz s e) [prim1_to_bc uop])))
+(compile env t sz s (CPrim1 uop e) =  
+(pushret t (emit (compile env TCNonTail sz s e) [prim1_to_bc uop])))
 /\
-(compile menv env t sz s (CPrim2 op e1 e2) =  
-(pushret t (emit (compile_nts menv env sz s [e1;e2]) [Stack (prim2_to_bc op)])))
+(compile env t sz s (CPrim2 op e1 e2) =  
+(pushret t (emit (compile_nts env sz s [e1;e2]) [Stack (prim2_to_bc op)])))
 /\
-(compile menv env t sz s (CUpd e1 e2) =  
-(pushret t (emit (compile_nts menv env sz s [e1;e2]) [Update; Stack (Cons unit_tag( 0))])))
+(compile env t sz s (CUpd e1 e2) =  
+(pushret t (emit (compile_nts env sz s [e1;e2]) [Update; Stack (Cons unit_tag( 0))])))
 /\
-(compile menv env t sz s (CIf e1 e2 e3) =  
-(let s = (compile menv env TCNonTail sz s e1) in
+(compile env t sz s (CIf e1 e2 e3) =  
+(let s = (compile env TCNonTail sz s e1) in
   let (s,n0) = (get_label s) in
   let (s,n1) = (get_label s) in
   let (s,n2) = (get_label s) in
   let s = (emit s [(JumpIf (Lab n0)); (Jump (Lab n1)); Label n0]) in
-  let s = (compile menv env t sz s e2) in
+  let s = (compile env t sz s e2) in
   let s = (emit s [Jump (Lab n2); Label n1]) in
-  let s = (compile menv env t sz s e3) in
+  let s = (compile env t sz s e3) in
   emit s [Label n2]))
 /\
-(compile_bindings menv env t sz e n s 0 =  
+(compile _ _ _ s (CExtG n) = (emit s [Galloc n]))
+/\
+(compile_bindings env t sz e n s 0 =  
 ((case t of
-    TCTail j k => compile menv env (TCTail j (k+n)) (sz+n) s e
+    TCTail j k => compile env (TCTail j (k+n)) (sz+n) s e
   | TCNonTail =>
-    emit (compile menv env t (sz+n) s e) [Stack (Pops n)]
+    emit (compile env t (sz+n) s e) [Stack (Pops n)]
   )))
 /\
-(compile_bindings menv env t sz e n s m =  
-(compile_bindings menv ((CTLet (sz+(n+ 1)))::env) t sz e (n+ 1) s (m -  1)))
+(compile_bindings env t sz e n s m =  
+(compile_bindings ((CTLet (sz+(n+ 1)))::env) t sz e (n+ 1) s (m -  1)))
 /\
-(compile_nts _ _ _ s [] = s)
+(compile_nts _ _ s [] = s)
 /\
-(compile_nts menv env sz s (e::es) =  
-(compile_nts menv env (sz+ 1) (compile menv env TCNonTail sz s e) es))`;
+(compile_nts env sz s (e::es) =  
+(compile_nts env (sz+ 1) (compile env TCNonTail sz s e) es))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_defn;
 
@@ -510,15 +511,13 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (free_labs _ (CVar _) = ([]))
 /\
+(free_labs _ (CGvar _) = ([]))
+/\
 (free_labs _ (CLit _) = ([]))
 /\
 (free_labs ez (CCon _ es) = (free_labs_list ez es))
 /\
-(free_labs ez (CTagEq e _) = (free_labs ez e))
-/\
-(free_labs ez (CProj e _) = (free_labs ez e))
-/\
-(free_labs ez (CLet e b) = (free_labs ez e ++ free_labs (ez+ 1) b))
+(free_labs ez (CLet bd e b) = (free_labs ez e ++ free_labs (if bd then (ez+ 1) else ez) b))
 /\
 (free_labs ez (CLetrec defs e) =  
 (free_labs_defs ez (LENGTH defs) ( 0:num) defs ++
@@ -533,6 +532,8 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (free_labs ez (CPrim1 _ e) = (free_labs ez e))
 /\
 (free_labs ez (CIf e1 e2 e3) = (free_labs ez e1 ++ (free_labs ez e2 ++ free_labs ez e3)))
+/\
+(free_labs _ (CExtG _) = ([]))
 /\
 (free_labs_list _ [] = ([]))
 /\
@@ -550,16 +551,16 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn free_labs_defn;
 
  val _ = Define `
- (cce_aux menv s ((l,(ccenv,_)),(az,b)) =  
-(compile menv (MAP CTEnv ccenv) (TCTail az( 0))( 0) (emit s [Label l]) b))`;
+ (cce_aux s ((l,(ccenv,_)),(az,b)) =  
+(compile (MAP CTEnv ccenv) (TCTail az( 0))( 0) (emit s [Label l]) b))`;
 
 
  val _ = Define `
 
-(compile_code_env menv s e =  
+(compile_code_env s e =  
 (let (s,l) = (get_label s) in
   let s = (emit s [Jump (Lab l)]) in
-  let s = (FOLDL (cce_aux menv) s (MAP SND (free_labs( 0) e))) in
+  let s = (FOLDL cce_aux s (MAP SND (free_labs( 0) e))) in
   emit s [Label l]))`;
 
 val _ = export_theory()

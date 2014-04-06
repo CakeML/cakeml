@@ -16,7 +16,6 @@ val real_inst_length_def = zDefine `
        else 1
    | Stack (Load v31) => if v31 <= 268435455 then 4 else 1
    | Stack (Store v32) => if v32 <= 268435455 then 4 else 1
-   | Stack (LoadRev v33) => if v33 <= 268435455 then 5 else 1
    | Stack (El v34) => if v34 <= 268435455 then 6 else 1
    | Stack (TagEq v35) => if v35 <= 268435455 then 28 else 1
    | Stack IsBlock => 25

@@ -10,12 +10,11 @@ val MEM_pair_MAP = store_thm(
 ``MEM (a,b) ls ==> MEM a (MAP FST ls) /\ MEM b (MAP SND ls)``,
 rw[MEM_MAP,pairTheory.EXISTS_PROD] >> PROVE_TAC[])
 
-val tac = Induct >- rw[Cexp_size_def,Cpat_size_def,Cv_size_def,ov_size_def] >> srw_tac [ARITH_ss][Cexp_size_def,Cpat_size_def,Cv_size_def,ov_size_def]
+val tac = Induct >- rw[Cexp_size_def,Cv_size_def,ov_size_def] >> srw_tac [ARITH_ss][Cexp_size_def,Cv_size_def,ov_size_def]
 fun tm t1 t2 =  ``∀ls. ^t1 ls = SUM (MAP ^t2 ls) + LENGTH ls``
 fun size_thm name t1 t2 = store_thm(name,tm t1 t2,tac)
 val Cexp1_size_thm = size_thm "Cexp1_size_thm" ``Cexp1_size`` ``Cexp2_size``
 val Cexp4_size_thm = size_thm "Cexp4_size_thm" ``Cexp4_size`` ``Cexp_size``
-val Cpat1_size_thm = size_thm "Cpat1_size_thm" ``Cpat1_size`` ``Cpat_size``
 val Cv1_size_thm = size_thm "Cv1_size_thm" ``Cv1_size`` ``Cv_size``
 val ov1_size_thm = size_thm "ov1_size_thm" ``ov1_size`` ``ov_size``
 
@@ -149,10 +148,10 @@ val _ = computeLib.add_persistent_funs["stackshiftaux_alt","stackshift_alt"]
 val (compile_def, compile_ind) = register "compile" (
   tprove_no_defn ((compile_def, compile_ind),
   WF_REL_TAC `inv_image ($< LEX $<) (λx. case x of
-       | INL (_,env,t,sz,s,e) => (Cexp_size e, 3:num)
-       | INR (INL (_,env,t,sz,e,n,s,0))=> (Cexp_size e, 4)
-       | INR (INL (_,env,t,sz,e,n,s,ns))=> (Cexp_size e + ns, 1)
-       | INR (INR (_,env,sz,s,es))=> (SUM (MAP Cexp_size es), 3 + LENGTH es)) ` >>
+       | INL (env,t,sz,s,e) => (Cexp_size e, 3:num)
+       | INR (INL (env,t,sz,e,n,s,0))=> (Cexp_size e, 4)
+       | INR (INL (env,t,sz,e,n,s,ns))=> (Cexp_size e + ns, 1)
+       | INR (INR (env,sz,s,es))=> (SUM (MAP Cexp_size es), 3 + LENGTH es)) ` >>
   srw_tac[ARITH_ss][] >>
   srw_tac[ARITH_ss][Cexp1_size_thm,Cexp4_size_thm,Cexp_size_def,list_size_thm,SUM_MAP_Cexp3_size_thm] >>
   BasicProvers.CASE_TAC >> fsrw_tac[ARITH_ss][] >>
@@ -161,18 +160,18 @@ val (compile_def, compile_ind) = register "compile" (
 val zero_vars_def = Lib.with_flag (computeLib.auto_import_definitions, false) (tDefine "zero_vars"`
   (zero_vars (CRaise e) = CRaise (zero_vars e)) ∧
   (zero_vars (CHandle e1 e2) = CHandle (zero_vars e1) (zero_vars e2)) ∧
-  (zero_vars (CVar _) = CVar (Short 0)) ∧
+  (zero_vars (CVar _) = CVar 0) ∧
+  (zero_vars (CGvar n) = CGvar n) ∧
   (zero_vars (CLit c) = CLit c) ∧
   (zero_vars (CCon cn es) = CCon cn (zero_vars_list es)) ∧
-  (zero_vars (CTagEq e n) = CTagEq (zero_vars e) n) ∧
-  (zero_vars (CProj e n) = CProj (zero_vars e) n) ∧
-  (zero_vars (CLet e1 e2) = CLet (zero_vars e1) (zero_vars e2)) ∧
+  (zero_vars (CLet bd e1 e2) = CLet bd (zero_vars e1) (zero_vars e2)) ∧
   (zero_vars (CLetrec defs e) = CLetrec (zero_vars_defs defs) (zero_vars e)) ∧
   (zero_vars (CCall ck e es) = CCall ck (zero_vars e) (zero_vars_list es)) ∧
   (zero_vars (CPrim1 p1 e2) = CPrim1 p1 (zero_vars e2)) ∧
   (zero_vars (CPrim2 p2 e1 e2) = CPrim2 p2 (zero_vars e1) (zero_vars e2)) ∧
   (zero_vars (CUpd e1 e2) = CUpd (zero_vars e1) (zero_vars e2)) ∧
   (zero_vars (CIf e1 e2 e3) = CIf (zero_vars e1) (zero_vars e2) (zero_vars e3)) ∧
+  (zero_vars (CExtG n) = CExtG n) ∧
   (zero_vars_list [] = []) ∧
   (zero_vars_list (e::es) = (zero_vars e)::(zero_vars_list es)) ∧
   (zero_vars_defs [] = []) ∧
@@ -378,8 +377,6 @@ val _ = export_rewrites
 ,"label_closures_def"
 ,"intLang.doPrim2_def","intLang.CevalPrim2_def","intLang.CevalUpd_def","intLang.CevalPrim1_def"
 ,"free_labs_def","no_labs_def","all_labs_def"
-,"intLang.CDiv_excv_def","intLang.CBind_excv_def","intLang.CEq_excv_def"
-,"intLang.CDiv_exc_def","intLang.CBind_exc_def","intLang.CEq_exc_def"
 ,"do_Ceq_def"];
 
 (*

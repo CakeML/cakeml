@@ -18,7 +18,6 @@ type
   | Cons of nat * nat       (* push new cons with tag m and n elements *)
   | Load of nat             (* push stack[n] *)
   | Store of nat            (* pop and store in stack[n] *)
-  | LoadRev of nat          (* push rev(stack)[n] *)
   | El of nat               (* read field n of cons block *)
   | TagEq of nat            (* test tag of block *)
   | IsBlock                 (* test for a block *)
@@ -45,6 +44,9 @@ type
   | Ref                     (* create a new ref cell *)
   | Deref                   (* dereference a ref cell *)
   | Update                  (* update a ref cell *)
+  | Galloc of nat           (* allocate global variables *)
+  | Gupdate of nat          (* update a global variable *)
+  | Gread of nat            (* read a global variable *)
   | Stop                    (* halt execution *)
   | Tick                    (* use fuel *)
   | Print                   (* print value at top of stack *)
@@ -69,6 +71,7 @@ type
       code : list bc_inst;
       pc : nat;
       refs : map nat bc_value;
+      globals : list (maybe bc_value);
       handler : nat;
       output : string;
       cons_names : list (nat * maybe (conN * tid_or_exn));
@@ -269,9 +272,6 @@ and
 store : forall y ys x xs. true ==>
 bc_stack_op (Store (List.length ys)) ((y::ys)++(x::xs)) (ys++(y::xs))
 and
-loadRev : forall k xs. k < List.length xs ==>
-bc_stack_op (LoadRev k) xs (List_extra.nth (List.reverse xs) k::xs)
-and
 block : forall k tag ys xs. k < List.length ys ==>
 bc_stack_op (El k) ((Block tag ys)::xs) (List_extra.nth ys k::xs)
 and
@@ -384,6 +384,26 @@ bc_fetch s = Just Update
 && Map.member ptr s.refs
 ==>
 bc_next s (<|bump_pc s with stack = xs; refs = Map.insert ptr x s.refs|>)
+and
+galloc : forall s n.
+bc_fetch s = Just (Galloc n)
+==>
+bc_next s (<|bump_pc s with globals = s.globals ++ (genlist (fun x -> Nothing) n)|>)
+and
+gupdate : forall s n x xs.
+bc_fetch s = Just (Gupdate n)
+&& s.stack = x::xs
+&& n < List.length s.globals
+==>
+bc_next s (<|bump_pc s with stack = xs;
+                            globals = List.update s.globals n (Just x)|>)
+and
+gread : forall s n v.
+bc_fetch s = Just (Gread n)
+&& n < List.length s.globals
+&& List_extra.nth s.globals n = Just v
+==>
+bc_next s (<|bump_pc s with stack = v::s.stack|>)
 and
 tick : forall s.
 bc_fetch s = Just Tick

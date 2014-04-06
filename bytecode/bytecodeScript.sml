@@ -29,7 +29,6 @@ val _ = Hol_datatype `
   | Cons of num => num       (* push new cons with tag m and n elements *)
   | Load of num             (* push stack[n] *)
   | Store of num            (* pop and store in stack[n] *)
-  | LoadRev of num          (* push rev(stack)[n] *)
   | El of num               (* read field n of cons block *)
   | TagEq of num            (* test tag of block *)
   | IsBlock                 (* test for a block *)
@@ -60,6 +59,9 @@ val _ = Hol_datatype `
   | Ref                     (* create a new ref cell *)
   | Deref                   (* dereference a ref cell *)
   | Update                  (* update a ref cell *)
+  | Galloc of num           (* allocate global variables *)
+  | Gupdate of num          (* update a global variable *)
+  | Gread of num            (* read a global variable *)
   | Stop                    (* halt execution *)
   | Tick                    (* use fuel *)
   | Print                   (* print value at top of stack *)
@@ -88,6 +90,7 @@ val _ = Hol_datatype `
       code : bc_inst list;
       pc : num;
       refs : (num, bc_value) fmap;
+      globals : ( bc_value option) list;
       handler : num;
       output : string;
       cons_names : (num #  (conN # tid_or_exn)option) list;
@@ -331,8 +334,6 @@ bc_stack_op (Cons tag (LENGTH ys)) (ys++xs) (Block tag (REVERSE ys)::xs))
 bc_stack_op (Load k) xs (EL k xs::xs))
 /\ (! y ys x xs. T ==>
 bc_stack_op (Store (LENGTH ys)) ((y::ys)++(x::xs)) (ys++(y::xs)))
-/\ (! k xs. (k < LENGTH xs) ==>
-bc_stack_op (LoadRev k) xs (EL k (REVERSE xs)::xs))
 /\ (! k tag ys xs. (k < LENGTH ys) ==>
 bc_stack_op (El k) ((Block tag ys)::xs) (EL k ys::xs))
 /\ (! t tag ys xs. T ==>
@@ -422,6 +423,23 @@ bc_next s ((bump_pc s with<| stack := FAPPLY s.refs ptr::xs|>)))
 /\ (ptr IN FDOM s.refs)))
 ==>
 bc_next s ((bump_pc s with<| stack := xs; refs :=s.refs |+ (ptr, x)|>)))
+/\ (! s n.
+(bc_fetch s = SOME (Galloc n))
+==>
+bc_next s ((bump_pc s with<| globals := s.globals ++ (GENLIST (\ x .  NONE) n)|>)))
+/\ (! s n x xs.
+((bc_fetch s = SOME (Gupdate n))
+/\ ((s.stack = (x::xs))
+/\ (n < LENGTH s.globals)))
+==>
+bc_next s ((bump_pc s with<| stack := xs;
+                            globals := LUPDATE (SOME x) n s.globals|>)))
+/\ (! s n v.
+((bc_fetch s = SOME (Gread n))
+/\ ((n < LENGTH s.globals)
+/\ (EL n s.globals = SOME v)))
+==>
+bc_next s ((bump_pc s with<| stack := v::s.stack|>)))
 /\ (! s.
 ((bc_fetch s = SOME Tick)
 /\ (! n. (s.clock = SOME n) ==> (n > 0)))

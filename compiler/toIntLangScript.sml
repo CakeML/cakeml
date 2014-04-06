@@ -26,19 +26,15 @@ val _ = new_theory "toIntLang"
 /\
 (free_vars (CHandle e1 e2) = (lunion (free_vars e1) (lshift( 1) (free_vars e2))))
 /\
-(free_vars (CVar (Short n)) = ([n]))
+(free_vars (CVar n) = ([n]))
 /\
-(free_vars (CVar (Long _ _)) = ([]))
+(free_vars (CGvar _) = ([]))
 /\
 (free_vars (CLit _) = ([]))
 /\
 (free_vars (CCon _ es) = (free_vars_list es))
 /\
-(free_vars (CTagEq e _) = (free_vars e))
-/\
-(free_vars (CProj e _) = (free_vars e))
-/\
-(free_vars (CLet e eb) = (lunion (free_vars e) (lshift( 1) (free_vars eb))))
+(free_vars (CLet bd e eb) = (lunion (free_vars e) (if bd then lshift( 1) (free_vars eb) else free_vars eb)))
 /\
 (free_vars (CLetrec defs e) =  
 (let n = (LENGTH defs) in
@@ -53,6 +49,8 @@ val _ = new_theory "toIntLang"
 (free_vars (CUpd e1 e2) = (lunion (free_vars e1) (free_vars e2)))
 /\
 (free_vars (CIf e1 e2 e3) = (lunion (free_vars e1) (lunion (free_vars e2) (free_vars e3))))
+/\
+(free_vars (CExtG _) = ([]))
 /\
 (free_vars_list [] = ([]))
 /\
@@ -74,19 +72,15 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (mkshift f k (CHandle e1 e2) = (CHandle (mkshift f k e1) (mkshift f (k+ 1) e2)))
 /\
-(mkshift f k (CVar (Short v)) = (CVar (Short (if v < k then v else (f (v - k))+k))))
+(mkshift f k (CVar v) = (CVar (if v < k then v else (f (v - k))+k)))
 /\
-(mkshift _ _ (CVar lid) = (CVar lid))
+(mkshift _ _ (CGvar v) = (CGvar v))
 /\
 (mkshift _ _ (CLit l) = (CLit l))
 /\
 (mkshift f k (CCon cn es) = (CCon cn (MAP (mkshift f k) es)))
 /\
-(mkshift f k (CTagEq e m) = (CTagEq (mkshift f k e) m))
-/\
-(mkshift f k (CProj e m) = (CProj (mkshift f k e) m))
-/\
-(mkshift f k (CLet e b) = (CLet (mkshift f k e) (mkshift f (k+ 1) b)))
+(mkshift f k (CLet bd e b) = (CLet bd (mkshift f k e) (mkshift f (if bd then k+ 1 else k) b)))
 /\
 (mkshift f k (CLetrec defs b) =  
 (let ns = (LENGTH defs) in
@@ -103,7 +97,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (mkshift f k (CUpd e1 e2) = (CUpd (mkshift f k e1) (mkshift f k e2)))
 /\
-(mkshift f k (CIf e1 e2 e3) = (CIf (mkshift f k e1) (mkshift f k e2) (mkshift f k e3)))`;
+(mkshift f k (CIf e1 e2 e3) = (CIf (mkshift f k e1) (mkshift f k e2) (mkshift f k e3)))
+/\
+(mkshift _ _ (CExtG n) = (CExtG n))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn mkshift_defn;
 
@@ -111,94 +107,20 @@ val _ = Define `
  (shift n = (mkshift (\ v .  v+n)))`;
 
 
+ val _ = Define `
+
+(opn_to_prim2 Plus = (INL CAdd))
+/\
+(opn_to_prim2 Minus = (INL CSub))
+/\
+(opn_to_prim2 Times = (INL CMul))
+/\
+(opn_to_prim2 Divide = (INR CDiv))
+/\
+(opn_to_prim2 Modulo = (INR CMod))`;
+
+
 (*
-(* remove pattern-matching using continuations *)
-
-type exp_to_Cexp_state =
- <| bvars : list string
-  ; mvars : Map.map string (list string)
-  ; cnmap : Map.map (maybe (id conN)) nat
-  |>
-let rec cbv m v = <| m with bvars = v::m.bvars |>
-
-let rec
-pat_to_Cpat m (Pvar vn) = (<|m with bvars = vn::m.bvars|>, CPvar)
-and
-pat_to_Cpat m (Plit l) = (m, CPlit l)
-and
-pat_to_Cpat m (Pcon cn ps) =
-  let (m,Cps) = pats_to_Cpats m ps in
-  (m,CPcon (fapply 0 cn m.cnmap) Cps)
-and
-pat_to_Cpat m (Pref p) =
-  let (m,Cp) = pat_to_Cpat m p in
-  (m,CPref Cp)
-and
-pats_to_Cpats m [] = (m,[])
-and
-pats_to_Cpats m (p::ps) =
-  let (m,Cp) = pat_to_Cpat m p in
-  let (m,Cps) = pats_to_Cpats m ps in
-  (m,Cp::Cps)
-
-let rec
-Cpat_vars CPvar = (1:nat)
-and
-Cpat_vars (CPlit _) = 0
-and
-Cpat_vars (CPcon _ ps) = Cpat_vars_list ps
-and
-Cpat_vars (CPref p) = Cpat_vars p
-and
-Cpat_vars_list [] = 0
-and
-Cpat_vars_list (p::ps) = (Cpat_vars p)+(Cpat_vars_list ps)
-
-let rec
-remove_mat_vp _ sk v CPvar =
-  CLet (CVar (Short v)) sk
-and
-remove_mat_vp fk sk v (CPlit l) =
-  CIf (CPrim2 CEq (CVar (Short v)) (CLit l))
-    sk (CCall false (CVar (Short fk)) [])
-and
-remove_mat_vp fk sk v (CPcon cn ps) =
-  CIf (CTagEq (CVar (Short v)) cn)
-    (remove_mat_con fk sk v 0 ps)
-    (CCall false (CVar (Short fk)) [])
-and
-remove_mat_vp fk sk v (CPref p) =
-  CLet (CPrim1 CDer (CVar (Short v)))
-    (remove_mat_vp (fk+1) (shift 1 (Cpat_vars p) sk) 0 p)
-and
-remove_mat_con _ sk _ _ [] = sk
-and
-remove_mat_con fk sk v n (p::ps) =
-  let p1 = Cpat_vars p in
-  let p2 = Cpat_vars_list ps in
-  CLet (CProj (CVar (Short v)) n)
-    (remove_mat_vp (fk+1)
-      (remove_mat_con (fk+1+p1) (shift 1 (p2+p1) sk) (v+1+p1) (n+1) ps)
-      0 p)
-
-let rec
-remove_mat_var b v [] = CRaise (if b then CVar (Short v) else CBind_exc)
-and
-remove_mat_var b v ((p,sk)::pes) =
-  CLetrec [(Nothing, (0,shift 1 0 (remove_mat_var b v pes)))]
-    (remove_mat_vp 0 (shift 1 (Cpat_vars p) sk) (v+1) p)
-declare termination_argument remove_mat_var = automatic
-
-let rec
-opn_to_prim2 Plus = Left CAdd
-and
-opn_to_prim2 Minus = Left CSub
-and
-opn_to_prim2 Times = Left CMul
-and
-opn_to_prim2 Divide = Right CDiv
-and
-opn_to_prim2 Modulo = Right CMod
 
 let rec
 exp_to_Cexp m (Handle e pes) =
