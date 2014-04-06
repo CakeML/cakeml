@@ -239,24 +239,20 @@ val init_globals_thm = prove(
   rw[] >> match_mp_tac init_globals_thm >> simp[ALL_DISTINCT_GENLIST])
 
 val init_global_funs_thm = Q.prove (
-`!l. 
-  evaluate_i3 ck [] (s, genv ++ GENLIST (λt. NONE) (LENGTH l)) (init_global_funs (LENGTH genv) l)
-  ((s,genv ++ MAP SOME (MAP (λ(f,x,e). Closure_i2 [] x e) l)), Rval (Litv_i2 Unit))`,
-cheat);
-
-(*
- induct_on `l` >>
- rw [init_global_funs_def] 
- >- rw [Once evaluate_i3_cases] >>
- PairCases_on `h` >>
- rw [init_global_funs_def] >>
- ONCE_REWRITE_TAC [evaluate_i3_cases] >>
- rw [eval_init_global_fun, GENLIST_CONS] >>
- every_case_tac >>
- fs [el_append3, opt_bind_def] >>
-
- *)
-
+  `!l genv.
+    evaluate_i3 ck [] (s, genv ++ GENLIST (λt. NONE) (LENGTH l)) (init_global_funs (LENGTH genv) l)
+    ((s,genv ++ MAP SOME (MAP (λ(f,x,e). Closure_i2 [] x e) l)), Rval (Litv_i2 Unit))`,
+  Induct >> simp[init_global_funs_def] >- simp[Once evaluate_i3_cases] >>
+  qx_gen_tac`f` >> PairCases_on`f` >>
+  simp[init_global_funs_def] >>
+  simp[Once evaluate_i3_cases] >>
+  simp[eval_init_global_fun] >>
+  simp[GENLIST_CONS,EL_LENGTH_APPEND,PULL_EXISTS,opt_bind_def] >>
+  gen_tac >>
+  first_x_assum(qspec_then`genv++[SOME(Closure_i2 [] f1 f2)]`mp_tac) >>
+  simp[combinTheory.o_DEF] >>
+  Cases_on`s`>>simp[] >>
+  metis_tac[APPEND_ASSOC,CONS_APPEND])
 
 val decs_to_i3_correct = Q.prove (
 `!ck genv s ds s' new_env r.
