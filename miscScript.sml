@@ -701,6 +701,24 @@ val LIST_REL_APPEND_SING = store_thm("LIST_REL_APPEND_SING",
   imp_res_tac EVERY2_APPEND >> fs[])
 val _ = export_rewrites["LIST_REL_APPEND_SING"]
 
+val LUPDATE_APPEND2 = store_thm("LUPDATE_APPEND2",
+  ``∀l1 l2 n x. LENGTH l1 ≤ n ⇒ (LUPDATE x n (l1 ++ l2) = l1 ++ (LUPDATE x (n-LENGTH l1) l2))``,
+  rw[] >> simp[LIST_EQ_REWRITE] >>
+  qx_gen_tac`z` >>
+  simp[EL_LUPDATE] >> rw[] >>
+  simp[EL_APPEND2,EL_LUPDATE] >> fs[] >>
+  Cases_on`z < LENGTH l1`>>fs[]>>
+  simp[EL_APPEND1,EL_APPEND2,EL_LUPDATE])
+
+val LUPDATE_APPEND1 = store_thm("LUPDATE_APPEND1",
+  ``∀l1 l2 n x. n < LENGTH l1 ⇒ (LUPDATE x n (l1 ++ l2) = (LUPDATE x n l1) ++ l2)``,
+  rw[] >> simp[LIST_EQ_REWRITE] >>
+  qx_gen_tac`z` >>
+  simp[EL_LUPDATE] >> rw[] >>
+  simp[EL_APPEND2,EL_LUPDATE] >> fs[] >>
+  Cases_on`z < LENGTH l1`>>fs[]>>
+  simp[EL_APPEND1,EL_APPEND2,EL_LUPDATE])
+
 val SWAP_REVERSE = store_thm("SWAP_REVERSE",
   ``!l1 l2. (l1 = REVERSE l2) = (l2 = REVERSE l1)``,
   SRW_TAC[][EQ_IMP_THM])

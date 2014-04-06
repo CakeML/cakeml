@@ -186,30 +186,57 @@ val (dec_result_to_i3_rules, dec_result_to_i3_ind, dec_result_to_i3_cases) = Hol
 (dec_result_to_i3 (SOME Rtype_error) (Rerr Rtype_error)) ∧
 (dec_result_to_i3 (SOME Rtimeout_error) (Rerr Rtimeout_error))`;
 
+val pmatch_list_i2_Pvar = prove(
+  ``∀xs vs s env.
+      LENGTH xs = LENGTH vs ⇒
+      pmatch_list_i2 s (MAP Pvar_i2 xs) vs env = Match (REVERSE(ZIP(xs,vs))++env)``,
+  Induct >> simp[LENGTH_NIL_SYM,pmatch_i2_def] >>
+  Cases_on`vs`>>simp[pmatch_i2_def,bind_def])
+
+val pats_bindings_i2_MAP_Pvar = prove(
+  ``∀ws ls. pats_bindings_i2 (MAP Pvar_i2 ws) ls = (REVERSE ws) ++ ls``,
+  Induct >> simp[pat_bindings_i2_def])
+
 val init_globals_thm = Q.prove (
-`!new_env. 
+`!new_env genv vs env. LENGTH vs = LENGTH new_env ∧ ALL_DISTINCT vs ⇒
+  evaluate_match_i3 ck env (s, genv ++ GENLIST (λt. NONE) (LENGTH new_env)) (Conv_i2 tuple_tag new_env)
+  [(Pcon_i2 tuple_tag (MAP Pvar_i2 vs), init_globals vs (LENGTH genv))]
+  ((s,genv ++ MAP SOME new_env), Rval (Litv_i2 Unit))`,
+  Induct >- (
+    simp[Once evaluate_i3_cases,pmatch_i2_def,init_globals_def,LENGTH_NIL] >>
+    simp[Once evaluate_i3_cases,pat_bindings_i2_def] >>
+    CONV_TAC SWAP_EXISTS_CONV >> simp[GSYM EXISTS_PROD] ) >>
+  qx_genl_tac[`v`,`genv`,`vs0`,`env`] >> strip_tac >>
+  `∃w ws. vs0 = w::ws` by (Cases_on`vs0`>>fs[])>>
+  first_x_assum(qspecl_then[`genv++[SOME v]`,`ws`]mp_tac) >>
+  fs[] >> strip_tac >>
+  simp[Once evaluate_i3_cases] >> disj1_tac >>
+  simp[pmatch_i2_def,pat_bindings_i2_def] >>
+  PairCases_on`s`>>fs[] >>
+  simp[pmatch_list_i2_Pvar,pats_bindings_i2_MAP_Pvar,ALL_DISTINCT_APPEND,ALL_DISTINCT_REVERSE] >>
+  pop_assum mp_tac >>
+  simp[Once evaluate_i3_cases,pat_bindings_i2_def,pmatch_i2_def
+      ,pmatch_list_i2_Pvar,pats_bindings_i2_MAP_Pvar,ALL_DISTINCT_REVERSE
+      ,GENLIST_CONS,init_globals_def] >> strip_tac >>
+  simp[Once evaluate_i3_cases] >>
+  simp[Once evaluate_i3_cases] >>
+  simp[Once evaluate_i3_cases] >>
+  simp[do_uapp_i3_def,EL_APPEND1,EL_LENGTH_APPEND,PULL_EXISTS,opt_bind_def] >>
+  simp[lookup_append,bind_def] >>
+  reverse BasicProvers.CASE_TAC >- (
+    imp_res_tac lookup_in2 >>
+    fs[MEM_MAP] >> rfs[MEM_ZIP] >>
+    fs[] >> metis_tac[MEM_EL] ) >>
+  simp[LUPDATE_APPEND1,combinTheory.o_DEF] >>
+  metis_tac[CONS_APPEND,APPEND_ASSOC])
+
+val init_globals_thm = prove(
+``!new_env.
   evaluate_match_i3 ck [] (s, genv ++ GENLIST (λt. NONE) (LENGTH new_env)) (Conv_i2 tuple_tag new_env)
   [(Pcon_i2 tuple_tag (MAP Pvar_i2 (GENLIST (λn. STRING #"x" (toString n)) (LENGTH new_env))),
     init_globals (GENLIST (λn. STRING #"x" (toString n)) (LENGTH new_env)) (LENGTH genv))]
-  ((s,genv ++ MAP SOME new_env), Rval (Litv_i2 Unit))`,
-cheat);
-
-(*
- induct_on `new_env` >>
- rw [] >>
- ONCE_REWRITE_TAC [evaluate_i3_cases] >>
- rw [pat_bindings_i2_def, pmatch_i2_def, init_globals_def, eval_match_i3_nil]
- >- (rw [Once evaluate_i3_cases] >>
-     metis_tac [pair_CASES])
- >- (pop_assum (mp_tac o SIMP_RULE (srw_ss()) [Once evaluate_i3_cases]) >>
-     rw [eval_match_i3_nil, pat_bindings_i2_def, init_globals_def, GENLIST_CONS, pmatch_i2_def] >>
-     ONCE_REWRITE_TAC [evaluate_i3_cases] >>
-     rw [eval_init_global] >>
-     every_case_tac >>
-     full_simp_tac std_ss [el_append3] >>
-     srw_tac [ARITH_ss] [lupdate_append2, opt_bind_def] >>
-     qexists_tac `bind (STRING #"x" (toString 0)) h new_env`
-     *)
+   ((s,genv ++ MAP SOME new_env), Rval (Litv_i2 Unit))``,
+  rw[] >> match_mp_tac init_globals_thm >> simp[ALL_DISTINCT_GENLIST])
 
 val init_global_funs_thm = Q.prove (
 `!l. 
