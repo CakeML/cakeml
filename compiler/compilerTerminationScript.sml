@@ -95,22 +95,11 @@ val (mkshift_def,mkshift_ind) = register "mkshift" (
   Q.ISPEC_THEN`Cexp2_size`imp_res_tac SUM_MAP_MEM_bound >>
   fsrw_tac[ARITH_ss][Cexp_size_def]))
 
-(* TODO
 val (exp_to_Cexp_def,exp_to_Cexp_ind) = register "exp_to_Cexp" (
   tprove_no_defn ((exp_to_Cexp_def,exp_to_Cexp_ind),
   WF_REL_TAC `inv_image $< (λx. case x of
-    | INL (_,e) => exp_size e
-    | INR (INL (_,defs)) => exp1_size defs
-    | INR (INR (INL (_,pes))) => exp3_size pes
-    | INR (INR (INR (_,es))) => exp6_size es)`))
-
-val (v_to_Cv_def,v_to_Cv_ind) = register "v_to_Cv" (
-  tprove_no_defn ((v_to_Cv_def,v_to_Cv_ind),
-  WF_REL_TAC `inv_image $< (λx. case x of
-    | INL (_,_,v) => v_size v
-    | INR (INL (_,_, vs)) => v3_size vs
-    | INR (INR (_,_, env)) => v1_size env)`))
-    *)
+    | INL e => exp_i4_size e
+    | INR es => exp_i41_size es)`))
 
 val (compile_envref_def, compile_envref_ind) = register "compile_envref" (
   tprove_no_defn ((compile_envref_def, compile_envref_ind),
