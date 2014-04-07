@@ -2104,6 +2104,7 @@ val Cevaluate_closed_vlabs = store_thm("Cevaluate_closed_vlabs",
   simp[] >>
   rw[] >> fs[SUBSET_DEF] >>
   metis_tac[])
+*)
 
 (* mkshift *)
 
@@ -2135,8 +2136,6 @@ val mkshift_thm = store_thm("mkshift_thm",
    fsrw_tac[DNF_ss][FOLDL_UNION_BIGUNION,SUBSET_DEF,EVERY2_EVERY,EVERY_MEM,FORALL_PROD,MEM_ZIP,free_labs_list_MAP,MEM_FLAT,MEM_MAP] >>
    fsrw_tac[DNF_ss][free_vars_list_MAP,MEM_FLAT,MEM_MAP] >>
    fsrw_tac[DNF_ss][EL_MAP,MEM_EL] >> rw[]) >>
- strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
- strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
  strip_tac >- (
    rw[] >>
    rw[Once syneq_exp_cases] >>
@@ -2248,6 +2247,7 @@ val mkshift_thm = store_thm("mkshift_thm",
  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
+ strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ))
 
 val free_vars_mkshift = store_thm("free_vars_mkshift",
@@ -2285,10 +2285,8 @@ val free_vars_mkshift = store_thm("free_vars_mkshift",
     fsrw_tac[DNF_ss][Once EXTENSION,MEM_FLAT,MEM_MAP] >>
     fsrw_tac[DNF_ss][MEM_MAP,EQ_IMP_THM] >>
     metis_tac[] ) >>
-  strip_tac >- rw[] >>
-  strip_tac >- rw[] >>
   strip_tac >- (
-    rw[EXTENSION] >>
+    rw[EXTENSION] >- (
     rw[EQ_IMP_THM]
     >- metis_tac[]
     >- (
@@ -2321,6 +2319,7 @@ val free_vars_mkshift = store_thm("free_vars_mkshift",
       Cases_on`m`>>fsrw_tac[ARITH_ss][] >>
       disj2_tac >>
       qexists_tac`SUC (f n)`>>simp[ADD1])) >>
+    metis_tac[]) >>
   strip_tac >- (
     simp[] >> rw[] >>
     simp[free_vars_defs_MAP] >>
@@ -2364,6 +2363,7 @@ val free_vars_mkshift = store_thm("free_vars_mkshift",
     fsrw_tac[DNF_ss][Once EXTENSION] >>
     fsrw_tac[DNF_ss][MEM_MAP,MEM_FLAT,EQ_IMP_THM] >>
     metis_tac[] ) >>
+  strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
@@ -2425,6 +2425,7 @@ val no_labs_shift = store_thm("no_labs_shift",
   simp[shift_def])
 val _ = export_rewrites["no_labs_shift"]
 
+(*
 val all_labs_mkshift = store_thm("all_labs_mkshift",
   ``∀f k e. all_labs (mkshift f k e) = all_labs e``,
   ho_match_mp_tac mkshift_ind >>
