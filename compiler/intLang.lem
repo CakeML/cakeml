@@ -52,15 +52,6 @@ type Cv =
   | CRecClos of list Cv * list def * nat
   | CLoc of nat
 
-type Ce =
-  | Ctype_error
-  | Ctimeout_error
-  | Craise of Cv
-
-type Cresult 'a =
-  | Cval of 'a
-  | Cexc of Ce
-
 let rec
 no_closures (CLitv _) = true
 and
@@ -71,9 +62,9 @@ and
 no_closures (CLoc _) = true
 
 let rec
-doPrim2 ty op (CLitv (IntLit x)) (CLitv (IntLit y)) = Cval (CLitv (ty (op x y)))
+doPrim2 ty op (CLitv (IntLit x)) (CLitv (IntLit y)) = Rval (CLitv (ty (op x y)))
 and
-doPrim2 _ _ _ _ = Cexc Ctype_error
+doPrim2 _ _ _ _ = Rerr Rtype_error
 
 val do_Ceq : Cv -> Cv -> eq_result
 let rec
@@ -126,122 +117,122 @@ CevalPrim2 CLt = doPrim2 Bool (<)
 and
 CevalPrim2 CEq = fun v1 v2 ->
   match do_Ceq v1 v2 with
-    | Eq_val b -> Cval (CLitv (Bool b))
-    | Eq_closure -> Cval (CLitv (IntLit 0))
-    | Eq_type_error -> Cexc Ctype_error
+    | Eq_val b -> Rval (CLitv (Bool b))
+    | Eq_closure -> Rval (CLitv (IntLit 0))
+    | Eq_type_error -> Rerr Rtype_error
   end
 
 let rec
 CevalUpd s (CLoc n) (v:Cv) =
   if n < List.length s
-  then (List.update s n v, Cval (CLitv Unit))
-  else (s, Cexc Ctype_error)
+  then (List.update s n v, Rval (CLitv Unit))
+  else (s, Rerr Rtype_error)
 and
-CevalUpd s _ _ = (s, Cexc Ctype_error)
+CevalUpd s _ _ = (s, Rerr Rtype_error)
 
 let rec
-CevalPrim1 CRef (s,g) v = ((s++[v],g), Cval (CLoc (List.length s)))
+CevalPrim1 CRef (s,g) v = ((s++[v],g), Rval (CLoc (List.length s)))
 and
 CevalPrim1 CDer (s,g) (CLoc n) =
   ((s,g), match el_check n s with
-      | Nothing -> Cexc Ctype_error
-      | Just v -> Cval v
+      | Nothing -> Rerr Rtype_error
+      | Just v -> Rval v
       end)
 and
 CevalPrim1 CIsBlock sg (CLitv l) =
-  (sg, Cval (CLitv (Bool (match l with IntLit _ -> false | _ -> true end))))
+  (sg, Rval (CLitv (Bool (match l with IntLit _ -> false | _ -> true end))))
 and
 CevalPrim1 (CTagEq n) sg (CConv t _) =
-  (sg, Cval (CLitv (Bool (n = t))))
+  (sg, Rval (CLitv (Bool (n = t))))
 and
 CevalPrim1 (CProj n) sg (CConv _ vs) =
   (sg, match el_check n vs with
-      | Nothing -> Cexc Ctype_error
-      | Just v -> Cval v
+      | Nothing -> Rerr Rtype_error
+      | Just v -> Rval v
       end)
 and
 CevalPrim1 (CInitG n) (s,g) v =
   if n < List.length g
-  then ((s,List.update g n (Just v)),Cval (CLitv Unit))
-  else ((s,g), Cexc Ctype_error)
+  then ((s,List.update g n (Just v)),Rval (CLitv Unit))
+  else ((s,g), Rerr Rtype_error)
 and
-CevalPrim1 _ sg _ = (sg, Cexc Ctype_error)
+CevalPrim1 _ sg _ = (sg, Rerr Rtype_error)
 
 indreln
-[Cevaluate : count_store_genv Cv -> list Cv -> Cexp -> (count_store_genv Cv * Cresult Cv) -> bool]
+[Cevaluate : count_store_genv Cv -> list Cv -> Cexp -> (count_store_genv Cv * result Cv Cv) -> bool]
 and
-[Cevaluate_list : count_store_genv Cv -> list Cv -> list Cexp -> (count_store_genv Cv * Cresult (list Cv)) -> bool]
+[Cevaluate_list : count_store_genv Cv -> list Cv -> list Cexp -> (count_store_genv Cv * result (list Cv) Cv) -> bool]
 
 raise1 : forall s env exp s' v.
-Cevaluate s env exp (s', Cval v)
+Cevaluate s env exp (s', Rval v)
 ==>
-Cevaluate s env (CRaise exp) (s', Cexc (Craise v))
+Cevaluate s env (CRaise exp) (s', Rerr (Rraise v))
 
 and
 raise2 : forall s env exp s' err.
-Cevaluate s env exp (s', Cexc err)
+Cevaluate s env exp (s', Rerr err)
 ==>
-Cevaluate s env (CRaise exp) (s', Cexc err)
+Cevaluate s env (CRaise exp) (s', Rerr err)
 
 and
 handle1 : forall s1 env e1 e2 s2 v.
-Cevaluate s1 env e1 (s2, Cval v)
+Cevaluate s1 env e1 (s2, Rval v)
 ==>
-Cevaluate s1 env (CHandle e1 e2) (s2, Cval v)
+Cevaluate s1 env (CHandle e1 e2) (s2, Rval v)
 and
 handle2 : forall s1 env e1 e2 s2 v res.
-Cevaluate s1 env e1 (s2, Cexc (Craise v)) &&
+Cevaluate s1 env e1 (s2, Rerr (Rraise v)) &&
 Cevaluate s2 (v::env) e2 res
 ==>
 Cevaluate s1 env (CHandle e1 e2) res
 and
 handle3 : forall s1 env e1 e2 s2 err.
-Cevaluate s1 env e1 (s2, Cexc err) &&
-(forall v. not (err = Craise v))
+Cevaluate s1 env e1 (s2, Rerr err) &&
+(forall v. not (err = Rraise v))
 ==>
-Cevaluate s1 env (CHandle e1 e2) (s2, Cexc err)
+Cevaluate s1 env (CHandle e1 e2) (s2, Rerr err)
 
 and
 var : forall s env n.
 n < List.length env
 ==>
-Cevaluate s env (CVar n) (s, Cval (List_extra.nth env n))
+Cevaluate s env (CVar n) (s, Rval (List_extra.nth env n))
 
 and
 gvar : forall s g n v env.
 n < List.length g &&
 List_extra.nth g n = Just v
 ==>
-Cevaluate (s,g) env (CGvar n) ((s,g), Cval v)
+Cevaluate (s,g) env (CGvar n) ((s,g), Rval v)
 
 and
 lit : forall s env l.
 true
 ==>
-Cevaluate s env (CLit l) (s, Cval (CLitv l))
+Cevaluate s env (CLit l) (s, Rval (CLitv l))
 
 and
 con1 : forall s env n es s' vs.
-Cevaluate_list s env es (s', Cval vs)
+Cevaluate_list s env es (s', Rval vs)
 ==>
-Cevaluate s env (CCon n es) (s', Cval (CConv n vs))
+Cevaluate s env (CCon n es) (s', Rval (CConv n vs))
 and
 con2 : forall s env n es s' err.
-Cevaluate_list s env es (s', Cexc err)
+Cevaluate_list s env es (s', Rerr err)
 ==>
-Cevaluate s env (CCon n es) (s', Cexc err)
+Cevaluate s env (CCon n es) (s', Rerr err)
 
 and
 let1 : forall s env bd e b s' v r.
-Cevaluate s env e (s', Cval v) &&
+Cevaluate s env e (s', Rval v) &&
 Cevaluate s' (if bd then (v::env) else env) b r
 ==>
 Cevaluate s env (CLet bd e b) r
 and
 let2 : forall s env bd e b s' err.
-Cevaluate s env e (s', Cexc err)
+Cevaluate s env e (s', Rerr err)
 ==>
-Cevaluate s env (CLet bd e b) (s', Cexc err)
+Cevaluate s env (CLet bd e b) (s', Rerr err)
 
 and
 letrec : forall s env defs b r.
@@ -253,9 +244,9 @@ Cevaluate s env (CLetrec defs b) r
 
 and
 call1 : forall s env ck e es s' cenv defs n def b env'' count s'' g vs r.
-Cevaluate s env e (s', Cval (CRecClos cenv defs n)) &&
+Cevaluate s env e (s', Rval (CRecClos cenv defs n)) &&
 n < List.length defs && List_extra.nth defs n = def &&
-Cevaluate_list s' env es (((count,s''),g), Cval vs) &&
+Cevaluate_list s' env es (((count,s''),g), Rval vs) &&
 (ck --> count > 0) &&
 (true,List.length vs,env'',b) =
   match def with
@@ -279,102 +270,102 @@ Cevaluate s env (CCall ck e es) r
 
 and
 call2 : forall s env ck e es s' cenv defs n def count s'' g vs.
-Cevaluate s env e (s', Cval (CRecClos cenv defs n)) &&
+Cevaluate s env e (s', Rval (CRecClos cenv defs n)) &&
 n < List.length defs && List_extra.nth defs n = def &&
-Cevaluate_list s' env es (((count,s''),g), Cval vs) &&
+Cevaluate_list s' env es (((count,s''),g), Rval vs) &&
 ck && count = 0
 ==>
-Cevaluate s env (CCall ck e es) (((count,s''),g), Cexc Ctimeout_error)
+Cevaluate s env (CCall ck e es) (((count,s''),g), Rerr Rtimeout_error)
 
 and
 call3 : forall s env ck e s' v es s'' err.
-Cevaluate s env e (s', Cval v) &&
-Cevaluate_list s' env es (s'', Cexc err)
+Cevaluate s env e (s', Rval v) &&
+Cevaluate_list s' env es (s'', Rerr err)
 ==>
-Cevaluate s env (CCall ck e es) (s'', Cexc err)
+Cevaluate s env (CCall ck e es) (s'', Rerr err)
 
 and
 call4 : forall s env ck e es s' err.
-Cevaluate s env e (s', Cexc err)
+Cevaluate s env e (s', Rerr err)
 ==>
-Cevaluate s env (CCall ck e es) (s', Cexc err)
+Cevaluate s env (CCall ck e es) (s', Rerr err)
 
 and
 prim11 : forall s env uop e count s' g v s'' g' res.
-Cevaluate s env e (((count,s'),g), Cval v) &&
+Cevaluate s env e (((count,s'),g), Rval v) &&
 ((s'',g'),res) = CevalPrim1 uop (s',g) v
 ==>
 Cevaluate s env (CPrim1 uop e) (((count,s''),g'),res)
 and
 prim12 : forall s env uop e s' err.
-Cevaluate s env e (s', Cexc err)
+Cevaluate s env e (s', Rerr err)
 ==>
-Cevaluate s env (CPrim1 uop e) (s', Cexc err)
+Cevaluate s env (CPrim1 uop e) (s', Rerr err)
 
 and
 prim21 : forall s env p2 e1 e2 s' v1 v2.
-Cevaluate_list s env [e1;e2] (s', Cval [v1;v2]) &&
+Cevaluate_list s env [e1;e2] (s', Rval [v1;v2]) &&
 (v2 = CLitv (IntLit 0) --> p2 <> CDiv && p2 <> CMod)
 ==>
 Cevaluate s env (CPrim2 p2 e1 e2) (s', CevalPrim2 p2 v1 v2)
 and
 prim22 : forall s env p2 e1 e2 s' err.
-Cevaluate_list s env [e1;e2] (s', Cexc err)
+Cevaluate_list s env [e1;e2] (s', Rerr err)
 ==>
-Cevaluate s env (CPrim2 p2 e1 e2) (s', Cexc err)
+Cevaluate s env (CPrim2 p2 e1 e2) (s', Rerr err)
 
 and
 upd1 : forall s env e1 e2 count s' g v1 v2 s'' res.
-Cevaluate_list s env [e1;e2] (((count,s'),g), Cval [v1;v2]) &&
+Cevaluate_list s env [e1;e2] (((count,s'),g), Rval [v1;v2]) &&
 (s'',res) = CevalUpd s' v1 v2
 ==>
 Cevaluate s env (CUpd e1 e2) (((count,s''),g),res)
 and
 upd2 : forall s env e1 e2 s' err.
-Cevaluate_list s env [e1;e2] (s', Cexc err)
+Cevaluate_list s env [e1;e2] (s', Rerr err)
 ==>
-Cevaluate s env (CUpd e1 e2) (s', Cexc err)
+Cevaluate s env (CUpd e1 e2) (s', Rerr err)
 
 and
 if1 : forall s env e1 e2 e3 s' b1 r.
-Cevaluate s env e1 (s', Cval (CLitv (Bool b1))) &&
+Cevaluate s env e1 (s', Rval (CLitv (Bool b1))) &&
 Cevaluate s' env (if b1 then e2 else e3) r
 ==>
 Cevaluate s env (CIf e1 e2 e3) r
 and
 if2 : forall s env e1 e2 e3 s' err.
-Cevaluate s env e1 (s', Cexc err)
+Cevaluate s env e1 (s', Rerr err)
 ==>
-Cevaluate s env (CIf e1 e2 e3) (s', Cexc err)
+Cevaluate s env (CIf e1 e2 e3) (s', Rerr err)
 
 and
 extg : forall cs g env n.
 true
 ==>
-Cevaluate (cs,g) env (CExtG n) ((cs,g++(genlist (fun x -> Nothing) n)),Cval (CLitv Unit))
+Cevaluate (cs,g) env (CExtG n) ((cs,g++(genlist (fun x -> Nothing) n)),Rval (CLitv Unit))
 
 and
 empty : forall s env.
 true
 ==>
-Cevaluate_list s env [] (s, Cval [])
+Cevaluate_list s env [] (s, Rval [])
 and
 cons1 : forall s env e es s' v s'' vs.
-Cevaluate s env e (s', Cval v) &&
-Cevaluate_list s' env es (s'', Cval vs)
+Cevaluate s env e (s', Rval v) &&
+Cevaluate_list s' env es (s'', Rval vs)
 ==>
-Cevaluate_list s env (e::es) (s'', Cval (v::vs))
+Cevaluate_list s env (e::es) (s'', Rval (v::vs))
 and
 cons2 : forall s env e es s' err.
-Cevaluate s env e (s', Cexc err)
+Cevaluate s env e (s', Rerr err)
 ==>
-Cevaluate_list s env (e::es) (s', Cexc err)
+Cevaluate_list s env (e::es) (s', Rerr err)
 and
 cons3 : forall s env e es s' v s'' err.
-Cevaluate s env e (s', Cval v) &&
-Cevaluate_list s' env es (s'', Cexc err)
+Cevaluate s env e (s', Rval v) &&
+Cevaluate_list s' env es (s'', Rerr err)
 ==>
-Cevaluate_list s env (e::es) (s'', Cexc err)
+Cevaluate_list s env (e::es) (s'', Rerr err)
 
 (* Equivalence relations on expressions and values *)
 
