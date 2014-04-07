@@ -19,14 +19,21 @@ fun prove_hyps_by tac th = PROVE_HYP (prove(list_mk_conj (hyp th),tac)) th
 fun match_exists_tac tm (g as (_,w)) =
   let
     val (vs,b) = strip_exists w
-    val cs = strip_conj b val c = hd cs
-    val (tms,_) = match_term c tm
-    val xs = map #redex tms
-    val ys = map #residue tms
-    fun sorter ls = xs@(List.filter(not o Lib.C Lib.mem xs)ls)
+    val vs = map (fst o dest_var o variant (free_vars tm)) vs
+    fun k (g as (_,w)) =
+      let
+        val (_,b) = strip_exists w
+        val cs = strip_conj b val c = hd cs
+        val (tms,_) = match_term c tm
+        val xs = map #redex tms
+        val ys = map #residue tms
+        fun sorter ls = xs@(List.filter(not o Lib.C Lib.mem xs)ls)
+      in
+        CONV_TAC(RESORT_EXISTS_CONV sorter) >>
+        map_every exists_tac ys
+      end g
   in
-    CONV_TAC(RESORT_EXISTS_CONV sorter) >>
-    map_every exists_tac ys
+    CONV_TAC(RENAME_VARS_CONV vs) >> k
   end g
 
 (* if the first conjunct under the goal's existential prefix matches the term
@@ -87,5 +94,27 @@ fun exists_suff_tac th (g as (_,w)) =
   in
     suff_tac(list_mk_exists(ws,list_mk_conj(b'::tl bs))) >- metis_tac[th]
   end g
+
+(* the theorem is of the form [!x1..n. P ==> ?y1..m. Q /\ A]
+   the goal is of the form [?z1..k. Q' /\ B]
+   specialise the theorem to make Q and Q' match as much as possible then
+   regeneralise then apply the theorem tactic *)
+fun exists_suff_gen_then ttac th (g as (_,w)) =
+  let
+    val (ws,b) = strip_exists w
+    val bs = strip_conj b
+    val th = (GEN_ALL(PART_MATCH (hd o strip_conj o snd o strip_exists o snd o dest_imp) th (hd bs)))
+  in ttac th end g
+
+(* the theorem is of the form [!x1..n. P ==> ?y1..m. Q /\ A]
+   the goal is of the form [?z1..k. Q' /\ B]
+   specialise the theorem to make Q and Q' match as much as possible then
+   apply the theorem tactic *)
+fun exists_suff_then ttac th (g as (_,w)) =
+  let
+    val (ws,b) = strip_exists w
+    val bs = strip_conj b
+    val th = (PART_MATCH (hd o strip_conj o snd o strip_exists o snd o dest_imp) th (hd bs))
+  in ttac th end g
 
 end
