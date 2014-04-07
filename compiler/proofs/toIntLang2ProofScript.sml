@@ -828,7 +828,8 @@ val exp_to_i2_correct = Q.prove (
      s_to_i2 gtagenv s s_i2 ∧
      v_to_i2 gtagenv v v_i2 ∧
      (pes_i2 = pat_exp_to_i2 tagenv (add_default_case is_handle tagenv pes)) ∧
-     v_to_i2 gtagenv err_v err_v_i2
+     v_to_i2 gtagenv err_v err_v_i2 ∧
+     (if is_handle then err_v = v else err_v = Conv_i1 (SOME ("Bind", TypeExn (Short "Bind"))) [])
      ⇒
      ?s'_i2 r_i2.
        result_to_i2 v_to_i2 gtagenv r r_i2 ∧
@@ -860,7 +861,7 @@ val exp_to_i2_correct = Q.prove (
      rw [v_to_i2_eqns] >>
      fs [cenv_inv_def, envC_tagged_def, gtagenv_wf_def, do_con_check_def] >>
      rw [] >>
-     metis_tac [length_evaluate_list_i2, length_vs_to_i2])
+     metis_tac [length_evaluate_list_i2, length_vs_to_i2, FST])
  >- metis_tac []
  >- (* Local variable lookup *)
     (fs [env_all_to_i2_cases, all_env_i2_to_env_def] >>
@@ -945,12 +946,11 @@ val exp_to_i2_correct = Q.prove (
          metis_tac []))
  >- metis_tac []
  >- metis_tac []
- (*
  >- (* Match *)
     (pop_assum mp_tac >>
      res_tac >>
      rw [] >>
-     FIRST_X_ASSUM (qspecl_then [`tagenv`, `env_i2`, `s'_i2'`, `v''`, `Conv_i2 bind_tag []`, `gtagenv` ] mp_tac) >>
+     FIRST_X_ASSUM (qspecl_then [`tagenv`, `env_i2`, `s'_i2'`, `v''`, `Conv_i2 bind_tag []`, `gtagenv`,`F` ] mp_tac) >>
      rw [] >>
      fs [env_all_to_i2_cases] >>
      rw [] >>
@@ -961,8 +961,6 @@ val exp_to_i2_correct = Q.prove (
      MAP_EVERY qexists_tac [`s'_i2''`, `r_i2`] >>
      rw [] >>
      metis_tac [])
-     *)
- >- cheat
  >- metis_tac []
  >- metis_tac []
  >- (* Let *)
@@ -1009,6 +1007,21 @@ val exp_to_i2_correct = Q.prove (
  >- metis_tac []
  >- metis_tac []
  >- metis_tac []
+
+ >- (rw [LET_THM, add_default_case_def, exhaustive_match_def] >>
+     rw [exp_to_i2_def, pat_to_i2_def, pat_bindings_i2_def, pmatch_i2_def] >>
+     rw [Once evaluate_i2_cases] >>
+     ONCE_REWRITE_TAC [evaluate_i2_cases] >>
+     rw [all_env_i2_to_env_def, bind_def]
+     >- metis_tac [pair_CASES] >>
+     fs [v_to_i2_eqns] >>
+     rw [] >>
+     ONCE_REWRITE_TAC [evaluate_i2_cases] >>
+     rw [] >>
+
+     >- metis_tac [pair_CASES, FST, SND, PAIR_EQ] >>
+
+
  >- cheat
  >- cheat
  >- cheat);
