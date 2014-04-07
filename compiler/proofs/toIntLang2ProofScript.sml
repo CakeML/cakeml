@@ -792,6 +792,21 @@ val lookup_tag_env_NONE = Q.prove (
 PairCases_on `tagenv` >>
 rw [lookup_tag_env_def]);
 
+val semantic_exhaustive_match_def = Define `
+  semantic_exhaustive_match gtagenv tagenv s v ps =
+    !env. ?envC p. cenv_inv envC tagenv gtagenv ∧ MEM p ps ∧ pmatch_i1 envC s p v env ≠ No_match`;
+
+val semantic_exhaustive_cons = Q.prove (
+`!gtagenv tagenv envC s v ps p.
+  semantic_exhaustive_match gtagenv tagenv s v ps ⇒
+  semantic_exhaustive_match gtagenv tagenv s v (p::ps)`,
+ rw [semantic_exhaustive_match_def] >>
+ metis_tac []);
+
+val syn_to_sem_exhaustive = Q.prove (
+`!tagenv ps. exhaustive_match tagenv ps ⇒ !gtagenv s v. semantic_exhaustive_match gtagenv tagenv s v ps`,
+ rw [exhaustive_match_def]);
+
 val exp_to_i2_correct = Q.prove (
 `(∀b env s e res. 
    evaluate_i1 b env s e res ⇒ 
@@ -827,9 +842,10 @@ val exp_to_i2_correct = Q.prove (
      env_all_to_i2 tagenv env env_i2 gtagenv ∧
      s_to_i2 gtagenv s s_i2 ∧
      v_to_i2 gtagenv v v_i2 ∧
-     (pes_i2 = pat_exp_to_i2 tagenv (add_default_case is_handle tagenv pes)) ∧
+     ((semantic_exhaustive_match gtagenv tagenv (SND s) v (MAP FST pes) ∧ pes_i2 = pat_exp_to_i2 tagenv pes) ∨
+      pes_i2 = add_default_case is_handle F (pat_exp_to_i2 tagenv pes)) ∧
      v_to_i2 gtagenv err_v err_v_i2 ∧
-     (if is_handle then err_v = v else err_v = Conv_i1 (SOME ("Bind", TypeExn (Short "Bind"))) [])
+     (if is_handle then err_v_i2 = v_i2 else err_v_i2 = Conv_i2 bind_tag [])
      ⇒
      ?s'_i2 r_i2.
        result_to_i2 v_to_i2 gtagenv r r_i2 ∧
@@ -843,7 +859,8 @@ val exp_to_i2_correct = Q.prove (
  >- metis_tac []
  >- metis_tac []
  >- metis_tac []
- >- metis_tac []
+ >- (fs [add_default_case_def, LET_THM, env_all_to_i2_cases] >>
+     metis_tac [syn_to_sem_exhaustive])
  >- metis_tac []
  >- (* Constructor application *)
     (res_tac >>
@@ -950,7 +967,9 @@ val exp_to_i2_correct = Q.prove (
     (pop_assum mp_tac >>
      res_tac >>
      rw [] >>
-     FIRST_X_ASSUM (qspecl_then [`tagenv`, `env_i2`, `s'_i2'`, `v''`, `Conv_i2 bind_tag []`, `gtagenv`,`F` ] mp_tac) >>
+     FIRST_X_ASSUM (qspecl_then [`tagenv`, `env_i2`, `s'_i2'`, `v''`, 
+                                  `add_default_case F (exhaustive_match tagenv (MAP FST pes)) (pat_exp_to_i2 tagenv pes)`,
+                                  `Conv_i2 bind_tag []`, `gtagenv`,`F` ] mp_tac) >>
      rw [] >>
      fs [env_all_to_i2_cases] >>
      rw [] >>
@@ -958,9 +977,11 @@ val exp_to_i2_correct = Q.prove (
      pop_assum (fn _ => all_tac) >>
      pop_assum mp_tac >>
      rw [] >>
-     MAP_EVERY qexists_tac [`s'_i2''`, `r_i2`] >>
+     fs [add_default_case_def, LET_THM] >>
      rw [] >>
-     metis_tac [])
+     fs [] >>
+     rw [] >>
+     metis_tac [syn_to_sem_exhaustive])
  >- metis_tac []
  >- metis_tac []
  >- (* Let *)
@@ -1007,8 +1028,9 @@ val exp_to_i2_correct = Q.prove (
  >- metis_tac []
  >- metis_tac []
  >- metis_tac []
-
- >- (rw [LET_THM, add_default_case_def, exhaustive_match_def] >>
+ >- (imp_res_tac syn_to_sem_exhaustive >>
+     fs [semantic_exhaustive_match_def]) >>
+ >- (rw [LET_THM, add_default_case_def] >>
      rw [exp_to_i2_def, pat_to_i2_def, pat_bindings_i2_def, pmatch_i2_def] >>
      rw [Once evaluate_i2_cases] >>
      ONCE_REWRITE_TAC [evaluate_i2_cases] >>
@@ -1018,14 +1040,7 @@ val exp_to_i2_correct = Q.prove (
      rw [] >>
      ONCE_REWRITE_TAC [evaluate_i2_cases] >>
      rw [] >>
-
-     >- metis_tac [pair_CASES, FST, SND, PAIR_EQ] >>
-
-
- >- cheat
- >- cheat
- >- cheat);
- (*
+     metis_tac [pair_CASES, FST, SND, PAIR_EQ])
  >- (pop_assum mp_tac >>
      rw [] >>
      fs [s_to_i2_cases, env_all_to_i2_cases] >>
@@ -1041,7 +1056,24 @@ val exp_to_i2_correct = Q.prove (
      rw [] >>
      fs [] >>
      MAP_EVERY qexists_tac [`(c, s'''')`, `r_i2`] >>
+     rw [add_default_case_def] >>
+     metis_tac [pat_bindings_to_i2])
+ >- (pop_assum mp_tac >>
      rw [] >>
+     fs [s_to_i2_cases, env_all_to_i2_cases] >>
+     rw [] >>
+     `match_result_to_i2 gtagenv (Match env') 
+            (pmatch_i2 s'' (pat_to_i2 tagenv p) v_i2 env_i2')`
+                   by metis_tac [pmatch_to_i2_correct, match_result_distinct] >>
+     cases_on `pmatch_i2 s'' (pat_to_i2 tagenv p) v_i2 env_i2'` >>
+     fs [match_result_to_i2_def] >>
+     rw [] >>
+     fs [METIS_PROVE [] ``(((?x. P x) ∧ R ⇒ Q) ⇔ !x. P x ∧ R ⇒ Q) ∧ ((R ∧ (?x. P x) ⇒ Q) ⇔ !x. R ∧ P x ⇒ Q) ``] >>
+     FIRST_X_ASSUM (qspecl_then [`tagenv`, `gtagenv`, `a`, `genv_i2`, `s''`] mp_tac) >>
+     rw [] >>
+     fs [] >>
+     MAP_EVERY qexists_tac [`(c, s'''')`, `r_i2`] >>
+     rw [add_default_case_def] >>
      metis_tac [pat_bindings_to_i2])
  >- (pop_assum mp_tac >>
      rw [] >>
@@ -1053,9 +1085,36 @@ val exp_to_i2_correct = Q.prove (
      cases_on `pmatch_i2 s'' (pat_to_i2 tagenv p) v_i2 env_i2'` >>
      fs [match_result_to_i2_def] >>
      rw [] >>
-     fs [METIS_PROVE [] ``(((?x. P x) ∧ R ⇒ Q) ⇔ !x. P x ∧ R ⇒ Q) ∧ ((R ∧ (?x. P x) ⇒ Q) ⇔ !x. R ∧ P x ⇒ Q) ``] >>
-     metis_tac [pat_bindings_to_i2]));
-     *)
+     full_simp_tac (srw_ss()++boolSimps.DNF_ss) [] >>
+     fs [add_default_case_def, LET_THM] >>
+     rw [] >>
+     `semantic_exhaustive_match gtagenv tagenv s v (MAP FST pes)` by cheat >>
+
+
+
+     cheat)
+ >- (pop_assum mp_tac >>
+     rw [] >>
+     fs [s_to_i2_cases, env_all_to_i2_cases] >>
+     rw [] >>
+     `match_result_to_i2 gtagenv No_match 
+            (pmatch_i2 s'' (pat_to_i2 tagenv p) v_i2 env_i2')`
+                   by metis_tac [pmatch_to_i2_correct, match_result_distinct] >>
+     cases_on `pmatch_i2 s'' (pat_to_i2 tagenv p) v_i2 env_i2'` >>
+     fs [match_result_to_i2_def] >>
+     rw [] >>
+     full_simp_tac (srw_ss()++boolSimps.DNF_ss) [] >>
+     fs [add_default_case_def, LET_THM] >>
+     rw [] >>
+     cheat)
+
+
+
+     fs [] >>
+     rw []
+     metis_tac [pat_bindings_to_i2]
+     
+     ));
 
 val merge_envC_empty = Q.prove (
 `!envC. merge_envC (emp,emp) envC = envC ∧ merge_envC ([],[]) envC = envC`,

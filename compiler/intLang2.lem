@@ -152,8 +152,8 @@ let uop_to_i2 uop =
     | Opref -> Opref_i2
   end
 
-val exhaustive_match : tag_env -> list (pat * exp_i1) -> bool
-let exhaustive_match tagenv pes = false
+val exhaustive_match : tag_env -> list pat -> bool
+let exhaustive_match tagenv ps = false
 
 val add_default_case : bool -> bool -> list (pat_i2 * exp_i2) -> list (pat_i2 * exp_i2)
 let add_default_case is_handle is_exhaustive pes =
@@ -172,7 +172,7 @@ exp_to_i2 tagenv (Raise_i1 e) =
   Raise_i2 (exp_to_i2 tagenv e)
 and
 exp_to_i2 tagenv (Handle_i1 e pes) = 
-  Handle_i2 (exp_to_i2 tagenv e) (add_default_case true (exhaustive_match tagenv pes) (pat_exp_to_i2 tagenv pes))
+  Handle_i2 (exp_to_i2 tagenv e) (add_default_case true (exhaustive_match tagenv (List.map fst pes)) (pat_exp_to_i2 tagenv pes))
 and
 exp_to_i2 tagenv (Lit_i1 l) = 
   Lit_i2 l 
@@ -197,7 +197,7 @@ exp_to_i2 tagenv (If_i1 e1 e2 e3) =
   If_i2 (exp_to_i2 tagenv e1) (exp_to_i2 tagenv e2) (exp_to_i2 tagenv e3)
 and
 exp_to_i2 tagenv (Mat_i1 e pes) =
-  Mat_i2 (exp_to_i2 tagenv e) (add_default_case true (exhaustive_match tagenv pes) (pat_exp_to_i2 tagenv pes))
+  Mat_i2 (exp_to_i2 tagenv e) (add_default_case false (exhaustive_match tagenv (List.map fst pes)) (pat_exp_to_i2 tagenv pes))
 and
 exp_to_i2 tagenv (Let_i1 x e1 e2) =
   Let_i2 x (exp_to_i2 tagenv e1) (exp_to_i2 tagenv e2)

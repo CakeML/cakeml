@@ -198,9 +198,9 @@ val _ = Define `
   )))`;
 
 
-(*val exhaustive_match : tag_env -> list (pat * exp_i1) -> bool*)
+(*val exhaustive_match : tag_env -> list pat -> bool*)
 val _ = Define `
- (exhaustive_match tagenv pes = F)`;
+ (exhaustive_match tagenv ps = F)`;
 
 
 (*val add_default_case : bool -> bool -> list (pat_i2 * exp_i2) -> list (pat_i2 * exp_i2)*)
@@ -223,7 +223,7 @@ val _ = Define `
  (Raise_i2 (exp_to_i2 tagenv e)))
 /\
 (exp_to_i2 tagenv (Handle_i1 e pes) =  
- (Handle_i2 (exp_to_i2 tagenv e) (add_default_case T (exhaustive_match tagenv pes) (pat_exp_to_i2 tagenv pes))))
+ (Handle_i2 (exp_to_i2 tagenv e) (add_default_case T (exhaustive_match tagenv (MAP FST pes)) (pat_exp_to_i2 tagenv pes))))
 /\
 (exp_to_i2 tagenv (Lit_i1 l) =  
  (Lit_i2 l)) 
@@ -248,7 +248,7 @@ val _ = Define `
 (If_i2 (exp_to_i2 tagenv e1) (exp_to_i2 tagenv e2) (exp_to_i2 tagenv e3)))
 /\
 (exp_to_i2 tagenv (Mat_i1 e pes) =  
-(Mat_i2 (exp_to_i2 tagenv e) (add_default_case T (exhaustive_match tagenv pes) (pat_exp_to_i2 tagenv pes))))
+(Mat_i2 (exp_to_i2 tagenv e) (add_default_case F (exhaustive_match tagenv (MAP FST pes)) (pat_exp_to_i2 tagenv pes))))
 /\
 (exp_to_i2 tagenv (Let_i1 x e1 e2) =  
 (Let_i2 x (exp_to_i2 tagenv e1) (exp_to_i2 tagenv e2)))
