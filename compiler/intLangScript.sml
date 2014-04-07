@@ -477,6 +477,10 @@ syneq_exp ez1 ez2 V (CUpd e11 e21) (CUpd e12 e22))
 syneq_exp ez1 ez2 V e31 e32))
 ==>
 syneq_exp ez1 ez2 V (CIf e11 e21 e31) (CIf e12 e22 e32))
+/\ (! ez1 ez2 V n.
+T
+==>
+syneq_exp ez1 ez2 V (CExtG n) (CExtG n))
 /\ (! ez1 ez2 V defs1 defs2 U.
 (! n1 n2. U n1 n2 ==>
   ((n1 < LENGTH defs1) /\ ((n2 < LENGTH defs2) /\  

@@ -489,6 +489,11 @@ syneq_exp ez1 ez2 V e31 e32
 ==>
 syneq_exp ez1 ez2 V (CIf e11 e21 e31) (CIf e12 e22 e32)
 and
+extg : forall ez1 ez2 V n.
+true
+==>
+syneq_exp ez1 ez2 V (CExtG n) (CExtG n)
+and
 dont_know : forall ez1 ez2 V defs1 defs2 U.
 (forall n1 n2. U n1 n2 -->
   n1 < List.length defs1 && n2 < List.length defs2 &&
