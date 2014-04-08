@@ -320,10 +320,10 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
     first_assum (match_exists_tac o concl) >> simp[] >>
     qpat_assum`p ⇒ q`mp_tac >>
     discharge_hyps >- (
-      conj_tac >- (
+      conj_asm1_tac >- (
         fsrw_tac[ARITH_ss][SUBSET_DEF,ADD1,PULL_EXISTS] >>
         Cases >> simp[] ) >>
-      cheat (* evaluate_i4_closed *) ) >>
+      imp_res_tac evaluate_i4_closed >> fs[]) >>
     strip_tac >>
     first_assum (mp_tac o MATCH_MP (CONJUNCT1 Cevaluate_syneq)) >>
     disch_then (exists_suff_gen_then mp_tac) >>
@@ -381,10 +381,9 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
     first_assum (match_exists_tac o concl) >> simp[] ) >>
   strip_tac >- (
     rw[] >> fs[] >>
-    `csg_closed_i4 s' ∧ closed_i4 v1` by (
-      cheat (* evaluate_i4_closed *) ) >>
-    `csg_closed_i4 ((count',s3),genv3) ∧ closed_i4 v2` by (
-      cheat (* evaluate_i4_closed *) ) >> fs[] >>
+    `csg_closed_i4 s' ∧ closed_i4 v1 ∧
+     csg_closed_i4 ((count',s3),genv3) ∧ closed_i4 v2` by (
+      imp_res_tac evaluate_i4_closed >> fs[] ) >> fs[] >>
     Cases_on`op = Opapp` >- (
       simp[] >>
       simp[Once Cevaluate_cases] >>
@@ -489,7 +488,7 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
     first_assum(match_exists_tac o concl) >> simp[] >>
     qpat_assum`p ⇒ q`mp_tac >>
     (discharge_hyps >- (
-       cheat (* evaluate_i4_closed *))) >>
+       imp_res_tac evaluate_i4_closed >> fs[])) >>
     strip_tac >>
     first_x_assum(mp_tac o MATCH_MP (CONJUNCT1 Cevaluate_syneq)) >>
     disch_then(exists_suff_gen_then mp_tac) >>
@@ -504,7 +503,7 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
   strip_tac >- (
     simp[] >>
     rpt gen_tac >> rpt strip_tac >> fs[] >>
-    `csg_closed_i4 s'` by (cheat (* evaluate_i4_closed *)) >>
+    `csg_closed_i4 s'` by (imp_res_tac evaluate_i4_closed >> fs[]) >>
     Cases_on`op`>>fs[LET_THM] >- (
       BasicProvers.CASE_TAC >- (
         simp[Once Cevaluate_cases] >>
