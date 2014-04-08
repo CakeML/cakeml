@@ -541,6 +541,100 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
       first_assum(match_exists_tac o concl) >>
       metis_tac[csg_i4_syneq_trans,exc_rel_syneq_trans] )
     >> cheat) >>
+  strip_tac >- (
+    simp[] >>
+    rpt gen_tac >> rpt strip_tac >> fs[] >>
+    Cases_on`op`>>simp[]>-(
+      BasicProvers.CASE_TAC >- (
+        simp[Once Cevaluate_cases] >>
+        srw_tac[DNF_ss][] >> disj2_tac >>
+        simp[Once (CONJUNCT2 Cevaluate_cases)] >>
+        simp[Once (CONJUNCT2 Cevaluate_cases)] >>
+        simp[Once (CONJUNCT2 Cevaluate_cases)] >>
+        srw_tac[DNF_ss][] >> disj1_tac >>
+        first_assum (split_pair_match o concl) >> fs[] >>
+        first_assum (match_exists_tac o concl) >> simp[] ) >>
+      simp[Once Cevaluate_cases] >>
+      srw_tac[DNF_ss][] >> disj2_tac >>
+      first_assum (split_pair_match o concl) >> fs[] >>
+      first_assum (match_exists_tac o concl) >> simp[] )
+    >- (
+      BasicProvers.CASE_TAC >- (
+        simp[Once Cevaluate_cases] >>
+        srw_tac[DNF_ss][] >> disj2_tac >>
+        simp[Once (CONJUNCT2 Cevaluate_cases)] >>
+        simp[Once (CONJUNCT2 Cevaluate_cases)] >>
+        simp[Once (CONJUNCT2 Cevaluate_cases)] >>
+        srw_tac[DNF_ss][] >> disj1_tac >>
+        first_assum (split_pair_match o concl) >> fs[] >>
+        first_assum (match_exists_tac o concl) >> simp[] )
+      >- (
+        simp[Once Cevaluate_cases] >>
+        srw_tac[DNF_ss][] >> disj2_tac >>
+        first_assum (split_pair_match o concl) >> fs[] >>
+        first_assum (match_exists_tac o concl) >> simp[] )
+      >- (
+        simp[Once Cevaluate_cases] >>
+        srw_tac[DNF_ss][] >> disj2_tac >>
+        simp[Once Cevaluate_cases] >>
+        simp[Once Cevaluate_cases] >>
+        srw_tac[DNF_ss][] >> disj1_tac >> disj2_tac >>
+        simp[Once (CONJUNCT2 Cevaluate_cases)] >>
+        simp[Once (CONJUNCT2 Cevaluate_cases)] >>
+        simp[Once (CONJUNCT2 Cevaluate_cases)] >>
+        srw_tac[DNF_ss][] >> disj1_tac >>
+        first_assum (split_pair_match o concl) >> fs[] >>
+        first_assum (match_exists_tac o concl) >> simp[] )
+      >- (
+        simp[Once Cevaluate_cases] >>
+        srw_tac[DNF_ss][] >> disj2_tac >>
+        first_assum (split_pair_match o concl) >> fs[] >>
+        first_assum (match_exists_tac o concl) >> simp[] ))
+    >- (
+      simp[Once Cevaluate_cases] >>
+      srw_tac[DNF_ss][] >> disj2_tac >>
+      simp[Once Cevaluate_cases] >>
+      srw_tac[DNF_ss][] >> disj2_tac >>
+      simp[Once (CONJUNCT2 Cevaluate_cases)] >>
+      simp[Once (CONJUNCT2 Cevaluate_cases)] >>
+      simp[Once (CONJUNCT2 Cevaluate_cases)] >>
+      srw_tac[DNF_ss][] >> disj1_tac >>
+      first_assum (split_pair_match o concl) >> fs[] >>
+      first_assum (match_exists_tac o concl) >> simp[] )
+    >- (
+      simp[Once Cevaluate_cases] >>
+      srw_tac[DNF_ss][] >> disj2_tac >> disj2_tac >> disj2_tac >>
+      first_assum (split_pair_match o concl) >> fs[] >>
+      first_assum (match_exists_tac o concl) >> simp[] )
+    >- (
+      simp[Once Cevaluate_cases] >>
+      srw_tac[DNF_ss][] >> disj2_tac >>
+      simp[Once (CONJUNCT2 Cevaluate_cases)] >>
+      simp[Once (CONJUNCT2 Cevaluate_cases)] >>
+      simp[Once (CONJUNCT2 Cevaluate_cases)] >>
+      srw_tac[DNF_ss][] >> disj1_tac >>
+      first_assum (split_pair_match o concl) >> fs[] >>
+      first_assum (match_exists_tac o concl) >> simp[] )
+    ) >>
+  strip_tac >- (
+    simp[] >>
+    rpt gen_tac >> rpt strip_tac >>
+    simp[Once Cevaluate_cases] >>
+    srw_tac[DNF_ss][] >> disj1_tac >>
+    fs[] >>
+    first_assum(split_pair_match o concl) >> fs[] >>
+    Cases_on`v`>>fs[do_if_i4_def]>>
+    Cases_on`l`>>fs[]>>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    cheat ) >>
+  strip_tac >- simp[] >>
+  strip_tac >- (
+    simp[] >>
+    rpt gen_tac >> rpt strip_tac >>
+    simp[Once Cevaluate_cases] >>
+    srw_tac[DNF_ss][] >> disj2_tac >> fs[] >>
+    first_assum(split_pair_match o concl) >> fs[] >>
+    first_assum(match_exists_tac o concl) >> fs[] ) >>
   cheat)
 
 val _ = export_theory()
