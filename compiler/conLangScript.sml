@@ -70,6 +70,16 @@ val _ = Define `
  (nil_tag =( 5))`;
 
 
+(*val some_tag : nat*)
+val _ = Define `
+ (some_tag =( 6))`;
+
+
+(*val none_tag : nat*)
+val _ = Define `
+ (none_tag =( 7))`;
+
+
 val _ = type_abbrev( "exh_ctors_env" , ``: (( typeN id), ( num list)) fmap``);
 
 val _ = Hol_datatype `
@@ -855,18 +865,22 @@ evaluate_prog_i2 ck exh genv s1 (prompt::prompts) (s2, env2, SOME err))`;
 (*val init_tagenv_state : (nat * tag_env * map nat (conN * tid_or_exn))*)
 val _ = Define `
  (init_tagenv_state =
-  ( 6,
+  ( 8,
    (FEMPTY,
     FUPDATE_LIST FEMPTY [("Div", (div_tag, SOME (TypeExn (Short "Div")))); 
                   ("Bind", (bind_tag,SOME (TypeExn (Short "Bind")))); 
                   ("Eq", (eq_tag, SOME (TypeExn (Short "Eq")))); 
                   ("::", (cons_tag, SOME (TypeId (Short "list"))));
-                  ("nil", (nil_tag, SOME (TypeId (Short "list"))))]),
+                  ("nil", (nil_tag, SOME (TypeId (Short "list"))));
+                  ("SOME", (some_tag, SOME (TypeId (Short "option"))));
+                  ("NONE", (none_tag, SOME (TypeId (Short "option"))))]),
    FUPDATE_LIST FEMPTY [(div_tag, ("Div", TypeExn (Short "Div"))); 
                  (bind_tag, ("Bind", TypeExn (Short "Bind"))); 
                  (eq_tag, ("Eq", TypeExn (Short "Eq"))); 
                  (cons_tag, ("::", TypeId (Short "list")));
-                 (nil_tag, ("nil", TypeId (Short "list")))]))`;
+                 (nil_tag, ("nil", TypeId (Short "list")));
+                 (some_tag, ("SOME", TypeId (Short "option")));
+                 (none_tag, ("NONE", TypeId (Short "option")))]))`;
 
 
 

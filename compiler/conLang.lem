@@ -48,6 +48,12 @@ let cons_tag = 4
 val nil_tag : nat
 let nil_tag = 5
 
+val some_tag : nat
+let some_tag = 6
+
+val none_tag : nat
+let none_tag = 7
+
 type exh_ctors_env = Map.map (id typeN) (list nat)
 
 type uop_i2 = 
@@ -885,18 +891,22 @@ evaluate_prog_i2 ck exh genv s1 (prompt::prompts) (s2, env2, Just err)
 
 val init_tagenv_state : (nat * tag_env * map nat (conN * tid_or_exn))
 let init_tagenv_state =
-  (6,
+  (8,
    (Map.empty,
     Map.fromList [("Div", (div_tag, Just (TypeExn (Short "Div")))); 
                   ("Bind", (bind_tag,Just (TypeExn (Short "Bind")))); 
                   ("Eq", (eq_tag, Just (TypeExn (Short "Eq")))); 
                   ("::", (cons_tag, Just (TypeId (Short "list"))));
-                  ("nil", (nil_tag, Just (TypeId (Short "list"))))]),
+                  ("nil", (nil_tag, Just (TypeId (Short "list"))));
+                  ("SOME", (some_tag, Just (TypeId (Short "option"))));
+                  ("NONE", (none_tag, Just (TypeId (Short "option"))))]),
    Map.fromList [(div_tag, ("Div", TypeExn (Short "Div"))); 
                  (bind_tag, ("Bind", TypeExn (Short "Bind"))); 
                  (eq_tag, ("Eq", TypeExn (Short "Eq"))); 
                  (cons_tag, ("::", TypeId (Short "list")));
-                 (nil_tag, ("nil", TypeId (Short "list")))])
+                 (nil_tag, ("nil", TypeId (Short "list")));
+                 (some_tag, ("SOME", TypeId (Short "option")));
+                 (none_tag, ("NONE", TypeId (Short "option")))])
 
 
 
