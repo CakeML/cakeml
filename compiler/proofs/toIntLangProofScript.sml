@@ -177,6 +177,102 @@ val no_vlabs_v_to_Cv = store_thm("no_vlabs_v_to_Cv",
   ho_match_mp_tac(TypeBase.induction_of(``:v_i4``)) >> simp[EVERY_MAP])
 val _ = export_rewrites["no_vlabs_v_to_Cv"]
 
+val evaluate_i4_closed = store_thm("evaluate_i4_closed",
+  ``(∀ck env s e res. evaluate_i4 ck env s e res ⇒
+       set (free_vars_i4 e) ⊆ count (LENGTH env) ∧
+       EVERY closed_i4 env ∧ csg_closed_i4 s ⇒
+       csg_closed_i4 (FST res) ∧
+       every_result closed_i4 closed_i4 (SND res)) ∧
+    (∀ck env s es res. evaluate_list_i4 ck env s es res ⇒
+       set (free_vars_list_i4 es) ⊆ count (LENGTH env) ∧
+       EVERY closed_i4 env ∧ csg_closed_i4 s ⇒
+       csg_closed_i4 (FST res) ∧
+       every_result (EVERY closed_i4) closed_i4 (SND res))``,
+  ho_match_mp_tac evaluate_i4_ind >> simp[] >>
+  strip_tac >- (
+    rpt gen_tac >> ntac 2 strip_tac >>
+    first_x_assum match_mp_tac >> fs[] >>
+    fsrw_tac[ARITH_ss][SUBSET_DEF,PULL_EXISTS] >>
+    Cases>>simp[ADD1] >> rw[] >>
+    res_tac >> fsrw_tac[ARITH_ss][]) >>
+  strip_tac >- simp[EVERY_MEM,MEM_EL,PULL_EXISTS] >>
+  strip_tac >- (
+    simp[csg_closed_i4_def,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
+    rw[] >> first_x_assum(qspec_then`n`mp_tac) >> simp[] ) >>
+  strip_tac >- (
+    simp[Once closed_i4_cases,SUBSET_DEF,PULL_EXISTS] >>
+    rpt gen_tac >> strip_tac >>
+    Cases >> simp[] ) >>
+  strip_tac >- (
+    gen_tac >> Cases >>
+    gen_tac >> Cases >>
+    simp[do_uapp_i4_def
+        ,semanticPrimitivesTheory.store_alloc_def
+        ,semanticPrimitivesTheory.store_lookup_def] >>
+    rw[] >> fs[] >>
+    fs[csg_closed_i4_def] >>
+    fs[EVERY_MEM,MEM_EL,PULL_EXISTS] >>
+    BasicProvers.EVERY_CASE_TAC >> fs[] >>
+    rw[EL_LUPDATE] >>
+    rw[EVERY_MEM,MEM_EL,PULL_EXISTS] ) >>
+  strip_tac >- (
+    ntac 2 gen_tac >> Cases >>
+    ntac 2 gen_tac >> Cases >>TRY(Cases_on`l:lit`)>>
+    simp[do_app_i4_def] >>
+    Cases >> TRY(Cases_on`l:lit`)>>
+    simp[bigStepTheory.dec_count_def] >>
+    rpt gen_tac >> ntac 2 strip_tac >> fs[] >>
+    TRY(qpat_assum`X = SOME Y`mp_tac >>
+        BasicProvers.CASE_TAC >> strip_tac >>
+        rpt BasicProvers.VAR_EQ_TAC) >>
+    first_x_assum match_mp_tac >>
+    simp[exn_env_i4_def] >>
+    TRY (
+      rator_x_assum`closed_i4`mp_tac >>
+      simp[Once closed_i4_cases] >>
+      simp[ADD1] >> rfs[csg_closed_i4_def] ) >>
+    fs[semanticPrimitivesTheory.store_assign_def] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    TRY (
+      rfs[csg_closed_i4_def,EVERY_MEM,PULL_EXISTS,MEM_EL,EL_LUPDATE] >>
+      rw[] >> rw[EVERY_MEM,MEM_EL,PULL_EXISTS] >> NO_TAC) >>
+    simp[build_rec_env_i4_def,EVERY_GENLIST] >>
+    simp[EVERY_MEM,MEM_EL,PULL_EXISTS,AC ADD_ASSOC ADD_SYM] >>
+    strip_tac >>
+    simp[Once closed_i4_cases] >>
+    simp[EVERY_MEM,MEM_EL,PULL_EXISTS,AC ADD_ASSOC ADD_SYM] ) >>
+  strip_tac >- (
+    ntac 3 gen_tac >>
+    Cases >> simp[do_app_i4_def] ) >>
+  strip_tac >- (
+    ntac 4 gen_tac >>
+    Cases >> simp[do_if_i4_def] >>
+    Cases_on`l`>>simp[] >> rw[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> ntac 2 strip_tac >>
+    first_x_assum match_mp_tac >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,ADD1] >>
+    Cases >> simp[ADD1] >> rw[] >> res_tac >>
+    fsrw_tac[ARITH_ss][] ) >>
+  strip_tac >- (
+    rpt gen_tac >> ntac 2 strip_tac >>
+    first_x_assum match_mp_tac >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,ADD1,build_rec_env_i4_def,EVERY_GENLIST] >>
+    conj_tac >- (
+      rw[] >>
+      Cases_on`x < LENGTH funs`>>simp[] >>
+      REWRITE_TAC[Once ADD_SYM] >>
+      first_x_assum match_mp_tac >>
+      simp[] ) >>
+    simp[Once closed_i4_cases] >>
+    fs[EVERY_MEM,SUBSET_DEF,MEM_FLAT,PULL_EXISTS,MEM_MAP] >>
+    rw[] >>
+    fsrw_tac[ARITH_ss][AC ADD_ASSOC ADD_SYM] >>
+    Cases_on`x < LENGTH funs + 1`>>simp[] >>
+    first_x_assum match_mp_tac >>
+    simp[] >> metis_tac[] ) >>
+  simp[csg_closed_i4_def,EVERY_GENLIST])
+
 val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
   ``(∀ck env s e res. evaluate_i4 ck env s e res ⇒
        ck ∧
