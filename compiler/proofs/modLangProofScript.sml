@@ -4,11 +4,11 @@ open miscTheory;
 open libTheory astTheory semanticPrimitivesTheory bigStepTheory initialEnvTheory terminationTheory;
 open libPropsTheory;
 open bigClockTheory;
-open intLang1Theory;
+open modLangTheory;
 open evalPropsTheory;
 open compilerTerminationTheory;
 
-val _ = new_theory "toIntLang1Proof";
+val _ = new_theory "modLangProof";
 
 val FST_triple = Q.prove (
 `(\(x,y,z). x) = FST`,

@@ -24,7 +24,7 @@ open import Ast
 open import SemanticPrimitives
 open import List_extra
 open import BigStep
-open import IntLang2
+open import ConLang
 
 val init_globals : list varN -> nat -> exp_i2
 let rec init_globals [] idx = Lit_i2 Unit

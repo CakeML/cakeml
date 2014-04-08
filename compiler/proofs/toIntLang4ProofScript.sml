@@ -1,5 +1,5 @@
 open HolKernel boolLib boolSimps bossLib lcsymtacs listTheory alistTheory pairTheory
-open Defn miscLib miscTheory intLang2Theory intLang3Theory intLang4Theory compilerTerminationTheory
+open Defn miscLib miscTheory conLangTheory decLangTheory intLang4Theory compilerTerminationTheory
 val _ = new_theory"toIntLang4Proof"
 
 (* TODO: move *)

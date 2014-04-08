@@ -5,7 +5,7 @@ open import Lib
 open import CompilerLib
 open import IntLang
 open import Ast
-open import IntLang2
+open import ConLang
 open import IntLang4
 
 let rec

@@ -8,7 +8,7 @@ open import ToIntLang
 open import ToBytecode
 open import Bytecode
 open String_extra
-open import IntLang2
+open import ConLang
 
 type contab = Map.map (maybe (id conN)) nat * list (nat * maybe (id conN)) * nat
 val cmap : contab -> Map.map (maybe (id conN)) nat

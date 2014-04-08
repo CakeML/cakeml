@@ -5,7 +5,7 @@ open import Lib
 open import CompilerLib
 open import Ast
 open import SemanticPrimitives
-open import IntLang3
+open import DecLang
 
 (* Syntax *)
 

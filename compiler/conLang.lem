@@ -29,7 +29,7 @@ open import Ast
 open import SemanticPrimitives
 open import List_extra
 open import BigStep
-open import IntLang1
+open import ModLang
 
 val tuple_tag : nat
 let tuple_tag = 0
@@ -152,8 +152,46 @@ let uop_to_i2 uop =
     | Opref -> Opref_i2
   end
 
+val is_pvar : pat -> bool
+let is_pvar p =
+  match p with
+    | Pvar _ -> true
+    | _ -> false
+  end
+
+(*
+val get_pcons : list pat -> maybe (list conN)
+let rec get_pcons [] = Just []
+and get_pcons (p::ps) =
+  match p with
+    | Pcon c ps' ->
+        if List.all is_pvar ps' then
+          match get_pcons ps with
+            | Nothing -> Nothing
+            | Just cons -> Just (id_to_n c::cons)
+          end
+        else
+          Nothing
+    | _ -> Nothing
+  end
+
 val exhaustive_match : tag_env -> list pat -> bool
-let exhaustive_match tagenv ps = false
+let exhaustive_match tagenv ps =
+  match ps with
+    | [Pvar _] -> true
+    | (Pcon c ps'::ps) ->
+      match get_pcons tagenv (Pcon c ps'::ps) with
+          Nothing -> false
+        | Just [] -> false
+        | Just tags -> 
+            Set.fromList (snd (lookup_tag_env c tagenv)) = Set.fromList tags
+      end
+  end
+*)
+
+val exhaustive_match : tag_env -> list pat -> bool
+let exhaustive_match tagenv ps =
+  false
 
 val add_default_case : bool -> bool -> list (pat_i2 * exp_i2) -> list (pat_i2 * exp_i2)
 let add_default_case is_handle is_exhaustive pes =

@@ -16,8 +16,8 @@ open import Pervasives
 open import SemanticPrimitives
 open import Ast
 open import BigStep
-open import IntLang2
-open import IntLang3
+open import ConLang
+open import DecLang
 open import CompilerLib
 (*
 open import Lib

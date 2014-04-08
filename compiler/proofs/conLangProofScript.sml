@@ -5,13 +5,13 @@ open astTheory;
 open semanticPrimitivesTheory;
 open libTheory;
 open libPropsTheory;
-open intLang1Theory;
-open intLang2Theory;
-open toIntLang1ProofTheory;
+open decLangTheory;
+open conLangTheory;
+open decLangProofTheory;
 open evalPropsTheory;
 open compilerTerminationTheory;
 
-val _ = new_theory "toIntLang2Proof";
+val _ = new_theory "conLangProof";
 
 val fmap_inverse_def = Define `
 fmap_inverse m1 m2 =
@@ -793,18 +793,26 @@ PairCases_on `tagenv` >>
 rw [lookup_tag_env_def]);
 
 val semantic_exhaustive_match_def = Define `
-  semantic_exhaustive_match gtagenv tagenv s v ps =
-    !env. ?envC p. cenv_inv envC tagenv gtagenv ∧ MEM p ps ∧ pmatch_i1 envC s p v env ≠ No_match`;
+  semantic_exhaustive_match envC s v ps =
+    !env. ?p. MEM p ps ∧ pmatch_i1 envC s p v env ≠ No_match`;
 
 val semantic_exhaustive_cons = Q.prove (
 `!gtagenv tagenv envC s v ps p.
-  semantic_exhaustive_match gtagenv tagenv s v ps ⇒
-  semantic_exhaustive_match gtagenv tagenv s v (p::ps)`,
+  semantic_exhaustive_match envC s v ps ⇒
+  semantic_exhaustive_match envC s v (p::ps)`,
+ rw [semantic_exhaustive_match_def] >>
+ metis_tac []);
+
+val semantic_exhaustive_cons2 = Q.prove (
+`!gtagenv tagenv envC s v ps p env.
+  pmatch_i1 envC s p v env = No_match ∧
+  semantic_exhaustive_match gtagenv tagenv envC s v (p::ps) ⇒
+  semantic_exhaustive_match envC s v ps`,
  rw [semantic_exhaustive_match_def] >>
  metis_tac []);
 
 val syn_to_sem_exhaustive = Q.prove (
-`!tagenv ps. exhaustive_match tagenv ps ⇒ !gtagenv s v. semantic_exhaustive_match gtagenv tagenv s v ps`,
+`!tagenv ps. exhaustive_match tagenv ps ⇒ !envC s v. semantic_exhaustive_match envC s v ps`,
  rw [exhaustive_match_def]);
 
 val exp_to_i2_correct = Q.prove (
@@ -842,7 +850,7 @@ val exp_to_i2_correct = Q.prove (
      env_all_to_i2 tagenv env env_i2 gtagenv ∧
      s_to_i2 gtagenv s s_i2 ∧
      v_to_i2 gtagenv v v_i2 ∧
-     ((semantic_exhaustive_match gtagenv tagenv (SND s) v (MAP FST pes) ∧ pes_i2 = pat_exp_to_i2 tagenv pes) ∨
+     ((semantic_exhaustive_match (all_env_i1_to_cenv env) (SND s) v (MAP FST pes) ∧ pes_i2 = pat_exp_to_i2 tagenv pes) ∨
       pes_i2 = add_default_case is_handle F (pat_exp_to_i2 tagenv pes)) ∧
      v_to_i2 gtagenv err_v err_v_i2 ∧
      (if is_handle then err_v_i2 = v_i2 else err_v_i2 = Conv_i2 bind_tag [])
@@ -1029,7 +1037,7 @@ val exp_to_i2_correct = Q.prove (
  >- metis_tac []
  >- metis_tac []
  >- (imp_res_tac syn_to_sem_exhaustive >>
-     fs [semantic_exhaustive_match_def]) >>
+     fs [semantic_exhaustive_match_def])
  >- (rw [LET_THM, add_default_case_def] >>
      rw [exp_to_i2_def, pat_to_i2_def, pat_bindings_i2_def, pmatch_i2_def] >>
      rw [Once evaluate_i2_cases] >>
@@ -1086,13 +1094,16 @@ val exp_to_i2_correct = Q.prove (
      fs [match_result_to_i2_def] >>
      rw [] >>
      full_simp_tac (srw_ss()++boolSimps.DNF_ss) [] >>
-     fs [add_default_case_def, LET_THM] >>
+     fs [add_default_case_def, LET_THM, all_env_i1_to_cenv_def] >>
      rw [] >>
-     `semantic_exhaustive_match gtagenv tagenv s v (MAP FST pes)` by cheat >>
-
-
-
-     cheat)
+     pop_assum mp_tac >>
+     pop_assum (fn _ => all_tac) >>
+     pop_assum (qspecl_then [`tagenv`, `v_i2`, `err_v_i2`, `gtagenv`, `is_handle`, `env_i2'`, `genv_i2`, `s''`] mp_tac) >>
+     rw [] >>
+     `semantic_exhaustive_match cenv s v (MAP FST pes)` by cheat >>
+     fs [] >>
+     rw [] >>
+     metis_tac [pat_bindings_to_i2])
  >- (pop_assum mp_tac >>
      rw [] >>
      fs [s_to_i2_cases, env_all_to_i2_cases] >>
@@ -1104,17 +1115,13 @@ val exp_to_i2_correct = Q.prove (
      fs [match_result_to_i2_def] >>
      rw [] >>
      full_simp_tac (srw_ss()++boolSimps.DNF_ss) [] >>
-     fs [add_default_case_def, LET_THM] >>
+     fs [add_default_case_def, LET_THM, all_env_i1_to_cenv_def] >>
+     pop_assum mp_tac >>
+     pop_assum (qspecl_then [`tagenv`, `v_i2`, `err_v_i2`, `gtagenv`, `is_handle`, `env_i2'`, `genv_i2`, `s''`] mp_tac) >>
      rw [] >>
-     cheat)
-
-
-
      fs [] >>
-     rw []
-     metis_tac [pat_bindings_to_i2]
-     
-     ));
+     rw [] >>
+     metis_tac [pat_bindings_to_i2]));
 
 val merge_envC_empty = Q.prove (
 `!envC. merge_envC (emp,emp) envC = envC ∧ merge_envC ([],[]) envC = envC`,

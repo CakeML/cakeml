@@ -5,12 +5,12 @@ open astTheory;
 open semanticPrimitivesTheory;
 open libTheory;
 open libPropsTheory;
-open intLang2Theory;
-open intLang3Theory;
+open conLangTheory;
+open decLangTheory;
 open evalPropsTheory;
 open compilerTerminationTheory;
 
-val _ = new_theory "toIntLang3Proof";
+val _ = new_theory "decLangProof";
 
 val el_append3 = Q.prove (
 `!l1 x l2. EL (LENGTH l1) (l1++ [x] ++ l2) = x`,
