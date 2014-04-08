@@ -2570,7 +2570,7 @@ val exp_to_i4_shift = store_thm("exp_to_i4_shift",
     fsrw_tac[ARITH_ss][arithmeticTheory.ADD1]) >>
    rw[])
 
-val csg_i4_count = prove(
+val csg_i4_count = store_thm("csg_i4_count",
   ``csg_i4 R csg1 csg2 ⇒ FST(FST csg2) = FST(FST csg1)``,
   PairCases_on`csg1` >>
   PairCases_on`csg2` >>
