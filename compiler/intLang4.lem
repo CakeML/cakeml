@@ -16,8 +16,8 @@ open import Pervasives
 open import SemanticPrimitives
 open import Ast
 open import BigStep
+open import ExhLang
 open import ConLang
-open import DecLang
 open import CompilerLib
 (*
 open import Lib
@@ -234,24 +234,24 @@ Let_Els_i4 n k e =
 
 (* return an expression that evaluates to whether the pattern matches the most
  * recently bound variable *)
-val pat_to_i4 : pat_i2 -> exp_i4
+val pat_to_i4 : pat_exh -> exp_i4
 (* return an expression that evaluates to whether all the m patterns match the
  * m most recently bound variables; n counts 0..m *)
-val pats_to_i4 : nat -> list pat_i2 -> exp_i4
+val pats_to_i4 : nat -> list pat_exh -> exp_i4
 let rec
-pat_to_i4 (Pvar_i2 _) = Lit_i4 (Bool true)
+pat_to_i4 (Pvar_exh _) = Lit_i4 (Bool true)
 and
-pat_to_i4 (Plit_i2 l) = App_i4 Equality (Var_local_i4 0) (Lit_i4 l)
+pat_to_i4 (Plit_exh l) = App_i4 Equality (Var_local_i4 0) (Lit_i4 l)
 and
-pat_to_i4 (Pcon_i2 tag []) =
+pat_to_i4 (Pcon_exh tag []) =
   App_i4 Equality (Var_local_i4 0) (Con_i4 tag [])
 and
-pat_to_i4 (Pcon_i2 tag ps) =
+pat_to_i4 (Pcon_exh tag ps) =
   sIf_i4 (Uapp_i4 (Tag_eq_i4 tag) (Var_local_i4 0))
     (Let_Els_i4 0 (List.length ps) (pats_to_i4 0 ps))
     (Lit_i4 (Bool false))
 and
-pat_to_i4 (Pref_i2 p) =
+pat_to_i4 (Pref_exh p) =
   sLet_i4 (Uapp_i4 Opderef_i4 (Var_local_i4 0))
     (pat_to_i4 p)
 and
@@ -267,16 +267,16 @@ pats_to_i4 n (p::ps) =
  * variables (including all the pattern variables) over an expression and the
  * new context of bound variables for the expression as well as the number of
  * newly bound variables *)
-val row_to_i4 : list (maybe varN) -> pat_i2 -> list (maybe varN) * nat * (exp_i4 -> exp_i4)
-val cols_to_i4 : list (maybe varN) -> nat -> nat -> list pat_i2 -> list (maybe varN) * nat * (exp_i4 -> exp_i4)
+val row_to_i4 : list (maybe varN) -> pat_exh -> list (maybe varN) * nat * (exp_i4 -> exp_i4)
+val cols_to_i4 : list (maybe varN) -> nat -> nat -> list pat_exh -> list (maybe varN) * nat * (exp_i4 -> exp_i4)
 let rec
-row_to_i4 (Nothing::bvs) (Pvar_i2 x) = (Just x::bvs, 0, fun e -> e)
+row_to_i4 (Nothing::bvs) (Pvar_exh x) = (Just x::bvs, 0, fun e -> e)
 and
-row_to_i4 bvs (Plit_i2 _) = (bvs, 0, fun e -> e)
+row_to_i4 bvs (Plit_exh _) = (bvs, 0, fun e -> e)
 and
-row_to_i4 bvs (Pcon_i2 _ ps) = cols_to_i4 bvs 0 0 ps
+row_to_i4 bvs (Pcon_exh _ ps) = cols_to_i4 bvs 0 0 ps
 and
-row_to_i4 bvs (Pref_i2 p) =
+row_to_i4 bvs (Pref_exh p) =
   let (bvs,m,f) = row_to_i4 (Nothing::bvs) p in
     (bvs, 1+m, fun e -> sLet_i4 (Uapp_i4 Opderef_i4 (Var_local_i4 0)) (f e))
 and
@@ -293,53 +293,53 @@ cols_to_i4 bvs n k (p::ps) =
              (f (fs e)))
 
 (* translate to i4 under a context of bound variables *)
-val exp_to_i4 : list (maybe varN) -> exp_i2 -> exp_i4
-val exps_to_i4 : list (maybe varN) -> list exp_i2 -> list exp_i4
-val funs_to_i4 : list (maybe varN) -> list (varN * varN * exp_i2) -> list exp_i4
+val exp_to_i4 : list (maybe varN) -> exp_exh -> exp_i4
+val exps_to_i4 : list (maybe varN) -> list exp_exh -> list exp_i4
+val funs_to_i4 : list (maybe varN) -> list (varN * varN * exp_exh) -> list exp_i4
 (* assumes the value being matched is most recently bound *)
-val pes_to_i4 : list (maybe varN) -> list (pat_i2 * exp_i2) -> exp_i4
+val pes_to_i4 : list (maybe varN) -> list (pat_exh * exp_exh) -> exp_i4
 let rec
-exp_to_i4 bvs (Raise_i2 e) = Raise_i4 (exp_to_i4 bvs e)
+exp_to_i4 bvs (Raise_exh e) = Raise_i4 (exp_to_i4 bvs e)
 and
-exp_to_i4 bvs (Handle_i2 e1 pes) =
+exp_to_i4 bvs (Handle_exh e1 pes) =
   Handle_i4 (exp_to_i4 bvs e1) (pes_to_i4 (Nothing::bvs) pes)
 and
-exp_to_i4 _ (Lit_i2 l) = Lit_i4 l
+exp_to_i4 _ (Lit_exh l) = Lit_i4 l
 and
-exp_to_i4 bvs (Con_i2 tag es) = Con_i4 tag (exps_to_i4 bvs es)
+exp_to_i4 bvs (Con_exh tag es) = Con_i4 tag (exps_to_i4 bvs es)
 and
-exp_to_i4 bvs (Var_local_i2 x) =
+exp_to_i4 bvs (Var_local_exh x) =
   match find_index (Just x) bvs 0 with
   | Just k -> Var_local_i4 k
   | Nothing -> Lit_i4 Unit (* should not happen *)
   end
 and
-exp_to_i4 _ (Var_global_i2 n) = Var_global_i4 n
+exp_to_i4 _ (Var_global_exh n) = Var_global_i4 n
 and
-exp_to_i4 bvs (Fun_i2 x e) = Fun_i4 (exp_to_i4 (Just x::bvs) e)
+exp_to_i4 bvs (Fun_exh x e) = Fun_i4 (exp_to_i4 (Just x::bvs) e)
 and
-exp_to_i4 bvs (Uapp_i2 uop e) = Uapp_i4 (uop_to_i4 uop) (exp_to_i4 bvs e)
+exp_to_i4 bvs (Uapp_exh uop e) = Uapp_i4 (uop_to_i4 uop) (exp_to_i4 bvs e)
 and
-exp_to_i4 bvs (App_i2 op e1 e2) =
+exp_to_i4 bvs (App_exh op e1 e2) =
   App_i4 op (exp_to_i4 bvs e1) (exp_to_i4 bvs e2)
 and
-exp_to_i4 bvs (If_i2 e1 e2 e3) =
+exp_to_i4 bvs (If_exh e1 e2 e3) =
   sIf_i4 (exp_to_i4 bvs e1) (exp_to_i4 bvs e2) (exp_to_i4 bvs e3)
 and
-exp_to_i4 bvs (Mat_i2 e pes) =
+exp_to_i4 bvs (Mat_exh e pes) =
   sLet_i4 (exp_to_i4 bvs e) (pes_to_i4 (Nothing::bvs) pes)
 and
-exp_to_i4 bvs (Let_i2 (Just x) e1 e2) =
+exp_to_i4 bvs (Let_exh (Just x) e1 e2) =
   sLet_i4 (exp_to_i4 bvs e1) (exp_to_i4 (Just x::bvs) e2)
 and
-exp_to_i4 bvs (Let_i2 Nothing e1 e2) =
+exp_to_i4 bvs (Let_exh Nothing e1 e2) =
   Seq_i4 (exp_to_i4 bvs e1) (exp_to_i4 bvs e2)
 and
-exp_to_i4 bvs (Letrec_i2 funs e) =
+exp_to_i4 bvs (Letrec_exh funs e) =
   let bvs = (List.map (fun (f,_,_) -> Just f) funs) ++ bvs in
   Letrec_i4 (funs_to_i4 bvs funs) (exp_to_i4 bvs e)
 and
-exp_to_i4 _ (Extend_global_i2 n) = Extend_global_i4 n
+exp_to_i4 _ (Extend_global_exh n) = Extend_global_i4 n
 and
 exps_to_i4 _ [] = []
 and

@@ -303,8 +303,8 @@ val _ = register "exp_to_i2" (exp_to_i2_def,exp_to_i2_ind);
 
 val (pmatch_i2_def, pmatch_i2_ind) =
   tprove_no_defn ((pmatch_i2_def, pmatch_i2_ind),
-  WF_REL_TAC `inv_image $< (\x. case x of INL (x,p,y,z) => pat_i2_size p
-                                        | INR (x,ps,y,z) => pat_i21_size ps)` >>
+  WF_REL_TAC `inv_image $< (\x. case x of INL (a,x,p,y,z) => pat_i2_size p
+                                        | INR (a,x,ps,y,z) => pat_i21_size ps)` >>
   srw_tac [ARITH_ss] [pat_i2_size_def]);
 val _ = register "pmatch_i2" (pmatch_i2_def,pmatch_i2_ind);
 
@@ -316,22 +316,22 @@ val _ = register "do_eq_i2" (do_eq_i2_def,do_eq_i2_ind);
 
 val (exp_to_i4_def, exp_to_i4_ind) =
   tprove_no_defn ((exp_to_i4_def, exp_to_i4_ind),
-  WF_REL_TAC `inv_image $< (\x. case x of INL (bvs,e) => exp_i2_size e
-                                        | INR (INL (bvs,es)) => exp_i26_size es
-                                        | INR (INR (INL (bvs,funs))) => exp_i21_size funs
-                                        | INR (INR (INR (bvs,pes))) => exp_i23_size pes)`);
+  WF_REL_TAC `inv_image $< (\x. case x of INL (bvs,e) => exp_exh_size e
+                                        | INR (INL (bvs,es)) => exp_exh6_size es
+                                        | INR (INR (INL (bvs,funs))) => exp_exh1_size funs
+                                        | INR (INR (INR (bvs,pes))) => exp_exh3_size pes)`);
 val _ = register "exp_to_i4" (exp_to_i4_def,exp_to_i4_ind);
 
 val (pat_to_i4_def, pat_to_i4_ind) =
   tprove_no_defn ((pat_to_i4_def, pat_to_i4_ind),
-  WF_REL_TAC `inv_image $< (\x. case x of INL p => pat_i2_size p
-                                        | INR (n,ps) => pat_i21_size ps)`);
+  WF_REL_TAC `inv_image $< (\x. case x of INL p => pat_exh_size p
+                                        | INR (n,ps) => pat_exh1_size ps)`);
 val _ = register "pat_to_i4" (pat_to_i4_def,pat_to_i4_ind);
 
 val (row_to_i4_def, row_to_i4_ind) =
   tprove_no_defn ((row_to_i4_def, row_to_i4_ind),
-  WF_REL_TAC `inv_image $< (\x. case x of INL (bvs,p) => pat_i2_size p
-                                        | INR (bvs,n,k,ps) => pat_i21_size ps)`);
+  WF_REL_TAC `inv_image $< (\x. case x of INL (bvs,p) => pat_exh_size p
+                                        | INR (bvs,n,k,ps) => pat_exh1_size ps)`);
 val _ = register "row_to_i4" (row_to_i4_def,row_to_i4_ind);
 
 val (Let_Els_i4_def, Let_Els_i4_ind) =
