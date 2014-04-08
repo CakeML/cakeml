@@ -1845,7 +1845,6 @@ val Cevaluate_list_any_syneq_any = store_thm("Cevaluate_list_any_syneq_any",
       fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,FORALL_PROD,MEM_ZIP,syneq_exp_refl] ) >> simp[])
 *)
 
-(*
 (* Closed values *)
 
 val (Cclosed_rules,Cclosed_ind,Cclosed_cases) = Hol_reln`
@@ -1867,7 +1866,7 @@ val _ = export_rewrites["Cclosed_lit_loc"]
 
 val doPrim2_closed = store_thm(
 "doPrim2_closed",
-``∀ty op v1 v2. every_Cresult Cclosed Cclosed (doPrim2 ty op v1 v2)``,
+``∀ty op v1 v2. every_result Cclosed Cclosed (doPrim2 ty op v1 v2)``,
 ntac 2 gen_tac >>
 Cases >> TRY (Cases_on `l`) >>
 Cases >> TRY (Cases_on `l`) >>
@@ -1876,7 +1875,7 @@ val _ = export_rewrites["doPrim2_closed"];
 
 val CevalPrim2_closed = store_thm(
 "CevalPrim2_closed",
-``∀p2 v1 v2. every_Cresult Cclosed Cclosed (CevalPrim2 p2 v1 v2)``,
+``∀p2 v1 v2. every_result Cclosed Cclosed (CevalPrim2 p2 v1 v2)``,
 Cases >> rw [Cclosed_cases] >>
 Cases_on `do_Ceq v1 v2` >>
 rw [Cclosed_cases])
@@ -1884,18 +1883,21 @@ val _ = export_rewrites["CevalPrim2_closed"];
 
 val CevalPrim1_closed = store_thm(
 "CevalPrim1_closed",
-``∀uop s v. EVERY (Cclosed) s ∧ Cclosed v ⇒
-  EVERY (Cclosed) (FST (CevalPrim1 uop s v)) ∧
-  every_Cresult Cclosed Cclosed (SND (CevalPrim1 uop s v))``,
-Cases >> rw[LET_THM,Cclosed_rules] >> rw[]
->- ( Cases_on`v`>>fs[] )
->> ( Cases_on`v`>>fs[] >>
+  ``∀s uop v. EVERY (Cclosed) (FST s) ∧ EVERY (OPTION_EVERY Cclosed) (SND s) ∧ Cclosed v ⇒
+    EVERY (Cclosed) (FST (FST (CevalPrim1 uop s v))) ∧
+    EVERY (OPTION_EVERY Cclosed) (SND(FST (CevalPrim1 uop s v))) ∧
+    every_result Cclosed Cclosed (SND (CevalPrim1 uop s v))``,
+  Cases >> Cases >> rw[LET_THM,Cclosed_rules] >> rw[] >>
+  Cases_on`v`>>fs[] >>
   rw[el_check_def] >>
-  fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL]))
+  fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  rw[EL_LUPDATE] >>
+  rator_x_assum`Cclosed`mp_tac >>
+  simp[Once Cclosed_cases,EVERY_MEM,MEM_EL,PULL_EXISTS])
 
 val CevalUpd_closed = store_thm(
 "CevalUpd_closed",
-``(∀s v1 v2. Cclosed v2 ⇒ every_Cresult Cclosed Cclosed (SND (CevalUpd s v1 v2))) ∧
+``(∀s v1 v2. Cclosed v2 ⇒ every_result Cclosed Cclosed (SND (CevalUpd s v1 v2))) ∧
   (∀s v1 v2. EVERY (Cclosed) s ∧ Cclosed v2 ⇒
     EVERY (Cclosed) (FST (CevalUpd s v1 v2)))``,
   conj_tac >>
@@ -1907,24 +1909,26 @@ val CevalUpd_closed = store_thm(
   imp_res_tac MEM_LUPDATE_E >> fs[])
 
 val Cevaluate_closed = store_thm("Cevaluate_closed",
-  ``(∀menv s env exp res. Cevaluate menv s env exp res
+  ``(∀s env exp res. Cevaluate s env exp res
      ⇒ set (free_vars exp) ⊆ count (LENGTH env)
      ∧ no_labs exp
      ∧ EVERY (Cclosed) env
-     ∧ EVERY (Cclosed) (SND s)
-     ∧ (∀env. env ∈ FRANGE menv ⇒ EVERY Cclosed env)
+     ∧ EVERY (Cclosed) (SND (FST s))
+     ∧ EVERY (OPTION_EVERY Cclosed) (SND s)
      ⇒
-     EVERY (Cclosed) (SND (FST res)) ∧
-     every_Cresult Cclosed (Cclosed) (SND res)) ∧
-    (∀menv s env exps ress. Cevaluate_list menv s env exps ress
+     EVERY (Cclosed) (SND (FST (FST res))) ∧
+     EVERY (OPTION_EVERY Cclosed) (SND (FST res)) ∧
+     every_result Cclosed (Cclosed) (SND res)) ∧
+    (∀s env exps ress. Cevaluate_list s env exps ress
      ⇒ set (free_vars_list exps) ⊆ count (LENGTH env)
      ∧ no_labs_list exps
      ∧ EVERY (Cclosed) env
-     ∧ EVERY (Cclosed) (SND s)
-     ∧ (∀env. env ∈ FRANGE menv ⇒ EVERY Cclosed env)
+     ∧ EVERY (Cclosed) (SND (FST s))
+     ∧ EVERY (OPTION_EVERY Cclosed) (SND s)
      ⇒
-     EVERY (Cclosed) (SND (FST ress)) ∧
-     every_Cresult (EVERY (Cclosed)) Cclosed (SND ress))``,
+     EVERY (Cclosed) (SND (FST (FST ress))) ∧
+     EVERY (OPTION_EVERY Cclosed) (SND (FST ress)) ∧
+     every_result (EVERY (Cclosed)) Cclosed (SND ress))``,
   ho_match_mp_tac Cevaluate_ind >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
@@ -1933,7 +1937,7 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
     rpt gen_tac >> ntac 2 strip_tac >>
     fsrw_tac[DNF_ss][ADD1] >>
     rfs[] >>
-    conj_tac >>
+    rpt conj_tac >>
     last_x_assum(match_mp_tac o MP_CANON) >>
     fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,MEM_FILTER] >>
     Cases >> fsrw_tac[ARITH_ss][] >>
@@ -1942,24 +1946,18 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
   strip_tac >- (
     rw[] >> fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] ) >>
   strip_tac >- (
-    rw[] >> fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL,IN_FRANGE,FLOOKUP_DEF] >> PROVE_TAC[]) >>
+    rw[] >> fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >> PROVE_TAC[OPTION_EVERY_def]) >>
   strip_tac >- ( rw[] >> rw[Once Cclosed_cases]) >>
   strip_tac >- (
     srw_tac[ETA_ss][FOLDL_UNION_BIGUNION] >> fs[] >>
     rw[Once Cclosed_cases] ) >>
   strip_tac >- (
-    srw_tac[ETA_ss][FOLDL_UNION_BIGUNION] >> fs[] >>
-    metis_tac[every_Cresult_P1]) >>
-  strip_tac >- ( rw[] >> rw[Once Cclosed_cases]) >>
-  strip_tac >- rw[] >>
-  strip_tac >- (
-    rw[] >> fs[] >>
-    fsrw_tac[DNF_ss][Q.SPECL[`CConv m vs`] Cclosed_cases,EVERY_MEM,MEM_EL] ) >>
-  strip_tac >- rw[] >>
+    srw_tac[ETA_ss][FOLDL_UNION_BIGUNION] >> fs[]) >>
   strip_tac >- (
     rpt gen_tac >> ntac 2 strip_tac >>
     first_x_assum match_mp_tac >>
     fsrw_tac[DNF_ss][SUBSET_DEF,ADD1,MEM_MAP,MEM_FILTER] >>
+    BasicProvers.CASE_TAC >> simp[] >>
     Cases >> fsrw_tac[ARITH_ss][] >>
     rw[] >> res_tac >> fs[ADD1]) >>
   strip_tac >- rw[] >>
@@ -2004,12 +2002,10 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
     simp[]) >>
   strip_tac >- (
     rpt gen_tac >> ntac 2 strip_tac >>
-    fsrw_tac[ETA_ss][FOLDL_UNION_BIGUNION] >>
-    metis_tac[every_Cresult_P1]) >>
+    fsrw_tac[ETA_ss][FOLDL_UNION_BIGUNION]) >>
   strip_tac >- (
     rpt gen_tac >> ntac 2 strip_tac >>
-    fsrw_tac[ETA_ss][FOLDL_UNION_BIGUNION] >>
-    metis_tac[every_Cresult_P1]) >>
+    fsrw_tac[ETA_ss][FOLDL_UNION_BIGUNION]) >>
   strip_tac >- (
     rpt gen_tac >> ntac 2 strip_tac >>
     fsrw_tac[ETA_ss][FOLDL_UNION_BIGUNION] ) >>
@@ -2019,17 +2015,20 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
     fs[] >> metis_tac[CevalPrim1_closed,FST,SND]) >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
-  strip_tac >- ( rw[] >> metis_tac[every_Cresult_P1] ) >>
+  strip_tac >- ( rw[] >> metis_tac[] ) >>
   strip_tac >- (
     rw[] >>
     metis_tac[CevalUpd_closed,FST,SND]) >>
-  strip_tac >- ( rw[] >> metis_tac[every_Cresult_P1] ) >>
+  strip_tac >- ( rw[] >> metis_tac[] ) >>
   strip_tac >- (
     rpt gen_tac >> ntac 2 strip_tac >>
     first_x_assum match_mp_tac >>
     fs[] >> rw[] ) >>
   strip_tac >- rw[] >>
-  strip_tac >- rw[] >>
+  strip_tac >- (
+    rw[] >>
+    rw[EVERY_MEM,MEM_GENLIST] >>
+    rw[OPTION_EVERY_def] ) >>
   strip_tac >- (
     rpt gen_tac >> ntac 2 strip_tac >>
     full_simp_tac std_ss [] >>
@@ -2037,11 +2036,16 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
   strip_tac >- (
     rpt gen_tac >> ntac 2 strip_tac >>
     full_simp_tac std_ss [] >>
-    fs[] >> metis_tac[every_Cresult_P1]) >>
+    fs[] >> metis_tac[]) >>
+  strip_tac >- (
+    rpt gen_tac >> ntac 2 strip_tac >>
+    full_simp_tac std_ss [] >>
+    fs[] >> metis_tac[]) >>
   rpt gen_tac >> ntac 2 strip_tac >>
   full_simp_tac std_ss [] >>
   fs[] )
 
+(*
 val closed_Clocs_def = Define`
   closed_Clocs Cmenv Cenv Cs ⇔
     (BIGUNION (IMAGE (BIGUNION o IMAGE all_Clocs o set) (FRANGE Cmenv)) ⊆ count (LENGTH Cs)) ∧
