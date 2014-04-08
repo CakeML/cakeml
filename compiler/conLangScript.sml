@@ -457,7 +457,7 @@ val _ = Define `
     | (Equality, v1, v2) =>
         (case do_eq_i2 v1 v2 of
             Eq_type_error => NONE
-          | Eq_closure => SOME (exn_env_i2, s, Raise_i2 (Con_i2 (eq_tag,SOME (TypeExn (Short "Exn"))) []))
+          | Eq_closure => SOME (exn_env_i2, s, Raise_i2 (Con_i2 (eq_tag,SOME (TypeExn (Short "Eq"))) []))
           | Eq_val b => SOME (env', s, Lit_i2 (Bool b))
         )
     | (Opassign, (Loc_i2 lnum), v) =>

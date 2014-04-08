@@ -380,7 +380,7 @@ let do_app_i2 env' s op v1 v2 =
     | (Equality, v1, v2) ->
         match do_eq_i2 v1 v2 with
           | Eq_type_error -> Nothing
-          | Eq_closure -> Just (exn_env_i2, s, Raise_i2 (Con_i2 (eq_tag,Just (TypeExn (Short "Exn"))) []))
+          | Eq_closure -> Just (exn_env_i2, s, Raise_i2 (Con_i2 (eq_tag,Just (TypeExn (Short "Eq"))) []))
           | Eq_val b -> Just (env', s, Lit_i2 (Bool b))
         end
     | (Opassign, (Loc_i2 lnum), v) ->

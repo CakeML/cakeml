@@ -5,8 +5,9 @@ open astTheory;
 open semanticPrimitivesTheory;
 open libTheory;
 open libPropsTheory;
-open decLangTheory;
+open modLangTheory;
 open conLangTheory;
+open modLangProofTheory;
 open decLangProofTheory;
 open evalPropsTheory;
 open compilerTerminationTheory;
@@ -111,15 +112,24 @@ envC_tagged envC tagenv gtagenv =
   (!cn num_args t.
     lookup_con_id cn envC = SOME (num_args, t)
     ⇒
-    ?tag ctors.
-      lookup_tag_env (SOME cn) tagenv = (tag, ctors) ∧
+    ?tag t'.
+      lookup_tag_env (SOME cn) tagenv = (tag, t') ∧
       FLOOKUP gtagenv (id_to_n cn, t) = SOME (tag,num_args) ∧
-      !cn' x ctors'.
-        ctors = SOME ctors' ∧ FLOOKUP gtagenv (cn',t) = SOME x ⇒ MEM cn' ctors')`;
+      (if tag = tuple_tag then t' = NONE else t' = SOME t))`;
+
+val exhaustive_env_correct_def = Define `
+exhaustive_env_correct exh gtagenv ⇔
+  (!t.
+     (?cn. (cn, TypeId t) ∈ FDOM gtagenv)
+     ⇒
+     ?tags. 
+       FLOOKUP exh t = SOME tags ∧
+       (!cn tag l. FLOOKUP gtagenv (cn,TypeId t) = SOME (tag,l) ⇒ MEM tag tags))`;
 
 val cenv_inv_def = Define `
-cenv_inv envC tagenv gtagenv ⇔
+cenv_inv envC exh tagenv gtagenv ⇔
  envC_tagged envC tagenv gtagenv ∧
+ exhaustive_env_correct exh gtagenv ∧
  gtagenv_wf gtagenv`;
 
 val (v_to_i2_rules, v_to_i2_ind, v_to_i2_cases) = Hol_reln `
@@ -128,20 +138,20 @@ val (v_to_i2_rules, v_to_i2_ind, v_to_i2_cases) = Hol_reln `
 (!gtagenv vs vs'.
   vs_to_i2 gtagenv vs vs'
   ⇒ 
-  v_to_i2 gtagenv (Conv_i1 NONE vs) (Conv_i2 tuple_tag vs')) ∧
+  v_to_i2 gtagenv (Conv_i1 NONE vs) (Conv_i2 (tuple_tag,NONE) vs')) ∧
 (!gtagenv cn tn tag vs vs'.
   FLOOKUP gtagenv (cn,tn) = SOME (tag, LENGTH vs) ∧
   vs_to_i2 gtagenv vs vs'
   ⇒ 
-  v_to_i2 gtagenv (Conv_i1 (SOME (cn,tn)) vs) (Conv_i2 tag vs')) ∧
-(!gtagenv env x e env_i2 envC tagenv.
+  v_to_i2 gtagenv (Conv_i1 (SOME (cn,tn)) vs) (Conv_i2 (tag,SOME tn) vs')) ∧
+(!gtagenv env x e env_i2 envC exh tagenv.
   env_to_i2 gtagenv env env_i2 ∧
-  cenv_inv envC tagenv gtagenv
+  cenv_inv envC exh tagenv gtagenv
   ⇒ 
   v_to_i2 gtagenv (Closure_i1 (envC,env) x e) (Closure_i2 env_i2 x (exp_to_i2 tagenv e))) ∧ 
-(!gtagenv env funs x envC env_i2 tagenv.
+(!gtagenv env funs x envC env_i2 exh tagenv.
   env_to_i2 gtagenv env env_i2 ∧
-  cenv_inv envC tagenv gtagenv
+  cenv_inv envC exh tagenv gtagenv
   ⇒ 
   v_to_i2 gtagenv (Recclosure_i1 (envC,env) funs x) (Recclosure_i2 env_i2 (funs_to_i2 tagenv funs) x)) ∧
 (!gtagenv loc.
@@ -167,12 +177,12 @@ val v_to_i2_eqns = Q.prove (
     (v = Litv_i2 l)) ∧
  (!gtagenv cn vs v.
   v_to_i2 gtagenv (Conv_i1 cn vs) v ⇔ 
-    (?vs' tag gtagenv' clengths.
-       vs_to_i2 gtagenv vs vs' ∧ (v = Conv_i2 tag vs') ∧
-       (cn = NONE ∧ tag = tuple_tag ∨
+    (?vs' tag gtagenv' t'.
+       vs_to_i2 gtagenv vs vs' ∧ (v = Conv_i2 (tag,t') vs') ∧
+       (cn = NONE ∧ tag = tuple_tag ∧ t' = NONE ∨
         ?cn' tn.
           FLOOKUP gtagenv (cn',tn) = SOME (tag,LENGTH vs) ∧
-          cn = SOME (cn',tn)))) ∧
+          cn = SOME (cn',tn) ∧ t' = SOME tn))) ∧
  (!gtagenv l v.
   v_to_i2 gtagenv (Loc_i1 l) v ⇔ 
     (v = Loc_i2 l)) ∧
@@ -407,70 +417,97 @@ val pat_bindings_to_i2 = Q.prove (
  metis_tac [APPEND_11, pat_bindings_accum, pat_bindings_i2_accum]);
 
 val pmatch_to_i2_correct = Q.prove (
-`(!envC s p v env r env_i2 s_i2 v_i2 tagenv gtagenv.
+`(!envC s p v env r env_i2 s_i2 v_i2 tagenv gtagenv exh.
   r ≠ Match_type_error ∧
-  cenv_inv envC tagenv gtagenv ∧
+  cenv_inv envC exh tagenv gtagenv ∧
   pmatch_i1 envC s p v env = r ∧
   s_to_i2' gtagenv s s_i2 ∧
   v_to_i2 gtagenv v v_i2 ∧
   env_to_i2 gtagenv env env_i2
   ⇒
   ?r_i2.
-    pmatch_i2 s_i2 (pat_to_i2 tagenv p) v_i2 env_i2 = r_i2 ∧
+    pmatch_i2 exh s_i2 (pat_to_i2 tagenv p) v_i2 env_i2 = r_i2 ∧
     match_result_to_i2 gtagenv r r_i2) ∧
- (!envC s ps vs env r env_i2 s_i2 vs_i2 tagenv gtagenv.
+ (!envC s ps vs env r env_i2 s_i2 vs_i2 tagenv gtagenv exh.
   r ≠ Match_type_error ∧
-  cenv_inv envC tagenv gtagenv ∧
+  cenv_inv envC exh tagenv gtagenv ∧
   pmatch_list_i1 envC s ps vs env = r ∧
   s_to_i2' gtagenv s s_i2 ∧
   vs_to_i2 gtagenv vs vs_i2 ∧
   env_to_i2 gtagenv env env_i2
   ⇒
   ?r_i2.
-    pmatch_list_i2 s_i2 (MAP (pat_to_i2 tagenv) ps) vs_i2 env_i2 = r_i2 ∧
+    pmatch_list_i2 exh s_i2 (MAP (pat_to_i2 tagenv) ps) vs_i2 env_i2 = r_i2 ∧
     match_result_to_i2 gtagenv r r_i2)`,
  ho_match_mp_tac pmatch_i1_ind >>
  rw [pmatch_i1_def, pmatch_i2_def, pat_to_i2_def, match_result_to_i2_def] >>
  fs [match_result_to_i2_def, bind_def, v_to_i2_eqns] >>
  rw [pmatch_i2_def, match_result_to_i2_def]
- >- (cases_on `lookup_con_id n envC` >>
-     fs [] >>
-     every_case_tac >>
+ >- (every_case_tac >>
      fs [] 
-     >- metis_tac [] >>
-     fs [cenv_inv_def, envC_tagged_def, gtagenv_wf_def] >>
-     res_tac >>
-     fs [] >>
-     rw [] >>
-     imp_res_tac same_tid_diff_ctor >>
-     rw [] >>
-     metis_tac [tid_or_exn_11, SOME_11, PAIR_EQ])
- >- (cases_on `lookup_con_id n envC` >>
-     fs [] >>
-     every_case_tac >>
-     fs [] >> 
-     rw []
-     >- metis_tac [length_vs_to_i2, cenv_inv_def, envC_tagged_def, gtagenv_wf_def, SOME_11, same_ctor_and_same_tid, PAIR_EQ] >>
-     fs [cenv_inv_def, envC_tagged_def, gtagenv_wf_def] >>
-     res_tac >>
-     fs [] >>
-     rw [] >>
-     imp_res_tac same_tid_diff_ctor >>
-     rw [] >>
-     metis_tac [tid_or_exn_11, SOME_11, PAIR_EQ])
- >- (cases_on `lookup_con_id n envC` >>
-     fs [] >>
-     every_case_tac >>
-     fs [cenv_inv_def, envC_tagged_def, gtagenv_wf_def] >>
-     imp_res_tac same_ctor_and_same_tid >>
-     imp_res_tac same_tid_diff_ctor >>
-     rw [] >>
-     res_tac >>
-     fs [match_result_to_i2_def])
- >- metis_tac []
- >- metis_tac [length_vs_to_i2]
+     >- (`lookup_tag_env (SOME n) tagenv = (tag, if tag = tuple_tag then NONE else SOME t')` 
+                  by (fs [cenv_inv_def, envC_tagged_def, gtagenv_wf_def] >>
+                      res_tac >>
+                      fs [] >>
+                      metis_tac [length_vs_to_i2, SOME_11, same_ctor_and_same_tid, PAIR_EQ]) >>
+         rw [pmatch_i2_def] >>
+         fs []
+         >- (fs [cenv_inv_def,gtagenv_wf_def] >>
+             metis_tac []) >>
+         `(?tid. t' = TypeId tid) ∨ (?exid. t' = TypeExn exid)` 
+                    by (Cases_on `t'` >>
+                        metis_tac []) >>
+         rw [pmatch_i2_def]
+         >- (`?tags. FLOOKUP exh tid = SOME tags ∧ MEM tag tags` 
+                    by (fs [cenv_inv_def, exhaustive_env_correct_def, FLOOKUP_DEF] >>
+                        rw [] >>
+                        metis_tac []) >>
+             rw [] >>
+             metis_tac [])
+         >- (fs [cenv_inv_def, envC_tagged_def, gtagenv_wf_def] >>
+             metis_tac [length_vs_to_i2, SOME_11, same_ctor_and_same_tid, PAIR_EQ])
+         >- metis_tac [tid_or_exn_11, SOME_11, PAIR_EQ]
+         >- (fs [cenv_inv_def, envC_tagged_def, gtagenv_wf_def] >>
+             metis_tac [length_vs_to_i2, SOME_11, same_ctor_and_same_tid, PAIR_EQ]))
+     >- (fs [cenv_inv_def, envC_tagged_def] >>
+         res_tac >>
+         rw [] >>
+         `(?tid. t' = TypeId tid) ∨ (?exid. t' = TypeExn exid)` 
+                    by (Cases_on `t'` >>
+                        metis_tac []) >>
+         `(?tid. r = TypeId tid) ∨ (?exid. r = TypeExn exid)` 
+                    by (Cases_on `r` >>
+                        metis_tac []) >>
+         imp_res_tac same_tid_diff_ctor >>
+         fs [same_tid_def] >>
+         rw [] >>
+         `tag' ≠ tuple_tag` by metis_tac [gtagenv_wf_def] >>
+         fs [] >>
+         rw [pmatch_i2_def]
+         >- metis_tac [gtagenv_wf_def]
+         >- metis_tac [gtagenv_wf_def]
+         >- (`?tags. FLOOKUP exh tid = SOME tags ∧ MEM tag tags` 
+                    by (fs [cenv_inv_def, exhaustive_env_correct_def, FLOOKUP_DEF] >>
+                        rw [] >>
+                        metis_tac []) >>
+             rw [match_result_to_i2_def]  >>
+             `?tags. FLOOKUP exh tid = SOME tags ∧ MEM tag' tags` 
+                    by (fs [cenv_inv_def, exhaustive_env_correct_def, FLOOKUP_DEF] >>
+                        rw [] >>
+                        metis_tac []) >>
+             fs [] >>
+             rw [] >>
+             fs []) 
+         >- metis_tac [gtagenv_wf_def]
+         >- metis_tac [gtagenv_wf_def]
+         >- rw [match_result_to_i2_def]
+         >- metis_tac [tid_or_exn_11, gtagenv_wf_def]
+         >- metis_tac [tid_or_exn_11, gtagenv_wf_def]
+         >- rw [match_result_to_i2_def]))
  >- (PairCases_on `tagenv` >>
-     fs [lookup_tag_env_def])
+     fs [pmatch_i2_def, lookup_tag_env_def] >>
+     rw [] >>
+     metis_tac [length_vs_to_i2])
  >- (every_case_tac >>
      fs [s_to_i2'_cases] >>
      imp_res_tac store_lookup_vs_to_i2 >>
@@ -488,12 +525,12 @@ val pmatch_to_i2_correct = Q.prove (
      metis_tac [match_result_to_i2_def, match_result_distinct]));
 
 val (env_all_to_i2_rules, env_all_to_i2_ind, env_all_to_i2_cases) = Hol_reln `
-(!genv envC gtagenv env env_i2 genv_i2.
-  cenv_inv envC tagenv gtagenv ∧
+(!genv envC gtagenv exh env env_i2 genv_i2.
+  cenv_inv envC exh tagenv gtagenv ∧
   vs_to_i2 gtagenv genv genv_i2 ∧
   env_to_i2 gtagenv env env_i2
   ⇒
-  env_all_to_i2 tagenv (MAP SOME genv,envC,env) (MAP SOME genv_i2,env_i2) gtagenv)`;
+  env_all_to_i2 tagenv (MAP SOME genv,envC,env) (exh,MAP SOME genv_i2,env_i2) gtagenv)`;
 
 val env_to_i2_append = Q.prove (
 `!gtagenv env1 env2 env1' env2'.
@@ -587,13 +624,13 @@ val do_uapp_correct = Q.prove (
 
 val exn_env_i2_correct = Q.prove (
 `!gtagenv.
-  env_all_to_i2 tagenv env env_i2 gtagenv
+  env_all_to_i2 tagenv env (exh,genv,env_i2) gtagenv
   ⇒
   env_all_to_i2 (FST (SND init_tagenv_state)) (exn_env_i1 (all_env_i1_to_genv env))
-    (all_env_i2_to_genv env_i2, exn_env_i2) gtagenv`,
+    (exh, genv, exn_env_i2) gtagenv`,
  rw [env_all_to_i2_cases, exn_env_i1_def, exn_env_i2_def, emp_def, v_to_i2_eqns,
      all_env_i1_to_genv_def, all_env_i2_to_genv_def, init_tagenv_state_def] >>
- qexists_tac `genv` >>
+ qexists_tac `genv'` >>
  qexists_tac `genv_i2` >>
  fs [cenv_inv_def, envC_tagged_def, gtagenv_wf_def, lookup_con_id_def] >>
  rw [] >>
@@ -629,9 +666,6 @@ val do_eq_i2 = Q.prove (
  >- metis_tac []
  >- metis_tac []
  >- metis_tac []
- >- metis_tac [cenv_inv_def, gtagenv_wf_def, SOME_11, PAIR_EQ, pair_CASES]
- >- metis_tac [cenv_inv_def, gtagenv_wf_def, SOME_11, PAIR_EQ, pair_CASES]
- >- metis_tac [cenv_inv_def, gtagenv_wf_def, SOME_11, PAIR_EQ, pair_CASES]
  >- metis_tac [cenv_inv_def, gtagenv_wf_def, SOME_11, PAIR_EQ, pair_CASES]
  >- (fs [Once v_to_i2_cases] >>
      rw [do_eq_i2_def])
@@ -679,15 +713,15 @@ val do_eq_i2 = Q.prove (
  metis_tac []);
 
 val do_app_i2_correct = Q.prove (
-`!env s op v1 v2 s' e env' tagenv s_i2 v1_i2 v2_i2 env_i2 gtagenv genv.
+`!env s op v1 v2 s' e env' tagenv s_i2 v1_i2 v2_i2 env_i2 gtagenv genv exh.
   do_app_i1 env s op v1 v2 = SOME (env',s',e) ∧
-  env_all_to_i2 tagenv env (genv,env_i2) gtagenv ∧
+  env_all_to_i2 tagenv env (exh,genv,env_i2) gtagenv ∧
   s_to_i2' gtagenv s s_i2 ∧
   v_to_i2 gtagenv v1 v1_i2 ∧
   v_to_i2 gtagenv v2 v2_i2
   ⇒
   ∃s'_i2 env'_i2 tagenv'.
-    env_all_to_i2 tagenv' env' (genv,env'_i2) gtagenv ∧
+    env_all_to_i2 tagenv' env' (exh,genv,env'_i2) gtagenv ∧
     s_to_i2' gtagenv s' s'_i2 ∧
     do_app_i2 env_i2 s_i2 op v1_i2 v2_i2 = SOME (env'_i2,s'_i2,exp_to_i2 tagenv' e)`,
  cases_on `op` >>
@@ -742,7 +776,7 @@ val do_app_i2_correct = Q.prove (
          rw [] >>
          fs [env_all_to_i2_cases, bind_def] >>
          rw [v_to_i2_eqns, all_env_i1_to_genv_def, all_env_i2_to_genv_def, get_tagenv_def] >>
-         metis_tac [])
+         fs [cenv_inv_def])
      >- (CCONTR_TAC >>
          fs [] >>
          rw [] >>
@@ -759,6 +793,7 @@ val do_app_i2_correct = Q.prove (
          rw [v_to_i2_eqns, all_env_i1_to_genv_def, all_env_i2_to_genv_def, 
              build_rec_env_i1_merge, build_rec_env_i2_merge, merge_def] >>
          fs [funs_to_i2_map]
+         >- fs [cenv_inv_def]
          >- (match_mp_tac env_to_i2_append >>
              rw [funs_to_i2_map, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, env_to_i2_el, EL_MAP] >>
              `?f x e. EL n l' = (f,x,e)` by metis_tac [pair_CASES] >>
@@ -788,32 +823,9 @@ val do_app_i2_correct = Q.prove (
      metis_tac [vs_to_i2_lupdate, s_to_i2'_cases]));
 
 val lookup_tag_env_NONE = Q.prove (
-`lookup_tag_env NONE tagenv = (tuple_tag, SOME [])`,
+`lookup_tag_env NONE tagenv = (tuple_tag, NONE)`,
 PairCases_on `tagenv` >>
 rw [lookup_tag_env_def]);
-
-val semantic_exhaustive_match_def = Define `
-  semantic_exhaustive_match envC s v ps =
-    !env. ?p. MEM p ps ∧ pmatch_i1 envC s p v env ≠ No_match`;
-
-val semantic_exhaustive_cons = Q.prove (
-`!gtagenv tagenv envC s v ps p.
-  semantic_exhaustive_match envC s v ps ⇒
-  semantic_exhaustive_match envC s v (p::ps)`,
- rw [semantic_exhaustive_match_def] >>
- metis_tac []);
-
-val semantic_exhaustive_cons2 = Q.prove (
-`!gtagenv tagenv envC s v ps p env.
-  pmatch_i1 envC s p v env = No_match ∧
-  semantic_exhaustive_match gtagenv tagenv envC s v (p::ps) ⇒
-  semantic_exhaustive_match envC s v ps`,
- rw [semantic_exhaustive_match_def] >>
- metis_tac []);
-
-val syn_to_sem_exhaustive = Q.prove (
-`!tagenv ps. exhaustive_match tagenv ps ⇒ !envC s v. semantic_exhaustive_match envC s v ps`,
- rw [exhaustive_match_def]);
 
 val exp_to_i2_correct = Q.prove (
 `(∀b env s e res. 
@@ -823,7 +835,7 @@ val exp_to_i2_correct = Q.prove (
      (res = (s',r)) ∧
      env_all_to_i2 tagenv env env_i2 gtagenv ∧
      s_to_i2 gtagenv s s_i2 ∧
-     (e_i2 = exp_to_i2 tagenv e)
+     e_i2 = exp_to_i2 tagenv e
      ⇒
      ∃s'_i2 r_i2.
        result_to_i2 v_to_i2 gtagenv r r_i2 ∧
@@ -845,20 +857,18 @@ val exp_to_i2_correct = Q.prove (
  (∀b env s v pes err_v res. 
    evaluate_match_i1 b env s v pes err_v res ⇒ 
    (SND res ≠ Rerr Rtype_error) ⇒
-   !tagenv s' r env_i2 s_i2 v_i2 pes_i2 err_v_i2 gtagenv is_handle.
+   !tagenv s' r env_i2 s_i2 v_i2 pes_i2 err_v_i2 gtagenv.
      (res = (s',r)) ∧
      env_all_to_i2 tagenv env env_i2 gtagenv ∧
      s_to_i2 gtagenv s s_i2 ∧
      v_to_i2 gtagenv v v_i2 ∧
-     ((semantic_exhaustive_match (all_env_i1_to_cenv env) (SND s) v (MAP FST pes) ∧ pes_i2 = pat_exp_to_i2 tagenv pes) ∨
-      pes_i2 = add_default_case is_handle F (pat_exp_to_i2 tagenv pes)) ∧
-     v_to_i2 gtagenv err_v err_v_i2 ∧
-     (if is_handle then err_v_i2 = v_i2 else err_v_i2 = Conv_i2 bind_tag [])
+     pes_i2 = pat_exp_to_i2 tagenv pes ∧
+     v_to_i2 gtagenv err_v err_v_i2
      ⇒
      ?s'_i2 r_i2.
        result_to_i2 v_to_i2 gtagenv r r_i2 ∧
        s_to_i2 gtagenv s' s'_i2 ∧
-       evaluate_match_i2 b env_i2 s_i2 v_i2 pes_i2 (s'_i2, r_i2))`,
+       evaluate_match_i2 b env_i2 s_i2 v_i2 pes_i2 err_v_i2 (s'_i2, r_i2))`,
  ho_match_mp_tac evaluate_i1_ind >>
  rw [] >>
  rw [Once evaluate_i2_cases,exp_to_i2_def] >>
@@ -867,15 +877,14 @@ val exp_to_i2_correct = Q.prove (
  >- metis_tac []
  >- metis_tac []
  >- metis_tac []
- >- (fs [add_default_case_def, LET_THM, env_all_to_i2_cases] >>
-     metis_tac [syn_to_sem_exhaustive])
+ >- metis_tac []
  >- metis_tac []
  >- (* Constructor application *)
     (res_tac >>
      rw [] >>
      fs [env_all_to_i2_cases, build_conv_i1_def] >>
      rw [] >>
-     MAP_EVERY qexists_tac [`s'_i2`, `Rval (Conv_i2 (FST (lookup_tag_env cn tagenv)) v')`] >>
+     MAP_EVERY qexists_tac [`s'_i2`, `Rval (Conv_i2 (lookup_tag_env cn tagenv) v')`] >>
      rw [] >>
      Cases_on `cn` >>
      fs [] >>
@@ -922,7 +931,7 @@ val exp_to_i2_correct = Q.prove (
      fs [s_to_i2_cases] >>
      rw [] >>
      (qspecl_then [`env`, `s3`, `op`, `v1`, `v2`, `s4`, `e''`, `env'`,
-                   `tagenv`, `s'''''''`, `v'`, `v''`, `SND env_i2`, `gtagenv`, `FST env_i2`] mp_tac) do_app_i2_correct >>
+                   `tagenv`, `s'''''''`, `v'`, `v''`, `SND (SND env_i2)`, `gtagenv`, `FST (SND env_i2)`, `FST env_i2`] mp_tac) do_app_i2_correct >>
      rw [] >>
      PairCases_on `env_i2` >>
      fs [] >>
@@ -935,7 +944,7 @@ val exp_to_i2_correct = Q.prove (
      fs [s_to_i2_cases] >>
      rw [] >>
      (qspecl_then [`env`, `s3`, `op`, `v1`, `v2`, `s4`, `e''`, `env'`,
-                   `tagenv`, `s'''''''`, `v'`, `v''`, `SND env_i2`, `gtagenv`, `FST env_i2`] mp_tac) do_app_i2_correct >>
+                   `tagenv`, `s'''''''`, `v'`, `v''`, `SND (SND env_i2)`, `gtagenv`, `FST (SND env_i2)`, `FST env_i2`] mp_tac) do_app_i2_correct >>
      rw [] >>
      PairCases_on `env_i2` >>
      fs [] >>
@@ -947,7 +956,12 @@ val exp_to_i2_correct = Q.prove (
      rw [] >>
      fs [s_to_i2_cases] >>
      rw [] >>
-     metis_tac [do_app_i2_correct, pair_CASES])
+     (qspecl_then [`env`, `s3`, `Opapp`, `v1`, `v2`, `s4`, `e3`, `env'`,
+                   `tagenv`, `s''''''`, `v'`, `v''`, `SND (SND env_i2)`, `gtagenv`, `FST (SND env_i2)`, `FST env_i2`] mp_tac) do_app_i2_correct >>
+     rw [] >>
+     PairCases_on `env_i2` >>
+     fs [] >>
+     metis_tac [])
  >- metis_tac []
  >- metis_tac []
  >- metis_tac []
@@ -972,12 +986,11 @@ val exp_to_i2_correct = Q.prove (
  >- metis_tac []
  >- metis_tac []
  >- (* Match *)
-    (pop_assum mp_tac >>
+   (pop_assum mp_tac >>
      res_tac >>
      rw [] >>
      FIRST_X_ASSUM (qspecl_then [`tagenv`, `env_i2`, `s'_i2'`, `v''`, 
-                                  `add_default_case F (exhaustive_match tagenv (MAP FST pes)) (pat_exp_to_i2 tagenv pes)`,
-                                  `Conv_i2 bind_tag []`, `gtagenv`,`F` ] mp_tac) >>
+                                  `Conv_i2 (bind_tag,SOME (TypeExn (Short "Bind"))) []`, `gtagenv`] mp_tac) >>
      rw [] >>
      fs [env_all_to_i2_cases] >>
      rw [] >>
@@ -985,20 +998,16 @@ val exp_to_i2_correct = Q.prove (
      pop_assum (fn _ => all_tac) >>
      pop_assum mp_tac >>
      rw [] >>
-     fs [add_default_case_def, LET_THM] >>
-     rw [] >>
-     fs [] >>
-     rw [] >>
-     metis_tac [syn_to_sem_exhaustive])
+     metis_tac [])
  >- metis_tac []
  >- metis_tac []
  >- (* Let *)
-    (`?genv' env'. env_i2 = (genv',env')` by metis_tac [pair_CASES] >>
+    (`?exh' genv' env'. env_i2 = (exh',genv',env')` by metis_tac [pair_CASES] >>
      rw [] >>
      res_tac >>
      fs [] >>
      rw [] >>
-     `env_all_to_i2 tagenv (genv,cenv,opt_bind n v env) (genv', opt_bind n v' env') gtagenv`
+     `env_all_to_i2 tagenv (genv,cenv,opt_bind n v env) (exh',genv', opt_bind n v' env') gtagenv`
                 by (fs [env_all_to_i2_cases] >>
                     fs [opt_bind_def, v_to_i2_eqns] >>
                     rw [] >>
@@ -1011,10 +1020,10 @@ val exp_to_i2_correct = Q.prove (
  >- (* Letrec *)
     (pop_assum mp_tac >>
      rw [] >>
-     `?genv' env'. env_i2 = (genv',env')` by metis_tac [pair_CASES] >>
+     `?exh' genv' env'. env_i2 = (exh',genv',env')` by metis_tac [pair_CASES] >>
      rw [] >>
      `env_all_to_i2 tagenv (genv,cenv,build_rec_env_i1 funs (cenv,env) env) 
-                           (genv',build_rec_env_i2 (funs_to_i2 tagenv funs) env' env') 
+                           (exh',genv',build_rec_env_i2 (funs_to_i2 tagenv funs) env' env') 
                            gtagenv`
          by (fs [env_all_to_i2_cases] >>
              rw [build_rec_env_i1_merge, build_rec_env_i2_merge, merge_def] >>
@@ -1036,90 +1045,35 @@ val exp_to_i2_correct = Q.prove (
  >- metis_tac []
  >- metis_tac []
  >- metis_tac []
- >- (imp_res_tac syn_to_sem_exhaustive >>
-     fs [semantic_exhaustive_match_def])
- >- (rw [LET_THM, add_default_case_def] >>
-     rw [exp_to_i2_def, pat_to_i2_def, pat_bindings_i2_def, pmatch_i2_def] >>
-     rw [Once evaluate_i2_cases] >>
-     ONCE_REWRITE_TAC [evaluate_i2_cases] >>
-     rw [all_env_i2_to_env_def, bind_def]
-     >- metis_tac [pair_CASES] >>
-     fs [v_to_i2_eqns] >>
-     rw [] >>
-     ONCE_REWRITE_TAC [evaluate_i2_cases] >>
-     rw [] >>
-     metis_tac [pair_CASES, FST, SND, PAIR_EQ])
  >- (pop_assum mp_tac >>
      rw [] >>
      fs [s_to_i2_cases, env_all_to_i2_cases] >>
      rw [] >>
      `match_result_to_i2 gtagenv (Match env') 
-            (pmatch_i2 s'' (pat_to_i2 tagenv p) v_i2 env_i2')`
+            (pmatch_i2 exh s'' (pat_to_i2 tagenv p) v_i2 env_i2')`
                    by metis_tac [pmatch_to_i2_correct, match_result_distinct] >>
-     cases_on `pmatch_i2 s'' (pat_to_i2 tagenv p) v_i2 env_i2'` >>
+     cases_on `pmatch_i2 exh s'' (pat_to_i2 tagenv p) v_i2 env_i2'` >>
      fs [match_result_to_i2_def] >>
      rw [] >>
      fs [METIS_PROVE [] ``(((?x. P x) ∧ R ⇒ Q) ⇔ !x. P x ∧ R ⇒ Q) ∧ ((R ∧ (?x. P x) ⇒ Q) ⇔ !x. R ∧ P x ⇒ Q) ``] >>
-     FIRST_X_ASSUM (qspecl_then [`tagenv`, `gtagenv`, `a`, `genv_i2`, `s''`] mp_tac) >>
+     FIRST_X_ASSUM (qspecl_then [`tagenv`, `gtagenv`, `exh`, `a`, `genv_i2`, `s''`] mp_tac) >>
      rw [] >>
      fs [] >>
      MAP_EVERY qexists_tac [`(c, s'''')`, `r_i2`] >>
-     rw [add_default_case_def] >>
-     metis_tac [pat_bindings_to_i2])
- >- (pop_assum mp_tac >>
-     rw [] >>
-     fs [s_to_i2_cases, env_all_to_i2_cases] >>
-     rw [] >>
-     `match_result_to_i2 gtagenv (Match env') 
-            (pmatch_i2 s'' (pat_to_i2 tagenv p) v_i2 env_i2')`
-                   by metis_tac [pmatch_to_i2_correct, match_result_distinct] >>
-     cases_on `pmatch_i2 s'' (pat_to_i2 tagenv p) v_i2 env_i2'` >>
-     fs [match_result_to_i2_def] >>
-     rw [] >>
-     fs [METIS_PROVE [] ``(((?x. P x) ∧ R ⇒ Q) ⇔ !x. P x ∧ R ⇒ Q) ∧ ((R ∧ (?x. P x) ⇒ Q) ⇔ !x. R ∧ P x ⇒ Q) ``] >>
-     FIRST_X_ASSUM (qspecl_then [`tagenv`, `gtagenv`, `a`, `genv_i2`, `s''`] mp_tac) >>
-     rw [] >>
-     fs [] >>
-     MAP_EVERY qexists_tac [`(c, s'''')`, `r_i2`] >>
-     rw [add_default_case_def] >>
      metis_tac [pat_bindings_to_i2])
  >- (pop_assum mp_tac >>
      rw [] >>
      fs [s_to_i2_cases, env_all_to_i2_cases] >>
      rw [] >>
      `match_result_to_i2 gtagenv No_match 
-            (pmatch_i2 s'' (pat_to_i2 tagenv p) v_i2 env_i2')`
+            (pmatch_i2 exh s'' (pat_to_i2 tagenv p) v_i2 env_i2')`
                    by metis_tac [pmatch_to_i2_correct, match_result_distinct] >>
-     cases_on `pmatch_i2 s'' (pat_to_i2 tagenv p) v_i2 env_i2'` >>
+     cases_on `pmatch_i2 exh s'' (pat_to_i2 tagenv p) v_i2 env_i2'` >>
      fs [match_result_to_i2_def] >>
      rw [] >>
-     full_simp_tac (srw_ss()++boolSimps.DNF_ss) [] >>
-     fs [add_default_case_def, LET_THM, all_env_i1_to_cenv_def] >>
-     rw [] >>
+     fs [METIS_PROVE [] ``(((?x. P x) ∧ R ⇒ Q) ⇔ !x. P x ∧ R ⇒ Q) ∧ ((R ∧ (?x. P x) ⇒ Q) ⇔ !x. R ∧ P x ⇒ Q) ``] >>
      pop_assum mp_tac >>
-     pop_assum (fn _ => all_tac) >>
-     pop_assum (qspecl_then [`tagenv`, `v_i2`, `err_v_i2`, `gtagenv`, `is_handle`, `env_i2'`, `genv_i2`, `s''`] mp_tac) >>
-     rw [] >>
-     `semantic_exhaustive_match cenv s v (MAP FST pes)` by cheat >>
-     fs [] >>
-     rw [] >>
-     metis_tac [pat_bindings_to_i2])
- >- (pop_assum mp_tac >>
-     rw [] >>
-     fs [s_to_i2_cases, env_all_to_i2_cases] >>
-     rw [] >>
-     `match_result_to_i2 gtagenv No_match 
-            (pmatch_i2 s'' (pat_to_i2 tagenv p) v_i2 env_i2')`
-                   by metis_tac [pmatch_to_i2_correct, match_result_distinct] >>
-     cases_on `pmatch_i2 s'' (pat_to_i2 tagenv p) v_i2 env_i2'` >>
-     fs [match_result_to_i2_def] >>
-     rw [] >>
-     full_simp_tac (srw_ss()++boolSimps.DNF_ss) [] >>
-     fs [add_default_case_def, LET_THM, all_env_i1_to_cenv_def] >>
-     pop_assum mp_tac >>
-     pop_assum (qspecl_then [`tagenv`, `v_i2`, `err_v_i2`, `gtagenv`, `is_handle`, `env_i2'`, `genv_i2`, `s''`] mp_tac) >>
-     rw [] >>
-     fs [] >>
+     pop_assum (qspecl_then [`tagenv`, `(count',s'')`, `v_i2`, `err_v_i2`, `gtagenv`, `exh`, `env_i2'`, `genv_i2`] mp_tac) >>
      rw [] >>
      metis_tac [pat_bindings_to_i2]));
 
