@@ -106,13 +106,13 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
     Match_type_error))
 /\
 (pmatch_exh s (Pcon_exh n ps) (Conv_exh n' vs) env =  
-(if LENGTH ps = LENGTH vs then
-    if n = n' then
+(if n = n' then
+    if LENGTH ps = LENGTH vs then
       pmatch_list_exh s ps vs env
     else
-      No_match
+      Match_type_error
   else
-    Match_type_error))
+    No_match))
 /\
 (pmatch_exh s (Pref_exh p) (Loc_exh lnum) env =  
 ((case store_lookup lnum s of

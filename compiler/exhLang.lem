@@ -86,13 +86,13 @@ pmatch_exh s (Plit_exh l) (Litv_exh l') env =
     Match_type_error
 and
 pmatch_exh s (Pcon_exh n ps) (Conv_exh n' vs) env =
-  if List.length ps = List.length vs then
-    if n = n' then
+  if n = n' then
+    if List.length ps = List.length vs then
       pmatch_list_exh s ps vs env
     else
-      No_match
+      Match_type_error
   else
-    Match_type_error
+    No_match
 and
 pmatch_exh s (Pref_exh p) (Loc_exh lnum) env =
   match store_lookup lnum s with

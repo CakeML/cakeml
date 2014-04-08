@@ -395,27 +395,25 @@ val prog_to_i3_correct = Q.store_thm ("prog_to_i3_correct",
  rw [prog_to_i3_def, LET_THM]
  >- (fs [Once evaluate_i3_cases, result_to_i3_cases, Once evaluate_prog_i2_cases] >>
      rw [Once evaluate_i3_cases]) >>
- qpat_assum `evaluate_prog_i2 x0 x1 x2 x3 x4 x5` (mp_tac o SIMP_RULE (srw_ss()) [Once evaluate_prog_i2_cases]) >>
- rw [] >>
  `?next' e'. prompt_to_i3 (none_tag, SOME (TypeId (Short "option"))) (some_tag, SOME (TypeId (Short "option")))(LENGTH genv) h = (next',e')` by metis_tac [pair_CASES] >>
  fs [] >>
- `?next' e'. prog_to_i3 (none_tag, SOME (TypeId (Short "option"))) (some_tag, SOME (TypeId (Short "option")))next'' p = (next',e')` by metis_tac [pair_CASES] >>
+ `?next' e'. prog_to_i3 (none_tag, SOME (TypeId (Short "option"))) (some_tag, SOME (TypeId (Short "option"))) next'' p = (next',e')` by metis_tac [pair_CASES] >>
  fs [] >>
  rw [] >>
- rw [Once evaluate_i3_cases, opt_bind_def] >>
- cheat);
-
- (*
- imp_res_tac prompt_to_i3_correct >>
- fs [] >>
- rpt (pop_assum mp_tac) >>
+ qpat_assum `evaluate_prog_i2 x0 x1 x2 x3 x4 x5` (mp_tac o SIMP_RULE (srw_ss()) [Once evaluate_prog_i2_cases]) >>
  rw [] >>
- res_tac >>
- fs [] >>
- ntac 3 (pop_assum mp_tac) >>
- srw_tac [ARITH_ss] [eval_match_i3_con]
- >- (qexists_tac `r_i3'` >>
+ rw [Once evaluate_i3_cases, opt_bind_def]
+ >- (`?r_i3.
+        result_to_i3 NONE r_i3 ∧
+        LENGTH genv + LENGTH env2 = next'' ∧
+        evaluate_i3 ck (exh,[]) (s,genv) e' ((s2,genv ++ env2),r_i3)`
+             by metis_tac [NOT_SOME_NONE, prompt_to_i3_correct] >>
+     res_tac >>
+     fs [] >>
+     rpt (pop_assum mp_tac) >>
      rw [] >>
+     qexists_tac `r_i3'` >>
+     srw_tac [ARITH_ss] [eval_match_i3_con] >>
      fs [result_to_i3_cases] >>
      rw []
      >- (qexists_tac `Conv_i2 (none_tag,SOME (TypeId (Short "option"))) []` >>
@@ -428,11 +426,16 @@ val prog_to_i3_correct = Q.store_thm ("prog_to_i3_correct",
          qexists_tac `Conv_i2 (none_tag,SOME (TypeId (Short "option"))) []` >>
          rw [pmatch_i2_def] >>
          metis_tac [pair_CASES]))
- >- (fs [result_to_i3_cases] >>
+ >- (imp_res_tac prompt_to_i3_correct >>
+     fs [] >>
+     pop_assum mp_tac >>
      rw [] >>
-     qexists_tac `Conv_i2 1 [err']` >>
-     rw [pmatch_i2_def] >>
+     qexists_tac `r_i3` >>
+     srw_tac [ARITH_ss] [eval_match_i3_con] >>
+     fs [result_to_i3_cases] >>
+     rw [] >>
+     qexists_tac `Conv_i2 (some_tag,SOME (TypeId (Short "option"))) [err']` >>
+     fs [none_tag_def, some_tag_def, pmatch_i2_def] >>
      metis_tac [pair_CASES]));
-     *)
 
 val _ = export_theory ();

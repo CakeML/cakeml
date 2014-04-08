@@ -493,23 +493,26 @@ val _ = Define `
   else
     Match_type_error))
 /\
-(pmatch_i2 exh s (Pcon_i2 (n, SOME (TypeExn _)) ps) (Conv_i2 (n', SOME (TypeExn _)) vs) env =  
-(if LENGTH ps = LENGTH vs then
-    if n = n' then
-      pmatch_list_i2 exh s ps vs env
+(pmatch_i2 exh s (Pcon_i2 (n, SOME (TypeExn _)) ps) (Conv_i2 (n', SOME (TypeExn _)) vs) env =    
+(if n = n' then
+      if LENGTH ps = LENGTH vs then
+        pmatch_list_i2 exh s ps vs env
+      else 
+        Match_type_error
     else
-      No_match
-  else
-    Match_type_error))
+      No_match))
 /\
 (pmatch_i2 exh s (Pcon_i2 (n, SOME (TypeId t)) ps) (Conv_i2 (n', SOME (TypeId t')) vs) env =  
-(if (t = t') /\ (LENGTH ps = LENGTH vs) then
+(if t = t' then
     (case FLOOKUP exh t of
         NONE => Match_type_error
       | SOME tags =>
           if MEM n tags /\ MEM n' tags then
             if n = n' then
-              pmatch_list_i2 exh s ps vs env
+              if LENGTH ps = LENGTH vs then
+                pmatch_list_i2 exh s ps vs env
+              else
+                Match_type_error
             else
 	      No_match
           else

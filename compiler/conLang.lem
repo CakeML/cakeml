@@ -413,22 +413,25 @@ pmatch_i2 exh s (Plit_i2 l) (Litv_i2 l') env =
     Match_type_error
 and
 pmatch_i2 exh s (Pcon_i2 (n, Just (TypeExn _)) ps) (Conv_i2 (n', Just (TypeExn _)) vs) env =
-  if List.length ps = List.length vs then
     if n = n' then
-      pmatch_list_i2 exh s ps vs env
+      if List.length ps = List.length vs then
+        pmatch_list_i2 exh s ps vs env
+      else 
+        Match_type_error
     else
       No_match
-  else
-    Match_type_error
 and
 pmatch_i2 exh s (Pcon_i2 (n, Just (TypeId t)) ps) (Conv_i2 (n', Just (TypeId t')) vs) env =
-  if t = t' && List.length ps = List.length vs then
+  if t = t' then
     match Map.lookup t exh with
       | Nothing -> Match_type_error
       | Just tags ->
           if List.elem n tags && List.elem n' tags then
             if n = n' then
-              pmatch_list_i2 exh s ps vs env
+              if List.length ps = List.length vs then
+                pmatch_list_i2 exh s ps vs env
+              else
+                Match_type_error
             else
 	      No_match
           else
