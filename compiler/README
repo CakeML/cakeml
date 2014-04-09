@@ -1,17 +1,23 @@
+modLang.lem
+decLang.lem
+conLang.lem
+exhLang.lem
+patLang.lem
 intLang.lem
-  intermediate language definition
+  definitions of intermediate languages and translations into them
+  see the individual files for descriptions of the languages
 
 toIntLang.lem
-  translation from source language to intermediate language
+  translation to the old intermediate language
 
 toBytecode.lem
-  translation from intermediate language to target language
+  translation from old intermediate language to bytecode
 
 compiler.lem
   top-level wrappers for the compiler implementation of declarations and modules
 
 proofs/
-  compiler correctness proofs (and IL metatheory)
+  compiler correctness proofs
 
 compilerPrimitives.lem
   some helper functions

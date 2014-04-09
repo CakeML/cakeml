@@ -1,16 +1,17 @@
-*ExtraScript.sml
-  extra definitions and proofs about semantics
+*PropsScript.sml
+  extra definitions and proofs about intermediate languages
 
-pmatchScript.sml
-*ProofsScript.sml
-  theorems about each phase of compilation
-
-in particular,
-compilerProofsScript.sml
-  theorems about the compiler from top-level declarations to bytecode
+*ProofScript.sml
+  verification of translations into intermediate languages
 
 replDecsProofScript.sml
   specialisation of the compiler top-level correctness theorem for a setup
   involving a list of declarations to be run from the initial state that define
   the compiler and a function to call it. (these declarations are actually
   defined in ../../translator/repl; the proofs here are generalised.)
+
+pmatchScript.sml
+toIntLangProofsScript.sml
+toBytecodeProofsScript.sml
+compilerProofsScript.sml
+  obsolete
