@@ -38,13 +38,6 @@ every_case_tac >>
 fs [] >>
 imp_res_tac lookup_in2);
 
-val LUPDATE_MAP = Q.prove (
-`!x n l f. MAP f (LUPDATE x n l) = LUPDATE (f x) n (MAP f l)`,
- induct_on `l` >>
- rw [LUPDATE_def] >>
- cases_on `n` >>
- fs [LUPDATE_def]);
-
 val fupdate_list_foldr = Q.prove (
 `!m l. FOLDR (λ(k,v) env. env |+ (k,v)) m l = m |++ REVERSE l`,
  induct_on `l` >>

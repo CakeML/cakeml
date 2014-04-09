@@ -11,14 +11,6 @@ open exhLangTheory;
 open evalPropsTheory;
 open compilerTerminationTheory;
 
-(* Copied from modLangProofScript.sml *)
-val LUPDATE_MAP = Q.prove (
-`!x n l f. MAP f (LUPDATE x n l) = LUPDATE (f x) n (MAP f l)`,
- induct_on `l` >>
- rw [LUPDATE_def] >>
- cases_on `n` >>
- fs [LUPDATE_def]);
-
 val _ = new_theory "exhLangProof";
 
 val v_to_exh_def = tDefine "v_to_exh" `

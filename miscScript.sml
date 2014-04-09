@@ -719,6 +719,10 @@ val LUPDATE_APPEND1 = store_thm("LUPDATE_APPEND1",
   Cases_on`z < LENGTH l1`>>fs[]>>
   simp[EL_APPEND1,EL_APPEND2,EL_LUPDATE])
 
+val LUPDATE_MAP = store_thm("LUPDATE_MAP",
+``!x n l f. MAP f (LUPDATE x n l) = LUPDATE (f x) n (MAP f l)``,
+ Induct_on `l` >> rw [LUPDATE_def] >> Cases_on `n` >> fs [LUPDATE_def])
+
 val SWAP_REVERSE = store_thm("SWAP_REVERSE",
   ``!l1 l2. (l1 = REVERSE l2) = (l2 = REVERSE l1)``,
   SRW_TAC[][EQ_IMP_THM])
