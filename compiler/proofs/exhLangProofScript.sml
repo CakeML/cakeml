@@ -22,9 +22,9 @@ val LUPDATE_MAP = Q.prove (
 val _ = new_theory "exhLangProof";
 
 val v_to_exh_def = tDefine "v_to_exh" `
-(v_to_exh exh (Litv_i2 l) = 
+(v_to_exh exh (Litv_i2 l) =
   Litv_exh l) ∧
-(v_to_exh exh (Conv_i2 t vs) = 
+(v_to_exh exh (Conv_i2 t vs) =
   Conv_exh (FST t) (vs_to_exh exh vs)) ∧
 (v_to_exh exh (Closure_i2 env x e) =
   Closure_exh (env_to_exh exh env) x (exp_to_exh exh e)) ∧
@@ -108,8 +108,8 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
     (pes' = add_default is_handle F pes ∨
      exists_match exh (SND (FST s)) (MAP FST pes) v ∧ pes' = add_default is_handle T pes)
      ⇒
-    evaluate_match_exh ck (env_to_exh exh env') (store_to_exh exh s) (v_to_exh exh v) 
-                          (pat_exp_to_exh exh pes') 
+    evaluate_match_exh ck (env_to_exh exh env') (store_to_exh exh s) (v_to_exh exh v)
+                          (pat_exp_to_exh exh pes')
                           (result_to_exh v_to_exh exh r))`,
  ho_match_mp_tac evaluate_i3_ind >>
  rw [exp_to_exh_def, v_to_exh_def, result_to_exh_def] >>
@@ -155,19 +155,19 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
      rw [] >>
      res_tac >>
      fs [] >>
-     cheat) 
+     cheat)
  >- (res_tac >>
      fs [] >>
      cases_on `exhaustive_match exh (MAP FST pes)` >>
      fs []  >>
      metis_tac [exh_to_exists_match])
- >- cheat 
- >- cheat 
+ >- cheat
+ >- cheat
  >- (induct_on `n` >>
      rw [GENLIST])
- >- metis_tac [] 
- >- metis_tac [] 
- >- metis_tac [] 
+ >- metis_tac []
+ >- metis_tac []
+ >- metis_tac []
  >- (rw [add_default_def, exp_to_exh_def, pat_bindings_exh_def, pat_to_exh_def, pmatch_exh_def] >>
      ONCE_REWRITE_TAC [evaluate_exh_cases] >>
      rw [] >>

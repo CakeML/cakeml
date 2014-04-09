@@ -1326,7 +1326,7 @@ val prim1_to_bc_thm = store_thm("prim1_to_bc_thm",
       fs[good_rd_def,FEVERY_DEF,UNCURRY] >>
       metis_tac[] ) >>
     simp[SUBMAP_DEF,DRESTRICT_DEF] >>
-    rw[] >> rw[] >> fs[IN_FRANGE,DOMSUB_FAPPLY_THM] >> rw[] >> PROVE_TAC[]) 
+    rw[] >> rw[] >> fs[IN_FRANGE,DOMSUB_FAPPLY_THM] >> rw[] >> PROVE_TAC[])
   >- (
     Cases_on`v1`>>fs[] >>
     Cases_on`el_check n s`>>fs[]>>
@@ -5860,7 +5860,7 @@ fun tac18 t =
     simp[Once CONJ_ASSOC] >>
     reverse conj_tac >- (
       Cases_on`p2`>>Cases_on`v2`>>TRY(Cases_on`l`)>>Cases_on`v1`>>TRY(Cases_on`l`)>>
-      simp[]>>rw[] >> 
+      simp[]>>rw[] >>
       Cases_on `do_Ceq h' h` >> Cases_on `do_Ceq_list t' t` >>fs [] >> rw [] >> Cases_on `b` >> fs []) >>
     qpat_assum`bce++bcr=X`mp_tac>>
     qpat_assum`bs.code=X`mp_tac>>

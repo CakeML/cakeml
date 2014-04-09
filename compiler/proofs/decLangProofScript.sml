@@ -32,8 +32,8 @@ val lupdate_append2 = Q.prove (
  rw [LUPDATE_def])
 
 val exp_to_i3_correct = Q.prove (
-`(∀b env s e res. 
-   evaluate_i2 b env s e res ⇒ 
+`(∀b env s e res.
+   evaluate_i2 b env s e res ⇒
    (SND res ≠ Rerr Rtype_error) ⇒
    !s' exh genv env' r.
      (res = (s',r)) ∧
@@ -41,15 +41,15 @@ val exp_to_i3_correct = Q.prove (
      ⇒
      evaluate_i3 b (exh,env') (s,genv) e ((s',genv),r)) ∧
  (∀b env s es res.
-   evaluate_list_i2 b env s es res ⇒ 
+   evaluate_list_i2 b env s es res ⇒
    (SND res ≠ Rerr Rtype_error) ⇒
    !s' exh genv env' r.
      (res = (s',r)) ∧
      (env = (exh,genv,env'))
      ⇒
      evaluate_list_i3 b (exh,env') (s,genv) es ((s',genv),r)) ∧
- (∀b env s v pes err_v res. 
-   evaluate_match_i2 b env s v pes err_v res ⇒ 
+ (∀b env s v pes err_v res.
+   evaluate_match_i2 b env s v pes err_v res ⇒
    (SND res ≠ Rerr Rtype_error) ⇒
    !s' exh genv env' r.
      (res = (s',r)) ∧
@@ -82,8 +82,8 @@ val exp_to_i3_correct = Q.prove (
  >- metis_tac []);
 
 val eval_i3_genv_weakening = Q.prove (
-`(∀ck env s e res. 
-   evaluate_i3 ck env s e res ⇒ 
+`(∀ck env s e res.
+   evaluate_i3 ck env s e res ⇒
    !s' s'' genv env' r genv' l.
      (s = (s',genv)) ∧
      (res = ((s'',genv'),r)) ∧
@@ -91,15 +91,15 @@ val eval_i3_genv_weakening = Q.prove (
      ⇒
      evaluate_i3 ck env (s',genv++GENLIST (\x.NONE) l) e ((s'',genv'++GENLIST (\x.NONE) l),r)) ∧
  (∀ck env s es res.
-   evaluate_list_i3 ck env s es res ⇒ 
+   evaluate_list_i3 ck env s es res ⇒
    !s' s'' genv genv' l env' r.
      (s = (s',genv)) ∧
      (res = ((s'',genv'),r)) ∧
      r ≠ Rerr Rtype_error
      ⇒
      evaluate_list_i3 ck env (s',genv++GENLIST (\x.NONE) l) es ((s'',genv'++GENLIST (\x.NONE) l),r) )∧
- (∀ck env s v pes err_v res. 
-   evaluate_match_i3 ck env s v pes err_v res ⇒ 
+ (∀ck env s v pes err_v res.
+   evaluate_match_i3 ck env s v pes err_v res ⇒
    !s' s'' genv genv' l env' r.
      (s = (s',genv)) ∧
      (res = ((s'',genv'),r)) ∧
@@ -158,24 +158,24 @@ SIMP_CONV (srw_ss()) [Once evaluate_i3_cases] ``evaluate_i3 b env s (Fun_i2 x e)
 val eval_i3_let =
 SIMP_CONV (srw_ss()) [Once evaluate_i3_cases, opt_bind_def] ``evaluate_i3 b env s (Let_i2 NONE e1 e2) (s',r)``;
 
-val eval_match_i3_nil = 
+val eval_match_i3_nil =
 SIMP_CONV (srw_ss()) [Once evaluate_i3_cases] ``evaluate_match_i3 b env s v [] err_v (s',r)``;
 
-val eval_match_i3_var = 
+val eval_match_i3_var =
 SIMP_CONV (srw_ss()) [Once evaluate_i3_cases, eval_match_i3_nil, eval_i3_var, pmatch_i2_def, eval_i3_con]
   ``evaluate_match_i3 b env s v [(Pvar_i2 var, Con_i2 n [Var_local_i2 var])] err_v (s',r)``;
 
-val eval_match_i3_var2 = 
+val eval_match_i3_var2 =
 SIMP_CONV (srw_ss()) [Once evaluate_i3_cases, eval_match_i3_nil, eval_i3_var, pmatch_i2_def, eval_i3_con, pat_bindings_i2_def]
   ``evaluate_match_i3 b env s v [(Pvar_i2 var, Var_local_i2 var)] err_v (s',r)``;
 
-val eval_init_global = 
+val eval_init_global =
 SIMP_CONV (srw_ss()) [Once evaluate_i3_cases, eval_i3_var, do_uapp_i3_def] ``evaluate_i3 b env s (Uapp_i2 (Init_global_var_i2 i) (Var_local_i2 x)) (s',r)``;
 
-val eval_init_global_fun = 
+val eval_init_global_fun =
 SIMP_CONV (srw_ss()) [Once evaluate_i3_cases, eval_i3_fun, do_uapp_i3_def] ``evaluate_i3 b env s (Uapp_i2 (Init_global_var_i2 i) (Fun_i2 x e)) (s',r)``;
 
-val eval_match_i3_con = 
+val eval_match_i3_con =
 SIMP_CONV (srw_ss()) [Once evaluate_i3_cases, pmatch_i2_def, pat_bindings_i2_def, eval_match_i3_var2, bind_def]
   ``evaluate_match_i3 b env s v [(Pcon_i2 n [], e); (Pvar_i2 "x",Var_local_i2 "x")] err_v (s',r)``;
 
@@ -263,11 +263,11 @@ val decs_to_i3_correct = Q.prove (
   r ≠ SOME Rtype_error
   ⇒
   ?r_i3.
-    dec_result_to_i3 r r_i3 ∧ 
+    dec_result_to_i3 r r_i3 ∧
     evaluate_i3 ck (exh,[]) (s,genv ++ GENLIST (\x. NONE) (num_defs ds)) (decs_to_i3 (LENGTH genv) ds)
                 ((s',genv ++ MAP SOME new_env ++ GENLIST (\x. NONE) (num_defs ds - LENGTH new_env)),r_i3)`,
  induct_on `ds` >>
- rw [decs_to_i3_def] 
+ rw [decs_to_i3_def]
  >- fs [Once evaluate_decs_i2_cases, Once evaluate_i3_cases, dec_result_to_i3_cases, num_defs_def] >>
  Cases_on `h` >>
  qpat_assum `evaluate_decs_i2 x0 x1 x2 x3 x4 x5` (mp_tac o SIMP_RULE (srw_ss()) [Once evaluate_decs_i2_cases]) >>
@@ -296,7 +296,7 @@ val decs_to_i3_correct = Q.prove (
      rw []
      >- (simp_tac bool_ss [GSYM APPEND_ASSOC, GSYM GENLIST_APPEND] >>
          metis_tac [eval_i3_genv_weakening, result_distinct, pair_CASES])
-     >- (`!(l:v_i2 option store) x y. l ++ GENLIST (\x.NONE) y ++ GENLIST (\x.NONE) x = l ++ GENLIST (\x.NONE) x ++ GENLIST (\x.NONE) y` 
+     >- (`!(l:v_i2 option store) x y. l ++ GENLIST (\x.NONE) y ++ GENLIST (\x.NONE) x = l ++ GENLIST (\x.NONE) x ++ GENLIST (\x.NONE) y`
                   by (rw [] >>
                       `!b. (\x. (\y. NONE) (x + b)) = (\y.NONE)` by rw [EXTENSION] >>
                       srw_tac [ARITH_ss] [GSYM GENLIST_APPEND]) >>
@@ -308,7 +308,7 @@ val decs_to_i3_correct = Q.prove (
      MAP_EVERY qexists_tac [`Litv_i2 Unit`, `(s, genv ++ MAP SOME (MAP (λ(f,x,e).  Closure_i2 [] x e) l) ++ GENLIST (λx. NONE) (num_defs ds))`] >>
      rw [] >>
      fs [LENGTH_APPEND] >>
-     `!(l:v_i2 option store) x y. l ++ GENLIST (\x.NONE) y ++ GENLIST (\x.NONE) x = l ++ GENLIST (\x.NONE) x ++ GENLIST (\x.NONE) y` 
+     `!(l:v_i2 option store) x y. l ++ GENLIST (\x.NONE) y ++ GENLIST (\x.NONE) x = l ++ GENLIST (\x.NONE) x ++ GENLIST (\x.NONE) y`
                   by (rw [] >>
                       `!b. (\x. (\y. NONE) (x + b)) = (\y.NONE)` by rw [EXTENSION] >>
                       srw_tac [ARITH_ss] [GSYM GENLIST_APPEND]) >>

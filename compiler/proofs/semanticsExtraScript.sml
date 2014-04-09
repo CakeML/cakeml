@@ -89,7 +89,7 @@ val evaluate_dec_decs = store_thm("evaluate_dec_decs",
   simp[libTheory.emp_def,libTheory.merge_def] >>
   Cases_on`a`>>simp[] >>
   metis_tac [pair_CASES]);
- 
+
 val evaluate_decs_divergence_take = store_thm("evaluate_decs_divergence_take",
   ``∀ds mn menv cenv s env.
     (∀res. ¬ evaluate_decs mn (menv,cenv,env) s ds res)
@@ -403,7 +403,7 @@ val (evaluate_match_with_rules,evaluate_match_with_ind,evaluate_match_with_cases
     (¬ALL_DISTINCT (pat_bindings p []) ⇒
      evaluate_match_with P cenv cs env v ((p,e)::pes) err_v (cs,Rerr Rtype_error))`
 
-(* TODO 
+(* TODO
 val evaluate_match_with_evaluate = store_thm(
 "evaluate_match_with_evaluate",
 ``evaluate_match ck menv = evaluate_match_with (λcenv cs env pe bv. evaluate ck menv cenv cs env (SND pe) bv)``,
@@ -580,7 +580,7 @@ val all_cns_exp_def = tDefine "all_cns_exp"`
                | INR (INR (INR pes)) => exp3_size pes)`)
 val _ = export_rewrites["all_cns_exp_def"]
 
-(* TODO 
+(* TODO
 val all_cns_def = tDefine "all_cns"`
   (all_cns (Litv _) = {}) ∧
   (all_cns (Conv cn vs) = cn INSERT BIGUNION (IMAGE all_cns (set vs))) ∧
