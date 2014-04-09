@@ -50,6 +50,16 @@ val exists_match_def = Define `
 exists_match exh s ps v ⇔
   !env. ?p. MEM p ps ∧ pmatch_i2 exh s p v env ≠ No_match`;
 
+val pmatch_list_i2_all_vars_not_No_match = prove(
+  ``∀l1 l2 a b c. EVERY is_var l1 ⇒ pmatch_list_i2 a b l1 l2 c ≠ No_match``,
+  Induct >> Cases_on`l2` >> simp[pmatch_i2_def,is_var_def] >>
+  Cases >> simp[pmatch_i2_def])
+
+val get_tags_lemma = prove(
+  ``∀ps ts t. get_tags ps = SOME ts ∧ MEM t ts ⇒ ∃x vs. MEM (Pcon_i2 (t,x) vs) ps ∧ EVERY is_var vs``,
+  Induct >> simp[get_tags_def] >> Cases >> simp[] >>
+  every_case_tac >> rw[] >> metis_tac[])
+
 val exh_to_exists_match = Q.prove (
 `!exh ps. exhaustive_match exh ps ⇒ !s v. exists_match exh s ps v`,
  rw [exhaustive_match_def, exists_match_def] >>
@@ -64,7 +74,8 @@ val exh_to_exists_match = Q.prove (
      PairCases_on `p` >>
      Cases_on `p1` >>
      fs [pmatch_i2_def] >>
-     cheat)
+     rw[] >>
+     metis_tac[pmatch_list_i2_all_vars_not_No_match])
  >- (cases_on `v` >>
      rw [pmatch_i2_def] >>
      PairCases_on `p` >>
