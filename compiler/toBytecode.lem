@@ -9,7 +9,7 @@ open import CompilerLib
 open import IntLang
 open import ToIntLang
 open import Bytecode
-open import IntLang4
+open import PatLang
 
 (* pull closure bodies into code environment *)
 

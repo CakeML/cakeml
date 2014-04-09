@@ -1,6 +1,6 @@
 open HolKernel boolLib boolSimps bossLib Defn pairTheory pred_setTheory listTheory finite_mapTheory state_transformerTheory lcsymtacs
 open terminationTheory compilerLibTheory intLangTheory toIntLangTheory toBytecodeTheory compilerTheory printerTheory bytecodeTheory
-open modLangTheory conLangTheory exhLangTheory intLang4Theory;
+open modLangTheory conLangTheory exhLangTheory patLangTheory;
 
 val _ = new_theory "compilerTermination"
 
@@ -373,11 +373,11 @@ val _ = register "do_eq_i4" (do_eq_i4_def,do_eq_i4_ind);
 (* export rewrites *)
 val _ = export_rewrites
   ["exp_to_i4_def"
-  ,"intLang4.uop_to_i4_def"
-  ,"intLang4.fo_i4_def"
-  ,"intLang4.ground_i4_def"
-  ,"intLang4.pure_uop_i4_def"
-  ,"intLang4.pure_op_def"]
+  ,"patLang.uop_to_i4_def"
+  ,"patLang.fo_i4_def"
+  ,"patLang.ground_i4_def"
+  ,"patLang.pure_uop_i4_def"
+  ,"patLang.pure_op_def"]
 
 (* TODO: add missing *)
 val _ = export_rewrites

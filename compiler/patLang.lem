@@ -1,14 +1,13 @@
-(* The fourth intermediate language (IL4). Removes pattern-matching and
- * variable names.
+(* Removes pattern-matching and variable names. Follows exhLang.
  *
- * The AST of IL4 differs from IL3 in that it uses de Bruijn indices, there are
- * no Mat expressions, Handle expressions are simplified to catch and bind any
- * exception without matching on it, and there are new Tag_eq and El
+ * The AST of patLang differs from exhLang in that it uses de Bruijn indices,
+ * there are no Mat expressions, Handle expressions are simplified to catch and
+ * bind any exception without matching on it, and there are new Tag_eq and El
  * expressions for checking the constructor of a compound value and retrieving
  * its arguments. 
  *
- * The values and semantics of IL4 are the same as IL3, modulo the changes to
- * expressions.
+ * The values and semantics of patLang are the same as exhLang, modulo the
+ * changes to expressions.
  *
  *)
 
@@ -19,10 +18,6 @@ open import BigStep
 open import ExhLang
 open import ConLang
 open import CompilerLib
-(*
-open import Lib
-open import List_extra
-*)
 
 (* TODO: Lem's builtin find index has a different type *)
 val find_index : forall 'a. 'a -> list 'a -> nat -> maybe nat

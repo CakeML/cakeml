@@ -6,7 +6,7 @@ open import CompilerLib
 open import IntLang
 open import Ast
 open import ConLang
-open import IntLang4
+open import PatLang
 
 let rec
 free_vars (CRaise e) = free_vars e
