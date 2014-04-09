@@ -1,6 +1,7 @@
 open HolKernel boolLib boolSimps bossLib Defn pairTheory pred_setTheory listTheory finite_mapTheory state_transformerTheory lcsymtacs
 open terminationTheory compilerLibTheory intLangTheory toIntLangTheory toBytecodeTheory compilerTheory printerTheory bytecodeTheory
-open modLangTheory conLangTheory intLang4Theory;
+open modLangTheory conLangTheory exhLangTheory intLang4Theory;
+
 val _ = new_theory "compilerTermination"
 
 (* size helper theorems *)
@@ -313,6 +314,29 @@ val (do_eq_i2_def, do_eq_i2_ind) =
   WF_REL_TAC `inv_image $< (\x. case x of INL (x,y) => v_i2_size x
                                         | INR (xs,ys) => v_i23_size xs)`);
 val _ = register "do_eq_i2" (do_eq_i2_def,do_eq_i2_ind);
+
+val (pmatch_exh_def, pmatch_exh_ind) =
+  tprove_no_defn ((pmatch_exh_def, pmatch_exh_ind),
+  WF_REL_TAC `inv_image $< (\x. case x of INL (x,p,y,z) => pat_exh_size p
+                                        | INR (x,ps,y,z) => pat_exh1_size ps)` >>
+  srw_tac [ARITH_ss] [pat_exh_size_def]);
+val _ = register "pmatch_exh" (pmatch_exh_def,pmatch_exh_ind);
+
+val (exp_to_exh_def, exp_to_exh_ind) =
+  tprove_no_defn ((exp_to_exh_def, exp_to_exh_ind),
+  cheat);
+val _ = register "exp_to_exh" (exp_to_exh_def,exp_to_exh_ind);
+
+val (pat_to_exh_def, pat_to_exh_ind) =
+  tprove_no_defn ((pat_to_exh_def, pat_to_exh_ind),
+  WF_REL_TAC `measure pat_i2_size` >>
+  srw_tac [ARITH_ss] [pat_i2_size_def] >>
+  Induct_on `ps` >>
+  srw_tac [ARITH_ss] [pat_i2_size_def] >>
+  srw_tac [ARITH_ss] [pat_i2_size_def] >>
+  res_tac >>
+  decide_tac);
+val _ = register "pat_to_exh" (pat_to_exh_def,pat_to_exh_ind);
 
 val (exp_to_i4_def, exp_to_i4_ind) =
   tprove_no_defn ((exp_to_i4_def, exp_to_i4_ind),

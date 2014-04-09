@@ -162,8 +162,8 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (exp_to_exh exh (Lit_i2 l) =  
  (Lit_exh l)) 
 /\
-(exp_to_exh exh (Con_i2 (tag,t) es) =  
- (Con_exh tag (exps_to_exh exh es)))
+(exp_to_exh exh (Con_i2 t es) =  
+ (Con_exh (FST t) (exps_to_exh exh es)))
 /\
 (exp_to_exh exh (Var_local_i2 x) = (Var_local_exh x))
 /\
@@ -210,7 +210,6 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 ((f,x,exp_to_exh exh e) :: funs_to_exh exh funs))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn exp_to_exh_defn;
-
 
 (*val pat_bindings_exh : pat_exh -> list varN -> list varN*)
  val pat_bindings_exh_defn = Hol_defn "pat_bindings_exh" `
