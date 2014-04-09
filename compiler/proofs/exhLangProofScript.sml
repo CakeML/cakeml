@@ -56,12 +56,15 @@ val pmatch_list_i2_all_vars_not_No_match = prove(
   Cases >> simp[pmatch_i2_def])
 
 val get_tags_lemma = prove(
-  ``∀ps ts t. get_tags ps = SOME ts ∧ MEM t ts ⇒ ∃x vs. MEM (Pcon_i2 (t,x) vs) ps ∧ EVERY is_var vs``,
+  ``∀ps ts. get_tags ps = SOME ts ⇒
+      (∀p. MEM p ps ⇒ ∃t x vs. (p = Pcon_i2 (t,x) vs) ∧ EVERY is_var vs ∧ MEM t ts) ∧
+      (∀t. MEM t ts ⇒ ∃x vs. MEM (Pcon_i2 (t,x) vs) ps ∧ EVERY is_var vs)``,
   Induct >> simp[get_tags_def] >> Cases >> simp[] >>
-  every_case_tac >> rw[] >> metis_tac[])
+  every_case_tac >> rw[] >> fs[] >> metis_tac[])
 
 val exh_to_exists_match = Q.prove (
 `!exh ps. exhaustive_match exh ps ⇒ !s v. exists_match exh s ps v`,
+ gen_tac >> Induct >>
  rw [exhaustive_match_def, exists_match_def] >>
  every_case_tac >>
  fs [get_tags_def, pmatch_i2_def]
@@ -87,7 +90,52 @@ val exh_to_exists_match = Q.prove (
      rw [pmatch_i2_def] >>
      every_case_tac)
  >- (every_case_tac >>
-     fs [] >>
+     fs [] >> rw[] >>
+     (*
+     fs[exhaustive_match_def,exists_match_def] >>
+     every_case_tac >> fs[get_tags_def] >> rw[] >> rfs[] >>
+     TRY(metis_tac[])
+     Q.PAT_ABBREV_TAC`pp1 = Pcon_i2 X l` >>
+     Q.PAT_ABBREV_TAC`pp2 = Pcon_i2 X Y` >>
+     qmatch_assum_rename_tac`Abbrev(pp2 = Pcon_i2 (a,b) c)`[] >>
+     Cases_on`pmatch_i2 exh s pp2 v env ≠ No_match`>-metis_tac[]>>
+     qmatch_assum_rename_tac`get_tags ts = SOME y`[] >>
+     Cases_on`∃p. MEM p ts ∧ pmatch_i2 exh s p v env ≠ No_match`>-metis_tac[] >>
+     imp_res_tac get_tags_lemma >>
+     qexists_tac`pp1` >> simp[Abbr`pp1`] >>
+     Cases_on`v`>>fs[pmatch_i2_def,Abbr`pp2`]>>
+     PairCases_on`p`>>Cases_on`p1`>>Cases_on`b`>>fs[pmatch_i2_def] >>
+     qmatch_assum_rename_tac`pmatch_i2 exh s (Pcon_i2 (a,SOME b) c) Y env = No_match`["Y"] >>
+     Cases_on`x`>>Cases_on`b`>>fs[pmatch_i2_def]>>
+     qpat_assum`X = No_match`mp_tac >>
+     every_case_tac >> TRY (
+       rw[] >> match_mp_tac pmatch_list_i2_all_vars_not_No_match >> rw[] ) >>
+     rw[] >> fs[] >> rw[] >>
+     fs[EXTENSION] >>
+     `MEM p0 y` by metis_tac[] >>
+     Induct_on`ts`
+     qmatch_assum_abbrev_tac`MEM pp ts` >>
+     first_x_assum(qspec_then`pp`mp_tac) >>
+     simp[Abbr`pp`]
+
+     res_tac >> fs[]
+     rw[] >> fs[] >> rw[] >>
+     Cases_on`y`>>fs[EXTENSION]>>TRY(metis_tac[])>>
+     imp_res_tac get_tags_lemma
+
+     fs[EXTENSION] >>
+
+     Q.PAT_ABBREV_TAC`pp1 = Pcon_i2 X c` >>
+     qmatch_assum_rename_tac`Abbrev(pp1 = Pcon_i2 (a,SOME b) c)`[] >>
+     qunabbrev_tac`pp1` >>
+     Cases_on`b`>>simp[pmatch_i2_def]>>
+     rw[] >> TRY (metis_tac[pmatch_list_i2_all_vars_not_No_match])
+
+     Cases_on`x'''`>>Cases_on`x`>>simp[pmatch_i2_def]>>rw[]
+     Cases_on`x`>>simp[pmatch_i2_def]>>
+     rw[] >- metis_tac[pmatch_list_i2_all_vars_not_No_match] >>
+     fs[EXTENSION]
+     *)
      cheat));
 
 val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
