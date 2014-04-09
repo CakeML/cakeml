@@ -4,30 +4,6 @@ open toIntLang4ProofTheory
 (* open semanticsExtraTheory *)
 val _ = new_theory "intLangExtra"
 
-(* compilerLibExtra *)
-
-val the_find_index_suff = store_thm("the_find_index_suff",
-  ``∀P d x ls n. (∀m. m < LENGTH ls ⇒ P (m + n)) ∧ MEM x ls ⇒
-    P (the d (find_index x ls n))``,
-  rw[] >>
-  imp_res_tac find_index_MEM >>
-  pop_assum(qspec_then`n`mp_tac) >>
-  srw_tac[DNF_ss,ARITH_ss][])
-
-val set_lunion = store_thm("set_lunion",
-  ``∀l1 l2. set (lunion l1 l2) = set l1 ∪ set l2``,
-  Induct >> simp[lunion_def] >> rw[EXTENSION] >> metis_tac[])
-val _ = export_rewrites["set_lunion"]
-
-val set_lshift = store_thm("set_lshift",
-  ``∀ls n. set (lshift n ls) = { m-n | m | m ∈ set ls ∧ n ≤ m}``,
-  Induct >> rw[lshift_def,EXTENSION,MEM_MAP,MEM_FILTER,EQ_IMP_THM] >>
-  srw_tac[ARITH_ss,SATISFY_ss][] >> fsrw_tac[ARITH_ss][] >>
-  TRY(qexists_tac`h`>>simp[]>>NO_TAC)>>
-  TRY(qexists_tac`v`>>simp[]>>NO_TAC)>>
-  TRY(qexists_tac`m`>>simp[]>>NO_TAC))
-val _ = export_rewrites["set_lshift"]
-
 (* free/all/no_labs *)
 
 val free_labs_list_MAP = store_thm("free_labs_list_MAP",

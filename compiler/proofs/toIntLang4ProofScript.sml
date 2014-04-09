@@ -405,6 +405,188 @@ val pmatch_exh_nil = save_thm("pmatch_exh_nil",
 
 (* --- *)
 
+(* compilerLibExtra *)
+
+open SatisfySimps compilerLibTheory pred_setTheory arithmeticTheory
+
+val the_find_index_suff = store_thm("the_find_index_suff",
+  ``∀P d x ls n. (∀m. m < LENGTH ls ⇒ P (m + n)) ∧ MEM x ls ⇒
+    P (the d (find_index x ls n))``,
+  rw[] >>
+  imp_res_tac find_index_MEM >>
+  pop_assum(qspec_then`n`mp_tac) >>
+  srw_tac[DNF_ss,ARITH_ss][])
+
+val set_lunion = store_thm("set_lunion",
+  ``∀l1 l2. set (lunion l1 l2) = set l1 ∪ set l2``,
+  Induct >> simp[lunion_def] >> rw[EXTENSION] >> metis_tac[])
+val _ = export_rewrites["set_lunion"]
+
+val set_lshift = store_thm("set_lshift",
+  ``∀ls n. set (lshift n ls) = { m-n | m | m ∈ set ls ∧ n ≤ m}``,
+  Induct >> rw[lshift_def,EXTENSION,MEM_MAP,MEM_FILTER,EQ_IMP_THM] >>
+  srw_tac[ARITH_ss,SATISFY_ss][] >> fsrw_tac[ARITH_ss][] >>
+  TRY(qexists_tac`h`>>simp[]>>NO_TAC)>>
+  TRY(qexists_tac`v`>>simp[]>>NO_TAC)>>
+  TRY(qexists_tac`m`>>simp[]>>NO_TAC))
+val _ = export_rewrites["set_lshift"]
+
+(* IL4 extra lemmas, used elsewhere *)
+
+val free_vars_i4_def = tDefine"free_vars_i4"`
+  free_vars_i4 (Raise_i4 e) = free_vars_i4 e ∧
+  free_vars_i4 (Handle_i4 e1 e2) = lunion (free_vars_i4 e1) (lshift 1 (free_vars_i4 e2)) ∧
+  free_vars_i4 (Lit_i4 _) = [] ∧
+  free_vars_i4 (Con_i4 _ es) = free_vars_list_i4 es ∧
+  free_vars_i4 (Var_local_i4 n) = [n] ∧
+  free_vars_i4 (Var_global_i4 _) = [] ∧
+  free_vars_i4 (Fun_i4 e) = lshift 1 (free_vars_i4 e) ∧
+  free_vars_i4 (Uapp_i4 _ e) = free_vars_i4 e ∧
+  free_vars_i4 (App_i4 _ e1 e2) = lunion (free_vars_i4 e1) (free_vars_i4 e2) ∧
+  free_vars_i4 (If_i4 e1 e2 e3) = lunion (free_vars_i4 e1) (lunion (free_vars_i4 e2) (free_vars_i4 e3)) ∧
+  free_vars_i4 (Let_i4 e1 e2) = lunion (free_vars_i4 e1) (lshift 1 (free_vars_i4 e2)) ∧
+  free_vars_i4 (Seq_i4 e1 e2) = lunion (free_vars_i4 e1) (free_vars_i4 e2) ∧
+  free_vars_i4 (Letrec_i4 es e) = lunion (free_vars_defs_i4 (LENGTH es) es) (lshift (LENGTH es) (free_vars_i4 e)) ∧
+  free_vars_i4 (Extend_global_i4 _) = [] ∧
+  free_vars_list_i4 [] = [] ∧
+  free_vars_list_i4 (e::es) = lunion (free_vars_i4 e) (free_vars_list_i4 es) ∧
+  free_vars_defs_i4 _ [] = [] ∧
+  free_vars_defs_i4 n (e::es) = lunion (lshift (n+1) (free_vars_i4 e)) (free_vars_defs_i4 n es)`
+(WF_REL_TAC`inv_image $< (λx. case x of
+  | INL e => exp_i4_size e
+  | INR (INL es) => exp_i41_size es
+  | INR (INR (_,es)) => exp_i41_size es)`)
+val _ = export_rewrites["free_vars_i4_def"]
+
+val free_vars_defs_i4_MAP = store_thm("free_vars_defs_i4_MAP",
+  ``set (free_vars_defs_i4 n es) = set (lshift (n+1) (free_vars_list_i4 es))``,
+  Induct_on`es`>>simp[] >> fs[EXTENSION] >>
+  rw[EQ_IMP_THM] >> simp[] >> metis_tac[])
+
+val free_vars_list_i4_MAP = store_thm("free_vars_list_i4_MAP",
+  ``∀es. set (free_vars_list_i4 es) = set (FLAT (MAP free_vars_i4 es))``,
+  Induct >> simp[])
+val _ = export_rewrites["free_vars_defs_i4_MAP","free_vars_list_i4_MAP"]
+
+val (closed_i4_rules,closed_i4_ind,closed_i4_cases) = Hol_reln`
+(closed_i4 (Litv_i4 l)) ∧
+(EVERY (closed_i4) vs ⇒ closed_i4 (Conv_i4 cn vs)) ∧
+(EVERY (closed_i4) env ∧ set (free_vars_i4 b) ⊆ count (LENGTH env + 1)
+⇒ closed_i4 (Closure_i4 env b)) ∧
+(EVERY (closed_i4) env ∧ d < LENGTH defs ∧
+ EVERY (λe. set (free_vars_i4 e) ⊆ count (LENGTH env + LENGTH defs + 1)) defs
+⇒ closed_i4 (Recclosure_i4 env defs d)) ∧
+(closed_i4 (Loc_i4 n))`;
+
+val closed_i4_lit_loc_conv = store_thm("closed_i4_lit_loc_conv",
+  ``closed_i4 (Litv_i4 l) ∧ closed_i4 (Loc_i4 n) ∧
+    (closed_i4 (Conv_i4 a bs) ⇔ EVERY closed_i4 bs)``,
+  rw[closed_i4_cases])
+val _ = export_rewrites["closed_i4_lit_loc_conv"]
+
+val csg_closed_i4_def = Define`
+  csg_closed_i4 csg ⇔
+    EVERY closed_i4 (SND(FST csg)) ∧
+    EVERY (OPTION_EVERY closed_i4) (SND csg)`
+
+val evaluate_i4_closed = store_thm("evaluate_i4_closed",
+  ``(∀ck env s e res. evaluate_i4 ck env s e res ⇒
+       set (free_vars_i4 e) ⊆ count (LENGTH env) ∧
+       EVERY closed_i4 env ∧ csg_closed_i4 s ⇒
+       csg_closed_i4 (FST res) ∧
+       every_result closed_i4 closed_i4 (SND res)) ∧
+    (∀ck env s es res. evaluate_list_i4 ck env s es res ⇒
+       set (free_vars_list_i4 es) ⊆ count (LENGTH env) ∧
+       EVERY closed_i4 env ∧ csg_closed_i4 s ⇒
+       csg_closed_i4 (FST res) ∧
+       every_result (EVERY closed_i4) closed_i4 (SND res))``,
+  ho_match_mp_tac evaluate_i4_ind >> simp[] >>
+  strip_tac >- (
+    rpt gen_tac >> ntac 2 strip_tac >>
+    first_x_assum match_mp_tac >> fs[] >>
+    fsrw_tac[ARITH_ss][SUBSET_DEF,PULL_EXISTS] >>
+    Cases>>simp[ADD1] >> rw[] >>
+    res_tac >> fsrw_tac[ARITH_ss][]) >>
+  strip_tac >- simp[EVERY_MEM,MEM_EL,PULL_EXISTS] >>
+  strip_tac >- (
+    simp[csg_closed_i4_def,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
+    rw[] >> first_x_assum(qspec_then`n`mp_tac) >> simp[] ) >>
+  strip_tac >- (
+    simp[Once closed_i4_cases,SUBSET_DEF,PULL_EXISTS] >>
+    rpt gen_tac >> strip_tac >>
+    Cases >> simp[] ) >>
+  strip_tac >- (
+    gen_tac >> Cases >>
+    gen_tac >> Cases >>
+    simp[do_uapp_i4_def
+        ,semanticPrimitivesTheory.store_alloc_def
+        ,semanticPrimitivesTheory.store_lookup_def] >>
+    rw[] >> fs[] >>
+    fs[csg_closed_i4_def] >>
+    fs[EVERY_MEM,MEM_EL,PULL_EXISTS] >>
+    BasicProvers.EVERY_CASE_TAC >> fs[] >>
+    rw[EL_LUPDATE] >>
+    rw[EVERY_MEM,MEM_EL,PULL_EXISTS] ) >>
+  strip_tac >- (
+    ntac 2 gen_tac >> Cases >>
+    ntac 2 gen_tac >> Cases >>TRY(Cases_on`l:lit`)>>
+    simp[do_app_i4_def] >>
+    Cases >> TRY(Cases_on`l:lit`)>>
+    simp[bigStepTheory.dec_count_def] >>
+    rpt gen_tac >> ntac 2 strip_tac >> fs[] >>
+    TRY(qpat_assum`X = SOME Y`mp_tac >>
+        BasicProvers.CASE_TAC >> strip_tac >>
+        rpt BasicProvers.VAR_EQ_TAC) >>
+    first_x_assum match_mp_tac >>
+    simp[exn_env_i4_def] >>
+    TRY (
+      rator_x_assum`closed_i4`mp_tac >>
+      simp[Once closed_i4_cases] >>
+      simp[ADD1] >> rfs[csg_closed_i4_def] ) >>
+    fs[semanticPrimitivesTheory.store_assign_def] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    TRY (
+      rfs[csg_closed_i4_def,EVERY_MEM,PULL_EXISTS,MEM_EL,EL_LUPDATE] >>
+      rw[] >> rw[EVERY_MEM,MEM_EL,PULL_EXISTS] >> NO_TAC) >>
+    simp[build_rec_env_i4_def,EVERY_GENLIST] >>
+    simp[EVERY_MEM,MEM_EL,PULL_EXISTS,AC ADD_ASSOC ADD_SYM] >>
+    strip_tac >>
+    simp[Once closed_i4_cases] >>
+    simp[EVERY_MEM,MEM_EL,PULL_EXISTS,AC ADD_ASSOC ADD_SYM] ) >>
+  strip_tac >- (
+    ntac 3 gen_tac >>
+    Cases >> simp[do_app_i4_def] ) >>
+  strip_tac >- (
+    ntac 4 gen_tac >>
+    Cases >> simp[do_if_i4_def] >>
+    Cases_on`l`>>simp[] >> rw[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> ntac 2 strip_tac >>
+    first_x_assum match_mp_tac >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,ADD1] >>
+    Cases >> simp[ADD1] >> rw[] >> res_tac >>
+    fsrw_tac[ARITH_ss][] ) >>
+  strip_tac >- (
+    rpt gen_tac >> ntac 2 strip_tac >>
+    first_x_assum match_mp_tac >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,ADD1,build_rec_env_i4_def,EVERY_GENLIST] >>
+    conj_tac >- (
+      rw[] >>
+      Cases_on`x < LENGTH funs`>>simp[] >>
+      REWRITE_TAC[Once ADD_SYM] >>
+      first_x_assum match_mp_tac >>
+      simp[] ) >>
+    simp[Once closed_i4_cases] >>
+    fs[EVERY_MEM,SUBSET_DEF,MEM_FLAT,PULL_EXISTS,MEM_MAP] >>
+    rw[] >>
+    fsrw_tac[ARITH_ss][AC ADD_ASSOC ADD_SYM] >>
+    Cases_on`x < LENGTH funs + 1`>>simp[] >>
+    first_x_assum match_mp_tac >>
+    simp[] >> metis_tac[] ) >>
+  simp[csg_closed_i4_def,EVERY_GENLIST])
+
+(* --- *)
+
 val v_to_i4_def = tDefine"v_to_i4"`
   (v_to_i4 (Litv_exh l) = Litv_i4 l) ∧
   (v_to_i4 (Conv_exh tag vs) = Conv_i4 tag (vs_to_i4 vs)) ∧
