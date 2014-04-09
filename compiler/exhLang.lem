@@ -10,6 +10,10 @@
  * raise a type error, and the mapping from types to constructor tags is
  * ommitted.
  *
+ * The translation only detects the following patterns:
+ *   - A single variable, (), or ref variable
+ *   - A list of patterns, each of which is a constructor applied to variables.
+ *
  *)
 
 open import Pervasives
@@ -48,6 +52,137 @@ type v_exh =
   | Closure_exh of env varN v_exh * varN * exp_exh
   | Recclosure_exh of env varN v_exh * list (varN * varN * exp_exh) * varN
   | Loc_exh of nat
+
+val is_var : pat_i2 -> bool
+let is_var p =
+  match p with
+    | Pvar_i2 _ -> true
+    | _ -> false
+  end
+
+val get_tags : list pat_i2 -> maybe (list nat)
+let rec get_tags [] = Just []
+and get_tags (p::ps) =
+  match p with
+    | Pcon_i2 (tag,t) ps' ->
+        if List.all is_var ps' then
+          match get_tags ps with
+            | Nothing -> Nothing
+            | Just tags -> Just (tag::tags)
+          end
+        else
+          Nothing
+    | _ -> Nothing
+  end
+
+declare termination_argument get_tags = automatic
+
+val exhaustive_match : exh_ctors_env -> list pat_i2 -> bool
+let exhaustive_match exh ps =
+  match ps with
+    | [] -> false
+    | [Pvar_i2 _] -> true
+    | [Pref_i2 (Pvar_i2 _)] -> true
+    | [Plit_i2 Unit] -> true
+    | [Pcon_i2 (tag,Nothing) ps] -> List.all is_var ps
+    | Pcon_i2 (tag,Just (TypeId t)) ps'::ps ->
+        if List.all is_var ps' then
+          match get_tags ps with
+            | Nothing -> false
+            | Just tags ->
+                match Map.lookup t exh with
+                  | Nothing -> false
+                  | Just tags' ->
+                    Set.fromList tags = Set.fromList tags'
+                end
+          end
+        else
+          false
+    | _ -> false
+  end
+
+
+val add_default : bool -> bool -> list (pat_i2 * exp_i2) -> list (pat_i2 * exp_i2)
+let add_default is_handle is_exh pes =
+  if is_exh then
+    pes
+  else if is_handle then
+    pes ++ [(Pvar_i2 "x", Var_local_i2 "x")]
+  else
+    pes ++ [(Pvar_i2 "x", Raise_i2 (Con_i2 (bind_tag, Just (TypeId (Short "option"))) []))]
+
+val pat_to_exh : pat_i2 -> pat_exh
+let rec
+pat_to_exh (Pvar_i2 x) = Pvar_exh x
+and 
+pat_to_exh (Plit_i2 l) = Plit_exh l
+and 
+pat_to_exh (Pcon_i2 (tag,t) ps) = 
+  Pcon_exh tag (List.map pat_to_exh ps)
+and 
+pat_to_exh (Pref_i2 p) = Pref_exh (pat_to_exh p)
+
+val exp_to_exh : exh_ctors_env -> exp_i2 -> exp_exh
+val exps_to_exh : exh_ctors_env -> list exp_i2 -> list exp_exh
+val pat_exp_to_exh : exh_ctors_env -> list (pat_i2 * exp_i2) -> list (pat_exh * exp_exh)
+val funs_to_exh : exh_ctors_env -> list (varN * varN * exp_i2) -> list (varN * varN * exp_exh)
+let rec 
+exp_to_exh exh (Raise_i2 e) = 
+  Raise_exh (exp_to_exh exh e)
+and
+exp_to_exh exh (Handle_i2 e pes) = 
+  Handle_exh (exp_to_exh exh e) (pat_exp_to_exh exh (add_default true (exhaustive_match exh (List.map fst pes)) pes))
+and
+exp_to_exh exh (Lit_i2 l) = 
+  Lit_exh l 
+and
+exp_to_exh exh (Con_i2 (tag,t) es) = 
+  Con_exh tag (exps_to_exh exh es)
+and
+exp_to_exh exh (Var_local_i2 x) = Var_local_exh x
+and
+exp_to_exh exh (Var_global_i2 x) = Var_global_exh x
+and
+exp_to_exh exh (Fun_i2 x e) =
+  Fun_exh x (exp_to_exh exh e) 
+and
+exp_to_exh exh (Uapp_i2 uop e) =
+  Uapp_exh uop (exp_to_exh exh e)
+and
+exp_to_exh exh (App_i2 op e1 e2) =
+  App_exh op (exp_to_exh exh e1) (exp_to_exh exh e2)
+and
+exp_to_exh exh (If_i2 e1 e2 e3) =
+  If_exh (exp_to_exh exh e1) (exp_to_exh exh e2) (exp_to_exh exh e3)
+and
+exp_to_exh exh (Mat_i2 e pes) =
+  Mat_exh (exp_to_exh exh e) (pat_exp_to_exh exh (add_default false (exhaustive_match exh (List.map fst pes)) pes))
+and
+exp_to_exh exh (Let_i2 x e1 e2) =
+  Let_exh x (exp_to_exh exh e1) (exp_to_exh exh e2)
+and
+exp_to_exh exh (Letrec_i2 funs e) =
+  Letrec_exh (funs_to_exh exh funs) 
+            (exp_to_exh exh e)
+and
+exp_to_exh exh (Extend_global_i2 n) =
+  Extend_global_exh n
+and
+exps_to_exh exh [] = []
+and
+exps_to_exh exh (e::es) =
+  exp_to_exh exh e :: exps_to_exh exh es
+and
+pat_exp_to_exh exh [] = []
+and
+pat_exp_to_exh exh ((p,e)::pes) =
+  (pat_to_exh p, exp_to_exh exh e) :: pat_exp_to_exh exh pes
+and
+funs_to_exh exh [] = []
+and
+funs_to_exh exh ((f,x,e)::funs) =
+  (f,x,exp_to_exh exh e) :: funs_to_exh exh funs
+
 
 val pat_bindings_exh : pat_exh -> list varN -> list varN
 let rec

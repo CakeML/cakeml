@@ -8,11 +8,11 @@ val _ = numLib.prefer_num();
 
 val _ = new_theory "modLang"
 
-(* The first intermediate language (IL1). Removes modules, and introduces
+(* The first intermediate language modLang. Removes modules, and introduces
  * special variable references for referring to top-level bindings.  Also
  * removes andalso and orelse and replaces them with if. 
  *
- * The AST of IL1 differs from the source language by having two variable
+ * The AST of modLang differs from the source language by having two variable
  * reference forms, one to reference local bindings (still by name) and one to
  * reference global bindings (by index). At the top level, modules are gone.
  * However a Prompt is introduced to group declarations whose bindings should
@@ -22,10 +22,10 @@ val _ = new_theory "modLang"
  * lets come with just a number indicating how many bindings to install in the
  * global environment.
  * 
- * The values of IL1 differ in that the closures do not contain a module
+ * The values of modLang differ in that the closures do not contain a module
  * environment.
  *
- * The semantics of IL1 differ in that there is no module environment menv, nor
+ * The semantics of modLang differ in that there is no module environment menv, nor
  * are top-level bindings added to the normal env, thus when a closure is
  * created, only locals bindings are put into it. There is a global environment
  * genv, which is just a list of the top-level bindings seen so far, with the
@@ -36,7 +36,7 @@ val _ = new_theory "modLang"
  * evaluate to a tuple with exactly as many things in it as the number of
  * bindings that the let will bind.
  *
- * The translator to IL1 keeps two mappings, one mapping module paths to
+ * The translator to modLang keeps two mappings, one mapping module paths to
  * indices into the genv, and the other mapping top-level non-module bindings
  * to genv indices. All variable references are replaced with global references
  * to the genv index if they are in the mappings. This includes top-level

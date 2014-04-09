@@ -8,21 +8,21 @@ val _ = numLib.prefer_num();
 
 val _ = new_theory "exhLang"
 
-(* The third intermediate language (IL3). Removes declarations.
+(* Adds a default case to non-exhaustive patterns. Follows decLang.
  *
- * The AST of IL3 differs from IL2 in that there is no declarations level, the
- * program is represented by a sequence of expressions.
+ * The AST of exhLang differs from decLang by removing the type annotation from
+ * constructors.
  *
- * The values of IL3 are the same as IL2.
+ * The values of exhLang differ from decLang in the same way as the
+ * expressions.
  *
- * The semantics of IL3 differ in that the global environment is now store-like
- * rather than environment-like. The expressions for extending and initialising
- * it modify the global environment (instread of just rasing a type error).
+ * The semantics of exhLang differ in that pattern matches that fall off the end
+ * raise a type error, and the mapping from types to constructor tags is
+ * ommitted.
  *
- * The translator to IL3 maps a declaration to an expression that sets of the
- * global environment in the right way. If evaluating the expression results in
- * an exception, then the exception is handled, and a SOME containing the
- * exception is returned. Otherwise, a NONE is returned.
+ * The translation only detects the following patterns:
+ *   - A single variable, (), or ref variable
+ *   - A list of patterns, each of which is a constructor applied to variables.
  *
  *)
 
@@ -67,6 +67,149 @@ val _ = Hol_datatype `
   | Closure_exh of (varN, v_exh) env => varN => exp_exh
   | Recclosure_exh of (varN, v_exh) env => (varN # varN # exp_exh) list => varN
   | Loc_exh of num`;
+
+
+(*val is_var : pat_i2 -> bool*)
+val _ = Define `
+ (is_var p =  
+((case p of
+      Pvar_i2 _ => T
+    | _ => F
+  )))`;
+
+
+(*val get_tags : list pat_i2 -> maybe (list nat)*)
+ val _ = Define `
+ (get_tags [] = (SOME []))
+/\ (get_tags (p::ps) =  
+((case p of
+      Pcon_i2 (tag,t) ps' =>
+        if EVERY is_var ps' then
+          (case get_tags ps of
+              NONE => NONE
+            | SOME tags => SOME (tag::tags)
+          )
+        else
+          NONE
+    | _ => NONE
+  )))`;
+
+
+(*val exhaustive_match : exh_ctors_env -> list pat_i2 -> bool*)
+val _ = Define `
+ (exhaustive_match exh ps =  
+((case ps of
+      [] => F
+    | [Pvar_i2 _] => T
+    | [Pref_i2 (Pvar_i2 _)] => T
+    | [Plit_i2 Unit] => T
+    | [Pcon_i2 (tag,NONE) ps] => EVERY is_var ps
+    | Pcon_i2 (tag,SOME (TypeId t)) ps'::ps =>
+        if EVERY is_var ps' then
+          (case get_tags ps of
+              NONE => F
+            | SOME tags =>
+                (case FLOOKUP exh t of
+                    NONE => F
+                  | SOME tags' =>
+                    LIST_TO_SET tags = LIST_TO_SET tags'
+                )
+          )
+        else
+          F
+    | _ => F
+  )))`;
+
+
+
+(*val add_default : bool -> bool -> list (pat_i2 * exp_i2) -> list (pat_i2 * exp_i2)*)
+val _ = Define `
+ (add_default is_handle is_exh pes =  
+(if is_exh then
+    pes
+  else if is_handle then
+    pes ++ [(Pvar_i2 "x", Var_local_i2 "x")]
+  else
+    pes ++ [(Pvar_i2 "x", Raise_i2 (Con_i2 (bind_tag, SOME (TypeId (Short "option"))) []))]))`;
+
+
+(*val pat_to_exh : pat_i2 -> pat_exh*)
+ val pat_to_exh_defn = Hol_defn "pat_to_exh" `
+
+(pat_to_exh (Pvar_i2 x) = (Pvar_exh x))
+/\ 
+(pat_to_exh (Plit_i2 l) = (Plit_exh l))
+/\ 
+(pat_to_exh (Pcon_i2 (tag,t) ps) =  
+ (Pcon_exh tag (MAP pat_to_exh ps)))
+/\ 
+(pat_to_exh (Pref_i2 p) = (Pref_exh (pat_to_exh p)))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn pat_to_exh_defn;
+
+(*val exp_to_exh : exh_ctors_env -> exp_i2 -> exp_exh*)
+(*val exps_to_exh : exh_ctors_env -> list exp_i2 -> list exp_exh*)
+(*val pat_exp_to_exh : exh_ctors_env -> list (pat_i2 * exp_i2) -> list (pat_exh * exp_exh)*)
+(*val funs_to_exh : exh_ctors_env -> list (varN * varN * exp_i2) -> list (varN * varN * exp_exh)*)
+ val exp_to_exh_defn = Hol_defn "exp_to_exh" `
+ 
+(exp_to_exh exh (Raise_i2 e) =  
+ (Raise_exh (exp_to_exh exh e)))
+/\
+(exp_to_exh exh (Handle_i2 e pes) =  
+ (Handle_exh (exp_to_exh exh e) (pat_exp_to_exh exh (add_default T (exhaustive_match exh (MAP FST pes)) pes))))
+/\
+(exp_to_exh exh (Lit_i2 l) =  
+ (Lit_exh l)) 
+/\
+(exp_to_exh exh (Con_i2 (tag,t) es) =  
+ (Con_exh tag (exps_to_exh exh es)))
+/\
+(exp_to_exh exh (Var_local_i2 x) = (Var_local_exh x))
+/\
+(exp_to_exh exh (Var_global_i2 x) = (Var_global_exh x))
+/\
+(exp_to_exh exh (Fun_i2 x e) =  
+(Fun_exh x (exp_to_exh exh e))) 
+/\
+(exp_to_exh exh (Uapp_i2 uop e) =  
+(Uapp_exh uop (exp_to_exh exh e)))
+/\
+(exp_to_exh exh (App_i2 op e1 e2) =  
+(App_exh op (exp_to_exh exh e1) (exp_to_exh exh e2)))
+/\
+(exp_to_exh exh (If_i2 e1 e2 e3) =  
+(If_exh (exp_to_exh exh e1) (exp_to_exh exh e2) (exp_to_exh exh e3)))
+/\
+(exp_to_exh exh (Mat_i2 e pes) =  
+(Mat_exh (exp_to_exh exh e) (pat_exp_to_exh exh (add_default F (exhaustive_match exh (MAP FST pes)) pes))))
+/\
+(exp_to_exh exh (Let_i2 x e1 e2) =  
+(Let_exh x (exp_to_exh exh e1) (exp_to_exh exh e2)))
+/\
+(exp_to_exh exh (Letrec_i2 funs e) =  
+(Letrec_exh (funs_to_exh exh funs) 
+            (exp_to_exh exh e)))
+/\
+(exp_to_exh exh (Extend_global_i2 n) =  
+(Extend_global_exh n))
+/\
+(exps_to_exh exh [] = ([]))
+/\
+(exps_to_exh exh (e::es) =  
+(exp_to_exh exh e :: exps_to_exh exh es))
+/\
+(pat_exp_to_exh exh [] = ([]))
+/\
+(pat_exp_to_exh exh ((p,e)::pes) =  
+((pat_to_exh p, exp_to_exh exh e) :: pat_exp_to_exh exh pes))
+/\
+(funs_to_exh exh [] = ([]))
+/\
+(funs_to_exh exh ((f,x,e)::funs) =  
+((f,x,exp_to_exh exh e) :: funs_to_exh exh funs))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn exp_to_exh_defn;
 
 
 (*val pat_bindings_exh : pat_exh -> list varN -> list varN*)
