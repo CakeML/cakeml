@@ -120,24 +120,24 @@ val _ = Define `
 
  val exp_to_Cexp_defn = Hol_defn "exp_to_Cexp" `
 
-(exp_to_Cexp (Handle_i4 e1 e2) =  
+(exp_to_Cexp (Handle_pat e1 e2) =  
 (CHandle (exp_to_Cexp e1) (exp_to_Cexp e2)))
 /\
-(exp_to_Cexp (Raise_i4 e) = (CRaise (exp_to_Cexp e)))
+(exp_to_Cexp (Raise_pat e) = (CRaise (exp_to_Cexp e)))
 /\
-(exp_to_Cexp (Lit_i4 l) = (CLit l))
+(exp_to_Cexp (Lit_pat l) = (CLit l))
 /\
-(exp_to_Cexp (Con_i4 cn es) =  
+(exp_to_Cexp (Con_pat cn es) =  
 (CCon cn (exps_to_Cexps es)))
 /\
-(exp_to_Cexp (Var_local_i4 vn) = (CVar vn))
+(exp_to_Cexp (Var_local_pat vn) = (CVar vn))
 /\
-(exp_to_Cexp (Var_global_i4 vn) = (CGvar vn))
+(exp_to_Cexp (Var_global_pat vn) = (CGvar vn))
 /\
-(exp_to_Cexp (Fun_i4 e) =  
+(exp_to_Cexp (Fun_pat e) =  
 (CLetrec [(NONE,( 1,shift( 1)( 1) (exp_to_Cexp e)))] (CVar( 0))))
 /\
-(exp_to_Cexp (App_i4 (Opn opn) e1 e2) =  
+(exp_to_Cexp (App_pat (Opn opn) e1 e2) =  
 (let Ce1 = (exp_to_Cexp e1) in
   let Ce2 = (exp_to_Cexp e2) in
   (case opn_to_prim2 opn of
@@ -150,7 +150,7 @@ val _ = Define `
              (CPrim2 p2 (CVar( 1)) (CVar( 0)))))
   )))
 /\
-(exp_to_Cexp (App_i4 (Opb opb) e1 e2) =  
+(exp_to_Cexp (App_pat (Opb opb) e1 e2) =  
 (let Ce1 = (exp_to_Cexp e1) in
   let Ce2 = (exp_to_Cexp e2) in
   (case opb of
@@ -166,52 +166,52 @@ val _ = Define `
           )))
   )))
 /\
-(exp_to_Cexp (App_i4 Equality e1 e2) =  
+(exp_to_Cexp (App_pat Equality e1 e2) =  
 (let Ce1 = (exp_to_Cexp e1) in
   let Ce2 = (exp_to_Cexp e2) in
   CLet T (CPrim2 CEq Ce1 Ce2)
     (CIf (CPrim1 CIsBlock (CVar( 0))) (CVar( 0)) (CRaise (CCon eq_tag [])))))
 /\
-(exp_to_Cexp (App_i4 Opapp e1 e2) =  
+(exp_to_Cexp (App_pat Opapp e1 e2) =  
 (let Ce1 = (exp_to_Cexp e1) in
   let Ce2 = (exp_to_Cexp e2) in
   CCall T Ce1 [Ce2]))
 /\
-(exp_to_Cexp (App_i4 Opassign e1 e2) =  
+(exp_to_Cexp (App_pat Opassign e1 e2) =  
 (let Ce1 = (exp_to_Cexp e1) in
   let Ce2 = (exp_to_Cexp e2) in
   CUpd Ce1 Ce2))
 /\
-(exp_to_Cexp (Uapp_i4 uop e) =  
+(exp_to_Cexp (Uapp_pat uop e) =  
 (let Ce = (exp_to_Cexp e) in
   CPrim1 ((case uop of
-            Opref_i4   => CRef
-          | Opderef_i4 => CDer
-          | Init_global_var_i4 n => CInitG n
-          | Tag_eq_i4 n => CTagEq n
-          | El_i4 n => CProj n
+            Opref_pat   => CRef
+          | Opderef_pat => CDer
+          | Init_global_var_pat n => CInitG n
+          | Tag_eq_pat n => CTagEq n
+          | El_pat n => CProj n
           )) Ce))
 /\
-(exp_to_Cexp (If_i4 e1 e2 e3) =  
+(exp_to_Cexp (If_pat e1 e2 e3) =  
 (let Ce1 = (exp_to_Cexp e1) in
   let Ce2 = (exp_to_Cexp e2) in
   let Ce3 = (exp_to_Cexp e3) in
   CIf Ce1 Ce2 Ce3))
 /\
-(exp_to_Cexp (Let_i4 e b) =  
+(exp_to_Cexp (Let_pat e b) =  
 (let Ce = (exp_to_Cexp e) in
   let Cb = (exp_to_Cexp b) in
   CLet T Ce Cb))
 /\
-(exp_to_Cexp (Seq_i4 e b) =  
+(exp_to_Cexp (Seq_pat e b) =  
 (let Ce = (exp_to_Cexp e) in
   let Cb = (exp_to_Cexp b) in
   CLet F Ce Cb))
 /\
-(exp_to_Cexp (Letrec_i4 defs b) =  
+(exp_to_Cexp (Letrec_pat defs b) =  
 (CLetrec (MAP (\ e .  (NONE,( 1,e))) (exps_to_Cexps defs)) (exp_to_Cexp b)))
 /\
-(exp_to_Cexp (Extend_global_i4 n) = (CExtG n))
+(exp_to_Cexp (Extend_global_pat n) = (CExtG n))
 /\
 (exps_to_Cexps [] = ([]))
 /\
@@ -224,22 +224,22 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
  val v_to_Cv_defn = Hol_defn "v_to_Cv" `
 
-(v_to_Cv (Litv_i4 l) = (CLitv l))
+(v_to_Cv (Litv_pat l) = (CLitv l))
 /\
-(v_to_Cv (Conv_i4 cn vs) =  
+(v_to_Cv (Conv_pat cn vs) =  
 (CConv cn (vs_to_Cvs vs)))
 /\
-(v_to_Cv (Closure_i4 env e) =  
+(v_to_Cv (Closure_pat env e) =  
 (let Cenv = (vs_to_Cvs env) in
   let Ce = (exp_to_Cexp e) in
   CRecClos Cenv [(NONE, ( 1,shift( 1)( 1) Ce))]( 0)))
 /\
-(v_to_Cv (Recclosure_i4 env defs vn) =  
+(v_to_Cv (Recclosure_pat env defs vn) =  
 (let Cenv = (vs_to_Cvs env) in
   let Cdefs = (MAP (\ e .  (NONE,( 1,e))) (exps_to_Cexps defs)) in
   CRecClos Cenv Cdefs vn))
 /\
-(v_to_Cv (Loc_i4 n) = (CLoc n))
+(v_to_Cv (Loc_pat n) = (CLoc n))
 /\
 (vs_to_Cvs [] = ([]))
 /\

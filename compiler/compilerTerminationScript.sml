@@ -99,8 +99,8 @@ val (mkshift_def,mkshift_ind) = register "mkshift" (
 val (exp_to_Cexp_def,exp_to_Cexp_ind) = register "exp_to_Cexp" (
   tprove_no_defn ((exp_to_Cexp_def,exp_to_Cexp_ind),
   WF_REL_TAC `inv_image $< (λx. case x of
-    | INL e => exp_i4_size e
-    | INR es => exp_i41_size es)`))
+    | INL e => exp_pat_size e
+    | INR es => exp_pat1_size es)`))
 
 val (compile_envref_def, compile_envref_ind) = register "compile_envref" (
   tprove_no_defn ((compile_envref_def, compile_envref_ind),
@@ -338,45 +338,45 @@ val (pat_to_exh_def, pat_to_exh_ind) =
   decide_tac);
 val _ = register "pat_to_exh" (pat_to_exh_def,pat_to_exh_ind);
 
-val (exp_to_i4_def, exp_to_i4_ind) =
-  tprove_no_defn ((exp_to_i4_def, exp_to_i4_ind),
+val (exp_to_pat_def, exp_to_pat_ind) =
+  tprove_no_defn ((exp_to_pat_def, exp_to_pat_ind),
   WF_REL_TAC `inv_image $< (\x. case x of INL (bvs,e) => exp_exh_size e
                                         | INR (INL (bvs,es)) => exp_exh6_size es
                                         | INR (INR (INL (bvs,funs))) => exp_exh1_size funs
                                         | INR (INR (INR (bvs,pes))) => exp_exh3_size pes)`);
-val _ = register "exp_to_i4" (exp_to_i4_def,exp_to_i4_ind);
+val _ = register "exp_to_pat" (exp_to_pat_def,exp_to_pat_ind);
 
-val (pat_to_i4_def, pat_to_i4_ind) =
-  tprove_no_defn ((pat_to_i4_def, pat_to_i4_ind),
+val (pat_to_pat_def, pat_to_pat_ind) =
+  tprove_no_defn ((pat_to_pat_def, pat_to_pat_ind),
   WF_REL_TAC `inv_image $< (\x. case x of INL p => pat_exh_size p
                                         | INR (n,ps) => pat_exh1_size ps)`);
-val _ = register "pat_to_i4" (pat_to_i4_def,pat_to_i4_ind);
+val _ = register "pat_to_pat" (pat_to_pat_def,pat_to_pat_ind);
 
-val (row_to_i4_def, row_to_i4_ind) =
-  tprove_no_defn ((row_to_i4_def, row_to_i4_ind),
+val (row_to_pat_def, row_to_pat_ind) =
+  tprove_no_defn ((row_to_pat_def, row_to_pat_ind),
   WF_REL_TAC `inv_image $< (\x. case x of INL (bvs,p) => pat_exh_size p
                                         | INR (bvs,n,k,ps) => pat_exh1_size ps)`);
-val _ = register "row_to_i4" (row_to_i4_def,row_to_i4_ind);
+val _ = register "row_to_pat" (row_to_pat_def,row_to_pat_ind);
 
-val (Let_Els_i4_def, Let_Els_i4_ind) =
-  tprove_no_defn ((Let_Els_i4_def, Let_Els_i4_ind),
+val (Let_Els_pat_def, Let_Els_pat_ind) =
+  tprove_no_defn ((Let_Els_pat_def, Let_Els_pat_ind),
   WF_REL_TAC `measure (FST o SND)`);
-val _ = register "Let_Els_i4" (Let_Els_i4_def,Let_Els_i4_ind);
+val _ = register "Let_Els_pat" (Let_Els_pat_def,Let_Els_pat_ind);
 
-val (do_eq_i4_def, do_eq_i4_ind) =
-  tprove_no_defn ((do_eq_i4_def, do_eq_i4_ind),
-  WF_REL_TAC`inv_image $< (\x. case x of INL (v1,v2) => v_i4_size v1
-                                       | INR (vs1,vs2) => v_i41_size vs1)`);
-val _ = register "do_eq_i4" (do_eq_i4_def,do_eq_i4_ind);
+val (do_eq_pat_def, do_eq_pat_ind) =
+  tprove_no_defn ((do_eq_pat_def, do_eq_pat_ind),
+  WF_REL_TAC`inv_image $< (\x. case x of INL (v1,v2) => v_pat_size v1
+                                       | INR (vs1,vs2) => v_pat1_size vs1)`);
+val _ = register "do_eq_pat" (do_eq_pat_def,do_eq_pat_ind);
 
 
 (* export rewrites *)
 val _ = export_rewrites
-  ["exp_to_i4_def"
-  ,"patLang.uop_to_i4_def"
-  ,"patLang.fo_i4_def"
-  ,"patLang.ground_i4_def"
-  ,"patLang.pure_uop_i4_def"
+  ["exp_to_pat_def"
+  ,"patLang.uop_to_pat_def"
+  ,"patLang.fo_pat_def"
+  ,"patLang.ground_pat_def"
+  ,"patLang.pure_uop_pat_def"
   ,"patLang.pure_op_def"]
 
 (* TODO: add missing *)

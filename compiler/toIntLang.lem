@@ -99,24 +99,24 @@ and
 opn_to_prim2 Modulo = Right CMod
 
 let rec
-exp_to_Cexp (Handle_i4 e1 e2) =
+exp_to_Cexp (Handle_pat e1 e2) =
   CHandle (exp_to_Cexp e1) (exp_to_Cexp e2)
 and
-exp_to_Cexp (Raise_i4 e) = CRaise (exp_to_Cexp e)
+exp_to_Cexp (Raise_pat e) = CRaise (exp_to_Cexp e)
 and
-exp_to_Cexp (Lit_i4 l) = CLit l
+exp_to_Cexp (Lit_pat l) = CLit l
 and
-exp_to_Cexp (Con_i4 cn es) =
+exp_to_Cexp (Con_pat cn es) =
   CCon cn (exps_to_Cexps es)
 and
-exp_to_Cexp (Var_local_i4 vn) = CVar vn
+exp_to_Cexp (Var_local_pat vn) = CVar vn
 and
-exp_to_Cexp (Var_global_i4 vn) = CGvar vn
+exp_to_Cexp (Var_global_pat vn) = CGvar vn
 and
-exp_to_Cexp (Fun_i4 e) =
+exp_to_Cexp (Fun_pat e) =
   CLetrec [(Nothing,(1,shift 1 1 (exp_to_Cexp e)))] (CVar 0)
 and
-exp_to_Cexp (App_i4 (Opn opn) e1 e2) =
+exp_to_Cexp (App_pat (Opn opn) e1 e2) =
   let Ce1 = exp_to_Cexp e1 in
   let Ce2 = exp_to_Cexp e2 in
   match opn_to_prim2 opn with
@@ -129,7 +129,7 @@ exp_to_Cexp (App_i4 (Opn opn) e1 e2) =
              (CPrim2 p2 (CVar 1) (CVar 0))))
   end
 and
-exp_to_Cexp (App_i4 (Opb opb) e1 e2) =
+exp_to_Cexp (App_pat (Opb opb) e1 e2) =
   let Ce1 = exp_to_Cexp e1 in
   let Ce2 = exp_to_Cexp e2 in
   match opb with
@@ -145,52 +145,52 @@ exp_to_Cexp (App_i4 (Opb opb) e1 e2) =
           end))
   end
 and
-exp_to_Cexp (App_i4 Equality e1 e2) =
+exp_to_Cexp (App_pat Equality e1 e2) =
   let Ce1 = exp_to_Cexp e1 in
   let Ce2 = exp_to_Cexp e2 in
   CLet true (CPrim2 CEq Ce1 Ce2)
     (CIf (CPrim1 CIsBlock (CVar 0)) (CVar 0) (CRaise (CCon eq_tag [])))
 and
-exp_to_Cexp (App_i4 Opapp e1 e2) =
+exp_to_Cexp (App_pat Opapp e1 e2) =
   let Ce1 = exp_to_Cexp e1 in
   let Ce2 = exp_to_Cexp e2 in
   CCall true Ce1 [Ce2]
 and
-exp_to_Cexp (App_i4 Opassign e1 e2) =
+exp_to_Cexp (App_pat Opassign e1 e2) =
   let Ce1 = exp_to_Cexp e1 in
   let Ce2 = exp_to_Cexp e2 in
   CUpd Ce1 Ce2
 and
-exp_to_Cexp (Uapp_i4 uop e) =
+exp_to_Cexp (Uapp_pat uop e) =
   let Ce = exp_to_Cexp e in
   CPrim1 (match uop with
-          | Opref_i4   -> CRef
-          | Opderef_i4 -> CDer
-          | Init_global_var_i4 n -> CInitG n
-          | Tag_eq_i4 n -> CTagEq n
-          | El_i4 n -> CProj n
+          | Opref_pat   -> CRef
+          | Opderef_pat -> CDer
+          | Init_global_var_pat n -> CInitG n
+          | Tag_eq_pat n -> CTagEq n
+          | El_pat n -> CProj n
           end) Ce
 and
-exp_to_Cexp (If_i4 e1 e2 e3) =
+exp_to_Cexp (If_pat e1 e2 e3) =
   let Ce1 = exp_to_Cexp e1 in
   let Ce2 = exp_to_Cexp e2 in
   let Ce3 = exp_to_Cexp e3 in
   CIf Ce1 Ce2 Ce3
 and
-exp_to_Cexp (Let_i4 e b) =
+exp_to_Cexp (Let_pat e b) =
   let Ce = exp_to_Cexp e in
   let Cb = exp_to_Cexp b in
   CLet true Ce Cb
 and
-exp_to_Cexp (Seq_i4 e b) =
+exp_to_Cexp (Seq_pat e b) =
   let Ce = exp_to_Cexp e in
   let Cb = exp_to_Cexp b in
   CLet false Ce Cb
 and
-exp_to_Cexp (Letrec_i4 defs b) =
+exp_to_Cexp (Letrec_pat defs b) =
   CLetrec (List.map (fun e -> (Nothing,(1,e))) (exps_to_Cexps defs)) (exp_to_Cexp b)
 and
-exp_to_Cexp (Extend_global_i4 n) = CExtG n
+exp_to_Cexp (Extend_global_pat n) = CExtG n
 and
 exps_to_Cexps [] = []
 and
@@ -200,22 +200,22 @@ exps_to_Cexps (e::es) =
 (* source to intermediate values *)
 
 let rec
-v_to_Cv (Litv_i4 l) = CLitv l
+v_to_Cv (Litv_pat l) = CLitv l
 and
-v_to_Cv (Conv_i4 cn vs) =
+v_to_Cv (Conv_pat cn vs) =
   CConv cn (vs_to_Cvs vs)
 and
-v_to_Cv (Closure_i4 env e) =
+v_to_Cv (Closure_pat env e) =
   let Cenv = vs_to_Cvs env in
   let Ce = exp_to_Cexp e in
   CRecClos Cenv [(Nothing, (1,shift 1 1 Ce))] 0
 and
-v_to_Cv (Recclosure_i4 env defs vn) =
+v_to_Cv (Recclosure_pat env defs vn) =
   let Cenv = vs_to_Cvs env in
   let Cdefs = (List.map (fun e -> (Nothing,(1,e))) (exps_to_Cexps defs)) in
   CRecClos Cenv Cdefs vn
 and
-v_to_Cv (Loc_i4 n) = CLoc n
+v_to_Cv (Loc_pat n) = CLoc n
 and
 vs_to_Cvs [] = []
 and
