@@ -296,6 +296,50 @@ val syneq_shift_tac =
     simp[rich_listTheory.EL_CONS,PRE_SUB1] ) >>
   strip_tac
 
+val do_Ceq_correct = prove (
+  ``(!v1 v2.
+      (!b. (do_eq_i4 v1 v2 = Eq_val b) ⇒ (do_Ceq (v_to_Cv v1) (v_to_Cv v2) = Eq_val b)) ∧
+      ((do_eq_i4 v1 v2 = Eq_closure) ⇒ (do_Ceq (v_to_Cv v1) (v_to_Cv v2) = Eq_closure))) ∧
+    (!vs1 vs2.
+      (!b. (do_eq_list_i4 vs1 vs2 = Eq_val b) ⇒ (do_Ceq_list (vs_to_Cvs vs1) (vs_to_Cvs vs2) = Eq_val b)) ∧
+      ((do_eq_list_i4 vs1 vs2 = Eq_closure) ⇒ (do_Ceq_list (vs_to_Cvs vs1) (vs_to_Cvs vs2) = Eq_closure)))``,
+  ho_match_mp_tac do_eq_i4_ind >>
+  rw [do_eq_i4_def, v_to_Cv_def] >>
+  rw [] >>
+  Cases_on `do_eq_i4 v1 v2` >> fs [] >>
+  metis_tac [])
+
+fun tac w1 =
+  ho_match_mp_tac syneq_ind >>
+  rw [] >>
+  Cases_on w1 >>
+  fs [] >>
+  Cases_on `n = cn` >>
+  fs [] >>
+  rpt (pop_assum mp_tac) >>
+  Q.SPEC_TAC (`vs1`, `vs1`) >>
+  Q.SPEC_TAC (`vs2`, `vs2`) >>
+  Induct_on `l` >>
+  rw [] >>
+  Cases_on `vs2` >>
+  fs [] >>
+  rw [] >>
+  fs [] >>
+  TRY(fs[EVERY2_EVERY]>>NO_TAC)>>
+  BasicProvers.CASE_TAC >>
+  fs [] >>
+  Cases_on `b` >>
+  fs [] >>
+  metis_tac[]
+
+val do_Ceq_syneq1 = prove(
+  ``!w1 w2. syneq w1 w2  ⇒ ∀w3. do_Ceq w1 w3 = do_Ceq w2 w3``,
+  tac `w3`)
+
+val do_Ceq_syneq2 = prove(
+  ``!w2 w3. syneq w2 w3  ⇒ ∀w1. do_Ceq w1 w2 = do_Ceq w1 w3``,
+  tac `w1`)
+
 val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
   ``(∀ck env s e res. evaluate_i4 ck env s e res ⇒
        ck ∧
@@ -622,7 +666,29 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
       simp[Once Cevaluate_cases] >>
       srw_tac[DNF_ss][] >>
       fs[do_app_i4_def] >>
-      cheat (* do_Ceq correct *) )
+      Q.PAT_ABBREV_TAC`Ce = do_Ceq X Y` >>
+      Cases_on`do_eq_i4 v1 v2`>>fs[]>>
+      `Ce = do_eq_i4 v1 v2` by (
+        metis_tac[do_Ceq_correct,do_Ceq_syneq1,do_Ceq_syneq2] ) >>
+      simp[] >>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      fs[bigStepTheory.dec_count_def] >>
+      simp[Once Cevaluate_cases] >>
+      simp[Once Cevaluate_cases] >>
+      simp[Once Cevaluate_cases] >>
+      fs[exn_env_i4_def] >>
+      fs[SIMP_RULE(srw_ss())
+         [SIMP_RULE(srw_ss())[](Q.SPECL[`ck`,`env`,`s`,`Con_i4 X Y`](CONJUNCT1 evaluate_i4_cases))]
+         (Q.SPECL[`ck`,`env`,`s`,`Raise_i4 (Con_i4 X Y)`](CONJUNCT1 evaluate_i4_cases))] >>
+      fs[SIMP_RULE(srw_ss())
+         [SIMP_RULE(srw_ss())[](Q.SPECL[`env`,`s`,`CCon X Y`](CONJUNCT1 Cevaluate_cases))]
+         (Q.SPECL[`env`,`s`,`CRaise (CCon X Y)`](CONJUNCT1 Cevaluate_cases))] >>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      simp[Once Cevaluate_cases] >>
+      simp[Once Cevaluate_cases] >>
+      fs[Once(CONJUNCT2 Cevaluate_cases)] >>
+      fs[Once(CONJUNCT2 evaluate_i4_cases)] >>
+      metis_tac[csg_i4_syneq_trans,result_rel_syneq_syneq_trans])
     >- (
       simp[Once Cevaluate_cases] >>
       srw_tac[DNF_ss][] >>
