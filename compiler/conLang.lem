@@ -1,24 +1,27 @@
-(* The second intermediate language (IL2). Removes named datatype constructors.
+(* Removes named datatype constructors. Follows modLang.
  *
- * The AST of IL2 differs from IL1 by using numbered tags instead of
+ * The AST of conLang differs from modLang by using numbered tags instead of
  * constructor name identifiers for all data constructor patterns and
- * expressions. Also type and exception declarations are removed.
+ * expressions. Constructors explicitly mention the type they are constructing.
+ * Also type and exception declarations are removed.
  *
- * The values of IL2 differ in that the closures do not contain a constructor
+ * The values of conLang differ in that the closures do not contain a constructor
  * name environment.
  *
- * The semantics of IL2 differ in that there is no constructor name
- * environment.
+ * The semantics of conLang differ in that there is no lexical constructor name
+ * environment. However, there is a mapping from types to the tags of the
+ * constructors of that type. This is for use later on in determining whether a
+ * pattern match is exhaustive.
  *
- * The translator to IL2 keeps a mapping of constructors to their tags. The
+ * The translator to conLang keeps a mapping of constructors to their tags. The
  * tuple constructor is always 0. Div, Bind, and Eq are always 1, 2, and 3.
- * Cond and nil are always 4 and 5. It also keeps a reverse mapping for use by
- * the REPL printer. 
+ * Cons and nil are always 4 and 5. SOME and NONE are 6 and 6. It also keeps a
+ * reverse mapping for use by the REPL printer. 
  *
  * The expressions include the unary operation for initialising the global
- * store, even though it can't be used until IL3. However, including it here
- * means that the IL2->IL3 translation can just be (\x.x). Also includes the
- * expression for extending the global store
+ * store, even though it can't be used until decLang. However, including it here
+ * means that the conLang->decLang translation can just be (\x.x). Also
+ * includes the expression for extending the global store.
  *
  *)
 

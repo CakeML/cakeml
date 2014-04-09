@@ -1,18 +1,19 @@
-(* The third intermediate language (IL3). Removes declarations.
+(* Removes declarations. Follows conLang.
  *
- * The AST of IL3 differs from IL2 in that there is no declarations level, the
- * program is represented by a sequence of expressions.
+ * The AST of decLang differs from conLang in that there is no declarations
+ * level, the program is represented by an expressions.
  *
- * The values of IL3 are the same as IL2.
+ * The values of decLang are the same as conLang.
  *
- * The semantics of IL3 differ in that the global environment is now store-like
- * rather than environment-like. The expressions for extending and initialising
- * it modify the global environment (instread of just rasing a type error).
+ * The semantics of decLang differ in that the global environment is now
+ * store-like rather than environment-like. The expressions for extending and
+ * initialising it modify the global environment (instead of just rasing a
+ * type error).
  *
- * The translator to IL3 maps a declaration to an expression that sets of the
- * global environment in the right way. If evaluating the expression results in
- * an exception, then the exception is handled, and a SOME containing the
- * exception is returned. Otherwise, a NONE is returned.
+ * The translator to decLang maps a declaration to an expression that sets of
+ * the global environment in the right way. If evaluating the expression
+ * results in an exception, then the exception is handled, and a SOME
+ * containing the exception is returned. Otherwise, a NONE is returned.
  *
  *)
 
