@@ -28,7 +28,10 @@ val v_to_exh_def = tDefine "v_to_exh" `
 (vs_to_exh exh (v::vs) = v_to_exh exh v :: vs_to_exh exh vs) ∧
 (env_to_exh exh [] = []) ∧
 (env_to_exh exh ((x,v)::env) = (x,v_to_exh exh v) :: env_to_exh exh env)`
-cheat;
+(WF_REL_TAC`inv_image $< (\x. case x of
+  | INL (_,v) => v_i2_size v
+  | INR (INL (_,vs)) => v_i23_size vs
+  | INR (INR (_,env)) => v_i21_size env)`)
 
 val store_to_exh_def = Define `
 store_to_exh exh (s,genv) =
