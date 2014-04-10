@@ -1,5 +1,6 @@
 open HolKernel bossLib boolLib boolSimps SatisfySimps listTheory rich_listTheory pairTheory pred_setTheory finite_mapTheory alistTheory relationTheory arithmeticTheory sortingTheory lcsymtacs quantHeuristicsLib quantHeuristicsLibAbbrev
 open miscTheory miscLib bytecodeTheory bytecodeTerminationTheory bytecodeEvalTheory bytecodeExtraTheory bytecodeLabelsTheory compilerLibTheory intLangTheory toBytecodeTheory compilerTerminationTheory intLangExtraTheory
+open patLangProofTheory
 val _ = numLib.prefer_num()
 val _ = Parse.bring_to_front_overload"++"{Name="APPEND",Thy="list"}
 val _ = new_theory "bytecodeProof"
@@ -320,12 +321,13 @@ val good_rd_def = Define`
 
 val s_refs_def = Define`
   s_refs rd s bs ⇔
-  (∀n. bs.clock = SOME n ⇒ FST s = n) ∧
+  (∀n. bs.clock = SOME n ⇒ FST (FST s) = n) ∧
   good_rd rd bs ∧
-  (LENGTH rd.sm = LENGTH (SND s)) ∧
+  (LENGTH rd.sm = LENGTH (SND (FST s))) ∧
   EVERY (λp. p ∈ FDOM bs.refs) rd.sm ∧
   ALL_DISTINCT rd.sm ∧
-  EVERY2 (Cv_bv (mk_pp rd bs)) (SND s) (MAP (FAPPLY bs.refs) rd.sm)`
+  EVERY2 (Cv_bv (mk_pp rd bs)) (SND (FST s)) (MAP (FAPPLY bs.refs) rd.sm) ∧
+  EVERY2 (OPTREL (Cv_bv (mk_pp rd bs))) (SND s) bs.globals`
 
 val s_refs_with_pc = store_thm("s_refs_with_pc",
   ``s_refs rd s (bs with pc := p) = s_refs rd s bs``,
@@ -337,7 +339,8 @@ val s_refs_with_stack = store_thm("s_refs_with_stack",
 
 val s_refs_with_irr = store_thm("s_refs_with_irr",
   ``∀rd s bs bs'.
-    s_refs rd s bs ∧ (bs'.refs = bs.refs) ∧ (bs'.inst_length = bs.inst_length) ∧ (bs'.code = bs.code) ∧ (bs'.clock = bs.clock)
+    s_refs rd s bs ∧ (bs'.refs = bs.refs) ∧ (bs'.inst_length = bs.inst_length) ∧
+    (bs'.code = bs.code) ∧ (bs'.clock = bs.clock) ∧ (bs'.globals = bs.globals)
     ⇒
     s_refs rd s bs'``,
   rw[s_refs_def,good_rd_def])
@@ -349,6 +352,7 @@ val s_refs_append_code = store_thm("s_refs_append_code",
   rw[s_refs_def,fmap_rel_def,good_rd_def,FEVERY_DEF,UNCURRY] >>
   fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >> rpt strip_tac >>
   res_tac >>
+  TRY (match_mp_tac (GEN_ALL (MP_CANON optionTheory.OPTREL_MONO)) >> HINT_EXISTS_TAC >> rw[]) >>
   match_mp_tac Cv_bv_l2a_mono_mp >>
   qexists_tac `mk_pp rd bs` >>
   rw[] >> metis_tac[bc_find_loc_aux_append_code])
@@ -470,16 +474,22 @@ val Cenv_bs_with_irr = store_thm("Cenv_bs_with_irr",
   rfs[o_f_FAPPLY])
 
 val Cenv_bs_syneq_store = store_thm("Cenv_bs_syneq_store",
-  ``∀rd s Cenv renv sz csz bs s'. FST s = FST s' ∧ LIST_REL (syneq) (SND s) (SND s') ∧ Cenv_bs rd s Cenv renv sz csz bs ⇒
+  ``∀rd s Cenv renv sz csz bs s'. csg_rel syneq s s' ∧ Cenv_bs rd s Cenv renv sz csz bs ⇒
            Cenv_bs rd s' Cenv renv sz csz bs``,
   rw[Cenv_bs_def] >>
   full_simp_tac pure_ss [s_refs_def] >>
+  PairCases_on`s`>>PairCases_on`s'`>>fs[csg_rel_def] >>
   simp_tac std_ss [] >>
   conj_tac >- metis_tac[] >>
   conj_asm1_tac >- metis_tac[EVERY2_EVERY] >>
   fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
   rfs[MEM_ZIP] >> fs[MEM_ZIP] >>
   fs[GSYM LEFT_FORALL_IMP_THM] >>
+  conj_tac >- metis_tac[Cv_bv_syneq,FST,SND] >>
+  rw[] >>
+  qmatch_assum_rename_tac`LENGTH bs.globals = LENGTH z`[] >>
+  rpt (first_x_assum(qspec_then`n`mp_tac)) >>
+  Cases_on`EL n z`>>fs[optionTheory.OPTREL_def] >> rw[] >> fs[] >>
   metis_tac[Cv_bv_syneq,FST,SND])
 
 val env_renv_APPEND_suff = store_thm("env_renv_APPEND_suff",
@@ -1214,13 +1224,13 @@ val prim1_to_bc_thm = store_thm("prim1_to_bc_thm",
     (CevalPrim1 op s v1 = (s', Rval v)) ∧
     Cv_bv (mk_pp rd (bs with code := bce)) v1 bv1 ∧
     (bs.stack = bv1::st) ∧
-    s_refs rd (ck,(FST s)) (bs with code := bce)
+    s_refs rd ((ck,FST s),SND s) (bs with code := bce)
     ⇒ ∃bv rf sm'.
       let bs' = bs with <|stack := bv::st; refs := rf; pc := next_addr bs.inst_length (bc0 ++ [prim1_to_bc op])|> in
       let rd' = rd with sm := sm' in
       bc_next bs bs' ∧
       Cv_bv (mk_pp rd' (bs' with <| code := bce |>)) v bv ∧
-      s_refs rd' (ck,(FST s')) (bs' with code := bce) ∧
+      s_refs rd' ((ck,FST s'),SND s') (bs' with code := bce) ∧
       DRESTRICT bs.refs (COMPL (set rd.sm)) ⊑ DRESTRICT rf (COMPL (set sm')) ∧
       rd.sm ≼ sm'``,
   simp[] >> rw[] >>
@@ -1264,29 +1274,35 @@ val prim1_to_bc_thm = store_thm("prim1_to_bc_thm",
       conj_tac >- (
         simp[ALL_DISTINCT_APPEND] >>
         fs[EVERY_MEM] >> PROVE_TAC[] ) >>
-      match_mp_tac EVERY2_APPEND_suff >>
-      simp[] >>
       conj_tac >- (
-        fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,FORALL_PROD,MEM_ZIP] >>
-        qx_gen_tac`m`>>strip_tac >>
-        qpat_assum`∀m. m < LENGTH rd.sm ⇒ Q`(qspec_then`m`mp_tac)>>
-        simp[EL_MAP,FAPPLY_FUPDATE_THM] >> fs[MEM_EL] >>
-        rw[] >- PROVE_TAC[] >>
+        conj_tac >- (
+          fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,FORALL_PROD,MEM_ZIP] >>
+          qx_gen_tac`m`>>strip_tac >>
+          qpat_assum`∀m. m < LENGTH rd.sm ⇒ Q`(qspec_then`m`mp_tac)>>
+          simp[EL_MAP,FAPPLY_FUPDATE_THM] >> fs[MEM_EL] >>
+          rw[] >- PROVE_TAC[] >>
+          match_mp_tac(MP_CANON(GEN_ALL(CONJUNCT1(SPEC_ALL Cv_bv_SUBMAP)))) >>
+          qexists_tac`mk_pp rd (bs with code := bce)` >>
+          simp[] >>
+          fs[good_rd_def,FEVERY_DEF,UNCURRY] >>
+          metis_tac[] ) >>
         match_mp_tac(MP_CANON(GEN_ALL(CONJUNCT1(SPEC_ALL Cv_bv_SUBMAP)))) >>
         qexists_tac`mk_pp rd (bs with code := bce)` >>
         simp[] >>
         fs[good_rd_def,FEVERY_DEF,UNCURRY] >>
         metis_tac[] ) >>
-      match_mp_tac(MP_CANON(GEN_ALL(CONJUNCT1(SPEC_ALL Cv_bv_SUBMAP)))) >>
-      qexists_tac`mk_pp rd (bs with code := bce)` >>
-      simp[] >>
-      fs[good_rd_def,FEVERY_DEF,UNCURRY] >>
-      metis_tac[] ) >>
+      match_mp_tac (MP_CANON (GEN_ALL EVERY2_mono)) >>
+      HINT_EXISTS_TAC >> simp[] >>
+      rpt gen_tac >> match_mp_tac (GEN_ALL optionTheory.OPTREL_MONO) >>
+      rpt gen_tac >> strip_tac >>
+      match_mp_tac (MP_CANON(GEN_ALL(CONJUNCT1(SPEC_ALL Cv_bv_SUBMAP)))) >>
+      HINT_EXISTS_TAC >> simp[] >>
+      fs[good_rd_def,FEVERY_DEF,UNCURRY] >> metis_tac[] ) >>
     simp[SUBMAP_DEF,DRESTRICT_DEF] >>
     rw[] >> rw[] >> fs[IN_FRANGE,DOMSUB_FAPPLY_THM] >> rw[] >> PROVE_TAC[])
   >- (
     Cases_on`v1`>>fs[] >>
-    Cases_on`el_check n s`>>fs[]>>
+    Cases_on`el_check n s0`>>fs[]>>
     fs[Q.SPEC`CLoc n`(CONJUNCT1(SPEC_ALL(Cv_bv_cases)))] >>
     rw[] >> simp[bc_state_component_equality] >>
     qexists_tac`rd.sm`>>
@@ -1304,7 +1320,30 @@ val prim1_to_bc_thm = store_thm("prim1_to_bc_thm",
     Cases_on`l`>>fs[Once Cv_bv_cases] >>
     simp[bc_eval_stack_def,bc_state_component_equality] >>
     fs[s_refs_def] >> simp[SUM_APPEND,FILTER_APPEND] >>
-    TRY(qexists_tac`rd.sm`) >> simp[] >> fs[good_rd_def]))
+    TRY(qexists_tac`rd.sm`) >> simp[] >> fs[good_rd_def])
+  >- (
+    Cases_on`v1`>>fs[]>>rw[]>>
+    fs[Q.SPEC`CConv X Y`(CONJUNCT1(SPEC_ALL(Cv_bv_cases)))] >>
+    rw[bc_eval_stack_def] >> simp[bc_state_component_equality] >>
+    simp[Once Cv_bv_cases] >>
+    simp[FILTER_APPEND,SUM_APPEND] >>
+    qexists_tac`rd.sm`>>simp[] >>
+    fs[s_refs_def,good_rd_def] >>
+    AP_TERM_TAC >> metis_tac[] )
+  >- (
+    Cases_on`v1`>>fs[]>>rw[]>>
+    fs[Q.SPEC`CConv X Y`(CONJUNCT1(SPEC_ALL(Cv_bv_cases)))] >>
+    rw[bc_eval_stack_def] >> simp[bc_state_component_equality] >>
+    fs[el_check_def] >> BasicProvers.EVERY_CASE_TAC >> fs[] >>
+    rfs[EVERY2_EVERY,EVERY_MEM] >> fs[MEM_ZIP,PULL_EXISTS] >> rw[] >>
+    simp[FILTER_APPEND,SUM_APPEND] >>
+    qexists_tac`rd.sm`>>simp[] >>
+    fs[s_refs_def,good_rd_def] )
+  >- (
+    BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
+    simp[bc_state_component_equality]
+
+    )
 
 (* compile_closures *)
 
