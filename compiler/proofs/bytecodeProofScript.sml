@@ -3693,9 +3693,8 @@ fun tac18 t =
     `bss0.output = bs.output`by simp[Abbr`bss0`] >>
     simp[Abbr`bss0`] >>
     metis_tac[RTC_TRANSITIVE,transitive_def] ) >>
-
   strip_tac >- (
-    ntac 3 gen_tac >> qx_gen_tac`n` >> strip_tac >> simp[] >>
+    ntac 2 gen_tac >> qx_gen_tac`n` >> strip_tac >> simp[] >>
     rpt gen_tac >> strip_tac >> simp[compile_def,pushret_def] >>
     qpat_assum`bce ++ bcr = X`kall_tac>>
     qpat_assum`bs.code = X`mp_tac >> simp[IMP_CONJ_THM] >>
@@ -3723,20 +3722,7 @@ fun tac18 t =
         simp[option_case_NONE_F,EL_ZIP] >> rw[] >>
         qunabbrev_tac`X` >>
         imp_res_tac lookup_ct_imp_incsz >>
-        rfs[EL_ZIP])
-      >- (
-        match_mp_tac fmap_rel_env_renv_with_irr >>
-        qmatch_assum_abbrev_tac`fmap_rel (env_renv rd 0 bs0) menv decs` >>
-        qexists_tac`bs0 with stack := x::bs.stack` >>
-        simp[Abbr`bs0`,Abbr`decs`] >>
-        match_mp_tac fmap_rel_env_renv_CTDec >>
-        HINT_EXISTS_TAC >> simp[bc_state_component_equality] >>
-        Q.ISPECL_THEN[`bs.stack`,`LENGTH bs.stack - csz`]strip_assume_tac prefix_exists_lemma >>
-        qexists_tac`x::ls` >> simp[] )
-      >- (
-        simp[] >>
-        match_mp_tac fmap_rel_env_renv_with_irr >>
-        HINT_EXISTS_TAC >> simp[] ) >>
+        rfs[EL_ZIP]) >>
       fs[s_refs_def,good_rd_def]) >>
     rw[] >> fs[] >>
     match_mp_tac code_for_push_return >>
@@ -3744,77 +3730,43 @@ fun tac18 t =
     qspecl_then[`sz`,`cs`,`EL n cenv`]strip_assume_tac compile_varref_append_out >> fs[] >>
     first_x_assum(qspec_then`REVERSE bc`mp_tac o CONV_RULE SWAP_FORALL_CONV) >> simp[] >>
     fs[Once SWAP_REVERSE] >> strip_tac >>
-    qmatch_assum_abbrev_tac `code_for_push rd menv bs bce bc0 ccode s s renv v cmnv cenv rsz csz` >>
-    map_every qexists_tac [`menv`,`bc0`,`ccode`,`renv`,`cmnv`,`cenv`,`rsz`,`csz`] >>
+    qmatch_assum_abbrev_tac `code_for_push rd bs bce bc0 ccode s renv v cenv rsz csz` >>
+    map_every qexists_tac [`bc0`,`ccode`,`renv`,`cenv`,`rsz`,`csz`] >>
     simp[] >>
     qexists_tac `REVERSE args` >> fsrw_tac[ARITH_ss][EVERY2_EVERY]) >>
   strip_tac >- (
-    ntac 3 gen_tac >> qx_gen_tac`mn` >> qx_gen_tac`n` >> strip_tac >> simp[] >> strip_tac >>
+    ntac 2 gen_tac >> qx_gen_tac`n` >> gen_tac >> strip_tac >> simp[] >> strip_tac >>
     rpt gen_tac >> strip_tac >> simp[compile_def,pushret_def] >>
     qpat_assum`bce ++ bcr = X`kall_tac>>
     qpat_assum`bs.code = X`mp_tac >> simp[IMP_CONJ_THM] >>
     map_every qid_spec_tac[`code`,`bc1`] >> simp[FORALL_AND_THM] >>
+    simp[Once SWAP_REVERSE] >>
     conj_asm1_tac >- (
-      ntac 2 gen_tac >>
-      fs[code_for_push_def,Cenv_bs_def,EVERY2_EVERY,EVERY_MEM,FORALL_PROD,env_renv_def,el_check_def,fmap_rel_def,FLOOKUP_DEF,LET_THM] >>
-      first_assum(qspec_then`mn`mp_tac) >>
-      discharge_hyps >- simp[] >>
-      qpat_assum`mn ∈ FDOM X`mp_tac >>
-      qpat_assum`FDOM X = FDOM Y`mp_tac >>
-      simp_tac(srw_ss())[] >>
-      ntac 3 strip_tac >> pop_assum mp_tac >>
-      BasicProvers.VAR_EQ_TAC >>
-      simp[MEM_ZIP, GSYM LEFT_FORALL_IMP_THM,EL_MAP] >>
-      fs[option_case_NONE_F] >>
-      simp[Once SWAP_REVERSE,el_check_def] >>
-      rw[] >>
-      qpat_assum`∀x y. Z`mp_tac >>
-      simp[MEM_ZIP] >>
-      simp_tac(srw_ss()++DNF_ss)[EL_MAP,el_check_def] >>
-      strip_tac >>
-      map_every qexists_tac [`bs.refs`,`rd`,`bs.clock`,`EL (EL n (cmnv ' mn)) (REVERSE bs.stack)`]  >>
-      simp[] >>
+      simp[code_for_push_def,PULL_EXISTS] >> rw[] >>
+      map_every qexists_tac [`bs.refs`,`rd`,`bs.clock`,`THE (EL n bs.globals)`]  >>
       conj_tac >- (
         match_mp_tac RTC_SUBSET >>
-        `bc_fetch bs = SOME (Stack (LoadRev (EL n (cmnv ' mn))))` by (
+        `bc_fetch bs = SOME (Gread n)` by (
           match_mp_tac bc_fetch_next_addr >>
           qexists_tac`bc0` >> simp[] ) >>
         simp[bc_eval1_thm,bc_eval1_def,bc_eval_stack_def,bump_pc_def] >>
         simp[bc_state_component_equality,SUM_APPEND,FILTER_APPEND] >>
-        res_tac >> DECIDE_TAC) >>
+        rfs[Cenv_bs_def,s_refs_def,EVERY2_EVERY,EVERY_MEM] >>
+        fs[MEM_ZIP,PULL_EXISTS,optionTheory.OPTREL_def] >>
+        rpt (first_x_assum(qspec_then`n`mp_tac)) >>
+        simp[] >> rw[] >> rw[]) >>
       conj_tac >- (
-        first_x_assum(qspec_then`n`kall_tac) >>
-        first_x_assum(qspec_then`n`mp_tac) >>
-        simp[GSYM AND_IMP_INTRO] >>
-        simp[EL_DROP,EL_REVERSE,PRE_SUB1] ) >>
-      conj_tac >- (
-        rw[] >>
-        qmatch_assum_rename_tac `z < LENGTH cenv`[] >>
-        rfs[MEM_ZIP] >>
-        fsrw_tac[DNF_ss][] >>
-        qpat_assum`∀z. z < LENGTH cenv ⇒ Y`(qspec_then `z` mp_tac) >>
-        rw[] >>
-        imp_res_tac lookup_ct_imp_incsz >>
-        simp[] ) >>
-      simp[CONJ_ASSOC] >>
-      conj_tac >- (
-        simp[GSYM FORALL_AND_THM,GSYM IMP_CONJ_THM] >>
-        qx_gen_tac`mz` >> qx_gen_tac`m` >> strip_tac >> strip_tac >>
-        first_x_assum(qspec_then`mz`mp_tac) >>
-        simp[GSYM AND_IMP_INTRO,MEM_ZIP] >>
-        simp[GSYM LEFT_FORALL_IMP_THM,EL_MAP,el_check_def] >>
-        strip_tac >>
-        disch_then(qspec_then`m`mp_tac) >>
-        simp[EL_APPEND1] ) >>
-      fs[s_refs_def,good_rd_def]) >>
+        rfs[Cenv_bs_def,s_refs_def,EVERY2_EVERY,EVERY_MEM] >>
+        fs[MEM_ZIP,PULL_EXISTS,optionTheory.OPTREL_def] >>
+        rpt (first_x_assum(qspec_then`n`mp_tac)) >>
+        simp[] >> rw[] >> rw[]) >>
+      fs[] >>
+      match_mp_tac Cenv_bs_imp_incsz_irr >>
+      HINT_EXISTS_TAC >> simp[] ) >>
+    simp[Once SWAP_REVERSE] >>
     rw[] >> fs[] >>
     match_mp_tac code_for_push_return >>
-    qpat_assum`∀bc1 code. X`mp_tac >>
-    Q.PAT_ABBREV_TAC`ct:ctbind = X` >>
-    qspecl_then[`sz`,`cs`,`ct`]strip_assume_tac compile_varref_append_out >> fs[] >>
-    fs[Once SWAP_REVERSE] >> strip_tac >>
-    qmatch_assum_abbrev_tac `code_for_push rd menv bs bce bc0 ccode s s renv v cmnv cenv rsz csz` >>
-    map_every qexists_tac [`menv`,`bc0`,`ccode`,`renv`,`cmnv`,`cenv`,`rsz`,`csz`] >>
+    first_assum (match_exists_tac o concl) >>
     simp[] >>
     qexists_tac `REVERSE args` >> fsrw_tac[ARITH_ss][EVERY2_EVERY]) >>
   strip_tac >- (
@@ -3868,15 +3820,15 @@ fun tac18 t =
       simp[]) >>
     rpt gen_tac >> strip_tac >>
     rpt gen_tac >> strip_tac >>
-    qspecl_then[`cmnv`,`cenv`,`TCNonTail`,`sz`,`cs`,`(CLit l)`]strip_assume_tac(CONJUNCT1 compile_append_out) >> fs[] >>
+    qspecl_then[`cenv`,`TCNonTail`,`sz`,`cs`,`(CLit l)`]strip_assume_tac(CONJUNCT1 compile_append_out) >> fs[] >>
     fs[Once SWAP_REVERSE] >>
     `code = REVERSE bc ++ (retbc (LENGTH args) (LENGTH klvs))` by (
       Cases_on`l`>>fs[compile_def,pushret_def,LET_THM,FOLDL_emit_append_out] >>
       rw[] >> fs[Once SWAP_REVERSE]) >>
     match_mp_tac code_for_push_return >> simp[] >> fs[] >>
-    qmatch_assum_abbrev_tac`code_for_push rd menv bs bce bc0 ccode s s renv v cmnv cenv rsz csz` >>
-    map_every qexists_tac [`menv`,`bc0`,`ccode`,`renv`,`cmnv`,`cenv`,`rsz`,`csz`] >> rw[] >>
+    first_assum (match_exists_tac o concl) >> simp[] >>
     qexists_tac`REVERSE args`>>fsrw_tac[ARITH_ss][EVERY2_EVERY]) >>
+
   strip_tac >- (
     fsrw_tac[ETA_ss][FOLDL_UNION_BIGUNION] >>
     rpt gen_tac >> strip_tac >>
