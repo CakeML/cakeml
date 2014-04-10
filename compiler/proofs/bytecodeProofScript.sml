@@ -3828,7 +3828,6 @@ fun tac18 t =
     match_mp_tac code_for_push_return >> simp[] >> fs[] >>
     first_assum (match_exists_tac o concl) >> simp[] >>
     qexists_tac`REVERSE args`>>fsrw_tac[ARITH_ss][EVERY2_EVERY]) >>
-
   strip_tac >- (
     fsrw_tac[ETA_ss][FOLDL_UNION_BIGUNION] >>
     rpt gen_tac >> strip_tac >>
@@ -3840,12 +3839,12 @@ fun tac18 t =
     map_every qid_spec_tac[`bc1`,`code`] >> simp[FORALL_AND_THM] >>
     conj_asm1_tac >- (
       ntac 2 gen_tac >> strip_tac >>
-      qspecl_then[`cmnv`,`cenv`,`sz`,`cs`,`exps`](Q.X_CHOOSE_THEN`cx`strip_assume_tac)(CONJUNCT2 (CONJUNCT2 compile_append_out)) >>
+      qspecl_then[`cenv`,`sz`,`cs`,`exps`](Q.X_CHOOSE_THEN`cx`strip_assume_tac)(CONJUNCT2 (CONJUNCT2 compile_append_out)) >>
       fs[] >> strip_tac >>
       disch_then(assume_tac o SIMP_RULE std_ss [Once SWAP_REVERSE]) >> fs[] >>
       qmatch_assum_abbrev_tac `code = ls0 ++ [x]` >>
       fsrw_tac[DNF_ss][] >>
-      first_x_assum (qspecl_then[`rd`,`cmnv`,`cs`,`cenv`,`sz`,`csz`,`bs`,`bce`,`bcr`,`bc0`,`ls0`]mp_tac) >>
+      first_x_assum (qspecl_then[`rd`,`cs`,`cenv`,`sz`,`csz`,`bs`,`bce`,`bcr`,`bc0`,`ls0`]mp_tac) >>
       simp[Abbr`ls0`] >>
       simp[code_for_push_def] >>
       disch_then(qx_choosel_then[`bvs`,`rf`,`rd'`,`ck`]strip_assume_tac) >>
@@ -3873,26 +3872,25 @@ fun tac18 t =
         rw[bc_state_component_equality] >>
         metis_tac[TAKE_LENGTH_APPEND,REVERSE_REVERSE
                  ,DROP_LENGTH_APPEND,LENGTH_REVERSE]) >>
-      qmatch_assum_abbrev_tac`Cenv_bs rd' menv s' denv cmnv cenv sz1 csz bs1` >>
-      `Cenv_bs rd' menv s' denv cmnv cenv sz csz (bs1 with stack := bs.stack)` by (
+      qmatch_assum_abbrev_tac`Cenv_bs rd' s' denv cenv sz1 csz bs1` >>
+      `Cenv_bs rd' s' denv cenv sz csz (bs1 with stack := bs.stack)` by (
         match_mp_tac Cenv_bs_pops >>
         map_every qexists_tac[`REVERSE bvs`,`bs1`] >>
         imp_res_tac Cevaluate_list_LENGTH >>
         fs[] >>
         simp[bc_state_component_equality,Abbr`bs1`] >>
         `LENGTH exps = LENGTH bvs` by fs[EVERY2_EVERY] >> fs[] >>
-        metis_tac[Cenv_bs_CTLet_bound,CTDec_bound_lemma,Cenv_bs_def] ) >>
+        conj_tac >- metis_tac[Cenv_bs_CTLet_bound] >>
+        fs[Cenv_bs_def]) >>
       match_mp_tac Cenv_bs_imp_incsz_irr >>
       qexists_tac `bs1 with stack := bs.stack` >>
       rw[bc_state_component_equality,Abbr`bs1`] ) >>
     ntac 3 (rpt gen_tac >> strip_tac) >>
     match_mp_tac code_for_push_return >>
     first_x_assum(qspecl_then[`rd`]kall_tac) >>
-    qspecl_then[`cmnv`,`cenv`,`sz`,`cs`,`exps`]strip_assume_tac(CONJUNCT2(CONJUNCT2 compile_append_out)) >>
+    qspecl_then[`cenv`,`sz`,`cs`,`exps`]strip_assume_tac(CONJUNCT2(CONJUNCT2 compile_append_out)) >>
     fs[Once SWAP_REVERSE] >>
-    qmatch_assum_abbrev_tac`code_for_push rd menv bs bce bc0 ccode s s' renv v cmnv cenv rsz csz` >>
-    map_every qexists_tac[`menv`,`bc0`,`ccode`,`renv`,`cmnv`,`cenv`,`rsz`,`csz`] >>
-    simp[Abbr`ccode`] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
     qexists_tac`REVERSE args`>>fsrw_tac[ARITH_ss][EVERY2_EVERY]) >>
   strip_tac >- tac18 t1 >>
   strip_tac >- (
