@@ -1424,10 +1424,11 @@ val FOLDL_emit_ceenv_thm = store_thm("FOLDL_emit_ceenv_thm",
        (bs.code = bc0 ++ code ++ bc1) ∧
        (bs.pc = next_addr bs.inst_length bc0) ∧
        EVERY (λn. n < LENGTH env0) ec ∧ j ≤ z ∧ j ≤ LENGTH bs.stack ∧
-       EVERY (λn. IS_SOME (lookup_ct (z-j) (DROP j bs.stack) (DRESTRICT bs.refs cls) (EL n env0))) ec
+       EVERY (λn. IS_SOME (lookup_ct (z-j) (DROP j bs.stack) (DRESTRICT bs.refs cls) bs.globals (EL n env0))) ec
        ⇒
-       bc_next^* bs (bs with <| stack := (REVERSE (MAP (λn. THE (lookup_ct (z-j) (DROP j bs.stack) (DRESTRICT bs.refs cls) (EL n env0))) ec))++bs.stack
-                              ; pc := next_addr bs.inst_length (bc0 ++ code) |>)``,
+       bc_next^* bs (bs with <|
+         stack := (REVERSE (MAP (λn. THE (lookup_ct (z-j) (DROP j bs.stack) (DRESTRICT bs.refs cls) bs.globals (EL n env0))) ec))++bs.stack
+       ; pc := next_addr bs.inst_length (bc0 ++ code) |>)``,
   Induct >- (
     rw[Once SWAP_REVERSE,LET_THM] >>
     rpt (first_x_assum (mp_tac o SYM)) >> rw[]) >>
@@ -1445,8 +1446,8 @@ val FOLDL_emit_ceenv_thm = store_thm("FOLDL_emit_ceenv_thm",
     match_mp_tac code_labels_ok_append >> simp[] ) >> rw[] >>
   `ell = EL e env0` by (
     simp[Abbr`ell`,el_check_def] ) >> rw[] >>
-  Cases_on`lookup_ct (z-j) (DROP j bs.stack) (DRESTRICT bs.refs cls) (EL e env0)`>>fs[] >>
-  `lookup_ct z bs.stack (DRESTRICT bs.refs cls) (EL e env0) = SOME x` by (
+  Cases_on`lookup_ct (z-j) (DROP j bs.stack) (DRESTRICT bs.refs cls) bs.globals (EL e env0)`>>fs[] >>
+  `lookup_ct z bs.stack (DRESTRICT bs.refs cls) bs.globals (EL e env0) = SOME x` by (
     match_mp_tac lookup_ct_imp_incsz_many >>
     map_every qexists_tac[`z-j`,`DROP j bs.stack`,`TAKE j bs.stack`] >>
     simp[LENGTH_TAKE] ) >>
@@ -1477,14 +1478,14 @@ val cons_closure_thm = store_thm("cons_closure_thm",
         k < LENGTH bs.stack ∧ nk + nk ≤ LENGTH bs.stack ∧
         EVERY (λn. nk + n < LENGTH bs.stack) refs ∧
         EVERY (λn. n < LENGTH env0) envs ∧
-        EVERY (λn. IS_SOME (lookup_ct sz (DROP (nk+nk) bs.stack) (DRESTRICT bs.refs cls) (EL n env0))) envs
+        EVERY (λn. IS_SOME (lookup_ct sz (DROP (nk+nk) bs.stack) (DRESTRICT bs.refs cls) bs.globals (EL n env0))) envs
         ⇒
         bc_next^* bs (bs with <| stack :=
           LUPDATE
           (Block closure_tag
             [EL k bs.stack;
              Block 0 (MAP (λn. EL (nk+n) bs.stack) refs ++
-                      MAP (λn. THE (lookup_ct sz (DROP (nk+nk) bs.stack) (DRESTRICT bs.refs cls) (EL n env0))) envs)])
+                      MAP (λn. THE (lookup_ct sz (DROP (nk+nk) bs.stack) (DRESTRICT bs.refs cls) bs.globals (EL n env0))) envs)])
           k bs.stack
                                ; pc := next_addr bs.inst_length (bc0 ++ code) |>)``,
   simp[cons_closure_def,UNCURRY] >> rpt gen_tac >>
@@ -1734,13 +1735,13 @@ val FOLDL_cons_closure_thm = store_thm("FOLDL_cons_closure_thm",
     (LENGTH ecs = nk - k) ∧ k ≤ nk ∧ nk + nk ≤ LENGTH bs.stack ∧
     EVERY (λ(recs,envs).
       EVERY (λn. n < LENGTH env0) envs ∧
-      EVERY (λn. IS_SOME (lookup_ct sz (DROP (nk + nk) bs.stack) (DRESTRICT bs.refs cls) (EL n env0))) envs ∧
+      EVERY (λn. IS_SOME (lookup_ct sz (DROP (nk + nk) bs.stack) (DRESTRICT bs.refs cls) bs.globals (EL n env0))) envs ∧
       EVERY (λn. nk + n < LENGTH bs.stack) recs) ecs
     ⇒
     let bvs = MAP2 (λp (recs,envs). Block closure_tag [p;
         Block 0
           (MAP (λn. EL (nk + n) bs.stack) recs ++
-           MAP (λn. THE (lookup_ct sz (DROP (nk + nk) bs.stack) (DRESTRICT bs.refs cls) (EL n env0))) envs)])
+           MAP (λn. THE (lookup_ct sz (DROP (nk + nk) bs.stack) (DRESTRICT bs.refs cls) bs.globals (EL n env0))) envs)])
               (TAKE (nk-k) (DROP k bs.stack)) ecs in
     bc_next^* bs
     (bs with <| stack := TAKE k bs.stack ++ bvs ++ (DROP nk bs.stack)
@@ -1940,7 +1941,7 @@ val compile_closures_thm = store_thm("compile_closures_thm",
         EVERY (IS_SOME o bc_find_loc bs o Lab o FST o THE o FST) defs ∧
         EVERY ((λ(recs,envs).
           EVERY (λn. n < LENGTH env) envs ∧
-          EVERY (λn. IS_SOME (lookup_ct sz bs.stack (DRESTRICT bs.refs cls) (EL n env))) envs ∧
+          EVERY (λn. IS_SOME (lookup_ct sz bs.stack (DRESTRICT bs.refs cls) bs.globals (EL n env))) envs ∧
           EVERY (λn. n < LENGTH defs) recs)
                o SND o SND o THE o FST) defs
         ⇒
@@ -1949,7 +1950,7 @@ val compile_closures_thm = store_thm("compile_closures_thm",
         ((λ(l,cc,(recs,envs)). Block closure_tag
           [CodePtr (THE (bc_find_loc bs (Lab l)))
           ; Block 0 (MAP (λn. RefPtr (EL n rs)) recs ++
-                     MAP (λn. THE (lookup_ct sz bs.stack (DRESTRICT bs.refs cls) (EL n env))) envs)])
+                     MAP (λn. THE (lookup_ct sz bs.stack (DRESTRICT bs.refs cls) bs.globals (EL n env))) envs)])
         o THE o FST) defs in
         (LENGTH rs = LENGTH defs) ∧ ALL_DISTINCT rs ∧ (∀r. MEM r rs ⇒ r ∉ FDOM bs.refs) ∧
         bc_next^* bs
@@ -2001,7 +2002,7 @@ val compile_closures_thm = store_thm("compile_closures_thm",
       simp[] ) >>
     rpt strip_tac >>
     qmatch_abbrev_tac`IS_SOME lc` >>
-    qsuff_tac`lc = lookup_ct sz bs.stack (DRESTRICT bs.refs cls) (EL n env)`>-rw[] >>
+    qsuff_tac`lc = lookup_ct sz bs.stack (DRESTRICT bs.refs cls) bs.globals (EL n env)`>-rw[] >>
     simp[Abbr`lc`] >>
     Q.PAT_ABBREV_TAC`ls:bc_value list = DROP (2 * nk) st` >>
     `ls = bs.stack` by (
@@ -2011,7 +2012,7 @@ val compile_closures_thm = store_thm("compile_closures_thm",
     rw[] >>
     simp[FLOOKUP_DEF,FDOM_FUPDATE_LIST,MEM_MAP,EXISTS_PROD,DRESTRICT_DEF] >>
     `¬MEM p rs` by (
-      `IS_SOME (lookup_ct sz bs.stack (DRESTRICT bs.refs cls) (EL n env))` by (
+      `IS_SOME (lookup_ct sz bs.stack (DRESTRICT bs.refs cls) bs.globals (EL n env))` by (
         first_x_assum match_mp_tac >> rw[] ) >>
       pop_assum mp_tac >>
       qpat_assum`EL n env = X`SUBST1_TAC >>
