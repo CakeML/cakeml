@@ -62,9 +62,23 @@ val get_tags_lemma = prove(
   Induct >> simp[get_tags_def] >> Cases >> simp[] >>
   every_case_tac >> rw[] >> fs[] >> metis_tac[])
 
+val pmatch_i2_Pcon_No_match = prove(
+  ``EVERY is_var ps ⇒
+    ((pmatch_i2 exh s (Pcon_i2 (c,SOME (TypeId t)) ps) v env = No_match) ⇔
+     ∃cv vs tags.
+       v = Conv_i2 (cv,SOME (TypeId t)) vs ∧
+       FLOOKUP exh t = SOME tags ∧
+       MEM c tags ∧ MEM cv tags ∧
+       c ≠ cv)``,
+  Cases_on`v`>>rw[pmatch_i2_def]>>
+  PairCases_on`p`>>
+  Cases_on`p1`>>simp[pmatch_i2_def]>>
+  Cases_on`x`>>simp[pmatch_i2_def]>>
+  rw[] >> BasicProvers.CASE_TAC >> rw[] >>
+  metis_tac[pmatch_list_i2_all_vars_not_No_match])
+
 val exh_to_exists_match = Q.prove (
 `!exh ps. exhaustive_match exh ps ⇒ !s v. exists_match exh s ps v`,
- gen_tac >> Induct >>
  rw [exhaustive_match_def, exists_match_def] >>
  every_case_tac >>
  fs [get_tags_def, pmatch_i2_def]
@@ -91,52 +105,29 @@ val exh_to_exists_match = Q.prove (
      every_case_tac)
  >- (every_case_tac >>
      fs [] >> rw[] >>
-     (*
-     fs[exhaustive_match_def,exists_match_def] >>
-     every_case_tac >> fs[get_tags_def] >> rw[] >> rfs[] >>
-     TRY(metis_tac[])
      Q.PAT_ABBREV_TAC`pp1 = Pcon_i2 X l` >>
      Q.PAT_ABBREV_TAC`pp2 = Pcon_i2 X Y` >>
      qmatch_assum_rename_tac`Abbrev(pp2 = Pcon_i2 (a,b) c)`[] >>
-     Cases_on`pmatch_i2 exh s pp2 v env ≠ No_match`>-metis_tac[]>>
-     qmatch_assum_rename_tac`get_tags ts = SOME y`[] >>
-     Cases_on`∃p. MEM p ts ∧ pmatch_i2 exh s p v env ≠ No_match`>-metis_tac[] >>
-     imp_res_tac get_tags_lemma >>
-     qexists_tac`pp1` >> simp[Abbr`pp1`] >>
-     Cases_on`v`>>fs[pmatch_i2_def,Abbr`pp2`]>>
-     PairCases_on`p`>>Cases_on`p1`>>Cases_on`b`>>fs[pmatch_i2_def] >>
-     qmatch_assum_rename_tac`pmatch_i2 exh s (Pcon_i2 (a,SOME b) c) Y env = No_match`["Y"] >>
-     Cases_on`x`>>Cases_on`b`>>fs[pmatch_i2_def]>>
-     qpat_assum`X = No_match`mp_tac >>
-     every_case_tac >> TRY (
-       rw[] >> match_mp_tac pmatch_list_i2_all_vars_not_No_match >> rw[] ) >>
-     rw[] >> fs[] >> rw[] >>
-     fs[EXTENSION] >>
-     `MEM p0 y` by metis_tac[] >>
-     Induct_on`ts`
-     qmatch_assum_abbrev_tac`MEM pp ts` >>
-     first_x_assum(qspec_then`pp`mp_tac) >>
-     simp[Abbr`pp`]
-
-     res_tac >> fs[]
-     rw[] >> fs[] >> rw[] >>
-     Cases_on`y`>>fs[EXTENSION]>>TRY(metis_tac[])>>
-     imp_res_tac get_tags_lemma
-
-     fs[EXTENSION] >>
-
-     Q.PAT_ABBREV_TAC`pp1 = Pcon_i2 X c` >>
-     qmatch_assum_rename_tac`Abbrev(pp1 = Pcon_i2 (a,SOME b) c)`[] >>
-     qunabbrev_tac`pp1` >>
-     Cases_on`b`>>simp[pmatch_i2_def]>>
-     rw[] >> TRY (metis_tac[pmatch_list_i2_all_vars_not_No_match])
-
-     Cases_on`x'''`>>Cases_on`x`>>simp[pmatch_i2_def]>>rw[]
+     srw_tac[boolSimps.DNF_ss][]>>
+     simp[Abbr`pp1`,pmatch_i2_Pcon_No_match]>>
+     simp[METIS_PROVE[]``a \/ b <=> ~a ==> b``] >>
+     strip_tac >> rpt BasicProvers.VAR_EQ_TAC >>
+     Cases_on`b`>>simp[Abbr`pp2`,pmatch_i2_def]>>
      Cases_on`x`>>simp[pmatch_i2_def]>>
      rw[] >- metis_tac[pmatch_list_i2_all_vars_not_No_match] >>
-     fs[EXTENSION]
-     *)
-     cheat));
+     qmatch_assum_rename_tac`get_tags ws = SOME ts`[] >>
+     imp_res_tac get_tags_lemma >>
+     fs[EXTENSION] >>
+     `MEM cv ts` by metis_tac[] >>
+     first_x_assum(qspec_then`cv`mp_tac) >>
+     simp[] >> strip_tac >>
+     qmatch_assum_abbrev_tac`MEM p ws` >>
+     qexists_tac`p` >>
+     simp[Abbr`p`] >>
+     Cases_on`x`>>simp[pmatch_i2_Pcon_No_match,pmatch_i2_def] >>
+     qmatch_assum_rename_tac`MEM (Pcon_i2 (cv, SOME z) ps) ws`[] >>
+     Cases_on`z`>>simp[pmatch_i2_def] >> rw[] >>
+     metis_tac[pmatch_list_i2_all_vars_not_No_match]))
 
 val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
 `(!ck env s e r.
