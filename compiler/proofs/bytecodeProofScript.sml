@@ -2636,7 +2636,7 @@ val jmpbc_thm = store_thm("jmpbc_thm",
 (* code_for_push, code_for_return *)
 
 val code_for_push_def = Define`
-  code_for_push rd bs bce bc0 code s s' env vs renv rsz csz =
+  code_for_push rd bs bce bc0 code s' env vs renv rsz csz =
     ∃bvs rf rd' ck.
     let bs' = bs with <| stack := (REVERSE bvs)++bs.stack; pc := next_addr bs.inst_length (bc0 ++ code); refs := rf; clock := ck |> in
     bc_next^* bs bs' ∧
@@ -2646,7 +2646,7 @@ val code_for_push_def = Define`
     rd.sm ≼ rd'.sm ∧ rd.cls ⊑ rd'.cls`
 
 val code_for_return_def = Define`
-  code_for_return rd bs bce st ret sp v s s' =
+  code_for_return rd bs bce st ret sp v s' =
     ∃bv rf rd' ck.
     let bs' = bs with <| stack := bv::st; pc := ret; refs := rf; clock := ck; handler := sp |> in
     bc_next^* bs bs' ∧
@@ -2656,13 +2656,13 @@ val code_for_return_def = Define`
     rd.sm ≼ rd'.sm ∧ rd.cls ⊑ rd'.cls`
 
 val code_for_push_return = store_thm("code_for_push_return",
-  ``∀rd bs bce bc0 code s s' env v renv rsz csz bc1 args args1 bs' blvs benv st cl cl1 ret hdl.
-    code_for_push rd bs bce bc0 code s s' env [v] renv rsz csz ∧
+  ``∀rd bs bce bc0 code s' env v renv rsz csz bc1 args args1 bs' blvs benv st cl cl1 ret hdl.
+    code_for_push rd bs bce bc0 code s' env [v] renv rsz csz ∧
     (bs.code = bc0 ++ code ++ retbc (LENGTH args) (LENGTH blvs) ++ bc1) ∧
     (bs.stack = blvs++benv::CodePtr ret::args++cl::st) ∧
     (bs.handler = hdl)
     ⇒
-    code_for_return rd bs bce st ret hdl v s s'``,
+    code_for_return rd bs bce st ret hdl v s'``,
     rw[code_for_push_def,code_for_return_def,LET_THM] >>
     qmatch_assum_rename_tac `Cv_bv pp v bv`["pp"] >>
     map_every qexists_tac [`bv`,`rf`,`rd'`,`ck`] >>
@@ -2680,11 +2680,11 @@ val code_for_push_return = store_thm("code_for_push_return",
     simp[bc_state_component_equality])
 
 val code_for_return_append_code = store_thm("code_for_return_append_code",
-  ``∀rd bs bce st hdl sp v s s' bs' bc1.
-    code_for_return rd bs bce st hdl sp v s s' ∧
+  ``∀rd bs bce st hdl sp v s' bs' bc1.
+    code_for_return rd bs bce st hdl sp v s' ∧
     (bs' = bs with code := bs.code ++ bc1)
     ⇒
-    code_for_return rd bs' bce st hdl sp v s s'``,
+    code_for_return rd bs' bce st hdl sp v s'``,
   simp[code_for_return_def] >>
   rpt gen_tac >> strip_tac >>
   map_every qexists_tac[`bv`,`rf`,`rd'`,`ck`] >> fs[] >>
@@ -2845,23 +2845,24 @@ fun tac18 t =
         ALL_DISTINCT (FILTER is_Label bce) ∧
         all_vlabs_csg s ∧ all_vlabs_list env ∧ all_labs exp ∧
         EVERY (code_env_cd bce) (free_labs (LENGTH env) exp) ∧
-        (∀cd. cd ∈ vlabs_list (SND s) ⇒ code_env_cd bce cd) ∧
+        (∀cd. cd ∈ vlabs_list (SND (FST s)) ⇒ code_env_cd bce cd) ∧
         (∀cd. cd ∈ vlabs_list env ⇒ code_env_cd bce cd) ∧
+        (∀cd. cd ∈ vlabs_list (MAP THE (FILTER IS_SOME (SND s))) ⇒ code_env_cd bce cd) ∧
         (bs.pc = next_addr bs.inst_length bc0) ∧
         (bs.code = bc0 ++ code ++ bc1) ∧
-        (bs.clock = SOME (FST s)) ∧
+        (bs.clock = SOME (FST (FST s))) ∧
         set (free_vars exp) ⊆ count (LENGTH cenv) ∧
         Cenv_bs rd s env cenv sz csz (bs with code := bce) ∧
         ALL_DISTINCT (FILTER is_Label bc0) ∧
         EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc0)
         ⇒
       (∀v.
-         (beh = Cval v) ∧
+         (beh = Rval v) ∧
          ((compile cenv TCNonTail sz cs exp).out = REVERSE code ++ cs.out)
            ⇒
-         code_for_push rd bs bce bc0 code s s' env [v] cenv sz csz) ∧
+         code_for_push rd bs bce bc0 code s' env [v] cenv sz csz) ∧
       (∀v az lz env0 defs vs klvs blvs benv ret args cl st.
-         (beh = Cval v) ∧
+         (beh = Rval v) ∧
          ((compile cenv (TCTail az lz) sz cs exp).out = REVERSE code ++ cs.out) ∧
          (az = LENGTH args) ∧ (lz = LENGTH klvs) ∧
          (env = klvs ++ REVERSE vs ++ env0) ∧
@@ -2870,12 +2871,12 @@ fun tac18 t =
          (bs.stack = blvs++benv::CodePtr ret::(REVERSE args)++cl::st) ∧
          csz ≤ LENGTH st
            ⇒
-         code_for_return rd bs bce st ret bs.handler v s s') ∧
+         code_for_return rd bs bce st ret bs.handler v s') ∧
       (∀t err.
-         (beh = Cexc err) ∧
+         (beh = Rerr err) ∧
          ((compile cenv t sz cs exp).out = REVERSE code ++ cs.out)
            ⇒
-         (∀ig sp hdl st v. err = Craise v ∧
+         (∀ig sp hdl st v. err = Rraise v ∧
            (case t of TCTail az lz => ∃blvs benv ret args cl ig'.
              (ig = blvs++benv::CodePtr ret::(REVERSE args)++cl::ig') ∧
              (az = LENGTH args) ∧ (lz = LENGTH blvs) | TCNonTail => T) ∧
@@ -2883,8 +2884,8 @@ fun tac18 t =
            (bs.handler = LENGTH st + 1) ∧
            csz ≤ LENGTH st
            ⇒
-          code_for_return rd bs bce st hdl sp v s s') ∧
-         (err = Ctimeout_error ∧
+          code_for_return rd bs bce st hdl sp v s') ∧
+         (err = Rtimeout_error ∧
             (case t of TCTail az lz => ∃blvs benv ret args cl st.
              (bs.stack = blvs++benv::CodePtr ret::(REVERSE args)++cl::st) ∧
              (az = LENGTH args) ∧ (lz = LENGTH blvs) ∧ csz ≤ LENGTH st | TCNonTail => T)
@@ -2897,40 +2898,41 @@ fun tac18 t =
         ALL_DISTINCT (FILTER is_Label bce) ∧
         all_vlabs_csg s ∧ all_vlabs_list env ∧ all_labs_list exps ∧
         EVERY (code_env_cd bce) (free_labs_list (LENGTH env) exps) ∧
-        (∀cd. cd ∈ vlabs_list (SND s) ⇒ code_env_cd bce cd) ∧
+        (∀cd. cd ∈ vlabs_list (SND (FST s)) ⇒ code_env_cd bce cd) ∧
         (∀cd. cd ∈ vlabs_list env ⇒ code_env_cd bce cd) ∧
+        (∀cd. cd ∈ vlabs_list (MAP THE (FILTER IS_SOME (SND s))) ⇒ code_env_cd bce cd) ∧
         (bs.pc = next_addr bs.inst_length bc0) ∧
         (bs.code = bc0 ++ code ++ bc1) ∧
-        (bs.clock = SOME (FST s)) ∧
+        (bs.clock = SOME (FST (FST s))) ∧
         set (free_vars_list exps) ⊆ count (LENGTH cenv) ∧
         Cenv_bs rd s env cenv sz csz (bs with code := bce) ∧
         ALL_DISTINCT (FILTER is_Label bc0) ∧
         EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc0) ∧
         ((compile_nts cenv sz cs exps).out = REVERSE code ++ cs.out)
         ⇒
-      (∀vs. (beh = Cval vs) ⇒
-         code_for_push rd bs bce bc0 code s s' env vs cenv sz csz) ∧
+      (∀vs. (beh = Rval vs) ⇒
+         code_for_push rd bs bce bc0 code s' env vs cenv sz csz) ∧
       (∀err.
-        (beh = Cexc err)
+        (beh = Rerr err)
           ⇒
-        (∀v ig sp hdl st. err = Craise v ∧
+        (∀v ig sp hdl st. err = Rraise v ∧
           (bs.stack = ig++(StackPtr sp)::CodePtr hdl::st) ∧
           (bs.handler = LENGTH st + 1) ∧
           csz ≤ LENGTH st
-          ⇒ code_for_return rd bs bce st hdl sp v s s') ∧
-        (err = Ctimeout_error ⇒
+          ⇒ code_for_return rd bs bce st hdl sp v s') ∧
+        (err = Rtimeout_error ⇒
          ∃bs'. bc_next^* bs bs' ∧ (bs'.clock = SOME 0) ∧ (bc_fetch bs' = SOME Tick) ∧ bs'.output = bs.output)))``,
   ho_match_mp_tac Cevaluate_strongind >>
   strip_tac >- (
     simp[compile_def] >>
     rpt gen_tac >> strip_tac >>
     rpt gen_tac >>
-    qspecl_then[`cmnv`,`cenv`,`TCNonTail`,`sz`,`cs`,`exp`]mp_tac(CONJUNCT1 compile_append_out)>>
+    qspecl_then[`cenv`,`TCNonTail`,`sz`,`cs`,`exp`]mp_tac(CONJUNCT1 compile_append_out)>>
     disch_then(Q.X_CHOOSE_THEN`cc`strip_assume_tac) >>
     simp[Once SWAP_REVERSE] >> strip_tac >>
     qx_gen_tac`t` >> strip_tac >>
     map_every qx_gen_tac[`ig`,`sp`,`hdl`,`st`] >> strip_tac >>
-    first_x_assum(qspecl_then[`rd`,`cmnv`,`cs`,`cenv`,`sz`,`csz`,`bs`,`bce`,`bcr`,`bc0`,`REVERSE cc`,`[PopExc;Return]++bc1`]mp_tac) >>
+    first_x_assum(qspecl_then[`rd`,`cs`,`cenv`,`sz`,`csz`,`bs`,`bce`,`bcr`,`bc0`,`REVERSE cc`,`[PopExc;Return]++bc1`]mp_tac) >>
     simp[] >>
     disch_then (mp_tac o CONJUNCT1) >>
     simp[code_for_push_def,code_for_return_def] >>
@@ -2965,11 +2967,11 @@ fun tac18 t =
     simp[compile_def] >>
     rpt gen_tac >> strip_tac >>
     rpt gen_tac >>
-    qspecl_then[`cmnv`,`cenv`,`TCNonTail`,`sz`,`cs`,`exp`]mp_tac(CONJUNCT1 compile_append_out)>>
+    qspecl_then[`cenv`,`TCNonTail`,`sz`,`cs`,`exp`]mp_tac(CONJUNCT1 compile_append_out)>>
     disch_then(Q.X_CHOOSE_THEN`cc`strip_assume_tac) >>
     simp[Once SWAP_REVERSE] >> strip_tac >>
     rw[Once SWAP_REVERSE] >>
-    first_x_assum(qspecl_then[`rd`,`cmnv`,`cs`,`cenv`,`sz`,`csz`,`bs`,`bce`,`bcr`,`bc0`,`REVERSE cc`,`PopExc::Return::bc1`]mp_tac) >>
+    first_x_assum(qspecl_then[`rd`,`cs`,`cenv`,`sz`,`csz`,`bs`,`bce`,`bcr`,`bc0`,`REVERSE cc`,`PopExc::Return::bc1`]mp_tac) >>
     simp[] >>
     disch_then(qspec_then`TCNonTail`mp_tac)>>
     TRY(disch_then(qspec_then`ig`mp_tac))>>
@@ -2979,14 +2981,14 @@ fun tac18 t =
     rpt gen_tac >> strip_tac >>
     rpt gen_tac >>
     Q.PAT_ABBREV_TAC`cs0 = compiler_result_out_fupd (K (PushExc::Y::Z)) U` >>
-    qspecl_then[`cmnv`,`cenv`,`TCNonTail`,`sz + 2`,`cs0`,`exp`](Q.X_CHOOSE_THEN`cc`strip_assume_tac)(CONJUNCT1 compile_append_out) >>
+    qspecl_then[`cenv`,`TCNonTail`,`sz + 2`,`cs0`,`exp`](Q.X_CHOOSE_THEN`cc`strip_assume_tac)(CONJUNCT1 compile_append_out) >>
     simp[pushret_def] >>
     REWRITE_TAC[ONE] >>
     simp[compile_def] >>
     strip_tac >>
     conj_tac >- (
       Q.PAT_ABBREV_TAC`cs1 = compiler_result_out_fupd (K (Label X::Y::Z)) U` >>
-      qspecl_then[`cmnv`,`CTLet(sz+1)::cenv`,`TCNonTail`,`sz+1`,`cs1`,`e2`](Q.X_CHOOSE_THEN`cb`strip_assume_tac)(CONJUNCT1 compile_append_out) >>
+      qspecl_then[`CTLet(sz+1)::cenv`,`TCNonTail`,`sz+1`,`cs1`,`e2`](Q.X_CHOOSE_THEN`cb`strip_assume_tac)(CONJUNCT1 compile_append_out) >>
       simp[Abbr`cs1`,Abbr`cs0`,Once SWAP_REVERSE] >>
       rpt gen_tac >> strip_tac >>
       `bc_fetch bs = SOME (PushPtr (Lab cs.next_label))` by (
@@ -3023,19 +3025,19 @@ fun tac18 t =
       rpt(qpat_assum`bc_fetch X = Y`kall_tac) >>
       strip_tac >>
       qmatch_assum_abbrev_tac`bc_next^* bs bss0` >>
-      qmatch_assum_abbrev_tac`(compile cmnv cenv TCNonTail (sz + 2) cs0 exp).out = cc ++ cs0.out` >>
-      first_x_assum(qspecl_then[`rd`,`cmnv`,`cs0`,`cenv`,`sz+2`,`csz`,`bss0`,`bce`,`bcr`,`TAKE (LENGTH bc0+2) bs.code`,`REVERSE cc`
+      qmatch_assum_abbrev_tac`(compile cenv TCNonTail (sz + 2) cs0 exp).out = cc ++ cs0.out` >>
+      first_x_assum(qspecl_then[`rd`,`cs0`,`cenv`,`sz+2`,`csz`,`bss0`,`bce`,`bcr`,`TAKE (LENGTH bc0+2) bs.code`,`REVERSE cc`
                                ,`DROP (LENGTH bc0+2+LENGTH cc) bs.code`]mp_tac) >>
       discharge_hyps >- (
         simp[Abbr`bss0`] >>
         simp[SUM_APPEND,FILTER_APPEND,Abbr`cs0`,TAKE_APPEND1,TAKE_APPEND2,DROP_APPEND1,DROP_APPEND2,DROP_LENGTH_NIL_rwt] >>
         conj_tac >- (
           SUBST1_TAC(DECIDE``sz + 2 = (sz + 1) + 1``) >>
-          qmatch_abbrev_tac`Cenv_bs rd menv s env cmnv cenv (sz + 1 + 1) csz bs0` >>
+          qmatch_abbrev_tac`Cenv_bs rd s env cenv (sz + 1 + 1) csz bs0` >>
           match_mp_tac Cenv_bs_imp_incsz >>
           qexists_tac`bs0 with stack := TL bs0.stack` >>
           simp[Abbr`bs0`,bc_state_component_equality] >>
-          qmatch_abbrev_tac`Cenv_bs rd menv s env cmnv cenv (sz + 1) csz bs0` >>
+          qmatch_abbrev_tac`Cenv_bs rd s env cenv (sz + 1) csz bs0` >>
           match_mp_tac Cenv_bs_imp_incsz >>
           qexists_tac`bs0 with stack := TL bs0.stack` >>
           simp[Abbr`bs0`,bc_state_component_equality] >>
@@ -3104,12 +3106,13 @@ fun tac18 t =
         fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,MEM_MAP,between_def] >>
         fsrw_tac[DNF_ss,ARITH_ss][is_Label_rwt] >>
         rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC ) >>
-      qmatch_assum_abbrev_tac`Cenv_bs rd' menv s2 env cmnv cenv (sz + 3) csz bs0` >>
-      `Cenv_bs rd' menv s2 env cmnv cenv sz csz (bs0 with stack := DROP 3 bs0.stack)` by (
+      qmatch_assum_abbrev_tac`Cenv_bs rd' s2 env cenv (sz + 3) csz bs0` >>
+      `Cenv_bs rd' s2 env cenv sz csz (bs0 with stack := DROP 3 bs0.stack)` by (
         match_mp_tac Cenv_bs_pops >>
         qexists_tac`TAKE 3 bs0.stack` >>
         simp[Abbr`bs0`] >>
-        metis_tac[Cenv_bs_CTLet_bound,CTDec_bound_lemma,Cenv_bs_def] ) >>
+        conj_tac >- metis_tac[Cenv_bs_CTLet_bound] >>
+        fs[Cenv_bs_def]) >>
       fs[] >>
       match_mp_tac Cenv_bs_imp_incsz_irr >>
       HINT_EXISTS_TAC >>
@@ -3117,7 +3120,7 @@ fun tac18 t =
     rpt gen_tac >>
     Q.PAT_ABBREV_TAC`cs1 = compiler_result_out_fupd (K (Label X::Y::Z)) U` >>
     Q.PAT_ABBREV_TAC`tt = TCTail X Y` >>
-    qspecl_then[`cmnv`,`CTLet(sz+1)::cenv`,`tt`,`sz+1`,`cs1`,`e2`](Q.X_CHOOSE_THEN`cb`strip_assume_tac)(CONJUNCT1 compile_append_out) >>
+    qspecl_then[`CTLet(sz+1)::cenv`,`tt`,`sz+1`,`cs1`,`e2`](Q.X_CHOOSE_THEN`cb`strip_assume_tac)(CONJUNCT1 compile_append_out) >>
     simp[Abbr`cs1`,Abbr`cs0`,Once SWAP_REVERSE] >>
     strip_tac >>
     `bc_fetch bs = SOME (PushPtr (Lab cs.next_label))` by (
@@ -3154,19 +3157,19 @@ fun tac18 t =
     rpt(qpat_assum`bc_fetch X = Y`kall_tac) >>
     strip_tac >>
     qmatch_assum_abbrev_tac`bc_next^* bs bss0` >>
-    qmatch_assum_abbrev_tac`(compile cmnv cenv TCNonTail (sz + 2) cs0 exp).out = cc ++ cs0.out` >>
-    first_x_assum(qspecl_then[`rd`,`cmnv`,`cs0`,`cenv`,`sz+2`,`csz`,`bss0`,`bce`,`bcr`,`TAKE (LENGTH bc0+2) bs.code`,`REVERSE cc`
+    qmatch_assum_abbrev_tac`(compile cenv TCNonTail (sz + 2) cs0 exp).out = cc ++ cs0.out` >>
+    first_x_assum(qspecl_then[`rd`,`cs0`,`cenv`,`sz+2`,`csz`,`bss0`,`bce`,`bcr`,`TAKE (LENGTH bc0+2) bs.code`,`REVERSE cc`
                              ,`DROP (LENGTH bc0+2+LENGTH cc) bs.code`]mp_tac) >>
     discharge_hyps >- (
       simp[Abbr`bss0`] >>
       simp[SUM_APPEND,FILTER_APPEND,Abbr`cs0`,TAKE_APPEND1,TAKE_APPEND2,DROP_APPEND1,DROP_APPEND2,DROP_LENGTH_NIL_rwt] >>
       conj_tac >- (
         SUBST1_TAC(DECIDE``sz + 2 = (sz + 1) + 1``) >>
-        qmatch_abbrev_tac`Cenv_bs rd menv s eenv cmnv cenv (sz + 1 + 1) csz bs0` >>
+        qmatch_abbrev_tac`Cenv_bs rd s eenv cenv (sz + 1 + 1) csz bs0` >>
         match_mp_tac Cenv_bs_imp_incsz >>
         qexists_tac`bs0 with stack := TL bs0.stack` >>
         simp[Abbr`bs0`,bc_state_component_equality] >>
-        qmatch_abbrev_tac`Cenv_bs rd menv s eenv cmnv cenv (sz + 1) csz bs0` >>
+        qmatch_abbrev_tac`Cenv_bs rd s eenv cenv (sz + 1) csz bs0` >>
         match_mp_tac Cenv_bs_imp_incsz >>
         qexists_tac`bs0 with stack := TL bs0.stack` >>
         simp[Abbr`bs0`,bc_state_component_equality] >>
@@ -3243,14 +3246,14 @@ fun tac18 t =
     rpt gen_tac >> strip_tac >>
     rpt gen_tac >>
     Q.PAT_ABBREV_TAC`cs0 = compiler_result_out_fupd (K (PushExc::Y::Z)) U` >>
-    qspecl_then[`cmnv`,`cenv`,`TCNonTail`,`sz + 2`,`cs0`,`exp`](Q.X_CHOOSE_THEN`cc`strip_assume_tac)(CONJUNCT1 compile_append_out) >>
+    qspecl_then[`cenv`,`TCNonTail`,`sz + 2`,`cs0`,`exp`](Q.X_CHOOSE_THEN`cc`strip_assume_tac)(CONJUNCT1 compile_append_out) >>
     simp[pushret_def] >>
     strip_tac >>
     reverse(Cases_on`ALL_DISTINCT (FILTER is_Label (bc0 ++ code)) ∧
                      ∃cc1 cc2. code = [PushPtr(Lab cs.next_label);PushExc]++REVERSE cc++PopExc::Stack(Pops 1)::cc1++Label cs.next_label::cc2`) >- (
       conj_tac >- (
         Q.PAT_ABBREV_TAC`cs1 = compiler_result_out_fupd (K (Label X::Y::Z)) U` >>
-        qspecl_then[`cmnv`,`cenv`,`TCNonTail`,`sz`,`exp'`,`0`,`cs1`,`1`](Q.X_CHOOSE_THEN`cb`strip_assume_tac)(CONJUNCT1 (CONJUNCT2 compile_append_out)) >>
+        qspecl_then[`cenv`,`TCNonTail`,`sz`,`exp'`,`0`,`cs1`,`1`](Q.X_CHOOSE_THEN`cb`strip_assume_tac)(CONJUNCT1 (CONJUNCT2 compile_append_out)) >>
         simp[Abbr`cs1`,Abbr`cs0`,Once SWAP_REVERSE] >>
         rw[] >> fs[] >> fs[MEM_SING_APPEND] >>
         qsuff_tac`F`>-rw[] >>
@@ -3263,7 +3266,7 @@ fun tac18 t =
         rpt gen_tac >>
         Q.PAT_ABBREV_TAC`cs1 = compiler_result_out_fupd (K (Label X::Y::Z)) U` >>
         Q.PAT_ABBREV_TAC`tt:call_context = X` >>
-        qspecl_then[`cmnv`,`cenv`,`tt`,`sz`,`exp'`,`0`,`cs1`,`1`](Q.X_CHOOSE_THEN`cb`strip_assume_tac)(CONJUNCT1 (CONJUNCT2 compile_append_out)) >>
+        qspecl_then[`cenv`,`tt`,`sz`,`exp'`,`0`,`cs1`,`1`](Q.X_CHOOSE_THEN`cb`strip_assume_tac)(CONJUNCT1 (CONJUNCT2 compile_append_out)) >>
         simp[Abbr`cs1`,Abbr`cs0`,Once SWAP_REVERSE] >>
         rw[] >> fs[] >> fs[MEM_SING_APPEND] >>
         qsuff_tac`F`>-rw[] >>
@@ -3274,7 +3277,7 @@ fun tac18 t =
         rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC) >>
       rpt gen_tac >>
       Q.PAT_ABBREV_TAC`cs1 = compiler_result_out_fupd (K (Label X::Y::Z)) U` >>
-      qspecl_then[`cmnv`,`cenv`,`t`,`sz`,`exp'`,`0`,`cs1`,`1`](Q.X_CHOOSE_THEN`cb`strip_assume_tac)(CONJUNCT1 (CONJUNCT2 compile_append_out)) >>
+      qspecl_then[`cenv`,`t`,`sz`,`exp'`,`0`,`cs1`,`1`](Q.X_CHOOSE_THEN`cb`strip_assume_tac)(CONJUNCT1 (CONJUNCT2 compile_append_out)) >>
       simp[Abbr`cs1`,Abbr`cs0`] >>
       Q.PAT_ABBREV_TAC`cs1 = compiler_result_out_fupd (K X) U` >>
       qspecl_then[`t`,`cs1`](Q.X_CHOOSE_THEN`cp`strip_assume_tac)pushret_append_out >> pop_assum kall_tac >>
@@ -3322,17 +3325,17 @@ fun tac18 t =
     Q.PAT_ABBREV_TAC`aa = next_addr bs.inst_length X` >>
     strip_tac >>
     qmatch_assum_abbrev_tac`bc_next^* bs bss0` >>
-    last_x_assum(qspecl_then[`rd`,`cmnv`,`cs0`,`cenv`,`sz+2`,`csz`,`bss0`,`bce`,`bcr`,`bc0++(TAKE 2 code)`,`REVERSE cc`,`(DROP (2 + LENGTH cc) code) ++ bc1`]mp_tac) >>
+    last_x_assum(qspecl_then[`rd`,`cs0`,`cenv`,`sz+2`,`csz`,`bss0`,`bce`,`bcr`,`bc0++(TAKE 2 code)`,`REVERSE cc`,`(DROP (2 + LENGTH cc) code) ++ bc1`]mp_tac) >>
     discharge_hyps >- (
       simp[Abbr`bss0`,DROP_APPEND1,DROP_LENGTH_NIL_rwt] >>
       simp[SUM_APPEND,FILTER_APPEND,Abbr`cs0`] >>
       conj_tac >- (
         SUBST1_TAC(DECIDE``sz + 2 = (sz + 1) + 1``) >>
-        qmatch_abbrev_tac`Cenv_bs rd menv s env cmnv cenv (sz + 1 + 1) csz bs0` >>
+        qmatch_abbrev_tac`Cenv_bs rd s env cenv (sz + 1 + 1) csz bs0` >>
         match_mp_tac Cenv_bs_imp_incsz >>
         qexists_tac`bs0 with stack := TL bs0.stack` >>
         simp[Abbr`bs0`,bc_state_component_equality] >>
-        qmatch_abbrev_tac`Cenv_bs rd menv s env cmnv cenv (sz + 1) csz bs0` >>
+        qmatch_abbrev_tac`Cenv_bs rd s env cenv (sz + 1) csz bs0` >>
         match_mp_tac Cenv_bs_imp_incsz >>
         qexists_tac`bs0 with stack := TL bs0.stack` >>
         simp[Abbr`bs0`,bc_state_component_equality] >>
@@ -3351,34 +3354,27 @@ fun tac18 t =
     `bc_next^* bs bs2` by metis_tac[RTC_TRANSITIVE,transitive_def] >>
     qpat_assum`bc_next^* bs bss0`kall_tac >>
     qpat_assum`bc_next^* bss0 bs2`kall_tac >>
-    `all_Clocs v ⊆ count (LENGTH (SND s')) ∧
-     BIGUNION (IMAGE (BIGUNION o IMAGE all_Clocs o set) (FRANGE menv)) ⊆ count (LENGTH (SND s')) ∧
-     BIGUNION (IMAGE all_Clocs (set env)) ⊆ count (LENGTH (SND s')) ∧
-     BIGUNION (IMAGE all_Clocs (set (SND s'))) ⊆ count (LENGTH (SND s')) ∧
-     all_vlabs_menv menv ∧ EVERY all_vlabs (SND s') ∧ all_vlabs v ∧
-     EVERY (code_env_cd cmnv bce) (free_labs (SUC (LENGTH env)) exp') ∧
-     (∀cd. cd ∈ vlabs_list (SND s') ⇒ code_env_cd cmnv bce cd) ∧
-     (∀cd. cd ∈ vlabs v ∨ cd ∈ vlabs_list env ⇒ code_env_cd cmnv bce cd) ∧
+    `all_vlabs_csg s' ∧ all_vlabs v ∧
+     EVERY (code_env_cd bce) (free_labs (SUC (LENGTH env)) exp') ∧
+     (∀cd. cd ∈ vlabs_list (SND (FST s')) ⇒ code_env_cd bce cd) ∧
+     (∀cd. cd ∈ vlabs v ∨ cd ∈ vlabs_list env ⇒ code_env_cd bce cd) ∧
+     (∀cd. cd ∈ vlabs_list (MAP THE (FILTER IS_SOME (SND s'))) ⇒ code_env_cd bce cd) ∧
      set (free_vars exp') ⊆ count (LENGTH (CTLet(sz+1)::cenv)) ∧
-     Cenv_bs rd' menv s' (v::env) cmnv (CTLet(sz+1)::cenv) (sz+1) csz (bs2 with code := bce)` by (
-      qspecl_then[`menv`,`s`,`env`,`exp`,`s',Cexc(Craise v)`]mp_tac(CONJUNCT1 Cevaluate_store_SUBSET) >>
-      qspecl_then[`menv`,`s`,`env`,`exp`,`s',Cexc(Craise v)`]mp_tac(CONJUNCT1 Cevaluate_Clocs) >>
-      qspecl_then[`menv`,`s`,`env`,`exp`,`s',Cexc(Craise v)`]mp_tac(CONJUNCT1 Cevaluate_all_vlabs) >>
-      qspecl_then[`menv`,`s`,`env`,`exp`,`s',Cexc(Craise v)`]mp_tac(CONJUNCT1 Cevaluate_vlabs) >>
-      simp[] >> ntac 4 strip_tac >>
+     Cenv_bs rd' s' (v::env) (CTLet(sz+1)::cenv) (sz+1) csz (bs2 with code := bce)` by (
+      qspecl_then[`s`,`env`,`exp`,`s',Rerr(Rraise v)`]mp_tac(CONJUNCT1 Cevaluate_store_SUBSET) >>
+      qspecl_then[`s`,`env`,`exp`,`s',Rerr(Rraise v)`]mp_tac(CONJUNCT1 Cevaluate_all_vlabs) >>
+      qspecl_then[`s`,`env`,`exp`,`s',Rerr(Rraise v)`]mp_tac(CONJUNCT1 Cevaluate_vlabs) >>
+      simp[] >> ntac 3 strip_tac >>
       first_x_assum(qspec_then`rd`kall_tac) >>
-      conj_tac >- (
-        fsrw_tac[DNF_ss][SUBSET_DEF] >>
-        rw[] >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
-      conj_tac >- (
-        fsrw_tac[DNF_ss][SUBSET_DEF] >>
-        rw[] >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
       simp[ADD1] >>
       conj_tac >- (
-        fsrw_tac[DNF_ss][SUBSET_DEF] >>
+        fsrw_tac[DNF_ss][SUBSET_DEF,vlabs_csg_def] >>
         metis_tac[EVERY_MEM] ) >>
       conj_tac >- (
-        fsrw_tac[DNF_ss][SUBSET_DEF] >>
+        fsrw_tac[DNF_ss][SUBSET_DEF,vlabs_csg_def] >>
+        metis_tac[EVERY_MEM] ) >>
+      conj_tac >- (
+        fsrw_tac[DNF_ss][SUBSET_DEF,vlabs_csg_def] >>
         metis_tac[EVERY_MEM] ) >>
       conj_tac >- (
         fsrw_tac[DNF_ss][SUBSET_DEF] >>
@@ -3398,7 +3394,7 @@ fun tac18 t =
       simp[compile_def] >>
       Q.PAT_ABBREV_TAC`cs1 = compiler_result_out_fupd A B` >>
       Q.PAT_ABBREV_TAC`tt:call_context = A` >>
-      qspecl_then[`cmnv`,`CTLet(sz+1)::cenv`,`tt`,`sz+1`,`cs1`,`exp'`](Q.X_CHOOSE_THEN`cd`strip_assume_tac)(CONJUNCT1 compile_append_out) >>
+      qspecl_then[`CTLet(sz+1)::cenv`,`tt`,`sz+1`,`cs1`,`exp'`](Q.X_CHOOSE_THEN`cd`strip_assume_tac)(CONJUNCT1 compile_append_out) >>
       gen_tac >> simp[Abbr`cs1`,Abbr`cs0`] >>
       SUBST1_TAC(Q.prove(`REVERSE cc2 ++ [Label cs.next_label] ++ REVERSE cc1 = REVERSE(cc1++Label cs.next_label::cc2)`,lrw[])) >>
       REWRITE_TAC[Once SWAP_REVERSE] >>
@@ -3411,11 +3407,11 @@ fun tac18 t =
          qexists_tac`Label cs.next_label` >>
          simp[] >>
          fsrw_tac[DNF_ss][FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER] ) >>
-      first_x_assum(qspecl_then[`rd'`,`cmnv`,`cs1`,`CTLet (sz+1)::cenv`,`sz+1`,`csz`,`bs2`,`bce`,`bcr`
+      first_x_assum(qspecl_then[`rd'`,`cs1`,`CTLet (sz+1)::cenv`,`sz+1`,`csz`,`bs2`,`bce`,`bcr`
                                ,`TAKE(LENGTH bc0+2+LENGTH cc+2+LENGTH cc1+1)bs.code`
                                ,`REVERSE cd`,`[Stack (Pops 1); Label (cs.next_label+1)]++bc1`]mp_tac) >>
       discharge_hyps >- (
-        `bs2.clock = SOME (FST s')` by (
+        `bs2.clock = SOME (FST (FST s'))` by (
           imp_res_tac RTC_bc_next_clock_less >>
           rfs[optionTheory.OPTREL_def] >>
           fs[Cenv_bs_def,s_refs_def,Abbr`bs2`,Abbr`bss0`]) >>
@@ -3461,9 +3457,10 @@ fun tac18 t =
       match_mp_tac Cenv_bs_pops >>
       qexists_tac`[br;bv]` >> simp[] >>
       reverse conj_tac >- (
-        metis_tac[Cenv_bs_CTLet_bound,CTDec_bound_lemma,Cenv_bs_def] ) >>
+        conj_tac >- metis_tac[Cenv_bs_CTLet_bound] >>
+        fs[Cenv_bs_def]) >>
       match_mp_tac Cenv_bs_with_irr >>
-      qmatch_assum_abbrev_tac`Cenv_bs rd'' menv s'' (v::env) cmnv (CTLet(sz+1)::cenv) (sz+2) csz bs0` >>
+      qmatch_assum_abbrev_tac`Cenv_bs rd'' s'' (v::env) (CTLet(sz+1)::cenv) (sz+2) csz bs0` >>
       qexists_tac`bs0` >>
       simp[Abbr`bs0`,bc_state_component_equality] >>
       `env = TL (v::env) ∧ cenv = TL (CTLet (sz+1)::cenv)` by simp[] >>
@@ -3477,7 +3474,7 @@ fun tac18 t =
       rpt gen_tac >>
       Q.PAT_ABBREV_TAC`cs1 = compiler_result_out_fupd A B` >>
       Q.PAT_ABBREV_TAC`tt:call_context = A` >>
-      qspecl_then[`cmnv`,`CTLet(sz+1)::cenv`,`tt`,`sz+1`,`cs1`,`exp'`](Q.X_CHOOSE_THEN`cd`strip_assume_tac)(CONJUNCT1 compile_append_out) >>
+      qspecl_then[`CTLet(sz+1)::cenv`,`tt`,`sz+1`,`cs1`,`exp'`](Q.X_CHOOSE_THEN`cd`strip_assume_tac)(CONJUNCT1 compile_append_out) >>
       simp[Abbr`cs1`,Abbr`cs0`] >>
       SUBST1_TAC(Q.prove(`REVERSE cc2 ++ [Label cs.next_label] ++ REVERSE cc1 = REVERSE(cc1++Label cs.next_label::cc2)`,lrw[])) >>
       REWRITE_TAC[Once SWAP_REVERSE] >>
@@ -3491,11 +3488,11 @@ fun tac18 t =
          qexists_tac`lab` >>
          simp[Abbr`co`] >>
          fsrw_tac[DNF_ss][FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER,Abbr`lab`] ) >>
-      first_x_assum(qspecl_then[`rd'`,`cmnv`,`cs1`,`CTLet (sz+1)::cenv`,`sz+1`,`csz`,`bs2`,`bce`,`bcr`
+      first_x_assum(qspecl_then[`rd'`,`cs1`,`CTLet (sz+1)::cenv`,`sz+1`,`csz`,`bs2`,`bce`,`bcr`
                                ,`TAKE(LENGTH bc0+2+LENGTH cc+2+LENGTH cc1+1)bs.code`
                                ,`REVERSE cd`,`[Label (cs.next_label+1)]++bc1`]mp_tac) >>
       discharge_hyps >- (
-        `bs2.clock = SOME (FST s')` by (
+        `bs2.clock = SOME (FST (FST s'))` by (
           imp_res_tac RTC_bc_next_clock_less >>
           fs[optionTheory.OPTREL_def,s_refs_def,Abbr`bs2`,Abbr`bss0`] >> rfs[] ) >>
         simp[TAKE_APPEND1,TAKE_APPEND2,Abbr`bs2`,Abbr`bss0`,Abbr`aa`,Abbr`co`] >>
@@ -3536,7 +3533,7 @@ fun tac18 t =
     Q.PAT_ABBREV_TAC`cs2 = compiler_result_out_fupd (K (Stack X::Y)) B` >>
     qspecl_then[`t`,`cs2`](Q.X_CHOOSE_THEN`cp`strip_assume_tac)pushret_append_out >> pop_assum kall_tac >>
     Q.PAT_ABBREV_TAC`cs1 = compiler_result_out_fupd X Y` >>
-    qspecl_then[`cmnv`,`cenv`,`t`,`sz`,`exp'`,`0`,`cs1`,`1`](Q.X_CHOOSE_THEN`cb`strip_assume_tac)(CONJUNCT1 (CONJUNCT2 compile_append_out)) >>
+    qspecl_then[`cenv`,`t`,`sz`,`exp'`,`0`,`cs1`,`1`](Q.X_CHOOSE_THEN`cb`strip_assume_tac)(CONJUNCT1 (CONJUNCT2 compile_append_out)) >>
     simp[Abbr`cs2`,Abbr`cs1`,Abbr`cs0`] >>
     SUBST1_TAC(Q.prove(`REVERSE cc2 ++ [Label cs.next_label] ++ REVERSE cc1 = REVERSE(cc1++Label cs.next_label::cc2)`,lrw[])) >>
     REWRITE_TAC[Once SWAP_REVERSE] >>
@@ -3550,12 +3547,12 @@ fun tac18 t =
        simp[] >>
        fsrw_tac[DNF_ss][FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER] ) >>
     qabbrev_tac`tt = case t of TCNonTail => t | TCTail j k => TCTail j (k + 1)` >>
-    qspecl_then[`cmnv`,`CTLet(sz+1)::cenv`,`tt`,`sz+1`,`cs1`,`exp'`](Q.X_CHOOSE_THEN`cd`strip_assume_tac)(CONJUNCT1 compile_append_out) >>
-    first_x_assum(qspecl_then[`rd'`,`cmnv`,`cs1`,`CTLet (sz+1)::cenv`,`sz+1`,`csz`,`bs2`,`bce`,`bcr`
+    qspecl_then[`CTLet(sz+1)::cenv`,`tt`,`sz+1`,`cs1`,`exp'`](Q.X_CHOOSE_THEN`cd`strip_assume_tac)(CONJUNCT1 compile_append_out) >>
+    first_x_assum(qspecl_then[`rd'`,`cs1`,`CTLet (sz+1)::cenv`,`sz+1`,`csz`,`bs2`,`bce`,`bcr`
                              ,`TAKE(LENGTH bc0+2+LENGTH cc+2+LENGTH cc1+1)bs.code`
                              ,`REVERSE cd`,`(DROP (LENGTH cd) cc2)++bc1`]mp_tac) >>
     discharge_hyps >- (
-      `bs2.clock = SOME (FST s')` by (
+      `bs2.clock = SOME (FST (FST s'))` by (
         imp_res_tac RTC_bc_next_clock_less >>
         fs[optionTheory.OPTREL_def,s_refs_def,Abbr`bs2`,Abbr`bss0`] >> rfs[] ) >>
       simp[TAKE_APPEND1,TAKE_APPEND2,Abbr`bs2`,Abbr`bss0`,Abbr`aa`] >>
@@ -3571,7 +3568,7 @@ fun tac18 t =
       rw[] >> spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
     simp[] >>
     disch_then(qspec_then`tt`mp_tac) >> simp[] >>
-    Cases_on`err`>>simp[]>-(
+    reverse(Cases_on`err`)>>simp[]>-(
       simp[Abbr`tt`] >>
       Cases_on`t`>>simp[] >- (
         `bs2.output = bs.output` by simp[Abbr`bs2`,Abbr`bss0`] >>
@@ -3602,7 +3599,7 @@ fun tac18 t =
       qmatch_assum_abbrev_tac`bc_next^* bs bs2` >>
       qexists_tac`bs2` >> simp[] >>
       qmatch_assum_abbrev_tac`bc_next^* bs2 bs4` >>
-      qspecl_then[`cmnv`,`cenv`,`t`,`sz`,`exp'`,`0`,`cs1`,`1`,`cb`,`cd`]mp_tac compile_bindings_thm >>
+      qspecl_then[`cenv`,`t`,`sz`,`exp'`,`0`,`cs1`,`1`,`cb`,`cd`]mp_tac compile_bindings_thm >>
       simp[] >> strip_tac >>
       match_mp_tac(SIMP_RULE std_ss [transitive_def] RTC_TRANSITIVE) >>
       HINT_EXISTS_TAC >> simp[] >>
@@ -3615,14 +3612,14 @@ fun tac18 t =
     rpt gen_tac >> strip_tac >>
     rpt gen_tac >>
     Q.PAT_ABBREV_TAC`cs0 = compiler_result_out_fupd (K (PushExc::Y::Z)) U` >>
-    qspecl_then[`cmnv`,`cenv`,`TCNonTail`,`sz + 2`,`cs0`,`exp`](Q.X_CHOOSE_THEN`cc`strip_assume_tac)(CONJUNCT1 compile_append_out) >>
+    qspecl_then[`cenv`,`TCNonTail`,`sz + 2`,`cs0`,`exp`](Q.X_CHOOSE_THEN`cc`strip_assume_tac)(CONJUNCT1 compile_append_out) >>
     simp[pushret_def] >>
     strip_tac >>
     reverse(Cases_on`ALL_DISTINCT (FILTER is_Label (bc0 ++ code)) ∧
                      ∃cc1 cc2. code = [PushPtr(Lab cs.next_label);PushExc]++REVERSE cc++PopExc::Stack(Pops 1)::cc1++Label cs.next_label::cc2`) >- (
       rpt gen_tac >>
       Q.PAT_ABBREV_TAC`cs1 = compiler_result_out_fupd (K (Label X::Y::Z)) U` >>
-      qspecl_then[`cmnv`,`cenv`,`t`,`sz`,`e2`,`0`,`cs1`,`1`](Q.X_CHOOSE_THEN`cb`strip_assume_tac)(CONJUNCT1 (CONJUNCT2 compile_append_out)) >>
+      qspecl_then[`cenv`,`t`,`sz`,`e2`,`0`,`cs1`,`1`](Q.X_CHOOSE_THEN`cb`strip_assume_tac)(CONJUNCT1 (CONJUNCT2 compile_append_out)) >>
       simp[Abbr`cs1`,Abbr`cs0`] >>
       Q.PAT_ABBREV_TAC`cs1 = compiler_result_out_fupd (K X) U` >>
       qspecl_then[`t`,`cs1`](Q.X_CHOOSE_THEN`cp`strip_assume_tac)pushret_append_out >> pop_assum kall_tac >>
@@ -3670,17 +3667,17 @@ fun tac18 t =
     Q.PAT_ABBREV_TAC`aa = next_addr bs.inst_length X` >>
     strip_tac >>
     qmatch_assum_abbrev_tac`bc_next^* bs bss0` >>
-    last_x_assum(qspecl_then[`rd`,`cmnv`,`cs0`,`cenv`,`sz+2`,`csz`,`bss0`,`bce`,`bcr`,`bc0++(TAKE 2 code)`,`REVERSE cc`,`(DROP (2 + LENGTH cc) code) ++ bc1`]mp_tac) >>
+    last_x_assum(qspecl_then[`rd`,`cs0`,`cenv`,`sz+2`,`csz`,`bss0`,`bce`,`bcr`,`bc0++(TAKE 2 code)`,`REVERSE cc`,`(DROP (2 + LENGTH cc) code) ++ bc1`]mp_tac) >>
     discharge_hyps >- (
       simp[Abbr`bss0`,DROP_APPEND1,DROP_LENGTH_NIL_rwt] >>
       simp[SUM_APPEND,FILTER_APPEND,Abbr`cs0`] >>
       conj_tac >- (
         SUBST1_TAC(DECIDE``sz + 2 = (sz + 1) + 1``) >>
-        qmatch_abbrev_tac`Cenv_bs rd menv s env cmnv cenv (sz + 1 + 1) csz bs0` >>
+        qmatch_abbrev_tac`Cenv_bs rd s env cenv (sz + 1 + 1) csz bs0` >>
         match_mp_tac Cenv_bs_imp_incsz >>
         qexists_tac`bs0 with stack := TL bs0.stack` >>
         simp[Abbr`bs0`,bc_state_component_equality] >>
-        qmatch_abbrev_tac`Cenv_bs rd menv s env cmnv cenv (sz + 1) csz bs0` >>
+        qmatch_abbrev_tac`Cenv_bs rd s env cenv (sz + 1) csz bs0` >>
         match_mp_tac Cenv_bs_imp_incsz >>
         qexists_tac`bs0 with stack := TL bs0.stack` >>
         simp[Abbr`bs0`,bc_state_component_equality] >>
@@ -3696,6 +3693,7 @@ fun tac18 t =
     `bss0.output = bs.output`by simp[Abbr`bss0`] >>
     simp[Abbr`bss0`] >>
     metis_tac[RTC_TRANSITIVE,transitive_def] ) >>
+
   strip_tac >- (
     ntac 3 gen_tac >> qx_gen_tac`n` >> strip_tac >> simp[] >>
     rpt gen_tac >> strip_tac >> simp[compile_def,pushret_def] >>

@@ -956,16 +956,18 @@ val MAP_SND_free_labs_any_ez = store_thm("MAP_SND_free_labs_any_ez",
     (∀ez nz ix def ez'. MAP SND (free_labs_def ez nz ix def) = MAP SND (free_labs_def ez' nz ix def))``,
   ho_match_mp_tac free_labs_ind >> rw[] >> metis_tac[])
 
-(*
 val Cevaluate_store_SUBSET = store_thm("Cevaluate_store_SUBSET",
-  ``(∀menv s env exp res. Cevaluate menv s env exp res ⇒ LENGTH (SND s) ≤ LENGTH (SND (FST res))) ∧
-    (∀menv s env exps res. Cevaluate_list menv s env exps res ⇒ LENGTH (SND s) ≤ LENGTH (SND (FST res)))``,
+  ``(∀s env exp res. Cevaluate s env exp res ⇒ LENGTH (SND (FST s)) ≤ LENGTH (SND (FST (FST res)))) ∧
+    (∀s env exps res. Cevaluate_list s env exps res ⇒ LENGTH (SND (FST s)) ≤ LENGTH (SND (FST (FST res))))``,
   ho_match_mp_tac Cevaluate_ind >> rw[] >>
   TRY (PROVE_TAC [LESS_EQ_TRANS]) >- (
     Cases_on`uop`>>fs[]>>srw_tac[ARITH_ss][] >>
-    Cases_on`v`>>fs[] ) >>
+    Cases_on`v`>>fs[] >>
+    BasicProvers.EVERY_CASE_TAC >>
+    fsrw_tac[ARITH_ss][]) >>
   pop_assum mp_tac >>Cases_on`v1`>>rw[])
 
+(*
 val mvars_def = tDefine"mvars"`
   (mvars (CRaise e) = mvars e) ∧
   (mvars (CHandle e1 e2) = mvars e1 ∪ mvars e2) ∧
@@ -2037,6 +2039,7 @@ val Cevaluate_closed_Clocs = store_thm("Cevaluate_closed_Clocs",
     simp[SUBSET_DEF] ) >>
   qspecl_then[`menv`,`s`,`env`,`exp`,`res`]mp_tac(CONJUNCT1 Cevaluate_Clocs) >>
   simp[])
+*)
 
 val good_cd_def = Define`
   good_cd ((ez,nz,ix),(l,cc,recs,envs),az,b) ⇔
@@ -2045,14 +2048,14 @@ val good_cd_def = Define`
     ∃e e'. (cc,(recs,envs),e') = (bind_fv (az,e) nz ix)`
 
 val code_env_cd_def = Define`
-  code_env_cd menv code (x,(l,ccenv,ce),(az,b)) ⇔
-    (∀mn x. (mn,x) ∈ mvars b ⇒ ∃env. FLOOKUP menv mn = SOME env ∧ x < LENGTH env) ∧
+  code_env_cd code (x,(l,ccenv,ce),(az,b)) ⇔
     good_cd (x,(l,ccenv,ce),(az,b)) ∧
     ∃cs bc0 cc bc1.
-      ((compile menv (MAP CTEnv ccenv) (TCTail az 0) 0 cs b).out = cc ++ cs.out) ∧
+      ((compile (MAP CTEnv ccenv) (TCTail az 0) 0 cs b).out = cc ++ cs.out) ∧
       EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc0) ∧ l < cs.next_label ∧
       (code = bc0 ++ Label l :: (REVERSE cc) ++ bc1)`
 
+(*
 val closed_vlabs_def = Define`
   closed_vlabs Cmenv Cenv Cs cmnv code ⇔
     EVERY all_vlabs Cs ∧ EVERY all_vlabs Cenv ∧ all_vlabs_menv Cmenv ∧
