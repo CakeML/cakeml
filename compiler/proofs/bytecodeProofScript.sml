@@ -985,7 +985,7 @@ val compile_varref_thm = store_thm("compile_varref_thm",
       ((compile_varref sz cs b).out = REVERSE code ++ cs.out) ∧
       (bs.code = bc0 ++ code ++ bc1) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
-      (lookup_ct sz bs.stack (DRESTRICT bs.refs cls) b = SOME bv) ∧
+      (lookup_ct sz bs.stack (DRESTRICT bs.refs cls) bs.globals b = SOME bv) ∧
       (bs' = bs with <| stack := bv::bs.stack ; pc := next_addr bs.inst_length (bc0 ++ code)|>)
       ⇒
       bc_next^* bs bs'``,
@@ -1002,6 +1002,7 @@ val compile_varref_thm = store_thm("compile_varref_thm",
     `(bc_eval1 bs = SOME bs')` by (
       rw[bc_eval1_def,Abbr`x`] >>
       rfs[el_check_def] >>
+      TRY (qpat_assum`OPTION_JOIN X = SOME bv`mp_tac >> rw[el_check_def]) >>
       rw[bc_eval_stack_def] >>
       srw_tac[ARITH_ss][bump_pc_def,SUM_APPEND,FILTER_APPEND,ADD1,Abbr`bs'`,Abbr`ls1`,bc_state_component_equality] >>
       NO_TAC) >>
@@ -1094,9 +1095,9 @@ val compile_varref_append_out = store_thm("compile_varref_append_out",
 
 val bool_to_tag_inj = Q.prove (
 `!b1 b2. (bool_to_tag b1 = bool_to_tag b2) = (b1 = b2)`,
-Cases_on `b1` >>
-Cases_on `b2` >>
-rw []);
+  Cases_on `b1` >>
+  Cases_on `b2` >>
+  rw []);
 
 val helper_tac =
    rw [] >>
@@ -1113,56 +1114,50 @@ val bc_equal_list_Number = prove(
   gen_tac >> Cases >> simp[bc_equal_def] >> rw[])
 
 val do_Ceq_to_bc_equal = Q.prove (
-`ALL_DISTINCT (FST pp).sm ⇒
- (!v1 v2 bv1 bv2.
-  all_Clocs v1 ⊆ count (LENGTH (FST pp).sm) ∧
-  all_Clocs v2 ⊆ count (LENGTH (FST pp).sm) ∧
-  Cv_bv pp v1 bv1 ∧ Cv_bv pp v2 bv2 ⇒
-  (!b. (do_Ceq v1 v2 = Eq_val b) ⇒  (bc_equal bv1 bv2 = Eq_val b)) ∧
-  ((do_Ceq v1 v2 = Eq_closure) ⇒  (bc_equal bv1 bv2 = Eq_closure))) ∧
- (!vs1 vs2 bvs1 bvs2.
-  BIGUNION (IMAGE all_Clocs (set vs1)) ⊆ count (LENGTH (FST pp).sm) ∧
-  BIGUNION (IMAGE all_Clocs (set vs2)) ⊆ count (LENGTH (FST pp).sm) ∧
-  LIST_REL (Cv_bv pp) vs1 bvs1 ∧ LIST_REL (Cv_bv pp) vs2 bvs2 ⇒
-  (!b. (do_Ceq_list vs1 vs2 = Eq_val b) ⇒  (bc_equal_list bvs1 bvs2 = Eq_val b)) ∧
-  ((do_Ceq_list vs1 vs2 = Eq_closure) ⇒ (bc_equal_list bvs1 bvs2 = Eq_closure)))`,
- strip_tac >>
- ho_match_mp_tac do_Ceq_ind >>
- rw [] >-
- (helper_tac >> TRY(fs[LIST_EQ_REWRITE]>>NO_TAC) >>
-  match_mp_tac bc_equal_list_Number >> rw[stringTheory.ORD_11] ) >-
- (helper_tac >> metis_tac [ALL_DISTINCT_EL_IMP]) >-
- (helper_tac >> fs[EVERY2_EVERY] >> metis_tac []) >-
- (helper_tac >> fs[EVERY2_EVERY] >> metis_tac []) >-
- (helper_tac >> fs[EVERY2_EVERY]) >-
- helper_tac >-
- helper_tac >-
- helper_tac >-
- helper_tac >-
- (Cases_on `do_Ceq v1 v2` >>
-   fs [] >>
-   Cases_on `b'` >>
-   fs [] >>
-   rw [bc_equal_def]) >-
- (Cases_on `do_Ceq v1 v2` >>
-   fs [] >>
-   TRY (Cases_on `b'`) >>
-   fs [] >>
-   rw [bc_equal_def] >>
-   fs []) >-
- rw [bc_equal_def] >-
- rw [bc_equal_def]);
+  `ALL_DISTINCT (FST pp).sm ⇒
+   (!v1 v2 bv1 bv2.
+    Cv_bv pp v1 bv1 ∧ Cv_bv pp v2 bv2 ⇒
+    (!b. (do_Ceq v1 v2 = Eq_val b) ⇒  (bc_equal bv1 bv2 = Eq_val b)) ∧
+    ((do_Ceq v1 v2 = Eq_closure) ⇒  (bc_equal bv1 bv2 = Eq_closure))) ∧
+   (!vs1 vs2 bvs1 bvs2.
+    LIST_REL (Cv_bv pp) vs1 bvs1 ∧ LIST_REL (Cv_bv pp) vs2 bvs2 ⇒
+    (!b. (do_Ceq_list vs1 vs2 = Eq_val b) ⇒  (bc_equal_list bvs1 bvs2 = Eq_val b)) ∧
+    ((do_Ceq_list vs1 vs2 = Eq_closure) ⇒ (bc_equal_list bvs1 bvs2 = Eq_closure)))`,
+  strip_tac >>
+  ho_match_mp_tac do_Ceq_ind >>
+  rw [] >-
+  (helper_tac >> TRY(fs[LIST_EQ_REWRITE]>>NO_TAC) >>
+   match_mp_tac bc_equal_list_Number >> rw[stringTheory.ORD_11] ) >-
+  (helper_tac >> metis_tac [ALL_DISTINCT_EL_IMP]) >-
+  (helper_tac >> fs[EVERY2_EVERY] >> metis_tac []) >-
+  (helper_tac >> fs[EVERY2_EVERY] >> metis_tac []) >-
+  (helper_tac >> fs[EVERY2_EVERY]) >-
+  helper_tac >-
+  helper_tac >-
+  helper_tac >-
+  helper_tac >-
+  (Cases_on `do_Ceq v1 v2` >>
+    fs [] >>
+    Cases_on `b'` >>
+    fs [] >>
+    rw [bc_equal_def]) >-
+  (Cases_on `do_Ceq v1 v2` >>
+    fs [] >>
+    TRY (Cases_on `b'`) >>
+    fs [] >>
+    rw [bc_equal_def] >>
+    fs []) >-
+  rw [bc_equal_def] >-
+  rw [bc_equal_def]);
 
 val prim2_to_bc_thm = store_thm("prim2_to_bc_thm",
   ``∀op v1 v2 v bs bc0 bc1 st bv1 bv2 pp.
     (bs.code = bc0 ++ [Stack (prim2_to_bc op)] ++ bc1) ∧
     (bs.pc = next_addr bs.inst_length bc0) ∧
     (v2 = CLitv(IntLit &0) ⇒ (op ≠ CDiv) ∧ (op ≠ CMod)) ∧
-    (CevalPrim2 op v1 v2 = Cval v) ∧
+    (CevalPrim2 op v1 v2 = Rval v) ∧
     Cv_bv pp v1 bv1 ∧ Cv_bv pp v2 bv2 ∧
     (bs.stack = bv2::bv1::st) ∧
-    all_Clocs v1 ⊆ count (LENGTH (FST pp).sm) ∧
-    all_Clocs v2 ⊆ count (LENGTH (FST pp).sm) ∧
     ALL_DISTINCT (FST pp).sm
     ⇒ ∃bv.
       Cv_bv pp v bv ∧
@@ -1216,16 +1211,16 @@ val prim1_to_bc_thm = store_thm("prim1_to_bc_thm",
   ``∀rd op ck s v1 s' v bs bc0 bc1 bce st bv1.
     (bs.code = bc0 ++ [prim1_to_bc op] ++ bc1) ∧
     (bs.pc = next_addr bs.inst_length bc0) ∧
-    (CevalPrim1 op s v1 = (s', Cval v)) ∧
+    (CevalPrim1 op s v1 = (s', Rval v)) ∧
     Cv_bv (mk_pp rd (bs with code := bce)) v1 bv1 ∧
     (bs.stack = bv1::st) ∧
-    s_refs rd (ck,s) (bs with code := bce)
+    s_refs rd (ck,(FST s)) (bs with code := bce)
     ⇒ ∃bv rf sm'.
       let bs' = bs with <|stack := bv::st; refs := rf; pc := next_addr bs.inst_length (bc0 ++ [prim1_to_bc op])|> in
       let rd' = rd with sm := sm' in
       bc_next bs bs' ∧
       Cv_bv (mk_pp rd' (bs' with <| code := bce |>)) v bv ∧
-      s_refs rd' (ck,s') (bs' with code := bce) ∧
+      s_refs rd' (ck,(FST s')) (bs' with code := bce) ∧
       DRESTRICT bs.refs (COMPL (set rd.sm)) ⊑ DRESTRICT rf (COMPL (set sm')) ∧
       rd.sm ≼ sm'``,
   simp[] >> rw[] >>
@@ -1234,6 +1229,7 @@ val prim1_to_bc_thm = store_thm("prim1_to_bc_thm",
     map_every qexists_tac[`bc0`,`bc1`] >>
     rw[] ) >>
   simp[bc_eval1_thm] >>
+  PairCases_on`s` >>
   Cases_on`op`>>simp[bc_eval1_def,bump_pc_def,bc_fetch_with_stack,bc_fetch_with_refs] >>
   fs[LET_THM] >- (
     simp[bc_state_component_equality] >>
