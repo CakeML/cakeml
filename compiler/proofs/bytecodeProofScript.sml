@@ -4078,7 +4078,65 @@ fun tac18 t =
             simp[Abbr`bs16`,Abbr`bs06`,bc_state_component_equality,bump_pc_def,Abbr`bs05`] ) >>
           metis_tac[RTC_TRANSITIVE,transitive_def,RTC_SUBSET] ) >>
         fs[] >> metis_tac[IS_PREFIX_TRANS,SUBMAP_TRANS] ) >>
-
+      rpt gen_tac >>
+      Q.PAT_ABBREV_TAC`cs0:compiler_result = X exp` >>
+      Q.PAT_ABBREV_TAC`cs1 = compiler_result_out_fupd X Y` >>
+      qspecl_then[`cenv`,`t`,`sz`,`cs1`,`exp'`](Q.X_CHOOSE_THEN`cb`strip_assume_tac)(CONJUNCT1 compile_append_out) >>
+      fs[] >> strip_tac >>
+      first_x_assum(qspecl_then[`rd'`,`cs1`,`cenv`,`sz`,`csz`,`bs3`,`bce`,`bcr`,`bc0++REVERSE cc++[Stack Pop]`,`REVERSE cb`,`bc1`]mp_tac) >>
+      discharge_hyps >- (
+        simp[] >>
+        conj_asm1_tac >- fs[Abbr`cs1`,Abbr`cs0`] >>
+        fsrw_tac[ARITH_ss][] >>
+        conj_tac >- (
+          simp[Abbr`bs3`,bump_pc_def,Abbr`bs2`] >>
+          simp[FILTER_APPEND,SUM_APPEND] ) >>
+        conj_tac >- (
+          simp[Abbr`bs3`,bump_pc_def,Abbr`bs2`] ) >>
+        conj_tac >- (
+          rfs[Abbr`bs3`,bump_pc_def,Abbr`bs2`] >>
+          fs[Cenv_bs_def,s_refs_def] >>
+          imp_res_tac bc_next_clock_less >>
+          imp_res_tac RTC_bc_next_clock_less >>
+          fs[optionTheory.OPTREL_def] >> fs[] ) >>
+        fs[Abbr`cs1`,Abbr`cs0`] >>
+        fs[Cenv_bs_def,s_refs_def,SUM_APPEND,FILTER_APPEND,ALL_DISTINCT_APPEND,FILTER_REVERSE,EVERY_REVERSE] >>
+        fsrw_tac[DNF_ss][MEM_FILTER,EVERY_MEM,is_Label_rwt,ALL_DISTINCT_REVERSE,MEM_MAP,between_def] >>
+        fsrw_tac[ARITH_ss][] >>
+        rw[] >> spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
+      simp[] >>
+      disch_then(qspec_then`t`mp_tac) >> simp[] >>
+      Cases_on`err`>>simp[] >- (
+        simp[Abbr`bs3`,bump_pc_def] >>
+        simp[Abbr`bs2`] >> strip_tac >>
+        rpt gen_tac >> strip_tac >>
+        first_x_assum(qspecl_then[`ig`,`sp`,`hdl`,`st`]mp_tac) >>
+        simp[] >>
+        simp[code_for_return_def] >>
+        simp_tac(srw_ss()++DNF_ss)[] >>
+        map_every qx_gen_tac[`br`,`rf'`,`rd''`,`ck'`] >>
+        strip_tac >>
+        map_every qexists_tac[`br`,`rf'`,`rd''`,`ck'`] >>
+        conj_tac >- (
+          qmatch_assum_abbrev_tac `bc_next^* bs bs05` >>
+          qmatch_assum_abbrev_tac `bc_next bs05 bs06` >>
+          qmatch_abbrev_tac`bc_next^* bs bs2` >>
+          qmatch_assum_abbrev_tac`bc_next^* bs16 bs12` >>
+          `bs16 = bs06` by (
+            simp[Abbr`bs16`,Abbr`bs06`,bc_state_component_equality,bump_pc_def,Abbr`bs05`] ) >>
+          metis_tac[RTC_TRANSITIVE,transitive_def,RTC_SUBSET] ) >>
+        fs[] >> metis_tac[IS_PREFIX_TRANS,SUBMAP_TRANS] ) >>
+      simp[Abbr`bs3`,bump_pc_def] >>
+      simp[Abbr`bs2`] >> strip_tac >>
+      rpt gen_tac >> strip_tac >> fs[] >>
+      qexists_tac`bs'` >> simp[] >>
+      qmatch_assum_abbrev_tac `bc_next^* bs bs05` >>
+      qmatch_assum_abbrev_tac `bc_next bs05 bs06` >>
+      qmatch_abbrev_tac`bc_next^* bs bs2` >>
+      qmatch_assum_abbrev_tac`bc_next^* bs16 bs12` >>
+      `bs16 = bs06` by (
+        simp[Abbr`bs16`,Abbr`bs06`,bc_state_component_equality,bump_pc_def,Abbr`bs05`] ) >>
+      metis_tac[RTC_TRANSITIVE,transitive_def,RTC_SUBSET] ) >>
 
     simp[] >>
     rpt gen_tac >> strip_tac >>
