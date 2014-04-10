@@ -137,17 +137,17 @@ val _ = Hol_datatype `
 
  val _ = Define `
 
-(prim1_to_bc CRef = Ref)
+(prim1_to_bc CRef = ([Ref]))
 /\
-(prim1_to_bc CDer = Deref)
+(prim1_to_bc CDer = ([Deref]))
 /\
-(prim1_to_bc CIsBlock = (Stack IsBlock))
+(prim1_to_bc CIsBlock = ([Stack IsBlock]))
 /\
-(prim1_to_bc (CTagEq n) = (Stack (TagEq (n+block_tag))))
+(prim1_to_bc (CTagEq n) = ([Stack (TagEq (n+block_tag))]))
 /\
-(prim1_to_bc (CProj n) = (Stack (El n)))
+(prim1_to_bc (CProj n) = ([Stack (El n)]))
 /\
-(prim1_to_bc (CInitG n) = (Gupdate n))`;
+(prim1_to_bc (CInitG n) = ([Gupdate n; Stack (Cons unit_tag( 0))]))`;
 
 
  val _ = Define `
@@ -464,7 +464,7 @@ a b c x y z
   )))
 /\
 (compile env t sz s (CPrim1 uop e) =  
-(pushret t (emit (compile env TCNonTail sz s e) [prim1_to_bc uop])))
+(pushret t (emit (compile env TCNonTail sz s e) (prim1_to_bc uop))))
 /\
 (compile env t sz s (CPrim2 op e1 e2) =  
 (pushret t (emit (compile_nts env sz s [e1;e2]) [Stack (prim2_to_bc op)])))
