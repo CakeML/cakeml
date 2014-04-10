@@ -373,7 +373,9 @@ compile env t sz s (CCon n es) =
   pushret t (emit (compile_nts env sz s es) [Stack (Cons (n+block_tag) (List.length es))])
 and
 compile env t sz s (CLet false e1 e2) =
-  compile env t (sz+1) (compile env TCNonTail sz s e1) e2
+  let s = compile env TCNonTail sz s e1 in
+  let s = emit s [Stack Pop] in
+  compile env t sz s e2
 and
 compile env t sz s (CLet true e eb) =
   compile_bindings env t sz eb 0 (compile env TCNonTail sz s e) 1
