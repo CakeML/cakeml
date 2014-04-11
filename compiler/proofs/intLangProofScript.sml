@@ -297,7 +297,9 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
     fsrw_tac[ARITH_ss][EVERY2_EVERY,EVERY_MEM] >>
     rfs[MEM_ZIP,PULL_EXISTS,EL_MAP] >>
     simp[EL_LUPDATE] >> rw[] >>
-    rw[optionTheory.OPTREL_def]) >>
+    rw[optionTheory.OPTREL_def] >>
+    fs[optionTheory.OPTREL_def] >>
+    metis_tac[optionTheory.NOT_SOME_NONE]) >>
   strip_tac >- simp[] >>
   strip_tac >- (
     simp[] >>

@@ -1264,12 +1264,17 @@ val CevalPrim1_syneq = store_thm("CevalPrim1_syneq",
   Cases_on`s1`>>Cases_on`s2`>>
   Cases >- (
     simp[] >> rw[] >> fs[EVERY2_EVERY] >> lrw[GSYM ZIP_APPEND] ) >>
-  gen_tac >> Cases >> simp[Once syneq_cases] >>
+  Cases >> simp[Once syneq_cases] >>
   fsrw_tac[DNF_ss][] >>
   rw[el_check_def,EVERY2_EVERY] >>
   rfs[EVERY_MEM,MEM_ZIP,FORALL_PROD] >>
   fsrw_tac[DNF_ss][] >>
   fs[EL_LUPDATE,optionTheory.OPTREL_def] >> rw[] >>
+  TRY ( res_tac >> fs[] >> NO_TAC ) >>
+  TRY (
+    spose_not_then strip_assume_tac >>
+    fs[EVERY_MEM] >> rfs[MEM_ZIP,PULL_EXISTS,optionTheory.OPTREL_def] >>
+    res_tac >> fs[] >> NO_TAC) >>
   rw[Once syneq_cases] >>
   simp[EVERY2_EVERY,EVERY_MEM,MEM_ZIP,FORALL_PROD,PULL_EXISTS] >>
   metis_tac[])

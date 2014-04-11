@@ -152,7 +152,7 @@ CevalPrim1 (CProj n) sg (CConv _ vs) =
       end)
 and
 CevalPrim1 (CInitG n) (s,g) v =
-  if n < List.length g
+  if n < List.length g && List_extra.nth g n = Nothing
   then ((s,List.update g n (Just v)),Rval (CLitv Unit))
   else ((s,g), Rerr Rtype_error)
 and

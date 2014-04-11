@@ -187,7 +187,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
       )))
 /\
 (CevalPrim1 (CInitG n) (s,g) v =  
-(if n < LENGTH g
+(if (n < LENGTH g) /\ (EL n g = NONE)
   then ((s,LUPDATE (SOME v) n g),Rval (CLitv Unit))
   else ((s,g), Rerr Rtype_error)))
 /\
