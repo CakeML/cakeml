@@ -433,7 +433,7 @@ compile env t sz s (CIf e1 e2 e3) =
   let s = compile env t sz s e3 in
   emit s [Label n2]
 and
-compile _ _ _ s (CExtG n) = emit s [Galloc n; Stack (Cons unit_tag 0)]
+compile _ t _ s (CExtG n) = pushret t (emit s [Galloc n; Stack (Cons unit_tag 0)])
 and
 compile_bindings env t sz e n s 0 =
   match t with

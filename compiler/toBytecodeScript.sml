@@ -485,7 +485,7 @@ a b c x y z
   let s = (compile env t sz s e3) in
   emit s [Label n2]))
 /\
-(compile _ _ _ s (CExtG n) = (emit s [Galloc n; Stack (Cons unit_tag( 0))]))
+(compile _ t _ s (CExtG n) = (pushret t (emit s [Galloc n; Stack (Cons unit_tag( 0))])))
 /\
 (compile_bindings env t sz e n s 0 =  
 ((case t of
