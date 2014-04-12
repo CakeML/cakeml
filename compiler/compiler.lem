@@ -74,11 +74,13 @@ compile_print_dec types (Dletrec defs) s =
   compile_print_vals types 0 (List.map (fun (n,_,_) -> n) defs) s
 
 let rec
+compile_print_top Nothing _ cs = cs
+and
 compile_print_top _ (Tmod mn _ _) cs =
   let str = String_extra.stringConcat["structure ";mn;" = <structure>\n"] in
   emit cs (List.map PrintC (toCharList str))
 and
-compile_print_top types (Tdec dec) cs =
+compile_print_top (Just types) (Tdec dec) cs =
   compile_print_dec types dec cs
 
 let compile_top types cs top =

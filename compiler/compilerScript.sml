@@ -101,11 +101,13 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
  val _ = Define `
 
+(compile_print_top NONE _ cs = cs)
+/\
 (compile_print_top _ (Tmod mn _ _) cs =  
 (let str = (CONCAT["structure ";mn;" = <structure>\n"]) in
   emit cs (MAP PrintC (EXPLODE str))))
 /\
-(compile_print_top types (Tdec dec) cs =  
+(compile_print_top (SOME types) (Tdec dec) cs =  
 (compile_print_dec types dec cs))`;
 
 
