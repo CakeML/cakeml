@@ -9,7 +9,6 @@ val _ = numLib.prefer_num();
 val _ = new_theory "compiler"
 
 (*open import Pervasives*)
-
 (*open import SemanticPrimitives*)
 (*open import Ast*)
 (*open import CompilerLib*)
@@ -24,33 +23,12 @@ val _ = new_theory "compiler"
 (*open import ExhLang*)
 (*open import PatLang*)
 
-(*
-      compile_top   types               s                 t       ss               sf               revcode
-want: compile_top : map typeN string -> compiler_state -> top -> (compiler_state * compiler_state * bc_inst list)
-
-have:
-                next
-    top_to_i1 : nat -> map modN (map varN nat) -> map varN nat -> top -> nat * map modN (map varN nat) * map varN nat * prompt_i1
-    init_tagenv_state : (nat * tag_env * map nat (conN * tid_or_exn))
-    prompt_to_i2 : (nat * tag_env * map nat (conN * tid_or_exn)) -> prompt_i1 -> (nat * tag_env * map nat (conN * tid_or_exn)) * prompt_i2
-                   none_tag                    some_tag                    next
-    prompt_to_i3 : (nat * maybe tid_or_exn) -> (nat * maybe tid_or_exn) -> nat -> prompt_i2 -> nat * exp_i2
-    exp_to_exh : exh_ctors_env -> exp_i2 -> exp_exh
-                 bound_vars
-    exp_to_pat : list (maybe varN) -> exp_exh -> exp_pat
-    exp_to_cexp : exp_pat -> Cexp
-                   renv     rsz
-    compile_Cexp : ctenv -> nat -> compiler_result -> Cexp -> compiler_result
-*)
-
 val _ = Hol_datatype `
  compiler_state =
   <| next_global : num
    ; globals_env : (modN, ( (varN, num)fmap)) fmap # (varN, num) fmap
-   (* ; compiler_env : list (string * nat) - should always be [] ? *)
    ; contags_env : num # tag_env # (num, (conN # tid_or_exn)) fmap
    ; rnext_label : num
-   (* ; stack_size  : nat - should always be 0 ? *)
    |>`;
 
 
@@ -142,158 +120,12 @@ val _ = Define `
   let e = (exp_to_Cexp e) in
   let r = (compile_Cexp []( 0) <| out := []; next_label := cs.rnext_label |> e) in
   let r = (compile_print_top types top r) in
-  let ssuccess =    
-(<| next_global := n
-     ; globals_env := (m1,m2)
-     ; contags_env := c
-     ; rnext_label := r.next_label
-    |>) in
-  let sfailure = ssuccess (* TODO - does this need to be different? *) in
-  (ssuccess, sfailure, r.out)))`;
+  let cs = (<| next_global := n
+            ; globals_env := (m1,m2)
+            ; contags_env := c
+            ; rnext_label := r.next_label
+            |>) in
+  (cs, r.out)))`;
 
-
-(*
-
-type contab = Map.map (maybe (id conN)) nat * list (nat * maybe (id conN)) * nat
-val cmap : contab -> Map.map (maybe (id conN)) nat
-let rec cmap (m,_,_) = m
-
-type compiler_state =
-  <| contab : contab
-   ; renv : list (string * nat)
-   ; rmenv : Map.map string (list (string * nat))
-   ; rsz : nat
-   ; rnext_label : nat
-   |>
-
-val cpam : compiler_state -> list (nat * maybe (id conN))
-let rec cpam s = match s.contab with (_,w,_) -> w end
-
-let init_compiler_state =
-  <| contab = ((Map.insert (Just(Short"Eq")) eq_tag
-               (Map.insert (Just(Short"Div")) div_tag
-               (Map.insert (Just(Short"Bind")) bind_tag
-               (Map.insert (Just(Short"::")) cons_tag
-               (Map.insert (Just(Short"nil")) nil_tag
-               (Map.insert Nothing tuple_tag Map.empty))))))
-              ,[(eq_tag,Just(Short"Eq"))
-               ;(div_tag,Just(Short"Div"))
-               ;(bind_tag,Just(Short"Bind"))
-               ;(cons_tag,Just(Short"::"))
-               ;(nil_tag,Just(Short"nil"))
-               ;(tuple_tag,Nothing)]
-              ,6)
-   ; renv = []
-   ; rmenv = Map.empty
-   ; rsz = 0
-   ; rnext_label = 0
-   |>
-
-let rec
-number_constructors _ [] ct = ct
-and
-number_constructors mn ((c,_)::cs) (m,w,n) =
-  number_constructors mn cs (Map.insert (Just (mk_id mn c)) n m, (n,Just (mk_id mn c))::w, n+(1:nat))
-declare termination_argument number_constructors = automatic
-
-let rec
-dec_to_contab mn ct (Dtype ts) =
-  List.foldl (fun ct (_,_,cs) -> number_constructors mn cs ct) ct ts
-and
-dec_to_contab mn ct (Dexn c ts) =
-  number_constructors mn [(c,ts)] ct
-and
-dec_to_contab _ ct _ = ct
-
-let rec
-decs_to_contab _ ct [] = ct
-and
-decs_to_contab mn ct (d::ds) = decs_to_contab mn (dec_to_contab mn ct d) ds
-
-let rec
-compile_news cs _ [] = emit cs [Stack Pop]
-and
-compile_news cs i (_::vs) =
-  let cs = emit cs (List.map Stack [Load 0; Load 0; El i]) in
-  let cs = emit cs [Stack (Store 1)] in
-  compile_news cs (i+1) vs
-
-let compile_fake_exp menv m env rsz cs vs e =
-  let Ce = exp_to_Cexp m (e (Con Nothing (List.map (fun v -> Var (Short v)) (List.reverse vs)))) in
-  compile_Cexp menv env rsz cs Ce
-
-let rec
-compile_dec _ _ _ _ cs (Dtype _) = (Nothing, emit cs [Stack (Cons (block_tag+tuple_cn) 0)])
-and
-compile_dec _ _ _ _ cs (Dexn _ _ ) = (Nothing, emit cs [Stack (Cons (block_tag+tuple_cn) 0)])
-and
-compile_dec menv m env rsz cs (Dletrec defs) =
-  let vs = List.map (fun (n,_,_) -> n) defs in
-  (Just vs, compile_fake_exp menv m env rsz cs vs (fun b -> Letrec defs b))
-and
-compile_dec menv m env rsz cs (Dlet p e) =
-  let vs = pat_bindings p [] in
-  (Just vs, compile_fake_exp menv m env rsz cs vs (fun b -> Mat e [(p,b)]))
-
-let rec
-compile_decs _ _ ct m _ rsz cs [] = (ct,m,rsz,cs)
-and
-compile_decs mn menv ct m env rsz cs (dec::decs) =
-  let (vso,cs) = compile_dec menv m env rsz cs dec in
-  let ct = dec_to_contab mn ct dec in
-  let vs = match vso with Nothing -> [] | Just vs -> vs end in
-  let n = List.length vs in
-  let m = <| m with cnmap = cmap ct; bvars = vs++m.bvars |> in
-  let env = (genlist(fun i -> CTDec (rsz+n-1-i))n)++env in
-  let rsz = rsz+n in
-  let cs = compile_news cs 0 vs in
-  compile_decs mn menv ct m env rsz cs decs
-
-let compile_decs_wrap mn rs decs =
-  let cs = <| out = []; next_label = rs.rnext_label |> in
-  let cs = emit cs [PushPtr (Addr 0); PushExc] in
-  let menv = Map.map (List.map snd) rs.rmenv in
-  let m = <| bvars = List.map fst rs.renv
-           ; mvars = Map.map (List.map fst) rs.rmenv
-           ; cnmap = cmap rs.contab
-           |> in
-  let env = List.map (comb CTDec snd) rs.renv in
-  let (ct,m,rsz,cs) = compile_decs mn menv rs.contab m env (rs.rsz+2) cs decs in
-  let n = rsz-2-rs.rsz in
-  let news = List.take n m.bvars in
-  let cs = emit cs [Stack (Cons tuple_cn n)] in
-  let cs = emit cs [PopExc; Stack(Pops 1)] in
-  let cs = compile_news cs 0 news in
-  let env = Lib.ZIP news (genlist (fun i -> rs.rsz+n-1-i) n) in
-  (ct,env,cs)
-
-let rec
-compile_top _ rs (Tmod mn _ decs) =
-  let (ct,env,cs) = compile_decs_wrap (Just mn) rs decs in
-  let str = String_extra.stringConcat["structure ";mn;" = <structure>\n"] in
-  (<| rs with
-      contab = ct
-    ; rnext_label = cs.next_label
-    ; rmenv = Map.insert mn env rs.rmenv
-    ; rsz = rs.rsz + List.length env |>
-  ,<| rs with
-      contab = ct
-    ; rmenv = Map.insert mn [] rs.rmenv
-    ; rnext_label = cs.next_label
-    |>
-  ,(emit cs (List.map PrintC (toCharList str))).out)
-and
-compile_top types rs (Tdec dec) =
-  let (ct,env,cs) = compile_decs_wrap Nothing rs [dec] in
-  (<| rs with
-      contab = ct
-    ; rnext_label = cs.next_label
-    ; renv = env++rs.renv
-    ; rsz = rs.rsz+List.length env |>
-  ,<| rs with
-      contab = ct
-    ; rnext_label = cs.next_label |>
-  ,(compile_print_dec types dec cs).out)
- *)
 val _ = export_theory()
 
