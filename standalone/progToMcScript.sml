@@ -1,6 +1,7 @@
 open preamble;
 open intLib wordsLib unifyLib;
 open astTheory initialEnvTheory lexer_implTheory;
+open compilerTheory;
 open compilerTerminationTheory;
 
 val _ = new_theory "progToMc";
@@ -28,13 +29,14 @@ compile p =
          case FST (infer_prog init_infer_decls [] init_tenvC init_type_env asts' infer$init_infer_state) of
               Failure x => Failure x
             | Success x =>
-                let (x,y,z,asts_i1) = prog_to_i1 0 FEMPTY (FEMPTY |++ alloc_defs 0 (MAP FST init_env)) asts' in
-                let (x,asts_i2) = prog_to_i2 init_tagenv_state asts_i1 in
-                let (x,ast_i3) = prog_to_i3 0 asts_i2 in
-                let asts_i4 = exp_to_i4 [] ast_i3 in
-                  Success asts_i4`;
+                let bc = compile_prog asts' in
+                  Success bc`;
 
-val _ = computeLib.add_funs [pat_bindings_def, intLang3Theory.prog_to_i3_def];
+val _ = computeLib.add_funs [
+  pat_bindings_def, 
+  decLangTheory.prog_to_i3_def,
+  CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook) compilerTerminationTheory.compile_def];
+
 val _ = unifyLib.add_unify_compset (computeLib.the_compset)
 
 val x = ``"val x = 1;"``

@@ -91,7 +91,7 @@ let compile_top types cs top =
   let (c,exh,p) = prompt_to_i2 cs.contags_env p in
   let (n,e) = prompt_to_i3 (none_tag, Just (TypeId (Short "option"))) (some_tag, Just (TypeId (Short "option"))) n p in
   let exh' = Map.(union) exh cs.exh in
-  let e = exp_to_exh exh e in
+  let e = exp_to_exh exh' e in
   let e = exp_to_pat [] e in
   let e = exp_to_Cexp e in
   let r = compile_Cexp [] 0 <| out = []; next_label = cs.rnext_label |> e in
@@ -103,3 +103,21 @@ let compile_top types cs top =
             ; rnext_label = r.next_label
             |> in
   (cs, r.out)
+
+let compile_prog prog =
+  let (m1,m2) = init_compiler_state.globals_env in
+  let (n,m1,m2,p) = prog_to_i1 init_compiler_state.next_global m1 m2 prog in
+  let (c,exh,p) = prog_to_i2 init_compiler_state.contags_env p in
+  let (n,e) = prog_to_i3 (none_tag, Just (TypeId (Short "option"))) (some_tag, Just (TypeId (Short "option"))) n p in
+  let e = exp_to_exh exh e in
+  let e = exp_to_pat [] e in
+  let e = exp_to_Cexp e in
+  let r = compile_Cexp [] 0 <| out = []; next_label = init_compiler_state.rnext_label |> e in
+    match Map.lookup "it" m2 with
+      | Nothing -> r.out
+      | Just n ->
+          let r = emit r [Gread (n-1); Print] in
+          let r = emit r (List.map PrintC (toCharList "\n")) in
+            r.out
+    end
+

@@ -120,7 +120,7 @@ val _ = Define `
   let (c,exh,p) = (prompt_to_i2 cs.contags_env p) in
   let (n,e) = (prompt_to_i3 (none_tag, SOME (TypeId (Short "option"))) (some_tag, SOME (TypeId (Short "option"))) n p) in
   let exh' = (FUNION exh cs.exh) in
-  let e = (exp_to_exh exh e) in
+  let e = (exp_to_exh exh' e) in
   let e = (exp_to_pat [] e) in
   let e = (exp_to_Cexp e) in
   let r = (compile_Cexp []( 0) <| out := []; next_label := cs.rnext_label |> e) in
@@ -132,6 +132,26 @@ val _ = Define `
             ; rnext_label := r.next_label
             |>) in
   (cs, r.out)))`;
+
+
+val _ = Define `
+ (compile_prog prog =  
+(let (m1,m2) = (init_compiler_state.globals_env) in
+  let (n,m1,m2,p) = (prog_to_i1 init_compiler_state.next_global m1 m2 prog) in
+  let (c,exh,p) = (prog_to_i2 init_compiler_state.contags_env p) in
+  let (n,e) = (prog_to_i3 (none_tag, SOME (TypeId (Short "option"))) (some_tag, SOME (TypeId (Short "option"))) n p) in
+  let e = (exp_to_exh exh e) in
+  let e = (exp_to_pat [] e) in
+  let e = (exp_to_Cexp e) in
+  let r = (compile_Cexp []( 0) <| out := []; next_label := init_compiler_state.rnext_label |> e) in
+    (case FLOOKUP m2 "it" of
+        NONE => r.out
+      | SOME n =>
+          let r = (emit r [Gread (n -  1); Print]) in
+          let r = (emit r (MAP PrintC (EXPLODE "\n"))) in
+            r.out
+    )))`;
+
 
 val _ = export_theory()
 
