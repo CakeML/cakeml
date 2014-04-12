@@ -28,6 +28,7 @@ val _ = Hol_datatype `
   <| next_global : num
    ; globals_env : (modN, ( (varN, num)fmap)) fmap # (varN, num) fmap
    ; contags_env : num # tag_env # (num, (conN # tid_or_exn)) fmap
+   ; exh : exh_ctors_env
    ; rnext_label : num
    |>`;
 
@@ -37,6 +38,7 @@ val _ = Define `
 (<| next_global :=( 0)
    ; globals_env := (FEMPTY, FEMPTY)
    ; contags_env := init_tagenv_state
+   ; exh := FEMPTY
    ; rnext_label :=( 0)
    |>))`;
 
@@ -115,9 +117,10 @@ val _ = Define `
  (compile_top types cs top =  
 (let (m1,m2) = (cs.globals_env) in
   let (n,m1,m2,p) = (top_to_i1 cs.next_global m1 m2 top) in
-  let (c,p) = (prompt_to_i2 cs.contags_env p) in
+  let (c,exh,p) = (prompt_to_i2 cs.contags_env p) in
   let (n,e) = (prompt_to_i3 (none_tag, SOME (TypeId (Short "option"))) (some_tag, SOME (TypeId (Short "option"))) n p) in
-  let e = (exp_to_exh (* TODO: fix: *) FEMPTY e) in
+  let exh' = (FUNION exh cs.exh) in
+  let e = (exp_to_exh exh e) in
   let e = (exp_to_pat [] e) in
   let e = (exp_to_Cexp e) in
   let r = (compile_Cexp []( 0) <| out := []; next_label := cs.rnext_label |> e) in
@@ -125,6 +128,7 @@ val _ = Define `
   let cs = (<| next_global := n
             ; globals_env := (m1,m2)
             ; contags_env := c
+            ; exh := exh'
             ; rnext_label := r.next_label
             |>) in
   (cs, r.out)))`;

@@ -222,7 +222,7 @@ funs_to_i2 tagenv ((f,x,e)::funs) =
 
 (* The constructor names that are in scope, the global mapping of constructor
  * names (with types so that they are unique), and its inverse. *)
-type tagenv_state = nat * tag_env * map nat (conN * tid_or_exn) * list (conN * (nat * maybe tid_or_exn))
+type tagenv_state = nat * tag_env * map nat (conN * tid_or_exn) * map conN (nat * maybe tid_or_exn)
 
 let get_tagenv (next,tagenv,inv,acc) = tagenv
 
@@ -232,7 +232,7 @@ let insert_tag_env cn tag (mtagenv,ftagenv) =
 
 val alloc_tag : tid_or_exn -> conN -> tagenv_state -> tagenv_state
 let alloc_tag tn cn (next,tagenv,inv,acc) =
-  (next+1,insert_tag_env cn (next,Just tn) tagenv, Map.insert next (cn,tn) inv, (cn,(next,Just tn))::acc)
+  (next+1,insert_tag_env cn (next,Just tn) tagenv, Map.insert next (cn,tn) inv, Map.insert cn (next,Just tn) acc)
 
 val alloc_tags : maybe modN -> tagenv_state -> type_def -> tagenv_state
 let rec 
@@ -246,49 +246,58 @@ alloc_tags mn st ((tvs,tn,constrs)::types) =
 
 declare termination_argument alloc_tags = automatic
 
-val decs_to_i2 : tagenv_state -> list dec_i1 -> tagenv_state * list dec_i2
+val build_exh_env : maybe modN -> tagenv_state -> type_def -> exh_ctors_env
+let build_exh_env mn (_,_,_,acc) tds =
+  Map.fromList
+    (List.map (fun (tvs,tn,constrs) -> (mk_id mn tn, List.map (fun (cn,ts) -> fst (fromMaybe (0,Nothing) (Map.lookup cn acc))) constrs)) tds)
+
+val decs_to_i2 : tagenv_state -> list dec_i1 -> tagenv_state * exh_ctors_env * list dec_i2
 let rec 
-decs_to_i2 st [] = (st,[])
+decs_to_i2 st [] = (st,Map.empty,[])
 and
 decs_to_i2 st (d::ds) =
   match d with
     | Dlet_i1 n e -> 
-        let (st', ds') = decs_to_i2 st ds in
-          (st', Dlet_i2 n (exp_to_i2 (get_tagenv st) e)::ds')
+        let (st', exh', ds') = decs_to_i2 st ds in
+          (st', exh', Dlet_i2 n (exp_to_i2 (get_tagenv st) e)::ds')
     | Dletrec_i1 funs ->
-        let (st', ds') = decs_to_i2 st ds in
-          (st', Dletrec_i2 (funs_to_i2 (get_tagenv st) funs)::ds')
+        let (st', exh', ds') = decs_to_i2 st ds in
+          (st', exh', Dletrec_i2 (funs_to_i2 (get_tagenv st) funs)::ds')
     | Dtype_i1 mn type_def ->
-        decs_to_i2 (alloc_tags mn st type_def) ds
+        let st'' = alloc_tags mn st type_def in
+        let exh'' = build_exh_env mn st'' type_def in
+        let (st',exh',ds') = decs_to_i2 st'' ds in
+          (st',Map.(union) exh' exh'',ds')
     | Dexn_i1 mn cn ts ->
-        decs_to_i2 (alloc_tag (TypeExn (mk_id mn cn)) cn st) ds
+        let (st',exh',ds') = decs_to_i2 (alloc_tag (TypeExn (mk_id mn cn)) cn st) ds in
+          (st',exh',ds')
   end
 
 declare termination_argument decs_to_i2 = automatic
 
-val mod_tagenv : maybe modN -> list (conN * (nat * maybe tid_or_exn)) -> tag_env -> tag_env
+val mod_tagenv : maybe modN -> map conN (nat * maybe tid_or_exn) -> tag_env -> tag_env
 let mod_tagenv mn l (mtagenv,tagenv) =
   match mn with
-    | Nothing -> (mtagenv,List.foldl (fun env (k,v) -> Map.insert k v env) tagenv l)
-    | Just mn -> (Map.insert mn (Map.fromList l) mtagenv,tagenv)
+    | Nothing -> (mtagenv,Map.(union) l tagenv)
+    | Just mn -> (Map.insert mn l mtagenv,tagenv)
   end
 
-val prompt_to_i2 : (nat * tag_env * map nat (conN * tid_or_exn)) -> prompt_i1 -> (nat * tag_env * map nat (conN * tid_or_exn)) * prompt_i2
+val prompt_to_i2 : (nat * tag_env * map nat (conN * tid_or_exn)) -> prompt_i1 -> (nat * tag_env * map nat (conN * tid_or_exn)) * exh_ctors_env * prompt_i2
 let prompt_to_i2 (next,tagenv,inv) prompt =
   match prompt with
     | Prompt_i1 mn ds ->
-        let ((next',tagenv',inv',acc'), ds') = decs_to_i2 (next,tagenv,inv,[]) ds in
-          ((next',mod_tagenv mn acc' tagenv',inv'), Prompt_i2 ds')
+        let ((next',tagenv',inv',acc'), exh', ds') = decs_to_i2 (next,tagenv,inv,Map.empty) ds in
+          ((next',mod_tagenv mn acc' tagenv',inv'), exh', Prompt_i2 ds')
   end
 
-val prog_to_i2 : (nat * tag_env * map nat (conN * tid_or_exn)) -> list prompt_i1 -> (nat * tag_env * map nat (conN * tid_or_exn)) * list prompt_i2
+val prog_to_i2 : (nat * tag_env * map nat (conN * tid_or_exn)) -> list prompt_i1 -> (nat * tag_env * map nat (conN * tid_or_exn)) * exh_ctors_env * list prompt_i2
 let rec 
-prog_to_i2 st [] = (st, [])
+prog_to_i2 st [] = (st, Map.empty, [])
 and 
 prog_to_i2 st (p::ps) = 
-  let (st',p') = prompt_to_i2 st p in
-  let (st'',ps') = prog_to_i2 st' ps in
-    (st'',p'::ps')
+  let (st',exh',p') = prompt_to_i2 st p in
+  let (st'',exh'',ps') = prog_to_i2 st' ps in
+    (st'',Map.(union) exh'' exh', p'::ps')
 
 declare termination_argument prog_to_i2 = automatic
 

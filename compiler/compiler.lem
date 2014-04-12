@@ -17,6 +17,7 @@ type compiler_state =
   <| next_global : nat
    ; globals_env : map modN (map varN nat) * map varN nat
    ; contags_env : nat * tag_env * map nat (conN * tid_or_exn)
+   ; exh : exh_ctors_env
    ; rnext_label : nat
    |>
 
@@ -24,6 +25,7 @@ let init_compiler_state =
   <| next_global = 0
    ; globals_env = (Map.empty, Map.empty)
    ; contags_env = init_tagenv_state
+   ; exh = Map.empty
    ; rnext_label = 0
    |>
 
@@ -86,9 +88,10 @@ compile_print_top (Just types) (Tdec dec) cs =
 let compile_top types cs top =
   let (m1,m2) = cs.globals_env in
   let (n,m1,m2,p) = top_to_i1 cs.next_global m1 m2 top in
-  let (c,p) = prompt_to_i2 cs.contags_env p in
+  let (c,exh,p) = prompt_to_i2 cs.contags_env p in
   let (n,e) = prompt_to_i3 (none_tag, Just (TypeId (Short "option"))) (some_tag, Just (TypeId (Short "option"))) n p in
-  let e = exp_to_exh (* TODO: fix: *) Map.empty e in
+  let exh' = Map.(union) exh cs.exh in
+  let e = exp_to_exh exh e in
   let e = exp_to_pat [] e in
   let e = exp_to_Cexp e in
   let r = compile_Cexp [] 0 <| out = []; next_label = cs.rnext_label |> e in
@@ -96,6 +99,7 @@ let compile_top types cs top =
   let cs = <| next_global = n
             ; globals_env = (m1,m2)
             ; contags_env = c
+            ; exh = exh'
             ; rnext_label = r.next_label
             |> in
   (cs, r.out)

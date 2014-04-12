@@ -275,7 +275,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (* The constructor names that are in scope, the global mapping of constructor
  * names (with types so that they are unique), and its inverse. *)
-val _ = type_abbrev( "tagenv_state" , ``: num # tag_env # (num, (conN # tid_or_exn)) fmap # (conN # (num #  tid_or_exn option)) list``);
+val _ = type_abbrev( "tagenv_state" , ``: num # tag_env # (num, (conN # tid_or_exn)) fmap # (conN, (num #  tid_or_exn option)) fmap``);
 
 val _ = Define `
  (get_tagenv (next,tagenv,inv0,acc) = tagenv)`;
@@ -290,7 +290,7 @@ val _ = Define `
 (*val alloc_tag : tid_or_exn -> conN -> tagenv_state -> tagenv_state*)
 val _ = Define `
  (alloc_tag tn cn (next,tagenv,inv0,acc) =
-  ((next+ 1),insert_tag_env cn (next,SOME tn) tagenv,inv0 |+ (next, (cn,tn)), ((cn,(next,SOME tn))::acc)))`;
+  ((next+ 1),insert_tag_env cn (next,SOME tn) tagenv,inv0 |+ (next, (cn,tn)),acc |+ (cn, (next,SOME tn))))`;
 
 
 (*val alloc_tags : maybe modN -> tagenv_state -> type_def -> tagenv_state*)
@@ -305,54 +305,64 @@ val _ = Define `
     alloc_tags mn st' types))`;
 
 
-(*val decs_to_i2 : tagenv_state -> list dec_i1 -> tagenv_state * list dec_i2*)
+(*val build_exh_env : maybe modN -> tagenv_state -> type_def -> exh_ctors_env*)
+val _ = Define `
+ (build_exh_env mn (_,_,_,acc) tds =  
+(FUPDATE_LIST FEMPTY (MAP (\ (tvs,tn,constrs) .  (mk_id mn tn, MAP (\ (cn,ts) .  FST (option_CASE (FLOOKUP acc cn) ( 0,NONE) I)) constrs)) tds)))`;
+
+
+(*val decs_to_i2 : tagenv_state -> list dec_i1 -> tagenv_state * exh_ctors_env * list dec_i2*)
  val _ = Define `
  
-(decs_to_i2 st [] = (st,[]))
+(decs_to_i2 st [] = (st,FEMPTY,[]))
 /\
 (decs_to_i2 st (d::ds) =  
 ((case d of
       Dlet_i1 n e => 
-        let (st', ds') = (decs_to_i2 st ds) in
-          (st', (Dlet_i2 n (exp_to_i2 (get_tagenv st) e)::ds'))
+        let (st', exh', ds') = (decs_to_i2 st ds) in
+          (st', exh', (Dlet_i2 n (exp_to_i2 (get_tagenv st) e)::ds'))
     | Dletrec_i1 funs =>
-        let (st', ds') = (decs_to_i2 st ds) in
-          (st', (Dletrec_i2 (funs_to_i2 (get_tagenv st) funs)::ds'))
+        let (st', exh', ds') = (decs_to_i2 st ds) in
+          (st', exh', (Dletrec_i2 (funs_to_i2 (get_tagenv st) funs)::ds'))
     | Dtype_i1 mn type_def =>
-        decs_to_i2 (alloc_tags mn st type_def) ds
+        let st'' = (alloc_tags mn st type_def) in
+        let exh'' = (build_exh_env mn st'' type_def) in
+        let (st',exh',ds') = (decs_to_i2 st'' ds) in
+          (st',FUNION exh' exh'',ds')
     | Dexn_i1 mn cn ts =>
-        decs_to_i2 (alloc_tag (TypeExn (mk_id mn cn)) cn st) ds
+        let (st',exh',ds') = (decs_to_i2 (alloc_tag (TypeExn (mk_id mn cn)) cn st) ds) in
+          (st',exh',ds')
   )))`;
 
 
-(*val mod_tagenv : maybe modN -> list (conN * (nat * maybe tid_or_exn)) -> tag_env -> tag_env*)
+(*val mod_tagenv : maybe modN -> map conN (nat * maybe tid_or_exn) -> tag_env -> tag_env*)
 val _ = Define `
  (mod_tagenv mn l (mtagenv,tagenv) =  
 ((case mn of
-      NONE => (mtagenv,FOLDL (\ env (k,v) . env |+ (k, v)) tagenv l)
-    | SOME mn => (mtagenv |+ (mn, (FUPDATE_LIST FEMPTY l)),tagenv)
+      NONE => (mtagenv,FUNION l tagenv)
+    | SOME mn => (mtagenv |+ (mn, l),tagenv)
   )))`;
 
 
-(*val prompt_to_i2 : (nat * tag_env * map nat (conN * tid_or_exn)) -> prompt_i1 -> (nat * tag_env * map nat (conN * tid_or_exn)) * prompt_i2*)
+(*val prompt_to_i2 : (nat * tag_env * map nat (conN * tid_or_exn)) -> prompt_i1 -> (nat * tag_env * map nat (conN * tid_or_exn)) * exh_ctors_env * prompt_i2*)
 val _ = Define `
  (prompt_to_i2 (next,tagenv,inv0) prompt =  
 ((case prompt of
       Prompt_i1 mn ds =>
-        let ((next',tagenv',inv',acc'), ds') = (decs_to_i2 (next,tagenv,inv0,[]) ds) in
-          ((next',mod_tagenv mn acc' tagenv',inv'), Prompt_i2 ds')
+        let ((next',tagenv',inv',acc'), exh', ds') = (decs_to_i2 (next,tagenv,inv0,FEMPTY) ds) in
+          ((next',mod_tagenv mn acc' tagenv',inv'), exh', Prompt_i2 ds')
   )))`;
 
 
-(*val prog_to_i2 : (nat * tag_env * map nat (conN * tid_or_exn)) -> list prompt_i1 -> (nat * tag_env * map nat (conN * tid_or_exn)) * list prompt_i2*)
+(*val prog_to_i2 : (nat * tag_env * map nat (conN * tid_or_exn)) -> list prompt_i1 -> (nat * tag_env * map nat (conN * tid_or_exn)) * exh_ctors_env * list prompt_i2*)
  val _ = Define `
  
-(prog_to_i2 st [] = (st, []))
+(prog_to_i2 st [] = (st, FEMPTY, []))
 /\ 
 (prog_to_i2 st (p::ps) =  
- (let (st',p') = (prompt_to_i2 st p) in
-  let (st'',ps') = (prog_to_i2 st' ps) in
-    (st'',(p'::ps'))))`;
+ (let (st',exh',p') = (prompt_to_i2 st p) in
+  let (st'',exh'',ps') = (prog_to_i2 st' ps) in
+    (st'',FUNION exh'' exh', (p'::ps'))))`;
 
 
 (*val do_uapp_i2 : store v_i2 -> uop_i2 -> v_i2 -> maybe (store v_i2 * v_i2)*)
