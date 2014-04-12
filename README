@@ -56,7 +56,7 @@ Directory structure:
 - repl/examples
     Examples of evaluating repl_fun in the logic.
 
-- whole-prog
+- standalone
     Compile a whole CakeML program to bytecode, instead of interleaving
     compilation and execution as in the repl.
 
