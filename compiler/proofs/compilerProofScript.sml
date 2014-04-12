@@ -1,7 +1,7 @@
 open HolKernel bossLib boolLib boolSimps listTheory pairTheory rich_listTheory pred_setTheory arithmeticTheory finite_mapTheory relationTheory sortingTheory stringTheory
 open miscLib miscTheory bigStepTheory semanticPrimitivesTheory bigClockTheory replTheory terminationTheory
 open bytecodeTheory bytecodeExtraTheory bytecodeEvalTheory bytecodeClockTheory bytecodeLabelsTheory bytecodeTerminationTheory
-open intLangTheory toBytecodeTheory intLangExtraTheory intLangProofTheory bytecodeProofTheory compilerTerminationTheory
+open intLangTheory toIntLangTheory toBytecodeTheory compilerTheory intLangExtraTheory intLangProofTheory bytecodeProofTheory compilerTerminationTheory
 open patLangProofTheory
 val _ = new_theory"compilerProof"
 
@@ -642,5 +642,391 @@ val compile_code_env_thm = store_thm("compile_code_env_thm",
   fsrw_tac[DNF_ss][EVERY_MEM,is_Label_rwt,MEM_MAP,EXISTS_PROD,FORALL_PROD,MEM_FILTER] >>
   rw[] >> spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] >>
   res_tac >> fsrw_tac[ARITH_ss][])
+
+(* printing *)
+
+val _ = Parse.overload_on("print_bv",``λm. ov_to_string o bv_to_ov m``)
+val print_bv_str_def = Define`print_bv_str m t v w = "val "++v++":"++(tystr t v)++" = "++(print_bv m w)++"\n"`
+
+val append_cons_lemma = prove(``ls ++ [x] ++ a::b = ls ++ x::a::b``,lrw[])
+
+val MAP_PrintC_thm = store_thm("MAP_PrintC_thm",
+  ``∀ls bs bc0 bc1 bs'.
+    bs.code = bc0 ++ (MAP PrintC ls) ++ bc1 ∧
+    bs.pc = next_addr bs.inst_length bc0 ∧
+    bs' = bs with <| output := bs.output ++ ls; pc := next_addr bs.inst_length (bc0 ++ (MAP PrintC ls))|>
+    ⇒
+    bc_next^* bs bs'``,
+  Induct >- (
+    simp[] >> rw[] >>
+    simp[Once RTC_CASES1] >> disj1_tac >>
+    simp[bc_state_component_equality] ) >>
+  simp[] >> rw[] >>
+  simp[Once RTC_CASES1] >> disj2_tac >>
+  `bc_fetch bs = SOME (PrintC h)` by (
+    match_mp_tac bc_fetch_next_addr >>
+    qexists_tac`bc0` >>
+    simp[] ) >>
+  simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+  first_x_assum match_mp_tac >>
+  simp[bc_state_component_equality,IMPLODE_EXPLODE_I] >>
+  qexists_tac`bc0 ++ [PrintC h]` >>
+  simp[FILTER_APPEND,SUM_APPEND])
+
+val _ = Parse.overload_on("print_bv_list",``λm t vs ws. FLAT (MAP (UNCURRY (print_bv_str m t)) (ZIP (vs,ws)))``)
+
+val print_envE_cons = store_thm("print_envE_cons",
+  ``print_envE types (x::xs) = print_envE types [x]++print_envE types xs``,
+  rw[print_envE_def]);
+
+val v_to_ov_exh_def = tDefine"v_to_ov_exh"`
+  (v_to_ov_exh m (Litv l) = Litv_exh l) ∧
+  (v_to_ov_exh m (Conv c vs) = Conv_exh (m c) (MAP (v_to_ov_exh m) vs)) ∧
+  (v_to_ov_exh m (Loc n) = Loc_exh n) ∧
+  (v_to_ov_exh m _ = Closure_exh [] "" (Extend_global_exh 0))`
+(WF_REL_TAC`measure (v_size o SND)` >>
+ gen_tac >> Induct >> simp[v_size_def] >> rw[] >>
+ res_tac >> fsrw_tac[ARITH_ss][])
+val _ = export_rewrites["v_to_ov_exh_def"]
+
+val print_v_ov = store_thm("print_v_ov",
+  ``(∀v m1 m2 sm. ov_to_string (Cv_to_ov m2 sm (v_to_Cv (v_to_pat (v_to_ov_exh m1 v)))) = print_v v)
+    ∧ (∀x:all_env. T)
+    ∧ (∀x:envC#envE. T)
+    ∧ (∀x:envM. T)
+    ∧ (∀x:string#envE. T)
+    ∧ (∀x:envE. T)
+    ∧ (∀x:string#v. T)
+    ∧ (∀vs:v list. T)``,
+  ho_match_mp_tac(TypeBase.induction_of``:v``) >>
+  simp[print_v_def,v_to_Cv_def,printerTheory.ov_to_string_def] >>
+  Cases >> simp[printerTheory.ov_to_string_def,print_lit_def] >>
+  Cases_on`b`>>simp[printerTheory.ov_to_string_def,print_lit_def])
+
+val print_bv_list_print_envE = store_thm("print_bv_list_print_envE",
+  ``∀cm pp vars vs m Cvs bvs types env.
+    EVERY2 syneq (MAP (v_to_Cv o v_to_pat o v_to_ov_exh cm) vs) Cvs ∧
+    EVERY2 (Cv_bv pp) Cvs bvs ∧ LENGTH vars = LENGTH vs ∧
+    set vars ⊆ FDOM types ∧
+    env = ZIP(vars,vs)
+    ⇒
+    print_bv_list m types vars bvs = print_envE types env``,
+  ntac 2 gen_tac >>
+  Induct >- ( Cases >> simp[print_envE_def] ) >>
+  qx_gen_tac`x`>>
+  qx_gen_tac`ws`>>
+  gen_tac >>
+  map_every qx_gen_tac[`wvs`,`wbs`] >>
+  ntac 3 strip_tac >>
+  `∃v vs. ws = v::vs` by ( Cases_on`ws`>>fs[] ) >>
+  `∃Cv Cvs. wvs = Cv::Cvs` by ( Cases_on`wvs`>>fs[EVERY2_EVERY] ) >>
+  `∃bv bvs. wbs = bv::bvs` by ( Cases_on`wbs`>>fs[EVERY2_EVERY] ) >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  simp[Once print_envE_cons] >>
+  first_x_assum(qspecl_then[`vs`,`m`,`Cvs`,`bvs`,`types`]mp_tac) >>
+  simp[] >>
+  discharge_hyps >- fs[EVERY2_EVERY] >> rw[] >>
+  rw[print_envE_def,print_bv_str_def] >>
+  fs[EVERY2_EVERY] >>
+  imp_res_tac Cv_bv_ov >>
+  `bv_to_ov m bv = Cv_to_ov m (FST pp).sm (v_to_Cv (v_to_pat (v_to_ov_exh cm v)))` by
+    metis_tac[syneq_ov] >>
+  pop_assum SUBST1_TAC >>
+  simp[print_v_ov,tystr_def,FLOOKUP_DEF])
+
+val code_labels_ok_MAP_PrintC = store_thm("code_labels_ok_MAP_PrintC",
+  ``∀ls. code_labels_ok (MAP PrintC ls)``,
+  Induct>>simp[]>>rw[]>>match_mp_tac code_labels_ok_cons>>simp[])
+val _ = export_rewrites["code_labels_ok_MAP_PrintC"]
+
+val can_Print_list_EVERY = store_thm("can_Print_list_EVERY",
+  ``∀ls. can_Print_list ls = EVERY can_Print ls``,
+  Induct >> simp[])
+val _ = export_rewrites["can_Print_list_EVERY"]
+
+val compile_print_vals_thm = store_thm("compile_print_vals_thm",
+  ``∀vs types i cs. let cs' = compile_print_vals types i vs cs in
+    ∃code. cs'.out = REVERSE code ++ cs.out
+         ∧ cs'.next_label = cs.next_label
+         ∧ EVERY ($~ o is_Label) code ∧
+         code_labels_ok code ∧
+    ∀bs bc0 bvs st0.
+    bs.code = bc0 ++ code
+    ∧ bs.pc = next_addr bs.inst_length bc0
+    ∧ bs.stack = bvs ++ st0
+    ∧ can_Print_list bvs
+    ∧ i + LENGTH vs ≤ LENGTH bvs
+    ⇒
+    let bs' = bs with <|pc := next_addr bs.inst_length (bc0++code)
+                       ;output := bs.output ++ print_bv_list bs.cons_names types vs (TAKE (LENGTH vs) (DROP i bvs))|> in
+    bc_next^* bs bs'``,
+  Induct >> simp[compile_print_vals_def] >- (
+    simp[Once SWAP_REVERSE] >> rw[] >>
+    simp[Once RTC_CASES1] >>
+    disj1_tac >>
+    simp[bc_state_component_equality] )>>
+  simp[FOLDL_emit_thm] >>
+  qx_gen_tac`v` >>
+  rpt strip_tac >>
+  Q.PAT_ABBREV_TAC`cs1 = compiler_result_out_fupd X Y` >>
+  first_x_assum(qspecl_then[`types`,`i+1`,`cs1`]mp_tac) >>
+  simp[] >>
+  disch_then(qx_choosel_then[`c1`]strip_assume_tac) >>
+  simp[Abbr`cs1`,Once SWAP_REVERSE] >>
+  simp[EVERY_MAP] >> fs[] >>
+  Q.PAT_ABBREV_TAC`cs1 = compiler_result_out_fupd X Y` >>
+  qmatch_assum_abbrev_tac`(compile_print_vals types (i+1) vs cs1').next_label = X` >>
+  `cs1' = cs1` by (
+    simp[Abbr`cs1`,Abbr`cs1'`,compiler_result_component_equality] ) >>
+  fs[Abbr`cs1'`] >> pop_assum kall_tac >>
+  simp [FLOOKUP_DEF] >>
+  conj_tac >- (
+    rpt(match_mp_tac code_labels_ok_cons>>simp[])>>
+    match_mp_tac code_labels_ok_append>>simp[IMPLODE_EXPLODE_I]>>
+    rpt(match_mp_tac code_labels_ok_append>>simp[]>>(TRY conj_tac)>>TRY(simp[code_labels_ok_def,uses_label_thm]>>NO_TAC))) >>
+  rpt gen_tac >>
+  strip_tac >>
+  fs[IMPLODE_EXPLODE_I] >>
+  `bs.code = bc0 ++ (MAP PrintC ("val "++v++":"++tystr types v++" = ")) ++ [Stack(Load i);Print;PrintC(#"\n")] ++ c1` by (
+    simp[] ) >>
+  qmatch_assum_abbrev_tac`bs.code = bc0 ++ l1 ++ l2 ++ c1` >>
+  `bc_next^* bs (bs with <|pc:=next_addr bs.inst_length (bc0++l1)
+                          ;output:=STRCAT bs.output ("val "++v++":"++tystr types v++" = ")|>)` by (
+    match_mp_tac MAP_PrintC_thm >>
+    qexists_tac`"val "++v++":"++tystr types v++" = "`>>
+    qexists_tac`bc0` >>
+    simp[Abbr`l1`] ) >>
+  qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
+  `bc_fetch bs1 = SOME (Stack (Load i))` by (
+    match_mp_tac bc_fetch_next_addr >>
+    simp[Abbr`bs1`] >>
+    qexists_tac`bc0++l1` >>
+    simp[Abbr`l2`] ) >>
+  `bc_next^* bs1 (bs1 with <|pc:=next_addr bs.inst_length(bc0++l1++l2)
+                            ;output := STRCAT bs1.output (print_bv bs.cons_names (EL i bvs))++"\n"|>)` by (
+    simp[RTC_eq_NRC] >>
+    qexists_tac`SUC(SUC(SUC 0))` >>
+    simp[NRC] >>
+    qho_match_abbrev_tac`∃z. bc_next bs1 z ∧ P z` >>
+    simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+    simp[Abbr`bs1`,bc_eval_stack_def,EL_APPEND1]>>
+    simp[Abbr`P`]>>
+    qho_match_abbrev_tac`∃z. bc_next bs1 z ∧ P z` >>
+    `bc_fetch bs1 = SOME Print` by (
+      match_mp_tac bc_fetch_next_addr >>
+      qexists_tac`bc0++l1++[HD l2]` >>
+      simp[Abbr`bs1`,Abbr`l2`] >>
+      simp[FILTER_APPEND,SUM_APPEND] ) >>
+    simp[bc_eval1_thm,bc_eval1_def,bump_pc_def]>>
+    simp[Abbr`bs1`]>>
+    conj_tac >- (
+      fs[EVERY_MEM] >> first_x_assum match_mp_tac >>
+      simp[MEM_EL] >> qexists_tac`i` >> simp[] ) >>
+    simp[Abbr`P`] >>
+    qmatch_abbrev_tac`bc_next bs1 bs2` >>
+    `bc_fetch bs1 = SOME (PrintC(#"\n"))` by (
+      match_mp_tac bc_fetch_next_addr >>
+      qexists_tac`bc0++l1++FRONT l2` >>
+      simp[Abbr`bs1`,Abbr`l2`] >>
+      simp[FILTER_APPEND,SUM_APPEND] ) >>
+    simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+    simp[Abbr`bs1`,Abbr`bs2`,bc_state_component_equality,IMPLODE_EXPLODE_I] >>
+    simp[FILTER_APPEND,SUM_APPEND,Abbr`l2`] ) >>
+  qmatch_assum_abbrev_tac`bc_next^* bs1 bs2` >>
+  `bc_next^* bs bs2` by metis_tac[RTC_TRANSITIVE,transitive_def] >>
+  pop_assum mp_tac >>
+  rpt(qpat_assum`bc_next^* a Y`kall_tac) >>
+  first_x_assum(qspecl_then[`bs2`,`bc0++l1++l2`,`bvs`]mp_tac) >>
+  simp[Abbr`bs2`,Abbr`bs1`,ADD1] >>
+  strip_tac >>
+  qmatch_assum_abbrev_tac`bc_next^* bs1 bs2` >>
+  strip_tac >>
+  qmatch_abbrev_tac`bc_next^* bs bs2'` >>
+  `bs2' = bs2` by (
+    simp[Abbr`bs2`,Abbr`bs2'`,bc_state_component_equality,Abbr`l1`] >>
+    conj_tac >- (
+      simp[SUM_APPEND,FILTER_APPEND] ) >>
+    REWRITE_TAC[Once ADD_SYM] >>
+    simp[TAKE_SUM] >>
+    simp[DROP_DROP] >>
+    `TAKE 1 (DROP i bvs) = [EL i bvs]` by (
+      qpat_assum`X ≤ LENGTH bvs`mp_tac >>
+      rpt (pop_assum kall_tac) >>
+      qid_spec_tac`vs` >>
+      qid_spec_tac`i` >>
+      Induct_on`bvs`>>simp[] >>
+      rw[] >>
+      simp[EL_CONS,PRE_SUB1] >>
+      first_x_assum match_mp_tac >>
+      pop_assum mp_tac >>
+      simp[ADD1] >> strip_tac >>
+      qexists_tac`vs` >>
+      simp[] ) >>
+    simp[print_bv_str_def]) >>
+  metis_tac[RTC_TRANSITIVE,transitive_def] )
+
+val _ = Parse.overload_on("print_ctor",``λx. STRCAT (id_to_string (Short x)) " = <constructor>\n"``)
+val _ = Parse.overload_on("print_ctors",``λls. FLAT (MAP (λ(x,y). print_ctor x) ls)``)
+
+val compile_print_ctors_thm = store_thm("compile_print_ctors_thm",
+  ``∀ls cs. let cs' = compile_print_ctors ls cs in
+    ∃code. cs'.out = REVERSE code ++ cs.out
+      ∧ EVERY ($~ o is_Label) code
+      ∧ code_labels_ok code
+      ∧ cs'.next_label = cs.next_label ∧
+      ∀bs bc0.
+      bs.code = bc0 ++ code
+      ∧ bs.pc = next_addr bs.inst_length bc0
+      ⇒
+      let bs' = bs with <|pc := next_addr bs.inst_length bs.code
+           ; output := STRCAT bs.output (print_ctors ls)|> in
+      bc_next^* bs bs'``,
+  Induct >- (
+    simp[compile_print_ctors_def,Once SWAP_REVERSE] >>
+    rw[] >> simp[Once RTC_CASES1] >> simp[bc_state_component_equality] ) >>
+  qx_gen_tac`x` >> PairCases_on`x` >>
+  simp[compile_print_ctors_def,FOLDL_emit_thm,IMPLODE_EXPLODE_I] >>
+  rw[] >>
+  Q.PAT_ABBREV_TAC`cs1 = compiler_result_out_fupd x y` >>
+  first_x_assum(qspec_then`cs1`mp_tac) >>
+  simp[] >>
+  disch_then(Q.X_CHOOSE_THEN`c1`strip_assume_tac) >>
+  simp[Abbr`cs1`,Once SWAP_REVERSE,EVERY_MAP] >> fs[] >>
+  qmatch_assum_abbrev_tac`(compile_print_ctors ls cs1).next_label = X` >>
+  conj_tac >- (
+    match_mp_tac code_labels_ok_append >> simp[]>>
+    match_mp_tac code_labels_ok_append >> simp[]>>
+    rpt(match_mp_tac code_labels_ok_cons >> simp[]) ) >>
+  qmatch_abbrev_tac`((compile_print_ctors ls cs1').next_label = X) ∧ Y` >>
+  `cs1' = cs1` by (
+    simp[Abbr`cs1`,Abbr`cs1'`,compiler_result_component_equality] ) >>
+  simp[Abbr`X`,Abbr`Y`] >>
+  rpt strip_tac >>
+  qmatch_assum_abbrev_tac`bs.code = bc0 ++ l1 ++ l2 ++ c1` >>
+  `bc_next^* bs (bs with <|pc := next_addr bs.inst_length (bc0++l1++l2)
+                          ;output := bs.output ++ (x0++" = <constructor>\n")|>)` by (
+    match_mp_tac MAP_PrintC_thm >>
+    qexists_tac`x0 ++ " = <constructor>\n"` >>
+    qexists_tac`bc0` >>
+    simp[Abbr`l1`,Abbr`l2`] ) >>
+  qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
+  first_x_assum(qspecl_then[`bs1`,`bc0++l1++l2`]mp_tac) >>
+  simp[Abbr`bs1`] >>
+  strip_tac >>
+  qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
+  qmatch_assum_abbrev_tac`bc_next^* bs1' bs2` >>
+  `bs1' = bs1` by (
+    simp[Abbr`bs1'`,Abbr`bs1`,bc_state_component_equality] ) >>
+  qmatch_abbrev_tac`bc_next^* bs bs3` >>
+  `bs2 = bs3` by (
+    simp[Abbr`bs2`,Abbr`bs3`,bc_state_component_equality,semanticPrimitivesTheory.id_to_string_def] ) >>
+  metis_tac[RTC_TRANSITIVE,transitive_def])
+
+(*
+val compile_print_dec_thm = store_thm("compile_print_dec_thm",
+  ``∀d types cs. let cs' = compile_print_dec types d cs in
+      ∃code. cs'.out = REVERSE code ++ cs.out
+        ∧ EVERY ($~ o is_Label) code
+        ∧ cs'.next_label = cs.next_label
+        ∧ code_labels_ok code ∧
+      ∀bs bc0 bvs st0.
+      bs.code = bc0 ++ code
+      ∧ bs.pc = next_addr bs.inst_length bc0
+      ∧ bs.stack = bvs ++ st0
+      ∧ can_Print_list bvs
+      ∧ LENGTH bvs = LENGTH (new_dec_vs d)
+      ⇒
+      let str =
+        case d of
+        | Dtype ts => print_envC (build_tdefs NONE ts)
+        | Dexn cn ts => print_envC [(Short cn, (LENGTH ts, TypeExn))]
+        | d => print_bv_list bs.cons_names types (new_dec_vs d) bvs in
+      let bs' = bs with
+        <|pc := next_addr bs.inst_length (bc0++code)
+         ;output := bs.output ++ str|> in
+      bc_next^* bs bs'``,
+  Cases >- (
+    simp[compile_print_dec_def] >>
+    rw[] >>
+    qspecl_then[`pat_bindings p []`,`types`, `0`,`cs`]mp_tac compile_print_vals_thm >>
+    simp[] >> rw[] >> simp[] >> rpt gen_tac >> strip_tac >>
+    first_x_assum(qspecl_then[`bs`,`bc0`,`bvs`]mp_tac) >>
+    simp[TAKE_LENGTH_ID_rwt] )
+  >- (
+    simp[compile_print_dec_def] >>
+    rw[] >>
+    Q.PAT_ABBREV_TAC`vs:string list = MAP X l` >>
+    qspecl_then[`vs`,`types`,`0`,`cs`]mp_tac compile_print_vals_thm >>
+    simp[] >> rw[] >> simp[] >> rpt gen_tac >> strip_tac >>
+    first_x_assum(qspecl_then[`bs`,`bc0`,`bvs`]mp_tac) >>
+    `vs = MAP FST l` by (
+      simp[Abbr`vs`,MAP_EQ_f,FORALL_PROD] ) >>
+    simp[TAKE_LENGTH_ID_rwt])
+  >- (
+    simp[] >>
+    simp[compile_print_dec_def] >>
+    Induct_on`l` >- (
+      simp[compile_print_types_def,Once SWAP_REVERSE] >>
+      simp[print_envC_def,semanticPrimitivesTheory.build_tdefs_def,LENGTH_NIL] >>
+      rw[] >> simp[Once RTC_CASES1] >> simp[bc_state_component_equality] ) >>
+    qx_gen_tac`x` >> PairCases_on`x` >>
+    simp[compile_print_types_def] >>
+    gen_tac >>
+    qspecl_then[`x2`,`cs`]mp_tac (INST_TYPE[alpha|->``:t list``]compile_print_ctors_thm) >>
+    simp[] >>
+    disch_then(qx_choosel_then[`c1`]strip_assume_tac) >>
+    first_x_assum(qspec_then`compile_print_ctors x2 cs`mp_tac) >>
+    simp[] >>
+    disch_then(qx_choosel_then[`c2`]strip_assume_tac) >>
+    simp[] >>
+    simp[Once SWAP_REVERSE] >>
+    conj_tac >- (
+      simp[code_labels_ok_append]>>simp[] ) >>
+    rpt strip_tac >>
+    last_x_assum(qspecl_then[`bs with code := bc0 ++ c1`,`bc0`]mp_tac) >>
+    simp[] >> strip_tac >>
+    qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
+    `bc_next^* bs (bs1 with code := bs.code)` by (
+      match_mp_tac RTC_bc_next_append_code >>
+      map_every qexists_tac[`bs0`,`bs1`] >>
+      simp[Abbr`bs0`,Abbr`bs1`,bc_state_component_equality] ) >>
+    first_x_assum(qspecl_then[`bs1 with code := bs.code`]mp_tac) >>
+    simp[Abbr`bs1`] >>
+    simp[LENGTH_NIL] >>
+    strip_tac >>
+    qmatch_assum_abbrev_tac`bc_next^* bs1' bs2` >>
+    qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
+    `bs1' = bs1` by (
+      simp[Abbr`bs1`,Abbr`bs1'`] ) >>
+    qmatch_abbrev_tac`bc_next^* bs bs2'` >>
+    `bs2' = bs2` by (
+      simp[Abbr`bs2`,Abbr`bs2'`] >>
+      simp[bc_state_component_equality] >>
+      simp[semanticPrimitivesTheory.build_tdefs_def,print_envC_def] >>
+      simp[MAP_MAP_o,combinTheory.o_DEF] >>
+      simp[UNCURRY,astTheory.mk_id_def] >>
+      simp[LAMBDA_PROD] ) >>
+    metis_tac[RTC_TRANSITIVE,transitive_def])
+  >- (
+    simp[] >>
+    simp[compile_print_dec_def] >>
+    simp[compile_print_types_def] >>
+    rw[] >>
+    qspecl_then[`[s,l]`,`cs`]mp_tac (INST_TYPE[alpha|->``:t list``]compile_print_ctors_thm) >>
+    simp[] >> rw[] >> simp[] >>
+    simp[print_envC_def]))
+*)
+
+val only_chars_lemma = prove(
+  ``∀s. only_chars (MAP (Number o $& o ORD) s)``,
+  Induct >> simp [only_chars_def,is_char_def,stringTheory.ORD_BOUND]);
+
+val Cv_bv_can_Print = save_thm("Cv_bv_can_Print",prove(
+  ``(∀Cv bv. Cv_bv pp Cv bv ⇒ can_Print bv) ∧
+    (∀bvs ce env defs. benv_bvs pp bvs ce env defs ⇒ T)``,
+  ho_match_mp_tac Cv_bv_ind >> simp[only_chars_lemma,only_chars_def] >>
+  simp[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >> rw[] >>
+  rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,MEM_EL])
+  |> CONJUNCT1)
 
 val _ = export_theory()
