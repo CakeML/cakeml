@@ -865,7 +865,7 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
     simp[print_bv_str_def]) >>
   metis_tac[RTC_TRANSITIVE,transitive_def] )
 
-val _ = Parse.overload_on("print_ctor",``λx. STRCAT (id_to_string (Short x)) " = <constructor>\n"``)
+val _ = Parse.overload_on("print_ctor",``λx. STRCAT x " = <constructor>\n"``)
 val _ = Parse.overload_on("print_ctors",``λls. FLAT (MAP (λ(x,y). print_ctor x) ls)``)
 
 val compile_print_ctors_thm = store_thm("compile_print_ctors_thm",
@@ -919,10 +919,16 @@ val compile_print_ctors_thm = store_thm("compile_print_ctors_thm",
     simp[Abbr`bs1'`,Abbr`bs1`,bc_state_component_equality] ) >>
   qmatch_abbrev_tac`bc_next^* bs bs3` >>
   `bs2 = bs3` by (
-    simp[Abbr`bs2`,Abbr`bs3`,bc_state_component_equality,semanticPrimitivesTheory.id_to_string_def] ) >>
+    simp[Abbr`bs3`,bc_state_component_equality,semanticPrimitivesTheory.id_to_string_def] ) >>
   metis_tac[RTC_TRANSITIVE,transitive_def])
 
-(*
+val new_dec_vs_def = Define`
+  (new_dec_vs (Dtype _) = []) ∧
+  (new_dec_vs (Dexn _ _) = []) ∧
+  (new_dec_vs (Dlet p e) = pat_bindings p []) ∧
+  (new_dec_vs (Dletrec funs) = MAP FST funs)`
+val _ = export_rewrites["new_dec_vs_def"]
+
 val compile_print_dec_thm = store_thm("compile_print_dec_thm",
   ``∀d types cs. let cs' = compile_print_dec types d cs in
       ∃code. cs'.out = REVERSE code ++ cs.out
@@ -938,8 +944,8 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
       ⇒
       let str =
         case d of
-        | Dtype ts => print_envC (build_tdefs NONE ts)
-        | Dexn cn ts => print_envC [(Short cn, (LENGTH ts, TypeExn))]
+        | Dtype ts => print_envC ([],REVERSE(build_tdefs NONE ts))
+        | Dexn cn ts => print_envC ([],[(cn, (LENGTH ts, TypeExn))])
         | d => print_bv_list bs.cons_names types (new_dec_vs d) bvs in
       let bs' = bs with
         <|pc := next_addr bs.inst_length (bc0++code)
@@ -1015,7 +1021,6 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
     qspecl_then[`[s,l]`,`cs`]mp_tac (INST_TYPE[alpha|->``:t list``]compile_print_ctors_thm) >>
     simp[] >> rw[] >> simp[] >>
     simp[print_envC_def]))
-*)
 
 val only_chars_lemma = prove(
   ``∀s. only_chars (MAP (Number o $& o ORD) s)``,
