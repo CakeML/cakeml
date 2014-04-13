@@ -150,8 +150,11 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
   !exh env' pes' is_handle.
     SND r ≠ Rerr Rtype_error ∧
     env = (exh,env') ∧
+    (is_handle ⇒ err_v = v) ∧
+    (¬is_handle ⇒ err_v = Conv_i2 (bind_tag, SOME(TypeExn(Short "Bind"))) []) ∧
     (pes' = add_default is_handle F pes ∨
-     exists_match exh (SND (FST s)) (MAP FST pes) v ∧ pes' = add_default is_handle T pes)
+     exists_match exh (SND (FST s)) (MAP FST pes) v ∧
+     pes' = add_default is_handle T pes)
      ⇒
     evaluate_match_exh ck (env_to_exh exh env') (store_to_exh exh s) (v_to_exh exh v)
                           (pat_exp_to_exh exh pes')
@@ -213,11 +216,17 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
  >- metis_tac []
  >- metis_tac []
  >- metis_tac []
- >- (rw [add_default_def, exp_to_exh_def, pat_bindings_exh_def, pat_to_exh_def, pmatch_exh_def] >>
+ >- (
+     rw [add_default_def, exp_to_exh_def, pat_bindings_exh_def, pat_to_exh_def, pmatch_exh_def] >>
+     fs [] >>
      ONCE_REWRITE_TAC [evaluate_exh_cases] >>
      rw [] >>
-     (* This case is probably false *)
-     cheat)
+     ONCE_REWRITE_TAC [evaluate_exh_cases] >>
+     rw [v_to_exh_def] >>
+     ONCE_REWRITE_TAC [evaluate_exh_cases] >>
+     rw [lookup_def,bind_def] >>
+     CONV_TAC SWAP_EXISTS_CONV >>
+     rw[GSYM EXISTS_PROD])
  >- fs [exists_match_def]
  >- cheat
  >- (rw [add_default_def, exp_to_exh_def] >>
