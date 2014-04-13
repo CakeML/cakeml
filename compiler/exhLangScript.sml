@@ -128,7 +128,7 @@ val _ = Define `
 (if is_exh then
     pes
   else if is_handle then
-    pes ++ [(Pvar_i2 "x", Var_local_i2 "x")]
+    pes ++ [(Pvar_i2 "x", Raise_i2 (Var_local_i2 "x"))]
   else
     pes ++ [(Pvar_i2 "x", Raise_i2 (Con_i2 (bind_tag, SOME (TypeId (Short "option"))) []))]))`;
 
