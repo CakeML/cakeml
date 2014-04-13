@@ -1,6 +1,6 @@
 open preamble;
 open alistTheory optionTheory rich_listTheory;
-open miscTheory;
+open miscLib miscTheory;
 open astTheory;
 open semanticPrimitivesTheory;
 open libTheory;
@@ -129,6 +129,80 @@ val exh_to_exists_match = Q.prove (
      Cases_on`z`>>simp[pmatch_i2_def] >> rw[] >>
      metis_tac[pmatch_list_i2_all_vars_not_No_match]))
 
+val vs_to_exh_MAP = prove(
+  ``∀vs exh. vs_to_exh exh vs = MAP (v_to_exh exh) vs``,
+  Induct >> simp[v_to_exh_def])
+
+val find_recfun_funs_to_exh = prove(
+  ``∀ls f exh. find_recfun f (funs_to_exh exh ls) =
+               OPTION_MAP (λ(x,y). (x,exp_to_exh exh y)) (find_recfun f ls)``,
+  Induct >> simp[] >- (
+    simp[exp_to_exh_def,Once find_recfun_def] >>
+    simp[Once find_recfun_def] ) >>
+  qx_gen_tac`p`>>PairCases_on`p`>>
+  simp[exp_to_exh_def] >>
+  simp[Once find_recfun_def] >>
+  rw[] >- (
+    rw[Once find_recfun_def] ) >>
+  rw[Once find_recfun_def,SimpRHS] )
+
+val build_rec_env_i2_MAP = prove(
+  ``build_rec_env_i2 funs cle env = MAP (λ(f,cdr). (f, (Recclosure_i2 cle funs f))) funs ++ env``,
+  rw[build_rec_env_i2_def] >>
+  qho_match_abbrev_tac `FOLDR (f funs) env funs = MAP (g funs) funs ++ env` >>
+  qsuff_tac `∀funs env funs0. FOLDR (f funs0) env funs = MAP (g funs0) funs ++ env` >- rw[]  >>
+  unabbrev_all_tac >> simp[] >>
+  Induct >> rw[libTheory.bind_def] >>
+  PairCases_on`h` >> rw[])
+
+val build_rec_env_exh_MAP = prove(
+  ``build_rec_env_exh funs cle env = MAP (λ(f,cdr). (f, (Recclosure_exh cle funs f))) funs ++ env``,
+  rw[build_rec_env_exh_def] >>
+  qho_match_abbrev_tac `FOLDR (f funs) env funs = MAP (g funs) funs ++ env` >>
+  qsuff_tac `∀funs env funs0. FOLDR (f funs0) env funs = MAP (g funs0) funs ++ env` >- rw[]  >>
+  unabbrev_all_tac >> simp[] >>
+  Induct >> rw[libTheory.bind_def] >>
+  PairCases_on`h` >> rw[])
+
+val env_to_exh_MAP = prove(
+  ``env_to_exh exh env = MAP (λ(x,y). (x, v_to_exh exh y)) env``,
+  Induct_on`env`>>simp[v_to_exh_def]>>Cases>>simp[v_to_exh_def])
+
+val funs_to_exh_MAP = prove(
+  ``funs_to_exh exh ls = MAP (λ(x,y,z). (x,y,exp_to_exh exh z)) ls``,
+  Induct_on`ls`>>simp[exp_to_exh_def]>>qx_gen_tac`p`>>PairCases_on`p`>>simp[exp_to_exh_def])
+
+val env_to_exh_build_rec_env_i2 = prove(
+  ``∀l1 l2 l3 exh.
+    env_to_exh exh (build_rec_env_i2 l1 l2 l3) =
+    build_rec_env_exh (funs_to_exh exh l1) (env_to_exh exh l2) (env_to_exh exh l3)``,
+  simp[build_rec_env_i2_MAP,build_rec_env_exh_MAP,env_to_exh_MAP,funs_to_exh_MAP
+      ,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,v_to_exh_def])
+
+val _ = augment_srw_ss[rewrites[vs_to_exh_MAP,find_recfun_funs_to_exh,env_to_exh_build_rec_env_i2]]
+
+val do_eq_exh_correct = prove(
+  ``(∀v1 v2 exh.
+      do_eq_i2 v1 v2 ≠ Eq_type_error ⇒
+      do_eq_exh (v_to_exh exh v1) (v_to_exh exh v2) =
+                 do_eq_i2 v1 v2) ∧
+    (∀vs1 vs2 exh.
+      do_eq_list_i2 vs1 vs2 ≠ Eq_type_error ⇒
+      do_eq_list_exh (vs_to_exh exh vs1) (vs_to_exh exh vs2) =
+                   do_eq_list_i2 vs1 vs2)``,
+  ho_match_mp_tac do_eq_i2_ind >>
+  reverse(rw[do_eq_i2_def,do_eq_exh_def,v_to_exh_def]) >>
+  rw[] >> fs[] >> every_case_tac >> fs[] )
+val _ = augment_srw_ss[rewrites[do_eq_exh_correct]]
+
+val evaluate_exh_lit = prove(
+  ``evaluate_exh ck env csg (Lit_exh l) res ⇔ (res = (csg,Rval (Litv_exh l)))``,
+  simp[Once evaluate_exh_cases])
+
+val if_cons = prove(
+  ``(if b then a::c1 else a::c2) = a::(if b then c1 else c2)``,
+  rw[])
+
 val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
 `(!ck env s e r.
   evaluate_i3 ck env s e r
@@ -188,13 +262,33 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
          rw [v_to_exh_def])
      >- (MAP_EVERY qexists_tac [`v_to_exh exh v`, `MAP (v_to_exh exh) s2`, `MAP (OPTION_MAP (v_to_exh exh)) genv2`] >>
          rw [LUPDATE_MAP, EL_MAP, v_to_exh_def]))
- >- (fs [do_app_exh_def, do_app_i2_def] >>
+ >- (disj1_tac >>
+     first_assum(match_exists_tac o concl) >> simp[] >>
+     first_assum(match_exists_tac o concl) >> simp[] >>
+     fs[do_app_i2_def] >>
      every_case_tac >>
-     fs [v_to_exh_def] >>
-     rw [] >>
-     cheat)
- >- cheat
- >- cheat
+     fs[do_app_exh_def,v_to_exh_def,do_eq_i2_def] >>
+     rw[] >> fs[] >>
+     fs[exp_to_exh_def,exn_env_i2_def] >>
+     fs[v_to_exh_def,bind_def,emp_def] >>
+     fs[store_assign_def,evaluate_exh_lit] >>
+     rw[LUPDATE_MAP,v_to_exh_def])
+ >- (disj1_tac >>
+     first_assum(match_exists_tac o concl) >> simp[] >>
+     first_assum(match_exists_tac o concl) >> simp[] >>
+     fs[do_app_i2_def] >>
+     every_case_tac >>
+     fs[do_app_exh_def,v_to_exh_def,do_eq_i2_def] >>
+     rw[] >> fs[] >>
+     fs[exp_to_exh_def,exn_env_i2_def] >>
+     fs[v_to_exh_def,bind_def,emp_def] >>
+     fs[store_assign_def,evaluate_exh_lit] >>
+     rw[LUPDATE_MAP,v_to_exh_def])
+ >- (disj2_tac >> disj1_tac >>
+     first_assum(match_exists_tac o concl) >> simp[] >>
+     first_assum(match_exists_tac o concl) >> simp[] >>
+     fs[do_app_i2_def] >>
+     every_case_tac >> fs[v_to_exh_def,do_app_exh_def] )
  >- metis_tac []
  >- metis_tac []
  >- (fs [do_if_i2_def, do_if_exh_def] >>
@@ -203,14 +297,21 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
      rw [] >>
      res_tac >>
      fs [] >>
-     cheat)
+     disj1_tac >>
+     first_assum(match_exists_tac o concl) >> simp[] >>
+     simp[v_to_exh_def])
  >- (res_tac >>
      fs [] >>
      cases_on `exhaustive_match exh (MAP FST pes)` >>
      fs []  >>
      metis_tac [exh_to_exists_match])
- >- cheat
- >- cheat
+ >- (
+   disj1_tac >>
+   first_assum(match_exists_tac o concl) >> simp[] >>
+   fs[opt_bind_def] >> every_case_tac >> fs[v_to_exh_def] )
+ >- (
+   simp[funs_to_exh_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
+   fs[ETA_AX,FST_triple] )
  >- (induct_on `n` >>
      rw [GENLIST])
  >- metis_tac []
@@ -228,10 +329,17 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
      CONV_TAC SWAP_EXISTS_CONV >>
      rw[GSYM EXISTS_PROD])
  >- fs [exists_match_def]
- >- cheat
+ >- (
+   disj2_tac >>
+   disj1_tac >>
+   simp[add_default_def] >>
+   simp[if_cons,exp_to_exh_def] >>
+   cheat )
  >- (rw [add_default_def, exp_to_exh_def] >>
+     disj1_tac >>
      cheat)
- >- cheat
+ >- (rw[add_default_def, exp_to_exh_def] >>
+     cheat )
  >- cheat);
 
 val _ = export_theory ();
