@@ -315,6 +315,12 @@ val (do_eq_i2_def, do_eq_i2_ind) =
                                         | INR (xs,ys) => v_i23_size xs)`);
 val _ = register "do_eq_i2" (do_eq_i2_def,do_eq_i2_ind);
 
+val (do_eq_exh_def, do_eq_exh_ind) =
+  tprove_no_defn ((do_eq_exh_def, do_eq_exh_ind),
+  WF_REL_TAC `inv_image $< (\x. case x of INL (x,y) => v_exh_size x
+                                        | INR (xs,ys) => v_exh3_size xs)`);
+val _ = register "do_eq_exh" (do_eq_exh_def,do_eq_exh_ind);
+
 val (pmatch_exh_def, pmatch_exh_ind) =
   tprove_no_defn ((pmatch_exh_def, pmatch_exh_ind),
   WF_REL_TAC `inv_image $< (\x. case x of INL (x,p,y,z) => pat_exh_size p
