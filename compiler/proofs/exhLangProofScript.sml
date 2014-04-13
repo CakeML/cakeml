@@ -203,6 +203,32 @@ val if_cons = prove(
   ``(if b then a::c1 else a::c2) = a::(if b then c1 else c2)``,
   rw[])
 
+val pmatch_exh_correct = prove(
+  ``(∀exh s p v env.
+      pmatch_i2 exh s p v env ≠ Match_type_error ⇒
+      pmatch_exh (MAP (v_to_exh exh) s) (pat_to_exh p) (v_to_exh exh v) (env_to_exh exh env) =
+      case pmatch_i2 exh s p v env of
+      | Match env' => Match (env_to_exh exh env')
+      | No_match => No_match) ∧
+    (∀exh s p v env.
+      pmatch_list_i2 exh s p v env ≠ Match_type_error ⇒
+      pmatch_list_exh (MAP (v_to_exh exh) s) (MAP pat_to_exh p) (vs_to_exh exh v) (env_to_exh exh env) =
+      case pmatch_list_i2 exh s p v env of
+      | Match env' => Match (env_to_exh exh env')
+      | No_match => No_match)``,
+  ho_match_mp_tac pmatch_i2_ind >>
+  simp[pmatch_i2_def,v_to_exh_def,pat_to_exh_def,pmatch_exh_def] >>
+  rw[bind_def,v_to_exh_def] >>
+  every_case_tac >> fs[ETA_AX] >>
+  fs[store_lookup_def,EL_MAP] >> rw[])
+
+val pat_bindings_exh_correct = prove(
+  ``(∀p ls. pat_bindings_exh (pat_to_exh p) ls = pat_bindings_i2 p ls) ∧
+    (∀ps ls. pats_bindings_exh (MAP pat_to_exh ps) ls = pats_bindings_i2 ps ls)``,
+  ho_match_mp_tac(TypeBase.induction_of(``:pat_i2``)) >>
+  simp[pat_bindings_i2_def,pat_bindings_exh_def,pat_to_exh_def] >>
+  rw[] >> cases_on`p` >> rw[pat_to_exh_def,pat_bindings_exh_def,ETA_AX])
+
 val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
 `(!ck env s e r.
   evaluate_i3 ck env s e r
@@ -334,12 +360,16 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    disj1_tac >>
    simp[add_default_def] >>
    simp[if_cons,exp_to_exh_def] >>
-   cheat )
+   simp[pmatch_exh_correct,pat_bindings_exh_correct])
  >- (rw [add_default_def, exp_to_exh_def] >>
-     disj1_tac >>
-     cheat)
+     simp[pmatch_exh_correct,pat_bindings_exh_correct])
  >- (rw[add_default_def, exp_to_exh_def] >>
-     cheat )
- >- cheat);
+     simp[pmatch_exh_correct,pat_bindings_exh_correct] >>
+     first_x_assum match_mp_tac >>
+     ((qexists_tac`T` >> simp[add_default_def] >> fs[] >> NO_TAC) ORELSE
+     (qexists_tac`F` >> simp[add_default_def] >> fs[] >> NO_TAC)))
+ >- (rw[add_default_def, exp_to_exh_def] >>
+     simp[pmatch_exh_correct,pat_bindings_exh_correct] >>
+     cheat))
 
 val _ = export_theory ();
