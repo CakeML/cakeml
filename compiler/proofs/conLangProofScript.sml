@@ -692,8 +692,6 @@ val do_eq_i2 = Q.prove (
   vs_to_i2 gtagenv vs2 vs2_i2
   ⇒
   do_eq_list_i2 vs1_i2 vs2_i2 = r)`,
- cheat); (* TODO: change the definitions of do_e1 and do_eq_i1 to flag more type errors, because do_eq_i2 does *)
- (*
  ho_match_mp_tac do_eq_i1_ind >>
  rw [do_eq_i2_def, do_eq_i1_def, v_to_i2_eqns] >>
  rw [] >>
@@ -704,6 +702,9 @@ val do_eq_i2 = Q.prove (
  >- metis_tac []
  >- metis_tac []
  >- metis_tac []
+ >- metis_tac [cenv_inv_def, gtagenv_wf_def, SOME_11, PAIR_EQ, pair_CASES]
+ >- metis_tac [cenv_inv_def, gtagenv_wf_def, SOME_11, PAIR_EQ, pair_CASES]
+ >- metis_tac [cenv_inv_def, gtagenv_wf_def, SOME_11, PAIR_EQ, pair_CASES]
  >- metis_tac [cenv_inv_def, gtagenv_wf_def, SOME_11, PAIR_EQ, pair_CASES]
  >- (fs [Once v_to_i2_cases] >>
      rw [do_eq_i2_def])
@@ -749,7 +750,6 @@ val do_eq_i2 = Q.prove (
  every_case_tac >>
  fs [] >>
  metis_tac []);
- *)
 
 val do_app_i2_correct = Q.prove (
 `!env s op v1 v2 s' e env' tagenv s_i2 v1_i2 v2_i2 env_i2 gtagenv genv exh.

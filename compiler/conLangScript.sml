@@ -403,11 +403,10 @@ val _ = Define `
 (do_eq_i2 (Loc_i2 l1) (Loc_i2 l2) = (Eq_val (l1 = l2)))
 /\
 (do_eq_i2 (Conv_i2 tag1 vs1) (Conv_i2 tag2 vs2) =  
-(if SND tag1 = SND tag2 then
-    if (FST tag1 = FST tag2) /\ (LENGTH vs1 = LENGTH vs2) then
-      do_eq_list_i2 vs1 vs2
-    else Eq_val F
-  else Eq_type_error))
+(if (FST tag1 = FST tag2) /\ (LENGTH vs1 = LENGTH vs2) then
+    do_eq_list_i2 vs1 vs2
+  else 
+    Eq_val F))
 /\
 (do_eq_i2 (Closure_i2 _ _ _) (Closure_i2 _ _ _) = Eq_closure)
 /\
