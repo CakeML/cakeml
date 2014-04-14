@@ -136,6 +136,9 @@ val Eval_Let = store_thm("Eval_Let",
 val lookup_var_def = Define `
   lookup_var name ((menv,cenv,env):all_env) = lookup name env`;
 
+val lookup_cons_def = Define `
+  lookup_cons name (env:all_env) = lookup name (SND (FST (SND env)))`;
+
 val lookup_var_write = store_thm("lookup_var_write",
   ``lookup_var v (write w x env) =
     if v = w then SOME x else lookup_var v env``,
@@ -1188,54 +1191,6 @@ val MEMBER_INTRO = store_thm("MEMBER_INTRO",
   ``(MEM = MEMBER) /\ (MEM x = MEMBER x) /\ (MEM x ys = MEMBER x ys)``,
   FULL_SIMP_TAC std_ss [FUN_EQ_THM,MEM_EQ_MEMBER]);
 
-(* BROKEN
-
-val evaluate_match_SKIP = store_thm("evaluate_match_SKIP",
-  ``evaluate_match F env (c,empty_store) (Conv (SOME (s1, t1)) args1)
-      ((Pcon (SOME (Short s2)) pats2,exp2)::pats) errv (x,Rval rs) <=>
-    case lookup (Short s2) cenv of
-       | NONE => F
-       | SOME (l, t2) =>
-           if t2 <> t1 \/ (LENGTH pats2 <> l) then
-             F
-           else if s1 <> s2 then
-      ALL_DISTINCT (pat_bindings (Pcon (SOME (Short s2)) pats2) []) /\
-      evaluate_match F env (c,empty_store) (Conv (SOME (s1, t1)) args1)
-        pats errv (x,Rval res)
-    else
-      evaluate_match F env (c,empty_store) (Conv (SOME (s1, t1)) args1)
-        ((Pcon (SOME (Short s2)) pats2,exp2)::pats) errv (x,Rval res)``,
-  ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,pmatch_def]
-  \\ PairCases_on `env` \\ FULL_SIMP_TAC (srw_ss()) [lookup_con_id_def]
-
-
-
-
- rw [] \\
- ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,pmatch_def] \\
- BasicProvers.EVERY_CASE_TAC \\
- fs [] \\
- rw [] \\
- eq_tac \\
- rw []
- >- (rw [] \\
-     ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,pmatch_def] \\
-     BasicProvers.EVERY_CASE_TAC \\
-     fs [] \\
-     rw [])
- >- (rw [] \\
-     ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,pmatch_def] \\
-     BasicProvers.EVERY_CASE_TAC \\
-     fs [] \\
-     rw [])
- >- (pop_assum (assume_tac o SIMP_RULE (srw_ss()) [Once evaluate_cases]) \\
-     fs [pmatch_def] \\
-     BasicProvers.EVERY_CASE_TAC \\
-     fs []));
-*)
-
-
-
 (* DeclAssum exists *)
 
 val DeclAssumExists_def = Define `
@@ -1243,31 +1198,19 @@ val DeclAssumExists_def = Define `
 
 val SWAP_EXISTS = METIS_PROVE [] ``(?x y. P x y) ==> (?y x. P x y)``;
 
-(*
 val DeclAssumExists_SNOC_Dtype = store_thm("DeclAssumExists_SNOC_Dtype",
   ``!funs ds.
       DeclAssumExists ds ==>
-      !d. check_dup_ctors NONE (decs_to_cenv NONE ds ++ init_envC) d ==>
-
-          check_dup_ctors tds /\
-          DISJOINT (type_defs_to_new_tdecs mn tds) (SND s) /\
-
-
-          DeclAssumExists (SNOC (Dtype d) ds)``,
+      !tds.
+         (!env tys.
+            DeclAssum ds env tys ==> 
+            check_dup_ctors tds /\
+            DISJOINT (type_defs_to_new_tdecs NONE tds) tys) ==>
+         DeclAssumExists (SNOC (Dtype tds) ds)``,
   SIMP_TAC std_ss [DeclAssumExists_def,PULL_EXISTS] \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [DeclAssum_def,Decls_APPEND,SNOC_APPEND]
-  \\ SIMP_TAC std_ss [Decls_def] \\ ONCE_REWRITE_TAC [CONJ_COMM]
-  \\ SIMP_TAC std_ss [Once evaluate_decs_cases]
-  \\ SIMP_TAC (srw_ss()) [CONS_11,NOT_CONS_NIL,PULL_EXISTS]
-  \\ ONCE_REWRITE_TAC [evaluate_dec_cases]
-  \\ SIMP_TAC (srw_ss()) [CONS_11,NOT_CONS_NIL,PULL_EXISTS]
-  \\ SIMP_TAC (srw_ss()) [PULL_EXISTS,Once evaluate_decs_cases]
-  \\ IMP_RES_TAC Decls_IMP_cenv
-  \\ FULL_SIMP_TAC std_ss [Decls_def]
-  \\ Q.LIST_EXISTS_TAC [`s2`,`cenv2`,`env`] \\ ASM_SIMP_TAC std_ss []
-  \\ ASM_SIMP_TAC std_ss [merge_def,emp_def,APPEND_NIL]
-  \\ EVAL_TAC \\ SIMP_TAC std_ss []);
-*)
+  \\ FULL_SIMP_TAC std_ss [DeclAssum_def,Decls_APPEND,SNOC_APPEND,Decls_Dtype]
+  \\ RES_TAC \\ Q.LIST_EXISTS_TAC [`env`,`((0,[]),tys)`]
+  \\ FULL_SIMP_TAC std_ss []);
 
 val DeclAssumExists_SNOC_Dlet_Fun = store_thm("DeclAssumExists_SNOC_Dlet_Fun",
   ``!ds name n exp.
@@ -1349,5 +1292,14 @@ val DeclAssumExists_NIL = store_thm("DeclAssumExists_NIL",
   ``DeclAssumExists []``,
   SIMP_TAC (srw_ss()) [PULL_EXISTS,Once evaluate_decs_cases,
      DeclAssumExists_def,DeclAssum_def,Decls_def]);
+
+(* lookup cons *)
+
+val lookup_cons_write = store_thm("lookup_cons_write",
+  ``!funs n x env name.
+      (lookup_cons name (write n x env) = lookup_cons name env) /\ 
+      (lookup_cons name (write_rec funs env) = lookup_cons name env)``,
+  Induct \\ REPEAT STRIP_TAC \\ PairCases_on `env`
+  \\ FULL_SIMP_TAC std_ss [write_rec_def,write_def,lookup_cons_def]);
 
 val _ = export_theory();
