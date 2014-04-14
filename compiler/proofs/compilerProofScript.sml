@@ -1,7 +1,7 @@
 open HolKernel bossLib boolLib boolSimps listTheory pairTheory rich_listTheory pred_setTheory arithmeticTheory finite_mapTheory relationTheory sortingTheory stringTheory
 open miscLib miscTheory bigStepTheory semanticPrimitivesTheory bigClockTheory replTheory terminationTheory
 open bytecodeTheory bytecodeExtraTheory bytecodeEvalTheory bytecodeClockTheory bytecodeLabelsTheory bytecodeTerminationTheory
-open intLangTheory toIntLangTheory toBytecodeTheory compilerTheory intLangExtraTheory intLangProofTheory bytecodeProofTheory compilerTerminationTheory
+open intLangTheory toIntLangTheory toBytecodeTheory compilerTheory intLangExtraTheory modLangProofTheory conLangProofTheory intLangProofTheory bytecodeProofTheory compilerTerminationTheory
 open patLangProofTheory
 val _ = new_theory"compilerProof"
 
@@ -1036,57 +1036,27 @@ val Cv_bv_can_Print = save_thm("Cv_bv_can_Print",prove(
 
 (* env_rs *)
 
-val id_of_tid_or_exn_def = Define`
-  id_of_tid_or_exn (TypeId id) = id ∧
-  id_of_tid_or_exn (TypeExn id) = id`
-
-val good_contags_env_def = Define`
-  good_contags_env (n:num,m,w) ⇔
-    (∀x. x ∈ FDOM w ⇒ x < n) ∧
-    FEVERY (λ(t,(s:conN,i)).
-      case id_of_tid_or_exn i of
-      | Short ty =>
-          (FLOOKUP (SND m) s = SOME (t,SOME i))
-      | Long mn ty =>
-          mn ∈ FDOM (FST m) ∧
-          (FLOOKUP ((FST m) ' mn) s = SOME (t,SOME i)))
-      w ∧
-    ∀t. t ∈ IMAGE FST (FRANGE (SND m)) ∨
-        t ∈ BIGUNION (IMAGE (IMAGE FST o FRANGE) (FRANGE (FST m))) ⇒
-        t ∈ FDOM w`
-
-val envC_tagenv_def = Define`
-  envC_tagenv ((menvC,envC):envC) ((rm,re):tag_env) ⇔
-    EVERY (λ(s,a,i). ∃t. FLOOKUP re s = SOME (t, SOME i)) envC ∧
-    EVERY (λ(mn,envC).
-      ∃re. FLOOKUP rm mn = SOME re ∧
-           EVERY (λ(s,a,i). ∃t. FLOOKUP re s = SOME (t, SOME i)) envC)
-      menvC`
-
 val good_labels_def = Define`
   good_labels nl code ⇔
     ALL_DISTINCT (FILTER is_Label code) ∧
     EVERY (combin$C $< nl o dest_Label) (FILTER is_Label code)`
 
+(*
 val env_rs_def = Define`
   env_rs ((envM,envC,envE):all_env) ((cnt,s):v count_store) (rs:compiler_state) rd bs ⇔
-    good_contags_env rs.contags_env ∧
-    envC_tagenv envC (FST(SND rs.contags_env)) ∧
-    (* cenv_bind_div_eq cenv ∧ TODO: this comment possibly obsolete?
-       (cmap rs.contab ' NONE = tuple_cn) ∧
-    (∀id. (FLOOKUP (cmap rs.contab) id = SOME ((cmap rs.contab) ' NONE)) ⇒ (id = NONE)) ∧ *)
-    (* TODO:
-       do the appropriate refinements to the store to get to v_exhs to pass to
-       v_to_Cv below *)
-    (* TODO:
-       make Cg0 the appropriate global environment. presuming the envE is
-       totally taken care of here, so I can use empty local environments below
-       in Cenv_bs (those are the empty lists and 0) *)
-    let Cs0 = MAP v_to_Cv (MAP ARB s) in
+    ∃s1 tids exh gtagenv genv genv2.
+      to_i1_invariant
+        (FST rs.globals_env) (SND rs.globals_env)
+        envM envE (cnt,s) (cnt,s1) (set (MAP FST envM)) ∧
+      to_i2_invariant
+        tids envC exh rs.contags_env gtagenv (cnt,s1) (cnt,s2) genv genv2 ∧
+
+    let Cs0 = MAP v_to_Cv (MAP v_to_pat (MAP ARB s2)) in
     let Cg0 = ARB in
     ∃Cs Cg.
     LIST_REL syneq Cs0 Cs ∧ LIST_REL (OPTREL syneq) Cg0 Cg ∧
     bs.stack = [] ∧
     Cenv_bs rd ((cnt,Cs),Cg) [] [] 0 bs`
+*)
 
 val _ = export_theory()
