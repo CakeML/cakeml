@@ -144,14 +144,12 @@ val _ = Define `
   let e = (exp_to_pat [] e) in
   let e = (exp_to_Cexp e) in
   let r = (compile_Cexp []( 0) <| out := []; next_label := init_compiler_state.rnext_label |> e) in
-    (case FLOOKUP m2 "it" of
-        NONE => r.out
-      | SOME n =>
-          let r = (emit r [Gread (n -  1); Print]) in
-          let r = (emit r (MAP PrintC (EXPLODE "\n"))) in
-            r.out
-    )))`;
-
+  let r = ((case FLOOKUP m2 "it" of
+            NONE => r
+          | SOME n => let r = (emit r [Gread (n -  1); Print]) in
+                        emit r (MAP PrintC (EXPLODE "\n"))
+          )) in
+  REVERSE (r.out)))`;
 
 val _ = export_theory()
 
