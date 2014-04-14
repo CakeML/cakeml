@@ -13,6 +13,7 @@ local
   val funs =
     [unifyTheory.t_walk_eqn
     ,unifyTheory.t_ext_s_check_eqn
+    ,unifyTheory.ts_unify_def
     ]
 
   val init_db = Net.insert (rand(concl(t_wfs_FEMPTY)),t_wfs_FEMPTY) Net.empty
