@@ -514,6 +514,10 @@ val () = add_datatype_info ``:call_context`` compset
 (* prog to bytecode *)
 val () = computeLib.add_thms
   [prog_to_bytecode_def
+  ,prog_to_bytecode_string_def
+  ,bc_inst_to_string_def
+  ,bc_loc_to_string_def
+  ,int_to_string2_def
   ,get_all_asts_def
   ,initial_program_def
   ,init_compiler_state_def
@@ -524,6 +528,9 @@ val () = add_datatype_info ``:compiler_state`` compset
 (*
 computeLib.CBV_CONV compset
   ``prog_to_bytecode "val x = 1; val y = x; val it = x+y;"``
+
+computeLib.CBV_CONV compset
+  ``toString (Num (1:int))``
 
 computeLib.CBV_CONV compset
   ``prog_to_bytecode "fun fact n = if n <= 0 then 1 else n * fact (n-1); fact 5;"``
