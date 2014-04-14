@@ -229,6 +229,33 @@ val pat_bindings_exh_correct = prove(
   simp[pat_bindings_i2_def,pat_bindings_exh_def,pat_to_exh_def] >>
   rw[] >> cases_on`p` >> rw[pat_to_exh_def,pat_bindings_exh_def,ETA_AX])
 
+val pmatch_i2_any_match = store_thm("pmatch_i2_any_match",
+  ``(∀exh s p v env env'. pmatch_i2 exh s p v env = Match env' ⇒
+       ∀env. ∃env'. pmatch_i2 exh s p v env = Match env') ∧
+    (∀exh s ps vs env env'. pmatch_list_i2 exh s ps vs env = Match env' ⇒
+       ∀env. ∃env'. pmatch_list_i2 exh s ps vs env = Match env')``,
+  ho_match_mp_tac pmatch_i2_ind >>
+  rw[pmatch_i2_def] >>
+  pop_assum mp_tac >>
+  BasicProvers.CASE_TAC >>
+  fs[] >> strip_tac >> fs[] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  metis_tac[semanticPrimitivesTheory.match_result_distinct])
+
+val pmatch_i2_any_no_match = store_thm("pmatch_i2_any_no_match",
+  ``(∀exh s p v env. pmatch_i2 exh s p v env = No_match ⇒
+       ∀env. pmatch_i2 exh s p v env = No_match) ∧
+    (∀exh s ps vs env. pmatch_list_i2 exh s ps vs env = No_match ⇒
+       ∀env. pmatch_list_i2 exh s ps vs env = No_match)``,
+  ho_match_mp_tac pmatch_i2_ind >>
+  rw[pmatch_i2_def] >>
+  pop_assum mp_tac >>
+  BasicProvers.CASE_TAC >>
+  fs[] >> strip_tac >> fs[] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  imp_res_tac pmatch_i2_any_match >>
+  metis_tac[semanticPrimitivesTheory.match_result_distinct])
+
 val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
 `(!ck env s e r.
   evaluate_i3 ck env s e r
@@ -370,6 +397,10 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
      (qexists_tac`F` >> simp[add_default_def] >> fs[] >> NO_TAC)))
  >- (rw[add_default_def, exp_to_exh_def] >>
      simp[pmatch_exh_correct,pat_bindings_exh_correct] >>
-     cheat))
+     first_x_assum match_mp_tac >>
+     first_assum(match_exists_tac o concl) >> simp[] >>
+     simp[add_default_def] >>
+     fs[exists_match_def] >>
+     metis_tac[pmatch_i2_any_no_match]))
 
 val _ = export_theory ();
