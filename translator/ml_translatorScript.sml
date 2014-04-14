@@ -1302,4 +1302,9 @@ val lookup_cons_write = store_thm("lookup_cons_write",
   Induct \\ REPEAT STRIP_TAC \\ PairCases_on `env`
   \\ FULL_SIMP_TAC std_ss [write_rec_def,write_def,lookup_cons_def]);
 
+val DISJOINT_set_SIMP = store_thm("DISJOINT_set_SIMP",
+  ``(DISJOINT (set []) s <=> T) /\
+    (DISJOINT (set (x::xs)) s <=> ~(x IN s) /\ DISJOINT (set xs) s)``,
+  REPEAT STRIP_TAC THEN1 (SRW_TAC [] []) \\ Cases_on `x IN s` \\ fs []);
+
 val _ = export_theory();

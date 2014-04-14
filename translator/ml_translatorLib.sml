@@ -195,17 +195,15 @@ in
   fun snoc_dtype_decl dtype = let
     val decl = dtype
     val _ = let
-      val th = MATCH_MP TRUTH (* DeclAssumExists_SNOC_Dtype *) (!decl_exists)
+      val th = MATCH_MP DeclAssumExists_SNOC_Dtype (!decl_exists)
                |> SPEC (decl |> rand)
       val goal = th |> concl |> dest_imp |> fst
       val lemma = !cenv_eq_thm
-      val tac =
-        PURE_REWRITE_TAC [lemma,(*check_dup_ctors_thm,*)MAP_APPEND,MEM_APPEND]
-        THEN PURE_REWRITE_TAC [MAP,MEM,initialEnvTheory.init_envC_def,FST,FOLDR]
-        THEN CONV_TAC (DEPTH_CONV (PairRules.PBETA_CONV))
-        THEN PURE_REWRITE_TAC [FST,FOLDR,id_11]
-        THEN CONV_TAC (DEPTH_CONV (PairRules.PBETA_CONV))
-        THEN EVAL_TAC
+      val tac = 
+        REPEAT STRIP_TAC
+        THEN1 (SIMP_TAC std_ss [check_dup_ctors_def,LET_DEF,FOLDR] THEN EVAL_TAC)
+        THEN SIMP_TAC std_ss [type_defs_to_new_tdecs_def,MAP,
+               DISJOINT_set_SIMP,mk_id_def] \\ cheat (* needs more state *)
       val lemma = prove(goal,tac)
       val th = MY_MP "dtype" th lemma
       in decl_exists := th end
@@ -1027,6 +1025,8 @@ val _ = persistent_skip_case_const ``COND:bool -> 'a -> 'a -> 'a``;
 val ty = ``:compiler_result``;
 val ty = ``:token``
 
+val _ = set_trace "Unicode" 0;
+
 val ty = ``:'a + num``;
 
 val ty = ``:'a list``; derive_thms_for_type ty
@@ -1068,6 +1068,25 @@ fun derive_thms_for_type ty = let
     in dtype end) case_thms
   val dtype_list = listSyntax.mk_list(dtype_parts,type_of (hd dtype_parts))
   val dtype = ``(Dtype ^dtype_list): dec``
+  (* cons assumption *)
+  fun make_assum tyname c = let
+    val (x1,x2) = dest_pair c
+    val l = x2 |> listSyntax.dest_list |> fst |> length |> numSyntax.term_of_int
+    in ``lookup_cons ^x1 env = SOME (^l,TypeId (Short ^tyname))`` end
+  val type_assum = dtype_list 
+    |> listSyntax.dest_list |> fst
+    |> map (list_dest dest_pair)
+    |> map (fn xs => (el 2 xs, el 3 xs |> listSyntax.dest_list |> fst))
+    |> map (fn (tyname,conses) => map (make_assum tyname) conses)
+    |> flatten |> list_mk_conj
+(*
+  val ((ty,case_th),(_,inv_def,eq_lemma)) = hd (zip case_thms inv_defs)
+  val inv_lhs = inv_def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL
+                        |> concl |> dest_eq |> fst
+  val x = inv_lhs |> rator |> rand
+  val input = mk_var("input",type_of x)
+  val inv_lhs = subst [x|->input] inv_lhs
+*)
   (* prove lemma for case_of *)
   fun prove_case_of_lemma (ty,case_th,inv_lhs,inv_def) = let
     val cases_th = TypeBase.case_def_of ty
@@ -1135,9 +1154,8 @@ fun derive_thms_for_type ty = let
       if type_of tm = ty then (mk_comb(rator (rator inv_lhs),tm)) else
         (mk_comb(get_type_inv (type_of tm),tm))
     fun mk_hyp (n,f,fxs,pxs,tm,exp,xs) = let
-      val env = mk_var("env",``:envE``)
-      val env = foldr (fn ((x,n,v),y) =>
-        listSyntax.mk_cons(pairSyntax.mk_pair(n,v),y)) env (rev xs)
+      val env = mk_var("env",``:all_env``)
+      val env = foldr (fn ((x,n,v),y) => ``write ^n ^v ^y``) env (rev xs)
       val tm = map (fn (x,n,v) => mk_comb(find_inv x,v)) xs @ [pxs]
       val tm = if tm = [] then T else list_mk_conj tm
       val tm = mk_imp(tm,``Eval ^env ^exp (^ret_inv ^fxs)``)
@@ -1157,23 +1175,17 @@ fun derive_thms_for_type ty = let
     val x = mk_comb(rator (rator inv_lhs),input_var)
     val hyp0 = ``TAG 0 (b0 ==> Eval env ^exp_var ^x)``
     val hyps = list_mk_conj(hyp0::hyps)
-    val goal = mk_imp(tt,mk_imp(hyps,result))
-    val exp_var = mk_var("exp", ``:exp``)
+    val goal = mk_imp(type_assum,mk_imp(tt,mk_imp(hyps,result)))
     val evaluate_Mat =
-      ``evaluate empty_store env (Mat ^exp_var pats) (empty_store,Rval res)``
+      ``evaluate c x env (Mat e pats) (xx,Rval res)``
       |> (ONCE_REWRITE_CONV [evaluate_cases] THENC SIMP_CONV (srw_ss()) [])
     val evaluate_match_Conv =
-      ``evaluate_match' empty_store env (Conv (SOME (Short s)) args)
-           ((Pcon (SOME (Short s)) pats,exp2)::pats2) errv (x,Rval y)``
+      ``evaluate_match c x env args
+           ((Pcon xx pats,exp2)::pats2) errv (yyy,Rval y)``
       |> (ONCE_REWRITE_CONV [evaluate_cases] THENC
           SIMP_CONV (srw_ss()) [pmatch_def])
     val IF_T = prove(``(if T then x else y) = x:'a``,SIMP_TAC std_ss []);
     val IF_F = prove(``(if F then x else y) = y:'a``,SIMP_TAC std_ss []);
-    fun aux 1 = ALL_CONV
-      | aux n = REWR_CONV TRUTH (* evaluate_match_SKIP *) THENC
-                (RATOR_CONV o RATOR_CONV o RAND_CONV) EVAL THENC
-                REWR_CONV IF_T THENC RAND_CONV (aux (n-1))
-                THENC (REWRITE_CONV [pat_bindings_def])
     val init_tac =
           REWRITE_TAC [CONTAINER_def]
           \\ REPEAT STRIP_TAC \\ STRIP_ASSUME_TAC (Q.SPEC `x` case_th)
@@ -1195,14 +1207,19 @@ fun derive_thms_for_type ty = let
                 SPEC_ALL o REWRITE_RULE [TAG_def,Eval_def])
           \\ CONV_TAC (REWR_CONV Eval_def) \\ Q.EXISTS_TAC `res`
           \\ ASM_REWRITE_TAC [evaluate_Mat]
-          \\ Q.LIST_EXISTS_TAC [`v`,`empty_store`] \\ ASM_REWRITE_TAC []
-          \\ CONV_TAC (aux n)
+          \\ Q.LIST_EXISTS_TAC [`v`,`0,empty_store`] \\ ASM_REWRITE_TAC []
+          \\ PairCases_on `env`
           \\ REWRITE_TAC [evaluate_match_Conv,LENGTH,pmatch_def]
-          \\ ASM_SIMP_TAC (srw_ss()) [pmatch_def,bind_def,pat_bindings_def]
+          \\ FULL_SIMP_TAC (srw_ss()) [pmatch_def,bind_def,pat_bindings_def,
+                lookup_con_id_def,lookup_cons_def,same_tid_def,id_to_n_def,
+                same_ctor_def,write_def]
     val tac = init_tac THENL (map (fn (n,f,fxs,pxs,tm,exp,xs) => case_tac n) ts)
     val case_lemma = prove(goal,tac)
     val case_lemma = case_lemma |> PURE_REWRITE_RULE [TAG_def]
     in (case_lemma,ts) end;
+(*
+val (n,f,fxs,pxs,tm,exp,xs) = hd ts
+*)
   (* prove lemmas for constructors *)
   fun derive_cons ty inv_lhs inv_def (n,f,fxs,pxs,tm,exp,xs) = let
     val pat = tm
@@ -1218,14 +1235,18 @@ fun derive_thms_for_type ty = let
         (mk_comb(get_type_inv (type_of tm),tm))
     val tms = map (fn (x,exp) => ``Eval env ^exp ^(find_inv x)``) exps
     val tm = if tms = [] then T else list_mk_conj tms
-    val goal = mk_imp(tm,result)
+    val goal = mk_imp(type_assum,mk_imp(tm,result))
     fun add_primes str 0 = []
       | add_primes str n = mk_var(str,``:v``) :: add_primes (str ^ "'") (n-1)
     val witness = listSyntax.mk_list(add_primes "res" (length xs),``:v``)
     val lemma = prove(goal,
       SIMP_TAC std_ss [Eval_def] \\ REPEAT STRIP_TAC
       \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) [PULL_EXISTS]
-      \\ EXISTS_TAC witness \\ ASM_SIMP_TAC (srw_ss()) [inv_def,evaluate_list_SIMP])
+      \\ PairCases_on `env`
+      \\ FULL_SIMP_TAC (srw_ss()) [inv_def,evaluate_list_SIMP,do_con_check_def,
+           all_env_to_cenv_def,lookup_con_id_def,build_conv_def,id_to_n_def,
+           lookup_cons_def]
+      \\ EXISTS_TAC witness \\ FULL_SIMP_TAC std_ss [CONS_11,evaluate_list_SIMP])
     in (pat,lemma) end;
 (*
   val ((ty,case_th),(_,inv_def,eq_lemma)) = hd (zip case_thms inv_defs)
