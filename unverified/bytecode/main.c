@@ -220,12 +220,22 @@ static int equal(value *heap, value v1, value v2) {
 }
 
 #define STACK_SIZE 1000000
+#define GLOBALS_SIZE 1000000
 #define HEAP_SIZE 1000000
 static value stack[STACK_SIZE];
+
+static value globals [GLOBALS_SIZE];
 
 static inline void check_stack(unsigned int sp) { 
   if (sp >= STACK_SIZE) {
     printf("stack overflow\n"); 
+    exit(1); 
+  }
+}
+
+static inline void check_globals(unsigned int gp) { 
+  if (gp > GLOBALS_SIZE) {
+    printf("globals overflow\n"); 
     exit(1); 
   }
 }
@@ -323,11 +333,12 @@ void run(inst code[]) {
 
   // The stack pointer sp will point to the lowest unused stack slot
   unsigned long sp = 0;
-  unsigned long pc = 9;
+  unsigned long pc = 0;
   unsigned long handler = 0;
   unsigned long next_heap = 0;
+  unsigned long next_global = 0;
 
-  unsigned long tmp_sp1, tmp_sp2;
+  unsigned long tmp_sp1;
   value tmp_frame, ptr;
   int tmp;
 
@@ -344,16 +355,6 @@ void run(inst code[]) {
 	tmp_sp1 = sp;
 	sp -= code[pc].args.num;
 	stack[sp-1] = stack[tmp_sp1-1];
-	pc++;
-	break;
-      case shift_i:
-	if (code[pc].args.two_num.num2 != 0) {
-	  tmp_sp1 = sp - code[pc].args.two_num.num1;
-	  tmp_sp2 = tmp_sp1 - code[pc].args.two_num.num2;
-	  for (; tmp_sp1 < sp; tmp_sp1++, tmp_sp2++)
-	    stack[tmp_sp2] = stack[tmp_sp1];
-	  sp = tmp_sp2;
-	}
 	pc++;
 	break;
       case push_int_i:
@@ -392,12 +393,6 @@ void run(inst code[]) {
       case store_i:
 	stack[sp-2-code[pc].args.num] = stack[sp-1];
 	sp--;
-	pc++;
-	break;
-      case load_rev_i:
-	check_stack(sp);
-	stack[sp] = stack[code[pc].args.num];
-	sp++;
 	pc++;
 	break;
       case el_i:
@@ -486,10 +481,6 @@ void run(inst code[]) {
 	stack[sp-2] = tag_unsigned_fixnum(pc+1);
 	pc = get_unsigned_fixnum(tmp_frame);
 	break;
-      case jump_ptr_i:
-	sp--;
-	pc = get_unsigned_fixnum(stack[sp]);
-	break;
       case push_ptr_i:
 	check_stack(sp);
 	stack[sp] = tag_unsigned_fixnum(get_loc(code[pc].args.loc));
@@ -546,6 +537,22 @@ void run(inst code[]) {
 	break;
       case stop_i:
 	return;
+      case galloc_i:
+	next_global += code[pc].args.num;
+	check_globals(next_global);
+	pc++;
+	break;
+      case gread_i:
+	check_stack(sp);
+	stack[sp] = globals[code[pc].args.num];
+	sp++;
+	pc++;
+	break;
+      case gupdate_i:
+	globals[code[pc].args.num] = stack[sp-1];
+	sp--;
+	pc++;
+	break;
       default:
 	assert(false);
 	break;

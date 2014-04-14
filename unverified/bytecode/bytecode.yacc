@@ -15,11 +15,11 @@
 %token <num> NUM_T
 %token <integer> INT_T
 %token <character> CHAR_T
-%token POP_T POPS_T SHIFT_T PUSH_INT_T CONS_T LOAD_T STORE_T LOAD_REV_T 
+%token POP_T POPS_T PUSH_INT_T CONS_T LOAD_T STORE_T
 %token EL_T TAG_EQ_T IS_BLOCK_T EQUAL_T ADD_T SUB_T MULT_T DIV_T MOD_T LESS_T 
-%token LABEL_T JUMP_T JUMP_IF_T CALL_T JUMP_PTR_T CALL_PTR_T RETURN_T 
+%token LABEL_T JUMP_T JUMP_IF_T CALL_T CALL_PTR_T RETURN_T 
 %token PUSH_EXC_T POP_EXC_T REF_T DEREF_T UPDATE_T STOP_T TICK_T PRINT_T 
-%token PRINT_C_T LAB_T ADDR_T PUSH_PTR_T
+%token PRINT_C_T LAB_T ADDR_T PUSH_PTR_T GALLOC_T GUPDATE_T GREAD_T
 
 %type <insts> insts inst stack_op loc
 %type <integer> num_or_int
@@ -64,13 +64,6 @@ stack_op:
      next->car.args.num = $2;
      $$ = next;
    }
- | SHIFT_T NUM_T NUM_T {
-     inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = shift_i;
-     next->car.args.two_num.num1 = $2;
-     next->car.args.two_num.num2 = $3;
-     $$ = next;
-   }
  | PUSH_INT_T num_or_int {
      inst_list* next = malloc(sizeof(inst_list));
      next->car.tag = push_int_i;
@@ -99,12 +92,6 @@ stack_op:
  | STORE_T NUM_T {
      inst_list* next = malloc(sizeof(inst_list));
      next->car.tag = store_i;
-     next->car.args.num = $2;
-     $$ = next;
-   }
- | LOAD_REV_T NUM_T {
-     inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = load_rev_i;
      next->car.args.num = $2;
      $$ = next;
    }
@@ -199,11 +186,6 @@ inst:
      $2->car.tag = call_i;
      $$ = $2;
    }
- | JUMP_PTR_T {
-     inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = jump_ptr_i;
-     $$ = next;
-   }
  | CALL_PTR_T {
      inst_list* next = malloc(sizeof(inst_list));
      next->car.tag = call_ptr_i;
@@ -264,6 +246,25 @@ inst:
      next->car.args.character = $2;
      $$ = next;
    }
+ | GUPDATE_T NUM_T {
+     inst_list* next = malloc(sizeof(inst_list));
+     next->car.tag = gupdate_i;
+     next->car.args.num = $2;
+     $$ = next;
+   }
+ | GREAD_T NUM_T {
+     inst_list* next = malloc(sizeof(inst_list));
+     next->car.tag = gread_i;
+     next->car.args.num = $2;
+     $$ = next;
+   }
+ | GALLOC_T NUM_T {
+     inst_list* next = malloc(sizeof(inst_list));
+     next->car.tag = galloc_i;
+     next->car.args.num = $2;
+     $$ = next;
+   }
+
 ;
 
 insts:

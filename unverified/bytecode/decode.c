@@ -65,10 +65,6 @@ inst_list* decode(FILE *in) {
 	next_inst->car.tag = pops_i;
 	next_inst->car.args.num = decode_num(in, inst_num);
 	break;
-      case 2:
-	next_inst->car.tag = shift_i;
-	next_inst->car.args.two_num = decode_2num(in, inst_num);
-	break;
       case 3:
 	next_inst->car.tag = push_int_i;
 	i = decode_num(in, inst_num);
@@ -98,10 +94,6 @@ inst_list* decode(FILE *in) {
 	break;
       case 7:
 	next_inst->car.tag = store_i;
-	next_inst->car.args.num = decode_num(in, inst_num);
-	break;
-      case 8:
-	next_inst->car.tag = load_rev_i;
 	next_inst->car.args.num = decode_num(in, inst_num);
 	break;
       case 9:
@@ -170,9 +162,6 @@ inst_list* decode(FILE *in) {
 	next_inst->car.args.loc.isLab = 0;
 	next_inst->car.args.loc.num = decode_num(in, inst_num);
 	break;
-      case 26:
-        next_inst->car.tag = jump_ptr_i;
-	break;
       case 27:
         next_inst->car.tag = call_ptr_i;
 	break;
@@ -205,15 +194,27 @@ inst_list* decode(FILE *in) {
         next_inst->car.tag = update_i;
 	break;
       case 36:
-        next_inst->car.tag = stop_i;
+        next_inst->car.tag = galloc_i;
+	next_inst->car.args.num = decode_num(in, inst_num);
 	break;
       case 37:
-        next_inst->car.tag = tick_i;
+        next_inst->car.tag = galloc_i;
+	next_inst->car.args.num = decode_num(in, inst_num);
 	break;
       case 38:
-        next_inst->car.tag = print_i;
+        next_inst->car.tag = galloc_i;
+	next_inst->car.args.num = decode_num(in, inst_num);
 	break;
       case 39:
+        next_inst->car.tag = stop_i;
+	break;
+      case 8:
+        next_inst->car.tag = tick_i;
+	break;
+      case 26:
+        next_inst->car.tag = print_i;
+	break;
+      case 2:
         next_inst->car.tag = print_c_i;
 	i = decode_num(in, inst_num);
 	if (i > CHAR_MAX) {

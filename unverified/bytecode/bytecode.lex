@@ -22,12 +22,10 @@
 [ \t]+ { }
 "pop" return POP_T;
 "pops" return POPS_T;
-"shift" return SHIFT_T;
 "pushInt" return PUSH_INT_T;
 "cons" return CONS_T;
 "load" return LOAD_T;
 "store" return STORE_T;
-"loadRev" return LOAD_REV_T;
 "el" return EL_T;
 "tagEq" return TAG_EQ_T;
 "isBlock" return IS_BLOCK_T;
@@ -43,7 +41,6 @@
 "jump" return JUMP_T;
 "jumpIf" return JUMP_IF_T;
 "call" return CALL_T;
-"jumpPtr" return JUMP_PTR_T;
 "callPtr" return CALL_PTR_T;
 "pushPtr" return PUSH_PTR_T;
 "return" return RETURN_T;
@@ -56,6 +53,9 @@
 "tick" return TICK_T;
 "print" return PRINT_T;
 "printC" return PRINT_C_T;
+"galloc" return GALLOC_T;
+"gupdate" return GUPDATE_T;
+"gread" return GREAD_T;
 
 "lab" return LAB_T;
 "addr" return ADDR_T;

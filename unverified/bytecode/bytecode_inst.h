@@ -20,11 +20,11 @@ typedef union {
 } inst_args;
 
 typedef enum { 
-  pop_i, pops_i, shift_i, push_int_i, cons_i, load_i, store_i, load_rev_i,
+  pop_i, pops_i, push_int_i, cons_i, load_i, store_i,
   el_i, tag_eq_i, is_block_i, equal_i, add_i, sub_i, mult_i, div_i, mod_i,
-  less_i, label_i, jump_i, jump_if_i, call_i, jump_ptr_i, call_ptr_i,
+  less_i, label_i, jump_i, jump_if_i, call_i, call_ptr_i,
   push_ptr_i, return_i, push_exc_i, pop_exc_i, ref_i, deref_i, update_i,
-  stop_i, tick_i, print_i, print_c_i
+  stop_i, tick_i, print_i, print_c_i, gupdate_i, gread_i, galloc_i
 } inst_tag;
 
 typedef struct {
