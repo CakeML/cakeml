@@ -1063,6 +1063,8 @@ val env_rs_def = Define`
         (MAP (v_to_Cv o v_to_pat o (v_to_exh rs.exh)) s2) Cs ∧
       LIST_REL (OPTREL syneq)
         (MAP (OPTION_MAP (v_to_Cv o v_to_pat o (v_to_exh rs.exh))) genv2) Cg ∧
+      all_vlabs_csg ((cnt,Cs),Cg) ∧
+      (∀cd. cd ∈ vlabs_csg ((cnt,Cs),Cg) ⇒ code_env_cd bs.code cd) ∧
       Cenv_bs rd ((cnt,Cs),Cg) [] [] 0 bs`
 
 val env_rs_empty = store_thm("env_rs_empty",
@@ -1083,6 +1085,7 @@ val env_rs_empty = store_thm("env_rs_empty",
   rw[Once genv_to_i2_cases] >>
   rw[Once s_to_i2_cases] >> rw[Once s_to_i2'_cases] >> rw[Once v_to_i2_cases] >>
   rw[Cenv_bs_def,env_renv_def,s_refs_def,good_rd_def,FEVERY_ALL_FLOOKUP] >>
+  rw[all_vlabs_csg_def,vlabs_csg_def] >>
   cheat)
 
 (* TODO: move *)
@@ -1130,9 +1133,97 @@ val env_rs_change_clock = store_thm("env_rs_change_clock",
   simp[PULL_EXISTS] >>
   rpt HINT_EXISTS_TAC >>
   simp[] >>
+  simp[Once CONJ_ASSOC] >>
+  conj_tac >- (
+    fs[all_vlabs_csg_def,vlabs_csg_def] >>
+    metis_tac[] ) >>
   match_mp_tac Cenv_bs_change_store >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   simp[bc_state_component_equality] >>
   fs[Cenv_bs_def,s_refs_def,Abbr`d`,good_rd_def])
+
+(*
+val env_rs_change_store = store_thm("env_rs_change_store",
+  ``∀env cs rs rd bs rd' cs' Cs' bs' ck' rf'.
+    env_rs env cs rs rd bs ∧
+    (IS_SOME ck' ⇒ ck' = SOME (FST cs')) ∧
+    bs' = bs with <| refs := rf'; clock := ck'|> ∧
+    LENGTH (SND cs) ≤ LENGTH (SND cs') ∧
+    s_refs rd' (FST cs',Cs') bs' ∧
+    LIST_REL syneq (vs_to_Cvs (MAP FST o_f rs.rmenv) (cmap rs.contab) (SND cs')) Cs' ∧
+    DRESTRICT bs.refs (COMPL (set rd.sm)) ⊑ DRESTRICT rf' (COMPL (set rd'.sm)) ∧
+    rd.sm ≼ rd'.sm ∧ rd.cls ⊑ rd'.cls ∧
+    EVERY all_vlabs Cs' ∧
+    (∀cd. cd ∈ vlabs_list Cs' ⇒ code_env_cd (MAP SND o_f rs.rmenv) bs.code cd)
+    ⇒
+    env_rs env cs' rs rd' bs'``,
+  rw[] >>
+  fs[env_rs_def,LET_THM] >> rfs[] >> fs[] >>
+  rpt HINT_EXISTS_TAC >> simp[] >>
+  qexists_tac`Cs'` >>
+  fs[vs_to_Cvs_MAP] >>
+  simp[CONJ_ASSOC] >>
+  reverse conj_tac >- (
+    match_mp_tac bytecodeProofTheory.Cenv_bs_change_store >>
+    map_every qexists_tac[`rd`,`(FST cs,Cs)`,`bs`,`rf'`,`ck'`] >>
+    simp[bytecodeTheory.bc_state_component_equality] ) >>
+  fs[closed_Clocs_def,closed_vlabs_def] >>
+  fs[EVERY2_EVERY] >>
+  full_simp_tac pure_ss [SUBSET_DEF,IN_COUNT] >>
+  metis_tac[LESS_LESS_EQ_TRANS])
+*)
+
+val env_rs_with_bs_irr = store_thm("env_rs_with_bs_irr",
+  ``∀env cs rs rd bs bs'.
+    env_rs env cs rs rd bs
+    ∧ bs'.globals = bs.globals
+    ∧ bs'.stack = bs.stack
+    ∧ bs'.refs = bs.refs
+    ∧ bs'.clock = bs.clock
+    ∧ bs'.code = bs.code
+    ∧ bs'.inst_length = bs.inst_length
+    ⇒
+    env_rs env cs rs rd bs'``,
+  simp[FORALL_PROD] >> rw[env_rs_def] >>
+  rpt(first_assum(match_exists_tac o concl) >> simp[]) >>
+  match_mp_tac Cenv_bs_with_irr >>
+  HINT_EXISTS_TAC >> rfs[])
+
+val env_rs_append_code = store_thm("env_rs_append_code",
+  ``∀env cs rs rd bs bs' rs' c nl.
+    env_rs env cs rs rd bs ∧
+    bs' = bs with code := bs.code ++ c ∧
+    rs' = rs with rnext_label := nl ∧
+    good_labels nl (FILTER is_Label bs'.code)
+    ⇒
+    env_rs env cs rs' rd bs'``,
+  simp[FORALL_PROD] >>
+  simp[env_rs_def] >>
+  rpt gen_tac >> strip_tac  >>
+  rpt(first_assum(match_exists_tac o concl) >> simp[]) >>
+  conj_tac >- (
+    rw[]>>
+    match_mp_tac code_env_cd_append >>
+    fs[good_labels_def]) >>
+  match_mp_tac Cenv_bs_append_code >>
+  metis_tac[])
+
+val env_rs_can_Print = store_thm("env_rs_can_Print",
+  ``∀env cs rs rd bs n v.
+    env_rs env cs rs rd bs ∧
+    EL n bs.globals = SOME v ∧
+    n ∈ (FRANGE (SND rs.globals_env) ∪
+         BIGUNION (IMAGE FRANGE (FRANGE (FST rs.globals_env))))
+    ⇒
+    can_Print v``,
+  simp_tac std_ss [FORALL_PROD] >>
+  rpt gen_tac >>
+  Q.PAT_ABBREV_TAC`ss:num set = x ∪ y` >>
+  rw[env_rs_def,to_i1_invariant_def,to_i2_invariant_def] >>
+  match_mp_tac (GEN_ALL Cv_bv_can_Print) >>
+  fs[Once v_to_i1_cases] >>
+  fs[Once v_to_i1_cases] >>
+  fs[Cenv_bs_def,env_renv_def,option_case_NONE_F] >>
+  cheat (* looks false *))
 
 val _ = export_theory()
