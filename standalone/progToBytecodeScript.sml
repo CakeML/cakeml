@@ -76,6 +76,13 @@ compile_all_asts asts =
      | Success asts =>
          Success (compile_prog (Tdec initial_program::asts))`;
 
+val compile_all_asts_no_init_def = Define `
+compile_all_asts_no_init asts =
+  case asts of
+     | Failure x => Failure x
+     | Success asts =>
+         Success (compile_prog asts)`;
+
 val remove_labels_all_asts_def = Define `
 remove_labels_all_asts asts =
   case asts of
@@ -352,6 +359,7 @@ val () = add_datatype_info ``:lit`` compset
 val () = add_datatype_info ``:opb`` compset
 val () = add_datatype_info ``:opn`` compset
 val () = add_datatype_info ``:'a id`` compset
+val () = add_datatype_info ``:eq_result`` compset
 (* lexer *)
 val () = computeLib.add_thms
   [lex_until_toplevel_semicolon_def
@@ -716,41 +724,55 @@ local
         (List.map Word8.fromInt [i, (i ~>> 0w8), (i ~>> 0w16), (i ~>> 0w24),
                                  (i ~>> 0w32), (i ~>> 0w40), (i ~>> 0w48), (i ~>> 0w56)])
   end
-in
-  fun do_compile_string infile outfile =
+  fun do_textio istr outfile f =
     let
-      val i = openIn infile;
-      val s = inputAll i;
-      val _ = closeIn i;
-      val thm = computeLib.CBV_CONV compset ``case prog_to_bytecode_string ^(fromMLstring s) of Failure x => "<compile error>" ++ x | Success s => s``
-      val _ = assert (fn x => hyp x = []) thm;
-      val res = fromHOLstring (rhs (concl thm))
-      val out = openOut outfile
-      val _ = output (out, res)
-      val _ = closeOut out
+      val s = inputAll istr
+      val _ = closeIn istr
+      val r = f s
+      val ostr = openOut outfile
+      val _ = output (ostr, r)
+      val _ = closeOut ostr
     in
       ()
     end
-  fun do_compile_binary infile outfile =
+  fun do_binio istr outfile f =
     let
-      val i = openIn infile;
-      val s = inputAll i;
-      val _ = closeIn i;
+      val s = inputAll istr
+      val _ = closeIn istr
+      val r = f s
+      val ostr = BinIO.openOut outfile
+      val _ = List.app (curry BinIO.output ostr) r
+      val _ = BinIO.closeOut ostr
+    in
+      ()
+    end
+  fun compile_string s =
+    let
+      val thm = computeLib.CBV_CONV compset ``case prog_to_bytecode_string ^(fromMLstring s) of Failure x => "<compile error>" ++ x | Success s => s``
+      val _ = assert (fn x => hyp x = []) thm;
+    in
+      fromHOLstring (rhs (concl thm))
+    end
+  fun compile_binary s =
+    let
       val thm = eval ``case prog_to_bytecode_encoded ^(fromMLstring s)
                        of Failure x =>
                          encode_bc_insts (MAP PrintC ("compile error: " ++ x ++ "\n"))
                        | Success s => s``
       val _ = assert (fn x => hyp x = []) thm;
-      val res = thm |> concl |> rhs |> dest_some
-                    |> listSyntax.dest_list |> fst
-                    |> List.map wordsSyntax.uint_of_word
-                    |> List.map encode
-      val out = BinIO.openOut outfile;
-      val _ = List.app (fn ws => BinIO.output (out, ws)) res;
-      val _ = BinIO.closeOut out
     in
-      ()
+      thm |> concl |> rhs |> dest_some
+          |> listSyntax.dest_list |> fst
+          |> List.map wordsSyntax.uint_of_word
+          |> List.map encode
     end
+in
+  fun do_compile_string_istr istr outfile = do_textio istr outfile compile_string
+  fun do_compile_binary_istr istr outfile = do_binio istr outfile compile_binary
+  fun do_compile_string infile = do_compile_string_istr (openIn infile)
+  fun do_compile_binary infile = do_compile_binary_istr (openIn infile)
+  fun do_compile_string_str s = do_compile_string_istr (openString s)
+  fun do_compile_binary_str s = do_compile_binary_istr (openString s)
 end
 
 val initial_bc_state =``
@@ -840,10 +862,16 @@ val () = computeLib.add_thms
   ,bytecodeTheory.bool_to_val_def
   ,bytecodeTheory.bool_to_tag_def
   ,bytecodeTheory.bc_find_loc_def
+  ,bytecodeTerminationTheory.bc_equal_def
+  ,bytecodeTheory.can_Print_def
+  ,printerTheory.ov_to_string_def
+  ,compilerTerminationTheory.bv_to_ov_def
+  ,semanticPrimitivesTheory.int_to_string_def
   ,CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook) bc_evaln_def
   ,LEAST_thm
   ,least_from_thm
   ,compilerLibTheory.el_check_def
+  ,listTheory.LUPDATE_compute
   ] compset
 val () = add_datatype_info ``:bc_state`` compset
 val () = add_datatype_info ``:bc_value`` compset
@@ -855,7 +883,25 @@ val input = ``"val x = 1; val y = x; val it = x+y;"``
 val x1 = eval ``get_all_asts ^(input)``
 val x2 = eval ``elab_all_asts ^(x1 |> concl |> rhs)``
 val x3 = eval ``infer_all_asts ^(x2 |> concl |> rhs)``
+
+val y1 = eval
+  ``let prog = ^(x3 |> concl |> rhs |> rand) in
+    let n = init_compiler_state.next_global in
+    let (m1,m2) = init_compiler_state.globals_env in
+    let (v,v2,m2,p) = prog_to_i1 init_compiler_state.next_global m1 m2 prog in
+    let (v,exh,p) = prog_to_i2 init_compiler_state.contags_env p in
+    let (v,e) = prog_to_i3 (none_tag,SOME(TypeId(Short"option"))) (some_tag,SOME(TypeId(Short"option"))) n p in
+    let e = exp_to_exh exh e in
+    let e = exp_to_pat [] e in
+    let e = exp_to_Cexp e in
+    FLOOKUP m2 "it" ``
+compile_prog_def
+
+val () = computeLib.add_thms [compile_all_asts_no_init_def] compset
+val x4 = eval ``compile_all_asts_no_init ^(x3 |> concl |> rhs)``
+
 val x4 = eval ``compile_all_asts ^(x3 |> concl |> rhs)``
+
 val x5 = eval ``remove_labels_all_asts ^(x4 |> concl |> rhs)``
 
 val th1 = MATCH_MP remove_labels_all_asts_no_labels x5
@@ -866,20 +912,26 @@ val res = x5
 val x6 = eval ``all_asts_to_encoded ^(x5 |> concl |> rhs)``
 
 val code = rand(rhs(concl x5))
-eval ``LENGTH ^code``
+eval ``REVERSE ^code``
 
 val res = eval ``prog_to_bytecode_encoded ^input``
 val res = eval ``prog_to_bytecode_string ^input``
 val res = eval ``prog_to_bytecode ^input``
 
 val input = ``"fun fact n = if n <= 0 then 1 else n * fact (n-1); fact 5;"``
+time (do_compile_binary_str (fromHOLstring input)) "tests/fact5.byte"
 
 val input = ``"val it = 1;"``
+time (do_compile_binary_str (fromHOLstring input)) "tests/it1.byte"
 
-val th1 = eval ``bc_evaln 100 (^initial_bc_state with code := ^(res |> concl |> rhs |> rand))``
+val th1 = eval ``bc_evaln 42 (^initial_bc_state with code := ^(res |> concl |> rhs |> rand))``
 val th2 = eval ``bc_evaln 100 ^(th1 |> concl |> rhs)``
 val th3 = eval ``bc_evaln 100 ^(th2 |> concl |> rhs)``
-val th4 = eval ``bc_eval1 ^(th3 |> concl |> rhs)``
+val thn = th3
+val thn = eval ``bc_evaln 100 ^(thn |> concl |> rhs)``
+val th4 = eval ``bc_eval1 ^(thn |> concl |> rhs)``
+val th4 = eval ``bc_eval1 ^(th1 |> concl |> rhs)``
+bytecodeEvalTheory.bc_eval1_def
 
 
 time (do_compile_binary "tests/test1.ml") "tests/test1.byte"
