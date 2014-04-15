@@ -1085,4 +1085,54 @@ val env_rs_empty = store_thm("env_rs_empty",
   rw[Cenv_bs_def,env_renv_def,s_refs_def,good_rd_def,FEVERY_ALL_FLOOKUP] >>
   cheat)
 
+(* TODO: move *)
+val to_i1_invariant_change_clock = store_thm("to_i1_invariant_change_clock",
+  ``to_i1_invariant genv mods tops menv env s s_i1 mod_names ∧
+    SND s' = SND s ∧ SND s_i1' = SND s_i1 ∧ FST s' = FST s_i1'
+    ⇒
+    to_i1_invariant genv mods tops menv env s' s_i1' mod_names``,
+  simp[to_i1_invariant_def] >>
+  rw[Once s_to_i1_cases] >>
+  rw[Once s_to_i1_cases] >>
+  metis_tac[pair_CASES,PAIR_EQ,SND,FST])
+
+(* TODO: move *)
+val to_i2_invariant_change_clock = store_thm("to_i2_invariant_change_clock",
+  ``to_i2_invariant tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ∧
+    SND s' = SND s ∧ SND s_i2' = SND s_i2 ∧ FST s' = FST s_i2'
+    ⇒
+    to_i2_invariant tids envC exh tagenv_st gtagenv s' s_i2' genv genv_i2``,
+  simp[to_i2_invariant_def] >>
+  rw[Once s_to_i2_cases] >>
+  rw[Once s_to_i2_cases] >>
+  metis_tac[pair_CASES,PAIR_EQ,SND,FST])
+
+val env_rs_change_clock = store_thm("env_rs_change_clock",
+   ``∀env cs rs cz rd bs cs' ck' bs' new_clock.
+     env_rs env cs rs rd bs ∧ cs' = (ck',SND cs) ∧
+     (bs' = bs with clock := new_clock) ∧
+     (new_clock = NONE ∨ new_clock = SOME ck')
+     ⇒
+     env_rs env cs' rs rd bs'``,
+  qx_gen_tac`p` >> PairCases_on`p` >>
+  qx_gen_tac`q` >> PairCases_on`q` >>
+  simp[env_rs_def] >>
+  rpt gen_tac >>
+  Q.PAT_ABBREV_TAC`d = (a ∨ b)` >>
+  strip_tac >>
+  map_every qexists_tac[`genv`,`s1`] >>
+  simp[RIGHT_EXISTS_AND_THM] >>
+  conj_tac >- (
+    metis_tac[to_i1_invariant_change_clock,FST,SND] ) >>
+  map_every qexists_tac[`tids`,`gtagenv`,`s2`,`genv2`] >>
+  conj_tac >- (
+    metis_tac[to_i2_invariant_change_clock,FST,SND] ) >>
+  simp[PULL_EXISTS] >>
+  rpt HINT_EXISTS_TAC >>
+  simp[] >>
+  match_mp_tac Cenv_bs_change_store >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  simp[bc_state_component_equality] >>
+  fs[Cenv_bs_def,s_refs_def,Abbr`d`,good_rd_def])
+
 val _ = export_theory()
