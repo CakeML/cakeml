@@ -1043,24 +1043,33 @@ val good_labels_def = Define`
 
 val env_rs_def = Define`
   env_rs ((envM,envC,envE):all_env) ((cnt,s):v count_store) (rs:compiler_state) rd bs ⇔
-    ∃genv s1 tids exh gtagenv s2 genv2.
+    good_labels rs.rnext_label bs.code ∧
+    (∀n. n ∈ FRANGE (SND rs.globals_env) ∨
+         n ∈ BIGUNION (IMAGE FRANGE (FRANGE (FST rs.globals_env))) ⇒
+         n < rs.next_global) ∧
+    ∃genv s1 tids gtagenv s2 genv2.
       to_i1_invariant
         genv (FST rs.globals_env) (SND rs.globals_env)
         envM envE (cnt,s) (cnt,s1) (set (MAP FST envM)) ∧
       to_i2_invariant
-        tids envC exh (FST rs.contags_env, FST(SND rs.contags_env), ARB:unit, ARB:unit)
+        tids envC rs.exh (FST rs.contags_env, FST(SND rs.contags_env), ARB:unit, ARB:unit)
         gtagenv (cnt,s1) (cnt,s2) genv genv2 ∧
-    let Cs0 = MAP (v_to_Cv o v_to_pat o (v_to_exh exh)) s2 in
-    let Cg0 = MAP (OPTION_MAP (v_to_Cv o v_to_pat o (v_to_exh exh))) genv2 in
+    let Cs0 = MAP (v_to_Cv o v_to_pat o (v_to_exh rs.exh)) s2 in
+    let Cg0 = MAP (OPTION_MAP (v_to_Cv o v_to_pat o (v_to_exh rs.exh))) genv2 in
     ∃Cs Cg.
     LIST_REL syneq Cs0 Cs ∧ LIST_REL (OPTREL syneq) Cg0 Cg ∧
     bs.stack = [] ∧
     Cenv_bs rd ((cnt,Cs),Cg) [] [] 0 bs`
 
 val env_rs_empty = store_thm("env_rs_empty",
-  ``bs.stack = [] ∧ bs.globals = [] ∧ (∀n. bs.clock = SOME n ⇒ n = ck) ∧ rd.sm = [] ∧ rd.cls = FEMPTY ∧ cs = init_compiler_state ⇒
-    env_rs ([],init_envC,[]) (ck,[]) cs rd bs``,
-  simp[env_rs_def,to_i1_invariant_def,to_i2_invariant_def] >> rw[] >>
+  ``bs.stack = [] ∧ bs.globals = [] ∧ FILTER is_Label bs.code = [] ∧
+    (∀n. bs.clock = SOME n ⇒ n = ck) ∧ envs = ([],init_envC,[]) ∧ s = (ck,[]) ∧
+    rd.sm = [] ∧ rd.cls = FEMPTY ∧ cs = init_compiler_state ⇒
+    env_rs envs s cs rd bs``,
+  simp[env_rs_def,to_i1_invariant_def,to_i2_invariant_def] >>
+  strip_tac >>
+  conj_tac >- (EVAL_TAC >> simp[]) >>
+  conj_tac >- (EVAL_TAC >> simp[]) >>
   rw[init_compiler_state_def,get_tagenv_def,cenv_inv_def] >>
   rw[Once v_to_i1_cases] >> rw[Once v_to_i1_cases] >>
   rw[Once s_to_i1_cases] >> rw[Once s_to_i1'_cases] >> rw[Once v_to_i1_cases] >>
