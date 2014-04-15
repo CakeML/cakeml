@@ -1419,11 +1419,13 @@ val env_rs_can_Print = store_thm("env_rs_can_Print",
   simp_tac std_ss [FORALL_PROD] >>
   rpt gen_tac >>
   Q.PAT_ABBREV_TAC`ss:num set = x ∪ y` >>
-  rw[env_rs_def,to_i1_invariant_def,to_i2_invariant_def] >>
+  rw[env_rs_def,Cenv_bs_def,s_refs_def] >>
+  rfs[EVERY2_EVERY] >>
+  fs[EVERY_MEM,MEM_ZIP,PULL_EXISTS,optionTheory.OPTREL_def] >>
+  fs[good_globals_def] >>
+  `n < LENGTH bs.globals` by (
+    fs[Abbr`ss`] >> res_tac >> fs[] >> metis_tac[] ) >>
   match_mp_tac (GEN_ALL Cv_bv_can_Print) >>
-  fs[Once v_to_i1_cases] >>
-  fs[Once v_to_i1_cases] >>
-  fs[Cenv_bs_def,env_renv_def,option_case_NONE_F] >>
-  cheat (* looks false *))
+  metis_tac[optionTheory.NOT_SOME_NONE,optionTheory.SOME_11])
 
 val _ = export_theory()
