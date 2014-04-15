@@ -89,6 +89,12 @@ all_asts_to_string asts =
      | Failure x => Failure x
      | Success bcs => Success (FLAT (MAP (\inst. bc_inst_to_string inst ++ "\n") bcs))`;
 
+val all_asts_to_encoded_def = Define `
+all_asts_to_encoded asts =
+  case asts of
+     | Failure x => Failure x
+     | Success bcs => Success (encode_bc_insts bcs : word64 list option)`;
+
 val prog_to_bytecode_def = Define `
 prog_to_bytecode p =
   remove_labels_all_asts (compile_all_asts (infer_all_asts (elab_all_asts (get_all_asts p))))`;
@@ -164,13 +170,25 @@ val compile_prog_code_ok_thm = prove(
 val FORALL_TRUTH = prove(
   ``(∀x. T) ⇔ T``, rw[])
 
-val compset = intReduce.int_compset()
+val encode_bc_insts_thm = prove(
+  ``∀bcs. encode_bc_insts bcs =
+    let ls = MAP encode_bc_inst bcs in
+    if EXISTS IS_NONE ls then NONE else
+    SOME (FLAT (MAP THE ls))``,
+  Induct >> simp[encode_bc_insts_def] >>
+  fs[LET_THM] >> rw[] >>
+  BasicProvers.CASE_TAC >> fs[])
+
+val compset = wordsLib.words_compset()
 (* TODO: add this to intReduce.sml *)
 val () = computeLib.add_thms [integerTheory.NUM_OF_INT] compset
 (* good libraries which provide compsets :) *)
+val () = intReduce.add_int_compset compset
+(* included in words_compset
 val () = listLib.list_rws compset
 val () = numposrepLib.add_numposrep_compset compset
 val () = ASCIInumbersLib.add_ASCIInumbers_compset compset
+*)
 val () = stringLib.add_string_compset compset
 val () = sumSimps.SUM_rws compset
 val () = optionLib.OPTION_rws compset
@@ -182,6 +200,9 @@ val () = computeLib.add_thms
      ,optionTheory.OPTION_IGNORE_BIND_def
      ,optionTheory.OPTION_CHOICE_def])
   compset
+val () = computeLib.add_thms
+  [optionTheory.OPTION_MAP_DEF
+  ] compset
 (* combin doesn't provide a compset :( *)
 val () = let open combinTheory computeLib
   val K_tm = Term.prim_mk_const{Name="K",Thy="combin"} in
@@ -618,9 +639,16 @@ val () = computeLib.add_conv (``code_labels``,2,code_labels_conv (computeLib.CBV
 val () = computeLib.add_thms
   [prog_to_bytecode_def
   ,prog_to_bytecode_string_def
+  ,prog_to_bytecode_encoded_def
   ,bc_inst_to_string_def
   ,bc_loc_to_string_def
   ,int_to_string2_def
+  ,encode_bc_insts_thm
+  ,encode_bc_inst_def
+  ,CONV_RULE(computeLib.CBV_CONV(wordsLib.words_compset()))
+    (INST_TYPE[alpha|->``:64``]encode_num_def)
+  ,encode_loc_def
+  ,encode_char_def
   ,get_all_asts_def
   ,initial_program_def
   ,init_compiler_state_def
@@ -668,8 +696,11 @@ val () = computeLib.add_thms
   ,infer_all_asts_def
   ,compile_all_asts_def
   ,all_asts_to_string_def
+  ,all_asts_to_encoded_def
   ,remove_labels_all_asts_def
   ] compset
+
+val eval = computeLib.CBV_CONV compset
 
 open TextIO;
 fun do_compile_string infile outfile =
@@ -688,19 +719,21 @@ fun do_compile_string infile outfile =
   end
 
 (*
-val _ = Globals.max_print_depth := 20
+val _ = Globals.max_print_depth := 50
 
-val x1 = computeLib.CBV_CONV compset ``get_all_asts "val x = 1; val y = x; val it = x+y;"``
-val x2 = computeLib.CBV_CONV compset ``elab_all_asts ^(x1 |> concl |> rhs)``
-val x3 = computeLib.CBV_CONV compset ``infer_all_asts ^(x2 |> concl |> rhs)``
-val x4 = computeLib.CBV_CONV compset ``compile_all_asts ^(x3 |> concl |> rhs)``
-val x5 = computeLib.CBV_CONV compset ``remove_labels_all_asts ^(x4 |> concl |> rhs)``
+val input = ``"val x = 1; val y = x; val it = x+y;"``
+val x1 = eval ``get_all_asts ^(input)``
+val x2 = eval ``elab_all_asts ^(x1 |> concl |> rhs)``
+val x3 = eval ``infer_all_asts ^(x2 |> concl |> rhs)``
+val x4 = eval ``compile_all_asts ^(x3 |> concl |> rhs)``
+val x5 = eval ``remove_labels_all_asts ^(x4 |> concl |> rhs)``
+val x6 = eval ``all_asts_to_encoded ^(x5 |> concl |> rhs)``
 
-computeLib.CBV_CONV compset
-  ``prog_to_bytecode_string "val x = 1; val y = x; val it = x+y;"``
+eval ``prog_to_bytecode_encoded ^input``
+eval ``prog_to_bytecode_string ^input``
+eval ``prog_to_bytecode ^input``
 
-computeLib.CBV_CONV compset
-  ``prog_to_bytecode_string "fun fact n = if n <= 0 then 1 else n * fact (n-1); fact 5;"``
+val input = ``"fun fact n = if n <= 0 then 1 else n * fact (n-1); fact 5;"``
 
 do_compile_string "tests/test1.ml" "tests/test1.byte"
 
