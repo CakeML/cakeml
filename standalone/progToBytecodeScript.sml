@@ -104,7 +104,7 @@ prog_to_bytecode_encoded p =
      | Success bcs => Success (encode_bc_insts bcs : word64 list option)`;
 
 open optionLib stringLib listLib
-open cmlParseTheory cmlPEGTheory
+open cmlParseTheory cmlPEGTheory labels_computeLib
 open lexer_funTheory elabTheory inferTheory modLangTheory conLangTheory decLangTheory exhLangTheory patLangTheory
 open intLangTheory toIntLangTheory toBytecodeTheory
 open terminationTheory compilerTerminationTheory
@@ -566,6 +566,10 @@ val () =
   end
 val () = add_datatype_info ``:compiler_result`` compset
 val () = add_datatype_info ``:call_context`` compset
+(* labels removal *)
+(* TODO: need to labels_computeLib.add_code_labels_ok_thm for code coming out of the compiler,
+         using _append_out theorems *)
+val () = computeLib.add_conv (``code_labels``,2,code_labels_conv (computeLib.CBV_CONV compset)) compset
 (* prog to bytecode *)
 val () = computeLib.add_thms
   [prog_to_bytecode_def
@@ -577,10 +581,6 @@ val () = computeLib.add_thms
   ,initial_program_def
   ,init_compiler_state_def
   ,compile_prog_def
-  ,bytecodeLabelsTheory.code_labels_def
-  ,bytecodeLabelsTheory.all_labels_def
-  ,bytecodeLabelsTheory.inst_labels_def
-  ,bytecodeLabelsTheory.collect_labels_def
   ] compset
 val () = add_datatype_info ``:compiler_state`` compset
 
@@ -609,6 +609,12 @@ fun do_compile_string infile outfile =
   end
 
 (*
+val x1 = computeLib.CBV_CONV compset ``get_all_asts "val x = 1; val y = x; val it = x+y;"``
+val x2 = computeLib.CBV_CONV compset ``elab_all_asts ^(x1 |> concl |> rhs)``
+val x3 = computeLib.CBV_CONV compset ``infer_all_asts ^(x2 |> concl |> rhs)``
+val x4 = computeLib.CBV_CONV compset ``compile_all_asts ^(x3 |> concl |> rhs)``
+val x5 = computeLib.CBV_CONV compset ``remove_labels_all_asts ^(x4 |> concl |> rhs)``
+
 computeLib.CBV_CONV compset
   ``prog_to_bytecode_string "val x = 1; val y = x; val it = x+y;"``
 
