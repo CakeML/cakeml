@@ -53,23 +53,42 @@ get_all_asts input =
 (wf_rel_tac `measure LENGTH` >>
  rw [lex_until_toplevel_semicolon_LESS]);
 
+val elab_all_asts_def = Define `
+elab_all_asts asts =
+  case asts of 
+     | Failure x => Failure x
+     | Success asts =>
+         Success (SND (elab_prog init_type_bindings asts))`;
+
+val infer_all_asts_def = Define `
+infer_all_asts asts =
+  case asts of
+     | Failure x => Failure x
+     | Success asts =>
+         case FST (infer_prog init_infer_decls [] init_tenvC init_type_env asts infer$init_infer_state) of
+            | Failure x => Failure x
+            | Success x => Success asts`; 
+
+val compile_all_asts_def = Define `
+compile_all_asts asts =
+  case asts of
+     | Failure x => Failure x
+     | Success asts =>
+         Success (compile_prog (Tdec initial_program::asts))`;
+
+val all_asts_to_string_def = Define `
+all_asts_to_string asts =
+  case asts of
+     | Failure x => Failure x
+     | Success bcs => Success (FLAT (MAP (\inst. bc_inst_to_string inst ++ "\n") bcs))`;
+
 val prog_to_bytecode_def = Define `
 prog_to_bytecode p =
-  case get_all_asts p of
-       Failure x => Failure x
-     | Success asts =>
-         let (x,asts') = elab_prog init_type_bindings asts in
-         case FST (infer_prog init_infer_decls [] init_tenvC init_type_env asts' infer$init_infer_state) of
-              Failure x => Failure x
-            | Success x =>
-                let bc = compile_prog (Tdec initial_program::asts') in
-                  Success bc`;
+  compile_all_asts (infer_all_asts (elab_all_asts (get_all_asts p)))`;
 
 val prog_to_bytecode_string_def = Define `
 prog_to_bytecode_string p =
-  case prog_to_bytecode p of
-     | Failure x => Failure x
-     | Success bcs => Success (FLAT (MAP (\inst. bc_inst_to_string inst ++ "\n") bcs))`;
+  all_asts_to_string (prog_to_bytecode p)`;
 
 val prog_to_bytecode_encoded_def = Define `
 prog_to_bytecode_encoded p =
@@ -81,6 +100,7 @@ open optionLib stringLib listLib
 open cmlParseTheory cmlPEGTheory
 open lexer_funTheory elabTheory inferTheory modLangTheory conLangTheory decLangTheory exhLangTheory patLangTheory
 open intLangTheory toIntLangTheory toBytecodeTheory compilerTerminationTheory
+open terminationTheory
 
 val () = Parse.bring_to_front_overload"Num"{Name="Num",Thy="integer"}
 
@@ -209,6 +229,7 @@ val () = computeLib.add_thms
   [o_f_FEMPTY
   ,FLOOKUP_EMPTY
   ,FLOOKUP_UPDATE
+  ,FLOOKUP_FUNION
   ,DOMSUB_FLOOKUP_THM
   ,FUNION_FEMPTY_1
   ,FUNION_FEMPTY_2
@@ -274,6 +295,7 @@ val () = add_datatype_info ``:exp`` compset
 val () = add_datatype_info ``:tid_or_exn`` compset
 val () = add_datatype_info ``:uop`` compset
 val () = add_datatype_info ``:op`` compset
+val () = add_datatype_info ``:lop`` compset
 val () = add_datatype_info ``:lit`` compset
 val () = add_datatype_info ``:opb`` compset
 val () = add_datatype_info ``:opn`` compset
@@ -458,13 +480,16 @@ val () = computeLib.add_thms
   ,init_tagenv_state_def
   ,get_tagenv_def
   ,lookup_tag_env_def
+  ,lookup_tag_flat_def
   ,num_defs_def
   ,mod_tagenv_def
+  ,insert_tag_env_def
   ,alloc_tag_def
   ] compset
 val () = add_datatype_info ``:prompt_i2`` compset
 val () = add_datatype_info ``:dec_i2`` compset
 val () = add_datatype_info ``:pat_i2`` compset
+val () = add_datatype_info ``:exp_i2`` compset
 (* decLang compiler *)
 val () = computeLib.add_thms
   [prog_to_i3_def
@@ -490,6 +515,9 @@ val () = computeLib.add_thms
   ,sIf_pat_def
   ,ground_pat_def
   ,uop_to_pat_def
+  ,pure_pat_def
+  ,(CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook)) Let_Els_pat_def
+  ,pure_uop_pat_def
   ] compset
 val () = add_datatype_info ``:exp_pat`` compset
 val () = add_datatype_info ``:uop_pat`` compset
@@ -550,6 +578,12 @@ val () = computeLib.add_thms
   ] compset
 val () = add_datatype_info ``:compiler_state`` compset
 
+val () = computeLib.add_thms
+  [elab_all_asts_def
+  ,infer_all_asts
+  ,compile_all_asts
+  ] compset
+
 open TextIO;
 fun do_compile_string infile outfile =
   let
@@ -573,7 +607,19 @@ computeLib.CBV_CONV compset
 computeLib.CBV_CONV compset
   ``prog_to_bytecode_string "fun fact n = if n <= 0 then 1 else n * fact (n-1); fact 5;"``
   
+
 do_compile_string "tests/test1.ml" "tests/test1.byte"
+
+    val i = openIn "tests/test1.ml";
+    val s = inputAll i;
+    val _ = closeIn i;
+    val asts1 = computeLib.CBV_CONV compset ``get_all_asts ^(fromMLstring s)``;
+    val asts2 = computeLib.CBV_CONV compset ``elab_all_asts ^(asts1 |> concl |> rhs)``;
+    val asts3 = computeLib.CBV_CONV compset ``infer_all_asts ^(asts2 |> concl |> rhs)``;
+    val asts4 = computeLib.CBV_CONV compset ``compile_all_asts ^(asts3 |> concl |> rhs)``;
+
+    val thm = computeLib.CBV_CONV compset ``prog_to_bytecode_string ^(fromMLstring s)``
+
 *)
 
 val _ = export_theory ();
