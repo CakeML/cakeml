@@ -702,21 +702,54 @@ val () = computeLib.add_thms
 
 val eval = computeLib.CBV_CONV compset
 
-open TextIO;
-fun do_compile_string infile outfile =
-  let
-    val i = openIn infile;
-    val s = inputAll i;
-    val _ = closeIn i;
-    val thm = computeLib.CBV_CONV compset ``case prog_to_bytecode_string ^(fromMLstring s) of Failure x => "<compile error>" ++ x | Success s => s``
-    val _ = assert (fn x => hyp x = []) thm;
-    val res = fromHOLstring (rhs (concl thm))
-    val out = openOut outfile
-    val _ = output (out, res)
-    val _ = closeOut out
+local
+  open TextIO;
+  (* Specialised for 64-bit little endian *)
+  local
+    open IntInf;
+    infix ~>>
   in
-    ()
+    fun encode (i:int) =
+      Word8Vector.fromList
+        (List.map Word8.fromInt [i, (i ~>> 0w8), (i ~>> 0w16), (i ~>> 0w24),
+                                 (i ~>> 0w32), (i ~>> 0w40), (i ~>> 0w48), (i ~>> 0w56)])
   end
+in
+  fun do_compile_string infile outfile =
+    let
+      val i = openIn infile;
+      val s = inputAll i;
+      val _ = closeIn i;
+      val thm = computeLib.CBV_CONV compset ``case prog_to_bytecode_string ^(fromMLstring s) of Failure x => "<compile error>" ++ x | Success s => s``
+      val _ = assert (fn x => hyp x = []) thm;
+      val res = fromHOLstring (rhs (concl thm))
+      val out = openOut outfile
+      val _ = output (out, res)
+      val _ = closeOut out
+    in
+      ()
+    end
+  fun do_compile_binary infile outfile =
+    let
+      val i = openIn infile;
+      val s = inputAll i;
+      val _ = closeIn i;
+      val thm = eval ``case prog_to_bytecode_encoded ^(fromMLstring s)
+                       of Failure x =>
+                         encode_bc_insts (MAP PrintC ("compile error: " ++ x ++ "\n"))
+                       | Success s => s``
+      val _ = assert (fn x => hyp x = []) thm;
+      val res = thm |> concl |> rhs |> dest_some
+                    |> listSyntax.dest_list |> fst
+                    |> List.map wordsSyntax.uint_of_word
+                    |> List.map encode
+      val out = BinIO.openOut outfile;
+      val _ = List.app (fn ws => BinIO.output (out, ws)) res;
+      val _ = BinIO.closeOut out
+    in
+      ()
+    end
+end
 
 (*
 val _ = Globals.max_print_depth := 50
@@ -734,6 +767,8 @@ eval ``prog_to_bytecode_string ^input``
 eval ``prog_to_bytecode ^input``
 
 val input = ``"fun fact n = if n <= 0 then 1 else n * fact (n-1); fact 5;"``
+
+time (do_compile_binary "tests/test1.ml") "tests/test1.byte"
 
 do_compile_string "tests/test1.ml" "tests/test1.byte"
 
