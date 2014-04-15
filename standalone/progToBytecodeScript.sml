@@ -99,8 +99,8 @@ prog_to_bytecode_encoded p =
 open optionLib stringLib listLib
 open cmlParseTheory cmlPEGTheory
 open lexer_funTheory elabTheory inferTheory modLangTheory conLangTheory decLangTheory exhLangTheory patLangTheory
-open intLangTheory toIntLangTheory toBytecodeTheory compilerTerminationTheory
-open terminationTheory
+open intLangTheory toIntLangTheory toBytecodeTheory
+open terminationTheory compilerTerminationTheory
 
 val () = Parse.bring_to_front_overload"Num"{Name="Num",Thy="integer"}
 
@@ -233,6 +233,7 @@ val () = computeLib.add_thms
   ,DOMSUB_FLOOKUP_THM
   ,FUNION_FEMPTY_1
   ,FUNION_FEMPTY_2
+  ,FUPDATE_LIST_THM
   ] compset
 (* examples/parsing doesn't provide a compset :( *)
 val () = computeLib.add_thms
@@ -549,6 +550,7 @@ val () =
   ,push_lab_def
   ,cons_closure_def
   ,emit_ceenv_def
+  ,emit_ceref_def
   ,update_refptr_def
   ,compile_closures_def
   ,compile_envref_def
@@ -580,8 +582,8 @@ val () = add_datatype_info ``:compiler_state`` compset
 
 val () = computeLib.add_thms
   [elab_all_asts_def
-  ,infer_all_asts
-  ,compile_all_asts
+  ,infer_all_asts_def
+  ,compile_all_asts_def
   ] compset
 
 open TextIO;
