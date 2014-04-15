@@ -278,6 +278,8 @@ val () = computeLib.add_thms
   ,FUNION_FEMPTY_1
   ,FUNION_FEMPTY_2
   ,FUPDATE_LIST_THM
+  ,FDOM_FUPDATE
+  ,FDOM_FEMPTY
   ] compset
 (* examples/parsing doesn't provide a compset :( *)
 val () = computeLib.add_thms
@@ -751,6 +753,101 @@ in
     end
 end
 
+val initial_bc_state =``
+  <| stack := []
+   ; code := []
+   ; pc := 0
+   ; refs := FEMPTY
+   ; globals := []
+   ; handler := 0
+   ; output := ""
+   ; cons_names := []
+   ; inst_length := K 0
+   ; clock := NONE
+   |>``
+
+val bc_evaln_def = Define`
+  (bc_evaln 0 bs = bs) ∧
+  (bc_evaln (SUC n) bs =
+   case bc_eval1 bs of
+   | NONE => bs
+   | SOME bs => bc_evaln n bs)`
+
+val least_from_def = Define`
+  least_from P n = if (∃x. P x ∧ n ≤ x) then $LEAST (λx. P x ∧ n ≤ x) else $LEAST P`
+
+val LEAST_thm = prove(
+  ``$LEAST P = least_from P 0``,
+  rw[least_from_def,ETA_AX])
+
+val least_from_thm = prove(
+  ``least_from P n = if P n then n else least_from P (n+1)``,
+  rw[least_from_def] >>
+  numLib.LEAST_ELIM_TAC >> rw[] >> fs[] >> res_tac >>
+  TRY(metis_tac[arithmeticTheory.LESS_OR_EQ]) >- (
+    numLib.LEAST_ELIM_TAC >> rw[] >> fs[] >- metis_tac[] >>
+    qmatch_rename_tac`a = b`[] >>
+    `n ≤ b` by DECIDE_TAC >>
+    Cases_on`b < a` >-metis_tac[] >>
+    spose_not_then strip_assume_tac >>
+    `a < b` by DECIDE_TAC >>
+    `¬(n + 1 ≤ a)` by metis_tac[] >>
+    `a = n` by DECIDE_TAC >>
+    fs[] )
+  >- (
+    Cases_on`n+1≤x`>-metis_tac[]>>
+    `x = n` by DECIDE_TAC >>
+    fs[] )
+  >- (
+    `¬(n ≤ x)` by metis_tac[] >>
+    `x = n` by DECIDE_TAC >>
+    fs[] ))
+
+val no_labels_def = Define`
+  no_labels = EVERY ($~ o is_Label)`
+val bc_fetch_aux_0_thm = prove(
+  ``∀code pc. bc_fetch_aux code (K 0) pc =
+    if no_labels code then el_check pc code
+    else FAIL (bc_fetch_aux code (K 0) pc) "code has labels"``,
+  REWRITE_TAC[no_labels_def] >>
+  Induct >> simp[bytecodeTheory.bc_fetch_aux_def,compilerLibTheory.el_check_def] >>
+  rw[] >> fs[combinTheory.FAIL_DEF,compilerLibTheory.el_check_def] >>
+  simp[rich_listTheory.EL_CONS,arithmeticTheory.PRE_SUB1])
+
+(* TODO: move? *)
+val inst_labels_no_labels = prove(
+  ``∀ls f. no_labels (inst_labels f ls)``,
+  simp[no_labels_def] >>
+  Induct >> simp[inst_labels_def] >>
+  Cases >> simp[inst_labels_def] >>
+  Cases_on`l`>>simp[inst_labels_def])
+val code_labels_no_labels = prove(
+  ``∀l ls. no_labels (code_labels l ls)``,
+  rw[code_labels_def,inst_labels_no_labels])
+val remove_labels_all_asts_no_labels = prove(
+  ``(remove_labels_all_asts x = Success ls) ⇒ no_labels ls``,
+  Cases_on`x`>>rw[remove_labels_all_asts_def]
+  >> rw[code_labels_no_labels])
+
+val () = computeLib.add_thms
+  [bytecodeEvalTheory.bc_eval_compute
+  ,bytecodeEvalTheory.bc_eval1_def
+  ,bytecodeEvalTheory.bc_eval_stack_def
+  ,bytecodeTheory.bump_pc_def
+  ,bytecodeTheory.bc_fetch_def
+  ,bc_fetch_aux_0_thm
+  ,bytecodeTheory.bc_equality_result_to_val_def
+  ,bytecodeTheory.bool_to_val_def
+  ,bytecodeTheory.bool_to_tag_def
+  ,bytecodeTheory.bc_find_loc_def
+  ,CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook) bc_evaln_def
+  ,LEAST_thm
+  ,least_from_thm
+  ,compilerLibTheory.el_check_def
+  ] compset
+val () = add_datatype_info ``:bc_state`` compset
+val () = add_datatype_info ``:bc_value`` compset
+
 (*
 val _ = Globals.max_print_depth := 50
 
@@ -760,13 +857,30 @@ val x2 = eval ``elab_all_asts ^(x1 |> concl |> rhs)``
 val x3 = eval ``infer_all_asts ^(x2 |> concl |> rhs)``
 val x4 = eval ``compile_all_asts ^(x3 |> concl |> rhs)``
 val x5 = eval ``remove_labels_all_asts ^(x4 |> concl |> rhs)``
+
+val th1 = MATCH_MP remove_labels_all_asts_no_labels x5
+val th2 = eval(th1|>concl|>rand|>listSyntax.mk_length)
+val () = computeLib.add_thms [EQT_INTRO th1,th2] compset
+val res = x5
+
 val x6 = eval ``all_asts_to_encoded ^(x5 |> concl |> rhs)``
 
-eval ``prog_to_bytecode_encoded ^input``
-eval ``prog_to_bytecode_string ^input``
-eval ``prog_to_bytecode ^input``
+val code = rand(rhs(concl x5))
+eval ``LENGTH ^code``
+
+val res = eval ``prog_to_bytecode_encoded ^input``
+val res = eval ``prog_to_bytecode_string ^input``
+val res = eval ``prog_to_bytecode ^input``
 
 val input = ``"fun fact n = if n <= 0 then 1 else n * fact (n-1); fact 5;"``
+
+val input = ``"val it = 1;"``
+
+val th1 = eval ``bc_evaln 100 (^initial_bc_state with code := ^(res |> concl |> rhs |> rand))``
+val th2 = eval ``bc_evaln 100 ^(th1 |> concl |> rhs)``
+val th3 = eval ``bc_evaln 100 ^(th2 |> concl |> rhs)``
+val th4 = eval ``bc_eval1 ^(th3 |> concl |> rhs)``
+
 
 time (do_compile_binary "tests/test1.ml") "tests/test1.byte"
 
