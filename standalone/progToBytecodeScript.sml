@@ -106,7 +106,7 @@ prog_to_bytecode_encoded p =
 open optionLib stringLib listLib
 open cmlParseTheory cmlPEGTheory labels_computeLib
 open lexer_funTheory elabTheory inferTheory modLangTheory conLangTheory decLangTheory exhLangTheory patLangTheory
-open intLangTheory toIntLangTheory toBytecodeTheory
+open intLangTheory toIntLangTheory toBytecodeTheory compilerProofTheory bytecodeLabelsTheory
 open terminationTheory compilerTerminationTheory
 
 val () = Parse.bring_to_front_overload"Num"{Name="Num",Thy="integer"}
@@ -140,6 +140,29 @@ in
         Option.app (fn t => computeLib.set_skip cs t (SOME 1)) case_const)
     end
 end
+
+val compile_Cexp_code_ok_thm = prove(
+  ``∀renv rsz cs exp cs'.
+    (compile_Cexp renv rsz cs exp = cs') ⇒
+    set (free_vars exp) ⊆ count (LENGTH renv) ∧
+    no_labs exp ∧ (cs.out = []) ⇒
+    code_labels_ok (REVERSE cs'.out)``,
+  rw[] >>
+  qspecl_then[`renv`,`rsz`,`cs`,`exp`]mp_tac compile_Cexp_thm >>
+  simp[] >> strip_tac >> simp[] >>
+  PROVE_TAC[REVERSE_APPEND,bytecodeLabelsTheory.code_labels_ok_REVERSE])
+
+val compile_prog_code_ok_thm = prove(
+  ``∀ls.
+    3 ≤ LENGTH ls ∧
+    code_labels_ok (BUTLASTN 3 ls) ∧
+    (∀l. ¬uses_label (LASTN 3 ls) l)
+    ⇒
+    code_labels_ok ls``,
+  PROVE_TAC[code_labels_ok_append,code_labels_ok_no_labs,rich_listTheory.APPEND_BUTLASTN_LASTN])
+
+val FORALL_TRUTH = prove(
+  ``(∀x. T) ⇔ T``, rw[])
 
 val compset = intReduce.int_compset()
 (* TODO: add this to intReduce.sml *)
@@ -176,12 +199,12 @@ val () = computeLib.add_thms
 (* pred_setLib doesn't provide a compset :( *)
 val () = let
   open PFset_conv pred_setLib pred_setSyntax
-  fun in_conv tm =
+  fun in_conv eval tm =
     case strip_comb tm
      of (c,[a1,a2]) =>
           if same_const c in_tm
           then if is_set_spec a2 then SET_SPEC_CONV tm else
-               IN_CONV (computeLib.CBV_CONV compset) tm
+               IN_CONV eval tm
           else raise ERR "in_conv" "not an IN term"
       | otherwise => raise ERR "in_conv" "not an IN term";
   val T_INTRO =
@@ -192,8 +215,8 @@ val () = let
   open pred_setTheory
   in
     List.app (Lib.C computeLib.add_conv compset)
-         [ (in_tm, 2, in_conv),
-           (insert_tm, 2, fn tm => INSERT_CONV (computeLib.CBV_CONV compset) tm),
+         [ (in_tm, 2, in_conv (computeLib.CBV_CONV compset)),
+           (insert_tm, 2, INSERT_CONV (computeLib.CBV_CONV compset)),
            (card_tm, 1, CARD_CONV),
            (max_set_tm, 1, MAX_SET_CONV),
            (sum_image_tm, 2, SUM_IMAGE_CONV)
@@ -219,6 +242,11 @@ val () = let
         SET_EQ_SUBSET, IN_COMPL, POW_EQNS
        ]
   end
+val () = computeLib.add_thms
+  [LIST_TO_SET_THM
+  ,count_EQN
+  ,EMPTY_SUBSET
+  ] compset
 (* finite_mapLib doesn't provide a compset :( *)
 val () = computeLib.add_thms
   [o_f_FEMPTY
@@ -528,47 +556,63 @@ val () = computeLib.add_thms
   ,opn_to_prim2_def
   ,free_labs_def
   ,free_vars_def
+  ,no_labs_def
   ] compset
 val () = add_datatype_info ``:Cprim1`` compset
 val () = add_datatype_info ``:Cprim2`` compset
 (* bytecode compiler *)
 val () =
   let
-    val (l1,l2) = List.partition(equal"compile" o fst o dest_const o fst o strip_comb o lhs o snd o strip_forall o concl)(CONJUNCTS compile_def)
-    val (l2,l3) = List.partition(equal"compile_bindings" o fst o dest_const o fst o strip_comb o lhs o snd o strip_forall o concl) l2
-  in computeLib.add_thms
-  [compile_Cexp_def
-  ,label_closures_def
-  ,bind_fv_def
-  ,shift_def
-  ,mkshift_def
-  ,compile_code_env_def
-  ,cce_aux_def
-  ,get_label_def
-  ,emit_def
-  ,pushret_def
-  ,push_lab_def
-  ,cons_closure_def
-  ,emit_ceenv_def
-  ,emit_ceref_def
-  ,update_refptr_def
-  ,compile_closures_def
-  ,compile_envref_def
-  ,compile_varref_def
-  ,stackshift_def
-  ,stackshiftaux_def
-  ,prim1_to_bc_def
-  ,prim2_to_bc_def
-  ,LIST_CONJ l1
-  ,(CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook)) (LIST_CONJ l2)
-  ,LIST_CONJ l3
-  ] compset
+    val nameof = fst o dest_const o fst o strip_comb o lhs o snd o strip_forall o concl
+    val (l1,l2) = List.partition(equal"compile" o nameof)(CONJUNCTS compile_def)
+    val (l2,l3) = List.partition(equal"compile_bindings" o nameof) l2
+  in
+    computeLib.add_thms
+      [label_closures_def
+      ,bind_fv_def
+      ,shift_def
+      ,mkshift_def
+      ,compile_code_env_def
+      ,cce_aux_def
+      ,get_label_def
+      ,emit_def
+      ,pushret_def
+      ,push_lab_def
+      ,cons_closure_def
+      ,emit_ceenv_def
+      ,emit_ceref_def
+      ,update_refptr_def
+      ,compile_closures_def
+      ,compile_envref_def
+      ,compile_varref_def
+      ,stackshift_def
+      ,stackshiftaux_def
+      ,prim1_to_bc_def
+      ,prim2_to_bc_def
+      ,LIST_CONJ l1
+      ,(CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook)) (LIST_CONJ l2)
+      ,LIST_CONJ l3
+      ] compset
+  end
+val () =
+  let
+    fun compile_Cexp_conv eval tm =
+      let
+        val th = (REWR_CONV compile_Cexp_def THENC eval) tm
+        val th1 = MATCH_MP compile_Cexp_code_ok_thm th
+        val th2 = MP (CONV_RULE(LAND_CONV eval) th1) TRUTH
+        val th3 = CONV_RULE (RAND_CONV eval) th2
+        val () = labels_computeLib.add_code_labels_ok_thm th3
+      in
+        th
+      end
+  in
+    computeLib.add_conv(``compile_Cexp``,4,(compile_Cexp_conv (computeLib.CBV_CONV compset))) compset
   end
 val () = add_datatype_info ``:compiler_result`` compset
 val () = add_datatype_info ``:call_context`` compset
 (* labels removal *)
-(* TODO: need to labels_computeLib.add_code_labels_ok_thm for code coming out of the compiler,
-         using _append_out theorems *)
+val () = labels_computeLib.reset_code_labels_ok_db()
 val () = computeLib.add_conv (``code_labels``,2,code_labels_conv (computeLib.CBV_CONV compset)) compset
 (* prog to bytecode *)
 val () = computeLib.add_thms
@@ -580,9 +624,44 @@ val () = computeLib.add_thms
   ,get_all_asts_def
   ,initial_program_def
   ,init_compiler_state_def
-  ,compile_prog_def
   ] compset
 val () = add_datatype_info ``:compiler_state`` compset
+(* labels removal for the extra printing code added by compile_prog *)
+val () =
+  let
+    fun compile_prog_conv eval tm =
+      let
+        val th = (REWR_CONV compile_prog_def THENC eval) tm
+        fun f ls =
+          let
+            val th1 = SPEC ls compile_prog_code_ok_thm
+            val th2 = MP (CONV_RULE(LAND_CONV eval THENC
+                                    (* this could be sped up if necessary *)
+                                    PURE_REWRITE_CONV[FORALL_TRUTH,AND_CLAUSES])
+                                   th1)
+                         TRUTH
+          in
+            labels_computeLib.add_code_labels_ok_thm th2
+          end
+        val ls = rhs(concl th)
+        val _ = Lib.total f ls
+      in
+        th
+      end
+    fun code_labels_ok_conv tm =
+      EQT_INTRO
+        (labels_computeLib.get_code_labels_ok_thm
+          (rand tm))
+  in
+    computeLib.add_thms
+      [rich_listTheory.BUTLASTN_compute
+      ,rich_listTheory.LASTN_compute
+      ,uses_label_def
+      ] compset ;
+    add_datatype_info ``:bc_inst`` compset ;
+    computeLib.add_conv(``code_labels_ok``,1,code_labels_ok_conv) compset ;
+    computeLib.add_conv(``compile_prog``,1,(compile_prog_conv (computeLib.CBV_CONV compset))) compset
+  end
 
 val () = computeLib.add_thms
   [elab_all_asts_def
@@ -609,6 +688,8 @@ fun do_compile_string infile outfile =
   end
 
 (*
+val _ = Globals.max_print_depth := 20
+
 val x1 = computeLib.CBV_CONV compset ``get_all_asts "val x = 1; val y = x; val it = x+y;"``
 val x2 = computeLib.CBV_CONV compset ``elab_all_asts ^(x1 |> concl |> rhs)``
 val x3 = computeLib.CBV_CONV compset ``infer_all_asts ^(x2 |> concl |> rhs)``
@@ -620,7 +701,6 @@ computeLib.CBV_CONV compset
 
 computeLib.CBV_CONV compset
   ``prog_to_bytecode_string "fun fact n = if n <= 0 then 1 else n * fact (n-1); fact 5;"``
-  
 
 do_compile_string "tests/test1.ml" "tests/test1.byte"
 

@@ -161,11 +161,13 @@ in
         db := Net.insert(tm,th) (!db)
       else ()
     end
+  val last_code_not_found = ref listSyntax.nil_tm
   fun get_code_labels_ok_thm tm =
     case Net.index tm (!db) of th::_ => th
     | [] =>
-      ( HOL_WARNING "labels_computeLib" "get_code_labels_ok_thm" "code_labels_ok theorem not found. cheating."
-      ; mk_thm([],mk_comb(``code_labels_ok``,tm)))
+      ( last_code_not_found := tm
+      ; raise (mk_HOL_ERR "labels_computeLib" "get_code_labels_ok_thm" "code_labels_ok theorem not found."))
+  fun code_labels_ok_thms() = Net.listItems(!db)
 
   val mk_def = let
     val iref = ref 0

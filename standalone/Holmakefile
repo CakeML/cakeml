@@ -1,11 +1,11 @@
-INCLUDES = .. ../parsing ../semantics ../inference ../compiler ../bytecode
+INCLUDES = .. ../parsing ../semantics ../inference ../compiler ../bytecode ../compiler/proofs
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
 HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../parsing/cmlParseTheory ../inference/inferTheory ../compiler/compilerTerminationTheory ../parsing/lexer_implTheory ../bytecode/bytecodeLabelsTheory ../semantics/typeSystemTheory ../semantics/lexer_funTheory ../compiler/compilerTheory 
+BARE_THYS = ../parsing/cmlParseTheory ../inference/inferTheory ../compiler/compilerTerminationTheory ../parsing/lexer_implTheory ../bytecode/bytecodeLabelsTheory ../semantics/typeSystemTheory ../semantics/lexer_funTheory ../compiler/proofs/compilerProofTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
