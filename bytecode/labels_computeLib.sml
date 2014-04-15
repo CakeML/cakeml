@@ -1,6 +1,6 @@
 structure labels_computeLib = struct
 local
-  open HolKernel bytecodeLabelsTheory labels_computeTheory patriciaLib
+  open HolKernel boolLib bossLib bytecodeLabelsTheory labels_computeTheory patriciaLib
 
   val Addr_tm = ``Addr``
   fun mk_Addr x = mk_comb(Addr_tm,x)
