@@ -153,7 +153,7 @@ val _ = Define `
            e) in
   let r = ((case FLOOKUP m2 "it" of
                  NONE => r
-             | SOME n => let r = (emit r [Gread (n -  1); Print]) in
+             | SOME n => let r = (emit r [Gread n; Print]) in
                          emit r (MAP PrintC (EXPLODE "\n"))
            )) in REVERSE (r.out)
   )

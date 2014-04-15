@@ -117,7 +117,7 @@ let compile_prog prog =
   let r = compile_Cexp [] 0 <| out = []; next_label = init_compiler_state.rnext_label |> e in
   let r = match Map.lookup "it" m2 with
           | Nothing -> r
-          | Just n -> let r = emit r [Gread (n-1); Print] in
+          | Just n -> let r = emit r [Gread n; Print] in
                         emit r (List.map PrintC (toCharList "\n"))
           end in
   List.reverse (r.out)
