@@ -141,14 +141,14 @@ in
     end
 end
 
-(* have to start with this since it doesn't provide an extension :( *)
 val compset = intReduce.int_compset()
-(* and it doesn't even include all relevant integer stuff :( *)
+(* TODO: add this to intReduce.sml *)
 val () = computeLib.add_thms [integerTheory.NUM_OF_INT] compset
 (* good libraries which provide compsets :) *)
 val () = listLib.list_rws compset
 val () = numposrepLib.add_numposrep_compset compset
 val () = ASCIInumbersLib.add_ASCIInumbers_compset compset
+val () = stringLib.add_string_compset compset
 val () = sumSimps.SUM_rws compset
 val () = optionLib.OPTION_rws compset
 (* extra option thms :/ *)
@@ -219,18 +219,6 @@ val () = let
         SET_EQ_SUBSET, IN_COMPL, POW_EQNS
        ]
   end
-(* stringLib doesn't provide a compset :( *)
-val () = computeLib.add_thms
-  [stringTheory.IMPLODE_EXPLODE_I
-  ,stringTheory.CHAR_EQ_THM
-  ,stringTheory.ORD_CHR_COMPUTE
-  ,stringTheory.isDigit_def
-  ,stringTheory.isAlpha_def
-  ,stringTheory.isLower_def
-  ,stringTheory.isUpper_def
-  ,stringTheory.isSpace_def
-  ] compset
-val () = computeLib.add_conv (stringSyntax.ord_tm, 1, stringLib.ORD_CHR_CONV) compset
 (* finite_mapLib doesn't provide a compset :( *)
 val () = computeLib.add_thms
   [o_f_FEMPTY
