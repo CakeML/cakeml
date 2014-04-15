@@ -279,12 +279,17 @@ val () = computeLib.add_thms
   ,terminationTheory.is_value_def
   ,pat_bindings_def
   ,typeSystemTheory.merge_tenvC_def
+  ,bytecodeTheory.bool_to_tag_def
   ,bytecodeTheory.unit_tag_def
   ,bytecodeTheory.closure_tag_def
+  ,bytecodeTheory.string_tag_def
   ,bytecodeTheory.block_tag_def
   ,conLangTheory.tuple_tag_def
   ,conLangTheory.div_tag_def
+  ,conLangTheory.bind_tag_def
   ,conLangTheory.eq_tag_def
+  ,conLangTheory.cons_tag_def
+  ,conLangTheory.nil_tag_def
   ,conLangTheory.some_tag_def
   ,conLangTheory.none_tag_def
   ] compset
