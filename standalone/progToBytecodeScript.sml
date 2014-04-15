@@ -76,6 +76,13 @@ compile_all_asts asts =
      | Success asts =>
          Success (compile_prog (Tdec initial_program::asts))`;
 
+val remove_labels_all_asts_def = Define `
+remove_labels_all_asts asts =
+  case asts of
+     | Failure x => Failure x
+     | Success asts =>
+         Success (code_labels (\x. 0) asts)`;
+
 val all_asts_to_string_def = Define `
 all_asts_to_string asts =
   case asts of
@@ -84,7 +91,7 @@ all_asts_to_string asts =
 
 val prog_to_bytecode_def = Define `
 prog_to_bytecode p =
-  compile_all_asts (infer_all_asts (elab_all_asts (get_all_asts p)))`;
+  remove_labels_all_asts (compile_all_asts (infer_all_asts (elab_all_asts (get_all_asts p))))`;
 
 val prog_to_bytecode_string_def = Define `
 prog_to_bytecode_string p =
@@ -582,6 +589,10 @@ val () = computeLib.add_thms
   ,initial_program_def
   ,init_compiler_state_def
   ,compile_prog_def
+  ,bytecodeLabelsTheory.code_labels_def
+  ,bytecodeLabelsTheory.all_labels_def
+  ,bytecodeLabelsTheory.inst_labels_def
+  ,bytecodeLabelsTheory.collect_labels_def
   ] compset
 val () = add_datatype_info ``:compiler_state`` compset
 
@@ -589,6 +600,8 @@ val () = computeLib.add_thms
   [elab_all_asts_def
   ,infer_all_asts_def
   ,compile_all_asts_def
+  ,all_asts_to_string_def
+  ,remove_labels_all_asts_def
   ] compset
 
 open TextIO;
@@ -597,7 +610,7 @@ fun do_compile_string infile outfile =
     val i = openIn infile;
     val s = inputAll i;
     val _ = closeIn i;
-    val thm = computeLib.CBV_CONV compset ``prog_to_bytecode_string ^(fromMLstring s)``
+    val thm = computeLib.CBV_CONV compset ``case prog_to_bytecode_string ^(fromMLstring s) of Failure x => "<compile error>" ++ x | Success s => s``
     val _ = assert (fn x => hyp x = []) thm;
     val res = fromHOLstring (rhs (concl thm))
     val out = openOut outfile
@@ -621,9 +634,16 @@ do_compile_string "tests/test1.ml" "tests/test1.byte"
     val s = inputAll i;
     val _ = closeIn i;
     val asts1 = computeLib.CBV_CONV compset ``get_all_asts ^(fromMLstring s)``;
+    val asts1 = computeLib.CBV_CONV compset ``get_all_asts "val x = 1;"``;
+
+
+
     val asts2 = computeLib.CBV_CONV compset ``elab_all_asts ^(asts1 |> concl |> rhs)``;
     val asts3 = computeLib.CBV_CONV compset ``infer_all_asts ^(asts2 |> concl |> rhs)``;
     val asts4 = computeLib.CBV_CONV compset ``compile_all_asts ^(asts3 |> concl |> rhs)``;
+    val asts5 = computeLib.CBV_CONV compset ``remove_labels_all_asts ^(asts4 |> concl |> rhs)``;
+    val asts6 = computeLib.CBV_CONV compset ``all_asts_to_string ^(asts5 |> concl |> rhs)``;
+
 
     val thm = computeLib.CBV_CONV compset ``prog_to_bytecode_string ^(fromMLstring s)``
 
