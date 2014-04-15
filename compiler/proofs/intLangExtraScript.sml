@@ -2060,33 +2060,30 @@ val code_env_cd_def = Define`
       EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc0) ∧ l < cs.next_label ∧
       (code = bc0 ++ Label l :: (REVERSE cc) ++ bc1)`
 
-(*
 val closed_vlabs_def = Define`
-  closed_vlabs Cmenv Cenv Cs cmnv code ⇔
-    EVERY all_vlabs Cs ∧ EVERY all_vlabs Cenv ∧ all_vlabs_menv Cmenv ∧
-    (∀cd. cd ∈ vlabs_list Cs ⇒ code_env_cd cmnv code cd) ∧
-    (∀cd. cd ∈ vlabs_list Cenv ⇒ code_env_cd cmnv code cd) ∧
-    (∀cd. cd ∈ vlabs_menv Cmenv ⇒ code_env_cd cmnv code cd)`
+  closed_vlabs env csg code ⇔
+    all_vlabs_csg csg ∧ all_vlabs_list env ∧
+    (∀cd. cd ∈ vlabs_csg csg ⇒ code_env_cd code cd) ∧
+    (∀cd. cd ∈ vlabs_list env ⇒ code_env_cd code cd)`
 
 val Cevaluate_closed_vlabs = store_thm("Cevaluate_closed_vlabs",
-  ``∀menv s env exp res cmnv code.
-    closed_vlabs menv env (SND s) cmnv code ∧
-    Cevaluate menv s env exp res ∧ all_labs exp ∧
-    (∀cd. MEM cd (free_labs (LENGTH env) exp) ⇒ code_env_cd cmnv code cd)
+  ``∀s env exp res code.
+    closed_vlabs env s code ∧
+    Cevaluate s env exp res ∧ all_labs exp ∧
+    (∀cd. MEM cd (free_labs (LENGTH env) exp) ⇒ code_env_cd code cd)
     ⇒
-    closed_vlabs menv env (SND(FST res)) cmnv code ∧
-    (∀v. SND res = Cval v ∨ SND res = Cexc (Craise v) ⇒
+    closed_vlabs env (FST res) code ∧
+    (∀v. SND res = Rval v ∨ SND res = Rerr (Rraise v) ⇒
       all_vlabs v ∧
-      vlabs v ⊆ vlabs_menv menv ∪ vlabs_list (SND s) ∪ vlabs_list env ∪ set (free_labs (LENGTH env) exp))``,
+      vlabs v ⊆ vlabs_csg s ∪ vlabs_list env ∪ set (free_labs (LENGTH env) exp))``,
   rpt gen_tac >>
   simp[closed_vlabs_def] >>
   strip_tac >>
-  qspecl_then[`menv`,`s`,`env`,`exp`,`res`]mp_tac(CONJUNCT1 Cevaluate_vlabs)>>
-  qspecl_then[`menv`,`s`,`env`,`exp`,`res`]mp_tac(CONJUNCT1 Cevaluate_all_vlabs)>>
+  qspecl_then[`s`,`env`,`exp`,`res`]mp_tac(CONJUNCT1 Cevaluate_vlabs)>>
+  qspecl_then[`s`,`env`,`exp`,`res`]mp_tac(CONJUNCT1 Cevaluate_all_vlabs)>>
   simp[] >>
   rw[] >> fs[SUBSET_DEF] >>
   metis_tac[])
-*)
 
 (* mkshift *)
 
@@ -2407,24 +2404,6 @@ val no_labs_shift = store_thm("no_labs_shift",
   simp[shift_def])
 val _ = export_rewrites["no_labs_shift"]
 
-(*
-val all_labs_mkshift = store_thm("all_labs_mkshift",
-  ``∀f k e. all_labs (mkshift f k e) = all_labs e``,
-  ho_match_mp_tac mkshift_ind >>
-  srw_tac[DNF_ss][EVERY_MEM,MEM_MAP,LET_THM] >- (
-    rw[EQ_IMP_THM] >- (
-      res_tac >> BasicProvers.EVERY_CASE_TAC >> fs[] >>
-      res_tac >> rfs[] ) >>
-    BasicProvers.EVERY_CASE_TAC >> fs[] >>
-    res_tac >> fs[] ) >>
-  BasicProvers.EVERY_CASE_TAC >> fs[])
-val _ = export_rewrites["all_labs_mkshift"]
-
-val all_labs_shift = store_thm("all_labs_shift",
-  ``(all_labs (shift k n e)) = all_labs e``,
-  simp[shift_def])
-val _ = export_rewrites["all_labs_shift"]
-
 val all_labs_free_labs = store_thm("all_labs_free_labs",
   ``(∀e. all_labs e ⇒ ∀z. all_labs_list (MAP (SND o SND o SND) (free_labs z e))) ∧
     (∀es. all_labs_list es ⇒ ∀z. all_labs_list (MAP (SND o SND o SND) (free_labs_list z es))) ∧
@@ -2455,6 +2434,24 @@ val free_labs_free_labs = store_thm("free_labs_free_labs",
   unabbrev_all_tac >>
   simp[IMAGE_COMPOSE,GSYM LIST_TO_SET_MAP] >>
   metis_tac[MAP_SND_free_labs_any_ez])
+
+(*
+val all_labs_mkshift = store_thm("all_labs_mkshift",
+  ``∀f k e. all_labs (mkshift f k e) = all_labs e``,
+  ho_match_mp_tac mkshift_ind >>
+  srw_tac[DNF_ss][EVERY_MEM,MEM_MAP,LET_THM] >- (
+    rw[EQ_IMP_THM] >- (
+      res_tac >> BasicProvers.EVERY_CASE_TAC >> fs[] >>
+      res_tac >> rfs[] ) >>
+    BasicProvers.EVERY_CASE_TAC >> fs[] >>
+    res_tac >> fs[] ) >>
+  BasicProvers.EVERY_CASE_TAC >> fs[])
+val _ = export_rewrites["all_labs_mkshift"]
+
+val all_labs_shift = store_thm("all_labs_shift",
+  ``(all_labs (shift k n e)) = all_labs e``,
+  simp[shift_def])
+val _ = export_rewrites["all_labs_shift"]
 
 (* Cevaluate deterministic *)
 
