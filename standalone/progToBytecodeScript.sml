@@ -1,6 +1,7 @@
 open preamble;
 open intLib wordsLib unifyLib;
 open astTheory initialEnvTheory lexer_implTheory;
+open terminationTheory;
 open compilerTheory;
 open compilerTerminationTheory bytecodeEncodeTheory;
 
@@ -268,6 +269,7 @@ val () = computeLib.add_thms
 val () = add_datatype_info ``:MMLnonT`` compset
 val () = add_datatype_info ``:top`` compset
 val () = add_datatype_info ``:dec`` compset
+val () = add_datatype_info ``:pat`` compset
 val () = add_datatype_info ``:exp`` compset
 val () = add_datatype_info ``:tid_or_exn`` compset
 val () = add_datatype_info ``:uop`` compset
@@ -275,6 +277,7 @@ val () = add_datatype_info ``:op`` compset
 val () = add_datatype_info ``:lit`` compset
 val () = add_datatype_info ``:opb`` compset
 val () = add_datatype_info ``:opn`` compset
+val () = add_datatype_info ``:'a id`` compset
 (* lexer *)
 val () = computeLib.add_thms
   [lex_until_toplevel_semicolon_def
@@ -381,6 +384,8 @@ val () = computeLib.add_thms
   [elab_prog_def
   ,elab_top_def
   ,elab_dec_def
+  ,elab_t_def
+  ,init_type_bindings_def
   ] compset
 (* inferencer *)
 val () = unifyLib.reset_wfs_thms()
@@ -393,6 +398,12 @@ val () = computeLib.add_thms
   ,infer_p_def
   ,st_ex_bind_def
   ,st_ex_return_def
+  ,libTheory.lookup_def
+  ,libTheory.opt_bind_def
+  ,libTheory.emp_def
+  ,lookup_tenvC_st_ex_def
+  ,typeSystemTheory.merge_tenvC_def
+  ,init_tenvC_def
   ,lookup_st_ex_def
   ,init_state_def
   ,get_next_uvar_def
@@ -410,9 +421,16 @@ val () = computeLib.add_thms
   ,Infer_Tfn_def
   ,Infer_Tint_def
   ,Infer_Tbool_def
+  ,Infer_Tref_def
+  ,Infer_Tunit_def
   ,init_infer_decls_def
   ,init_infer_state_def
   ,init_type_env_def
+  ,typeSystemTheory.check_exn_tenv_def
+  ,check_freevars_def
+  ,mk_id_def
+  ,infer_type_subst_def
+  ,typeSystemTheory.tid_exn_to_tc_def
   ] compset
 val () = add_datatype_info ``:infer_t`` compset
 val () = add_datatype_info ``:atom`` compset
@@ -442,6 +460,7 @@ val () = computeLib.add_thms
   ,lookup_tag_env_def
   ,num_defs_def
   ,mod_tagenv_def
+  ,alloc_tag_def
   ] compset
 val () = add_datatype_info ``:prompt_i2`` compset
 val () = add_datatype_info ``:dec_i2`` compset
@@ -531,12 +550,30 @@ val () = computeLib.add_thms
   ] compset
 val () = add_datatype_info ``:compiler_state`` compset
 
+open TextIO;
+fun do_compile_string infile outfile =
+  let
+    val i = openIn infile;
+    val s = inputAll i;
+    val _ = closeIn i;
+    val thm = computeLib.CBV_CONV compset ``prog_to_bytecode_string ^(fromMLstring s)``
+    val _ = assert (fn x => hyp x = []) thm;
+    val res = fromHOLstring (rhs (concl thm))
+    val out = openOut outfile
+    val _ = output (out, res)
+    val _ = closeOut out
+  in
+    ()
+  end
+
 (*
 computeLib.CBV_CONV compset
   ``prog_to_bytecode_string "val x = 1; val y = x; val it = x+y;"``
 
 computeLib.CBV_CONV compset
-  ``prog_to_bytecode "fun fact n = if n <= 0 then 1 else n * fact (n-1); fact 5;"``
+  ``prog_to_bytecode_string "fun fact n = if n <= 0 then 1 else n * fact (n-1); fact 5;"``
+  
+do_compile_string "tests/test1.ml" "tests/test1.byte"
 *)
 
 val _ = export_theory ();
