@@ -81,6 +81,8 @@ open cmlParseTheory cmlPEGTheory
 open lexer_funTheory elabTheory inferTheory modLangTheory conLangTheory decLangTheory exhLangTheory patLangTheory
 open intLangTheory toIntLangTheory toBytecodeTheory compilerTerminationTheory
 
+val () = Parse.bring_to_front_overload"Num"{Name="Num",Thy="integer"}
+
 (* computeLib only adds datatype support for the_compset :(. this code is copied
    and modified slightly to allow building custom compsets with datatype support. *)
 local
@@ -111,8 +113,12 @@ in
     end
 end
 
-val compset = listLib.list_compset()
+(* have to start with this since it doesn't provide an extension :( *)
+val compset = intReduce.int_compset()
+(* and it doesn't even include all relevant integer stuff :( *)
+val () = computeLib.add_thms [integerTheory.NUM_OF_INT] compset
 (* good libraries which provide compsets :) *)
+val () = listLib.list_rws compset
 val () = numposrepLib.add_numposrep_compset compset
 val () = ASCIInumbersLib.add_ASCIInumbers_compset compset
 val () = sumSimps.SUM_rws compset
@@ -527,10 +533,7 @@ val () = add_datatype_info ``:compiler_state`` compset
 
 (*
 computeLib.CBV_CONV compset
-  ``prog_to_bytecode "val x = 1; val y = x; val it = x+y;"``
-
-computeLib.CBV_CONV compset
-  ``toString (Num (1:int))``
+  ``prog_to_bytecode_string "val x = 1; val y = x; val it = x+y;"``
 
 computeLib.CBV_CONV compset
   ``prog_to_bytecode "fun fact n = if n <= 0 then 1 else n * fact (n-1); fact 5;"``
