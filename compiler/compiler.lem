@@ -86,12 +86,13 @@ compile_print_top (Just types) (Tdec dec) cs =
   compile_print_dec types dec cs
 
 let compile_top types cs top =
+  let n = cs.next_global in
   let (m1,m2) = cs.globals_env in
-  let (n,m1,m2,p) = top_to_i1 cs.next_global m1 m2 top in
+  let (_,m1,m2,p) = top_to_i1 n m1 m2 top in
   let (c,exh,p) = prompt_to_i2 cs.contags_env p in
   let (n,e) = prompt_to_i3 (none_tag, Just (TypeId (Short "option"))) (some_tag, Just (TypeId (Short "option"))) n p in
-  let exh' = Map.(union) exh cs.exh in
-  let e = exp_to_exh exh' e in
+  let exh = Map.(union) exh cs.exh in
+  let e = exp_to_exh exh e in
   let e = exp_to_pat [] e in
   let e = exp_to_Cexp e in
   let r = compile_Cexp [] 0 <| out = []; next_label = cs.rnext_label |> e in
@@ -99,16 +100,17 @@ let compile_top types cs top =
   let cs = <| next_global = n
             ; globals_env = (m1,m2)
             ; contags_env = c
-            ; exh = exh'
+            ; exh = exh
             ; rnext_label = r.next_label
             |> in
   (cs, r.out)
 
 let compile_prog prog =
+  let n = init_compiler_state.next_global in
   let (m1,m2) = init_compiler_state.globals_env in
-  let (n,m1,m2,p) = prog_to_i1 init_compiler_state.next_global m1 m2 prog in
-  let (c,exh,p) = prog_to_i2 init_compiler_state.contags_env p in
-  let (n,e) = prog_to_i3 (none_tag, Just (TypeId (Short "option"))) (some_tag, Just (TypeId (Short "option"))) n p in
+  let (_,_,m2,p) = prog_to_i1 init_compiler_state.next_global m1 m2 prog in
+  let (_,exh,p) = prog_to_i2 init_compiler_state.contags_env p in
+  let (_,e) = prog_to_i3 (none_tag, Just (TypeId (Short "option"))) (some_tag, Just (TypeId (Short "option"))) n p in
   let e = exp_to_exh exh e in
   let e = exp_to_pat [] e in
   let e = exp_to_Cexp e in
