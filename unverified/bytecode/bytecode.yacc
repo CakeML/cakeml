@@ -1,8 +1,11 @@
 %{
 #include <stdio.h>
 #include <stdlib.h>
-#include "bytecode_inst.h"
 %}
+
+%code requires{
+#include "bytecode_inst.h"
+}
 
 
 %union {
@@ -48,9 +51,9 @@ num_or_int:
      if ($1 > LONG_MAX) 
        yyerror(&yylloc, NULL, "number too big");
      else
-       $$ = (long)$1 
+       $$ = (long)$1;
    }
- | INT_T { $$ = $1 }
+ | INT_T { $$ = $1; }
 
 stack_op: 
    POP_T {
