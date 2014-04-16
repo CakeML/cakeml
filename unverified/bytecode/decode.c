@@ -198,11 +198,11 @@ inst_list* decode(FILE *in) {
 	next_inst->car.args.num = decode_num(in, inst_num);
 	break;
       case 37:
-        next_inst->car.tag = galloc_i;
+        next_inst->car.tag = gupdate_i;
 	next_inst->car.args.num = decode_num(in, inst_num);
 	break;
       case 38:
-        next_inst->car.tag = galloc_i;
+        next_inst->car.tag = gread_i;
 	next_inst->car.args.num = decode_num(in, inst_num);
 	break;
       case 39:
