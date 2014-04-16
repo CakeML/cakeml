@@ -1239,7 +1239,7 @@ val gtagenv_weak_trans = Q.prove (
  metis_tac []);
 
 val get_next_def = Define `
-get_next (a,b,c,d) = a`;
+get_next ((a,b,c),d) = a`;
 
 val alloc_tags_invariant_def = Define `
 alloc_tags_invariant tids tagenv_st gtagenv ⇔
@@ -1400,7 +1400,7 @@ val get_next_lem = Q.prove (
  srw_tac [ARITH_ss] [get_next_def, alloc_tag_def]);
 
 val get_tagacc_def = Define `
-get_tagacc (a,b,c,d) = d`;
+get_tagacc (x,d) = d`;
 
 (*
 val alloc_tags_eqn = Q.prove (
@@ -1899,10 +1899,10 @@ val dummy_env_to_i2 = Q.prove (
 
 val to_i2_invariant_def = Define `
 to_i2_invariant tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ⇔
-  cenv_inv envC exh (get_tagenv tagenv_st) gtagenv ∧
+  cenv_inv envC exh (FST (SND tagenv_st)) gtagenv ∧
   s_to_i2 gtagenv s s_i2 ∧
   genv_to_i2 gtagenv genv genv_i2 ∧
-  alloc_tags_invariant tids tagenv_st gtagenv`;
+  alloc_tags_invariant tids (tagenv_st,FEMPTY:conN |-> (num # tid_or_exn option)) gtagenv`;
 
   (*
 
@@ -1937,23 +1937,23 @@ fun dec_lem t =
  SIMP_RULE (srw_ss()) [PULL_FORALL]) decs_to_i2_correct
 
 val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
-`!ck genv envC s tids mods prompt s_i2 genv_i2 next tagenv inv prompt_i2 genv' envC' s' tids' mods' res gtagenv next' tagenv' inv' exh exh'.
+`!ck genv envC s tids mods prompt s_i2 genv_i2 tagenv_st prompt_i2 genv' envC' s' tids' mods' res gtagenv tagenv_st' exh exh'.
   evaluate_prompt_i1 ck genv envC (s,tids,mods) prompt ((s',tids',mods'), envC', genv', res) ∧
   res ≠ SOME Rtype_error ∧
-  to_i2_invariant tids envC exh (next,tagenv,inv,(FEMPTY:flat_tag_env)) gtagenv s s_i2 genv genv_i2 ∧
-  ((next',tagenv',inv'), exh', prompt_i2) = prompt_to_i2 (next,tagenv,inv) prompt
+  to_i2_invariant tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ∧
+  (tagenv_st', exh', prompt_i2) = prompt_to_i2 tagenv_st prompt
   ⇒
   ?genv'_i2 s'_i2 res_i2 gtagenv'.
     gtagenv_weak gtagenv gtagenv' ∧
     evaluate_prompt_i2 ck exh genv_i2 s_i2 prompt_i2 (s'_i2,genv'_i2,res_i2) ∧
-    to_i2_invariant tids' (merge_envC envC' envC) (FUNION exh' exh) (next',tagenv',inv',(FEMPTY:flat_tag_env)) gtagenv' s' s'_i2 (genv++genv') (genv_i2 ++ genv'_i2) ∧
+    to_i2_invariant tids' (merge_envC envC' envC) (FUNION exh' exh) tagenv_st' gtagenv' s' s'_i2 (genv++genv') (genv_i2 ++ genv'_i2) ∧
     (res = NONE ∧ res_i2 = NONE ∨
      ?err err_i2. res = SOME err ∧ res_i2 = SOME err_i2 ∧ result_to_i2 (\a b c. T) gtagenv' (Rerr err) (Rerr err_i2))`,
  rw [evaluate_prompt_i1_cases, evaluate_prompt_i2_cases, prompt_to_i2_def, LET_THM] >>
  every_case_tac >>
  fs [] >>
  rw [] >>
- `?next' tagenv' inv'' acc exh'' ds_i2. decs_to_i2 (next,tagenv,inv',FEMPTY) ds = ((next',tagenv',inv'',acc),exh'',ds_i2)` by metis_tac [pair_CASES] >>
+ `?next' tagenv' inv'' acc exh'' ds_i2. decs_to_i2 (tagenv_st,FEMPTY) ds = (((next',tagenv',inv''),acc),exh'',ds_i2)` by metis_tac [pair_CASES] >>
  fs [] >>
  rw [] >>
  fs [to_i2_invariant_def]
@@ -1962,13 +1962,15 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
        evaluate_decs_i2 ck exh genv_i2 s_i2 ds_i2 (s'_i2,genv'_i2,NONE) ∧
        vs_to_i2 gtagenv' env genv'_i2 ∧
        s_to_i2 gtagenv' s' s'_i2 ∧
-       alloc_tags_invariant tids' (next',tagenv'',inv'',acc) gtagenv' ∧
+       alloc_tags_invariant tids' ((next',tagenv',inv''),acc) gtagenv' ∧
        gtagenv_wf gtagenv' ∧
-       get_tagacc (next',tagenv'',inv'',acc) = acc' ⊌ get_tagacc (next,tagenv,inv',FEMPTY) ∧
+       get_tagacc ((next',tagenv',inv''),acc) = acc' ⊌ get_tagacc (tagenv_st,FEMPTY) ∧
        flat_envC_tagged cenv' acc' gtagenv' ∧
        FDOM acc' = set (MAP FST cenv') (*∧
-       cenv_inv (merge_envC (emp,cenv') envC) exh'' (get_tagenv (next',tagenv'',inv'',acc)) gtagenv'*)`
+       cenv_inv (merge_envC (emp,cenv') envC) exh'' (get_tagenv (next',tagenv',inv'',acc)) gtagenv'*)`
            by (match_mp_tac (SIMP_RULE (srw_ss()) [AND_IMP_INTRO] (dec_lem `NONE`)) >>
+               PairCases_on `tagenv_st` >>
+               fs [get_tagenv_def] >>
                metis_tac []) >>
      rw [] >>
      Q.LIST_EXISTS_TAC [`MAP SOME genv'_i2`, `s'_i2`, `gtagenv'`] >>
@@ -1982,16 +1984,18 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
        evaluate_decs_i2 ck exh genv_i2 s_i2 ds_i2 (s'_i2,genv'_i2,res_i2) ∧
        vs_to_i2 gtagenv' env genv'_i2 ∧
        s_to_i2 gtagenv' s' s'_i2 ∧
-       alloc_tags_invariant tids' (next',tagenv'',inv'',acc) gtagenv' ∧
+       alloc_tags_invariant tids' ((next',tagenv',inv''),acc) gtagenv' ∧
        gtagenv_wf gtagenv' ∧
-       get_tagacc (next',tagenv'',inv'',acc) = acc' ⊌ get_tagacc (next,tagenv,inv',FEMPTY) ∧
+       get_tagacc ((next',tagenv',inv''),acc) = acc' ⊌ get_tagacc (tagenv_st,FEMPTY) ∧
        flat_envC_tagged cenv' acc' gtagenv' ∧
        ?err_i2. 
          res_i2 = SOME err_i2 ∧
          result_to_i2 (\a b c. T) gtagenv' (Rerr err) (Rerr err_i2)`
            by (match_mp_tac (SIMP_RULE (srw_ss()) [AND_IMP_INTRO] (dec_lem `SOME err`)) >>
+               PairCases_on `tagenv_st` >>
+               fs [get_tagenv_def] >>
                metis_tac []) >>
-     rw [] >>
+    rw [] >>
      Q.LIST_EXISTS_TAC [`MAP SOME genv'_i2 ++ GENLIST (λn. NONE) (num_defs ds_i2 − LENGTH genv'_i2)`, `s'_i2`, `SOME err_i2`, `gtagenv'`] >>
      fs [get_tagenv_def] >>
      rw []
@@ -2053,13 +2057,13 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
   s_tmp = (s,tids,mods) ∧
   res_tmp = ((s',tids',mods'), envC', genv', res) ∧
   res ≠ SOME Rtype_error ∧
-  to_i2_invariant tids envC exh (next,tagenv,inv,(FEMPTY:flat_tag_env)) gtagenv s s_i2 genv genv_i2 ∧
+  to_i2_invariant tids envC exh (next,tagenv,inv) gtagenv s s_i2 genv genv_i2 ∧
   ((next',tagenv',inv'), exh', prog_i2) = prog_to_i2 (next,tagenv,inv) prog
   ⇒
   ?genv'_i2 s'_i2 res_i2 gtagenv'.
     gtagenv_weak gtagenv gtagenv' ∧
     evaluate_prog_i2 ck exh genv_i2 s_i2 prog_i2 (s'_i2,genv'_i2,res_i2) ∧
-    to_i2_invariant tids' (merge_envC envC' envC) (FUNION exh' exh) (next',tagenv',inv',(FEMPTY:flat_tag_env)) gtagenv' s' s'_i2 (genv++genv') (genv_i2++genv'_i2) ∧
+    to_i2_invariant tids' (merge_envC envC' envC) (FUNION exh' exh) (next',tagenv',inv') gtagenv' s' s'_i2 (genv++genv') (genv_i2++genv'_i2) ∧
     (res = NONE ∧ res_i2 = NONE ∨
      ?err err_i2. res = SOME err ∧ res_i2 = SOME err_i2 ∧ result_to_i2 (\a b c. T) gtagenv' (Rerr err) (Rerr err_i2))`,
  ho_match_mp_tac evaluate_prog_i1_ind >>
@@ -2085,7 +2089,7 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
      `∃genv'_i2 s'_i2 res_i2 gtagenv'.
        gtagenv_weak gtagenv gtagenv' ∧
        evaluate_prompt_i2 ck exh genv_i2 s_i2 p2 (s'_i2,genv'_i2,NONE) ∧
-       to_i2_invariant tids1 (merge_envC cenv2 envC) (exh2 ⊌ exh) (next2,tagenv2,inv2,(FEMPTY:flat_tag_env)) gtagenv' s1 s'_i2 (genv++env2) (genv_i2++genv'_i2) ∧
+       to_i2_invariant tids1 (merge_envC cenv2 envC) (exh2 ⊌ exh) (next2,tagenv2,inv2) gtagenv' s1 s'_i2 (genv++env2) (genv_i2++genv'_i2) ∧
        res_i2 = NONE`
             by (imp_res_tac prompt_to_i2_correct >>
                 fs [] >>
@@ -2094,6 +2098,7 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
        rw [] >>
        cheat)
  >- cheat);
+
 
 (*
        res_tac >>
@@ -2105,7 +2110,60 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
            >- metis_tac [gtagenv_weak_trans]
            *)
 
+val init_gtagenv_def = Define `
+init_gtagenv =
+  FEMPTY |++ [(("nil",TypeId (Short "list")), (nil_tag, 0:num));
+              (("::",TypeId (Short "list")), (cons_tag, 2));
+              (("Bind",TypeExn (Short "Bind")), (bind_tag,0));
+              (("Div",TypeExn (Short "Div")), (div_tag,0));
+              (("Eq",TypeExn (Short "Eq")), (eq_tag,0))]`;
 
+val init_exh_def = Define `
+init_exh = 
+  FEMPTY |++ [(Short "list", [cons_tag; nil_tag])]`;
 
+val initial_i2_invariant = Q.store_thm ("initial_i2_invariant",
+`!ck. 
+  to_i2_invariant 
+    (IMAGE SND (FDOM init_gtagenv))
+    init_envC 
+    init_exh
+    init_tagenv_state
+    init_gtagenv
+    (ck,[]) (ck,[]) 
+    [] []`,
+ rw [to_i2_invariant_def, s_to_i2_cases, v_to_i2_eqns, s_to_i2'_cases, genv_to_i2_eqns]
+ >- (rw [cenv_inv_def, envC_tagged_def, exhaustive_env_correct_def]
+     >- (fs [initialEnvTheory.init_envC_def] >>
+         rw [get_tagenv_def, init_tagenv_state_def, flookup_fupdate_list, lookup_tag_env_def,
+             lookup_tag_flat_def, init_gtagenv_def, eq_tag_def, tuple_tag_def] >>
+         cases_on `cn` >>
+         fs [id_to_n_def] >>
+         rw [] >>
+         fs [lookup_con_id_def, emp_def, nil_tag_def, emp_def, cons_tag_def,
+             bind_tag_def, div_tag_def, eq_tag_def] >>
+         rw [] >>
+         every_case_tac >>
+         fs [] >>
+         rw [])
+     >- (fs [FDOM_FUPDATE_LIST, init_exh_def, init_gtagenv_def] >>
+         rw [flookup_fupdate_list] >>
+         every_case_tac >>
+         rw [nil_tag_def,cons_tag_def,eq_tag_def,tuple_tag_def, bind_tag_def, div_tag_def])
+     >- (rw [gtagenv_wf_def, has_exns_def, init_gtagenv_def, flookup_fupdate_list]
+         >- (every_case_tac >>
+             fs [nil_tag_def,cons_tag_def,eq_tag_def,tuple_tag_def, bind_tag_def, div_tag_def] >>
+             rw [])
+         >- (every_case_tac >>
+             rw [] >>
+             fs [nil_tag_def,cons_tag_def,eq_tag_def,tuple_tag_def, bind_tag_def, div_tag_def])
+         >- (every_case_tac >> 
+             rw [] >>
+             fs [nil_tag_def,cons_tag_def,eq_tag_def,tuple_tag_def, bind_tag_def, div_tag_def])))
+ >- (rw [alloc_tags_invariant_def, init_gtagenv_def, FDOM_FUPDATE_LIST, get_next_def,
+         tuple_tag_def, init_tagenv_state_def, flookup_fupdate_list] >>
+     every_case_tac >>
+     srw_tac [ARITH_ss] [nil_tag_def,cons_tag_def,eq_tag_def,tuple_tag_def, bind_tag_def, div_tag_def] >>
+     srw_tac [ARITH_ss] []));
 
 val _ = export_theory ();

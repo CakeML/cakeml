@@ -275,10 +275,10 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (* The constructor names that are in scope, the global mapping of constructor
  * names (with types so that they are unique), and its inverse. *)
-val _ = type_abbrev( "tagenv_state" , ``: num # tag_env # (num, (conN # tid_or_exn)) fmap # (conN, (num #  tid_or_exn option)) fmap``);
+val _ = type_abbrev( "tagenv_state" , ``: (num # tag_env # (num, (conN # tid_or_exn)) fmap) # (conN, (num #  tid_or_exn option)) fmap``);
 
 val _ = Define `
- (get_tagenv (next,tagenv,inv0,acc) = tagenv)`;
+ (get_tagenv ((next,tagenv,inv0),acc) = tagenv)`;
 
 
 (*val insert_tag_env : conN -> (nat * maybe tid_or_exn) -> tag_env  -> tag_env*)
@@ -289,8 +289,8 @@ val _ = Define `
 
 (*val alloc_tag : tid_or_exn -> conN -> tagenv_state -> tagenv_state*)
 val _ = Define `
- (alloc_tag tn cn (next,tagenv,inv0,acc) =
-  ((next+ 1),insert_tag_env cn (next,SOME tn) tagenv,inv0 |+ (next, (cn,tn)),acc |+ (cn, (next,SOME tn))))`;
+ (alloc_tag tn cn ((next,tagenv,inv0),acc) =
+  (((next+ 1),insert_tag_env cn (next,SOME tn) tagenv,inv0 |+ (next, (cn,tn))),acc |+ (cn, (next,SOME tn))))`;
 
 
 (*val alloc_tags : maybe modN -> tagenv_state -> type_def -> tagenv_state*)
@@ -307,7 +307,7 @@ val _ = Define `
 
 (*val build_exh_env : maybe modN -> tagenv_state -> type_def -> exh_ctors_env*)
 val _ = Define `
- (build_exh_env mn (_,_,_,acc) tds =  
+ (build_exh_env mn (_,acc) tds =  
 (FUPDATE_LIST FEMPTY (MAP (\ (tvs,tn,constrs) .  (mk_id mn tn, MAP (\ (cn,ts) .  FST (option_CASE (FLOOKUP acc cn) ( 0,NONE) I)) constrs)) tds)))`;
 
 
@@ -346,10 +346,10 @@ val _ = Define `
 
 (*val prompt_to_i2 : (nat * tag_env * map nat (conN * tid_or_exn)) -> prompt_i1 -> (nat * tag_env * map nat (conN * tid_or_exn)) * exh_ctors_env * prompt_i2*)
 val _ = Define `
- (prompt_to_i2 (next,tagenv,inv0) prompt =  
+ (prompt_to_i2 tagenv_st prompt =  
 ((case prompt of
       Prompt_i1 mn ds =>
-        let ((next',tagenv',inv',acc'), exh', ds') = (decs_to_i2 (next,tagenv,inv0,FEMPTY) ds) in
+        let (((next',tagenv',inv'),acc'), exh', ds') = (decs_to_i2 (tagenv_st,FEMPTY) ds) in
           ((next',mod_tagenv mn acc' tagenv',inv'), exh', Prompt_i2 ds')
   )))`;
 

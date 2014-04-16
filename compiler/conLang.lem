@@ -222,17 +222,17 @@ funs_to_i2 tagenv ((f,x,e)::funs) =
 
 (* The constructor names that are in scope, the global mapping of constructor
  * names (with types so that they are unique), and its inverse. *)
-type tagenv_state = nat * tag_env * map nat (conN * tid_or_exn) * map conN (nat * maybe tid_or_exn)
+type tagenv_state = (nat * tag_env * map nat (conN * tid_or_exn)) * map conN (nat * maybe tid_or_exn)
 
-let get_tagenv (next,tagenv,inv,acc) = tagenv
+let get_tagenv ((next,tagenv,inv),acc) = tagenv
 
 val insert_tag_env : conN -> (nat * maybe tid_or_exn) -> tag_env  -> tag_env
 let insert_tag_env cn tag (mtagenv,ftagenv) =
   (mtagenv,Map.insert cn tag ftagenv)
 
 val alloc_tag : tid_or_exn -> conN -> tagenv_state -> tagenv_state
-let alloc_tag tn cn (next,tagenv,inv,acc) =
-  (next+1,insert_tag_env cn (next,Just tn) tagenv, Map.insert next (cn,tn) inv, Map.insert cn (next,Just tn) acc)
+let alloc_tag tn cn ((next,tagenv,inv),acc) =
+  ((next+1,insert_tag_env cn (next,Just tn) tagenv, Map.insert next (cn,tn) inv), Map.insert cn (next,Just tn) acc)
 
 val alloc_tags : maybe modN -> tagenv_state -> type_def -> tagenv_state
 let rec 
@@ -247,7 +247,7 @@ alloc_tags mn st ((tvs,tn,constrs)::types) =
 declare termination_argument alloc_tags = automatic
 
 val build_exh_env : maybe modN -> tagenv_state -> type_def -> exh_ctors_env
-let build_exh_env mn (_,_,_,acc) tds =
+let build_exh_env mn (_,acc) tds =
   Map.fromList
     (List.map (fun (tvs,tn,constrs) -> (mk_id mn tn, List.map (fun (cn,ts) -> fst (fromMaybe (0,Nothing) (Map.lookup cn acc))) constrs)) tds)
 
@@ -283,10 +283,10 @@ let mod_tagenv mn l (mtagenv,tagenv) =
   end
 
 val prompt_to_i2 : (nat * tag_env * map nat (conN * tid_or_exn)) -> prompt_i1 -> (nat * tag_env * map nat (conN * tid_or_exn)) * exh_ctors_env * prompt_i2
-let prompt_to_i2 (next,tagenv,inv) prompt =
+let prompt_to_i2 tagenv_st prompt =
   match prompt with
     | Prompt_i1 mn ds ->
-        let ((next',tagenv',inv',acc'), exh', ds') = decs_to_i2 (next,tagenv,inv,Map.empty) ds in
+        let (((next',tagenv',inv'),acc'), exh', ds') = decs_to_i2 (tagenv_st,Map.empty) ds in
           ((next',mod_tagenv mn acc' tagenv',inv'), exh', Prompt_i2 ds')
   end
 
