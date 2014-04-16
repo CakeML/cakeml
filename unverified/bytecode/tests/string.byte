@@ -1,6 +1,8 @@
-pushInt 110
-pushInt 151
+pushInt 72
+pushInt 105
 cons 4 2
 print
+printC '\n'
 cons 4 0
 print
+printC '\n'

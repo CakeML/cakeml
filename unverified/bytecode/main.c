@@ -168,8 +168,7 @@ void static print_value(value *heap, value v) {
   else {
     value p = get_pointer(v);
     value v2 = heap[p];
-    //printf("%d\n", get_header_tag(v));
-    switch (get_header_tag(v)) {
+    switch (get_header_tag(v2)) {
       case ref_tag:
         printf("<ref>");
 	break;
@@ -181,7 +180,7 @@ void static print_value(value *heap, value v) {
 	  int i;
 	  int l = get_header_size(v2);
 	  char* s = malloc(sizeof(char) * l + 1);
-	  for (i = 0; i < l; i++) {
+	  for (i = 0; i <= l; i++) {
 	    s[i] = get_fixnum(heap[p+i]);
 	  };
 	  s[i] = 0;
