@@ -1250,11 +1250,13 @@ val good_globals_def = Define`
        n < m)`
 
 val env_rs_def = Define`
-  env_rs ((envM,envC,envE):all_env) ((cnt,s):v count_store) (rs:compiler_state) rd bs ⇔
+  env_rs ((envM,envC,envE):all_env) ((cnt,s):v count_store) (genv,gtagenv,rd)
+    (rs:compiler_state) (bs:bc_state)
+  ⇔
     good_labels rs.rnext_label bs.code ∧
     good_globals rs.globals_env rs.next_global (LENGTH bs.globals) ∧
     bs.stack = [] ∧
-    ∃genv s1 tids gtagenv s2 genv2 Cs Cg.
+    ∃s1 tids s2 genv2 Cs Cg.
       to_i1_invariant
         genv (FST rs.globals_env) (SND rs.globals_env)
         envM envE (cnt,s) (cnt,s1) (set (MAP FST envM)) ∧
@@ -1269,11 +1271,12 @@ val env_rs_def = Define`
       Cenv_bs rd ((cnt,Cs),Cg) [] [] 0 bs`
 
 val env_rs_empty = store_thm("env_rs_empty",
-  ``∀envs s cs rd bs ck.
+  ``∀envs s cs genv gtagenv rd grd bs ck.
     bs.stack = [] ∧ bs.globals = [] ∧ FILTER is_Label bs.code = [] ∧
     (∀n. bs.clock = SOME n ⇒ n = ck) ∧ envs = ([],init_envC,[]) ∧ s = (ck,[]) ∧
+    grd = ([],gtagenv,rd) ∧
     rd.sm = [] ∧ rd.cls = FEMPTY ∧ cs = init_compiler_state ⇒
-    env_rs envs s cs rd bs``,
+    env_rs envs s grd cs bs``,
   rpt gen_tac >>
   simp[env_rs_def,to_i1_invariant_def,to_i2_invariant_def] >>
   strip_tac >>
@@ -1282,7 +1285,6 @@ val env_rs_empty = store_thm("env_rs_empty",
   rw[init_compiler_state_def,get_tagenv_def,cenv_inv_def] >>
   rw[Once v_to_i1_cases] >> rw[Once v_to_i1_cases] >>
   rw[Once s_to_i1_cases] >> rw[Once s_to_i1'_cases] >> rw[Once v_to_i1_cases] >>
-  qexists_tac`[]` >>
   rw[Once genv_to_i2_cases] >>
   rw[Once s_to_i2_cases] >> rw[Once s_to_i2'_cases] >> rw[Once v_to_i2_cases] >>
   rw[Cenv_bs_def,env_renv_def,s_refs_def,good_rd_def,FEVERY_ALL_FLOOKUP] >>
@@ -1312,23 +1314,24 @@ val to_i2_invariant_change_clock = store_thm("to_i2_invariant_change_clock",
   metis_tac[pair_CASES,PAIR_EQ,SND,FST])
 
 val env_rs_change_clock = store_thm("env_rs_change_clock",
-   ``∀env cs rs cz rd bs cs' ck' bs' new_clock.
-     env_rs env cs rs rd bs ∧ cs' = (ck',SND cs) ∧
+   ``∀env cs grd rs bs cs' ck' bs' new_clock.
+     env_rs env cs grd rs bs ∧ cs' = (ck',SND cs) ∧
      (bs' = bs with clock := new_clock) ∧
      (new_clock = NONE ∨ new_clock = SOME ck')
      ⇒
-     env_rs env cs' rs rd bs'``,
+     env_rs env cs' grd rs bs'``,
   qx_gen_tac`p` >> PairCases_on`p` >>
   qx_gen_tac`q` >> PairCases_on`q` >>
+  qx_gen_tac`r` >> PairCases_on`r` >>
   simp[env_rs_def] >>
   rpt gen_tac >>
   Q.PAT_ABBREV_TAC`d = (a ∨ b)` >>
   strip_tac >>
-  map_every qexists_tac[`genv`,`s1`] >>
+  map_every qexists_tac[`s1`] >>
   simp[RIGHT_EXISTS_AND_THM] >>
   conj_tac >- (
     metis_tac[to_i1_invariant_change_clock,FST,SND] ) >>
-  map_every qexists_tac[`tids`,`gtagenv`,`s2`,`genv2`] >>
+  map_every qexists_tac[`tids`,`s2`,`genv2`] >>
   conj_tac >- (
     metis_tac[to_i2_invariant_change_clock,FST,SND] ) >>
   simp[PULL_EXISTS] >>
@@ -1374,8 +1377,8 @@ val env_rs_change_store = store_thm("env_rs_change_store",
 *)
 
 val env_rs_with_bs_irr = store_thm("env_rs_with_bs_irr",
-  ``∀env cs rs rd bs bs'.
-    env_rs env cs rs rd bs
+  ``∀env cs grd rs bs bs'.
+    env_rs env cs grd rs bs
     ∧ bs'.globals = bs.globals
     ∧ bs'.stack = bs.stack
     ∧ bs'.refs = bs.refs
@@ -1383,20 +1386,20 @@ val env_rs_with_bs_irr = store_thm("env_rs_with_bs_irr",
     ∧ bs'.code = bs.code
     ∧ bs'.inst_length = bs.inst_length
     ⇒
-    env_rs env cs rs rd bs'``,
+    env_rs env cs grd rs bs'``,
   simp[FORALL_PROD] >> rw[env_rs_def] >>
   rpt(first_assum(match_exists_tac o concl) >> simp[]) >>
   match_mp_tac Cenv_bs_with_irr >>
   HINT_EXISTS_TAC >> rfs[])
 
 val env_rs_append_code = store_thm("env_rs_append_code",
-  ``∀env cs rs rd bs bs' rs' c nl.
-    env_rs env cs rs rd bs ∧
+  ``∀env cs grd rs bs bs' rs' c nl.
+    env_rs env cs grd rs bs ∧
     bs' = bs with code := bs.code ++ c ∧
     rs' = rs with rnext_label := nl ∧
     good_labels nl bs'.code
     ⇒
-    env_rs env cs rs' rd bs'``,
+    env_rs env cs grd rs' bs'``,
   simp[FORALL_PROD] >>
   simp[env_rs_def] >>
   rpt gen_tac >> strip_tac  >>
@@ -1409,8 +1412,8 @@ val env_rs_append_code = store_thm("env_rs_append_code",
   metis_tac[])
 
 val env_rs_can_Print = store_thm("env_rs_can_Print",
-  ``∀env cs rs rd bs n v.
-    env_rs env cs rs rd bs ∧
+  ``∀env cs grd rs bs n v.
+    env_rs env cs grd rs bs ∧
     EL n bs.globals = SOME v ∧
     n ∈ (FRANGE (SND rs.globals_env) ∪
          BIGUNION (IMAGE FRANGE (FRANGE (FST rs.globals_env))))
