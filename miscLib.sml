@@ -117,4 +117,14 @@ fun exists_suff_then ttac th (g as (_,w)) =
     val th = (PART_MATCH (hd o strip_conj o snd o strip_exists o snd o dest_imp) th (hd bs))
   in ttac th end g
 
+(* the theorem is of the form [!x1 .. xn. P] and the goal contains a subterm
+   [f v1 .. vn]. apply ttac to [P[vi/xi]]. *)
+fun specl_args_of_then f th (ttac:thm_tactic) (g as (_,w)) =
+  let
+    val t = find_term (same_const f o fst o strip_comb) w
+    val (_,vs) = strip_comb t
+  in
+    ttac (ISPECL vs th)
+  end g
+
 end
