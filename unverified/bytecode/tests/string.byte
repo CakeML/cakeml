@@ -1,0 +1,6 @@
+pushInt 110
+pushInt 151
+cons 4 2
+print
+cons 4 0
+print

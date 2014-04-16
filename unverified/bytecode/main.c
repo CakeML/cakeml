@@ -121,7 +121,8 @@ typedef enum {
   false_tag = 3, 
   true_tag = 4, 
   unit_tag = 5, 
-  closure_tag = 6
+  closure_tag = 6,
+  string_tag = 7
 } block_tag;
 
 #define SKIP_TAGS 3
@@ -157,22 +158,42 @@ void static print_value(value *heap, value v) {
       case unit_tag:
 	printf("()");
 	break;
+      case string_tag:
+	printf("\"\"");
+	break;
       default:
 	printf("<constructor>");
 	break;
     }
-  else
-    switch (get_header_tag(heap[get_pointer(v)])) {
+  else {
+    value p = get_pointer(v);
+    value v2 = heap[p];
+    //printf("%d\n", get_header_tag(v));
+    switch (get_header_tag(v)) {
       case ref_tag:
         printf("<ref>");
 	break;
       case closure_tag:
         printf("<fn>");
 	break;
+      case string_tag:
+	{
+	  int i;
+	  int l = get_header_size(v2);
+	  char* s = malloc(sizeof(char) * l + 1);
+	  for (i = 0; i < l; i++) {
+	    s[i] = get_fixnum(heap[p+i]);
+	  };
+	  s[i] = 0;
+	  printf("\"%s\"", s);
+	  free(s);
+	  break;
+	}
       default:
 	printf("<constructor>");
 	break;
     }
+  }
 }
 
 static inline value bool_to_val(bool i) {
