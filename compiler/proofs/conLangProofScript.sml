@@ -2144,7 +2144,12 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
                 fs [] >>
                 rpt (pop_assum mp_tac) >>
                 rw [] >>
-                metis_tac [])
+                metis_tac []) >>
+     rw [] >>
+     MAP_EVERY qexists_tac [`genv'_i2`, `s'_i2`, `SOME err_i2`, `gtagenv'`] >>
+     rw []
+     >- metis_tac [evaluate_prompt_i2_exh_weak]
+     >- cheat));
 
 val init_gtagenv_def = Define `
 init_gtagenv =
