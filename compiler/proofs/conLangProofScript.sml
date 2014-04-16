@@ -14,6 +14,15 @@ open compilerTerminationTheory;
 
 val _ = new_theory "conLangProof";
 
+val merge_envC_assoc = Q.prove (
+`!envC1 envC2 envC3.
+  merge_envC envC1 (merge_envC envC2 envC3) = merge_envC (merge_envC envC1 envC2) envC3`,
+ rw [] >>
+ PairCases_on `envC1` >>
+ PairCases_on `envC2` >>
+ PairCases_on `envC3` >>
+ rw [merge_envC_def, merge_def]);
+
 val fmap_inverse_def = Define `
 fmap_inverse m1 m2 =
   !k. k ∈ FDOM m1 ⇒ ?v. FLOOKUP m1 k = SOME v ∧ FLOOKUP m2 v = SOME k`;
@@ -2050,6 +2059,14 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
      >- cheat));
      *)
 
+
+val evaluate_prompt_i2_exh_weak = Q.prove (
+`!ck exh genv s p s' genv' res exh1.
+ evaluate_prompt_i2 ck exh genv s p (s',genv',res)
+ ⇒
+ evaluate_prompt_i2 ck (exh1 ⊌ exh) genv s p (s',genv',res)`,
+ cheat);
+
 val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
 `!ck genv envC s_tmp prog res_tmp. 
   evaluate_prog_i1 ck genv envC s_tmp prog res_tmp ⇒
@@ -2062,7 +2079,7 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
   ⇒
   ?genv'_i2 s'_i2 res_i2 gtagenv'.
     gtagenv_weak gtagenv gtagenv' ∧
-    evaluate_prog_i2 ck exh genv_i2 s_i2 prog_i2 (s'_i2,genv'_i2,res_i2) ∧
+    evaluate_prog_i2 ck (FUNION exh' exh) genv_i2 s_i2 prog_i2 (s'_i2,genv'_i2,res_i2) ∧
     to_i2_invariant tids' (merge_envC envC' envC) (FUNION exh' exh) (next',tagenv',inv') gtagenv' s' s'_i2 (genv++genv') (genv_i2++genv'_i2) ∧
     (res = NONE ∧ res_i2 = NONE ∨
      ?err err_i2. res = SOME err ∧ res_i2 = SOME err_i2 ∧ result_to_i2 (\a b c. T) gtagenv' (Rerr err) (Rerr err_i2))`,
@@ -2096,19 +2113,38 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
                 rpt (pop_assum mp_tac) >>
                 rw []) >>
        rw [] >>
-       cheat)
- >- cheat);
-
-
-(*
        res_tac >>
        ntac 3 (pop_assum mp_tac) >>
        rw [] >>
        ntac 2 (pop_assum (fn _ => all_tac)) 
        >- (MAP_EVERY qexists_tac [`genv'_i2 ++ genv'_i2'`, `s'_i2'`, `gtagenv''`] >>
-           rw []
+           rw [] >>
+           fs [merge_envC_assoc, FUNION_ASSOC]
            >- metis_tac [gtagenv_weak_trans]
-           *)
+           >- metis_tac [evaluate_prompt_i2_exh_weak])
+       >- (MAP_EVERY qexists_tac [`genv'_i2 ++ genv'_i2'`, `s'_i2'`, `SOME err_i2`, `gtagenv''`] >>
+           rw [GSYM merge_envC_assoc, GSYM FUNION_ASSOC]
+           >- metis_tac [gtagenv_weak_trans]
+           >- metis_tac [evaluate_prompt_i2_exh_weak]))
+ >- (fs [prog_to_i2_def, LET_THM] >>
+     `?st2 exh2 p2. prompt_to_i2 (next,tagenv,inv') prompt = (st2,exh2,p2)`
+             by metis_tac [pair_CASES] >>
+     fs [] >>
+     `?st1 exh1 ps1. prog_to_i2 st2 prompts = (st1,exh1,ps1)`
+             by metis_tac [pair_CASES] >>
+     fs [] >>
+     rw [Once evaluate_prog_i2_cases] >>
+     `∃genv'_i2 s'_i2 res_i2 gtagenv' err_i2.
+       gtagenv_weak gtagenv gtagenv' ∧
+       evaluate_prompt_i2 ck exh genv_i2 s_i2 p2 (s'_i2,genv'_i2,SOME err_i2) ∧
+       to_i2_invariant tids' (merge_envC cenv2 envC) (exh2 ⊌ exh) st2 gtagenv' s' s'_i2 (genv++env2) (genv_i2++genv'_i2) ∧
+       res_i2 = SOME err_i2 ∧
+       result_to_i2 (λa b c. T) gtagenv' (Rerr err) (Rerr err_i2)`
+            by (imp_res_tac prompt_to_i2_correct >>
+                fs [] >>
+                rpt (pop_assum mp_tac) >>
+                rw [] >>
+                metis_tac [])
 
 val init_gtagenv_def = Define `
 init_gtagenv =
