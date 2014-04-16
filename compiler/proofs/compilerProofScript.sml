@@ -1428,4 +1428,114 @@ val env_rs_can_Print = store_thm("env_rs_can_Print",
   match_mp_tac (GEN_ALL Cv_bv_can_Print) >>
   metis_tac[optionTheory.NOT_SOME_NONE,optionTheory.SOME_11])
 
+(* FV *)
+
+val FV_def = tDefine "FV"`
+  (FV (Raise e) = FV e) ∧
+  (FV (Handle e pes) = FV e ∪ FV_pes pes) ∧
+  (FV (Lit _) = {}) ∧
+  (FV (Con _ ls) = FV_list ls) ∧
+  (FV (Var id) = {id}) ∧
+  (FV (Fun x e) = FV e DIFF {Short x}) ∧
+  (FV (Uapp _ e) = FV e) ∧
+  (FV (App _ e1 e2) = FV e1 ∪ FV e2) ∧
+  (FV (Log _ e1 e2) = FV e1 ∪ FV e2) ∧
+  (FV (If e1 e2 e3) = FV e1 ∪ FV e2 ∪ FV e3) ∧
+  (FV (Mat e pes) = FV e ∪ FV_pes pes) ∧
+  (FV (Let xo e b) = FV e ∪ (FV b DIFF (case xo of NONE => {} | SOME x => {Short x}))) ∧
+  (FV (Letrec defs b) =
+     let ds = set (MAP (Short o FST) defs) in
+     FV_defs ds defs ∪ (FV b DIFF ds)) ∧
+  (FV_list [] = {}) ∧
+  (FV_list (e::es) = FV e ∪ FV_list es) ∧
+  (FV_pes [] = {}) ∧
+  (FV_pes ((p,e)::pes) =
+     (FV e DIFF (IMAGE Short (set (pat_bindings p [])))) ∪ FV_pes pes) ∧
+  (FV_defs _ [] = {}) ∧
+  (FV_defs ds ((_,x,e)::defs) =
+     (FV e DIFF ({Short x} ∪ ds)) ∪ FV_defs ds defs)`
+(WF_REL_TAC `inv_image $< (λx. case x of
+   | INL e => exp_size e
+   | INR (INL es) => exp6_size es
+   | INR (INR (INL pes)) => exp3_size pes
+   | INR (INR (INR (_,defs))) => exp1_size defs)`)
+val _ = export_rewrites["FV_def"]
+
+val _ = Parse.overload_on("SFV",``λe. {x | Short x ∈ FV e}``)
+
+val FV_dec_def = Define`
+  (FV_dec (Dlet p e) = FV (Mat e [(p,Lit ARB)])) ∧
+  (FV_dec (Dletrec defs) = FV (Letrec defs (Lit ARB))) ∧
+  (FV_dec (Dtype _) = {}) ∧
+  (FV_dec (Dexn _ _) = {})`
+val _ = export_rewrites["FV_dec_def"]
+
+val _ = Parse.overload_on("new_decs_vs",``λdecs. FLAT (REVERSE (MAP new_dec_vs decs))``)
+
+val FV_decs_def = Define`
+  (FV_decs [] = {}) ∧
+  (FV_decs (d::ds) = FV_dec d ∪ ((FV_decs ds) DIFF (set (MAP Short (new_dec_vs d)))))`
+
+val FV_top_def = Define`
+  (FV_top (Tdec d) = FV_dec d) ∧
+  (FV_top (Tmod mn _ ds) = FV_decs ds)`
+val _ = export_rewrites["FV_top_def"]
+
+(* compile_top *)
+
+val global_dom_def = Define`
+  global_dom (me,e) = IMAGE Short (FDOM e) ∪ { Long m x | ∃e. FLOOKUP me m = SOME e ∧ x ∈ FDOM e}`
+
+val FILTER_F = store_thm("FILTER_F",
+  ``∀ls. FILTER (λx. F) ls = []``,
+  Induct >> simp[])
+val _ = export_rewrites["FILTER_F"]
+
+val compile_top_labels = store_thm("compile_top_labels",
+  ``∀types rs top.
+      FV_top top ⊆ global_dom rs.globals_env
+      ⇒
+      between_labels (SND(compile_top types rs top)) rs.rnext_label (FST(compile_top types rs top)).rnext_label ∧
+      code_labels_ok (SND(compile_top types rs top))``,
+   simp[compile_top_def,UNCURRY,pair_CASE_def] >>
+   rpt gen_tac >> strip_tac >>
+   specl_args_of_then``compile_Cexp``compile_Cexp_thm mp_tac >>
+   discharge_hyps >- (
+     simp[] >>
+     qmatch_abbrev_tac`x = []` >>
+     qsuff_tac`set x ⊆ {}` >- rw[] >>
+     qunabbrev_tac`x` >>
+     specl_args_of_then``exp_to_pat``(CONJUNCT1 free_vars_pat_exp_to_pat)mp_tac >>
+     match_mp_tac(METIS_PROVE[]``(p ∧ (p ∧ q ⇒ r)) ⇒ ((p ⇒ q) ⇒ r)``) >>
+     conj_tac >- cheat >>
+     strip_tac >> rfs[] ) >>
+   Q.PAT_ABBREV_TAC`Cexp = exp_to_Cexp Z` >>
+   simp[] >> strip_tac >>
+   Cases_on`types`>>simp[compile_print_top_def] >- (
+     simp[GSYM REVERSE_APPEND] >>
+     fs[between_labels_def,FILTER_REVERSE,ALL_DISTINCT_REVERSE,MAP_REVERSE,EVERY_REVERSE,EVERY_MAP,EVERY_FILTER] >>
+     fs[FILTER_APPEND,ALL_DISTINCT_APPEND] >> metis_tac[] ) >>
+   Cases_on`top`>>simp[compile_print_top_def,FOLDL_emit_thm] >- (
+     reverse conj_tac >- (
+       REWRITE_TAC[GSYM APPEND_ASSOC] >>
+       match_mp_tac code_labels_ok_append >>
+       simp[code_labels_ok_REVERSE] >>
+       rpt(match_mp_tac code_labels_ok_cons >> simp[]) >>
+       REWRITE_TAC[GSYM REVERSE_APPEND] >>
+       simp[code_labels_ok_REVERSE] ) >>
+     fs[between_labels_def,FILTER_APPEND,FILTER_REVERSE,ALL_DISTINCT_REVERSE,MAP_REVERSE,EVERY_REVERSE,EVERY_MAP,ALL_DISTINCT_APPEND,
+        MEM_FILTER,is_Label_rwt,PULL_EXISTS,MEM_MAP,EVERY_FILTER] >>
+     rw[] >> simp[FILTER_MAP,combinTheory.o_DEF] ) >>
+   specl_args_of_then``compile_print_dec``(CONV_RULE SWAP_FORALL_CONV compile_print_dec_thm) mp_tac >>
+   simp[] >> strip_tac >>
+   simp[] >>
+   reverse conj_tac >- (
+     REWRITE_TAC[GSYM APPEND_ASSOC] >>
+     match_mp_tac code_labels_ok_append >>
+     simp[code_labels_ok_REVERSE] >>
+     REWRITE_TAC[GSYM REVERSE_APPEND] >>
+     simp[code_labels_ok_REVERSE] ) >>
+   fs[between_labels_def,FILTER_APPEND,FILTER_REVERSE,ALL_DISTINCT_APPEND,ALL_DISTINCT_REVERSE,MAP_REVERSE,EVERY_REVERSE] >>
+   fs[GSYM FILTER_EQ_NIL,combinTheory.o_DEF])
+
 val _ = export_theory()
