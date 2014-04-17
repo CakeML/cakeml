@@ -356,6 +356,16 @@ evaluate_decs ck mn (menv, merge_envC (emp,new_tds) cenv, merge new_env env) s2 
 ==>
 evaluate_decs ck mn (menv,cenv,env) s1 (d::ds) (s3, merge new_tds' new_tds, combine_dec_result new_env r))`;
 
+(*val no_dup_types : list dec -> bool*)
+val _ = Define `
+ (no_dup_types ds =  
+(ALL_DISTINCT (FLAT (MAP (\ d .  
+        (case d of 
+            Dtype tds => MAP (\ (tvs,tn,ctors) .  tn) tds
+          | _ => [] ))
+     ds))))`;
+ 
+
 val _ = Hol_reln ` (! ck s1 s2 env d new_tds new_env tdecls1 tdecls2 mdecls.
 (evaluate_dec ck NONE env (s1,tdecls1) d ((s2,tdecls2), Rval (new_tds, new_env)))
 ==>
@@ -374,9 +384,17 @@ evaluate_top ck env (s1,tdecls1,mdecls) (Tmod mn specs ds) ((s2,tdecls2,({mn} UN
 
 /\ (! ck s1 s2 env ds mn specs new_tds err tdecls1 tdecls2 mdecls.
 (~ (mn IN mdecls) /\
-evaluate_decs ck (SOME mn) env (s1,tdecls1) ds ((s2,tdecls2), new_tds, Rerr err))
+(no_dup_types ds /\
+evaluate_decs ck (SOME mn) env (s1,tdecls1) ds ((s2,tdecls2), new_tds, Rerr err)))
 ==>
 evaluate_top ck env (s1,tdecls1,mdecls) (Tmod mn specs ds) ((s2,tdecls2,({mn} UNION mdecls)), ([(mn,new_tds)], emp), Rerr err))
+
+/\ (! ck s1 s2 env ds mn specs new_tds err tdecls1 tdecls2 mdecls.
+(~ (mn IN mdecls) /\
+(~ (no_dup_types ds) /\
+evaluate_decs ck (SOME mn) env (s1,tdecls1) ds ((s2,tdecls2), new_tds, Rerr err)))
+==>
+evaluate_top ck env (s1,tdecls1,mdecls) (Tmod mn specs ds) ((s2,tdecls2,({mn} UNION mdecls)), ([(mn,new_tds)], emp), Rerr Rtype_error))
 
 /\ (! ck env s mn specs ds tdecls mdecls.
 (mn IN mdecls)

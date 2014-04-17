@@ -368,7 +368,12 @@ val run_eval_top_def = Define `
   if mn ∉ mdecls then
     case run_eval_decs (SOME mn) env (st,tdecls) ds of
          ((st',tdecls'), cenv', Rval env') => ((st',tdecls',{mn} ∪ mdecls), ([(mn,cenv')],emp), (Rval ([(mn, env')], emp)))
-       | ((st',tdecls'), cenv', Rerr err) => ((st',tdecls',{mn} ∪ mdecls), ([(mn,cenv')],emp), Rerr err)
+       | ((st',tdecls'), cenv', Rerr err) => 
+           if no_dup_types ds then
+             ((st',tdecls',{mn} ∪ mdecls), ([(mn,cenv')],emp), Rerr err)
+           else
+             ((st',tdecls',{mn} ∪ mdecls), ([(mn,cenv')],emp), Rerr Rtype_error)
+
   else
     ((st,tdecls,mdecls), (emp,emp), Rerr Rtype_error))`;
 

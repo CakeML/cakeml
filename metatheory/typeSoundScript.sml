@@ -1840,6 +1840,88 @@ rw [Once type_v_cases, emp_def] >>
 rw [Once type_v_cases, bind_def, bind_tenv_def] >>
 metis_tac []);
 
+val type_ds_no_dup_types_helper = Q.prove (
+`!mn mdecls tdecls edecls tenvM tenvC tenv ds mdecls' tdecls' edecls' tenvC' tenv'.
+  type_ds mn (mdecls,tdecls,edecls) tenvM tenvC tenv ds (mdecls',tdecls',edecls') tenvC' tenv'
+  ⇒
+  DISJOINT tdecls tdecls' ∧
+  tdecls' =  
+  set (FLAT (MAP (λd.
+                case d of
+                  Dlet v6 v7 => []
+                | Dletrec v8 => []
+                | Dtype tds => MAP (λ(tvs,tn,ctors). mk_id mn tn) tds
+                | Dexn v10 v11 => []) ds))`,
+ induct_on `ds` >>
+ rw [] >>
+ pop_assum (assume_tac o SIMP_RULE (srw_ss()) [Once type_ds_cases]) >>
+ fs [empty_decls_def] >>
+ rw [] >>
+ every_case_tac >>
+ rw [] >>
+ fs [type_d_cases] >>
+ rw [] >>
+ PairCases_on `decls''` >>
+ fs [empty_decls_def, union_decls_def] >>
+ rw []
+ >- metis_tac []
+ >- metis_tac []
+ >- metis_tac [] >>
+ res_tac >> 
+ rw [] >>
+ fs [DISJOINT_DEF, EXTENSION] >>
+ metis_tac []);
+
+val type_ds_no_dup_types = Q.prove (
+`!mn decls tenvM tenvC tenv ds decls' tenvC' tenv'.
+  type_ds mn decls tenvM tenvC tenv ds decls' tenvC' tenv'
+  ⇒
+  no_dup_types ds`,
+ induct_on `ds` >>
+ rw [no_dup_types_def] >>
+ pop_assum (assume_tac o SIMP_RULE (srw_ss()) [Once type_ds_cases]) >>
+ fs [] >>
+ rw [] >>
+ fs [no_dup_types_def, type_d_cases] >>
+ rw [ALL_DISTINCT_APPEND]
+ >- metis_tac []
+ >- metis_tac []
+ >- metis_tac []
+ >- fs [check_ctor_tenv_def, LAMBDA_PROD]
+ >- metis_tac []
+ >- (fs [union_decls_def] >>
+     PairCases_on `decls'''` >>
+     imp_res_tac type_ds_no_dup_types_helper >>
+     rw [] >>
+     fs [DISJOINT_DEF, EXTENSION, METIS_PROVE [] ``P ∨ Q ⇔ ¬P ⇒ Q``] >>
+     `MEM (mk_id mn e) (MAP (λ(tvs,tn,ctors). mk_id mn tn) tdefs)`
+               by (fs [MEM_MAP] >>
+                   qexists_tac `y` >>
+                   rw [] >>
+                   PairCases_on `y` >>
+                   rw []) >>
+     res_tac >>
+     ntac 2 (pop_assum (fn _ => all_tac)) >>
+     pop_assum mp_tac >>
+     rpt (pop_assum (fn _ => all_tac)) >>
+     rw [MEM_FLAT, MEM_MAP] >>
+     CCONTR_TAC >>
+     fs [] >>
+     rw [] >>
+     every_case_tac >>
+     fs [MEM_MAP] >>
+     rw [] >>
+     FIRST_X_ASSUM (qspecl_then [`MAP (mk_id mn o FST o SND) l`] mp_tac) >>
+     rw [] 
+     >- (qexists_tac `Dtype l` >>
+         rw [LAMBDA_PROD, combinTheory.o_DEF])
+     >- (rw [combinTheory.o_DEF, MEM_MAP, EXISTS_PROD] >>
+         rw [LAMBDA_PROD] >>
+         PairCases_on `y` >>
+         fs [] >>
+         metis_tac []))
+ >- metis_tac []);
+
 val top_type_soundness = Q.store_thm ("top_type_soundness",
 `!decls1 tenvM tenvC tenv envM envC envE count store1 decls1' tenvM' tenvC' tenv' top decls2.
   type_sound_invariants (decls1,tenvM,tenvC,tenv,decls2,envM,envC,envE,store1) ∧
@@ -1972,7 +2054,8 @@ val top_type_soundness = Q.store_thm ("top_type_soundness",
          `flat_tenvC_ok tenvC2` by metis_tac [type_ds_tenvC_ok, flat_tenvC_ok_def, EVERY_APPEND, merge_def] >>
          `ctMap_ok (FUNION (flat_to_ctMap tenvC2) ctMap)` 
                     by (match_mp_tac ctMap_ok_merge_imp >>
-                        metis_tac [flat_tenvC_ok_ctMap, consistent_con_env_def]) >>
+                        metis_tac [flat_tenvC_ok_ctMap, consistent_con_env_def])
+         >- metis_tac [type_ds_no_dup_types] >>
          MAP_EVERY qexists_tac [`FUNION (flat_to_ctMap tenvC2) ctMap`, `tenvS'`, `(union_decls (union_decls ({mn},{},{})decls') decls_no_sig)`,
                                 `tenvM_no_sig`, `tenvC_no_sig`] >>
          rw []
