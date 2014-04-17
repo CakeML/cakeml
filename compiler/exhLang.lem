@@ -320,10 +320,13 @@ let do_app_exh env' s op v1 v2 =
     | (Opapp, Closure_exh env n e, v) ->
         Just (bind n v env, s, e)
     | (Opapp, Recclosure_exh env funs n, v) ->
-        match find_recfun n funs with
-          | Just (n,e) -> Just (bind n v (build_rec_env_exh funs env env), s, e)
-          | Nothing -> Nothing
-        end
+        if allDistinct (List.map (fun (f,x,e) -> f) funs) then
+          match find_recfun n funs with
+            | Just (n,e) -> Just (bind n v (build_rec_env_exh funs env env), s, e)
+            | Nothing -> Nothing
+          end
+        else
+          Nothing
     | (Opn op, Litv_exh (IntLit n1), Litv_exh (IntLit n2)) ->
         if (op = Divide || (op = Modulo)) && (n2 = 0) then
           Just (emp, s, Raise_exh (Con_exh div_tag []))

@@ -456,10 +456,13 @@ val _ = Define `
       (Opapp, Closure_i2 env n e, v) =>
         SOME (bind n v env, s, e)
     | (Opapp, Recclosure_i2 env funs n, v) =>
-        (case find_recfun n funs of
-            SOME (n,e) => SOME (bind n v (build_rec_env_i2 funs env env), s, e)
-          | NONE => NONE
-        )
+        if ALL_DISTINCT (MAP (\ (f,x,e) .  f) funs) then
+          (case find_recfun n funs of
+              SOME (n,e) => SOME (bind n v (build_rec_env_i2 funs env env), s, e)
+            | NONE => NONE
+          )
+        else
+          NONE
     | (Opn op, Litv_i2 (IntLit n1), Litv_i2 (IntLit n2)) =>
         if ((op = Divide) \/ (op = Modulo)) /\ (n2 =( 0 : int)) then
           SOME (exn_env_i2, s, Raise_i2 (Con_i2 (div_tag,SOME (TypeExn (Short "Div"))) []))

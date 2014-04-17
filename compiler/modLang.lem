@@ -313,10 +313,13 @@ let do_app_i1 env' s op v1 v2 =
     | (Opapp, Closure_i1 (cenv, env) n e, v) ->
         Just ((all_env_i1_to_genv env', cenv, bind n v env), s, e)
     | (Opapp, Recclosure_i1 (cenv, env) funs n, v) ->
-        match find_recfun n funs with
-          | Just (n,e) -> Just ((all_env_i1_to_genv env', cenv, bind n v (build_rec_env_i1 funs (cenv, env) env)), s, e)
-          | Nothing -> Nothing
-        end
+        if allDistinct (List.map (fun (f,x,e) -> f) funs) then
+          match find_recfun n funs with
+            | Just (n,e) -> Just ((all_env_i1_to_genv env', cenv, bind n v (build_rec_env_i1 funs (cenv, env) env)), s, e)
+            | Nothing -> Nothing
+          end
+        else
+          Nothing
     | (Opn op, Litv_i1 (IntLit n1), Litv_i1 (IntLit n2)) ->
         if (op = Divide || (op = Modulo)) && (n2 = 0) then
           Just (exn_env_i1 (all_env_i1_to_genv env'), s, Raise_i1 (Con_i1 (Just (Short "Div")) []))

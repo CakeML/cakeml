@@ -378,10 +378,13 @@ let do_app_i2 env' s op v1 v2 =
     | (Opapp, Closure_i2 env n e, v) ->
         Just (bind n v env, s, e)
     | (Opapp, Recclosure_i2 env funs n, v) ->
-        match find_recfun n funs with
-          | Just (n,e) -> Just (bind n v (build_rec_env_i2 funs env env), s, e)
-          | Nothing -> Nothing
-        end
+        if allDistinct (List.map (fun (f,x,e) -> f) funs) then
+          match find_recfun n funs with
+            | Just (n,e) -> Just (bind n v (build_rec_env_i2 funs env env), s, e)
+            | Nothing -> Nothing
+          end
+        else
+          Nothing
     | (Opn op, Litv_i2 (IntLit n1), Litv_i2 (IntLit n2)) ->
         if (op = Divide || (op = Modulo)) && (n2 = 0) then
           Just (exn_env_i2, s, Raise_i2 (Con_i2 (div_tag,Just (TypeExn (Short "Div"))) []))

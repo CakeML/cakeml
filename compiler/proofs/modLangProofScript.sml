@@ -767,19 +767,20 @@ val do_app_i1 = Q.prove (
      >- (qexists_tac `n'' INSERT set (MAP FST env_i1') ∪ set (MAP FST funs)` >>
          rw [DRESTRICT_DOMSUB, compl_insert, env_all_to_i1_cases] >>
          MAP_EVERY qexists_tac [`mods'`, `tops'`] >>
-         rw [] >>
-         MAP_EVERY qexists_tac [`bind n'' v2 (build_rec_env funs (menv'',cenv'',env' ++ env''') env')`, `env'''`] >>
-         rw [bind_def, build_rec_env_merge, merge_def, EXTENSION]
-         >- (rw [MEM_MAP, EXISTS_PROD] >>
-             imp_res_tac env_to_i1_dom >>
-             metis_tac [pair_CASES, FST, MEM_MAP, EXISTS_PROD, LAMBDA_PROD])
-         >- metis_tac [INSERT_SING_UNION, global_env_inv_add_locals, UNION_COMM]
-         >- (fs [v_to_i1_eqns, build_rec_env_i1_merge, merge_def] >>
-             match_mp_tac env_to_i1_append >>
-             rw [] >>
-             match_mp_tac do_app_rec_help >>
-             rw [] >>
-             fs [v_to_i1_eqns]))
+         rw []
+         >- (MAP_EVERY qexists_tac [`bind n'' v2 (build_rec_env funs (menv'',cenv'',env' ++ env''') env')`, `env'''`] >>
+             rw [bind_def, build_rec_env_merge, merge_def, EXTENSION]
+             >- (rw [MEM_MAP, EXISTS_PROD] >>
+                 imp_res_tac env_to_i1_dom >>
+                 metis_tac [pair_CASES, FST, MEM_MAP, EXISTS_PROD, LAMBDA_PROD])
+             >- metis_tac [INSERT_SING_UNION, global_env_inv_add_locals, UNION_COMM]
+             >- (fs [v_to_i1_eqns, build_rec_env_i1_merge, merge_def] >>
+                 match_mp_tac env_to_i1_append >>
+                 rw [] >>
+                 match_mp_tac do_app_rec_help >>
+                 rw [] >>
+                 fs [v_to_i1_eqns]))
+         >- cheat)
      >- (qexists_tac `{n''}` >>
          rw [DRESTRICT_UNIV, GSYM DRESTRICT_DOMSUB, compl_insert, env_all_to_i1_cases] >>
          MAP_EVERY qexists_tac [`mods'`, `tops'|++tops''`] >>

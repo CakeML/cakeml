@@ -136,15 +136,7 @@ val vs_to_exh_MAP = prove(
 val find_recfun_funs_to_exh = prove(
   ``∀ls f exh. find_recfun f (funs_to_exh exh ls) =
                OPTION_MAP (λ(x,y). (x,exp_to_exh exh y)) (find_recfun f ls)``,
-  Induct >> simp[] >- (
-    simp[exp_to_exh_def,Once find_recfun_def] >>
-    simp[Once find_recfun_def] ) >>
-  qx_gen_tac`p`>>PairCases_on`p`>>
-  simp[exp_to_exh_def] >>
-  simp[Once find_recfun_def] >>
-  rw[] >- (
-    rw[Once find_recfun_def] ) >>
-  rw[Once find_recfun_def,SimpRHS] )
+  Induct >> simp[])
 
 val build_rec_env_i2_MAP = prove(
   ``build_rec_env_i2 funs cle env = MAP (λ(f,cdr). (f, (Recclosure_i2 cle funs f))) funs ++ env``,

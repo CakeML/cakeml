@@ -362,10 +362,13 @@ val _ = Define `
       (Opapp, Closure_exh env n e, v) =>
         SOME (bind n v env, s, e)
     | (Opapp, Recclosure_exh env funs n, v) =>
-        (case find_recfun n funs of
-            SOME (n,e) => SOME (bind n v (build_rec_env_exh funs env env), s, e)
-          | NONE => NONE
-        )
+        if ALL_DISTINCT (MAP (\ (f,x,e) .  f) funs) then
+          (case find_recfun n funs of
+              SOME (n,e) => SOME (bind n v (build_rec_env_exh funs env env), s, e)
+            | NONE => NONE
+          )
+        else
+          NONE
     | (Opn op, Litv_exh (IntLit n1), Litv_exh (IntLit n2)) =>
         if ((op = Divide) \/ (op = Modulo)) /\ (n2 =( 0 : int)) then
           SOME (emp, s, Raise_exh (Con_exh div_tag []))
