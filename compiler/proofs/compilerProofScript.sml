@@ -6,7 +6,7 @@ open patLangProofTheory
 
 val _ = new_theory"compilerProof"
 
-(* TODO: move *)
+(* TODO: remove
 
 val good_v_def = tDefine"good_v"`
   (good_v (Litv _) ⇔ T) ∧
@@ -149,6 +149,25 @@ val v_to_exh_preserves_good = store_thm("v_to_exh_preserves_good",
     Cases >> simp[v_to_exh_def] >>
     metis_tac[] ) >>
   Cases >> simp[v_to_exh_def])
+
+val genv_to_exh_preserves_good = prove(
+  ``∀exh genv2.
+    EVERY (OPTION_EVERY good_v_i2) genv2 ⇒
+    EVERY (OPTION_EVERY good_v_exh)
+      (MAP (OPTION_MAP (v_to_exh exh)) genv2)``,
+  simp[EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
+  rpt gen_tac >> strip_tac >>
+  Cases >> simp[] >> strip_tac >>
+  res_tac >> fs[] >>
+  metis_tac[v_to_exh_preserves_good])
+
+val genv_to_i2_preserves_good = prove(
+  ``∀g genv genv2. genv_to_i2 g genv genv2 ⇒
+      EVERY (OPTION_EVERY good_v_i1) genv ⇒
+      EVERY (OPTION_EVERY good_v_i2) genv2``,
+  ho_match_mp_tac genv_to_i2_ind >>
+  simp[] >> metis_tac[v_to_i2_preserves_good])
+*)
 
 (* misc *)
 
@@ -1406,7 +1425,6 @@ val env_rs_def = Define`
     good_labels rs.rnext_label bs.code ∧
     good_globals rs.globals_env rs.next_global (LENGTH bs.globals) (LENGTH genv) ∧
     bs.stack = [] ∧
-    good_envE envE ∧ good_envM envM ∧ good_vs s ∧
     ∃s1 s2 genv2 Cs Cg.
       to_i1_invariant
         genv (FST rs.globals_env) (SND rs.globals_env)
@@ -1721,24 +1739,6 @@ val v_bv_def = Define`
     i2_Cv exh v2 Cv ∧
     Cv_bv pp Cv bv`
 
-val genv_to_exh_preserves_good = prove(
-  ``∀exh genv2.
-    EVERY (OPTION_EVERY good_v_i2) genv2 ⇒
-    EVERY (OPTION_EVERY good_v_exh)
-      (MAP (OPTION_MAP (v_to_exh exh)) genv2)``,
-  simp[EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
-  rpt gen_tac >> strip_tac >>
-  Cases >> simp[] >> strip_tac >>
-  res_tac >> fs[] >>
-  metis_tac[v_to_exh_preserves_good])
-
-val genv_to_i2_preserves_good = prove(
-  ``∀g genv genv2. genv_to_i2 g genv genv2 ⇒
-      EVERY (OPTION_EVERY good_v_i1) genv ⇒
-      EVERY (OPTION_EVERY good_v_i2) genv2``,
-  ho_match_mp_tac genv_to_i2_ind >>
-  simp[] >> metis_tac[v_to_i2_preserves_good])
-
 val compile_top_thm = store_thm("compile_top_thm",
   ``∀ck env stm top res. evaluate_top ck env stm top res ⇒
      ∀rs types grd rs' bc bs bc0.
@@ -1823,36 +1823,6 @@ val compile_top_thm = store_thm("compile_top_thm",
     simp[] >> strip_tac >>
     first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_pat_correct)) >>
     simp[result_to_exh_def] >>
-    discharge_hyps >- (
-      fs[v_to_exh_def,store_to_exh_def,good_env_s_exh_def] >>
-      conj_tac >- (
-        (v_to_exh_preserves_good |> CONJUNCTS |> last
-         |> SIMP_RULE(srw_ss())[vs_to_exh_MAP]
-         |> match_mp_tac) >>
-        fs[to_i2_invariant_def] >>
-        fs[Once s_to_i2_cases] >>
-        fs[Once s_to_i2'_cases] >>
-        REWRITE_TAC[GSYM good_vs_i2_EVERY] >>
-        (v_to_i2_preserves_good |> CONJUNCT2 |> CONJUNCT1
-         |> MP_CANON |> match_mp_tac) >>
-        first_assum(match_exists_tac o concl) >>
-        conj_tac >- simp[] >>
-        (v_to_i1_preserves_good |> CONJUNCT2 |> CONJUNCT1
-         |> MP_CANON |> match_mp_tac) >>
-        fs[to_i1_invariant_def] >>
-        fs[Once s_to_i1_cases] >>
-        fs[Once s_to_i1'_cases] >>
-        first_assum(match_exists_tac o concl) >>
-        simp[] ) >>
-      match_mp_tac genv_to_exh_preserves_good >>
-      fs[to_i2_invariant_def] >>
-      match_mp_tac (MP_CANON genv_to_i2_preserves_good) >>
-      first_assum(match_exists_tac o concl) >> simp[] >>
-      fs[to_i1_invariant_def] >>
-      (v_to_i1_preserves_good |> funpow 4 CONJUNCT2
-       |> MP_CANON |> match_mp_tac) >>
-      first_assum(match_exists_tac o concl) >>
-      simp[] ) >>
     disch_then(qx_choosel_then[`res4`]strip_assume_tac) >>
     first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_Cexp_correct)) >>
     simp[] >>
@@ -1864,7 +1834,7 @@ val compile_top_thm = store_thm("compile_top_thm",
     qpat_assum`X = bc`mp_tac >>
     specl_args_of_then``compile_Cexp`` compile_Cexp_thm mp_tac >>
     simp[] >>
-    discharge_hyps >- cheat (* to_i2 proof currently broken *) >>
+    discharge_hyps >- cheat (* waiting for semantics to change regarding exh *) >>
     strip_tac >>
     pop_assum (mp_tac o ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]) >>
     cheat) >> cheat)
