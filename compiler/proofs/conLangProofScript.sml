@@ -928,7 +928,9 @@ val do_app_i2_correct = Q.prove (
              PairCases_on `h` >>
              fs [exp_to_i2_def] >>
              every_case_tac >>
-             fs [get_tagenv_def])))
+             fs [get_tagenv_def]))
+     >- (CCONTR_TAC >> fs[funs_to_i2_map] >>
+         fs[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX,FST_triple]))
  >- (every_case_tac >>
      fs [] >>
      rw [] >>
@@ -2178,7 +2180,6 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
            >- (`DISJOINT (FDOM (exh_to_seen_types (FUNION exh1 exh2) tids')) (FDOM exh)` by cheat >>
                metis_tac [evaluate_prompt_i2_exh_weak])
                *)
-           >- cheat
            >- cheat)
        >- (MAP_EVERY qexists_tac [`genv'_i2 ++ genv'_i2'`, `s'_i2'`, `SOME err_i2`, `gtagenv''`] >>
            rw [] >>
