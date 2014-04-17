@@ -6,6 +6,169 @@ open patLangProofTheory
 
 val _ = new_theory"compilerProof"
 
+(* TODO: remove
+
+val good_v_def = tDefine"good_v"`
+  (good_v (Litv _) ⇔ T) ∧
+  (good_v (Conv _ vs) ⇔ good_vs vs) ∧
+  (good_v (Closure (envM,envC,envE) _ _) ⇔
+    good_envM envM ∧ good_envE envE) ∧
+  (good_v (Recclosure (envM,envC,envE) funs f) ⇔
+   good_envM envM ∧ good_envE envE ∧
+   ALL_DISTINCT (MAP FST funs) ∧ MEM f (MAP FST funs)) ∧
+  (good_v (Loc _) ⇔ T) ∧
+  (good_vs [] ⇔ T) ∧
+  (good_vs (v::vs) ⇔ good_v v ∧ good_vs vs) ∧
+  (good_envE [] ⇔ T) ∧
+  (good_envE ((_,v)::envE) ⇔ good_v v ∧ good_envE envE) ∧
+  (good_envM [] ⇔ T) ∧
+  (good_envM ((_,envE)::envM) ⇔ good_envE envE ∧ good_envM envM)`
+(WF_REL_TAC`inv_image $< (\x. case x of
+  | INL v => v_size v
+  | INR (INL vs) => v7_size vs
+  | INR (INR (INL envE)) => v5_size envE
+  | INR (INR (INR envM)) => v3_size envM)`)
+val _ = export_rewrites["good_v_def"]
+
+val good_vs_EVERY = store_thm("good_vs_EVERY",
+  ``∀vs. good_vs vs ⇔ EVERY good_v vs``,
+  Induct >> simp[])
+val _ = export_rewrites["good_vs_EVERY"]
+
+val good_envE_EVERY = store_thm("good_envE_EVERY",
+  ``∀envE. good_envE envE ⇔ EVERY good_v (MAP SND envE)``,
+  Induct >> simp[] >> Cases >> simp[])
+
+val good_envM_EVERY = store_thm("good_envM_EVERY",
+  ``∀envM. good_envM envM ⇔ EVERY good_envE (MAP SND envM)``,
+  Induct >> simp[] >> Cases >> simp[])
+
+val _ = export_rewrites["good_envM_EVERY","good_envE_EVERY","good_vs_EVERY"]
+
+val good_v_i1_def = tDefine"good_v_i1"`
+  (good_v_i1 (Litv_i1 _) ⇔ T) ∧
+  (good_v_i1 (Conv_i1 _ vs) ⇔ good_vs_i1 vs) ∧
+  (good_v_i1 (Closure_i1 (_,env) _ _) ⇔ good_vs_i1 (MAP SND env)) ∧
+  (good_v_i1 (Recclosure_i1 (_,env) funs f) ⇔
+   good_vs_i1 (MAP SND env) ∧ ALL_DISTINCT (MAP FST funs) ∧ MEM f (MAP FST funs)) ∧
+  (good_v_i1 (Loc_i1 _) ⇔ T) ∧
+  (good_vs_i1 [] ⇔ T) ∧
+  (good_vs_i1 (v::vs) ⇔ good_v_i1 v ∧ good_vs_i1 vs)`
+  (WF_REL_TAC`inv_image $< (\x. case x of INL v => v_i1_size v | INR vs => v_i14_size vs)` >>
+   simp[] >> conj_tac >> rpt gen_tac >> Induct_on`env` >> simp[v_i1_size_def] >>
+   Cases >> simp[v_i1_size_def] >> rw[] >> res_tac >> simp[])
+val _ = export_rewrites["good_v_i1_def"]
+
+val good_vs_i1_EVERY = store_thm("good_vs_i1_EVERY",
+  ``∀vs. good_vs_i1 vs ⇔ EVERY good_v_i1 vs``,
+  Induct >> simp[])
+val _ = export_rewrites["good_vs_i1_EVERY"]
+
+val good_v_i2_def = tDefine"good_v_i2"`
+  (good_v_i2 (Litv_i2 _) ⇔ T) ∧
+  (good_v_i2 (Conv_i2 _ vs) ⇔ good_vs_i2 vs) ∧
+  (good_v_i2 (Closure_i2 env _ _) ⇔ good_vs_i2 (MAP SND env)) ∧
+  (good_v_i2 (Recclosure_i2 env funs f) ⇔
+   good_vs_i2 (MAP SND env) ∧ ALL_DISTINCT (MAP FST funs) ∧ MEM f (MAP FST funs)) ∧
+  (good_v_i2 (Loc_i2 _) ⇔ T) ∧
+  (good_vs_i2 [] ⇔ T) ∧
+  (good_vs_i2 (v::vs) ⇔ good_v_i2 v ∧ good_vs_i2 vs)`
+  (WF_REL_TAC`inv_image $< (\x. case x of INL v => v_i2_size v | INR vs => v_i23_size vs)` >>
+   simp[] >> conj_tac >> rpt gen_tac >> Induct_on`env` >> simp[v_i2_size_def] >>
+   Cases >> simp[v_i2_size_def] >> rw[] >> res_tac >> simp[])
+val _ = export_rewrites["good_v_i2_def"]
+
+val good_vs_i2_EVERY = store_thm("good_vs_i2_EVERY",
+  ``∀vs. good_vs_i2 vs ⇔ EVERY good_v_i2 vs``,
+  Induct >> simp[])
+val _ = export_rewrites["good_vs_i2_EVERY"]
+
+val funs_to_i1_MAP = store_thm("funs_to_i1_MAP",
+  ``∀menv env funs. funs_to_i1 menv env funs = MAP (λ(f,x,e). (f,x,exp_to_i1 menv (env \\ x) e)) funs``,
+  Induct_on`funs` >> simp[exp_to_i1_def] >>
+  qx_gen_tac`p`>>PairCases_on`p`>>simp[exp_to_i1_def])
+
+val v_to_i1_preserves_good = store_thm("v_to_i1_preserves_good",
+  ``(∀genv v v1. v_to_i1 genv v v1 ⇒ good_v v ⇒ good_v_i1 v1) ∧
+    (∀genv vs vs1. vs_to_i1 genv vs vs1 ⇒ good_vs vs ⇒ good_vs_i1 vs1) ∧
+    (∀genv env env1. env_to_i1 genv env env1 ⇒ good_envE env ⇒ good_vs_i1 (MAP SND env1)) ∧
+    (∀genv tops shadowers env. global_env_inv_flat genv tops shadowers env ⇒
+      good_envE env ∧
+      (∀n. n < LENGTH genv ∧ IS_SOME (EL n genv) ⇒
+        ∃x. x ∉ shadowers ∧ IS_SOME (lookup x env) ∧ FLOOKUP tops x = SOME n) ⇒
+      EVERY (OPTION_EVERY good_v_i1) genv) ∧
+    (∀genv mods tops menv shadowers env. global_env_inv genv mods tops menv shadowers env ⇒
+      good_envE env ∧ good_envM menv
+      ⇒ EVERY (OPTION_EVERY good_v_i1) genv)``,
+  ho_match_mp_tac v_to_i1_ind >> simp[] >>
+  conj_tac >- (
+    simp[funs_to_i1_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX]) >>
+  conj_tac >- (
+    simp[EVERY_MEM,MEM_EL,PULL_EXISTS] >>
+    rw[] >> res_tac >>
+    Cases_on`EL n genv`>>fs[] >>
+    qmatch_assum_rename_tac`z ∉ shadowers`[] >>
+    Cases_on`lookup z env`>>fs[] >>
+    res_tac >> fs[] >> rw[] >> fs[] >> rw[] >>
+    imp_res_tac libPropsTheory.lookup_in >>
+    fs[MEM_EL] ) >>
+  rw[] >> fs[] >>
+  cheat (* false? TODO: need help fixing the statement *))
+
+val funs_to_i2_MAP = store_thm("funs_to_i2_MAP",
+  ``∀g funs. funs_to_i2 g funs = MAP (λ(f,x,e). (f,x,exp_to_i2 g e)) funs``,
+  Induct_on`funs` >> simp[exp_to_i2_def] >>
+  qx_gen_tac`p`>>PairCases_on`p`>>simp[exp_to_i2_def])
+
+val v_to_i2_preserves_good = store_thm("v_to_i2_preserves_good",
+  ``(∀g v v2. v_to_i2 g v v2 ⇒ good_v_i1 v ⇒ good_v_i2 v2) ∧
+    (∀g vs vs2. vs_to_i2 g vs vs2 ⇒ good_vs_i1 vs ⇒ good_vs_i2 vs2) ∧
+    (∀g env env2. env_to_i2 g env env2 ⇒ good_vs_i1 (MAP SND env) ⇒ good_vs_i2 (MAP SND env2))``,
+  ho_match_mp_tac v_to_i2_ind >>
+  simp[funs_to_i2_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX])
+
+val funs_to_exh_MAP = store_thm("funs_to_exh_MAP",
+  ``∀exh funs. funs_to_exh exh funs = MAP (λ(f,x,e). (f,x,exp_to_exh exh e)) funs``,
+  Induct_on`funs` >> simp[exp_to_exh_def] >>
+  qx_gen_tac`p`>>PairCases_on`p`>>simp[exp_to_exh_def])
+
+val vs_to_exh_MAP = store_thm("vs_to_exh_MAP",
+  ``∀exh vs. vs_to_exh exh vs = MAP (v_to_exh exh) vs``,
+  Induct_on`vs`>>simp[v_to_exh_def])
+
+val v_to_exh_preserves_good = store_thm("v_to_exh_preserves_good",
+  ``(∀v exh. good_v_i2 v ⇒ good_v_exh (v_to_exh exh v)) ∧
+    (∀env exh. good_vs_i2 (MAP SND env) ⇒ good_vs_exh (MAP SND (env_to_exh exh env))) ∧
+    (∀(p:string#v_i2) exh. good_v_i2 (SND p) ⇒ good_v_exh (v_to_exh exh (SND p))) ∧
+    (∀vs exh. good_vs_i2 vs ⇒ good_vs_exh (vs_to_exh exh vs))``,
+  ho_match_mp_tac (TypeBase.induction_of(``:v_i2``)) >>
+  simp[v_to_exh_def] >>
+  conj_tac >- (
+    Induct >> simp[v_to_exh_def] >- (
+      simp[funs_to_exh_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] ) >>
+    Cases >> simp[v_to_exh_def] >>
+    metis_tac[] ) >>
+  Cases >> simp[v_to_exh_def])
+
+val genv_to_exh_preserves_good = prove(
+  ``∀exh genv2.
+    EVERY (OPTION_EVERY good_v_i2) genv2 ⇒
+    EVERY (OPTION_EVERY good_v_exh)
+      (MAP (OPTION_MAP (v_to_exh exh)) genv2)``,
+  simp[EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
+  rpt gen_tac >> strip_tac >>
+  Cases >> simp[] >> strip_tac >>
+  res_tac >> fs[] >>
+  metis_tac[v_to_exh_preserves_good])
+
+val genv_to_i2_preserves_good = prove(
+  ``∀g genv genv2. genv_to_i2 g genv genv2 ⇒
+      EVERY (OPTION_EVERY good_v_i1) genv ⇒
+      EVERY (OPTION_EVERY good_v_i2) genv2``,
+  ho_match_mp_tac genv_to_i2_ind >>
+  simp[] >> metis_tac[v_to_i2_preserves_good])
+*)
+
 (* misc *)
 
 val code_env_cd_append = store_thm("code_env_cd_append",
@@ -1249,6 +1412,12 @@ val good_globals_def = Define`
        n ∈ BIGUNION (IMAGE FRANGE (FRANGE (FST e))) ⇒
        n < m)`
 
+val i2_Cv_def = Define`
+  i2_Cv exh v Cv ⇔
+    ∃vp.
+      v_pat (v_to_pat (v_to_exh exh v)) vp ∧
+      syneq (v_to_Cv vp) Cv`
+
 val env_rs_def = Define`
   env_rs ((envM,envC,envE):all_env) ((cnt,s):v count_store) (genv,(tids,gtagenv),rd)
     (rs:compiler_state) (bs:bc_state)
@@ -1263,10 +1432,8 @@ val env_rs_def = Define`
       to_i2_invariant
         tids envC rs.exh rs.contags_env gtagenv
         (cnt,s1) (cnt,s2) genv genv2 ∧
-      LIST_REL syneq
-        (MAP (v_to_Cv o v_to_pat o (v_to_exh rs.exh)) s2) Cs ∧
-      LIST_REL (OPTREL syneq)
-        (MAP (OPTION_MAP (v_to_Cv o v_to_pat o (v_to_exh rs.exh))) genv2) Cg ∧
+      LIST_REL (i2_Cv rs.exh) s2 Cs ∧
+      LIST_REL (OPTREL (i2_Cv rs.exh)) genv2 Cg ∧
       closed_vlabs [] ((cnt,Cs),Cg) bs.code ∧
       Cenv_bs rd ((cnt,Cs),Cg) [] [] 0 bs`
 
@@ -1564,11 +1731,19 @@ val genv_to_i2_LENGTH_EQ = store_thm("genv_to_i2_LENGTH_EQ",
   ``∀x y z. genv_to_i2 x y z ⇒ LENGTH y = LENGTH z``,
   ho_match_mp_tac genv_to_i2_ind >> simp[])
 
+val v_bv_def = Define`
+  v_bv (genv,gtagenv,exh,pp) v bv ⇔
+    ∃v1 v2 Cv.
+    v_to_i1 genv v v1 ∧
+    v_to_i2 gtagenv v1 v2 ∧
+    i2_Cv exh v2 Cv ∧
+    Cv_bv pp Cv bv`
+
 val compile_top_thm = store_thm("compile_top_thm",
   ``∀ck env stm top res. evaluate_top ck env stm top res ⇒
      ∀rs types grd rs' bc bs bc0.
       env_rs env (FST stm) grd rs (bs with code := bc0) ∧
-      (FST(FST(SND(grd))) = FST (SND stm)) ∧
+      (FST(FST(SND grd)) = FST (SND stm)) ∧
       (compile_top types rs top = (rs',bc)) ∧
       (IS_SOME types ⇒ set (new_top_vs top) ⊆ FDOM (THE types)) ∧
       (bs.code = bc0 ++ REVERSE bc) ∧
@@ -1587,15 +1762,12 @@ val compile_top_thm = store_thm("compile_top_thm",
         env_rs (envM++FST env,merge_envC envC (FST(SND env)),envE ++ (SND(SND env)))
           s grd' rs' (bs' with stack := bs.stack)
       | ((s,tdecls,mdecls),envC,Rerr(Rraise err)) =>
-        ∃err1 err2 Cv bv bs' grd'.
+        ∃bv bs' grd'.
         bc_next^*bs bs' ∧
         bs'.stack = (Block (block_tag+some_tag) [bv])::bs.stack ∧
         bs'.pc = 0 ∧
         bs'.output = bs.output ∧
-        v_to_i1 (FST grd') err err1 ∧
-        v_to_i2 (SND(FST(SND grd'))) err1 err2 ∧
-        syneq (v_to_Cv (v_to_pat (v_to_exh rs'.exh err2))) Cv ∧
-        Cv_bv (mk_pp (SND(SND(grd'))) bs') Cv bv ∧
+        v_bv (FST grd', SND(FST(SND grd')), rs'.exh, mk_pp (SND(SND grd')) bs') err bv ∧
         env_rs env s grd' rs' (bs' with stack := bs.stack)
       | _ => T``,
   ho_match_mp_tac evaluate_top_ind >>
@@ -1651,17 +1823,20 @@ val compile_top_thm = store_thm("compile_top_thm",
     simp[] >> strip_tac >>
     first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_pat_correct)) >>
     simp[result_to_exh_def] >>
-    discharge_hyps >- (
-      cheat (* needs to go into env_rs? *) ) >>
     disch_then(qx_choosel_then[`res4`]strip_assume_tac) >>
     first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_Cexp_correct)) >>
     simp[] >>
-    discharge_hyps >- (
+    discharge_hyps_keep >- (
       simp[v_to_exh_def] >>
+      specl_args_of_then``exp_to_pat``(CONJUNCT1 free_vars_pat_exp_to_pat)mp_tac >>
       cheat (* closed, free_vars, ... might need more in env_rs? *) ) >>
     disch_then(qx_choosel_then[`Cres0`]strip_assume_tac) >>
-    first_assum (mp_tac o MATCH_MP (CONJUNCT1 compile_val)) >>
-    PairCases_on`Cres0` >> simp[] >>
+    qpat_assum`X = bc`mp_tac >>
+    specl_args_of_then``compile_Cexp`` compile_Cexp_thm mp_tac >>
+    simp[] >>
+    discharge_hyps >- cheat (* waiting for semantics to change regarding exh *) >>
+    strip_tac >>
+    pop_assum (mp_tac o ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]) >>
     cheat) >> cheat)
 
 (*

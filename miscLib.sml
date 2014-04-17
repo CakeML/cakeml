@@ -11,6 +11,7 @@ fun rator_assum q ttac = Q_TAC (C RATOR_ASSUM ttac) q
 
 val IMP_IMP = METIS_PROVE[]``(P /\ (Q ==> R)) ==> ((P ==> Q) ==> R)``
 val discharge_hyps = match_mp_tac IMP_IMP >> conj_tac
+val discharge_hyps_keep = match_mp_tac IMP_IMP >> conj_asm1_tac
 
 fun prove_hyps_by tac th = PROVE_HYP (prove(list_mk_conj (hyp th),tac)) th
 
