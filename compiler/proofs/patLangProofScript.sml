@@ -929,26 +929,27 @@ val the_less_rwt = prove(
   Cases_on`Y`>>simp[compilerLibTheory.the_def])
 
 val do_app_pat_correct = prove(
-  ``∀op v1 v2 env s.
-     (do_app_pat (MAP (v_to_pat o SND) env) (MAP v_to_pat s) op (v_to_pat v1) (v_to_pat v2) =
-      OPTION_MAP (λ(env,s,exp). (MAP (v_to_pat o SND) env, MAP v_to_pat s, exp_to_pat (MAP (SOME o FST) env) exp))
-        (do_app_exh env s op v1 v2))``,
+  ``∀op v1 v2 env0 s0 env s exp.
+     do_app_exh env0 s0 op v1 v2 = SOME (env,s,exp) ⇒
+     do_app_pat (MAP (v_to_pat o SND) env0) (MAP v_to_pat s0) op (v_to_pat v1) (v_to_pat v2) =
+       SOME (MAP (v_to_pat o SND) env, MAP v_to_pat s, exp_to_pat (MAP (SOME o FST) env) exp)``,
   Cases_on`op`>>TRY(Cases_on`o':opn`)>>Cases_on`v1`>>TRY(Cases_on`l:lit`)>>Cases_on`v2`>>TRY(Cases_on`l:lit`)>>
   simp[do_app_exh_def,do_app_pat_def,exn_env_pat_def
       ,libTheory.emp_def,libTheory.bind_def,do_eq_pat_correct,do_eq_pat_def]>>rw[]>>
   fs[find_recfun_ALOOKUP,funs_to_pat_MAP] >- (
-    BasicProvers.CASE_TAC >> simp[] >> rw[] >>
-    BasicProvers.CASE_TAC >> simp[] >> rw[] ) >>
+    BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[]) >>
   fs[the_less_rwt] >>
-  BasicProvers.CASE_TAC >>
+  BasicProvers.EVERY_CASE_TAC >>
   imp_res_tac ALOOKUP_find_index_NONE >>
   imp_res_tac ALOOKUP_find_index_SOME >>
   fs[] >> rw[] >> fs[semanticPrimitivesTheory.store_assign_def] >> rw[] >>
   TRY ( rw[LIST_EQ_REWRITE] >> simp[EL_MAP,EL_LUPDATE] >> rw[funs_to_pat_MAP] >> NO_TAC) >>
   simp[build_rec_env_exh_MAP,build_rec_env_pat_def,EXISTS_PROD,EL_MAP,UNCURRY] >>
-  BasicProvers.CASE_TAC >> rw[MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
+  rw[MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
   rw[LIST_EQ_REWRITE,EL_MAP,funs_to_pat_MAP] >>
-  `ALL_DISTINCT (MAP FST l0)` by cheat (* awaiting change to semantics of do_app_exh *) >>
+  fs[FST_triple] >>
+  TRY (qmatch_assum_rename_tac`(q,exp) = SND p`[] >>
+       PairCases_on`p`>>fs[] >> NO_TAC) >>
   imp_res_tac find_index_ALL_DISTINCT_EL >>
   first_x_assum(qspec_then`x`mp_tac) >>
   (discharge_hyps >- simp[]) >>
