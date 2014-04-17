@@ -127,13 +127,7 @@ rw [] >>
 rw [] >>
 CCONTR_TAC >> 
 fs [] >>
-rw []
->- metis_tac [top_nchotomy, untyped_safety_decs, untyped_safety_dec, pair_CASES, result_nchotomy]
->- metis_tac [top_nchotomy, untyped_safety_decs, untyped_safety_dec, pair_CASES, result_nchotomy]
->- metis_tac [top_nchotomy, untyped_safety_decs, untyped_safety_dec, pair_CASES, result_nchotomy]
->- metis_tac [top_nchotomy, untyped_safety_decs, untyped_safety_dec, pair_CASES, result_nchotomy] >>
-cases_on `top` >>
-fs [] >>
+rw [] >>
 metis_tac [top_nchotomy, untyped_safety_decs, untyped_safety_dec, pair_CASES, result_nchotomy]);
 
 val untyped_safety_prog = Q.store_thm ("untyped_safety_prog",
