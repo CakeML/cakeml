@@ -437,6 +437,5 @@ val _ = export_rewrites["free_vars_exh_def"]
 val free_vars_pes_exh_MAP = store_thm("free_vars_pes_exh_MAP",
   ``∀pes. free_vars_pes_exh pes = BIGUNION (set (MAP (λ(p,e). free_vars_exh e DIFF set (pat_bindings_exh p [])) pes))``,
   Induct >> simp[] >> Cases >> simp[])
-val _ = export_rewrites["free_vars_pes_exh_MAP"]
 
 val _ = export_theory ();

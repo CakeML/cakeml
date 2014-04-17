@@ -685,15 +685,11 @@ val free_vars_pat_exp_to_pat = store_thm("free_vars_pat_exp_to_pat",
     rpt gen_tac >> strip_tac >> strip_tac >> fs[find_index_def] >>
     fs[Q.SPEC`1`(CONV_RULE(RESORT_FORALL_CONV List.rev)find_index_shift_0)] >>
     gen_tac >> strip_tac >- metis_tac[] >>
-    qpat_assum`p ⇒ q`mp_tac >>
-    discharge_hyps >- metis_tac[] >>
-    strip_tac >> res_tac >>
-    qmatch_assum_rename_tac`a ∈ s`[] >>
-    qexists_tac`a` >>
+    res_tac >> qpat_assum`m = X`mp_tac >>
     specl_args_of_then``find_index`` (CONV_RULE SWAP_FORALL_CONV find_index_MEM) mp_tac >>
     discharge_hyps >- metis_tac[] >>
     strip_tac >> fs[] >>
-    metis_tac[] ) >>
+    metis_tac[optionTheory.THE_DEF] ) >>
   strip_tac >- (
     simp[optionTheory.option_case_compute] >>
     rw[] >>
@@ -721,13 +717,10 @@ val free_vars_pat_exp_to_pat = store_thm("free_vars_pat_exp_to_pat",
     rpt gen_tac >> rpt strip_tac >>
     fs[Q.SPEC`1`(CONV_RULE(RESORT_FORALL_CONV List.rev)find_index_shift_0)] >>
     imp_res_tac((SIMP_RULE(srw_ss())[SUBSET_DEF]free_vars_pat_sLet)) >- metis_tac[] >>
-    qpat_assum`p ⇒ q`mp_tac >>
-    discharge_hyps >- metis_tac[] >>
-    disch_then(qspec_then`m`mp_tac) >>
-    simp[] >> strip_tac >>
-    BasicProvers.EVERY_CASE_TAC >> fs[] >>
+    res_tac >> qpat_assum`m = X`mp_tac >>
     specl_args_of_then``find_index`` (CONV_RULE SWAP_FORALL_CONV find_index_MEM) mp_tac >>
-    discharge_hyps >- metis_tac[] >> strip_tac >> fs[] >>
+    discharge_hyps >- metis_tac[] >>
+    strip_tac >> fs[] >>
     metis_tac[optionTheory.THE_DEF] ) >>
   strip_tac >- (
     simp[find_index_def] >>

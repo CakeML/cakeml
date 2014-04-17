@@ -115,26 +115,12 @@ val v_to_i1_preserves_good = store_thm("v_to_i1_preserves_good",
   rw[] >> fs[] >>
   cheat (* false? TODO: need help fixing the statement *))
 
-val funs_to_i2_MAP = store_thm("funs_to_i2_MAP",
-  ``∀g funs. funs_to_i2 g funs = MAP (λ(f,x,e). (f,x,exp_to_i2 g e)) funs``,
-  Induct_on`funs` >> simp[exp_to_i2_def] >>
-  qx_gen_tac`p`>>PairCases_on`p`>>simp[exp_to_i2_def])
-
 val v_to_i2_preserves_good = store_thm("v_to_i2_preserves_good",
   ``(∀g v v2. v_to_i2 g v v2 ⇒ good_v_i1 v ⇒ good_v_i2 v2) ∧
     (∀g vs vs2. vs_to_i2 g vs vs2 ⇒ good_vs_i1 vs ⇒ good_vs_i2 vs2) ∧
     (∀g env env2. env_to_i2 g env env2 ⇒ good_vs_i1 (MAP SND env) ⇒ good_vs_i2 (MAP SND env2))``,
   ho_match_mp_tac v_to_i2_ind >>
   simp[funs_to_i2_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX])
-
-val funs_to_exh_MAP = store_thm("funs_to_exh_MAP",
-  ``∀exh funs. funs_to_exh exh funs = MAP (λ(f,x,e). (f,x,exp_to_exh exh e)) funs``,
-  Induct_on`funs` >> simp[exp_to_exh_def] >>
-  qx_gen_tac`p`>>PairCases_on`p`>>simp[exp_to_exh_def])
-
-val vs_to_exh_MAP = store_thm("vs_to_exh_MAP",
-  ``∀exh vs. vs_to_exh exh vs = MAP (v_to_exh exh) vs``,
-  Induct_on`vs`>>simp[v_to_exh_def])
 
 val v_to_exh_preserves_good = store_thm("v_to_exh_preserves_good",
   ``(∀v exh. good_v_i2 v ⇒ good_v_exh (v_to_exh exh v)) ∧
@@ -168,6 +154,168 @@ val genv_to_i2_preserves_good = prove(
   ho_match_mp_tac genv_to_i2_ind >>
   simp[] >> metis_tac[v_to_i2_preserves_good])
 *)
+
+val funs_to_exh_MAP = store_thm("funs_to_exh_MAP",
+  ``∀exh funs. funs_to_exh exh funs = MAP (λ(f,x,e). (f,x,exp_to_exh exh e)) funs``,
+  Induct_on`funs` >> simp[exp_to_exh_def] >>
+  qx_gen_tac`p`>>PairCases_on`p`>>simp[exp_to_exh_def])
+
+val funs_to_i2_MAP = store_thm("funs_to_i2_MAP",
+  ``∀g funs. funs_to_i2 g funs = MAP (λ(f,x,e). (f,x,exp_to_i2 g e)) funs``,
+  Induct_on`funs` >> simp[exp_to_i2_def] >>
+  qx_gen_tac`p`>>PairCases_on`p`>>simp[exp_to_i2_def])
+
+val vs_to_exh_MAP = store_thm("vs_to_exh_MAP",
+  ``∀exh vs. vs_to_exh exh vs = MAP (v_to_exh exh) vs``,
+  Induct_on`vs`>>simp[v_to_exh_def])
+
+val (closed_exh_rules,closed_exh_ind,closed_exh_cases) = Hol_reln`
+(closed_exh (Litv_exh l)) ∧
+(EVERY (closed_exh) vs ⇒ closed_exh (Conv_exh cn vs)) ∧
+(EVERY (closed_exh) (MAP SND env) ∧ free_vars_exh b ⊆ {x} ∪ set (MAP FST env)
+⇒ closed_exh (Closure_exh env x b)) ∧
+(EVERY (closed_exh) (MAP SND env) ∧ MEM d (MAP FST defs) ∧
+ EVERY (λ(f,x,e). free_vars_exh e ⊆ {x} ∪ set (MAP FST defs) ∪ set (MAP FST env)) defs
+⇒ closed_exh (Recclosure_exh env defs d)) ∧
+(closed_exh (Loc_exh n))`;
+
+val closed_exh_lit_loc_conv = store_thm("closed_exh_lit_loc_conv",
+  ``closed_exh (Litv_exh l) ∧ closed_exh (Loc_exh n) ∧
+    (closed_exh (Conv_exh a bs) ⇔ EVERY closed_exh bs)``,
+  rw[closed_exh_cases])
+val _ = export_rewrites["closed_exh_lit_loc_conv"]
+
+val v_to_pat_closed = store_thm("v_to_pat_closed",
+  ``(∀v. closed_exh v ⇒ closed_pat (v_to_pat v)) ∧
+    (∀vs. EVERY closed_exh vs ⇒  EVERY closed_pat (vs_to_pat vs))``,
+  ho_match_mp_tac v_to_pat_ind >>
+  simp[v_to_exh_def] >>
+  rw[] >- (
+    simp[Once closed_pat_cases] >>
+    pop_assum mp_tac >>
+    simp[Once closed_exh_cases] >>
+    strip_tac >>
+    specl_args_of_then``exp_to_pat``(CONJUNCT1 free_vars_pat_exp_to_pat) mp_tac >>
+    fs[SUBSET_DEF,PULL_EXISTS,EVERY_MAP,MEM_MAP,EVERY_MEM] >> rw[] >>
+    res_tac >> rw[] >>
+    qho_match_abbrev_tac`THE (find_index a ls n) < z` >>
+    qho_match_abbrev_tac`P (THE (find_index a ls n))` >>
+    match_mp_tac THE_find_index_suff >>
+    simp[Abbr`P`,Abbr`n`,Abbr`z`,Abbr`ls`,Abbr`a`,MEM_MAP] ) >>
+  simp[Once closed_pat_cases] >>
+  pop_assum mp_tac >>
+  simp[Once closed_exh_cases] >>
+  strip_tac >>
+  simp[funs_to_pat_MAP] >>
+  fs[EVERY_MAP,EVERY_MEM,SUBSET_DEF,PULL_FORALL,FORALL_PROD,PULL_EXISTS,MEM_MAP,EXISTS_PROD] >>
+  rpt gen_tac >> strip_tac >- metis_tac[] >>
+  strip_tac >- (
+    qho_match_abbrev_tac`the d (find_index a b c) < d` >>
+    qho_match_abbrev_tac`P (the d (find_index a b c))` >>
+    match_mp_tac the_find_index_suff >>
+    simp[Abbr`P`,Abbr`a`,Abbr`d`,Abbr`c`,Abbr`b`,MEM_MAP] >>
+    simp[EXISTS_PROD] >> metis_tac[] ) >>
+  strip_tac >>
+  specl_args_of_then``exp_to_pat``(CONJUNCT1 free_vars_pat_exp_to_pat) mp_tac >>
+  fs[SUBSET_DEF,PULL_EXISTS,EVERY_MAP,MEM_MAP,EVERY_MEM,EXISTS_PROD] >>
+  discharge_hyps >- metis_tac[] >> rw[] >>
+  res_tac >> rw[] >>
+  qho_match_abbrev_tac`THE (find_index a ls n) < z` >>
+  qho_match_abbrev_tac`P (THE (find_index a ls n))` >>
+  match_mp_tac THE_find_index_suff >>
+  simp[Abbr`P`,Abbr`n`,Abbr`z`,Abbr`ls`,Abbr`a`,MEM_MAP,EXISTS_PROD] >>
+  metis_tac[])
+
+val free_vars_i2_def = tDefine"free_vars_i2"`
+  free_vars_i2 (Raise_i2 e) = free_vars_i2 e ∧
+  free_vars_i2 (Handle_i2 e pes) = free_vars_i2 e ∪ free_vars_pes_i2 pes ∧
+  free_vars_i2 (Lit_i2 _) = {} ∧
+  free_vars_i2 (Con_i2 _ es) = free_vars_list_i2 es ∧
+  free_vars_i2 (Var_local_i2 n) = {n} ∧
+  free_vars_i2 (Var_global_i2 _) = {} ∧
+  free_vars_i2 (Fun_i2 x e) = free_vars_i2 e DIFF {x} ∧
+  free_vars_i2 (Uapp_i2 _ e) = free_vars_i2 e ∧
+  free_vars_i2 (App_i2 _ e1 e2) = free_vars_i2 e1 ∪ free_vars_i2 e2 ∧
+  free_vars_i2 (If_i2 e1 e2 e3) = free_vars_i2 e1 ∪ free_vars_i2 e2 ∪ free_vars_i2 e3 ∧
+  free_vars_i2 (Mat_i2 e pes) = free_vars_i2 e ∪ free_vars_pes_i2 pes ∧
+  free_vars_i2 (Let_i2 bn e1 e2) = free_vars_i2 e1 ∪ (free_vars_i2 e2 DIFF (case bn of NONE => {} | SOME x => {x})) ∧
+  free_vars_i2 (Letrec_i2 defs e) = (free_vars_defs_i2 defs ∪ free_vars_i2 e) DIFF set(MAP FST defs) ∧
+  free_vars_i2 (Extend_global_i2 _) = {} ∧
+  free_vars_list_i2 [] = {} ∧
+  free_vars_list_i2 (e::es) = free_vars_i2 e ∪ free_vars_list_i2 es ∧
+  free_vars_defs_i2 [] = {} ∧
+  free_vars_defs_i2 ((f,x,e)::ds) = (free_vars_i2 e DIFF {x}) ∪ free_vars_defs_i2 ds ∧
+  free_vars_pes_i2 [] = {} ∧
+  free_vars_pes_i2 ((p,e)::pes) = (free_vars_i2 e DIFF (set (pat_bindings_i2 p []))) ∪ free_vars_pes_i2 pes`
+(WF_REL_TAC`inv_image $< (λx. case x of
+  | INL e => exp_i2_size e
+  | INR (INL es) => exp_i26_size es
+  | INR (INR (INL defs)) => exp_i21_size defs
+  | INR (INR (INR pes)) => exp_i23_size pes)`)
+val _ = export_rewrites["free_vars_i2_def"]
+
+val free_vars_pes_i2_MAP = store_thm("free_vars_pes_i2_MAP",
+  ``∀pes. free_vars_pes_i2 pes = BIGUNION (set (MAP (λ(p,e). free_vars_i2 e DIFF set (pat_bindings_i2 p [])) pes))``,
+  Induct >> simp[] >> Cases >> simp[])
+
+open exhLangTheory compilerTerminationTheory
+
+val pat_bindings_exh_pat_to_exh = store_thm("pat_bindings_exh_pat_to_exh",
+  ``∀p ls. pat_bindings_exh (pat_to_exh p) ls = pat_bindings_i2 p ls``,
+  ho_match_mp_tac pat_to_exh_ind >>
+  simp[pat_bindings_i2_def,pat_to_exh_def,pat_bindings_exh_def,ETA_AX] >>
+  Induct >> simp[pat_bindings_i2_def,pat_bindings_exh_def])
+val _ = export_rewrites["pat_bindings_exh_pat_to_exh"]
+
+val free_vars_exh_exp_to_exh = store_thm("free_vars_exh_exp_to_exh",
+  ``(∀exh e. free_vars_exh (exp_to_exh exh e) = free_vars_i2 e) ∧
+    (∀exh es. free_vars_list_exh (exps_to_exh exh es) = free_vars_list_i2 es) ∧
+    (∀exh pes. free_vars_pes_exh (pat_exp_to_exh exh pes) = free_vars_pes_i2 pes) ∧
+    (∀exh funs. free_vars_defs_exh (funs_to_exh exh funs) = free_vars_defs_i2 funs)``,
+  ho_match_mp_tac exp_to_exh_ind >>
+  simp[exp_to_exh_def] >>
+  conj_tac >- (
+    rw[add_default_def,pat_bindings_i2_def,free_vars_pes_i2_MAP] ) >>
+  conj_tac >- (
+    rw[add_default_def,pat_bindings_i2_def,free_vars_pes_i2_MAP] ) >>
+  rw[funs_to_exh_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] )
+val _ = export_rewrites["free_vars_exh_exp_to_exh"]
+
+val (closed_i2_rules,closed_i2_ind,closed_i2_cases) = Hol_reln`
+(closed_i2 (Litv_i2 l)) ∧
+(EVERY (closed_i2) vs ⇒ closed_i2 (Conv_i2 cn vs)) ∧
+(EVERY (closed_i2) (MAP SND env) ∧ free_vars_i2 b ⊆ {x} ∪ set (MAP FST env)
+⇒ closed_i2 (Closure_i2 env x b)) ∧
+(EVERY (closed_i2) (MAP SND env) ∧ MEM d (MAP FST defs) ∧
+ EVERY (λ(f,x,e). free_vars_i2 e ⊆ {x} ∪ set (MAP FST defs) ∪ set (MAP FST env)) defs
+⇒ closed_i2 (Recclosure_i2 env defs d)) ∧
+(closed_i2 (Loc_i2 n))`;
+
+val closed_i2_lit_loc_conv = store_thm("closed_i2_lit_loc_conv",
+  ``closed_i2 (Litv_i2 l) ∧ closed_i2 (Loc_i2 n) ∧
+    (closed_i2 (Conv_i2 a bs) ⇔ EVERY closed_i2 bs)``,
+  rw[closed_i2_cases])
+val _ = export_rewrites["closed_i2_lit_loc_conv"]
+
+val env_to_exh_MAP = store_thm("env_to_exh_MAP",
+  ``∀exh env. env_to_exh exh env = MAP (λ(x,e). (x, v_to_exh exh e)) env``,
+  Induct_on`env`>>simp[v_to_exh_def] >> Cases >> simp[v_to_exh_def])
+
+val v_to_exh_closed = store_thm("v_to_exh_closed",
+  ``(∀exh v. closed_i2 v ⇒ closed_exh (v_to_exh exh v)) ∧
+    (∀exh vs. EVERY closed_i2 vs ⇒  EVERY closed_exh (vs_to_exh exh vs)) ∧
+    (∀exh env. EVERY closed_i2 (MAP SND env) ⇒ EVERY closed_exh (MAP SND (env_to_exh exh env)))``,
+  ho_match_mp_tac v_to_exh_ind >> simp[v_to_exh_def] >>
+  conj_tac >- (
+    rpt gen_tac >> strip_tac >>
+    simp[Once closed_i2_cases] >>
+    simp[Once closed_exh_cases] >>
+    simp[env_to_exh_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] ) >>
+  rpt gen_tac >> strip_tac >>
+  simp[Once closed_i2_cases] >>
+  simp[Once closed_exh_cases] >>
+  simp[funs_to_exh_MAP,EVERY_MAP,MAP_MAP_o,UNCURRY,combinTheory.o_DEF,ETA_AX] >>
+  simp[LAMBDA_PROD,env_to_exh_MAP,MAP_MAP_o,UNCURRY,combinTheory.o_DEF,FST_pair])
 
 (* misc *)
 
@@ -1826,12 +1974,20 @@ val compile_top_thm = store_thm("compile_top_thm",
     disch_then(qx_choosel_then[`res4`]strip_assume_tac) >>
     first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_Cexp_correct)) >>
     simp[] >>
-    discharge_hyps_keep >- (
-      simp[v_to_exh_def] >>
-      specl_args_of_then``exp_to_pat``(CONJUNCT1 free_vars_pat_exp_to_pat)mp_tac >>
-      cheat (* closed, free_vars, ... might need more in env_rs? *) ) >>
-    disch_then(qx_choosel_then[`Cres0`]strip_assume_tac) >>
     `∀x. env_to_exh x [] = []` by simp[v_to_exh_def] >> fs[] >>
+    discharge_hyps_keep >- (
+      conj_asm1_tac >- (
+        specl_args_of_then``exp_to_pat``(CONJUNCT1 free_vars_pat_exp_to_pat)mp_tac >>
+        simp[] >> disch_then match_mp_tac >>
+        cheat (* push free_vars up to source level *)) >>
+      simp[csg_closed_pat_def,map_count_store_genv_def,store_to_exh_def] >>
+      conj_tac >- (
+        (v_to_pat_closed |> CONJUNCT2 |> SIMP_RULE(srw_ss())[] |> match_mp_tac) >>
+        (v_to_exh_closed |> CONJUNCT2 |> CONJUNCT1
+         |> SIMP_RULE(srw_ss())[vs_to_exh_MAP] |> match_mp_tac) >>
+        cheat (* push closed up to source level, and add to env_rs *) ) >>
+      cheat) >>
+    disch_then(qx_choosel_then[`Cres0`]strip_assume_tac) >>
     qpat_assum`X = bc`mp_tac >>
     specl_args_of_then``compile_Cexp`` compile_Cexp_thm mp_tac >>
     simp[] >> strip_tac >>
