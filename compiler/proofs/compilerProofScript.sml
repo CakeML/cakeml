@@ -1393,6 +1393,12 @@ val good_globals_def = Define`
        n ∈ BIGUNION (IMAGE FRANGE (FRANGE (FST e))) ⇒
        n < m)`
 
+val i2_Cv_def = Define`
+  i2_Cv exh v Cv ⇔
+    ∃vp.
+      v_pat (v_to_pat (v_to_exh exh v)) vp ∧
+      syneq (v_to_Cv vp) Cv`
+
 val env_rs_def = Define`
   env_rs ((envM,envC,envE):all_env) ((cnt,s):v count_store) (genv,(tids,gtagenv),rd)
     (rs:compiler_state) (bs:bc_state)
@@ -1408,10 +1414,8 @@ val env_rs_def = Define`
       to_i2_invariant
         tids envC rs.exh rs.contags_env gtagenv
         (cnt,s1) (cnt,s2) genv genv2 ∧
-      LIST_REL syneq
-        (MAP (v_to_Cv o v_to_pat o (v_to_exh rs.exh)) s2) Cs ∧
-      LIST_REL (OPTREL syneq)
-        (MAP (OPTION_MAP (v_to_Cv o v_to_pat o (v_to_exh rs.exh))) genv2) Cg ∧
+      LIST_REL (i2_Cv rs.exh) s2 Cs ∧
+      LIST_REL (OPTREL (i2_Cv rs.exh)) genv2 Cg ∧
       closed_vlabs [] ((cnt,Cs),Cg) bs.code ∧
       Cenv_bs rd ((cnt,Cs),Cg) [] [] 0 bs`
 
@@ -1709,11 +1713,37 @@ val genv_to_i2_LENGTH_EQ = store_thm("genv_to_i2_LENGTH_EQ",
   ``∀x y z. genv_to_i2 x y z ⇒ LENGTH y = LENGTH z``,
   ho_match_mp_tac genv_to_i2_ind >> simp[])
 
+val v_bv_def = Define`
+  v_bv (genv,gtagenv,exh,pp) v bv ⇔
+    ∃v1 v2 Cv.
+    v_to_i1 genv v v1 ∧
+    v_to_i2 gtagenv v1 v2 ∧
+    i2_Cv exh v2 Cv ∧
+    Cv_bv pp Cv bv`
+
+val genv_to_exh_preserves_good = prove(
+  ``∀exh genv2.
+    EVERY (OPTION_EVERY good_v_i2) genv2 ⇒
+    EVERY (OPTION_EVERY good_v_exh)
+      (MAP (OPTION_MAP (v_to_exh exh)) genv2)``,
+  simp[EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
+  rpt gen_tac >> strip_tac >>
+  Cases >> simp[] >> strip_tac >>
+  res_tac >> fs[] >>
+  metis_tac[v_to_exh_preserves_good])
+
+val genv_to_i2_preserves_good = prove(
+  ``∀g genv genv2. genv_to_i2 g genv genv2 ⇒
+      EVERY (OPTION_EVERY good_v_i1) genv ⇒
+      EVERY (OPTION_EVERY good_v_i2) genv2``,
+  ho_match_mp_tac genv_to_i2_ind >>
+  simp[] >> metis_tac[v_to_i2_preserves_good])
+
 val compile_top_thm = store_thm("compile_top_thm",
   ``∀ck env stm top res. evaluate_top ck env stm top res ⇒
      ∀rs types grd rs' bc bs bc0.
       env_rs env (FST stm) grd rs (bs with code := bc0) ∧
-      (FST(FST(SND(grd))) = FST (SND stm)) ∧
+      (FST(FST(SND grd)) = FST (SND stm)) ∧
       (compile_top types rs top = (rs',bc)) ∧
       (IS_SOME types ⇒ set (new_top_vs top) ⊆ FDOM (THE types)) ∧
       (bs.code = bc0 ++ REVERSE bc) ∧
@@ -1732,15 +1762,12 @@ val compile_top_thm = store_thm("compile_top_thm",
         env_rs (envM++FST env,merge_envC envC (FST(SND env)),envE ++ (SND(SND env)))
           s grd' rs' (bs' with stack := bs.stack)
       | ((s,tdecls,mdecls),envC,Rerr(Rraise err)) =>
-        ∃err1 err2 Cv bv bs' grd'.
+        ∃bv bs' grd'.
         bc_next^*bs bs' ∧
         bs'.stack = (Block (block_tag+some_tag) [bv])::bs.stack ∧
         bs'.pc = 0 ∧
         bs'.output = bs.output ∧
-        v_to_i1 (FST grd') err err1 ∧
-        v_to_i2 (SND(FST(SND grd'))) err1 err2 ∧
-        syneq (v_to_Cv (v_to_pat (v_to_exh rs'.exh err2))) Cv ∧
-        Cv_bv (mk_pp (SND(SND(grd'))) bs') Cv bv ∧
+        v_bv (FST grd', SND(FST(SND grd')), rs'.exh, mk_pp (SND(SND grd')) bs') err bv ∧
         env_rs env s grd' rs' (bs' with stack := bs.stack)
       | _ => T``,
   ho_match_mp_tac evaluate_top_ind >>
@@ -1797,16 +1824,49 @@ val compile_top_thm = store_thm("compile_top_thm",
     first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_pat_correct)) >>
     simp[result_to_exh_def] >>
     discharge_hyps >- (
-      cheat (* needs to go into env_rs? *) ) >>
+      fs[v_to_exh_def,store_to_exh_def,good_env_s_exh_def] >>
+      conj_tac >- (
+        (v_to_exh_preserves_good |> CONJUNCTS |> last
+         |> SIMP_RULE(srw_ss())[vs_to_exh_MAP]
+         |> match_mp_tac) >>
+        fs[to_i2_invariant_def] >>
+        fs[Once s_to_i2_cases] >>
+        fs[Once s_to_i2'_cases] >>
+        REWRITE_TAC[GSYM good_vs_i2_EVERY] >>
+        (v_to_i2_preserves_good |> CONJUNCT2 |> CONJUNCT1
+         |> MP_CANON |> match_mp_tac) >>
+        first_assum(match_exists_tac o concl) >>
+        conj_tac >- simp[] >>
+        (v_to_i1_preserves_good |> CONJUNCT2 |> CONJUNCT1
+         |> MP_CANON |> match_mp_tac) >>
+        fs[to_i1_invariant_def] >>
+        fs[Once s_to_i1_cases] >>
+        fs[Once s_to_i1'_cases] >>
+        first_assum(match_exists_tac o concl) >>
+        simp[] ) >>
+      match_mp_tac genv_to_exh_preserves_good >>
+      fs[to_i2_invariant_def] >>
+      match_mp_tac (MP_CANON genv_to_i2_preserves_good) >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      fs[to_i1_invariant_def] >>
+      (v_to_i1_preserves_good |> funpow 4 CONJUNCT2
+       |> MP_CANON |> match_mp_tac) >>
+      first_assum(match_exists_tac o concl) >>
+      simp[] ) >>
     disch_then(qx_choosel_then[`res4`]strip_assume_tac) >>
     first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_Cexp_correct)) >>
     simp[] >>
-    discharge_hyps >- (
+    discharge_hyps_keep >- (
       simp[v_to_exh_def] >>
+      specl_args_of_then``exp_to_pat``(CONJUNCT1 free_vars_pat_exp_to_pat)mp_tac >>
       cheat (* closed, free_vars, ... might need more in env_rs? *) ) >>
     disch_then(qx_choosel_then[`Cres0`]strip_assume_tac) >>
-    first_assum (mp_tac o MATCH_MP (CONJUNCT1 compile_val)) >>
-    PairCases_on`Cres0` >> simp[] >>
+    qpat_assum`X = bc`mp_tac >>
+    specl_args_of_then``compile_Cexp`` compile_Cexp_thm mp_tac >>
+    simp[] >>
+    discharge_hyps >- cheat (* to_i2 proof currently broken *) >>
+    strip_tac >>
+    pop_assum (mp_tac o ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]) >>
     cheat) >> cheat)
 
 (*
