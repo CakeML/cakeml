@@ -2923,8 +2923,6 @@ val use_assum_tac =
   first_assum(split_pair_match o concl) >> fs[] >>
   first_assum(match_exists_tac o concl) >> simp[]
 
-val SWAP_IMP = PROVE[]``(P ==> Q ==> R) ==> (Q ==> P ==> R)``
-
 val csg_rel_unpair = store_thm("csg_rel_unpair",
   ``csg_rel R x1 x2 ⇔
     (FST (FST x1) = FST (FST x2)) ∧

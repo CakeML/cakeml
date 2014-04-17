@@ -1831,12 +1831,38 @@ val compile_top_thm = store_thm("compile_top_thm",
       specl_args_of_then``exp_to_pat``(CONJUNCT1 free_vars_pat_exp_to_pat)mp_tac >>
       cheat (* closed, free_vars, ... might need more in env_rs? *) ) >>
     disch_then(qx_choosel_then[`Cres0`]strip_assume_tac) >>
+    `∀x. env_to_exh x [] = []` by simp[v_to_exh_def] >> fs[] >>
     qpat_assum`X = bc`mp_tac >>
     specl_args_of_then``compile_Cexp`` compile_Cexp_thm mp_tac >>
+    simp[] >> strip_tac >>
+    first_assum(mp_tac o MATCH_MP (CONJUNCT1 Cevaluate_syneq)) >>
     simp[] >>
-    discharge_hyps >- cheat (* waiting for semantics to change regarding exh *) >>
+    qmatch_assum_abbrev_tac`closed_vlabs [] Csg bc0` >>
+    Q.PAT_ABBREV_TAC`Cexp = exp_to_Cexp Z` >>
+    disch_then(qspecl_then[`$=`,`Csg`,`[]`,`Cexp`]mp_tac) >>
+    discharge_hyps >- (
+      simp[syneq_exp_refl] >>
+      fs[Abbr`Csg`,csg_rel_unpair,map_count_store_genv_def,store_to_exh_def] >>
+      simp[MAP_MAP_o,optionTheory.OPTION_MAP_COMPOSE,combinTheory.o_DEF] >>
+      simp[EVERY2_MAP] >>
+      conj_tac >- (
+        match_mp_tac (MP_CANON (GEN_ALL EVERY2_mono)) >>
+        HINT_EXISTS_TAC >>
+        simp[i2_Cv_def] >>
+        cheat (* the extra exh is in the way - not sure if it's harmless or not *) ) >>
+      match_mp_tac (MP_CANON (GEN_ALL EVERY2_mono)) >>
+      HINT_EXISTS_TAC >>
+      simp[i2_Cv_def,optionTheory.OPTREL_def] >>
+      Cases >> simp[PULL_EXISTS] >>
+      cheat (* same problem *) ) >>
     strip_tac >>
-    pop_assum (mp_tac o ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]) >>
+    first_x_assum(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
+    ONCE_REWRITE_TAC[CONJ_COMM] >>
+    ONCE_REWRITE_TAC[GSYM CONJ_ASSOC] >>
+    ONCE_REWRITE_TAC[GSYM AND_IMP_INTRO] >>
+    disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
+    match_mp_tac SWAP_IMP >> strip_tac >>
+    simp[] >>
     cheat) >> cheat)
 
 (*
