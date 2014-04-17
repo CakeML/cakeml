@@ -899,7 +899,5 @@ val _ = Define `
                  (none_tag, ("NONE", TypeId (Short "option")))]))`;
 
 
-
-
 val _ = export_theory()
 
