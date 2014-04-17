@@ -133,10 +133,20 @@ val vs_to_exh_MAP = prove(
   ``∀vs exh. vs_to_exh exh vs = MAP (v_to_exh exh) vs``,
   Induct >> simp[v_to_exh_def])
 
+val funs_to_exh_MAP = prove(
+  ``funs_to_exh exh ls = MAP (λ(x,y,z). (x,y,exp_to_exh exh z)) ls``,
+  Induct_on`ls`>>simp[exp_to_exh_def]>>qx_gen_tac`p`>>PairCases_on`p`>>simp[exp_to_exh_def])
+
 val find_recfun_funs_to_exh = prove(
   ``∀ls f exh. find_recfun f (funs_to_exh exh ls) =
                OPTION_MAP (λ(x,y). (x,exp_to_exh exh y)) (find_recfun f ls)``,
-  Induct >> simp[])
+  Induct >> simp[funs_to_exh_MAP] >- (
+    simp[find_recfun_def] ) >>
+  simp[Once find_recfun_def] >>
+  simp[Once find_recfun_def,SimpRHS] >>
+  rpt gen_tac >>
+  every_case_tac >>
+  simp[] >> fs[funs_to_exh_MAP])
 
 val build_rec_env_i2_MAP = prove(
   ``build_rec_env_i2 funs cle env = MAP (λ(f,cdr). (f, (Recclosure_i2 cle funs f))) funs ++ env``,
@@ -159,10 +169,6 @@ val build_rec_env_exh_MAP = prove(
 val env_to_exh_MAP = prove(
   ``env_to_exh exh env = MAP (λ(x,y). (x, v_to_exh exh y)) env``,
   Induct_on`env`>>simp[v_to_exh_def]>>Cases>>simp[v_to_exh_def])
-
-val funs_to_exh_MAP = prove(
-  ``funs_to_exh exh ls = MAP (λ(x,y,z). (x,y,exp_to_exh exh z)) ls``,
-  Induct_on`ls`>>simp[exp_to_exh_def]>>qx_gen_tac`p`>>PairCases_on`p`>>simp[exp_to_exh_def])
 
 val env_to_exh_build_rec_env_i2 = prove(
   ``∀l1 l2 l3 exh.
@@ -317,7 +323,8 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
      fs[exp_to_exh_def,exn_env_i2_def] >>
      fs[v_to_exh_def,bind_def,emp_def] >>
      fs[store_assign_def,evaluate_exh_lit] >>
-     rw[LUPDATE_MAP,v_to_exh_def])
+     rw[LUPDATE_MAP,v_to_exh_def] >>
+     fs[funs_to_exh_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,FST_triple,ETA_AX])
  >- (disj1_tac >>
      first_assum(match_exists_tac o concl) >> simp[] >>
      first_assum(match_exists_tac o concl) >> simp[] >>
@@ -328,12 +335,14 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
      fs[exp_to_exh_def,exn_env_i2_def] >>
      fs[v_to_exh_def,bind_def,emp_def] >>
      fs[store_assign_def,evaluate_exh_lit] >>
-     rw[LUPDATE_MAP,v_to_exh_def])
+     rw[LUPDATE_MAP,v_to_exh_def] >>
+     fs[funs_to_exh_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,FST_triple,ETA_AX])
  >- (disj2_tac >> disj1_tac >>
      first_assum(match_exists_tac o concl) >> simp[] >>
      first_assum(match_exists_tac o concl) >> simp[] >>
      fs[do_app_i2_def] >>
-     every_case_tac >> fs[v_to_exh_def,do_app_exh_def] )
+     every_case_tac >> fs[v_to_exh_def,do_app_exh_def] >>
+     fs[funs_to_exh_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,FST_triple,ETA_AX])
  >- metis_tac []
  >- metis_tac []
  >- (fs [do_if_i2_def, do_if_exh_def] >>
