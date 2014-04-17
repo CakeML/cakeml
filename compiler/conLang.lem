@@ -923,5 +923,3 @@ let init_tagenv_state =
                  (some_tag, ("SOME", TypeId (Short "option")));
                  (none_tag, ("NONE", TypeId (Short "option")))])
 
-
-

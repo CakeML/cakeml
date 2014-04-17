@@ -1956,6 +1956,7 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
     gtagenv_weak gtagenv gtagenv' ∧
     evaluate_prompt_i2 ck exh genv_i2 s_i2 prompt_i2 (s'_i2,genv'_i2,res_i2) ∧
     to_i2_invariant tids' (merge_envC envC' envC) (FUNION exh' exh) tagenv_st' gtagenv' s' s'_i2 (genv++genv') (genv_i2 ++ genv'_i2) ∧
+    DISJOINT (FDOM exh') (FDOM exh) ∧
     (res = NONE ∧ res_i2 = NONE ∨
      ?err err_i2. res = SOME err ∧ res_i2 = SOME err_i2 ∧ result_to_i2 (\a b c. T) gtagenv' (Rerr err) (Rerr err_i2))`,
  rw [evaluate_prompt_i1_cases, evaluate_prompt_i2_cases, prompt_to_i2_def, LET_THM] >>
@@ -1985,6 +1986,7 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
      Q.LIST_EXISTS_TAC [`MAP SOME genv'_i2`, `s'_i2`, `gtagenv'`] >>
      fs [get_tagenv_def] >>
      rw []
+     >- cheat
      >- cheat
      >- cheat
      >- cheat)
@@ -2019,6 +2021,7 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
          >- metis_tac [genv_to_i2_weakening] 
          >- cheat
          >- cheat)
+     >- cheat
      >- cheat));
 
 
@@ -2062,7 +2065,8 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
 
 val evaluate_prompt_i2_exh_weak = Q.prove (
 `!ck exh genv s p s' genv' res exh1.
- evaluate_prompt_i2 ck exh genv s p (s',genv',res)
+ evaluate_prompt_i2 ck exh genv s p (s',genv',res) ∧
+ DISJOINT (FDOM exh1) (FDOM exh)
  ⇒
  evaluate_prompt_i2 ck (exh1 ⊌ exh) genv s p (s',genv',res)`,
  cheat);
@@ -2080,8 +2084,9 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
   ?genv'_i2 s'_i2 res_i2 gtagenv'.
     gtagenv_weak gtagenv gtagenv' ∧
     evaluate_prog_i2 ck (FUNION exh' exh) genv_i2 s_i2 prog_i2 (s'_i2,genv'_i2,res_i2) ∧
-    to_i2_invariant tids' (merge_envC envC' envC) (FUNION exh' exh) (next',tagenv',inv') gtagenv' s' s'_i2 (genv++genv') (genv_i2++genv'_i2) ∧
-    (res = NONE ∧ res_i2 = NONE ∨
+    (res = NONE ∧ res_i2 = NONE ∧
+     DISJOINT (FDOM exh') (FDOM exh) ∧
+     to_i2_invariant tids' (merge_envC envC' envC) (FUNION exh' exh) (next',tagenv',inv') gtagenv' s' s'_i2 (genv++genv') (genv_i2++genv'_i2) ∨
      ?err err_i2. res = SOME err ∧ res_i2 = SOME err_i2 ∧ result_to_i2 (\a b c. T) gtagenv' (Rerr err) (Rerr err_i2))`,
  ho_match_mp_tac evaluate_prog_i1_ind >>
  rw []
@@ -2107,6 +2112,7 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
        gtagenv_weak gtagenv gtagenv' ∧
        evaluate_prompt_i2 ck exh genv_i2 s_i2 p2 (s'_i2,genv'_i2,NONE) ∧
        to_i2_invariant tids1 (merge_envC cenv2 envC) (exh2 ⊌ exh) (next2,tagenv2,inv2) gtagenv' s1 s'_i2 (genv++env2) (genv_i2++genv'_i2) ∧
+       DISJOINT (FDOM exh2) (FDOM exh) ∧
        res_i2 = NONE`
             by (imp_res_tac prompt_to_i2_correct >>
                 fs [] >>
@@ -2116,16 +2122,21 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
        res_tac >>
        ntac 3 (pop_assum mp_tac) >>
        rw [] >>
-       ntac 2 (pop_assum (fn _ => all_tac)) 
+       ntac 2 (pop_assum (fn _ => all_tac))
        >- (MAP_EVERY qexists_tac [`genv'_i2 ++ genv'_i2'`, `s'_i2'`, `gtagenv''`] >>
            rw [] >>
            fs [merge_envC_assoc, FUNION_ASSOC]
            >- metis_tac [gtagenv_weak_trans]
-           >- metis_tac [evaluate_prompt_i2_exh_weak])
+           >- (`DISJOINT (FDOM (FUNION exh1 exh2)) (FDOM exh)` by cheat >>
+               metis_tac [evaluate_prompt_i2_exh_weak])
+           >- (fs [DISJOINT_DEF, EXTENSION] >>
+               metis_tac []))
        >- (MAP_EVERY qexists_tac [`genv'_i2 ++ genv'_i2'`, `s'_i2'`, `SOME err_i2`, `gtagenv''`] >>
-           rw [GSYM merge_envC_assoc, GSYM FUNION_ASSOC]
+           rw [] >>
+           fs [merge_envC_assoc, FUNION_ASSOC]
            >- metis_tac [gtagenv_weak_trans]
-           >- metis_tac [evaluate_prompt_i2_exh_weak]))
+           >- (`DISJOINT (FDOM (FUNION exh1 exh2)) (FDOM exh)` by cheat >>
+               metis_tac [evaluate_prompt_i2_exh_weak])))
  >- (fs [prog_to_i2_def, LET_THM] >>
      `?st2 exh2 p2. prompt_to_i2 (next,tagenv,inv') prompt = (st2,exh2,p2)`
              by metis_tac [pair_CASES] >>
@@ -2138,6 +2149,7 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
        gtagenv_weak gtagenv gtagenv' ∧
        evaluate_prompt_i2 ck exh genv_i2 s_i2 p2 (s'_i2,genv'_i2,SOME err_i2) ∧
        to_i2_invariant tids' (merge_envC cenv2 envC) (exh2 ⊌ exh) st2 gtagenv' s' s'_i2 (genv++env2) (genv_i2++genv'_i2) ∧
+       DISJOINT (FDOM exh2) (FDOM exh) ∧
        res_i2 = SOME err_i2 ∧
        result_to_i2 (λa b c. T) gtagenv' (Rerr err) (Rerr err_i2)`
             by (imp_res_tac prompt_to_i2_correct >>
@@ -2148,8 +2160,8 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
      rw [] >>
      MAP_EVERY qexists_tac [`genv'_i2`, `s'_i2`, `SOME err_i2`, `gtagenv'`] >>
      rw []
-     >- metis_tac [evaluate_prompt_i2_exh_weak]
-     >- cheat));
+     >- (`DISJOINT (FDOM (FUNION exh1 exh2)) (FDOM exh)` by cheat >>
+         metis_tac [evaluate_prompt_i2_exh_weak])));
 
 val init_gtagenv_def = Define `
 init_gtagenv =
