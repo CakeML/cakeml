@@ -724,6 +724,14 @@ val lookup_build_rec_env_lem = Q.prove (
  every_case_tac >>
  fs []);
 
+val funs_to_i1_map = Q.prove (
+`!mods tops funs.
+  funs_to_i1 mods tops funs = MAP (\(f,x,e). (f,x,exp_to_i1 mods (tops\\x) e)) funs`,
+ induct_on `funs` >>
+ rw [exp_to_i1_def] >>
+ PairCases_on `h` >>
+ rw [exp_to_i1_def]);
+
 val do_app_i1 = Q.prove (
 `!genv mods tops env s1 s2 op v1 v2 e env' env_i1 s1_i1 v1_i1 v2_i1 locals.
   do_app env s1 op v1 v2 = SOME (env', s2, e) ∧
@@ -780,7 +788,9 @@ val do_app_i1 = Q.prove (
                  match_mp_tac do_app_rec_help >>
                  rw [] >>
                  fs [v_to_i1_eqns]))
-         >- cheat)
+         >- (
+          simp[funs_to_i1_map,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
+          fs[FST_triple]))
      >- (qexists_tac `{n''}` >>
          rw [DRESTRICT_UNIV, GSYM DRESTRICT_DOMSUB, compl_insert, env_all_to_i1_cases] >>
          MAP_EVERY qexists_tac [`mods'`, `tops'|++tops''`] >>
@@ -1366,14 +1376,6 @@ val global_env_inv_extend = Q.prove (
      >- metis_tac [env_to_i1_reverse, v_to_i1_weakening]
      >- metis_tac [lookup_reverse]
      >- metis_tac [alookup_distinct_reverse, MAP_REVERSE, fst_alloc_defs, ALL_DISTINCT_REVERSE]));
-
-val funs_to_i1_map = Q.prove (
-`!mods tops funs.
-  funs_to_i1 mods tops funs = MAP (\(f,x,e). (f,x,exp_to_i1 mods (tops\\x) e)) funs`,
- induct_on `funs` >>
- rw [exp_to_i1_def] >>
- PairCases_on `h` >>
- rw [exp_to_i1_def]);
 
 val env_to_i1_el = Q.prove (
 `!genv env env_i1.
