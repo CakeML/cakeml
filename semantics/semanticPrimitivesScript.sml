@@ -388,10 +388,13 @@ val _ = Define `
       (Opapp, Closure (menv, cenv, env) n e, v) =>
         SOME ((menv, cenv, bind n v env), s, e)
     | (Opapp, Recclosure (menv, cenv, env) funs n, v) =>
-        (case find_recfun n funs of
-            SOME (n,e) => SOME ((menv, cenv, bind n v (build_rec_env funs (menv, cenv, env) env)), s, e)
-          | NONE => NONE
-        )
+        if ALL_DISTINCT (MAP (\ (f,x,e) .  f) funs) then
+          (case find_recfun n funs of
+              SOME (n,e) => SOME ((menv, cenv, bind n v (build_rec_env funs (menv, cenv, env) env)), s, e)
+            | NONE => NONE
+          )
+        else
+          NONE
     | (Opn op, Litv (IntLit n1), Litv (IntLit n2)) =>
         if ((op = Divide) \/ (op = Modulo)) /\ (n2 =( 0 : int)) then
           SOME (exn_env, s, Raise (Con (SOME (Short "Div")) []))

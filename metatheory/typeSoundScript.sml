@@ -557,8 +557,21 @@ val type_env_merge = Q.prove (
    (type_env2 tenvC tenvS tvs env' tenv' ∧ type_env tenvC tenvS env tenv))`,
 metis_tac [type_env_merge_lem1, type_env_merge_lem2]);
 
+val type_funs_fst = Q.prove (
+`!tenvM tenvC tenv funs tenv'.
+  type_funs tenvM tenvC tenv funs tenv'
+  ⇒
+  MAP (λ(f,x,e). f) funs = MAP FST tenv'`,
+ induct_on `funs` >>
+ rw [] >>
+ pop_assum (mp_tac o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
+ rw [] >>
+ rw [] >>
+ metis_tac []);
+
 val type_recfun_env_help = Q.prove (
 `∀fn funs funs' tenvM tenvC ctMap tenv tenv' tenv0 env tenvS tvs.
+  ALL_DISTINCT (MAP (\(x,y,z). x) funs') ∧
   tenvM_ok tenvM ∧
   consistent_con_env ctMap cenv tenvC ∧
   consistent_mod_env tenvS ctMap menv tenvM ∧
@@ -586,7 +599,10 @@ fs [] >>
      qexists_tac `tenv0` >>
      rw [] >>
      qexists_tac `tenv'` >>
-     rw []]);
+     rw [] >>
+     imp_res_tac lookup_in2 >>
+     imp_res_tac type_funs_fst >>
+     fs []]);
 
 val type_recfun_env = Q.prove (
 `∀fn funs tenvM tenvC ctMap tenvS tvs tenv tenv0 menv cenv env.
@@ -594,7 +610,8 @@ val type_recfun_env = Q.prove (
   consistent_con_env ctMap cenv tenvC ∧
   consistent_mod_env tenvS ctMap menv tenvM ∧
   type_env ctMap tenvS env tenv0 ∧
-  type_funs tenvM tenvC (bind_var_list 0 tenv (bind_tvar tvs tenv0)) funs tenv
+  type_funs tenvM tenvC (bind_var_list 0 tenv (bind_tvar tvs tenv0)) funs tenv ∧
+  ALL_DISTINCT (MAP (\(x,y,z). x) funs)
   ⇒
   type_env2 ctMap tenvS tvs (MAP (λ(fn,n,e). (fn,Recclosure (menv,cenv,env) funs fn)) funs) tenv`,
 metis_tac [type_recfun_env_help]);
@@ -1540,12 +1557,12 @@ val dec_type_soundness = Q.store_thm ("dec_type_soundness",
          rw []
          >- (rw [store_type_extension_def, merge_def] >>
              metis_tac [small_big_exp_equiv])))
- >- (`type_env2 ctMap tenvS tvs (MAP (\(fn,n,e). (fn, Recclosure (menv,cenv,env) funs fn)) funs) tenv''`
+ >- (imp_res_tac type_funs_distinct >>
+     `type_env2 ctMap tenvS tvs (MAP (\(fn,n,e). (fn, Recclosure (menv,cenv,env) funs fn)) funs) tenv''`
                   by metis_tac [type_recfun_env] >>
      imp_res_tac type_env_merge_lem1 >>
      MAP_EVERY qexists_tac [`st`, `Rval ([],build_rec_env funs (menv,cenv,env) [])`, `tenvS`, `tdecs2`] >>
      rw [] 
-     >- metis_tac [type_funs_distinct]
      >- metis_tac [store_type_extension_refl]
      >- (rw [flat_to_ctMap_list_def, flat_to_ctMap_def, FUPDATE_LIST, FUNION_FEMPTY_1] >>
          PairCases_on `tenvC` >>

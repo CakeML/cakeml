@@ -171,7 +171,9 @@ tenvM_ok menv &&
 consistent_mod_env senv ctMap envM menv &&
 type_env ctMap senv env tenv &&
 type_funs menv tenvC (bind_var_list 0 tenv' (bind_tvar tvs tenv)) funs tenv' &&
-lookup n tenv' = Just t
+lookup n tenv' = Just t &&
+allDistinct (List.map (fun (f,x,e) -> f) funs) &&
+List.elem n (List.map (fun (f,x,e) -> f) funs)
 ==>
 type_v tvs ctMap senv (Recclosure (envM, envC, env) funs n) t
 

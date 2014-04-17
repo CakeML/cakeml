@@ -174,7 +174,9 @@ type_v tvs ctMap senv (Closure (envM, envC, env) n e) (Tfn t1 t2))
 (consistent_mod_env senv ctMap envM menv /\
 (type_env ctMap senv env tenv /\
 (type_funs menv tenvC (bind_var_list( 0) tenv' (bind_tvar tvs tenv)) funs tenv' /\
-(lookup n tenv' = SOME t))))))
+((lookup n tenv' = SOME t) /\
+(ALL_DISTINCT (MAP (\ (f,x,e) .  f) funs) /\
+MEM n (MAP (\ (f,x,e) .  f) funs))))))))
 ==>
 type_v tvs ctMap senv (Recclosure (envM, envC, env) funs n) t)
 

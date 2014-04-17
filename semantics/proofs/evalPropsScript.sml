@@ -43,6 +43,7 @@ val do_app_cases = Q.store_thm ("do_app_cases",
   (?menv'' cenv'' env'' funs n' n'' e.
     (op = Opapp) ∧ (v1 = Recclosure (menv'',cenv'',env'') funs n') ∧
     (find_recfun n' funs = SOME (n'',e)) ∧
+    (ALL_DISTINCT (MAP (\(f,x,e). f) funs)) ∧
     (st = st') ∧ (env' = (menv'',cenv'', bind n'' v2 (build_rec_env funs (menv'',cenv'',env'') env''))) ∧ (v3 = e)) ∨
   (?lnum.
     (op = Opassign) ∧ (v1 = Loc lnum) ∧ (store_assign lnum v2 st = SOME st') ∧
