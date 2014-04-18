@@ -838,6 +838,10 @@ fun pair_lemma () = let
     Cases \\ SIMP_TAC std_ss [pair_def,CONTAINER_def,FUN_EQ_THM]) |> GSYM |> SPEC_ALL
   in PAIR_TYPE_SIMP end handle HOL_ERR _ => TRUTH;
 
+fun list_dest f tm =
+  let val (x,y) = f tm in list_dest f x @ list_dest f y end
+  handle HOL_ERR _ => [tm];
+
 (*
   val tys = find_mutrec_types ty
 *)
@@ -945,8 +949,6 @@ fun define_ref_inv tys = let
   val eq_lemmas = let
     val tm = inv_def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL
                      |> concl |> dest_eq |> fst |> rator |> rator
-    fun list_dest f tm = let val (x,y) = f tm
-                         in list_dest f x @ list_dest f y end handle HOL_ERR _ => [tm]
     val xs =
       inv_def |> RW [GSYM CONJ_ASSOC] |> SPEC_ALL |> CONJUNCTS
               |> map (snd o dest_eq o concl o SPEC_ALL)
@@ -1924,7 +1926,10 @@ fun apply_Eval_Recclosure recc fname v th = let
   val vname = fst (dest_var v)
   val vname_str = stringLib.fromMLstring vname
   val fname_str = stringLib.fromMLstring fname
+  val FORALL_CONV = RAND_CONV o ABS_CONV
   val lemma = SPECL [recc,fname_str] Eval_Recclosure_ALT
+              |> CONV_RULE ((FORALL_CONV o FORALL_CONV o 
+                             RATOR_CONV o RAND_CONV) EVAL)
   val pat = lemma |> concl |> find_term (can
                (match_term ``find_recfun name (funs :(tvarN, tvarN # exp) env)``))
   val lemma = SIMP_RULE std_ss [EVAL pat] lemma
@@ -2469,10 +2474,6 @@ fun rev_param_list tm =
   if is_comb tm then rand tm :: rev_param_list (rator tm) else []
 
 val EVAL_T_F = LIST_CONJ [EVAL ``CONTAINER TRUE``, EVAL ``CONTAINER FALSE``]
-
-fun list_dest f tm =
-  let val (x,y) = f tm in list_dest f x @ list_dest f y end
-  handle HOL_ERR _ => [tm];
 
 fun reset_translation () =
   (cert_reset(); type_reset(); print_reset(); finalise_reset());
