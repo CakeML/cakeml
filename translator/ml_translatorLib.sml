@@ -1364,15 +1364,15 @@ register_type ``:unit``;
 *)
 
 fun inst_cons_thm tm hol2deep = let
-  val th = cons_for tm |> UNDISCH_ALL
-  val res = th |> concl |> rand |> rand
+  val th = cons_for tm |> UNDISCH
+  val res = th |> UNDISCH_ALL |> concl |> rand |> rand
   fun args tm = let val (x,y) = dest_comb tm in args x @ [y] end
                 handle HOL_ERR _ => []
   val xs = args res
   val ss = fst (match_term res tm)
   val ys = map (fn x => hol2deep (subst ss x)) xs
   val th1 = if length ys = 0 then TRUTH else LIST_CONJ ys
-  in MATCH_MP (D th) (UNDISCH_ALL th1)
+  in MATCH_MP th (UNDISCH_ALL th1)
      handle HOL_ERR _ => raise UnableToTranslate tm end
 
 fun inst_case_thm_for tm = let
