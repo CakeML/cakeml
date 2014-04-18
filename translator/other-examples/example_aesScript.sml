@@ -26,12 +26,12 @@ val res = translate (find_def ``Sbox``);
 val res = translate (find_def ``InvSbox``);
 
 val Sbox_side = prove(
-  ``!x. Sbox_side x = T``,
+  ``!x. sbox_side x = T``,
   EVAL_TAC THEN MP_TAC (INST_TYPE [alpha|->``:8``] w2n_lt) THEN SRW_TAC [] [])
   |> update_precondition;
 
 val InvSbox_side = prove(
-  ``!x. InvSbox_side x = T``,
+  ``!x. invsbox_side x = T``,
   EVAL_TAC THEN MP_TAC (INST_TYPE [alpha|->``:8``] w2n_lt) THEN SRW_TAC [] [])
   |> update_precondition;
 
