@@ -136,7 +136,7 @@ val Eval_Let = store_thm("Eval_Let",
 val lookup_var_def = Define `
   lookup_var name ((menv,cenv,env):all_env) = lookup name env`;
 
-val lookup_cons_def = Define `
+val lookup_cons_def = zDefine `
   lookup_cons name (env:all_env) = lookup name (SND (FST (SND env)))`;
 
 val lookup_var_write = store_thm("lookup_var_write",
@@ -1306,5 +1306,72 @@ val DISJOINT_set_SIMP = store_thm("DISJOINT_set_SIMP",
   ``(DISJOINT (set []) s <=> T) /\
     (DISJOINT (set (x::xs)) s <=> ~(x IN s) /\ DISJOINT (set xs) s)``,
   REPEAT STRIP_TAC THEN1 (SRW_TAC [] []) \\ Cases_on `x IN s` \\ fs []);
+
+(* DeclAssum for cons *)
+
+val DeclAssumCons_def = Define `
+  DeclAssumCons ds conses cons_env =
+    !env tys. DeclAssum ds env tys ==> 
+              (tys = set conses) /\ (SND (FST (SND env)) = cons_env)`;
+
+local
+  val lemma = EVAL ``(SND (init_envC))``
+  val tm = lemma |> concl |> rand
+in
+  val DeclAssumCons_NIL = store_thm("DeclAssumCons_NIL",
+    ``DeclAssumCons [] [] ^tm``,
+    fs [DeclAssumCons_def,DeclAssum_def,Decls_NIL,lemma]);
+end
+
+val DeclAssumCons_SNOC_Dlet = store_thm("DeclAssumCons_SNOC_Dlet",
+  ``DeclAssumCons ds conses ce ==>
+    DeclAssumCons (SNOC (Dlet (Pvar name) exp) ds) conses ce``,
+  fs [DeclAssumCons_def,DeclAssum_def,Decls_NIL,Decls_APPEND,SNOC_APPEND,
+    Decls_Dlet] \\ srw_tac [] [] \\ res_tac
+  \\ PairCases_on `s2` \\ fs [] \\ fs [GSYM empty_store_def] 
+  \\ imp_res_tac evaluate_empty_store \\ fs []
+  \\ `s20 = 0` by cheat
+  \\ fs [] \\ res_tac
+  \\ PairCases_on `env2`
+  \\ fs [write_def]);
+
+val DeclAssumCons_SNOC_Dletrec = store_thm("DeclAssumCons_SNOC_Dletrec",
+  ``DeclAssumCons ds conses ce ==>
+    DeclAssumCons (SNOC (Dletrec funs) ds) conses ce``,
+  fs [DeclAssumCons_def,DeclAssum_def,Decls_NIL,Decls_APPEND,SNOC_APPEND,
+    Decls_Dletrec] \\ srw_tac [] [] \\ res_tac
+  \\ PairCases_on `env2`
+  \\ fs [write_rec_def]);
+
+val DeclAssumCons_SNOC_Dtype = store_thm("DeclAssumCons_SNOC_Dtype",
+  ``DeclAssumCons ds conses ce ==>
+    DeclAssumCons (SNOC (Dtype tds) ds) 
+      (MAP (\(tvs,tn,ctors). TypeId (Short tn)) tds ++ conses) 
+      (build_tdefs NONE tds ++ ce)``,
+  fs [DeclAssumCons_def,DeclAssum_def,Decls_NIL,Decls_APPEND,SNOC_APPEND,
+    Decls_Dtype] \\ srw_tac [] [] \\ res_tac
+  \\ PairCases_on `s2` \\ fs []
+  \\ srw_tac [] [] \\ res_tac \\ fs []
+  \\ PairCases_on `env2`
+  \\ fs [type_defs_to_new_tdecs_def,mk_id_def,write_tds_def,merge_envC_def,
+       merge_def]);
+
+val EVERY_lookup_lemma = prove(
+  ``!xs. ALL_DISTINCT (MAP FST xs) ==>
+         EVERY (\(x,y,z). lookup x xs = SOME (y,z)) xs``,
+  Induct \\ srw_tac [] [] \\ PairCases_on `h` \\ fs []
+  \\ fs [EVERY_MEM,FORALL_PROD] \\ rpt strip_tac
+  \\ res_tac \\ Cases_on `h0 = p_1` \\ fs [MEM_MAP,FORALL_PROD] 
+  \\ metis_tac []);    
+
+val DeclAssumCons_cons_lookup = store_thm("DeclAssumCons_cons_lookup",
+  ``DeclAssumCons ds conses ce ==>
+    ALL_DISTINCT (MAP FST ce) ==>
+    !env tys.
+       DeclAssum ds env tys ==> 
+         EVERY (\(cn,l,tyname). lookup_cons cn env = SOME (l, tyname)) ce``,
+  fs [DeclAssumCons_def] \\ srw_tac [] [lookup_cons_def] \\ res_tac
+  \\ PairCases_on `env` \\ fs []
+  \\ match_mp_tac EVERY_lookup_lemma \\ fs []);
 
 val _ = export_theory();
