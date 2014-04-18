@@ -173,6 +173,9 @@ and
 lit_to_tok_tree (IntLit n) = L (IntT n)
 and
 lit_to_tok_tree Unit = N (L LparT) (L RparT)
+and
+lit_to_tok_tree Unit = N (L LparT) (L RparT)
+
 
 let var_to_tok_tree v =
   if is_sml_infix v then
@@ -344,7 +347,15 @@ exp_to_tok_tree indent (Mat e pes) =
                (List.map (pat_exp_to_tok_tree (inc_indent indent)) pes) ^^ 
   L RparT
 and
-exp_to_tok_tree indent (Let v e1 e2) =
+exp_to_tok_tree indent (Let (Just v) e1 e2) =
+  newline indent ^^
+  L LparT ^^
+  exp_to_tok_tree indent e1 ^^
+  L SemicolonT ^^
+  exp_to_tok_tree indent e2 ^^
+  L RparT
+and
+exp_to_tok_tree indent (Let (Just v) e1 e2) =
   newline indent ^^
   L LetT ^^ L ValT ^^ 
   var_to_tok_tree v ^^ 

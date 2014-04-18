@@ -197,13 +197,13 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
  val _ = Define `
 
-(lit_to_tok_tree (Bool T) = (L (LongidT "" "true")))
-/\
-(lit_to_tok_tree (Bool F) = (L (LongidT "" "false")))
-/\
-(lit_to_tok_tree (IntLit n) = (L (IntT n)))
-/\
-(lit_to_tok_tree Unit = (N (L LparT) (L RparT)))`;
+(lit_to_tok_tree l =((case (l) of
+     ( (Bool T) ) => L (LongidT "" "true")
+   | ( (Bool F) ) => L (LongidT "" "false")
+   | ( (IntLit n) ) => L (IntT n)
+   | ( Unit ) => N (L LparT) (L RparT)
+ )))`;
+
 
 
 val _ = Define `
@@ -253,74 +253,180 @@ val _ = Define `
 
  val exp_to_tok_tree_defn = Hol_defn "exp_to_tok_tree" `
 
-(exp_to_tok_tree indent (Raise r) = (N (L LparT) (N (L (LongidT "" "raise")) (N (L (LongidT "" "Bind")) (L RparT)))))
+(exp_to_tok_tree indent e0 =
+  ((case (indent,e0) of
+       ( indent, (Raise r) ) => N (L LparT)
+                                  (N (L (LongidT "" "raise"))
+                                     (N (L (LongidT "" "Bind")) (L RparT)))
+     | ( indent, (Lit l) ) => lit_to_tok_tree l
+     | ( indent, (Con (SOME c) []) ) => id_to_tok_tree c
+     | ( indent, (Con (SOME c) es) ) => N (L LparT)
+                                          (N (id_to_tok_tree c)
+                                             (N (L LparT)
+                                                (N
+                                                   (join_trees (L CommaT)
+                                                      (MAP
+                                                         (exp_to_tok_tree
+                                                            indent) es))
+                                                   (N (L RparT) (L RparT)))))
+     | ( indent, (Con NONE es) ) => N (L LparT)
+                                      (N
+                                         (join_trees (L CommaT)
+                                            (MAP (exp_to_tok_tree indent) es))
+                                         (L RparT))
+     | ( indent, (Var vid) ) => id_to_tok_tree vid
+     | ( indent, (Fun v e) ) => N (newline indent)
+                                  (N (L LparT)
+                                     (N (L FnT)
+                                        (N (var_to_tok_tree v)
+                                           (N (L DarrowT)
+                                              (N
+                                                 (exp_to_tok_tree
+                                                    (inc_indent indent) 
+                                                  e) (L RparT))))))
+     | ( indent, (Uapp uop e) ) => let s =
+                                       ((case uop of
+                                              Opref => "ref"
+                                          | Opderef => "!"
+                                        )) in
+                                   N (L LparT)
+                                     (N (L (LongidT "" s))
+                                        (N (exp_to_tok_tree indent e)
+                                           (L RparT)))
+     | ( indent, (App Opapp e1 e2) ) => N (L LparT)
+                                          (N (exp_to_tok_tree indent e1)
+                                             (N (exp_to_tok_tree indent e2)
+                                                (L RparT)))
+     | ( indent, (App Equality e1 e2) ) => N (L LparT)
+                                             (N (exp_to_tok_tree indent e1)
+                                                (N (L EqualsT)
+                                                   (N
+                                                      (exp_to_tok_tree 
+                                                       indent e2) (L RparT))))
+     | ( indent, (App (Opn o0) e1 e2) ) => let s = ((case o0 of
+                                                          Plus => "+"
+                                                      | Minus => "-"
+                                                      | Times => "*"
+                                                      | Divide => "div"
+                                                      | Modulo => "mod"
+                                                    )) in
+                                           N (L LparT)
+                                             (N (exp_to_tok_tree indent e1)
+                                                (N (L (LongidT "" s))
+                                                   (N
+                                                      (exp_to_tok_tree 
+                                                       indent e2) (L RparT))))
+     | ( indent, (App (Opb o') e1 e2) ) => let s = ((case o' of
+                                                          Lt => "<"
+                                                      | Gt => ">"
+                                                      | Leq => "<="
+                                                      | Geq => ">"
+                                                    )) in
+                                           N (L LparT)
+                                             (N (exp_to_tok_tree indent e1)
+                                                (N (L (LongidT "" s))
+                                                   (N
+                                                      (exp_to_tok_tree 
+                                                       indent e2) (L RparT))))
+     | ( indent, (App Opassign e1 e2) ) => N (L LparT)
+                                             (N (exp_to_tok_tree indent e1)
+                                                (N (L (LongidT "" ":="))
+                                                   (N
+                                                      (exp_to_tok_tree 
+                                                       indent e2) (L RparT))))
+     | ( indent, (Log lop e1 e2) ) => N (L LparT)
+                                        (N (exp_to_tok_tree indent e1)
+                                           (N
+                                              (
+                                              if lop = And then L AndalsoT
+                                              else L OrelseT)
+                                              (N (exp_to_tok_tree indent e2)
+                                                 (L RparT))))
+     | ( indent, (If e1 e2 e3) ) => N (newline indent)
+                                      (N (L LparT)
+                                         (N (L IfT)
+                                            (N (exp_to_tok_tree indent e1)
+                                               (N (newline indent)
+                                                  (N (L ThenT)
+                                                     (N
+                                                        (exp_to_tok_tree
+                                                           (inc_indent indent)
+                                                           e2)
+                                                        (N (newline indent)
+                                                           (N (L ElseT)
+                                                              (N
+                                                                 (exp_to_tok_tree
+                                                                    (
+                                                                    inc_indent
+                                                                    indent)
+                                                                    e3)
+                                                                 (L RparT))))))))))
+     | ( indent, (Mat e pes) ) => N (newline indent)
+                                    (N (L LparT)
+                                       (N (L CaseT)
+                                          (N (exp_to_tok_tree indent e)
+                                             (N (L OfT)
+                                                (N
+                                                   (newline
+                                                      (inc_indent
+                                                         (inc_indent indent)))
+                                                   (N
+                                                      (join_trees
+                                                         ( N
+                                                             (newline
+                                                                (inc_indent
+                                                                   indent))
+                                                             (L BarT))
+                                                         (MAP
+                                                            (pat_exp_to_tok_tree
+                                                               (inc_indent
+                                                                  indent))
+                                                            pes)) (L RparT)))))))
+     | ( indent, (Let (SOME v) e1 e2) ) => N (newline indent)
+                                             (N (L LparT)
+                                                (N
+                                                   (exp_to_tok_tree indent e1)
+                                                   (N (L SemicolonT)
+                                                      (N
+                                                         (exp_to_tok_tree
+                                                            indent e2)
+                                                         (L RparT)))))
+     | ( indent, (Letrec funs e) ) => N (newline indent)
+                                        (N (L LetT)
+                                           (N (L FunT)
+                                              (N
+                                                 (join_trees
+                                                    ( N (newline indent)
+                                                        (L AndT))
+                                                    (MAP
+                                                       (fun_to_tok_tree
+                                                          indent) funs))
+                                                 (N (newline indent)
+                                                    (N (L InT)
+                                                       (N
+                                                          (exp_to_tok_tree
+                                                             indent e)
+                                                          (N (newline indent)
+                                                             (L EndT))))))))
+   )))
 /\
-(exp_to_tok_tree indent (Lit l) =  
-(lit_to_tok_tree l))
+(fun_to_tok_tree indent p =
+  ((case (indent,p) of
+       ( indent, (v1,v2,e) ) => N (var_to_tok_tree v1)
+                                  (N (var_to_tok_tree v2)
+                                     (N (L EqualsT)
+                                        (exp_to_tok_tree (inc_indent indent)
+                                           e)))
+   )))
 /\
-(exp_to_tok_tree indent (Con (SOME c) []) =  
-(id_to_tok_tree c))
-/\
-(exp_to_tok_tree indent (Con (SOME c) es) = (N (L LparT) (N (id_to_tok_tree c) (N (L LparT) (N (join_trees (L CommaT) (MAP (exp_to_tok_tree indent) es)) (N (L RparT) (L RparT)))))))
-/\
-(exp_to_tok_tree indent (Con NONE es) = (N (L LparT) (N (join_trees (L CommaT) (MAP (exp_to_tok_tree indent) es)) (L RparT))))
-/\
-(exp_to_tok_tree indent (Var vid) =  
-(id_to_tok_tree vid))
-/\
-(exp_to_tok_tree indent (Fun v e) = (N (newline indent) (N (L LparT) (N (L FnT) (N (var_to_tok_tree v) (N (L DarrowT) (N (exp_to_tok_tree (inc_indent indent) e) (L RparT))))))))
-/\
-(exp_to_tok_tree indent (Uapp uop e) =  
-(let s =    
- ((case uop of
-        Opref => "ref"
-      | Opderef => "!"
-    ))
-  in N (L LparT) (N (L (LongidT "" s)) (N (exp_to_tok_tree indent e) (L RparT)))))
-/\
-(exp_to_tok_tree indent (App Opapp e1 e2) = (N (L LparT) (N (exp_to_tok_tree indent e1) (N (exp_to_tok_tree indent e2) (L RparT)))))
-/\
-(exp_to_tok_tree indent (App Equality e1 e2) = (N (L LparT) (N (exp_to_tok_tree indent e1) (N (L EqualsT) (N (exp_to_tok_tree indent e2) (L RparT))))))
-/\
-(exp_to_tok_tree indent (App (Opn o0) e1 e2) =  
-(let s = ((case o0 of
-      Plus => "+"
-    | Minus => "-"
-    | Times => "*"
-    | Divide => "div"
-    | Modulo => "mod"
-  ))
-  in N (L LparT) (N (exp_to_tok_tree indent e1) (N (L (LongidT "" s)) (N (exp_to_tok_tree indent e2) (L RparT))))))
-/\
-(exp_to_tok_tree indent (App (Opb o') e1 e2) =  
-(let s = ((case o' of
-      Lt => "<"
-    | Gt => ">"
-    | Leq => "<="
-    | Geq => ">"
-  ))
-  in N (L LparT) (N (exp_to_tok_tree indent e1) (N (L (LongidT "" s)) (N (exp_to_tok_tree indent e2) (L RparT))))))
-/\
-(exp_to_tok_tree indent (App Opassign e1 e2) = (N (L LparT) (N (exp_to_tok_tree indent e1) (N (L (LongidT "" ":=")) (N (exp_to_tok_tree indent e2) (L RparT))))))
-/\
-(exp_to_tok_tree indent (Log lop e1 e2) = (N (L LparT) (N (exp_to_tok_tree indent e1)(N (if lop = And then 
-     L AndalsoT
-   else 
-     L OrelseT) (N (exp_to_tok_tree indent e2) (L RparT))))))
-/\
-(exp_to_tok_tree indent (If e1 e2 e3) = (N (newline indent) (N (L LparT) (N (L IfT) (N (exp_to_tok_tree indent e1) (N (newline indent) (N (L ThenT) (N (exp_to_tok_tree (inc_indent indent) e2) (N (newline indent) (N (L ElseT) (N (exp_to_tok_tree (inc_indent indent) e3) (L RparT))))))))))))
-/\
-(exp_to_tok_tree indent (Mat e pes) = (N (newline indent) (N (L LparT) (N (L CaseT) (N (exp_to_tok_tree indent e) (N (L OfT) (N (newline (inc_indent (inc_indent indent))) (N (join_trees ( N (newline (inc_indent indent)) (L BarT)) 
-               (MAP (pat_exp_to_tok_tree (inc_indent indent)) pes)) (L RparT)))))))))
-/\
-(exp_to_tok_tree indent (Let v e1 e2) = (N (newline indent) (N (L LetT) (N (L ValT) (N (var_to_tok_tree v) (N (L EqualsT) (N (exp_to_tok_tree indent e1) (N (newline indent) (N (L InT) (N (exp_to_tok_tree (inc_indent indent) e2) (N (newline indent) (L EndT))))))))))))
-/\
-(exp_to_tok_tree indent (Letrec funs e) = (N (newline indent) (N (L LetT) (N (L FunT) (N (join_trees ( N (newline indent) (L AndT)) 
-               (MAP (fun_to_tok_tree indent) funs)) (N (newline indent) (N (L InT) (N (exp_to_tok_tree indent e) (N (newline indent) (L EndT))))))))))
-/\
-(pat_exp_to_tok_tree indent (p,e) = (N (pat_to_tok_tree p) (N (L DarrowT) (exp_to_tok_tree (inc_indent (inc_indent indent)) e))))
-/\
-(fun_to_tok_tree indent (v1,v2,e) = (N (var_to_tok_tree v1) (N (var_to_tok_tree v2) (N (L EqualsT) (exp_to_tok_tree (inc_indent indent) e)))))`;
+(pat_exp_to_tok_tree indent p0 =
+  ((case (indent,p0) of
+       ( indent, (p,e) ) => N (pat_to_tok_tree p)
+                              (N (L DarrowT)
+                                 (exp_to_tok_tree
+                                    (inc_indent (inc_indent indent)) 
+                                  e))
+   )))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn exp_to_tok_tree_defn;
 
