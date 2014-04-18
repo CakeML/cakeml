@@ -713,6 +713,68 @@ val global_env_inv_inclusion = store_thm("global_env_inv_inclusion",
   fs[GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS] >>
   res_tac >> fs[FLOOKUP_DEF] >> NO_TAC)
 
+val genv_to_pat_closed = prove(
+  ``∀genv2.
+    EVERY (OPTION_EVERY closed_exh) genv2 ⇒
+    EVERY (OPTION_EVERY closed_pat)
+      (MAP (OPTION_MAP v_to_pat) genv2)``,
+  simp[EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
+  rpt gen_tac >> strip_tac >>
+  Cases >> simp[] >> strip_tac >>
+  res_tac >> fs[] >>
+  metis_tac[v_to_pat_closed])
+
+val genv_to_exh_closed = prove(
+  ``∀exh genv2.
+    EVERY (OPTION_EVERY closed_i2) genv2 ⇒
+    EVERY (OPTION_EVERY closed_exh)
+      (MAP (OPTION_MAP (v_to_exh exh)) genv2)``,
+  simp[EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
+  rpt gen_tac >> strip_tac >>
+  Cases >> simp[] >> strip_tac >>
+  res_tac >> fs[] >>
+  metis_tac[v_to_exh_closed])
+
+val genv_to_i2_closed = store_thm("genv_to_i2_closed",
+  ``∀g x y. genv_to_i2 g x y ⇒ EVERY (OPTION_EVERY closed_i1) x ⇒ EVERY (OPTION_EVERY closed_i2) y``,
+  ho_match_mp_tac genv_to_i2_ind >> simp[] >>
+  metis_tac[v_to_i2_closed])
+
+val global_env_inv_closed = store_thm("global_env_inv_closed",
+  ``∀genv mods tops menv s env.
+    global_env_inv genv mods tops menv s env ∧
+    EVERY closed (MAP SND env) ∧
+    EVERY closed (MAP SND (FLAT (MAP SND menv))) ∧
+    (∀n. n < LENGTH genv ∧ IS_SOME (EL n genv) ⇒
+         (∃x. x ∉ s ∧ IS_SOME (lookup x env) ∧ FLOOKUP tops x = SOME n) ∨
+         (∃mn ee e x.
+           lookup mn menv = SOME ee ∧
+           IS_SOME (lookup x ee) ∧
+           FLOOKUP mods mn = SOME e ∧
+           FLOOKUP e x = SOME n))
+    ⇒
+    EVERY (OPTION_EVERY closed_i1) genv``,
+  rw[Once v_to_i1_cases] >>
+  rw[EVERY_MEM,MEM_EL] >>
+  Cases_on`EL n genv`>>fs[] >>
+  first_x_assum(qspec_then`n`mp_tac) >>
+  simp[] >> simp[IS_SOME_EXISTS] >>
+  strip_tac >- (
+    res_tac >>
+    rator_x_assum`global_env_inv_flat`mp_tac >>
+    simp[Once v_to_i1_cases] >> rw[] >>
+    res_tac >> fs[] >> rw[] >> fs[] >>
+    fs[EVERY_MEM,PULL_EXISTS] >>
+    metis_tac[v_to_i1_closed,libPropsTheory.lookup_in] ) >>
+  first_x_assum(qspec_then`mn`mp_tac) >> simp[] >>
+  simp[Once v_to_i1_cases] >>
+  disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
+  simp[] >>
+  imp_res_tac libPropsTheory.lookup_in >>
+  imp_res_tac libPropsTheory.lookup_in2 >>
+  fs[EVERY_MEM,MAP_FLAT,MEM_MAP,PULL_EXISTS,MEM_FLAT] >>
+  metis_tac[v_to_i1_closed])
+
 (* misc *)
 
 val code_env_cd_append = store_thm("code_env_cd_append",
@@ -1955,13 +2017,24 @@ val i2_Cv_def = Define`
       v_pat (v_to_pat (v_to_exh exh v)) vp ∧
       syneq (v_to_Cv vp) Cv`
 
+val closed_genv_def = Define`
+  closed_genv genv (mods,tops) (envM,envE) ⇔
+  ∀n. n < LENGTH genv ∧ IS_SOME (EL n genv) ⇒
+       (∃x. IS_SOME (lookup x envE) ∧ FLOOKUP tops x = SOME n) ∨
+       (∃mn map env x. lookup mn envM = SOME map ∧ IS_SOME (lookup x map) ∧
+                       FLOOKUP mods mn = SOME env ∧ FLOOKUP env x = SOME n)`
+
 val env_rs_def = Define`
   env_rs ((envM,envC,envE):all_env) ((cnt,s):v count_store) (genv,(tids,gtagenv),rd)
     (rs:compiler_state) (bs:bc_state)
   ⇔
     good_labels rs.rnext_label bs.code ∧
     good_globals rs.globals_env rs.next_global (LENGTH bs.globals) (LENGTH genv) ∧
-    bs.stack = [] ∧ EVERY closed s ∧
+    closed_genv genv rs.globals_env (envM,envE) ∧
+    bs.stack = [] ∧
+    EVERY closed s ∧
+    EVERY closed (MAP SND envE) ∧
+    EVERY closed (MAP SND (FLAT (MAP SND envM))) ∧
     ∃s1 s2 genv2 Cs Cg.
       to_i1_invariant
         genv (FST rs.globals_env) (SND rs.globals_env)
@@ -1992,7 +2065,7 @@ val env_rs_empty = store_thm("env_rs_empty",
   rw[Once genv_to_i2_cases] >>
   simp[Once s_to_i2_cases] >> simp[Once s_to_i2'_cases] >> simp[Once v_to_i2_cases] >>
   simp[Cenv_bs_def,env_renv_def,s_refs_def,good_rd_def,FEVERY_ALL_FLOOKUP] >>
-  simp[all_vlabs_csg_def,vlabs_csg_def,closed_vlabs_def] >>
+  simp[all_vlabs_csg_def,vlabs_csg_def,closed_vlabs_def,closed_genv_def] >>
   cheat)
 
 (* TODO: move *)
@@ -2361,7 +2434,17 @@ val compile_top_thm = store_thm("compile_top_thm",
         fs[Once s_to_i1_cases] >>
         fs[Once s_to_i1'_cases] >>
         first_assum(match_exists_tac o concl) >> simp[]) >>
-      cheat) >>
+      match_mp_tac genv_to_pat_closed >>
+      match_mp_tac genv_to_exh_closed >>
+      fs[to_i2_invariant_def] >>
+      match_mp_tac (MP_CANON genv_to_i2_closed) >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      fs[to_i1_invariant_def] >>
+      fs[Once s_to_i1_cases] >>
+      fs[Once s_to_i1'_cases] >>
+      match_mp_tac global_env_inv_closed >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      fs[closed_genv_def]) >>
     disch_then(qx_choosel_then[`Cres0`]strip_assume_tac) >>
     qpat_assum`X = bc`mp_tac >>
     specl_args_of_then``compile_Cexp`` compile_Cexp_thm mp_tac >>
