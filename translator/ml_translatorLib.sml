@@ -1265,7 +1265,12 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
         (mk_comb(get_type_inv (type_of tm),tm))
     val tms = map (fn (x,exp) => ``Eval env ^exp ^(find_inv x)``) exps
     val tm = if tms = [] then T else list_mk_conj tms
-    val goal = mk_imp(type_assum,mk_imp(tm,result))
+    val cons_assum = type_assum 
+                     |> list_dest dest_conj
+                     |> filter (fn tm => aconv 
+                           (tm |> rator |> rand |> rator |> rand) str)
+                     |> list_mk_conj
+    val goal = mk_imp(cons_assum,mk_imp(tm,result))
     fun add_primes str 0 = []
       | add_primes str n = mk_var(str,``:v``) :: add_primes (str ^ "'") (n-1)
     val witness = listSyntax.mk_list(add_primes "res" (length xs),``:v``)
