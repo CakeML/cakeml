@@ -1,5 +1,5 @@
 open preamble
-open bagTheory bagLib miscTheory;
+open bagTheory bagLib okasaki_miscTheory;
 open ml_translatorLib mini_preludeTheory;
 
 val fs = full_simp_tac (srw_ss ())

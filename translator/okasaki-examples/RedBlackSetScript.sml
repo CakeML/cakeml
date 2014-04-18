@@ -1,5 +1,5 @@
 open preamble;
-open miscTheory pred_setTheory pred_setSimps;
+open okasaki_miscTheory pred_setTheory pred_setSimps;
 open ml_translatorLib mini_preludeTheory
 
 val _ = new_theory "RedBlackSet"

@@ -1,5 +1,5 @@
 open preamble
-open miscTheory ml_translatorLib mini_preludeTheory;
+open okasaki_miscTheory ml_translatorLib mini_preludeTheory;
 
 val _ = new_theory "BinaryRandomAccessLists"
 

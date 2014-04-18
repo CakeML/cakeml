@@ -1,5 +1,5 @@
 open preamble
-open miscTheory bagLib bagTheory sortingTheory ml_translatorLib mini_preludeTheory;
+open okasaki_miscTheory bagLib bagTheory sortingTheory ml_translatorLib mini_preludeTheory;
 
 val _ = new_theory "BottomUpMergeSort"
 

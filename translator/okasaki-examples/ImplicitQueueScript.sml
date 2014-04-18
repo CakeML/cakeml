@@ -147,14 +147,14 @@ val is_empty_EQ = prove(
 
 val tail_lemma = prove(
   ``!q n x xs.
-      queue_ok n q ∧ (exps x ++ xs = flatten q) /\ depth n x ==>
-      queue_ok n (tail q) ∧ (xs = flatten (tail q))``,
+      queue_ok n q /\ (exps x ++ xs = flatten q) /\ depth n x ==>
+      queue_ok n (tail q) /\ (xs = flatten (tail q))``,
   Induct THEN1 (Cases_on `d`
     THEN FULL_SIMP_TAC (srw_ss()) [flatten_def,digits_def,exps_NOT_NIL,tail_def,
            queue_ok_def,empty_def,ddepth_def,EVERY_DEF,two_def,only_digits_def]
     THEN REPEAT STRIP_TAC THEN IMP_RES_TAC depth_IMP
     THEN Cases_on `xs` THEN FULL_SIMP_TAC std_ss []
-    THEN Q.PAT_ASSUM `xs ++ ys = zs` (ASSUME_TAC o GSYM)
+    THEN Q.PAT_ASSUM `exps x ++ h::t' = exps t` (ASSUME_TAC o GSYM)
     THEN FULL_SIMP_TAC (srw_ss()) []
     THEN DECIDE_TAC)
   THEN REVERSE (Cases_on `d0`)
