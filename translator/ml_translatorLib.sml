@@ -1378,7 +1378,7 @@ fun inst_cons_thm tm hol2deep = let
 fun inst_case_thm_for tm = let
   val (_,_,names) = TypeBase.dest_case tm
   val names = map fst names
-  val th = case_of ((repeat rator tm) |> type_of |> domain)
+  val th = case_of ((repeat rator tm) |> type_of |> domain) |> UNDISCH
   val pat = th |> UNDISCH_ALL |> concl |> rand |> rand
   val (ss,i) = match_term pat tm
   val th = INST ss (INST_TYPE i th)
@@ -1440,8 +1440,9 @@ fun inst_case_thm tm hol2deep = let
     val lemma = hol2deep z
     val lemma = D lemma
     val new_env = y |> rator |> rator |> rand
-    val env = mk_var("env",``:envE``)
+    val env = mk_var("env",``:all_env``)
     val lemma = INST [env|->new_env] lemma
+                |> PURE_REWRITE_RULE [lookup_cons_write]
     val (x1,x2) = dest_conj x handle HOL_ERR _ => (T,x)
     val (z1,z2) = dest_imp (concl lemma)
     val thz =
@@ -2548,8 +2549,8 @@ val def = tDefine "even" `
 
 val def = Define `goo k = next k + 1`;
 val def = Define `next n = n+1:num`;
-val ty = ``:'a + 'b``; register_type ty
-val ty = ``:'a option``; register_type ty
+val ty = ``:'a + 'b``; register_type ty;
+val ty = ``:'a option``; register_type ty;
 val def = Define `goo k = next k + 1`;
 
 *)
