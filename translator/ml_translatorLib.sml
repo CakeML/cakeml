@@ -90,8 +90,9 @@ fun auto_prove proof_name (goal,tac) = let
   val abbrev_defs = ref ([]:thm list);
 local
 in
+  fun get_cenv_eq_thm () = !cenv_eq_thm
   fun get_cenv_names () = let
-    val th = !cenv_eq_thm
+    val th = get_cenv_eq_thm ()
     val pat = ``Short (n:string)``
     val strs = find_terms (can (match_term pat)) (concl th) |> map rand
     fun all_distinct [] = []
@@ -2541,6 +2542,29 @@ val PreImp_IMP = prove(
 
 fun force_thm_the (SOME x) = x | force_thm_the NONE = TRUTH
 
+local
+  val lookup_cons_pat = ``lookup_cons cname env = SOME x``
+  val imp_lemma = prove(``(f x = y) ==> !z. (f x = f z) ==> ((f:'a->'b) z = y)``,
+                        REPEAT STRIP_TAC THEN FULL_SIMP_TAC bool_ss [])
+in
+  fun clean_lookup_cons th = let
+    val tms = find_terms (can (match_term lookup_cons_pat)) (concl th)
+              |> all_distinct
+    in if length tms = 0 then th else let
+    val lemmas = MATCH_MP DeclAssumCons_cons_lookup (get_cenv_eq_thm ())
+                 |> CONV_RULE (REWRITE_CONV [EVERY_DEF] THENC
+                               DEPTH_CONV PairRules.PBETA_CONV)
+                 |> SPEC_ALL |> UNDISCH |> CONJUNCTS
+    fun in_term_list [] t = false
+      | in_term_list (tm::tms) t = aconv t tm orelse in_term_list tms t
+    val rwt = filter (in_term_list tms o concl) lemmas
+                    |> map (Q.INST [`env`|->`shaddow_env`])
+                    |> map (UNDISCH o Q.SPEC `env` o MATCH_MP imp_lemma)
+                    |> LIST_CONJ
+    val th = th |> RW [rwt] |> D
+    in th end end
+end
+
 (*
 
 translate def
@@ -2560,7 +2584,7 @@ val def = Define `next n = n+1:num`;
 val ty = ``:'a + 'b``; register_type ty;
 val ty = ``:'a option``; register_type ty;
 val def = Define `goo k = next k + 1`;
-<
+
 *)
 
 fun translate def = (let
@@ -2602,6 +2626,8 @@ val (fname,th,def) = hd thms
     (* optimise generated code *)
     val th = MATCH_MP Eval_OPTIMISE (UNDISCH_ALL th)
     val th = CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL) th |> D
+    (* prove lookup_cons *)
+    val th = clean_lookup_cons th
     (* abstract parameters *)
     val rev_params = def |> concl |> dest_eq |> fst |> rev_param_list
     val (th,v) = if (length rev_params = 0) then (th,T) else
