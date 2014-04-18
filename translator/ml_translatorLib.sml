@@ -1036,7 +1036,7 @@ val ty = ``:num option``; derive_thms_for_type ty
 val ty = ``:unit``; derive_thms_for_type ty
 *)
 
-fun derive_thms_for_type ty = let
+fun derive_thms_for_type ty = let 
   val (ty,ret_ty) = dest_fun_type (type_of_cases_const ty)
   val is_record = 0 < length(TypeBase.fields_of ty)
   val tys = find_mutrec_types ty
