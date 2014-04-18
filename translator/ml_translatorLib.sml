@@ -78,7 +78,7 @@ fun MY_MP name th1 th2 =
   val decl_abbrev = ref TRUTH;
   val decl_term   = ref ``[]:dec list``;
   val cert_memory = ref ([] : (string * term * thm * thm) list);
-  val cenv_eq_thm = ref TRUTH (* decs_to_cenv_NIL *)
+  val cenv_eq_thm = ref DeclAssumCons_NIL
   val decl_exists = ref DeclAssumExists_NIL
   (* session specific state below *)
   val abbrev_counter = ref 0;
@@ -87,7 +87,7 @@ fun MY_MP name th1 th2 =
 local
 in
   fun get_cenv_names () = let
-    val th = CONJ (!cenv_eq_thm) init_envC
+    val th = !cenv_eq_thm
     val pat = ``Short (n:string)``
     val strs = find_terms (can (match_term pat)) (concl th) |> map rand
     fun all_distinct [] = []
@@ -102,7 +102,7 @@ in
      decl_abbrev := TRUTH;
      decl_term   := ``[]:dec list``;
      cert_memory := [];
-     cenv_eq_thm := TRUTH (* decs_to_cenv_NIL *);
+     cenv_eq_thm := DeclAssumCons_NIL;
      decl_exists := DeclAssumExists_NIL;
      (* abbrev_counter := 0; *)
      abbrev_defs := [])
@@ -182,7 +182,13 @@ in
                  handle HOL_ERR _ => th,pre))
             else if can (match_term ``(Dtype x) : dec``) decl then
               (fn (n:string,tm:term,th,pre) =>
-                (n,tm,(MATCH_MP DeclAssum_Dtype th |> SPEC (rand decl))
+                (n,tm,(th |> SPEC_ALL 
+                          |> Q.GEN `tys` 
+                          |> Q.GEN `env` 
+                          |> MATCH_MP DeclAssum_Dtype 
+                          |> SPEC (rand decl)
+                          |> SPEC_ALL
+                          |> Q.GEN `env`)
                       handle HOL_ERR _ => th,pre))
             else fail()
     val _ = map_cert_memory f
@@ -2500,11 +2506,11 @@ fun force_thm_the (SOME x) = x | force_thm_the NONE = TRUTH
 
 (*
 
+
 val def = Define `fac n = if n = 0 then 1 else fac (n-1) * (n:num)`;
 
 val def = Define `foo n = if n = 0 then 1 else foo (n-1) * (fac n:num)`;
 
-val def = Define `next n = n+1:num`;
 val def = Define `the_value = 1:num`;
 
 val def = tDefine "even" `
@@ -2512,13 +2518,9 @@ val def = tDefine "even" `
   (odd n = if n = 0 then F else even (n-1))` cheat;
 
 val def = Define `goo k = next k + 1`;
-
-translate def
-
-val ty = ``:'a + 'b``
-
-register_type ty
-
+val def = Define `next n = n+1:num`;
+val ty = ``:'a + 'b``; register_type ty
+val def = Define `goo k = next k + 1`;
 
 *)
 
