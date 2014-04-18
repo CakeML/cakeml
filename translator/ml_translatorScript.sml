@@ -803,6 +803,12 @@ val evaluate_no_clock = prove(
   HO_MATCH_MP_TAC evaluate_ind \\ rw [])
   |> SIMP_RULE std_ss [PULL_EXISTS,AND_IMP_INTRO];
 
+val evaluate_constant_clock = store_thm("evaluate_constant_clock",
+  ``evaluate F env (c1,s1) exp ((c2,s2),res) <=>
+    evaluate F env (c1,s1) exp ((c2,s2),res) /\ (c1 = c2)``,
+  EQ_TAC \\ rpt strip_tac \\ fs []
+  \\ imp_res_tac evaluate_no_clock \\ fs []);
+
 val sind = IndDefLib.derive_strong_induction(evaluate_rules,evaluate_ind);
 
 val do_app_empty_store = prove(
