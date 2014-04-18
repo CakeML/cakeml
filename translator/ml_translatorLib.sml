@@ -79,7 +79,6 @@ fun MY_MP name th1 th2 =
   val decl_term   = ref ``[]:dec list``;
   val cert_memory = ref ([] : (string * term * thm * thm) list);
   val cenv_eq_thm = ref TRUTH (* decs_to_cenv_NIL *)
-  val check_ctors = ref TRUTH (* check_ctors_decs_NIL *)
   val decl_exists = ref DeclAssumExists_NIL
   (* session specific state below *)
   val abbrev_counter = ref 0;
@@ -97,7 +96,6 @@ in
         in if mem x ys then ys else x::ys end
     val names = map stringSyntax.fromHOLstring strs |> all_distinct
     in names end
-  fun get_check_ctors_decs () = !check_ctors
   fun get_DeclAssumExists () = !decl_exists
   fun cert_reset () =
     (module_name := "";
@@ -105,7 +103,6 @@ in
      decl_term   := ``[]:dec list``;
      cert_memory := [];
      cenv_eq_thm := TRUTH (* decs_to_cenv_NIL *);
-     check_ctors := TRUTH (* check_ctors_decs_NIL *);
      decl_exists := DeclAssumExists_NIL;
      (* abbrev_counter := 0; *)
      abbrev_defs := [])
@@ -132,7 +129,6 @@ in
     val new_rw = REWRITE_RULE [abbrev_def |> GSYM]
     val _ = map_cert_memory (fn (n,tm,th,pre) => (n,tm,new_rw th,pre))
     val _ = (cenv_eq_thm := new_rw (!cenv_eq_thm))
-    val _ = (check_ctors := new_rw (!check_ctors))
     val _ = (decl_exists := new_rw (!decl_exists))
     val _ = (decl_term := (abbrev_def |> concl |> dest_eq |> fst))
     val _ = (abbrev_defs := abbrev_def::(!abbrev_defs))
@@ -164,7 +160,6 @@ in
     val new_rw = RW [lemma |> CONV_RULE (RAND_CONV (REWR_CONV (SYM abbrev_def)))]
     val _ = map_cert_memory (fn (n,tm,th,pre) => (n,tm,new_rw th,pre))
     val _ = (cenv_eq_thm := new_rw (!cenv_eq_thm))
-    val _ = (check_ctors := new_rw (!check_ctors))
     val _ = (decl_exists := new_rw (!decl_exists))
     val _ = (decl_term := (abbrev_def |> concl |> dest_eq |> fst))
     val _ = (decl_abbrev := abbrev_def)
@@ -291,22 +286,21 @@ val (th,pre) = hd ((zip thms pres))
   (* store/load to/from a single thm *)
   fun pack_certs () = let
     val _ = finish_decl_abbreviation ()
-    in pack_6tuple
+    in pack_5tuple
          (pack_list (pack_4tuple pack_string pack_term pack_thm pack_thm))
-         pack_thm pack_term pack_thm pack_thm pack_thm
+         pack_thm pack_term pack_thm pack_thm
            ((!cert_memory), (!decl_abbrev), (!decl_term),
-            (!cenv_eq_thm), (!check_ctors), (!decl_exists)) end
+            (!cenv_eq_thm), (!decl_exists)) end
   fun unpack_certs th = let
-    val (cert,abbrev,t,cenv,check,ex) =
-      unpack_6tuple
+    val (cert,abbrev,t,cenv,ex) =
+      unpack_5tuple
         (unpack_list (unpack_4tuple unpack_string unpack_term unpack_thm unpack_thm))
-        unpack_thm unpack_term unpack_thm unpack_thm unpack_thm th
+        unpack_thm unpack_term unpack_thm unpack_thm th
     val _ = (cert_memory := cert)
     val _ = (decl_abbrev := abbrev)
     val _ = (abbrev_defs := [abbrev])
     val _ = (decl_term := t)
     val _ = (cenv_eq_thm := cenv)
-    val _ = (check_ctors := check)
     val _ = (decl_exists := ex)
     in () end
 end
@@ -2518,6 +2512,13 @@ val def = tDefine "even" `
   (odd n = if n = 0 then F else even (n-1))` cheat;
 
 val def = Define `goo k = next k + 1`;
+
+translate def
+
+val ty = ``:'a + 'b``
+
+register_type ty
+
 
 *)
 
