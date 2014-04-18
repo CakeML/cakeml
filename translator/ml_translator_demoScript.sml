@@ -1,4 +1,6 @@
-open HolKernel Parse boolLib bossLib; val _ = new_theory "ml_translator_demo";
+open HolKernel Parse boolLib bossLib;
+
+val _ = new_theory "ml_translator_demo";
 
 open arithmeticTheory listTheory combinTheory pairTheory;
 open ml_translatorLib ml_translatorTheory;
@@ -18,10 +20,10 @@ val _ = finalise_translation ();
 val (qsort_eval,_) = get_cert "qsort"
 
 val Eval_Var_lemma = prove(
-  ``(lookup name env = SOME x) /\ P x ==> Eval env (Var (Short name)) P``,
-  REPEAT STRIP_TAC
-  THEN FULL_SIMP_TAC (srw_ss()) [Eval_def,
-         Once altBigStepTheory.evaluate'_cases]);
+  ``(lookup_var name env = SOME x) /\ P x ==> Eval env (Var (Short name)) P``,
+  REPEAT STRIP_TAC THEN PairCases_on `env`
+  THEN FULL_SIMP_TAC (srw_ss()) [Eval_def,lookup_var_id_def,
+         Once bigStepTheory.evaluate_cases,lookup_var_def]);
 
 val Eval_QSORT_EXPANDED = save_thm("Eval_QSORT_EXPANDED",let
   val th = MATCH_MP Eval_Arrow qsort_eval
@@ -37,18 +39,18 @@ val Eval_QSORT_EXPANDED = save_thm("Eval_QSORT_EXPANDED",let
   in th end)
 
 val ML_QSORT_CORRECT = store_thm ("ML_QSORT_CORRECT",
-  ``!env a ord R l xs.
-      DeclAssum ml_translator_demo_decls env /\
-      LIST_TYPE a l xs /\ (lookup "xs" env = SOME xs) /\
-      (a --> a --> BOOL) ord R /\ (lookup "R" env = SOME R) /\
+  ``!env tys a ord R l xs.
+      DeclAssum ml_translator_demo_decls env tys /\
+      LIST_TYPE a l xs /\ (lookup_var "xs" env = SOME xs) /\
+      (a --> a --> BOOL) ord R /\ (lookup_var "R" env = SOME R) /\
       transitive ord /\ total ord
       ==>
       ?l' xs'.
-        evaluate' empty_store env
+        evaluate F env (0,empty_store)
             (App Opapp (App Opapp (Var (Short "qsort"))
                                   (Var (Short "R")))
                                   (Var (Short "xs")))
-            (empty_store,Rval xs') /\
+            ((0,empty_store),Rval xs') /\
         (LIST_TYPE a l' xs') /\ PERM l l' /\ SORTED ord l'``,
   REPEAT STRIP_TAC THEN IMP_RES_TAC Eval_Var_lemma
   THEN IMP_RES_TAC Eval_QSORT_EXPANDED
