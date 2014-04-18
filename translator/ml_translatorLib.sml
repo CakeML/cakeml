@@ -2844,7 +2844,6 @@ val (th,(fname,def,_,pre)) = hd (zip results thms)
               (delete_const o fst o dest_const o fst o dest_eq o concl)
     (* store certificate for later use *)
     val pres = map (fn (fname,def,th,pre) => force_thm_the pre) thms
-
     val th = store_cert th pres decl_assum_x
                 |> CONJUNCTS |> map (UNDISCH_ALL o Q.SPEC `env`) |> LIST_CONJ
     val (fname,def,_,_) = hd thms

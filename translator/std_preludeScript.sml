@@ -371,8 +371,9 @@ val Eval_FUNION = prove(
   |> MATCH_MP (MATCH_MP Eval_WEAKEN APPEND_eval)
   |> store_eval_thm;
 
-
 (* while, owhile and least *)
+
+val _ = add_preferred_thy "-";
 
 val IS_SOME_OWHILE_THM = prove(
   ``!g f x. (IS_SOME (OWHILE g f x)) =
@@ -386,130 +387,22 @@ val IS_SOME_OWHILE_THM = prove(
   THEN ASM_SIMP_TAC std_ss [] THEN REPEAT STRIP_TAC
   THEN IMP_RES_TAC LESS_LEAST THEN FULL_SIMP_TAC std_ss []);
 
-val evaluate_Rval = LIST_CONJ (
-   (([],``!a3. evaluate a0 a1 a2 a3 (x,Rval y) = ARB``)
-    |> Cases |> fst |> map (fst o dest_eq o snd)
-    |> map (ONCE_REWRITE_CONV [evaluate_cases] THENC SIMP_CONV (srw_ss()) [])) @
-   (([],``!a3. evaluate_list a0 a1 a2 a3 (x,Rval y) = ARB``)
-    |> Cases |> fst |> map (fst o dest_eq o snd)
-    |> map (ONCE_REWRITE_CONV [evaluate_cases] THENC SIMP_CONV (srw_ss()) [])) @
-   (([],``!a14. evaluate_match a10 a11 a12 a13 a14 a15 (x,Rval y) = ARB``)
-    |> Cases |> fst |> map (fst o dest_eq o snd)
-    |> map (ONCE_REWRITE_CONV [evaluate_cases] THENC SIMP_CONV (srw_ss()) [])))
+val WHILE_ind = store_thm("WHILE_ind",
+  ``!P. (!p g x. (p x ==> P p g (g x)) ==> P p g x) ==>
+        !p g x. IS_SOME (OWHILE p g x) ==> P p g x``,
+  SIMP_TAC std_ss [IS_SOME_OWHILE_THM,PULL_EXISTS,PULL_FORALL]
+  THEN Induct_on `n` THEN SRW_TAC [] []
+  THEN FIRST_ASSUM MATCH_MP_TAC
+  THEN SRW_TAC [] [] THEN FULL_SIMP_TAC std_ss [AND_IMP_INTRO]
+  THEN Q.PAT_ASSUM `!x1 x2 x3 x4. bbb` MATCH_MP_TAC
+  THEN SRW_TAC [] [] THEN FULL_SIMP_TAC std_ss [FUNPOW]
+  THEN `SUC m < SUC n` by DECIDE_TAC
+  THEN METIS_TAC [FUNPOW]);
 
-val evaluate_closure_INTRO = prove(
-  ``(?env' e3. (do_app x empty_store Opapp v2 v3 = SOME (env',empty_store,e3)) /\
-               evaluate F env' (0,empty_store) e3 ((0,empty_store),Rval v2')) =
-    evaluate_closure v3 v2 v2'``,
-  SIMP_TAC (srw_ss()) [evaluate_closure_def,do_app_def]);
+val OWHILE_ind = save_thm("OWHILE_ind",WHILE_ind);
 
-val EXISTS_SWAP = METIS_PROVE [] ``(?x y. P x y) ==> (?y x. P x y)``
-
-val tac =
-  REPEAT STRIP_TAC
-  THEN `?menv cenv eenv. env = (menv, cenv, eenv)` by METIS_TAC [PAIR]
-  THEN ASM_SIMP_TAC (srw_ss()) []
-  THEN FULL_SIMP_TAC std_ss [PRECONDITION_def,IS_SOME_OWHILE_THM,Eval_def]
-  THEN SIMP_TAC (srw_ss()) [evaluate_Rval,build_rec_env_def]
-  THEN SIMP_TAC (srw_ss()) [Once Arrow_def,AppReturns_def]
-  THEN SIMP_TAC (srw_ss()) [evaluate_closure_def,do_app_def,
-                            find_recfun_def,bind_def,build_rec_env_def]
-  THEN SIMP_TAC std_ss [Once Eq_def]
-  THEN NTAC 2 STRIP_TAC
-  THEN SIMP_TAC (srw_ss()) [evaluate_Rval,build_rec_env_def]
-  THEN SIMP_TAC (srw_ss()) [Once Arrow_def,AppReturns_def]
-  THEN SIMP_TAC (srw_ss()) [Once evaluate_closure_def,do_app_def,
-                            find_recfun_def,bind_def,build_rec_env_def]
-  THEN SIMP_TAC std_ss [Once Eq_def]
-  THEN NTAC 2 STRIP_TAC
-  THEN SIMP_TAC (srw_ss()) [evaluate_Rval,build_rec_env_def]
-  THEN Q.ABBREV_TAC `gv = v'` THEN Q.ABBREV_TAC `fv = v''`
-  THEN POP_ASSUM (K ALL_TAC) THEN POP_ASSUM (K ALL_TAC)
-  THEN SIMP_TAC (srw_ss()) [evaluate_Rval,build_rec_env_def]
-  THEN SIMP_TAC (srw_ss()) [lookup_def,lookup_var_id_def,bind_def]
-  THEN SIMP_TAC (srw_ss()) [Once Arrow_def,AppReturns_def]
-  THEN SIMP_TAC std_ss [Once Eq_def] THEN REPEAT STRIP_TAC
-  THEN SIMP_TAC (srw_ss()) [evaluate_closure_def,do_app_def,
-                            find_recfun_def,bind_def,build_rec_env_def]
-  THEN Q.ABBREV_TAC `xv = v'` THEN POP_ASSUM (K ALL_TAC)
-  THEN REPEAT (POP_ASSUM MP_TAC)
-  THEN Q.SPEC_TAC (`x`,`x`) THEN Q.SPEC_TAC (`xv`,`xv`)
-  THEN SIMP_TAC std_ss [GSYM Eval_def]
-  THEN CONV_TAC (DEPTH_CONV ETA_CONV)
-  THEN Induct_on `n`
-  THEN1
-   (FULL_SIMP_TAC std_ss [FUNPOW] THEN REPEAT STRIP_TAC
-    THEN ONCE_REWRITE_TAC [OWHILE_THM,WHILE]
-    THEN MATCH_MP_TAC (REWRITE_RULE [AND_IMP_INTRO] Eval_If |> GEN_ALL)
-    THEN Q.LIST_EXISTS_TAC [`T`,`F`,`T`]
-    THEN FULL_SIMP_TAC std_ss [CONTAINER_def]
-    THEN REVERSE STRIP_TAC
-    THEN1 (ASM_SIMP_TAC (srw_ss()) [evaluate_Rval,lookup_def,lookup_var_id_def,
-             EVAL ``OPTION_TYPE a (SOME x) v``,Eval_def,do_app_def])
-    THEN `F = g x` by METIS_TAC []
-    THEN POP_ASSUM (fn th => ONCE_REWRITE_TAC [th])
-    THEN MATCH_MP_TAC (REWRITE_RULE [AND_IMP_INTRO] Eval_Arrow)
-    THEN ASM_SIMP_TAC (srw_ss()) [evaluate_Rval,lookup_def,
-           lookup_var_id_def,Eval_def])
-  THEN FULL_SIMP_TAC std_ss [FUNPOW] THEN REPEAT STRIP_TAC
-  THEN ONCE_REWRITE_TAC [OWHILE_THM,WHILE]
-  THEN MATCH_MP_TAC (REWRITE_RULE [AND_IMP_INTRO] Eval_If |> GEN_ALL)
-  THEN Q.LIST_EXISTS_TAC [`F`,`T`,`T`]
-  THEN `g x` by
-   (Q.PAT_ASSUM `!m.bbb` (MP_TAC o Q.SPEC `0`) THEN FULL_SIMP_TAC std_ss [FUNPOW])
-  THEN ASM_SIMP_TAC std_ss [CONTAINER_def]
-  THEN STRIP_TAC
-  THEN1
-   (`T = g x` by FULL_SIMP_TAC std_ss []
-    THEN POP_ASSUM (fn th => ONCE_REWRITE_TAC [th])
-    THEN MATCH_MP_TAC (REWRITE_RULE [AND_IMP_INTRO] Eval_Arrow)
-    THEN ASM_SIMP_TAC (srw_ss()) [evaluate_Rval,lookup_def,
-            lookup_var_id_def,Eval_def])
-  THEN ASM_SIMP_TAC (srw_ss()) [evaluate_Rval,lookup_def,Eval_def]
-  THEN ONCE_REWRITE_TAC [evaluate_empty_store] THEN FULL_SIMP_TAC std_ss []
-  THEN ONCE_REWRITE_TAC [do_app_empty_store] THEN FULL_SIMP_TAC std_ss []
-  THEN ONCE_REWRITE_TAC [evaluate_empty_store] THEN FULL_SIMP_TAC std_ss []
-  THEN ASM_SIMP_TAC (srw_ss()) [evaluate_Rval,lookup_def,
-         lookup_var_id_def,Eval_def]
-  THEN ONCE_REWRITE_TAC [evaluate_empty_store] THEN FULL_SIMP_TAC std_ss []
-  THEN ONCE_REWRITE_TAC [evaluate_constant_clock] THEN FULL_SIMP_TAC std_ss []
-  THEN SIMP_TAC std_ss [evaluate_closure_INTRO]
-  THEN FULL_SIMP_TAC (srw_ss()) [do_app_def,find_recfun_def,
-         bind_def,build_rec_env_def]
-  THEN FULL_SIMP_TAC std_ss [PULL_EXISTS,PULL_FORALL]
-  THEN HO_MATCH_MP_TAC EXISTS_SWAP
-  THEN `?v_fx. evaluate_closure xv fv v_fx /\ a (f x) v_fx` by ALL_TAC THEN1
-       (FULL_SIMP_TAC std_ss [Arrow_def,AppReturns_def] THEN METIS_TAC [])
-  THEN Q.EXISTS_TAC `v_fx` THEN FULL_SIMP_TAC std_ss [GSYM Eval_def]
-  THEN FULL_SIMP_TAC std_ss [AND_IMP_INTRO] THEN CONV_TAC (DEPTH_CONV ETA_CONV)
-  THEN Q.PAT_ASSUM `!x1 x2. bbb` MATCH_MP_TAC THEN ASM_SIMP_TAC std_ss []
-  THEN REPEAT STRIP_TAC
-  THEN Q.PAT_ASSUM `!m. bbb` (MP_TAC o Q.SPEC `SUC m`)
-  THEN FULL_SIMP_TAC (srw_ss()) [FUNPOW]
-
-val Eval_WHILE = prove(
-  ``PRECONDITION (IS_SOME (OWHILE g f (x:'a))) ==>
-    Eval env (Fun "g" (Fun "f" (Letrec
-         [("w","x",
-             (If (App Opapp (Var (Short "g")) (Var (Short "x")))
-                 (App Opapp (Var (Short "w"))
-                   (App Opapp (Var (Short "f")) (Var (Short "x"))))
-               (Var (Short "x"))))] (Var (Short "w")))))
-      ((Eq (a --> BOOL) g --> Eq (a --> a) f --> Eq a x --> a) WHILE)``,
-  tac) |> UNDISCH_ALL |> store_eval_thm;
-
-(*
-val Eval_OWHILE = prove(
-  ``PRECONDITION (IS_SOME (OWHILE g f (x:'a))) ==>
-    Eval env (Fun "g" (Fun "f" (Letrec
-         [("w","x",
-             (If (App Opapp (Var (Short "g")) (Var (Short "x")))
-                 (App Opapp (Var (Short "w"))
-                   (App Opapp (Var (Short "f")) (Var (Short "x"))))
-               (Con (SOME (Short "Some")) [Var (Short "x")])))] (Var (Short "w")))))
-      ((Eq (a --> BOOL) g --> Eq (a --> a) f --> Eq a x --> OPTION_TYPE a) OWHILE)``,
-  tac) |> UNDISCH_ALL |> store_eval_thm;
-*)
+val _ = translate WHILE;
+val _ = translate OWHILE_THM;
 
 val LEAST_LEMMA = prove(
   ``$LEAST P = WHILE (\x. ~(P x)) (\x. x + 1) 0``,
