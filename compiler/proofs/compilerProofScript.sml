@@ -2133,7 +2133,23 @@ val compile_top_labels = store_thm("compile_top_labels",
      qunabbrev_tac`x` >>
      specl_args_of_then``exp_to_pat``(CONJUNCT1 free_vars_pat_exp_to_pat)mp_tac >>
      match_mp_tac(METIS_PROVE[]``(p ∧ (p ∧ q ⇒ r)) ⇒ ((p ⇒ q) ⇒ r)``) >>
-     conj_tac >- cheat >>
+     conj_tac >- (
+       simp[] >>
+       Q.PAT_ABBREV_TAC`p = prompt_to_i3 X Y Z A` >>
+       PairCases_on`p` >> fs[markerTheory.Abbrev_def] >>
+       pop_assum(ASSUME_TAC o SYM) >>
+       imp_res_tac free_vars_i2_prompt_to_i3 >> simp[] >>
+       Q.PAT_ABBREV_TAC`p = prompt_to_i2 X A` >>
+       PairCases_on`p` >> fs[markerTheory.Abbrev_def] >>
+       pop_assum(ASSUME_TAC o SYM) >>
+       imp_res_tac free_vars_prompt_to_i2 >> simp[] >>
+       Q.PAT_ABBREV_TAC`p = top_to_i1 A B C D` >>
+       PairCases_on`p` >> fs[markerTheory.Abbrev_def] >>
+       pop_assum(ASSUME_TAC o SYM) >>
+       imp_res_tac FV_top_to_i1 >>
+       simp[Once EXTENSION] >> fs[SUBSET_DEF] >>
+       Cases_on`rs.globals_env`>> fs[global_dom_def] >>
+       rw[] >> CCONTR_TAC >> fs[] >> res_tac >> fs[] ) >>
      strip_tac >> rfs[] ) >>
    Q.PAT_ABBREV_TAC`Cexp = exp_to_Cexp Z` >>
    simp[] >> strip_tac >>
