@@ -685,6 +685,34 @@ val FV_top_to_i1 = store_thm("FV_top_to_i1",
   simp[free_vars_prompt_i1_def,free_vars_dec_to_i1] >>
   simp[free_vars_decs_to_i1])
 
+val IS_SOME_EXISTS = store_thm("IS_SOME_EXISTS",
+  ``∀opt. IS_SOME opt ⇔ ∃x. opt = SOME x``,
+  Cases >> simp[])
+
+val global_env_inv_inclusion = store_thm("global_env_inv_inclusion",
+  ``∀genv mods tops menv s env.
+     global_env_inv genv mods tops menv s env ⇒
+     set (MAP FST env) DIFF s ⊆ FDOM tops ∧
+     set (MAP FST menv) ⊆ FDOM mods``,
+  rw[Once v_to_i1_cases,SUBSET_DEF] >>
+  TRY (
+    (libPropsTheory.lookup_notin
+     |> SPEC_ALL |> EQ_IMP_RULE |> fst
+     |> CONTRAPOS
+     |> SIMP_RULE std_ss []
+     |> imp_res_tac) >>
+    fs[GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS] >>
+    res_tac >> fs[FLOOKUP_DEF] >> NO_TAC) >>
+  last_x_assum mp_tac >>
+  simp[Once v_to_i1_cases] >> strip_tac >>
+  (libPropsTheory.lookup_notin
+   |> SPEC_ALL |> EQ_IMP_RULE |> fst
+   |> CONTRAPOS
+   |> SIMP_RULE std_ss []
+   |> imp_res_tac) >>
+  fs[GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS] >>
+  res_tac >> fs[FLOOKUP_DEF] >> NO_TAC)
+
 (* misc *)
 
 val code_env_cd_append = store_thm("code_env_cd_append",
@@ -2316,8 +2344,8 @@ val compile_top_thm = store_thm("compile_top_thm",
         simp[EXTENSION] >> rw[] >>
         CCONTR_TAC >> fs[] >> res_tac >> fs[] >> rw[] >>
         fs[to_i1_invariant_def] >>
-        cheat (* does global_env_inv make envM and mods satisfy domain inclusion?
-                 otherwise env_rs might have to do it *)) >>
+        imp_res_tac global_env_inv_inclusion >>
+        fs[SUBSET_DEF]) >>
       simp[csg_closed_pat_def,map_count_store_genv_def,store_to_exh_def] >>
       conj_tac >- (
         (v_to_pat_closed |> CONJUNCT2 |> SIMP_RULE(srw_ss())[] |> match_mp_tac) >>
