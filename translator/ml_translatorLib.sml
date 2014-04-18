@@ -171,10 +171,10 @@ in
     val _ = map (fn s => delete_const s handle NotFound => ()) strs
     in () end;
   (* functions for appending a new declaration *)
-  fun snoc_cenv_eq_thm decl = 
+  fun snoc_cenv_eq_thm decl =
     if can (match_term ``(Dtype x) : dec``) decl then
       MATCH_MP DeclAssumCons_SNOC_Dtype (!cenv_eq_thm)
-      |> SPEC (decl |> rand)  
+      |> SPEC (decl |> rand)
       |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL)
       |> (fn th => MY_MP "DeclAssumCons_SNOC_Dtype" th TRUTH)
       |> CONV_RULE (RAND_CONV EVAL THENC
@@ -188,7 +188,7 @@ in
       MATCH_MP DeclAssumCons_SNOC_Dletrec (!cenv_eq_thm)
       |> SPEC (rand decl)
       |> (fn th => (cenv_eq_thm := th; th))
-    else 
+    else
       failwith "snoc_cenv_eq_thm input is not recognised decl"
   fun snoc_decl decl = let
     val _ = snoc_cenv_eq_thm decl
@@ -206,10 +206,10 @@ in
                  handle HOL_ERR _ => th,pre))
             else if can (match_term ``(Dtype x) : dec``) decl then
               (fn (n:string,tm:term,th,pre) =>
-                (n,tm,(th |> SPEC_ALL 
-                          |> Q.GEN `tys` 
-                          |> Q.GEN `env` 
-                          |> MATCH_MP DeclAssum_Dtype 
+                (n,tm,(th |> SPEC_ALL
+                          |> Q.GEN `tys`
+                          |> Q.GEN `env`
+                          |> MATCH_MP DeclAssum_Dtype
                           |> SPEC (rand decl)
                           |> SPEC_ALL
                           |> Q.GEN `env`)
@@ -224,12 +224,12 @@ in
                |> SPEC (decl |> rand)
       val goal = th |> concl |> dest_imp |> fst
       val lemma = !cenv_eq_thm
-      val tac = 
+      val tac =
         REPEAT STRIP_TAC
         THEN1 (SIMP_TAC std_ss [check_dup_ctors_def,LET_DEF,FOLDR] THEN EVAL_TAC)
         THEN SIMP_TAC std_ss [type_defs_to_new_tdecs_def,MAP,
                DISJOINT_set_SIMP,mk_id_def]
-        THEN (lemma |> RW1 [DeclAssumCons_def] |> CONJUNCT2 |> SPEC_ALL 
+        THEN (lemma |> RW1 [DeclAssumCons_def] |> CONJUNCT2 |> SPEC_ALL
                     |> UNDISCH |> CONJUNCT1 |> ASSUME_TAC)
         THEN POP_ASSUM (fn th => ONCE_REWRITE_TAC [th])
         THEN EVAL_TAC
@@ -1066,7 +1066,7 @@ val ty = ``:num option``; derive_thms_for_type ty
 val ty = ``:unit``; derive_thms_for_type ty
 *)
 
-fun derive_thms_for_type ty = let 
+fun derive_thms_for_type ty = let
   val (ty,ret_ty) = dest_fun_type (type_of_cases_const ty)
   val is_record = 0 < length(TypeBase.fields_of ty)
   val tys = find_mutrec_types ty
@@ -1103,7 +1103,7 @@ fun derive_thms_for_type ty = let
     val (x1,x2) = dest_pair c
     val l = x2 |> listSyntax.dest_list |> fst |> length |> numSyntax.term_of_int
     in ``lookup_cons ^x1 env = SOME (^l,TypeId (Short ^tyname))`` end
-  val type_assum = dtype_list 
+  val type_assum = dtype_list
     |> listSyntax.dest_list |> fst
     |> map (list_dest dest_pair)
     |> map (fn xs => (el 2 xs, el 3 xs |> listSyntax.dest_list |> fst))
@@ -1265,9 +1265,9 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
         (mk_comb(get_type_inv (type_of tm),tm))
     val tms = map (fn (x,exp) => ``Eval env ^exp ^(find_inv x)``) exps
     val tm = if tms = [] then T else list_mk_conj tms
-    val cons_assum = type_assum 
+    val cons_assum = type_assum
                      |> list_dest dest_conj
-                     |> filter (fn tm => aconv 
+                     |> filter (fn tm => aconv
                            (tm |> rator |> rand |> rator |> rand) str)
                      |> list_mk_conj
     val goal = mk_imp(cons_assum,mk_imp(tm,result))
@@ -1926,7 +1926,9 @@ fun inst_Eval_env v th = let
           (RAND_CONV o RATOR_CONV o RAND_CONV) c
   val c1 = ((RATOR_CONV o RAND_CONV) (REWRITE_CONV [ASSUME assum]))
   val th = thx |> D |> CONV_RULE c1 |> DISCH assum
-               |> INST [old_env|->new_env] |> CONV_RULE c
+               |> INST [old_env|->new_env]
+               |> PURE_REWRITE_RULE [lookup_cons_write]
+               |> CONV_RULE c
   val new_assum = fst (dest_imp (concl th))
   val th1 = th |> UNDISCH_ALL
                |> CONV_RULE ((RAND_CONV o RAND_CONV) (UNBETA_CONV v))
@@ -1962,7 +1964,7 @@ fun apply_Eval_Recclosure recc fname v th = let
   val fname_str = stringLib.fromMLstring fname
   val FORALL_CONV = RAND_CONV o ABS_CONV
   val lemma = SPECL [recc,fname_str] Eval_Recclosure_ALT
-              |> CONV_RULE ((FORALL_CONV o FORALL_CONV o 
+              |> CONV_RULE ((FORALL_CONV o FORALL_CONV o
                              RATOR_CONV o RAND_CONV) EVAL)
   val pat = lemma |> concl |> find_term (can
                (match_term ``find_recfun name (funs :(tvarN, tvarN # exp) env)``))
@@ -1976,7 +1978,8 @@ fun apply_Eval_Recclosure recc fname v th = let
   val thx = th |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
                |> DISCH_ALL |> DISCH assum (* |> SIMP_RULE bool_ss [] *)
                |> INST [old_env|->new_env]
-               |> PURE_REWRITE_RULE [Eval_Var_SIMP,lookup_def,lookup_var_write]
+               |> PURE_REWRITE_RULE [Eval_Var_SIMP,lookup_def,
+                                     lookup_var_write,lookup_cons_write]
                |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
                |> REWRITE_RULE [SafeVar_def]
   val new_assum = fst (dest_imp (concl thx))
@@ -2552,7 +2555,7 @@ val def = Define `next n = n+1:num`;
 val ty = ``:'a + 'b``; register_type ty;
 val ty = ``:'a option``; register_type ty;
 val def = Define `goo k = next k + 1`;
-
+<
 *)
 
 fun translate def = (let
