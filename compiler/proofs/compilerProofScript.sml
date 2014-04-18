@@ -1961,7 +1961,7 @@ val env_rs_def = Define`
   ⇔
     good_labels rs.rnext_label bs.code ∧
     good_globals rs.globals_env rs.next_global (LENGTH bs.globals) (LENGTH genv) ∧
-    bs.stack = [] ∧
+    bs.stack = [] ∧ EVERY closed s ∧
     ∃s1 s2 genv2 Cs Cg.
       to_i1_invariant
         genv (FST rs.globals_env) (SND rs.globals_env)
@@ -2351,7 +2351,16 @@ val compile_top_thm = store_thm("compile_top_thm",
         (v_to_pat_closed |> CONJUNCT2 |> SIMP_RULE(srw_ss())[] |> match_mp_tac) >>
         (v_to_exh_closed |> CONJUNCT2 |> CONJUNCT1
          |> SIMP_RULE(srw_ss())[vs_to_exh_MAP] |> match_mp_tac) >>
-        cheat (* push closed up to source level, and add to env_rs *) ) >>
+        fs[to_i2_invariant_def] >>
+        fs[Once s_to_i2_cases] >>
+        fs[Once s_to_i2'_cases] >>
+        (v_to_i2_closed |> CONJUNCT2 |> CONJUNCT1 |> MP_CANON |> match_mp_tac) >>
+        first_assum(match_exists_tac o concl) >> simp[] >>
+        (v_to_i1_closed |> CONJUNCT2 |> CONJUNCT1 |> MP_CANON |> match_mp_tac) >>
+        fs[to_i1_invariant_def] >>
+        fs[Once s_to_i1_cases] >>
+        fs[Once s_to_i1'_cases] >>
+        first_assum(match_exists_tac o concl) >> simp[]) >>
       cheat) >>
     disch_then(qx_choosel_then[`Cres0`]strip_assume_tac) >>
     qpat_assum`X = bc`mp_tac >>
