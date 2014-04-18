@@ -50,7 +50,6 @@ type exp_i1 =
   | Con_i1 of maybe (id conN) * list exp_i1
   | Var_local_i1 of varN
   | Var_global_i1 of nat
-  | Init_global_i1 of nat * exp_i1
   | Fun_i1 of varN * exp_i1
   | Uapp_i1 of uop * exp_i1
   | App_i1 of op * exp_i1 * exp_i1

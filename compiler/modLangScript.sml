@@ -61,7 +61,6 @@ val _ = Hol_datatype `
   | Con_i1 of  ( conN id)option => exp_i1 list
   | Var_local_i1 of varN
   | Var_global_i1 of num
-  | Init_global_i1 of num => exp_i1
   | Fun_i1 of varN => exp_i1
   | Uapp_i1 of uop => exp_i1
   | App_i1 of op => exp_i1 => exp_i1
