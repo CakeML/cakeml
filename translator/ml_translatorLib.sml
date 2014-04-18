@@ -72,6 +72,11 @@ fun MY_MP name th1 th2 =
       val _ = print "\n\n"
     in raise e end
 
+fun auto_prove proof_name (goal,tac) = let
+  val (rest,validation) = tac ([],goal) handle Empty => fail()
+  in if length rest = 0 then validation [] else let
+  in failwith("auto_prove failed for " ^ proof_name) end end
+
 (* local *)
   (* inv: get_DeclAssum () is a hyp in each thm in each !cert_memory *)
   val module_name = ref "";
@@ -83,7 +88,6 @@ fun MY_MP name th1 th2 =
   (* session specific state below *)
   val abbrev_counter = ref 0;
   val abbrev_defs = ref ([]:thm list);
-  val init_envC = initialEnvTheory.init_envC_def |> SIMP_RULE std_ss [MAP]
 local
 in
   fun get_cenv_names () = let
@@ -167,7 +171,27 @@ in
     val _ = map (fn s => delete_const s handle NotFound => ()) strs
     in () end;
   (* functions for appending a new declaration *)
+  fun snoc_cenv_eq_thm decl = 
+    if can (match_term ``(Dtype x) : dec``) decl then
+      MATCH_MP DeclAssumCons_SNOC_Dtype (!cenv_eq_thm)
+      |> SPEC (decl |> rand)  
+      |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL)
+      |> (fn th => MY_MP "DeclAssumCons_SNOC_Dtype" th TRUTH)
+      |> CONV_RULE (RAND_CONV EVAL THENC
+                    (RATOR_CONV o RAND_CONV) EVAL)
+      |> (fn th => (cenv_eq_thm := th; th))
+    else if can (match_term ``(Dlet v x) : dec``) decl then
+      MATCH_MP DeclAssumCons_SNOC_Dlet (!cenv_eq_thm)
+      |> SPEC (rand (rand (rator decl))) |> SPEC (rand decl)
+      |> (fn th => (cenv_eq_thm := th; th))
+    else if can (match_term ``(Dletrec funs) : dec``) decl then
+      MATCH_MP DeclAssumCons_SNOC_Dletrec (!cenv_eq_thm)
+      |> SPEC (rand decl)
+      |> (fn th => (cenv_eq_thm := th; th))
+    else 
+      failwith "snoc_cenv_eq_thm input is not recognised decl"
   fun snoc_decl decl = let
+    val _ = snoc_cenv_eq_thm decl
     val _ = (decl_term := listSyntax.mk_snoc(decl,!decl_term))
     val f = if can (match_term ``(Dletrec funs) : dec``) decl then
               (fn (n:string,tm:term,th,pre) =>
@@ -204,8 +228,12 @@ in
         REPEAT STRIP_TAC
         THEN1 (SIMP_TAC std_ss [check_dup_ctors_def,LET_DEF,FOLDR] THEN EVAL_TAC)
         THEN SIMP_TAC std_ss [type_defs_to_new_tdecs_def,MAP,
-               DISJOINT_set_SIMP,mk_id_def] \\ cheat (* needs more state *)
-      val lemma = prove(goal,tac)
+               DISJOINT_set_SIMP,mk_id_def]
+        THEN (lemma |> RW1 [DeclAssumCons_def] |> CONJUNCT2 |> SPEC_ALL 
+                    |> UNDISCH |> CONJUNCT1 |> ASSUME_TAC)
+        THEN POP_ASSUM (fn th => ONCE_REWRITE_TAC [th])
+        THEN EVAL_TAC
+      val lemma = auto_prove "snoc_dtype_decl" (goal,tac)
       val th = MY_MP "dtype" th lemma
       in decl_exists := th end
     val _ = snoc_decl decl
@@ -2486,11 +2514,6 @@ fun abbrev_code (fname,def,th,v) = let
   val th = CONV_RULE ((RATOR_CONV o RAND_CONV) (K (GSYM code_def))) th
   in (code_def,(fname,def,th,v)) end
 
-fun auto_prove proof_name (goal,tac) = let
-  val (rest,validation) = tac ([],goal) handle Empty => fail()
-  in if length rest = 0 then validation [] else let
-  in failwith("auto_prove failed for " ^ proof_name) end end
-
 val find_def_for_const =
   ref ((fn const => raise UnableToTranslate const) : term -> thm);
 
@@ -2506,6 +2529,7 @@ fun force_thm_the (SOME x) = x | force_thm_the NONE = TRUTH
 
 (*
 
+translate def
 
 val def = Define `fac n = if n = 0 then 1 else fac (n-1) * (n:num)`;
 
@@ -2520,6 +2544,7 @@ val def = tDefine "even" `
 val def = Define `goo k = next k + 1`;
 val def = Define `next n = n+1:num`;
 val ty = ``:'a + 'b``; register_type ty
+val ty = ``:'a option``; register_type ty
 val def = Define `goo k = next k + 1`;
 
 *)

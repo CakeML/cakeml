@@ -1337,7 +1337,7 @@ end
 
 val DeclAssumCons_SNOC_Dlet = store_thm("DeclAssumCons_SNOC_Dlet",
   ``DeclAssumCons ds conses ce ==>
-    DeclAssumCons (SNOC (Dlet (Pvar name) exp) ds) conses ce``,
+    !name exp. DeclAssumCons (SNOC (Dlet (Pvar name) exp) ds) conses ce``,
   fs [DeclAssumCons_def,DeclAssum_def,Decls_NIL,Decls_APPEND,SNOC_APPEND,
     Decls_Dlet] \\ srw_tac [] [] \\ res_tac
   \\ PairCases_on `s2` \\ fs [] \\ fs [GSYM empty_store_def] 
@@ -1347,17 +1347,18 @@ val DeclAssumCons_SNOC_Dlet = store_thm("DeclAssumCons_SNOC_Dlet",
 
 val DeclAssumCons_SNOC_Dletrec = store_thm("DeclAssumCons_SNOC_Dletrec",
   ``DeclAssumCons ds conses ce ==>
-    DeclAssumCons (SNOC (Dletrec funs) ds) conses ce``,
+    !funs. DeclAssumCons (SNOC (Dletrec funs) ds) conses ce``,
   fs [DeclAssumCons_def,DeclAssum_def,Decls_NIL,Decls_APPEND,SNOC_APPEND,
     Decls_Dletrec] \\ srw_tac [] [] \\ res_tac
   \\ PairCases_on `env2` \\ fs [write_rec_def]);
 
 val DeclAssumCons_SNOC_Dtype = store_thm("DeclAssumCons_SNOC_Dtype",
   ``DeclAssumCons ds conses ce ==>
-    ALL_DISTINCT (MAP FST (build_tdefs NONE tds ++ ce)) ==>
-    DeclAssumCons (SNOC (Dtype tds) ds) 
-      (MAP (\(tvs,tn,ctors). TypeId (Short tn)) tds ++ conses) 
-      (build_tdefs NONE tds ++ ce)``,
+    !tds.
+      ALL_DISTINCT (MAP FST (build_tdefs NONE tds ++ ce)) ==>
+      DeclAssumCons (SNOC (Dtype tds) ds) 
+        (MAP (\(tvs,tn,ctors). TypeId (Short tn)) tds ++ conses) 
+        (build_tdefs NONE tds ++ ce)``,
   fs [DeclAssumCons_def,DeclAssum_def,Decls_NIL,Decls_APPEND,SNOC_APPEND,
     Decls_Dtype] \\ srw_tac [] [] \\ res_tac
   \\ PairCases_on `s2` \\ fs [] \\ srw_tac [] [] \\ res_tac \\ fs []
