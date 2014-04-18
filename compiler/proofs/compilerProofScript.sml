@@ -1,7 +1,7 @@
 open HolKernel bossLib boolLib boolSimps listTheory pairTheory rich_listTheory pred_setTheory arithmeticTheory finite_mapTheory relationTheory sortingTheory stringTheory
 open miscLib miscTheory bigStepTheory semanticPrimitivesTheory bigClockTheory replTheory terminationTheory
 open bytecodeTheory bytecodeExtraTheory bytecodeEvalTheory bytecodeClockTheory bytecodeLabelsTheory bytecodeTerminationTheory
-open conLangTheory decLangTheory intLangTheory toIntLangTheory toBytecodeTheory compilerTheory intLangExtraTheory modLangProofTheory conLangProofTheory decLangProofTheory exhLangProofTheory intLangProofTheory bytecodeProofTheory compilerTerminationTheory
+open modLangTheory conLangTheory decLangTheory intLangTheory toIntLangTheory toBytecodeTheory compilerTheory intLangExtraTheory modLangProofTheory conLangProofTheory decLangProofTheory exhLangProofTheory intLangProofTheory bytecodeProofTheory compilerTerminationTheory
 open patLangProofTheory
 
 val _ = new_theory"compilerProof"
@@ -556,15 +556,134 @@ val FV_top_def = Define`
   (FV_top (Tmod mn _ ds) = FV_decs ds)`
 val _ = export_rewrites["FV_top_def"]
 
+val free_vars_dec_i2_def = Define`
+  free_vars_dec_i2 (Dlet_i2 n e) = free_vars_i2 e ∧
+  free_vars_dec_i2 (Dletrec_i2 defs) = free_vars_i2 (Letrec_i2 defs (Lit_i2 ARB))`
+val _ = export_rewrites["free_vars_dec_i2_def"]
 
 (*
-val free_vars_prompt_i2_def = Define`
-  free_vars_prompt_i2 (Prompt_i2 ls) =
-    
-val free_vars_i2_prompt_to_i3 = store_thm("free_vars_i2_prompt_to_i3",
-  ``prompt_to_i3 n s m p = (n,e) ⇒
-    free_vars_i2 e = free_vars_prompt_i2 p``
+val new_dec_i2_vs_def = Define`
+  (new_dec_i2_vs (Dlet_i2 n e) = []) ∧
+  (new_dec_i2_vs (Dletrec_i2 funs) = MAP FST funs)`
+val _ = export_rewrites["new_dec_i2_vs_def"]
 *)
+
+val free_vars_decs_i2_def = Define`
+  free_vars_decs_i2 ls = free_vars_i2 (decs_to_i3 0 ls)`
+
+val free_vars_prompt_i2_def = Define`
+  free_vars_prompt_i2 (Prompt_i2 ds) = free_vars_decs_i2 ds`
+val _ = export_rewrites["free_vars_prompt_i2_def"]
+
+val free_vars_i2_init_globals = store_thm("free_vars_i2_init_globals",
+  ``∀ls n. free_vars_i2 (init_globals ls n) = set ls``,
+  Induct >> simp[init_globals_def,EXTENSION])
+val _ = export_rewrites["free_vars_i2_init_globals"]
+
+val pats_bindings_i2_MAP_Pvar_i2 = store_thm("pats_bindings_i2_MAP_Pvar_i2",
+  ``∀ls ly. set (pats_bindings_i2 (MAP Pvar_i2 ls) ly) = set ls ∪ set ly``,
+  Induct >> simp[pat_bindings_i2_def,EXTENSION] >> metis_tac[])
+
+val free_vars_i2_init_global_funs = store_thm("free_vars_i2_init_global_funs",
+  ``∀ls n. free_vars_i2 (init_global_funs n ls) = BIGUNION (set (MAP (λ(f,x,e). free_vars_i2 (Fun_i2 x e)) ls))``,
+  Induct >> simp[FORALL_PROD,init_global_funs_def])
+
+val free_vars_i2_decs_to_i3 = store_thm("free_vars_i2_decs_to_i3",
+  ``∀l m. free_vars_i2 (decs_to_i3 m l) = free_vars_decs_i2 l``,
+  Induct >> simp[decs_to_i3_def,free_vars_decs_i2_def] >>
+  Cases >> simp[pat_bindings_i2_def,pats_bindings_i2_MAP_Pvar_i2] >>
+  simp[free_vars_i2_init_global_funs])
+
+val free_vars_i2_prompt_to_i3 = store_thm("free_vars_i2_prompt_to_i3",
+  ``∀x s m p n e.
+    prompt_to_i3 x s m p = (n,e) ⇒
+    free_vars_i2 e = free_vars_prompt_i2 p``,
+  rw[prompt_to_i3_def] >>
+  BasicProvers.EVERY_CASE_TAC >>
+  fs[LET_THM] >> rw[pat_bindings_i2_def] >>
+  rw[free_vars_i2_decs_to_i3])
+
+val free_vars_decs_i1_def = Define`
+  free_vars_decs_i1 ds = free_vars_decs_i2 (SND(SND(decs_to_i2 ARB ds)))`
+
+val free_vars_prompt_i1_def = Define`
+  free_vars_prompt_i1 (Prompt_i1 mn decs) = free_vars_decs_i1 decs`
+
+val free_vars_decs_i2_decs_to_i2_any = store_thm("free_vars_decs_i2_decs_to_i2_any",
+  ``∀l a b. free_vars_decs_i2 (SND(SND (decs_to_i2 a l))) =
+            free_vars_decs_i2 (SND(SND (decs_to_i2 b l)))``,
+  Induct_on`l`>>simp[decs_to_i2_def] >>
+  Cases >> simp[UNCURRY] >>
+  fs[free_vars_decs_i2_def,decs_to_i3_def] >>
+  simp[pat_bindings_i2_def,pats_bindings_i2_MAP_Pvar_i2] >>
+  fs[free_vars_i2_decs_to_i3,free_vars_i2_init_global_funs] >>
+  fs[EXTENSION,funs_to_i2_MAP,MAP_MAP_o,UNCURRY,combinTheory.o_DEF] >>
+  metis_tac[])
+
+val free_vars_prompt_to_i2 = store_thm("free_vars_prompt_to_i2",
+  ``∀x p y z p2.
+    prompt_to_i2 x p = (y,z,p2) ⇒
+    free_vars_prompt_i2 p2 = free_vars_prompt_i1 p``,
+  Cases_on`p`>>rw[prompt_to_i2_def,LET_THM,free_vars_prompt_i1_def] >>
+  fs[UNCURRY] >> rw[free_vars_decs_i1_def] >>
+  metis_tac[free_vars_decs_i2_decs_to_i2_any])
+
+val free_vars_list_i1_MAP_Var_local_i1 = store_thm("free_vars_list_i1_MAP_Var_local_i1",
+  ``∀ls. free_vars_list_i1 (MAP Var_local_i1 ls) = set ls``,
+  Induct >> simp[EXTENSION])
+
+val alloc_defs_GENLIST = store_thm("alloc_defs_GENLIST",
+  ``∀n ls. alloc_defs n ls = ZIP(ls,GENLIST(λx. x + n)(LENGTH ls))``,
+  Induct_on`ls`>>simp[alloc_defs_def,GENLIST_CONS] >>
+  simp[combinTheory.o_DEF,ADD1])
+
+val free_vars_dec_to_i1 = store_thm("free_vars_dec_to_i1",
+  ``∀n a m e d. free_vars_decs_i1 [SND (SND (dec_to_i1 n a m e d))] =
+                {x | Short x ∈ FV_dec d} DIFF FDOM e``,
+  Cases_on`d`>>
+  simp[free_vars_decs_i1_def,dec_to_i1_def,
+       decs_to_i2_def,free_vars_decs_i2_def,decs_to_i3_def,
+       pat_bindings_i2_def,pats_bindings_i2_MAP_Pvar_i2,
+       free_vars_list_i1_MAP_Var_local_i1,
+       funs_to_i1_MAP,free_vars_i2_init_global_funs,
+       funs_to_i2_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,
+       FV_defs_MAP,PULL_EXISTS] >>
+  simp[Once EXTENSION,PULL_EXISTS,MEM_MAP,FST_triple,alloc_defs_GENLIST] >>
+  simp[(Q.ISPECL[`FST`,`SND`]FOLDL_FUPDATE_LIST|>SIMP_RULE(srw_ss())[LAMBDA_PROD])] >>
+  simp[FDOM_FUPDATE_LIST,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX,MAP_ZIP] >>
+  rw[MEM_MAP,PULL_EXISTS] >>
+  metis_tac[])
+
+val free_vars_decs_to_i1 = store_thm("free_vars_decs_to_i1",
+  ``∀n a m e d. free_vars_decs_i1 (SND (SND (decs_to_i1 n a m e d))) =
+                {x | Short x ∈ FV_decs d} DIFF FDOM e``,
+  Induct_on`d`>- (
+    simp[FV_decs_def,decs_to_i1_def,free_vars_decs_i1_def,free_vars_decs_i2_def] >>
+    simp[decs_to_i2_def,decs_to_i3_def] ) >>
+  simp[FV_decs_def,decs_to_i1_def,UNCURRY,MEM_MAP] >>
+  Cases >> simp[dec_to_i1_def] >>
+  fs[free_vars_decs_i1_def,free_vars_decs_i2_def] >>
+  fs[free_vars_i2_decs_to_i3] >>
+  simp[decs_to_i1_def,decs_to_i2_def] >>
+  simp[UNCURRY] >>
+  fs[free_vars_decs_i2_def,decs_to_i3_def] >> simp[] >>
+  fs[free_vars_i2_decs_to_i3,pat_bindings_i2_def,pats_bindings_i2_MAP_Pvar_i2] >>
+  simp[(Q.ISPECL[`FST`,`SND`]FOLDL_FUPDATE_LIST|>SIMP_RULE(srw_ss())[LAMBDA_PROD])] >>
+  simp[alloc_defs_GENLIST,free_vars_list_i1_MAP_Var_local_i1,FDOM_FUPDATE_LIST,
+       MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX,MAP_ZIP,free_vars_i2_init_global_funs] >>
+  TRY ( metis_tac[free_vars_decs_i2_decs_to_i2_any] ) >>
+  simp[Once EXTENSION] >- metis_tac[] >>
+  simp[funs_to_i1_MAP,funs_to_i2_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY
+      ,FDOM_FUPDATE_LIST,ETA_AX,MAP_ZIP,FST_triple,MAP_REVERSE,MEM_MAP,PULL_EXISTS] >>
+  simp[FV_defs_MAP,PULL_EXISTS,UNCURRY] >>
+  metis_tac[])
+
+val FV_top_to_i1 = store_thm("FV_top_to_i1",
+  ``∀n m e t x y z p. top_to_i1 n m e t = (x,y,z,p) ⇒
+      free_vars_prompt_i1 p = {x | Short x ∈ FV_top t} DIFF FDOM e``,
+  Cases_on`t`>>simp[top_to_i1_def,UNCURRY] >>
+  simp[free_vars_prompt_i1_def,free_vars_dec_to_i1] >>
+  simp[free_vars_decs_to_i1])
 
 (* misc *)
 
@@ -2173,7 +2292,16 @@ val compile_top_thm = store_thm("compile_top_thm",
       conj_asm1_tac >- (
         specl_args_of_then``exp_to_pat``(CONJUNCT1 free_vars_pat_exp_to_pat)mp_tac >>
         simp[] >> disch_then match_mp_tac >>
-        cheat (* push free_vars up to source level *)) >>
+        imp_res_tac free_vars_i2_prompt_to_i3 >>
+        imp_res_tac free_vars_prompt_to_i2 >>
+        imp_res_tac FV_top_to_i1 >>
+        simp[] >>
+        fs[closed_top_def,SUBSET_DEF,PULL_EXISTS] >>
+        simp[EXTENSION] >> rw[] >>
+        CCONTR_TAC >> fs[] >> res_tac >> fs[] >> rw[] >>
+        fs[to_i1_invariant_def] >>
+        cheat (* does global_env_inv make envM and mods satisfy domain inclusion?
+                 otherwise env_rs might have to do it *)) >>
       simp[csg_closed_pat_def,map_count_store_genv_def,store_to_exh_def] >>
       conj_tac >- (
         (v_to_pat_closed |> CONJUNCT2 |> SIMP_RULE(srw_ss())[] |> match_mp_tac) >>
