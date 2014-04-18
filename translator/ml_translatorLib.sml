@@ -648,7 +648,7 @@ in
       val _ = print_translation_output ()
       in () end
   val _ = Theory.register_hook(
-              "miniml.ml_translator",
+              "cakeML.ml_translator",
               (fn TheoryDelta.ExportTheory _ => finalise_translation() | _ => ()))
   fun translation_extends name = let
     val _ = print ("Loading translation: " ^ name ^ " ... ")
@@ -989,7 +989,7 @@ fun define_ref_inv tys = let
     val ys = filter (fn y => not (mem y [tm1,T])) ys
     val tm2 = if ys = [] then T else list_mk_conj ys
     val goal = mk_imp(tm2,tm1)
-    val eq_lemma = prove(goal,
+    val eq_lemma = auto_prove "EqualityType" (goal,
       REPEAT STRIP_TAC
       \\ FULL_SIMP_TAC std_ss [EqualityType_def]
       \\ STRIP_TAC THEN1
@@ -1008,7 +1008,8 @@ fun define_ref_inv tys = let
        (REPEAT (Q.PAT_ASSUM `!x1 x2. bbb ==> bbbb` (K ALL_TAC))
         \\ (Induct ORELSE Cases)
         \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS]
-        \\ Cases_on `x2` \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS, types_match_def]
+        \\ TRY (Cases_on `x2`)
+        \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS, types_match_def]
         \\ REPEAT STRIP_TAC \\ METIS_TAC []))
     (* check that the result does not mention itself *)
     val (tm1,tm2) = dest_imp goal
@@ -1078,24 +1079,28 @@ fun derive_thms_for_type ty = let
   val _ = map (fn (_,inv_def,_) => print_inv_def inv_def) inv_defs
   fun list_mk_type [] ret_ty = ret_ty
     | list_mk_type (x::xs) ret_ty = mk_type("fun",[type_of x,list_mk_type xs ret_ty])
-  (* define a MiniML datatype declaration *)
-  val dtype_parts = map (fn (ty,case_th) => let
-    val xs = map rand (find_terms is_eq (concl case_th))
-    val y = hd (map (fst o dest_eq) (find_terms is_eq (concl case_th)))
-    fun mk_line x = let
-      val tag = tag_name name (repeat rator x |> dest_const |> fst)
-      val ts = map (type2t o type_of) (dest_args x)
-      val tm = pairSyntax.mk_pair(stringSyntax.fromMLstring tag,
-                 listSyntax.mk_list(ts,type_of ``Tbool``))
-      in tm end
-    val lines = listSyntax.mk_list(map mk_line xs,``:tvarN # t list``)
-    val (name,ts) = dest_type (type_of y)
+  (* define a CakeML datatype declaration *)
+  fun extract_dtype_part th = let
+    val xs = CONJUNCTS th |> map (dest_eq o concl o SPEC_ALL)
+    val ys = xs |>  map (fn (x,y) => (x |> rator |> rand,
+                                      y |> list_dest dest_exists |> last
+                                        |> list_dest dest_conj |> hd
+                                        |> rand |> rator |> rand |> rand))
+    val tyname = ys |> hd |> snd |> rand |> rand |> rand
+    val ys = map (fn (x,y) => (y |> rator |> rand,
+                               x |> dest_args |> map (type2t o type_of) )) ys
+    fun mk_line (x,y) = pairSyntax.mk_pair(x,
+                         listSyntax.mk_list(y,type_of ``Tbool``))
+    val lines = listSyntax.mk_list(map mk_line ys,``:tvarN # t list``)
     fun string_tl s = s |> explode |> tl |> implode
-    val ts = map (stringSyntax.fromMLstring o (* string_tl o *) dest_vartype) ts
+    val ts = th |> concl |> list_dest dest_conj |> hd
+                |> list_dest dest_forall |> last |> dest_eq |> fst
+                |> rator |> rand |> type_of |> dest_type |> snd
+                |> map (stringSyntax.fromMLstring o (* string_tl o *) dest_vartype)
     val ts_tm = listSyntax.mk_list(ts,``:string``)
-    val name_tm = stringSyntax.fromMLstring name
-    val dtype = ``(^ts_tm,^name_tm,^lines)``
-    in dtype end) case_thms
+    val dtype = ``(^ts_tm,^tyname,^lines)``
+    in dtype end
+  val dtype_parts = inv_defs |> map #2 |> map extract_dtype_part
   val dtype_list = listSyntax.mk_list(dtype_parts,type_of (hd dtype_parts))
   val dtype = ``(Dtype ^dtype_list): dec``
   (* cons assumption *)
@@ -1244,7 +1249,7 @@ fun derive_thms_for_type ty = let
                 lookup_con_id_def,lookup_cons_def,same_tid_def,id_to_n_def,
                 same_ctor_def,write_def]
     val tac = init_tac THENL (map (fn (n,f,fxs,pxs,tm,exp,xs) => case_tac n) ts)
-    val case_lemma = prove(goal,tac)
+    val case_lemma = auto_prove "case-of-proof" (goal,tac)
     val case_lemma = case_lemma |> PURE_REWRITE_RULE [TAG_def]
     in (case_lemma,ts) end;
 (*
