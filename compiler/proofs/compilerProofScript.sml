@@ -1515,41 +1515,37 @@ val can_Print_list_EVERY = store_thm("can_Print_list_EVERY",
 val _ = export_rewrites["can_Print_list_EVERY"]
 
 val compile_print_vals_thm = store_thm("compile_print_vals_thm",
-  ``∀vs types i cs. let cs' = compile_print_vals types i vs cs in
+  ``∀vs types map cs. let cs' = compile_print_vals types map vs cs in
     ∃code. cs'.out = REVERSE code ++ cs.out
          ∧ cs'.next_label = cs.next_label
          ∧ EVERY ($~ o is_Label) code ∧
          code_labels_ok code ∧
-    ∀bs bc0 bvs st0.
+    ∀bs bc0 bvs.
     bs.code = bc0 ++ code
     ∧ bs.pc = next_addr bs.inst_length bc0
-    ∧ bs.stack = bvs ++ st0
-    ∧ can_Print_list bvs
-    ∧ i + LENGTH vs ≤ LENGTH bvs
+    ∧ LIST_REL (λv bv. ∃n. FLOOKUP map v = SOME n ∧ el_check n bs.globals = SOME (SOME bv) ∧ can_Print bv) vs bvs
     ⇒
     let bs' = bs with <|pc := next_addr bs.inst_length (bc0++code)
-                       ;output := bs.output ++ print_bv_list bs.cons_names types vs (TAKE (LENGTH vs) (DROP i bvs))|> in
+                       ;output := bs.output ++ print_bv_list bs.cons_names types vs bvs|> in
     bc_next^* bs bs'``,
   Induct >> simp[compile_print_vals_def] >- (
     simp[Once SWAP_REVERSE] >> rw[] >>
     simp[Once RTC_CASES1] >>
-    disj1_tac >>
     simp[bc_state_component_equality] )>>
   simp[FOLDL_emit_thm] >>
   qx_gen_tac`v` >>
   rpt strip_tac >>
   Q.PAT_ABBREV_TAC`cs1 = compiler_result_out_fupd X Y` >>
-  first_x_assum(qspecl_then[`types`,`i+1`,`cs1`]mp_tac) >>
+  first_x_assum(qspecl_then[`types`,`map`,`cs1`]mp_tac) >>
   simp[] >>
   disch_then(qx_choosel_then[`c1`]strip_assume_tac) >>
   simp[Abbr`cs1`,Once SWAP_REVERSE] >>
   simp[EVERY_MAP] >> fs[] >>
   Q.PAT_ABBREV_TAC`cs1 = compiler_result_out_fupd X Y` >>
-  qmatch_assum_abbrev_tac`(compile_print_vals types (i+1) vs cs1').next_label = X` >>
+  qmatch_assum_abbrev_tac`(compile_print_vals types map vs cs1').next_label = X` >>
   `cs1' = cs1` by (
     simp[Abbr`cs1`,Abbr`cs1'`,compiler_result_component_equality] ) >>
   fs[Abbr`cs1'`] >> pop_assum kall_tac >>
-  simp [FLOOKUP_DEF] >>
   conj_tac >- (
     rpt(match_mp_tac code_labels_ok_cons>>simp[])>>
     match_mp_tac code_labels_ok_append>>simp[IMPLODE_EXPLODE_I]>>
@@ -1557,7 +1553,7 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
   rpt gen_tac >>
   strip_tac >>
   fs[IMPLODE_EXPLODE_I] >>
-  `bs.code = bc0 ++ (MAP PrintC ("val "++v++":"++tystr types v++" = ")) ++ [Stack(Load i);Print;PrintC(#"\n")] ++ c1` by (
+  `bs.code = bc0 ++ (MAP PrintC ("val "++v++":"++tystr types v++" = ")) ++ [Gread n;Print;PrintC(#"\n")] ++ c1` by (
     simp[] ) >>
   qmatch_assum_abbrev_tac`bs.code = bc0 ++ l1 ++ l2 ++ c1` >>
   `bc_next^* bs (bs with <|pc:=next_addr bs.inst_length (bc0++l1)
@@ -1567,19 +1563,20 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
     qexists_tac`bc0` >>
     simp[Abbr`l1`] ) >>
   qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
-  `bc_fetch bs1 = SOME (Stack (Load i))` by (
+  `bc_fetch bs1 = SOME (Gread n)` by (
     match_mp_tac bc_fetch_next_addr >>
     simp[Abbr`bs1`] >>
     qexists_tac`bc0++l1` >>
     simp[Abbr`l2`] ) >>
   `bc_next^* bs1 (bs1 with <|pc:=next_addr bs.inst_length(bc0++l1++l2)
-                            ;output := STRCAT bs1.output (print_bv bs.cons_names (EL i bvs))++"\n"|>)` by (
+                            ;output := STRCAT bs1.output (print_bv bs.cons_names bv)++"\n"|>)` by (
     simp[RTC_eq_NRC] >>
     qexists_tac`SUC(SUC(SUC 0))` >>
     simp[NRC] >>
     qho_match_abbrev_tac`∃z. bc_next bs1 z ∧ P z` >>
     simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
     simp[Abbr`bs1`,bc_eval_stack_def,EL_APPEND1]>>
+    fs[compilerLibTheory.el_check_def] >>
     simp[Abbr`P`]>>
     qho_match_abbrev_tac`∃z. bc_next bs1 z ∧ P z` >>
     `bc_fetch bs1 = SOME Print` by (
@@ -1589,9 +1586,6 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
       simp[FILTER_APPEND,SUM_APPEND] ) >>
     simp[bc_eval1_thm,bc_eval1_def,bump_pc_def]>>
     simp[Abbr`bs1`]>>
-    conj_tac >- (
-      fs[EVERY_MEM] >> first_x_assum match_mp_tac >>
-      simp[MEM_EL] >> qexists_tac`i` >> simp[] ) >>
     simp[Abbr`P`] >>
     qmatch_abbrev_tac`bc_next bs1 bs2` >>
     `bc_fetch bs1 = SOME (PrintC(#"\n"))` by (
@@ -1606,7 +1600,7 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
   `bc_next^* bs bs2` by metis_tac[RTC_TRANSITIVE,transitive_def] >>
   pop_assum mp_tac >>
   rpt(qpat_assum`bc_next^* a Y`kall_tac) >>
-  first_x_assum(qspecl_then[`bs2`,`bc0++l1++l2`,`bvs`]mp_tac) >>
+  first_x_assum(qspecl_then[`bs2`,`bc0++l1++l2`,`ys`]mp_tac) >>
   simp[Abbr`bs2`,Abbr`bs1`,ADD1] >>
   strip_tac >>
   qmatch_assum_abbrev_tac`bc_next^* bs1 bs2` >>
@@ -1616,22 +1610,6 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
     simp[Abbr`bs2`,Abbr`bs2'`,bc_state_component_equality,Abbr`l1`] >>
     conj_tac >- (
       simp[SUM_APPEND,FILTER_APPEND] ) >>
-    REWRITE_TAC[Once ADD_SYM] >>
-    simp[TAKE_SUM] >>
-    simp[DROP_DROP] >>
-    `TAKE 1 (DROP i bvs) = [EL i bvs]` by (
-      qpat_assum`X ≤ LENGTH bvs`mp_tac >>
-      rpt (pop_assum kall_tac) >>
-      qid_spec_tac`vs` >>
-      qid_spec_tac`i` >>
-      Induct_on`bvs`>>simp[] >>
-      rw[] >>
-      simp[EL_CONS,PRE_SUB1] >>
-      first_x_assum match_mp_tac >>
-      pop_assum mp_tac >>
-      simp[ADD1] >> strip_tac >>
-      qexists_tac`vs` >>
-      simp[] ) >>
     simp[print_bv_str_def]) >>
   metis_tac[RTC_TRANSITIVE,transitive_def] )
 
@@ -1693,17 +1671,17 @@ val compile_print_ctors_thm = store_thm("compile_print_ctors_thm",
   metis_tac[RTC_TRANSITIVE,transitive_def])
 
 val compile_print_dec_thm = store_thm("compile_print_dec_thm",
-  ``∀d types cs. let cs' = compile_print_dec types d cs in
+  ``∀types map d cs. let cs' = compile_print_dec types map d cs in
       ∃code. cs'.out = REVERSE code ++ cs.out
         ∧ EVERY ($~ o is_Label) code
         ∧ cs'.next_label = cs.next_label
         ∧ code_labels_ok code ∧
-      ∀bs bc0 bvs st0.
+      ∀bs bc0 bvs.
       bs.code = bc0 ++ code
       ∧ bs.pc = next_addr bs.inst_length bc0
-      ∧ bs.stack = bvs ++ st0
-      ∧ can_Print_list bvs
-      ∧ LENGTH bvs = LENGTH (new_dec_vs d)
+      ∧ LIST_REL
+        (λv bv. ∃n. FLOOKUP map v = SOME n ∧ el_check n bs.globals = SOME (SOME bv) ∧ can_Print bv)
+        (new_dec_vs d) bvs
       ⇒
       let str =
         case d of
@@ -1714,18 +1692,16 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
         <|pc := next_addr bs.inst_length (bc0++code)
          ;output := bs.output ++ str|> in
       bc_next^* bs bs'``,
-  Cases >- (
+  Cases_on`d` >- (
     simp[compile_print_dec_def] >>
     rw[] >>
-    qspecl_then[`pat_bindings p []`,`types`, `0`,`cs`]mp_tac compile_print_vals_thm >>
-    simp[] >> rw[] >> simp[] >> rpt gen_tac >> strip_tac >>
-    first_x_assum(qspecl_then[`bs`,`bc0`,`bvs`]mp_tac) >>
-    simp[TAKE_LENGTH_ID_rwt] )
+    qspecl_then[`pat_bindings p []`,`types`, `map`,`cs`]mp_tac compile_print_vals_thm >>
+    simp[] >> rw[] >> simp[])
   >- (
     simp[compile_print_dec_def] >>
     rw[] >>
     Q.PAT_ABBREV_TAC`vs:string list = MAP X l` >>
-    qspecl_then[`vs`,`types`,`0`,`cs`]mp_tac compile_print_vals_thm >>
+    qspecl_then[`vs`,`types`,`map`,`cs`]mp_tac compile_print_vals_thm >>
     simp[] >> rw[] >> simp[] >> rpt gen_tac >> strip_tac >>
     first_x_assum(qspecl_then[`bs`,`bc0`,`bvs`]mp_tac) >>
     `vs = MAP FST l` by (
