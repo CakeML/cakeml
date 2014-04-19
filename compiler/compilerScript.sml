@@ -58,17 +58,16 @@ val _ = Define `
   )))`;
 
 
- val compile_print_vals_defn = Hol_defn "compile_print_vals" `
+ val _ = Define `
 
 (compile_print_vals _ _ [] s = s)
 /\
-(compile_print_vals types n (v::vs) s =  
+(compile_print_vals types map (v::vs) s =  
 (let s = (emit s (MAP PrintC (EXPLODE (CONCAT ["val ";v;":"; tystr types v;" = "])))) in
-  let s = (emit s [Stack(Load n); Print]) in
+  let s = (emit s [Gread (fapply( 0) v map); Print]) in
   let s = (emit s (MAP PrintC (EXPLODE "\n"))) in
-    compile_print_vals types (n+ 1) vs s))`;
+    compile_print_vals types map vs s))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_print_vals_defn;
 
  val _ = Define `
 
@@ -89,28 +88,38 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
  val _ = Define `
 
-(compile_print_dec _ (Dtype ts) s = (compile_print_types ts s))
+(compile_print_dec _ _ (Dtype ts) s = (compile_print_types ts s))
 /\
-(compile_print_dec _ (Dexn c xs) s = (compile_print_types [(([]: tvarN list),"exn",[(c,xs)])] s))
+(compile_print_dec _ _ (Dexn c xs) s = (compile_print_types [(([]: tvarN list),"exn",[(c,xs)])] s))
 /\
-(compile_print_dec types (Dlet p _) s =  
-(compile_print_vals types( 0) (pat_bindings p []) s))
+(compile_print_dec types map (Dlet p _) s =  
+(compile_print_vals types map (pat_bindings p []) s))
 /\
-(compile_print_dec types (Dletrec defs) s =  
-(compile_print_vals types( 0) (MAP (\p .  
+(compile_print_dec types map (Dletrec defs) s =  
+(compile_print_vals types map (MAP (\p .  
   (case (p ) of ( (n,_,_) ) => n )) defs) s))`;
 
 
- val _ = Define `
-
-(compile_print_top NONE _ cs = cs)
-/\
-(compile_print_top _ (Tmod mn _ _) cs =  
-(let str = (CONCAT["structure ";mn;" = <structure>\n"]) in
-  emit cs (MAP PrintC (EXPLODE str))))
-/\
-(compile_print_top (SOME types) (Tdec dec) cs =  
-(compile_print_dec types dec cs))`;
+val _ = Define `
+ (compile_print_top types map top cs =  
+(let (cs,n1) = (get_label cs) in
+  let (cs,n2) = (get_label cs) in
+  let cs = (emit cs [Stack (Load( 0));
+                    Stack (TagEq (block_tag+none_tag));
+                    JumpIf (Lab n1);
+                    Stack (El( 0)) ]) in
+  let cs = (emit cs (MAP PrintC (EXPLODE "raise "))) in
+  let cs = (emit cs [Print]) in
+  let cs = (emit cs (MAP PrintC (EXPLODE "\n"))) in
+  let cs = (emit cs [Jump (Lab n2); Label n1]) in
+  let cs = ((case types of   NONE => cs | SOME types =>
+    (case top of
+      (Tmod mn _ _) =>
+        let str = (CONCAT["structure ";mn;" = <structure>\n"]) in
+        emit cs (MAP PrintC (EXPLODE str))
+    | (Tdec dec) => compile_print_dec types map dec cs
+    )    )) in
+  emit cs [Label n2; Stop]))`;
 
 
 val _ = Define `
@@ -128,7 +137,7 @@ val _ = Define `
   let e = (exp_to_Cexp e) in
   let r = (compile_Cexp [] ( 0) <| out := []; next_label := cs.rnext_label |>
              e) in
-  let r = (compile_print_top types top r) in
+  let r = (compile_print_top types m2 top r) in
   let cs = (<| next_global := n ; globals_env := (m1,m2) ; contags_env := c
             ; exh := exh ; rnext_label := r.next_label |>) in (cs, r.out)
   )))`;

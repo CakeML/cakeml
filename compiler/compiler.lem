@@ -43,11 +43,12 @@ let tystr types v =
 let rec
 compile_print_vals _ _ [] s = s
 and
-compile_print_vals types n (v::vs) s =
+compile_print_vals types map (v::vs) s =
   let s = emit s (List.map PrintC (toCharList (String_extra.stringConcat ["val ";v;":"; tystr types v;" = "]))) in
-  let s = emit s [Stack(Load n); Print] in
+  let s = emit s [Gread (fapply 0 v map); Print] in
   let s = emit s (List.map PrintC (toCharList "\n")) in
-    compile_print_vals types (n+1) vs s
+    compile_print_vals types map vs s
+declare termination_argument compile_print_vals = automatic
 
 let rec
 compile_print_ctors [] s = s
@@ -65,25 +66,35 @@ compile_print_types ((_,_,cs)::ts) s =
 declare termination_argument compile_print_types = automatic
 
 let rec
-compile_print_dec _ (Dtype ts) s = compile_print_types ts s
+compile_print_dec _ _ (Dtype ts) s = compile_print_types ts s
 and
-compile_print_dec _ (Dexn c xs) s = compile_print_types [(([]:list tvarN),"exn",[(c,xs)])] s
+compile_print_dec _ _ (Dexn c xs) s = compile_print_types [(([]:list tvarN),"exn",[(c,xs)])] s
 and
-compile_print_dec types (Dlet p _) s =
-  compile_print_vals types 0 (pat_bindings p []) s
+compile_print_dec types map (Dlet p _) s =
+  compile_print_vals types map (pat_bindings p []) s
 and
-compile_print_dec types (Dletrec defs) s =
-  compile_print_vals types 0 (List.map (fun (n,_,_) -> n) defs) s
+compile_print_dec types map (Dletrec defs) s =
+  compile_print_vals types map (List.map (fun (n,_,_) -> n) defs) s
 
-let rec
-compile_print_top Nothing _ cs = cs
-and
-compile_print_top _ (Tmod mn _ _) cs =
-  let str = String_extra.stringConcat["structure ";mn;" = <structure>\n"] in
-  emit cs (List.map PrintC (toCharList str))
-and
-compile_print_top (Just types) (Tdec dec) cs =
-  compile_print_dec types dec cs
+let compile_print_top types map top cs =
+  let (cs,n1) = get_label cs in
+  let (cs,n2) = get_label cs in
+  let cs = emit cs [Stack (Load 0);
+                    Stack (TagEq (block_tag+none_tag));
+                    JumpIf (Lab n1);
+                    Stack (El 0) ] in
+  let cs = emit cs (List.map PrintC (toCharList "raise ")) in
+  let cs = emit cs [Print] in
+  let cs = emit cs (List.map PrintC (toCharList "\n")) in
+  let cs = emit cs [Jump (Lab n2); Label n1] in
+  let cs = match types with | Nothing -> cs | Just types ->
+    match top with
+    | (Tmod mn _ _) ->
+        let str = String_extra.stringConcat["structure ";mn;" = <structure>\n"] in
+        emit cs (List.map PrintC (toCharList str))
+    | (Tdec dec) -> compile_print_dec types map dec cs
+    end    end in
+  emit cs [Label n2; Stop]
 
 let compile_top types cs top =
   let n = cs.next_global in
@@ -96,7 +107,7 @@ let compile_top types cs top =
   let e = exp_to_pat [] e in
   let e = exp_to_Cexp e in
   let r = compile_Cexp [] 0 <| out = []; next_label = cs.rnext_label |> e in
-  let r = compile_print_top types top r in
+  let r = compile_print_top types m2 top r in
   let cs = <| next_global = n
             ; globals_env = (m1,m2)
             ; contags_env = c
