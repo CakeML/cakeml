@@ -1788,12 +1788,6 @@ val good_labels_def = Define`
     ALL_DISTINCT (FILTER is_Label code) ∧
     EVERY (combin$C $< nl o dest_Label) (FILTER is_Label code)`
 
-val labels_tac =
-  fsrw_tac[DNF_ss][FILTER_APPEND,ALL_DISTINCT_APPEND,ALL_DISTINCT_REVERSE,FILTER_REVERSE
-                  ,good_labels_def,between_labels_def,MEM_FILTER,EVERY_MEM,between_def
-                  ,MEM_MAP,is_Label_rwt] >>
-  rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC
-
 val FILTER_F = store_thm("FILTER_F",
   ``∀ls. FILTER (λx. F) ls = []``,
   Induct >> simp[])
@@ -2534,32 +2528,25 @@ val compile_top_labels = store_thm("compile_top_labels",
      strip_tac >> rfs[] ) >>
    Q.PAT_ABBREV_TAC`Cexp = exp_to_Cexp Z` >>
    simp[] >> strip_tac >>
-   Cases_on`types`>>simp[compile_print_top_def] >- (
-     simp[GSYM REVERSE_APPEND] >>
-     fs[between_labels_def,FILTER_REVERSE,ALL_DISTINCT_REVERSE,MAP_REVERSE,EVERY_REVERSE,EVERY_MAP,EVERY_FILTER] >>
-     fs[FILTER_APPEND,ALL_DISTINCT_APPEND] >> metis_tac[] ) >>
-   Cases_on`top`>>simp[compile_print_top_def,FOLDL_emit_thm] >- (
-     reverse conj_tac >- (
-       REWRITE_TAC[GSYM APPEND_ASSOC] >>
-       match_mp_tac code_labels_ok_append >>
-       simp[code_labels_ok_REVERSE] >>
-       rpt(match_mp_tac code_labels_ok_cons >> simp[]) >>
-       REWRITE_TAC[GSYM REVERSE_APPEND] >>
-       simp[code_labels_ok_REVERSE] ) >>
-     fs[between_labels_def,FILTER_APPEND,FILTER_REVERSE,ALL_DISTINCT_REVERSE,MAP_REVERSE,EVERY_REVERSE,EVERY_MAP,ALL_DISTINCT_APPEND,
-        MEM_FILTER,is_Label_rwt,PULL_EXISTS,MEM_MAP,EVERY_FILTER] >>
-     rw[] >> simp[FILTER_MAP,combinTheory.o_DEF] ) >>
-   specl_args_of_then``compile_print_dec``(CONV_RULE SWAP_FORALL_CONV compile_print_dec_thm) mp_tac >>
+   specl_args_of_then``compile_print_top``compile_print_top_thm mp_tac >>
    simp[] >> strip_tac >>
    simp[] >>
-   reverse conj_tac >- (
-     REWRITE_TAC[GSYM APPEND_ASSOC] >>
-     match_mp_tac code_labels_ok_append >>
-     simp[code_labels_ok_REVERSE] >>
-     REWRITE_TAC[GSYM REVERSE_APPEND] >>
-     simp[code_labels_ok_REVERSE] ) >>
-   fs[between_labels_def,FILTER_APPEND,FILTER_REVERSE,ALL_DISTINCT_APPEND,ALL_DISTINCT_REVERSE,MAP_REVERSE,EVERY_REVERSE] >>
-   fs[GSYM FILTER_EQ_NIL,combinTheory.o_DEF])
+   pop_assum kall_tac >>
+   conj_tac >- (
+     rpt(rator_x_assum`between_labels`mp_tac) >>
+     rpt(rator_x_assum`code_labels_ok`mp_tac) >>
+     rpt (pop_assum kall_tac) >>
+     simp[between_labels_def,FILTER_APPEND,FILTER_REVERSE,ALL_DISTINCT_APPEND,ALL_DISTINCT_REVERSE,MAP_REVERSE,EVERY_REVERSE] >>
+     simp[EVERY_MAP,EVERY_FILTER,is_Label_rwt,PULL_EXISTS] >>
+     simp[EVERY_MEM,MEM_FILTER,is_Label_rwt,PULL_EXISTS] >>
+     rw[] >> res_tac >> fsrw_tac[ARITH_ss][between_def] >>
+     spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
+   match_mp_tac code_labels_ok_cons >> simp[] >>
+   REWRITE_TAC[GSYM APPEND_ASSOC] >>
+   match_mp_tac code_labels_ok_append >>
+   simp[code_labels_ok_REVERSE] >>
+   REWRITE_TAC[GSYM REVERSE_APPEND] >>
+   simp[code_labels_ok_REVERSE] )
 
 (* TODO: move *)
 val genv_to_i2_LENGTH_EQ = store_thm("genv_to_i2_LENGTH_EQ",
