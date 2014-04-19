@@ -119,7 +119,7 @@ val _ = Define `
         emit cs (MAP PrintC (EXPLODE str))
     | (Tdec dec) => compile_print_dec types map dec cs
     )    )) in
-  emit cs [Label n2; Stop]))`;
+  emit cs [Stack Pop; Label n2; Stop]))`;
 
 
 val _ = Define `

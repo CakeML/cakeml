@@ -94,7 +94,7 @@ let compile_print_top types map top cs =
         emit cs (List.map PrintC (toCharList str))
     | (Tdec dec) -> compile_print_dec types map dec cs
     end    end in
-  emit cs [Label n2; Stop]
+  emit cs [Stack Pop; Label n2; Stop]
 
 let compile_top types cs top =
   let n = cs.next_global in
