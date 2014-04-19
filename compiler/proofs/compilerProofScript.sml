@@ -2631,6 +2631,49 @@ val closed_top_def = Define`
   closed_top (envM,envC,envE) top ⇔
     FV_top top ⊆ IMAGE Short (set (MAP FST envE)) ∪ { Long m x | ∃e. lookup m envM = SOME e ∧ MEM x (MAP FST e) }`
 
+val compile_print_top_thm = store_thm("compile_print_top_thm",
+  ``∀types t cs.
+    let cs' = compile_print_top types t cs in
+    ∃code.
+      cs'.out = REVERSE code ++ cs.out ∧
+      EVERY ($~ o is_Label) code ∧ cs'.next_label = cs.next_label ∧
+      code_labels_ok code ∧
+      ∀bs bc0 bvs st0.
+        bs.code = bc0 ++ code ∧
+        bs.pc = next_addr bs.inst_length bc0 ∧
+        bs.stack = bvs ++ st0 ∧ can_Print_list bvs ∧
+        LENGTH bvs = LENGTH (if IS_SOME types then (new_top_vs t) else [])
+        ⇒
+        (let str = (case types of NONE => ""
+          | SOME types => (case t of
+            | Tmod mn _ _ => "structure "++mn++" = <structure>\n"
+            | Tdec d => (case d of
+              | Dtype ts => print_envC ([],REVERSE(build_tdefs NONE ts))
+              | Dexn cn ts => print_envC ([],[(cn, (LENGTH ts, TypeExn))])
+              | d => print_bv_list bs.cons_names types (new_dec_vs d) bvs))) in
+         let bs' = bs with <| pc := next_addr bs.inst_length (bc0 ++ code)
+                            ; output := bs.output ++ str |> in
+          bc_next^* bs bs')``,
+  Cases >> Cases >>
+  simp[compile_print_top_def,Once SWAP_REVERSE,new_top_vs_def,LENGTH_NIL] >>
+  TRY (
+    rw[] >>
+    rw[Once RTC_CASES1] >>
+    rw[bc_state_component_equality] >>
+    NO_TAC) >>
+  TRY (
+    rw[FOLDL_emit_thm,Once SWAP_REVERSE,EVERY_MAP] >>
+    rpt(match_mp_tac code_labels_ok_cons >> simp[]) >>
+    match_mp_tac MAP_PrintC_thm >>
+    CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`bc0` >>
+    qexists_tac`"structure "++s++" = <structure>\n"` >>
+    simp[IMPLODE_EXPLODE_I,bc_state_component_equality] >>
+    NO_TAC) >>
+  gen_tac >>
+  specl_args_of_then``compile_print_dec``
+    (CONV_RULE SWAP_FORALL_CONV compile_print_dec_thm) mp_tac >>
+  simp[])
+
 val compile_top_thm = store_thm("compile_top_thm",
   ``∀ck env stm top res. evaluate_top ck env stm top res ⇒
      ∀rs types grd rs' bc bs bc0.
@@ -2767,9 +2810,7 @@ val compile_top_thm = store_thm("compile_top_thm",
     first_assum(mp_tac o MATCH_MP (CONJUNCT1 Cevaluate_syneq)) >>
     simp[] >>
     Q.PAT_ABBREV_TAC`Cexp = exp_to_Cexp Z` >>
-    (*
-    Q.PAT_ABBREV_TAC`Csg = map_count_store_genv v_to_Cv X` >>
-    *)
+    (* Q.PAT_ABBREV_TAC`Csg = map_count_store_genv v_to_Cv X` >> *)
     qmatch_assum_abbrev_tac`closed_vlabs [] Csg bc0` >>
     disch_then(qspecl_then[`$=`,`Csg`,`[]`,`Cexp`]mp_tac) >>
     discharge_hyps >- (
@@ -2815,19 +2856,42 @@ val compile_top_thm = store_thm("compile_top_thm",
       metis_tac[syneq_trans] ) >>
     strip_tac >>
     first_x_assum(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
+    specl_args_of_then``compile_print_top``compile_print_top_thm mp_tac >>
+    simp[] >>
+    disch_then(qx_choose_then`bcp`strip_assume_tac) >>
+    disch_then(qspecl_then[`grd3`,`bs with code := bc0 ++ c0 ++ code`,`bc0`,`bc0`]mp_tac) >>
+    discharge_hyps >- (
+      simp[Abbr`Csg`] >>
+      fs[Cenv_bs_def,s_refs_def,IS_SOME_EXISTS] ) >>
+    strip_tac >>
+    rator_x_assum`code_for_push`mp_tac >>
+    simp[code_for_push_def,PULL_EXISTS] >>
+    rpt gen_tac >> rpt strip_tac >>
+    qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
+    `bc_next^* bs (bs1 with code := bs.code)` by (
+      match_mp_tac RTC_bc_next_append_code >>
+      map_every qexists_tac[`bs0`,`bs1`] >>
+      simp[Abbr`bs0`,Abbr`bs1`,bc_state_component_equality] >>
+      rw[] ) >>
+    first_x_assum(qspec_then`bs1 with code := bs.code`mp_tac) >>
+    simp[] >> BasicProvers.VAR_EQ_TAC >> simp[] >>
+    disch_then(qspec_then`[]`mp_tac o CONV_RULE SWAP_FORALL_CONV) >>
+    simp[Abbr`bs1`] >>
+
+    (*
     ONCE_REWRITE_TAC[CONJ_COMM] >>
     ONCE_REWRITE_TAC[GSYM CONJ_ASSOC] >>
     ONCE_REWRITE_TAC[GSYM AND_IMP_INTRO] >>
-    (*
-    first_assum(mp_tac o (MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]Cenv_bs_change_store))) >>
-    disch_then(qspecl_then[`grd3`,`Csg`](mp_tac o SIMP_RULE(srw_ss())[])) >>
-    disch_then(qspecl_then[`bs.refs`,`bs.clock`,`bs.globals`](mp_tac o SIMP_RULE(srw_ss())[])) >>
-    discharge_hyps >- (
-      fs[Cenv_bs_def,s_refs_def,Abbr`Csg`,map_count_store_genv_def,store_to_exh_def,good_rd_def]
-    *)
+    (* first_assum(mp_tac o (MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]Cenv_bs_change_store))) >>
+       disch_then(qspecl_then[`grd3`,`Csg`](mp_tac o SIMP_RULE(srw_ss())[])) >>
+       disch_then(qspecl_then[`bs.refs`,`bs.clock`,`bs.globals`](mp_tac o SIMP_RULE(srw_ss())[])) >>
+       discharge_hyps >- (
+         fs[Cenv_bs_def,s_refs_def,Abbr`Csg`,map_count_store_genv_def,store_to_exh_def,good_rd_def] *)
     disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
     match_mp_tac SWAP_IMP >> strip_tac >>
     simp[] >>
+    *)
+
     cheat) >> cheat)
 
 (*
