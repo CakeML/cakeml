@@ -1,6 +1,6 @@
 open HolKernel bossLib boolLib boolSimps lcsymtacs listTheory pairTheory pred_setTheory arithmeticTheory
 open miscLib miscTheory patLangTheory intLangTheory toIntLangTheory compilerTerminationTheory intLangExtraTheory
-open free_varsTheory
+open patLangProofTheory free_varsTheory
 val _ = new_theory "intLangProof"
 
 val vs_to_Cvs_MAP = store_thm("vs_to_Cvs_MAP",
