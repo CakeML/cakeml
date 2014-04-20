@@ -628,14 +628,16 @@ val DeclAssumExists_SNOC_Dlet_Ref = prove(
        combine_dec_result_def,merge_envC_def,emp_def]
   \\ FULL_SIMP_TAC std_ss [Decls_def,Eval_def,evaluate_empty_store_EQ]
   \\ FULL_SIMP_TAC std_ss [PULL_EXISTS] \\ RES_TAC
-  \\ Q.LIST_EXISTS_TAC [`tys`,`new_tds`,`res_env`,`res`,`(0,[])`]
+  \\ Q.EXISTS_TAC `tys`
+  \\ HO_MATCH_MP_TAC SWAP_EXISTS \\ Q.EXISTS_TAC `new_tds`
+  \\ HO_MATCH_MP_TAC SWAP_EXISTS \\ Q.EXISTS_TAC `res_env`
+  \\ HO_MATCH_MP_TAC SWAP_EXISTS \\ Q.EXISTS_TAC `Loc (LENGTH s)`
+  \\ HO_MATCH_MP_TAC SWAP_EXISTS \\ Q.EXISTS_TAC `(0,s)`
   \\ FULL_SIMP_TAC std_ss [merge_def]
-  \\ HO_MATCH_MP_TAC SWAP_EXISTS \\ Q.EXISTS_TAC `cenv2`
-  \\ HO_MATCH_MP_TAC SWAP_EXISTS \\ Q.EXISTS_TAC `s2`
-  \\ HO_MATCH_MP_TAC SWAP_EXISTS \\ Q.EXISTS_TAC `env`
-  \\ FULL_SIMP_TAC std_ss []
   \\ SIMP_TAC (srw_ss()) [Once evaluate_cases,do_uapp_def,LET_DEF,store_alloc_def]
-  \\ METIS_TAC []);
+  \\ HO_MATCH_MP_TAC SWAP_EXISTS \\ Q.EXISTS_TAC `s`
+  \\ FULL_SIMP_TAC std_ss []
+  \\ Q.EXISTS_TAC `res'` \\ FULL_SIMP_TAC std_ss [emp_def]);
 
 
 (* ref 1 *)
