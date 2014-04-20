@@ -23,6 +23,11 @@ val env_to_exh_MAP = store_thm("env_to_exh_MAP",
   ``∀exh env. env_to_exh exh env = MAP (λ(x,e). (x, v_to_exh exh e)) env``,
   Induct_on`env`>>simp[v_to_exh_def] >> Cases >> simp[v_to_exh_def])
 
+val free_vars_defs_exh_MAP = store_thm("free_vars_defs_exh_MAP",
+  ``∀ds. free_vars_defs_exh ds = BIGUNION (set (MAP (λ(f,x,e). free_vars_exh e DIFF {x}) ds))``,
+  Induct_on`ds`>>simp[] >> fs[EXTENSION] >>
+  qx_gen_tac`p`>>PairCases_on`p`>>simp[])
+
 val alloc_defs_GENLIST = store_thm("alloc_defs_GENLIST",
   ``∀n ls. alloc_defs n ls = ZIP(ls,GENLIST(λx. x + n)(LENGTH ls))``,
   Induct_on`ls`>>simp[alloc_defs_def,GENLIST_CONS] >>
@@ -147,8 +152,10 @@ val free_vars_pat_exp_to_pat = store_thm("free_vars_pat_exp_to_pat",
     (∀ls pes.
       IMAGE SOME (free_vars_pes_exh pes) ⊆ set ls ∧ ls ≠ [] ∧ (HD ls = NONE) ⇒
       set (free_vars_pat (pes_to_pat ls pes)) ⊆ IMAGE (λx. THE (find_index (SOME x) ls 0)) (free_vars_pes_exh pes))``,
-  ho_match_mp_tac exp_to_pat_ind >> simp[SUBSET_DEF,PULL_EXISTS] >>
+  ho_match_mp_tac exp_to_pat_ind >>
+  conj_tac >- simp[SUBSET_DEF,PULL_EXISTS] >>
   strip_tac >- (
+    simp[SUBSET_DEF,PULL_EXISTS] >>
     rpt gen_tac >> strip_tac >> strip_tac >> fs[find_index_def] >>
     fs[Q.SPEC`1`(CONV_RULE(RESORT_FORALL_CONV List.rev)find_index_shift_0)] >>
     gen_tac >> strip_tac >- metis_tac[] >>
@@ -157,11 +164,16 @@ val free_vars_pat_exp_to_pat = store_thm("free_vars_pat_exp_to_pat",
     discharge_hyps >- metis_tac[] >>
     strip_tac >> fs[] >>
     metis_tac[optionTheory.THE_DEF] ) >>
+  conj_tac >- simp[SUBSET_DEF,PULL_EXISTS] >>
+  conj_tac >- simp[SUBSET_DEF,PULL_EXISTS] >>
   strip_tac >- (
+    simp[SUBSET_DEF,PULL_EXISTS] >>
     simp[optionTheory.option_case_compute] >>
     rw[] >>
     metis_tac[find_index_NOT_MEM,optionTheory.IS_SOME_DEF,optionTheory.option_CASES] ) >>
+  conj_tac >- simp[SUBSET_DEF,PULL_EXISTS] >>
   strip_tac >- (
+    simp[SUBSET_DEF,PULL_EXISTS] >>
     simp[find_index_def] >>
     rpt gen_tac >> strip_tac >> strip_tac >>
     fs[Q.SPEC`1`(CONV_RULE(RESORT_FORALL_CONV List.rev)find_index_shift_0)] >>
@@ -174,12 +186,17 @@ val free_vars_pat_exp_to_pat = store_thm("free_vars_pat_exp_to_pat",
     HINT_EXISTS_TAC >> simp[] >>
     specl_args_of_then``find_index`` (CONV_RULE SWAP_FORALL_CONV find_index_MEM) mp_tac >>
     discharge_hyps >- metis_tac[] >> strip_tac >> fs[] ) >>
-  strip_tac >- metis_tac[] >>
+  conj_tac >- simp[SUBSET_DEF,PULL_EXISTS] >>
+  conj_tac >- (
+    simp[SUBSET_DEF,PULL_EXISTS] >>
+    metis_tac[] ) >>
   strip_tac >- (
+    simp[SUBSET_DEF,PULL_EXISTS] >>
     rpt gen_tac >> rpt strip_tac >>
     imp_res_tac((SIMP_RULE(srw_ss())[SUBSET_DEF]free_vars_pat_sIf)) >>
     metis_tac[] ) >>
   strip_tac >- (
+    simp[SUBSET_DEF,PULL_EXISTS] >>
     simp[find_index_def] >>
     rpt gen_tac >> rpt strip_tac >>
     fs[Q.SPEC`1`(CONV_RULE(RESORT_FORALL_CONV List.rev)find_index_shift_0)] >>
@@ -190,6 +207,7 @@ val free_vars_pat_exp_to_pat = store_thm("free_vars_pat_exp_to_pat",
     strip_tac >> fs[] >>
     metis_tac[optionTheory.THE_DEF] ) >>
   strip_tac >- (
+    simp[SUBSET_DEF,PULL_EXISTS] >>
     simp[find_index_def] >>
     rpt gen_tac >> rpt strip_tac >>
     fs[Q.SPEC`1`(CONV_RULE(RESORT_FORALL_CONV List.rev)find_index_shift_0)] >>
@@ -201,12 +219,19 @@ val free_vars_pat_exp_to_pat = store_thm("free_vars_pat_exp_to_pat",
     specl_args_of_then``find_index`` (CONV_RULE SWAP_FORALL_CONV find_index_MEM) mp_tac >>
     discharge_hyps >- metis_tac[] >> strip_tac >> fs[] >>
     metis_tac[optionTheory.THE_DEF] ) >>
-  strip_tac >- metis_tac[] >>
+  conj_tac >- (
+    simp[SUBSET_DEF,PULL_EXISTS] >>
+    metis_tac[] ) >>
   strip_tac >- (
-    simp[pairTheory.pair_CASE_def,PULL_EXISTS] >>
+    REWRITE_TAC[SUBSET_DEF] >>
     rpt gen_tac >> rpt strip_tac >>
     cheat ) >>
-  strip_tac >- metis_tac[] >>
+  conj_tac >- simp[SUBSET_DEF,PULL_EXISTS] >>
+  conj_tac >- simp[SUBSET_DEF,PULL_EXISTS] >>
+  conj_tac >- (
+    simp[SUBSET_DEF,PULL_EXISTS] >>
+    metis_tac[] ) >>
+  conj_tac >- simp[SUBSET_DEF,PULL_EXISTS] >>
   strip_tac >- cheat >>
   strip_tac >- (
     rw[] >>
@@ -216,6 +241,7 @@ val free_vars_pat_exp_to_pat = store_thm("free_vars_pat_exp_to_pat",
     simp[Once find_index_shift_0] >>
     rw[] >> fs[] >>
     cheat ) >>
+  simp[SUBSET_DEF,PULL_EXISTS] >>
   rw[] >>
   Cases_on`ls`>>fs[] >> rw[] >>
   fs[find_index_def,PULL_EXISTS] >>
