@@ -1873,11 +1873,13 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
 
 (* env_rs *)
 
+(*
 val good_globals_def = Define`
   good_globals e (m:num) l g ⇔ l = m ∧ g = m ∧
   (∀n. n ∈ FRANGE (SND e) ∨
        n ∈ BIGUNION (IMAGE FRANGE (FRANGE (FST e))) ⇒
        n < m)`
+*)
 
 val closed_genv_def = Define`
   closed_genv genv (mods,tops) (envM,envE) ⇔
@@ -1891,7 +1893,7 @@ val env_rs_def = Define`
     (rs:compiler_state) (bs:bc_state)
   ⇔
     good_labels rs.rnext_label bs.code ∧
-    good_globals rs.globals_env rs.next_global (LENGTH bs.globals) (LENGTH genv) ∧
+    rs.next_global = LENGTH genv ∧
     closed_genv genv rs.globals_env (envM,envE) ∧
     bs.stack = [] ∧
     EVERY closed s ∧
@@ -2050,6 +2052,7 @@ val env_rs_append_code = store_thm("env_rs_append_code",
   match_mp_tac Cenv_bs_append_code >>
   metis_tac[])
 
+(*
 val env_rs_can_Print = store_thm("env_rs_can_Print",
   ``∀env cs grd rs bs n v.
     env_rs env cs grd rs bs ∧
@@ -2069,6 +2072,7 @@ val env_rs_can_Print = store_thm("env_rs_can_Print",
     fs[Abbr`ss`] >> res_tac >> fs[] >> metis_tac[] ) >>
   match_mp_tac (GEN_ALL Cv_bv_can_Print) >>
   metis_tac[optionTheory.NOT_SOME_NONE,optionTheory.SOME_11])
+*)
 
 (* compile_top *)
 
@@ -2135,6 +2139,24 @@ val closed_top_def = Define`
   closed_top (envM,envC,envE) top ⇔
     FV_top top ⊆ IMAGE Short (set (MAP FST envE)) ∪ { Long m x | ∃e. lookup m envM = SOME e ∧ MEM x (MAP FST e) }`
 
+val i2_Cv_syneq_trans = store_thm("i2_Cv_syneq_trans",
+  ``∀exh v Cv Cv2. i2_Cv exh v Cv ∧ syneq Cv Cv2 ⇒ i2_Cv exh v Cv2``,
+  rw[i2_Cv_def] >> qexists_tac`vp` >> rw[] >> res_tac >>
+  metis_tac[syneq_trans])
+
+val LIST_REL_i2_Cv_syneq_trans = store_thm("LIST_REL_i2_Cv_syneq_trans",
+  ``∀exh vs Cvs Cvs2. LIST_REL (i2_Cv exh) vs Cvs ∧ LIST_REL syneq Cvs Cvs2 ⇒
+    LIST_REL (i2_Cv exh) vs Cvs2``,
+  rw[EVERY2_EVERY,EVERY_MEM] >> rfs[MEM_ZIP,PULL_EXISTS] >>
+  metis_tac[i2_Cv_syneq_trans])
+
+val LIST_REL_OPTREL_i2_Cv_syneq_trans = store_thm("LIST_REL_OPTREL_i2_Cv_syneq_trans",
+  ``∀exh vs Cvs Cvs2. LIST_REL (OPTREL (i2_Cv exh)) vs Cvs ∧ LIST_REL (OPTREL syneq) Cvs Cvs2 ⇒
+    LIST_REL (OPTREL (i2_Cv exh)) vs Cvs2``,
+  rw[EVERY2_EVERY,EVERY_MEM] >> rfs[MEM_ZIP,PULL_EXISTS] >>
+  fs[optionTheory.OPTREL_def] >>
+  metis_tac[i2_Cv_syneq_trans,optionTheory.SOME_11,optionTheory.NOT_SOME_NONE])
+
 val compile_top_thm = store_thm("compile_top_thm",
   ``∀ck env stm top res. evaluate_top ck env stm top res ⇒
      ∀rs types grd rs' bc bs bc0.
@@ -2178,10 +2200,9 @@ val compile_top_thm = store_thm("compile_top_thm",
     REWRITE_TAC[Once (GSYM AND_IMP_INTRO)] >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
     `∃v m1 m2 p1. top_to_i1 rs.next_global m10 m20 (Tdec d) = (v,m1,m2,p1)` by simp[GSYM EXISTS_PROD] >> fs[] >>
-    `rs.next_global = LENGTH grd0` by ( fs[good_globals_def] ) >> fs[] >>
     simp[Once evaluate_top_cases] >>
     simp_tac(srw_ss()++DNF_ss)[] >>
-    disch_then(mp_tac o CONJUNCT1) >>
+    disch_then(mp_tac o CONJUNCT1) >> rfs[] >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
     disch_then(qx_choosel_then[`s2_i1`,`new_genv`]strip_assume_tac) >>
     `∃c exh p. prompt_to_i2 rs.contags_env p1 = (c,exh,p)` by simp[GSYM EXISTS_PROD] >> fs[] >>
@@ -2548,7 +2569,106 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[build_rec_env_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX]) >>
     simp[EXISTS_PROD,libTheory.emp_def,merge_envC_def,libTheory.merge_def] >>
     PairCases_on`s2` >> simp[env_rs_def] >>
-    cheat) >> cheat)
+    simp[RIGHT_EXISTS_AND_THM] >>
+    conj_asm1_tac >- (
+      rpt (rator_x_assum`good_labels`mp_tac) >> simp[Abbr`bs2`] >>
+      rpt (rator_x_assum`between_labels`mp_tac) >>
+      rpt (BasicProvers.VAR_EQ_TAC) >>
+      rpt (pop_assum kall_tac) >>
+      simp[good_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER,is_Label_rwt,PULL_EXISTS
+          ,EVERY_FILTER,between_labels_def,EVERY_MAP,EVERY_MEM,between_def,PULL_FORALL] >>
+      rw[] >> spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
+    qexists_tac`grd0 ++ new_genv` >>
+    conj_tac >- (
+      rpt(BasicProvers.VAR_EQ_TAC) >> simp[] >>
+      rator_x_assum`to_i2_invariant`mp_tac >>
+      simp[to_i2_invariant_def] >> strip_tac >>
+      imp_res_tac genv_to_i2_LENGTH_EQ >> rfs[] ) >>
+    conj_tac >- (
+      rpt(BasicProvers.VAR_EQ_TAC) >> simp[] >>
+      rator_x_assum`closed_genv`mp_tac >>
+      cheat (* closed_genv_append, do we get this from the invariants? *)
+      ) >>
+    conj_tac >- simp[Abbr`bs2`] >>
+    ONCE_REWRITE_TAC[CONJ_ASSOC] >>
+    conj_tac >- (
+      cheat (* evaluate_dec_closed *) ) >>
+    rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
+    fs[libTheory.emp_def] >>
+    `FST s2_i1 = s20` by (
+      rator_x_assum`to_i1_invariant`mp_tac >>
+      simp[to_i1_invariant_def] >>
+      simp[Once s_to_i1_cases,PULL_EXISTS] ) >>
+    first_assum(split_pair_match o concl) >> fs[] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    fs[merge_envC_def,libTheory.merge_def] >>
+    `FST s2_i2 = s20` by (
+      rator_x_assum`to_i2_invariant`mp_tac >>
+      simp[to_i2_invariant_def] >>
+      simp[Once s_to_i2_cases,PULL_EXISTS] ) >>
+    PairCases_on`s2_i2`>>fs[] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    qexists_tac`rd'` >>
+    PairCases_on`s'` >>
+    `s'0 = s20` by (
+      fs[csg_rel_unpair,store_to_exh_def,map_count_store_genv_def] ) >>
+    qexists_tac`s'1` >>
+    conj_tac >- (
+      rpt(rator_x_assum`csg_rel`mp_tac) >>
+      simp[store_to_exh_def,map_count_store_genv_def,csg_rel_unpair] >>
+      rpt strip_tac >>
+      match_mp_tac LIST_REL_i2_Cv_syneq_trans >>
+      HINT_EXISTS_TAC >> simp[] >>
+      match_mp_tac LIST_REL_i2_Cv_syneq_trans >>
+      HINT_EXISTS_TAC >> simp[] >>
+      match_mp_tac LIST_REL_i2_Cv_syneq_trans >>
+      ONCE_REWRITE_TAC[CONJ_COMM] >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      fs[EVERY2_MAP] >>
+      match_mp_tac EVERY2_MEM_MONO >>
+      HINT_EXISTS_TAC >> simp[] >>
+      simp[i2_Cv_def,UNCURRY] >>
+      cheat (* looks like more exh problems *) ) >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    first_assum(mp_tac o MATCH_MP(ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]Cenv_bs_append_code)) >>
+    disch_then(qspec_then`code ++ bcp ++ [Stop]`mp_tac o CONV_RULE SWAP_FORALL_CONV) >> simp[] >>
+    disch_then(mp_tac o MATCH_MP(ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]Cenv_bs_with_irr)) >>
+    disch_then(qspec_then`bs1 with <| output := bs2.output; pc := bs2.pc|>`mp_tac) >> simp[] >>
+    disch_then(mp_tac o MATCH_MP
+      (REWRITE_RULE[Once(GSYM AND_IMP_INTRO),ADD]
+       (Q.SPEC`0`(CONV_RULE(RESORT_FORALL_CONV(sorter["rsz"]))Cenv_bs_imp_decsz)))) >>
+    disch_then(qspec_then`bs2`mp_tac) >>
+    simp[Abbr`bs1`,bc_state_component_equality,Abbr`bs2`] >>
+    strip_tac >>
+    ONCE_REWRITE_TAC[CONJ_ASSOC] >> ONCE_REWRITE_TAC[CONJ_COMM] >>
+    first_assum (match_exists_tac o concl) >> simp[] >>
+    conj_tac >- (
+      rpt(rator_x_assum`csg_rel`mp_tac) >>
+      simp[store_to_exh_def,map_count_store_genv_def,csg_rel_unpair] >>
+      rpt strip_tac >>
+      match_mp_tac LIST_REL_OPTREL_i2_Cv_syneq_trans >>
+      HINT_EXISTS_TAC >> simp[] >>
+      match_mp_tac LIST_REL_OPTREL_i2_Cv_syneq_trans >>
+      HINT_EXISTS_TAC >> simp[] >>
+      match_mp_tac LIST_REL_OPTREL_i2_Cv_syneq_trans >>
+      ONCE_REWRITE_TAC[CONJ_COMM] >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      fs[EVERY2_MAP] >>
+      full_simp_tac std_ss [GSYM MAP_APPEND,MAP_MAP_o,EVERY2_MAP] >>
+      match_mp_tac EVERY2_MEM_MONO >>
+      HINT_EXISTS_TAC >> simp[] >>
+      simp[i2_Cv_def,UNCURRY,optionTheory.OPTREL_def] >>
+      rw[] >> rw[] >>
+      cheat (* looks like more exh problems *) ) >>
+    rator_x_assum`closed_vlabs`mp_tac >>
+    simp[closed_vlabs_def] >> rw[] >>
+    res_tac >>
+    imp_res_tac code_env_cd_append >>
+    first_x_assum(qspec_then`code ++ bcp ++ [Stop]`mp_tac) >>
+    simp[] >> disch_then match_mp_tac >>
+    rator_x_assum`good_labels`mp_tac >> simp[] >>
+    simp[good_labels_def] ) >>
+  cheat)
 
 (*
 val compile_top_divergence = store_thm("compile_top_divergence",
