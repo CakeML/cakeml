@@ -2553,6 +2553,19 @@ val genv_to_i2_LENGTH_EQ = store_thm("genv_to_i2_LENGTH_EQ",
   ``∀x y z. genv_to_i2 x y z ⇒ LENGTH y = LENGTH z``,
   ho_match_mp_tac genv_to_i2_ind >> simp[])
 
+val genv_to_i2_LIST_REL = store_thm("genv_to_i2_LIST_REL",
+  ``∀x y z. genv_to_i2 x y z ⇒ LIST_REL (OPTREL (v_to_i2 x)) y z``,
+  ho_match_mp_tac genv_to_i2_ind >> simp[optionTheory.OPTREL_def])
+
+val build_rec_env_MAP = store_thm("build_rec_env_MAP",
+  ``build_rec_env funs cle env = MAP (λ(f,cdr). (f, (Recclosure cle funs f))) funs ++ env``,
+  rw[build_rec_env_def] >>
+  qho_match_abbrev_tac `FOLDR (f funs) env funs = MAP (g funs) funs ++ env` >>
+  qsuff_tac `∀funs env funs0. FOLDR (f funs0) env funs = MAP (g funs0) funs ++ env` >- rw[]  >>
+  unabbrev_all_tac >> simp[] >>
+  Induct >> rw[libTheory.bind_def] >>
+  PairCases_on`h` >> rw[])
+
 val pmatch_dom = store_thm("pmatch_dom",
   ``(∀cenv s p v env env'.
       (pmatch cenv s p v env = Match env') ⇒
@@ -2903,28 +2916,22 @@ val compile_top_thm = store_thm("compile_top_thm",
       closed_top env top ∧
       (bs.code = bc0 ++ REVERSE bc ++ [Stop]) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
-      ck ∧ IS_SOME bs.clock
+      ck ∧ IS_SOME bs.clock ∧
+      SND(SND res) ≠ Rerr Rtype_error
       ⇒
-      case res of
-      | ((s,tdecls,mdecls),envC,Rval(envM,envE)) =>
+      case res of ((s,tdecls,mdecls),envC,env_or_err) =>
         ∃bs' grd'.
         bc_next^* bs bs' ∧
         bs'.pc = next_addr bs'.inst_length (bc0 ++ bc) ∧
-        bs'.output = bs.output ++
-          (case types of NONE => "" | SOME types =>
-             (print_result types top envC (Rval(envM,envE)))) ∧
-        bs'.stack = (Block (block_tag+none_tag) [])::bs.stack ∧
-        env_rs (envM++FST env,merge_envC envC (FST(SND env)),envE ++ (SND(SND env)))
-          s grd' rs' (bs' with stack := bs.stack)
-      | ((s,tdecls,mdecls),envC,Rerr(Rraise err)) =>
-        ∃bv bs' grd'.
-        bc_next^*bs bs' ∧
-        bs'.stack = (Block (block_tag+some_tag) [bv])::bs.stack ∧
-        bs'.pc = 0 ∧
-        bs'.output = bs.output ∧
-        v_bv (FST grd', SND(FST(SND grd')), rs'.exh, mk_pp (SND(SND grd')) bs') err bv ∧
-        env_rs env s grd' rs' (bs' with stack := bs.stack)
-      | _ => T``,
+        let (new_env,str) =
+          case env_or_err of Rval(envM,envE) =>
+            ((envM++FST env,merge_envC envC (FST(SND env)),envE ++ (SND(SND env))),
+             (case types of NONE => "" | SOME types =>
+              print_result types top envC env_or_err))
+          | Rerr(Rraise _) =>
+            (env,print_result (THE types) top envC env_or_err) in
+        bs'.output = bs.output ++ str ∧
+        env_rs new_env s grd' rs' bs'``,
   ho_match_mp_tac evaluate_top_ind >>
   strip_tac >- (
     simp[] >>
@@ -3108,52 +3115,122 @@ val compile_top_thm = store_thm("compile_top_thm",
     simp[Abbr`bs1`] >>
     simp[Abbr`non`] >>
     disch_then(qspec_then`MAP (λv. THE (EL (m2 ' v) gv)) (new_dec_vs d)`mp_tac) >>
-
-    discharge_hyps >- (
+    discharge_hyps_keep >- (
       conj_tac >- (
         fs[good_labels_def,between_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND
           ,MEM_FILTER,is_Label_rwt,PULL_EXISTS,EVERY_FILTER,EVERY_MEM,PULL_FORALL
           ,MEM_MAP,between_def] >>
         rw[] >> res_tac >> fsrw_tac[ARITH_ss][] >>
         spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
-
       rw[IS_SOME_EXISTS] >>
       last_x_assum mp_tac >>
       Cases_on`d`>>fs[] >>
-      simp[Once evaluate_dec_cases,PULL_EXISTS] >- (
-
-        rpt gen_tac >> strip_tac >>
-        simp[EVERY2_EVERY,EVERY_MEM,MEM_ZIP,PULL_EXISTS,EL_MAP] >>
-        simp[FLOOKUP_DEF,compilerLibTheory.el_check_def] >>
-        gen_tac >> strip_tac >>
-        rator_x_assum`to_i1_invariant`mp_tac >>
-        simp[to_i1_invariant_def] >>
-        simp[Once v_to_i1_cases] >>
-        simp[Once v_to_i1_cases] >>
-        imp_res_tac (CONJUNCT1 pmatch_dom) >>
-        fs[libTheory.emp_def] >>
-        simp[libPropsTheory.lookup_append] >>
-        Q.PAT_ABBREV_TAC`pv:string = EL n X` >>
-        closed_genv_def
-        disch_then(qspec_then`pv`mp_tac o CONJUNCT1 o CONJUNCT1) >>
-        BasicProvers.CASE_TAC >- (
-          imp_res_tac libPropsTheory.lookup_notin >>
-          metis_tac[MEM_EL] ) >>
-        simp[FLOOKUP_DEF] >> strip_tac >> simp[] >>
-        Cases_on`m2 ' pv < LENGTH grd0` >- (
-          rator_x_assum`closed_genv`mp_tac >>
-          simp[closed_genv_def] >>
-          disch_then(qspec_then`m2 ' pv`mp_tac) >>
-          fs[EL_APPEND1] >>
-          fs[gvrel_def,good_globals_def] >>
-          first_x_assum(qspec_then`m2 ' pv`mp_tac) >>
-          simp[] >> strip_tac >>
-          cheat ) >>
-        fs[Cenv_bs_def,s_refs_def] >>
-        rfs[EVERY2_EVERY] >>
-        fs[EVERY_MEM,MEM_ZIP,PULL_EXISTS,optionTheory.OPTREL_def] >>
-        cheat ) >>
+      simp[Once evaluate_dec_cases,PULL_EXISTS] >>
+      simp[libTheory.emp_def,FST_triple] >>
+      simp[build_rec_env_MAP] >>
+      rpt gen_tac >> strip_tac >>
+      simp[EVERY2_EVERY,EVERY_MEM,MEM_ZIP,PULL_EXISTS,EL_MAP] >>
+      simp[FLOOKUP_DEF,compilerLibTheory.el_check_def] >>
+      gen_tac >> strip_tac >>
+      rator_x_assum`to_i1_invariant`mp_tac >>
+      simp[to_i1_invariant_def] >>
+      simp[Once v_to_i1_cases] >>
+      simp[Once v_to_i1_cases] >>
+      fs[libTheory.emp_def] >>
+      simp[libPropsTheory.lookup_append] >>
+      (Q.PAT_ABBREV_TAC`pv:string = EL n X` ORELSE
+       Q.PAT_ABBREV_TAC`pv:string = FST(EL n X)`) >>
+      disch_then(qspec_then`pv`mp_tac o CONJUNCT1 o CONJUNCT1) >>
+      (BasicProvers.CASE_TAC >- (
+         imp_res_tac libPropsTheory.lookup_notin >>
+         imp_res_tac pmatch_dom >>
+         fs[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX,MEM_MAP,PULL_EXISTS] >>
+         metis_tac[MEM_EL,EL_MAP,LENGTH_MAP] )) >>
+      simp[FLOOKUP_DEF] >> strip_tac >> simp[] >>
+      `LENGTH gv = LENGTH grd0 + LENGTH new_genv` by (
+        fs[gvrel_def,Cenv_bs_def,s_refs_def] >>
+        fs[csg_rel_unpair,map_count_store_genv_def] >>
+        imp_res_tac EVERY2_LENGTH >> fs[] >> rw[] >>
+        fs[Abbr`Csg`,store_to_exh_def] >>
+        rator_x_assum`to_i2_invariant`mp_tac >>
+        simp[to_i2_invariant_def] >> strip_tac >>
+        imp_res_tac genv_to_i2_LENGTH_EQ >> fs[] >>
+        metis_tac[] ) >>
+      simp[] >>
+      fs[gvrel_def,Cenv_bs_def,s_refs_def] >>
+      qpat_assum`LIST_REL R X gv`mp_tac >>
+      simp[EVERY2_EVERY,GSYM AND_IMP_INTRO,EVERY_MEM,MEM_ZIP,PULL_EXISTS] >>
+      simp[optionTheory.OPTREL_def] >> strip_tac >>
+      disch_then(qspec_then`m2 ' pv`mp_tac) >> simp[] >>
+      (reverse strip_tac >- ( simp[] >> metis_tac[Cv_bv_can_Print] )) >>
+      fs[csg_rel_unpair,map_count_store_genv_def] >>
+      pop_assum kall_tac >> pop_assum mp_tac >> simp[] >>
+      qmatch_abbrev_tac`EL nn l2 ≠ NONE` >>
+      imp_res_tac EVERY2_LENGTH >> fs[store_to_exh_def] >>
+      qpat_assum`LIST_REL R X l2`mp_tac >>
+      simp[EVERY2_EVERY,GSYM AND_IMP_INTRO,EVERY_MEM,MEM_ZIP,PULL_EXISTS] >>
+      simp[optionTheory.OPTREL_def] >>
+      disch_then(qspec_then`nn`mp_tac) >> simp[] >>
+      reverse strip_tac >> simp[] >>
+      pop_assum kall_tac >> pop_assum mp_tac >> simp[Abbr`l2`] >>
+      qmatch_abbrev_tac`EL nn l2 ≠ NONE` >>
+      qpat_assum`LIST_REL R X l2`mp_tac >>
+      simp[EVERY2_EVERY,GSYM AND_IMP_INTRO,EVERY_MEM,MEM_ZIP,PULL_EXISTS] >>
+      simp[optionTheory.OPTREL_def] >>
+      disch_then(qspec_then`nn`mp_tac) >> simp[] >>
+      reverse strip_tac >> simp[] >>
+      pop_assum kall_tac >> pop_assum mp_tac >> simp[Abbr`l2`] >>
+      qmatch_abbrev_tac`EL nn l2 ≠ NONE` >>
+      qpat_assum`LIST_REL R X l2`mp_tac >>
+      simp[EVERY2_EVERY,GSYM AND_IMP_INTRO,EVERY_MEM,MEM_ZIP,PULL_EXISTS] >>
+      simp[optionTheory.OPTREL_def] >>
+      disch_then(qspec_then`nn`mp_tac) >> simp[] >>
+      reverse strip_tac >> simp[] >>
+      pop_assum kall_tac >> pop_assum mp_tac >> simp[Abbr`l2`] >>
+      simp[EL_MAP] >>
+      qmatch_abbrev_tac`EL nn l2 ≠ NONE` >>
+      qpat_assum`LIST_REL R X l2`mp_tac >>
+      simp[EVERY2_EVERY,GSYM AND_IMP_INTRO,EVERY_MEM,MEM_ZIP,PULL_EXISTS] >>
+      simp[optionTheory.OPTREL_def] >>
+      disch_then(qspec_then`nn`mp_tac) >> simp[] >>
+      reverse strip_tac >> simp[] >>
+      pop_assum kall_tac >> pop_assum mp_tac >> simp[Abbr`l2`] >>
+      REWRITE_TAC[GSYM MAP_APPEND] >> simp[EL_MAP] >>
+      rator_x_assum`to_i2_invariant`mp_tac >>
+      simp[to_i2_invariant_def] >> strip_tac >>
+      imp_res_tac genv_to_i2_LIST_REL >>
+      pop_assum mp_tac >>
+      simp[EVERY2_EVERY,GSYM AND_IMP_INTRO,EVERY_MEM,MEM_ZIP,PULL_EXISTS] >>
+      simp[optionTheory.OPTREL_def] >>
+      disch_then(qspec_then`nn`mp_tac) >> simp[] >>
+      strip_tac >> simp[] ) >>
+    strip_tac >>
+    qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
+    qmatch_assum_abbrev_tac`bc_next^* bs1' bs2` >>
+    `bs1' = bs1` by (
+      simp[Abbr`bs1`,Abbr`bs1'`] >>
+      simp[REVERSE_APPEND] ) >>
+    qexists_tac`bs2` >>
+    simp[RIGHT_EXISTS_AND_THM] >>
+    conj_tac >- metis_tac[RTC_TRANSITIVE,transitive_def] >>
+    conj_tac >- (
+      simp[Abbr`bs2`,SUM_APPEND,FILTER_APPEND,SUM_REVERSE,FILTER_REVERSE,MAP_REVERSE] ) >>
+    conj_tac >- (
+      simp[Abbr`bs2`] >>
+      simp[optionTheory.option_case_compute] >>
+      simp[print_result_def] >>
+      Q.PAT_ABBREV_TAC`b = IS_SOME Z` >>
+      Cases_on`b = F` >> simp[] >>
+      qunabbrev_tac`b` >>
+      fs[GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS] >>
+      last_x_assum mp_tac >>
+      BasicProvers.CASE_TAC >>
+      simp[Once evaluate_dec_cases] >>
+      simp[libTheory.emp_def] >> strip_tac >>
+      simp[print_envC_def,Q.SPECL[`X`,`[]`]print_envE_def,libTheory.bind_def] >>
       cheat ) >>
+    simp[EXISTS_PROD,libTheory.emp_def,merge_envC_def,libTheory.merge_def] >>
+    PairCases_on`s2` >> simp[env_rs_def] >>
     cheat) >> cheat)
 
 (*
