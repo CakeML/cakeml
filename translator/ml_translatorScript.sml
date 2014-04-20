@@ -701,7 +701,7 @@ val Decls_def = Define `
 
 val DeclAssum_def = Define `
   DeclAssum ds env tys =
-    Decls NONE ([],init_envC,init_env) ((0,[]),{}) ds env ((0,[]),tys)`;
+    ?s. Decls NONE ([],init_envC,init_env) ((0,[]),{}) ds env ((0,s),tys)`;
 
 val write_tds_def = Define `
   write_tds mn tds ((menv1,cenv1,env1):all_env) =
@@ -1093,9 +1093,9 @@ val DeclAssum_Dlet_INTRO = store_thm("DeclAssum_Dlet_INTRO",
   \\ RES_TAC
   \\ FULL_SIMP_TAC std_ss [Eval_Var_SIMP]
   \\ FULL_SIMP_TAC std_ss [Eval_def]
+  \\ IMP_RES_TAC evaluate_empty_store_IMP
   \\ FULL_SIMP_TAC std_ss [empty_store_def]
-  \\ IMP_RES_TAC evaluate_11_Rval
-  \\ FULL_SIMP_TAC std_ss []);
+  \\ METIS_TAC [evaluate_11_Rval]);
 
 val DeclAssum_Dletrec_INTRO_ALT = store_thm("DeclAssum_Dletrec_INTRO_ALT",
   ``!funs.
@@ -1118,11 +1118,12 @@ val DeclAssum_Dletrec_INTRO_ALT = store_thm("DeclAssum_Dletrec_INTRO_ALT",
   \\ FULL_SIMP_TAC std_ss [PULL_FORALL,AND_IMP_INTRO,lookup_var_id_def]
   \\ FULL_SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
   \\ Q.PAT_ASSUM `!env1.bbb` (MP_TAC o
-       Q.GENL [`env1`,`env`,`e1`,`e2`,`e3`,`e4`] o
-       Q.SPECL [`env1`,`env`,`(e1,e2,e3,e4)`])
+       Q.GENL [`env1`,`env`,`s`,`e1`,`e2`,`e3`,`e4`] o
+       Q.SPECL [`env1`,`env`,`s`,`(e1,e2,e3,e4)`])
   \\ FULL_SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MATCH_MP_TAC
   \\ Q.EXISTS_TAC `e3,e4` \\ FULL_SIMP_TAC std_ss []
+  \\ Q.EXISTS_TAC `s` \\ FULL_SIMP_TAC std_ss []
   \\ Q.EXISTS_TAC `env2` \\ FULL_SIMP_TAC std_ss []
   \\ FULL_SIMP_TAC std_ss [FORALL_PROD]
   \\ NTAC 6 STRIP_TAC
@@ -1226,7 +1227,8 @@ val DeclAssumExists_SNOC_Dtype = store_thm("DeclAssumExists_SNOC_Dtype",
          DeclAssumExists (SNOC (Dtype tds) ds)``,
   SIMP_TAC std_ss [DeclAssumExists_def,PULL_EXISTS] \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [DeclAssum_def,Decls_APPEND,SNOC_APPEND,Decls_Dtype]
-  \\ RES_TAC \\ Q.LIST_EXISTS_TAC [`env`,`((0,[]),tys)`]
+  \\ FULL_SIMP_TAC std_ss [PULL_EXISTS]
+  \\ RES_TAC \\ Q.LIST_EXISTS_TAC [`s`,`env`,`((0,s),tys)`]
   \\ FULL_SIMP_TAC std_ss []);
 
 val DeclAssumExists_SNOC_Dlet_Fun = store_thm("DeclAssumExists_SNOC_Dlet_Fun",
@@ -1261,10 +1263,10 @@ val DeclAssumExists_SNOC_Dlet_ALT = store_thm("DeclAssumExists_SNOC_Dlet_ALT",
   \\ SIMP_TAC std_ss [merge_def,APPEND_NIL]
   \\ SIMP_TAC (srw_ss()) [pmatch_def,ALL_DISTINCT,pat_bindings_def,
        combine_dec_result_def]
-  \\ FULL_SIMP_TAC std_ss [Decls_def,Eval_def,PULL_EXISTS,merge_def]
-  \\ RES_TAC
-  \\ Q.LIST_EXISTS_TAC [`tys`,`new_tds`,`res_env`,`res'`,`(0,[])`]
-  \\ FULL_SIMP_TAC std_ss [empty_store_def]);
+  \\ FULL_SIMP_TAC std_ss [Decls_def,Eval_def,PULL_EXISTS,merge_def] \\ RES_TAC
+  \\ Q.LIST_EXISTS_TAC [`tys`,`s`,`new_tds`,`res_env`,`res'`,`(0,s)`]
+  \\ FULL_SIMP_TAC std_ss [GSYM empty_store_def]
+  \\ IMP_RES_TAC evaluate_empty_store_IMP \\ fs [empty_store_def]);
 
 val DeclAssumExists_SNOC_Dlet = store_thm("DeclAssumExists_SNOC_Dlet",
   ``!ds name n exp P.
@@ -1285,8 +1287,9 @@ val DeclAssumExists_SNOC_Dletrec = store_thm("DeclAssumExists_SNOC_Dletrec",
   SIMP_TAC std_ss [DeclAssumExists_def,PULL_EXISTS] \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [DeclAssum_def,Decls_APPEND,SNOC_APPEND]
   \\ HO_MATCH_MP_TAC SWAP_EXISTS \\ Q.EXISTS_TAC `tys`
+  \\ HO_MATCH_MP_TAC SWAP_EXISTS \\ Q.EXISTS_TAC `s`
   \\ HO_MATCH_MP_TAC SWAP_EXISTS \\ Q.EXISTS_TAC `env`
-  \\ HO_MATCH_MP_TAC SWAP_EXISTS \\ Q.EXISTS_TAC `((0,[]),tys)`
+  \\ HO_MATCH_MP_TAC SWAP_EXISTS \\ Q.EXISTS_TAC `((0,s),tys)`
   \\ FULL_SIMP_TAC std_ss [] \\ SIMP_TAC std_ss [merge_def,APPEND_NIL]
   \\ SIMP_TAC std_ss [Decls_def]
   \\ ONCE_REWRITE_TAC [evaluate_decs_cases]
@@ -1298,7 +1301,7 @@ val DeclAssumExists_SNOC_Dletrec = store_thm("DeclAssumExists_SNOC_Dletrec",
   \\ ONCE_REWRITE_TAC [evaluate_dec_cases]
   \\ SIMP_TAC (srw_ss()) [CONS_11,NOT_CONS_NIL,PULL_EXISTS]
   \\ PairCases_on `env` \\ FULL_SIMP_TAC std_ss []
-  \\ `ALL_DISTINCT (MAP (λ(x,y,z). x) funs)` by ALL_TAC THEN1
+  \\ `ALL_DISTINCT (MAP (\(x,y,z). x) funs)` by ALL_TAC THEN1
    (Induct_on `funs` THEN1 EVAL_TAC
     \\ Cases \\ ASM_SIMP_TAC (srw_ss()) [MEM_MAP,FORALL_PROD]
     \\ CONV_TAC (DEPTH_CONV (PairRules.PBETA_CONV))
