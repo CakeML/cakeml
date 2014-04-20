@@ -1685,7 +1685,7 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
       ⇒
       let str =
         case d of
-        | Dtype ts => print_envC ([],REVERSE(build_tdefs NONE ts))
+        | Dtype ts => print_envC ([],build_tdefs NONE ts)
         | Dexn cn ts => print_envC ([],[(cn, (LENGTH ts, TypeExn))])
         | d => print_bv_list bs.cons_names types (new_dec_vs d) bvs in
       let bs' = bs with
@@ -1710,18 +1710,23 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
   >- (
     simp[] >>
     simp[compile_print_dec_def] >>
-    Induct_on`l` >- (
+    Induct_on`REVERSE l` >- (
       simp[compile_print_types_def,Once SWAP_REVERSE] >>
+      simp[Once SWAP_REVERSE] >>
       simp[print_envC_def,semanticPrimitivesTheory.build_tdefs_def,LENGTH_NIL] >>
       rw[] >> simp[Once RTC_CASES1] >> simp[bc_state_component_equality] ) >>
     qx_gen_tac`x` >> PairCases_on`x` >>
+    gen_tac >> (disch_then (assume_tac o SYM)) >>
     simp[compile_print_types_def] >>
     gen_tac >>
-    qspecl_then[`x2`,`cs`]mp_tac (INST_TYPE[alpha|->``:t list``]compile_print_ctors_thm) >>
+    specl_args_of_then``compile_print_ctors``compile_print_ctors_thm mp_tac >>
     simp[] >>
     disch_then(qx_choosel_then[`c1`]strip_assume_tac) >>
-    first_x_assum(qspec_then`compile_print_ctors x2 cs`mp_tac) >>
-    simp[] >>
+    Q.ISPEC_THEN`l`mp_tac SNOC_CASES >>
+    strip_tac >> fs[] >> rw[] >> fs[] >>
+    Q.PAT_ABBREV_TAC`cs1 = compile_print_ctors X cs` >>
+    first_x_assum(qspec_then`cs1`mp_tac) >>
+    simp[Abbr`cs1`] >>
     disch_then(qx_choosel_then[`c2`]strip_assume_tac) >>
     simp[] >>
     simp[Once SWAP_REVERSE] >>
@@ -1748,7 +1753,7 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
       simp[Abbr`bs2`,Abbr`bs2'`] >>
       simp[bc_state_component_equality] >>
       simp[semanticPrimitivesTheory.build_tdefs_def,print_envC_def] >>
-      simp[MAP_MAP_o,combinTheory.o_DEF] >>
+      simp[MAP_REVERSE,MAP_MAP_o,combinTheory.o_DEF] >>
       simp[UNCURRY,astTheory.mk_id_def] >>
       simp[LAMBDA_PROD] ) >>
     metis_tac[RTC_TRANSITIVE,transitive_def])
@@ -1825,7 +1830,7 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
           | SOME types => (case t of
             | Tmod mn _ _ => "structure "++mn++" = <structure>\n"
             | Tdec d => (case d of
-              | Dtype ts => print_envC ([],REVERSE(build_tdefs NONE ts))
+              | Dtype ts => print_envC ([],build_tdefs NONE ts)
               | Dexn cn ts => print_envC ([],[(cn, (LENGTH ts, TypeExn))])
               | d => print_bv_list bs.cons_names types (new_dec_vs d) bvs))) in
          let bs' = bs with <| pc := next_addr bs.inst_length (bc0 ++ code)
@@ -3228,6 +3233,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[Once evaluate_dec_cases] >>
       simp[libTheory.emp_def] >> strip_tac >>
       simp[print_envC_def,Q.SPECL[`X`,`[]`]print_envE_def,libTheory.bind_def] >>
+      match_mp_tac print_bv_list_print_envE >>
       cheat ) >>
     simp[EXISTS_PROD,libTheory.emp_def,merge_envC_def,libTheory.merge_def] >>
     PairCases_on`s2` >> simp[env_rs_def] >>

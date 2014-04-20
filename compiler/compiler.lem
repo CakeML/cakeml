@@ -62,11 +62,11 @@ let rec
 compile_print_types [] s = s
 and
 compile_print_types ((_,_,cs)::ts) s =
-  compile_print_types ts (compile_print_ctors cs s)
+  compile_print_types ts (compile_print_ctors (List.reverse cs) s)
 declare termination_argument compile_print_types = automatic
 
 let rec
-compile_print_dec _ _ (Dtype ts) s = compile_print_types ts s
+compile_print_dec _ _ (Dtype ts) s = compile_print_types (List.reverse ts) s
 and
 compile_print_dec _ _ (Dexn c xs) s = compile_print_types [(([]:list tvarN),"exn",[(c,xs)])] s
 and

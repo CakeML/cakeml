@@ -83,12 +83,12 @@ val _ = Define `
 (compile_print_types [] s = s)
 /\
 (compile_print_types ((_,_,cs)::ts) s =  
-(compile_print_types ts (compile_print_ctors cs s)))`;
+(compile_print_types ts (compile_print_ctors (REVERSE cs) s)))`;
 
 
  val _ = Define `
 
-(compile_print_dec _ _ (Dtype ts) s = (compile_print_types ts s))
+(compile_print_dec _ _ (Dtype ts) s = (compile_print_types (REVERSE ts) s))
 /\
 (compile_print_dec _ _ (Dexn c xs) s = (compile_print_types [(([]: tvarN list),"exn",[(c,xs)])] s))
 /\
