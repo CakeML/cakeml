@@ -417,4 +417,60 @@ val _ = export_rewrites
 ,"do_Ceq_def"];
 *)
 
+(* compilerLibExtra *)
+
+open SatisfySimps arithmeticTheory miscTheory
+
+val the_find_index_suff = store_thm("the_find_index_suff",
+  ``∀P d x ls n. (∀m. m < LENGTH ls ⇒ P (m + n)) ∧ MEM x ls ⇒
+    P (the d (find_index x ls n))``,
+  rw[] >>
+  imp_res_tac find_index_MEM >>
+  pop_assum(qspec_then`n`mp_tac) >>
+  srw_tac[DNF_ss,ARITH_ss][])
+
+val set_lunion = store_thm("set_lunion",
+  ``∀l1 l2. set (lunion l1 l2) = set l1 ∪ set l2``,
+  Induct >> simp[lunion_def] >> rw[EXTENSION] >> metis_tac[])
+val _ = export_rewrites["set_lunion"]
+
+val set_lshift = store_thm("set_lshift",
+  ``∀ls n. set (lshift n ls) = { m-n | m | m ∈ set ls ∧ n ≤ m}``,
+  Induct >> rw[lshift_def,EXTENSION,MEM_MAP,MEM_FILTER,EQ_IMP_THM] >>
+  srw_tac[ARITH_ss,SATISFY_ss][] >> fsrw_tac[ARITH_ss][] >>
+  TRY(qexists_tac`h`>>simp[]>>NO_TAC)>>
+  TRY(qexists_tac`v`>>simp[]>>NO_TAC)>>
+  TRY(qexists_tac`m`>>simp[]>>NO_TAC))
+val _ = export_rewrites["set_lshift"]
+
+(* constants that are just applications of higher-order operators *)
+
+val funs_to_exh_MAP = store_thm("funs_to_exh_MAP",
+  ``∀exh funs. funs_to_exh exh funs = MAP (λ(f,x,e). (f,x,exp_to_exh exh e)) funs``,
+  Induct_on`funs` >> simp[exp_to_exh_def] >>
+  qx_gen_tac`p`>>PairCases_on`p`>>simp[exp_to_exh_def])
+
+val funs_to_i2_MAP = store_thm("funs_to_i2_MAP",
+  ``∀g funs. funs_to_i2 g funs = MAP (λ(f,x,e). (f,x,exp_to_i2 g e)) funs``,
+  Induct_on`funs` >> simp[exp_to_i2_def] >>
+  qx_gen_tac`p`>>PairCases_on`p`>>simp[exp_to_i2_def])
+
+val funs_to_i1_MAP = store_thm("funs_to_i1_MAP",
+  ``∀menv env funs. funs_to_i1 menv env funs = MAP (λ(f,x,e). (f,x,exp_to_i1 menv (env \\ x) e)) funs``,
+  Induct_on`funs` >> simp[exp_to_i1_def] >>
+  qx_gen_tac`p`>>PairCases_on`p`>>simp[exp_to_i1_def])
+
+val free_vars_list_MAP = store_thm("free_vars_list_MAP",
+  ``∀es. set (free_vars_list es) = set (FLAT (MAP free_vars es))``,
+  Induct >> simp[])
+
+val free_vars_defs_MAP = store_thm("free_vars_defs_MAP",
+  ``∀n defs. set (free_vars_defs n defs) = set (FLAT (MAP (free_vars_def n) defs))``,
+  gen_tac >> Induct >> simp[])
+
+val exps_to_Cexps_MAP = store_thm("exps_to_Cexps_MAP",
+  ``∀es. exps_to_Cexps es = MAP exp_to_Cexp es``,
+  Induct >> simp[])
+val _ = export_rewrites["exps_to_Cexps_MAP"]
+
 val _ = export_theory()

@@ -1,17 +1,12 @@
 open HolKernel bossLib boolLib boolSimps lcsymtacs listTheory pairTheory pred_setTheory arithmeticTheory
 open miscLib miscTheory patLangTheory intLangTheory toIntLangTheory compilerTerminationTheory intLangExtraTheory
-open patLangProofTheory
+open free_varsTheory
 val _ = new_theory "intLangProof"
 
 val vs_to_Cvs_MAP = store_thm("vs_to_Cvs_MAP",
   ``∀vs. vs_to_Cvs vs = MAP v_to_Cv vs``,
   Induct >> simp[])
 val _ = export_rewrites["vs_to_Cvs_MAP"]
-
-val exps_to_Cexps_MAP = store_thm("exps_to_Cexps_MAP",
-  ``∀es. exps_to_Cexps es = MAP exp_to_Cexp es``,
-  Induct >> simp[])
-val _ = export_rewrites["exps_to_Cexps_MAP"]
 
 val result_rel_syneq_syneq_trans =
   result_rel_trans
@@ -38,51 +33,6 @@ val exc_rel_syneq_trans =
   |> Q.GEN`R` |> Q.ISPEC`syneq`
   |> UNDISCH_ALL
   |> prove_hyps_by(metis_tac[syneq_trans])
-
-val shift_thm =
-  mkshift_thm
-  |> Q.SPEC`λv. v + n`
-  |> SIMP_RULE std_ss [GSYM shift_def]
-  |> Q.GEN`n`
-
-fun spec_args_of_then P ttac th (g as (_,w)) =
-  let
-    val t = find_term (P o fst o strip_comb)  w
-    val (_,args) = strip_comb t
-  in
-    ttac (SPECL args th)
-  end g
-
-val spec_shift_then_mp_tac =
-  spec_args_of_then (equal``shift``) mp_tac shift_thm
-
-val free_vars_exp_to_Cexp = store_thm("free_vars_exp_to_Cexp",
-  ``(∀e. set (free_vars (exp_to_Cexp e)) = set (free_vars_pat e)) ∧
-    (∀es. set (free_vars_list (exps_to_Cexps es)) = set (free_vars_list_pat es))``,
-  ho_match_mp_tac exp_to_Cexp_ind >> simp[] >>
-  strip_tac >- (
-    rw[EXTENSION] >>
-    rw[EQ_IMP_THM] >> rw[] >> fsrw_tac[ARITH_ss][] >>
-    simp[PULL_EXISTS] >> HINT_EXISTS_TAC >> simp[] ) >>
-  strip_tac >- (
-    rw[] >>
-    BasicProvers.CASE_TAC >> simp[] >>
-    fs[EXTENSION] >> rw[EQ_IMP_THM] >> rw[] >> fsrw_tac[ARITH_ss][] >>
-    spose_not_then strip_assume_tac >>
-    first_x_assum(qspec_then`x+1`mp_tac) >> simp[] ) >>
-  strip_tac >- (
-    rw[] >>
-    BasicProvers.CASE_TAC >> simp[] >>
-    fs[EXTENSION] >> rw[EQ_IMP_THM] >> rw[] >> fsrw_tac[ARITH_ss][] >>
-    spose_not_then strip_assume_tac >>
-    first_x_assum(qspec_then`x+1`mp_tac) >> simp[] ) >>
-  rpt gen_tac >> strip_tac >>
-  fs[EXTENSION,free_vars_defs_MAP,free_vars_list_MAP] >>
-  simp[MAP_MAP_o,combinTheory.o_DEF] >>
-  fs[MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
-  rw[EQ_IMP_THM] >> rw[] >> fsrw_tac[ARITH_ss][] >>
-  metis_tac[])
-val _ = export_rewrites["free_vars_exp_to_Cexp"]
 
 val no_labs_exp_to_Cexp = store_thm("no_labs_exp_to_Cexp",
   ``(∀e. no_labs (exp_to_Cexp e)) ∧
@@ -126,6 +76,23 @@ val syneq_tac =
   disch_then(exists_suff_gen_then mp_tac) >>
   disch_then(qspec_then`$=`(exists_suff_then mp_tac)) >>
   simp[syneq_exp_refl] >> strip_tac
+
+fun spec_args_of_then P ttac th (g as (_,w)) =
+  let
+    val t = find_term (P o fst o strip_comb)  w
+    val (_,args) = strip_comb t
+  in
+    ttac (SPECL args th)
+  end g
+
+val shift_thm =
+  mkshift_thm
+  |> Q.SPEC`λv. v + n`
+  |> SIMP_RULE std_ss [GSYM shift_def]
+  |> Q.GEN`n`
+
+val spec_shift_then_mp_tac =
+  spec_args_of_then (equal``shift``) mp_tac shift_thm
 
 val syneq_shift_tac =
   spec_shift_then_mp_tac >>
