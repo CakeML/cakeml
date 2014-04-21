@@ -16,12 +16,15 @@ val FDOM_FOLDR_DOMSUB = store_thm("FDOM_FOLDR_DOMSUB",
   simp[] >> metis_tac[])
 
 val vs_to_exh_MAP = store_thm("vs_to_exh_MAP",
-  ``∀exh vs. vs_to_exh exh vs = MAP (v_to_exh exh) vs``,
-  Induct_on`vs`>>simp[v_to_exh_def])
+  ``∀exh vs1 vs2. vs_to_exh exh vs1 vs2 = LIST_REL (v_to_exh exh) vs1 vs2``,
+  Induct_on`vs1`>>simp[Once v_to_exh_cases])
 
 val env_to_exh_MAP = store_thm("env_to_exh_MAP",
-  ``∀exh env. env_to_exh exh env = MAP (λ(x,e). (x, v_to_exh exh e)) env``,
-  Induct_on`env`>>simp[v_to_exh_def] >> Cases >> simp[v_to_exh_def])
+  ``∀exh env1 env2. env_to_exh exh env1 env2 ⇔ MAP FST env1 = MAP FST env2 ∧
+      LIST_REL (v_to_exh exh) (MAP SND env1) (MAP SND env2)``,
+  Induct_on`env1`>>simp[Once v_to_exh_cases] >>
+  Cases >> Cases_on`env2` >> rw[] >>
+  Cases_on`h`>>rw[] >> metis_tac[])
 
 val free_vars_defs_exh_MAP = store_thm("free_vars_defs_exh_MAP",
   ``∀ds. free_vars_defs_exh ds = BIGUNION (set (MAP (λ(f,x,e). free_vars_exh e DIFF {x}) ds))``,
@@ -657,7 +660,7 @@ val v_to_pat_closed = store_thm("v_to_pat_closed",
   ``(∀v. closed_exh v ⇒ closed_pat (v_to_pat v)) ∧
     (∀vs. EVERY closed_exh vs ⇒  EVERY closed_pat (vs_to_pat vs))``,
   ho_match_mp_tac v_to_pat_ind >>
-  simp[v_to_exh_def] >>
+  simp[] >>
   rw[] >- (
     simp[Once closed_pat_cases] >>
     pop_assum mp_tac >>
@@ -764,20 +767,20 @@ val closed_i2_lit_loc_conv = store_thm("closed_i2_lit_loc_conv",
 val _ = export_rewrites["closed_i2_lit_loc_conv"]
 
 val v_to_exh_closed = store_thm("v_to_exh_closed",
-  ``(∀exh v. closed_i2 v ⇒ closed_exh (v_to_exh exh v)) ∧
-    (∀exh vs. EVERY closed_i2 vs ⇒  EVERY closed_exh (vs_to_exh exh vs)) ∧
-    (∀exh env. EVERY closed_i2 (MAP SND env) ⇒ EVERY closed_exh (MAP SND (env_to_exh exh env)))``,
-  ho_match_mp_tac v_to_exh_ind >> simp[v_to_exh_def] >>
-  conj_tac >- (
-    rpt gen_tac >> strip_tac >>
-    simp[Once closed_i2_cases] >>
+  ``(∀exh v1 v2. v_to_exh exh v1 v2 ⇒ closed_i2 v1 ⇒ closed_exh v2) ∧
+    (∀exh v1 v2. vs_to_exh exh v1 v2 ⇒ EVERY closed_i2 v1 ⇒ EVERY closed_exh v2) ∧
+    (∀exh v1 v2. env_to_exh exh v1 v2 ⇒ EVERY closed_i2 (MAP SND v1) ⇒ EVERY closed_exh (MAP SND v2))``,
+  ho_match_mp_tac v_to_exh_strongind >> rw[]
+  >- (
     simp[Once closed_exh_cases] >>
-    simp[env_to_exh_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] ) >>
-  rpt gen_tac >> strip_tac >>
-  simp[Once closed_i2_cases] >>
+    pop_assum mp_tac >>
+    simp[Once closed_i2_cases] >>
+    fs[env_to_exh_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] ) >>
   simp[Once closed_exh_cases] >>
-  simp[funs_to_exh_MAP,EVERY_MAP,MAP_MAP_o,UNCURRY,combinTheory.o_DEF,ETA_AX] >>
-  simp[LAMBDA_PROD,env_to_exh_MAP,MAP_MAP_o,UNCURRY,combinTheory.o_DEF,FST_pair])
+  pop_assum mp_tac >>
+  simp[Once closed_i2_cases] >>
+  fs[funs_to_exh_MAP,EVERY_MAP,MAP_MAP_o,UNCURRY,combinTheory.o_DEF,ETA_AX] >>
+  fs[LAMBDA_PROD,env_to_exh_MAP,MAP_MAP_o,UNCURRY,combinTheory.o_DEF,FST_pair])
 
 val free_vars_i1_def = tDefine"free_vars_i1"`
   free_vars_i1 (Raise_i1 e) = free_vars_i1 e ∧
@@ -1168,15 +1171,18 @@ val genv_to_pat_closed = store_thm("genv_to_pat_closed",
   metis_tac[v_to_pat_closed])
 
 val genv_to_exh_closed = store_thm("genv_to_exh_closed",
-  ``∀exh genv2.
-    EVERY (OPTION_EVERY closed_i2) genv2 ⇒
-    EVERY (OPTION_EVERY closed_exh)
-      (MAP (OPTION_MAP (v_to_exh exh)) genv2)``,
-  simp[EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
-  rpt gen_tac >> strip_tac >>
-  Cases >> simp[] >> strip_tac >>
-  res_tac >> fs[] >>
-  metis_tac[v_to_exh_closed])
+  ``∀exh genv2 genvh.
+    EVERY (OPTION_EVERY closed_i2) genv2 ∧
+    LIST_REL (OPTREL (v_to_exh exh)) genv2 genvh
+    ⇒
+    EVERY (OPTION_EVERY closed_exh) genvh``,
+  simp[EVERY_MEM,MEM_MAP,PULL_EXISTS,EVERY2_EVERY,EVERY_MEM,MEM_ZIP,GSYM AND_IMP_INTRO] >>
+  simp[MEM_EL,PULL_EXISTS] >>
+  rpt gen_tac >> rpt strip_tac >>
+  res_tac >> fs[] >> res_tac >>
+  fs[optionTheory.OPTREL_def] >>
+  rfs[] >>
+  metis_tac[v_to_exh_closed,OPTION_EVERY_def])
 
 val genv_to_i2_closed = store_thm("genv_to_i2_closed",
   ``∀g x y. genv_to_i2 g x y ⇒ EVERY (OPTION_EVERY closed_i1) x ⇒ EVERY (OPTION_EVERY closed_i2) y``,
