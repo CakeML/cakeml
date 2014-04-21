@@ -56,6 +56,7 @@ val ty = ``:def``; val _ = derive_case_of ty;
 *)
 
 fun derive_case_of ty = let
+  fun get_name ty = clean_uppercase (full_name_of_type ty) ^ "_TYPE"
   val name = get_name ty
   val inv_def = fetch "ml_monad" (name ^ "_def")
   val case_th = get_nchotomy_of ty
@@ -65,12 +66,12 @@ fun derive_case_of ty = let
 *)
   val pat = ``Eval env exp (P (res:'a))``
   fun Eval_to_EvalM tm = let
-    val m = fst (match_term pat tm)
-    val tm1 = subst m ``EvalM env exp (HOL_MONAD P (res:'a M))``
+    val (m,i) = match_term pat tm
+    val tm1 = subst m (inst i ``EvalM env exp (HOL_MONAD P (res:'a M))``)
     val ty1 = tm |> rand |> rand |> type_of
-    val x = pat |> rand |> rand |> subst m
-    val y = inst [ty1|->``:^ty1 M``] x
-    in subst [pat |> rand |> rand |> inst [ty1|->``:^ty1 M``] |->  y] tm1 end
+    val y1 = tm |> rand |> rand |> inst [ty1|->``:^ty1 M``]
+    val y0 = tm1 |> rand |> rand
+    in subst [y0 |-> y1] tm1 end
     handle HOL_ERR _ =>
     if is_comb tm then let
       val (x,y) = dest_comb tm
@@ -124,10 +125,10 @@ fun derive_case_of ty = let
         \\ FULL_SIMP_TAC std_ss [EvalM_def,PULL_FORALL] \\ REPEAT STRIP_TAC
         \\ Q.PAT_ASSUM `!xx. bb` (MP_TAC o SPEC_ALL)
         \\ ASM_SIMP_TAC std_ss [] \\ STRIP_TAC
-        \\ Q.LIST_EXISTS_TAC [`s2`,`res''`,`refs2`]
+        \\ Q.LIST_EXISTS_TAC [`s2`,`res'`,`refs2`]
         \\ FULL_SIMP_TAC std_ss [] \\ ASM_SIMP_TAC (srw_ss()) []
         \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
-        \\ DISJ1_TAC \\ Q.LIST_EXISTS_TAC [`res'`,`(0,s)`] \\ STRIP_TAC
+        \\ DISJ1_TAC \\ Q.LIST_EXISTS_TAC [`res`,`(0,s)`] \\ STRIP_TAC
         THEN1 (IMP_RES_TAC evaluate_empty_store_IMP \\ FULL_SIMP_TAC std_ss [])
         \\ PairCases_on `env`
         \\ REWRITE_TAC [evaluate_match_Conv,LENGTH,pmatch_def]
@@ -166,7 +167,7 @@ val ty = ``:def``; val _ = mem_derive_case_of ty;
 fun inst_case_thm_for tm = let
   val (_,_,names) = TypeBase.dest_case tm
   val names = map fst names
-  val th = mem_derive_case_of ((repeat rator tm) |> type_of |> domain)
+  val th = mem_derive_case_of ((repeat rator tm) |> type_of |> domain) |> UNDISCH
   val pat = th |> UNDISCH_ALL |> concl |> rand |> rand
   val (ss,i) = match_term pat tm
   val th = INST ss (INST_TYPE i th)
@@ -203,6 +204,8 @@ fun inst_case_thm_for tm = let
 
 (*
 val tm = (!last_fail)
+
+val tm = rhs
 *)
 
 fun inst_case_thm tm m2deep = let
@@ -214,6 +217,7 @@ fun inst_case_thm tm m2deep = let
     val (vs,tm) = list_dest_forall tm
     in (v::vs,tm) end handle HOL_ERR _ => ([],tm)
   fun take 0 xs = [] | take n xs = hd xs :: take (n-1) (tl xs)
+
   fun sat_hyp tm = let
     val (vs,x) = list_dest_forall tm
     val (x,y) = dest_imp x
@@ -223,7 +227,7 @@ fun inst_case_thm tm m2deep = let
                 else hol2deep z
     val lemma = D lemma
     val new_env = y |> rator |> rator |> rand
-    val env = mk_var("env",``:envE``)
+    val env = mk_var("env",``:all_env``)
     val lemma = INST [env|->new_env] lemma
     val (x1,x2) = dest_conj x handle HOL_ERR _ => (T,x)
     val (z1,z2) = dest_imp (concl lemma)
@@ -249,7 +253,10 @@ fun inst_case_thm tm m2deep = let
   fun sat_hyps tm = if is_conj tm then let
     val (x,y) = dest_conj tm
     in CONJ (sat_hyps x) (sat_hyps y) end else sat_hyp tm
+
+
   val lemma = sat_hyps hyps
+
   val th = MATCH_MP th lemma
   val th = CONV_RULE (RATOR_CONV (DEPTH_CONV BETA_CONV THENC
                                   REWRITE_CONV [])) th
