@@ -523,7 +523,7 @@ fun m_translate def = let
   val _ = print ("Translating monadic " ^ fname ^ "\n")
   val fname_str = stringLib.fromMLstring fname
   (* read off information *)
-  val _ = register_term_types (concl def)
+  (* val _ = register_term_types (concl def) *)
   fun rev_param_list tm = rand tm :: rev_param_list (rator tm) handle HOL_ERR _ => []
   val rev_params = def |> concl |> dest_eq |> fst |> rev_param_list
   val no_params = (length rev_params = 0)
