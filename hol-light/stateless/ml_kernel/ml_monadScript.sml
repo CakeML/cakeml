@@ -194,7 +194,8 @@ val EvalM_def = Define `
 
 val HOL_MONAD_def = Define `
   HOL_MONAD (a:'a->v->bool) (x:'a M) (state1:hol_refs,s1:v store)
-                                     (state2:hol_refs,s2:v store,res) =
+                                     (state2:hol_refs,s2:v store,
+                                      res: (v,v) result) =
     case (x state1, res) of
       ((HolRes y, state), Rval v) => (state = state2) /\ a y v
     | ((HolErr e, state), Rerr (Rraise _)) => (state = state2)
@@ -257,12 +258,12 @@ val _ = type_abbrev("H",``:'a -> hol_refs # v store ->
                                  hol_refs # v store # (v,v) result -> bool``);
 
 val PURE_def = Define `
-  PURE a x (refs1:hol_refs,s1:v store) (refs2,s2,res) =
+  PURE a (x:'a) (refs1:hol_refs,s1:v store) (refs2,s2,res:(v,v) result) =
     ?v:v. (res = Rval v) /\ (refs1 = refs2) /\ (s1 = s2) /\ a x v`;
 
 val ArrowP_def = Define `
   (ArrowP : 'a H -> 'b H -> ('a -> 'b) -> v -> bool) a b f c =
-     !x refs1 s1 refs2 s2 res.
+     !x refs1 s1 refs2 s2 (res:(v,v) result).
        a x (refs1,s1) (refs2,s2,res) /\ HOL_STORE s1 refs1 ==>
        (refs2 = refs1) /\ (s2 = s1) /\
        ?v s3 res3 refs3.
@@ -417,6 +418,11 @@ val IND_HELP = store_thm("IND_HELP",
   \\ PairCases_on `env` \\ PairCases_on `cl_env`
   \\ FULL_SIMP_TAC (srw_ss()) [lookup_var_id_def,write_def,lookup_var_def]
   \\ POP_ASSUM MP_TAC \\ FULL_SIMP_TAC std_ss []);
+
+val write_rec_one = store_thm("write_rec_one",
+  ``write_rec [(x,y,z)] env = write x (Recclosure env [(x,y,z)] x) env``,
+  PairCases_on `env`
+  \\ SIMP_TAC std_ss [write_rec_def,write_def,build_rec_env_def,FOLDR,bind_def]);
 
 (* Eq simps *)
 

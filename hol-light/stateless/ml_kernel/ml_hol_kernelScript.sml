@@ -204,8 +204,6 @@ fun inst_case_thm_for tm = let
 
 (*
 val tm = (!last_fail)
-
-val tm = rhs
 *)
 
 fun inst_case_thm tm m2deep = let
@@ -217,7 +215,6 @@ fun inst_case_thm tm m2deep = let
     val (vs,tm) = list_dest_forall tm
     in (v::vs,tm) end handle HOL_ERR _ => ([],tm)
   fun take 0 xs = [] | take n xs = hd xs :: take (n-1) (tl xs)
-
   fun sat_hyp tm = let
     val (vs,x) = list_dest_forall tm
     val (x,y) = dest_imp x
@@ -233,11 +230,11 @@ fun inst_case_thm tm m2deep = let
     val (z1,z2) = dest_imp (concl lemma)
     val thz =
       QCONV (SIMP_CONV std_ss [ASSUME x1,Eval_Var_SIMP,lookup_def] THENC
-             ONCE_REWRITE_CONV [EvalM_Var_SIMP] THENC
-             ONCE_REWRITE_CONV [EvalM_Var_SIMP] THENC
-             ONCE_REWRITE_CONV [EvalM_Var_SIMP] THENC
-             ONCE_REWRITE_CONV [EvalM_Var_SIMP] THENC
-             ONCE_REWRITE_CONV [EvalM_Var_SIMP] THENC
+             ONCE_REWRITE_CONV [EvalM_Var_SIMP,lookup_cons_write] THENC
+             ONCE_REWRITE_CONV [EvalM_Var_SIMP,lookup_cons_write] THENC
+             ONCE_REWRITE_CONV [EvalM_Var_SIMP,lookup_cons_write] THENC
+             ONCE_REWRITE_CONV [EvalM_Var_SIMP,lookup_cons_write] THENC
+             ONCE_REWRITE_CONV [EvalM_Var_SIMP,lookup_cons_write] THENC
              DEPTH_CONV stringLib.string_EQ_CONV THENC
              SIMP_CONV std_ss []) z1 |> DISCH x1
     val lemma = MATCH_MP sat_hyp_lemma (CONJ thz lemma)
@@ -253,10 +250,7 @@ fun inst_case_thm tm m2deep = let
   fun sat_hyps tm = if is_conj tm then let
     val (x,y) = dest_conj tm
     in CONJ (sat_hyps x) (sat_hyps y) end else sat_hyp tm
-
-
   val lemma = sat_hyps hyps
-
   val th = MATCH_MP th lemma
   val th = CONV_RULE (RATOR_CONV (DEPTH_CONV BETA_CONV THENC
                                   REWRITE_CONV [])) th
@@ -270,13 +264,13 @@ fun inst_EvalM_env v th = let
   val str = stringLib.fromMLstring name
   val inv = smart_get_type_inv (type_of v)
   val assum = ``Eval env (Var (Short ^str)) (^inv ^v)``
-  val new_env = ``(^str,v:v)::(env:envE)``
+  val new_env = ``write ^str (v:v) (env:all_env)``
   val old_env = new_env |> rand
   val th = thx |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
                |> DISCH_ALL |> DISCH assum |> SIMP_RULE bool_ss []
                |> INST [old_env|->new_env]
                |> SIMP_RULE bool_ss [Eval_Var_SIMP,lookup_def]
-               |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
+               |> ONCE_REWRITE_RULE [EvalM_Var_SIMP,lookup_cons_write]
                |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
                |> SIMP_RULE bool_ss [SafeVar_def]
   val new_assum = fst (dest_imp (concl th))
@@ -297,16 +291,16 @@ fun apply_EvalM_Recclosure fname v th = let
   val fname_str = stringLib.fromMLstring fname
   val body = th |> UNDISCH_ALL |> concl |> rator |> rand
   val inv = smart_get_type_inv (type_of v)
-  val new_env = ``(^vname_str,v:v)::(^fname_str,
-         Recclosure env [(^fname_str,^vname_str,^body)] ^fname_str)::(env:envE)``
-  val old_env = ``env:envE``
+  val new_env = ``write ^vname_str v (write_rec
+                    [(^fname_str,^vname_str,^body)] env)``
+  val old_env = ``env:all_env``
   val assum = subst [old_env|->new_env]
               ``Eval env (Var (Short ^vname_str)) (^inv ^v)``
   val thx = th |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
                |> DISCH_ALL |> DISCH assum |> SIMP_RULE bool_ss []
                |> INST [old_env|->new_env]
                |> SIMP_RULE bool_ss [Eval_Var_SIMP,lookup_def]
-               |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
+               |> ONCE_REWRITE_RULE [EvalM_Var_SIMP,lookup_cons_write]
                |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
                |> SIMP_RULE bool_ss [SafeVar_def]
   val new_assum = fst (dest_imp (concl thx))
@@ -351,7 +345,6 @@ val write_refs =
 
 (*
 val tm = rhs
-val tm = x1
 *)
 
 fun m2deep tm =
@@ -454,7 +447,7 @@ fun m2deep tm =
     val result = UNDISCH th
     in check_inv "if" tm result end else
   (* ref: get_the_(...) *)
-   if can (first (fn (t,_,_) => t = tm)) read_refs then let
+  if can (first (fn (t,_,_) => t = tm)) read_refs then let
     val (_,t,result) = first (fn (t,_,_) => t = tm) read_refs
     val th = get_cert (t |> dest_const |> fst) |> fst |> SPEC_ALL |> UNDISCH_ALL
     val th = MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] Eval_Var_SWAP_ENV)
@@ -463,7 +456,7 @@ fun m2deep tm =
     val result = MATCH_MP result th
     in check_inv "get" tm result end else
   (* ref: set_the_(...) *)
-   if can (first (fn (t,_,_) => can (match_term t) tm)) write_refs then let
+  if can (first (fn (t,_,_) => can (match_term t) tm)) write_refs then let
     val (_,t,result) = (first (fn (t,_,_) => can (match_term t) tm)) write_refs
     val th = get_cert (t |> dest_const |> fst) |> fst |> SPEC_ALL |> UNDISCH_ALL
     val th = MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] Eval_Var_SWAP_ENV)
@@ -485,6 +478,10 @@ fun m2deep tm =
     fun mk_m_arrow x y = ``ArrowM ^x ^y``
     fun mk_inv [] res = res
       | mk_inv (x::xs) res = mk_inv xs (mk_m_arrow (mk_fix x) res)
+(*
+val x = hd xs
+val res = (get_m_type_inv (type_of tm))
+*)
     val inv = mk_inv xs (get_m_type_inv (type_of tm))
     val ss = fst (match_term lhs tm)
     val pre = T (* subst ss (rec_pre_var ()) *)
@@ -534,6 +531,7 @@ fun m_translate def = let
   val th = CONV_RULE ((RAND_CONV o RAND_CONV)
              (REWRITE_CONV [CONTAINER_def] THENC ONCE_REWRITE_CONV [GSYM def])) th
   (* abstract parameters *)
+  val th = clean_lookup_cons (D th)
   val (th,v) = if no_params then (th,T) else
                  (foldr (fn (v,th) => apply_EvalM_Fun v th true) th
                     (rev (if is_rec then butlast rev_params else rev_params)),
@@ -541,11 +539,12 @@ fun m_translate def = let
   val th = if not is_rec then D (clean_assumptions th)
            else apply_EvalM_Recclosure fname v th |> clean_assumptions
   val th = CONV_RULE (QCONV (DEPTH_CONV ETA_CONV)) th
-  val th = if is_rec then Q.INST [`shaddow_env`|->`cl_env`] th |> REWRITE_RULE []
-                     else Q.INST [`shaddow_env`|->`env`] th |> REWRITE_RULE []
+  val th = if is_rec then Q.INST [`shaddow_env`|->`cl_env`] th
+                     else Q.INST [`shaddow_env`|->`env`] th
+  val th = th |> REWRITE_RULE [lookup_cons_write]
   (* DeclAssumExists *)
   val decl_assum_ex = let
-    val fs = find_term (can (match_term ``Recclosure env funs``)) (concl th) |> rand
+    val fs = find_term (can (match_term ``write_rec funs``)) (concl th) |> rand
     val c = REWRITE_CONV [MAP] THENC EVAL
     val th = DeclAssumExists_SNOC_Dletrec |> SPEC fs |> SPEC_ALL
              |> CONV_RULE ((RATOR_CONV o RAND_CONV) c)
@@ -576,7 +575,7 @@ fun m_translate def = let
       \\ SIMP_TAC std_ss [FORALL_PROD]
       \\ MATCH_MP_TAC (SPEC hyp_tm ind_thm |> CONV_RULE (DEPTH_CONV BETA_CONV))
       \\ REPEAT STRIP_TAC \\ MATCH_MP_TAC th
-      \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
+      \\ FULL_SIMP_TAC (srw_ss()) [ADD1,write_rec_one]
       \\ REPEAT STRIP_TAC
       \\ MATCH_MP_TAC IND_HELP
       \\ Q.EXISTS_TAC `env`
@@ -599,7 +598,7 @@ fun m_translate def = let
   val th = th |> DISCH_ALL |> REWRITE_RULE [GSYM AND_IMP_INTRO] |> UNDISCH_ALL
   val th = RW [ArrowM_def] th
   val th = if is_rec then
-             th |> DISCH (first (can (find_term (fn tm => tm = rator ``Recclosure (ARB:envE)``))) (hyp th))
+             th |> DISCH (first (can (find_term (fn tm => tm = rator ``Recclosure (ARB:all_env)``))) (hyp th))
                 |> Q.INST [`cl_env`|->`env`,`env`|->`env1`] |> DISCH (get_DeclAssum ())
                 |> Q.GEN `env` |> Q.GEN `env1`
                 |> REWRITE_RULE [AND_IMP_INTRO]
