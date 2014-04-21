@@ -433,6 +433,7 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
  >- metis_tac []
  >> cheat);
 
+(*
  TRY (Cases_on `err`) >>
  fs [] >>
  rw []
@@ -548,6 +549,7 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
      simp[add_default_def] >>
      fs[exists_match_def] >>
      metis_tac[pmatch_i2_any_no_match]))
+*)
 
 (* exhLangExtra *)
 
