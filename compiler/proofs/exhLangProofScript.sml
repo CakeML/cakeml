@@ -385,46 +385,54 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
 `(!ck env s e r.
   evaluate_i3 ck env s e r
   ⇒
-  !exh env' env_exh s_exh r_exh.
+  !exh env' env_exh s_exh.
     SND r ≠ Rerr Rtype_error ∧
     env = (exh,env') ∧
     env_to_exh exh env' env_exh ∧
-    store_to_exh exh s s_exh ∧
-    result_to_exh v_to_exh exh r r_exh
+    store_to_exh exh s s_exh
     ⇒
+    ?r_exh.
+    result_to_exh v_to_exh exh r r_exh ∧
     evaluate_exh ck env_exh s_exh (exp_to_exh exh e) r_exh) ∧
  (!ck env s es r.
   evaluate_list_i3 ck env s es r
   ⇒
-  !exh env' env_exh s_exh r_exh.
+  !exh env' env_exh s_exh. ?r_exh.
     SND r ≠ Rerr Rtype_error ∧
     env = (exh,env') ∧
     env_to_exh exh env' env_exh ∧
-    store_to_exh exh s s_exh ∧
-    result_to_exh vs_to_exh exh r r_exh
+    store_to_exh exh s s_exh
     ⇒
+    ?r_exh.
+    result_to_exh vs_to_exh exh r r_exh ∧
     evaluate_list_exh ck env_exh s_exh (exps_to_exh exh es) r_exh) ∧
  (!ck env s v pes err_v r.
   evaluate_match_i3 ck env s v pes err_v r
   ⇒
-  !exh env' pes' is_handle env_exh s_exh r_exh v_exh.
+  !exh env' pes' is_handle env_exh s_exh v_exh.
     SND r ≠ Rerr Rtype_error ∧
     env = (exh,env') ∧
     env_to_exh exh env' env_exh ∧
     store_to_exh exh s s_exh ∧
     v_to_exh exh v v_exh ∧
-    result_to_exh v_to_exh exh r r_exh ∧
     (is_handle ⇒ err_v = v) ∧
     (¬is_handle ⇒ err_v = Conv_i2 (bind_tag, SOME(TypeExn(Short "Bind"))) []) ∧
     (pes' = add_default is_handle F pes ∨
      exists_match exh (SND (FST s)) (MAP FST pes) v ∧
      pes' = add_default is_handle T pes)
      ⇒
+    ?r_exh.
+    result_to_exh v_to_exh exh r r_exh ∧
     evaluate_match_exh ck env_exh s_exh v_exh (pat_exp_to_exh exh pes') r_exh)`,
  ho_match_mp_tac evaluate_i3_ind >>
  rw [exp_to_exh_def, v_to_exh_eqn, result_to_exh_cases] >>
  ONCE_REWRITE_TAC [evaluate_exh_cases] >>
- fs [v_to_exh_eqn, result_to_exh_def, store_to_exh_def] >>
+ fs [v_to_exh_eqn, result_to_exh_cases, store_to_exh_def]
+ >- metis_tac []
+ >- metis_tac []
+ >- metis_tac []
+ >> cheat);
+
  TRY (Cases_on `err`) >>
  fs [] >>
  rw []
