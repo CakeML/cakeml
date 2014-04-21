@@ -291,15 +291,10 @@ val _ = register "pat_to_i2" (pat_to_i2_def,pat_to_i2_ind);
 
 val (exp_to_i2_def, exp_to_i2_ind) =
   tprove_no_defn ((exp_to_i2_def, exp_to_i2_ind),
-  cheat);
-  (*
   WF_REL_TAC `inv_image $< (\x. case x of INL (x,e) => exp_i1_size e
                                         | INR (INL (x,es)) => exp_i16_size es
                                         | INR (INR (INL (x,pes))) => exp_i13_size pes
-                                        | INR (INR (INR (x,funs))) => exp_i11_size funs)` >>
-  srw_tac [ARITH_ss] [exp_i1_size_def]);
-  *)
-
+                                        | INR (INR (INR (x,funs))) => exp_i11_size funs)`)
 val _ = register "exp_to_i2" (exp_to_i2_def,exp_to_i2_ind);
 
 val (pmatch_i2_def, pmatch_i2_ind) =
@@ -328,8 +323,19 @@ val (pmatch_exh_def, pmatch_exh_ind) =
   srw_tac [ARITH_ss] [pat_exh_size_def]);
 val _ = register "pmatch_exh" (pmatch_exh_def,pmatch_exh_ind);
 
+val exp_i23_size_append = prove(
+  ``∀p1 p2. exp_i23_size (p1++p2) = exp_i23_size p1 + exp_i23_size p2``,
+  Induct >> simp[exp_i2_size_def])
+
 val (exp_to_exh_def, exp_to_exh_ind) =
   tprove_no_defn ((exp_to_exh_def, exp_to_exh_ind),
+  WF_REL_TAC `inv_image $< (\x. case x of
+    | INL (_,e) => exp_i2_size e
+    | INR (INL (_,es)) => exp_i26_size es
+    | INR (INR (INL (exh,pes))) => exp_i23_size pes
+    | INR (INR (INR (_,funs))) => exp_i21_size funs)` >>
+  simp[add_default_def] >> rw[] >> simp[] >>
+  simp[exp_i23_size_append,exp_i2_size_def,pat_i2_size_def] >> fs[] >>
   cheat);
 val _ = register "exp_to_exh" (exp_to_exh_def,exp_to_exh_ind);
 

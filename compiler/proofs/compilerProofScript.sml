@@ -100,7 +100,7 @@ val exp_pat_syneq_exp = store_thm("exp_pat_syneq_exp",
       (∀x y. V x y ⇒ (x < z1 ⇔ y < z2) ∧ (z1 ≤ x ⇒ y = x))
       ⇒
       syneq_exp z1 z2 V (exp_to_Cexp e1) (exp_to_Cexp e2)``,
-  ho_match_mp_tac exp_pat_ind >> simp[] >>
+  ho_match_mp_tac exp_pat_strongind >> simp[] >>
   strip_tac >- (
     rpt gen_tac >> strip_tac >>
     simp[Once syneq_exp_cases] >>
@@ -168,9 +168,31 @@ val exp_pat_syneq_exp = store_thm("exp_pat_syneq_exp",
     rpt gen_tac >> rpt strip_tac >>
     simp[Once syneq_exp_cases] ) >>
   strip_tac >- (
-    rpt gen_tac >> rpt strip_tac >>
-    Cases_on`op`>>simp[] >>
-    cheat ) >>
+    rpt gen_tac >> rpt strip_tac >> fs[] >>
+    Cases_on`op`>>simp[] >- (
+      BasicProvers.EVERY_CASE_TAC >>
+      simp[Once syneq_exp_cases] >>
+      simp[Once syneq_exp_cases] >>
+      conj_tac >- (
+        match_mp_tac syneq_exp_shift_both >>
+        first_assum (match_exists_tac o concl) >> simp[] >>
+        fs[SUBSET_DEF] >>
+        simp[O_DEF,inv_DEF,PULL_EXISTS] ) >>
+      rpt (simp[Once syneq_exp_cases]))
+    >- (
+      BasicProvers.EVERY_CASE_TAC >>
+      simp[Once syneq_exp_cases] >>
+      simp[Once syneq_exp_cases] >>
+      TRY (
+        conj_tac >- (
+          match_mp_tac syneq_exp_shift_both >>
+          first_assum (match_exists_tac o concl) >> simp[] >>
+          fs[SUBSET_DEF] >>
+          simp[O_DEF,inv_DEF,PULL_EXISTS] )) >>
+      rpt (simp[Once syneq_exp_cases]))
+    >- ( rpt(simp[Once syneq_exp_cases]))
+    >- ( simp[Once syneq_exp_cases] )
+    >- ( simp[Once syneq_exp_cases] )) >>
   strip_tac >- (
     rpt gen_tac >> rpt strip_tac >>
     simp[Once syneq_exp_cases] ) >>
@@ -195,8 +217,67 @@ val exp_pat_syneq_exp = store_thm("exp_pat_syneq_exp",
     simp[Once syneq_exp_cases] ) >>
   strip_tac >- (
     rpt gen_tac >> rpt strip_tac >>
+    imp_res_tac EVERY2_LENGTH >>
+    qpat_assum`p ⇒ q`mp_tac >>
+    discharge_hyps >- (
+      fs[SUBSET_DEF,PULL_EXISTS] >>
+      conj_tac >- (
+        rw[] >>
+        reverse(Cases_on`LENGTH es1 ≤ x`) >> simp[] >>
+        res_tac >> simp[] ) >>
+      conj_tac >- (
+        rw[] >>
+        reverse(Cases_on`LENGTH es2 ≤ x`) >> simp[] >>
+        res_tac >> simp[] ) >>
+      simp[bindn_pat_thm] >>
+      rpt gen_tac >>
+      BasicProvers.CASE_TAC >>
+      strip_tac >>
+      fsrw_tac[ARITH_ss][] >>
+      res_tac >>
+      fsrw_tac[ARITH_ss][] ) >>
+    strip_tac >>
     simp[Once syneq_exp_cases] >>
-    cheat ) >>
+    simp[Once syneq_exp_cases] >>
+    qexists_tac`λx y. x < LENGTH es1 ∧ x = y` >>
+    simp[MAP_MAP_o,EL_MAP] >>
+    conj_tac >- (
+      simp[syneq_cb_aux_def] >>
+      rfs[EVERY2_EVERY,EVERY_MEM] >>
+      fs[MEM_ZIP,PULL_EXISTS] >>
+      gen_tac >> strip_tac >>
+      first_x_assum(fn th => first_assum (mp_tac o MATCH_MP th)) >>
+      strip_tac >> pop_assum mp_tac >>
+      discharge_hyps >- (
+        fs[SUBSET_DEF,PULL_EXISTS,MEM_FLAT,MEM_MAP,ADD1] >>
+        conj_tac >- (
+          gen_tac >> strip_tac >>
+          fsrw_tac[ARITH_ss][AC ADD_ASSOC ADD_COMM] >>
+          Cases_on`LENGTH es2 + 1 ≤ x`>>simp[] >>
+          metis_tac[MEM_EL] ) >>
+        conj_tac >- (
+          gen_tac >> strip_tac >>
+          fsrw_tac[ARITH_ss][AC ADD_ASSOC ADD_COMM] >>
+          Cases_on`LENGTH es2 + 1 ≤ x`>>simp[] >>
+          metis_tac[MEM_EL] ) >>
+        simp[bindn_pat_thm] >>
+        rpt gen_tac >>
+        BasicProvers.CASE_TAC >> simp[] >>
+        fsrw_tac[ARITH_ss][AC ADD_ASSOC ADD_COMM,NOT_LESS] >>
+        strip_tac >> res_tac  >>
+        fsrw_tac[ARITH_ss][] ) >>
+      strip_tac >>
+      match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_mono_V)) >>
+      fs[AC ADD_ASSOC ADD_COMM,ADD1] >>
+      HINT_EXISTS_TAC >> simp[] >>
+      simp[bindn_pat_thm] >>
+      simp[syneq_cb_V_def] >>
+      rw[] >> simp[]) >>
+    match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_mono_V)) >>
+    fs[AC ADD_ASSOC ADD_COMM,ADD1] >> rfs[] >>
+    HINT_EXISTS_TAC >> simp[] >>
+    simp[bindn_pat_thm] >>
+    rw[] >> simp[]) >>
   simp[Once syneq_exp_cases] )
 
 val v_pat_syneq = store_thm("v_pat_syneq",
