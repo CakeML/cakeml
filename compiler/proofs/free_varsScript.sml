@@ -139,6 +139,61 @@ val free_vars_pat_to_pat = store_thm("free_vars_pat_to_pat",
   imp_res_tac(SIMP_RULE(srw_ss())[SUBSET_DEF]free_vars_pat_sLet) >> fs[] >>
   rw[] >> res_tac >> simp[])
 
+val pat_bindings_exh_acc = store_thm("pat_bindings_exh_acc",
+  ``(∀p acc. pat_bindings_exh p acc = pat_bindings_exh p [] ++ acc) ∧
+    (∀ps acc. pats_bindings_exh ps acc = pats_bindings_exh ps [] ++ acc)``,
+  ho_match_mp_tac(TypeBase.induction_of``:pat_exh``) >> rw[] >>
+  simp_tac (srw_ss()) [Once pat_bindings_exh_def] >>
+  simp_tac (srw_ss()) [Once pat_bindings_exh_def] >>
+  metis_tac[APPEND_ASSOC])
+
+val row_to_pat_pat_bindings = store_thm("row_to_pat_pat_bindings",
+  ``(∀Nbvs p bvs2. Nbvs ≠ [] ∧ HD Nbvs = NONE ⇒ set (MAP SOME (pat_bindings_exh p [])) ⊆ set (FST (row_to_pat Nbvs p))) ∧
+    (∀bvs n k ps bvsk N bvs0.
+      bvs = bvsk ++ N::bvs0 ∧ LENGTH bvsk = n ⇒
+      set (MAP SOME (pats_bindings_exh ps [])) ⊆ (set (FST (cols_to_pat bvs n k ps))))``,
+  ho_match_mp_tac row_to_pat_ind >>
+  simp[pat_bindings_exh_def,row_to_pat_def] >>
+  rw[UNCURRY] >- (
+    `∃x y z. row_to_pat (NONE::bvs) p = (x,y,z)` by simp[GSYM EXISTS_PROD] >>
+    fs[LENGTH_NIL] >> Cases_on`Nbvs`>>fs[] ) >>
+  `∃x y z. row_to_pat (NONE::(bvsk++[N]++bvs0)) p = (x,y,z)` by simp[GSYM EXISTS_PROD] >> fs[] >>
+  qspecl_then[`NONE::(bvsk++[N]++bvs0)`,`p`]mp_tac(CONJUNCT1 row_to_pat_acc) >>
+  simp[] >> disch_then(qspec_then`bvsk++[N]++bvs0`mp_tac) >> simp[] >> strip_tac >>
+  first_x_assum(qspec_then`ls++bvsk`mp_tac) >> simp[] >> strip_tac >>
+  simp[Once pat_bindings_exh_acc] >>
+  specl_args_of_then``cols_to_pat``(CONJUNCT2 row_to_pat_acc)mp_tac >>
+  disch_then(qspec_then`ls++bvsk`mp_tac) >>
+  simp[] >> disch_then(qspec_then`bvs0`mp_tac) >>
+  `∃x a z. cols_to_pat (ls++bvsk++[N]++bvs0) (y+(LENGTH bvsk + 1)) (k + 1) ps = (x,a,z)` by simp[GSYM EXISTS_PROD] >> fs[] >>
+  REWRITE_TAC[Once CONS_APPEND] >> simp[] >>
+  REWRITE_TAC[Once CONS_APPEND] >> simp[] >>
+  rw[] >> fs[SUBSET_DEF] >>
+  metis_tac[])
+
+(*
+val free_vars_row_to_pat = store_thm("free_vars_row_to_pat",
+  ``(∀Nbvs p bvs' n f e. row_to_pat Nbvs p = (bvs',n,f) ⇒
+      set (free_vars_pat (f e)) ⊆  set (lshift n (free_vars_pat e))) ∧
+    (∀bvs n k ps bvs' m f e. cols_to_pat bvs n k ps = (bvs',m,f) ⇒
+      set (free_vars_pat (f e)) ⊆  set (lshift n (free_vars_pat e)))``,
+  ho_match_mp_tac row_to_pat_ind >>
+  strip_tac >- simp[row_to_pat_def] >>
+  strip_tac >- simp[row_to_pat_def] >>
+  strip_tac >- (
+    simp[row_to_pat_def] >>
+    cheat ) >>
+  strip_tac >- (
+    simp[row_to_pat_def] >> rw[] >>
+    `∃x y z. row_to_pat (NONE::Nbvs) p = (x,y,z)` by simp[GSYM EXISTS_PROD] >>
+    fs[] >> rw[] >>
+    match_mp_tac SUBSET_TRANS >>
+    specl_args_of_then``sLet_pat``free_vars_pat_sLet assume_tac >>
+    HINT_EXISTS_TAC >> simp[] >>
+    fs[SUBSET_DEF,PULL_EXISTS] >> rw[] >>
+    res_tac >> fsrw_tac[ARITH_ss][]
+*)
+
 val free_vars_pat_exp_to_pat = store_thm("free_vars_pat_exp_to_pat",
   ``(∀ls e.
       IMAGE SOME (free_vars_exh e) ⊆ set ls ⇒
@@ -315,6 +370,7 @@ val free_vars_pat_exp_to_pat = store_thm("free_vars_pat_exp_to_pat",
     simp[find_index_def] >>
     simp[Once find_index_shift_0] >>
     rw[] >> fs[] >>
+
     cheat ) >>
   simp[SUBSET_DEF,PULL_EXISTS] >>
   rw[] >>
