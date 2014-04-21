@@ -832,7 +832,6 @@ fun read_tac n =
   \\ `1 < LENGTH s` by DECIDE_TAC
   \\ `2 < LENGTH s` by DECIDE_TAC
   \\ `3 < LENGTH s` by DECIDE_TAC
-  (* \\ `4 < LENGTH s` by DECIDE_TAC *)
   \\ FULL_SIMP_TAC std_ss []
   \\ Q.LIST_EXISTS_TAC [`s`,`Rval (EL ^n s)`,`refs`]
   \\ FULL_SIMP_TAC std_ss []
@@ -854,25 +853,17 @@ val get_term_constants_thm = store_thm("get_the_term_constants_thm",
                  get_the_term_constants)``,
   read_tac ``1:num``);
 
-(*
-val get_the_axioms_thm = store_thm("get_the_axioms_thm",
-  ``Eval env (Var (Short "the_axioms")) ($= the_axioms) ==>
-    EvalM env (Uapp Opderef (Var (Short "the_axioms")))
-      (HOL_MONAD (LIST_TYPE HOL_KERNEL_THM_TYPE) get_the_axioms)``,
-  read_tac ``2:num``);
-*)
-
 val get_the_definitions_thm = store_thm("get_the_definitions_thm",
   ``Eval env (Var (Short "the_definitions")) ($= the_definitions) ==>
     EvalM env (Uapp Opderef (Var (Short "the_definitions")))
       (HOL_MONAD (LIST_TYPE HOL_KERNEL_DEF_TYPE) get_the_definitions)``,
-  read_tac ``2(*3*):num``);
+  read_tac ``2:num``);
 
 val get_the_clash_var_thm = store_thm("get_the_clash_var_thm",
   ``Eval env (Var (Short "the_clash_var")) ($= the_clash_var) ==>
     EvalM env (Uapp Opderef (Var (Short "the_clash_var")))
       (HOL_MONAD HOL_KERNEL_HOL_TERM_TYPE get_the_clash_var)``,
-  read_tac ``3(*4*):num``);
+  read_tac ``3:num``);
 
 fun update_tac r q =
   SIMP_TAC std_ss [Once Eval_def]
@@ -883,19 +874,18 @@ fun update_tac r q =
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) [merge_def,emp_def]
   \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
   \\ SIMP_TAC std_ss [Eval_def] \\ REPEAT STRIP_TAC
-  \\ `evaluate s env exp (s,Rval res)` by METIS_TAC [evaluate_empty_store_IMP]
-  \\ `!x. evaluate s env exp x = (x = (s,Rval res))` by
-       METIS_TAC [big_exp_determ']
+  \\ `evaluate F env (0,s) exp ((0,s),Rval res)` by
+        METIS_TAC [evaluate_empty_store_IMP]
+  \\ `!x. evaluate F env (0,s) exp x = (x = ((0,s),Rval res))` by
+        METIS_TAC [determTheory.big_exp_determ]
   \\ FULL_SIMP_TAC (srw_ss()) [] \\ SIMP_TAC (srw_ss()) [Once do_app_def]
   \\ FULL_SIMP_TAC std_ss [option_CASE_LEMMA2]
   \\ FULL_SIMP_TAC std_ss [the_type_constants_def,
-       the_term_constants_def,(*the_axioms_def,*)the_definitions_def,
-       the_clash_var_def]
+       the_term_constants_def,the_definitions_def,the_clash_var_def]
   \\ `0 < LENGTH s` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
   \\ `1 < LENGTH s` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
   \\ `2 < LENGTH s` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
   \\ `3 < LENGTH s` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
-  (*\\ `4 < LENGTH s` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]*)
   \\ ASM_SIMP_TAC (srw_ss()) [store_assign_def]
   \\ Q.LIST_EXISTS_TAC [r,`Rval (Litv Unit)`,q]
   \\ FULL_SIMP_TAC std_ss []
@@ -903,9 +893,7 @@ fun update_tac r q =
   \\ REVERSE STRIP_TAC THEN1
    (FULL_SIMP_TAC std_ss [HOL_STORE_def,EL_LUPDATE]
     \\ FULL_SIMP_TAC (srw_ss()) [HOL_STORE_def,EL_LUPDATE])
-  \\ FULL_SIMP_TAC (srw_ss()) [HOL_MONAD_def,set_the_type_constants_def,
-        set_the_term_constants_def,(*set_the_axioms_def,*)set_the_clash_var_def,
-        set_the_definitions_def] \\ EVAL_TAC;
+   \\ EVAL_TAC;
 
 val set_the_type_constants_thm = store_thm("set_the_type_constants_thm",
   ``Eval env (Var (Short "the_type_constants")) ($= the_type_constants) ==>
@@ -921,27 +909,18 @@ val set_the_term_constants_thm = store_thm("set_the_term_constants_thm",
       ((HOL_MONAD UNIT_TYPE) (set_the_term_constants x))``,
   update_tac `LUPDATE res 1 s` `refs with the_term_constants := x`);
 
-(*
-val set_the_axioms_thm = store_thm("set_the_axioms_thm",
-  ``Eval env (Var (Short "the_axioms")) ($= the_axioms) ==>
-    Eval env exp (LIST_TYPE HOL_KERNEL_THM_TYPE x) ==>
-    EvalM env (App Opassign (Var (Short "the_axioms")) exp)
-      ((HOL_MONAD UNIT_TYPE) (set_the_axioms x))``,
-  update_tac `LUPDATE res 2 s` `refs with the_axioms := x`);
-*)
-
 val set_the_definitions_thm = store_thm("set_the_definitions_thm",
   ``Eval env (Var (Short "the_definitions")) ($= the_definitions) ==>
     Eval env exp (LIST_TYPE HOL_KERNEL_DEF_TYPE x) ==>
     EvalM env (App Opassign (Var (Short "the_definitions")) exp)
       ((HOL_MONAD UNIT_TYPE) (set_the_definitions x))``,
-  update_tac `LUPDATE res 2 (*3*) s` `refs with the_definitions := x`);
+  update_tac `LUPDATE res 2 s` `refs with the_definitions := x`);
 
 val set_the_clash_var_thm = store_thm("set_the_clash_var_thm",
   ``Eval env (Var (Short "the_clash_var")) ($= the_clash_var) ==>
     Eval env exp (HOL_KERNEL_HOL_TERM_TYPE x) ==>
     EvalM env (App Opassign (Var (Short "the_clash_var")) exp)
       ((HOL_MONAD UNIT_TYPE) (set_the_clash_var x))``,
-  update_tac `LUPDATE res 3 (*4*) s` `refs with the_clash_var := x`);
+  update_tac `LUPDATE res 3 s` `refs with the_clash_var := x`);
 
 val _ = export_theory();
