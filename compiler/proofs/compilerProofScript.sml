@@ -273,6 +273,11 @@ val exp_pat_syneq_exp = store_thm("exp_pat_syneq_exp",
       simp[bindn_pat_thm] >>
       simp[syneq_cb_V_def] >>
       rw[] >> simp[]) >>
+    match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_mono_V)) >>
+    fs[AC ADD_ASSOC ADD_COMM,ADD1] >> rfs[] >>
+    HINT_EXISTS_TAC >> simp[] >>
+    simp[bindn_pat_thm] >>
+    rw[] >> simp[]) >>
   simp[Once syneq_exp_cases] )
 
 val v_pat_syneq = store_thm("v_pat_syneq",
