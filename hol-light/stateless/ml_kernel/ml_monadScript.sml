@@ -611,7 +611,7 @@ fun get_tm_eval () = let
 
 val SWAP_EXISTS = METIS_PROVE [] ``(?x y. P x y) ==> (?y x. P x y)``
 
-val DeclAssumExists_SNOC_Dlet_Ref = prove(
+val DeclAssumExists_SNOC_Dlet_Ref_lemma = prove(
   ``!ds name n exp P.
       (!env tys. DeclAssum ds env tys ==> Eval env exp P) ==>
       DeclAssumExists ds ==>
@@ -639,173 +639,179 @@ val DeclAssumExists_SNOC_Dlet_Ref = prove(
   \\ FULL_SIMP_TAC std_ss []
   \\ Q.EXISTS_TAC `res'` \\ FULL_SIMP_TAC std_ss [emp_def]);
 
+val DeclAssumExists_SNOC_Dlet_Ref = prove(
+  ``!ds name n exp P.
+      (!env tys. DeclAssum ds env tys ==> Q env ==> Eval env exp P) ==>
+      (!env tys. DeclAssum ds env tys ==> Q env) ==>
+      DeclAssumExists ds ==>
+      DeclAssumExists (SNOC (Dlet (Pvar name) (Uapp Opref exp)) ds)``,
+  METIS_TAC [DeclAssumExists_SNOC_Dlet_Ref_lemma]);
+
+fun all_decls () =
+  (fetch "-" "ml_monad_decls_0" handle HOL_ERR _ => TRUTH) ::
+  (fetch "-" "ml_monad_decls_1" handle HOL_ERR _ => TRUTH) ::
+  (fetch "-" "ml_monad_decls_2" handle HOL_ERR _ => TRUTH) ::
+  (fetch "-" "ml_monad_decls_3" handle HOL_ERR _ => TRUTH) ::
+  (fetch "-" "ml_monad_decls_4" handle HOL_ERR _ => TRUTH) ::
+  (fetch "-" "ml_monad_decls_5" handle HOL_ERR _ => TRUTH) ::
+  (fetch "-" "ml_monad_decls_6" handle HOL_ERR _ => TRUTH) ::
+  (fetch "-" "ml_monad_decls_7" handle HOL_ERR _ => TRUTH) ::
+  (fetch "-" "ml_monad_decls_8" handle HOL_ERR _ => TRUTH) :: [] |> LIST_CONJ;
+
+fun DeclAssumExists_lemma lemma = let
+  val th = DISCH (get_DeclAssum ()) lemma
+           |> Q.GENL [`tys`,`env`]
+           |> HO_MATCH_MP (DeclAssumExists_SNOC_Dlet_Ref |> SPEC_ALL)
+  val goal = th |> concl |> dest_imp |> fst
+  val l = MATCH_MP DeclAssumCons_cons_lookup (get_cenv_eq_thm ())
+          |> CONV_RULE (REWRITE_CONV [EVERY_DEF] THENC
+                        DEPTH_CONV PairRules.PBETA_CONV)
+  in MP th (auto_prove "ref lemma" (goal,REPEAT STRIP_TAC THEN IMP_RES_TAC l)) end
+
+val exp_size_lemma = prove(
+  ``!xs a. MEM a xs ==> exp_size a <= exp6_size xs``,
+  Induct \\ SRW_TAC [] [exp_size_def] \\ RES_TAC \\ DECIDE_TAC);
+
+val obviously_pure_def = tDefine "obviously_pure" `
+  (obviously_pure (Lit _) = T) /\
+  (obviously_pure (Con n xs) = EVERY obviously_pure xs) /\
+  (obviously_pure _ = F)`
+  (WF_REL_TAC `measure exp_size` \\ SRW_TAC [] []
+   \\ IMP_RES_TAC exp_size_lemma \\ DECIDE_TAC)
+
+val simple_decl_def = Define `
+  (simple_decl (Dtype y) = T) /\
+  (simple_decl (Dlet (Pvar k) (Uapp Opref exp)) = obviously_pure exp) /\
+  (simple_decl _ = F)`
+
+val decl_let_def = Define `
+  (decl_let (Dlet (Pvar k) y) = T) /\
+  (decl_let _ = F)`
+
+val obviously_pure_IMP = prove(
+  ``!e s1 s2 v.
+      obviously_pure e /\ evaluate F env2 s1 e (s2,Rval v) ==>
+      (s2 = s1)``,
+  HO_MATCH_MP_TAC (theorem "obviously_pure_ind")
+  \\ SRW_TAC [] [obviously_pure_def,evaluate_SIMP]
+  \\ FULL_SIMP_TAC std_ss [GSYM EVERY_MEM]
+  \\ POP_ASSUM MP_TAC \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM (K ALL_TAC)
+  \\ REPEAT (POP_ASSUM MP_TAC) \\ Q.SPEC_TAC (`env2`,`env`)
+  \\ Q.SPEC_TAC (`s1`,`s1`) \\ Q.SPEC_TAC (`s2`,`s2`) \\ Q.SPEC_TAC (`vs`,`vs`)
+  \\ Induct_on `xs` \\ SIMP_TAC (srw_ss()) [evaluate_SIMP,PULL_EXISTS]
+  \\ REPEAT STRIP_TAC \\ RES_TAC \\ FULL_SIMP_TAC std_ss []);
+
+val LENGTH_FILTER_decl_let = prove(
+  ``!ds s1 s2 env env2 tys.
+      EVERY simple_decl ds /\ Decls NONE env ((0,s1),tys) ds env2 s2 ==>
+      (LENGTH (FILTER decl_let ds) + LENGTH s1 = LENGTH (SND (FST s2)))``,
+  Induct \\ SRW_TAC [] [Decls_NIL,FILTER,LENGTH]
+  \\ FULL_SIMP_TAC std_ss [Once Decls_CONS]
+  \\ Cases_on `h` \\ FULL_SIMP_TAC std_ss [decl_let_def,simple_decl_def]
+  \\ TRY (Cases_on `e`) \\ FULL_SIMP_TAC std_ss [decl_let_def,simple_decl_def]
+  \\ TRY (Cases_on `p`) \\ FULL_SIMP_TAC std_ss [decl_let_def,simple_decl_def]
+  \\ TRY (Cases_on `u`) \\ FULL_SIMP_TAC std_ss [decl_let_def,simple_decl_def]
+  \\ FULL_SIMP_TAC std_ss [Decls_Dtype] \\ SRW_TAC [] [] \\ RES_TAC
+  \\ FULL_SIMP_TAC std_ss [Decls_Dlet]
+  \\ FULL_SIMP_TAC (srw_ss()) [evaluate_SIMP,PULL_EXISTS]
+  \\ IMP_RES_TAC obviously_pure_IMP \\ Cases_on `s2'`
+  \\ FULL_SIMP_TAC (srw_ss()) [do_uapp_def,store_alloc_def,LET_DEF]
+  \\ SRW_TAC [] [] \\ RES_TAC
+  \\ FULL_SIMP_TAC (srw_ss()) [LENGTH,LENGTH_APPEND] \\ DECIDE_TAC);
+
+val simple_decl_IMP = prove(
+  ``EVERY simple_decl (SNOC (Dlet (Pvar n) exp) ds) /\
+    (k = LENGTH (FILTER decl_let ds)) ==>
+    (DeclAssum (SNOC (Dlet (Pvar n) exp) ds) env tys ==>
+     Eval env (Var (Short n)) ((=) (Loc k)))``,
+  Q.SPEC_TAC (`k`,`k`) \\ SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
+  \\ FULL_SIMP_TAC std_ss [DeclAssum_def,Decls_APPEND,SNOC_APPEND,
+       Decls_Dlet,Eval_Var_SIMP,EVERY_APPEND,EVERY_DEF]
+  \\ Cases_on `exp` \\ FULL_SIMP_TAC (srw_ss()) [simple_decl_def,evaluate_SIMP]
+  \\ Cases_on `u` \\ FULL_SIMP_TAC (srw_ss()) [simple_decl_def,do_uapp_def,
+       LET_DEF,store_alloc_def] \\ SRW_TAC [] []
+  \\ Cases_on `s2` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ IMP_RES_TAC LENGTH_FILTER_decl_let
+  \\ IMP_RES_TAC obviously_pure_IMP
+  \\ SRW_TAC [] [] \\ FULL_SIMP_TAC (srw_ss()) []);
+
+fun tac () =
+  SIMP_TAC std_ss [all_decls (),PULL_EXISTS]
+  \\ CONV_TAC ((RAND_CONV o RAND_CONV) EVAL)
+  \\ MATCH_MP_TAC simple_decl_IMP \\ EVAL_TAC
+
+
+(* ref 0 *)
+
+val lemma = hol2deep ``[]:string list`` |> D |> SIMP_RULE std_ss []
+val exp = lemma |> UNDISCH_ALL |> concl |> rator |> rand
+val dec = ``(Dlet (Pvar n) (Uapp Opref ^exp)) : dec``
+val tm = get_DeclAssum () |> rator |> rator |> rand;
+
+val the_type_constants_def = Define `
+    the_type_constants = Loc 0`;
+
+val th = prove(
+  ``DeclAssum (SNOC ^dec ^tm) env tys ==>
+    Eval env (Var (Short n)) ($= the_type_constants)``,
+  tac ()) |> Q.INST [`n`|->`"the_type_constants"`] |> UNDISCH;
+
+val th = store_cert th [TRUTH] (DeclAssumExists_lemma lemma);
+
 
 (* ref 1 *)
 
-val lemma =
-  hol2deep ``[]:string list``
-  |> DISCH_ALL |> SIMP_RULE std_ss []
-val exp = lemma |> concl |> rator |> rand
+val lemma = hol2deep ``[]:(string # hol_type) list`` |> D |> SIMP_RULE std_ss []
+val exp = lemma |> UNDISCH_ALL |> concl |> rator |> rand
 val dec = ``(Dlet (Pvar n) (Uapp Opref ^exp)) : dec``
+val tm = get_DeclAssum () |> rator |> rator |> rand;
 
-val tm = get_DeclAssum () |> rator |> rand;
-val tm_eval = get_tm_eval ()
-
-val the_type_constants_def = Define `
-  the_type_constants = Loc 0`;
+val the_term_constants_def = Define `
+    the_term_constants = Loc 1`;
 
 val th = prove(
-  ``DeclAssum (SNOC ^dec ^tm) env ==>
-    Eval env (Var (Short n)) ($= the_type_constants)``,
-  FULL_SIMP_TAC std_ss [DeclAssum_def,SNOC_APPEND,Decls_APPEND,empty_store_def]
-  \\ SIMP_TAC std_ss [tm_eval,the_type_constants_def]
-  \\ NTAC 10 (ONCE_REWRITE_TAC [Decls_CONS]
-              \\ SIMP_TAC std_ss [Decls_Dtype,Decls_Dlet,Decls_NIL])
-  \\ SIMP_TAC (srw_ss()) [evaluate_SIMP,PULL_EXISTS,do_uapp_def,
-       LET_DEF,store_alloc_def] \\ REPEAT STRIP_TAC
-  \\ REPEAT (Q.PAT_ASSUM `check_dup_ctors xx yy` (K ALL_TAC))
-  \\ SIMP_TAC std_ss [bind_def,Eval_def,empty_store_def]
-  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases,merge_def,emp_def]
-  \\ SIMP_TAC (srw_ss()) [Once lookup_def,bind_def])
-  |> Q.INST [`n`|->`"the_type_constants"`] |> UNDISCH;
+  ``DeclAssum (SNOC ^dec ^tm) env tys ==>
+    Eval env (Var (Short n)) ($= the_term_constants)``,
+  tac ()) |> Q.INST [`n`|->`"the_term_constants"`] |> UNDISCH;
 
-val th = store_cert th [TRUTH]
-  (MATCH_MP DeclAssumExists_SNOC_Dlet_Ref
-    (Q.GEN `env` (DISCH (get_DeclAssum ()) lemma)))
+val th = store_cert th [TRUTH] (DeclAssumExists_lemma lemma);
+
 
 (* ref 2 *)
 
-val lemma =
-  hol2deep ``[]:(string # hol_type) list``
-  |> DISCH_ALL |> SIMP_RULE std_ss []
-val exp = lemma |> concl |> rator |> rand
+val lemma = hol2deep ``[]:def list`` |> D |> SIMP_RULE std_ss []
+val exp = lemma |> UNDISCH_ALL |> concl |> rator |> rand
 val dec = ``(Dlet (Pvar n) (Uapp Opref ^exp)) : dec``
+val tm = get_DeclAssum () |> rator |> rator |> rand;
 
-val tm = get_DeclAssum () |> rator |> rand;
-val tm_eval = get_tm_eval ()
-
-val the_term_constants_def = Define `
-  the_term_constants = Loc 1`;
+val the_definitions_def = Define `
+    the_definitions = Loc 2`;
 
 val th = prove(
-  ``DeclAssum (SNOC ^dec ^tm) env ==>
-    Eval env (Var (Short n)) ($= the_term_constants)``,
-  FULL_SIMP_TAC std_ss [DeclAssum_def,SNOC_APPEND,Decls_APPEND,empty_store_def]
-  \\ SIMP_TAC std_ss [tm_eval,the_term_constants_def]
-  \\ NTAC 10 (ONCE_REWRITE_TAC [Decls_CONS]
-              \\ SIMP_TAC std_ss [Decls_Dtype,Decls_Dlet,Decls_NIL])
-  \\ SIMP_TAC (srw_ss()) [evaluate_SIMP,PULL_EXISTS,do_uapp_def,
-       LET_DEF,store_alloc_def] \\ REPEAT STRIP_TAC
-  \\ REPEAT (Q.PAT_ASSUM `check_dup_ctors xx yy` (K ALL_TAC))
-  \\ SIMP_TAC std_ss [bind_def,Eval_def,empty_store_def]
-  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases,merge_def,emp_def]
-  \\ SIMP_TAC (srw_ss()) [Once lookup_def,bind_def])
-  |> Q.INST [`n`|->`"the_term_constants"`] |> UNDISCH;
+  ``DeclAssum (SNOC ^dec ^tm) env tys ==>
+    Eval env (Var (Short n)) ($= the_definitions)``,
+  tac ()) |> Q.INST [`n`|->`"the_definitions"`] |> UNDISCH;
 
-val th = store_cert th [TRUTH]
-  (MATCH_MP DeclAssumExists_SNOC_Dlet_Ref
-    (Q.GEN `env` (DISCH (get_DeclAssum ()) lemma)))
+val th = store_cert th [TRUTH] (DeclAssumExists_lemma lemma);
+
 
 (* ref 3 *)
 
-(*
-val lemma =
-  hol2deep ``[]:thm list``
-  |> DISCH_ALL |> SIMP_RULE std_ss []
-val exp = lemma |> concl |> rator |> rand
+val lemma = hol2deep ``Var "a" (Tyvar "a")`` |> D |> SIMP_RULE std_ss []
+val exp = lemma |> UNDISCH_ALL |> concl |> rator |> rand
 val dec = ``(Dlet (Pvar n) (Uapp Opref ^exp)) : dec``
-
-val tm = get_DeclAssum () |> rator |> rand;
-val tm_eval = get_tm_eval ()
-
-val the_axioms_def = Define `
-  the_axioms = Loc 2`;
-
-val th = prove(
-  ``DeclAssum (SNOC ^dec ^tm) env ==>
-    Eval env (Var (Short n)) ($= the_axioms)``,
-  FULL_SIMP_TAC std_ss [DeclAssum_def,SNOC_APPEND,Decls_APPEND,empty_store_def]
-  \\ SIMP_TAC std_ss [tm_eval,the_axioms_def]
-  \\ NTAC 10 (ONCE_REWRITE_TAC [Decls_CONS]
-              \\ SIMP_TAC std_ss [Decls_Dtype,Decls_Dlet,Decls_NIL])
-  \\ SIMP_TAC (srw_ss()) [evaluate_SIMP,PULL_EXISTS,do_uapp_def,
-       LET_DEF,store_alloc_def] \\ REPEAT STRIP_TAC
-  \\ REPEAT (Q.PAT_ASSUM `check_dup_ctors xx yy` (K ALL_TAC))
-  \\ SIMP_TAC std_ss [bind_def,Eval_def,empty_store_def]
-  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases,merge_def,emp_def]
-  \\ SIMP_TAC (srw_ss()) [Once lookup_def,bind_def])
-  |> Q.INST [`n`|->`"the_axioms"`] |> UNDISCH;
-
-val th = store_cert th [TRUTH]
-  (MATCH_MP DeclAssumExists_SNOC_Dlet_Ref
-    (Q.GEN `env` (DISCH (get_DeclAssum ()) lemma)))
-*)
-
-(* ref 4 *)
-
-val lemma =
-  hol2deep ``[]:def list``
-  |> DISCH_ALL |> SIMP_RULE std_ss []
-val exp = lemma |> concl |> rator |> rand
-val dec = ``(Dlet (Pvar n) (Uapp Opref ^exp)) : dec``
-
-val tm = get_DeclAssum () |> rator |> rand;
-val tm_eval = get_tm_eval ()
-
-val the_definitions_def = Define `
-  the_definitions = Loc 2 (* 3 *)`;
-
-val th = prove(
-  ``DeclAssum (SNOC ^dec ^tm) env ==>
-    Eval env (Var (Short n)) ($= the_definitions)``,
-  FULL_SIMP_TAC std_ss [DeclAssum_def,SNOC_APPEND,Decls_APPEND,empty_store_def]
-  \\ SIMP_TAC std_ss [tm_eval,the_definitions_def]
-  \\ NTAC 10 (ONCE_REWRITE_TAC [Decls_CONS]
-              \\ SIMP_TAC std_ss [Decls_Dtype,Decls_Dlet,Decls_NIL])
-  \\ SIMP_TAC (srw_ss()) [evaluate_SIMP,PULL_EXISTS,do_uapp_def,
-       LET_DEF,store_alloc_def] \\ REPEAT STRIP_TAC
-  \\ REPEAT (Q.PAT_ASSUM `check_dup_ctors xx yy` (K ALL_TAC))
-  \\ SIMP_TAC std_ss [bind_def,Eval_def,empty_store_def]
-  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases,merge_def,emp_def]
-  \\ SIMP_TAC (srw_ss()) [Once lookup_def,bind_def])
-  |> Q.INST [`n`|->`"the_definitions"`] |> UNDISCH;
-
-val th = store_cert th [TRUTH]
-  (MATCH_MP DeclAssumExists_SNOC_Dlet_Ref
-    (Q.GEN `env` (DISCH (get_DeclAssum ()) lemma)))
-
-(* ref 5 *)
-
-val lemma =
-  hol2deep ``Var "a" (Tyvar "a")``
-  |> DISCH_ALL |> SIMP_RULE std_ss []
-val exp = lemma |> concl |> rator |> rand
-val dec = ``(Dlet (Pvar n) (Uapp Opref ^exp)) : dec``
-
-val tm = get_DeclAssum () |> rator |> rand;
-val tm_eval = get_tm_eval ()
+val tm = get_DeclAssum () |> rator |> rator |> rand;
 
 val the_clash_var_def = Define `
-  the_clash_var = Loc 3 (* 4 *)`;
+    the_clash_var = Loc 3`;
 
 val th = prove(
-  ``DeclAssum (SNOC ^dec ^tm) env ==>
+  ``DeclAssum (SNOC ^dec ^tm) env tys ==>
     Eval env (Var (Short n)) ($= the_clash_var)``,
-  FULL_SIMP_TAC std_ss [DeclAssum_def,SNOC_APPEND,Decls_APPEND,empty_store_def]
-  \\ SIMP_TAC std_ss [tm_eval,the_clash_var_def]
-  \\ NTAC 10 (ONCE_REWRITE_TAC [Decls_CONS]
-              \\ SIMP_TAC std_ss [Decls_Dtype,Decls_Dlet,Decls_NIL])
-  \\ SIMP_TAC (srw_ss()) [evaluate_SIMP,PULL_EXISTS,do_uapp_def,
-       LET_DEF,store_alloc_def] \\ REPEAT STRIP_TAC
-  \\ REPEAT (Q.PAT_ASSUM `check_dup_ctors xx yy` (K ALL_TAC))
-  \\ SIMP_TAC std_ss [bind_def,Eval_def,empty_store_def]
-  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases,merge_def,emp_def]
-  \\ SIMP_TAC (srw_ss()) [Once lookup_def,bind_def])
-  |> Q.INST [`n`|->`"the_clash_var"`] |> UNDISCH;
+  tac ()) |> Q.INST [`n`|->`"the_clash_var"`] |> UNDISCH;
 
-val th = store_cert th [TRUTH]
-  (MATCH_MP DeclAssumExists_SNOC_Dlet_Ref
-    (Q.GEN `env` (DISCH (get_DeclAssum ()) lemma)))
+val th = store_cert th [TRUTH] (DeclAssumExists_lemma lemma);
+
 
 (* read and update refs *)
 

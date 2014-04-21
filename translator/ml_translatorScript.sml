@@ -952,7 +952,7 @@ val merge_envC_empty = Q.prove (
 val merge_env_def = Define `
   merge_env (env1:all_env) (env2:all_env) = (env1:all_env)`;
 
-val Decls_NIL = store_thm("Decls_APPEND",
+val Decls_NIL = store_thm("Decls_NIL",
   ``!s1 s3 mn env1 ds1 ds2 env3.
       Decls mn env1 s1 [] env3 s3 <=> (env3 = env1) /\ (s3 = s1)``,
   REPEAT STRIP_TAC \\ PairCases_on `env1`
