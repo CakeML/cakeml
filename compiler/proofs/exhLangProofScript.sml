@@ -78,17 +78,30 @@ val v_to_exh_eqn = Q.prove (
  metis_tac []);
 
 val store_to_exh_def = Define `
-store_to_exh exh (s,genv) =
-  ((FST s, MAP (v_to_exh exh) (SND s)), MAP (OPTION_MAP (v_to_exh exh)) genv)`;
+store_to_exh exh (s,genv) (s_exh,genv_exh) ⇔
+  FST s = FST s_exh ∧
+  LIST_REL (v_to_exh exh) (SND s) (SND s_exh) ∧
+  LIST_REL (OPTION_REL (v_to_exh exh)) genv genv_exh`;
 
-val result_to_exh_def = Define `
-(result_to_exh r exh (s,res) =
-  (store_to_exh exh s,
-   case res of
-     | Rval v => Rval (r exh v)
-     | Rerr (Rraise v) => Rerr (Rraise (v_to_exh exh v))
-     | Rerr Rtimeout_error => Rerr Rtimeout_error
-     | Rerr Rtype_error => Rerr Rtype_error))`;
+val (result_to_exh_rules, result_to_exh_ind, result_to_exh_cases) = Hol_reln `
+(∀exh v v' s s'.
+  f exh v v' ∧
+  store_to_exh exh s s'
+  ⇒
+  result_to_exh f exh (s,Rval v) (s',Rval v')) ∧
+(∀exh v v' s s'.
+  v_to_exh exh v v' ∧
+  store_to_exh exh s s'
+  ⇒
+  result_to_exh f exh (s,Rerr (Rraise v)) (s',Rerr (Rraise v'))) ∧
+(!exh s s'.
+  store_to_exh exh s s'
+  ⇒
+  result_to_exh f exh (s,Rerr Rtimeout_error) (s',Rerr Rtimeout_error)) ∧
+(!exh s s'.
+  store_to_exh exh s s'
+  ⇒
+  result_to_exh f exh (s,Rerr Rtype_error) (s',Rerr Rtype_error))`;
 
 val exists_match_def = Define `
 exists_match exh s ps v ⇔
@@ -179,7 +192,7 @@ val vs_to_exh_LIST_REL = prove(
 
 val funs_to_exh_MAP = prove(
   ``funs_to_exh exh ls = MAP (λ(x,y,z). (x,y,exp_to_exh exh z)) ls``,
-  Induct_on`ls`>>simp[exp_to_exh_def]>>qx_gen_tac`p`>>PairCases_on`p`>>simp[exp_to_exh_def])
+  Induct_on`ls`>>simp[exp_to_exh_def]>>qx_gen_tac`p`>>PairCases_on`p`>>simp[exp_to_exh_def]);
 
 val find_recfun_funs_to_exh = prove(
   ``∀ls f exh. find_recfun f (funs_to_exh exh ls) =
@@ -190,7 +203,7 @@ val find_recfun_funs_to_exh = prove(
   simp[Once find_recfun_def,SimpRHS] >>
   rpt gen_tac >>
   every_case_tac >>
-  simp[] >> fs[funs_to_exh_MAP])
+  simp[] >> fs[funs_to_exh_MAP]);
 
 val build_rec_env_i2_MAP = prove(
   ``build_rec_env_i2 funs cle env = MAP (λ(f,cdr). (f, (Recclosure_i2 cle funs f))) funs ++ env``,
@@ -366,40 +379,50 @@ val pmatch_i2_any_no_match = store_thm("pmatch_i2_any_no_match",
   fs[] >> strip_tac >> fs[] >>
   BasicProvers.CASE_TAC >> fs[] >>
   imp_res_tac pmatch_i2_any_match >>
-  metis_tac[semanticPrimitivesTheory.match_result_distinct])
+  metis_tac[semanticPrimitivesTheory.match_result_distinct]);
 
 val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
 `(!ck env s e r.
   evaluate_i3 ck env s e r
   ⇒
-  !exh env'.
+  !exh env' env_exh s_exh r_exh.
     SND r ≠ Rerr Rtype_error ∧
-    env = (exh,env') ⇒
-    evaluate_exh ck (env_to_exh exh env') (store_to_exh exh s) (exp_to_exh exh e) (result_to_exh v_to_exh exh r)) ∧
+    env = (exh,env') ∧
+    env_to_exh exh env' env_exh ∧
+    store_to_exh exh s s_exh ∧
+    result_to_exh v_to_exh exh r r_exh
+    ⇒
+    evaluate_exh ck env_exh s_exh (exp_to_exh exh e) r_exh) ∧
  (!ck env s es r.
   evaluate_list_i3 ck env s es r
   ⇒
-  !exh env'.
+  !exh env' env_exh s_exh r_exh.
     SND r ≠ Rerr Rtype_error ∧
-    env = (exh,env') ⇒
-    evaluate_list_exh ck (env_to_exh exh env') (store_to_exh exh s) (exps_to_exh exh es) (result_to_exh vs_to_exh exh r)) ∧
+    env = (exh,env') ∧
+    env_to_exh exh env' env_exh ∧
+    store_to_exh exh s s_exh ∧
+    result_to_exh vs_to_exh exh r r_exh
+    ⇒
+    evaluate_list_exh ck env_exh s_exh (exps_to_exh exh es) r_exh) ∧
  (!ck env s v pes err_v r.
   evaluate_match_i3 ck env s v pes err_v r
   ⇒
-  !exh env' pes' is_handle.
+  !exh env' pes' is_handle env_exh s_exh r_exh v_exh.
     SND r ≠ Rerr Rtype_error ∧
     env = (exh,env') ∧
+    env_to_exh exh env' env_exh ∧
+    store_to_exh exh s s_exh ∧
+    v_to_exh exh v v_exh ∧
+    result_to_exh v_to_exh exh r r_exh ∧
     (is_handle ⇒ err_v = v) ∧
     (¬is_handle ⇒ err_v = Conv_i2 (bind_tag, SOME(TypeExn(Short "Bind"))) []) ∧
     (pes' = add_default is_handle F pes ∨
      exists_match exh (SND (FST s)) (MAP FST pes) v ∧
      pes' = add_default is_handle T pes)
      ⇒
-    evaluate_match_exh ck (env_to_exh exh env') (store_to_exh exh s) (v_to_exh exh v)
-                          (pat_exp_to_exh exh pes')
-                          (result_to_exh v_to_exh exh r))`,
+    evaluate_match_exh ck env_exh s_exh v_exh (pat_exp_to_exh exh pes') r_exh)`,
  ho_match_mp_tac evaluate_i3_ind >>
- rw [exp_to_exh_def, v_to_exh_eqn, result_to_exh_def] >>
+ rw [exp_to_exh_def, v_to_exh_eqn, result_to_exh_cases] >>
  ONCE_REWRITE_TAC [evaluate_exh_cases] >>
  fs [v_to_exh_eqn, result_to_exh_def, store_to_exh_def] >>
  TRY (Cases_on `err`) >>
