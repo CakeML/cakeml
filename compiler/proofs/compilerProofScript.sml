@@ -2703,7 +2703,8 @@ val compile_top_thm = store_thm("compile_top_thm",
     conj_tac >- simp[Abbr`bs2`] >>
     ONCE_REWRITE_TAC[CONJ_ASSOC] >>
     conj_tac >- (
-      cheat (* evaluate_dec_closed *) ) >>
+      first_x_assum(mp_tac o MATCH_MP evaluate_dec_closed) >>
+      fs[closed_top_def,all_env_closed_def]) >>
     conj_tac >- (
       simp[EVERY_APPEND] >>
       cheat (* evaluate_prompt_i1_closed *) ) >>

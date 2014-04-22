@@ -1183,21 +1183,6 @@ val evaluate_closed = store_thm("evaluate_closed",
   strip_tac (* Match *) >- rw[] >>
   rw[])
 
-(*
-val evaluate_dec_closed = store_thm("evaluate_dec_closed",
-  ``∀ck mn env s dec res. evaluate_dec ck mn env s dec res ⇒
-      EVERY closed (SND(FST s)) ∧
-      EVERY closed (MAP SND (all_env_to_env env)) ∧
-      EVERY closed (MAP SND (FLAT (MAP SND (all_env_to_menv env))))
-      ⇒
-      EVERY closed (SND(FST(FST res))) ∧
-      every_result (λ(envC,envE). EVERY closed (MAP SND envE))
-                   closed (SND res)``,
-  ho_match_mp_tac evaluate_dec_ind >>
-  strip_tac >- (
-    rw[]
-*)
-
 val free_vars_i1_exp_to_i1 = store_thm("free_vars_i1_exp_to_i1",
   ``(∀menv env e. free_vars_i1 (exp_to_i1 menv env e) = SFV e DIFF FDOM env) ∧
     (∀menv env es. free_vars_list_i1 (exps_to_i1 menv env es) = {x | Short x ∈ FV_list es} DIFF FDOM env) ∧
@@ -1279,6 +1264,27 @@ val FV_dec_def = Define`
   (FV_dec (Dtype _) = {}) ∧
   (FV_dec (Dexn _ _) = {})`
 val _ = export_rewrites["FV_dec_def"]
+
+val evaluate_dec_closed = store_thm("evaluate_dec_closed",
+  ``∀ck mn env s dec res. evaluate_dec ck mn env s dec res ⇒
+      FV_dec dec ⊆ all_env_dom env ∧
+      all_env_closed env ∧
+      EVERY closed (SND(FST s))
+      ⇒
+      EVERY closed (SND(FST(FST res))) ∧
+      every_result (λ(envC,envE). EVERY closed (MAP SND envE))
+                   closed (SND res)``,
+  ho_match_mp_tac evaluate_dec_ind >> rw[] >>
+  imp_res_tac evaluate_closed >> fs[emp_def] >>
+  TRY (
+    rator_x_assum`$=`mp_tac >>
+    specl_args_of_then``pmatch``(CONJUNCT1 pmatch_closed)mp_tac>>
+    rw[] >> fs[] ) >>
+  match_mp_tac build_rec_env_closed >>
+  PairCases_on`env` >>
+  fs[all_env_dom_def,all_env_closed_def,FST_triple,all_env_to_env_def,all_env_to_menv_def] >>
+  fsrw_tac[DNF_ss][SUBSET_DEF,FV_defs_MAP,FORALL_PROD,MEM_MAP,EXISTS_PROD] >>
+  metis_tac[])
 
 val new_dec_vs_def = Define`
   (new_dec_vs (Dtype _) = []) ∧
