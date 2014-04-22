@@ -394,6 +394,47 @@ val v_to_exh_lit_loc = store_thm("v_to_exh_lit_loc",
   rw[] >> rw[Once v_to_exh_cases])
 val _ = export_rewrites["v_to_exh_lit_loc"]
 
+val v_to_exh_extend_disjoint_helper = Q.prove (
+`(!exh v1 v2.
+  v_to_exh exh v1 v2 ⇒
+  !exh'. DISJOINT (FDOM exh') (FDOM exh)
+    ⇒
+    v_to_exh (exh' ⊌ exh) v1 v2) ∧
+ (!exh vs1 vs2.
+  vs_to_exh exh vs1 vs2 ⇒
+  !exh'. DISJOINT (FDOM exh') (FDOM exh)
+    ⇒
+    vs_to_exh (exh' ⊌ exh) vs1 vs2) ∧
+ (!exh env1 env2.
+  env_to_exh exh env1 env2 ⇒
+  !exh'. DISJOINT (FDOM exh') (FDOM exh)
+    ⇒
+    env_to_exh (exh' ⊌ exh) env1 env2)`,
+ ho_match_mp_tac v_to_exh_ind >>
+ rw [] >>
+ rw [Once v_to_exh_cases] >>
+ qexists_tac `exh'` >>
+ rw [] >>
+ `DISJOINT (FDOM exh') (FDOM exh'') ∧ DISJOINT (FDOM (FEMPTY:exh_ctors_env)) (FDOM exh')` 
+       by (fs [SUBMAP_DEF, DISJOINT_DEF, EXTENSION] >>
+           rw [] >>
+           metis_tac []) >>
+ metis_tac [FUNION_FEMPTY_1, SUBMAP_FUNION]);
+
+val env_to_exh_submap = prove(
+  ``∀exh env1 env2 exh'. env_to_exh exh env1 env2 ⇒ exh ⊑ exh' ⇒ env_to_exh exh' env1 env2``,
+  rw[] >>
+  first_x_assum(mp_tac o MATCH_MP(CONJUNCT2(CONJUNCT2 v_to_exh_extend_disjoint_helper))) >>
+  disch_then(qspec_then`DRESTRICT exh' (COMPL (FDOM exh)) `mp_tac) >>
+  discharge_hyps >- (
+    simp[IN_DISJOINT,FDOM_DRESTRICT] >>
+    fs[SUBMAP_DEF] >> metis_tac[] ) >>
+  Q.PAT_ABBREV_TAC`exh'' = X ⊌ exh` >>
+  `exh'' = exh'` by (
+   simp[Abbr`exh''`,GSYM fmap_EQ_THM,DRESTRICT_DEF,FUNION_DEF] >>
+   fs[SUBMAP_DEF,EXTENSION] >>
+   conj_tac >- metis_tac[] >> rw[] ) >> rw[])
+
 val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
 `(!ck env s e r.
   evaluate_i3 ck env s e r
@@ -645,15 +686,38 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
      fs[env_to_exh_LIST_REL] >>
      metis_tac[] )
    >- (
-     BasicProvers.CASE_TAC >>
-     pop_assum mp_tac >>
+     Q.PAT_ABBREV_TAC`cn:num = if ck then X else Y` >>
+     BasicProvers.CASE_TAC >> pop_assum mp_tac >>
      simp[Once v_to_exh_cases] >>
      rw[] >> rw[] >>
      fs[env_to_exh_LIST_REL,bind_def,PULL_EXISTS,FORALL_PROD,store_to_exh_def] >> rw[] >>
      fs[FST_triple,funs_to_exh_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
-     every_case_tac >> fs[] >> rw[] >>
-     ONCE_REWRITE_TAC[CONJ_SYM] >>
-     cheat (* exp_to_exh needs to work with a submap? *)
+     TRY (pop_assum mp_tac >> BasicProvers.CASE_TAC >> BasicProvers.CASE_TAC >> fs[] >> rw[]) >>
+     fs[GSYM env_to_exh_LIST_REL] >>
+     first_assum(mp_tac o MATCH_MP env_to_exh_submap) >>
+     disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
+     strip_tac >> fs[GSYM AND_IMP_INTRO] >- (
+       first_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+       rpt(disch_then(fn th => first_assum(mp_tac o MATCH_MP th))) >>
+       strip_tac >>
+       cheat (* exp_to_exh needs to work the same on a submap? seems unlikely *) ) >>
+     Q.PAT_ABBREV_TAC`envh = X::build_rec_env_exh Y Z A` >>
+     first_x_assum(qspec_then`envh`mp_tac) >>
+     simp[RIGHT_FORALL_IMP_THM] >>
+     discharge_hyps >- (
+       fs[env_to_exh_LIST_REL,Abbr`envh`] >>
+       simp[build_rec_env_i2_MAP,build_rec_env_exh_MAP] >>
+       match_mp_tac EVERY2_APPEND_suff >>
+       simp[EVERY2_MAP,UNCURRY] >>
+       simp[Once v_to_exh_cases] >>
+       simp[funs_to_exh_MAP] >>
+       simp[EVERY2_EVERY,EVERY_MEM,MEM_ZIP,PULL_EXISTS] >>
+       simp[env_to_exh_LIST_REL] >>
+       metis_tac[] ) >>
+     disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+     disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+     strip_tac >>
+     cheat (* same problem *)
      )
    >- (
      BasicProvers.CASE_TAC >> fs[] >>
@@ -772,33 +836,6 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
      fs[exists_match_def] >>
      metis_tac[pmatch_i2_any_no_match]))
 *)
-
-val v_to_exh_extend_disjoint_helper = Q.prove (
-`(!exh v1 v2.
-  v_to_exh exh v1 v2 ⇒
-  !exh'. DISJOINT (FDOM exh') (FDOM exh)
-    ⇒
-    v_to_exh (exh' ⊌ exh) v1 v2) ∧
- (!exh vs1 vs2.
-  vs_to_exh exh vs1 vs2 ⇒
-  !exh'. DISJOINT (FDOM exh') (FDOM exh)
-    ⇒
-    vs_to_exh (exh' ⊌ exh) vs1 vs2) ∧
- (!exh env1 env2.
-  env_to_exh exh env1 env2 ⇒
-  !exh'. DISJOINT (FDOM exh') (FDOM exh)
-    ⇒
-    env_to_exh (exh' ⊌ exh) env1 env2)`,
- ho_match_mp_tac v_to_exh_ind >>
- rw [] >>
- rw [Once v_to_exh_cases] >>
- qexists_tac `exh'` >>
- rw [] >>
- `DISJOINT (FDOM exh') (FDOM exh'') ∧ DISJOINT (FDOM (FEMPTY:exh_ctors_env)) (FDOM exh')` 
-       by (fs [SUBMAP_DEF, DISJOINT_DEF, EXTENSION] >>
-           rw [] >>
-           metis_tac []) >>
- metis_tac [FUNION_FEMPTY_1, SUBMAP_FUNION]);
 
 val v_to_exh_extend_disjoint = store_thm("v_to_exh_extend_disjoint",
   ``∀exh v1 v2 exh'. v_to_exh exh v1 v2 ∧ DISJOINT (FDOM exh') (FDOM exh) ⇒
