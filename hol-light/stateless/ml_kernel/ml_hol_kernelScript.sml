@@ -230,11 +230,9 @@ fun inst_case_thm tm m2deep = let
     val (z1,z2) = dest_imp (concl lemma)
     val thz =
       QCONV (SIMP_CONV std_ss [ASSUME x1,Eval_Var_SIMP,lookup_def] THENC
-             ONCE_REWRITE_CONV [EvalM_Var_SIMP,lookup_cons_write] THENC
-             ONCE_REWRITE_CONV [EvalM_Var_SIMP,lookup_cons_write] THENC
-             ONCE_REWRITE_CONV [EvalM_Var_SIMP,lookup_cons_write] THENC
-             ONCE_REWRITE_CONV [EvalM_Var_SIMP,lookup_cons_write] THENC
-             ONCE_REWRITE_CONV [EvalM_Var_SIMP,lookup_cons_write] THENC
+             ONCE_REWRITE_CONV [EvalM_Var_SIMP] THENC
+             ONCE_REWRITE_CONV [EvalM_Var_SIMP] THENC
+             REWRITE_CONV [lookup_cons_write,lookup_var_write] THENC
              DEPTH_CONV stringLib.string_EQ_CONV THENC
              SIMP_CONV std_ss []) z1 |> DISCH x1
     val lemma = MATCH_MP sat_hyp_lemma (CONJ thz lemma)
@@ -269,8 +267,10 @@ fun inst_EvalM_env v th = let
   val th = thx |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
                |> DISCH_ALL |> DISCH assum |> SIMP_RULE bool_ss []
                |> INST [old_env|->new_env]
-               |> SIMP_RULE bool_ss [Eval_Var_SIMP,lookup_def]
-               |> ONCE_REWRITE_RULE [EvalM_Var_SIMP,lookup_cons_write]
+               |> SIMP_RULE bool_ss [Eval_Var_SIMP,lookup_def,lookup_var_write]
+               |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
+               |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
+               |> REWRITE_RULE [lookup_cons_write,lookup_var_write]
                |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
                |> SIMP_RULE bool_ss [SafeVar_def]
   val new_assum = fst (dest_imp (concl th))
@@ -300,8 +300,11 @@ fun apply_EvalM_Recclosure fname v th = let
                |> DISCH_ALL |> DISCH assum |> SIMP_RULE bool_ss []
                |> INST [old_env|->new_env]
                |> SIMP_RULE bool_ss [Eval_Var_SIMP,lookup_def]
-               |> ONCE_REWRITE_RULE [EvalM_Var_SIMP,lookup_cons_write]
+               |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
+               |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
+               |> REWRITE_RULE [lookup_cons_write,lookup_var_write,write_rec_one]
                |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
+               |> REWRITE_RULE [GSYM write_rec_one]
                |> SIMP_RULE bool_ss [SafeVar_def]
   val new_assum = fst (dest_imp (concl thx))
   val th1 = thx |> UNDISCH_ALL
@@ -385,10 +388,11 @@ fun m2deep tm =
     val y = tm |> rand
     val th1 = m2deep x
     val th2 = m2deep y
-    val th2 = th2 |> DISCH_ALL |> Q.INST [`env`|->`(("v",i)::env)`]
-                  |> REWRITE_RULE [Eval_Var_SIMP2,lookup_def]
+    val th2 = th2 |> DISCH_ALL |> Q.INST [`env`|->`write "v" i env`]
+                  |> REWRITE_RULE [Eval_Var_SIMP2,lookup_def,lookup_cons_write]
                   |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
                   |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
+                  |> REWRITE_RULE [lookup_cons_write,lookup_var_write]
                   |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
                   |> REWRITE_RULE []
                   |> UNDISCH_ALL |> Q.GEN `i`
@@ -519,7 +523,7 @@ fun m_translate def = let
   val _ = print ("Translating monadic " ^ fname ^ "\n")
   val fname_str = stringLib.fromMLstring fname
   (* read off information *)
-  val _ = register_term_types (concl def)
+  (* val _ = register_term_types (concl def) *)
   fun rev_param_list tm = rand tm :: rev_param_list (rator tm) handle HOL_ERR _ => []
   val rev_params = def |> concl |> dest_eq |> fst |> rev_param_list
   val no_params = (length rev_params = 0)
@@ -697,7 +701,6 @@ val def = new_type_def |> m_translate
 val def = EQ_MP_def |> m_translate
 val def = ASSUME_def |> m_translate
 val def = add_def_def |> m_translate
-(*val def = new_axiom_def |> m_translate*)
 val def = vsubst_def |> m_translate
 val def = inst_aux_def (* rec *) |> m_translate
 val def = inst_def |> m_translate
