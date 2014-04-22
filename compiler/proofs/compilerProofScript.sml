@@ -54,14 +54,6 @@ val store_to_exh_csg_rel = store_thm("store_to_exh_csg_rel",
   ``store_to_exh exh = csg_rel (v_to_exh exh)``,
   simp[FUN_EQ_THM,FORALL_PROD,store_to_exh_def,csg_rel_def])
 
-val v_to_exh_lit_loc = store_thm("v_to_exh_lit_loc",
-  ``(v_to_exh exh (Litv_i2 l) lh ⇔ lh = Litv_exh l) ∧
-    (v_to_exh exh l2 (Litv_exh l) ⇔ l2 = Litv_i2 l) ∧
-    (v_to_exh exh (Loc_i2 n) lh ⇔ lh = Loc_exh n) ∧
-    (v_to_exh exh l2 (Loc_exh n) ⇔ l2 = Loc_i2 n)``,
-  rw[] >> rw[Once v_to_exh_cases])
-val _ = export_rewrites["v_to_exh_lit_loc"]
-
 val build_rec_env_MAP = store_thm("build_rec_env_MAP",
   ``build_rec_env funs cle env = MAP (λ(f,cdr). (f, (Recclosure cle funs f))) funs ++ env``,
   rw[build_rec_env_def] >>

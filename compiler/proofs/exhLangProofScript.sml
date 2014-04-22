@@ -386,6 +386,14 @@ fun exists_lift_conj_tac tm =
     STRIP_BINDER_CONV(SOME existential)
       (lift_conjunct_conv(same_const tm o fst o strip_comb)))
 
+val v_to_exh_lit_loc = store_thm("v_to_exh_lit_loc",
+  ``(v_to_exh exh (Litv_i2 l) lh ⇔ lh = Litv_exh l) ∧
+    (v_to_exh exh l2 (Litv_exh l) ⇔ l2 = Litv_i2 l) ∧
+    (v_to_exh exh (Loc_i2 n) lh ⇔ lh = Loc_exh n) ∧
+    (v_to_exh exh l2 (Loc_exh n) ⇔ l2 = Loc_i2 n)``,
+  rw[] >> rw[Once v_to_exh_cases])
+val _ = export_rewrites["v_to_exh_lit_loc"]
+
 val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
 `(!ck env s e r.
   evaluate_i3 ck env s e r
@@ -609,42 +617,102 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    rator_x_assum`result_to_exh`(strip_assume_tac o SIMP_RULE(srw_ss())[Once result_to_exh_cases]) >>
    BasicProvers.VAR_EQ_TAC >>
    first_assum(match_exists_tac o concl) >> simp[] >>
-   cheat ) >>
+   last_x_assum mp_tac >>
+   Cases_on`op`>>simp[do_app_exh_def,do_app_i2_def] >- (
+     BasicProvers.CASE_TAC >> simp[] >>
+     BasicProvers.CASE_TAC >> simp[] >> fs[] >>
+     rpt BasicProvers.VAR_EQ_TAC >>
+     BasicProvers.CASE_TAC >> simp[] >> fs[] >>
+     rpt BasicProvers.VAR_EQ_TAC >>
+     BasicProvers.CASE_TAC >> simp[] >>
+     BasicProvers.CASE_TAC >>
+     rw[exn_env_i2_def,libTheory.emp_def] >>
+     fs[env_to_exh_LIST_REL,exp_to_exh_def,bigStepTheory.dec_count_def] >>
+     metis_tac[] )
+   >- (
+     BasicProvers.CASE_TAC >> simp[] >>
+     BasicProvers.CASE_TAC >> simp[] >> fs[] >>
+     rpt BasicProvers.VAR_EQ_TAC >>
+     BasicProvers.CASE_TAC >> simp[] >> fs[] >>
+     rpt BasicProvers.VAR_EQ_TAC >>
+     BasicProvers.CASE_TAC >> simp[] >>
+     rw[] >> fs[bigStepTheory.dec_count_def,exp_to_exh_def] >>
+     metis_tac[] )
+   >- (
+     BasicProvers.CASE_TAC >>
+     imp_res_tac do_eq_exh_correct >> rw[] >>
+     fs[bigStepTheory.dec_count_def,exp_to_exh_def,libTheory.emp_def,exn_env_i2_def] >>
+     fs[env_to_exh_LIST_REL] >>
+     metis_tac[] )
+   >- (
+     BasicProvers.CASE_TAC >>
+     pop_assum mp_tac >>
+     simp[Once v_to_exh_cases] >>
+     rw[] >> rw[] >>
+     fs[env_to_exh_LIST_REL,bind_def,PULL_EXISTS,FORALL_PROD,store_to_exh_def] >> rw[] >>
+     fs[FST_triple,funs_to_exh_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
+     every_case_tac >> fs[] >> rw[] >>
+     ONCE_REWRITE_TAC[CONJ_SYM] >>
+     cheat (* exp_to_exh needs to work with a submap? *)
+     )
+   >- (
+     BasicProvers.CASE_TAC >> fs[] >>
+     fs[store_to_exh_def] >> rw[] >>
+     imp_res_tac EVERY2_LENGTH >>
+     every_case_tac >> fs[store_assign_def] >> rw[] >> rfs[] >>
+     fs[exp_to_exh_def] >>
+     ONCE_REWRITE_TAC[CONJ_SYM] >>
+     first_x_assum (match_mp_tac o MP_CANON) >>
+     simp[store_to_exh_def,EVERY2_LUPDATE_same] )) >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   simp[do_app_i2_def] >> rw[] >>
+   simp[Once evaluate_exh_cases] >>
+   srw_tac[DNF_ss][] >> disj2_tac >> disj1_tac >>
+   every_case_tac >> fs[do_app_exh_def] >>
+   rw[Once result_to_exh_cases] >>
+   fs[Once result_to_exh_cases,PULL_EXISTS] >>
+   exists_lift_conj_tac``evaluate_exh`` >>
+   fs[GSYM AND_IMP_INTRO,EXISTS_PROD] >>
+   last_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   first_assum(match_exists_tac o concl) >> simp[] >>
+   first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   fs[store_to_exh_def] >> rw[] >>
+   first_assum(match_exists_tac o concl) >> simp[] >>
+   fs[Q.SPECL[`exh`,`Closure_i2 X Y Z`](CONJUNCT1 v_to_exh_cases)] >>
+   fs[Q.SPECL[`exh`,`Recclosure_i2 X Y Z`](CONJUNCT1 v_to_exh_cases)] >>
+   fs[funs_to_exh_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,FST_triple,ETA_AX] ) >>
+ strip_tac >- simp[] >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rpt gen_tac >> strip_tac >>
+   rpt gen_tac >> strip_tac >>
+   simp[Once result_to_exh_cases,PULL_EXISTS,v_to_exh_eqn] >>
+   fs[Once result_to_exh_cases,PULL_EXISTS] >>
+   simp[Once evaluate_exh_cases] >>
+   srw_tac[DNF_ss][] >>
+   fs[GSYM AND_IMP_INTRO] >>
+   last_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   Cases_on`err`>>fs[] >>
+   last_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   metis_tac[] ) >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rpt gen_tac >> strip_tac >>
+   rpt gen_tac >> strip_tac >>
+   simp[Once result_to_exh_cases,PULL_EXISTS,v_to_exh_eqn] >>
+   fs[Once result_to_exh_cases,PULL_EXISTS] >>
+   simp[Once evaluate_exh_cases] >>
+   srw_tac[DNF_ss][] >>
+   Cases_on`err`>>fs[] >>
+   metis_tac[] ) >>
  cheat)
 
 (*
- >- (disj1_tac >>
-     first_assum(match_exists_tac o concl) >> simp[] >>
-     first_assum(match_exists_tac o concl) >> simp[] >>
-     fs[do_app_i2_def] >>
-     every_case_tac >>
-     fs[do_app_exh_def,v_to_exh_eqn,do_eq_i2_def] >>
-     rw[] >> fs[] >>
-     fs[exp_to_exh_def,exn_env_i2_def] >>
-     fs[v_to_exh_eqn,bind_def,emp_def] >>
-     fs[store_assign_def,evaluate_exh_lit] >>
-     rw[LUPDATE_MAP,v_to_exh_eqn] >>
-     fs[funs_to_exh_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,FST_triple,ETA_AX])
- >- (disj1_tac >>
-     first_assum(match_exists_tac o concl) >> simp[] >>
-     first_assum(match_exists_tac o concl) >> simp[] >>
-     fs[do_app_i2_def] >>
-     every_case_tac >>
-     fs[do_app_exh_def,v_to_exh_eqn,do_eq_i2_def] >>
-     rw[] >> fs[] >>
-     fs[exp_to_exh_def,exn_env_i2_def] >>
-     fs[v_to_exh_eqn,bind_def,emp_def] >>
-     fs[store_assign_def,evaluate_exh_lit] >>
-     rw[LUPDATE_MAP,v_to_exh_eqn] >>
-     fs[funs_to_exh_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,FST_triple,ETA_AX])
- >- (disj2_tac >> disj1_tac >>
-     first_assum(match_exists_tac o concl) >> simp[] >>
-     first_assum(match_exists_tac o concl) >> simp[] >>
-     fs[do_app_i2_def] >>
-     every_case_tac >> fs[v_to_exh_eqn,do_app_exh_def] >>
-     fs[funs_to_exh_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,FST_triple,ETA_AX])
- >- metis_tac []
- >- metis_tac []
  >- (fs [do_if_i2_def, do_if_exh_def] >>
      every_case_tac >>
      fs [] >>
