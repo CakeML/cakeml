@@ -929,4 +929,6 @@ val set_the_clash_var_thm = store_thm("set_the_clash_var_thm",
       ((HOL_MONAD UNIT_TYPE) (set_the_clash_var x))``,
   update_tac `LUPDATE res 3 s` `refs with the_clash_var := x`);
 
+val _ = (print_asts := true);
+
 val _ = export_theory();
