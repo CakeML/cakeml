@@ -50,6 +50,10 @@ val genv_to_i2_LIST_REL = store_thm("genv_to_i2_LIST_REL",
   ``∀x y z. genv_to_i2 x y z ⇒ LIST_REL (OPTREL (v_to_i2 x)) y z``,
   ho_match_mp_tac genv_to_i2_ind >> simp[optionTheory.OPTREL_def])
 
+val store_to_exh_csg_rel = store_thm("store_to_exh_csg_rel",
+  ``store_to_exh exh = csg_rel (v_to_exh exh)``,
+  simp[FUN_EQ_THM,FORALL_PROD,store_to_exh_def,csg_rel_def])
+
 val v_to_exh_lit_loc = store_thm("v_to_exh_lit_loc",
   ``(v_to_exh exh (Litv_i2 l) lh ⇔ lh = Litv_exh l) ∧
     (v_to_exh exh l2 (Litv_exh l) ⇔ l2 = Litv_i2 l) ∧
@@ -1986,14 +1990,15 @@ val good_globals_def = Define`
   (∀n. n ∈ FRANGE (SND e) ∨
        n ∈ BIGUNION (IMAGE FRANGE (FRANGE (FST e))) ⇒
        n < m)`
-*)
 
 val closed_genv_def = Define`
-  closed_genv genv (mods,tops) (envM,envE) ⇔
+  closed_genv genv ⇔
+  EVERY (OPTION_EVERY closed) genv
   ∀n. n < LENGTH genv ∧ IS_SOME (EL n genv) ⇒
        (∃x. IS_SOME (lookup x envE) ∧ FLOOKUP tops x = SOME n) ∨
        (∃mn map env x. lookup mn envM = SOME map ∧ IS_SOME (lookup x map) ∧
                        FLOOKUP mods mn = SOME env ∧ FLOOKUP env x = SOME n)`
+*)
 
 val env_rs_def = Define`
   env_rs ((envM,envC,envE):all_env) ((cnt,s):v count_store) (genv,(tids,gtagenv),rd)
@@ -2001,11 +2006,11 @@ val env_rs_def = Define`
   ⇔
     good_labels rs.rnext_label bs.code ∧
     rs.next_global = LENGTH genv ∧
-    closed_genv genv rs.globals_env (envM,envE) ∧
     bs.stack = [] ∧
     EVERY closed s ∧
     EVERY closed (MAP SND envE) ∧
     EVERY closed (MAP SND (FLAT (MAP SND envM))) ∧
+    EVERY (OPTION_EVERY closed_i1) genv ∧
     ∃s1 s2 genv2 Cs Cg.
       to_i1_invariant
         genv (FST rs.globals_env) (SND rs.globals_env)
@@ -2036,7 +2041,7 @@ val env_rs_empty = store_thm("env_rs_empty",
   rw[Once genv_to_i2_cases] >>
   simp[Once s_to_i2_cases] >> simp[Once s_to_i2'_cases] >> simp[Once v_to_i2_cases] >>
   simp[Cenv_bs_def,env_renv_def,s_refs_def,good_rd_def,FEVERY_ALL_FLOOKUP] >>
-  simp[all_vlabs_csg_def,vlabs_csg_def,closed_vlabs_def,closed_genv_def] >>
+  simp[all_vlabs_csg_def,vlabs_csg_def,closed_vlabs_def] >>
   cheat)
 
 (* TODO: move *)
@@ -2271,10 +2276,6 @@ val LIST_REL_OPTREL_exh_Cv_syneq_trans = store_thm("LIST_REL_OPTREL_exh_Cv_syneq
   fs[optionTheory.OPTREL_def] >>
   metis_tac[exh_Cv_syneq_trans,optionTheory.SOME_11,optionTheory.NOT_SOME_NONE])
 
-val store_to_exh_csg_rel = store_thm("store_to_exh_csg_rel",
-  ``store_to_exh exh = csg_rel (v_to_exh exh)``,
-  simp[FUN_EQ_THM,FORALL_PROD,store_to_exh_def,csg_rel_def])
-
 val compile_top_thm = store_thm("compile_top_thm",
   ``∀ck env stm top res. evaluate_top ck env stm top res ⇒
      ∀rs types grd rs' bc bs bc0.
@@ -2406,13 +2407,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       first_assum(match_exists_tac o concl) >> simp[] >>
       fs[to_i2_invariant_def] >>
       match_mp_tac (MP_CANON genv_to_i2_closed) >>
-      first_assum(match_exists_tac o concl) >> simp[] >>
-      fs[to_i1_invariant_def] >>
-      fs[Once s_to_i1_cases] >>
-      fs[Once s_to_i1'_cases] >>
-      match_mp_tac global_env_inv_closed >>
-      first_assum(match_exists_tac o concl) >> simp[] >>
-      fs[closed_genv_def]) >>
+      first_assum(match_exists_tac o concl) >> simp[]) >>
     disch_then(qx_choosel_then[`Cres0`]strip_assume_tac) >>
     qpat_assum`X = Stop::bc`mp_tac >>
     specl_args_of_then``compile_Cexp`` compile_Cexp_thm mp_tac >>
@@ -2723,15 +2718,13 @@ val compile_top_thm = store_thm("compile_top_thm",
       rator_x_assum`to_i2_invariant`mp_tac >>
       simp[to_i2_invariant_def] >> strip_tac >>
       imp_res_tac genv_to_i2_LENGTH_EQ >> rfs[] ) >>
-    conj_tac >- (
-      rpt(BasicProvers.VAR_EQ_TAC) >> simp[] >>
-      rator_x_assum`closed_genv`mp_tac >>
-      cheat (* closed_genv_append, do we get this from the invariants? *)
-      ) >>
     conj_tac >- simp[Abbr`bs2`] >>
     ONCE_REWRITE_TAC[CONJ_ASSOC] >>
     conj_tac >- (
       cheat (* evaluate_dec_closed *) ) >>
+    conj_tac >- (
+      simp[EVERY_APPEND] >>
+      cheat (* evaluate_prompt_i1_closed *) ) >>
     rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
     fs[libTheory.emp_def] >>
     `FST s2_i1 = s20'` by (
