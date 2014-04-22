@@ -749,7 +749,7 @@ fun tac () =
 
 (* ref 0 *)
 
-val lemma = hol2deep ``[]:string list`` |> D |> SIMP_RULE std_ss []
+val lemma = hol2deep ``[("bool",0); ("fun",2:num)]`` |> D |> SIMP_RULE std_ss []
 val exp = lemma |> UNDISCH_ALL |> concl |> rator |> rand
 val dec = ``(Dlet (Pvar n) (Uapp Opref ^exp)) : dec``
 val tm = get_DeclAssum () |> rator |> rator |> rand;
@@ -767,7 +767,8 @@ val th = store_cert th [TRUTH] (DeclAssumExists_lemma lemma);
 
 (* ref 1 *)
 
-val lemma = hol2deep ``[]:(string # hol_type) list`` |> D |> SIMP_RULE std_ss []
+val lemma = hol2deep ``[("=", Tyapp "fun" [Tyvar "A"; Tyvar "A"])]``
+            |> D |> SIMP_RULE std_ss []
 val exp = lemma |> UNDISCH_ALL |> concl |> rator |> rand
 val dec = ``(Dlet (Pvar n) (Uapp Opref ^exp)) : dec``
 val tm = get_DeclAssum () |> rator |> rator |> rand;
