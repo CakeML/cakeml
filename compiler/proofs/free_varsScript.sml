@@ -1,5 +1,5 @@
 open HolKernel boolLib bossLib lcsymtacs pred_setTheory arithmeticTheory listTheory pairTheory finite_mapTheory rich_listTheory
-open miscLib miscTheory boolSimps astTheory terminationTheory
+open miscLib miscTheory boolSimps bigStepTheory astTheory semanticPrimitivesTheory libTheory terminationTheory
 open modLangTheory conLangTheory decLangTheory exhLangTheory patLangTheory toIntLangTheory compilerTerminationTheory
 open modLangProofTheory conLangProofTheory exhLangProofTheory patLangProofTheory
 
@@ -25,6 +25,15 @@ val env_to_exh_MAP = store_thm("env_to_exh_MAP",
   Induct_on`env1`>>simp[Once v_to_exh_cases] >>
   Cases >> Cases_on`env2` >> rw[] >>
   Cases_on`h`>>rw[] >> metis_tac[])
+
+val build_rec_env_MAP = store_thm("build_rec_env_MAP",
+  ``build_rec_env funs cle env = MAP (λ(f,cdr). (f, (Recclosure cle funs f))) funs ++ env``,
+  rw[build_rec_env_def] >>
+  qho_match_abbrev_tac `FOLDR (f funs) env funs = MAP (g funs) funs ++ env` >>
+  qsuff_tac `∀funs env funs0. FOLDR (f funs0) env funs = MAP (g funs0) funs ++ env` >- rw[]  >>
+  unabbrev_all_tac >> simp[] >>
+  Induct >> rw[libTheory.bind_def] >>
+  PairCases_on`h` >> rw[])
 
 val free_vars_defs_exh_MAP = store_thm("free_vars_defs_exh_MAP",
   ``∀ds. free_vars_defs_exh ds = BIGUNION (set (MAP (λ(f,x,e). free_vars_exh e DIFF {x}) ds))``,
@@ -895,13 +904,14 @@ val (closed_rules,closed_ind,closed_cases) = Hol_reln`
 (EVERY closed vs ⇒ closed (Conv cn vs)) ∧
 (EVERY closed (MAP SND envE) ∧
  EVERY closed (MAP SND (FLAT (MAP SND envM))) ∧
- FV b ⊆ (IMAGE Short ({x} ∪ set (MAP FST envE))) ∪ { Long mn x | ∃env. MEM (mn,env) envM ∧ MEM x (MAP FST env)}
+ FV b ⊆ (IMAGE Short ({x} ∪ set (MAP FST envE))) ∪
+        { Long mn x | ∃env. lookup mn envM = SOME env ∧ MEM x (MAP FST env)}
 ⇒ closed (Closure (envM,envC,envE) x b)) ∧
 (EVERY closed (MAP SND envE) ∧
  EVERY closed (MAP SND (FLAT (MAP SND envM))) ∧
  MEM d (MAP FST defs) ∧
  EVERY (λ(f,x,e). FV e ⊆ (IMAGE Short ({x} ∪ set (MAP FST defs) ∪ set (MAP FST envE))) ∪
-                         { Long mn x | ∃env. MEM (mn,env) envM ∧ MEM x (MAP FST env) }) defs
+                         { Long mn x | ∃env. lookup mn envM = SOME env ∧ MEM x (MAP FST env) }) defs
 ⇒ closed (Recclosure (envM,envC,envE) defs d)) ∧
 (closed (Loc n))`;
 
@@ -914,6 +924,264 @@ val _ = export_rewrites["closed_lit_loc_conv"]
 val FV_defs_MAP = store_thm("FV_defs_MAP",
   ``∀ls. FV_defs ls = BIGUNION (IMAGE (λ(f,x,e). FV e DIFF {Short x}) (set ls))``,
   Induct_on`ls`>>simp[FORALL_PROD])
+
+val closed_strongind=theorem"closed_strongind"
+
+val all_env_dom_def = Define`
+  all_env_dom (envM,envC,envE) =
+    IMAGE Short (set (MAP FST envE)) ∪
+    { Long m x | ∃e. lookup m envM = SOME e ∧ MEM x (MAP FST e) }`
+
+val all_env_closed_def = Define`
+  all_env_closed (envM,envC,envE) ⇔
+  EVERY closed (MAP SND envE) ∧
+  EVERY closed (MAP SND (FLAT (MAP SND envM)))`
+
+val build_rec_env_closed = store_thm("build_rec_env_closed",
+  ``∀defs env l.
+    EVERY closed (MAP SND l) ∧ all_env_closed env ∧
+    ALL_DISTINCT (MAP FST defs) ∧
+    (∀d x b. MEM (d,x,b) defs ⇒ FV b ⊆
+                         (IMAGE Short ({x} ∪ set (MAP FST defs) ∪ set (MAP FST (all_env_to_env env)))) ∪
+                         { Long mn x | ∃envE. lookup mn (all_env_to_menv env) = SOME envE ∧ MEM x (MAP FST envE) })
+    ⇒ EVERY closed (MAP SND (build_rec_env defs env l))``,
+  rpt gen_tac >> PairCases_on`env` >>
+  rw[build_rec_env_def,bind_def,FOLDR_CONS_triple,all_env_closed_def] >>
+  rw[MAP_MAP_o,combinTheory.o_DEF,pairTheory.LAMBDA_PROD] >>
+  asm_simp_tac(srw_ss())[EVERY_MEM,MEM_MAP,pairTheory.EXISTS_PROD] >>
+  rw[Once closed_cases] >>
+  fs[all_env_to_env_def,all_env_to_menv_def] >>
+  simp[MEM_MAP,EXISTS_PROD] >>
+  conj_tac >- metis_tac[] >>
+  simp[EVERY_MEM,FORALL_PROD] >>
+  fs[MEM_MAP,EXISTS_PROD] >> metis_tac[])
+
+val do_app_closed = store_thm("do_app_closed",
+  ``∀s s' env op v1 v2 env' exp.
+    all_env_closed env ∧ closed v1 ∧ closed v2 ∧ EVERY closed s ∧
+    (do_app env s op v1 v2 = SOME (env',s',exp))
+    ⇒ all_env_closed env' ∧
+      FV exp ⊆ all_env_dom env' ∧
+      EVERY closed s'``,
+  ntac 3 gen_tac >> Cases
+  >- (
+    Cases >> TRY (Cases_on `l`) >>
+    Cases >> TRY (Cases_on `l`) >>
+    rw[do_app_def,exn_env_def,all_env_closed_def,all_env_dom_def] >>
+    rw[all_env_closed_def,emp_def])
+  >- (
+    Cases >> TRY (Cases_on `l`) >>
+    Cases >> TRY (Cases_on `l`) >>
+    rw[do_app_def] >> rw[])
+  >- (
+    rw[do_app_def] >>
+    BasicProvers.EVERY_CASE_TAC >> fs[] >>
+    rw[exn_env_def,all_env_closed_def,emp_def])
+  >- (
+    Cases >> Cases >> rw[do_app_def,bind_def] >> fs[closed_cases] >>
+    rw[] >> fs[] >> rw[all_env_dom_def,all_env_closed_def] >>
+    TRY ( rw[Once INSERT_SING_UNION] >> PROVE_TAC[UNION_COMM,UNION_ASSOC]) >>
+    TRY ( rw[closed_cases] >> NO_TAC) >>
+    BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
+    fs[all_env_closed_def,all_env_dom_def,find_recfun_lookup] >> rw[] >>
+    TRY (
+      match_mp_tac build_rec_env_closed >>
+      fs[all_env_to_env_def,all_env_to_menv_def,all_env_closed_def,FST_triple,EVERY_MEM,FORALL_PROD] >>
+      metis_tac[] ) >>
+    TRY (
+      fs[EVERY_MEM,FORALL_PROD] >>
+      imp_res_tac libPropsTheory.lookup_in3 >>
+      first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
+      fs[SUBSET_DEF,PULL_EXISTS] >> rw[] >>
+      first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >> rw[] >>
+      simp[build_rec_env_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
+      NO_TAC) >>
+    rw[closed_cases] )
+  >- (
+    Cases >> Cases >> rw[do_app_def] >>
+    pop_assum mp_tac >> BasicProvers.CASE_TAC >>
+    rw[] >> fs[] >>
+    fsrw_tac[DNF_ss][EVERY_MEM,MEM_MAP,FORALL_PROD] >>
+    rw[] >>
+    fs[store_assign_def] >> rw[] >>
+    PROVE_TAC[MEM_LUPDATE_E,closed_lit_loc_conv,EVERY_MEM]));
+
+(*
+val pmatch_closed = store_thm("pmatch_closed",
+  ``(∀^cenv s p v env env' (menv:envM).
+      EVERY (closed menv) (MAP SND env) ∧ closed menv v ∧
+      EVERY (closed menv) s ∧
+      (pmatch cenv s p v env = Match env') ⇒
+      EVERY (closed menv) (MAP SND env') ∧
+      (MAP FST env' = pat_bindings p [] ++ (MAP FST env))) ∧
+    (∀^cenv s ps vs env env' (menv:envM).
+      EVERY (closed menv) (MAP SND env) ∧ EVERY (closed menv) vs ∧
+      EVERY (closed menv) s ∧
+      (pmatch_list cenv s ps vs env = Match env') ⇒
+      EVERY (closed menv) (MAP SND env') ∧
+      (MAP FST env' = pats_bindings ps [] ++ MAP FST env))``,
+    pmatch_tac)
+
+val do_uapp_closed = store_thm("do_uapp_closed",
+  ``∀s uop v s' v' menv.
+    EVERY (closed menv) s ∧ (closed menv) v ∧
+    (do_uapp s uop v = SOME (s',v')) ⇒
+    EVERY (closed menv) s' ∧ closed menv v'``,
+  gen_tac >> Cases >>
+  rw[do_uapp_def,LET_THM,store_alloc_def] >>
+  rw[EVERY_APPEND] >>
+  Cases_on`v`>>fs[store_lookup_def]>>
+  pop_assum mp_tac >> rw[] >> rw[]>>
+  fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL])
+
+val evaluate_closed = store_thm(
+"evaluate_closed",
+``(∀ck menv ^cenv s env exp res.
+   evaluate ck menv cenv s env exp res ⇒
+   FV exp ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
+   EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv) ∧
+   EVERY (closed menv) (MAP SND env) ∧
+   EVERY (closed menv) (SND s)
+   ⇒
+   EVERY (closed menv) (SND (FST res)) ∧
+   every_result (closed menv) (closed menv) (SND res)) ∧
+  (∀ck menv ^cenv s env exps ress.
+   evaluate_list ck menv cenv s env exps ress ⇒
+   FV_list exps ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
+   EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv) ∧
+   EVERY (closed menv) (MAP SND env) ∧
+   EVERY (closed menv) (SND s)
+   ⇒
+   EVERY (closed menv) (SND (FST ress)) ∧
+   every_result (EVERY (closed menv)) (closed menv) (SND ress)) ∧
+  (∀ck menv ^cenv s env v pes errv res.
+   evaluate_match ck menv cenv s env v pes errv res ⇒
+   FV_pes pes ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
+   EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv) ∧
+   EVERY (closed menv) (MAP SND env) ∧
+   EVERY (closed menv) (SND s) ∧ closed menv v ∧ closed menv errv
+   ⇒
+   EVERY (closed menv) (SND (FST res)) ∧
+   every_result (closed menv) (closed menv) (SND res))``,
+ho_match_mp_tac evaluate_ind >>
+strip_tac (* Lit *) >- rw[] >>
+strip_tac (* Raise *) >- rw[] >>
+strip_tac (* Handle *) >- (rw[] >> fsrw_tac[DNF_ss][SUBSET_DEF]) >>
+strip_tac (* Handle *) >- (
+  rw[] >> fs[] >> rfs[] >>
+  fsrw_tac[DNF_ss][SUBSET_DEF,bind_def,MEM_MAP,EXISTS_PROD] >>
+  PROVE_TAC[] ) >>
+strip_tac (* Handle *) >- (rw[] >> fsrw_tac[DNF_ss][SUBSET_DEF]) >>
+strip_tac (* Handle *) >- (rw[] >> fsrw_tac[DNF_ss][SUBSET_DEF]) >>
+strip_tac (* Con *) >- ( rw[] >> fsrw_tac[ETA_ss,DNF_ss][SUBSET_DEF] ) >>
+strip_tac (* Con *) >- rw[] >>
+strip_tac (* Con *) >- ( rw[] >> Cases_on`err` >> fsrw_tac[ETA_ss,DNF_ss][SUBSET_DEF] ) >>
+strip_tac (* Var *) >- (
+  ntac 4 gen_tac >>
+  Cases >> rw[lookup_var_id_def,MEM_FLAT,MEM_MAP] >>
+  TRY (fsrw_tac[DNF_ss][MEM_MAP]>>NO_TAC) >>
+  TRY (
+    imp_res_tac ALOOKUP_MEM >>
+    fs[EVERY_MEM,MEM_MAP,EXISTS_PROD] >>
+    PROVE_TAC[]) >>
+  BasicProvers.EVERY_CASE_TAC >>
+  fsrw_tac[DNF_ss][MEM_MAP] >>
+  imp_res_tac ALOOKUP_MEM >>
+  fs[EVERY_MEM,MEM_MAP,EXISTS_PROD] >>
+  PROVE_TAC[]) >>
+strip_tac (* Var *) >- rw[] >>
+strip_tac (* Fun *) >- (
+  rw[] >>
+  rw[Once closed_cases] >>
+  fsrw_tac[DNF_ss][SUBSET_DEF] >>
+  PROVE_TAC[]) >>
+strip_tac (* Uapp *) >- (
+  rpt gen_tac >> strip_tac >> strip_tac >> fs[] >>
+  PROVE_TAC[do_uapp_closed] ) >>
+strip_tac (* Uapp *) >- rw[] >>
+strip_tac (* Uapp *) >- rw[] >>
+strip_tac (* App *) >- (
+  rpt gen_tac >> ntac 2 strip_tac >> fs[] >> rfs[] >>
+  PROVE_TAC[do_app_closed]) >>
+strip_tac (* App *) >- (
+  rw[] >> fs[] >> rfs[] >>
+  PROVE_TAC[do_app_closed] ) >>
+strip_tac (* App *) >- rw[] >>
+strip_tac (* App *) >- rw[] >>
+strip_tac (* Log *) >- (
+  rw[] >> fs[] >>
+  PROVE_TAC[do_log_FV,SUBSET_TRANS]) >>
+strip_tac (* Log *) >- (
+  rw[] >> fs[] >> rfs[] >>
+  PROVE_TAC[do_log_FV,SUBSET_TRANS] ) >>
+strip_tac (* Log *) >- rw[] >>
+strip_tac (* If *) >- (
+  rw[] >> fs[] >>
+  PROVE_TAC[do_if_FV,SUBSET_DEF,IN_UNION]) >>
+strip_tac (* If *) >- (
+  rw[] >> fs[] >> rfs[] >>
+  PROVE_TAC[do_if_FV,UNION_SUBSET,SUBSET_TRANS] ) >>
+strip_tac (* If *) >- rw[] >>
+strip_tac (* Mat *) >- rw[] >>
+strip_tac (* Mat *) >- rw[] >>
+strip_tac (* Let *) >- (
+  rpt gen_tac >> ntac 2 strip_tac >>
+  fs[] >> rfs[bind_def] >>
+  fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD] >>
+  PROVE_TAC[] ) >>
+strip_tac (* Let *) >- (
+  rpt gen_tac >> strip_tac >>
+  simp[] >> strip_tac >> fs[] >>
+  first_x_assum match_mp_tac >>
+  fsrw_tac[DNF_ss][SUBSET_DEF,bind_def] >>
+  metis_tac[] ) >>
+strip_tac (* Let *) >- rw[] >>
+strip_tac (* Letrec *) >- (
+  rpt gen_tac >> ntac 2 strip_tac >>
+  first_x_assum match_mp_tac >>
+  fs[FST_triple] >> rfs[] >>
+  conj_tac >- (
+    fs[GSYM MAP_MAP_o,LET_THM,FV_defs_MAP] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,FORALL_PROD,EXISTS_PROD,MEM_FLAT] >>
+    gen_tac >> strip_tac >> res_tac >>
+    Cases_on`x`>>fs[] >>
+    PROVE_TAC[] ) >>
+  match_mp_tac build_rec_env_closed >> fs[] >>
+  fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,FORALL_PROD,EXISTS_PROD,MEM_FLAT,LET_THM,FV_defs_MAP] >>
+  metis_tac[]) >>
+strip_tac (* Letrec *) >- rw[] >>
+strip_tac (* [] *) >- rw[] >>
+strip_tac (* :: *) >- rw[] >>
+strip_tac (* :: *) >- (rw[] >> Cases_on`err`>>fs[]) >>
+strip_tac (* :: *) >- rw[] >>
+strip_tac (* [] *) >- rw[] >>
+strip_tac (* Match *) >- (
+  rpt gen_tac >> ntac 2 strip_tac >>
+  fs[] >> rfs[] >>
+  first_x_assum match_mp_tac >>
+  qspecl_then[`cenv`,`s`,`p`,`v`,`env`,`env'`,`menv`]mp_tac(CONJUNCT1 pmatch_closed) >>
+  simp[] >>
+  fs[GSYM MAP_MAP_o] >> strip_tac >>
+  fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD,MEM_MAP,FV_pes_MAP,MEM_FLAT] >>
+  metis_tac[]) >>
+strip_tac (* Match *) >- rw[] >>
+strip_tac (* Match *) >- rw[] >>
+rw[])
+
+val evaluate_dec_closed = store_thm("evaluate_dec_closed",
+  ``∀ck mn env s dec res. evaluate_dec ck mn env s dec res ⇒
+      EVERY closed (SND(FST s)) ∧
+      EVERY closed (MAP SND (all_env_to_env env)) ∧
+      EVERY closed (MAP SND (FLAT (MAP SND (all_env_to_menv env))))
+      ⇒
+      EVERY closed (SND(FST(FST res))) ∧
+      every_result (λ(envC,envE). EVERY closed (MAP SND envE))
+                   closed (SND res)``,
+  ho_match_mp_tac evaluate_dec_ind >>
+  strip_tac >- (
+    rw[]
+
+*)
 
 val free_vars_i1_exp_to_i1 = store_thm("free_vars_i1_exp_to_i1",
   ``(∀menv env e. free_vars_i1 (exp_to_i1 menv env e) = SFV e DIFF FDOM env) ∧

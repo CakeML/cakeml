@@ -54,15 +54,6 @@ val store_to_exh_csg_rel = store_thm("store_to_exh_csg_rel",
   ``store_to_exh exh = csg_rel (v_to_exh exh)``,
   simp[FUN_EQ_THM,FORALL_PROD,store_to_exh_def,csg_rel_def])
 
-val build_rec_env_MAP = store_thm("build_rec_env_MAP",
-  ``build_rec_env funs cle env = MAP (λ(f,cdr). (f, (Recclosure cle funs f))) funs ++ env``,
-  rw[build_rec_env_def] >>
-  qho_match_abbrev_tac `FOLDR (f funs) env funs = MAP (g funs) funs ++ env` >>
-  qsuff_tac `∀funs env funs0. FOLDR (f funs0) env funs = MAP (g funs0) funs ++ env` >- rw[]  >>
-  unabbrev_all_tac >> simp[] >>
-  Induct >> rw[libTheory.bind_def] >>
-  PairCases_on`h` >> rw[])
-
 val pmatch_dom = store_thm("pmatch_dom",
   ``(∀cenv s p v env env'.
       (pmatch cenv s p v env = Match env') ⇒
@@ -2240,8 +2231,7 @@ val compile_top_labels = store_thm("compile_top_labels",
    simp[code_labels_ok_REVERSE] )
 
 val closed_top_def = Define`
-  closed_top (envM,envC,envE) top ⇔
-    FV_top top ⊆ IMAGE Short (set (MAP FST envE)) ∪ { Long m x | ∃e. lookup m envM = SOME e ∧ MEM x (MAP FST e) }`
+  closed_top env top ⇔ FV_top top ⊆ all_env_dom env`
 
 val exh_Cv_syneq_trans = store_thm("exh_Cv_syneq_trans",
   ``∀v Cv Cv2. exh_Cv v Cv ∧ syneq Cv Cv2 ⇒ exh_Cv v Cv2``,
@@ -2369,7 +2359,7 @@ val compile_top_thm = store_thm("compile_top_thm",
         imp_res_tac free_vars_prompt_to_i2 >>
         imp_res_tac FV_top_to_i1 >>
         simp[] >>
-        fs[closed_top_def,SUBSET_DEF,PULL_EXISTS] >>
+        fs[closed_top_def,all_env_dom_def,SUBSET_DEF,PULL_EXISTS] >>
         simp[EXTENSION] >> rw[] >>
         CCONTR_TAC >> fs[] >> res_tac >> fs[] >> rw[] >>
         fs[to_i1_invariant_def] >>
