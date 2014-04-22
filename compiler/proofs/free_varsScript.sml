@@ -1039,140 +1039,151 @@ val do_uapp_closed = store_thm("do_uapp_closed",
   pop_assum mp_tac >> rw[] >> rw[]>>
   fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL])
 
-(*
-val evaluate_closed = store_thm("evaluate_closed",
-``(∀ck menv ^cenv s env exp res.
-   evaluate ck menv cenv s env exp res ⇒
-   FV exp ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
-   EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv) ∧
-   EVERY (closed menv) (MAP SND env) ∧
-   EVERY (closed menv) (SND s)
-   ⇒
-   EVERY (closed menv) (SND (FST res)) ∧
-   every_result (closed menv) (closed menv) (SND res)) ∧
-  (∀ck menv ^cenv s env exps ress.
-   evaluate_list ck menv cenv s env exps ress ⇒
-   FV_list exps ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
-   EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv) ∧
-   EVERY (closed menv) (MAP SND env) ∧
-   EVERY (closed menv) (SND s)
-   ⇒
-   EVERY (closed menv) (SND (FST ress)) ∧
-   every_result (EVERY (closed menv)) (closed menv) (SND ress)) ∧
-  (∀ck menv ^cenv s env v pes errv res.
-   evaluate_match ck menv cenv s env v pes errv res ⇒
-   FV_pes pes ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
-   EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv) ∧
-   EVERY (closed menv) (MAP SND env) ∧
-   EVERY (closed menv) (SND s) ∧ closed menv v ∧ closed menv errv
-   ⇒
-   EVERY (closed menv) (SND (FST res)) ∧
-   every_result (closed menv) (closed menv) (SND res))``,
-ho_match_mp_tac evaluate_ind >>
-strip_tac (* Lit *) >- rw[] >>
-strip_tac (* Raise *) >- rw[] >>
-strip_tac (* Handle *) >- (rw[] >> fsrw_tac[DNF_ss][SUBSET_DEF]) >>
-strip_tac (* Handle *) >- (
-  rw[] >> fs[] >> rfs[] >>
-  fsrw_tac[DNF_ss][SUBSET_DEF,bind_def,MEM_MAP,EXISTS_PROD] >>
-  PROVE_TAC[] ) >>
-strip_tac (* Handle *) >- (rw[] >> fsrw_tac[DNF_ss][SUBSET_DEF]) >>
-strip_tac (* Handle *) >- (rw[] >> fsrw_tac[DNF_ss][SUBSET_DEF]) >>
-strip_tac (* Con *) >- ( rw[] >> fsrw_tac[ETA_ss,DNF_ss][SUBSET_DEF] ) >>
-strip_tac (* Con *) >- rw[] >>
-strip_tac (* Con *) >- ( rw[] >> Cases_on`err` >> fsrw_tac[ETA_ss,DNF_ss][SUBSET_DEF] ) >>
-strip_tac (* Var *) >- (
-  ntac 4 gen_tac >>
-  Cases >> rw[lookup_var_id_def,MEM_FLAT,MEM_MAP] >>
-  TRY (fsrw_tac[DNF_ss][MEM_MAP]>>NO_TAC) >>
-  TRY (
-    imp_res_tac ALOOKUP_MEM >>
-    fs[EVERY_MEM,MEM_MAP,EXISTS_PROD] >>
-    PROVE_TAC[]) >>
+val do_log_FV = store_thm("do_log_FV",
+  ``(do_log op v e2 = SOME exp) ⇒
+    (FV exp ⊆ FV e2)``,
+  fs[do_log_def] >>
   BasicProvers.EVERY_CASE_TAC >>
-  fsrw_tac[DNF_ss][MEM_MAP] >>
-  imp_res_tac ALOOKUP_MEM >>
-  fs[EVERY_MEM,MEM_MAP,EXISTS_PROD] >>
-  PROVE_TAC[]) >>
-strip_tac (* Var *) >- rw[] >>
-strip_tac (* Fun *) >- (
-  rw[] >>
-  rw[Once closed_cases] >>
-  fsrw_tac[DNF_ss][SUBSET_DEF] >>
-  PROVE_TAC[]) >>
-strip_tac (* Uapp *) >- (
-  rpt gen_tac >> strip_tac >> strip_tac >> fs[] >>
-  PROVE_TAC[do_uapp_closed] ) >>
-strip_tac (* Uapp *) >- rw[] >>
-strip_tac (* Uapp *) >- rw[] >>
-strip_tac (* App *) >- (
-  rpt gen_tac >> ntac 2 strip_tac >> fs[] >> rfs[] >>
-  PROVE_TAC[do_app_closed]) >>
-strip_tac (* App *) >- (
-  rw[] >> fs[] >> rfs[] >>
-  PROVE_TAC[do_app_closed] ) >>
-strip_tac (* App *) >- rw[] >>
-strip_tac (* App *) >- rw[] >>
-strip_tac (* Log *) >- (
-  rw[] >> fs[] >>
-  PROVE_TAC[do_log_FV,SUBSET_TRANS]) >>
-strip_tac (* Log *) >- (
-  rw[] >> fs[] >> rfs[] >>
-  PROVE_TAC[do_log_FV,SUBSET_TRANS] ) >>
-strip_tac (* Log *) >- rw[] >>
-strip_tac (* If *) >- (
-  rw[] >> fs[] >>
-  PROVE_TAC[do_if_FV,SUBSET_DEF,IN_UNION]) >>
-strip_tac (* If *) >- (
-  rw[] >> fs[] >> rfs[] >>
-  PROVE_TAC[do_if_FV,UNION_SUBSET,SUBSET_TRANS] ) >>
-strip_tac (* If *) >- rw[] >>
-strip_tac (* Mat *) >- rw[] >>
-strip_tac (* Mat *) >- rw[] >>
-strip_tac (* Let *) >- (
-  rpt gen_tac >> ntac 2 strip_tac >>
-  fs[] >> rfs[bind_def] >>
-  fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD] >>
-  PROVE_TAC[] ) >>
-strip_tac (* Let *) >- (
-  rpt gen_tac >> strip_tac >>
-  simp[] >> strip_tac >> fs[] >>
-  first_x_assum match_mp_tac >>
-  fsrw_tac[DNF_ss][SUBSET_DEF,bind_def] >>
-  metis_tac[] ) >>
-strip_tac (* Let *) >- rw[] >>
-strip_tac (* Letrec *) >- (
-  rpt gen_tac >> ntac 2 strip_tac >>
-  first_x_assum match_mp_tac >>
-  fs[FST_triple] >> rfs[] >>
-  conj_tac >- (
-    fs[GSYM MAP_MAP_o,LET_THM,FV_defs_MAP] >>
-    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,FORALL_PROD,EXISTS_PROD,MEM_FLAT] >>
-    gen_tac >> strip_tac >> res_tac >>
-    Cases_on`x`>>fs[] >>
-    PROVE_TAC[] ) >>
-  match_mp_tac build_rec_env_closed >> fs[] >>
-  fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,FORALL_PROD,EXISTS_PROD,MEM_FLAT,LET_THM,FV_defs_MAP] >>
-  metis_tac[]) >>
-strip_tac (* Letrec *) >- rw[] >>
-strip_tac (* [] *) >- rw[] >>
-strip_tac (* :: *) >- rw[] >>
-strip_tac (* :: *) >- (rw[] >> Cases_on`err`>>fs[]) >>
-strip_tac (* :: *) >- rw[] >>
-strip_tac (* [] *) >- rw[] >>
-strip_tac (* Match *) >- (
-  rpt gen_tac >> ntac 2 strip_tac >>
-  fs[] >> rfs[] >>
-  first_x_assum match_mp_tac >>
-  qspecl_then[`cenv`,`s`,`p`,`v`,`env`,`env'`,`menv`]mp_tac(CONJUNCT1 pmatch_closed) >>
-  simp[] >>
-  fs[GSYM MAP_MAP_o] >> strip_tac >>
-  fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD,MEM_MAP,FV_pes_MAP,MEM_FLAT] >>
-  metis_tac[]) >>
-strip_tac (* Match *) >- rw[] >>
-strip_tac (* Match *) >- rw[] >>
-rw[])
+  rw[] >>rw[])
 
+val do_if_FV = store_thm("do_if_FV",
+  ``(do_if v e2 e3 = SOME e) ⇒
+    (FV e ⊆ FV e2 ∪ FV e3)``,
+  fs[do_if_def] >>
+  BasicProvers.EVERY_CASE_TAC >>
+  rw[] >>rw[])
+
+val evaluate_closed = store_thm("evaluate_closed",
+  ``(∀ck env s exp res.
+     evaluate ck env s exp res ⇒
+     FV exp ⊆ all_env_dom env ∧
+     all_env_closed env ∧
+     EVERY closed (SND s)
+     ⇒
+     EVERY closed (SND (FST res)) ∧
+     every_result closed closed (SND res)) ∧
+    (∀ck env s exps ress.
+     evaluate_list ck env s exps ress ⇒
+     FV_list exps ⊆ all_env_dom env ∧
+     all_env_closed env ∧
+     EVERY closed (SND s)
+     ⇒
+     EVERY closed (SND (FST ress)) ∧
+     every_result (EVERY closed) closed (SND ress)) ∧
+    (∀ck env s v pes errv res.
+     evaluate_match ck env s v pes errv res ⇒
+     FV_pes pes ⊆ all_env_dom env ∧
+     all_env_closed env ∧
+     EVERY closed (SND s) ∧
+     closed v ∧ closed errv
+     ⇒
+     EVERY closed (SND (FST res)) ∧
+     every_result closed closed (SND res))``,
+  ho_match_mp_tac evaluate_ind >>
+  strip_tac (* Lit *) >- rw[] >>
+  strip_tac (* Raise *) >- rw[] >>
+  strip_tac (* Handle *) >- (rw[] >> fsrw_tac[DNF_ss][SUBSET_DEF]) >>
+  strip_tac (* Handle *) >- (
+    rw[] >> fs[] >> rfs[] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,bind_def,MEM_MAP,EXISTS_PROD] >>
+    PROVE_TAC[] ) >>
+  strip_tac (* Handle *) >- (rw[] >> fsrw_tac[DNF_ss][SUBSET_DEF]) >>
+  strip_tac (* Handle *) >- (rw[] >> fsrw_tac[DNF_ss][SUBSET_DEF]) >>
+  strip_tac (* Con *) >- (
+    rw[build_conv_def] >>
+    BasicProvers.EVERY_CASE_TAC >> rw[] >> rw[]) >>
+  strip_tac (* Con *) >- rw[] >>
+  strip_tac (* Con *) >- ( rw[] >> Cases_on`err` >> fsrw_tac[ETA_ss,DNF_ss][SUBSET_DEF] ) >>
+  strip_tac (* Var *) >- (
+    ntac 2 gen_tac >>
+    PairCases_on`env` >>
+    Cases >> rw[lookup_var_id_def,MEM_FLAT,MEM_MAP] >>
+    BasicProvers.EVERY_CASE_TAC >>
+    fs[all_env_dom_def,all_env_closed_def] >>
+    fs[EVERY_MEM,MAP_FLAT,MEM_FLAT,PULL_EXISTS] >>
+    metis_tac[libPropsTheory.lookup_in,MEM_MAP]) >>
+  strip_tac (* Var *) >- rw[] >>
+  strip_tac (* Fun *) >- (
+    rw[] >>
+    PairCases_on`env` >>
+    fs[all_env_closed_def,all_env_dom_def] >>
+    rw[Once closed_cases] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF] >>
+    metis_tac[]) >>
+  strip_tac (* Uapp *) >- (
+    rpt gen_tac >> strip_tac >> strip_tac >> fs[] >>
+    PROVE_TAC[do_uapp_closed] ) >>
+  strip_tac (* Uapp *) >- rw[] >>
+  strip_tac (* Uapp *) >- rw[] >>
+  strip_tac (* App *) >- (
+    rpt gen_tac >> ntac 2 strip_tac >> fs[] >> rfs[] >>
+    PROVE_TAC[do_app_closed]) >>
+  strip_tac (* App *) >- (
+    rw[] >> fs[] >> rfs[] >>
+    PROVE_TAC[do_app_closed] ) >>
+  strip_tac (* App *) >- rw[] >>
+  strip_tac (* App *) >- rw[] >>
+  strip_tac (* App *) >- rw[] >>
+  strip_tac (* Log *) >- (
+    rw[] >> fs[] >>
+    PROVE_TAC[do_log_FV,SUBSET_TRANS]) >>
+  strip_tac (* Log *) >- (
+    rw[] >> fs[] >> rfs[] >>
+    PROVE_TAC[do_log_FV,SUBSET_TRANS] ) >>
+  strip_tac (* Log *) >- rw[] >>
+  strip_tac (* If *) >- (
+    rw[] >> fs[] >>
+    PROVE_TAC[do_if_FV,SUBSET_DEF,IN_UNION]) >>
+  strip_tac (* If *) >- (
+    rw[] >> fs[] >> rfs[] >>
+    PROVE_TAC[do_if_FV,UNION_SUBSET,SUBSET_TRANS] ) >>
+  strip_tac (* If *) >- rw[] >>
+  strip_tac (* Mat *) >- rw[] >>
+  strip_tac (* Mat *) >- rw[] >>
+  strip_tac (* Let *) >- (
+    rpt gen_tac >> ntac 2 strip_tac >>
+    fs[] >> rfs[bind_def,opt_bind_def] >>
+    BasicProvers.EVERY_CASE_TAC >> fs[] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD,all_env_dom_def,all_env_closed_def] >>
+    metis_tac[]) >>
+  strip_tac (* Let *) >- rw[] >>
+  strip_tac (* Letrec *) >- (
+    rpt gen_tac >> ntac 2 strip_tac >>
+    first_x_assum match_mp_tac >>
+    fs[FST_triple] >> rfs[] >>
+    conj_tac >- (
+      fs[GSYM MAP_MAP_o,LET_THM,FV_defs_MAP] >>
+      fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,FORALL_PROD,EXISTS_PROD,MEM_FLAT] >>
+      gen_tac >> strip_tac >> res_tac >>
+      Cases_on`x`>>fs[all_env_dom_def] >>
+      fs[build_rec_env_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
+      fs[MEM_MAP,EXISTS_PROD] >>
+      PROVE_TAC[] ) >>
+    fs[all_env_closed_def] >>
+    match_mp_tac build_rec_env_closed >> fs[all_env_closed_def] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,FORALL_PROD,EXISTS_PROD,MEM_FLAT,LET_THM,FV_defs_MAP,all_env_dom_def,
+                     all_env_to_env_def,all_env_to_menv_def] >>
+    metis_tac[]) >>
+  strip_tac (* Letrec *) >- rw[] >>
+  strip_tac (* [] *) >- rw[] >>
+  strip_tac (* :: *) >- rw[] >>
+  strip_tac (* :: *) >- (rw[] >> Cases_on`err`>>fs[]) >>
+  strip_tac (* :: *) >- rw[] >>
+  strip_tac (* [] *) >- rw[] >>
+  strip_tac (* Match *) >- (
+    rpt gen_tac >> ntac 2 strip_tac >>
+    fs[] >> rfs[] >>
+    first_x_assum match_mp_tac >>
+    rator_x_assum`$=`mp_tac >>
+    specl_args_of_then``pmatch``(CONJUNCT1 pmatch_closed)mp_tac>>
+    fs[all_env_closed_def] >> rw[] >> fs[] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD,MEM_MAP,MEM_FLAT,all_env_dom_def] >>
+    metis_tac[]) >>
+  strip_tac (* Match *) >- rw[] >>
+  strip_tac (* Match *) >- rw[] >>
+  rw[])
+
+(*
 val evaluate_dec_closed = store_thm("evaluate_dec_closed",
   ``∀ck mn env s dec res. evaluate_dec ck mn env s dec res ⇒
       EVERY closed (SND(FST s)) ∧
@@ -1185,7 +1196,6 @@ val evaluate_dec_closed = store_thm("evaluate_dec_closed",
   ho_match_mp_tac evaluate_dec_ind >>
   strip_tac >- (
     rw[]
-
 *)
 
 val free_vars_i1_exp_to_i1 = store_thm("free_vars_i1_exp_to_i1",
