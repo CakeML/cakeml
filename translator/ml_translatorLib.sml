@@ -700,7 +700,7 @@ fun full_name_of_type ty = let
   val case_const = get_ty_case_const ty
   val thy_name = case_const |> dest_thy_const |> #Thy
   val thy_name = if mem thy_name basic_theories then "" else thy_name ^ "_"
-  in thy_name ^ name_of_type ty end
+  in (* thy_name ^ *) name_of_type ty end
 
 fun remove_primes th = let
   fun last s = substring(s,size s-1,1)
