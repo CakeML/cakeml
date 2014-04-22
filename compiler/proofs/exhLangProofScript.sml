@@ -612,10 +612,37 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
      metis_tac[pmatch_i2_any_no_match]))
 *)
 
+val v_to_exh_extend_disjoint_helper = Q.prove (
+`(!exh v1 v2.
+  v_to_exh exh v1 v2 ⇒
+  !exh'. DISJOINT (FDOM exh') (FDOM exh)
+    ⇒
+    v_to_exh (exh' ⊌ exh) v1 v2) ∧
+ (!exh vs1 vs2.
+  vs_to_exh exh vs1 vs2 ⇒
+  !exh'. DISJOINT (FDOM exh') (FDOM exh)
+    ⇒
+    vs_to_exh (exh' ⊌ exh) vs1 vs2) ∧
+ (!exh env1 env2.
+  env_to_exh exh env1 env2 ⇒
+  !exh'. DISJOINT (FDOM exh') (FDOM exh)
+    ⇒
+    env_to_exh (exh' ⊌ exh) env1 env2)`,
+ ho_match_mp_tac v_to_exh_ind >>
+ rw [] >>
+ rw [Once v_to_exh_cases] >>
+ qexists_tac `exh'` >>
+ rw [] >>
+ `DISJOINT (FDOM exh') (FDOM exh'') ∧ DISJOINT (FDOM (FEMPTY:exh_ctors_env)) (FDOM exh')` 
+       by (fs [SUBMAP_DEF, DISJOINT_DEF, EXTENSION] >>
+           rw [] >>
+           metis_tac []) >>
+ metis_tac [FUNION_FEMPTY_1, SUBMAP_FUNION]);
+
 val v_to_exh_extend_disjoint = store_thm("v_to_exh_extend_disjoint",
   ``∀exh v1 v2 exh'. v_to_exh exh v1 v2 ∧ DISJOINT (FDOM exh') (FDOM exh) ⇒
                      v_to_exh (exh ⊌ exh') v1 v2``,
-  cheat)
+  metis_tac [v_to_exh_extend_disjoint_helper, FUNION_COMM])
 
 (* exhLangExtra *)
 
