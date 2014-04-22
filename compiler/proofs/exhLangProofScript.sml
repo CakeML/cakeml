@@ -551,6 +551,11 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
      metis_tac[pmatch_i2_any_no_match]))
 *)
 
+val v_to_exh_extend_disjoint = store_thm("v_to_exh_extend_disjoint",
+  ``∀exh v1 v2 exh'. v_to_exh exh v1 v2 ∧ DISJOINT (FDOM exh') (FDOM exh) ⇒
+                     v_to_exh (exh ⊌ exh') v1 v2``,
+  cheat)
+
 (* exhLangExtra *)
 
 val free_vars_exh_def = tDefine"free_vars_exh"`

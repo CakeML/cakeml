@@ -2271,11 +2271,6 @@ val LIST_REL_OPTREL_exh_Cv_syneq_trans = store_thm("LIST_REL_OPTREL_exh_Cv_syneq
   fs[optionTheory.OPTREL_def] >>
   metis_tac[exh_Cv_syneq_trans,optionTheory.SOME_11,optionTheory.NOT_SOME_NONE])
 
-val v_to_exh_extend_disjoint = store_thm("v_to_exh_extend_disjoint",
-  ``∀exh v1 v2 exh'. v_to_exh exh v1 v2 ∧ DISJOINT (FDOM exh') (FDOM exh) ⇒
-                     v_to_exh (exh ⊌ exh') v1 v2``,
-  cheat)
-
 val store_to_exh_csg_rel = store_thm("store_to_exh_csg_rel",
   ``store_to_exh exh = csg_rel (v_to_exh exh)``,
   simp[FUN_EQ_THM,FORALL_PROD,store_to_exh_def,csg_rel_def])
