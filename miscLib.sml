@@ -16,6 +16,26 @@ val SWAP_IMP = PROVE[]``(P ==> Q ==> R) ==> (Q ==> P ==> R)``
 
 fun prove_hyps_by tac th = PROVE_HYP (prove(list_mk_conj (hyp th),tac)) th
 
+(* resort conjuncts so that one satisfying P appears first *)
+local
+  val finish = TRY_CONV (REWR_CONV (GSYM CONJ_ASSOC))
+in
+  fun lift_conjunct_conv P =
+    let
+      fun loop tm =
+        if P tm then ALL_CONV
+        else
+          let
+            val (c1,c2) = dest_conj tm
+          in
+            (LAND_CONV (loop c1) THENC finish) ORELSEC
+            (RAND_CONV (loop c2) THENC REWR_CONV CONJ_SYM THENC finish)
+          end handle HOL_ERR _ => NO_CONV
+    in
+      W loop
+    end
+end
+
 (* provide witnesses to make the first conjunct under the goal's existential
    prefix match the given term *)
 fun match_exists_tac tm (g as (_,w)) =
