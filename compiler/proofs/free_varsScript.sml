@@ -1006,27 +1006,32 @@ val do_app_closed = store_thm("do_app_closed",
     fs[store_assign_def] >> rw[] >>
     PROVE_TAC[MEM_LUPDATE_E,closed_lit_loc_conv,EVERY_MEM]));
 
-(*
 val pmatch_closed = store_thm("pmatch_closed",
-  ``(∀^cenv s p v env env' (menv:envM).
-      EVERY (closed menv) (MAP SND env) ∧ closed menv v ∧
-      EVERY (closed menv) s ∧
+  ``(∀cenv s p v env env'.
+      EVERY closed (MAP SND env) ∧ closed v ∧
+      EVERY closed s ∧
       (pmatch cenv s p v env = Match env') ⇒
-      EVERY (closed menv) (MAP SND env') ∧
+      EVERY closed (MAP SND env') ∧
       (MAP FST env' = pat_bindings p [] ++ (MAP FST env))) ∧
-    (∀^cenv s ps vs env env' (menv:envM).
-      EVERY (closed menv) (MAP SND env) ∧ EVERY (closed menv) vs ∧
-      EVERY (closed menv) s ∧
+    (∀cenv s ps vs env env'.
+      EVERY closed (MAP SND env) ∧ EVERY closed vs ∧
+      EVERY closed s ∧
       (pmatch_list cenv s ps vs env = Match env') ⇒
-      EVERY (closed menv) (MAP SND env') ∧
+      EVERY closed (MAP SND env') ∧
       (MAP FST env' = pats_bindings ps [] ++ MAP FST env))``,
-    pmatch_tac)
+  ho_match_mp_tac pmatch_ind >>
+  simp[pat_bindings_def,pmatch_def,bind_def] >>
+  rw[] >> rw[] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[] >>
+  fs[store_lookup_def] >> rw[] >>
+  TRY (metis_tac[pat_bindings_accum]) >>
+  fs[EVERY_MEM,MEM_EL,PULL_EXISTS])
 
 val do_uapp_closed = store_thm("do_uapp_closed",
-  ``∀s uop v s' v' menv.
-    EVERY (closed menv) s ∧ (closed menv) v ∧
+  ``∀s uop v s' v'.
+    EVERY closed s ∧ closed v ∧
     (do_uapp s uop v = SOME (s',v')) ⇒
-    EVERY (closed menv) s' ∧ closed menv v'``,
+    EVERY closed s' ∧ closed v'``,
   gen_tac >> Cases >>
   rw[do_uapp_def,LET_THM,store_alloc_def] >>
   rw[EVERY_APPEND] >>
@@ -1034,8 +1039,8 @@ val do_uapp_closed = store_thm("do_uapp_closed",
   pop_assum mp_tac >> rw[] >> rw[]>>
   fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL])
 
-val evaluate_closed = store_thm(
-"evaluate_closed",
+(*
+val evaluate_closed = store_thm("evaluate_closed",
 ``(∀ck menv ^cenv s env exp res.
    evaluate ck menv cenv s env exp res ⇒
    FV exp ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
