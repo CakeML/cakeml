@@ -2334,8 +2334,9 @@ val compile_top_thm = store_thm("compile_top_thm",
       match_mp_tac (MP_CANON (GEN_ALL EVERY2_mono)) >>
       HINT_EXISTS_TAC >>
       metis_tac[optionTheory.OPTREL_MONO,v_to_exh_extend_disjoint,FUNION_COMM]) >>
-    disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
+    disch_then(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     simp[Once result_to_exh_cases] >>
+    disch_then(qspec_then`exh ⊌ rs.exh`mp_tac) >> simp[] >>
     strip_tac >>
     first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_pat_correct)) >>
     simp[] >>
@@ -2389,7 +2390,6 @@ val compile_top_thm = store_thm("compile_top_thm",
     first_assum(mp_tac o MATCH_MP (CONJUNCT1 Cevaluate_syneq)) >>
     simp[] >>
     Q.PAT_ABBREV_TAC`Cexp = exp_to_Cexp Z` >>
-    (* Q.PAT_ABBREV_TAC`Csg = map_count_store_genv v_to_Cv X` >> *)
     qmatch_assum_abbrev_tac`closed_vlabs [] Csg bc0` >>
     disch_then(qspecl_then[`$=`,`Csg`,`[]`,`Cexp`]mp_tac) >>
     discharge_hyps >- (
