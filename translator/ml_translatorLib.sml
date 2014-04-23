@@ -400,8 +400,9 @@ in
       val tt = map type2t tt
       val name_tm = stringSyntax.fromMLstring name
       val tt_list = listSyntax.mk_list(tt,type_of ``Tbool``)
-      in if name = "fun" then ``Tapp [^(el 1 tt);^(el 2 tt)] TC_fn`` else
-           ``Tapp ^tt_list (TC_name (Short ^name_tm))`` end
+      in if name = "fun"  then ``Tapp [^(el 1 tt);^(el 2 tt)] TC_fn`` else
+         if name = "pair" then ``Tapp [^(el 1 tt);^(el 2 tt)] TC_tup`` else
+                               ``Tapp ^tt_list (TC_name (Short ^name_tm))`` end
   fun inst_type_inv (ty,inv) ty0 = let
     val i = match_type ty ty0
     val ii = map (fn {redex = x, residue = y} => (x,y)) i
