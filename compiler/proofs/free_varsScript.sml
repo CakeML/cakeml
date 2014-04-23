@@ -183,18 +183,15 @@ val row_to_pat_pat_bindings = store_thm("row_to_pat_pat_bindings",
   rw[] >> fs[SUBSET_DEF] >>
   metis_tac[])
 
-(*
 val free_vars_row_to_pat = store_thm("free_vars_row_to_pat",
   ``(∀Nbvs p bvs' n f e. row_to_pat Nbvs p = (bvs',n,f) ⇒
-      set (free_vars_pat (f e)) ⊆  set (lshift n (free_vars_pat e))) ∧
+      set (free_vars_pat (f e)) ⊆ {0} ∪ set (lshift n (free_vars_pat e))) ∧
     (∀bvs n k ps bvs' m f e. cols_to_pat bvs n k ps = (bvs',m,f) ⇒
-      set (free_vars_pat (f e)) ⊆  set (lshift n (free_vars_pat e)))``,
+      set (free_vars_pat (f e)) ⊆ {n} ∪ set (lshift m (free_vars_pat e)))``,
   ho_match_mp_tac row_to_pat_ind >>
   strip_tac >- simp[row_to_pat_def] >>
   strip_tac >- simp[row_to_pat_def] >>
-  strip_tac >- (
-    simp[row_to_pat_def] >>
-    cheat ) >>
+  strip_tac >- ( simp[row_to_pat_def] ) >>
   strip_tac >- (
     simp[row_to_pat_def] >> rw[] >>
     `∃x y z. row_to_pat (NONE::Nbvs) p = (x,y,z)` by simp[GSYM EXISTS_PROD] >>
@@ -203,8 +200,24 @@ val free_vars_row_to_pat = store_thm("free_vars_row_to_pat",
     specl_args_of_then``sLet_pat``free_vars_pat_sLet assume_tac >>
     HINT_EXISTS_TAC >> simp[] >>
     fs[SUBSET_DEF,PULL_EXISTS] >> rw[] >>
-    res_tac >> fsrw_tac[ARITH_ss][]
-*)
+    res_tac >> fsrw_tac[ARITH_ss][] >>
+    disj2_tac >> HINT_EXISTS_TAC >> simp[] ) >>
+  strip_tac >- simp[row_to_pat_def] >>
+  strip_tac >- simp[row_to_pat_def] >>
+  strip_tac >- simp[row_to_pat_def] >>
+  simp[row_to_pat_def] >> rw[] >>
+  `∃x y z. row_to_pat (NONE::bvs) p = (x,y,z)` by simp[GSYM EXISTS_PROD] >>
+  fs[AC ADD_ASSOC ADD_COMM] >>
+  `∃a b c. cols_to_pat x (n + (y + 1)) (k + 1) ps = (a,b,c)` by simp[GSYM EXISTS_PROD] >>
+  fs[] >> rw[] >>
+  match_mp_tac SUBSET_TRANS >>
+  specl_args_of_then``sLet_pat``free_vars_pat_sLet assume_tac >>
+  HINT_EXISTS_TAC >> simp[] >>
+  fs[SUBSET_DEF,PULL_EXISTS] >> rw[] >>
+  res_tac >> fsrw_tac[ARITH_ss][] >>
+  last_x_assum(fn th => first_assum (mp_tac o MATCH_MP th)) >>
+  strip_tac >> fsrw_tac[ARITH_ss][] >>
+  disj2_tac >> HINT_EXISTS_TAC >> simp[])
 
 val free_vars_pat_exp_to_pat = store_thm("free_vars_pat_exp_to_pat",
   ``(∀ls e.
