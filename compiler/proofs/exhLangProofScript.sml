@@ -494,35 +494,43 @@ val do_app_exh = Q.prove (
      qexists_tac`FEMPTY` >> simp[SUBMAP_FEMPTY] >>
      match_mp_tac EVERY2_LUPDATE_same >> simp[] ))
 
+val exhaustive_match_submap = prove(
+  ``exhaustive_match exh pes ∧ exh ⊑ exh2 ⇒ exhaustive_match exh2 pes``,
+  rw[exhaustive_match_def] >>
+  every_case_tac >> fs[] >>
+  imp_res_tac FLOOKUP_SUBMAP >> fs[])
+
 val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
 `(!ck env s e r.
   evaluate_i3 ck env s e r
   ⇒
-  !exh env' env_exh s_exh.
+  !exh env' env_exh s_exh exh'.
     SND r ≠ Rerr Rtype_error ∧
     env = (exh,env') ∧
     env_to_exh exh env' env_exh ∧
-    store_to_exh exh s s_exh
+    store_to_exh exh s s_exh ∧
+    exh' ⊑ exh
     ⇒
     ?r_exh.
     result_to_exh v_to_exh exh r r_exh ∧
-    evaluate_exh ck env_exh s_exh (exp_to_exh exh e) r_exh) ∧
+    evaluate_exh ck env_exh s_exh (exp_to_exh exh' e) r_exh) ∧
  (!ck env s es r.
   evaluate_list_i3 ck env s es r
   ⇒
-  !exh env' env_exh s_exh. ?r_exh.
+  !exh env' env_exh s_exh exh'.
     SND r ≠ Rerr Rtype_error ∧
     env = (exh,env') ∧
     env_to_exh exh env' env_exh ∧
-    store_to_exh exh s s_exh
+    store_to_exh exh s s_exh ∧
+    exh' ⊑ exh
     ⇒
     ?r_exh.
     result_to_exh vs_to_exh exh r r_exh ∧
-    evaluate_list_exh ck env_exh s_exh (exps_to_exh exh es) r_exh) ∧
+    evaluate_list_exh ck env_exh s_exh (exps_to_exh exh' es) r_exh) ∧
  (!ck env s v pes err_v r.
   evaluate_match_i3 ck env s v pes err_v r
   ⇒
-  !exh env' pes' is_handle env_exh s_exh v_exh.
+  !exh env' pes' is_handle env_exh s_exh v_exh exh'.
     SND r ≠ Rerr Rtype_error ∧
     env = (exh,env') ∧
     env_to_exh exh env' env_exh ∧
@@ -532,11 +540,12 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
     (¬is_handle ⇒ err_v = Conv_i2 (bind_tag, SOME(TypeExn(Short "Bind"))) []) ∧
     (pes' = add_default is_handle F pes ∨
      exists_match exh (SND (FST s)) (MAP FST pes) v ∧
-     pes' = add_default is_handle T pes)
+     pes' = add_default is_handle T pes) ∧
+    exh' ⊑ exh
      ⇒
     ?r_exh.
     result_to_exh v_to_exh exh r r_exh ∧
-    evaluate_match_exh ck env_exh s_exh v_exh (pat_exp_to_exh exh pes') r_exh)`,
+    evaluate_match_exh ck env_exh s_exh v_exh (pat_exp_to_exh exh' pes') r_exh)`,
  ho_match_mp_tac evaluate_i3_ind >>
  strip_tac >- (
    rpt gen_tac >> strip_tac >>
@@ -577,9 +586,9 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    fs[GSYM AND_IMP_INTRO] >>
    last_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
    first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
    rator_x_assum`result_to_exh`(strip_assume_tac o SIMP_RULE(srw_ss())[Once result_to_exh_cases]) >>
-   ONCE_REWRITE_TAC[CONJ_COMM] >>
-   ONCE_REWRITE_TAC[GSYM CONJ_ASSOC] >> fs[] >>
+   exists_lift_conj_tac``evaluate_exh`` >> fs[] >>
    first_assum(match_exists_tac o concl) >> simp[] >>
    last_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
    first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
@@ -588,7 +597,7 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    first_x_assum (match_mp_tac o MP_CANON) >>
    qexists_tac`T`>>simp[] >>
    simp[add_default_def] >> rw[] >>
-   metis_tac[exh_to_exists_match] ) >>
+   metis_tac[exh_to_exists_match,exhaustive_match_submap] ) >>
  strip_tac >- (
    simp[exp_to_exh_def] >>
    rpt gen_tac >> strip_tac >>
@@ -647,7 +656,8 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    simp[Once result_to_exh_cases,PULL_EXISTS,v_to_exh_eqn] >>
    simp[Once evaluate_exh_cases] >>
    simp[Once v_to_exh_cases] >>
-   HINT_EXISTS_TAC >> simp[] ) >>
+   HINT_EXISTS_TAC >> simp[] >>
+   cheat (* looks false *)) >>
  strip_tac >- (
    simp[exp_to_exh_def] >>
    rpt gen_tac >> strip_tac >>
@@ -706,6 +716,7 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    fs[GSYM AND_IMP_INTRO] >>
    last_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
    first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
    exists_lift_conj_tac``evaluate_exh`` >>
    first_assum(split_pair_match o concl) >>
    rator_x_assum`result_to_exh`(strip_assume_tac o SIMP_RULE(srw_ss())[Once result_to_exh_cases]) >>
@@ -713,10 +724,18 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    first_assum(match_exists_tac o concl) >> simp[] >>
    last_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
    first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
    first_assum(split_pair_match o concl) >>
    rator_x_assum`result_to_exh`(strip_assume_tac o SIMP_RULE(srw_ss())[Once result_to_exh_cases]) >>
    BasicProvers.VAR_EQ_TAC >>
    first_assum(match_exists_tac o concl) >> simp[] >>
+   first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] do_app_exh)) >>
+   fs[store_to_exh_def] >>
+   disch_then(fn th=> first_assum (mp_tac o MATCH_MP th)) >>
+   disch_then(fn th=> first_assum (mp_tac o MATCH_MP th)) >>
+   disch_then(fn th=> first_assum (mp_tac o MATCH_MP th)) >>
+   strip_tac >>
+   cheat (* how to use do_app_exh? *) >>
    last_x_assum mp_tac >>
    Cases_on`op`>>simp[do_app_exh_def,do_app_i2_def] >- (
      BasicProvers.CASE_TAC >> simp[] >>
@@ -800,7 +819,9 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    last_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
    first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
    first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
    first_assum(match_exists_tac o concl) >> simp[] >>
+   first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
    first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
    fs[store_to_exh_def] >> rw[] >>
    first_assum(match_exists_tac o concl) >> simp[] >>
