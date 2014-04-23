@@ -22,12 +22,12 @@ val (v_to_exh_rules, v_to_exh_ind, v_to_exh_cases) = Hol_reln `
   v_to_exh exh (Conv_i2 t vs) (Conv_exh (FST t) vs')) ∧
 (!exh env x e env' exh'.
   exh' SUBMAP exh ∧
-  env_to_exh exh' env env'
+  env_to_exh exh env env'
   ⇒
   v_to_exh exh (Closure_i2 env x e) (Closure_exh env' x (exp_to_exh exh' e))) ∧
 (!exh env x funs exh'.
   exh' SUBMAP exh ∧
-  env_to_exh exh' env env'
+  env_to_exh exh env env'
   ⇒
   v_to_exh exh (Recclosure_i2 env funs x) (Recclosure_exh env' (funs_to_exh exh' funs) x)) ∧
 (!exh l.
@@ -656,8 +656,7 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    simp[Once result_to_exh_cases,PULL_EXISTS,v_to_exh_eqn] >>
    simp[Once evaluate_exh_cases] >>
    simp[Once v_to_exh_cases] >>
-   HINT_EXISTS_TAC >> simp[] >>
-   cheat (* looks false *)) >>
+   HINT_EXISTS_TAC >> simp[])
  strip_tac >- (
    simp[exp_to_exh_def] >>
    rpt gen_tac >> strip_tac >>
