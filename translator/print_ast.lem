@@ -58,6 +58,8 @@ tok_to_string FnT s = "fn " ^ s
 and
 tok_to_string FunT s = "fun " ^ s
 and
+tok_to_string HandleT s = "handle " ^ s
+and
 tok_to_string IfT s = "if " ^ s
 and
 tok_to_string InT s = "in " ^ s
@@ -356,6 +358,16 @@ exp_to_tok_tree indent (Mat e pes) =
   L CaseT ^^
   exp_to_tok_tree indent e ^^
   L OfT ^^
+  newline (inc_indent (inc_indent indent)) ^^
+  join_trees (newline (inc_indent indent) ^^ L BarT)
+               (List.map (pat_exp_to_tok_tree (inc_indent indent)) pes) ^^
+  L RparT
+and
+exp_to_tok_tree indent (Handle e pes) =
+  newline indent ^^
+  L LparT ^^
+  exp_to_tok_tree indent e ^^
+  L HandleT ^^
   newline (inc_indent (inc_indent indent)) ^^
   join_trees (newline (inc_indent indent) ^^ L BarT)
                (List.map (pat_exp_to_tok_tree (inc_indent indent)) pes) ^^

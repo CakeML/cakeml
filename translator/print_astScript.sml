@@ -76,6 +76,8 @@ val _ = Define `
 /\
 (tok_to_string FunT s =  (STRCAT"fun " s))
 /\
+(tok_to_string HandleT s =  (STRCAT"handle " s))
+/\
 (tok_to_string IfT s =  (STRCAT"if " s))
 /\
 (tok_to_string InT s =  (STRCAT"in " s))
@@ -400,6 +402,26 @@ val _ = Define `
                                                                (inc_indent
                                                                   indent))
                                                             pes)) (L RparT)))))))
+     | ( indent, (Handle e pes) ) => N (newline indent)
+                                       (N (L LparT)
+                                          (N (exp_to_tok_tree indent e)
+                                             (N (L HandleT)
+                                                (N
+                                                   (newline
+                                                      (inc_indent
+                                                         (inc_indent indent)))
+                                                   (N
+                                                      (join_trees
+                                                         ( N
+                                                             (newline
+                                                                (inc_indent
+                                                                   indent))
+                                                             (L BarT))
+                                                         (MAP
+                                                            (pat_exp_to_tok_tree
+                                                               (inc_indent
+                                                                  indent))
+                                                            pes)) (L RparT))))))
      | ( indent, (Let (SOME v) e1 e2) ) => N (newline indent)
                                              (N (L LparT)
                                                 (N

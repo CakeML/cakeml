@@ -50,6 +50,7 @@ val (exp_to_tok_tree_def, exp_to_tok_tree_ind) =
   srw_tac[ARITH_ss][] >>
   TRY (induct_on `funs`) >>
   TRY (induct_on `pes`) >>
+  TRY (induct_on `pes'`) >>
   TRY (induct_on `es`) >>
   TRY (induct_on `v37`) >>
   rw [exp_size_def] >>
