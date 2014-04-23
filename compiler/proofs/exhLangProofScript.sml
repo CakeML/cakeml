@@ -469,20 +469,30 @@ val do_app_exh = Q.prove (
      fs [] >>
      rw [exp_to_exh_def] >>
      metis_tac [SUBMAP_REFL])
- >- cheat (* Equality *)
+ >- (every_case_tac >>
+     imp_res_tac do_eq_exh_correct >> fs[] >> rw[] >>
+     simp[exp_to_exh_def] >>
+     qexists_tac`FEMPTY` >> simp[SUBMAP_FEMPTY] )
  >- (cases_on `v1` >>
      fs [] >>
      rw []
      >- (qpat_assum `v_to_exh exh (Closure_i2 l s e) v1_exh` (strip_assume_tac o SIMP_RULE (srw_ss()) [Once v_to_exh_cases]) >>
          rw [] >>
          metis_tac [])
-     >- cheat (* recfun *))
+     >- (
+       qpat_assum`v_to_exh exh (X Y) Z` mp_tac >> simp[Once v_to_exh_cases] >> rw[] >>
+       rw[] >> every_case_tac >> fs[] >> rw[] >>
+       HINT_EXISTS_TAC >> simp[funs_to_exh_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
+       fs[ETA_AX,FST_triple]))
  >- (cases_on `v1` >>
      fs [] >>
      every_case_tac >>
      fs [] >>
-     rw [exp_to_exh_def]
-     >> cheat (* store_assign *)));
+     rw [exp_to_exh_def] >>
+     imp_res_tac EVERY2_LENGTH >>
+     fs[store_assign_def] >> rw[] >>
+     qexists_tac`FEMPTY` >> simp[SUBMAP_FEMPTY] >>
+     match_mp_tac EVERY2_LUPDATE_same >> simp[] ))
 
 val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
 `(!ck env s e r.
