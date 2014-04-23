@@ -77,7 +77,7 @@ fun auto_prove proof_name (goal,tac) = let
   in if length rest = 0 then validation [] else let
   in failwith("auto_prove failed for " ^ proof_name) end end
 
-(* local *)
+local
   (* inv: get_DeclAssum () is a hyp in each thm in each !cert_memory *)
   val module_name = ref "";
   val decl_abbrev = ref TRUTH;
@@ -88,7 +88,6 @@ fun auto_prove proof_name (goal,tac) = let
   (* session specific state below *)
   val abbrev_counter = ref 0;
   val abbrev_defs = ref ([]:thm list);
-local
 in
   fun get_cenv_eq_thm () = !cenv_eq_thm
   fun get_cenv_names () = let
@@ -882,6 +881,8 @@ fun list_dest f tm =
 *)
 
 fun define_ref_inv tys = let
+  val is_pair_type =
+    (case tys of [ty] => can (match_type ty) ``:'a # 'b`` | _ => false)
   fun get_name ty = clean_uppercase (full_name_of_type ty) ^ "_TYPE"
   val names = map get_name tys
   val name = hd names
@@ -923,8 +924,9 @@ fun define_ref_inv tys = let
       val str = stringLib.fromMLstring tag
       val str_ty_name = stringLib.fromMLstring ml_ty_name
       val vs = listSyntax.mk_list(map (fn (_,z) => z) vars,``:v``)
-      val tm = mk_conj(``v = Conv (SOME (^str,
-                 TypeId (Short ^str_ty_name))) ^vs``,tm)
+      val tag_tm = if is_pair_type then ``NONE:(tvarN # tid_or_exn) option``
+                   else ``(SOME (^str, TypeId (Short ^str_ty_name)))``
+      val tm = mk_conj(``v = Conv ^tag_tm ^vs``,tm)
       val tm = list_mk_exists (map (fn (_,z) => z) vars, tm)
       val tm = subst [input |-> x] (mk_eq(lhs,tm))
       (* val vs = filter (fn x => x <> def_name) (free_vars tm) *)
@@ -1072,7 +1074,6 @@ val ty = ``:'a # 'b``; derive_thms_for_type ty
 val ty = ``:'a + num``; derive_thms_for_type ty
 val ty = ``:num option``; derive_thms_for_type ty
 val ty = ``:unit``; derive_thms_for_type ty
-
 *)
 
 fun derive_thms_for_type ty = let
@@ -1088,29 +1089,31 @@ fun derive_thms_for_type ty = let
   fun list_mk_type [] ret_ty = ret_ty
     | list_mk_type (x::xs) ret_ty = mk_type("fun",[type_of x,list_mk_type xs ret_ty])
   (* define a CakeML datatype declaration *)
-  fun extract_dtype_part th = let
-    val xs = CONJUNCTS th |> map (dest_eq o concl o SPEC_ALL)
-    val ys = xs |>  map (fn (x,y) => (x |> rator |> rand,
-                                      y |> list_dest dest_exists |> last
-                                        |> list_dest dest_conj |> hd
-                                        |> rand |> rator |> rand |> rand))
-    val tyname = ys |> hd |> snd |> rand |> rand |> rand
-    val ys = map (fn (x,y) => (y |> rator |> rand,
-                               x |> dest_args |> map (type2t o type_of) )) ys
-    fun mk_line (x,y) = pairSyntax.mk_pair(x,
-                         listSyntax.mk_list(y,type_of ``Tbool``))
-    val lines = listSyntax.mk_list(map mk_line ys,``:tvarN # t list``)
-    fun string_tl s = s |> explode |> tl |> implode
-    val ts = th |> concl |> list_dest dest_conj |> hd
-                |> list_dest dest_forall |> last |> dest_eq |> fst
-                |> rator |> rand |> type_of |> dest_type |> snd
-                |> map (stringSyntax.fromMLstring o (* string_tl o *) dest_vartype)
-    val ts_tm = listSyntax.mk_list(ts,``:string``)
-    val dtype = ``(^ts_tm,^tyname,^lines)``
-    in dtype end
-  val dtype_parts = inv_defs |> map #2 |> map extract_dtype_part
-  val dtype_list = listSyntax.mk_list(dtype_parts,type_of (hd dtype_parts))
-  val dtype = ``(Dtype ^dtype_list): dec``
+  val (dtype,dtype_list) =
+    if name = "PAIR_TYPE" then (``Dtype []``,``[]:'a list``) else let
+    fun extract_dtype_part th = let
+      val xs = CONJUNCTS th |> map (dest_eq o concl o SPEC_ALL)
+      val ys = xs |>  map (fn (x,y) => (x |> rator |> rand,
+                                        y |> list_dest dest_exists |> last
+                                          |> list_dest dest_conj |> hd
+                                          |> rand |> rator |> rand |> rand))
+      val tyname = ys |> hd |> snd |> rand |> rand |> rand
+      val ys = map (fn (x,y) => (y |> rator |> rand,
+                                 x |> dest_args |> map (type2t o type_of) )) ys
+      fun mk_line (x,y) = pairSyntax.mk_pair(x,
+                           listSyntax.mk_list(y,type_of ``Tbool``))
+      val lines = listSyntax.mk_list(map mk_line ys,``:tvarN # t list``)
+      fun string_tl s = s |> explode |> tl |> implode
+      val ts = th |> concl |> list_dest dest_conj |> hd
+                  |> list_dest dest_forall |> last |> dest_eq |> fst
+                  |> rator |> rand |> type_of |> dest_type |> snd
+                  |> map (stringSyntax.fromMLstring o (* string_tl o *) dest_vartype)
+      val ts_tm = listSyntax.mk_list(ts,``:string``)
+      val dtype = ``(^ts_tm,^tyname,^lines)``
+      in dtype end
+    val dtype_parts = inv_defs |> map #2 |> map extract_dtype_part
+    val dtype_list = listSyntax.mk_list(dtype_parts,type_of (hd dtype_parts))
+    in (``(Dtype ^dtype_list): dec``,dtype_list) end
   (* cons assumption *)
   fun make_assum tyname c = let
     val (x1,x2) = dest_pair c
@@ -1122,6 +1125,7 @@ fun derive_thms_for_type ty = let
     |> map (fn xs => (el 2 xs, el 3 xs |> listSyntax.dest_list |> fst))
     |> map (fn (tyname,conses) => map (make_assum tyname) conses)
     |> flatten |> list_mk_conj
+    handle HOL_ERR _ => T
 (*
   val ((ty,case_th),(_,inv_def,eq_lemma)) = hd (zip case_thms inv_defs)
   val inv_lhs = inv_def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL
@@ -1178,7 +1182,10 @@ fun derive_thms_for_type ty = let
       val str = stringSyntax.fromMLstring str
       val vars = map (fn (x,n,v) => ``Pvar ^n``) xs
       val vars = listSyntax.mk_list(vars,``:pat``)
-      in ``(Pcon (SOME (Short ^str)) ^vars, ^exp)`` end) ts
+      val tag_tm = if name = "PAIR_TYPE"
+                   then ``NONE:tvarN id option``
+                   else ``(SOME (Short ^str))``
+      in ``(Pcon ^tag_tm ^vars, ^exp)`` end) ts
     val patterns = listSyntax.mk_list(patterns,``:pat # exp``)
     val ret_inv = get_type_inv ret_ty
     val result = mk_comb(ret_inv,exp)
@@ -1272,7 +1279,10 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
     val str = stringLib.fromMLstring tag
     val exps_tm = listSyntax.mk_list(map snd exps,``:exp``)
     val inv = inv_lhs |> rator |> rator
-    val result = ``Eval env (Con (SOME (Short ^str)) ^exps_tm) (^inv ^tm)``
+    val tag_name = if name = "PAIR_TYPE"
+                   then ``NONE:tvarN id option``
+                   else ``(SOME (Short ^str))``
+    val result = ``Eval env (Con ^tag_name ^exps_tm) (^inv ^tm)``
     fun find_inv tm =
       if type_of tm = ty then (mk_comb(rator (rator inv_lhs),tm)) else
         (mk_comb(get_type_inv (type_of tm),tm))
@@ -1283,6 +1293,7 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
                      |> filter (fn tm => aconv
                            (tm |> rator |> rand |> rator |> rand) str)
                      |> list_mk_conj
+                     handle HOL_ERR _ => T
     val goal = mk_imp(cons_assum,mk_imp(tm,result))
     fun add_primes str 0 = []
       | add_primes str n = mk_var(str,``:v``) :: add_primes (str ^ "'") (n-1)
@@ -1310,7 +1321,7 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
     val conses = map (derive_cons ty inv_lhs inv_def) ts
     in (ty,eq_lemma,inv_def,conses,case_lemma,ts) end
   val res = map make_calls (zip case_thms inv_defs)
-  val _ = if name = "LIST_TYPE" then () else snoc_dtype_decl dtype
+  val _ = if mem name ["LIST_TYPE","PAIR_TYPE"] then () else snoc_dtype_decl dtype
   val (rws1,rws2) = if not is_record then ([],[])
                     else derive_record_specific_thms (hd tys)
   in (rws1,rws2,res) end;
