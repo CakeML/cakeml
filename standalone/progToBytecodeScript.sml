@@ -199,6 +199,7 @@ val () = ASCIInumbersLib.add_ASCIInumbers_compset compset
 val () = stringLib.add_string_compset compset
 val () = sumSimps.SUM_rws compset
 val () = optionLib.OPTION_rws compset
+val () = pred_setLib.add_pred_set_compset compset
 (* extra option thms :/ *)
 val () = computeLib.add_thms
   (map computeLib.lazyfy_thm
@@ -209,6 +210,10 @@ val () = computeLib.add_thms
   compset
 val () = computeLib.add_thms
   [optionTheory.OPTION_MAP_DEF
+  ] compset
+(* extra list thms :/ *)
+val () = computeLib.add_thms
+  [LIST_TO_SET_THM
   ] compset
 (* combin doesn't provide a compset :( *)
 val () = let open combinTheory computeLib
@@ -224,57 +229,6 @@ val () = computeLib.add_thms
       [CLOSED_PAIR_EQ,FST,SND,pair_case_thm,SWAP_def,
        CURRY_DEF,UNCURRY_DEF,PAIR_MAP_THM])
   compset
-(* pred_setLib doesn't provide a compset :( *)
-val () = let
-  open PFset_conv pred_setLib pred_setSyntax
-  fun in_conv eval tm =
-    case strip_comb tm
-     of (c,[a1,a2]) =>
-          if same_const c in_tm
-          then if is_set_spec a2 then SET_SPEC_CONV tm else
-               IN_CONV eval tm
-          else raise ERR "in_conv" "not an IN term"
-      | otherwise => raise ERR "in_conv" "not an IN term";
-  val T_INTRO =
-   let open boolLib Drule
-   in Rewrite.PURE_ONCE_REWRITE_RULE
-                [SYM (hd(tl (CONJUNCTS (SPEC_ALL EQ_CLAUSES))))]
-   end;
-  open pred_setTheory
-  in
-    List.app (Lib.C computeLib.add_conv compset)
-         [ (in_tm, 2, in_conv (computeLib.CBV_CONV compset)),
-           (insert_tm, 2, INSERT_CONV (computeLib.CBV_CONV compset)),
-           (card_tm, 1, CARD_CONV),
-           (max_set_tm, 1, MAX_SET_CONV),
-           (sum_image_tm, 2, SUM_IMAGE_CONV)
-         ];
-    computeLib.add_funs
-       [INTER_EMPTY,INSERT_INTER,
-        CONJ (CONJUNCT1 UNION_EMPTY) INSERT_UNION,
-        CONJ EMPTY_DELETE DELETE_INSERT,
-        CONJ DIFF_EMPTY DIFF_INSERT,
-        CONJ (T_INTRO (SPEC_ALL EMPTY_SUBSET)) INSERT_SUBSET,
-        PSUBSET_EQN,
-        CONJ IMAGE_EMPTY IMAGE_INSERT,
-        CONJ BIGUNION_EMPTY BIGUNION_INSERT,
-        LIST_CONJ [BIGINTER_EMPTY,BIGINTER_SING, BIGINTER_INSERT],
-        CONJ (T_INTRO (CONJUNCT1 (SPEC_ALL DISJOINT_EMPTY))) DISJOINT_INSERT,
-        CROSS_EQNS,CONJUNCT1(SPEC_ALL CROSS_EMPTY),
-        FINITE_INSERT, FINITE_EMPTY,
-        MIN_SET_THM,
-        count_EQN,
-        CONJUNCT1 MAX_SET_THM,
-        CARD_EMPTY, SUM_SET_DEF,
-        CONJUNCT1 (SPEC_ALL SUM_IMAGE_THM),
-        SET_EQ_SUBSET, IN_COMPL, POW_EQNS
-       ]
-  end
-val () = computeLib.add_thms
-  [LIST_TO_SET_THM
-  ,count_EQN
-  ,EMPTY_SUBSET
-  ] compset
 (* finite_mapLib doesn't provide a compset :( *)
 val () = computeLib.add_thms
   [o_f_FEMPTY
