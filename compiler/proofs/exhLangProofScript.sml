@@ -946,31 +946,38 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    rw[Once evaluate_exh_cases] >>
    rw[Once evaluate_exh_cases] >>
    PairCases_on`s_exh`>>simp[] ) >>
- cheat)
-
-(*
- >- fs [exists_match_def]
- >- (
-   disj2_tac >>
-   disj1_tac >>
-   simp[add_default_def] >>
-   simp[if_cons,exp_to_exh_def] >>
-   simp[pmatch_exh_correct,pat_bindings_exh_correct])
- >- (rw [add_default_def, exp_to_exh_def] >>
-     simp[pmatch_exh_correct,pat_bindings_exh_correct])
- >- (rw[add_default_def, exp_to_exh_def] >>
-     simp[pmatch_exh_correct,pat_bindings_exh_correct] >>
-     first_x_assum match_mp_tac >>
-     ((qexists_tac`T` >> simp[add_default_def] >> fs[] >> NO_TAC) ORELSE
-     (qexists_tac`F` >> simp[add_default_def] >> fs[] >> NO_TAC)))
- >- (rw[add_default_def, exp_to_exh_def] >>
-     simp[pmatch_exh_correct,pat_bindings_exh_correct] >>
-     first_x_assum match_mp_tac >>
-     first_assum(match_exists_tac o concl) >> simp[] >>
-     simp[add_default_def] >>
-     fs[exists_match_def] >>
-     metis_tac[pmatch_i2_any_no_match]))
-*)
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rw[add_default_def] >> rw[exp_to_exh_def] >>
+   PairCases_on`s_exh` >> fs[store_to_exh_def] >> rw[] >>
+   full_simp_tac std_ss[GSYM vs_to_exh_LIST_REL] >>
+   simp[Once evaluate_exh_cases] >>
+   srw_tac[DNF_ss][] >> disj1_tac >>
+   imp_res_tac (CONJUNCT1 pmatch_exh_correct) >>
+   Cases_on`pmatch_exh s_exh1 (pat_to_exh p) v_exh env_exh`>>
+   fs[match_result_to_exh_def] >>
+   simp[pat_bindings_exh_correct] >>
+   first_x_assum match_mp_tac >>
+   simp[store_to_exh_def] ) >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rw[add_default_def] >> rw[exp_to_exh_def] >>
+   PairCases_on`s_exh` >> fs[store_to_exh_def] >> rw[] >>
+   full_simp_tac std_ss[GSYM vs_to_exh_LIST_REL] >>
+   simp[Once evaluate_exh_cases] >>
+   srw_tac[DNF_ss][] >> disj2_tac >> disj1_tac >>
+   imp_res_tac (CONJUNCT1 pmatch_exh_correct) >>
+   Cases_on`pmatch_exh s_exh1 (pat_to_exh p) v_exh env_exh`>>
+   fs[match_result_to_exh_def] >>
+   simp[pat_bindings_exh_correct] >>
+   first_x_assum match_mp_tac >>
+   simp[store_to_exh_def] >>
+   TRY (qexists_tac`T` >> simp[] >> NO_TAC) >>
+   TRY (qexists_tac`F` >> simp[] >> NO_TAC) >>
+   qexists_tac`is_handle`>>simp[] >> rw[] >> fs[] >>
+   fs[exists_match_def,PULL_EXISTS] >>
+   metis_tac[pmatch_i2_any_no_match] ) >>
+ rw[])
 
 val v_to_exh_extend_disjoint = store_thm("v_to_exh_extend_disjoint",
   ``∀exh v1 v2 exh'. v_to_exh exh v1 v2 ∧ DISJOINT (FDOM exh') (FDOM exh) ⇒
