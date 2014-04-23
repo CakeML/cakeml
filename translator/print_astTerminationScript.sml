@@ -44,8 +44,8 @@ val exp_size_lemma = prove(
 val (exp_to_tok_tree_def, exp_to_tok_tree_ind) =
   tprove_no_defn ((exp_to_tok_tree_def, exp_to_tok_tree_ind),
   wf_rel_tac `measure (\x. case x of INL (_,e) => exp_size e
-                                   | INR (INL (_,_,p,e)) => exp_size e + 1
-                                   | INR (INR (_,_,e)) => exp_size e + 1)` >>
+                                   | INR (INL (_,p,e)) => exp_size e + 1
+                                   | INR (INR (_,_,_,e)) => exp_size e + 1)` >>
   rw [] >>
   srw_tac[ARITH_ss][] >>
   TRY (induct_on `funs`) >>
