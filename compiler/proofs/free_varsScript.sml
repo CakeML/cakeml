@@ -427,16 +427,46 @@ val free_vars_pat_exp_to_pat = store_thm("free_vars_pat_exp_to_pat",
     fs[MEM_MAP,PULL_EXISTS] >>
     fs[GSYM find_index_NOT_MEM] >>
     metis_tac[]) >>
+
   simp[SUBSET_DEF,PULL_EXISTS] >>
   rw[] >>
   Cases_on`ls`>>fs[] >> rw[] >>
   fs[find_index_def,PULL_EXISTS] >>
+  fs[Once row_to_pat_nil] >>
+  `∃r1 n1 f1. row_to_pat [NONE] p = (r1,n1,f1)` by simp[GSYM EXISTS_PROD] >> fs[LET_THM] >>
   reverse(imp_res_tac(SIMP_RULE(srw_ss())[SUBSET_DEF]free_vars_pat_sIf) >> fs[])
   >- metis_tac[]
   >- (
-    BasicProvers.EVERY_CASE_TAC >> fs[] >>
-    cheat ) >>
-  cheat)
+    rator_x_assum`row_to_pat`mp_tac >>
+    specl_args_of_then``row_to_pat``(CONJUNCT1 free_vars_row_to_pat)strip_assume_tac >>
+    specl_args_of_then``row_to_pat``(CONJUNCT1 row_to_pat_pat_bindings)strip_assume_tac >>
+    specl_args_of_then``row_to_pat``(CONJUNCT1 row_to_pat_acc)strip_assume_tac >>
+    strip_tac >> fs[] >>
+    first_x_assum(qspec_then`[]`strip_assume_tac) >>
+    qpat_assum`a ⇒ b`mp_tac >>
+    discharge_hyps >- (
+      fs[SUBSET_DEF,PULL_EXISTS,MEM_MAP] >> metis_tac[] ) >>
+    strip_tac >>
+    rfs[SUBSET_DEF] >>
+    first_x_assum(fn th => first_assum (mp_tac o MATCH_MP th)) >>
+    strip_tac >> simp[] >>
+    simp[Once find_index_shift_0] >>
+    first_x_assum(fn th => first_assum (mp_tac o MATCH_MP th)) >>
+    simp[find_index_APPEND,PULL_EXISTS] >>
+    gen_tac >> reverse BasicProvers.CASE_TAC >- (
+      imp_res_tac find_index_LESS_LENGTH >>
+      fsrw_tac[ARITH_ss][] ) >>
+    rw[] >>
+    qmatch_assum_rename_tac`a ∈ free_vars_exh e`[] >>
+    fs[Once find_index_shift_0] >>
+    Q.ISPECL_THEN[`t`,`SOME a`,`0:num`]mp_tac find_index_MEM >>
+    discharge_hyps >- metis_tac[find_index_NOT_MEM,MEM_MAP] >> strip_tac >> fs[] >>
+    disj2_tac >>
+    qexists_tac`a` >> simp[] >>
+    simp[Once find_index_shift_0] >>
+    metis_tac[find_index_NOT_MEM,MEM_MAP]) >>
+  imp_res_tac(SIMP_RULE(srw_ss())[SUBSET_DEF](CONJUNCT1 free_vars_pat_to_pat)) >>
+  rw[])
 
 val free_vars_mkshift = store_thm("free_vars_mkshift",
   ``∀f k e. set (free_vars (mkshift f k e)) = IMAGE (λv. if v < k then v else f (v-k) + k) (set (free_vars e))``,
