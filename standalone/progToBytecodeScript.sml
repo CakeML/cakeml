@@ -187,8 +187,6 @@ val encode_bc_insts_thm = prove(
   BasicProvers.CASE_TAC >> fs[])
 
 val compset = wordsLib.words_compset()
-(* TODO: add this to intReduce.sml *)
-val () = computeLib.add_thms [integerTheory.NUM_OF_INT] compset
 (* good libraries which provide compsets :) *)
 val () = intReduce.add_int_compset compset
 (* included in words_compset
