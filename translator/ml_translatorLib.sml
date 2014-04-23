@@ -343,6 +343,18 @@ end
 
 (* code for managing type information *)
 
+fun get_ty_case_const ty = let
+  val th = TypeBase.case_def_of ty
+  val case_const = th |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL
+                      |> concl |> dest_eq |> fst |> repeat rator
+  in case_const end
+
+fun name_of_type ty = let
+  val case_const = get_ty_case_const ty
+  val name = case_const |> dest_const |> fst |> explode |> rev
+                        |> funpow 5 tl |> rev |> implode
+  in name end;
+
 local
   val type_mappings = ref ([]:(hol_type * hol_type) list)
   val other_types = ref ([]:(hol_type * term) list)
@@ -384,7 +396,8 @@ in
       val s = map (fn {redex = a, residue = b} => type2t a |-> type2t b) i
       in subst s tm end handle HOL_ERR _ =>
     let
-      val (name,tt) = dest_type ty
+      val (_,tt) = dest_type ty
+      val name = name_of_type ty
       val tt = map type2t tt
       val name_tm = stringSyntax.fromMLstring name
       val tt_list = listSyntax.mk_list(tt,type_of ``Tbool``)
@@ -688,18 +701,6 @@ val basic_theories =
     "set_relation", "sorting", "state_option", "state_transformer",
     "string_num", "string", "sum_num", "sum", "topology", "transc",
     "update", "util_prob", "while", "words"]
-
-fun get_ty_case_const ty = let
-  val th = TypeBase.case_def_of ty
-  val case_const = th |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL
-                      |> concl |> dest_eq |> fst |> repeat rator
-  in case_const end
-
-fun name_of_type ty = let
-  val case_const = get_ty_case_const ty
-  val name = case_const |> dest_const |> fst |> explode |> rev
-                        |> funpow 5 tl |> rev |> implode
-  in name end;
 
 fun full_name_of_type ty = let
   val case_const = get_ty_case_const ty
@@ -1071,6 +1072,7 @@ val ty = ``:'a # 'b``; derive_thms_for_type ty
 val ty = ``:'a + num``; derive_thms_for_type ty
 val ty = ``:num option``; derive_thms_for_type ty
 val ty = ``:unit``; derive_thms_for_type ty
+
 *)
 
 fun derive_thms_for_type ty = let
@@ -1078,7 +1080,7 @@ fun derive_thms_for_type ty = let
   val is_record = 0 < length(TypeBase.fields_of ty)
   val tys = find_mutrec_types ty
   val _ = map (fn ty => print ("Adding type " ^ type_to_string ty ^ "\n")) tys
-  (* derive case theorems *)
+  (* look up case theorems *)
   val case_thms = map (fn ty => (ty, get_nchotomy_of ty)) tys
   (* define coupling invariant for data refinement and prove EqualityType lemmas *)
   val (name,inv_defs) = define_ref_inv tys
