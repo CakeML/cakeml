@@ -42,14 +42,6 @@ val FOLDL_emit_thm = store_thm("FOLDL_emit_thm",
   Induct >> simp[compiler_result_component_equality])
 
 (* TODO: move *)
-val genv_to_i2_LENGTH_EQ = store_thm("genv_to_i2_LENGTH_EQ",
-  ``∀x y z. genv_to_i2 x y z ⇒ LENGTH y = LENGTH z``,
-  ho_match_mp_tac genv_to_i2_ind >> simp[])
-
-val genv_to_i2_LIST_REL = store_thm("genv_to_i2_LIST_REL",
-  ``∀x y z. genv_to_i2 x y z ⇒ LIST_REL (OPTREL (v_to_i2 x)) y z``,
-  ho_match_mp_tac genv_to_i2_ind >> simp[optionTheory.OPTREL_def])
-
 val store_to_exh_csg_rel = store_thm("store_to_exh_csg_rel",
   ``store_to_exh exh = csg_rel (v_to_exh exh)``,
   simp[FUN_EQ_THM,FORALL_PROD,store_to_exh_def,csg_rel_def])
@@ -2021,7 +2013,6 @@ val env_rs_empty = store_thm("env_rs_empty",
   rw[init_compiler_state_def,get_tagenv_def,cenv_inv_def] >>
   rw[Once v_to_i1_cases] >> rw[Once v_to_i1_cases] >>
   rw[Once s_to_i1_cases] >> rw[Once s_to_i1'_cases] >> rw[Once v_to_i1_cases] >>
-  rw[Once genv_to_i2_cases] >>
   simp[Once s_to_i2_cases] >> simp[Once s_to_i2'_cases] >> simp[Once v_to_i2_cases] >>
   simp[Cenv_bs_def,env_renv_def,s_refs_def,good_rd_def,FEVERY_ALL_FLOOKUP] >>
   simp[all_vlabs_csg_def,vlabs_csg_def,closed_vlabs_def] >>
@@ -2327,7 +2318,7 @@ val compile_top_thm = store_thm("compile_top_thm",
     simp[] >>
     `LENGTH genv2 = LENGTH grd0` by (
       fs[to_i2_invariant_def] >>
-      imp_res_tac genv_to_i2_LENGTH_EQ >>
+      imp_res_tac EVERY2_LENGTH >>
       fs[] ) >>
     simp[] >>
     simp[Once result_to_i3_cases] >>
@@ -2389,6 +2380,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       first_assum(match_exists_tac o concl) >> simp[] >>
       fs[to_i2_invariant_def] >>
       match_mp_tac (MP_CANON genv_to_i2_closed) >>
+      first_assum(match_exists_tac o concl) >> simp[]>>
       first_assum(match_exists_tac o concl) >> simp[]) >>
     disch_then(qx_choosel_then[`Cres0`]strip_assume_tac) >>
     qpat_assum`X = Stop::bc`mp_tac >>
@@ -2519,7 +2511,7 @@ val compile_top_thm = store_thm("compile_top_thm",
         imp_res_tac EVERY2_LENGTH >> fs[] >> rw[] >>
         rator_x_assum`to_i2_invariant`mp_tac >>
         simp[to_i2_invariant_def] >> strip_tac >>
-        imp_res_tac genv_to_i2_LENGTH_EQ >> fs[] >>
+        imp_res_tac EVERY2_LENGTH >> fs[] >>
         metis_tac[] ) >>
       simp[] >>
       simp[v_bv_def] >>
@@ -2554,8 +2546,7 @@ val compile_top_thm = store_thm("compile_top_thm",
          HINT_EXISTS_TAC >> simp[] >>
          rator_x_assum`to_i2_invariant`mp_tac >>
          simp[to_i2_invariant_def] >> strip_tac >>
-         imp_res_tac genv_to_i2_LIST_REL >>
-         pop_assum mp_tac >>
+         rator_x_assum`LIST_REL` mp_tac >>
          simp[EVERY2_EVERY,GSYM AND_IMP_INTRO,EVERY_MEM,MEM_ZIP,PULL_EXISTS] >>
          simp[optionTheory.OPTREL_def] >> strip_tac >>
          disch_then(qspec_then`m2 ' pv`mp_tac) >> simp[] >>
@@ -2646,8 +2637,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       pop_assum kall_tac >> pop_assum mp_tac >> simp[Abbr`l2`] >>
       rator_x_assum`to_i2_invariant`mp_tac >>
       simp[to_i2_invariant_def] >> strip_tac >>
-      imp_res_tac genv_to_i2_LIST_REL >>
-      pop_assum mp_tac >>
+      rator_x_assum`LIST_REL` mp_tac >>
       simp[EVERY2_EVERY,GSYM AND_IMP_INTRO,EVERY_MEM,MEM_ZIP,PULL_EXISTS] >>
       simp[optionTheory.OPTREL_def] >>
       disch_then(qspec_then`nn`mp_tac) >> simp[] >>
@@ -2699,7 +2689,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       rpt(BasicProvers.VAR_EQ_TAC) >> simp[] >>
       rator_x_assum`to_i2_invariant`mp_tac >>
       simp[to_i2_invariant_def] >> strip_tac >>
-      imp_res_tac genv_to_i2_LENGTH_EQ >> rfs[] ) >>
+      imp_res_tac EVERY2_LENGTH >> rfs[] ) >>
     conj_tac >- simp[Abbr`bs2`] >>
     ONCE_REWRITE_TAC[CONJ_ASSOC] >>
     conj_tac >- (

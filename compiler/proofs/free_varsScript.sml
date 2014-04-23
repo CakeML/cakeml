@@ -1518,9 +1518,17 @@ val genv_to_exh_closed = store_thm("genv_to_exh_closed",
   metis_tac[v_to_exh_closed,OPTION_EVERY_def])
 
 val genv_to_i2_closed = store_thm("genv_to_i2_closed",
-  ``∀g x y. genv_to_i2 g x y ⇒ EVERY (OPTION_EVERY closed_i1) x ⇒ EVERY (OPTION_EVERY closed_i2) y``,
-  ho_match_mp_tac genv_to_i2_ind >> simp[] >>
-  metis_tac[v_to_i2_closed])
+  ``∀g x y.
+    EVERY (OPTION_EVERY closed_i1) x ∧
+    LIST_REL (OPTREL (v_to_i2 g)) x y
+    ⇒ EVERY (OPTION_EVERY closed_i2) y``,
+  simp[EVERY_MEM,MEM_MAP,PULL_EXISTS,EVERY2_EVERY,EVERY_MEM,MEM_ZIP,GSYM AND_IMP_INTRO] >>
+  simp[MEM_EL,PULL_EXISTS] >>
+  rpt gen_tac >> rpt strip_tac >>
+  res_tac >> fs[] >> res_tac >>
+  fs[optionTheory.OPTREL_def] >>
+  rfs[] >>
+  metis_tac[v_to_i2_closed,OPTION_EVERY_def])
 
 val global_env_inv_closed = store_thm("global_env_inv_closed",
   ``∀genv mods tops menv s env.
