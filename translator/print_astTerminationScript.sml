@@ -25,20 +25,21 @@ val (join_trees_def, join_trees_ind) =
   srw_tac [ARITH_ss] []);
 val _ = register "join_trees" join_trees_def join_trees_ind;
 
+val pat_size_lemma = prove(
+  ``!xs a. MEM a xs ==> pat_size a < pat1_size xs``,
+  Induct >> srw_tac [] [pat_size_def] >> res_tac >> decide_tac);
+
 val (pat_to_tok_tree_def, pat_to_tok_tree_ind) =
   tprove_no_defn ((pat_to_tok_tree_def, pat_to_tok_tree_ind),
   wf_rel_tac `measure pat_size` >>
-  rw [] >|
-  [decide_tac,
-   induct_on `v8` >>
-       rw [] >>
-       fs [pat_size_def] >>
-       decide_tac,
-   induct_on `ps` >>
-       rw [] >>
-       fs [pat_size_def] >>
-       decide_tac]);
+  rw [] >>
+  imp_res_tac pat_size_lemma >>
+  decide_tac);
 val _ = register "pat_to_tok_tree" pat_to_tok_tree_def pat_to_tok_tree_ind;
+
+val exp_size_lemma = prove(
+  ``!xs a. MEM a xs ==> exp_size a < exp6_size xs``,
+  Induct >> srw_tac [] [exp_size_def] >> res_tac >> decide_tac);
 
 val (exp_to_tok_tree_def, exp_to_tok_tree_ind) =
   tprove_no_defn ((exp_to_tok_tree_def, exp_to_tok_tree_ind),
@@ -54,6 +55,7 @@ val (exp_to_tok_tree_def, exp_to_tok_tree_ind) =
   rw [exp_size_def] >>
   fs [exp_size_def] >>
   rw [exp_size_def] >>
+  imp_res_tac exp_size_lemma >>
   decide_tac);
 
 val _ = register "exp_to_tok_tree" exp_to_tok_tree_def exp_to_tok_tree_ind;

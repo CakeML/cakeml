@@ -1,4 +1,4 @@
-open import Pervasives 
+open import Pervasives
 open import Lib
 open import Ast
 open import Tokens
@@ -14,7 +14,7 @@ let int_to_string n =
     "~" ^ show (naturalFromInteger (0 - n))
 
 val spaces : nat -> string -> string
-let rec 
+let rec
 spaces n s =
   if (n:nat) = 0 then
     s
@@ -24,7 +24,7 @@ spaces n s =
 let space_append s1 s2 =
   if s2 = "" then
     s1
-  else 
+  else
     let f = nth s2 0 in
       if f = #')'  || f = #' ' || f = #',' then
     s1 ^ s2
@@ -76,7 +76,7 @@ tok_to_string ThenT s = "then " ^ s
 and
 tok_to_string ValT s = "val " ^ s
 and
-tok_to_string LparT s = 
+tok_to_string LparT s =
   if s = "" then
     "("
   else if nth s 0 = #'*' then
@@ -104,10 +104,10 @@ tok_to_string TypeT s = "type " ^ s
 and
 tok_to_string WithT s = "with " ^ s
 
-let rec 
+let rec
 tok_list_to_string [] = ""
 and
-tok_list_to_string (t::l) = 
+tok_list_to_string (t::l) =
   tok_to_string t (tok_list_to_string l)
 
 (*type 'a tree = L of 'a | N of 'a tree * 'a tree*)
@@ -132,25 +132,25 @@ let is_sml_infix s =
     if c < 65 (* "A" *) then
       if c < 60 (* "<" *) then
         s = "*" ||
-        s = "+" || 
+        s = "+" ||
         s = "-" ||
         s = "/" ||
-        s = "::" || 
+        s = "::" ||
         s = ":="
       else
-        s = "<" || 
-        s = "<=" || 
+        s = "<" ||
+        s = "<=" ||
         s = "<>" ||
-        s = "=" || 
-        s = ">" || 
-        s = ">=" || 
+        s = "=" ||
+        s = ">" ||
+        s = ">=" ||
         s = "@"
     else
       if c < 109 (* "m" *) then
         if c < 100 then
           s = "before"
         else
-          s = "div" 
+          s = "div"
       else
         if c < 111 then
           s = "mod"
@@ -198,8 +198,15 @@ pat_to_tok_tree (Plit l) = lit_to_tok_tree l
 and
 pat_to_tok_tree (Pcon (Just c) []) = id_to_tok_tree c
 and
+pat_to_tok_tree (Pcon (Just (Short "::")) [p1;p2]) =
+  L LparT ^^
+  pat_to_tok_tree p1 ^^
+  id_to_tok_tree (Short "::") ^^
+  pat_to_tok_tree p2 ^^
+  L RparT
+and
 pat_to_tok_tree (Pcon (Just c) ps) =
-  L LparT ^^ id_to_tok_tree c ^^ 
+  L LparT ^^ id_to_tok_tree c ^^
     L LparT ^^ join_trees (L CommaT) (List.map pat_to_tok_tree ps) ^^
     L RparT ^^ L RparT
 and
@@ -209,13 +216,13 @@ and
 pat_to_tok_tree (Pref p) =
   L LparT ^^ L (LongidT "" "ref") ^^ pat_to_tok_tree p ^^ L RparT
 
-let inc_indent i = 
+let inc_indent i =
   if (i:nat) < 30 then
     i + 2
   else
     i
 
-let newline indent = 
+let newline indent =
   L NewlineT ^^ L (WhitespaceT indent)
 
 let rec
@@ -228,16 +235,23 @@ and
 exp_to_tok_tree indent (Con (Just c) []) =
   id_to_tok_tree c
 and
+exp_to_tok_tree indent (Con (Just (Short "::")) [e1; e2]) =
+  L LparT ^^
+  exp_to_tok_tree indent e1 ^^
+  id_to_tok_tree (Short "::") ^^
+  exp_to_tok_tree indent e2 ^^
+  L RparT
+and
 exp_to_tok_tree indent (Con (Just c) es) =
   L LparT ^^
-  id_to_tok_tree c ^^ 
+  id_to_tok_tree c ^^
   L LparT ^^
-  join_trees (L CommaT) (List.map (exp_to_tok_tree indent) es) ^^ 
+  join_trees (L CommaT) (List.map (exp_to_tok_tree indent) es) ^^
   L RparT ^^ L RparT
 and
 exp_to_tok_tree indent (Con Nothing es) =
   L LparT ^^
-  join_trees (L CommaT) (List.map (exp_to_tok_tree indent) es) ^^ 
+  join_trees (L CommaT) (List.map (exp_to_tok_tree indent) es) ^^
   L RparT
 and
 exp_to_tok_tree indent (Var vid) =
@@ -247,13 +261,13 @@ exp_to_tok_tree indent (Fun v e) =
   newline indent ^^
   L LparT ^^
   L FnT ^^
-  var_to_tok_tree v ^^ 
-  L DarrowT ^^ 
-  exp_to_tok_tree (inc_indent indent) e ^^ 
+  var_to_tok_tree v ^^
+  L DarrowT ^^
+  exp_to_tok_tree (inc_indent indent) e ^^
   L RparT
 and
 exp_to_tok_tree indent (Uapp uop e) =
-  let s = 
+  let s =
     match uop with
       | Opref -> "ref"
       | Opderef -> "!"
@@ -266,15 +280,15 @@ exp_to_tok_tree indent (Uapp uop e) =
 and
 exp_to_tok_tree indent (App Opapp e1 e2) =
   L LparT ^^
-  exp_to_tok_tree indent e1 ^^ 
-  exp_to_tok_tree indent e2 ^^ 
+  exp_to_tok_tree indent e1 ^^
+  exp_to_tok_tree indent e2 ^^
   L RparT
 and
 exp_to_tok_tree indent (App Equality e1 e2) =
   L LparT ^^
-  exp_to_tok_tree indent e1 ^^ 
-  L EqualsT ^^ 
-  exp_to_tok_tree indent e2 ^^ 
+  exp_to_tok_tree indent e1 ^^
+  L EqualsT ^^
+  exp_to_tok_tree indent e2 ^^
   L RparT
 and
 exp_to_tok_tree indent (App (Opn o) e1 e2) =
@@ -287,9 +301,9 @@ exp_to_tok_tree indent (App (Opn o) e1 e2) =
   end
   in
     L LparT ^^
-    exp_to_tok_tree indent e1 ^^ 
-    L (LongidT "" s) ^^ 
-    exp_to_tok_tree indent e2 ^^ 
+    exp_to_tok_tree indent e1 ^^
+    L (LongidT "" s) ^^
+    exp_to_tok_tree indent e2 ^^
     L RparT
 and
 exp_to_tok_tree indent (App (Opb o') e1 e2) =
@@ -301,50 +315,50 @@ exp_to_tok_tree indent (App (Opb o') e1 e2) =
   end
   in
     L LparT ^^
-    exp_to_tok_tree indent e1 ^^ 
-    L (LongidT "" s) ^^ 
-    exp_to_tok_tree indent e2 ^^ 
+    exp_to_tok_tree indent e1 ^^
+    L (LongidT "" s) ^^
+    exp_to_tok_tree indent e2 ^^
     L RparT
 and
 exp_to_tok_tree indent (App Opassign e1 e2) =
   L LparT ^^
-  exp_to_tok_tree indent e1 ^^ 
-  L (LongidT "" ":=") ^^ 
-  exp_to_tok_tree indent e2 ^^ 
+  exp_to_tok_tree indent e1 ^^
+  L (LongidT "" ":=") ^^
+  exp_to_tok_tree indent e2 ^^
   L RparT
 and
 exp_to_tok_tree indent (Log lop e1 e2) =
   L LparT ^^
-  exp_to_tok_tree indent e1 ^^ 
-  (if lop = And then 
+  exp_to_tok_tree indent e1 ^^
+  (if lop = And then
      L AndalsoT
-   else 
+   else
      L OrelseT)^^
-  exp_to_tok_tree indent e2 ^^ 
+  exp_to_tok_tree indent e2 ^^
   L RparT
 and
 exp_to_tok_tree indent (If e1 e2 e3) =
   newline indent ^^
   L LparT ^^
   L IfT ^^
-  exp_to_tok_tree indent e1 ^^ 
+  exp_to_tok_tree indent e1 ^^
   newline indent ^^
   L ThenT ^^
   exp_to_tok_tree (inc_indent indent) e2 ^^
   newline indent ^^
   L ElseT ^^
-  exp_to_tok_tree (inc_indent indent) e3 ^^ 
+  exp_to_tok_tree (inc_indent indent) e3 ^^
   L RparT
 and
 exp_to_tok_tree indent (Mat e pes) =
   newline indent ^^
   L LparT ^^
-  L CaseT ^^ 
-  exp_to_tok_tree indent e ^^ 
+  L CaseT ^^
+  exp_to_tok_tree indent e ^^
   L OfT ^^
   newline (inc_indent (inc_indent indent)) ^^
-  join_trees (newline (inc_indent indent) ^^ L BarT) 
-               (List.map (pat_exp_to_tok_tree (inc_indent indent)) pes) ^^ 
+  join_trees (newline (inc_indent indent) ^^ L BarT)
+               (List.map (pat_exp_to_tok_tree (inc_indent indent)) pes) ^^
   L RparT
 and
 exp_to_tok_tree indent (Let (Just v) e1 e2) =
@@ -357,33 +371,33 @@ exp_to_tok_tree indent (Let (Just v) e1 e2) =
 and
 exp_to_tok_tree indent (Let (Just v) e1 e2) =
   newline indent ^^
-  L LetT ^^ L ValT ^^ 
-  var_to_tok_tree v ^^ 
+  L LetT ^^ L ValT ^^
+  var_to_tok_tree v ^^
   L EqualsT ^^
-  exp_to_tok_tree indent e1 ^^ 
+  exp_to_tok_tree indent e1 ^^
   newline indent ^^
   L InT ^^
-  exp_to_tok_tree (inc_indent indent) e2 ^^ 
+  exp_to_tok_tree (inc_indent indent) e2 ^^
   newline indent ^^ L EndT
 and
 exp_to_tok_tree indent (Letrec funs e) =
   newline indent ^^
-  L LetT ^^ L FunT ^^ 
-  join_trees (newline indent ^^ L AndT) 
-               (List.map (fun_to_tok_tree indent) funs) ^^ 
+  L LetT ^^ L FunT ^^
+  join_trees (newline indent ^^ L AndT)
+               (List.map (fun_to_tok_tree indent) funs) ^^
   newline indent ^^
   L InT ^^
-  exp_to_tok_tree indent e ^^ 
+  exp_to_tok_tree indent e ^^
   newline indent ^^ L EndT
 and
 pat_exp_to_tok_tree indent (p,e) =
-  pat_to_tok_tree p ^^ 
+  pat_to_tok_tree p ^^
   L DarrowT ^^
   exp_to_tok_tree (inc_indent (inc_indent indent)) e
 and
 fun_to_tok_tree indent (v1,v2,e) =
   var_to_tok_tree v1 ^^
-  var_to_tok_tree v2 ^^ 
+  var_to_tok_tree v2 ^^
   L EqualsT ^^
   exp_to_tok_tree (inc_indent indent) e
 
@@ -400,7 +414,7 @@ and
 tc_to_tok_tree TC_ref =
   L (LongidT "" "ref")
 and
-tc_to_tok_tree (TC_name n) = 
+tc_to_tok_tree (TC_name n) =
   id_to_tok_tree n
 
 let rec
@@ -408,7 +422,7 @@ type_to_tok_tree (Tvar tn) =
   L (TyvarT tn)
 and
 type_to_tok_tree (Tapp [t1;t2] TC_fn) =
-  L LparT ^^ type_to_tok_tree t1 ^^ L ArrowT ^^ type_to_tok_tree t2 ^^ 
+  L LparT ^^ type_to_tok_tree t1 ^^ L ArrowT ^^ type_to_tok_tree t2 ^^
   L RparT
 and
 type_to_tok_tree (Tapp ts tc) =
@@ -416,50 +430,50 @@ type_to_tok_tree (Tapp ts tc) =
     (tc_to_tok_tree tc)
   else
     L LparT ^^
-    join_trees (L CommaT) (List.map type_to_tok_tree ts) ^^ L RparT ^^ 
+    join_trees (L CommaT) (List.map type_to_tok_tree ts) ^^ L RparT ^^
     (tc_to_tok_tree tc)
 
 let variant_to_tok_tree (c,ts) =
   if ts = [] then
-    var_to_tok_tree c 
+    var_to_tok_tree c
   else
-    var_to_tok_tree c ^^ L OfT ^^ 
+    var_to_tok_tree c ^^ L OfT ^^
     join_trees (L StarT) (List.map type_to_tok_tree ts)
 
 (*val typedef_to_tok_tree : num -> tvarN list * typeN * (conN * t list) list -> token tree*)
 val typedef_to_tok_tree : nat -> list tvarN * typeN * list (conN * list t) -> tok_tree
 let typedef_to_tok_tree indent (tvs, name, variants) =
-  (if tvs = [] then 
+  (if tvs = [] then
      L (LongidT "" name)
-   else 
-     L LparT ^^ 
-     join_trees (L CommaT) (List.map (fun tv -> L (TyvarT tv)) tvs) ^^ 
+   else
+     L LparT ^^
+     join_trees (L CommaT) (List.map (fun tv -> L (TyvarT tv)) tvs) ^^
      L RparT ^^
-     L (LongidT "" name)) ^^ 
+     L (LongidT "" name)) ^^
   L EqualsT ^^
   newline (inc_indent (inc_indent indent)) ^^
-  join_trees (newline (inc_indent indent) ^^ L BarT) 
+  join_trees (newline (inc_indent indent) ^^ L BarT)
                (List.map variant_to_tok_tree variants)
 
-let rec 
+let rec
 dec_to_tok_tree indent (Dlet p e) =
   L ValT ^^
-  pat_to_tok_tree p ^^ 
+  pat_to_tok_tree p ^^
   L EqualsT ^^
   exp_to_tok_tree (inc_indent indent) e ^^
   L SemicolonT
 and
 dec_to_tok_tree indent (Dletrec funs) =
-  L FunT ^^ 
-  join_trees (newline indent ^^ L AndT) 
+  L FunT ^^
+  join_trees (newline indent ^^ L AndT)
              (List.map (fun_to_tok_tree indent) funs) ^^
   L SemicolonT
 and
 dec_to_tok_tree indent (Dtype types) =
-  L DatatypeT ^^ 
-  join_trees (newline indent ^^ L AndT) 
+  L DatatypeT ^^
+  join_trees (newline indent ^^ L AndT)
              (List.map (typedef_to_tok_tree indent) types) ^^
   L SemicolonT
 
-let dec_to_sml_string d = 
+let dec_to_sml_string d =
   tok_list_to_string (tree_to_list (dec_to_tok_tree 0 d) [])

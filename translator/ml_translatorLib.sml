@@ -3,8 +3,8 @@ struct
 
 open HolKernel boolLib bossLib;
 
-open astTheory libTheory semanticPrimitivesTheory bigStepTheory;
-open terminationTheory;
+open astTheory libTheory semanticPrimitivesTheory bigStepTheory print_astTheory;
+open terminationTheory print_astTerminationTheory stringLib;
 open ml_translatorTheory intLib;
 open arithmeticTheory listTheory combinTheory pairTheory pairLib;
 open integerTheory intLib ml_optimiseTheory;
@@ -499,13 +499,20 @@ val quietDefine = (* quiet version of Define -- by Anthony Fox *)
           (Feedback.trace ("auto Defn.tgoal", 0) TotalDefn.Define)))
 
 
-(* mapping from dec terms to SML and Ocaml *)
+(* mapping from dec terms to SML *)
 
 local
+  val _ = computeLib.add_funs [tree_to_list_def,
+                               tok_list_to_string_def,
+                               tok_to_string_def,
+                               ASCIInumbersTheory.n2s_def,
+                               numposrepTheory.n2l_def,
+                               ASCIInumbersTheory.HEX_def]
   fun dec2str sml d = let (* very slow at the moment *)
     val result =
       ``dec_to_sml_string ^d``
       |> EVAL |> concl |> rand |> stringSyntax.fromHOLstring
+      |> (fn str => (print ("\n\n" ^ str ^ "\n\n"); str))
       handle HOL_ERR _ => failwith("\nUnable to print "^(term_to_string d)^"\n\n")
     in result end;
 in
@@ -559,12 +566,10 @@ local
     val _ = print_prelude_comment "_ast.txt"
     val _ = print_decls_aux ds "_ast.txt" (fn tm => ["\n",term_to_string tm,"\n"])
     val _ = print "done.\n"
-(*
     val _ = print "Printing SML syntax ... "
     val _ = print_prelude_comment "_ml.txt"
     val _ = print_decls_aux ds "_ml.txt" (fn tm => ["\n",print_str (dec2str_sml tm),"\n"])
     val _ = print "done.\n"
-*)
     in () end;
   fun print_item (InvDef inv_def) = let
       val th_str = thm_to_string inv_def

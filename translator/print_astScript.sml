@@ -8,7 +8,7 @@ val _ = numLib.prefer_num();
 
 val _ = new_theory "print_ast"
 
-(*open import Pervasives*) 
+(*open import Pervasives*)
 (*open import Lib*)
 (*open import Ast*)
 (*open import Tokens*)
@@ -27,7 +27,7 @@ val _ = Define `
 
 (*val spaces : nat -> string -> string*)
  val spaces_defn = Hol_defn "spaces" `
- 
+
 (spaces n s =  
 (if (n:num) = 0 then
     s
@@ -40,7 +40,7 @@ val _ = Define `
  (space_append s1 s2 =  
 (if s2 = "" then
     s1
-  else 
+  else
     let f = (SUB (s2, ( 0))) in
       if (f = #")")  \/ ((f = #" ") \/ (f = #",")) then
      STRCAT s1 s2
@@ -95,7 +95,7 @@ val _ = Define `
 (tok_to_string ValT s =  (STRCAT"val " s))
 /\
 (tok_to_string LparT s =  
- (if s = "" then
+(if s = "" then
     "("
   else if SUB (s, ( 0)) = #"*" then
      STRCAT"( " s
@@ -124,11 +124,11 @@ val _ = Define `
 
 
  val tok_list_to_string_defn = Hol_defn "tok_list_to_string" `
- 
+
 (tok_list_to_string [] = "")
 /\
 (tok_list_to_string (t::l) =  
- (tok_to_string t (tok_list_to_string l)))`;
+(tok_to_string t (tok_list_to_string l)))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn tok_list_to_string_defn;
 
@@ -159,25 +159,25 @@ val _ = Define `
     if c < 65 (* "A" *) then
       if c < 60 (* "<" *) then        
 (s = "*") \/
-        ((s = "+") \/ 
+        ((s = "+") \/
         ((s = "-") \/
         ((s = "/") \/
         ((s = "::") \/        
- (s = ":=")))))
+(s = ":=")))))
       else        
-(s = "<") \/ 
-        ((s = "<=") \/ 
+(s = "<") \/
+        ((s = "<=") \/
         ((s = "<>") \/
-        ((s = "=") \/ 
-        ((s = ">") \/ 
+        ((s = "=") \/
+        ((s = ">") \/
         ((s = ">=") \/        
- (s = "@"))))))
+(s = "@"))))))
     else
       if c < 109 (* "m" *) then
         if c < 100 then
           s = "before"
         else
-          s = "div" 
+          s = "div"
       else
         if c < 111 then
           s = "mod"
@@ -231,6 +231,8 @@ val _ = Define `
 /\
 (pat_to_tok_tree (Pcon (SOME c) []) = (id_to_tok_tree c))
 /\
+(pat_to_tok_tree (Pcon (SOME (Short "::")) [p1;p2]) = (N (L LparT) (N (pat_to_tok_tree p1) (N (id_to_tok_tree (Short "::")) (N (pat_to_tok_tree p2) (L RparT))))))
+/\
 (pat_to_tok_tree (Pcon (SOME c) ps) = (N (L LparT) (N (id_to_tok_tree c) (N (L LparT) (N (join_trees (L CommaT) (MAP pat_to_tok_tree ps)) (N (L RparT) (L RparT)))))))
 /\
 (pat_to_tok_tree (Pcon NONE ps) = (N (L LparT) (N (join_trees (L CommaT) (MAP pat_to_tok_tree ps)) (L RparT))))
@@ -241,7 +243,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 val _ = Define `
  (inc_indent i =  
- (if (i:num) < 30 then
+(if (i:num) < 30 then
     i + 2
   else
     i))`;
@@ -260,6 +262,22 @@ val _ = Define `
                                      (N (L (LongidT "" "Bind")) (L RparT)))
      | ( indent, (Lit l) ) => lit_to_tok_tree l
      | ( indent, (Con (SOME c) []) ) => id_to_tok_tree c
+     | ( indent, (Con (SOME (Short "::")) [e1; e2]) ) => N (L LparT)
+                                                           (N
+                                                              (exp_to_tok_tree
+                                                                 indent 
+                                                               e1)
+                                                              (N
+                                                                 (id_to_tok_tree
+                                                                    (
+                                                                    Short
+                                                                    "::"))
+                                                                 (N
+                                                                    (
+                                                                    exp_to_tok_tree
+                                                                    indent 
+                                                                    e2)
+                                                                    (L RparT))))
      | ( indent, (Con (SOME c) es) ) => N (L LparT)
                                           (N (id_to_tok_tree c)
                                              (N (L LparT)
@@ -445,7 +463,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (L (LongidT "" "ref")))
 /\
 (tc_to_tok_tree (TC_name n) =  
- (id_to_tok_tree n))`;
+(id_to_tok_tree n))`;
 
 
  val type_to_tok_tree_defn = Hol_defn "type_to_tok_tree" `
@@ -465,33 +483,33 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 val _ = Define `
  (variant_to_tok_tree (c,ts) =  
 (if ts = [] then
-    var_to_tok_tree c 
+    var_to_tok_tree c
   else N (var_to_tok_tree c) (N (L OfT) (join_trees (L StarT) (MAP type_to_tok_tree ts)))))`;
 
 
 (*val typedef_to_tok_tree : num -> tvarN list * typeN * (conN * t list) list -> token tree*)
 (*val typedef_to_tok_tree : nat -> list tvarN * typeN * list (conN * list t) -> tok_tree*)
 val _ = Define `
- (typedef_to_tok_tree indent (tvs, name, variants) = (N (if tvs = [] then 
+ (typedef_to_tok_tree indent (tvs, name, variants) = (N (if tvs = [] then
      L (LongidT "" name)
-   else N (L LparT) (N (join_trees (L CommaT) (MAP (\ tv .  L (TyvarT tv)) tvs)) (N (L RparT) (L (LongidT "" name))))) (N (L EqualsT) (N (newline (inc_indent (inc_indent indent))) (join_trees ( N (newline (inc_indent indent)) (L BarT)) 
+   else N (L LparT) (N (join_trees (L CommaT) (MAP (\ tv .  L (TyvarT tv)) tvs)) (N (L RparT) (L (LongidT "" name))))) (N (L EqualsT) (N (newline (inc_indent (inc_indent indent))) (join_trees ( N (newline (inc_indent indent)) (L BarT))
                (MAP variant_to_tok_tree variants))))))`;
 
 
  val _ = Define `
- 
+
 (dec_to_tok_tree indent (Dlet p e) = (N (L ValT) (N (pat_to_tok_tree p) (N (L EqualsT) (N (exp_to_tok_tree (inc_indent indent) e) (L SemicolonT))))))
 /\
-(dec_to_tok_tree indent (Dletrec funs) = (N (L FunT) (N (join_trees ( N (newline indent) (L AndT)) 
+(dec_to_tok_tree indent (Dletrec funs) = (N (L FunT) (N (join_trees ( N (newline indent) (L AndT))
              (MAP (fun_to_tok_tree indent) funs)) (L SemicolonT))))
 /\
-(dec_to_tok_tree indent (Dtype types) = (N (L DatatypeT) (N (join_trees ( N (newline indent) (L AndT)) 
+(dec_to_tok_tree indent (Dtype types) = (N (L DatatypeT) (N (join_trees ( N (newline indent) (L AndT))
              (MAP (typedef_to_tok_tree indent) types)) (L SemicolonT))))`;
 
 
 val _ = Define `
  (dec_to_sml_string d =  
- (tok_list_to_string (tree_to_list (dec_to_tok_tree( 0) d) [])))`;
+(tok_list_to_string (tree_to_list (dec_to_tok_tree( 0) d) [])))`;
 
 val _ = export_theory()
 
