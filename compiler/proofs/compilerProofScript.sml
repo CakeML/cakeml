@@ -2697,7 +2697,21 @@ val compile_top_thm = store_thm("compile_top_thm",
       fs[closed_top_def,all_env_closed_def]) >>
     conj_tac >- (
       simp[EVERY_APPEND] >>
-      cheat (* evaluate_prompt_i1_closed *) ) >>
+      first_x_assum(mp_tac o MATCH_MP evaluate_prompt_i1_closed) >> simp[] >>
+      REWRITE_TAC[IMP_CONJ_THM] >> strip_tac >> first_x_assum match_mp_tac >> pop_assum kall_tac >>
+      fs[to_i1_invariant_def] >>
+      fs[Once s_to_i1_cases] >>
+      fs[Once s_to_i1'_cases] >>
+      reverse conj_tac >- (
+        (v_to_i1_closed |> CONJUNCT2 |> CONJUNCT1 |> MP_CANON |> match_mp_tac) >>
+        first_assum(match_exists_tac o concl) >> simp[] ) >>
+      first_x_assum(strip_assume_tac o MATCH_MP FV_top_to_i1) >>
+      fs[closed_top_def,all_env_dom_def] >>
+      simp[EXTENSION] >> rw[] >>
+      CCONTR_TAC >> fs[] >> res_tac >> fs[] >> rw[] >>
+      imp_res_tac global_env_inv_inclusion >>
+      fs[SUBSET_DEF] >>
+      res_tac >> fs[]) >>
     rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
     fs[libTheory.emp_def] >>
     `FST s2_i1 = s20'` by (
