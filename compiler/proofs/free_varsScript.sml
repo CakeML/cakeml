@@ -232,7 +232,7 @@ val free_vars_pat_exp_to_pat = store_thm("free_vars_pat_exp_to_pat",
         {0} ∪ IMAGE (λx. THE (find_index (SOME x) ls 1)) (free_vars_defs_exh funs)) ∧
     (∀ls pes.
       IMAGE SOME (free_vars_pes_exh pes) ⊆ set ls ∧ ls ≠ [] ∧ (HD ls = NONE) ⇒
-      set (free_vars_pat (pes_to_pat ls pes)) ⊆ IMAGE (λx. THE (find_index (SOME x) ls 0)) (free_vars_pes_exh pes))``,
+      set (free_vars_pat (pes_to_pat ls pes)) ⊆ {0} ∪ IMAGE (λx. THE (find_index (SOME x) ls 0)) (free_vars_pes_exh pes))``,
   ho_match_mp_tac exp_to_pat_ind >>
   conj_tac >- simp[SUBSET_DEF,PULL_EXISTS] >>
   strip_tac >- (
@@ -240,7 +240,8 @@ val free_vars_pat_exp_to_pat = store_thm("free_vars_pat_exp_to_pat",
     rpt gen_tac >> strip_tac >> strip_tac >> fs[find_index_def] >>
     fs[Q.SPEC`1`(CONV_RULE(RESORT_FORALL_CONV List.rev)find_index_shift_0)] >>
     gen_tac >> strip_tac >- metis_tac[] >>
-    res_tac >> qpat_assum`m = X`mp_tac >>
+    res_tac >- fsrw_tac[ARITH_ss][] >>
+    qpat_assum`m = X`mp_tac >>
     specl_args_of_then``find_index`` (CONV_RULE SWAP_FORALL_CONV find_index_MEM) mp_tac >>
     discharge_hyps >- metis_tac[] >>
     strip_tac >> fs[] >>
@@ -282,7 +283,8 @@ val free_vars_pat_exp_to_pat = store_thm("free_vars_pat_exp_to_pat",
     rpt gen_tac >> rpt strip_tac >>
     fs[Q.SPEC`1`(CONV_RULE(RESORT_FORALL_CONV List.rev)find_index_shift_0)] >>
     imp_res_tac((SIMP_RULE(srw_ss())[SUBSET_DEF]free_vars_pat_sLet)) >- metis_tac[] >>
-    res_tac >> qpat_assum`m = X`mp_tac >>
+    res_tac >- fsrw_tac[ARITH_ss][] >>
+    qpat_assum`m = X`mp_tac >>
     specl_args_of_then``find_index`` (CONV_RULE SWAP_FORALL_CONV find_index_MEM) mp_tac >>
     discharge_hyps >- metis_tac[] >>
     strip_tac >> fs[] >>
@@ -390,13 +392,42 @@ val free_vars_pat_exp_to_pat = store_thm("free_vars_pat_exp_to_pat",
     metis_tac[] ) >>
   strip_tac >- (
     rw[] >>
-    BasicProvers.EVERY_CASE_TAC >> fs[] >>
-    Cases_on`ls`>>fs[Once row_to_pat_nil,LET_THM,UNCURRY] >>
+    `∃x y z. row_to_pat ls p = (x,y,z)` by simp[GSYM EXISTS_PROD] >> fs[] >>
+    Cases_on`ls`>>fs[] >>
     simp[find_index_def] >>
-    simp[Once find_index_shift_0] >>
+    simp[Once find_index_shift_0] >> rw[] >>
+    pop_assum mp_tac >>
+    specl_args_of_then``row_to_pat``(CONJUNCT1 free_vars_row_to_pat)mp_tac >>
     rw[] >> fs[] >>
-
-    cheat ) >>
+    match_mp_tac SUBSET_TRANS >>
+    first_x_assum(qspec_then`exp_to_pat x e`strip_assume_tac) >>
+    HINT_EXISTS_TAC >> simp[] >>
+    rator_x_assum`row_to_pat`mp_tac >>
+    specl_args_of_then``row_to_pat``(CONJUNCT1 row_to_pat_acc) strip_assume_tac >>
+    specl_args_of_then``row_to_pat``(CONJUNCT1 row_to_pat_pat_bindings) strip_assume_tac >>
+    strip_tac >> fs[] >>
+    first_x_assum(qspec_then`t`mp_tac) >> simp[] >> rw[] >>
+    qpat_assum`a ⇒ q`mp_tac >>
+    discharge_hyps_keep >- (
+      fs[SUBSET_DEF,PULL_EXISTS,MEM_MAP] >>
+      metis_tac[] ) >>
+    strip_tac >>
+    fs[SUBSET_DEF,PULL_EXISTS] >> rw[] >>
+    res_tac >> fs[] >> rw[] >>
+    qmatch_assum_rename_tac`a ∈ free_vars_exh e`[] >>
+    Q.ISPECL_THEN[`ls ++ t`,`SOME a`,`0:num`]mp_tac find_index_MEM >>
+    discharge_hyps >- metis_tac[MEM_APPEND] >> strip_tac >> fs[] >>
+    Q.ISPEC_THEN`ls`FULL_STRUCT_CASES_TAC SNOC_CASES >> fs[SNOC_APPEND] >> rw[] >>
+    rator_x_assum`find_index`mp_tac >>
+    simp[find_index_APPEND] >>
+    reverse BasicProvers.CASE_TAC >- (
+      rw[] >> imp_res_tac find_index_LESS_LENGTH >> fsrw_tac[ARITH_ss][] ) >>
+    reverse BasicProvers.CASE_TAC >- (
+      rw[] >> imp_res_tac find_index_LESS_LENGTH >> fsrw_tac[ARITH_ss][] ) >>
+    rw[] >> fs[Once find_index_shift_0] >>
+    disj2_tac >>
+    qexists_tac`a` >> simp[] >>
+    cheat (* row_to_pat_pat_bindings is too weak *)) >>
   simp[SUBSET_DEF,PULL_EXISTS] >>
   rw[] >>
   Cases_on`ls`>>fs[] >> rw[] >>
