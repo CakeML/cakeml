@@ -435,6 +435,55 @@ val env_to_exh_submap = prove(
    fs[SUBMAP_DEF,EXTENSION] >>
    conj_tac >- metis_tac[] >> rw[] ) >> rw[])
 
+val do_app_exh = Q.prove (
+`!exh env s1 s2 op v1 v2 e env' env_exh s1_exh v1_exh v2_exh locals.
+  do_app_i2 env s1 op v1 v2 = SOME (env', s2, e) ∧
+  LIST_REL (v_to_exh exh) s1 s1_exh ∧
+  v_to_exh exh v1 v1_exh ∧
+  v_to_exh exh v2 v2_exh
+  ⇒
+   ∃env_exh s2_exh exh'.
+     LIST_REL (v_to_exh exh) s2 s2_exh ∧
+     exh' SUBMAP exh ∧
+     do_app_exh env_exh s1_exh op v1_exh v2_exh = SOME (env_exh, s2_exh, exp_to_exh exh' e)`,
+ cases_on `op` >>
+ rw [do_app_i2_def, do_app_exh_def] >>
+ rw []
+ >- (cases_on `v2` >>
+     fs [] >>
+     cases_on `v1` >>
+     fs [] >>
+     cases_on `l` >>
+     fs [] >>
+     every_case_tac >>
+     fs [] >>
+     rw [exp_to_exh_def] >>
+     metis_tac [SUBMAP_REFL])
+ >- (cases_on `v2` >>
+     fs [] >>
+     cases_on `v1` >>
+     fs [] >>
+     cases_on `l` >>
+     fs [] >>
+     every_case_tac >>
+     fs [] >>
+     rw [exp_to_exh_def] >>
+     metis_tac [SUBMAP_REFL])
+ >- cheat (* Equality *)
+ >- (cases_on `v1` >>
+     fs [] >>
+     rw []
+     >- (qpat_assum `v_to_exh exh (Closure_i2 l s e) v1_exh` (strip_assume_tac o SIMP_RULE (srw_ss()) [Once v_to_exh_cases]) >>
+         rw [] >>
+         metis_tac [])
+     >- cheat (* recfun *))
+ >- (cases_on `v1` >>
+     fs [] >>
+     every_case_tac >>
+     fs [] >>
+     rw [exp_to_exh_def]
+     >> cheat (* store_assign *)));
+
 val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
 `(!ck env s e r.
   evaluate_i3 ck env s e r
