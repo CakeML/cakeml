@@ -354,6 +354,32 @@ fun name_of_type ty = let
                         |> funpow 5 tl |> rev |> implode
   in name end;
 
+val basic_theories =
+   ["alist", "arithmetic", "bag", "bitstring", "bit", "bool",
+    "combin", "container", "divides", "fcp", "finite_map", "float",
+    "fmaptree", "frac", "gcdset", "gcd", "ind_type", "integer_word",
+    "integer", "integral", "list", "llist", "marker", "measure",
+    "numeral_bit", "numeral", "numpair", "numposrep", "num", "one",
+    "operator", "option", "pair", "path", "patricia_casts",
+    "patricia", "poly", "poset", "powser", "pred_set", "prelim",
+    "prim_rec", "quote", "quotient_list", "quotient_option",
+    "quotient_pair", "quotient_pred_set", "quotient_sum", "quotient",
+    "rat", "real_sigma", "realax", "real", "relation", "res_quan",
+    "rich_list", "ringNorm", "ring", "sat", "semi_ring", "seq",
+    "set_relation", "sorting", "state_option", "state_transformer",
+    "string_num", "string", "sum_num", "sum", "topology", "transc",
+    "update", "util_prob", "while", "words"]
+
+val use_full_type_names = ref true;
+
+fun full_name_of_type ty =
+  if !use_full_type_names then let
+    val case_const = get_ty_case_const ty
+    val thy_name = case_const |> dest_thy_const |> #Thy
+    val thy_name = if mem thy_name basic_theories then "" else thy_name ^ "_"
+    in thy_name ^ name_of_type ty end
+  else name_of_type ty;
+
 local
   val type_mappings = ref ([]:(hol_type * hol_type) list)
   val other_types = ref ([]:(hol_type * term) list)
@@ -396,7 +422,7 @@ in
       in subst s tm end handle HOL_ERR _ =>
     let
       val (_,tt) = dest_type ty
-      val name = name_of_type ty
+      val name = full_name_of_type ty
       val tt = map type2t tt
       val name_tm = stringSyntax.fromMLstring name
       val tt_list = listSyntax.mk_list(tt,type_of ``Tbool``)
@@ -685,28 +711,6 @@ fun type_of_cases_const ty = let
   val ty = th |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL
               |> concl |> dest_eq |> fst |> repeat rator |> type_of
   in ty end
-
-val basic_theories =
-   ["alist", "arithmetic", "bag", "bitstring", "bit", "bool",
-    "combin", "container", "divides", "fcp", "finite_map", "float",
-    "fmaptree", "frac", "gcdset", "gcd", "ind_type", "integer_word",
-    "integer", "integral", "list", "llist", "marker", "measure",
-    "numeral_bit", "numeral", "numpair", "numposrep", "num", "one",
-    "operator", "option", "pair", "path", "patricia_casts",
-    "patricia", "poly", "poset", "powser", "pred_set", "prelim",
-    "prim_rec", "quote", "quotient_list", "quotient_option",
-    "quotient_pair", "quotient_pred_set", "quotient_sum", "quotient",
-    "rat", "real_sigma", "realax", "real", "relation", "res_quan",
-    "rich_list", "ringNorm", "ring", "sat", "semi_ring", "seq",
-    "set_relation", "sorting", "state_option", "state_transformer",
-    "string_num", "string", "sum_num", "sum", "topology", "transc",
-    "update", "util_prob", "while", "words"]
-
-fun full_name_of_type ty = let
-  val case_const = get_ty_case_const ty
-  val thy_name = case_const |> dest_thy_const |> #Thy
-  val thy_name = if mem thy_name basic_theories then "" else thy_name ^ "_"
-  in (* thy_name ^ *) name_of_type ty end
 
 fun remove_primes th = let
   fun last s = substring(s,size s-1,1)
