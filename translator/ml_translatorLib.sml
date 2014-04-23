@@ -512,7 +512,7 @@ local
     val result =
       ``dec_to_sml_string ^d``
       |> EVAL |> concl |> rand |> stringSyntax.fromHOLstring
-      |> (fn str => (print ("\n\n" ^ str ^ "\n\n"); str))
+   (* |> (fn str => (print ("\n\n" ^ str ^ "\n\n"); str)) *)
       handle HOL_ERR _ => failwith("\nUnable to print "^(term_to_string d)^"\n\n")
     in result end;
 in
