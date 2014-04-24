@@ -103,7 +103,6 @@ val _ = Define `
 val _ = Define `
  (compile_print_top types map top cs =  
 (let (cs,n1) = (get_label cs) in
-  let (cs,n2) = (get_label cs) in
   let cs = (emit cs [Stack (Load( 0));
                     Stack (TagEq (block_tag+none_tag));
                     JumpIf (Lab n1);
@@ -111,7 +110,7 @@ val _ = Define `
   let cs = (emit cs (MAP PrintC (EXPLODE "raise "))) in
   let cs = (emit cs [Print]) in
   let cs = (emit cs (MAP PrintC (EXPLODE "\n"))) in
-  let cs = (emit cs [Jump (Lab n2); Label n1]) in
+  let cs = (emit cs [Stop F; Label n1]) in
   let cs = ((case types of   NONE => cs | SOME types =>
     (case top of
       (Tmod mn _ _) =>
@@ -119,14 +118,14 @@ val _ = Define `
         emit cs (MAP PrintC (EXPLODE str))
     | (Tdec dec) => compile_print_dec types map dec cs
     )    )) in
-  emit cs [Stack Pop; Label n2; Stop]))`;
+  emit cs [Stack Pop; Stop T]))`;
 
 
 val _ = Define `
  (compile_top types cs top =  
 (let n = (cs.next_global) in
-  let (m1,m2) = (cs.globals_env) in  
-  (case top_to_i1 n m1 m2 top of
+  let (m10,m20) = (cs.globals_env) in  
+  (case top_to_i1 n m10 m20 top of
       (_,m1,m2,p) =>
   let (c,exh,p) = (prompt_to_i2 cs.contags_env p) in
   let (n,e) = (prompt_to_i3 (none_tag, SOME (TypeId (Short "option")))
@@ -139,7 +138,8 @@ val _ = Define `
              e) in
   let r = (compile_print_top types m2 top r) in
   let cs = (<| next_global := n ; globals_env := (m1,m2) ; contags_env := c
-            ; exh := exh ; rnext_label := r.next_label |>) in (cs, r.out)
+            ; exh := exh ; rnext_label := r.next_label |>) in
+  (cs, ( cs with<| globals_env := (m1,m20) |>), r.out)
   )))`;
 
 

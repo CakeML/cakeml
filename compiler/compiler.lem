@@ -78,7 +78,6 @@ compile_print_dec types map (Dletrec defs) s =
 
 let compile_print_top types map top cs =
   let (cs,n1) = get_label cs in
-  let (cs,n2) = get_label cs in
   let cs = emit cs [Stack (Load 0);
                     Stack (TagEq (block_tag+none_tag));
                     JumpIf (Lab n1);
@@ -86,7 +85,7 @@ let compile_print_top types map top cs =
   let cs = emit cs (List.map PrintC (toCharList "raise ")) in
   let cs = emit cs [Print] in
   let cs = emit cs (List.map PrintC (toCharList "\n")) in
-  let cs = emit cs [Jump (Lab n2); Label n1] in
+  let cs = emit cs [Stop false; Label n1] in
   let cs = match types with | Nothing -> cs | Just types ->
     match top with
     | (Tmod mn _ _) ->
@@ -94,12 +93,12 @@ let compile_print_top types map top cs =
         emit cs (List.map PrintC (toCharList str))
     | (Tdec dec) -> compile_print_dec types map dec cs
     end    end in
-  emit cs [Stack Pop; Label n2; Stop]
+  emit cs [Stack Pop; Stop true]
 
 let compile_top types cs top =
   let n = cs.next_global in
-  let (m1,m2) = cs.globals_env in
-  let (_,m1,m2,p) = top_to_i1 n m1 m2 top in
+  let (m10,m20) = cs.globals_env in
+  let (_,m1,m2,p) = top_to_i1 n m10 m20 top in
   let (c,exh,p) = prompt_to_i2 cs.contags_env p in
   let (n,e) = prompt_to_i3 (none_tag, Just (TypeId (Short "option"))) (some_tag, Just (TypeId (Short "option"))) n p in
   let exh = Map.(union) exh cs.exh in
@@ -114,7 +113,7 @@ let compile_top types cs top =
             ; exh = exh
             ; rnext_label = r.next_label
             |> in
-  (cs, r.out)
+  (cs, <| cs with globals_env = (m1,m20) |>, r.out)
 
 let compile_prog prog =
   let n = init_compiler_state.next_global in
