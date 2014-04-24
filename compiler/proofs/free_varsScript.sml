@@ -68,6 +68,19 @@ val pats_bindings_i2_MAP_Pvar_i2 = store_thm("pats_bindings_i2_MAP_Pvar_i2",
   ``∀ls ly. set (pats_bindings_i2 (MAP Pvar_i2 ls) ly) = set ls ∪ set ly``,
   Induct >> simp[pat_bindings_i2_def,EXTENSION] >> metis_tac[])
 
+val pmatch_dom = store_thm("pmatch_dom",
+  ``(∀cenv s p v env env'.
+      (pmatch cenv s p v env = Match env') ⇒
+      (MAP FST env' = pat_bindings p [] ++ (MAP FST env))) ∧
+    (∀cenv s ps vs env env'.
+      (pmatch_list cenv s ps vs env = Match env') ⇒
+      (MAP FST env' = pats_bindings ps [] ++ MAP FST env))``,
+  ho_match_mp_tac pmatch_ind >>
+  rw[pmatch_def,pat_bindings_def,libTheory.bind_def] >> rw[] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[] >>
+  ONCE_REWRITE_TAC[pat_bindings_accum,SimpRHS] >>
+  simp[])
+
 val (closed_exh_rules,closed_exh_ind,closed_exh_cases) = Hol_reln`
 (closed_exh (Litv_exh l)) ∧
 (EVERY (closed_exh) vs ⇒ closed_exh (Conv_exh cn vs)) ∧

@@ -46,19 +46,6 @@ val store_to_exh_csg_rel = store_thm("store_to_exh_csg_rel",
   ``store_to_exh exh = csg_rel (v_to_exh exh)``,
   simp[FUN_EQ_THM,FORALL_PROD,store_to_exh_def,csg_rel_def])
 
-val pmatch_dom = store_thm("pmatch_dom",
-  ``(∀cenv s p v env env'.
-      (pmatch cenv s p v env = Match env') ⇒
-      (MAP FST env' = pat_bindings p [] ++ (MAP FST env))) ∧
-    (∀cenv s ps vs env env'.
-      (pmatch_list cenv s ps vs env = Match env') ⇒
-      (MAP FST env' = pats_bindings ps [] ++ MAP FST env))``,
-  ho_match_mp_tac pmatch_ind >>
-  rw[pmatch_def,pat_bindings_def,libTheory.bind_def] >> rw[] >>
-  BasicProvers.EVERY_CASE_TAC >> fs[] >>
-  ONCE_REWRITE_TAC[pat_bindings_accum,SimpRHS] >>
-  simp[])
-
 val shift_thm =
   mkshift_thm
   |> Q.SPEC`λv. v + n`
@@ -1998,6 +1985,7 @@ val env_rs_empty = store_thm("env_rs_empty",
   simp[all_vlabs_csg_def,vlabs_csg_def,closed_vlabs_def] >>
   cheat)
 
+(*
 (* TODO: move *)
 val to_i1_invariant_change_clock = store_thm("to_i1_invariant_change_clock",
   ``to_i1_invariant genv mods tops menv env s s_i1 mod_names ∧
@@ -2051,6 +2039,7 @@ val env_rs_change_clock = store_thm("env_rs_change_clock",
   first_assum(match_exists_tac o concl) >> simp[] >>
   simp[bc_state_component_equality] >>
   fs[Cenv_bs_def,s_refs_def,Abbr`d`,good_rd_def])
+*)
 
 (*
 val env_rs_change_store = store_thm("env_rs_change_store",
