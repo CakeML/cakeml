@@ -3031,8 +3031,53 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[exh_Cv_def] >>
       first_assum(match_exists_tac o concl) >> simp[] >>
       reverse conj_tac >- metis_tac[syneq_trans] >>
-      cheat ) >>
-    cheat ) >>
+      first_x_assum(mp_tac o MATCH_MP (CONJUNCT1 evaluate_pat_closed)) >>
+      simp[csg_closed_pat_def] ) >>
+    PairCases_on`s2` >> simp[env_rs_def,EXISTS_PROD] >>
+    simp[RIGHT_EXISTS_AND_THM] >>
+    conj_asm1_tac >- (
+      rpt (rator_x_assum`good_labels`mp_tac) >> simp[Abbr`bs2`] >>
+      rpt (rator_x_assum`between_labels`mp_tac) >>
+      rpt (BasicProvers.VAR_EQ_TAC) >>
+      rpt (pop_assum kall_tac) >>
+      simp[good_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER,is_Label_rwt,PULL_EXISTS
+          ,EVERY_FILTER,between_labels_def,EVERY_MAP,EVERY_MEM,between_def,PULL_FORALL] >>
+      rw[] >> spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
+    qexists_tac`grd0 ++ new_genv` >>
+    conj_tac >- (
+      rpt(BasicProvers.VAR_EQ_TAC) >> simp[] >>
+      rator_x_assum`to_i2_invariant`mp_tac >>
+      simp[to_i2_invariant_def] >> strip_tac >>
+      imp_res_tac EVERY2_LENGTH >> rfs[] ) >>
+    conj_tac >- simp[Abbr`bs2`] >>
+    ONCE_REWRITE_TAC[CONJ_ASSOC] >>
+    conj_tac >- (
+      simp[EVERY_APPEND] >>
+      first_x_assum(mp_tac o MATCH_MP evaluate_prompt_i1_closed) >> simp[] >>
+      discharge_hyps >- (
+        fs[to_i1_invariant_def] >>
+        fs[Once s_to_i1_cases] >>
+        fs[Once s_to_i1'_cases] >>
+        reverse conj_tac >- (
+          (v_to_i1_closed |> CONJUNCT2 |> CONJUNCT1 |> MP_CANON |> match_mp_tac) >>
+          first_assum(match_exists_tac o concl) >> simp[] ) >>
+        first_x_assum(strip_assume_tac o MATCH_MP FV_top_to_i1) >>
+        fs[closed_top_def,all_env_dom_def] >>
+        simp[EXTENSION] >> rw[] >>
+        CCONTR_TAC >> fs[] >> res_tac >> fs[] >> rw[] >>
+        imp_res_tac global_env_inv_inclusion >>
+        fs[SUBSET_DEF] >>
+        res_tac >> fs[]) >>
+      simp[] >> strip_tac >>
+      first_x_assum(mp_tac o MATCH_MP evaluate_dec_closed) >>
+      fs[closed_top_def,all_env_closed_def]) >>
+    rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
+    fs[libTheory.emp_def] >>
+    `FST s2_i1 = s20'` by (
+      rator_x_assum`to_i1_invariant`mp_tac >>
+      simp[to_i1_invariant_def] >>
+      simp[Once s_to_i1_cases,PULL_EXISTS] ) >>
+    cheat) >>
   cheat)
 
 (*
