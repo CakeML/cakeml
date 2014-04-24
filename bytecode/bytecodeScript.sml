@@ -62,7 +62,7 @@ val _ = Hol_datatype `
   | Galloc of num           (* allocate global variables *)
   | Gupdate of num          (* update a global variable *)
   | Gread of num            (* read a global variable *)
-  | Stop                    (* halt execution *)
+  | Stop of bool            (* halt execution with success/failure *)
   | Tick                    (* use fuel *)
   | Print                   (* print value at top of stack *)
   | PrintC of char`;

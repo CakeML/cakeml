@@ -216,7 +216,7 @@ val bc_fetch_strip_labels_BACK = prove(
 
 val bc_fetch_strip_labels = store_thm("bc_fetch_strip_labels",
   ``length_ok s.inst_length ==>
-    (bc_fetch (strip_labels s) = SOME Stop <=> bc_fetch s = SOME Stop)``,
+    (bc_fetch (strip_labels s) = SOME (Stop b) <=> bc_fetch s = SOME (Stop b))``,
   REPEAT STRIP_TAC \\ REVERSE EQ_TAC \\ REPEAT STRIP_TAC
   THEN1 (IMP_RES_TAC bc_fetch_IMP \\ FULL_SIMP_TAC std_ss [inst_labels_def,HD])
   \\ IMP_RES_TAC bc_fetch_strip_labels_BACK \\ NTAC 2 (POP_ASSUM (K ALL_TAC))

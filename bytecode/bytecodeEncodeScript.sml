@@ -43,7 +43,7 @@ val bc_inst_to_string_def = Define `
 (bc_inst_to_string (Galloc n) = "galloc" ++ toString n) ∧
 (bc_inst_to_string (Gupdate n) = "gupdate" ++ toString n) ∧
 (bc_inst_to_string (Gread n) = "gread" ++ toString n) ∧
-(bc_inst_to_string Stop = "stop") ∧
+(bc_inst_to_string (Stop b) = "stop" ++ (if b then toString 1 else toString 0)) ∧
 (bc_inst_to_string Tick = "tick") ∧
 (bc_inst_to_string Print = "print") ∧
 (bc_inst_to_string (PrintC c) = "printC '" ++ (if c = #"\n" then "\\n" else [c]) ++ "'")`;
@@ -110,7 +110,7 @@ val encode_bc_inst_def = Define `
   OPTION_MAP (\w. [37w; w]) (encode_num n)) ∧
 (encode_bc_inst (Gread n) =
   OPTION_MAP (\w. [38w; w]) (encode_num n)) ∧
-(encode_bc_inst Stop = SOME [39w]) ∧
+(encode_bc_inst (Stop b) = OPTION_MAP (\w. [39w; w]) (encode_num (if b then 1 else 0))) ∧
 (encode_bc_inst Tick = SOME [8w]) ∧
 (encode_bc_inst Print = SOME [26w]) ∧
 (encode_bc_inst (PrintC c) = 
@@ -214,7 +214,7 @@ decode_bc_inst wl =
          else if tag = 38w then
            option_map_fst (\n. Gread n) (decode_num rest)
          else if tag = 39w then
-           SOME (Stop, rest)
+           option_map_fst (\n. Stop (0 < n)) (decode_num rest)
          else if tag = 8w then
            SOME (Tick, rest)
          else if tag = 26w then

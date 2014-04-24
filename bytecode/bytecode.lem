@@ -47,7 +47,7 @@ type
   | Galloc of nat           (* allocate global variables *)
   | Gupdate of nat          (* update a global variable *)
   | Gread of nat            (* read a global variable *)
-  | Stop                    (* halt execution *)
+  | Stop of bool            (* halt execution with success/failure *)
   | Tick                    (* use fuel *)
   | Print                   (* print value at top of stack *)
   | PrintC of char          (* print a character *)
