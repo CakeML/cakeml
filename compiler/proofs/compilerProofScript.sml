@@ -1480,11 +1480,11 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
   ``∀tys map t cs.
     let cs' = compile_print_top tys map t cs in
     ∃code.
-      cs'.out = [Stop] ++ REVERSE code ++ cs.out ∧
+      cs'.out = REVERSE code ++ cs.out ∧
       between_labels code cs.next_label cs'.next_label ∧
       code_labels_ok code ∧
       ∀bs bc0 st0 tag bv bvs.
-        bs.code = bc0 ++ code ++ [Stop] ∧
+        bs.code = bc0 ++ code ∧
         good_labels cs.next_label bc0 ∧
         bs.pc = next_addr bs.inst_length bc0 ∧
         bs.stack = (Block(block_tag+tag)(if tag = none_tag then [] else [bv]))::st0 ∧
@@ -1493,7 +1493,7 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
          LIST_REL
          (λv bv. ∃n. FLOOKUP map v = SOME n ∧ el_check n bs.globals = SOME (SOME bv) ∧ can_Print bv)
          (new_dec_vs d) bvs)
-        ⇒
+        ⇒ ∃pc.
         (let str =
           if tag ≠ none_tag then "raise " ++ print_bv bs.cons_names bv ++ "\n" else
           (case tys of NONE => ""
@@ -1503,10 +1503,11 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
               | Dtype ts => print_envC ([],build_tdefs NONE ts)
               | Dexn cn ts => print_envC ([],[(cn, (LENGTH ts, TypeExn))])
               | d => print_bv_list bs.cons_names types (new_dec_vs d) bvs))) in
-         let bs' = bs with <| pc := next_addr bs.inst_length (bc0 ++ code)
+         let bs' = bs with <| pc := pc
                             ; stack := st0
                             ; output := bs.output ++ str |> in
-          bc_next^* bs bs')``,
+          bc_next^* bs bs' ∧
+          bc_fetch bs' = SOME (Stop (tag = none_tag)))``,
   Cases_on`tys` >> Cases_on`t` >>
   simp[compile_print_top_def,FOLDL_emit_thm] >>
   rpt gen_tac >> simp[Once SWAP_REVERSE] >>
@@ -1533,26 +1534,26 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
   (`bc_fetch bs = SOME(Stack(Load 0))` by (
      match_mp_tac bc_fetch_next_addr >>
      qexists_tac`bc0` >> simp[] )) >>
-  rw[Once RTC_CASES1] >> disj2_tac >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
   simp[bc_eval1_thm,bc_eval1_def,bc_eval_stack_def,bump_pc_def] >>
-  qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+  qho_match_abbrev_tac`∃p. bc_next^* bs1 (bs2 p) ∧ P p` >>
   `bc_fetch bs1 = SOME(Stack(TagEq(block_tag+none_tag)))` by (
     match_mp_tac bc_fetch_next_addr >>
     simp_tac (srw_ss()) [Abbr`bs1`] >>
     qexists_tac`TAKE (LENGTH bc0 + 1) bs.code` >>
     simp[TAKE_APPEND1,TAKE_APPEND2,SUM_APPEND,FILTER_APPEND,IMPLODE_EXPLODE_I] >>
     NO_TAC) >>
-  rw[Once RTC_CASES1] >> disj2_tac >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
   simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
   simp[Abbr`bs1`,bc_eval_stack_def] >>
-  qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+  qho_match_abbrev_tac`∃p. bc_next^* bs1 (bs2 p) ∧ P p` >>
   `bc_fetch bs1 = SOME(JumpIf (Lab cs.next_label))` by (
     match_mp_tac bc_fetch_next_addr >>
     simp_tac (srw_ss()) [Abbr`bs1`] >>
     qexists_tac`TAKE (LENGTH bc0 + 2) bs.code` >>
     simp[TAKE_APPEND1,TAKE_APPEND2,SUM_APPEND,FILTER_APPEND] >>
     NO_TAC) >>
-  rw[Once RTC_CASES1] >> disj2_tac >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
   simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
   simp[Abbr`bs1`] >>
   simp[PULL_EXISTS,bc_find_loc_def] >>
@@ -1573,19 +1574,19 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
      rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC )) >>
   (reverse(Cases_on`tag=none_tag`>>fs[]) >- (
      rfs[bc_fetch_def] >>
-     qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+     qho_match_abbrev_tac`∃p. bc_next^* bs1 (bs2 p) ∧ P p` >>
      `bc_fetch bs1 = SOME(Stack(El 0))` by (
        match_mp_tac bc_fetch_next_addr >>
        simp_tac (srw_ss()) [Abbr`bs1`] >>
        qexists_tac`TAKE (LENGTH bc0 + 3) bs.code` >>
        simp[TAKE_APPEND1,TAKE_APPEND2,SUM_APPEND,FILTER_APPEND] >>
        NO_TAC) >>
-     rw[Once RTC_CASES1] >> disj2_tac >>
+     srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
      simp[Abbr`bs1`,bc_eval_stack_def] >>
-     qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
-     match_mp_tac (RTC_TRANSITIVE |> SIMP_RULE std_ss [transitive_def]) >>
-     exists_suff_gen_then (qspec_then`"raise "`mp_tac o CONV_RULE SWAP_FORALL_CONV) MAP_PrintC_thm >>
+     qho_match_abbrev_tac`∃p. bc_next^* bs1 (bs2 p) ∧ P p` >>
+     qsuff_tac`∃bs3 p. bc_next^* bs1 bs3 ∧ bc_next^* bs3 (bs2 p) ∧ P p` >- metis_tac[RTC_TRANSITIVE,transitive_def] >>
+     exists_suff_gen_then (qspec_then`"raise "`mp_tac) MAP_PrintC_thm >>
      simp[] >> disch_then(qspec_then`bs1`mp_tac) >>
      simp[Abbr`bs1`] >>
      disch_then(qspec_then`TAKE (LENGTH bc0 + 4) bs.code`mp_tac o CONV_RULE SWAP_FORALL_CONV) >>
@@ -1593,7 +1594,7 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
      discharge_hyps >- ( simp[SUM_APPEND,FILTER_APPEND] ) >>
      qmatch_abbrev_tac`bc_next^* bs1' bs3 ⇒ Z` >>
      strip_tac >> simp[Abbr`Z`] >> qexists_tac`bs3` >>
-     qmatch_abbrev_tac`bc_next^* bs1 bs3 ∧ bc_next^* bs3 bs2` >>
+     qho_match_abbrev_tac`∃p. bc_next^* bs1 bs3 ∧ bc_next^* bs3 (bs2 p) ∧ P p` >>
      `bs1' = bs1` by (
        simp[Abbr`bs1`,Abbr`bs1'`,bc_state_component_equality] >>
        simp[SUM_APPEND,FILTER_APPEND] ) >>
@@ -1603,12 +1604,12 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
        simp_tac (srw_ss()) [Abbr`bs3`] >>
        qexists_tac`TAKE (LENGTH bc0 + 10) bs.code` >>
        simp[TAKE_APPEND1,TAKE_APPEND2,SUM_APPEND,FILTER_APPEND] ) >>
-     rw[Once RTC_CASES1] >> disj2_tac >>
+     srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
      simp[Abbr`bs3`,Abbr`bs1`] >>
-     qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
-     match_mp_tac (RTC_TRANSITIVE |> SIMP_RULE std_ss [transitive_def]) >>
-     exists_suff_gen_then (qspec_then`"\n"`mp_tac o CONV_RULE SWAP_FORALL_CONV) MAP_PrintC_thm >>
+     qho_match_abbrev_tac`∃p. bc_next^* bs1 (bs2 p) ∧ P p` >>
+     qsuff_tac`∃bs3 p. bc_next^* bs1 bs3 ∧ bc_next^* bs3 (bs2 p) ∧ P p` >- metis_tac[RTC_TRANSITIVE,transitive_def] >>
+     exists_suff_gen_then (qspec_then`"\n"`mp_tac) MAP_PrintC_thm >>
      simp[] >> disch_then(qspec_then`bs1`mp_tac) >>
      simp[Abbr`bs1`] >>
      disch_then(qspec_then`TAKE (LENGTH bc0 + 11) bs.code`mp_tac o CONV_RULE SWAP_FORALL_CONV) >>
@@ -1616,12 +1617,12 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
      discharge_hyps >- ( simp[SUM_APPEND,FILTER_APPEND] ) >>
      qmatch_abbrev_tac`bc_next^* bs1' bs3 ⇒ Z` >>
      strip_tac >> simp[Abbr`Z`] >> qexists_tac`bs3` >>
-     qmatch_abbrev_tac`bc_next^* bs1 bs3 ∧ bc_next^* bs3 bs2` >>
+     qho_match_abbrev_tac`∃p. bc_next^* bs1 bs3 ∧ bc_next^* bs3 (bs2 p) ∧ P p` >>
      `bs1' = bs1` by (
        simp[Abbr`bs1`,Abbr`bs1'`,bc_state_component_equality] >>
        simp[SUM_APPEND,FILTER_APPEND] ) >>
      rw[] >>
-     `bc_fetch bs3 = SOME(Jump (Lab (cs.next_label + 1)))` by (
+     `bc_fetch bs3 = SOME(Stop F)` by (
        match_mp_tac bc_fetch_next_addr >>
        simp_tac (srw_ss()) [Abbr`bs3`] >>
        qexists_tac`TAKE (LENGTH bc0 + 12) bs.code` >>
@@ -1630,39 +1631,11 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
        EVAL_TAC >>
        REWRITE_TAC[GSYM SUM_SUM_ACC] >>
        simp[SUM_APPEND,FILTER_APPEND]) >>
-     rw[Once RTC_CASES1] >> disj2_tac >>
-     simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
-     simp[Abbr`bs3`,Abbr`bs1`] >>
-     rw[PULL_EXISTS] >>
-     simp[bc_find_loc_def] >>
-     exists_suff_gen_then mp_tac bc_find_loc_aux_ALL_DISTINCT >>
-     disch_then(qspec_then`LENGTH bs.code - 2`mp_tac o CONV_RULE(RESORT_FORALL_CONV(sorter["k"]))) >>
-     disch_then exists_suff_tac >>
-     simp[EL_APPEND1,EL_APPEND2] >>
-     conj_tac >- (
-       rator_x_assum`good_labels`mp_tac >>
-       TRY(rator_x_assum`code_labels_ok`mp_tac) >>
-       TRY(qpat_assum`EVERY ($~ o is_Label) X`mp_tac) >>
-       rpt(pop_assum kall_tac) >>
-       simp[GSYM FILTER_EQ_NIL,combinTheory.o_DEF,IMPLODE_EXPLODE_I] >>
-       REWRITE_TAC[FILTER_APPEND] >>
-       EVAL_TAC >> rpt strip_tac >>
-       fsrw_tac[ARITH_ss][ALL_DISTINCT_APPEND,MEM_FILTER,is_Label_rwt,PULL_EXISTS,EVERY_MEM,FILTER_MAP] >>
-       fs[FILTER_EQ_NIL,EVERY_MEM,is_Label_rwt,PULL_FORALL,combinTheory.o_DEF,MEM_MAP] >>
-       rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC ) >>
-     rw[Once RTC_CASES1] >> disj1_tac >>
-     simp[bc_state_component_equality,Abbr`bs2`,Abbr`str`] >>
-     simp[TAKE_APPEND1,TAKE_APPEND2] >>
-     simp[IMPLODE_EXPLODE_I] >>
-     REWRITE_TAC[FILTER_APPEND,FILTER_MAP,combinTheory.o_DEF] >>
-     EVAL_TAC >>
-     REWRITE_TAC[FILTER_APPEND,FILTER_MAP,combinTheory.o_DEF] >>
-     EVAL_TAC >>
-     REWRITE_TAC[MAP_APPEND] >>
-     EVAL_TAC >>
-     simp[GSYM SUM_SUM_ACC,SUM_APPEND])) >>
+     srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+     simp[Abbr`bs3`,Abbr`bs2`,bc_state_component_equality] >>
+     rfs[Abbr`P`,bc_fetch_def])) >>
   TRY (
-    qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+    qho_match_abbrev_tac`∃p. bc_next^* bs1 (bs2 p) ∧ P p` >>
     `bc_fetch bs1 = SOME(Stack Pop)` by (
       match_mp_tac bc_fetch_next_addr >>
       simp_tac (srw_ss()) [Abbr`bs1`] >>
@@ -1670,21 +1643,23 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
       simp[TAKE_APPEND2] >>
       simp_tac std_ss [FILTER_APPEND,SUM_APPEND] >>
       EVAL_TAC ) >>
-    rw[Once RTC_CASES1] >> disj2_tac >>
+    srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
     simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
     simp[Abbr`bs1`,bc_eval_stack_def] >>
-    rw[Once RTC_CASES1] >> disj1_tac >>
+    srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
     simp[Abbr`bs2`,bc_state_component_equality] >>
-    simp[TAKE_APPEND2] >>
+    simp[Abbr`P`,TAKE_APPEND2] >>
+    match_mp_tac bc_fetch_next_addr >> simp[] >>
+    CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`[]` >> simp[] >>
     simp_tac std_ss [FILTER_APPEND,SUM_APPEND] >>
     EVAL_TAC >> simp[ADD1] >>
     REWRITE_TAC[GSYM SUM_SUM_ACC] >>
     simp[SUM_APPEND] >> NO_TAC)
   >- (
     simp[TAKE_APPEND1,TAKE_APPEND2] >>
-    qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
-    match_mp_tac (RTC_TRANSITIVE |> SIMP_RULE std_ss [transitive_def]) >>
-    exists_suff_gen_then (qspec_then`"structure "++s++" = <structure>\n"`mp_tac o CONV_RULE SWAP_FORALL_CONV) MAP_PrintC_thm >>
+    qho_match_abbrev_tac`∃p. bc_next^* bs1 (bs2 p) ∧ P p` >>
+    qsuff_tac`∃bs3 p. bc_next^* bs1 bs3 ∧ bc_next^* bs3 (bs2 p) ∧ P p` >- metis_tac[RTC_TRANSITIVE,transitive_def] >>
+    exists_suff_gen_then (qspec_then`"structure "++s++" = <structure>\n"`mp_tac) MAP_PrintC_thm >>
     simp[] >> disch_then(qspec_then`bs1`mp_tac) >>
     simp[Abbr`bs1`] >>
     disch_then(qspec_then`TAKE (LENGTH bc0 + 14) bs.code`mp_tac o CONV_RULE SWAP_FORALL_CONV) >>
@@ -1692,6 +1667,7 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
     discharge_hyps >- ( REWRITE_TAC[FILTER_APPEND] >> EVAL_TAC) >>
     qmatch_abbrev_tac`bc_next^* bs1' bs3 ⇒ Z` >>
     strip_tac >> simp[Abbr`Z`] >> qexists_tac`bs3` >>
+    simp[RIGHT_EXISTS_AND_THM] >>
     conj_tac >- (
       qmatch_abbrev_tac`bc_next^* bs1 bs3` >>
       `bs1' = bs1` by (
@@ -1702,18 +1678,20 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
     `bc_fetch bs3 = SOME(Stack Pop)` by (
       match_mp_tac bc_fetch_next_addr >>
       simp[Abbr`bs3`] >>
-      qexists_tac`TAKE (LENGTH bs.code - 3) bs.code` >>
+      qexists_tac`TAKE (LENGTH bs.code - 2) bs.code` >>
       simp[TAKE_APPEND1,TAKE_APPEND2,IMPLODE_EXPLODE_I] >>
       REWRITE_TAC[FILTER_APPEND,FILTER_MAP,combinTheory.o_DEF] >>
       EVAL_TAC >>
       REWRITE_TAC[FILTER_APPEND,FILTER_MAP,combinTheory.o_DEF] >>
       EVAL_TAC >>
       simp[GSYM SUM_SUM_ACC,SUM_APPEND] ) >>
-    rw[Once RTC_CASES1] >> disj2_tac >>
+    srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
     simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
     simp[Abbr`bs3`,bc_eval_stack_def] >>
-    rw[Once RTC_CASES1] >> disj1_tac >>
-    simp[Abbr`bs2`,bc_state_component_equality] >>
+    srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+    simp[Abbr`bs2`,bc_state_component_equality,Abbr`P`] >>
+    match_mp_tac bc_fetch_next_addr >> simp[] >>
+    CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`[]` >> simp[] >>
     simp[TAKE_APPEND1,TAKE_APPEND2,IMPLODE_EXPLODE_I] >>
     REWRITE_TAC[FILTER_APPEND,FILTER_MAP,combinTheory.o_DEF] >>
     EVAL_TAC >>
@@ -1721,7 +1699,7 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
     EVAL_TAC >>
     simp[GSYM SUM_SUM_ACC,SUM_APPEND] ) >>
   simp[TAKE_APPEND1,TAKE_APPEND2] >>
-  qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+  qho_match_abbrev_tac`∃p. bc_next^* bs1 (bs2 p) ∧ P p` >>
   qmatch_assum_abbrev_tac`bs.code = bc0 ++ c1 ++ code ++ c2` >>
   first_x_assum(qspecl_then[`bs1 with code := bc0 ++ c1 ++ code`,`bc0 ++ c1`,`bvs`]mp_tac) >>
   simp[Abbr`bs1`] >>
@@ -1731,7 +1709,7 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
     EVAL_TAC ) >>
   strip_tac >>
   qmatch_assum_abbrev_tac`bc_next^* bs10 bs20` >>
-  qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+  qho_match_abbrev_tac`∃p. bc_next^* bs1 (bs2 p) ∧ P p` >>
   `bs1 = bs10 with code := bs.code` by (
     simp[Abbr`bs1`,Abbr`bs10`,bc_state_component_equality] >>
     qunabbrev_tac`c1` >>
@@ -1742,20 +1720,22 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
     first_assum (match_exists_tac o concl) >>
     simp[Abbr`bs10`,bc_state_component_equality] >>
     simp[Abbr`bs20`] ) >>
-  match_mp_tac (RTC_TRANSITIVE |> SIMP_RULE std_ss [transitive_def]) >>
+  qsuff_tac`∃bs3 p. bc_next^* bs1 bs3 ∧ bc_next^* bs3 (bs2 p) ∧ P p` >- metis_tac[RTC_TRANSITIVE,transitive_def] >>
   HINT_EXISTS_TAC >> simp[] >> rw[] >>
-  qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+  qho_match_abbrev_tac`∃p. bc_next^* bs1 (bs2 p) ∧ P p` >>
   `bc_fetch bs1 = SOME (Stack Pop)` by (
     match_mp_tac bc_fetch_next_addr >>
     simp[Abbr`bs1`,Abbr`bs20`] >>
     qexists_tac`bc0 ++ c1 ++ code` >>
     unabbrev_all_tac >> simp[] ) >>
-  rw[Once RTC_CASES1] >> disj2_tac >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
   simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
   simp[Abbr`bs1`,Abbr`bs20`,bc_eval_stack_def] >>
-  rw[Once RTC_CASES1] >> disj1_tac >>
-  simp[Abbr`bs2`,bc_state_component_equality] >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+  simp[Abbr`bs2`,bc_state_component_equality,Abbr`P`] >>
   unabbrev_all_tac >>
+  match_mp_tac bc_fetch_next_addr >> simp[] >>
+  CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`[]` >> simp[] >>
   REWRITE_TAC[FILTER_APPEND,FILTER_MAP,combinTheory.o_DEF] >>
   EVAL_TAC >>
   REWRITE_TAC[FILTER_APPEND,FILTER_MAP,combinTheory.o_DEF] >>
@@ -2169,8 +2149,9 @@ val compile_top_labels = store_thm("compile_top_labels",
   ``∀types rs top.
       FV_top top ⊆ global_dom rs.globals_env
       ⇒
-      between_labels (SND(compile_top types rs top)) rs.rnext_label (FST(compile_top types rs top)).rnext_label ∧
-      code_labels_ok (SND(compile_top types rs top))``,
+      (FST(SND(compile_top types rs top))).rnext_label = (FST(compile_top types rs top)).rnext_label ∧
+      between_labels (SND(SND(compile_top types rs top))) rs.rnext_label (FST(compile_top types rs top)).rnext_label ∧
+      code_labels_ok (SND(SND(compile_top types rs top)))``,
    simp[compile_top_def,UNCURRY,pair_CASE_def] >>
    rpt gen_tac >> strip_tac >>
    specl_args_of_then``compile_Cexp``compile_Cexp_thm mp_tac >>
@@ -2214,7 +2195,6 @@ val compile_top_labels = store_thm("compile_top_labels",
      simp[EVERY_MEM,MEM_FILTER,is_Label_rwt,PULL_EXISTS] >>
      rw[] >> res_tac >> fsrw_tac[ARITH_ss][between_def] >>
      spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
-   match_mp_tac code_labels_ok_cons >> simp[] >>
    REWRITE_TAC[GSYM APPEND_ASSOC] >>
    match_mp_tac code_labels_ok_append >>
    simp[code_labels_ok_REVERSE] >>
