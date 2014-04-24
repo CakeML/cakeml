@@ -39,6 +39,18 @@ initial_program =
                    (Fun "x" (Fun"y"(App(Opn Minus)(Var(Short"x"))(Var(Short"y")))));
                    (Fun "x" (Fun"y"(App(Opn Plus)(Var(Short"x"))(Var(Short"y")))))])`;
 
+val initial_bc_state =``
+  <| stack := []
+   ; code := []
+   ; pc := 0
+   ; refs := FEMPTY
+   ; globals := []
+   ; handler := 0
+   ; output := ""
+   ; inst_length := K 0
+   ; clock := NONE
+   |>``
+
 val get_all_asts_def = tDefine "get_all_asts" `
 get_all_asts input =
   case lex_until_toplevel_semicolon input of
@@ -727,19 +739,6 @@ in
   fun do_compile_binary_str s = do_compile_binary_istr (openString s)
 end
 
-val initial_bc_state =``
-  <| stack := []
-   ; code := []
-   ; pc := 0
-   ; refs := FEMPTY
-   ; globals := []
-   ; handler := 0
-   ; output := ""
-   ; cons_names := []
-   ; inst_length := K 0
-   ; clock := NONE
-   |>``
-
 val bc_evaln_def = Define`
   (bc_evaln 0 bs = bs) ∧
   (bc_evaln (SUC n) bs =
@@ -817,7 +816,7 @@ val () = computeLib.add_thms
   ,bytecodeTerminationTheory.bc_equal_def
   ,bytecodeTheory.can_Print_def
   ,printerTheory.ov_to_string_def
-  ,compilerTerminationTheory.bv_to_ov_def
+  ,bytecodeTheory.bv_to_ov_def
   ,semanticPrimitivesTheory.int_to_string_def
   ,CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook) bc_evaln_def
   ,LEAST_thm
