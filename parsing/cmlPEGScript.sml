@@ -471,7 +471,8 @@ val cmlPEG_exec_thm = save_thm(
   "cmlPEG_exec_thm",
   TypeBase.constructors_of ``:MMLnonT``
     |> map (fn t => ISPEC (mk_comb(mkNT, t)) spec0)
-    |> map (SIMP_RULE bool_ss cmlpeg_rules_applied)
+    |> map (SIMP_RULE bool_ss (cmlpeg_rules_applied @ distinct_ths @
+                               [sumTheory.INL_11]))
     |> LIST_CONJ)
 val _ = computeLib.add_persistent_funs ["cmlPEG_exec_thm"]
 
