@@ -1396,6 +1396,37 @@ val FV_decs_def = Define`
   (FV_decs [] = {}) ∧
   (FV_decs (d::ds) = FV_dec d ∪ ((FV_decs ds) DIFF (set (MAP Short (new_dec_vs d)))))`
 
+val evaluate_dec_new_dec_vs = store_thm("evaluate_dec_new_dec_vs",
+  ``∀ck mn env s dec res.
+    evaluate_dec ck mn env s dec res ⇒
+    ∀tds vs. (SND res = Rval (tds,vs)) ⇒ MAP FST vs = new_dec_vs dec``,
+  ho_match_mp_tac evaluate_dec_ind >>
+  simp[libTheory.emp_def] >> rw[] >>
+  imp_res_tac pmatch_dom >>
+  fs[build_rec_env_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX])
+
+val evaluate_decs_closed = store_thm("evaluate_decs_closed",
+  ``∀ck mn env s ds res. evaluate_decs ck mn env s ds res ⇒
+      FV_decs ds ⊆ all_env_dom env ∧
+      all_env_closed env ∧
+      EVERY closed (SND(FST s))
+      ⇒
+      EVERY closed (SND(FST(FST res))) ∧
+      every_result (λenvE. EVERY closed (MAP SND envE))
+                   closed (SND (SND res))``,
+  ho_match_mp_tac evaluate_decs_ind >> rw[] >>
+  imp_res_tac evaluate_dec_closed >>
+  imp_res_tac evaluate_dec_new_dec_vs >>
+  rfs[emp_def,FV_decs_def] >> rw[] >>
+  qpat_assum`p ⇒ q`mp_tac >>
+  (discharge_hyps >- (
+    fsrw_tac[DNF_ss][merge_def,merge_envC_def,SUBSET_DEF,PULL_EXISTS
+                    ,all_env_closed_def,all_env_dom_def,MEM_MAP,EXISTS_PROD] >>
+    metis_tac[] )) >> simp[] >>
+  simp[combine_dec_result_def] >>
+  BasicProvers.CASE_TAC >>
+  simp[merge_def])
+
 val FV_top_def = Define`
   (FV_top (Tdec d) = FV_dec d) ∧
   (FV_top (Tmod mn _ ds) = FV_decs ds)`
