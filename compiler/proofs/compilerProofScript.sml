@@ -3818,58 +3818,138 @@ val compile_top_thm = store_thm("compile_top_thm",
   strip_tac >- simp[] >>
   simp[])
 
+fun split_applied_pair_tac tm =
+  let
+    val (f,p) = dest_comb tm
+    val (x,b) = pairSyntax.dest_pabs f
+    val xs = pairSyntax.strip_pair x
+    val g = list_mk_exists(xs,mk_eq(p,x))
+    val th = prove(g, SIMP_TAC bool_ss [GSYM EXISTS_PROD])
+  in
+    strip_assume_tac th
+  end
+
+local
+  val is_pair_case = same_const``pair_CASE``
+  exception Not_pair_case
+  fun loop tm vs =
+    let
+      val (f,x) = dest_comb tm
+      val _ = assert is_pair_case (fst (strip_comb f))
+    in
+      let
+        val (v,b) = dest_abs x
+        val vs = v::vs
+      in
+        case total dest_abs b of
+          NONE => (vs,tm)
+        | SOME (v,tm) => loop tm vs
+          handle Not_pair_case => (v::vs,tm)
+      end handle HOL_ERR _ => (vs,tm)
+    end handle HOL_ERR _ => raise Not_pair_case
+in
+  fun strip_pair_case tm =
+    (case loop tm [] of (vs,b) => (rand(rator tm),rev vs,b))
+    handle Not_pair_case => raise mk_HOL_ERR "" "strip_pair_case" "not a pair case"
+end
+
+fun split_pair_case_tac tm =
+  let
+    val (p,vs,b) = strip_pair_case tm
+    val g = list_mk_exists(vs,mk_eq(p,pairSyntax.list_mk_pair vs))
+    val th = prove(g, SIMP_TAC bool_ss [GSYM EXISTS_PROD])
+  in
+    strip_assume_tac th
+  end
+
+val not_evaluate_dec_timeout = store_thm("not_evaluate_dec_timeout",
+  ``∀mn env s d.
+      (∀r. ¬evaluate_dec F mn env s d r) ⇒
+      ∃r. evaluate_dec T mn env s d r ∧ (SND r = Rerr Rtimeout_error)``,
+  rpt gen_tac >> PairCases_on`s` >> PairCases_on`env` >>
+  reverse(Cases_on`d`)>> simp[Once evaluate_dec_cases]
+  >- metis_tac[]
+  >- metis_tac[]
+  >- metis_tac[] >>
+  rw[] >>
+  rw[Once evaluate_dec_cases] >>
+  fsrw_tac[DNF_ss][] >> rfs[] >> fs[] >>
+  fs[all_env_to_cenv_def] >>
+  Cases_on`∃r. evaluate F (env0,(env1,env2),env3) (s0,s1) e r` >- (
+    fs[] >> PairCases_on`r`>>fs[] >>
+    Cases_on`r2`>>fs[METIS_PROVE[]``P ∨ Q ⇔ ¬P ⇒ Q``] >> res_tac >>
+    metis_tac[match_result_nchotomy] ) >>
+  metis_tac[big_clocked_unclocked_equiv_timeout])
+
 (*
+val not_evaluate_decs_timeout = store_thm("not_evaluate_decs_timeout",
+  ``∀mn env s ds.
+    (∀r. ¬evaluate_decs F mn env s ds r) ⇒
+    ∃r. evaluate_decs T mn env s ds r ∧ (SND(SND r) = Rerr Rtimeout_error)``,
+  Induct_on`ds` >- ( simp[Once evaluate_decs_cases] ) >>
+  rpt gen_tac >>
+  simp[Once evaluate_decs_cases] >>
+  srw_tac[DNF_ss][]
+  fs[METIS_PROVE[]``P ∨ Q ⇔ ¬P ⇒ Q``] >>
+  Cases_on`∃r. evaluate_dec F mn env s h r` >> fs[] >- (
+    PairCases_on`r`>>fs[]>>
+    Cases_on`r3`>>fs[] >> res_tac >> fs[]>>
+    PairCases_on`env`>>fs[FORALL_PROD]>>res_tac >> fs[] >>
+    simp[Once evaluate_decs_cases] >>
+    srw_tac[DNF_ss][EXISTS_PROD] >>
+    fsrw_tac[DNF_ss][EXISTS_PROD] >>
+    PairCases_on`a`>>res_tac >>
+    fs[merge_envC_def] >>
+    metis_tac[]
+
 val compile_top_divergence = store_thm("compile_top_divergence",
-  ``∀menv cenv s env top rs rd ck types bc0 bs ss sf code. (∀res. ¬evaluate_top menv cenv s env top res) ∧
-      closed_top menv cenv s env top
-      ∧ (∀mn spec ds. top = Tmod mn spec ds ⇒
-          ∀i. i < LENGTH ds ⇒
-            (∀tds. (EL i ds = Dtype tds) ⇒ check_dup_ctors (SOME mn) (decs_to_cenv (SOME mn) (TAKE i ds) ++ cenv) tds) ∧
-            (∀cn ts. (EL i ds = Dexn cn ts) ⇒ mk_id (SOME mn) cn ∉ set (MAP FST (decs_to_cenv (SOME mn) (TAKE i ds) ++ cenv)))) ∧
-      env_rs menv cenv (ck,s) env rs (LENGTH bs.stack) rd (bs with code := bc0) ∧
+  ``∀env stm top rs grd types bc0 bs ss sf code.
+      (∀res. ¬evaluate_top F env stm top res) ∧
+      closed_top env top ∧
+      env_rs env stm grd rs (bs with code := bc0) ∧
       (compile_top types rs top = (ss,sf,code)) ∧
       bs.code = bc0 ++ REVERSE code ∧
       bs.pc = next_addr bs.inst_length bc0 ∧
-      IS_SOME bs.clock ∧
-      good_labels rs.rnext_label bc0
+      IS_SOME bs.clock
       ⇒
       ∃bs'. bc_next^* bs bs' ∧ bc_fetch bs' = SOME Tick ∧ bs'.clock = SOME 0 ∧ bs'.output = bs.output``,
   rw[closed_top_def] >>
   Cases_on`top`>- (
     fs[Once evaluate_top_cases] >>
     qmatch_assum_rename_tac`compile_top types rs (Tmod mn specs ds) = X`["X"] >>
-    Cases_on`∃r. evaluate_decs (SOME mn) menv cenv s env ds r`>>fs[]>-(
+    PairCases_on`stm`>>fs[] >>
+    Cases_on`∃r. evaluate_decs ck (SOME mn) env ((stm0,stm1),stm2) ds r`>>fs[]>-(
       PairCases_on`r`>>fs[]>>
-      Cases_on`r2`>>fs[]>>
-      TRY(PairCases_on`a`)>>fs[FORALL_PROD]>>
+      Cases_on`r4`>>fs[]>>
+      fs[FORALL_PROD]>>
       metis_tac[] ) >>
-    qabbrev_tac`p = compile_decs_wrap (SOME mn) rs ds` >>
-    PairCases_on`p` >>
+
     fs[compile_top_def,LET_THM] >>
-    fs[FOLDL_emit_thm] >>
-    qspecl_then[`SOME mn`,`menv`,`cenv`,`s`,`env`,`ds`,`rs`]mp_tac compile_decs_wrap_divergence >>
-    simp[] >>
-    qmatch_assum_abbrev_tac`pc ++ p4.out = code` >>
-    disch_then(qspecl_then[`ck`,`bs with code := bc0 ++ REVERSE p4.out`,`bc0`]mp_tac) >>
-    simp[] >>
-    disch_then(qspecl_then[`rd`]mp_tac) >>
-    simp[] >>
-    discharge_hyps >- metis_tac[] >>
-    disch_then(qx_choosel_then[`bs1`]strip_assume_tac) >>
-    `bc_next^* bs (bs1 with code := bs.code)` by (
-      match_mp_tac RTC_bc_next_append_code >>
-      qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
-      map_every qexists_tac[`bs0`,`bs1`] >>
-      simp[bc_state_component_equality,Abbr`bs0`] >>
-      BasicProvers.VAR_EQ_TAC >> simp[] >>
-      imp_res_tac RTC_bc_next_preserves >> fs[] ) >>
-    HINT_EXISTS_TAC >> simp[] >>
-    fs[bc_fetch_def] >>
-    BasicProvers.VAR_EQ_TAC >>
-    imp_res_tac RTC_bc_next_preserves >> fs[] >>
-    simp[REVERSE_APPEND] >>
-    match_mp_tac bc_fetch_aux_append_code >>
-    simp[] ) >>
+    first_assum (split_applied_pair_tac o lhs o concl) >> fs[] >>
+    first_assum (split_pair_case_tac o lhs o concl) >> fs[] >>
+    first_assum (split_applied_pair_tac o lhs o concl) >> fs[] >>
+    first_assum (split_applied_pair_tac o lhs o concl) >> fs[] >>
+    qpat_assum`X = code`mp_tac >>
+    specl_args_of_then``compile_print_top``compile_print_top_thm mp_tac >>
+    simp[] >> strip_tac >> pop_assum kall_tac >>
+    specl_args_of_then``compile_Cexp``compile_Cexp_thm mp_tac >>
+    discharge_hyps >- (
+      simp[] >>
+      specl_args_of_then``exp_to_pat``(CONJUNCT1 free_vars_pat_exp_to_pat)mp_tac >>
+      simp[] >> disch_then match_mp_tac >>
+      imp_res_tac free_vars_i2_prompt_to_i3 >>
+      imp_res_tac free_vars_prompt_to_i2 >>
+      imp_res_tac FV_top_to_i1 >>
+      simp[] >>
+      PairCases_on`env` >> PairCases_on`grd` >>
+      fs[closed_top_def,all_env_dom_def,SUBSET_DEF,PULL_EXISTS,env_rs_def] >>
+      simp[EXTENSION] >> rw[] >>
+      CCONTR_TAC >> fs[] >> res_tac >> fs[] >> rw[] >>
+      fs[to_i1_invariant_def] >>
+      imp_res_tac global_env_inv_inclusion >>
+      fs[SUBSET_DEF]) >>
+    simp[] >> strip_tac >>
+    cheat) >>
   fs[Once evaluate_top_cases] >>
   Cases_on`∃r. evaluate_decs NONE menv cenv s env [d] r`>>fs[]>-(
     `∃res. r = (FST r,(case res of Rval (x,y) => x | Rerr _ => []),map_result SND res)` by (
