@@ -207,6 +207,7 @@ inst_list* decode(FILE *in) {
 	break;
       case 39:
         next_inst->car.tag = stop_i;
+	next_inst->car.args.num = decode_num(in, inst_num);
 	break;
       case 8:
         next_inst->car.tag = tick_i;
