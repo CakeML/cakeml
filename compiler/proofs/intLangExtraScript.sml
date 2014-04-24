@@ -902,6 +902,7 @@ result_rel_trans
 |> SIMP_RULE std_ss [AND_IMP_INTRO]
 |> Q.GEN`R2`)
 
+(*
 val syneq_ov = store_thm("syneq_ov",
   ``(∀v1 v2. syneq v1 v2 ⇒ ∀m s. Cv_to_ov m s v1 = Cv_to_ov m s v2) ∧
     (∀vs1 vs2. EVERY2 (syneq) vs1 vs2 ⇒ ∀m s. EVERY2 (λv1 v2. Cv_to_ov m s v1 = Cv_to_ov m s v2) vs1 vs2)``,
@@ -915,6 +916,7 @@ val syneq_ov = store_thm("syneq_ov",
     first_x_assum (match_mp_tac o MP_CANON) >>
     metis_tac[] ) >>
   metis_tac[])
+*)
 
 (* Misc. int lang lemmas *)
 

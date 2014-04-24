@@ -74,7 +74,6 @@ type
       globals : list (maybe bc_value);
       handler : nat;
       output : string;
-      cons_names : list (nat * maybe (conN * tid_or_exn));
       (* artificial state components *)
       inst_length : bc_inst -> nat;
       clock : maybe nat
@@ -229,11 +228,11 @@ and
 bvs_to_chars _ _ = Nothing
 declare termination_argument bvs_to_chars = automatic
 
-val bv_to_ov : list (nat * maybe (conN * tid_or_exn)) -> bc_value -> ov
+val bv_to_ov :  bc_value -> ov
 let rec
-bv_to_ov _ (Number i) = OLit (IntLit i)
+bv_to_ov (Number i) = OLit (IntLit i)
 and
-bv_to_ov m (Block n vs) =
+bv_to_ov (Block n vs) =
   if n = (bool_to_tag false) then OLit (Bool false) else
   if n = (bool_to_tag true) then OLit (Bool true) else
   if n = unit_tag then OLit Unit else
@@ -243,11 +242,11 @@ bv_to_ov m (Block n vs) =
     | Nothing -> OError
     | Just cs -> OLit (StrLit (String.toString cs))
     end else
-  OConv (the Nothing (Lib.lookup (n-block_tag) m)) (List.map (bv_to_ov m) vs)
+  OConv
 and
-bv_to_ov _ (RefPtr n) = OLoc n
+bv_to_ov (RefPtr _) = OLoc
 and
-bv_to_ov _ _ = OError
+bv_to_ov _ = OError
 
 (* next state relation *)
 
@@ -417,7 +416,7 @@ bc_fetch s = Just Print
 && can_Print x
 ==>
 bc_next s (<|bump_pc s with stack = xs;
-  output = String_extra.stringConcat [s.output;ov_to_string (bv_to_ov s.cons_names x)]|>)
+  output = String_extra.stringConcat [s.output;ov_to_string (bv_to_ov x)]|>)
 and
 printC : forall s c.
 bc_fetch s = Just (PrintC c)

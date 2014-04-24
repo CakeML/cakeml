@@ -8,21 +8,21 @@ open import CompilerLib
 
 type ov =
   | OLit of lit
-  | OConv of maybe (conN * tid_or_exn) * list ov
+  | OConv
   | OFn
-  | OLoc of nat (* machine, not semantic, address *)
+  | OLoc
   | OError (* internal machine value (pointer) that should not appear *)
 
 let rec
-v_to_ov _ (Litv l) = OLit l
+v_to_ov (Litv l) = OLit l
 and
-v_to_ov s (Conv cn vs) = OConv cn (List.map (v_to_ov s) vs)
+v_to_ov (Conv _ _) = OConv
 and
-v_to_ov _ (Closure _ _ _) = OFn
+v_to_ov (Closure _ _ _) = OFn
 and
-v_to_ov _ (Recclosure _ _ _) = OFn
+v_to_ov (Recclosure _ _ _) = OFn
 and
-v_to_ov s (Loc n) = OLoc (List_extra.nth s n)
+v_to_ov (Loc _) = OLoc
 
 let rec
 ov_to_string (OLit (IntLit (i:integer))) = int_to_string i
@@ -35,17 +35,9 @@ ov_to_string (OLit (Bool false)) = "false"
 and
 ov_to_string (OLit Unit) = "()"
 and
-ov_to_string (OConv _ _) = "<constructor>"
-(*
-ov_to_string (OConv cn vs) =
-  (id_to_string cn)^" "^
-  match intersperse ", " (List.map ov_to_string vs) with
-  | [s] -> s
-  | ls -> "("^Hol.FLAT ls^")"
-  end
-*)
+ov_to_string OConv = "<constructor>"
 and
-ov_to_string (OLoc _) = "<ref>"
+ov_to_string OLoc = "<ref>"
 and
 ov_to_string OFn = "<fn>"
 and

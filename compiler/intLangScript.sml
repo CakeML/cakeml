@@ -612,16 +612,15 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (*open import Printer*)
 
- val Cv_to_ov_defn = Hol_defn "Cv_to_ov" `
+ val _ = Define `
 
-(Cv_to_ov _ _ (CLitv l) = (OLit l))
+(Cv_to_ov (CLitv l) = (OLit l))
 /\
-(Cv_to_ov m s (CConv cn vs) = (OConv (the NONE (lib$lookup cn m)) (MAP (Cv_to_ov m s) vs)))
+(Cv_to_ov (CConv _ _) = OConv)
 /\
-(Cv_to_ov _ _ (CRecClos _ _ _) = OFn)
+(Cv_to_ov (CRecClos _ _ _) = OFn)
 /\
-(Cv_to_ov _ s (CLoc n) = (OLoc (EL n s)))`;
+(Cv_to_ov (CLoc _) = OLoc)`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn Cv_to_ov_defn;
 val _ = export_theory()
 

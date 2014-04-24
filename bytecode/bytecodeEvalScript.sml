@@ -179,7 +179,7 @@ val bc_eval1_def = Define`
      | SOME n => if n > 0 then SOME (bump_pc s with <| clock := SOME (n-1) |>) else NONE)
   | (Print, x::xs) =>
     if can_Print x then
-    SOME (bump_pc s with <| stack := xs; output := STRCAT s.output (ov_to_string(bv_to_ov s.cons_names x))|>)
+    SOME (bump_pc s with <| stack := xs; output := STRCAT s.output (ov_to_string(bv_to_ov x))|>)
     else NONE
   | (PrintC c,_) =>
     SOME (bump_pc s with <| output := IMPLODE (SNOC c (EXPLODE s.output)) |>)

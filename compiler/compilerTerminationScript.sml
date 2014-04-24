@@ -17,7 +17,6 @@ fun size_thm name t1 t2 = store_thm(name,tm t1 t2,tac)
 val Cexp1_size_thm = size_thm "Cexp1_size_thm" ``Cexp1_size`` ``Cexp2_size``
 val Cexp4_size_thm = size_thm "Cexp4_size_thm" ``Cexp4_size`` ``Cexp_size``
 val Cv1_size_thm = size_thm "Cv1_size_thm" ``Cv1_size`` ``Cv_size``
-val ov1_size_thm = size_thm "ov1_size_thm" ``ov1_size`` ``ov_size``
 
 val SUM_MAP_Cexp3_size_thm = store_thm(
 "SUM_MAP_Cexp3_size_thm",
@@ -70,20 +69,6 @@ val (no_closures_def, no_closures_ind) = register "no_closures" (
   rw[Cv1_size_thm] >>
   imp_res_tac SUM_MAP_MEM_bound >>
   pop_assum (qspec_then `Cv_size` mp_tac) >>
-  srw_tac[ARITH_ss][]))
-
-val (Cv_to_ov_def,Cv_to_ov_ind) = register "Cv_to_ov" (
-  tprove_no_defn ((Cv_to_ov_def,Cv_to_ov_ind),
-  WF_REL_TAC `measure (Cv_size o SND o SND)` >>
-  rw[Cv1_size_thm] >>
-  Q.ISPEC_THEN `Cv_size` imp_res_tac SUM_MAP_MEM_bound >>
-  srw_tac[ARITH_ss][]))
-
-val (v_to_ov_def,v_to_ov_ind) = register "v_to_ov" (
-  tprove_no_defn ((v_to_ov_def,v_to_ov_ind),
-  WF_REL_TAC `measure (v_size o SND)` >>
-  rw[SIMP_RULE (std_ss) [vs_size_def] vs_size_thm] >>
-  Q.ISPEC_THEN `v_size` imp_res_tac SUM_MAP_MEM_bound >>
   srw_tac[ARITH_ss][]))
 
 val (mkshift_def,mkshift_ind) = register "mkshift" (
@@ -245,13 +230,6 @@ val _ = register "all_labs" (
     | INR (INR (INL (ds))) => Cexp1_size ds
     | INR (INR (INR (def))) => Cexp2_size def)`))
 
-val (bv_to_ov_def,bv_to_ov_ind) = register "bv_to_ov" (
-  tprove_no_defn ((bv_to_ov_def,bv_to_ov_ind),
-  WF_REL_TAC `measure (bc_value_size o SND)` >>
-  rw[bc_value1_size_thm] >>
-  Q.ISPEC_THEN `bc_value_size` imp_res_tac SUM_MAP_MEM_bound >>
-  srw_tac[ARITH_ss][]))
-
 val (do_Ceq_def,do_Ceq_ind) = register "do_Ceq" (
   tprove_no_defn((do_Ceq_def,do_Ceq_ind),
   WF_REL_TAC`measure (\x. case x of INL (cv,_) => Cv_size cv | INR (cvs,_) => Cv1_size cvs)`));
@@ -396,7 +374,7 @@ val _ = export_rewrites
 ["toBytecode.emit_def","toBytecode.get_label_def","toBytecode.emit_ceref_def","toBytecode.emit_ceenv_def"
 ,"toBytecode.prim1_to_bc_def","toBytecode.prim2_to_bc_def"
 ,"free_vars_def","no_closures_def"
-,"Cv_to_ov_def","v_to_ov_def"
+,"intLang.Cv_to_ov_def","printer.v_to_ov_def"
 ,"toBytecode.compile_varref_def","compile_envref_def"
 ,"mkshift_def"
 ,"label_closures_def"

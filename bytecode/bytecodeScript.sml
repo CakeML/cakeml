@@ -93,7 +93,6 @@ val _ = Hol_datatype `
       globals : ( bc_value option) list;
       handler : num;
       output : string;
-      cons_names : (num #  (conN # tid_or_exn)option) list;
       (* artificial state components *)
       inst_length : bc_inst -> num;
       clock :  num option
@@ -297,12 +296,12 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (bvs_to_chars _ _ = NONE)`;
 
 
-(*val bv_to_ov : list (nat * maybe (conN * tid_or_exn)) -> bc_value -> ov*)
- val bv_to_ov_defn = Hol_defn "bv_to_ov" `
+(*val bv_to_ov :  bc_value -> ov*)
+ val _ = Define `
 
-(bv_to_ov _ (Number i) = (OLit (IntLit i)))
+(bv_to_ov (Number i) = (OLit (IntLit i)))
 /\
-(bv_to_ov m (Block n vs) =  
+(bv_to_ov (Block n vs) =  
 (if n = (bool_to_tag F) then OLit (Bool F) else
   if n = (bool_to_tag T) then OLit (Bool T) else
   if n = unit_tag then OLit Unit else
@@ -312,13 +311,12 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
       NONE => OError
     | SOME cs => OLit (StrLit (IMPLODE cs))
     ) else
-  OConv (the NONE (lib$lookup (n - block_tag) m)) (MAP (bv_to_ov m) vs)))
+  OConv))
 /\
-(bv_to_ov _ (RefPtr n) = (OLoc n))
+(bv_to_ov (RefPtr _) = OLoc)
 /\
-(bv_to_ov _ _ = OError)`;
+(bv_to_ov _ = OError)`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn bv_to_ov_defn;
 
 (* next state relation *)
 
@@ -451,7 +449,7 @@ bc_next s ((bump_pc s with<| clock := OPTION_MAP PRE s.clock|>)))
 /\ can_Print x))
 ==>
 bc_next s ((bump_pc s with<| stack := xs;
-  output := CONCAT [s.output;ov_to_string (bv_to_ov s.cons_names x)]|>)))
+  output := CONCAT [s.output;ov_to_string (bv_to_ov x)]|>)))
 /\ (! s c.
 (bc_fetch s = SOME (PrintC c))
 ==>

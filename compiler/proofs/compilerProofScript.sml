@@ -1084,8 +1084,8 @@ val v_bv_def = Define`
 
 (* printing *)
 
-val _ = Parse.overload_on("print_bv",``λm. ov_to_string o bv_to_ov m``)
-val print_bv_str_def = Define`print_bv_str m t v w = "val "++v++":"++(tystr t v)++" = "++(print_bv m w)++"\n"`
+val _ = Parse.overload_on("print_bv",``λx. ov_to_string (bv_to_ov x)``)
+val print_bv_str_def = Define`print_bv_str t v w = "val "++v++":"++(tystr t v)++" = "++(print_bv w)++"\n"`
 
 val append_cons_lemma = prove(``ls ++ [x] ++ a::b = ls ++ x::a::b``,lrw[])
 
@@ -1112,7 +1112,7 @@ val MAP_PrintC_thm = store_thm("MAP_PrintC_thm",
   qexists_tac`bc0 ++ [PrintC h]` >>
   simp[FILTER_APPEND,SUM_APPEND])
 
-val _ = Parse.overload_on("print_bv_list",``λm t vs ws. FLAT (MAP (UNCURRY (print_bv_str m t)) (ZIP (vs,ws)))``)
+val _ = Parse.overload_on("print_bv_list",``λt vs ws. FLAT (MAP (UNCURRY (print_bv_str t)) (ZIP (vs,ws)))``)
 
 val print_envE_cons = store_thm("print_envE_cons",
   ``print_envE types (x::xs) = print_envE types [x]++print_envE types xs``,
@@ -1123,7 +1123,7 @@ val print_v_ov = prove(
       ∀gtagenv v2 exh vh Cv.
         v_to_i2 gtagenv v1 v2 ∧
           v_to_exh exh v2 vh ∧ exh_Cv vh Cv ⇒
-          ∀x y. ov_to_string (Cv_to_ov x y Cv) = print_v v) ∧
+            ov_to_string (Cv_to_ov Cv) = print_v v) ∧
     (∀genv vs vs1. vs_to_i1 genv vs vs1 ⇒ T) ∧
     (∀genv env env1. env_to_i1 genv env env1 ⇒ T) ∧
     (∀genv map sh env. global_env_inv_flat genv map sh env ⇒ T) ∧
@@ -1146,12 +1146,12 @@ val print_v_ov = prove(
 val print_v_ov = save_thm("print_v_ov",CONJUNCT1 print_v_ov)
 
 val print_bv_list_print_envE = store_thm("print_bv_list_print_envE",
-  ``∀bvs types vars env m data.
+  ``∀bvs types vars env data.
     vars = MAP FST env ∧
     LIST_REL (v_bv data) (MAP SND env) bvs ∧
     set vars ⊆ FDOM types
     ⇒
-    print_bv_list m types vars bvs = print_envE types env``,
+    print_bv_list types vars bvs = print_envE types env``,
   Induct_on`env` >- ( simp[print_envE_def] ) >>
   qx_gen_tac`x`>>PairCases_on`x` >> simp[PULL_EXISTS] >>
   rpt gen_tac >> strip_tac >> fs[] >>
@@ -1188,7 +1188,7 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
     ∧ LIST_REL (λv bv. ∃n. FLOOKUP map v = SOME n ∧ el_check n bs.globals = SOME (SOME bv) ∧ can_Print bv) vs bvs
     ⇒
     let bs' = bs with <|pc := next_addr bs.inst_length (bc0++code)
-                       ;output := bs.output ++ print_bv_list bs.cons_names types vs bvs|> in
+                       ;output := bs.output ++ print_bv_list types vs bvs|> in
     bc_next^* bs bs'``,
   Induct >> simp[compile_print_vals_def] >- (
     simp[Once SWAP_REVERSE] >> rw[] >>
@@ -1231,7 +1231,7 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
     qexists_tac`bc0++l1` >>
     simp[Abbr`l2`] ) >>
   `bc_next^* bs1 (bs1 with <|pc:=next_addr bs.inst_length(bc0++l1++l2)
-                            ;output := STRCAT bs1.output (print_bv bs.cons_names bv)++"\n"|>)` by (
+                            ;output := STRCAT bs1.output (print_bv bv)++"\n"|>)` by (
     simp[RTC_eq_NRC] >>
     qexists_tac`SUC(SUC(SUC 0))` >>
     simp[NRC] >>
@@ -1349,7 +1349,7 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
         case d of
         | Dtype ts => print_envC ([],build_tdefs NONE ts)
         | Dexn cn ts => print_envC ([],[(cn, (LENGTH ts, TypeExn))])
-        | d => print_bv_list bs.cons_names types (new_dec_vs d) bvs in
+        | d => print_bv_list types (new_dec_vs d) bvs in
       let bs' = bs with
         <|pc := next_addr bs.inst_length (bc0++code)
          ;output := bs.output ++ str|> in
@@ -1482,14 +1482,14 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
          (new_dec_vs d) bvs)
         ⇒ ∃pc.
         (let str =
-          if tag ≠ none_tag then "raise " ++ print_bv bs.cons_names bv ++ "\n" else
+          if tag ≠ none_tag then "raise " ++ print_bv bv ++ "\n" else
           (case tys of NONE => ""
           | SOME types => (case t of
             | Tmod mn _ _ => "structure "++mn++" = <structure>\n"
             | Tdec d => (case d of
               | Dtype ts => print_envC ([],build_tdefs NONE ts)
               | Dexn cn ts => print_envC ([],[(cn, (LENGTH ts, TypeExn))])
-              | d => print_bv_list bs.cons_names types (new_dec_vs d) bvs))) in
+              | d => print_bv_list types (new_dec_vs d) bvs))) in
          let bs' = bs with <| pc := pc
                             ; stack := st0
                             ; output := bs.output ++ str |> in
@@ -2985,7 +2985,6 @@ val compile_top_thm = store_thm("compile_top_thm",
     conj_tac >- (
       simp[print_result_def,Abbr`bs2`] >>
       first_x_assum(mp_tac o MATCH_MP Cv_bv_ov) >>
-      disch_then(qspec_then`bs.cons_names`mp_tac) >> simp[] >>
       disch_then(SUBST1_TAC o SYM) >>
       match_mp_tac (MP_CANON print_v_ov) >>
       fs[result_to_i1_cases,result_to_i2_cases] >>
@@ -3675,7 +3674,6 @@ val compile_top_thm = store_thm("compile_top_thm",
     conj_tac >- (
       simp[print_result_def,Abbr`bs2`] >>
       first_x_assum(mp_tac o MATCH_MP Cv_bv_ov) >>
-      disch_then(qspec_then`bs.cons_names`mp_tac) >> simp[] >>
       disch_then(SUBST1_TAC o SYM) >>
       match_mp_tac (MP_CANON print_v_ov) >>
       fs[result_to_i1_cases,result_to_i2_cases] >>

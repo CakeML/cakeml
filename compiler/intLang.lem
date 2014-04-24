@@ -625,10 +625,10 @@ all_labs_def (Nothing,_) = false
 open import Printer
 
 let rec
-Cv_to_ov _ _ (CLitv l) = OLit l
+Cv_to_ov (CLitv l) = OLit l
 and
-Cv_to_ov m s (CConv cn vs) = OConv (the Nothing (Lib.lookup cn m)) (List.map (Cv_to_ov m s) vs)
+Cv_to_ov (CConv _ _) = OConv
 and
-Cv_to_ov _ _ (CRecClos _ _ _) = OFn
+Cv_to_ov (CRecClos _ _ _) = OFn
 and
-Cv_to_ov _ s (CLoc n) = OLoc (List_extra.nth s n)
+Cv_to_ov (CLoc _) = OLoc

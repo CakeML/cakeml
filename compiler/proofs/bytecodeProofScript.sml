@@ -50,7 +50,7 @@ val Cv_bv_only_ind =
 |> GEN_ALL
 
 val Cv_bv_ov = store_thm("Cv_bv_ov",
-  ``∀m pp Cv bv. Cv_bv pp Cv bv ⇒ ∀s. ((FST pp).sm = s) ⇒ (Cv_to_ov m s Cv = bv_to_ov m bv)``,
+  ``∀m pp Cv bv. Cv_bv pp Cv bv ⇒ (Cv_to_ov Cv = bv_to_ov bv)``,
   ntac 2 gen_tac >>
   ho_match_mp_tac Cv_bv_only_ind >>
   strip_tac >- rw[bv_to_ov_def] >>
