@@ -210,21 +210,6 @@ val () = stringLib.add_string_compset compset
 val () = sumSimps.SUM_rws compset
 val () = optionLib.OPTION_rws compset
 val () = pred_setLib.add_pred_set_compset compset
-(* extra option thms :/ *)
-val () = computeLib.add_thms
-  (map computeLib.lazyfy_thm
-     [optionTheory.OPTION_BIND_def
-     ,optionTheory.OPTION_GUARD_def
-     ,optionTheory.OPTION_IGNORE_BIND_def
-     ,optionTheory.OPTION_CHOICE_def])
-  compset
-val () = computeLib.add_thms
-  [optionTheory.OPTION_MAP_DEF
-  ] compset
-(* extra list thms :/ *)
-val () = computeLib.add_thms
-  [LIST_TO_SET_THM
-  ] compset
 (* combin doesn't provide a compset :( *)
 val () = let open combinTheory computeLib
   val K_tm = Term.prim_mk_const{Name="K",Thy="combin"} in
