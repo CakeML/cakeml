@@ -11,8 +11,7 @@ EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 PRE_BARE_THYS = astTheory \
 		tokensTheory \
 		libTheory \
-		semanticPrimitivesTheory \
-		altBigStepTheory
+		semanticPrimitivesTheory
 
 BARE_THYS = $(patsubst %,../../semantics/%,$(PRE_BARE_THYS)) \
             ../ml_translatorLib \
