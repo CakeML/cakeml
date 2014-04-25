@@ -712,6 +712,7 @@ val Decls_Dtype = store_thm("Decls_Dtype",
       Decls mn env s [Dtype tds] env2 s2 <=>
       check_dup_ctors tds /\
       DISJOINT (type_defs_to_new_tdecs mn tds) (SND s) /\
+      ALL_DISTINCT (MAP (\(tvs,tn,ctors). tn) tds) ∧
       (s2 = (FST s,type_defs_to_new_tdecs mn tds UNION SND s)) /\
       (env2 = write_tds mn tds env)``,
   SIMP_TAC std_ss [Decls_def]
@@ -1223,6 +1224,7 @@ val DeclAssumExists_SNOC_Dtype = store_thm("DeclAssumExists_SNOC_Dtype",
          (!env tys.
             DeclAssum ds env tys ==>
             check_dup_ctors tds /\
+            ALL_DISTINCT (MAP (\(tvs,tn,ctors). tn) tds) ∧
             DISJOINT (type_defs_to_new_tdecs NONE tds) tys) ==>
          DeclAssumExists (SNOC (Dtype tds) ds)``,
   SIMP_TAC std_ss [DeclAssumExists_def,PULL_EXISTS] \\ REPEAT STRIP_TAC

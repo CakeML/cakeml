@@ -1598,6 +1598,7 @@ val dec_type_soundness = Q.store_thm ("dec_type_soundness",
          fs [mk_id_def] >>
          rw [] >>
          metis_tac [])
+     >- fs [check_ctor_tenv_def, LAMBDA_PROD]
      >- (fs [union_decls_def, consistent_decls_def, RES_FORALL] >>
          rw [] >>
          every_case_tac >>
@@ -2016,6 +2017,7 @@ val top_type_soundness = Q.store_thm ("top_type_soundness",
              metis_tac [])
          >- metis_tac [weak_decls_union]
          >- metis_tac [weak_decls_only_mods_union]))
+ >- metis_tac [type_ds_no_dup_types]
  >- (`weak_decls_other_mods (SOME mn) decls_no_sig (mdecls,tdecls,edecls)` 
                      by (PairCases_on `decls_no_sig` >>
                          fs [weak_decls_def, weak_decls_other_mods_def] >>
@@ -2126,7 +2128,8 @@ val top_type_soundness = Q.store_thm ("top_type_soundness",
                       by (metis_tac [emp_def, tenv_ok_def, bind_var_list2_def]) >>
          `tenv_ok (bind_var_list2 tenv''' Empty)`
                       by (fs [check_signature_cases] >>
-                          metis_tac [type_v_freevars, type_specs_tenv_ok]) >>
+                          metis_tac [type_v_freevars, type_specs_tenv_ok])
+         >- metis_tac [type_ds_no_dup_types] >>
          MAP_EVERY qexists_tac [`flat_to_ctMap cenv' ⊌ ctMap`, `tenvS'`, `(union_decls (union_decls ({mn},{},{})decls') decls_no_sig)`,
                                 `(mn,tenv'')::tenvM_no_sig`, `merge_tenvC ([(mn,cenv')],emp) tenvC_no_sig`] >>
          rw []

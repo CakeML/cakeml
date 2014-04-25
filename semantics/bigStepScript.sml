@@ -320,13 +320,15 @@ evaluate_dec ck mn env s (Dletrec funs) (s, Rerr Rtype_error))
 /\ (! ck mn env tds s tdecs new_tdecs.
 (check_dup_ctors tds /\
 ((new_tdecs = type_defs_to_new_tdecs mn tds) /\
-DISJOINT new_tdecs tdecs))
+(DISJOINT new_tdecs tdecs /\
+ALL_DISTINCT (MAP (\ (tvs,tn,ctors) .  tn) tds))))
 ==>
 evaluate_dec ck mn env (s,tdecs) (Dtype tds) ((s,(new_tdecs UNION tdecs)), Rval (build_tdefs mn tds, emp)))
 
 /\ (! ck mn env tds s tdecs.
 (~ (check_dup_ctors tds) \/
-~ (DISJOINT (type_defs_to_new_tdecs mn tds) tdecs))
+(~ (DISJOINT (type_defs_to_new_tdecs mn tds) tdecs) \/
+~ (ALL_DISTINCT (MAP (\ (tvs,tn,ctors) .  tn) tds))))
 ==>
 evaluate_dec ck mn env (s,tdecs) (Dtype tds) ((s,tdecs), Rerr Rtype_error))
 
@@ -378,7 +380,8 @@ evaluate_top ck env (s1,tdecls1,mdecls) (Tdec d) ((s2,tdecls2,mdecls), (emp,emp)
 
 /\ (! ck s1 s2 env ds mn specs new_tds new_env tdecls1 tdecls2 mdecls.
 (~ (mn IN mdecls) /\
-evaluate_decs ck (SOME mn) env (s1,tdecls1) ds ((s2,tdecls2), new_tds, Rval new_env))
+(no_dup_types ds /\
+evaluate_decs ck (SOME mn) env (s1,tdecls1) ds ((s2,tdecls2), new_tds, Rval new_env)))
 ==>
 evaluate_top ck env (s1,tdecls1,mdecls) (Tmod mn specs ds) ((s2,tdecls2,({mn} UNION mdecls)), ([(mn,new_tds)], emp), Rval ([(mn,new_env)], emp)))
 
@@ -389,12 +392,10 @@ evaluate_decs ck (SOME mn) env (s1,tdecls1) ds ((s2,tdecls2), new_tds, Rerr err)
 ==>
 evaluate_top ck env (s1,tdecls1,mdecls) (Tmod mn specs ds) ((s2,tdecls2,({mn} UNION mdecls)), ([(mn,new_tds)], emp), Rerr err))
 
-/\ (! ck s1 s2 env ds mn specs new_tds err tdecls1 tdecls2 mdecls.
-(~ (mn IN mdecls) /\
-(~ (no_dup_types ds) /\
-evaluate_decs ck (SOME mn) env (s1,tdecls1) ds ((s2,tdecls2), new_tds, Rerr err)))
+/\ (! ck s1 env ds mn specs tdecls1 mdecls.
+(~ (no_dup_types ds))
 ==>
-evaluate_top ck env (s1,tdecls1,mdecls) (Tmod mn specs ds) ((s2,tdecls2,({mn} UNION mdecls)), ([(mn,new_tds)], emp), Rerr Rtype_error))
+evaluate_top ck env (s1,tdecls1,mdecls) (Tmod mn specs ds) ((s1,tdecls1,mdecls), (emp, emp), Rerr Rtype_error))
 
 /\ (! ck env s mn specs ds tdecls mdecls.
 (mn IN mdecls)
@@ -445,7 +446,8 @@ top_diverges env (st,tdecls,mdecls) (Tdec d))
 
 /\ (! env s1 ds mn specs tdecls mdecls.
 (~ (mn IN mdecls) /\
-decs_diverges (SOME mn) env (s1,tdecls) ds)
+(no_dup_types ds /\
+decs_diverges (SOME mn) env (s1,tdecls) ds))
 ==>
 top_diverges env (s1,tdecls,mdecls) (Tmod mn specs ds))`;
 

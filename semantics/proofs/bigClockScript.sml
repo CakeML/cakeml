@@ -798,4 +798,14 @@ val not_evaluate_decs_timeout = store_thm("not_evaluate_decs_timeout",
   first_assum(match_exists_tac o concl) >> simp[] >>
   simp[combine_dec_result_def])
 
+val not_evaluate_top_timeout = store_thm("not_evaluate_top_timeout",
+  ``∀env stm top. (∀res. ¬evaluate_top F env stm top res) ⇒
+    ∃r. evaluate_top T env stm top r ∧ SND(SND r) = Rerr Rtimeout_error``,
+  Cases_on`top`>>simp[Once evaluate_top_cases]>> srw_tac[DNF_ss][] >>
+  simp[Once evaluate_top_cases] >> srw_tac[DNF_ss][] >>
+  PairCases_on`stm`>>fs[] >- (
+    Cases_on`no_dup_types l`>>fs[] >>
+    metis_tac[not_evaluate_decs_timeout,SND,result_nchotomy,pair_CASES]) >>
+  metis_tac[not_evaluate_dec_timeout,SND,result_nchotomy,pair_CASES])
+
 val _ = export_theory ();

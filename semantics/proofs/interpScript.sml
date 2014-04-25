@@ -339,7 +339,7 @@ val run_eval_dec_def = Define `
     (st, Rerr Rtype_error)) ∧
 (run_eval_dec mn env (st,tdecs) (Dtype tds) =
   let new_tdecs = set (MAP (\(tvs,tn,ctors). TypeId (mk_id mn tn)) tds) in
-    if check_dup_ctors tds ∧ DISJOINT new_tdecs tdecs then
+    if check_dup_ctors tds ∧ DISJOINT new_tdecs tdecs ∧ ALL_DISTINCT (MAP (\(tvs,tn,ctors). tn) tds) then
       ((st, new_tdecs ∪ tdecs), Rval (build_tdefs mn tds, emp))
     else
       ((st,tdecs), Rerr Rtype_error)) ∧
@@ -365,15 +365,11 @@ val run_eval_top_def = Define `
        ((st',tdecls'), Rval (cenv', env')) => ((st',tdecls',mdecls), (emp,cenv'), Rval (emp, env'))
      | ((st',tdecls'), Rerr err) => ((st',tdecls',mdecls), (emp,emp), Rerr err)) ∧
 (run_eval_top env (st,tdecls,mdecls) (Tmod mn specs ds) =
-  if mn ∉ mdecls then
+  if mn ∉ mdecls ∧ no_dup_types ds then
     case run_eval_decs (SOME mn) env (st,tdecls) ds of
          ((st',tdecls'), cenv', Rval env') => ((st',tdecls',{mn} ∪ mdecls), ([(mn,cenv')],emp), (Rval ([(mn, env')], emp)))
        | ((st',tdecls'), cenv', Rerr err) => 
-           if no_dup_types ds then
-             ((st',tdecls',{mn} ∪ mdecls), ([(mn,cenv')],emp), Rerr err)
-           else
-             ((st',tdecls',{mn} ∪ mdecls), ([(mn,cenv')],emp), Rerr Rtype_error)
-
+           ((st',tdecls',{mn} ∪ mdecls), ([(mn,cenv')],emp), Rerr err)
   else
     ((st,tdecls,mdecls), (emp,emp), Rerr Rtype_error))`;
 

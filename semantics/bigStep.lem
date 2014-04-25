@@ -408,7 +408,8 @@ and
 dtype1 : forall ck mn env tds s tdecs new_tdecs.
 check_dup_ctors tds &&
 new_tdecs = type_defs_to_new_tdecs mn tds &&
-disjoint new_tdecs tdecs
+disjoint new_tdecs tdecs &&
+List.allDistinct (List.map (fun (tvs,tn,ctors) -> tn) tds)
 ==>
 evaluate_dec ck mn env (s,tdecs) (Dtype tds) ((s,new_tdecs union tdecs), Rval (build_tdefs mn tds, emp))
 
@@ -416,7 +417,8 @@ and
 
 dtype2 : forall ck mn env tds s tdecs.
 not (check_dup_ctors tds) ||
-not (disjoint (type_defs_to_new_tdecs mn tds) tdecs)
+not (disjoint (type_defs_to_new_tdecs mn tds) tdecs) ||
+not (List.allDistinct (List.map (fun (tvs,tn,ctors) -> tn) tds))
 ==>
 evaluate_dec ck mn env (s,tdecs) (Dtype tds) ((s,tdecs), Rerr Rtype_error)
 
@@ -482,6 +484,7 @@ and
 
 tmod1 : forall ck s1 s2 env ds mn specs new_tds new_env tdecls1 tdecls2 mdecls.
 not (mn IN mdecls) &&
+no_dup_types ds &&
 evaluate_decs ck (Just mn) env (s1,tdecls1) ds ((s2,tdecls2), new_tds, Rval new_env)
 ==>
 evaluate_top ck env (s1,tdecls1,mdecls) (Tmod mn specs ds) ((s2,tdecls2,{mn} union mdecls), ([(mn,new_tds)], emp), Rval ([(mn,new_env)], emp))
@@ -497,12 +500,10 @@ evaluate_top ck env (s1,tdecls1,mdecls) (Tmod mn specs ds) ((s2,tdecls2,{mn} uni
 
 and
 
-tmod3 : forall ck s1 s2 env ds mn specs new_tds err tdecls1 tdecls2 mdecls.
-not (mn IN mdecls) &&
-not (no_dup_types ds) &&
-evaluate_decs ck (Just mn) env (s1,tdecls1) ds ((s2,tdecls2), new_tds, Rerr err)
+tmod3 : forall ck s1 env ds mn specs tdecls1 mdecls.
+not (no_dup_types ds)
 ==>
-evaluate_top ck env (s1,tdecls1,mdecls) (Tmod mn specs ds) ((s2,tdecls2,{mn} union mdecls), ([(mn,new_tds)], emp), Rerr Rtype_error)
+evaluate_top ck env (s1,tdecls1,mdecls) (Tmod mn specs ds) ((s1,tdecls1,mdecls), (emp, emp), Rerr Rtype_error)
 
 and
 
@@ -567,6 +568,7 @@ and
 
 tmod : forall env s1 ds mn specs tdecls mdecls.
 not (mn IN mdecls) &&
+no_dup_types ds &&
 decs_diverges (Just mn) env (s1,tdecls) ds
 ==>
 top_diverges env (s1,tdecls,mdecls) (Tmod mn specs ds)
