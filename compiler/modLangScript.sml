@@ -719,13 +719,15 @@ evaluate_dec_i1 ck genv cenv s (Dletrec_i1 funs) (s, Rval (emp, MAP (\ (f,x,e) .
 /\ (! ck mn genv cenv tds s tdecs new_tdecs.
 (check_dup_ctors tds /\
 ((new_tdecs = type_defs_to_new_tdecs mn tds) /\
-DISJOINT new_tdecs tdecs))
+(DISJOINT new_tdecs tdecs /\
+ALL_DISTINCT (MAP (\ (tvs,tn,ctors) .  tn) tds))))
 ==>
 evaluate_dec_i1 ck genv cenv (s,tdecs) (Dtype_i1 mn tds) ((s,(new_tdecs UNION tdecs)), Rval (build_tdefs mn tds, [])))
 
 /\ (! ck mn genv cenv tds s tdecs.
 (~ (check_dup_ctors tds) \/
-~ (DISJOINT (type_defs_to_new_tdecs mn tds) tdecs))
+(~ (DISJOINT (type_defs_to_new_tdecs mn tds) tdecs) \/
+~ (ALL_DISTINCT (MAP (\ (tvs,tn,ctors) .  tn) tds))))
 ==>
 evaluate_dec_i1 ck genv cenv (s,tdecs) (Dtype_i1 mn tds) ((s,tdecs), Rerr Rtype_error))
 
@@ -789,21 +791,38 @@ val _ = Define `
 (decs_to_dummy_env (d::ds) = (decs_to_dummy_env ds + dec_to_dummy_env d))`;
 
 
+(*val no_dup_types_i1 : list dec_i1 -> bool*)
+val _ = Define `
+ (no_dup_types_i1 ds =  
+(ALL_DISTINCT (FLAT (MAP (\ d .  
+        (case d of 
+            Dtype_i1 mn tds => MAP (\ (tvs,tn,ctors) .  tn) tds
+          | _ => [] ))
+     ds))))`;
+ 
+
 val _ = Hol_reln ` (! ck genv cenv s1 tdecs1 mods ds s2 tdecs2 cenv' env mn.
-(evaluate_decs_i1 ck genv cenv (s1,tdecs1) ds ((s2,tdecs2),cenv',env,NONE))
+(no_dup_types_i1 ds /\
+evaluate_decs_i1 ck genv cenv (s1,tdecs1) ds ((s2,tdecs2),cenv',env,NONE))
 ==>
 evaluate_prompt_i1 ck genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds) ((s2,tdecs2,update_mod_state mn mods), mod_cenv mn cenv', MAP SOME env, NONE))
 
 /\ (! ck genv cenv s1 tdecs1 mods mn ds s2 tdecs2 cenv' env err.
-(evaluate_decs_i1 ck genv cenv (s1,tdecs1) ds ((s2,tdecs2),cenv',env,SOME err))
+(no_dup_types_i1 ds /\
+evaluate_decs_i1 ck genv cenv (s1,tdecs1) ds ((s2,tdecs2),cenv',env,SOME err))
 ==>
 evaluate_prompt_i1 ck genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds) 
                                                   ((s2,tdecs2,update_mod_state mn mods),
                                                    mod_cenv mn cenv',                                                   
  (MAP SOME env ++ GENLIST (\n .  
   (case (n ) of ( _ ) => NONE )) (decs_to_dummy_env ds - LENGTH env)),
-                                                   SOME err))`;
+                                                   SOME err))
 
+/\ (! ck genv cenv s1 tdecs1 mods mn ds.
+(~ (no_dup_types_i1 ds))
+==>
+evaluate_prompt_i1 ck genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds) ((s1,tdecs1,mods), ([],[]), [], SOME Rtype_error))`;
+ 
 val _ = Hol_reln ` (! ck genv cenv s.
 T
 ==>

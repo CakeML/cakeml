@@ -764,7 +764,8 @@ and
 dtype1 : forall ck mn genv cenv tds s tdecs new_tdecs.
 check_dup_ctors tds &&
 new_tdecs = type_defs_to_new_tdecs mn tds &&
-disjoint new_tdecs tdecs
+disjoint new_tdecs tdecs &&
+List.allDistinct (List.map (fun (tvs,tn,ctors) -> tn) tds)
 ==>
 evaluate_dec_i1 ck genv cenv (s,tdecs) (Dtype_i1 mn tds) ((s,new_tdecs union tdecs), Rval (build_tdefs mn tds, []))
 
@@ -772,7 +773,8 @@ and
 
 dtype2 : forall ck mn genv cenv tds s tdecs.
 not (check_dup_ctors tds) ||
-not (disjoint (type_defs_to_new_tdecs mn tds) tdecs)
+not (disjoint (type_defs_to_new_tdecs mn tds) tdecs) ||
+not (List.allDistinct (List.map (fun (tvs,tn,ctors) -> tn) tds))
 ==>
 evaluate_dec_i1 ck genv cenv (s,tdecs) (Dtype_i1 mn tds) ((s,tdecs), Rerr Rtype_error)
 
@@ -840,9 +842,18 @@ decs_to_dummy_env (d::ds) = decs_to_dummy_env ds + dec_to_dummy_env d
 
 declare termination_argument decs_to_dummy_env = automatic
 
+val no_dup_types_i1 : list dec_i1 -> bool
+let no_dup_types_i1 ds =
+  List.allDistinct (List.concat (List.map (fun d -> 
+        match d with 
+          | Dtype_i1 mn tds -> List.map (fun (tvs,tn,ctors) -> tn) tds
+          | _ -> [] end)
+     ds)) 
+
 indreln [evaluate_prompt_i1 : bool -> list (maybe v_i1) -> envC -> count_store v_i1 * set tid_or_exn * set modN -> prompt_i1 -> (count_store v_i1 * set tid_or_exn * set modN) * envC * list (maybe v_i1) * maybe (error_result v_i1) -> bool]
 
 prompt_val : forall ck genv cenv s1 tdecs1 mods ds s2 tdecs2 cenv' env mn.
+no_dup_types_i1 ds &&
 evaluate_decs_i1 ck genv cenv (s1,tdecs1) ds ((s2,tdecs2),cenv',env,Nothing)
 ==>
 evaluate_prompt_i1 ck genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds) ((s2,tdecs2,update_mod_state mn mods), mod_cenv mn cenv', List.map Just env, Nothing)
@@ -850,6 +861,7 @@ evaluate_prompt_i1 ck genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds) ((s2,tdecs2,u
 and
 
 prompt_err1 : forall ck genv cenv s1 tdecs1 mods mn ds s2 tdecs2 cenv' env err.
+no_dup_types_i1 ds &&
 evaluate_decs_i1 ck genv cenv (s1,tdecs1) ds ((s2,tdecs2),cenv',env,Just err)
 ==>
 evaluate_prompt_i1 ck genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds) 
@@ -858,6 +870,13 @@ evaluate_prompt_i1 ck genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds)
                                                    List.map Just env ++ List.genlist (fun _ -> Nothing) (decs_to_dummy_env ds - List.length env),
                                                    Just err)
 
+and
+
+prompt_err2 : forall ck genv cenv s1 tdecs1 mods mn ds.
+not (no_dup_types_i1 ds)
+==>
+evaluate_prompt_i1 ck genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds) ((s1,tdecs1,mods), ([],[]), [], Just Rtype_error)
+ 
 indreln [evaluate_prog_i1 : bool -> list (maybe v_i1) -> envC -> count_store v_i1 * set tid_or_exn * set modN -> list prompt_i1 -> (count_store v_i1 * set tid_or_exn * set modN) * envC * list (maybe v_i1) * maybe (error_result v_i1) -> bool]
 
 prog_empty : forall ck genv cenv s.
