@@ -705,4 +705,97 @@ val top_unclocked = Q.store_thm ("top_unclocked",
  rw [evaluate_top_cases] >>
  metis_tac [dec_unclocked, decs_unclocked]);
 
+open miscLib boolSimps
+
+val not_evaluate_dec_timeout = store_thm("not_evaluate_dec_timeout",
+  ``∀mn env s d.
+      (∀r. ¬evaluate_dec F mn env s d r) ⇒
+      ∃r. evaluate_dec T mn env s d r ∧ (SND r = Rerr Rtimeout_error)``,
+  rpt gen_tac >> PairCases_on`s` >> PairCases_on`env` >>
+  reverse(Cases_on`d`)>> simp[Once evaluate_dec_cases]
+  >- metis_tac[]
+  >- metis_tac[]
+  >- metis_tac[] >>
+  rw[] >>
+  rw[Once evaluate_dec_cases] >>
+  fsrw_tac[DNF_ss][] >> rfs[] >> fs[] >>
+  fs[all_env_to_cenv_def] >>
+  Cases_on`∃r. evaluate F (env0,(env1,env2),env3) (s0,s1) e r` >- (
+    fs[] >> PairCases_on`r`>>fs[] >>
+    Cases_on`r2`>>fs[METIS_PROVE[]``P ∨ Q ⇔ ¬P ⇒ Q``] >> res_tac >>
+    metis_tac[match_result_nchotomy] ) >>
+  metis_tac[big_clocked_unclocked_equiv_timeout])
+
+val dec_clocked_total = store_thm("dec_clocked_total",
+  ``∀mn env s d. ∃res. evaluate_dec T mn env s d res``,
+  rpt gen_tac >> PairCases_on`s` >>
+  reverse(Cases_on`d`)>>simp[Once evaluate_dec_cases] >>
+  srw_tac[DNF_ss][] >- metis_tac[] >>
+  qspecl_then[`s0`,`s1`,`env`,`e`]strip_assume_tac big_clocked_total >>
+  Cases_on`r`>>metis_tac[match_result_nchotomy])
+
+val dec_clocked_min_counter = store_thm("dec_clocked_min_counter",
+  ``∀ck mn env s d res. evaluate_dec ck mn env s d res ⇒
+      ck ⇒ evaluate_dec ck mn env ((FST(FST s)-FST(FST(FST res)),SND(FST s)),SND s) d (((0,SND(FST(FST res))),SND(FST res)),SND res)``,
+  ho_match_mp_tac evaluate_dec_ind >> rw[] >>
+  rw[Once evaluate_dec_cases] >>
+  TRY (
+    PairCases_on`s1` >>
+    imp_res_tac clocked_min_counter >> rw[] >>
+    srw_tac[DNF_ss][] >>
+    TRY disj1_tac >>
+    first_assum(match_exists_tac o concl) >> simp[]) >>
+  PairCases_on`s`>>
+  PairCases_on`s'`>>
+  imp_res_tac clocked_min_counter >> rw[] )
+
+val dec_clocked_unclocked_equiv = store_thm("dec_clocked_unclocked_equiv",
+  ``∀mn env count1 s1 s2 d s3 r1 r2.
+      evaluate_dec F mn env ((count1,s1),s2) d (((count1,s3),r1),r2) ⇔
+      ∃count. evaluate_dec T mn env ((count,s1),s2) d (((0,s3),r1),r2) ∧
+              r2 ≠ Rerr Rtimeout_error``,
+  Cases_on`d`>>simp[Once evaluate_dec_cases]>>rw[]>>
+  rw[Once evaluate_dec_cases]>>srw_tac[DNF_ss][EQ_IMP_THM]>>
+  fs[big_clocked_unclocked_equiv]>>
+  TRY (metis_tac[]) >>
+  TRY disj1_tac >>
+  first_assum(match_exists_tac o concl) >> simp[])
+
+val not_evaluate_decs_timeout = store_thm("not_evaluate_decs_timeout",
+  ``∀mn env s ds.
+    (∀r. ¬evaluate_decs F mn env s ds r) ⇒
+    ∃r. evaluate_decs T mn env s ds r ∧ (SND(SND r) = Rerr Rtimeout_error)``,
+  Induct_on`ds` >- ( simp[Once evaluate_decs_cases] ) >>
+  rpt gen_tac >>
+  simp[Once evaluate_decs_cases] >>
+  srw_tac[DNF_ss][] >>
+  fs[METIS_PROVE[]``P ∨ Q ⇔ ¬P ⇒ Q``] >>
+  srw_tac[DNF_ss][Once evaluate_decs_cases] >>
+  qspecl_then[`mn`,`env`,`s`,`h`]strip_assume_tac dec_clocked_total >>
+  imp_res_tac dec_clocked_min_counter >> fs[] >>
+  PairCases_on`res` >> fs[] >>
+  Cases_on`res3=Rerr Rtimeout_error`>-metis_tac[]>>
+  reverse(Cases_on`∃r. evaluate_dec F mn env s h r`) >> fs[] >- (
+    imp_res_tac not_evaluate_dec_timeout >>
+    Cases_on`r`>>fs[]>>metis_tac[] ) >>
+  PairCases_on`s` >>
+  PairCases_on`r` >>
+  imp_res_tac dec_unclocked >>
+  qspecl_then[`mn`,`env`,`s0`,`s1`,`s2`,`h`,`res1`,`res2`,`res3`]mp_tac (GSYM dec_clocked_unclocked_equiv) >>
+  fs[] >> disch_then (mp_tac o fst o EQ_IMP_RULE) >>
+  discharge_hyps >- metis_tac[] >> strip_tac >>
+  reverse(Cases_on`res3`)>>fs[]>-metis_tac[]>>
+  PairCases_on`a`>>PairCases_on`env`>>fs[]>>
+  res_tac >> disj2_tac >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  pop_assum(assume_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["s3","new_tds'"]))) >>
+  fs[GSYM FORALL_PROD] >>
+  qmatch_assum_abbrev_tac`∀p. ¬evaluate_decs F mn envs ss ds p` >>
+  `∀p. ¬evaluate_decs F mn envs ((res0,res1),res2) ds p` by (
+    fs[FORALL_PROD] >> metis_tac[decs_unclocked] ) >>
+  last_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
+  PairCases_on`r`>>fs[] >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  simp[combine_dec_result_def])
+
 val _ = export_theory ();
