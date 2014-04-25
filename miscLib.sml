@@ -42,6 +42,14 @@ in
     end
 end
 
+fun sort_vars [] l2 = l2
+  | sort_vars (s::l1) l2 =
+    let
+      val (s,l2) = partition (equal s o fst o dest_var) l2
+    in
+      s @ (sort_vars l1 l2)
+    end
+
 (* provide witnesses to make the first conjunct under the goal's existential
    prefix match the given term *)
 fun match_exists_tac tm (g as (_,w)) =
@@ -81,6 +89,50 @@ fun split_pair_match tm (g as (_,w)) =
   in
     map_every PairCases_on (map (C cons [] o ANTIQUOTE) vs)
   end g
+
+fun split_applied_pair_tac tm =
+  let
+    val (f,p) = dest_comb tm
+    val (x,b) = pairSyntax.dest_pabs f
+    val xs = pairSyntax.strip_pair x
+    val g = list_mk_exists(xs,mk_eq(p,x))
+    val th = prove(g, SIMP_TAC bool_ss [GSYM pairTheory.EXISTS_PROD])
+  in
+    strip_assume_tac th
+  end
+
+local
+  val is_pair_case = same_const``pair_CASE``
+  exception Not_pair_case
+  fun loop tm vs =
+    let
+      val (f,x) = dest_comb tm
+      val _ = assert is_pair_case (fst (strip_comb f))
+    in
+      let
+        val (v,b) = dest_abs x
+        val vs = v::vs
+      in
+        case total dest_abs b of
+          NONE => (vs,tm)
+        | SOME (v,tm) => loop tm vs
+          handle Not_pair_case => (v::vs,tm)
+      end handle HOL_ERR _ => (vs,tm)
+    end handle HOL_ERR _ => raise Not_pair_case
+in
+  fun strip_pair_case tm =
+    (case loop tm [] of (vs,b) => (rand(rator tm),rev vs,b))
+    handle Not_pair_case => raise mk_HOL_ERR "" "strip_pair_case" "not a pair case"
+end
+
+fun split_pair_case_tac tm =
+  let
+    val (p,vs,b) = strip_pair_case tm
+    val g = list_mk_exists(vs,mk_eq(p,pairSyntax.list_mk_pair vs))
+    val th = prove(g, SIMP_TAC bool_ss [GSYM pairTheory.EXISTS_PROD])
+  in
+    strip_assume_tac th
+  end
 
 (* the theorem is of the form [!x1 ... xn. P ==> ?y1 ... ym. Q /\ ...]
    the goal is of the form [?z1 ... zk. Q' /\ ...]
