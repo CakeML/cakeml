@@ -8,7 +8,7 @@ fun Store_thm(n,t,tac) = store_thm(n,t,tac) before export_rewrites [n]
 
 val _ = new_theory "cmlPEG"
 
-
+val _ = new_storage_attribute "cakeml/parsing"
 
 val distinct_ths = let
   val ntlist = TypeBase.constructors_of ``:MMLnonT``
@@ -51,6 +51,9 @@ val peg_linfix_def = Define`
                    [] => []
                   | h::_ => [mk_linfix tgtnt (Nd tgtnt [h]) b])
 `;
+val _ = ThmSetData.store_attribute {
+  attribute = "cakeml/parsing", thm_name = "peg_linfix_def"
+}
 
 val mktokLf_def = Define`mktokLf t = [Lf (TK t)]`
 val bindNT_def = Define`
@@ -468,7 +471,7 @@ val spec0 =
 val mkNT = ``mkNT``
 
 val cmlPEG_exec_thm = save_thm(
-  "cmlPEG_exec_thm",
+  "cmlPEG_exec_thm[cakeml/parsing]",
   TypeBase.constructors_of ``:MMLnonT``
     |> map (fn t => ISPEC (mk_comb(mkNT, t)) spec0)
     |> map (SIMP_RULE bool_ss (cmlpeg_rules_applied @ distinct_ths @
