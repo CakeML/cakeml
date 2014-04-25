@@ -1,6 +1,6 @@
 open HolKernel bossLib boolLib boolSimps SatisfySimps listTheory rich_listTheory pairTheory pred_setTheory finite_mapTheory alistTheory relationTheory arithmeticTheory sortingTheory lcsymtacs quantHeuristicsLib quantHeuristicsLibAbbrev
 open miscTheory miscLib bytecodeTheory bytecodeTerminationTheory bytecodeEvalTheory bytecodeExtraTheory bytecodeLabelsTheory compilerLibTheory intLangTheory toBytecodeTheory compilerTerminationTheory intLangExtraTheory
-open patLangProofTheory
+open exhLangProofTheory patLangProofTheory
 val _ = numLib.prefer_num()
 val _ = Parse.bring_to_front_overload"++"{Name="APPEND",Thy="list"}
 val _ = new_theory "bytecodeProof"

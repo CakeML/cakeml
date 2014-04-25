@@ -1445,6 +1445,12 @@ val FV_top_def = Define`
   (FV_top (Tmod mn _ ds) = FV_decs ds)`
 val _ = export_rewrites["FV_top_def"]
 
+val closed_top_def = Define`
+  closed_top env top ⇔ FV_top top ⊆ all_env_dom env`
+
+val global_dom_def = Define`
+  global_dom (me,e) = IMAGE Short (FDOM e) ∪ { Long m x | ∃e. FLOOKUP me m = SOME e ∧ x ∈ FDOM e}`
+
 val free_vars_dec_i2_def = Define`
   free_vars_dec_i2 (Dlet_i2 n e) = free_vars_i2 e ∧
   free_vars_dec_i2 (Dletrec_i2 defs) = free_vars_i2 (Letrec_i2 defs (Lit_i2 ARB))`

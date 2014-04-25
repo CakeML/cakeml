@@ -984,6 +984,38 @@ val v_to_exh_extend_disjoint = store_thm("v_to_exh_extend_disjoint",
                      v_to_exh (exh ⊌ exh') v1 v2``,
   metis_tac [v_to_exh_extend_disjoint_helper, FUNION_COMM])
 
+(* TODO: move *)
+
+val csg_rel_def = Define`
+  csg_rel R ((c1,s1),g1) (((c2,s2),g2):'a count_store_genv) ⇔
+    c1 = c2 ∧ LIST_REL R s1 s2 ∧ LIST_REL (OPTION_REL R) g1 g2`
+
+val csg_rel_refl = store_thm("csg_rel_refl",
+  ``∀V x. (∀x. V x x) ⇒ csg_rel V x x``,
+  rpt gen_tac >> PairCases_on`x` >> simp[csg_rel_def] >>
+  rw[] >> match_mp_tac EVERY2_refl >>
+  rw[optionTheory.OPTREL_def] >>
+  Cases_on`x` >> rw[])
+val _ = export_rewrites["csg_rel_refl"]
+
+val csg_rel_trans = store_thm("csg_rel_trans",
+  ``∀V. (∀x y z. V x y ∧ V y z ⇒ V x z) ⇒ ∀x y z. csg_rel V x y ∧ csg_rel V y z ⇒ csg_rel V x z``,
+  rw[] >> map_every PairCases_on [`x`,`y`,`z`] >>
+  fs[csg_rel_def] >>
+  conj_tac >>
+  match_mp_tac (MP_CANON EVERY2_trans)
+  >- metis_tac[] >>
+  simp[optionTheory.OPTREL_def] >>
+  qexists_tac`y2` >> simp[] >>
+  Cases >> Cases >> Cases >> simp[] >>
+  metis_tac[])
+
+val csg_rel_count = store_thm("csg_rel_count",
+  ``csg_rel R csg1 csg2 ⇒ FST(FST csg2) = FST(FST csg1)``,
+  PairCases_on`csg1` >>
+  PairCases_on`csg2` >>
+  simp[csg_rel_def])
+
 (* exhLangExtra *)
 
 val free_vars_exh_def = tDefine"free_vars_exh"`
@@ -1017,5 +1049,9 @@ val _ = export_rewrites["free_vars_exh_def"]
 val free_vars_pes_exh_MAP = store_thm("free_vars_pes_exh_MAP",
   ``∀pes. free_vars_pes_exh pes = BIGUNION (set (MAP (λ(p,e). free_vars_exh e DIFF set (pat_bindings_exh p [])) pes))``,
   Induct >> simp[] >> Cases >> simp[])
+
+val store_to_exh_csg_rel = store_thm("store_to_exh_csg_rel",
+  ``store_to_exh exh = csg_rel (v_to_exh exh)``,
+  simp[FUN_EQ_THM,FORALL_PROD,store_to_exh_def,csg_rel_def])
 
 val _ = export_theory ();

@@ -1,6 +1,6 @@
 open HolKernel bossLib boolLib miscLib boolSimps pairTheory listTheory rich_listTheory pred_setTheory finite_mapTheory relationTheory SatisfySimps arithmeticTheory quantHeuristicsLib lcsymtacs
 open miscTheory compilerLibTheory intLangTheory toIntLangTheory compilerTerminationTheory
-open patLangProofTheory
+open exhLangProofTheory patLangProofTheory
 (* open semanticsExtraTheory *)
 val _ = new_theory "intLangExtra"
 
@@ -2303,6 +2303,45 @@ val free_labs_free_labs = store_thm("free_labs_free_labs",
   unabbrev_all_tac >>
   simp[IMAGE_COMPOSE,GSYM LIST_TO_SET_MAP] >>
   metis_tac[MAP_SND_free_labs_any_ez])
+
+val shift_thm =
+  mkshift_thm
+  |> Q.SPEC`λv. v + n`
+  |> SIMP_RULE std_ss [GSYM shift_def]
+  |> Q.GEN`n`
+
+val syneq_exp_shift_both = store_thm("syneq_exp_shift_both",
+  ``∀z1 z2 V e1 e2 n k z1' z2' V'. syneq_exp z1 z2 V e1 e2 ∧
+      set (free_vars e1) ⊆ count z1 ∧ k ≤ z1 ∧ no_labs e1 ∧
+      set (free_vars e2) ⊆ count z2 ∧ k ≤ z2 ∧ no_labs e2 ∧
+      (let R = λx y. if x < k then y = x else y = x+n in
+         (∀x y. (R O V O inv R) x y ⇒ V' x y)) ∧
+      k ≤ z1' ∧ k ≤ z2' ∧
+      (∀x. MEM x (free_vars e1) ∧ k ≤ x ⇒ x+n < z1') ∧
+      (∀x. MEM x (free_vars e2) ∧ k ≤ x ⇒ x+n < z2')
+      ⇒
+      syneq_exp z1' z2' V' (shift n k e1) (shift n k e2)``,
+  rw[] >>
+  match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_mono_V)) >>
+  qabbrev_tac`R = λx y. if x < k then y = x else y = x + n` >>
+  qexists_tac`(R O V) O (inv R)` >>
+  conj_tac >- (
+    match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_trans)) >>
+    map_every qexists_tac[`z1`,`e1`] >>
+    conj_tac >- (
+      match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_sym_no_labs)) >>
+      simp[] >>
+      match_mp_tac shift_thm >>
+      simp[] >>
+      simp[Abbr`R`] >>
+      fsrw_tac[ARITH_ss][] ) >>
+    match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_trans)) >>
+    first_assum (match_exists_tac o concl) >> simp[] >>
+    match_mp_tac shift_thm >>
+    simp[] >>
+    simp[Abbr`R`] >>
+    fsrw_tac[ARITH_ss][] ) >>
+  fs[LET_THM,O_ASSOC])
 
 (*
 val all_labs_mkshift = store_thm("all_labs_mkshift",

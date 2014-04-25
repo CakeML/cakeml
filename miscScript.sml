@@ -4,6 +4,29 @@ val _ = new_theory "misc"
 
 (* TODO: move/categorize *)
 
+val FILTER_F = store_thm("FILTER_F",
+  ``∀ls. FILTER (λx. F) ls = []``,
+  Induct >> simp[])
+val _ = export_rewrites["FILTER_F"]
+
+val LIST_REL_O = store_thm("LIST_REL_O",
+  ``∀R1 R2 l1 l2. LIST_REL (R1 O R2) l1 l2 ⇔ ∃l3. LIST_REL R2 l1 l3 ∧ LIST_REL R1 l3 l2``,
+  rpt gen_tac >>
+  simp[EVERY2_EVERY,EVERY_MEM,EQ_IMP_THM,GSYM AND_IMP_INTRO,MEM_ZIP,PULL_EXISTS,O_DEF] >>
+  rw[] >- (
+    fs[GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM] >>
+    qexists_tac`GENLIST f (LENGTH l2)` >>
+    simp[MEM_ZIP,PULL_EXISTS] ) >>
+  metis_tac[])
+
+val OPTREL_O_lemma = prove(
+  ``∀R1 R2 l1 l2. OPTREL (R1 O R2) l1 l2 ⇔ ∃l3. OPTREL R2 l1 l3 ∧ OPTREL R1 l3 l2``,
+  rw[optionTheory.OPTREL_def,EQ_IMP_THM,O_DEF,PULL_EXISTS] >> metis_tac[])
+
+val OPTREL_O = store_thm("OPTREL_O",
+  ``∀R1 R2. OPTREL (R1 O R2) = OPTREL R1 O OPTREL R2``,
+  rw[FUN_EQ_THM,OPTREL_O_lemma,O_DEF])
+
 val FUNPOW_mono = store_thm("FUNPOW_mono",
   ``(∀x y. R1 x y ⇒ R2 x y) ∧
     (∀R1 R2. (∀x y. R1 x y ⇒ R2 x y) ⇒ ∀x y. f R1 x y ⇒ f R2 x y) ⇒
