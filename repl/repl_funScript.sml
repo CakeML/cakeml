@@ -54,7 +54,7 @@ infertype_top ((decls, module_type_env, constructor_type_env, type_env) :inferen
                  inf_tenv_to_string_map new_type_env)`;
 
 val initial_inferencer_state_def = Define `
-initial_inferencer_state : inferencer_state = (([],[Short"list"],[Short"bind";Short"Div";Short"Eq"]), [], init_tenvC, infer$init_type_env)`;
+initial_inferencer_state : inferencer_state = (init_infer_decls, [], init_tenvC, infer$init_type_env)`;
 
 val _ = Hol_datatype`repl_fun_state = <|
   relaborator_state : elaborator_state;
