@@ -2954,17 +2954,6 @@ val compile_top_thm = store_thm("compile_top_thm",
   strip_tac >- simp[] >>
   simp[])
 
-val not_evaluate_top_timeout = store_thm("not_evaluate_top_timeout",
-  ``∀env stm top. (∀res. ¬evaluate_top F env stm top res) ⇒
-    ∃r. evaluate_top T env stm top r ∧ SND(SND r) = Rerr Rtimeout_error``,
-  Cases_on`top`>>simp[Once evaluate_top_cases]>> srw_tac[DNF_ss][] >>
-  simp[Once evaluate_top_cases] >> srw_tac[DNF_ss][] >>
-  PairCases_on`stm`>>fs[] >- (
-    Cases_on`no_dup_types l`>>fs[] >>
-    TRY(metis_tac[not_evaluate_decs_timeout,SND,result_nchotomy,pair_CASES]) >>
-    cheat (* semantics is wrong? *) ) >>
-  metis_tac[not_evaluate_dec_timeout,SND,result_nchotomy,pair_CASES])
-
 val compile_top_divergence = store_thm("compile_top_divergence",
   ``∀env stm top rs grd types bc0 bs ss sf code.
       (∀res. ¬evaluate_top F env stm top res) ∧
