@@ -76,16 +76,20 @@ and
 compile_print_dec types map (Dletrec defs) s =
   compile_print_vals types map (List.map (fun (n,_,_) -> n) defs) s
 
-let compile_print_top types map top cs =
-  let (cs,n1) = get_label cs in
+let compile_print_err cs =
+  let (cs,n) = get_label cs in
   let cs = emit cs [Stack (Load 0);
                     Stack (TagEq (block_tag+none_tag));
-                    JumpIf (Lab n1);
+                    JumpIf (Lab n);
                     Stack (El 0) ] in
   let cs = emit cs (List.map PrintC (toCharList "raise ")) in
   let cs = emit cs [Print] in
   let cs = emit cs (List.map PrintC (toCharList "\n")) in
-  let cs = emit cs [Stop false; Label n1] in
+  let cs = emit cs [Stop false; Label n; Stack Pop] in
+  cs
+
+let compile_print_top types map top cs =
+  let cs = compile_print_err cs in
   let cs = match types with | Nothing -> cs | Just types ->
     match top with
     | (Tmod mn _ _) ->
@@ -93,7 +97,7 @@ let compile_print_top types map top cs =
         emit cs (List.map PrintC (toCharList str))
     | (Tdec dec) -> compile_print_dec types map dec cs
     end    end in
-  emit cs [Stack Pop; Stop true]
+  emit cs [Stop true]
 
 let compile_top types cs top =
   let n = cs.next_global in
@@ -125,9 +129,11 @@ let compile_prog prog =
   let e = exp_to_pat [] e in
   let e = exp_to_Cexp e in
   let r = compile_Cexp [] 0 <| out = []; next_label = init_compiler_state.rnext_label |> e in
+  let r = compile_print_err r in
   let r = match Map.lookup "it" m2 with
           | Nothing -> r
           | Just n -> let r = emit r [Gread n; Print] in
                         emit r (List.map PrintC (toCharList "\n"))
           end in
+  let r = emit r [Stop true] in
   List.reverse (r.out)

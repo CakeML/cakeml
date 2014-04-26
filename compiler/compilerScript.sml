@@ -101,16 +101,22 @@ val _ = Define `
 
 
 val _ = Define `
- (compile_print_top types map top cs =  
-(let (cs,n1) = (get_label cs) in
+ (compile_print_err cs =  
+(let (cs,n) = (get_label cs) in
   let cs = (emit cs [Stack (Load( 0));
                     Stack (TagEq (block_tag+none_tag));
-                    JumpIf (Lab n1);
+                    JumpIf (Lab n);
                     Stack (El( 0)) ]) in
   let cs = (emit cs (MAP PrintC (EXPLODE "raise "))) in
   let cs = (emit cs [Print]) in
   let cs = (emit cs (MAP PrintC (EXPLODE "\n"))) in
-  let cs = (emit cs [Stop F; Label n1]) in
+  let cs = (emit cs [Stop F; Label n; Stack Pop]) in
+  cs))`;
+
+
+val _ = Define `
+ (compile_print_top types map top cs =  
+(let cs = (compile_print_err cs) in
   let cs = ((case types of   NONE => cs | SOME types =>
     (case top of
       (Tmod mn _ _) =>
@@ -118,7 +124,7 @@ val _ = Define `
         emit cs (MAP PrintC (EXPLODE str))
     | (Tdec dec) => compile_print_dec types map dec cs
     )    )) in
-  emit cs [Stack Pop; Stop T]))`;
+  emit cs [Stop T]))`;
 
 
 val _ = Define `
@@ -160,11 +166,12 @@ val _ = Define `
   let r = (compile_Cexp [] ( 0)
              <| out := []; next_label := init_compiler_state.rnext_label |> 
            e) in
+  let r = (compile_print_err r) in
   let r = ((case FLOOKUP m2 "it" of
                  NONE => r
              | SOME n => let r = (emit r [Gread n; Print]) in
                          emit r (MAP PrintC (EXPLODE "\n"))
-           )) in REVERSE (r.out)
+           )) in let r = (emit r [Stop T]) in REVERSE (r.out)
   )
   )
   )))`;
