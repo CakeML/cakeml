@@ -38,7 +38,7 @@ val _ = Define `
 (<| next_global :=( 0)
    ; globals_env := (FEMPTY, FEMPTY)
    ; contags_env := init_tagenv_state
-   ; exh := FEMPTY
+   ; exh := (FEMPTY |+ ((Short"option"), [some_tag; none_tag]))
    ; rnext_label :=( 0)
    |>))`;
 
@@ -160,7 +160,7 @@ val _ = Define `
   (case prog_to_i3 (none_tag, SOME (TypeId (Short "option")))
           (some_tag, SOME (TypeId (Short "option"))) n p of
       (_,e) =>
-  let e = (exp_to_exh exh e) in
+  let e = (exp_to_exh (FUNION exh init_compiler_state.exh) e) in
   let e = (exp_to_pat [] e) in
   let e = (exp_to_Cexp e) in
   let r = (compile_Cexp [] ( 0)

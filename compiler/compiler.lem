@@ -25,7 +25,7 @@ let init_compiler_state =
   <| next_global = 0
    ; globals_env = (Map.empty, Map.empty)
    ; contags_env = init_tagenv_state
-   ; exh = Map.empty
+   ; exh = Map.insert (Short"option") [some_tag; none_tag] Map.empty
    ; rnext_label = 0
    |>
 
@@ -125,7 +125,7 @@ let compile_prog prog =
   let (_,_,m2,p) = prog_to_i1 init_compiler_state.next_global m1 m2 prog in
   let (_,exh,p) = prog_to_i2 init_compiler_state.contags_env p in
   let (_,e) = prog_to_i3 (none_tag, Just (TypeId (Short "option"))) (some_tag, Just (TypeId (Short "option"))) n p in
-  let e = exp_to_exh exh e in
+  let e = exp_to_exh (Map.(union) exh init_compiler_state.exh) e in
   let e = exp_to_pat [] e in
   let e = exp_to_Cexp e in
   let r = compile_Cexp [] 0 <| out = []; next_label = init_compiler_state.rnext_label |> e in
