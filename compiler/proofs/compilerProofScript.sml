@@ -3141,13 +3141,12 @@ val compile_top_divergence = store_thm("compile_top_divergence",
 
 (* compile_prog *)
 
-(*
 val compile_prog_thm = store_thm("compile_prog_thm",
   ``∀ck env stm prog res. evaluate_prog ck env stm prog res ⇒
      ∀grd rss rsf bc bs bc0.
       env_rs env stm grd init_compiler_state (bs with code := bc0) ∧
       closed_prog prog ∧
-      (∀p. "it" ∈ FDOM (SND(SND(SND(prog_to_i1 0 FEMPTY FEMPTY prog)))) ∧
+      (∀p. "it" ∈ FDOM (FST(SND(SND(prog_to_i1 0 FEMPTY FEMPTY prog)))) ∧
            SND(SND(res)) = Rval p ⇒ lookup "it" (SND p) ≠ NONE) ∧
       (bs.code = bc0 ++ compile_prog prog) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
@@ -3160,7 +3159,7 @@ val compile_prog_thm = store_thm("compile_prog_thm",
         bc_next^* bs bs' ∧
         let (success,str) =
           case env_or_err of Rval(envM,envE) =>
-            (T,(case lookup "it" envE of NONE => "" | SOME v => print_v v))
+            (T,(case lookup "it" envE of NONE => "" | SOME v => (print_v v)++"\n"))
           | Rerr(Rraise v) =>
             (F,"raise "++(print_v v)++"\n") in
         bc_fetch bs' = SOME (Stop success) ∧
@@ -3380,10 +3379,10 @@ val compile_prog_thm = store_thm("compile_prog_thm",
       BasicProvers.CASE_TAC >>
       rator_x_assum`to_i1_invariant`mp_tac >>
       simp[to_i1_invariant_def] >>
-      strip_tac >>
+      CCONTR_TAC >> fs[] >>
       imp_res_tac global_env_inv_inclusion >>
       imp_res_tac libPropsTheory.lookup_in2 >>
-      fs[FLOOKUP_DEF,SUBSET_DEF] ) >>
+      fs[FLOOKUP_DEF,SUBSET_DEF]) >>
     strip_tac >>
     qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
     qmatch_assum_abbrev_tac`bc_next^* bs2 bs3` >>
@@ -3395,51 +3394,109 @@ val compile_prog_thm = store_thm("compile_prog_thm",
       match_mp_tac RTC_bc_next_append_code >>
       map_every qexists_tac[`bs0`,`bs1`] >>
       simp[Abbr`bs0`,Abbr`bs1`,bc_state_component_equality] ) >>
-      `bs0 with code := bs.code = bs` by (
-        simp[Abbr`bs0`,bc_state_component_equality] ) >>
-      qabbrev_tac`bs4 = bs3 with code := bs.code` >>
-      `bc_fetch bs4 = SOME (Gread x)` by (
-        match_mp_tac bc_fetch_next_addr >>
-        simp[Abbr`bs4`] >>
-        qexists_tac`bc0++c0++code++bcp` >>
-        simp[Abbr`bs3`] ) >>
-      ONCE_REWRITE_TAC[CONJ_COMM] >>
-      qho_match_abbrev_tac`∃bs3. bc_next^* bs bs3 ∧ P bs3` >>
-      qsuff_tac`∃bs5. bc_next^* bs bs4 ∧ NRC bc_next (SUC(SUC(SUC 0))) bs4 bs5 ∧ P bs5` >- (
-        metis_tac[NRC_RTC,RTC_TRANSITIVE,transitive_def] ) >>
-      simp[NRC,PULL_EXISTS] >>
-      simp[GSYM CONJ_ASSOC,RIGHT_EXISTS_AND_THM] >>
-      `bs1 with code := bs.code = bs2 with code := bs.code` by (
-        simp[Abbr`bs1`,Abbr`bs2`] ) >>
-      conj_tac >- metis_tac[RTC_TRANSITIVE,transitive_def] >>
-      simp[Once bc_eval1_thm] >>
-      simp[bc_eval1_def,bump_pc_def] >>
-      simp[Abbr`bs4`,Abbr`bs3`] >>
-      rator_x_assum`to_i1_invariant`mp_tac >>
-      simp[to_i1_invariant_def] >> strip_tac >>
-      rator_x_assum`global_env_inv`mp_tac >>
-      simp[Once v_to_i1_cases] >> strip_tac >>
-      rator_x_assum`global_env_inv_flat`mp_tac >>
-      simp[Once v_to_i1_cases] >>
-      disch_then(qspec_then`"it"`mp_tac) >>
-      simp[] >>
-      rator_x_assum`to_i1_invariant`mp_tac >>
-      simp[to_i1_invariant_def] >>
-      simp[Once v_to_i1_cases] >>
-      simp[Once v_to_i1_cases] >> strip_tac >>
-      simp[libPropsTheory.lookup_append] >>
-      to_i1_invariant_def
-      prog_to_i1_correct
-
-      rator_x_assum`Cenv_bs`mp_tac >>
-      simp[Cenv_bs_def,s_refs_def] >> strip_tac >>
-      fs[csg_rel_unpair] >>
-      globals_env_inv
-
-
-      `bc_next
-
-    cheat ) >>
+    `bs0 with code := bs.code = bs` by (
+      simp[Abbr`bs0`,bc_state_component_equality] ) >>
+    qabbrev_tac`bs4 = bs3 with code := bs.code` >>
+    `bc_fetch bs4 = SOME (Gread x)` by (
+      match_mp_tac bc_fetch_next_addr >>
+      simp[Abbr`bs4`] >>
+      qexists_tac`bc0++c0++code++bcp` >>
+      simp[Abbr`bs3`] ) >>
+    ONCE_REWRITE_TAC[CONJ_COMM] >>
+    qho_match_abbrev_tac`∃bs3. bc_next^* bs bs3 ∧ P bs3` >>
+    qsuff_tac`∃bs5. bc_next^* bs bs4 ∧ NRC bc_next (SUC(SUC(SUC(0)))) bs4 bs5 ∧ P bs5` >- (
+      metis_tac[NRC_RTC,RTC_TRANSITIVE,transitive_def] ) >>
+    simp[NRC,PULL_EXISTS] >>
+    simp[GSYM CONJ_ASSOC,RIGHT_EXISTS_AND_THM] >>
+    `bs1 with code := bs.code = bs2 with code := bs.code` by (
+      simp[Abbr`bs1`,Abbr`bs2`] ) >>
+    conj_tac >- metis_tac[RTC_TRANSITIVE,transitive_def] >>
+    simp[Once bc_eval1_thm] >>
+    simp[bc_eval1_def,bump_pc_def] >>
+    simp[Abbr`bs4`,Abbr`bs3`] >>
+    rator_x_assum`to_i1_invariant`mp_tac >>
+    simp[to_i1_invariant_def] >> strip_tac >>
+    rator_x_assum`global_env_inv`mp_tac >>
+    simp[Once v_to_i1_cases] >> strip_tac >>
+    rator_x_assum`global_env_inv_flat`mp_tac >>
+    simp[Once v_to_i1_cases] >>
+    disch_then(qspec_then`"it"`mp_tac) >>
+    simp[] >>
+    rator_x_assum`to_i1_invariant`mp_tac >>
+    simp[to_i1_invariant_def] >>
+    simp[Once v_to_i1_cases] >>
+    simp[Once v_to_i1_cases] >> strip_tac >>
+    simp[libPropsTheory.lookup_append] >>
+    BasicProvers.CASE_TAC >> fs[] >- fs[FLOOKUP_DEF] >>
+    strip_tac >> Cases_on`grd0`>>fs[] >>
+    rator_x_assum`to_i2_invariant`mp_tac >>
+    simp[to_i2_invariant_def] >> strip_tac >>
+    rfs[EVERY2_EVERY] >> fs[EVERY_MEM] >>
+    Cases_on`genv2`>>fs[] >>
+    fs[MEM_ZIP,PULL_EXISTS] >>
+    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+    simp[optionTheory.OPTREL_def] >> strip_tac >>
+    rator_x_assum`store_to_exh`mp_tac >>
+    simp[store_to_exh_csg_rel,csg_rel_unpair] >>
+    strip_tac >>
+    rfs[EVERY2_EVERY] >> fs[EVERY_MEM] >>
+    fs[MEM_ZIP,PULL_EXISTS] >>
+    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+    simp[optionTheory.OPTREL_def] >> strip_tac >>
+    rpt(rator_x_assum`csg_rel`mp_tac) >>
+    simp[csg_rel_unpair] >> rpt strip_tac >>
+    rfs[EVERY2_EVERY] >> fs[EVERY_MEM,map_count_store_genv_def] >>
+    fs[MEM_ZIP,PULL_EXISTS] >>
+    last_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+    simp[EL_MAP,optionTheory.OPTREL_def] >> strip_tac >>
+    fs[Cenv_bs_def,s_refs_def] >>
+    last_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+    simp[EL_MAP,optionTheory.OPTREL_def] >> strip_tac >>
+    last_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+    simp[EL_MAP,optionTheory.OPTREL_def] >> strip_tac >>
+    last_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+    simp[EL_MAP,optionTheory.OPTREL_def] >> strip_tac >>
+    rator_x_assum`LIST_REL`mp_tac >>
+    simp[EVERY2_EVERY,EVERY_MEM] >> strip_tac >>
+    rfs[MEM_ZIP,PULL_EXISTS] >> fs[] >>
+    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+    simp[optionTheory.OPTREL_def] >> strip_tac >> simp[] >>
+    qunabbrev_tac`bs1` >>
+    qho_match_abbrev_tac`∃bs4 bs3. bc_next bs1 bs3 ∧ bc_next bs3 bs4 ∧ P bs4` >>
+    `bc_fetch bs1 = SOME Print` by (
+      match_mp_tac bc_fetch_next_addr >>
+      simp[Abbr`bs1`] >>
+      qexists_tac`bc0++c0++code++bcp++[Gread x]` >>
+      simp[SUM_APPEND,FILTER_APPEND] ) >>
+    simp[Once bc_eval1_thm] >> simp[bc_eval1_def,bump_pc_def] >>
+    simp[Abbr`bs1`,RIGHT_EXISTS_AND_THM] >>
+    conj_tac >- metis_tac[Cv_bv_can_Print] >>
+    qho_match_abbrev_tac`∃bs4. bc_next bs1 bs4 ∧ P bs4` >>
+    `bc_fetch bs1 = SOME (PrintC #"\n")` by (
+      match_mp_tac bc_fetch_next_addr >>
+      simp[Abbr`bs1`] >>
+      qexists_tac`bc0++c0++code++bcp++[Gread x;Print]` >>
+      simp[SUM_APPEND,FILTER_APPEND] ) >>
+    simp[Once bc_eval1_thm] >> simp[bc_eval1_def,bump_pc_def] >>
+    simp[Abbr`bs1`,IMPLODE_EXPLODE_I,Abbr`P`] >>
+    conj_tac >- (
+      match_mp_tac bc_fetch_next_addr >> simp[] >>
+      CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`[]` >>
+      simp[SUM_APPEND,FILTER_APPEND] ) >>
+    first_x_assum(mp_tac o MATCH_MP Cv_bv_ov) >>
+    disch_then(SUBST1_TAC o SYM) >>
+    match_mp_tac (MP_CANON print_v_ov) >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    simp[exh_Cv_def] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    reverse conj_tac >- metis_tac[syneq_trans] >>
+    first_x_assum(mp_tac o MATCH_MP (CONJUNCT1 evaluate_pat_closed)) >>
+    simp[csg_closed_pat_def] >>
+    simp[EVERY_MEM,MEM_EL,PULL_EXISTS] >>
+    metis_tac[OPTION_EVERY_def] ) >>
   Cases_on`res6`>>
   fs[result_to_i2_cases,result_to_i1_cases,GSYM FORALL_PROD] >>
   fs[] >> rw[] >>
@@ -3625,6 +3682,5 @@ val compile_prog_thm = store_thm("compile_prog_thm",
     simp[Abbr`bs3`,Abbr`bs4`,Abbr`bs1`,bc_state_component_equality] >>
     BasicProvers.CASE_TAC >> simp[] ) >>
   metis_tac[RTC_TRANSITIVE,transitive_def])
-*)
 
 val _ = export_theory()
