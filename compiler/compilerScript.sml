@@ -153,7 +153,7 @@ val _ = Define `
  (compile_prog prog =  
 (let n = (init_compiler_state.next_global) in
   let (m1,m2) = (init_compiler_state.globals_env) in  
-  (case prog_to_i1 init_compiler_state.next_global m1 m2 prog of
+  (case prog_to_i1 n m1 m2 prog of
       (_,_,m2,p) =>
   (case prog_to_i2 init_compiler_state.contags_env p of
       (_,exh,p) =>
