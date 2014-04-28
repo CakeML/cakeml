@@ -378,15 +378,15 @@ val ADEL_eval = translate ADEL_def;
 
 val ALOOKUP_ADEL = prove(
   ``!l a x. ALOOKUP (ADEL l a) x = if x = a then NONE else ALOOKUP l x``,
-  Induct \\ SRW_TAC [] [ALOOKUP_def,ADEL_def] \\ Cases_on `h`
-  \\ SRW_TAC [] [ALOOKUP_def,ADEL_def]);
+  Induct THEN SRW_TAC [] [ALOOKUP_def,ADEL_def] THEN Cases_on `h`
+  THEN SRW_TAC [] [ALOOKUP_def,ADEL_def]);
 
 val FMAP_EQ_ALIST_ADEL = prove(
   ``!x l. FMAP_EQ_ALIST x l ==>
           FMAP_EQ_ALIST (x \\ a) (ADEL l a)``,
   FULL_SIMP_TAC std_ss [FMAP_EQ_ALIST_def,ALOOKUP_def,fmap_domsub,FUN_EQ_THM]
-  \\ REPEAT STRIP_TAC \\ SRW_TAC [] [ALOOKUP_ADEL,FLOOKUP_DEF,DRESTRICT_DEF]
-  \\ FULL_SIMP_TAC std_ss []);
+  THEN REPEAT STRIP_TAC THEN SRW_TAC [] [ALOOKUP_ADEL,FLOOKUP_DEF,DRESTRICT_DEF]
+  THEN FULL_SIMP_TAC std_ss []);
 
 val Eval_fmap_domsub = prove(
   ``!v. ((LIST_TYPE (PAIR_TYPE a b) --> a -->
