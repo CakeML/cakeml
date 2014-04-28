@@ -2021,7 +2021,7 @@ val cenv_inv_to_mod = Q.prove (
 `!envC' envC tagenv gtagenv mn acc.
   cenv_inv (merge_envC (emp,envC') envC) tagenv gtagenv
   ⇒
-  cenv_inv (merge_envC (mod_cenv mn envC') envC) (mod_tagenv mn acc tagenv) gtagenv`,
+  cenv_inv (merge_envC (mod_cenv mn envC') envC) (FUNION exh' exh) (mod_tagenv mn acc tagenv) gtagenv`,
 
  rw [cenv_inv_def, mod_cenv_def] >>
  >- (every_case_tac >>
@@ -2046,16 +2046,20 @@ fun dec_lem t =
  SPEC_ALL o
  SIMP_RULE (srw_ss()) [PULL_FORALL]) decs_to_i2_correct
 
+val list_rel_optrel_args = Q.prove (
+`!gtagenv. LIST_REL (OPTREL (v_to_i2 gtagenv)) = LIST_REL (\x y. OPTREL (v_to_i2 gtagenv) x y)`,
+ rw [eta2]);
+
 val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
 `!ck genv envC s tids mods prompt s_i2 genv_i2 tagenv_st prompt_i2 genv' envC' s' tids' mods' res gtagenv tagenv_st' exh exh'.  
   evaluate_prompt_i1 ck genv envC (s,tids,mods) prompt ((s',tids',mods'), envC', genv', res) ∧
   res ≠ SOME Rtype_error ∧
   to_i2_invariant tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ∧
+  DISJOINT (FDOM exh') (FDOM exh) ∧
   (tagenv_st', exh', prompt_i2) = prompt_to_i2 tagenv_st prompt
   ⇒
   ?genv'_i2 s'_i2 res_i2 gtagenv'.
     gtagenv_weak gtagenv gtagenv' ∧
-    DISJOINT (FDOM exh') (FDOM exh) ∧
     evaluate_prompt_i2 ck (FUNION exh' exh) genv_i2 s_i2 prompt_i2 (s'_i2,genv'_i2,res_i2) ∧
     to_i2_invariant tids' (merge_envC envC' envC) (FUNION exh' exh) tagenv_st' gtagenv' s' s'_i2 (genv++genv') (genv_i2 ++ genv'_i2) ∧
     (res = NONE ∧ res_i2 = NONE ∨
@@ -2088,7 +2092,15 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
      fs [get_tagenv_def] >>
      rw []
      >- cheat
-     >- cheat
+     >- (`LENGTH genv = LENGTH genv_i2` by metis_tac [LIST_REL_LENGTH] >>
+         `LENGTH (MAP SOME env) = LENGTH (MAP SOME genv'_i2)`
+                 by metis_tac [LIST_REL_LENGTH, LENGTH_MAP, vs_to_i2_list_rel] >>
+         fs [list_rel_optrel_args] >>
+         `LIST_REL (\x y. OPTREL (v_to_i2 gtagenv') x y) (MAP SOME env) (MAP SOME genv'_i2)` 
+                 by (rw [LIST_REL_MAP1, LIST_REL_MAP2, combinTheory.o_DEF, OPTREL_def] >>
+                     fs [vs_to_i2_list_rel, eta2]) >>
+         `LIST_REL (\x y. OPTREL (v_to_i2 gtagenv') x y) genv genv_i2` by (cheat) >>
+         metis_tac [EVERY2_APPEND])
      >- cheat)
  >- (`∃genv'_i2 s'_i2 res_i2 gtagenv' acc'.
        gtagenv_weak gtagenv gtagenv' ∧
@@ -2099,7 +2111,6 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
        gtagenv_wf gtagenv' ∧
        get_tagacc ((next',tagenv',inv''),acc) = acc' ⊌ get_tagacc (tagenv_st,FEMPTY) ∧
        flat_envC_tagged cenv' acc' gtagenv' ∧
-       DISJOINT (FDOM exh') (FDOM exh) ∧
        ?err_i2. 
          res_i2 = SOME err_i2 ∧
          result_to_i2 (\a b c. T) gtagenv' (Rerr err) (Rerr err_i2)`
