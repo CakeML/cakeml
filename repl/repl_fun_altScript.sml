@@ -18,8 +18,6 @@ open repl_funTheory bytecodeLabelsTheory bytecodeTheory;
 
 *)
 
-(* TODO: all this needs updating
-
 val bc_num_def = Define `
   bc_num s =
      case s of
@@ -29,7 +27,6 @@ val bc_num_def = Define `
      | Stack (Cons n m) => (4,n,m)
      | Stack (Load n) => (5,n,0)
      | Stack (Store n) => (6,n,0)
-     | Stack (LoadRev n) => (7,n,0)
      | Stack (El n) => (8,n,0)
      | Stack (TagEq n) => (9,n,0)
      | Stack IsBlock => (10,0,0)
@@ -56,21 +53,24 @@ val bc_num_def = Define `
      | Ref => (30,0,0)
      | Deref => (31,0,0)
      | Update => (32,0,0)
-     | Stop => (33,0,0)
      | Tick => (34,0,0)
      | Print => (35,0,0)
      | PrintC c => (36,ORD c,0)
-     | Stop => (37,0,0)`;
+     | Galloc n => (2,n,0)
+     | Gread n => (7,n,0)
+     | Gupdate n => (19,n,0)
+     | Stop b => (37,if b then 1 else 0,0)`;
 
 val num_bc_def = Define `
   num_bc (n:num,x1:num,x2:num) =
     if n = 0 then Stack Pop
     else if n = 1 then Stack (Pops x1)
+    else if n = 2 then Galloc x1
     else if n = 3 then Stack (PushInt (if x2 = 0 then &x1 else 0 - &x1))
     else if n = 4 then Stack (Cons x1 x2)
     else if n = 5 then Stack (Load x1)
     else if n = 6 then Stack (Store x1)
-    else if n = 7 then Stack (LoadRev x1)
+    else if n = 7 then Gread x1
     else if n = 8 then Stack (El x1)
     else if n = 9 then Stack (TagEq x1)
     else if n = 10 then Stack IsBlock
@@ -81,6 +81,7 @@ val num_bc_def = Define `
     else if n = 15 then Stack Div
     else if n = 16 then Stack Mod
     else if n = 17 then Stack Less
+    else if n = 19 then Gupdate x1
     else if n = 20 then Label x1
     else if n = 21 then Jump (Addr x1)
     else if n = 22 then JumpIf (Addr x1)
@@ -97,7 +98,7 @@ val num_bc_def = Define `
     else if n = 30 then Ref
     else if n = 31 then Deref
     else if n = 32 then Update
-    else if n = 33 then Stop
+    else if n = 37 then Stop (0 < x1)
     else if n = 34 then Tick
     else if n = 35 then Print
     else if n = 36 then PrintC (CHR (if x1 < 256 then x1 else 0))
@@ -110,6 +111,7 @@ val num_bc_bc_num = store_thm("num_bc_bc_num",
   THEN Cases_on `i < 0` THEN FULL_SIMP_TAC std_ss []
   THEN intLib.COOPER_TAC);
 
+(* TODO: all this needs updating
 val bc_num_lists_def = Define `
   bc_num_lists xs ys = MAP bc_num xs ++ [(18,0,0)] ++ MAP bc_num ys`;
 
