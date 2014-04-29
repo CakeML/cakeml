@@ -72,35 +72,11 @@ val result_rel_trans = store_thm(
 rw[] >>
 Cases_on `x` >> fs[] >> rw[] >> fs[] >> PROVE_TAC[exc_rel_trans])
 
-val map_error_result_def = Define`
-  (map_error_result f (Rraise e) = Rraise (f e)) ∧
-  (map_error_result f Rtype_error = Rtype_error) ∧
-  (map_error_result f Rtimeout_error = Rtimeout_error)`
-val _ = export_rewrites["map_error_result_def"]
-
-val map_error_result_Rtype_error = store_thm("map_error_result_Rtype_error",
-  ``map_error_result f e = Rtype_error ⇔ e = Rtype_error``,
-  Cases_on`e`>>simp[])
-val map_error_result_Rtimeout_error = store_thm("map_error_result_Rtimeout_error",
-  ``map_error_result f e = Rtimeout_error ⇔ e = Rtimeout_error``,
-  Cases_on`e`>>simp[])
-val _ = export_rewrites["map_error_result_Rtimeout_error","map_error_result_Rtype_error"]
-
 val every_error_result_def = Define`
   (every_error_result P (Rraise e) = P e) ∧
   (every_error_result P Rtype_error = T) ∧
   (every_error_result P Rtimeout_error = T)`
 val _ = export_rewrites["every_error_result_def"]
-
-val map_result_def = Define`
-  (map_result f1 f2 (Rval v) = Rval (f1 v)) ∧
-  (map_result f1 f2 (Rerr e) = Rerr (map_error_result f2 e))`
-val _ = export_rewrites["map_result_def"]
-
-val map_result_Rerr = store_thm("map_result_Rerr",
-  ``map_result f1 f2 e = Rerr e' ⇔ ∃a. e = Rerr a ∧ map_error_result f2 a = e'``,
-  Cases_on`e`>>simp[EQ_IMP_THM])
-val _ = export_rewrites["map_result_Rerr"]
 
 val every_result_def = Define`
   (every_result P1 P2 (Rval v) = (P1 v)) ∧
