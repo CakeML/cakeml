@@ -1,0 +1,14 @@
+INCLUDES = .. ../.. ../../parsing ../../semantics ../../inference ../../compiler ../../bytecode ../../compiler/proofs ../../translator ../../repl ../../initial
+OPTIONS = QUIT_ON_FAILURE
+
+ifdef POLY
+HOLHEAP = heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+
+BARE_THYS = ../progToBytecodeTheory ../../compiler/proofs/compilerProofTheory ../../translator/ml_translatorTheory ../../semantics/proofs/evalPropsTheory ../../repl/repl_funTheory ../../initial/initialProgramTheory
+
+DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) $(BARE_THYS)
+endif
