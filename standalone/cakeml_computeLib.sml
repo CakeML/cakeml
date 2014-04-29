@@ -5,6 +5,7 @@ open miscTheory cmlParseTheory cmlPEGTheory initialEnvTheory
 open lexer_funTheory elabTheory astTheory modLangTheory conLangTheory decLangTheory exhLangTheory patLangTheory compilerTheory
 open lexer_implTheory inferTheory intLangTheory toIntLangTheory toBytecodeTheory printingTheory compilerProofTheory
 open bytecodeLabelsTheory labels_computeLib bytecodeEncodeTheory bytecodeEvalTheory free_varsTheory progToBytecodeTheory
+open initialProgramTheory
 open terminationTheory compilerTerminationTheory
 
 val () = Parse.bring_to_front_overload"Num"{Name="Num",Thy="integer"}

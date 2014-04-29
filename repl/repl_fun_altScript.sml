@@ -111,12 +111,6 @@ val num_bc_bc_num = store_thm("num_bc_bc_num",
   THEN Cases_on `i < 0` THEN FULL_SIMP_TAC std_ss []
   THEN intLib.COOPER_TAC);
 
-(* TODO: move to where initial_bc_state_def is *)
-val empty_bc_state_def = Define `
-  empty_bc_state = <| stack := []; code := []; pc := 0; refs := FEMPTY;
-                      handler := 0; clock := NONE; output := "";
-                      globals := []; inst_length := real_inst_length |>`;
-
 val repl_step_def = Define `
   repl_step state =
     case state of
