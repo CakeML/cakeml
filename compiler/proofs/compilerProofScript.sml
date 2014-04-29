@@ -3141,6 +3141,54 @@ val compile_top_divergence = store_thm("compile_top_divergence",
 
 (* compile_prog *)
 
+val compile_Cexp_code_ok_thm = prove(
+  ``∀renv rsz cs exp cs'.
+    (compile_Cexp renv rsz cs exp = cs') ⇒
+    set (free_vars exp) ⊆ count (LENGTH renv) ∧
+    no_labs exp ∧ (cs.out = []) ⇒
+    code_labels_ok cs'.out``,
+  rw[] >>
+  qspecl_then[`renv`,`rsz`,`cs`,`exp`]mp_tac compile_Cexp_thm >>
+  simp[] >> strip_tac >> simp[] >>
+  PROVE_TAC[REVERSE_APPEND,code_labels_ok_REVERSE])
+
+val compile_print_err_code_ok_thm = prove(
+  ``∀cs cs'. (compile_print_err cs = cs') ⇒
+             code_labels_ok cs.out ⇒
+             code_labels_ok cs'.out``,
+  rw[] >>
+  qspec_then`cs`mp_tac compile_print_err_thm >>
+  simp[] >> strip_tac >> simp[] >>
+  match_mp_tac code_labels_ok_append >>
+  simp[code_labels_ok_REVERSE])
+
+val compile_prog_code_labels_ok = store_thm("compile_prog_code_labels_ok",
+  ``∀prog code.
+      (compile_prog prog = code) ∧ closed_prog prog ⇒
+      code_labels_ok code``,
+    rw[compile_prog_def] >>
+    `∃a b c d. prog_to_i1 n m1 m2 prog = (a,b,c,d)` by simp[GSYM EXISTS_PROD] >>simp[] >>
+    `∃e f g. prog_to_i2 init_compiler_state.contags_env d = (e,f,g)` by simp[GSYM EXISTS_PROD] >>simp[] >>
+    (fn(g as (_,w)) => split_pair_case_tac (rand w) g) >> simp[] >>
+    match_mp_tac code_labels_ok_append >>
+    reverse conj_tac >- (match_mp_tac code_labels_ok_cons >> simp[]) >>
+    simp[code_labels_ok_REVERSE] >>
+    BasicProvers.CASE_TAC >> simp[] >>
+    rpt(match_mp_tac code_labels_ok_cons >> simp[]) >>
+    match_mp_tac (MP_CANON compile_print_err_code_ok_thm) >>
+    (fn(g as (_,w)) => exists_tac (w |> dest_exists |> snd |> dest_conj |> fst |> rhs |> rand) g) >>
+    simp[] >>
+    match_mp_tac (MP_CANON compile_Cexp_code_ok_thm) >>
+    (fn(g as (_,w)) => map_every exists_tac (w |> strip_exists |> snd |> dest_conj |> fst |> rhs |> strip_comb |> snd) g) >>
+    simp[] >>
+    specl_args_of_then``exp_to_pat``(CONJUNCT1 free_vars_pat_exp_to_pat)mp_tac >>
+    simp[] >> disch_then match_mp_tac >>
+    imp_res_tac free_vars_i2_prog_to_i3 >>
+    imp_res_tac free_vars_prog_to_i2 >>
+    imp_res_tac FV_prog_to_i1 >>
+    simp[] >>
+    fs[closed_prog_def,all_env_dom_def,SUBSET_DEF,PULL_EXISTS])
+
 val compile_prog_thm = store_thm("compile_prog_thm",
   ``∀ck env stm prog res. evaluate_prog ck env stm prog res ⇒
      ∀grd rss rsf bc bs bc0.
