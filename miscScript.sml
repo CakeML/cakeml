@@ -4,6 +4,36 @@ val _ = new_theory "misc"
 
 (* TODO: move/categorize *)
 
+val least_from_def = Define`
+  least_from P n = if (∃x. P x ∧ n ≤ x) then $LEAST (λx. P x ∧ n ≤ x) else $LEAST P`
+
+val LEAST_thm = store_thm("LEAST_thm",
+  ``$LEAST P = least_from P 0``,
+  rw[least_from_def,ETA_AX])
+
+val least_from_thm = store_thm("least_from_thm",
+  ``least_from P n = if P n then n else least_from P (n+1)``,
+  rw[least_from_def] >>
+  numLib.LEAST_ELIM_TAC >> rw[] >> fs[] >> res_tac >>
+  TRY(metis_tac[arithmeticTheory.LESS_OR_EQ]) >- (
+    numLib.LEAST_ELIM_TAC >> rw[] >> fs[] >- metis_tac[] >>
+    qmatch_rename_tac`a = b`[] >>
+    `n ≤ b` by DECIDE_TAC >>
+    Cases_on`b < a` >-metis_tac[] >>
+    spose_not_then strip_assume_tac >>
+    `a < b` by DECIDE_TAC >>
+    `¬(n + 1 ≤ a)` by metis_tac[] >>
+    `a = n` by DECIDE_TAC >>
+    fs[] )
+  >- (
+    Cases_on`n+1≤x`>-metis_tac[]>>
+    `x = n` by DECIDE_TAC >>
+    fs[] )
+  >- (
+    `¬(n ≤ x)` by metis_tac[] >>
+    `x = n` by DECIDE_TAC >>
+    fs[] ))
+
 val FILTER_F = store_thm("FILTER_F",
   ``∀ls. FILTER (λx. F) ls = []``,
   Induct >> simp[])

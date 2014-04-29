@@ -314,4 +314,11 @@ val RTC_bc_next_bc_eval = store_thm("RTC_bc_next_bc_eval",
   rw[] >>
   Cases_on`bc_eval1 s1`>>fs[bc_eval1_thm])
 
+val bc_evaln_def = Define`
+  (bc_evaln 0 bs = bs) ∧
+  (bc_evaln (SUC n) bs =
+   case bc_eval1 bs of
+   | NONE => bs
+   | SOME bs => bc_evaln n bs)`
+
 val _ = export_theory();
