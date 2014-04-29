@@ -1,4 +1,3 @@
-
 open HolKernel Parse boolLib bossLib;
 
 val _ = new_theory "repl_fun_alt_proof";
@@ -8,6 +7,16 @@ open repl_funTheory repl_fun_altTheory bytecodeLabelsTheory bytecodeTheory;
 open lcsymtacs bytecodeEvalTheory bytecodeExtraTheory;
 
 infix \\ val op \\ = op THEN;
+
+val code_executes_ok_def = Define `
+  code_executes_ok s1 =
+    let len i = if is_Label i then 0 else s1.inst_length i + 1 in
+      (* termination *)
+      (?s2 b. bc_next^* s1 s2 /\ bc_fetch s2 = SOME (Stop b)) \/
+      (* or divergence with no output *)
+      !n. ?s2. NRC bc_next n s1 s2 /\ (s2.output = s1.output)`;
+
+(* TODO: update
 
 (* We start by defining a new version of repl_fun called repl_fun'
    which brings with it a proof of side conditions. *)
@@ -21,15 +30,6 @@ val initial_bc_state_side_def = Define `
       IS_SOME bs3 /\
       (bs4.pc = next_addr bs1.inst_length bs4.code) /\
       (bs4.stack <> [])`;
-
-val code_executes_ok_def = Define `
-  code_executes_ok s1 =
-    let len i = if is_Label i then 0 else s1.inst_length i + 1 in
-      (* termination *)
-      (?s2. bc_next^* s1 s2 /\
-         ((bc_fetch s2 = SOME Stop) \/ (s2.pc = SUM (MAP len s1.code)))) \/
-      (* or divergence with no output *)
-      !n. ?s2. NRC bc_next n s1 s2 /\ (s2.output = s1.output)`;
 
 val tac = (WF_REL_TAC `measure (LENGTH o SND)` \\ REPEAT STRIP_TAC
            \\ IMP_RES_TAC lex_until_toplevel_semicolon_LESS);
@@ -616,5 +616,6 @@ val repl_fun_alt_correct = store_thm("repl_fun_alt_correct",
   \\ FULL_SIMP_TAC std_ss []);
 
 val _ = delete_const "temp";
+*)
 
 val _ = export_theory();

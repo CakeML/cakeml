@@ -13,7 +13,7 @@ META_BARE_THYS = typeSysPropsTheory
 
 INFER_BARE_THYS = inferSoundTheory
 
-COMPILER_BARE_THYS = compilerProofsTheory
+COMPILER_BARE_THYS = compilerProofTheory
 
 BYTECODE_BARE_THYS = bytecodeLabelsTheory
 
