@@ -34,7 +34,8 @@ val _ = Hol_datatype `
   (* Evaluating a constructor's arguments
    * The v list should be in reverse order. *)
   | Ccon of  ( conN id)option => v list => unit => exp list
-  | Cuapp of uop => unit`;
+  | Cuapp of uop => unit
+  | Caupd of v list => unit => exp list`;
 
 val _ = type_abbrev( "ctxt" , ``: ctxt_frame # all_env``);
 
@@ -51,7 +52,7 @@ val _ = Hol_datatype `
   | Val of v`;
 
 
-val _ = type_abbrev( "state" , ``: all_env # v store # exp_or_val # ctxt list``);
+val _ = type_abbrev( "state" , ``: all_env # store_v store # exp_or_val # ctxt list``);
 
 val _ = Hol_datatype `
  e_step_result =
@@ -65,18 +66,18 @@ val _ = Hol_datatype `
  * push individual frames onto the context stack instead of finding a redex in a
  * single step *)
 
-(*val push : all_env -> store v -> exp -> ctxt_frame -> list ctxt -> e_step_result*)
+(*val push : all_env -> store store_v -> exp -> ctxt_frame -> list ctxt -> e_step_result*)
 val _ = Define `
  (push env s e c' cs = (Estep (env, s, Exp e, ((c',env)::cs))))`;
 
 
-(*val return : all_env -> store v -> v -> list ctxt -> e_step_result*)
+(*val return : all_env -> store store_v -> v -> list ctxt -> e_step_result*)
 val _ = Define `
  (return env s v c = (Estep (env, s, Val v, c)))`;
 
 
 (* apply a context to a value *)
-(*val continue : store v -> v -> list ctxt -> e_step_result*)
+(*val continue : store store_v -> v -> list ctxt -> e_step_result*)
 val _ = Define `
  (continue s v cs =  
 ((case cs of
@@ -93,10 +94,23 @@ val _ = Define `
     | (Capp1 op ()  e, env) :: c =>
         push env s e (Capp2 op v () ) c
     | (Capp2 op v' () , env) :: c =>
-        (case do_app env s op v' v of
-            SOME (env,s',e) => Estep (env, s', Exp e, c)
-          | NONE => Etype_error
-        )
+        (case op of
+            Opapp =>
+            (case do_opapp v' v of
+                SOME (env,e) => Estep (env, s, Exp e, c)
+              | NONE => Etype_error
+            )
+          | _ =>
+            (case do_app s op v' v of
+                SOME (s',r) =>
+                (case r of
+                    Rerr (Rraise v) => Estep (env,s',Val v,((Craise () ,env)::c))
+                  | Rval v => return env s' v c
+                  | _ => Etype_error
+                )
+              | NONE => Etype_error
+            )
+          )
     | (Clog l ()  e, env) :: c =>
         (case do_log l v e of
             SOME e => Estep (env, s, Exp e, c)
@@ -138,6 +152,20 @@ val _ = Define `
            SOME (s',v') => return env s' v' c
          | NONE => Etype_error
        )
+    | (Caupd vs ()  [], env) :: c =>
+        (case vs of
+            [v2;v1;v] =>
+            (case do_aupdate s v v1 v2 of
+                SOME s' => return env s' (Litv Unit) c
+              | NONE => Etype_error
+            )
+          | _ => Etype_error
+        )
+    | (Caupd vs ()  (e::es), env) :: c =>
+      if (((LENGTH vs + 1) + 1) + LENGTH es) = 3 then
+        push env s e (Caupd (v::vs) ()  es) c
+      else
+        Etype_error
   )))`;
 
 
@@ -200,7 +228,7 @@ val _ = Define `
 (* Define a semantic function using the steps *)
 
 (*val e_step_reln : state -> state -> bool*)
-(*val small_eval : all_env -> store v -> exp -> list ctxt -> store v * result v v -> bool*)
+(*val small_eval : all_env -> store store_v -> exp -> list ctxt -> store store_v * result v v -> bool*)
 
 val _ = Define `
  (e_step_reln st1 st2 =
@@ -223,7 +251,7 @@ val _ = Define `
 (small_eval env s e c (s', Rerr Rtimeout_error) = F)`;
 
 
-(*val e_diverges : all_env -> store v -> exp -> bool*)
+(*val e_diverges : all_env -> store store_v -> exp -> bool*)
 val _ = Define `
  (e_diverges env s e =  
 (! env' s' e' c'.

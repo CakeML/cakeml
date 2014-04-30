@@ -24,6 +24,7 @@ type ctxt_frame =
    * The v list should be in reverse order. *)
   | Ccon of maybe (id conN) * list v * unit * list exp
   | Cuapp of uop * unit
+  | Caupd of list v * unit * list exp
 type ctxt = ctxt_frame * all_env
 
 (* State for CEK-style expression evaluation
@@ -37,7 +38,7 @@ type exp_or_val =
   | Exp of exp
   | Val of v
 
-type state = all_env * store v * exp_or_val * list ctxt
+type state = all_env * store store_v * exp_or_val * list ctxt
 
 type e_step_result =
   | Estep of state
@@ -49,14 +50,14 @@ type e_step_result =
  * push individual frames onto the context stack instead of finding a redex in a
  * single step *)
 
-val push : all_env -> store v -> exp -> ctxt_frame -> list ctxt -> e_step_result
+val push : all_env -> store store_v -> exp -> ctxt_frame -> list ctxt -> e_step_result
 let push env s e c' cs = Estep (env, s, Exp e, ((c',env)::cs))
 
-val return : all_env -> store v -> v -> list ctxt -> e_step_result
+val return : all_env -> store store_v -> v -> list ctxt -> e_step_result
 let return env s v c = Estep (env, s, Val v, c)
 
 (* apply a context to a value *)
-val continue : store v -> v -> list ctxt -> e_step_result
+val continue : store store_v -> v -> list ctxt -> e_step_result
 let continue s v cs =
   match cs with
     | [] -> Estuck
@@ -72,10 +73,23 @@ let continue s v cs =
     | (Capp1 op () e, env) :: c ->
         push env s e (Capp2 op v ()) c
     | (Capp2 op v' (), env) :: c ->
-        match do_app env s op v' v with
-          | Just (env,s',e) -> Estep (env, s', Exp e, c)
-          | Nothing -> Etype_error
-        end
+        match op with
+          | Opapp ->
+            match do_opapp v' v with
+              | Just (env,e) -> Estep (env, s, Exp e, c)
+              | Nothing -> Etype_error
+            end
+          | _ ->
+            match do_app s op v' v with
+              | Just (s',r) ->
+                match r with
+                  | Rerr (Rraise v) -> Estep (env,s',Val v,((Craise (),env)::c))
+                  | Rval v -> return env s' v c
+                  | _ -> Etype_error
+                end
+              | Nothing -> Etype_error
+            end
+          end
     | (Clog l () e, env) :: c ->
         match do_log l v e with
           | Just e -> Estep (env, s, Exp e, c)
@@ -117,6 +131,20 @@ let continue s v cs =
          | Just (s',v') -> return env s' v' c
          | Nothing -> Etype_error
        end
+    | (Caupd vs () [], env) :: c ->
+        match vs with
+          | [v2;v1;v] ->
+            match do_aupdate s v v1 v2 with
+              | Just s' -> return env s' (Litv Unit) c
+              | Nothing -> Etype_error
+            end
+          | _ -> Etype_error
+        end
+    | (Caupd vs () (e::es), env) :: c ->
+      if List.length vs + 1 + 1 + List.length es = 3 then
+        push env s e (Caupd (v::vs) () es) c
+      else
+        Etype_error
   end
 
 (* The single step expression evaluator.  Returns None if there is nothing to
@@ -176,7 +204,7 @@ let e_step (env, s, ev, c) =
 (* Define a semantic function using the steps *)
 
 val e_step_reln : state -> state -> bool
-val small_eval : all_env -> store v -> exp -> list ctxt -> store v * result v v -> bool
+val small_eval : all_env -> store store_v -> exp -> list ctxt -> store store_v * result v v -> bool
 
 let e_step_reln st1 st2 =
   (e_step st1 = Estep st2)
@@ -195,7 +223,7 @@ small_eval env s e c (s', Rerr Rtype_error) =
 and
 small_eval env s e c (s', Rerr Rtimeout_error) = false
 
-val e_diverges : all_env -> store v -> exp -> bool
+val e_diverges : all_env -> store store_v -> exp -> bool
 let e_diverges env s e =
   forall env' s' e' c'.
     (rtc e_step_reln) (env,s,Exp e,[]) (env',s',e',c')
