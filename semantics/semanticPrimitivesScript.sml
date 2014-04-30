@@ -88,6 +88,10 @@ val _ = Hol_datatype `
 
 
 (* Stores *)
+val _ = Hol_datatype `
+ store_v = Refv of v | W8array of word8 list`;
+
+
 (* The nth item in the list is the value at location n *)
 val _ = type_abbrev((*  'a *) "store" , ``: 'a list``);
 
@@ -215,7 +219,7 @@ val _ = Hol_datatype `
  * number of arguments, and constructors in corresponding positions in the
  * pattern and value come from the same type.  Match_type_error is returned
  * when one of these conditions is violated *)
-(*val pmatch : envC -> store v -> pat -> v -> envE -> match_result envE*)
+(*val pmatch : envC -> store store_v -> pat -> v -> envE -> match_result envE*)
  val pmatch_defn = Hol_defn "pmatch" `
 
 (pmatch envC s (Pvar x) v' env = (Match (bind x v' env)))
@@ -249,7 +253,8 @@ val _ = Hol_datatype `
 /\
 (pmatch envC s (Pref p) (Loc lnum) env =  
 ((case store_lookup lnum s of
-      SOME v => pmatch envC s p v env
+      SOME (Refv v) => pmatch envC s p v env
+    | SOME _ => Match_type_error
     | NONE => Match_type_error
   )))
 /\
@@ -308,7 +313,7 @@ val _ = Define `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn contains_closure_defn;
 
-(*val do_uapp : store v -> uop -> v -> maybe (store v * v)*)
+(*val do_uapp : store store_v -> uop -> v -> maybe (store store_v * v)*)
 val _ = Define `
  (do_uapp s uop v =  
 ((case uop of
@@ -316,14 +321,24 @@ val _ = Define `
         (case v of
             Loc n =>
               (case store_lookup n s of
-                  SOME v => SOME (s,v)
-                | NONE => NONE
+                  SOME (Refv v) => SOME (s,v)
+                | _ => NONE
               )
           | _ => NONE
         )
     | Opref =>
-        let (s',n) = (store_alloc v s) in
+        let (s',n) = (store_alloc (Refv v) s) in
           SOME (s', Loc n)
+    | Alength =>
+        (case v of
+          Loc n =>
+            (case store_lookup n s of
+              SOME (W8array ws) =>
+                SOME (s,Litv(IntLit(int_of_num(LENGTH ws))))
+            | _ => NONE
+            )
+        | _ => NONE
+        )
   )))`;
 
 
@@ -379,9 +394,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 val _ = Define `
  (exn_env = (emp, (emp, MAP (\ cn .  (cn, ( 0, TypeExn (Short cn)))) ["Bind"; "Div"; "Eq"]), emp))`;
 
-                   
+
 (* Do an application *)
-(*val do_app : all_env -> store v -> op -> v -> v -> maybe (all_env * store v * exp)*)
+(*val do_app : all_env -> store store_v -> op -> v -> v -> maybe (all_env * store store_v * exp)*)
 val _ = Define `
  (do_app env' s op v1 v2 =  
 ((case (op, v1, v2) of
@@ -409,9 +424,18 @@ val _ = Define `
           | Eq_val b => SOME (env', s, Lit (Bool b))
         )
     | (Opassign, (Loc lnum), v) =>
-        (case store_assign lnum v s of
+        (case store_assign lnum (Refv v) s of
           SOME st => SOME (env', st, Lit Unit)
         | NONE => NONE
+        )
+    | (Asub, Loc lnum, Litv (IntLit i)) =>
+        (case store_lookup lnum s of
+          SOME (W8array ws) =>
+            let n = (Num (ABS ( i))) in
+            if n < LENGTH ws then
+              SOME (env', s, Lit (Word8 (EL n ws)))
+            else NONE
+        | _ => NONE
         )
     | _ => NONE
   )))`;
@@ -439,6 +463,38 @@ val _ = Define `
     SOME e2
   else
     NONE))`;
+
+
+(* Do an array allocation *)
+(*val do_aalloc : store store_v -> v -> v -> maybe (store store_v * v)*)
+val _ = Define `
+ (do_aalloc s v1 v2 =  
+((case (v1,v2) of
+    (Litv (IntLit n), Litv (Word8 w)) =>
+      let (s',lnum) =        
+(store_alloc (W8array (REPLICATE (Num (ABS ( n))) w)) s)
+      in SOME (s', Loc lnum)
+  | _ => NONE
+  )))`;
+
+
+(* Do an array update *)
+(*val do_aupdate : store store_v -> v -> v -> v -> maybe (store store_v)*)
+val _ = Define `
+ (do_aupdate s v v1 v2 =  
+((case (v,v1,v2) of
+    (Loc lnum, Litv(IntLit i), Litv(Word8 w)) =>
+      (case store_lookup lnum s of
+        SOME (W8array ws) =>
+          let n = (Num (ABS ( i))) in
+          if n < LENGTH ws then
+            let ws' = (LUPDATE w n ws) in
+            store_assign lnum (W8array ws') s
+          else NONE
+      | _ => NONE
+      )
+  | _ => NONE
+  )))`;
 
 
 (* Semantic helpers for definitions *)

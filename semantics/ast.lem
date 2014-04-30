@@ -1,4 +1,5 @@
 open import Pervasives
+open import Lib
 
 (* Literal constants *)
 type lit =
@@ -6,6 +7,7 @@ type lit =
   | StrLit of string
   | Bool of bool
   | Unit
+  | Word8 of word8
 
 (* Built-in binary operations (including function application) *)
 
@@ -36,10 +38,12 @@ type op =
   | Equality
   | Opapp
   | Opassign
+  | Asub
 
 type uop =
   | Opref
   | Opderef
+  | Alength
 
 (* Built-in logical operations *)
 type lop =
@@ -100,6 +104,8 @@ type tc =
   | TC_bool
   | TC_unit
   | TC_ref
+  | TC_word8
+  | TC_word8array
   | TC_fn
   | TC_tup
   | TC_exn
@@ -115,6 +121,8 @@ let Tstring = Tapp [] TC_string
 let Tunit = Tapp [] TC_unit
 let Tbool = Tapp [] TC_bool
 let Tref t = Tapp [t] TC_ref
+let Tword8 = Tapp [] TC_word8
+let Tword8array = Tapp [] TC_word8array
 let Tfn t1 t2 = Tapp [t1;t2] TC_fn
 let Texn = Tapp [] TC_exn
 
@@ -139,6 +147,8 @@ type exp =
   | Uapp of uop * exp
   (* Application of an operator (including function application) *)
   | App of op * exp * exp
+  | Aalloc of exp * exp
+  | Aupdate of exp * exp * exp
   (* Logical operations (and, or) *)
   | Log of lop * exp * exp
   | If of exp * exp * exp

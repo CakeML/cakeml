@@ -60,6 +60,8 @@ type result 'a 'b =
   | Rerr of error_result 'b
 
 (* Stores *)
+type store_v = Refv of v | W8array of list word8
+
 (* The nth item in the list is the value at location n *)
 type store 'a = list 'a
 
@@ -163,7 +165,7 @@ and same_ctor (cn1, _) (cn2, _) = cn1 = cn2
  * number of arguments, and constructors in corresponding positions in the
  * pattern and value come from the same type.  Match_type_error is returned
  * when one of these conditions is violated *)
-val pmatch : envC -> store v -> pat -> v -> envE -> match_result envE
+val pmatch : envC -> store store_v -> pat -> v -> envE -> match_result envE
 let rec
 pmatch envC s (Pvar x) v' env = Match (bind x v' env)
 and
@@ -196,7 +198,8 @@ pmatch envC s (Pcon Nothing ps) (Conv Nothing vs) env =
 and
 pmatch envC s (Pref p) (Loc lnum) env =
   match store_lookup lnum s with
-    | Just v -> pmatch envC s p v env
+    | Just (Refv v) -> pmatch envC s p v env
+    | Just _ -> Match_type_error
     | Nothing -> Match_type_error
   end
 and
@@ -248,21 +251,31 @@ contains_closure (Recclosure env funs n) = true
 and
 contains_closure (Loc n) = false
 
-val do_uapp : store v -> uop -> v -> maybe (store v * v)
+val do_uapp : store store_v -> uop -> v -> maybe (store store_v * v)
 let do_uapp s uop v =
   match uop with
     | Opderef ->
         match v with
           | Loc n ->
               match store_lookup n s with
-                | Just v -> Just (s,v)
-                | Nothing -> Nothing
+                | Just (Refv v) -> Just (s,v)
+                | _ -> Nothing
               end
           | _ -> Nothing
         end
     | Opref ->
-        let (s',n) = store_alloc v s in
+        let (s',n) = store_alloc (Refv v) s in
           Just (s', Loc n)
+    | Alength ->
+        match v with
+        | Loc n ->
+            match store_lookup n s with
+            | Just (W8array ws) ->
+                Just (s,Litv(IntLit(integerFromNat(List.length ws))))
+            | _ -> Nothing
+            end
+        | _ -> Nothing
+        end
   end
 
 type eq_result = 
@@ -310,9 +323,9 @@ do_eq_list _ _ = Eq_val false
 
 val exn_env : all_env
 let exn_env = (emp, (emp, List.map (fun cn -> (cn, (0, TypeExn (Short cn)))) ["Bind"; "Div"; "Eq"]), emp)
-                   
+
 (* Do an application *)
-val do_app : all_env -> store v -> op -> v -> v -> maybe (all_env * store v * exp)
+val do_app : all_env -> store store_v -> op -> v -> v -> maybe (all_env * store store_v * exp)
 let do_app env' s op v1 v2 =
   match (op, v1, v2) with
     | (Opapp, Closure (menv, cenv, env) n e, v) ->
@@ -339,9 +352,18 @@ let do_app env' s op v1 v2 =
           | Eq_val b -> Just (env', s, Lit (Bool b))
         end
     | (Opassign, (Loc lnum), v) ->
-        match store_assign lnum v s with
+        match store_assign lnum (Refv v) s with
         | Just st -> Just (env', st, Lit Unit)
         | Nothing -> Nothing
+        end
+    | (Asub, Loc lnum, Litv (IntLit i)) ->
+        match store_lookup lnum s with
+        | Just (W8array ws) ->
+            let n = natFromInteger i in
+            if n < List.length ws then
+              Just (env', s, Lit (Word8 (List_extra.nth ws n)))
+            else Nothing
+        | _ -> Nothing
         end
     | _ -> Nothing
   end
@@ -365,6 +387,34 @@ let do_if v e1 e2 =
     Just e2
   else
     Nothing
+
+(* Do an array allocation *)
+val do_aalloc : store store_v -> v -> v -> maybe (store store_v * v)
+let do_aalloc s v1 v2 =
+  match (v1,v2) with
+  | (Litv (IntLit n), Litv (Word8 w)) ->
+      let (s',lnum) =
+        store_alloc (W8array (List.replicate (natFromInteger n) w)) s
+      in Just (s', Loc lnum)
+  | _ -> Nothing
+  end
+
+(* Do an array update *)
+val do_aupdate : store store_v -> v -> v -> v -> maybe (store store_v)
+let do_aupdate s v v1 v2 =
+  match (v,v1,v2) with
+  | (Loc lnum, Litv(IntLit i), Litv(Word8 w)) ->
+      match store_lookup lnum s with
+      | Just (W8array ws) ->
+          let n = natFromInteger i in
+          if n < List.length ws then
+            let ws' = List.update ws n w in
+            store_assign lnum (W8array ws') s
+          else Nothing
+      | _ -> Nothing
+      end
+  | _ -> Nothing
+  end
 
 (* Semantic helpers for definitions *)
 

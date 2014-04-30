@@ -22,9 +22,9 @@ let dec_count op count =
   else
     count
 
-indreln [evaluate : bool -> all_env -> count_store v -> exp -> count_store v * result v v -> bool]
-and [evaluate_list : bool -> all_env -> count_store v -> list exp -> count_store v * result (list v) v -> bool]
-and [evaluate_match : bool -> all_env -> count_store v -> v -> list (pat * exp) -> v -> count_store v * result v v -> bool]
+indreln [evaluate : bool -> all_env -> count_store store_v -> exp -> count_store store_v * result v v -> bool]
+and [evaluate_list : bool -> all_env -> count_store store_v -> list exp -> count_store store_v * result (list v) v -> bool]
+and [evaluate_match : bool -> all_env -> count_store store_v -> v -> list (pat * exp) -> v -> count_store store_v * result v v -> bool]
 
 lit : forall ck env l s.
 true
@@ -233,6 +233,52 @@ evaluate ck env s (If e1 e2 e3) (s', Rerr err)
 
 and
 
+aalloc1 : forall ck env s e1 e2 count s2 s3 v1 v2 bv.
+evaluate_list ck env s [e1;e2] ((count,s2),Rval [v1;v2]) &&
+do_aalloc s2 v1 v2 = Just (s3,bv)
+==>
+evaluate ck env s (Aalloc e1 e2) ((count,s3), Rval bv)
+
+and
+
+aalloc2 : forall ck env s e1 e2 count s2 v1 v2.
+evaluate_list ck env s [e1;e2] ((count,s2),Rval [v1;v2]) &&
+do_aalloc s2 v1 v2 = Nothing
+==>
+evaluate ck env s (Aalloc e1 e2) ((count,s2), Rerr Rtype_error)
+
+and
+
+aalloc3 : forall ck env s e1 e2 s2 err.
+evaluate_list ck env s [e1;e2] (s2,Rerr err)
+==>
+evaluate ck env s (Aalloc e1 e2) (s2, Rerr err)
+
+and
+
+aupdate1 : forall ck env e1 e2 e3 v v1 v2 s1 count s2 s'.
+evaluate_list ck env s1 [e1;e2;e3] ((count,s2), Rval [v;v1;v2]) &&
+do_aupdate s2 v v1 v2 = Just s'
+==>
+evaluate ck env s1 (Aupdate e1 e2 e3) ((count,s'), Rval (Litv Unit))
+
+and
+
+aupdate2 : forall ck env e1 e2 e3 v v1 v2 s1 count s2.
+evaluate_list ck env s1 [e1;e2;e3] ((count,s2), Rval [v;v1;v2]) &&
+do_aupdate s2 v v1 v2 = Nothing
+==>
+evaluate ck env s1 (Aupdate e1 e2 e3) ((count,s2), Rerr Rtype_error)
+
+and
+
+aupdate3 : forall ck env e1 e2 e3 err s s'.
+evaluate_list ck env s [e1;e2;e3] (s', Rerr err)
+==>
+evaluate ck env s (Aupdate e1 e2 e3) (s', Rerr err)
+
+and
+
 mat1 : forall ck env e pes v bv s1 s2.
 evaluate ck env s1 e (s2, Rval v) &&
 evaluate_match ck env s2 v pes (Conv (Just ("Bind", TypeExn (Short "Bind"))) []) bv
@@ -347,7 +393,7 @@ evaluate_match ck env s v ((p,e)::pes) err_v (s, Rerr Rtype_error)
 
 (* The set tid_or_exn part of the state tracks all of the types and exceptions
  * that have been declared *)
-indreln [evaluate_dec : bool -> maybe modN -> all_env -> (count_store v * set tid_or_exn) -> dec -> (count_store v * set tid_or_exn) * result (flat_envC * envE) v -> bool]
+indreln [evaluate_dec : bool -> maybe modN -> all_env -> (count_store store_v * set tid_or_exn) -> dec -> (count_store store_v * set tid_or_exn) * result (flat_envC * envE) v -> bool]
 
 dlet1 : forall ck mn env p e v env' s1 s2 count tdecs.
 evaluate ck env s1 e ((count,s2), Rval v) &&
@@ -436,7 +482,7 @@ TypeExn (mk_id mn cn) IN tdecs
 ==>
 evaluate_dec ck mn env (s,tdecs) (Dexn cn ts) ((s,tdecs), Rerr Rtype_error)
 
-indreln [evaluate_decs : bool -> maybe modN -> all_env -> (count_store v * set tid_or_exn) -> list dec -> (count_store v * set tid_or_exn) * flat_envC * result envE v -> bool]
+indreln [evaluate_decs : bool -> maybe modN -> all_env -> (count_store store_v * set tid_or_exn) -> list dec -> (count_store store_v * set tid_or_exn) * flat_envC * result envE v -> bool]
 
 empty : forall ck mn env s.
 true
@@ -466,7 +512,7 @@ let no_dup_types ds =
           | _ -> [] end)
      ds)) 
 
-indreln [evaluate_top : bool -> all_env -> (count_store v * set tid_or_exn * set modN) -> top -> (count_store v * set tid_or_exn * set modN) * envC * result (envM * envE) v -> bool]
+indreln [evaluate_top : bool -> all_env -> (count_store store_v * set tid_or_exn * set modN) -> top -> (count_store store_v * set tid_or_exn * set modN) * envC * result (envM * envE) v -> bool]
 
 tdec1 : forall ck s1 s2 env d new_tds new_env tdecls1 tdecls2 mdecls.
 evaluate_dec ck Nothing env (s1,tdecls1) d ((s2,tdecls2), Rval (new_tds, new_env))
@@ -512,7 +558,7 @@ mn IN mdecls
 ==>
 evaluate_top ck env (s,tdecls,mdecls) (Tmod mn specs ds) ((s,tdecls,mdecls), (emp,emp), Rerr Rtype_error)
 
-indreln [evaluate_prog : bool -> all_env -> (count_store v * set tid_or_exn * set modN) -> prog -> (count_store v * set tid_or_exn * set modN) * envC * result (envM * envE) v -> bool]
+indreln [evaluate_prog : bool -> all_env -> (count_store store_v * set tid_or_exn * set modN) -> prog -> (count_store store_v * set tid_or_exn * set modN) * envC * result (envM * envE) v -> bool]
 
 empty : forall ck env s.
 true
@@ -542,7 +588,7 @@ let dec_diverges env (st,tdecs) d =
     | Dexn cn ts -> false
   end
 
-indreln [decs_diverges : maybe modN -> all_env -> (store v * set tid_or_exn) -> decs -> bool]
+indreln [decs_diverges : maybe modN -> all_env -> (store store_v * set tid_or_exn) -> decs -> bool]
 
 cons1 : forall mn st env d ds.
 dec_diverges env st d
@@ -557,7 +603,7 @@ decs_diverges mn (menv,merge_envC (emp,new_tds) cenv, merge new_env env) (s2,tde
 ==>
 decs_diverges mn (menv,cenv,env) (s1,tdecs) (d::ds)
 
-indreln [top_diverges : all_env -> (store v * set tid_or_exn * set modN) -> top -> bool]
+indreln [top_diverges : all_env -> (store store_v * set tid_or_exn * set modN) -> top -> bool]
 
 tdec : forall st env d tdecls mdecls.
 dec_diverges env (st,tdecls) d
@@ -573,7 +619,7 @@ decs_diverges (Just mn) env (s1,tdecls) ds
 ==>
 top_diverges env (s1,tdecls,mdecls) (Tmod mn specs ds)
 
-indreln [prog_diverges : all_env -> (store v * set tid_or_exn * set modN) -> prog -> bool]
+indreln [prog_diverges : all_env -> (store store_v * set tid_or_exn * set modN) -> prog -> bool]
 
 cons1 : forall st env top tops.
 top_diverges env st top
