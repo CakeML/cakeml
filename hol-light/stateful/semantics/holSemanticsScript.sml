@@ -44,20 +44,18 @@ val typesem_def = tDefine "typesem"`
     (δ name) (MAP (typesem δ τ) args))`
   (type_rec_tac "SND o SND")
 
-(* A term assignment is a map from a constant name to a polymorphic value, that
-   is a function from a type valuation to an element of the constant's type
-   under that valuation. The assignment is with respect to an environment and
-   is only constrained for defined constants. The assignment is only allowed to
-   depend on the valuation of variables that occur in the type. *)
+(* A term assignment is a map from a constant name and a list of values for the
+   free type variables to a value for the constant. The assignment is with
+   respect to an environment and is only constrained for defined constants. *)
 
-val _ = Parse.type_abbrev("tmass",``:string -> 'U tyval -> 'U``)
+val _ = Parse.type_abbrev("tmass",``:string -> 'U list -> 'U``)
 
 val is_term_assignment_def = xDefine "is_term_assignment"`
   is_term_assignment0 ^mem tmenv δ (γ:'U tmass) ⇔
     FEVERY
       (λ(name,ty).
         ∀τ. is_type_valuation τ ⇒
-              γ name (λx. if MEM x (tyvars ty) then τ x else ARB) <: typesem δ τ ty)
+              γ name (MAP τ (STRING_SORT (tyvars ty))) <: typesem δ τ ty)
       tmenv`
 val _ = Parse.overload_on("is_term_assignment",``is_term_assignment0 ^mem``)
 
@@ -96,9 +94,8 @@ val instance_def = new_specification("instance_def",["instance"],
               ty = TYPE_SUBST tyin ty0
               ⇒
               f Γ i name ty =
-              λτ. tmaof i name (λx. if MEM x (tyvars ty0)
-                                    then typesem (tyaof i) τ (TYPE_SUBST tyin (Tyvar x))
-                                    else ARB)``,
+              λτ. tmaof i name
+                (MAP (typesem (tyaof i) τ o TYPE_SUBST tyin o Tyvar) (STRING_SORT (tyvars ty0)))``,
     simp[GSYM SKOLEM_THM] >> rw[] >>
     Cases_on`FLOOKUP (SND Γ) name`>>simp[] >>
     qmatch_assum_rename_tac`FLOOKUP (SND Γ) name = SOME ty0`[] >>
@@ -107,7 +104,7 @@ val instance_def = new_specification("instance_def",["instance"],
     qho_match_abbrev_tac`∃f. ∀tyin. P tyin ⇒ f = Q tyin` >>
     qexists_tac`Q tyin` >>
     rw[Abbr`P`,Abbr`Q`,FUN_EQ_THM] >> rpt AP_TERM_TAC >>
-    rw[FUN_EQ_THM] >> rw[] >> metis_tac[TYPE_SUBST_tyvars]))
+    rw[listTheory.MAP_EQ_f] >> rw[] >> metis_tac[TYPE_SUBST_tyvars]))
 
 (* Semantics of terms. *)
 
@@ -149,12 +146,27 @@ val is_std_type_assignment_def = xDefine "is_std_type_assignment"`
     (δ "bool" = λls. case ls of [] => boolset | _ => ∅)`
 val _ = Parse.overload_on("is_std_type_assignment",``is_std_type_assignment0 ^mem``)
 
+local
+  open Parse
+  val hs = HardSpace 1
+  fun bs n = BreakSpace(1,n)
+in
+val _ = Parse.add_rule{term_name = "interprets",
+                       fixity = Infix (NONASSOC,450),
+                       pp_elements = [TOK "interprets", hs, TM, hs, TOK "on", bs 2, TM, hs, TOK "as", bs 2],
+                       paren_style = OnlyIfNecessary,
+                       block_style = (AroundEachPhrase, (PP.INCONSISTENT, 0))}
+end
+val interprets_def = xDefine"interprets"`
+  interprets0 ^mem γ name vs f ⇔ ∀τ. is_type_valuation τ ⇒ γ name (MAP τ vs) = f (MAP τ vs)`
+val _ = Parse.overload_on("interprets",``interprets0 ^mem``)
+
 val is_std_interpretation_def = xDefine "is_std_interpretation"`
   is_std_interpretation0 ^mem (i:'U interpretation) ⇔
     is_std_type_assignment (tyaof i) ∧
-    tmaof i "=" = λτ.
-        (Abstract (τ"A") (Funspace (τ"A") boolset)
-          (λx. Abstract (τ"A") boolset (λy. Boolean (x = y))))`
+    tmaof i interprets "=" on ["A"] as
+    λl. (Abstract (HD l) (Funspace (HD l) boolset)
+          (λx. Abstract (HD l) boolset (λy. Boolean (x = y))))`
 val _ = Parse.overload_on("is_std_interpretation",``is_std_interpretation0 ^mem``)
 
 (* A model of a theory is a standard interpretation that satisfies all the

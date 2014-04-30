@@ -132,6 +132,6 @@ fun translate_word n = let
   val res = translate (ff_n word_1comp_thm)
 in () end
 
-val _ = app translate_word [1,2,3,5,8,16,23,26,27,30,31,32,33,34,64,65]
+val _ = app translate_word [8]
 
 val _ = export_theory();

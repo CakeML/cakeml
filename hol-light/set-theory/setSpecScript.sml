@@ -285,6 +285,10 @@ val apply_abstract = store_thm("apply_abstract",
   SELECT_ELIM_TAC >>
   simp[mem_sub,mem_product,pair_inj])
 
+val apply_abstract_matchable = store_thm("apply_abstract_matchable",
+  ``∀f x s t u. x <: s ∧ f x <: t ∧ is_set_theory ^mem ∧ f x = u ⇒ Abstract s t f ' x = u``,
+  metis_tac[apply_abstract])
+
 val apply_in_rng = store_thm("apply_in_rng",
   ``is_set_theory ^mem ⇒
     ∀f x s t. x <: s ∧ f <: Funspace s t ⇒

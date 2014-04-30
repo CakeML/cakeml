@@ -52,12 +52,6 @@ val I_AXIOM = store_thm("I_AXIOM",
 
 (* TODO: move *)
 
-val POW_EMPTY = store_thm("POW_EMPTY",
-  ``POW x ≠ {}``,
-  SRW_TAC[][EXTENSION,IN_POW] THEN
-  METIS_TAC[EMPTY_SUBSET])
-val _ = export_rewrites["POW_EMPTY"]
-
 val CARDLEQ_FINITE = store_thm("CARDLEQ_FINITE",
   ``∀s1 s2. FINITE s2 ∧ s1 ≼ s2 ⇒ FINITE s1``,
   metis_tac[cardleq_def,FINITE_INJ])

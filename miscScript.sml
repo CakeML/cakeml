@@ -70,6 +70,36 @@ val OPTREL_trans = store_thm("OPTREL_trans",
     ∧ OPTREL R x y ∧ OPTREL R y z ⇒ OPTREL R x z``,
   rw[optionTheory.OPTREL_def])
 
+val UPDATE_LIST_def = Define`
+  UPDATE_LIST = FOLDL (combin$C (UNCURRY UPDATE))`
+val _ = Parse.add_infix("=++",500,Parse.LEFT)
+val _ = Parse.overload_on("=++",``UPDATE_LIST``)
+
+val UPDATE_LIST_THM = store_thm("UPDATE_LIST_THM",
+  ``∀f. (f =++ [] = f) ∧ ∀h t. (f =++ (h::t) = (FST h =+ SND h) f =++ t)``,
+  rw[UPDATE_LIST_def,pairTheory.UNCURRY])
+
+val APPLY_UPDATE_LIST_ALOOKUP = store_thm("APPLY_UPDATE_LIST_ALOOKUP",
+  ``∀ls f x. (f =++ ls) x = case ALOOKUP (REVERSE ls) x of NONE => f x | SOME y => y``,
+  Induct >> simp[UPDATE_LIST_THM,ALOOKUP_APPEND] >>
+  Cases >> simp[combinTheory.APPLY_UPDATE_THM] >>
+  rw[] >> BasicProvers.CASE_TAC)
+
+val IS_SUFFIX_CONS = store_thm("IS_SUFFIX_CONS",
+  ``∀l1 l2 a. IS_SUFFIX l1 l2 ⇒ IS_SUFFIX (a::l1) l2``,
+  rw[rich_listTheory.IS_SUFFIX_APPEND] >>
+  qexists_tac`a::l` >>rw[])
+
+val SORTED_weaken = store_thm("SORTED_weaken",
+  ``∀R R' ls. SORTED R ls /\ (!x y. MEM x ls /\ MEM y ls /\ R x y ==> R' x y)
+      ==> SORTED R' ls``,
+  NTAC 2 GEN_TAC THEN
+  Induct THEN SRW_TAC[][] THEN
+  Cases_on`ls` THEN
+  FULL_SIMP_TAC(srw_ss())[sortingTheory.SORTED_DEF] THEN
+  FIRST_X_ASSUM MATCH_MP_TAC THEN
+  METIS_TAC[])
+
 val INFINITE_INJ_NOT_SURJ = store_thm("INFINITE_INJ_NOT_SURJ",
   ``∀s. INFINITE s ⇔ (s ≠ ∅) ∧ (∃f. INJ f s s ∧ ¬SURJ f s s)``,
   rw[EQ_IMP_THM] >- (
@@ -138,6 +168,11 @@ val ALOOKUP_ZIP_MAP_SND = store_thm("ALOOKUP_ZIP_MAP_SND",
       (ALOOKUP (ZIP(l1,MAP f l2)) = OPTION_MAP f o (ALOOKUP (ZIP(l1,l2))))``,
   Induct >> simp[LENGTH_NIL,LENGTH_NIL_SYM,FUN_EQ_THM] >>
   gen_tac >> Cases >> simp[] >> rw[] >> rw[])
+
+val ALOOKUP_FILTER = store_thm("ALOOKUP_FILTER",
+  ``∀ls x. ALOOKUP (FILTER (λ(k,v). P k) ls) x =
+           if P x then ALOOKUP ls x else NONE``,
+  Induct >> simp[] >> Cases >> simp[] >> rw[] >> fs[] >> metis_tac[])
 
 val find_index_def = Define`
   (find_index _ [] _ = NONE) ∧
@@ -1288,6 +1323,13 @@ val IN_FRANGE = store_thm(
 "IN_FRANGE",
 ``!f v. v IN FRANGE f ⇔ ?k. k IN FDOM f /\ (f ' k = v)``,
 SRW_TAC[][FRANGE_DEF])
+
+val ALOOKUP_IN_FRANGE = store_thm("ALOOKUP_IN_FRANGE",
+  ``∀ls k v. (ALOOKUP ls k = SOME v) ⇒ v ∈ FRANGE (alist_to_fmap ls)``,
+  Induct >> simp[] >> Cases >> simp[] >> rw[] >>
+  simp[IN_FRANGE,DOMSUB_FAPPLY_THM] >>
+  full_simp_tac std_ss [Once(SYM (CONJUNCT1 ALOOKUP_EQ_FLOOKUP)),FLOOKUP_DEF] >>
+  fs[] >> METIS_TAC[])
 
 val FRANGE_FUPDATE_LIST_SUBSET = store_thm(
 "FRANGE_FUPDATE_LIST_SUBSET",
