@@ -298,6 +298,8 @@ val _ = Parse.overload_on("axsof",``SND:thy->term set``)
 val _ = Parse.overload_on("tysof",``tysof o sigof``)
 val _ = Parse.overload_on("tmsof",``tmsof o sigof``)
 
+  (* Standard signature includes the minimal type operators and constants *)
+
 val is_std_sig_def = Define`
   is_std_sig (sig:sig) ⇔
     FLOOKUP (tysof sig) "fun" = SOME 2 ∧
@@ -493,81 +495,11 @@ val extends_def = Define`
   extends ⇔ RTC (λctxt2 ctxt1. ∃upd. ctxt2 = upd::ctxt1 ∧ upd updates ctxt1)`
 val _ = Parse.add_infix("extends",450,Parse.NONASSOC)
 
-(* Context for the theory of Booleans and asserting the mathematical axioms *)
+(* Initial theory context *)
 
 val init_ctxt_def = Define`
   init_ctxt = [NewConst "=" (Fun (Tyvar"A") (Fun (Tyvar"A") Bool))
               ;NewType "bool" 0
               ;NewType "fun" 2]`
-
-  (* Standard signature includes the minimal type operators and constants *)
-
-val _ = Parse.overload_on("ConstDef",``λx t. ConstSpec [(x,t)] (Var x (typeof t) === t)``)
-val _ = Parse.overload_on("Truth",``Const "T" Bool``)
-val _ = Parse.overload_on("And",``λp1 p2. Comb (Comb (Const "/\\" (Fun Bool (Fun Bool Bool))) p1) p2``)
-val _ = Parse.overload_on("Implies",``λp1 p2. Comb (Comb (Const "==>" (Fun Bool (Fun Bool Bool))) p1) p2``)
-val _ = Parse.overload_on("Forall",``λx ty p. Comb (Const "!" (Fun (Fun ty Bool) Bool)) (Abs x ty p)``)
-val _ = Parse.overload_on("Exists",``λx ty p. Comb (Const "?" (Fun (Fun ty Bool) Bool)) (Abs x ty p)``)
-val _ = Parse.overload_on("Or",``λp1 p2. Comb (Comb (Const "\\/" (Fun Bool (Fun Bool Bool))) p1) p2``)
-val _ = Parse.overload_on("Falsity",``Const "F" Bool``)
-val _ = Parse.overload_on("Not",``λp. Comb (Const "~" (Fun Bool Bool)) p``)
-val _ = Parse.overload_on("Select",``λty. Const "@" (Fun (Fun ty Bool) ty)``)
-val _ = Parse.overload_on("One_One",``λf. Comb (Const "ONE_ONE" (Fun (typeof f) Bool)) f``)
-val _ = Parse.overload_on("Onto",``λf. Comb (Const "ONTO" (Fun (typeof f) Bool)) f``)
-val _ = Parse.overload_on("Ind",``Tyapp "ind" []``)
-
-val bool_ctxt_def = Define`
-  bool_ctxt = REVERSE (REVERSE init_ctxt ++
-    let    A =  Tyvar "A" in
-    let    B =  Tyvar "B" in
-    let    p =    Var "p" Bool in
-    let Absp =    Abs "p" Bool in
-    let  FAp = Forall "p" Bool in
-    let    q =    Var "q" Bool in
-    let Absq =    Abs "q" Bool in
-    let  FAq = Forall "q" Bool in
-    let    r =    Var "r" Bool in
-    let  FAr = Forall "r" Bool in
-    let    f =    Var "f" (Fun Bool (Fun Bool Bool)) in
-    let Absf =    Abs "f" (Fun Bool (Fun Bool Bool)) in
-    let    P =    Var "P" (Fun A Bool) in
-    let AbsP =    Abs "P" (Fun A Bool) in
-    let    x =    Var "x" A in
-    let Absx =    Abs "x" A in
-    let  FAx = Forall "x" A in
-    let  EXx = Exists "x" A in
-    let    g =    Var "f" (Fun A B) in
-    let Absg =    Abs "f" (Fun A B) in
-    let   x1 =    Var "x1" A in
-    let FAx1 = Forall "x1" A in
-    let   x2 =    Var "x2" A in
-    let FAx2 = Forall "x2" A in
-    let    y =    Var "y" B in
-    let  FAy = Forall "y" B in
-    let    h =    Var "f" (Fun Ind Ind) in
-    let  Exh = Exists "f" (Fun Ind Ind) in
-    [(* ETA_AX *)
-     NewAxiom ((Absx (Comb g x)) === g)
-     (* SELECT_AX *)
-    ;NewConst "@" (Fun (Fun A Bool) A)
-    ;NewAxiom (Comb P (Comb (Select A) P))
-     (* connectives and quantifiers *)
-    ;ConstDef "T" (Absp p === Absp p)
-    ;ConstDef "/\\"
-       (Absp (Absq (Absf (Comb (Comb f p) q) ===
-                    Absf (Comb (Comb f Truth) Truth))))
-    ;ConstDef "==>" (Absp (Absq (And p q === Var "p" Bool)))
-    ;ConstDef "!" (AbsP (P === Absx Truth))
-    ;ConstDef "?" (AbsP (FAq (Implies (FAx (Implies (Comb P x) q)) q)))
-    ;ConstDef "\\/" (Absp (Absq (FAr (Implies (Implies p r) (Implies (Implies q r) r)))))
-    ;ConstDef "F" (FAp p)
-    ;ConstDef "~" (Absp (Implies p Falsity))
-     (* INFINITY_AX *)
-    ;ConstDef "ONE_ONE"
-       (Absg (FAx1 (FAx2 (Implies (Comb g x1 === Comb g x2) (x1 === x2)))))
-    ;ConstDef "ONTO" (Absg (FAy (EXx (y === Comb g x))))
-    ;NewType "ind" 0
-    ;NewAxiom (Exh (And (One_One h) (Not (Onto h))))
-    ])`
 
 val _ = export_theory()

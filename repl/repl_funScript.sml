@@ -1,7 +1,7 @@
 open HolKernel Parse boolLib bossLib lcsymtacs
 open lexer_implTheory cmlParseTheory astTheory inferTheory compilerTheory
      printerTheory compilerTerminationTheory bytecodeEvalTheory replTheory
-     elabTheory
+     elabTheory initialProgramTheory
 
 val _ = new_theory "repl_fun";
 
@@ -61,37 +61,6 @@ val _ = Hol_datatype`repl_fun_state = <|
   rinferencer_state : inferencer_state;
   rcompiler_state  : compiler_state |>`
 
-val initial_program_def = Define `
-initial_program =
-   Dlet (Pcon NONE [Pvar "ref";
-                    Pvar "!";
-                    Pvar "~";
-                    Pvar ":=";
-                    Pvar "=";
-                    Pvar ">=";
-                    Pvar "<=";
-                    Pvar ">";
-                    Pvar "<";
-                    Pvar "mod";
-                    Pvar "div";
-                    Pvar "*";
-                    Pvar "-";
-                    Pvar "+"])
-        (Con NONE [(Fun "x" (Uapp Opref (Var(Short"x"))));
-                   (Fun "x" (Uapp Opderef (Var(Short"x"))));
-                   (Fun "x" (App (Opn Minus) (Lit (IntLit 0)) (Var(Short"x"))));
-                   (Fun "x" (Fun"y"(App Opassign (Var(Short"x"))(Var(Short"y")))));
-                   (Fun "x" (Fun"y"(App Equality(Var(Short"x"))(Var(Short"y")))));
-                   (Fun "x" (Fun"y"(App(Opb Geq)(Var(Short"x"))(Var(Short"y")))));
-                   (Fun "x" (Fun"y"(App(Opb Leq)(Var(Short"x"))(Var(Short"y")))));
-                   (Fun "x" (Fun"y"(App(Opb Gt)(Var(Short"x"))(Var(Short"y")))));
-                   (Fun "x" (Fun"y"(App(Opb Lt)(Var(Short"x"))(Var(Short"y")))));
-                   (Fun "x" (Fun"y"(App(Opn Modulo)(Var(Short"x"))(Var(Short"y")))));
-                   (Fun "x" (Fun"y"(App(Opn Divide)(Var(Short"x"))(Var(Short"y")))));
-                   (Fun "x" (Fun"y"(App(Opn Times)(Var(Short"x"))(Var(Short"y")))));
-                   (Fun "x" (Fun"y"(App(Opn Minus)(Var(Short"x"))(Var(Short"y")))));
-                   (Fun "x" (Fun"y"(App(Opn Plus)(Var(Short"x"))(Var(Short"y")))))])`;
-
 val compile_primitives_def = Define`
   compile_primitives =
     compile_top NONE init_compiler_state
@@ -140,18 +109,7 @@ val install_code_def = Define `
              |>`;
 
 val initial_bc_state_def =  Define`
-  initial_bc_state =
-  let bs =
-    <|stack := [];
-      code := [];
-      pc := 0;
-      refs := FEMPTY;
-      globals := [];
-      handler := 0;
-      clock := NONE;
-      output := "";
-      inst_length := real_inst_length |> in
-  THE (bc_eval (install_code (SND (SND compile_primitives)) bs))`
+  initial_bc_state = THE (bc_eval (install_code (SND (SND compile_primitives)) empty_bc_state))`
 
 val tac = (WF_REL_TAC `measure (LENGTH o SND)` THEN REPEAT STRIP_TAC
            THEN IMP_RES_TAC lex_until_toplevel_semicolon_LESS);

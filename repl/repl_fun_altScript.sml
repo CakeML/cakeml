@@ -18,8 +18,6 @@ open repl_funTheory bytecodeLabelsTheory bytecodeTheory;
 
 *)
 
-(* TODO: all this needs updating
-
 val bc_num_def = Define `
   bc_num s =
      case s of
@@ -29,7 +27,6 @@ val bc_num_def = Define `
      | Stack (Cons n m) => (4,n,m)
      | Stack (Load n) => (5,n,0)
      | Stack (Store n) => (6,n,0)
-     | Stack (LoadRev n) => (7,n,0)
      | Stack (El n) => (8,n,0)
      | Stack (TagEq n) => (9,n,0)
      | Stack IsBlock => (10,0,0)
@@ -56,21 +53,24 @@ val bc_num_def = Define `
      | Ref => (30,0,0)
      | Deref => (31,0,0)
      | Update => (32,0,0)
-     | Stop => (33,0,0)
      | Tick => (34,0,0)
      | Print => (35,0,0)
      | PrintC c => (36,ORD c,0)
-     | Stop => (37,0,0)`;
+     | Galloc n => (2,n,0)
+     | Gread n => (7,n,0)
+     | Gupdate n => (19,n,0)
+     | Stop b => (37,if b then 1 else 0,0)`;
 
 val num_bc_def = Define `
   num_bc (n:num,x1:num,x2:num) =
     if n = 0 then Stack Pop
     else if n = 1 then Stack (Pops x1)
+    else if n = 2 then Galloc x1
     else if n = 3 then Stack (PushInt (if x2 = 0 then &x1 else 0 - &x1))
     else if n = 4 then Stack (Cons x1 x2)
     else if n = 5 then Stack (Load x1)
     else if n = 6 then Stack (Store x1)
-    else if n = 7 then Stack (LoadRev x1)
+    else if n = 7 then Gread x1
     else if n = 8 then Stack (El x1)
     else if n = 9 then Stack (TagEq x1)
     else if n = 10 then Stack IsBlock
@@ -81,6 +81,7 @@ val num_bc_def = Define `
     else if n = 15 then Stack Div
     else if n = 16 then Stack Mod
     else if n = 17 then Stack Less
+    else if n = 19 then Gupdate x1
     else if n = 20 then Label x1
     else if n = 21 then Jump (Addr x1)
     else if n = 22 then JumpIf (Addr x1)
@@ -97,7 +98,7 @@ val num_bc_def = Define `
     else if n = 30 then Ref
     else if n = 31 then Deref
     else if n = 32 then Update
-    else if n = 33 then Stop
+    else if n = 37 then Stop (0 < x1)
     else if n = 34 then Tick
     else if n = 35 then Print
     else if n = 36 then PrintC (CHR (if x1 < 256 then x1 else 0))
@@ -110,30 +111,17 @@ val num_bc_bc_num = store_thm("num_bc_bc_num",
   THEN Cases_on `i < 0` THEN FULL_SIMP_TAC std_ss []
   THEN intLib.COOPER_TAC);
 
-val bc_num_lists_def = Define `
-  bc_num_lists xs ys = MAP bc_num xs ++ [(18,0,0)] ++ MAP bc_num ys`;
-
-val empty_bc_state_def = Define `
-  empty_bc_state = <| stack := []; code := []; pc := 0; refs := FEMPTY;
-                      handler := 0; clock := NONE; output := "";
-                      cons_names := []; inst_length := real_inst_length |>`;
-
 val repl_step_def = Define `
   repl_step state =
     case state of
     | NONE => (* first time around *)
-       let len = 0 in
-       let code = PrintE ++ [Stop] in
-       let labs = collect_labels code len real_inst_length in
-       let len = code_length real_inst_length code in
-       let code1 = inst_labels labs code in
        let code = SND (SND compile_primitives) in
        let code = REVERSE code in
-       let labs = FUNION labs (collect_labels code len real_inst_length) in
-       let len = len + code_length real_inst_length code in
+       let labs = collect_labels code 0 real_inst_length in
+       let len = code_length real_inst_length code in
        let code = inst_labels labs code in
-         INL ([],bc_num_lists code1 code,len,labs,
-                 initial_repl_fun_state,initial_repl_fun_state)
+       INL (MAP bc_num code,len,labs,
+            initial_repl_fun_state,initial_repl_fun_state)
     | SOME (tokens,new_s,len,labs,s',s_exc) => (* received some input *)
         let s = if new_s then s' else s_exc in
         case parse_elaborate_infertype_compile (MAP token_of_sym tokens) s of
@@ -142,20 +130,12 @@ val repl_step_def = Define `
             let labs = FUNION labs (collect_labels code len real_inst_length) in
             let len = len + code_length real_inst_length code in
             let code = inst_labels labs code in
-              INL (cpam s'.rcompiler_state,bc_num_lists [] code,len,labs,s_exc,s')
+              INL (MAP bc_num code,len,labs,s_exc,s')
         | Failure error_msg => INR (error_msg,(F,len,labs,s,s))`
-
-val set_cons_names_def = Define `
-  set_cons_names m bs =
-    bs with <| cons_names := m; output := "" |>`;
 
 val install_bc_lists_def = Define `
   (install_bc_lists [] bs = bs) /\
   (install_bc_lists (x::xs) bs =
-     if FST x = 18 then
-       install_bc_lists xs (bs with
-         pc := next_addr bs.inst_length bs.code)
-     else
        install_bc_lists xs (bs with
          code := bs.code ++ [num_bc x]))`;
 
@@ -171,13 +151,11 @@ val main_loop_alt_def = tDefine "main_loop_alt" `
               | NONE => Terminate
               | SOME (ts,rest) =>
                   (main_loop_alt bs rest (SOME (ts,x)) F))
-      | INL (m,code,new_state) =>
-        case bc_eval (set_cons_names m (install_bc_lists code bs)) of
+      | INL (code,new_state) =>
+        case bc_eval (install_bc_lists code bs) of
         | NONE => Diverge
         | SOME new_bs =>
-            let new_bs = (if init then new_bs with stack := TL new_bs.stack
-                                  else new_bs) in
-            let new_s = (bc_fetch new_bs = SOME Stop) in
+            let new_s = (bc_fetch new_bs = SOME (Stop T)) in
               (if init then I else Result (REVERSE new_bs.output))
                 (case lex_until_top_semicolon_alt input of
                  | NONE => Terminate
@@ -186,7 +164,5 @@ val main_loop_alt_def = tDefine "main_loop_alt" `
 
 val repl_fun_alt_def = Define `
   repl_fun_alt input = main_loop_alt empty_bc_state input NONE T`;
-
-*)
 
 val _ = export_theory();
