@@ -15,13 +15,6 @@ open import SmallStep
 
 type count_store 'a = nat * store 'a
 
-val dec_count : op -> nat -> nat
-let dec_count op count = 
-  if op = Opapp then
-    count - 1
-  else
-    count
-
 indreln [evaluate : bool -> all_env -> count_store store_v -> exp -> count_store store_v * result v v -> bool]
 and [evaluate_list : bool -> all_env -> count_store store_v -> list exp -> count_store store_v * result (list v) v -> bool]
 and [evaluate_match : bool -> all_env -> count_store store_v -> v -> list (pat * exp) -> v -> count_store store_v * result v v -> bool]
@@ -138,39 +131,50 @@ evaluate ck env s (Uapp uop e) (s', Rerr err)
 
 and
 
-app1 : forall ck env op e1 e2 v1 v2 env' e3 bv s1 s2 s3 count s4.
+app1 : forall ck env op e1 e2 v1 v2 env' e3 bv s1 s2 s3 count.
 evaluate ck env s1 e1 (s2, Rval v1) &&
 evaluate ck env s2 e2 ((count,s3), Rval v2) &&
-do_app env s3 op v1 v2 = Just (env', s4, e3) &&
-((ck && (op = Opapp)) --> count <> 0) &&
-evaluate ck env' ((if ck then dec_count op count else count),s4) e3 bv
+do_opapp v1 v2 = Just (env', e3) &&
+(ck --> count <> 0) &&
+op = Opapp &&
+evaluate ck env' ((if ck then count-1 else count),s3) e3 bv
 ==>
 evaluate ck env s1 (App op e1 e2) bv
 
 and
 
-app2 : forall ck env op e1 e2 v1 v2 env' e3 s1 s2 s3 count s4.
+app2 : forall ck env op e1 e2 v1 v2 env' e3 s1 s2 s3 count.
 evaluate ck env s1 e1 (s2, Rval v1) &&
 evaluate ck env s2 e2 ((count,s3), Rval v2) &&
-do_app env s3 op v1 v2 = Just (env', s4, e3) &&
+do_opapp v1 v2 = Just (env', e3) &&
 count = 0 &&
 op = Opapp &&
 ck
 ==>
-evaluate ck env s1 (App op e1 e2) ((0,s4), Rerr Rtimeout_error)
+evaluate ck env s1 (App op e1 e2) ((0,s3), Rerr Rtimeout_error)
 
 and
 
-app3 : forall ck env op e1 e2 v1 v2 s1 s2 s3 count.
+app3 : forall ck env op e1 e2 v1 v2 env' e3 res s1 s2 s3 count s4.
 evaluate ck env s1 e1 (s2, Rval v1) &&
 evaluate ck env s2 e2 ((count,s3), Rval v2) &&
-do_app env s3 op v1 v2 = Nothing
+do_app s3 op v1 v2 = Just (s4, res)
+==>
+evaluate ck env s1 (App op e1 e2) ((count,s4), res)
+
+and
+
+app4 : forall ck env op e1 e2 v1 v2 s1 s2 s3 count.
+evaluate ck env s1 e1 (s2, Rval v1) &&
+evaluate ck env s2 e2 ((count,s3), Rval v2) &&
+do_app s3 op v1 v2 = Nothing &&
+op <> Opapp
 ==>
 evaluate ck env s1 (App op e1 e2) ((count,s3), Rerr Rtype_error)
 
 and
 
-app4 : forall ck env op e1 e2 v1 err s1 s2 s3.
+app5 : forall ck env op e1 e2 v1 err s1 s2 s3.
 evaluate ck env s1 e1 (s2, Rval v1) &&
 evaluate ck env s2 e2 (s3, Rerr err)
 ==>
@@ -178,7 +182,7 @@ evaluate ck env s1 (App op e1 e2) (s3, Rerr err)
 
 and
 
-app5 : forall ck env op e1 e2 err s s'.
+app6 : forall ck env op e1 e2 err s s'.
 evaluate ck env s e1 (s', Rerr err)
 ==>
 evaluate ck env s (App op e1 e2) (s', Rerr err)
@@ -230,29 +234,6 @@ if3 : forall ck env e1 e2 e3 err s s'.
 evaluate ck env s e1 (s', Rerr err)
 ==>
 evaluate ck env s (If e1 e2 e3) (s', Rerr err)
-
-and
-
-aalloc1 : forall ck env s e1 e2 count s2 s3 v1 v2 bv.
-evaluate_list ck env s [e1;e2] ((count,s2),Rval [v1;v2]) &&
-do_aalloc s2 v1 v2 = Just (s3,bv)
-==>
-evaluate ck env s (Aalloc e1 e2) ((count,s3), Rval bv)
-
-and
-
-aalloc2 : forall ck env s e1 e2 count s2 v1 v2.
-evaluate_list ck env s [e1;e2] ((count,s2),Rval [v1;v2]) &&
-do_aalloc s2 v1 v2 = Nothing
-==>
-evaluate ck env s (Aalloc e1 e2) ((count,s2), Rerr Rtype_error)
-
-and
-
-aalloc3 : forall ck env s e1 e2 s2 err.
-evaluate_list ck env s [e1;e2] (s2,Rerr err)
-==>
-evaluate ck env s (Aalloc e1 e2) (s2, Rerr err)
 
 and
 

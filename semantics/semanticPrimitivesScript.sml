@@ -390,50 +390,62 @@ val _ = Hol_datatype `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn do_eq_defn;
 
-(*val exn_env : all_env*)
+(*val prim_exn : conN -> v*)
 val _ = Define `
- (exn_env = (emp, (emp, MAP (\ cn .  (cn, ( 0, TypeExn (Short cn)))) ["Bind"; "Div"; "Eq"]), emp))`;
+ (prim_exn cn = (Conv (SOME (cn, TypeExn (Short cn))) []))`;
 
 
 (* Do an application *)
-(*val do_app : all_env -> store store_v -> op -> v -> v -> maybe (all_env * store store_v * exp)*)
+(*val do_opapp : v -> v -> maybe (all_env * exp)*)
 val _ = Define `
- (do_app env' s op v1 v2 =  
+ (do_opapp v1 v2 =  
+((case (v1,v2) of
+    (Closure (menv, cenv, env) n e, v) =>
+      SOME ((menv, cenv, bind n v env), e)
+  | (Recclosure (menv, cenv, env) funs n, v) =>
+      if ALL_DISTINCT (MAP (\ (f,x,e) .  f) funs) then
+        (case find_recfun n funs of
+            SOME (n,e) => SOME ((menv, cenv, bind n v (build_rec_env funs (menv, cenv, env) env)), e)
+          | NONE => NONE
+        )
+      else
+        NONE
+  | _ => NONE
+  )))`;
+
+
+(*val do_app : store store_v -> op -> v -> v -> maybe (store store_v * result v v)*)
+val _ = Define `
+ (do_app s op v1 v2 =  
 ((case (op, v1, v2) of
-      (Opapp, Closure (menv, cenv, env) n e, v) =>
-        SOME ((menv, cenv, bind n v env), s, e)
-    | (Opapp, Recclosure (menv, cenv, env) funs n, v) =>
-        if ALL_DISTINCT (MAP (\ (f,x,e) .  f) funs) then
-          (case find_recfun n funs of
-              SOME (n,e) => SOME ((menv, cenv, bind n v (build_rec_env funs (menv, cenv, env) env)), s, e)
-            | NONE => NONE
-          )
-        else
-          NONE
-    | (Opn op, Litv (IntLit n1), Litv (IntLit n2)) =>
+      (Opn op, Litv (IntLit n1), Litv (IntLit n2)) =>
         if ((op = Divide) \/ (op = Modulo)) /\ (n2 =( 0 : int)) then
-          SOME (exn_env, s, Raise (Con (SOME (Short "Div")) []))
+          SOME (s, Rerr (Rraise (prim_exn "Div")))
         else
-          SOME (env', s, Lit (IntLit (opn_lookup op n1 n2)))
+          SOME (s, Rval (Litv (IntLit (opn_lookup op n1 n2))))
     | (Opb op, Litv (IntLit n1), Litv (IntLit n2)) =>
-        SOME (env', s, Lit (Bool (opb_lookup op n1 n2)))
+        SOME (s, Rval (Litv (Bool (opb_lookup op n1 n2))))
     | (Equality, v1, v2) =>
         (case do_eq v1 v2 of
             Eq_type_error => NONE
-          | Eq_closure => SOME (exn_env, s, Raise (Con (SOME (Short "Eq")) []))
-          | Eq_val b => SOME (env', s, Lit (Bool b))
+          | Eq_closure => SOME (s, Rerr (Rraise (prim_exn "Eq")))
+          | Eq_val b => SOME (s, Rval (Litv (Bool b)))
         )
     | (Opassign, (Loc lnum), v) =>
         (case store_assign lnum (Refv v) s of
-          SOME st => SOME (env', st, Lit Unit)
+          SOME st => SOME (st, Rval (Litv Unit))
         | NONE => NONE
         )
+    | (Aalloc, Litv (IntLit n), Litv (Word8 w)) =>
+        let (s',lnum) =          
+(store_alloc (W8array (REPLICATE (Num (ABS ( n))) w)) s)
+        in SOME (s', Rval (Loc lnum))
     | (Asub, Loc lnum, Litv (IntLit i)) =>
         (case store_lookup lnum s of
           SOME (W8array ws) =>
             let n = (Num (ABS ( i))) in
             if n < LENGTH ws then
-              SOME (env', s, Lit (Word8 (EL n ws)))
+              SOME (s, Rval (Litv (Word8 (EL n ws))))
             else NONE
         | _ => NONE
         )
@@ -463,19 +475,6 @@ val _ = Define `
     SOME e2
   else
     NONE))`;
-
-
-(* Do an array allocation *)
-(*val do_aalloc : store store_v -> v -> v -> maybe (store store_v * v)*)
-val _ = Define `
- (do_aalloc s v1 v2 =  
-((case (v1,v2) of
-    (Litv (IntLit n), Litv (Word8 w)) =>
-      let (s',lnum) =        
-(store_alloc (W8array (REPLICATE (Num (ABS ( n))) w)) s)
-      in SOME (s', Loc lnum)
-  | _ => NONE
-  )))`;
 
 
 (* Do an array update *)

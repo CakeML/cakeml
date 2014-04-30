@@ -38,6 +38,7 @@ type op =
   | Equality
   | Opapp
   | Opassign
+  | Aalloc
   | Asub
 
 type uop =
@@ -147,7 +148,6 @@ type exp =
   | Uapp of uop * exp
   (* Application of an operator (including function application) *)
   | App of op * exp * exp
-  | Aalloc of exp * exp
   | Aupdate of exp * exp * exp
   (* Logical operations (and, or) *)
   | Log of lop * exp * exp

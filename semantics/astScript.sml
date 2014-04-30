@@ -59,6 +59,7 @@ val _ = Hol_datatype `
   | Equality
   | Opapp
   | Opassign
+  | Aalloc
   | Asub`;
 
 
@@ -204,7 +205,6 @@ val _ = Hol_datatype `
   | Uapp of uop => exp
   (* Application of an operator (including function application) *)
   | App of op => exp => exp
-  | Aalloc of exp => exp
   | Aupdate of exp => exp => exp
   (* Logical operations (and, or) *)
   | Log of lop => exp => exp

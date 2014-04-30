@@ -321,47 +321,57 @@ do_eq_list (v1::vs1) (v2::vs2) =
 and
 do_eq_list _ _ = Eq_val false
 
-val exn_env : all_env
-let exn_env = (emp, (emp, List.map (fun cn -> (cn, (0, TypeExn (Short cn)))) ["Bind"; "Div"; "Eq"]), emp)
+val prim_exn : conN -> v
+let prim_exn cn = Conv (Just (cn, TypeExn (Short cn))) []
 
 (* Do an application *)
-val do_app : all_env -> store store_v -> op -> v -> v -> maybe (all_env * store store_v * exp)
-let do_app env' s op v1 v2 =
+val do_opapp : v -> v -> maybe (all_env * exp)
+let do_opapp v1 v2 =
+  match (v1,v2) with
+  | (Closure (menv, cenv, env) n e, v) ->
+      Just ((menv, cenv, bind n v env), e)
+  | (Recclosure (menv, cenv, env) funs n, v) ->
+      if allDistinct (List.map (fun (f,x,e) -> f) funs) then
+        match find_recfun n funs with
+          | Just (n,e) -> Just ((menv, cenv, bind n v (build_rec_env funs (menv, cenv, env) env)), e)
+          | Nothing -> Nothing
+        end
+      else
+        Nothing
+  | _ -> Nothing
+  end
+
+val do_app : store store_v -> op -> v -> v -> maybe (store store_v * result v v)
+let do_app s op v1 v2 =
   match (op, v1, v2) with
-    | (Opapp, Closure (menv, cenv, env) n e, v) ->
-        Just ((menv, cenv, bind n v env), s, e)
-    | (Opapp, Recclosure (menv, cenv, env) funs n, v) ->
-        if allDistinct (List.map (fun (f,x,e) -> f) funs) then
-          match find_recfun n funs with
-            | Just (n,e) -> Just ((menv, cenv, bind n v (build_rec_env funs (menv, cenv, env) env)), s, e)
-            | Nothing -> Nothing
-          end
-        else
-          Nothing
     | (Opn op, Litv (IntLit n1), Litv (IntLit n2)) ->
         if (op = Divide || (op = Modulo)) && (n2 = 0) then
-          Just (exn_env, s, Raise (Con (Just (Short "Div")) []))
+          Just (s, Rerr (Rraise (prim_exn "Div")))
         else
-          Just (env', s, Lit (IntLit (opn_lookup op n1 n2)))
+          Just (s, Rval (Litv (IntLit (opn_lookup op n1 n2))))
     | (Opb op, Litv (IntLit n1), Litv (IntLit n2)) ->
-        Just (env', s, Lit (Bool (opb_lookup op n1 n2)))
+        Just (s, Rval (Litv (Bool (opb_lookup op n1 n2))))
     | (Equality, v1, v2) ->
         match do_eq v1 v2 with
           | Eq_type_error -> Nothing
-          | Eq_closure -> Just (exn_env, s, Raise (Con (Just (Short "Eq")) []))
-          | Eq_val b -> Just (env', s, Lit (Bool b))
+          | Eq_closure -> Just (s, Rerr (Rraise (prim_exn "Eq")))
+          | Eq_val b -> Just (s, Rval (Litv (Bool b)))
         end
     | (Opassign, (Loc lnum), v) ->
         match store_assign lnum (Refv v) s with
-        | Just st -> Just (env', st, Lit Unit)
+        | Just st -> Just (st, Rval (Litv Unit))
         | Nothing -> Nothing
         end
+    | (Aalloc, Litv (IntLit n), Litv (Word8 w)) ->
+        let (s',lnum) =
+          store_alloc (W8array (List.replicate (natFromInteger n) w)) s
+        in Just (s', Rval (Loc lnum))
     | (Asub, Loc lnum, Litv (IntLit i)) ->
         match store_lookup lnum s with
         | Just (W8array ws) ->
             let n = natFromInteger i in
             if n < List.length ws then
-              Just (env', s, Lit (Word8 (List_extra.nth ws n)))
+              Just (s, Rval (Litv (Word8 (List_extra.nth ws n))))
             else Nothing
         | _ -> Nothing
         end
@@ -387,17 +397,6 @@ let do_if v e1 e2 =
     Just e2
   else
     Nothing
-
-(* Do an array allocation *)
-val do_aalloc : store store_v -> v -> v -> maybe (store store_v * v)
-let do_aalloc s v1 v2 =
-  match (v1,v2) with
-  | (Litv (IntLit n), Litv (Word8 w)) ->
-      let (s',lnum) =
-        store_alloc (W8array (List.replicate (natFromInteger n) w)) s
-      in Just (s', Loc lnum)
-  | _ -> Nothing
-  end
 
 (* Do an array update *)
 val do_aupdate : store store_v -> v -> v -> v -> maybe (store store_v)
