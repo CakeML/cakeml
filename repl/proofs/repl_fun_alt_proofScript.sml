@@ -1,4 +1,3 @@
-
 open HolKernel Parse boolLib bossLib;
 
 val _ = new_theory "repl_fun_alt_proof";
@@ -9,27 +8,26 @@ open lcsymtacs bytecodeEvalTheory bytecodeExtraTheory;
 
 infix \\ val op \\ = op THEN;
 
+val code_executes_ok_def = Define `
+  code_executes_ok s1 =
+    let len i = if is_Label i then 0 else s1.inst_length i + 1 in
+      (* termination *)
+      (?s2 b. bc_next^* s1 s2 /\ bc_fetch s2 = SOME (Stop b)) \/
+      (* or divergence with no output *)
+      !n. ?s2. NRC bc_next n s1 s2 /\ (s2.output = s1.output)`;
+
 (* We start by defining a new version of repl_fun called repl_fun'
    which brings with it a proof of side conditions. *)
 
 val initial_bc_state_side_def = Define `
   initial_bc_state_side =
-    let bs1 = ^(rand(rhs(concl(initial_bc_state_def)))) in
-    let bs2 = install_code [] (SND (SND compile_primitives)) bs1 in
+    let bs1 = empty_bc_state in
+    let bs2 = install_code (SND (SND compile_primitives)) bs1 in
     let bs3 = bc_eval bs2 in
     let bs4 = THE bs3 in
       IS_SOME bs3 /\
       (bs4.pc = next_addr bs1.inst_length bs4.code) /\
       (bs4.stack <> [])`;
-
-val code_executes_ok_def = Define `
-  code_executes_ok s1 =
-    let len i = if is_Label i then 0 else s1.inst_length i + 1 in
-      (* termination *)
-      (?s2. bc_next^* s1 s2 /\
-         ((bc_fetch s2 = SOME Stop) \/ (s2.pc = SUM (MAP len s1.code)))) \/
-      (* or divergence with no output *)
-      !n. ?s2. NRC bc_next n s1 s2 /\ (s2.output = s1.output)`;
 
 val tac = (WF_REL_TAC `measure (LENGTH o SND)` \\ REPEAT STRIP_TAC
            \\ IMP_RES_TAC lex_until_toplevel_semicolon_LESS);
@@ -42,14 +40,17 @@ val main_loop'_def = tDefine "main_loop'" `
      case parse_elaborate_infertype_compile tokens s of
      | Success (code,s',s_exc) =>
        let code_assert = code_labels_ok bs.code in
-       let s1 = (install_code (cpam s'.rcompiler_state) code bs) in
+       let s1 = install_code code bs in
        let code_assert = (code_assert /\ code_executes_ok s1) in
        (case bc_eval s1 of
         | NONE => (Diverge,code_assert)
         | SOME new_bs =>
-          let new_s = if bc_fetch new_bs = SOME Stop then s_exc else s' in
-          let (res,assert) = main_loop' (new_bs,new_s) rest_of_input in
-            (Result (new_bs.output) res, assert /\ code_assert))
+          (case bc_fetch new_bs of
+           | SOME (Stop success) =>
+             let new_s = if success then s' else s_exc in
+             let (res,assert) = main_loop' (new_bs,new_s) rest_of_input in
+               (Result (new_bs.output) res, assert /\ code_assert)
+           | _ => (ARB,F)))
      | Failure error_msg =>
          let (res,assert) = main_loop' (bs,s) rest_of_input in
            (Result error_msg res, assert)` tac
@@ -79,9 +80,12 @@ val main_loop'_thm = prove(
   THEN1 (Cases_on `main_loop' (bs,s) rest` \\ FULL_SIMP_TAC std_ss [])
   \\ `?code s1 s2. a = (code,s1,s2)` by METIS_TAC [pairTheory.PAIR]
   \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ Cases_on `bc_eval (install_code (cpam s1.rcompiler_state) code bs)`
+  \\ Cases_on `bc_eval (install_code code bs)`
   \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ Cases_on `main_loop' (x,if bc_fetch x = SOME Stop then s2 else s1) rest`
+  \\ Cases_on`bc_fetch x` \\ FULL_SIMP_TAC (srw_ss())[]
+  \\ Q.MATCH_ASSUM_RENAME_TAC`bc_fetch x = SOME i`[]
+  \\ Cases_on`i` \\ FULL_SIMP_TAC (srw_ss())[]
+  \\ Cases_on `main_loop' (x,if b then s1 else s2) rest`
   \\ FULL_SIMP_TAC (srw_ss()) []) |> SIMP_RULE std_ss [];
 
 val repl_fun'_thm = store_thm("repl_fun'_thm",
@@ -105,15 +109,14 @@ val main_loop_alt'_def = tDefine "main_loop_alt'" `
         | SOME (ts,rest) =>
             let (res,assert) = main_loop_alt' bs rest (SOME (ts,x)) F in
               (Result error_msg res, assert))
-      | INL (m,code,new_state) =>
-        let bs = set_cons_names m (install_bc_lists code bs) in
+      | INL (code,new_state) =>
+        let bs = (install_bc_lists code bs) in
         let code_assert = code_executes_ok bs in
           case bc_eval bs of
           | NONE => (Diverge,code_assert)
           | SOME new_bs =>
-            let new_bs = (if init then new_bs else new_bs) in
-            let new_s = (bc_fetch new_bs = SOME Stop) in
-            let out = if init then I else Result (new_bs.output) in
+            let new_s = (bc_fetch new_bs = SOME (Stop T)) in
+            let out = if init then I else Result (REVERSE new_bs.output) in
               (case lex_until_top_semicolon_alt input of
                | NONE => (out Terminate,code_assert)
                | SOME (ts,rest) =>
@@ -178,17 +181,6 @@ val code_executes_ok_strip_labels = prove(
     \\ FULL_SIMP_TAC std_ss []
     \\ IMP_RES_TAC bytecodeExtraTheory.RTC_bc_next_preserves
     \\ METIS_TAC [bc_fetch_strip_labels])
-  THEN1
-   (DISJ1_TAC \\ Q.EXISTS_TAC `strip_labels s2`
-    \\ IMP_RES_TAC bc_next_strip_labels_RTC
-    \\ FULL_SIMP_TAC std_ss [] \\ DISJ2_TAC
-    \\ `((strip_labels s2).pc = s2.pc) /\
-        ((strip_labels bs1).inst_length = bs1.inst_length)` by
-           FULL_SIMP_TAC (srw_ss()) [strip_labels_def]
-    \\ FULL_SIMP_TAC std_ss []
-    \\ CONV_TAC (DEPTH_CONV ETA_CONV)
-    \\ FULL_SIMP_TAC std_ss [GSYM code_length_def]
-    \\ FULL_SIMP_TAC std_ss [code_length_strip_labels])
   \\ DISJ2_TAC \\ REPEAT GEN_TAC
   \\ POP_ASSUM MP_TAC
   \\ POP_ASSUM (STRIP_ASSUME_TAC o Q.SPECL [`n`]) \\ STRIP_TAC
@@ -294,8 +286,8 @@ val length_ok_inst_length = prove(
   EVAL_TAC \\ SIMP_TAC std_ss []);
 
 val install_code_NIL = prove(
-  ``install_code m code (install_code m1 [] bs) =
-    install_code m code bs``,
+  ``install_code code (install_code [] bs) =
+    install_code code bs``,
   SIMP_TAC (srw_ss()) [install_code_def]);
 
 val lex_lemma = prove(
@@ -320,23 +312,27 @@ val install_bc_lists_MAP_bc_num = prove(
   \\ ASM_SIMP_TAC (srw_ss()) [num_bc_bc_num]
   \\ ASM_SIMP_TAC std_ss [APPEND,GSYM APPEND_ASSOC]);
 
+(*
 val install_bc_lists_lemma = prove(
-  ``set_cons_names m (install_bc_lists (bc_num_lists xs ys) bs) =
-    install_code m (REVERSE ys) (install_code m (REVERSE xs) bs)``,
+  ``install_bc_lists (bc_num_lists xs ys) bs =
+    install_code (REVERSE ys) (install_code (REVERSE xs) bs)``,
   SIMP_TAC std_ss [bc_num_lists_def, GSYM APPEND_ASSOC,
     install_bc_lists_def,install_bc_lists_MAP_bc_num,APPEND,
     install_bc_lists_MAP_bc_num |> Q.INST [`xs`|->`[]`]
       |> SIMP_RULE std_ss [APPEND_NIL]]
-  \\ SIMP_TAC (srw_ss()) [set_cons_names_def]
   \\ SIMP_TAC (srw_ss()) [install_code_def]);
+*)
 
+(*
 val install_bc_lists_thm = LIST_CONJ [
   install_bc_lists_lemma |> Q.INST [`xs`|->`[]`]
     |> SIMP_RULE std_ss [EVAL ``REVERSE []``],
   install_bc_lists_lemma |> Q.INST [`ys`|->`[]`]
     |> SIMP_RULE std_ss [EVAL ``REVERSE []``],
   install_bc_lists_lemma]
+*)
 
+(*
 val main_loop_alt_eq = prove(
   ``!input ts b s1 s2 bs res.
       (bs.inst_length = real_inst_length) ==>
@@ -616,5 +612,6 @@ val repl_fun_alt_correct = store_thm("repl_fun_alt_correct",
   \\ FULL_SIMP_TAC std_ss []);
 
 val _ = delete_const "temp";
+*)
 
 val _ = export_theory();

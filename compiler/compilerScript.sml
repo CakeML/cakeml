@@ -38,7 +38,7 @@ val _ = Define `
 (<| next_global :=( 0)
    ; globals_env := (FEMPTY, FEMPTY)
    ; contags_env := init_tagenv_state
-   ; exh := FEMPTY
+   ; exh := (FEMPTY |+ ((Short"option"), [some_tag; none_tag]))
    ; rnext_label :=( 0)
    |>))`;
 
@@ -153,14 +153,14 @@ val _ = Define `
  (compile_prog prog =  
 (let n = (init_compiler_state.next_global) in
   let (m1,m2) = (init_compiler_state.globals_env) in  
-  (case prog_to_i1 init_compiler_state.next_global m1 m2 prog of
+  (case prog_to_i1 n m1 m2 prog of
       (_,_,m2,p) =>
   (case prog_to_i2 init_compiler_state.contags_env p of
       (_,exh,p) =>
   (case prog_to_i3 (none_tag, SOME (TypeId (Short "option")))
           (some_tag, SOME (TypeId (Short "option"))) n p of
       (_,e) =>
-  let e = (exp_to_exh exh e) in
+  let e = (exp_to_exh (FUNION exh init_compiler_state.exh) e) in
   let e = (exp_to_pat [] e) in
   let e = (exp_to_Cexp e) in
   let r = (compile_Cexp [] ( 0)

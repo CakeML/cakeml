@@ -536,6 +536,20 @@ val code_labels_ok_REVERSE = store_thm("code_labels_ok_REVERSE",
   rw[code_labels_ok_def,uses_label_thm,EXISTS_REVERSE])
 val _ = export_rewrites["code_labels_ok_REVERSE"]
 
+val no_labels_def = Define`
+  no_labels = EVERY ($~ o is_Label)`
+
+val inst_labels_no_labels = store_thm("inst_labels_no_labels",
+  ``∀ls f. no_labels (inst_labels f ls)``,
+  simp[no_labels_def] >>
+  Induct >> simp[inst_labels_def] >>
+  Cases >> simp[inst_labels_def] >>
+  Cases_on`l`>>simp[inst_labels_def])
+
+val code_labels_no_labels = store_thm("code_labels_no_labels",
+  ``∀l ls. no_labels (code_labels l ls)``,
+  rw[code_labels_def,inst_labels_no_labels])
+
 open bytecodeExtraTheory
 
 val real_inst_length_ok = store_thm("real_inst_length_ok",

@@ -1,0 +1,12 @@
+holSyntaxScript.sml
+  Defines the HOL inference system.
+
+holSyntaxExtraScript.sml
+  Some lemmas about the syntactic functions.
+
+holBoolSyntaxScript.sml
+  Definitions to extend a theory context to include the theory of Booleans, and
+  some basic syntactic properties about these extensions.
+
+holAxiomsSyntaxScript.sml
+  Context extensions for asserting the mathematical axioms.

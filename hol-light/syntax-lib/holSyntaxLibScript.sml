@@ -4,6 +4,13 @@ val _ = new_theory"holSyntaxLib"
 infix \\ val op \\ = op THEN;
 
 (* TOOD: move? *)
+val SORTED_FILTER = store_thm("SORTED_FILTER",
+  ``∀R ls P. transitive R ∧ SORTED R ls ⇒ SORTED R (FILTER P ls)``,
+  ho_match_mp_tac SORTED_IND >>
+  rw[] >> rw[] >> rfs[SORTED_EQ] >> fs[SORTED_EQ] >>
+  first_x_assum(qspec_then`P`mp_tac) >> rw[] >>
+  rfs[SORTED_EQ] >> fs[MEM_FILTER])
+
 val LENGTH_EQ_FILTER_FILTER = store_thm("LENGTH_EQ_FILTER_FILTER",
   ``!xs. EVERY (\x. (P x \/ Q x) /\ ~(P x /\ Q x)) xs ==>
          (LENGTH xs = LENGTH (FILTER P xs) + LENGTH (FILTER Q xs))``,
@@ -243,9 +250,42 @@ val MEM_STRING_SORT = store_thm("MEM_STRING_SORT",
 val _ = export_rewrites["MEM_STRING_SORT"]
 
 val ALL_DISTINCT_STRING_SORT = store_thm("ALL_DISTINCT_STRING_SORT",
-  ``∀ls. ALL_DISTINCT ls ⇒ ALL_DISTINCT (STRING_SORT ls)``,
-  metis_tac[PERM_STRING_SORT,ALL_DISTINCT_PERM])
+  ``!xs. ALL_DISTINCT (STRING_SORT xs)``,
+  Induct
+  >> FULL_SIMP_TAC std_ss [STRING_SORT_def,FOLDR,ALL_DISTINCT,INORDER_INSERT_def]
+  >> FULL_SIMP_TAC std_ss [ALL_DISTINCT_APPEND,MEM_FILTER,MEM,MEM_APPEND,
+       ALL_DISTINCT,stringTheory.string_lt_nonrefl]
+  >> REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
+  >> TRY (MATCH_MP_TAC FILTER_ALL_DISTINCT)
+  >> FULL_SIMP_TAC std_ss []
+  >> METIS_TAC [stringTheory.string_lt_antisym,stringTheory.string_lt_trans,
+        stringTheory.string_lt_cases]);
 val _ = export_rewrites["ALL_DISTINCT_STRING_SORT"]
+
+val STRING_SORT_SORTED = store_thm("STRING_SORT_SORTED",
+  ``∀ls. SORTED $< (STRING_SORT ls)``,
+  Induct >> simp[STRING_SORT_def,INORDER_INSERT_def] >>
+  rw[] >> match_mp_tac SORTED_APPEND >>
+  conj_asm1_tac >- METIS_TAC [string_lt_trans,relationTheory.transitive_def] >>
+  simp[MEM_FILTER] >> fs[GSYM STRING_SORT_def] >>
+  simp[SORTED_FILTER] >>
+  conj_tac >- (
+    match_mp_tac SORTED_APPEND >>
+    simp[SORTED_FILTER,MEM_FILTER] ) >>
+  rw[] >> fs[relationTheory.transitive_def] >>
+  METIS_TAC[])
+
+val STRING_SORT_EQ = store_thm("STRING_SORT_EQ",
+  ``∀l1 l2. ALL_DISTINCT l1 ∧ ALL_DISTINCT l2 ⇒
+      (STRING_SORT l1 = STRING_SORT l2 ⇔ PERM l1 l2)``,
+  rw[] >>
+  imp_res_tac PERM_STRING_SORT >>
+  `transitive string_lt ∧ antisymmetric string_lt` by (
+    simp[relationTheory.transitive_def,relationTheory.antisymmetric_def] >>
+    METIS_TAC[string_lt_trans,string_lt_antisym] ) >>
+  `SORTED $< (STRING_SORT l1) ∧ SORTED $< (STRING_SORT l2)`
+    by METIS_TAC[STRING_SORT_SORTED] >>
+  METIS_TAC[SORTED_PERM_EQ,PERM_REFL,PERM_SYM,PERM_TRANS])
 
 val ALL_DISTINCT_LIST_UNION = store_thm("ALL_DISTINCT_LIST_UNION",
   ``∀l1 l2. ALL_DISTINCT l2 ⇒ ALL_DISTINCT (LIST_UNION l1 l2)``,

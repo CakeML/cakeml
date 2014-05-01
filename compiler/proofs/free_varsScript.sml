@@ -1448,6 +1448,18 @@ val _ = export_rewrites["FV_top_def"]
 val closed_top_def = Define`
   closed_top env top ⇔ FV_top top ⊆ all_env_dom env`
 
+val new_top_vs_def = Define`
+  new_top_vs (Tdec d) = new_dec_vs d ∧
+  new_top_vs (Tmod _ _ _) = []`
+val _ = export_rewrites["new_top_vs_def"]
+
+val FV_prog_def = Define`
+  (FV_prog [] = {}) ∧
+  (FV_prog (t::ts) = FV_top t ∪ ((FV_prog ts) DIFF (set (MAP Short (new_top_vs t)))))`
+
+val closed_prog_def = Define`
+  closed_prog p ⇔ FV_prog p = {}`
+
 val global_dom_def = Define`
   global_dom (me,e) = IMAGE Short (FDOM e) ∪ { Long m x | ∃e. FLOOKUP me m = SOME e ∧ x ∈ FDOM e}`
 
@@ -1570,6 +1582,79 @@ val FV_top_to_i1 = store_thm("FV_top_to_i1",
   Cases_on`t`>>simp[top_to_i1_def,UNCURRY] >>
   simp[free_vars_prompt_i1_def,free_vars_dec_to_i1] >>
   simp[free_vars_decs_to_i1])
+
+val free_vars_prog_i1_def = Define`
+  free_vars_prog_i1 ps = BIGUNION (IMAGE free_vars_prompt_i1 (set ps))`
+
+val dec_to_i1_new_dec_vs = store_thm("dec_to_i1_new_dec_vs",
+  ``∀a b c d e f g h. dec_to_i1 a b c d e = (f,g,h) ⇒
+      set (MAP FST g) = set (new_dec_vs e)``,
+  rw[dec_to_i1_def] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[LET_THM] >> rw[] >>
+  rw[alloc_defs_GENLIST,MAP_ZIP,FST_triple])
+
+val top_to_i1_new_top_vs = store_thm("top_to_i1_new_top_vs",
+  ``∀n m e h x y z p. top_to_i1 n m e h = (x,y,z,p) ⇒
+      FDOM z = FDOM e ∪ set (new_top_vs h)``,
+  rw[top_to_i1_def] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[LET_THM] >>
+  first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
+  rw[] >>
+  simp[(Q.ISPECL[`FST`,`SND`]FOLDL_FUPDATE_LIST|>SIMP_RULE(srw_ss())[LAMBDA_PROD])] >>
+  simp[FDOM_FUPDATE_LIST,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
+  imp_res_tac dec_to_i1_new_dec_vs >> rw[])
+
+val FV_prog_to_i1 = store_thm("FV_prog_to_i1",
+  ``∀n m e ps x y z p. prog_to_i1 n m e ps = (x,y,z,p) ⇒
+       free_vars_prog_i1 p = {x | Short x ∈ FV_prog ps} DIFF FDOM e``,
+  Induct_on`ps`>-simp[prog_to_i1_def,free_vars_prog_i1_def,FV_prog_def] >>
+  simp[prog_to_i1_def] >> rw[] >>
+  first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
+  first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >> rw[] >>
+  first_x_assum(fn th => first_assum (mp_tac o MATCH_MP th)) >>
+  imp_res_tac FV_top_to_i1 >> pop_assum mp_tac >>
+  simp[free_vars_prog_i1_def,FV_prog_def] >>
+  srw_tac[DNF_ss][EXTENSION,MEM_MAP] >>
+  qmatch_abbrev_tac`a ∨ b ⇔ a ∨ c` >>
+  qsuff_tac`¬a ⇒ (b ⇔ c)` >- metis_tac[] >>
+  unabbrev_all_tac >> fs[] >>
+  Cases_on`p'`>>fs[free_vars_prompt_i1_def] >>
+  qpat_assum`∀x. x ∈ A ⇔ B x`mp_tac >>
+  qho_match_abbrev_tac`(∀x. P x ⇔ Q x) ⇒ C ⇒ D` >>
+  qsuff_tac`(∀x. ¬Q x ⇔ ¬P x) ⇒ ¬P x ⇒ D`>-metis_tac[] >>
+  unabbrev_all_tac >> rw[] >>
+  imp_res_tac top_to_i1_new_top_vs >>
+  rw[] >> metis_tac[])
+
+val free_vars_prog_i2_def = Define`
+  free_vars_prog_i2 ps = BIGUNION (IMAGE free_vars_prompt_i2 (set ps))`
+
+val free_vars_i2_prog_to_i3 = store_thm("free_vars_i2_prog_to_i3",
+  ``∀x y s m p n e.
+    prog_to_i3 x y m p = (n,e) ⇒
+    (free_vars_i2 e = free_vars_prog_i2 p)``,
+  Induct_on`p`>> rw[prog_to_i3_def] >> rw[free_vars_prog_i2_def] >>
+  rw[GSYM free_vars_prog_i2_def] >>
+  fs[LET_THM] >>
+  first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
+  first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
+  rw[] >> rw[pat_bindings_i2_def] >> fs[pat_bindings_i2_def] >>
+  first_x_assum(fn th => first_assum (mp_tac o MATCH_MP th)) >> rw[] >>
+  imp_res_tac free_vars_i2_prompt_to_i3 >> rw[])
+
+val free_vars_prog_to_i2 = store_thm("free_vars_prog_to_i2",
+  ``∀x y a b c. prog_to_i2 x y = (a,b,c) ⇒
+    free_vars_prog_i2 c = free_vars_prog_i1 y``,
+  Induct_on`y`>>rw[prog_to_i2_def] >>
+  rw[free_vars_prog_i2_def,free_vars_prog_i1_def] >>
+  rw[GSYM free_vars_prog_i2_def,GSYM free_vars_prog_i1_def] >>
+  fs[LET_THM] >>
+  first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
+  first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
+  rw[] >>
+  first_x_assum(fn th => first_assum (mp_tac o MATCH_MP th)) >> rw[] >>
+  rw[free_vars_prog_i2_def] >> rw[GSYM free_vars_prog_i2_def] >>
+  imp_res_tac free_vars_prompt_to_i2 >> rw[])
 
 val all_env_i1_dom_def = Define`
   all_env_i1_dom (envM,envC,envE) = set (MAP FST envE)`

@@ -1,0 +1,6 @@
+hol_kernelScript.sml
+  Definition of monadic functions implementing the HOL Light kernel, based on
+  the original OCaml code.
+
+hol_verificationScript.sml
+  Proof that the above functions implement the HOL inference system.

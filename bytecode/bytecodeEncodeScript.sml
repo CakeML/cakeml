@@ -238,7 +238,8 @@ val lem = Q.prove (
 `!l. LENGTH l < SUC (LENGTH l) ∧ LENGTH l < SUC (SUC (LENGTH l)) ∧ LENGTH l < SUC (SUC (SUC (LENGTH l)))`,
 decide_tac);
 
-val decode_bc_insts_prim_def = tDefine "decode_bc_insts" `
+fun tzDefine s q = Lib.with_flag (computeLib.auto_import_definitions,false) (tDefine s q)
+val decode_bc_insts_prim_def = tzDefine "decode_bc_insts" `
 (decode_bc_insts [] = SOME []) ∧
 (decode_bc_insts (wl:'a word list) =
   case decode_bc_inst wl of

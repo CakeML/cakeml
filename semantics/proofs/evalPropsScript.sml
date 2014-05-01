@@ -178,4 +178,76 @@ rw [] >>
 PairCases_on `h` >>
 fs []);
 
+open miscLib boolSimps
+
+val map_error_result_def = Define`
+  (map_error_result f (Rraise e) = Rraise (f e)) ∧
+  (map_error_result f Rtype_error = Rtype_error) ∧
+  (map_error_result f Rtimeout_error = Rtimeout_error)`
+val _ = export_rewrites["map_error_result_def"]
+
+val map_error_result_Rtype_error = store_thm("map_error_result_Rtype_error",
+  ``map_error_result f e = Rtype_error ⇔ e = Rtype_error``,
+  Cases_on`e`>>simp[])
+val map_error_result_Rtimeout_error = store_thm("map_error_result_Rtimeout_error",
+  ``map_error_result f e = Rtimeout_error ⇔ e = Rtimeout_error``,
+  Cases_on`e`>>simp[])
+val _ = export_rewrites["map_error_result_Rtimeout_error","map_error_result_Rtype_error"]
+
+val map_result_def = Define`
+  (map_result f1 f2 (Rval v) = Rval (f1 v)) ∧
+  (map_result f1 f2 (Rerr e) = Rerr (map_error_result f2 e))`
+val _ = export_rewrites["map_result_def"]
+
+val map_result_Rerr = store_thm("map_result_Rerr",
+  ``map_result f1 f2 e = Rerr e' ⇔ ∃a. e = Rerr a ∧ map_error_result f2 a = e'``,
+  Cases_on`e`>>simp[EQ_IMP_THM])
+val _ = export_rewrites["map_result_Rerr"]
+
+val evaluate_decs_evaluate_prog_MAP_Tdec = store_thm("evaluate_decs_evaluate_prog_MAP_Tdec",
+  ``∀ck env cs tids ds res.
+      evaluate_decs ck NONE env (cs,tids) ds res
+      ⇔
+      case res of ((s,tids'),envC,r) =>
+      evaluate_prog ck env (cs,tids,{}) (MAP Tdec ds) ((s,tids',{}),([],envC),map_result(λenvE. (emp,envE))(I)r)``,
+  Induct_on`ds`>>simp[Once evaluate_decs_cases,Once evaluate_prog_cases] >- (
+    rpt gen_tac >> BasicProvers.EVERY_CASE_TAC >> simp[emp_def] >>
+    Cases_on`r'`>>simp[] ) >>
+  srw_tac[DNF_ss][] >>
+  PairCases_on`res`>>srw_tac[DNF_ss][]>>
+  PairCases_on`env`>>srw_tac[DNF_ss][]>>
+  simp[evaluate_top_cases] >> srw_tac[DNF_ss][emp_def] >>
+  srw_tac[DNF_ss][EQ_IMP_THM] >- (
+    Cases_on`e`>>simp[] )
+  >- (
+    disj1_tac >>
+    CONV_TAC(STRIP_BINDER_CONV(SOME existential)(lift_conjunct_conv(equal``evaluate_dec`` o fst o strip_comb))) >>
+    first_assum(split_pair_match o concl) >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    fsrw_tac[DNF_ss][EQ_IMP_THM] >>
+    first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
+    simp[] >> strip_tac >>
+    fs[merge_def] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    Cases_on`r`>> simp[combine_dec_result_def,combine_mod_result_def,merge_def,emp_def,merge_envC_def] )
+  >- (
+    disj2_tac >>
+    CONV_TAC(STRIP_BINDER_CONV(SOME existential)(lift_conjunct_conv(equal``evaluate_dec`` o fst o strip_comb))) >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    fsrw_tac[DNF_ss][EQ_IMP_THM,FORALL_PROD,merge_def,merge_envC_def] >>
+    `∃z. r' = map_result (λenvE. (emp,envE)) I z` by (
+      Cases_on`r'`>>fs[combine_mod_result_def,merge_def] >>
+      TRY(METIS_TAC[]) >>
+      Cases_on`a`>>fs[]>>
+      Cases_on`res4`>>fs[]>>rw[]>>
+      qexists_tac`Rval r` >> simp[emp_def] ) >>
+    PairCases_on`new_tds'`>>fs[merge_envC_def,merge_def]>>rw[]>>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    fs[combine_dec_result_def,combine_mod_result_def] >>
+    BasicProvers.EVERY_CASE_TAC >> fs[] >>
+    TRY (Cases_on`res4`>>fs[]) >>
+    Cases_on`a`>>Cases_on`e`>>fs[]>>rw[])
+  >- (
+    Cases_on`a`>>fs[]))
+
 val _ = export_theory ();

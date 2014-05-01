@@ -1,7 +1,7 @@
 open preamble boolSimps miscLib rich_listTheory arithmeticTheory;
 open lexer_funTheory repl_funTheory replTheory untypedSafetyTheory bytecodeClockTheory bytecodeExtraTheory bytecodeEvalTheory
-open lexer_implTheory cmlParseTheory inferSoundTheory bigStepTheory elabTheory compilerProofsTheory;
-open semanticPrimitivesTheory semanticsExtraTheory typeSystemTheory typeSoundTheory weakeningTheory typeSysPropsTheory terminationTheory;
+open lexer_implTheory cmlParseTheory inferSoundTheory bigStepTheory elabTheory compilerProofTheory;
+open semanticPrimitivesTheory typeSystemTheory typeSoundTheory weakeningTheory typeSysPropsTheory terminationTheory;
 open initialEnvTheory;
 open bytecodeTheory repl_fun_altTheory repl_fun_alt_proofTheory;
 open gramPropsTheory pegSoundTheory pegCompleteTheory
@@ -179,8 +179,9 @@ val get_type_error_mask_def = Define `
   (r = "<type error>\n")::get_type_error_mask rs)`;
 
 val print_envC_not_type_error = prove(``ls ≠ "<type error>\n" ⇒ print_envC envc ++ ls ≠ "<type error>\n"``,
-Induct_on`envc`>>
+PairCases_on`envc`>>
 simp[print_envC_def]>>
+Induct_on`envc1`>>simp[] >>
 Cases>>simp[]>>
 Induct_on`q`>>simp[id_to_string_def]>>
 lrw[LIST_EQ_REWRITE])
@@ -206,6 +207,8 @@ type_infer_invariants rs rinf_st ⇔
     ∧ (rs.tenvM = convert_menv (FST rinf_st))
     ∧ (rs.tenvC = FST (SND rinf_st))
     ∧ (rs.tenv = (bind_var_list2 (convert_env2 (SND (SND rinf_st))) Empty))`;
+
+(* TODO:
 
 val type_invariants_pres = Q.prove (
 `!rs rfs.
@@ -245,20 +248,20 @@ rw[strip_mod_env_def] >> rw[convert_menv_def] >- (
   fs[check_menv_def,EVERY_MEM,MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
   rw[] >> fs[] >> metis_tac[] ) >>
 simp[MAP_MAP_o,combinTheory.o_DEF,UNCURRY]);
+*)
 
 val invariant_def = Define`
   invariant rs rfs bs ⇔
-    rfs.relaborator_state = (rs.type_bindings, rs.ctors)
+    rfs.relaborator_state = rs.type_bindings
 
+(* TODO:
     ∧ type_infer_invariants rs rfs.rinferencer_state
     ∧ type_sound_invariants (rs.tenvM,rs.tenvC,rs.tenv,rs.envM,rs.envC,rs.envE,rs.store)
+*)
 
-    ∧ closed_context rs.envM rs.envC rs.store rs.envE
-    ∧ (∃rd c. env_rs rs.envM rs.envC (c,rs.store) rs.envE rfs.rcompiler_state (LENGTH bs.stack) rd bs)
-    ∧ good_labels rfs.rcompiler_state.rnext_label bs.code
+    ∧ (∃grd. env_rs (rs.envM,rs.envC,rs.envE) rs.store grd rfs.rcompiler_state bs)
 
     ∧ bs.clock = NONE
-    ∧ (∃ls. bs.code = PrintE++Stop::ls)
 
     ∧ code_labels_ok bs.code
     ∧ code_executes_ok bs
@@ -288,6 +291,7 @@ rw [EVERY_MAP,
      fs [convert_menv_def, EVERY_MAP]]);
      *)
 
+(* TODO: 
 val infer_to_type = Q.prove (
 `!rs st bs menv cenv env top new_menv new_cenv new_env st2.
   invariant rs st bs ∧
@@ -301,7 +305,9 @@ rw [invariant_def, type_infer_invariants_def, type_sound_invariants_def] >>
 fs [] >>
 rw [] >>
 metis_tac [infer_top_sound]);
+*)
 
+(* TODO: remove?
 val closed_SUBSET = store_thm("closed_SUBSET",
   ``∀v. closed menv v ⇒ ∀menv'. menv_dom menv ⊆ menv_dom menv' ⇒ closed menv' v``,
   ho_match_mp_tac semanticsExtraTheory.closed_ind >>
@@ -403,6 +409,7 @@ val strip_mod_env_append = store_thm("strip_mod_env_append",
 val strip_mod_env_length = store_thm("strip_mod_env_length",
   ``LENGTH (strip_mod_env ls) = LENGTH ls``,
   rw[strip_mod_env_def])
+*)
 
 (* TODO: move, and things above probably too *)
 val o_f_FUNION = store_thm("o_f_FUNION",
@@ -451,6 +458,12 @@ val tenv_names_bind_var_list = store_thm("tenv_names_bind_var_list",
   simp[bind_var_list_def,bind_tenv_def,EXTENSION] >>
   metis_tac[])
 
+val tenv_names_bind_var_list2 = store_thm("tenv_names_bind_var_list2",
+  ``∀l1 tenv. tenv_names (bind_var_list2 l1 tenv) = set (MAP FST l1) ∪ tenv_names tenv``,
+  Induct >> TRY(qx_gen_tac`p`>>PairCases_on`p`) >> simp[bind_var_list2_def,bind_tenv_def] >>
+  simp[EXTENSION] >> metis_tac[])
+
+(* TODO: remove?
 val _ = Parse.overload_on("tmenv_dom",``λmenv:tenvM.  set (FLAT (MAP (λx. MAP (Long (FST x) o FST) (SND x)) menv))``)
 val _ = Parse.overload_on("tmenv_sdom",``λmenv:tenvM.  set (FLAT (MAP (λx. MAP (Short o FST) (SND x)) menv))``)
 
@@ -613,18 +626,14 @@ val type_d_closed = store_thm("type_d_closed",
     fs[SUBSET_DEF] >> metis_tac[] ) >>
   simp[])
 
-
-val tenv_names_bind_var_list2 = store_thm("tenv_names_bind_var_list2",
-  ``∀l1 tenv. tenv_names (bind_var_list2 l1 tenv) = set (MAP FST l1) ∪ tenv_names tenv``,
-  Induct >> TRY(qx_gen_tac`p`>>PairCases_on`p`) >> simp[bind_var_list2_def,bind_tenv_def] >>
-  simp[EXTENSION] >> metis_tac[])
-
 val fst_lem = Q.prove (
 `FST = λ(x,y). x`,
 rw [FUN_EQ_THM] >>
 PairCases_on `x` >>
 fs []);
+*)
 
+(* TODO:
 val type_d_new_dec_vs = Q.prove (
 `!mn tenvM tenvC tenv d tenvC' tenv'.
   type_d mn tenvM tenvC tenv d tenvC' tenv'
@@ -1151,6 +1160,7 @@ val PrintE_thm = store_thm("PrintE_thm",
   rw[bc_eval1_thm,bc_eval1_def,Abbr`bs0`,bump_pc_def,Abbr`bs1`] >>
   rw[bc_state_component_equality,Abbr`bs'`] >>
   rw[PrintE_def] >> simp[] >> EVAL_TAC >>simp[] >> simp[IMPLODE_EXPLODE_I])
+*)
 
 val and_shadow_def = zDefine`and_shadow = $/\`
 

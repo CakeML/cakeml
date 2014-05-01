@@ -371,6 +371,37 @@ val Eval_FUNION = prove(
   |> MATCH_MP (MATCH_MP Eval_WEAKEN APPEND_eval)
   |> store_eval_thm;
 
+val ADEL_def = Define `
+  (ADEL [] z = []) /\
+  (ADEL ((x:'a,y:'b)::xs) z = if x = z then ADEL xs z else (x,y)::ADEL xs z)`
+val ADEL_eval = translate ADEL_def;
+
+val ALOOKUP_ADEL = prove(
+  ``!l a x. ALOOKUP (ADEL l a) x = if x = a then NONE else ALOOKUP l x``,
+  Induct THEN SRW_TAC [] [ALOOKUP_def,ADEL_def] THEN Cases_on `h`
+  THEN SRW_TAC [] [ALOOKUP_def,ADEL_def]);
+
+val FMAP_EQ_ALIST_ADEL = prove(
+  ``!x l. FMAP_EQ_ALIST x l ==>
+          FMAP_EQ_ALIST (x \\ a) (ADEL l a)``,
+  FULL_SIMP_TAC std_ss [FMAP_EQ_ALIST_def,ALOOKUP_def,fmap_domsub,FUN_EQ_THM]
+  THEN REPEAT STRIP_TAC THEN SRW_TAC [] [ALOOKUP_ADEL,FLOOKUP_DEF,DRESTRICT_DEF]
+  THEN FULL_SIMP_TAC std_ss []);
+
+val Eval_fmap_domsub = prove(
+  ``!v. ((LIST_TYPE (PAIR_TYPE a b) --> a -->
+          LIST_TYPE (PAIR_TYPE a b)) ADEL) v ==>
+        ((FMAP_TYPE a b --> a --> FMAP_TYPE a b) $\\) v``,
+  SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,FMAP_TYPE_def,
+    PULL_EXISTS] THEN REPEAT STRIP_TAC THEN RES_TAC
+  THEN Q.EXISTS_TAC `u` THEN FULL_SIMP_TAC std_ss []
+  THEN REPEAT STRIP_TAC THEN RES_TAC
+  THEN Q.LIST_EXISTS_TAC [`u'`,`ADEL l x'`]
+  THEN FULL_SIMP_TAC std_ss [FMAP_EQ_ALIST_ADEL])
+  |> MATCH_MP (MATCH_MP Eval_WEAKEN ADEL_eval)
+  |> store_eval_thm;
+
+
 (* while, owhile and least *)
 
 val _ = add_preferred_thy "-";
