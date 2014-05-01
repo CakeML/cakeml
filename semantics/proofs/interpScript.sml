@@ -61,7 +61,7 @@ val evaluate_run_eval_match = Q.store_thm ("evaluate_run_eval_match",
   (run_eval_match env v pes err_v st = r)`,
 metis_tac [big_exp_determ, run_eval_spec]);
 
-val _ = type_abbrev("M", ``:v count_store -> v count_store # ('a, v) result``);
+val _ = type_abbrev("M", ``:store_v count_store -> store_v count_store # ('a, v) result``);
 
 val result_bind_def = Define `
 (result_bind : α M -> (α -> β M) -> β M) x f =
@@ -78,10 +78,10 @@ val result_raise_def = Define `
 result_raise err = \s. (s, Rerr err)`;
 
 val get_store_def = Define `
-(get_store : v store M) = \(count,s). ((count,s), Rval s)`;
+(get_store : store_v store M) = \(count,s). ((count,s), Rval s)`;
 
 val set_store_def = Define `
-(set_store : v store -> unit M) s = \(count,s'). ((count,s), Rval ())`;
+(set_store : store_v store -> unit M) s = \(count,s'). ((count,s), Rval ())`;
 
 val dec_clock_def = Define `
 (dec_clock : unit M) = (\(count,s). if count = 0 then ((0,s), Rerr Rtimeout_error) else ((count - 1, s), Rval ()))`;
@@ -168,13 +168,20 @@ val run_eval_def = Q.store_thm ("run_eval_def",
    do v1 <- run_eval env e1;
       v2 <- run_eval env e2;
       st <- get_store;
-      case do_app env st op v1 v2 of
-           NONE => raise Rtype_error
-         | SOME (env', st', e3) =>
-             do () <- if op = Opapp then dec_clock else return ();
-                () <- set_store st';
-                run_eval env' e3
-             od
+      if op = Opapp then
+        case do_opapp v1 v2 of
+        | NONE => raise Rtype_error
+        | SOME (env', e3) =>
+            do () <- dec_clock;
+               run_eval env' e3
+            od
+      else
+        case do_app st op v1 v2 of
+        | NONE => raise Rtype_error
+        | SOME (st',res) =>
+          do () <- set_store st';
+             combin$C return res
+          od
    od) ∧
  (!env lop e1 e2.
    run_eval env (Log lop e1 e2)
@@ -255,7 +262,7 @@ val run_eval_def = Q.store_thm ("run_eval_def",
      rw [] >>
      fs [GSYM evaluate_run_eval] >>
      metis_tac [])
- >- (rw [dec_count_def, dec_clock_def] >>
+ >- (rw [] >>
      every_case_tac >>
      rw [] >>
      fs [remove_lambda_pair] >>
@@ -266,7 +273,7 @@ val run_eval_def = Q.store_thm ("run_eval_def",
      fs [do_app_cases] >>
      rw [] >>
      metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec])
- >- (rw [dec_count_def, dec_clock_def] >>
+ >- (rw [dec_clock_def] >>
      every_case_tac >>
      rw [] >>
      fs [remove_lambda_pair] >>
@@ -274,12 +281,8 @@ val run_eval_def = Q.store_thm ("run_eval_def",
      every_case_tac >>
      fs [GSYM evaluate_run_eval] >>
      rw [] >>
-     fs [do_app_cases] >>
-     rw [] >>
-     metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec])
- >- (every_case_tac >>
-     rw [] >>
-     fs [remove_lambda_pair, GSYM evaluate_run_eval, dec_count_def] >>
+     fs [do_app_cases,do_opapp_cases] >>
+     rw [] >> fs[state_transformerTheory.UNIT_DEF] >>
      metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec])
  >- (every_case_tac >>
      rw [] >>
