@@ -8,10 +8,10 @@ open terminationTheory;
 val _ = new_theory "evalProps";
 
 val pmatch_append = Q.store_thm ("pmatch_append",
-`(!(cenv : envC) (st : v store) p v env env' env''.
+`(!(cenv : envC) (st : store_v store) p v env env' env''.
     (pmatch cenv st p v env = Match env') ⇒
     (pmatch cenv st p v (env++env'') = Match (env'++env''))) ∧
- (!(cenv : envC) (st : v store) ps v env env' env''.
+ (!(cenv : envC) (st : store_v store) ps v env env' env''.
     (pmatch_list cenv st ps v env = Match env') ⇒
     (pmatch_list cenv st ps v (env++env'') = Match (env'++env'')))`,
 ho_match_mp_tac pmatch_ind >>
@@ -21,68 +21,66 @@ fs [] >>
 metis_tac []);
 
 val do_app_cases = Q.store_thm ("do_app_cases",
-`!st env op v1 v2 st' env' v3.
-  (do_app env st op v1 v2 = SOME (env',st',v3))
+`!st op v1 v2 st' v3.
+  (do_app st op v1 v2 = SOME (st',v3))
   =
-  ((?op' n1 n2. 
+  ((?op' n1 n2.
     (op = Opn op') ∧ (v1 = Litv (IntLit n1)) ∧ (v2 = Litv (IntLit n2)) ∧
-    ((((op' = Divide) ∨ (op' = Modulo)) ∧ (n2 = 0)) ∧ 
-     (st' = st) ∧ (env' = exn_env) ∧ (v3 = Raise (Con (SOME (Short "Div")) [])) ∨
+    (((((op' = Divide) ∨ (op' = Modulo)) ∧ (n2 = 0)) ∧
+     (st' = st) ∧ (v3 = Rerr (Rraise (prim_exn "Div")))) ∨
      ~(((op' = Divide) ∨ (op' = Modulo)) ∧ (n2 = 0)) ∧
-     (st' = st) ∧ (env' = env) ∧ (v3 = Lit (IntLit (opn_lookup op' n1 n2))))) ∨
+     (st' = st) ∧ (v3 = Rval (Litv (IntLit (opn_lookup op' n1 n2)))))) ∨
   (?op' n1 n2.
     (op = Opb op') ∧ (v1 = Litv (IntLit n1)) ∧ (v2 = Litv (IntLit n2)) ∧
-    (st = st') ∧ (env = env') ∧ (v3 = Lit (Bool (opb_lookup op' n1 n2)))) ∨
+    (st = st') ∧ (v3 = Rval (Litv (Bool (opb_lookup op' n1 n2))))) ∨
   ((op = Equality) ∧ (st = st') ∧
-      ((?b. (do_eq v1 v2 = Eq_val b) ∧ (v3 = Lit (Bool b)) ∧ (env = env')) ∨
-       ((do_eq v1 v2 = Eq_closure) ∧ (v3 = Raise (Con (SOME (Short "Eq")) []) ∧
-       (env' = exn_env))))) ∨
-  (∃menv'' cenv'' env'' n e.
-    (op = Opapp) ∧ (v1 = Closure (menv'',cenv'',env'') n e) ∧
-    (st' = st) ∧ (env' = (menv'',cenv'',bind n v2 env'')) ∧ (v3 = e)) ∨
-  (?menv'' cenv'' env'' funs n' n'' e.
-    (op = Opapp) ∧ (v1 = Recclosure (menv'',cenv'',env'') funs n') ∧
-    (find_recfun n' funs = SOME (n'',e)) ∧
-    (ALL_DISTINCT (MAP (\(f,x,e). f) funs)) ∧
-    (st = st') ∧ (env' = (menv'',cenv'', bind n'' v2 (build_rec_env funs (menv'',cenv'',env'') env''))) ∧ (v3 = e)) ∨
+      ((?b. (do_eq v1 v2 = Eq_val b) ∧ (v3 = Rval (Litv (Bool b)))) ∨
+       ((do_eq v1 v2 = Eq_closure) ∧ (v3 = Rerr (Rraise (prim_exn "Eq")))))) ∨
   (?lnum.
-    (op = Opassign) ∧ (v1 = Loc lnum) ∧ (store_assign lnum v2 st = SOME st') ∧
-    (env' = env) ∧ (v3 = Lit Unit)))`,
+    (op = Opassign) ∧ (v1 = Loc lnum) ∧ (store_assign lnum (Refv v2) st = SOME st') ∧
+     (v3 = Rval (Litv Unit))) ∨
+  (?n w lnum.
+      (op = Aalloc) ∧ (v1 = Litv (IntLit n)) ∧ (v2 = Litv (Word8 w)) ∧
+      (st',lnum) = store_alloc (W8array (REPLICATE (Num (ABS n)) w)) st ∧
+      v3 = Rval (Loc lnum)) ∨
+  (?lnum i ws.
+    (op = Asub) ∧ (v1 = Loc lnum) ∧ (v2 = Litv (IntLit i)) ∧
+    (store_lookup lnum st = SOME (W8array ws)) ∧ Num (ABS i) < LENGTH ws ∧
+    (st' = st) ∧
+    (v3 = Rval (Litv (Word8 (EL (Num(ABS i)) ws))))))`,
  SIMP_TAC (srw_ss()) [do_app_def] >>
  cases_on `op` >>
- rw [] 
- >- (cases_on `v1` >>
-     rw [] >>
-     cases_on `v2` >>
-     rw [] >>
-     cases_on `l` >> 
-     rw [] >>
-     cases_on `l'` >> 
-     rw [] >>
-     metis_tac [])
- >- (cases_on `v1` >>
-     rw [] >>
-     cases_on `v2` >>
-     rw [] >>
-     cases_on `l` >> 
-     rw [] >>
-     cases_on `l'` >> 
-     rw [] >>
-     metis_tac [])
+ rw [] >>
+ TRY (
+   cases_on `v1` >> rw [] >>
+   cases_on `v2` >> rw [] >>
+   cases_on `l` >> rw [] >>
+   (cases_on`l'` ORELSE (every_case_tac >> simp[])) >> rw [] >>
+   metis_tac [])
  >- (cases_on `do_eq v1 v2` >>
      rw [] >>
      metis_tac [])
  >- (cases_on `v1` >>
      rw [] >>
-     PairCases_on `p` >>
-     rw [] >-
-     metis_tac [] >>
-     every_case_tac >>
-     metis_tac [])
- >- (cases_on `v1` >>
-     rw [] >>
      every_case_tac >>
      metis_tac []));
+
+val do_opapp_cases = store_thm("do_opapp_cases",
+  ``∀v1 v2 env' v3.
+    (do_opapp v1 v2 = SOME (env',v3))
+    =
+  ((∃menv'' cenv'' env'' n e.
+    (v1 = Closure (menv'',cenv'',env'') n e) ∧
+    (env' = (menv'',cenv'',bind n v2 env'')) ∧ (v3 = e)) ∨
+  (?menv'' cenv'' env'' funs n' n'' e.
+    (v1 = Recclosure (menv'',cenv'',env'') funs n') ∧
+    (find_recfun n' funs = SOME (n'',e)) ∧
+    (ALL_DISTINCT (MAP (\(f,x,e). f) funs)) ∧
+    (env' = (menv'',cenv'', bind n'' v2 (build_rec_env funs (menv'',cenv'',env'') env''))) ∧ (v3 = e)))``,
+  rw[do_opapp_def] >>
+  cases_on `v1` >> rw [] >>
+  PairCases_on `p` >> rw [] >- metis_tac [] >>
+  every_case_tac >> metis_tac []);
 
 val build_rec_env_help_lem = Q.prove (
 `∀funs env funs'.
