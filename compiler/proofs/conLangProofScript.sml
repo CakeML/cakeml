@@ -246,7 +246,7 @@ gtagenv_weak gtagenv1 gtagenv2 ⇔
      ⇒
      cn = cn' ∧ t1 = t2)`;
 
-val gtagenv' = ``(gtagenv':'a # tid_or_exn |-> num # num count_store)``
+val gtagenv' = ``(gtagenv':'a # tid_or_exn |-> num # num)``
 
 val weakened_exh_def = Define`
   ((weakened_exh ^gtagenv'):exh_ctors_env) =
