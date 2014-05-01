@@ -130,7 +130,8 @@ evaluate ck env s1 (App op e1 e2) (( 0,s3), Rerr Rtimeout_error))
 /\ (! ck env op e1 e2 v1 v2 res s1 s2 s3 count s4.
 (evaluate ck env s1 e1 (s2, Rval v1) /\
 (evaluate ck env s2 e2 ((count,s3), Rval v2) /\
-(do_app s3 op v1 v2 = SOME (s4, res))))
+((do_app s3 op v1 v2 = SOME (s4, res)) /\
+(op <> Opapp))))
 ==>
 evaluate ck env s1 (App op e1 e2) ((count,s4), res))
 
