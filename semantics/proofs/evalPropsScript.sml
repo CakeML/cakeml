@@ -4,6 +4,7 @@
 open preamble;
 open libTheory astTheory bigStepTheory semanticPrimitivesTheory;
 open terminationTheory;
+open miscLib boolSimps;
 
 val _ = new_theory "evalProps";
 
@@ -21,65 +22,91 @@ fs [] >>
 metis_tac []);
 
 val do_app_cases = Q.store_thm ("do_app_cases",
-`!st op v1 v2 st' v3.
-  (do_app st op v1 v2 = SOME (st',v3))
+`!st op st' vs v.
+  (do_app st op vs = SOME (st',v))
   =
   ((?op' n1 n2.
-    (op = Opn op') ∧ (v1 = Litv (IntLit n1)) ∧ (v2 = Litv (IntLit n2)) ∧
+    (op = Opn op') ∧ (vs = [Litv (IntLit n1); Litv (IntLit n2)]) ∧
     (((((op' = Divide) ∨ (op' = Modulo)) ∧ (n2 = 0)) ∧
-     (st' = st) ∧ (v3 = Rerr (Rraise (prim_exn "Div")))) ∨
+     (st' = st) ∧ (v = Rerr (Rraise (prim_exn "Div")))) ∨
      ~(((op' = Divide) ∨ (op' = Modulo)) ∧ (n2 = 0)) ∧
-     (st' = st) ∧ (v3 = Rval (Litv (IntLit (opn_lookup op' n1 n2)))))) ∨
+     (st' = st) ∧ (v = Rval (Litv (IntLit (opn_lookup op' n1 n2)))))) ∨
   (?op' n1 n2.
-    (op = Opb op') ∧ (v1 = Litv (IntLit n1)) ∧ (v2 = Litv (IntLit n2)) ∧
-    (st = st') ∧ (v3 = Rval (Litv (Bool (opb_lookup op' n1 n2))))) ∨
+    (op = Opb op') ∧ (vs = [Litv (IntLit n1); Litv (IntLit n2)]) ∧
+    (st = st') ∧ (v = Rval (Litv (Bool (opb_lookup op' n1 n2))))) ∨
   ((op = Equality) ∧ (st = st') ∧
-      ((?b. (do_eq v1 v2 = Eq_val b) ∧ (v3 = Rval (Litv (Bool b)))) ∨
-       ((do_eq v1 v2 = Eq_closure) ∧ (v3 = Rerr (Rraise (prim_exn "Eq")))))) ∨
-  (?lnum.
-    (op = Opassign) ∧ (v1 = Loc lnum) ∧ (store_assign lnum (Refv v2) st = SOME st') ∧
-     (v3 = Rval (Litv Unit))) ∨
-  (?n w lnum.
-      (op = Aalloc) ∧ (v1 = Litv (IntLit n)) ∧ (v2 = Litv (Word8 w)) ∧
-      (st',lnum) = store_alloc (W8array (REPLICATE (Num (ABS n)) w)) st ∧
-      v3 = Rval (Loc lnum)) ∨
-  (?lnum i ws.
-    (op = Asub) ∧ (v1 = Loc lnum) ∧ (v2 = Litv (IntLit i)) ∧
-    (store_lookup lnum st = SOME (W8array ws)) ∧ Num (ABS i) < LENGTH ws ∧
-    (st' = st) ∧
-    (v3 = Rval (Litv (Word8 (EL (Num(ABS i)) ws))))))`,
+    ((?v1 v2. 
+      (vs = [v1;v2]) ∧ 
+      ((?b. (do_eq v1 v2 = Eq_val b) ∧ (v = Rval (Litv (Bool b)))) ∨
+       ((do_eq v1 v2 = Eq_closure) ∧ (v = Rerr (Rraise (prim_exn "Eq")))))))) ∨
+  (?lnum v2.
+    (op = Opassign) ∧ (vs = [Loc lnum; v2]) ∧ (store_assign lnum (Refv v2) st = SOME st') ∧
+     (v = Rval (Litv Unit))) ∨
+  (?lnum v2.
+    (op = Opref) ∧ (vs = [v2]) ∧ (store_alloc (Refv v2) st = (st',lnum)) ∧
+     (v = Rval (Loc lnum))) ∨
+  (?lnum v2.
+    (st = st') ∧
+    (op = Opderef) ∧ (vs = [Loc lnum]) ∧ (store_lookup lnum st = SOME (Refv v2)) ∧
+    (v = Rval v2)) ∨
+  (?i w.
+      (op = Aalloc) ∧ (vs = [Litv (IntLit i); Litv (Word8 w)]) ∧
+      (((i < 0) ∧ v = Rerr (Rraise (prim_exn "Size")) ∧ (st = st')) ∨
+       (?lnum. ~(i < 0) ∧
+        (st',lnum) = store_alloc (W8array (REPLICATE (Num (ABS i)) w)) st ∧
+        v = Rval (Loc lnum)))) ∨
+  (?ws lnum i.
+    (op = Asub) ∧ (vs = [Loc lnum; Litv (IntLit i)]) ∧ (st = st') ∧
+    store_lookup lnum st = SOME (W8array ws) ∧ 
+    (((i < 0) ∧ v = Rerr (Rraise (prim_exn "Size"))) ∨
+     ((~(i < 0) ∧ Num (ABS i) ≥ LENGTH ws ∧
+       v = Rerr (Rraise (prim_exn "Size")))) ∨
+     (~(i < 0) ∧
+      Num (ABS i) < LENGTH ws ∧
+      (v = Rval (Litv (Word8 (EL (Num(ABS i)) ws))))))) ∨
+  (?lnum ws.
+    (op = Alength) ∧ (vs = [Loc lnum]) ∧ st = st' ∧
+    store_lookup lnum st = SOME (W8array ws) ∧ 
+    v = Rval (Litv (IntLit (&(LENGTH ws))))) ∨
+  (?ws lnum i w.
+    (op = Aupdate) ∧ (vs = [Loc lnum; Litv (IntLit i); Litv (Word8 w)]) ∧ 
+    store_lookup lnum st = SOME (W8array ws) ∧ 
+    (((i < 0) ∧ v = Rerr (Rraise (prim_exn "Size")) ∧ st = st') ∨
+     ((~(i < 0) ∧ Num (ABS i) ≥ LENGTH ws ∧ st = st' ∧
+       v = Rerr (Rraise (prim_exn "Size")))) ∨
+     (~(i < 0) ∧
+      Num (ABS i) < LENGTH ws ∧
+      store_assign lnum (W8array (LUPDATE w (Num (ABS i)) ws)) st = SOME st' ∧
+      v = Rval (Litv Unit)))))`,
  SIMP_TAC (srw_ss()) [do_app_def] >>
  cases_on `op` >>
  rw [] >>
- TRY (
-   cases_on `v1` >> rw [] >>
-   cases_on `v2` >> rw [] >>
-   cases_on `l` >> rw [] >>
-   (cases_on`l'` ORELSE (every_case_tac >> simp[])) >> rw [] >>
-   metis_tac [])
- >- (cases_on `do_eq v1 v2` >>
-     rw [] >>
-     metis_tac [])
- >- (cases_on `v1` >>
-     rw [] >>
-     every_case_tac >>
-     metis_tac []));
+ cases_on `vs` >>
+ rw [] >>
+ every_case_tac >>
+ rw [] >>
+ TRY (cases_on `do_eq v1 v2`) >>
+ rw [] >>
+ UNABBREV_ALL_TAC >>
+ full_simp_tac (srw_ss()++ARITH_ss) [] >>
+ every_case_tac >>
+ rw [] >>
+ metis_tac []);
 
 val do_opapp_cases = store_thm("do_opapp_cases",
-  ``∀v1 v2 env' v3.
-    (do_opapp v1 v2 = SOME (env',v3))
+  ``∀env' vs v.
+    (do_opapp vs = SOME (env',v))
     =
-  ((∃menv'' cenv'' env'' n e.
-    (v1 = Closure (menv'',cenv'',env'') n e) ∧
-    (env' = (menv'',cenv'',bind n v2 env'')) ∧ (v3 = e)) ∨
-  (?menv'' cenv'' env'' funs n' n'' e.
-    (v1 = Recclosure (menv'',cenv'',env'') funs n') ∧
+  ((∃v2 menv'' cenv'' env'' n e.
+    (vs = [Closure (menv'',cenv'',env'') n e; v2]) ∧
+    (env' = (menv'',cenv'',bind n v2 env'')) ∧ (v = e)) ∨
+  (?v2 menv'' cenv'' env'' funs n' n'' e.
+    (vs = [Recclosure (menv'',cenv'',env'') funs n'; v2]) ∧
     (find_recfun n' funs = SOME (n'',e)) ∧
     (ALL_DISTINCT (MAP (\(f,x,e). f) funs)) ∧
-    (env' = (menv'',cenv'', bind n'' v2 (build_rec_env funs (menv'',cenv'',env'') env''))) ∧ (v3 = e)))``,
+    (env' = (menv'',cenv'', bind n'' v2 (build_rec_env funs (menv'',cenv'',env'') env''))) ∧ (v = e)))``,
   rw[do_opapp_def] >>
-  cases_on `v1` >> rw [] >>
-  PairCases_on `p` >> rw [] >- metis_tac [] >>
+  cases_on `vs` >> rw [] >>
   every_case_tac >> metis_tac []);
 
 val build_rec_env_help_lem = Q.prove (
@@ -175,8 +202,6 @@ induct_on `ctors` >>
 rw [] >>
 PairCases_on `h` >>
 fs []);
-
-open miscLib boolSimps
 
 val map_error_result_def = Define`
   (map_error_result f (Rraise e) = Rraise (f e)) ∧

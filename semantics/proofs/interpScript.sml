@@ -150,33 +150,20 @@ val run_eval_def = Q.store_thm ("run_eval_def",
    run_eval env (Fun n e)
    =
    return (Closure env n e)) ∧
- (!st env uop e.
-  run_eval env (Uapp uop e)
-  =
-  do v <- run_eval env e;
-     st <- get_store;
-     case do_uapp st uop v of
-          NONE => raise Rtype_error
-        | SOME (st',v) => 
-            do () <- set_store st';
-               return v 
-            od
-  od) ∧
  (!env op e1 e2.
-   run_eval env (App op e1 e2)
+   run_eval env (App op es)
    =
-   do v1 <- run_eval env e1;
-      v2 <- run_eval env e2;
+   do vs <- run_eval_list env es;
       st <- get_store;
       if op = Opapp then
-        case do_opapp v1 v2 of
+        case do_opapp vs of
         | NONE => raise Rtype_error
         | SOME (env', e3) =>
             do () <- dec_clock;
                run_eval env' e3
             od
       else
-        case do_app st op v1 v2 of
+        case do_app st op vs of
         | NONE => raise Rtype_error
         | SOME (st',res) =>
           do () <- set_store st';
@@ -262,17 +249,6 @@ val run_eval_def = Q.store_thm ("run_eval_def",
      rw [] >>
      fs [GSYM evaluate_run_eval] >>
      metis_tac [])
- >- (rw [] >>
-     every_case_tac >>
-     rw [] >>
-     fs [remove_lambda_pair] >>
-     rw [] >>
-     every_case_tac >>
-     fs [GSYM evaluate_run_eval] >>
-     rw [] >>
-     fs [do_app_cases] >>
-     rw [] >>
-     metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec])
  >- (rw [dec_clock_def] >>
      every_case_tac >>
      rw [] >>
