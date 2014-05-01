@@ -27,20 +27,20 @@ val _ = Define `
 (*val init_env : envE*)
 val _ = Define `
  (init_env =  
-([("+", Closure ([],init_envC,[]) "x" (Fun "y" (App (Opn Plus) (Var (Short "x")) (Var (Short "y")))));
-   ("-", Closure ([],init_envC,[]) "x" (Fun "y" (App (Opn Minus) (Var (Short "x")) (Var (Short "y")))));
-   ("*", Closure ([],init_envC,[]) "x" (Fun "y" (App (Opn Times) (Var (Short "x")) (Var (Short "y")))));
-   ("div", Closure ([],init_envC,[]) "x" (Fun "y" (App (Opn Divide) (Var (Short "x")) (Var (Short "y")))));
-   ("mod", Closure ([],init_envC,[]) "x" (Fun "y" (App (Opn Modulo) (Var (Short "x")) (Var (Short "y")))));
-   ("<", Closure ([],init_envC,[]) "x" (Fun "y" (App (Opb Lt) (Var (Short "x")) (Var (Short "y")))));
-   (">", Closure ([],init_envC,[]) "x" (Fun "y" (App (Opb Gt) (Var (Short "x")) (Var (Short "y")))));
-   ("<=", Closure ([],init_envC,[]) "x" (Fun "y" (App (Opb Leq) (Var (Short "x")) (Var (Short "y")))));
-   (">=", Closure ([],init_envC,[]) "x" (Fun "y" (App (Opb Geq) (Var (Short "x")) (Var (Short "y")))));
-   ("=", Closure ([],init_envC,[]) "x" (Fun "y" (App Equality (Var (Short "x")) (Var (Short "y")))));
-   (":=", Closure ([],init_envC,[]) "x" (Fun "y" (App Opassign (Var (Short "x")) (Var (Short "y")))));
-   ("~", Closure ([],init_envC,[]) "x" (App (Opn Minus) (Lit (IntLit(( 0 : int)))) (Var (Short "x"))));
-   ("!", Closure ([],init_envC,[]) "x" (Uapp Opderef (Var (Short "x"))));
-   ("ref", Closure ([],init_envC,[]) "x" (Uapp Opref (Var (Short "x"))))]))`;
+([("+", Closure ([],init_envC,[]) "x" (Fun "y" (App (Opn Plus) [Var (Short "x"); Var (Short "y")])));
+   ("-", Closure ([],init_envC,[]) "x" (Fun "y" (App (Opn Minus) [Var (Short "x"); Var (Short "y")])));
+   ("*", Closure ([],init_envC,[]) "x" (Fun "y" (App (Opn Times) [Var (Short "x"); Var (Short "y")])));
+   ("div", Closure ([],init_envC,[]) "x" (Fun "y" (App (Opn Divide) [Var (Short "x"); Var (Short "y")])));
+   ("mod", Closure ([],init_envC,[]) "x" (Fun "y" (App (Opn Modulo) [Var (Short "x"); Var (Short "y")])));
+   ("<", Closure ([],init_envC,[]) "x" (Fun "y" (App (Opb Lt) [Var (Short "x"); Var (Short "y")])));
+   (">", Closure ([],init_envC,[]) "x" (Fun "y" (App (Opb Gt) [Var (Short "x"); Var (Short "y")])));
+   ("<=", Closure ([],init_envC,[]) "x" (Fun "y" (App (Opb Leq) [Var (Short "x"); Var (Short "y")])));
+   (">=", Closure ([],init_envC,[]) "x" (Fun "y" (App (Opb Geq) [Var (Short "x"); Var (Short "y")])));
+   ("=", Closure ([],init_envC,[]) "x" (Fun "y" (App Equality [Var (Short "x"); Var (Short "y")])));
+   (":=", Closure ([],init_envC,[]) "x" (Fun "y" (App Opassign [Var (Short "x"); Var (Short "y")])));
+   ("~", Closure ([],init_envC,[]) "x" (App (Opn Minus) [Lit (IntLit(( 0 : int))); Var (Short "x")]));
+   ("!", Closure ([],init_envC,[]) "x" (App Opderef [Var (Short "x")]));
+   ("ref", Closure ([],init_envC,[]) "x" (App Opref [Var (Short "x")]))]))`;
 
 
 (*val init_tenv : tenvE*)

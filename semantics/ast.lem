@@ -31,26 +31,6 @@ let opb_lookup n : integer -> integer -> bool = match n with
   | Geq -> (>=)
 end
 
-(* Opapp is function application *)
-type op =
-  | Opn of opn
-  | Opb of opb
-  | Equality
-  | Opapp
-  | Opassign
-  | Aalloc
-  | Asub
-
-type uop =
-  | Opref
-  | Opderef
-  | Alength
-
-(* Built-in logical operations *)
-type lop =
-  | And
-  | Or
-
 (* Module names *)
 type modN = string
 
@@ -94,6 +74,26 @@ let id_to_n id =
     | Short n -> n
     | Long _ n -> n
   end
+
+(* Opapp is function application. *)
+type op =
+  | Opn of opn
+  | Opb of opb
+  | Equality
+  | Opapp
+  | Opassign
+  | Opref
+  | Opderef
+  (* Word8Array operations *)
+  | Aalloc
+  | Asub
+  | Alength
+  | Aupdate
+
+(* Built-in logical operations *)
+type lop =
+  | And
+  | Or
 
 (* Types
  * 0-ary type applications represent unparameterised types (e.g., num or string)
@@ -144,11 +144,8 @@ type exp =
   | Con of maybe (id conN) * list exp
   | Var of id varN
   | Fun of varN * exp
-  (* Application of a unary operator *)
-  | Uapp of uop * exp
-  (* Application of an operator (including function application) *)
-  | App of op * exp * exp
-  | Aupdate of exp * exp * exp
+  (* Application of a primitive operator to arguments. Includes function application. *)
+  | App of op * list exp
   (* Logical operations (and, or) *)
   | Log of lop * exp * exp
   | If of exp * exp * exp

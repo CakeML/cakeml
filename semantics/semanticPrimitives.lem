@@ -251,33 +251,6 @@ contains_closure (Recclosure env funs n) = true
 and
 contains_closure (Loc n) = false
 
-val do_uapp : store store_v -> uop -> v -> maybe (store store_v * v)
-let do_uapp s uop v =
-  match uop with
-    | Opderef ->
-        match v with
-          | Loc n ->
-              match store_lookup n s with
-                | Just (Refv v) -> Just (s,v)
-                | _ -> Nothing
-              end
-          | _ -> Nothing
-        end
-    | Opref ->
-        let (s',n) = store_alloc (Refv v) s in
-          Just (s', Loc n)
-    | Alength ->
-        match v with
-        | Loc n ->
-            match store_lookup n s with
-            | Just (W8array ws) ->
-                Just (s,Litv(IntLit(integerFromNat(List.length ws))))
-            | _ -> Nothing
-            end
-        | _ -> Nothing
-        end
-  end
-
 type eq_result = 
   | Eq_val of bool
   | Eq_closure
@@ -325,12 +298,12 @@ val prim_exn : conN -> v
 let prim_exn cn = Conv (Just (cn, TypeExn (Short cn))) []
 
 (* Do an application *)
-val do_opapp : v -> v -> maybe (all_env * exp)
-let do_opapp v1 v2 =
-  match (v1,v2) with
-  | (Closure (menv, cenv, env) n e, v) ->
+val do_opapp : list v -> maybe (all_env * exp)
+let do_opapp vs =
+  match vs with
+  | [Closure (menv, cenv, env) n e; v] ->
       Just ((menv, cenv, bind n v env), e)
-  | (Recclosure (menv, cenv, env) funs n, v) ->
+  | [Recclosure (menv, cenv, env) funs n; v] ->
       if allDistinct (List.map (fun (f,x,e) -> f) funs) then
         match find_recfun n funs with
           | Just (n,e) -> Just ((menv, cenv, bind n v (build_rec_env funs (menv, cenv, env) env)), e)
@@ -341,40 +314,78 @@ let do_opapp v1 v2 =
   | _ -> Nothing
   end
 
-val do_app : store store_v -> op -> v -> v -> maybe (store store_v * result v v)
-let do_app s op v1 v2 =
-  match (op, v1, v2) with
-    | (Opn op, Litv (IntLit n1), Litv (IntLit n2)) ->
+val do_app : store store_v -> op -> list v -> maybe (store store_v * result v v)
+let do_app s op vs =
+  match (op, vs) with
+    | (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) ->
         if (op = Divide || (op = Modulo)) && (n2 = 0) then
           Just (s, Rerr (Rraise (prim_exn "Div")))
         else
           Just (s, Rval (Litv (IntLit (opn_lookup op n1 n2))))
-    | (Opb op, Litv (IntLit n1), Litv (IntLit n2)) ->
+    | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) ->
         Just (s, Rval (Litv (Bool (opb_lookup op n1 n2))))
-    | (Equality, v1, v2) ->
+    | (Equality, [v1; v2]) ->
         match do_eq v1 v2 with
           | Eq_type_error -> Nothing
           | Eq_closure -> Just (s, Rerr (Rraise (prim_exn "Eq")))
           | Eq_val b -> Just (s, Rval (Litv (Bool b)))
         end
-    | (Opassign, (Loc lnum), v) ->
+    | (Opassign, [Loc lnum; v]) ->
         match store_assign lnum (Refv v) s with
-        | Just st -> Just (st, Rval (Litv Unit))
-        | Nothing -> Nothing
+          | Just st -> Just (st, Rval (Litv Unit))
+          | Nothing -> Nothing
         end
-    | (Aalloc, Litv (IntLit n), Litv (Word8 w)) ->
-        let (s',lnum) =
-          store_alloc (W8array (List.replicate (natFromInteger n) w)) s
-        in Just (s', Rval (Loc lnum))
-    | (Asub, Loc lnum, Litv (IntLit i)) ->
+    | (Opref, [v]) ->
+        let (s',n) = store_alloc (Refv v) s in
+          Just (s', Rval (Loc n))
+    | (Opderef, [Loc n]) ->
+        match store_lookup n s with
+          | Just (Refv v) -> Just (s,Rval v)
+          | _ -> Nothing
+        end
+    | (Aalloc, [Litv (IntLit n); Litv (Word8 w)]) ->
+        if n < 0 then
+          Just (s, Rerr (Rraise (prim_exn "Size")))
+        else
+          let (s',lnum) =
+            store_alloc (W8array (List.replicate (natFromInteger n) w)) s
+          in 
+            Just (s', Rval (Loc lnum))
+    | (Asub, [Loc lnum; Litv (IntLit i)]) ->
+        match store_lookup lnum s with
+          | Just (W8array ws) ->
+              if i < 0 then
+                Just (s, Rerr (Rraise (prim_exn "Size")))
+              else
+                let n = natFromInteger i in
+                  if n >= List.length ws then
+                    Just (s, Rerr (Rraise (prim_exn "Size")))
+                  else 
+                    Just (s, Rval (Litv (Word8 (List_extra.nth ws n))))
+          | _ -> Nothing
+        end
+    | (Alength, [Loc n]) ->
+        match store_lookup n s with
+          | Just (W8array ws) ->
+              Just (s,Rval (Litv(IntLit(integerFromNat(List.length ws)))))
+          | _ -> Nothing
+         end
+    | (Aupdate, [Loc lnum; Litv(IntLit i); Litv(Word8 w)]) ->
         match store_lookup lnum s with
         | Just (W8array ws) ->
-            let n = natFromInteger i in
-            if n < List.length ws then
-              Just (s, Rval (Litv (Word8 (List_extra.nth ws n))))
-            else Nothing
+            if i < 0 then
+              Just (s, Rerr (Rraise (prim_exn "Size")))
+            else 
+              let n = natFromInteger i in
+                if n >= List.length ws then
+                  Just (s, Rerr (Rraise (prim_exn "Size")))
+                else
+                  match store_assign lnum (W8array (List.update ws n w)) s with
+                    | Nothing -> Nothing
+                    | Just s' -> Just (s', Rval (Litv Unit))
+                  end
         | _ -> Nothing
-        end
+      end
     | _ -> Nothing
   end
 
@@ -397,23 +408,6 @@ let do_if v e1 e2 =
     Just e2
   else
     Nothing
-
-(* Do an array update *)
-val do_aupdate : store store_v -> v -> v -> v -> maybe (store store_v)
-let do_aupdate s v v1 v2 =
-  match (v,v1,v2) with
-  | (Loc lnum, Litv(IntLit i), Litv(Word8 w)) ->
-      match store_lookup lnum s with
-      | Just (W8array ws) ->
-          let n = natFromInteger i in
-          if n < List.length ws then
-            let ws' = List.update ws n w in
-            store_assign lnum (W8array ws') s
-          else Nothing
-      | _ -> Nothing
-      end
-  | _ -> Nothing
-  end
 
 (* Semantic helpers for definitions *)
 

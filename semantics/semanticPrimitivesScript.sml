@@ -313,35 +313,6 @@ val _ = Define `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn contains_closure_defn;
 
-(*val do_uapp : store store_v -> uop -> v -> maybe (store store_v * v)*)
-val _ = Define `
- (do_uapp s uop v =  
-((case uop of
-      Opderef =>
-        (case v of
-            Loc n =>
-              (case store_lookup n s of
-                  SOME (Refv v) => SOME (s,v)
-                | _ => NONE
-              )
-          | _ => NONE
-        )
-    | Opref =>
-        let (s',n) = (store_alloc (Refv v) s) in
-          SOME (s', Loc n)
-    | Alength =>
-        (case v of
-          Loc n =>
-            (case store_lookup n s of
-              SOME (W8array ws) =>
-                SOME (s,Litv(IntLit(int_of_num(LENGTH ws))))
-            | _ => NONE
-            )
-        | _ => NONE
-        )
-  )))`;
-
-
 val _ = Hol_datatype `
  eq_result = 
     Eq_val of bool
@@ -396,13 +367,13 @@ val _ = Define `
 
 
 (* Do an application *)
-(*val do_opapp : v -> v -> maybe (all_env * exp)*)
+(*val do_opapp : list v -> maybe (all_env * exp)*)
 val _ = Define `
- (do_opapp v1 v2 =  
-((case (v1,v2) of
-    (Closure (menv, cenv, env) n e, v) =>
+ (do_opapp vs =  
+((case vs of
+    [Closure (menv, cenv, env) n e; v] =>
       SOME ((menv, cenv, bind n v env), e)
-  | (Recclosure (menv, cenv, env) funs n, v) =>
+  | [Recclosure (menv, cenv, env) funs n; v] =>
       if ALL_DISTINCT (MAP (\ (f,x,e) .  f) funs) then
         (case find_recfun n funs of
             SOME (n,e) => SOME ((menv, cenv, bind n v (build_rec_env funs (menv, cenv, env) env)), e)
@@ -414,41 +385,79 @@ val _ = Define `
   )))`;
 
 
-(*val do_app : store store_v -> op -> v -> v -> maybe (store store_v * result v v)*)
+(*val do_app : store store_v -> op -> list v -> maybe (store store_v * result v v)*)
 val _ = Define `
- (do_app s op v1 v2 =  
-((case (op, v1, v2) of
-      (Opn op, Litv (IntLit n1), Litv (IntLit n2)) =>
+ (do_app s op vs =  
+((case (op, vs) of
+      (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
         if ((op = Divide) \/ (op = Modulo)) /\ (n2 =( 0 : int)) then
           SOME (s, Rerr (Rraise (prim_exn "Div")))
         else
           SOME (s, Rval (Litv (IntLit (opn_lookup op n1 n2))))
-    | (Opb op, Litv (IntLit n1), Litv (IntLit n2)) =>
+    | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
         SOME (s, Rval (Litv (Bool (opb_lookup op n1 n2))))
-    | (Equality, v1, v2) =>
+    | (Equality, [v1; v2]) =>
         (case do_eq v1 v2 of
             Eq_type_error => NONE
           | Eq_closure => SOME (s, Rerr (Rraise (prim_exn "Eq")))
           | Eq_val b => SOME (s, Rval (Litv (Bool b)))
         )
-    | (Opassign, (Loc lnum), v) =>
+    | (Opassign, [Loc lnum; v]) =>
         (case store_assign lnum (Refv v) s of
-          SOME st => SOME (st, Rval (Litv Unit))
-        | NONE => NONE
+            SOME st => SOME (st, Rval (Litv Unit))
+          | NONE => NONE
         )
-    | (Aalloc, Litv (IntLit n), Litv (Word8 w)) =>
-        let (s',lnum) =          
+    | (Opref, [v]) =>
+        let (s',n) = (store_alloc (Refv v) s) in
+          SOME (s', Rval (Loc n))
+    | (Opderef, [Loc n]) =>
+        (case store_lookup n s of
+            SOME (Refv v) => SOME (s,Rval v)
+          | _ => NONE
+        )
+    | (Aalloc, [Litv (IntLit n); Litv (Word8 w)]) =>
+        if n <( 0 : int) then
+          SOME (s, Rerr (Rraise (prim_exn "Size")))
+        else
+          let (s',lnum) =            
 (store_alloc (W8array (REPLICATE (Num (ABS ( n))) w)) s)
-        in SOME (s', Rval (Loc lnum))
-    | (Asub, Loc lnum, Litv (IntLit i)) =>
+          in 
+            SOME (s', Rval (Loc lnum))
+    | (Asub, [Loc lnum; Litv (IntLit i)]) =>
+        (case store_lookup lnum s of
+            SOME (W8array ws) =>
+              if i <( 0 : int) then
+                SOME (s, Rerr (Rraise (prim_exn "Size")))
+              else
+                let n = (Num (ABS ( i))) in
+                  if n >= LENGTH ws then
+                    SOME (s, Rerr (Rraise (prim_exn "Size")))
+                  else 
+                    SOME (s, Rval (Litv (Word8 (EL n ws))))
+          | _ => NONE
+        )
+    | (Alength, [Loc n]) =>
+        (case store_lookup n s of
+            SOME (W8array ws) =>
+              SOME (s,Rval (Litv(IntLit(int_of_num(LENGTH ws)))))
+          | _ => NONE
+         )
+    | (Aupdate, [Loc lnum; Litv(IntLit i); Litv(Word8 w)]) =>
         (case store_lookup lnum s of
           SOME (W8array ws) =>
-            let n = (Num (ABS ( i))) in
-            if n < LENGTH ws then
-              SOME (s, Rval (Litv (Word8 (EL n ws))))
-            else NONE
+            if i <( 0 : int) then
+              SOME (s, Rerr (Rraise (prim_exn "Size")))
+            else 
+              let n = (Num (ABS ( i))) in
+                if n >= LENGTH ws then
+                  SOME (s, Rerr (Rraise (prim_exn "Size")))
+                else
+                  (case store_assign lnum (W8array (LUPDATE w n ws)) s of
+                      NONE => NONE
+                    | SOME s' => SOME (s', Rval (Litv Unit))
+                  )
         | _ => NONE
-        )
+      )
     | _ => NONE
   )))`;
 
@@ -475,25 +484,6 @@ val _ = Define `
     SOME e2
   else
     NONE))`;
-
-
-(* Do an array update *)
-(*val do_aupdate : store store_v -> v -> v -> v -> maybe (store store_v)*)
-val _ = Define `
- (do_aupdate s v v1 v2 =  
-((case (v,v1,v2) of
-    (Loc lnum, Litv(IntLit i), Litv(Word8 w)) =>
-      (case store_lookup lnum s of
-        SOME (W8array ws) =>
-          let n = (Num (ABS ( i))) in
-          if n < LENGTH ws then
-            let ws' = (LUPDATE w n ws) in
-            store_assign lnum (W8array ws') s
-          else NONE
-      | _ => NONE
-      )
-  | _ => NONE
-  )))`;
 
 
 (* Semantic helpers for definitions *)

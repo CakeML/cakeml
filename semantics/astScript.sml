@@ -51,32 +51,6 @@ val _ = Define `
 )))`;
 
 
-(* Opapp is function application *)
-val _ = Hol_datatype `
- op =
-    Opn of opn
-  | Opb of opb
-  | Equality
-  | Opapp
-  | Opassign
-  | Aalloc
-  | Asub`;
-
-
-val _ = Hol_datatype `
- uop =
-    Opref
-  | Opderef
-  | Alength`;
-
-
-(* Built-in logical operations *)
-val _ = Hol_datatype `
- lop =
-    And
-  | Or`;
-
-
 (* Module names *)
 val _ = type_abbrev( "modN" , ``: string``);
 
@@ -125,6 +99,30 @@ val _ = Define `
       Short n => n
     | Long _ n => n
   )))`;
+
+
+(* Opapp is function application. *)
+val _ = Hol_datatype `
+ op =
+    Opn of opn
+  | Opb of opb
+  | Equality
+  | Opapp
+  | Opassign
+  | Opref
+  | Opderef
+  (* Word8Array operations *)
+  | Aalloc
+  | Asub
+  | Alength
+  | Aupdate`;
+
+
+(* Built-in logical operations *)
+val _ = Hol_datatype `
+ lop =
+    And
+  | Or`;
 
 
 (* Types
@@ -201,11 +199,8 @@ val _ = Hol_datatype `
   | Con of  ( conN id)option => exp list
   | Var of varN id
   | Fun of varN => exp
-  (* Application of a unary operator *)
-  | Uapp of uop => exp
-  (* Application of an operator (including function application) *)
-  | App of op => exp => exp
-  | Aupdate of exp => exp => exp
+  (* Application of a primitive operator to arguments. Includes function application. *)
+  | App of op => exp list
   (* Logical operations (and, or) *)
   | Log of lop => exp => exp
   | If of exp => exp => exp
