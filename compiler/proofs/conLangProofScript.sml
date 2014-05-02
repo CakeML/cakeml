@@ -11,6 +11,7 @@ open modLangProofTheory;
 open decLangProofTheory;
 open evalPropsTheory;
 open compilerTerminationTheory;
+open miscLib
 
 val _ = new_theory "conLangProof";
 
@@ -142,13 +143,13 @@ envC_tagged envC tagenv gtagenv =
       (if tag = tuple_tag then t' = NONE else t' = SOME t))`;
 
 val exhaustive_env_correct_def = Define `
-exhaustive_env_correct exh gtagenv ⇔
+exhaustive_env_correct (exh:exh_ctors_env) gtagenv ⇔
   (!t.
      (?cn. (cn, TypeId t) ∈ FDOM gtagenv)
      ⇒
      ?tags.
        FLOOKUP exh t = SOME tags ∧
-       (!cn tag l. FLOOKUP gtagenv (cn,TypeId t) = SOME (tag,l) ⇒ MEM tag tags))`;
+       (!cn tag l. FLOOKUP gtagenv (cn,TypeId t) = SOME (tag,l) ⇒ tag ∈ domain tags))`;
 
 val cenv_inv_def = Define `
 cenv_inv envC exh tagenv gtagenv ⇔
@@ -250,7 +251,8 @@ val gtagenv' = ``(gtagenv':'a # tid_or_exn |-> num # num)``
 
 val weakened_exh_def = Define`
   ((weakened_exh ^gtagenv'):exh_ctors_env) =
-    FUN_FMAP (λt. (SET_TO_LIST {tag | ∃cn l. FLOOKUP gtagenv' (cn, TypeId t) = SOME (tag,l)}))
+    FUN_FMAP (λt. (FOLDL (λs n. insert n () s) LN
+                    (SET_TO_LIST {tag | ∃cn l. FLOOKUP gtagenv' (cn, TypeId t) = SOME (tag,l)})))
       { t | ∃cn. (cn, TypeId t) ∈ FDOM gtagenv' }`
 
 val FINITE_weakened_exh_dom = prove(
@@ -270,13 +272,13 @@ val FDOM_weakened_exh = prove(
 
 val FLOOKUP_weakened_exh_imp = prove(
   ``(FLOOKUP (weakened_exh ^gtagenv') t = SOME tags) ⇒
-    (set tags = {tag | ∃cn l. FLOOKUP gtagenv' (cn, TypeId t) = SOME (tag,l)})``,
-  rw[Once FLOOKUP_DEF] >>
-  fs[weakened_exh_def] >>
-  qmatch_assum_abbrev_tac`t ∈ FDOM (FUN_FMAP f X)` >>
+    (domain tags = {tag | ∃cn l. FLOOKUP gtagenv' (cn, TypeId t) = SOME (tag,l)})``,
+  rw[Once FLOOKUP_DEF,FDOM_weakened_exh] >>
+  simp[weakened_exh_def] >>
+  qmatch_abbrev_tac`domain (FUN_FMAP f X ' t) = Z` >>
   strip_assume_tac(
-    Q.ISPEC`f:string id -> num list`(MATCH_MP FUN_FMAP_DEF FINITE_weakened_exh_dom)) >>
-  fs[Abbr`X`,PULL_EXISTS] >>
+    Q.ISPEC`f:string id -> unit spt`(MATCH_MP FUN_FMAP_DEF FINITE_weakened_exh_dom)) >>
+  fs[Abbr`X`,PULL_EXISTS,Abbr`Z`] >>
   simp[Once EXTENSION] >>
   res_tac >>
   pop_assum (SUBST1_TAC) >>
@@ -309,7 +311,7 @@ val exhaustive_env_weak = Q.prove (
  rw []
  >- (`(cn,TypeId t) ∈ FDOM gtagenv` by metis_tac [] >>
      `?tags. FLOOKUP exh t = SOME tags ∧
-             ∀cn tag l. FLOOKUP gtagenv (cn,TypeId t) = SOME (tag,l) ⇒ MEM tag tags` by metis_tac [] >>
+             ∀cn tag l. FLOOKUP gtagenv (cn,TypeId t) = SOME (tag,l) ⇒ tag ∈ domain tags` by metis_tac [] >>
      fs [FLOOKUP_FUNION] >>
      Cases_on `FLOOKUP (weakened_exh gtagenv') t` >> simp[] >- (
        fs[FLOOKUP_DEF,FDOM_weakened_exh,PULL_EXISTS] ) >>
@@ -575,7 +577,7 @@ val pmatch_to_i2_correct = Q.prove (
                     by (Cases_on `t'` >>
                         metis_tac []) >>
          rw [pmatch_i2_def]
-         >- (`?tags. FLOOKUP exh tid = SOME tags ∧ MEM tag tags`
+         >- (`?tags. FLOOKUP exh tid = SOME tags ∧ tag ∈ domain tags`
                     by (fs [cenv_inv_def, exhaustive_env_correct_def, FLOOKUP_DEF] >>
                         rw [] >>
                         metis_tac []) >>
@@ -603,12 +605,12 @@ val pmatch_to_i2_correct = Q.prove (
          rw [pmatch_i2_def]
          >- metis_tac [gtagenv_wf_def]
          >- metis_tac [gtagenv_wf_def]
-         >- (`?tags. FLOOKUP exh tid = SOME tags ∧ MEM tag tags`
+         >- (`?tags. FLOOKUP exh tid = SOME tags ∧ tag ∈ domain tags`
                     by (fs [cenv_inv_def, exhaustive_env_correct_def, FLOOKUP_DEF] >>
                         rw [] >>
                         metis_tac []) >>
              rw [match_result_to_i2_def]  >>
-             `?tags. FLOOKUP exh tid = SOME tags ∧ MEM tag' tags`
+             `?tags. FLOOKUP exh tid = SOME tags ∧ tag' ∈ domain tags`
                     by (fs [cenv_inv_def, exhaustive_env_correct_def, FLOOKUP_DEF] >>
                         rw [] >>
                         metis_tac []) >>
@@ -1753,13 +1755,13 @@ val decs_to_i2_inv_weak = Q.prove (
      metis_tac [DECIDE ``x > y ⇒ x + 1 > y:num``]));
 
 val pmatch_i2_exh_weak = Q.prove (
-`(!exh s p v env res exh'.
+`(!(exh:exh_ctors_env) s p v env res exh'.
   pmatch_i2 exh s p v env = res ∧
   res ≠ Match_type_error ∧
   DISJOINT (FDOM exh') (FDOM exh)
   ⇒
   pmatch_i2 (FUNION exh' exh) s p v env = res) ∧
- (!exh s ps vs env res exh'.
+ (!(exh:exh_ctors_env) s ps vs env res exh'.
   pmatch_list_i2 exh s ps vs env = res ∧
   res ≠ Match_type_error ∧
   DISJOINT (FDOM exh') (FDOM exh)
@@ -1777,19 +1779,19 @@ val evaluate_exp_i2_exh_weak = Q.prove (
    evaluate_i2 b tmp_env s e res ⇒
    !exh genv env exh'.
      SND res ≠ Rerr Rtype_error ∧
-     tmp_env = (exh,genv,env) ∧
+     tmp_env = ((exh:exh_ctors_env),genv,env) ∧
      DISJOINT (FDOM exh') (FDOM exh) ⇒
      evaluate_i2 b (FUNION exh' exh,genv,env) s e res) ∧
  (∀b tmp_env s es res.
    evaluate_list_i2 b tmp_env s es res ⇒
    !exh genv env exh'.
      SND res ≠ Rerr Rtype_error ∧
-     tmp_env = (exh,genv,env) ∧
+     tmp_env = ((exh:exh_ctors_env),genv,env) ∧
      DISJOINT (FDOM exh') (FDOM exh) ⇒
      evaluate_list_i2 b (FUNION exh' exh,genv,env) s es res) ∧
  (∀b tmp_env s v pes err_v res.
    evaluate_match_i2 b tmp_env s v pes err_v res ⇒
-   !exh genv env exh'.
+   !(exh:exh_ctors_env) genv env exh'.
      SND res ≠ Rerr Rtype_error ∧
      tmp_env = (exh,genv,env) ∧
      DISJOINT (FDOM exh') (FDOM exh) ⇒
@@ -1840,8 +1842,6 @@ val eta2 = Q.prove (
 `(\x y. f a x y) = f a`,
 metis_tac []);
 
-open miscLib
-
 val FOLDL_insert_tag_env = prove(
   ``∀ls tagenv.
     FOLDL (λtagenv (cn,tag). insert_tag_env cn tag tagenv) tagenv ls =
@@ -1856,9 +1856,11 @@ val exhaustive_env_weakened_exh_SUBMAP = prove(
   rw[SUBMAP_DEF] >- (
     fs[FDOM_weakened_exh,PULL_EXISTS,FLOOKUP_DEF] >>
     metis_tac[] ) >>
-  FLOOKUP_weakened_exh_imp
+  FLOOKUP_weakened_exh_imp |> SIMP_RULE(srw_ss())[FLOOKUP_DEF]
   type_of``weakened_exh``
+*)
 
+(*
 val cenv_inv_to_mod = prove(
   ``∀tdefs n envC exh tagenv gtagenv.
     cenv_inv envC exh tagenv gtagenv ⇒
