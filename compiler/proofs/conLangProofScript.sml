@@ -1702,8 +1702,8 @@ val recfun_helper2 = Q.prove (
 
 val alloc_tags_inv_weak = Q.prove (
 `!tids tagenv_st gtagenv mn tdefs.
-  alloc_tags_invariant tids tagenv_st gtagenv ⇒
-  alloc_tags_invariant tids (alloc_tags mn tagenv_st tdefs) gtagenv`,
+  alloc_tags_invariant tids (tagenv_st:tagenv_state) gtagenv ⇒
+  alloc_tags_invariant tids (alloc_tags mn tagenv_st (tdefs:type_def)) gtagenv`,
  induct_on `tdefs` >>
  rw [alloc_tags_def] >>
  PairCases_on `h` >>
@@ -1840,6 +1840,38 @@ val eta2 = Q.prove (
 `(\x y. f a x y) = f a`,
 metis_tac []);
 
+open miscLib
+
+val FOLDL_insert_tag_env = prove(
+  ``∀ls tagenv.
+    FOLDL (λtagenv (cn,tag). insert_tag_env cn tag tagenv) tagenv ls =
+      (FST tagenv, SND tagenv |++ ls)``,
+  Induct >> simp[FUPDATE_LIST_THM,UNCURRY,FORALL_PROD,insert_tag_env_def])
+
+(*
+val exhaustive_env_weakened_exh_SUBMAP = prove(
+  ``exhaustive_env_correct exh gtagenv ⇒
+    weakened_exh gtagenv ⊑ exh``,
+  rw[exhaustive_env_correct_def] >>
+  rw[SUBMAP_DEF] >- (
+    fs[FDOM_weakened_exh,PULL_EXISTS,FLOOKUP_DEF] >>
+    metis_tac[] ) >>
+  FLOOKUP_weakened_exh_imp
+  type_of``weakened_exh``
+
+val cenv_inv_to_mod = prove(
+  ``∀tdefs n envC exh tagenv gtagenv.
+    cenv_inv envC exh tagenv gtagenv ⇒
+    let gtagenv' = (gtagenv |++ MAP foo tdefs) in
+    cenv_inv (merge_envC (emp,tdefs) envC) (weakened_exh gtagenv' ⊌ exh)
+      (FST tagenv, SND tagenv |++ flat_alloc_tags n (REVERSE tdefs))
+      gtagenv'``,
+  Induct >- (
+    Cases_on`envC` >>
+    simp[cenv_inv_def,FUPDATE_LIST_THM,flat_alloc_tags_def,merge_envC_def,
+         emp_def,merge_def,COUNT_LIST_def] >>
+*)
+
 val decs_to_i2_correct = Q.prove (
 `!ck genv envC s ds r.
   evaluate_decs_i1 ck genv envC s ds r
@@ -1955,7 +1987,15 @@ val decs_to_i2_correct = Q.prove (
      fs [funs_to_i2_map , MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM PEXISTS_THM] >>
      fs [result_to_i2_cases] >>
      metis_tac [pair_CASES])
- >- cheat
+ >- (
+   first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >> rw[] >>
+   rfs[] >>
+   qmatch_assum_rename_tac`DISJOINT (X mn tdefs) tids`["X"] >>
+   first_x_assum(fn th => first_assum (mp_tac o (MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th)))) >>
+   first_assum(mp_tac o MATCH_MP alloc_tags_inv_weak) >>
+   disch_then(qspecl_then[`mn`,`tdefs`]strip_assume_tac) >>
+   simp[alloc_tags_eqns,FOLDL_insert_tag_env] >>
+   cheat )
  >- cheat);
 
  (*
