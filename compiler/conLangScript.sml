@@ -84,7 +84,7 @@ val _ = Define `
  (none_tag =( 7))`;
 
 
-val _ = type_abbrev( "exh_ctors_env" , ``: (( typeN id), nat_set) fmap``);
+val _ = type_abbrev( "exh_ctors_env" , ``: (( typeN id),  unit spt) fmap``);
 
 val _ = Hol_datatype `
  uop_i2 = 
@@ -313,8 +313,8 @@ val _ = Define `
       (\ (tvs,tn,constrs) . 
         (mk_id mn tn,
          FOLDL
-           (\ s (cn,ts) . s |+ ((FST (option_CASE (FLOOKUP acc cn) ( 0,NONE) I)), () ))
-           FEMPTY constrs))
+           (\ s (cn,ts) .  insert (FST (option_CASE (FLOOKUP acc cn) ( 0,NONE) I)) ()  s)
+           LN constrs))
       tds)))`;
 
 
@@ -530,7 +530,7 @@ val _ = Define `
     (case FLOOKUP exh t of
         NONE => Match_type_error
       | SOME tags =>
-          if n IN (FDOM tags) /\ n' IN (FDOM tags) then
+          if n IN (domain tags) /\ n' IN (domain tags) then
             if n = n' then
               if LENGTH ps = LENGTH vs then
                 pmatch_list_i2 exh s ps vs env

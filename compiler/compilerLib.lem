@@ -12,16 +12,20 @@ val num_fold : forall 'a. ('a -> 'a) -> 'a -> nat -> 'a
 let rec num_fold f a n = if n = 0 then a else num_fold f (f a) (n-1)
 declare termination_argument num_fold = automatic
 
-(* TODO: use a better type *)
-type nat_set = Map.map nat unit
+(* TODO: move? *)
+open import {hol} `sptreeTheory`
+type nat_set
+declare hol target_rep type nat_set = `spt` unit
 val nat_set_empty : nat_set
 val nat_set_insert : nat_set -> nat -> nat_set
-val nat_set_elem : nat_set -> nat -> bool
 val nat_set_to_set : nat_set -> set nat
-declare hol target_rep function nat_set_empty = Map.empty
-declare hol target_rep function nat_set_insert s n = Map.insert n () s
-declare hol target_rep function nat_set_elem s n = n IN (Map.domain s)
-declare hol target_rep function nat_set_to_set s = Map.domain s
+val nat_set_elem : nat_set -> nat -> bool
+val nat_set_from_list : list nat -> nat_set
+declare hol target_rep function nat_set_empty = `LN`
+declare hol target_rep function nat_set_insert s n = `insert` n () s
+declare hol target_rep function nat_set_to_set s = `domain` s
+declare hol target_rep function nat_set_elem s n = n IN (nat_set_to_set s)
+declare hol target_rep function nat_set_from_list = List.foldl nat_set_insert nat_set_empty
 
 let rec
 intersperse _ [] = []

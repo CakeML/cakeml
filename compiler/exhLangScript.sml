@@ -112,8 +112,8 @@ val _ = Define `
             | SOME tags =>
                 (case FLOOKUP exh t of
                     NONE => F
-                  | SOME tags' =>
-                    LIST_TO_SET tags = FDOM tags'
+                  | SOME tags' =>                    
+(FOLDL (\ s n. insert n ()  s) LN tags) = tags'
                 )
           )
         else

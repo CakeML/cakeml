@@ -94,7 +94,7 @@ let exhaustive_match exh ps =
                 match Map.lookup t exh with
                   | Nothing -> false
                   | Just tags' ->
-                    Set.fromList tags = nat_set_to_set tags'
+                    nat_set_from_list tags = tags'
                 end
           end
         else
