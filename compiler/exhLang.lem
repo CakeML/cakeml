@@ -23,6 +23,7 @@ open import SemanticPrimitives
 open import List_extra
 open import BigStep
 open import ConLang
+open import CompilerLib
 
 type pat_exh =
   | Pvar_exh of varN
@@ -93,7 +94,7 @@ let exhaustive_match exh ps =
                 match Map.lookup t exh with
                   | Nothing -> false
                   | Just tags' ->
-                    Set.fromList tags = Set.fromList tags'
+                    Set.fromList tags = nat_set_to_set tags'
                 end
           end
         else

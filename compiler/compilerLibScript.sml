@@ -24,6 +24,13 @@ val _ = new_theory "compilerLib"
  (num_fold f a n = (if n = 0 then a else num_fold f (f a) (n -  1)))`;
 
 
+(* TODO: use a better type *)
+val _ = type_abbrev( "nat_set" , ``: (num, unit) fmap``);
+(*val nat_set_empty : nat_set*)
+(*val nat_set_insert : nat_set -> nat -> nat_set*)
+(*val nat_set_elem : nat_set -> nat -> bool*)
+(*val nat_set_to_set : nat_set -> set nat*)
+
  val intersperse_defn = Hol_defn "intersperse" `
 
 (intersperse _ [] = ([]))

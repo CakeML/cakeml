@@ -32,6 +32,7 @@ open import SemanticPrimitives
 open import List_extra
 open import BigStep
 open import ModLang
+open import CompilerLib
 
 val tuple_tag : nat
 let tuple_tag = 0
@@ -57,7 +58,7 @@ let some_tag = 6
 val none_tag : nat
 let none_tag = 7
 
-type exh_ctors_env = Map.map (id typeN) (list nat)
+type exh_ctors_env = Map.map (id typeN) nat_set
 
 type uop_i2 = 
   | Opderef_i2
@@ -249,7 +250,13 @@ declare termination_argument alloc_tags = automatic
 val build_exh_env : maybe modN -> tagenv_state -> type_def -> exh_ctors_env
 let build_exh_env mn (_,acc) tds =
   Map.fromList
-    (List.map (fun (tvs,tn,constrs) -> (mk_id mn tn, List.map (fun (cn,ts) -> fst (fromMaybe (0,Nothing) (Map.lookup cn acc))) constrs)) tds)
+    (List.map
+      (fun (tvs,tn,constrs) ->
+        (mk_id mn tn,
+         List.foldl
+           (fun s (cn,ts) -> nat_set_insert s (fst (fromMaybe (0,Nothing) (Map.lookup cn acc))))
+           nat_set_empty constrs))
+      tds)
 
 val decs_to_i2 : tagenv_state -> list dec_i1 -> tagenv_state * exh_ctors_env * list dec_i2
 let rec 
@@ -441,7 +448,7 @@ pmatch_i2 exh s (Pcon_i2 (n, Just (TypeId t)) ps) (Conv_i2 (n', Just (TypeId t')
     match Map.lookup t exh with
       | Nothing -> Match_type_error
       | Just tags ->
-          if List.elem n tags && List.elem n' tags then
+          if nat_set_elem tags n && nat_set_elem tags n' then
             if n = n' then
               if List.length ps = List.length vs then
                 pmatch_list_i2 exh s ps vs env
