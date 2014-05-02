@@ -4,6 +4,12 @@ val _ = new_theory "misc"
 
 (* TODO: move/categorize *)
 
+val domain_nat_set_from_list = store_thm("domain_nat_set_from_list",
+  ``∀ls ns. domain (FOLDL (λs n. insert n () s) ns ls) = domain ns ∪ set ls``,
+  Induct >> simp[sptreeTheory.domain_insert] >>
+  rw[EXTENSION] >> metis_tac[])
+val _ = export_rewrites["domain_nat_set_from_list"]
+
 val least_from_def = Define`
   least_from P n = if (∃x. P x ∧ n ≤ x) then $LEAST (λx. P x ∧ n ≤ x) else $LEAST P`
 

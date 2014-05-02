@@ -125,7 +125,7 @@ val pmatch_i2_Pcon_No_match = prove(
      ∃cv vs tags.
        v = Conv_i2 (cv,SOME (TypeId t)) vs ∧
        FLOOKUP exh t = SOME tags ∧
-       c ∈ FDOM tags ∧ cv ∈ FDOM tags ∧
+       c ∈ domain tags ∧ cv ∈ domain tags ∧
        c ≠ cv)``,
   Cases_on`v`>>rw[pmatch_i2_def]>>
   PairCases_on`p`>>
@@ -173,15 +173,10 @@ val exh_to_exists_match = Q.prove (
      Cases_on`b`>>simp[Abbr`pp2`,pmatch_i2_def]>>
      Cases_on`x`>>simp[pmatch_i2_def]>>
      rw[] >- metis_tac[pmatch_list_i2_all_vars_not_No_match] >>
-     qmatch_assum_rename_tac`get_tags ws = SOME ts`[] >>
      imp_res_tac get_tags_lemma >>
-     fs[EXTENSION] >>
-     `MEM cv ts` by metis_tac[] >>
-     first_x_assum(qspec_then`cv`mp_tac) >>
-     simp[] >> strip_tac >>
-     qmatch_assum_abbrev_tac`MEM p ws` >>
-     qexists_tac`p` >>
-     simp[Abbr`p`] >>
+     first_x_assum(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >>
+     fs[] >> rw[] >>
+     HINT_EXISTS_TAC >>
      Cases_on`x`>>simp[pmatch_i2_Pcon_No_match,pmatch_i2_def] >>
      qmatch_assum_rename_tac`MEM (Pcon_i2 (cv, SOME z) ps) ws`[] >>
      Cases_on`z`>>simp[pmatch_i2_def] >> rw[] >>
