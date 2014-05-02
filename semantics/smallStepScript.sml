@@ -73,6 +73,28 @@ val _ = Define `
  (return env s v c = (Estep (env, s, Val v, c)))`;
 
 
+(*val applicaiton : op -> all_env -> store store_v -> list v -> list ctxt -> e_step_result*)
+val _ = Define `
+ (application op env s vs c =  
+ ((case op of
+      Opapp =>
+      (case do_opapp vs of
+          SOME (env,e) => Estep (env, s, Exp e, c)
+        | NONE => Etype_error
+      )
+    | _ =>
+      (case do_app s op vs of
+          SOME (s',r) =>
+          (case r of
+              Rerr (Rraise v) => Estep (env,s',Val v,((Craise () ,env)::c))
+            | Rval v => return env s' v c
+            | _ => Etype_error
+          )
+        | NONE => Etype_error
+      )
+    )))`;
+
+
 (* apply a context to a value *)
 (*val continue : store store_v -> v -> list ctxt -> e_step_result*)
 val _ = Define `
@@ -89,23 +111,7 @@ val _ = Define `
     | (Chandle ()  pes, env) :: c =>
         return env s v c
     | (Capp op vs ()  [], env) :: c =>
-        (case op of
-            Opapp =>
-            (case do_opapp (REVERSE (v::vs)) of
-                SOME (env,e) => Estep (env, s, Exp e, c)
-              | NONE => Etype_error
-            )
-          | _ =>
-            (case do_app s op (REVERSE (v::vs)) of
-                SOME (s',r) =>
-                (case r of
-                    Rerr (Rraise v) => Estep (env,s',Val v,((Craise () ,env)::c))
-                  | Rval v => return env s' v c
-                  | _ => Etype_error
-                )
-              | NONE => Etype_error
-            )
-          )
+        application op env s (REVERSE (v::vs)) c
     | (Capp op vs ()  (e::es), env) :: c =>
         push env s e (Capp op (v::vs) ()  es) c
     | (Clog l ()  e, env) :: c =>
@@ -188,7 +194,7 @@ val _ = Define `
           | Fun n e => return env s (Closure env n e) c
           | App op es => 
               (case es of
-                  [] => Etype_error
+                  [] => application op env s [] c
                 | (e::es) => push env s e (Capp op [] ()  es) c
               )
           | Log l e1 e2 => push env s e1 (Clog l ()  e2) c

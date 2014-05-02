@@ -53,6 +53,26 @@ let push env s e c' cs = Estep (env, s, Exp e, ((c',env)::cs))
 val return : all_env -> store store_v -> v -> list ctxt -> e_step_result
 let return env s v c = Estep (env, s, Val v, c)
 
+val applicaiton : op -> all_env -> store store_v -> list v -> list ctxt -> e_step_result
+let application op env s vs c = 
+  match op with
+    | Opapp ->
+      match do_opapp vs with
+        | Just (env,e) -> Estep (env, s, Exp e, c)
+        | Nothing -> Etype_error
+      end
+    | _ ->
+      match do_app s op vs with
+        | Just (s',r) ->
+          match r with
+            | Rerr (Rraise v) -> Estep (env,s',Val v,((Craise (),env)::c))
+            | Rval v -> return env s' v c
+            | _ -> Etype_error
+          end
+        | Nothing -> Etype_error
+      end
+    end
+
 (* apply a context to a value *)
 val continue : store store_v -> v -> list ctxt -> e_step_result
 let continue s v cs =
@@ -68,23 +88,7 @@ let continue s v cs =
     | (Chandle () pes, env) :: c ->
         return env s v c
     | (Capp op vs () [], env) :: c ->
-        match op with
-          | Opapp ->
-            match do_opapp (List.reverse (v::vs)) with
-              | Just (env,e) -> Estep (env, s, Exp e, c)
-              | Nothing -> Etype_error
-            end
-          | _ ->
-            match do_app s op (List.reverse (v::vs)) with
-              | Just (s',r) ->
-                match r with
-                  | Rerr (Rraise v) -> Estep (env,s',Val v,((Craise (),env)::c))
-                  | Rval v -> return env s' v c
-                  | _ -> Etype_error
-                end
-              | Nothing -> Etype_error
-            end
-          end
+        application op env s (List.reverse (v::vs)) c
     | (Capp op vs () (e::es), env) :: c ->
         push env s e (Capp op (v::vs) () es) c
     | (Clog l () e, env) :: c ->
@@ -165,7 +169,7 @@ let e_step (env, s, ev, c) =
           | Fun n e -> return env s (Closure env n e) c
           | App op es -> 
               match es with
-                | [] -> Etype_error
+                | [] -> application op env s [] c
                 | (e::es) -> push env s e (Capp op [] () es) c
               end
           | Log l e1 e2 -> push env s e1 (Clog l () e2) c
