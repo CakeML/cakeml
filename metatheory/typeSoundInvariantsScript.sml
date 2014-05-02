@@ -99,7 +99,7 @@ val _ = Define `
 (*val type_env : ctMap -> tenvS -> envE -> tenvE -> bool*)
 
 (* The type of the store *)
-(*val type_s : ctMap -> tenvS -> store v -> bool*)
+(*val type_s : ctMap -> tenvS -> store store_v -> bool*)
 
 (* An evaluation context has the second type when its hole is filled with a
  * value of the first type. *)
@@ -224,7 +224,8 @@ val _ = Define `
  (type_s cenv senv s =  
 (! l. 
     ((? t. lookup l senv = SOME t) <=> (? v. store_lookup l s = SOME v)) /\    
-(! t v. ((lookup l senv = SOME t) /\ (store_lookup l s = SOME v)) ==> type_v( 0) cenv senv v t)))`;
+((! t v. ((lookup l senv = SOME t) /\ (store_lookup l s = SOME (Refv v))) ==> type_v( 0) cenv senv v t) /\
+    (! t ws. ((lookup l senv = SOME t) /\ (store_lookup l s = SOME (W8array ws))) ==> (t = Tapp [] TC_word8array)))))`;
 
 
 val _ = Hol_reln ` (! n.
@@ -242,15 +243,10 @@ context_invariant dec_tvs ((Craise () ,env) :: c) 0)
 ==>
 context_invariant dec_tvs ((Chandle ()  pes,env) :: c) 0)
 
-/\ (! dec_tvs c op e env.
+/\ (! dec_tvs c op vs es env.
 (context_invariant dec_tvs c( 0))
 ==>
-context_invariant dec_tvs ((Capp1 op ()  e,env) :: c) 0)
-
-/\ (! dec_tvs c op v env.
-(context_invariant dec_tvs c( 0))
-==>
-context_invariant dec_tvs ((Capp2 op v () ,env) :: c) 0)
+context_invariant dec_tvs ((Capp op vs ()  es,env) :: c) 0)
 
 /\ (! dec_tvs c l e env.
 (context_invariant dec_tvs c( 0))
@@ -276,12 +272,7 @@ context_invariant dec_tvs ((Clet x ()  e,env) :: c) tvs)
 (context_invariant dec_tvs c tvs /\
 ( ~ (tvs =( 0)) ==> EVERY is_value es))
 ==>
-context_invariant dec_tvs ((Ccon cn vs ()  es,env) :: c) tvs)
-
-/\ (! dec_tvs c op env.
-(context_invariant dec_tvs c( 0))
-==>
-context_invariant dec_tvs ((Cuapp op () ,env) :: c) 0)`;
+context_invariant dec_tvs ((Ccon cn vs ()  es,env) :: c) tvs)`;
 
 val _ = Hol_reln ` (! tvs menv all_cenv cenv senv tenv t.
 (check_freevars tvs [] t)
@@ -296,28 +287,14 @@ type_ctxt tvs menv all_cenv cenv senv tenv (Craise () ) Texn t)
 ==>
 type_ctxt tvs menv all_cenv cenv senv tenv (Chandle ()  pes) t t)
 
-/\ (! tvs menv all_cenv cenv senv tenv uop t1 t2.
+/\ (! tvs menv all_cenv cenv senv tenv vs es op t1 t2 ts1 ts2.
 (check_freevars tvs [] t1 /\
 (check_freevars tvs [] t2 /\
-type_uop uop t1 t2))
+(type_vs( 0) all_cenv senv vs ts1 /\
+(type_es menv cenv tenv es ts2 /\
+type_op op ((REVERSE ts1 ++ [t1]) ++ ts2) t2)))) 
 ==>
-type_ctxt tvs menv all_cenv cenv senv tenv (Cuapp uop () ) t1 t2)
-
-/\ (! tvs menv all_cenv cenv senv tenv e op t1 t2 t3.
-(check_freevars tvs [] t1 /\
-(check_freevars tvs [] t3 /\
-(type_e menv cenv tenv e t2 /\
-type_op op t1 t2 t3)))
-==>
-type_ctxt tvs menv all_cenv cenv senv tenv (Capp1 op ()  e) t1 t3)
-
-/\ (! tvs menv all_cenv cenv senv tenv op v t1 t2 t3.
-(check_freevars tvs [] t2 /\
-(check_freevars tvs [] t3 /\
-(type_v( 0) all_cenv senv v t1 /\
-type_op op t1 t2 t3)))
-==>
-type_ctxt tvs menv all_cenv cenv senv tenv (Capp2 op v () ) t2 t3)
+type_ctxt tvs menv all_cenv cenv senv tenv (Capp op vs ()  es) t1 t2)
 
 /\ (! tvs menv all_cenv cenv senv tenv op e.
 (type_e menv cenv tenv e Tbool)

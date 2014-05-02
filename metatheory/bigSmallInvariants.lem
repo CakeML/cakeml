@@ -7,12 +7,10 @@ open import BigStep
 
 (* ------ Auxiliary relations for proving big/small step equivalence ------ *)
 
-val evaluate_ctxt : all_env -> count_store v -> ctxt_frame -> v -> count_store v * result v v -> bool
-val evaluate_ctxts : count_store v -> list ctxt -> result v v -> count_store v * result v v -> bool
-val evaluate_state : state -> count_store v * result v v -> bool
+val evaluate_state : state -> count_store store_v * result v v -> bool
 
 indreln
-[evaluate_ctxt : all_env -> count_store v -> ctxt_frame -> v -> count_store v * result v v -> bool]
+[evaluate_ctxt : all_env -> count_store store_v -> ctxt_frame -> v -> count_store store_v * result v v -> bool]
 
 raise : forall env s v.
 true
@@ -28,56 +26,45 @@ evaluate_ctxt env s (Chandle () pes) v (s, Rval v)
 
 and
 
-app1 : forall env op e2 v1 v2 env' e3 bv s1 s2 count s3.
-evaluate false env s1 e2 ((count,s2), Rval v2) &&
-do_app env s2 op v1 v2 = Just (env',s3,e3) &&
-evaluate false env' (count, s3) e3 bv
+app1 : forall env e v vs1 vs2 es env' bv s1 s2.
+evaluate_list false env s1 es (s2, Rval vs2) &&
+do_opapp (List.reverse vs1 ++ [v] ++ vs2) = Just (env',e) &&
+evaluate false env' s2 e bv
 ==>
-evaluate_ctxt env s1 (Capp1 op () e2) v1 bv
+evaluate_ctxt env s1 (Capp Opapp vs1 () es) v bv
 
 and
 
-app2 : forall env op e2 v1 v2 s1 s2 count.
-evaluate false env s1 e2 ((count,s2), Rval v2) &&
-do_app env s2 op v1 v2 = Nothing
+app2 : forall env v vs1 vs2 es s1 s2.
+evaluate_list false env s1 es (s2, Rval vs2) &&
+do_opapp (List.reverse vs1 ++ [v] ++ vs2) = Nothing
 ==>
-evaluate_ctxt env s1 (Capp1 op () e2) v1 ((count, s2), Rerr Rtype_error)
+evaluate_ctxt env s1 (Capp Opapp vs1 () es) v (s2, Rerr Rtype_error)
 
 and
 
-app3 : forall env op e2 v1 err s s'.
-evaluate false env s e2 (s', Rerr err)
+app3 : forall env op v1 v vs1 vs2 es res s1 s2 s3 count.
+op <> Opapp &&
+evaluate_list false env s1 es ((count,s2), Rval vs2) &&
+do_app s2 op (List.reverse vs1 ++ [v1] ++ vs2) = Just (s3,res)
 ==>
-evaluate_ctxt env s (Capp1 op () e2) v1 (s', Rerr err)
+evaluate_ctxt env s1 (Capp op vs1 () es) v ((count,s3), res)
 
 and
 
-app4 : forall env op v1 v2 env' e3 bv s1 s2 count.
-do_app env s1 op v1 v2 = Just (env',s2,e3) &&
-evaluate false env' (count, s2) e3 bv
+app4 : forall env op v vs1 vs2 es s1 s2 count.
+op <> Opapp &&
+evaluate_list false env s1 es ((count,s2), Rval vs2) &&
+do_app s2 op (List.reverse vs1 ++ [v] ++ vs2) = Nothing
 ==>
-evaluate_ctxt env (count,s1) (Capp2 op v1 ()) v2 bv
+evaluate_ctxt env s1 (Capp op vs1 () es) v ((count,s2), Rerr Rtype_error)
 
 and
 
-app5 : forall env op v1 v2 s count.
-(do_app env s op v1 v2 = Nothing)
+app5 : forall env op es vs v err s s'.
+evaluate_list false env s es (s', Rerr err)
 ==>
-evaluate_ctxt env (count,s) (Capp2 op v1 ()) v2 ((count, s), Rerr Rtype_error)
-
-and
-
-uapp1 : forall env uop v v' s1 s2 count.
-(do_uapp s1 uop v = Just (s2,v'))
-==>
-evaluate_ctxt env (count,s1) (Cuapp uop ()) v ((count,s2), Rval v')
-
-and
-
-uapp2 : forall env uop v s count.
-(do_uapp s uop v = Nothing)
-==>
-evaluate_ctxt env (count,s) (Cuapp uop ()) v ((count,s), Rerr Rtype_error)
+evaluate_ctxt env s (Capp op vs () es) v (s', Rerr err)
 
 and
 
@@ -147,7 +134,7 @@ evaluate_list false env s es (s', Rerr err)
 evaluate_ctxt env s (Ccon cn vs () es) v (s', Rerr err)
 
 indreln
-[evaluate_ctxts : count_store v -> list ctxt -> result v v -> count_store v * result v v -> bool]
+[evaluate_ctxts : count_store store_v -> list ctxt -> result v v -> count_store store_v * result v v -> bool]
 
 empty : forall res s.
 true
@@ -180,7 +167,7 @@ evaluate_ctxts s' cs res1 res2
 evaluate_ctxts s ((Chandle () pes,env)::cs) (Rerr (Rraise v)) res2
 
 indreln
-[evaluate_state : state -> count_store v * result v v -> bool]
+[evaluate_state : state -> count_store store_v * result v v -> bool]
 
 exp : forall env e c res bv s1 s2.
 evaluate false env (0,s1) e (s2, res) &&
