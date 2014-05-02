@@ -384,7 +384,7 @@ val prog_to_i3_correct = Q.store_thm ("prog_to_i3_correct",
 `!ck exh genv s p new_env s' r next' e.
   evaluate_prog_i2 ck exh genv s p (s',new_env,r) ∧
   r ≠ SOME Rtype_error ∧
-  FLOOKUP exh (Short "option") = SOME (FEMPTY|++[(none_tag,());(some_tag,())]) ∧
+  FLOOKUP exh (Short "option") = SOME (insert some_tag () (insert none_tag () LN)) ∧
   (prog_to_i3 (none_tag, SOME (TypeId (Short "option"))) (some_tag, SOME (TypeId (Short "option"))) (LENGTH genv) p = (next',e))
   ⇒
   ?r_i3.
@@ -418,16 +418,16 @@ val prog_to_i3_correct = Q.store_thm ("prog_to_i3_correct",
      rw []
      >- (qexists_tac `Conv_i2 (none_tag,SOME (TypeId (Short "option"))) []` >>
          rw [pmatch_i2_def] >>
-         fs[FDOM_FUPDATE_LIST] >>
+         fs[sptreeTheory.domain_insert] >>
          metis_tac [pair_CASES])
      >- (qexists_tac `Conv_i2 (none_tag,SOME (TypeId (Short "option"))) []` >>
          rw [pmatch_i2_def] >>
-         fs[FDOM_FUPDATE_LIST] >>
+         fs[sptreeTheory.domain_insert] >>
          metis_tac [pair_CASES])
      >- (disj1_tac >>
          qexists_tac `Conv_i2 (none_tag,SOME (TypeId (Short "option"))) []` >>
          rw [pmatch_i2_def] >>
-         fs[FDOM_FUPDATE_LIST] >>
+         fs[sptreeTheory.domain_insert] >>
          metis_tac [pair_CASES]))
  >- (imp_res_tac prompt_to_i3_correct >>
      fs [] >>
@@ -439,7 +439,7 @@ val prog_to_i3_correct = Q.store_thm ("prog_to_i3_correct",
      rw [] >>
      qexists_tac `Conv_i2 (some_tag,SOME (TypeId (Short "option"))) [err']` >>
      fs [none_tag_def, some_tag_def, pmatch_i2_def] >>
-     fs[FDOM_FUPDATE_LIST] >>
+     fs[sptreeTheory.domain_insert] >>
      metis_tac [pair_CASES]));
 
 val _ = export_theory ();
