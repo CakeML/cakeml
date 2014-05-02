@@ -37,7 +37,7 @@ val exp_to_i3_correct = Q.prove (
    (SND res ≠ Rerr Rtype_error) ⇒
    !s' exh genv env' r.
      (res = (s',r)) ∧
-     (env = (exh,genv,env'))
+     (env = (exh:exh_ctors_env,genv,env'))
      ⇒
      evaluate_i3 b (exh,env') (s,genv) e ((s',genv),r)) ∧
  (∀b env s es res.
@@ -45,7 +45,7 @@ val exp_to_i3_correct = Q.prove (
    (SND res ≠ Rerr Rtype_error) ⇒
    !s' exh genv env' r.
      (res = (s',r)) ∧
-     (env = (exh,genv,env'))
+     (env = (exh:exh_ctors_env,genv,env'))
      ⇒
      evaluate_list_i3 b (exh,env') (s,genv) es ((s',genv),r)) ∧
  (∀b env s v pes err_v res.
@@ -53,7 +53,7 @@ val exp_to_i3_correct = Q.prove (
    (SND res ≠ Rerr Rtype_error) ⇒
    !s' exh genv env' r.
      (res = (s',r)) ∧
-     (env = (exh,genv,env'))
+     (env = (exh:exh_ctors_env,genv,env'))
      ⇒
      evaluate_match_i3 b (exh,env') (s,genv) v pes err_v ((s',genv),r))`,
  ho_match_mp_tac evaluate_i2_ind >>
@@ -83,24 +83,24 @@ val exp_to_i3_correct = Q.prove (
 
 val eval_i3_genv_weakening = Q.prove (
 `(∀ck env s e res.
-   evaluate_i3 ck env s e res ⇒
-   !s' s'' genv env' r genv' l.
+   evaluate_i3 ck (env:all_env_i3) s e res ⇒
+   !s' s'' genv r genv' l.
      (s = (s',genv)) ∧
      (res = ((s'',genv'),r)) ∧
      r ≠ Rerr Rtype_error
      ⇒
      evaluate_i3 ck env (s',genv++GENLIST (\x.NONE) l) e ((s'',genv'++GENLIST (\x.NONE) l),r)) ∧
  (∀ck env s es res.
-   evaluate_list_i3 ck env s es res ⇒
-   !s' s'' genv genv' l env' r.
+   evaluate_list_i3 ck (env:all_env_i3) s es res ⇒
+   !s' s'' genv genv' l r.
      (s = (s',genv)) ∧
      (res = ((s'',genv'),r)) ∧
      r ≠ Rerr Rtype_error
      ⇒
      evaluate_list_i3 ck env (s',genv++GENLIST (\x.NONE) l) es ((s'',genv'++GENLIST (\x.NONE) l),r) )∧
  (∀ck env s v pes err_v res.
-   evaluate_match_i3 ck env s v pes err_v res ⇒
-   !s' s'' genv genv' l env' r.
+   evaluate_match_i3 ck (env:all_env_i3) s v pes err_v res ⇒
+   !s' s'' genv genv' l r.
      (s = (s',genv)) ∧
      (res = ((s'',genv'),r)) ∧
      r ≠ Rerr Rtype_error
@@ -259,7 +259,7 @@ val init_global_funs_thm = Q.prove (
 
 val decs_to_i3_correct = Q.prove (
 `!ck exh genv s ds s' new_env r.
-  evaluate_decs_i2 ck exh genv s ds (s',new_env,r) ∧
+  evaluate_decs_i2 ck (exh:exh_ctors_env) genv s ds (s',new_env,r) ∧
   r ≠ SOME Rtype_error
   ⇒
   ?r_i3.
@@ -350,7 +350,7 @@ val (result_to_i3_rules, result_to_i3_ind, result_to_i3_cases) = Hol_reln `
 
 val prompt_to_i3_correct = Q.store_thm ("prompt_to_i3_correct",
 `!ck exh genv s p new_env s' r next' e.
-  evaluate_prompt_i2 ck exh genv s p (s',new_env,r) ∧
+  evaluate_prompt_i2 ck (exh:exh_ctors_env) genv s p (s',new_env,r) ∧
   r ≠ SOME Rtype_error ∧
   ((next',e) = prompt_to_i3 (none_tag, SOME (TypeId (Short "option"))) (some_tag, SOME (TypeId (Short "option"))) (LENGTH genv) p)
   ⇒
@@ -384,7 +384,7 @@ val prog_to_i3_correct = Q.store_thm ("prog_to_i3_correct",
 `!ck exh genv s p new_env s' r next' e.
   evaluate_prog_i2 ck exh genv s p (s',new_env,r) ∧
   r ≠ SOME Rtype_error ∧
-  FLOOKUP exh (Short "option") = SOME [some_tag;none_tag] ∧
+  FLOOKUP exh (Short "option") = SOME (FEMPTY|++[(none_tag,());(some_tag,())]) ∧
   (prog_to_i3 (none_tag, SOME (TypeId (Short "option"))) (some_tag, SOME (TypeId (Short "option"))) (LENGTH genv) p = (next',e))
   ⇒
   ?r_i3.
@@ -418,13 +418,16 @@ val prog_to_i3_correct = Q.store_thm ("prog_to_i3_correct",
      rw []
      >- (qexists_tac `Conv_i2 (none_tag,SOME (TypeId (Short "option"))) []` >>
          rw [pmatch_i2_def] >>
+         fs[FDOM_FUPDATE_LIST] >>
          metis_tac [pair_CASES])
      >- (qexists_tac `Conv_i2 (none_tag,SOME (TypeId (Short "option"))) []` >>
          rw [pmatch_i2_def] >>
+         fs[FDOM_FUPDATE_LIST] >>
          metis_tac [pair_CASES])
      >- (disj1_tac >>
          qexists_tac `Conv_i2 (none_tag,SOME (TypeId (Short "option"))) []` >>
          rw [pmatch_i2_def] >>
+         fs[FDOM_FUPDATE_LIST] >>
          metis_tac [pair_CASES]))
  >- (imp_res_tac prompt_to_i3_correct >>
      fs [] >>
@@ -436,6 +439,7 @@ val prog_to_i3_correct = Q.store_thm ("prog_to_i3_correct",
      rw [] >>
      qexists_tac `Conv_i2 (some_tag,SOME (TypeId (Short "option"))) [err']` >>
      fs [none_tag_def, some_tag_def, pmatch_i2_def] >>
+     fs[FDOM_FUPDATE_LIST] >>
      metis_tac [pair_CASES]));
 
 val _ = export_theory ();
