@@ -381,7 +381,7 @@ val _ = export_rewrites
 ,"intLang.doPrim2_def","intLang.CevalPrim2_def","intLang.CevalUpd_def","intLang.CevalPrim1_def"
 ,"free_labs_def","no_labs_def","all_labs_def"
 ,"exp_to_Cexp_def","toIntLang.v_to_Cv_def"
-,"do_Ceq_def"];
+,"do_Ceq_def","compilerLib.the_def","compilerLib.fapply_def"];
 
 (*
 val _ = export_rewrites

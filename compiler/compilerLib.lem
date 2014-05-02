@@ -3,12 +3,6 @@ import List_extra
 
 
 (* TODO: these should be in the lem library *)
-val least : (nat -> bool) -> nat
-declare hol target_rep function least = `$LEAST`
-
-val snoc_char : char -> string -> string
-declare hol target_rep function snoc_char = `SNOC`
-
 val all2 : forall 'a 'b. ('a -> 'b -> bool) -> list 'a -> list 'b -> bool
 declare hol target_rep function all2 = `EVERY2`
 

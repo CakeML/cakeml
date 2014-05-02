@@ -13,10 +13,6 @@ val _ = new_theory "compilerLib"
 
 
 (* TODO: these should be in the lem library *)
-(*val least : (nat -> bool) -> nat*)
-
-(*val snoc_char : char -> string -> string*)
-
 (*val all2 : forall 'a 'b. ('a -> 'b -> bool) -> list 'a -> list 'b -> bool*)
 
  val _ = Define `
