@@ -10,6 +10,10 @@ val domain_nat_set_from_list = store_thm("domain_nat_set_from_list",
   rw[EXTENSION] >> metis_tac[])
 val _ = export_rewrites["domain_nat_set_from_list"]
 
+val wf_nat_set_from_list = store_thm("wf_nat_set_from_list",
+  ``∀ls ns. wf ns ⇒ wf (FOLDL (λs n. insert n z s) ns ls)``,
+  Induct >> simp[] >> rw[sptreeTheory.wf_insert])
+
 val least_from_def = Define`
   least_from P n = if (∃x. P x ∧ n ≤ x) then $LEAST (λx. P x ∧ n ≤ x) else $LEAST P`
 
@@ -1329,6 +1333,10 @@ val IN_FRANGE = store_thm(
 "IN_FRANGE",
 ``!f v. v IN FRANGE f ⇔ ?k. k IN FDOM f /\ (f ' k = v)``,
 SRW_TAC[][FRANGE_DEF])
+
+val IN_FRANGE_FLOOKUP = store_thm("IN_FRANGE_FLOOKUP",
+``!f v. v IN FRANGE f ⇔ ∃k. FLOOKUP f k = SOME v``,
+rw[IN_FRANGE,FLOOKUP_DEF])
 
 val ALOOKUP_IN_FRANGE = store_thm("ALOOKUP_IN_FRANGE",
   ``∀ls k v. (ALOOKUP ls k = SOME v) ⇒ v ∈ FRANGE (alist_to_fmap ls)``,
