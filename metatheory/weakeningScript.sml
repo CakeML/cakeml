@@ -350,7 +350,6 @@ rw [Once type_e_cases] >|
  metis_tac [weak_tenvE_freevars, weak_tenvE_bind],
  metis_tac [weak_tenvE_bind, weak_tenvE_freevars],
  metis_tac [],
- metis_tac [],
  fs [RES_FORALL] >>
      qexists_tac `t` >>
      rw [] >>
@@ -507,9 +506,8 @@ val type_ctxt_weakening = Q.store_thm ("type_ctxt_weakening",
      res_tac >>
      fs [] >>
      metis_tac [type_e_weakening, weak_tenvE_bind_var_list, type_p_weakening, DECIDE ``!x:num. x ≥ 0``])
+ >- metis_tac [type_v_weakening, type_e_weakening]
  >- metis_tac [type_e_weakening, weak_tenvE_refl]
- >- metis_tac [type_v_weakening]
- >- metis_tac [type_e_weakening]
  >- metis_tac [type_e_weakening]
  >- (fs [RES_FORALL] >>
      rw [] 
