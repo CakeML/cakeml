@@ -2062,6 +2062,149 @@ val cenv_inv_to_mod = prove(
     fsrw_tac[ARITH_ss][UNCURRY] ) >>
   metis_tac[])
 
+val build_tdefs_append = prove(
+  ``∀l1 mn l2.
+    build_tdefs mn (l1++l2) =
+    build_tdefs mn l2 ++ build_tdefs mn l1``,
+  simp[build_tdefs_def])
+
+val build_tdefs_cons = prove(
+  ``build_tdefs mn ((x,y,z)::tdefs) =
+    build_tdefs mn tdefs ++ REVERSE (MAP (λ(a,b). (a,LENGTH b,TypeId(mk_id mn y))) z)``,
+  REWRITE_TAC[Once CONS_APPEND] >>
+  REWRITE_TAC[build_tdefs_append] >>
+  simp[] >> simp[build_tdefs_def])
+
+val galloc_tags_submap = prove(
+  ``∀ls n gtagenv.
+    (∃tid. EVERY ($= tid) (MAP (SND o SND) ls) ∧ tid ∉ (IMAGE SND (FDOM gtagenv))) ∧
+    ALL_DISTINCT (MAP FST ls)
+    ⇒
+    gtagenv ⊑ gtagenv |++ galloc_tags n ls``,
+  Induct >> simp[FUPDATE_LIST_THM,galloc_tags_nil] >>
+  qx_gen_tac`p` >> PairCases_on`p` >> simp[galloc_tags_cons,FUPDATE_LIST_THM] >>
+  rw[] >>
+  qmatch_abbrev_tac`a ⊑ a |+ (k,v) |++ b` >>
+  `a |+ (k,v) |++ b = (a |++ b) |+ (k,v)` by (
+    match_mp_tac FUPDATE_FUPDATE_LIST_COMMUTES >>
+    simp[Abbr`b`,galloc_tags_def,MAP2_MAP,LENGTH_COUNT_LIST,MAP_MAP_o,combinTheory.o_DEF,MEM_MAP,PULL_EXISTS,Abbr`k`] >>
+    fs[MEM_MAP,UNCURRY,MEM_ZIP,LENGTH_COUNT_LIST,FORALL_PROD] >>
+    metis_tac[MEM_EL] ) >>
+  rw[] >> pop_assum kall_tac >>
+  match_mp_tac SUBMAP_TRANS >>
+  qexists_tac`a |++ b` >>
+  reverse conj_tac >- (
+    simp[Abbr`k`,FDOM_FUPDATE_LIST] >>
+    disj1_tac >> fs[FORALL_PROD] >>
+    simp[Abbr`b`,galloc_tags_def,MAP2_MAP,LENGTH_COUNT_LIST,MAP_MAP_o,combinTheory.o_DEF,MEM_MAP,PULL_EXISTS] >>
+    fs[MEM_MAP,UNCURRY,MEM_ZIP,LENGTH_COUNT_LIST,FORALL_PROD] >>
+    metis_tac[MEM_EL] ) >>
+  simp[Abbr`b`] >>
+  first_x_assum match_mp_tac >>
+  simp[] >> metis_tac[])
+
+val gtagenv_weak_galloc_tags = prove(
+  ``∀ls mn x n gtagenv.
+    tuple_tag < n ∧ (∀p. p ∈ FRANGE gtagenv ⇒ FST p < n) ∧
+    TypeId (mk_id mn x) ∉ IMAGE SND (FDOM gtagenv) ∧
+    gtagenv_wf gtagenv ∧ ALL_DISTINCT (MAP FST ls)
+    ⇒
+    let gtagenv' = gtagenv |++ galloc_tags n (MAP (λ(a,b). (a, LENGTH b, TypeId (mk_id mn x))) ls) in
+    gtagenv_weak gtagenv gtagenv' ∧
+    gtagenv_wf gtagenv'``,
+  rpt gen_tac >> strip_tac >>
+  simp[gtagenv_weak_def,GSYM CONJ_ASSOC] >>
+  conj_asm1_tac >- (
+    match_mp_tac galloc_tags_submap >>
+    simp[MAP_MAP_o,EVERY_MAP,UNCURRY,combinTheory.o_DEF,ETA_AX] >> fs[] >>
+    metis_tac[] ) >>
+  conj_asm1_tac >- (
+    simp[flookup_fupdate_list] >> rw[] >>
+    fs[gtagenv_wf_def] >>
+    BasicProvers.CASE_TAC >- metis_tac[] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[galloc_tags_def,MAP2_MAP,LENGTH_COUNT_LIST,MEM_MAP,PULL_EXISTS,MEM_ZIP,UNCURRY] >>
+    simp[] ) >>
+  conj_asm1_tac >- (
+    simp[PULL_EXISTS,FDOM_FUPDATE_LIST] >> rw[] >>
+    fs[MEM_MAP,galloc_tags_def,MAP2_MAP,LENGTH_COUNT_LIST,MEM_ZIP] >>
+    rw[] >> fs[UNCURRY] >> rw[] >> fs[EL_MAP,UNCURRY] >>
+    fs[FORALL_PROD] >> metis_tac[] ) >>
+  conj_asm1_tac >- (
+    rpt gen_tac >>
+    simp[flookup_fupdate_list] >>
+    BasicProvers.CASE_TAC >- (
+      BasicProvers.CASE_TAC >-
+        (fs[gtagenv_wf_def] >> metis_tac[]) >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs[MEM_MAP,galloc_tags_def,MAP2_MAP,LENGTH_COUNT_LIST,MEM_ZIP] >>
+      strip_tac >> rpt BasicProvers.VAR_EQ_TAC >>
+      fs[UNCURRY,EL_MAP] >> rpt BasicProvers.VAR_EQ_TAC >>
+      fs[IN_FRANGE_FLOOKUP,PULL_EXISTS] >>
+      res_tac >> fsrw_tac[ARITH_ss][] ) >>
+    BasicProvers.CASE_TAC >- (
+      imp_res_tac ALOOKUP_MEM >>
+      fs[MEM_MAP,galloc_tags_def,MAP2_MAP,LENGTH_COUNT_LIST,MEM_ZIP] >>
+      strip_tac >> rpt BasicProvers.VAR_EQ_TAC >>
+      fs[UNCURRY,EL_MAP] >> rpt BasicProvers.VAR_EQ_TAC >>
+      fs[IN_FRANGE_FLOOKUP,PULL_EXISTS] >>
+      res_tac >> fsrw_tac[ARITH_ss][] ) >>
+    strip_tac >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,galloc_tags_def,MAP2_MAP,LENGTH_COUNT_LIST,MEM_ZIP] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    fs[UNCURRY,EL_MAP] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    fs[EL_COUNT_LIST]) >>
+  fs[gtagenv_wf_def] >>
+  conj_tac >- (
+    fs[has_exns_def,flookup_fupdate_list] >>
+    every_case_tac >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[galloc_tags_def,MAP2_MAP,LENGTH_COUNT_LIST,MEM_MAP,MEM_ZIP,UNCURRY] >>
+    rpt BasicProvers.VAR_EQ_TAC >> fs[EL_MAP,UNCURRY] ) >>
+  metis_tac[])
+
+val gtagenv_weak_galloc_tags_build_tdefs = prove(
+  ``∀tdefs mn gtagenv n.
+    gtagenv_wf gtagenv ∧
+    DISJOINT (type_defs_to_new_tdecs mn tdefs) (IMAGE SND (FDOM gtagenv)) ∧
+    check_dup_ctors tdefs ∧
+    ALL_DISTINCT (MAP (FST o SND) tdefs) ∧
+    tuple_tag < n ∧ (∀p. p ∈ FRANGE gtagenv ⇒ FST p < n) ⇒
+    gtagenv_weak gtagenv (gtagenv |++ galloc_tags n (REVERSE (build_tdefs mn tdefs)))``,
+  Induct >- simp[gtagenv_weak_refl,build_tdefs_def,galloc_tags_nil,FUPDATE_LIST_THM] >>
+  qx_gen_tac`p` >> PairCases_on`p` >> rw[] >>
+  simp[build_tdefs_cons,REVERSE_APPEND,galloc_tags_append,FUPDATE_LIST_APPEND] >>
+  qmatch_abbrev_tac`gtagenv_weak gtagenv ((gtagenv |++ x1) |++ x2)` >>
+  Q.ISPECL_THEN[`p2`,`mn`,`p1`,`n`,`gtagenv`]mp_tac gtagenv_weak_galloc_tags >>
+  discharge_hyps >- (
+    simp[] >>
+    fs[type_defs_to_new_tdecs_def,check_dup_ctors_thm,ALL_DISTINCT_APPEND,FST_pair] ) >>
+  simp[] >> strip_tac >>
+  match_mp_tac gtagenv_weak_trans >>
+  HINT_EXISTS_TAC >> simp[] >>
+  simp[Abbr`x2`] >>
+  first_x_assum match_mp_tac >>
+  simp[] >>
+  fs[check_dup_ctors_thm,ALL_DISTINCT_APPEND,type_defs_to_new_tdecs_def,FDOM_FUPDATE_LIST] >>
+  reverse conj_tac >- (
+    ho_match_mp_tac IN_FRANGE_FUPDATE_LIST_suff >>
+    conj_tac >- ( rw[] >> res_tac >> simp[] ) >>
+    simp[Abbr`x1`] >>
+    simp[galloc_tags_def,MAP2_MAP,LENGTH_COUNT_LIST,MEM_MAP,MEM_ZIP,UNCURRY,PULL_EXISTS,EL_COUNT_LIST] ) >>
+  conj_tac >- metis_tac[DISJOINT_SYM] >>
+  `IMAGE SND (set (MAP FST x1)) ⊆ {TypeId (mk_id mn p1)}` by (
+    simp[SUBSET_DEF,Abbr`x1`,galloc_tags_def,MAP2_MAP,LENGTH_COUNT_LIST,MEM_MAP,PULL_EXISTS,MEM_ZIP,EL_MAP,UNCURRY] ) >>
+  fs[IN_DISJOINT,SUBSET_DEF,PULL_EXISTS,EXISTS_PROD,FORALL_PROD] >>
+  spose_not_then strip_assume_tac >> rw[] >>
+  fs[MEM_MAP,PULL_EXISTS,EXISTS_PROD] >> rw[] >>
+  res_tac >> fs[] >>
+  qmatch_assum_rename_tac`mk_id mn a = mk_id mn b`[] >>
+  `a = b` by (Cases_on`mn`>>fs[mk_id_def]) >>
+  metis_tac[])
+
 val decs_to_i2_correct = Q.prove (
 `!ck genv envC s ds r.
   evaluate_decs_i1 ck genv envC s ds r
@@ -2200,6 +2343,23 @@ val decs_to_i2_correct = Q.prove (
      fs[MEM_MAP,MEM_FLAT,UNCURRY,FORALL_PROD,PULL_EXISTS] >>
      metis_tac[] ) >>
    strip_tac >>
+   ONCE_REWRITE_TAC[GSYM AND_IMP_INTRO] >>
+   disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+   disch_then(qspecl_then[`s1_i2`,`genv_i2`]mp_tac) >>
+   discharge_hyps >- (
+     Q.PAT_ABBREV_TAC`g2 = gtagenv |++ X` >>
+     `gtagenv_weak gtagenv g2` by (
+       qunabbrev_tac`g2` >>
+       match_mp_tac gtagenv_weak_galloc_tags_build_tdefs >>
+       fs[cenv_inv_def,alloc_tags_invariant_def] >>
+       conj_tac >- (
+         fs[IN_DISJOINT,SUBSET_DEF,PULL_EXISTS] >>
+         metis_tac[] ) >>
+       conj_tac >- fs[combinTheory.o_DEF,LAMBDA_PROD] >>
+       simp[IN_FRANGE_FLOOKUP,PULL_EXISTS,FORALL_PROD] >>
+       rw[] >> res_tac >> simp[] ) >>
+     (* v_to_i2_weakening *)
+     cheat ) >>
    cheat )
  >- cheat);
 
