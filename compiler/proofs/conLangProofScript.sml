@@ -1916,21 +1916,64 @@ val galloc_tags_nil = prove(
   ``galloc_tags n [] = []``,
   rw[galloc_tags_def,COUNT_LIST_def])
 
+val nat_set_from_list_def = Define`
+  nat_set_from_list = FOLDL (λs n. insert n () s) LN`
+
+val alloc_tags_to_exh_def = Define`
+  alloc_tags_to_exh ls = FUN_FMAP
+    (λt. nat_set_from_list
+      (MAP (FST o SND) (FILTER ($= (SOME (TypeId t)) o SND o SND) ls)))
+    {t | MEM (SOME (TypeId t)) (MAP (SND o SND) ls) }`
+
+val alloc_tags_to_exh_nil = prove(
+  ``alloc_tags_to_exh [] = FEMPTY``,
+  rw[alloc_tags_to_exh_def])
+
+val FINITE_alloc_tags_to_exh_dom = prove(
+  ``FINITE {t | MEM (SOME (TypeId t)) (MAP (SND o SND) ls) }``,
+  qmatch_abbrev_tac`FINITE P` >>
+  qsuff_tac`∃f. P ⊆ IMAGE f (set (MAP (SND o SND) ls))` >-
+    metis_tac[IMAGE_FINITE,SUBSET_FINITE,FINITE_LIST_TO_SET] >>
+  simp[Abbr`P`,SUBSET_DEF] >>
+  qexists_tac`λx. @y. x = SOME (TypeId y)` >>
+  rw[EXISTS_PROD] >> metis_tac[tid_or_exn_11,SOME_11])
+
+val FDOM_alloc_tags_to_exh = prove(
+  ``FDOM (alloc_tags_to_exh ls) =
+    {t | MEM (SOME (TypeId t)) (MAP (SND o SND) ls)}``,
+  rw[alloc_tags_to_exh_def] >>
+  simp[FUN_FMAP_DEF,FINITE_alloc_tags_to_exh_dom])
+
+val FLOOKUP_alloc_tags_to_exh_imp = prove(
+  ``FLOOKUP (alloc_tags_to_exh ls) t = SOME tags ⇒
+    wf tags ∧
+    (domain tags = { tag | MEM (tag,(SOME (TypeId t))) (MAP SND ls) })``,
+  simp[alloc_tags_to_exh_def] >>
+  qmatch_abbrev_tac`FLOOKUP (FUN_FMAP f P) k = SOME v ⇒ Z` >>
+  `FINITE P` by (
+    unabbrev_all_tac >>
+    simp[FINITE_alloc_tags_to_exh_dom]) >>
+  simp[FLOOKUP_FUN_FMAP,Abbr`f`] >> rw[] >- (
+    simp[nat_set_from_list_def] >>
+    match_mp_tac wf_nat_set_from_list >>
+    rw[sptreeTheory.wf_def] ) >>
+  rw[nat_set_from_list_def] >>
+  rw[EXTENSION,MEM_MAP,PULL_EXISTS,MEM_FILTER,EXISTS_PROD])
+
 val cenv_inv_to_mod = prove(
   ``∀tdefs n mn tids envC exh tagenv gtagenv.
     cenv_inv envC exh tagenv gtagenv ⇒
     tuple_tag < n ∧ (∀p. p ∈ FRANGE gtagenv ⇒ FST p < n) ∧
     ALL_DISTINCT (MAP FST tdefs) ∧
     DISJOINT (IMAGE (SND o SND) (set tdefs)) (IMAGE SND (FDOM gtagenv)) ⇒
-    let gtagenv' = (gtagenv |++ (galloc_tags n tdefs)) in
-    cenv_inv (merge_envC (emp,REVERSE tdefs) envC) (weakened_exh gtagenv' exh ⊌ exh)
+    cenv_inv (merge_envC (emp,REVERSE tdefs) envC) (alloc_tags_to_exh (flat_alloc_tags n tdefs) ⊌ exh)
       (FST tagenv, SND tagenv |++ (flat_alloc_tags n tdefs))
-      gtagenv'``,
+      (gtagenv |++ (galloc_tags n tdefs))``,
   Induct >- (
     Cases_on`envC` >>
     simp[cenv_inv_def,FUPDATE_LIST_THM,flat_alloc_tags_def,merge_envC_def,
-         emp_def,merge_def,COUNT_LIST_def,galloc_tags_def] >>
-    metis_tac[exhaustive_env_weakened_exh_SUBMAP,SUBMAP_FUNION_ABSORPTION] ) >>
+         emp_def,merge_def,COUNT_LIST_def,galloc_tags_def,alloc_tags_to_exh_nil,
+         FUNION_FEMPTY_1] ) >>
   qx_gen_tac`p` >> PairCases_on`p` >>
   rw[galloc_tags_append,flat_alloc_tags_append
     ,galloc_tags_cons,flat_alloc_tags_cons
@@ -1952,7 +1995,6 @@ val cenv_inv_to_mod = prove(
   fs[] >> pop_assum kall_tac >>
   Q.PAT_ABBREV_TAC`gt0 = gtagenv |++ X` >>
   Q.PAT_ABBREV_TAC`ft0 = SND tagenv |++ X` >>
-  qunabbrev_tac`gtagenv'` >>
   fs[cenv_inv_def] >> strip_tac >>
   conj_tac >- (
     Cases_on`envC` >>
@@ -1999,7 +2041,7 @@ val cenv_inv_to_mod = prove(
       fs[FLOOKUP_FUNION] >>
       pop_assum mp_tac >>
       BasicProvers.CASE_TAC >- metis_tac[] >>
-      imp_res_tac FLOOKUP_weakened_exh_imp >>
+      imp_res_tac FLOOKUP_alloc_tags_to_exh_imp >>
       metis_tac[] ) >>
     fs[PULL_EXISTS,FLOOKUP_UPDATE] >>
     rpt gen_tac >>
@@ -2008,16 +2050,55 @@ val cenv_inv_to_mod = prove(
       rpt BasicProvers.VAR_EQ_TAC >>
       BasicProvers.CASE_TAC >- (
         fs[FLOOKUP_DEF] >>
-        fs[FDOM_weakened_exh] >>
+        fs[FDOM_alloc_tags_to_exh] >>
         metis_tac[] ) >>
-      imp_res_tac FLOOKUP_weakened_exh_imp >>
-      simp[FLOOKUP_UPDATE] >>
-      metis_tac[] ) >>
+      imp_res_tac FLOOKUP_alloc_tags_to_exh_imp >>
+      simp[FLOOKUP_UPDATE] >> rw[] >>
+      fs[flookup_fupdate_list,Abbr`gt0`] >>
+      pop_assum mp_tac >>
+      BasicProvers.CASE_TAC >- (
+        simp[FLOOKUP_DEF] >>
+        fs[FORALL_PROD] ) >>
+      rw[] >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs[galloc_tags_def,flat_alloc_tags_def,MEM_MAP,LENGTH_COUNT_LIST,MAP2_MAP,EXISTS_PROD] >>
+      metis_tac[]) >>
     BasicProvers.CASE_TAC >- (
-      fs[FLOOKUP_DEF,FDOM_weakened_exh] ) >>
-    imp_res_tac FLOOKUP_weakened_exh_imp >>
-    simp[FLOOKUP_UPDATE] >>
-    metis_tac[] ) >>
+      pop_assum(strip_assume_tac o SIMP_RULE(srw_ss())[FLOOKUP_DEF,FDOM_alloc_tags_to_exh]) >>
+      first_x_assum(fn th => first_assum (mp_tac o MATCH_MP th)) >>
+      simp[FLOOKUP_FUNION,Once FLOOKUP_DEF,FDOM_alloc_tags_to_exh] ) >>
+    imp_res_tac FLOOKUP_alloc_tags_to_exh_imp >>
+    rw[] >>
+    first_x_assum(fn th => first_assum (mp_tac o MATCH_MP th)) >>
+    simp[FLOOKUP_FUNION] >>
+    BasicProvers.CASE_TAC >- (
+      `p2 = TypeId t` by (
+        fs[FLOOKUP_DEF,FDOM_alloc_tags_to_exh] >> rw[] ) >>
+      fs[] >> rw[] >>
+      fs[Abbr`gt0`,flookup_fupdate_list] >>
+      every_case_tac >- (fs[FLOOKUP_DEF,FORALL_PROD] >> metis_tac[]) >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs[FLOOKUP_DEF,FDOM_alloc_tags_to_exh] >>
+      fs[galloc_tags_def,LENGTH_COUNT_LIST,MAP2_MAP,MEM_MAP,PULL_EXISTS,EXISTS_PROD,MEM_ZIP,flat_alloc_tags_def] >>
+      metis_tac[] ) >>
+    rw[] >>
+    `MEM (SOME (TypeId t)) (MAP (SND o SND) (flat_alloc_tags (n+1) tdefs))` by (
+      fs[FLOOKUP_DEF,FDOM_alloc_tags_to_exh] ) >>
+    pop_assum mp_tac >>
+    simp[MEM_MAP,Once flat_alloc_tags_def] >>
+    simp[MAP2_MAP,LENGTH_COUNT_LIST,PULL_EXISTS,MEM_MAP,EXISTS_PROD,MEM_ZIP] >>
+    rw[] >>
+    qpat_assum`FLOOKUP gt0 X = SOME y`mp_tac >>
+    simp[Abbr`gt0`,flookup_fupdate_list] >>
+    BasicProvers.CASE_TAC >- (
+      simp[FLOOKUP_DEF] >>
+      fs[IN_DISJOINT,FORALL_PROD] >>
+      metis_tac[MEM_EL] ) >>
+    rw[] >> imp_res_tac ALOOKUP_MEM >>
+    pop_assum mp_tac >>
+    simp[galloc_tags_def,flat_alloc_tags_def] >>
+    simp[MAP2_MAP,LENGTH_COUNT_LIST,PULL_EXISTS,MEM_MAP,EXISTS_PROD,MEM_ZIP,EL_COUNT_LIST] >>
+    rw[] >> metis_tac[EL_COUNT_LIST]) >>
   fs[gtagenv_wf_def,FLOOKUP_UPDATE] >>
   conj_tac >- ( rw[] >> simp[] ) >>
   conj_tac >- (
@@ -2265,6 +2346,12 @@ val mk_id_inj = store_thm("mk_id_inj",
   ``mk_id mn1 s1 = mk_id mn2 s2 ⇔ (mn1 = mn2) ∧ (s1 = s2)``,
   rw[mk_id_def] >> every_case_tac)
 
+val MAP_SND_o_SND_flat_alloc_tags = prove(
+  ``MAP (SND o SND) (flat_alloc_tags n ls) = MAP (SOME o SND o SND) ls``,
+  rw[flat_alloc_tags_def] >>
+  simp[MAP2_MAP,LENGTH_COUNT_LIST,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
+  simp[LIST_EQ_REWRITE,LENGTH_COUNT_LIST,EL_MAP,EL_ZIP])
+
 val decs_to_i2_correct = Q.prove (
 `!ck genv envC s ds r.
   evaluate_decs_i1 ck genv envC s ds r
@@ -2428,12 +2515,15 @@ val decs_to_i2_correct = Q.prove (
        metis_tac[v_to_i2_weakening] ) >>
      conj_tac >- (
        reverse conj_tac >- metis_tac[DISJOINT_SYM] >>
+       simp[FDOM_alloc_tags_to_exh] >>
        imp_res_tac FDOM_decs_to_i2_exh >>
-       simp[FDOM_weakened_exh,Abbr`g2`,FDOM_FUPDATE_LIST] >>
-       rpt BasicProvers.VAR_EQ_TAC >>
-       pop_assum kall_tac >>
-       simp[FDOM_weakened_exh] >>
-       cheat (* false? *) ) >>
+       pop_assum SUBST1_TAC >>
+       simp[MAP_SND_o_SND_flat_alloc_tags,MAP_REVERSE] >>
+       simp[MEM_MAP,PULL_EXISTS,EXISTS_PROD,build_tdefs_def,MEM_FLAT] >>
+       qsuff_tac`DISJOINT (type_defs_to_new_tdecs mn tdefs) (IMAGE TypeId (tids_of_decs ds))` >- (
+         simp[IN_DISJOINT,type_defs_to_new_tdecs_def,MEM_MAP,FORALL_PROD,PULL_FORALL] >>
+         metis_tac[tid_or_exn_11] ) >>
+       cheat (* semantics should provide this? *) ) >>
      fs[alloc_tags_invariant_def,Abbr`g2`,FDOM_FUPDATE_LIST,MAP_FST_galloc_tags] >>
      conj_tac >- (
        fs[SUBSET_DEF,PULL_EXISTS] >>
@@ -2449,16 +2539,17 @@ val decs_to_i2_correct = Q.prove (
    strip_tac >> simp[] >> rpt BasicProvers.VAR_EQ_TAC >- (
      Q.PAT_ABBREV_TAC`exh1 = build_exh_env mn X tdefs` >>
      rator_x_assum`evaluate_decs_i2`mp_tac >>
-     Q.PAT_ABBREV_TAC`exh2 = weakened_exh X exh` >>
+     Q.PAT_ABBREV_TAC`exh2 = alloc_tags_to_exh X` >>
      strip_tac >>
      (*
      `exh1 ⊌ exh = exh2 ⊌ exh` by (
        simp[GSYM fmap_EQ_THM] >>
        conj_asm1_tac >- (
-         simp[Abbr`exh1`,FDOM_build_exh_env,Abbr`exh2`,FDOM_weakened_exh,
-              FDOM_FUPDATE_LIST,MAP_FST_galloc_tags,MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
+         simp[Abbr`exh1`,FDOM_build_exh_env,Abbr`exh2`,FDOM_alloc_tags_to_exh,
+              FDOM_FUPDATE_LIST,MAP_FST_galloc_tags,MAP_SND_o_SND_flat_alloc_tags]
          simp[build_tdefs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
          simp[EXTENSION,MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
+         check_dup_ctors_flat
          fs[cenv_inv_def,exhaustive_env_correct_def,FLOOKUP_DEF] >>
          metis_tac[mk_id_inj]
       *)
