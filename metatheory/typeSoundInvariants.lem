@@ -9,8 +9,10 @@ open import SmallStep
 open import TypeSystem
 import List_extra
 
+type store_t = Ref_t of t | W8array_t
+
 (* Store typing *)
-type tenvS = env nat t
+type tenvS = env nat store_t
 
 (* Global constructor type environments keyed by constructor name and type *)
 type ctMap = Map.map (conN * tid_or_exn) (list tvarN * list t)
@@ -179,11 +181,18 @@ type_v tvs ctMap senv (Recclosure (envM, envC, env) funs n) t
 
 and
 
-loc : forall tvs cenv senv n t.
+loc1 : forall tvs cenv senv n t.
 check_freevars 0 [] t &&
-(lookup n senv = Just t)
+(lookup n senv = Just (Ref_t t))
 ==>
 type_v tvs cenv senv (Loc n) (Tref t)
+
+and
+
+loc2 : forall tvs cenv senv n.
+(lookup n senv = Just W8array_t)
+==>
+type_v tvs cenv senv (Loc n) Tword8array
 
 and
 
@@ -233,9 +242,13 @@ consistent_mod_env tenvS tenvC ((mn,env)::menv) ((mn',tenv)::tenvM)
 
 let type_s cenv senv s =
   forall l. 
-    ((exists t. lookup l senv = Just t) = (exists v. store_lookup l s = Just v)) &&
-    (forall t v. ((lookup l senv = Just t) && (store_lookup l s = Just (Refv v))) --> type_v 0 cenv senv v t) &&
-    (forall t ws. ((lookup l senv = Just t) && (store_lookup l s = Just (W8array ws))) --> (t = Tapp [] TC_word8array))
+    ((exists st. lookup l senv = Just st) = (exists v. store_lookup l s = Just v)) &&
+    (forall st sv. ((lookup l senv = Just st) && (store_lookup l s = Just sv)) --> 
+       match (sv,st) with
+         | (Refv v, Ref_t t) -> type_v 0 cenv senv v t
+         | (W8array es, W8array_t) -> true
+         | _ -> false
+       end)
 
 indreln 
 [context_invariant : nat -> list ctxt -> nat -> bool]

@@ -490,6 +490,10 @@ val type_v_weakening = Q.store_thm ("type_v_weakening",
      metis_tac [])
  >- (fs [weakS_def] >>
      metis_tac [])
+ >- (fs [weakS_def] >>
+     metis_tac [])
+ >- (fs [weakS_def] >>
+     metis_tac [])
  >- rw [bind_def, emp_def, bind_tvar_def, bind_tenv_def]);
 
 val type_ctxt_weakening = Q.store_thm ("type_ctxt_weakening",
@@ -577,8 +581,12 @@ val type_s_weakening = Q.store_thm ("type_s_weakening",
   weakCT ctMap' ctMap
   ⇒
   type_s ctMap' tenvS st`,
-rw [type_s_def] >>
-metis_tac [type_v_weakening, weakS_refl]);
+ rw [type_s_def] >>
+ every_case_tac >>
+ rw [] >>
+ res_tac >>
+ fs [] >>
+ metis_tac [type_v_weakening, weakS_refl]);
 
 val weakCT_only_other_mods_def = Define `
 weakCT_only_other_mods mn ctMap' ctMap =

@@ -19,8 +19,12 @@ val _ = new_theory "typeSoundInvariants"
 (*open import TypeSystem*)
 (*import List_extra*)
 
+val _ = Hol_datatype `
+ store_t = Ref_t of t | W8array_t`;
+
+
 (* Store typing *)
-val _ = type_abbrev( "tenvS" , ``: (num, t) env``);
+val _ = type_abbrev( "tenvS" , ``: (num, store_t) env``);
 
 (* Global constructor type environments keyed by constructor name and type *)
 val _ = type_abbrev( "ctMap" , ``: ((conN # tid_or_exn), ( tvarN list # t list)) fmap``);
@@ -182,9 +186,14 @@ type_v tvs ctMap senv (Recclosure (envM, envC, env) funs n) t)
 
 /\ (! tvs cenv senv n t.
 (check_freevars( 0) [] t /\
-(lookup n senv = SOME t))
+(lookup n senv = SOME (Ref_t t)))
 ==>
 type_v tvs cenv senv (Loc n) (Tref t))
+
+/\ (! tvs cenv senv n.
+(lookup n senv = SOME W8array_t)
+==>
+type_v tvs cenv senv (Loc n) Tword8array)
 
 /\ (! tvs cenv senv.
 T
@@ -223,9 +232,13 @@ consistent_mod_env tenvS tenvC ((mn,env)::menv) ((mn',tenv)::tenvM))`;
 val _ = Define `
  (type_s cenv senv s =  
 (! l. 
-    ((? t. lookup l senv = SOME t) <=> (? v. store_lookup l s = SOME v)) /\    
-((! t v. ((lookup l senv = SOME t) /\ (store_lookup l s = SOME (Refv v))) ==> type_v( 0) cenv senv v t) /\
-    (! t ws. ((lookup l senv = SOME t) /\ (store_lookup l s = SOME (W8array ws))) ==> (t = Tapp [] TC_word8array)))))`;
+    ((? st. lookup l senv = SOME st) <=> (? v. store_lookup l s = SOME v)) /\
+    (! st sv. ((lookup l senv = SOME st) /\ (store_lookup l s = SOME sv)) ==> 
+       (case (sv,st) of
+           (Refv v, Ref_t t) => type_v( 0) cenv senv v t
+         | (W8array es, W8array_t) => T
+         | _ => F
+       ))))`;
 
 
 val _ = Hol_reln ` (! n.

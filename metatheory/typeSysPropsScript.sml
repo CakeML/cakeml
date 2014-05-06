@@ -923,6 +923,12 @@ metis_tac [check_freevars_add]);
 
 (* ---------- type_e, type_es, type_funs ---------- *)
 
+val type_es_list_rel = Q.store_thm ("type_es_list_rel",
+`!es ts tenvM tenvC tenv. type_es tenvM tenvC tenv es ts = LIST_REL (type_e tenvM tenvC tenv) es ts`,
+ induct_on `es` >>
+ rw [] >>
+ rw [Once type_e_cases]);
+
 val type_es_length = Q.store_thm ("type_es_length",
 `∀tenvM tenvC tenv es ts.
   type_es tenvM tenvC tenv es ts ⇒ (LENGTH es = LENGTH ts)`,
@@ -1640,6 +1646,12 @@ val consistent_decls_add_mod = Q.store_thm ("consistent_decls_add_mod",
  fs []);
 
 (* ---------- type_v, type_vs, type_env, consistent_mod_env ---------- *)
+
+val type_vs_list_rel = Q.store_thm ("type_vs_list_rel",
+`!vs ts tvs tenvC tenvS. type_vs tvs tenvC tenvS vs ts = LIST_REL (type_v tvs tenvC tenvS) vs ts`,
+ induct_on `vs` >>
+ rw [] >>
+ rw [Once type_v_cases]);
 
 val type_v_freevars = Q.store_thm ("type_v_freevars",
 `(!tvs tenvC tenvS v t. type_v tvs tenvC tenvS v t ⇒

@@ -41,7 +41,8 @@ val tid_exn_not = Q.prove (
  (!tn. tid_exn_to_tc tn ≠ TC_ref) ∧
  (!tn. tid_exn_to_tc tn ≠ TC_unit) ∧
  (!tn. tid_exn_to_tc tn ≠ TC_tup) ∧
- (!tn. tid_exn_to_tc tn ≠ TC_fn)`,
+ (!tn. tid_exn_to_tc tn ≠ TC_fn) ∧
+ (!tn. tid_exn_to_tc tn ≠ TC_word8array)`,
  rw [] >>
  cases_on `tn` >>
  fs [tid_exn_to_tc_def] >>
@@ -141,6 +142,8 @@ val pmatch_type_progress = Q.prove (
      res_tac >>
      fs [] >>
      rw [] >>
+     every_case_tac >>
+     fs [] >>
      metis_tac [])
  >- tac
  >- tac
@@ -190,8 +193,7 @@ val not_final_state = Q.prove (
      (?cn es. e = Con cn es) ∨
      (?v. e = Var v) ∨
      (?x e'. e = Fun x e') \/
-     (?op e1 e2. e = App op e1 e2) ∨
-     (?uop e1. e = Uapp uop e1) ∨
+     (?op es. e = App op es) ∨
      (?op e1 e2. e = Log op e1 e2) ∨
      (?e1 e2 e3. e = If e1 e2 e3) ∨
      (?e' pes. e = Mat e' pes) ∨
@@ -259,6 +261,8 @@ val consistent_con_env_thm = Q.prove (
      metis_tac [PAIR_EQ, SOME_11])
  >> metis_tac [pair_CASES, SOME_11, PAIR_EQ, NOT_SOME_NONE]);
 
+ STOP;
+
 (* A well-typed expression state is either a value with no continuation, or it
  * can step to another state, or it steps to a BindError. *)
 val exp_type_progress = Q.prove (
@@ -307,33 +311,95 @@ val exp_type_progress = Q.prove (
           fs [] >>
           every_case_tac >>
           metis_tac [NOT_SOME_NONE],
+      every_case_tac >>
+          rw [application_def] >>
+          every_case_tac >>
+          fs [do_app_def, type_op_def, LIST_REL_NIL, type_es_list_rel] >>
+          rw [] >>
+          fs [],
       metis_tac [type_funs_distinct]])
  >- (rw [continue_def] >>
      fs [Once type_ctxts_cases, type_ctxt_cases, return_def, push_def] >>
      rw [] >>
      fs [final_state_def] >>
      fs [] >>
-     fs [type_op_cases] >>
-     rw [] >>
      imp_res_tac (SIMP_RULE (srw_ss()) [] canonical_values_thm) >>
      fs [] >>
-     rw [] >>
-     fs [do_app_def, do_if_def, do_log_def] >|
-     [every_case_tac >>
-          rw [] >>
-          fs [is_ccon_def] >>
-          fs [Once context_invariant_cases, final_state_def],
-      rw [do_uapp_def] >>
-          every_case_tac >>
-          rw [store_alloc_def] >>
-          fs [Once type_v_cases] >>
-          rw [] >>
-          fs [type_uop_cases] >>
-          fs [type_s_def] >>
-          rw [] >>
-          imp_res_tac type_funs_Tfn >>
-          fs [tid_exn_not] >>
-          metis_tac [optionTheory.NOT_SOME_NONE],
+     rw [] 
+     >- (every_case_tac >>
+         rw [] >>
+         fs [is_ccon_def] >>
+         fs [Once context_invariant_cases, final_state_def])
+     >- (
+
+         cases_on `es` >>
+         rw [application_def] >>
+         fs [type_op_cases, type_es_list_rel, type_vs_list_rel, LIST_REL_NIL] >>
+         rw [] >>
+         fs [] >>
+         rw [] >>
+         imp_res_tac (SIMP_RULE (srw_ss()) [] canonical_values_thm) >>
+         rw [do_app_def, return_def]
+
+
+     
+     
+     cheat
+     >- (rw [do_log_def] >>
+         every_case_tac >>
+         fs [])
+     >- (rw [do_if_def] >>
+         every_case_tac >>
+         fs [])
+     >- (every_case_tac >>
+         fs [RES_FORALL] >>
+         rw [] >>
+         qpat_assum `∀x. (x = (q,r)) ∨ P x ⇒ Q x` (MP_TAC o Q.SPEC `(q,r)`) >>
+         rw [] >>
+         CCONTR_TAC >>
+         fs [] >>
+         metis_tac [pmatch_type_progress, match_result_distinct])
+     >- (imp_res_tac consistent_con_env_thm >>
+         fs [do_con_check_def, all_env_to_cenv_def] >>
+         fs [] >>
+         imp_res_tac type_es_length >>
+         imp_res_tac type_vs_length >>
+         full_simp_tac (srw_ss()++ARITH_ss) [do_con_check_def,lookup_def, build_conv_def] >>
+         `LENGTH ts2 = 0` by decide_tac >>
+         cases_on `es` >>
+         fs [])
+     >- (fs [all_env_to_cenv_def] >>
+         every_case_tac >>
+         fs [] >>
+         imp_res_tac consistent_con_env_thm >>
+         imp_res_tac type_es_length >>
+         imp_res_tac type_vs_length >>
+         full_simp_tac (srw_ss()++ARITH_ss) [do_con_check_def,lookup_def])
+     >- (every_case_tac >>
+         fs [] >>
+         imp_res_tac consistent_con_env_thm >>
+         imp_res_tac type_es_length >>
+         imp_res_tac type_vs_length >>
+         full_simp_tac (srw_ss()++ARITH_ss) [do_con_check_def,lookup_def, build_conv_def])
+     >- (every_case_tac >>
+         fs [] >>
+         imp_res_tac consistent_con_env_thm >>
+         imp_res_tac type_es_length >>
+         imp_res_tac type_vs_length >>
+         full_simp_tac (srw_ss()++ARITH_ss) [do_con_check_def,lookup_def, build_conv_def])));
+
+
+
+     >- (every_case_tac >>
+         rw [store_alloc_def] >>
+         fs [Once type_v_cases] >>
+         rw [] >>
+         fs [type_s_def] >>
+         rw [] >>
+         imp_res_tac type_funs_Tfn >>
+         fs [tid_exn_not] >>
+         metis_tac [optionTheory.NOT_SOME_NONE])));
+
       every_case_tac >>
           fs [exn_env_def],
       every_case_tac >>
@@ -363,43 +429,7 @@ val exp_type_progress = Q.prove (
           fs [],
       every_case_tac >>
           fs [],
-      every_case_tac >>
-          fs [RES_FORALL] >>
-          rw [] >>
-          qpat_assum `∀x. (x = (q,r)) ∨ P x ⇒ Q x`
-                   (MP_TAC o Q.SPEC `(q,r)`) >>
-          rw [] >>
-          CCONTR_TAC >>
-          fs [] >>
-          metis_tac [pmatch_type_progress, match_result_distinct],
-      imp_res_tac consistent_con_env_thm >>
-          fs [do_con_check_def, all_env_to_cenv_def] >>
-          fs [] >>
-          imp_res_tac type_es_length >>
-          imp_res_tac type_vs_length >>
-          full_simp_tac (srw_ss()++ARITH_ss) [do_con_check_def,lookup_def, build_conv_def] >>
-          `LENGTH ts2 = 0` by decide_tac >>
-          cases_on `es` >>
-          fs [],
-      fs [all_env_to_cenv_def] >>
-          every_case_tac >>
-          fs [] >>
-          imp_res_tac consistent_con_env_thm >>
-          imp_res_tac type_es_length >>
-          imp_res_tac type_vs_length >>
-          full_simp_tac (srw_ss()++ARITH_ss) [do_con_check_def,lookup_def],
-      every_case_tac >>
-          fs [] >>
-          imp_res_tac consistent_con_env_thm >>
-          imp_res_tac type_es_length >>
-          imp_res_tac type_vs_length >>
-          full_simp_tac (srw_ss()++ARITH_ss) [do_con_check_def,lookup_def, build_conv_def],
-      every_case_tac >>
-          fs [] >>
-          imp_res_tac consistent_con_env_thm >>
-          imp_res_tac type_es_length >>
-          imp_res_tac type_vs_length >>
-          full_simp_tac (srw_ss()++ARITH_ss) [do_con_check_def,lookup_def, build_conv_def]]));
+   ]));
 
 (* A successful pattern match gives a binding environment with the type given by
 * the pattern type checker *)
