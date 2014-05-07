@@ -819,31 +819,33 @@ val evaluate_constant_clock = store_thm("evaluate_constant_clock",
 val sind = IndDefLib.derive_strong_induction(evaluate_rules,evaluate_ind);
 
 val do_app_empty_store = prove(
-  ``!op v1 v2.
+  ``!op vs.
       s3 <> empty_store ==>
-      ~(do_app env s3 op v1 v2 = SOME (env',empty_store,e''))``,
-  Cases \\ SIMP_TAC std_ss [do_app_def] \\ SRW_TAC [] []
-  \\ BasicProvers.EVERY_CASE_TAC \\ FULL_SIMP_TAC std_ss []
-  \\ FULL_SIMP_TAC std_ss [store_assign_def]
-  \\ POP_ASSUM (ASSUME_TAC o GSYM)
-  \\ FULL_SIMP_TAC std_ss [LENGTH_LUPDATE,empty_store_def,GSYM LENGTH_NIL]);
+      ~(do_app s3 op vs = SOME (empty_store,e''))``,
+  SIMP_TAC std_ss [do_app_cases] \\ SRW_TAC [] []
+  \\ FULL_SIMP_TAC std_ss [store_alloc_def, store_assign_def, LET_THM]
+  \\ FULL_SIMP_TAC std_ss [LENGTH_LUPDATE,empty_store_def,GSYM LENGTH_NIL,
+                           store_alloc_def, store_lookup_def]
+  \\ rw []);
 
 val do_app_lemma = prove(
   ``!op.
-      (do_app env empty_store op v1 v2 = SOME (env',empty_store,e'')) ==>
-      !t. do_app env t op v1 v2 = SOME (env',t,e'')``,
+      (do_app empty_store op vs = SOME (empty_store,e'')) ==>
+      !t. do_app t op vs = SOME (t,e'')``,
   Cases \\ FULL_SIMP_TAC (srw_ss()) [do_app_def] \\ REPEAT STRIP_TAC
   \\ BasicProvers.EVERY_CASE_TAC \\ FULL_SIMP_TAC std_ss []
   \\ FULL_SIMP_TAC (srw_ss()) [store_assign_def]
   \\ POP_ASSUM MP_TAC \\ FULL_SIMP_TAC std_ss []
   \\ TRY (Cases_on `l` \\ FULL_SIMP_TAC (srw_ss()) [])
-  \\ FULL_SIMP_TAC (srw_ss()) [empty_store_def]);
+  \\ FULL_SIMP_TAC (srw_ss()) [empty_store_def, LET_THM, store_lookup_def,
+                               store_alloc_def]
+  \\ rw []);
 
 val pmatch_lemma = prove(
-  ``(!cenv (s:v store) (p:pat) v env x.
+  ``(!cenv (s:store_v store) (p:pat) v env x.
       (pmatch cenv empty_store p v env = x) /\ x <> Match_type_error ==>
       !s. (pmatch cenv s p v env = x)) /\
-    (!cenv (s:v store) (p:pat list) vs env x.
+    (!cenv (s:store_v store) (p:pat list) vs env x.
       (pmatch_list cenv empty_store p vs env = x) /\ x <> Match_type_error ==>
       !s. (pmatch_list cenv s p vs env = x))``,
   HO_MATCH_MP_TAC pmatch_ind \\ REPEAT STRIP_TAC
@@ -876,27 +878,18 @@ val evaluate_empty_store_IMP_any_store = prove(
   THEN1
    METIS_TAC []
   THEN1
-   (Q.LIST_EXISTS_TAC [`v`,`s2`] \\ FULL_SIMP_TAC std_ss []
-    \\ `s2 = empty_store` by ALL_TAC THEN1
-     (Cases_on `uop`
-      \\ FULL_SIMP_TAC (srw_ss()) [do_uapp_def,LET_DEF,store_alloc_def]
-      \\ FULL_SIMP_TAC (srw_ss()) [GSYM SNOC_APPEND,empty_store_def]
-      \\ Cases_on `v`
-      \\ FULL_SIMP_TAC (srw_ss()) [GSYM SNOC_APPEND,empty_store_def]
-      \\ Cases_on `store_lookup n s2` \\ FULL_SIMP_TAC (srw_ss()) [])
-    \\ FULL_SIMP_TAC std_ss []
-    \\ Cases_on `uop`
-    \\ FULL_SIMP_TAC (srw_ss()) [do_uapp_def,LET_DEF,store_alloc_def]
-    \\ Cases_on `v`
-    \\ FULL_SIMP_TAC (srw_ss()) [do_uapp_def,LET_DEF,
-         store_lookup_def,empty_store_def])
+   (Cases_on `r1`
+    \\ rw []
+    \\ fs []
+    \\ `s2 = empty_store` by (IMP_RES_TAC evaluate_empty_store_lemma \\ fs [])
+    \\ rw []
+    \\ `SND s = empty_store` by (IMP_RES_TAC evaluate_empty_store_lemma \\ fs [])
+    \\ METIS_TAC [pair_CASES, FST, SND])
   THEN1
-   (`s4 = empty_store` by (IMP_RES_TAC evaluate_empty_store_lemma \\ FULL_SIMP_TAC std_ss [])
-    \\ `s3 = empty_store` by METIS_TAC [do_app_empty_store]
+   (`s2 = empty_store` by METIS_TAC [do_app_empty_store]
     \\ FULL_SIMP_TAC std_ss []
-    \\ `SND s' = empty_store` by (IMP_RES_TAC evaluate_empty_store_lemma \\ FULL_SIMP_TAC std_ss [])
+    \\ `SND s = empty_store` by (IMP_RES_TAC evaluate_empty_store_lemma \\ FULL_SIMP_TAC std_ss [])
     \\ FULL_SIMP_TAC std_ss [] \\ IMP_RES_TAC do_app_lemma
-    \\ Cases_on `r1` \\ Cases_on `r` \\ FULL_SIMP_TAC (srw_ss()) []
     \\ METIS_TAC [pair_CASES, FST, SND])
   \\ TRY (`SND s' = empty_store` by IMP_RES_TAC evaluate_empty_store_lemma
           \\ FULL_SIMP_TAC std_ss [] \\ METIS_TAC [])
@@ -923,11 +916,9 @@ val evaluate_empty_store_EQ = store_thm("evaluate_empty_store_EQ",
   METIS_TAC [evaluate_empty_store_IMP]);
 
 val do_app_empty_store = store_thm("do_app_empty_store",
-  ``(do_app env s3 Opapp v1 v2 = SOME (env',empty_store,e3)) <=>
-    (do_app env s3 Opapp v1 v2 = SOME (env',empty_store,e3)) /\ (s3 = empty_store)``,
-  SIMP_TAC (srw_ss()) [do_app_def] \\ Cases_on `v1`
-  \\ SIMP_TAC (srw_ss()) [do_app_def] \\ REPEAT BasicProvers.FULL_CASE_TAC
-  \\ METIS_TAC []);
+  ``(do_app s3 Opapp vs = SOME (empty_store,e3)) <=>
+    (do_app s3 Opapp vs = SOME (empty_store,e3)) /\ (s3 = empty_store)``,
+  SIMP_TAC (srw_ss()) [do_app_cases]);
 
 val evaluate_empty_store = store_thm("evaluate_empty_store",
   ``evaluate F env (c,s2) xs (((c',empty_store),Rval ys)) <=>
