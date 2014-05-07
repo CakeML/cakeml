@@ -2331,15 +2331,27 @@ val tids_of_envC_def = Define`
     BIGUNION (IMAGE (λ(mn,e). cons_of_flat_envC (SOME mn) e) (set mcenv))
     ∪ tids_of_flat_envC NONE cenv`
 
-val evaluate_decs_i1_disjoint_ctors = store_thm("evaluate_decs_i1_disjoint_ctors",
-  ``∀ck genv cenv s ds res. evaluate_decs_i1 ck genv cenv s ds res ⇒
+val counterexample =prove(
+  ``¬(∀ck genv cenv s ds res. evaluate_decs_i1 ck genv cenv s ds res ⇒
       SND (SND (SND res)) ≠ SOME Rtype_error
       ⇒
-      DISJOINT {tid | TypeId tid ∈ SND s} (tids_of_decs ds)``,
-  ho_match_mp_tac evaluate_decs_i1_ind >>
-  simp[tids_of_decs_thm] >>
-  conj_tac >- (
-    hr
+      DISJOINT {tid | TypeId tid ∈ SND s} (tids_of_decs ds))``,
+  rw[] >>
+  rw[Once evaluate_decs_i1_cases] >>
+  srw_tac[boolSimps.DNF_ss][tids_of_decs_thm] >>
+  disj1_tac >>
+  disj1_tac >>
+  rw[Once evaluate_dec_i1_cases] >>
+  srw_tac[boolSimps.DNF_ss][] >>
+  CONV_TAC(RESORT_EXISTS_CONV(sort_vars["e'","ds'","tdecs"])) >>
+  qexists_tac`Raise_i1 (Lit_i1 ARB)` >>
+  rw[Once evaluate_i1_cases] >>
+  srw_tac[boolSimps.DNF_ss][] >>
+  rw[Once evaluate_i1_cases] >>
+  disj1_tac >>
+  qexists_tac`[Dtype_i1 NONE [(ARB,ARB,ARB)]]` >>
+  qexists_tac`{TypeId (Short ARB)}` >>
+  rw[tids_of_decs_thm,mk_id_def])
 *)
 
 val mk_id_inj = store_thm("mk_id_inj",
@@ -2352,6 +2364,10 @@ val MAP_SND_o_SND_flat_alloc_tags = prove(
   simp[MAP2_MAP,LENGTH_COUNT_LIST,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
   simp[LIST_EQ_REWRITE,LENGTH_COUNT_LIST,EL_MAP,EL_ZIP])
 
+val no_dup_types_i1_cons_imp = prove(
+  ``no_dup_types_i1 (d::ds) ⇒ no_dup_types_i1 ds``,
+  rw[no_dup_types_i1_def,ALL_DISTINCT_APPEND])
+
 val decs_to_i2_correct = Q.prove (
 `!ck genv envC s ds r.
   evaluate_decs_i1 ck genv envC s ds r
@@ -2360,6 +2376,7 @@ val decs_to_i2_correct = Q.prove (
     s = (s1,tids) ∧
     r = ((s',tids'), envC', genv', res) ∧
     res ≠ SOME Rtype_error ∧
+    no_dup_types_i1 ds ∧
     decs_to_i2 tagenv_st ds = (tagenv_st', exh', ds_i2) ∧
     cenv_inv envC exh (get_tagenv tagenv_st) gtagenv ∧
     s_to_i2 gtagenv s1 s1_i2 ∧
@@ -2415,6 +2432,7 @@ val decs_to_i2_correct = Q.prove (
      metis_tac [gtagenv_weak_refl, cenv_inv_def, evaluate_exp_i2_exh_weak, SND,
                 result_11, error_result_distinct])
  >- (`?tagenv_st' exh' ds_i2. decs_to_i2 tagenv_st ds = (tagenv_st', exh', ds_i2)` by metis_tac [pair_CASES] >>
+     imp_res_tac no_dup_types_i1_cons_imp >>
      fs [] >>
      rw [Once evaluate_decs_i2_cases] >>
      fs [s_to_i2'_cases] >>
@@ -2449,6 +2467,7 @@ val decs_to_i2_correct = Q.prove (
      metis_tac [length_vs_to_i2, cenv_inv_def, evaluate_exp_i2_exh_weak, SND,
                 result_distinct, result_11, error_result_distinct])
  >- (`?tagenv_st' exh' ds_i2. decs_to_i2 tagenv_st ds = (tagenv_st',exh',ds_i2)` by metis_tac [pair_CASES] >>
+     imp_res_tac no_dup_types_i1_cons_imp >>
      fs [] >>
      rw [] >>
      fs [emp_def, merge_def, merge_envC_empty] >>
@@ -2469,8 +2488,10 @@ val decs_to_i2_correct = Q.prove (
      metis_tac [pair_CASES])
  >- (
    first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >> rw[] >>
+   imp_res_tac no_dup_types_i1_cons_imp >>
    rfs[] >>
    qmatch_assum_rename_tac`DISJOINT (X mn tdefs) tids`["X"] >>
+   fs[] >>
    first_x_assum(fn th => first_assum (mp_tac o (MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th)))) >>
    first_assum(mp_tac o MATCH_MP alloc_tags_inv_weak) >>
    disch_then(qspecl_then[`mn`,`tdefs`]strip_assume_tac) >>
@@ -2523,7 +2544,17 @@ val decs_to_i2_correct = Q.prove (
        qsuff_tac`DISJOINT (type_defs_to_new_tdecs mn tdefs) (IMAGE TypeId (tids_of_decs ds))` >- (
          simp[IN_DISJOINT,type_defs_to_new_tdecs_def,MEM_MAP,FORALL_PROD,PULL_FORALL] >>
          metis_tac[tid_or_exn_11] ) >>
-       cheat (* semantics should provide this? *) ) >>
+       qpat_assum`no_dup_types_i1 (X::Y)`mp_tac >>
+       simp[IN_DISJOINT,no_dup_types_i1_def,ALL_DISTINCT_APPEND,tids_of_decs_def,
+            MEM_FLAT,MEM_MAP,type_defs_to_new_tdecs_def,PULL_EXISTS,FORALL_PROD] >>
+       rw[] >> spose_not_then strip_assume_tac >> rw[] >> pop_assum mp_tac >>
+       BasicProvers.CASE_TAC >> simp[] >>
+       simp[MEM_MAP,FORALL_PROD] >>
+       spose_not_then strip_assume_tac >>
+       fs[mk_id_inj] >> rw[] >>
+       first_x_assum(fn th => first_x_assum (mp_tac o MATCH_MP th)) >>
+       simp[] >> HINT_EXISTS_TAC >> simp[] >>
+       simp[MEM_MAP,EXISTS_PROD] >> metis_tac[]) >>
      fs[alloc_tags_invariant_def,Abbr`g2`,FDOM_FUPDATE_LIST,MAP_FST_galloc_tags] >>
      conj_tac >- (
        fs[SUBSET_DEF,PULL_EXISTS] >>
