@@ -1358,7 +1358,6 @@ rw [emp_def] >>
 PairCases_on `envC` >>
 rw [merge_envC_def, merge_def]);
 
-(*
 val lookup_tag_env_insert = Q.prove (
 `(!cn tag tagenv. lookup_tag_env (SOME (Short cn)) (insert_tag_env cn tag tagenv) = tag) ∧
  (!cn cn' tag tagenv.
@@ -1370,7 +1369,6 @@ val lookup_tag_env_insert = Q.prove (
  rw [lookup_tag_env_def, insert_tag_env_def, lookup_tag_flat_def, FLOOKUP_UPDATE] >>
  every_case_tac >>
  fs []);
- *)
 
 val check_dup_ctors_flat = Q.prove (
 `!defs.
@@ -2686,6 +2684,15 @@ val ALOOKUP_flat_alloc_tags_galloc_tags = prove(
   fs[MAP_FST_galloc_tags] >>
   fs[MEM_MAP,UNCURRY] >> metis_tac[])
 
+val cenv_inv_add_exn = prove(
+  ``cenv_inv envC exh tagenv gtagenv ⇒
+    cenv_inv (merge_envC ([], [(xn,(ar, TypeExn id))]) envC) exh
+      (insert_tag_env xn (n,SOME (TypeExn id)) tagenv) gtagenv``
+
+val FUPDATE_EQ_FUPDATE_LIST = store_thm("FUPDATE_EQ_FUPDATE_LIST",
+  ``∀fm kv. fm |+ kv = fm |++ [kv]``,
+  rw[FUPDATE_LIST_THM])
+
 val decs_to_i2_correct = Q.prove (
 `!ck genv envC s ds r.
   evaluate_decs_i1 ck genv envC s ds r
@@ -3030,7 +3037,6 @@ val decs_to_i2_correct = Q.prove (
       |> ONCE_REWRITE_TAC) >>
      simp[MAP_FST_flat_alloc_tags,MAP_REVERSE,ALL_DISTINCT_REVERSE] >>
      (conj_tac >- metis_tac[check_dup_ctors_flat]) >>
-
      match_mp_tac flat_envC_tagged_weakening >>
      qexists_tac`g2` >> simp[] >>
      simp[Abbr`g2`,flat_envC_tagged_def] >>
@@ -3067,7 +3073,104 @@ val decs_to_i2_correct = Q.prove (
           PULL_EXISTS,FORALL_PROD,EXISTS_PROD,MEM_ZIP] >>
      metis_tac[MEM_EL,MEM_REVERSE,LENGTH_REVERSE] ) >>
    cheat)
- >- cheat);
+ >- (
+   first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >> rw[] >>
+   imp_res_tac no_dup_types_i1_cons_imp >>
+   rfs[] >>
+   qmatch_assum_rename_tac`TypeExn (mk_id mn xn) ∉ tids`[] >>
+   fs[] >>
+   first_x_assum(fn th => first_assum (mp_tac o (MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th)))) >>
+   simp[bind_def,emp_def] >>
+   qabbrev_tac`gtagenv' = gtagenv |+ ((xn,TypeExn(mk_id mn xn)),get_next tagenv_st,LENGTH l)` >>
+   `∀cn. (cn,TypeExn (mk_id mn xn)) ∉ FDOM gtagenv` by (
+     fs[alloc_tags_invariant_def,SUBSET_DEF,PULL_EXISTS,FORALL_PROD] >>
+     metis_tac[] ) >>
+   `gtagenv_weak gtagenv gtagenv' ∧ gtagenv_wf gtagenv'` by (
+     simp[gtagenv_weak_def,Abbr`gtagenv'`,FLOOKUP_UPDATE] >>
+     simp[] >>
+     fs[alloc_tags_invariant_def,gtagenv_wf_def,FLOOKUP_UPDATE] >>
+     conj_asm1_tac >- (
+       conj_tac >- (
+         rw[] >> simp[] >>
+         fs[cenv_inv_def,gtagenv_wf_def] ) >>
+       conj_tac >- ( rw[] >> metis_tac[] ) >>
+       fs[cenv_inv_def,gtagenv_wf_def] >>
+       rw[] >> fs[] >>
+       metis_tac[prim_recTheory.LESS_REFL,arithmeticTheory.GREATER_DEF] ) >>
+     conj_tac >- metis_tac[] >>
+     conj_tac >- (
+       pop_assum kall_tac >>
+       fs[cenv_inv_def,gtagenv_wf_def,has_exns_def,FLOOKUP_UPDATE] >>
+       rw[] >> fs[FLOOKUP_DEF] ) >>
+     pop_assum (MATCH_ACCEPT_TAC o CONJUNCT2 o CONJUNCT2)) >>
+   disch_then(qspecl_then[`s1_i2`,`genv_i2`,`gtagenv'`,`exh`]mp_tac) >>
+   discharge_hyps >- (
+     simp[] >>
+     conj_tac >- (
+       fs[cenv_inv_def] >>
+       PairCases_on`envC` >>
+       PairCases_on`tagenv_st` >>
+       simp[merge_envC_def,alloc_tag_def,get_tagenv_def] >>
+       fs[envC_tagged_def,get_tagenv_def,merge_def,lookup_con_id_def] >>
+       conj_tac >- (
+         rpt gen_tac >>
+         first_x_assum(qspec_then`cn`mp_tac) >>
+         reverse BasicProvers.CASE_TAC >> simp[lookup_tag_env_insert] >- (
+           simp[Abbr`gtagenv'`,FLOOKUP_UPDATE] >>
+           BasicProvers.CASE_TAC >>
+           BasicProvers.CASE_TAC >>
+           disch_then(fn th => disch_then (fn th2 => assume_tac th2 >> mp_tac (MATCH_MP th th2))) >>
+           strip_tac >>
+           fs[FLOOKUP_DEF] >> metis_tac[] ) >>
+         reverse BasicProvers.CASE_TAC >> simp[lookup_tag_env_insert] >- (
+           disch_then(fn th => disch_then (fn th2 => assume_tac th2 >> mp_tac (MATCH_MP th th2))) >>
+           simp[Abbr`gtagenv'`,FLOOKUP_UPDATE,id_to_n_def] ) >>
+         simp[Abbr`gtagenv'`,FLOOKUP_UPDATE,id_to_n_def,get_next_def] >>
+         fs[alloc_tags_invariant_def,get_next_def] >>
+         simp[] ) >>
+       fs[exhaustive_env_correct_def,Abbr`gtagenv'`,FLOOKUP_UPDATE] ) >>
+     fs[s_to_i2_cases] >>
+     fs[s_to_i2'_cases] >>
+     conj_tac >- metis_tac[v_to_i2_weakening] >>
+     conj_tac >- (
+       match_mp_tac EVERY2_MEM_MONO >>
+       HINT_EXISTS_TAC >> simp[UNCURRY] >>
+       simp[OPTREL_def] >> rw[] >> rw[] >>
+       metis_tac[v_to_i2_weakening] ) >>
+     PairCases_on`tagenv_st` >>
+     fs[alloc_tags_invariant_def,Abbr`gtagenv'`,alloc_tag_def,get_next_def,FLOOKUP_UPDATE] >>
+     simp[] >>
+     conj_tac >- fs[SUBSET_DEF] >>
+     rw[] >> simp[] >> res_tac >> simp[] ) >>
+   strip_tac >> simp[] >> rpt BasicProvers.VAR_EQ_TAC >>
+   ONCE_REWRITE_TAC[CONJ_COMM] >>
+   ONCE_REWRITE_TAC[GSYM CONJ_ASSOC] >>
+   first_assum(match_exists_tac o concl) >> simp[] >>
+   ONCE_REWRITE_TAC[GSYM CONJ_ASSOC] >>
+   first_assum(match_exists_tac o concl) >> simp[] >>
+   simp[LEFT_EXISTS_AND_THM] >>
+   (reverse conj_tac >- metis_tac[gtagenv_weak_trans]) >>
+   PairCases_on`tagenv_st` >>
+   simp[alloc_tag_def,get_tagacc_def] >>
+   simp[Once FUPDATE_EQ_FUNION] >>
+   simp[Once FUNION_ASSOC] >>
+   qho_match_abbrev_tac`∃acc'. (foo ⊌ bar = acc' ⊌ bar) ∧ Z acc'` >>
+   TRY (
+     qexists_tac`foo`>>simp[Abbr`Z`,Abbr`foo`,merge_def] >>
+     Q.ISPEC_THEN`acc'`(SUBST1_TAC o SYM)(Q.GEN`fm`fmap_to_alist_to_fmap) >>
+     REWRITE_TAC[FUNION_alist_to_fmap] >>
+     ONCE_REWRITE_TAC[FUPDATE_EQ_FUPDATE_LIST] >>
+     ONCE_REWRITE_TAC[GSYM FUPDATE_LIST_APPEND] >>
+     match_mp_tac flat_envC_tagged_append >>
+     REWRITE_TAC[GSYM FUNION_alist_to_fmap,FUNION_FEMPTY_2] >>
+     simp[MAP_REVERSE] >>
+     simp[flat_envC_tagged_def,lookup_tag_flat_def,FLOOKUP_UPDATE] >>
+     match_mp_tac (GEN_ALL (MP_CANON FLOOKUP_SUBMAP)) >>
+     fs[gtagenv_weak_def] >>
+     HINT_EXISTS_TAC >> simp[Abbr`gtagenv'`] >>
+     simp_tac (srw_ss()) [FLOOKUP_UPDATE] >>
+     simp[get_next_def] ) >>
+   cheat));
 
  (*
  >- (`?gtagenv'.
