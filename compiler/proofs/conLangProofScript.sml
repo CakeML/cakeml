@@ -3029,6 +3029,33 @@ val list_rel_optrel_args = Q.prove (
 `!gtagenv. LIST_REL (OPTREL (v_to_i2 gtagenv)) = LIST_REL (\x y. OPTREL (v_to_i2 gtagenv) x y)`,
  rw [eta2]);
 
+val decs_to_i2_dummy_env_num_defs =prove(
+  ``∀ds x y z ds2.
+    decs_to_i2 x ds = (y,z,ds2) ⇒
+    decs_to_dummy_env ds = num_defs ds2``,
+  Induct >> simp[decs_to_i2_def,decs_to_dummy_env_def,num_defs_def] >>
+  rpt gen_tac >>
+  BasicProvers.CASE_TAC >> rw[] >>
+  first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
+  first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
+  rw[] >>
+  simp[dec_to_dummy_env_def,num_defs_def,funs_to_i2_map])
+
+(*
+val envC_tagged_extend = prove(
+  ``envC_tagged envC tagenv gtagenv ∧
+    flat_envC_tagged cenv acc gtagenv' ∧
+    gtagenv_weak gtagenv gtagenv'
+    ⇒
+    envC_tagged (merge_envC (mod_cenv mn cenv) envC)
+      (mod_tagenv mn acc tagenv') gtagenv'``,
+  PairCases_on`envC` >>
+  PairCases_on`tagenv'` >>
+  simp[envC_tagged_def] >>
+  Cases_on`mn`>>simp[mod_cenv_def,mod_tagenv_def,merge_envC_def,merge_def] >- (
+    rw[lookup_con_id_def,lookup_tag_env]
+*)
+
 val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
 `!ck genv envC s tids mods prompt s_i2 genv_i2 tagenv_st prompt_i2 genv' envC' s' tids' mods' res gtagenv tagenv_st' exh exh'.  
   evaluate_prompt_i1 ck genv envC (s,tids,mods) prompt ((s',tids',mods'), envC', genv', res) ∧
@@ -3075,16 +3102,20 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
      >- (
        fs[cenv_inv_def] >>
        cheat)
-     >- (`LENGTH genv = LENGTH genv_i2` by metis_tac [LIST_REL_LENGTH] >>
-         `LENGTH (MAP SOME env) = LENGTH (MAP SOME genv'_i2)`
-                 by metis_tac [LIST_REL_LENGTH, LENGTH_MAP, vs_to_i2_list_rel] >>
-         fs [list_rel_optrel_args] >>
-         `LIST_REL (\x y. OPTREL (v_to_i2 gtagenv') x y) (MAP SOME env) (MAP SOME genv'_i2)` 
-                 by (rw [LIST_REL_MAP1, LIST_REL_MAP2, combinTheory.o_DEF, OPTREL_def] >>
-                     fs [vs_to_i2_list_rel, eta2]) >>
-         `LIST_REL (\x y. OPTREL (v_to_i2 gtagenv') x y) genv genv_i2` by (cheat) >>
-         metis_tac [EVERY2_APPEND])
-     >- cheat)
+     >- (
+       match_mp_tac EVERY2_APPEND_suff >>
+       conj_tac >- (
+         match_mp_tac EVERY2_MEM_MONO >>
+         HINT_EXISTS_TAC >> simp[UNCURRY] >>
+         simp[optionTheory.OPTREL_def] >>
+         rw[FORALL_PROD] >> rw[] >>
+         metis_tac[v_to_i2_weakening] ) >>
+       simp[EVERY2_MAP,optionTheory.OPTREL_def] >>
+       srw_tac[boolSimps.ETA_ss][] >>
+       fs[vs_to_i2_list_rel] )
+     >- (
+       fs[alloc_tags_invariant_def,get_next_def] >>
+       fs[gtagenv_wf_def]))
  >- (`∃genv'_i2 s'_i2 res_i2 gtagenv' acc'.
        gtagenv_weak gtagenv gtagenv' ∧
        evaluate_decs_i2 ck (FUNION exh' exh) genv_i2 s_i2 ds_i2 (s'_i2,genv'_i2,res_i2) ∧
@@ -3110,24 +3141,27 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
      >- (
        fs[cenv_inv_def] >>
        cheat )
-     >- (`LENGTH genv = LENGTH genv_i2`
-                by metis_tac [LIST_REL_LENGTH] >>
-         `LENGTH (MAP SOME env) = LENGTH (MAP SOME genv'_i2)`
-                by metis_tac [length_vs_to_i2, LENGTH_MAP] >>
+     >- (
+       match_mp_tac EVERY2_APPEND_suff >>
+       conj_tac >- (
          match_mp_tac EVERY2_APPEND_suff >>
          conj_tac >- (
-           match_mp_tac EVERY2_APPEND_suff >>
-           conj_tac >- (
-             match_mp_tac EVERY2_MEM_MONO >>
-             HINT_EXISTS_TAC >> simp[UNCURRY] >>
-             simp[optionTheory.OPTREL_def] >>
-             rw[FORALL_PROD] >> rw[] >>
-             metis_tac[v_to_i2_weakening] ) >>
-           simp[EVERY2_MAP,optionTheory.OPTREL_def] >>
-           srw_tac[boolSimps.ETA_ss][] >>
-           fs[vs_to_i2_list_rel] ) >>
-         cheat)
-     >- cheat));
+           match_mp_tac EVERY2_MEM_MONO >>
+           HINT_EXISTS_TAC >> simp[UNCURRY] >>
+           simp[optionTheory.OPTREL_def] >>
+           rw[FORALL_PROD] >> rw[] >>
+           metis_tac[v_to_i2_weakening] ) >>
+         simp[EVERY2_MAP,optionTheory.OPTREL_def] >>
+         srw_tac[boolSimps.ETA_ss][] >>
+         fs[vs_to_i2_list_rel] ) >>
+       qsuff_tac`decs_to_dummy_env ds = num_defs ds_i2` >- (
+         fs[vs_to_i2_list_rel] >>
+         imp_res_tac EVERY2_LENGTH >> rw[] >>
+         simp[EVERY2_EVERY,EVERY_MEM,MEM_ZIP,PULL_EXISTS,optionTheory.OPTREL_def] ) >>
+       metis_tac[decs_to_i2_dummy_env_num_defs])
+     >- (
+       fs[alloc_tags_invariant_def,get_next_def] >>
+       fs[gtagenv_wf_def])));
 
 
  (*
