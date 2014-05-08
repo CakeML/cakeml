@@ -1858,6 +1858,27 @@ val tagacc_accumulates = Q.prove (
      rw [alloc_tag_def, get_tagacc_def] >>
      metis_tac [FUPDATE_EQ_FUNION, FUNION_ASSOC]));
 
+val tagenv_accumulates = Q.prove (
+`!tagenv_st ds tagenv_st' exh' ds_i2'.
+  decs_to_i2 tagenv_st ds = (tagenv_st',exh',ds_i2') ⇒
+  ?acc'. get_tagenv tagenv_st' = (FST (get_tagenv tagenv_st), acc' ⊌ (SND (get_tagenv tagenv_st)))`,
+ induct_on `ds` >>
+ rw [decs_to_i2_def] >>
+ PairCases_on`tagenv_st` >> fs[get_tagenv_def]
+ >- metis_tac [FUNION_FEMPTY_1] >>
+ reverse every_case_tac >>
+ rw [] >>
+ fs [LET_THM] >>
+ first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >> rw[] >>
+ first_x_assum(fn th => (first_assum (mp_tac o MATCH_MP th))) >>
+ simp[get_tagenv_def,alloc_tags_eqns,get_next_def] >- (
+   simp[alloc_tag_def,get_tagenv_def,insert_tag_env_def] >>
+   ONCE_REWRITE_TAC[FUPDATE_EQ_FUNION] >> rw[] >> rw[] >>
+   metis_tac[FUNION_ASSOC] ) >>
+ simp[FOLDL_insert_tag_env] >>
+ ONCE_REWRITE_TAC[fupdate_list_funion] >>
+ rw[] >> rw[] >> metis_tac[FUNION_ASSOC])
+
 val eta2 = Q.prove (
 `(\x y. f a x y) = f a`,
 metis_tac []);
