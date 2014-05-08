@@ -2374,6 +2374,34 @@ val FDOM_decs_to_i2_exh = prove(
   simp[FDOM_build_exh_env] >>
   metis_tac[UNION_COMM])
 
+val decs_to_i2_exh_wf = prove(
+  ``∀ds st st' exh' ds'.
+    decs_to_i2 st ds = (st',exh',ds') ⇒
+    ∀t. t ∈ FRANGE exh' ⇒ wf t``,
+  Induct >> simp[decs_to_i2_def] >>
+  rpt gen_tac >>
+  every_case_tac >> fs[] >> rw[] >>
+  first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >> rw[] >>
+  first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
+  rw[] >>
+  last_x_assum mp_tac >>
+  qid_spec_tac`t` >>
+  ho_match_mp_tac IN_FRANGE_FUNION_suff >> rw[] >>
+  qmatch_assum_rename_tac`t ∈ FRANGE (build_exh_env mn p l)`[] >>
+  Cases_on`alloc_tags mn st l`>>
+  fs[FRANGE_FLOOKUP,build_exh_env_def,flookup_fupdate_list] >>
+  every_case_tac >> fs[] >> rw[] >>
+  imp_res_tac ALOOKUP_MEM >> fs[] >>
+  fs[MEM_MAP,PULL_EXISTS,EXISTS_PROD] >> rw[] >>
+  qmatch_abbrev_tac`wf (FOLDL g LN c)` >>
+  `∃f. FOLDL g LN c = nat_set_from_list (MAP f c)` by (
+    simp[nat_set_from_list_def,FOLDL_MAP,Abbr`g`,LAMBDA_PROD] >>
+    qexists_tac`λ(cn,ts). FST (option_CASE (FLOOKUP r cn) (0,NONE) I)` >>
+    simp[]) >>
+  simp[nat_set_from_list_def] >>
+  match_mp_tac wf_nat_set_from_list >>
+  simp[sptreeTheory.wf_def])
+
 (*
 val counterexample =prove(
   ``¬(∀ck genv cenv s ds res. evaluate_decs_i1 ck genv cenv s ds res ⇒
@@ -2512,6 +2540,7 @@ val decs_to_i2_correct = Q.prove (
       alloc_tags_invariant tids' tagenv_st' gtagenv' ∧
       gtagenv_wf gtagenv' ∧
       get_tagacc tagenv_st' = FUNION acc' (get_tagacc tagenv_st) ∧
+      exhaustive_env_correct (exh' ⊌ exh) gtagenv' ∧
       (res = NONE ∧ res_i2 = NONE ∧ FDOM acc' = set (MAP FST envC') ∧
        flat_envC_tagged envC' acc' gtagenv'
        ∨
@@ -2551,6 +2580,17 @@ val decs_to_i2_correct = Q.prove (
      `alloc_tags_invariant tids tagenv_st' gtagenv` by metis_tac [decs_to_i2_inv_weak] >>
      `?acc'. get_tagacc tagenv_st' = FUNION acc' (get_tagacc tagenv_st)`
                  by metis_tac [tagacc_accumulates] >>
+     `exhaustive_env_correct (exh' ⊌ exh) gtagenv` by (
+       fs[cenv_inv_def,exhaustive_env_correct_def] >>
+       conj_tac >- (
+         ho_match_mp_tac IN_FRANGE_FUNION_suff >>
+         metis_tac[decs_to_i2_exh_wf] ) >>
+       simp[FLOOKUP_FUNION] >> rw[] >>
+       BasicProvers.CASE_TAC >- metis_tac[] >>
+       imp_res_tac FDOM_decs_to_i2_exh >>
+       fs[alloc_tags_invariant_def] >>
+       fs[PULL_EXISTS,FLOOKUP_DEF,IN_DISJOINT] >>
+       metis_tac[] ) >>
      metis_tac [gtagenv_weak_refl, cenv_inv_def, evaluate_exp_i2_exh_weak, SND,
                 result_11, error_result_distinct])
  >- (`?tagenv_st' exh' ds_i2. decs_to_i2 tagenv_st ds = (tagenv_st', exh', ds_i2)` by metis_tac [pair_CASES] >>
@@ -3019,6 +3059,7 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
        alloc_tags_invariant tids' ((next',tagenv',inv''),acc) gtagenv' ∧
        gtagenv_wf gtagenv' ∧
        get_tagacc ((next',tagenv',inv''),acc) = acc' ⊌ get_tagacc (tagenv_st,FEMPTY) ∧
+       exhaustive_env_correct (exh' ⊌ exh) gtagenv' ∧
        FDOM acc' = set (MAP FST cenv') ∧
        flat_envC_tagged cenv' acc' gtagenv'
        (*∧
@@ -3031,7 +3072,9 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
      Q.LIST_EXISTS_TAC [`MAP SOME genv'_i2`, `s'_i2`, `gtagenv'`] >>
      fs [get_tagenv_def] >>
      rw []
-     >- cheat
+     >- (
+       fs[cenv_inv_def] >>
+       cheat)
      >- (`LENGTH genv = LENGTH genv_i2` by metis_tac [LIST_REL_LENGTH] >>
          `LENGTH (MAP SOME env) = LENGTH (MAP SOME genv'_i2)`
                  by metis_tac [LIST_REL_LENGTH, LENGTH_MAP, vs_to_i2_list_rel] >>
@@ -3050,6 +3093,7 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
        alloc_tags_invariant tids' ((next',tagenv',inv''),acc) gtagenv' ∧
        gtagenv_wf gtagenv' ∧
        get_tagacc ((next',tagenv',inv''),acc) = acc' ⊌ get_tagacc (tagenv_st,FEMPTY) ∧
+       exhaustive_env_correct (exh' ⊌ exh) gtagenv' ∧
        (* flat_envC_tagged cenv' acc' gtagenv' ∧ *)
        ?err_i2.
          res_i2 = SOME err_i2 ∧
@@ -3063,7 +3107,9 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
      fs [get_tagenv_def] >>
      rw []
      >- metis_tac[]
-     >- cheat
+     >- (
+       fs[cenv_inv_def] >>
+       cheat )
      >- (`LENGTH genv = LENGTH genv_i2`
                 by metis_tac [LIST_REL_LENGTH] >>
          `LENGTH (MAP SOME env) = LENGTH (MAP SOME genv'_i2)`
