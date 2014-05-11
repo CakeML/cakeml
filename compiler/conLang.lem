@@ -294,7 +294,7 @@ let prompt_to_i2 tagenv_st prompt =
   match prompt with
     | Prompt_i1 mn ds ->
         let (((next',tagenv',inv'),acc'), exh', ds') = decs_to_i2 (tagenv_st,Map.empty) ds in
-          ((next',mod_tagenv mn acc' tagenv',inv'), exh', Prompt_i2 ds')
+          ((next',mod_tagenv mn acc' (get_tagenv (tagenv_st,acc')),inv'), exh', Prompt_i2 ds')
   end
 
 val prog_to_i2 : (nat * tag_env * map nat (conN * tid_or_exn)) -> list prompt_i1 -> (nat * tag_env * map nat (conN * tid_or_exn)) * exh_ctors_env * list prompt_i2

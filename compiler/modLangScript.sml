@@ -485,8 +485,8 @@ evaluate_i1 ck env s1 (Handle_i1 e pes) (s2, Rerr err))
 
 /\ (! ck env cn es vs s s' v.
 (do_con_check (all_env_i1_to_cenv env) cn (LENGTH es) /\
-((build_conv_i1 (all_env_i1_to_cenv env) cn vs = SOME v) /\
-evaluate_list_i1 ck env s es (s', Rval vs)))
+(build_conv_i1 (all_env_i1_to_cenv env) cn vs = SOME v) /\
+evaluate_list_i1 ck env s es (s', Rval vs))
 ==>
 evaluate_i1 ck env s (Con_i1 cn es) (s', Rval v))
 
@@ -552,27 +552,27 @@ evaluate_i1 ck env s (Uapp_i1 uop e) (s', Rerr err))
 
 /\ (! ck env op e1 e2 v1 v2 env' e3 bv s1 s2 s3 count s4.
 (evaluate_i1 ck env s1 e1 (s2, Rval v1) /\
-(evaluate_i1 ck env s2 e2 ((count,s3), Rval v2) /\
-((do_app_i1 env s3 op v1 v2 = SOME (env', s4, e3)) /\
-(((ck /\ (op = Opapp)) ==> ~ (count =( 0))) /\
-evaluate_i1 ck env' ((if ck then dec_count op count else count),s4) e3 bv))))
+evaluate_i1 ck env s2 e2 ((count,s3), Rval v2) /\
+(do_app_i1 env s3 op v1 v2 = SOME (env', s4, e3)) /\
+((ck /\ (op = Opapp)) ==> ~ (count =( 0))) /\
+evaluate_i1 ck env' ((if ck then dec_count op count else count),s4) e3 bv)
 ==>
 evaluate_i1 ck env s1 (App_i1 op e1 e2) bv)
 
 /\ (! ck env op e1 e2 v1 v2 env' e3 s1 s2 s3 count s4.
 (evaluate_i1 ck env s1 e1 (s2, Rval v1) /\
-(evaluate_i1 ck env s2 e2 ((count,s3), Rval v2) /\
-((do_app_i1 env s3 op v1 v2 = SOME (env', s4, e3)) /\
-((count = 0) /\
-((op = Opapp) /\
-ck)))))
+evaluate_i1 ck env s2 e2 ((count,s3), Rval v2) /\
+(do_app_i1 env s3 op v1 v2 = SOME (env', s4, e3)) /\
+(count = 0) /\
+(op = Opapp) /\
+ck)
 ==>
 evaluate_i1 ck env s1 (App_i1 op e1 e2) (( 0,s4), Rerr Rtimeout_error))
 
 /\ (! ck env op e1 e2 v1 v2 s1 s2 s3 count.
 (evaluate_i1 ck env s1 e1 (s2, Rval v1) /\
-(evaluate_i1 ck env s2 e2 ((count,s3), Rval v2) /\
-(do_app_i1 env s3 op v1 v2 = NONE)))
+evaluate_i1 ck env s2 e2 ((count,s3), Rval v2) /\
+(do_app_i1 env s3 op v1 v2 = NONE))
 ==>
 evaluate_i1 ck env s1 (App_i1 op e1 e2) ((count,s3), Rerr Rtype_error))
 
@@ -589,8 +589,8 @@ evaluate_i1 ck env s (App_i1 op e1 e2) (s', Rerr err))
 
 /\ (! ck env e1 e2 e3 v e' bv s1 s2.
 (evaluate_i1 ck env s1 e1 (s2, Rval v) /\
-((do_if_i1 v e2 e3 = SOME e') /\
-evaluate_i1 ck env s2 e' bv))
+(do_if_i1 v e2 e3 = SOME e') /\
+evaluate_i1 ck env s2 e' bv)
 ==>
 evaluate_i1 ck env s1 (If_i1 e1 e2 e3) bv)
 
@@ -667,15 +667,15 @@ evaluate_match_i1 ck env s v [] err_v (s, Rerr (Rraise err_v)))
 
 /\ (! ck genv cenv env env' v p pes e bv err_v s count.
 (ALL_DISTINCT (pat_bindings p []) /\
-((pmatch_i1 cenv s p v env = Match env') /\
-evaluate_i1 ck (genv,cenv,env') (count,s) e bv))
+(pmatch_i1 cenv s p v env = Match env') /\
+evaluate_i1 ck (genv,cenv,env') (count,s) e bv)
 ==>
 evaluate_match_i1 ck (genv,cenv,env) (count,s) v ((p,e)::pes) err_v bv)
 
 /\ (! ck genv cenv env v p e pes bv s count err_v.
 (ALL_DISTINCT (pat_bindings p []) /\
-((pmatch_i1 cenv s p v env = No_match) /\
-evaluate_match_i1 ck (genv,cenv,env) (count,s) v pes err_v bv))
+(pmatch_i1 cenv s p v env = No_match) /\
+evaluate_match_i1 ck (genv,cenv,env) (count,s) v pes err_v bv)
 ==>
 evaluate_match_i1 ck (genv,cenv,env) (count,s) v ((p,e)::pes) err_v bv)
 
@@ -718,9 +718,9 @@ evaluate_dec_i1 ck genv cenv s (Dletrec_i1 funs) (s, Rval (emp, MAP (\ (f,x,e) .
 
 /\ (! ck mn genv cenv tds s tdecs new_tdecs.
 (check_dup_ctors tds /\
-((new_tdecs = type_defs_to_new_tdecs mn tds) /\
-(DISJOINT new_tdecs tdecs /\
-ALL_DISTINCT (MAP (\ (tvs,tn,ctors) .  tn) tds))))
+(new_tdecs = type_defs_to_new_tdecs mn tds) /\
+DISJOINT new_tdecs tdecs /\
+ALL_DISTINCT (MAP (\ (tvs,tn,ctors) .  tn) tds))
 ==>
 evaluate_dec_i1 ck genv cenv (s,tdecs) (Dtype_i1 mn tds) ((s,(new_tdecs UNION tdecs)), Rval (build_tdefs mn tds, [])))
 

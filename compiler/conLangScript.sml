@@ -357,7 +357,7 @@ val _ = Define `
 ((case prompt of
       Prompt_i1 mn ds =>
         let (((next',tagenv',inv'),acc'), exh', ds') = (decs_to_i2 (tagenv_st,FEMPTY) ds) in
-          ((next',mod_tagenv mn acc' tagenv',inv'), exh', Prompt_i2 ds')
+          ((next',mod_tagenv mn acc' (get_tagenv (tagenv_st,acc')),inv'), exh', Prompt_i2 ds')
   )))`;
 
 
@@ -545,7 +545,7 @@ val _ = Define `
     Match_type_error))
 /\
 (pmatch_i2 exh s (Pcon_i2 (n,NONE) ps) (Conv_i2 (n',NONE) vs) env =  
-(if (LENGTH ps = LENGTH vs) /\ ((n = tuple_tag) /\ (n' = tuple_tag)) then
+(if (LENGTH ps = LENGTH vs) /\ (n = tuple_tag) /\ (n' = tuple_tag) then
     pmatch_list_i2 exh s ps vs env
   else
     Match_type_error))
@@ -665,27 +665,27 @@ evaluate_i2 ck env s (Uapp_i2 uop e) (s', Rerr err))
 
 /\ (! ck exh genv env op e1 e2 v1 v2 env' e3 bv s1 s2 s3 count s4.
 (evaluate_i2 ck (exh,genv,env) s1 e1 (s2, Rval v1) /\
-(evaluate_i2 ck (exh,genv,env) s2 e2 ((count,s3), Rval v2) /\
-((do_app_i2 env s3 op v1 v2 = SOME (env', s4, e3)) /\
-(((ck /\ (op = Opapp)) ==> ~ (count =( 0))) /\
-evaluate_i2 ck (exh,genv,env') ((if ck then dec_count op count else count),s4) e3 bv))))
+evaluate_i2 ck (exh,genv,env) s2 e2 ((count,s3), Rval v2) /\
+(do_app_i2 env s3 op v1 v2 = SOME (env', s4, e3)) /\
+((ck /\ (op = Opapp)) ==> ~ (count =( 0))) /\
+evaluate_i2 ck (exh,genv,env') ((if ck then dec_count op count else count),s4) e3 bv)
 ==>
 evaluate_i2 ck (exh,genv,env) s1 (App_i2 op e1 e2) bv)
 
 /\ (! ck exh genv env op e1 e2 v1 v2 env' e3 s1 s2 s3 count s4.
 (evaluate_i2 ck (exh,genv,env) s1 e1 (s2, Rval v1) /\
-(evaluate_i2 ck (exh,genv,env) s2 e2 ((count,s3), Rval v2) /\
-((do_app_i2 env s3 op v1 v2 = SOME (env', s4, e3)) /\
-((count = 0) /\
-((op = Opapp) /\
-ck)))))
+evaluate_i2 ck (exh,genv,env) s2 e2 ((count,s3), Rval v2) /\
+(do_app_i2 env s3 op v1 v2 = SOME (env', s4, e3)) /\
+(count = 0) /\
+(op = Opapp) /\
+ck)
 ==>
 evaluate_i2 ck (exh,genv,env) s1 (App_i2 op e1 e2) (( 0,s4), Rerr Rtimeout_error))
 
 /\ (! ck exh genv env op e1 e2 v1 v2 s1 s2 s3 count.
 (evaluate_i2 ck (exh,genv,env) s1 e1 (s2, Rval v1) /\
-(evaluate_i2 ck (exh,genv,env) s2 e2 ((count,s3), Rval v2) /\
-(do_app_i2 env s3 op v1 v2 = NONE)))
+evaluate_i2 ck (exh,genv,env) s2 e2 ((count,s3), Rval v2) /\
+(do_app_i2 env s3 op v1 v2 = NONE))
 ==>
 evaluate_i2 ck (exh,genv,env) s1 (App_i2 op e1 e2) ((count,s3), Rerr Rtype_error))
 
@@ -702,8 +702,8 @@ evaluate_i2 ck env s (App_i2 op e1 e2) (s', Rerr err))
 
 /\ (! ck env e1 e2 e3 v e' bv s1 s2.
 (evaluate_i2 ck env s1 e1 (s2, Rval v) /\
-((do_if_i2 v e2 e3 = SOME e') /\
-evaluate_i2 ck env s2 e' bv))
+(do_if_i2 v e2 e3 = SOME e') /\
+evaluate_i2 ck env s2 e' bv)
 ==>
 evaluate_i2 ck env s1 (If_i2 e1 e2 e3) bv)
 
@@ -785,15 +785,15 @@ evaluate_match_i2 ck env s v [] err_v (s, Rerr (Rraise err_v)))
 
 /\ (! ck exh genv env env' v p pes e bv s count err_v.
 (ALL_DISTINCT (pat_bindings_i2 p []) /\
-((pmatch_i2 exh s p v env = Match env') /\
-evaluate_i2 ck (exh,genv,env') (count,s) e bv))
+(pmatch_i2 exh s p v env = Match env') /\
+evaluate_i2 ck (exh,genv,env') (count,s) e bv)
 ==>
 evaluate_match_i2 ck (exh,genv,env) (count,s) v ((p,e)::pes) err_v bv)
 
 /\ (! ck exh genv env v p e pes bv s count err_v.
 (ALL_DISTINCT (pat_bindings_i2 p []) /\
-((pmatch_i2 exh s p v env = No_match) /\
-evaluate_match_i2 ck (exh,genv,env) (count,s) v pes err_v bv))
+(pmatch_i2 exh s p v env = No_match) /\
+evaluate_match_i2 ck (exh,genv,env) (count,s) v pes err_v bv)
 ==>
 evaluate_match_i2 ck (exh,genv,env) (count,s) v ((p,e)::pes) err_v bv)
 

@@ -263,10 +263,10 @@ Cevaluate s env (CLetrec defs b) r)
 
 /\ (! s env ck e es s' cenv defs n def b env'' count s'' g vs r.
 (Cevaluate s env e (s', Rval (CRecClos cenv defs n)) /\
-((n < LENGTH defs) /\ ((EL n defs = def) /\
-(Cevaluate_list s' env es (((count,s''),g), Rval vs) /\
-((ck ==> (count > 0)) /\
-(((T,LENGTH vs,env'',b) =
+(n < LENGTH defs) /\ (EL n defs = def) /\
+Cevaluate_list s' env es (((count,s''),g), Rval vs) /\
+(ck ==> (count > 0)) /\
+((T,LENGTH vs,env'',b) =
   (case def of
     (NONE,(k,b)) =>
     (T
@@ -282,15 +282,15 @@ Cevaluate s env (CLetrec defs b) r)
     ++MAP ((\ n. EL n cenv)) envs))
     ,b)
   )) /\
-Cevaluate (((if ck then count -  1 else count),s''),g) env'' b r))))))
+Cevaluate (((if ck then count -  1 else count),s''),g) env'' b r)
 ==>
 Cevaluate s env (CCall ck e es) r)
 
 /\ (! s env ck e es s' cenv defs n def count s'' g vs.
 (Cevaluate s env e (s', Rval (CRecClos cenv defs n)) /\
-((n < LENGTH defs) /\ ((EL n defs = def) /\
-(Cevaluate_list s' env es (((count,s''),g), Rval vs) /\
-(ck /\ (count = 0))))))
+(n < LENGTH defs) /\ (EL n defs = def) /\
+Cevaluate_list s' env es (((count,s''),g), Rval vs) /\
+ck /\ (count = 0))
 ==>
 Cevaluate s env (CCall ck e es) (((count,s''),g), Rerr Rtimeout_error))
 
@@ -379,9 +379,9 @@ Cevaluate_list s env (e::es) (s'', Rerr err))`;
            else CCArg n)))
 /\
 (syneq_cb_aux d nz ez (SOME(_,(_,(recs,envs))),(az,e)) =
-  ((EVERY (\ n .  n < nz) recs /\   
-(EVERY (\ n .  n < ez) envs /\   
-(d < nz)))
+  ((EVERY (\ n .  n < nz) recs /\
+   EVERY (\ n .  n < ez) envs /\   
+(d < nz))
   ,az
   ,e
   ,(( 1+LENGTH recs)+LENGTH envs)
@@ -402,10 +402,10 @@ Cevaluate_list s env (e::es) (s'', Rerr err))`;
  val _ = Define `
  (syneq_cb_V (az:num) r1 r2 V V' v1 v2 =  
 (((v1 < az) /\ (v2 = v1)) \/
-  ((az <= v1) /\ ((az <= v2) /\
-   ((? j1 j2. ((r1 (v1 - az) = CCRef j1) /\ ((r2 (v2 - az) = CCRef j2) /\ V' j1 j2))) \/    
-((? j1 j2. ((r1 (v1 - az) = CCEnv j1) /\ ((r2 (v2 - az) = CCEnv j2) /\ V  j1 j2))) \/
-    (? j. (r1 (v1 - az) = CCArg j) /\ (r2 (v2 - az) = CCArg j))))))))`;
+  ((az <= v1) /\ (az <= v2) /\
+   ((? j1 j2. ((r1 (v1 - az) = CCRef j1) /\ (r2 (v2 - az) = CCRef j2) /\ V' j1 j2)) \/    
+((? j1 j2. ((r1 (v1 - az) = CCEnv j1) /\ (r2 (v2 - az) = CCEnv j2) /\ V  j1 j2)) \/
+    (? j. (r1 (v1 - az) = CCArg j) /\ (r2 (v2 - az) = CCArg j)))))))`;
 
 
 val _ = Hol_reln ` (! ez1 ez2 V e1 e2.
@@ -414,12 +414,12 @@ val _ = Hol_reln ` (! ez1 ez2 V e1 e2.
 syneq_exp ez1 ez2 V (CRaise e1) (CRaise e2))
 /\ (! ez1 ez2 V e1 b1 e2 b2.
 (syneq_exp ez1 ez2 V e1 e2 /\
-syneq_exp (ez1+ 1) (ez2+ 1) (\ v1 v2 .  ((v1 = 0) /\ (v2 = 0)) \/(( 0 < v1) /\(( 0 < v2) /\ V (v1 -  1) (v2 -  1)))) b1 b2)
+syneq_exp (ez1+ 1) (ez2+ 1) (\ v1 v2 .  ((v1 = 0) /\ (v2 = 0)) \/(( 0 < v1) /\( 0 < v2) /\ V (v1 -  1) (v2 -  1))) b1 b2)
 ==>
 syneq_exp ez1 ez2 V (CHandle e1 b1) (CHandle e2 b2))
 /\ (! ez1 ez2 V v1 v2.
-(((v1 < ez1) /\ ((v2 < ez2) /\ V v1 v2)) \/
-((ez1 <= v1) /\ ((ez2 <= v2) /\ (v1 = v2))))
+(((v1 < ez1) /\ (v2 < ez2) /\ V v1 v2) \/
+((ez1 <= v1) /\ (ez2 <= v2) /\ (v1 = v2)))
 ==>
 syneq_exp ez1 ez2 V (CVar v1) (CVar v2))
 /\ (! ez1 ez2 V vn.
@@ -437,7 +437,7 @@ syneq_exp ez1 ez2 V (CCon cn es1) (CCon cn es2))
 /\ (! ez1 ez2 V bd e1 b1 e2 b2.
 (syneq_exp ez1 ez2 V e1 e2 /\
 (if bd then
-  syneq_exp (ez1+ 1) (ez2+ 1) (\ v1 v2 .  ((v1 = 0) /\ (v2 = 0)) \/(( 0 < v1) /\(( 0 < v2) /\ V (v1 -  1) (v2 -  1)))) b1 b2
+  syneq_exp (ez1+ 1) (ez2+ 1) (\ v1 v2 .  ((v1 = 0) /\ (v2 = 0)) \/(( 0 < v1) /\( 0 < v2) /\ V (v1 -  1) (v2 -  1))) b1 b2
 else
   syneq_exp ez1 ez2 V b1 b2))
 ==>
@@ -445,10 +445,10 @@ syneq_exp ez1 ez2 V (CLet bd e1 b1) (CLet bd e2 b2))
 /\ (! ez1 ez2 V defs1 defs2 b1 b2 V'.
 (syneq_defs ez1 ez2 V defs1 defs2 V' /\
 syneq_exp (ez1+(LENGTH defs1)) (ez2+(LENGTH defs2))
- (\ v1 v2 .  ((v1 < LENGTH defs1) /\ ((v2 < LENGTH defs2)
-                /\ V' v1 v2)) \/
-               ((LENGTH defs1 <= v1) /\ ((LENGTH defs2 <= v2)
-                /\ V (v1 - LENGTH defs1) (v2 - LENGTH defs2))))
+ (\ v1 v2 .  ((v1 < LENGTH defs1) /\ (v2 < LENGTH defs2)
+                /\ V' v1 v2) \/
+               ((LENGTH defs1 <= v1) /\ (LENGTH defs2 <= v2)
+                /\ V (v1 - LENGTH defs1) (v2 - LENGTH defs2)))
  b1 b2)
 ==>
 syneq_exp ez1 ez2 V (CLetrec defs1 b1) (CLetrec defs2 b2))
@@ -473,8 +473,8 @@ syneq_exp ez1 ez2 V e21 e22)
 syneq_exp ez1 ez2 V (CUpd e11 e21) (CUpd e12 e22))
 /\ (! ez1 ez2 V e11 e21 e31 e12 e22 e32.
 (syneq_exp ez1 ez2 V e11 e12 /\
-(syneq_exp ez1 ez2 V e21 e22 /\
-syneq_exp ez1 ez2 V e31 e32))
+syneq_exp ez1 ez2 V e21 e22 /\
+syneq_exp ez1 ez2 V e31 e32)
 ==>
 syneq_exp ez1 ez2 V (CIf e11 e21 e31) (CIf e12 e22 e32))
 /\ (! ez1 ez2 V n.
@@ -483,18 +483,18 @@ T
 syneq_exp ez1 ez2 V (CExtG n) (CExtG n))
 /\ (! ez1 ez2 V defs1 defs2 U.
 (! n1 n2. U n1 n2 ==>
-  ((n1 < LENGTH defs1) /\ ((n2 < LENGTH defs2) /\  
+  ((n1 < LENGTH defs1) /\ (n2 < LENGTH defs2) /\  
 (? b az e1 j1 r1 e2 j2 r2.
   (! d e.     
 (EL n1 defs1 = (SOME d,e))
-     ==> (EL n2 defs2 = EL n1 defs1)) /\
-  (((b,az,e1,j1,r1) = syneq_cb_aux n1 (LENGTH defs1) ez1 (EL n1 defs1)) /\
-  (((b,az,e2,j2,r2) = syneq_cb_aux n2 (LENGTH defs2) ez2 (EL n2 defs2)) /\
+     ==> (EL n2 defs2 = EL n1 defs1)) /\  
+((b,az,e1,j1,r1) = syneq_cb_aux n1 (LENGTH defs1) ez1 (EL n1 defs1)) /\  
+((b,az,e2,j2,r2) = syneq_cb_aux n2 (LENGTH defs2) ez2 (EL n2 defs2)) /\
   (b ==> (syneq_exp (az+j1) (az+j2) (syneq_cb_V az r1 r2 V U) e1 e2 /\    
 (! l ccenv recs envs b.      
 (EL n1 defs1 = (SOME(l,(ccenv,(recs,envs))),b))
       ==> (EVERY (\ v .  U v v) recs /\
-          EVERY (\ v .  V v v) envs))))))))))
+          EVERY (\ v .  V v v) envs)))))))
 ==>
 syneq_defs ez1 ez2 V defs1 defs2 U)`;
 
@@ -508,11 +508,11 @@ syneq (CLitv l) (CLitv l))
 syneq (CConv cn vs1) (CConv cn vs2))
 /\ (! V env1 env2 defs1 defs2 d1 d2 V'.
 ((! v1 v2. V v1 v2 ==>
-  ((v1 < LENGTH env1) /\ ((v2 < LENGTH env2) /\
-   syneq (EL v1 env1) (EL v2 env2)))) /\
-(syneq_defs (LENGTH env1) (LENGTH env2) V defs1 defs2 V' /\
-(((d1 < LENGTH defs1) /\ ((d2 < LENGTH defs2) /\ V' d1 d2)) \/
- ((LENGTH defs1 <= d1) /\ ((LENGTH defs2 <= d2) /\ (d1 = d2))))))
+  ((v1 < LENGTH env1) /\ (v2 < LENGTH env2) /\
+   syneq (EL v1 env1) (EL v2 env2))) /\
+syneq_defs (LENGTH env1) (LENGTH env2) V defs1 defs2 V' /\
+(((d1 < LENGTH defs1) /\ (d2 < LENGTH defs2) /\ V' d1 d2) \/
+ ((LENGTH defs1 <= d1) /\ (LENGTH defs2 <= d2) /\ (d1 = d2))))
 ==>
 syneq (CRecClos env1 defs1 d1) (CRecClos env2 defs2 d2))
 /\ (! n.
@@ -548,7 +548,7 @@ syneq (CLoc n) (CLoc n))`;
 /\
 (no_labs (CPrim1 _ e) = (no_labs e))
 /\
-(no_labs (CIf e1 e2 e3) = (no_labs e1 /\ (no_labs e2 /\ no_labs e3)))
+(no_labs (CIf e1 e2 e3) = (no_labs e1 /\ no_labs e2 /\ no_labs e3))
 /\
 (no_labs (CExtG _) = T)
 /\
@@ -592,7 +592,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (all_labs (CPrim1 _ e) = (all_labs e))
 /\
-(all_labs (CIf e1 e2 e3) = (all_labs e1 /\ (all_labs e2 /\ all_labs e3)))
+(all_labs (CIf e1 e2 e3) = (all_labs e1 /\ all_labs e2 /\ all_labs e3))
 /\
 (all_labs (CExtG _) = T)
 /\

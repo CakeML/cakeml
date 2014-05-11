@@ -209,27 +209,27 @@ evaluate_i3 ck env s (Uapp_i2 uop e) (s', Rerr err))
 
 /\ (! ck exh env op e1 e2 v1 v2 env' e3 bv s1 s2 s3 count s4 genv3.
 (evaluate_i3 ck (exh,env) s1 e1 (s2, Rval v1) /\
-(evaluate_i3 ck (exh,env) s2 e2 (((count,s3),genv3), Rval v2) /\
-((do_app_i2 env s3 op v1 v2 = SOME (env', s4, e3)) /\
-(((ck /\ (op = Opapp)) ==> ~ (count =( 0))) /\
-evaluate_i3 ck (exh,env') (((if ck then dec_count op count else count),s4),genv3) e3 bv))))
+evaluate_i3 ck (exh,env) s2 e2 (((count,s3),genv3), Rval v2) /\
+(do_app_i2 env s3 op v1 v2 = SOME (env', s4, e3)) /\
+((ck /\ (op = Opapp)) ==> ~ (count =( 0))) /\
+evaluate_i3 ck (exh,env') (((if ck then dec_count op count else count),s4),genv3) e3 bv)
 ==>
 evaluate_i3 ck (exh,env) s1 (App_i2 op e1 e2) bv)
 
 /\ (! ck exh env op e1 e2 v1 v2 env' e3 s1 s2 s3 count s4 genv3.
 (evaluate_i3 ck (exh,env) s1 e1 (s2, Rval v1) /\
-(evaluate_i3 ck (exh,env) s2 e2 (((count,s3),genv3), Rval v2) /\
-((do_app_i2 env s3 op v1 v2 = SOME (env', s4, e3)) /\
-((count = 0) /\
-((op = Opapp) /\
-ck)))))
+evaluate_i3 ck (exh,env) s2 e2 (((count,s3),genv3), Rval v2) /\
+(do_app_i2 env s3 op v1 v2 = SOME (env', s4, e3)) /\
+(count = 0) /\
+(op = Opapp) /\
+ck)
 ==>
 evaluate_i3 ck (exh,env) s1 (App_i2 op e1 e2) ((( 0,s4),genv3),Rerr Rtimeout_error))
 
 /\ (! ck exh env op e1 e2 v1 v2 s1 s2 s3 count genv3.
 (evaluate_i3 ck (exh,env) s1 e1 (s2, Rval v1) /\
-(evaluate_i3 ck (exh,env) s2 e2 (((count,s3),genv3),Rval v2) /\
-(do_app_i2 env s3 op v1 v2 = NONE)))
+evaluate_i3 ck (exh,env) s2 e2 (((count,s3),genv3),Rval v2) /\
+(do_app_i2 env s3 op v1 v2 = NONE))
 ==>
 evaluate_i3 ck (exh,env) s1 (App_i2 op e1 e2) (((count,s3),genv3), Rerr Rtype_error))
 
@@ -246,8 +246,8 @@ evaluate_i3 ck env s (App_i2 op e1 e2) (s', Rerr err))
 
 /\ (! ck env e1 e2 e3 v e' bv s1 s2.
 (evaluate_i3 ck env s1 e1 (s2, Rval v) /\
-((do_if_i2 v e2 e3 = SOME e') /\
-evaluate_i3 ck env s2 e' bv))
+(do_if_i2 v e2 e3 = SOME e') /\
+evaluate_i3 ck env s2 e' bv)
 ==>
 evaluate_i3 ck env s1 (If_i2 e1 e2 e3) bv)
 
@@ -329,15 +329,15 @@ evaluate_match_i3 ck env s v [] err_v (s, Rerr (Rraise err_v)))
 
 /\ (! ck exh env env' v p pes e bv s count genv err_v.
 (ALL_DISTINCT (pat_bindings_i2 p []) /\
-((pmatch_i2 exh s p v env = Match env') /\
-evaluate_i3 ck (exh,env') ((count,s),genv) e bv))
+(pmatch_i2 exh s p v env = Match env') /\
+evaluate_i3 ck (exh,env') ((count,s),genv) e bv)
 ==>
 evaluate_match_i3 ck (exh,env) ((count,s),genv) v ((p,e)::pes) err_v bv)
 
 /\ (! ck exh genv env v p e pes bv s count err_v.
 (ALL_DISTINCT (pat_bindings_i2 p []) /\
-((pmatch_i2 exh s p v env = No_match) /\
-evaluate_match_i3 ck (exh,env) ((count,s),genv) v pes err_v bv))
+(pmatch_i2 exh s p v env = No_match) /\
+evaluate_match_i3 ck (exh,env) ((count,s),genv) v pes err_v bv)
 ==>
 evaluate_match_i3 ck (exh,env) ((count,s),genv) v ((p,e)::pes) err_v bv)
 

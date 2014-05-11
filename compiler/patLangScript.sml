@@ -175,10 +175,10 @@ val _ = Define `
 /\
 (pure_pat (Uapp_pat uop e) = (pure_uop_pat uop /\ pure_pat e))
 /\
-(pure_pat (App_pat op e1 e2) = (pure_pat e1 /\ (pure_pat e2 /\
-  (pure_op op \/ ((op = Equality) /\ (fo_pat e1 /\ fo_pat e2))))))
+(pure_pat (App_pat op e1 e2) = (pure_pat e1 /\ pure_pat e2 /\
+  (pure_op op \/ ((op = Equality) /\ fo_pat e1 /\ fo_pat e2))))
 /\
-(pure_pat (If_pat e1 e2 e3) = (pure_pat e1 /\ (pure_pat e2 /\ pure_pat e3)))
+(pure_pat (If_pat e1 e2 e3) = (pure_pat e1 /\ pure_pat e2 /\ pure_pat e3))
 /\
 (pure_pat (Let_pat e1 e2) = (pure_pat e1 /\ pure_pat e2))
 /\
@@ -214,7 +214,7 @@ val _ = Define `
 /\
 (ground_pat n (App_pat _ e1 e2) = (ground_pat n e1 /\ ground_pat n e2))
 /\
-(ground_pat n (If_pat e1 e2 e3) = (ground_pat n e1 /\ (ground_pat n e2 /\ ground_pat n e3)))
+(ground_pat n (If_pat e1 e2 e3) = (ground_pat n e1 /\ ground_pat n e2 /\ ground_pat n e3))
 /\
 (ground_pat n (Let_pat e1 e2) = (ground_pat n e1 /\ ground_pat (n+ 1) e2))
 /\
@@ -625,27 +625,27 @@ evaluate_pat ck env s (Uapp_pat uop e) (s', Rerr err))
 
 /\ (! ck env op e1 e2 v1 v2 env' e3 bv s1 s2 s3 count s4 genv3.
 (evaluate_pat ck env s1 e1 (s2, Rval v1) /\
-(evaluate_pat ck env s2 e2 (((count,s3),genv3), Rval v2) /\
-((do_app_pat env s3 op v1 v2 = SOME (env', s4, e3)) /\
-(((ck /\ (op = Opapp)) ==> ~ (count =( 0))) /\
-evaluate_pat ck env' (((if ck then bigStep$dec_count op count else count),s4),genv3) e3 bv))))
+evaluate_pat ck env s2 e2 (((count,s3),genv3), Rval v2) /\
+(do_app_pat env s3 op v1 v2 = SOME (env', s4, e3)) /\
+((ck /\ (op = Opapp)) ==> ~ (count =( 0))) /\
+evaluate_pat ck env' (((if ck then bigStep$dec_count op count else count),s4),genv3) e3 bv)
 ==>
 evaluate_pat ck env s1 (App_pat op e1 e2) bv)
 
 /\ (! ck env op e1 e2 v1 v2 env' e3 s1 s2 s3 count s4 genv3.
 (evaluate_pat ck env s1 e1 (s2, Rval v1) /\
-(evaluate_pat ck env s2 e2 (((count,s3),genv3), Rval v2) /\
-((do_app_pat env s3 op v1 v2 = SOME (env', s4, e3)) /\
-((count = 0) /\
-((op = Opapp) /\
-ck)))))
+evaluate_pat ck env s2 e2 (((count,s3),genv3), Rval v2) /\
+(do_app_pat env s3 op v1 v2 = SOME (env', s4, e3)) /\
+(count = 0) /\
+(op = Opapp) /\
+ck)
 ==>
 evaluate_pat ck env s1 (App_pat op e1 e2) ((( 0,s4),genv3),Rerr Rtimeout_error))
 
 /\ (! ck env op e1 e2 v1 v2 s1 s2 s3 count genv3.
 (evaluate_pat ck env s1 e1 (s2, Rval v1) /\
-(evaluate_pat ck env s2 e2 (((count,s3),genv3),Rval v2) /\
-(do_app_pat env s3 op v1 v2 = NONE)))
+evaluate_pat ck env s2 e2 (((count,s3),genv3),Rval v2) /\
+(do_app_pat env s3 op v1 v2 = NONE))
 ==>
 evaluate_pat ck env s1 (App_pat op e1 e2) (((count,s3),genv3), Rerr Rtype_error))
 
@@ -662,8 +662,8 @@ evaluate_pat ck env s (App_pat op e1 e2) (s', Rerr err))
 
 /\ (! ck env e1 e2 e3 v e' bv s1 s2.
 (evaluate_pat ck env s1 e1 (s2, Rval v) /\
-((do_if_pat v e2 e3 = SOME e') /\
-evaluate_pat ck env s2 e' bv))
+(do_if_pat v e2 e3 = SOME e') /\
+evaluate_pat ck env s2 e' bv)
 ==>
 evaluate_pat ck env s1 (If_pat e1 e2 e3) bv)
 
