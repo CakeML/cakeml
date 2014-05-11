@@ -1867,6 +1867,12 @@ val tagacc_accumulates = Q.prove (
      rw [alloc_tag_def, get_tagacc_def] >>
      metis_tac [FUPDATE_EQ_FUNION, FUNION_ASSOC]));
 
+val FOLDL_insert_tag_env = prove(
+  ``∀ls tagenv.
+    FOLDL (λtagenv (cn,tag). insert_tag_env cn tag tagenv) tagenv ls =
+      (FST tagenv, SND tagenv |++ ls)``,
+  Induct >> simp[FUPDATE_LIST_THM,UNCURRY,FORALL_PROD,insert_tag_env_def])
+
 val tagenv_accumulates = Q.prove (
 `!tagenv_st ds tagenv_st' exh' ds_i2'.
   decs_to_i2 tagenv_st ds = (tagenv_st',exh',ds_i2') ⇒
@@ -1891,12 +1897,6 @@ val tagenv_accumulates = Q.prove (
 val eta2 = Q.prove (
 `(\x y. f a x y) = f a`,
 metis_tac []);
-
-val FOLDL_insert_tag_env = prove(
-  ``∀ls tagenv.
-    FOLDL (λtagenv (cn,tag). insert_tag_env cn tag tagenv) tagenv ls =
-      (FST tagenv, SND tagenv |++ ls)``,
-  Induct >> simp[FUPDATE_LIST_THM,UNCURRY,FORALL_PROD,insert_tag_env_def])
 
 val nat_set_eq_thm = store_thm("nat_set_eq_thm",
   ``∀s1 s2. wf s1 ∧ wf s2 ⇒ (((s1:(unit spt)) = s2) ⇔ (domain s1 = domain s2))``,
@@ -3108,23 +3108,61 @@ val decs_to_i2_dummy_env_num_defs =prove(
   rw[] >>
   simp[dec_to_dummy_env_def,num_defs_def,funs_to_i2_map])
 
-(*
 val envC_tagged_extend = prove(
   ``envC_tagged envC tagenv gtagenv ∧
     flat_envC_tagged cenv acc gtagenv' ∧
+    FDOM acc = set (MAP FST cenv) ∧
     gtagenv_weak gtagenv gtagenv'
     ⇒
     envC_tagged (merge_envC (mod_cenv mn cenv) envC)
-      (mod_tagenv mn acc tagenv') gtagenv'``,
+      (mod_tagenv mn acc tagenv) gtagenv'``,
   PairCases_on`envC` >>
-  PairCases_on`tagenv'` >>
+  PairCases_on`tagenv` >>
   simp[envC_tagged_def] >>
-  Cases_on`mn`>>simp[mod_cenv_def,mod_tagenv_def,merge_envC_def,merge_def] >- (
-    rw[lookup_con_id_def,lookup_tag_env]
-*)
+  Cases_on`mn`>>simp[mod_cenv_def,mod_tagenv_def,merge_envC_def,merge_def,flat_envC_tagged_def] >- (
+    rw[lookup_con_id_def,lookup_tag_env_def,lookup_tag_flat_def,FLOOKUP_FUNION,lookup_append] >>
+    first_x_assum(qspec_then`cn`mp_tac) >>
+    pop_assum mp_tac >>
+    BasicProvers.CASE_TAC >> fs[] >- (
+      BasicProvers.CASE_TAC >> fs[] >- (
+        imp_res_tac lookup_notin >>
+        `FLOOKUP acc a = NONE` by (
+          simp[FLOOKUP_DEF] ) >>
+        simp[] >> strip_tac >>
+        fs[gtagenv_weak_def] >>
+        metis_tac[FLOOKUP_SUBMAP] ) >>
+      strip_tac >> BasicProvers.VAR_EQ_TAC >>
+      first_x_assum(fn th => first_assum (mp_tac o MATCH_MP th)) >>
+      simp[id_to_n_def] >> strip_tac >>
+      BasicProvers.CASE_TAC >> simp[] >- (
+        BasicProvers.CASE_TAC >> fs[] >>
+        BasicProvers.CASE_TAC >> fs[] ) >>
+      BasicProvers.CASE_TAC >> simp[] >>
+      rw[] >> fs[] >>
+      BasicProvers.CASE_TAC >> fs[] >-
+        metis_tac[gtagenv_weak_def] >>
+      BasicProvers.CASE_TAC >> fs[] ) >>
+    BasicProvers.CASE_TAC >>
+    strip_tac >>
+    fs[gtagenv_weak_def] >>
+    metis_tac[FLOOKUP_SUBMAP] ) >>
+  simp[lookup_con_id_def,lookup_tag_flat_def,lookup_tag_env_def,FLOOKUP_UPDATE] >>
+  rw[] >>
+  first_x_assum(qspec_then`cn`mp_tac) >>
+  BasicProvers.CASE_TAC >> fs[] >- (
+    fs[gtagenv_weak_def] >>
+    metis_tac[FLOOKUP_SUBMAP] ) >>
+  rw[] >> fs[] >- (
+    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+    simp[id_to_n_def] >> rw[] >- metis_tac[gtagenv_weak_def] >>
+    BasicProvers.CASE_TAC >> fs[] >>
+    BasicProvers.CASE_TAC >> fs[] ) >>
+  pop_assum mp_tac >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  metis_tac[gtagenv_weak_def,FLOOKUP_SUBMAP])
 
 val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
-`!ck genv envC s tids mods prompt s_i2 genv_i2 tagenv_st prompt_i2 genv' envC' s' tids' mods' res gtagenv tagenv_st' exh exh'.  
+`!ck genv envC s tids mods prompt s_i2 genv_i2 tagenv_st prompt_i2 genv' envC' s' tids' mods' res gtagenv tagenv_st' exh exh'.
   evaluate_prompt_i1 ck genv envC (s,tids,mods) prompt ((s',tids',mods'), envC', genv', res) ∧
   res ≠ SOME Rtype_error ∧
   to_i2_invariant tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ∧
@@ -3168,7 +3206,9 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
      rw []
      >- (
        fs[cenv_inv_def] >>
-       cheat)
+       match_mp_tac envC_tagged_extend >>
+       PairCases_on`tagenv_st`>>
+       fs[get_tagacc_def,get_tagenv_def,FUNION_FEMPTY_2] >> rw[] )
      >- (
        match_mp_tac EVERY2_APPEND_suff >>
        conj_tac >- (
@@ -3207,6 +3247,8 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
      >- metis_tac[]
      >- (
        fs[cenv_inv_def] >>
+       PairCases_on`tagenv_st`>>
+       fs[get_tagacc_def,get_tagenv_def,FUNION_FEMPTY_2] >> rw[] >>
        cheat )
      >- (
        match_mp_tac EVERY2_APPEND_suff >>
