@@ -1408,7 +1408,8 @@ val alloc_tags_invariant_def = Define `
 alloc_tags_invariant tids tagenv_st gtagenv ⇔
   IMAGE SND (FDOM gtagenv) ⊆ tids ∧
   get_next tagenv_st > tuple_tag ∧
-  (!cn t tag l. FLOOKUP gtagenv (cn,t) = SOME (tag,l) ⇒ get_next tagenv_st > tag)`;
+  (!cn t tag l. FLOOKUP gtagenv (cn,t) = SOME (tag,l) ⇒ get_next tagenv_st > tag) ∧
+  (!cn tag t. FLOOKUP (get_tagacc tagenv_st) cn = SOME (tag,t) ⇒ get_next tagenv_st > tag)`;
 
 val flat_envC_tagged_def = Define `
  flat_envC_tagged envC tagenv gtagenv ⇔
@@ -1748,8 +1749,8 @@ val alloc_tags_inv_weak = Q.prove (
  rw [] >>
  FIRST_X_ASSUM match_mp_tac >>
  PairCases_on `tagenv_st` >>
- fs [alloc_tag_def, alloc_tags_invariant_def, get_next_def] >>
- metis_tac [DECIDE ``x > y ⇒ x + 1 > y:num``]);
+ fs [alloc_tag_def, alloc_tags_invariant_def, get_next_def, get_tagacc_def, FLOOKUP_UPDATE] >>
+ rw[] >> res_tac >> simp[])
 
 val decs_to_i2_inv_weak = Q.prove (
 `!tid tagenv_st gtagenv ds tagenv_st' ds_i2 tids exh'.
@@ -1777,11 +1778,12 @@ val decs_to_i2_inv_weak = Q.prove (
  >- (`?tagenv_st' exh' ds_i2. decs_to_i2 (alloc_tag (TypeExn (mk_id o' s)) s tagenv_st) ds = (tagenv_st',exh',ds_i2)` by metis_tac [pair_CASES] >>
      fs [] >>
      rw [] >>
-     res_tac >>
-     pop_assum match_mp_tac >>
+     first_x_assum(fn th => first_assum (match_mp_tac o
+       MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]
+                 (ONCE_REWRITE_RULE[CONJ_COMM]th)))) >>
      PairCases_on `tagenv_st` >>
-     fs [alloc_tag_def, alloc_tags_invariant_def, get_next_def] >>
-     metis_tac [DECIDE ``x > y ⇒ x + 1 > y:num``]));
+     fs [alloc_tag_def, alloc_tags_invariant_def, get_next_def, get_tagacc_def, FLOOKUP_UPDATE] >>
+     rw[] >> res_tac >> simp[]))
 
 val pmatch_i2_exh_weak = Q.prove (
 `(!(exh:exh_ctors_env) s p v env res exh'.
@@ -2535,7 +2537,7 @@ val MEM_flat_alloc_tags_REVERSE_build_tdefs_imp2 = prove(
   ``MEM (k,m,t) (flat_alloc_tags n (REVERSE (build_tdefs mn tdefs))) ⇒
     check_dup_ctors (tdefs:type_def) ⇒
     ∃tn tvs constrs a. t =
-      SOME (TypeId (mk_id mn tn)) ∧ n ≤ m ∧
+      SOME (TypeId (mk_id mn tn)) ∧ n ≤ m ∧ m < n + LENGTH (build_tdefs mn tdefs) ∧
       MEM (tvs,tn,constrs) tdefs ∧ MEM (k,a) constrs ∧
       lookup k (build_tdefs mn tdefs) = SOME (LENGTH a,TypeId(mk_id mn tn))``,
   simp[flat_alloc_tags_def,MAP2_MAP,LENGTH_COUNT_LIST,ZIP_COUNT_LIST,MAP_GENLIST,MEM_GENLIST,UNCURRY] >>
@@ -2786,6 +2788,13 @@ val decs_to_i2_correct = Q.prove (
        simp[type_defs_to_new_tdecs_def,MEM_MAP,PULL_EXISTS,UNCURRY,EXISTS_PROD] >>
        simp[build_tdefs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS,UNCURRY,FORALL_PROD] >>
        metis_tac[] ) >>
+     reverse conj_tac >- (
+       simp[alloc_tags_eqns,flookup_fupdate_list] >>
+       rpt gen_tac >> BasicProvers.CASE_TAC >- (
+         rw[] >> res_tac >> simp[] ) >>
+       rw[] >> imp_res_tac ALOOKUP_MEM >> fs[] >>
+       imp_res_tac MEM_flat_alloc_tags_REVERSE_build_tdefs_imp2 >>
+       simp[] ) >>
      simp[flookup_fupdate_list] >>
      rpt gen_tac >>
      BasicProvers.CASE_TAC >- metis_tac[] >>
@@ -3041,7 +3050,7 @@ val decs_to_i2_correct = Q.prove (
        simp[OPTREL_def] >> rw[] >> rw[] >>
        metis_tac[v_to_i2_weakening] ) >>
      PairCases_on`tagenv_st` >>
-     fs[alloc_tags_invariant_def,Abbr`gtagenv'`,alloc_tag_def,get_next_def,FLOOKUP_UPDATE] >>
+     fs[alloc_tags_invariant_def,Abbr`gtagenv'`,alloc_tag_def,get_next_def,FLOOKUP_UPDATE,get_tagacc_def] >>
      simp[] >>
      conj_tac >- fs[SUBSET_DEF] >>
      rw[] >> simp[] >> res_tac >> simp[] ) >>
@@ -3221,7 +3230,7 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
        srw_tac[boolSimps.ETA_ss][] >>
        fs[vs_to_i2_list_rel] )
      >- (
-       fs[alloc_tags_invariant_def,get_next_def] >>
+       fs[alloc_tags_invariant_def,get_next_def,get_tagacc_def] >>
        fs[gtagenv_wf_def]))
  >- (`∃genv'_i2 s'_i2 res_i2 gtagenv' acc'.
        gtagenv_weak gtagenv gtagenv' ∧
