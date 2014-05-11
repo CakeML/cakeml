@@ -1416,7 +1416,8 @@ val flat_envC_tagged_def = Define `
      lib$lookup cn envC = SOME (num_args,t) ⇒
      ∃tag.
        lookup_tag_flat cn tagenv = tag ∧
-       FLOOKUP gtagenv (cn,t) = SOME (FST tag,num_args)`;
+       FLOOKUP gtagenv (cn,t) = SOME (FST tag,num_args) ∧
+       if FST tag = tuple_tag then SND tag = NONE else SND tag = SOME t`;
 
 val flat_envC_tagged_weakening = Q.prove (
 `!envC tagenv gtagenv gtagenv'.
@@ -1436,7 +1437,15 @@ val flat_envC_tagged_append = Q.prove (
  flat_envC_tagged envC2 (FEMPTY |++ REVERSE tagenv2) gtagenv
  ⇒
  flat_envC_tagged (envC1++envC2) (FEMPTY |++ (tagenv2 ++ tagenv1)) gtagenv`,
- rw [flat_envC_tagged_def] >>
+ reverse(rw [flat_envC_tagged_def]) >- (
+   imp_res_tac alookup_distinct_reverse >>
+   fs[lookup_append,lookup_tag_flat_def,flookup_fupdate_list, ALOOKUP_APPEND, REVERSE_APPEND] >>
+   every_case_tac >> fs[] >>
+   TRY(first_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >> simp[] >> NO_TAC) >>
+   imp_res_tac lookup_notin >>
+   imp_res_tac ALOOKUP_MEM >>
+   fs[SUBSET_DEF,MEM_MAP,FORALL_PROD,PULL_EXISTS,EXISTS_PROD] >>
+   metis_tac[] ) >>
  fs [lookup_append, lookup_tag_flat_def, flookup_fupdate_list, ALOOKUP_APPEND] >>
  every_case_tac >>
  fs []
@@ -2522,6 +2531,31 @@ val MEM_flat_alloc_tags_REVERSE_build_tdefs_imp = prove(
   simp[build_tdefs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS,EXISTS_PROD,mk_id_inj] >>
   metis_tac[] )
 
+val MEM_flat_alloc_tags_REVERSE_build_tdefs_imp2 = prove(
+  ``MEM (k,m,t) (flat_alloc_tags n (REVERSE (build_tdefs mn tdefs))) ⇒
+    check_dup_ctors (tdefs:type_def) ⇒
+    ∃tn tvs constrs a. t =
+      SOME (TypeId (mk_id mn tn)) ∧ n ≤ m ∧
+      MEM (tvs,tn,constrs) tdefs ∧ MEM (k,a) constrs ∧
+      lookup k (build_tdefs mn tdefs) = SOME (LENGTH a,TypeId(mk_id mn tn))``,
+  simp[flat_alloc_tags_def,MAP2_MAP,LENGTH_COUNT_LIST,ZIP_COUNT_LIST,MAP_GENLIST,MEM_GENLIST,UNCURRY] >>
+  rw[] >>
+  imp_res_tac check_dup_ctors_flat >>
+  first_x_assum(qspec_then`mn`strip_assume_tac) >>
+  imp_res_tac lookup_all_distinct >>
+  qmatch_assum_rename_tac`n < LENGTH ls`["ls"] >>
+  `∃a b c. EL n (REVERSE (build_tdefs mn tdefs)) = (a,b,c)` by simp[GSYM EXISTS_PROD] >> fs[] >>
+  `MEM (a,b,c) (build_tdefs mn tdefs)` by (
+    simp[MEM_EL] >> rfs[EL_REVERSE] >>
+    ONCE_REWRITE_TAC[CONJ_COMM] >>
+    first_assum(match_exists_tac o concl o SYM) >>
+    simp[] ) >>
+  rw[] >>
+  first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+  qpat_assum`MEM X Y` mp_tac >>
+  simp[build_tdefs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS,EXISTS_PROD,mk_id_inj] >>
+  metis_tac[] )
+
 val ALOOKUP_flat_alloc_tags_galloc_tags = prove(
   ``∀ls n cn t x.
     ALOOKUP (galloc_tags n ls) (cn,t) = SOME x ⇒
@@ -2902,6 +2936,15 @@ val decs_to_i2_correct = Q.prove (
    qexists_tac`g2` >> simp[] >>
    simp[Abbr`g2`,flat_envC_tagged_def] >>
    simp[lookup_tag_flat_def,flookup_fupdate_list] >>
+   rpt gen_tac >>
+   strip_tac >>
+   reverse conj_tac >- (
+     BasicProvers.CASE_TAC >> simp[] >>
+     BasicProvers.CASE_TAC >> simp[] >>
+     imp_res_tac ALOOKUP_MEM >>
+     imp_res_tac MEM_flat_alloc_tags_REVERSE_build_tdefs_imp2 >>
+     PairCases_on`tagenv_st`>>fs[alloc_tags_invariant_def,get_next_def] >>
+     DECIDE_TAC) >>
    rw[] >>
    imp_res_tac lookup_in3 >>
    (BasicProvers.CASE_TAC >- (
@@ -3026,6 +3069,9 @@ val decs_to_i2_correct = Q.prove (
    simp[MAP_REVERSE] >>
    simp[flat_envC_tagged_def,lookup_tag_flat_def,FLOOKUP_UPDATE] >>
    conj_tac >- metis_tac[gtagenv_wf_def] >>
+   reverse conj_tac >- (
+     fs[alloc_tags_invariant_def,get_next_def] >>
+     DECIDE_TAC ) >>
    match_mp_tac (GEN_ALL (MP_CANON FLOOKUP_SUBMAP)) >>
    fs[gtagenv_weak_def] >>
    HINT_EXISTS_TAC >> simp[Abbr`gtagenv'`] >>
