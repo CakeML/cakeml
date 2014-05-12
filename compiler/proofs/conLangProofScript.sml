@@ -2573,6 +2573,29 @@ val ALOOKUP_flat_alloc_tags_galloc_tags = prove(
   fs[MAP_FST_galloc_tags] >>
   fs[MEM_MAP,UNCURRY] >> metis_tac[])
 
+val dec_i1_to_envC_def = Define`
+  dec_i1_to_envC d =
+    case d of
+    | Dtype_i1 mn tds => build_tdefs mn tds
+    | Dexn_i1 mn cn ts => bind cn (LENGTH ts, TypeExn (mk_id mn cn)) emp
+    | _ => emp`
+
+val evaluate_dec_i1_to_envC = store_thm("evaluate_dec_i1_to_envC",
+  ``∀ck genv cenv s d res. evaluate_dec_i1 ck genv cenv s d res ⇒
+    ∀v. SND res = Rval v ⇒ dec_i1_to_envC d = FST v``,
+  ho_match_mp_tac evaluate_dec_i1_ind >> simp[dec_i1_to_envC_def])
+
+val decs_i1_to_envC_def = Define`
+  decs_i1_to_envC [] = emp ∧
+  decs_i1_to_envC (d::ds) = merge (decs_i1_to_envC ds) (dec_i1_to_envC d)`
+
+val evaluate_decs_i1_to_envC = store_thm("evaluate_decs_i1_to_envC",
+  ``∀ck genv cenv s ds res. evaluate_decs_i1 ck genv cenv s ds res ⇒
+    ∃envC'. decs_i1_to_envC ds = envC' ++ FST(SND res)∧
+            (SND(SND(SND res)) = NONE ⇒ envC' = [])``,
+  ho_match_mp_tac evaluate_decs_i1_ind >> simp[decs_i1_to_envC_def,emp_def,merge_def] >>
+  rw[] >> imp_res_tac evaluate_dec_i1_to_envC >> fs[] >> rw[])
+
 val decs_to_i2_correct = Q.prove (
 `!ck genv envC s ds r.
   evaluate_decs_i1 ck genv envC s ds r
