@@ -47,9 +47,7 @@ val ML_QSORT_CORRECT = store_thm ("ML_QSORT_CORRECT",
       ==>
       ?l' xs'.
         evaluate F env (0,empty_store)
-            (App Opapp (App Opapp (Var (Short "qsort"))
-                                  (Var (Short "R")))
-                                  (Var (Short "xs")))
+            (App Opapp [App Opapp [Var (Short "qsort"); Var (Short "R")]; Var (Short "xs")])
             ((0,empty_store),Rval xs') /\
         (LIST_TYPE a l' xs') /\ PERM l l' /\ SORTED ord l'``,
   REPEAT STRIP_TAC THEN IMP_RES_TAC Eval_Var_lemma

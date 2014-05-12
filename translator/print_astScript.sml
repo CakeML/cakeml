@@ -276,19 +276,11 @@ val _ = Define `
 /\
 (exp_to_tok_tree indent (Fun v e) = (N (newline indent) (N (L LparT) (N (L FnT) (N (var_to_tok_tree v) (N (L DarrowT) (N (exp_to_tok_tree (inc_indent indent) e) (L RparT))))))))
 /\
-(exp_to_tok_tree indent (Uapp uop e) =  
-(let s =    
-((case uop of
-        Opref => "ref"
-      | Opderef => "!"
-    ))
-  in N (L LparT) (N (L (LongidT "" s)) (N (exp_to_tok_tree indent e) (L RparT)))))
+(exp_to_tok_tree indent (App Opapp [e1;e2]) = (N (L LparT) (N (exp_to_tok_tree indent e1) (N (exp_to_tok_tree indent e2) (L RparT)))))
 /\
-(exp_to_tok_tree indent (App Opapp e1 e2) = (N (L LparT) (N (exp_to_tok_tree indent e1) (N (exp_to_tok_tree indent e2) (L RparT)))))
+(exp_to_tok_tree indent (App Equality [e1;e2]) = (N (L LparT) (N (exp_to_tok_tree indent e1) (N (L EqualsT) (N (exp_to_tok_tree indent e2) (L RparT))))))
 /\
-(exp_to_tok_tree indent (App Equality e1 e2) = (N (L LparT) (N (exp_to_tok_tree indent e1) (N (L EqualsT) (N (exp_to_tok_tree indent e2) (L RparT))))))
-/\
-(exp_to_tok_tree indent (App (Opn o0) e1 e2) =  
+(exp_to_tok_tree indent (App (Opn o0) [e1;e2]) =  
 (let s = ((case o0 of
       Plus => "+"
     | Minus => "-"
@@ -298,7 +290,7 @@ val _ = Define `
   ))
   in N (L LparT) (N (exp_to_tok_tree indent e1) (N (L (LongidT "" s)) (N (exp_to_tok_tree indent e2) (L RparT))))))
 /\
-(exp_to_tok_tree indent (App (Opb o') e1 e2) =  
+(exp_to_tok_tree indent (App (Opb o') [e1;e2]) =  
 (let s = ((case o' of
       Lt => "<"
     | Gt => ">"
@@ -307,7 +299,11 @@ val _ = Define `
   ))
   in N (L LparT) (N (exp_to_tok_tree indent e1) (N (L (LongidT "" s)) (N (exp_to_tok_tree indent e2) (L RparT))))))
 /\
-(exp_to_tok_tree indent (App Opassign e1 e2) = (N (L LparT) (N (exp_to_tok_tree indent e1) (N (L (LongidT "" ":=")) (N (exp_to_tok_tree indent e2) (L RparT))))))
+(exp_to_tok_tree indent (App Opassign [e1;e2]) = (N (L LparT) (N (exp_to_tok_tree indent e1) (N (L (LongidT "" ":=")) (N (exp_to_tok_tree indent e2) (L RparT))))))
+/\
+(exp_to_tok_tree indent (App Opref [e1]) = (N (L LparT) (N (L (LongidT "" "ref")) (N (exp_to_tok_tree indent e1) (L RparT)))))
+/\
+(exp_to_tok_tree indent (App Opderef [e1]) = (N (L LparT) (N (L (LongidT "" "!")) (N (exp_to_tok_tree indent e1) (L RparT)))))
 /\
 (exp_to_tok_tree indent (Log lop e1 e2) = (N (L LparT) (N (exp_to_tok_tree indent e1)(N (if lop = And then
      L AndalsoT

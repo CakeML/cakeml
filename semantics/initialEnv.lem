@@ -5,13 +5,15 @@ open import SemanticPrimitives
 open import TypeSystem
 open import Elab
 
+(* The initial constructor environment for the operational semantics *)
 val init_envC : envC
 let init_envC =
   (emp,
    ("nil", (0, TypeId (Short "list"))) ::
    ("::", (2, TypeId (Short "list"))) ::
-   List.map (fun cn -> (cn, (0, TypeExn (Short cn)))) ["Bind"; "Div"; "Eq"])
+   List.map (fun cn -> (cn, (0, TypeExn (Short cn)))) ["Size";"Bind"; "Div"; "Eq"])
 
+(* The initial value environment for the operational semantics *)
 val init_env : envE
 let init_env =
   [("+", Closure ([],init_envC,[]) "x" (Fun "y" (App (Opn Plus) [Var (Short "x"); Var (Short "y")])));
@@ -29,6 +31,8 @@ let init_env =
    ("!", Closure ([],init_envC,[]) "x" (App Opderef [Var (Short "x")]));
    ("ref", Closure ([],init_envC,[]) "x" (App Opref [Var (Short "x")]))]
 
+
+(* The initial type environment for the type system *)
 val init_tenv : tenvE
 let init_tenv =
   foldr 
@@ -49,13 +53,15 @@ let init_tenv =
      ("!", 1, Tfn (Tref (Tvar_db 0)) (Tvar_db 0));
      ("ref", 1, Tfn (Tvar_db 0) (Tref (Tvar_db 0)))]
 
+(* The initial constructor environment for the type system *)
 val init_tenvC : tenvC
 let init_tenvC =
   (emp,
    ("nil", (["'a"], [], TypeId (Short "list"))) ::
    ("::", (["'a"], [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))], TypeId (Short "list"))) ::
-   List.map (fun cn -> (cn, ([], [], TypeExn (Short cn)))) ["Bind"; "Div"; "Eq"])
+   List.map (fun cn -> (cn, ([], [], TypeExn (Short cn)))) ["Size";"Bind"; "Div"; "Eq"])
 
+(* The initial mapping of type names to primitive type constructors, for the elaborator *)
 val init_type_bindings : tdef_env
 let init_type_bindings =
   [("int", TC_int);
@@ -65,13 +71,7 @@ let init_type_bindings =
    ("unit", TC_unit);
    ("list", TC_name (Short "list"))]
 
-val init_type_decs : set tid_or_exn
-let init_type_decs = 
-  { TypeId (Short "list");
-    TypeExn (Short "Bind");
-    TypeExn (Short "Div");
-    TypeExn (Short "Eq") }
-
+(* The modules, types, and exceptions that have been declared, for the type system to detect duplicates*)
 val init_decls : decls
 let init_decls = 
-  ({}, { Short "list" }, { Short "Bind"; Short "Div"; Short "Eq" })
+  ({}, { Short "list" }, { Short "Size"; Short "Bind"; Short "Div"; Short "Eq" })

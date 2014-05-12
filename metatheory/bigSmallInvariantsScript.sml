@@ -31,8 +31,8 @@ evaluate_ctxt env s (Chandle ()  pes) v (s, Rval v))
 
 /\ (! env e v vs1 vs2 es env' bv s1 s2.
 (evaluate_list F env s1 es (s2, Rval vs2) /\
-((do_opapp ((REVERSE vs1 ++ [v]) ++ vs2) = SOME (env',e)) /\
-evaluate F env' s2 e bv))
+(do_opapp ((REVERSE vs1 ++ [v]) ++ vs2) = SOME (env',e)) /\
+evaluate F env' s2 e bv)
 ==>
 evaluate_ctxt env s1 (Capp Opapp vs1 ()  es) v bv)
 
@@ -44,15 +44,15 @@ evaluate_ctxt env s1 (Capp Opapp vs1 ()  es) v (s2, Rerr Rtype_error))
 
 /\ (! env op v1 v vs1 vs2 es res s1 s2 s3 count.
 ((op <> Opapp) /\
-(evaluate_list F env s1 es ((count,s2), Rval vs2) /\
-(do_app s2 op ((REVERSE vs1 ++ [v1]) ++ vs2) = SOME (s3,res))))
+evaluate_list F env s1 es ((count,s2), Rval vs2) /\
+(do_app s2 op ((REVERSE vs1 ++ [v1]) ++ vs2) = SOME (s3,res)))
 ==>
 evaluate_ctxt env s1 (Capp op vs1 ()  es) v ((count,s3), res))
 
 /\ (! env op v vs1 vs2 es s1 s2 count.
 ((op <> Opapp) /\
-(evaluate_list F env s1 es ((count,s2), Rval vs2) /\
-(do_app s2 op ((REVERSE vs1 ++ [v]) ++ vs2) = NONE)))
+evaluate_list F env s1 es ((count,s2), Rval vs2) /\
+(do_app s2 op ((REVERSE vs1 ++ [v]) ++ vs2) = NONE))
 ==>
 evaluate_ctxt env s1 (Capp op vs1 ()  es) v ((count,s2), Rerr Rtype_error))
 
@@ -95,8 +95,8 @@ evaluate_ctxt (menv,cenv,env) s (Clet n ()  e2) v bv)
 
 /\ (! env cn es vs v vs' s1 s2 v'.
 (do_con_check (all_env_to_cenv env) cn ((LENGTH vs + LENGTH es) + 1) /\
-((build_conv (all_env_to_cenv env) cn ((REVERSE vs ++ [v]) ++ vs') = SOME v') /\
-evaluate_list F env s1 es (s2, Rval vs')))
+(build_conv (all_env_to_cenv env) cn ((REVERSE vs ++ [v]) ++ vs') = SOME v') /\
+evaluate_list F env s1 es (s2, Rval vs'))
 ==>
 evaluate_ctxt env s1 (Ccon cn vs ()  es) v (s2, Rval v'))
 

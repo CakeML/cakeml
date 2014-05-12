@@ -138,6 +138,13 @@ type_v tvs cenv senv (Litv Unit) Tunit
 
 and
 
+lit_word8 : forall tvs cenv senv w.
+true
+==>
+type_v tvs cenv senv (Litv (Word8 w)) Tword8
+
+and
+
 conv_some : forall tvs cenv senv cn vs tvs' tn ts' ts.
 List.all (check_freevars tvs []) ts' &&
 List.length tvs' = List.length ts' &&
@@ -482,7 +489,8 @@ val ctMap_has_exns : ctMap -> bool
 let ctMap_has_exns ctMap =
   (Map.lookup ("Bind", TypeExn (Short "Bind")) ctMap = Just ([],[])) &&
   (Map.lookup ("Div", TypeExn (Short "Div")) ctMap = Just ([],[])) &&
-  (Map.lookup ("Eq", TypeExn (Short "Eq")) ctMap = Just ([],[]))
+  (Map.lookup ("Eq", TypeExn (Short "Eq")) ctMap = Just ([],[])) &&
+  (Map.lookup ("Size", TypeExn (Short "Size")) ctMap = Just ([],[]))
 
 (* The types and exceptions that are missing are all declared in modules. *)
 val weak_decls_only_mods : decls -> decls -> bool
@@ -542,3 +550,12 @@ let update_type_sound_inv ((decls1:decls),(tenvM:tenvM),(tenvC:tenvC),(tenv:tenv
           decls2',envM'++envM,merge_envC envC' envC,envE'++envE,store')
      | Rerr _ -> (union_decls decls1' decls1,tenvM,tenvC,tenv,decls2',envM,envC,envE,store')
   end
+
+(* The types and exceptions that have been declared, for the type soundness invariant *)
+val init_type_decs : set tid_or_exn
+let init_type_decs = 
+  { TypeId (Short "list");
+    TypeExn (Short "Size");
+    TypeExn (Short "Bind");
+    TypeExn (Short "Div");
+    TypeExn (Short "Eq") }

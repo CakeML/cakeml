@@ -268,32 +268,20 @@ exp_to_tok_tree indent (Fun v e) =
   exp_to_tok_tree (inc_indent indent) e ^^
   L RparT
 and
-exp_to_tok_tree indent (Uapp uop e) =
-  let s =
-    match uop with
-      | Opref -> "ref"
-      | Opderef -> "!"
-    end
-  in
-    L LparT ^^
-    L (LongidT "" s) ^^
-    exp_to_tok_tree indent e ^^
-    L RparT
-and
-exp_to_tok_tree indent (App Opapp e1 e2) =
+exp_to_tok_tree indent (App Opapp [e1;e2]) =
   L LparT ^^
   exp_to_tok_tree indent e1 ^^
   exp_to_tok_tree indent e2 ^^
   L RparT
 and
-exp_to_tok_tree indent (App Equality e1 e2) =
+exp_to_tok_tree indent (App Equality [e1;e2]) =
   L LparT ^^
   exp_to_tok_tree indent e1 ^^
   L EqualsT ^^
   exp_to_tok_tree indent e2 ^^
   L RparT
 and
-exp_to_tok_tree indent (App (Opn o) e1 e2) =
+exp_to_tok_tree indent (App (Opn o) [e1;e2]) =
   let s = match o with
     | Plus -> "+"
     | Minus -> "-"
@@ -308,7 +296,7 @@ exp_to_tok_tree indent (App (Opn o) e1 e2) =
     exp_to_tok_tree indent e2 ^^
     L RparT
 and
-exp_to_tok_tree indent (App (Opb o') e1 e2) =
+exp_to_tok_tree indent (App (Opb o') [e1;e2]) =
   let s = match o' with
     | Lt -> "<"
     | Gt -> ">"
@@ -322,11 +310,23 @@ exp_to_tok_tree indent (App (Opb o') e1 e2) =
     exp_to_tok_tree indent e2 ^^
     L RparT
 and
-exp_to_tok_tree indent (App Opassign e1 e2) =
+exp_to_tok_tree indent (App Opassign [e1;e2]) =
   L LparT ^^
   exp_to_tok_tree indent e1 ^^
   L (LongidT "" ":=") ^^
   exp_to_tok_tree indent e2 ^^
+  L RparT
+and
+exp_to_tok_tree indent (App Opref [e1]) =
+  L LparT ^^
+  L (LongidT "" "ref") ^^
+  exp_to_tok_tree indent e1 ^^
+  L RparT
+and
+exp_to_tok_tree indent (App Opderef [e1]) =
+  L LparT ^^
+  L (LongidT "" "!") ^^
+  exp_to_tok_tree indent e1 ^^
   L RparT
 and
 exp_to_tok_tree indent (Log lop e1 e2) =

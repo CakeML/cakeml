@@ -15,15 +15,17 @@ val _ = new_theory "initialEnv"
 (*open import TypeSystem*)
 (*open import Elab*)
 
+(* The initial constructor environment for the operational semantics *)
 (*val init_envC : envC*)
 val _ = Define `
  (init_envC =
   (emp,   
 (("nil", ( 0, TypeId (Short "list"))) ::   
 (("::", ( 2, TypeId (Short "list"))) ::
-   MAP (\ cn .  (cn, ( 0, TypeExn (Short cn)))) ["Bind"; "Div"; "Eq"]))))`;
+   MAP (\ cn .  (cn, ( 0, TypeExn (Short cn)))) ["Size";"Bind"; "Div"; "Eq"]))))`;
 
 
+(* The initial value environment for the operational semantics *)
 (*val init_env : envE*)
 val _ = Define `
  (init_env =  
@@ -43,6 +45,8 @@ val _ = Define `
    ("ref", Closure ([],init_envC,[]) "x" (App Opref [Var (Short "x")]))]))`;
 
 
+
+(* The initial type environment for the type system *)
 (*val init_tenv : tenvE*)
 val _ = Define `
  (init_tenv =  
@@ -65,15 +69,17 @@ val _ = Define `
      ("ref", 1, Tfn (Tvar_db( 0)) (Tref (Tvar_db( 0))))]))`;
 
 
+(* The initial constructor environment for the type system *)
 (*val init_tenvC : tenvC*)
 val _ = Define `
  (init_tenvC =
   (emp,   
 (("nil", (["'a"], [], TypeId (Short "list"))) ::   
 (("::", (["'a"], [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))], TypeId (Short "list"))) ::
-   MAP (\ cn .  (cn, ([], [], TypeExn (Short cn)))) ["Bind"; "Div"; "Eq"]))))`;
+   MAP (\ cn .  (cn, ([], [], TypeExn (Short cn)))) ["Size";"Bind"; "Div"; "Eq"]))))`;
 
 
+(* The initial mapping of type names to primitive type constructors, for the elaborator *)
 (*val init_type_bindings : tdef_env*)
 val _ = Define `
  (init_type_bindings =  
@@ -85,19 +91,11 @@ val _ = Define `
    ("list", TC_name (Short "list"))]))`;
 
 
-(*val init_type_decs : set tid_or_exn*)
-val _ = Define `
- (init_type_decs =  
- ({ TypeId (Short "list");
-    TypeExn (Short "Bind");
-    TypeExn (Short "Div");
-    TypeExn (Short "Eq") }))`;
-
-
+(* The modules, types, and exceptions that have been declared, for the type system to detect duplicates*)
 (*val init_decls : decls*)
 val _ = Define `
  (init_decls = 
-  ({}, { Short "list" }, { Short "Bind"; Short "Div"; Short "Eq" }))`;
+  ({}, { Short "list" }, { Short "Size"; Short "Bind"; Short "Div"; Short "Eq" }))`;
 
 val _ = export_theory()
 
