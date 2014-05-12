@@ -3422,7 +3422,8 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
   res ≠ SOME Rtype_error ∧
   to_i2_invariant tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ∧
   DISJOINT (FDOM exh') (FDOM exh) ∧
-  (tagenv_st', exh', prompt_i2) = prompt_to_i2 tagenv_st prompt
+  (tagenv_st', exh', prompt_i2) = prompt_to_i2 tagenv_st prompt ∧
+  (∀ds. prompt = Prompt_i1 NONE ds ⇒ LENGTH ds < 2)
   ⇒
   ?genv'_i2 s'_i2 res_i2 gtagenv'.
     gtagenv_weak gtagenv gtagenv' ∧
@@ -3504,6 +3505,22 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
        fs[cenv_inv_def] >>
        PairCases_on`tagenv_st`>>
        fs[get_tagacc_def,get_tagenv_def,FUNION_FEMPTY_2] >> rw[] >>
+       Cases_on`mn`>>fs[mod_cenv_def]>-(
+         PairCases_on`envC` >>
+         fs[mod_tagenv_def,merge_envC_def,merge_def] >>
+         Cases_on`ds` >- (
+           fs[Once evaluate_decs_i1_cases] ) >>
+         Cases_on`t`>>fsrw_tac[ARITH_ss][]>>rw[]>>
+         fs[Once evaluate_decs_i1_cases,emp_def] >- (
+           rw[] >>
+           fs[Once evaluate_dec_i1_cases] >> rw[] >>
+           fs[decs_to_i2_def,LET_THM] >> rw[FUNION_FEMPTY_1] >>
+           fs[envC_tagged_def,gtagenv_weak_def] >>
+           rw[] >>
+           first_x_assum(fn th => first_x_assum (mp_tac o MATCH_MP th)) >>
+           rw[] >> rw[] >>
+           metis_tac[FLOOKUP_SUBMAP] ) >>
+         fs[Once evaluate_decs_i1_cases] ) >>
        cheat )
      >- (
        match_mp_tac EVERY2_APPEND_suff >>
