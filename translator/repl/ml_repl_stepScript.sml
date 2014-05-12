@@ -64,6 +64,15 @@ val butlastn_side_def = prove(
   SIMP_TAC std_ss [fetch "-" "butlastn_side_def"])
   |> update_precondition;
 
+val _ = translate finite_mapTheory.FUPDATE_LIST_THM;
+
+val option_CASE_thm = prove(
+  ``option_CASE x f g = case x of NONE => f | SOME y => g y``,
+  CONV_TAC (DEPTH_CONV ETA_CONV) \\ SIMP_TAC std_ss []);
+
+val _ = translate (def_of_const ``build_exh_env``
+                   |> ONCE_REWRITE_RULE [option_CASE_thm] |> RW [I_THM])
+
 val _ = translate compile_top_def;
 
 (* elaborator *)
