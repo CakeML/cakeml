@@ -130,14 +130,12 @@ val repl_step_def = Define `
             let labs = FUNION labs (collect_labels code len real_inst_length) in
             let len = len + code_length real_inst_length code in
             let code = inst_labels labs code in
-              INL (MAP bc_num code,len,labs,s_exc,s')
+              INL (MAP bc_num code,len,labs,s',s_exc)
         | Failure error_msg => INR (error_msg,(F,len,labs,s,s))`
 
 val install_bc_lists_def = Define `
-  (install_bc_lists [] bs = bs) /\
-  (install_bc_lists (x::xs) bs =
-       install_bc_lists xs (bs with
-         code := bs.code ++ [num_bc x]))`;
+  install_bc_lists code bs =
+    install_code (REVERSE (MAP num_bc code)) bs`
 
 val tac = (WF_REL_TAC `measure (LENGTH o FST o SND)` THEN REPEAT STRIP_TAC
            THEN IMP_RES_TAC lexer_implTheory.lex_until_top_semicolon_alt_LESS);
@@ -156,7 +154,7 @@ val main_loop_alt_def = tDefine "main_loop_alt" `
         | NONE => Diverge
         | SOME new_bs =>
             let new_s = (bc_fetch new_bs = SOME (Stop T)) in
-              (if init then I else Result (REVERSE new_bs.output))
+              (if init then I else Result new_bs.output)
                 (case lex_until_top_semicolon_alt input of
                  | NONE => Terminate
                  | SOME (ts,rest) =>

@@ -64,6 +64,22 @@ val butlastn_side_def = prove(
   SIMP_TAC std_ss [fetch "-" "butlastn_side_def"])
   |> update_precondition;
 
+val _ = translate finite_mapTheory.FUPDATE_LIST_THM;
+
+val option_CASE_thm = prove(
+  ``option_CASE x f g = case x of NONE => f | SOME y => g y``,
+  CONV_TAC (DEPTH_CONV ETA_CONV) \\ SIMP_TAC std_ss []);
+
+val _ = translate (def_of_const ``build_exh_env``
+                   |> ONCE_REWRITE_RULE [option_CASE_thm] |> RW [I_THM])
+
+val NEQ_El_pat = prove(
+  ``(!n. uop <> El_pat n) = case uop of El_pat n => F | _ => T``,
+  Cases_on `uop` \\ SRW_TAC [] []);
+
+val _ = translate (patLangTheory.fo_pat_def |> RW [NEQ_El_pat]);
+val _ = translate patLangTheory.pure_pat_def;
+
 val _ = translate compile_top_def;
 
 (* elaborator *)
@@ -386,7 +402,6 @@ val _ = translate (infer_def ``constrain_op``);
 val _ = translate (infer_def ``t_to_freevars``);
 val _ = translate (infer_def ``bind``);
 val _ = translate (infer_def ``merge``);
-val _ = translate (infer_def ``check_weakC``)
 
 val EVERY_INTRO = prove(
   ``(!x::set s. P x) = EVERY P s``,
