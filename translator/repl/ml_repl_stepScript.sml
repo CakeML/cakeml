@@ -402,7 +402,6 @@ val _ = translate (infer_def ``constrain_op``);
 val _ = translate (infer_def ``t_to_freevars``);
 val _ = translate (infer_def ``bind``);
 val _ = translate (infer_def ``merge``);
-val _ = translate (infer_def ``check_weakC``)
 
 val EVERY_INTRO = prove(
   ``(!x::set s. P x) = EVERY P s``,
