@@ -1537,9 +1537,7 @@ val letrec_global_env_lem3 = Q.prove (
          >- (fs [MEM_MAP, FST_triple] >>
              FIRST_X_ASSUM (qspecl_then [`EL (PRE n) funs`] mp_tac) >>
              rw [EL_MAP, EL_MEM])
-         >- metis_tac [])
-     >- (`n = 0` by decide_tac >>
-         rw []))
+         >- metis_tac []))
  >- (`LENGTH funs - (n + 1) < LENGTH funs` by decide_tac >>
      `LENGTH funs - (n + 1) < LENGTH (REVERSE funs)` by metis_tac [LENGTH_REVERSE] >>
      srw_tac [ARITH_ss] [EL_MAP, EL_REVERSE] >>
