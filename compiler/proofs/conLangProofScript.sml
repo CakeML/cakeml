@@ -604,10 +604,14 @@ val pmatch_to_i2_correct = Q.prove (
              rw [] >>
              metis_tac [])
          >- (fs [cenv_inv_def, envC_tagged_def, gtagenv_wf_def] >>
-             metis_tac [length_vs_to_i2, SOME_11, same_ctor_and_same_tid, PAIR_EQ])
+             imp_res_tac same_ctor_and_same_tid >> rw[] >>
+             imp_res_tac length_vs_to_i2 >>
+             PROVE_TAC[ SOME_11, PAIR_EQ])
          >- metis_tac [tid_or_exn_11, SOME_11, PAIR_EQ]
          >- (fs [cenv_inv_def, envC_tagged_def, gtagenv_wf_def] >>
-             metis_tac [length_vs_to_i2, SOME_11, same_ctor_and_same_tid, PAIR_EQ]))
+             imp_res_tac same_ctor_and_same_tid >> rw[] >>
+             imp_res_tac length_vs_to_i2 >>
+             PROVE_TAC [SOME_11, PAIR_EQ]))
      >- (fs [cenv_inv_def, envC_tagged_def] >>
          res_tac >>
          rw [] >>
