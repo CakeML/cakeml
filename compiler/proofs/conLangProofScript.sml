@@ -2631,6 +2631,17 @@ val envC_tagged_add_empty_mod = prove(
   rw[envC_tagged_def,mod_tagenv_def,lookup_con_id_def] >>
   every_case_tac >> fs[])
 
+val envC_tagged_add_empty_mod = prove(
+  ``∀ls mn tagenv g envC.
+      envC_tagged envC tagenv g ⇒
+      envC_tagged (merge_envC ([(mn,[])],[]) envC) (mod_tagenv (SOME mn) ls tagenv) g``,
+  rpt gen_tac >> PairCases_on`tagenv`>> PairCases_on`envC` >>
+  simp[envC_tagged_def,mod_tagenv_def,lookup_con_id_def,merge_envC_def,
+       merge_def,lookup_tag_env_def,FLOOKUP_UPDATE,lookup_tag_flat_def] >>
+  rw[] >>
+  first_x_assum(qspec_then`cn`mp_tac) >>
+  every_case_tac >> fs[])
+
 val ALOOKUP_galloc_tags_flat_alloc_tags = prove(
   ``∀ls n cn a b c d t.
     ALOOKUP (flat_alloc_tags n ls) a = SOME (b,c) ∧
