@@ -2600,6 +2600,20 @@ val evaluate_decs_i1_to_envC = store_thm("evaluate_decs_i1_to_envC",
   ho_match_mp_tac evaluate_decs_i1_ind >> simp[decs_i1_to_envC_def,emp_def,merge_def] >>
   rw[] >> imp_res_tac evaluate_dec_i1_to_envC >> fs[] >> rw[])
 
+val FDOM_decs_to_i2_acc = prove(
+  ``∀ds st st' exh' ds'.
+    decs_to_i2 st ds = (st',exh',ds') ⇒
+    FDOM (get_tagacc st') = set (MAP FST (decs_i1_to_envC ds)) ∪ FDOM (get_tagacc st)``,
+  Induct >> simp[decs_to_i2_def,decs_i1_to_envC_def,emp_def] >>
+  Cases >> simp[merge_def,dec_i1_to_envC_def] >> rw[] >>
+  first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
+  first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
+  rw[emp_def] >>
+  simp[alloc_tags_eqns,FDOM_FUPDATE_LIST,MAP_FST_flat_alloc_tags,MAP_REVERSE] >>
+  simp[Once EXTENSION] >- metis_tac[] >>
+  PairCases_on`st` >> simp[alloc_tag_def,get_tagacc_def,bind_def] >>
+  metis_tac[])
+
 val mod_decs_def = Define`
   mod_decs mod ds = EVERY (λd. case d of
    | Dtype_i1 mn _ => mn = SOME mod
