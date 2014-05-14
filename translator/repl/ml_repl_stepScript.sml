@@ -68,14 +68,14 @@ val _ = translate finite_mapTheory.FUPDATE_LIST_THM;
 
 val option_CASE_thm = prove(
   ``option_CASE x f g = case x of NONE => f | SOME y => g y``,
-  CONV_TAC (DEPTH_CONV ETA_CONV) \\ SIMP_TAC std_ss []);
+  CONV_TAC (DEPTH_CONV ETA_CONV) THEN SIMP_TAC std_ss []);
 
 val _ = translate (def_of_const ``build_exh_env``
                    |> ONCE_REWRITE_RULE [option_CASE_thm] |> RW [I_THM])
 
 val NEQ_El_pat = prove(
   ``(!n. uop <> El_pat n) = case uop of El_pat n => F | _ => T``,
-  Cases_on `uop` \\ SRW_TAC [] []);
+  Cases_on `uop` THEN SRW_TAC [] []);
 
 val _ = translate (patLangTheory.fo_pat_def |> RW [NEQ_El_pat]);
 val _ = translate patLangTheory.pure_pat_def;
