@@ -8427,6 +8427,8 @@ val zHEAP_SWAP = let
   in th end;
 
 
+(* COMMENT
+
 (* specific instances of CONS *)
 
 fun BlockConsPair tag (n,m) = let
@@ -17085,6 +17087,8 @@ val TEMPORAL_FULL_BC_EXEC_TUNED = let
   repl_fun_alt_proofTheory.repl_fun_alt'_def
 
   print_match ["arithmetic"] ``~(ODD n)``
+
+*)
 
 *)
 
