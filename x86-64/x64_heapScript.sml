@@ -7,8 +7,7 @@ open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
 open wordsTheory wordsLib integer_wordTheory;
 open prog_x64_extraTheory prog_x64Theory temporalTheory;
-open lexer_funTheory lexer_implTheory ml_translatorTheory;
-open repl_fun_altTheory
+open lexer_funTheory lexer_implTheory;
 
 open bytecodeTheory printerTheory;
 
@@ -21,7 +20,6 @@ open helperLib;
 open addressTheory
 open x64_copying_gcTheory;
 open progTheory;
-open bootstrap_lemmasTheory;
 
 val _ = (max_print_depth := 50);
 
