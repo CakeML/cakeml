@@ -3581,6 +3581,92 @@ val prompt_to_i2_not_correct_2 = Q.store_thm ("prompt_to_i2_not_correct_2",
   qexists_tac`Short"nil"` >>
   simp[lookup_tag_flat_def,FLOOKUP_FUNION,FLOOKUP_UPDATE,mk_id_inj,mk_id_def])
 
+val prompt_to_i2_not_correct_3 = Q.store_thm("prompt_to_i2_not_correct_3",
+`¬!ck genv envC s tids mods prompt s_i2 genv_i2 tagenv_st prompt_i2 genv' envC' s' tids' mods' res gtagenv tagenv_st' exh exh'.
+  evaluate_prompt_i1 ck genv envC (s,tids,mods) prompt ((s',tids',mods'), envC', genv', res) ∧
+  res ≠ SOME Rtype_error ∧
+  to_i2_invariant tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ∧
+  DISJOINT (FDOM exh') (FDOM exh) ∧
+  (tagenv_st', exh', prompt_i2) = prompt_to_i2 tagenv_st prompt ∧
+  (∀ds. prompt = Prompt_i1 NONE ds ⇒ LENGTH ds < 2) ∧
+  (∀ds mn. prompt = Prompt_i1 (SOME mn) ds ⇒ mod_decs mn ds ∧ mn ∉ FDOM (FST (FST (SND tagenv_st))))
+  ⇒
+  ?genv'_i2 s'_i2 res_i2 gtagenv'.
+    gtagenv_weak gtagenv gtagenv' ∧
+    evaluate_prompt_i2 ck (FUNION exh' exh) genv_i2 s_i2 prompt_i2 (s'_i2,genv'_i2,res_i2) ∧
+    to_i2_invariant tids' (merge_envC envC' envC) (FUNION exh' exh) tagenv_st' gtagenv' s' s'_i2 (genv++genv') (genv_i2 ++ genv'_i2) ∧
+    (res = NONE ∧ res_i2 = NONE ∨
+     ?err err_i2. res = SOME err ∧ res_i2 = SOME err_i2 ∧ result_to_i2 (\a b c. T) gtagenv' (Rerr err) (Rerr err_i2))`,
+  srw_tac[boolSimps.DNF_ss][evaluate_prompt_i1_cases] >> disj2_tac >>
+  CONV_TAC(STRIP_BINDER_CONV(SOME existential)(lift_conjunct_conv(same_const``to_i2_invariant`` o fst o strip_comb))) >>
+  qexists_tac`F` >>
+  match_exists_tac (concl(Q.ISPEC`0:num`initial_i2_invariant)) >>
+  simp[initial_i2_invariant] >>
+  simp[prompt_to_i2_def] >>
+  CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ds"])) >>
+  qexists_tac`[Dtype_i1 (SOME "m") [[],"t1",[("nil",[])]];
+               Dlet_i1 0 (Raise_i1 (Con_i1 (SOME(Short"Bind"))[]));
+               Dtype_i1 (SOME "m") [[],"t2",[("nil",[])]]]` >>
+  simp[decs_to_i2_def,alloc_tags_eqns] >>
+  simp[LEFT_EXISTS_AND_THM] >>
+  reverse conj_tac >- EVAL_TAC >>
+  simp[UNCURRY,FDOM_build_exh_env,RIGHT_EXISTS_AND_THM] >>
+  conj_tac >- EVAL_TAC >>
+  simp[Once evaluate_decs_i1_cases] >>
+  simp[Once evaluate_dec_i1_cases] >>
+  simp[check_dup_ctors_def,type_defs_to_new_tdecs_def] >>
+  srw_tac[boolSimps.DNF_ss][] >>
+  simp[evaluate_prompt_i2_cases] >>
+  simp[Once evaluate_decs_i2_cases] >>
+  simp[exp_to_i2_def] >>
+  simp[evaluate_dec_i2_cases] >>
+  simp[Once evaluate_decs_i2_cases] >>
+  simp[Once evaluate_i2_cases] >>
+  simp[Once evaluate_decs_i2_cases] >>
+  simp[evaluate_dec_i2_cases] >>
+  simp[Once evaluate_i2_cases] >>
+  simp[Once evaluate_i2_cases] >>
+  simp[Once evaluate_i2_cases] >>
+  simp[Once evaluate_i2_cases] >>
+  simp[Once evaluate_i2_cases] >>
+  simp[Once evaluate_i2_cases] >>
+  simp[Once evaluate_i2_cases] >>
+  simp[num_defs_def] >>
+  simp[Once evaluate_i2_cases] >>
+  simp[Once result_to_i2_cases] >>
+  simp[Once evaluate_dec_i1_cases] >>
+  simp[check_dup_ctors_def,type_defs_to_new_tdecs_def] >>
+  simp[Once evaluate_decs_i1_cases] >>
+  srw_tac[boolSimps.DNF_ss][] >> disj1_tac >>
+  simp[Once evaluate_dec_i1_cases] >>
+  srw_tac[boolSimps.DNF_ss][] >>
+  simp[Once evaluate_i1_cases] >>
+  srw_tac[boolSimps.DNF_ss][] >> disj1_tac >>
+  simp[Once evaluate_i1_cases] >>
+  simp[Once evaluate_i1_cases] >>
+  qexists_tac`SOME "m"` >>
+  simp[merge_def,emp_def,mod_cenv_def,all_env_i1_to_cenv_def,do_con_check_def] >>
+  simp[build_conv_i1_def] >>
+  simp[initialEnvTheory.init_envC_def,merge_envC_def,merge_def,emp_def,lookup_con_id_def,lookup_append,build_tdefs_def] >>
+  simp[Once v_to_i2_cases] >>
+  simp[Once v_to_i2_cases] >>
+  `COUNT_LIST 1 = [0]` by EVAL_TAC >>
+  simp[init_tagenv_state_def,get_tagenv_def,alloc_tags_def,flat_alloc_tags_def,get_next_def,
+       alloc_tag_def,build_exh_env_def,insert_tag_env_def,lookup_tag_env_def,lookup_tag_flat_def,
+       mod_tagenv_def,id_to_n_def,flookup_fupdate_list,FLOOKUP_UPDATE] >>
+  conj_tac >- EVAL_TAC >>
+  reverse conj_tac >- ( EVAL_TAC >> simp[FORALL_PROD] ) >>
+  rw[] >>
+  simp[to_i2_invariant_def] >>
+  simp[s_to_i2_cases,s_to_i2'_cases,Once v_to_i2_cases,decs_to_dummy_env_def,dec_to_dummy_env_def] >>
+  simp[alloc_tags_invariant_def,get_next_def,get_tagacc_def] >>
+  simp[cenv_inv_def,envC_tagged_def,lookup_con_id_def,lookup_tag_env_def] >>
+  disj2_tac >> disj1_tac >>
+  rpt disj1_tac >>
+  qexists_tac`Long"m""nil"` >>
+  simp[lookup_tag_flat_def,FLOOKUP_FUNION,FLOOKUP_UPDATE,mk_id_inj,mk_id_def])
+
+
 val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
 `!ck genv envC s tids mods prompt s_i2 genv_i2 tagenv_st prompt_i2 genv' envC' s' tids' mods' res gtagenv tagenv_st' exh exh'.
   evaluate_prompt_i1 ck genv envC (s,tids,mods) prompt ((s',tids',mods'), envC', genv', res) ∧
