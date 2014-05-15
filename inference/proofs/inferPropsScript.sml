@@ -428,20 +428,6 @@ val lookup_tenvC_st_ex_success = Q.prove (
  every_case_tac >>
  fs [st_ex_return_def]);
 
-val constrain_uop_success = Q.prove (
-`!uop t st v st'.
-  (constrain_uop uop t st = (Success v, st'))
-  =
-  (((uop = Opref) ∧ (st = st') ∧ (v = Infer_Tapp [t] TC_ref)) ∨
-   ((uop = Opderef) ∧ 
-    (?uvar st''. ((fresh_uvar : ((num |-> infer_t) infer_st, infer_t, string) M) st = (Success uvar, st'')) ∧
-                 (v = uvar) ∧
-                 (add_constraint t (Infer_Tapp [uvar] TC_ref) st'' = (Success (), st')))))`,
-rw [constrain_uop_def] >>
-full_case_tac >>
-rw [st_ex_return_success, st_ex_bind_success, oneTheory.one] >>
-metis_tac []);
-
 val op_case_expand = Q.prove (
 `!f1 f2 f3 f4 f5 op st v st'.
   ((case op of
@@ -449,14 +435,26 @@ val op_case_expand = Q.prove (
      | Opb opb => f2
      | Equality => f3
      | Opapp => f4
-     | Opassign => f5) st
+     | Opassign => f5 
+     | Opref => f6
+     | Opderef => f7
+     | Alength => f8
+     | Aalloc => f9
+     | Asub => f10
+     | Aupdate => f11) st
    = (Success v, st'))
   =
   ((?opn. (op = Opn opn) ∧ (f1 st = (Success v, st'))) ∨
    (?opb. (op = Opb opb) ∧ (f2 st = (Success v, st'))) ∨
    ((op = Equality) ∧ (f3 st = (Success v, st'))) ∨
    ((op = Opapp) ∧ (f4 st = (Success v, st'))) ∨
-   ((op = Opassign) ∧ (f5 st = (Success v, st'))))`,
+   ((op = Opassign) ∧ (f5 st = (Success v, st'))) ∨
+   ((op = Opref) ∧ (f6 st = (Success v, st'))) ∨
+   ((op = Opderef) ∧ (f7 st = (Success v, st'))) ∨
+   ((op = Alength) ∧ (f8 st = (Success v, st'))) ∨
+   ((op = Aalloc) ∧ (f9 st = (Success v, st'))) ∨
+   ((op = Asub) ∧ (f10 st = (Success v, st'))) ∨
+   ((op = Aupdate) ∧ (f11 st = (Success v, st'))))`,
 rw [] >>
 cases_on `op` >>
 rw []);
@@ -464,7 +462,7 @@ rw []);
 val constrain_op_success = 
   SIMP_CONV (srw_ss()) [constrain_op_def, op_case_expand, st_ex_bind_success,
                         st_ex_return_success, add_constraint_success]
-  ``(constrain_op op t1 t2 st = (Success v, st'))``
+  ``(constrain_op op ts st = (Success v, st'))``
 
 val get_next_uvar_success = Q.prove (
 `!st v st'. 
@@ -498,7 +496,7 @@ val success_eqns =
   LIST_CONJ [st_ex_return_success, st_ex_bind_success, fresh_uvar_success,
              apply_subst_success, add_constraint_success, lookup_st_ex_success,
              n_fresh_uvar_success, failwith_success, add_constraints_success,
-             constrain_uop_success, constrain_op_success, oneTheory.one,
+             constrain_op_success, oneTheory.one,
              get_next_uvar_success, apply_subst_list_success, guard_success,
              read_def, option_case_eq, lookup_tenvC_st_ex_success];
 
@@ -627,7 +625,11 @@ rw [] >>
 res_tac >>
 fs [] >>
 TRY (cases_on `v'`) >>
-prove_tac [pure_add_constraints_append, pure_add_constraints_def, infer_p_constraints]);
+every_case_tac >>
+fs [success_eqns] >>
+rw [] >>
+fs [infer_st_rewrs] >>
+prove_tac [pure_add_constraints_append, pure_add_constraints_def, infer_p_constraints]); 
 
 val pure_add_constraints_wfs = Q.store_thm ("pure_add_constraints_wfs",
 `!s1 ts s2.
@@ -683,6 +685,8 @@ rw [infer_e_def, success_eqns, remove_pair_lem, GSYM FORALL_PROD] >>
 rw [] >>
 res_tac >>
 fs [] >>
+every_case_tac >>
+fs [success_eqns] >>
 metis_tac [infer_p_next_uvar_mono, arithmeticTheory.LESS_EQ_TRANS,
            pair_CASES,
            DECIDE ``!(x:num) y. x ≤ x + y``,
@@ -738,9 +742,16 @@ imp_res_tac t_unify_wfs >>
 fs [] >>
 imp_res_tac pure_add_constraints_wfs >>
 fs [] >>
-cases_on `v'` >>
+TRY (cases_on `v'`) >>
 imp_res_tac infer_p_wfs >>
-fs []);
+fs [] >>
+every_case_tac >>
+fs [success_eqns] >>
+rw [] >>
+fs [infer_st_rewrs] >>
+res_tac >>
+fs [] >>
+imp_res_tac t_unify_wfs);
 
 (* ---------- The invariants of the inferencer ---------- *)
 
@@ -1324,7 +1335,12 @@ fs [EVERY_MAP, check_t_def, check_env_bind, check_env_merge, check_t_infer_db_su
      res_tac >>
      fs [check_t_def] >>
      metis_tac [check_env_more, DECIDE ``x:num ≤ x + 1``],
- metis_tac [check_t_more4],
+ every_case_tac >>
+     fs [success_eqns] >>
+     rw [] >>
+     fs [infer_st_rewrs, EVERY_MAP, check_t_def, check_env_bind, check_env_merge, check_t_infer_db_subst] >>
+     res_tac >>
+     fs [],
  res_tac >>
      fs [] >>
      metis_tac [arithmeticTheory.LESS_EQ_TRANS, check_env_more, check_t_more4],
@@ -1347,6 +1363,16 @@ fs [EVERY_MAP, check_t_def, check_env_bind, check_env_merge, check_t_infer_db_su
      res_tac >>
      fs [check_t_def] >>
      metis_tac [check_env_more, check_t_more4, DECIDE ``x ≤ x + 1:num``]]);
+
+val binap_tac = 
+ `t_wfs st''.subst ∧ 
+  check_env (count st''.next_uvar) env ∧
+  check_t 0 (count st''.next_uvar) h ∧
+  check_t 0 (count st''.next_uvar) h'` 
+          by metis_tac [EVERY_DEF, check_t_more4, infer_e_check_t, infer_e_wfs, check_env_more, infer_e_next_uvar_mono] >>
+ `check_s tvs (count st''.next_uvar) s`
+                by metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0] >>
+ metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0]
 
 val infer_e_check_s = Q.store_thm ("infer_e_check_s",
 `(!menv cenv env e st st' t tvs.
@@ -1434,74 +1460,33 @@ rw [] >|
      MAP_EVERY qexists_tac [`Infer_Tuvar st.next_uvar`, `st with next_uvar := st.next_uvar + 1`, `t2`] >>
      rw [check_s_more, check_env_bind, check_t_def] >>
      metis_tac [check_env_more, DECIDE ``x ≤ x + 1:num``],
- metis_tac [],
- `t_wfs st''.subst ∧ 
-  check_env (count st''.next_uvar) env ∧ 
-  check_t 0 (count st''.next_uvar) t'` 
-          by metis_tac [check_t_more4, infer_e_check_t, infer_e_wfs, check_env_more, infer_e_next_uvar_mono] >>
-     `check_t 0 (count (st''.next_uvar + 1)) t'` 
-             by metis_tac [check_t_more4, DECIDE ``x ≤ x + 1:num``] >>
-     `check_t 0 (count (st''.next_uvar + 1)) (Infer_Tapp [Infer_Tuvar st''.next_uvar] TC_ref)` 
-             by rw [check_t_def] >>
-     metis_tac [t_unify_check_s, check_s_more, arithmeticTheory.ADD_0, check_t_more2],
- fs [] >>
-     `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_int)` by rw [check_t_def] >>
-     `t_wfs st'''.subst ∧ 
-      t_wfs st''.subst ∧ 
-      check_env (count st'''.next_uvar) env ∧
-      check_env (count st''.next_uvar) env ∧
-      check_t 0 (count st'''.next_uvar) t1 ∧
-      check_t 0 (count st'''.next_uvar) t2` 
-              by metis_tac [check_t_more4, infer_e_check_t, infer_e_wfs, check_env_more, infer_e_next_uvar_mono] >>
-     `check_s tvs (count st'''.next_uvar) s`
-                    by metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0] >>
-     metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0],
- fs [] >>
-     `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_int)` by rw [check_t_def] >>
-     `t_wfs st'''.subst ∧ 
-      t_wfs st''.subst ∧ 
-      check_env (count st'''.next_uvar) env ∧
-      check_env (count st''.next_uvar) env ∧
-      check_t 0 (count st'''.next_uvar) t1 ∧
-      check_t 0 (count st'''.next_uvar) t2` 
-              by metis_tac [check_t_more4, infer_e_check_t, infer_e_wfs, check_env_more, infer_e_next_uvar_mono] >>
-     `check_s tvs (count st'''.next_uvar) s`
-                    by metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0] >>
-     metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0],
- `t_wfs st''.subst ∧ 
-  t_wfs st'''.subst ∧ 
-  check_env (count st''.next_uvar) env ∧ 
-  check_t 0 (count st'''.next_uvar) t1 ∧
-  check_t 0 (count st'''.next_uvar) t2`
-          by metis_tac [check_t_more4, infer_e_check_t, infer_e_wfs, check_env_more, infer_e_next_uvar_mono] >>
-     metis_tac [t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0],
- `t_wfs st'''.subst ∧ 
-  t_wfs st''.subst ∧ 
-  check_env (count st''.next_uvar) env ∧
-  check_env (count (st'''.next_uvar)) env ∧
-  check_env (count (st'''.next_uvar + 1)) env ∧
-  check_t 0 (count (st'''.next_uvar)) t1 ∧
-  check_t 0 (count (st'''.next_uvar)) t2` 
-              by metis_tac [check_t_more4, infer_e_check_t, infer_e_wfs, check_env_more, infer_e_next_uvar_mono,
-                            DECIDE ``x ≤ y ⇒ x ≤ y + 1:num``] >>
-     `check_t 0 (count (st'''.next_uvar + 1)) t1 ∧ 
-      check_t 0 (count (st'''.next_uvar + 1)) t2` 
-                  by metis_tac [check_t_more3] >>
-     `check_t 0 (count (st'''.next_uvar + 1)) (Infer_Tapp [t2; Infer_Tuvar st'''.next_uvar] TC_fn)`
-              by rw [check_t_def] >>
-     `check_s tvs (count (st'''.next_uvar + 1)) st'''.subst`
-             by metis_tac [check_s_more] >>
-     metis_tac [t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0],
- `t_wfs st'''.subst ∧ 
-  t_wfs st''.subst ∧ 
-  check_env (count st''.next_uvar) env ∧
-  check_env (count (st'''.next_uvar)) env ∧
-  check_t 0 (count (st'''.next_uvar)) t1 ∧
-  check_t 0 (count (st'''.next_uvar)) t2` 
-              by metis_tac [check_t_more4, infer_e_check_t, infer_e_wfs, check_env_more, infer_e_next_uvar_mono] >>
-     `check_t 0 (count st'''.next_uvar) (Infer_Tapp [t2] TC_ref)`
-              by rw [check_t_def] >>
-     metis_tac [t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0],
+ `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_int)` by rw [check_t_def] >>
+     `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_word8)` by rw [check_t_def] >>
+     `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_word8array)` by rw [check_t_def] >>
+     every_case_tac >>
+     fs [success_eqns] >>
+     rw [] >>
+     fs [infer_st_rewrs]
+     >- binap_tac
+     >- binap_tac
+     >- binap_tac
+     >- cheat
+     >- cheat
+     >- metis_tac []
+     >- (`t_wfs st''.subst ∧ 
+         check_env (count st''.next_uvar) env ∧ 
+         check_t 0 (count st''.next_uvar) h` 
+                 by metis_tac [EVERY_DEF, check_t_more4, infer_e_check_t, infer_e_wfs, check_env_more, infer_e_next_uvar_mono] >>
+            `check_t 0 (count (st''.next_uvar + 1)) h` 
+                    by metis_tac [EVERY_DEF, check_t_more4, DECIDE ``x ≤ x + 1:num``] >>
+            `check_t 0 (count (st''.next_uvar + 1)) (Infer_Tapp [Infer_Tuvar st''.next_uvar] TC_ref)` 
+                    by rw [check_t_def] >>
+            metis_tac [t_unify_check_s, check_s_more, arithmeticTheory.ADD_0, check_t_more2])
+     >- binap_tac
+     >- binap_tac
+     >- binap_tac
+     >- cheat
+     >- cheat,
  `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_bool)` by rw [check_t_def] >>
      `t_wfs st'''.subst ∧ 
       t_wfs st''.subst ∧ 

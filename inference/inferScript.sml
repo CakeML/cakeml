@@ -210,6 +210,8 @@ val infer_p_def = tDefine "infer_p" `
   return (Infer_Tapp [] TC_string, [])) ∧
 (infer_p cenv (Plit Unit) =
   return (Infer_Tapp [] TC_unit, [])) ∧
+(infer_p cenv (Plit (Word8 w)) =
+  return (Infer_Tapp [] TC_word8, [])) ∧
 (infer_p cenv (Pcon cn_opt ps) =
   case cn_opt of 
     | NONE =>
@@ -240,42 +242,59 @@ val infer_p_def = tDefine "infer_p" `
 
 val infer_p_ind = fetch "-" "infer_p_ind"
 
-val constrain_uop_def = Define `
-constrain_uop uop t =
-  case uop of
-   | Opref => return (Infer_Tapp [t] TC_ref)
-   | Opderef =>
-       do uvar <- fresh_uvar;
-          () <- add_constraint t (Infer_Tapp [uvar] TC_ref);
-          return uvar
-       od`;
-
 val constrain_op_def = Define `
-constrain_op op t1 t2 =
-  case op of
-   | Opn opn =>
+constrain_op op ts =
+  case (op,ts) of
+   | (Opn opn, [t1;t2]) =>
        do () <- add_constraint t1 (Infer_Tapp [] TC_int);
           () <- add_constraint t2 (Infer_Tapp [] TC_int);
           return (Infer_Tapp [] TC_int)
        od
-   | Opb opb => 
+   | (Opb opb, [t1;t2]) => 
        do () <- add_constraint t1 (Infer_Tapp [] TC_int);
           () <- add_constraint t2 (Infer_Tapp [] TC_int);
           return (Infer_Tapp [] TC_bool)
        od
-   | Equality =>
+   | (Equality, [t1;t2]) =>
        do () <- add_constraint t1 t2;
           return (Infer_Tapp [] TC_bool)
        od
-   | Opapp =>
+   | (Opapp, [t1;t2]) =>
        do uvar <- fresh_uvar;
           () <- add_constraint t1 (Infer_Tapp [t2;uvar] TC_fn);
           return uvar
        od
-   | Opassign =>
+   | (Opassign, [t1;t2]) =>
        do () <- add_constraint t1 (Infer_Tapp [t2] TC_ref);
           return (Infer_Tapp [] TC_unit)
-       od`;
+       od
+   | (Opref, [t]) => return (Infer_Tapp [t] TC_ref)
+   | (Opderef, [t]) =>
+       do uvar <- fresh_uvar;
+          () <- add_constraint t (Infer_Tapp [uvar] TC_ref);
+          return uvar
+       od
+   | (Aalloc, [t1;t2]) =>
+       do () <- add_constraint t1 (Infer_Tapp [] TC_int);
+          () <- add_constraint t2 (Infer_Tapp [] TC_word8);
+          return (Infer_Tapp [] TC_word8array)
+       od
+   | (Asub, [t1;t2]) =>
+       do () <- add_constraint t1 (Infer_Tapp [] TC_word8array);
+          () <- add_constraint t2 (Infer_Tapp [] TC_int);
+          return (Infer_Tapp [] TC_word8)
+       od
+   | (Alength, [t]) =>
+       do () <- add_constraint t1 (Infer_Tapp [] TC_word8array);
+          return (Infer_Tapp [] TC_int)
+       od
+   | (Aupdate, [t1;t2;t3]) =>
+       do () <- add_constraint t1 (Infer_Tapp [] TC_word8array);
+          () <- add_constraint t2 (Infer_Tapp [] TC_int);
+          () <- add_constraint t3 (Infer_Tapp [] TC_word8);
+          return (Infer_Tapp [] TC_unit)
+       od
+   | _ => failwith "Wrong number of arguments to primitive"`;
 
 val infer_e_def = tDefine "infer_e" `
 (infer_e menv (cenv : tenvC) env (Raise e) =
@@ -300,6 +319,8 @@ val infer_e_def = tDefine "infer_e" `
   return (Infer_Tapp [] TC_string)) ∧
 (infer_e menv cenv tenv (Lit Unit) =
   return (Infer_Tapp [] TC_unit)) ∧
+(infer_e menv cenv tenv (Lit (Word8 w)) =
+  return (Infer_Tapp [] TC_word8)) ∧
 (infer_e menv cenv env (Var (Short n)) =
   do (tvs,t) <- lookup_st_ex (\x.x) n env;
      uvs <- n_fresh_uvar tvs;
@@ -329,16 +350,10 @@ val infer_e_def = tDefine "infer_e" `
      t2 <- infer_e menv cenv (bind x (0,t1) env) e;
      return (Infer_Tapp [t1;t2] TC_fn)
   od) ∧
-(infer_e menv cenv env (Uapp uop e) =
-  do t <- infer_e menv cenv env e;
-     t' <- constrain_uop uop t;
-     return t'
-  od) ∧
-(infer_e menv cenv env (App op e1 e2) =
-  do t1 <- infer_e menv cenv env e1;
-     t2 <- infer_e menv cenv env e2;
-     t3 <- constrain_op op t1 t2;
-     return t3
+(infer_e menv cenv env (App op es) =
+  do ts <- infer_es menv cenv env es;
+     t <- constrain_op op ts;
+     return t
   od) ∧
 (infer_e menv cenv env (Log log e1 e2) =
   do t1 <- infer_e menv cenv env e1;
