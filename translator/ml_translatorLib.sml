@@ -1076,7 +1076,7 @@ val _ = set_trace "Unicode" 0;
 
 val ty = ``:'a + num``;
 
-val ty = ``:(α, β, γ) pegsym``
+val ty = ``:token``
 
 val ty = ``:'a list``; derive_thms_for_type ty
 val ty = ``:'a # 'b``; derive_thms_for_type ty
@@ -1243,13 +1243,32 @@ fun derive_thms_for_type ty = let
            ((Pcon xx pats,exp2)::pats2) errv (yyy,Rval y)``
       |> (ONCE_REWRITE_CONV [evaluate_cases] THENC
           SIMP_CONV (srw_ss()) [pmatch_def])
+    val evaluate_match_rw = prove(
+      ``evaluate_match c (menv,cenv,env) (e1,e2) args
+          ((Pcon xx pats,exp2)::pats2) errv (yyy,Rval y) <=>
+        ALL_DISTINCT (pat_bindings (Pcon xx pats) []) /\
+        case pmatch cenv e2 (Pcon xx pats) args env of
+        | No_match =>
+            evaluate_match c (menv,cenv,env) (e1,e2) args pats2 errv (yyy,Rval y)
+        | Match env7 =>
+            evaluate c (menv,cenv,env7) (e1,e2) exp2 (yyy,Rval y)
+        | _ => F``,
+      SIMP_TAC std_ss [evaluate_match_Conv
+        |> Q.INST [`x`|->`(menv,cenv,e)`,`env`|->`(e1,e2)`]
+        |> Q.INST [`e`|->`env`]
+        |> SIMP_RULE std_ss []]
+      \\ Cases_on `pmatch cenv e2 (Pcon xx pats) args env`
+      \\ FULL_SIMP_TAC (srw_ss()) []);
     val IF_T = prove(``(if T then x else y) = x:'a``,SIMP_TAC std_ss []);
     val IF_F = prove(``(if F then x else y) = y:'a``,SIMP_TAC std_ss []);
+    fun print_tac s g = (print s; ALL_TAC g)
+    val _ = print "Case translation:"
     val init_tac =
           REWRITE_TAC [CONTAINER_def]
           \\ REPEAT STRIP_TAC \\ STRIP_ASSUME_TAC (Q.SPEC `x` case_th)
     fun case_tac n =
-          FILTER_ASSUM_TAC (fn tm =>
+          print_tac (" " ^ int_to_string n)
+          \\ FILTER_ASSUM_TAC (fn tm =>
                not (can (match_term ``TAG (n:num) (b:bool)``) tm) orelse
                can (match_term ``TAG (0:num) (b:bool)``) tm orelse
                can (match_term ``TAG ^(numSyntax.term_of_int n) (b:bool)``) tm)
@@ -1268,13 +1287,17 @@ fun derive_thms_for_type ty = let
           \\ ASM_REWRITE_TAC [evaluate_Mat]
           \\ Q.LIST_EXISTS_TAC [`v`,`0,empty_store`] \\ ASM_REWRITE_TAC []
           \\ PairCases_on `env`
-          \\ REWRITE_TAC [evaluate_match_Conv,LENGTH,pmatch_def]
           \\ FULL_SIMP_TAC (srw_ss()) [pmatch_def,bind_def,pat_bindings_def,
-                lookup_con_id_def,lookup_cons_def,same_tid_def,id_to_n_def,
-                same_ctor_def,write_def]
+                  lookup_con_id_def,lookup_cons_def,same_tid_def,id_to_n_def,
+                  same_ctor_def,write_def]
+          \\ NTAC n
+            (ONCE_REWRITE_TAC [evaluate_match_rw]
+             \\ ASM_SIMP_TAC (srw_ss()) [pat_bindings_def,pmatch_def,same_ctor_def,
+                  lookup_con_id_def,same_tid_def,id_to_n_def,write_def,bind_def])
     val tac = init_tac THENL (map (fn (n,f,fxs,pxs,tm,exp,xs) => case_tac n) ts)
     val case_lemma = auto_prove "case-of-proof" (goal,tac)
     val case_lemma = case_lemma |> PURE_REWRITE_RULE [TAG_def]
+    val _ = print " done.\n"
     in (case_lemma,ts) end;
 (*
 val (n,f,fxs,pxs,tm,exp,xs) = hd ts

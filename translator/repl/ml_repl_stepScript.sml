@@ -9,7 +9,8 @@ open compilerTerminationTheory inferTheory;
 open bytecodeTheory cmlParseTheory cmlPEGTheory;
 open arithmeticTheory listTheory finite_mapTheory pred_setTheory;
 
-open ml_translatorLib ml_translatorTheory std_preludeTheory;
+open ml_translatorLib ml_translatorTheory;
+open std_preludeTheory;
 
 (* translator setup *)
 
@@ -85,7 +86,6 @@ val _ = translate compile_top_def;
 (* elaborator *)
 
 val _ = translate (def_of_const ``elab_top``);
-
 
 (* parsing: peg_exec and cmlPEG *)
 
