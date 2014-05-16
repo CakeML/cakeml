@@ -421,13 +421,15 @@ in
       val s = map (fn {redex = a, residue = b} => type2t a |-> type2t b) i
       in subst s tm end handle HOL_ERR _ =>
     let
-      val (_,tt) = dest_type ty
-      val name = full_name_of_type ty
+      val (x,tt) = dest_type ty
+      val name = if x = "fun" then "fun" else
+                 if x = "prod" then "prod" else
+                   full_name_of_type ty
       val tt = map type2t tt
       val name_tm = stringSyntax.fromMLstring name
       val tt_list = listSyntax.mk_list(tt,type_of ``Tbool``)
       in if name = "fun"  then ``Tapp [^(el 1 tt);^(el 2 tt)] TC_fn`` else
-         if name = "pair" then ``Tapp [^(el 1 tt);^(el 2 tt)] TC_tup`` else
+         if name = "prod" then ``Tapp [^(el 1 tt);^(el 2 tt)] TC_tup`` else
                                ``Tapp ^tt_list (TC_name (Short ^name_tm))`` end
   fun inst_type_inv (ty,inv) ty0 = let
     val i = match_type ty ty0
@@ -1074,6 +1076,8 @@ val _ = set_trace "Unicode" 0;
 
 val ty = ``:'a + num``;
 
+val ty = ``:(α, β, γ) pegsym``
+
 val ty = ``:'a list``; derive_thms_for_type ty
 val ty = ``:'a # 'b``; derive_thms_for_type ty
 val ty = ``:'a + num``; derive_thms_for_type ty
@@ -1104,7 +1108,7 @@ fun derive_thms_for_type ty = let
                                           |> rand |> rator |> rand |> rand))
       val tyname = ys |> hd |> snd |> rand |> rand |> rand
       val ys = map (fn (x,y) => (y |> rator |> rand,
-                                 x |> dest_args |> map (type2t o type_of) )) ys
+                                 x |> dest_args |> map (type2t o type_of))) ys
       fun mk_line (x,y) = pairSyntax.mk_pair(x,
                            listSyntax.mk_list(y,type_of ``Tbool``))
       val lines = listSyntax.mk_list(map mk_line ys,``:tvarN # t list``)
