@@ -42,10 +42,10 @@ evaluate_ctxt env s1 (Capp Opapp vs1 ()  es) v bv)
 ==>
 evaluate_ctxt env s1 (Capp Opapp vs1 ()  es) v (s2, Rerr Rtype_error))
 
-/\ (! env op v1 v vs1 vs2 es res s1 s2 s3 count.
+/\ (! env op v vs1 vs2 es res s1 s2 s3 count.
 ((op <> Opapp) /\
 evaluate_list F env s1 es ((count,s2), Rval vs2) /\
-(do_app s2 op ((REVERSE vs1 ++ [v1]) ++ vs2) = SOME (s3,res)))
+(do_app s2 op ((REVERSE vs1 ++ [v]) ++ vs2) = SOME (s3,res)))
 ==>
 evaluate_ctxt env s1 (Capp op vs1 ()  es) v ((count,s3), res))
 
