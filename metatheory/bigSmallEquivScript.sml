@@ -1356,6 +1356,18 @@ rw [Once evaluate_ctxts_cases] >>
 PairCases_on `h` >>
 rw []);
 
+val do_app_type_error = prove(
+  ``do_app s op es = SOME (x,Rerr Rtype_error) ⇒ x = s``,
+  rw[do_app_def] >>
+  every_case_tac >> fs[LET_THM,UNCURRY] >>
+  every_case_tac >> fs[])
+
+val do_app_timeout_error = prove(
+  ``do_app s op es = SOME (x,Rerr err) ⇒ err ≠ Rtimeout_error``,
+  rw[do_app_def] >>
+  every_case_tac >> fs[LET_THM,UNCURRY] >> rw[] >>
+  every_case_tac >> fs[] >> rw[])
+
 val one_step_backward_type_error = Q.prove (
 `!env s e c.
   (e_step (env,s,e,c) = Etype_error)
@@ -1370,15 +1382,16 @@ fs [] >|
      rw [evaluate_state_cases] >>
      rw [Once evaluate_cases] >>
      fs [] >>
-     rw []
-     >- metis_tac [evaluate_ctxts_type_error,do_con_check_build_conv, NOT_SOME_NONE]
-     >- metis_tac [evaluate_ctxts_type_error,do_con_check_build_conv, NOT_SOME_NONE]
-     >- metis_tac [evaluate_ctxts_type_error,do_con_check_build_conv, NOT_SOME_NONE]
-     >- metis_tac [evaluate_ctxts_type_error,do_con_check_build_conv, NOT_SOME_NONE]
-     >- metis_tac [evaluate_ctxts_type_error,do_con_check_build_conv, NOT_SOME_NONE]
-     >- metis_tac [evaluate_ctxts_type_error,do_con_check_build_conv, NOT_SOME_NONE]
-     >- cheat
-     >- metis_tac [evaluate_ctxts_type_error,do_con_check_build_conv, NOT_SOME_NONE],
+     rw [] >> TRY (
+       fs[application_thm] >>
+       pop_assum mp_tac >> rw[] >>
+       every_case_tac >> fs[] >>
+       TRY(fs[do_app_def]>>NO_TAC) >>
+       rw[Once evaluate_cases] >>
+       rw[Once evaluate_cases] >>
+       rw[Once evaluate_cases] >>
+       metis_tac[evaluate_ctxts_type_error,FORALL_PROD]) >>
+     metis_tac [evaluate_ctxts_type_error,do_con_check_build_conv, NOT_SOME_NONE],
  fs [continue_def] >>
      cases_on `c` >>
      fs [] >>
@@ -1388,11 +1401,22 @@ fs [] >|
      fs [] >>
      every_case_tac >>
      fs [evaluate_state_cases, push_def, return_def] >>
-     rw [evaluate_ctxts_cons, evaluate_ctxt_cases] >>
+     rw [evaluate_ctxts_cons, evaluate_ctxt_cases] >- (
+       fs[application_thm] >>
+       every_case_tac >> fs[return_def] >>
+       TRY(qpat_assum`do_app X Opapp Y = Z`assume_tac >>
+           fs[do_app_def]>>every_case_tac>>fs[]>>NO_TAC) >>
+       rw[oneTheory.one] >>
+       rw[Once evaluate_cases] >>
+       rw[Once evaluate_cases] >>
+       rw[Once evaluate_cases] >>
+       imp_res_tac do_app_type_error >>
+       imp_res_tac do_app_timeout_error >>
+       fs[] >> rw[] >>
+       metis_tac[evaluate_ctxts_type_error,FORALL_PROD]) >>
      rw [Once evaluate_cases] >>
      full_simp_tac (srw_ss() ++ ARITH_ss) [arithmeticTheory.ADD1] >>
-     rw [Once evaluate_cases]
-     >- cheat >>
+     rw [Once evaluate_cases] >>
      metis_tac [oneTheory.one, evaluate_ctxts_type_error, do_con_check_build_conv, NOT_SOME_NONE]]);
 
 val small_exp_to_big_exp = Q.prove (
