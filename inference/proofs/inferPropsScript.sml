@@ -1389,44 +1389,39 @@ val constrain_op_check_s = Q.prove (
  >- (`check_s tvs (count st.next_uvar) s`
             by metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0] >>
      metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0])
- >- cheat
- >- cheat
- >- cheat
- >- (`check_s tvs (count st.next_uvar) s`
-            by metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0] >>
-     metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0])
- >- (`check_s tvs (count st.next_uvar) s`
-            by metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0] >>
-     metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0])
- >- (`check_s tvs (count st.next_uvar) s`
-            by metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0] >>
-     metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0])
- >- cheat);  
-
-(*
-     >- binap_tac
-     >- binap_tac
-     >- binap_tac
-     >- cheat
-     >- cheat
-     >- metis_tac []
-     >- (`t_wfs st''.subst ∧ 
-         check_env (count st''.next_uvar) env ∧ 
-         check_t 0 (count st''.next_uvar) h` 
-                 by metis_tac [EVERY_DEF, check_t_more4, infer_e_check_t, infer_e_wfs, check_env_more, infer_e_next_uvar_mono] >>
-            `check_t 0 (count (st''.next_uvar + 1)) h` 
+ >- (`check_t 0 (count (st.next_uvar+1)) (Infer_Tapp [h'; Infer_Tuvar st.next_uvar] TC_fn)` 
+              by (rw [check_t_def] >>
+                  metis_tac [check_t_more3]) >>
+     `check_t 0 (count (st.next_uvar + 1)) h` 
                     by metis_tac [EVERY_DEF, check_t_more4, DECIDE ``x ≤ x + 1:num``] >>
-            `check_t 0 (count (st''.next_uvar + 1)) (Infer_Tapp [Infer_Tuvar st''.next_uvar] TC_ref)` 
-                    by rw [check_t_def] >>
-            metis_tac [t_unify_check_s, check_s_more, arithmeticTheory.ADD_0, check_t_more2])
-     >- binap_tac
-     >- binap_tac
-     >- binap_tac
-     >- cheat
-     >- cheat,
-     *)
-
-
+     `check_s tvs (count (st.next_uvar+1)) st.subst`
+            by metis_tac [check_s_more] >>
+     metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0])
+ >- (`check_t 0 (count st.next_uvar) (Infer_Tapp [h'] TC_ref)` 
+              by rw [check_t_def] >>
+     metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0])
+ >- (`check_t 0 (count (st.next_uvar+1)) (Infer_Tapp [Infer_Tuvar st.next_uvar] TC_ref)` 
+              by (rw [check_t_def] >>
+                  metis_tac [check_t_more3]) >>
+     `check_t 0 (count (st.next_uvar + 1)) h` 
+                    by metis_tac [EVERY_DEF, check_t_more4, DECIDE ``x ≤ x + 1:num``] >>
+     `check_s tvs (count (st.next_uvar+1)) st.subst`
+            by metis_tac [check_s_more] >>
+     metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0])
+ >- (`check_s tvs (count st.next_uvar) s`
+            by metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0] >>
+     metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0])
+ >- (`check_s tvs (count st.next_uvar) s`
+            by metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0] >>
+     metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0])
+ >- (`check_s tvs (count st.next_uvar) s`
+            by metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0] >>
+     metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0])
+ >- (`check_s tvs (count st.next_uvar) s`
+            by metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0] >>
+     `check_s tvs (count st.next_uvar) s'`
+            by metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0] >>
+     metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0]));
 
 val infer_e_check_s = Q.store_thm ("infer_e_check_s",
 `(!menv cenv env e st st' t tvs.
