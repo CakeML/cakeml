@@ -1194,6 +1194,32 @@ rw [] >>
 fs [evaluate_ctxts_cons, evaluate_ctxt_cases] >>
 metis_tac [DECIDE ``SUC x = x + 1``, pair_CASES]
 
+val evaluate_state_app_cons = prove(
+  ``evaluate_state (env,s,Exp e,(Capp op [] () es,env)::c) bv
+    ⇒ evaluate_state (env,s,Exp (App op (e::es)),c) bv``,
+  rw[evaluate_state_cases] >>
+  rw[Once evaluate_cases] >>
+  fs[evaluate_ctxts_cons] >> rw[] >>
+  ONCE_REWRITE_TAC[CONJ_COMM] >>
+  first_assum(match_exists_tac o concl) >> rw[] >- (
+    fs[Once evaluate_ctxt_cases] >> rw[] >>
+    rw[Once evaluate_cases,PULL_EXISTS] >>
+    TRY (
+      disj1_tac >>
+      first_assum(match_exists_tac o concl) >> rw[] >>
+      TRY(first_assum(split_pair_match o concl)) >>
+      first_assum(match_exists_tac o concl) >> rw[] >> NO_TAC) >>
+    TRY (
+      disj2_tac >> disj1_tac >>
+      rw[Once evaluate_cases,PULL_EXISTS] >>
+      first_assum(match_exists_tac o concl) >> rw[] >>
+      first_assum(match_exists_tac o concl) >> rw[] >> NO_TAC ) >>
+    rpt disj2_tac >>
+    rw[Once evaluate_cases] >> disj2_tac >>
+    first_assum(match_exists_tac o concl) >> rw[]) >>
+  rpt disj2_tac >>
+  rw[Once evaluate_cases])
+
 val one_step_backward = Q.prove (
 `!env s e c s' env' e' c' bv.
   (e_step (env,s,e,c) = Estep (env',s',e',c')) ∧
@@ -1229,7 +1255,10 @@ val one_step_backward = Q.prove (
           rw [] >>
           tac3)
       >- tac3
-      >- cheat
+      >- (
+        fs[application_thm,do_opapp_def,do_app_def] >>
+        Cases_on`l`>>fs[] >> rw[] >>
+        metis_tac[evaluate_state_app_cons])
       >- tac3
       >- tac3
       >- tac3
@@ -1238,7 +1267,7 @@ val one_step_backward = Q.prove (
           fs [] >>
           rw [] >>
           PairCases_on `env` >>
-          fs [all_env_to_menv_def, all_env_to_cenv_def, all_env_to_env_def] >> 
+          fs [all_env_to_menv_def, all_env_to_cenv_def, all_env_to_env_def] >>
           tac3))
  >- (fs [continue_def] >>
      cases_on `c` >>
