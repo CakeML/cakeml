@@ -1282,14 +1282,55 @@ val one_step_backward = Q.prove (
      full_simp_tac (srw_ss() ++ ARITH_ss) [evaluate_state_cases, evaluate_ctxts_cons, evaluate_ctxt_cases, oneTheory.one,
          evaluate_ctxts_cons, evaluate_ctxt_cases, arithmeticTheory.ADD1]
      >- metis_tac []
-     >- cheat
-     >- cheat
-     >- cheat
-     >- cheat
-     >- cheat
-     >- cheat
-     >- cheat
-     >- cheat
+     >- (
+       rw[] >>
+       every_case_tac >> fs[] >> rw[] >>
+       fs[do_app_def] >> every_case_tac >> fs[] >> rw[] >>
+       srw_tac[boolSimps.DNF_ss][] >> disj1_tac >>
+       rw[Once evaluate_cases] >>
+       metis_tac[] )
+     >- (
+       rw[] >>
+       every_case_tac >> fs[] >> rw[] >>
+       rw[Once(CONJUNCT2 evaluate_cases)] >>
+       rw[Once(CONJUNCT2 evaluate_cases)] >>
+       rw[Once(CONJUNCT2 evaluate_cases)] >>
+       fs[evaluate_ctxts_cons] >>
+       fs[Once evaluate_ctxt_cases] >> rw[])
+     >- (
+       rw[Once evaluate_cases,PULL_EXISTS] >>
+       srw_tac[boolSimps.DNF_ss][] >> disj1_tac >>
+       first_assum(match_exists_tac o concl) >> rw[] >>
+       first_assum(match_exists_tac o concl) >> rw[] >>
+       metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC] )
+     >- (
+       rw[Once evaluate_cases] >>
+       srw_tac[boolSimps.DNF_ss][] >> disj2_tac >> disj1_tac >>
+       rw[Once evaluate_cases] >>
+       srw_tac[boolSimps.DNF_ss][] >>
+       first_assum(match_exists_tac o concl) >> rw[] >>
+       first_assum(match_exists_tac o concl) >> rw[] >>
+       metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC])
+     >- (
+       rw[Once evaluate_cases] >>
+       srw_tac[boolSimps.DNF_ss][] >> disj1_tac >>
+       metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC])
+     >- (
+       rw[Once evaluate_cases] >>
+       srw_tac[boolSimps.DNF_ss][] >> disj2_tac >> disj1_tac >>
+       rw[Once evaluate_cases] >>
+       srw_tac[boolSimps.DNF_ss][] >>
+       metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC])
+     >- (
+       srw_tac[boolSimps.DNF_ss][] >>
+       rpt disj2_tac >>
+       rw[Once evaluate_cases] >>
+       metis_tac[])
+     >- (
+       srw_tac[boolSimps.DNF_ss][] >>
+       rpt disj2_tac >>
+       rw[Once evaluate_cases] >>
+       metis_tac[])
      >- metis_tac []
      >- metis_tac []
      >- (ONCE_REWRITE_TAC [evaluate_cases] >>
