@@ -187,6 +187,7 @@ val _ = Define `
     | (StrLit _, StrLit _) => T
     | (Bool _, Bool _) => T
     | (Unit, Unit) => T
+    | (Word8 _, Word8 _) => T
     | _ => F
   )))`;
 

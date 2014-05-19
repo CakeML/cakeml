@@ -299,6 +299,13 @@ type_p tvs cenv (Plit Unit) Tunit []
 
 and
 
+plit_word8 : forall tvs cenv w.
+true
+==>
+type_p tvs cenv (Plit (Word8 w)) Tword8 []
+
+and
+
 pcon_some : forall tvs cenv cn ps ts tvs' tn ts' tenv.
 List.all (check_freevars tvs []) ts' &&
 List.length ts' = List.length tvs' &&

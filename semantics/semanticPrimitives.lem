@@ -140,6 +140,7 @@ let lit_same_type l1 l2 =
     | (StrLit _, StrLit _) -> true
     | (Bool _, Bool _) -> true
     | (Unit, Unit) -> true
+    | (Word8 _, Word8 _) -> true
     | _ -> false
   end
 
