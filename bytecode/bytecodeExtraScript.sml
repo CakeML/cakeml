@@ -41,7 +41,8 @@ val real_inst_length_def = zDefine `
    | Stop b => 9
    | Tick => 1
    | Print => 5
-   | PrintC v13 => 33:num`;
+   | PrintC v13 => 33:num
+   | _ => 1`;
 
 val thms = ([],``!bc. x = real_inst_length bc``)
   |> (Cases THEN TRY (Cases_on `b`)) |> fst |> map (rand o snd)
