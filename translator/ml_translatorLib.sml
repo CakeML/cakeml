@@ -93,7 +93,10 @@ in
   fun get_cenv_names () = let
     val th = get_cenv_eq_thm ()
     val pat = ``Short (n:string)``
-    val strs = find_terms (can (match_term pat)) (concl th) |> map rand
+    val strs1 = find_terms (can (match_term pat)) (concl th) |> map rand
+    val pat = ``(n:string,x:'a)``
+    val strs2 = find_terms (can (match_term pat)) (concl th) |> map (rand o rator)
+    val strs = strs1 @ strs2
     fun all_distinct [] = []
       | all_distinct (x::xs) = let
         val ys = all_distinct xs
@@ -774,6 +777,10 @@ register_type ty
 
 val _ = Hol_datatype `BTREE = BLEAF of ('a TREE) | BBRANCH of BTREE => BTREE`;
 val ty = ``:'a BTREE``
+
+val type_name = name
+val const_name = (repeat rator x |> dest_const |> fst)
+
 *)
 
 fun tag_name type_name const_name =
@@ -1076,7 +1083,7 @@ val _ = set_trace "Unicode" 0;
 
 val ty = ``:'a + num``;
 
-val ty = ``:token``
+val ty = ``:btype``
 
 val ty = ``:'a list``; derive_thms_for_type ty
 val ty = ``:'a # 'b``; derive_thms_for_type ty
