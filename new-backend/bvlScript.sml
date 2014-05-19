@@ -155,7 +155,7 @@ val bEval_def = tDefine "bEval" `
      | (Result vs,s1) =>
           if bool_to_val T = HD vs then bEval([x2],env,check_clock s1 s) else
           if bool_to_val F = HD vs then bEval([x3],env,check_clock s1 s) else
-            (Error,s)
+            (Error,s1)
      | res => res) /\
   (bEval ([Let xs x2],env,s) =
      case bEval (xs,env,s) of
