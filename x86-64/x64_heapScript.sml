@@ -10931,7 +10931,7 @@ val x64_inst_length_thm = prove(
 
 val real_inst_length_thm = store_thm("real_inst_length_thm",
   ``x64_inst_length = real_inst_length``,
-  cheat)
+  cheat) (* fix def of real_inst_length *)
 (*
   SIMP_TAC std_ss [FUN_EQ_THM] \\ Cases \\ TRY (Cases_on `b`)
   \\ SIMP_TAC (srw_ss()) [bytecodeExtraTheory.real_inst_length_def]
@@ -11576,7 +11576,7 @@ val ic_PrintC_test_thm = prove(
 
 val real_inst_length_limit = prove(
   ``!bc. real_inst_length bc < 35``,
-  cheat);
+  cheat); (* fix def of real_inst_length *)
 (*
   Cases \\ SIMP_TAC (srw_ss()) [bytecodeExtraTheory.real_inst_length_def]
   \\ TRY (Cases_on `b`) \\ SRW_TAC [] []);
