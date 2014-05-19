@@ -64,7 +64,8 @@ val _ = Hol_datatype `
   bvl_result = Result of 'a
              | Exception of bc_value
              | TimeOut
-             | Error `
+             | Error
+             | Continue `
 
 val _ = Hol_datatype `
   bvl_state =

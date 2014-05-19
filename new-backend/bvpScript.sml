@@ -1,0 +1,316 @@
+open HolKernel Parse boolLib bossLib; val _ = new_theory "bvp";
+
+open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
+open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
+open bytecodeTheory bvlTheory;
+
+infix \\ val op \\ = op THEN;
+
+(* BVP = bytecode-value program *)
+
+(* BVP is the next step from BVL: (1) BVP is an imperative version of
+   BVL, i.e. operations update state; (2) there is a new state
+   component (called space) and an explicit MakeSpace operation that
+   increases space. Space is consumed by Ref and Cons. *)
+
+(* The idea is that the MakeSpace calls can be moved around and lumped
+   together. This optimisation reduces the number of calls to the
+   allocator and, thus, simplifies to program.  The MakeSpace function
+   can, unfortunately, not be moved across function calls or bignum
+   operations, which can internally call the allocator. *)
+
+(* The MakeSpace command has an optional variable name list. If this
+   list is provided, i.e. SOME var_names, then only these variables
+   can survive the execution of the MakeSpace command. The idea is
+   that one generates MakeSpace X NONE when compiling into BVP. Then
+   optimisations move around and combine MakeSpace commands. Then
+   liveness analysis annotates each MakeSpace command with a SOME. The
+   translation from BVP into more concete forms must implement a GC
+   that only looks at the variables in the SOME annotations. *)
+
+
+(* --- Syntax of BVP --- *)
+
+val _ = Hol_datatype `
+  bvp_prog = Skip
+           | Move of num => num
+           | Call of num => num option => num list
+           | Assign of num => bvl_op => num list
+           | Seq of bvp_prog => bvp_prog
+           | If of bvp_if list => bvp_prog => bvp_prog
+           | MakeSpace of num => (num list) option
+           | Raise of num
+           | Return of num
+           | Handle of bvp_prog => num => bvp_prog
+           | Tick ;
+  bvp_if   = Prog of bvp_prog
+           | Assert of num => bool`
+
+(* --- Semantics of BVP --- *)
+
+val _ = Hol_datatype `
+  bvp_state =
+    <| locals  : num |-> bc_value
+     ; globals : num |-> bc_value
+     ; refs    : num |-> bc_value
+     ; clock   : num
+     ; code    : num |-> (num # bvp_prog # num)
+     ; output  : string
+     ; space   : num |> `
+
+val bvp_to_bvl_def = Define `
+  (bvp_to_bvl:bvp_state->bvl_state) s =
+    <| globals := s.globals
+     ; refs := s.refs
+     ; clock := s.clock
+     ; code := FEMPTY
+     ; output := s.output |>`;
+
+val bvl_to_bvp_def = Define `
+  (bvl_to_bvp:bvl_state->bvp_state->bvp_state) s t =
+    t with <| globals := s.globals
+            ; refs := s.refs
+            ; clock := s.clock
+            ; output := s.output |>`;
+
+val consume_space_def = Define `
+  consume_space k s =
+    if k < s.space then NONE else SOME (s with space := s.space - k)`;
+
+val pEvalOpSpace_def = Define `
+  pEvalOpSpace op s =
+    case op of
+    | Cons k => consume_space (k+1) s
+    | Ref => consume_space 2 s
+    | Add => SOME (s with space := 0)
+    | Sub => SOME (s with space := 0)
+    | _ => SOME s`;
+
+val pEvalOp_def = Define `
+  pEvalOp op vs (s:bvp_state) =
+    case pEvalOpSpace op s of
+    | NONE => NONE
+    | SOME s1 => (case bEvalOp op vs (bvp_to_bvl s1) of
+                  | NONE => NONE
+                  | SOME (v,t) => SOME (v, bvl_to_bvp t s1))`
+
+val dec_clock_def = Define `
+  dec_clock (s:bvp_state) = s with clock := s.clock - 1`;
+
+val isResult_def = Define `
+  (isResult (Result r) = T) /\ (isResult _ = F)`;
+
+val isException_def = Define `
+  (isException (Exception r) = T) /\ (isException _ = F)`;
+
+val add_space_def = Define `
+  add_space s k = s with space := s.space + k`;
+
+val cut_env_def = Define `
+  cut_env cut env =
+    case cut of
+    | NONE => SOME env
+    | SOME ns => if set ns SUBSET FDOM env then
+                   SOME (DRESTRICT env (set ns))
+                 else NONE`
+
+val get_var_def = Define `
+  get_var v s = FLOOKUP s.locals v`;
+
+val get_vars_def = Define `
+  (get_vars [] s = SOME []) /\
+  (get_vars (v::vs) s =
+     case get_var v s of
+     | NONE => NONE
+     | SOME x => (case get_vars vs s of
+                  | NONE => NONE
+                  | SOME xs => SOME (x::xs)))`;
+
+val set_var_def = Define `
+  set_var v x s = (s with locals := (s.locals |+ (v,x)))`;
+
+val check_clock_def = Define `
+  check_clock (s1:bvp_state) (s2:bvp_state) =
+    if s1.clock <= s2.clock then s1 else s1 with clock := s2.clock`;
+
+val check_clock_thm = prove(
+  ``(check_clock s1 s2).clock <= s2.clock /\
+    (s1.clock <= s2.clock ==> (check_clock s1 s2 = s1))``,
+  SRW_TAC [] [check_clock_def])
+
+val check_clock_lemma = prove(
+  ``b ==> ((check_clock s1 s).clock < s.clock \/
+          ((check_clock s1 s).clock = s.clock) /\ b)``,
+  SRW_TAC [] [check_clock_def] \\ DECIDE_TAC);
+
+(* The semantics of expression evaluation is defined next. For
+   convenience of subsequent proofs, the evaluation function is
+   defined to evaluate a list of bvl_exp expressions. *)
+
+val call_env_def = Define `
+  call_env args s =
+    s with locals := FEMPTY |++ ZIP (GENLIST I (LENGTH args), args)`;
+
+val pEval_def = tDefine "pEval" `
+  (pEval (Skip,s) = (Continue,s:bvp_state)) /\
+  (pEval (Move dest src,s) =
+     case get_var src s of
+     | NONE => (Error,s)
+     | SOME v => (Continue, set_var dest v s)) /\
+  (pEval (Assign dest op args,s) =
+     case get_vars args s of
+     | NONE => (Error,s)
+     | SOME xs => (case pEvalOp op xs s of
+                   | NONE => (Error,s)
+                   | SOME (v,s) =>
+                       (Continue, set_var dest v s))) /\
+  (pEval (Tick,s) =
+     if s.clock = 0 then (TimeOut,s) else (Continue,s)) /\
+  (pEval (MakeSpace k cut,s) =
+     case cut_env cut s.locals of
+     | NONE => (Error,s)
+     | SOME env => (Continue,s with locals := env)) /\
+  (pEval (Raise n,s) =
+     case get_var n s of
+     | NONE => (Error,s)
+     | SOME x => (Exception x,s)) /\
+  (pEval (Return n,s) =
+     case get_var n s of
+     | NONE => (Error,s)
+     | SOME x => (Result x,s)) /\
+  (pEval (Seq c1 c2,s) =
+     let (res,s1) = pEval (c1,s) in
+       if res = Continue then pEval (c2,check_clock s1 s) else (res,s1)) /\
+  (pEval (Handle c1 n c2,s) =
+     case pEval (c1,s) of
+     | (Exception v,s1) => pEval (c2, check_clock (set_var n v s1) s)
+     | res => res) /\
+  (pEval (If [] c1 c2,s) = pEval (c1,s)) /\
+  (pEval (If (Prog p::guards) c1 c2,s) =
+     case pEval (p,s) of
+     | (Continue,s1) => pEval (If guards c1 c2, check_clock s1 s)
+     | res => res) /\
+  (pEval (If (Assert n t::guards) c1 c2,s) =
+     case get_var n s of
+     | NONE => (Error,s)
+     | SOME x => if x = bool_to_val t then pEval (c1,s) else
+                 if x = bool_to_val (~t) then pEval (c2,s) else
+                   (Error,s)) /\
+  (pEval (Call n dest args,s) =
+     if s.clock = 0 then (TimeOut,s) else
+       case get_vars args s of
+       | NONE => (Error,s)
+       | SOME xs =>
+         (case find_code dest xs s.code of
+          | NONE => (Error,s)
+          | SOME (args1,prog) =>
+              pEval (prog, call_env args1 (dec_clock s))))`
+ (WF_REL_TAC `(inv_image (measure I LEX measure bvp_prog_size)
+                            (\(xs,s). (s.clock,xs)))`
+  \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
+  \\ TRY (MATCH_MP_TAC check_clock_lemma \\ DECIDE_TAC)
+  \\ EVAL_TAC \\ Cases_on `s.clock <= s1.clock`
+  \\ FULL_SIMP_TAC (srw_ss()) [] \\ DECIDE_TAC);
+
+(* We prove that the clock never increases. *)
+
+val check_clock_IMP = prove(
+  ``n <= (check_clock r s).clock ==> n <= s.clock``,
+  SRW_TAC [] [check_clock_def] \\ DECIDE_TAC);
+
+val pEvalOp_clock = store_thm("pEvalOp_clock",
+  ``(pEvalOp op args s1 = SOME (res,s2)) ==> s2.clock <= s1.clock``,
+  SIMP_TAC std_ss [pEvalOp_def,pEvalOpSpace_def,consume_space_def]
+  \\ REPEAT BasicProvers.FULL_CASE_TAC
+  \\ FULL_SIMP_TAC std_ss []
+  \\ IMP_RES_TAC bEvalOp_clock
+  \\ FULL_SIMP_TAC (srw_ss()) [bvp_to_bvl_def]
+  \\ Q.SPEC_TAC (`s2`,`s2`)
+  \\ FULL_SIMP_TAC (srw_ss()) [bvl_to_bvp_def]);
+
+val pEval_clock = store_thm("pEval_clock",
+  ``!xs s1 vs s2. (pEval (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock``,
+  recInduct (fetch "-" "pEval_ind") \\ REPEAT STRIP_TAC
+  \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [pEval_def]
+  \\ FULL_SIMP_TAC std_ss [] \\ REPEAT BasicProvers.FULL_CASE_TAC
+  \\ REPEAT STRIP_TAC \\ SRW_TAC [] [check_clock_def]
+  \\ RES_TAC \\ IMP_RES_TAC check_clock_IMP
+  \\ FULL_SIMP_TAC std_ss [PULL_FORALL] \\ RES_TAC
+  \\ IMP_RES_TAC check_clock_IMP
+  \\ IMP_RES_TAC pEvalOp_clock
+  \\ FULL_SIMP_TAC (srw_ss()) [dec_clock_def,set_var_def,call_env_def]
+  \\ TRY DECIDE_TAC
+  \\ Cases_on `pEval (c1,s)` \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
+  \\ Cases_on `q = Continue` \\ FULL_SIMP_TAC std_ss []
+  \\ IMP_RES_TAC check_clock_IMP);
+
+val pEval_check_clock = prove(
+  ``!xs s1 vs s2. (pEval (xs,s1) = (vs,s2)) ==> (check_clock s2 s1 = s2)``,
+  METIS_TAC [pEval_clock,check_clock_thm]);
+
+(* Finally, we remove check_clock from the induction and definition theorems. *)
+
+fun sub f tm = f tm handle HOL_ERR _ =>
+  let val (v,t) = dest_abs tm in mk_abs (v, sub f t) end
+  handle HOL_ERR _ =>
+  let val (t1,t2) = dest_comb tm in mk_comb (sub f t1, sub f t2) end
+  handle HOL_ERR _ => tm
+
+val remove_check_clock = sub (fn tm =>
+  if can (match_term ``check_clock s1 (s2:bvp_state)``) tm
+  then tm |> rator |> rand else fail())
+
+val remove_disj = sub (fn tm => if is_disj tm then tm |> rator |> rand else fail())
+
+val set_var_check_clock = prove(
+  ``set_var v x (check_clock s1 s2) = check_clock (set_var v x s1) s2``,
+  SIMP_TAC std_ss [set_var_def,check_clock_def] \\ SRW_TAC [] []);
+
+val pEval_ind = save_thm("pEval_ind",let
+  val raw_ind = fetch "-" "pEval_ind"
+  val goal = raw_ind |> concl |> remove_check_clock |> remove_disj
+  (* set_goal([],goal) *)
+  val ind = prove(goal,
+    STRIP_TAC \\ STRIP_TAC \\ MATCH_MP_TAC raw_ind
+    \\ REVERSE (REPEAT STRIP_TAC) \\ ASM_REWRITE_TAC []
+    THEN1 (FIRST_X_ASSUM MATCH_MP_TAC
+           \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC
+           \\ IMP_RES_TAC pEval_clock)
+    \\ FIRST_X_ASSUM (MATCH_MP_TAC)
+    \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC \\ RES_TAC
+    \\ REPEAT (Q.PAT_ASSUM `!x.bbb` (K ALL_TAC))
+    \\ IMP_RES_TAC pEval_clock
+    \\ IMP_RES_TAC (GSYM pEval_clock)
+    \\ FULL_SIMP_TAC std_ss [check_clock_thm,GSYM set_var_check_clock])
+  in ind end);
+
+val pEval_def = save_thm("pEval_def",let
+  val tm = fetch "-" "pEval_AUX_def"
+           |> concl |> rand |> dest_abs |> snd |> rand |> rand
+  val tm = ``^tm pEval (x,s)``
+  val rhs = SIMP_CONV std_ss [EVAL ``pair_CASE (x,y) f``] tm |> concl |> rand
+  val goal = ``!x s. pEval (x,s) = ^rhs`` |> remove_check_clock |> remove_disj
+  (* set_goal([],goal) *)
+  val def = prove(goal,
+    recInduct pEval_ind
+    \\ REPEAT STRIP_TAC
+    \\ SIMP_TAC (srw_ss()) []
+    \\ TRY (SIMP_TAC std_ss [Once pEval_def] \\ NO_TAC)
+    \\ REPEAT (POP_ASSUM (K ALL_TAC))
+    \\ SIMP_TAC std_ss [Once pEval_def]
+    \\ Cases_on `pEval (c1,s)`
+    \\ Cases_on `pEval (p,s)`
+    \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
+    \\ IMP_RES_TAC pEval_check_clock \\ FULL_SIMP_TAC std_ss []
+    \\ Cases_on `q`
+    \\ FULL_SIMP_TAC (srw_ss()) [GSYM set_var_check_clock])
+  val new_def = pEval_def |> CONJUNCTS |> map (fst o dest_eq o concl o SPEC_ALL)
+                  |> map (REWR_CONV def THENC SIMP_CONV (srw_ss()) [])
+                  |> LIST_CONJ
+  in new_def end);
+
+(* clean up *)
+
+val _ = map delete_binding ["pEval_AUX_def", "pEval_primitive_def"];
+
+val _ = export_theory();
