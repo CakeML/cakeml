@@ -392,6 +392,11 @@ T
 ==>
 type_e menv cenv tenv (Lit Unit) Tunit)
 
+/\ (! menv cenv tenv w.
+T
+==>
+type_e menv cenv tenv (Lit (Word8 w)) Tword8)
+
 /\ (! menv cenv tenv e t.
 (check_freevars (num_tvs tenv) [] t /\
 type_e menv cenv tenv e Texn) 

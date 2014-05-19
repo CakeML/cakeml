@@ -464,6 +464,8 @@ val constrain_op_success =
                         st_ex_return_success, add_constraint_success]
   ``(constrain_op op ts st = (Success v, st'))``
 
+val _ = save_thm ("constrain_op_success", constrain_op_success);
+
 val get_next_uvar_success = Q.prove (
 `!st v st'. 
   (get_next_uvar st = (Success v, st')) 

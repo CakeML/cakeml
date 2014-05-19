@@ -376,6 +376,13 @@ type_e menv cenv tenv (Lit Unit) Tunit
 
 and
 
+lit_unit : forall menv cenv tenv w.
+true
+==>
+type_e menv cenv tenv (Lit (Word8 w)) Tword8
+
+and
+
 raise : forall menv cenv tenv e t.
 check_freevars (num_tvs tenv) [] t &&
 type_e menv cenv tenv e Texn 

@@ -385,6 +385,7 @@ fs [] >|
  metis_tac [APPEND, sub_completion_more_vars],
  metis_tac [APPEND, sub_completion_more_vars],
  metis_tac [APPEND, sub_completion_more_vars],
+ metis_tac [APPEND, sub_completion_more_vars],
  PairCases_on `v'` >>
      fs [] >>
      metis_tac [APPEND_ASSOC, APPEND, sub_completion_more_vars],
@@ -760,6 +761,8 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
      binop_tac,
  (* Lit unit *)
      binop_tac,
+ (* Lit word8 *)
+     binop_tac,
  (* Var short *)
      rw [t_lookup_var_id_def] >>
      `?tvs t. v' = (tvs, t)` 
@@ -895,8 +898,12 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
                      by (rw [] >>
                          metis_tac [check_env_more, DECIDE ``x ≤ x + 1:num``]) >>
           metis_tac [num_tvs_def, infer_st_rewrs, bind_tenv_def]],
+ (* app *)
+     cheat,
+(*
  (* Opref *)
-     rw [type_uop_cases, Tref_def] >>
+     fs [constrain_op_success]
+     rw [type_op_cases, Tref_def] >>
      binop_tac,
  (* Opderef *)
      rw [type_uop_cases, Tref_def] >>
@@ -935,6 +942,7 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
      metis_tac [check_env_more, infer_e_next_uvar_mono],
  (* Opassign *) 
      binop_tac, 
+     *)
  (* Log *)
      binop_tac,
  (* Log *)
