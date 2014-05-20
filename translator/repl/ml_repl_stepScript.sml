@@ -432,10 +432,25 @@ val _ = translate (infer_def ``check_specs``)
 val _ = translate (infer_def ``check_signature``)
 val _ = translate (infer_def ``infer_top``)
 
-
 (* tip of translation *)
 
 val _ = translate repl_funTheory.parse_elaborate_infertype_compile_def
-val _ = translate repl_fun_altTheory.repl_step_def
+
+val init_code_def = Define `
+  init_code = SND (SND compile_primitives)`;
+
+val init_code_thm = prove(
+  ``init_code = []``,
+  cheat);
+
+val initial_repl_fun_state_thm = prove(
+  ``initial_repl_fun_state = ARB``,
+  cheat);
+
+val _ = translate init_code_thm;
+val _ = translate initial_repl_fun_state_thm;
+
+val _ = translate (repl_fun_altTheory.repl_step_def
+                   |> RW [GSYM init_code_def])
 
 val _ = export_theory();
