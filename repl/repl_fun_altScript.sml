@@ -18,99 +18,6 @@ open repl_funTheory bytecodeLabelsTheory bytecodeTheory;
 
 *)
 
-val bc_num_def = Define `
-  bc_num s =
-     case s of
-       Stack Pop => (0:num,0:num,0:num)
-     | Stack (Pops n) => (1,n,0)
-     | Stack (PushInt i) => (3,Num (ABS i),if i < 0 then 1 else 0)
-     | Stack (Cons n m) => (4,n,m)
-     | Stack (Load n) => (5,n,0)
-     | Stack (Store n) => (6,n,0)
-     | Stack (El n) => (8,n,0)
-     | Stack (TagEq n) => (9,n,0)
-     | Stack IsBlock => (10,0,0)
-     | Stack Equal => (11,0,0)
-     | Stack Add => (12,0,0)
-     | Stack Sub => (13,0,0)
-     | Stack Mult => (14,0,0)
-     | Stack Div => (15,0,0)
-     | Stack Mod => (16,0,0)
-     | Stack Less => (17,0,0)
-     | Label n => (20,n,0)
-     | Jump (Addr n) => (21,n,0)
-     | JumpIf (Addr n) => (22,n,0)
-     | Call (Addr n) => (23,n,0)
-     | PushPtr (Addr n) => (24,n,0)
-     | Jump (Lab n) => (41,n,0)
-     | JumpIf (Lab n) => (42,n,0)
-     | Call (Lab n) => (43,n,0)
-     | PushPtr (Lab n) => (44,n,0)
-     | CallPtr => (26,0,0)
-     | Return => (27,0,0)
-     | PushExc => (28,0,0)
-     | PopExc => (29,0,0)
-     | Ref => (30,0,0)
-     | Deref => (31,0,0)
-     | Update => (32,0,0)
-     | Tick => (34,0,0)
-     | Print => (35,0,0)
-     | PrintC c => (36,ORD c,0)
-     | Galloc n => (2,n,0)
-     | Gread n => (7,n,0)
-     | Gupdate n => (19,n,0)
-     | Stop b => (37,if b then 1 else 0,0)`;
-
-val num_bc_def = Define `
-  num_bc (n:num,x1:num,x2:num) =
-    if n = 0 then Stack Pop
-    else if n = 1 then Stack (Pops x1)
-    else if n = 2 then Galloc x1
-    else if n = 3 then Stack (PushInt (if x2 = 0 then &x1 else 0 - &x1))
-    else if n = 4 then Stack (Cons x1 x2)
-    else if n = 5 then Stack (Load x1)
-    else if n = 6 then Stack (Store x1)
-    else if n = 7 then Gread x1
-    else if n = 8 then Stack (El x1)
-    else if n = 9 then Stack (TagEq x1)
-    else if n = 10 then Stack IsBlock
-    else if n = 11 then Stack Equal
-    else if n = 12 then Stack Add
-    else if n = 13 then Stack Sub
-    else if n = 14 then Stack Mult
-    else if n = 15 then Stack Div
-    else if n = 16 then Stack Mod
-    else if n = 17 then Stack Less
-    else if n = 19 then Gupdate x1
-    else if n = 20 then Label x1
-    else if n = 21 then Jump (Addr x1)
-    else if n = 22 then JumpIf (Addr x1)
-    else if n = 23 then Call (Addr x1)
-    else if n = 24 then PushPtr (Addr x1)
-    else if n = 41 then Jump (Lab x1)
-    else if n = 42 then JumpIf (Lab x1)
-    else if n = 43 then Call (Lab x1)
-    else if n = 44 then PushPtr (Lab x1)
-    else if n = 26 then CallPtr
-    else if n = 27 then Return
-    else if n = 28 then PushExc
-    else if n = 29 then PopExc
-    else if n = 30 then Ref
-    else if n = 31 then Deref
-    else if n = 32 then Update
-    else if n = 37 then Stop (0 < x1)
-    else if n = 34 then Tick
-    else if n = 35 then Print
-    else if n = 36 then PrintC (CHR (if x1 < 256 then x1 else 0))
-    else Label 0`;
-
-val num_bc_bc_num = store_thm("num_bc_bc_num",
-  ``!x. num_bc (bc_num x) = x``,
-  Cases THEN TRY (Cases_on `b`) THEN TRY (Cases_on `l`) THEN EVAL_TAC
-  THEN SIMP_TAC std_ss [stringTheory.ORD_BOUND]
-  THEN Cases_on `i < 0` THEN FULL_SIMP_TAC std_ss []
-  THEN intLib.COOPER_TAC);
-
 val repl_step_def = Define `
   repl_step state =
     case state of
@@ -130,14 +37,12 @@ val repl_step_def = Define `
             let labs = FUNION labs (collect_labels code len real_inst_length) in
             let len = len + code_length real_inst_length code in
             let code = inst_labels labs code in
-              INL (MAP bc_num code,len,labs,s_exc,s')
+              INL (MAP bc_num code,len,labs,s',s_exc)
         | Failure error_msg => INR (error_msg,(F,len,labs,s,s))`
 
 val install_bc_lists_def = Define `
-  (install_bc_lists [] bs = bs) /\
-  (install_bc_lists (x::xs) bs =
-       install_bc_lists xs (bs with
-         code := bs.code ++ [num_bc x]))`;
+  install_bc_lists code bs =
+    install_code (REVERSE (MAP num_bc code)) bs`
 
 val tac = (WF_REL_TAC `measure (LENGTH o FST o SND)` THEN REPEAT STRIP_TAC
            THEN IMP_RES_TAC lexer_implTheory.lex_until_top_semicolon_alt_LESS);
@@ -156,7 +61,7 @@ val main_loop_alt_def = tDefine "main_loop_alt" `
         | NONE => Diverge
         | SOME new_bs =>
             let new_s = (bc_fetch new_bs = SOME (Stop T)) in
-              (if init then I else Result (REVERSE new_bs.output))
+              (if init then I else Result new_bs.output)
                 (case lex_until_top_semicolon_alt input of
                  | NONE => Terminate
                  | SOME (ts,rest) =>
