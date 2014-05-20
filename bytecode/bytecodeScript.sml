@@ -365,15 +365,15 @@ bc_next s ((bump_pc s with<| stack := ys|>))) (* parens throughout: lem sucks *)
 bc_next s ((s with<| pc := n|>)))
 /\ (! s l n b xs s'.
 ((bc_fetch s = SOME (JumpIf l))
-/\ ((bc_find_loc s l = SOME n)
-/\ ((s.stack = ((bool_to_val b)::xs))
-/\ (s' = ((s with<| stack := xs|>))))))
+/\ (bc_find_loc s l = SOME n)
+/\ (s.stack = ((bool_to_val b)::xs))
+/\ (s' = ((s with<| stack := xs|>))))
 ==>
 bc_next s (if b then (s' with<| pc := n|>) else bump_pc s'))
 /\ (! s l n x xs.
 ((bc_fetch s = SOME (Call l))
-/\ ((bc_find_loc s l = SOME n)
-/\ (s.stack = (x::xs))))
+/\ (bc_find_loc s l = SOME n)
+/\ (s.stack = (x::xs)))
 ==>
 bc_next s ((s with<| pc := n; stack := x::(CodePtr ((bump_pc s).pc)::xs)|>)))
 /\ (! s ptr x xs.
@@ -399,26 +399,26 @@ bc_next s ((bump_pc s with<|
                stack := (StackPtr s.handler)::s.stack|>)))
 /\ (! s sp x l1 l2.
 ((bc_fetch s = SOME PopExc) /\
-((s.stack = ((x::l1) ++ (StackPtr sp::l2))) /\
-(LENGTH l2 = s.handler)))
+(s.stack = ((x::l1) ++ (StackPtr sp::l2))) /\
+(LENGTH l2 = s.handler))
 ==>
 bc_next s ((bump_pc s with<| handler := sp; stack := x::l2|>)))
 /\ (! s x xs ptr.
 ((bc_fetch s = SOME Ref)
-/\ ((s.stack = (x::xs))
-/\ (ptr = $LEAST (\ ptr .  ~ (ptr IN FDOM s.refs)))))
+/\ (s.stack = (x::xs))
+/\ (ptr = $LEAST (\ ptr .  ~ (ptr IN FDOM s.refs))))
 ==>
 bc_next s ((bump_pc s with<| stack := (RefPtr ptr)::xs; refs :=s.refs |+ (ptr, x)|>)))
 /\ (! s ptr xs.
 ((bc_fetch s = SOME Deref)
-/\ ((s.stack = ((RefPtr ptr)::xs))
-/\ (ptr IN FDOM s.refs)))
+/\ (s.stack = ((RefPtr ptr)::xs))
+/\ (ptr IN FDOM s.refs))
 ==>
 bc_next s ((bump_pc s with<| stack := FAPPLY s.refs ptr::xs|>)))
 /\ (! s x ptr xs.
 ((bc_fetch s = SOME Update)
-/\ ((s.stack = (x::((RefPtr ptr)::xs)))
-/\ (ptr IN FDOM s.refs)))
+/\ (s.stack = (x::((RefPtr ptr)::xs)))
+/\ (ptr IN FDOM s.refs))
 ==>
 bc_next s ((bump_pc s with<| stack := xs; refs :=s.refs |+ (ptr, x)|>)))
 /\ (! s n.
@@ -427,15 +427,15 @@ bc_next s ((bump_pc s with<| stack := xs; refs :=s.refs |+ (ptr, x)|>)))
 bc_next s ((bump_pc s with<| globals := s.globals ++ (GENLIST (\ x .  NONE) n)|>)))
 /\ (! s n x xs.
 ((bc_fetch s = SOME (Gupdate n))
-/\ ((s.stack = (x::xs))
-/\ (n < LENGTH s.globals)))
+/\ (s.stack = (x::xs))
+/\ (n < LENGTH s.globals))
 ==>
 bc_next s ((bump_pc s with<| stack := xs;
                             globals := LUPDATE (SOME x) n s.globals|>)))
 /\ (! s n v.
 ((bc_fetch s = SOME (Gread n))
-/\ ((n < LENGTH s.globals)
-/\ (EL n s.globals = SOME v)))
+/\ (n < LENGTH s.globals)
+/\ (EL n s.globals = SOME v))
 ==>
 bc_next s ((bump_pc s with<| stack := v::s.stack|>)))
 /\ (! s.
@@ -445,8 +445,8 @@ bc_next s ((bump_pc s with<| stack := v::s.stack|>)))
 bc_next s ((bump_pc s with<| clock := OPTION_MAP PRE s.clock|>)))
 /\ (! s x xs.
 ((bc_fetch s = SOME Print)
-/\ ((s.stack = (x::xs))
-/\ can_Print x))
+/\ (s.stack = (x::xs))
+/\ can_Print x)
 ==>
 bc_next s ((bump_pc s with<| stack := xs;
   output := CONCAT [s.output;ov_to_string (bv_to_ov x)]|>)))
