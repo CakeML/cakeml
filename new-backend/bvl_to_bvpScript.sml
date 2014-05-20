@@ -39,7 +39,7 @@ val bComp_def = tDefine "bComp" `
   (bComp n env [Handle x1 x2] =
      let (c1,v1,n1) = bComp n env [x1] in
      let (c2,v2,n2) = bComp (n1+1) env [x2] in
-       (Handle (Seq c1 (Move n2 (HD v1))) n1
+       (Handle (Seq c1 (Move n2 (HD v1))) n2 n1
                (Seq c2 (Move n2 (HD v2))), [n2], n2+1)) /\
   (bComp n env [Op op xs] =
      let (c1,vs,n1) = bComp n env xs in
@@ -51,7 +51,5 @@ val bComp_def = tDefine "bComp" `
      let (c1,vs,n1) = bComp n env xs in
        (Seq c1 (Call n1 dest vs), [n1], n+1))`
  (WF_REL_TAC `measure (bvl_exp1_size o SND o SND)`);
-
-
 
 val _ = export_theory();

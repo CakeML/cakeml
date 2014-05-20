@@ -38,20 +38,26 @@ val _ = Hol_datatype `
            | Assign of num => bvl_op => num list
            | Seq of bvp_prog => bvp_prog
            | If of bvp_if list => bvp_prog => bvp_prog
-           | MakeSpace of num => (num list) option
+           | MakeSpace of num
+           | Cut of num list
            | Raise of num
            | Return of num
-           | Handle of bvp_prog => num => bvp_prog
+           | Handle of bvp_prog => num => num => bvp_prog
            | Tick ;
   bvp_if   = Prog of bvp_prog
            | Assert of num => bool`
 
 (* --- Semantics of BVP --- *)
 
+val _ = Datatype `
+  bvp_st = Env (num |-> bc_value) | Exc num `;
+
 val _ = Hol_datatype `
   bvp_state =
-    <| locals  : num |-> bc_value
-     ; globals : num |-> bc_value
+    <| globals : num |-> bc_value
+     ; locals  : num |-> bc_value
+     ; stack   : bvp_st list
+     ; handler : num
      ; refs    : num |-> bc_value
      ; clock   : num
      ; code    : num |-> (num # bvp_prog # num)
@@ -107,12 +113,9 @@ val add_space_def = Define `
   add_space s k = s with space := s.space + k`;
 
 val cut_env_def = Define `
-  cut_env cut env =
-    case cut of
-    | NONE => SOME env
-    | SOME ns => if set ns SUBSET FDOM env then
-                   SOME (DRESTRICT env (set ns))
-                 else NONE`
+  cut_env names env =
+    if set names SUBSET FDOM env then SOME (DRESTRICT env (set names))
+    else NONE`
 
 val get_var_def = Define `
   get_var v s = FLOOKUP s.locals v`;
@@ -143,13 +146,37 @@ val check_clock_lemma = prove(
           ((check_clock s1 s).clock = s.clock) /\ b)``,
   SRW_TAC [] [check_clock_def] \\ DECIDE_TAC);
 
-(* The semantics of expression evaluation is defined next. For
-   convenience of subsequent proofs, the evaluation function is
-   defined to evaluate a list of bvl_exp expressions. *)
+val push_env_def = Define `
+  push_env args s =
+    s with <| locals := FEMPTY |++ ZIP (GENLIST I (LENGTH args), args)
+            ; stack := Env s.locals :: s.stack |>`;
 
-val call_env_def = Define `
-  call_env args s =
-    s with locals := FEMPTY |++ ZIP (GENLIST I (LENGTH args), args)`;
+val pop_env_def = Define `
+  pop_env s =
+    case s.stack of
+    | (Env e::xs) => SOME (s with <| locals := e ; stack := xs |>)
+    | _ => NONE`;
+
+val LAST_N_def = Define `
+  LAST_N n xs = REVERSE (TAKE n (REVERSE xs))`;
+
+val jump_exc_def = Define `
+  jump_exc s =
+    case LAST_N (s.handler + 1) s.stack of
+    | Exc n :: Env e :: xs =>
+        SOME (s with <| handler := n ; locals := e ; stack := xs |>)
+    | _ => NONE`;
+
+val pop_exc_def = Define `
+  pop_exc s =
+    case s.stack of
+    | (Exc n :: Env e :: rest) => SOME (s with <| stack := rest ; handler := n |>)
+    | _ => NONE `;
+
+val push_exc_def = Define `
+  push_exc s =
+    s with <| stack := Exc s.handler :: Env s.locals :: s.stack
+            ; handler := LENGTH s.stack + 1 |> `;
 
 val pEval_def = tDefine "pEval" `
   (pEval (Skip,s) = (Continue,s:bvp_state)) /\
@@ -166,14 +193,19 @@ val pEval_def = tDefine "pEval" `
                        (Continue, set_var dest v s))) /\
   (pEval (Tick,s) =
      if s.clock = 0 then (TimeOut,s) else (Continue,s)) /\
-  (pEval (MakeSpace k cut,s) =
-     case cut_env cut s.locals of
+  (pEval (MakeSpace k,s) =
+     (Continue,add_space s k)) /\
+  (pEval (Cut names,s) =
+     case cut_env names s.locals of
      | NONE => (Error,s)
      | SOME env => (Continue,s with locals := env)) /\
   (pEval (Raise n,s) =
      case get_var n s of
      | NONE => (Error,s)
-     | SOME x => (Exception x,s)) /\
+     | SOME x =>
+       (case jump_exc s of
+        | NONE => (Error,s)
+        | SOME s => (Exception x,s))) /\
   (pEval (Return n,s) =
      case get_var n s of
      | NONE => (Error,s)
@@ -181,9 +213,14 @@ val pEval_def = tDefine "pEval" `
   (pEval (Seq c1 c2,s) =
      let (res,s1) = pEval (c1,s) in
        if res = Continue then pEval (c2,check_clock s1 s) else (res,s1)) /\
-  (pEval (Handle c1 n c2,s) =
-     case pEval (c1,s) of
+  (pEval (Handle c1 v n c2,s) =
+     case pEval (c1,push_exc s) of
      | (Exception v,s1) => pEval (c2, check_clock (set_var n v s1) s)
+     | (Result _,s1) => (Error,s1)
+     | (Continue,s1) =>
+         (case (get_var v s1, pop_exc s1) of
+          | (SOME x, SOME s2) => (Continue, set_var v x s2)
+          | _ => (Error,s1))
      | res => res) /\
   (pEval (If [] c1 c2,s) = pEval (c1,s)) /\
   (pEval (If (Prog p::guards) c1 c2,s) =
@@ -204,7 +241,13 @@ val pEval_def = tDefine "pEval" `
          (case find_code dest xs s.code of
           | NONE => (Error,s)
           | SOME (args1,prog) =>
-              pEval (prog, call_env args1 (dec_clock s))))`
+            (case pEval (prog, push_env args1 (dec_clock s)) of
+             | (Result x,s) =>
+                (case pop_env s of
+                 | NONE => (Error,s)
+                 | SOME s1 => (Continue, set_var n x s1))
+             | (Continue,s1) => (Error,s1)
+             | res => res)))`
  (WF_REL_TAC `(inv_image (measure I LEX measure bvp_prog_size)
                             (\(xs,s). (s.clock,xs)))`
   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
@@ -238,11 +281,15 @@ val pEval_clock = store_thm("pEval_clock",
   \\ FULL_SIMP_TAC std_ss [PULL_FORALL] \\ RES_TAC
   \\ IMP_RES_TAC check_clock_IMP
   \\ IMP_RES_TAC pEvalOp_clock
-  \\ FULL_SIMP_TAC (srw_ss()) [dec_clock_def,set_var_def,call_env_def]
+  \\ FULL_SIMP_TAC (srw_ss()) [dec_clock_def,set_var_def,push_env_def,pop_env_def,
+       add_space_def,jump_exc_def,get_var_def,pop_exc_def,push_exc_def]
   \\ TRY DECIDE_TAC
   \\ Cases_on `pEval (c1,s)` \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
-  \\ Cases_on `q = Continue` \\ FULL_SIMP_TAC std_ss []
-  \\ IMP_RES_TAC check_clock_IMP);
+  \\ NTAC 5 (REPEAT (BasicProvers.FULL_CASE_TAC)
+             \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] [])
+  \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ IMP_RES_TAC check_clock_IMP
+  \\ RES_TAC \\ DECIDE_TAC);
 
 val pEval_check_clock = prove(
   ``!xs s1 vs s2. (pEval (xs,s1) = (vs,s2)) ==> (check_clock s2 s1 = s2)``,
@@ -281,7 +328,8 @@ val pEval_ind = save_thm("pEval_ind",let
     \\ REPEAT (Q.PAT_ASSUM `!x.bbb` (K ALL_TAC))
     \\ IMP_RES_TAC pEval_clock
     \\ IMP_RES_TAC (GSYM pEval_clock)
-    \\ FULL_SIMP_TAC std_ss [check_clock_thm,GSYM set_var_check_clock])
+    \\ FULL_SIMP_TAC (srw_ss()) [check_clock_thm,GSYM set_var_check_clock,
+         push_exc_def])
   in ind end);
 
 val pEval_def = save_thm("pEval_def",let
@@ -298,12 +346,14 @@ val pEval_def = save_thm("pEval_def",let
     \\ TRY (SIMP_TAC std_ss [Once pEval_def] \\ NO_TAC)
     \\ REPEAT (POP_ASSUM (K ALL_TAC))
     \\ SIMP_TAC std_ss [Once pEval_def]
+    \\ Cases_on `pEval (c1,push_exc s)`
     \\ Cases_on `pEval (c1,s)`
     \\ Cases_on `pEval (p,s)`
     \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
     \\ IMP_RES_TAC pEval_check_clock \\ FULL_SIMP_TAC std_ss []
     \\ Cases_on `q`
-    \\ FULL_SIMP_TAC (srw_ss()) [GSYM set_var_check_clock])
+    \\ FULL_SIMP_TAC (srw_ss()) [GSYM set_var_check_clock]
+    \\ FULL_SIMP_TAC (srw_ss()) [check_clock_def,push_exc_def])
   val new_def = pEval_def |> CONJUNCTS |> map (fst o dest_eq o concl o SPEC_ALL)
                   |> map (REWR_CONV def THENC SIMP_CONV (srw_ss()) [])
                   |> LIST_CONJ
