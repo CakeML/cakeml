@@ -688,7 +688,7 @@ val big_exp_to_small_exp = Q.prove (
      `e_step_reln (env',SND s',Val v,[(Craise (),env'');(Chandle () pes,env)]) (env'',SND s',Val v,[(Cmat () pes v, env)])`
                  by (rw [e_step_reln_def, e_step_def, continue_def, return_def]) >>
      imp_res_tac small_eval_match_thm >>
-     ASSUME_TAC (Q.ISPEC `r:store_v count_store # (v,v) result` result_cases) >>
+     ASSUME_TAC (Q.ISPEC `r:v count_store # (v,v) result` result_cases) >>
      rw [] >>
      fs [small_eval_def, alt_small_eval_def] >>
      metis_tac [transitive_def, transitive_RTC, RTC_SINGLE])

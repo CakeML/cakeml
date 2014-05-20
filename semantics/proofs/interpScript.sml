@@ -61,7 +61,7 @@ val evaluate_run_eval_match = Q.store_thm ("evaluate_run_eval_match",
   (run_eval_match env v pes err_v st = r)`,
 metis_tac [big_exp_determ, run_eval_spec]);
 
-val _ = type_abbrev("M", ``:store_v count_store -> store_v count_store # ('a, v) result``);
+val _ = type_abbrev("M", ``:v count_store -> v count_store # ('a, v) result``);
 
 val result_bind_def = Define `
 (result_bind : α M -> (α -> β M) -> β M) x f =
@@ -78,10 +78,10 @@ val result_raise_def = Define `
 result_raise err = \s. (s, Rerr err)`;
 
 val get_store_def = Define `
-(get_store : store_v store M) = \(count,s). ((count,s), Rval s)`;
+(get_store : v store M) = \(count,s). ((count,s), Rval s)`;
 
 val set_store_def = Define `
-(set_store : store_v store -> unit M) s = \(count,s'). ((count,s), Rval ())`;
+(set_store : v store -> unit M) s = \(count,s'). ((count,s), Rval ())`;
 
 val dec_clock_def = Define `
 (dec_clock : unit M) = (\(count,s). if count = 0 then ((0,s), Rerr Rtimeout_error) else ((count - 1, s), Rval ()))`;

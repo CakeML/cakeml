@@ -103,7 +103,7 @@ val _ = Define `
 (*val type_env : ctMap -> tenvS -> envE -> tenvE -> bool*)
 
 (* The type of the store *)
-(*val type_s : ctMap -> tenvS -> store store_v -> bool*)
+(*val type_s : ctMap -> tenvS -> store v -> bool*)
 
 (* An evaluation context has the second type when its hole is filled with a
  * value of the first type. *)
@@ -418,9 +418,9 @@ type_state dec_tvs ctMap senv ((envM, envC, env), s, Val v, c) t2)`;
 val _ = Define `
  (weakM tenvM tenvM' =  
 (! mn tenv'.
-    (lookup mn tenvM' = SOME tenv')
+    (lib$lookup mn tenvM' = SOME tenv')
     ==>
-    (? tenv. (lookup mn tenvM = SOME tenv) /\ weakE tenv tenv')))`;
+    (? tenv. (lib$lookup mn tenvM = SOME tenv) /\ weakE tenv tenv')))`;
 
 
 (*val weakC_def : tenvC -> tenvC -> bool*)
@@ -428,9 +428,9 @@ val _ = Define `
  (weakC tenvC tenvC' =  
 (flat_weakC (SND tenvC) (SND tenvC') /\  
 (! mn flat_tenvC'.    
-(lookup mn (FST tenvC') = SOME flat_tenvC')
+(lib$lookup mn (FST tenvC') = SOME flat_tenvC')
     ==>    
-(? flat_tenvC. (lookup mn (FST tenvC) = SOME flat_tenvC) /\ flat_weakC flat_tenvC flat_tenvC'))))`;
+(? flat_tenvC. (lib$lookup mn (FST tenvC) = SOME flat_tenvC) /\ flat_weakC flat_tenvC flat_tenvC'))))`;
 
 
 (* The global constructor type environment has the primitive exceptions in it *)

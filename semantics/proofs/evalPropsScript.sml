@@ -9,10 +9,10 @@ open miscLib boolSimps;
 val _ = new_theory "evalProps";
 
 val pmatch_append = Q.store_thm ("pmatch_append",
-`(!(cenv : envC) (st : store_v store) p v env env' env''.
+`(!(cenv : envC) (st : v store) p v env env' env''.
     (pmatch cenv st p v env = Match env') ⇒
     (pmatch cenv st p v (env++env'') = Match (env'++env''))) ∧
- (!(cenv : envC) (st : store_v store) ps v env env' env''.
+ (!(cenv : envC) (st : v store) ps v env env' env''.
     (pmatch_list cenv st ps v env = Match env') ⇒
     (pmatch_list cenv st ps v (env++env'') = Match (env'++env'')))`,
 ho_match_mp_tac pmatch_ind >>

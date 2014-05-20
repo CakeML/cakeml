@@ -77,7 +77,7 @@ val type_v : nat -> ctMap -> tenvS -> v -> t -> bool
 val type_env : ctMap -> tenvS -> envE -> tenvE -> bool
 
 (* The type of the store *)
-val type_s : ctMap -> tenvS -> store store_v -> bool
+val type_s : ctMap -> tenvS -> store v -> bool
 
 (* An evaluation context has the second type when its hole is filled with a
  * value of the first type. *)
@@ -472,17 +472,17 @@ type_state dec_tvs ctMap senv ((envM, envC, env), s, Val v, c) t2
 val weakM_def : tenvM -> tenvM -> bool
 let weakM tenvM tenvM' =
   forall mn tenv'.
-    (lookup mn tenvM' = Just tenv')
+    (Lib.lookup mn tenvM' = Just tenv')
     -->
-    (exists tenv. (lookup mn tenvM = Just tenv) && weakE tenv tenv')
+    (exists tenv. (Lib.lookup mn tenvM = Just tenv) && weakE tenv tenv')
 
 val weakC_def : tenvC -> tenvC -> bool
 let weakC tenvC tenvC' =
   flat_weakC (snd tenvC) (snd tenvC') &&
   forall mn flat_tenvC'.
-    lookup mn (fst tenvC') = Just flat_tenvC'
+    Lib.lookup mn (fst tenvC') = Just flat_tenvC'
     -->
-    exists flat_tenvC. lookup mn (fst tenvC) = Just flat_tenvC && flat_weakC flat_tenvC flat_tenvC'
+    exists flat_tenvC. Lib.lookup mn (fst tenvC) = Just flat_tenvC && flat_weakC flat_tenvC flat_tenvC'
 
 (* The global constructor type environment has the primitive exceptions in it *)
 val ctMap_has_exns : ctMap -> bool

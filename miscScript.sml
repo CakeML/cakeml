@@ -1,4 +1,7 @@
 open HolKernel bossLib boolLib boolSimps optionTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory arithmeticTheory pairTheory sortingTheory relationTheory lcsymtacs miscLib
+
+open sptreeTheory;
+
 (* Misc. lemmas (without any compiler constants) *)
 val _ = new_theory "misc"
 
