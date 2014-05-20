@@ -179,74 +179,74 @@ val push_exc_def = Define `
             ; handler := LENGTH s.stack + 1 |> `;
 
 val pEval_def = tDefine "pEval" `
-  (pEval (Skip,s) = (Continue,s:bvp_state)) /\
+  (pEval (Skip,s) = (NONE,s:bvp_state)) /\
   (pEval (Move dest src,s) =
      case get_var src s of
-     | NONE => (Error,s)
-     | SOME v => (Continue, set_var dest v s)) /\
+     | NONE => (SOME Error,s)
+     | SOME v => (NONE, set_var dest v s)) /\
   (pEval (Assign dest op args,s) =
      case get_vars args s of
-     | NONE => (Error,s)
+     | NONE => (SOME Error,s)
      | SOME xs => (case pEvalOp op xs s of
-                   | NONE => (Error,s)
+                   | NONE => (SOME Error,s)
                    | SOME (v,s) =>
-                       (Continue, set_var dest v s))) /\
+                       (NONE, set_var dest v s))) /\
   (pEval (Tick,s) =
-     if s.clock = 0 then (TimeOut,s) else (Continue,s)) /\
+     if s.clock = 0 then (SOME TimeOut,s) else (NONE,s)) /\
   (pEval (MakeSpace k,s) =
-     (Continue,add_space s k)) /\
+     (NONE,add_space s k)) /\
   (pEval (Cut names,s) =
      case cut_env names s.locals of
-     | NONE => (Error,s)
-     | SOME env => (Continue,s with locals := env)) /\
+     | NONE => (SOME Error,s)
+     | SOME env => (NONE,s with locals := env)) /\
   (pEval (Raise n,s) =
      case get_var n s of
-     | NONE => (Error,s)
+     | NONE => (SOME Error,s)
      | SOME x =>
        (case jump_exc s of
-        | NONE => (Error,s)
-        | SOME s => (Exception x,s))) /\
+        | NONE => (SOME Error,s)
+        | SOME s => (SOME (Exception x),s))) /\
   (pEval (Return n,s) =
      case get_var n s of
-     | NONE => (Error,s)
-     | SOME x => (Result x,s)) /\
+     | NONE => (SOME Error,s)
+     | SOME x => (SOME (Result x),s)) /\
   (pEval (Seq c1 c2,s) =
      let (res,s1) = pEval (c1,s) in
-       if res = Continue then pEval (c2,check_clock s1 s) else (res,s1)) /\
+       if res = NONE then pEval (c2,check_clock s1 s) else (res,s1)) /\
   (pEval (Handle c1 v n c2,s) =
      case pEval (c1,push_exc s) of
-     | (Exception v,s1) => pEval (c2, check_clock (set_var n v s1) s)
-     | (Result _,s1) => (Error,s1)
-     | (Continue,s1) =>
+     | (SOME (Exception v),s1) => pEval (c2, check_clock (set_var n v s1) s)
+     | (SOME (Result _),s1) => (SOME Error,s1)
+     | (NONE,s1) =>
          (case (get_var v s1, pop_exc s1) of
-          | (SOME x, SOME s2) => (Continue, set_var v x s2)
-          | _ => (Error,s1))
+          | (SOME x, SOME s2) => (NONE, set_var v x s2)
+          | _ => (SOME Error,s1))
      | res => res) /\
   (pEval (If [] c1 c2,s) = pEval (c1,s)) /\
   (pEval (If (Prog p::guards) c1 c2,s) =
      case pEval (p,s) of
-     | (Continue,s1) => pEval (If guards c1 c2, check_clock s1 s)
+     | (NONE,s1) => pEval (If guards c1 c2, check_clock s1 s)
      | res => res) /\
   (pEval (If (Assert n t::guards) c1 c2,s) =
      case get_var n s of
-     | NONE => (Error,s)
+     | NONE => (SOME Error,s)
      | SOME x => if x = bool_to_val t then pEval (c1,s) else
                  if x = bool_to_val (~t) then pEval (c2,s) else
-                   (Error,s)) /\
+                   (SOME Error,s)) /\
   (pEval (Call n dest args,s) =
-     if s.clock = 0 then (TimeOut,s) else
+     if s.clock = 0 then (SOME TimeOut,s) else
        case get_vars args s of
-       | NONE => (Error,s)
+       | NONE => (SOME Error,s)
        | SOME xs =>
          (case find_code dest xs s.code of
-          | NONE => (Error,s)
+          | NONE => (SOME Error,s)
           | SOME (args1,prog) =>
             (case pEval (prog, push_env args1 (dec_clock s)) of
-             | (Result x,s) =>
+             | (SOME (Result x),s) =>
                 (case pop_env s of
-                 | NONE => (Error,s)
-                 | SOME s1 => (Continue, set_var n x s1))
-             | (Continue,s1) => (Error,s1)
+                 | NONE => (SOME Error,s)
+                 | SOME s1 => (NONE, set_var n x s1))
+             | (NONE,s1) => (SOME Error,s1)
              | res => res)))`
  (WF_REL_TAC `(inv_image (measure I LEX measure bvp_prog_size)
                             (\(xs,s). (s.clock,xs)))`
@@ -330,7 +330,10 @@ val pEval_ind = save_thm("pEval_ind",let
     \\ IMP_RES_TAC (GSYM pEval_clock)
     \\ FULL_SIMP_TAC (srw_ss()) [check_clock_thm,GSYM set_var_check_clock,
          push_exc_def])
-  in ind end);
+  val lemma = prove(
+    ``!t. bool_to_val (~t) <> bool_to_val t``,
+    Cases \\ EVAL_TAC)
+  in ind |> SIMP_RULE std_ss [lemma] end);
 
 val pEval_def = save_thm("pEval_def",let
   val tm = fetch "-" "pEval_AUX_def"
