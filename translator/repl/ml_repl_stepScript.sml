@@ -9,7 +9,8 @@ open compilerTerminationTheory inferTheory;
 open bytecodeTheory cmlParseTheory cmlPEGTheory;
 open arithmeticTheory listTheory finite_mapTheory pred_setTheory;
 
-open ml_translatorLib ml_translatorTheory std_preludeTheory;
+open ml_translatorLib ml_translatorTheory;
+open std_preludeTheory;
 
 (* translator setup *)
 
@@ -68,14 +69,14 @@ val _ = translate finite_mapTheory.FUPDATE_LIST_THM;
 
 val option_CASE_thm = prove(
   ``option_CASE x f g = case x of NONE => f | SOME y => g y``,
-  CONV_TAC (DEPTH_CONV ETA_CONV) \\ SIMP_TAC std_ss []);
+  CONV_TAC (DEPTH_CONV ETA_CONV) THEN SIMP_TAC std_ss []);
 
 val _ = translate (def_of_const ``build_exh_env``
                    |> ONCE_REWRITE_RULE [option_CASE_thm] |> RW [I_THM])
 
 val NEQ_El_pat = prove(
   ``(!n. uop <> El_pat n) = case uop of El_pat n => F | _ => T``,
-  Cases_on `uop` \\ SRW_TAC [] []);
+  Cases_on `uop` THEN SRW_TAC [] []);
 
 val _ = translate (patLangTheory.fo_pat_def |> RW [NEQ_El_pat]);
 val _ = translate patLangTheory.pure_pat_def;
@@ -85,7 +86,6 @@ val _ = translate compile_top_def;
 (* elaborator *)
 
 val _ = translate (def_of_const ``elab_top``);
-
 
 (* parsing: peg_exec and cmlPEG *)
 
@@ -432,10 +432,25 @@ val _ = translate (infer_def ``check_specs``)
 val _ = translate (infer_def ``check_signature``)
 val _ = translate (infer_def ``infer_top``)
 
-
 (* tip of translation *)
 
 val _ = translate repl_funTheory.parse_elaborate_infertype_compile_def
-val _ = translate repl_fun_altTheory.repl_step_def
+
+val init_code_def = Define `
+  init_code = SND (SND compile_primitives)`;
+
+val init_code_thm = prove(
+  ``init_code = []``,
+  cheat);
+
+val initial_repl_fun_state_thm = prove(
+  ``initial_repl_fun_state = ARB``,
+  cheat);
+
+val _ = translate init_code_thm;
+val _ = translate initial_repl_fun_state_thm;
+
+val _ = translate (repl_fun_altTheory.repl_step_def
+                   |> RW [GSYM init_code_def])
 
 val _ = export_theory();
