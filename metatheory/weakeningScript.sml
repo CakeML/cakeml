@@ -9,6 +9,8 @@ open terminationTheory;
 
 val _ = new_theory "weakening";
 
+val _ = Parse.bring_to_front_overload "lookup" {Name="lookup",Thy="lib"} 
+
 val weak_tenvE_def = Define `
 weak_tenvE tenv tenv' = 
   (num_tvs tenv ≥ num_tvs tenv' ∧

@@ -842,10 +842,10 @@ val do_app_lemma = prove(
   \\ rw []);
 
 val pmatch_lemma = prove(
-  ``(!cenv (s:store_v store) (p:pat) v env x.
+  ``(!cenv (s:v store) (p:pat) v env x.
       (pmatch cenv empty_store p v env = x) /\ x <> Match_type_error ==>
       !s. (pmatch cenv s p v env = x)) /\
-    (!cenv (s:store_v store) (p:pat list) vs env x.
+    (!cenv (s:v store) (p:pat list) vs env x.
       (pmatch_list cenv empty_store p vs env = x) /\ x <> Match_type_error ==>
       !s. (pmatch_list cenv s p vs env = x))``,
   HO_MATCH_MP_TAC pmatch_ind \\ REPEAT STRIP_TAC

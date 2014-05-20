@@ -183,7 +183,7 @@ tenvM_ok menv /\
 consistent_mod_env senv ctMap envM menv /\
 type_env ctMap senv env tenv /\
 type_funs menv tenvC (bind_var_list( 0) tenv' (bind_tvar tvs tenv)) funs tenv' /\
-(lookup n tenv' = SOME t) /\
+(lib$lookup n tenv' = SOME t) /\
 ALL_DISTINCT (MAP (\ (f,x,e) .  f) funs) /\
 MEM n (MAP (\ (f,x,e) .  f) funs))
 ==>
@@ -191,12 +191,12 @@ type_v tvs ctMap senv (Recclosure (envM, envC, env) funs n) t)
 
 /\ (! tvs cenv senv n t.
 (check_freevars( 0) [] t /\
-(lookup n senv = SOME (Ref_t t)))
+(lib$lookup n senv = SOME (Ref_t t)))
 ==>
 type_v tvs cenv senv (Loc n) (Tref t))
 
 /\ (! tvs cenv senv n.
-(lookup n senv = SOME W8array_t)
+(lib$lookup n senv = SOME W8array_t)
 ==>
 type_v tvs cenv senv (Loc n) Tword8array)
 
@@ -237,8 +237,8 @@ consistent_mod_env tenvS tenvC ((mn,env)::menv) ((mn',tenv)::tenvM))`;
 val _ = Define `
  (type_s cenv senv s =  
 (! l. 
-    ((? st. lookup l senv = SOME st) <=> (? v. store_lookup l s = SOME v)) /\
-    (! st sv. ((lookup l senv = SOME st) /\ (store_lookup l s = SOME sv)) ==> 
+    ((? st. lib$lookup l senv = SOME st) <=> (? v. store_lookup l s = SOME v)) /\
+    (! st sv. ((lib$lookup l senv = SOME st) /\ (store_lookup l s = SOME sv)) ==> 
        (case (sv,st) of
            (Refv v, Ref_t t) => type_v( 0) cenv senv v t
          | (W8array es, W8array_t) => T

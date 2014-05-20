@@ -180,7 +180,7 @@ tenvM_ok menv &&
 consistent_mod_env senv ctMap envM menv &&
 type_env ctMap senv env tenv &&
 type_funs menv tenvC (bind_var_list 0 tenv' (bind_tvar tvs tenv)) funs tenv' &&
-lookup n tenv' = Just t &&
+Lib.lookup n tenv' = Just t &&
 allDistinct (List.map (fun (f,x,e) -> f) funs) &&
 List.elem n (List.map (fun (f,x,e) -> f) funs)
 ==>
@@ -190,14 +190,14 @@ and
 
 loc1 : forall tvs cenv senv n t.
 check_freevars 0 [] t &&
-(lookup n senv = Just (Ref_t t))
+(Lib.lookup n senv = Just (Ref_t t))
 ==>
 type_v tvs cenv senv (Loc n) (Tref t)
 
 and
 
 loc2 : forall tvs cenv senv n.
-(lookup n senv = Just W8array_t)
+(Lib.lookup n senv = Just W8array_t)
 ==>
 type_v tvs cenv senv (Loc n) Tword8array
 
@@ -249,8 +249,8 @@ consistent_mod_env tenvS tenvC ((mn,env)::menv) ((mn',tenv)::tenvM)
 
 let type_s cenv senv s =
   forall l. 
-    ((exists st. lookup l senv = Just st) = (exists v. store_lookup l s = Just v)) &&
-    (forall st sv. ((lookup l senv = Just st) && (store_lookup l s = Just sv)) --> 
+    ((exists st. Lib.lookup l senv = Just st) = (exists v. store_lookup l s = Just v)) &&
+    (forall st sv. ((Lib.lookup l senv = Just st) && (store_lookup l s = Just sv)) --> 
        match (sv,st) with
          | (Refv v, Ref_t t) -> type_v 0 cenv senv v t
          | (W8array es, W8array_t) -> true
