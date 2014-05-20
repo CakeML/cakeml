@@ -676,7 +676,7 @@ val constrain_op_sub_completion = Q.prove (
  fs [success_eqns] >>
  rw [] >>
  fs [infer_st_rewrs] >>
- cheat);
+ metis_tac [sub_completion_unify2, sub_completion_unify]);
 
 val constrain_op_sound = Q.prove (
 `t_wfs st.subst ∧
