@@ -49,7 +49,7 @@ val _ = Hol_datatype `
   | Val of v`;
 
 
-val _ = type_abbrev( "state" , ``: all_env # store_v store # exp_or_val # ctxt list``);
+val _ = type_abbrev( "state" , ``: all_env # v store # exp_or_val # ctxt list``);
 
 val _ = Hol_datatype `
  e_step_result =
@@ -63,17 +63,17 @@ val _ = Hol_datatype `
  * push individual frames onto the context stack instead of finding a redex in a
  * single step *)
 
-(*val push : all_env -> store store_v -> exp -> ctxt_frame -> list ctxt -> e_step_result*)
+(*val push : all_env -> store v -> exp -> ctxt_frame -> list ctxt -> e_step_result*)
 val _ = Define `
  (push env s e c' cs = (Estep (env, s, Exp e, ((c',env)::cs))))`;
 
 
-(*val return : all_env -> store store_v -> v -> list ctxt -> e_step_result*)
+(*val return : all_env -> store v -> v -> list ctxt -> e_step_result*)
 val _ = Define `
  (return env s v c = (Estep (env, s, Val v, c)))`;
 
 
-(*val applicaiton : op -> all_env -> store store_v -> list v -> list ctxt -> e_step_result*)
+(*val applicaiton : op -> all_env -> store v -> list v -> list ctxt -> e_step_result*)
 val _ = Define `
  (application op env s vs c =  
  ((case op of
@@ -96,7 +96,7 @@ val _ = Define `
 
 
 (* apply a context to a value *)
-(*val continue : store store_v -> v -> list ctxt -> e_step_result*)
+(*val continue : store v -> v -> list ctxt -> e_step_result*)
 val _ = Define `
  (continue s v cs =  
 ((case cs of
@@ -214,7 +214,7 @@ val _ = Define `
 (* Define a semantic function using the steps *)
 
 (*val e_step_reln : state -> state -> bool*)
-(*val small_eval : all_env -> store store_v -> exp -> list ctxt -> store store_v * result v v -> bool*)
+(*val small_eval : all_env -> store v -> exp -> list ctxt -> store v * result v v -> bool*)
 
 val _ = Define `
  (e_step_reln st1 st2 =
@@ -237,7 +237,7 @@ val _ = Define `
 (small_eval env s e c (s', Rerr Rtimeout_error) = F)`;
 
 
-(*val e_diverges : all_env -> store store_v -> exp -> bool*)
+(*val e_diverges : all_env -> store v -> exp -> bool*)
 val _ = Define `
  (e_diverges env s e =  
 (! env' s' e' c'.

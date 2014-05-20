@@ -89,18 +89,18 @@ val _ = Hol_datatype `
 
 (* Stores *)
 val _ = Hol_datatype `
- store_v = Refv of v | W8array of word8 list`;
+ store_v = Refv of 'a | W8array of word8 list`;
 
 
 (* The nth item in the list is the value at location n *)
-val _ = type_abbrev((*  'a *) "store" , ``: 'a list``);
+val _ = type_abbrev((*  'a *) "store" , ``: ( 'a store_v) list``);
 
 (*val empty_store : forall 'a. store 'a*)
 val _ = Define `
  (empty_store = ([]))`;
 
 
-(*val store_lookup : forall 'a. nat -> store 'a -> maybe 'a*)
+(*val store_lookup : forall 'a. nat -> store 'a -> maybe (store_v 'a)*)
 val _ = Define `
  (store_lookup l st =  
 (if l < LENGTH st then
@@ -109,13 +109,13 @@ val _ = Define `
     NONE))`;
 
 
-(*val store_alloc : forall 'a. 'a -> store 'a -> store 'a * nat*)
+(*val store_alloc : forall 'a. store_v 'a -> store 'a -> store 'a * nat*)
 val _ = Define `
  (store_alloc v st =
   ((st ++ [v]), LENGTH st))`;
 
 
-(*val store_assign : forall 'a. nat -> 'a -> store 'a -> maybe (store 'a)*)
+(*val store_assign : forall 'a. nat -> store_v 'a -> store 'a -> maybe (store 'a)*)
 val _ = Define `
  (store_assign n v st =  
 (if n < LENGTH st then
@@ -220,7 +220,7 @@ val _ = Hol_datatype `
  * number of arguments, and constructors in corresponding positions in the
  * pattern and value come from the same type.  Match_type_error is returned
  * when one of these conditions is violated *)
-(*val pmatch : envC -> store store_v -> pat -> v -> envE -> match_result envE*)
+(*val pmatch : envC -> store v -> pat -> v -> envE -> match_result envE*)
  val pmatch_defn = Hol_defn "pmatch" `
 
 (pmatch envC s (Pvar x) v' env = (Match (bind x v' env)))
@@ -386,7 +386,7 @@ val _ = Define `
   )))`;
 
 
-(*val do_app : store store_v -> op -> list v -> maybe (store store_v * result v v)*)
+(*val do_app : store v -> op -> list v -> maybe (store v * result v v)*)
 val _ = Define `
  (do_app s op vs =  
 ((case (op, vs) of
