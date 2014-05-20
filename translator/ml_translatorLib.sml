@@ -72,6 +72,11 @@ fun MY_MP name th1 th2 =
       val _ = print "\n\n"
     in raise e end
 
+fun quiet_auto_prove (goal,tac) = let
+  val (rest,validation) = tac ([],goal) handle Empty => fail()
+  in if length rest = 0 then validation [] else let
+  in failwith "quiet_auto_prove failed" end end
+
 fun auto_prove proof_name (goal,tac) = let
   val (rest,validation) = tac ([],goal) handle Empty => fail()
   in if length rest = 0 then validation [] else let
@@ -749,7 +754,7 @@ fun get_nchotomy_of ty = let (* ensures that good variables names are used *)
     val tm = list_mk_exists(rev (free_vars new_x), mk_eq(x_var,new_x))
     in tm :: mk_lines xs end
   val goal = mk_forall(x_var,list_mk_disj (rev (mk_lines xs)))
-  val lemma = prove(goal,
+  val lemma = quiet_auto_prove(goal,
     STRIP_TAC \\ STRIP_ASSUME_TAC (Q.SPEC `x` case_th)
     \\ FULL_SIMP_TAC (srw_ss()) []);
   in lemma end
@@ -767,7 +772,7 @@ fun find_mutrec_types ty = let (* e.g. input ``:v`` gives [``:exp``,``:v``]  *)
 
 (*
 
-val pair_SIMP = prove(
+val pair_SIMP = quiet_auto_prove(
   ``!x. pair f1 f2 x v = pair (\y. if y = FST x then f1 y else ARB)
                               (\y. if y = SND x then f2 y else ARB) x v``,
   Cases \\ FULL_SIMP_TAC std_ss [fetch "-" "pair_def"]);
@@ -827,7 +832,7 @@ fun derive_record_specific_thms ty = let
     val rhs = mk_comb(mk_comb(inst i case_tm,v),f)
     val lhs = mk_comb(a,v)
     val goal = mk_forall(v,mk_eq(lhs,rhs))
-    val lemma = prove(goal,Cases THEN SRW_TAC [] [])
+    val lemma = quiet_auto_prove(goal,Cases THEN SRW_TAC [] [])
     in lemma end
   val a_lemmas = map prove_accessor_eq (zip access_funs xs)
   fun prove_updates_eq (a,x) = let
@@ -842,12 +847,12 @@ fun derive_record_specific_thms ty = let
     val lhs = mk_comb(mk_comb(a,g),v)
     val goal = mk_forall(v,mk_forall(g,mk_eq(lhs,rhs)))
     val tac = Cases THEN SRW_TAC [] [DB.fetch thy_name (ty_name ^ "_fn_updates")]
-    in prove(goal,tac) end
+    in quiet_auto_prove(goal,tac) end
   val b_lemmas = map prove_updates_eq (zip update_funs xs)
   val arb = mk_arb(type_of tm)
   val tm2 = foldr (fn ((a,x),y) => mk_comb(``^a (K ^x)``,y)) arb (zip update_funs xs)
   val goal = mk_eq(tm2,tm)
-  val rw_lemma = prove(goal,SRW_TAC []
+  val rw_lemma = quiet_auto_prove(goal,SRW_TAC []
     [DB.fetch thy_name (ty_name ^ "_component_equality")])
   val rw_lemmas = CONJ (DB.fetch thy_name (ty_name ^ "_fupdcanon")) rw_lemma
   in (a_lemmas @ b_lemmas, [rw_lemmas]) end;
@@ -868,7 +873,7 @@ fun list_lemma () = let
   val list_def = LIST_CONJ [
     EVAL ``LIST_TYPE (a:('a -> v -> bool)) [] v``,
     EVAL ``LIST_TYPE (a:('a -> v -> bool)) (x::xs) v``]
-  val LIST_TYPE_SIMP = prove(
+  val LIST_TYPE_SIMP = quiet_auto_prove(
     ``!xs b. CONTAINER LIST_TYPE (\x v. if b x \/ MEM x xs then p x v else ARB) xs = LIST_TYPE (p:('a -> v -> bool)) xs``,
     Induct THEN FULL_SIMP_TAC std_ss [FUN_EQ_THM,list_def,MEM,DISJ_ASSOC,CONTAINER_def])
     |> Q.SPECL [`xs`,`\x.F`] |> SIMP_RULE std_ss [] |> GSYM;
@@ -879,7 +884,7 @@ fun pair_lemma () = let
           orelse failwith("PAIR_TYPE not yet defined.")
   val pair_def = LIST_CONJ [
     EVAL ``PAIR_TYPE (a:('a -> v -> bool)) (b:('b -> v -> bool)) (x,y) v``]
-  val PAIR_TYPE_SIMP = prove(
+  val PAIR_TYPE_SIMP = quiet_auto_prove(
     ``!x. CONTAINER PAIR_TYPE (\y v. if y = FST x then a y v else ARB)
                               (\y v. if y = SND x then b y v else ARB) x =
           PAIR_TYPE (a:('a -> v -> bool)) (b:('b -> v -> bool)) x``,
@@ -1250,7 +1255,7 @@ fun derive_thms_for_type ty = let
            ((Pcon xx pats,exp2)::pats2) errv (yyy,Rval y)``
       |> (ONCE_REWRITE_CONV [evaluate_cases] THENC
           SIMP_CONV (srw_ss()) [pmatch_def])
-    val evaluate_match_rw = prove(
+    val evaluate_match_rw = quiet_auto_prove(
       ``evaluate_match c (menv,cenv,env) (e1,e2) args
           ((Pcon xx pats,exp2)::pats2) errv (yyy,Rval y) <=>
         ALL_DISTINCT (pat_bindings (Pcon xx pats) []) /\
@@ -1266,8 +1271,8 @@ fun derive_thms_for_type ty = let
         |> SIMP_RULE std_ss []]
       \\ Cases_on `pmatch cenv e2 (Pcon xx pats) args env`
       \\ FULL_SIMP_TAC (srw_ss()) []);
-    val IF_T = prove(``(if T then x else y) = x:'a``,SIMP_TAC std_ss []);
-    val IF_F = prove(``(if F then x else y) = y:'a``,SIMP_TAC std_ss []);
+    val IF_T = quiet_auto_prove(``(if T then x else y) = x:'a``,SIMP_TAC std_ss []);
+    val IF_F = quiet_auto_prove(``(if F then x else y) = y:'a``,SIMP_TAC std_ss []);
     fun print_tac s g = (print s; ALL_TAC g)
     val _ = print "Case translation:"
     val init_tac =
@@ -1337,7 +1342,7 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
     fun add_primes str 0 = []
       | add_primes str n = mk_var(str,``:v``) :: add_primes (str ^ "'") (n-1)
     val witness = listSyntax.mk_list(add_primes "res" (length xs),``:v``)
-    val lemma = prove(goal,
+    val lemma = quiet_auto_prove(goal,
       SIMP_TAC std_ss [Eval_def] \\ REPEAT STRIP_TAC
       \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) [PULL_EXISTS]
       \\ PairCases_on `env`
@@ -1476,7 +1481,7 @@ fun inst_case_thm_for tm = let
   val th = MP th TRUTH
   in th end;
 
-val sat_hyp_lemma = prove(
+val sat_hyp_lemma = quiet_auto_prove(
   ``(b1 ==> (x1 = x2)) /\ (x1 ==> y) ==> b1 /\ x2 ==> y``,
   Cases_on `b1` \\ Cases_on `x1` \\ Cases_on `x2` \\ Cases_on `y` \\ EVAL_TAC);
 
@@ -1606,7 +1611,7 @@ fun single_line_def def = let
       val pre_tm = pattern_complete def vs
       in pre_tm end
   val goal = mk_imp(pre_tm,goal)
-  val lemma = prove(goal,
+  val lemma = quiet_auto_prove(goal,
     SIMP_TAC std_ss [FUN_EQ_THM,FORALL_PROD,GSYM rw]
     \\ REPEAT STRIP_TAC
     \\ CONV_TAC (BINOP_CONV (REWR_CONV (GSYM CONTAINER_def)))
@@ -1653,7 +1658,7 @@ fun single_line_def def = let
   val goal = subst (map (fn v => v |-> ``():unit``) vs) goal
   val goal = subst [mk_comb(c1,``():unit``)|->const] goal
   val goal = mk_imp(pre_tm,goal)
-  val lemma = prove(goal,
+  val lemma = quiet_auto_prove(goal,
     SIMP_TAC std_ss [FUN_EQ_THM,FORALL_PROD,TRUE_def,FALSE_def] \\ SRW_TAC [] []
     \\ BasicProvers.EVERY_CASE_TAC
     \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [def]))
@@ -1675,7 +1680,7 @@ fun remove_pair_abs def = let
     val v = hd (rev (free_vars p)) |> dest_var |> fst
     val v = mk_var(v,type_of p)
     val goal = mk_eq(subst [p|->v] lhs,mk_comb(pairSyntax.mk_pabs(p,rhs),v))
-    val lemma = prove(goal,
+    val lemma = quiet_auto_prove(goal,
       SPEC_TAC (v,v) \\ FULL_SIMP_TAC std_ss [FORALL_PROD]
       \\ SIMP_TAC std_ss [Once def]);
     in delete_pair_arg lemma end handle HOL_ERR _ => def
@@ -1724,7 +1729,7 @@ fun split_let_and_conv tm = let
   val b2 = subst (map (fn (x,y,_) => x |-> y) ys) b
   val tm2 = foldr (fn ((x,y,z),b) => pairSyntax.mk_anylet([(y,z)],b)) b2 ys
   val goal = mk_eq(tm,tm2)
-  val lemma = prove(goal, REWRITE_TAC [LET_THM] (* potentially bad *)
+  val lemma = quiet_auto_prove(goal, REWRITE_TAC [LET_THM] (* potentially bad *)
                           THEN CONV_TAC (DEPTH_CONV BETA_CONV)
                           THEN REWRITE_TAC [])
   in lemma end handle HOL_ERR _ => NO_CONV tm;
@@ -1802,7 +1807,7 @@ fun get_induction_for_def def = let
   val goal1 = ind |> concl |> dest_imp |> snd
   val goal2 = list_mk_conj (map (fst o snd) res)
   val goal = mk_imp(goal1,goal2)
-  val lemma = prove(goal, REPEAT STRIP_TAC THEN ASM_REWRITE_TAC [])
+  val lemma = quiet_auto_prove(goal, REPEAT STRIP_TAC THEN ASM_REWRITE_TAC [])
   val ind = MP lemma (ind |> UNDISCH_ALL) |> DISCH_ALL
             |> GENL (map fst res)
   in ind end handle HOL_ERR _ =>
@@ -1864,7 +1869,7 @@ mk_thm([],goal) |> SPEC_ALL |> CONJUNCTS |> map concl
 goals  |> filter (can (find_term is_arb))
 *)
   val _ = not (can (find_term is_arb) goal) orelse failwith "requires precondition"
-  val lemma1 = prove(goal,
+  val lemma1 = quiet_auto_prove(goal,
     REPEAT STRIP_TAC THEN CONV_TAC (DEPTH_CONV BETA_CONV)
     THEN CONV_TAC (RATOR_CONV (PURE_ONCE_REWRITE_CONV [def]))
     THEN SIMP_TAC (srw_ss()) [])
@@ -1908,8 +1913,8 @@ val AUTO_ETA_EXPAND_CONV = let (* ``K ($=) --> K (\x y. x = y)`` *)
   in aux 0 end
 
 local
-  val l1 = prove(``~b ==> (b = F)``,REWRITE_TAC [])
-  val l2 = prove(``b ==> (b = T)``,REWRITE_TAC [])
+  val l1 = quiet_auto_prove(``~b ==> (b = F)``,REWRITE_TAC [])
+  val l2 = quiet_auto_prove(``b ==> (b = T)``,REWRITE_TAC [])
 in
   fun force_eqns def = let
     fun f th = if is_eq (concl (SPEC_ALL th)) then th else
@@ -2138,7 +2143,7 @@ fun rm_fix res = let
 val MAP_pattern = ``MAP (f:'a->'b)``
 val is_precond = can (match_term ``PRECONDITION b``)
 
-val IF_TAKEN = prove(
+val IF_TAKEN = quiet_auto_prove(
   ``!b x y. b ==> ((if b then x else y) = x:'unlikely)``, SIMP_TAC std_ss []);
 
 val Num_ABS_pat = Eval_Num_ABS |> concl |> rand |> rand |> rand
@@ -2304,14 +2309,14 @@ fun hol2deep tm =
     val list_type_def = LIST_CONJ [
       EVAL ``LIST_TYPE (a:('a -> v -> bool)) [] v``,
       EVAL ``LIST_TYPE (a:('a -> v -> bool)) (x::xs) v``]
-    val LIST_TYPE_And = prove(
+    val LIST_TYPE_And = quiet_auto_prove(
      ``LIST_TYPE (And a P) = And (LIST_TYPE a) (EVERY (P:'a->bool))``,
      SIMP_TAC std_ss [FUN_EQ_THM,And_def] \\ Induct
      \\ FULL_SIMP_TAC std_ss [MEM,list_type_def]
      \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
      \\ FULL_SIMP_TAC (srw_ss()) [And_def])
     val thi = RW [LIST_TYPE_And] thi
-    val EVERY_MEM_CONTAINER = prove(
+    val EVERY_MEM_CONTAINER = quiet_auto_prove(
       ``!P l. EVERY P l <=> !e. CONTAINER (MEM e l) ==> P (e:'a)``,
       SIMP_TAC std_ss [EVERY_MEM,CONTAINER_def]);
     val thi = MATCH_MP And_IMP_Eq thi
@@ -2336,7 +2341,7 @@ fun hol2deep tm =
   if is_arb tm then let
     val inv = get_type_inv (type_of tm)
     val goal = ``PRECONDITION F ==> Eval env (Raise (Con(SOME(Short"Bind"))[])) (^inv ^tm)``
-    val result = prove(goal,SIMP_TAC std_ss [PRECONDITION_def]) |> UNDISCH
+    val result = quiet_auto_prove(goal,SIMP_TAC std_ss [PRECONDITION_def]) |> UNDISCH
     in check_inv "arb" tm result end
   else raise (UnableToTranslate tm)
 
@@ -2348,12 +2353,12 @@ fun hol2val tm = let
 
 (* collect precondition *)
 
-val PRECONDITION_EQ_CONTAINER = prove(
+val PRECONDITION_EQ_CONTAINER = quiet_auto_prove(
   ``(PRECONDITION p = CONTAINER p) /\
     (CONTAINER ~p = ~CONTAINER p) /\ CONTAINER T``,
   EVAL_TAC);
 
-val CONTAINER_NOT_ZERO = prove(
+val CONTAINER_NOT_ZERO = quiet_auto_prove(
   ``!P. (~(CONTAINER (b = 0)) ==> P b) =
         !n. (CONTAINER (b = SUC n)) ==> P (SUC n:num)``,
   REPEAT STRIP_TAC THEN Cases_on `b`
@@ -2402,28 +2407,28 @@ fun extract_precondition_non_rec th pre_var =
     val pre_def = clean_precondition pre_def
     in (th,SOME pre_def) end end
 
-val IMP_PreImp_LEMMA = prove(
+val IMP_PreImp_LEMMA = quiet_auto_prove(
   ``!b1 b2 b3. (b1 ==> b3 ==> b2) ==> b3 ==> PreImp b1 b2``,
   REPEAT Cases THEN REWRITE_TAC [PreImp_def,PRECONDITION_def]);
 
 local
-  val PRE_IMP = prove(``T /\ PRECONDITION b ==> PRECONDITION b``,EVAL_TAC)
-  val PreImp_IMP = prove(``PreImp b1 b2 /\ T ==> PreImp b1 b2``,EVAL_TAC)
-  val CONJ_IMP = prove(
+  val PRE_IMP = quiet_auto_prove(``T /\ PRECONDITION b ==> PRECONDITION b``,EVAL_TAC)
+  val PreImp_IMP = quiet_auto_prove(``PreImp b1 b2 /\ T ==> PreImp b1 b2``,EVAL_TAC)
+  val CONJ_IMP = quiet_auto_prove(
     ``!b1 b2 b12 b3 b4 b34.
         (b1 /\ b2 ==> b12) /\ (b3 /\ b4 ==> b34) ==>
         ((b1 /\ b3) /\ (b2 /\ b4) ==> b12 /\ b34)``,
       REPEAT Cases THEN EVAL_TAC) |> SPEC_ALL;
-  val IMP_SPLIT = prove(
+  val IMP_SPLIT = quiet_auto_prove(
     ``!b12 b3 b4 b34.
         (b12 = b12) /\ (b3 /\ b4 ==> b34) ==>
         ((b12 ==> b3) /\ (b12 ==> b4) ==> (b12 ==> b34))``,
     REPEAT Cases THEN EVAL_TAC) |> SPEC_ALL;
-  val FORALL_SPLIT = prove(
+  val FORALL_SPLIT = quiet_auto_prove(
     ``(!x. P1 x /\ P2 x ==> P (x:'a)) ==>
       ($! P1 ) /\ ($! P2 ) ==> $! P ``,
     FULL_SIMP_TAC std_ss [FORALL_THM]);
-  val DEFAULT_IMP = prove(``!b1. b1 /\ b1 ==> b1``,SIMP_TAC std_ss []);
+  val DEFAULT_IMP = quiet_auto_prove(``!b1. b1 /\ b1 ==> b1``,SIMP_TAC std_ss []);
 in
   fun derive_split tm =
     if can (match_term (PRE_IMP |> concl |> rand)) tm then let
@@ -2489,7 +2494,7 @@ val (fname,def,th) = hd thms
                                 (RATOR_CONV o RAND_CONV) (REWRITE_CONV []))
       in (fname,def,th5,NONE) end
     in map remove_pre_var thms end else let
-  val combine_lemma = prove(
+  val combine_lemma = quiet_auto_prove(
     ``!b1 b2 b3 b4. (b1 /\ b2 ==> b3) /\ (b3 ==> b4) ==> b2 ==> b1 ==> b4``,
     REPEAT Cases THEN SIMP_TAC std_ss [])
 
@@ -2589,11 +2594,11 @@ fun abbrev_code (fname,def,th,v) = let
 val find_def_for_const =
   ref ((fn const => raise UnableToTranslate const) : term -> thm);
 
-val IMP_PreImp_THM = prove(
+val IMP_PreImp_THM = quiet_auto_prove(
   ``(b ==> PreImp x y) ==> ((x ==> b) ==> PreImp x y)``,
   Cases_on `b` \\ FULL_SIMP_TAC std_ss [PreImp_def,PRECONDITION_def]);
 
-val PreImp_IMP = prove(
+val PreImp_IMP = quiet_auto_prove(
   ``(PRECONDITION x ==> PreImp x y) ==> PreImp x y``,
   SIMP_TAC std_ss [PreImp_def]);
 
@@ -2601,8 +2606,9 @@ fun force_thm_the (SOME x) = x | force_thm_the NONE = TRUTH
 
 local
   val lookup_cons_pat = ``lookup_cons cname env = SOME x``
-  val imp_lemma = prove(``(f x = y) ==> !z. (f x = f z) ==> ((f:'a->'b) z = y)``,
-                        REPEAT STRIP_TAC THEN FULL_SIMP_TAC bool_ss [])
+  val imp_lemma = quiet_auto_prove(
+                    ``(f x = y) ==> !z. (f x = f z) ==> ((f:'a->'b) z = y)``,
+                    REPEAT STRIP_TAC THEN FULL_SIMP_TAC bool_ss [])
 in
   fun clean_lookup_cons th = let
     val tms = find_terms (can (match_term lookup_cons_pat)) (concl th)
