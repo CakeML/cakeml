@@ -38,7 +38,7 @@ val _ = Define `
 (<| next_global :=( 0)
    ; globals_env := (FEMPTY, FEMPTY)
    ; contags_env := init_tagenv_state
-   ; exh := (FEMPTY |+ ((Short"option"), [some_tag; none_tag]))
+   ; exh := (FEMPTY |+ ((Short"option"), (insert some_tag ()  (insert none_tag ()  LN))))
    ; rnext_label :=( 0)
    |>))`;
 

@@ -25,7 +25,7 @@ let init_compiler_state =
   <| next_global = 0
    ; globals_env = (Map.empty, Map.empty)
    ; contags_env = init_tagenv_state
-   ; exh = Map.insert (Short"option") [some_tag; none_tag] Map.empty
+   ; exh = Map.insert (Short"option") (nat_set_insert (nat_set_insert nat_set_empty none_tag) some_tag) Map.empty
    ; rnext_label = 0
    |>
 
