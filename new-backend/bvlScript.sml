@@ -2,9 +2,12 @@ open HolKernel Parse boolLib bossLib; val _ = new_theory "bvl";
 
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
-open bytecodeTheory;
+open bytecodeTheory sptreeTheory;
 
 infix \\ val op \\ = op THEN;
+
+val _ = type_abbrev("num_map",``:'a spt``);
+val _ = type_abbrev("num_set",``:unit spt``);
 
 (* BVL = bytecode-value language *)
 
@@ -68,16 +71,16 @@ val _ = Datatype `
 
 val _ = Datatype `
   bvl_state =
-    <| globals : num |-> bc_value
-     ; refs    : num |-> bc_value
+    <| globals : bc_value num_map
+     ; refs    : bc_value num_map
      ; clock   : num
-     ; code    : num |-> (num # bvl_exp # num)
+     ; code    : (num # bvl_exp # num) num_map
      ; output  : string |> `
 
 val bEvalOp_def = Define `
   bEvalOp op vs (s:bvl_state) =
     case (op,vs) of
-    | (Global n,[]) => (case FLOOKUP s.globals n of
+    | (Global n,[]) => (case lookup n s.globals of
                         | SOME v => SOME (v,s)
                         | NONE => NONE)
     | (Add,[Number n1; Number n2]) => SOME (Number (n1 + n2),s)
@@ -92,13 +95,13 @@ val dec_clock_def = Define `
 
 val find_loc_def = Define `
   find_loc loc code =
-    if (?x p. FLOOKUP code p = SOME (loc,x))
-    then SOME (@x. ?p. FLOOKUP code p = SOME (loc,x))
+    if (?x p. lookup p code = SOME (loc,x))
+    then SOME (@x. ?p. lookup p code = SOME (loc,x))
     else NONE`
 
 val find_code_def = Define `
   (find_code (SOME p) args code =
-     case FLOOKUP code p of
+     case lookup p code of
      | NONE => NONE
      | SOME (_,exp,arity) => if LENGTH args = arity then SOME (args,exp)
                                                     else NONE) /\

@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib; val _ = new_theory "bvp";
 
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
-open bytecodeTheory bvlTheory;
+open bytecodeTheory bvlTheory sptreeTheory;
 
 infix \\ val op \\ = op THEN;
 
@@ -39,7 +39,7 @@ val _ = Datatype `
            | Seq bvp_prog bvp_prog
            | If (bvp_if list) bvp_prog bvp_prog
            | MakeSpace num
-           | Cut (num list)
+           | Cut num_set
            | Raise num
            | Return num
            | Handle bvp_prog num num bvp_prog
@@ -50,17 +50,17 @@ val _ = Datatype `
 (* --- Semantics of BVP --- *)
 
 val _ = Datatype `
-  bvp_st = Env (num |-> bc_value) | Exc num `;
+  bvp_st = Env (bc_value num_map) | Exc num `;
 
 val _ = Datatype `
   bvp_state =
-    <| globals : num |-> bc_value
-     ; locals  : num |-> bc_value
+    <| globals : bc_value num_map
+     ; locals  : bc_value num_map
      ; stack   : bvp_st list
      ; handler : num
-     ; refs    : num |-> bc_value
+     ; refs    : bc_value num_map
      ; clock   : num
-     ; code    : num |-> (num # bvp_prog # num)
+     ; code    : (num # bvp_prog # num) num_map
      ; output  : string
      ; space   : num |> `
 
@@ -69,7 +69,7 @@ val bvp_to_bvl_def = Define `
     <| globals := s.globals
      ; refs := s.refs
      ; clock := s.clock
-     ; code := FEMPTY
+     ; code := LN
      ; output := s.output |>`;
 
 val bvl_to_bvp_def = Define `
@@ -113,12 +113,13 @@ val add_space_def = Define `
   add_space s k = s with space := s.space + k`;
 
 val cut_env_def = Define `
-  cut_env names env =
-    if set names SUBSET FDOM env then SOME (DRESTRICT env (set names))
+  cut_env name_set env =
+    if domain name_set SUBSET domain env
+    then SOME (inter env name_set)
     else NONE`
 
 val get_var_def = Define `
-  get_var v s = FLOOKUP s.locals v`;
+  get_var v s = lookup v s.locals`;
 
 val get_vars_def = Define `
   (get_vars [] s = SOME []) /\
@@ -130,7 +131,7 @@ val get_vars_def = Define `
                   | SOME xs => SOME (x::xs)))`;
 
 val set_var_def = Define `
-  set_var v x s = (s with locals := (s.locals |+ (v,x)))`;
+  set_var v x s = (s with locals := (insert v x s.locals))`;
 
 val check_clock_def = Define `
   check_clock (s1:bvp_state) (s2:bvp_state) =
@@ -148,7 +149,7 @@ val check_clock_lemma = prove(
 
 val push_env_def = Define `
   push_env args s =
-    s with <| locals := FEMPTY |++ ZIP (GENLIST I (LENGTH args), args)
+    s with <| locals := fromList args
             ; stack := Env s.locals :: s.stack |>`;
 
 val pop_env_def = Define `
