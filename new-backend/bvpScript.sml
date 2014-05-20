@@ -31,28 +31,28 @@ infix \\ val op \\ = op THEN;
 
 (* --- Syntax of BVP --- *)
 
-val _ = Hol_datatype `
+val _ = Datatype `
   bvp_prog = Skip
-           | Move of num => num
-           | Call of num => num option => num list
-           | Assign of num => bvl_op => num list
-           | Seq of bvp_prog => bvp_prog
-           | If of bvp_if list => bvp_prog => bvp_prog
-           | MakeSpace of num
-           | Cut of num list
-           | Raise of num
-           | Return of num
-           | Handle of bvp_prog => num => num => bvp_prog
+           | Move num num
+           | Call num (num option) (num list)
+           | Assign num bvl_op (num list)
+           | Seq bvp_prog bvp_prog
+           | If (bvp_if list) bvp_prog bvp_prog
+           | MakeSpace num
+           | Cut (num list)
+           | Raise num
+           | Return num
+           | Handle bvp_prog num num bvp_prog
            | Tick ;
-  bvp_if   = Prog of bvp_prog
-           | Assert of num => bool`
+  bvp_if   = Prog bvp_prog
+           | Assert num bool`
 
 (* --- Semantics of BVP --- *)
 
 val _ = Datatype `
   bvp_st = Env (num |-> bc_value) | Exc num `;
 
-val _ = Hol_datatype `
+val _ = Datatype `
   bvp_state =
     <| globals : num |-> bc_value
      ; locals  : num |-> bc_value

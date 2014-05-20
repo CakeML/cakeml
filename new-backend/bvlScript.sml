@@ -26,10 +26,10 @@ infix \\ val op \\ = op THEN;
 (* All operations that are uninteresting from a control-flow
    and binding perspective are lumped together in bvl_op. *)
 
-val _ = Hol_datatype `
-  bvl_op = Global of num
-         | Cons of num
-         | El of num
+val _ = Datatype `
+  bvl_op = Global num
+         | Cons num
+         | El num
          | Add
          | Sub
          (* This list is incomplete *)
@@ -48,25 +48,25 @@ val _ = Hol_datatype `
    case of NONE, the last bvl_exp in the argument list must evaluate
    to a CodePointer. *)
 
-val _ = Hol_datatype `
-  bvl_exp = Var of num
-          | If of bvl_exp => bvl_exp => bvl_exp
-          | Let of bvl_exp list => bvl_exp
-          | Raise of bvl_exp
-          | Handle of bvl_exp => bvl_exp
-          | Tick of bvl_exp
-          | Call of num option => bvl_exp list
-          | Op of bvl_op => bvl_exp list `
+val _ = Datatype `
+  bvl_exp = Var num
+          | If bvl_exp bvl_exp bvl_exp
+          | Let (bvl_exp list) bvl_exp
+          | Raise bvl_exp
+          | Handle bvl_exp bvl_exp
+          | Tick bvl_exp
+          | Call (num option) (bvl_exp list)
+          | Op bvl_op (bvl_exp list) `
 
 (* --- Semantics of BVL --- *)
 
-val _ = Hol_datatype `
-  bvl_result = Result of 'a
-             | Exception of bc_value
+val _ = Datatype `
+  bvl_result = Result 'a
+             | Exception bc_value
              | TimeOut
              | Error `
 
-val _ = Hol_datatype `
+val _ = Datatype `
   bvl_state =
     <| globals : num |-> bc_value
      ; refs    : num |-> bc_value
