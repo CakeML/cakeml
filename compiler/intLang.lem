@@ -125,18 +125,19 @@ CevalPrim2 CEq = fun v1 v2 ->
 let rec
 CevalUpd s (CLoc n) (v:Cv) =
   if n < List.length s
-  then (List.update s n v, Rval (CLitv Unit))
+  then (List.update s n (Refv v), Rval (CLitv Unit))
   else (s, Rerr Rtype_error)
 and
 CevalUpd s _ _ = (s, Rerr Rtype_error)
 
+val CevalPrim1 : Cprim1 -> store_genv Cv -> Cv -> store_genv Cv * result Cv Cv
 let rec
-CevalPrim1 CRef (s,g) v = ((s++[v],g), Rval (CLoc (List.length s)))
+CevalPrim1 CRef (s,g) v = ((s++[Refv v],g), Rval (CLoc (List.length s)))
 and
 CevalPrim1 CDer (s,g) (CLoc n) =
   ((s,g), match el_check n s with
-      | Nothing -> Rerr Rtype_error
-      | Just v -> Rval v
+      | Just (Refv v) -> Rval v
+      | _ -> Rerr Rtype_error
       end)
 and
 CevalPrim1 CIsBlock sg (CLitv l) =
