@@ -530,7 +530,7 @@ evaluate_exh ck env s1 (App_exh (Op_i2 Opapp) es) (s2, Rerr Rtype_error)
 
 and
 
-app4 : forall ck env op es vs res s1 s2 s3 count.
+app4 : forall ck env s1 op es s2 vs s3 res.
 evaluate_list_exh ck env s1 es (s2, Rval vs) &&
 do_app_exh s2 op vs = Just (s3, res) &&
 op <> Op_i2 Opapp
@@ -539,7 +539,7 @@ evaluate_exh ck env s1 (App_exh op es) (s3, res)
 
 and
 
-app5 : forall ck env op es vs s1 s2 count.
+app5 : forall ck env s1 op es s2 vs.
 evaluate_list_exh ck env s1 es (s2, Rval vs) &&
 do_app_exh s2 op vs = Nothing &&
 op <> Op_i2 Opapp
@@ -548,7 +548,7 @@ evaluate_exh ck env s1 (App_exh op es) (s2, Rerr Rtype_error)
 
 and
 
-app6 : forall ck env op es err s1 s2.
+app6 : forall ck env s1 op es s2 err.
 evaluate_list_exh ck env s1 es (s2, Rerr err)
 ==>
 evaluate_exh ck env s1 (App_exh op es) (s2, Rerr err)
