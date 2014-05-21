@@ -35,7 +35,6 @@ val () = computeLib.add_thms
   ,compilerLibTheory.el_check_def
   ,compilerLibTheory.the_def
   ,compilerLibTheory.num_fold_def
-  ,listTheory.MAP2_def
   ] compset
 (* semantics *)
 val () = computeLib.add_thms
