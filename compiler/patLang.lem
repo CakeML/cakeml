@@ -26,10 +26,8 @@ declare hol target_rep function find_index = `misc$find_index` (* to pick up the
 (* TODO: move *)
 type store_genv 'a = store 'a * list (maybe 'a)
 
-type uop_pat =
-  | Opderef_pat
-  | Opref_pat
-  | Init_global_var_pat of nat
+type op_pat =
+  | Op_pat of op_i2
   | Tag_eq_pat of nat
   | El_pat of nat
 
@@ -41,8 +39,7 @@ type exp_pat =
   | Var_local_pat of nat
   | Var_global_pat of nat
   | Fun_pat of exp_pat
-  | Uapp_pat of uop_pat * exp_pat
-  | App_pat of op * exp_pat * exp_pat
+  | App_pat of op_pat * list exp_pat
   | If_pat of exp_pat * exp_pat * exp_pat
   | Let_pat of exp_pat * exp_pat
   | Seq_pat of exp_pat * exp_pat
@@ -55,14 +52,6 @@ type v_pat =
   | Closure_pat of list v_pat * exp_pat
   | Recclosure_pat of list v_pat * list exp_pat * nat
   | Loc_pat of nat
-
-val uop_to_pat : uop_i2 -> uop_pat
-let rec
-uop_to_pat Opderef_i2 = Opderef_pat
-and
-uop_to_pat Opref_i2 = Opref_pat
-and
-uop_to_pat (Init_global_var_i2 n) = Init_global_var_pat n
 
 val sIf_pat : exp_pat -> exp_pat -> exp_pat -> exp_pat
 let
@@ -89,9 +78,10 @@ fo_pat (Var_global_pat _) = false
 and
 fo_pat (Fun_pat _) = false
 and
-fo_pat (Uapp_pat uop _) = uop <> Opderef_pat && (forall n. uop <> El_pat n)
-and
-fo_pat (App_pat op _ _) = op <> Opapp
+fo_pat (App_pat op _) =
+  op <> (Op_pat (Op_i2 Opapp)) &&
+  op <> (Op_pat (Op_i2 Opderef)) &&
+  (forall n. op <> El_pat n)
 and
 fo_pat (If_pat _ e2 e3) = fo_pat e2 && fo_pat e3
 and
@@ -109,29 +99,27 @@ fo_list_pat (e::es) = fo_pat e && fo_list_pat es
 declare termination_argument fo_pat = automatic
 declare termination_argument fo_list_pat = automatic
 
-val pure_uop_pat : uop_pat -> bool
+val pure_op_pat : op_pat -> bool
 let rec
-pure_uop_pat Opderef_pat = true
+pure_op_pat (Op_pat (Op_i2 Opderef)) = true
 and
-pure_uop_pat Opref_pat = false
+pure_op_pat (Op_pat (Op_i2 Opref)) = false
 and
-pure_uop_pat (Init_global_var_pat _) = false
+pure_op_pat (Op_pat (Op_i2 (Opn opn))) = opn <> Divide && opn <> Modulo
 and
-pure_uop_pat (Tag_eq_pat _) = true
+pure_op_pat (Op_pat (Op_i2 (Opb _))) = true
 and
-pure_uop_pat (El_pat _) = true
-
-val pure_op : op -> bool
-let rec
-pure_op (Opn opn) = opn <> Divide && opn <> Modulo
+pure_op_pat (Op_pat (Op_i2 Equality)) = false
 and
-pure_op (Opb _) = true
+pure_op_pat (Op_pat (Op_i2 Opapp)) = false
 and
-pure_op Equality = false
+pure_op_pat (Op_pat (Op_i2 Opassign)) = false
 and
-pure_op Opapp = false
+pure_op_pat (Op_pat (Init_global_var_i2 _)) = false
 and
-pure_op Opassign = false
+pure_op_pat (Tag_eq_pat _) = true
+and
+pure_op_pat (El_pat _) = true
 
 val pure_pat : exp_pat -> bool
 let rec
@@ -149,10 +137,8 @@ pure_pat (Var_global_pat _) = true
 and
 pure_pat (Fun_pat _) = true
 and
-pure_pat (Uapp_pat uop e) = pure_uop_pat uop && pure_pat e
-and
-pure_pat (App_pat op e1 e2) = pure_pat e1 && pure_pat e2 &&
-  (pure_op op || (op = Equality && fo_pat e1 && fo_pat e2))
+pure_pat (App_pat op es) = pure_list_pat es &&
+  (pure_op_pat op || (op = Op_pat(Op_i2 Equality) && fo_list_pat es))
 and
 pure_pat (If_pat e1 e2 e3) = pure_pat e1 && pure_pat e2 && pure_pat e3
 and
@@ -186,9 +172,7 @@ ground_pat _ (Var_global_pat _) = true
 and
 ground_pat _ (Fun_pat _) = false
 and
-ground_pat n (Uapp_pat _ e) = ground_pat n e
-and
-ground_pat n (App_pat _ e1 e2) = ground_pat n e1 && ground_pat n e2
+ground_pat n (App_pat _ es) = ground_list_pat n es
 and
 ground_pat n (If_pat e1 e2 e3) = ground_pat n e1 && ground_pat n e2 && ground_pat n e3
 and
@@ -224,7 +208,7 @@ let rec
 Let_Els_pat _ 0 e = e
 and
 Let_Els_pat n k e =
-  sLet_pat (Uapp_pat (El_pat (k-1)) (Var_local_pat n))
+  sLet_pat (App_pat (El_pat (k-1)) [Var_local_pat n])
      (Let_Els_pat (n+1) (k-1) e)
 
 (* return an expression that evaluates to whether the pattern matches the most
@@ -236,18 +220,18 @@ val pats_to_pat : nat -> list pat_exh -> exp_pat
 let rec
 pat_to_pat (Pvar_exh _) = Lit_pat (Bool true)
 and
-pat_to_pat (Plit_exh l) = App_pat Equality (Var_local_pat 0) (Lit_pat l)
+pat_to_pat (Plit_exh l) = App_pat (Op_pat (Op_i2 Equality)) [Var_local_pat 0; Lit_pat l]
 and
 pat_to_pat (Pcon_exh tag []) =
-  App_pat Equality (Var_local_pat 0) (Con_pat tag [])
+  App_pat (Op_pat (Op_i2 Equality)) [Var_local_pat 0; Con_pat tag []]
 and
 pat_to_pat (Pcon_exh tag ps) =
-  sIf_pat (Uapp_pat (Tag_eq_pat tag) (Var_local_pat 0))
+  sIf_pat (App_pat (Tag_eq_pat tag) [Var_local_pat 0])
     (Let_Els_pat 0 (List.length ps) (pats_to_pat 0 ps))
     (Lit_pat (Bool false))
 and
 pat_to_pat (Pref_exh p) =
-  sLet_pat (Uapp_pat Opderef_pat (Var_local_pat 0))
+  sLet_pat (App_pat (Op_pat (Op_i2 Opderef)) [Var_local_pat 0])
     (pat_to_pat p)
 and
 pats_to_pat _ [] = Lit_pat (Bool true)
@@ -273,7 +257,7 @@ row_to_pat bvs (Pcon_exh _ ps) = cols_to_pat bvs 0 0 ps
 and
 row_to_pat bvs (Pref_exh p) =
   let (bvs,m,f) = row_to_pat (Nothing::bvs) p in
-    (bvs, 1+m, fun e -> sLet_pat (Uapp_pat Opderef_pat (Var_local_pat 0)) (f e))
+    (bvs, 1+m, fun e -> sLet_pat (App_pat (Op_pat (Op_i2 Opderef)) [Var_local_pat 0]) (f e))
 and
 row_to_pat bvs _ = (bvs, 0, fun e -> e) (* should not happen *)
 and
@@ -284,7 +268,7 @@ cols_to_pat bvs n k (p::ps) =
   let (bvs,ms,fs) = cols_to_pat bvs (n+1+m) (k+1) ps in
     (bvs, 1+m+ms,
        fun e ->
-           sLet_pat (Uapp_pat (El_pat k) (Var_local_pat n))
+           sLet_pat (App_pat (El_pat k) [Var_local_pat n])
              (f (fs e)))
 
 (* translate to i4 under a context of bound variables *)
@@ -313,10 +297,8 @@ exp_to_pat _ (Var_global_exh n) = Var_global_pat n
 and
 exp_to_pat bvs (Fun_exh x e) = Fun_pat (exp_to_pat (Just x::bvs) e)
 and
-exp_to_pat bvs (Uapp_exh uop e) = Uapp_pat (uop_to_pat uop) (exp_to_pat bvs e)
-and
-exp_to_pat bvs (App_exh op e1 e2) =
-  App_pat op (exp_to_pat bvs e1) (exp_to_pat bvs e2)
+exp_to_pat bvs (App_exh op es) =
+  App_pat (Op_pat op) (exps_to_pat bvs es)
 and
 exp_to_pat bvs (If_exh e1 e2 e3) =
   sIf_pat (exp_to_pat bvs e1) (exp_to_pat bvs e2) (exp_to_pat bvs e3)
@@ -356,52 +338,21 @@ pes_to_pat bvs ((p,e)::pes) =
 and
 pes_to_pat _ _ = Lit_pat Unit (* should not happen *)
 
-val do_uapp_pat : store_genv v_pat -> uop_pat -> v_pat -> maybe (store_genv v_pat * v_pat)
-let do_uapp_pat (s,genv) uop v =
-  match uop with
-    | Opderef_pat ->
-        match v with
-          | Loc_pat n ->
-              match store_lookup n s with
-                | Just v -> Just ((s,genv),v)
-                | Nothing -> Nothing
-              end
-          | _ -> Nothing
-        end
-    | Opref_pat ->
-        let (s',n) = store_alloc v s in
-          Just ((s',genv), Loc_pat n)
-    | Init_global_var_pat idx ->
-        if idx < List.length genv then
-          match List_extra.nth genv idx with
-            | Nothing -> Just ((s, List.update genv idx (Just v)), Litv_pat Unit)
-            | Just _ -> Nothing
-          end
-        else
-          Nothing
-    | Tag_eq_pat n ->
-        match v with
-          | Conv_pat tag _ ->
-              Just ((s,genv), Litv_pat (Bool (tag = n)))
-          | _ -> Nothing
-        end
-    | El_pat n ->
-        match v with
-          | Conv_pat _ vs ->
-              if n < List.length vs then
-                Just ((s,genv), List_extra.nth vs n)
-              else
-                Nothing
-          | _ -> Nothing
-        end
-  end
-
 val build_rec_env_pat : list exp_pat -> list v_pat -> list v_pat
 let build_rec_env_pat funs cl_env =
   List.genlist (Recclosure_pat cl_env funs) (List.length funs)
 
-val exn_env_pat : list v_pat
-let exn_env_pat = []
+val do_opapp_pat : list v_pat -> maybe (list v_pat * exp_pat)
+let do_opapp_pat vs =
+  match vs with
+    | [Closure_pat env e; v] -> Just (v::env, e)
+    | [Recclosure_pat env funs n; v] ->
+        if n < List.length funs then
+          Just (v::(build_rec_env_pat funs env)++env, List_extra.nth funs n)
+        else
+          Nothing
+    | _ -> Nothing
+    end
 
 val do_eq_pat : v_pat -> v_pat -> eq_result
 let rec
@@ -441,34 +392,53 @@ do_eq_list_pat (v1::vs1) (v2::vs2) =
 and
 do_eq_list_pat _ _ = Eq_val false
 
-val do_app_pat : list v_pat -> store v_pat -> op -> v_pat -> v_pat -> maybe (list v_pat * store v_pat * exp_pat)
-let do_app_pat env' s op v1 v2 =
-  match (op, v1, v2) with
-    | (Opapp, Closure_pat env e, v) ->
-        Just (v::env, s, e)
-    | (Opapp, Recclosure_pat env funs n, v) ->
-        if n < List.length funs then
-          Just (v::(build_rec_env_pat funs env)++env, s, List_extra.nth funs n)
-        else
-          Nothing
-    | (Opn op, Litv_pat (IntLit n1), Litv_pat (IntLit n2)) ->
+val prim_exn_pat : nat -> v_pat
+let prim_exn_pat tag = Conv_pat tag []
+
+val do_app_pat : count_store_genv v_pat -> op_pat -> list v_pat -> maybe (count_store_genv v_pat * result v_pat v_pat)
+let do_app_pat ((cnt,s),genv) op vs =
+  match (op,vs) with
+    | (Op_pat (Op_i2 (Opn op)), [Litv_pat (IntLit n1); Litv_pat (IntLit n2)]) ->
         if (op = Divide || (op = Modulo)) && (n2 = 0) then
-          Just (exn_env_pat, s, Raise_pat (Con_pat div_tag []))
+          Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat div_tag)))
         else
-          Just (env', s, Lit_pat (IntLit (opn_lookup op n1 n2)))
-    | (Opb op, Litv_pat (IntLit n1), Litv_pat (IntLit n2)) ->
-        Just (env', s, Lit_pat (Bool (opb_lookup op n1 n2)))
-    | (Equality, v1, v2) ->
+          Just (((cnt,s),genv), Rval (Litv_pat (IntLit (opn_lookup op n1 n2))))
+    | (Op_pat (Op_i2 (Opb op)), [Litv_pat (IntLit n1); Litv_pat (IntLit n2)]) ->
+        Just (((cnt,s),genv), Rval (Litv_pat (Bool (opb_lookup op n1 n2))))
+    | (Op_pat (Op_i2 Equality), [v1; v2]) ->
         match do_eq_pat v1 v2 with
           | Eq_type_error -> Nothing
-          | Eq_closure -> Just (exn_env_pat, s, Raise_pat (Con_pat eq_tag []))
-          | Eq_val b -> Just (env', s, Lit_pat (Bool b))
+          | Eq_closure -> Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat eq_tag)))
+          | Eq_val b -> Just (((cnt,s),genv), Rval(Litv_pat (Bool b)))
         end
-    | (Opassign, (Loc_pat lnum), v) ->
-        match store_assign lnum v s with
-        | Just st -> Just (env', st, Lit_pat Unit)
+    | (Op_pat (Op_i2 Opassign), [Loc_pat lnum; v]) ->
+        match store_assign lnum (Refv v) s with
+        | Just st -> Just (((cnt,st),genv), Rval (Litv_pat Unit))
         | Nothing -> Nothing
         end
+    | (Op_pat (Op_i2 Opderef), [Loc_pat n]) ->
+        match store_lookup n s with
+          | Just (Refv v) -> Just (((cnt,s),genv),Rval v)
+          | Nothing -> Nothing
+        end
+    | (Op_pat (Op_i2 Opref), [v]) ->
+        let (s',n) = store_alloc (Refv v) s in
+          Just (((cnt,s'),genv), Rval (Loc_pat n))
+    | (Op_pat (Init_global_var_i2 idx), [v]) ->
+        if idx < List.length genv then
+          match List_extra.nth genv idx with
+            | Nothing -> Just (((cnt,s), List.update genv idx (Just v)), Rval (Litv_pat Unit))
+            | Just _ -> Nothing
+          end
+        else
+          Nothing
+    | (Tag_eq_pat n, [Conv_pat tag _]) ->
+        Just (((cnt,s),genv), Rval (Litv_pat (Bool (tag = n))))
+    | (El_pat n, [Conv_pat _ vs]) ->
+        if n < List.length vs then
+          Just (((cnt,s),genv), Rval (List_extra.nth vs n))
+        else
+          Nothing
     | _ -> Nothing
   end
 
@@ -586,73 +556,56 @@ evaluate_pat ck env s (Fun_pat e) (s, Rval (Closure_pat env e))
 
 and
 
-uapp1 : forall ck env uop e v v' s1 s2 count s3 genv2 genv3.
-evaluate_pat ck env s1 e (((count,s2),genv2), Rval v) &&
-(do_uapp_pat (s2,genv2) uop v = Just ((s3,genv3),v'))
+app1 : forall ck env s1 es count s2 genv2 vs env2 e2 bv.
+evaluate_list_pat ck env s1 es (((count,s2),genv2), Rval vs) &&
+do_opapp_pat vs = Just (env2, e2) &&
+(ck --> count <> 0) &&
+evaluate_pat ck env2 (((if ck then count-1 else count),s2),genv2) e2 bv
 ==>
-evaluate_pat ck env s1 (Uapp_pat uop e) (((count,s3),genv3), Rval v')
+evaluate_pat ck env s1 (App_pat (Op_pat (Op_i2 Opapp)) es) bv
 
 and
 
-uapp2 : forall ck env uop e v s1 s2 count genv2.
-evaluate_pat ck env s1 e (((count,s2),genv2), Rval v) &&
-(do_uapp_pat (s2,genv2) uop v = Nothing)
-==>
-evaluate_pat ck env s1 (Uapp_pat uop e) (((count,s2),genv2), Rerr Rtype_error)
-
-and
-
-uapp3 : forall ck env uop e err s s'.
-evaluate_pat ck env s e (s', Rerr err)
-==>
-evaluate_pat ck env s (Uapp_pat uop e) (s', Rerr err)
-
-and
-
-app1 : forall ck env op e1 e2 v1 v2 env' e3 bv s1 s2 s3 count s4 genv3.
-evaluate_pat ck env s1 e1 (s2, Rval v1) &&
-evaluate_pat ck env s2 e2 (((count,s3),genv3), Rval v2) &&
-do_app_pat env s3 op v1 v2 = Just (env', s4, e3) &&
-((ck && (op = Opapp)) --> count <> 0) &&
-evaluate_pat ck env' (((if ck then BigStep.dec_count op count else count),s4),genv3) e3 bv
-==>
-evaluate_pat ck env s1 (App_pat op e1 e2) bv
-
-and
-
-app2 : forall ck env op e1 e2 v1 v2 env' e3 s1 s2 s3 count s4 genv3.
-evaluate_pat ck env s1 e1 (s2, Rval v1) &&
-evaluate_pat ck env s2 e2 (((count,s3),genv3), Rval v2) &&
-do_app_pat env s3 op v1 v2 = Just (env', s4, e3) &&
+app2 : forall ck env s1 es count s2 genv2 vs env2 e2.
+evaluate_list_pat ck env s1 es (((count,s2),genv2), Rval vs) &&
+do_opapp_pat vs = Just (env2, e2) &&
 count = 0 &&
-op = Opapp &&
 ck
 ==>
-evaluate_pat ck env s1 (App_pat op e1 e2) (((0,s4),genv3),Rerr Rtimeout_error)
+evaluate_pat ck env s1 (App_pat (Op_pat (Op_i2 Opapp)) es) (((0,s2),genv2), Rerr Rtimeout_error)
 
 and
 
-app3 : forall ck env op e1 e2 v1 v2 s1 s2 s3 count genv3.
-evaluate_pat ck env s1 e1 (s2, Rval v1) &&
-evaluate_pat ck env s2 e2 (((count,s3),genv3),Rval v2) &&
-do_app_pat env s3 op v1 v2 = Nothing
+app3 : forall ck env s1 es s2 vs.
+evaluate_list_pat ck env s1 es (s2, Rval vs) &&
+do_opapp_pat vs = Nothing
 ==>
-evaluate_pat ck env s1 (App_pat op e1 e2) (((count,s3),genv3), Rerr Rtype_error)
+evaluate_pat ck env s1 (App_pat (Op_pat (Op_i2 Opapp)) es) (s2, Rerr Rtype_error)
 
 and
 
-app4 : forall ck env op e1 e2 v1 err s1 s2 s3.
-evaluate_pat ck env s1 e1 (s2, Rval v1) &&
-evaluate_pat ck env s2 e2 (s3, Rerr err)
+app4 : forall ck env s1 op es s2 vs s3 res.
+evaluate_list_pat ck env s1 es (s2, Rval vs) &&
+do_app_pat s2 op vs = Just (s3, res) &&
+op <> Op_pat (Op_i2 Opapp)
 ==>
-evaluate_pat ck env s1 (App_pat op e1 e2) (s3, Rerr err)
+evaluate_pat ck env s1 (App_pat op es) (s3, res)
 
 and
 
-app5 : forall ck env op e1 e2 err s s'.
-evaluate_pat ck env s e1 (s', Rerr err)
+app5 : forall ck env s1 op es s2 vs.
+evaluate_list_pat ck env s1 es (s2, Rval vs) &&
+do_app_pat s2 op vs = Nothing &&
+op <> Op_pat (Op_i2 Opapp)
 ==>
-evaluate_pat ck env s (App_pat op e1 e2) (s', Rerr err)
+evaluate_pat ck env s1 (App_pat op es) (s2, Rerr Rtype_error)
+
+and
+
+app6 : forall ck env s1 op es s2 err.
+evaluate_list_pat ck env s1 es (s2, Rerr err)
+==>
+evaluate_pat ck env s1 (App_pat op es) (s2, Rerr err)
 
 and
 
