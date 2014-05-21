@@ -365,11 +365,9 @@ val _ = register "do_eq_pat" (do_eq_pat_def,do_eq_pat_ind);
 (* export rewrites *)
 val _ = export_rewrites
   ["exp_to_pat_def"
-  ,"patLang.uop_to_pat_def"
   ,"patLang.fo_pat_def"
   ,"patLang.ground_pat_def"
-  ,"patLang.pure_uop_pat_def"
-  ,"patLang.pure_op_def"]
+  ,"patLang.pure_op_pat_def"]
 
 (* TODO: add missing *)
 val _ = export_rewrites
