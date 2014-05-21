@@ -191,6 +191,8 @@ exps_to_Cexps [] = []
 and
 exps_to_Cexps (e::es) =
   exp_to_Cexp e :: exps_to_Cexps es
+declare termination_argument exp_to_Cexp = automatic
+declare termination_argument exps_to_Cexps = automatic
 
 (* source to intermediate values *)
 

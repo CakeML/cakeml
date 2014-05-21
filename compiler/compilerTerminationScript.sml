@@ -81,11 +81,13 @@ val (mkshift_def,mkshift_ind) = register "mkshift" (
   Q.ISPEC_THEN`Cexp2_size`imp_res_tac SUM_MAP_MEM_bound >>
   fsrw_tac[ARITH_ss][Cexp_size_def]))
 
+(*
 val (exp_to_Cexp_def,exp_to_Cexp_ind) = register "exp_to_Cexp" (
   tprove_no_defn ((exp_to_Cexp_def,exp_to_Cexp_ind),
   WF_REL_TAC `inv_image $< (λx. case x of
     | INL e => exp_pat_size e
     | INR es => exp_pat1_size es)`))
+*)
 
 val (compile_envref_def, compile_envref_ind) = register "compile_envref" (
   tprove_no_defn ((compile_envref_def, compile_envref_ind),
@@ -380,7 +382,7 @@ val _ = export_rewrites
 ,"label_closures_def"
 ,"intLang.doPrim2_def","intLang.CevalPrim2_def","intLang.CevalUpd_def","intLang.CevalPrim1_def"
 ,"free_labs_def","no_labs_def","all_labs_def"
-,"exp_to_Cexp_def","toIntLang.v_to_Cv_def"
+,"toIntLang.exp_to_Cexp_def","toIntLang.v_to_Cv_def"
 ,"do_Ceq_def","compilerLib.the_def","compilerLib.fapply_def"];
 
 (*
