@@ -10,36 +10,6 @@ open terminationTheory compilerTerminationTheory
 
 val () = Parse.bring_to_front_overload"Num"{Name="Num",Thy="integer"}
 
-(* computeLib only adds datatype support for the_compset :(. this code is copied
-   and modified slightly to allow building custom compsets with datatype support. *)
-local
-   val get_f =
-      fst o boolSyntax.strip_comb o boolSyntax.lhs o
-      snd o boolSyntax.strip_forall o List.hd o boolSyntax.strip_conj o
-      Thm.concl
-in
-   fun add_datatype_info ty =
-    let open Drule
-        val size_opt =
-          case TypeBase.size_of0 ty
-           of SOME (_, TypeBasePure.ORIG def) => [def]
-            | otherwise => []
-        val boolify_opt =
-          case TypeBase.encode_of0 ty
-           of SOME (_, TypeBasePure.ORIG def) => [def]
-            | otherwise => []
-        val case_const = Lib.total TypeBase.case_const_of ty
-        val simpls = #rewrs (TypeBase.simpls_of ty)
-        val (case_thm, simpls) =
-           List.partition (fn thm => Lib.total get_f thm = case_const) simpls
-        val case_thm = List.map computeLib.lazyfy_thm case_thm
-    in
-       fn cs =>
-       (computeLib.add_thms (size_opt @ boolify_opt @ case_thm @ simpls) cs;
-        Option.app (fn t => computeLib.set_skip cs t (SOME 1)) case_const)
-    end
-end
-
 val encode_bc_insts_thm = prove(
   ``∀bcs. encode_bc_insts bcs =
     let ls = MAP encode_bc_inst bcs in
@@ -51,6 +21,7 @@ val encode_bc_insts_thm = prove(
 
 fun cakeml_compset() = let
 val compset = wordsLib.words_compset()
+val add_datatype = computeLib.add_datatype_info compset o valOf o TypeBase.fetch
 (* good libraries which provide compsets :) *)
 val () = intReduce.add_int_compset compset
 (* included in words_compset
@@ -84,13 +55,13 @@ val () = computeLib.add_thms
   ,pegexecTheory.applykont_thm
   ,pegexecTheory.peg_exec_thm
   ] compset
-val () = add_datatype_info ``:('a,'b)grammar$symbol`` compset
-val () = add_datatype_info ``:('a,'b)grammar`` compset
-val () = add_datatype_info ``:('a,'b)parsetree`` compset
-val () = add_datatype_info ``:('a,'b,'c)pegsym`` compset
-val () = add_datatype_info ``:('a,'b,'c)peg`` compset
-val () = add_datatype_info ``:('a,'b,'c)kont`` compset
-val () = add_datatype_info ``:('a,'b,'c)evalcase`` compset
+val () = add_datatype ``:('a,'b)grammar$symbol``
+val () = add_datatype ``:('a,'b)grammar``
+val () = add_datatype ``:('a,'b)parsetree``
+val () = add_datatype ``:('a,'b,'c)pegsym``
+val () = add_datatype ``:('a,'b,'c)peg``
+val () = add_datatype ``:('a,'b,'c)kont``
+val () = add_datatype ``:('a,'b,'c)evalcase``
 (* misc :( *)
 val () = computeLib.add_thms
   [miscTheory.find_index_def
@@ -123,20 +94,20 @@ val () = computeLib.add_thms
   ,conLangTheory.some_tag_def
   ,conLangTheory.none_tag_def
   ] compset
-val () = add_datatype_info ``:MMLnonT`` compset
-val () = add_datatype_info ``:top`` compset
-val () = add_datatype_info ``:dec`` compset
-val () = add_datatype_info ``:pat`` compset
-val () = add_datatype_info ``:exp`` compset
-val () = add_datatype_info ``:tid_or_exn`` compset
-val () = add_datatype_info ``:uop`` compset
-val () = add_datatype_info ``:op`` compset
-val () = add_datatype_info ``:lop`` compset
-val () = add_datatype_info ``:lit`` compset
-val () = add_datatype_info ``:opb`` compset
-val () = add_datatype_info ``:opn`` compset
-val () = add_datatype_info ``:'a id`` compset
-val () = add_datatype_info ``:eq_result`` compset
+val () = add_datatype ``:MMLnonT``
+val () = add_datatype ``:top``
+val () = add_datatype ``:dec``
+val () = add_datatype ``:pat``
+val () = add_datatype ``:exp``
+val () = add_datatype ``:tid_or_exn``
+val () = add_datatype ``:uop``
+val () = add_datatype ``:op``
+val () = add_datatype ``:lop``
+val () = add_datatype ``:lit``
+val () = add_datatype ``:opb``
+val () = add_datatype ``:opn``
+val () = add_datatype ``:'a id``
+val () = add_datatype ``:eq_result``
 (* lexer *)
 val () = computeLib.add_thms
   [lex_until_toplevel_semicolon_def
@@ -169,8 +140,8 @@ val () = computeLib.add_thms
   ,tokenUtilsTheory.isSymbolT_def
   ,tokenUtilsTheory.isAlphaT_def
   ] compset
-val () = add_datatype_info ``:symbol`` compset
-val () = add_datatype_info ``:token`` compset
+val () = add_datatype ``:symbol``
+val () = add_datatype ``:token``
 (* parser *)
 val () = computeLib.add_thms
   [destResult_def
@@ -237,7 +208,7 @@ val () = computeLib.add_thms
   ,cmlPtreeConversionTheory.safeTL_def
   ,cmlPtreeConversionTheory.oHD_def
   ] compset
-val () = add_datatype_info ``:repl_parse_result`` compset
+val () = add_datatype ``:repl_parse_result``
 (* elaborator *)
 val () = computeLib.add_thms
   [elab_prog_def
@@ -291,10 +262,10 @@ val () = computeLib.add_thms
   ,infer_type_subst_def
   ,typeSystemTheory.tid_exn_to_tc_def
   ] compset
-val () = add_datatype_info ``:infer_t`` compset
-val () = add_datatype_info ``:atom`` compset
-val () = add_datatype_info ``:('a,'b)exc`` compset
-val () = add_datatype_info ``:'a infer_st`` compset
+val () = add_datatype ``:infer_t``
+val () = add_datatype ``:atom``
+val () = add_datatype ``:('a,'b)exc``
+val () = add_datatype ``:'a infer_st``
 (* modLang compiler *)
 val () = computeLib.add_thms
   [prog_to_i1_def
@@ -304,8 +275,8 @@ val () = computeLib.add_thms
   ,exp_to_i1_def
   ,alloc_defs_def
   ] compset
-val () = add_datatype_info ``:prompt_i1`` compset
-val () = add_datatype_info ``:dec_i1`` compset
+val () = add_datatype ``:prompt_i1``
+val () = add_datatype ``:dec_i1``
 (* conLang compiler *)
 val () = computeLib.add_thms
   [prog_to_i2_def
@@ -323,10 +294,10 @@ val () = computeLib.add_thms
   ,insert_tag_env_def
   ,alloc_tag_def
   ] compset
-val () = add_datatype_info ``:prompt_i2`` compset
-val () = add_datatype_info ``:dec_i2`` compset
-val () = add_datatype_info ``:pat_i2`` compset
-val () = add_datatype_info ``:exp_i2`` compset
+val () = add_datatype ``:prompt_i2``
+val () = add_datatype ``:dec_i2``
+val () = add_datatype ``:pat_i2``
+val () = add_datatype ``:exp_i2``
 (* decLang compiler *)
 val () = computeLib.add_thms
   [prog_to_i3_def
@@ -357,8 +328,8 @@ val () = computeLib.add_thms
   ,(CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook)) Let_Els_pat_def
   ,pure_uop_pat_def
   ] compset
-val () = add_datatype_info ``:exp_pat`` compset
-val () = add_datatype_info ``:uop_pat`` compset
+val () = add_datatype ``:exp_pat``
+val () = add_datatype ``:uop_pat``
 (* intLang compiler *)
 val () = computeLib.add_thms
   [exp_to_Cexp_def
@@ -367,8 +338,8 @@ val () = computeLib.add_thms
   ,free_vars_def
   ,no_labs_def
   ] compset
-val () = add_datatype_info ``:Cprim1`` compset
-val () = add_datatype_info ``:Cprim2`` compset
+val () = add_datatype ``:Cprim1``
+val () = add_datatype ``:Cprim2``
 (* bytecode compiler *)
 val () =
   let
@@ -423,8 +394,8 @@ val () =
     computeLib.add_conv(``compile_Cexp``,4,(compile_Cexp_conv (computeLib.CBV_CONV compset))) compset
   end
 *)
-val () = add_datatype_info ``:compiler_result`` compset
-val () = add_datatype_info ``:call_context`` compset
+val () = add_datatype ``:compiler_result``
+val () = add_datatype ``:call_context``
 (* labels removal *)
 val () = labels_computeLib.reset_code_labels_ok_db()
 val () = computeLib.add_conv (``code_labels``,2,code_labels_conv (computeLib.CBV_CONV compset)) compset
@@ -461,7 +432,7 @@ val () =
       [uses_label_def
       ,compile_print_err_def
       ] compset ;
-    add_datatype_info ``:bc_inst`` compset ;
+    add_datatype ``:bc_inst`` ;
     computeLib.add_conv(``code_labels_ok``,1,code_labels_ok_conv) compset ;
     computeLib.add_conv(``compile_prog``,1,(compile_prog_conv (computeLib.CBV_CONV compset))) compset
   end
@@ -491,7 +462,7 @@ val () = computeLib.add_thms
   ,all_asts_to_encoded_def
   ,remove_labels_all_asts_def
   ] compset
-val () = add_datatype_info ``:compiler_state`` compset
+val () = add_datatype ``:compiler_state``
 in compset end
 
 val bc_fetch_aux_0_thm = prove(
@@ -536,8 +507,8 @@ in
       ,compilerLibTheory.el_check_def
       ,listTheory.LUPDATE_compute
       ] compset
-    val () = add_datatype_info ``:bc_state`` compset
-    val () = add_datatype_info ``:bc_value`` compset
+    val () = computeLib.add_datatype_info compset (valOf(TypeBase.fetch``:bc_state``))
+    val () = computeLib.add_datatype_info compset (valOf(TypeBase.fetch``:bc_value``))
   in () end
 
   local
