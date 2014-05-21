@@ -114,22 +114,23 @@ val _ = Define `
 (fo_list_pat (e::es) = (fo_pat e /\ fo_list_pat es))`;
 
 
+(*val pure_op : op -> bool*)
+val _ = Define `
+ (pure_op op =
+  ((op <> Opref) /\  
+(op <> Equality) /\  
+(op <> Opapp) /\  
+(op <> Opassign) /\  
+(op <> Aupdate) /\  
+(op <> Aalloc) /\  
+(op <> (Opn Divide)) /\  
+(op <> (Opn Modulo))))`;
+
+
 (*val pure_op_pat : op_pat -> bool*)
  val _ = Define `
 
-(pure_op_pat (Op_pat (Op_i2 Opderef)) = T)
-/\
-(pure_op_pat (Op_pat (Op_i2 Opref)) = F)
-/\
-(pure_op_pat (Op_pat (Op_i2 (Opn opn))) = ((opn <> Divide) /\ (opn <> Modulo)))
-/\
-(pure_op_pat (Op_pat (Op_i2 (Opb _))) = T)
-/\
-(pure_op_pat (Op_pat (Op_i2 Equality)) = F)
-/\
-(pure_op_pat (Op_pat (Op_i2 Opapp)) = F)
-/\
-(pure_op_pat (Op_pat (Op_i2 Opassign)) = F)
+(pure_op_pat (Op_pat (Op_i2 op)) = (pure_op op))
 /\
 (pure_op_pat (Op_pat (Init_global_var_i2 _)) = F)
 /\
@@ -342,8 +343,8 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (Seq_pat (exp_to_pat bvs e1) (exp_to_pat bvs e2)))
 /\
 (exp_to_pat bvs (Letrec_exh funs e) =  
-(let bvs = ((MAP (\p10208 .  
-  (case (p10208 ) of ( (f,_,_) ) => SOME f )) funs) ++ bvs) in
+(let bvs = ((MAP (\p10330 .  
+  (case (p10330 ) of ( (f,_,_) ) => SOME f )) funs) ++ bvs) in
   Letrec_pat (funs_to_pat bvs funs) (exp_to_pat bvs e)))
 /\
 (exp_to_pat _ (Extend_global_exh n) = (Extend_global_pat n))
@@ -461,7 +462,7 @@ val _ = Define `
     | (Op_pat (Op_i2 Opderef), [Loc_pat n]) =>
         (case store_lookup n s of
             SOME (Refv v) => SOME (((cnt,s),genv),Rval v)
-          | NONE => NONE
+          | _ => NONE
         )
     | (Op_pat (Op_i2 Opref), [v]) =>
         let (s',n) = (store_alloc (Refv v) s) in
@@ -474,6 +475,49 @@ val _ = Define `
           )
         else
           NONE
+    | (Op_pat (Op_i2 Aalloc), [Litv_pat (IntLit n); Litv_pat (Word8 w)]) =>
+        if n <( 0 : int) then
+          SOME (((cnt,s),genv), Rerr (Rraise (prim_exn_pat size_tag)))
+        else
+          let (st,lnum) =            
+(store_alloc (W8array (REPLICATE (Num (ABS ( n))) w)) s)
+          in
+            SOME (((cnt,st),genv), Rval (Loc_pat lnum))
+    | (Op_pat (Op_i2 Asub), [Loc_pat lnum; Litv_pat (IntLit i)]) =>
+        (case store_lookup lnum s of
+            SOME (W8array ws) =>
+              if i <( 0 : int) then
+                SOME (((cnt,s),genv), Rerr (Rraise (prim_exn_pat size_tag)))
+              else
+                let n = (Num (ABS ( i))) in
+                  if n >= LENGTH ws then
+                    SOME (((cnt,s),genv), Rerr (Rraise (prim_exn_pat size_tag)))
+                  else
+                    SOME (((cnt,s),genv), Rval (Litv_pat (Word8 (EL n ws))))
+          | _ => NONE
+        )
+    | (Op_pat (Op_i2 Alength), [Loc_pat n]) =>
+        (case store_lookup n s of
+            SOME (W8array ws) =>
+              SOME (((cnt,s),genv),Rval (Litv_pat (IntLit (int_of_num (LENGTH ws)))))
+          | _ => NONE
+        )
+    | (Op_pat (Op_i2 Aupdate), [Loc_pat lnum; Litv_pat (IntLit i); Litv_pat (Word8 w)]) =>
+        (case store_lookup lnum s of
+          SOME (W8array ws) =>
+            if i <( 0 : int) then
+              SOME (((cnt,s),genv), Rerr (Rraise (prim_exn_pat size_tag)))
+            else
+              let n = (Num (ABS ( i))) in
+                if n >= LENGTH ws then
+                  SOME (((cnt,s),genv), Rerr (Rraise (prim_exn_pat size_tag)))
+                else
+                  (case store_assign lnum (W8array (LUPDATE w n ws)) s of
+                      NONE => NONE
+                    | SOME st => SOME (((cnt,st),genv), Rval (Litv_pat Unit))
+                  )
+        | _ => NONE
+        )
     | (Tag_eq_pat n, [Conv_pat tag _]) =>
         SOME (((cnt,s),genv), Rval (Litv_pat (Bool (tag = n))))
     | (El_pat n, [Conv_pat _ vs]) =>
@@ -659,8 +703,8 @@ evaluate_pat ck env s (Letrec_pat funs e) bv)
 /\ (! ck env n s genv.
 T
 ==>
-evaluate_pat ck env (s,genv) (Extend_global_pat n) ((s,(genv++GENLIST (\n10386 .  
-  (case (n10386 ) of ( _ ) => NONE )) n)), Rval (Litv_pat Unit)))
+evaluate_pat ck env (s,genv) (Extend_global_pat n) ((s,(genv++GENLIST (\n10634 .  
+  (case (n10634 ) of ( _ ) => NONE )) n)), Rval (Litv_pat Unit)))
 
 /\ (! ck env s.
 T

@@ -97,21 +97,20 @@ fo_list_pat (e::es) = fo_pat e && fo_list_pat es
 declare termination_argument fo_pat = automatic
 declare termination_argument fo_list_pat = automatic
 
+val pure_op : op -> bool
+let pure_op op =
+  op <> Opref &&
+  op <> Equality &&
+  op <> Opapp &&
+  op <> Opassign &&
+  op <> Aupdate &&
+  op <> Aalloc &&
+  op <> (Opn Divide) &&
+  op <> (Opn Modulo)
+
 val pure_op_pat : op_pat -> bool
 let rec
-pure_op_pat (Op_pat (Op_i2 Opderef)) = true
-and
-pure_op_pat (Op_pat (Op_i2 Opref)) = false
-and
-pure_op_pat (Op_pat (Op_i2 (Opn opn))) = opn <> Divide && opn <> Modulo
-and
-pure_op_pat (Op_pat (Op_i2 (Opb _))) = true
-and
-pure_op_pat (Op_pat (Op_i2 Equality)) = false
-and
-pure_op_pat (Op_pat (Op_i2 Opapp)) = false
-and
-pure_op_pat (Op_pat (Op_i2 Opassign)) = false
+pure_op_pat (Op_pat (Op_i2 op)) = pure_op op
 and
 pure_op_pat (Op_pat (Init_global_var_i2 _)) = false
 and
