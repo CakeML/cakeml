@@ -278,6 +278,14 @@ val (sv_to_i1_rules, sv_to_i1_ind, sv_to_i1_cases) = Hol_reln `
 (!genv w.
   sv_to_i1 genv (W8array w) (W8array w))`;
 
+val sv_to_i1_weakening = Q.prove (
+`(!genv sv sv_i1.
+  sv_to_i1 genv sv sv_i1
+  ⇒
+  ∀l. sv_to_i1 (genv++l) sv sv_i1)`,
+ rw [sv_to_i1_cases] >>
+ metis_tac [v_to_i1_weakening]);
+
 val (s_to_i1_rules, s_to_i1_ind, s_to_i1_cases) = Hol_reln `
 (!genv c s s'.
   LIST_REL (sv_to_i1 genv) s s'
@@ -989,66 +997,61 @@ val exp_to_i1_correct = Q.prove (
          imp_res_tac disjoint_drestrict >>
          rw []))
  >- (* function application *)
-    cheat
- >- (* function application *)
-    cheat
- >- (* function application *)
-    cheat
- >- (* primitive application *)
-    cheat
-(*
- >- (* Unary application *)
-    (fs [s_to_i1_cases] >>
-     rw [] >>
+    (srw_tac [boolSimps.DNF_ss] [PULL_EXISTS] >>
      res_tac >>
-     fs [] >>
      rw [] >>
-     imp_res_tac do_uapp_i1 >>
-     metis_tac [])
- >- metis_tac []
- >- (* Application *)
-    (LAST_X_ASSUM (qspecl_then [`genv`, `mods`, `tops`, `env_i1`, `s_i1`, `locals`] mp_tac) >>
-     rw [] >>
-     LAST_X_ASSUM (qspecl_then [`genv`, `mods`, `tops`, `env_i1`, `s'_i1`, `locals`] mp_tac) >>
+     LAST_X_ASSUM (qspecl_then [`genv`, `mods`, `tops`, `env_i1`, `s_i1`, `locals`] mp_tac) >>
      rw [] >>
      fs [s_to_i1_cases] >>
      rw [] >>
-     (qspecl_then [`genv`, `mods`, `tops`, `env`, `s3`, `s4`, `op`, `v1`, `v2`, `e''`, `env'`,
-                   `env_i1`, `s'''''''`, `v'`, `v''`, `locals`] mp_tac) do_app_i1 >>
+     imp_res_tac do_opapp_i1 >>
      rw [] >>
      `genv = all_env_i1_to_genv env_i1`
                 by fs [all_env_i1_to_genv_def, env_all_to_i1_cases] >>
      fs [] >>
      metis_tac [])
- >- (* Application *)
-    (LAST_X_ASSUM (qspecl_then [`genv`, `mods`, `tops`, `env_i1`, `s_i1`, `locals`] mp_tac) >>
+ >- (* function application *)
+    (srw_tac [boolSimps.DNF_ss] [PULL_EXISTS] >>
+     res_tac >>
      rw [] >>
-     LAST_X_ASSUM (qspecl_then [`genv`, `mods`, `tops`, `env_i1`, `s'_i1`, `locals`] mp_tac) >>
+     LAST_X_ASSUM (qspecl_then [`genv`, `mods`, `tops`, `env_i1`, `s_i1`, `locals`] mp_tac) >>
      rw [] >>
      fs [s_to_i1_cases] >>
      rw [] >>
-     (qspecl_then [`genv`, `mods`, `tops`, `env`, `s3`, `s4`, `op`, `v1`, `v2`, `e''`, `env'`,
-                   `env_i1`, `s'''''''`, `v'`, `v''`, `locals`] mp_tac) do_app_i1 >>
+     imp_res_tac do_opapp_i1 >>
      rw [] >>
      `genv = all_env_i1_to_genv env_i1`
                 by fs [all_env_i1_to_genv_def, env_all_to_i1_cases] >>
      fs [] >>
      metis_tac [])
- >- (* Application *)
-    (LAST_X_ASSUM (qspecl_then [`genv`, `mods`, `tops`, `env_i1`, `s_i1`, `locals`] mp_tac) >>
+ >- (* function application *)
+    (srw_tac [boolSimps.DNF_ss] [PULL_EXISTS] >>
+     res_tac >>
      rw [] >>
-     LAST_X_ASSUM (qspecl_then [`genv`, `mods`, `tops`, `env_i1`, `s'_i1`, `locals`] mp_tac) >>
+     LAST_X_ASSUM (qspecl_then [`genv`, `mods`, `tops`, `env_i1`, `s_i1`, `locals`] mp_tac) >>
      rw [] >>
      fs [s_to_i1_cases] >>
      rw [] >>
-     (qspecl_then [`genv`, `mods`, `tops`, `env`, `s3`, `s4`, `Opapp`, `v1`, `v2`, `e3`, `env'`,
-                   `env_i1`, `s''''''`, `v'`, `v''`, `locals`] mp_tac) do_app_i1 >>
+     imp_res_tac do_opapp_i1 >>
      rw [] >>
      `genv = all_env_i1_to_genv env_i1`
                 by fs [all_env_i1_to_genv_def, env_all_to_i1_cases] >>
      fs [] >>
      metis_tac [])
-     *)
+ >- (* primitive application *)
+    (srw_tac [boolSimps.DNF_ss] [PULL_EXISTS] >>
+     res_tac >>
+     rw [] >>
+     LAST_X_ASSUM (qspecl_then [`genv`, `mods`, `tops`, `env_i1`, `s_i1`, `locals`] mp_tac) >>
+     rw [] >>
+     fs [s_to_i1_cases] >>
+     rw [] >>
+     imp_res_tac do_app_i1 >>
+     rw [] >>
+     `genv = all_env_i1_to_genv env_i1`
+                by fs [all_env_i1_to_genv_def, env_all_to_i1_cases] >>
+     fs [] >>
+     metis_tac [])
  >- metis_tac []
  >- metis_tac []
  >- (fs [do_log_def] >>
@@ -1680,8 +1683,7 @@ val dec_to_i1_correct = Q.prove (
          rw []
          >- metis_tac [LENGTH_MAP, length_env_to_i1]
          >- metis_tac [v_to_i1_weakening]
-         >- cheat
-         (*>- metis_tac [v_to_i1_weakening, MAP_REVERSE, vs_to_i1_list_rel]*)
+         >- metis_tac [sv_to_i1_weakening, MAP_REVERSE, LIST_REL_mono]
          >- rw [fst_alloc_defs]
          >- metis_tac [FUPDATE_LIST, global_env_inv_extend]))
  >- (`env_all_to_i1 genv mods tops (menv,cenv,env) (genv,cenv,[]) {}`
@@ -1766,10 +1768,8 @@ val dec_to_i1_correct = Q.prove (
          >- rw [MAP_REVERSE, fst_alloc_defs, FST_triple]
          >- metis_tac [find_recfun_el]
          >- metis_tac [MAP_REVERSE, letrec_global_env_lem3])
-         (*
-     >- metis_tac [v_to_i1_weakening, s_to_i1_cases]
-     *)
-     >- cheat
+     >- (fs [s_to_i1_cases] >>
+         metis_tac [sv_to_i1_weakening, LIST_REL_mono])
      >- (rw [MAP_MAP_o, combinTheory.o_DEF, fst_alloc_defs, build_rec_env_merge, merge_def, MAP_EQ_f] >>
          PairCases_on `x` >>
          rw [])
@@ -2077,8 +2077,8 @@ val top_to_i1_correct = Q.store_thm ("top_to_i1_correct",
              metis_tac [dec_to_i1_num_bindings])
          >- metis_tac [v_to_i1_weakening]
          >- metis_tac [v_to_i1_weakening]
-         (*>- metis_tac [s_to_i1_cases, s_to_i1'_cases, v_to_i1_weakening]*)
-         >- cheat)
+         >- (fs [s_to_i1_cases] >>
+             metis_tac [sv_to_i1_weakening, LIST_REL_mono]))
      >- (MAP_EVERY qexists_tac [`s'_i1`, `GENLIST (\n. NONE) (decs_to_dummy_env [d_i1])`] >>
          rw []
          >- (ONCE_REWRITE_TAC [evaluate_decs_i1_cases] >>
@@ -2094,8 +2094,8 @@ val top_to_i1_correct = Q.store_thm ("top_to_i1_correct",
          >- (rw [decs_to_dummy_env_def] >>
              metis_tac [dec_to_i1_num_bindings])
          >- metis_tac [v_to_i1_weakening]
-         (*>- metis_tac [s_to_i1_cases, s_to_i1'_cases, v_to_i1_weakening]*)
-         >- cheat))
+         >- (fs [s_to_i1_cases] >>
+             metis_tac [sv_to_i1_weakening, LIST_REL_mono])))
  >- (`?next'' tops'' ds_i1. decs_to_i1 (LENGTH genv) (SOME mn) mods tops ds = (next'',tops'',ds_i1)` by metis_tac [pair_CASES] >>
      fs [] >>
      rw [] >>
@@ -2130,8 +2130,8 @@ val top_to_i1_correct = Q.store_thm ("top_to_i1_correct",
                     by (fs [SUBSET_DEF] >>
                         metis_tac []) >>
          metis_tac [global_env_inv_extend_mod_err])
-         (*>- metis_tac [s_to_i1_cases, s_to_i1'_cases, v_to_i1_weakening]*)
-         >- cheat));
+         >- (fs [s_to_i1_cases] >>
+             metis_tac [sv_to_i1_weakening, LIST_REL_mono])));
 
 val prog_to_i1_correct = Q.store_thm ("prog_to_i1_correct",
 `!mods tops ck menv cenv env s prog s' r genv s_i1 next' tops' mods'  cenv' prog_i1 tdecs mod_names tdecs' mod_names'.
