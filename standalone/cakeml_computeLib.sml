@@ -62,33 +62,9 @@ val () = stringLib.add_string_compset compset
 val () = sumSimps.SUM_rws compset
 val () = optionLib.OPTION_rws compset
 val () = pred_setLib.add_pred_set_compset compset
-(* combin doesn't provide a compset :( *)
-val () = let open combinTheory computeLib
-  val K_tm = Term.prim_mk_const{Name="K",Thy="combin"} in
-    add_thms
-        [K_THM,S_DEF,I_THM,C_DEF,W_DEF,o_THM,K_o_THM,
-         APP_DEF,APPLY_UPDATE_THM] compset;
-    set_skip compset K_tm (SOME 1)
-  end
-(* pairLib doesn't provide a compset :( *)
-val () = computeLib.add_thms
-  (map computeLib.lazyfy_thm
-      [CLOSED_PAIR_EQ,FST,SND,pair_case_thm,SWAP_def,
-       CURRY_DEF,UNCURRY_DEF,PAIR_MAP_THM])
-  compset
-(* finite_mapLib doesn't provide a compset :( *)
-val () = computeLib.add_thms
-  [o_f_FEMPTY
-  ,FLOOKUP_EMPTY
-  ,FLOOKUP_UPDATE
-  ,FLOOKUP_FUNION
-  ,DOMSUB_FLOOKUP_THM
-  ,FUNION_FEMPTY_1
-  ,FUNION_FEMPTY_2
-  ,FUPDATE_LIST_THM
-  ,FDOM_FUPDATE
-  ,FDOM_FEMPTY
-  ] compset
+val () = combinLib.add_combin_compset compset
+val () = pairLib.add_pair_compset compset
+val () = finite_mapLib.add_finite_map_compset compset
 (* examples/parsing doesn't provide a compset :( *)
 val () = computeLib.add_thms
   [grammarTheory.isTOK_def

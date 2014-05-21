@@ -1389,4 +1389,34 @@ val DeclAssumCons_cons_lookup = store_thm("DeclAssumCons_cons_lookup",
   fs [DeclAssumCons_def] \\ srw_tac [] [lookup_cons_def] \\ res_tac
   \\ PairCases_on `env` \\ fs [] \\ match_mp_tac EVERY_lookup_lemma \\ fs []);
 
+(* size lemmas *)
+
+val v7_size = prove(
+  ``!vs v. (MEM v vs ==> v_size v < v7_size vs)``,
+  Induct \\ SRW_TAC [] [semanticPrimitivesTheory.v_size_def]
+  \\ RES_TAC \\ DECIDE_TAC);
+
+val v5_size = prove(
+  ``!env x v. (MEM (x,v) env ==> v_size v < v5_size env)``,
+  Induct \\ SRW_TAC [] [semanticPrimitivesTheory.v_size_def]
+  \\ SRW_TAC [] [semanticPrimitivesTheory.v_size_def]
+  \\ RES_TAC \\ DECIDE_TAC);
+
+val v3_size = prove(
+  ``!xs a. MEM a xs ==> v4_size a < v3_size xs``,
+  Induct \\ SRW_TAC [] [semanticPrimitivesTheory.v_size_def]
+  \\ SRW_TAC [] [semanticPrimitivesTheory.v_size_def]
+  \\ RES_TAC \\ DECIDE_TAC);
+
+val v_size_lemmas = store_thm("v_size_lemmas",
+  ``(MEM (x,y) envE ==> v_size y <= v5_size envE) /\
+    (MEM (x,y) xs /\ MEM (t,xs) p1 ==> v_size y <= v3_size p1) /\
+    (MEM v vs ==> v_size v < v7_size vs)``,
+  FULL_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
+  \\ IMP_RES_TAC v5_size
+  \\ IMP_RES_TAC v3_size
+  \\ IMP_RES_TAC v7_size
+  \\ FULL_SIMP_TAC std_ss [semanticPrimitivesTheory.v_size_def]
+  \\ DECIDE_TAC);
+
 val _ = export_theory();
