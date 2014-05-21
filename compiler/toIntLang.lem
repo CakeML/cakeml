@@ -116,60 +116,55 @@ and
 exp_to_Cexp (Fun_pat e) =
   CLetrec [(Nothing,(1,shift 1 1 (exp_to_Cexp e)))] (CVar 0)
 and
-exp_to_Cexp (App_pat (Opn opn) e1 e2) =
-  let Ce1 = exp_to_Cexp e1 in
-  let Ce2 = exp_to_Cexp e2 in
-  match opn_to_prim2 opn with
-  | Left p2 -> CPrim2 p2 Ce1 Ce2
-  | Right p2 ->
-    CLet true Ce1
-      (CLet true (shift 1 0 Ce2)
-        (CIf (CPrim2 CEq (CVar 0) (CLit (IntLit 0)))
-             (CRaise (CCon div_tag []))
-             (CPrim2 p2 (CVar 1) (CVar 0))))
-  end
-and
-exp_to_Cexp (App_pat (Opb opb) e1 e2) =
-  let Ce1 = exp_to_Cexp e1 in
-  let Ce2 = exp_to_Cexp e2 in
-  match opb with
-  | Lt -> CPrim2 CLt Ce1 Ce2
-  | Leq -> CPrim2 CLt (CPrim2 CSub Ce1 Ce2) (CLit (IntLit 1))
-  | opb ->
-      CLet true Ce1 (
-        CLet true (shift 1 0 Ce2) (
-          match opb with
-          | Gt ->  CPrim2 CLt (CVar 0) (CVar 1)
-          | Geq -> CPrim2 CLt (CPrim2 CSub (CVar 0) (CVar 1)) (CLit (IntLit 1))
-          | _ -> CLit (IntLit 0) (* should not happen *)
-          end))
-  end
-and
-exp_to_Cexp (App_pat Equality e1 e2) =
-  let Ce1 = exp_to_Cexp e1 in
-  let Ce2 = exp_to_Cexp e2 in
-  CLet true (CPrim2 CEq Ce1 Ce2)
-    (CIf (CPrim1 CIsBlock (CVar 0)) (CVar 0) (CRaise (CCon eq_tag [])))
-and
-exp_to_Cexp (App_pat Opapp e1 e2) =
-  let Ce1 = exp_to_Cexp e1 in
-  let Ce2 = exp_to_Cexp e2 in
-  CCall true Ce1 [Ce2]
-and
-exp_to_Cexp (App_pat Opassign e1 e2) =
-  let Ce1 = exp_to_Cexp e1 in
-  let Ce2 = exp_to_Cexp e2 in
-  CUpd Ce1 Ce2
-and
-exp_to_Cexp (Uapp_pat uop e) =
-  let Ce = exp_to_Cexp e in
-  CPrim1 (match uop with
-          | Opref_pat   -> CRef
-          | Opderef_pat -> CDer
-          | Init_global_var_pat n -> CInitG n
-          | Tag_eq_pat n -> CTagEq n
-          | El_pat n -> CProj n
-          end) Ce
+exp_to_Cexp (App_pat op es) =
+  match (op,exps_to_Cexps es) with
+  | (Op_pat (Op_i2 (Opn opn)), [Ce1; Ce2]) ->
+    match opn_to_prim2 opn with
+    | Left p2 -> CPrim2 p2 Ce1 Ce2
+    | Right p2 ->
+      CLet true Ce1
+        (CLet true (shift 1 0 Ce2)
+          (CIf (CPrim2 CEq (CVar 0) (CLit (IntLit 0)))
+               (CRaise (CCon div_tag []))
+               (CPrim2 p2 (CVar 1) (CVar 0))))
+    end
+  | (Op_pat (Op_i2 (Opb opb)), [Ce1; Ce2]) ->
+    match opb with
+    | Lt -> CPrim2 CLt Ce1 Ce2
+    | Leq -> CPrim2 CLt (CPrim2 CSub Ce1 Ce2) (CLit (IntLit 1))
+    | opb ->
+        CLet true Ce1 (
+          CLet true (shift 1 0 Ce2) (
+            match opb with
+            | Gt ->  CPrim2 CLt (CVar 0) (CVar 1)
+            | Geq -> CPrim2 CLt (CPrim2 CSub (CVar 0) (CVar 1)) (CLit (IntLit 1))
+            | _ -> CLit (IntLit 0) (* should not happen *)
+            end))
+    end
+  | (Op_pat (Op_i2 Equality), [Ce1; Ce2]) ->
+    CLet true (CPrim2 CEq Ce1 Ce2)
+      (CIf (CPrim1 CIsBlock (CVar 0)) (CVar 0) (CRaise (CCon eq_tag [])))
+  | (Op_pat (Op_i2 Opapp), [Ce1; Ce2]) ->
+    CCall true Ce1 [Ce2]
+  | (Op_pat (Op_i2 Opassign), [Ce1; Ce2]) ->
+    CUpd Ce1 Ce2
+  | (Op_pat (Op_i2 op), [Ce]) ->
+    CPrim1
+    (match op with
+     | Opref -> CRef
+     | Opderef -> CDer
+     | _ -> CDer (* should not happen *)
+     end) Ce
+   | (Op_pat (Init_global_var_i2 n), [Ce]) ->
+     CPrim1 (CInitG n) Ce
+   | (op, [Ce]) ->
+     CPrim1
+     (match op with
+      | Tag_eq_pat n -> CTagEq n
+      | El_pat n -> CProj n
+      end) Ce
+   | _ -> CLit (IntLit 0) (* should not happen *)
+   end
 and
 exp_to_Cexp (If_pat e1 e2 e3) =
   let Ce1 = exp_to_Cexp e1 in
