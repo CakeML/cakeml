@@ -417,7 +417,7 @@ let do_app_pat ((cnt,s),genv) op vs =
     | (Op_pat (Op_i2 Opderef), [Loc_pat n]) ->
         match store_lookup n s with
           | Just (Refv v) -> Just (((cnt,s),genv),Rval v)
-          | Nothing -> Nothing
+          | _ -> Nothing
         end
     | (Op_pat (Op_i2 Opref), [v]) ->
         let (s',n) = store_alloc (Refv v) s in
