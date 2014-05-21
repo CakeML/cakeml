@@ -73,6 +73,7 @@ prog_to_i3 none_tag some_tag next (p::ps) =
 declare termination_argument prog_to_i2 = automatic
 
 type count_store_genv 'a = count_store 'a * list (maybe 'a)
+type store_genv 'a = store 'a * list (maybe 'a)
 
 val do_app_i3 : count_store_genv v_i2 -> op_i2 -> list v_i2 -> maybe (count_store_genv v_i2 * result v_i2 v_i2)
 let do_app_i3 ((count,s),genv) op vs =

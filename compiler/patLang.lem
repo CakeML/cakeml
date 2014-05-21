@@ -17,14 +17,12 @@ open import Ast
 open import BigStep
 open import ExhLang
 open import ConLang
+open import DecLang
 open import CompilerLib
 
 (* TODO: Lem's builtin find index has a different type *)
 val find_index : forall 'a. 'a -> list 'a -> nat -> maybe nat
 declare hol target_rep function find_index = `misc$find_index` (* to pick up the definition in miscTheory *)
-
-(* TODO: move *)
-type store_genv 'a = store 'a * list (maybe 'a)
 
 type op_pat =
   | Op_pat of op_i2

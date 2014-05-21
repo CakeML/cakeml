@@ -396,8 +396,6 @@ let do_if_exh v e1 e2 =
   else
     Nothing
 
-type count_store_genv 'a = count_store 'a * list (maybe 'a)
-
 indreln [evaluate_exh : bool -> env varN v_exh -> count_store_genv v_exh -> exp_exh -> count_store_genv v_exh * result v_exh v_exh -> bool]
 and [evaluate_list_exh : bool -> env varN v_exh -> count_store_genv v_exh -> list exp_exh -> count_store_genv v_exh * result (list v_exh) v_exh -> bool]
 and [evaluate_match_exh : bool -> env varN v_exh -> count_store_genv v_exh -> v_exh -> list (pat_exh * exp_exh) -> count_store_genv v_exh * result v_exh v_exh -> bool]
