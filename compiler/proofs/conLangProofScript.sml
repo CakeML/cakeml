@@ -8,11 +8,11 @@ open libPropsTheory;
 open modLangTheory;
 open conLangTheory;
 open modLangProofTheory;
-open decLangProofTheory;
 open evalPropsTheory;
 open compilerTerminationTheory;
 open miscLib;
-open tempTheory;
+
+(*open decLangProofTheory *)
 
 val _ = new_theory "conLangProof";
 
@@ -376,15 +376,17 @@ val result_to_i2_eqns = Q.prove (
 rw [result_to_i2_cases] >>
 metis_tac []);
 
-val (s_to_i2'_rules, s_to_i2'_ind, s_to_i2'_cases) = Hol_reln `
-(!gtagenv s s'.
-  vs_to_i2 gtagenv s s'
+val (sv_to_i2_rules, sv_to_i2_ind, sv_to_i2_cases) = Hol_reln `
+(!genv v v'.
+  v_to_i2 genv v v'
   ⇒
-  s_to_i2' gtagenv s s')`;
+  sv_to_i2 genv (Refv v) (Refv v')) ∧
+(!genv w.
+  sv_to_i2 genv (W8array w) (W8array w))`;
 
 val (s_to_i2_rules, s_to_i2_ind, s_to_i2_cases) = Hol_reln `
 (!gtagenv c s s'.
-  s_to_i2' gtagenv s s'
+  LIST_REL (sv_to_i2 gtagenv) s s'
   ⇒
   s_to_i2 gtagenv (c,s) (c,s'))`;
 
@@ -455,20 +457,6 @@ val match_result_to_i2_def = Define
  (match_result_to_i2 gtagenv Match_type_error Match_type_error = T) ∧
  (match_result_to_i2 gtagenv _ _ = F)`;
 
-val store_lookup_vs_to_i2 = Q.prove (
-`!gtagenv vs vs_i2 v v_i2 n.
-  vs_to_i2 gtagenv vs vs_i2 ∧
-  store_lookup n vs = SOME v ∧
-  store_lookup n vs_i2 = SOME v_i2
-  ⇒
-  v_to_i2 gtagenv v v_i2`,
- induct_on `vs` >>
- rw [v_to_i2_eqns] >>
- fs [store_lookup_def] >>
- cases_on `n` >>
- fs [] >>
- metis_tac []);
-
 val store_lookup_vs_to_i2_2 = Q.prove (
 `!gtagenv vs vs_i2 v v_i2 n.
   vs_to_i2 gtagenv vs vs_i2 ∧
@@ -508,7 +496,7 @@ val pmatch_to_i2_correct = Q.prove (
   r ≠ Match_type_error ∧
   cenv_inv envC exh tagenv gtagenv ∧
   pmatch_i1 envC s p v env = r ∧
-  s_to_i2' gtagenv s s_i2 ∧
+  LIST_REL (sv_to_i2 gtagenv) s s_i2 ∧
   v_to_i2 gtagenv v v_i2 ∧
   env_to_i2 gtagenv env env_i2
   ⇒
@@ -519,7 +507,7 @@ val pmatch_to_i2_correct = Q.prove (
   r ≠ Match_type_error ∧
   cenv_inv envC exh tagenv gtagenv ∧
   pmatch_list_i1 envC s ps vs env = r ∧
-  s_to_i2' gtagenv s s_i2 ∧
+  LIST_REL (sv_to_i2 gtagenv) s s_i2 ∧
   vs_to_i2 gtagenv vs vs_i2 ∧
   env_to_i2 gtagenv env env_i2
   ⇒
@@ -600,10 +588,15 @@ val pmatch_to_i2_correct = Q.prove (
      rw [] >>
      metis_tac [length_vs_to_i2])
  >- (every_case_tac >>
-     fs [s_to_i2'_cases] >>
-     imp_res_tac store_lookup_vs_to_i2 >>
      fs [store_lookup_def] >>
-     metis_tac [length_vs_to_i2])
+     imp_res_tac LIST_REL_LENGTH >>
+     fs [LIST_REL_EL_EQN] >>
+     fs [sv_to_i2_cases] >>
+     res_tac >>
+     rw [] >>
+     fs [] >>
+     rw [] >>
+     metis_tac [])
  >- (every_case_tac >>
      fs [match_result_to_i2_def] >>
      rw [] >>
@@ -765,6 +758,7 @@ val vs_to_i2_append = Q.prove (
  full_simp_tac (srw_ss()++ARITH_ss) [] >>
  metis_tac []);
 
+ (*
 val do_uapp_correct = Q.prove (
 `!s uop v s' v' gtagenv s_i2 v_i2.
   do_uapp_i1 s uop v = SOME (s',v') ∧
@@ -800,6 +794,7 @@ val exn_env_i2_correct = Q.prove (
  fs [has_exns_def] >>
  fs [flookup_fupdate_list, lookup_tag_env_def, lookup_tag_flat_def, all_env_i1_to_genv_def, all_env_i2_to_genv_def] >>
  metis_tac []);
+ *)
 
 val do_eq_i2 = Q.prove (
 `(!v1 v2 tagenv r v1_i2 v2_i2 gtagenv.
