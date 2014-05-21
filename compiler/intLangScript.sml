@@ -349,7 +349,8 @@ Cevaluate s env (CIf e1 e2 e3) (s', Rerr err))
 /\ (! cs g env n.
 T
 ==>
-Cevaluate (cs,g) env (CExtG n) ((cs,(g++(GENLIST (\ x .  NONE) n))),Rval (CLitv Unit)))
+Cevaluate (cs,g) env (CExtG n) ((cs,(g++(GENLIST (\n11932 .  
+  (case (n11932 ) of ( _ ) => NONE )) n))),Rval (CLitv Unit)))
 
 /\ (! s env.
 T

@@ -343,7 +343,7 @@ and
 extg : forall cs g env n.
 true
 ==>
-Cevaluate (cs,g) env (CExtG n) ((cs,g++(genlist (fun x -> Nothing) n)),Rval (CLitv Unit))
+Cevaluate (cs,g) env (CExtG n) ((cs,g++(genlist (fun _ -> Nothing) n)),Rval (CLitv Unit))
 
 and
 empty : forall s env.
