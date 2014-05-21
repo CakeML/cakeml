@@ -9,27 +9,9 @@ open conLangTheory;
 open decLangTheory;
 open evalPropsTheory;
 open compilerTerminationTheory;
+open tempTheory;
 
 val _ = new_theory "decLangProof";
-
-val el_append3 = Q.prove (
-`!l1 x l2. EL (LENGTH l1) (l1++ [x] ++ l2) = x`,
-induct_on `l1` >>
-rw [] >>
-rw []);
-
-val lupdate_append = Q.prove (
-`!x n l1 l2. n < LENGTH l1 ⇒ LUPDATE x n (l1++l2) = LUPDATE x n l1 ++ l2`,
- induct_on `l1` >>
- rw [] >>
- Cases_on `n` >>
- rw [LUPDATE_def] >>
- fs []);
-
-val lupdate_append2 = Q.prove (
-`!v l1 x l2 l3. LUPDATE v (LENGTH l1) (l1++[x]++l2) = l1++[v]++l2`,
- induct_on `l1` >>
- rw [LUPDATE_def])
 
 val exp_to_i3_correct = Q.prove (
 `(∀b env s e res.

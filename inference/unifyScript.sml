@@ -31,7 +31,7 @@ val _ = new_theory "unify";
 val _ = Hol_datatype `
 infer_t = 
     Infer_Tvar_db of num
-  | Infer_Tapp of infer_t list => tc0
+  | Infer_Tapp of infer_t list => tctor
   | Infer_Tuvar of num`;
 
 val infer_t_size_def = fetch "-" "infer_t_size_def";
@@ -41,7 +41,7 @@ val infer_t_11 = fetch "-" "infer_t_11";
 
 val _ = Hol_datatype `
 atom = 
-    TC_tag of tc0
+    TC_tag of tctor
   | DB_tag of num
   | Tapp_tag
   | Null_tag`;

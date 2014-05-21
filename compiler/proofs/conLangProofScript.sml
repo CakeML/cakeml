@@ -11,33 +11,10 @@ open modLangProofTheory;
 open decLangProofTheory;
 open evalPropsTheory;
 open compilerTerminationTheory;
-open miscLib
+open miscLib;
+open tempTheory;
 
 val _ = new_theory "conLangProof";
-
-val fupdate_list_funion = store_thm("fupdate_list_funion",
-``!m l. m|++l = FUNION (FEMPTY |++l) m``,
- induct_on `l`
- >- rw [FUPDATE_LIST, FUNION_FEMPTY_1] >> 
- REWRITE_TAC [FUPDATE_LIST_THM] >>
- rpt GEN_TAC >>
- pop_assum (qspecl_then [`m|+h`] mp_tac) >>
- rw [] >>
- rw [fmap_eq_flookup, FLOOKUP_FUNION] >>
- every_case_tac >>
- PairCases_on `h` >>
- fs [FLOOKUP_UPDATE, flookup_fupdate_list] >>
- every_case_tac >>
- fs []);
-
-val ZIP_COUNT_LIST = store_thm("ZIP_COUNT_LIST",
-  ``n = LENGTH l1 ⇒
-    ZIP (l1,COUNT_LIST n) = GENLIST (λn. (EL n l1, n)) (LENGTH l1)``,
-    simp[LIST_EQ_REWRITE,LENGTH_COUNT_LIST,EL_ZIP,EL_COUNT_LIST])
-
-val FUPDATE_EQ_FUPDATE_LIST = store_thm("FUPDATE_EQ_FUPDATE_LIST",
-  ``∀fm kv. fm |+ kv = fm |++ [kv]``,
-  rw[FUPDATE_LIST_THM])
 
 val merge_envC_assoc = Q.prove (
 `!envC1 envC2 envC3.
@@ -47,35 +24,6 @@ val merge_envC_assoc = Q.prove (
  PairCases_on `envC2` >>
  PairCases_on `envC3` >>
  rw [merge_envC_def, merge_def]);
-
-val fmap_inverse_def = Define `
-fmap_inverse m1 m2 =
-  !k. k ∈ FDOM m1 ⇒ ?v. FLOOKUP m1 k = SOME v ∧ FLOOKUP m2 v = SOME k`;
-
-val map_some_eq = Q.prove (
-`!l1 l2. MAP SOME l1 = MAP SOME l2 ⇔ l1 = l2`,
- induct_on `l1` >>
- rw [] >>
- Cases_on `l2` >>
- rw []);
-
-val map_some_eq_append = Q.prove (
-`!l1 l2 l3. MAP SOME l1 ++ MAP SOME l2 = MAP SOME l3 ⇔ l1 ++ l2 = l3`,
-metis_tac [map_some_eq, MAP_APPEND]);
-
-val _ = augment_srw_ss [rewrites [map_some_eq,map_some_eq_append]];
-
-val lookup_reverse = Q.prove (
-`∀x l.
- ALL_DISTINCT (MAP FST l) ⇒
- lookup x (REVERSE l) = lookup x l`,
- induct_on `l` >>
- rw [] >>
- PairCases_on `h` >>
- rw [lookup_append] >>
- every_case_tac >>
- fs [] >>
- imp_res_tac lookup_in2);
 
 val lookup_con_id_rev = Q.prove (
 `!cn fenvC envC.
