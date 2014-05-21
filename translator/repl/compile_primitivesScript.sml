@@ -10,36 +10,9 @@ open lcsymtacs finite_mapTheory miscTheory;
 open modLangTheory conLangTheory decLangTheory exhLangTheory patLangTheory compilerTheory intLangTheory toIntLangTheory toBytecodeTheory;
 open terminationTheory compilerTerminationTheory
 
-local
-   val get_f =
-      fst o boolSyntax.strip_comb o boolSyntax.lhs o
-      snd o boolSyntax.strip_forall o List.hd o boolSyntax.strip_conj o
-      Thm.concl
-in
-   fun add_datatype_info ty =
-    let open Drule
-        val size_opt =
-          case TypeBase.size_of0 ty
-           of SOME (_, TypeBasePure.ORIG def) => [def]
-            | otherwise => []
-        val boolify_opt =
-          case TypeBase.encode_of0 ty
-           of SOME (_, TypeBasePure.ORIG def) => [def]
-            | otherwise => []
-        val case_const = Lib.total TypeBase.case_const_of ty
-        val simpls = #rewrs (TypeBase.simpls_of ty)
-        val (case_thm, simpls) =
-           List.partition (fn thm => Lib.total get_f thm = case_const) simpls
-        val case_thm = List.map computeLib.lazyfy_thm case_thm
-    in
-       fn cs =>
-       (computeLib.add_thms (size_opt @ boolify_opt @ case_thm @ simpls) cs;
-        Option.app (fn t => computeLib.set_skip cs t (SOME 1)) case_const)
-    end
-end
-
 val c = let
 val compset = wordsLib.words_compset()
+val add_datatype = computeLib.add_datatype_info compset o valOf o TypeBase.fetch
 (* good libraries which provide compsets :) *)
 val () = intReduce.add_int_compset compset
 (* included in words_compset
@@ -51,33 +24,9 @@ val () = stringLib.add_string_compset compset
 val () = sumSimps.SUM_rws compset
 val () = optionLib.OPTION_rws compset
 val () = pred_setLib.add_pred_set_compset compset
-(* combin doesn't provide a compset :( *)
-val () = let open combinTheory computeLib
-  val K_tm = Term.prim_mk_const{Name="K",Thy="combin"} in
-    add_thms
-        [K_THM,S_DEF,I_THM,C_DEF,W_DEF,o_THM,K_o_THM,
-         APP_DEF,APPLY_UPDATE_THM] compset;
-    set_skip compset K_tm (SOME 1)
-  end
-(* pairLib doesn't provide a compset :( *)
-val () = computeLib.add_thms
-  (map computeLib.lazyfy_thm
-      [CLOSED_PAIR_EQ,FST,SND,pair_case_thm,SWAP_def,
-       CURRY_DEF,UNCURRY_DEF,PAIR_MAP_THM])
-  compset
-(* finite_mapLib doesn't provide a compset :( *)
-val () = computeLib.add_thms
-  [o_f_FEMPTY
-  ,FLOOKUP_EMPTY
-  ,FLOOKUP_UPDATE
-  ,FLOOKUP_FUNION
-  ,DOMSUB_FLOOKUP_THM
-  ,FUNION_FEMPTY_1
-  ,FUNION_FEMPTY_2
-  ,FUPDATE_LIST_THM
-  ,FDOM_FUPDATE
-  ,FDOM_FEMPTY
-  ] compset
+val () = combinLib.add_combin_compset compset
+val () = pairLib.add_pair_compset compset
+val () = finite_mapLib.add_finite_map_compset compset
 (* misc :( *)
 val () = computeLib.add_thms
   [miscTheory.find_index_def
@@ -110,20 +59,20 @@ val () = computeLib.add_thms
   ,conLangTheory.some_tag_def
   ,conLangTheory.none_tag_def
   ] compset
-val () = add_datatype_info ``:MMLnonT`` compset
-val () = add_datatype_info ``:top`` compset
-val () = add_datatype_info ``:dec`` compset
-val () = add_datatype_info ``:pat`` compset
-val () = add_datatype_info ``:exp`` compset
-val () = add_datatype_info ``:tid_or_exn`` compset
-val () = add_datatype_info ``:uop`` compset
-val () = add_datatype_info ``:op`` compset
-val () = add_datatype_info ``:lop`` compset
-val () = add_datatype_info ``:lit`` compset
-val () = add_datatype_info ``:opb`` compset
-val () = add_datatype_info ``:opn`` compset
-val () = add_datatype_info ``:'a id`` compset
-val () = add_datatype_info ``:eq_result`` compset
+val () = add_datatype ``:MMLnonT``
+val () = add_datatype ``:top``
+val () = add_datatype ``:dec``
+val () = add_datatype ``:pat``
+val () = add_datatype ``:exp``
+val () = add_datatype ``:tid_or_exn``
+val () = add_datatype ``:uop``
+val () = add_datatype ``:op``
+val () = add_datatype ``:lop``
+val () = add_datatype ``:lit``
+val () = add_datatype ``:opb``
+val () = add_datatype ``:opn``
+val () = add_datatype ``:'a id``
+val () = add_datatype ``:eq_result``
 (* modLang compiler *)
 val () = computeLib.add_thms
   [prog_to_i1_def
@@ -133,8 +82,8 @@ val () = computeLib.add_thms
   ,exp_to_i1_def
   ,alloc_defs_def
   ] compset
-val () = add_datatype_info ``:prompt_i1`` compset
-val () = add_datatype_info ``:dec_i1`` compset
+val () = add_datatype ``:prompt_i1``
+val () = add_datatype ``:dec_i1``
 (* conLang compiler *)
 val () = computeLib.add_thms
   [prog_to_i2_def
@@ -152,10 +101,10 @@ val () = computeLib.add_thms
   ,insert_tag_env_def
   ,alloc_tag_def
   ] compset
-val () = add_datatype_info ``:prompt_i2`` compset
-val () = add_datatype_info ``:dec_i2`` compset
-val () = add_datatype_info ``:pat_i2`` compset
-val () = add_datatype_info ``:exp_i2`` compset
+val () = add_datatype ``:prompt_i2``
+val () = add_datatype ``:dec_i2``
+val () = add_datatype ``:pat_i2``
+val () = add_datatype ``:exp_i2``
 (* decLang compiler *)
 val () = computeLib.add_thms
   [prog_to_i3_def
@@ -186,8 +135,8 @@ val () = computeLib.add_thms
   ,(CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook)) Let_Els_pat_def
   ,pure_uop_pat_def
   ] compset
-val () = add_datatype_info ``:exp_pat`` compset
-val () = add_datatype_info ``:uop_pat`` compset
+val () = add_datatype ``:exp_pat``
+val () = add_datatype ``:uop_pat``
 (* intLang compiler *)
 val () = computeLib.add_thms
   [exp_to_Cexp_def
@@ -196,8 +145,8 @@ val () = computeLib.add_thms
   ,free_vars_def
   ,no_labs_def
   ] compset
-val () = add_datatype_info ``:Cprim1`` compset
-val () = add_datatype_info ``:Cprim2`` compset
+val () = add_datatype ``:Cprim1``
+val () = add_datatype ``:Cprim2``
 (* bytecode compiler *)
 val () =
   let
@@ -239,9 +188,9 @@ val () = computeLib.add_thms
    compilerTheory.compile_print_err_def,
    compilerTheory.compile_top_def
   ] compset
-val () = add_datatype_info ``:compiler_result`` compset
-val () = add_datatype_info ``:call_context`` compset
-val () = add_datatype_info ``:compiler_state`` compset
+val () = add_datatype ``:compiler_result``
+val () = add_datatype ``:call_context``
+val () = add_datatype ``:compiler_state``
 val () = computeLib.add_thms
   [initialProgramTheory.initial_program_def
   ,init_compiler_state_def
