@@ -62,8 +62,7 @@ val _ = Hol_datatype `
   | Var_local_i1 of varN
   | Var_global_i1 of num
   | Fun_i1 of varN => exp_i1
-  | Uapp_i1 of uop => exp_i1
-  | App_i1 of op => exp_i1 => exp_i1
+  | App_i1 of op => exp_i1 list
   | If_i1 of exp_i1 => exp_i1 => exp_i1
   | Mat_i1 of exp_i1 => (pat # exp_i1) list
   | Let_i1 of  varN option => exp_i1 => exp_i1
@@ -135,11 +134,8 @@ val _ = Hol_datatype `
 (exp_to_i1 menv env (Fun x e) =  
 (Fun_i1 x (exp_to_i1 menv (env \\ x) e))) 
 /\
-(exp_to_i1 menv env (Uapp uop e) =  
-(Uapp_i1 uop (exp_to_i1 menv env e)))
-/\
-(exp_to_i1 menv env (App op e1 e2) =  
-(App_i1 op (exp_to_i1 menv env e1) (exp_to_i1 menv env e2)))
+(exp_to_i1 menv env (App op es) =  
+(App_i1 op (exps_to_i1 menv env es)))
 /\
 (exp_to_i1 menv env (Log lop e1 e2) =  
 ((case lop of
@@ -277,25 +273,6 @@ val _ = Define `
   )))`;
 
 
-(*val do_uapp_i1 : store v_i1 -> uop -> v_i1 -> maybe (store v_i1 * v_i1)*)
-val _ = Define `
- (do_uapp_i1 s uop v =  
-((case uop of
-      Opderef =>
-        (case v of
-            Loc_i1 n =>
-              (case store_lookup n s of
-                  SOME v => SOME (s,v)
-                | NONE => NONE
-              )
-          | _ => NONE
-        )
-    | Opref =>
-        let (s',n) = (store_alloc v s) in
-          SOME (s', Loc_i1 n)
-  )))`;
-
-
 (*val build_rec_env_i1 : list (varN * varN * exp_i1) -> (envC * env varN v_i1) -> env varN v_i1 -> env varN v_i1*)
 val _ = Define `
  (build_rec_env_i1 funs cl_env add_to_env =  
@@ -346,43 +323,103 @@ val _ = Define `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn do_eq_i1_defn;
 
-(*val exn_env_i1 : list (maybe v_i1) -> all_env_i1*)
+(*val prim_exn_i1 : conN -> v_i1*)
 val _ = Define `
- (exn_env_i1 genv = (genv, (emp, MAP (\ cn .  (cn, ( 0, TypeExn (Short cn)))) ["Bind"; "Div"; "Eq"]), emp))`;
+ (prim_exn_i1 cn = (Conv_i1 (SOME (cn, TypeExn (Short cn))) []))`;
 
 
-(*val do_app_i1 : all_env_i1 -> store v_i1 -> op -> v_i1 -> v_i1 -> maybe (all_env_i1 * store v_i1 * exp_i1)*)
+(* Do an application *)
+(*val do_opapp_i1 : list (maybe v_i1) -> list v_i1 -> maybe (all_env_i1 * exp_i1)*)
 val _ = Define `
- (do_app_i1 env' s op v1 v2 =  
-((case (op, v1, v2) of
-      (Opapp, Closure_i1 (cenv, env) n e, v) =>
-        SOME ((all_env_i1_to_genv env', cenv, bind n v env), s, e)
-    | (Opapp, Recclosure_i1 (cenv, env) funs n, v) =>
-        if ALL_DISTINCT (MAP (\ (f,x,e) .  f) funs) then
-          (case find_recfun n funs of
-              SOME (n,e) => SOME ((all_env_i1_to_genv env', cenv, bind n v (build_rec_env_i1 funs (cenv, env) env)), s, e)
-            | NONE => NONE
-          )
-        else
-          NONE
-    | (Opn op, Litv_i1 (IntLit n1), Litv_i1 (IntLit n2)) =>
+ (do_opapp_i1 genv vs =  
+((case vs of
+    [Closure_i1 (cenv, env) n e; v] =>
+      SOME ((genv, cenv, bind n v env), e)
+  | [Recclosure_i1 (cenv, env) funs n; v] =>
+      if ALL_DISTINCT (MAP (\ (f,x,e) .  f) funs) then
+        (case find_recfun n funs of
+            SOME (n,e) => SOME ((genv, cenv, bind n v (build_rec_env_i1 funs (cenv, env) env)), e)
+          | NONE => NONE
+        )
+      else
+        NONE
+  | _ => NONE
+  )))`;
+
+
+(*val do_app_i1 : store v_i1 -> op -> list v_i1 -> maybe (store v_i1 * result v_i1 v_i1)*)
+val _ = Define `
+ (do_app_i1 s op vs =  
+((case (op, vs) of
+      (Opn op, [Litv_i1 (IntLit n1); Litv_i1 (IntLit n2)]) =>
         if ((op = Divide) \/ (op = Modulo)) /\ (n2 =( 0 : int)) then
-          SOME (exn_env_i1 (all_env_i1_to_genv env'), s, Raise_i1 (Con_i1 (SOME (Short "Div")) []))
+          SOME (s, Rerr (Rraise (prim_exn_i1 "Div")))
         else
-          SOME (env', s, Lit_i1 (IntLit (opn_lookup op n1 n2)))
-    | (Opb op, Litv_i1 (IntLit n1), Litv_i1 (IntLit n2)) =>
-        SOME (env', s, Lit_i1 (Bool (opb_lookup op n1 n2)))
-    | (Equality, v1, v2) =>
+          SOME (s, Rval (Litv_i1 (IntLit (opn_lookup op n1 n2))))
+    | (Opb op, [Litv_i1 (IntLit n1); Litv_i1 (IntLit n2)]) =>
+        SOME (s, Rval (Litv_i1 (Bool (opb_lookup op n1 n2))))
+    | (Equality, [v1; v2]) =>
         (case do_eq_i1 v1 v2 of
             Eq_type_error => NONE
-          | Eq_closure => SOME (exn_env_i1 (all_env_i1_to_genv env'), s, Raise_i1 (Con_i1 (SOME (Short "Eq")) []))
-          | Eq_val b => SOME (env', s, Lit_i1 (Bool b))
+          | Eq_closure => SOME (s, Rerr (Rraise (prim_exn_i1 "Eq")))
+          | Eq_val b => SOME (s, Rval (Litv_i1 (Bool b)))
         )
-    | (Opassign, (Loc_i1 lnum), v) =>
-        (case store_assign lnum v s of
-          SOME st => SOME (env', st, Lit_i1 Unit)
-        | NONE => NONE
+    | (Opassign, [Loc_i1 lnum; v]) =>
+        (case store_assign lnum (Refv v) s of
+            SOME st => SOME (st, Rval (Litv_i1 Unit))
+          | NONE => NONE
         )
+    | (Opref, [v]) =>
+        let (s',n) = (store_alloc (Refv v) s) in
+          SOME (s', Rval (Loc_i1 n))
+    | (Opderef, [Loc_i1 n]) =>
+        (case store_lookup n s of
+            SOME (Refv v) => SOME (s,Rval v)
+          | _ => NONE
+        )
+    | (Aalloc, [Litv_i1 (IntLit n); Litv_i1 (Word8 w)]) =>
+        if n <( 0 : int) then
+          SOME (s, Rerr (Rraise (prim_exn_i1 "Size")))
+        else
+          let (s',lnum) =            
+(store_alloc (W8array (REPLICATE (Num (ABS ( n))) w)) s)
+          in 
+            SOME (s', Rval (Loc_i1 lnum))
+    | (Asub, [Loc_i1 lnum; Litv_i1 (IntLit i)]) =>
+        (case store_lookup lnum s of
+            SOME (W8array ws) =>
+              if i <( 0 : int) then
+                SOME (s, Rerr (Rraise (prim_exn_i1 "Size")))
+              else
+                let n = (Num (ABS ( i))) in
+                  if n >= LENGTH ws then
+                    SOME (s, Rerr (Rraise (prim_exn_i1 "Size")))
+                  else 
+                    SOME (s, Rval (Litv_i1 (Word8 (EL n ws))))
+          | _ => NONE
+        )
+    | (Alength, [Loc_i1 n]) =>
+        (case store_lookup n s of
+            SOME (W8array ws) =>
+              SOME (s,Rval (Litv_i1(IntLit(int_of_num(LENGTH ws)))))
+          | _ => NONE
+         )
+    | (Aupdate, [Loc_i1 lnum; Litv_i1(IntLit i); Litv_i1(Word8 w)]) =>
+        (case store_lookup lnum s of
+          SOME (W8array ws) =>
+            if i <( 0 : int) then
+              SOME (s, Rerr (Rraise (prim_exn_i1 "Size")))
+            else 
+              let n = (Num (ABS ( i))) in
+                if n >= LENGTH ws then
+                  SOME (s, Rerr (Rraise (prim_exn_i1 "Size")))
+                else
+                  (case store_assign lnum (W8array (LUPDATE w n ws)) s of
+                      NONE => NONE
+                    | SOME s' => SOME (s', Rval (Litv_i1 Unit))
+                  )
+        | _ => NONE
+      )
     | _ => NONE
   )))`;
 
@@ -432,8 +469,8 @@ val _ = Define `
 /\
 (pmatch_i1 envC s (Pref p) (Loc_i1 lnum) env =  
 ((case store_lookup lnum s of
-      SOME v => pmatch_i1 envC s p v env
-    | NONE => Match_type_error
+      SOME (Refv v) => pmatch_i1 envC s p v env
+    | _ => Match_type_error
   )))
 /\
 (pmatch_i1 envC _ _ _ env = Match_type_error)
@@ -533,59 +570,46 @@ T
 ==>
 evaluate_i1 ck env s (Fun_i1 n e) (s, Rval (Closure_i1 (all_env_i1_to_cenv env, all_env_i1_to_env env) n e)))
 
-/\ (! ck env uop e v v' s1 s2 count s3.
-(evaluate_i1 ck env s1 e ((count,s2), Rval v) /\
-(do_uapp_i1 s2 uop v = SOME (s3,v')))
+/\ (! ck env es vs env' e bv s1 s2 count.
+(evaluate_list_i1 ck env s1 es ((count,s2), Rval vs) /\
+(do_opapp_i1 (all_env_i1_to_genv env) vs = SOME (env', e)) /\
+(ck ==> ~ (count =( 0))) /\
+evaluate_i1 ck env' ((if ck then count -  1 else count),s2) e bv)
 ==>
-evaluate_i1 ck env s1 (Uapp_i1 uop e) ((count,s3), Rval v'))
+evaluate_i1 ck env s1 (App_i1 Opapp es) bv)
 
-/\ (! ck env uop e v s1 s2 count.
-(evaluate_i1 ck env s1 e ((count,s2), Rval v) /\
-(do_uapp_i1 s2 uop v = NONE))
-==>
-evaluate_i1 ck env s1 (Uapp_i1 uop e) ((count,s2), Rerr Rtype_error))
-
-/\ (! ck env uop e err s s'.
-(evaluate_i1 ck env s e (s', Rerr err))
-==>
-evaluate_i1 ck env s (Uapp_i1 uop e) (s', Rerr err))
-
-/\ (! ck env op e1 e2 v1 v2 env' e3 bv s1 s2 s3 count s4.
-(evaluate_i1 ck env s1 e1 (s2, Rval v1) /\
-evaluate_i1 ck env s2 e2 ((count,s3), Rval v2) /\
-(do_app_i1 env s3 op v1 v2 = SOME (env', s4, e3)) /\
-((ck /\ (op = Opapp)) ==> ~ (count =( 0))) /\
-evaluate_i1 ck env' ((if ck then dec_count op count else count),s4) e3 bv)
-==>
-evaluate_i1 ck env s1 (App_i1 op e1 e2) bv)
-
-/\ (! ck env op e1 e2 v1 v2 env' e3 s1 s2 s3 count s4.
-(evaluate_i1 ck env s1 e1 (s2, Rval v1) /\
-evaluate_i1 ck env s2 e2 ((count,s3), Rval v2) /\
-(do_app_i1 env s3 op v1 v2 = SOME (env', s4, e3)) /\
+/\ (! ck env es vs env' e s1 s2 count.
+(evaluate_list_i1 ck env s1 es ((count,s2), Rval vs) /\
+(do_opapp_i1 (all_env_i1_to_genv env) vs = SOME (env', e)) /\
 (count = 0) /\
-(op = Opapp) /\
 ck)
 ==>
-evaluate_i1 ck env s1 (App_i1 op e1 e2) (( 0,s4), Rerr Rtimeout_error))
+evaluate_i1 ck env s1 (App_i1 Opapp es) (( 0,s2), Rerr Rtimeout_error))
 
-/\ (! ck env op e1 e2 v1 v2 s1 s2 s3 count.
-(evaluate_i1 ck env s1 e1 (s2, Rval v1) /\
-evaluate_i1 ck env s2 e2 ((count,s3), Rval v2) /\
-(do_app_i1 env s3 op v1 v2 = NONE))
+/\ (! ck env es vs s1 s2.
+(evaluate_list_i1 ck env s1 es (s2, Rval vs) /\
+(do_opapp_i1 (all_env_i1_to_genv env) vs = NONE))
 ==>
-evaluate_i1 ck env s1 (App_i1 op e1 e2) ((count,s3), Rerr Rtype_error))
+evaluate_i1 ck env s1 (App_i1 Opapp es) (s2, Rerr Rtype_error))
 
-/\ (! ck env op e1 e2 v1 err s1 s2 s3.
-(evaluate_i1 ck env s1 e1 (s2, Rval v1) /\
-evaluate_i1 ck env s2 e2 (s3, Rerr err))
+/\ (! ck env op es vs res s1 s2 s3 count.
+(evaluate_list_i1 ck env s1 es ((count,s2), Rval vs) /\
+(do_app_i1 s2 op vs = SOME (s3, res)) /\
+(op <> Opapp))
 ==>
-evaluate_i1 ck env s1 (App_i1 op e1 e2) (s3, Rerr err))
+evaluate_i1 ck env s1 (App_i1 op es) ((count,s3), res))
 
-/\ (! ck env op e1 e2 err s s'.
-(evaluate_i1 ck env s e1 (s', Rerr err))
+/\ (! ck env op es vs s1 s2 count.
+(evaluate_list_i1 ck env s1 es ((count,s2), Rval vs) /\
+(do_app_i1 s2 op vs = NONE) /\
+(op <> Opapp))
 ==>
-evaluate_i1 ck env s (App_i1 op e1 e2) (s', Rerr err))
+evaluate_i1 ck env s1 (App_i1 op es) ((count,s2), Rerr Rtype_error))
+
+/\ (! ck env op es err s1 s2.
+(evaluate_list_i1 ck env s1 es (s2, Rerr err))
+==>
+evaluate_i1 ck env s1 (App_i1 op es) (s2, Rerr err))
 
 /\ (! ck env e1 e2 e3 v e' bv s1 s2.
 (evaluate_i1 ck env s1 e1 (s2, Rval v) /\
@@ -814,8 +838,8 @@ evaluate_decs_i1 ck genv cenv (s1,tdecs1) ds ((s2,tdecs2),cenv',env,SOME err))
 evaluate_prompt_i1 ck genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds) 
                                                   ((s2,tdecs2,update_mod_state mn mods),
                                                    mod_cenv mn cenv',                                                   
- (MAP SOME env ++ GENLIST (\n .  
-  (case (n ) of ( _ ) => NONE )) (decs_to_dummy_env ds - LENGTH env)),
+ (MAP SOME env ++ GENLIST (\n6030 .  
+  (case (n6030 ) of ( _ ) => NONE )) (decs_to_dummy_env ds - LENGTH env)),
                                                    SOME err))
 
 /\ (! ck genv cenv s1 tdecs1 mods mn ds.

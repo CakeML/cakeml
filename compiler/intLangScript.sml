@@ -158,20 +158,21 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (CevalUpd s (CLoc n) (v:Cv) =  
 (if n < LENGTH s
-  then (LUPDATE v n s, Rval (CLitv Unit))
+  then (LUPDATE (Refv v) n s, Rval (CLitv Unit))
   else (s, Rerr Rtype_error)))
 /\
 (CevalUpd s _ _ = (s, Rerr Rtype_error))`;
 
 
+(*val CevalPrim1 : Cprim1 -> store_genv Cv -> Cv -> store_genv Cv * result Cv Cv*)
  val _ = Define `
 
-(CevalPrim1 CRef (s,g) v = (((s++[v]),g), Rval (CLoc (LENGTH s))))
+(CevalPrim1 CRef (s,g) v = (((s++[Refv v]),g), Rval (CLoc (LENGTH s))))
 /\
 (CevalPrim1 CDer (s,g) (CLoc n) =
   ((s,g), (case el_check n s of
-        NONE => Rerr Rtype_error
-      | SOME v => Rval v
+        SOME (Refv v) => Rval v
+      | _ => Rerr Rtype_error
       )))
 /\
 (CevalPrim1 CIsBlock sg (CLitv l) =

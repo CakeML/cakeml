@@ -118,7 +118,7 @@ val _ = Define `
 (opn_to_prim2 Modulo = (INR CMod))`;
 
 
- val exp_to_Cexp_defn = Hol_defn "exp_to_Cexp" `
+ val _ = Define `
 
 (exp_to_Cexp (Handle_pat e1 e2) =  
 (CHandle (exp_to_Cexp e1) (exp_to_Cexp e2)))
@@ -137,60 +137,55 @@ val _ = Define `
 (exp_to_Cexp (Fun_pat e) =  
 (CLetrec [(NONE,( 1,shift( 1)( 1) (exp_to_Cexp e)))] (CVar( 0))))
 /\
-(exp_to_Cexp (App_pat (Opn opn) e1 e2) =  
-(let Ce1 = (exp_to_Cexp e1) in
-  let Ce2 = (exp_to_Cexp e2) in
-  (case opn_to_prim2 opn of
-    INL p2 => CPrim2 p2 Ce1 Ce2
-  | INR p2 =>
-    CLet T Ce1
-      (CLet T (shift( 1)( 0) Ce2)
-        (CIf (CPrim2 CEq (CVar( 0)) (CLit (IntLit(( 0 : int)))))
-             (CRaise (CCon div_tag []))
-             (CPrim2 p2 (CVar( 1)) (CVar( 0)))))
-  )))
-/\
-(exp_to_Cexp (App_pat (Opb opb) e1 e2) =  
-(let Ce1 = (exp_to_Cexp e1) in
-  let Ce2 = (exp_to_Cexp e2) in
-  (case opb of
-    Lt => CPrim2 CLt Ce1 Ce2
-  | Leq => CPrim2 CLt (CPrim2 CSub Ce1 Ce2) (CLit (IntLit(( 1 : int))))
-  | opb =>
-      CLet T Ce1 (
-        CLet T (shift( 1)( 0) Ce2) (
-          (case opb of
-            Gt =>  CPrim2 CLt (CVar( 0)) (CVar( 1))
-          | Geq => CPrim2 CLt (CPrim2 CSub (CVar( 0)) (CVar( 1))) (CLit (IntLit(( 1 : int))))
-          | _ => CLit (IntLit(( 0 : int))) (* should not happen *)
-          )))
-  )))
-/\
-(exp_to_Cexp (App_pat Equality e1 e2) =  
-(let Ce1 = (exp_to_Cexp e1) in
-  let Ce2 = (exp_to_Cexp e2) in
-  CLet T (CPrim2 CEq Ce1 Ce2)
-    (CIf (CPrim1 CIsBlock (CVar( 0))) (CVar( 0)) (CRaise (CCon eq_tag [])))))
-/\
-(exp_to_Cexp (App_pat Opapp e1 e2) =  
-(let Ce1 = (exp_to_Cexp e1) in
-  let Ce2 = (exp_to_Cexp e2) in
-  CCall T Ce1 [Ce2]))
-/\
-(exp_to_Cexp (App_pat Opassign e1 e2) =  
-(let Ce1 = (exp_to_Cexp e1) in
-  let Ce2 = (exp_to_Cexp e2) in
-  CUpd Ce1 Ce2))
-/\
-(exp_to_Cexp (Uapp_pat uop e) =  
-(let Ce = (exp_to_Cexp e) in
-  CPrim1 ((case uop of
-            Opref_pat   => CRef
-          | Opderef_pat => CDer
-          | Init_global_var_pat n => CInitG n
-          | Tag_eq_pat n => CTagEq n
-          | El_pat n => CProj n
-          )) Ce))
+(exp_to_Cexp (App_pat op es) =  
+((case (op,exps_to_Cexps es) of
+    (Op_pat (Op_i2 (Opn opn)), [Ce1; Ce2]) =>
+    (case opn_to_prim2 opn of
+      INL p2 => CPrim2 p2 Ce1 Ce2
+    | INR p2 =>
+      CLet T Ce1
+        (CLet T (shift( 1)( 0) Ce2)
+          (CIf (CPrim2 CEq (CVar( 0)) (CLit (IntLit(( 0 : int)))))
+               (CRaise (CCon div_tag []))
+               (CPrim2 p2 (CVar( 1)) (CVar( 0)))))
+    )
+  | (Op_pat (Op_i2 (Opb opb)), [Ce1; Ce2]) =>
+    (case opb of
+      Lt => CPrim2 CLt Ce1 Ce2
+    | Leq => CPrim2 CLt (CPrim2 CSub Ce1 Ce2) (CLit (IntLit(( 1 : int))))
+    | opb =>
+        CLet T Ce1 (
+          CLet T (shift( 1)( 0) Ce2) (
+            (case opb of
+              Gt =>  CPrim2 CLt (CVar( 0)) (CVar( 1))
+            | Geq => CPrim2 CLt (CPrim2 CSub (CVar( 0)) (CVar( 1))) (CLit (IntLit(( 1 : int))))
+            | _ => CLit (IntLit(( 0 : int))) (* should not happen *)
+            )))
+    )
+  | (Op_pat (Op_i2 Equality), [Ce1; Ce2]) =>
+    CLet T (CPrim2 CEq Ce1 Ce2)
+      (CIf (CPrim1 CIsBlock (CVar( 0))) (CVar( 0)) (CRaise (CCon eq_tag [])))
+  | (Op_pat (Op_i2 Opapp), [Ce1; Ce2]) =>
+    CCall T Ce1 [Ce2]
+  | (Op_pat (Op_i2 Opassign), [Ce1; Ce2]) =>
+    CUpd Ce1 Ce2
+  | (Op_pat (Op_i2 op), [Ce]) =>
+    CPrim1
+    ((case op of
+       Opref => CRef
+     | Opderef => CDer
+     | _ => CDer (* should not happen *)
+     )) Ce
+   | (Op_pat (Init_global_var_i2 n), [Ce]) =>
+     CPrim1 (CInitG n) Ce
+   | (op, [Ce]) =>
+     CPrim1
+     ((case op of
+        Tag_eq_pat n => CTagEq n
+      | El_pat n => CProj n
+      )) Ce
+   | _ => CLit (IntLit(( 0 : int))) (* should not happen *)
+   )))
 /\
 (exp_to_Cexp (If_pat e1 e2 e3) =  
 (let Ce1 = (exp_to_Cexp e1) in
@@ -218,7 +213,6 @@ val _ = Define `
 (exps_to_Cexps (e::es) =  
 (exp_to_Cexp e :: exps_to_Cexps es))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn exp_to_Cexp_defn;
 
 (* source to intermediate values *)
 
