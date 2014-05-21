@@ -430,6 +430,49 @@ let do_app_pat ((cnt,s),genv) op vs =
           end
         else
           Nothing
+    | (Op_pat (Op_i2 Aalloc), [Litv_pat (IntLit n); Litv_pat (Word8 w)]) ->
+        if n < 0 then
+          Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat size_tag)))
+        else
+          let (st,lnum) =
+            store_alloc (W8array (List.replicate (natFromInteger n) w)) s
+          in
+            Just (((cnt,st),genv), Rval (Loc_pat lnum))
+    | (Op_pat (Op_i2 Asub), [Loc_pat lnum; Litv_pat (IntLit i)]) ->
+        match store_lookup lnum s with
+          | Just (W8array ws) ->
+              if i < 0 then
+                Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat size_tag)))
+              else
+                let n = natFromInteger i in
+                  if n >= List.length ws then
+                    Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat size_tag)))
+                  else
+                    Just (((cnt,s),genv), Rval (Litv_pat (Word8 (List_extra.nth ws n))))
+          | _ -> Nothing
+        end
+    | (Op_pat (Op_i2 Alength), [Loc_pat n]) ->
+        match store_lookup n s with
+          | Just (W8array ws) ->
+              Just (((cnt,s),genv),Rval (Litv_pat (IntLit (integerFromNat (List.length ws)))))
+          | _ -> Nothing
+        end
+    | (Op_pat (Op_i2 Aupdate), [Loc_pat lnum; Litv_pat (IntLit i); Litv_pat (Word8 w)]) ->
+        match store_lookup lnum s with
+        | Just (W8array ws) ->
+            if i < 0 then
+              Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat size_tag)))
+            else
+              let n = natFromInteger i in
+                if n >= List.length ws then
+                  Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat size_tag)))
+                else
+                  match store_assign lnum (W8array (List.update ws n w)) s with
+                    | Nothing -> Nothing
+                    | Just st -> Just (((cnt,st),genv), Rval (Litv_pat Unit))
+                  end
+        | _ -> Nothing
+        end
     | (Tag_eq_pat n, [Conv_pat tag _]) ->
         Just (((cnt,s),genv), Rval (Litv_pat (Bool (tag = n))))
     | (El_pat n, [Conv_pat _ vs]) ->
