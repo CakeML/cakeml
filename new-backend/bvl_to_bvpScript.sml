@@ -55,9 +55,8 @@ val bComp_def = tDefine "bComp" `
      let c2 = Seq c1 (Assign n1 op vs) in
        (if tail then Seq c2 (Return n1) else c2, [n1], n1+1)) /\
   (bComp n env tail [Tick x1] =
-     let (c1,v1,n1) = bComp n env F [x1] in
-     let c2 = Seq Tick c1 in
-       (if tail then Seq c2 (Return n1) else c2, v1, n1)) /\
+     let (c1,v1,n1) = bComp n env tail [x1] in
+       (Seq Tick c1, v1, n1)) /\
   (bComp n env tail [Call dest xs] =
      let (c1,vs,n1) = bComp n env F xs in
      let ret = (if tail then NONE else SOME n1) in
@@ -135,14 +134,19 @@ val LIST_REL_REVERSE = prove(
 
 val IMP_IMP = METIS_PROVE [] ``b1 /\ (b2 ==> b3) ==> ((b1 ==> b2) ==> b3)``
 
+val state_rel_def = Define `
+  state_rel (s:bvl_state) (t:bvp_state) =
+    (s.clock = t.clock)`;
+
 val bComp_correct = prove(
   ``!xs env s1 res s2 t1 n corr tail.
       (bEval (xs,env,s1) = (res,s2)) /\ res <> Error /\
       var_corr env corr t1 /\ (LENGTH xs <> 1 ==> ~tail) /\
-      (!k. n <= k ==> (lookup k t1.locals = NONE)) ==>
+      (!k. n <= k ==> (lookup k t1.locals = NONE)) /\
+      state_rel s1 t1 ==>
       ?t2 prog pres vs next_var.
         (bComp n corr tail xs = (prog,vs,next_var)) /\
-        (pEval (prog,t1) = (pres,t2)) /\
+        (pEval (prog,t1) = (pres,t2)) /\ state_rel s2 t2 /\
         (case pres of
          | SOME r => (res_list r = res) /\ (isResult res ==> tail)
          | NONE => ~tail /\ n <= next_var /\
@@ -192,6 +196,7 @@ val bComp_correct = prove(
     \\ FULL_SIMP_TAC std_ss [listTheory.LIST_REL_EL_EQN]
     \\ FULL_SIMP_TAC (srw_ss()) [get_var_def,set_var_def,lookup_insert,res_list_def]
     \\ Q.MATCH_ASSUM_RENAME_TAC `k < LENGTH env` []
+    \\ FULL_SIMP_TAC (srw_ss()) [state_rel_def,call_env_def]
     \\ REPEAT STRIP_TAC
     \\ SRW_TAC [] [] THEN1 DECIDE_TAC
     THEN1 (FIRST_X_ASSUM MATCH_MP_TAC \\ DECIDE_TAC)
@@ -237,7 +242,21 @@ val bComp_correct = prove(
   THEN1 (* Raise *) cheat (* missing case *)
   THEN1 (* Handle *) cheat (* missing case *)
   THEN1 (* Op *) cheat (* missing case *)
-  THEN1 (* Tick *) cheat (* missing case *)
+  THEN1 (* Tick *)
+   (`?c1 v1 n1. bComp n corr tail [x] = (c1,v1,n1)` by METIS_TAC [PAIR]
+    \\ FULL_SIMP_TAC std_ss [LET_DEF,pEval_def]
+    \\ Cases_on `t1.clock = 0` \\ FULL_SIMP_TAC std_ss []
+    THEN1 (FULL_SIMP_TAC std_ss [state_rel_def,res_list_def,isResult_def])
+    \\ `s.clock <> 0` by ALL_TAC
+    THEN1 (FULL_SIMP_TAC std_ss [state_rel_def,res_list_def,isResult_def])
+    \\ FULL_SIMP_TAC std_ss []
+    \\ Q.PAT_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
+    \\ FULL_SIMP_TAC std_ss [LENGTH]
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`dec_clock t1`,`n`,`corr`,`tail`])
+    \\ FULL_SIMP_TAC std_ss []
+    \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
+    \\ FULL_SIMP_TAC (srw_ss()) [var_corr_def,dec_clock_def,
+         get_var_def,state_rel_def,bvlTheory.dec_clock_def])
   THEN1 (* Call *) cheat (* missing case *));
 
 val option_case_NONE = prove(

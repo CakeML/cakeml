@@ -196,7 +196,7 @@ val pEval_def = tDefine "pEval" `
                    | SOME (v,s) =>
                        (NONE, set_var dest v s))) /\
   (pEval (Tick,s) =
-     if s.clock = 0 then (SOME TimeOut,s) else (NONE,s)) /\
+     if s.clock = 0 then (SOME TimeOut,s) else (NONE,dec_clock s)) /\
   (pEval (MakeSpace k,s) =
      (NONE,add_space s k)) /\
   (pEval (Cut names,s) =
