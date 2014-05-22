@@ -12,6 +12,7 @@ open import DecLang
 (* pure applicative primitives with bytecode counterparts *)
 type Cprim1 = CRef | CDer | CIsBlock
             | CTagEq of nat | CProj of nat | CInitG of nat
+            | CLen
 type Cprim2 = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq
 
 (* values in compile-time environment *)
@@ -137,6 +138,12 @@ and
 CevalPrim1 CDer (s,g) (CLoc n) =
   ((s,g), match el_check n s with
       | Just (Refv v) -> Rval v
+      | _ -> Rerr Rtype_error
+      end)
+and
+CevalPrim1 CLen (s,g) (CLoc n) =
+  ((s,g), match el_check n s with
+      | Just (W8array ws) -> Rval (CLitv (IntLit (integerFromNat (List.length ws))))
       | _ -> Rerr Rtype_error
       end)
 and
