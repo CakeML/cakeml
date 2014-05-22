@@ -77,6 +77,19 @@ val var_corr_def = Define `
   var_corr env corr t <=>
     EVERY2 (\v x. get_var v t = SOME x) corr env`;
 
+val bComp_LESS_EQ_lemma = prove(
+  ``!n env tail xs.
+      n <= SND (SND (bComp n env tail xs))``,
+  HO_MATCH_MP_TAC (fetch "-" "bComp_ind") \\ REPEAT STRIP_TAC
+  \\ SIMP_TAC std_ss [bComp_def] \\ SRW_TAC [] []
+  \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] [] \\ DECIDE_TAC);
+
+val bComp_LESS_EQ = store_thm("bComp_LESS_EQ",
+  ``!n env tail xs.
+      (bComp n env tail xs = (c,vs,new_var)) ==> n <= new_var``,
+  REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL bComp_LESS_EQ_lemma)
+  \\ FULL_SIMP_TAC std_ss []);
+
 val bComp_LENGTH_lemma = prove(
   ``!n env tail xs.
       (LENGTH (FST (SND (bComp n env tail xs))) = LENGTH xs)``,
@@ -211,7 +224,125 @@ val bComp_correct = prove(
            \\ RES_TAC \\ FULL_SIMP_TAC (srw_ss()) [])
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `k'`)
     \\ FULL_SIMP_TAC std_ss [])
-  THEN1 (* If *) cheat (* missing case *)
+  THEN1 (* If *)
+   (`?c1 v1 n1. bComp n corr F [x1] = (c1,v1,n1)` by METIS_TAC [PAIR]
+    \\ `?c2 v2 n2. bComp n1 corr tail [x2] = (c2,v2,n2)` by METIS_TAC [PAIR]
+    \\ `?c3 v3 n3. bComp n2 corr tail [x3] = (c3,v3,n3)` by METIS_TAC [PAIR]
+    \\ FULL_SIMP_TAC std_ss [LET_DEF,pEval_def]
+    \\ Cases_on `tail` \\ FULL_SIMP_TAC std_ss [] THEN1
+     (SIMP_TAC std_ss [pEval_def]
+      \\ Cases_on `bEval ([x1],env,s)` \\ FULL_SIMP_TAC (srw_ss()) []
+      \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) []
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1`,`n`,`corr`,`F`])
+      \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
+      \\ Cases_on `pres` \\ FULL_SIMP_TAC (srw_ss()) [isResult_def]
+      \\ IMP_RES_TAC bEval_SING_IMP \\ FULL_SIMP_TAC (srw_ss()) []
+      \\ IMP_RES_TAC bComp_SING_IMP \\ FULL_SIMP_TAC (srw_ss()) []
+      \\ SRW_TAC [] []
+      \\ Q.MATCH_ASSUM_RENAME_TAC `var_corr [w] [n5] t2` []
+      \\ `get_var n5 t2 = SOME w` by FULL_SIMP_TAC (srw_ss()) [var_corr_def]
+      \\ FULL_SIMP_TAC std_ss []
+      \\ FULL_SIMP_TAC std_ss [LET_DEF]
+      \\ CONV_TAC (DEPTH_CONV (DEPTH_CONV PairRules.PBETA_CONV))
+      \\ IMP_RES_TAC bComp_LESS_EQ
+      \\ Cases_on `w = bool_to_val T` \\ FULL_SIMP_TAC (srw_ss()) []
+      THEN1
+       (Q.PAT_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
+        \\ FULL_SIMP_TAC std_ss []
+        \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t2`,`n1`,`corr`,`T`])
+        \\ FULL_SIMP_TAC std_ss [])
+      \\ Cases_on `w = bool_to_val F` \\ FULL_SIMP_TAC (srw_ss()) []
+      THEN1
+       (Q.PAT_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
+        \\ FULL_SIMP_TAC std_ss []
+        \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t2`,`n2`,`corr`,`T`])
+        \\ FULL_SIMP_TAC std_ss []
+        \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
+        THEN1 (REPEAT STRIP_TAC \\ FIRST_X_ASSUM MATCH_MP_TAC \\ DECIDE_TAC)
+        \\ FULL_SIMP_TAC std_ss []))
+    \\ SIMP_TAC std_ss [pEval_def]
+    \\ Cases_on `bEval ([x1],env,s)` \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1`,`n`,`corr`,`F`])
+    \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
+    \\ Cases_on `pres` \\ FULL_SIMP_TAC (srw_ss()) [isResult_def]
+    \\ IMP_RES_TAC bEval_SING_IMP \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ IMP_RES_TAC bComp_SING_IMP \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ SRW_TAC [] []
+    \\ Q.MATCH_ASSUM_RENAME_TAC `var_corr [w] [n5] t2` []
+    \\ `get_var n5 t2 = SOME w` by FULL_SIMP_TAC (srw_ss()) [var_corr_def]
+    \\ FULL_SIMP_TAC std_ss []
+    \\ FULL_SIMP_TAC std_ss [LET_DEF]
+    \\ CONV_TAC (DEPTH_CONV (DEPTH_CONV PairRules.PBETA_CONV))
+    \\ IMP_RES_TAC bComp_LESS_EQ
+    \\ Cases_on `w = bool_to_val T` \\ FULL_SIMP_TAC (srw_ss()) []
+    THEN1
+     (Q.PAT_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
+      \\ FULL_SIMP_TAC std_ss []
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t2`,`n1`,`corr`,`F`])
+      \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
+      \\ FULL_SIMP_TAC std_ss []
+      \\ Cases_on `pres` \\ FULL_SIMP_TAC (srw_ss()) []
+      \\ Cases_on `res` \\ FULL_SIMP_TAC (srw_ss()) []
+      \\ IMP_RES_TAC bEval_SING_IMP \\ FULL_SIMP_TAC (srw_ss()) []
+      \\ SRW_TAC [] []
+      \\ Q.MATCH_ASSUM_RENAME_TAC `var_corr [w7] [n7] t7` []
+      \\ `get_var n7 t7 = SOME w7` by FULL_SIMP_TAC (srw_ss()) [var_corr_def]
+      \\ FULL_SIMP_TAC (srw_ss()) [set_var_def,state_rel_def,
+           var_corr_def,get_var_def,lookup_insert]
+      \\ REPEAT STRIP_TAC
+      THEN1 DECIDE_TAC
+      THEN1 DECIDE_TAC
+      THEN1 (SRW_TAC [] [] THEN1 DECIDE_TAC
+             \\ FIRST_X_ASSUM MATCH_MP_TAC \\  DECIDE_TAC)
+      THEN1
+       (FULL_SIMP_TAC std_ss [listTheory.LIST_REL_EL_EQN]
+        \\ REPEAT STRIP_TAC
+        \\ Q.MATCH_ASSUM_RENAME_TAC `l < LENGTH env` []
+        \\ `EL l corr <> n3` by ALL_TAC \\ FULL_SIMP_TAC std_ss []
+        \\ `n2 <= n3 /\ l < LENGTH corr` by DECIDE_TAC
+        \\ `lookup n3 t7.locals = NONE` by METIS_TAC []
+        \\ RES_TAC \\ CCONTR_TAC \\ FULL_SIMP_TAC std_ss [])
+      THEN1 (Cases_on `k = n3` \\ FULL_SIMP_TAC (srw_ss()) []
+             \\ RES_TAC \\ DECIDE_TAC)
+      THEN1 (Cases_on `k = n3` \\ FULL_SIMP_TAC (srw_ss()) []
+             \\ SRW_TAC [] [] \\ `n1 <= k` by DECIDE_TAC
+             \\ RES_TAC \\ FULL_SIMP_TAC std_ss []))
+    \\ Cases_on `w = bool_to_val F` \\ FULL_SIMP_TAC (srw_ss()) []
+    THEN1
+     (Q.PAT_ASSUM `(res,s3) = bb` (ASSUME_TAC o GSYM)
+      \\ FULL_SIMP_TAC std_ss []
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t2`,`n2`,`corr`,`F`])
+      \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
+       (FULL_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
+        \\ FIRST_X_ASSUM MATCH_MP_TAC \\ DECIDE_TAC)
+      \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss []
+      \\ Cases_on `pres` \\ FULL_SIMP_TAC (srw_ss()) []
+      \\ Cases_on `res` \\ FULL_SIMP_TAC (srw_ss()) []
+      \\ IMP_RES_TAC bEval_SING_IMP \\ FULL_SIMP_TAC (srw_ss()) []
+      \\ SRW_TAC [] []
+      \\ Q.MATCH_ASSUM_RENAME_TAC `var_corr [w7] [n7] t7` []
+      \\ `get_var n7 t7 = SOME w7` by FULL_SIMP_TAC (srw_ss()) [var_corr_def]
+      \\ FULL_SIMP_TAC (srw_ss()) [set_var_def,state_rel_def,
+           var_corr_def,get_var_def,lookup_insert]
+      \\ REPEAT STRIP_TAC
+      THEN1 DECIDE_TAC
+      THEN1 DECIDE_TAC
+      THEN1 (SRW_TAC [] [] THEN1 DECIDE_TAC
+             \\ FIRST_X_ASSUM MATCH_MP_TAC \\  DECIDE_TAC)
+      THEN1
+       (FULL_SIMP_TAC std_ss [listTheory.LIST_REL_EL_EQN]
+        \\ REPEAT STRIP_TAC
+        \\ Q.MATCH_ASSUM_RENAME_TAC `l < LENGTH env` []
+        \\ `EL l corr <> n3` by ALL_TAC \\ FULL_SIMP_TAC std_ss []
+        \\ `n3 <= n3 /\ l < LENGTH corr` by DECIDE_TAC
+        \\ `lookup n3 t7.locals = NONE` by METIS_TAC []
+        \\ RES_TAC \\ CCONTR_TAC \\ FULL_SIMP_TAC std_ss [])
+      THEN1 (Cases_on `k = n3` \\ FULL_SIMP_TAC (srw_ss()) []
+             \\ RES_TAC \\ DECIDE_TAC)
+      THEN1 (Cases_on `k = n3` \\ FULL_SIMP_TAC (srw_ss()) []
+             \\ SRW_TAC [] [] \\ `n1 <= k` by DECIDE_TAC
+             \\ RES_TAC \\ FULL_SIMP_TAC std_ss [])))
   THEN1 (* Let *)
    (`?c1 vs n1. bComp n corr F xs = (c1,vs,n1)` by METIS_TAC [PAIR]
     \\ `?c2 v2 n2. bComp n1 (REVERSE vs ++ corr) tail [x2] =
