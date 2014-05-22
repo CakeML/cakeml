@@ -4,14 +4,16 @@ open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
 open bytecodeTheory bvlTheory;
 open bvl_inlineTheory bvpTheory;
+open sptreeTheory;
 
 infix \\ val op \\ = op THEN;
 
-(* translation of BVL to BVP *)
+(*
+infix THEN2
+val op THEN2 = fn (x,y) => (x THEN1 y) THEN1 y;
+*)
 
-val index_of_def = Define `
-  (index_of n [] = 0:num) /\
-  (index_of n (x::xs) = if x = n then 0 else 1 + index_of n xs)`;
+(* translation of BVL to BVP *)
 
 val bComp_def = tDefine "bComp" `
   (bComp (n:num) (env:num list) tail [] =
@@ -37,7 +39,7 @@ val bComp_def = tDefine "bComp" `
           [n3],n3+1)) /\
   (bComp n env tail [Let xs x2] =
      let (c1,vs,n1) = bComp n env F xs in
-     let (c2,v2,n2) = bComp n1 vs tail [x2] in
+     let (c2,v2,n2) = bComp n1 (REVERSE vs ++ env) tail [x2] in
        (Seq c1 c2, v2, n2)) /\
   (bComp n env tail [Raise x1] =
      let (c1,v1,n1) = bComp n env F [x1] in
@@ -72,69 +74,179 @@ val res_list_def = Define `
   (res_list TimeOut = TimeOut) /\
   (res_list Error = Error)`;
 
-val vars_match_def = Define `
-  vars_match vs t xs =
-    EVERY2 (\v x. get_var v t = SOME x) vs xs`;
-
 val var_corr_def = Define `
   var_corr env corr t <=>
-    (LENGTH corr = LENGTH env) /\
-    !k. k < LENGTH env ==>
-        (get_var (EL k corr) t = SOME (EL k env))`;
+    EVERY2 (\v x. get_var v t = SOME x) corr env`;
+
+val bComp_LENGTH_lemma = prove(
+  ``!n env tail xs.
+      (LENGTH (FST (SND (bComp n env tail xs))) = LENGTH xs)``,
+  HO_MATCH_MP_TAC (fetch "-" "bComp_ind") \\ REPEAT STRIP_TAC
+  \\ SIMP_TAC std_ss [bComp_def] \\ SRW_TAC [] []
+  \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] []);
+
+val bComp_LENGTH = store_thm("bComp_LENGTH",
+  ``!n env tail xs.
+      (bComp n env tail xs = (c,vs,new_var)) ==> (LENGTH vs = LENGTH xs)``,
+  REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL bComp_LENGTH_lemma)
+  \\ FULL_SIMP_TAC std_ss []);
+
+val bComp_SING_IMP = prove(
+  ``(bComp n env tail [x] = (c,vs,new_var)) ==> ?t. vs = [t]``,
+  REPEAT STRIP_TAC \\ IMP_RES_TAC bComp_LENGTH
+  \\ Cases_on `vs` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ Cases_on `t` \\ FULL_SIMP_TAC (srw_ss()) []);
+
+val bEval_SING_IMP = prove(
+  ``(bEval ([x],env,s1) = (Result vs,s2)) ==> ?w. vs = [w]``,
+  REPEAT STRIP_TAC \\ IMP_RES_TAC bEval_length
+  \\ Cases_on `vs` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ Cases_on `t` \\ FULL_SIMP_TAC (srw_ss()) []);
+
+val EL_LENGTH_APPEND = prove(
+  ``!xs ys a. EL (LENGTH xs + a) (xs ++ ys) = EL a ys``,
+  Induct \\ FULL_SIMP_TAC (srw_ss()) [ADD_CLAUSES]);
+
+val LIST_REL_APPEND = prove(
+  ``!xs ys xs1 ys1.
+      LIST_REL P xs ys /\ LIST_REL P xs1 ys1 ==>
+      LIST_REL P (xs ++ xs1) (ys ++ ys1)``,
+  Induct \\ Cases_on `ys` \\ FULL_SIMP_TAC (srw_ss()) []);
+
+val LIST_REL_APPEND_IMP = prove(
+  ``!xs ys xs1 ys1.
+      LIST_REL P (xs ++ xs1) (ys ++ ys1) /\ (LENGTH xs = LENGTH ys) ==>
+      LIST_REL P xs ys /\ LIST_REL P xs1 ys1``,
+  Induct \\ Cases_on `ys` \\ FULL_SIMP_TAC (srw_ss()) [] \\ METIS_TAC []);
+
+val LIST_REL_SNOC = prove(
+  ``!xs ys xs1 ys1.
+      LIST_REL P (xs ++ [x]) (ys ++ [y]) <=>
+      LIST_REL P xs ys /\ P x y``,
+  Induct \\ Cases_on `ys` \\ FULL_SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
+  \\ RES_TAC \\ CCONTR_TAC \\ FULL_SIMP_TAC std_ss []
+  \\ IMP_RES_TAC LIST_REL_LENGTH \\ FULL_SIMP_TAC (srw_ss()) [] \\ METIS_TAC []);
+
+val LIST_REL_REVERSE = prove(
+  ``!xs ys. LIST_REL P (REVERSE xs) (REVERSE ys) <=> LIST_REL P xs ys``,
+  Induct \\ Cases_on `ys` \\ FULL_SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
+  THEN1 (IMP_RES_TAC LIST_REL_LENGTH \\ FULL_SIMP_TAC (srw_ss()) [])
+  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [LIST_REL_SNOC] \\ METIS_TAC []);
+
+val IMP_IMP = METIS_PROVE [] ``b1 /\ (b2 ==> b3) ==> ((b1 ==> b2) ==> b3)``
 
 val bComp_correct = prove(
   ``!xs env s1 res s2 t1 n corr tail.
       (bEval (xs,env,s1) = (res,s2)) /\ res <> Error /\
-      var_corr env corr t1 /\ (LENGTH xs <> 1 ==> ~tail) ==>
+      var_corr env corr t1 /\ (LENGTH xs <> 1 ==> ~tail) /\
+      (!k. n <= k ==> (lookup k t1.locals = NONE)) ==>
       ?t2 prog pres vs next_var.
         (bComp n corr tail xs = (prog,vs,next_var)) /\
         (pEval (prog,t1) = (pres,t2)) /\
         (case pres of
          | SOME r => (res_list r = res) /\ (isResult res ==> tail)
-         | NONE => ~tail /\ case res of
-                            | Result xs => vars_match vs t2 xs
-                            | _ => F)``,
-  ONCE_REWRITE_TAC [EQ_SYM_EQ]
+         | NONE => ~tail /\ n <= next_var /\
+                   EVERY (\v. n <= v /\ v < next_var) vs /\
+                   (!k. next_var <= k ==> (lookup k t2.locals = NONE)) /\
+                   var_corr env corr t2 /\
+                   (!k x. (lookup k t2.locals = SOME x) ==> k < next_var) /\
+                   (!k x. (lookup k t1.locals = SOME x) ==>
+                          (lookup k t2.locals = SOME x)) /\
+                   case res of
+                   | Result xs => var_corr xs vs t2
+                   | _ => F)``,
+  SIMP_TAC std_ss [Once EQ_SYM_EQ]
   \\ recInduct bEval_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [bComp_def,pEval_def,bEval_def]
   THEN1 (* NIL *)
-    (SRW_TAC [] [vars_match_def])
+    (SRW_TAC [] [var_corr_def]
+     \\ CCONTR_TAC \\ FULL_SIMP_TAC std_ss [NOT_LESS]
+     \\ RES_TAC \\ FULL_SIMP_TAC std_ss [])
   THEN1 (* CONS *)
    (`?c1 v1 n1. bComp n corr F [x] = (c1,v1,n1)` by METIS_TAC [PAIR]
     \\ `?c2 vs n2. bComp n1 corr F (y::xs) = (c2,vs,n2)` by METIS_TAC [PAIR]
     \\ FULL_SIMP_TAC std_ss [LET_DEF,pEval_def]
     \\ Cases_on `bEval ([x],env,s)`
-    \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [] THEN1
-     (FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1`,`n`,`corr`,`F`])
-      \\ FULL_SIMP_TAC std_ss []
-      \\ ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ REPEAT STRIP_TAC
-      \\ Cases_on `pres` \\ FULL_SIMP_TAC std_ss [isResult_def]
-      \\ Cases_on `bEval (y::xs,env,r)`
-      \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [isResult_def]
-      \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t2`,`n1`,`corr`,`F`])
-      \\ `var_corr env corr t2` by cheat (* needs stronger ind hyp *)
-      \\ FULL_SIMP_TAC std_ss []
-      \\ ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ REPEAT STRIP_TAC
-      \\ FULL_SIMP_TAC std_ss []
-      \\ cheat (* easy *))
-    \\ RES_TAC
-    \\ POP_ASSUM (MP_TAC o Q.SPECL [`F`,`n`])
-    \\ ASM_REWRITE_TAC [] \\ SIMP_TAC std_ss []
-    \\ ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ REPEAT STRIP_TAC
-    \\ Cases_on `pres` \\ FULL_SIMP_TAC (srw_ss()) [])
+    \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1`,`n`,`corr`,`F`])
+    \\ FULL_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
+    \\ Cases_on `pres` \\ FULL_SIMP_TAC std_ss [isResult_def]
+    \\ Cases_on `bEval (y::xs,env,r)`
+    \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [isResult_def]
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t2`,`n1`,`corr`,`F`])
+    \\ FULL_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
+    \\ FULL_SIMP_TAC std_ss [] \\ SRW_TAC [] []
+    \\ Cases_on `pres` \\ FULL_SIMP_TAC (srw_ss()) [var_corr_def]
+    \\ IMP_RES_TAC bEval_SING_IMP \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ IMP_RES_TAC bComp_SING_IMP \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ REPEAT STRIP_TAC THEN1 DECIDE_TAC THEN1 DECIDE_TAC
+    \\ FULL_SIMP_TAC std_ss [EVERY_MEM]
+    THEN1 (REPEAT STRIP_TAC \\ RES_TAC \\ DECIDE_TAC)
+    \\ FULL_SIMP_TAC std_ss [get_var_def])
   THEN1 (* Var *)
    (Cases_on `tail` \\ FULL_SIMP_TAC std_ss []
     \\ Cases_on `n < LENGTH env`
     \\ FULL_SIMP_TAC (srw_ss()) [pEval_def]
     \\ FULL_SIMP_TAC std_ss [var_corr_def,res_list_def]
-    \\ FULL_SIMP_TAC std_ss [vars_match_def,LIST_REL_def]
-    \\ FULL_SIMP_TAC (srw_ss()) [get_var_def,set_var_def])
+    \\ FULL_SIMP_TAC std_ss [var_corr_def,LIST_REL_def]
+    \\ FULL_SIMP_TAC std_ss [listTheory.LIST_REL_EL_EQN]
+    \\ FULL_SIMP_TAC (srw_ss()) [get_var_def,set_var_def,lookup_insert,res_list_def]
+    \\ Q.MATCH_ASSUM_RENAME_TAC `k < LENGTH env` []
+    \\ REPEAT STRIP_TAC
+    \\ SRW_TAC [] [] THEN1 DECIDE_TAC
+    THEN1 (FIRST_X_ASSUM MATCH_MP_TAC \\ DECIDE_TAC)
+    THEN1 (Q.MATCH_ASSUM_RENAME_TAC `l < LENGTH env` []
+           \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `EL l corr`)
+           \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`)
+           \\ FULL_SIMP_TAC std_ss [])
+    THEN1 (CCONTR_TAC \\ FULL_SIMP_TAC std_ss [NOT_LESS]
+           \\ `n' < k' /\ n' <> k'` by DECIDE_TAC
+           \\ FULL_SIMP_TAC (srw_ss()) []
+           \\ `n' <= k'` by DECIDE_TAC
+           \\ RES_TAC \\ FULL_SIMP_TAC (srw_ss()) [])
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `k'`)
+    \\ FULL_SIMP_TAC std_ss [])
   THEN1 (* If *) cheat (* missing case *)
-  THEN1 (* Let *) cheat (* missing case *)
+  THEN1 (* Let *)
+   (`?c1 vs n1. bComp n corr F xs = (c1,vs,n1)` by METIS_TAC [PAIR]
+    \\ `?c2 v2 n2. bComp n1 (REVERSE vs ++ corr) tail [x2] =
+                   (c2,v2,n2)` by METIS_TAC [PAIR]
+    \\ FULL_SIMP_TAC std_ss [LET_DEF,pEval_def]
+    \\ Cases_on `bEval (xs,env,s)`
+    \\ REVERSE (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1`,`n`,`corr`,`F`])
+    \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
+    \\ Cases_on `pres` \\ FULL_SIMP_TAC (srw_ss()) [isResult_def]
+    \\ Q.PAT_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
+    \\ FULL_SIMP_TAC std_ss []
+    \\ `var_corr (REVERSE a ++ env) (REVERSE vs ++ corr) t2` by
+     (FULL_SIMP_TAC (srw_ss()) [var_corr_def]
+      \\ MATCH_MP_TAC LIST_REL_APPEND
+      \\ FULL_SIMP_TAC std_ss [LIST_REL_REVERSE])
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t2`,`n1`,`(REVERSE vs ++ corr)`,`tail`])
+    \\ FULL_SIMP_TAC std_ss []
+    \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss []
+    \\ Cases_on `pres` \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ REPEAT STRIP_TAC THEN1 DECIDE_TAC
+    \\ FULL_SIMP_TAC std_ss [EVERY_MEM]
+    THEN1 (REPEAT STRIP_TAC \\ RES_TAC \\ DECIDE_TAC)
+    \\ FULL_SIMP_TAC std_ss [var_corr_def]
+    \\ IMP_RES_TAC LIST_REL_APPEND_IMP
+    \\ IMP_RES_TAC LIST_REL_LENGTH
+    \\ FULL_SIMP_TAC (srw_ss()) [])
   THEN1 (* Raise *) cheat (* missing case *)
   THEN1 (* Handle *) cheat (* missing case *)
   THEN1 (* Op *) cheat (* missing case *)
   THEN1 (* Tick *) cheat (* missing case *)
   THEN1 (* Call *) cheat (* missing case *));
+
+val option_case_NONE = prove(
+  ``(case pres of NONE => F | SOME x => p x) <=> ?r. (pres = SOME r) /\ p r``,
+  Cases_on `pres` \\ SRW_TAC [] []);
+
+val bCompile_correct = save_thm("bCompile_correct",
+  bComp_correct
+  |> Q.SPECL [`[exp]`,`env`,`s1`,`res`,`s2`,`t1`,`n`,`GENLIST I n`,`T`]
+  |> SIMP_RULE std_ss [LENGTH,GSYM bCompile_def,option_case_NONE,PULL_EXISTS]);
 
 val _ = export_theory();
