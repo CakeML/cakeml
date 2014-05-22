@@ -60,12 +60,12 @@ val bComp_def = tDefine "bComp" `
   (bComp n env tail [Call dest xs] =
      let (c1,vs,n1) = bComp n env F xs in
      let ret = (if tail then NONE else SOME n1) in
-       (Seq c1 (Call ret dest vs), [n1], n+1))`
+       (Seq c1 (Call ret dest vs), [n1], n1+1))`
  (WF_REL_TAC `measure (bvl_exp1_size o SND o SND o SND)`);
 
 val bCompile_def = Define `
   bCompile arg_count exp =
-    bComp arg_count (GENLIST I arg_count) T [exp]`;
+    bComp arg_count (REVERSE (GENLIST I arg_count)) T [exp]`;
 
 val res_list_def = Define `
   (res_list (Result x) = Result [x]) /\
@@ -147,9 +147,67 @@ val LIST_REL_REVERSE = prove(
 
 val IMP_IMP = METIS_PROVE [] ``b1 /\ (b2 ==> b3) ==> ((b1 ==> b2) ==> b3)``
 
+val code_rel_def = Define `
+  code_rel bvl_code bvp_code <=>
+    (domain bvl_code = domain bvp_code) /\
+    !n (ignore:num) exp arg_count.
+      (lookup n bvl_code = SOME (ignore,exp,arg_count)) ==>
+      (lookup n bvp_code = SOME (ignore,FST (bCompile arg_count exp),arg_count))`;
+
 val state_rel_def = Define `
-  state_rel (s:bvl_state) (t:bvp_state) =
-    (s.clock = t.clock)`;
+  state_rel (s:bvl_state) (t:bvp_state) <=>
+    (s.clock = t.clock) /\ code_rel s.code t.code`;
+
+val get_vars_thm = prove(
+  ``!vs a t2. var_corr a vs t2 ==> (get_vars vs t2 = SOME a)``,
+  Induct \\ Cases_on `a` \\ FULL_SIMP_TAC std_ss [get_vars_def]
+  \\ FULL_SIMP_TAC (srw_ss()) [var_corr_def] \\ REPEAT STRIP_TAC
+  \\ RES_TAC \\ FULL_SIMP_TAC std_ss []);
+
+val find_code_lemma = prove(
+  ``state_rel r t2 /\
+    (find_code dest a r.code = SOME (args,exp)) ==>
+    (find_code dest a t2.code = SOME (args,FST (bCompile (LENGTH args) exp)))``,
+  REVERSE (Cases_on `dest`) \\ SIMP_TAC std_ss [find_code_def]
+  \\ FULL_SIMP_TAC (srw_ss()) [state_rel_def,code_rel_def]
+  \\ REPEAT STRIP_TAC THEN1
+   (Cases_on `lookup x r.code` \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ PairCases_on `x'` \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ RES_TAC \\ FULL_SIMP_TAC (srw_ss()) [])
+  \\ Cases_on `LAST a` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ FULL_SIMP_TAC std_ss []
+  \\ Cases_on `lookup n r.code` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ PairCases_on `x` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ RES_TAC \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ `x2 = LENGTH args` by ALL_TAC \\ FULL_SIMP_TAC std_ss []
+  \\ `?t1 t2. a = SNOC t1 t2` by METIS_TAC [SNOC_CASES]
+  \\ FULL_SIMP_TAC std_ss [FRONT_SNOC,LENGTH_SNOC,ADD1]);
+
+val LIST_REL_GENLIST_I = prove(
+  ``!xs. LIST_REL P (GENLIST I (LENGTH xs)) xs =
+         !n. n < LENGTH xs ==> P n (EL n xs)``,
+  HO_MATCH_MP_TAC SNOC_INDUCT
+  \\ FULL_SIMP_TAC (srw_ss()) [LENGTH,GENLIST,SNOC_APPEND]
+  \\ FULL_SIMP_TAC std_ss [LIST_REL_SNOC]
+  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC THEN1
+   (Cases_on `n < LENGTH xs`
+    \\ FULL_SIMP_TAC std_ss [rich_listTheory.EL_APPEND1]
+    \\ `n = LENGTH xs` by DECIDE_TAC
+    \\ FULL_SIMP_TAC std_ss [rich_listTheory.EL_APPEND2,EL,HD])
+  THEN1 (`n < SUC (LENGTH xs)` by DECIDE_TAC \\ RES_TAC
+    \\ POP_ASSUM MP_TAC \\ Q.PAT_ASSUM `!x.bb` (K ALL_TAC)
+    \\ FULL_SIMP_TAC std_ss [rich_listTheory.EL_APPEND1])
+  \\ POP_ASSUM (MP_TAC o Q.SPEC `LENGTH xs`)
+  \\ FULL_SIMP_TAC std_ss [rich_listTheory.EL_APPEND2,EL,HD]);
+
+val LIST_REL_lookup_fromList = prove(
+  ``LIST_REL (\v x. lookup v (fromList args) = SOME x)
+     (GENLIST I (LENGTH args)) args``,
+  SIMP_TAC std_ss [lookup_fromList,LIST_REL_GENLIST_I]);
+
+val lookup_fromList_NONE = prove(
+  ``!k. LENGTH args <= k ==> (lookup k (fromList args) = NONE)``,
+  SIMP_TAC std_ss [lookup_fromList] \\ DECIDE_TAC);
 
 val bComp_correct = prove(
   ``!xs env s1 res s2 t1 n corr tail.
@@ -161,7 +219,8 @@ val bComp_correct = prove(
         (bComp n corr tail xs = (prog,vs,next_var)) /\
         (pEval (prog,t1) = (pres,t2)) /\ state_rel s2 t2 /\
         (case pres of
-         | SOME r => (res_list r = res) /\ (isResult res ==> tail)
+         | SOME r => (res_list r = res) /\
+                     (isResult res ==> tail /\ (t1.stack = t2.stack))
          | NONE => ~tail /\ n <= next_var /\
                    EVERY (\v. n <= v /\ v < next_var) vs /\
                    (!k. next_var <= k ==> (lookup k t2.locals = NONE)) /\
@@ -169,6 +228,7 @@ val bComp_correct = prove(
                    (!k x. (lookup k t2.locals = SOME x) ==> k < next_var) /\
                    (!k x. (lookup k t1.locals = SOME x) ==>
                           (lookup k t2.locals = SOME x)) /\
+                   (t1.stack = t2.stack) /\
                    case res of
                    | Result xs => var_corr xs vs t2
                    | _ => F)``,
@@ -388,7 +448,89 @@ val bComp_correct = prove(
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
     \\ FULL_SIMP_TAC (srw_ss()) [var_corr_def,dec_clock_def,
          get_var_def,state_rel_def,bvlTheory.dec_clock_def])
-  THEN1 (* Call *) cheat (* missing case *));
+  THEN1 (* Call *)
+   (`?c1 vs n1. bComp n corr F xs = (c1,vs,n1)` by METIS_TAC [PAIR]
+    \\ FULL_SIMP_TAC std_ss [LET_DEF,pEval_def]
+    \\ Cases_on `bEval (xs,env,s1)`
+    \\ REVERSE (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1`,`n`,`corr`,`F`])
+    \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
+    \\ Cases_on `pres` \\ FULL_SIMP_TAC (srw_ss()) [isResult_def]
+    \\ Cases_on `find_code dest a r.code` \\ FULL_SIMP_TAC std_ss []
+    \\ Cases_on `x` \\ FULL_SIMP_TAC std_ss []
+    \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest a r.code = SOME (args,exp)` []
+    \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ `t2.clock = r.clock` by FULL_SIMP_TAC std_ss [state_rel_def]
+    \\ FULL_SIMP_TAC std_ss [] \\ Cases_on `r.clock = 0`
+    \\ FULL_SIMP_TAC std_ss [res_list_def,isResult_def]
+    \\ `get_vars vs t2 = SOME a` by IMP_RES_TAC get_vars_thm
+    \\ FULL_SIMP_TAC std_ss []
+    \\ IMP_RES_TAC find_code_lemma
+    \\ FULL_SIMP_TAC (srw_ss()) [] \\ POP_ASSUM (K ALL_TAC)
+    \\ FULL_SIMP_TAC std_ss [bCompile_def]
+    \\ Q.PAT_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
+    \\ FULL_SIMP_TAC std_ss []
+    \\ Cases_on `tail` THEN1
+     (FIRST_X_ASSUM (MP_TAC o Q.SPECL [`call_env args (dec_clock t2)`,
+           `LENGTH (args:bc_value list)`,
+           `REVERSE (GENLIST I (LENGTH (args:bc_value list)))`,`T`])
+      \\ FULL_SIMP_TAC std_ss []
+      \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
+       (FULL_SIMP_TAC (srw_ss()) [state_rel_def,dec_clock_def,call_env_def,
+          bvlTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE,
+          LIST_REL_lookup_fromList,lookup_fromList_NONE])
+      \\ STRIP_TAC
+      \\ Cases_on `pres` \\ FULL_SIMP_TAC (srw_ss()) []
+      \\ FULL_SIMP_TAC std_ss []
+      \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
+      \\ FULL_SIMP_TAC (srw_ss()) [call_env_def,dec_clock_def])
+    \\ FULL_SIMP_TAC std_ss []
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`call_env args (push_env (dec_clock t2))`,
+           `LENGTH (args:bc_value list)`,
+           `REVERSE (GENLIST I (LENGTH (args:bc_value list)))`,`T`])
+    \\ FULL_SIMP_TAC std_ss []
+    \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
+       (FULL_SIMP_TAC (srw_ss()) [state_rel_def,dec_clock_def,call_env_def,
+          bvlTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE,
+          LIST_REL_lookup_fromList,lookup_fromList_NONE,push_env_def])
+    \\ STRIP_TAC
+    \\ Cases_on `pres` \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ FULL_SIMP_TAC std_ss []
+    \\ REVERSE (Cases_on `x`) \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ FULL_SIMP_TAC std_ss [res_list_def] \\ SRW_TAC [] [isResult_def]
+    \\ FULL_SIMP_TAC std_ss [isResult_def]
+    \\ `pop_env t2' = SOME (t2' with
+         <| stack := t2.stack; locals := t2.locals |>)` by ALL_TAC THEN1
+     (POP_ASSUM (ASSUME_TAC o GSYM)
+      \\ FULL_SIMP_TAC (srw_ss()) [call_env_def,push_env_def,pop_env_def,dec_clock_def])
+    \\ FULL_SIMP_TAC (srw_ss()) [set_var_def,state_rel_def]
+    \\ IMP_RES_TAC bComp_LESS_EQ
+    \\ REPEAT STRIP_TAC THEN1 DECIDE_TAC
+    THEN1
+     (FULL_SIMP_TAC std_ss [lookup_insert]
+      \\ SRW_TAC [] [] THEN1 DECIDE_TAC
+      \\ FIRST_X_ASSUM MATCH_MP_TAC
+      \\ DECIDE_TAC)
+    THEN1
+     (FULL_SIMP_TAC (srw_ss()) [var_corr_def,get_var_def,lookup_insert]
+      \\ FULL_SIMP_TAC std_ss [listTheory.LIST_REL_EL_EQN]
+      \\ REPEAT STRIP_TAC
+      \\ Q.MATCH_ASSUM_RENAME_TAC `l < LENGTH env` []
+      \\ `EL l corr <> n1` by ALL_TAC \\ FULL_SIMP_TAC std_ss []
+      \\ `n1 <= n1 /\ l < LENGTH corr` by DECIDE_TAC
+      \\ `lookup n1 t1.locals = NONE` by METIS_TAC []
+      \\ RES_TAC \\ CCONTR_TAC \\ FULL_SIMP_TAC std_ss [])
+    THEN1
+     (FULL_SIMP_TAC (srw_ss()) [var_corr_def,get_var_def,lookup_insert]
+      \\ Cases_on `k = n1` \\ FULL_SIMP_TAC std_ss []
+      \\ CCONTR_TAC \\ `n1 <= k` by DECIDE_TAC
+      \\ RES_TAC \\ FULL_SIMP_TAC std_ss [])
+    THEN1
+     (`k <> n1` by ALL_TAC
+      \\ FULL_SIMP_TAC (srw_ss()) [var_corr_def,get_var_def,lookup_insert]
+      \\ CCONTR_TAC \\ FULL_SIMP_TAC std_ss []
+      \\ RES_TAC \\ FULL_SIMP_TAC std_ss [])
+    \\ FULL_SIMP_TAC (srw_ss()) [var_corr_def,get_var_def,lookup_insert]));
 
 val option_case_NONE = prove(
   ``(case pres of NONE => F | SOME x => p x) <=> ?r. (pres = SOME r) /\ p r``,

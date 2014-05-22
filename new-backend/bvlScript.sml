@@ -93,12 +93,6 @@ val dec_clock_def = Define `
 
 (* Functions for looking up function definitions *)
 
-val find_loc_def = Define `
-  find_loc loc code =
-    if (?x p. lookup p code = SOME (loc,x))
-    then SOME (@x. ?p. lookup p code = SOME (loc,x))
-    else NONE`
-
 val find_code_def = Define `
   (find_code (SOME p) args code =
      case lookup p code of
@@ -109,11 +103,11 @@ val find_code_def = Define `
      if args = [] then NONE else
        case LAST args of
        | CodePtr loc =>
-           (case find_loc loc code of
+           (case lookup loc code of
             | NONE => NONE
-            | SOME (exp,arity) => if LENGTH args = arity + 1
-                                  then SOME (FRONT args,exp)
-                                  else NONE)
+            | SOME (_,exp,arity) => if LENGTH args = arity + 1
+                                    then SOME (FRONT args,exp)
+                                    else NONE)
        | other => NONE)`
 
 (* The evaluation is defined as a clocked functional version of
