@@ -22,7 +22,8 @@ val _ = new_theory "intLang"
 (* pure applicative primitives with bytecode counterparts *)
 val _ = Hol_datatype `
  Cprim1 = CRef | CDer | CIsBlock
-            | CTagEq of num | CProj of num | CInitG of num`;
+            | CTagEq of num | CProj of num | CInitG of num
+            | CLen`;
 
 val _ = Hol_datatype `
  Cprim2 = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq`;
@@ -172,6 +173,12 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (CevalPrim1 CDer (s,g) (CLoc n) =
   ((s,g), (case el_check n s of
         SOME (Refv v) => Rval v
+      | _ => Rerr Rtype_error
+      )))
+/\
+(CevalPrim1 CLen (s,g) (CLoc n) =
+  ((s,g), (case el_check n s of
+        SOME (W8array ws) => Rval (CLitv (IntLit (int_of_num (LENGTH ws))))
       | _ => Rerr Rtype_error
       )))
 /\
@@ -349,8 +356,8 @@ Cevaluate s env (CIf e1 e2 e3) (s', Rerr err))
 /\ (! cs g env n.
 T
 ==>
-Cevaluate (cs,g) env (CExtG n) ((cs,(g++(GENLIST (\n11932 .  
-  (case (n11932 ) of ( _ ) => NONE )) n))),Rval (CLitv Unit)))
+Cevaluate (cs,g) env (CExtG n) ((cs,(g++(GENLIST (\n11963 .  
+  (case (n11963 ) of ( _ ) => NONE )) n))),Rval (CLitv Unit)))
 
 /\ (! s env.
 T
