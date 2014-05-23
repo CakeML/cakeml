@@ -1,4 +1,4 @@
-open HolKernel bossLib boolLib boolSimps optionTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory arithmeticTheory pairTheory sortingTheory relationTheory lcsymtacs miscLib
+open HolKernel bossLib boolLib boolSimps optionTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory arithmeticTheory pairTheory sortingTheory relationTheory bitTheory lcsymtacs miscLib
 
 open sptreeTheory;
 
