@@ -10,6 +10,16 @@ infix \\ val op \\ = op THEN;
 
 (* compilation from BVL to BVP *)
 
+val bMakeSpace_def = Define `
+  (bMakeSpace (Cons k) c = Seq (MakeSpace (k+1)) c) /\
+  (bMakeSpace Ref c = Seq (MakeSpace 2) c) /\
+  (bMakeSpace x c = c)`;
+
+val op_make_space_def = Define `
+  (op_make_space (Cons k) = (k+1)) /\
+  (op_make_space Ref = 2) /\
+  (op_make_space x = 0)`;
+
 val bComp_def = tDefine "bComp" `
   (bComp (n:num) (env:num list) tail [] =
     (Skip,[]:num list,n)) /\
@@ -47,7 +57,7 @@ val bComp_def = tDefine "bComp" `
        (if tail then Seq c3 (Return n2) else c3, [n2], n2+1)) /\
   (bComp n env tail [Op op xs] =
      let (c1,vs,n1) = bComp n env F xs in
-     let c2 = Seq c1 (Assign n1 op vs) in
+     let c2 = Seq c1 (bMakeSpace op (Assign n1 op vs)) in
        (if tail then Seq c2 (Return n1) else c2, [n1], n1+1)) /\
   (bComp n env tail [Tick x1] =
      let (c1,v1,n1) = bComp n env tail [x1] in
@@ -153,7 +163,11 @@ val code_rel_def = Define `
 
 val state_rel_def = Define `
   state_rel (s:bvl_state) (t:bvp_state) <=>
-    (s.clock = t.clock) /\ code_rel s.code t.code`;
+    (s.clock = t.clock) /\
+    code_rel s.code t.code /\
+    (s.globals = t.globals) /\
+    (s.refs = t.refs) /\
+    (s.output = t.output)`;
 
 val get_vars_thm = prove(
   ``!vs a t2. var_corr a vs t2 ==> (get_vars vs t2 = SOME a)``,
@@ -239,12 +253,83 @@ val jump_exc_push_exc = prove(
            |> SIMP_RULE std_ss [LENGTH,ADD1]] \\ fs [] \\ DECIDE_TAC);
 
 val jump_exc_IMP_jump_exc = prove(
-  ``(t2.handler = t1.handler) /\
-    (t2.stack = t1.stack) ==>
-    jump_exc t1 <> NONE ==>
-    jump_exc t2 <> NONE``,
+  ``(t2.handler = t1.handler) /\ (t2.stack = t1.stack) ==>
+    jump_exc t1 <> NONE ==> jump_exc t2 <> NONE``,
   Cases_on `jump_exc t1` \\ fs [] \\ IMP_RES_TAC jump_exc_IMP
   \\ fs [jump_exc_def]);
+
+val s_space_ID = prove(
+  ``!s. (s with space := s.space) = s``,
+  Cases \\ SIMP_TAC std_ss (TypeBase.updates_of ``:bvp_state`` @
+                            TypeBase.accessors_of ``:bvp_state``));
+
+val op_space_reset_def = Define `
+  (op_space_reset Add = T) /\
+  (op_space_reset Sub = T) /\
+  (op_space_reset _ = F)`;
+
+val pEvalOpSpace_thm = prove(
+  ``!op. pEvalOpSpace op (add_space s (op_make_space op)) =
+         SOME (s with space := if op_space_reset op then 0 else s.space)``,
+  Cases \\ fs [pEvalOpSpace_def,op_make_space_def,s_space_ID]
+  \\ fs [consume_space_def,add_space_def,s_space_ID,op_space_reset_def]
+  \\ DECIDE_TAC);
+
+val bMakeSpace_thm = prove(
+  ``!op x s. pEval (bMakeSpace op x, s) =
+             pEval (x, add_space s (op_make_space op))``,
+  Cases \\ fs [bMakeSpace_def,op_make_space_def,pEval_def,LET_DEF,
+    add_space_def,s_space_ID]);
+
+val get_vars_add_space = prove(
+  ``!vs s x. get_vars vs (add_space s x) = get_vars vs s``,
+  Induct \\ fs [get_vars_def,get_var_def,add_space_def]);
+
+val bEvalOp_code = prove(
+  ``!op s1 s2. (bEvalOp op a s1 = SOME (x0,s2)) ==> (s2.code = s1.code)``,
+  Cases \\ REPEAT GEN_TAC \\ EVAL_TAC
+  \\ REPEAT (BasicProvers.FULL_CASE_TAC) \\ fs []);
+
+val bvl_state_explode = prove(
+  ``!s1 (s2:bvl_state).
+      s1 = s2 <=>
+      (s1.code = s2.code) /\
+      (s1.clock = s2.clock) /\
+      (s1.globals = s2.globals) /\
+      (s1.output = s2.output) /\
+      (s1.refs = s2.refs)``,
+  Cases \\ Cases \\ fs (TypeBase.updates_of ``:bvl_state`` @
+                        TypeBase.accessors_of ``:bvl_state``)
+  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC \\ fs []);
+
+val bvp_state_explode = prove(
+  ``!t1 t2.
+      t1 = t2 <=>
+      (t1.code = t2.code) /\
+      (t1.clock = t2.clock) /\
+      (t1.globals = t2.globals) /\
+      (t1.locals = t2.locals) /\
+      (t1.output = t2.output) /\
+      (t1.refs = t2.refs) /\
+      (t1.handler = t2.handler) /\
+      (t1.stack = t2.stack) /\
+      (t1.space = t2.space)``,
+  Cases \\ Cases \\ fs (TypeBase.updates_of ``:bvp_state`` @
+                        TypeBase.accessors_of ``:bvp_state``)
+  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC \\ fs []);
+
+val bEvalOp_bvp_to_bvl = prove(
+  ``(bEvalOp op a s1 = SOME (x0,s2)) /\ state_rel s1 t1 ==>
+    (bEvalOp op a (bvp_to_bvl t1) = SOME (x0,s2 with code := LN))``,
+  fs [bvp_to_bvl_def,state_rel_def]
+  \\ Cases_on `op` \\ fs [bEvalOp_def]
+  \\ REPEAT BasicProvers.CASE_TAC \\ fs []
+  \\ CCONTR_TAC \\ fs [] \\ SRW_TAC [] []
+  \\ fs [bvl_state_explode] \\ fs []);
+
+val bvp_to_bvl_space = prove(
+  ``!t. bvp_to_bvl (t with space := x) = bvp_to_bvl t``,
+  fs [bvp_to_bvl_def]);
 
 val bComp_correct = prove(
   ``!xs env s1 res s2 t1 n corr tail.
@@ -278,6 +363,7 @@ val bComp_correct = prove(
                    case res of
                    | Result xs => var_corr xs vs t2
                    | _ => F)``,
+
   SIMP_TAC std_ss [Once EQ_SYM_EQ]
   \\ recInduct bEval_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [bComp_def,pEval_def,bEval_def]
@@ -632,7 +718,44 @@ val bComp_correct = prove(
       \\ `get_var v2 t2' = SOME w` by fs [var_corr_def,get_var_def]
       \\ fs [] \\ fs [get_var_def,isResult_def,res_list_def,call_env_def,
                       isException_def,state_rel_def]))
-  THEN1 (* Op *) cheat (* missing case *)
+  THEN1 (* Op *)
+   (`?c1 vs n1. bComp n corr F xs = (c1,vs,n1)` by METIS_TAC [PAIR]
+    \\ FULL_SIMP_TAC std_ss [LET_DEF,pEval_def]
+    \\ Cases_on `bEval (xs,env,s)`
+    \\ REVERSE (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1`,`n`,`corr`,`F`])
+    \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
+    \\ FULL_SIMP_TAC (srw_ss()) [isResult_def,isException_def]
+    \\ Cases_on `pres`
+    \\ FULL_SIMP_TAC (srw_ss()) [isResult_def,isException_def]
+    \\ SRW_TAC [] [pEval_def,bMakeSpace_thm]
+    \\ IMP_RES_TAC get_vars_thm
+    \\ fs [pEvalOp_def,pEvalOpSpace_thm,get_vars_add_space,bvp_to_bvl_space]
+    \\ Cases_on `bEvalOp op a r` \\ fs []
+    \\ PairCases_on `x` \\ fs [] \\ SRW_TAC [] []
+    \\ `bEvalOp op a (bvp_to_bvl t2) = SOME (x0,s2 with code := LN)` by
+         (IMP_RES_TAC bEvalOp_bvp_to_bvl \\ NO_TAC)
+    \\ fs [get_var_def,set_var_def,res_list_def,isResult_def]
+    \\ fs [call_env_def,bvl_to_bvp_def,isException_def]
+    \\ fs [state_rel_def] \\ IMP_RES_TAC bEvalOp_code \\ fs []
+    \\ IMP_RES_TAC bComp_LESS_EQ \\ fs [lookup_insert]
+    \\ (REPEAT STRIP_TAC THEN1 DECIDE_TAC
+        THEN1 (SRW_TAC [] [] THEN1 DECIDE_TAC
+           \\ FIRST_X_ASSUM MATCH_MP_TAC \\ DECIDE_TAC)
+        THEN1 (fs [LIST_REL_EL_EQN,var_corr_def,get_var_def,lookup_insert]
+          \\ REPEAT STRIP_TAC
+          \\ Q.MATCH_ASSUM_RENAME_TAC `l < LENGTH env` []
+          \\ `EL l corr <> n1` by ALL_TAC \\ FULL_SIMP_TAC std_ss []
+          \\ `n1 <= n1 /\ l < LENGTH corr` by DECIDE_TAC
+          \\ `lookup n1 t2.locals = NONE` by METIS_TAC []
+          \\ RES_TAC \\ CCONTR_TAC \\ FULL_SIMP_TAC std_ss [])
+        THEN1 (Cases_on `k = n1` \\ fs [] \\ RES_TAC \\ DECIDE_TAC)
+        THEN1 (RES_TAC \\ fs [] \\ `k <> n1` by ALL_TAC \\ fs []
+           \\ RES_TAC \\ DECIDE_TAC)
+        THEN1 (POP_ASSUM MP_TAC \\ Cases_on `jump_exc t1` \\ fs []
+           \\ IMP_RES_TAC jump_exc_IMP
+           \\ POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC \\ fs [jump_exc_def])
+        \\ fs [var_corr_def,get_var_def]))
   THEN1 (* Tick *)
    (`?c1 v1 n1. bComp n corr tail [x] = (c1,v1,n1)` by METIS_TAC [PAIR]
     \\ FULL_SIMP_TAC std_ss [LET_DEF,pEval_def]

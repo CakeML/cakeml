@@ -81,7 +81,7 @@ val bvl_to_bvp_def = Define `
 
 val consume_space_def = Define `
   consume_space k s =
-    if k < s.space then NONE else SOME (s with space := s.space - k)`;
+    if s.space < k then NONE else SOME (s with space := s.space - k)`;
 
 val pEvalOpSpace_def = Define `
   pEvalOpSpace op s =
