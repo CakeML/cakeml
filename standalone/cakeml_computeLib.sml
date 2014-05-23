@@ -36,32 +36,7 @@ val () = pred_setLib.add_pred_set_compset compset
 val () = combinLib.add_combin_compset compset
 val () = pairLib.add_pair_compset compset
 val () = finite_mapLib.add_finite_map_compset compset
-(* examples/parsing doesn't provide a compset :( *)
-val () = computeLib.add_thms
-  [grammarTheory.isTOK_def
-  ,grammarTheory.language_def
-  ,grammarTheory.derive_def
-  ,grammarTheory.ptree_fringe_def
-  ,grammarTheory.complete_ptree_def
-  ,grammarTheory.ptree_head_def
-  ,grammarTheory.ptree_size_def
-  ,pegTheory.subexprs_def
-  ,pegTheory.wfG_def
-  ,pegTheory.Gexprs_def
-  ,pegexecTheory.poplist_aux_def
-  ,pegexecTheory.poplistval_def
-  ,pegexecTheory.pegparse_def
-  ,pegexecTheory.destResult_def
-  ,pegexecTheory.applykont_thm
-  ,pegexecTheory.peg_exec_thm
-  ] compset
-val () = add_datatype ``:('a,'b)grammar$symbol``
-val () = add_datatype ``:('a,'b)grammar``
-val () = add_datatype ``:('a,'b)parsetree``
-val () = add_datatype ``:('a,'b,'c)pegsym``
-val () = add_datatype ``:('a,'b,'c)peg``
-val () = add_datatype ``:('a,'b,'c)kont``
-val () = add_datatype ``:('a,'b,'c)evalcase``
+val () = pegLib.add_peg_compset compset
 (* misc :( *)
 val () = computeLib.add_thms
   [miscTheory.find_index_def
