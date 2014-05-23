@@ -166,10 +166,12 @@ val LAST_N_def = Define `
 
 val jump_exc_def = Define `
   jump_exc s =
-    case LAST_N (s.handler + 1) s.stack of
-    | Exc n :: Env e :: xs =>
-        SOME (s with <| handler := n ; locals := e ; stack := xs |>)
-    | _ => NONE`;
+    if s.handler< LENGTH s.stack then
+      case LAST_N (s.handler + 1) s.stack of
+      | Exc n :: Env e :: xs =>
+          SOME (s with <| handler := n ; locals := e ; stack := xs |>)
+      | _ => NONE
+    else NONE`;
 
 val pop_exc_def = Define `
   pop_exc s =
