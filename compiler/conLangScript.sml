@@ -270,7 +270,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 val _ = type_abbrev( "tagenv_state" , ``: (num # tag_env # (num, (conN # tid_or_exn)) fmap) # (conN, (num #  tid_or_exn option)) fmap``);
 
 val _ = Define `
- (get_tagenv ((next,tagenv,inv13382),acc) = tagenv)`;
+ (get_tagenv ((next,tagenv,inv13466),acc) = tagenv)`;
 
 
 (*val insert_tag_env : conN -> (nat * maybe tid_or_exn) -> tag_env  -> tag_env*)
@@ -281,8 +281,8 @@ val _ = Define `
 
 (*val alloc_tag : tid_or_exn -> conN -> tagenv_state -> tagenv_state*)
 val _ = Define `
- (alloc_tag tn cn ((next,tagenv,inv13383),acc) =
-  (((next+ 1),insert_tag_env cn (next,SOME tn) tagenv,inv13383 |+ (next, (cn,tn))),acc |+ (cn, (next,SOME tn))))`;
+ (alloc_tag tn cn ((next,tagenv,inv13467),acc) =
+  (((next+ 1),insert_tag_env cn (next,SOME tn) tagenv,inv13467 |+ (next, (cn,tn))),acc |+ (cn, (next,SOME tn))))`;
 
 
 (*val alloc_tags : maybe modN -> tagenv_state -> type_def -> tagenv_state*)
@@ -890,8 +890,8 @@ evaluate_prompt_i2 ck exh genv s1 (Prompt_i2 ds) (s2, MAP SOME env, NONE))
 (evaluate_decs_i2 ck exh genv s1 ds (s2,env,SOME err))
 ==>
 evaluate_prompt_i2 ck exh genv s1 (Prompt_i2 ds) (s2,                                           
- (MAP SOME env ++ GENLIST (\n7599 .  
-  (case (n7599 ) of ( _ ) => NONE )) (num_defs ds - LENGTH env)),
+ (MAP SOME env ++ GENLIST (\n7620 .  
+  (case (n7620 ) of ( _ ) => NONE )) (num_defs ds - LENGTH env)),
                                            SOME err))`;
 
 val _ = Hol_reln ` (! ck exh genv s.
@@ -913,11 +913,12 @@ evaluate_prog_i2 ck exh genv s1 (prompt::prompts) (s2, env2, SOME err))`;
 (*val init_tagenv_state : (nat * tag_env * map nat (conN * tid_or_exn))*)
 val _ = Define `
  (init_tagenv_state =
-  ( 8,
+  ( 9,
    (FEMPTY,
     FUPDATE_LIST FEMPTY [("Div", (div_tag, SOME (TypeExn (Short "Div")))); 
                   ("Bind", (bind_tag,SOME (TypeExn (Short "Bind")))); 
                   ("Eq", (eq_tag, SOME (TypeExn (Short "Eq")))); 
+                  ("Size", (size_tag, SOME (TypeExn (Short "Size")))); 
                   ("::", (cons_tag, SOME (TypeId (Short "list"))));
                   ("nil", (nil_tag, SOME (TypeId (Short "list"))));
                   ("SOME", (some_tag, SOME (TypeId (Short "option"))));
@@ -925,6 +926,7 @@ val _ = Define `
    FUPDATE_LIST FEMPTY [(div_tag, ("Div", TypeExn (Short "Div"))); 
                  (bind_tag, ("Bind", TypeExn (Short "Bind"))); 
                  (eq_tag, ("Eq", TypeExn (Short "Eq"))); 
+                 (size_tag, ("Size", TypeExn (Short "Size"))); 
                  (cons_tag, ("::", TypeId (Short "list")));
                  (nil_tag, ("nil", TypeId (Short "list")));
                  (some_tag, ("SOME", TypeId (Short "option")));

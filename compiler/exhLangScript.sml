@@ -349,82 +349,82 @@ val _ = Define `
 
 (*val do_app_exh : count_store_genv v_exh -> op_i2 -> list v_exh -> maybe (count_store_genv v_exh * result v_exh v_exh)*)
 val _ = Define `
- (do_app_exh ((count13385,s),genv) op vs =  
+ (do_app_exh ((count13469,s),genv) op vs =  
 ((case (op, vs) of
       (Op_i2 (Opn op), [Litv_exh (IntLit n1); Litv_exh (IntLit n2)]) =>
         if ((op = Divide) \/ (op = Modulo)) /\ (n2 =( 0 : int)) then
-          SOME (((count13385,s),genv), Rerr (Rraise (prim_exn_exh div_tag)))
+          SOME (((count13469,s),genv), Rerr (Rraise (prim_exn_exh div_tag)))
         else
-          SOME (((count13385,s),genv), Rval (Litv_exh (IntLit (opn_lookup op n1 n2))))
+          SOME (((count13469,s),genv), Rval (Litv_exh (IntLit (opn_lookup op n1 n2))))
     | (Op_i2 (Opb op), [Litv_exh (IntLit n1); Litv_exh (IntLit n2)]) =>
-        SOME (((count13385,s),genv), Rval (Litv_exh (Bool (opb_lookup op n1 n2))))
+        SOME (((count13469,s),genv), Rval (Litv_exh (Bool (opb_lookup op n1 n2))))
     | (Op_i2 Equality, [v1; v2]) =>
         (case do_eq_exh v1 v2 of
             Eq_type_error => NONE
-          | Eq_closure => SOME (((count13385,s),genv), Rerr (Rraise (prim_exn_exh eq_tag)))
-          | Eq_val b => SOME (((count13385,s),genv), Rval (Litv_exh (Bool b)))
+          | Eq_closure => SOME (((count13469,s),genv), Rerr (Rraise (prim_exn_exh eq_tag)))
+          | Eq_val b => SOME (((count13469,s),genv), Rval (Litv_exh (Bool b)))
         )
     | (Op_i2 Opassign, [Loc_exh lnum; v]) =>
         (case store_assign lnum (Refv v) s of
-            SOME st => SOME (((count13385,st),genv), Rval (Litv_exh Unit))
+            SOME st => SOME (((count13469,st),genv), Rval (Litv_exh Unit))
           | NONE => NONE
         )
     | (Op_i2 Opref, [v]) =>
         let (s',n) = (store_alloc (Refv v) s) in
-          SOME (((count13385,s'),genv), Rval (Loc_exh n))
+          SOME (((count13469,s'),genv), Rval (Loc_exh n))
     | (Op_i2 Opderef, [Loc_exh n]) =>
         (case store_lookup n s of
-            SOME (Refv v) => SOME (((count13385,s),genv),Rval v)
+            SOME (Refv v) => SOME (((count13469,s),genv),Rval v)
           | _ => NONE
         )
     | (Init_global_var_i2 idx, [v]) =>
         if idx < LENGTH genv then
           (case EL idx genv of
-              NONE => SOME (((count13385,s), LUPDATE (SOME v) idx genv), (Rval (Litv_exh Unit)))
+              NONE => SOME (((count13469,s), LUPDATE (SOME v) idx genv), (Rval (Litv_exh Unit)))
             | SOME x => NONE
           )
         else
           NONE
     | (Op_i2 Aalloc, [Litv_exh (IntLit n); Litv_exh (Word8 w)]) =>
         if n <( 0 : int) then
-          SOME (((count13385,s),genv), Rerr (Rraise (prim_exn_exh size_tag)))
+          SOME (((count13469,s),genv), Rerr (Rraise (prim_exn_exh size_tag)))
         else
           let (s',lnum) =            
 (store_alloc (W8array (REPLICATE (Num (ABS ( n))) w)) s)
           in 
-            SOME (((count13385,s'),genv), Rval (Loc_exh lnum))
+            SOME (((count13469,s'),genv), Rval (Loc_exh lnum))
     | (Op_i2 Asub, [Loc_exh lnum; Litv_exh (IntLit i)]) =>
         (case store_lookup lnum s of
             SOME (W8array ws) =>
               if i <( 0 : int) then
-                SOME (((count13385,s),genv), Rerr (Rraise (prim_exn_exh size_tag)))
+                SOME (((count13469,s),genv), Rerr (Rraise (prim_exn_exh size_tag)))
               else
                 let n = (Num (ABS ( i))) in
                   if n >= LENGTH ws then
-                    SOME (((count13385,s),genv), Rerr (Rraise (prim_exn_exh size_tag)))
+                    SOME (((count13469,s),genv), Rerr (Rraise (prim_exn_exh size_tag)))
                   else 
-                    SOME (((count13385,s),genv), Rval (Litv_exh (Word8 (EL n ws))))
+                    SOME (((count13469,s),genv), Rval (Litv_exh (Word8 (EL n ws))))
           | _ => NONE
         )
     | (Op_i2 Alength, [Loc_exh n]) =>
         (case store_lookup n s of
             SOME (W8array ws) =>
-              SOME (((count13385,s),genv),Rval (Litv_exh(IntLit(int_of_num(LENGTH ws)))))
+              SOME (((count13469,s),genv),Rval (Litv_exh(IntLit(int_of_num(LENGTH ws)))))
           | _ => NONE
          )
     | (Op_i2 Aupdate, [Loc_exh lnum; Litv_exh(IntLit i); Litv_exh(Word8 w)]) =>
         (case store_lookup lnum s of
           SOME (W8array ws) =>
             if i <( 0 : int) then
-              SOME (((count13385,s),genv), Rerr (Rraise (prim_exn_exh size_tag)))
+              SOME (((count13469,s),genv), Rerr (Rraise (prim_exn_exh size_tag)))
             else 
               let n = (Num (ABS ( i))) in
                 if n >= LENGTH ws then
-                  SOME (((count13385,s),genv), Rerr (Rraise (prim_exn_exh size_tag)))
+                  SOME (((count13469,s),genv), Rerr (Rraise (prim_exn_exh size_tag)))
                 else
                   (case store_assign lnum (W8array (LUPDATE w n ws)) s of
                       NONE => NONE
-                    | SOME s' => SOME (((count13385,s'),genv), Rval (Litv_exh Unit))
+                    | SOME s' => SOME (((count13469,s'),genv), Rval (Litv_exh Unit))
                   )
         | _ => NONE
       )
