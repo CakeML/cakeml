@@ -452,4 +452,6 @@ val _ = translate (init_code_def |> SIMP_RULE std_ss
 val _ = translate (repl_fun_altTheory.repl_step_def
                    |> RW [GSYM init_code_def])
 
+val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
+
 val _ = export_theory();
