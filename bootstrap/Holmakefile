@@ -1,14 +1,14 @@
-INCLUDES = .. ../repl ../compiler/proofs ../translator ../translator/repl ../bytecode
+INCLUDES = .. ../standalone ../repl ../compiler/proofs ../translator ../translator/repl ../bytecode
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
 HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../repl/repl_computeLib ../repl/repl_computeTheory ../translator/repl/replDecsTheory
+BARE_THYS = ../repl/repl_funTheory ../translator/repl/replDecsTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -b ../repl/heap -o $(HOLHEAP) $(BARE_THYS)
+	$(protect $(HOLDIR)/bin/buildheap) -b ../standalone/heap -o $(HOLHEAP) $(BARE_THYS)
 endif
