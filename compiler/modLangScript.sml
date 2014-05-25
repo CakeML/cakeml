@@ -802,13 +802,15 @@ val _ = Define `
  
 
 val _ = Hol_reln ` (! ck genv cenv s1 tdecs1 mods ds s2 tdecs2 cenv' env mn.
-(no_dup_types_i1 ds /\
+((! name. (mn = SOME name) ==> ~ (name IN mods)) /\
+no_dup_types_i1 ds /\
 evaluate_decs_i1 ck genv cenv (s1,tdecs1) ds ((s2,tdecs2),cenv',env,NONE))
 ==>
 evaluate_prompt_i1 ck genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds) ((s2,tdecs2,update_mod_state mn mods), mod_cenv mn cenv', MAP SOME env, NONE))
 
 /\ (! ck genv cenv s1 tdecs1 mods mn ds s2 tdecs2 cenv' env err.
-(no_dup_types_i1 ds /\
+((! name. (mn = SOME name) ==> ~ (name IN mods)) /\
+no_dup_types_i1 ds /\
 evaluate_decs_i1 ck genv cenv (s1,tdecs1) ds ((s2,tdecs2),cenv',env,SOME err))
 ==>
 evaluate_prompt_i1 ck genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds) 
@@ -821,8 +823,13 @@ evaluate_prompt_i1 ck genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds)
 /\ (! ck genv cenv s1 tdecs1 mods mn ds.
 (~ (no_dup_types_i1 ds))
 ==>
+evaluate_prompt_i1 ck genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds) ((s1,tdecs1,mods), ([],[]), [], SOME Rtype_error))
+
+/\ (! ck genv cenv s1 tdecs1 mods mn ds.
+(? name. (mn = SOME name) /\ (name IN mods))
+==>
 evaluate_prompt_i1 ck genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds) ((s1,tdecs1,mods), ([],[]), [], SOME Rtype_error))`;
- 
+
 val _ = Hol_reln ` (! ck genv cenv s.
 T
 ==>
