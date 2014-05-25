@@ -19,6 +19,15 @@ val encode_bc_insts_thm = prove(
 
 val SUC_TO_NUMERAL_RULE = CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook)
 
+val eval_real_inst_length =
+  let
+    val compset = reduceLib.num_compset()
+    val () = intReduce.add_int_compset compset
+    val () = computeLib.add_thms [bytecodeExtraTheory.real_inst_length_compute] compset
+  in
+    computeLib.CBV_CONV compset
+  end
+
 fun cakeml_compset() = let
 val compset = wordsLib.words_compset()
 val add_datatype = computeLib.add_datatype_info compset o valOf o TypeBase.fetch
@@ -372,7 +381,7 @@ val () = add_datatype ``:compiler_result``
 val () = add_datatype ``:call_context``
 (* labels removal *)
 val () = labels_computeLib.reset_code_labels_ok_db()
-val () = computeLib.add_conv (``code_labels``,2,code_labels_conv (computeLib.CBV_CONV compset)) compset
+val () = computeLib.add_conv (``code_labels``,2,code_labels_conv eval_real_inst_length) compset
 (* free vars and closed (for discharging labels hypothesis) *)
 val () = computeLib.add_thms
   [closed_prog_def
@@ -455,6 +464,8 @@ val remove_labels_all_asts_no_labels = prove(
 
 in
   val cakeml_compset = cakeml_compset
+
+  val eval_real_inst_length = eval_real_inst_length
 
   val eval = computeLib.CBV_CONV (cakeml_compset())
 
