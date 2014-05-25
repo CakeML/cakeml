@@ -8,8 +8,6 @@ open bytecodeLabelsTheory labels_computeLib bytecodeEncodeTheory bytecodeEvalThe
 open initialProgramTheory
 open terminationTheory compilerTerminationTheory
 
-val () = Parse.bring_to_front_overload"Num"{Name="Num",Thy="integer"}
-
 val encode_bc_insts_thm = prove(
   ``∀bcs. encode_bc_insts bcs =
     let ls = MAP encode_bc_inst bcs in
