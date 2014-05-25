@@ -276,6 +276,8 @@ val () = computeLib.add_thms
   ,mod_tagenv_def
   ,insert_tag_env_def
   ,alloc_tag_def
+  ,alloc_tags_def
+  ,build_exh_env_def
   ] compset
 val () = add_datatype ``:prompt_i2``
 val () = add_datatype ``:dec_i2``
