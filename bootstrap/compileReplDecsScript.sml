@@ -1,17 +1,30 @@
-open preamble repl_computeLib repl_computeTheory ml_repl_stepTheory replDecsTheory flookupLib
+open preamble cakeml_computeLib ml_repl_stepTheory replDecsTheory
 val _ = new_theory"compileReplDecs"
 
-val ct = ``init_compiler_state.contab``
-val m = ``<|bvars:=[];mvars:=FEMPTY;cnmap:=cmap(^ct)|>``
-val cs = ``<|out:=[];next_label:=init_compiler_state.rnext_label|>``
+val _ = Globals.max_print_depth := 20
 
-val compile_repl_decs_def = zDefine`
-  compile_repl_decs = FOLDL (compile_dec1 NONE FEMPTY) (^ct,^m,[],0,^cs) repl_decs`
+val compile_repl_decs_def = zDefine
+  `compile_repl_decs = code_labels real_inst_length (compile_prog (MAP Tdec (TAKE 115 repl_decs)))`
 
-val _ = computeLib.add_funs[ml_repl_step_decls,repl_decs_def]
-val _ = computeLib.stoppers := let
-  val stoppers = [``Dlet``,``Dletrec``,``Dtype``]
-  in SOME (fn tm => mem tm stoppers) end
+val cs = cakeml_computeLib.cakeml_compset()
+val () = computeLib.add_thms
+  [compile_repl_decs_def
+  ,repl_decs_def
+  ,ml_repl_step_decls
+  ]
+  cs
+
+val res = time (computeLib.CBV_CONV cs) ``compile_repl_decs``
+
+(*
+20  decs =   3.857s gc 1.640s
+30  decs =   4.587s gc 1.770s
+50  decs =   5.777s gc 0.643s
+80  decs =   9.900s gc 1.407s
+100 decs =  13.543s gc 1.227s
+110 decs =  39.450s gc 1.680s
+115 decs = 238.000s gc 2.010s
+*)
 
 fun mk_initial_split n =
   (rhs(concl(compile_repl_decs_def)))
