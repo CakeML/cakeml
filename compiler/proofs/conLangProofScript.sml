@@ -2681,8 +2681,8 @@ val decs_to_i2_correct = Q.prove (
       (res = NONE ∧ res_i2 = NONE ∧ FDOM acc' = set (MAP FST envC') ∧
        flat_envC_tagged envC' acc' gtagenv'
        ∨
-       ((∀mn. mod_decs mn ds ⇒
-          envC_tagged ([mn,envC'],[]) (mod_tagenv (SOME mn) acc' (get_tagenv tagenv_st)) gtagenv') ∧
+       ((*(∀mn. mod_decs mn ds ⇒
+          envC_tagged ([mn,envC'],[]) (mod_tagenv (SOME mn) acc' (get_tagenv tagenv_st)) gtagenv') ∧ *)
        ?err err_i2.
          res = SOME err ∧ res_i2 = SOME err_i2 ∧
          result_to_i2 (\a b c. T) gtagenv' (Rerr err) (Rerr err_i2)))`,
@@ -2997,77 +2997,12 @@ val decs_to_i2_correct = Q.prove (
     |> C cons nil
     |> SIMP_TAC std_ss ) >>
    simp[Once FUNION_ASSOC] >>
+   TRY (
+     qho_match_abbrev_tac`∃acc'. (foo ⊌ bar = acc' ⊌ bar)` >>
+     qexists_tac`foo` >> simp[] >> NO_TAC) >>
    qho_match_abbrev_tac`∃acc'. (foo ⊌ bar = acc' ⊌ bar) ∧ Z acc'` >>
    qexists_tac`foo` >>
    simp[Abbr`Z`,Abbr`foo`] >>
-   TRY (
-     qmatch_assum_rename_tac`no_dup_types_i1 (Dtype_i1 mno tdefs::ds)`[] >>
-     qx_gen_tac`mn` >> strip_tac >>
-     imp_res_tac mod_decs_cons_imp >>
-     qpat_assum`mod_decs mn (X::Y)`mp_tac >>
-     simp[mod_decs_def] >>
-     disch_then(strip_assume_tac o CONJUNCT1) >>
-     BasicProvers.VAR_EQ_TAC >>
-     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
-     PairCases_on`tagenv_st` >> fs[get_tagenv_def,get_next_def] >>
-     simp[mod_tagenv_def,merge_def] >>
-     simp[envC_tagged_def,lookup_con_id_def] >>
-     strip_tac >> rpt gen_tac >>
-     first_x_assum(qspec_then`cn`mp_tac) >>
-     BasicProvers.CASE_TAC >>
-     BasicProvers.CASE_TAC >>
-     simp[lookup_append,lookup_tag_env_def,FLOOKUP_UPDATE] >>
-     simp[lookup_tag_flat_def,FLOOKUP_FUNION] >>
-     strip_tac >>
-     reverse BasicProvers.CASE_TAC >- (
-       rw[] >>
-       BasicProvers.CASE_TAC >> fs[] >>
-       metis_tac[gtagenv_wf_def] ) >>
-     rw[] >>
-     BasicProvers.CASE_TAC >- (
-       BasicProvers.CASE_TAC >- (
-         imp_res_tac ALOOKUP_FAILS >>
-         imp_res_tac lookup_in2 >>
-         pop_assum mp_tac >>
-         simp[build_tdefs_def,MEM_MAP,MEM_FLAT,EXISTS_PROD,PULL_EXISTS] >>
-         rw[] >>
-         imp_res_tac MEM_flat_alloc_tags_REVERSE_build_tdefs_suff >>
-         fs[FORALL_PROD] >> metis_tac[] ) >>
-       BasicProvers.CASE_TAC >>
-       fs[gtagenv_weak_def] >>
-       qho_match_abbrev_tac`P gtagenv''` >>
-       qsuff_tac`P g2` >- ( simp[Abbr`P`] >> metis_tac[FLOOKUP_SUBMAP] ) >>
-       simp[Abbr`P`,Abbr`g2`,flookup_fupdate_list] >>
-       simp[id_to_n_def] >>
-       qmatch_assum_abbrev_tac`ALOOKUP (REVERSE (flat_alloc_tags n ls)) a = SOME (b,c)` >>
-       `ALL_DISTINCT (MAP FST ls)` by metis_tac[check_dup_ctors_flat,ALL_DISTINCT_REVERSE,MAP_REVERSE] >>
-       `ALL_DISTINCT (MAP FST (flat_alloc_tags n ls))` by (
-         simp[MAP_FST_flat_alloc_tags,Abbr`ls`,MAP_REVERSE,ALL_DISTINCT_REVERSE] >>
-         fs[MAP_REVERSE,ALL_DISTINCT_REVERSE]) >>
-       `ALL_DISTINCT (MAP FST (galloc_tags n ls))` by (
-         simp[MAP_FST_galloc_tags,Abbr`ls`,MAP_REVERSE,ALL_DISTINCT_REVERSE] >>
-         Q.ISPEC_THEN`FST`match_mp_tac ALL_DISTINCT_MAP >>
-         simp[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
-         fs[MAP_REVERSE,ALL_DISTINCT_REVERSE]) >>
-       imp_res_tac alookup_distinct_reverse >> fs[] >>
-       ntac 3 (pop_assum kall_tac) >>
-       imp_res_tac lookup_in3 >>
-       `lookup a ls = SOME (num_args,t)` by (
-         match_mp_tac lookup_all_distinct >>
-         simp[Abbr`ls`] ) >>
-       imp_res_tac ALOOKUP_galloc_tags_flat_alloc_tags >>
-       pop_assum kall_tac >> simp[] >>
-       imp_res_tac ALOOKUP_MEM >>
-       qunabbrev_tac`ls` >>
-       imp_res_tac MEM_flat_alloc_tags_REVERSE_build_tdefs_imp2 >>
-       `b ≠ tuple_tag` by (
-         fs[alloc_tags_invariant_def,get_next_def] >> simp[] ) >>
-       simp[] >>
-       `lookup a (build_tdefs (SOME mn) tdefs) = SOME (num_args,t)` by (
-         match_mp_tac lookup_all_distinct >> simp[] >>
-         metis_tac[check_dup_ctors_flat] ) >>
-       fs[] ) >>
-     cheat) >>
    simp[merge_def,MAP_REVERSE,MAP_FST_flat_alloc_tags] >>
    Q.ISPEC_THEN`acc'`(SUBST1_TAC o SYM)(Q.GEN`fm`fmap_to_alist_to_fmap) >>
    REWRITE_TAC[FUNION_alist_to_fmap] >>
@@ -3215,48 +3150,11 @@ val decs_to_i2_correct = Q.prove (
    simp[alloc_tag_def,get_tagacc_def] >>
    simp[Once FUPDATE_EQ_FUNION] >>
    simp[Once FUNION_ASSOC] >>
+   TRY(
+     qho_match_abbrev_tac`∃acc'. (foo ⊌ bar = acc' ⊌ bar)` >>
+     qexists_tac`foo` >> simp[] >> NO_TAC ) >>
    qho_match_abbrev_tac`∃acc'. (foo ⊌ bar = acc' ⊌ bar) ∧ Z acc'` >>
    qexists_tac`foo`>>simp[Abbr`Z`,Abbr`foo`,merge_def] >>
-   TRY (
-     qmatch_assum_rename_tac`no_dup_types_i1 (Dexn_i1 mno xn args::ds)`[] >>
-     qx_gen_tac`mn` >> strip_tac >>
-     imp_res_tac mod_decs_cons_imp >>
-     qpat_assum`mod_decs mn (X::Y)`mp_tac >>
-     simp[mod_decs_def] >>
-     disch_then(strip_assume_tac o CONJUNCT1) >>
-     BasicProvers.VAR_EQ_TAC >>
-     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
-     fs[get_tagenv_def,get_next_def,alloc_tag_def,insert_tag_env_def] >>
-     simp[mod_tagenv_def,merge_def] >>
-     simp[envC_tagged_def,lookup_con_id_def] >>
-     strip_tac >> rpt gen_tac >>
-     first_x_assum(qspec_then`cn`mp_tac) >>
-     BasicProvers.CASE_TAC >>
-     BasicProvers.CASE_TAC >>
-     simp[lookup_append,lookup_tag_env_def,FLOOKUP_UPDATE] >>
-     simp[lookup_tag_flat_def,FLOOKUP_FUNION] >>
-     strip_tac >>
-     reverse BasicProvers.CASE_TAC >- (
-       BasicProvers.CASE_TAC >> fs[] >>
-       rw[] >>
-       BasicProvers.CASE_TAC >> fs[] >>
-       metis_tac[gtagenv_wf_def] ) >>
-     rpt BasicProvers.VAR_EQ_TAC >>
-     reverse BasicProvers.CASE_TAC >> fs[] >> rw[FLOOKUP_UPDATE] >- (
-       BasicProvers.CASE_TAC >> fs[] >>
-       metis_tac[gtagenv_wf_def] ) >>
-     simp[id_to_n_def] >>
-     qho_match_abbrev_tac`P gtagenv''` >>
-     qmatch_assum_abbrev_tac`Abbrev(gtagenv' = g |+ kv)` >>
-     qsuff_tac`P (g|+kv)` >- (
-       simp[Abbr`P`] >>
-       fs[gtagenv_weak_def] >>
-       metis_tac[FLOOKUP_SUBMAP] ) >>
-     simp[Abbr`P`,Abbr`gtagenv'`,Abbr`kv`,FLOOKUP_UPDATE] >>
-     BasicProvers.CASE_TAC >- (
-       fs[alloc_tags_invariant_def,get_next_def] >> simp[] ) >>
-     fs[get_tagacc_def] >>
-     cheat) >>
    Q.ISPEC_THEN`acc'`(SUBST1_TAC o SYM)(Q.GEN`fm`fmap_to_alist_to_fmap) >>
    REWRITE_TAC[FUNION_alist_to_fmap] >>
    ONCE_REWRITE_TAC[FUPDATE_EQ_FUPDATE_LIST] >>
@@ -3276,7 +3174,8 @@ val decs_to_i2_correct = Q.prove (
    simp[get_next_def] ));
 
 val to_i2_invariant_def = Define `
-to_i2_invariant tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ⇔
+to_i2_invariant mods tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ⇔
+  set (MAP FST (FST envC)) ⊆ mods ∧
   cenv_inv envC exh (FST (SND tagenv_st)) gtagenv ∧
   s_to_i2 gtagenv s s_i2 ∧
   LIST_REL (OPTION_REL (v_to_i2 gtagenv)) genv genv_i2 ∧
@@ -3297,6 +3196,7 @@ init_exh =
 val initial_i2_invariant = Q.store_thm ("initial_i2_invariant",
 `!ck.
   to_i2_invariant
+    {}
     (IMAGE SND (FDOM init_gtagenv))
     init_envC
     init_exh
@@ -3305,6 +3205,7 @@ val initial_i2_invariant = Q.store_thm ("initial_i2_invariant",
     (ck,[]) (ck,[])
     [] []`,
  rw [to_i2_invariant_def, s_to_i2_cases, v_to_i2_eqns, s_to_i2'_cases]
+ >- EVAL_TAC
  >- (rw [cenv_inv_def, envC_tagged_def, exhaustive_env_correct_def]
      >- (fs [initialEnvTheory.init_envC_def] >>
          cases_on `cn` >>
@@ -3414,6 +3315,7 @@ val envC_tagged_extend = prove(
   BasicProvers.CASE_TAC >> fs[] >>
   metis_tac[gtagenv_weak_def,FLOOKUP_SUBMAP])
 
+(*
 val prompt_to_i2_not_correct = Q.store_thm ("prompt_to_i2_not_correct",
 `¬
  !ck genv envC s tids mods prompt s_i2 genv_i2 tagenv_st prompt_i2 genv' envC' s' tids' mods' res gtagenv tagenv_st' exh exh'.
@@ -3665,24 +3567,25 @@ val prompt_to_i2_not_correct_3 = Q.store_thm("prompt_to_i2_not_correct_3",
   rpt disj1_tac >>
   qexists_tac`Long"m""nil"` >>
   simp[lookup_tag_flat_def,FLOOKUP_FUNION,FLOOKUP_UPDATE,mk_id_inj,mk_id_def])
-
+*)
 
 val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
 `!ck genv envC s tids mods prompt s_i2 genv_i2 tagenv_st prompt_i2 genv' envC' s' tids' mods' res gtagenv tagenv_st' exh exh'.
   evaluate_prompt_i1 ck genv envC (s,tids,mods) prompt ((s',tids',mods'), envC', genv', res) ∧
   res ≠ SOME Rtype_error ∧
-  to_i2_invariant tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ∧
+  to_i2_invariant mods tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ∧
   DISJOINT (FDOM exh') (FDOM exh) ∧
   (tagenv_st', exh', prompt_i2) = prompt_to_i2 tagenv_st prompt ∧
   (∀ds. prompt = Prompt_i1 NONE ds ⇒ LENGTH ds < 2) ∧
   (∀ds mn. prompt = Prompt_i1 (SOME mn) ds ⇒ mod_decs mn ds)
   ⇒
-  ?genv'_i2 s'_i2 res_i2 gtagenv'.
+  ?genv'_i2 s'_i2 res_i2 gtagenv' new_envC.
     gtagenv_weak gtagenv gtagenv' ∧
     evaluate_prompt_i2 ck (FUNION exh' exh) genv_i2 s_i2 prompt_i2 (s'_i2,genv'_i2,res_i2) ∧
-    to_i2_invariant tids' (merge_envC envC' envC) (FUNION exh' exh) tagenv_st' gtagenv' s' s'_i2 (genv++genv') (genv_i2 ++ genv'_i2) ∧
-    (res = NONE ∧ res_i2 = NONE ∨
-     ?err err_i2. res = SOME err ∧ res_i2 = SOME err_i2 ∧ result_to_i2 (\a b c. T) gtagenv' (Rerr err) (Rerr err_i2))`,
+    to_i2_invariant mods' tids' new_envC (FUNION exh' exh) tagenv_st' gtagenv' s' s'_i2 (genv++genv') (genv_i2 ++ genv'_i2) ∧
+    (res = NONE ∧ res_i2 = NONE ∧ new_envC = (merge_envC envC' envC) ∨
+     ?err err_i2. res = SOME err ∧ res_i2 = SOME err_i2 ∧ new_envC = envC ∧
+                  result_to_i2 (\a b c. T) gtagenv' (Rerr err) (Rerr err_i2))`,
  rw [evaluate_prompt_i1_cases, evaluate_prompt_i2_cases, prompt_to_i2_def, LET_THM] >>
  every_case_tac >>
  fs [] >>
@@ -3712,6 +3615,10 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
      Q.LIST_EXISTS_TAC [`MAP SOME genv'_i2`, `s'_i2`, `gtagenv'`] >>
      fs [get_tagenv_def] >>
      rw []
+     >- (
+       PairCases_on`envC`>> Cases_on`mn`>>
+       rw[mod_cenv_def,update_mod_state_def,merge_envC_def,merge_def] >>
+       fs[SUBSET_DEF])
      >- (
        fs[cenv_inv_def] >>
        match_mp_tac envC_tagged_extend >>
@@ -3745,6 +3652,9 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
    rw []
    >- metis_tac[]
    >- (
+     Cases_on`mn`>>rw[update_mod_state_def] >>
+     fs[SUBSET_DEF] )
+   >- (
      fs[cenv_inv_def] >>
      fs[get_tagacc_def,get_tagenv_def,FUNION_FEMPTY_2] >> rw[] >>
      Cases_on`mn`>>fs[mod_cenv_def]>-(
@@ -3763,7 +3673,6 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
          rw[] >> rw[] >>
          metis_tac[FLOOKUP_SUBMAP] ) >>
        fs[Once evaluate_decs_i1_cases] ) >>
-     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
      PairCases_on`envC` >> simp[merge_envC_def,merge_def] >>
      fs[envC_tagged_def,lookup_con_id_def] >> strip_tac >>
      rpt gen_tac >>
@@ -3775,6 +3684,9 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
      fs[lookup_tag_env_def,mod_tagenv_def,FLOOKUP_UPDATE] >>
      first_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
      BasicProvers.CASE_TAC >- fs[gtagenv_wf_def] >>
+     rw[] >- (
+       imp_res_tac lookup_in2 >>
+       fs[SUBSET_DEF]) >>
      metis_tac[gtagenv_weak_def,FLOOKUP_SUBMAP])
    >- (
      match_mp_tac EVERY2_APPEND_suff >>
