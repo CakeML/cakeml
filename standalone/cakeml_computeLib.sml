@@ -17,6 +17,8 @@ val encode_bc_insts_thm = prove(
   fs[LET_THM] >> rw[] >>
   BasicProvers.CASE_TAC >> fs[])
 
+val SUC_TO_NUMERAL_RULE = CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook)
+
 fun cakeml_compset() = let
 val compset = wordsLib.words_compset()
 val add_datatype = computeLib.add_datatype_info compset o valOf o TypeBase.fetch
@@ -297,7 +299,7 @@ val () = computeLib.add_thms
   ,ground_pat_def
   ,uop_to_pat_def
   ,pure_pat_def
-  ,(CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook)) Let_Els_pat_def
+  ,SUC_TO_NUMERAL_RULE Let_Els_pat_def
   ,pure_uop_pat_def
   ] compset
 val () = add_datatype ``:exp_pat``
@@ -342,7 +344,7 @@ val () =
       ,prim1_to_bc_def
       ,prim2_to_bc_def
       ,LIST_CONJ l1
-      ,(CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook)) (LIST_CONJ l2)
+      ,SUC_TO_NUMERAL_RULE (LIST_CONJ l2)
       ,LIST_CONJ l3
       ] compset
   end
@@ -473,7 +475,7 @@ in
       ,printerTheory.ov_to_string_def
       ,bytecodeTheory.bv_to_ov_def
       ,semanticPrimitivesTheory.int_to_string_def
-      ,CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook) bc_evaln_def
+      ,SUC_TO_NUMERAL_RULE bc_evaln_def
       ,LEAST_thm
       ,least_from_thm
       ,compilerLibTheory.el_check_def
