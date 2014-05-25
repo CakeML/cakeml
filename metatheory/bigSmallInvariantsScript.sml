@@ -33,8 +33,8 @@ evaluate_ctxt env s (Chandle ()  pes) v (s, Rval v))
 
 /\ (! env op e2 v1 v2 env' e3 bv s1 s2 count s3.
 (evaluate F env s1 e2 ((count,s2), Rval v2) /\
-((do_app env s2 op v1 v2 = SOME (env',s3,e3)) /\
-evaluate F env' (count, s3) e3 bv))
+(do_app env s2 op v1 v2 = SOME (env',s3,e3)) /\
+evaluate F env' (count, s3) e3 bv)
 ==>
 evaluate_ctxt env s1 (Capp1 op ()  e2) v1 bv)
 
@@ -104,8 +104,8 @@ evaluate_ctxt (menv,cenv,env) s (Clet n ()  e2) v bv)
 
 /\ (! env cn es vs v vs' s1 s2 v'.
 (do_con_check (all_env_to_cenv env) cn ((LENGTH vs + LENGTH es) + 1) /\
-((build_conv (all_env_to_cenv env) cn ((REVERSE vs ++ [v]) ++ vs') = SOME v') /\
-evaluate_list F env s1 es (s2, Rval vs')))
+(build_conv (all_env_to_cenv env) cn ((REVERSE vs ++ [v]) ++ vs') = SOME v') /\
+evaluate_list F env s1 es (s2, Rval vs'))
 ==>
 evaluate_ctxt env s1 (Ccon cn vs ()  es) v (s2, Rval v'))
 

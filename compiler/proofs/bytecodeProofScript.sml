@@ -1983,7 +1983,7 @@ val compile_closures_thm = store_thm("compile_closures_thm",
   qpat_assum`FOLDL X Y ecs = Z`kall_tac >>
   qspecl_then[`nk`,`nk`,`s'''`,`0`]mp_tac num_fold_update_refptr_thm >>
   simp[] >> disch_then(Q.X_CHOOSE_THEN`bur`strip_assume_tac) >>
-  qspecl_then[`nk`,`k''`,`s''''`]mp_tac num_fold_store_thm >>
+  qspecl_then[`nk`,`k`,`s''''`]mp_tac num_fold_store_thm >>
   simp[] >> disch_then(Q.X_CHOOSE_THEN`bsr`strip_assume_tac) >>
   simp[Once SWAP_REVERSE] >>
   conj_tac >- (
@@ -2057,7 +2057,7 @@ val compile_closures_thm = store_thm("compile_closures_thm",
   qmatch_assum_abbrev_tac`bc_next^* bs3 bs4` >>
   last_x_assum(qspecl_then[`bs4`,`bc0++bmr++bpl++bcc++bur`,`bc1`,`vs`,`MAP RefPtr rs`,`bs.stack`]mp_tac) >>
   discharge_hyps >- (
-    simp[Abbr`bs4`,Abbr`bs3`,Abbr`bs2`,Abbr`bs1`,Abbr`k''`,GSYM MAP_REVERSE,Abbr`nk`] >>
+    simp[Abbr`bs4`,Abbr`bs3`,Abbr`bs2`,Abbr`bs1`,Abbr`k`,GSYM MAP_REVERSE,Abbr`nk`] >>
     REWRITE_TAC[GSYM APPEND_ASSOC] >>
     Q.PAT_ABBREV_TAC`ls = MAP RefPtr rs ++ X` >>
     simp[DROP_APPEND2,Abbr`vs`,LENGTH_MAP2] ) >>

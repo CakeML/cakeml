@@ -52,6 +52,13 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
+(* initial state *)
+
+val _ = translate (pred_setTheory.IN_INSERT |> SIMP_RULE std_ss [IN_DEF]);
+
+val _ = translate (initial_repl_fun_state_def |> SIMP_RULE std_ss
+          [compile_primitivesTheory.compile_primitives_eq]);
+
 (* compiler *)
 
 val _ = translate (def_of_const ``stackshift``);
@@ -439,18 +446,12 @@ val _ = translate repl_funTheory.parse_elaborate_infertype_compile_def
 val init_code_def = Define `
   init_code = SND (SND compile_primitives)`;
 
-val init_code_thm = prove(
-  ``init_code = []``,
-  cheat);
-
-val initial_repl_fun_state_thm = prove(
-  ``initial_repl_fun_state = ARB``,
-  cheat);
-
-val _ = translate init_code_thm;
-val _ = translate initial_repl_fun_state_thm;
+val _ = translate (init_code_def |> SIMP_RULE std_ss
+          [compile_primitivesTheory.compile_primitives_eq]);
 
 val _ = translate (repl_fun_altTheory.repl_step_def
                    |> RW [GSYM init_code_def])
+
+val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = export_theory();

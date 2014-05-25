@@ -68,8 +68,8 @@ evaluate ck env s1 (Handle e pes) (s2, Rerr err))
 
 /\ (! ck env cn es vs s s' v.
 (do_con_check (all_env_to_cenv env) cn (LENGTH es) /\
-((build_conv (all_env_to_cenv env) cn vs = SOME v) /\
-evaluate_list ck env s es (s', Rval vs)))
+(build_conv (all_env_to_cenv env) cn vs = SOME v) /\
+evaluate_list ck env s es (s', Rval vs))
 ==>
 evaluate ck env s (Con cn es) (s', Rval v))
 
@@ -118,27 +118,27 @@ evaluate ck env s (Uapp uop e) (s', Rerr err))
 
 /\ (! ck env op e1 e2 v1 v2 env' e3 bv s1 s2 s3 count s4.
 (evaluate ck env s1 e1 (s2, Rval v1) /\
-(evaluate ck env s2 e2 ((count,s3), Rval v2) /\
-((do_app env s3 op v1 v2 = SOME (env', s4, e3)) /\
-(((ck /\ (op = Opapp)) ==> ~ (count =( 0))) /\
-evaluate ck env' ((if ck then dec_count op count else count),s4) e3 bv))))
+evaluate ck env s2 e2 ((count,s3), Rval v2) /\
+(do_app env s3 op v1 v2 = SOME (env', s4, e3)) /\
+((ck /\ (op = Opapp)) ==> ~ (count =( 0))) /\
+evaluate ck env' ((if ck then dec_count op count else count),s4) e3 bv)
 ==>
 evaluate ck env s1 (App op e1 e2) bv)
 
 /\ (! ck env op e1 e2 v1 v2 env' e3 s1 s2 s3 count s4.
 (evaluate ck env s1 e1 (s2, Rval v1) /\
-(evaluate ck env s2 e2 ((count,s3), Rval v2) /\
-((do_app env s3 op v1 v2 = SOME (env', s4, e3)) /\
-((count = 0) /\
-((op = Opapp) /\
-ck)))))
+evaluate ck env s2 e2 ((count,s3), Rval v2) /\
+(do_app env s3 op v1 v2 = SOME (env', s4, e3)) /\
+(count = 0) /\
+(op = Opapp) /\
+ck)
 ==>
 evaluate ck env s1 (App op e1 e2) (( 0,s4), Rerr Rtimeout_error))
 
 /\ (! ck env op e1 e2 v1 v2 s1 s2 s3 count.
 (evaluate ck env s1 e1 (s2, Rval v1) /\
-(evaluate ck env s2 e2 ((count,s3), Rval v2) /\
-(do_app env s3 op v1 v2 = NONE)))
+evaluate ck env s2 e2 ((count,s3), Rval v2) /\
+(do_app env s3 op v1 v2 = NONE))
 ==>
 evaluate ck env s1 (App op e1 e2) ((count,s3), Rerr Rtype_error))
 
@@ -155,8 +155,8 @@ evaluate ck env s (App op e1 e2) (s', Rerr err))
 
 /\ (! ck env op e1 e2 v e' bv s1 s2.
 (evaluate ck env s1 e1 (s2, Rval v) /\
-((do_log op v e2 = SOME e') /\
-evaluate ck env s2 e' bv))
+(do_log op v e2 = SOME e') /\
+evaluate ck env s2 e' bv)
 ==>
 evaluate ck env s1 (Log op e1 e2) bv)
 
@@ -173,8 +173,8 @@ evaluate ck env s (Log op e1 e2) (s', Rerr err))
 
 /\ (! ck env e1 e2 e3 v e' bv s1 s2.
 (evaluate ck env s1 e1 (s2, Rval v) /\
-((do_if v e2 e3 = SOME e') /\
-evaluate ck env s2 e' bv))
+(do_if v e2 e3 = SOME e') /\
+evaluate ck env s2 e' bv)
 ==>
 evaluate ck env s1 (If e1 e2 e3) bv)
 
@@ -251,15 +251,15 @@ evaluate_match ck env s v [] err_v (s, Rerr (Rraise err_v)))
 
 /\ (! ck menv cenv env env' v p pes e bv err_v s count.
 (ALL_DISTINCT (pat_bindings p []) /\
-((pmatch cenv s p v env = Match env') /\
-evaluate ck (menv,cenv,env') (count,s) e bv))
+(pmatch cenv s p v env = Match env') /\
+evaluate ck (menv,cenv,env') (count,s) e bv)
 ==>
 evaluate_match ck (menv,cenv,env) (count,s) v ((p,e)::pes) err_v bv)
 
 /\ (! ck menv cenv env v p e pes bv s count err_v.
 (ALL_DISTINCT (pat_bindings p []) /\
-((pmatch cenv s p v env = No_match) /\
-evaluate_match ck (menv,cenv,env) (count,s) v pes err_v bv))
+(pmatch cenv s p v env = No_match) /\
+evaluate_match ck (menv,cenv,env) (count,s) v pes err_v bv)
 ==>
 evaluate_match ck (menv,cenv,env) (count,s) v ((p,e)::pes) err_v bv)
 
@@ -277,22 +277,22 @@ evaluate_match ck env s v ((p,e)::pes) err_v (s, Rerr Rtype_error))`;
  * that have been declared *)
 val _ = Hol_reln ` (! ck mn env p e v env' s1 s2 count tdecs.
 (evaluate ck env s1 e ((count,s2), Rval v) /\
-(ALL_DISTINCT (pat_bindings p []) /\
-(pmatch (all_env_to_cenv env) s2 p v emp = Match env')))
+ALL_DISTINCT (pat_bindings p []) /\
+(pmatch (all_env_to_cenv env) s2 p v emp = Match env'))
 ==>
 evaluate_dec ck mn env (s1,tdecs) (Dlet p e) (((count,s2),tdecs), Rval (emp, env')))
 
 /\ (! ck mn env p e v s1 s2 count tdecs.
 (evaluate ck env s1 e ((count,s2), Rval v) /\
-(ALL_DISTINCT (pat_bindings p []) /\
-(pmatch (all_env_to_cenv env) s2 p v emp = No_match)))
+ALL_DISTINCT (pat_bindings p []) /\
+(pmatch (all_env_to_cenv env) s2 p v emp = No_match))
 ==>
 evaluate_dec ck mn env (s1,tdecs) (Dlet p e) (((count,s2), tdecs), Rerr (Rraise (Conv (SOME ("Bind", TypeExn (Short "Bind"))) []))))
 
 /\ (! ck mn env p e v s1 s2 count tdecs.
 (evaluate ck env s1 e ((count,s2), Rval v) /\
-(ALL_DISTINCT (pat_bindings p []) /\
-(pmatch (all_env_to_cenv env) s2 p v emp = Match_type_error)))
+ALL_DISTINCT (pat_bindings p []) /\
+(pmatch (all_env_to_cenv env) s2 p v emp = Match_type_error))
 ==>
 evaluate_dec ck mn env (s1,tdecs) (Dlet p e) (((count,s2),tdecs), Rerr Rtype_error))
 
@@ -319,9 +319,9 @@ evaluate_dec ck mn env s (Dletrec funs) (s, Rerr Rtype_error))
 
 /\ (! ck mn env tds s tdecs new_tdecs.
 (check_dup_ctors tds /\
-((new_tdecs = type_defs_to_new_tdecs mn tds) /\
-(DISJOINT new_tdecs tdecs /\
-ALL_DISTINCT (MAP (\ (tvs,tn,ctors) .  tn) tds))))
+(new_tdecs = type_defs_to_new_tdecs mn tds) /\
+DISJOINT new_tdecs tdecs /\
+ALL_DISTINCT (MAP (\ (tvs,tn,ctors) .  tn) tds))
 ==>
 evaluate_dec ck mn env (s,tdecs) (Dtype tds) ((s,(new_tdecs UNION tdecs)), Rval (build_tdefs mn tds, emp)))
 
@@ -380,15 +380,15 @@ evaluate_top ck env (s1,tdecls1,mdecls) (Tdec d) ((s2,tdecls2,mdecls), (emp,emp)
 
 /\ (! ck s1 s2 env ds mn specs new_tds new_env tdecls1 tdecls2 mdecls.
 (~ (mn IN mdecls) /\
-(no_dup_types ds /\
-evaluate_decs ck (SOME mn) env (s1,tdecls1) ds ((s2,tdecls2), new_tds, Rval new_env)))
+no_dup_types ds /\
+evaluate_decs ck (SOME mn) env (s1,tdecls1) ds ((s2,tdecls2), new_tds, Rval new_env))
 ==>
 evaluate_top ck env (s1,tdecls1,mdecls) (Tmod mn specs ds) ((s2,tdecls2,({mn} UNION mdecls)), ([(mn,new_tds)], emp), Rval ([(mn,new_env)], emp)))
 
 /\ (! ck s1 s2 env ds mn specs new_tds err tdecls1 tdecls2 mdecls.
 (~ (mn IN mdecls) /\
-(no_dup_types ds /\
-evaluate_decs ck (SOME mn) env (s1,tdecls1) ds ((s2,tdecls2), new_tds, Rerr err)))
+no_dup_types ds /\
+evaluate_decs ck (SOME mn) env (s1,tdecls1) ds ((s2,tdecls2), new_tds, Rerr err))
 ==>
 evaluate_top ck env (s1,tdecls1,mdecls) (Tmod mn specs ds) ((s2,tdecls2,({mn} UNION mdecls)), ([(mn,new_tds)], emp), Rerr err))
 
@@ -446,8 +446,8 @@ top_diverges env (st,tdecls,mdecls) (Tdec d))
 
 /\ (! env s1 ds mn specs tdecls mdecls.
 (~ (mn IN mdecls) /\
-(no_dup_types ds /\
-decs_diverges (SOME mn) env (s1,tdecls) ds))
+no_dup_types ds /\
+decs_diverges (SOME mn) env (s1,tdecls) ds)
 ==>
 top_diverges env (s1,tdecls,mdecls) (Tmod mn specs ds))`;
 
