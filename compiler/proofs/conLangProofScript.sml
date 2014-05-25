@@ -3576,8 +3576,8 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
   to_i2_invariant mods tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ∧
   DISJOINT (FDOM exh') (FDOM exh) ∧
   (tagenv_st', exh', prompt_i2) = prompt_to_i2 tagenv_st prompt ∧
-  (∀ds. prompt = Prompt_i1 NONE ds ⇒ LENGTH ds < 2) ∧
-  (∀ds mn. prompt = Prompt_i1 (SOME mn) ds ⇒ mod_decs mn ds)
+  (∀ds. prompt = Prompt_i1 NONE ds ⇒ LENGTH ds < 2) (* ∧
+  (∀ds mn. prompt = Prompt_i1 (SOME mn) ds ⇒ mod_decs mn ds) *)
   ⇒
   ?genv'_i2 s'_i2 res_i2 gtagenv' new_envC.
     gtagenv_weak gtagenv gtagenv' ∧
