@@ -3710,13 +3710,41 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
      fs[alloc_tags_invariant_def,get_next_def,get_tagacc_def] >>
      fs[gtagenv_wf_def])));
 
+
+val evaluate_dec_i2_exh_weak = prove(
+  ``∀ck (exh:exh_ctors_env) genv s d res.
+      evaluate_dec_i2 ck exh genv s d res ⇒
+      ∀exh'. DISJOINT (FDOM exh) (FDOM exh') ∧ SND res ≠ Rerr Rtype_error
+        ⇒ evaluate_dec_i2 ck (exh' ⊌ exh) genv s d res``,
+  ho_match_mp_tac evaluate_dec_i2_ind >> rw[] >>
+  TRY (
+    first_assum (mp_tac o MATCH_MP (CONJUNCT1 evaluate_exp_i2_exh_weak)) >> simp[] >>
+    disch_then(qspec_then`exh'`mp_tac) >> simp[DISJOINT_SYM] >> strip_tac ) >>
+  rw[Once evaluate_dec_i2_cases] )
+
+val evaluate_decs_i2_exh_weak = prove(
+ ``∀ck (exh:exh_ctors_env) genv s ds res.
+     evaluate_decs_i2 ck exh genv s ds res
+     ⇒
+     ∀exh'. DISJOINT (FDOM exh) (FDOM exh') ∧ SND (SND res) ≠ SOME Rtype_error ⇒
+       evaluate_decs_i2 ck (exh' ⊌ exh) genv s ds res``,
+  ho_match_mp_tac evaluate_decs_i2_ind >> rw[]
+  >- rw[Once evaluate_decs_i2_cases] >>
+  first_x_assum(strip_assume_tac o MATCH_MP evaluate_dec_i2_exh_weak) >>
+  first_x_assum(qspec_then`exh'`strip_assume_tac) >> rfs[] >>
+  rw[Once evaluate_decs_i2_cases] >>
+  metis_tac[])
+
 val evaluate_prompt_i2_exh_weak = Q.prove (
-`!ck exh genv s p s' genv' res exh1.
+`!ck (exh:exh_ctors_env) genv s p s' genv' res exh1.
  evaluate_prompt_i2 ck exh genv s p (s',genv',res) ∧
- DISJOINT (FDOM exh1) (FDOM exh)
+ DISJOINT (FDOM exh1) (FDOM exh) ∧ res ≠ SOME Rtype_error
  ⇒
  evaluate_prompt_i2 ck (exh1 ⊌ exh) genv s p (s',genv',res)`,
- cheat);
+ rw[evaluate_prompt_i2_cases] >>
+ first_x_assum(strip_assume_tac o MATCH_MP evaluate_decs_i2_exh_weak) >>
+ first_x_assum(qspec_then`exh1`mp_tac) >>
+ rw[] >> metis_tac[DISJOINT_SYM])
 
 val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
 `!ck genv envC s_tmp prog res_tmp. 
