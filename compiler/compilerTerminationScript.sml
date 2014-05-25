@@ -427,6 +427,15 @@ val set_lshift = store_thm("set_lshift",
   TRY(qexists_tac`m`>>simp[]>>NO_TAC))
 val _ = export_rewrites["set_lshift"]
 
+val sLet_pat_thm = store_thm("sLet_pat_thm",
+  ``sLet_pat e1 e2 =
+    if e2 = Var_local_pat 0 then e1 else
+    if ground_pat 0 e2 then
+      if pure_pat e1 then e2 else Seq_pat e1 e2
+    else Let_pat e1 e2``,
+  Cases_on`e2`>>rw[sLet_pat_def]>>
+  Cases_on`n`>>rw[sLet_pat_def])
+
 (* constants that are just applications of higher-order operators *)
 
 val funs_to_exh_MAP = store_thm("funs_to_exh_MAP",

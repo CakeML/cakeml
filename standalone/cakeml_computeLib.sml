@@ -294,7 +294,7 @@ val () = computeLib.add_thms
   [exp_to_pat_def
   ,row_to_pat_def
   ,pat_to_pat_def
-  ,patLangProofTheory.sLet_pat_thm
+  ,sLet_pat_thm
   ,sIf_pat_def
   ,ground_pat_def
   ,uop_to_pat_def

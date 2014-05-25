@@ -219,15 +219,6 @@ val pmatch_exh_nil = save_thm("pmatch_exh_nil",
 
 (* patLang extra lemmas, used elsewhere *)
 
-val sLet_pat_thm = store_thm("sLet_pat_thm",
-  ``sLet_pat e1 e2 =
-    if e2 = Var_local_pat 0 then e1 else
-    if ground_pat 0 e2 then
-      if pure_pat e1 then e2 else Seq_pat e1 e2
-    else Let_pat e1 e2``,
-  Cases_on`e2`>>rw[sLet_pat_def]>>
-  Cases_on`n`>>rw[sLet_pat_def])
-
 val row_to_pat_acc = store_thm("row_to_pat_acc",
   ``(∀Nbvs p bvs1 N. Nbvs = N::bvs1 ⇒
        ∀bvs2 r1 n1 f1 r2 n2 f2.
