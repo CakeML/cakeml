@@ -3889,7 +3889,147 @@ val evaluate_prompt_i2_exh_weak = Q.prove (
  first_x_assum(qspec_then`exh1`mp_tac) >>
  rw[] >> metis_tac[DISJOINT_SYM])
 
-(*
+val tids_of_prompt_def = Define`
+  tids_of_prompt (Prompt_i1 _ ds) = tids_of_decs ds`
+
+val FDOM_prompt_to_i2_exh = prove(
+  ``∀x p y z a. prompt_to_i2 x p = (y,z,a) ⇒ FDOM z = tids_of_prompt p``,
+  rw[prompt_to_i2_def] >> every_case_tac >>
+  fs[LET_THM,UNCURRY] >> rw[] >>
+  rw[tids_of_prompt_def] >>
+  match_mp_tac FDOM_decs_to_i2_exh >>
+  metis_tac[pair_CASES,FST,SND,PAIR_EQ])
+
+val tids_of_prog_def = Define`
+  tids_of_prog prog = BIGUNION (set (MAP tids_of_prompt prog))`
+
+val FDOM_prog_to_i2_exh = prove(
+  ``∀x p y z a. prog_to_i2 x p = (y,z,a) ⇒ FDOM z = tids_of_prog p``,
+  Induct_on`p`>>rw[prog_to_i2_def,tids_of_prog_def]>>rw[]>>
+  fs[LET_THM,tids_of_prog_def] >>
+  first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
+  first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >> rw[] >>
+  res_tac >> simp[] >>
+  imp_res_tac FDOM_prompt_to_i2_exh >>
+  simp[UNION_COMM])
+
+val evaluate_decs_i1_tids_disjoint = prove(
+  ``∀ck genv envC st ds res. evaluate_decs_i1 ck genv envC st ds res ⇒
+      SND(SND(SND res)) = NONE ⇒
+      DISJOINT (IMAGE TypeId (tids_of_decs ds)) (SND st)``,
+  ho_match_mp_tac evaluate_decs_i1_ind >> simp[] >>
+  conj_tac >- simp[tids_of_decs_thm] >>
+  rw[evaluate_dec_i1_cases,tids_of_decs_thm] >> fs[DISJOINT_SYM] >>
+  fs[type_defs_to_new_tdecs_def,IN_DISJOINT,MEM_MAP,UNCURRY] >>
+  metis_tac[])
+
+val evaluate_prompt_i1_tids_disjoint = prove(
+  ``∀ck genv envC stm p res. evaluate_prompt_i1 ck genv envC stm p res ⇒
+      SND(SND(SND res)) = NONE ⇒
+      DISJOINT (IMAGE TypeId (tids_of_prompt p)) (FST(SND stm))``,
+  ho_match_mp_tac evaluate_prompt_i1_ind >> simp[] >> rw[] >>
+  imp_res_tac evaluate_decs_i1_tids_disjoint >> fs[tids_of_prompt_def])
+
+val evaluate_prompt_i1_tids_acc = prove(
+  ``∀ck genv envC stm p res. evaluate_prompt_i1 ck genv envC stm p res ⇒
+      FST(SND stm) ⊆ FST(SND(FST res))``,
+  ho_match_mp_tac evaluate_prompt_i1_ind >> simp[] >> rw[] >>
+  imp_res_tac evaluate_decs_i1_tids_acc >> fs[])
+
+val evaluate_prog_i1_tids_disjoint = prove(
+  ``∀ck genv envC stm p res. evaluate_prog_i1 ck genv envC stm p res ⇒
+      SND(SND(SND res)) = NONE ⇒
+      DISJOINT (IMAGE TypeId (tids_of_prog p)) (FST(SND stm))``,
+  ho_match_mp_tac evaluate_prog_i1_ind >> simp[] >> rw[] >>
+  fs[tids_of_prog_def] >>
+  imp_res_tac evaluate_prompt_i1_tids_disjoint >> fs[] >>
+  imp_res_tac evaluate_prompt_i1_tids_acc >>
+  fs[IN_DISJOINT,SUBSET_DEF] >>
+  metis_tac[])
+
+val mods_of_prog_def = Define`
+  mods_of_prog [] = {} ∧
+  mods_of_prog ((Prompt_i1 (SOME mn) ds)::ps) = mn INSERT mods_of_prog ps ∧
+  mods_of_prog (_::ps) = mods_of_prog ps`
+
+val IN_mods_of_prog = prove(
+  ``∀prog mn ds. MEM (Prompt_i1 (SOME mn) ds) prog ⇒ mn ∈ mods_of_prog prog``,
+  Induct >> simp[mods_of_prog_def] >> rw[] >> simp[mods_of_prog_def] >>
+  `∃x y. h = Prompt_i1 x y` by (Cases_on`h` >> simp[GSYM EXISTS_PROD]) >>
+  Cases_on`x`>>simp[mods_of_prog_def] >>
+  metis_tac[])
+
+val evaluate_prog_i1_mods_disjoint = prove(
+  ``∀ck genv envC stm p res. evaluate_prog_i1 ck genv envC stm p res ⇒
+      SND(SND(SND res)) = NONE ⇒
+      DISJOINT (SND(SND stm)) (mods_of_prog p)``,
+  ho_match_mp_tac evaluate_prog_i1_ind >> simp[] >>
+  simp[mods_of_prog_def] >> rw[] >>
+  fs[evaluate_prompt_i1_cases] >> rw[] >>
+  Cases_on`mn`>>fs[mods_of_prog_def,update_mod_state_def] >>
+  fs[IN_DISJOINT] >> metis_tac[])
+
+val evaluate_prompt_i1_mods_disjoint = prove(
+  ``∀ck genv envC stm p res. evaluate_prompt_i1 ck genv envC stm p res ⇒
+      SND(SND(SND res)) = NONE ⇒
+      ∀mn ds. p = Prompt_i1 (SOME mn) ds ⇒ mn ∉ (SND(SND stm))``,
+  ho_match_mp_tac evaluate_prompt_i1_ind >> simp[])
+
+val evaluate_prompt_i1_mods_acc = prove(
+  ``∀ck genv envC stm p res. evaluate_prompt_i1 ck genv envC stm p res ⇒
+      SND(SND stm) ⊆ SND(SND(FST res))``,
+  ho_match_mp_tac evaluate_prompt_i1_ind >> simp[] >>
+  rw[update_mod_state_def] >>
+  BasicProvers.CASE_TAC >> simp[])
+
+val tac= (
+                        imp_res_tac FDOM_prompt_to_i2_exh >>
+                        imp_res_tac FDOM_prog_to_i2_exh >>
+                        imp_res_tac evaluate_prompt_i1_tids_disjoint >>
+                        imp_res_tac evaluate_prog_i1_tids_disjoint >>
+                        imp_res_tac evaluate_prompt_i1_tids_acc >>
+                        fs[] >>
+                        fs[IN_DISJOINT,SUBSET_DEF] >>
+                        fs[to_i2_invariant_def] >>
+                        conj_tac >- (
+                          spose_not_then strip_assume_tac >>
+                          Cases_on`x` >- metis_tac[] >>
+                          imp_res_tac evaluate_prog_i1_mods_disjoint >> fs[] >>
+                          qmatch_assum_rename_tac`Long mn x ∈ tids_of_prog prog`[] >>
+                          qsuff_tac`mn ∈ mods_of_prog prog` >- (
+                            fs[IN_DISJOINT] >> metis_tac[] ) >>
+                          fs[tids_of_prog_def,MEM_MAP,EVERY_MEM] >>
+                          match_mp_tac IN_mods_of_prog >>
+                          qmatch_assum_rename_tac`MEM p prog`[] >>
+                          first_x_assum(qspec_then`p`mp_tac) >>
+                          first_x_assum(qspec_then`p`mp_tac) >>
+                          simp[] >>
+                          Cases_on`p`>>fs[tids_of_prompt_def] >>
+                          qmatch_assum_rename_tac`MEM (Prompt_i1 mno l) prog`[] >>
+                          Cases_on`mno`>>fs[]>>rw[] >- (
+                            imp_res_tac IN_tids_of_not_mod_decs >> fs[] ) >>
+                          imp_res_tac IN_tids_of_mod_decs >> fs[] >>
+                          metis_tac[] ) >>
+                        spose_not_then strip_assume_tac >>
+                        Cases_on`x` >- metis_tac[] >>
+                        imp_res_tac evaluate_prog_i1_mods_disjoint >> fs[] >>
+                        imp_res_tac evaluate_prompt_i1_mods_acc >> fs[] >>
+                        qmatch_assum_rename_tac`Long mn x ∈ tids_of_prog prog`[] >>
+                        qsuff_tac`mn ∈ mods_of_prog prog` >- (
+                          fs[IN_DISJOINT] >> metis_tac[] ) >>
+                        fs[tids_of_prog_def,MEM_MAP,EVERY_MEM] >>
+                        match_mp_tac IN_mods_of_prog >>
+                        qmatch_assum_rename_tac`MEM p prog`[] >>
+                        first_x_assum(qspec_then`p`mp_tac) >>
+                        first_x_assum(qspec_then`p`mp_tac) >>
+                        simp[] >>
+                        Cases_on`p`>>fs[tids_of_prompt_def] >>
+                        qmatch_assum_rename_tac`MEM (Prompt_i1 mno l) prog`[] >>
+                        Cases_on`mno`>>fs[]>>rw[] >- (
+                          imp_res_tac IN_tids_of_not_mod_decs >> fs[] ) >>
+                        imp_res_tac IN_tids_of_mod_decs >> fs[] >>
+                        metis_tac[] )
+
 val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
 `!ck genv envC s_tmp prog res_tmp.
   evaluate_prog_i1 ck genv envC s_tmp prog res_tmp ⇒
@@ -3898,8 +4038,8 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
   res_tmp = ((s',tids',mods'), envC', genv', res) ∧
   res ≠ SOME Rtype_error ∧
   to_i2_invariant mods tids envC exh (next,tagenv,inv) gtagenv s s_i2 genv genv_i2 ∧
-  DISJOINT (FDOM exh') (FDOM exh) ∧
-  EVERY (λprompt. ∀ds. prompt = Prompt_i1 NONE ds ⇒ LENGTH ds < 2) prog ∧
+  EVERY (λprompt. ∀ds. prompt = Prompt_i1 NONE ds ⇒ LENGTH ds < 2 ∧ not_mod_decs ds) prog ∧
+  EVERY (λprompt. ∀mn ds. prompt = Prompt_i1 (SOME mn) ds ⇒ mod_decs mn ds) prog ∧
   ((next',tagenv',inv'), exh', prog_i2) = prog_to_i2 (next,tagenv,inv) prog
   ⇒
   ?genv'_i2 s'_i2 res_i2 gtagenv'.
@@ -3908,7 +4048,7 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
     (res = NONE ∧ res_i2 = NONE ∧
      to_i2_invariant mods' tids' (merge_envC envC' envC) (FUNION exh' exh) (next',tagenv',inv') gtagenv' s' s'_i2 (genv++genv') (genv_i2++genv'_i2) ∨
      ?err err_i2. res = SOME err ∧ res_i2 = SOME err_i2 ∧ result_to_i2 (\a b c. T) gtagenv' (Rerr err) (Rerr err_i2))`,
- ho_match_mp_tac evaluate_prog_i1_ind >>
+ ho_match_mp_tac evaluate_prog_i1_strongind >>
  rw []
  >- (PairCases_on `envC` >>
      fs [merge_envC_def, prog_to_i2_def, merge_def] >>
@@ -3936,29 +4076,19 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
      rfs[] >>
      first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
      simp[] >>
-     discharge_hyps >- metis_tac[DISJOINT_SYM]
-     res_tac >>
-       ntac 3 (pop_assum mp_tac) >>
-       rw [] >>
-       ntac 2 (pop_assum (fn _ => all_tac))
+     rw[]
        >- (MAP_EVERY qexists_tac [`genv'_i2 ++ genv'_i2'`, `s'_i2'`, `gtagenv''`] >>
            rw [] >>
            fs [merge_envC_assoc, FUNION_ASSOC]
            >- metis_tac [gtagenv_weak_trans]
-           >- metis_tac [DISJOINT_SYM]
-           >- (`DISJOINT (FDOM exh1) (FDOM (FUNION exh2 exh))` 
-                      by (fs [DISJOINT_DEF, EXTENSION] >>
-                          metis_tac []) >>
-               metis_tac [evaluate_prompt_i2_exh_weak, FUNION_ASSOC]))
+           >- (`DISJOINT (FDOM exh1) (FDOM (FUNION exh2 exh))` by tac >>
+               metis_tac [evaluate_prompt_i2_exh_weak, FUNION_ASSOC, NOT_SOME_NONE]))
        >- (MAP_EVERY qexists_tac [`genv'_i2 ++ genv'_i2'`, `s'_i2'`, `SOME err_i2`, `gtagenv''`] >>
            rw [] >>
            fs [merge_envC_assoc, FUNION_ASSOC]
            >- metis_tac [gtagenv_weak_trans]
-           >- metis_tac [DISJOINT_SYM]
-           >- (`DISJOINT (FDOM exh1) (FDOM (FUNION exh2 exh))` 
-                      by (fs [DISJOINT_DEF, EXTENSION] >>
-                          metis_tac []) >>
-               metis_tac [evaluate_prompt_i2_exh_weak, FUNION_ASSOC])))
+           >- (`DISJOINT (FDOM exh1) (FDOM (FUNION exh2 exh))` by cheat >>
+               metis_tac [evaluate_prompt_i2_exh_weak, FUNION_ASSOC, NOT_SOME_NONE])))
  >- (fs [prog_to_i2_def, LET_THM] >>
      `?st2 exh2 p2. prompt_to_i2 (next,tagenv,inv') prompt = (st2,exh2,p2)`
              by metis_tac [pair_CASES] >>
@@ -3967,25 +4097,25 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
              by metis_tac [pair_CASES] >>
      fs [] >>
      rw [Once evaluate_prog_i2_cases] >>
-     `∃genv'_i2 s'_i2 res_i2 gtagenv' err_i2.
-       gtagenv_weak gtagenv gtagenv' ∧
-       DISJOINT (FDOM exh2) (FDOM exh) ∧
-       evaluate_prompt_i2 ck (exh2 ⊌ exh) genv_i2 s_i2 p2 (s'_i2,genv'_i2,SOME err_i2) ∧
-       to_i2_invariant tids' (merge_envC cenv2 envC) (exh2 ⊌ exh) st2 gtagenv' s' s'_i2 (genv++env2) (genv_i2++genv'_i2) ∧
-       res_i2 = SOME err_i2 ∧
-       result_to_i2 (λa b c. T) gtagenv' (Rerr err) (Rerr err_i2)`
-            by (imp_res_tac prompt_to_i2_correct >>
-                fs [] >>
-                rpt (pop_assum mp_tac) >>
-                rw [] >>
-                metis_tac []) >>
+     (prompt_to_i2_correct |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+      |> (fn th => first_assum (mp_tac o MATCH_MP th))) >>
+     simp[] >>
+     disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+     simp[] >>
+     simp[PULL_EXISTS] >>
+     map_every qx_gen_tac[`genv'_i2`,`s'_i2`,`gtagenv'`,`err_i2`] >>
+     strip_tac >>
+     MAP_EVERY qexists_tac [`genv'_i2`, `s'_i2`, `gtagenv'`, `err_i2`] >>
      rw [] >>
-     MAP_EVERY qexists_tac [`genv'_i2`, `s'_i2`, `SOME err_i2`, `gtagenv'`] >>
-     rw [] >>
-     `DISJOINT (FDOM exh1) (FDOM (FUNION exh2 exh))` by cheat
-     >- (fs [DISJOINT_DEF, EXTENSION] >>
-         metis_tac [])
-     >- metis_tac [evaluate_prompt_i2_exh_weak, FUNION_ASSOC]));
-*)
+     disj2_tac >>
+     ONCE_REWRITE_TAC[GSYM(FUNION_ASSOC)] >>
+     match_mp_tac evaluate_prompt_i2_exh_weak >>
+     `DISJOINT (FDOM exh1) (FDOM (FUNION exh2 exh))` by (
+       imp_res_tac evaluate_prompt_i1_tids_acc >>
+       imp_res_tac evaluate_prompt_i1_mods_acc >>
+       imp_res_tac FDOM_prompt_to_i2_exh >>
+       imp_res_tac FDOM_prog_to_i2_exh >> fs[] >>
+       cheat)>>
+     fs[result_to_i2_cases] >> fs[]));
 
 val _ = export_theory ();
