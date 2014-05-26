@@ -60,8 +60,13 @@ val _ = Hol_datatype `
   | PushExc                 (* push exception handler *)
   | PopExc                  (* pop exception handler *)
   | Ref                     (* create a new ref cell *)
+  | RefByte                 (* create new byte array *)
   | Deref                   (* dereference a ref cell *)
+  | DerefByte               (* index a byte array *)
   | Update                  (* update a ref cell *)
+  | UpdateByte              (* update a byte array *)
+  | Length                  (* get length of ref *)
+  | LengthByte              (* get length of byte array *)
   | Galloc of num           (* allocate global variables *)
   | Gupdate of num          (* update a global variable *)
   | Gread of num            (* read a global variable *)
@@ -87,12 +92,19 @@ val _ = Hol_datatype `
 
 val _ = Hol_datatype `
 
+  ref_value =
+    ValueArray of bc_value list
+  | ByteArray of word8 list`;
+
+
+val _ = Hol_datatype `
+
   bc_state =
    <| (* main state components *)
       stack : bc_value list;
       code : bc_inst list;
       pc : num;
-      refs : (num, bc_value) fmap;
+      refs : (num, ref_value) fmap;
       globals : ( bc_value option) list;
       handler : num;
       output : string;
@@ -406,28 +418,33 @@ bc_next s ((bump_pc s with<|
 (LENGTH l2 = s.handler))
 ==>
 bc_next s ((bump_pc s with<| handler := sp; stack := x::l2|>)))
-/\ (! s x xs ptr.
+/\ (! s vs xs ptr.
 ((bc_fetch s = SOME Ref)
-/\ (s.stack = (x::xs))
+/\ (s.stack = ((Number (int_of_num (LENGTH vs)))::(vs ++ xs)))
 /\ (ptr = $LEAST (\ ptr .  ~ (ptr IN FDOM s.refs))))
 ==>
-bc_next s ((bump_pc s with<| stack := (RefPtr ptr)::xs; refs :=s.refs |+ (ptr, x)|>)))
-/\ (! s ptr xs.
+bc_next s ((bump_pc s with<| stack := (RefPtr ptr)::xs;
+             refs :=s.refs |+ (ptr, (ValueArray (REVERSE vs)))|>)))
+/\ (! s n ptr xs vs.
 ((bc_fetch s = SOME Deref)
-/\ (s.stack = ((RefPtr ptr)::xs))
-/\ (ptr IN FDOM s.refs))
+/\ (s.stack = ((Number (int_of_num n))::((RefPtr ptr)::xs)))
+/\ (FLOOKUP s.refs ptr = SOME (ValueArray vs))
+/\ (n < LENGTH vs))
 ==>
-bc_next s ((bump_pc s with<| stack := FAPPLY s.refs ptr::xs|>)))
-/\ (! s x ptr xs.
+bc_next s ((bump_pc s with<| stack := (EL n vs)::xs|>)))
+/\ (! s x n ptr xs vs.
 ((bc_fetch s = SOME Update)
-/\ (s.stack = (x::((RefPtr ptr)::xs)))
-/\ (ptr IN FDOM s.refs))
+/\ (s.stack = (x::((Number (int_of_num n))::((RefPtr ptr)::xs))))
+/\ (FLOOKUP s.refs ptr = SOME (ValueArray vs))
+/\ (n < LENGTH vs))
 ==>
-bc_next s ((bump_pc s with<| stack := xs; refs :=s.refs |+ (ptr, x)|>)))
+bc_next s ((bump_pc s with<| stack := xs;
+             refs :=s.refs |+ (ptr, (ValueArray (LUPDATE x n vs)))|>)))
 /\ (! s n.
 (bc_fetch s = SOME (Galloc n))
 ==>
-bc_next s ((bump_pc s with<| globals := s.globals ++ (GENLIST (\ x .  NONE) n)|>)))
+bc_next s ((bump_pc s with<| globals := s.globals ++ (GENLIST (\n2655 .  
+  (case (n2655 ) of ( _ ) => NONE )) n)|>)))
 /\ (! s n x xs.
 ((bc_fetch s = SOME (Gupdate n))
 /\ (s.stack = (x::xs))

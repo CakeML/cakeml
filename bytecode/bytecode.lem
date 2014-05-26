@@ -47,8 +47,13 @@ type
   | PushExc                 (* push exception handler *)
   | PopExc                  (* pop exception handler *)
   | Ref                     (* create a new ref cell *)
+  | RefByte                 (* create new byte array *)
   | Deref                   (* dereference a ref cell *)
+  | DerefByte               (* index a byte array *)
   | Update                  (* update a ref cell *)
+  | UpdateByte              (* update a byte array *)
+  | Length                  (* get length of ref *)
+  | LengthByte              (* get length of byte array *)
   | Galloc of nat           (* allocate global variables *)
   | Gupdate of nat          (* update a global variable *)
   | Gread of nat            (* read a global variable *)
@@ -70,12 +75,17 @@ type
   | StackPtr of nat                (* pointer into stack *)
 
 type
+  ref_value =
+    ValueArray of list bc_value
+  | ByteArray of list word8
+
+type
   bc_state =
    <| (* main state components *)
       stack : list bc_value;
       code : list bc_inst;
       pc : nat;
-      refs : map nat bc_value;
+      refs : map nat ref_value;
       globals : list (maybe bc_value);
       handler : nat;
       output : string;
@@ -368,31 +378,35 @@ List.length l2 = s.handler
 ==>
 bc_next s (<|bump_pc s with handler = sp; stack = x::l2|>)
 and
-ref : forall s x xs ptr.
+ref : forall s vs xs ptr.
 bc_fetch s = Just Ref
-&& s.stack = x::xs
+&& s.stack = (Number (integerFromNat (List.length vs)))::(vs ++ xs)
 && (ptr = least (fun ptr -> not (Map.member ptr s.refs)))
 ==>
-bc_next s (<|bump_pc s with stack = (RefPtr ptr)::xs; refs = Map.insert ptr x s.refs|>)
+bc_next s (<|bump_pc s with stack = (RefPtr ptr)::xs;
+             refs = Map.insert ptr (ValueArray (List.reverse vs)) s.refs|>)
 and
-deref : forall s ptr xs.
+deref : forall s n ptr xs vs.
 bc_fetch s = Just Deref
-&& s.stack = (RefPtr ptr)::xs
-&& Map.member ptr s.refs
+&& s.stack = (Number (integerFromNat n))::(RefPtr ptr)::xs
+&& Map.lookup ptr s.refs = Just (ValueArray vs)
+&& n < List.length vs
 ==>
-bc_next s (<|bump_pc s with stack = Map_extra.find ptr s.refs::xs|>)
+bc_next s (<|bump_pc s with stack = (List_extra.nth vs n)::xs|>)
 and
-update : forall s x ptr xs.
+update : forall s x n ptr xs vs.
 bc_fetch s = Just Update
-&& s.stack = x::(RefPtr ptr)::xs
-&& Map.member ptr s.refs
+&& s.stack = x::(Number (integerFromNat n))::(RefPtr ptr)::xs
+&& Map.lookup ptr s.refs = Just (ValueArray vs)
+&& n < List.length vs
 ==>
-bc_next s (<|bump_pc s with stack = xs; refs = Map.insert ptr x s.refs|>)
+bc_next s (<|bump_pc s with stack = xs;
+             refs = Map.insert ptr (ValueArray (List.update vs n x)) s.refs|>)
 and
 galloc : forall s n.
 bc_fetch s = Just (Galloc n)
 ==>
-bc_next s (<|bump_pc s with globals = s.globals ++ (genlist (fun x -> Nothing) n)|>)
+bc_next s (<|bump_pc s with globals = s.globals ++ (genlist (fun _ -> Nothing) n)|>)
 and
 gupdate : forall s n x xs.
 bc_fetch s = Just (Gupdate n)
