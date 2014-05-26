@@ -1125,7 +1125,7 @@ val env_rs_def = Define`
         genv (FST rs.globals_env) (SND rs.globals_env)
         envM envE (cnt,s) (cnt,s1) mods ∧
       to_i2_invariant
-        tids envC rs.exh rs.contags_env gtagenv
+        mods tids envC rs.exh rs.contags_env gtagenv
         (cnt,s1) (cnt,s2) genv genv2 ∧
       LIST_REL (exh_Cv O v_to_exh rs.exh) s2 Cs ∧
       LIST_REL (OPTREL (exh_Cv O v_to_exh rs.exh)) genv2 Cg ∧
