@@ -1376,7 +1376,7 @@ val compile_top_thm = store_thm("compile_top_thm",
              (case types of NONE => "" | SOME types =>
               print_result types top envC env_or_err))
           | Rerr(Rraise _) =>
-            ((FST env,merge_envC (case top of Tdec _ => (emp,emp) | Tmod _ _ _ => envC) (FST(SND env)),SND(SND env)),rsf,F,
+            (env,rsf,F,
              print_result (THE types) top envC env_or_err) in
         bc_fetch bs' = SOME (Stop success) ∧
         bs'.output = bs.output ++ str ∧
@@ -1411,11 +1411,19 @@ val compile_top_thm = store_thm("compile_top_thm",
         ONCE_REWRITE_CONV[GSYM CONJ_ASSOC] THENC
         ONCE_REWRITE_CONV[GSYM AND_IMP_INTRO]) prompt_to_i2_correct))) >>
     REWRITE_TAC[Once EQ_SYM_EQ] >>
+    REWRITE_TAC[Once (GSYM CONJ_ASSOC)] >>
     REWRITE_TAC[Once (GSYM AND_IMP_INTRO)] >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
+    REWRITE_TAC[Once CONJ_COMM] >>
+    REWRITE_TAC[Once (GSYM CONJ_ASSOC)] >>
     REWRITE_TAC[Once (GSYM AND_IMP_INTRO)] >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
     simp[] >>
+    discharge_hyps >- (
+      fs[top_to_i1_def,LET_THM,UNCURRY] >>
+      rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
+      simp[dec_to_i1_def] >>
+      BasicProvers.CASE_TAC >> simp[not_mod_decs_def] ) >>
     disch_then(qx_choosel_then[`new_genv_i2`,`s2_i2`,`gtagenv2`]strip_assume_tac) >>
     `∃n e. prompt_to_i3 non som (LENGTH grd0) p = (n,e)` by simp[GSYM EXISTS_PROD] >> fs[] >>
     first_assum (mp_tac o (MATCH_MP (
@@ -1939,12 +1947,20 @@ val compile_top_thm = store_thm("compile_top_thm",
         ONCE_REWRITE_CONV[GSYM CONJ_ASSOC] THENC
         ONCE_REWRITE_CONV[GSYM AND_IMP_INTRO]) prompt_to_i2_correct))) >>
     REWRITE_TAC[Once EQ_SYM_EQ] >>
+    REWRITE_TAC[Once (GSYM CONJ_ASSOC)] >>
     REWRITE_TAC[Once (GSYM AND_IMP_INTRO)] >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
+    REWRITE_TAC[Once CONJ_COMM] >>
+    REWRITE_TAC[Once (GSYM CONJ_ASSOC)] >>
     REWRITE_TAC[Once (GSYM AND_IMP_INTRO)] >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
     simp[] >>
-    discharge_hyps >- ( fs[result_to_i1_cases] >> fs[] ) >>
+    discharge_hyps >- (
+      fs[result_to_i1_cases] >> fs[] >>
+      fs[top_to_i1_def,LET_THM,UNCURRY] >>
+      rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
+      simp[dec_to_i1_def] >>
+      BasicProvers.CASE_TAC >> simp[not_mod_decs_def] ) >>
     disch_then(qx_choosel_then[`new_genv_i2`,`s2_i2`,`res_i2`,`gtagenv2`]strip_assume_tac) >>
     `∃n e. prompt_to_i3 non som (LENGTH grd0) p = (n,e)` by simp[GSYM EXISTS_PROD] >> fs[] >>
     first_assum (mp_tac o (MATCH_MP (
@@ -2291,11 +2307,18 @@ val compile_top_thm = store_thm("compile_top_thm",
         ONCE_REWRITE_CONV[GSYM CONJ_ASSOC] THENC
         ONCE_REWRITE_CONV[GSYM AND_IMP_INTRO]) prompt_to_i2_correct))) >>
     REWRITE_TAC[Once EQ_SYM_EQ] >>
+    REWRITE_TAC[Once (GSYM CONJ_ASSOC)] >>
     REWRITE_TAC[Once (GSYM AND_IMP_INTRO)] >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
+    REWRITE_TAC[Once CONJ_COMM] >>
+    REWRITE_TAC[Once (GSYM CONJ_ASSOC)] >>
     REWRITE_TAC[Once (GSYM AND_IMP_INTRO)] >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
     simp[] >>
+    discharge_hyps >- (
+      fs[top_to_i1_def,LET_THM,UNCURRY] >>
+      rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
+      MATCH_ACCEPT_TAC mod_decs_decs_to_i1) >>
     disch_then(qx_choosel_then[`new_genv_i2`,`s2_i2`,`gtagenv2`]strip_assume_tac) >>
     `∃n e. prompt_to_i3 non som (LENGTH grd0) p = (n,e)` by simp[GSYM EXISTS_PROD] >> fs[] >>
     first_assum (mp_tac o (MATCH_MP (
@@ -2628,12 +2651,19 @@ val compile_top_thm = store_thm("compile_top_thm",
         ONCE_REWRITE_CONV[GSYM CONJ_ASSOC] THENC
         ONCE_REWRITE_CONV[GSYM AND_IMP_INTRO]) prompt_to_i2_correct))) >>
     REWRITE_TAC[Once EQ_SYM_EQ] >>
+    REWRITE_TAC[Once (GSYM CONJ_ASSOC)] >>
     REWRITE_TAC[Once (GSYM AND_IMP_INTRO)] >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
+    REWRITE_TAC[Once CONJ_COMM] >>
+    REWRITE_TAC[Once (GSYM CONJ_ASSOC)] >>
     REWRITE_TAC[Once (GSYM AND_IMP_INTRO)] >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
     simp[] >>
-    discharge_hyps >- ( fs[result_to_i1_cases] >> fs[] ) >>
+    discharge_hyps >- (
+      fs[result_to_i1_cases] >> fs[] >>
+      fs[top_to_i1_def,LET_THM,UNCURRY] >>
+      rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
+      MATCH_ACCEPT_TAC mod_decs_decs_to_i1) >>
     disch_then(qx_choosel_then[`new_genv_i2`,`s2_i2`,`res_i2`,`gtagenv2`]strip_assume_tac) >>
     `∃n e. prompt_to_i3 non som (LENGTH grd0) p = (n,e)` by simp[GSYM EXISTS_PROD] >> fs[] >>
     first_assum (mp_tac o (MATCH_MP (
@@ -2994,7 +3024,14 @@ val compile_top_divergence = store_thm("compile_top_divergence",
   ONCE_REWRITE_TAC[GSYM AND_IMP_INTRO] >>
   disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
   ONCE_REWRITE_TAC[EQ_SYM_EQ] >>
+  ONCE_REWRITE_TAC[GSYM AND_IMP_INTRO] >>
   disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
+  discharge_hyps >- (
+    Cases_on`top`>>fs[top_to_i1_def,LET_THM,UNCURRY] >>
+    rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
+    TRY (MATCH_ACCEPT_TAC mod_decs_decs_to_i1) >>
+    simp[dec_to_i1_def] >>
+    BasicProvers.CASE_TAC >> simp[not_mod_decs_def] ) >>
   strip_tac >>
   (prompt_to_i3_correct
    |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]

@@ -3609,6 +3609,12 @@ val evaluate_decs_i1_tids_acc = store_thm("evaluate_decs_i1_tids_acc",
   first_x_assum(mp_tac o MATCH_MP evaluate_dec_i1_tids_acc) >>
   fs[] >> metis_tac[SUBSET_TRANS])
 
+val mod_decs_decs_to_i1 = store_thm("mod_decs_decs_to_i1",
+  ``∀ds mn a b c. mod_decs mn (SND (SND (decs_to_i1 a (SOME mn) b c ds)))``,
+  Induct >> simp[decs_to_i1_def] >> fs[mod_decs_def] >> rw[] >>
+  simp[UNCURRY] >> rw[dec_to_i1_def] >>
+  BasicProvers.CASE_TAC >> simp[])
+
 val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
 `!ck genv envC s tids mods prompt s_i2 genv_i2 tagenv_st prompt_i2 genv' envC' s' tids' mods' res gtagenv tagenv_st' exh exh'.
   evaluate_prompt_i1 ck genv envC (s,tids,mods) prompt ((s',tids',mods'), envC', genv', res) ∧
