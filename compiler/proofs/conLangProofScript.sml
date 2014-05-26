@@ -2624,6 +2624,12 @@ val mod_decs_cons_imp = prove(
   ``mod_decs mod (d::ds) ⇒ mod_decs mod ds``,
   rw[mod_decs_def])
 
+val not_mod_decs_def = Define`
+  not_mod_decs ds = EVERY (λd. case d of
+   | Dtype_i1 mn _ => mn = NONE
+   | Dexn_i1 mn _ _ => mn = NONE
+   | _ => T) ds`
+
 val envC_tagged_add_empty_mod = prove(
   ``∀ls mn tagenv g.
       envC_tagged ([(mn,[])],[]) (mod_tagenv (SOME mn) ls tagenv) g``,
@@ -3176,6 +3182,12 @@ val decs_to_i2_correct = Q.prove (
 val to_i2_invariant_def = Define `
 to_i2_invariant mods tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ⇔
   set (MAP FST (FST envC)) ⊆ mods ∧
+  (∀x. Short x ∈ FDOM exh ⇒ TypeId (Short x) ∈ tids) ∧
+  (∀mn x. Long mn x ∈ FDOM exh ⇒ mn ∈ mods) ∧
+  (*
+  IMAGE TypeId (FDOM exh) ⊆ tids ∧
+  (∀mn x. TypeId (Long mn x) ∈ tids ∨ TypeExn (Long mn x) ∈ tids ⇒ mn ∈ mods) ∧
+  *)
   cenv_inv envC exh (FST (SND tagenv_st)) gtagenv ∧
   s_to_i2 gtagenv s s_i2 ∧
   LIST_REL (OPTION_REL (v_to_i2 gtagenv)) genv genv_i2 ∧
@@ -3205,6 +3217,10 @@ val initial_i2_invariant = Q.store_thm ("initial_i2_invariant",
     (ck,[]) (ck,[])
     [] []`,
  rw [to_i2_invariant_def, s_to_i2_cases, v_to_i2_eqns, s_to_i2'_cases]
+ >- EVAL_TAC
+ >- (simp[EXISTS_PROD] >>
+     pop_assum mp_tac >> EVAL_TAC >> simp[] >>
+     metis_tac[] )
  >- EVAL_TAC
  >- (rw [cenv_inv_def, envC_tagged_def, exhaustive_env_correct_def]
      >- (fs [initialEnvTheory.init_envC_def] >>
@@ -3569,15 +3585,38 @@ val prompt_to_i2_not_correct_3 = Q.store_thm("prompt_to_i2_not_correct_3",
   simp[lookup_tag_flat_def,FLOOKUP_FUNION,FLOOKUP_UPDATE,mk_id_inj,mk_id_def])
 *)
 
+val IN_tids_of_mod_decs = prove(
+  ``∀ds mn x. x ∈ tids_of_decs ds ⇒ mod_decs mn ds ⇒ ∃y. x = Long mn y``,
+  Induct >> simp[tids_of_decs_thm] >> fs[mod_decs_def] >> rw[] >>
+  every_case_tac >> fs[] >> TRY(metis_tac[]) >> rw[] >>
+  fs[mk_id_def,MEM_MAP])
+
+val IN_tids_of_not_mod_decs = prove(
+  ``∀ds x. x ∈ tids_of_decs ds ⇒ not_mod_decs ds ⇒ ∃y. x = Short y``,
+  Induct >> simp[tids_of_decs_thm] >> fs[not_mod_decs_def] >> rw[] >>
+  every_case_tac >> fs[] >> TRY(metis_tac[]) >> rw[] >>
+  fs[mk_id_def,MEM_MAP])
+
+val evaluate_dec_i1_tids_acc = store_thm("evaluate_dec_i1_tids_acc",
+  ``∀ck genv envC st d res. evaluate_dec_i1 ck genv envC st d res ⇒
+      SND st ⊆ SND (FST res)``,
+  ho_match_mp_tac evaluate_dec_i1_ind >> simp[])
+
+val evaluate_decs_i1_tids_acc = store_thm("evaluate_decs_i1_tids_acc",
+  ``∀ck genv envC st ds res. evaluate_decs_i1 ck genv envC st ds res ⇒
+      SND st ⊆ SND(FST res)``,
+  ho_match_mp_tac evaluate_decs_i1_ind >> simp[] >> rw[] >>
+  first_x_assum(mp_tac o MATCH_MP evaluate_dec_i1_tids_acc) >>
+  fs[] >> metis_tac[SUBSET_TRANS])
+
 val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
 `!ck genv envC s tids mods prompt s_i2 genv_i2 tagenv_st prompt_i2 genv' envC' s' tids' mods' res gtagenv tagenv_st' exh exh'.
   evaluate_prompt_i1 ck genv envC (s,tids,mods) prompt ((s',tids',mods'), envC', genv', res) ∧
   res ≠ SOME Rtype_error ∧
   to_i2_invariant mods tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ∧
-  DISJOINT (FDOM exh') (FDOM exh) ∧
   (tagenv_st', exh', prompt_i2) = prompt_to_i2 tagenv_st prompt ∧
-  (∀ds. prompt = Prompt_i1 NONE ds ⇒ LENGTH ds < 2) (* ∧
-  (∀ds mn. prompt = Prompt_i1 (SOME mn) ds ⇒ mod_decs mn ds) *)
+  (∀ds. prompt = Prompt_i1 NONE ds ⇒ LENGTH ds < 2 ∧ not_mod_decs ds) ∧
+  (∀ds mn. prompt = Prompt_i1 (SOME mn) ds ⇒ mod_decs mn ds)
   ⇒
   ?genv'_i2 s'_i2 res_i2 gtagenv' new_envC.
     gtagenv_weak gtagenv gtagenv' ∧
@@ -3610,15 +3649,60 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
            by (match_mp_tac (SIMP_RULE (srw_ss()) [AND_IMP_INTRO] (dec_lem `NONE`)) >>
                PairCases_on `tagenv_st` >>
                fs [get_tagenv_def] >>
+               `DISJOINT (FDOM exh') (FDOM exh)` by (
+                 imp_res_tac FDOM_decs_to_i2_exh >>
+                 simp[IN_DISJOINT] >>
+                 Cases_on`mn` >> fs[] >- (
+                   Cases_on`ds`>-fs[decs_to_i2_def,tids_of_decs_thm]>>
+                   Cases_on`t`>>fsrw_tac[ARITH_ss][]>>
+                   fs[decs_to_i2_def,tids_of_decs_thm] >>
+                   BasicProvers.CASE_TAC >> simp[] >> fs[LET_THM] >> rw[] >>
+                   fs[Once evaluate_decs_i1_cases] >>
+                   fs[Once evaluate_decs_i1_cases] >>
+                   rw[] >>
+                   fs[Once evaluate_dec_i1_cases] >> rw[] >>
+                   fs[type_defs_to_new_tdecs_def,IN_DISJOINT,MEM_MAP,FORALL_PROD] >>
+                   fs[not_mod_decs_def,mk_id_def] >> rw[] >> fs[] >>
+                   metis_tac[] ) >>
+                 rw[] >>
+                 spose_not_then strip_assume_tac >>
+                 first_x_assum(mp_tac o MATCH_MP IN_tids_of_mod_decs) >>
+                 disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
+                 strip_tac >> rw[] >>
+                 metis_tac[] ) >>
                metis_tac []) >>
      rw [] >>
      Q.LIST_EXISTS_TAC [`MAP SOME genv'_i2`, `s'_i2`, `gtagenv'`] >>
      fs [get_tagenv_def] >>
-     rw []
-     >- (
+     conj_tac >- (
        PairCases_on`envC`>> Cases_on`mn`>>
        rw[mod_cenv_def,update_mod_state_def,merge_envC_def,merge_def] >>
-       fs[SUBSET_DEF])
+       fs[SUBSET_DEF]) >>
+     imp_res_tac FDOM_decs_to_i2_exh >>
+     imp_res_tac evaluate_decs_i1_tids_acc >> fs[] >>
+     conj_tac >- (
+       gen_tac >> reverse strip_tac >- metis_tac[SUBSET_DEF] >>
+       reverse(Cases_on`mn`)>>fs[]>-(
+         imp_res_tac IN_tids_of_mod_decs >> fs[] ) >>
+       Cases_on`ds`>-fs[tids_of_decs_thm]>>
+       Cases_on`t`>>fsrw_tac[ARITH_ss][]>>
+       fs[tids_of_decs_thm,not_mod_decs_def] >>
+       Cases_on`h`>>fs[]>>rw[]>>fs[mk_id_def,MEM_MAP]>>
+       fs[Once evaluate_decs_i1_cases] >>
+       fs[Once evaluate_dec_i1_cases] >>
+       fs[Once evaluate_decs_i1_cases] >>
+       rw[type_defs_to_new_tdecs_def] >>
+       rw[MEM_MAP,UNCURRY,mk_id_def] >>
+       metis_tac[] ) >>
+     conj_tac >- (
+       simp[update_mod_state_def] >>
+       rpt gen_tac >> reverse strip_tac >- (
+         BasicProvers.CASE_TAC >> rw[] >>
+         metis_tac[] ) >>
+       BasicProvers.CASE_TAC >> fs[] >- (
+         imp_res_tac IN_tids_of_not_mod_decs >> fs[] ) >>
+       imp_res_tac IN_tids_of_mod_decs >> fs[] ) >>
+     rw[]
      >- (
        fs[cenv_inv_def] >>
        match_mp_tac envC_tagged_extend >>
@@ -3645,15 +3729,60 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
    rpt (
      first_assum(fn th => disch_then (fn th2 => mp_tac (MATCH_MP th2 th))) >>
      fs[get_tagenv_def]) >>
+   discharge_hyps >- (
+     imp_res_tac FDOM_decs_to_i2_exh >>
+     simp[IN_DISJOINT] >>
+     Cases_on`mn` >> fs[] >- (
+       Cases_on`ds`>-fs[decs_to_i2_def,tids_of_decs_thm]>>
+       Cases_on`t`>>fsrw_tac[ARITH_ss][]>>
+       fs[decs_to_i2_def,tids_of_decs_thm] >>
+       BasicProvers.CASE_TAC >> simp[] >> fs[LET_THM] >> rw[] >>
+       fs[Once evaluate_decs_i1_cases] >>
+       fs[Once evaluate_decs_i1_cases] >>
+       rw[] >>
+       fs[Once evaluate_dec_i1_cases] >> rw[] >>
+       fs[type_defs_to_new_tdecs_def,IN_DISJOINT,MEM_MAP,FORALL_PROD] >>
+       fs[not_mod_decs_def,mk_id_def] >> rw[] >> fs[] >>
+       metis_tac[] ) >>
+     rw[] >>
+     spose_not_then strip_assume_tac >>
+     first_x_assum(mp_tac o MATCH_MP IN_tids_of_mod_decs) >>
+     disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
+     strip_tac >> rw[] >>
+     metis_tac[] ) >>
    disch_then(qx_choosel_then[`genv'_i2`,`s'_i2`,`res_i2`,`gtagenv'`,`acc'`]strip_assume_tac) >>
    rw [] >>
    Q.LIST_EXISTS_TAC [`MAP SOME genv'_i2 ++ GENLIST (λn. NONE) (num_defs ds_i2 − LENGTH genv'_i2)`, `s'_i2`, `SOME err_i2`, `gtagenv'`] >>
    fs [get_tagenv_def] >>
-   rw []
-   >- metis_tac[]
-   >- (
+   conj_tac >- metis_tac[] >>
+   conj_tac >- (
      Cases_on`mn`>>rw[update_mod_state_def] >>
-     fs[SUBSET_DEF] )
+     fs[SUBSET_DEF] ) >>
+   imp_res_tac FDOM_decs_to_i2_exh >>
+   imp_res_tac evaluate_decs_i1_tids_acc >> fs[] >>
+   conj_tac >- (
+     gen_tac >> reverse strip_tac >- metis_tac[SUBSET_DEF] >>
+     reverse(Cases_on`mn`)>>fs[]>-(
+       imp_res_tac IN_tids_of_mod_decs >> fs[] ) >>
+     Cases_on`ds`>-fs[tids_of_decs_thm]>>
+     Cases_on`t`>>fsrw_tac[ARITH_ss][]>>
+     fs[tids_of_decs_thm,not_mod_decs_def] >>
+     Cases_on`h`>>fs[]>>rw[]>>fs[mk_id_def,MEM_MAP]>>
+     fs[Once evaluate_decs_i1_cases] >>
+     fs[Once evaluate_dec_i1_cases] >>
+     fs[Once evaluate_decs_i1_cases] >>
+     rw[type_defs_to_new_tdecs_def] >>
+     rw[MEM_MAP,UNCURRY,mk_id_def] >>
+     metis_tac[] ) >>
+   conj_tac >- (
+     simp[update_mod_state_def] >>
+     rpt gen_tac >> reverse strip_tac >- (
+       BasicProvers.CASE_TAC >> rw[] >>
+       metis_tac[] ) >>
+     BasicProvers.CASE_TAC >> fs[] >- (
+       imp_res_tac IN_tids_of_not_mod_decs >> fs[] ) >>
+     imp_res_tac IN_tids_of_mod_decs >> fs[] ) >>
+   rw[]
    >- (
      fs[cenv_inv_def] >>
      fs[get_tagacc_def,get_tagenv_def,FUNION_FEMPTY_2] >> rw[] >>
