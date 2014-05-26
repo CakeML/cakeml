@@ -3620,6 +3620,7 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
   ⇒
   ?genv'_i2 s'_i2 res_i2 gtagenv' new_envC.
     gtagenv_weak gtagenv gtagenv' ∧
+    DISJOINT (FDOM exh') (FDOM exh) ∧
     evaluate_prompt_i2 ck (FUNION exh' exh) genv_i2 s_i2 prompt_i2 (s'_i2,genv'_i2,res_i2) ∧
     to_i2_invariant mods' tids' new_envC (FUNION exh' exh) tagenv_st' gtagenv' s' s'_i2 (genv++genv') (genv_i2 ++ genv'_i2) ∧
     (res = NONE ∧ res_i2 = NONE ∧ new_envC = (merge_envC envC' envC) ∨
@@ -3633,7 +3634,28 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
  fs [] >>
  rw [] >>
  fs [to_i2_invariant_def]
- >- (`∃genv'_i2 s'_i2 gtagenv' acc'.
+ >- (`DISJOINT (FDOM exh') (FDOM exh)` by (
+         imp_res_tac FDOM_decs_to_i2_exh >>
+         simp[IN_DISJOINT] >>
+         Cases_on`mn` >> fs[] >- (
+           Cases_on`ds`>-fs[decs_to_i2_def,tids_of_decs_thm]>>
+           Cases_on`t`>>fsrw_tac[ARITH_ss][]>>
+           fs[decs_to_i2_def,tids_of_decs_thm] >>
+           BasicProvers.CASE_TAC >> simp[] >> fs[LET_THM] >> rw[] >>
+           fs[Once evaluate_decs_i1_cases] >>
+           fs[Once evaluate_decs_i1_cases] >>
+           rw[] >>
+           fs[Once evaluate_dec_i1_cases] >> rw[] >>
+           fs[type_defs_to_new_tdecs_def,IN_DISJOINT,MEM_MAP,FORALL_PROD] >>
+           fs[not_mod_decs_def,mk_id_def] >> rw[] >> fs[] >>
+           metis_tac[] ) >>
+         rw[] >>
+         spose_not_then strip_assume_tac >>
+         first_x_assum(mp_tac o MATCH_MP IN_tids_of_mod_decs) >>
+         disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
+         strip_tac >> rw[] >>
+         metis_tac[] ) >>
+     `∃genv'_i2 s'_i2 gtagenv' acc'.
        gtagenv_weak gtagenv gtagenv' ∧
        evaluate_decs_i2 ck (FUNION exh' exh) genv_i2 s_i2 ds_i2 (s'_i2,genv'_i2,NONE) ∧
        vs_to_i2 gtagenv' env genv'_i2 ∧
@@ -3649,27 +3671,6 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
            by (match_mp_tac (SIMP_RULE (srw_ss()) [AND_IMP_INTRO] (dec_lem `NONE`)) >>
                PairCases_on `tagenv_st` >>
                fs [get_tagenv_def] >>
-               `DISJOINT (FDOM exh') (FDOM exh)` by (
-                 imp_res_tac FDOM_decs_to_i2_exh >>
-                 simp[IN_DISJOINT] >>
-                 Cases_on`mn` >> fs[] >- (
-                   Cases_on`ds`>-fs[decs_to_i2_def,tids_of_decs_thm]>>
-                   Cases_on`t`>>fsrw_tac[ARITH_ss][]>>
-                   fs[decs_to_i2_def,tids_of_decs_thm] >>
-                   BasicProvers.CASE_TAC >> simp[] >> fs[LET_THM] >> rw[] >>
-                   fs[Once evaluate_decs_i1_cases] >>
-                   fs[Once evaluate_decs_i1_cases] >>
-                   rw[] >>
-                   fs[Once evaluate_dec_i1_cases] >> rw[] >>
-                   fs[type_defs_to_new_tdecs_def,IN_DISJOINT,MEM_MAP,FORALL_PROD] >>
-                   fs[not_mod_decs_def,mk_id_def] >> rw[] >> fs[] >>
-                   metis_tac[] ) >>
-                 rw[] >>
-                 spose_not_then strip_assume_tac >>
-                 first_x_assum(mp_tac o MATCH_MP IN_tids_of_mod_decs) >>
-                 disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
-                 strip_tac >> rw[] >>
-                 metis_tac[] ) >>
                metis_tac []) >>
      rw [] >>
      Q.LIST_EXISTS_TAC [`MAP SOME genv'_i2`, `s'_i2`, `gtagenv'`] >>
@@ -3729,7 +3730,7 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
    rpt (
      first_assum(fn th => disch_then (fn th2 => mp_tac (MATCH_MP th2 th))) >>
      fs[get_tagenv_def]) >>
-   discharge_hyps >- (
+   discharge_hyps_keep >- (
      imp_res_tac FDOM_decs_to_i2_exh >>
      simp[IN_DISJOINT] >>
      Cases_on`mn` >> fs[] >- (
