@@ -129,11 +129,16 @@ val eval_match_i3_var2 =
 SIMP_CONV (srw_ss()) [Once evaluate_i3_cases, eval_match_i3_nil, eval_i3_var, pmatch_i2_def, eval_i3_con, pat_bindings_i2_def]
   ``evaluate_match_i3 b env s v [(Pvar_i2 var, Var_local_i2 var)] err_v (s',r)``;
 
-val eval_init_global =
-SIMP_CONV (srw_ss()) [Once evaluate_i3_cases, eval_i3_var, do_uapp_i3_def] ``evaluate_i3 b env s (Uapp_i2 (Init_global_var_i2 i) (Var_local_i2 x)) (s',r)``;
+val eval_i3_nil =
+  SIMP_CONV (srw_ss()) [Once evaluate_i3_cases] ``evaluate_list_i3 b env s [] (s',r)``
+
+val eval_i3_cons =
+  SIMP_CONV (srw_ss()) [Once evaluate_i3_cases] ``evaluate_list_i3 b env s (e::es) (s',r)``
 
 val eval_init_global_fun =
-SIMP_CONV (srw_ss()) [Once evaluate_i3_cases, eval_i3_fun, do_uapp_i3_def] ``evaluate_i3 b env s (Uapp_i2 (Init_global_var_i2 i) (Fun_i2 x e)) (s',r)``;
+SIMP_CONV (srw_ss()) [Once evaluate_i3_cases, eval_i3_fun, do_app_i3_def,
+   EXISTS_PROD,eval_i3_cons,eval_i3_nil,PULL_EXISTS,option_case_compute]
+  ``evaluate_i3 b env s (App_i2 (Init_global_var_i2 i) [Fun_i2 x e]) (s',r)``;
 
 val eval_match_i3_con =
 SIMP_CONV (srw_ss()) [Once evaluate_i3_cases, pmatch_i2_def, pat_bindings_i2_def, eval_match_i3_var2, bind_def]
@@ -181,7 +186,9 @@ val init_globals_thm = Q.prove (
   simp[Once evaluate_i3_cases] >>
   simp[Once evaluate_i3_cases] >>
   simp[Once evaluate_i3_cases] >>
-  simp[do_uapp_i3_def,EL_APPEND1,EL_LENGTH_APPEND,PULL_EXISTS,opt_bind_def] >>
+  simp[Once evaluate_i3_cases] >>
+  simp[Once evaluate_i3_cases] >>
+  simp[do_app_i3_def,EL_APPEND1,EL_LENGTH_APPEND,PULL_EXISTS,opt_bind_def] >>
   simp[lookup_append,bind_def] >>
   reverse BasicProvers.CASE_TAC >- (
     imp_res_tac lookup_in2 >>
@@ -256,7 +263,7 @@ val decs_to_i3_correct = Q.prove (
      rw []
      >- (simp_tac bool_ss [GSYM APPEND_ASSOC, GSYM GENLIST_APPEND] >>
          metis_tac [eval_i3_genv_weakening, result_distinct, pair_CASES])
-     >- (`!(l:v_i2 option store) x y. l ++ GENLIST (\x.NONE) y ++ GENLIST (\x.NONE) x = l ++ GENLIST (\x.NONE) x ++ GENLIST (\x.NONE) y`
+     >- (`!(l:v_i2 option list) x y. l ++ GENLIST (\x.NONE) y ++ GENLIST (\x.NONE) x = l ++ GENLIST (\x.NONE) x ++ GENLIST (\x.NONE) y`
                   by (rw [] >>
                       `!b. (\x. (\y. NONE) (x + b)) = (\y.NONE)` by rw [EXTENSION] >>
                       srw_tac [ARITH_ss] [GSYM GENLIST_APPEND]) >>
@@ -268,7 +275,7 @@ val decs_to_i3_correct = Q.prove (
      MAP_EVERY qexists_tac [`Litv_i2 Unit`, `(s, genv ++ MAP SOME (MAP (λ(f,x,e).  Closure_i2 [] x e) l) ++ GENLIST (λx. NONE) (num_defs ds))`] >>
      rw [] >>
      fs [LENGTH_APPEND] >>
-     `!(l:v_i2 option store) x y. l ++ GENLIST (\x.NONE) y ++ GENLIST (\x.NONE) x = l ++ GENLIST (\x.NONE) x ++ GENLIST (\x.NONE) y`
+     `!(l:v_i2 option list) x y. l ++ GENLIST (\x.NONE) y ++ GENLIST (\x.NONE) x = l ++ GENLIST (\x.NONE) x ++ GENLIST (\x.NONE) y`
                   by (rw [] >>
                       `!b. (\x. (\y. NONE) (x + b)) = (\y.NONE)` by rw [EXTENSION] >>
                       srw_tac [ARITH_ss] [GSYM GENLIST_APPEND]) >>
