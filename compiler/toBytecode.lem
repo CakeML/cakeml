@@ -76,10 +76,11 @@ label_closures ez j (CPrim2 p2 e1 e2) =
   let (e2,j) = label_closures ez j e2 in
   (CPrim2 p2 e1 e2, j)
 and
-label_closures ez j (CUpd e1 e2) =
+label_closures ez j (CUpd b e1 e2 e3) =
   let (e1,j) = label_closures ez j e1 in
   let (e2,j) = label_closures ez j e2 in
-  (CUpd e1 e2, j)
+  let (e3,j) = label_closures ez j e3 in
+  (CUpd b e1 e2 e3, j)
 and
 label_closures ez j (CIf e1 e2 e3) =
   let (e1,j) = label_closures ez j e1 in
@@ -416,11 +417,11 @@ and
 compile env t sz s (CPrim1 uop e) =
   pushret t (emit (compile env TCNonTail sz s e) (prim1_to_bc uop))
 and
-compile env t sz s (CPrim2 op e1 e2) =
+compile env t sz s (CPrim2 (P2p op) e1 e2) =
   pushret t (emit (compile_nts env sz s [e1;e2]) [Stack (prim2_to_bc op)])
 and
-compile env t sz s (CUpd e1 e2) =
-  pushret t (emit (compile_nts env sz s [e1;e2]) [Update; Stack (Cons unit_tag 0)])
+compile env t sz s (CUpd b e1 e2 e3) =
+  pushret t (emit (compile_nts env sz s [e1;e2;e3]) [if b then UpdateByte else Update; Stack (Cons unit_tag 0)])
 and
 compile env t sz s (CIf e1 e2 e3) =
   let s = compile env TCNonTail sz s e1 in
@@ -475,7 +476,7 @@ free_labs ez (CCall _ e es) = free_labs ez e ++ free_labs_list ez es
 and
 free_labs ez (CPrim2 _ e1 e2) = free_labs ez e1 ++ free_labs ez e2
 and
-free_labs ez (CUpd e1 e2) = free_labs ez e1 ++ free_labs ez e2
+free_labs ez (CUpd _ e1 e2 e3) = free_labs ez e1 ++ free_labs ez e2 ++ free_labs ez e3
 and
 free_labs ez (CPrim1 _ e) = free_labs ez e
 and

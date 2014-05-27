@@ -10,10 +10,11 @@ open import DecLang
 (* Syntax *)
 
 (* pure applicative primitives with bytecode counterparts *)
-type Cprim1 = CRef | CDer | CIsBlock
+type Cprim1 = CRef | CDer | CIsBlock | CLen | CLenB
             | CTagEq of nat | CProj of nat | CInitG of nat
-            | CLen
-type Cprim2 = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq
+type Cprim2p = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq
+type Cprim2s = CRefB | CDerB
+type Cprim2 = P2p of Cprim2p | P2s of Cprim2s
 
 (* values in compile-time environment *)
 type ccbind = CCArg of nat | CCRef of nat | CCEnv of nat
@@ -39,7 +40,7 @@ type Cexp =
   | CCall of bool * Cexp * list Cexp
   | CPrim1 of Cprim1 * Cexp
   | CPrim2 of Cprim2 * Cexp * Cexp
-  | CUpd of Cexp * Cexp
+  | CUpd of bool * Cexp * Cexp * Cexp
   | CIf of Cexp * Cexp * Cexp
   | CExtG of nat
 
@@ -104,32 +105,69 @@ and
   do_Ceq_list _ _ = Eq_val false
 
 let rec
-CevalPrim2 CAdd = doPrim2 IntLit (+)
+CevalPrim2p CAdd = doPrim2 IntLit (+)
 and
-CevalPrim2 CSub = doPrim2 IntLit (-)
+CevalPrim2p CSub = doPrim2 IntLit (-)
 and
-CevalPrim2 CMul = doPrim2 IntLit ( * )
+CevalPrim2p CMul = doPrim2 IntLit ( * )
 and
-CevalPrim2 CDiv = doPrim2 IntLit (div)
+CevalPrim2p CDiv = doPrim2 IntLit (div)
 and
-CevalPrim2 CMod = doPrim2 IntLit (mod)
+CevalPrim2p CMod = doPrim2 IntLit (mod)
 and
-CevalPrim2 CLt = doPrim2 Bool (<)
+CevalPrim2p CLt = doPrim2 Bool (<)
 and
-CevalPrim2 CEq = fun v1 v2 ->
+CevalPrim2p CEq = fun v1 v2 ->
   match do_Ceq v1 v2 with
     | Eq_val b -> Rval (CLitv (Bool b))
     | Eq_closure -> Rval (CLitv (IntLit 0))
     | Eq_type_error -> Rerr Rtype_error
   end
 
+val CevalPrim2s : store Cv -> Cprim2s -> Cv -> Cv -> store Cv * result Cv Cv
 let rec
-CevalUpd s (CLoc n) (v:Cv) =
+CevalPrim2s s CRefB (CLitv (Word8 w)) (CLitv (IntLit n)) =
+  if n < 0 then (s, Rval (CLitv (Bool false))) else
+  (s++[W8array (List.replicate (natFromInteger n) w)],
+   Rval (CLoc (List.length s)))
+and
+CevalPrim2s s CDerB (CLoc n) (CLitv (IntLit i)) =
+  (s,
+  match el_check n s with
+  | Just (W8array ws) ->
+    if i < 0 || List.length ws <= natFromInteger i then
+      Rval (CLitv (Bool false))
+    else
+      Rval (CLitv (Word8 (List_extra.nth ws (natFromInteger i))))
+  end)
+and
+CevalPrim2s s _ _ _ = (s, Rerr Rtype_error)
+
+let rec
+CevalPrim2 csg (P2p x) y z = (csg, CevalPrim2p x y z)
+and
+CevalPrim2 ((c,s),g) (P2s x) y z =
+  let (s,r) = CevalPrim2s s x y z in (((c,s),g),r)
+
+val CevalUpd : bool -> store Cv -> Cv -> Cv -> Cv -> store Cv * result Cv Cv
+let rec
+CevalUpd false s (CLoc n) (CLitv (IntLit i)) (v:Cv) =
   if n < List.length s
-  then (List.update s n (Refv v), Rval (CLitv Unit))
+  then if i = 0 then
+    (List.update s n (Refv v), Rval (CLitv Unit))
+    else (s, Rval (CLitv (IntLit 0)))
   else (s, Rerr Rtype_error)
 and
-CevalUpd s _ _ = (s, Rerr Rtype_error)
+CevalUpd true s (CLoc n) (CLitv (IntLit i)) (CLitv (Word8 w)) =
+  match el_check n s with
+  | Just (W8array ws) ->
+    if 0 <= i && natFromInteger i < List.length ws then
+      (List.update s n (W8array (List.update ws (natFromInteger i) w)), Rval (CLitv Unit))
+    else (s, Rval (CLitv (IntLit 0)))
+  | _ -> (s, Rerr Rtype_error)
+  end
+and
+CevalUpd _ s _ _ _ = (s, Rerr Rtype_error)
 
 val CevalPrim1 : Cprim1 -> store_genv Cv -> Cv -> store_genv Cv * result Cv Cv
 let rec
@@ -142,6 +180,12 @@ CevalPrim1 CDer (s,g) (CLoc n) =
       end)
 and
 CevalPrim1 CLen (s,g) (CLoc n) =
+  ((s,g), match el_check n s with
+      | Just (Refv _) -> Rval (CLitv (IntLit 1))
+      | _ -> Rerr Rtype_error
+      end)
+and
+CevalPrim1 CLenB (s,g) (CLoc n) =
   ((s,g), match el_check n s with
       | Just (W8array ws) -> Rval (CLitv (IntLit (integerFromNat (List.length ws))))
       | _ -> Rerr Rtype_error
@@ -313,9 +357,9 @@ Cevaluate s env (CPrim1 uop e) (s', Rerr err)
 and
 prim21 : forall s env p2 e1 e2 s' v1 v2.
 Cevaluate_list s env [e1;e2] (s', Rval [v1;v2]) &&
-(v2 = CLitv (IntLit 0) --> p2 <> CDiv && p2 <> CMod)
+(v2 = CLitv (IntLit 0) --> p2 <> (P2p CDiv) && p2 <> (P2p CMod))
 ==>
-Cevaluate s env (CPrim2 p2 e1 e2) (s', CevalPrim2 p2 v1 v2)
+Cevaluate s env (CPrim2 p2 e1 e2) (CevalPrim2 s' p2 v1 v2)
 and
 prim22 : forall s env p2 e1 e2 s' err.
 Cevaluate_list s env [e1;e2] (s', Rerr err)
@@ -323,16 +367,16 @@ Cevaluate_list s env [e1;e2] (s', Rerr err)
 Cevaluate s env (CPrim2 p2 e1 e2) (s', Rerr err)
 
 and
-upd1 : forall s env e1 e2 count s' g v1 v2 s'' res.
-Cevaluate_list s env [e1;e2] (((count,s'),g), Rval [v1;v2]) &&
-(s'',res) = CevalUpd s' v1 v2
+upd1 : forall s env b e1 e2 e3 count s' g v1 v2 v3 s'' res.
+Cevaluate_list s env [e1;e2;e3] (((count,s'),g), Rval [v1;v2;v3]) &&
+(s'',res) = CevalUpd b s' v1 v2 v3
 ==>
-Cevaluate s env (CUpd e1 e2) (((count,s''),g),res)
+Cevaluate s env (CUpd b e1 e2 e3) (((count,s''),g),res)
 and
-upd2 : forall s env e1 e2 s' err.
-Cevaluate_list s env [e1;e2] (s', Rerr err)
+upd2 : forall s env b e1 e2 e3 s' err.
+Cevaluate_list s env [e1;e2;e3] (s', Rerr err)
 ==>
-Cevaluate s env (CUpd e1 e2) (s', Rerr err)
+Cevaluate s env (CUpd b e1 e2 e3) (s', Rerr err)
 
 and
 if1 : forall s env e1 e2 e3 s' b1 r.
@@ -484,11 +528,11 @@ syneq_exp ez1 ez2 V e21 e22
 ==>
 syneq_exp ez1 ez2 V (CPrim2 p2 e11 e21) (CPrim2 p2 e12 e22)
 and
-upd : forall ez1 ez2 V e11 e21 e12 e22.
+upd : forall ez1 ez2 V b e11 e21 e31 e12 e22 e32.
 syneq_exp ez1 ez2 V e11 e12 &&
 syneq_exp ez1 ez2 V e21 e22
 ==>
-syneq_exp ez1 ez2 V (CUpd e11 e21) (CUpd e12 e22)
+syneq_exp ez1 ez2 V (CUpd b e11 e21 e31) (CUpd b e12 e22 e32)
 and
 if_ : forall ez1 ez2 V e11 e21 e31 e12 e22 e32.
 syneq_exp ez1 ez2 V e11 e12 &&
@@ -569,7 +613,7 @@ no_labs (CCall _ e es) = no_labs e && no_labs_list es
 and
 no_labs (CPrim2 _ e1 e2) = no_labs e1 && no_labs e2
 and
-no_labs (CUpd e1 e2) = no_labs e1 && no_labs e2
+no_labs (CUpd _ e1 e2 e3) = no_labs e1 && no_labs e2 && no_labs e3
 and
 no_labs (CPrim1 _ e) = no_labs e
 and
@@ -610,7 +654,7 @@ all_labs (CCall _ e es) = all_labs e && all_labs_list es
 and
 all_labs (CPrim2 _ e1 e2) = all_labs e1 && all_labs e2
 and
-all_labs (CUpd e1 e2) = all_labs e1 && all_labs e2
+all_labs (CUpd _ e1 e2 e3) = all_labs e1 && all_labs e2 && all_labs e3
 and
 all_labs (CPrim1 _ e) = all_labs e
 and

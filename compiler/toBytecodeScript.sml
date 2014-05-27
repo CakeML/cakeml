@@ -89,10 +89,11 @@ val _ = new_theory "toBytecode"
   let (e2,j) = (label_closures ez j e2) in
   (CPrim2 p2 e1 e2, j)))
 /\
-(label_closures ez j (CUpd e1 e2) =  
+(label_closures ez j (CUpd b e1 e2 e3) =  
 (let (e1,j) = (label_closures ez j e1) in
   let (e2,j) = (label_closures ez j e2) in
-  (CUpd e1 e2, j)))
+  let (e3,j) = (label_closures ez j e3) in
+  (CUpd b e1 e2 e3, j)))
 /\
 (label_closures ez j (CIf e1 e2 e3) =  
 (let (e1,j) = (label_closures ez j e1) in
@@ -283,9 +284,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   (* RefPtr_1 0, ..., RefPtr_nk 0, *)
   let (s,ecs) = (FOLDL push_lab (s,[]) (REVERSE defs)) in
   (* CodePtr 1, ..., CodePtr nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
-  let (s,k13470) = (FOLDL (cons_closure env sz nk) (s, 0) ecs) in
+  let (s,k13930) = (FOLDL (cons_closure env sz nk) (s, 0) ecs) in
   (* cl_1, ..., cl_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
-  let (s,k13471) = (num_fold (update_refptr nk) (s, 0) nk) in
+  let (s,k13931) = (num_fold (update_refptr nk) (s, 0) nk) in
   (* cl_1, ..., cl_nk, RefPtr_1 cl_1, ..., RefPtr_nk cl_nk, *)
   let k = (nk -  1) in
   num_fold (\ s .  emit s [Stack (Store k)]) s nk))`;
@@ -355,8 +356,8 @@ stackshift j k =
 (if k = 0 then []
   else if j = 0 then [Pops (k -  1); Pop]
   else if j = 1 then [Pops k]
-  else if j <= k then (GENLIST (\n13102 .  
-  (case (n13102 ) of ( _ ) => Store (k -  1) )) j)++(stackshift( 0) (k - j))
+  else if j <= k then (GENLIST (\n13546 .  
+  (case (n13546 ) of ( _ ) => Store (k -  1) )) j)++(stackshift( 0) (k - j))
   else (stackshiftaux k (j - k) j)++(stackshift (j - k) k)))`;
 
 (*
@@ -468,11 +469,11 @@ a b c x y z
 (compile env t sz s (CPrim1 uop e) =  
 (pushret t (emit (compile env TCNonTail sz s e) (prim1_to_bc uop))))
 /\
-(compile env t sz s (CPrim2 op e1 e2) =  
+(compile env t sz s (CPrim2 (P2p op) e1 e2) =  
 (pushret t (emit (compile_nts env sz s [e1;e2]) [Stack (prim2_to_bc op)])))
 /\
-(compile env t sz s (CUpd e1 e2) =  
-(pushret t (emit (compile_nts env sz s [e1;e2]) [Update; Stack (Cons unit_tag( 0))])))
+(compile env t sz s (CUpd b e1 e2 e3) =  
+(pushret t (emit (compile_nts env sz s [e1;e2;e3]) [(if b then UpdateByte else Update); Stack (Cons unit_tag( 0))])))
 /\
 (compile env t sz s (CIf e1 e2 e3) =  
 (let s = (compile env TCNonTail sz s e1) in
@@ -530,7 +531,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (free_labs ez (CPrim2 _ e1 e2) = (free_labs ez e1 ++ free_labs ez e2))
 /\
-(free_labs ez (CUpd e1 e2) = (free_labs ez e1 ++ free_labs ez e2))
+(free_labs ez (CUpd _ e1 e2 e3) = ((free_labs ez e1 ++ free_labs ez e2) ++ free_labs ez e3))
 /\
 (free_labs ez (CPrim1 _ e) = (free_labs ez e))
 /\

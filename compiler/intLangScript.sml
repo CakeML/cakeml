@@ -21,12 +21,17 @@ val _ = new_theory "intLang"
 
 (* pure applicative primitives with bytecode counterparts *)
 val _ = Hol_datatype `
- Cprim1 = CRef | CDer | CIsBlock
-            | CTagEq of num | CProj of num | CInitG of num
-            | CLen`;
+ Cprim1 = CRef | CDer | CIsBlock | CLen | CLenB
+            | CTagEq of num | CProj of num | CInitG of num`;
 
 val _ = Hol_datatype `
- Cprim2 = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq`;
+ Cprim2p = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq`;
+
+val _ = Hol_datatype `
+ Cprim2s = CRefB | CDerB`;
+
+val _ = Hol_datatype `
+ Cprim2 = P2p of Cprim2p | P2s of Cprim2s`;
 
 
 (* values in compile-time environment *)
@@ -58,7 +63,7 @@ val _ = Hol_datatype `
   | CCall of bool => Cexp => Cexp list
   | CPrim1 of Cprim1 => Cexp
   | CPrim2 of Cprim2 => Cexp => Cexp
-  | CUpd of Cexp => Cexp
+  | CUpd of bool => Cexp => Cexp => Cexp
   | CIf of Cexp => Cexp => Cexp
   | CExtG of num`;
 
@@ -135,19 +140,19 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
  val _ = Define `
 
-(CevalPrim2 CAdd = (doPrim2 IntLit (+)))
+(CevalPrim2p CAdd = (doPrim2 IntLit (+)))
 /\
-(CevalPrim2 CSub = (doPrim2 IntLit (-)))
+(CevalPrim2p CSub = (doPrim2 IntLit (-)))
 /\
-(CevalPrim2 CMul = (doPrim2 IntLit ( * )))
+(CevalPrim2p CMul = (doPrim2 IntLit ( * )))
 /\
-(CevalPrim2 CDiv = (doPrim2 IntLit (/)))
+(CevalPrim2p CDiv = (doPrim2 IntLit (/)))
 /\
-(CevalPrim2 CMod = (doPrim2 IntLit (%)))
+(CevalPrim2p CMod = (doPrim2 IntLit (%)))
 /\
-(CevalPrim2 CLt = (doPrim2 Bool (<)))
+(CevalPrim2p CLt = (doPrim2 Bool (<)))
 /\
-(CevalPrim2 CEq = (\ v1 v2 . 
+(CevalPrim2p CEq = (\ v1 v2 . 
   (case do_Ceq v1 v2 of
       Eq_val b => Rval (CLitv (Bool b))
     | Eq_closure => Rval (CLitv (IntLit(( 0 : int))))
@@ -155,14 +160,55 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   )))`;
 
 
+(*val CevalPrim2s : store Cv -> Cprim2s -> Cv -> Cv -> store Cv * result Cv Cv*)
  val _ = Define `
 
-(CevalUpd s (CLoc n) (v:Cv) =  
+(CevalPrim2s s CRefB (CLitv (Word8 w)) (CLitv (IntLit n)) =  
+(if n <( 0 : int) then (s, Rval (CLitv (Bool F))) else
+  ((s++[W8array (REPLICATE (Num (ABS ( n))) w)]),
+   Rval (CLoc (LENGTH s)))))
+/\
+(CevalPrim2s s CDerB (CLoc n) (CLitv (IntLit i)) =
+  (s,
+  (case el_check n s of
+    SOME (W8array ws) =>
+    if (i <( 0 : int)) \/ (LENGTH ws <= Num (ABS ( i))) then
+      Rval (CLitv (Bool F))
+    else
+      Rval (CLitv (Word8 (EL (Num (ABS ( i))) ws)))
+  )))
+/\
+(CevalPrim2s s _ _ _ = (s, Rerr Rtype_error))`;
+
+
+ val _ = Define `
+
+(CevalPrim2 csg (P2p x) y z = (csg, CevalPrim2p x y z))
+/\
+(CevalPrim2 ((c,s),g) (P2s x) y z =  
+(let (s,r) = (CevalPrim2s s x y z) in (((c,s),g),r)))`;
+
+
+(*val CevalUpd : bool -> store Cv -> Cv -> Cv -> Cv -> store Cv * result Cv Cv*)
+ val _ = Define `
+
+(CevalUpd F s (CLoc n) (CLitv (IntLit i)) (v:Cv) =  
 (if n < LENGTH s
-  then (LUPDATE (Refv v) n s, Rval (CLitv Unit))
+  then if i =( 0 : int) then
+    (LUPDATE (Refv v) n s, Rval (CLitv Unit))
+    else (s, Rval (CLitv (IntLit(( 0 : int)))))
   else (s, Rerr Rtype_error)))
 /\
-(CevalUpd s _ _ = (s, Rerr Rtype_error))`;
+(CevalUpd T s (CLoc n) (CLitv (IntLit i)) (CLitv (Word8 w)) =  
+((case el_check n s of
+    SOME (W8array ws) =>
+    if(( 0 : int) <= i) /\ (Num (ABS ( i)) < LENGTH ws) then
+      (LUPDATE (W8array (LUPDATE w (Num (ABS ( i))) ws)) n s, Rval (CLitv Unit))
+    else (s, Rval (CLitv (IntLit(( 0 : int)))))
+  | _ => (s, Rerr Rtype_error)
+  )))
+/\
+(CevalUpd _ s _ _ _ = (s, Rerr Rtype_error))`;
 
 
 (*val CevalPrim1 : Cprim1 -> store_genv Cv -> Cv -> store_genv Cv * result Cv Cv*)
@@ -177,6 +223,12 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
       )))
 /\
 (CevalPrim1 CLen (s,g) (CLoc n) =
+  ((s,g), (case el_check n s of
+        SOME (Refv _) => Rval (CLitv (IntLit(( 1 : int))))
+      | _ => Rerr Rtype_error
+      )))
+/\
+(CevalPrim1 CLenB (s,g) (CLoc n) =
   ((s,g), (case el_check n s of
         SOME (W8array ws) => Rval (CLitv (IntLit (int_of_num (LENGTH ws))))
       | _ => Rerr Rtype_error
@@ -325,23 +377,23 @@ Cevaluate s env (CPrim1 uop e) (s', Rerr err))
 
 /\ (! s env p2 e1 e2 s' v1 v2.
 (Cevaluate_list s env [e1;e2] (s', Rval [v1;v2]) /\
-((v2 = CLitv (IntLit(( 0 : int)))) ==> ((p2 <> CDiv) /\ (p2 <> CMod))))
+((v2 = CLitv (IntLit(( 0 : int)))) ==> ((p2 <> (P2p CDiv)) /\ (p2 <> (P2p CMod)))))
 ==>
-Cevaluate s env (CPrim2 p2 e1 e2) (s', CevalPrim2 p2 v1 v2))
+Cevaluate s env (CPrim2 p2 e1 e2) (CevalPrim2 s' p2 v1 v2))
 /\ (! s env p2 e1 e2 s' err.
 (Cevaluate_list s env [e1;e2] (s', Rerr err))
 ==>
 Cevaluate s env (CPrim2 p2 e1 e2) (s', Rerr err))
 
-/\ (! s env e1 e2 count s' g v1 v2 s'' res.
-(Cevaluate_list s env [e1;e2] (((count,s'),g), Rval [v1;v2]) /\
-((s'',res) = CevalUpd s' v1 v2))
+/\ (! s env b e1 e2 e3 count s' g v1 v2 v3 s'' res.
+(Cevaluate_list s env [e1;e2;e3] (((count,s'),g), Rval [v1;v2;v3]) /\
+((s'',res) = CevalUpd b s' v1 v2 v3))
 ==>
-Cevaluate s env (CUpd e1 e2) (((count,s''),g),res))
-/\ (! s env e1 e2 s' err.
-(Cevaluate_list s env [e1;e2] (s', Rerr err))
+Cevaluate s env (CUpd b e1 e2 e3) (((count,s''),g),res))
+/\ (! s env b e1 e2 e3 s' err.
+(Cevaluate_list s env [e1;e2;e3] (s', Rerr err))
 ==>
-Cevaluate s env (CUpd e1 e2) (s', Rerr err))
+Cevaluate s env (CUpd b e1 e2 e3) (s', Rerr err))
 
 /\ (! s env e1 e2 e3 s' b1 r.
 (Cevaluate s env e1 (s', Rval (CLitv (Bool b1))) /\
@@ -356,8 +408,8 @@ Cevaluate s env (CIf e1 e2 e3) (s', Rerr err))
 /\ (! cs g env n.
 T
 ==>
-Cevaluate (cs,g) env (CExtG n) ((cs,(g++(GENLIST (\n11963 .  
-  (case (n11963 ) of ( _ ) => NONE )) n))),Rval (CLitv Unit)))
+Cevaluate (cs,g) env (CExtG n) ((cs,(g++(GENLIST (\n12181 .  
+  (case (n12181 ) of ( _ ) => NONE )) n))),Rval (CLitv Unit)))
 
 /\ (! s env.
 T
@@ -475,11 +527,11 @@ syneq_exp ez1 ez2 V (CPrim1 p1 e1) (CPrim1 p1 e2))
 syneq_exp ez1 ez2 V e21 e22)
 ==>
 syneq_exp ez1 ez2 V (CPrim2 p2 e11 e21) (CPrim2 p2 e12 e22))
-/\ (! ez1 ez2 V e11 e21 e12 e22.
+/\ (! ez1 ez2 V b e11 e21 e31 e12 e22 e32.
 (syneq_exp ez1 ez2 V e11 e12 /\
 syneq_exp ez1 ez2 V e21 e22)
 ==>
-syneq_exp ez1 ez2 V (CUpd e11 e21) (CUpd e12 e22))
+syneq_exp ez1 ez2 V (CUpd b e11 e21 e31) (CUpd b e12 e22 e32))
 /\ (! ez1 ez2 V e11 e21 e31 e12 e22 e32.
 (syneq_exp ez1 ez2 V e11 e12 /\
 syneq_exp ez1 ez2 V e21 e22 /\
@@ -553,7 +605,7 @@ syneq (CLoc n) (CLoc n))`;
 /\
 (no_labs (CPrim2 _ e1 e2) = (no_labs e1 /\ no_labs e2))
 /\
-(no_labs (CUpd e1 e2) = (no_labs e1 /\ no_labs e2))
+(no_labs (CUpd _ e1 e2 e3) = (no_labs e1 /\ no_labs e2 /\ no_labs e3))
 /\
 (no_labs (CPrim1 _ e) = (no_labs e))
 /\
@@ -597,7 +649,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (all_labs (CPrim2 _ e1 e2) = (all_labs e1 /\ all_labs e2))
 /\
-(all_labs (CUpd e1 e2) = (all_labs e1 /\ all_labs e2))
+(all_labs (CUpd _ e1 e2 e3) = (all_labs e1 /\ all_labs e2 /\ all_labs e3))
 /\
 (all_labs (CPrim1 _ e) = (all_labs e))
 /\
