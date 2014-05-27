@@ -108,6 +108,8 @@ let block_tag : nat = 5
 let bool_to_val b = Block (bool_to_tag b) []
 let unit_val = Block unit_tag []
 
+let word8_to_val w = Number (integerFromNat (natFromWord8 w))
+
 let rec
 is_Block (Block _ _) = true
 and
@@ -378,13 +380,21 @@ List.length l2 = s.handler
 ==>
 bc_next s (<|bump_pc s with handler = sp; stack = x::l2|>)
 and
-ref : forall s vs xs ptr.
+ref : forall s n v xs ptr.
 bc_fetch s = Just Ref
-&& s.stack = (Number (integerFromNat (List.length vs)))::(vs ++ xs)
+&& s.stack = (Number (integerFromNat n))::v::xs
 && (ptr = least (fun ptr -> not (Map.member ptr s.refs)))
 ==>
 bc_next s (<|bump_pc s with stack = (RefPtr ptr)::xs;
-             refs = Map.insert ptr (ValueArray (List.reverse vs)) s.refs|>)
+             refs = Map.insert ptr (ValueArray (List.replicate n v)) s.refs|>)
+and
+refByte : forall s n w xs ptr.
+bc_fetch s = Just RefByte
+&& s.stack = (Number (integerFromNat n))::(word8_to_val w)::xs
+&& (ptr = least (fun ptr -> not (Map.member ptr s.refs)))
+==>
+bc_next s (<|bump_pc s with stack = (RefPtr ptr)::xs;
+             refs = Map.insert ptr (ByteArray (List.replicate n w)) s.refs|>)
 and
 deref : forall s n ptr xs vs.
 bc_fetch s = Just Deref
@@ -393,6 +403,14 @@ bc_fetch s = Just Deref
 && n < List.length vs
 ==>
 bc_next s (<|bump_pc s with stack = (List_extra.nth vs n)::xs|>)
+and
+derefByte : forall s n ptr xs vs.
+bc_fetch s = Just DerefByte
+&& s.stack = (Number (integerFromNat n))::(RefPtr ptr)::xs
+&& Map.lookup ptr s.refs = Just (ByteArray vs)
+&& n < List.length vs
+==>
+bc_next s (<|bump_pc s with stack = (word8_to_val (List_extra.nth vs n))::xs|>)
 and
 update : forall s x n ptr xs vs.
 bc_fetch s = Just Update
@@ -403,10 +421,34 @@ bc_fetch s = Just Update
 bc_next s (<|bump_pc s with stack = xs;
              refs = Map.insert ptr (ValueArray (List.update vs n x)) s.refs|>)
 and
+updateByte : forall s w n ptr xs vs.
+bc_fetch s = Just UpdateByte
+&& s.stack = (Number (integerFromNat (natFromWord8 w)))::
+             (Number (integerFromNat n))::(RefPtr ptr)::xs
+&& Map.lookup ptr s.refs = Just (ByteArray vs)
+&& n < List.length vs
+==>
+bc_next s (<|bump_pc s with stack = xs;
+             refs = Map.insert ptr (ByteArray (List.update vs n w)) s.refs|>)
+and
+length : forall s ptr xs vs.
+bc_fetch s = Just Length
+&& s.stack = (RefPtr ptr)::xs
+&& Map.lookup ptr s.refs = Just (ValueArray vs)
+==>
+bc_next s (<|bump_pc s with stack = (Number (integerFromNat (List.length vs)))::xs|>)
+and
+lengthByte : forall s ptr xs vs.
+bc_fetch s = Just LengthByte
+&& s.stack = (RefPtr ptr)::xs
+&& Map.lookup ptr s.refs = Just (ByteArray vs)
+==>
+bc_next s (<|bump_pc s with stack = (Number (integerFromNat (List.length vs)))::xs|>)
+and
 galloc : forall s n.
 bc_fetch s = Just (Galloc n)
 ==>
-bc_next s (<|bump_pc s with globals = s.globals ++ (genlist (fun _ -> Nothing) n)|>)
+bc_next s (<|bump_pc s with globals = s.globals ++ (List.replicate n Nothing)|>)
 and
 gupdate : forall s n x xs.
 bc_fetch s = Just (Gupdate n)

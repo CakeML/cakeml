@@ -14,6 +14,8 @@ declare hol    target_rep function disjoint = `DISJOINT`
 open import {hol} `wordsTheory`
 type word8
 declare hol target_rep type word8 = `word8`
+val natFromWord8 : word8 -> nat
+declare hol target_rep function natFromWord8 = `w2n`
 
 (* The builtin List.zip maps to list_combine in HOL, but I want to map to ZIP *)
 val ZIP : forall 'a 'b. list 'a -> list 'b -> list ('a * 'b)

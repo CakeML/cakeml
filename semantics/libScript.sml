@@ -21,6 +21,7 @@ val _ = new_theory "lib"
 (* TODO: proper support for words... *)
 (*open import {hol} `wordsTheory`*)
 (*type word8*)
+(*val natFromWord8 : word8 -> nat*)
 
 (* The builtin List.zip maps to list_combine in HOL, but I want to map to ZIP *)
 (*val ZIP : forall 'a 'b. list 'a -> list 'b -> list ('a * 'b)*)

@@ -142,6 +142,10 @@ val _ = Define `
  (unit_val = (Block unit_tag []))`;
 
 
+val _ = Define `
+ (word8_to_val w = (Number (int_of_num (w2n w))))`;
+
+
  val _ = Define `
 
 (is_Block (Block _ _) = T)
@@ -418,13 +422,20 @@ bc_next s ((bump_pc s with<|
 (LENGTH l2 = s.handler))
 ==>
 bc_next s ((bump_pc s with<| handler := sp; stack := x::l2|>)))
-/\ (! s vs xs ptr.
+/\ (! s n v xs ptr.
 ((bc_fetch s = SOME Ref)
-/\ (s.stack = ((Number (int_of_num (LENGTH vs)))::(vs ++ xs)))
+/\ (s.stack = ((Number (int_of_num n))::(v::xs)))
 /\ (ptr = $LEAST (\ ptr .  ~ (ptr IN FDOM s.refs))))
 ==>
 bc_next s ((bump_pc s with<| stack := (RefPtr ptr)::xs;
-             refs :=s.refs |+ (ptr, (ValueArray (REVERSE vs)))|>)))
+             refs :=s.refs |+ (ptr, (ValueArray (REPLICATE n v)))|>)))
+/\ (! s n w xs ptr.
+((bc_fetch s = SOME RefByte)
+/\ (s.stack = ((Number (int_of_num n))::((word8_to_val w)::xs)))
+/\ (ptr = $LEAST (\ ptr .  ~ (ptr IN FDOM s.refs))))
+==>
+bc_next s ((bump_pc s with<| stack := (RefPtr ptr)::xs;
+             refs :=s.refs |+ (ptr, (ByteArray (REPLICATE n w)))|>)))
 /\ (! s n ptr xs vs.
 ((bc_fetch s = SOME Deref)
 /\ (s.stack = ((Number (int_of_num n))::((RefPtr ptr)::xs)))
@@ -432,6 +443,13 @@ bc_next s ((bump_pc s with<| stack := (RefPtr ptr)::xs;
 /\ (n < LENGTH vs))
 ==>
 bc_next s ((bump_pc s with<| stack := (EL n vs)::xs|>)))
+/\ (! s n ptr xs vs.
+((bc_fetch s = SOME DerefByte)
+/\ (s.stack = ((Number (int_of_num n))::((RefPtr ptr)::xs)))
+/\ (FLOOKUP s.refs ptr = SOME (ByteArray vs))
+/\ (n < LENGTH vs))
+==>
+bc_next s ((bump_pc s with<| stack := (word8_to_val (EL n vs))::xs|>)))
 /\ (! s x n ptr xs vs.
 ((bc_fetch s = SOME Update)
 /\ (s.stack = (x::((Number (int_of_num n))::((RefPtr ptr)::xs))))
@@ -440,11 +458,31 @@ bc_next s ((bump_pc s with<| stack := (EL n vs)::xs|>)))
 ==>
 bc_next s ((bump_pc s with<| stack := xs;
              refs :=s.refs |+ (ptr, (ValueArray (LUPDATE x n vs)))|>)))
+/\ (! s w n ptr xs vs.
+((bc_fetch s = SOME UpdateByte)
+/\ (s.stack = ((Number (int_of_num (w2n w)))::             
+((Number (int_of_num n))::((RefPtr ptr)::xs))))
+/\ (FLOOKUP s.refs ptr = SOME (ByteArray vs))
+/\ (n < LENGTH vs))
+==>
+bc_next s ((bump_pc s with<| stack := xs;
+             refs :=s.refs |+ (ptr, (ByteArray (LUPDATE w n vs)))|>)))
+/\ (! s ptr xs vs.
+((bc_fetch s = SOME Length)
+/\ (s.stack = ((RefPtr ptr)::xs))
+/\ (FLOOKUP s.refs ptr = SOME (ValueArray vs)))
+==>
+bc_next s ((bump_pc s with<| stack := (Number (int_of_num (LENGTH vs)))::xs|>)))
+/\ (! s ptr xs vs.
+((bc_fetch s = SOME LengthByte)
+/\ (s.stack = ((RefPtr ptr)::xs))
+/\ (FLOOKUP s.refs ptr = SOME (ByteArray vs)))
+==>
+bc_next s ((bump_pc s with<| stack := (Number (int_of_num (LENGTH vs)))::xs|>)))
 /\ (! s n.
 (bc_fetch s = SOME (Galloc n))
 ==>
-bc_next s ((bump_pc s with<| globals := s.globals ++ (GENLIST (\n2655 .  
-  (case (n2655 ) of ( _ ) => NONE )) n)|>)))
+bc_next s ((bump_pc s with<| globals := s.globals ++ (REPLICATE n NONE)|>)))
 /\ (! s n x xs.
 ((bc_fetch s = SOME (Gupdate n))
 /\ (s.stack = (x::xs))
