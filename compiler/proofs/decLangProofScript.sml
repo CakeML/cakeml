@@ -54,6 +54,13 @@ val exp_to_i3_correct = Q.prove (
  first_assum(match_exists_tac o concl) >> rw[] >>
  metis_tac[do_app_i3_correct,FST,SND]);
 
+val do_app_i3_genv_weakening = prove(
+  ``do_app_i3 (x,y) op vs = SOME ((a,b),c) ⇒
+    do_app_i3 (x,y++z) op vs = SOME ((a,b++z),c)``,
+  Cases_on`x` >> rw[do_app_i3_def] >>
+  every_case_tac >> fs[] >> rw[] >>
+  fsrw_tac[ARITH_ss][EL_APPEND1,LUPDATE_APPEND1])
+
 val eval_i3_genv_weakening = Q.prove (
 `(∀ck env s e res.
    evaluate_i3 ck (env:all_env_i3) s e res ⇒
@@ -83,29 +90,9 @@ val eval_i3_genv_weakening = Q.prove (
  rw [] >>
  srw_tac [ARITH_ss] [Once evaluate_i3_cases]
  >- metis_tac [pair_CASES]
- >- srw_tac [ARITH_ss] [EL_APPEND1]
- >- (fs [do_uapp_i3_def] >>
-     every_case_tac >>
-     fs [LET_THM]
-     >- (Q.LIST_EXISTS_TAC [`Loc_i2 n`,`s2`] >>
-         rw [])
-     >- (Q.LIST_EXISTS_TAC [`v`, `s2`] >>
-         rw [] >>
-         cases_on `store_alloc v s2` >>
-         fs [])
-     >- (Q.LIST_EXISTS_TAC [`v`, `s3`, `genv2++GENLIST (\x.NONE) l`] >>
-         rw [EL_APPEND1, lupdate_append] >>
-         decide_tac))
- >- metis_tac [pair_CASES]
- >- metis_tac [pair_CASES]
- >- metis_tac [pair_CASES]
- >- metis_tac [pair_CASES]
- >- metis_tac [pair_CASES]
- >- metis_tac [pair_CASES]
- >- metis_tac [pair_CASES]
- >- srw_tac [ARITH_ss] [GSYM GENLIST_APPEND]
- >- metis_tac [pair_CASES]
- >- metis_tac [pair_CASES]);
+ >- srw_tac [ARITH_ss] [EL_APPEND1] >>
+ srw_tac[ARITH_ss][GSYM GENLIST_APPEND]>>
+ metis_tac[pair_CASES,do_app_i3_genv_weakening])
 
 val eval_i3_extend_genv = Q.prove (
 `!b env s genv n s' genv' v.
