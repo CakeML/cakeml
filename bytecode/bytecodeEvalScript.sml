@@ -281,7 +281,6 @@ Cases_on `inst` >> fs[GSYM bc_eval_stack_thm]
   BasicProvers.EVERY_CASE_TAC >> fs[] >>
   fs[LET_THM] >>
   rw[bc_next_cases,bc_state_component_equality] >>
-  rw[word8_to_val_def] >>
   qmatch_assum_rename_tac`s1.stack = Number n::Number w::t`[] >>
   map_every qexists_tac[`Num n`,`n2w(Num w)`] >>
   simp[INT_OF_NUM] )
@@ -350,7 +349,7 @@ ho_match_mp_tac bc_next_ind >>
 rw[bc_eval1_def] >>
 fs[bc_eval_stack_thm] >>
 unabbrev_all_tac >> rw[] >>
-fsrw_tac[ARITH_ss][word8_to_val_def,REPLICATE_GENLIST,combinTheory.K_DEF,wordsTheory.w2n_lt] >>
+fsrw_tac[ARITH_ss][REPLICATE_GENLIST,combinTheory.K_DEF,wordsTheory.w2n_lt] >>
 lrw[REVERSE_APPEND,rich_listTheory.EL_APPEND2,rich_listTheory.TAKE_APPEND1,stringTheory.IMPLODE_EXPLODE_I] >>
 TRY(
   pop_assum (assume_tac o SYM) >>

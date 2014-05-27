@@ -344,7 +344,7 @@ val bc_next_append_code = store_thm("bc_next_append_code",
   rw[bc_eval1_thm] >>
   imp_res_tac bc_fetch_append_code >>
   imp_res_tac bc_find_loc_append_code >>
-  rw[bc_eval1_def,LET_THM,word8_to_val_def,wordsTheory.w2n_lt,
+  rw[bc_eval1_def,LET_THM,wordsTheory.w2n_lt,
      SIMP_RULE std_ss [combinTheory.K_DEF] REPLICATE_GENLIST] >>
   simp[REVERSE_APPEND,EL_APPEND2,TAKE_APPEND2] >>
   rw[bump_pc_with_stack] >>
