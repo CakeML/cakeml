@@ -1,5 +1,5 @@
 open HolKernel boolLib bossLib Parse lcsymtacs
-open semanticPrimitivesTheory bytecodeTheory bytecodeTerminationTheory arithmeticTheory listTheory finite_mapTheory integerTheory whileTheory relationTheory
+open miscTheory semanticPrimitivesTheory bytecodeTheory bytecodeTerminationTheory arithmeticTheory listTheory finite_mapTheory integerTheory whileTheory relationTheory
 val _ = new_theory "bytecodeEval";
 
 val bc_eval_stack_def = Define`
@@ -151,19 +151,54 @@ val bc_eval1_def = Define`
       | (StackPtr sp) => SOME (bump_pc s with <| handler := sp; stack := x::(REVERSE (TAKE s.handler (REVERSE xs))) |>)
       | _ => NONE
     else NONE
-  | (Ref, x::xs) =>
+  | (Ref, (Number n)::x::xs) =>
+     if 0 ≤ n then
      let ptr = LEAST n. n ∉ (FDOM s.refs) in
      SOME (bump_pc s with <| stack := (RefPtr ptr)::xs;
-                             refs := s.refs |+ (ptr,x) |>)
-  | (Deref, (RefPtr ptr)::xs) =>
-      if (ptr IN FDOM s.refs) then
-        SOME (bump_pc s with <| stack := (s.refs ' ptr)::xs |>)
-      else NONE
-  | (Update, x::(RefPtr ptr)::xs) =>
-      if (ptr IN FDOM s.refs) then
-        SOME (bump_pc s with <| stack := xs ;
-                                refs := s.refs |+ (ptr,x) |>)
-      else NONE
+                             refs := s.refs |+ (ptr,ValueArray (REPLICATE (Num n) x)) |>)
+     else NONE
+  | (RefByte, (Number n)::(Number v)::xs) =>
+    if 0 ≤ n ∧ 0 ≤ v ∧ Num v < dimword (:8) then
+    let ptr = LEAST n. n ∉ (FDOM s.refs) in
+    SOME (bump_pc s with <| stack := (RefPtr ptr)::xs;
+                            refs := s.refs |+ (ptr,ByteArray (REPLICATE (Num n) (n2w (Num v)))) |>)
+    else NONE
+  | (Deref, (Number n)::(RefPtr ptr)::xs) =>
+      OPTION_BIND (FLOOKUP s.refs ptr)
+      (λv. case v of ValueArray vs =>
+           if 0 ≤ n ∧ Num n < LENGTH vs then
+             SOME (bump_pc s with <| stack := (EL (Num n) vs)::xs |>)
+           else NONE | _ => NONE)
+  | (DerefByte, (Number n)::(RefPtr ptr)::xs) =>
+      OPTION_BIND (FLOOKUP s.refs ptr)
+      (λv. case v of ByteArray vs =>
+           if 0 ≤ n ∧ Num n < LENGTH vs then
+             SOME (bump_pc s with <| stack := (word8_to_val (EL (Num n) vs))::xs |>)
+           else NONE | _ => NONE)
+  | (Update, x::(Number n)::(RefPtr ptr)::xs) =>
+      OPTION_BIND (FLOOKUP s.refs ptr)
+      (λv. case v of ValueArray vs =>
+           if 0 ≤ n ∧ Num n < LENGTH vs then
+             SOME (bump_pc s with <| stack := xs ;
+                                     refs := s.refs |+ (ptr,ValueArray (LUPDATE x (Num n) vs)) |>)
+           else NONE | _ => NONE)
+  | (UpdateByte, (Number w)::(Number n)::(RefPtr ptr)::xs) =>
+      OPTION_BIND (FLOOKUP s.refs ptr)
+      (λv. case v of ByteArray vs =>
+           if 0 ≤ n ∧ Num n < LENGTH vs ∧ 0 ≤ w ∧ Num w < dimword (:8) then
+             SOME (bump_pc s with <| stack := xs ;
+                                     refs := s.refs |+ (ptr,ByteArray (LUPDATE (n2w(Num w)) (Num n) vs)) |>)
+           else NONE | _ => NONE)
+  | (Length, (RefPtr ptr)::xs) =>
+    OPTION_BIND (FLOOKUP s.refs ptr)
+    (λv. case v of ValueArray vs =>
+         SOME (bump_pc s with <| stack := (Number (&(LENGTH vs)))::xs |>)
+         | _ => NONE)
+  | (LengthByte, (RefPtr ptr)::xs) =>
+    OPTION_BIND (FLOOKUP s.refs ptr)
+    (λv. case v of ByteArray vs =>
+         SOME (bump_pc s with <| stack := (Number (&(LENGTH vs)))::xs |>)
+         | _ => NONE)
   | (Galloc n, _) => SOME (bump_pc s with <| globals := s.globals ++ (GENLIST (λx. NONE) n) |>)
   | (Gupdate n, x::xs) =>
     if n < LENGTH s.globals then
@@ -234,22 +269,64 @@ Cases_on `inst` >> fs[GSYM bc_eval_stack_thm]
     fs[] >> qexists_tac`h::l1` >> lrw[] ) >>
   `m = LENGTH xs` by DECIDE_TAC >>
   lrw[rich_listTheory.EL_APPEND2,rich_listTheory.TAKE_APPEND2])
->- (
+>- ( (* Ref *)
   Cases_on `s1.stack` >> fs[LET_THM] >>
-  rw[bc_next_cases] )
->- (
+  rw[bc_next_cases] >>
+  qmatch_assum_rename_tac `s1.stack = h::t` [] >>
+  Cases_on`h`>>fs[]>>
+  Cases_on`t`>>fs[]>>
+  rw[bc_state_component_equality] >>
+  qexists_tac`Num i`>>simp[INT_OF_NUM])
+>- ( (* RefByte *)
+  BasicProvers.EVERY_CASE_TAC >> fs[] >>
+  fs[LET_THM] >>
+  rw[bc_next_cases,bc_state_component_equality] >>
+  rw[word8_to_val_def] >>
+  qmatch_assum_rename_tac`s1.stack = Number n::Number w::t`[] >>
+  map_every qexists_tac[`Num n`,`n2w(Num w)`] >>
+  simp[INT_OF_NUM] )
+>- ( (* Deref *)
   Cases_on `s1.stack` >> fs[LET_THM] >>
   qmatch_assum_rename_tac `s1.stack = h::t` [] >>
   Cases_on `h` >> fs[] >>
-  rw[bc_next_cases] )
+  rw[bc_next_cases] >>
+  Cases_on`t`>>fs[] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[] >>
+  rw[bc_state_component_equality] >>
+  qexists_tac`Num i`>>simp[INT_OF_NUM])
 >- (
+  BasicProvers.EVERY_CASE_TAC >> fs[] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[] >>
+  rw[bc_next_cases] >>
+  qexists_tac`Num i`>>simp[INT_OF_NUM])
+>- ( (* Update *)
   Cases_on `s1.stack` >> fs[LET_THM] >>
   qmatch_assum_rename_tac `s1.stack = h::t` [] >>
   Cases_on `t` >> fs [] >>
   qmatch_assum_rename_tac `s1.stack = x::y::t` [] >>
   Cases_on `y` >> fs [] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[] >>
+  rw[bc_next_cases] >>
+  rw[bc_state_component_equality] >>
+  qexists_tac`Num i` >> simp[INT_OF_NUM])
+>- (
+  BasicProvers.EVERY_CASE_TAC >> fs[] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[] >>
+  rw[bc_next_cases] >>
+  qmatch_assum_rename_tac`s1.stack = Number w::Number m::RefPtr p::t`[] >>
+  map_every qexists_tac[`n2w(Num w)`,`Num m`] >>
+  simp[INT_OF_NUM] )
+>- (
+  BasicProvers.EVERY_CASE_TAC >> fs[] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[] >>
   rw[bc_next_cases] )
->- ( rw[bc_next_cases] )
+>- (
+  BasicProvers.EVERY_CASE_TAC >> fs[] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[] >>
+  rw[bc_next_cases] )
+>- ( rw[bc_next_cases,REPLICATE_GENLIST,combinTheory.K_DEF] )
 >- (
   Cases_on`s1.stack`>>fs[]>>
   rw[bc_next_cases] )
@@ -273,7 +350,7 @@ ho_match_mp_tac bc_next_ind >>
 rw[bc_eval1_def] >>
 fs[bc_eval_stack_thm] >>
 unabbrev_all_tac >> rw[] >>
-fsrw_tac[ARITH_ss][] >>
+fsrw_tac[ARITH_ss][word8_to_val_def,REPLICATE_GENLIST,combinTheory.K_DEF,wordsTheory.w2n_lt] >>
 lrw[REVERSE_APPEND,rich_listTheory.EL_APPEND2,rich_listTheory.TAKE_APPEND1,stringTheory.IMPLODE_EXPLODE_I] >>
 TRY(
   pop_assum (assume_tac o SYM) >>

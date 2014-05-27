@@ -7,6 +7,10 @@ val _ = new_theory "misc"
 
 (* TODO: move/categorize *)
 
+val REPLICATE_GENLIST = store_thm("REPLICATE_GENLIST",
+  ``!n x. REPLICATE n x = GENLIST (K x) n``,
+  Induct THEN SRW_TAC[][rich_listTheory.REPLICATE,GENLIST_CONS])
+
 val domain_nat_set_from_list = store_thm("domain_nat_set_from_list",
   ``∀ls ns. domain (FOLDL (λs n. insert n () s) ns ls) = domain ns ∪ set ls``,
   Induct >> simp[sptreeTheory.domain_insert] >>
