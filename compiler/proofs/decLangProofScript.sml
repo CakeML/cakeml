@@ -1,6 +1,6 @@
 open preamble;
 open alistTheory optionTheory rich_listTheory;
-open miscTheory;
+open miscLib miscTheory;
 open astTheory;
 open semanticPrimitivesTheory;
 open libTheory;
@@ -9,9 +9,16 @@ open conLangTheory;
 open decLangTheory;
 open evalPropsTheory;
 open compilerTerminationTheory;
-open tempTheory;
 
 val _ = new_theory "decLangProof";
+
+val do_app_i3_correct = prove(
+  ``∀s op vs res.
+      do_app_i2 s op vs = SOME res ⇒
+      ∀c g. do_app_i3 ((c,s),g) op vs = SOME (((c,FST res),g),SND res)``,
+  rw[do_app_i2_def,do_app_i3_def] >>
+  Cases_on`op`>>fs[]>>
+  rpt(BasicProvers.CASE_TAC >> fs[LET_THM,store_alloc_def]))
 
 val exp_to_i3_correct = Q.prove (
 `(∀b env s e res.
@@ -42,26 +49,10 @@ val exp_to_i3_correct = Q.prove (
  rw [] >>
  rw [Once evaluate_i3_cases] >>
  fs [all_env_i2_to_genv_def, all_env_i2_to_env_def]
- >- metis_tac []
- >- (* Uapp *)
-    (fs [do_uapp_i2_def, do_uapp_i3_def] >>
-     every_case_tac >>
-     fs [LET_THM]
-     >- (Q.LIST_EXISTS_TAC [`Loc_i2 n`,`s2`] >>
-         rw [])
-     >- (Q.LIST_EXISTS_TAC [`v`, `s2`, `genv`] >>
-         rw [] >>
-         cases_on `store_alloc v s2` >>
-         fs []))
- >- metis_tac []
- >- metis_tac []
- >- metis_tac []
- >- metis_tac []
- >- metis_tac []
- >- metis_tac []
- >- metis_tac []
- >- metis_tac []
- >- metis_tac []);
+ >> TRY(metis_tac []) >>
+ disj1_tac >>
+ first_assum(match_exists_tac o concl) >> rw[] >>
+ metis_tac[do_app_i3_correct,FST,SND]);
 
 val eval_i3_genv_weakening = Q.prove (
 `(∀ck env s e res.
