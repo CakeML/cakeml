@@ -340,87 +340,20 @@ val bc_find_loc_append_code = store_thm("bc_find_loc_append_code",
 
 val bc_next_append_code = store_thm("bc_next_append_code",
   ``∀bs1 bs2. bc_next bs1 bs2 ⇒ ∀c0 c. (bs1.code = c0) ⇒ bc_next (bs1 with code := c0 ++ c) (bs2 with code := c0 ++ c)``,
-  ho_match_mp_tac bc_next_ind >>
-  strip_tac >- (
-    rw[bc_eval1_thm] >>
-    imp_res_tac bc_fetch_append_code >>
-    rw[bc_eval1_def] >>
-    fs[bc_eval_stack_thm] >>
-    rw[bump_pc_def] ) >>
-  strip_tac >- (
-    rw[bc_eval1_thm] >>
-    imp_res_tac bc_fetch_append_code >>
-    imp_res_tac bc_find_loc_append_code >>
-    rw[bc_eval1_def] ) >>
-  strip_tac >- (
-    rw[bc_eval1_thm] >>
-    imp_res_tac bc_fetch_append_code >>
-    imp_res_tac bc_find_loc_append_code >>
-    rw[bc_eval1_def,LET_THM] >>
-    rw[bump_pc_with_stack] >>
-    rw[bump_pc_def] ) >>
-  strip_tac >- (
-    rw[bc_eval1_thm] >>
-    imp_res_tac bc_fetch_append_code >>
-    imp_res_tac bc_find_loc_append_code >>
-    rw[bc_eval1_def,LET_THM] >>
-    rw[bc_state_component_equality] >>
-    rw[bump_pc_def] ) >>
-  strip_tac >- (
-    rw[bc_eval1_thm] >>
-    imp_res_tac bc_fetch_append_code >>
-    imp_res_tac bc_find_loc_append_code >>
-    rw[bc_eval1_def,LET_THM] >>
-    rw[bc_state_component_equality] >>
-    rw[bump_pc_def] ) >>
-  strip_tac >- (
-    rw[bc_eval1_thm] >>
-    imp_res_tac bc_fetch_append_code >>
-    imp_res_tac bc_find_loc_append_code >>
-    rw[bc_eval1_def,LET_THM] >>
-    rw[bc_state_component_equality] >>
-    rw[bump_pc_def] ) >>
-  strip_tac >- (
-    rw[bc_eval1_thm] >>
-    imp_res_tac bc_fetch_append_code >>
-    imp_res_tac bc_find_loc_append_code >>
-    rw[bc_eval1_def,LET_THM,bump_pc_def] ) >>
-  strip_tac >- (
-    rw[bc_eval1_thm,bump_pc_def] >>
-    imp_res_tac bc_fetch_append_code >>
-    imp_res_tac bc_find_loc_append_code >>
-    rw[bc_eval1_def,LET_THM,bump_pc_def] ) >>
-  strip_tac >- (
-    rw[bc_eval1_thm,bump_pc_def] >>
-    imp_res_tac bc_fetch_append_code >>
-    imp_res_tac bc_find_loc_append_code >>
-    srw_tac[ARITH_ss][bc_eval1_def,LET_THM,bump_pc_def] >>
-    lrw[REVERSE_APPEND,EL_APPEND2,TAKE_APPEND2]) >>
-  strip_tac >- (
-    rw[bc_eval1_thm] >>
-    imp_res_tac bc_fetch_append_code >>
-    imp_res_tac bc_find_loc_append_code >>
-    rw[bc_eval1_def,LET_THM] >>
-    rw[bump_pc_def]) >>
-  strip_tac >- (
-    rw[bc_eval1_thm] >>
-    imp_res_tac bc_fetch_append_code >>
-    imp_res_tac bc_find_loc_append_code >>
-    rw[bc_eval1_def,LET_THM] >>
-    rw[bump_pc_def]) >>
-  strip_tac >- (
-    rw[bc_eval1_thm] >>
-    imp_res_tac bc_fetch_append_code >>
-    imp_res_tac bc_find_loc_append_code >>
-    rw[bc_eval1_def,LET_THM] >>
-    rw[bump_pc_def]) >>
+  ho_match_mp_tac bc_next_ind >> rw[] >>
   rw[bc_eval1_thm] >>
   imp_res_tac bc_fetch_append_code >>
   imp_res_tac bc_find_loc_append_code >>
-  rw[bc_eval1_def,LET_THM,stringTheory.IMPLODE_EXPLODE_I] >>
+  rw[bc_eval1_def,LET_THM,word8_to_val_def,wordsTheory.w2n_lt,
+     SIMP_RULE std_ss [combinTheory.K_DEF] REPLICATE_GENLIST] >>
+  simp[REVERSE_APPEND,EL_APPEND2,TAKE_APPEND2] >>
+  rw[bump_pc_with_stack] >>
   rw[bump_pc_def] >>
+  rw[bc_state_component_equality] >>
+  fs[bc_eval_stack_thm] >>
+  rw[stringTheory.IMPLODE_EXPLODE_I] >>
   BasicProvers.CASE_TAC >>
-  simp[bc_state_component_equality])
+  rw[bc_state_component_equality,PRE_SUB1])
 
 val bc_next_preserves_code = store_thm("bc_next_preserves_code",
   ``∀bs1 bs2. bc_next bs1 bs2 ⇒ (bs2.code = bs1.code)``,
