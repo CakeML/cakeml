@@ -93,7 +93,8 @@ val bc_next_not_Tick_any_clock = store_thm("bc_next_not_Tick_any_clock",
   rw[bump_pc_def,bc_fetch_with_clock,bc_state_component_equality,bc_find_loc_with_clock,bc_fetch_with_stack] >>
   fs[bc_eval_stack_thm,bc_find_loc_with_clock] >> simp[] >>
   simp[EL_REVERSE,PRE_SUB1,EL_APPEND1,EL_LENGTH_APPEND_rwt,bc_state_component_equality] >>
-  simp[REVERSE_APPEND,TAKE_APPEND1,TAKE_REVERSE] >>
+  simp[REVERSE_APPEND,TAKE_APPEND1,TAKE_REVERSE,wordsTheory.w2n_lt] >>
+  simp[SIMP_RULE std_ss [combinTheory.K_DEF] REPLICATE_GENLIST] >>
   metis_tac[LASTN_LENGTH_ID])
 
 val RTC_bc_next_less_timeout = store_thm("RTC_bc_next_less_timeout",
