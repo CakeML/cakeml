@@ -509,6 +509,32 @@ val exhaustive_match_submap = prove(
   every_case_tac >> fs[] >>
   imp_res_tac FLOOKUP_SUBMAP >> fs[])
 
+val do_opapp_exh = prove(
+  ``∀vs env e exh vs_exh.
+    do_opapp_i2 vs = SOME (env,e) ∧
+    vs_to_exh exh vs vs_exh
+    ⇒
+    ∃exh' env_exh.
+      env_to_exh exh env env_exh ∧
+      exh' ⊑ exh ∧
+      do_opapp_exh vs_exh = SOME (env_exh,exp_to_exh exh' e)``,
+  rw[do_opapp_i2_def,do_opapp_exh_def] >>
+  every_case_tac >> fs[] >> rw[] >>
+  TRY (fs[Once v_to_exh_cases]>>NO_TAC) >>
+  fs[Q.SPECL[`exh`,`Closure_i2 X Y Z`](CONJUNCT1 v_to_exh_cases),bind_def,env_to_exh_LIST_REL] >>
+  fs[Q.SPECL[`exh`,`Recclosure_i2 X Y Z`](CONJUNCT1 v_to_exh_cases),bind_def,env_to_exh_LIST_REL] >>
+  rw[] >> fs[find_recfun_funs_to_exh] >> rw[] >>
+  fs[funs_to_exh_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,FST_triple,ETA_AX]
+  >- metis_tac[SUBMAP_REFL] >>
+  simp[build_rec_env_exh_MAP,build_rec_env_i2_MAP] >>
+  qexists_tac`exh'`>>simp[] >>
+  match_mp_tac EVERY2_APPEND_suff >>
+  simp[EVERY2_MAP,UNCURRY] >>
+  simp[Once v_to_exh_cases,funs_to_exh_MAP,MAP_EQ_f] >>
+  match_mp_tac EVERY2_refl >>
+  simp[UNCURRY,env_to_exh_LIST_REL] >>
+  metis_tac[])
+
 val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
 `(!ck env s e r.
   evaluate_i3 ck env s e r
