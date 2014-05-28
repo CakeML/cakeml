@@ -77,10 +77,15 @@ val v_to_exh_eqn = Q.prove (
  rw [Once v_to_exh_cases] >>
  metis_tac []);
 
+val sv_to_exh_def = Define`
+  sv_to_exh exh (Refv v1) (Refv v2) = v_to_exh exh v1 v2 ∧
+  sv_to_exh exh (W8array w1) (W8array w2) = (w1 = w2) ∧
+  sv_to_exh exh _ _ = F`
+
 val store_to_exh_def = Define `
-store_to_exh exh (s,genv) (s_exh,genv_exh) ⇔
+store_to_exh exh ((s,genv):v_i2 count_store_genv) (s_exh,genv_exh) ⇔
   FST s = FST s_exh ∧
-  LIST_REL (v_to_exh exh) (SND s) (SND s_exh) ∧
+  LIST_REL (sv_to_exh exh) (SND s) (SND s_exh) ∧
   LIST_REL (OPTION_REL (v_to_exh exh)) genv genv_exh`;
 
 val (result_to_exh_rules, result_to_exh_ind, result_to_exh_cases) = Hol_reln `
@@ -299,7 +304,7 @@ val pmatch_exh_correct = Q.prove (
 `(!(exh:exh_ctors_env) s p v env r env_exh s_exh v_exh.
   r ≠ Match_type_error ∧
   pmatch_i2 exh s p v env = r ∧
-  vs_to_exh exh s s_exh ∧
+  LIST_REL (sv_to_exh exh) s s_exh ∧
   v_to_exh exh v v_exh ∧
   env_to_exh exh env env_exh
   ⇒
@@ -309,7 +314,7 @@ val pmatch_exh_correct = Q.prove (
  (!(exh:exh_ctors_env) s ps vs env r env_exh s_exh vs_exh.
   r ≠ Match_type_error ∧
   pmatch_list_i2 exh s ps vs env = r ∧
-  vs_to_exh exh s s_exh ∧
+  LIST_REL (sv_to_exh exh) s s_exh ∧
   vs_to_exh exh vs vs_exh ∧
   env_to_exh exh env env_exh
   ⇒
@@ -334,7 +339,7 @@ val pmatch_exh_correct = Q.prove (
  >- metis_tac []
  >- (every_case_tac >>
      fs [match_result_error, store_lookup_def, LIST_REL_EL_EQN] >>
-     metis_tac [])
+     rfs[] >> metis_tac [sv_to_exh_def])
  >- (every_case_tac >>
      rw [match_result_to_exh_def] >>
      res_tac >>
