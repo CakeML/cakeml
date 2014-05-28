@@ -983,9 +983,30 @@ val v_to_exh_extend_disjoint = store_thm("v_to_exh_extend_disjoint",
 
 (* TODO: move *)
 
+val sv_rel_def = Define`
+  sv_rel R (Refv v1) (Refv v2) = R v1 v2 ∧
+  sv_rel R (W8array w1) (W8array w2) = (w1 = w2) ∧
+  sv_rel R _ _ = F`
+
+val sv_rel_refl = store_thm("sv_rel_refl",
+  ``∀R x. (∀x. R x x) ⇒ sv_rel R x x``,
+  gen_tac >> Cases >> rw[sv_rel_def])
+val _ = export_rewrites["sv_rel_refl"]
+
+val sv_rel_trans = store_thm("sv_rel_trans",
+  ``∀R. (∀x y z. R x y ∧ R y z ⇒ R x z) ⇒ ∀x y z. sv_rel R x y ∧ sv_rel R y z ⇒ sv_rel R x z``,
+  gen_tac >> strip_tac >> Cases >> Cases >> Cases >> rw[sv_rel_def] >> metis_tac[])
+
+val sv_rel_cases = store_thm("sv_rel_cases",
+  ``∀x y.
+    sv_rel R x y ⇔
+    (∃v1 v2. x = Refv v1 ∧ y = Refv v2 ∧ R v1 v2) ∨
+    (∃w. x = W8array w ∧ y = x)``,
+  Cases >> Cases >> simp[sv_rel_def,EQ_IMP_THM])
+
 val csg_rel_def = Define`
   csg_rel R ((c1,s1),g1) (((c2,s2),g2):'a count_store_genv) ⇔
-    c1 = c2 ∧ LIST_REL R s1 s2 ∧ LIST_REL (OPTION_REL R) g1 g2`
+    c1 = c2 ∧ LIST_REL (sv_rel R) s1 s2 ∧ LIST_REL (OPTION_REL R) g1 g2`
 
 val csg_rel_refl = store_thm("csg_rel_refl",
   ``∀V x. (∀x. V x x) ⇒ csg_rel V x x``,
@@ -1001,7 +1022,7 @@ val csg_rel_trans = store_thm("csg_rel_trans",
   fs[csg_rel_def] >>
   conj_tac >>
   match_mp_tac (MP_CANON EVERY2_trans)
-  >- metis_tac[] >>
+  >- metis_tac[sv_rel_trans] >>
   simp[optionTheory.OPTREL_def] >>
   qexists_tac`y2` >> simp[] >>
   Cases >> Cases >> Cases >> simp[] >>
@@ -1023,8 +1044,7 @@ val free_vars_exh_def = tDefine"free_vars_exh"`
   free_vars_exh (Var_local_exh n) = {n} ∧
   free_vars_exh (Var_global_exh _) = {} ∧
   free_vars_exh (Fun_exh x e) = free_vars_exh e DIFF {x} ∧
-  free_vars_exh (Uapp_exh _ e) = free_vars_exh e ∧
-  free_vars_exh (App_exh _ e1 e2) = free_vars_exh e1 ∪ free_vars_exh e2 ∧
+  free_vars_exh (App_exh _ es) = free_vars_list_exh es ∧
   free_vars_exh (If_exh e1 e2 e3) = free_vars_exh e1 ∪ free_vars_exh e2 ∪ free_vars_exh e3 ∧
   free_vars_exh (Mat_exh e pes) = free_vars_exh e ∪ free_vars_pes_exh pes ∧
   free_vars_exh (Let_exh bn e1 e2) = free_vars_exh e1 ∪ (free_vars_exh e2 DIFF (case bn of NONE => {} | SOME x => {x})) ∧
@@ -1047,8 +1067,12 @@ val free_vars_pes_exh_MAP = store_thm("free_vars_pes_exh_MAP",
   ``∀pes. free_vars_pes_exh pes = BIGUNION (set (MAP (λ(p,e). free_vars_exh e DIFF set (pat_bindings_exh p [])) pes))``,
   Induct >> simp[] >> Cases >> simp[])
 
+val sv_to_exh_sv_rel = store_thm("sv_to_exh_sv_rel",
+  ``sv_to_exh exh = sv_rel (v_to_exh exh)``,
+  simp[FUN_EQ_THM] >> Cases >> Cases >> rw[sv_rel_def,sv_to_exh_def])
+
 val store_to_exh_csg_rel = store_thm("store_to_exh_csg_rel",
   ``store_to_exh exh = csg_rel (v_to_exh exh)``,
-  simp[FUN_EQ_THM,FORALL_PROD,store_to_exh_def,csg_rel_def])
+  simp[FUN_EQ_THM,FORALL_PROD,store_to_exh_def,csg_rel_def,sv_to_exh_sv_rel])
 
 val _ = export_theory ();
