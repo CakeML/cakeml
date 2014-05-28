@@ -437,76 +437,71 @@ val env_to_exh_submap = prove(
    conj_tac >- metis_tac[] >> rw[] ) >> rw[])
 
 val do_app_exh = Q.prove (
-`!(exh:exh_ctors_env) env s1 s2 op v1 v2 e env' env_exh s1_exh v1_exh v2_exh locals.
-  do_app_i2 env s1 op v1 v2 = SOME (env', s2, e) ∧
-  env_to_exh exh env env_exh ∧
-  LIST_REL (v_to_exh exh) s1 s1_exh ∧
-  v_to_exh exh v1 v1_exh ∧
-  v_to_exh exh v2 v2_exh
+`!(exh:exh_ctors_env) s1 op vs s2 res s1_exh vs_exh c g.
+  do_app_i2 s1 op vs = SOME (s2, res) ∧
+  store_to_exh exh ((c,s1),g) s1_exh ∧
+  vs_to_exh exh vs vs_exh
   ⇒
-   ∃env_exh' s2_exh exh'.
-     LIST_REL (v_to_exh exh) s2 s2_exh ∧
-     env_to_exh exh env' env_exh' ∧
-     exh' SUBMAP exh ∧
-     do_app_exh env_exh s1_exh op v1_exh v2_exh = SOME (env_exh', s2_exh, exp_to_exh exh' e)`,
- cases_on `op` >>
- rw [do_app_i2_def, do_app_exh_def] >>
- rw []
- >- (cases_on `v2` >>
-     fs [] >>
-     cases_on `v1` >>
-     fs [] >>
-     cases_on `l` >>
-     fs [] >>
-     every_case_tac >>
-     fs [] >>
-     rw [exp_to_exh_def] >>
-     fs[emp_def,exn_env_i2_def] >>
-     metis_tac [SUBMAP_REFL,env_to_exh_LIST_REL,LIST_REL_def])
- >- (cases_on `v2` >>
-     fs [] >>
-     cases_on `v1` >>
-     fs [] >>
-     cases_on `l` >>
-     fs [] >>
-     every_case_tac >>
-     fs [] >>
-     rw [exp_to_exh_def] >>
-     metis_tac [SUBMAP_REFL])
- >- (every_case_tac >>
-     imp_res_tac do_eq_exh_correct >> fs[] >> rw[] >>
-     simp[exp_to_exh_def] >>
-     qexists_tac`FEMPTY` >> simp[SUBMAP_FEMPTY] >>
-     simp[emp_def,env_to_exh_LIST_REL,exn_env_i2_def])
- >- (cases_on `v1` >>
-     fs [] >>
-     rw []
-     >- (qpat_assum `v_to_exh exh (Closure_i2 l s e) v1_exh` (strip_assume_tac o SIMP_RULE (srw_ss()) [Once v_to_exh_cases]) >>
-         rw [] >>
-         fs[env_to_exh_LIST_REL,bind_def] >>
-         metis_tac [])
-     >- (
-       qpat_assum`v_to_exh exh (X Y) Z` mp_tac >> simp[Once v_to_exh_cases] >> rw[] >>
-       rw[] >> every_case_tac >> fs[] >> rw[] >>
-       fs[env_to_exh_LIST_REL,bind_def,build_rec_env_exh_MAP,build_rec_env_i2_MAP] >>
-       HINT_EXISTS_TAC >> simp[funs_to_exh_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
-       fs[ETA_AX,FST_triple] >>
-       match_mp_tac EVERY2_APPEND_suff >>
-       simp[EVERY2_MAP] >>
-       match_mp_tac EVERY2_refl >>
-       simp[FORALL_PROD] >>
-       simp[Once v_to_exh_cases,funs_to_exh_MAP,MAP_EQ_f,FORALL_PROD] >>
-       simp[env_to_exh_LIST_REL] >>
-       metis_tac[]))
- >- (cases_on `v1` >>
-     fs [] >>
-     every_case_tac >>
-     fs [] >>
-     rw [exp_to_exh_def] >>
-     imp_res_tac EVERY2_LENGTH >>
-     fs[store_assign_def] >> rw[] >>
-     qexists_tac`FEMPTY` >> simp[SUBMAP_FEMPTY] >>
-     match_mp_tac EVERY2_LUPDATE_same >> simp[] ))
+   ∃s2_exh res_exh.
+     result_to_exh v_to_exh exh (((c,s2),g),res) (s2_exh,res_exh) ∧
+     do_app_exh s1_exh op vs_exh = SOME (s2_exh, res_exh)`,
+ rpt gen_tac >> PairCases_on`s1_exh`>>
+ simp[result_to_exh_cases] >>
+ simp[store_to_exh_def,EXISTS_PROD] >>
+ rw[PULL_EXISTS] >>
+ fs [do_app_i2_def, do_app_exh_def] >>
+ BasicProvers.CASE_TAC >> fs[] >- (
+   every_case_tac >> fs[] ) >>
+ fs[LET_THM,store_lookup_def,store_assign_def] >>
+ cases_on`op`>>fs[]>>rw[]>>
+ cases_on`xs`>>fs[]>>rw[]>-(
+   every_case_tac>>fs[store_alloc_def]>>rw[sv_to_exh_def]>>
+   fs[LIST_REL_EL_EQN] >> metis_tac[sv_to_exh_def] ) >>
+ cases_on`ys`>>fs[]>>rw[]>-(
+   qmatch_assum_rename_tac`op_CASE op a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 = b`
+     ["a1","a2","a3","a4","a5","a6","a7","a8","a9","a10","a11","b"] >>
+   cases_on`op`>>fs[]>-(
+     every_case_tac>>fs[]>>rw[]>>
+     rw[prim_exn_i2_def,prim_exn_exh_def,v_to_exh_eqn] )
+   >- ( every_case_tac>>fs[] )
+   >- (
+     every_case_tac>>fs[]>>rw[]>>
+     imp_res_tac do_eq_exh_correct>>fs[]>>
+     rw[prim_exn_i2_def,prim_exn_exh_def,v_to_exh_eqn] )
+   >- (
+     every_case_tac >> fs[] >> rw[] >>
+     fs[LIST_REL_EL_EQN,EL_LUPDATE] >> rw[] >>
+     rw[sv_to_exh_def] >> rfs[] )
+   >- (
+     every_case_tac >> fs[] >> rw[] >>
+     rw[prim_exn_i2_def,prim_exn_exh_def,v_to_exh_eqn] >>
+     fs[store_alloc_def] >> rw[] >>
+     fs[LIST_REL_EL_EQN] >> rw[sv_to_exh_def] )
+   >- (
+     qmatch_assum_rename_tac`v_to_exh exh v1 v2`[] >>
+     Cases_on`v1`>>fs[]>>rw[]>>
+     qmatch_assum_rename_tac`v_to_exh exh v1 v2`[] >>
+     Cases_on`v2`>>fs[]>>rw[]>>
+     TRY(Cases_on`v1`>>fs[])>>
+     TRY(Cases_on`l:lit`>>fs[])>>
+     rw[]>>fs[]>>
+     every_case_tac>>fs[]>>rw[]>>
+     rw[prim_exn_i2_def,prim_exn_exh_def,v_to_exh_eqn] >>
+     fs[LIST_REL_EL_EQN] >>
+     metis_tac[sv_to_exh_def] )) >>
+ fs[] >>
+ qmatch_assum_rename_tac`v_to_exh exh v1 v2`[] >>
+ Cases_on`v1`>>fs[]>>rw[]>>
+ Cases_on`l:lit`>>fs[]>>
+ qmatch_assum_rename_tac`v_to_exh exh v1 v2`[] >>
+ Cases_on`v1`>>fs[]>>rw[]>>
+ Cases_on`l:lit`>>fs[]>>
+ qmatch_assum_rename_tac`v_to_exh exh v1 v2`[] >>
+ Cases_on`v1`>>fs[]>>rw[]>>
+ every_case_tac>>fs[]>>rw[]>>
+ rw[prim_exn_i2_def,prim_exn_exh_def,v_to_exh_eqn] >>
+ fs[LIST_REL_EL_EQN,EL_LUPDATE]>>rw[]>>
+ metis_tac[sv_to_exh_def])
 
 val exhaustive_match_submap = prove(
   ``exhaustive_match exh pes ∧ exh ⊑ exh2 ⇒ exhaustive_match exh2 pes``,
