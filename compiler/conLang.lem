@@ -365,6 +365,7 @@ let do_opapp_i2 vs =
           end
         else
           Nothing
+    | _ -> Nothing
   end
 
 val prim_exn_i2 : nat -> conN -> v_i2

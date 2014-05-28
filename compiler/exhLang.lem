@@ -299,6 +299,7 @@ let do_opapp_exh vs =
           end
         else
           Nothing
+    | _ -> Nothing
   end
 
 val prim_exn_exh : nat -> v_exh

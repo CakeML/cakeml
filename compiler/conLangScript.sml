@@ -441,6 +441,7 @@ val _ = Define `
           )
         else
           NONE
+    | _ => NONE
   )))`;
 
 
