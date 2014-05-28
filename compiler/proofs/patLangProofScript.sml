@@ -113,9 +113,13 @@ val build_rec_env_exh_MAP = store_thm("build_rec_env_exh_MAP",
   Induct >> rw[libTheory.bind_def] >>
   PairCases_on`h` >> rw[])
 
+val map_sv_def = Define`
+  map_sv f (Refv v) = Refv (f v) ∧
+  map_sv _ w = w`
+
 val map_count_store_genv_def = Define`
   map_count_store_genv f (csg:'a count_store_genv) =
-    ((FST(FST csg), MAP f (SND(FST csg))), MAP (OPTION_MAP f) (SND csg))`
+    ((FST(FST csg), MAP (map_sv f) (SND(FST csg))), MAP (OPTION_MAP f) (SND csg))`
 
 (* --- *)
 
@@ -194,7 +198,8 @@ val pmatch_exh_APPEND = store_thm("pmatch_exh_APPEND",
        map_match (combin$C APPEND (DROP n env)) (pmatch_list_exh s ps vs (TAKE n env))))``,
   ho_match_mp_tac pmatch_exh_ind >>
   rw[pmatch_exh_def,libTheory.bind_def]
-  >- ( BasicProvers.CASE_TAC >> fs[] ) >>
+  >- ( BasicProvers.CASE_TAC >> fs[] >>
+       BasicProvers.CASE_TAC >> fs[]) >>
   pop_assum (qspec_then`n`mp_tac) >>
   Cases_on `pmatch_exh s p v (TAKE n env)`>>fs[] >>
   strip_tac >> res_tac >>
