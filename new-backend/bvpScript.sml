@@ -34,7 +34,7 @@ infix \\ val op \\ = op THEN;
 val _ = Datatype `
   bvp_prog = Skip
            | Move num num
-           | Call (num option) (num option) (num list)
+           | Call ((num # num_set) option) (num option) (num list)
            | Assign num bvl_op (num list)
            | Seq bvp_prog bvp_prog
            | If (bvp_if list) bvp_prog bvp_prog
@@ -152,8 +152,8 @@ val call_env_def = Define `
     s with <| locals := fromList args |>`;
 
 val push_env_def = Define `
-  push_env s =
-    s with <| stack := Env s.locals :: s.stack |>`;
+  push_env env s =
+    s with <| stack := Env env :: s.stack |>`;
 
 val pop_env_def = Define `
   pop_env s =
@@ -250,14 +250,17 @@ val pEval_def = tDefine "pEval" `
             (case ret of
              | NONE (* tail call *) =>
                 pEval (prog, call_env args1 (dec_clock s))
-             | SOME n (* returning call, returns into var n *) =>
-               (case pEval (prog, call_env args1 (push_env (dec_clock s))) of
+             | SOME (n,names) (* returning call, returns into var n *) =>
+               (case cut_env names s.locals of
+                | NONE => (SOME Error,s)
+                | SOME env =>
+               (case pEval (prog, call_env args1 (push_env env (dec_clock s))) of
                 | (SOME (Result x),s) =>
                    (case pop_env s of
                     | NONE => (SOME Error,s)
                     | SOME s1 => (NONE, set_var n x s1))
                 | (NONE,s1) => (SOME Error,s1)
-                | res => res))))`
+                | res => res)))))`
  (WF_REL_TAC `(inv_image (measure I LEX measure bvp_prog_size)
                             (\(xs,s). (s.clock,xs)))`
   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
