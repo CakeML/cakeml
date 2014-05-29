@@ -5,25 +5,7 @@ open modLangProofTheory conLangProofTheory exhLangProofTheory patLangProofTheory
 
 val _ = new_theory"free_vars"
 
-val IS_SOME_EXISTS = store_thm("IS_SOME_EXISTS",
-  ``∀opt. IS_SOME opt ⇔ ∃x. opt = SOME x``,
-  Cases >> simp[])
-
-val FDOM_FOLDR_DOMSUB = store_thm("FDOM_FOLDR_DOMSUB",
-  ``∀ls fm. FDOM (FOLDR (λk m. m \\ k) fm ls) = FDOM fm DIFF set ls``,
-  Induct >> simp[] >>
-  ONCE_REWRITE_TAC[EXTENSION] >>
-  simp[] >> metis_tac[])
-
-val LIST_TO_SET_EQ_SING = store_thm("LIST_TO_SET_EQ_SING",
-  ``∀x ls. set ls = {x} ⇔ ls ≠ [] ∧ EVERY ($= x) ls``,
-  gen_tac >> Induct >> simp[] >>
-  simp[Once EXTENSION,EVERY_MEM] >>
-  metis_tac[])
-
-val INSERT_EQ_SING = store_thm("INSERT_EQ_SING",
-  ``∀s x y. x INSERT s = {y} ⇔ (x = y ∧ s ⊆ {y})``,
-  rw[SUBSET_DEF,EXTENSION] >> metis_tac[])
+(* TODO: move? *)
 
 val vs_to_exh_MAP = store_thm("vs_to_exh_MAP",
   ``∀exh vs1 vs2. vs_to_exh exh vs1 vs2 = LIST_REL (v_to_exh exh) vs1 vs2``,

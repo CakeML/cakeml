@@ -7,6 +7,26 @@ val _ = new_theory "misc"
 
 (* TODO: move/categorize *)
 
+val IS_SOME_EXISTS = store_thm("IS_SOME_EXISTS",
+  ``∀opt. IS_SOME opt ⇔ ∃x. opt = SOME x``,
+  Cases >> simp[])
+
+val FDOM_FOLDR_DOMSUB = store_thm("FDOM_FOLDR_DOMSUB",
+  ``∀ls fm. FDOM (FOLDR (λk m. m \\ k) fm ls) = FDOM fm DIFF set ls``,
+  Induct >> simp[] >>
+  ONCE_REWRITE_TAC[EXTENSION] >>
+  simp[] >> metis_tac[])
+
+val LIST_TO_SET_EQ_SING = store_thm("LIST_TO_SET_EQ_SING",
+  ``∀x ls. (set ls = {x}) ⇔ ls ≠ [] ∧ EVERY ($= x) ls``,
+  gen_tac >> Induct >> simp[] >>
+  simp[Once EXTENSION,EVERY_MEM] >>
+  metis_tac[])
+
+val INSERT_EQ_SING = store_thm("INSERT_EQ_SING",
+  ``∀s x y. (x INSERT s = {y}) ⇔ ((x = y) ∧ s ⊆ {y})``,
+  rw[SUBSET_DEF,EXTENSION] >> metis_tac[])
+
 val REPLICATE_GENLIST = store_thm("REPLICATE_GENLIST",
   ``!n x. REPLICATE n x = GENLIST (K x) n``,
   Induct THEN SRW_TAC[][rich_listTheory.REPLICATE,GENLIST_CONS])
