@@ -382,35 +382,66 @@ val the_less_rwt = prove(
   ``the X Y < (X:num) ⇔ ∃z. (Y = SOME z) ∧ z < X``,
   Cases_on`Y`>>simp[compilerLibTheory.the_def])
 
+val sv_to_pat_def = Define`
+  (sv_to_pat (Refv v) = Refv (v_to_pat v)) ∧
+  (sv_to_pat (W8array w) = (W8array w))`
+val _ = export_rewrites["sv_to_pat_def"]
+
+val csg_to_pat_def = Define`
+  ((csg_to_pat (csg:v_exh count_store_genv)):v_pat count_store_genv) =
+  (((FST (FST csg)),(MAP sv_to_pat (SND (FST csg)))),MAP (OPTION_MAP v_to_pat) (SND csg))`
+
 val do_app_pat_correct = prove(
-  ``∀op v1 v2 env0 s0 env s exp.
-     do_app_exh env0 s0 op v1 v2 = SOME (env,s,exp) ⇒
-     do_app_pat (MAP (v_to_pat o SND) env0) (MAP v_to_pat s0) op (v_to_pat v1) (v_to_pat v2) =
-       SOME (MAP (v_to_pat o SND) env, MAP v_to_pat s, exp_to_pat (MAP (SOME o FST) env) exp)``,
-  Cases_on`op`>>TRY(Cases_on`o':opn`)>>Cases_on`v1`>>TRY(Cases_on`l:lit`)>>Cases_on`v2`>>TRY(Cases_on`l:lit`)>>
-  simp[do_app_exh_def,do_app_pat_def,exn_env_pat_def
-      ,libTheory.emp_def,libTheory.bind_def,do_eq_pat_correct,do_eq_pat_def]>>rw[]>>
-  fs[find_recfun_ALOOKUP,funs_to_pat_MAP] >- (
-    BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[]) >>
-  fs[the_less_rwt] >>
-  BasicProvers.EVERY_CASE_TAC >>
-  imp_res_tac ALOOKUP_find_index_NONE >>
-  imp_res_tac ALOOKUP_find_index_SOME >>
-  fs[] >> rw[] >> fs[semanticPrimitivesTheory.store_assign_def] >> rw[] >>
-  TRY ( rw[LIST_EQ_REWRITE] >> simp[EL_MAP,EL_LUPDATE] >> rw[funs_to_pat_MAP] >> NO_TAC) >>
-  simp[build_rec_env_exh_MAP,build_rec_env_pat_def,EXISTS_PROD,EL_MAP,UNCURRY] >>
-  rw[MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
-  rw[LIST_EQ_REWRITE,EL_MAP,funs_to_pat_MAP] >>
-  fs[FST_triple] >>
-  TRY (qmatch_assum_rename_tac`(q,exp) = SND p`[] >>
-       PairCases_on`p`>>fs[] >> NO_TAC) >>
-  imp_res_tac find_index_ALL_DISTINCT_EL >>
-  first_x_assum(qspec_then`x`mp_tac) >>
-  (discharge_hyps >- simp[]) >>
-  disch_then(qspec_then`0`mp_tac) >>
-  ntac 2 (pop_assum kall_tac) >>
-  asm_simp_tac(std_ss)[EL_MAP] >>
-  simp[])
+  ``∀op vs s0 s0_pat env s res.
+     do_app_exh s0 op vs = SOME (s,res)
+     ⇒
+     do_app_pat (csg_to_pat s0) (Op_pat op) (vs_to_pat vs) = SOME (csg_to_pat s,map_result v_to_pat v_to_pat res)``,
+  rpt gen_tac >>
+  PairCases_on`s0` >>
+  rw[csg_to_pat_def,do_app_exh_def,do_app_pat_def] >>
+  Cases_on`vs`>>fs[]>>Cases_on`op`>>fs[]>-(
+    Cases_on`t`>>fs[optionTheory.option_case_compute,LET_THM]>-(
+      BasicProvers.EVERY_CASE_TAC>>fs[semanticPrimitivesTheory.store_alloc_def]>>rw[]>>
+      fs[semanticPrimitivesTheory.store_lookup_def,IS_SOME_EXISTS,EL_MAP] ) >>
+    Cases_on`t'`>>fs[]>-(
+      Cases_on`o'`>>fs[]>-(
+        BasicProvers.EVERY_CASE_TAC>>fs[]>>rw[prim_exn_exh_def,prim_exn_pat_def])
+      >-(
+        BasicProvers.EVERY_CASE_TAC>>fs[]>>rw[])
+      >-(
+        BasicProvers.EVERY_CASE_TAC>>fs[]>>rw[]>>
+        fs[do_eq_pat_correct] >> rw[prim_exn_exh_def,prim_exn_pat_def])
+      >-(
+        BasicProvers.EVERY_CASE_TAC>>fs[]>>rw[]>>
+        fs[semanticPrimitivesTheory.store_assign_def]>>rw[]>>
+        fs[IS_SOME_EXISTS] >> rw[LUPDATE_MAP])
+      >-(
+        BasicProvers.EVERY_CASE_TAC>>fs[]>>rw[]>>
+        fs[semanticPrimitivesTheory.store_alloc_def]>>
+        rw[prim_exn_exh_def,prim_exn_pat_def])
+      >-(
+        Cases_on`h'`>>fs[]>>
+        Cases_on`l`>>fs[]>>
+        Cases_on`h`>>fs[]>>
+        fs[semanticPrimitivesTheory.store_lookup_def,IS_SOME_EXISTS,EL_MAP] >>
+        rfs[] >>
+        BasicProvers.EVERY_CASE_TAC >> fs[] >>
+        rw[prim_exn_exh_def,prim_exn_pat_def] >>
+        fsrw_tac[ARITH_ss][] )) >>
+    Cases_on`h''`>>fs[]>>
+    Cases_on`l`>>fs[]>>
+    Cases_on`h'`>>fs[]>>
+    Cases_on`l`>>fs[]>>
+    Cases_on`h`>>fs[]>>
+    Cases_on`t`>>fs[]>>
+    BasicProvers.EVERY_CASE_TAC>>
+    fs[semanticPrimitivesTheory.store_lookup_def,IS_SOME_EXISTS]>>
+    rw[]>>fs[EL_MAP]>>rw[prim_exn_exh_def,prim_exn_pat_def]>>
+    fs[semanticPrimitivesTheory.store_assign_def]>>rw[]>>
+    rw[LUPDATE_MAP])>>
+  Cases_on`t`>>fs[EL_MAP]>>
+  BasicProvers.EVERY_CASE_TAC>>fs[]>>
+  rw[LUPDATE_MAP])
 
 val evaluate_pat_lit = store_thm("evaluate_pat_lit",
   ``∀ck env s l res.
