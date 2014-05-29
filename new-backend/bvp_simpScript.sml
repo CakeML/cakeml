@@ -29,7 +29,7 @@ val pSeq_def = Define `
     if isSkip c1 then c2 else
     if isSkip c2 then c1 else Seq c1 c2`;
 
-val pSimp_def = tDefine "pSimp" `
+val pSimp_def = Define `
   (pSimp (Return n) = (Return n,T)) /\
   (pSimp (Raise n) = (Raise n,T)) /\
   (pSimp (Seq c1 c2) =
@@ -38,17 +38,13 @@ val pSimp_def = tDefine "pSimp" `
           if r1 then (d1,r1) else (pSeq d1 d2,r2)) /\
   (pSimp (Handle c1 n1 n2 c2) =
      (Handle (FST (pSimp c1)) n1 n2 (FST (pSimp c2)),F)) /\
-  (pSimp (If guards c1 c2) =
+  (pSimp (If c1 n c2 c3) =
         let (d1,r1) = pSimp c1 in
         let (d2,r2) = pSimp c2 in
-          (If (pSimpGuards guards) d1 d2,r1 /\ r2)) /\
-  (pSimp c = (c,F)) /\
-  (pSimpGuards [] = []) /\
-  (pSimpGuards (Prog p :: guards) = Prog (FST (pSimp p)) :: pSimpGuards guards) /\
-  (pSimpGuards (Assert t1 t2 :: guards) = Assert t1 t2 :: pSimpGuards guards)`
-  (WF_REL_TAC `measure (\x. case x of
-                            | INL p => bvp_prog_size p
-                            | INR gs => bvp_prog1_size gs)`);
+        let (d3,r3) = pSimp c3 in
+          if r1 then (d1,r1) else
+            (If d1 n d2 d3,r2 /\ r3)) /\
+  (pSimp c = (c,F))`;
 
 val isSkip_thm = prove(
   ``!c. isSkip c = (c = Skip)``,
@@ -60,24 +56,6 @@ val pEval_pSeq = prove(
   \\ SIMP_TAC std_ss [pEval_def,LET_DEF]
   \\ Cases_on `pEval (c1,s)` \\ fs [] \\ SRW_TAC [] []);
 
-val pEval_guards_NONE = prove(
-  ``(!s. FST (pEval (c1,s)) <> NONE) /\
-    (!s. FST (pEval (c2,s)) <> NONE) ==>
-    !guards s. (FST (pEval (If guards c1 c2,s)) <> NONE)``,
-  STRIP_TAC \\ Induct \\ fs [pEval_def] \\ Cases
-  \\ fs [pEval_def] \\ REPEAT STRIP_TAC
-  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ fs []
-  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ fs []
-  \\ METIS_TAC []);
-
-val pEval_guards_REPLACE = prove(
-  ``(!s. pEval (c1,s) = pEval (d1,s)) /\
-    (!s. pEval (c2,s) = pEval (d2,s)) ==>
-    !guards s. (pEval (If guards c1 c2,s) = pEval (If guards d1 d2,s))``,
-  STRIP_TAC \\ Induct \\ fs [pEval_def] \\ Cases
-  \\ SIMP_TAC std_ss [pEval_def] \\ REPEAT STRIP_TAC
-  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ fs []);
-
 val FST_LEMMA = prove(
   ``!foo. (foo = (x1,x2)) ==> (FST foo = x1)``,
   Cases \\ SRW_TAC [] []);
@@ -86,21 +64,19 @@ val lemma = METIS_PROVE [] ``(!x. P x /\ Q x) <=> (!x. P x) /\ (!x. Q x)``;
 
 val pEval_pSimp = prove(
   ``(!c s. (pEval (FST (pSimp c),s) = pEval (c,s)) /\
-           (SND (pSimp c) ==> (FST (pEval (c,s)) <> NONE))) /\
-    (!guards c1 c2 s. pEval (If (pSimpGuards guards) c1 c2, s) =
-                      pEval (If guards c1 c2, s))``,
+           (SND (pSimp c) ==> (FST (pEval (c,s)) <> NONE)))``,
   HO_MATCH_MP_TAC (fetch "-" "pSimp_ind") \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [pSimp_def,pEval_def,pEval_pSeq]
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ fs []
   \\ SRW_TAC [] [pEval_pSeq,pEval_def]
   \\ fs [] \\ SRW_TAC [] [] \\ fs [pEval_pSeq,pEval_def,LET_DEF]
   \\ Cases_on `pSimp c` \\ fs []
-  \\ Cases_on `pSimp c'` \\ fs [] \\ SRW_TAC [] []
+  \\ Cases_on `pSimp c'` \\ fs []
+  \\ Cases_on `pSimp c''` \\ fs [] \\ SRW_TAC [] []
   \\ Cases_on `pEval (c,s)` \\ fs []
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ SRW_TAC [] [] \\ fs [lemma]
-  \\ IMP_RES_TAC pEval_guards_REPLACE \\ fs []
-  \\ IMP_RES_TAC FST_LEMMA
-  \\ METIS_TAC [pEval_guards_NONE]);
+  \\ IMP_RES_TAC FST_LEMMA \\ fs []
+  \\ METIS_TAC [optionTheory.NOT_SOME_NONE,FST]);
 
 val pSimp_thm = store_thm("pSimp_thm",
   ``!c s. pEval (FST (pSimp c),s) = pEval (c,s)``,

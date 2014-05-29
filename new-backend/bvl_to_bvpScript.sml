@@ -40,12 +40,10 @@ val bComp_def = tDefine "bComp" `
      let (c2,v2,n2) = bComp n1 env tail live [x2] in
      let (c3,v3,n3) = bComp n2 env tail live [x3] in
        if tail then
-         (If [Prog c1; Assert (HD v1) T] c2 c3,[n3],n3+1)
+         (If c1 (HD v1) c2 c3,[n3],n3+1)
        else
-         (If [Prog c1; Assert (HD v1) T]
-            (Seq c2 (Move n3 (HD v2)))
-            (Seq c3 (Move n3 (HD v3))),
-          [n3],n3+1)) /\
+         (If c1 (HD v1) (Seq c2 (Move n3 (HD v2)))
+                        (Seq c3 (Move n3 (HD v3))),[n3],n3+1)) /\
   (bComp n env tail live [Let xs x2] =
      let (c1,vs,n1) = bComp n env F live xs in
      let (c2,v2,n2) = bComp n1 (REVERSE vs ++ env) tail live [x2] in

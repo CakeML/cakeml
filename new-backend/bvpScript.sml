@@ -37,15 +37,13 @@ val _ = Datatype `
            | Call ((num # num_set) option) (num option) (num list)
            | Assign num bvl_op (num list)
            | Seq bvp_prog bvp_prog
-           | If (bvp_if list) bvp_prog bvp_prog
+           | If bvp_prog num bvp_prog bvp_prog
            | MakeSpace num
            | Cut num_set
            | Raise num
            | Return num
            | Handle bvp_prog num num bvp_prog
-           | Tick ;
-  bvp_if   = Prog bvp_prog
-           | Assert num bool`
+           | Tick `;
 
 (* --- Semantics of BVP --- *)
 
@@ -228,17 +226,15 @@ val pEval_def = tDefine "pEval" `
           | (SOME x, SOME s2) => (NONE, set_var v x s2)
           | _ => (SOME Error,s1))
      | res => res) /\
-  (pEval (If [] c1 c2,s) = pEval (c1,s)) /\
-  (pEval (If (Prog p::guards) c1 c2,s) =
-     case pEval (p,s) of
-     | (NONE,s1) => pEval (If guards c1 c2, check_clock s1 s)
+  (pEval (If g n c1 c2,s) =
+     case pEval (g,s) of
+     | (NONE,s1) =>
+         (case get_var n s1 of
+          | NONE => (SOME Error,s1)
+          | SOME x => if x = bool_to_val T then pEval (c1,check_clock s1 s) else
+                      if x = bool_to_val F then pEval (c2,check_clock s1 s) else
+                        (SOME Error,s1))
      | res => res) /\
-  (pEval (If (Assert n t::guards) c1 c2,s) =
-     case get_var n s of
-     | NONE => (SOME Error,s)
-     | SOME x => if x = bool_to_val t then pEval (c1,s) else
-                 if x = bool_to_val (~t) then pEval (c2,s) else
-                   (SOME Error,s)) /\
   (pEval (Call ret dest args,s) =
      if s.clock = 0 then (SOME TimeOut,s) else
        case get_vars args s of
@@ -343,9 +339,7 @@ val pEval_ind = save_thm("pEval_ind",let
     \\ IMP_RES_TAC (GSYM pEval_clock)
     \\ FULL_SIMP_TAC (srw_ss()) [check_clock_thm,GSYM set_var_check_clock,
          push_exc_def])
-  val lemma = prove(
-    ``!t. bool_to_val (~t) <> bool_to_val t``,
-    Cases \\ EVAL_TAC)
+  val lemma = EVAL ``bool_to_val F = bool_to_val T``
   in ind |> SIMP_RULE std_ss [lemma] end);
 
 val pEval_def = save_thm("pEval_def",let
@@ -365,6 +359,7 @@ val pEval_def = save_thm("pEval_def",let
     \\ Cases_on `pEval (c1,push_exc s)`
     \\ Cases_on `pEval (c1,s)`
     \\ Cases_on `pEval (p,s)`
+    \\ Cases_on `pEval (g,s)`
     \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
     \\ IMP_RES_TAC pEval_check_clock \\ FULL_SIMP_TAC std_ss []
     \\ Cases_on `q`
