@@ -94,10 +94,11 @@ val _ = Define `
 /\
 (fo_pat (Fun_pat _) = F)
 /\
-(fo_pat (App_pat op _) =
+(fo_pat (App_pat op es) =
   ((op <> (Op_pat (Op_i2 Opapp))) /\  
 (op <> (Op_pat (Op_i2 Opderef))) /\
-  (! n. op <> El_pat n)))
+  (! n. op <> El_pat n) /\
+  fo_list_pat es))
 /\
 (fo_pat (If_pat _ e2 e3) = (fo_pat e2 /\ fo_pat e3))
 /\

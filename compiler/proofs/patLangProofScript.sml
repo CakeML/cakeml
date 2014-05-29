@@ -502,17 +502,35 @@ val fo_pat_correct = store_thm("fo_pat_correct",
     rpt gen_tac >>
     rw[] >> metis_tac[] )
   >- (
-    qmatch_assum_rename_tac`op ≠ Opapp`[]>>
-    rpt gen_tac >>
-    Cases_on`op`>>Cases_on`v1`>>TRY(Cases_on`l:lit`)>>Cases_on`v2`>>TRY(Cases_on`l:lit`)>>
-    simp[do_app_pat_def]>>rw[]>>fs[do_eq_pat_def]>>rw[]>>fs[]>>
-    qpat_assum`X = Y`mp_tac >> BasicProvers.CASE_TAC >> fs[] >> rw[] >> fs[] >>
-    qpat_assum`X = Y`mp_tac >> BasicProvers.CASE_TAC >> fs[] >> rw[] >> fs[] )
-  >- (
-    qmatch_assum_rename_tac`uop ≠ Opderef_pat`[]>>
-    rpt gen_tac >>
-    Cases_on`uop`>>fs[do_uapp_pat_def,LET_THM,semanticPrimitivesTheory.store_alloc_def]>>
-    TRY BasicProvers.CASE_TAC >> rw[] >> rw[]))
+    qmatch_assum_rename_tac`op ≠ Op_pat(Op_i2 Opapp)`[]>>
+    rpt gen_tac >> strip_tac >>
+    first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+    PairCases_on`s2` >>
+    fs[do_app_pat_def] >>
+    Cases_on`op`>>Cases_on`vs`>>fs[]>>Cases_on`t`>>fs[]
+    >- (BasicProvers.EVERY_CASE_TAC >> fs[LET_THM,UNCURRY] >> rw[])
+    >- (
+      Cases_on`t'`>>fs[]>-(
+        Cases_on`o'`>>fs[]>-(
+          BasicProvers.EVERY_CASE_TAC >> fs[LET_THM,UNCURRY] >> rw[] >>
+          fs[semanticPrimitivesTheory.store_assign_def,do_eq_pat_def,semanticPrimitivesTheory.store_lookup_def] >>
+          rw[] >> BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] ) >>
+        Cases_on`h''`>>fs[]>>Cases_on`l`>>fs[]>>
+        Cases_on`h'`>>fs[]>>Cases_on`l`>>fs[]>>
+        Cases_on`h`>>fs[]>>Cases_on`o'`>>fs[]>>
+        Cases_on`o''`>>fs[]>>Cases_on`t`>>fs[]>>
+        fs[semanticPrimitivesTheory.store_lookup_def] >>
+        BasicProvers.EVERY_CASE_TAC>>fs[LET_THM,UNCURRY,semanticPrimitivesTheory.store_assign_def] >>
+        rw[] >> pop_assum mp_tac >> rw[] >> rw[] ) >>
+      Cases_on`h''`>>fs[]>>Cases_on`l`>>fs[]>>
+      Cases_on`h'`>>fs[]>>Cases_on`l`>>fs[]>>
+      Cases_on`h`>>fs[]>>Cases_on`o'`>>fs[]>>
+      Cases_on`o''`>>fs[]>>Cases_on`t`>>fs[]>>
+      fs[semanticPrimitivesTheory.store_lookup_def] >>
+      BasicProvers.EVERY_CASE_TAC>>fs[LET_THM,UNCURRY,semanticPrimitivesTheory.store_assign_def] >>
+      rw[] >> pop_assum mp_tac >> rw[] >> rw[] )
+    >- (BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] )
+    >- (BasicProvers.EVERY_CASE_TAC>>fs[])))
 
 val do_eq_no_closures_pat = store_thm("do_eq_no_closures_pat",
   ``(∀v1 v2. no_closures_pat v1 ∧ no_closures_pat v2 ⇒ do_eq_pat v1 v2 ≠ Eq_closure) ∧

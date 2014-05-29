@@ -76,10 +76,11 @@ fo_pat (Var_global_pat _) = false
 and
 fo_pat (Fun_pat _) = false
 and
-fo_pat (App_pat op _) =
+fo_pat (App_pat op es) =
   op <> (Op_pat (Op_i2 Opapp)) &&
   op <> (Op_pat (Op_i2 Opderef)) &&
-  (forall n. op <> El_pat n)
+  (forall n. op <> El_pat n) &&
+  fo_list_pat es
 and
 fo_pat (If_pat _ e2 e3) = fo_pat e2 && fo_pat e3
 and
