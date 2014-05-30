@@ -699,51 +699,6 @@ val ground_pat_correct = store_thm("ground_pat_correct",
     simp[Once evaluate_pat_cases] >>
     metis_tac[] )
   >- (
-    rpt(first_x_assum(qspec_then`n`strip_assume_tac)) >> rfs[] >>
-    first_x_assum(qspecl_then[`ck`,`env1`,`env2`,`s`]mp_tac) >>
-    simp[] >> strip_tac >>
-    reverse(rw[Once evaluate_pat_cases])
-    >- simp[Once evaluate_pat_cases]
-    >- (
-      simp[Once evaluate_pat_cases] >>
-      metis_tac[] ) >>
-    TRY (
-      qmatch_assum_rename_tac`do_app_pat env1 s3 Opapp v1 v2 = SOME X`["X"] >>
-      rw[Once evaluate_pat_cases] >>
-      disj2_tac >> disj1_tac >>
-      map_every qexists_tac[`v1`,`v2`] >>
-      fs[do_app_pat_def]>>Cases_on`v1`>>fs[]>>rw[]>>
-      metis_tac[] )
-    >- (
-      qmatch_assum_rename_tac`do_app_pat env1 s3 op v1 v2 = X`["X"] >>
-      simp[Once evaluate_pat_cases] >>
-      disj2_tac >> disj1_tac >>
-      map_every qexists_tac[`v1`,`v2`,`s2`] >>
-      conj_tac >- metis_tac[] >>
-      conj_tac >- metis_tac[] >>
-      Cases_on`op`>>Cases_on`v1`>>TRY(Cases_on`l:lit`)>>fs[do_app_pat_def]>>
-      Cases_on`v2`>>TRY(Cases_on`l:lit`)>>fs[do_app_pat_def,do_eq_pat_def]>>
-      rw[]>>fs[]>>fs[]>>rfs[]>>
-      pop_assum mp_tac >> BasicProvers.CASE_TAC ) >>
-    qmatch_assum_rename_tac`do_app_pat env1 s3 op v1 v2 = X`["X"] >>
-    simp[Once evaluate_pat_cases] >>
-    disj1_tac >>
-    map_every qexists_tac[`v1`,`v2`] >>
-    CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
-    qexists_tac`genv3` >>
-    CONV_TAC SWAP_EXISTS_CONV >>
-    qexists_tac`count'` >>
-    CONV_TAC SWAP_EXISTS_CONV >>
-    qexists_tac`s3` >>
-    CONV_TAC SWAP_EXISTS_CONV >>
-    qexists_tac`s2` >>
-    simp[GSYM PULL_EXISTS] >>
-    conj_tac >- metis_tac[] >>
-    Cases_on`op`>>Cases_on`v1`>>TRY(Cases_on`l:lit`)>>fs[do_app_pat_def]>>
-    Cases_on`v2`>>TRY(Cases_on`l:lit`)>>fs[do_app_pat_def,do_eq_pat_def]>>
-    rw[]>>fs[]>>fs[]>>rfs[]>>rw[]>>fs[]>>
-    BasicProvers.CASE_TAC>>fs[]>>rw[]>>fs[])
-  >- (
     reverse(rw[Once evaluate_pat_cases]) >>
     simp[Once evaluate_pat_cases]
     >- metis_tac[]
@@ -821,10 +776,12 @@ val Let_Els_pat_correct = prove(
   disj1_tac >>
   rw[Once evaluate_pat_cases] >>
   rw[Once evaluate_pat_cases] >>
-  simp[rich_listTheory.EL_APPEND2] >>
-  simp[do_uapp_pat_def,PULL_EXISTS] >>
+  rw[Once evaluate_pat_cases] >>
+  rw[Once evaluate_pat_cases] >>
+  simp[rich_listTheory.EL_APPEND2,rich_listTheory.EL_APPEND1] >>
+  PairCases_on`s`>>simp[do_app_pat_def] >>
   qmatch_assum_rename_tac`SUC k ≤ LENGTH vs`[] >>
-  first_x_assum(qspecl_then[`tag`,`vs`,`env`,`ck`,`s`,`res`,`EL k vs::us`]mp_tac) >>
+  first_x_assum(qspecl_then[`tag`,`vs`,`env`,`ck`,`(s0,s1),s2`,`res`,`EL k vs::us`]mp_tac) >>
   simp[] >>
   discharge_hyps >- (
     fs[arithmeticTheory.ADD1] >>
@@ -832,7 +789,7 @@ val Let_Els_pat_correct = prove(
     fs[TAKE_EL_SNOC] >>
     fs[SNOC_APPEND] >>
     metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC] ) >>
-  PairCases_on`s` >> rw[])
+  rw[])
 val Let_Els_pat_correct = prove(
   ``∀n k e tag vs env ck s res us enve.
     LENGTH us = n ∧ k ≤ LENGTH vs ∧
