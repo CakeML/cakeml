@@ -563,66 +563,49 @@ val pure_pat_correct = store_thm("pure_pat_correct",
   >- (
     first_x_assum(qspecl_then[`ck`,`env`,`s`]strip_assume_tac) >- (
       simp[Once evaluate_pat_cases] >>
-      PairCases_on`s` >> simp[] >>
-      qmatch_abbrev_tac`X ∨ Y` >> qunabbrev_tac`Y` >>
-      simp[Once evaluate_pat_cases] >>
-      Cases_on`u`>>fs[do_uapp_pat_def,Abbr`X`] >>
-      simp[DISJ_ASSOC] >> disj1_tac >>
-      qho_match_abbrev_tac`(∃v1 v2 s1 s2. P v2 s1 s2 ∧ Q v1 v2 s1 s2) ∨ (∃v2. P2 v2 ∧ Q2 v2)` >>
-      `P2 v = P v s1 s2` by ( unabbrev_all_tac >> simp[] ) >>
-      `Q2 v = ¬(∃v1. Q v1 v s1 s2)` by (
-        unabbrev_all_tac >> simp[] >>
-        BasicProvers.CASE_TAC >>
-        BasicProvers.CASE_TAC ) >>
-      metis_tac[] ) >>
+      qmatch_assum_rename_tac`pure_op_pat op`[] >>
+      Cases_on`do_app_pat s op vs` >- (
+        disj2_tac >>
+        simp[Once evaluate_pat_cases] >>
+        ntac 3 disj2_tac >> disj1_tac >>
+        first_assum(match_exists_tac o concl) >> simp[] >>
+        spose_not_then strip_assume_tac >>
+        fs[pure_op_pat_def,pure_op_def] ) >>
+      disj1_tac >>
+      srw_tac[DNF_ss][] >>
+      disj2_tac >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      PairCases_on`x`>>PairCases_on`s` >>
+      imp_res_tac do_app_pat_cases >> fs[do_app_pat_def] >> rw[] >>
+      BasicProvers.EVERY_CASE_TAC >> fs[pure_op_def,LET_THM] >> rw[]) >>
     disj2_tac >>
     simp[Once evaluate_pat_cases] )
   >- (
-    qmatch_assum_rename_tac`pure_op op`[] >>
-    qmatch_assum_rename_tac`pure_pat e2`[] >>
-    qpat_assum`pure_pat e2`mp_tac >>
-    qmatch_assum_rename_tac`pure_pat e1`[] >>
-    strip_tac >>
-    Cases_on`evaluate_pat ck env s (App_pat op e1 e2) (s,Rerr Rtype_error)` >> simp[] >>
-    fs[SIMP_RULE(srw_ss())[](Q.SPECL [`ck`,`env`,`s`,`App_pat op e1 e2`](CONJUNCT1 evaluate_pat_cases))] >>
-    last_x_assum(qspecl_then[`ck`,`env`,`s`]strip_assume_tac) >> fs[] >>
-    first_x_assum(qspecl_then[`v`,`s`]mp_tac)>>simp[]>>strip_tac>>
-    last_x_assum(qspecl_then[`ck`,`env`,`s`]strip_assume_tac) >> fs[] >>
-    qmatch_assum_rename_tac`evaluate_pat ck env s e2 (s,Rval v2)`[]>>
-    PairCases_on`s`>>fs[]>>
-    first_x_assum(qspecl_then[`v`,`v2`,`((s0,s1),s2)`]mp_tac)>>simp[]>>strip_tac>>
-    Cases_on`do_app_pat env s1 op v v2`>>fs[]>>
-    PairCases_on`x`>>
-    first_x_assum(qspecl_then[`v`,`v2`,`x0`,`x2`,`(s0,s1),s2`,`s1`,`s0`,`x1`,`s2`]mp_tac)>>
-    simp[]>>
-    Cases_on`op=Opapp`>>fs[]>>strip_tac>>
-    CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-    map_every qexists_tac[`s2`,`x1`,`s0`,`s1`,`(s0,s1),s2`,`x2`,`x0`,`v2`,`v`]>>
-    simp[]>>
-    Cases_on`op`>>Cases_on`v`>>TRY(Cases_on`l:lit`)>>Cases_on`v2`>>TRY(Cases_on`l:lit`)>>
-    fs[do_app_pat_def] >> rfs[] >> rw[bigStepTheory.dec_count_def] )
-  >- (
-    qmatch_assum_rename_tac`pure_pat e2`[] >>
-    qpat_assum`pure_pat e2`mp_tac >>
-    qmatch_assum_rename_tac`pure_pat e1`[] >>
-    strip_tac >>
-    Cases_on`evaluate_pat ck env s (App_pat Equality e1 e2) (s,Rerr Rtype_error)` >> simp[] >>
-    fs[SIMP_RULE(srw_ss())[](Q.SPECL [`ck`,`env`,`s`,`App_pat op e1 e2`](CONJUNCT1 evaluate_pat_cases))] >>
-    last_x_assum(qspecl_then[`ck`,`env`,`s`]strip_assume_tac) >> fs[] >>
-    first_x_assum(qspecl_then[`v`,`s`]mp_tac)>>simp[]>>strip_tac>>
-    last_x_assum(qspecl_then[`ck`,`env`,`s`]strip_assume_tac) >> fs[] >>
-    qmatch_assum_rename_tac`evaluate_pat ck env s e2 (s,Rval v2)`[]>>
-    PairCases_on`s`>>fs[]>>
-    first_x_assum(qspecl_then[`v`,`v2`,`((s0,s1),s2)`]mp_tac)>>simp[]>>strip_tac>>
-    Cases_on`do_app_pat env s1 Equality v v2`>>fs[]>>
-    PairCases_on`x`>>
-    first_x_assum(qspecl_then[`v`,`v2`,`x0`,`x2`,`(s0,s1),s2`,`s1`,`s0`,`x1`,`s2`]mp_tac)>>
-    simp[]>> strip_tac>>
-    CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-    map_every qexists_tac[`s2`,`x1`,`s0`,`s1`,`(s0,s1),s2`,`x2`,`x0`,`v2`,`v`]>>
-    fs[do_app_pat_def] >>
+    last_x_assum(qspecl_then[`ck`,`env`,`s`](reverse o strip_assume_tac)) >- (
+      disj2_tac >> simp[Once evaluate_pat_cases] ) >>
+    reverse(Cases_on`LENGTH vs = 2`) >- (
+      disj2_tac >> simp[Once evaluate_pat_cases] >>
+      disj2_tac >> disj1_tac >>
+      first_assum(match_exists_tac o concl) >> rw[] >>
+      PairCases_on`s` >>
+      simp[do_app_pat_def] >>
+      Cases_on`vs`>>fs[]>>
+      Cases_on`t`>>fs[]>>
+      Cases_on`t'`>>fs[]>>
+      BasicProvers.EVERY_CASE_TAC>>simp[]) >>
+    simp[Once evaluate_pat_cases] >>
+    simp[Once (CONJUNCT1 evaluate_pat_cases)] >>
+    Cases_on`do_app_pat s (Op_pat (Op_i2 Equality)) vs` >- (
+      disj2_tac >> disj2_tac >> disj1_tac >>
+      first_assum(match_exists_tac o concl) >> rw[] ) >>
+    disj1_tac >>
+    first_assum(match_exists_tac o concl) >> rw[] >>
     imp_res_tac fo_pat_correct >>
-    Cases_on`do_eq_pat v v2`>>fs[]>>rw[bigStepTheory.dec_count_def]>>
+    PairCases_on`s`>>fs[do_app_pat_def] >>
+    Cases_on`vs`>>fs[]>>
+    Cases_on`t`>>fs[]>>
+    Cases_on`t'`>>fs[]>>
+    BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
     imp_res_tac do_eq_no_closures_pat )
   >- (
     qmatch_abbrev_tac`X ∨ Y`>>
