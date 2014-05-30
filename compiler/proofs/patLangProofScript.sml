@@ -5,6 +5,11 @@ val _ = new_theory"patLangProof"
 
 (* TODO: move *)
 
+val OPTREL_SOME = store_thm("OPTREL_SOME",
+  ``(!R x y. OPTREL R (SOME x) y <=> (?z. y = SOME z /\ R x z)) /\
+    (!R x y. OPTREL R x (SOME y) <=> (?z. x = SOME z /\ R z y))``,
+    rw[optionTheory.OPTREL_def])
+
 val exc_rel_def = Define`
   (exc_rel R (Rraise v1) (Rraise v2) = R v1 v2) ∧
   (exc_rel _ Rtype_error Rtype_error = T) ∧
@@ -1359,72 +1364,126 @@ val do_eq_pat_v_pat = store_thm("do_eq_pat_v_pat",
   BasicProvers.CASE_TAC >> rw[] >>
   res_tac >> fs[])
 
+val do_opapp_pat_v_pat = store_thm("do_opapp_pat_v_pat",
+  ``∀vs vs'.
+    LIST_REL v_pat vs vs' ⇒
+    OPTION_REL
+      (λ(env1,e1) (env2,e2).
+        exp_pat (LENGTH env1) (LENGTH env2) (env_pat v_pat env1 env2) e1 e2)
+      (do_opapp_pat vs)
+      (do_opapp_pat vs')``,
+  rw[do_opapp_pat_def] >>
+  BasicProvers.CASE_TAC >> fs[quotient_optionTheory.OPTION_REL_def] >> rw[] >>
+  Cases_on`t`>>fs[quotient_optionTheory.OPTION_REL_def] >> rw[] >>
+  Cases_on`t'`>>fs[quotient_optionTheory.OPTION_REL_def] >> rw[] >>
+  Cases_on`h`>>fs[quotient_optionTheory.OPTION_REL_def] >>
+  last_x_assum mp_tac >>
+  simp[Once v_pat_cases] >> rw[] >>
+  rw[quotient_optionTheory.OPTION_REL_def] >>
+  TRY (imp_res_tac LIST_REL_LENGTH >> fs[] >> NO_TAC) >>
+  rfs[EVERY2_EVERY,EVERY_MEM] >>
+  fs[MEM_ZIP,PULL_EXISTS] >>
+  match_mp_tac (MP_CANON (GEN_ALL exp_pat_mono)) >>
+  simp[build_rec_env_pat_def] >> res_tac >>
+  fsrw_tac[ARITH_ss][arithmeticTheory.ADD1] >>
+  qmatch_assum_abbrev_tac`exp_pat z1 z2 V e1 e2` >>
+  qexists_tac`V` >>
+  simp[Abbr`V`,bindn_pat_thm,bind_pat_thm,env_pat_def] >>
+  TRY (
+    Cases >> Cases >> simp[] >>
+    unabbrev_all_tac >> simp[] >> NO_TAC) >>
+  reverse conj_tac >- metis_tac[arithmeticTheory.ADD_SYM,arithmeticTheory.ADD_ASSOC] >>
+  Cases >> Cases >> rw[env_pat_def] >> fsrw_tac[ARITH_ss][arithmeticTheory.ADD1] >>
+  simp[rich_listTheory.EL_APPEND1,rich_listTheory.EL_APPEND2] >>
+  simp[Once v_pat_cases] >>
+  rfs[EVERY2_EVERY,EVERY_MEM] >>
+  fs[MEM_ZIP,PULL_EXISTS,arithmeticTheory.ADD1,Abbr`z1`,Abbr`z2`] >>
+  simp[])
+
 val do_app_pat_v_pat = store_thm("do_app_pat_v_pat",
-  ``∀env s op v1 v2 env' s' v1' v2'.
-      LIST_REL v_pat s s' ∧
-      v_pat v1 v1' ∧ v_pat v2 v2' ⇒
+  ``∀env s op env' s' vs vs'.
+      LIST_REL v_pat vs vs' ⇒
+      csg_rel v_pat s s' ⇒
       OPTION_REL
-        (λ(env1,s1,e1) (env2,s2,e2).
-          LIST_REL v_pat s1 s2 ∧
-          exp_pat (LENGTH env1) (LENGTH env2) (env_pat v_pat env1 env2) e1 e2)
-        (do_app_pat env s op v1 v2)
-        (do_app_pat env' s' op v1' v2')``,
-  Cases_on`op`>>fs[do_app_pat_def] >- (
-    Cases_on`v2`>>TRY(Cases_on`l:lit`)>>
-    Cases_on`v1`>>TRY(Cases_on`l:lit`)>>
-    fs[optionTheory.OPTREL_def]>>
-    TRY ( simp[Once v_pat_cases,PULL_EXISTS] >> NO_TAC ) >>
-    TRY ( ntac 2 (simp[Once v_pat_cases,PULL_EXISTS]) >> NO_TAC ) >>
-    BasicProvers.CASE_TAC >- ( ntac 2 (simp[Once exp_pat_cases])) >>
-    simp[Once exp_pat_cases] )
-  >- (
-    Cases_on`v2`>>TRY(Cases_on`l:lit`)>>
-    Cases_on`v1`>>TRY(Cases_on`l:lit`)>>
-    fs[optionTheory.OPTREL_def]>>
-    TRY ( simp[Once v_pat_cases,PULL_EXISTS] >> NO_TAC ) >>
-    TRY ( ntac 2 (simp[Once v_pat_cases,PULL_EXISTS]) >> NO_TAC ) >>
-    simp[Once exp_pat_cases] )
-  >- (
+        (λ(s1,res1) (s2,res2).
+          csg_rel v_pat s1 s2 ∧
+          result_rel v_pat v_pat res1 res2)
+        (do_app_pat s op vs)
+        (do_app_pat s' op vs')``,
+  rw[] >>
+  rw[optionTheory.OPTREL_def] >>
+  Cases_on`do_app_pat s op vs`>>rw[]>-(
+    PairCases_on`s` >>
+    PairCases_on`s'` >>
+    fs[csg_rel_def] >> rw[] >>
+    fs[do_app_pat_def] >>
+    Cases_on`vs`>>fs[]>>
+    Cases_on`ys`>>fs[]>-(
+      rw[]>>fs[]>>
+      BasicProvers.EVERY_CASE_TAC>>fs[LET_THM,UNCURRY]>>rw[]>>
+      fs[LIST_REL_EL_EQN,optionTheory.OPTREL_def] >>
+      fs[Once v_pat_cases,semanticPrimitivesTheory.store_lookup_def] >>
+      metis_tac[optionTheory.NOT_SOME_NONE,LIST_REL_LENGTH,sv_rel_def] ) >>
+    rw[] >> fs[] >>
+    Cases_on`xs`>>fs[] >- (
+      Cases_on`op`>>fs[]>>rw[]>>
+      Cases_on`o'`>>fs[]>>
+      Cases_on`o''`>>fs[]
+      >- (
+        Cases_on`x`>>fs[]>>TRY(Cases_on`l:lit`)>>fs[]>>
+        Cases_on`y`>>fs[]>>TRY(Cases_on`l:lit`)>>fs[]>>
+        rw[] >> fs[] >> rw[] >> fs[] >>
+        fs[Once v_pat_cases] )
+      >- (
+        Cases_on`x`>>fs[]>>TRY(Cases_on`l:lit`)>>fs[]>>
+        Cases_on`y`>>fs[]>>TRY(Cases_on`l:lit`)>>fs[]>>
+        rw[] >> fs[] >> rw[] >> fs[] >>
+        fs[Once v_pat_cases] )
+      >- (
+        imp_res_tac do_eq_pat_v_pat >>
+        BasicProvers.EVERY_CASE_TAC>>fs[]>>rw[]>>fs[] )
+      >- (
+        BasicProvers.EVERY_CASE_TAC >>
+        fs[semanticPrimitivesTheory.store_assign_def] >>
+        rw[] >> imp_res_tac LIST_REL_LENGTH >> fs[] )
+      >- (
+        BasicProvers.EVERY_CASE_TAC >>
+        fs[semanticPrimitivesTheory.store_alloc_def,LET_THM] )
+      >- (
+        Cases_on`x`>>fs[]>>TRY(Cases_on`l:lit`)>>fs[]>>
+        Cases_on`y`>>fs[]>>TRY(Cases_on`l:lit`)>>fs[]>>
+        rw[] >> fs[] >> rw[] >>
+        fs[semanticPrimitivesTheory.store_lookup_def] >>
+        rw[] >> fs[] >>
+        imp_res_tac LIST_REL_LENGTH >> fs[] >>
+        BasicProvers.EVERY_CASE_TAC >> fs[LET_THM] >> rw[] >>
+        fs[LIST_REL_EL_EQN] >>
+        BasicProvers.EVERY_CASE_TAC >> fs[] >>
+        metis_tac[sv_rel_def] )) >>
     rw[] >>
-    BasicProvers.CASE_TAC >>
-    imp_res_tac do_eq_pat_v_pat >>
-    fs[optionTheory.OPTREL_def] >>
-    simp[Once exp_pat_cases] >>
-    simp[Once exp_pat_cases] )
-  >- (
-    Cases_on`v1`>>fs[optionTheory.OPTREL_def]>>
-    simp[Once v_pat_cases,PULL_EXISTS] >> rw[] >- (
-      match_mp_tac (MP_CANON (GEN_ALL exp_pat_mono)) >>
-      HINT_EXISTS_TAC >>
-      simp[bind_pat_thm,env_pat_def] >>
-      Cases >> Cases >> simp[] ) >>
-    qmatch_abbrev_tac`X ∨ Y` >>
-    imp_res_tac EVERY2_LENGTH >>
-    qsuff_tac`¬X ⇒ Y`>-metis_tac[]>>
-    unabbrev_all_tac >> simp[] >>
-    strip_tac >> simp[] >>
-    rfs[EVERY2_EVERY,EVERY_MEM] >>
-    fs[MEM_ZIP,PULL_EXISTS] >>
-    match_mp_tac (MP_CANON (GEN_ALL exp_pat_mono)) >>
-    simp[build_rec_env_pat_def] >> res_tac >>
-    fsrw_tac[ARITH_ss][arithmeticTheory.ADD1] >>
-    qmatch_assum_abbrev_tac`exp_pat z1 z2 V e1 e2` >>
-    qexists_tac`V` >>
-    simp[Abbr`V`,bindn_pat_thm] >>
-    reverse conj_tac >- metis_tac[arithmeticTheory.ADD_SYM,arithmeticTheory.ADD_ASSOC] >>
-    Cases >> Cases >> rw[env_pat_def] >> fsrw_tac[ARITH_ss][arithmeticTheory.ADD1] >>
-    simp[rich_listTheory.EL_APPEND1,rich_listTheory.EL_APPEND2] >>
-    simp[Once v_pat_cases] >>
-    rfs[EVERY2_EVERY,EVERY_MEM] >>
-    fs[MEM_ZIP,PULL_EXISTS,arithmeticTheory.ADD1,Abbr`z1`,Abbr`z2`] >>
-    PROVE_TAC[arithmeticTheory.ADD_SYM,arithmeticTheory.ADD_ASSOC] )
-  >- (
-    Cases_on`v1`>>fs[optionTheory.OPTREL_def]>>
-    TRY(simp[Once v_pat_cases,PULL_EXISTS]>>NO_TAC) >>
-    rw[semanticPrimitivesTheory.store_assign_def] >>
-    fs[EVERY2_EVERY,EVERY_MEM] >> simp[] >>
-    rfs[MEM_ZIP,PULL_EXISTS,EL_LUPDATE] >>
-    rw[] >> rw[Once exp_pat_cases]))
+    BasicProvers.EVERY_CASE_TAC>>fs[LET_THM]>>rw[] >>
+    fs[semanticPrimitivesTheory.store_lookup_def,semanticPrimitivesTheory.store_assign_def,LIST_REL_EL_EQN] >>
+    rw[] >> rfs[] >>
+    BasicProvers.EVERY_CASE_TAC >> fs[] >>
+    metis_tac[sv_rel_def] ) >>
+  PairCases_on`s`>>PairCases_on`s'`>>
+  imp_res_tac do_app_pat_cases >>
+  fs[do_app_pat_def,csg_rel_def] >>
+  rw[]>>fs[csg_rel_def]>>
+  fs[UNCURRY]>>rw[csg_rel_def] >>
+  fs[semanticPrimitivesTheory.store_assign_def,semanticPrimitivesTheory.store_lookup_def]>>
+  fs[semanticPrimitivesTheory.store_alloc_def,LET_THM]>>
+  imp_res_tac LIST_REL_LENGTH >> rw[]>>fs[]>>rw[csg_rel_def,sv_rel_def] >>
+  imp_res_tac do_eq_pat_v_pat >>
+  BasicProvers.EVERY_CASE_TAC>>fs[]>>rw[csg_rel_def]>>
+  fs[LIST_REL_EL_EQN,EL_LUPDATE]>>rw[sv_rel_def] >>
+  TRY(fs[Once v_pat_cases]>>NO_TAC)>>
+  fs[optionTheory.OPTREL_def] >>
+  TRY(
+    qmatch_assum_rename_tac`v_pat (Conv_pat t1 v1) (Conv_pat t2 v2)`[] >>
+    rator_x_assum`v_pat`mp_tac >>
+    simp[Once v_pat_cases,LIST_REL_EL_EQN] >> NO_TAC) >>
+  metis_tac[sv_rel_def,optionTheory.NOT_SOME_NONE])
 
 val evaluate_pat_exp_pat = store_thm("evaluate_pat_exp_pat",
   ``(∀ck env1 s1 e1 res1. evaluate_pat ck env1 s1 e1 res1 ⇒
@@ -1552,168 +1611,88 @@ val evaluate_pat_exp_pat = store_thm("evaluate_pat_exp_pat",
     rpt gen_tac >> strip_tac >>
     rw[Once exp_pat_cases] >>
     rw[Once evaluate_pat_cases,PULL_EXISTS] >>
-    qmatch_assum_rename_tac`exp_pat A B (env_pat v_pat env1 env2) e1 e2`["A","B"] >>
-    qmatch_assum_rename_tac`csg_rel v_pat s1 s4`[] >>
-    first_x_assum(qspecl_then[`env2`,`s4`,`e2`]mp_tac) >>
-    rw[EXISTS_PROD,PULL_EXISTS] >>
-    fs[csg_rel_def] >> rw[] >>
-    qmatch_assum_rename_tac`evaluate_pat ck env2 s4 e2 (((c,s),g),Rval w)`[] >>
-    CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
-    map_every qexists_tac[`g`,`s`,`w`] >> rw[] >>
-    Cases_on`uop`>>
-    fs[do_uapp_pat_def,semanticPrimitivesTheory.store_alloc_def,LET_THM] >> rw[] >>
-    imp_res_tac EVERY2_LENGTH >>
-    TRY ( rw[Once v_pat_cases] >> rw[] >> NO_TAC ) >>
-    TRY ( match_mp_tac EVERY2_APPEND_suff >> rw[] >> NO_TAC ) >>
-    TRY (
-      fs[EVERY2_EVERY,EVERY_MEM,MEM_ZIP,PULL_EXISTS,optionTheory.OPTREL_def] >>
-      res_tac >> fs[] >> rw[MEM_ZIP] >> rw[optionTheory.OPTREL_def,EL_LUPDATE] >>
-      rw[Once v_pat_cases] >> NO_TAC) >>
-    qpat_assum`v_pat v w`mp_tac >>
-    Cases_on`v`>>fs[] >>
-    simp[SIMP_RULE(srw_ss())[](Q.SPECL[`Conv_pat X Y`,`z`]v_pat_cases)]>>
-    rw[] >>
-    fs[semanticPrimitivesTheory.store_lookup_def] >>
-    rw[]>>fs[]>>rw[]>>fs[EVERY2_EVERY,EVERY_MEM]>>
-    fs[MEM_ZIP,PULL_EXISTS] >> rfs[MEM_ZIP,PULL_EXISTS] >>
-    rw[Once v_pat_cases] ) >>
-  strip_tac >- (
-    rpt gen_tac >> strip_tac >>
-    rw[Once exp_pat_cases] >>
-    rw[Once evaluate_pat_cases,PULL_EXISTS] >>
-    qmatch_assum_rename_tac`exp_pat A B (env_pat v_pat env1 env2) e1 e2`["A","B"] >>
-    qmatch_assum_rename_tac`csg_rel v_pat s1 s4`[] >>
-    first_x_assum(qspecl_then[`env2`,`s4`,`e2`]mp_tac) >>
-    rw[EXISTS_PROD,PULL_EXISTS] >>
-    fs[csg_rel_def] >> rw[] >>
-    qmatch_assum_rename_tac`evaluate_pat ck env2 s4 e2 (((c,s),g),Rval w)`[] >>
-    map_every qexists_tac[`s`,`g`] >>
-    simp[] >> disj1_tac >>
-    qexists_tac`w` >> simp[] >>
-    fs[EVERY2_EVERY,EVERY_MEM] >>
-    rfs[MEM_ZIP,PULL_EXISTS] >>
-    Cases_on`uop`>>
-    fs[do_uapp_pat_def,LET_THM
-      ,semanticPrimitivesTheory.store_alloc_def
-      ,semanticPrimitivesTheory.store_lookup_def] >>
-    rw[]>>fs[]>>TRY(
-      res_tac >> fs[optionTheory.OPTREL_def] >> fs[] >> NO_TAC) >>
-    qpat_assum`v_pat v w`mp_tac >>
-    Cases_on`v`>>fs[]>>simp[Once v_pat_cases]>>rw[]>>rw[]>>
-    imp_res_tac EVERY2_LENGTH >> simp[] >> fs[] ) >>
-  strip_tac >- (
-    rpt gen_tac >> strip_tac >>
-    rw[Once exp_pat_cases] >>
-    rw[Once evaluate_pat_cases,PULL_EXISTS] >>
-    fs[EXISTS_PROD,PULL_EXISTS] >>
-    metis_tac[] ) >>
-  strip_tac >- (
-    rpt gen_tac >> strip_tac >>
-    rw[Once exp_pat_cases] >>
-    rw[Once evaluate_pat_cases,PULL_EXISTS] >>
-    last_x_assum(qspecl_then[`env2`,`s2`,`e21`]mp_tac) >> rw[] >>
-    qmatch_assum_rename_tac`exp_pat A B (env_pat v_pat env1 env2) e2 e22`["A","B"] >>
-    qmatch_assum_rename_tac`v_pat v1 v11`[] >>
-    qmatch_assum_rename_tac`csg_rel v_pat s11 (FST res11)`[] >>
-    last_x_assum(qspecl_then[`env2`,`FST res11`,`e22`]mp_tac) >>
-    rw[] >>
+    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+    disch_then(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >> fs[] >>
     srw_tac[DNF_ss][] >> disj1_tac >>
-    CONV_TAC(RESORT_EXISTS_CONV(fn ls => tl ls @[hd ls])) >>
-    qexists_tac`v11` >>
-    qmatch_assum_rename_tac`v_pat v2 v22`[] >>
-    qexists_tac`v22` >>
-    qspecl_then[`env1`,`s3`,`op`,`v1`,`v2`]mp_tac do_app_pat_v_pat >>
+    first_assum(split_pair_match o concl) >> fs[] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    imp_res_tac do_opapp_pat_v_pat >>
+    rfs[OPTREL_SOME] >>
+    qmatch_assum_rename_tac`do_opapp_pat v2 = SOME p`[] >>
+    PairCases_on`p`>>fs[GSYM AND_IMP_INTRO] >>
+    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+    fs[csg_rel_def]) >>
+  strip_tac >- (
+    simp[] >>
+    rpt gen_tac >> strip_tac >>
+    simp[Once exp_pat_cases,PULL_EXISTS] >>
+    simp[Once evaluate_pat_cases] >> rw[] >>
+    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+    disch_then(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >> fs[] >>
+    srw_tac[DNF_ss][] >>
+    disj2_tac >> disj1_tac >>
+    first_assum(split_pair_match o concl) >> fs[] >>
+    fs[csg_rel_def] >> rw[] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    imp_res_tac do_opapp_pat_v_pat >>
+    rfs[OPTREL_SOME] >>
+    simp[GSYM EXISTS_PROD] ) >>
+  strip_tac >- (
+    simp[] >>
+    rpt gen_tac >> strip_tac >>
+    simp[Once exp_pat_cases,PULL_EXISTS] >>
+    simp[Once evaluate_pat_cases] >> rw[] >>
+    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+    disch_then(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >> fs[] >>
+    srw_tac[DNF_ss][] >>
+    disj2_tac >> disj1_tac >>
+    first_assum(split_pair_match o concl) >> fs[] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    imp_res_tac do_opapp_pat_v_pat >>
+    rfs[optionTheory.OPTREL_def]) >>
+  strip_tac >- (
+    simp[] >>
+    rpt gen_tac >> strip_tac >>
+    simp[Once exp_pat_cases,PULL_EXISTS] >>
+    simp[Once evaluate_pat_cases] >> rw[] >>
+    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+    disch_then(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >> fs[] >>
+    srw_tac[DNF_ss][] >>
+    disj1_tac >>
+    first_assum(split_pair_match o concl) >> fs[] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    first_assum(mp_tac o MATCH_MP do_app_pat_v_pat) >>
+    disch_then(qspec_then`s2`(fn th => (first_assum (mp_tac o (MATCH_MP th))))) >>
+    disch_then(qspec_then`op`mp_tac) >>
     simp[optionTheory.OPTREL_def] >>
-    disch_then(qspecl_then[`env2`,`SND(FST(FST res2))`,`v11`,`v22`]mp_tac) >>
-    discharge_hyps >- (
-      PairCases_on`res2`>>fs[csg_rel_def] ) >>
-    disch_then(qx_choose_then`res5`strip_assume_tac) >>
-    PairCases_on`res5`>>fs[] >>
-    map_every qexists_tac[`res50`,`res52`,`FST res11`,`SND(FST(FST res2))`,`FST(FST(FST res2))`,`res51`] >>
-    Cases_on`res11`>>fs[] >>
-    qexists_tac`SND (FST res2)` >>
-    PairCases_on`res2`>>fs[] >>
-    Q.PAT_ABBREV_TAC`s50:v_pat count_store_genv = X` >>
-    first_x_assum(qspecl_then[`res50`,`s50`,`res52`]mp_tac) >>
-    simp[] >>
-    discharge_hyps >- ( fs[Abbr`s50`,csg_rel_def] ) >>
-    disch_then(qx_choose_then`res6`strip_assume_tac) >>
-    qexists_tac`res6`>>simp[] >>
-    fs[csg_rel_def] ) >>
+    disch_then(qx_choose_then`p`strip_assume_tac) >> Cases_on`p` >>
+    fs[]) >>
   strip_tac >- (
-    rpt gen_tac >> strip_tac >>
-    rw[Once exp_pat_cases] >>
-    rw[Once evaluate_pat_cases,PULL_EXISTS] >>
-    last_x_assum(qspecl_then[`env2`,`s2`,`e21`]mp_tac) >> rw[] >>
-    qmatch_assum_rename_tac`exp_pat A B (env_pat v_pat env1 env2) e2 e22`["A","B"] >>
-    qmatch_assum_rename_tac`v_pat v1 v11`[] >>
-    qmatch_assum_rename_tac`csg_rel v_pat s11 (FST res11)`[] >>
-    last_x_assum(qspecl_then[`env2`,`FST res11`,`e22`]mp_tac) >>
-    rw[] >>
-    fs[do_app_pat_def] >>
-    Cases_on`v1`>>fs[]>>rw[]>>
-    qexists_tac`FST res2,Rerr Rtimeout_error` >>
     simp[] >>
+    rpt gen_tac >> strip_tac >>
+    simp[Once exp_pat_cases,PULL_EXISTS] >>
+    simp[Once evaluate_pat_cases] >> rw[] >>
+    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+    disch_then(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >> fs[] >>
+    srw_tac[DNF_ss][] >>
     disj2_tac >> disj1_tac >>
-    PairCases_on`res2` >>
-    fs[csg_rel_def] >> rw[] >>
-    qexists_tac`v11` >>
-    qmatch_assum_rename_tac`v_pat v2 v4`[] >>
-    qexists_tac`v4` >>
-    qpat_assum`v_pat X v11`mp_tac >>
-    simp[Once v_pat_cases] >> rw[] >>
-    rw[] >>
-    PairCases_on`res11`>>fs[] >>
-    imp_res_tac EVERY2_LENGTH >>
-    metis_tac[] ) >>
+    first_assum(split_pair_match o concl) >> fs[] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    first_assum(mp_tac o MATCH_MP do_app_pat_v_pat) >>
+    simp[optionTheory.OPTREL_def] >>
+    metis_tac[optionTheory.NOT_SOME_NONE] ) >>
   strip_tac >- (
-    rpt gen_tac >> strip_tac >>
-    rw[Once exp_pat_cases] >>
-    rw[Once evaluate_pat_cases,PULL_EXISTS] >>
-    last_x_assum(qspecl_then[`env2`,`s2`,`e21`]mp_tac) >> rw[] >>
-    qmatch_assum_rename_tac`exp_pat A B (env_pat v_pat env1 env2) e2 e22`["A","B"] >>
-    qmatch_assum_rename_tac`v_pat v1 v11`[] >>
-    qmatch_assum_rename_tac`csg_rel v_pat s11 (FST res11)`[] >>
-    last_x_assum(qspecl_then[`env2`,`FST res11`,`e22`]mp_tac) >>
-    rw[] >>
-    qexists_tac`FST res2,Rerr Rtype_error` >>
     simp[] >>
-    disj2_tac >> disj1_tac >>
-    PairCases_on`res2` >>
-    fs[csg_rel_def] >> rw[] >>
-    qexists_tac`v11` >>
-    qmatch_assum_rename_tac`v_pat v2 v4`[] >>
-    qexists_tac`v4` >>
-    Cases_on`res11`>>fs[]>>
-    qmatch_assum_rename_tac`csg_rel v_pat s11 s12`[] >>
-    qexists_tac`s12` >> rw[] >>
-    Cases_on`op=Equality`>-(
-      fs[do_app_pat_def] >>
-      imp_res_tac do_eq_pat_v_pat >>
-      fs[] >>
-      BasicProvers.CASE_TAC >> fs[] ) >>
-    rpt(qpat_assum`v_pat X Y`mp_tac) >>
-    Cases_on`op`>>TRY(Cases_on`o':opn`)>>
-    Cases_on`v1`>>TRY(Cases_on`l:lit`)>>
-    Cases_on`v2`>>TRY(Cases_on`l:lit`)>>
-    fs[do_app_pat_def]>>
-    simp[Once v_pat_cases]>>
-    simp[Once v_pat_cases]>>
-    rw[]>>rw[]>>fs[semanticPrimitivesTheory.store_assign_def]>>
-    imp_res_tac EVERY2_LENGTH >> fs[] >> rfs[] >>
-    rw[] >> fs[] ) >>
-  strip_tac >- (
     rpt gen_tac >> strip_tac >>
-    rw[Once exp_pat_cases] >>
-    rw[Once evaluate_pat_cases,PULL_EXISTS] >>
-    fs[EXISTS_PROD,PULL_EXISTS] >>
-    metis_tac[] ) >>
-  strip_tac >- (
+    simp[Once exp_pat_cases,PULL_EXISTS] >>
     rpt gen_tac >> strip_tac >>
-    rw[Once exp_pat_cases] >>
-    rw[Once evaluate_pat_cases,PULL_EXISTS] >>
-    fs[EXISTS_PROD,PULL_EXISTS] >>
-    metis_tac[] ) >>
+    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+    disch_then(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >> fs[] >>
+    simp[Once evaluate_pat_cases] >>
+    srw_tac[DNF_ss][] >>
+    rpt disj2_tac >>
+    first_assum(split_pair_match o concl) >> fs[] >>
+    first_assum(match_exists_tac o concl) >> simp[] ) >>
   strip_tac >- (
     rpt gen_tac >> strip_tac >>
     rw[Once exp_pat_cases] >>
@@ -1970,7 +1949,8 @@ val exp_pat_pure = store_thm("exp_pat_pure",
   rw[EVERY_MEM,EVERY2_EVERY,EQ_IMP_THM] >>
   rfs[MEM_ZIP,PULL_EXISTS] >>
   rfs[MEM_EL,PULL_EXISTS] >>
-  fs[] >> imp_res_tac exp_pat_fo >> rw[])
+  fs[] >> imp_res_tac exp_pat_fo >> rw[] >>
+  metis_tac[exp_pat_fo])
 
 val bind_pat_inv = store_thm("bind_pat_inv",
   ``∀V. bind_pat (inv V) = inv (bind_pat V)``,
