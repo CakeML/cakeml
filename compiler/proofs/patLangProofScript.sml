@@ -1101,10 +1101,8 @@ val (exp_pat_rules,exp_pat_ind,exp_pat_cases) = Hol_reln`
   (exp_pat z1 z2 V (Var_global_pat k) (Var_global_pat k)) ∧
   (exp_pat (z1+1) (z2+1) (bind_pat V) e1 e2
    ⇒ exp_pat z1 z2 V (Fun_pat e1) (Fun_pat e2)) ∧
-  (exp_pat z1 z2 V e1 e2
-   ⇒ exp_pat z1 z2 V (Uapp_pat uop e1) (Uapp_pat uop e2)) ∧
-  (exp_pat z1 z2 V e11 e21 ∧ exp_pat z1 z2 V e12 e22
-   ⇒ exp_pat z1 z2 V (App_pat op e11 e12) (App_pat op e21 e22)) ∧
+  (LIST_REL (exp_pat z1 z2 V) es1 es2
+   ⇒ exp_pat z1 z2 V (App_pat op es1) (App_pat op es2)) ∧
   (exp_pat z1 z2 V e11 e21 ∧ exp_pat z1 z2 V e12 e22 ∧ exp_pat z1 z2 V e13 e23
    ⇒ exp_pat z1 z2 V (If_pat e11 e12 e13) (If_pat e21 e22 e23)) ∧
   (exp_pat z1 z2 V e11 e21 ∧ exp_pat (z1+1) (z2+1) (bind_pat V) e12 e22
@@ -1155,8 +1153,10 @@ val exp_pat_mono = store_thm("exp_pat_mono",
     rw[] >> rw[Once exp_pat_cases] >>
     first_x_assum match_mp_tac >>
     match_mp_tac bind_pat_mono >> rw[] ) >>
-  strip_tac >- ( rw[] >> rw[Once exp_pat_cases] ) >>
-  strip_tac >- ( rw[] >> rw[Once exp_pat_cases] ) >>
+  strip_tac >- (
+    rw[] >> rw[Once exp_pat_cases] >>
+    match_mp_tac (MP_CANON (GEN_ALL EVERY2_mono)) >>
+    HINT_EXISTS_TAC >> simp[] ) >>
   strip_tac >- ( rw[] >> rw[Once exp_pat_cases] ) >>
   strip_tac >- (
     rw[] >> rw[Once exp_pat_cases] >>
@@ -1217,8 +1217,10 @@ val exp_pat_trans = prove(
      simp[relationTheory.O_DEF] >> metis_tac[]) >>
    strip_tac >- ( rw[] >> pop_assum mp_tac >> ntac 2 (rw[Once exp_pat_cases]) ) >>
    strip_tac >- ( rw[] >> pop_assum mp_tac >> ntac 2 (rw[Once exp_pat_cases]) ) >>
-   strip_tac >- ( rw[] >> pop_assum mp_tac >> ntac 2 (rw[Once exp_pat_cases]) ) >>
-   strip_tac >- ( rw[] >> pop_assum mp_tac >> ntac 2 (rw[Once exp_pat_cases]) ) >>
+   strip_tac >- (
+     rw[] >> pop_assum mp_tac >> ntac 2 (rw[Once exp_pat_cases]) >>
+     rfs[EVERY2_EVERY,EVERY_MEM] >>
+     fs[MEM_ZIP,PULL_EXISTS,MEM_EL] ) >>
    strip_tac >- ( rw[] >> pop_assum mp_tac >> ntac 2 (rw[Once exp_pat_cases]) ) >>
    strip_tac >- ( rw[] >> pop_assum mp_tac >> ntac 2 (rw[Once exp_pat_cases]) ) >>
    strip_tac >- ( rw[] >> pop_assum mp_tac >> ntac 2 (rw[Once exp_pat_cases]) ) >>
