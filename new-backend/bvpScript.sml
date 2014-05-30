@@ -35,10 +35,10 @@ val _ = Datatype `
   bvp_prog = Skip
            | Move num num
            | Call ((num # num_set) option) (num option) (num list)
-           | Assign num bvl_op (num list)
+           | Assign num bvl_op (num list) (num_set option)
            | Seq bvp_prog bvp_prog
            | If bvp_prog num bvp_prog bvp_prog
-           | MakeSpace num
+           | MakeSpace num num_set
            | Cut num_set
            | Raise num
            | Return num
@@ -81,14 +81,21 @@ val consume_space_def = Define `
   consume_space k s =
     if s.space < k then NONE else SOME (s with space := s.space - k)`;
 
+val op_space_reset_def = Define `
+  (op_space_reset Add = T) /\
+  (op_space_reset Sub = T) /\
+  (op_space_reset _ = F)`;
+
+val op_space_req_def = Define `
+  (op_space_req (Cons k) = (k+1)) /\
+  (op_space_req Ref = 2) /\
+  (op_space_req x = 0)`;
+
 val pEvalOpSpace_def = Define `
   pEvalOpSpace op s =
-    case op of
-    | Cons k => consume_space (k+1) s
-    | Ref => consume_space 2 s
-    | Add => SOME (s with space := 0)
-    | Sub => SOME (s with space := 0)
-    | _ => SOME s`;
+    if op_space_reset op then SOME (s with space := 0)
+    else if op_space_req op = 0 then SOME s
+         else consume_space (op_space_req op) s`;
 
 val pEvalOp_def = Define `
   pEvalOp op vs (s:bvp_state) =
@@ -109,12 +116,6 @@ val isException_def = Define `
 
 val add_space_def = Define `
   add_space s k = s with space := s.space + k`;
-
-val cut_env_def = Define `
-  cut_env name_set env =
-    if domain name_set SUBSET domain env
-    then SOME (inter env name_set)
-    else NONE`
 
 val get_var_def = Define `
   get_var v s = lookup v s.locals`;
@@ -183,23 +184,47 @@ val push_exc_def = Define `
             ; stack := Exc s.handler :: Env env2 :: s.stack
             ; handler := LENGTH s.stack + 1 |> `;
 
+val cut_env_def = Define `
+  cut_env (name_set:num_set) env =
+    if domain name_set SUBSET domain env
+    then SOME (inter env name_set)
+    else NONE`
+
+val cut_state_def = Define `
+  cut_state names s =
+    case cut_env names s.locals of
+    | NONE => NONE
+    | SOME env => SOME (s with locals := env)`;
+
+val cut_state_opt_def = Define `
+  cut_state_opt names s =
+    case names of
+    | NONE => SOME s
+    | SOME names => cut_state names s`;
+
 val pEval_def = tDefine "pEval" `
   (pEval (Skip,s) = (NONE,s:bvp_state)) /\
   (pEval (Move dest src,s) =
      case get_var src s of
      | NONE => (SOME Error,s)
      | SOME v => (NONE, set_var dest v s)) /\
-  (pEval (Assign dest op args,s) =
-     case get_vars args s of
+  (pEval (Assign dest op args names_opt,s) =
+     if op_space_reset op /\ IS_NONE names_opt then (SOME Error,s) else
+     case cut_state_opt names_opt s of
      | NONE => (SOME Error,s)
-     | SOME xs => (case pEvalOp op xs s of
-                   | NONE => (SOME Error,s)
-                   | SOME (v,s) =>
-                       (NONE, set_var dest v s))) /\
+     | SOME s =>
+       (case get_vars args s of
+        | NONE => (SOME Error,s)
+        | SOME xs => (case pEvalOp op xs s of
+                      | NONE => (SOME Error,s)
+                      | SOME (v,s) =>
+                        (NONE, set_var dest v s)))) /\
   (pEval (Tick,s) =
      if s.clock = 0 then (SOME TimeOut,s) else (NONE,dec_clock s)) /\
-  (pEval (MakeSpace k,s) =
-     (NONE,add_space s k)) /\
+  (pEval (MakeSpace k names,s) =
+     case cut_env names s.locals of
+     | NONE => (SOME Error,s)
+     | SOME env => (NONE,add_space s k with locals := env)) /\
   (pEval (Cut names,s) =
      case cut_env names s.locals of
      | NONE => (SOME Error,s)
@@ -292,14 +317,15 @@ val pEval_clock = store_thm("pEval_clock",
   ``!xs s1 vs s2. (pEval (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock``,
   recInduct (fetch "-" "pEval_ind") \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [pEval_def]
-  \\ FULL_SIMP_TAC std_ss [] \\ REPEAT BasicProvers.FULL_CASE_TAC
+  \\ FULL_SIMP_TAC std_ss [cut_state_opt_def] \\ REPEAT BasicProvers.FULL_CASE_TAC
   \\ REPEAT STRIP_TAC \\ SRW_TAC [] [check_clock_def]
   \\ RES_TAC \\ IMP_RES_TAC check_clock_IMP
   \\ FULL_SIMP_TAC std_ss [PULL_FORALL] \\ RES_TAC
   \\ IMP_RES_TAC check_clock_IMP
   \\ IMP_RES_TAC pEvalOp_clock
   \\ FULL_SIMP_TAC (srw_ss()) [dec_clock_def,set_var_def,push_env_def,pop_env_def,
-       add_space_def,jump_exc_def,get_var_def,pop_exc_def,push_exc_def,call_env_def]
+       add_space_def,jump_exc_def,get_var_def,pop_exc_def,push_exc_def,
+       call_env_def,cut_state_def]
   \\ TRY DECIDE_TAC
   \\ Cases_on `pEval (c1,s)` \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
   \\ NTAC 5 (REPEAT (BasicProvers.FULL_CASE_TAC)

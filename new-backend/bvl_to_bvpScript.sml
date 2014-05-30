@@ -10,19 +10,19 @@ infix \\ val op \\ = op THEN;
 
 (* compilation from BVL to BVP *)
 
-val bMakeSpace_def = Define `
-  (bMakeSpace (Cons k) c = Seq (MakeSpace (k+1)) c) /\
-  (bMakeSpace Ref c = Seq (MakeSpace 2) c) /\
-  (bMakeSpace x c = c)`;
-
-val op_make_space_def = Define `
-  (op_make_space (Cons k) = (k+1)) /\
-  (op_make_space Ref = 2) /\
-  (op_make_space x = 0)`;
-
 val list_to_num_set_def = Define `
   (list_to_num_set [] = LN) /\
   (list_to_num_set (n::ns) = insert n () (list_to_num_set ns))`;
+
+val bAssign_def = Define `
+  bAssign n1 op vs live env =
+    if op_space_reset op then
+      Assign n1 op vs (SOME (list_to_num_set (vs++live++env)))
+    else
+      let k = op_space_req op in
+        if k = 0 then Assign n1 op vs NONE
+          else Seq (MakeSpace k (list_to_num_set (vs++live++env)))
+                   (Assign n1 op vs NONE)`;
 
 val bComp_def = tDefine "bComp" `
   (bComp (n:num) (env:num list) tail live [] =
@@ -60,7 +60,7 @@ val bComp_def = tDefine "bComp" `
        (if tail then Seq c3 (Return n2) else c3, [n2], n2+1)) /\
   (bComp n env tail live [Op op xs] =
      let (c1,vs,n1) = bComp n env F live xs in
-     let c2 = Seq c1 (bMakeSpace op (Assign n1 op vs)) in
+     let c2 = Seq c1 (bAssign n1 op vs live env) in
        (if tail then Seq c2 (Return n1) else c2, [n1], n1+1)) /\
   (bComp n env tail live [Tick x1] =
      let (c1,v1,n1) = bComp n env tail live [x1] in
@@ -262,38 +262,6 @@ val jump_exc_IMP_jump_exc = prove(
   Cases_on `jump_exc t1` \\ fs [] \\ IMP_RES_TAC jump_exc_IMP
   \\ fs [jump_exc_def]);
 
-val s_space_ID = prove(
-  ``!s. (s with space := s.space) = s``,
-  Cases \\ SIMP_TAC std_ss (TypeBase.updates_of ``:bvp_state`` @
-                            TypeBase.accessors_of ``:bvp_state``));
-
-val op_space_reset_def = Define `
-  (op_space_reset Add = T) /\
-  (op_space_reset Sub = T) /\
-  (op_space_reset _ = F)`;
-
-val pEvalOpSpace_thm = prove(
-  ``!op. pEvalOpSpace op (add_space s (op_make_space op)) =
-         SOME (s with space := if op_space_reset op then 0 else s.space)``,
-  Cases \\ fs [pEvalOpSpace_def,op_make_space_def,s_space_ID]
-  \\ fs [consume_space_def,add_space_def,s_space_ID,op_space_reset_def]
-  \\ DECIDE_TAC);
-
-val bMakeSpace_thm = prove(
-  ``!op x s. pEval (bMakeSpace op x, s) =
-             pEval (x, add_space s (op_make_space op))``,
-  Cases \\ fs [bMakeSpace_def,op_make_space_def,pEval_def,LET_DEF,
-    add_space_def,s_space_ID]);
-
-val get_vars_add_space = prove(
-  ``!vs s x. get_vars vs (add_space s x) = get_vars vs s``,
-  Induct \\ fs [get_vars_def,get_var_def,add_space_def]);
-
-val bEvalOp_code = prove(
-  ``!op s1 s2. (bEvalOp op a s1 = SOME (x0,s2)) ==> (s2.code = s1.code)``,
-  Cases \\ REPEAT GEN_TAC \\ EVAL_TAC
-  \\ REPEAT (BasicProvers.FULL_CASE_TAC) \\ fs []);
-
 val bvl_state_explode = prove(
   ``!s1 (s2:bvl_state).
       s1 = s2 <=>
@@ -322,6 +290,20 @@ val bvp_state_explode = prove(
                         TypeBase.accessors_of ``:bvp_state``)
   \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC \\ fs []);
 
+val s_space_ID = prove(
+  ``!s. (s with space := s.space) = s``,
+  fs [bvp_state_explode]);
+
+val get_vars_add_space = prove(
+  ``!vs s x. (get_vars vs (add_space s x) = get_vars vs s) /\
+             (get_vars vs (add_space s x with locals := y) = get_vars vs (s with locals := y))``,
+  Induct \\ fs [get_vars_def,get_var_def,add_space_def]);
+
+val bEvalOp_code = prove(
+  ``!op s1 s2. (bEvalOp op a s1 = SOME (x0,s2)) ==> (s2.code = s1.code)``,
+  Cases \\ REPEAT GEN_TAC \\ EVAL_TAC
+  \\ REPEAT (BasicProvers.FULL_CASE_TAC) \\ fs []);
+
 val bEvalOp_bvp_to_bvl = prove(
   ``(bEvalOp op a s1 = SOME (x0,s2)) /\ state_rel s1 t1 ==>
     (bEvalOp op a (bvp_to_bvl t1) = SOME (x0,s2 with code := LN))``,
@@ -330,10 +312,6 @@ val bEvalOp_bvp_to_bvl = prove(
   \\ REPEAT BasicProvers.CASE_TAC \\ fs []
   \\ CCONTR_TAC \\ fs [] \\ SRW_TAC [] []
   \\ fs [bvl_state_explode] \\ fs []);
-
-val bvp_to_bvl_space = prove(
-  ``!t. bvp_to_bvl (t with space := x) = bvp_to_bvl t``,
-  fs [bvp_to_bvl_def]);
 
 val lookup_list_to_num_set = prove(
   ``!xs. lookup x (list_to_num_set xs) = if MEM x xs then SOME () else NONE``,
@@ -355,6 +333,11 @@ val LIST_REL_MEM = prove(
   ``!xs ys P. LIST_REL P xs ys <=>
               LIST_REL (\x y. MEM x xs /\ MEM y ys ==> P x y) xs ys``,
   fs [LIST_REL_EL_EQN] \\ METIS_TAC [MEM_EL]);
+
+val consume_space_add_space = prove(
+  ``consume_space k (add_space t k with locals := env1) =
+    SOME (t with locals := env1)``,
+  fs [consume_space_def,add_space_def,bvp_state_explode] \\ DECIDE_TAC);
 
 val bComp_correct = prove(
   ``!xs env s1 res s2 t1 n corr tail live.
@@ -802,34 +785,130 @@ val bComp_correct = prove(
     \\ FULL_SIMP_TAC (srw_ss()) [isResult_def,isException_def]
     \\ Cases_on `pres`
     \\ FULL_SIMP_TAC (srw_ss()) [isResult_def,isException_def]
-    \\ SRW_TAC [] [pEval_def,bMakeSpace_thm]
-    \\ IMP_RES_TAC get_vars_thm
-    \\ fs [pEvalOp_def,pEvalOpSpace_thm,get_vars_add_space,bvp_to_bvl_space]
+    THEN1 SRW_TAC [] [pEval_def] THEN1 SRW_TAC [] [pEval_def]
     \\ Cases_on `bEvalOp op a r` \\ fs []
-    \\ PairCases_on `x` \\ fs [] \\ SRW_TAC [] []
-    \\ `bEvalOp op a (bvp_to_bvl t2) = SOME (x0,s2 with code := LN)` by
-         (IMP_RES_TAC bEvalOp_bvp_to_bvl \\ NO_TAC)
+    \\ PairCases_on `x` \\ fs [] \\ REV_FULL_SIMP_TAC std_ss []
+    \\ (fn (hs,goal) => (REVERSE (`let tail = F in ^goal` by ALL_TAC))
+           (hs,goal)) THEN1
+     (fs [LET_DEF] \\ REVERSE (Cases_on `tail`) THEN1 METIS_TAC []
+      \\ fs [pEval_def,LET_DEF] \\ REV_FULL_SIMP_TAC std_ss []
+      \\ Cases_on `pres` \\ fs [] \\ Cases_on `res` \\ fs []
+      \\ fs [var_corr_def,isResult_def,isException_def,call_env_def,
+             res_list_def,state_rel_def])
+    \\ `domain (list_to_num_set (vs ++ live ++ corr)) SUBSET
+        domain t2.locals` by
+     (fs [SUBSET_DEF,domain_lookup,lookup_list_to_num_set,EVERY_MEM]
+      \\ REPEAT STRIP_TAC \\ RES_TAC
+      \\ fs [var_corr_def,get_var_def]
+      \\ IMP_RES_TAC MEM_LIST_REL \\ fs []
+      \\ `lookup x t1.locals <> NONE` by METIS_TAC []
+      \\ Cases_on `lookup x t1.locals` \\ fs [] \\ METIS_TAC []) \\ fs []
+    \\ Q.ABBREV_TAC `env1 = inter t2.locals (list_to_num_set (vs++live++corr))`
+    \\ `var_corr a vs (t2 with locals := env1)` by
+     (UNABBREV_ALL_TAC
+      \\ fs [var_corr_def,push_exc_def,get_var_def,state_rel_def,
+             lookup_inter_EQ,lookup_list_to_num_set]
+      \\ Q.PAT_ASSUM `LIST_REL rrr xs1 xs2` MP_TAC
+      \\ ONCE_REWRITE_TAC [LIST_REL_MEM] \\ fs [] \\ NO_TAC)
+    \\ IMP_RES_TAC get_vars_thm
+    \\ `state_rel r (t2 with <|locals := env1; space := 0|>)` by
+          (fs [state_rel_def] \\ NO_TAC)
+    \\ fs [LET_DEF,pEval_def,bAssign_def]
+    \\ Cases_on `op_space_reset op`
+    \\ fs [pEval_def,cut_state_opt_def,cut_state_def,cut_env_def]
+    \\ fs [pEvalOp_def,pEvalOpSpace_def]
+    \\ IMP_RES_TAC bEvalOp_bvp_to_bvl \\ fs []
     \\ fs [get_var_def,set_var_def,res_list_def,isResult_def]
     \\ fs [call_env_def,bvl_to_bvp_def,isException_def]
     \\ fs [state_rel_def] \\ IMP_RES_TAC bEvalOp_code \\ fs []
     \\ IMP_RES_TAC bComp_LESS_EQ \\ fs [lookup_insert]
-    \\ (REPEAT STRIP_TAC THEN1 DECIDE_TAC
-        THEN1 (SRW_TAC [] [] THEN1 DECIDE_TAC
-           \\ FIRST_X_ASSUM MATCH_MP_TAC \\ DECIDE_TAC)
-        THEN1 (fs [LIST_REL_EL_EQN,var_corr_def,get_var_def,lookup_insert]
-          \\ REPEAT STRIP_TAC
-          \\ Q.MATCH_ASSUM_RENAME_TAC `l < LENGTH env` []
-          \\ `EL l corr <> n1` by ALL_TAC \\ FULL_SIMP_TAC std_ss []
-          \\ `n1 <= n1 /\ l < LENGTH corr` by DECIDE_TAC
-          \\ `lookup n1 t2.locals = NONE` by METIS_TAC []
-          \\ RES_TAC \\ CCONTR_TAC \\ FULL_SIMP_TAC std_ss [])
-        THEN1 (Cases_on `k = n1` \\ fs [] \\ RES_TAC \\ DECIDE_TAC)
-        THEN1 (RES_TAC \\ fs [] \\ `k <> n1` by ALL_TAC \\ fs []
-           \\ RES_TAC \\ DECIDE_TAC)
-        THEN1 (POP_ASSUM MP_TAC \\ Cases_on `jump_exc t1` \\ fs []
-           \\ IMP_RES_TAC jump_exc_IMP
-           \\ POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC \\ fs [jump_exc_def])
-        \\ fs [var_corr_def,get_var_def]))
+    THEN1
+     (REPEAT STRIP_TAC THEN1 DECIDE_TAC
+      THEN1 (SRW_TAC [] [] THEN1 DECIDE_TAC
+         \\ UNABBREV_ALL_TAC \\ fs [lookup_inter_EQ]
+         \\ `n1 <= k` by DECIDE_TAC \\ fs [])
+      THEN1 (fs [LIST_REL_EL_EQN,var_corr_def,get_var_def,lookup_insert]
+        \\ REPEAT STRIP_TAC
+        \\ Q.MATCH_ASSUM_RENAME_TAC `l < LENGTH env` []
+        \\ `EL l corr <> n1` by ALL_TAC \\ FULL_SIMP_TAC std_ss []
+        \\ `n1 <= n1 /\ l < LENGTH corr` by DECIDE_TAC
+        \\ `lookup n1 t2.locals = NONE` by METIS_TAC []
+        \\ RES_TAC \\ CCONTR_TAC \\ fs [] \\ UNABBREV_ALL_TAC
+        \\ fs [lookup_insert,lookup_inter_EQ,lookup_list_to_num_set]
+        \\ fs [] \\ METIS_TAC [MEM_EL])
+      THEN1 (Cases_on `k = n1` \\ fs [] \\ UNABBREV_ALL_TAC
+        \\ fs [lookup_insert,lookup_inter_EQ,lookup_list_to_num_set]
+        \\ RES_TAC \\ DECIDE_TAC)
+      THEN1
+        (`k <> n1` by (REPEAT STRIP_TAC \\ RES_TAC \\ fs [] \\ NO_TAC)
+         \\ fs [] \\ UNABBREV_ALL_TAC
+         \\ fs [lookup_insert,lookup_inter_EQ,lookup_list_to_num_set]
+         \\ CCONTR_TAC \\ fs [])
+      THEN1 (POP_ASSUM MP_TAC \\ Cases_on `jump_exc t1` \\ fs []
+         \\ IMP_RES_TAC jump_exc_IMP
+         \\ POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC \\ fs [jump_exc_def])
+      \\ fs [var_corr_def,get_var_def])
+    \\ Cases_on `op_space_req op = 0` \\ fs [pEval_def]
+    \\ fs [pEval_def,cut_state_opt_def,cut_state_def,cut_env_def]
+    \\ fs [pEvalOp_def,pEvalOpSpace_def,LET_DEF]
+    \\ IMP_RES_TAC bEvalOp_bvp_to_bvl \\ fs []
+    \\ fs [get_var_def,set_var_def,res_list_def,isResult_def]
+    \\ fs [call_env_def,bvl_to_bvp_def,isException_def]
+    \\ fs [state_rel_def] \\ IMP_RES_TAC bEvalOp_code \\ fs []
+    \\ IMP_RES_TAC bComp_LESS_EQ \\ fs [lookup_insert]
+    THEN1
+     (REPEAT STRIP_TAC THEN1 DECIDE_TAC
+      THEN1 (SRW_TAC [] [] THEN1 DECIDE_TAC
+         \\ UNABBREV_ALL_TAC \\ fs [lookup_inter_EQ]
+         \\ `n1 <= k` by DECIDE_TAC \\ fs [])
+      THEN1 (fs [LIST_REL_EL_EQN,var_corr_def,get_var_def,lookup_insert]
+        \\ REPEAT STRIP_TAC
+        \\ Q.MATCH_ASSUM_RENAME_TAC `l < LENGTH env` []
+        \\ `EL l corr <> n1` by ALL_TAC \\ FULL_SIMP_TAC std_ss []
+        \\ `n1 <= n1 /\ l < LENGTH corr` by DECIDE_TAC
+        \\ `lookup n1 t2.locals = NONE` by METIS_TAC []
+        \\ RES_TAC \\ CCONTR_TAC \\ fs [] \\ UNABBREV_ALL_TAC
+        \\ fs [lookup_insert,lookup_inter_EQ,lookup_list_to_num_set]
+        \\ fs [] \\ METIS_TAC [MEM_EL])
+      THEN1 (Cases_on `k = n1` \\ fs [] \\ UNABBREV_ALL_TAC
+        \\ fs [lookup_insert,lookup_inter_EQ,lookup_list_to_num_set]
+        \\ RES_TAC \\ DECIDE_TAC)
+      THEN1
+        (`k <> n1` by (REPEAT STRIP_TAC \\ RES_TAC \\ fs [] \\ NO_TAC)
+         \\ fs [] \\ UNABBREV_ALL_TAC
+         \\ fs [lookup_insert,lookup_inter_EQ,lookup_list_to_num_set]
+         \\ CCONTR_TAC \\ fs [])
+      THEN1 (POP_ASSUM MP_TAC \\ Cases_on `jump_exc t1` \\ fs []
+         \\ IMP_RES_TAC jump_exc_IMP
+         \\ POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC \\ fs [jump_exc_def])
+      \\ fs [var_corr_def,get_var_def])
+    \\ fs [get_vars_add_space,consume_space_add_space,lookup_insert]
+    THEN1
+     (REPEAT STRIP_TAC THEN1 DECIDE_TAC
+      THEN1 (SRW_TAC [] [] THEN1 DECIDE_TAC
+         \\ UNABBREV_ALL_TAC \\ fs [lookup_inter_EQ]
+         \\ `n1 <= k` by DECIDE_TAC \\ fs [])
+      THEN1 (fs [LIST_REL_EL_EQN,var_corr_def,get_var_def,lookup_insert]
+        \\ REPEAT STRIP_TAC
+        \\ Q.MATCH_ASSUM_RENAME_TAC `l < LENGTH env` []
+        \\ `EL l corr <> n1` by ALL_TAC \\ FULL_SIMP_TAC std_ss []
+        \\ `n1 <= n1 /\ l < LENGTH corr` by DECIDE_TAC
+        \\ `lookup n1 t2.locals = NONE` by METIS_TAC []
+        \\ RES_TAC \\ CCONTR_TAC \\ fs [] \\ UNABBREV_ALL_TAC
+        \\ fs [lookup_insert,lookup_inter_EQ,lookup_list_to_num_set]
+        \\ fs [] \\ METIS_TAC [MEM_EL])
+      THEN1 (Cases_on `k = n1` \\ fs [] \\ UNABBREV_ALL_TAC
+        \\ fs [lookup_insert,lookup_inter_EQ,lookup_list_to_num_set]
+        \\ RES_TAC \\ DECIDE_TAC)
+      THEN1
+        (`k <> n1` by (REPEAT STRIP_TAC \\ RES_TAC \\ fs [] \\ NO_TAC)
+         \\ fs [] \\ UNABBREV_ALL_TAC
+         \\ fs [lookup_insert,lookup_inter_EQ,lookup_list_to_num_set]
+         \\ CCONTR_TAC \\ fs [])
+      THEN1 (POP_ASSUM MP_TAC \\ Cases_on `jump_exc t1` \\ fs []
+         \\ IMP_RES_TAC jump_exc_IMP
+         \\ POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC \\ fs [jump_exc_def])
+      \\ fs [var_corr_def,get_var_def]))
   THEN1 (* Tick *)
    (`?c1 v1 n1. bComp n corr tail live [x] = (c1,v1,n1)` by METIS_TAC [PAIR]
     \\ FULL_SIMP_TAC std_ss [LET_DEF,pEval_def]
