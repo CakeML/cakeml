@@ -924,9 +924,9 @@ val row_to_pat_correct = prove(
         (FILTER (IS_SOME o FST) (ZIP(bvs,menv4)) =
          MAP (λ(x,v). (SOME x, v_to_pat v)) menv) ∧
         ∀ck env count genv e res.
-          evaluate_pat ck (menv4++env) ((count, MAP v_to_pat s),genv) e res ∧
+          evaluate_pat ck (menv4++env) ((count, MAP sv_to_pat s),genv) e res ∧
           SND res ≠ Rerr Rtype_error ⇒
-          evaluate_pat ck (v_to_pat v::env) ((count, MAP v_to_pat s),genv) (f e) res) ∧
+          evaluate_pat ck (v_to_pat v::env) ((count, MAP sv_to_pat s),genv) (f e) res) ∧
     (∀bvsk0 nk k ps tag s qs vs menvk menv4k menv bvsk bvs0 bvs1 n1 f.
       (pmatch_list_exh s qs (TAKE k vs) [] = Match menvk) ∧
       (pmatch_list_exh s ps (DROP k vs) [] = Match menv) ∧
@@ -942,9 +942,9 @@ val row_to_pat_correct = prove(
         (FILTER (IS_SOME o FST) (ZIP(bvs,menv4)) =
          MAP (λ(x,v). (SOME x, v_to_pat v)) menv) ∧
         ∀ck env count genv e res.
-          evaluate_pat ck (menv4++menv4k++(Conv_pat tag (MAP v_to_pat vs))::env) ((count, MAP v_to_pat s),genv) e res ∧
+          evaluate_pat ck (menv4++menv4k++(Conv_pat tag (MAP v_to_pat vs))::env) ((count, MAP sv_to_pat s),genv) e res ∧
           SND res ≠ Rerr Rtype_error ⇒
-          evaluate_pat ck (menv4k++(Conv_pat tag (MAP v_to_pat vs))::env) ((count, MAP v_to_pat s),genv) (f e) res)``,
+          evaluate_pat ck (menv4k++(Conv_pat tag (MAP v_to_pat vs))::env) ((count, MAP sv_to_pat s),genv) (f e) res)``,
   ho_match_mp_tac row_to_pat_ind >>
   strip_tac >- (
     rw[pmatch_exh_def,row_to_pat_def,libTheory.bind_def] >> rw[] >>
@@ -972,6 +972,7 @@ val row_to_pat_correct = prove(
     rw[row_to_pat_def] >>
     Cases_on`v`>>fs[pmatch_exh_def] >>
     qpat_assum`X = Match menv`mp_tac >> BasicProvers.CASE_TAC >>
+    BasicProvers.CASE_TAC >>
     rw[] >> fs[UNCURRY,LET_THM] >> rw[] >>
     qmatch_assum_rename_tac`pmatch_exh s p v [] = Match menv`[] >>
     first_x_assum(qspecl_then[`s`,`v`]mp_tac) >> simp[] >>
@@ -982,12 +983,16 @@ val row_to_pat_correct = prove(
     qexists_tac`menv4++[w]` >>
     simp[GSYM rich_listTheory.ZIP_APPEND,rich_listTheory.FILTER_APPEND] >>
     REWRITE_TAC[Once (GSYM APPEND_ASSOC)] >>
-    rpt strip_tac >> res_tac >> fs[] >>
+    rpt strip_tac >>
+    first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
+    rfs[] >>
     match_mp_tac sLet_pat_correct >>
     simp[Once evaluate_pat_cases] >>
     simp[Once evaluate_pat_cases] >>
-    simp[do_uapp_pat_def,PULL_EXISTS] >>
-    simp[Once evaluate_pat_cases,Abbr`w`] >>
+    simp[Once evaluate_pat_cases] >>
+    simp[Once evaluate_pat_cases] >>
+    simp[Once evaluate_pat_cases] >>
+    simp[do_app_pat_def] >> simp[Abbr`w`] >>
     fs[semanticPrimitivesTheory.store_lookup_def] >>
     simp[EL_MAP] ) >>
   strip_tac >- rw[] >>
@@ -1041,9 +1046,11 @@ val row_to_pat_correct = prove(
   match_mp_tac sLet_pat_correct >>
   simp[Once evaluate_pat_cases] >>
   simp[Once evaluate_pat_cases] >>
-  simp[do_uapp_pat_def] >>
   simp[Once evaluate_pat_cases] >>
-  simp[rich_listTheory.EL_APPEND2] >>
+  simp[Once evaluate_pat_cases] >>
+  simp[Once evaluate_pat_cases] >>
+  simp[do_app_pat_def] >>
+  simp[rich_listTheory.EL_APPEND2,rich_listTheory.EL_APPEND1] >>
   simp[EL_MAP])
 
 val bind_pat_def = Define`
