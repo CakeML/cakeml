@@ -115,7 +115,7 @@ val build_rec_env_exh_MAP = store_thm("build_rec_env_exh_MAP",
 
 val map_sv_def = Define`
   map_sv f (Refv v) = Refv (f v) ∧
-  map_sv _ w = w`
+  map_sv _ (W8array w) = (W8array w)`
 
 val map_count_store_genv_def = Define`
   map_count_store_genv f (csg:'a count_store_genv) =
@@ -823,33 +823,34 @@ val pat_to_pat_correct = prove(
   >- (
     (Cases_on`v`>>fs[pmatch_exh_def]>>pop_assum mp_tac >> rw[]) >>
     rw[Once evaluate_pat_cases] >>
-    rw[do_app_pat_def] >>
     rw[Once evaluate_pat_cases] >>
     rw[Once evaluate_pat_cases] >>
-    rw[do_eq_pat_def] >>
     rw[Once evaluate_pat_cases] >>
-    rw[bigStepTheory.dec_count_def,map_count_store_genv_def] )
+    rw[Once evaluate_pat_cases] >>
+    rw[map_count_store_genv_def,do_app_pat_def,EXISTS_PROD] >>
+    rw[do_eq_pat_def] )
   >- (
     Cases_on`v`>>fs[pmatch_exh_def]>>pop_assum mp_tac >> rw[LENGTH_NIL_SYM] >>
     rw[Once evaluate_pat_cases] >>
-    rw[do_app_pat_def] >>
     rw[Once evaluate_pat_cases] >>
     rw[Once evaluate_pat_cases] >>
     rw[Once evaluate_pat_cases] >>
+    rw[Once evaluate_pat_cases] >>
+    rw[Once evaluate_pat_cases] >>
+    rw[Once evaluate_pat_cases] >>
+    rw[do_app_pat_def,map_count_store_genv_def] >>
     rw[do_eq_pat_def] >>
-    rw[Once evaluate_pat_cases] >>
-    rw[bigStepTheory.dec_count_def,map_count_store_genv_def] >>
     simp[pmatch_exh_def])
   >- (
     match_mp_tac sIf_pat_correct >>
     simp[Once evaluate_pat_cases] >>
     simp[Once evaluate_pat_cases] >>
     simp[Once evaluate_pat_cases] >>
-    simp[do_uapp_pat_def] >>
+    simp[Once evaluate_pat_cases] >>
+    simp[Once evaluate_pat_cases] >>
+    simp[do_app_pat_def,map_count_store_genv_def] >>
     Cases_on`v`>>fs[pmatch_exh_def]>>pop_assum mp_tac >> reverse(rw[]) >- (
-      simp[PULL_EXISTS,do_if_pat_def] >>
-      fs[map_count_store_genv_def] ) >>
-    rw[PULL_EXISTS] >>
+      simp[PULL_EXISTS,do_if_pat_def] ) >>
     rw[do_if_pat_def] >>
     fs[map_count_store_genv_def] >>
     match_mp_tac Let_Els_pat_correct >>
@@ -860,11 +861,14 @@ val pat_to_pat_correct = prove(
     rw[Once evaluate_pat_cases] >>
     rw[Once evaluate_pat_cases] >>
     rw[Once evaluate_pat_cases] >>
-    rw[do_uapp_pat_def,PULL_EXISTS] >>
+    rw[Once evaluate_pat_cases] >>
+    rw[Once evaluate_pat_cases] >>
+    rw[do_app_pat_def,map_count_store_genv_def] >>
     Cases_on`v`>>fs[pmatch_exh_def]>>pop_assum mp_tac >> rw[] >>
     fs[map_count_store_genv_def] >>
     fs[semanticPrimitivesTheory.store_lookup_def] >>
-    rw[] >> fs[] >> simp[EL_MAP])
+    rw[] >> fs[] >> simp[EL_MAP] >>
+    Cases_on`EL n s`>>fs[map_sv_def])
   >- (Cases_on`DROP (LENGTH qs) vs`>>fs[pmatch_exh_def]) >>
   match_mp_tac sIf_pat_correct >> simp[] >>
   rw[Once evaluate_pat_cases] >>
