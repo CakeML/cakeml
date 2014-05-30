@@ -35,8 +35,8 @@ val pSimp_def = Define `
   (pSimp (Return n) c = Return n) /\
   (pSimp (Raise n) c = Raise n) /\
   (pSimp (Seq c1 c2) c = pSimp c1 (pSimp c2 c)) /\
-  (pSimp (Handle c1 n1 n2 c2) c =
-     pSeq (Handle (pSimp c1 Skip) n1 n2 (pSimp c2 Skip)) c) /\
+  (pSimp (Handle ns1 c1 n1 n2 ns2 c2) c =
+     pSeq (Handle ns1 (pSimp c1 Skip) n1 n2 ns2 (pSimp c2 Skip)) c) /\
   (pSimp (If c1 n c2 c3) c =
      pSeq (If (pSimp c1 Skip) n (pSimp c2 Skip) (pSimp c3 Skip)) c) /\
   (pSimp c1 c2 = pSeq c1 c2)`;
