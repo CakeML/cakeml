@@ -1013,8 +1013,22 @@ val Cevaluate_store_SUBSET = store_thm("Cevaluate_store_SUBSET",
     Cases_on`uop`>>fs[]>>srw_tac[ARITH_ss][] >>
     Cases_on`v`>>fs[] >>
     BasicProvers.EVERY_CASE_TAC >>
-    fsrw_tac[ARITH_ss][]) >>
-  pop_assum mp_tac >>Cases_on`v1`>>rw[])
+    fsrw_tac[ARITH_ss][])
+  >- (
+    PairCases_on`s'`>>
+    Cases_on`p2`>>fs[LET_THM,UNCURRY] >>
+    qmatch_rename_tac`X ≤ LENGTH (FST (CevalPrim2s s0 op v1 v2))`["X"] >>
+    Cases_on`op`>>Cases_on`v2`>>fs[]>>Cases_on`l`>>fs[]>>
+    Cases_on`v1`>>fs[]>>Cases_on`l`>>fs[]>>
+    rw[] >> simp[] ) >>
+  qmatch_assum_rename_tac`X = CevalUpd b s0 v1 v2 v3`["X"] >>
+  Cases_on`b`>>Cases_on`v2`>>fs[]>>
+  Cases_on`l`>>fs[]>>
+  Cases_on`v1`>>fs[] >- (
+    Cases_on`v3`>>fs[]>>
+    Cases_on`l`>>fs[]>>
+    BasicProvers.EVERY_CASE_TAC>>fs[] ) >>
+  BasicProvers.EVERY_CASE_TAC>>fs[] )
 
 (*
 val mvars_def = tDefine"mvars"`
@@ -1281,11 +1295,19 @@ val syneq_do_Ceq = Q.prove (
  fs[EVERY2_EVERY] >> rfs[]);
 
 val CevalPrim2_syneq = store_thm("CevalPrim2_syneq",
-  ``∀p2 v11 v21 v12 v22.
-    syneq v11 v12 ∧ syneq v21 v22 ⇒
-    result_rel syneq syneq (CevalPrim2 p2 v11 v21) (CevalPrim2 p2 v12 v22)``,
-  Cases >> simp[] >>
-  Cases >> Cases >>
+  ``∀s1 s2 p2 v11 v21 v12 v22.
+    csg_rel syneq s1 s2 ∧ syneq v11 v12 ∧ syneq v21 v22 ⇒
+    csg_rel syneq (FST (CevalPrim2 s1 p2 v11 v21)) (FST (CevalPrim2 s2 p2 v12 v22)) ∧
+    result_rel syneq syneq (SND (CevalPrim2 s1 p2 v11 v21)) (SND (CevalPrim2 s2 p2 v12 v22))``,
+  ntac 2 gen_tac >>
+  PairCases_on`s1` >> PairCases_on`s2` >>
+  gen_tac >>
+  `∃op. p2 = P2p op ∨ ∃op. p2 = P2s op` by (Cases_on`p2`>>simp[]) >>
+  qmatch_assum_rename_tac`p2 = X op`["X"] >>
+  Cases_on`op` >> simp[] >>
+  Cases >> TRY(Cases_on`l:lit`>>simp[]) >>
+  Cases >> TRY(Cases_on`l:lit`>>simp[]) >>
+  rpt(Cases >> TRY(Cases_on`l:lit`>>simp[])) >>
   simp[] >>
   TRY ( simp[Once syneq_cases] >> fsrw_tac[DNF_ss][] >> NO_TAC) >>
   TRY ( simp[Once syneq_cases] >> simp[Once syneq_cases,SimpR``$/\``] >> fsrw_tac[DNF_ss][] >> NO_TAC) >>
@@ -1303,7 +1325,11 @@ val CevalPrim2_syneq = store_thm("CevalPrim2_syneq",
   srw_tac[ETA_ss][] >>
   imp_res_tac syneq_do_Ceq >>
   rw [] >>
-  fs[EVERY2_EVERY] >> rfs[]);
+  fs[EVERY2_EVERY] >> rfs[] >>
+  fs[csg_rel_def,LIST_REL_EL_EQN] >>
+  BasicProvers.EVERY_CASE_TAC >>
+  rfs[el_check_def] >>
+  metis_tac[sv_rel_def]);
 
 val CevalPrim1_syneq = store_thm("CevalPrim1_syneq",
   ``∀uop s1 s2 v1 v2. EVERY2 (syneq) (FST s1) (FST s2) ∧ LIST_REL (OPTREL syneq) (SND s1) (SND s2) ∧ syneq v1 v2 ⇒
