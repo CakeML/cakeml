@@ -987,6 +987,7 @@ val sv_rel_def = Define`
   sv_rel R (Refv v1) (Refv v2) = R v1 v2 ∧
   sv_rel R (W8array w1) (W8array w2) = (w1 = w2) ∧
   sv_rel R _ _ = F`
+val _ = export_rewrites["sv_rel_def"]
 
 val sv_rel_refl = store_thm("sv_rel_refl",
   ``∀R x. (∀x. R x x) ⇒ sv_rel R x x``,
