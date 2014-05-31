@@ -208,7 +208,7 @@ val Cevaluate_vlabs = store_thm("Cevaluate_vlabs",
       TRY(Cases_on`l:lit`)>>TRY(Cases_on`l':lit`)>>fs[CevalPrim2s_def] >>
       pop_assum mp_tac >> rw[] >>
       fs[vlabs_csg_def,FILTER_APPEND] >>
-      BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[])
+      BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[]) >>
     qmatch_assum_rename_tac`CevalPrim2p op v1 v2 = res`["res"] >>
     Cases_on`op`>>fs[CevalPrim2p_def]>>
     TRY (Cases_on `v1` >> Cases_on `v2` >> fs [] >> TRY(Cases_on `l:lit`) >> TRY (Cases_on `l':lit`) >>
@@ -292,6 +292,14 @@ val tac =
     ntac 4 gen_tac >>
     Cases >> rw[] >>
     fs[el_check_def,EVERY_MEM] >>
+    TRY (
+      pop_assum mp_tac >> BasicProvers.CASE_TAC>>fs[]>>
+      BasicProvers.CASE_TAC>>rw[]>>
+      fs[no_vlabs_csg_def,all_vlabs_csg_def,EVERY_MAP,EVERY_MEM,MEM_FILTER] >>
+      metis_tac[MEM_EL,is_Refv_def,dest_Refv_def] ) >>
+    TRY (
+      fsrw_tac[DNF_ss][no_vlabs_csg_def,all_vlabs_csg_def,EVERY_MAP,EVERY_MEM,MEM_FILTER] >>
+      NO_TAC ) >>
     BasicProvers.EVERY_CASE_TAC >>
     fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
     fsrw_tac[DNF_ss][no_vlabs_csg_def,all_vlabs_csg_def,EVERY_MEM,MEM_EL] >>
@@ -301,20 +309,40 @@ val tac =
       Cases_on`nn < LENGTH ll`>>simp[EL_APPEND1,EL_APPEND2]>>
       `nn = LENGTH ll`by simp[] >> simp[] >>
       simp[EVERY_MEM] ) >>
+    rw[] >>
     metis_tac[MEM_EL]) >>
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
   strip_tac >- (
-    rw [] >> Cases_on `p2` >> fs [] >>
-    TRY (Cases_on `v1` >> Cases_on `v2` >> fs [] >> Cases_on `l` >> TRY(Cases_on `l'`) >>
+    rw [] >> PairCases_on`s'` >> Cases_on `p2` >> fs [] >> rw[] >> fs[LET_THM,UNCURRY] >>
+    TRY (
+      (qmatch_assum_rename_tac`CevalPrim2s s0 op v1 v2 = (s',res)`[] ORELSE
+       qmatch_assum_rename_tac`SND(CevalPrim2s s0 op v1 v2) = res`["res"]) >>
+      Cases_on`op`>>Cases_on`v1`>>Cases_on`v2`>>fs[CevalPrim2s_def] >>
+      TRY(Cases_on`l:lit`)>>TRY(Cases_on`l':lit`)>>fs[CevalPrim2s_def] >>
+      pop_assum mp_tac >> rw[] >>
+      fs[no_vlabs_csg_def,all_vlabs_csg_def,FILTER_APPEND] >>
+      BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[]) >>
+    qmatch_assum_rename_tac`CevalPrim2p op v1 v2 = res`["res"] >>
+    Cases_on`op`>>fs[CevalPrim2p_def]>>
+    TRY (Cases_on `v1` >> Cases_on `v2` >> fs [] >> TRY(Cases_on `l:lit`) >> TRY (Cases_on `l':lit`) >>
          fs [] >> rw [] >> NO_TAC) >>
     Cases_on `do_Ceq v1 v2` >> fs [] >> rw []) >>
   strip_tac >- rw[] >>
   strip_tac >- (
-    ntac 7 gen_tac >>
-    Cases >> rw[] >> fs[] >>
-    fs[EVERY_MEM] >>
-    fsrw_tac[DNF_ss][EVERY_MEM,no_vlabs_csg_def,all_vlabs_csg_def] >>
-    metis_tac[MEM_LUPDATE_E] ) >>
+    rw[] >>
+    Cases_on`b`>>Cases_on`v2`>>fs[]>>
+    TRY(Cases_on`l:lit`)>>fs[]>>
+    Cases_on`v1`>>fs[]>>
+    pop_assum mp_tac >> rw[] >>
+    TRY(
+      Cases_on`v3`>>fs[]>>
+      Cases_on`l`>>fs[]>>
+      BasicProvers.EVERY_CASE_TAC>>fs[]>>rw[]>>
+      fsrw_tac[DNF_ss][no_vlabs_csg_def,all_vlabs_csg_def,SUBSET_DEF,no_vlabs_list_MAP,all_vlabs_list_MAP,MEM_MAP,PULL_EXISTS,MEM_FILTER,EVERY_MAP,EVERY_MEM] >>
+      metis_tac[MEM_LUPDATE_E,is_Refv_def,dest_Refv_def] ) >>
+    BasicProvers.EVERY_CASE_TAC >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,no_vlabs_list_MAP,all_vlabs_list_MAP,no_vlabs_csg_def,all_vlabs_csg_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,EVERY_MAP,EVERY_FILTER,EVERY_MEM] >>
+    metis_tac[MEM_LUPDATE_E,is_Refv_def,dest_Refv_def] ) >>
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
   strip_tac >- (
     ntac 6 gen_tac >>
