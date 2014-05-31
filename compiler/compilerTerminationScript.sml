@@ -378,7 +378,8 @@ val _ = export_rewrites
 ,"toBytecode.compile_varref_def","compile_envref_def"
 ,"mkshift_def"
 ,"label_closures_def"
-,"intLang.doPrim2_def","intLang.CevalPrim2_def","intLang.CevalUpd_def","intLang.CevalPrim1_def"
+,"intLang.doPrim2_def","intLang.CevalPrim2_def","intLang.CevalPrim2s_def","intLang.CevalPrim2p_def"
+,"intLang.CevalUpd_def","intLang.CevalPrim1_def"
 ,"free_labs_def","no_labs_def","all_labs_def"
 ,"toIntLang.exp_to_Cexp_def","toIntLang.v_to_Cv_def"
 ,"do_Ceq_def","compilerLib.the_def","compilerLib.fapply_def"];
