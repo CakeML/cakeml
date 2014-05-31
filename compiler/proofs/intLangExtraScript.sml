@@ -1332,8 +1332,8 @@ val CevalPrim2_syneq = store_thm("CevalPrim2_syneq",
   metis_tac[sv_rel_def]);
 
 val CevalPrim1_syneq = store_thm("CevalPrim1_syneq",
-  ``∀uop s1 s2 v1 v2. EVERY2 (syneq) (FST s1) (FST s2) ∧ LIST_REL (OPTREL syneq) (SND s1) (SND s2) ∧ syneq v1 v2 ⇒
-    EVERY2 (syneq) (FST (FST (CevalPrim1 uop s1 v1))) (FST (FST (CevalPrim1 uop s2 v2))) ∧
+  ``∀uop s1 s2 v1 v2. EVERY2 (sv_rel syneq) (FST s1) (FST s2) ∧ LIST_REL (OPTREL syneq) (SND s1) (SND s2) ∧ syneq v1 v2 ⇒
+    EVERY2 (sv_rel syneq) (FST (FST (CevalPrim1 uop s1 v1))) (FST (FST (CevalPrim1 uop s2 v2))) ∧
     LIST_REL (OPTREL syneq) (SND (FST (CevalPrim1 uop s1 v1))) (SND (FST (CevalPrim1 uop s2 v2))) ∧
     result_rel syneq syneq (SND (CevalPrim1 uop s1 v1)) (SND (CevalPrim1 uop s2 v2))``,
   Cases_on`s1`>>Cases_on`s2`>>
@@ -1351,6 +1351,9 @@ val CevalPrim1_syneq = store_thm("CevalPrim1_syneq",
     fs[EVERY_MEM] >> rfs[MEM_ZIP,PULL_EXISTS,optionTheory.OPTREL_def] >>
     res_tac >> fs[] >> NO_TAC) >>
   rw[Once syneq_cases] >>
+  TRY (
+    BasicProvers.EVERY_CASE_TAC >> fs[] >>
+    metis_tac[sv_rel_def] ) >>
   simp[EVERY2_EVERY,EVERY_MEM,MEM_ZIP,FORALL_PROD,PULL_EXISTS] >>
   metis_tac[])
 
