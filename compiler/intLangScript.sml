@@ -176,6 +176,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
       Rval (CLitv (Bool F))
     else
       Rval (CLitv (Word8 (EL (Num (ABS ( i))) ws)))
+  | _ => Rerr Rtype_error
   )))
 /\
 (CevalPrim2s s _ _ _ = (s, Rerr Rtype_error))`;

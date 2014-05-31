@@ -139,6 +139,7 @@ CevalPrim2s s CDerB (CLoc n) (CLitv (IntLit i)) =
       Rval (CLitv (Bool false))
     else
       Rval (CLitv (Word8 (List_extra.nth ws (natFromInteger i))))
+  | _ -> Rerr Rtype_error
   end)
 and
 CevalPrim2s s _ _ _ = (s, Rerr Rtype_error)
