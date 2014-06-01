@@ -4,15 +4,12 @@ open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
 open bytecodeTheory bvlTheory;
 open bvl_inlineTheory bvpTheory;
+open bvp_lemmasTheory bvp_simpTheory bvp_liveTheory;
 open sptreeTheory lcsymtacs;
 
 infix \\ val op \\ = op THEN;
 
 (* compilation from BVL to BVP *)
-
-val list_to_num_set_def = Define `
-  (list_to_num_set [] = LN) /\
-  (list_to_num_set (n::ns) = insert n () (list_to_num_set ns))`;
 
 val bAssign_def = Define `
   bAssign n1 op vs live env =
@@ -230,18 +227,6 @@ val jump_exc_NONE = prove(
   FULL_SIMP_TAC (srw_ss()) [jump_exc_def] \\ REPEAT STRIP_TAC
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ FULL_SIMP_TAC std_ss []);
 
-val LAST_N_LEMMA = prove(
-  ``n < LENGTH xs ==>
-    (LAST_N (n+1) (x::xs) = LAST_N (n+1) xs)``,
-  fs [LAST_N_def] \\ REPEAT STRIP_TAC
-  \\ `n+1 <= LENGTH (REVERSE xs)` by (fs [] \\ DECIDE_TAC)
-  \\ imp_res_tac TAKE_APPEND1 \\ fs []);
-
-val LAST_N_LENGTH = prove(
-  ``!xs. LAST_N (LENGTH xs) xs = xs``,
-  fs [LAST_N_def] \\ ONCE_REWRITE_TAC [GSYM LENGTH_REVERSE]
-  \\ SIMP_TAC std_ss [TAKE_LENGTH_ID] \\ fs []);
-
 val jump_exc_IMP = prove(
   ``(jump_exc s = SOME t) ==>
     s.handler < LENGTH s.stack /\
@@ -272,22 +257,6 @@ val bvl_state_explode = prove(
       (s1.refs = s2.refs)``,
   Cases \\ Cases \\ fs (TypeBase.updates_of ``:bvl_state`` @
                         TypeBase.accessors_of ``:bvl_state``)
-  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC \\ fs []);
-
-val bvp_state_explode = prove(
-  ``!t1 t2.
-      t1 = t2 <=>
-      (t1.code = t2.code) /\
-      (t1.clock = t2.clock) /\
-      (t1.globals = t2.globals) /\
-      (t1.locals = t2.locals) /\
-      (t1.output = t2.output) /\
-      (t1.refs = t2.refs) /\
-      (t1.handler = t2.handler) /\
-      (t1.stack = t2.stack) /\
-      (t1.space = t2.space)``,
-  Cases \\ Cases \\ fs (TypeBase.updates_of ``:bvp_state`` @
-                        TypeBase.accessors_of ``:bvp_state``)
   \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC \\ fs []);
 
 val s_space_ID = prove(
@@ -321,13 +290,6 @@ val MEM_LIST_REL = prove(
   ``!xs ys P x. LIST_REL P xs ys /\ MEM x xs ==> ?y. MEM y ys /\ P x y``,
   Induct \\ Cases_on `ys` \\ fs [] \\ REPEAT STRIP_TAC \\ fs []
   \\ RES_TAC \\ METIS_TAC []);
-
-val lookup_inter_EQ = prove(
-  ``((lookup x (inter t1 t2) = SOME y) <=>
-       (lookup x t1 = SOME y) /\ lookup x t2 <> NONE) /\
-    ((lookup x (inter t1 t2) = NONE) <=>
-       (lookup x t1 = NONE) \/ (lookup x t2 = NONE))``,
-  fs [lookup_inter] \\ REPEAT BasicProvers.CASE_TAC);
 
 val LIST_REL_MEM = prove(
   ``!xs ys P. LIST_REL P xs ys <=>
@@ -597,7 +559,7 @@ val bComp_correct = prove(
     \\ FULL_SIMP_TAC (srw_ss()) [])
   THEN1 (* Raise *)
    (`?c1 v1 n1. bComp n corr F live [x1] = (c1,v1,n1)` by METIS_TAC [PAIR]
-    \\ FULL_SIMP_TAC std_ss [LET_DEF,pEval_def]
+    \\ FULL_SIMP_TAC std_ss [LET_DEF,pEval_def,call_env_def]
     \\ Cases_on `bEval ([x1],env,s)` \\ FULL_SIMP_TAC (srw_ss()) []
     \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) []
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1`,`n`,`corr`,`F`,`live`])
@@ -913,8 +875,8 @@ val bComp_correct = prove(
    (`?c1 v1 n1. bComp n corr tail live [x] = (c1,v1,n1)` by METIS_TAC [PAIR]
     \\ FULL_SIMP_TAC std_ss [LET_DEF,pEval_def]
     \\ Cases_on `t1.clock = 0` \\ FULL_SIMP_TAC std_ss []
-    THEN1 (FULL_SIMP_TAC std_ss [state_rel_def,res_list_def,
-             isResult_def,isException_def])
+    THEN1 (fs [state_rel_def,res_list_def,
+             isResult_def,isException_def,call_env_def])
     \\ `s.clock <> 0` by ALL_TAC
     THEN1 (FULL_SIMP_TAC std_ss [state_rel_def,res_list_def,isResult_def])
     \\ FULL_SIMP_TAC std_ss []
@@ -927,7 +889,7 @@ val bComp_correct = prove(
          get_var_def,state_rel_def,bvlTheory.dec_clock_def,jump_exc_NONE])
   THEN1 (* Call *)
    (`?c1 vs n1. bComp n corr F live xs = (c1,vs,n1)` by METIS_TAC [PAIR]
-    \\ FULL_SIMP_TAC std_ss [LET_DEF,pEval_def]
+    \\ FULL_SIMP_TAC std_ss [LET_DEF,pEval_def,call_env_def]
     \\ Cases_on `bEval (xs,env,s1)`
     \\ REVERSE (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) []
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1`,`n`,`corr`,`F`,`live`])
@@ -942,6 +904,7 @@ val bComp_correct = prove(
     \\ `t2.clock = r.clock` by FULL_SIMP_TAC std_ss [state_rel_def]
     \\ FULL_SIMP_TAC std_ss [] \\ Cases_on `r.clock = 0`
     \\ FULL_SIMP_TAC std_ss [res_list_def,isResult_def]
+    THEN1 (fs [isException_def,state_rel_def])
     \\ `get_vars vs t2 = SOME a` by IMP_RES_TAC get_vars_thm
     \\ FULL_SIMP_TAC std_ss []
     \\ IMP_RES_TAC find_code_lemma
@@ -958,11 +921,10 @@ val bComp_correct = prove(
        (FULL_SIMP_TAC (srw_ss()) [state_rel_def,dec_clock_def,call_env_def,
           bvlTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE,
           LIST_REL_lookup_fromList,lookup_fromList_NONE,jump_exc_NONE])
-      \\ STRIP_TAC
-      \\ Cases_on `pres` \\ FULL_SIMP_TAC (srw_ss()) []
-      \\ FULL_SIMP_TAC std_ss []
+      \\ STRIP_TAC \\ Cases_on `pres` \\ fs [] \\ FULL_SIMP_TAC std_ss []
       \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
-      \\ FULL_SIMP_TAC (srw_ss()) [call_env_def,dec_clock_def])
+      \\ FULL_SIMP_TAC (srw_ss()) [call_env_def,dec_clock_def]
+      \\ REV_FULL_SIMP_TAC std_ss [])
     \\ `domain (list_to_num_set (live ++ corr)) SUBSET domain t2.locals` by
      (fs [SUBSET_DEF,domain_lookup,lookup_list_to_num_set,EVERY_MEM]
       \\ REPEAT STRIP_TAC \\ RES_TAC THEN1
@@ -986,9 +948,9 @@ val bComp_correct = prove(
         \\ Cases_on `jump_exc t2` \\ fs []
         \\ IMP_RES_TAC jump_exc_IMP
         \\ SIMP_TAC (srw_ss()) [jump_exc_def]
-        \\ IMP_RES_TAC LAST_N_LEMMA \\ fs [] \\ DECIDE_TAC)
+        \\ IMP_RES_TAC LAST_N_TL \\ fs [] \\ DECIDE_TAC)
     \\ STRIP_TAC
-    \\ Cases_on `pres` \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ Cases_on `pres` \\ FULL_SIMP_TAC (srw_ss()) [call_env_def]
     \\ FULL_SIMP_TAC std_ss []
     \\ REVERSE (Cases_on `x`) \\ FULL_SIMP_TAC (srw_ss()) []
     \\ FULL_SIMP_TAC std_ss [res_list_def] \\ SRW_TAC [] [isResult_def]
@@ -1002,7 +964,7 @@ val bComp_correct = prove(
            |> SIMP_RULE std_ss [LENGTH,ADD1]] \\ fs [])
       \\ `t2.handler < LENGTH t2.stack` by DECIDE_TAC
       \\ FULL_SIMP_TAC std_ss []
-      \\ IMP_RES_TAC LAST_N_LEMMA
+      \\ IMP_RES_TAC LAST_N_TL
       \\ FULL_SIMP_TAC (srw_ss()) [])
     \\ `pop_env t2' = SOME (t2' with
          <| stack := t2.stack; locals := env2 |>)` by ALL_TAC THEN1

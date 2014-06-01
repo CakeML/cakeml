@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib; val _ = new_theory "bvp";
 
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
-open bytecodeTheory bvlTheory sptreeTheory;
+open bytecodeTheory bvlTheory sptreeTheory lcsymtacs;
 
 infix \\ val op \\ = op THEN;
 
@@ -202,6 +202,10 @@ val cut_state_opt_def = Define `
     | NONE => SOME s
     | SOME names => cut_state names s`;
 
+val list_to_num_set_def = Define `
+  (list_to_num_set [] = LN) /\
+  (list_to_num_set (n::ns) = insert n () (list_to_num_set ns))`;
+
 val pEval_def = tDefine "pEval" `
   (pEval (Skip,s) = (NONE,s:bvp_state)) /\
   (pEval (Move dest src,s) =
@@ -220,7 +224,8 @@ val pEval_def = tDefine "pEval" `
                       | SOME (v,s) =>
                         (NONE, set_var dest v s)))) /\
   (pEval (Tick,s) =
-     if s.clock = 0 then (SOME TimeOut,s) else (NONE,dec_clock s)) /\
+     if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := [])
+                    else (NONE,dec_clock s)) /\
   (pEval (MakeSpace k names,s) =
      case cut_env names s.locals of
      | NONE => (SOME Error,s)
@@ -269,7 +274,7 @@ val pEval_def = tDefine "pEval" `
                         (SOME Error,s1))
      | res => res) /\
   (pEval (Call ret dest args,s) =
-     if s.clock = 0 then (SOME TimeOut,s) else
+     if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := []) else
        case get_vars args s of
        | NONE => (SOME Error,s)
        | SOME xs =>
