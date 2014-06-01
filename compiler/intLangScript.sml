@@ -164,7 +164,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
  val _ = Define `
 
 (CevalPrim2s s CRefB (CLitv (Word8 w)) (CLitv (IntLit n)) =  
-(if n <( 0 : int) then (s, Rval (CLitv (Bool F))) else
+(if n <( 0 : int) then (s, Rerr Rtype_error) else
   ((s++[W8array (REPLICATE (Num (ABS ( n))) w)]),
    Rval (CLoc (LENGTH s)))))
 /\
@@ -173,7 +173,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   (case el_check n s of
     SOME (W8array ws) =>
     if (i <( 0 : int)) \/ (LENGTH ws <= Num (ABS ( i))) then
-      Rval (CLitv (Bool F))
+      Rerr Rtype_error
     else
       Rval (CLitv (Word8 (EL (Num (ABS ( i))) ws)))
   | _ => Rerr Rtype_error
@@ -197,7 +197,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (if n < LENGTH s
   then if i =( 0 : int) then
     (LUPDATE (Refv v) n s, Rval (CLitv Unit))
-    else (s, Rval (CLitv (IntLit(( 0 : int)))))
+    else (s, Rerr Rtype_error)
   else (s, Rerr Rtype_error)))
 /\
 (CevalUpd T s (CLoc n) (CLitv (IntLit i)) (CLitv (Word8 w)) =  
@@ -205,7 +205,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
     SOME (W8array ws) =>
     if(( 0 : int) <= i) /\ (Num (ABS ( i)) < LENGTH ws) then
       (LUPDATE (W8array (LUPDATE w (Num (ABS ( i))) ws)) n s, Rval (CLitv Unit))
-    else (s, Rval (CLitv (IntLit(( 0 : int)))))
+    else (s, Rerr Rtype_error)
   | _ => (s, Rerr Rtype_error)
   )))
 /\

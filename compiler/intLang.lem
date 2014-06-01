@@ -127,7 +127,7 @@ CevalPrim2p CEq = fun v1 v2 ->
 val CevalPrim2s : store Cv -> Cprim2s -> Cv -> Cv -> store Cv * result Cv Cv
 let rec
 CevalPrim2s s CRefB (CLitv (Word8 w)) (CLitv (IntLit n)) =
-  if n < 0 then (s, Rval (CLitv (Bool false))) else
+  if n < 0 then (s, Rerr Rtype_error) else
   (s++[W8array (List.replicate (natFromInteger n) w)],
    Rval (CLoc (List.length s)))
 and
@@ -136,7 +136,7 @@ CevalPrim2s s CDerB (CLoc n) (CLitv (IntLit i)) =
   match el_check n s with
   | Just (W8array ws) ->
     if i < 0 || List.length ws <= natFromInteger i then
-      Rval (CLitv (Bool false))
+      Rerr Rtype_error
     else
       Rval (CLitv (Word8 (List_extra.nth ws (natFromInteger i))))
   | _ -> Rerr Rtype_error
@@ -156,7 +156,7 @@ CevalUpd false s (CLoc n) (CLitv (IntLit i)) (v:Cv) =
   if n < List.length s
   then if i = 0 then
     (List.update s n (Refv v), Rval (CLitv Unit))
-    else (s, Rval (CLitv (IntLit 0)))
+    else (s, Rerr Rtype_error)
   else (s, Rerr Rtype_error)
 and
 CevalUpd true s (CLoc n) (CLitv (IntLit i)) (CLitv (Word8 w)) =
@@ -164,7 +164,7 @@ CevalUpd true s (CLoc n) (CLitv (IntLit i)) (CLitv (Word8 w)) =
   | Just (W8array ws) ->
     if 0 <= i && natFromInteger i < List.length ws then
       (List.update s n (W8array (List.update ws (natFromInteger i) w)), Rval (CLitv Unit))
-    else (s, Rval (CLitv (IntLit 0)))
+    else (s, Rerr Rtype_error)
   | _ -> (s, Rerr Rtype_error)
   end
 and

@@ -164,10 +164,13 @@ val _ = Define `
            (CPrim2 (P2s CRefB) (CVar( 0)) (CVar( 1)))))))
 /\
 (binop_to_pat Asub Ce1 Ce2 =  
-(CLet T (CPrim2 (P2s CDerB) Ce1 Ce2)
-    (CIf (CPrim1 CIsBlock (CVar( 0)))
-         (CRaise (CCon size_tag []))
-         (CVar( 0)))))
+(CLet T Ce1
+    (CLet T (shift( 1)( 0) Ce2)
+      (CIf (CPrim2 (P2p CLt) (CVar( 0)) (CLit (IntLit(( 0 : int)))))
+           (CRaise (CCon size_tag []))
+           (CIf (CPrim2 (P2p CLt) (CVar( 0)) (CPrim1 CLenB (CVar( 1))))
+                (CPrim2 (P2s CDerB) (CVar( 1)) (CVar( 0)))
+                (CRaise (CCon size_tag [])))))))
 /\
 (binop_to_pat Alength _ _ = (CLit (IntLit(( 0 : int))))) (* should not happen *)
 /\
@@ -206,10 +209,14 @@ val _ = Define `
  val _ = Define `
 
 (app_to_pat (Op_pat (Op_i2 Aupdate)) [Ce1; Ce2; Ce3] =  
-(CLet T (CUpd T Ce1 Ce2 Ce3)
-    (CIf (CPrim1 CIsBlock (CVar( 0)))
-         (CVar( 0))
-         (CRaise (CCon size_tag [])))))
+(CLet T Ce1
+    (CLet T (shift( 1)( 0) Ce2)
+      (CLet T (shift( 2)( 0) Ce3)
+        (CIf (CPrim2 (P2p CLt) (CVar( 1)) (CLit (IntLit(( 0 : int)))))
+             (CRaise (CCon size_tag []))
+             (CIf (CPrim2 (P2p CLt) (CVar( 1)) (CPrim1 CLenB (CVar( 2))))
+                  (CUpd T (CVar( 2)) (CVar( 1)) (CVar( 0)))
+                  (CRaise (CCon size_tag []))))))))
 /\
 (app_to_pat (Op_pat (Op_i2 op)) [Ce1; Ce2] =  
 (binop_to_pat op Ce1 Ce2))
