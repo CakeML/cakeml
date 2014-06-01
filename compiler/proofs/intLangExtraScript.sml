@@ -1357,25 +1357,32 @@ val CevalPrim1_syneq = store_thm("CevalPrim1_syneq",
   simp[EVERY2_EVERY,EVERY_MEM,MEM_ZIP,FORALL_PROD,PULL_EXISTS] >>
   metis_tac[])
 
-val CevalUpd_syneq = store_thm(
-"CevalUpd_syneq",
-``∀s1 v1 v2 s2 w1 w2.
-  syneq v1 w1 ∧ syneq v2 w2 ∧ EVERY2 (syneq) s1 s2 ⇒
-  EVERY2 (syneq) (FST (CevalUpd s1 v1 v2)) (FST (CevalUpd s2 w1 w2)) ∧
-  result_rel syneq syneq (SND (CevalUpd s1 v1 v2)) (SND (CevalUpd s2 w1 w2))``,
-  gen_tac >>
-  Cases >> simp[] >>
-  ntac 2 gen_tac >>
-  Cases >> simp[] >>
-  rw[] >> TRY (
+val CevalUpd_syneq = store_thm("CevalUpd_syneq",
+  ``∀b s1 v1 v2 v3 s2 w1 w2 w3.
+    syneq v1 w1 ∧ syneq v2 w2 ∧ syneq v3 w3 ∧ EVERY2 (sv_rel syneq) s1 s2 ⇒
+    EVERY2 (sv_rel syneq) (FST (CevalUpd b s1 v1 v2 v3)) (FST (CevalUpd b s2 w1 w2 w3)) ∧
+    result_rel syneq syneq (SND (CevalUpd b s1 v1 v2 v3)) (SND (CevalUpd b s2 w1 w2 w3))``,
+  rpt gen_tac >>
+  Cases_on`b`>>
+  Cases_on`v2` >> TRY(Cases_on`l:lit`) >> simp[] >>
+  Cases_on`v1` >> TRY(Cases_on`l:lit`) >> simp[] >>
+  Cases_on`v3` >> TRY(Cases_on`l:lit`) >> simp[] >>
+  fs[Q.SPEC`CConv X Y`syneq_cases] >> rw[] >>
+  fs[Q.SPEC`CRecClos X Y Z`syneq_cases] >> rw[] >>
+  TRY(Cases_on`l':lit`)>>simp[] >>
+  TRY (
     match_mp_tac EVERY2_LUPDATE_same >>
     rw[] ) >>
-  PROVE_TAC[EVERY2_EVERY])
+  TRY(PROVE_TAC[EVERY2_EVERY]) >>
+  TRY(rw[Once syneq_cases]>>metis_tac[]) >>
+  BasicProvers.EVERY_CASE_TAC >> fs[el_check_def,LIST_REL_EL_EQN,EL_LUPDATE] >> rw[] >>
+  metis_tac[sv_rel_def])
 
 val Cevaluate_count_greater = store_thm("Cevaluate_count_greater",
   ``(∀cs env exp res. Cevaluate cs env exp res ⇒ FST (FST (FST res)) ≤ FST (FST cs)) ∧
     (∀cs env exps res. Cevaluate_list cs env exps res ⇒ FST (FST (FST res)) ≤ FST (FST cs))``,
-  ho_match_mp_tac Cevaluate_ind >> srw_tac[ARITH_ss][])
+  ho_match_mp_tac Cevaluate_ind >> srw_tac[ARITH_ss][]>>
+  PairCases_on`s'`>>Cases_on`p2`>>fs[LET_THM,UNCURRY])
 
 val Cevaluate_syneq = store_thm("Cevaluate_syneq",
   ``(∀s1 env1 exp1 res1. Cevaluate s1 env1 exp1 res1 ⇒
