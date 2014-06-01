@@ -34,16 +34,27 @@ val exc_rel_syneq_trans =
   |> UNDISCH_ALL
   |> prove_hyps_by(metis_tac[syneq_trans])
 
+val no_labs_app_to_pat = store_thm("no_labs_app_to_pat",
+  ``∀op ls. EVERY no_labs ls ⇒ no_labs (app_to_pat op ls)``,
+  rw[] >>
+  Cases_on`op`>>TRY(Cases_on`o'`)>>
+  Cases_on`ls`>>fs[]>>
+  Cases_on`t`>>fs[]>>
+  TRY(Cases_on`t'`>>fs[])>>
+  TRY(Cases_on`t`>>fs[])>>
+  Cases_on`o''`>>fs[]>>
+  BasicProvers.EVERY_CASE_TAC >> simp[])
+
 val no_labs_exp_to_Cexp = store_thm("no_labs_exp_to_Cexp",
   ``(∀e. no_labs (exp_to_Cexp e)) ∧
     (∀es. no_labs_list (exps_to_Cexps es))``,
-  ho_match_mp_tac exp_to_Cexp_ind >>
+  ho_match_mp_tac(TypeBase.induction_of``:exp_pat``) >>
   rw[exp_to_Cexp_def,exps_to_Cexps_MAP] >>
   rw[EVERY_MAP,rich_listTheory.EVERY_REVERSE] >>
   TRY (unabbrev_all_tac >>
        fsrw_tac[DNF_ss][EVERY_MEM,MEM_MAP,FORALL_PROD] >>
        simp[UNCURRY] >> NO_TAC) >>
-  BasicProvers.CASE_TAC >> rw[])
+  metis_tac[no_labs_app_to_pat])
 val _ = export_rewrites["no_labs_exp_to_Cexp"]
 
 val no_vlabs_v_to_Cv = store_thm("no_vlabs_v_to_Cv",
