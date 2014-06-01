@@ -1790,8 +1790,11 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     simp[Once (syneq_exp_cases)] >>
     fsrw_tac[DNF_ss][] >>
     rw[Once Cevaluate_cases] >>
-    fsrw_tac[DNF_ss][EXISTS_PROD] >>
+    fsrw_tac[DNF_ss][] >>
     disj1_tac >>
+    fs[GSYM AND_IMP_INTRO] >>
+    rpt(first_x_assum(fn th => first_x_assum (strip_assume_tac o MATCH_MP th))) >>
+    first_assum(split_pair_match o concl) >> fs[] >>
     metis_tac[CevalPrim2_syneq,syneq_lit_loc] ) >>
   strip_tac >- (
     rw[] >>
@@ -1810,9 +1813,9 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     rw[Once Cevaluate_cases] >>
     fsrw_tac[DNF_ss][] >>
     disj1_tac >>
-    fsrw_tac[DNF_ss][EXISTS_PROD] >>
-    first_x_assum(qspecl_then[`V`,`s2`,`env2`,`e12`,`e22`]mp_tac) >>
-    simp[] >>
+    fs[GSYM AND_IMP_INTRO] >>
+    rpt(first_x_assum(fn th => first_x_assum (strip_assume_tac o MATCH_MP th))) >>
+    first_assum(split_pair_match o concl) >> fs[] >>
     fs[csg_rel_def] >>
     metis_tac[CevalUpd_syneq,FST,SND,pair_CASES,PAIR_EQ]) >>
   strip_tac >- (
