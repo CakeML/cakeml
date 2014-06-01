@@ -87,8 +87,7 @@ val free_vars_pat_def = tDefine"free_vars_pat"`
   free_vars_pat (Var_local_pat n) = [n] ∧
   free_vars_pat (Var_global_pat _) = [] ∧
   free_vars_pat (Fun_pat e) = lshift 1 (free_vars_pat e) ∧
-  free_vars_pat (Uapp_pat _ e) = free_vars_pat e ∧
-  free_vars_pat (App_pat _ e1 e2) = lunion (free_vars_pat e1) (free_vars_pat e2) ∧
+  free_vars_pat (App_pat _ es) = free_vars_list_pat es ∧
   free_vars_pat (If_pat e1 e2 e3) = lunion (free_vars_pat e1) (lunion (free_vars_pat e2) (free_vars_pat e3)) ∧
   free_vars_pat (Let_pat e1 e2) = lunion (free_vars_pat e1) (lshift 1 (free_vars_pat e2)) ∧
   free_vars_pat (Seq_pat e1 e2) = lunion (free_vars_pat e1) (free_vars_pat e2) ∧
@@ -283,9 +282,6 @@ val free_vars_pat_exp_to_pat = store_thm("free_vars_pat_exp_to_pat",
     specl_args_of_then``find_index`` (CONV_RULE SWAP_FORALL_CONV find_index_MEM) mp_tac >>
     discharge_hyps >- metis_tac[] >> strip_tac >> fs[] ) >>
   conj_tac >- simp[SUBSET_DEF,PULL_EXISTS] >>
-  conj_tac >- (
-    simp[SUBSET_DEF,PULL_EXISTS] >>
-    metis_tac[] ) >>
   strip_tac >- (
     simp[SUBSET_DEF,PULL_EXISTS] >>
     rpt gen_tac >> rpt strip_tac >>
@@ -441,7 +437,6 @@ val free_vars_pat_exp_to_pat = store_thm("free_vars_pat_exp_to_pat",
     fs[MEM_MAP,PULL_EXISTS] >>
     fs[GSYM find_index_NOT_MEM] >>
     metis_tac[]) >>
-
   simp[SUBSET_DEF,PULL_EXISTS] >>
   rw[] >>
   Cases_on`ls`>>fs[] >> rw[] >>
