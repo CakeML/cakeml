@@ -531,7 +531,8 @@ syneq_exp ez1 ez2 V (CPrim2 p2 e11 e21) (CPrim2 p2 e12 e22)
 and
 upd : forall ez1 ez2 V b e11 e21 e31 e12 e22 e32.
 syneq_exp ez1 ez2 V e11 e12 &&
-syneq_exp ez1 ez2 V e21 e22
+syneq_exp ez1 ez2 V e21 e22 &&
+syneq_exp ez1 ez2 V e31 e32
 ==>
 syneq_exp ez1 ez2 V (CUpd b e11 e21 e31) (CUpd b e12 e22 e32)
 and
