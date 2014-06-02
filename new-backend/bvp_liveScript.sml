@@ -179,9 +179,7 @@ val pEval_pLive = prove(
                  (t3.handler = s3.handler) /\
                  (LENGTH t3.stack = LENGTH s3.stack)) ==>
       ?t2. (pEval (d,t1) = (res,t2)) /\
-           state_rel s2 t2 (case res of
-                            | NONE => l2
-                            | _ => LN)``,
+           state_rel s2 t2 (case res of NONE => l2 | _ => LN)``,
 
   ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ recInduct pEval_ind \\ REPEAT STRIP_TAC
@@ -428,6 +426,7 @@ val pEval_pLive = prove(
 
   THEN1 (* Call *) cheat
 (*
+
     Cases_on `ret` \\ fs [pEval_def,pLive_def]
 
       `s.clock = t1.clock /\ s.code = t1.code` by fs [state_rel_def]
@@ -441,16 +440,21 @@ val pEval_pLive = prove(
       \\ Cases_on `find_code dest x t1.code` \\ fs []
       \\ Cases_on `x'` \\ fs []
       \\ Q.PAT_ASSUM `(res,s2) = xxx` (ASSUME_TAC o GSYM) \\ fs []
-
-
-
-
-
+      \\ Cases_on `pEval (r,call_env q (dec_clock s))` \\ fs []
+      \\ Cases_on `q'` \\ fs [] \\ SRW_TAC [] []
       \\ `call_env q (dec_clock t1) =
           call_env q (dec_clock s) with stack := t1.stack` by
         fs [call_env_def,dec_clock_def,state_rel_def,bvp_state_explode]
-      `pEval (r,call_env q (dec_clock t1)) =
-          (res, s2 with stack := )`
+      \\ `LENGTH s2.stack = LENGTH s.stack` by cheat
+      \\ fs [] \\ Q.MATCH_ASSUM_RENAME_TAC
+           `pEval (r,call_env q (dec_clock s)) = (SOME res2,s2)` []
+
+      \\ `pEval (r,call_env q (dec_clock s) with stack := t1.stack) =
+            (SOME res2,s2 with stack := t1.stack)` by cheat
+
+      \\ fs [] \\ fs [state_rel_def]
+
+
 *)
 );
 
