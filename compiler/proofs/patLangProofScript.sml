@@ -126,6 +126,21 @@ val map_count_store_genv_def = Define`
   map_count_store_genv f (csg:'a count_store_genv) =
     ((FST(FST csg), MAP (map_sv f) (SND(FST csg))), MAP (OPTION_MAP f) (SND csg))`
 
+val dest_Refv_def = Define`
+  dest_Refv (Refv v) = v`
+val is_Refv_def = Define`
+  is_Refv (Refv _) = T ∧
+  is_Refv _ = F`
+val _ = export_rewrites["dest_Refv_def","is_Refv_def"]
+
+val sv_every_def = Define`
+  sv_every P (Refv v) = P v ∧
+  sv_every P _ = T`
+val _ = export_rewrites["sv_every_def"]
+
+val csg_every_def = Define`
+  csg_every P ((c,s),g) ⇔ EVERY (sv_every P) s ∧ EVERY (OPTION_EVERY P) g`
+
 (* --- *)
 
 (* TODO: move *)

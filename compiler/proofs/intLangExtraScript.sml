@@ -4,23 +4,6 @@ open exhLangProofTheory patLangProofTheory
 (* open semanticsExtraTheory *)
 val _ = new_theory "intLangExtra"
 
-(* TODO: move *)
-
-val dest_Refv_def = Define`
-  dest_Refv (Refv v) = v`
-val is_Refv_def = Define`
-  is_Refv (Refv _) = T ∧
-  is_Refv _ = F`
-val _ = export_rewrites["dest_Refv_def","is_Refv_def"]
-
-val sv_every_def = Define`
-  sv_every P (Refv v) = P v ∧
-  sv_every P _ = T`
-val _ = export_rewrites["sv_every_def"]
-
-val csg_every_def = Define`
-  csg_every P ((c,s),g) ⇔ EVERY (sv_every P) s ∧ EVERY (OPTION_EVERY P) g`
-
 (* free/all/no_labs *)
 
 val free_labs_list_MAP = store_thm("free_labs_list_MAP",
