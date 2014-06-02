@@ -924,7 +924,7 @@ val bComp_correct = prove(
       \\ STRIP_TAC \\ Cases_on `pres` \\ fs [] \\ FULL_SIMP_TAC std_ss []
       \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
       \\ FULL_SIMP_TAC (srw_ss()) [call_env_def,dec_clock_def]
-      \\ REV_FULL_SIMP_TAC std_ss [])
+      \\ REV_FULL_SIMP_TAC (srw_ss()) [])
     \\ `domain (list_to_num_set (live ++ corr)) SUBSET domain t2.locals` by
      (fs [SUBSET_DEF,domain_lookup,lookup_list_to_num_set,EVERY_MEM]
       \\ REPEAT STRIP_TAC \\ RES_TAC THEN1

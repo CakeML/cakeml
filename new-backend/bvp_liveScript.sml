@@ -166,6 +166,10 @@ val EVERY_get_vars = prove(
   Induct \\ fs [get_vars_def,get_var_def] \\ REPEAT STRIP_TAC
   \\ RES_TAC \\ FULL_SIMP_TAC std_ss []);
 
+val domain_list_to_num_set = prove(
+  ``!xs. x IN domain (list_to_num_set xs) <=> MEM x xs``,
+  Induct \\ fs [list_to_num_set_def]);
+
 val pEval_pLive = prove(
   ``!c s1 res s2 l2 t1 l1 d.
       (pEval (c,s1) = (res,s2)) /\ state_rel s1 t1 l1 /\
@@ -421,7 +425,34 @@ val pEval_pLive = prove(
       \\ fs [] \\ `state_rel r t2 LN` by fs [state_rel_def]
       \\ MP_TAC (Q.SPECL [`r`,`t2`] jump_exc_IMP_state_rel) \\ fs []
       \\ ASM_SIMP_TAC (srw_ss()) [state_rel_def]))
-  THEN1 (* Call *) cheat);
+
+  THEN1 (* Call *) cheat
+(*
+    Cases_on `ret` \\ fs [pEval_def,pLive_def]
+
+      `s.clock = t1.clock /\ s.code = t1.code` by fs [state_rel_def]
+      \\ Cases_on `s.clock = 0`
+      THEN1 (fs [call_env_def,state_rel_def])
+      \\ fs [] \\ Cases_on `get_vars args s` \\ fs []
+      \\ `get_vars args t1 = get_vars args s` by ALL_TAC THEN1
+       (MATCH_MP_TAC EVERY_get_vars
+        \\ fs [EVERY_MEM,state_rel_def,domain_list_to_num_set])
+      \\ fs [] \\ REV_FULL_SIMP_TAC std_ss []
+      \\ Cases_on `find_code dest x t1.code` \\ fs []
+      \\ Cases_on `x'` \\ fs []
+      \\ Q.PAT_ASSUM `(res,s2) = xxx` (ASSUME_TAC o GSYM) \\ fs []
+
+
+
+
+
+      \\ `call_env q (dec_clock t1) =
+          call_env q (dec_clock s) with stack := t1.stack` by
+        fs [call_env_def,dec_clock_def,state_rel_def,bvp_state_explode]
+      `pEval (r,call_env q (dec_clock t1)) =
+          (res, s2 with stack := )`
+*)
+);
 
 val SPLIT_PAIR = prove(
   ``!x y z. (x = (y,z)) <=> (y = FST x) /\ (z = SND x)``,

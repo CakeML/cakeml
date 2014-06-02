@@ -284,7 +284,9 @@ val pEval_def = tDefine "pEval" `
           | SOME (args1,prog) =>
             (case ret of
              | NONE (* tail call *) =>
-                pEval (prog, call_env args1 (dec_clock s))
+               (case pEval (prog, call_env args1 (dec_clock s)) of
+                | (NONE,s) => (SOME Error,s)
+                | (SOME res,s) => (SOME res,s))
              | SOME (n,names) (* returning call, returns into var n *) =>
                (case cut_env names s.locals of
                 | NONE => (SOME Error,s)
