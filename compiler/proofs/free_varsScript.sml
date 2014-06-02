@@ -605,23 +605,27 @@ val _ = export_rewrites["free_vars_shift"]
 val free_vars_exp_to_Cexp = store_thm("free_vars_exp_to_Cexp",
   ``(∀e. set (free_vars (exp_to_Cexp e)) = set (free_vars_pat e)) ∧
     (∀es. set (free_vars_list (exps_to_Cexps es)) = set (free_vars_list_pat es))``,
-  ho_match_mp_tac exp_to_Cexp_ind >> simp[] >>
+  ho_match_mp_tac(TypeBase.induction_of``:exp_pat``) >> simp[] >>
   strip_tac >- (
     rw[EXTENSION] >>
     rw[EQ_IMP_THM] >> rw[] >> fsrw_tac[ARITH_ss][] >>
     simp[PULL_EXISTS] >> HINT_EXISTS_TAC >> simp[] ) >>
   strip_tac >- (
-    rw[] >>
-    BasicProvers.CASE_TAC >> simp[] >>
+    gen_tac >> strip_tac >>
+    qx_gen_tac`op` >>
+    Cases_on`op`>>TRY(Cases_on`o'`)>>Cases_on`es`>>fs[]>>
+    Cases_on`t`>>fs[]>>TRY(Cases_on`t'`)>>fs[]>>
+    Cases_on`o''`>>fs[]>>
+    TRY(Cases_on`t`)>>fs[]>>
+    BasicProvers.EVERY_CASE_TAC >> simp[] >>
     fs[EXTENSION] >> rw[EQ_IMP_THM] >> rw[] >> fsrw_tac[ARITH_ss][] >>
+    TRY(metis_tac[]) >>
     spose_not_then strip_assume_tac >>
-    first_x_assum(qspec_then`x+1`mp_tac) >> simp[] ) >>
-  strip_tac >- (
-    rw[] >>
-    BasicProvers.CASE_TAC >> simp[] >>
-    fs[EXTENSION] >> rw[EQ_IMP_THM] >> rw[] >> fsrw_tac[ARITH_ss][] >>
-    spose_not_then strip_assume_tac >>
-    first_x_assum(qspec_then`x+1`mp_tac) >> simp[] ) >>
+    first_x_assum(qspec_then`x+1`mp_tac) >> simp[] >>
+    TRY(metis_tac[])>>
+    spose_not_then strip_assume_tac>>
+    first_x_assum(qspec_then`x+2`mp_tac) >> simp[] >>
+    metis_tac[]) >>
   rpt gen_tac >> strip_tac >>
   fs[EXTENSION,free_vars_defs_MAP,free_vars_list_MAP] >>
   simp[MAP_MAP_o,combinTheory.o_DEF] >>
