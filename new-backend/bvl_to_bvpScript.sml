@@ -153,8 +153,6 @@ val LIST_REL_REVERSE = prove(
   THEN1 (IMP_RES_TAC LIST_REL_LENGTH \\ FULL_SIMP_TAC (srw_ss()) [])
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [LIST_REL_SNOC] \\ METIS_TAC []);
 
-val IMP_IMP = METIS_PROVE [] ``b1 /\ (b2 ==> b3) ==> ((b1 ==> b2) ==> b3)``
-
 val code_rel_def = Define `
   code_rel bvl_code bvp_code <=>
     (domain bvl_code = domain bvp_code) /\

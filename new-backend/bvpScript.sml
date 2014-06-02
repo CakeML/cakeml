@@ -175,7 +175,8 @@ val jump_exc_def = Define `
 val pop_exc_def = Define `
   pop_exc s =
     case s.stack of
-    | (Exc n :: Env e :: rest) => SOME (s with <| stack := rest ; handler := n |>)
+    | (Exc n :: Env e :: rest) =>
+        SOME (s with <| stack := rest ; handler := n ; locals := e |>)
     | _ => NONE `;
 
 val push_exc_def = Define `
