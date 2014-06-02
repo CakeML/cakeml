@@ -85,6 +85,7 @@ fun split_pair_match tm (g as (_,w)) =
     val vs = map ((fn x => map #redex (Option.valOf x) handle _ => []) o
                   (Option.map fst)) ss
     val vs = flatten vs
+    val _ = assert(List.all (fn (x,y) => not (is_const x) orelse isSome y)) (zip cs ss)
   in
     map_every (TRY o PairCases_on) (map (C cons [] o ANTIQUOTE) vs)
   end g
