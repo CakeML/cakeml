@@ -2618,7 +2618,7 @@ val exp_to_pat_correct = store_thm("exp_to_pat_correct",
       simp[Once evaluate_pat_cases] >>
       srw_tac[DNF_ss][] >>
       disj1_tac >>
-      first_assum (split_pair_match o concl) >> fs[] >>
+      last_assum (split_pair_match o concl) >> fs[] >>
       first_assum (match_exists_tac o concl) >> simp[] >>
       first_x_assum (mp_tac o MATCH_MP (CONJUNCT1 evaluate_pat_exp_pat)) >>
       disch_then (exists_match_mp_then mp_tac) >>
