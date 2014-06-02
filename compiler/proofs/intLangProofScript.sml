@@ -15,6 +15,12 @@ val result_rel_syneq_syneq_trans =
   |> UNDISCH_ALL
   |> prove_hyps_by(metis_tac[syneq_trans])
 
+val sv_rel_syneq_refl = save_thm("sv_rel_syneq_refl",
+  sv_rel_refl
+  |> Q.ISPEC`syneq`
+  |> SIMP_RULE std_ss [syneq_refl])
+val _ = export_rewrites["sv_rel_syneq_refl"]
+
 val sv_rel_syneq_trans =
   sv_rel_trans
   |> Q.ISPEC`syneq`
@@ -619,207 +625,117 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
       BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
       fs[csg_rel_def,map_count_store_genv_def,LIST_REL_EL_EQN,EL_MAP] >>
       metis_tac[sv_rel_def,map_sv_def]) >>
-    cheat ) >>
-  strip_tac >- (
-    simp[] >> rw[] >>
-    rw[Once Cevaluate_cases] >>
-    srw_tac[DNF_ss][] >>
-    disj2_tac >> disj1_tac >>
-    simp[Once (CONJUNCT2 Cevaluate_cases)] >>
-    simp[Once (CONJUNCT2 Cevaluate_cases)] >>
-    simp[PULL_EXISTS] >>
-    Cases_on`v1`>>fs[do_app_pat_def,LET_THM]>>rw[]>>
-    first_assum(split_pair_match o concl) >> fs[] >>
-    qpat_assum`syneq (CRecClos X Y Z) A`mp_tac >>
-    simp[Once syneq_cases] >> rw[] >>
-    first_assum(match_exists_tac o concl) >> simp[] >>
-    qpat_assum`p ⇒ q`mp_tac >>
-    (discharge_hyps >- (
-       imp_res_tac evaluate_pat_closed >> fs[])) >>
-    strip_tac >>
-    first_x_assum(mp_tac o MATCH_MP (CONJUNCT1 Cevaluate_syneq)) >>
-    disch_then(exists_suff_gen_then mp_tac) >>
-    disch_then(qspec_then`$=`(exists_suff_then mp_tac)) >>
-    simp[syneq_exp_refl] >> strip_tac >>
-    first_assum(split_pair_match o concl) >> fs[] >>
-    qmatch_assum_rename_tac`csg_rel syneq (FST A) B`["B"] >>
-    PairCases_on`A`>>fs[csg_rel_def,map_count_store_genv_def] >> rw[] >>
-    first_assum(match_exists_tac o concl) >> fs[] >>
-    metis_tac[EVERY2_syneq_trans,EVERY2_OPTREL_syneq_trans]) >>
-  strip_tac >- simp[] >>
-  strip_tac >- (
-    simp[] >>
-    rpt gen_tac >> rpt strip_tac >> fs[] >>
-    `csg_closed_pat s'` by (imp_res_tac evaluate_pat_closed >> fs[]) >>
-    Cases_on`op`>>fs[LET_THM] >- (
-      BasicProvers.CASE_TAC >- (
-        simp[Once Cevaluate_cases] >>
-        srw_tac[DNF_ss][] >> disj2_tac >>
-        simp[Once Cevaluate_cases] >>
-        simp[Once (CONJUNCT2 Cevaluate_cases)] >>
-        simp[Once (CONJUNCT2 Cevaluate_cases)] >>
-        srw_tac[DNF_ss][] >> disj2_tac >>
-        first_assum (split_pair_match o concl) >> fs[] >>
-        first_assum (match_exists_tac o concl) >> simp[] >>
-        first_x_assum(exists_suff_gen_then mp_tac o (MATCH_MP (CONJUNCT1 Cevaluate_syneq))) >>
-        disch_then(qspec_then`$=`(exists_suff_then mp_tac)) >>
-        simp[syneq_exp_refl] >> strip_tac >>
-        first_assum (split_pair_match o concl) >> fs[] >>
-        first_assum (match_exists_tac o concl) >> simp[] >>
-        metis_tac[csg_rel_syneq_trans,exc_rel_syneq_trans] ) >>
-      simp[Once Cevaluate_cases] >>
-      srw_tac[DNF_ss][] >> disj1_tac >>
-      first_assum (split_pair_match o concl) >> fs[] >>
-      first_assum (match_exists_tac o concl) >> simp[] >>
-      simp[Once Cevaluate_cases] >>
-      srw_tac[DNF_ss][] >>
-      disj2_tac >>
+    >- (
+      Cases_on`t`>>fs[Once(CONJUNCT2 Cevaluate_cases)] >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >> disj1_tac >>
+      use_assum_tac >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >> disj1_tac >>
       spec_shift_then_mp_tac >>
       disch_then(qspecl_then[`LENGTH env`,`LENGTH env + 1`,`λx y. y = x+1`]mp_tac) >>
       simp[] >> strip_tac >>
+      rator_x_assum`Cevaluate`mp_tac >>
       first_x_assum(mp_tac o MATCH_MP (CONJUNCT1 Cevaluate_syneq)) >>
-      disch_then(exists_suff_gen_then mp_tac) >>
+      ntac 2 strip_tac >>
+      first_x_assum(exists_suff_gen_then mp_tac) >>
       simp[Once(GSYM AND_IMP_INTRO),ADD1] >>
       disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
       disch_then(exists_suff_then mp_tac) >>
       discharge_hyps >- (
         simp[rich_listTheory.EL_CONS,PRE_SUB1] ) >>
-      simp[EXISTS_PROD] >> strip_tac >> fs[] >>
-      first_assum(match_exists_tac o concl) >>
-      metis_tac[csg_rel_syneq_trans,exc_rel_syneq_trans] )
-    >- (
+      strip_tac >>
+      use_assum_tac >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >> disj1_tac >>
+      spec_shift_then_mp_tac >>
+      disch_then(qspecl_then[`LENGTH env`,`LENGTH env + 2`,`λx y. y = x+2`]mp_tac) >>
+      simp[] >> strip_tac >>
+      rator_x_assum`Cevaluate`mp_tac >>
+      first_x_assum(mp_tac o MATCH_MP (CONJUNCT1 Cevaluate_syneq)) >>
+      ntac 2 strip_tac >>
+      first_x_assum(exists_suff_gen_then mp_tac) >>
+      simp[Once(GSYM AND_IMP_INTRO),ADD1] >>
+      disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
+      disch_then(exists_suff_then mp_tac) >>
+      discharge_hyps >- (
+        simp[rich_listTheory.EL_CONS,PRE_SUB1] ) >>
+      strip_tac >>
+      use_assum_tac >>
+      fs[semanticPrimitivesTheory.store_lookup_def] >>
+      qpat_assum`X = SOME Y`mp_tac >>
       BasicProvers.CASE_TAC >>
+      qmatch_assum_rename_tac`lnum < LENGTH s21`[] >>
+      Cases_on`EL lnum s21`>>simp[store_assign_def] >>
+      strip_tac >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >> disj1_tac >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
       simp[Once Cevaluate_cases] >>
-      srw_tac[DNF_ss][] >>
-      TRY (
-        disj2_tac >>
-        srw_tac[DNF_ss][Once(CONJUNCT2 Cevaluate_cases)] >>
-        srw_tac[DNF_ss][Once(CONJUNCT2 Cevaluate_cases)] >>
-        srw_tac[DNF_ss][Once(CONJUNCT2 Cevaluate_cases)] >>
-        TRY (
-          disj2_tac >>
-          use_assum_tac >> syneq_tac >> use_assum_tac >>
-          metis_tac[csg_rel_syneq_trans,exc_rel_syneq_trans] ) >>
-        simp[Once Cevaluate_cases] >>
-        srw_tac[DNF_ss][Once(CONJUNCT2 Cevaluate_cases)] >>
-        disj2_tac >>
-        srw_tac[DNF_ss][Once(CONJUNCT2 Cevaluate_cases)] >>
-        srw_tac[DNF_ss][Once(CONJUNCT2 Cevaluate_cases)] >>
-        srw_tac[DNF_ss][Once(CONJUNCT2 Cevaluate_cases)] >>
-        disj2_tac >>
-        use_assum_tac >> syneq_tac >> use_assum_tac >>
-        metis_tac[csg_rel_syneq_trans,exc_rel_syneq_trans] ) >>
-      disj1_tac >>
+      simp[Once Cevaluate_cases] >>
+      BasicProvers.CASE_TAC >- (
+        srw_tac[DNF_ss][Once Cevaluate_cases] >>
+        srw_tac[DNF_ss][Once Cevaluate_cases] >>
+        srw_tac[DNF_ss][Once Cevaluate_cases] >>
+        simp[prim_exn_pat_def] >>
+        metis_tac[csg_rel_syneq_trans] ) >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >> disj1_tac >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      simp[Once Cevaluate_cases] >>
+      simp[Once Cevaluate_cases] >>
+      simp[Once Cevaluate_cases] >>
+      simp[compilerLibTheory.el_check_def] >>
+      reverse BasicProvers.CASE_TAC >- (
+        fs[csg_rel_def,LIST_REL_EL_EQN,map_count_store_genv_def] >> rw[] >>
+        metis_tac[] ) >>
+      BasicProvers.CASE_TAC >- (
+        fs[csg_rel_def,LIST_REL_EL_EQN,map_count_store_genv_def,EL_MAP] >> rw[] >>
+        metis_tac[sv_rel_cases,map_sv_def,sv_rel_def] ) >>
+      simp[] >>
+      qmatch_assum_rename_tac`EL lnum sz = W8array lz`[] >>
+      `lz = l` by (
+        fs[csg_rel_def,LIST_REL_EL_EQN,map_count_store_genv_def,EL_MAP] >> rw[] >>
+        metis_tac[sv_rel_cases,map_sv_def,sv_rel_def] ) >>
+      `Num (ABS i) ≥ LENGTH lz ⇔ ¬(i < &LENGTH lz)` by (
+        simp[integerTheory.INT_ABS,GREATER_EQ,integerTheory.int_ge,
+             integerTheory.INT_NOT_LT,EQ_IMP_THM,integerTheory.LE_NUM_OF_INT] >>
+        metis_tac[integerTheory.INT_LE,integerTheory.INT_OF_NUM,integerTheory.int_le] ) >>
+      reverse BasicProvers.CASE_TAC >- (
+        rw[] >> fs[] >> rw[] >>
+        rw[Once Cevaluate_cases] >>
+        rw[Once Cevaluate_cases] >>
+        rw[Once Cevaluate_cases] >>
+        rw[Once Cevaluate_cases] >>
+        rw[Once Cevaluate_cases,prim_exn_pat_def] >>
+        metis_tac[csg_rel_syneq_trans] ) >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      simp[Once Cevaluate_cases] >>
+      simp[Once Cevaluate_cases,compilerLibTheory.el_check_def] >>
+      simp[GSYM integerTheory.INT_NOT_LT] >>
+      fs[] >> rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
+      fs[csg_rel_def,map_count_store_genv_def] >>
+      reverse conj_tac >- metis_tac[EVERY2_OPTREL_syneq_trans] >>
+      simp[EVERY2_MAP] >>
+      match_mp_tac EVERY2_LUPDATE_same >>
+      fs[EVERY2_MAP] >>
+      fs[LIST_REL_EL_EQN] >>
+      metis_tac[sv_rel_syneq_trans] )
+    >- (
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
       use_assum_tac >>
-      simp[Once Cevaluate_cases] >>
-      srw_tac[DNF_ss][] >> disj2_tac >>
-      syneq_shift_tac >>
+      fs[Q.SPEC`CConv X Y`syneq_cases] >>
+      metis_tac[] )
+    >- (
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
       use_assum_tac >>
-      metis_tac[csg_rel_syneq_trans,exc_rel_syneq_trans] )
-    >- (
-      simp[Once Cevaluate_cases] >>
-      srw_tac[DNF_ss][] >> disj2_tac >>
-      simp[Once Cevaluate_cases] >>
-      srw_tac[DNF_ss][] >> disj2_tac >>
-      srw_tac[DNF_ss][Once(CONJUNCT2 Cevaluate_cases)] >>
-      srw_tac[DNF_ss][Once(CONJUNCT2 Cevaluate_cases)] >>
-      srw_tac[DNF_ss][Once(CONJUNCT2 Cevaluate_cases)] >>
-      disj2_tac >>
-      use_assum_tac >> syneq_tac >> use_assum_tac >>
-      metis_tac[csg_rel_syneq_trans,exc_rel_syneq_trans] )
-    >- (
-      simp[Once Cevaluate_cases] >>
-      srw_tac[DNF_ss][] >> disj2_tac >>
-      disj2_tac >> disj1_tac >>
-      srw_tac[DNF_ss][Once(CONJUNCT2 Cevaluate_cases)] >>
-      srw_tac[DNF_ss][Once(CONJUNCT2 Cevaluate_cases)] >>
-      srw_tac[DNF_ss][Once(CONJUNCT2 Cevaluate_cases)] >>
-      use_assum_tac >> syneq_tac >> use_assum_tac >>
-      metis_tac[csg_rel_syneq_trans,exc_rel_syneq_trans] )
-    >- (
-      simp[Once Cevaluate_cases] >>
-      srw_tac[DNF_ss][] >> disj2_tac >>
-      srw_tac[DNF_ss][Once(CONJUNCT2 Cevaluate_cases)] >>
-      srw_tac[DNF_ss][Once(CONJUNCT2 Cevaluate_cases)] >>
-      srw_tac[DNF_ss][Once(CONJUNCT2 Cevaluate_cases)] >>
-      disj2_tac >>
-      use_assum_tac >> syneq_tac >> use_assum_tac >>
-      metis_tac[csg_rel_syneq_trans,exc_rel_syneq_trans] )) >>
+      fs[Q.SPEC`CConv X Y`syneq_cases] >>
+      simp[compilerLibTheory.el_check_def] >>
+      fs[LIST_REL_EL_EQN,EL_MAP] >> rfs[] )) >>
+  strip_tac >- simp[] >>
   strip_tac >- (
-    simp[] >>
-    rpt gen_tac >> rpt strip_tac >> fs[] >>
-    Cases_on`op`>>simp[]>-(
-      BasicProvers.CASE_TAC >- (
-        simp[Once Cevaluate_cases] >>
-        srw_tac[DNF_ss][] >> disj2_tac >>
-        simp[Once (CONJUNCT2 Cevaluate_cases)] >>
-        simp[Once (CONJUNCT2 Cevaluate_cases)] >>
-        simp[Once (CONJUNCT2 Cevaluate_cases)] >>
-        srw_tac[DNF_ss][] >> disj1_tac >>
-        first_assum (split_pair_match o concl) >> fs[] >>
-        first_assum (match_exists_tac o concl) >> simp[] ) >>
-      simp[Once Cevaluate_cases] >>
-      srw_tac[DNF_ss][] >> disj2_tac >>
-      first_assum (split_pair_match o concl) >> fs[] >>
-      first_assum (match_exists_tac o concl) >> simp[] )
-    >- (
-      BasicProvers.CASE_TAC >- (
-        simp[Once Cevaluate_cases] >>
-        srw_tac[DNF_ss][] >> disj2_tac >>
-        simp[Once (CONJUNCT2 Cevaluate_cases)] >>
-        simp[Once (CONJUNCT2 Cevaluate_cases)] >>
-        simp[Once (CONJUNCT2 Cevaluate_cases)] >>
-        srw_tac[DNF_ss][] >> disj1_tac >>
-        first_assum (split_pair_match o concl) >> fs[] >>
-        first_assum (match_exists_tac o concl) >> simp[] )
-      >- (
-        simp[Once Cevaluate_cases] >>
-        srw_tac[DNF_ss][] >> disj2_tac >>
-        first_assum (split_pair_match o concl) >> fs[] >>
-        first_assum (match_exists_tac o concl) >> simp[] )
-      >- (
-        simp[Once Cevaluate_cases] >>
-        srw_tac[DNF_ss][] >> disj2_tac >>
-        simp[Once Cevaluate_cases] >>
-        simp[Once Cevaluate_cases] >>
-        srw_tac[DNF_ss][] >> disj1_tac >> disj2_tac >>
-        simp[Once (CONJUNCT2 Cevaluate_cases)] >>
-        simp[Once (CONJUNCT2 Cevaluate_cases)] >>
-        simp[Once (CONJUNCT2 Cevaluate_cases)] >>
-        srw_tac[DNF_ss][] >> disj1_tac >>
-        first_assum (split_pair_match o concl) >> fs[] >>
-        first_assum (match_exists_tac o concl) >> simp[] )
-      >- (
-        simp[Once Cevaluate_cases] >>
-        srw_tac[DNF_ss][] >> disj2_tac >>
-        first_assum (split_pair_match o concl) >> fs[] >>
-        first_assum (match_exists_tac o concl) >> simp[] ))
-    >- (
-      simp[Once Cevaluate_cases] >>
-      srw_tac[DNF_ss][] >> disj2_tac >>
-      simp[Once Cevaluate_cases] >>
-      srw_tac[DNF_ss][] >> disj2_tac >>
-      simp[Once (CONJUNCT2 Cevaluate_cases)] >>
-      simp[Once (CONJUNCT2 Cevaluate_cases)] >>
-      simp[Once (CONJUNCT2 Cevaluate_cases)] >>
-      srw_tac[DNF_ss][] >> disj1_tac >>
-      first_assum (split_pair_match o concl) >> fs[] >>
-      first_assum (match_exists_tac o concl) >> simp[] )
-    >- (
-      simp[Once Cevaluate_cases] >>
-      srw_tac[DNF_ss][] >> disj2_tac >> disj2_tac >> disj2_tac >>
-      first_assum (split_pair_match o concl) >> fs[] >>
-      first_assum (match_exists_tac o concl) >> simp[] )
-    >- (
-      simp[Once Cevaluate_cases] >>
-      srw_tac[DNF_ss][] >> disj2_tac >>
-      simp[Once (CONJUNCT2 Cevaluate_cases)] >>
-      simp[Once (CONJUNCT2 Cevaluate_cases)] >>
-      simp[Once (CONJUNCT2 Cevaluate_cases)] >>
-      srw_tac[DNF_ss][] >> disj1_tac >>
-      first_assum (split_pair_match o concl) >> fs[] >>
-      first_assum (match_exists_tac o concl) >> simp[] )
-    ) >>
+    simp[] >> rpt gen_tac >>
+    strip_tac >> strip_tac >>
+    cheat ) >>
   strip_tac >- (
     simp[] >>
     rpt gen_tac >> rpt strip_tac >>
@@ -906,6 +822,8 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
     rw[] >>
     simp[Once Cevaluate_cases] >>
     rw[map_count_store_genv_def,csg_rel_def] >>
+    TRY(
+      match_mp_tac EVERY2_refl >> simp[] ) >>
     match_mp_tac EVERY2_APPEND_suff >>
     simp[MAP_GENLIST,combinTheory.o_DEF] >>
     conj_tac >> match_mp_tac EVERY2_refl >>
