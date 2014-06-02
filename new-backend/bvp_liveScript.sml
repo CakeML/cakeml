@@ -37,7 +37,7 @@ val pLive_def = Define `
   (pLive (If c1 n c2 c3) live =
      let (d3,l3) = pLive c3 live in
      let (d2,l2) = pLive c2 live in
-     let (d1,l1) = pLive c1 (union l2 l3) in
+     let (d1,l1) = pLive c1 (insert n () (union l2 l3)) in
        (If d1 n d2 d3, l1)) /\
   (pLive (Call NONE dest vs) live =
      (Call NONE dest vs,list_to_num_set vs)) /\
@@ -381,7 +381,46 @@ val pEval_pLive = prove(
     \\ Cases_on `t` \\ fs [] \\ Cases_on `h'` \\ fs []
     \\ Cases_on `h` \\ fs [] \\ SRW_TAC [] []
     \\ fs [state_rel_def])
-  THEN1 (* If *) cheat
+  THEN1 (* If *)
+   (Q.ABBREV_TAC `l9 = l2` \\ POP_ASSUM (K ALL_TAC)
+    \\ Cases_on `pEval (g,s)` \\ fs [pEval_def,pLive_def]
+    \\ `?d3 l3. pLive c2 l9 = (d3,l3)` by METIS_TAC [PAIR]
+    \\ `?d2 l2. pLive c1 l9 = (d2,l2)` by METIS_TAC [PAIR]
+    \\ `?d1 l1. pLive g (insert n () (union l2 l3)) = (d1,l1)` by METIS_TAC [PAIR]
+    \\ fs [LET_DEF] \\ SRW_TAC [] []
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`insert n () (union l2 l3)`,`t1`])
+    \\ fs [pEval_def] \\ REPEAT STRIP_TAC
+    \\ POP_ASSUM (ASSUME_TAC o GSYM)
+    \\ REVERSE (Cases_on `q`) \\ fs [] THEN1 (Cases_on `x` \\ fs [])
+    \\ Cases_on `get_var n r` \\ fs []
+    \\ `state_rel r t2 l2 /\ state_rel r t2 l3 /\
+        (get_var n r = get_var n t2)` by
+         (fs [state_rel_def,domain_union,domain_insert,get_var_def]
+          \\ METIS_TAC [])
+    \\ Cases_on `x = bool_to_val T`
+    \\ fs [EVAL ``bool_to_val T = bool_to_val F``] THEN1
+     (Q.PAT_ASSUM `xxx = pEval (c1,r)` (ASSUME_TAC o GSYM) \\ fs []
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`l9`,`t2`]) \\ fs []
+      \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
+      \\ ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ REPEAT STRIP_TAC \\ fs []
+      \\ IMP_RES_TAC pEval_NONE_jump_exc \\ Q.PAT_ASSUM `!x.bbb` (K ALL_TAC)
+      \\ Q.PAT_ASSUM `!x.bbb` (IMP_RES_TAC o GSYM)
+      \\ IMP_RES_TAC pEval_NONE_jump_exc_ALT \\ POP_ASSUM (K ALL_TAC)
+      \\ fs [] \\ `state_rel r t2 LN` by fs [state_rel_def]
+      \\ MP_TAC (Q.SPECL [`r`,`t2`] jump_exc_IMP_state_rel) \\ fs []
+      \\ ASM_SIMP_TAC (srw_ss()) [state_rel_def])
+    \\ Cases_on `x = bool_to_val F`
+    \\ fs [EVAL ``bool_to_val T = bool_to_val F``] THEN1
+     (Q.PAT_ASSUM `xxx = pEval (c2,r)` (ASSUME_TAC o GSYM) \\ fs []
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`l9`,`t2`]) \\ fs []
+      \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
+      \\ ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ REPEAT STRIP_TAC \\ fs []
+      \\ IMP_RES_TAC pEval_NONE_jump_exc \\ Q.PAT_ASSUM `!x.bbb` (K ALL_TAC)
+      \\ Q.PAT_ASSUM `!x.bbb` (IMP_RES_TAC o GSYM)
+      \\ IMP_RES_TAC pEval_NONE_jump_exc_ALT \\ POP_ASSUM (K ALL_TAC)
+      \\ fs [] \\ `state_rel r t2 LN` by fs [state_rel_def]
+      \\ MP_TAC (Q.SPECL [`r`,`t2`] jump_exc_IMP_state_rel) \\ fs []
+      \\ ASM_SIMP_TAC (srw_ss()) [state_rel_def]))
   THEN1 (* Call *) cheat);
 
 val SPLIT_PAIR = prove(
