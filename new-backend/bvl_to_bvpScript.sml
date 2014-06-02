@@ -629,7 +629,9 @@ val bComp_correct = prove(
              \\ `EL k corr <> n2` by ALL_TAC \\ fs []
              \\ `k < LENGTH corr /\ n1 <= n2` by DECIDE_TAC \\ RES_TAC
              \\ REPEAT STRIP_TAC \\ fs [])
-      THEN1 (Cases_on `k = n2` \\ fs [] \\ res_tac \\ DECIDE_TAC)
+      THEN1 (Cases_on `k = n2` \\ fs [] \\ UNABBREV_ALL_TAC
+             \\ fs [lookup_inter_EQ] \\ CCONTR_TAC
+             \\ `n <= k` by DECIDE_TAC \\ res_tac \\ fs [])
       THEN1 (`lookup k env1 = SOME x` by (UNABBREV_ALL_TAC
                \\ fs [lookup_inter_EQ,lookup_list_to_num_set]
                \\ CCONTR_TAC \\ fs [])
