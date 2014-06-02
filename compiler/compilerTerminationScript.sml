@@ -379,7 +379,7 @@ val _ = export_rewrites
 ,"mkshift_def"
 ,"label_closures_def"
 ,"intLang.doPrim2_def","intLang.CevalPrim2_def","intLang.CevalPrim2s_def","intLang.CevalPrim2p_def"
-,"toIntLang.app_to_pat_def","toIntLang.unop_to_pat_def","toIntLang.binop_to_pat_def"
+,"toIntLang.app_to_il_def","toIntLang.unop_to_il_def","toIntLang.binop_to_il_def"
 ,"intLang.CevalUpd_def","intLang.CevalPrim1_def"
 ,"free_labs_def","no_labs_def","all_labs_def"
 ,"toIntLang.exp_to_Cexp_def","toIntLang.v_to_Cv_def"
