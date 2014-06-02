@@ -121,6 +121,7 @@ val build_rec_env_exh_MAP = store_thm("build_rec_env_exh_MAP",
 val map_sv_def = Define`
   map_sv f (Refv v) = Refv (f v) ∧
   map_sv _ (W8array w) = (W8array w)`
+val _ = export_rewrites["map_sv_def"]
 
 val map_count_store_genv_def = Define`
   map_count_store_genv f (csg:'a count_store_genv) =
