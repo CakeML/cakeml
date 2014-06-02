@@ -652,7 +652,7 @@ val _ = export_rewrites["closed_pat_lit_loc_conv"]
 
 val csg_closed_pat_def = Define`
   csg_closed_pat csg ⇔
-    EVERY closed_pat (SND(FST csg)) ∧
+    EVERY (sv_every closed_pat) (SND(FST csg)) ∧
     EVERY (OPTION_EVERY closed_pat) (SND csg)`
 
 val evaluate_pat_closed = store_thm("evaluate_pat_closed",
@@ -682,46 +682,34 @@ val evaluate_pat_closed = store_thm("evaluate_pat_closed",
     rpt gen_tac >> strip_tac >>
     Cases >> simp[] ) >>
   strip_tac >- (
-    gen_tac >> Cases >>
-    gen_tac >> Cases >>
-    simp[do_uapp_pat_def
-        ,semanticPrimitivesTheory.store_alloc_def
-        ,semanticPrimitivesTheory.store_lookup_def] >>
-    rw[] >> fs[] >>
-    fs[csg_closed_pat_def] >>
-    fs[EVERY_MEM,MEM_EL,PULL_EXISTS] >>
-    BasicProvers.EVERY_CASE_TAC >> fs[] >>
-    rw[EL_LUPDATE] >>
-    rw[EVERY_MEM,MEM_EL,PULL_EXISTS] ) >>
-  strip_tac >- (
-    ntac 2 gen_tac >> Cases >>
-    ntac 2 gen_tac >> Cases >>TRY(Cases_on`l:lit`)>>
-    simp[do_app_pat_def] >>
-    Cases >> TRY(Cases_on`l:lit`)>>
-    simp[bigStepTheory.dec_count_def] >>
-    rpt gen_tac >> ntac 2 strip_tac >> fs[] >>
-    TRY(qpat_assum`X = SOME Y`mp_tac >>
-        BasicProvers.CASE_TAC >> strip_tac >>
-        rpt BasicProvers.VAR_EQ_TAC) >>
-    first_x_assum match_mp_tac >>
-    simp[exn_env_pat_def] >>
-    TRY (
-      rator_x_assum`closed_pat`mp_tac >>
-      simp[Once closed_pat_cases] >>
-      simp[ADD1] >> rfs[csg_closed_pat_def] ) >>
-    fs[semanticPrimitivesTheory.store_assign_def] >>
+    rpt gen_tac >> strip_tac >>
+    strip_tac >> fs[] >>
+    fs[do_opapp_pat_def] >>
+    Cases_on`vs`>>fs[]>>Cases_on`t`>>fs[]>>
+    Cases_on`t'`>>fs[]>>Cases_on`h`>>fs[]>>
     rpt BasicProvers.VAR_EQ_TAC >>
-    TRY (
-      rfs[csg_closed_pat_def,EVERY_MEM,PULL_EXISTS,MEM_EL,EL_LUPDATE] >>
-      rw[] >> rw[EVERY_MEM,MEM_EL,PULL_EXISTS] >> NO_TAC) >>
+    rfs[csg_closed_pat_def,
+        Q.SPEC`Closure_pat X Y`closed_pat_cases,
+        Q.SPEC`Recclosure_pat X Y Z`closed_pat_cases] >>
+    first_x_assum match_mp_tac >>
+    fsrw_tac[ARITH_ss][ADD1] >>
     simp[build_rec_env_pat_def,EVERY_GENLIST] >>
-    simp[EVERY_MEM,MEM_EL,PULL_EXISTS,AC ADD_ASSOC ADD_SYM] >>
-    strip_tac >>
-    simp[Once closed_pat_cases] >>
-    simp[EVERY_MEM,MEM_EL,PULL_EXISTS,AC ADD_ASSOC ADD_SYM] ) >>
+    fsrw_tac[ARITH_ss][EVERY_MEM,MEM_EL,PULL_EXISTS,AC ADD_ASSOC ADD_SYM] >>
+    simp[Once closed_pat_cases,EVERY_MEM,MEM_EL,PULL_EXISTS]) >>
   strip_tac >- (
-    ntac 3 gen_tac >>
-    Cases >> simp[do_app_pat_def] ) >>
+    rpt gen_tac >> strip_tac >>
+    strip_tac >> fs[] >>
+    PairCases_on`s2` >>
+    imp_res_tac do_app_pat_cases >>
+    fs[do_app_pat_def] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    BasicProvers.EVERY_CASE_TAC >> fs[] >>
+    rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
+    simp[prim_exn_pat_def] >>
+    fs[store_assign_def,store_lookup_def,LET_THM,csg_closed_pat_def,UNCURRY,store_alloc_def] >>
+    rw[] >> BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[prim_exn_pat_def] >>
+    fs[EVERY_MEM] >>
+    metis_tac[MEM_LUPDATE_E,sv_every_def,MEM_EL,OPTION_EVERY_def] ) >>
   strip_tac >- (
     ntac 4 gen_tac >>
     Cases >> simp[do_if_pat_def] >>
