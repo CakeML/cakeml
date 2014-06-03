@@ -138,11 +138,15 @@ val _ = Hol_datatype `
 
  val _ = Define `
 
-(prim1_to_bc CRef = ([Ref]))
+(prim1_to_bc CRef = ([Stack (PushInt(( 1 : int))); Ref]))
 /\
-(prim1_to_bc CDer = ([Deref]))
+(prim1_to_bc CDer = ([Stack (PushInt(( 0 : int))); Deref]))
 /\
 (prim1_to_bc CIsBlock = ([Stack IsBlock]))
+/\
+(prim1_to_bc CLen = ([Length]))
+/\
+(prim1_to_bc CLenB = ([LengthByte]))
 /\
 (prim1_to_bc (CTagEq n) = ([Stack (TagEq (n+block_tag))]))
 /\
@@ -153,19 +157,23 @@ val _ = Hol_datatype `
 
  val _ = Define `
 
-(prim2_to_bc CAdd = Add)
+(prim2_to_bc (P2p CAdd) = (Stack Add))
 /\
-(prim2_to_bc CSub = Sub)
+(prim2_to_bc (P2p CSub) = (Stack Sub))
 /\
-(prim2_to_bc CMul = Mult)
+(prim2_to_bc (P2p CMul) = (Stack Mult))
 /\
-(prim2_to_bc CDiv = Div)
+(prim2_to_bc (P2p CDiv) = (Stack Div))
 /\
-(prim2_to_bc CMod = Mod)
+(prim2_to_bc (P2p CMod) = (Stack Mod))
 /\
-(prim2_to_bc CLt = Less)
+(prim2_to_bc (P2p CLt) = (Stack Less))
 /\
-(prim2_to_bc CEq = Equal)`;
+(prim2_to_bc (P2p CEq) = (Stack Equal))
+/\
+(prim2_to_bc (P2s CRefB) = RefByte)
+/\
+(prim2_to_bc (P2s CDerB) = DerefByte)`;
 
 
 val _ = Define `
@@ -413,6 +421,9 @@ a b c x y z
 (compile _ t _ s (CLit Unit) =  
 (pushret t (emit s [Stack (Cons unit_tag( 0))])))
 /\
+(compile _ t _ s (CLit (Word8 w)) =  
+(pushret t (emit s [Stack (PushInt (int_of_num (w2n w)))])))
+/\
 (compile env t sz s (CVar vn) = (pushret t
   (compile_varref sz s
     ((case el_check vn env of
@@ -469,8 +480,8 @@ a b c x y z
 (compile env t sz s (CPrim1 uop e) =  
 (pushret t (emit (compile env TCNonTail sz s e) (prim1_to_bc uop))))
 /\
-(compile env t sz s (CPrim2 (P2p op) e1 e2) =  
-(pushret t (emit (compile_nts env sz s [e1;e2]) [Stack (prim2_to_bc op)])))
+(compile env t sz s (CPrim2 op e1 e2) =  
+(pushret t (emit (compile_nts env sz s [e1;e2]) [prim2_to_bc op])))
 /\
 (compile env t sz s (CUpd b e1 e2 e3) =  
 (pushret t (emit (compile_nts env sz s [e1;e2;e3]) [(if b then UpdateByte else Update); Stack (Cons unit_tag( 0))])))
