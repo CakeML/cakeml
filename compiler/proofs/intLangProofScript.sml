@@ -148,7 +148,7 @@ val do_Ceq_correct = prove (
   rw [do_eq_pat_def, v_to_Cv_def] >>
   rw [] >>
   Cases_on `do_eq_pat v1 v2` >> fs [] >>
-  metis_tac [])
+  rw[]>>fs[])
 
 fun tac w1 =
   ho_match_mp_tac syneq_ind >>
@@ -646,6 +646,7 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
       simp_tac(srw_ss()++DNF_ss)[Once(CONJUNCT2 Cevaluate_cases)] >>
       simp_tac(srw_ss()++DNF_ss)[Once(CONJUNCT2 Cevaluate_cases)] >>
       qmatch_assum_rename_tac`opn_to_prim2 op = X`["X"] >>
+      simp[lit_same_type_def] >>
       Cases_on`op`>>fs[opn_to_prim2_def] >>
       rpt BasicProvers.VAR_EQ_TAC >> simp[] >> fs[astTheory.opn_lookup_def] >>
       rw[] >> fs[prim_exn_pat_def] >> TRY (
