@@ -1,9 +1,9 @@
 open HolKernel bossLib boolLib boolSimps SatisfySimps listTheory rich_listTheory pairTheory pred_setTheory finite_mapTheory alistTheory relationTheory arithmeticTheory sortingTheory lcsymtacs quantHeuristicsLib quantHeuristicsLibAbbrev
 open miscTheory miscLib bytecodeTheory bytecodeTerminationTheory bytecodeEvalTheory bytecodeExtraTheory bytecodeLabelsTheory compilerLibTheory intLangTheory toBytecodeTheory compilerTerminationTheory intLangExtraTheory
 open exhLangProofTheory patLangProofTheory
+val _ = new_theory "bytecodeProof"
 val _ = numLib.prefer_num()
 val _ = Parse.bring_to_front_overload"++"{Name="APPEND",Thy="list"}
-val _ = new_theory "bytecodeProof"
 
 (* Cv_bv relation *)
 
@@ -16,6 +16,7 @@ val _ = export_rewrites["with_same_sm"]
 
 val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
   (Cv_bv pp (CLitv (IntLit k)) (Number k)) ∧
+  (Cv_bv pp (CLitv (Word8 w)) (Number (&w2n w))) ∧
   (Cv_bv pp (CLitv (StrLit s)) (Block string_tag (MAP (Number o $& o ORD) s))) ∧
   (Cv_bv pp (CLitv (Bool b)) (bool_to_val b)) ∧
   (Cv_bv pp (CLitv Unit) unit_val) ∧
@@ -49,10 +50,12 @@ val Cv_bv_only_ind =
 |> SIMP_RULE std_ss []
 |> GEN_ALL
 
+(* TODO - need a different approach to printing to avoid confusing words with integers
 val Cv_bv_ov = store_thm("Cv_bv_ov",
   ``∀m pp Cv bv. Cv_bv pp Cv bv ⇒ (Cv_to_ov Cv = bv_to_ov bv)``,
   ntac 2 gen_tac >>
   ho_match_mp_tac Cv_bv_only_ind >>
+  strip_tac >- rw[bv_to_ov_def] >>
   strip_tac >- rw[bv_to_ov_def] >>
   strip_tac >- (
     rw[bv_to_ov_def] >>
@@ -72,6 +75,7 @@ val Cv_bv_ov = store_thm("Cv_bv_ov",
     rw[MAP_EQ_EVERY2] >>
     fs[EVERY2_EVERY] ) >>
   rw[bv_to_ov_def])
+*)
 
 val Cv_bv_strongind = theorem"Cv_bv_strongind"
 
@@ -84,6 +88,7 @@ val Cv_bv_syneq = store_thm("Cv_bv_syneq",
         (∀v1 v2. V v1 v2 ⇒ v1 < LENGTH env1 ∧ v2 < LENGTH env2 ∧ syneq (EL v1 env1) (EL v2 env2))
         ⇒ benv_bvs pp bvs ce env2 defs2)``,
   ho_match_mp_tac (Cv_bv_strongind) >>
+  strip_tac >- ( simp[Once Cv_bv_cases] ) >>
   strip_tac >- ( simp[Once Cv_bv_cases] ) >>
   strip_tac >- ( simp[Once Cv_bv_cases] ) >>
   strip_tac >- ( simp[Once Cv_bv_cases] ) >>
@@ -179,6 +184,7 @@ val Cv_bv_SUBMAP = store_thm("Cv_bv_SUBMAP",
   strip_tac >- rw[Once Cv_bv_cases,LENGTH_NIL] >>
   strip_tac >- rw[Once Cv_bv_cases,LENGTH_NIL] >>
   strip_tac >- rw[Once Cv_bv_cases,LENGTH_NIL] >>
+  strip_tac >- rw[Once Cv_bv_cases,LENGTH_NIL] >>
   strip_tac >- (
     rw[Once Cv_bv_cases,LENGTH_NIL] >>
     fs[el_check_def,IS_PREFIX_THM,EVERY2_EVERY,EVERY_MEM,FORALL_PROD,LENGTH_NIL] >>
@@ -194,6 +200,7 @@ val Cv_bv_SUBMAP = store_thm("Cv_bv_SUBMAP",
   rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
   metis_tac[FLOOKUP_SUBMAP,ADD_SYM])
 
+(* TODO: Cv_bv is no longer injective because of representation of words. How much of a problem is this?
 val no_closures_Cv_bv_equal = store_thm("no_closures_Cv_bv_equal",
   ``∀pp cv bv. Cv_bv pp cv bv ⇒
       ∀cv' bv'. Cv_bv pp cv' bv' ∧
@@ -246,6 +253,7 @@ val no_closures_Cv_bv_equal = store_thm("no_closures_Cv_bv_equal",
   rw[LIST_EQ_REWRITE] >> fsrw_tac[DNF_ss][MEM_EL] >>
   fsrw_tac[DNF_ss][SUBSET_DEF,MEM_EL] >>
   metis_tac[])
+*)
 
 val Cv_bv_l2a_mono = store_thm("Cv_bv_l2a_mono",
   ``∀pp.
@@ -261,6 +269,7 @@ val Cv_bv_l2a_mono = store_thm("Cv_bv_l2a_mono",
   gen_tac >>
   PairCases_on `pp` >> simp[] >>
   ho_match_mp_tac Cv_bv_ind >>
+  strip_tac >- rw[Once Cv_bv_cases] >>
   strip_tac >- rw[Once Cv_bv_cases] >>
   strip_tac >- rw[Once Cv_bv_cases] >>
   strip_tac >- rw[Once Cv_bv_cases] >>
@@ -311,12 +320,29 @@ val _ = Parse.overload_on("mk_pp", ``λrd bs.
   ,combin$C (bc_find_loc_aux bs.code bs.inst_length) 0
   )``)
 
+val sv_refv_rel_def = Define`
+  sv_refv_rel R (Refv v) (ValueArray [bv]) = R v bv ∧
+  sv_refv_rel R (W8array ws) (ByteArray bvs) = (bvs = ws) ∧
+  sv_refv_rel R _ _ = F`
+val _ = export_rewrites["sv_refv_rel_def"]
+
+val sv_refv_rel_cases = store_thm("sv_refv_rel_cases",
+  ``sv_refv_rel R x y ⇔
+    (∃v bv. x = Refv v ∧ y = ValueArray [bv] ∧ R v bv) ∨
+    (∃ws. x = W8array ws ∧ y = ByteArray ws)``,
+  Cases_on`x`>>Cases_on`y`>>rw[]>>
+  Cases_on`l`>>rw[]>>Cases_on`t`>>rw[])
+
+val sv_refv_rel_mono = store_thm("sv_refv_rel_mono",
+  ``(∀x y. P x y ⇒ Q x y) ⇒ sv_refv_rel P x y ⇒ sv_refv_rel Q x y``,
+  Cases_on`x`>>Cases_on`y`>>rw[]>>fs[sv_refv_rel_cases])
+
 val good_rd_def = Define`
   good_rd rd bs =
     FEVERY (λ(p,(env,defs,j)).
-      p ∈ FDOM bs.refs ∧
       p ∉ set rd.sm ∧
-      Cv_bv (mk_pp rd bs) (CRecClos env defs j) (bs.refs ' p))
+      ∃v. FLOOKUP bs.refs p = SOME (ValueArray [v]) ∧
+      Cv_bv (mk_pp rd bs) (CRecClos env defs j) v)
     rd.cls`
 
 val s_refs_def = Define`
@@ -326,7 +352,7 @@ val s_refs_def = Define`
   (LENGTH rd.sm = LENGTH (SND (FST s))) ∧
   EVERY (λp. p ∈ FDOM bs.refs) rd.sm ∧
   ALL_DISTINCT rd.sm ∧
-  EVERY2 (Cv_bv (mk_pp rd bs)) (SND (FST s)) (MAP (FAPPLY bs.refs) rd.sm) ∧
+  EVERY2 (sv_refv_rel (Cv_bv (mk_pp rd bs))) (SND (FST s)) (MAP (FAPPLY bs.refs) rd.sm) ∧
   EVERY2 (OPTREL (Cv_bv (mk_pp rd bs))) (SND s) bs.globals`
 
 val s_refs_with_pc = store_thm("s_refs_with_pc",
@@ -352,7 +378,9 @@ val s_refs_append_code = store_thm("s_refs_append_code",
   rw[s_refs_def,fmap_rel_def,good_rd_def,FEVERY_DEF,UNCURRY] >>
   fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >> rpt strip_tac >>
   res_tac >>
+  TRY (first_assum(match_exists_tac o concl) >> rw[]) >>
   TRY (match_mp_tac (GEN_ALL (MP_CANON optionTheory.OPTREL_MONO)) >> HINT_EXISTS_TAC >> rw[]) >>
+  TRY (match_mp_tac (GEN_ALL (MP_CANON sv_refv_rel_mono)) >> HINT_EXISTS_TAC >> rw[]) >>
   match_mp_tac Cv_bv_l2a_mono_mp >>
   qexists_tac `mk_pp rd bs` >>
   rw[] >> metis_tac[bc_find_loc_aux_append_code])
@@ -368,7 +396,11 @@ val lookup_cc_def = Define`
     OPTION_BIND (el_check sz st)
     (λv. case v of Block 0 vs =>
        OPTION_BIND (el_check n vs)
-       (λv. case v of RefPtr p => FLOOKUP rs p | _ => NONE)
+       (λv. case v of RefPtr p =>
+              (case FLOOKUP rs p of
+               | SOME (ValueArray [bv]) => SOME bv
+               | _ => NONE)
+            | _ => NONE)
      | _ => NONE)`
 
 val lookup_ct_def = Define`
@@ -415,10 +447,7 @@ val lookup_ct_change_refs = store_thm("lookup_ct_change_refs",
   fsrw_tac[ARITH_ss][] >>
   Cases_on`c`>>fs[el_check_def]>>
   Cases_on`EL sz st`>>fs[] >> rw[]>>fs[]>>
-  BasicProvers.CASE_TAC>>fs[]>>
-  BasicProvers.CASE_TAC>>fs[]>>
-  BasicProvers.CASE_TAC>>fs[]>>
-  BasicProvers.CASE_TAC>>fs[])
+  rpt(BasicProvers.CASE_TAC>>fs[]))
 
 val lookup_ct_incsz = store_thm("lookup_ct_incsz",
   ``(lookup_ct (sz+1) (x::st) refs gv b =
@@ -489,7 +518,11 @@ val Cenv_bs_syneq_store = store_thm("Cenv_bs_syneq_store",
   fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
   rfs[MEM_ZIP] >> fs[MEM_ZIP] >>
   fs[GSYM LEFT_FORALL_IMP_THM] >>
-  conj_tac >- metis_tac[Cv_bv_syneq,FST,SND] >>
+  conj_tac >- (
+    rw[] >>
+    rpt (first_x_assum(qspec_then`n`mp_tac)) >>
+    simp[sv_rel_cases] >> strip_tac >> simp[sv_refv_rel_cases] >>
+    metis_tac[Cv_bv_syneq,FST,SND] ) >>
   rw[] >>
   qmatch_assum_rename_tac`LENGTH bs.globals = LENGTH z`[] >>
   rpt (first_x_assum(qspec_then`n`mp_tac)) >>
