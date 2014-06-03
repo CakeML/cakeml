@@ -69,11 +69,21 @@ val bComp_def = tDefine "bComp" `
        (Seq c1 (Call ret dest vs), [n1], n1+1))`
  (WF_REL_TAC `measure (bvl_exp1_size o SND o SND o SND o SND)`);
 
+val pOptimise_def = Define `
+  pOptimise prog = FST (pLive (pSimp prog Skip) LN)`;
+
 val bCompile_def = Define `
   bCompile arg_count exp =
-    bComp arg_count (REVERSE (GENLIST I arg_count)) T [] [exp]`;
+    let env = REVERSE (GENLIST I arg_count) in
+      pOptimise (FST (bComp arg_count env T [] [exp]))`;
 
 (* verification proof *)
+
+val pEval_pOptimise = prove(
+  ``!c s. FST (pEval (c,s)) <> SOME Error /\
+          FST (pEval (c,s)) <> NONE ==>
+          (pEval (pOptimise c,s) = pEval (c,s))``,
+  fs [pOptimise_def] \\ METIS_TAC [pSimp_thm,pLive_correct]);
 
 val res_list_def = Define `
   (res_list (Result x) = Result [x]) /\
@@ -158,7 +168,7 @@ val code_rel_def = Define `
     (domain bvl_code = domain bvp_code) /\
     !n (ignore:num) exp arg_count.
       (lookup n bvl_code = SOME (ignore,exp,arg_count)) ==>
-      (lookup n bvp_code = SOME (ignore,FST (bCompile arg_count exp),arg_count))`;
+      (lookup n bvp_code = SOME (ignore,bCompile arg_count exp,arg_count))`;
 
 val state_rel_def = Define `
   state_rel (s:bvl_state) (t:bvp_state) <=>
@@ -177,7 +187,7 @@ val get_vars_thm = prove(
 val find_code_lemma = prove(
   ``state_rel r t2 /\
     (find_code dest a r.code = SOME (args,exp)) ==>
-    (find_code dest a t2.code = SOME (args,FST (bCompile (LENGTH args) exp)))``,
+    (find_code dest a t2.code = SOME (args,bCompile (LENGTH args) exp))``,
   REVERSE (Cases_on `dest`) \\ SIMP_TAC std_ss [find_code_def]
   \\ FULL_SIMP_TAC (srw_ss()) [state_rel_def,code_rel_def]
   \\ REPEAT STRIP_TAC THEN1
@@ -921,7 +931,15 @@ val bComp_correct = prove(
        (FULL_SIMP_TAC (srw_ss()) [state_rel_def,dec_clock_def,call_env_def,
           bvlTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE,
           LIST_REL_lookup_fromList,lookup_fromList_NONE,jump_exc_NONE])
-      \\ STRIP_TAC \\ Cases_on `pres` \\ fs [] \\ FULL_SIMP_TAC std_ss []
+      \\ STRIP_TAC \\ fs [LET_DEF]
+      \\ MP_TAC (Q.SPECL [`prog`,
+            `call_env args (dec_clock t2)`] pEval_pOptimise) \\ fs []
+      \\ SIMP_TAC std_ss [call_env_def]
+      \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
+       (BasicProvers.FULL_CASE_TAC \\ fs []
+        \\ REPEAT STRIP_TAC \\ fs [res_list_def])
+      \\ REPEAT STRIP_TAC \\ fs []
+      \\ Cases_on `pres` \\ fs [] \\ FULL_SIMP_TAC std_ss []
       \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
       \\ FULL_SIMP_TAC (srw_ss()) [call_env_def,dec_clock_def]
       \\ REV_FULL_SIMP_TAC (srw_ss()) [])
@@ -949,7 +967,14 @@ val bComp_correct = prove(
         \\ IMP_RES_TAC jump_exc_IMP
         \\ SIMP_TAC (srw_ss()) [jump_exc_def]
         \\ IMP_RES_TAC LAST_N_TL \\ fs [] \\ DECIDE_TAC)
-    \\ STRIP_TAC
+    \\ STRIP_TAC \\ fs [LET_DEF]
+    \\ MP_TAC (Q.SPECL [`prog`,`call_env args
+         (push_env env2 (dec_clock t2))`] pEval_pOptimise) \\ fs []
+    \\ SIMP_TAC std_ss [call_env_def]
+    \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
+     (BasicProvers.FULL_CASE_TAC \\ fs []
+      \\ REPEAT STRIP_TAC \\ fs [res_list_def])
+    \\ REPEAT STRIP_TAC \\ fs []
     \\ Cases_on `pres` \\ FULL_SIMP_TAC (srw_ss()) [call_env_def]
     \\ FULL_SIMP_TAC std_ss []
     \\ REVERSE (Cases_on `x`) \\ FULL_SIMP_TAC (srw_ss()) []
@@ -1017,11 +1042,20 @@ val option_case_NONE = prove(
   ``(case pres of NONE => F | SOME x => p x) <=> ?r. (pres = SOME r) /\ p r``,
   Cases_on `pres` \\ SRW_TAC [] []);
 
-val bCompile_correct = save_thm("bCompile_correct",
-  bComp_correct
+val bCompile_lemma = bComp_correct
   |> Q.SPECL [`[exp]`,`env`,`s1`,`res`,`s2`,`t1`,`n`,
               `REVERSE (GENLIST I n)`,`T`,`[]`]
   |> SIMP_RULE std_ss [LENGTH,GSYM bCompile_def,option_case_NONE,
-       PULL_EXISTS,EVERY_DEF]);
+       PULL_EXISTS,EVERY_DEF];
+
+val bCompile_correct = store_thm("bCompile_correct",
+  ``^(bCompile_lemma |> concl |> dest_imp |> fst) ==>
+    ?t2 prog vs next_var r.
+      pEval (bCompile n exp,t1) = (SOME r,t2) /\
+      state_rel s2 t2 /\ res_list r = res``,
+  REPEAT STRIP_TAC \\ MP_TAC bCompile_lemma \\ fs []
+  \\ REPEAT STRIP_TAC \\ fs [bCompile_def,LET_DEF]
+  \\ MP_TAC (Q.SPECL [`prog`,`t1`] pEval_pOptimise) \\ fs []
+  \\ `r <> Error` by (REPEAT STRIP_TAC \\ fs [res_list_def]) \\ fs []);
 
 val _ = export_theory();

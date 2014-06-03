@@ -561,7 +561,7 @@ val SPLIT_PAIR = prove(
   ``!x y z. (x = (y,z)) <=> (y = FST x) /\ (z = SND x)``,
   Cases \\ SRW_TAC [] [] \\ METIS_TAC []);
 
-val pLive_correct = prove(
+val pLive_correct = store_thm("pLive_correct",
   ``!c s. FST (pEval (c,s)) <> SOME Error /\
           FST (pEval (c,s)) <> NONE ==>
           (pEval (FST (pLive c LN),s) = pEval (c,s))``,
