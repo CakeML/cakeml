@@ -816,8 +816,8 @@ evaluate_decs_i1 ck genv cenv (s1,tdecs1) ds ((s2,tdecs2),cenv',env,SOME err))
 evaluate_prompt_i1 ck genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds) 
                                                   ((s2,tdecs2,update_mod_state mn mods),
                                                    mod_cenv mn cenv',                                                   
- (MAP SOME env ++ GENLIST (\n4587 .  
-  (case (n4587 ) of ( _ ) => NONE )) (decs_to_dummy_env ds - LENGTH env)),
+ (MAP SOME env ++ GENLIST (\n4595 .  
+  (case (n4595 ) of ( _ ) => NONE )) (decs_to_dummy_env ds - LENGTH env)),
                                                    SOME err))
 
 /\ (! ck genv cenv s1 tdecs1 mods mn ds.

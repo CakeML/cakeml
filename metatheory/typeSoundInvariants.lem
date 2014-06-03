@@ -171,7 +171,7 @@ tenvM_ok menv &&
 consistent_mod_env senv ctMap envM menv &&
 type_env ctMap senv env tenv &&
 type_funs menv tenvC (bind_var_list 0 tenv' (bind_tvar tvs tenv)) funs tenv' &&
-lookup n tenv' = Just t &&
+Lib.lookup n tenv' = Just t &&
 allDistinct (List.map (fun (f,x,e) -> f) funs) &&
 List.elem n (List.map (fun (f,x,e) -> f) funs)
 ==>
@@ -181,7 +181,7 @@ and
 
 loc : forall tvs cenv senv n t.
 check_freevars 0 [] t &&
-(lookup n senv = Just t)
+(Lib.lookup n senv = Just t)
 ==>
 type_v tvs cenv senv (Loc n) (Tref t)
 
@@ -233,8 +233,8 @@ consistent_mod_env tenvS tenvC ((mn,env)::menv) ((mn',tenv)::tenvM)
 
 let type_s cenv senv s =
   forall l. 
-    ((exists t. lookup l senv = Just t) = (exists v. store_lookup l s = Just v)) &&
-    forall t v. ((lookup l senv = Just t) && (store_lookup l s = Just v)) --> type_v 0 cenv senv v t
+    ((exists t. Lib.lookup l senv = Just t) = (exists v. store_lookup l s = Just v)) &&
+    forall t v. ((Lib.lookup l senv = Just t) && (store_lookup l s = Just v)) --> type_v 0 cenv senv v t
 
 indreln 
 [context_invariant : nat -> list ctxt -> nat -> bool]
@@ -483,17 +483,17 @@ type_state dec_tvs ctMap senv ((envM, envC, env), s, Val v, c) t2
 val weakM_def : tenvM -> tenvM -> bool
 let weakM tenvM tenvM' =
   forall mn tenv'.
-    (lookup mn tenvM' = Just tenv')
+    (Lib.lookup mn tenvM' = Just tenv')
     -->
-    (exists tenv. (lookup mn tenvM = Just tenv) && weakE tenv tenv')
+    (exists tenv. (Lib.lookup mn tenvM = Just tenv) && weakE tenv tenv')
 
 val weakC_def : tenvC -> tenvC -> bool
 let weakC tenvC tenvC' =
   flat_weakC (snd tenvC) (snd tenvC') &&
   forall mn flat_tenvC'.
-    lookup mn (fst tenvC') = Just flat_tenvC'
+    Lib.lookup mn (fst tenvC') = Just flat_tenvC'
     -->
-    exists flat_tenvC. lookup mn (fst tenvC) = Just flat_tenvC && flat_weakC flat_tenvC flat_tenvC'
+    exists flat_tenvC. Lib.lookup mn (fst tenvC) = Just flat_tenvC && flat_weakC flat_tenvC flat_tenvC'
 
 (* The global constructor type environment has the primitive exceptions in it *)
 val ctMap_has_exns : ctMap -> bool

@@ -174,7 +174,7 @@ tenvM_ok menv /\
 consistent_mod_env senv ctMap envM menv /\
 type_env ctMap senv env tenv /\
 type_funs menv tenvC (bind_var_list( 0) tenv' (bind_tvar tvs tenv)) funs tenv' /\
-(lookup n tenv' = SOME t) /\
+(lib$lookup n tenv' = SOME t) /\
 ALL_DISTINCT (MAP (\ (f,x,e) .  f) funs) /\
 MEM n (MAP (\ (f,x,e) .  f) funs))
 ==>
@@ -182,7 +182,7 @@ type_v tvs ctMap senv (Recclosure (envM, envC, env) funs n) t)
 
 /\ (! tvs cenv senv n t.
 (check_freevars( 0) [] t /\
-(lookup n senv = SOME t))
+(lib$lookup n senv = SOME t))
 ==>
 type_v tvs cenv senv (Loc n) (Tref t))
 
@@ -223,8 +223,8 @@ consistent_mod_env tenvS tenvC ((mn,env)::menv) ((mn',tenv)::tenvM))`;
 val _ = Define `
  (type_s cenv senv s =  
 (! l. 
-    ((? t. lookup l senv = SOME t) <=> (? v. store_lookup l s = SOME v)) /\    
-(! t v. ((lookup l senv = SOME t) /\ (store_lookup l s = SOME v)) ==> type_v( 0) cenv senv v t)))`;
+    ((? t. lib$lookup l senv = SOME t) <=> (? v. store_lookup l s = SOME v)) /\    
+(! t v. ((lib$lookup l senv = SOME t) /\ (store_lookup l s = SOME v)) ==> type_v( 0) cenv senv v t)))`;
 
 
 val _ = Hol_reln ` (! n.
@@ -423,9 +423,9 @@ type_state dec_tvs ctMap senv ((envM, envC, env), s, Val v, c) t2)`;
 val _ = Define `
  (weakM tenvM tenvM' =  
 (! mn tenv'.
-    (lookup mn tenvM' = SOME tenv')
+    (lib$lookup mn tenvM' = SOME tenv')
     ==>
-    (? tenv. (lookup mn tenvM = SOME tenv) /\ weakE tenv tenv')))`;
+    (? tenv. (lib$lookup mn tenvM = SOME tenv) /\ weakE tenv tenv')))`;
 
 
 (*val weakC_def : tenvC -> tenvC -> bool*)
@@ -433,9 +433,9 @@ val _ = Define `
  (weakC tenvC tenvC' =  
 (flat_weakC (SND tenvC) (SND tenvC') /\  
 (! mn flat_tenvC'.    
-(lookup mn (FST tenvC') = SOME flat_tenvC')
+(lib$lookup mn (FST tenvC') = SOME flat_tenvC')
     ==>    
-(? flat_tenvC. (lookup mn (FST tenvC) = SOME flat_tenvC) /\ flat_weakC flat_tenvC flat_tenvC'))))`;
+(? flat_tenvC. (lib$lookup mn (FST tenvC) = SOME flat_tenvC) /\ flat_weakC flat_tenvC flat_tenvC'))))`;
 
 
 (* The global constructor type environment has the primitive exceptions in it *)

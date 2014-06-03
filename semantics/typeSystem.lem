@@ -257,7 +257,7 @@ is_value (Fun _ _) = true
 and
 is_value _ = false
 
-val tid_exn_to_tc : tid_or_exn -> tc
+val tid_exn_to_tc : tid_or_exn -> tctor
 let tid_exn_to_tc t =
   match t with
     | TypeId tid -> TC_name tid

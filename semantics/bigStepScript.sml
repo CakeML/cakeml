@@ -27,11 +27,11 @@ val _ = type_abbrev((*  'a *) "count_store" , ``: num # 'a store``);
 
 (*val dec_count : op -> nat -> nat*)
 val _ = Define `
- (dec_count op count0 =  
+ (dec_count op count3271 =  
  (if op = Opapp then
-    count0 -  1
+    count3271 -  1
   else
-    count0))`;
+    count3271))`;
 
 
 val _ = Hol_reln ` (! ck env l s.
