@@ -181,6 +181,224 @@ val do_Ceq_syneq2 = prove(
   ``!w2 w3. syneq w2 w3  ⇒ ∀w1. do_Ceq w1 w2 = do_Ceq w1 w3``,
   tac `w1`)
 
+fun first_disj tac g =
+  (tac ORELSE disj1_tac >> tac) g
+  handle HOL_ERR _ => (disj2_tac >> first_disj tac) g
+
+val app_to_il_err = prove(
+  ``∀ls op s env res err.
+      set (free_vars_list ls) ⊆ count (LENGTH env) ∧
+      no_labs_list ls ∧
+      Cevaluate_list s env ls res ∧
+      SND res = Rerr err ⇒
+      ∃s2 err2.
+      Cevaluate s env (app_to_il op ls) (s2,Rerr err2) ∧
+      csg_rel syneq (FST res) s2 ∧
+      exc_rel syneq err err2
+      ``,
+  Cases >- ( rw[Once Cevaluate_cases] >> fs[] ) >>
+  Cases_on`t`>- (
+    rw[Once Cevaluate_cases,PULL_EXISTS] >> fs[] >>
+    TRY(fs[Once (CONJUNCT2 Cevaluate_cases)] >> NO_TAC) >> rw[] >>
+    Cases_on`op`>>rw[]>>
+    TRY (
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      disj2_tac >>
+      first_assum(match_exists_tac o concl) >> rw[] >>
+      NO_TAC) >>
+    Cases_on`o'`>>rw[]>>
+    TRY (
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      disj2_tac >>
+      first_assum(match_exists_tac o concl) >> rw[] >>
+      NO_TAC) >>
+    Cases_on`o''`>>rw[]>>
+    TRY(first_assum(match_exists_tac o concl)) >> rw[] >>
+    srw_tac[DNF_ss][Once Cevaluate_cases]>>
+    TRY disj2_tac >>
+    first_assum(match_exists_tac o concl) >> rw[]) >>
+  Cases_on`t'` >- (
+    rw[Once Cevaluate_cases,PULL_EXISTS] >> fs[] >> rw[] >>
+    fs[Once (CONJUNCT2 Cevaluate_cases)] >>
+    fs[Once (CONJUNCT2 Cevaluate_cases)] >>
+    Cases_on`op`>>rw[]>>
+    TRY(Q.PAT_ABBREV_TAC`X = CCon Y Z` >> unabbrev_all_tac >>
+        rw[Once Cevaluate_cases] >> rw[Once Cevaluate_cases] >>
+        rw[Once (CONJUNCT2 Cevaluate_cases)] >>
+        rw[Once (CONJUNCT2 Cevaluate_cases)] >>
+        srw_tac[DNF_ss][] >>
+        TRY(
+          disj1_tac >> first_assum(match_exists_tac o concl) >> rw[] ) >>
+        disj2_tac >> first_assum(match_exists_tac o concl) >> rw[] >>
+        first_assum(match_exists_tac o concl) >> rw[]) >>
+    Cases_on`o'`>>rw[]>>
+    TRY(Q.PAT_ABBREV_TAC`X = CCon Y Z` >> unabbrev_all_tac >>
+        rw[Once Cevaluate_cases] >> rw[Once Cevaluate_cases] >>
+        rw[Once (CONJUNCT2 Cevaluate_cases)] >>
+        rw[Once (CONJUNCT2 Cevaluate_cases)] >>
+        srw_tac[DNF_ss][] >>
+        TRY(
+          disj1_tac >> first_assum(match_exists_tac o concl) >> rw[] ) >>
+        disj2_tac >> first_assum(match_exists_tac o concl) >> rw[] >>
+        first_assum(match_exists_tac o concl) >> rw[]) >>
+    Cases_on`o''`>>rw[]>>
+    TRY(Q.PAT_ABBREV_TAC`X = CCon Y Z` >> unabbrev_all_tac >>
+        rw[Once Cevaluate_cases] >> rw[Once Cevaluate_cases] >>
+        rw[Once (CONJUNCT2 Cevaluate_cases)] >>
+        rw[Once (CONJUNCT2 Cevaluate_cases)] >>
+        srw_tac[DNF_ss][] >>
+        TRY(
+          disj1_tac >> first_assum(match_exists_tac o concl) >> rw[] ) >>
+        disj2_tac >> first_assum(match_exists_tac o concl) >> rw[] >>
+        first_assum(match_exists_tac o concl) >> rw[]) >>
+    BasicProvers.EVERY_CASE_TAC >>
+    rw[Once Cevaluate_cases] >>
+    rpt(CHANGED_TAC(rw[Once (CONJUNCT2 Cevaluate_cases)])) >>
+    srw_tac[DNF_ss][]
+    >-(first_disj(first_assum(match_exists_tac o concl)) >> rw[])
+    >-(first_disj(first_assum(match_exists_tac o concl)) >> rw[])
+    >-(first_disj(first_assum(match_exists_tac o concl)) >> rw[])
+    >-(first_disj(first_assum(match_exists_tac o concl)) >> rw[])
+    >- (
+      disj2_tac >>
+      rw[Once Cevaluate_cases] >>
+      rpt(CHANGED_TAC(rw[Once (CONJUNCT2 Cevaluate_cases)])) >>
+      srw_tac[DNF_ss][] >>
+      first_disj(first_assum(match_exists_tac o concl)) >> rw[])
+    >-(first_disj(first_assum(match_exists_tac o concl)) >> rw[])
+    >- (disj2_tac >>
+      rw[Once Cevaluate_cases] >>
+      rpt(CHANGED_TAC(rw[Once (CONJUNCT2 Cevaluate_cases)])) >>
+      srw_tac[DNF_ss][] >>
+      first_disj(first_assum(match_exists_tac o concl)) >> rw[])
+    >-(first_disj(first_assum(match_exists_tac o concl)) >> rw[])
+    >-(first_disj(first_assum(match_exists_tac o concl)) >> rw[])
+    >-(first_disj(first_assum(match_exists_tac o concl)) >> rw[] >>
+       first_assum(match_exists_tac o concl) >> rw[])
+    >-(first_disj(first_assum(match_exists_tac o concl)) >> rw[] >>
+       srw_tac[DNF_ss][Once Cevaluate_cases] >> disj2_tac >>
+       syneq_shift_tac >>
+       use_assum_tac)
+    >-(first_disj(first_assum(match_exists_tac o concl)) >> rw[] >>
+       first_assum(match_exists_tac o concl) >> rw[])
+    >-(first_disj(first_assum(match_exists_tac o concl)) >> rw[] >>
+       srw_tac[DNF_ss][Once Cevaluate_cases] >> disj2_tac >>
+       syneq_shift_tac >>
+       use_assum_tac)
+    >- (disj2_tac >>
+      rw[Once Cevaluate_cases] >>
+      rpt(CHANGED_TAC(rw[Once (CONJUNCT2 Cevaluate_cases)])) >>
+      srw_tac[DNF_ss][] >>
+      first_disj(first_assum(match_exists_tac o concl)) >> rw[] >>
+      first_disj(first_assum(match_exists_tac o concl)) >> rw[] )
+    >-(first_disj(first_assum(match_exists_tac o concl)) >> rw[] >>
+       srw_tac[DNF_ss][Once Cevaluate_cases] >> disj2_tac >>
+       syneq_shift_tac >>
+       use_assum_tac)
+    >- (disj2_tac >>
+      rw[Once Cevaluate_cases] >>
+      rpt(CHANGED_TAC(rw[Once (CONJUNCT2 Cevaluate_cases)])) >>
+      srw_tac[DNF_ss][] >>
+      first_disj(first_assum(match_exists_tac o concl)) >> rw[] >>
+      first_disj(first_assum(match_exists_tac o concl)) >> rw[] )
+    >-(first_disj(first_assum(match_exists_tac o concl)) >> rw[] >>
+       first_disj(first_assum(match_exists_tac o concl)) >> rw[])
+    >-(disj2_tac >>
+       first_disj(first_assum(match_exists_tac o concl)) >> rw[] >>
+       first_disj(first_assum(match_exists_tac o concl)) >> rw[])
+    >-(first_disj(first_assum(match_exists_tac o concl)) >> rw[] >>
+       rw[Once Cevaluate_cases] >>
+       rpt(CHANGED_TAC(rw[Once (CONJUNCT2 Cevaluate_cases)])) >>
+       srw_tac[DNF_ss][] >> disj2_tac >>
+       syneq_shift_tac >>
+       use_assum_tac)
+    >-(first_disj(first_assum(match_exists_tac o concl)) >> rw[] >>
+       rw[Once Cevaluate_cases] >>
+       rpt(CHANGED_TAC(rw[Once (CONJUNCT2 Cevaluate_cases)])) >>
+       srw_tac[DNF_ss][] >> disj2_tac >>
+       syneq_shift_tac >> use_assum_tac)) >>
+  Cases_on`t`>- (
+    rw[Once Cevaluate_cases,PULL_EXISTS] >> fs[] >> rw[] >>
+    fs[Once (CONJUNCT2 Cevaluate_cases)] >>
+    fs[Once (CONJUNCT2 Cevaluate_cases)] >>
+    fs[Once (CONJUNCT2 Cevaluate_cases)] >>
+    Cases_on`op`>>simp[]>>
+    TRY(Q.PAT_ABBREV_TAC`X = CCon Y Z` >> unabbrev_all_tac >>
+        rw[Once Cevaluate_cases] >> rw[Once Cevaluate_cases] >>
+        rw[Once (CONJUNCT2 Cevaluate_cases)] >>
+        rw[Once (CONJUNCT2 Cevaluate_cases)] >>
+        rw[Once (CONJUNCT2 Cevaluate_cases)] >>
+        srw_tac[DNF_ss][] >>
+        TRY(first_disj(first_assum(match_exists_tac o concl))>>rw[]>>NO_TAC) >>
+        TRY(first_disj(first_assum(match_exists_tac o concl))>>rw[]>>
+            first_disj(first_assum(match_exists_tac o concl))>>rw[]>>NO_TAC) >>
+        rpt disj2_tac >>
+        first_disj(first_assum(match_exists_tac o concl))>>rw[]>>
+        first_disj(first_assum(match_exists_tac o concl))>>rw[]>>
+        first_disj(first_assum(match_exists_tac o concl))>>rw[]) >>
+    Cases_on`o'`>>simp[]>>
+    TRY(Q.PAT_ABBREV_TAC`X = CCon Y Z` >> unabbrev_all_tac >>
+        rw[Once Cevaluate_cases] >> rw[Once Cevaluate_cases] >>
+        rw[Once (CONJUNCT2 Cevaluate_cases)] >>
+        rw[Once (CONJUNCT2 Cevaluate_cases)] >>
+        rw[Once (CONJUNCT2 Cevaluate_cases)] >>
+        srw_tac[DNF_ss][] >>
+        TRY(first_disj(first_assum(match_exists_tac o concl))>>rw[]>>NO_TAC) >>
+        TRY(first_disj(first_assum(match_exists_tac o concl))>>rw[]>>
+            first_disj(first_assum(match_exists_tac o concl))>>rw[]>>NO_TAC) >>
+        rpt disj2_tac >>
+        first_disj(first_assum(match_exists_tac o concl))>>rw[]>>
+        first_disj(first_assum(match_exists_tac o concl))>>rw[]>>
+        first_disj(first_assum(match_exists_tac o concl))>>rw[]) >>
+    Cases_on`o''`>>simp[]>>
+    TRY(Q.PAT_ABBREV_TAC`X = CCon Y Z` >> unabbrev_all_tac >>
+        rw[Once Cevaluate_cases] >> rw[Once Cevaluate_cases] >>
+        rw[Once (CONJUNCT2 Cevaluate_cases)] >>
+        rw[Once (CONJUNCT2 Cevaluate_cases)] >>
+        rw[Once (CONJUNCT2 Cevaluate_cases)] >>
+        srw_tac[DNF_ss][] >>
+        TRY(first_disj(first_assum(match_exists_tac o concl))>>rw[]>>NO_TAC) >>
+        TRY(first_disj(first_assum(match_exists_tac o concl))>>rw[]>>
+            first_disj(first_assum(match_exists_tac o concl))>>rw[]>>NO_TAC) >>
+        rpt disj2_tac >>
+        first_disj(first_assum(match_exists_tac o concl))>>rw[]>>
+        first_disj(first_assum(match_exists_tac o concl))>>rw[]>>
+        first_disj(first_assum(match_exists_tac o concl))>>rw[]) >>
+    srw_tac[DNF_ss][Once Cevaluate_cases] >>
+    first_disj(first_assum(match_exists_tac o concl))>>rw[]>>
+    srw_tac[DNF_ss][Once Cevaluate_cases] >>
+    TRY(disj2_tac >> syneq_shift_tac >> use_assum_tac) >>
+    disj1_tac >>
+    pop_assum(assume_tac o EQT_INTRO) >>
+    syneq_shift_tac >>
+    use_assum_tac >>
+    srw_tac[DNF_ss][Once Cevaluate_cases] >> disj2_tac >>
+    spec_shift_then_mp_tac >>
+    disch_then(qspecl_then[`LENGTH env`,`LENGTH env + 2`,`λx y. y = x+2`]mp_tac) >>
+    simp[] >> strip_tac >>
+    rator_x_assum`Cevaluate`(assume_tac o EQT_INTRO) >>
+    first_x_assum(mp_tac o MATCH_MP (CONJUNCT1 Cevaluate_syneq)) >>
+    disch_then(exists_suff_gen_then mp_tac) >>
+    simp[Once(GSYM AND_IMP_INTRO),ADD1] >>
+    disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
+    disch_then(exists_suff_then mp_tac) >>
+    discharge_hyps >- (
+      simp[rich_listTheory.EL_CONS,PRE_SUB1] ) >>
+    strip_tac >>
+    use_assum_tac ) >>
+  Cases >> rw[] >>
+  TRY(Q.PAT_ABBREV_TAC`X = CCon Y Z` >> unabbrev_all_tac >>
+      rw[Once Cevaluate_cases] >>
+      use_assum_tac) >>
+  Cases_on`o'`>>rw[]>>
+  TRY(Q.PAT_ABBREV_TAC`X = CCon Y Z` >> unabbrev_all_tac >>
+      rw[Once Cevaluate_cases] >>
+      use_assum_tac) >>
+  Cases_on`o''`>>rw[]>>
+  Q.PAT_ABBREV_TAC`X = CCon Y Z` >> unabbrev_all_tac >>
+  rw[Once Cevaluate_cases] >>
+  use_assum_tac)
+
 val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
   ``(∀ck env s e res. evaluate_pat ck env s e res ⇒
        ck ∧
@@ -624,7 +842,7 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
       fs[semanticPrimitivesTheory.store_lookup_def,compilerLibTheory.el_check_def] >>
       BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
       fs[csg_rel_def,map_count_store_genv_def,LIST_REL_EL_EQN,EL_MAP] >>
-      metis_tac[sv_rel_def,map_sv_def]) >>
+      metis_tac[sv_rel_def,map_sv_def])
     >- (
       Cases_on`t`>>fs[Once(CONJUNCT2 Cevaluate_cases)] >>
       srw_tac[DNF_ss][Once Cevaluate_cases] >> disj1_tac >>
@@ -734,8 +952,15 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
   strip_tac >- simp[] >>
   strip_tac >- (
     simp[] >> rpt gen_tac >>
-    strip_tac >> strip_tac >>
-    cheat ) >>
+    strip_tac >> strip_tac >> fs[] >>
+    (app_to_il_err
+     |> CONV_RULE(STRIP_BINDER_CONV(SOME universal)(LAND_CONV(lift_conjunct_conv(same_const``Cevaluate_list`` o fst o strip_comb))))
+     |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+     |> (fn th => (first_x_assum (mp_tac o MATCH_MP th)))) >>
+    simp[] >> disch_then(qspec_then`op`mp_tac) >>
+    REWRITE_TAC[GSYM exps_to_Cexps_MAP] >> simp[EVERY_MAP] >> strip_tac >>
+    use_assum_tac >>
+    metis_tac[csg_rel_syneq_trans,exc_rel_syneq_trans]) >>
   strip_tac >- (
     simp[] >>
     rpt gen_tac >> rpt strip_tac >>
