@@ -7,6 +7,21 @@ val _ = new_theory"free_vars"
 
 (* TODO: move? *)
 
+val do_app_cases = store_thm("do_app_cases",
+  ``do_app s op vs = SOME x ⇒
+    (∃z n1 n2. op = Opn z ∧ vs = [Litv (IntLit n1); Litv (IntLit n2)]) ∨
+    (∃z n1 n2. op = Opb z ∧ vs = [Litv (IntLit n1); Litv (IntLit n2)]) ∨
+    (∃v1 v2. op = Equality ∧ vs = [v1; v2]) ∨
+    (∃lnum v. op = Opassign ∧ vs = [Loc lnum; v]) ∨
+    (∃n. op = Opderef ∧ vs = [Loc n]) ∨
+    (∃v. op = Opref ∧ vs = [v]) ∨
+    (∃n w. op = Aalloc ∧ vs = [Litv (IntLit n); Litv (Word8 w)]) ∨
+    (∃lnum i. op = Asub ∧ vs = [Loc lnum; Litv (IntLit i)]) ∨
+    (∃n. op = Alength ∧ vs = [Loc n]) ∨
+    (∃lnum i w. op = Aupdate ∧ vs = [Loc lnum; Litv (IntLit i); Litv (Word8 w)])``,
+  rw[do_app_def] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[])
+
 val vs_to_exh_MAP = store_thm("vs_to_exh_MAP",
   ``∀exh vs1 vs2. vs_to_exh exh vs1 vs2 = LIST_REL (v_to_exh exh) vs1 vs2``,
   Induct_on`vs1`>>simp[Once v_to_exh_cases])
@@ -1033,65 +1048,31 @@ val build_rec_env_closed = store_thm("build_rec_env_closed",
   fs[MEM_MAP,EXISTS_PROD] >> metis_tac[])
 
 val do_app_closed = store_thm("do_app_closed",
-  ``∀s s' env op v1 v2 env' exp.
-    all_env_closed env ∧ closed v1 ∧ closed v2 ∧ EVERY closed s ∧
-    (do_app env s op v1 v2 = SOME (env',s',exp))
-    ⇒ all_env_closed env' ∧
-      FV exp ⊆ all_env_dom env' ∧
-      EVERY closed s'``,
-  ntac 3 gen_tac >> Cases
-  >- (
-    Cases >> TRY (Cases_on `l`) >>
-    Cases >> TRY (Cases_on `l`) >>
-    rw[do_app_def,exn_env_def,all_env_closed_def,all_env_dom_def] >>
-    rw[all_env_closed_def,emp_def])
-  >- (
-    Cases >> TRY (Cases_on `l`) >>
-    Cases >> TRY (Cases_on `l`) >>
-    rw[do_app_def] >> rw[])
-  >- (
-    rw[do_app_def] >>
-    BasicProvers.EVERY_CASE_TAC >> fs[] >>
-    rw[exn_env_def,all_env_closed_def,emp_def])
-  >- (
-    Cases >> Cases >> rw[do_app_def,bind_def] >> fs[closed_cases] >>
-    rw[] >> fs[] >> rw[all_env_dom_def,all_env_closed_def] >>
-    TRY ( rw[Once INSERT_SING_UNION] >> PROVE_TAC[UNION_COMM,UNION_ASSOC]) >>
-    TRY ( rw[closed_cases] >> NO_TAC) >>
-    BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
-    fs[all_env_closed_def,all_env_dom_def,find_recfun_lookup] >> rw[] >>
-    TRY (
-      match_mp_tac build_rec_env_closed >>
-      fs[all_env_to_env_def,all_env_to_menv_def,all_env_closed_def,FST_triple,EVERY_MEM,FORALL_PROD] >>
-      metis_tac[] ) >>
-    TRY (
-      fs[EVERY_MEM,FORALL_PROD] >>
-      imp_res_tac libPropsTheory.lookup_in3 >>
-      first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
-      fs[SUBSET_DEF,PULL_EXISTS] >> rw[] >>
-      first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >> rw[] >>
-      simp[build_rec_env_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
-      NO_TAC) >>
-    rw[closed_cases] )
-  >- (
-    Cases >> Cases >> rw[do_app_def] >>
-    pop_assum mp_tac >> BasicProvers.CASE_TAC >>
-    rw[] >> fs[] >>
-    fsrw_tac[DNF_ss][EVERY_MEM,MEM_MAP,FORALL_PROD] >>
-    rw[] >>
-    fs[store_assign_def] >> rw[] >>
-    PROVE_TAC[MEM_LUPDATE_E,closed_lit_loc_conv,EVERY_MEM]));
+  ``∀s op vs s' res.
+    EVERY closed vs ∧ EVERY (sv_every closed) s ∧
+    (do_app s op vs = SOME (s',res))
+    ⇒ every_result closed closed res ∧
+      EVERY (sv_every closed) s'``,
+  rpt gen_tac >> strip_tac >>
+  imp_res_tac do_app_cases >> fs[do_app_def] >>
+  rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
+  fs[store_assign_def,store_alloc_def,store_lookup_def,LET_THM] >>
+  rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[] >>
+  rpt BasicProvers.VAR_EQ_TAC >> simp[prim_exn_def] >>
+  fs[EVERY_MEM] >>
+  metis_tac[MEM_LUPDATE_E,sv_every_def,MEM_EL])
 
 val pmatch_closed = store_thm("pmatch_closed",
   ``(∀cenv s p v env env'.
       EVERY closed (MAP SND env) ∧ closed v ∧
-      EVERY closed s ∧
+      EVERY (sv_every closed) s ∧
       (pmatch cenv s p v env = Match env') ⇒
       EVERY closed (MAP SND env') ∧
       (MAP FST env' = pat_bindings p [] ++ (MAP FST env))) ∧
     (∀cenv s ps vs env env'.
       EVERY closed (MAP SND env) ∧ EVERY closed vs ∧
-      EVERY closed s ∧
+      EVERY (sv_every closed) s ∧
       (pmatch_list cenv s ps vs env = Match env') ⇒
       EVERY closed (MAP SND env') ∧
       (MAP FST env' = pats_bindings ps [] ++ MAP FST env))``,
@@ -1101,19 +1082,35 @@ val pmatch_closed = store_thm("pmatch_closed",
   BasicProvers.EVERY_CASE_TAC >> fs[] >>
   fs[store_lookup_def] >> rw[] >>
   TRY (metis_tac[pat_bindings_accum]) >>
-  fs[EVERY_MEM,MEM_EL,PULL_EXISTS])
+  fs[EVERY_MEM,MEM_EL,PULL_EXISTS] >>
+  metis_tac[sv_every_def])
 
-val do_uapp_closed = store_thm("do_uapp_closed",
-  ``∀s uop v s' v'.
-    EVERY closed s ∧ closed v ∧
-    (do_uapp s uop v = SOME (s',v')) ⇒
-    EVERY closed s' ∧ closed v'``,
-  gen_tac >> Cases >>
-  rw[do_uapp_def,LET_THM,store_alloc_def] >>
-  rw[EVERY_APPEND] >>
-  Cases_on`v`>>fs[store_lookup_def]>>
-  pop_assum mp_tac >> rw[] >> rw[]>>
-  fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL])
+val do_opapp_closed = store_thm("do_opapp_closed",
+  ``∀vs env exp.
+    EVERY closed vs ∧
+    do_opapp vs = SOME (env,exp)
+    ⇒
+    all_env_closed env ∧
+    FV exp ⊆ all_env_dom env``,
+  rpt gen_tac >> simp[do_opapp_def] >>
+  BasicProvers.EVERY_CASE_TAC >> strip_tac >>
+  rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
+  qpat_assum`closed (X Y)`mp_tac >>
+  simp[Once closed_cases] >> strip_tac >>
+  simp[all_env_closed_def,bind_def] >>
+  simp[all_env_dom_def] >>
+  TRY(
+    conj_tac >- (
+      match_mp_tac build_rec_env_closed >>
+      simp[all_env_closed_def] >> fs[FST_triple] >>
+      fs[EVERY_MEM,FORALL_PROD,all_env_to_menv_def,all_env_to_env_def] >>
+      fs[SUBSET_DEF,PULL_EXISTS] >>
+      metis_tac[] )) >>
+  fs[SUBSET_DEF,build_rec_env_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX,find_recfun_lookup] >>
+  imp_res_tac libPropsTheory.lookup_in3 >>
+  fs[EVERY_MEM,FORALL_PROD] >>
+  first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >> rw[] >>
+  first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >> rw[])
 
 val do_log_FV = store_thm("do_log_FV",
   ``(do_log op v e2 = SOME exp) ⇒
@@ -1134,26 +1131,26 @@ val evaluate_closed = store_thm("evaluate_closed",
      evaluate ck env s exp res ⇒
      FV exp ⊆ all_env_dom env ∧
      all_env_closed env ∧
-     EVERY closed (SND s)
+     EVERY (sv_every closed) (SND s)
      ⇒
-     EVERY closed (SND (FST res)) ∧
+     EVERY (sv_every closed) (SND (FST res)) ∧
      every_result closed closed (SND res)) ∧
     (∀ck env s exps ress.
      evaluate_list ck env s exps ress ⇒
      FV_list exps ⊆ all_env_dom env ∧
      all_env_closed env ∧
-     EVERY closed (SND s)
+     EVERY (sv_every closed) (SND s)
      ⇒
-     EVERY closed (SND (FST ress)) ∧
+     EVERY (sv_every closed) (SND (FST ress)) ∧
      every_result (EVERY closed) closed (SND ress)) ∧
     (∀ck env s v pes errv res.
      evaluate_match ck env s v pes errv res ⇒
      FV_pes pes ⊆ all_env_dom env ∧
      all_env_closed env ∧
-     EVERY closed (SND s) ∧
+     EVERY (sv_every closed) (SND s) ∧
      closed v ∧ closed errv
      ⇒
-     EVERY closed (SND (FST res)) ∧
+     EVERY (sv_every closed) (SND (FST res)) ∧
      every_result closed closed (SND res))``,
   ho_match_mp_tac evaluate_ind >>
   strip_tac (* Lit *) >- rw[] >>
@@ -1186,19 +1183,17 @@ val evaluate_closed = store_thm("evaluate_closed",
     rw[Once closed_cases] >>
     fsrw_tac[DNF_ss][SUBSET_DEF] >>
     metis_tac[]) >>
-  strip_tac (* Uapp *) >- (
+  strip_tac (* Opapp *) >- (
     rpt gen_tac >> strip_tac >> strip_tac >> fs[] >>
-    PROVE_TAC[do_uapp_closed] ) >>
-  strip_tac (* Uapp *) >- rw[] >>
-  strip_tac (* Uapp *) >- rw[] >>
+    PROVE_TAC[do_opapp_closed] ) >>
+  strip_tac (* Opapp *) >- rw[] >>
+  strip_tac (* Opapp *) >- rw[] >>
   strip_tac (* App *) >- (
     rpt gen_tac >> ntac 2 strip_tac >> fs[] >> rfs[] >>
     PROVE_TAC[do_app_closed]) >>
   strip_tac (* App *) >- (
     rw[] >> fs[] >> rfs[] >>
     PROVE_TAC[do_app_closed] ) >>
-  strip_tac (* App *) >- rw[] >>
-  strip_tac (* App *) >- rw[] >>
   strip_tac (* App *) >- rw[] >>
   strip_tac (* Log *) >- (
     rw[] >> fs[] >>
