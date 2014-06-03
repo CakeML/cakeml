@@ -397,7 +397,8 @@ val _ = Define `
  val do_eq_pat_defn = Hol_defn "do_eq_pat" `
 
 (do_eq_pat (Litv_pat l1) (Litv_pat l2) =  
-(Eq_val (l1 = l2)))
+(if lit_same_type l1 l2 then Eq_val (l1 = l2)
+  else Eq_type_error))
 /\
 (do_eq_pat (Loc_pat l1) (Loc_pat l2) = (Eq_val (l1 = l2)))
 /\

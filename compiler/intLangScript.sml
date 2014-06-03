@@ -103,7 +103,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
  val do_Ceq_defn = Hol_defn "do_Ceq" `
 
 (do_Ceq (CLitv l1) (CLitv l2) =  
-(Eq_val (l1 = l2)))
+(if lit_same_type l1 l2 then Eq_val (l1 = l2) else Eq_type_error))
 /\
 (do_Ceq (CLoc l1) (CLoc l2) = (Eq_val (l1 = l2)))
 /\

@@ -71,7 +71,7 @@ doPrim2 _ _ _ _ = Rerr Rtype_error
 val do_Ceq : Cv -> Cv -> eq_result
 let rec
 do_Ceq (CLitv l1) (CLitv l2) =
-  Eq_val (l1 = l2)
+  if lit_same_type l1 l2 then Eq_val (l1 = l2) else Eq_type_error
 and
 do_Ceq (CLoc l1) (CLoc l2) = Eq_val (l1 = l2)
 and

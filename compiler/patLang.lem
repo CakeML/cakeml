@@ -356,7 +356,8 @@ let do_opapp_pat vs =
 val do_eq_pat : v_pat -> v_pat -> eq_result
 let rec
 do_eq_pat (Litv_pat l1) (Litv_pat l2) =
-  Eq_val (l1 = l2)
+  if lit_same_type l1 l2 then Eq_val (l1 = l2)
+  else Eq_type_error
 and
 do_eq_pat (Loc_pat l1) (Loc_pat l2) = Eq_val (l1 = l2)
 and

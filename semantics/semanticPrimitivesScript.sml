@@ -323,9 +323,10 @@ val _ = Hol_datatype `
 
 (*val do_eq : v -> v -> eq_result*)
  val do_eq_defn = Hol_defn "do_eq" `
- 
+
 (do_eq (Litv l1) (Litv l2) =  
- (Eq_val (l1 = l2)))
+(if lit_same_type l1 l2 then Eq_val (l1 = l2)
+  else Eq_type_error))
 /\
 (do_eq (Loc l1) (Loc l2) = (Eq_val (l1 = l2)))
 /\

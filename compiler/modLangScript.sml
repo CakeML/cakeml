@@ -284,9 +284,10 @@ val _ = Define `
 
 (*val do_eq_i1 : v_i1 -> v_i1 -> eq_result*)
  val do_eq_i1_defn = Hol_defn "do_eq_i1" `
- 
+
 (do_eq_i1 (Litv_i1 l1) (Litv_i1 l2) =  
- (Eq_val (l1 = l2)))
+(if lit_same_type l1 l2 then Eq_val (l1 = l2)
+  else Eq_type_error))
 /\
 (do_eq_i1 (Loc_i1 l1) (Loc_i1 l2) = (Eq_val (l1 = l2)))
 /\
