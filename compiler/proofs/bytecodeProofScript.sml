@@ -867,6 +867,8 @@ val env_renv_change_store = store_thm("env_renv_change_store",
       rpt gen_tac >> strip_tac >>
       fs[s_refs_def,good_rd_def,FEVERY_DEF,UNCURRY,el_check_def] >>
       fs[SUBMAP_DEF,FDOM_DRESTRICT,FLOOKUP_DEF,DRESTRICT_DEF] >>
+      rw[] >> fs[] >> fs[] >>
+      BasicProvers.EVERY_CASE_TAC >> fs[] >>
       metis_tac[] ) >>
     rpt gen_tac >> strip_tac >>
     rfs[s_refs_def,EVERY2_EVERY,gvrel_def] >>
@@ -1010,6 +1012,7 @@ val Cenv_bs_bind_fv = store_thm("Cenv_bs_bind_fv",
     fs[s_refs_def,good_rd_def,FEVERY_DEF,UNCURRY] >>
     qpat_assum`∀x. x ∈ FDOM rd.cls ⇒ X`(qspec_then`p`mp_tac) >>
     simp[] >> strip_tac >>
+    fs[FLOOKUP_DEF] >>
     match_mp_tac (MP_CANON (CONJUNCT1 Cv_bv_syneq)) >>
     HINT_EXISTS_TAC >>
     simp[] >>
