@@ -163,7 +163,7 @@ compile_envref sz s (CCArg n) = emit s [Stack (Load (sz + n))]
 and
 compile_envref sz s (CCEnv n) = emit s [Stack (Load sz); Stack (El n)]
 and
-compile_envref sz s (CCRef n) = emit (compile_envref sz s (CCEnv n)) [Deref]
+compile_envref sz s (CCRef n) = emit (compile_envref sz s (CCEnv n)) [Stack (PushInt 0); Deref]
 
 let rec
 compile_varref sz s (CTLet n) = emit s [Stack (Load (sz - n))]

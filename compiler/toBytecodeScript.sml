@@ -191,7 +191,7 @@ val _ = Define `
 /\
 (compile_envref sz s (CCEnv n) = (emit s [Stack (Load sz); Stack (El n)]))
 /\
-(compile_envref sz s (CCRef n) = (emit (compile_envref sz s (CCEnv n)) [Deref]))`;
+(compile_envref sz s (CCRef n) = (emit (compile_envref sz s (CCEnv n)) [Stack (PushInt(( 0 : int))); Deref]))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_envref_defn;
 
