@@ -5,6 +5,15 @@ val _ = new_theory"patLangProof"
 
 (* TODO: move *)
 
+val lit_same_type_refl = store_thm("lit_same_type_refl",
+  ``∀l. lit_same_type l l``,
+  Cases >> simp[semanticPrimitivesTheory.lit_same_type_def])
+val _ = export_rewrites["lit_same_type_refl"]
+
+val lit_same_type_sym = store_thm("lit_same_type_sym",
+  ``∀l1 l2. lit_same_type l1 l2 ⇒ lit_same_type l2 l1``,
+  Cases >> Cases >> simp[semanticPrimitivesTheory.lit_same_type_def])
+
 val OPTREL_SOME = store_thm("OPTREL_SOME",
   ``(!R x y. OPTREL R (SOME x) y <=> (?z. y = SOME z /\ R x z)) /\
     (!R x y. OPTREL R x (SOME y) <=> (?z. x = SOME z /\ R z y))``,
@@ -880,7 +889,8 @@ val pat_to_pat_correct = prove(
     rw[Once evaluate_pat_cases] >>
     rw[Once evaluate_pat_cases] >>
     rw[map_count_store_genv_def,do_app_pat_def,EXISTS_PROD] >>
-    rw[do_eq_pat_def] )
+    rw[do_eq_pat_def] >>
+    metis_tac[lit_same_type_sym])
   >- (
     Cases_on`v`>>fs[pmatch_exh_def]>>pop_assum mp_tac >> rw[LENGTH_NIL_SYM] >>
     rw[Once evaluate_pat_cases] >>
