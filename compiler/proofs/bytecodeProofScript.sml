@@ -1191,7 +1191,7 @@ val do_Ceq_to_bc_equal = Q.prove (
   strip_tac >>
   ho_match_mp_tac do_Ceq_ind >>
   rw [] >-
-  (helper_tac >> TRY(fs[LIST_EQ_REWRITE]>>NO_TAC) >>
+  (helper_tac >> TRY(fs[semanticPrimitivesTheory.lit_same_type_def,LIST_EQ_REWRITE]>>NO_TAC) >>
    match_mp_tac bc_equal_list_Number >> rw[stringTheory.ORD_11] ) >-
   (helper_tac >> metis_tac [ALL_DISTINCT_EL_IMP]) >-
   (helper_tac >> fs[EVERY2_EVERY] >> metis_tac []) >-
