@@ -1215,57 +1215,150 @@ val do_Ceq_to_bc_equal = Q.prove (
   rw [bc_equal_def] >-
   rw [bc_equal_def]);
 
+val is_Label_prim2_to_bc = store_thm("is_Label_prim2_to_bc",
+  ``∀op. ¬is_Label (prim2_to_bc op)``,
+  Cases >> Cases_on`C` >> rw[])
+val _ = export_rewrites["is_Label_prim2_to_bc"]
+
 val prim2_to_bc_thm = store_thm("prim2_to_bc_thm",
-  ``∀op v1 v2 v bs bc0 bc1 st bv1 bv2 pp.
-    (bs.code = bc0 ++ [Stack (prim2_to_bc op)] ++ bc1) ∧
+  ``∀s op v1 v2 s' v bs bc0 bc1 st bv1 bv2 pp.
+    (bs.code = bc0 ++ [(prim2_to_bc op)] ++ bc1) ∧
     (bs.pc = next_addr bs.inst_length bc0) ∧
-    (v2 = CLitv(IntLit &0) ⇒ (op ≠ CDiv) ∧ (op ≠ CMod)) ∧
-    (CevalPrim2 op v1 v2 = Rval v) ∧
+    (v2 = CLitv(IntLit &0) ⇒ (op ≠ P2p CDiv) ∧ (op ≠ P2p CMod)) ∧
+    s_refs (FST pp) s bs ∧
+    (CevalPrim2 s op v1 v2 = (s', Rval v)) ∧
     Cv_bv pp v1 bv1 ∧ Cv_bv pp v2 bv2 ∧
     (bs.stack = bv2::bv1::st) ∧
     ALL_DISTINCT (FST pp).sm
-    ⇒ ∃bv.
-      Cv_bv pp v bv ∧
-      bc_next bs (bump_pc (bs with <|stack := bv::st|>))``,
-  rw[] >>
-  `bc_fetch bs = SOME (Stack (prim2_to_bc op))` by (
+    ⇒ ∃rd rf bv.
+      Cv_bv (rd,SND pp) v bv ∧
+      let bs' = bump_pc (bs with <|stack := bv::st; refs := rf|>) in
+      bc_next bs bs' ∧
+      s_refs rd s' bs'``,
+  simp[] >> rw[] >>
+  `bc_fetch bs = SOME (prim2_to_bc op)` by (
     match_mp_tac bc_fetch_next_addr >>
     map_every qexists_tac[`bc0`,`bc1`] >>
-    rw[] ) >>
+    rw[]) >>
   rw[bc_eval1_thm] >>
-  rw[bc_eval1_def] >>
-  srw_tac[DNF_ss][] >>
-  rw[bump_pc_with_stack] >>
-  reverse (Cases_on `op`) >- (
-    fs [] >>
-    Cases_on `do_Ceq v1 v2` >>
-    fs [] >>
-    rw [Once Cv_bv_cases, bc_eval_stack_def,bc_state_component_equality] >>
-    imp_res_tac do_Ceq_to_bc_equal >>
-    rw []) >>
-  Cases_on `v1` >> TRY (Cases_on `l`) >>
-  Cases_on `v2` >> TRY (Cases_on `l`) >>
-  fs[] >> rw[] >> fs[Once Cv_bv_cases] >> rw[] >>
-  BasicProvers.EVERY_CASE_TAC >>
-  rw[bc_eval_stack_def] >> fs[] >>
-  TRY (Cases_on `b` >> rw[]) >>
-  TRY (Cases_on `b'` >> rw[]) >>
-  srw_tac[ARITH_ss][] >>
-  fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
-  TRY (
+  simp[bc_eval1_def] >>
+  Cases_on`op` >- (
+    qmatch_assum_rename_tac`bc_fetch bs = SOME (prim2_to_bc (P2p op))`[] >>
+    qexists_tac`FST pp`>>
+    qexists_tac`bs.refs` >> simp[] >>
+    reverse(Cases_on`op`)>>fs[bump_pc_with_stack] >- (
+      Cases_on `do_Ceq v1 v2` >>
+      fs [] >>
+      rw [Once Cv_bv_cases, bc_eval_stack_def,bc_state_component_equality] >>
+      imp_res_tac do_Ceq_to_bc_equal >>
+      rw [bump_pc_def,bc_fetch_with_refs] >>
+      simp[s_refs_with_stack] >>
+      match_mp_tac s_refs_with_irr >>
+      simp[] >>
+      metis_tac[]) >>
+    simp[bump_pc_def,s_refs_with_pc,s_refs_with_stack] >>
+    Cases_on `v1` >> TRY (Cases_on `l`) >>
+    Cases_on `v2` >> TRY (Cases_on `l`) >>
+    fs[] >> rw[] >> fs[Once Cv_bv_cases] >> rw[] >>
+    BasicProvers.EVERY_CASE_TAC >>
+    rw[bc_eval_stack_def] >> fs[] >>
+    TRY (Cases_on `b` >> rw[]) >>
+    TRY (Cases_on `b'` >> rw[]) >>
+    srw_tac[ARITH_ss][] >>
+    fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
     fsrw_tac[DNF_ss][EL_ALL_DISTINCT_EL_EQ,el_check_def] >>
     AP_THM_TAC >> AP_TERM_TAC >> AP_TERM_TAC >> AP_THM_TAC >>
     AP_TERM_TAC >> AP_THM_TAC >> AP_TERM_TAC >> AP_TERM_TAC >>
     metis_tac[] ) >>
-  Cases_on `n=n'` >> rw[] >>
-  AP_THM_TAC >> AP_TERM_TAC >> AP_TERM_TAC >> AP_THM_TAC >>
-  AP_TERM_TAC >> AP_THM_TAC >> AP_TERM_TAC >> AP_TERM_TAC >>
-  rw[LIST_EQ_REWRITE] >>
-  rfs[MEM_ZIP] >>
-  fsrw_tac[DNF_ss][MEM_EL] >>
-  Cases_on `LENGTH bvs = LENGTH bvs'` >> rw[] >>
-  fsrw_tac[DNF_ss][SUBSET_DEF,MEM_EL] >>
-  metis_tac[SIMP_RULE(srw_ss()++DNF_ss)[SUBSET_DEF]no_closures_Cv_bv_equal] )
+  qmatch_assum_rename_tac`bc_fetch bs = SOME (prim2_to_bc (P2s op))`[] >>
+  PairCases_on`s` >>
+  Cases_on`op`>>simp[bump_pc_with_stack] >>
+  fs[LET_THM,UNCURRY] >> rw[] >>
+  Cases_on `v2` >> TRY (Cases_on `l`) >> fs[] >>
+  Cases_on `v1` >> TRY (Cases_on `l`) >> fs[] >>
+  fs[Q.SPECL[`CLitv X`](CONJUNCT1 (Q.SPEC`pp`Cv_bv_cases))] >>
+  fs[Q.SPEC`CLoc X`(CONJUNCT1 (Q.SPEC`pp`Cv_bv_cases))] >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  rpt(qpat_assum`X = Rval v`mp_tac >>
+      BasicProvers.CASE_TAC >> strip_tac) >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  simp[bump_pc_def,bc_fetch_with_refs,bc_state_component_equality] >>
+  simp[Once Cv_bv_cases] >>
+  fs[el_check_def] >- (
+    `LENGTH (FST pp).sm = LENGTH s1` by fs[s_refs_def] >>
+    qexists_tac`FST pp with sm := (FST pp).sm ++ [(LEAST n. n ∉ FDOM bs.refs)]` >>
+    simp[EL_APPEND2] >>
+    simp[wordsTheory.w2n_lt,integerTheory.int_le] >>
+    simp[s_refs_with_stack,s_refs_with_pc] >>
+    Q.PAT_ABBREV_TAC`n = LEAST n. n ∉ FDOM bs.refs` >>
+    `n ∉ FDOM bs.refs` by (
+      unabbrev_all_tac >>
+      numLib.LEAST_ELIM_TAC >>
+      simp[] >>
+      metis_tac[NOT_IN_FINITE,INFINITE_NUM_UNIV,FDOM_FINITE] ) >>
+    fs[s_refs_def] >>
+    conj_tac >- (
+      fs[good_rd_def,FEVERY_DEF,UNCURRY,FLOOKUP_UPDATE] >>
+      gen_tac >> strip_tac >>
+      first_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
+      conj_asm1_tac >- (spose_not_then strip_assume_tac >> fs[FLOOKUP_DEF]) >>
+      simp[] >>
+      match_mp_tac(MP_CANON(GEN_ALL(CONJUNCT1(SPEC_ALL Cv_bv_SUBMAP)))) >>
+      first_assum(match_exists_tac o concl) >>
+      simp[] >>
+      fs[EVERY_MEM,FLOOKUP_DEF] >>
+      metis_tac[] ) >>
+    conj_tac >- fs[EVERY_MEM] >>
+    conj_tac >- (
+      fs[ALL_DISTINCT_APPEND,EVERY_MEM] >>
+      metis_tac[] ) >>
+    simp[integerTheory.INT_ABS] >>
+    conj_tac >>
+    match_mp_tac (MP_CANON (GEN_ALL EVERY2_mono)) >>
+    ONCE_REWRITE_TAC[CONJ_COMM] >>
+    TRY (
+      first_assum(match_exists_tac o concl) >>
+      simp[] >>
+      Cases >> simp[optionTheory.OPTREL_def,PULL_EXISTS] >>
+      rw[] >>
+      match_mp_tac(MP_CANON(GEN_ALL(CONJUNCT1(SPEC_ALL Cv_bv_SUBMAP)))) >>
+      first_assum(match_exists_tac o concl) >>
+      simp[] >>
+      fs[EVERY_MEM,FLOOKUP_DEF,good_rd_def,FEVERY_DEF,UNCURRY] >>
+      metis_tac[] ) >>
+    qmatch_assum_abbrev_tac`LIST_REL R s1 Y` >>
+    qexists_tac`R` >>
+    simp[Abbr`R`,UNCURRY,Abbr`Y`] >>
+    fs[LIST_REL_EL_EQN] >> rw[] >>
+    match_mp_tac (MP_CANON (GEN_ALL sv_refv_rel_mono)) >>
+    res_tac >>
+    ONCE_REWRITE_TAC[CONJ_COMM] >>
+    rfs[EL_MAP,FAPPLY_FUPDATE_THM] >>
+    TRY(
+      BasicProvers.CASE_TAC >- (
+        fs[EVERY_MEM] >>
+        metis_tac[MEM_EL] )) >>
+    first_assum(match_exists_tac o concl) >>
+    simp[] >> rw[] >>
+    match_mp_tac(MP_CANON(GEN_ALL(CONJUNCT1(SPEC_ALL Cv_bv_SUBMAP)))) >>
+    first_assum(match_exists_tac o concl) >>
+    simp[] >>
+    fs[EVERY_MEM,FLOOKUP_DEF,good_rd_def,FEVERY_DEF,UNCURRY] >>
+    metis_tac[] ) >>
+  simp[s_refs_with_stack,s_refs_with_pc] >>
+  qexists_tac`FST pp` >>
+  qexists_tac`bs.refs` >>
+  simp[] >>
+  fs[s_refs_def,FLOOKUP_DEF,EVERY_MEM] >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  conj_asm1_tac >- (
+    first_x_assum match_mp_tac >>
+    metis_tac[MEM_EL] ) >>
+  fs[LIST_REL_EL_EQN] >>
+  rpt(first_x_assum(qspec_then`n`mp_tac)) >>
+  simp[sv_refv_rel_cases,EL_MAP,bc_state_component_equality] >>
+  rfs[integerTheory.int_le,integerTheory.INT_ABS] >>
+  rw[] >> DECIDE_TAC)
 
 val is_Label_prim1_to_bc = store_thm("is_Label_prim1_to_bc",
   ``∀uop. EVERY ($~ o is_Label) (prim1_to_bc uop)``,
