@@ -22,6 +22,7 @@ val _ = new_theory "lib"
 (*open import {hol} `wordsTheory`*)
 (*type word8*)
 (*val natFromWord8 : word8 -> nat*)
+(*val word_to_hex_string : word8 -> string*)
 
 (* The builtin List.zip maps to list_combine in HOL, but I want to map to ZIP *)
 (*val ZIP : forall 'a 'b. list 'a -> list 'b -> list ('a * 'b)*)

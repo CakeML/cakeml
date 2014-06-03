@@ -1,5 +1,6 @@
 (* observable values *)
 open import Pervasives
+open import Lib
 import List_extra
 
 open import Ast
@@ -26,7 +27,7 @@ v_to_ov (Loc _) = OLoc
 let rec
 ov_to_string (OLit (IntLit (i:integer))) = int_to_string i
 and
-ov_to_string (OLit (Word8 w)) = ("0wx"++word_to_hex_string w)
+ov_to_string (OLit (Word8 w)) = "0wx"^(word_to_hex_string w)
 and
 ov_to_string (OLit (StrLit s)) = string_to_string s
 and
