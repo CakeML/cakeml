@@ -26,6 +26,8 @@ v_to_ov (Loc _) = OLoc
 let rec
 ov_to_string (OLit (IntLit (i:integer))) = int_to_string i
 and
+ov_to_string (OLit (Word8 w)) = ("0wx"++word_to_hex_string w)
+and
 ov_to_string (OLit (StrLit s)) = string_to_string s
 and
 ov_to_string (OLit (Bool true)) = "true"
