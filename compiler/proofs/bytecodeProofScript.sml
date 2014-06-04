@@ -1220,6 +1220,12 @@ val is_Label_prim2_to_bc = store_thm("is_Label_prim2_to_bc",
   Cases >> Cases_on`C` >> rw[])
 val _ = export_rewrites["is_Label_prim2_to_bc"]
 
+val inst_uses_label_prim2_to_bc = store_thm("inst_uses_label_prim2_to_bc",
+  ``∀l op. ¬inst_uses_label l (prim2_to_bc op)``,
+  Cases_on`op`>>Cases_on`C`>>
+  rw[inst_uses_label_def])
+val _ = export_rewrites["inst_uses_label_prim2_to_bc"]
+
 val prim2_to_bc_thm = store_thm("prim2_to_bc_thm",
   ``∀s op v1 v2 s' v bs bc0 bc1 st bv1 bv2 pp.
     (bs.code = bc0 ++ [(prim2_to_bc op)] ++ bc1) ∧
@@ -2605,6 +2611,7 @@ val compile_append_out = store_thm("compile_append_out",
     SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``ALL_DISTINCT``1"ls"] >>
     `ls = []` by simp[Abbr`ls`,FILTER_EQ_NIL,EVERY_MAP] >>
     fs[code_labels_ok_def,uses_label_thm,EXISTS_MEM,MEM_MAP,PULL_EXISTS] ) >>
+  strip_tac >- tac >>
   strip_tac >- tac >>
   strip_tac >- tac >>
   strip_tac >- (
