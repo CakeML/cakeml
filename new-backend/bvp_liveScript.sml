@@ -9,10 +9,6 @@ open sptreeTheory lcsymtacs;
    annotations that are attached to MakeSpace, Assign, Call, Handle
    etc. in BVP programs. *)
 
-val list_insert_def = Define `
-  (list_insert [] t = t) /\
-  (list_insert (n::ns) t = list_insert ns (insert n () t))`;
-
 val pLive_def = Define `
   (pLive Skip live = (Skip,live)) /\
   (pLive (Return n) live = (Return n, insert n () LN)) /\
@@ -110,13 +106,6 @@ val LAST_N_LEMMA = prove(
   MP_TAC (Q.SPEC `x::y::xs` LAST_N_LENGTH)
   \\ MP_TAC (Q.SPEC `x::xs` LAST_N_LENGTH) \\ fs [ADD1]);
 
-val pEvalOp_IMP = prove(
-  ``(pEvalOp op args s1 = SOME (v,s2)) ==>
-    (s1.handler = s2.handler) /\ (s1.stack = s2.stack) /\ (s1.locals = s2.locals)``,
-  fs [pEvalOp_def,pEvalOpSpace_def,bvp_to_bvl_def,bvl_to_bvp_def,consume_space_def]
-  \\ REPEAT (BasicProvers.CASE_TAC \\ fs [])
-  \\ SRW_TAC [] [] \\ SRW_TAC [] []);
-
 val state_rel_IMP_pEvalOp = prove(
   ``(pEvalOp op args s1 = SOME (v,s2)) /\
     state_rel s1 t1 anything ==>
@@ -137,10 +126,6 @@ val state_rel_IMP_pEvalOp = prove(
   \\ ASM_SIMP_TAC (srw_ss()) [bvp_state_explode]
   \\ SRW_TAC [] []);
 
-val domain_list_insert = prove(
-  ``!xs x t. x IN domain (list_insert xs t) <=> MEM x xs \/ x IN domain t``,
-  Induct \\ fs [list_insert_def] \\ METIS_TAC []);
-
 val state_rel_IMP_get_vars = prove(
   ``!args s1 t1 t xs.
       state_rel s1 t1 (list_insert args t) /\
@@ -154,29 +139,9 @@ val state_rel_IMP_get_vars = prove(
   \\ REPEAT (BasicProvers.FULL_CASE_TAC \\ fs [])
   \\ RES_TAC \\ fs [] \\ SRW_TAC [] []);
 
-val lookup_inter_alt = prove(
-  ``lookup x (inter t1 t2) =
-      if x IN domain t2 then lookup x t1 else NONE``,
-  fs [lookup_inter,domain_lookup]
-  \\ Cases_on `lookup x t2` \\ fs [] \\ Cases_on `lookup x t1` \\ fs []);
-
-val EVERY_get_vars = prove(
-  ``!args s1 s2.
-      EVERY (\a. lookup a s1.locals = lookup a s2.locals) args ==>
-      (get_vars args s1 = get_vars args s2)``,
-  Induct \\ fs [get_vars_def,get_var_def] \\ REPEAT STRIP_TAC
-  \\ RES_TAC \\ FULL_SIMP_TAC std_ss []);
-
 val domain_list_to_num_set = prove(
   ``!xs. x IN domain (list_to_num_set xs) <=> MEM x xs``,
   Induct \\ fs [list_to_num_set_def]);
-
-val get_vars_IMP_domain = prove(
-  ``!args x s vs. MEM x args /\ (get_vars args s = SOME vs) ==>
-                  x IN domain s.locals``,
-  Induct \\ fs [get_vars_def,get_var_def] \\ REPEAT STRIP_TAC
-  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ fs [] \\ SRW_TAC [] []
-  \\ fs [domain_lookup]);
 
 val pEval_pLive = prove(
   ``!c s1 res s2 l2 t1 l1 d.

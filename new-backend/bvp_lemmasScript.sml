@@ -293,4 +293,40 @@ val pEval_stack = store_thm("pEval_stack",
   REPEAT STRIP_TAC \\ ASSUME_TAC (SPEC_ALL pEval_stack_swap)
   \\ REPEAT BasicProvers.CASE_TAC \\ fs []);
 
+val list_insert_def = Define `
+  (list_insert [] t = t) /\
+  (list_insert (n::ns) t = list_insert ns (insert n () t))`;
+
+val domain_list_insert = store_thm("domain_list_insert",
+  ``!xs x t.
+      x IN domain (list_insert xs t) <=> MEM x xs \/ x IN domain t``,
+  Induct \\ fs [list_insert_def] \\ METIS_TAC []);
+
+val lookup_inter_alt = store_thm("lookup_inter_alt",
+  ``lookup x (inter t1 t2) =
+      if x IN domain t2 then lookup x t1 else NONE``,
+  fs [lookup_inter,domain_lookup]
+  \\ Cases_on `lookup x t2` \\ fs [] \\ Cases_on `lookup x t1` \\ fs []);
+
+val pEvalOp_IMP = store_thm("pEvalOp_IMP",
+  ``(pEvalOp op args s1 = SOME (v,s2)) ==>
+    (s1.handler = s2.handler) /\ (s1.stack = s2.stack) /\ (s1.locals = s2.locals)``,
+  fs [pEvalOp_def,pEvalOpSpace_def,bvp_to_bvl_def,bvl_to_bvp_def,consume_space_def]
+  \\ REPEAT (BasicProvers.CASE_TAC \\ fs [])
+  \\ SRW_TAC [] [] \\ SRW_TAC [] []);
+
+val get_vars_IMP_domain = store_thm("get_vars_IMP_domain",
+  ``!args x s vs. MEM x args /\ (get_vars args s = SOME vs) ==>
+                  x IN domain s.locals``,
+  Induct \\ fs [get_vars_def,get_var_def] \\ REPEAT STRIP_TAC
+  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ fs [] \\ SRW_TAC [] []
+  \\ fs [domain_lookup]);
+
+val EVERY_get_vars = store_thm("EVERY_get_vars",
+  ``!args s1 s2.
+      EVERY (\a. lookup a s1.locals = lookup a s2.locals) args ==>
+      (get_vars args s1 = get_vars args s2)``,
+  Induct \\ fs [get_vars_def,get_var_def] \\ REPEAT STRIP_TAC
+  \\ RES_TAC \\ FULL_SIMP_TAC std_ss []);
+
 val _ = export_theory();
