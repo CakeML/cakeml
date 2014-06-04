@@ -741,12 +741,20 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
       fs[semanticPrimitivesTheory.store_assign_def] >>
       fs[csg_rel_def,map_count_store_genv_def] >>
       imp_res_tac EVERY2_LENGTH >> fs[] >>
+      simp[compilerLibTheory.el_check_def] >>
       BasicProvers.CASE_TAC >> fs[] >>
       rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
-      reverse conj_tac >- metis_tac[EVERY2_OPTREL_syneq_trans] >>
-      rfs[EVERY2_EVERY,EVERY_MEM] >>
-      fs[MEM_ZIP,PULL_EXISTS,EL_MAP,EL_LUPDATE] >>
-      rw[] >> metis_tac[syneq_trans,sv_rel_syneq_trans])
+      BasicProvers.EVERY_CASE_TAC >>
+      fs[store_v_same_type_def] >>
+      BasicProvers.EVERY_CASE_TAC >> fs[] >>
+      rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
+      TRY(
+        reverse conj_tac >- metis_tac[EVERY2_OPTREL_syneq_trans] >>
+        rfs[EVERY2_EVERY,EVERY_MEM] >>
+        fs[MEM_ZIP,PULL_EXISTS,EL_MAP,EL_LUPDATE] >>
+        rw[] >> metis_tac[syneq_trans,sv_rel_syneq_trans]) >>
+      fs[LIST_REL_EL_EQN,EL_MAP] >>
+      metis_tac[sv_rel_def,map_sv_def,store_v_nchotomy])
     >- (
       srw_tac[DNF_ss][Once Cevaluate_cases] >>
       disj1_tac >>
@@ -933,6 +941,8 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
       simp[GSYM integerTheory.INT_NOT_LT] >>
       fs[] >> rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
       fs[csg_rel_def,map_count_store_genv_def] >>
+      fs[store_v_same_type_def] >>
+      rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
       reverse conj_tac >- metis_tac[EVERY2_OPTREL_syneq_trans] >>
       simp[EVERY2_MAP] >>
       match_mp_tac EVERY2_LUPDATE_same >>
