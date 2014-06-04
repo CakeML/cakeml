@@ -234,9 +234,9 @@ update_refptr nk (s,k) =
   (* cl_1, ..., cl_nk, RefPtr_1 cl_1, ..., RefPtr_k 0, ..., RefPtr_nk 0, *)
   let s = emit s [Stack (Load (nk + k))] in
   (* RefPtr_k 0, cl_1, ..., cl_nk, RefPtr_1 cl_1, ..., RefPtr_k 0, ..., RefPtr_nk 0, *)
-  let s = emit s [Stack (Load (1 + k))] in
+  let s = emit s [Stack (PushInt 0); Stack (Load (2 + k))] in
   (* cl_k, RefPtr_k 0, cl_1, ..., cl_nk, RefPtr_1 cl_1, ..., RefPtr_k 0, ..., RefPtr_nk 0, *)
-  let s = emit s [Stack (PushInt 0); Update] in
+  let s = emit s [Update] in
   (* cl_1, ..., cl_nk, RefPtr_1 cl_1, ..., RefPtr_k cl_k, ..., RefPtr_nk 0, *)
   (s,k+1)
 
