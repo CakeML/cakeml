@@ -226,15 +226,15 @@ val eq_same_type = Q.prove (
  fs [] >>
  rw [] >>
  imp_res_tac type_funs_Tfn >>
- fs [] 
+ fs [lit_same_type_def]
  >- (fs [type_v_cases_eqn] >>
      rw [] >>
      fs [] >>
      metis_tac []) >>
  fs [Once type_vs_cases_eqn] >>
+ fs [tid_exn_not] >>
  rw [] >>
- cases_on `do_eq v1 v2` >>
- fs [tid_exn_not]
+ cases_on `do_eq v1 v2` >> fs[]
  >- (cases_on `b` >>
      fs [] >>
      qpat_assum `!x. P x` (mp_tac o Q.SPECL [`tvs`, `ctMap`, `tenvS`, `ts'`]) >>
