@@ -193,7 +193,7 @@ CevalPrim1 CLenB (s,g) (CLoc n) =
       end)
 and
 CevalPrim1 CIsBlock sg (CLitv l) =
-  (sg, Rval (CLitv (Bool (match l with IntLit _ -> false | _ -> true end))))
+  (sg, Rval (CLitv (Bool (match l with IntLit _ -> false | Word8 _ -> false | _ -> true end))))
 and
 CevalPrim1 (CTagEq n) sg (CConv t _) =
   (sg, Rval (CLitv (Bool (n = t))))

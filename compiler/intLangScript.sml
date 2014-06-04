@@ -236,7 +236,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
       )))
 /\
 (CevalPrim1 CIsBlock sg (CLitv l) =
-  (sg, Rval (CLitv (Bool ((case l of IntLit _ => F | _ => T ))))))
+  (sg, Rval (CLitv (Bool ((case l of IntLit _ => F | Word8 _ => F | _ => T ))))))
 /\
 (CevalPrim1 (CTagEq n) sg (CConv t _) =
   (sg, Rval (CLitv (Bool (n = t)))))
