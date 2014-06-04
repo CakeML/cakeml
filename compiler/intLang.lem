@@ -153,11 +153,13 @@ CevalPrim2 ((c,s),g) (P2s x) y z =
 val CevalUpd : bool -> store Cv -> Cv -> Cv -> Cv -> store Cv * result Cv Cv
 let rec
 CevalUpd false s (CLoc n) (CLitv (IntLit i)) (v:Cv) =
-  if n < List.length s
-  then if i = 0 then
-    (List.update s n (Refv v), Rval (CLitv Unit))
+  match el_check n s with
+  | Just (Refv _) ->
+    if i = 0 then
+      (List.update s n (Refv v), Rval (CLitv Unit))
     else (s, Rerr Rtype_error)
-  else (s, Rerr Rtype_error)
+  | _ -> (s, Rerr Rtype_error)
+  end
 and
 CevalUpd true s (CLoc n) (CLitv (IntLit i)) (CLitv (Word8 w)) =
   match el_check n s with

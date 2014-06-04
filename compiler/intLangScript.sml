@@ -194,11 +194,13 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
  val _ = Define `
 
 (CevalUpd F s (CLoc n) (CLitv (IntLit i)) (v:Cv) =  
-(if n < LENGTH s
-  then if i =( 0 : int) then
-    (LUPDATE (Refv v) n s, Rval (CLitv Unit))
+((case el_check n s of
+    SOME (Refv _) =>
+    if i =( 0 : int) then
+      (LUPDATE (Refv v) n s, Rval (CLitv Unit))
     else (s, Rerr Rtype_error)
-  else (s, Rerr Rtype_error)))
+  | _ => (s, Rerr Rtype_error)
+  )))
 /\
 (CevalUpd T s (CLoc n) (CLitv (IntLit i)) (CLitv (Word8 w)) =  
 ((case el_check n s of
