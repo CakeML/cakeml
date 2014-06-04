@@ -526,7 +526,7 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
     simp[Once map_count_store_genv_def] >>
     last_x_assum (mp_tac o MATCH_MP (CONJUNCT1 Cevaluate_no_vlabs)) >>
     (discharge_hyps >- (
-      simp[EVERY_MAP,no_vlabs_csg_def,map_count_store_genv_def,EVERY_FILTER] >>
+      simp[EVERY_MAP,no_vlabs_csg_def,store_vs_def,map_count_store_genv_def,EVERY_FILTER] >>
       simp[EVERY_MEM] >> conj_tac >> Cases >> simp[] )) >>
     simp[Ntimes EVERY_MEM 2, Ntimes MEM_EL 2, PULL_EXISTS] >> strip_tac >>
     first_x_assum(qspec_then`d2`mp_tac) >>
