@@ -1055,9 +1055,11 @@ fun codomain ty = ty |> dest_fun_type |> snd
 
 fun persistent_skip_case_const const = let
   val ty = (domain (type_of const))
+  fun thy_name_to_string thy name =
+    if thy = current_theory() then name else thy ^ "Theory." ^ name
   val thm_name = if ty = ``:bool`` then "COND_DEF" else
     DB.match [] (concl (TypeBase.case_def_of ty))
-    |> map (fn ((thy,name),_) => thy ^ "Theory." ^ name) |> hd
+    |> map (fn ((thy,name),_) => thy_name_to_string thy name) |> hd
   val str = thm_name
   val str = "(Drule.CONJUNCTS " ^ str ^ ")"
   val str = "(List.hd " ^ str ^ ")"
@@ -1164,7 +1166,7 @@ fun derive_thms_for_type ty = let
     val (x1,x2) = cases_th |> CONJUNCTS |> hd |> concl |> repeat (snd o dest_forall)
                            |> dest_eq
     val case_const = x1 |> repeat rator
-    val _ = persistent_skip_case_const case_const
+    (* val _ = persistent_skip_case_const case_const *)
     val ty1 = case_const |> type_of |> domain
     val ty2 = x2 |> type_of
     val cases_th = INST_TYPE [ty2 |-> ``:'return_type``] cases_th
