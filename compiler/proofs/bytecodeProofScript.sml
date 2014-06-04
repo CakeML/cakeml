@@ -3106,7 +3106,7 @@ fun tac18 t =
         ALL_DISTINCT (FILTER is_Label bce) ∧
         all_vlabs_csg s ∧ all_vlabs_list env ∧ all_labs exp ∧
         EVERY (code_env_cd bce) (free_labs (LENGTH env) exp) ∧
-        (∀cd. cd ∈ vlabs_list (SND (FST s)) ⇒ code_env_cd bce cd) ∧
+        (∀cd. cd ∈ vlabs_list (store_vs (SND (FST s))) ⇒ code_env_cd bce cd) ∧
         (∀cd. cd ∈ vlabs_list env ⇒ code_env_cd bce cd) ∧
         (∀cd. cd ∈ vlabs_list (MAP THE (FILTER IS_SOME (SND s))) ⇒ code_env_cd bce cd) ∧
         (bs.pc = next_addr bs.inst_length bc0) ∧
@@ -3157,7 +3157,7 @@ fun tac18 t =
         ALL_DISTINCT (FILTER is_Label bce) ∧
         all_vlabs_csg s ∧ all_vlabs_list env ∧ all_labs_list exps ∧
         EVERY (code_env_cd bce) (free_labs_list (LENGTH env) exps) ∧
-        (∀cd. cd ∈ vlabs_list (SND (FST s)) ⇒ code_env_cd bce cd) ∧
+        (∀cd. cd ∈ vlabs_list (store_vs (SND (FST s))) ⇒ code_env_cd bce cd) ∧
         (∀cd. cd ∈ vlabs_list env ⇒ code_env_cd bce cd) ∧
         (∀cd. cd ∈ vlabs_list (MAP THE (FILTER IS_SOME (SND s))) ⇒ code_env_cd bce cd) ∧
         (bs.pc = next_addr bs.inst_length bc0) ∧
@@ -3613,7 +3613,7 @@ fun tac18 t =
     qpat_assum`bc_next^* bss0 bs2`kall_tac >>
     `all_vlabs_csg s' ∧ all_vlabs v ∧
      EVERY (code_env_cd bce) (free_labs (SUC (LENGTH env)) exp') ∧
-     (∀cd. cd ∈ vlabs_list (SND (FST s')) ⇒ code_env_cd bce cd) ∧
+     (∀cd. cd ∈ vlabs_list (store_vs (SND (FST s'))) ⇒ code_env_cd bce cd) ∧
      (∀cd. cd ∈ vlabs v ∨ cd ∈ vlabs_list env ⇒ code_env_cd bce cd) ∧
      (∀cd. cd ∈ vlabs_list (MAP THE (FILTER IS_SOME (SND s'))) ⇒ code_env_cd bce cd) ∧
      set (free_vars exp') ⊆ count (LENGTH (CTLet(sz+1)::cenv)) ∧
@@ -4213,7 +4213,7 @@ fun tac18 t =
         simp[bc_eval1_thm,bc_eval1_def,bc_eval_stack_def,Abbr`bs2`] >>
         simp[Abbr`bs3`,bc_state_component_equality] ) >>
       `all_vlabs_csg s' ∧ all_vlabs v ∧
-       (∀cd. cd ∈ vlabs_list (SND (FST s')) ⇒ code_env_cd bce cd) ∧
+       (∀cd. cd ∈ vlabs_list (store_vs (SND (FST s'))) ⇒ code_env_cd bce cd) ∧
        (∀cd. cd ∈ vlabs_list (MAP THE (FILTER IS_SOME (SND s'))) ⇒ code_env_cd bce cd) ∧
        Cenv_bs rd' s' env cenv sz (bs3 with code := bce)` by (
         qspecl_then[`s`,`env`,`exp`,`s',(Rval v)`]mp_tac(CONJUNCT1 Cevaluate_all_vlabs) >>
@@ -4444,7 +4444,7 @@ fun tac18 t =
     qmatch_assum_abbrev_tac`bc_next^* bs bs2` >>
     `all_vlabs_csg s' ∧ all_vlabs v ∧
      EVERY (code_env_cd bce) (free_labs (SUC (LENGTH env)) exp') ∧
-     (∀cd. cd ∈ vlabs_list (SND (FST s')) ⇒ code_env_cd bce cd) ∧
+     (∀cd. cd ∈ vlabs_list (store_vs (SND (FST s'))) ⇒ code_env_cd bce cd) ∧
      (∀cd. cd ∈ vlabs v ∨ cd ∈ vlabs_list env ⇒ code_env_cd bce cd) ∧
      (∀cd. cd ∈ vlabs_list (MAP THE (FILTER IS_SOME (SND s'))) ⇒ code_env_cd bce cd) ∧
      set (free_vars exp') ⊆ count (LENGTH (CTLet(sz+1)::cenv)) ∧
@@ -4743,14 +4743,14 @@ fun tac18 t =
       rw[] >> match_mp_tac EQ_SYM >>
       match_mp_tac FUPDATE_LIST_APPLY_NOT_MEM >>
       simp[MAP_GENLIST,combinTheory.o_DEF,MEM_GENLIST] >>
-      fs[Cenv_bs_def,s_refs_def,good_rd_def,FEVERY_DEF,UNCURRY] >>
+      fs[Cenv_bs_def,s_refs_def,good_rd_def,FEVERY_DEF,UNCURRY,FLOOKUP_DEF] >>
       metis_tac[MEM_EL]) >>
     Q.PAT_ABBREV_TAC`ccs = compile_closures cenv sz cs defs` >>
     qabbrev_tac`cenv' = REVERSE (GENLIST(λm. CTLet (sz+m+1))(LENGTH defs)) ++ cenv` >>
     `ALL_DISTINCT (FILTER is_Label bce) ∧
      EVERY all_vlabs (GENLIST (CRecClos env defs) (LENGTH defs)) ∧
      EVERY (code_env_cd bce) (free_labs (LENGTH defs + LENGTH env) exp) ∧
-     (∀cd. cd ∈ vlabs_list (SND (FST s)) ⇒ code_env_cd bce cd) ∧
+     (∀cd. cd ∈ vlabs_list (store_vs (SND (FST s))) ⇒ code_env_cd bce cd) ∧
      (∀cd. cd ∈ vlabs_list (GENLIST (CRecClos env defs) (LENGTH defs) ++ env) ⇒
            code_env_cd bce cd) ∧
         bs1.pc = next_addr bs1.inst_length (bc0++cc) ∧
@@ -4890,21 +4890,30 @@ fun tac18 t =
                 simp[] ) >>
               simp[] ) >>
             simp[] >>
-            qho_match_abbrev_tac`P ((bs.refs |++ ls) ' (EL i rs))` >>
-            ho_match_mp_tac FUPDATE_LIST_ALL_DISTINCT_APPLY_MEM >>
-            simp[Abbr`ls`,MAP_ZIP,MEM_ZIP] >>
-            asm_simp_tac(srw_ss()++DNF_ss)[] >>
-            qexists_tac`i` >>
-            simp[Abbr`P`,EL_MAP] >>
-            fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >> rfs[] >>
-            first_x_assum match_mp_tac >>
-            simp[Abbr`vs`,MEM_ZIP] >>
-            qexists_tac`i` >>
-            simp[EL_MAP] ) >>
+            simp[flookup_fupdate_list] >>
+            BasicProvers.CASE_TAC >- (
+              imp_res_tac ALOOKUP_FAILS >>
+              rfs[MEM_ZIP] >> metis_tac[] ) >>
+            imp_res_tac ALOOKUP_MEM >>
+            rfs[MEM_ZIP,EL_MAP] >> fs[EL_MAP] >>
+            fs[LIST_REL_EL_EQN] >>
+            first_x_assum(qspec_then`n`mp_tac) >>
+            simp[EL_MAP] >>
+            simp[Abbr`vs`] >>
+            `i = n` by metis_tac[EL_ALL_DISTINCT_EL_EQ] >>
+            rw[] ) >>
+          strip_tac >>
+          `x ∈ FDOM bs.refs` by (
+            fs[FLOOKUP_DEF] >> metis_tac[] ) >>
+          simp[FLOOKUP_DEF,FDOM_FUPDATE_LIST] >>
           Q.PAT_ABBREV_TAC`bv = (bs.refs |++ ls) ' x` >>
           Q.PAT_ABBREV_TAC`dd = (rd.cls |++ ls) ' x` >>
           qsuff_tac`(bv = bs.refs ' x) ∧ (dd = rd.cls ' x)` >- (
-            ntac 2 strip_tac >>
+            strip_tac >>
+            first_x_assum(qspec_then`x`mp_tac) >>
+            first_x_assum(qspec_then`x`mp_tac) >>
+            first_x_assum(qspec_then`x`mp_tac) >>
+            simp[FLOOKUP_DEF] >> rpt strip_tac >> simp[] >>
             match_mp_tac (MP_CANON (GEN_ALL (CONJUNCT1 (SPEC_ALL Cv_bv_SUBMAP)))) >> simp[] >>
             qexists_tac`rd` >> simp[] >> rfs[]) >>
           map_every qunabbrev_tac[`bv`,`dd`] >>
@@ -4930,13 +4939,17 @@ fun tac18 t =
           match_mp_tac (MP_CANON (GEN_ALL (CONJUNCT1 (SPEC_ALL Cv_bv_SUBMAP)))) >> simp[] >>
           qexists_tac`rd` >> simp[] ) >>
         gen_tac >> strip_tac >> simp[EL_MAP] >>
-        Q.PAT_ABBREV_TAC`bvs:bc_value list = MAP X Y` >>
+        Q.PAT_ABBREV_TAC`bvs:ref_value list = MAP X Y` >>
         qsuff_tac`EL n rd.sm ∉ set (MAP FST (ZIP (rs,bvs)))` >- (
           strip_tac >>
           simp[FUPDATE_LIST_APPLY_NOT_MEM] >>
+          match_mp_tac (MP_CANON (GEN_ALL sv_refv_rel_mono)) >>
+          rfs[MEM_ZIP,PULL_EXISTS] >>
+          qpat_assum`∀n. n < LENGTH rd.sm ⇒X`(qspec_then`n`mp_tac) >>
+          simp[EL_MAP] >> strip_tac >>
+          HINT_EXISTS_TAC >> simp[] >> rw[] >>
           match_mp_tac (MP_CANON (GEN_ALL (CONJUNCT1 (SPEC_ALL Cv_bv_SUBMAP)))) >> simp[] >>
-          qexists_tac`rd` >> simp[] >>
-          rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP] ) >>
+          qexists_tac`rd` >> simp[]) >>
         simp[MAP_ZIP,Abbr`bvs`] >>
         metis_tac[MEM_EL]) >>
       fs[GSYM FILTER_EQ_NIL,combinTheory.o_DEF] >>
@@ -5201,6 +5214,7 @@ fun tac18 t =
     ntac 5 (pop_assum kall_tac) >>
     qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
     metis_tac[RTC_TRANSITIVE,transitive_def]) >>
+
   strip_tac >- (
     simp[] >> ntac 6 gen_tac >> qx_gen_tac `fenv` >> rpt gen_tac >> strip_tac >>
     rpt gen_tac >>
