@@ -279,7 +279,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   (* RefPtr_k 0, cl_1, ..., cl_nk, RefPtr_1 cl_1, ..., RefPtr_k 0, ..., RefPtr_nk 0, *)
   let s = (emit s [Stack (Load ( 1 + k))]) in
   (* cl_k, RefPtr_k 0, cl_1, ..., cl_nk, RefPtr_1 cl_1, ..., RefPtr_k 0, ..., RefPtr_nk 0, *)
-  let s = (emit s [Update]) in
+  let s = (emit s [Stack (PushInt(( 0 : int))); Update]) in
   (* cl_1, ..., cl_nk, RefPtr_1 cl_1, ..., RefPtr_k cl_k, ..., RefPtr_nk 0, *)
   (s,(k+ 1))))`;
 
@@ -288,7 +288,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (compile_closures env sz s defs =  
 (let nk = (LENGTH defs) in
-  let s = (num_fold (\ s .  emit s [Stack (PushInt(( 0 : int))); Ref]) s nk) in
+  let s = (num_fold (\ s .  emit s [Stack (PushInt(( 0 : int))); Stack (PushInt(( 1 : int))); Ref]) s nk) in
   (* RefPtr_1 0, ..., RefPtr_nk 0, *)
   let (s,ecs) = (FOLDL push_lab (s,[]) (REVERSE defs)) in
   (* CodePtr 1, ..., CodePtr nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
