@@ -474,8 +474,10 @@ val do_app_pat_correct = prove(
         fs[do_eq_pat_correct] >> rw[prim_exn_exh_def,prim_exn_pat_def])
       >-(
         BasicProvers.EVERY_CASE_TAC>>fs[]>>rw[]>>
-        fs[semanticPrimitivesTheory.store_assign_def]>>rw[]>>
-        fs[IS_SOME_EXISTS] >> rw[LUPDATE_MAP])
+        fs[semanticPrimitivesTheory.store_assign_def,semanticPrimitivesTheory.store_v_same_type_def]>>rw[]>>
+        fs[IS_SOME_EXISTS] >> rw[LUPDATE_MAP] >>
+        BasicProvers.EVERY_CASE_TAC >> fs[] >>
+        rfs[EL_MAP])
       >-(
         BasicProvers.EVERY_CASE_TAC>>fs[]>>rw[]>>
         fs[semanticPrimitivesTheory.store_alloc_def]>>
@@ -498,8 +500,10 @@ val do_app_pat_correct = prove(
     BasicProvers.EVERY_CASE_TAC>>
     fs[semanticPrimitivesTheory.store_lookup_def,IS_SOME_EXISTS]>>
     rw[]>>fs[EL_MAP]>>rw[prim_exn_exh_def,prim_exn_pat_def]>>
-    fs[semanticPrimitivesTheory.store_assign_def]>>rw[]>>
-    rw[LUPDATE_MAP])>>
+    fs[semanticPrimitivesTheory.store_assign_def,semanticPrimitivesTheory.store_v_same_type_def]>>rw[]>>
+    BasicProvers.EVERY_CASE_TAC>>fs[]>>
+    rw[LUPDATE_MAP] >>
+    rfs[EL_MAP])>>
   Cases_on`t`>>fs[EL_MAP]>>
   BasicProvers.EVERY_CASE_TAC>>fs[]>>
   rw[LUPDATE_MAP])
@@ -1502,7 +1506,10 @@ val do_app_pat_v_pat = store_thm("do_app_pat_v_pat",
       >- (
         BasicProvers.EVERY_CASE_TAC >>
         fs[semanticPrimitivesTheory.store_assign_def] >>
-        rw[] >> imp_res_tac LIST_REL_LENGTH >> fs[] )
+        rw[] >> imp_res_tac LIST_REL_LENGTH >> fs[] >>
+        fs[semanticPrimitivesTheory.store_v_same_type_def] >>
+        BasicProvers.EVERY_CASE_TAC >> fs[LIST_REL_EL_EQN] >>
+        metis_tac[sv_rel_def])
       >- (
         BasicProvers.EVERY_CASE_TAC >>
         fs[semanticPrimitivesTheory.store_alloc_def,LET_THM] )
@@ -1519,7 +1526,8 @@ val do_app_pat_v_pat = store_thm("do_app_pat_v_pat",
         metis_tac[sv_rel_def] )) >>
     rw[] >>
     BasicProvers.EVERY_CASE_TAC>>fs[LET_THM]>>rw[] >>
-    fs[semanticPrimitivesTheory.store_lookup_def,semanticPrimitivesTheory.store_assign_def,LIST_REL_EL_EQN] >>
+    fs[semanticPrimitivesTheory.store_lookup_def,semanticPrimitivesTheory.store_assign_def,
+       semanticPrimitivesTheory.store_v_same_type_def,LIST_REL_EL_EQN] >>
     rw[] >> rfs[] >>
     BasicProvers.EVERY_CASE_TAC >> fs[] >>
     metis_tac[sv_rel_def] ) >>
@@ -1540,6 +1548,9 @@ val do_app_pat_v_pat = store_thm("do_app_pat_v_pat",
     qmatch_assum_rename_tac`v_pat (Conv_pat t1 v1) (Conv_pat t2 v2)`[] >>
     rator_x_assum`v_pat`mp_tac >>
     simp[Once v_pat_cases,LIST_REL_EL_EQN] >> NO_TAC) >>
+  TRY (
+    CHANGED_TAC(fs[semanticPrimitivesTheory.store_v_same_type_def]) >>
+    BasicProvers.EVERY_CASE_TAC>>fs[])>>
   metis_tac[sv_rel_def,optionTheory.NOT_SOME_NONE])
 
 val evaluate_pat_exp_pat = store_thm("evaluate_pat_exp_pat",

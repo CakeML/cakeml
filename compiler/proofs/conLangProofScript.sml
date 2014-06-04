@@ -909,7 +909,11 @@ val do_app_i2_correct = Q.prove (
      >- fs [gtagenv_wf_def, has_exns_def]
      >- metis_tac [do_eq_i2, eq_result_11, eq_result_distinct])
  >- (fs [store_assign_def] >>
-     metis_tac [EVERY2_LUPDATE_same, sv_to_i2_rules])
+     BasicProvers.CASE_TAC >-
+     metis_tac [EVERY2_LUPDATE_same, sv_to_i2_rules] >>
+     fs[store_v_same_type_def] >>
+     every_case_tac >> fs[LIST_REL_EL_EQN,sv_to_i2_cases] >>
+     metis_tac[store_v_distinct])
  >- (fs [store_alloc_def, LET_THM] >>
      rw [sv_to_i2_cases, Once v_to_i2_eqns])
  >- (fs [store_lookup_def] >>
@@ -966,7 +970,8 @@ val do_app_i2_correct = Q.prove (
      fs [] >>
      rw [markerTheory.Abbrev_def, prim_exn_i1_def, v_to_i2_eqns] >>
      fs [gtagenv_wf_def, has_exns_def] >>
-     rw [EL_LUPDATE]));
+     rw [EL_LUPDATE] >>
+     fs[store_v_same_type_def]));
 
 val do_opapp_i2 = Q.prove (
 `!gtagenv vs vs_i2 env e genv env' tagenv envC env_i2.

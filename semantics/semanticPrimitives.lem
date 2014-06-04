@@ -62,6 +62,14 @@ type result 'a 'b =
 (* Stores *)
 type store_v 'a = Refv of 'a | W8array of list word8
 
+val store_v_same_type : forall 'a. store_v 'a -> store_v 'a -> bool
+let store_v_same_type v1 v2 =
+  match (v1,v2) with
+  | (Refv _, Refv _) -> true
+  | (W8array _,W8array _) -> true
+  | _ -> false
+  end
+
 (* The nth item in the list is the value at location n *)
 type store 'a = list (store_v 'a)
 
@@ -81,7 +89,9 @@ let store_alloc v st =
 
 val store_assign : forall 'a. nat -> store_v 'a -> store 'a -> maybe (store 'a)
 let store_assign n v st =
-  if n < List.length st then
+  if n < List.length st &&
+     store_v_same_type (List_extra.nth st n) v
+  then
     Just (List.update st n v)
   else
     Nothing

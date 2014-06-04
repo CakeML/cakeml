@@ -92,6 +92,16 @@ val _ = Hol_datatype `
  store_v = Refv of 'a | W8array of word8 list`;
 
 
+(*val store_v_same_type : forall 'a. store_v 'a -> store_v 'a -> bool*)
+val _ = Define `
+ (store_v_same_type v1 v2 =  
+((case (v1,v2) of
+    (Refv _, Refv _) => T
+  | (W8array _,W8array _) => T
+  | _ => F
+  )))`;
+
+
 (* The nth item in the list is the value at location n *)
 val _ = type_abbrev((*  'a *) "store" , ``: ( 'a store_v) list``);
 
@@ -118,7 +128,9 @@ val _ = Define `
 (*val store_assign : forall 'a. nat -> store_v 'a -> store 'a -> maybe (store 'a)*)
 val _ = Define `
  (store_assign n v st =  
-(if n < LENGTH st then
+(if (n < LENGTH st) /\
+     store_v_same_type (EL n st) v
+  then
     SOME (LUPDATE v n st)
   else
     NONE))`;

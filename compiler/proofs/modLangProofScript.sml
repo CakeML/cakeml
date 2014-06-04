@@ -674,8 +674,11 @@ val do_app_i1 = Q.prove (
      metis_tac [do_eq_i1, eq_result_11, eq_result_distinct])
  >- (every_case_tac >>
      metis_tac [do_eq_i1, eq_result_11, eq_result_distinct])
- >- (fs [store_assign_def] >>
-     metis_tac [EVERY2_LUPDATE_same, sv_to_i1_rules])
+ >- (fs [store_assign_def,store_v_same_type_def] >>
+     every_case_tac >> fs[] >-
+     metis_tac [EVERY2_LUPDATE_same, sv_to_i1_rules] >>
+     fs[LIST_REL_EL_EQN,sv_to_i1_cases] >>
+     metis_tac[store_v_distinct])
  >- (fs [store_alloc_def] >>
      rw [sv_to_i1_cases])
  >- (fs [store_lookup_def] >>
@@ -746,7 +749,8 @@ val do_app_i1 = Q.prove (
      fs [] >>
      rw [markerTheory.Abbrev_def]
      >- decide_tac >>
-     rw [EL_LUPDATE]));
+     rw [EL_LUPDATE] >>
+     fs[store_v_same_type_def]));
 
 val do_opapp_i1 = Q.prove (
 `!genv vs vs_i1 env e.

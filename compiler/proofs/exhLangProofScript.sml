@@ -471,7 +471,10 @@ val do_app_exh_i2 = Q.prove (
    >- (
      every_case_tac >> fs[] >> rw[] >>
      fs[LIST_REL_EL_EQN,EL_LUPDATE] >> rw[] >>
-     rw[sv_to_exh_def] >> rfs[] )
+     rw[sv_to_exh_def] >> rfs[] >>
+     fs[store_v_same_type_def] >>
+     every_case_tac >> fs[] >>
+     metis_tac[sv_to_exh_def])
    >- (
      every_case_tac >> fs[] >> rw[] >>
      rw[prim_exn_i2_def,prim_exn_exh_def,v_to_exh_eqn] >>
@@ -501,6 +504,8 @@ val do_app_exh_i2 = Q.prove (
  every_case_tac>>fs[]>>rw[]>>
  rw[prim_exn_i2_def,prim_exn_exh_def,v_to_exh_eqn] >>
  fs[LIST_REL_EL_EQN,EL_LUPDATE]>>rw[]>>
+ fs[store_v_same_type_def] >>
+ every_case_tac>>fs[] >>
  metis_tac[sv_to_exh_def])
 
 val do_app_exh_i3 = prove(
