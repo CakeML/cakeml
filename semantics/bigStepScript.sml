@@ -27,11 +27,11 @@ val _ = type_abbrev((*  'a *) "count_store" , ``: num # 'a store``);
 
 (*val dec_count : op -> nat -> nat*)
 val _ = Define `
- (dec_count op count3271 =  
+ (dec_count op count3303 =  
  (if op = Opapp then
-    count3271 -  1
+    count3303 -  1
   else
-    count3271))`;
+    count3303))`;
 
 
 val _ = Hol_reln ` (! ck env l s.
@@ -358,15 +358,22 @@ evaluate_decs ck mn (menv, merge_envC (emp,new_tds) cenv, merge new_env env) s2 
 ==>
 evaluate_decs ck mn (menv,cenv,env) s1 (d::ds) (s3, merge new_tds' new_tds, combine_dec_result new_env r))`;
 
-(*val no_dup_types : list dec -> bool*)
+(*val decs_to_types : list dec -> list typeN*)
 val _ = Define `
- (no_dup_types ds =  
-(ALL_DISTINCT (FLAT (MAP (\ d .  
+ (decs_to_types ds =  
+(FLAT (MAP (\ d .  
         (case d of 
             Dtype tds => MAP (\ (tvs,tn,ctors) .  tn) tds
           | _ => [] ))
-     ds))))`;
- 
+     ds)))`;
+
+
+
+(*val no_dup_types : list dec -> bool*)
+val _ = Define `
+ (no_dup_types ds =  
+(ALL_DISTINCT (decs_to_types ds)))`;
+
 
 val _ = Hol_reln ` (! ck s1 s2 env d new_tds new_env tdecls1 tdecls2 mdecls.
 (evaluate_dec ck NONE env (s1,tdecls1) d ((s2,tdecls2), Rval (new_tds, new_env)))
@@ -417,6 +424,35 @@ evaluate_prog ck (menv,cenv,env) s1 (top::tops) (s3, merge_envC new_tds' new_tds
 (evaluate_top ck env s1 top (s2, new_tds, Rerr err))
 ==>
 evaluate_prog ck env s1 (top::tops) (s2, new_tds, Rerr err))`;
+
+(*val no_dup_mods : list top -> bool*)
+val _ = Define `
+ (no_dup_mods tops =  
+(ALL_DISTINCT (FLAT (MAP (\ top .  
+        (case top of 
+            Tmod mn _ _ => [mn]
+          | _ => [] ))
+     tops))))`;
+
+ 
+(*val no_dup_top_types : list top -> bool*)
+val _ = Define `
+ (no_dup_top_types tops =  
+(ALL_DISTINCT (FLAT (MAP (\ top .  
+        (case top of 
+            Tdec d => decs_to_types [d]
+          | _ => [] ))
+     tops))))`;
+
+
+(*val evaluate_whole_prog : bool -> all_env -> (count_store v * set tid_or_exn * set modN) -> prog -> (count_store v * set tid_or_exn * set modN) * envC * result (envM * envE) v -> bool*)
+val _ = Define `
+ (evaluate_whole_prog ck env s1 tops (s2, new_tds, res) =  
+(if no_dup_mods tops /\ no_dup_top_types tops then
+    evaluate_prog ck env s1 tops (s2, new_tds, res)
+  else
+    res = Rerr Rtype_error))`;
+
 
 val _ = Define `
  (dec_diverges env (st,tdecs) d =  

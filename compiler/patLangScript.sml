@@ -366,8 +366,8 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (Seq_pat (exp_to_pat bvs e1) (exp_to_pat bvs e2)))
 /\
 (exp_to_pat bvs (Letrec_exh funs e) =  
-(let bvs = ((MAP (\p7325 .  
-  (case (p7325 ) of ( (f,_,_) ) => SOME f )) funs) ++ bvs) in
+(let bvs = ((MAP (\p7385 .  
+  (case (p7385 ) of ( (f,_,_) ) => SOME f )) funs) ++ bvs) in
   Letrec_pat (funs_to_pat bvs funs) (exp_to_pat bvs e)))
 /\
 (exp_to_pat _ (Extend_global_exh n) = (Extend_global_pat n))
@@ -708,8 +708,8 @@ evaluate_pat ck env s (Letrec_pat funs e) bv)
 /\ (! ck env n s genv.
 T
 ==>
-evaluate_pat ck env (s,genv) (Extend_global_pat n) ((s,(genv++GENLIST (\n7441 .  
-  (case (n7441 ) of ( _ ) => NONE )) n)), Rval (Litv_pat Unit)))
+evaluate_pat ck env (s,genv) (Extend_global_pat n) ((s,(genv++GENLIST (\n7501 .  
+  (case (n7501 ) of ( _ ) => NONE )) n)), Rval (Litv_pat Unit)))
 
 /\ (! ck env s.
 T
