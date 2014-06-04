@@ -223,6 +223,7 @@ val Cevaluate_vlabs = store_thm("Cevaluate_vlabs",
       BasicProvers.EVERY_CASE_TAC>>fs[]>>rw[]>>
       fsrw_tac[DNF_ss][vlabs_csg_def,store_vs_def,SUBSET_DEF,vlabs_list_MAP,MEM_MAP,PULL_EXISTS,MEM_FILTER] >>
       metis_tac[MEM_LUPDATE_E,is_Refv_def,dest_Refv_def] ) >>
+    BasicProvers.EVERY_CASE_TAC >>
     fsrw_tac[DNF_ss][SUBSET_DEF,vlabs_list_MAP,vlabs_csg_def,store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER] >>
     metis_tac[MEM_LUPDATE_E,is_Refv_def,dest_Refv_def] ) >>
   strip_tac >- rw[] >>
@@ -1371,6 +1372,10 @@ val CevalUpd_syneq = store_thm("CevalUpd_syneq",
   fs[Q.SPEC`CRecClos X Y Z`syneq_cases] >> rw[] >>
   TRY(Cases_on`l':lit`)>>simp[] >>
   TRY (
+    BasicProvers.EVERY_CASE_TAC >>
+    imp_res_tac LIST_REL_LENGTH >>
+    fs[el_check_def]) >>
+  TRY (
     match_mp_tac EVERY2_LUPDATE_same >>
     rw[] ) >>
   TRY(PROVE_TAC[EVERY2_EVERY]) >>
@@ -1977,6 +1982,7 @@ val CevalUpd_closed = store_thm("CevalUpd_closed",
   Cases_on`b`>>Cases_on`v2`>>simp[] >>
   Cases_on`l`>>simp[]>>
   Cases_on`v1`>>simp[]>>rw[]>>
+  BasicProvers.EVERY_CASE_TAC >> fs[]>>
   TRY(
     fs[EVERY_MEM] >>
     metis_tac[MEM_LUPDATE_E,sv_every_def] ) >>
