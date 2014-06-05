@@ -414,17 +414,6 @@ val new_top_vs_def = Define`
   (new_top_vs (Tdec dec) = new_dec_vs dec) ∧
   (new_top_vs (Tmod _ _ _) = [])`
 
-val between_labels_def = Define`
-  between_labels bc l1 l2 ⇔
-  ALL_DISTINCT (FILTER is_Label bc) ∧
-  EVERY (between l1 l2) (MAP dest_Label (FILTER is_Label bc)) ∧
-  l1 ≤ l2`
-
-val good_labels_def = Define`
-  good_labels nl code ⇔
-    ALL_DISTINCT (FILTER is_Label code) ∧
-    EVERY (combin$C $< nl o dest_Label) (FILTER is_Label code)`
-
 val compile_print_err_thm = store_thm("compile_print_err_thm",
   ``∀cs. let cs' = compile_print_err cs in
     ∃code.

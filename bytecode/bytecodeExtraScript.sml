@@ -439,4 +439,15 @@ val bvs_to_chars_thm = store_thm("bvs_to_chars_thm",
   Induct >> simp[bvs_to_chars_def] >>
   Cases >> rw[bvs_to_chars_def])
 
+val between_labels_def = Define`
+  between_labels bc l1 l2 ⇔
+  ALL_DISTINCT (FILTER is_Label bc) ∧
+  EVERY (between l1 l2) (MAP dest_Label (FILTER is_Label bc)) ∧
+  l1 ≤ l2`
+
+val good_labels_def = Define`
+  good_labels nl code ⇔
+    ALL_DISTINCT (FILTER is_Label code) ∧
+    EVERY (combin$C $< nl o dest_Label) (FILTER is_Label code)`
+
 val _ = export_theory()
