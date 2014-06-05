@@ -183,9 +183,9 @@ val pEval_pLive = prove(
        \\ RES_TAC \\ fs [domain_lookup]
        \\ fs [PULL_EXISTS,oneTheory.one] \\ RES_TAC \\ METIS_TAC [])
      \\ fs [] \\ SRW_TAC [] []
-     \\ Q.ABBREV_TAC `t4 = inter t1.locals
-                (inter x (list_insert args (delete dest l2)))`
-     \\ `state_rel (s with locals := inter s.locals x)
+     \\ Q.ABBREV_TAC `t4 = mk_wf (inter t1.locals
+                (inter x (list_insert args (delete dest l2))))`
+     \\ `state_rel (s with locals := mk_wf (inter s.locals x))
         (t1 with locals := t4) LN` by (fs [state_rel_def] \\ NO_TAC)
      \\ `get_vars args (t1 with locals := t4) = SOME vs` by
       (UNABBREV_ALL_TAC
@@ -285,8 +285,8 @@ val pEval_pLive = prove(
     \\ Q.ABBREV_TAC `ns3 = (inter ns1 r1)`
     \\ Q.ABBREV_TAC `ns4 = (inter ns2 (union (delete v l2) (delete n r2)))`
     \\ FIRST_X_ASSUM (MP_TAC o GSYM o Q.SPECL [`(insert v () LN)`,
-          `push_exc (inter t1.locals (ns3:num_set))
-                    (inter t1.locals (ns4:num_set)) t1`])
+          `push_exc (mk_wf (inter t1.locals (ns3:num_set)))
+                    (mk_wf (inter t1.locals (ns4:num_set))) t1`])
     \\ fs [] \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
      (REPEAT STRIP_TAC \\ UNABBREV_ALL_TAC \\ fs [] THEN1
        (fs[state_rel_def,push_exc_def] \\ SRW_TAC [] []
@@ -303,8 +303,9 @@ val pEval_pLive = prove(
      (Cases_on `get_var v r` \\ Cases_on `pop_exc r` \\ fs []
       \\ `get_var v t2 = SOME x` by (fs [state_rel_def,get_var_def] \\ NO_TAC)
       \\ fs [] \\ (Q.SPECL [`q1`,`push_exc
-            (inter t1.locals (ns3:num_set))
-            (inter t1.locals (ns4:num_set)) t1`] pEval_stack |> MP_TAC) \\ fs []
+            (mk_wf (inter t1.locals (ns3:num_set)))
+            (mk_wf (inter t1.locals (ns4:num_set))) t1`]
+               pEval_stack |> MP_TAC) \\ fs []
       \\ REPEAT STRIP_TAC
       \\ ASM_SIMP_TAC (srw_ss()) [pop_exc_def,push_exc_def]
       \\ fs [] \\ (Q.SPECL [`c1`,`push_exc env1 env2 s`]
@@ -327,8 +328,9 @@ val pEval_pLive = prove(
     \\ Q.PAT_ASSUM `(res,s2) = xxx` (ASSUME_TAC o GSYM) \\ fs []
     \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs [] \\ REPEAT STRIP_TAC
     \\ (Q.SPECL [`q1`,`push_exc
-              (inter t1.locals (ns3:num_set))
-              (inter t1.locals (ns4:num_set)) t1`] pEval_stack |> MP_TAC) \\ fs []
+              (mk_wf (inter t1.locals (ns3:num_set)))
+              (mk_wf (inter t1.locals (ns4:num_set))) t1`]
+                  pEval_stack |> MP_TAC) \\ fs []
     \\ ASM_SIMP_TAC (srw_ss()) [Once jump_exc_def,push_exc_def,LAST_N_LEMMA]
     \\ ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ REPEAT STRIP_TAC
     \\ fs [] \\ (Q.SPECL [`c1`,`push_exc env1 env2 s`]
@@ -337,7 +339,7 @@ val pEval_pLive = prove(
     \\ ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ REPEAT STRIP_TAC THEN1
      (SRW_TAC [] [] \\ fs [state_rel_def,set_var_def,lookup_insert]
       \\ REPEAT STRIP_TAC \\ Cases_on `x = n` \\ fs []
-      \\ Q.PAT_ASSUM `inter s.locals ns2 = r.locals` (ASSUME_TAC o GSYM)
+      \\ Q.PAT_ASSUM `mk_wf (inter s.locals ns2) = r.locals` (ASSUME_TAC o GSYM)
       \\ UNABBREV_ALL_TAC
       \\ fs [] \\ ASM_SIMP_TAC std_ss [lookup_inter,lookup_delete,lookup_union]
       \\ fs [domain_union,domain_inter,domain_delete]
@@ -462,14 +464,14 @@ val pEval_pLive = prove(
       \\ REPEAT STRIP_TAC \\ IMP_RES_TAC get_vars_IMP_domain
       \\ fs [domain_lookup] \\ METIS_TAC [])
     \\ Q.ABBREV_TAC `t5 = call_env q (push_env
-             (inter t1.locals (inter names (delete v l2))) (dec_clock t1))`
-    \\ `(call_env q (push_env (inter s.locals names) (dec_clock s))
+             (mk_wf (inter t1.locals (inter names (delete v l2)))) (dec_clock t1))`
+    \\ `(call_env q (push_env (mk_wf (inter s.locals names)) (dec_clock s))
           with stack := t5.stack) = t5` by
      (UNABBREV_ALL_TAC
       \\ fs [call_env_def,push_env_def,dec_clock_def,state_rel_def,
              bvp_state_explode] \\ NO_TAC) \\ fs []
     \\ Q.ABBREV_TAC `t4 =
-         call_env q (push_env (inter s.locals names) (dec_clock s))`
+         call_env q (push_env (mk_wf (inter s.locals names)) (dec_clock s))`
     \\ `LENGTH t4.stack = LENGTH t5.stack` by
      (UNABBREV_ALL_TAC \\ fs [call_env_def,push_env_def,dec_clock_def]
       \\ fs [state_rel_def] \\ NO_TAC)
@@ -508,8 +510,8 @@ val pEval_pLive = prove(
       \\ ASM_SIMP_TAC (srw_ss()) [Once jump_exc_def]
       \\ `t1.handler < LENGTH t1.stack` by (fs [] \\ NO_TAC)
       \\ IMP_RES_TAC LAST_N_TL \\ fs [] \\ REPEAT STRIP_TAC
-      \\ Q.ABBREV_TAC `env = Env (inter t1.locals
-                                 (inter names (delete v l2)))`
+      \\ Q.ABBREV_TAC `env = Env (mk_wf (inter t1.locals
+                                 (inter names (delete v l2))))`
       \\ `t1 with <| locals := fromList q; stack := env::t1.stack;
                      clock := s.clock - 1|> =
           s with <| locals := fromList q; stack := env::t1.stack;

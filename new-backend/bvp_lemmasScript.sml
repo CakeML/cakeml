@@ -112,9 +112,9 @@ in
     THEN1 (* Assign *)
      (tac \\ fs [bvp_to_bvl_def]
       \\ Q.MATCH_ASSUM_RENAME_TAC
-           `get_vars args (s with locals := inter s.locals x2) = SOME vs` []
-      \\ `get_vars args (s with <|locals := inter s.locals x2; stack := xs|>) =
-          get_vars args (s with locals := inter s.locals x2)` by
+           `get_vars args (s with locals := mk_wf (inter s.locals x2)) = SOME vs` []
+      \\ `get_vars args (s with <|locals := mk_wf (inter s.locals x2); stack := xs|>) =
+          get_vars args (s with locals := mk_wf (inter s.locals x2))` by
             (MATCH_MP_TAC get_vars_with_stack \\ fs [] \\ NO_TAC) \\ fs [])
     THEN1 tac THEN1 tac THEN1 tac THEN1 (tac \\ tac) THEN1 tac
     THEN1 (* Seq *)

@@ -188,7 +188,7 @@ val push_exc_def = Define `
 val cut_env_def = Define `
   cut_env (name_set:num_set) env =
     if domain name_set SUBSET domain env
-    then SOME (inter env name_set)
+    then SOME (mk_wf (inter env name_set))
     else NONE`
 
 val cut_state_def = Define `

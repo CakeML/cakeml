@@ -49,10 +49,6 @@ val union_assoc = prove(
   ``!t1 t2 t3. union t1 (union t2 t3) = union (union t1 t2) t3``,
   Induct \\ Cases_on `t2` \\ Cases_on `t3` \\ fs [union_def]);
 
-val union_LN = prove(
-  ``!t. union t LN = t``,
-  Induct \\ fs [union_def]);
-
 val pEvalOp_SOME_IMP = prove(
   ``(pEvalOp op x s = SOME (q,r)) ==>
     (pEvalOp op x (s with locals := extra) =
@@ -61,9 +57,11 @@ val pEvalOp_SOME_IMP = prove(
   \\ REPEAT (BasicProvers.CASE_TAC \\ fs []) \\ SRW_TAC [] []
   \\ fs [bvl_to_bvp_def,bvp_state_explode]);
 
+(*
 val union_inter_inter = prove(
   ``union (inter t1 x) (inter t2 x) = inter (union t1 t2) x``,
   cheat);
+*)
 
 val push_exc_with_locals = prove(
   ``((push_exc env1 env2 (s with locals := xs)) = push_exc env1 env2 s) /\
@@ -74,13 +72,22 @@ val Seq_Skip = prove(
   ``pEval (Seq c Skip,s) = pEval (c,s)``,
   fs [pEval_def] \\ Cases_on `pEval (c,s)` \\ fs [LET_DEF] \\ SRW_TAC [] []);
 
+val locals_ok_def = Define `
+  locals_ok l1 l2 =
+    !v x. (lookup v l1 = SOME x) ==> (lookup v l2 = SOME x)`;
+
+val locals_ok_IMP = prove(
+  ``locals_ok l1 l2 ==> domain l1 SUBSET domain l2``,
+  cheat);
+
 val pEval_pSpaceOpt = prove(
-  ``!c s res s2 vars.
-      res <> SOME Error /\
-      (pEval (c,s) = (res,s2)) ==>
-      ?w. (pEval (pSpaceOpt c, s with locals := union s.locals vars) =
-             (res,if res = NONE then s2 with locals := union s2.locals w
-                                else s2))``,
+  ``!c s res s2 vars l.
+      res <> SOME Error /\ (pEval (c,s) = (res,s2)) /\
+      locals_ok s.locals l ==>
+      ?w. (pEval (pSpaceOpt c, s with locals := l) =
+             (res,if res = NONE then s2 with locals := w
+                                else s2)) /\
+          locals_ok s2.locals w``,
 
   SIMP_TAC std_ss [pSpaceOpt_def]
   \\ recInduct pEval_ind \\ REPEAT STRIP_TAC
@@ -89,53 +96,45 @@ val pEval_pSpaceOpt = prove(
    (fs [pEval_def] \\ METIS_TAC [])
   THEN1 (* Move *)
    (Cases_on `get_var src s` \\ fs [] \\ SRW_TAC [] []
-    \\ fs [get_var_def,lookup_union,set_var_def]
-    \\ ONCE_REWRITE_TAC [insert_union]
-    \\ fs [union_assoc] \\ METIS_TAC [])
+    \\ fs [get_var_def,lookup_union,set_var_def,locals_ok_def]
+    \\ RES_TAC \\ fs []
+    \\ Q.EXISTS_TAC `insert dest x l` \\ fs [lookup_insert]
+    \\ METIS_TAC [])
+
   THEN1 (* Assign *)
    (Cases_on `names_opt` \\ fs []
     \\ Cases_on `op_space_reset op` \\ fs [cut_state_opt_def] THEN1
      (Cases_on `get_vars args s` \\ fs [cut_state_opt_def]
-      \\ `get_vars args (s with locals := union s.locals vars) =
-          get_vars args s` by ALL_TAC THEN1
+      \\ `get_vars args (s with locals := l) =
+          get_vars args s` by
        (MATCH_MP_TAC EVERY_get_vars
-        \\ fs [EVERY_MEM,lookup_union]
+        \\ fs [EVERY_MEM,locals_ok_def]
         \\ REPEAT STRIP_TAC \\ IMP_RES_TAC get_vars_IMP_domain
         \\ fs [domain_lookup])
       \\ fs [] \\ Cases_on `pEvalOp op x s` \\ fs []
       \\ Cases_on `x'` \\ fs [] \\ SRW_TAC [] []
-      \\ IMP_RES_TAC pEvalOp_SOME_IMP \\ fs []
-      \\ fs [set_var_def]
-      \\ SIMP_TAC std_ss [Once insert_union,GSYM union_assoc]
-      \\ SIMP_TAC std_ss [union_assoc]
-      \\ SIMP_TAC std_ss [GSYM insert_union] \\ METIS_TAC [pEvalOp_IMP])
+      \\ IMP_RES_TAC pEvalOp_SOME_IMP \\ fs [set_var_def]
+      \\ Q.EXISTS_TAC `insert dest q l`
+      \\ fs [set_var_def,locals_ok_def,lookup_insert]
+      \\ METIS_TAC [pEvalOp_IMP])
+
+    \\ `cut_state x (s with locals := l) = cut_state x s` by ALL_TAC
+
+      fs [cut_state_def,cut_env_def]
+      \\ Cases_on `domain x SUBSET domain s.locals` \\ fs []
+      \\ IMP_RES_TAC locals_ok_IMP \\ IMP_RES_TAC SUBSET_TRANS
+      \\ fs [bvp_state_explode] \\ cheat
+
+    \\ fs [] \\ POP_ASSUM (K ALL_TAC)
     \\ fs [cut_state_def,cut_env_def]
     \\ Cases_on `domain x SUBSET domain s.locals` \\ fs []
-    \\ `domain x SUBSET domain (union s.locals vars)` by
-         fs [SUBSET_DEF,domain_union] \\ fs []
-    \\ Cases_on `get_vars args (s with locals := inter s.locals x)` \\ fs []
-    \\ `get_vars args (s with locals := inter (union s.locals vars) x) =
-        get_vars args (s with locals := inter s.locals x)` by
-       (MATCH_MP_TAC EVERY_get_vars
-        \\ fs [EVERY_MEM,lookup_union]
-        \\ REPEAT STRIP_TAC \\ IMP_RES_TAC get_vars_IMP_domain
-        \\ fs [domain_inter,lookup_inter_alt,lookup_union]
-        \\ fs [domain_lookup]) \\ fs []
-    \\ Cases_on `pEvalOp op x' (s with locals := inter s.locals x)` \\ fs []
-    \\ Cases_on `x''` \\ fs []
-    \\ IMP_RES_TAC pEvalOp_SOME_IMP \\ fs []
-    \\ fs [set_var_def] \\ SRW_TAC [] []
-    \\ fs [bvp_state_explode]
-    \\ Q.PAT_ASSUM `inter s.locals x = r.locals` (ASSUME_TAC o GSYM)
-    \\ fs []
-    \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
-    \\ SIMP_TAC std_ss [Once insert_union,GSYM union_assoc]
-    \\ SIMP_TAC std_ss [GSYM insert_union]
-    \\ Q.EXISTS_TAC `inter vars x`
-    \\ fs [union_inter_inter])
+    \\ Q.EXISTS_TAC `s2.locals` \\ fs [locals_ok_def]
+    \\ SRW_TAC [] [bvp_state_explode])
+  \\ cheat
+(*
   THEN1 (* Tick *)
    (Cases_on `s.clock = 0` \\ fs [] \\ SRW_TAC [] []
-    \\ fs [dec_clock_def,call_env_def] \\ METIS_TAC [])
+    \\ fs [dec_clock_def,call_env_def,locals_ok_def] \\ METIS_TAC [])
   THEN1 (* MakeSpace *)
    (fs [cut_state_def,cut_env_def]
     \\ Cases_on `domain names SUBSET domain s.locals` \\ fs []
@@ -248,7 +247,9 @@ val pEval_pSpaceOpt = prove(
         call_env q (push_env (inter s.locals r') (dec_clock s))` by
          (fs [call_env_def,dec_clock_def,push_env_def] \\ NO_TAC) \\ fs []
     \\ Cases_on `res` \\ fs [] \\ Q.EXISTS_TAC `LN`
-    \\ fs [union_LN,bvp_state_explode]));
+    \\ fs [union_LN,bvp_state_explode])
+*)
+);
 
 val pSpaceOpt = store_thm("pSpaceOpt_correct",
   ``!c s.
