@@ -240,7 +240,7 @@ val Eval_Bool_Not = store_thm("Eval_Bool_Not",
   \\ FULL_SIMP_TAC (srw_ss()) [do_app_cases]
   \\ ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases)))])
   \\ Q.LIST_EXISTS_TAC [`[Litv (Bool b1); Litv (Bool F)]`]
-  \\ rw [do_eq_def] 
+  \\ rw [do_eq_def,lit_same_type_def]
   \\ Q.EXISTS_TAC `(0,empty_store)`
   \\ FULL_SIMP_TAC std_ss []
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []);
@@ -620,7 +620,7 @@ val no_closures_def = tDefine "no_closures" `
   \\ DECIDE_TAC)
 
 val types_match_def = tDefine "types_match" `
-  (types_match (Litv l1) (Litv l2) = T) /\
+  (types_match (Litv l1) (Litv l2) = lit_same_type l1 l2) /\
   (types_match (Loc l1) (Loc l2) = T) /\
   (types_match (Conv cn1 vs1) (Conv cn2 vs2) =
     ((cn1 <> cn2) \/ types_match_list vs1 vs2)) /\
@@ -643,7 +643,7 @@ val EqualityType_def = Define `
 val EqualityType_NUM_BOOL = store_thm("EqualityType_NUM_BOOL",
   ``EqualityType NUM /\ EqualityType INT /\
     EqualityType BOOL /\ EqualityType UNIT_TYPE``,
-  EVAL_TAC \\ FULL_SIMP_TAC (srw_ss()) [no_closures_def, types_match_def]);
+  EVAL_TAC \\ FULL_SIMP_TAC (srw_ss()) [no_closures_def, types_match_def, lit_same_type_def]);
 
 val no_closures_IMP_NOT_contains_closure = store_thm(
    "no_closures_IMP_NOT_contains_closure",
