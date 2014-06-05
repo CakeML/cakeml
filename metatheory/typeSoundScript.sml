@@ -352,7 +352,9 @@ val exp_type_progress = Q.prove (
          >- (qpat_assum `type_v a tenvC senv (Loc n) z` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
              fs [type_s_def] >>
              res_tac >>
-             fs [store_assign_def, store_lookup_def])
+             fs [store_assign_def, store_lookup_def] >>
+             simp[store_v_same_type_def] >>
+             every_case_tac >> fs[])
          >- (every_case_tac >>
              rw [store_alloc_def] >>
              fs [Once type_v_cases] >>
@@ -400,7 +402,8 @@ val exp_type_progress = Q.prove (
              fs [LET_THM] >>
              rw [] >>
              every_case_tac >>
-             fs []))
+             fs [] >>
+             fs[store_v_same_type_def]))
      >- (rw [do_log_def] >>
          every_case_tac >>
          fs [])
