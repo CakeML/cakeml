@@ -177,39 +177,120 @@ val pEval_pSpaceOpt = prove(
     \\ srw_tac [] [call_env_def]
     \\ fs [locals_ok_def,call_env_def,EVAL ``fromList []``,lookup_def,
            dec_clock_def])
-  THEN1 (* Seq *) cheat
-(*
-   (fs [LET_DEF] \\ Cases_on `pSpace c2` \\ fs [] THEN1
+
+  THEN1 (* Seq *)
+
+   (
+
+    fs [LET_DEF] \\ Cases_on `pSpace c2` \\ fs [] THEN1
      (Cases_on `pEval (c1,s)` \\ fs []
       \\ Cases_on `c1` \\ fs [pMakeSpace_def]
       THEN1 (fs [pEval_def])
       \\ Cases_on `q = SOME Error` \\ fs []
       \\ SIMP_TAC std_ss [Once pEval_def] \\ fs [pSpace_def,pMakeSpace_def]
-      \\ FIRST_X_ASSUM (STRIP_ASSUME_TAC o Q.SPEC `vars`)
-      \\ fs [LET_DEF,Seq_Skip] \\ Cases_on `q` \\ fs [] \\ SRW_TAC [] [])
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`)
+      \\ fs [] \\ REPEAT STRIP_TAC
+      \\ fs [LET_DEF,Seq_Skip] \\ Cases_on `q` \\ fs [] \\ SRW_TAC [] []
+      \\ Q.EXISTS_TAC `w` \\ fs [])
     \\ PairCases_on `y` \\ fs []
     \\ Cases_on `pEval (c1,s)` \\ fs []
     \\ REVERSE (Cases_on `c1`) \\ fs []
     \\ TRY (fs [pMakeSpace_def,pSpace_def]
       \\ SIMP_TAC std_ss [Once pEval_def,LET_DEF]
       \\ fs [] \\ SRW_TAC [] []
-      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `vars`) \\ fs []
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`) \\ fs []
       \\ Cases_on `q = SOME Error` \\ fs [] \\ REPEAT STRIP_TAC
-      \\ fs [] \\ Cases_on `q` \\ fs [] \\ SRW_TAC [] [] \\ NO_TAC)
-    \\ TRY (fs [pEval_def] \\ NO_TAC)
-    THEN1 (* Cut *) cheat
-    THEN1 (* MakeSpace *) cheat
+      \\ fs [] \\ Cases_on `q` \\ fs [] \\ SRW_TAC [] []
+      \\ Q.EXISTS_TAC `w` \\ fs [] \\ NO_TAC)
+    THEN1 (* Cut *)
+     (fs [pMakeSpace_def,pSpace_def,Seq_Skip]
+      \\ Cases_on `q = SOME Error` \\ fs []
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`) \\ fs []
+      \\ SIMP_TAC std_ss [Once pEval_def] \\ fs []
+      \\ Cases_on `cut_env s' l` \\ fs []
+      \\ REPEAT STRIP_TAC \\ SRW_TAC [] [] \\ fs []
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `w`) \\ fs []
+      \\ ONCE_REWRITE_TAC [pEval_def] \\ fs [LET_DEF]
+      \\ fs [pEval_def] \\ Cases_on `cut_env y1 w` \\ fs []
+      \\ REPEAT STRIP_TAC
+      \\ `cut_env (inter y1 s') l = SOME x'` by
+       (fs [cut_env_def] \\ SRW_TAC [] []
+        \\ fs [bvp_state_explode,add_space_def] \\ SRW_TAC [] []
+        \\ fs [SUBSET_DEF,domain_inter,lookup_inter_alt]
+        \\ Cases_on `x IN domain y1` \\ fs []) \\ fs [] \\ fs []
+      \\ `(add_space (s with locals := l) y0 with locals := x') =
+          (add_space (r with locals := w) y0 with locals := x')` by
+       (fs [bvp_state_explode,add_space_def] \\ SRW_TAC [] []
+        \\ DECIDE_TAC)
+      \\ fs [] \\ METIS_TAC [])
+    THEN1 (* MakeSpace *)
+     (fs [pMakeSpace_def,pSpace_def,Seq_Skip]
+      \\ Cases_on `q = SOME Error` \\ fs []
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`) \\ fs []
+      \\ SIMP_TAC std_ss [Once pEval_def] \\ fs []
+      \\ Cases_on `cut_env s' l` \\ fs []
+      \\ REPEAT STRIP_TAC \\ SRW_TAC [] [] \\ fs []
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `w`) \\ fs []
+      \\ ONCE_REWRITE_TAC [pEval_def] \\ fs [LET_DEF]
+      \\ fs [pEval_def] \\ Cases_on `cut_env y1 w` \\ fs []
+      \\ REPEAT STRIP_TAC
+      \\ `cut_env (inter y1 s') l = SOME x'` by
+       (fs [cut_env_def] \\ SRW_TAC [] []
+        \\ fs [bvp_state_explode,add_space_def] \\ SRW_TAC [] []
+        \\ fs [SUBSET_DEF,domain_inter,lookup_inter_alt]
+        \\ Cases_on `x IN domain y1` \\ fs []) \\ fs []
+      \\ fs []
+      \\ `(add_space (s with locals := l) (y0 + n) with locals := x') =
+          (add_space (r with locals := w) y0 with locals := x')` by
+       (fs [bvp_state_explode,add_space_def] \\ SRW_TAC [] []
+        \\ DECIDE_TAC)
+      \\ fs [] \\ METIS_TAC [])
     THEN1 (* Seq *)
      (fs [pMakeSpace_def]
       \\ SIMP_TAC std_ss [Once pEval_def,LET_DEF]
       \\ fs [] \\ SRW_TAC [] []
-      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `vars`) \\ fs []
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`) \\ fs []
       \\ Cases_on `q = SOME Error` \\ fs [] \\ REPEAT STRIP_TAC
-      \\ fs [] \\ Cases_on `q` \\ fs [] \\ SRW_TAC [] [])
+      \\ fs [] \\ Cases_on `q` \\ fs [] \\ SRW_TAC [] [] \\ METIS_TAC [])
     THEN1 (* Assign *) cheat
-    THEN1 (* Move *) cheat)
-*)
-  THEN1 (* Handle *)
+
+    THEN1 (* Move *)
+     (fs [pMakeSpace_def,pSpace_def]
+      \\ SIMP_TAC std_ss [Once pEval_def,LET_DEF]
+      \\ SIMP_TAC std_ss [Once pEval_def,LET_DEF]
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`) \\ fs []
+      \\ SIMP_TAC std_ss [Once pEval_def,LET_DEF]
+      \\ POP_ASSUM MP_TAC
+      \\ SIMP_TAC std_ss [Once pEval_def,LET_DEF]
+      \\ REPEAT STRIP_TAC \\ Cases_on `get_var n0 s` \\ fs []
+      \\ SRW_TAC [] []
+      \\ IMP_RES_TAC locals_ok_get_var \\ fs []
+      \\ Q.PAT_ASSUM `!ww.bb==>bbb` (MP_TAC o Q.SPEC `insert n x w`) \\ fs []
+      \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1 cheat
+      \\ fs [pEval_def]
+      \\ Cases_on `cut_env y1 (insert n x w)` \\ fs [LET_DEF]
+      \\ REPEAT STRIP_TAC
+      \\ fs [bvp_state_explode,add_space_def,set_var_def] \\ SRW_TAC [] []
+      \\ `cut_env (insert n0 () (delete n y1)) l =
+             SOME (insert n0 x (delete n x'))` by ALL_TAC THEN1
+       (fs [cut_env_def] \\ SRW_TAC [] [] \\ fs []
+        \\ fs [lookup_insert,lookup_inter_alt,lookup_delete]
+        THEN1 (fs [get_var_def,domain_lookup])
+        THEN1 (fs [SUBSET_DEF] \\ METIS_TAC [])
+        \\ Cases_on `x' = n0` THEN1 (fs [get_var_def]) \\ fs []
+        \\ SRW_TAC [] [] \\ fs []) \\ fs []
+      \\ SIMP_TAC (srw_ss()) [get_var_def]
+
+      \\ cheat (* needs lemma *))
+    THEN1 (* Skip *)
+     (fs [pMakeSpace_def,pSpace_def]
+      \\ SIMP_TAC std_ss [Once pEval_def,LET_DEF]
+      \\ POP_ASSUM (ASSUME_TAC o REWRITE_RULE [pEval_def])
+      \\ fs [] \\ SRW_TAC [] [] \\ POP_ASSUM (K ALL_TAC)
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`) \\ fs []
+      \\ SIMP_TAC std_ss [Once pEval_def,LET_DEF]
+      \\ REPEAT STRIP_TAC \\ fs [] \\ NO_TAC))
+   THEN1 (* Handle *)
    (Cases_on `cut_env ns1 s.locals` \\ fs []
     \\ Cases_on `cut_env ns2 s.locals` \\ fs []
     \\ IMP_RES_TAC locals_ok_cut_env
