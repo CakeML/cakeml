@@ -532,15 +532,18 @@ val label_closures_thm = store_thm("label_closures_thm",
     simp[Once syneq_exp_cases]) >>
   strip_tac >- (
     ntac 2 gen_tac >>
-    map_every qx_gen_tac[`e1`,`e2`] >>
+    map_every qx_gen_tac[`b`,`e1`,`e2`,`e3`] >>
     rpt strip_tac >> fs[] >>
     qabbrev_tac`p = label_closures ez j e1` >> PairCases_on`p`>>fs[LET_THM] >>
     qabbrev_tac`q = label_closures ez (j + LENGTH (free_labs ez p0)) e2` >> PairCases_on`q`>>fs[] >>
+    qabbrev_tac`r = label_closures ez (j + LENGTH (free_labs ez p0) + LENGTH (free_labs ez q0)) e3` >> PairCases_on`r`>>fs[] >>
     simp[LIST_EQ_REWRITE] >>
     conj_tac >- (
       gen_tac >> strip_tac >>
       Cases_on`x < LENGTH (free_labs ez p0)`>>
-      lrw[EL_APPEND1,EL_APPEND2]) >>
+      lrw[EL_APPEND1,EL_APPEND2] >>
+      Cases_on`x < LENGTH (free_labs ez p0) + LENGTH (free_labs ez q0)` >>
+      lrw[EL_APPEND1,EL_APPEND2] ) >>
     conj_tac >- (
       rfs[] >>
       fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
