@@ -86,34 +86,79 @@ val exp_pat_syneq_exp = store_thm("exp_pat_syneq_exp",
     fsrw_tac[ARITH_ss][SUBSET_DEF,PULL_EXISTS] >>
     rw[] >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
   strip_tac >- (
-    rpt gen_tac >> rpt strip_tac >>
-    simp[Once syneq_exp_cases] ) >>
-  strip_tac >- (
     rpt gen_tac >> rpt strip_tac >> fs[] >>
-    Cases_on`op`>>simp[] >- (
-      BasicProvers.EVERY_CASE_TAC >>
-      simp[Once syneq_exp_cases] >>
-      simp[Once syneq_exp_cases] >>
-      conj_tac >- (
-        match_mp_tac syneq_exp_shift_both >>
-        first_assum (match_exists_tac o concl) >> simp[] >>
-        fs[SUBSET_DEF] >>
-        simp[O_DEF,inv_DEF,PULL_EXISTS] ) >>
-      rpt (simp[Once syneq_exp_cases]))
-    >- (
-      BasicProvers.EVERY_CASE_TAC >>
-      simp[Once syneq_exp_cases] >>
-      simp[Once syneq_exp_cases] >>
-      TRY (
-        conj_tac >- (
-          match_mp_tac syneq_exp_shift_both >>
-          first_assum (match_exists_tac o concl) >> simp[] >>
-          fs[SUBSET_DEF] >>
-          simp[O_DEF,inv_DEF,PULL_EXISTS] )) >>
-      rpt (simp[Once syneq_exp_cases]))
-    >- ( rpt(simp[Once syneq_exp_cases]))
-    >- ( simp[Once syneq_exp_cases] )
-    >- ( simp[Once syneq_exp_cases] )) >>
+    Cases_on`es1=[]`>>fs[]>-(
+      Cases_on`op`>>simp[]>-(
+        Cases_on`o'`>>simp[]>>
+        simp[Once syneq_exp_cases])>>
+      simp[Once syneq_exp_cases])>>
+    `∃h1 t1. es1 = h1::t1` by (Cases_on`es1`>>fs[])>> fs[] >>
+    Cases_on`t1=[]`>>fs[]>-(
+      Cases_on`op`>>simp[]>-(
+        Cases_on`o'`>>simp[]>-(
+          rw[] >> fs[]>>
+          Cases_on`o''`>>simp[]>>
+          simp[Once syneq_exp_cases])>>
+        rw[]>>fs[]>>
+        simp[Once syneq_exp_cases])>>
+      rw[]>>fs[]>>
+      simp[Once syneq_exp_cases])>>
+    `∃h2 t2. t1 = h2::t2` by (Cases_on`t1`>>fs[]) >> fs[] >>
+    rw[]>>fs[]>>
+    Cases_on`t2=[]`>>fs[]>-(
+      Cases_on`op`>>simp[]>-(
+        Cases_on`o'`>>simp[]>-(
+          Cases_on`o''`>>simp[]>>
+          BasicProvers.EVERY_CASE_TAC >>
+          simp[Once syneq_exp_cases] >>
+          simp[Once syneq_exp_cases] >>
+          TRY (
+            conj_tac >- (
+              match_mp_tac syneq_exp_shift_both >>
+              first_assum (match_exists_tac o concl) >> simp[] >>
+              fs[SUBSET_DEF] >>
+              simp[O_DEF,inv_DEF,PULL_EXISTS] )) >>
+          simp[Once syneq_exp_cases] >>
+          rpt(simp[Once syneq_exp_cases])) >>
+        simp[Once syneq_exp_cases]) >>
+      simp[Once syneq_exp_cases]) >>
+    `∃h3 t3. t2 = h3::t3` by (Cases_on`t2`>>fs[]) >> fs[]>>
+    rw[]>>fs[]>>
+    Cases_on`t3=[]`>>fs[]>-(
+      Cases_on`op`>>simp[]>-(
+        Cases_on`o'`>>simp[]>-(
+          Cases_on`o''`>>simp[]>>
+          simp[Once syneq_exp_cases] >>
+          simp[Once syneq_exp_cases] >>
+          conj_tac >- (
+            match_mp_tac syneq_exp_shift_both >>
+            first_assum (match_exists_tac o concl) >> simp[] >>
+            fs[SUBSET_DEF] >>
+            simp[O_DEF,inv_DEF,PULL_EXISTS] ) >>
+          simp[Once syneq_exp_cases] >>
+          conj_tac >- (
+            match_mp_tac syneq_exp_shift_both >>
+            first_assum (match_exists_tac o concl) >> simp[] >>
+            fs[SUBSET_DEF] >>
+            simp[O_DEF,inv_DEF,PULL_EXISTS] ) >>
+          rpt(simp[Once syneq_exp_cases])) >>
+        simp[Once syneq_exp_cases]) >>
+      simp[Once syneq_exp_cases]) >>
+    `∃h4 t4. t3 = h4::t4` by (Cases_on`t3`>>fs[]) >> fs[]>>
+    rw[]>>fs[]>>
+    Cases_on`op`>>simp[]>>
+    TRY(Cases_on`o'`>>simp[])>>
+    TRY(Cases_on`o''`>>simp[])>>
+    simp[Once syneq_exp_cases]>>
+    simp[EVERY2_MAP] >>
+    match_mp_tac EVERY2_MEM_MONO >>
+    HINT_EXISTS_TAC >> simp[] >>
+    simp[FORALL_PROD] >> rpt gen_tac >>
+    strip_tac >>
+    first_x_assum match_mp_tac >>
+    imp_res_tac LIST_REL_LENGTH >>
+    fs[SUBSET_DEF,MEM_FLAT,MEM_MAP,PULL_EXISTS,MEM_ZIP] >>
+    metis_tac[MEM_EL]) >>
   strip_tac >- (
     rpt gen_tac >> rpt strip_tac >>
     simp[Once syneq_exp_cases] ) >>
