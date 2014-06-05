@@ -1164,7 +1164,7 @@ val env_rs_def = Define`
     good_labels rs.rnext_label bs.code ∧
     rs.next_global = LENGTH genv ∧
     bs.stack = [] ∧
-    EVERY closed s ∧
+    EVERY (sv_every closed) s ∧
     EVERY closed (MAP SND envE) ∧
     EVERY closed (MAP SND (FLAT (MAP SND envM))) ∧
     EVERY (OPTION_EVERY closed_i1) genv ∧
@@ -1175,7 +1175,7 @@ val env_rs_def = Define`
       to_i2_invariant
         tids envC rs.exh rs.contags_env gtagenv
         (cnt,s1) (cnt,s2) genv genv2 ∧
-      LIST_REL (exh_Cv O v_to_exh rs.exh) s2 Cs ∧
+      LIST_REL (sv_rel (exh_Cv O v_to_exh rs.exh)) s2 Cs ∧
       LIST_REL (OPTREL (exh_Cv O v_to_exh rs.exh)) genv2 Cg ∧
       closed_vlabs [] ((cnt,Cs),Cg) bs.code ∧
       Cenv_bs rd ((cnt,Cs),Cg) [] [] 0 bs`
@@ -1194,10 +1194,11 @@ val env_rs_empty = store_thm("env_rs_empty",
   conj_tac >- (EVAL_TAC >> simp[]) >>
   rw[init_compiler_state_def,get_tagenv_def,cenv_inv_def] >>
   rw[Once v_to_i1_cases] >> rw[Once v_to_i1_cases] >>
-  rw[Once s_to_i1_cases] >> rw[Once s_to_i1'_cases] >> rw[Once v_to_i1_cases] >>
-  simp[Once s_to_i2_cases] >> simp[Once s_to_i2'_cases] >> simp[Once v_to_i2_cases] >>
+  rw[Once s_to_i1_cases] >> rw[Once v_to_i1_cases] >>
+  simp[Once s_to_i2_cases] >> simp[Once v_to_i2_cases] >>
   simp[Cenv_bs_def,env_renv_def,s_refs_def,good_rd_def,FEVERY_ALL_FLOOKUP] >>
   simp[all_vlabs_csg_def,vlabs_csg_def,closed_vlabs_def] >>
+  simp[store_vs_def] >>
   cheat)
 
 (*
