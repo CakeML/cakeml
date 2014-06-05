@@ -604,7 +604,7 @@ val bComp_correct = prove(
       \\ fs [var_corr_def,get_var_def]
       \\ IMP_RES_TAC MEM_LIST_REL \\ fs [])
     \\ fs [cut_env_def]
-    \\ Q.ABBREV_TAC `env1 = (inter t1.locals (list_to_num_set (live ++ corr)))`
+    \\ Q.ABBREV_TAC `env1 = mk_wf (inter t1.locals (list_to_num_set (live ++ corr)))`
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`push_exc env1 env1 t1`,
          `n`,`corr`,`F`,`live`])
     \\ `var_corr env corr (push_exc env1 env1 t1) /\
@@ -775,7 +775,7 @@ val bComp_correct = prove(
       \\ IMP_RES_TAC MEM_LIST_REL \\ fs []
       \\ `lookup x t1.locals <> NONE` by METIS_TAC []
       \\ Cases_on `lookup x t1.locals` \\ fs [] \\ METIS_TAC []) \\ fs []
-    \\ Q.ABBREV_TAC `env1 = inter t2.locals (list_to_num_set (vs++live++corr))`
+    \\ Q.ABBREV_TAC `env1 = mk_wf (inter t2.locals (list_to_num_set (vs++live++corr)))`
     \\ `var_corr a vs (t2 with locals := env1)` by
      (UNABBREV_ALL_TAC
       \\ fs [var_corr_def,push_exc_def,get_var_def,state_rel_def,
@@ -951,7 +951,7 @@ val bComp_correct = prove(
       \\ fs [var_corr_def,get_var_def]
       \\ IMP_RES_TAC MEM_LIST_REL \\ fs [])
     \\ fs [cut_env_def]
-    \\ Q.ABBREV_TAC `env2 = (inter t2.locals (list_to_num_set (live ++ corr)))`
+    \\ Q.ABBREV_TAC `env2 = mk_wf (inter t2.locals (list_to_num_set (live ++ corr)))`
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL
           [`call_env args (push_env env2 (dec_clock t2))`,
            `LENGTH (args:bc_value list)`,
@@ -1001,7 +1001,7 @@ val bComp_correct = prove(
     \\ REPEAT STRIP_TAC THEN1 DECIDE_TAC
     THEN1
      (UNABBREV_ALL_TAC
-      \\ FULL_SIMP_TAC std_ss [lookup_insert,lookup_inter]
+      \\ fs [lookup_insert,lookup_inter]
       \\ SRW_TAC [] [] THEN1 DECIDE_TAC
       \\ `lookup k t2.locals = NONE` by ALL_TAC \\ fs []
       \\ FIRST_X_ASSUM MATCH_MP_TAC
