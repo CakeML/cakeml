@@ -1898,7 +1898,7 @@ val tagenv_accumulates = Q.prove (
    metis_tac[FUNION_ASSOC] ) >>
  simp[FOLDL_insert_tag_env] >>
  ONCE_REWRITE_TAC[fupdate_list_funion] >>
- rw[] >> rw[] >> metis_tac[FUNION_ASSOC])
+ rw[] >> rw[] >> metis_tac[FUNION_ASSOC]);
 
 val eta2 = Q.prove (
 `(\x y. f a x y) = f a`,
@@ -1909,7 +1909,7 @@ val nat_set_eq_thm = store_thm("nat_set_eq_thm",
   rw[sptreeTheory.spt_eq_thm] >> rw[EQ_IMP_THM] >- (
     rw[Once EXTENSION] >> rw[sptreeTheory.domain_lookup] ) >>
   Cases_on`lookup n s1` >> Cases_on`lookup n s2` >> rw[] >>
-  metis_tac[sptreeTheory.lookup_NONE_domain,optionTheory.NOT_SOME_NONE,oneTheory.one])
+  metis_tac[sptreeTheory.lookup_NONE_domain,optionTheory.NOT_SOME_NONE,oneTheory.one]);
 
 val exhaustive_env_weakened_exh_SUBMAP = prove(
   ``exhaustive_env_correct exh gtagenv ⇒
@@ -1926,7 +1926,7 @@ val exhaustive_env_weakened_exh_SUBMAP = prove(
   simp[EXTENSION,FLOOKUP_DEF] >>
   rw[EQ_IMP_THM] >> fs[PULL_EXISTS] >>
   res_tac >> fs[FLOOKUP_DEF] >>
-  metis_tac[])
+  metis_tac[]);
 
 val galloc_tags_def = Define`
   galloc_tags n tdefs =
@@ -2039,7 +2039,7 @@ val build_exh_env_cons = prove(
 
 val type_defs_to_new_tdecs_cons = prove(
   ``type_defs_to_new_tdecs mn ((x,y,z)::ls) = TypeId (mk_id mn y) INSERT type_defs_to_new_tdecs mn ls``,
-  rw[type_defs_to_new_tdecs_def])
+  rw[type_defs_to_new_tdecs_def]);
 
 val cenv_inv_to_mod = prove(
   ``∀tdefs n mn tids envC exh tagenv gtagenv emptys.
@@ -2236,7 +2236,7 @@ val cenv_inv_to_mod = prove(
     fs[galloc_tags_def,MAP2_MAP,LENGTH_COUNT_LIST,MEM_MAP,MEM_ZIP] >>
     strip_tac >> rpt BasicProvers.VAR_EQ_TAC >>
     fsrw_tac[ARITH_ss][UNCURRY] ) >>
-  metis_tac[])
+  metis_tac[]);
 
 val galloc_tags_submap = prove(
   ``∀ls n gtagenv.
@@ -2395,7 +2395,7 @@ val tids_of_decs_thm = prove(
       case d of Dtype_i1 mn tds => set (MAP (mk_id mn o FST o SND) tds) | _ => {})``,
   simp[tids_of_decs_def] >>
   every_case_tac >> simp[] >>
-  metis_tac[UNION_COMM])
+  metis_tac[UNION_COMM]);
 
 val FDOM_decs_to_i2_exh = prove(
   ``∀ds st st' exh' ds'.
@@ -2408,7 +2408,7 @@ val FDOM_decs_to_i2_exh = prove(
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
   rw[] >>
   simp[FDOM_build_exh_env] >>
-  metis_tac[UNION_COMM])
+  metis_tac[UNION_COMM]);
 
 val decs_to_i2_exh_wf = prove(
   ``∀ds st st' exh' ds'.
@@ -2436,7 +2436,7 @@ val decs_to_i2_exh_wf = prove(
     simp[]) >>
   simp[nat_set_from_list_def] >>
   match_mp_tac wf_nat_set_from_list >>
-  simp[sptreeTheory.wf_def])
+  simp[sptreeTheory.wf_def]);
 
 (*
 val counterexample =prove(
@@ -2466,11 +2466,11 @@ val MAP_SND_o_SND_flat_alloc_tags = prove(
   ``MAP (SND o SND) (flat_alloc_tags n ls) = MAP (SOME o SND o SND) ls``,
   rw[flat_alloc_tags_def] >>
   simp[MAP2_MAP,LENGTH_COUNT_LIST,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
-  simp[LIST_EQ_REWRITE,LENGTH_COUNT_LIST,EL_MAP,EL_ZIP])
+  simp[LIST_EQ_REWRITE,LENGTH_COUNT_LIST,EL_MAP,EL_ZIP]);
 
 val no_dup_types_i1_cons_imp = prove(
   ``no_dup_types_i1 (d::ds) ⇒ no_dup_types_i1 ds``,
-  rw[no_dup_types_i1_def,ALL_DISTINCT_APPEND])
+  rw[decs_to_types_i1_def, no_dup_types_i1_def,ALL_DISTINCT_APPEND]);
 
 val FLOOKUP_build_exh_env_imp = prove(
   ``FLOOKUP (build_exh_env mn zz tds) k = SOME tags ⇒
@@ -2560,7 +2560,7 @@ val MEM_flat_alloc_tags_REVERSE_build_tdefs_imp2 = prove(
   first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
   qpat_assum`MEM X Y` mp_tac >>
   simp[build_tdefs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS,EXISTS_PROD,mk_id_inj] >>
-  metis_tac[] )
+  metis_tac[] );
 
 val ALOOKUP_flat_alloc_tags_galloc_tags = prove(
   ``∀ls n cn t x.
@@ -2591,7 +2591,7 @@ val evaluate_dec_i1_to_envC = store_thm("evaluate_dec_i1_to_envC",
 
 val decs_i1_to_envC_def = Define`
   decs_i1_to_envC [] = emp ∧
-  decs_i1_to_envC (d::ds) = merge (decs_i1_to_envC ds) (dec_i1_to_envC d)`
+  decs_i1_to_envC (d::ds) = merge (decs_i1_to_envC ds) (dec_i1_to_envC d)`;
 
 val evaluate_decs_i1_to_envC = store_thm("evaluate_decs_i1_to_envC",
   ``∀ck genv cenv s ds res. evaluate_decs_i1 ck genv cenv s ds res ⇒
@@ -2628,14 +2628,14 @@ val not_mod_decs_def = Define`
   not_mod_decs ds = EVERY (λd. case d of
    | Dtype_i1 mn _ => mn = NONE
    | Dexn_i1 mn _ _ => mn = NONE
-   | _ => T) ds`
+   | _ => T) ds`;
 
 val envC_tagged_add_empty_mod = prove(
   ``∀ls mn tagenv g.
       envC_tagged ([(mn,[])],[]) (mod_tagenv (SOME mn) ls tagenv) g``,
   rpt gen_tac >> PairCases_on`tagenv`>>
   rw[envC_tagged_def,mod_tagenv_def,lookup_con_id_def] >>
-  every_case_tac >> fs[])
+  every_case_tac >> fs[]);
 
 val envC_tagged_add_empty_mod = prove(
   ``∀ls mn tagenv g envC.
@@ -2646,7 +2646,7 @@ val envC_tagged_add_empty_mod = prove(
        merge_def,lookup_tag_env_def,FLOOKUP_UPDATE,lookup_tag_flat_def] >>
   rw[] >>
   first_x_assum(qspec_then`cn`mp_tac) >>
-  every_case_tac >> fs[])
+  every_case_tac >> fs[]);
 
 val ALOOKUP_galloc_tags_flat_alloc_tags = prove(
   ``∀ls n cn a b c d t.
@@ -2657,7 +2657,7 @@ val ALOOKUP_galloc_tags_flat_alloc_tags = prove(
   qx_gen_tac`p` >> PairCases_on`p` >>
   simp[flat_alloc_tags_cons,galloc_tags_cons,ALOOKUP_APPEND] >>
   rpt gen_tac >>
-  every_case_tac >> rw[])
+  every_case_tac >> rw[]);
 
 val decs_to_i2_correct = Q.prove (
 `!ck genv envC s ds r.
