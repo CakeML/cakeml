@@ -403,7 +403,7 @@ val _ = Define `
     NONE))`;
 
 
-val _ = type_abbrev((*  'a *) "count_store_genv9667" , ``: 'a count_store # ( 'a option) list``);
+val _ = type_abbrev((*  'a *) "count_store_genv9691" , ``: 'a count_store # ( 'a option) list``);
 
 val _ = Hol_reln ` (! ck env l s.
 T

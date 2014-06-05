@@ -791,9 +791,9 @@ val _ = Define `
 (decs_to_dummy_env (d::ds) = (decs_to_dummy_env ds + dec_to_dummy_env d))`;
 
 
-(*val decs_to_types : list dec_i1 -> list typeN*)
+(*val decs_to_types_i1 : list dec_i1 -> list typeN*)
 val _ = Define `
- (decs_to_types ds =   
+ (decs_to_types_i1 ds =   
 (FLAT (MAP (\ d .  
         (case d of 
             Dtype_i1 mn tds => MAP (\ (tvs,tn,ctors) .  tn) tds
@@ -804,7 +804,7 @@ val _ = Define `
 (*val no_dup_types_i1 : list dec_i1 -> bool*)
 val _ = Define `
  (no_dup_types_i1 ds =  
-(ALL_DISTINCT (decs_to_types ds)))`;
+(ALL_DISTINCT (decs_to_types_i1 ds)))`;
 
 
 (*val prompt_mods_ok : maybe modN -> list dec_i1 -> bool*)
@@ -840,8 +840,8 @@ evaluate_decs_i1 ck genv cenv (s1,tdecs1) ds ((s2,tdecs2),cenv',env,SOME err))
 evaluate_prompt_i1 ck genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds) 
                                                   ((s2,tdecs2,update_mod_state mn mods),
                                                    mod_cenv mn cenv',                                                   
- (MAP SOME env ++ GENLIST (\n4619 .  
-  (case (n4619 ) of ( _ ) => NONE )) (decs_to_dummy_env ds - LENGTH env)),
+ (MAP SOME env ++ GENLIST (\n4643 .  
+  (case (n4643 ) of ( _ ) => NONE )) (decs_to_dummy_env ds - LENGTH env)),
                                                    SOME err))
 
 /\ (! ck genv cenv s1 tdecs1 mods mn ds.
@@ -853,6 +853,22 @@ evaluate_prompt_i1 ck genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds) ((s1,tdecs1,m
 (? name. (mn = SOME name) /\ (name IN mods))
 ==>
 evaluate_prompt_i1 ck genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds) ((s1,tdecs1,mods), ([],[]), [], SOME Rtype_error))`;
+
+val _ = Hol_reln ` (! ck genv cenv s.
+T
+==>
+evaluate_prog_i1 ck genv cenv s [] (s, ([],[]), [], NONE))
+
+/\ (! ck genv cenv s1 prompt prompts s2 cenv2 env2 s3 cenv3 env3 r.
+(evaluate_prompt_i1 ck genv cenv s1 prompt (s2, cenv2, env2, NONE) /\
+evaluate_prog_i1 ck (genv++env2) (merge_envC cenv2 cenv) s2 prompts (s3, cenv3, env3, r))
+==>
+evaluate_prog_i1 ck genv cenv s1 (prompt::prompts) (s3, merge_envC cenv3 cenv2, (env2++env3), r))
+
+/\ (! ck genv cenv s1 prompt prompts s2 cenv2 env2 err.
+(evaluate_prompt_i1 ck genv cenv s1 prompt (s2, cenv2, env2, SOME err))
+==>
+evaluate_prog_i1 ck genv cenv s1 (prompt::prompts) (s2, cenv2, env2, SOME err))`;
 
 (*val no_dup_mods_i1 : list prompt_i1 -> bool*)
 val _ = Define `
@@ -869,26 +885,10 @@ val _ = Define `
  (no_dup_top_types_i1 prompts =  
 (ALL_DISTINCT (FLAT (MAP (\ prompt .  
         (case prompt of 
-            Prompt_i1 NONE ds => decs_to_types ds
+            Prompt_i1 NONE ds => decs_to_types_i1 ds
           | _ => [] ))
      prompts))))`;
 
- 
-val _ = Hol_reln ` (! ck genv cenv s.
-T
-==>
-evaluate_prog_i1 ck genv cenv s [] (s, ([],[]), [], NONE))
-
-/\ (! ck genv cenv s1 prompt prompts s2 cenv2 env2 s3 cenv3 env3 r.
-(evaluate_prompt_i1 ck genv cenv s1 prompt (s2, cenv2, env2, NONE) /\
-evaluate_prog_i1 ck (genv++env2) (merge_envC cenv2 cenv) s2 prompts (s3, cenv3, env3, r))
-==>
-evaluate_prog_i1 ck genv cenv s1 (prompt::prompts) (s3, merge_envC cenv3 cenv2, (env2++env3), r))
-
-/\ (! ck genv cenv s1 prompt prompts s2 cenv2 env2 err.
-(evaluate_prompt_i1 ck genv cenv s1 prompt (s2, cenv2, env2, SOME err))
-==>
-evaluate_prog_i1 ck genv cenv s1 (prompt::prompts) (s2, cenv2, env2, SOME err))`;
 
 (*val evaluate_whole_prog_i1 : bool -> list (maybe v_i1) -> envC -> count_store v_i1 * set tid_or_exn * set modN -> list prompt_i1 -> (count_store v_i1 * set tid_or_exn * set modN) * envC * list (maybe v_i1) * maybe (error_result v_i1) -> bool*)
 val _ = Define `
