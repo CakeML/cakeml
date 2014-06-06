@@ -116,7 +116,7 @@ in
       \\ `get_vars args (s with <|locals := mk_wf (inter s.locals x2); stack := xs|>) =
           get_vars args (s with locals := mk_wf (inter s.locals x2))` by
             (MATCH_MP_TAC get_vars_with_stack \\ fs [] \\ NO_TAC) \\ fs [])
-    THEN1 tac THEN1 tac THEN1 tac THEN1 (tac \\ tac) THEN1 tac
+    THEN1 tac THEN1 tac THEN1 (tac \\ tac) THEN1 tac
     THEN1 (* Seq *)
      (fs [pEval_def]
       \\ Cases_on `pEval (c1,s)` \\ fs [LET_DEF]

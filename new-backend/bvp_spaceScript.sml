@@ -32,7 +32,6 @@ val pSpace_def = Define `
            | Assign dest op args NONE =>
                INR (k,list_insert args (delete dest names),
                     Seq (Assign dest op args NONE) c4)
-           | Cut names2 => INR (k,inter names names2,c4)
            | _ => INL (Seq d1 (pMakeSpace x2)))) /\
   (pSpace (Handle ns1 c1 n1 n2 ns2 c2) =
      INL (Handle ns1 (pMakeSpace (pSpace c1)) n1 n2 ns2
@@ -150,10 +149,6 @@ val pEval_locals = prove(
     \\ fs [locals_ok_def,call_env_def,EVAL ``fromList []``,lookup_def,
            dec_clock_def] \\ METIS_TAC [])
   THEN1 (* MakeSpace *)
-   (Cases_on `cut_env names s.locals` \\ fs []
-    \\ IMP_RES_TAC locals_ok_cut_env
-    \\ fs [LET_DEF,add_space_def,bvp_state_explode,locals_ok_def])
-  THEN1 (* Cut *)
    (Cases_on `cut_env names s.locals` \\ fs []
     \\ IMP_RES_TAC locals_ok_cut_env
     \\ fs [LET_DEF,add_space_def,bvp_state_explode,locals_ok_def])
@@ -305,10 +300,6 @@ val pEval_pSpaceOpt = prove(
    (Cases_on `cut_env names s.locals` \\ fs []
     \\ IMP_RES_TAC locals_ok_cut_env
     \\ fs [LET_DEF,add_space_def,bvp_state_explode,locals_ok_def])
-  THEN1 (* Cut *)
-   (Cases_on `cut_env names s.locals` \\ fs []
-    \\ IMP_RES_TAC locals_ok_cut_env
-    \\ fs [LET_DEF,add_space_def,bvp_state_explode,locals_ok_def])
   THEN1 (* Raise *)
    (Cases_on `get_var n s` \\ fs [] \\ SRW_TAC [] []
     \\ `jump_exc (s with locals := l) = jump_exc s` by
@@ -345,27 +336,6 @@ val pEval_pSpaceOpt = prove(
       \\ Cases_on `q = SOME Error` \\ fs [] \\ REPEAT STRIP_TAC
       \\ fs [] \\ Cases_on `q` \\ fs [] \\ SRW_TAC [] []
       \\ Q.EXISTS_TAC `w` \\ fs [] \\ NO_TAC)
-    THEN1 (* Cut *)
-     (fs [pMakeSpace_def,pSpace_def,Seq_Skip]
-      \\ Cases_on `q = SOME Error` \\ fs []
-      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`) \\ fs []
-      \\ SIMP_TAC std_ss [Once pEval_def] \\ fs []
-      \\ Cases_on `cut_env s' l` \\ fs []
-      \\ REPEAT STRIP_TAC \\ SRW_TAC [] [] \\ fs []
-      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `w`) \\ fs []
-      \\ ONCE_REWRITE_TAC [pEval_def] \\ fs [LET_DEF]
-      \\ fs [pEval_def] \\ Cases_on `cut_env y1 w` \\ fs []
-      \\ REPEAT STRIP_TAC
-      \\ `cut_env (inter y1 s') l = SOME x'` by
-       (fs [cut_env_def] \\ SRW_TAC [] []
-        \\ fs [bvp_state_explode,add_space_def] \\ SRW_TAC [] []
-        \\ fs [SUBSET_DEF,domain_inter,lookup_inter_alt]
-        \\ Cases_on `x IN domain y1` \\ fs []) \\ fs [] \\ fs []
-      \\ `(add_space (s with locals := l) y0 with locals := x') =
-          (add_space (r with locals := w) y0 with locals := x')` by
-       (fs [bvp_state_explode,add_space_def] \\ SRW_TAC [] []
-        \\ DECIDE_TAC)
-      \\ fs [] \\ METIS_TAC [])
     THEN1 (* MakeSpace *)
      (fs [pMakeSpace_def,pSpace_def,Seq_Skip]
       \\ Cases_on `q = SOME Error` \\ fs []

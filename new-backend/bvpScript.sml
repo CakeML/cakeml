@@ -39,7 +39,6 @@ val _ = Datatype `
            | Seq bvp_prog bvp_prog
            | If bvp_prog num bvp_prog bvp_prog
            | MakeSpace num num_set
-           | Cut num_set
            | Raise num
            | Return num
            | Handle num_set bvp_prog num num num_set bvp_prog
@@ -231,10 +230,6 @@ val pEval_def = tDefine "pEval" `
      case cut_env names s.locals of
      | NONE => (SOME Error,s)
      | SOME env => (NONE,add_space s k with locals := env)) /\
-  (pEval (Cut names,s) =
-     case cut_env names s.locals of
-     | NONE => (SOME Error,s)
-     | SOME env => (NONE,s with locals := env)) /\
   (pEval (Raise n,s) =
      case get_var n s of
      | NONE => (SOME Error,s)

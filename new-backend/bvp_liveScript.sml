@@ -20,8 +20,6 @@ val pLive_def = Define `
      let (d1,l1) = pLive c1 l2 in
        (Seq d1 d2, l1)) /\
   (pLive Tick live = (Tick,live)) /\
-  (pLive (Cut names) live =
-     let l1 = inter names live in (Cut l1,l1)) /\
   (pLive (MakeSpace k names) live =
      let l1 = inter names live in (MakeSpace k l1,l1)) /\
   (pLive (Assign v op vs NONE) live =
@@ -211,14 +209,6 @@ val pEval_pLive = prove(
    (fs [pEval_def,pLive_def,get_var_def,state_rel_def,LET_DEF,cut_env_def]
     \\ Cases_on `domain names SUBSET domain s.locals` \\ fs []
     \\ SRW_TAC [] [add_space_def]
-    \\ fs [domain_inter,lookup_inter_assoc,lookup_inter_domain]
-    \\ fs [domain_lookup,PULL_EXISTS,lookup_inter_EQ,SUBSET_DEF]
-    \\ Cases_on `lookup x names` \\ fs [lookup_inter,oneTheory.one]
-    \\ REPEAT BasicProvers.CASE_TAC \\ METIS_TAC [])
-  THEN1 (* Cut *)
-   (fs [pEval_def,pLive_def,get_var_def,state_rel_def,LET_DEF,cut_env_def]
-    \\ Cases_on `domain names SUBSET domain s.locals` \\ fs []
-    \\ SRW_TAC [] []
     \\ fs [domain_inter,lookup_inter_assoc,lookup_inter_domain]
     \\ fs [domain_lookup,PULL_EXISTS,lookup_inter_EQ,SUBSET_DEF]
     \\ Cases_on `lookup x names` \\ fs [lookup_inter,oneTheory.one]
