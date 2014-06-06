@@ -57,6 +57,14 @@ val pEvalOp_SOME_IMP = prove(
   \\ REPEAT (BasicProvers.CASE_TAC \\ fs []) \\ SRW_TAC [] []
   \\ fs [bvl_to_bvp_def,bvp_state_explode]);
 
+val pEvalOp_SOME_IMP_ALT = prove(
+  ``(pEvalOp op x s = SOME (q,r)) ==>
+    (pEvalOp op x (s with locals := extra) =
+       SOME (q,r with locals := extra))``,
+  fs [pEvalOp_def,pEvalOpSpace_def,consume_space_def,bvp_to_bvl_def]
+  \\ REPEAT (BasicProvers.CASE_TAC \\ fs []) \\ SRW_TAC [] []
+  \\ fs [bvl_to_bvp_def,bvp_state_explode]);
+
 val push_exc_with_locals = prove(
   ``((push_exc env1 env2 (s with locals := xs)) = push_exc env1 env2 s) /\
     ((s with locals := s.locals) = s) /\
@@ -225,6 +233,26 @@ val pEval_locals = prove(
      (fs [bvp_state_explode,dec_clock_def,call_env_def,push_env_def])
     \\ fs [] \\ METIS_TAC [locals_ok_id,push_exc_with_locals]));
 
+val pEvalOpSpace_alt = prove(
+  ``pEvalOpSpace op s =
+      if op_space_reset op then SOME (s with space := 0)
+      else consume_space (op_space_req op) s``,
+  fs [pEvalOpSpace_def] \\ SRW_TAC [] [consume_space_def]
+  \\ fs [bvp_state_explode] \\ fs [] \\ DECIDE_TAC);
+
+val bvp_to_bvl_ignore = prove(
+  ``(bvp_to_bvl (s with space := t) = bvp_to_bvl s) /\
+    (bvp_to_bvl (s with locals := l) = bvp_to_bvl s) /\
+    (bvp_to_bvl (s with <| locals := l; space := t |>) = bvp_to_bvl s)``,
+  fs [bvp_to_bvl_def]);
+
+val bvl_to_bvp_lemma = prove(
+  ``((bvl_to_bvp s t with locals := x) = bvl_to_bvp s (t with locals := x)) /\
+    ((bvl_to_bvp s t).locals = t.locals) /\
+    ((bvl_to_bvp s t with space := y) = bvl_to_bvp s (t with space := y)) /\
+    ((bvl_to_bvp s t).space = t.space)``,
+  fs [bvl_to_bvp_def]);
+
 val pEval_pSpaceOpt = prove(
   ``!c s res s2 vars l.
       res <> SOME Error /\ (pEval (c,s) = (res,s2)) /\
@@ -233,7 +261,6 @@ val pEval_pSpaceOpt = prove(
              (res,if res = NONE then s2 with locals := w
                                 else s2)) /\
           locals_ok s2.locals w``,
-
   SIMP_TAC std_ss [pSpaceOpt_def]
   \\ recInduct pEval_ind \\ REPEAT STRIP_TAC
   \\ fs [pEval_def,pSpace_def,pMakeSpace_def]
@@ -297,12 +324,8 @@ val pEval_pSpaceOpt = prove(
     \\ srw_tac [] [call_env_def]
     \\ fs [locals_ok_def,call_env_def,EVAL ``fromList []``,lookup_def,
            dec_clock_def])
-
   THEN1 (* Seq *)
-
-   (
-
-    fs [LET_DEF] \\ Cases_on `pSpace c2` \\ fs [] THEN1
+   (fs [LET_DEF] \\ Cases_on `pSpace c2` \\ fs [] THEN1
      (Cases_on `pEval (c1,s)` \\ fs []
       \\ Cases_on `c1` \\ fs [pMakeSpace_def]
       THEN1 (fs [pEval_def])
@@ -399,7 +422,59 @@ val pEval_pSpaceOpt = prove(
       \\ Cases_on `x'` \\ fs [] \\ SRW_TAC [] []
       \\ fs [pMakeSpace_def,pSpace_def]
       \\ fs [pEval_def,cut_state_opt_def]
-      \\ cheat (* provable *))
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`) \\ fs []
+      \\ REPEAT STRIP_TAC
+      \\ IMP_RES_TAC locals_ok_get_vars \\ fs []
+      \\ IMP_RES_TAC pEvalOp_SOME_IMP \\ fs []
+      \\ NTAC 2 (Q.PAT_ASSUM `!xx.bbb` (K ALL_TAC))
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `w`) \\ fs []
+      \\ Cases_on `cut_env y1 w` \\ fs [LET_DEF,add_space_def,set_var_def]
+      \\ REPEAT STRIP_TAC \\ fs [cut_env_def]
+      \\ `domain (list_insert l' (delete n y1)) SUBSET domain l` by
+       (fs [SUBSET_DEF,domain_list_insert] \\ REPEAT STRIP_TAC
+        THEN1 (IMP_RES_TAC get_vars_IMP_domain \\ fs [])
+        \\ fs [bvp_state_explode] \\ SRW_TAC [] []
+        \\ fs [domain_insert] \\ RES_TAC \\ NO_TAC) \\ fs []
+      \\ `get_vars l'
+           (s with <|locals := mk_wf (inter l (list_insert l' (delete n y1)));
+                     space := s.space + y0|>) = get_vars l' (s with locals := l)`
+           by (MATCH_MP_TAC EVERY_get_vars
+               \\ fs [EVERY_MEM,lookup_inter_alt,domain_list_insert]) \\ fs []
+      \\ fs [pEvalOp_def,pEvalOpSpace_alt]
+      \\ REV_FULL_SIMP_TAC std_ss []
+      \\ fs [consume_space_def]
+      \\ Cases_on `s.space < op_space_req b` \\ fs []
+      \\ `(bvp_to_bvl (s with space := s.space - op_space_req b)) =
+           bvp_to_bvl s` by (fs [bvp_to_bvl_def] \\ NO_TAC) \\ fs []
+      \\ `~(s.space + y0 < op_space_req b)` by DECIDE_TAC \\ fs []
+      \\ fs [bvp_to_bvl_ignore]
+      \\ Cases_on `bEvalOp b x (bvp_to_bvl s)` \\ fs []
+      \\ Cases_on `x''` \\ fs [] \\ SRW_TAC [] []
+      \\ fs [bvl_to_bvp_lemma]
+      \\ `s.space + y0 - op_space_req b =
+          s.space - op_space_req b + y0` by DECIDE_TAC \\ fs []
+      \\ Q.ABBREV_TAC `s7 = bvl_to_bvp r
+            (s with <|locals := mk_wf (inter w y1);
+                       space := s.space - op_space_req b + y0|>)`
+      \\ Q.ABBREV_TAC `s8 = bvl_to_bvp r
+            (s with <|locals :=
+               mk_wf (insert n q (inter l (list_insert l' (delete n y1))));
+                 space := s.space - op_space_req b + y0|>)`
+      \\ `s8 = s7 with locals := s8.locals` by
+           (UNABBREV_ALL_TAC \\ fs [bvl_to_bvp_def] \\ NO_TAC)
+      \\ POP_ASSUM (fn th => ONCE_REWRITE_TAC [th])
+      \\ MP_TAC (Q.SPECL [`y2`,`s7`] pEval_locals) \\ fs []
+      \\ REPEAT STRIP_TAC
+      \\ POP_ASSUM (MP_TAC o Q.SPEC `s8.locals`)
+      \\ `locals_ok s7.locals s8.locals` by ALL_TAC THEN1
+       (UNABBREV_ALL_TAC \\ fs [bvl_to_bvp_lemma]
+        \\ fs [bvp_state_explode,bvl_to_bvp_lemma] \\ SRW_TAC [] []
+        \\ fs [locals_ok_def,lookup_insert,lookup_inter_alt]
+        \\ fs [domain_delete,domain_list_insert])
+      \\ fs [] \\ REPEAT STRIP_TAC \\ fs []
+      \\ Cases_on `res` \\ fs []
+      \\ Q.EXISTS_TAC `w''` \\ fs []
+      \\ METIS_TAC [locals_ok_def])
     THEN1 (* Move *)
      (fs [pMakeSpace_def,pSpace_def]
       \\ SIMP_TAC std_ss [Once pEval_def,LET_DEF]
@@ -412,7 +487,9 @@ val pEval_pSpaceOpt = prove(
       \\ SRW_TAC [] []
       \\ IMP_RES_TAC locals_ok_get_var \\ fs []
       \\ Q.PAT_ASSUM `!ww.bb==>bbb` (MP_TAC o Q.SPEC `insert n x w`) \\ fs []
-      \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1 cheat
+      \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
+       (fs [bvp_state_explode] \\ SRW_TAC [] []
+        \\ fs [locals_ok_def,set_var_def,lookup_insert])
       \\ fs [pEval_def]
       \\ Cases_on `cut_env y1 (insert n x w)` \\ fs [LET_DEF]
       \\ REPEAT STRIP_TAC

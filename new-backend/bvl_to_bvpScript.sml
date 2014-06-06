@@ -4,7 +4,7 @@ open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
 open bytecodeTheory bvlTheory;
 open bvl_inlineTheory bvpTheory;
-open bvp_lemmasTheory bvp_simpTheory bvp_liveTheory;
+open bvp_lemmasTheory bvp_simpTheory bvp_liveTheory bvp_spaceTheory;
 open sptreeTheory lcsymtacs;
 
 infix \\ val op \\ = op THEN;
@@ -70,7 +70,7 @@ val bComp_def = tDefine "bComp" `
  (WF_REL_TAC `measure (bvl_exp1_size o SND o SND o SND o SND)`);
 
 val pOptimise_def = Define `
-  pOptimise prog = FST (pLive (pSimp prog Skip) LN)`;
+  pOptimise prog = pSpaceOpt (FST (pLive (pSimp prog Skip) LN))`;
 
 val bCompile_def = Define `
   bCompile arg_count exp =
@@ -83,7 +83,8 @@ val pEval_pOptimise = prove(
   ``!c s. FST (pEval (c,s)) <> SOME Error /\
           FST (pEval (c,s)) <> NONE ==>
           (pEval (pOptimise c,s) = pEval (c,s))``,
-  fs [pOptimise_def] \\ METIS_TAC [pSimp_thm,pLive_correct]);
+  fs [pOptimise_def] \\ REPEAT STRIP_TAC \\ Cases_on `pEval (c,s)` \\ fs []
+  \\ METIS_TAC [pSimp_thm,pLive_correct,pSpaceOpt_correct,FST]);
 
 val res_list_def = Define `
   (res_list (Result x) = Result [x]) /\
