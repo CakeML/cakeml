@@ -1,5 +1,5 @@
 open HolKernel boolLib boolSimps bossLib Defn pairTheory pred_setTheory listTheory finite_mapTheory state_transformerTheory lcsymtacs
-open terminationTheory compilerLibTheory intLangTheory toIntLangTheory toBytecodeTheory compilerTheory printerTheory bytecodeTheory
+open terminationTheory compilerLibTheory intLangTheory toIntLangTheory toBytecodeTheory compilerTheory bytecodeTheory
 open modLangTheory conLangTheory exhLangTheory patLangTheory;
 
 val _ = new_theory "compilerTermination"
@@ -11,7 +11,7 @@ val MEM_pair_MAP = store_thm(
 ``MEM (a,b) ls ==> MEM a (MAP FST ls) /\ MEM b (MAP SND ls)``,
 rw[MEM_MAP,pairTheory.EXISTS_PROD] >> PROVE_TAC[])
 
-val tac = Induct >- rw[Cexp_size_def,Cv_size_def,ov_size_def] >> srw_tac [ARITH_ss][Cexp_size_def,Cv_size_def,ov_size_def]
+val tac = Induct >- rw[Cexp_size_def,Cv_size_def] >> srw_tac [ARITH_ss][Cexp_size_def,Cv_size_def]
 fun tm t1 t2 =  ``∀ls. ^t1 ls = SUM (MAP ^t2 ls) + LENGTH ls``
 fun size_thm name t1 t2 = store_thm(name,tm t1 t2,tac)
 val Cexp1_size_thm = size_thm "Cexp1_size_thm" ``Cexp1_size`` ``Cexp2_size``
@@ -374,7 +374,6 @@ val _ = export_rewrites
 ["toBytecode.emit_def","toBytecode.get_label_def","toBytecode.emit_ceref_def","toBytecode.emit_ceenv_def"
 ,"toBytecode.prim1_to_bc_def","toBytecode.prim2_to_bc_def"
 ,"free_vars_def","no_closures_def"
-,"intLang.Cv_to_ov_def","printer.v_to_ov_def"
 ,"toBytecode.compile_varref_def","compile_envref_def"
 ,"mkshift_def"
 ,"label_closures_def"

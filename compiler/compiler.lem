@@ -44,8 +44,10 @@ let rec
 compile_print_vals _ _ [] s = s
 and
 compile_print_vals types map (v::vs) s =
-  let s = emit s (List.map PrintC (toCharList (String_extra.stringConcat ["val ";v;":"; tystr types v;" = "]))) in
-  let s = emit s [Gread (fapply 0 v map); Print] in
+  let ty = tystr types v in
+  let s = emit s (List.map PrintC (toCharList (String_extra.stringConcat ["val ";v;":"; ty;" = "]))) in
+  let s = emit s [Gread (fapply 0 v map)] in
+  let s = emit s (if ty = "<word8>" then (List.map PrintC (toCharList "0wx"))++[PrintWord8] else [Print]) in
   let s = emit s (List.map PrintC (toCharList "\n")) in
     compile_print_vals types map vs s
 declare termination_argument compile_print_vals = automatic
