@@ -86,6 +86,8 @@ val tc_to_string_def = Define `
 (tc_to_string TC_bool ⇔ "<bool>") ∧
 (tc_to_string TC_unit ⇔ "<unit>") ∧
 (tc_to_string TC_ref ⇔ "<ref>") ∧
+(tc_to_string TC_word8 = "<word8>") ∧
+(tc_to_string TC_word8array = "<word8array>") ∧
 (tc_to_string TC_exn ⇔ "<exn>")`;
 
 val type_to_string_def = tDefine "type_to_string" `
