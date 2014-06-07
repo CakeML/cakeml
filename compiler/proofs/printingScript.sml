@@ -54,8 +54,14 @@ val LIST_REL_OPTREL_exh_Cv_syneq_trans = store_thm("LIST_REL_OPTREL_exh_Cv_syneq
 
 (* printing *)
 
-val _ = Parse.overload_on("print_bv",``λx. ov_to_string (bv_to_ov x)``)
-val print_bv_str_def = Define`print_bv_str t v w = "val "++v++":"++(tystr t v)++" = "++(print_bv w)++"\n"`
+val word8 = ``"<word8>"``
+
+val print_bv_def = Define`
+  print_bv ty bv =
+    if ty = ^word8 then
+      STRCAT "0wx" (word_to_hex_string ((n2w (Num (dest_Number bv))):word8))
+    else THE (bv_to_string bv)`
+val print_bv_str_def = Define`print_bv_str t v w = "val "++v++":"++(tystr t v)++" = "++(print_bv (tystr t v) w)++"\n"`
 
 val append_cons_lemma = prove(``ls ++ [x] ++ a::b = ls ++ x::a::b``,lrw[])
 
@@ -88,37 +94,53 @@ val print_envE_cons = store_thm("print_envE_cons",
   ``print_envE types (x::xs) = print_envE types [x]++print_envE types xs``,
   rw[print_envE_def]);
 
-val print_v_ov = prove(
+val print_bv_print_v = prove(
   ``(∀genv v v1. v_to_i1 genv v v1 ⇒
-      ∀gtagenv v2 exh vh Cv.
+      ∀gtagenv v2 exh vh Cv pp ty bv.
         v_to_i2 gtagenv v1 v2 ∧
-          v_to_exh exh v2 vh ∧ exh_Cv vh Cv ⇒
-            ov_to_string (Cv_to_ov Cv) = print_v v) ∧
+        v_to_exh exh v2 vh ∧ exh_Cv vh Cv ∧
+        Cv_bv pp Cv bv ∧
+        (ty = ^word8 ⇔ ∃w. v = Litv (Word8 w))
+        ⇒
+        print_bv ty bv = print_v v) ∧
     (∀genv vs vs1. vs_to_i1 genv vs vs1 ⇒ T) ∧
     (∀genv env env1. env_to_i1 genv env env1 ⇒ T) ∧
     (∀genv map sh env. global_env_inv_flat genv map sh env ⇒ T) ∧
     (∀genv mods tops menv sh env. global_env_inv genv mods tops menv sh env ⇒ T)``,
-  ho_match_mp_tac v_to_i1_ind >> simp[] >> rpt conj_tac >>
-  TRY (
+  ho_match_mp_tac v_to_i1_ind >> simp[] >>
+  conj_tac >- (
     simp[Once v_to_i2_cases,exh_Cv_def] >> rw[] >>
-    simp[printerTheory.ov_to_string_def,print_v_def] >>
-    Cases_on`lit`>>simp[printerTheory.ov_to_string_def,print_v_def,print_lit_def] >>
-    Cases_on`b`>>simp[printerTheory.ov_to_string_def,print_v_def,print_lit_def] ) >>
+    simp[print_bv_def,print_v_def] >>
+    fs[Once Cv_bv_cases,print_lit_def] >>
+    rw[] >> fs[bv_to_string_def,bvs_to_chars_thm] >- (
+      simp[EVERY_MAP,IMPLODE_EXPLODE_I,MAP_MAP_o,combinTheory.o_DEF,integerTheory.INT_ABS_NUM,CHR_ORD] ) >>
+    Cases_on`b`>>simp[print_v_def,print_lit_def] ) >>
+  rpt conj_tac >>
   simp[Once v_to_i2_cases] >>
   rw[] >> fs[exh_Cv_def] >>
+  TRY (
+    rw[]>>fs[Once Cv_bv_cases,print_v_def,print_bv_def,bv_to_string_def] >>
+    NO_TAC) >>
   rator_x_assum`v_to_exh`mp_tac >>
   rw[Once v_to_exh_cases,PULL_EXISTS] >>
   rator_x_assum`v_pat`mp_tac >>
   rw[Once v_pat_cases,PULL_EXISTS] >>
   rator_x_assum`syneq`mp_tac >>
   rw[Once syneq_cases,PULL_EXISTS,LET_THM] >>
-  simp[print_v_def,printerTheory.ov_to_string_def])
-val print_v_ov = save_thm("print_v_ov",CONJUNCT1 print_v_ov)
+  rator_x_assum`Cv_bv`mp_tac >>
+  rw[Once Cv_bv_cases,PULL_EXISTS] >>
+  simp[print_v_def,print_bv_def,bv_to_string_def])
+val print_bv_print_v = save_thm("print_bv_print_v",CONJUNCT1 print_bv_print_v)
+
+val good_type_string_env_def = Define`
+  good_type_string_env types env ⇔
+  EVERY (λ(x,v). tystr types x = ^word8 ⇔ ∃w. v = Litv (Word8 w)) env`
 
 val print_bv_list_print_envE = store_thm("print_bv_list_print_envE",
   ``∀bvs types vars env data.
     vars = MAP FST env ∧
     LIST_REL (v_bv data) (MAP SND env) bvs ∧
+    good_type_string_env types env ∧
     set vars ⊆ FDOM types
     ⇒
     print_bv_list types vars bvs = print_envE types env``,
@@ -127,24 +149,24 @@ val print_bv_list_print_envE = store_thm("print_bv_list_print_envE",
   rpt gen_tac >> strip_tac >> fs[] >>
   fs[GSYM AND_IMP_INTRO] >>
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
+  fs[good_type_string_env_def] >>
+  first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
   simp[print_envE_def,print_bv_str_def] >> simp[tystr_def,FLOOKUP_DEF] >>
   PairCases_on`data` >> fs[v_bv_def] >>
-  first_x_assum(mp_tac o MATCH_MP print_v_ov) >>
+  first_x_assum(mp_tac o MATCH_MP print_bv_print_v) >>
   simp[GSYM AND_IMP_INTRO] >>
   disch_then(fn th => first_x_assum (mp_tac o MATCH_MP th)) >>
   disch_then(fn th => first_x_assum (mp_tac o MATCH_MP th)) >>
-  metis_tac[Cv_bv_ov])
+  disch_then(fn th => first_x_assum (mp_tac o MATCH_MP th)) >>
+  disch_then(fn th => first_x_assum (mp_tac o MATCH_MP th)) >>
+  disch_then match_mp_tac >>
+  fs[tystr_def,FLOOKUP_DEF])
 
 val code_labels_ok_MAP_PrintC = store_thm("code_labels_ok_MAP_PrintC",
   ``∀ls. code_labels_ok (MAP PrintC ls)``,
   Induct>>simp[]>>rw[]>>match_mp_tac code_labels_ok_cons>>simp[])
 val _ = export_rewrites["code_labels_ok_MAP_PrintC"]
-
-val can_Print_list_EVERY = store_thm("can_Print_list_EVERY",
-  ``∀ls. can_Print_list ls = EVERY can_Print ls``,
-  Induct >> simp[])
-val _ = export_rewrites["can_Print_list_EVERY"]
 
 val compile_print_vals_thm = store_thm("compile_print_vals_thm",
   ``∀vs types map cs. let cs' = compile_print_vals types map vs cs in
@@ -155,7 +177,11 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
     ∀bs bc0 bvs.
     bs.code = bc0 ++ code
     ∧ bs.pc = next_addr bs.inst_length bc0
-    ∧ LIST_REL (λv bv. ∃n. FLOOKUP map v = SOME n ∧ el_check n bs.globals = SOME (SOME bv) ∧ can_Print bv) vs bvs
+    ∧ LIST_REL (λv bv. ∃n. FLOOKUP map v = SOME n ∧
+                           el_check n bs.globals = SOME (SOME bv) ∧
+                           IS_SOME (bv_to_string bv) ∧
+                           (tystr types v = ^word8 ⇒
+                            ∃w. bv = Number &(w2n(w:word8)))) vs bvs
     ⇒
     let bs' = bs with <|pc := next_addr bs.inst_length (bc0++code)
                        ;output := bs.output ++ print_bv_list types vs bvs|> in
@@ -178,14 +204,17 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
   `cs1' = cs1` by (
     simp[Abbr`cs1`,Abbr`cs1'`,compiler_result_component_equality] ) >>
   fs[Abbr`cs1'`] >> pop_assum kall_tac >>
+  conj_tac >- rw[] >>
   conj_tac >- (
+    rw[]>>
     rpt(match_mp_tac code_labels_ok_cons>>simp[])>>
     match_mp_tac code_labels_ok_append>>simp[IMPLODE_EXPLODE_I]>>
     rpt(match_mp_tac code_labels_ok_append>>simp[]>>(TRY conj_tac)>>TRY(simp[code_labels_ok_def,uses_label_thm]>>NO_TAC))) >>
   rpt gen_tac >>
   strip_tac >>
   fs[IMPLODE_EXPLODE_I] >>
-  `bs.code = bc0 ++ (MAP PrintC ("val "++v++":"++tystr types v++" = ")) ++ [Gread n;Print;PrintC(#"\n")] ++ c1` by (
+  Q.PAT_ABBREV_TAC`PrintI = if tystr types v = Z then Y else [Print]` >>
+  `bs.code = bc0 ++ (MAP PrintC ("val "++v++":"++tystr types v++" = ")) ++ ([Gread n] ++ PrintI ++[PrintC(#"\n")]) ++ c1` by (
     simp[] ) >>
   qmatch_assum_abbrev_tac`bs.code = bc0 ++ l1 ++ l2 ++ c1` >>
   `bc_next^* bs (bs with <|pc:=next_addr bs.inst_length (bc0++l1)
@@ -201,7 +230,45 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
     qexists_tac`bc0++l1` >>
     simp[Abbr`l2`] ) >>
   `bc_next^* bs1 (bs1 with <|pc:=next_addr bs.inst_length(bc0++l1++l2)
-                            ;output := STRCAT bs1.output (print_bv bv)++"\n"|>)` by (
+                            ;output := STRCAT bs1.output (print_bv (tystr types v) bv)++"\n"|>)` by (
+    qunabbrev_tac`PrintI` >> qunabbrev_tac`l2` >>
+    BasicProvers.CASE_TAC >- (
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      simp[bc_eval1_thm,bc_eval1_def] >>
+      fs[compilerLibTheory.el_check_def] >>
+      simp[bump_pc_def] >> simp[Abbr`bs1`] >>
+      qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+      qspecl_then[`"0wx"`,`bs1`,`bc0++l1++[Gread n]`]mp_tac MAP_PrintC_thm >>
+      simp[Abbr`bs1`] >>
+      discharge_hyps >- simp[SUM_APPEND,FILTER_APPEND] >>
+      qmatch_abbrev_tac`bc_next^* bs1 bs3 ⇒ bc_next^* bs1' bs2` >>
+      `bs1' = bs1` by (
+        simp[Abbr`bs1`,Abbr`bs1'`,bc_state_component_equality,SUM_APPEND,FILTER_APPEND] ) >>
+      pop_assum SUBST1_TAC >>
+      map_every qunabbrev_tac[`bs1`,`bs1'`] >>
+      strip_tac >>
+      srw_tac[DNF_ss][Once RTC_CASES_RTC_TWICE] >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      `bc_fetch bs3 = SOME PrintWord8` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs3`] >>
+        CONV_TAC SWAP_EXISTS_CONV >>
+        qexists_tac`[PrintC #"\n"]++c1` >>
+        simp[SUM_APPEND,FILTER_APPEND] ) >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      simp[bc_eval1_thm,bc_eval1_def] >>
+      simp[Abbr`bs3`,wordsTheory.w2n_lt,bump_pc_def] >>
+      match_mp_tac RTC_SUBSET >>
+      qmatch_abbrev_tac`bc_next bs3 bs2` >>
+      `bc_fetch bs3 = SOME (PrintC #"\n")` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs3`] >>
+        CONV_TAC SWAP_EXISTS_CONV >>
+        qexists_tac`c1`>>simp[SUM_APPEND,FILTER_APPEND] ) >>
+      simp[bc_eval1_thm,bc_eval1_def,IMPLODE_EXPLODE_I,bump_pc_def] >>
+      simp[Abbr`bs3`,Abbr`bs2`,bc_state_component_equality] >>
+      simp[SUM_APPEND,FILTER_APPEND] >>
+      simp[print_bv_def] ) >>
     simp[RTC_eq_NRC] >>
     qexists_tac`SUC(SUC(SUC 0))` >>
     simp[NRC] >>
@@ -213,21 +280,24 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
     qho_match_abbrev_tac`∃z. bc_next bs1 z ∧ P z` >>
     `bc_fetch bs1 = SOME Print` by (
       match_mp_tac bc_fetch_next_addr >>
-      qexists_tac`bc0++l1++[HD l2]` >>
-      simp[Abbr`bs1`,Abbr`l2`] >>
+      qexists_tac`bc0++l1++[Gread n]` >>
+      simp[Abbr`bs1`] >>
       simp[FILTER_APPEND,SUM_APPEND] ) >>
     simp[bc_eval1_thm,bc_eval1_def,bump_pc_def]>>
     simp[Abbr`bs1`]>>
     simp[Abbr`P`] >>
+    simp[PULL_EXISTS] >>
+    fs[IS_SOME_EXISTS] >>
     qmatch_abbrev_tac`bc_next bs1 bs2` >>
     `bc_fetch bs1 = SOME (PrintC(#"\n"))` by (
       match_mp_tac bc_fetch_next_addr >>
-      qexists_tac`bc0++l1++FRONT l2` >>
-      simp[Abbr`bs1`,Abbr`l2`] >>
+      CONV_TAC SWAP_EXISTS_CONV >>
+      qexists_tac`c1` >>
+      simp[Abbr`bs1`] >>
       simp[FILTER_APPEND,SUM_APPEND] ) >>
     simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
     simp[Abbr`bs1`,Abbr`bs2`,bc_state_component_equality,IMPLODE_EXPLODE_I] >>
-    simp[FILTER_APPEND,SUM_APPEND,Abbr`l2`] ) >>
+    simp[FILTER_APPEND,SUM_APPEND,print_bv_def] ) >>
   qmatch_assum_abbrev_tac`bc_next^* bs1 bs2` >>
   `bc_next^* bs bs2` by metis_tac[RTC_TRANSITIVE,transitive_def] >>
   pop_assum mp_tac >>
@@ -241,7 +311,10 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
   `bs2' = bs2` by (
     simp[Abbr`bs2`,Abbr`bs2'`,bc_state_component_equality,Abbr`l1`] >>
     conj_tac >- (
-      simp[SUM_APPEND,FILTER_APPEND] ) >>
+      rw[Abbr`PrintI`,Abbr`l2`] >>
+      REWRITE_TAC[FILTER_APPEND] >>
+      simp_tac(srw_ss())[SUM_APPEND] >>
+      simp[FILTER_APPEND,SUM_APPEND]) >>
     simp[print_bv_str_def]) >>
   metis_tac[RTC_TRANSITIVE,transitive_def] )
 
@@ -312,7 +385,11 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
       bs.code = bc0 ++ code
       ∧ bs.pc = next_addr bs.inst_length bc0
       ∧ LIST_REL
-        (λv bv. ∃n. FLOOKUP map v = SOME n ∧ el_check n bs.globals = SOME (SOME bv) ∧ can_Print bv)
+        (λv bv. ∃n. FLOOKUP map v = SOME n ∧
+                    el_check n bs.globals = SOME (SOME bv) ∧
+                    IS_SOME (bv_to_string bv) ∧
+                    (tystr types v = ^word8 ⇒
+                     ∃w. bv = Number &(w2n(w:word8))))
         (new_dec_vs d) bvs
       ⇒
       let str =
@@ -398,18 +475,6 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
     simp[] >> rw[] >> simp[] >>
     simp[print_envC_def]))
 
-val only_chars_lemma = prove(
-  ``∀s. only_chars (MAP (Number o $& o ORD) s)``,
-  Induct >> simp [only_chars_def,is_char_def,stringTheory.ORD_BOUND]);
-
-val Cv_bv_can_Print = save_thm("Cv_bv_can_Print",prove(
-  ``(∀Cv bv. Cv_bv pp Cv bv ⇒ can_Print bv) ∧
-    (∀bvs ce env defs. benv_bvs pp bvs ce env defs ⇒ T)``,
-  ho_match_mp_tac Cv_bv_ind >> simp[only_chars_lemma,only_chars_def] >>
-  simp[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >> rw[] >>
-  rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,MEM_EL])
-  |> CONJUNCT1)
-
 val new_top_vs_def = Define`
   (new_top_vs (Tdec dec) = new_dec_vs dec) ∧
   (new_top_vs (Tmod _ _ _) = [])`
@@ -425,9 +490,9 @@ val compile_print_err_thm = store_thm("compile_print_err_thm",
         good_labels cs.next_label bc0 ∧
         bs.pc = next_addr bs.inst_length bc0 ∧
         bs.stack = (Block(block_tag+tag)(if tag = none_tag then [] else [bv]))::st0 ∧
-        (tag ≠ none_tag ⇒ can_Print bv)
+        (tag ≠ none_tag ⇒ IS_SOME (bv_to_string bv))
       ⇒ ∃pc.
-        let str = if tag ≠ none_tag then "raise " ++ print_bv bv ++ "\n" else "" in
+        let str = if tag ≠ none_tag then "raise " ++ (THE (bv_to_string bv)) ++ "\n" else "" in
         let bs' = bs with <| pc := pc
                            ; stack := st0
                            ; output := bs.output ++ str |> in
@@ -510,6 +575,7 @@ val compile_print_err_thm = store_thm("compile_print_err_thm",
     srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
     simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
     simp[Abbr`bs3`,Abbr`bs1`] >>
+    fs[IS_SOME_EXISTS] >>
     qho_match_abbrev_tac`∃p. bc_next^* bs1 (bs2 p) ∧ P p` >>
     qsuff_tac`∃bs3 p. bc_next^* bs1 bs3 ∧ bc_next^* bs3 (bs2 p) ∧ P p` >- metis_tac[RTC_TRANSITIVE,transitive_def] >>
     exists_suff_gen_then (qspec_then`"\n"`mp_tac) MAP_PrintC_thm >>
@@ -568,14 +634,18 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
         good_labels cs.next_label bc0 ∧
         bs.pc = next_addr bs.inst_length bc0 ∧
         bs.stack = (Block(block_tag+tag)(if tag = none_tag then [] else [bv]))::st0 ∧
-        (tag ≠ none_tag ⇒ can_Print bv) ∧
+        (tag ≠ none_tag ⇒ IS_SOME (bv_to_string bv)) ∧
         (∀d. tag = none_tag ∧ IS_SOME tys ∧ t = Tdec d ⇒
          LIST_REL
-         (λv bv. ∃n. FLOOKUP map v = SOME n ∧ el_check n bs.globals = SOME (SOME bv) ∧ can_Print bv)
+         (λv bv. ∃n. FLOOKUP map v = SOME n ∧
+                     el_check n bs.globals = SOME (SOME bv) ∧
+                     IS_SOME (bv_to_string bv) ∧
+                     (IS_SOME tys ∧ tystr (THE tys) v = ^word8 ⇒
+                      ∃w. bv = Number &(w2n(w:word8))))
          (new_dec_vs d) bvs)
         ⇒ ∃pc.
         (let str =
-          if tag ≠ none_tag then "raise " ++ print_bv bv ++ "\n" else
+          if tag ≠ none_tag then "raise " ++ THE(bv_to_string bv) ++ "\n" else
           (case tys of NONE => ""
           | SOME types => (case t of
             | Tmod mn _ _ => "structure "++mn++" = <structure>\n"
