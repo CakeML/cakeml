@@ -213,8 +213,11 @@ val bc_eval1_def = Define`
      | NONE => SOME (bump_pc s)
      | SOME n => if n > 0 then SOME (bump_pc s with <| clock := SOME (n-1) |>) else NONE)
   | (Print, x::xs) =>
-    if can_Print x then
-    SOME (bump_pc s with <| stack := xs; output := STRCAT s.output (ov_to_string(bv_to_ov x))|>)
+    OPTION_BIND (bv_to_string x)
+    (λstr.  SOME (bump_pc s with <| stack := xs; output := STRCAT s.output str|>))
+  | (PrintWord8, (Number i::xs)) =>
+    if 0 ≤ i ∧ Num i < dimword (:8) then
+    SOME (bump_pc s with <| stack := xs; output := STRCAT s.output (word_to_hex_string ((n2w(Num i)):word8))|>)
     else NONE
   | (PrintC c,_) =>
     SOME (bump_pc s with <| output := IMPLODE (SNOC c (EXPLODE s.output)) |>)
@@ -340,6 +343,12 @@ Cases_on `inst` >> fs[GSYM bc_eval_stack_thm]
 >- (
   Cases_on `s1.stack` >> fs[LET_THM] >>
   rw[bc_next_cases] )
+>- (
+  Cases_on `s1.stack` >> fs[LET_THM] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[] >>
+  rw[bc_next_cases] >>
+  qexists_tac`n2w(Num i)` >> simp[] >>
+  simp[INT_OF_NUM] )
 >- ( rw[bc_next_cases,stringTheory.IMPLODE_EXPLODE_I] ))
 
 val bc_next_bc_eval1 = store_thm(

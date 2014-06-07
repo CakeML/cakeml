@@ -5,7 +5,6 @@ import String_extra
 open import Lib
 open import Ast
 open import SemanticPrimitives
-open import Printer
 
 (* TODO: should be in lem library? *)
 val snoc_char : char -> string -> string
@@ -59,7 +58,8 @@ type
   | Gread of nat            (* read a global variable *)
   | Stop of bool            (* halt execution with success/failure *)
   | Tick                    (* use fuel *)
-  | Print                   (* print value at top of stack *)
+  | Print                   (* print non-word value at top of stack *)
+  | PrintWord8              (* print word8 at top of stack *)
   | PrintC of char          (* print a character *)
 
 (* --- Semantics --- *)
@@ -126,27 +126,6 @@ let rec
 is_char (Number n) = (0 <= n && n < 256)
 and
 is_char _ = false
-
-let rec
-only_chars [] = true
-and
-only_chars (x::xs) = is_char x && only_chars xs
-
-let rec
-can_Print (Number _) = true
-and
-can_Print (Block n vs) = (not (n = string_tag) || only_chars vs) &&
-                         (not (n = block_tag) || can_Print_list vs)
-and
-can_Print (CodePtr _) = false
-and
-can_Print (RefPtr _) = true
-and
-can_Print (StackPtr _) = false
-and
-can_Print_list [] = true
-and
-can_Print_list (v::vs) = can_Print v && can_Print_list vs
 
 (* comparing bc_values for equality *)
 
@@ -245,25 +224,25 @@ and
 bvs_to_chars _ _ = Nothing
 declare termination_argument bvs_to_chars = automatic
 
-val bv_to_ov :  bc_value -> ov
+val bv_to_string :  bc_value -> maybe string
 let rec
-bv_to_ov (Number i) = OLit (IntLit i)
+bv_to_string (Number i) = Just (int_to_string i)
 and
-bv_to_ov (Block n vs) =
-  if n = (bool_to_tag false) then OLit (Bool false) else
-  if n = (bool_to_tag true) then OLit (Bool true) else
-  if n = unit_tag then OLit Unit else
-  if n = closure_tag then OFn else
+bv_to_string (Block n vs) =
+  if n = (bool_to_tag false) then Just "false" else
+  if n = (bool_to_tag true) then Just "true" else
+  if n = unit_tag then Just "()" else
+  if n = closure_tag then Just "<fn>" else
   if n = string_tag then
     match bvs_to_chars vs [] with
-    | Nothing -> OError
-    | Just cs -> OLit (StrLit (String.toString cs))
-    end else
-  OConv
+    | Nothing -> Nothing
+    | Just cs -> Just (string_to_string (String.toString cs))
+    end
+  else Just "<constructor>"
 and
-bv_to_ov (RefPtr _) = OLoc
+bv_to_string (RefPtr _) = Just "<ref>"
 and
-bv_to_ov _ = OError
+bv_to_string _ = Nothing
 
 (* next state relation *)
 
@@ -471,13 +450,20 @@ bc_fetch s = Just Tick
 ==>
 bc_next s (<|bump_pc s with clock = Maybe.map natPred s.clock|>)
 and
-print : forall s x xs.
+print : forall s x xs str.
 bc_fetch s = Just Print
 && (s.stack = x::xs)
-&& can_Print x
+&& bv_to_string x = Just str
 ==>
 bc_next s (<|bump_pc s with stack = xs;
-  output = String_extra.stringConcat [s.output;ov_to_string (bv_to_ov x)]|>)
+  output = String_extra.stringConcat [s.output;str]|>)
+and
+printWord8 : forall s x xs.
+bc_fetch s = Just PrintWord8
+&& (s.stack = (Number (integerFromNat (natFromWord8 (x:word8))))::xs)
+==>
+bc_next s (<|bump_pc s with stack = xs;
+  output = String_extra.stringConcat [s.output;word_to_hex_string x]|>)
 and
 printC : forall s c.
 bc_fetch s = Just (PrintC c)

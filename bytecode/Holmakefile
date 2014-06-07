@@ -2,7 +2,7 @@ INCLUDES = .. ../semantics ../lem_lib_stub
 
 OPTIONS = QUIT_ON_FAILURE
 
-printerScript.sml bytecodeScript.sml: printer.lem bytecode.lem
+bytecodeScript.sml: bytecode.lem
 	if type lem;\
-	then lem -auxiliary_level none $(patsubst %,-i ../semantics/%.lem,lib ast semanticPrimitives) -hol printer.lem -hol bytecode.lem;\
-	else touch printerScript.sml bytecodeScript.sml; fi
+	then lem -auxiliary_level none $(patsubst %,-i ../semantics/%.lem,lib ast semanticPrimitives) -hol bytecode.lem;\
+	else touch bytecodeScript.sml; fi

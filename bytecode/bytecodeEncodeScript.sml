@@ -51,6 +51,7 @@ val bc_inst_to_string_def = Define `
 (bc_inst_to_string (Stop b) = "stop" ++ (if b then toString 1 else toString 0)) ∧
 (bc_inst_to_string Tick = "tick") ∧
 (bc_inst_to_string Print = "print") ∧
+(bc_inst_to_string PrintWord8 = "printWord8") ∧
 (bc_inst_to_string (PrintC c) = "printC '" ++ (if c = #"\n" then "\\n" else [c]) ++ "'")`;
 
 val encode_num_def = Define `
@@ -123,6 +124,7 @@ val encode_bc_inst_def = Define `
 (encode_bc_inst (Stop b) = OPTION_MAP (\w. [39w; w]) (encode_num (if b then 1 else 0))) ∧
 (encode_bc_inst Tick = SOME [8w]) ∧
 (encode_bc_inst Print = SOME [26w]) ∧
+(encode_bc_inst PrintWord8 = SOME [45w]) ∧
 (encode_bc_inst (PrintC c) = 
   OPTION_MAP (\w. [2w; w]) (encode_char c))`;
 
@@ -239,6 +241,8 @@ decode_bc_inst wl =
            SOME (Tick, rest)
          else if tag = 26w then
            SOME (Print, rest)
+         else if tag = 45w then
+           SOME (PrintWord8, rest)
          else if tag = 2w then
            option_map_fst (\c. PrintC c) (decode_char rest)
          else
@@ -265,7 +269,7 @@ val decode_bc_insts_prim_def = tzDefine "decode_bc_insts" `
   case decode_bc_inst wl of
        NONE => NONE
      | SOME (i,rest) =>
-         if 44 < dimword (:'a) then
+         if 45 < dimword (:'a) then
            case decode_bc_insts rest of
                 NONE => NONE
               | SOME is => SOME (i::is)
@@ -289,7 +293,7 @@ val decode_bc_insts_prim_def = tzDefine "decode_bc_insts" `
 
 val decode_bc_insts_def = Q.store_thm ("decode_bc_insts_def",
 `(decode_bc_insts [] = SOME []) ∧
- (44 < dimword (:'a) ⇒
+ (45 < dimword (:'a) ⇒
    (decode_bc_insts ((w:'a word)::wl) =
      case decode_bc_inst (w::wl) of
          NONE => NONE
@@ -311,7 +315,7 @@ val decode_encode_num = Q.prove (
  decide_tac);
 
 val decode_encode_bc_inst = Q.store_thm ("decode_encode_bc_inst",
-`44 < dimword (:'a)
+`45 < dimword (:'a)
  ⇒
  !inst (l1:'a word list) l2.
   (encode_bc_inst inst = SOME l1)
@@ -332,7 +336,7 @@ val decode_encode_bc_inst = Q.store_thm ("decode_encode_bc_inst",
      rw [ORD_BOUND, CHR_ORD]));
 
 val decode_encode_bc_insts = Q.store_thm ("decode_encode_bc_insts",
-`44 < dimword (:'a)
+`45 < dimword (:'a)
  ⇒
  !(l1:'a word list) insts.
   (encode_bc_insts insts = SOME l1)

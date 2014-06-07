@@ -94,6 +94,7 @@ val bc_num_def = Define `
      | LengthByte => (49,0,0)
      | Tick => (34,0,0)
      | Print => (35,0,0)
+     | PrintWord8 => (40,0,0)
      | PrintC c => (36,ORD c,0)
      | Galloc n => (2,n,0)
      | Gread n => (7,n,0)
@@ -147,6 +148,7 @@ val num_bc_def = Define `
     else if n = 38 then Stop T
     else if n = 34 then Tick
     else if n = 35 then Print
+    else if n = 40 then PrintWord8
     else if n = 36 then PrintC (CHR (if x1 < 256 then x1 else 0))
     else Label 0`;
 
