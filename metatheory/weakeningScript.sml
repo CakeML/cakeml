@@ -18,7 +18,7 @@ weak_tenvE tenv tenv' =
 
 val weakS_def = Define `
 weakS tenvS tenvS' =
-  !l v. (lookup l tenvS' = SOME v) ⇒ (lookup l tenvS = SOME v)`;
+  !l v. (lib$lookup l tenvS' = SOME v) ⇒ (lib$lookup l tenvS = SOME v)`;
 
 val weak_tenvE_refl = Q.prove (
 `!tenv. weak_tenvE tenv tenv`,

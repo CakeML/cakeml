@@ -1900,7 +1900,7 @@ val type_ds_no_dup_types = Q.prove (
  pop_assum (assume_tac o SIMP_RULE (srw_ss()) [Once type_ds_cases]) >>
  fs [] >>
  rw [] >>
- fs [no_dup_types_def, type_d_cases] >>
+ fs [no_dup_types_def, type_d_cases, decs_to_types_def] >>
  rw [ALL_DISTINCT_APPEND]
  >- metis_tac []
  >- metis_tac []
@@ -2264,6 +2264,92 @@ val prog_type_soundness = Q.store_thm ("prog_type_soundness",
      rw [] >>
      qexists_tac `FST decls'` >>
      rw [FST_union_decls]));
+
+val type_no_dup_top_types = Q.prove (
+`!decls1 tenvM tenvC tenv prog decls1' tenvM' tenvC' tenv'.
+  type_prog decls1 tenvM tenvC tenv prog decls1' tenvM' tenvC' tenv'
+  ⇒
+  no_dup_top_types prog ∧
+  DISJOINT (FST (SND decls1)) (IMAGE (mk_id NONE) (set (FLAT (MAP (λtop. case top of Tmod v4 v5 v6 => [] | Tdec d => decs_to_types [d]) prog))))`,
+ ho_match_mp_tac type_prog_ind >>
+ rw [no_dup_top_types_def] >>
+ every_case_tac >>
+ rw [] >>
+ fs [type_top_cases] >>
+ rw [ALL_DISTINCT_APPEND, empty_decls_def]
+ >- (fs [type_d_cases, decs_to_types_def] >>
+     rw [] >>
+     fs [check_ctor_tenv_def] >>
+     fs [LAMBDA_PROD])
+ >- (`mk_id NONE e ∈ FST (SND decls')`
+            by (fs [type_d_cases, decs_to_types_def] >>
+                rw [] >>
+                fs [mk_id_def] >>
+                fs [MEM_MAP, LAMBDA_PROD, EXISTS_PROD] >>
+                metis_tac []) >>
+     PairCases_on `decls'` >>
+     PairCases_on `decls1` >>
+     fs [union_decls_def, DISJOINT_DEF, EXTENSION] >>
+     metis_tac [])
+ >- (rw [decs_to_types_def] >>
+     fs [type_d_cases] >>
+     rw [] >>
+     fs [DISJOINT_DEF, EXTENSION] >>
+     rw [] >>
+     fs [MEM_MAP,LAMBDA_PROD, EXISTS_PROD, mk_id_def, FORALL_PROD] >>
+     metis_tac [])
+ >- (fs [union_decls_def, DISJOINT_DEF, EXTENSION] >>
+     rw [] >>
+     fs [MEM_MAP,LAMBDA_PROD, EXISTS_PROD, mk_id_def, FORALL_PROD] >>
+     metis_tac [])
+ >- (PairCases_on `decls1` >>
+     fs [type_d_cases, empty_decls_def] >>
+     rw [] >>
+     fs [DISJOINT_DEF, EXTENSION, union_decls_def] >>
+     rw [] >>
+     fs [MEM_MAP,LAMBDA_PROD, EXISTS_PROD, mk_id_def, FORALL_PROD] >>
+     metis_tac []));
+
+val type_no_dup_mods = Q.prove (
+`!decls1 tenvM tenvC tenv prog decls1' tenvM' tenvC' tenv'.
+  type_prog decls1 tenvM tenvC tenv prog decls1' tenvM' tenvC' tenv'
+  ⇒
+  no_dup_mods prog ∧
+  DISJOINT (FST decls1) (set (FLAT (MAP (λtop. case top of Tmod mn v5 v6 => [mn] | Tdec v7 => []) prog)))`,
+ ho_match_mp_tac type_prog_ind >>
+ rw [no_dup_mods_def] >>
+ every_case_tac >>
+ rw [] >>
+ fs [type_top_cases] >>
+ rw [ALL_DISTINCT_APPEND, empty_decls_def]
+ >- (fs [union_decls_def, DISJOINT_DEF, EXTENSION] >>
+     metis_tac [])
+ >- (fs [union_decls_def, DISJOINT_DEF, EXTENSION] >>
+     metis_tac [])
+ >- (PairCases_on `decls'` >>
+     PairCases_on `decls1` >>
+     fs [union_decls_def, DISJOINT_DEF, EXTENSION] >>
+     metis_tac []));
+
+val whole_prog_type_soundness = Q.store_thm ("whole_prog_type_soundness",
+`!decls1 tenvM tenvC tenv envM envC envE count store1 decls1' tenvM' tenvC' tenv' prog decls2.
+  type_sound_invariants (decls1,tenvM,tenvC,tenv,decls2,envM,envC,envE,store1) ∧
+  type_prog decls1 tenvM tenvC tenv prog decls1' tenvM' tenvC' tenv' ∧
+  ¬prog_diverges (envM, envC, envE) (store1,decls2, FST decls1) prog ⇒
+  ?cenv2 store2 decls2'. 
+    (?envM2 envE2.
+      evaluate_whole_prog F (envM, envC, envE) ((count,store1),decls2,FST decls1) prog (((count,store2),decls2',FST decls1' ∪ FST decls1),cenv2,Rval (envM2,envE2)) ∧
+      type_sound_invariants (update_type_sound_inv (decls1,tenvM,tenvC,tenv,decls2,envM,envC,envE,store1) decls1' tenvM' tenvC' tenv' store2 decls2' cenv2 (Rval (envM2,envE2)))) ∨
+    (?err mods.
+      err ≠ Rtype_error ∧
+      mods ⊆ FST decls1' ∧
+      evaluate_prog F (envM, envC, envE) ((count,store1),decls2,FST decls1) prog (((count,store2),decls2',mods ∪ FST decls1),cenv2,Rerr err))`,
+ rw [evaluate_whole_prog_def] >>
+ imp_res_tac prog_type_soundness >>
+ pop_assum (assume_tac o Q.SPEC `count'`) >>
+ fs []
+ >- metis_tac [type_no_dup_top_types, type_no_dup_mods]
+ >- metis_tac []);
 
 val to_ctMap_list_def = Define `
 to_ctMap_list tenvC =  
