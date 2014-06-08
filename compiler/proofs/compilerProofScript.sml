@@ -27,6 +27,11 @@ val sv_to_i1_sv_rel = store_thm("sv_to_i1_sv_rel",
   ``∀g. sv_to_i1 g = sv_rel (v_to_i1 g)``,
   rw[FUN_EQ_THM,sv_to_i1_cases,EQ_IMP_THM,sv_rel_cases])
 
+val EVERY_sv_every_EVERY_store_vs = store_thm("EVERY_sv_every",
+  ``∀P ls. EVERY (sv_every P ) ls ⇔ EVERY P (store_vs ls)``,
+  rw[EVERY_MEM,EQ_IMP_THM,store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER] >>
+  res_tac >> TRY(Cases_on`e`) >> TRY(Cases_on`y`) >> fs[])
+
 val EVERY_store_vs_intro = store_thm("EVERY_store_vs_intro",
   ``∀P ls. EVERY (sv_every P) ls ⇒ EVERY P (store_vs ls)``,
   rw[EVERY_MEM,store_vs_def,MEM_MAP,MEM_FILTER] >>
@@ -54,6 +59,15 @@ val Cv_bv_can_Print = save_thm("Cv_bv_can_Print",prove(
   simp[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >> rw[] >>
   rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,MEM_EL,EL_MAP])
   |> CONJUNCT1)
+
+val LIST_REL_sv_rel_exh_Cv_syneq_trans = store_thm("LIST_REL_sv_rel_exh_Cv_syneq_trans",
+  ``∀vs Cvs Cvs2.
+     LIST_REL (sv_rel syneq) Cvs Cvs2 ∧
+     LIST_REL (sv_rel exh_Cv) vs Cvs ⇒
+     LIST_REL (sv_rel exh_Cv) vs Cvs2``,
+  rw[EVERY2_EVERY,EVERY_MEM] >> rfs[MEM_ZIP,PULL_EXISTS] >>
+  fs[sv_rel_cases,PULL_EXISTS] >> rw[] >>
+  metis_tac[exh_Cv_syneq_trans,store_v_distinct,store_v_11])
 
 (* misc *)
 
@@ -1767,7 +1781,29 @@ val compile_top_thm = store_thm("compile_top_thm",
            simp[store_to_exh_csg_rel,csg_rel_unpair,LIST_REL_EL_EQN] >> strip_tac >>
            first_x_assum(qspec_then`m2 ' pv`mp_tac) >>
            simp[optionTheory.OPTREL_def] >> strip_tac >>
-           cheat) >>
+           fs[csg_rel_unpair,map_count_store_genv_def] >>
+           qsuff_tac`x0 = (CLitv (Word8 w))` >- (
+             fs[Once Cv_bv_cases] ) >>
+           qsuff_tac`EL (m2 ' pv) (SND s'') = SOME (CLitv (Word8 w))`>-rw[] >>
+           qpat_assum`LIST_REL P X (SND s'')`mp_tac >>
+           simp[LIST_REL_EL_EQN] >> strip_tac >>
+           first_x_assum(qspec_then`m2 ' pv`mp_tac) >>
+           simp[optionTheory.OPTREL_def] >> strip_tac >>
+           qpat_assum`LIST_REL P X (SND (FST res2))`mp_tac >>
+           simp[LIST_REL_EL_EQN] >> strip_tac >>
+           first_x_assum(qspec_then`m2 ' pv`mp_tac) >>
+           simp[optionTheory.OPTREL_def] >> strip_tac >>
+           qpat_assum`LIST_REL P X (SND (FST Cres0))`mp_tac >>
+           simp[LIST_REL_EL_EQN] >> strip_tac >>
+           first_x_assum(qspec_then`m2 ' pv`mp_tac) >>
+           simp[optionTheory.OPTREL_def] >> strip_tac >>
+           qpat_assum`LIST_REL P X (SND (FST res4))`mp_tac >>
+           simp[LIST_REL_EL_EQN] >> strip_tac >>
+           first_x_assum(qspec_then`m2 ' pv`mp_tac) >>
+           simp[optionTheory.OPTREL_def,EL_MAP] >> strip_tac >>
+           rfs[EL_MAP] >>
+           rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
+           rpt BasicProvers.VAR_EQ_TAC >> fs[]) >>
          imp_res_tac pmatch_dom >> fs[] >>
          TRY (pop_assum(assume_tac o SYM)) >>
          qpat_assum`n < LENGTH new_env`assume_tac >>
@@ -1945,9 +1981,12 @@ val compile_top_thm = store_thm("compile_top_thm",
       fs[to_i1_invariant_def] >>
       fs[Once s_to_i1_cases] >>
       reverse conj_tac >- (
-        cheat (*
+        fs[EVERY_sv_every_EVERY_store_vs] >>
         (v_to_i1_closed |> CONJUNCT2 |> CONJUNCT1 |> MP_CANON |> match_mp_tac) >>
-        first_assum(match_exists_tac o concl) >> simp[] *)) >>
+        simp[vs_to_i1_MAP] >>
+        fs[sv_to_i1_sv_rel] >>
+        imp_res_tac LIST_REL_store_vs_intro >>
+        first_assum(match_exists_tac o concl) >> simp[]) >>
       first_x_assum(strip_assume_tac o MATCH_MP FV_top_to_i1) >>
       fs[closed_top_def,all_env_dom_def] >>
       simp[EXTENSION] >> rw[] >>
@@ -1970,21 +2009,22 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[Once s_to_i2_cases,PULL_EXISTS] ) >>
     PairCases_on`s2_i2`>>fs[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    qexists_tac`rd'` >>
-    simp[LIST_REL_O,PULL_EXISTS] >>
-    simp[Once(GSYM CONJ_ASSOC)] >>
     PairCases_on`s'` >>
-    fs[store_to_exh_def] >>
-
-    first_assum(match_exists_tac o concl) >> simp[] >>
-    qho_match_abbrev_tac`∃A B. P A ∧ Q B ∧ R A B` >>
-    qsuff_tac`∃B. Q B ∧ ∃A. P A ∧ R A B` >- metis_tac[] >>
-    map_every qunabbrev_tac[`P`,`Q`,`R`] >> simp[] >>
-    simp[LIST_REL_O,OPTREL_O,PULL_EXISTS] >>
+    fs[store_to_exh_def,sv_to_exh_sv_rel] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    simp[sv_rel_O,OPTREL_O,LIST_REL_O,PULL_EXISTS] >>
     simp[Once(GSYM CONJ_ASSOC)] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    qexists_tac`SND s''` >> qexists_tac`SND(FST s'')` >>
-    simp[Once(CONJ_ASSOC)] >>
+    simp[Once CONJ_COMM] >>
+    simp[Once(GSYM CONJ_ASSOC)] >>
+    simp[Once(GSYM CONJ_ASSOC)] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    qexists_tac`rd'` >>
+    qho_match_abbrev_tac`∃B A. P A ∧ R A B ∧ Q B` >>
+    qsuff_tac`∃A B. (P A ∧ Q B) ∧ R A B` >- metis_tac[] >>
+    map_every qunabbrev_tac[`P`,`Q`,`R`] >> simp[] >>
+    qexists_tac`SND s''` >>
+    qexists_tac`SND(FST s'')` >>
     conj_tac >- (
       rpt(rator_x_assum`csg_rel`mp_tac) >>
       simp[map_count_store_genv_def,csg_rel_unpair] >>
@@ -2010,16 +2050,17 @@ val compile_top_thm = store_thm("compile_top_thm",
         rfs[] >>
         disch_then(fn th => first_x_assum (mp_tac o MATCH_MP (CONJUNCT2 th))) >>
         simp[] ) >>
-      match_mp_tac LIST_REL_exh_Cv_syneq_trans >>
+      match_mp_tac LIST_REL_sv_rel_exh_Cv_syneq_trans >>
       HINT_EXISTS_TAC >> simp[] >>
-      match_mp_tac LIST_REL_exh_Cv_syneq_trans >>
+      match_mp_tac LIST_REL_sv_rel_exh_Cv_syneq_trans >>
       HINT_EXISTS_TAC >> simp[] >>
-      match_mp_tac LIST_REL_exh_Cv_syneq_trans >>
+      match_mp_tac LIST_REL_sv_rel_exh_Cv_syneq_trans >>
       first_assum(match_exists_tac o concl) >> simp[] >>
       fs[EVERY2_MAP] >>
       match_mp_tac EVERY2_MEM_MONO >>
       HINT_EXISTS_TAC >> simp[] >>
-      simp[UNCURRY] >>
+      simp[FORALL_PROD] >>
+      Cases >> Cases >> simp[sv_rel_cases] >>
       rw[exh_Cv_def] >> rw[] >>
       HINT_EXISTS_TAC >> simp[] >>
       first_x_assum(mp_tac o MATCH_MP (CONJUNCT1 evaluate_pat_closed)) >>
@@ -2027,7 +2068,8 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[EVERY_MEM] >>
       imp_res_tac EVERY2_LENGTH >>
       imp_res_tac MEM_ZIP_MEM_MAP >>
-      rfs[]) >>
+      rfs[] >>
+      metis_tac[sv_every_def]) >>
     PairCases_on`s''`>>fs[csg_rel_unpair,map_count_store_genv_def] >>
     rpt BasicProvers.VAR_EQ_TAC >>
     first_assum(mp_tac o MATCH_MP(ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]Cenv_bs_append_code)) >>
