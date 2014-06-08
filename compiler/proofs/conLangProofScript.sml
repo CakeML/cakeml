@@ -2741,7 +2741,6 @@ val decs_to_i2_correct = Q.prove (
      simp[envC_tagged_add_empty_mod,emp_def] >>
      fs [emp_def, result_to_i2_cases, v_to_i2_eqns] >>
      rw [merge_envC_empty, flat_envC_tagged_def] >>
-     cheat >>
      metis_tac [gtagenv_weak_refl, cenv_inv_def, evaluate_exp_i2_exh_weak, SND,
                 result_11, error_result_distinct])
  >- (`?tagenv_st' exh' ds_i2. decs_to_i2 tagenv_st ds = (tagenv_st', exh', ds_i2)` by metis_tac [pair_CASES] >>
@@ -3691,9 +3690,14 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
      conj_tac >- (
        PairCases_on`envC`>> Cases_on`mn`>>
        rw[mod_cenv_def,update_mod_state_def,merge_envC_def,merge_def] >>
-       fs[SUBSET_DEF]) >>
+       fs[SUBSET_DEF] >>
+       metis_tac[]) >>
      imp_res_tac FDOM_decs_to_i2_exh >>
      imp_res_tac evaluate_decs_i1_tids_acc >> fs[] >>
+     conj_tac >- (
+       PairCases_on`envC`>> Cases_on`mn`>>
+       rw[mod_cenv_def,update_mod_state_def,merge_envC_def,merge_def] >>
+       fs[SUBSET_DEF] ) >>
      conj_tac >- (
        gen_tac >> reverse strip_tac >- metis_tac[SUBSET_DEF] >>
        reverse(Cases_on`mn`)>>fs[]>-(
