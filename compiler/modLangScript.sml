@@ -835,6 +835,7 @@ evaluate_prompt_i1 ck genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds) ((s2,tdecs2,u
 /\ (! ck genv cenv s1 tdecs1 mods mn ds s2 tdecs2 cenv' env err.
 ((! name. (mn = SOME name) ==> ~ (name IN mods)) /\
 no_dup_types_i1 ds /\
+prompt_mods_ok mn ds /\
 evaluate_decs_i1 ck genv cenv (s1,tdecs1) ds ((s2,tdecs2),cenv',env,SOME err))
 ==>
 evaluate_prompt_i1 ck genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds) 

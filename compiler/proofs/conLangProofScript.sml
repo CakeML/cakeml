@@ -2862,7 +2862,7 @@ val decs_to_i2_correct = Q.prove (
          simp[IN_DISJOINT,type_defs_to_new_tdecs_def,MEM_MAP,FORALL_PROD,PULL_FORALL] >>
          metis_tac[tid_or_exn_11] ) >>
        qpat_assum`no_dup_types_i1 (X::Y)`mp_tac >>
-       simp[IN_DISJOINT,no_dup_types_i1_def,ALL_DISTINCT_APPEND,tids_of_decs_def,
+       simp[IN_DISJOINT,no_dup_types_i1_def,decs_to_types_i1_def,ALL_DISTINCT_APPEND,tids_of_decs_def,
             MEM_FLAT,MEM_MAP,type_defs_to_new_tdecs_def,PULL_EXISTS,FORALL_PROD] >>
        rw[] >> spose_not_then strip_assume_tac >> rw[] >> pop_assum mp_tac >>
        BasicProvers.CASE_TAC >> simp[] >>
@@ -3615,7 +3615,10 @@ val mod_decs_decs_to_i1 = store_thm("mod_decs_decs_to_i1",
   simp[UNCURRY] >> rw[dec_to_i1_def] >>
   BasicProvers.CASE_TAC >> simp[])
 
-val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
+(* Proved before the assumptons about mod_decs and not_mod_decs and LENGTH ds
+ * were built in to the semantics of modLang. But left for now with the better
+ * version immediately following, and using this one. *)
+val prompt_to_i2_correct_lem = Q.prove (
 `!ck genv envC s tids mods prompt s_i2 genv_i2 tagenv_st prompt_i2 genv' envC' s' tids' mods' res gtagenv tagenv_st' exh exh'.
   evaluate_prompt_i1 ck genv envC (s,tids,mods) prompt ((s',tids',mods'), envC', genv', res) ∧
   res ≠ SOME Rtype_error ∧
@@ -3846,6 +3849,29 @@ val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
      fs[alloc_tags_invariant_def,get_next_def,get_tagacc_def] >>
      fs[gtagenv_wf_def])));
 
+val prompt_to_i2_correct = Q.store_thm ("prompt_to_i2_correct",
+`!ck genv envC s tids mods prompt s_i2 genv_i2 tagenv_st prompt_i2 genv' envC' s' tids' mods' res gtagenv tagenv_st' exh exh'.
+  evaluate_prompt_i1 ck genv envC (s,tids,mods) prompt ((s',tids',mods'), envC', genv', res) ∧
+  res ≠ SOME Rtype_error ∧
+  to_i2_invariant mods tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ∧
+  (tagenv_st', exh', prompt_i2) = prompt_to_i2 tagenv_st prompt
+  ⇒
+  ?genv'_i2 s'_i2 res_i2 gtagenv' new_envC.
+    gtagenv_weak gtagenv gtagenv' ∧
+    DISJOINT (FDOM exh') (FDOM exh) ∧
+    evaluate_prompt_i2 ck (FUNION exh' exh) genv_i2 s_i2 prompt_i2 (s'_i2,genv'_i2,res_i2) ∧
+    to_i2_invariant mods' tids' new_envC (FUNION exh' exh) tagenv_st' gtagenv' s' s'_i2 (genv++genv') (genv_i2 ++ genv'_i2) ∧
+    (res = NONE ∧ res_i2 = NONE ∧ new_envC = (merge_envC envC' envC) ∨
+     ?err err_i2. res = SOME err ∧ res_i2 = SOME err_i2 ∧ new_envC = envC ∧
+                  result_to_i2 (\a b c. T) gtagenv' (Rerr err) (Rerr err_i2))`,
+ rw [] >>
+ match_mp_tac prompt_to_i2_correct_lem >>
+ MAP_EVERY qexists_tac [`s`, `tids`, `mods`, `prompt`, `tagenv_st`] >>
+ rw [] >>
+ fs [evaluate_prompt_i1_cases] >>
+ rw [] >>
+ fs [prompt_mods_ok_def, not_mod_decs_def, mod_decs_def]);
+ 
 (*
 val prompt_to_i2_disjoint_exh = store_thm("prompt_to_i2_disjoint_exh",
   ``∀envC exh tagenv_st gtagenv prompt.
@@ -4038,8 +4064,6 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
   res_tmp = ((s',tids',mods'), envC', genv', res) ∧
   res ≠ SOME Rtype_error ∧
   to_i2_invariant mods tids envC exh (next,tagenv,inv) gtagenv s s_i2 genv genv_i2 ∧
-  EVERY (λprompt. ∀ds. prompt = Prompt_i1 NONE ds ⇒ LENGTH ds < 2 ∧ not_mod_decs ds) prog ∧
-  EVERY (λprompt. ∀mn ds. prompt = Prompt_i1 (SOME mn) ds ⇒ mod_decs mn ds) prog ∧
   ((next',tagenv',inv'), exh', prog_i2) = prog_to_i2 (next,tagenv,inv) prog
   ⇒
   ?genv'_i2 s'_i2 res_i2 gtagenv'.
@@ -4081,7 +4105,7 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
            rw [] >>
            fs [merge_envC_assoc, FUNION_ASSOC]
            >- metis_tac [gtagenv_weak_trans]
-           >- (`DISJOINT (FDOM exh1) (FDOM (FUNION exh2 exh))` by tac >>
+           >- (`DISJOINT (FDOM exh1) (FDOM (FUNION exh2 exh))` by cheat (*tac*) >>
                metis_tac [evaluate_prompt_i2_exh_weak, FUNION_ASSOC, NOT_SOME_NONE]))
        >- (MAP_EVERY qexists_tac [`genv'_i2 ++ genv'_i2'`, `s'_i2'`, `SOME err_i2`, `gtagenv''`] >>
            rw [] >>

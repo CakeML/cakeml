@@ -2079,7 +2079,7 @@ val top_to_i1_correct = Q.store_thm ("top_to_i1_correct",
              fs [evaluate_dec_cases] >>
              rw [] >>
              fs [dec_to_i1_def, LET_THM] >>
-             rw [no_dup_types_i1_def, decs_to_types_i1_def])
+             rw [no_dup_types_i1_def, decs_to_types_i1_def, prompt_mods_ok_def])
          >- (rw [decs_to_dummy_env_def] >>
              metis_tac [dec_to_i1_num_bindings])
          >- metis_tac [s_to_i1'_cases, v_to_i1_weakening]
@@ -2096,7 +2096,7 @@ val top_to_i1_correct = Q.store_thm ("top_to_i1_correct",
              fs [evaluate_dec_cases] >>
              rw [] >>
              fs [dec_to_i1_def, LET_THM] >>
-             rw [no_dup_types_i1_def, decs_to_types_i1_def])
+             rw [no_dup_types_i1_def, decs_to_types_i1_def, prompt_mods_ok_def])
          >- (rw [decs_to_dummy_env_def] >>
              metis_tac [dec_to_i1_num_bindings])
          >- metis_tac [s_to_i1'_cases, v_to_i1_weakening]
@@ -2124,7 +2124,7 @@ val top_to_i1_correct = Q.store_thm ("top_to_i1_correct",
      rw []
      >- (MAP_EVERY qexists_tac [`MAP SND new_genv`] >>
          rw [update_mod_state_def] >>
-         metis_tac [no_dup_types_to_i1])
+         metis_tac [no_dup_types_to_i1, to_i1_prompt_mods_ok])
      >- (imp_res_tac decs_to_i1_num_bindings >>
          decide_tac)
      >- (fs [result_to_i1_cases] >>
