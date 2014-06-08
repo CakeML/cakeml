@@ -1957,7 +1957,7 @@ val type_ds_no_dup_types = Q.prove (
  pop_assum (assume_tac o SIMP_RULE (srw_ss()) [Once type_ds_cases]) >>
  fs [] >>
  rw [] >>
- fs [no_dup_types_def, type_d_cases] >>
+ fs [decs_to_types_def, no_dup_types_def, type_d_cases] >>
  rw [ALL_DISTINCT_APPEND]
  >- metis_tac []
  >- metis_tac []

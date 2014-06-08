@@ -4060,6 +4060,228 @@ val add1_3 = zHEAP_ADD1 ``3:num``;
 val add1_4 = zHEAP_ADD1 ``4:num``;
 
 
+(* DIV 2 *)
+
+val n2w_lsr = prove(
+  ``!m n. n < dimword (:'a) ==> ((n2w n) >>> m = n2w (n DIV 2 ** m) :'a word)``,
+  FULL_SIMP_TAC std_ss [GSYM w2n_11,w2n_lsr,w2n_n2w] \\ REPEAT STRIP_TAC
+  \\ `(n DIV 2 ** m) < dimword (:'a)` by ALL_TAC
+  \\ FULL_SIMP_TAC std_ss [DIV_LT_X]
+  \\ `0 < (2:num)**m` by FULL_SIMP_TAC std_ss [bitTheory.ZERO_LT_TWOEXP]
+  \\ Cases_on `(2:num)**m` \\ FULL_SIMP_TAC std_ss []
+  \\ FULL_SIMP_TAC std_ss [MULT_CLAUSES]
+  \\ DECIDE_TAC);
+
+val NumDIV = prove(
+  ``~(i < 0) ==> (4 * Num i DIV 8 = Num (i / 2))``,
+  Cases_on `i` \\ SRW_TAC [] []
+  \\ STRIP_ASSUME_TAC (MATCH_MP DIVISION (DECIDE ``0<2:num``) |> Q.SPEC `n`)
+  \\ Q.PAT_ASSUM `n = kkk` (fn th => SIMP_TAC std_ss [Once th])
+  \\ ONCE_REWRITE_TAC [MULT_COMM]
+  \\ SRW_TAC [] [RIGHT_ADD_DISTRIB]
+  \\ SIMP_TAC std_ss [GSYM MULT_ASSOC]
+  \\ MATCH_MP_TAC (MP_CANON DIV_MULT)
+  \\ DECIDE_TAC);
+
+fun zHEAP_DIV2 n = let
+  val th = if n = ``1:num`` then compose_specs ["shr r0,3","shl r0,2"] else
+           if n = ``2:num`` then compose_specs ["shr r1,3","shl r1,2"] else
+           if n = ``3:num`` then compose_specs ["shr r2,3","shl r2,2"] else
+           if n = ``4:num`` then compose_specs ["shr r3,3","shl r3,2"] else fail()
+  val pc = get_pc th
+  val x = ``if ^n = 1:num then x1 else
+            if ^n = 2 then x2 else
+            if ^n = 3 then x3 else
+            if ^n = 4 then x4 else ARB:bc_value``
+  val target = ``~zS * zPC p * zVALS cs vals *
+      cond (heap_inv (cs,x1,x2,x3,x4,refs,stack,s,NONE) vals /\
+            small_int (getNumber ^x) /\ ~(getNumber ^x < 0) /\ isNumber ^x)``
+  val (th,goal) = expand_pre th target
+  val lemma = prove(goal, SIMP_TAC (std_ss++star_ss) [zVALS_def,SEP_IMP_REFL])
+  val th = MP th lemma |> DISCH_ALL |> DISCH T
+                       |> PURE_REWRITE_RULE [AND_IMP_INTRO]
+  val th = MATCH_MP SPEC_WEAKEN_LEMMA th
+  val th = th |> Q.SPEC `zHEAP (cs,
+       if ^n = 1 then Number (getNumber x1 / 2) else x1,
+       if ^n = 2 then Number (getNumber x2 / 2) else x2,
+       if ^n = 3 then Number (getNumber x3 / 2) else x3,
+       if ^n = 4 then Number (getNumber x4 / 2) else x4,
+       refs,stack,s,NONE) * ~zS * ^pc`
+  val goal = th |> concl |> dest_imp |> fst
+(*
+gg goal
+*)
+  val lemma = prove(goal,
+    SIMP_TAC std_ss [LET_DEF,SEP_CLAUSES]
+    \\ SIMP_TAC std_ss [zHEAP_def,SEP_IMP_def,SEP_CLAUSES,SEP_EXISTS_THM]
+    \\ SIMP_TAC std_ss [Once heap_inv_def] \\ STRIP_TAC
+    \\ FULL_SIMP_TAC std_ss [isNumber_EXISTS]
+    \\ FULL_SIMP_TAC std_ss [getNumber_def]
+    \\ `if ^n = 1 then (r1 = Data (0x2w * n2w (Num i))) else
+        if ^n = 2 then (r2 = Data (0x2w * n2w (Num i))) else
+        if ^n = 3 then (r3 = Data (0x2w * n2w (Num i))) else
+        if ^n = 4 then (r4 = Data (0x2w * n2w (Num i))) else ARB` by ALL_TAC THEN1
+     (FULL_SIMP_TAC std_ss [abs_ml_inv_def,APPEND,bc_stack_ref_inv_def,EVERY2_def]
+      \\ FULL_SIMP_TAC std_ss [bc_value_inv_def])
+    \\ FULL_SIMP_TAC std_ss [x64_addr_def,WORD_MUL_LSL,w2w_def,word_mul_n2w]
+    \\ IMP_RES_TAC small_int_IMP
+    \\ FULL_SIMP_TAC std_ss [w2n_n2w,MULT_ASSOC]
+    \\ `(0x4w * n2w (4 * Num i) >>> 3 = n2w (4 * Num (i / 2)):word64) /\
+        (n2w (4 * Num i) >>> 3 << 2 = n2w (4 * Num (i / 2)):word64)` by ALL_TAC THEN1
+     (FULL_SIMP_TAC (srw_ss()) []
+      \\ `4 * Num i < 2 * 9223372036854775808` by DECIDE_TAC
+      \\ FULL_SIMP_TAC std_ss []
+      \\ `4 * Num i < dimword (:64)` by FULL_SIMP_TAC (srw_ss()) []
+      \\ IMP_RES_TAC n2w_lsr \\ FULL_SIMP_TAC std_ss [word_mul_n2w,WORD_MUL_LSL]
+      \\ AP_TERM_TAC \\ AP_TERM_TAC
+      \\ MATCH_MP_TAC NumDIV \\ FULL_SIMP_TAC std_ss [])
+    \\ FULL_SIMP_TAC std_ss []
+    \\ REPEAT STRIP_TAC
+    \\ Q.EXISTS_TAC `vals with
+         <| reg0 := (if ^n = 1 then vals.reg0 >>> 3 << 2 else vals.reg0) ;
+            reg1 := (if ^n = 2 then vals.reg1 >>> 3 << 2 else vals.reg1) ;
+            reg2 := (if ^n = 3 then vals.reg2 >>> 3 << 2 else vals.reg2) ;
+            reg3 := (if ^n = 4 then vals.reg3 >>> 3 << 2 else vals.reg3) |>`
+    \\ SIMP_TAC (std_ss++sep_cond_ss) [cond_STAR]
+    \\ REVERSE STRIP_TAC THEN1
+     (FULL_SIMP_TAC (srw_ss()) [zVALS_def,AC STAR_COMM STAR_ASSOC]
+      \\ FULL_SIMP_TAC std_ss [APPEND,GSYM APPEND_ASSOC])
+    \\ SIMP_TAC (srw_ss()) [heap_inv_def]
+    \\ Q.LIST_EXISTS_TAC [`vs`,
+          `if ^n = 1 then Data (n2w (2 * Num (i/2))) else r1`,
+          `if ^n = 2 then Data (n2w (2 * Num (i/2))) else r2`,
+          `if ^n = 3 then Data (n2w (2 * Num (i/2))) else r3`,
+          `if ^n = 4 then Data (n2w (2 * Num (i/2))) else r4`,
+          `roots`,`heap`,`a`,`sp`]
+    \\ FULL_SIMP_TAC std_ss [x64_addr_def,WORD_MUL_LSL,w2w_def,w2n_n2w]
+    \\ `(2 * Num (i / 2)) < 4611686018427387904` by ALL_TAC THEN1
+     (FULL_SIMP_TAC (srw_ss()) [small_int_def] \\ intLib.COOPER_TAC)
+    \\ FULL_SIMP_TAC (srw_ss()) [heap_inv_def,word_mul_n2w]
+    \\ `Num (i / 2) < 2305843009213693952` by intLib.COOPER_TAC
+    \\ `(2 * Num (i / 2)) < 9223372036854775808` by intLib.COOPER_TAC
+    \\ FULL_SIMP_TAC std_ss [GSYM word_mul_n2w]
+    \\ FULL_SIMP_TAC std_ss [MULT_ASSOC]
+    \\ `i / 2 = & (Num (i / 2))` by
+     (FULL_SIMP_TAC std_ss [small_int_def] \\ intLib.COOPER_TAC)
+     \\ POP_ASSUM (fn th => SIMP_TAC std_ss [Once th])
+    \\ METIS_TAC [swap_1_lemmas,abs_ml_inv_Num])
+  val th = MP th lemma
+  val th = Q.GEN `vals` th |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
+  val (th,goal) = SPEC_STRENGTHEN_RULE th
+    ``zHEAP (cs, x1, x2, x3, x4, refs, stack, s, NONE) * ~zS * zPC p *
+      cond (small_int (getNumber ^x) /\
+            ~(getNumber ^x < 0) /\ isNumber ^x)``
+  val lemma = prove(goal,
+    SIMP_TAC (std_ss++sep_cond_ss) [zHEAP_def,SEP_IMP_REFL,SEP_CLAUSES,
+         AC CONJ_ASSOC CONJ_COMM]
+    \\ SIMP_TAC (std_ss++star_ss) [zHEAP_def,SEP_IMP_REFL,SEP_CLAUSES,
+         AC CONJ_ASSOC CONJ_COMM])
+  val th = MP th lemma
+  val th = SIMP_RULE std_ss [] th
+  val _ = add_compiled [th];
+  in th end;
+
+val div2_1 = zHEAP_DIV2 ``1:num``;
+val div2_2 = zHEAP_DIV2 ``2:num``;
+val div2_3 = zHEAP_DIV2 ``3:num``;
+val div2_4 = zHEAP_DIV2 ``4:num``;
+
+
+(* is EVEN *)
+
+val EVEN_SPLIT = prove(
+  ``!n. n = 2 * (n DIV 2) + (if EVEN n then 0 else 1)``,
+  ONCE_REWRITE_TAC [MULT_COMM] \\ REPEAT STRIP_TAC
+  \\ STRIP_ASSUME_TAC (Q.SPEC `n` (MATCH_MP DIVISION (DECIDE ``0<2:num``)))
+  \\ Q.PAT_ASSUM `n = kkk` (fn th => SIMP_TAC std_ss [Once th])
+  \\ SIMP_TAC std_ss [arithmeticTheory.EVEN_MOD2]
+  \\ DECIDE_TAC);
+
+val EVEN_LEMMA = prove(
+  ``(0x4w && n2w (4 * n) = 0x0w:word64) <=> EVEN n``,
+  `n = 2 * (n DIV 2) + (if EVEN n then 0 else 1)` by FULL_SIMP_TAC std_ss [EVEN_SPLIT]
+  \\ POP_ASSUM (fn th => SIMP_TAC std_ss [Once th])
+  \\ Cases_on `EVEN n` \\ FULL_SIMP_TAC std_ss []
+  \\ FULL_SIMP_TAC std_ss [GSYM word_mul_n2w,GSYM word_add_n2w]
+  \\ blastLib.BBLAST_TAC);
+
+fun zHEAP_IS_EVEN n = let
+  val th = if n = ``1:num`` then spec "test r0,4" else
+           if n = ``2:num`` then spec "test r1,4" else
+           if n = ``3:num`` then spec "test r2,4" else
+           if n = ``4:num`` then spec "test r3,4" else fail()
+  val th = th |> Q.INST [`rip`|->`p`]
+  val (_,_,sts,_) = prog_x64Lib.x64_tools
+  val th = HIDE_STATUS_RULE false sts th
+  val th = HIDE_POST_RULE ``zS1 Z_AF`` th
+  val th = HIDE_POST_RULE ``zS1 Z_SF`` th
+  val th = HIDE_POST_RULE ``zS1 Z_PF`` th
+  val th = HIDE_POST_RULE ``zS1 Z_OF`` th
+  val th = HIDE_POST_RULE ``zS1 Z_CF`` th
+  val pc = get_pc th
+  val x = ``if ^n = 1:num then x1 else
+            if ^n = 2 then x2 else
+            if ^n = 3 then x3 else
+            if ^n = 4 then x4 else ARB:bc_value``
+  val target = ``~zS * zPC p * zVALS cs vals *
+      cond (heap_inv (cs,x1,x2,x3,x4,refs,stack,s,NONE) vals /\
+            ~(getNumber ^x < 0) /\ small_int (getNumber ^x) /\ isNumber ^x)``
+  val (th,goal) = expand_pre th target
+  val lemma = prove(goal, SIMP_TAC (std_ss++star_ss) [zVALS_def,SEP_IMP_REFL])
+  val th = MP th lemma |> DISCH_ALL |> DISCH T
+                       |> PURE_REWRITE_RULE [AND_IMP_INTRO]
+  val th = MATCH_MP SPEC_WEAKEN_LEMMA th
+  val th = th |> Q.SPEC `zHEAP (cs,
+       x1,x2,x3,x4,refs,stack,s,NONE) * ~zS1 Z_AF *
+      ~zS1 Z_CF * ~zS1 Z_OF *
+      ~zS1 Z_SF * zS1 Z_ZF (SOME (EVEN (Num (getNumber ^x)))) *
+      ~zS1 Z_PF * ^pc`
+  val goal = th |> concl |> dest_imp |> fst
+  val reg = ``if ^n = 1 then vals.reg0 else
+              if ^n = 2 then vals.reg1 else
+              if ^n = 3 then vals.reg2 else
+              if ^n = 4 then vals.reg3 else ARB``
+(*
+gg goal
+*)
+  val lemma = prove(goal,
+    SIMP_TAC std_ss [LET_DEF,SEP_CLAUSES]
+    \\ SIMP_TAC std_ss [zHEAP_def,SEP_IMP_def,SEP_CLAUSES,SEP_EXISTS_THM]
+    \\ REPEAT STRIP_TAC
+    \\ Q.LIST_EXISTS_TAC [`vals`]
+    \\ `EVEN (Num (getNumber ^x)) <=> (^reg && 4w = 0x0w)` by ALL_TAC THEN1
+     (FULL_SIMP_TAC std_ss [isNumber_EXISTS,getNumber_def]
+      \\ FULL_SIMP_TAC std_ss [heap_inv_def,abs_ml_inv_def,APPEND,
+           bc_stack_ref_inv_def,EVERY2_def,bc_value_inv_def]
+      \\ FULL_SIMP_TAC std_ss [getNumber_def,x64_addr_def]
+      \\ `(2 * (Num i)) < dimword (:63)` by IMP_RES_TAC small_int_IMP
+      \\ REVERSE (Cases_on `i`) \\ FULL_SIMP_TAC (srw_ss()) []
+      \\ FULL_SIMP_TAC std_ss []
+      \\ FULL_SIMP_TAC std_ss [WORD_MUL_LSL,word_mul_n2w,n2w_11,ZERO_LT_dimword,w2w_def]
+      \\ FULL_SIMP_TAC (srw_ss()) [MULT_ASSOC] \\ METIS_TAC [EVEN_LEMMA])
+    \\ FULL_SIMP_TAC std_ss [SEP_CLAUSES]
+    \\ FULL_SIMP_TAC (srw_ss()) [zVALS_def,AC STAR_COMM STAR_ASSOC])
+  val th = MP th lemma
+  val th = Q.GEN `vals` th |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
+  val (th,goal) = SPEC_STRENGTHEN_RULE th
+    ``zHEAP (cs, x1, x2, x3, x4, refs, stack, s, NONE) * ~zS * zPC p *
+      cond (~(getNumber ^x < 0) /\ small_int (getNumber ^x) /\ isNumber ^x)``
+  val lemma = prove(goal,
+    SIMP_TAC (std_ss++sep_cond_ss) [zHEAP_def,SEP_IMP_REFL,SEP_CLAUSES,
+         AC CONJ_ASSOC CONJ_COMM]
+    \\ SIMP_TAC (std_ss++star_ss) [zHEAP_def,SEP_IMP_REFL,SEP_CLAUSES,
+         AC CONJ_ASSOC CONJ_COMM])
+  val th = MP th lemma
+  val th = SIMP_RULE std_ss [] th
+  val _ = add_compiled [th];
+  in th end;
+
+val zHEAP_IS_EVEN_1 = zHEAP_IS_EVEN ``1:num``;
+val zHEAP_IS_EVEN_2 = zHEAP_IS_EVEN ``2:num``;
+val zHEAP_IS_EVEN_3 = zHEAP_IS_EVEN ``3:num``;
+val zHEAP_IS_EVEN_4 = zHEAP_IS_EVEN ``4:num``;
+
+
 (* compare with zero *)
 
 fun zHEAP_IS_ZERO n = let
@@ -17123,6 +17345,8 @@ val TEMPORAL_FULL_BC_EXEC_TUNED = let
 
 (*
 
+bc_next_rules
+
   zREPL_INV_INIT
   |> RW [SPEC_EQ_TEMPORAL]
 
@@ -17140,8 +17364,65 @@ val TEMPORAL_FULL_BC_EXEC_TUNED = let
 
   print_match ["arithmetic"] ``~(ODD n)``
 
-*)
+open sptreeTheory
+
+  insert_def
+  lookup_def
+
+  if EVEN (Num (getNumber x2)) then ... else ...
+  let x2 = x2 DIV 2 in
+  let x2 = Number (getNumber x2 − 1) in
+  if getNumber x2 = 0 then _ else _
+  if getNumber x2 = 0 then _ else _
+
+
+  X64_MODEL:  let x1 = BlockNil in _
+  X64_MODEL:  let x1 = BlockCons (x1,x2) in _
+  X64_MODEL:  let x1 = BlockCons (x1,x3) in _
+  X64_MODEL:  let x1 = BlockCons (x1,x4) in _
+  X64_MODEL:  let x1 = BlockCons (x2,x1) in _
+  X64_MODEL:  let x1 = BlockCons (x2,x3) in _
+  X64_MODEL:  let x1 = BlockCons (x2,x4) in _
+  X64_MODEL:  let x1 = BlockCons (x3,x1) in _
+  X64_MODEL:  let x1 = BlockCons (x3,x2) in _
+  X64_MODEL:  let x1 = BlockCons (x3,x4) in _
+  X64_MODEL:  let x1 = BlockCons (x4,x1) in _
+  X64_MODEL:  let x1 = BlockCons (x4,x2) in _
+  X64_MODEL:  let x1 = BlockCons (x4,x3) in _
+  X64_MODEL:  let x1 = BlockErrorS in _
+  X64_MODEL:  let x1 = BlockLongS x1 in _
+  X64_MODEL:  let x1 = BlockNumberS x1 in _
+  X64_MODEL:  let x1 = BlockOtherS x1 in _
+  X64_MODEL:  let x1 = BlockPair (x1,x2) in _
+  X64_MODEL:  let x1 = BlockPair (x1,x3) in _
+  X64_MODEL:  let x1 = BlockPair (x1,x4) in _
+  X64_MODEL:  let x1 = BlockPair (x2,x1) in _
+  X64_MODEL:  let x1 = BlockPair (x2,x3) in _
+  X64_MODEL:  let x1 = BlockPair (x2,x4) in _
+  X64_MODEL:  let x1 = BlockPair (x3,x1) in _
+  X64_MODEL:  let x1 = BlockPair (x3,x2) in _
+  X64_MODEL:  let x1 = BlockPair (x3,x4) in _
+  X64_MODEL:  let x1 = BlockPair (x4,x1) in _
+  X64_MODEL:  let x1 = BlockPair (x4,x2) in _
+  X64_MODEL:  let x1 = BlockPair (x4,x3) in _
+
+val spt_to_bv_def = Define `
+  (spt_to_bv LN = BlockNil) /\
+  (spt_to_bv (LS x) = BlockSome x) /\
+  (spt_to_bv (BN t1 t2) =
+    BlockPair (Number 1, BlockPair (spt_to_bv t1, spt_to_bv t2))) /\
+  (spt_to_bv (BS t1 x t2) =
+    BlockCons (x, BlockPair (spt_to_bv t1, spt_to_bv t2)))`;
+
+
 
 *)
+
+print_compiler_grammar()
+
+*)
+
+
+
 
 val _ = export_theory();

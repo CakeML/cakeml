@@ -265,8 +265,8 @@ val _ = Define `
          (\ (cn,ts) .  (EVERY (check_freevars( 0) tvs) ts))
          ctors)
     tds /\  
-  ALL_DISTINCT (MAP (\p3975 .  
-  (case (p3975 ) of ( (_,tn,_) ) => tn )) tds)))`;
+  ALL_DISTINCT (MAP (\p3011 .  
+  (case (p3011 ) of ( (_,tn,_) ) => tn )) tds)))`;
 
 
 (*val build_ctor_tenv : maybe modN -> list (list tvarN * typeN * list (conN * list t)) -> flat_tenvC*)

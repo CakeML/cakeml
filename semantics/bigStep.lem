@@ -434,13 +434,18 @@ evaluate_decs ck mn (menv, merge_envC (emp,new_tds) cenv, merge new_env env) s2 
 ==>
 evaluate_decs ck mn (menv,cenv,env) s1 (d::ds) (s3, merge new_tds' new_tds, combine_dec_result new_env r)
 
-val no_dup_types : list dec -> bool
-let no_dup_types ds =
-  List.allDistinct (List.concat (List.map (fun d -> 
+val decs_to_types : list dec -> list typeN
+let decs_to_types ds =
+  List.concat (List.map (fun d -> 
         match d with 
           | Dtype tds -> List.map (fun (tvs,tn,ctors) -> tn) tds
           | _ -> [] end)
-     ds)) 
+     ds)
+
+
+val no_dup_types : list dec -> bool
+let no_dup_types ds =
+  List.allDistinct (decs_to_types ds)
 
 indreln [evaluate_top : bool -> all_env -> (count_store v * set tid_or_exn * set modN) -> top -> (count_store v * set tid_or_exn * set modN) * envC * result (envM * envE) v -> bool]
 
@@ -509,6 +514,29 @@ cons2 : forall ck s1 s2 env top tops err new_tds.
 evaluate_top ck env s1 top (s2, new_tds, Rerr err)
 ==>
 evaluate_prog ck env s1 (top::tops) (s2, new_tds, Rerr err)
+
+val no_dup_mods : list top -> bool
+let no_dup_mods tops =
+  List.allDistinct (List.concat (List.map (fun top -> 
+        match top with 
+          | Tmod mn _ _ -> [mn]
+          | _ -> [] end)
+     tops))
+ 
+val no_dup_top_types : list top -> bool
+let no_dup_top_types tops =
+  List.allDistinct (List.concat (List.map (fun top -> 
+        match top with 
+          | Tdec d -> decs_to_types [d]
+          | _ -> [] end)
+     tops))
+
+val evaluate_whole_prog : bool -> all_env -> (count_store v * set tid_or_exn * set modN) -> prog -> (count_store v * set tid_or_exn * set modN) * envC * result (envM * envE) v -> bool
+let evaluate_whole_prog ck env s1 tops (s2, new_tds, res) =
+  if no_dup_mods tops && no_dup_top_types tops then
+    evaluate_prog ck env s1 tops (s2, new_tds, res)
+  else
+    res = Rerr Rtype_error
 
 let dec_diverges env (st,tdecs) d =
   match d with

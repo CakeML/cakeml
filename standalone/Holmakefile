@@ -1,4 +1,4 @@
-INCLUDES = .. ../parsing ../semantics ../inference ../compiler ../bytecode ../compiler/proofs ../initial
+INCLUDES = .. $(HOLDIR)/examples/parsing ../parsing ../semantics ../inference ../compiler ../bytecode ../compiler/proofs ../initial
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY

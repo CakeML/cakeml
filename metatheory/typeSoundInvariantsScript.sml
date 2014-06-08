@@ -38,7 +38,7 @@ val _ = Define `
 (*val tenvC_ok : tenvC -> bool*)
 val _ = Define `
  (tenvC_ok (mtenvC, tenvC) =  
-(EVERY (\p3603 .  (case (p3603 ) of ( (_,tenvC) ) => flat_tenvC_ok tenvC )) mtenvC /\
+(EVERY (\p2690 .  (case (p2690 ) of ( (_,tenvC) ) => flat_tenvC_ok tenvC )) mtenvC /\
   flat_tenvC_ok tenvC))`;
 
 

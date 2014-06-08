@@ -47,10 +47,14 @@ val real_inst_length_def = zDefine `
 val thms = ([],``!bc. x = real_inst_length bc``)
   |> (Cases THEN TRY (Cases_on `b`)) |> fst |> map (rand o snd)
   |> map (REWRITE_CONV [real_inst_length_def] THENC EVAL)
+val _ = save_thm("real_inst_length_compute", LIST_CONJ thms)
+val _ = computeLib.add_persistent_funs ["real_inst_length_compute"]
+(*
 val names = let val r = ref 0 in map (fn th =>
   let val name = ("real_inst_length_"^Int.toString(!r)) in
      (save_thm(name,th);r := (!r)+1;name) end) thms end
 val _ =  computeLib.add_persistent_funs names
+*)
 
 val bc_num_def = Define `
   bc_num s =

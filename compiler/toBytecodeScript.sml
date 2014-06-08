@@ -292,9 +292,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   (* RefPtr_1 0, ..., RefPtr_nk 0, *)
   let (s,ecs) = (FOLDL push_lab (s,[]) (REVERSE defs)) in
   (* CodePtr 1, ..., CodePtr nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
-  let (s,k13930) = (FOLDL (cons_closure env sz nk) (s, 0) ecs) in
+  let (s,k9696) = (FOLDL (cons_closure env sz nk) (s, 0) ecs) in
   (* cl_1, ..., cl_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
-  let (s,k13931) = (num_fold (update_refptr nk) (s, 0) nk) in
+  let (s,k9697) = (num_fold (update_refptr nk) (s, 0) nk) in
   (* cl_1, ..., cl_nk, RefPtr_1 cl_1, ..., RefPtr_nk cl_nk, *)
   let k = (nk -  1) in
   num_fold (\ s .  emit s [Stack (Store k)]) s nk))`;
@@ -364,8 +364,8 @@ stackshift j k =
 (if k = 0 then []
   else if j = 0 then [Pops (k -  1); Pop]
   else if j = 1 then [Pops k]
-  else if j <= k then (GENLIST (\n13546 .  
-  (case (n13546 ) of ( _ ) => Store (k -  1) )) j)++(stackshift( 0) (k - j))
+  else if j <= k then (GENLIST (\n9330 .  
+  (case (n9330 ) of ( _ ) => Store (k -  1) )) j)++(stackshift( 0) (k - j))
   else (stackshiftaux k (j - k) j)++(stackshift (j - k) k)))`;
 
 (*

@@ -8,8 +8,6 @@ open bytecodeLabelsTheory labels_computeLib bytecodeEncodeTheory bytecodeEvalThe
 open initialProgramTheory
 open terminationTheory compilerTerminationTheory
 
-val () = Parse.bring_to_front_overload"Num"{Name="Num",Thy="integer"}
-
 val encode_bc_insts_thm = prove(
   ``∀bcs. encode_bc_insts bcs =
     let ls = MAP encode_bc_inst bcs in
@@ -18,6 +16,17 @@ val encode_bc_insts_thm = prove(
   Induct >> simp[encode_bc_insts_def] >>
   fs[LET_THM] >> rw[] >>
   BasicProvers.CASE_TAC >> fs[])
+
+val SUC_TO_NUMERAL_RULE = CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook)
+
+val eval_real_inst_length =
+  let
+    val compset = reduceLib.num_compset()
+    val () = intReduce.add_int_compset compset
+    val () = computeLib.add_thms [bytecodeExtraTheory.real_inst_length_compute] compset
+  in
+    computeLib.CBV_CONV compset
+  end
 
 fun cakeml_compset() = let
 val compset = wordsLib.words_compset()
@@ -36,32 +45,7 @@ val () = pred_setLib.add_pred_set_compset compset
 val () = combinLib.add_combin_compset compset
 val () = pairLib.add_pair_compset compset
 val () = finite_mapLib.add_finite_map_compset compset
-(* examples/parsing doesn't provide a compset :( *)
-val () = computeLib.add_thms
-  [grammarTheory.isTOK_def
-  ,grammarTheory.language_def
-  ,grammarTheory.derive_def
-  ,grammarTheory.ptree_fringe_def
-  ,grammarTheory.complete_ptree_def
-  ,grammarTheory.ptree_head_def
-  ,grammarTheory.ptree_size_def
-  ,pegTheory.subexprs_def
-  ,pegTheory.wfG_def
-  ,pegTheory.Gexprs_def
-  ,pegexecTheory.poplist_aux_def
-  ,pegexecTheory.poplistval_def
-  ,pegexecTheory.pegparse_def
-  ,pegexecTheory.destResult_def
-  ,pegexecTheory.applykont_thm
-  ,pegexecTheory.peg_exec_thm
-  ] compset
-val () = add_datatype ``:('a,'b)grammar$symbol``
-val () = add_datatype ``:('a,'b)grammar``
-val () = add_datatype ``:('a,'b)parsetree``
-val () = add_datatype ``:('a,'b,'c)pegsym``
-val () = add_datatype ``:('a,'b,'c)peg``
-val () = add_datatype ``:('a,'b,'c)kont``
-val () = add_datatype ``:('a,'b,'c)evalcase``
+val () = pegLib.add_peg_compset compset
 (* misc :( *)
 val () = computeLib.add_thms
   [miscTheory.find_index_def
@@ -292,6 +276,8 @@ val () = computeLib.add_thms
   ,mod_tagenv_def
   ,insert_tag_env_def
   ,alloc_tag_def
+  ,alloc_tags_def
+  ,build_exh_env_def
   ] compset
 val () = add_datatype ``:prompt_i2``
 val () = add_datatype ``:dec_i2``
@@ -319,12 +305,12 @@ val () = computeLib.add_thms
   [exp_to_pat_def
   ,row_to_pat_def
   ,pat_to_pat_def
-  ,sLet_pat_def
+  ,sLet_pat_thm
   ,sIf_pat_def
   ,ground_pat_def
   ,uop_to_pat_def
   ,pure_pat_def
-  ,(CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook)) Let_Els_pat_def
+  ,SUC_TO_NUMERAL_RULE Let_Els_pat_def
   ,pure_uop_pat_def
   ] compset
 val () = add_datatype ``:exp_pat``
@@ -369,7 +355,7 @@ val () =
       ,prim1_to_bc_def
       ,prim2_to_bc_def
       ,LIST_CONJ l1
-      ,(CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook)) (LIST_CONJ l2)
+      ,SUC_TO_NUMERAL_RULE (LIST_CONJ l2)
       ,LIST_CONJ l3
       ] compset
   end
@@ -397,7 +383,7 @@ val () = add_datatype ``:compiler_result``
 val () = add_datatype ``:call_context``
 (* labels removal *)
 val () = labels_computeLib.reset_code_labels_ok_db()
-val () = computeLib.add_conv (``code_labels``,2,code_labels_conv (computeLib.CBV_CONV compset)) compset
+val () = computeLib.add_conv (``code_labels``,2,code_labels_conv eval_real_inst_length) compset
 (* free vars and closed (for discharging labels hypothesis) *)
 val () = computeLib.add_thms
   [closed_prog_def
@@ -481,6 +467,8 @@ val remove_labels_all_asts_no_labels = prove(
 in
   val cakeml_compset = cakeml_compset
 
+  val eval_real_inst_length = eval_real_inst_length
+
   val eval = computeLib.CBV_CONV (cakeml_compset())
 
   fun add_bc_eval_compset compset = let
@@ -500,7 +488,7 @@ in
       ,printerTheory.ov_to_string_def
       ,bytecodeTheory.bv_to_ov_def
       ,semanticPrimitivesTheory.int_to_string_def
-      ,CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook) bc_evaln_def
+      ,SUC_TO_NUMERAL_RULE bc_evaln_def
       ,LEAST_thm
       ,least_from_thm
       ,compilerLibTheory.el_check_def

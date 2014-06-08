@@ -307,17 +307,48 @@ val exp_i23_size_append = prove(
   ``∀p1 p2. exp_i23_size (p1++p2) = exp_i23_size p1 + exp_i23_size p2``,
   Induct >> simp[exp_i2_size_def])
 
+val e2sz_def = Lib.with_flag (computeLib.auto_import_definitions, false) (tDefine"e2sz"`
+  (e2sz (If_i2 e1 e2 e3) = e2sz e1 + e2sz e2 + e2sz e3 + 1) ∧
+  (e2sz (Raise_i2 e) = e2sz e + 1) ∧
+  (e2sz (Letrec_i2 funs e) = e2sz e + f2sz funs + 1) ∧
+  (e2sz (Mat_i2 e pes) = e2sz e + p2sz pes + 4) ∧
+  (e2sz (Handle_i2 e pes) = e2sz e + p2sz pes + 4) ∧
+  (e2sz (App_i2 op es) = l2sz es + 1) ∧
+  (e2sz (Let_i2 x e1 e2) = e2sz e1 + e2sz e2 + 1) ∧
+  (e2sz (Fun_i2 x e) = e2sz e + 1) ∧
+  (e2sz (Con_i2 t es) = l2sz es + 1) ∧
+  (e2sz _ = (0:num)) ∧
+  (l2sz [] = 0) ∧
+  (l2sz (e::es) = e2sz e + l2sz es + 1) ∧
+  (p2sz [] = 0) ∧
+  (p2sz ((p,e)::pes) = e2sz e + p2sz pes + 1) ∧
+  (f2sz [] = 0) ∧
+  (f2sz ((f,x,e)::funs) = e2sz e + f2sz funs + 1)`)
+  (WF_REL_TAC`inv_image $< (\x. case x of
+    | INL (e) => exp_i2_size e
+    | INR (INL (es)) => exp_i26_size es
+    | INR (INR (INL (pes))) => exp_i23_size pes
+    | INR (INR (INR (funs))) => exp_i21_size funs)`)
+
+val p2sz_append = prove(
+  ``∀p1 p2. p2sz (p1++p2) = p2sz p1 + p2sz p2``,
+  Induct >> simp[e2sz_def] >>
+  Cases >> simp[e2sz_def])
+
 val (exp_to_exh_def, exp_to_exh_ind) =
   tprove_no_defn ((exp_to_exh_def, exp_to_exh_ind),
   WF_REL_TAC `inv_image $< (\x. case x of
-    | INL (_,e) => exp_i2_size e
-    | INR (INL (_,es)) => exp_i26_size es
-    | INR (INR (INL (exh,pes))) => exp_i23_size pes
-    | INR (INR (INR (_,funs))) => exp_i21_size funs)` >>
-  simp[add_default_def] >> rw[] >> simp[] >>
-  simp[exp_i23_size_append,exp_i2_size_def,pat_i2_size_def] >> fs[] >>
-  cheat);
+    | INL (_,e) => e2sz e
+    | INR (INL (_,es)) => l2sz es
+    | INR (INR (INL (_,pes))) => p2sz pes
+    | INR (INR (INR (_,funs))) => f2sz funs)` >>
+  simp[e2sz_def] >>
+  rw[add_default_def] >>
+  simp[p2sz_append,e2sz_def])
 val _ = register "exp_to_exh" (exp_to_exh_def,exp_to_exh_ind);
+
+val _ = map delete_const ["e2sz","p2sz","l2sz","f2sz","e2sz_UNION"]
+val _ = delete_binding "e2sz_ind"
 
 val (pat_to_exh_def, pat_to_exh_ind) =
   tprove_no_defn ((pat_to_exh_def, pat_to_exh_ind),
@@ -427,6 +458,15 @@ val set_lshift = store_thm("set_lshift",
   TRY(qexists_tac`v`>>simp[]>>NO_TAC)>>
   TRY(qexists_tac`m`>>simp[]>>NO_TAC))
 val _ = export_rewrites["set_lshift"]
+
+val sLet_pat_thm = store_thm("sLet_pat_thm",
+  ``sLet_pat e1 e2 =
+    if e2 = Var_local_pat 0 then e1 else
+    if ground_pat 0 e2 then
+      if pure_pat e1 then e2 else Seq_pat e1 e2
+    else Let_pat e1 e2``,
+  Cases_on`e2`>>rw[sLet_pat_def]>>
+  Cases_on`n`>>rw[sLet_pat_def])
 
 (* constants that are just applications of higher-order operators *)
 
