@@ -1007,8 +1007,17 @@ val sv_rel_cases = store_thm("sv_rel_cases",
   ``∀x y.
     sv_rel R x y ⇔
     (∃v1 v2. x = Refv v1 ∧ y = Refv v2 ∧ R v1 v2) ∨
-    (∃w. x = W8array w ∧ y = x)``,
+    (∃w. x = W8array w ∧ y = W8array w)``,
   Cases >> Cases >> simp[sv_rel_def,EQ_IMP_THM])
+
+val sv_rel_O = store_thm("sv_rel_O",
+  ``∀R1 R2. sv_rel (R1 O R2) = sv_rel R1 O sv_rel R2``,
+  rw[FUN_EQ_THM,sv_rel_cases,O_DEF,EQ_IMP_THM] >>
+  metis_tac[])
+
+val sv_rel_mono = store_thm("sv_rel_mono",
+  ``(∀x y. P x y ⇒ Q x y) ⇒ sv_rel P x y ⇒ sv_rel Q x y``,
+  rw[sv_rel_cases])
 
 val csg_rel_def = Define`
   csg_rel R ((c1,s1),g1) (((c2,s2),g2):'a count_store_genv) ⇔
