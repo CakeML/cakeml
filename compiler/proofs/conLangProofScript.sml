@@ -4229,6 +4229,7 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
   to_i2_invariant mods tids envC exh (next,tagenv,inv) gtagenv s s_i2 genv genv_i2 ∧
   no_dup_mods_i1 prog ∧
   no_dup_top_types_i1 prog ∧
+  EVERY (λp. case p of Prompt_i1 mn ds => prompt_mods_ok mn ds) prog ∧
   ((next',tagenv',inv'), exh', prog_i2) = prog_to_i2 (next,tagenv,inv) prog
   ⇒
   ?genv'_i2 s'_i2 res_i2 gtagenv'.
