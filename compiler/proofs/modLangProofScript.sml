@@ -2274,6 +2274,41 @@ val prog_to_i1_top_types = Q.prove (
      fs [] >>
      rw []));
 
+val prog_to_i1_mods_ok = Q.prove (
+`!l mods tops prog l' mods' tops' prog_i1.
+  prog_to_i1 l mods tops prog = (l',mods', tops',prog_i1)
+  ⇒
+  EVERY (λp. case p of Prompt_i1 mn ds => prompt_mods_ok mn ds) prog_i1`,
+ induct_on `prog` >>
+ rw [prog_to_i1_def, LET_THM] >>
+ rw [] >>
+ `?w x y z. top_to_i1 l mods tops h = (w,x,y,z)` by metis_tac [pair_CASES] >>
+ fs [] >>
+ `?w' x' y' z'. prog_to_i1 w x y prog = (w',x',y',z')` by metis_tac [pair_CASES] >>
+ fs [] >>
+ rw [] >>
+ fs [top_to_i1_def] >>
+ every_case_tac >>
+ rw [] >>
+ fs [LET_THM]
+ >- (`?a b c. decs_to_i1 l (SOME s) mods tops l''' = (a,b,c)` by metis_tac [pair_CASES] >>
+     fs [] >>
+     rw [] >>
+     metis_tac [to_i1_prompt_mods_ok])
+ >- (`?a b c. dec_to_i1 l NONE mods tops d = (a,b,c)` by metis_tac [pair_CASES] >>
+     fs [] >>
+     rw [prompt_mods_ok_def] >>
+     fs [dec_to_i1_def] >>
+     every_case_tac >>
+     fs [LET_THM])
+ >- (`?a b c. decs_to_i1 l (SOME s) mods tops l''' = (a,b,c)` by metis_tac [pair_CASES] >>
+     fs [] >>
+     rw [] >>
+     metis_tac [to_i1_prompt_mods_ok])
+ >- (`?a b c. dec_to_i1 l NONE mods tops d = (a,b,c)` by metis_tac [pair_CASES] >>
+     fs [] >>
+     metis_tac []));
+
 val whole_prog_to_i1_correct = Q.store_thm ("whole_prog_to_i1_correct",
 `!mods tops ck menv cenv env s prog s' r genv s_i1 next' tops' mods'  cenv' prog_i1 tdecs mod_names tdecs' mod_names'.
   r ≠ Rerr Rtype_error ∧
@@ -2307,7 +2342,7 @@ val whole_prog_to_i1_correct = Q.store_thm ("whole_prog_to_i1_correct",
  fs [] >>
  rw [] >>
  fs [no_dup_mods_def, no_dup_mods_i1_def, no_dup_top_types_def, no_dup_top_types_i1_def] >>
- metis_tac [prog_to_i1_mods, prog_to_i1_top_types]);
+ metis_tac [prog_to_i1_mods, prog_to_i1_top_types, prog_to_i1_mods_ok, NOT_EVERY]);
 
 val init_mods_def = Define `
   init_mods = FEMPTY`;
