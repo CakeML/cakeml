@@ -345,7 +345,7 @@ let do_app_exh ((count,s),genv) op vs =
           Nothing
     | (Op_i2 Aalloc, [Litv_exh (IntLit n); Litv_exh (Word8 w)]) ->
         if n < 0 then
-          Just (((count,s),genv), Rerr (Rraise (prim_exn_exh size_tag)))
+          Just (((count,s),genv), Rerr (Rraise (prim_exn_exh subscript_tag)))
         else
           let (s',lnum) =
             store_alloc (W8array (List.replicate (natFromInteger n) w)) s
@@ -355,11 +355,11 @@ let do_app_exh ((count,s),genv) op vs =
         match store_lookup lnum s with
           | Just (W8array ws) ->
               if i < 0 then
-                Just (((count,s),genv), Rerr (Rraise (prim_exn_exh size_tag)))
+                Just (((count,s),genv), Rerr (Rraise (prim_exn_exh subscript_tag)))
               else
                 let n = natFromInteger i in
                   if n >= List.length ws then
-                    Just (((count,s),genv), Rerr (Rraise (prim_exn_exh size_tag)))
+                    Just (((count,s),genv), Rerr (Rraise (prim_exn_exh subscript_tag)))
                   else 
                     Just (((count,s),genv), Rval (Litv_exh (Word8 (List_extra.nth ws n))))
           | _ -> Nothing
@@ -374,11 +374,11 @@ let do_app_exh ((count,s),genv) op vs =
         match store_lookup lnum s with
         | Just (W8array ws) ->
             if i < 0 then
-              Just (((count,s),genv), Rerr (Rraise (prim_exn_exh size_tag)))
+              Just (((count,s),genv), Rerr (Rraise (prim_exn_exh subscript_tag)))
             else 
               let n = natFromInteger i in
                 if n >= List.length ws then
-                  Just (((count,s),genv), Rerr (Rraise (prim_exn_exh size_tag)))
+                  Just (((count,s),genv), Rerr (Rraise (prim_exn_exh subscript_tag)))
                 else
                   match store_assign lnum (W8array (List.update ws n w)) s with
                     | Nothing -> Nothing

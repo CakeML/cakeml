@@ -380,7 +380,7 @@ val _ = Define `
         )
     | (Aalloc, [Litv_i1 (IntLit n); Litv_i1 (Word8 w)]) =>
         if n <( 0 : int) then
-          SOME (s, Rerr (Rraise (prim_exn_i1 "Size")))
+          SOME (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
         else
           let (s',lnum) =            
 (store_alloc (W8array (REPLICATE (Num (ABS ( n))) w)) s)
@@ -390,11 +390,11 @@ val _ = Define `
         (case store_lookup lnum s of
             SOME (W8array ws) =>
               if i <( 0 : int) then
-                SOME (s, Rerr (Rraise (prim_exn_i1 "Size")))
+                SOME (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
               else
                 let n = (Num (ABS ( i))) in
                   if n >= LENGTH ws then
-                    SOME (s, Rerr (Rraise (prim_exn_i1 "Size")))
+                    SOME (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
                   else 
                     SOME (s, Rval (Litv_i1 (Word8 (EL n ws))))
           | _ => NONE
@@ -409,11 +409,11 @@ val _ = Define `
         (case store_lookup lnum s of
           SOME (W8array ws) =>
             if i <( 0 : int) then
-              SOME (s, Rerr (Rraise (prim_exn_i1 "Size")))
+              SOME (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
             else 
               let n = (Num (ABS ( i))) in
                 if n >= LENGTH ws then
-                  SOME (s, Rerr (Rraise (prim_exn_i1 "Size")))
+                  SOME (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
                 else
                   (case store_assign lnum (W8array (LUPDATE w n ws)) s of
                       NONE => NONE

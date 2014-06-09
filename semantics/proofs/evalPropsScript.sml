@@ -51,16 +51,16 @@ val do_app_cases = Q.store_thm ("do_app_cases",
     (v = Rval v2)) ∨
   (?i w.
       (op = Aalloc) ∧ (vs = [Litv (IntLit i); Litv (Word8 w)]) ∧
-      (((i < 0) ∧ v = Rerr (Rraise (prim_exn "Size")) ∧ (st = st')) ∨
+      (((i < 0) ∧ v = Rerr (Rraise (prim_exn "Subscript")) ∧ (st = st')) ∨
        (?lnum. ~(i < 0) ∧
         (st',lnum) = store_alloc (W8array (REPLICATE (Num (ABS i)) w)) st ∧
         v = Rval (Loc lnum)))) ∨
   (?ws lnum i.
     (op = Asub) ∧ (vs = [Loc lnum; Litv (IntLit i)]) ∧ (st = st') ∧
     store_lookup lnum st = SOME (W8array ws) ∧ 
-    (((i < 0) ∧ v = Rerr (Rraise (prim_exn "Size"))) ∨
+    (((i < 0) ∧ v = Rerr (Rraise (prim_exn "Subscript"))) ∨
      ((~(i < 0) ∧ Num (ABS i) ≥ LENGTH ws ∧
-       v = Rerr (Rraise (prim_exn "Size")))) ∨
+       v = Rerr (Rraise (prim_exn "Subscript")))) ∨
      (~(i < 0) ∧
       Num (ABS i) < LENGTH ws ∧
       (v = Rval (Litv (Word8 (EL (Num(ABS i)) ws))))))) ∨
@@ -71,9 +71,9 @@ val do_app_cases = Q.store_thm ("do_app_cases",
   (?ws lnum i w.
     (op = Aupdate) ∧ (vs = [Loc lnum; Litv (IntLit i); Litv (Word8 w)]) ∧ 
     store_lookup lnum st = SOME (W8array ws) ∧ 
-    (((i < 0) ∧ v = Rerr (Rraise (prim_exn "Size")) ∧ st = st') ∨
+    (((i < 0) ∧ v = Rerr (Rraise (prim_exn "Subscript")) ∧ st = st') ∨
      ((~(i < 0) ∧ Num (ABS i) ≥ LENGTH ws ∧ st = st' ∧
-       v = Rerr (Rraise (prim_exn "Size")))) ∨
+       v = Rerr (Rraise (prim_exn "Subscript")))) ∨
      (~(i < 0) ∧
       Num (ABS i) < LENGTH ws ∧
       store_assign lnum (W8array (LUPDATE w (Num (ABS i)) ws)) st = SOME st' ∧

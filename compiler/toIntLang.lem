@@ -139,17 +139,17 @@ binop_to_il Aalloc Ce1 Ce2 =
   CLet true Ce1
     (CLet true (shift 1 0 Ce2)
       (CIf (CPrim2 (P2p CLt) (CVar 1) (CLit (IntLit 0)))
-           (CRaise (CCon size_tag []))
+           (CRaise (CCon subscript_tag []))
            (CPrim2 (P2s CRefB) (CVar 0) (CVar 1))))
 and
 binop_to_il Asub Ce1 Ce2 =
   CLet true Ce1
     (CLet true (shift 1 0 Ce2)
       (CIf (CPrim2 (P2p CLt) (CVar 0) (CLit (IntLit 0)))
-           (CRaise (CCon size_tag []))
+           (CRaise (CCon subscript_tag []))
            (CIf (CPrim2 (P2p CLt) (CVar 0) (CPrim1 CLenB (CVar 1)))
                 (CPrim2 (P2s CDerB) (CVar 1) (CVar 0))
-                (CRaise (CCon size_tag [])))))
+                (CRaise (CCon subscript_tag [])))))
 and
 binop_to_il Alength Ce1 Ce2 = CCon tuple_tag [Ce1;Ce2] (* should not happen *)
 and
@@ -188,10 +188,10 @@ app_to_il (Op_pat (Op_i2 Aupdate)) [Ce1; Ce2; Ce3] =
     (CLet true (shift 1 0 Ce2)
       (CLet true (shift 2 0 Ce3)
         (CIf (CPrim2 (P2p CLt) (CVar 1) (CLit (IntLit 0)))
-             (CRaise (CCon size_tag []))
+             (CRaise (CCon subscript_tag []))
              (CIf (CPrim2 (P2p CLt) (CVar 1) (CPrim1 CLenB (CVar 2)))
                   (CUpd true (CVar 2) (CVar 1) (CVar 0))
-                  (CRaise (CCon size_tag []))))))
+                  (CRaise (CCon subscript_tag []))))))
 and
 app_to_il (Op_pat (Op_i2 op)) [Ce1; Ce2] =
   binop_to_il op Ce1 Ce2

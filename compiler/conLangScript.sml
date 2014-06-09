@@ -84,9 +84,9 @@ val _ = Define `
  (none_tag =( 7))`;
 
 
-(*val size_tag : nat*)
+(*val subscript_tag : nat*)
 val _ = Define `
- (size_tag =( 8))`;
+ (subscript_tag =( 8))`;
 
 
 val _ = type_abbrev( "exh_ctors_env" , ``: (( typeN id),  unit spt) fmap``);
@@ -484,7 +484,7 @@ val _ = Define `
     | (Init_global_var_i2 idx, _) => NONE
     | (Op_i2 Aalloc, [Litv_i2 (IntLit n); Litv_i2 (Word8 w)]) =>
         if n <( 0 : int) then
-          SOME (s, Rerr (Rraise (prim_exn_i2 size_tag "Size")))
+          SOME (s, Rerr (Rraise (prim_exn_i2 subscript_tag "Subscript")))
         else
           let (s',lnum) =            
 (store_alloc (W8array (REPLICATE (Num (ABS ( n))) w)) s)
@@ -494,11 +494,11 @@ val _ = Define `
         (case store_lookup lnum s of
             SOME (W8array ws) =>
               if i <( 0 : int) then
-                SOME (s, Rerr (Rraise (prim_exn_i2 size_tag "Size")))
+                SOME (s, Rerr (Rraise (prim_exn_i2 subscript_tag "Subscript")))
               else
                 let n = (Num (ABS ( i))) in
                   if n >= LENGTH ws then
-                    SOME (s, Rerr (Rraise (prim_exn_i2 size_tag "Size")))
+                    SOME (s, Rerr (Rraise (prim_exn_i2 subscript_tag "Subscript")))
                   else 
                     SOME (s, Rval (Litv_i2 (Word8 (EL n ws))))
           | _ => NONE
@@ -513,11 +513,11 @@ val _ = Define `
         (case store_lookup lnum s of
           SOME (W8array ws) =>
             if i <( 0 : int) then
-              SOME (s, Rerr (Rraise (prim_exn_i2 size_tag "Size")))
+              SOME (s, Rerr (Rraise (prim_exn_i2 subscript_tag "Subscript")))
             else 
               let n = (Num (ABS ( i))) in
                 if n >= LENGTH ws then
-                  SOME (s, Rerr (Rraise (prim_exn_i2 size_tag "Size")))
+                  SOME (s, Rerr (Rraise (prim_exn_i2 subscript_tag "Subscript")))
                 else
                   (case store_assign lnum (W8array (LUPDATE w n ws)) s of
                       NONE => NONE
@@ -920,7 +920,7 @@ val _ = Define `
     FUPDATE_LIST FEMPTY [("Div", (div_tag, SOME (TypeExn (Short "Div")))); 
                   ("Bind", (bind_tag,SOME (TypeExn (Short "Bind")))); 
                   ("Eq", (eq_tag, SOME (TypeExn (Short "Eq")))); 
-                  ("Size", (size_tag, SOME (TypeExn (Short "Size")))); 
+                  ("Subscript", (subscript_tag, SOME (TypeExn (Short "Subscript")))); 
                   ("::", (cons_tag, SOME (TypeId (Short "list"))));
                   ("nil", (nil_tag, SOME (TypeId (Short "list"))));
                   ("SOME", (some_tag, SOME (TypeId (Short "option"))));
@@ -928,7 +928,7 @@ val _ = Define `
    FUPDATE_LIST FEMPTY [(div_tag, ("Div", TypeExn (Short "Div"))); 
                  (bind_tag, ("Bind", TypeExn (Short "Bind"))); 
                  (eq_tag, ("Eq", TypeExn (Short "Eq"))); 
-                 (size_tag, ("Size", TypeExn (Short "Size"))); 
+                 (subscript_tag, ("Subscript", TypeExn (Short "Subscript"))); 
                  (cons_tag, ("::", TypeId (Short "list")));
                  (nil_tag, ("nil", TypeId (Short "list")));
                  (some_tag, ("SOME", TypeId (Short "option")));

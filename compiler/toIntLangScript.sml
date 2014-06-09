@@ -160,17 +160,17 @@ val _ = Define `
 (CLet T Ce1
     (CLet T (shift( 1)( 0) Ce2)
       (CIf (CPrim2 (P2p CLt) (CVar( 1)) (CLit (IntLit(( 0 : int)))))
-           (CRaise (CCon size_tag []))
+           (CRaise (CCon subscript_tag []))
            (CPrim2 (P2s CRefB) (CVar( 0)) (CVar( 1)))))))
 /\
 (binop_to_il Asub Ce1 Ce2 =  
 (CLet T Ce1
     (CLet T (shift( 1)( 0) Ce2)
       (CIf (CPrim2 (P2p CLt) (CVar( 0)) (CLit (IntLit(( 0 : int)))))
-           (CRaise (CCon size_tag []))
+           (CRaise (CCon subscript_tag []))
            (CIf (CPrim2 (P2p CLt) (CVar( 0)) (CPrim1 CLenB (CVar( 1))))
                 (CPrim2 (P2s CDerB) (CVar( 1)) (CVar( 0)))
-                (CRaise (CCon size_tag [])))))))
+                (CRaise (CCon subscript_tag [])))))))
 /\
 (binop_to_il Alength Ce1 Ce2 = (CCon tuple_tag [Ce1;Ce2])) (* should not happen *)
 /\
@@ -213,10 +213,10 @@ val _ = Define `
     (CLet T (shift( 1)( 0) Ce2)
       (CLet T (shift( 2)( 0) Ce3)
         (CIf (CPrim2 (P2p CLt) (CVar( 1)) (CLit (IntLit(( 0 : int)))))
-             (CRaise (CCon size_tag []))
+             (CRaise (CCon subscript_tag []))
              (CIf (CPrim2 (P2p CLt) (CVar( 1)) (CPrim1 CLenB (CVar( 2))))
                   (CUpd T (CVar( 2)) (CVar( 1)) (CVar( 0)))
-                  (CRaise (CCon size_tag []))))))))
+                  (CRaise (CCon subscript_tag []))))))))
 /\
 (app_to_il (Op_pat (Op_i2 op)) [Ce1; Ce2] =  
 (binop_to_il op Ce1 Ce2))

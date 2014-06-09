@@ -74,7 +74,7 @@ val funs_to_i2_map = Q.prove (
 
 val has_exns_def = Define `
 has_exns gtagenv ⇔
-  FLOOKUP gtagenv ("Size", TypeExn (Short "Size")) = SOME (size_tag,0:num) ∧
+  FLOOKUP gtagenv ("Subscript", TypeExn (Short "Subscript")) = SOME (subscript_tag,0:num) ∧
   FLOOKUP gtagenv ("Bind", TypeExn (Short "Bind")) = SOME (bind_tag,0) ∧
   FLOOKUP gtagenv ("Div", TypeExn (Short "Div")) = SOME (div_tag,0) ∧
   FLOOKUP gtagenv ("Eq", TypeExn (Short "Eq")) = SOME (eq_tag,0)`;
@@ -3201,7 +3201,7 @@ val init_gtagenv_def = Define `
 init_gtagenv =
   FEMPTY |++ [(("nil",TypeId (Short "list")), (nil_tag, 0:num));
               (("::",TypeId (Short "list")), (cons_tag, 2));
-              (("Size",TypeExn (Short "Size")), (size_tag,0));
+              (("Subscript",TypeExn (Short "Subscript")), (subscript_tag,0));
               (("Bind",TypeExn (Short "Bind")), (bind_tag,0));
               (("Div",TypeExn (Short "Div")), (div_tag,0));
               (("Eq",TypeExn (Short "Eq")), (eq_tag,0))]`;
@@ -3245,7 +3245,7 @@ val initial_i2_invariant = Q.store_thm ("initial_i2_invariant",
          every_case_tac >>
          rw[nat_set_from_list_def,domain_nat_set_from_list, nil_tag_def, cons_tag_def])
      >- (rw [gtagenv_wf_def, has_exns_def, init_gtagenv_def, flookup_fupdate_list,
-             size_tag_def, nil_tag_def,cons_tag_def,eq_tag_def,tuple_tag_def, bind_tag_def, div_tag_def]
+             subscript_tag_def, nil_tag_def,cons_tag_def,eq_tag_def,tuple_tag_def, bind_tag_def, div_tag_def]
          >- (every_case_tac >>
              fs [nil_tag_def,cons_tag_def,eq_tag_def,tuple_tag_def, bind_tag_def, div_tag_def] >>
              rw [])
@@ -3258,7 +3258,7 @@ val initial_i2_invariant = Q.store_thm ("initial_i2_invariant",
  >- (rw [alloc_tags_invariant_def, init_gtagenv_def, FDOM_FUPDATE_LIST, get_next_def,
          tuple_tag_def, init_tagenv_state_def, flookup_fupdate_list, get_tagacc_def] >>
      every_case_tac >>
-     srw_tac [ARITH_ss] [size_tag_def, nil_tag_def,cons_tag_def,eq_tag_def,tuple_tag_def, bind_tag_def, div_tag_def] >>
+     srw_tac [ARITH_ss] [subscript_tag_def, nil_tag_def,cons_tag_def,eq_tag_def,tuple_tag_def, bind_tag_def, div_tag_def] >>
      srw_tac [ARITH_ss] []));
 
 fun dec_lem t =

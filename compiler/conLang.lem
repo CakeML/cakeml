@@ -58,8 +58,8 @@ let some_tag = 6
 val none_tag : nat
 let none_tag = 7
 
-val size_tag : nat
-let size_tag = 8
+val subscript_tag : nat
+let subscript_tag = 8
 
 type exh_ctors_env = Map.map (id typeN) nat_set
 
@@ -404,7 +404,7 @@ let do_app_i2 s op vs =
     | (Init_global_var_i2 idx, _) -> Nothing
     | (Op_i2 Aalloc, [Litv_i2 (IntLit n); Litv_i2 (Word8 w)]) ->
         if n < 0 then
-          Just (s, Rerr (Rraise (prim_exn_i2 size_tag "Size")))
+          Just (s, Rerr (Rraise (prim_exn_i2 subscript_tag "Subscript")))
         else
           let (s',lnum) =
             store_alloc (W8array (List.replicate (natFromInteger n) w)) s
@@ -414,11 +414,11 @@ let do_app_i2 s op vs =
         match store_lookup lnum s with
           | Just (W8array ws) ->
               if i < 0 then
-                Just (s, Rerr (Rraise (prim_exn_i2 size_tag "Size")))
+                Just (s, Rerr (Rraise (prim_exn_i2 subscript_tag "Subscript")))
               else
                 let n = natFromInteger i in
                   if n >= List.length ws then
-                    Just (s, Rerr (Rraise (prim_exn_i2 size_tag "Size")))
+                    Just (s, Rerr (Rraise (prim_exn_i2 subscript_tag "Subscript")))
                   else 
                     Just (s, Rval (Litv_i2 (Word8 (List_extra.nth ws n))))
           | _ -> Nothing
@@ -433,11 +433,11 @@ let do_app_i2 s op vs =
         match store_lookup lnum s with
         | Just (W8array ws) ->
             if i < 0 then
-              Just (s, Rerr (Rraise (prim_exn_i2 size_tag "Size")))
+              Just (s, Rerr (Rraise (prim_exn_i2 subscript_tag "Subscript")))
             else 
               let n = natFromInteger i in
                 if n >= List.length ws then
-                  Just (s, Rerr (Rraise (prim_exn_i2 size_tag "Size")))
+                  Just (s, Rerr (Rraise (prim_exn_i2 subscript_tag "Subscript")))
                 else
                   match store_assign lnum (W8array (List.update ws n w)) s with
                     | Nothing -> Nothing
@@ -939,7 +939,7 @@ let init_tagenv_state =
     Map.fromList [("Div", (div_tag, Just (TypeExn (Short "Div")))); 
                   ("Bind", (bind_tag,Just (TypeExn (Short "Bind")))); 
                   ("Eq", (eq_tag, Just (TypeExn (Short "Eq")))); 
-                  ("Size", (size_tag, Just (TypeExn (Short "Size")))); 
+                  ("Subscript", (subscript_tag, Just (TypeExn (Short "Subscript")))); 
                   ("::", (cons_tag, Just (TypeId (Short "list"))));
                   ("nil", (nil_tag, Just (TypeId (Short "list"))));
                   ("SOME", (some_tag, Just (TypeId (Short "option"))));
@@ -947,7 +947,7 @@ let init_tagenv_state =
    Map.fromList [(div_tag, ("Div", TypeExn (Short "Div"))); 
                  (bind_tag, ("Bind", TypeExn (Short "Bind"))); 
                  (eq_tag, ("Eq", TypeExn (Short "Eq"))); 
-                 (size_tag, ("Size", TypeExn (Short "Size"))); 
+                 (subscript_tag, ("Subscript", TypeExn (Short "Subscript"))); 
                  (cons_tag, ("::", TypeId (Short "list")));
                  (nil_tag, ("nil", TypeId (Short "list")));
                  (some_tag, ("SOME", TypeId (Short "option")));

@@ -22,7 +22,7 @@ val _ = Define `
   (emp,   
 (("nil", ( 0, TypeId (Short "list"))) ::   
 (("::", ( 2, TypeId (Short "list"))) ::
-   MAP (\ cn .  (cn, ( 0, TypeExn (Short cn)))) ["Size";"Bind"; "Div"; "Eq"]))))`;
+   MAP (\ cn .  (cn, ( 0, TypeExn (Short cn)))) ["Subscript";"Bind"; "Div"; "Eq"]))))`;
 
 
 (* The initial value environment for the operational semantics *)
@@ -76,7 +76,7 @@ val _ = Define `
   (emp,   
 (("nil", (["'a"], [], TypeId (Short "list"))) ::   
 (("::", (["'a"], [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))], TypeId (Short "list"))) ::
-   MAP (\ cn .  (cn, ([], [], TypeExn (Short cn)))) ["Size";"Bind"; "Div"; "Eq"]))))`;
+   MAP (\ cn .  (cn, ([], [], TypeExn (Short cn)))) ["Subscript";"Bind"; "Div"; "Eq"]))))`;
 
 
 (* The initial mapping of type names to primitive type constructors, for the elaborator *)
@@ -95,7 +95,7 @@ val _ = Define `
 (*val init_decls : decls*)
 val _ = Define `
  (init_decls = 
-  ({}, { Short "list" }, { Short "Size"; Short "Bind"; Short "Div"; Short "Eq" }))`;
+  ({}, { Short "list" }, { Short "Subscript"; Short "Bind"; Short "Div"; Short "Eq" }))`;
 
 val _ = export_theory()
 
