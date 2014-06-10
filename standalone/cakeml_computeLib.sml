@@ -63,6 +63,10 @@ val () = computeLib.add_thms
   ,terminationTheory.is_value_def
   ,pat_bindings_def
   ,typeSystemTheory.merge_tenvC_def
+  ,typeSystemTheory.check_ctor_tenv_def
+  ,terminationTheory.check_freevars_def
+  ,typeSystemTheory.build_ctor_tenv_def
+  ,evalPropsTheory.check_dup_ctors_thm
   ,bytecodeTheory.bool_to_tag_def
   ,bytecodeTheory.unit_tag_def
   ,bytecodeTheory.closure_tag_def
@@ -198,6 +202,7 @@ val () = computeLib.add_thms
   ,elab_top_def
   ,elab_dec_def
   ,elab_t_def
+  ,elab_td_def
   ,init_type_bindings_def
   ] compset
 (* inferencer *)
@@ -566,6 +571,7 @@ end
 (*
 val _ = Globals.max_print_depth := 50
 
+val input = ``"datatype foo = A;"``
 val input = ``"val x = 1; val y = x; val it = x+y;"``
 val x1 = eval ``get_all_asts ^(input)``
 val x2 = eval ``elab_all_asts ^(x1 |> concl |> rhs)``
