@@ -2630,6 +2630,10 @@ val not_mod_decs_def = Define`
    | Dexn_i1 mn _ _ => mn = NONE
    | _ => T) ds`;
 
+val not_mod_decs_cons_imp = prove(
+  ``not_mod_decs (d::ds) ⇒ not_mod_decs ds``,
+  rw[not_mod_decs_def])
+
 val envC_tagged_add_empty_mod = prove(
   ``∀ls mn tagenv g.
       envC_tagged ([(mn,[])],[]) (mod_tagenv (SOME mn) ls tagenv) g``,
@@ -3973,6 +3977,26 @@ val evaluate_prog_i1_tids_disjoint = prove(
   fs[IN_DISJOINT,SUBSET_DEF] >>
   metis_tac[])
 
+(*
+val evaluate_decs_i1_to_types = prove(
+  ``∀ck genv envC st ds res. evaluate_decs_i1 ck genv envC st ds res ⇒
+      ∀mn f. SND(SND(SND res)) = NONE ∧ (mod_decs mn ds ∧ f = Long mn ∨ not_mod_decs ds ∧ f = Short) ⇒
+      SND(FST res) = IMAGE(TypeId o f)(set(decs_to_types_i1 ds)) ∪ SND st``,
+  ho_match_mp_tac evaluate_decs_i1_ind >> simp[] >>
+  rw[decs_to_types_i1_def] >|[
+    first_x_assum(qspecl_then[`mn`,`Long mn`]mp_tac) >>
+    discharge_hyps >- metis_tac[mod_decs_cons_imp],
+    first_x_assum(qspecl_then[`mn`,`Short`]mp_tac) >>
+    discharge_hyps >- metis_tac[not_mod_decs_cons_imp]
+  ] >> rw[]>>
+  fs[Once evaluate_dec_i1_cases] >> rw[type_defs_to_new_tdecs_def] >>
+  rw[EXTENSION,EQ_IMP_THM] >>
+  fs[PULL_EXISTS,MEM_FLAT,MEM_MAP,UNCURRY,EXISTS_PROD] >> rw[] >>
+  fs[mod_decs_def,not_mod_decs_def] >> rw[mk_id_def] >>
+  fs[mk_id_def]
+  metis_tac[]
+*)
+
 val mods_of_prog_def = Define`
   mods_of_prog [] = {} ∧
   mods_of_prog ((Prompt_i1 (SOME mn) ds)::ps) = mn INSERT mods_of_prog ps ∧
@@ -4218,6 +4242,133 @@ val tac=
                   every_case_tac>>fs[MEM_MAP,EVERY_MEM]>>
                   res_tac>>fs[mk_id_def]>>
                   metis_tac[]
+
+val tac2 =
+  simp[] >>
+  imp_res_tac FDOM_prompt_to_i2_exh >>
+  imp_res_tac FDOM_prog_to_i2_exh >>
+  simp[] >>
+  Cases_on`prompt`>>fs[] >>
+  fs[tids_of_prompt_def] >>
+  fs[evaluate_prompt_i1_cases] >>
+  every_case_tac >> fs[prompt_mods_ok_def] >- (
+    conj_tac >- (
+      fs[IN_DISJOINT,tids_of_decs_def,tids_of_prog_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+      rw[] >> spose_not_then strip_assume_tac >>
+      every_case_tac >> fs[] >>
+      qmatch_assum_rename_tac`MEM p prog`[] >>
+      Cases_on`p`>>fs[MEM_MAP]>>rw[]>>
+      qmatch_assum_rename_tac`MEM (Dtype_i1 mp ts) decs`[] >>
+      qmatch_assum_rename_tac`MEM t ts`[] >>
+      PairCases_on`t` >>
+      first_x_assum(qspec_then`t1`mp_tac) >> simp[] >>
+      simp[decs_to_types_i1_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+      first_assum(match_exists_tac o concl) >>
+      simp[MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      fs[tids_of_prompt_def] >>
+      Cases_on`decs`>>fs[]>>rw[]>>fs[]>>
+      TRY(Cases_on`t`>>fsrw_tac[ARITH_ss][]) >> rw[] >>
+      BasicProvers.CASE_TAC >- (
+        fs[tids_of_decs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+        first_assum(match_exists_tac o concl) >> simp[] >>
+        BasicProvers.CASE_TAC>>fs[MEM_MAP,mk_id_inj,EXISTS_PROD] >>
+        metis_tac[] ) >>
+      qmatch_assum_rename_tac`MEM (Prompt_i1 (SOME mn) decs) prog`[] >>
+      fs[tids_of_decs_def,MEM_FLAT,EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
+      every_case_tac >> fs[] >>
+      fs[MEM_MAP,mk_id_inj] >>
+      res_tac >> fs[] >>
+      res_tac >> fs[]) >>
+    fs[IN_DISJOINT,tids_of_decs_def,tids_of_prog_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+    rw[] >> spose_not_then strip_assume_tac >>
+    qmatch_assum_rename_tac`MEM p prog`[] >>
+    Cases_on`p`>>fs[tids_of_prompt_def] >>
+    rator_x_assum`to_i2_invariant`mp_tac >>
+    rator_x_assum`to_i2_invariant`mp_tac >>
+    match_mp_tac SWAP_IMP >> strip_tac >>
+    simp[to_i2_invariant_def] >>
+    imp_res_tac evaluate_decs_i1_tids_disjoint >> fs[] >>
+    fs[no_dup_top_types_i1_def] >>
+    fs[no_dup_mods_i1_def] >>
+    fs[update_mod_state_def] >>
+
+    Cases_on`x`>-(
+      disj2_tac >> disj1_tac >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      imp_res_tac evaluate_decs_i1_tids_acc >> fs[SUBSET_DEF] >>
+      imp_res_tac evaluate_prog_i1_tids_disjoint
+
+      fs[tids_of_prog_def,IN_DISJOINT,PULL_EXISTS,PULL_FORALL,MEM_MAP] >>
+      first_x_assum(qspec_then`TypeId (Short a)`mp_tac) >> simp[] >>
+      reverse(rw[])>-(
+        fs[decs_to_types_i1_def,MEM_FLAT,MEM_MAP,PULL_EXISTS,tids_of_decs_def] >>
+        Cases_on`d`>>fs[]>>
+        first_x_assum(qspec_then`Short a`mp_tac) >> simp[]
+        metis_tac[]>>
+      metis_tac[tids_of_prompt_def] ) >>
+    disj2_tac >> disj2_tac >> disj1_tac >>
+    first_assum(match_exists_tac o concl) >>
+    fs[mods_of_prog_thm,IN_DISJOINT] >>
+    imp_res_tac evaluate_prog_i1_prompt_ok >> fs[] >>
+    res_tac >> fs[prompt_mods_ok_def]>>
+    every_case_tac>>fs[]>-(
+      fs[tids_of_decs_def,MEM_FLAT,MEM_MAP,EXISTS_PROD]>>
+      every_case_tac>>fs[MEM_MAP,EVERY_MEM]>>
+      res_tac>>fs[mk_id_def] ) >>
+    fs[tids_of_decs_def,MEM_FLAT,MEM_MAP,EXISTS_PROD]>>
+    every_case_tac>>fs[MEM_MAP,EVERY_MEM]>>
+    res_tac>>fs[mk_id_def]>>
+    metis_tac[] ) >>
+  conj_tac >- (
+    fs[IN_DISJOINT,tids_of_decs_def,tids_of_prog_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+    rw[] >> spose_not_then strip_assume_tac >>
+    every_case_tac >> fs[] >>
+    fs[EVERY_MEM] >> res_tac >> fs[] >>
+    qmatch_assum_rename_tac`MEM p prog`[] >>
+    first_x_assum(qspec_then`p`mp_tac) >> simp[] >>
+    BasicProvers.CASE_TAC >> simp[] >>
+    fs[tids_of_prompt_def] >> rw[] >>
+    imp_res_tac evaluate_prog_i1_prompt_ok >> fs[] >>
+    res_tac >> fs[prompt_mods_ok_def] >>
+    fs[tids_of_decs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS,EVERY_MEM] >>
+    Cases_on`d`>>fs[]>>rw[]>>
+    fs[MEM_MAP,mk_id_inj]>>rw[]>>
+    res_tac >> fs[]>>rw[] ) >>
+  fs[IN_DISJOINT,tids_of_prog_def,MEM_MAP,PULL_EXISTS,MEM_FLAT] >>
+  spose_not_then strip_assume_tac >> rw[] >>
+  qmatch_assum_rename_tac`MEM p prog`[] >>
+  first_x_assum(qspec_then`p`mp_tac) >> simp[] >>
+  BasicProvers.CASE_TAC>>simp[]>>fs[tids_of_prompt_def]>>
+  qmatch_assum_rename_tac`z ∈ FDOM exh`[]>>
+  first_x_assum(qspec_then`z`mp_tac)>>simp[]>>strip_tac>>
+  rator_x_assum`to_i2_invariant`mp_tac >>
+  rator_x_assum`to_i2_invariant`mp_tac >>
+  rator_x_assum`to_i2_invariant`mp_tac >>
+  match_mp_tac SWAP_IMP >> strip_tac >>
+  match_mp_tac SWAP_IMP >> strip_tac >>
+  simp[to_i2_invariant_def] >>
+  imp_res_tac evaluate_decs_i1_tids_disjoint >> fs[] >>
+  imp_res_tac evaluate_prog_i1_tids_disjoint >> fs[] >>
+  imp_res_tac evaluate_prog_i1_mods_disjoint >> fs[update_mod_state_def] >>
+  Cases_on`z`>-(
+    fs[tids_of_prog_def,IN_DISJOINT,PULL_EXISTS,PULL_FORALL,MEM_MAP] >>
+    first_x_assum(qspec_then`TypeId (Short a)`mp_tac) >> simp[] >>
+    imp_res_tac evaluate_decs_i1_tids_acc >> fs[SUBSET_DEF] >>
+    reverse(rw[])>-metis_tac[]>>
+    metis_tac[tids_of_prompt_def] ) >>
+  fs[mods_of_prog_thm,IN_DISJOINT] >>
+  imp_res_tac evaluate_prog_i1_prompt_ok >> fs[] >>
+  res_tac >> fs[prompt_mods_ok_def]>>
+  every_case_tac>>fs[]>-(
+    fs[tids_of_decs_def,MEM_FLAT,MEM_MAP,EXISTS_PROD]>>
+    every_case_tac>>fs[MEM_MAP,EVERY_MEM]>>
+    res_tac>>fs[mk_id_def] ) >>
+  fs[tids_of_decs_def,MEM_FLAT,MEM_MAP,EXISTS_PROD]>>
+  every_case_tac>>fs[MEM_MAP,EVERY_MEM]>>
+  res_tac>>fs[mk_id_def]>>
+  metis_tac[]
 
 val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
 `!ck genv envC s_tmp prog res_tmp.
