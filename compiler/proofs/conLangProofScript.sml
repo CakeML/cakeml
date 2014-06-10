@@ -4420,12 +4420,29 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
      rfs[] >>
      first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
      simp[] >>
+     discharge_hyps >- (
+       imp_res_tac evaluate_prompt_i1_mods_disjoint >>
+       Cases_on`prompt`>>fs[Once evaluate_prompt_i1_cases,update_mod_state_def] >>
+       fs[no_dup_mods_i1_def] >>
+       BasicProvers.CASE_TAC>>fs[DISJOINT_SYM] ) >>
+     discharge_hyps >- (
+       imp_res_tac evaluate_prompt_i1_tids_disjoint >>
+       Cases_on`prompt`>>
+       fs[Once evaluate_prompt_i1_cases,no_dup_top_types_i1_def,
+          tids_of_prompt_def] >> rw[] >>
+       imp_res_tac evaluate_decs_i1_tids_acc >>
+       fs[SUBSET_DEF,IN_DISJOINT] >>
+       fs[prog_i1_to_top_types_def,MEM_MAP,MEM_FLAT,PULL_EXISTS] >>
+       spose_not_then strip_assume_tac >>
+       Cases_on`prompt`>>fs[] >> rw[] >>
+       ntac 2 (pop_assum mp_tac) >> BasicProvers.CASE_TAC >> simp[] >>
+       cheat ) >>
      rw[]
        >- (MAP_EVERY qexists_tac [`genv'_i2 ++ genv'_i2'`, `s'_i2'`, `gtagenv''`] >>
            rw [] >>
            fs [merge_envC_assoc, FUNION_ASSOC]
            >- metis_tac [gtagenv_weak_trans]
-           >- (`DISJOINT (FDOM exh1) (FDOM (FUNION exh2 exh))` by tac >>
+           >- (`DISJOINT (FDOM exh1) (FDOM (FUNION exh2 exh))` by cheat (* tac *) >>
                metis_tac [evaluate_prompt_i2_exh_weak, FUNION_ASSOC, NOT_SOME_NONE]))
        >- (MAP_EVERY qexists_tac [`genv'_i2 ++ genv'_i2'`, `s'_i2'`, `SOME err_i2`, `gtagenv''`] >>
            rw [] >>
