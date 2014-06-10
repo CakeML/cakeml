@@ -27,11 +27,11 @@ val _ = type_abbrev((*  'a *) "count_store" , ``: num # 'a store``);
 
 (*val dec_count : op -> nat -> nat*)
 val _ = Define `
- (dec_count op count3303 =  
+ (dec_count op count3319 =  
  (if op = Opapp then
-    count3303 -  1
+    count3319 -  1
   else
-    count3303))`;
+    count3319))`;
 
 
 val _ = Hol_reln ` (! ck env l s.
@@ -425,30 +425,44 @@ evaluate_prog ck (menv,cenv,env) s1 (top::tops) (s3, merge_envC new_tds' new_tds
 ==>
 evaluate_prog ck env s1 (top::tops) (s2, new_tds, Rerr err))`;
 
-(*val no_dup_mods : list top -> bool*)
+(*val prog_to_mods : list top -> list modN*)
 val _ = Define `
- (no_dup_mods tops =  
-(ALL_DISTINCT (FLAT (MAP (\ top .  
+ (prog_to_mods tops =  
+(FLAT (MAP (\ top .  
         (case top of 
             Tmod mn _ _ => [mn]
           | _ => [] ))
-     tops))))`;
+     tops)))`;
 
- 
-(*val no_dup_top_types : list top -> bool*)
+
+(*val no_dup_mods : list top -> (count_store v * set tid_or_exn * set modN) -> bool*)
 val _ = Define `
- (no_dup_top_types tops =  
-(ALL_DISTINCT (FLAT (MAP (\ top .  
+ (no_dup_mods tops (_,_,mods) =  
+(ALL_DISTINCT (prog_to_mods tops) /\
+  DISJOINT (LIST_TO_SET (prog_to_mods tops)) mods))`;
+
+
+(*val prog_to_top_types : list top -> list typeN*)
+val _ = Define `
+ (prog_to_top_types tops =  
+(FLAT (MAP (\ top .  
         (case top of 
             Tdec d => decs_to_types [d]
           | _ => [] ))
-     tops))))`;
+     tops)))`;
+
+ 
+(*val no_dup_top_types : list top -> (count_store v * set tid_or_exn * set modN) -> bool*)
+val _ = Define `
+ (no_dup_top_types tops (_,tids,_) =  
+(ALL_DISTINCT (prog_to_top_types tops) /\
+  DISJOINT (LIST_TO_SET (MAP (\ tn .  TypeId (Short tn)) (prog_to_top_types tops))) tids))`;
 
 
 (*val evaluate_whole_prog : bool -> all_env -> (count_store v * set tid_or_exn * set modN) -> prog -> (count_store v * set tid_or_exn * set modN) * envC * result (envM * envE) v -> bool*)
 val _ = Define `
  (evaluate_whole_prog ck env s1 tops (s2, new_tds, res) =  
-(if no_dup_mods tops /\ no_dup_top_types tops then
+(if no_dup_mods tops s1 /\ no_dup_top_types tops s1 then
     evaluate_prog ck env s1 tops (s2, new_tds, res)
   else
     res = Rerr Rtype_error))`;

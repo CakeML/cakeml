@@ -841,8 +841,8 @@ evaluate_decs_i1 ck genv cenv (s1,tdecs1) ds ((s2,tdecs2),cenv',env,SOME err))
 evaluate_prompt_i1 ck genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds) 
                                                   ((s2,tdecs2,update_mod_state mn mods),
                                                    mod_cenv mn cenv',                                                   
- (MAP SOME env ++ GENLIST (\n4645 .  
-  (case (n4645 ) of ( _ ) => NONE )) (decs_to_dummy_env ds - LENGTH env)),
+ (MAP SOME env ++ GENLIST (\n4665 .  
+  (case (n4665 ) of ( _ ) => NONE )) (decs_to_dummy_env ds - LENGTH env)),
                                                    SOME err))
 
 /\ (! ck genv cenv s1 tdecs1 mods mn ds.
@@ -871,30 +871,44 @@ evaluate_prog_i1 ck genv cenv s1 (prompt::prompts) (s3, merge_envC cenv3 cenv2, 
 ==>
 evaluate_prog_i1 ck genv cenv s1 (prompt::prompts) (s2, cenv2, env2, SOME err))`;
 
-(*val no_dup_mods_i1 : list prompt_i1 -> bool*)
+(*val prog_i1_to_mods : list prompt_i1 -> list modN*)
 val _ = Define `
- (no_dup_mods_i1 prompts =  
-(ALL_DISTINCT (FLAT (MAP (\ prompt .  
+ (prog_i1_to_mods prompts =  
+(FLAT (MAP (\ prompt .  
         (case prompt of 
             Prompt_i1 (SOME mn) ds => [mn]
           | _ => [] ))
-     prompts))))`;
+     prompts)))`;
 
- 
-(*val no_dup_top_types_i1 : list prompt_i1 -> bool*)
+
+(*val no_dup_mods_i1 : list prompt_i1 -> count_store v_i1 * set tid_or_exn * set modN -> bool*)
 val _ = Define `
- (no_dup_top_types_i1 prompts =  
-(ALL_DISTINCT (FLAT (MAP (\ prompt .  
+ (no_dup_mods_i1 prompts (_,_,mods) =  
+(ALL_DISTINCT (prog_i1_to_mods prompts) /\
+  DISJOINT (LIST_TO_SET (prog_i1_to_mods prompts)) mods))`;
+
+
+(*val prog_i1_to_top_types : list prompt_i1 -> list typeN*)
+val _ = Define `
+ (prog_i1_to_top_types prompts =  
+(FLAT (MAP (\ prompt .  
         (case prompt of 
             Prompt_i1 NONE ds => decs_to_types_i1 ds
           | _ => [] ))
-     prompts))))`;
+     prompts)))`;
+ 
+
+(*val no_dup_top_types_i1 : list prompt_i1 -> count_store v_i1 * set tid_or_exn * set modN -> bool*)
+val _ = Define `
+ (no_dup_top_types_i1 prompts (_, tids, _) =  
+(ALL_DISTINCT (prog_i1_to_top_types prompts) /\
+  DISJOINT (LIST_TO_SET (MAP (\ tn .  TypeId (Short tn)) (prog_i1_to_top_types prompts))) tids))`;
 
 
 (*val evaluate_whole_prog_i1 : bool -> list (maybe v_i1) -> envC -> count_store v_i1 * set tid_or_exn * set modN -> list prompt_i1 -> (count_store v_i1 * set tid_or_exn * set modN) * envC * list (maybe v_i1) * maybe (error_result v_i1) -> bool*)
 val _ = Define `
  (evaluate_whole_prog_i1 ck genv cenv s1 prompts (s2, cenv2, env2, res) =  
-(if no_dup_mods_i1 prompts /\ no_dup_top_types_i1 prompts /\
+(if no_dup_mods_i1 prompts s1 /\ no_dup_top_types_i1 prompts s1 /\
      EVERY (\ p .  (case p of Prompt_i1 mn ds => prompt_mods_ok mn ds )) prompts then
     evaluate_prog_i1 ck genv cenv s1 prompts (s2, cenv2, env2, res)
   else

@@ -3893,7 +3893,7 @@ val evaluate_dec_i2_exh_weak = prove(
   TRY (
     first_assum (mp_tac o MATCH_MP (CONJUNCT1 evaluate_exp_i2_exh_weak)) >> simp[] >>
     disch_then(qspec_then`exh'`mp_tac) >> simp[DISJOINT_SYM] >> strip_tac ) >>
-  rw[Once evaluate_dec_i2_cases] )
+  rw[Once evaluate_dec_i2_cases] );
 
 val evaluate_decs_i2_exh_weak = prove(
  ``∀ck (exh:exh_ctors_env) genv s ds res.
@@ -3906,7 +3906,7 @@ val evaluate_decs_i2_exh_weak = prove(
   first_x_assum(strip_assume_tac o MATCH_MP evaluate_dec_i2_exh_weak) >>
   first_x_assum(qspec_then`exh'`strip_assume_tac) >> rfs[] >>
   rw[Once evaluate_decs_i2_cases] >>
-  metis_tac[])
+  metis_tac[]);
 
 val evaluate_prompt_i2_exh_weak = Q.prove (
 `!ck (exh:exh_ctors_env) genv s p s' genv' res exh1.
@@ -3917,10 +3917,10 @@ val evaluate_prompt_i2_exh_weak = Q.prove (
  rw[evaluate_prompt_i2_cases] >>
  first_x_assum(strip_assume_tac o MATCH_MP evaluate_decs_i2_exh_weak) >>
  first_x_assum(qspec_then`exh1`mp_tac) >>
- rw[] >> metis_tac[DISJOINT_SYM])
+ rw[] >> metis_tac[DISJOINT_SYM]);
 
 val tids_of_prompt_def = Define`
-  tids_of_prompt (Prompt_i1 _ ds) = tids_of_decs ds`
+  tids_of_prompt (Prompt_i1 _ ds) = tids_of_decs ds`;
 
 val FDOM_prompt_to_i2_exh = prove(
   ``∀x p y z a. prompt_to_i2 x p = (y,z,a) ⇒ FDOM z = tids_of_prompt p``,
@@ -3928,10 +3928,10 @@ val FDOM_prompt_to_i2_exh = prove(
   fs[LET_THM,UNCURRY] >> rw[] >>
   rw[tids_of_prompt_def] >>
   match_mp_tac FDOM_decs_to_i2_exh >>
-  metis_tac[pair_CASES,FST,SND,PAIR_EQ])
+  metis_tac[pair_CASES,FST,SND,PAIR_EQ]);
 
 val tids_of_prog_def = Define`
-  tids_of_prog prog = BIGUNION (set (MAP tids_of_prompt prog))`
+  tids_of_prog prog = BIGUNION (set (MAP tids_of_prompt prog))`;
 
 val FDOM_prog_to_i2_exh = prove(
   ``∀x p y z a. prog_to_i2 x p = (y,z,a) ⇒ FDOM z = tids_of_prog p``,
@@ -3941,7 +3941,7 @@ val FDOM_prog_to_i2_exh = prove(
   first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >> rw[] >>
   res_tac >> simp[] >>
   imp_res_tac FDOM_prompt_to_i2_exh >>
-  simp[UNION_COMM])
+  simp[UNION_COMM]);
 
 val evaluate_decs_i1_tids_disjoint = prove(
   ``∀ck genv envC st ds res. evaluate_decs_i1 ck genv envC st ds res ⇒
@@ -3951,20 +3951,20 @@ val evaluate_decs_i1_tids_disjoint = prove(
   conj_tac >- simp[tids_of_decs_thm] >>
   rw[evaluate_dec_i1_cases,tids_of_decs_thm] >> fs[DISJOINT_SYM] >>
   fs[type_defs_to_new_tdecs_def,IN_DISJOINT,MEM_MAP,UNCURRY] >>
-  metis_tac[])
+  metis_tac[]);
 
 val evaluate_prompt_i1_tids_disjoint = prove(
   ``∀ck genv envC stm p res. evaluate_prompt_i1 ck genv envC stm p res ⇒
       SND(SND(SND res)) = NONE ⇒
       DISJOINT (IMAGE TypeId (tids_of_prompt p)) (FST(SND stm))``,
   ho_match_mp_tac evaluate_prompt_i1_ind >> simp[] >> rw[] >>
-  imp_res_tac evaluate_decs_i1_tids_disjoint >> fs[tids_of_prompt_def])
+  imp_res_tac evaluate_decs_i1_tids_disjoint >> fs[tids_of_prompt_def]);
 
 val evaluate_prompt_i1_tids_acc = prove(
   ``∀ck genv envC stm p res. evaluate_prompt_i1 ck genv envC stm p res ⇒
       FST(SND stm) ⊆ FST(SND(FST res))``,
   ho_match_mp_tac evaluate_prompt_i1_ind >> simp[] >> rw[] >>
-  imp_res_tac evaluate_decs_i1_tids_acc >> fs[])
+  imp_res_tac evaluate_decs_i1_tids_acc >> fs[]);
 
 val evaluate_prog_i1_tids_disjoint = prove(
   ``∀ck genv envC stm p res. evaluate_prog_i1 ck genv envC stm p res ⇒
@@ -3975,7 +3975,7 @@ val evaluate_prog_i1_tids_disjoint = prove(
   imp_res_tac evaluate_prompt_i1_tids_disjoint >> fs[] >>
   imp_res_tac evaluate_prompt_i1_tids_acc >>
   fs[IN_DISJOINT,SUBSET_DEF] >>
-  metis_tac[])
+  metis_tac[]);
 
 (*
 val evaluate_decs_i1_to_types = prove(
@@ -4030,7 +4030,7 @@ val evaluate_prompt_i1_mods_acc = prove(
       SND(SND stm) ⊆ SND(SND(FST res))``,
   ho_match_mp_tac evaluate_prompt_i1_ind >> simp[] >>
   rw[update_mod_state_def] >>
-  BasicProvers.CASE_TAC >> simp[])
+  BasicProvers.CASE_TAC >> simp[]);
 
 val tac= (
                         imp_res_tac FDOM_prompt_to_i2_exh >>
@@ -4078,34 +4078,37 @@ val tac= (
                         Cases_on`mno`>>fs[]>>rw[] >- (
                           imp_res_tac IN_tids_of_not_mod_decs >> fs[] ) >>
                         imp_res_tac IN_tids_of_mod_decs >> fs[] >>
-                        metis_tac[] )
+                        metis_tac[] );
 
 val no_dup_mods_i1_eqn = Q.prove (
 `!p ps.
-  (no_dup_mods_i1 [] ⇔ T) ∧
-  (no_dup_mods_i1 (p::ps) ⇔ 
+  (no_dup_mods_i1 [] (x,y,mods) ⇔ T) ∧
+  (no_dup_mods_i1 (p::ps) (x,y,mods) ⇔ 
      (case p of 
        | Prompt_i1 (SOME mn) ds =>
-           ~MEM mn (FLAT (MAP (λprompt. case prompt of Prompt_i1 NONE ds => [] | Prompt_i1 (SOME mn) ds => [mn]) ps))
+           ~MEM mn (prog_i1_to_mods ps) ∧ mn ∉ mods
        | Prompt_i1 NONE _ => T) ∧
-    no_dup_mods_i1 ps)`,
- rw [no_dup_mods_i1_def] >>
+    no_dup_mods_i1 ps (x,y,mods))`,
+ rw [no_dup_mods_i1_def, prog_i1_to_mods_def] >>
  every_case_tac >>
- rw []);
+ rw [] >>
+ metis_tac []);
 
 val no_dup_top_types_i1_eqn = Q.prove (
 `!p ps.
-  (no_dup_top_types_i1 [] ⇔ T) ∧
-  (no_dup_top_types_i1 (p::ps) ⇔ 
+  (no_dup_top_types_i1 [] (x,tids,y) ⇔ T) ∧
+  (no_dup_top_types_i1 (p::ps) (x,tids,y) ⇔ 
      (case p of 
        | Prompt_i1 NONE ds =>
            ALL_DISTINCT (decs_to_types_i1 ds) ∧
-           DISJOINT (set (decs_to_types_i1 ds)) (set (FLAT (MAP (λprompt. case prompt of Prompt_i1 NONE ds => decs_to_types_i1 ds | Prompt_i1 (SOME v5) ds => []) ps)))
+           DISJOINT (set (decs_to_types_i1 ds)) (set (prog_i1_to_top_types ps)) ∧
+           DISJOINT (IMAGE (\tn. TypeId (Short tn)) (set (decs_to_types_i1 ds))) tids
        | Prompt_i1 (SOME mn) _ => T) ∧
-    no_dup_top_types_i1 ps)`,
- rw [no_dup_top_types_i1_def] >>
+    no_dup_top_types_i1 ps (x,tids,y))`,
+ rw [no_dup_top_types_i1_def, prog_i1_to_top_types_def] >>
  every_case_tac >>
  rw [ALL_DISTINCT_APPEND, DISJOINT_DEF, EXTENSION] >>
+ fs [MEM_MAP] >>
  metis_tac []);
 
 val evaluate_prog_i1_prompt_ok = prove(
@@ -4368,7 +4371,7 @@ val tac2 =
   fs[tids_of_decs_def,MEM_FLAT,MEM_MAP,EXISTS_PROD]>>
   every_case_tac>>fs[MEM_MAP,EVERY_MEM]>>
   res_tac>>fs[mk_id_def]>>
-  metis_tac[]
+  metis_tac[];
 
 val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
 `!ck genv envC s_tmp prog res_tmp.
@@ -4378,8 +4381,8 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
   res_tmp = ((s',tids',mods'), envC', genv', res) ∧
   res ≠ SOME Rtype_error ∧
   to_i2_invariant mods tids envC exh (next,tagenv,inv) gtagenv s s_i2 genv genv_i2 ∧
-  no_dup_mods_i1 prog ∧
-  no_dup_top_types_i1 prog ∧
+  no_dup_mods_i1 prog s_tmp ∧
+  no_dup_top_types_i1 prog s_tmp ∧
   EVERY (λp. case p of Prompt_i1 mn ds => prompt_mods_ok mn ds) prog ∧
   ((next',tagenv',inv'), exh', prog_i2) = prog_to_i2 (next,tagenv,inv) prog
   ⇒
