@@ -1504,4 +1504,25 @@ val DeclAssumExists_SOME_IMP_Tmod = new_specification(
   "DeclAssumExists_SOME_IMP_Tmod",
   ["Tmod_state","Tmod_tys","Tmod_env"],Tmod_lemma);
 
+val lookup_APPEND = prove(
+  ``!xs ys n. ~(MEM n (MAP FST ys)) ==>
+              (lookup n (xs ++ ys) = lookup n xs)``,
+  Induct THEN1
+   (FULL_SIMP_TAC std_ss [lookup_def,APPEND] \\ Induct
+    \\ FULL_SIMP_TAC std_ss [MAP,MEM,lookup_def,FORALL_PROD])
+  \\ FULL_SIMP_TAC std_ss [FORALL_PROD,APPEND,lookup_def]);
+
+val can_lookup_def = Define `
+  can_lookup name (env:envE) P = ?v. (lookup name env = SOME v) /\ P v`;
+
+val Eval_Var_Short_merge = store_thm("Eval_Var_Short_merge",
+  ``Eval (x,y,merge env init_env) (Var (Short n)) P ==>
+    ~MEM n (MAP FST init_env) ==>
+    can_lookup n env P``,
+  ONCE_REWRITE_TAC [Eval_def,can_lookup_def]
+  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases,lookup_var_id_def]
+  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC lookup_APPEND
+  \\ FULL_SIMP_TAC std_ss [merge_def])
+  |> SIMP_RULE std_ss [EVAL ``MAP FST init_env``,MEM];
+
 val _ = export_theory();

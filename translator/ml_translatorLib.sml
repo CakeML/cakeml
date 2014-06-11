@@ -2645,6 +2645,32 @@ in
     in th end end
 end
 
+fun finalise_module_translation () = let
+  fun DISCH_DeclAssum lemma = let
+    val th = lemma |> DISCH_ALL
+                   |> PURE_REWRITE_RULE [GSYM AND_IMP_INTRO]
+                   |> UNDISCH_ALL
+    val pattern = ``DeclAssum mn ds env tys``
+    val x = hyp th |> filter (can (match_term pattern)) |> hd
+    in DISCH x th end
+  val _ = finalise_translation ()
+  val ex = get_DeclAssumExists ()
+  val th = MATCH_MP DeclAssumExists_SOME_IMP_Tmod ex |> SPEC_ALL
+  val tm = th |> concl |> dest_imp |> fst
+  val lemma = auto_prove "ALL_DISTINCT type_names" (tm,
+    ONCE_REWRITE_TAC [case get_decl_abbrev () of SOME x => x | NONE => TRUTH]
+    \\ PURE_REWRITE_TAC [type_names_def] \\ EVAL_TAC)
+  val th = MP th lemma
+  val th1 = CONJUNCT1 th
+  val th2 = CONJUNCT2 th
+  fun expand lemma = let
+    val th3 = MATCH_MP (DISCH_DeclAssum lemma) (MATCH_MP DeclEnv ex)
+    val th3 = MATCH_MP Eval_Var_Short_merge (th3 |> RW [th2])
+              |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL)
+    in MP th3 TRUTH |> DISCH_ALL end;
+  val th4 = LIST_CONJ (map (expand o fst o get_cert) (rev (get_names ())))
+  in CONJ th1 th4 |> GEN_ALL end
+
 (*
 
 translate def
