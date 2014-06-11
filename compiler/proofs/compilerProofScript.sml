@@ -3305,9 +3305,11 @@ val compile_prog_thm = store_thm("compile_prog_thm",
     `store_to_exh (exh ⊌ rsexh) ((stm0,s2),genv2) ((stm0,sh),gh)` by (
       simp[store_to_exh_def] >>
       `FDOM rsexh = {Short "option"}` by simp[Abbr`rsexh`] >>
+      `DISJOINT (FDOM exh) (FDOM rsexh)` by simp[] >>
       conj_tac >>
       match_mp_tac (MP_CANON (GEN_ALL EVERY2_mono)) >>
-      HINT_EXISTS_TAC >>
+      ONCE_REWRITE_TAC[CONJ_COMM] >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
       metis_tac[optionTheory.OPTREL_MONO,v_to_exh_extend_disjoint,FUNION_COMM]) >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     disch_then(qspec_then`exh ⊌ rsexh`mp_tac) >> simp[] >>
@@ -3594,6 +3596,7 @@ val compile_prog_thm = store_thm("compile_prog_thm",
   `store_to_exh (exh ⊌ rsexh) ((stm0,s2),genv2) ((stm0,sh),gh)` by (
     simp[store_to_exh_def] >>
     `FDOM rsexh = {Short "option"}` by simp[Abbr`rsexh`] >>
+    `DISJOINT (FDOM exh) (FDOM rsexh)` by simp[] >>
     conj_tac >>
     match_mp_tac (MP_CANON (GEN_ALL EVERY2_mono)) >>
     HINT_EXISTS_TAC >>
