@@ -34,7 +34,7 @@ fun dexnPrint sys d t Top str brk blk =
     val args = #1(listSyntax.dest_list y)
     fun printTerms [] = str ""
     |   printTerms [x] = sys (Top,Top,Top) (d-1) x
-    |   printTerms (x::xs) = sys (Top,Top,Top) (d-1) x >> str "," >> (printTerms xs);
+    |   printTerms (x::xs) = sys (Top,Top,Top) (d-1) x >> str "," >>brk(1,0)>> (printTerms xs);
   in 
     add_newline >> str "exception " >> str (stringSyntax.fromHOLstring x)>> (case args of [] => str "" | (_::_) => str "(" >> printTerms args >>str ")")
   end;
@@ -191,7 +191,7 @@ fun pconPrint sys d t Top str brk blk =
     open Portable smpp
     fun printTerms [] = str ""
     |   printTerms [x] = sys (Top,Top,Top) (d-1) x
-    |   printTerms (x::xs) = sys (Top,Top,Top) (d-1) x >> str "," >> (printTerms xs);
+    |   printTerms (x::xs) = sys (Top,Top,Top) (d-1) x >> str ",">>brk(1,0) >> (printTerms xs);
     val terms = #1(listSyntax.dest_list (strip t))
   in
     str "(" >> printTerms terms >>str ")"
@@ -209,7 +209,7 @@ fun pconsomePrint sys d t Top str brk blk=
     val args = #1(listSyntax.dest_list r)
     fun printTerms [] = str ""
     |   printTerms [x] = sys (Top,Top,Top) (d-1) x
-    |   printTerms (x::xs) = sys (Top,Top,Top) (d-1) x >> str "," >> (printTerms xs);
+    |   printTerms (x::xs) = sys (Top,Top,Top) (d-1) x >> str ",">>brk(1,0) >> (printTerms xs);
   in
     str (stringSyntax.fromHOLstring (strip (strip l))) >> (case args of [] => str "" | (_::_) => str "(" >> printTerms args >>str ")")
   end;
