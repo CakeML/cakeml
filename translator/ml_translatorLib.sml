@@ -36,6 +36,12 @@ fun pack_pair f1 f2 (x1,x2) = pack_list I [f1 x1, f2 x2]
 fun unpack_pair f1 f2 th =
   let val x = unpack_list I th in (f1 (el 1 x), f2 (el 2 x)) end
 
+fun pack_option f1 NONE = pack_list I []
+  | pack_option f1 (SOME x) = pack_list I [f1 x]
+fun unpack_option f1 th =
+  let val x = unpack_list I th in
+    case x of [] => NONE | (x::xs) => SOME (f1 x) end
+
 fun pack_triple f1 f2 f3 (x1,x2,x3) = pack_list I [f1 x1, f2 x2, f3 x3]
 fun unpack_triple f1 f2 f3 th =
   let val x = unpack_list I th in (f1 (el 1 x), f2 (el 2 x), f3 (el 3 x)) end
@@ -82,18 +88,28 @@ fun auto_prove proof_name (goal,tac) = let
   in if length rest = 0 then validation [] else let
   in failwith("auto_prove failed for " ^ proof_name) end end
 
-local
   (* inv: get_DeclAssum () is a hyp in each thm in each !cert_memory *)
-  val module_name = ref "";
   val decl_abbrev = ref TRUTH;
   val decl_term   = ref ``[]:dec list``;
   val cert_memory = ref ([] : (string * term * thm * thm) list);
-  val cenv_eq_thm = ref DeclAssumCons_NIL
-  val decl_exists = ref DeclAssumExists_NIL
+  val cenv_eq_thm = ref (DeclAssumCons_NIL |> GEN_ALL |> Q.SPEC `NONE`)
+  val decl_exists = ref (DeclAssumExists_NIL |> GEN_ALL |> Q.SPEC `NONE`)
   (* session specific state below *)
+  val decl_name = ref "";
   val abbrev_counter = ref 0;
   val abbrev_defs = ref ([]:thm list);
+local (* TODO: move back up *)
 in
+  fun get_mn () = (!decl_exists) |> concl |> rator |> rand
+  fun INST_mn th = INST [``mn:string option`` |-> get_mn()] th
+  fun set_module_name name =
+    if not (aconv (!decl_term) ``[]:dec list``) then
+      failwith "set_module_name can only be used on an empty translation"
+    else let
+      val tm = optionSyntax.mk_some(stringSyntax.fromMLstring name)
+      val _ = (cenv_eq_thm := (DeclAssumCons_NIL |> GEN_ALL |> SPEC tm))
+      val _ = (decl_exists := (DeclAssumExists_NIL |> GEN_ALL |> SPEC tm))
+      in () end;
   fun get_cenv_eq_thm () = !cenv_eq_thm
   fun get_cenv_names () = let
     val th = get_cenv_eq_thm ()
@@ -110,21 +126,21 @@ in
     in names end
   fun get_DeclAssumExists () = !decl_exists
   fun cert_reset () =
-    (module_name := "";
+    (decl_name := "";
      decl_abbrev := TRUTH;
      decl_term   := ``[]:dec list``;
      cert_memory := [];
-     cenv_eq_thm := DeclAssumCons_NIL;
-     decl_exists := DeclAssumExists_NIL;
+     cenv_eq_thm := (DeclAssumCons_NIL |> GEN_ALL |> Q.SPEC `NONE`);
+     decl_exists := (DeclAssumExists_NIL |> GEN_ALL |> Q.SPEC `NONE`);
      (* abbrev_counter := 0; *)
      abbrev_defs := [])
   fun map_cert_memory f = (cert_memory := map f (!cert_memory))
   fun get_names () = map (fn (n,_,_,_) => n) (!cert_memory)
-  fun get_module_name () = let
-     val n = !module_name
+  fun get_decl_name () = let
+     val n = !decl_name
      in if n <> "" then n else
-          let val c = current_theory() in (module_name := c; c) end end
-  fun get_DeclAssum () = ``DeclAssum ^(!decl_term) env tys``
+          let val c = current_theory() in (decl_name := c; c) end end
+  fun get_DeclAssum () = ``DeclAssum ^(get_mn()) ^(!decl_term) env tys``
   fun get_decls () = let
     val rw = !decl_abbrev
     val tm = QCONV (REWRITE_CONV [rw]) (!decl_term) |> concl |> rand
@@ -135,7 +151,7 @@ in
   (* decl abbreviation *)
   fun update_decl_abbreviation () = let
     val rhs = (!decl_term)
-    val name = get_module_name () ^ "_decls_" ^ int_to_string (!abbrev_counter)
+    val name = get_decl_name () ^ "_decls_" ^ int_to_string (!abbrev_counter)
     val _ = (abbrev_counter := 1 + (!abbrev_counter))
     val abbrev_def = new_definition(name,mk_eq(mk_var(name,``:decs``),rhs))
     val new_rw = REWRITE_RULE [abbrev_def |> GSYM]
@@ -167,7 +183,7 @@ in
             eval_append_conv
     val lemma = expand_abbrevs (!abbrev_defs) |> CONV_RULE (RAND_CONV c)
     val rhs = lemma |> concl |> rand
-    val name = get_module_name () ^ "_decls"
+    val name = get_decl_name () ^ "_decls"
     val abbrev_def = new_definition(name,mk_eq(mk_var(name,``:decs``),rhs))
     val new_rw = RW [lemma |> CONV_RULE (RAND_CONV (REWR_CONV (SYM abbrev_def)))]
     val _ = map_cert_memory (fn (n,tm,th,pre) => (n,tm,new_rw th,pre))
@@ -181,7 +197,7 @@ in
   (* functions for appending a new declaration *)
   fun snoc_cenv_eq_thm decl =
     if can (match_term ``(Dtype x) : dec``) decl then
-      MATCH_MP DeclAssumCons_SNOC_Dtype (!cenv_eq_thm)
+      MATCH_MP (INST_mn DeclAssumCons_SNOC_Dtype) (!cenv_eq_thm)
       |> SPEC (decl |> rand)
       |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL)
       |> (fn th => MY_MP "DeclAssumCons_SNOC_Dtype" th TRUTH)
@@ -189,11 +205,11 @@ in
                     (RATOR_CONV o RAND_CONV) EVAL)
       |> (fn th => (cenv_eq_thm := th; th))
     else if can (match_term ``(Dlet v x) : dec``) decl then
-      MATCH_MP DeclAssumCons_SNOC_Dlet (!cenv_eq_thm)
+      MATCH_MP (INST_mn DeclAssumCons_SNOC_Dlet) (!cenv_eq_thm)
       |> SPEC (rand (rand (rator decl))) |> SPEC (rand decl)
       |> (fn th => (cenv_eq_thm := th; th))
     else if can (match_term ``(Dletrec funs) : dec``) decl then
-      MATCH_MP DeclAssumCons_SNOC_Dletrec (!cenv_eq_thm)
+      MATCH_MP (INST_mn DeclAssumCons_SNOC_Dletrec) (!cenv_eq_thm)
       |> SPEC (rand decl)
       |> (fn th => (cenv_eq_thm := th; th))
     else
@@ -203,12 +219,12 @@ in
     val _ = (decl_term := listSyntax.mk_snoc(decl,!decl_term))
     val f = if can (match_term ``(Dletrec funs) : dec``) decl then
               (fn (n:string,tm:term,th,pre) =>
-                (n,tm,(MATCH_MP DeclAssum_Dletrec th |> SPEC (rand decl)
+                (n,tm,(MATCH_MP (INST_mn DeclAssum_Dletrec) th |> SPEC (rand decl)
                  |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL) |> REWRITE_RULE [])
                  handle HOL_ERR _ => th,pre))
             else if can (match_term ``(Dlet v x) : dec``) decl then
               (fn (n:string,tm:term,th,pre) =>
-                (n,tm,(MATCH_MP DeclAssum_Dlet th
+                (n,tm,(MATCH_MP (INST_mn DeclAssum_Dlet) th
                  |> SPEC (rand (rand (rator decl))) |> SPEC (rand decl)
                  |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL) |> REWRITE_RULE [])
                  handle HOL_ERR _ => th,pre))
@@ -217,7 +233,7 @@ in
                 (n,tm,(th |> SPEC_ALL
                           |> Q.GEN `tys`
                           |> Q.GEN `env`
-                          |> MATCH_MP DeclAssum_Dtype
+                          |> MATCH_MP (INST_mn DeclAssum_Dtype)
                           |> SPEC (rand decl)
                           |> SPEC_ALL
                           |> Q.GEN `env`)
@@ -228,7 +244,7 @@ in
   fun snoc_dtype_decl dtype = let
     val decl = dtype
     val _ = let
-      val th = MATCH_MP DeclAssumExists_SNOC_Dtype (!decl_exists)
+      val th = MATCH_MP (INST_mn DeclAssumExists_SNOC_Dtype) (!decl_exists)
                |> SPEC (decl |> rand)
       val goal = th |> concl |> dest_imp |> fst
       val lemma = !cenv_eq_thm
@@ -256,7 +272,8 @@ in
     val _ = (cert_memory := (n,const,th,TRUTH)::(!cert_memory))
     in th end;
   fun store_cert th pres decl_assum_x = let
-    val decl_assum = (th |> hyp |> first (can (match_term ``DeclAssum ds env tys``)))
+    val decl_assum = (th |> hyp |> first
+                        (can (match_term ``DeclAssum mn ds env tys``)))
     val decl = (decl_assum |> rator |> rator |> rand |> rator |> rand)
     val _ = snoc_decl decl
     val _ = let
@@ -677,7 +694,7 @@ fun check_uptodate_term tm =
 local
   val suffix = "_translator_state_thm"
   fun pack_state () = let
-    val name = get_module_name () ^ suffix
+    val name = get_decl_name () ^ suffix
     val name_tm = stringSyntax.fromMLstring name
     val tag_lemma = ISPEC ``b:bool`` (ISPEC name_tm TAG_def) |> GSYM
     val p1 = pack_certs()
@@ -2082,7 +2099,7 @@ fun apply_Eval_Recclosure recc fname v th = let
 fun clean_assumptions th4 = let
   (* lift cl_env assumptions out *)
   val env = mk_var("env",``:all_env``)
-  val pattern = ``DeclAssum ds ^env tys``
+  val pattern = ``DeclAssum mn ds ^env tys``
   val cl_assums = find_terms (fn tm => can (match_term pattern) tm) (concl th4)
   val th5 = REWRITE_RULE (map ASSUME cl_assums) th4
   (* lift EqualityType assumptions out *)
@@ -2618,7 +2635,7 @@ in
     val tms = find_terms (can (match_term lookup_cons_pat)) (concl th)
               |> all_distinct
     in if length tms = 0 then th else let
-    val lemmas = MATCH_MP DeclAssumCons_cons_lookup (get_cenv_eq_thm ())
+    val lemmas = MATCH_MP (INST_mn DeclAssumCons_cons_lookup) (get_cenv_eq_thm ())
                  |> CONV_RULE (REWRITE_CONV [EVERY_DEF] THENC
                                DEPTH_CONV PairRules.PBETA_CONV)
                  |> SPEC_ALL |> UNDISCH |> CONJUNCTS
@@ -2728,14 +2745,14 @@ val _ = (max_print_depth := 25)
     val decl_assum_x = let
       val thi = PURE_REWRITE_RULE [code_def] th
       in if length rev_params = 0 then
-           MATCH_MP DeclAssumExists_SNOC_Dlet
+           MATCH_MP (INST_mn DeclAssumExists_SNOC_Dlet)
              ((DISCH (get_DeclAssum()) thi) |> Q.GENL [`tys`,`env`])
-         else DeclAssumExists_SNOC_Dlet_Fun end
+         else (INST_mn DeclAssumExists_SNOC_Dlet_Fun) end
     (* abbreviate code *)
     val fname_str = stringLib.fromMLstring fname
     val th = th |> DISCH_ALL |> REWRITE_RULE [GSYM AND_IMP_INTRO] |> UNDISCH_ALL
     val th = th |> DISCH (get_DeclAssum ()) |> Q.GEN `env`
-                |> MATCH_MP DeclAssum_Dlet_INTRO
+                |> MATCH_MP (INST_mn DeclAssum_Dlet_INTRO)
                 |> SPEC fname_str |> Q.SPEC `env`
                 |> PURE_ONCE_REWRITE_RULE [code_def] |> UNDISCH_ALL
     val _ = code_def |> (delete_const o fst o dest_const o fst o dest_eq o concl)
@@ -2769,7 +2786,7 @@ val _ = (max_print_depth := 25)
     (* DeclAssumExists lemma *)
     val c = REWRITE_CONV [MAP,FST] THENC EVAL
     val c = RATOR_CONV (RAND_CONV c)
-    val decl_assum_x = SPEC recc DeclAssumExists_SNOC_Dletrec
+    val decl_assum_x = SPEC recc (INST_mn DeclAssumExists_SNOC_Dletrec)
                          |> SPEC_ALL |> CONV_RULE c |> (fn th => MATCH_MP th TRUTH)
     (* collect precondition *)
     val thms = extract_precondition_rec thms
@@ -2877,7 +2894,7 @@ val (th,(fname,def,_,pre)) = hd (zip results thms)
     val Precs_tm = listSyntax.mk_list(Precs,type_of (hd Precs))
     (* introduce letrec declaration *)
     val lemma =
-      SPEC Precs_tm DeclAssum_Dletrec_INTRO_ALT
+      SPEC Precs_tm (INST_mn DeclAssum_Dletrec_INTRO_ALT)
       |> REWRITE_RULE [EVERY_DEF]
       |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV)
       |> REWRITE_RULE [GSYM CONJ_ASSOC,MAP,o_THM]
