@@ -50,24 +50,26 @@ fun allIntermediates prog =
       val compile_Cexp = eval ``compile_Cexp [] 0 <|out:=[];next_label:=init_compiler_state.rnext_label|> ^(p6)``
       val p7 = rhsThm compile_Cexp
   in
-     {ast=ast,i1=p1,i2=p2,i3=p3,i4=p4,i5=p5,i6=p6,i7=p7}
+     {ast=ast,i1=p1,i2=p2,i3=p3,i4=p4,i5=p5,i6=p6,i7=p7,v1=v1,v2=v2,m2=m2}
   end;
 
 
 (*Nested ifs*)
-val ex1 = allIntermediates ``"exception Fail; if (if f x then veryyyyyyyyyyloooooooonggggggggg else z) then if(g z) then 5 else 4 else if h y then 4 else raise Fail;"``;
+val ex1 = allIntermediates ``"exception Fail; if (if f x then veryyyyyyyyyyloooooooonggggggggg else z) then if(g z) then 5 else 4 else if abraasdasdabraahssdfaraser yasdafasdasdfasd then 4 else raise Fail;"``;
 
 (*Top lvl mutually recursive functions and function calls*)
 val ex2 = allIntermediates ``"fun f x y = (g x) + (g y) and g x = x+1; f 5 4; g it;"``;
 
 (*raise, handle and case*)
-val ex3 = allIntermediates ``"exception Fail; exception Odd; exception Even; val x = 1; (case x of 1 => 2 | 2 => raise Even | 3 => raise Odd | _ => raise Fail) handle Odd => 1 | Even => 0 | Fail => 100;"``;
+val ex3 = allIntermediates ``"exception Fail of int; exception Odd; exception Even; val x = 1; (case x of 1 => 2 | 2 => raise Even | 3 => raise Odd | _ => raise Fail 4) handle Odd => 1 | Even => 0 | Fail n => n;"``;
 
 (*Parse error*)
 val ex4 = allIntermediates ``"structure Nat :> sig type nat val zero:nat val succ:nat-> nat end = struct type nat = int val zero = 0 fun succ x = x+1 end;"``;
 
-(*HANGS Structs, using members and ref*)
+(*HANGS Structs, using members of modules*)
 val ex5 = allIntermediates ``"structure Nat = struct val zero = 0 fun succ x = x+1 end; val x = Nat.zero;"``;
+(*Ok*)
+val ex5b = allIntermediates ``"structure Nat = struct val zero = 0 fun succ x = x+1 end;"``;
 
 (*Top lvl val, ref/deref*)
 val ex6 = allIntermediates ``"val x = ref 5; x:= !x+1; x;"``;
@@ -84,3 +86,9 @@ val ex9 = allIntermediates ``"val x:int = 5;"``
 (*complex datatypes*)
 
 val ex10 = allIntermediates ``"datatype ('a,'b,'c) foo2 = Foo of 'a * 'b | Foo2 of 'b * 'c | Foo3 of 'a*'b*'c*('a,'a,'a) foo2;"``
+
+(*Nested let vals*)
+
+val ex12 = allIntermediates ``"val x = let val y = 1 val z = 2 in let val k = 3 in k+z+y end end;"``;
+(*Inner lets*)
+val ex11 = allIntermediates ``"val x = let fun f x = x + 1 val y = f 5 fun g z = y+1 and k y = g 1 val h = g 4 in let val k = 2 in k + f (f y) end end;"``;

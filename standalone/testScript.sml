@@ -21,10 +21,16 @@ fun genPrint printFunc Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
     printFunc sys d t Top str brk blk
   end handle HOL_ERR _ => raise term_pp_types.UserPP_Failed;
 
+(*TDec*)
+fun tdecPrint sys d t Top str brk blk =
+  sys (Top,Top,Top) (d-1) (strip t);
+
+temp_add_user_printer("tdecprint", ``Tdec x``,genPrint tdecPrint);
+
 (*Top level exceptions*)
-fun texnPrint sys d t Top str brk blk =
+fun dexnPrint sys d t Top str brk blk =
   let
-    val (_,[x,y]) = strip_comb (strip t)
+    val (_,[x,y]) = strip_comb t
     val args = #1(listSyntax.dest_list y)
     fun printTerms [] = str ""
     |   printTerms [x] = sys (Top,Top,Top) (d-1) x
@@ -33,17 +39,17 @@ fun texnPrint sys d t Top str brk blk =
     add_newline >> str "exception " >> str (stringSyntax.fromHOLstring x)>> (case args of [] => str "" | (_::_) => str "(" >> printTerms args >>str ")")
   end;
 
-temp_add_user_printer ("texnprint", ``Tdec (Dexn x y)``,genPrint texnPrint);
+temp_add_user_printer ("dexnprint", ``Dexn x y``,genPrint dexnPrint);
 
 (*Top level datatypes list(list tvarN *typeN * list ... ) *)
 
 fun printTuple f str [] = str""
     |   printTuple f str [x] = f x
-    |   printTuple f str (x::xs) = printTuple f str [x] >> str "*" >> printTuple f str xs
+    |   printTuple f str (x::xs) = printTuple f str [x] >> str "* " >> printTuple f str xs
 
-fun ttypePrint sys d t Top str brk blk =
+fun dtypePrint sys d t Top str brk blk =
   let
-    val ls = strip (strip t)
+    val ls = strip t
     val dtypelist = #1(listSyntax.dest_list ls);
     fun printCtors [] = str""
     |   printCtors [x] = let
@@ -66,7 +72,7 @@ fun ttypePrint sys d t Top str brk blk =
     printTerms dtypelist
   end;
 
-temp_add_user_printer ("ttypeprint", ``Tdec (Dtype x)``,genPrint ttypePrint);
+temp_add_user_printer ("dtypeprint", ``Dtype x``,genPrint dtypePrint);
 
 (*tvar name*)
 fun tvarPrint sys d t Top str brk blk =
@@ -93,22 +99,22 @@ fun tappPrint sys d t Top str brk blk =
 temp_add_user_printer("tappprint", ``Tapp x y``,genPrint tappPrint);
 
 (*Top level letrec list varN*varN*exp *)
-fun tletrecPrint sys d t Top str brk blk =
+fun dletrecPrint sys d t Top str brk blk =
   let
-    val ls = (strip o strip) t
+    val ls = strip t
     val fundef = #1(listSyntax.dest_list ls)
     fun printTerms [] = str ""
     |   printTerms [t] = let val (x::y::[z]) = pairSyntax.strip_pair t
         in
-          add_newline>>str "fun" >> str (stringSyntax.fromHOLstring x) >> str " ">> str (stringSyntax.fromHOLstring y)>> str " =" >> brk(1,0)>> sys (Top,Top,Top) (d-1) z
+         add_newline>> str "fun" >> str (stringSyntax.fromHOLstring x) >> str " ">> str (stringSyntax.fromHOLstring y)>> str " =" >> brk(1,0)>> sys (Top,Top,Top) (d-1) z
         end
     |   printTerms (t::xs) = printTerms [t] >>str " and">> brk(1,0)
           >> (printTerms xs)
   in
-    blk INCONSISTENT 0 (printTerms fundef)
+    printTerms fundef
   end;
 
-temp_add_user_printer ("tletrecprint", ``Tdec (Dletrec x)``, genPrint tletrecPrint);
+temp_add_user_printer ("dletrecprint", ``Dletrec x``, genPrint dletrecPrint);
 
 (*Nested mutually recursive letrec*)
 
@@ -120,12 +126,15 @@ fun letrecPrint sys d t Top str brk blk =
     fun printTerms [] = str ""
     |   printTerms [t] = let val (x::y::[z]) = pairSyntax.strip_pair t
         in
-          str "fun" >> str (stringSyntax.fromHOLstring x) >> str " ">> str (stringSyntax.fromHOLstring y)>> str " =" >> brk(1,0) >> sys (Top,Top,Top) (d-1) z
+          blk CONSISTENT 0 (str "fun" >> str (stringSyntax.fromHOLstring x) >> str " ">> str (stringSyntax.fromHOLstring y)>> str " =" >> sys (Top,Top,Top) (d-1) z)
         end
     |   printTerms (t::xs) = printTerms [t] >>str " and">> brk(1,0)
           >> (printTerms xs)
   in
-     str "let " >> blk CONSISTENT 0 (printTerms fundef) >> add_newline>> str "in">>add_newline >> (blk CONSISTENT 0 (sys (Top,Top,Top) (d-1) expr)) >> add_newline >>str "end"
+     (blk CONSISTENT 0 (
+     str "let" >> printTerms fundef >> brk(1,0) 
+     >> str "in" >> sys (Top,Top,Top) d expr >> brk(1,0)
+     >> str "end"))
   end;
 
 temp_add_user_printer ("letrecprint", ``Letrec x y``,genPrint letrecPrint);
@@ -141,19 +150,33 @@ fun lambdaPrint sys d t Top str brk blk =
 temp_add_user_printer ("lambdaprint", ``Fun x y``,genPrint lambdaPrint);
 
 (*Toplevel Dlet  pat*expr *)
-fun tletvalPrint sys d t Top str brk blk=
+fun dletvalPrint sys d t Top str brk blk=
   let
     open Portable smpp
-    val (l,r) = dest_comb (strip t);
+    val (_,[l,r]) = strip_comb t;
   in
     add_newline>> str "val" >>
-    sys (Top,Top,Top) (d-1) (strip l) >> 
+    sys (Top,Top,Top) (d-1) l >> 
     str " =" >> brk (1,0) >> sys (Top,Top,Top) (d-1) r
   end;
 
-temp_add_user_printer ("tletvalprint", ``Tdec (Dlet x y)``,genPrint tletvalPrint);
+temp_add_user_printer ("dletvalprint", ``Dlet x y``,genPrint dletvalPrint);
 
-(*Inner Let TODO*)
+(*Inner Let SOME*)
+fun letvalPrint sys d t Top str brk blk =
+  let
+    val (t,body) = dest_comb t
+    val (t,eq) = dest_comb t
+    val name = stringSyntax.fromHOLstring (strip (strip t))
+  in
+    (blk CONSISTENT 0 (
+    brk(1,0)>> str "let" >> str name >>str" = ">> (sys (Top,Top,Top) d eq) >> add_newline 
+    >> str"in" >> (sys (Top,Top,Top) d body) >> add_newline
+    >> str"end" ))
+  end;
+
+temp_add_user_printer ("letvalprint", ``Let (SOME x) y z``,genPrint letvalPrint);
+
 
 (*Pattern var*)
 fun pvarPrint sys d t Top str brk blk =
@@ -245,6 +268,7 @@ fun oppappPrint sys d t Top str brk blk =
 temp_add_user_printer ("oppappprint", ``App Opapp f x``, genPrint oppappPrint);
 
 (*Infix apply, ignored for now*)
+(*
 fun infixappPrint arithop sys d t Top str brk =
   let
     open Portable smpp
@@ -256,6 +280,7 @@ fun infixappPrint arithop sys d t Top str brk =
 
 temp_add_user_printer ("plusappprint", ``App Opapp (Var (Short"+")) x``,genPrint (infixappPrint "+")); 
 temp_add_user_printer ("minusappprint", ``App Opapp (Var (Short"-")) x``,genPrint (infixappPrint "-")); 
+*)
 
 (*raise expr*) 
 fun raisePrint sys d t Top str brk blk=
@@ -283,7 +308,6 @@ fun handlePrint sys d t Top str brk blk =
 
 temp_add_user_printer ("handleprint", ``Handle x y``,genPrint handlePrint);
 
-
 (*Logical AND and OR*)
 fun logPrint logop sys d t Top str brk blk =
   let
@@ -296,6 +320,7 @@ fun logPrint logop sys d t Top str brk blk =
 temp_add_user_printer ("andprint", ``Log And y z``, genPrint (logPrint " andalso "));
 temp_add_user_printer ("orprint", ``Log Or y z``, genPrint (logPrint " orelse "));
 
+(*If-then-else*)
 (*TODO:Figure out why the extra space appears*)
 fun ifthenelsePrint sys d t Top str brk blk = 
   let
@@ -309,8 +334,6 @@ fun ifthenelsePrint sys d t Top str brk blk =
   end handle HOL_ERR _ => raise term_pp_types.UserPP_Failed;
 
 temp_add_user_printer("ifthenelseprint", ``If x y z``,genPrint ifthenelsePrint);
-
-
 
 val prog = ``"structure Nat = struct val zero = 0 end;"``
 
