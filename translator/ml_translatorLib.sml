@@ -88,6 +88,7 @@ fun auto_prove proof_name (goal,tac) = let
   in if length rest = 0 then validation [] else let
   in failwith("auto_prove failed for " ^ proof_name) end end
 
+local
   (* inv: get_DeclAssum () is a hyp in each thm in each !cert_memory *)
   val decl_abbrev = ref TRUTH;
   val decl_term   = ref ``[]:dec list``;
@@ -98,7 +99,6 @@ fun auto_prove proof_name (goal,tac) = let
   val decl_name = ref "";
   val abbrev_counter = ref 0;
   val abbrev_defs = ref ([]:thm list);
-local (* TODO: move back up *)
 in
   fun get_mn () = (!decl_exists) |> concl |> rator |> rand
   fun INST_mn th = INST [``mn:string option`` |-> get_mn()] th
@@ -2652,6 +2652,7 @@ fun finalise_module_translation () = let
                    |> UNDISCH_ALL
     val pattern = ``DeclAssum mn ds env tys``
     val x = hyp th |> filter (can (match_term pattern)) |> hd
+            handle Empty => get_DeclAssum ()
     in DISCH x th end
   val _ = finalise_translation ()
   val ex = get_DeclAssumExists ()
@@ -2667,8 +2668,10 @@ fun finalise_module_translation () = let
     val th3 = MATCH_MP (DISCH_DeclAssum lemma) (MATCH_MP DeclEnv ex)
     val th3 = MATCH_MP Eval_Var_Short_merge (th3 |> RW [th2])
               |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL)
-    in MP th3 TRUTH |> DISCH_ALL end;
-  val th4 = LIST_CONJ (map (expand o fst o get_cert) (rev (get_names ())))
+    in MP th3 TRUTH |> DISCH_ALL |> GEN_ALL end
+    handle HOL_ERR _ => TRUTH;
+  val xs = (map (fst o get_cert) (rev (get_names ())))
+  val th4 = LIST_CONJ (map expand xs) |> RW []
   in CONJ th1 th4 |> GEN_ALL end
 
 (*
