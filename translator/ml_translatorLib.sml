@@ -102,10 +102,14 @@ local (* TODO: move back up *)
 in
   fun get_mn () = (!decl_exists) |> concl |> rator |> rand
   fun INST_mn th = INST [``mn:string option`` |-> get_mn()] th
-  fun set_module_name name =
+  fun full_id name =
+    if aconv (get_mn ()) ``NONE:string option`` then ``Short ^name``
+    else ``Long ^(get_mn () |> rand) ^name``
+  fun translate_into_module name =
     if not (aconv (!decl_term) ``[]:dec list``) then
-      failwith "set_module_name can only be used on an empty translation"
+      failwith "translate_into_module can only be used on an empty translation"
     else let
+      val _ = print ("\n\nTranslating into module: " ^ name ^ "\n\n")
       val tm = optionSyntax.mk_some(stringSyntax.fromMLstring name)
       val _ = (cenv_eq_thm := (DeclAssumCons_NIL |> GEN_ALL |> SPEC tm))
       val _ = (decl_exists := (DeclAssumExists_NIL |> GEN_ALL |> SPEC tm))
@@ -113,7 +117,7 @@ in
   fun get_cenv_eq_thm () = !cenv_eq_thm
   fun get_cenv_names () = let
     val th = get_cenv_eq_thm ()
-    val pat = ``Short (n:string)``
+    val pat = full_id ``(n:string)``
     val strs1 = find_terms (can (match_term pat)) (concl th) |> map rand
     val pat = ``(n:string,x:'a)``
     val strs2 = find_terms (can (match_term pat)) (concl th) |> map (rand o rator)
@@ -455,7 +459,8 @@ in
       val tt_list = listSyntax.mk_list(tt,type_of ``Tbool``)
       in if name = "fun"  then ``Tapp [^(el 1 tt);^(el 2 tt)] TC_fn`` else
          if name = "prod" then ``Tapp [^(el 1 tt);^(el 2 tt)] TC_tup`` else
-                               ``Tapp ^tt_list (TC_name (Short ^name_tm))`` end
+         if name = "list" then ``Tapp ^tt_list (TC_name (Short ^name_tm))`` else
+                               ``Tapp ^tt_list (TC_name (^(full_id name_tm)))`` end
   fun inst_type_inv (ty,inv) ty0 = let
     val i = match_type ty ty0
     val ii = map (fn {redex = x, residue = y} => (x,y)) i
@@ -921,6 +926,8 @@ fun list_dest f tm =
 fun define_ref_inv tys = let
   val is_pair_type =
     (case tys of [ty] => can (match_type ty) ``:'a # 'b`` | _ => false)
+  val is_list_type =
+    (case tys of [ty] => can (match_type ty) ``:'a list`` | _ => false)
   fun get_name ty = clean_uppercase (full_name_of_type ty) ^ "_TYPE"
   val names = map get_name tys
   val name = hd names
@@ -963,7 +970,9 @@ fun define_ref_inv tys = let
       val str_ty_name = stringLib.fromMLstring ml_ty_name
       val vs = listSyntax.mk_list(map (fn (_,z) => z) vars,``:v``)
       val tag_tm = if is_pair_type then ``NONE:(tvarN # tid_or_exn) option``
-                   else ``(SOME (^str, TypeId (Short ^str_ty_name)))``
+                   else if is_list_type then
+                     ``(SOME (^str, TypeId (Short ^str_ty_name)))``
+                   else ``(SOME (^str, TypeId (^(full_id str_ty_name))))``
       val tm = mk_conj(``v = Conv ^tag_tm ^vs``,tm)
       val tm = list_mk_exists (map (fn (_,z) => z) vars, tm)
       val tm = subst [input |-> x] (mk_eq(lhs,tm))
@@ -1117,12 +1126,17 @@ val ty = ``:'a # 'b``; derive_thms_for_type ty
 val ty = ``:'a + num``; derive_thms_for_type ty
 val ty = ``:num option``; derive_thms_for_type ty
 val ty = ``:unit``; derive_thms_for_type ty
+
 *)
 
 fun derive_thms_for_type ty = let
   val (ty,ret_ty) = dest_fun_type (type_of_cases_const ty)
   val is_record = 0 < length(TypeBase.fields_of ty)
   val tys = find_mutrec_types ty
+  val is_pair_type =
+    (case tys of [ty] => can (match_type ty) ``:'a # 'b`` | _ => false)
+  val is_list_type =
+    (case tys of [ty] => can (match_type ty) ``:'a list`` | _ => false)
   val _ = map (fn ty => print ("Adding type " ^ type_to_string ty ^ "\n")) tys
   (* look up case theorems *)
   val case_thms = map (fn ty => (ty, get_nchotomy_of ty)) tys
@@ -1158,10 +1172,14 @@ fun derive_thms_for_type ty = let
     val dtype_list = listSyntax.mk_list(dtype_parts,type_of (hd dtype_parts))
     in (``(Dtype ^dtype_list): dec``,dtype_list) end
   (* cons assumption *)
+  fun smart_full_id tyname =
+    if is_list_type orelse is_pair_type
+    then ``Short ^tyname`` else full_id tyname
   fun make_assum tyname c = let
     val (x1,x2) = dest_pair c
     val l = x2 |> listSyntax.dest_list |> fst |> length |> numSyntax.term_of_int
-    in ``lookup_cons ^x1 env = SOME (^l,TypeId (Short ^tyname))`` end
+    in ``lookup_cons (Short ^x1) env =
+         SOME (^l,TypeId (^(smart_full_id tyname)))`` end
   val type_assum = dtype_list
     |> listSyntax.dest_list |> fst
     |> map (list_dest dest_pair)
@@ -1169,6 +1187,7 @@ fun derive_thms_for_type ty = let
     |> map (fn (tyname,conses) => map (make_assum tyname) conses)
     |> flatten |> list_mk_conj
     handle HOL_ERR _ => T
+
 (*
   val ((ty,case_th),(_,inv_def,eq_lemma)) = hd (zip case_thms inv_defs)
   val inv_lhs = inv_def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL
@@ -1177,6 +1196,7 @@ fun derive_thms_for_type ty = let
   val input = mk_var("input",type_of x)
   val inv_lhs = subst [x|->input] inv_lhs
 *)
+
   (* prove lemma for case_of *)
   fun prove_case_of_lemma (ty,case_th,inv_lhs,inv_def) = let
     val cases_th = TypeBase.case_def_of ty
@@ -1297,6 +1317,7 @@ fun derive_thms_for_type ty = let
     val IF_F = prove(``(if F then x else y) = y:'a``,SIMP_TAC std_ss []);
     fun print_tac s g = (print s; ALL_TAC g)
     val _ = print "Case translation:"
+
     val init_tac =
           REWRITE_TAC [CONTAINER_def]
           \\ REPEAT STRIP_TAC \\ STRIP_ASSUME_TAC (Q.SPEC `x` case_th)
@@ -1322,17 +1343,28 @@ fun derive_thms_for_type ty = let
           \\ Q.LIST_EXISTS_TAC [`v`,`0,empty_store`] \\ ASM_REWRITE_TAC []
           \\ PairCases_on `env`
           \\ FULL_SIMP_TAC (srw_ss()) [pmatch_def,bind_def,pat_bindings_def,
-                  lookup_con_id_def,lookup_cons_def,same_tid_def,id_to_n_def,
+                  lookup_cons_def,same_tid_def,id_to_n_def,
                   same_ctor_def,write_def]
           \\ NTAC n
             (ONCE_REWRITE_TAC [evaluate_match_rw]
-             \\ ASM_SIMP_TAC (srw_ss()) [pat_bindings_def,pmatch_def,same_ctor_def,
-                  lookup_con_id_def,same_tid_def,id_to_n_def,write_def,bind_def])
+             \\ ASM_SIMP_TAC (srw_ss()) [pat_bindings_def,pmatch_def,
+                  same_ctor_def,same_tid_def,id_to_n_def,write_def,bind_def])
     val tac = init_tac THENL (map (fn (n,f,fxs,pxs,tm,exp,xs) => case_tac n) ts)
+
+(*
+val n = 1
+val n = 2
+
+val _ = set_goal([],goal)
+
+lookup_cons_def
+*)
+
     val case_lemma = auto_prove "case-of-proof" (goal,tac)
     val case_lemma = case_lemma |> PURE_REWRITE_RULE [TAG_def]
     val _ = print " done.\n"
     in (case_lemma,ts) end;
+
 (*
 val (n,f,fxs,pxs,tm,exp,xs) = hd ts
 *)
@@ -1357,7 +1389,7 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
     val cons_assum = type_assum
                      |> list_dest dest_conj
                      |> filter (fn tm => aconv
-                           (tm |> rator |> rand |> rator |> rand) str)
+                           (tm |> rator |> rand |> rator |> rand |> rand) str)
                      |> list_mk_conj
                      handle HOL_ERR _ => T
     val goal = mk_imp(cons_assum,mk_imp(tm,result))
@@ -1369,8 +1401,7 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
       \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) [PULL_EXISTS]
       \\ PairCases_on `env`
       \\ FULL_SIMP_TAC (srw_ss()) [inv_def,evaluate_list_SIMP,do_con_check_def,
-           all_env_to_cenv_def,lookup_con_id_def,build_conv_def,id_to_n_def,
-           lookup_cons_def]
+           all_env_to_cenv_def,lookup_cons_def,build_conv_def,id_to_n_def]
       \\ EXISTS_TAC witness \\ FULL_SIMP_TAC std_ss [CONS_11,evaluate_list_SIMP])
     in (pat,lemma) end;
 (*
@@ -1384,6 +1415,7 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
     val input = mk_var("input",type_of x)
     val inv_lhs = subst [x|->input] inv_lhs
     val (case_lemma,ts) = prove_case_of_lemma (ty,case_th,inv_lhs,inv_def)
+
     val conses = map (derive_cons ty inv_lhs inv_def) ts
     in (ty,eq_lemma,inv_def,conses,case_lemma,ts) end
   val res = map make_calls (zip case_thms inv_defs)
@@ -2667,6 +2699,8 @@ val def = Define `goo k = next k + 1`;
 
 *)
 
+val def = HD
+
 fun translate def = (let
   val original_def = def
   fun the (SOME x) = x | the _ = failwith("the of NONE")
@@ -2965,5 +2999,12 @@ fun mltDefine name q tac = let
   val _ = print_thm (D th)
   val _ = print "\n\n"
   in def end;
+
+(*
+val _ = register_type ``:'a option``;
+val th = hol2deep ``case x of NONE => SOME 5 | SOME y => x``;
+val _ = translate_into_module "hi";
+translate HD
+*)
 
 end
