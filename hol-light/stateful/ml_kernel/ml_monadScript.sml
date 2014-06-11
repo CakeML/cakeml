@@ -17,6 +17,8 @@ infix \\ val op \\ = op THEN;
 
 val _ = (use_full_type_names := false);
 
+val _ = translate_into_module "Kernel";
+
 val _ = register_type ``:'a # 'b``;
 val _ = register_type ``:'a list``;
 val _ = register_type ``:'a option``;
@@ -763,7 +765,7 @@ val the_type_constants_def = Define `
     the_type_constants = Loc 0`;
 
 val th = prove(
-  ``DeclAssum NONE (SNOC ^dec ^tm) env tys ==>
+  ``DeclAssum (SOME "Kernel") (SNOC ^dec ^tm) env tys ==>
     Eval env (Var (Short n)) ($= the_type_constants)``,
   tac ()) |> Q.INST [`n`|->`"the_type_constants"`] |> UNDISCH;
 
@@ -782,7 +784,7 @@ val the_term_constants_def = Define `
     the_term_constants = Loc 1`;
 
 val th = prove(
-  ``DeclAssum NONE (SNOC ^dec ^tm) env tys ==>
+  ``DeclAssum (SOME "Kernel") (SNOC ^dec ^tm) env tys ==>
     Eval env (Var (Short n)) ($= the_term_constants)``,
   tac ()) |> Q.INST [`n`|->`"the_term_constants"`] |> UNDISCH;
 
@@ -800,7 +802,7 @@ val the_definitions_def = Define `
     the_definitions = Loc 2`;
 
 val th = prove(
-  ``DeclAssum NONE (SNOC ^dec ^tm) env tys ==>
+  ``DeclAssum (SOME "Kernel") (SNOC ^dec ^tm) env tys ==>
     Eval env (Var (Short n)) ($= the_definitions)``,
   tac ()) |> Q.INST [`n`|->`"the_definitions"`] |> UNDISCH;
 
@@ -818,7 +820,7 @@ val the_clash_var_def = Define `
     the_clash_var = Loc 3`;
 
 val th = prove(
-  ``DeclAssum NONE (SNOC ^dec ^tm) env tys ==>
+  ``DeclAssum (SOME "Kernel") (SNOC ^dec ^tm) env tys ==>
     Eval env (Var (Short n)) ($= the_clash_var)``,
   tac ()) |> Q.INST [`n`|->`"the_clash_var"`] |> UNDISCH;
 
@@ -836,7 +838,7 @@ val the_axioms_def = Define `
     the_axioms = Loc 4`;
 
 val th = prove(
-  ``DeclAssum NONE (SNOC ^dec ^tm) env tys ==>
+  ``DeclAssum (SOME "Kernel") (SNOC ^dec ^tm) env tys ==>
     Eval env (Var (Short n)) ($= the_axioms)``,
   tac ()) |> Q.INST [`n`|->`"the_axioms"`] |> UNDISCH;
 
