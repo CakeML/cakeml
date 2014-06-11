@@ -792,24 +792,6 @@ fun find_mutrec_types ty = let (* e.g. input ``:v`` gives [``:exp``,``:v``]  *)
            |> all_distinct
   in if is_pair_ty ty then [ty] else if length xs = 0 then [ty] else xs end
 
-(*
-
-val pair_SIMP = prove(
-  ``!x. pair f1 f2 x v = pair (\y. if y = FST x then f1 y else ARB)
-                              (\y. if y = SND x then f2 y else ARB) x v``,
-  Cases \\ FULL_SIMP_TAC std_ss [fetch "-" "pair_def"]);
-
-val ty = ``:'a list``
-register_type ty
-
-val _ = Hol_datatype `BTREE = BLEAF of ('a TREE) | BBRANCH of BTREE => BTREE`;
-val ty = ``:'a BTREE``
-
-val type_name = name
-val const_name = (repeat rator x |> dest_const |> fst)
-
-*)
-
 fun tag_name type_name const_name =
   if (type_name = "LIST_TYPE") andalso (const_name = "NIL") then "nil" else
   if (type_name = "LIST_TYPE") andalso (const_name = "CONS") then "::" else let
@@ -918,9 +900,8 @@ fun list_dest f tm =
   handle HOL_ERR _ => [tm];
 
 (*
-  val tys = find_mutrec_types ty
-
   val ty = ``:v``
+  val tys = find_mutrec_types ty
 *)
 
 fun define_ref_inv tys = let
@@ -1178,7 +1159,7 @@ fun derive_thms_for_type ty = let
   fun make_assum tyname c = let
     val (x1,x2) = dest_pair c
     val l = x2 |> listSyntax.dest_list |> fst |> length |> numSyntax.term_of_int
-    in ``lookup_cons (Short ^x1) env =
+    in ``lookup_cons ^x1 env =
          SOME (^l,TypeId (^(smart_full_id tyname)))`` end
   val type_assum = dtype_list
     |> listSyntax.dest_list |> fst
@@ -1187,7 +1168,6 @@ fun derive_thms_for_type ty = let
     |> map (fn (tyname,conses) => map (make_assum tyname) conses)
     |> flatten |> list_mk_conj
     handle HOL_ERR _ => T
-
 (*
   val ((ty,case_th),(_,inv_def,eq_lemma)) = hd (zip case_thms inv_defs)
   val inv_lhs = inv_def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL
@@ -1196,7 +1176,6 @@ fun derive_thms_for_type ty = let
   val input = mk_var("input",type_of x)
   val inv_lhs = subst [x|->input] inv_lhs
 *)
-
   (* prove lemma for case_of *)
   fun prove_case_of_lemma (ty,case_th,inv_lhs,inv_def) = let
     val cases_th = TypeBase.case_def_of ty
@@ -1317,7 +1296,6 @@ fun derive_thms_for_type ty = let
     val IF_F = prove(``(if F then x else y) = y:'a``,SIMP_TAC std_ss []);
     fun print_tac s g = (print s; ALL_TAC g)
     val _ = print "Case translation:"
-
     val init_tac =
           REWRITE_TAC [CONTAINER_def]
           \\ REPEAT STRIP_TAC \\ STRIP_ASSUME_TAC (Q.SPEC `x` case_th)
@@ -1350,16 +1328,11 @@ fun derive_thms_for_type ty = let
              \\ ASM_SIMP_TAC (srw_ss()) [pat_bindings_def,pmatch_def,
                   same_ctor_def,same_tid_def,id_to_n_def,write_def,bind_def])
     val tac = init_tac THENL (map (fn (n,f,fxs,pxs,tm,exp,xs) => case_tac n) ts)
-
 (*
 val n = 1
 val n = 2
-
 val _ = set_goal([],goal)
-
-lookup_cons_def
 *)
-
     val case_lemma = auto_prove "case-of-proof" (goal,tac)
     val case_lemma = case_lemma |> PURE_REWRITE_RULE [TAG_def]
     val _ = print " done.\n"
@@ -1389,7 +1362,7 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
     val cons_assum = type_assum
                      |> list_dest dest_conj
                      |> filter (fn tm => aconv
-                           (tm |> rator |> rand |> rator |> rand |> rand) str)
+                           (tm |> rator |> rand |> rator |> rand) str)
                      |> list_mk_conj
                      handle HOL_ERR _ => T
     val goal = mk_imp(cons_assum,mk_imp(tm,result))
@@ -1739,10 +1712,8 @@ fun remove_pair_abs def = let
       \\ SIMP_TAC std_ss [Once def]);
     in delete_pair_arg lemma end handle HOL_ERR _ => def
   val def = delete_pair_arg def
-  val def' = (* if can (find_term (can (match_term ``UNCURRY``))) (concl def) then *)
-              CONV_RULE (RAND_CONV (REWRITE_CONV [UNCURRY_SIMP] THENC
-                (DEPTH_CONV PairRules.PBETA_CONV))) def
-            (* else def *)
+  val def' = CONV_RULE (RAND_CONV (REWRITE_CONV [UNCURRY_SIMP] THENC
+               (DEPTH_CONV PairRules.PBETA_CONV))) def
   in if concl def' = T then def else def' end
 
 fun is_rec_def def = let
@@ -1917,11 +1888,6 @@ fun mutual_to_single_line_def def = let
   val goals = map fst gs
   val lemma = SPECL goals ind
   val goal = lemma |> concl |> dest_imp |> fst
-(*
-def |> CONJUNCTS |>
-mk_thm([],goal) |> SPEC_ALL |> CONJUNCTS |> map concl
-goals  |> filter (can (find_term is_arb))
-*)
   val _ = not (can (find_term is_arb) goal) orelse failwith "requires precondition"
   val lemma1 = prove(goal,
     REPEAT STRIP_TAC THEN CONV_TAC (DEPTH_CONV BETA_CONV)
@@ -2070,8 +2036,6 @@ fun FORCE_GEN v th1 = GEN v th1 handle HOL_ERR _ => let
   val (v,x) = dest_abs tm
   val th = hol2deep x
   val th = inst_Eval_env v th
-
-  val v = ``v1:num``
 *)
 
 fun apply_Eval_Fun v th fix = let
@@ -2686,11 +2650,8 @@ end
 translate def
 
 val def = Define `fac n = if n = 0 then 1 else fac (n-1) * (n:num)`;
-
 val def = Define `foo n = if n = 0 then 1 else foo (n-1) * (fac n:num)`;
-
 val def = Define `the_value = 1:num`;
-
 val def = Define `goo k = next k + 1`;
 val def = Define `next n = n+1:num`;
 val ty = ``:'a + 'b``; register_type ty;
@@ -2698,8 +2659,6 @@ val ty = ``:'a option``; register_type ty;
 val def = Define `goo k = next k + 1`;
 
 *)
-
-val def = HD
 
 fun translate def = (let
   val original_def = def
@@ -2999,12 +2958,5 @@ fun mltDefine name q tac = let
   val _ = print_thm (D th)
   val _ = print "\n\n"
   in def end;
-
-(*
-val _ = register_type ``:'a option``;
-val th = hol2deep ``case x of NONE => SOME 5 | SOME y => x``;
-val _ = translate_into_module "hi";
-translate HD
-*)
 
 end

@@ -137,7 +137,8 @@ val lookup_var_def = Define `
   lookup_var name ((menv,cenv,env):all_env) = lookup name env`;
 
 val lookup_cons_def = zDefine `
-  lookup_cons id (env:all_env) = lookup_con_id id (FST (SND env))`;
+  lookup_cons name (env:all_env) =
+    lookup_con_id (Short name) (FST (SND env))`;
 
 val lookup_var_write = store_thm("lookup_var_write",
   ``lookup_var v (write w x env) =
@@ -1332,26 +1333,24 @@ val DISJOINT_set_SIMP = store_thm("DISJOINT_set_SIMP",
 (* DeclAssum for cons *)
 
 val DeclAssumCons_def = Define `
-  DeclAssumCons mn ds conses menv_cenv cons_env <=>
+  DeclAssumCons mn ds conses cons_env <=>
     ALL_DISTINCT (MAP FST cons_env) /\
     !env tys. DeclAssum mn ds env tys ==>
               (tys = set conses) /\
-              (SND (FST (SND env)) = cons_env) /\
-              (FST (FST (SND env)) = menv_cenv)`;
+              (SND (FST (SND env)) = cons_env)`;
 
 local
-  val lemma1 = EVAL ``(FST (init_envC))``
-  val lemma2 = EVAL ``(SND (init_envC))``
-  val tm = lemma2 |> concl |> rand
+  val lemma = EVAL ``(SND (init_envC))``
+  val tm = lemma |> concl |> rand
 in
   val DeclAssumCons_NIL = store_thm("DeclAssumCons_NIL",
-    ``DeclAssumCons mn [] [] [] ^tm``,
-    fs [DeclAssumCons_def,DeclAssum_def,Decls_NIL,lemma1,lemma2]);
+    ``DeclAssumCons mn [] [] ^tm``,
+    fs [DeclAssumCons_def,DeclAssum_def,Decls_NIL,lemma]);
 end
 
 val DeclAssumCons_SNOC_Dlet = store_thm("DeclAssumCons_SNOC_Dlet",
-  ``DeclAssumCons mn ds conses mce ce ==>
-    !name exp. DeclAssumCons mn (SNOC (Dlet (Pvar name) exp) ds) conses mce ce``,
+  ``DeclAssumCons mn ds conses ce ==>
+    !name exp. DeclAssumCons mn (SNOC (Dlet (Pvar name) exp) ds) conses ce``,
   fs [DeclAssumCons_def,DeclAssum_def,Decls_NIL,Decls_APPEND,SNOC_APPEND,
     Decls_Dlet] \\ srw_tac [] [] \\ res_tac
   \\ PairCases_on `s2` \\ fs [] \\ fs [GSYM empty_store_def]
@@ -1360,21 +1359,20 @@ val DeclAssumCons_SNOC_Dlet = store_thm("DeclAssumCons_SNOC_Dlet",
   \\ fs [] \\ res_tac \\ PairCases_on `env2` \\ fs [write_def]);
 
 val DeclAssumCons_SNOC_Dletrec = store_thm("DeclAssumCons_SNOC_Dletrec",
-  ``DeclAssumCons mn ds conses mce ce ==>
-    !funs. DeclAssumCons mn (SNOC (Dletrec funs) ds) conses mce ce``,
+  ``DeclAssumCons mn ds conses ce ==>
+    !funs. DeclAssumCons mn (SNOC (Dletrec funs) ds) conses ce``,
   fs [DeclAssumCons_def,DeclAssum_def,Decls_NIL,Decls_APPEND,SNOC_APPEND,
     Decls_Dletrec] \\ srw_tac [] [] \\ res_tac
   \\ PairCases_on `env2` \\ fs [write_rec_def]);
 
 val DeclAssumCons_SNOC_Dtype = store_thm("DeclAssumCons_SNOC_Dtype",
-  ``DeclAssumCons mn ds conses mce ce ==>
+  ``DeclAssumCons mn ds conses ce ==>
     !tds.
       ALL_DISTINCT (MAP FST (build_tdefs mn tds ++ ce)) ==>
       DeclAssumCons mn (SNOC (Dtype tds) ds)
         (MAP (\(tvs,tn,ctors). TypeId
           (case mn of NONE => Short tn
                     | SOME m => Long m tn)) tds ++ conses)
-        mce
         (build_tdefs mn tds ++ ce)``,
   fs [DeclAssumCons_def,DeclAssum_def,Decls_NIL,Decls_APPEND,SNOC_APPEND,
     Decls_Dtype] \\ srw_tac [] [] \\ res_tac
@@ -1391,10 +1389,10 @@ val EVERY_lookup_lemma = prove(
   \\ res_tac \\ Cases_on `h0 = p_1` \\ fs [MEM_MAP,FORALL_PROD] \\ metis_tac []);
 
 val DeclAssumCons_cons_lookup = store_thm("DeclAssumCons_cons_lookup",
-  ``DeclAssumCons mn ds conses mce ce ==>
+  ``DeclAssumCons mn ds conses ce ==>
     !env tys.
        DeclAssum mn ds env tys ==>
-         EVERY (\(cn,l,tyname). lookup_cons (Short cn) env = SOME (l, tyname)) ce``,
+         EVERY (\(cn,l,tyname). lookup_cons cn env = SOME (l, tyname)) ce``,
   fs [DeclAssumCons_def] \\ srw_tac [] [lookup_cons_def] \\ res_tac
   \\ PairCases_on `env` \\ fs [lookup_con_id_def]
   \\ match_mp_tac EVERY_lookup_lemma \\ fs []);
