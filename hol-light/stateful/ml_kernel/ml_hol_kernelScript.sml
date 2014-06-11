@@ -729,6 +729,9 @@ val def = (INST_TYPE_def |> SIMP_RULE std_ss [LET_DEF]) |> m_translate
 val def = (INST_def |> SIMP_RULE std_ss [LET_DEF]) |> m_translate
 val def = new_basic_type_definition_def |> m_translate
 
+val kernel_thm = finalise_module_translation ();
+val _ = save_thm("kernel_thm", Q.SPEC `NONE` kernel_thm);
+
 val _ = (print_asts := true);
 
 val _ = export_theory();
