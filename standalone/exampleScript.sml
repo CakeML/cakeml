@@ -55,26 +55,32 @@ fun allIntermediates prog =
 
 
 (*Nested ifs*)
-val ex1 = allIntermediates ``"exception Fail; if (if f x then y else z) then if(g z) then 5 else 4 else if h y then 4 else raise Fail;"``;
+val ex1 = allIntermediates ``"exception Fail; if (if f x then veryyyyyyyyyyloooooooonggggggggg else z) then if(g z) then 5 else 4 else if h y then 4 else raise Fail;"``;
 
 (*Top lvl mutually recursive functions and function calls*)
-val ex2 = fullEval ``"fun f x y = (g x) + (g y) and g x = x+1; f 5 4; g it;"``;
+val ex2 = allIntermediates ``"fun f x y = (g x) + (g y) and g x = x+1; f 5 4; g it;"``;
 
 (*raise, handle and case*)
-val ex3 = fullEval ``"exception Fail; exception Odd; exception Even; val x = 1; (case x of 1 => 2 | 2 => raise Even | 3 => raise Odd | _ => raise Fail) handle Odd => 1 | Even => 0 | Fail => 100;"``;
+val ex3 = allIntermediates ``"exception Fail; exception Odd; exception Even; val x = 1; (case x of 1 => 2 | 2 => raise Even | 3 => raise Odd | _ => raise Fail) handle Odd => 1 | Even => 0 | Fail => 100;"``;
 
 (*Parse error*)
-val ex4 = fullEval ``"structure Nat :> sig type nat val zero:nat val succ:nat-> nat end = struct type nat = int val zero = 0 fun succ x = x+1 end;"``;
+val ex4 = allIntermediates ``"structure Nat :> sig type nat val zero:nat val succ:nat-> nat end = struct type nat = int val zero = 0 fun succ x = x+1 end;"``;
 
 (*HANGS Structs, using members and ref*)
-val ex5 = fullEval ``"structure Nat = struct val zero = 0 fun succ x = x+1 end; val x = Nat.zero;"``;
+val ex5 = allIntermediates ``"structure Nat = struct val zero = 0 fun succ x = x+1 end; val x = Nat.zero;"``;
 
-(*ref/deref*)
-val ex6 = fullEval ``"val x = ref 5; x:= !x+1; x;"``;
+(*Top lvl val, ref/deref*)
+val ex6 = allIntermediates ``"val x = ref 5; x:= !x+1; x;"``;
 
 (*datatypes, non exhausive pattern matching*)
-val ex7 = fullEval ``"datatype foo = Br of int * foo * foo | Lf of int | Nil; fun f x = case x of Br(v,l,r) => v + (f l) + (f r) | Lf v => v ; f (Br (1, Br(2,Lf 1, Lf 2), (Lf 1)));"``;
+val ex7 = allIntermediates ``"datatype 'a foo = Br of 'a * 'a foo * 'a foo | Lf of 'a | Nil; fun f x = case x of Br(v,l,r) => v + (f l) + (f r) | Lf v => v ; f (Br (1, Br(2,Lf 1, Lf 2), (Lf 1)));"``;
 
 (*Pattern matching vals*)
-val ex8 = allIntermediates ``"fun f x = x+1; val (x,y,z) = (f 1,f 2,f (f (f 3)));"``;
+val ex8 = allIntermediates ``"fun f x y z= x+y+z; val (x,y,z) = (f 1 1 1,f 2 2 2,f (f (f 3 3 3) 1 2));"``;
 
+(*Coercion, parse error*)
+val ex9 = allIntermediates ``"val x:int = 5;"`` 
+
+(*complex datatypes*)
+
+val ex10 = allIntermediates ``"datatype ('a,'b,'c) foo2 = Foo of 'a * 'b | Foo2 of 'b * 'c | Foo3 of 'a*'b*'c*('a,'a,'a) foo2;"``
