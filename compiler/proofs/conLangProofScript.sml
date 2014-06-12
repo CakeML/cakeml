@@ -4282,6 +4282,7 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
   ((next',tagenv',inv'), exh', prog_i2) = prog_to_i2 (next,tagenv,inv) prog
   ⇒
   ?genv'_i2 s'_i2 res_i2 gtagenv'.
+    DISJOINT (FDOM exh) (FDOM exh') ∧
     gtagenv_weak gtagenv gtagenv' ∧
     evaluate_prog_i2 ck (FUNION exh' exh) genv_i2 s_i2 prog_i2 (s'_i2,genv'_i2,res_i2) ∧
     (res = NONE ∧ res_i2 = NONE ∧
@@ -4367,6 +4368,7 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
        >- (MAP_EVERY qexists_tac [`genv'_i2 ++ genv'_i2'`, `s'_i2'`, `gtagenv''`] >>
            rw [] >>
            fs [merge_envC_assoc, FUNION_ASSOC]
+           >- metis_tac[DISJOINT_SYM]
            >- metis_tac [gtagenv_weak_trans]
            >- (`DISJOINT (FDOM exh1) (FDOM (FUNION exh2 exh))` 
                   by rw [FDOM_FUNION, DISJOINT_UNION_BOTH] >>
@@ -4374,6 +4376,7 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
        >- (MAP_EVERY qexists_tac [`genv'_i2 ++ genv'_i2'`, `s'_i2'`, `SOME err_i2`, `gtagenv''`] >>
            rw [] >>
            fs [merge_envC_assoc, FUNION_ASSOC]
+           >- metis_tac[DISJOINT_SYM]
            >- metis_tac [gtagenv_weak_trans]
            >- (`DISJOINT (FDOM exh1) (FDOM (FUNION exh2 exh))` 
                   by rw [FDOM_FUNION, DISJOINT_UNION_BOTH] >>
@@ -4395,10 +4398,6 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
      map_every qx_gen_tac[`genv'_i2`,`s'_i2`,`gtagenv'`,`err_i2`] >>
      strip_tac >>
      MAP_EVERY qexists_tac [`genv'_i2`, `s'_i2`, `gtagenv'`, `err_i2`] >>
-     rw [] >>
-     disj2_tac >>
-     ONCE_REWRITE_TAC[GSYM(FUNION_ASSOC)] >>
-     match_mp_tac evaluate_prompt_i2_exh_weak >>
      `DISJOINT (FDOM exh2) (FDOM exh1)` by (
        match_mp_tac (GEN_ALL exh_disjoint1) >>
        simp[] >>
@@ -4414,6 +4413,10 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
                   metis_tac[]) >>
      `DISJOINT (FDOM exh1) (FDOM (FUNION exh2 exh))`
                   by rw [FDOM_FUNION, DISJOINT_UNION_BOTH] >>
+     rw [] >- metis_tac[DISJOINT_SYM] >>
+     disj2_tac >>
+     ONCE_REWRITE_TAC[GSYM(FUNION_ASSOC)] >>
+     match_mp_tac evaluate_prompt_i2_exh_weak >>
      fs[result_to_i2_cases] >> fs[]));
 
 val whole_prog_to_i2_correct = Q.store_thm ("whole_prog_to_i2_correct",
@@ -4424,6 +4427,7 @@ val whole_prog_to_i2_correct = Q.store_thm ("whole_prog_to_i2_correct",
   ((next',tagenv',inv'), exh', prog_i2) = prog_to_i2 (next,tagenv,inv) prog
   ⇒
   ?genv'_i2 s'_i2 res_i2 gtagenv'.
+    DISJOINT (FDOM exh) (FDOM exh') ∧
     gtagenv_weak gtagenv gtagenv' ∧
     evaluate_prog_i2 ck (FUNION exh' exh) genv_i2 s_i2 prog_i2 (s'_i2,genv'_i2,res_i2) ∧
     (res = NONE ∧ res_i2 = NONE ∧

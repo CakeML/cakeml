@@ -5,6 +5,18 @@ open modLangTheory conLangTheory decLangTheory exhLangTheory intLangTheory toInt
 
 val _ = new_theory"compilerProof"
 
+(* TODO: move *)
+
+val not_evaluate_whole_prog_timeout = store_thm("not_evaluate_whole_prog_timeout",
+  ``∀env stm prog.
+      (∀res. ¬evaluate_whole_prog F env stm prog res) ⇒
+      ∃r. evaluate_whole_prog T env stm prog r ∧
+          SND (SND r) = Rerr Rtimeout_error``,
+  rw[FORALL_PROD,EXISTS_PROD,evaluate_whole_prog_def] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[] >>
+  fs[GSYM EXISTS_PROD,GSYM FORALL_PROD] >>
+  metis_tac[not_evaluate_prog_timeout,SND,pair_CASES])
+
 (* misc *)
 
 val code_env_cd_append = store_thm("code_env_cd_append",
@@ -3203,12 +3215,9 @@ val compile_prog_code_labels_ok = store_thm("compile_prog_code_labels_ok",
     simp[] >>
     fs[closed_prog_def,all_env_dom_def,SUBSET_DEF,PULL_EXISTS])
 
-(*
 val compile_prog_thm = store_thm("compile_prog_thm",
-  ``∀ck env stm prog res. evaluate_prog ck env stm prog res ⇒
+  ``∀ck env stm prog res. evaluate_whole_prog ck env stm prog res ⇒
      ∀grd rss rsf bc bs bc0.
-      no_dup_mods prog stm ∧
-      no_dup_top_types prog stm ∧
       env_rs env stm grd init_compiler_state (bs with code := bc0) ∧
       closed_prog prog ∧
       (∀p. "it" ∈ FDOM (FST(SND(SND(prog_to_i1 0 FEMPTY FEMPTY prog)))) ∧
@@ -3236,7 +3245,7 @@ val compile_prog_thm = store_thm("compile_prog_thm",
   first_assum (split_pair_case_tac o rand o rhs o concl) >> fs[] >>
   PairCases_on`res`>>fs[] >>
   PairCases_on`stm` >> PairCases_on`env` >>
-  (prog_to_i1_correct
+  (whole_prog_to_i1_correct
    |> ONCE_REWRITE_RULE[CONJ_COMM]
    |> ONCE_REWRITE_RULE[GSYM CONJ_ASSOC]
    |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]
@@ -3247,7 +3256,10 @@ val compile_prog_thm = store_thm("compile_prog_thm",
   disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
   qpat_assum`0:num = X`(assume_tac o SYM) >> fs[] >>
   strip_tac >>
-  first_assum(mp_tac o MATCH_MP prog_to_i2_correct) >>
+  (whole_prog_to_i2_correct
+   |> ONCE_REWRITE_RULE[GSYM CONJ_ASSOC]
+   |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]
+   |> (fn th => first_assum (mp_tac o MATCH_MP th))) >>
   simp[] >>
   ONCE_REWRITE_TAC[CONJ_COMM] >>
   ONCE_REWRITE_TAC[GSYM CONJ_ASSOC] >>
@@ -3257,7 +3269,6 @@ val compile_prog_thm = store_thm("compile_prog_thm",
   fs[GSYM init_tagenv_state_def] >>
   PairCases_on`v`>>simp[] >>
   discharge_hyps >- (
-    conj_tac >- cheat >>
     Cases_on`res6`>>TRY(PairCases_on`a`)>>fs[result_to_i1_cases] >> rw[] ) >>
   strip_tac >>
   (prog_to_i3_correct
@@ -3754,7 +3765,7 @@ val compile_prog_thm = store_thm("compile_prog_thm",
 
 val compile_prog_divergence = store_thm("compile_prog_divergence",
   ``∀env stm prog rs grd types bc0 bs.
-      (∀res. ¬evaluate_prog F env stm prog res) ∧
+      (∀res. ¬evaluate_whole_prog F env stm prog res) ∧
       closed_prog prog ∧
       env_rs env stm grd init_compiler_state (bs with code := bc0) ∧
       bs.code = bc0 ++ compile_prog prog ∧
@@ -3763,7 +3774,7 @@ val compile_prog_divergence = store_thm("compile_prog_divergence",
       ⇒
       ∃bs'. bc_next^* bs bs' ∧ bc_fetch bs' = SOME Tick ∧ bs'.clock = SOME 0 ∧ bs'.output = bs.output``,
   rw[closed_prog_def] >>
-  imp_res_tac not_evaluate_prog_timeout >>
+  imp_res_tac not_evaluate_whole_prog_timeout >>
   fs[compile_prog_def,LET_THM] >>
   fs[init_compiler_state_def] >>
   `∃v1 v2 m2 p0. prog_to_i1 0 FEMPTY FEMPTY prog = (v1,v2,m2,p0)` by simp[GSYM EXISTS_PROD] >> fs[] >>
@@ -3772,9 +3783,9 @@ val compile_prog_divergence = store_thm("compile_prog_divergence",
   PairCases_on`env` >>
   PairCases_on`stm` >>
   PairCases_on`r` >>
-  (prog_to_i1_correct
+  (whole_prog_to_i1_correct
    |> CONV_RULE
-     ((lift_conjunct_conv(equal``evaluate_prog`` o fst o strip_comb))
+     ((lift_conjunct_conv(equal``evaluate_whole_prog`` o fst o strip_comb))
       |> LAND_CONV |> STRIP_QUANT_CONV)
    |> ONCE_REWRITE_RULE [GSYM AND_IMP_INTRO]
    |> (fn th => first_assum (mp_tac o MATCH_MP th))) >>
@@ -3784,7 +3795,10 @@ val compile_prog_divergence = store_thm("compile_prog_divergence",
   disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
   disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
   strip_tac >>
-  (prog_to_i2_correct
+  (whole_prog_to_i2_correct
+   |> CONV_RULE
+     ((lift_conjunct_conv(equal``evaluate_whole_prog_i1`` o fst o strip_comb))
+      |> LAND_CONV |> STRIP_QUANT_CONV)
    |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]
    |> (fn th => first_assum (mp_tac o MATCH_MP th))) >>
   fs[result_to_i1_cases] >>
@@ -3936,6 +3950,5 @@ val compile_prog_divergence = store_thm("compile_prog_divergence",
     metis_tac[APPEND_ASSOC]) >>
   HINT_EXISTS_TAC >>
   simp[Abbr`bs0`])
-*)
 
 val _ = export_theory()
