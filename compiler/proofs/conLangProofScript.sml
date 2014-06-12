@@ -4460,8 +4460,9 @@ val exh_disjoint2 = Q.prove (
 `prog_to_i2 (next2,tagenv2,inv2) prog = ((next',tagenv',inv''),exh1,ps1)  ∧
   (∀x. Short x ∈ FDOM exh ⇒ TypeId (Short x) ∈ tids) ∧
   (∀mn x. Long mn x ∈ FDOM exh ⇒ mn ∈ mods) ∧
-  no_dup_mods_i1 (prompt::prog) (s,tids,mods) ∧
-  no_dup_top_types_i1 (prompt::prog) (s,tids,mods)
+  no_dup_mods_i1 (prompt::prog) (s:v_i1 count_store,tids,mods) ∧
+  no_dup_top_types_i1 (prompt::prog) (s,tids,mods) ∧
+  EVERY (λprompt. case prompt of Prompt_i1 mn ds => prompt_mods_ok mn ds) (prompt::prog)
   ⇒
   DISJOINT (FDOM exh) (FDOM exh1)`,
  rw [] >>
@@ -4470,8 +4471,98 @@ val exh_disjoint2 = Q.prove (
  fs [no_dup_mods_i1_eqn, no_dup_top_types_i1_eqn] >>
  every_case_tac >>
  fs [tids_of_prompt_def]
- >- cheat
- >- cheat);
+ >- (
+   fs[IN_DISJOINT] >>
+   spose_not_then strip_assume_tac >>
+   Cases_on`x` >- (
+     rator_x_assum`no_dup_top_types_i1`mp_tac >>
+     res_tac >> simp[no_dup_top_types_i1_def] >>
+     simp[IN_DISJOINT,MEM_MAP,PULL_EXISTS] >>
+     fs[tids_of_prog_def,prog_i1_to_top_types_def,MEM_MAP,MEM_FLAT,PULL_EXISTS] >>
+     disj2_tac >>
+     first_assum(match_exists_tac o concl) >> simp[] >>
+     BasicProvers.CASE_TAC >> fs[tids_of_prompt_def] >>
+     BasicProvers.CASE_TAC >> simp[] >- (
+       fs[tids_of_decs_def,decs_to_types_i1_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+       every_case_tac >> fs[] >>
+       first_assum(match_exists_tac o concl) >> simp[] >>
+       fs[MEM_MAP,PULL_EXISTS] >>
+       first_assum(match_exists_tac o concl) >> simp[] >>
+       simp[UNCURRY] >>
+       qmatch_assum_rename_tac`Short a = mk_id mno X`["X"] >>
+       Cases_on`mno`>>fs[mk_id_def] ) >>
+     fs[EVERY_MEM] >>
+     res_tac >> fs[] >>
+     fs[prompt_mods_ok_def] >>
+     fs[EVERY_MEM,tids_of_decs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+     every_case_tac >> fs[] >>
+     res_tac >> fs[MEM_MAP,mk_id_def]) >>
+   fs[no_dup_mods_i1_def,IN_DISJOINT] >> res_tac >>
+   fs[prog_i1_to_mods_def,tids_of_prog_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+   qmatch_assum_rename_tac`mn ∈ mods`[] >>
+   first_x_assum(qspec_then`mn`mp_tac) >>
+   first_x_assum(qspec_then`mn`mp_tac) >>
+   qmatch_assum_rename_tac`MEM prompt prog`[] >>
+   Cases_on`prompt`>>fs[tids_of_prompt_def] >>
+   strip_tac >>
+   qmatch_assum_abbrev_tac`MEM p prog` >>
+   first_x_assum(qspec_then`p`mp_tac) >> simp[Abbr`p`] >>
+   BasicProvers.CASE_TAC >> simp[] >- (
+     fs[EVERY_MEM] >> res_tac >> fs[prompt_mods_ok_def,EVERY_MEM] >>
+     fs[tids_of_decs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+     every_case_tac >> fs[] >>
+     res_tac >> fs[MEM_MAP,mk_id_def] ) >>
+   strip_tac >>
+   fs[EVERY_MEM] >> res_tac >> fs[prompt_mods_ok_def,EVERY_MEM] >>
+   fs[tids_of_decs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+   every_case_tac >> fs[] >>
+   res_tac >> fs[MEM_MAP,mk_id_def] >> rw[] )
+ >- (
+   fs[IN_DISJOINT] >>
+   spose_not_then strip_assume_tac >>
+   qmatch_assum_rename_tac`z ∈ FDOM exh`[] >>
+   Cases_on`z` >- (
+     rator_x_assum`no_dup_top_types_i1`mp_tac >>
+     res_tac >> simp[no_dup_top_types_i1_def] >>
+     simp[IN_DISJOINT,MEM_MAP,PULL_EXISTS] >>
+     fs[tids_of_prog_def,prog_i1_to_top_types_def,MEM_MAP,MEM_FLAT,PULL_EXISTS] >>
+     disj2_tac >>
+     first_assum(match_exists_tac o concl) >> simp[] >>
+     BasicProvers.CASE_TAC >> fs[tids_of_prompt_def] >>
+     BasicProvers.CASE_TAC >> simp[] >- (
+       fs[tids_of_decs_def,decs_to_types_i1_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+       every_case_tac >> fs[] >>
+       first_assum(match_exists_tac o concl) >> simp[] >>
+       fs[MEM_MAP,PULL_EXISTS] >>
+       first_assum(match_exists_tac o concl) >> simp[] >>
+       simp[UNCURRY] >>
+       qmatch_assum_rename_tac`Short a = mk_id mno X`["X"] >>
+       Cases_on`mno`>>fs[mk_id_def] ) >>
+     fs[EVERY_MEM] >>
+     res_tac >> fs[] >>
+     fs[prompt_mods_ok_def] >>
+     fs[EVERY_MEM,tids_of_decs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+     every_case_tac >> fs[] >>
+     res_tac >> fs[MEM_MAP,mk_id_def]) >>
+   fs[no_dup_mods_i1_def,IN_DISJOINT] >> res_tac >>
+   fs[prog_i1_to_mods_def,tids_of_prog_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+   qmatch_assum_rename_tac`mn ∈ mods`[] >>
+   first_x_assum(qspec_then`mn`mp_tac) >>
+   qmatch_assum_rename_tac`MEM prompt prog`[] >>
+   Cases_on`prompt`>>fs[tids_of_prompt_def] >>
+   qmatch_assum_abbrev_tac`MEM p prog` >>
+   first_x_assum(qspec_then`p`mp_tac) >> simp[Abbr`p`] >>
+   BasicProvers.CASE_TAC >> simp[] >- (
+     fs[EVERY_MEM] >> res_tac >> fs[prompt_mods_ok_def,EVERY_MEM] >>
+     fs[tids_of_decs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+     every_case_tac >> fs[] >>
+     res_tac >> fs[MEM_MAP,mk_id_def] ) >>
+   strip_tac >>
+   first_assum(match_exists_tac o concl) >> simp[] >>
+   fs[EVERY_MEM] >> res_tac >> fs[prompt_mods_ok_def,EVERY_MEM] >>
+   fs[tids_of_decs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+   every_case_tac >> fs[] >>
+   res_tac >> fs[MEM_MAP,mk_id_def] >> rw[] ));
 
 val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
 `!ck genv envC s_tmp prog res_tmp.
@@ -4524,7 +4615,8 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
        MATCH_MP_TAC exh_disjoint1 >> simp[] ) >>
      `DISJOINT (FDOM exh) (FDOM exh1)`
               by (fs [to_i2_invariant_def] >>
-                  metis_tac [exh_disjoint2]) >>
+                  match_mp_tac exh_disjoint2 >>
+                  simp[] >> metis_tac[]) >>
      fs [no_dup_mods_i1_eqn, no_dup_top_types_i1_eqn] >>
       discharge_hyps >- (
        imp_res_tac evaluate_prompt_i1_mods_disjoint >>
@@ -4612,7 +4704,10 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
        first_assum(match_exists_tac o concl) >> simp[]) >>
      `DISJOINT (FDOM exh) (FDOM exh1)`
               by (fs [to_i2_invariant_def] >>
-                  metis_tac [pair_CASES, exh_disjoint2]) >>
+                  match_mp_tac (GEN_ALL exh_disjoint2) >>
+                  PairCases_on`st2` >>
+                  first_assum(match_exists_tac o concl) >> simp[] >>
+                  metis_tac[]) >>
      `DISJOINT (FDOM exh1) (FDOM (FUNION exh2 exh))`
                   by rw [FDOM_FUNION, DISJOINT_UNION_BOTH] >>
      fs[result_to_i2_cases] >> fs[]));
