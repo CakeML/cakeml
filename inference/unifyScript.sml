@@ -703,7 +703,7 @@ val t_walkstar_eqn = Q.store_thm ("t_walkstar_eqn",
     t_walkstar s t =
     case t_walk s t of
       | Infer_Tuvar v => Infer_Tuvar v
-      | Infer_Tapp ts tc0 => Infer_Tapp (MAP (t_walkstar s) ts) tc0
+      | Infer_Tapp ts tctor => Infer_Tapp (MAP (t_walkstar s) ts) tctor
       | Infer_Tvar_db n => Infer_Tvar_db n`,
 rw [t_walkstar_def] >>
 `wfs (encode_infer_t o_f s)` by fs [t_wfs_def] >>
