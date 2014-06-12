@@ -929,25 +929,36 @@ evaluate_prompt_i1 ck genv cenv s1 prompt (s2, cenv2, env2, Just err)
 ==>
 evaluate_prog_i1 ck genv cenv s1 (prompt::prompts) (s2, cenv2, env2, Just err)
 
-val no_dup_mods_i1 : list prompt_i1 -> bool
-let no_dup_mods_i1 prompts =
-  List.allDistinct (List.concat (List.map (fun prompt -> 
+val prog_i1_to_mods : list prompt_i1 -> list modN
+let prog_i1_to_mods prompts =
+  List.concat (List.map (fun prompt -> 
         match prompt with 
           | Prompt_i1 (Just mn) ds -> [mn]
           | _ -> [] end)
-     prompts))
- 
-val no_dup_top_types_i1 : list prompt_i1 -> bool
-let no_dup_top_types_i1 prompts =
-  List.allDistinct (List.concat (List.map (fun prompt -> 
+     prompts)
+
+val no_dup_mods_i1 : list prompt_i1 -> count_store v_i1 * set tid_or_exn * set modN -> bool
+let no_dup_mods_i1 prompts (_,_,mods) =
+  List.allDistinct (prog_i1_to_mods prompts) &&
+  disjoint (Set.fromList (prog_i1_to_mods prompts)) mods
+
+val prog_i1_to_top_types : list prompt_i1 -> list typeN
+let prog_i1_to_top_types prompts =
+  List.concat (List.map (fun prompt -> 
         match prompt with 
           | Prompt_i1 Nothing ds -> decs_to_types_i1 ds
           | _ -> [] end)
-     prompts))
+     prompts) 
+
+val no_dup_top_types_i1 : list prompt_i1 -> count_store v_i1 * set tid_or_exn * set modN -> bool
+let no_dup_top_types_i1 prompts (_, tids, _) =
+  List.allDistinct (prog_i1_to_top_types prompts) &&
+  disjoint (Set.fromList (List.map (fun tn -> TypeId (Short tn)) (prog_i1_to_top_types prompts))) tids
 
 val evaluate_whole_prog_i1 : bool -> list (maybe v_i1) -> envC -> count_store v_i1 * set tid_or_exn * set modN -> list prompt_i1 -> (count_store v_i1 * set tid_or_exn * set modN) * envC * list (maybe v_i1) * maybe (error_result v_i1) -> bool
 let evaluate_whole_prog_i1 ck genv cenv s1 prompts (s2, cenv2, env2, res) =
-  if no_dup_mods_i1 prompts && no_dup_top_types_i1 prompts then
+  if no_dup_mods_i1 prompts s1 && no_dup_top_types_i1 prompts s1 &&
+     List.all (fun p -> match p with Prompt_i1 mn ds -> prompt_mods_ok mn ds end) prompts then
     evaluate_prog_i1 ck genv cenv s1 prompts (s2, cenv2, env2, res)
   else
     res = Just Rtype_error 

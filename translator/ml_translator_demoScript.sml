@@ -40,7 +40,7 @@ val Eval_QSORT_EXPANDED = save_thm("Eval_QSORT_EXPANDED",let
 
 val ML_QSORT_CORRECT = store_thm ("ML_QSORT_CORRECT",
   ``!env tys a ord R l xs.
-      DeclAssum ml_translator_demo_decls env tys /\
+      DeclAssum NONE ml_translator_demo_decls env tys /\
       LIST_TYPE a l xs /\ (lookup_var "xs" env = SOME xs) /\
       (a --> a --> BOOL) ord R /\ (lookup_var "R" env = SOME R) /\
       transitive ord /\ total ord

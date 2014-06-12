@@ -2265,14 +2265,14 @@ val prog_type_soundness = Q.store_thm ("prog_type_soundness",
      qexists_tac `FST decls'` >>
      rw [FST_union_decls]));
 
-val type_no_dup_top_types = Q.prove (
+val type_no_dup_top_types_lem = Q.prove (
 `!decls1 tenvM tenvC tenv prog decls1' tenvM' tenvC' tenv'.
   type_prog decls1 tenvM tenvC tenv prog decls1' tenvM' tenvC' tenv'
   ⇒
-  no_dup_top_types prog ∧
-  DISJOINT (FST (SND decls1)) (IMAGE (mk_id NONE) (set (FLAT (MAP (λtop. case top of Tmod v4 v5 v6 => [] | Tdec d => decs_to_types [d]) prog))))`,
+  ALL_DISTINCT (prog_to_top_types prog) ∧
+  DISJOINT (FST (SND decls1)) (IMAGE (mk_id NONE) (set (prog_to_top_types prog)))`,
  ho_match_mp_tac type_prog_ind >>
- rw [no_dup_top_types_def] >>
+ rw [prog_to_top_types_def] >>
  every_case_tac >>
  rw [] >>
  fs [type_top_cases] >>
@@ -2310,14 +2310,52 @@ val type_no_dup_top_types = Q.prove (
      fs [MEM_MAP,LAMBDA_PROD, EXISTS_PROD, mk_id_def, FORALL_PROD] >>
      metis_tac []));
 
-val type_no_dup_mods = Q.prove (
+val type_no_dup_top_types_lem2 = Q.prove (
 `!decls1 tenvM tenvC tenv prog decls1' tenvM' tenvC' tenv'.
   type_prog decls1 tenvM tenvC tenv prog decls1' tenvM' tenvC' tenv'
   ⇒
-  no_dup_mods prog ∧
-  DISJOINT (FST decls1) (set (FLAT (MAP (λtop. case top of Tmod mn v5 v6 => [mn] | Tdec v7 => []) prog)))`,
+  no_dup_top_types prog (x,IMAGE TypeId (FST (SND decls1)),y)`,
+ rw [no_dup_top_types_def]
+ >- metis_tac [type_no_dup_top_types_lem] >>
+ imp_res_tac type_no_dup_top_types_lem >>
+ fs [DISJOINT_DEF, EXTENSION] >>
+ rw [] >>
+ cases_on `x` >>
+ rw [MEM_MAP] >>
+ fs [mk_id_def] >>
+ metis_tac []);
+
+val type_no_dup_top_types = Q.prove (
+`!decls1 tenvM tenvC tenv prog decls1' tenvM' tenvC' tenv'.
+  type_prog decls1 tenvM tenvC tenv prog decls1' tenvM' tenvC' tenv' ∧
+  consistent_decls decls2 decls_no_sig ∧
+  weak_decls_only_mods decls_no_sig decls1
+  ⇒
+  no_dup_top_types prog (x,decls2,y)`,
+ rw [] >>
+ `no_dup_top_types prog (x,IMAGE TypeId (FST (SND decls1)),y)`
+         by metis_tac [type_no_dup_top_types_lem2] >>
+ fs [no_dup_top_types_def] >>
+ PairCases_on `decls_no_sig` >>
+ PairCases_on `decls1` >>
+ fs [RES_FORALL, DISJOINT_DEF, SUBSET_DEF, EXTENSION, weak_decls_only_mods_def, consistent_decls_def] >>
+ rw [] >>
+ CCONTR_TAC >>
+ fs [] >>
+ res_tac >>
+ every_case_tac >>
+ fs [MEM_MAP] >>
+ rw [] >>
+ metis_tac [])
+
+val type_no_dup_mods_lem = Q.prove (
+`!decls1 tenvM tenvC tenv prog decls1' tenvM' tenvC' tenv'.
+  type_prog decls1 tenvM tenvC tenv prog decls1' tenvM' tenvC' tenv'
+  ⇒
+  ALL_DISTINCT (prog_to_mods prog) ∧
+  DISJOINT (FST decls1) (set (prog_to_mods prog))`,
  ho_match_mp_tac type_prog_ind >>
- rw [no_dup_mods_def] >>
+ rw [prog_to_mods_def] >>
  every_case_tac >>
  rw [] >>
  fs [type_top_cases] >>
@@ -2330,6 +2368,14 @@ val type_no_dup_mods = Q.prove (
      PairCases_on `decls1` >>
      fs [union_decls_def, DISJOINT_DEF, EXTENSION] >>
      metis_tac []));
+
+val type_no_dup_mods = Q.prove (
+`!decls1 tenvM tenvC tenv prog decls1' tenvM' tenvC' tenv'.
+  type_prog decls1 tenvM tenvC tenv prog decls1' tenvM' tenvC' tenv'
+  ⇒
+  no_dup_mods prog (x, y, FST decls1)`,
+ rw [no_dup_mods_def] >>
+ metis_tac [type_no_dup_mods_lem, DISJOINT_SYM]);
 
 val whole_prog_type_soundness = Q.store_thm ("whole_prog_type_soundness",
 `!decls1 tenvM tenvC tenv envM envC envE count store1 decls1' tenvM' tenvC' tenv' prog decls2.
@@ -2348,7 +2394,7 @@ val whole_prog_type_soundness = Q.store_thm ("whole_prog_type_soundness",
  imp_res_tac prog_type_soundness >>
  pop_assum (assume_tac o Q.SPEC `count'`) >>
  fs []
- >- metis_tac [type_no_dup_top_types, type_no_dup_mods]
+ >- metis_tac [type_no_dup_top_types, type_sound_invariants_def, type_no_dup_mods]
  >- metis_tac []);
 
 val to_ctMap_list_def = Define `

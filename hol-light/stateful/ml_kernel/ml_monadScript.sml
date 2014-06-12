@@ -17,6 +17,8 @@ infix \\ val op \\ = op THEN;
 
 val _ = (use_full_type_names := false);
 
+val _ = translate_into_module "Kernel";
+
 val _ = register_type ``:'a # 'b``;
 val _ = register_type ``:'a list``;
 val _ = register_type ``:'a option``;
@@ -567,17 +569,17 @@ val EvalM_Let = store_thm("EvalM_Let",
 (* declarations *)
 
 val M_DeclAssum_Dlet_INTRO = store_thm("M_DeclAssum_Dlet_INTRO",
-  ``(!env. DeclAssum ds env tys ==> EvalM env (Fun n exp) (PURE P x)) ==>
-    (!v env. DeclAssum (SNOC (Dlet (Pvar v) (Fun n exp)) ds) env tys ==>
+  ``(!env. DeclAssum mn ds env tys ==> EvalM env (Fun n exp) (PURE P x)) ==>
+    (!v env. DeclAssum mn (SNOC (Dlet (Pvar v) (Fun n exp)) ds) env tys ==>
              EvalM env (Var (Short v)) (PURE P x))``,
   METIS_TAC [DeclAssum_Dlet_INTRO,EvalM_PURE_EQ,Eval_IMP_PURE]);
 
 val M_DeclAssum_Dletrec_INTRO = store_thm("M_DeclAssum_Dletrec_INTRO",
   ``(!env1 env.
-      DeclAssum ds env tys /\
+      DeclAssum mn ds env tys /\
       LOOKUP_VAR v env1 (Recclosure env [(v,xs,f)] v) ==>
       EvalM env1 (Var (Short v)) (PURE P x)) ==>
-    !env. DeclAssum (SNOC (Dletrec [(v,xs,f)]) ds) env tys ==>
+    !env. DeclAssum mn (SNOC (Dletrec [(v,xs,f)]) ds) env tys ==>
           EvalM env (Var (Short v)) (PURE P x)``,
   FULL_SIMP_TAC std_ss [DeclAssum_def,SNOC_APPEND,Decls_APPEND,Decls_Dletrec,
     MAP,ALL_DISTINCT,MEM,PULL_EXISTS,build_rec_env_def,FOLDR,bind_def,
@@ -624,9 +626,9 @@ val SWAP_EXISTS = METIS_PROVE [] ``(?x y. P x y) ==> (?y x. P x y)``
 
 val DeclAssumExists_SNOC_Dlet_Ref_lemma = prove(
   ``!ds name n exp P.
-      (!env tys. DeclAssum ds env tys ==> Eval env exp P) ==>
-      DeclAssumExists ds ==>
-      DeclAssumExists (SNOC (Dlet (Pvar name) (Uapp Opref exp)) ds)``,
+      (!env tys. DeclAssum mn ds env tys ==> Eval env exp P) ==>
+      DeclAssumExists mn ds ==>
+      DeclAssumExists mn (SNOC (Dlet (Pvar name) (Uapp Opref exp)) ds)``,
   SIMP_TAC std_ss [DeclAssumExists_def,PULL_EXISTS] \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [DeclAssum_def,Decls_APPEND,SNOC_APPEND,PULL_EXISTS]
   \\ RES_TAC \\ SIMP_TAC std_ss [Decls_def] \\ ONCE_REWRITE_TAC [CONJ_COMM]
@@ -652,10 +654,10 @@ val DeclAssumExists_SNOC_Dlet_Ref_lemma = prove(
 
 val DeclAssumExists_SNOC_Dlet_Ref = prove(
   ``!ds name n exp P.
-      (!env tys. DeclAssum ds env tys ==> Q env ==> Eval env exp P) ==>
-      (!env tys. DeclAssum ds env tys ==> Q env) ==>
-      DeclAssumExists ds ==>
-      DeclAssumExists (SNOC (Dlet (Pvar name) (Uapp Opref exp)) ds)``,
+      (!env tys. DeclAssum mn ds env tys ==> Q env ==> Eval env exp P) ==>
+      (!env tys. DeclAssum mn ds env tys ==> Q env) ==>
+      DeclAssumExists mn ds ==>
+      DeclAssumExists mn (SNOC (Dlet (Pvar name) (Uapp Opref exp)) ds)``,
   METIS_TAC [DeclAssumExists_SNOC_Dlet_Ref_lemma]);
 
 fun all_decls () =
@@ -714,7 +716,7 @@ val obviously_pure_IMP = prove(
 
 val LENGTH_FILTER_decl_let = prove(
   ``!ds s1 s2 env env2 tys.
-      EVERY simple_decl ds /\ Decls NONE env ((0,s1),tys) ds env2 s2 ==>
+      EVERY simple_decl ds /\ Decls mn env ((0,s1),tys) ds env2 s2 ==>
       (LENGTH (FILTER decl_let ds) + LENGTH s1 = LENGTH (SND (FST s2)))``,
   Induct \\ SRW_TAC [] [Decls_NIL,FILTER,LENGTH]
   \\ FULL_SIMP_TAC std_ss [Once Decls_CONS]
@@ -733,7 +735,7 @@ val LENGTH_FILTER_decl_let = prove(
 val simple_decl_IMP = prove(
   ``EVERY simple_decl (SNOC (Dlet (Pvar n) exp) ds) /\
     (k = LENGTH (FILTER decl_let ds)) ==>
-    (DeclAssum (SNOC (Dlet (Pvar n) exp) ds) env tys ==>
+    (DeclAssum mn (SNOC (Dlet (Pvar n) exp) ds) env tys ==>
      Eval env (Var (Short n)) ((=) (Loc k)))``,
   Q.SPEC_TAC (`k`,`k`) \\ SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [DeclAssum_def,Decls_APPEND,SNOC_APPEND,
@@ -763,7 +765,7 @@ val the_type_constants_def = Define `
     the_type_constants = Loc 0`;
 
 val th = prove(
-  ``DeclAssum (SNOC ^dec ^tm) env tys ==>
+  ``DeclAssum (SOME "Kernel") (SNOC ^dec ^tm) env tys ==>
     Eval env (Var (Short n)) ($= the_type_constants)``,
   tac ()) |> Q.INST [`n`|->`"the_type_constants"`] |> UNDISCH;
 
@@ -782,7 +784,7 @@ val the_term_constants_def = Define `
     the_term_constants = Loc 1`;
 
 val th = prove(
-  ``DeclAssum (SNOC ^dec ^tm) env tys ==>
+  ``DeclAssum (SOME "Kernel") (SNOC ^dec ^tm) env tys ==>
     Eval env (Var (Short n)) ($= the_term_constants)``,
   tac ()) |> Q.INST [`n`|->`"the_term_constants"`] |> UNDISCH;
 
@@ -800,7 +802,7 @@ val the_definitions_def = Define `
     the_definitions = Loc 2`;
 
 val th = prove(
-  ``DeclAssum (SNOC ^dec ^tm) env tys ==>
+  ``DeclAssum (SOME "Kernel") (SNOC ^dec ^tm) env tys ==>
     Eval env (Var (Short n)) ($= the_definitions)``,
   tac ()) |> Q.INST [`n`|->`"the_definitions"`] |> UNDISCH;
 
@@ -818,7 +820,7 @@ val the_clash_var_def = Define `
     the_clash_var = Loc 3`;
 
 val th = prove(
-  ``DeclAssum (SNOC ^dec ^tm) env tys ==>
+  ``DeclAssum (SOME "Kernel") (SNOC ^dec ^tm) env tys ==>
     Eval env (Var (Short n)) ($= the_clash_var)``,
   tac ()) |> Q.INST [`n`|->`"the_clash_var"`] |> UNDISCH;
 
@@ -836,7 +838,7 @@ val the_axioms_def = Define `
     the_axioms = Loc 4`;
 
 val th = prove(
-  ``DeclAssum (SNOC ^dec ^tm) env tys ==>
+  ``DeclAssum (SOME "Kernel") (SNOC ^dec ^tm) env tys ==>
     Eval env (Var (Short n)) ($= the_axioms)``,
   tac ()) |> Q.INST [`n`|->`"the_axioms"`] |> UNDISCH;
 
