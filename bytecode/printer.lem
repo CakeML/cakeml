@@ -4,7 +4,6 @@ import List_extra
 
 open import Ast
 open import SemanticPrimitives
-open import CompilerLib
 
 type ov =
   | OLit of lit

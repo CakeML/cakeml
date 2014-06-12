@@ -5,6 +5,18 @@ open modLangTheory conLangTheory decLangTheory exhLangTheory intLangTheory toInt
 
 val _ = new_theory"compilerProof"
 
+(* TODO: move *)
+
+val not_evaluate_whole_prog_timeout = store_thm("not_evaluate_whole_prog_timeout",
+  ``∀env stm prog.
+      (∀res. ¬evaluate_whole_prog F env stm prog res) ⇒
+      ∃r. evaluate_whole_prog T env stm prog r ∧
+          SND (SND r) = Rerr Rtimeout_error``,
+  rw[FORALL_PROD,EXISTS_PROD,evaluate_whole_prog_def] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[] >>
+  fs[GSYM EXISTS_PROD,GSYM FORALL_PROD] >>
+  metis_tac[not_evaluate_prog_timeout,SND,pair_CASES])
+
 (* misc *)
 
 val code_env_cd_append = store_thm("code_env_cd_append",
@@ -1125,7 +1137,7 @@ val env_rs_def = Define`
         genv (FST rs.globals_env) (SND rs.globals_env)
         envM envE (cnt,s) (cnt,s1) mods ∧
       to_i2_invariant
-        tids envC rs.exh rs.contags_env gtagenv
+        mods tids envC rs.exh rs.contags_env gtagenv
         (cnt,s1) (cnt,s2) genv genv2 ∧
       LIST_REL (exh_Cv O v_to_exh rs.exh) s2 Cs ∧
       LIST_REL (OPTREL (exh_Cv O v_to_exh rs.exh)) genv2 Cg ∧
@@ -1376,7 +1388,7 @@ val compile_top_thm = store_thm("compile_top_thm",
              (case types of NONE => "" | SOME types =>
               print_result types top envC env_or_err))
           | Rerr(Rraise _) =>
-            ((FST env,merge_envC (case top of Tdec _ => (emp,emp) | Tmod _ _ _ => envC) (FST(SND env)),SND(SND env)),rsf,F,
+            (env,rsf,F,
              print_result (THE types) top envC env_or_err) in
         bc_fetch bs' = SOME (Stop success) ∧
         bs'.output = bs.output ++ str ∧
@@ -1411,6 +1423,7 @@ val compile_top_thm = store_thm("compile_top_thm",
         ONCE_REWRITE_CONV[GSYM CONJ_ASSOC] THENC
         ONCE_REWRITE_CONV[GSYM AND_IMP_INTRO]) prompt_to_i2_correct))) >>
     REWRITE_TAC[Once EQ_SYM_EQ] >>
+    REWRITE_TAC[Once (GSYM CONJ_ASSOC)] >>
     REWRITE_TAC[Once (GSYM AND_IMP_INTRO)] >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
     REWRITE_TAC[Once (GSYM AND_IMP_INTRO)] >>
@@ -1939,12 +1952,18 @@ val compile_top_thm = store_thm("compile_top_thm",
         ONCE_REWRITE_CONV[GSYM CONJ_ASSOC] THENC
         ONCE_REWRITE_CONV[GSYM AND_IMP_INTRO]) prompt_to_i2_correct))) >>
     REWRITE_TAC[Once EQ_SYM_EQ] >>
+    REWRITE_TAC[Once (GSYM CONJ_ASSOC)] >>
     REWRITE_TAC[Once (GSYM AND_IMP_INTRO)] >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
     REWRITE_TAC[Once (GSYM AND_IMP_INTRO)] >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
     simp[] >>
-    discharge_hyps >- ( fs[result_to_i1_cases] >> fs[] ) >>
+    discharge_hyps >- (
+      fs[result_to_i1_cases] >> fs[] >>
+      fs[top_to_i1_def,LET_THM,UNCURRY] >>
+      rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
+      simp[dec_to_i1_def] >>
+      BasicProvers.CASE_TAC >> simp[not_mod_decs_def] ) >>
     disch_then(qx_choosel_then[`new_genv_i2`,`s2_i2`,`res_i2`,`gtagenv2`]strip_assume_tac) >>
     `∃n e. prompt_to_i3 non som (LENGTH grd0) p = (n,e)` by simp[GSYM EXISTS_PROD] >> fs[] >>
     first_assum (mp_tac o (MATCH_MP (
@@ -2291,6 +2310,7 @@ val compile_top_thm = store_thm("compile_top_thm",
         ONCE_REWRITE_CONV[GSYM CONJ_ASSOC] THENC
         ONCE_REWRITE_CONV[GSYM AND_IMP_INTRO]) prompt_to_i2_correct))) >>
     REWRITE_TAC[Once EQ_SYM_EQ] >>
+    REWRITE_TAC[Once (GSYM CONJ_ASSOC)] >>
     REWRITE_TAC[Once (GSYM AND_IMP_INTRO)] >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
     REWRITE_TAC[Once (GSYM AND_IMP_INTRO)] >>
@@ -2628,12 +2648,17 @@ val compile_top_thm = store_thm("compile_top_thm",
         ONCE_REWRITE_CONV[GSYM CONJ_ASSOC] THENC
         ONCE_REWRITE_CONV[GSYM AND_IMP_INTRO]) prompt_to_i2_correct))) >>
     REWRITE_TAC[Once EQ_SYM_EQ] >>
+    REWRITE_TAC[Once (GSYM CONJ_ASSOC)] >>
     REWRITE_TAC[Once (GSYM AND_IMP_INTRO)] >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
     REWRITE_TAC[Once (GSYM AND_IMP_INTRO)] >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
     simp[] >>
-    discharge_hyps >- ( fs[result_to_i1_cases] >> fs[] ) >>
+    discharge_hyps >- (
+      fs[result_to_i1_cases] >> fs[] >>
+      fs[top_to_i1_def,LET_THM,UNCURRY] >>
+      rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
+      MATCH_ACCEPT_TAC mod_decs_decs_to_i1) >>
     disch_then(qx_choosel_then[`new_genv_i2`,`s2_i2`,`res_i2`,`gtagenv2`]strip_assume_tac) >>
     `∃n e. prompt_to_i3 non som (LENGTH grd0) p = (n,e)` by simp[GSYM EXISTS_PROD] >> fs[] >>
     first_assum (mp_tac o (MATCH_MP (
@@ -2994,6 +3019,7 @@ val compile_top_divergence = store_thm("compile_top_divergence",
   ONCE_REWRITE_TAC[GSYM AND_IMP_INTRO] >>
   disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
   ONCE_REWRITE_TAC[EQ_SYM_EQ] >>
+  ONCE_REWRITE_TAC[GSYM AND_IMP_INTRO] >>
   disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
   strip_tac >>
   (prompt_to_i3_correct
@@ -3190,7 +3216,7 @@ val compile_prog_code_labels_ok = store_thm("compile_prog_code_labels_ok",
     fs[closed_prog_def,all_env_dom_def,SUBSET_DEF,PULL_EXISTS])
 
 val compile_prog_thm = store_thm("compile_prog_thm",
-  ``∀ck env stm prog res. evaluate_prog ck env stm prog res ⇒
+  ``∀ck env stm prog res. evaluate_whole_prog ck env stm prog res ⇒
      ∀grd rss rsf bc bs bc0.
       env_rs env stm grd init_compiler_state (bs with code := bc0) ∧
       closed_prog prog ∧
@@ -3219,7 +3245,7 @@ val compile_prog_thm = store_thm("compile_prog_thm",
   first_assum (split_pair_case_tac o rand o rhs o concl) >> fs[] >>
   PairCases_on`res`>>fs[] >>
   PairCases_on`stm` >> PairCases_on`env` >>
-  (prog_to_i1_correct
+  (whole_prog_to_i1_correct
    |> ONCE_REWRITE_RULE[CONJ_COMM]
    |> ONCE_REWRITE_RULE[GSYM CONJ_ASSOC]
    |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]
@@ -3230,7 +3256,10 @@ val compile_prog_thm = store_thm("compile_prog_thm",
   disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
   qpat_assum`0:num = X`(assume_tac o SYM) >> fs[] >>
   strip_tac >>
-  first_assum(mp_tac o MATCH_MP prog_to_i2_correct) >>
+  (whole_prog_to_i2_correct
+   |> ONCE_REWRITE_RULE[GSYM CONJ_ASSOC]
+   |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]
+   |> (fn th => first_assum (mp_tac o MATCH_MP th))) >>
   simp[] >>
   ONCE_REWRITE_TAC[CONJ_COMM] >>
   ONCE_REWRITE_TAC[GSYM CONJ_ASSOC] >>
@@ -3736,7 +3765,7 @@ val compile_prog_thm = store_thm("compile_prog_thm",
 
 val compile_prog_divergence = store_thm("compile_prog_divergence",
   ``∀env stm prog rs grd types bc0 bs.
-      (∀res. ¬evaluate_prog F env stm prog res) ∧
+      (∀res. ¬evaluate_whole_prog F env stm prog res) ∧
       closed_prog prog ∧
       env_rs env stm grd init_compiler_state (bs with code := bc0) ∧
       bs.code = bc0 ++ compile_prog prog ∧
@@ -3745,7 +3774,7 @@ val compile_prog_divergence = store_thm("compile_prog_divergence",
       ⇒
       ∃bs'. bc_next^* bs bs' ∧ bc_fetch bs' = SOME Tick ∧ bs'.clock = SOME 0 ∧ bs'.output = bs.output``,
   rw[closed_prog_def] >>
-  imp_res_tac not_evaluate_prog_timeout >>
+  imp_res_tac not_evaluate_whole_prog_timeout >>
   fs[compile_prog_def,LET_THM] >>
   fs[init_compiler_state_def] >>
   `∃v1 v2 m2 p0. prog_to_i1 0 FEMPTY FEMPTY prog = (v1,v2,m2,p0)` by simp[GSYM EXISTS_PROD] >> fs[] >>
@@ -3754,9 +3783,9 @@ val compile_prog_divergence = store_thm("compile_prog_divergence",
   PairCases_on`env` >>
   PairCases_on`stm` >>
   PairCases_on`r` >>
-  (prog_to_i1_correct
+  (whole_prog_to_i1_correct
    |> CONV_RULE
-     ((lift_conjunct_conv(equal``evaluate_prog`` o fst o strip_comb))
+     ((lift_conjunct_conv(equal``evaluate_whole_prog`` o fst o strip_comb))
       |> LAND_CONV |> STRIP_QUANT_CONV)
    |> ONCE_REWRITE_RULE [GSYM AND_IMP_INTRO]
    |> (fn th => first_assum (mp_tac o MATCH_MP th))) >>
@@ -3766,7 +3795,10 @@ val compile_prog_divergence = store_thm("compile_prog_divergence",
   disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
   disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
   strip_tac >>
-  (prog_to_i2_correct
+  (whole_prog_to_i2_correct
+   |> CONV_RULE
+     ((lift_conjunct_conv(equal``evaluate_whole_prog_i1`` o fst o strip_comb))
+      |> LAND_CONV |> STRIP_QUANT_CONV)
    |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]
    |> (fn th => first_assum (mp_tac o MATCH_MP th))) >>
   fs[result_to_i1_cases] >>

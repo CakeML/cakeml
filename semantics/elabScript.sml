@@ -60,7 +60,7 @@ val _ = Hol_datatype `
 
 val _ = type_abbrev( "ast_prog" , ``: ast_top list``);
 
-val _ = type_abbrev( "tdef_env" , ``: (typeN, ast$tc0) env``);
+val _ = type_abbrev( "tdef_env" , ``: (typeN, ast$tctor) env``);
 
 (*val elab_t : tdef_env -> ast_t -> t*)
 (*val elab_dec : maybe modN -> tdef_env -> ast_dec -> tdef_env * dec*)
@@ -88,7 +88,7 @@ val _ = type_abbrev( "tdef_env" , ``: (typeN, ast$tc0) env``);
 (let ts' = (MAP (elab_t type_bound) ts) in
     (case lookup tn type_bound of
         NONE => Tapp ts' (TC_name (Short tn))
-      | SOME tc0 => Tapp ts' tc0
+      | SOME tc3320 => Tapp ts' tc3320
     )))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn elab_t_defn;

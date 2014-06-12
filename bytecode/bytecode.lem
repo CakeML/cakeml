@@ -5,8 +5,13 @@ import String_extra
 open import Lib
 open import Ast
 open import SemanticPrimitives
-open import CompilerLib
 open import Printer
+
+(* TODO: should be in lem library? *)
+val snoc_char : char -> string -> string
+declare hol target_rep function snoc_char = `SNOC`
+val least : (nat -> bool) -> nat
+declare hol target_rep function least = `$LEAST`
 
 (* --- Syntax --- *)
 

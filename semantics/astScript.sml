@@ -126,7 +126,7 @@ val _ = Define `
  * 0-ary type applications represent unparameterised types (e.g., num or string)
  *)
 val _ = Hol_datatype `
- tc0 = 
+ tctor = 
     TC_name of typeN id
   | TC_int
   | TC_string
@@ -143,7 +143,7 @@ val _ = Hol_datatype `
     Tvar of tvarN
   (* DeBruin indexed type variables. *)
   | Tvar_db of num
-  | Tapp of t list => tc0`;
+  | Tapp of t list => tctor`;
 
 
 val _ = Define `

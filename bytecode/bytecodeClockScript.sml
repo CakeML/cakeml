@@ -146,7 +146,7 @@ val RTC_bc_next_less_timeout = store_thm("RTC_bc_next_less_timeout",
   metis_tac[])
 
 val RTC_bc_next_uses_clock = store_thm("RTC_bc_next_uses_clock",
-  ``∀s1 s2. RTC bc_next s1 s2 ⇒ ∃sn. NRC bc_next (the 0 (OPTION_BIND s2.clock (λn2. OPTION_BIND s1.clock (λn1. SOME (n1 - n2))))) s1 sn ∧ bc_next^* sn s2``,
+  ``∀s1 s2. RTC bc_next s1 s2 ⇒ ∃sn. NRC bc_next (case (OPTION_BIND s2.clock (λn2. OPTION_BIND s1.clock (λn1. SOME (n1 - n2)))) of NONE => 0 | SOME n => n) s1 sn ∧ bc_next^* sn s2``,
   ho_match_mp_tac RTC_INDUCT >>
   conj_tac >- ( rw[] >> Cases_on`s1.clock` >> simp[] ) >>
   rw[] >>
