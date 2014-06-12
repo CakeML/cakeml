@@ -1414,16 +1414,9 @@ val compile_top_thm = store_thm("compile_top_thm",
     REWRITE_TAC[Once (GSYM CONJ_ASSOC)] >>
     REWRITE_TAC[Once (GSYM AND_IMP_INTRO)] >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
-    REWRITE_TAC[Once CONJ_COMM] >>
-    REWRITE_TAC[Once (GSYM CONJ_ASSOC)] >>
     REWRITE_TAC[Once (GSYM AND_IMP_INTRO)] >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
     simp[] >>
-    discharge_hyps >- (
-      fs[top_to_i1_def,LET_THM,UNCURRY] >>
-      rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
-      simp[dec_to_i1_def] >>
-      BasicProvers.CASE_TAC >> simp[not_mod_decs_def] ) >>
     disch_then(qx_choosel_then[`new_genv_i2`,`s2_i2`,`gtagenv2`]strip_assume_tac) >>
     `∃n e. prompt_to_i3 non som (LENGTH grd0) p = (n,e)` by simp[GSYM EXISTS_PROD] >> fs[] >>
     first_assum (mp_tac o (MATCH_MP (
@@ -1950,8 +1943,6 @@ val compile_top_thm = store_thm("compile_top_thm",
     REWRITE_TAC[Once (GSYM CONJ_ASSOC)] >>
     REWRITE_TAC[Once (GSYM AND_IMP_INTRO)] >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
-    REWRITE_TAC[Once CONJ_COMM] >>
-    REWRITE_TAC[Once (GSYM CONJ_ASSOC)] >>
     REWRITE_TAC[Once (GSYM AND_IMP_INTRO)] >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
     simp[] >>
@@ -2310,15 +2301,9 @@ val compile_top_thm = store_thm("compile_top_thm",
     REWRITE_TAC[Once (GSYM CONJ_ASSOC)] >>
     REWRITE_TAC[Once (GSYM AND_IMP_INTRO)] >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
-    REWRITE_TAC[Once CONJ_COMM] >>
-    REWRITE_TAC[Once (GSYM CONJ_ASSOC)] >>
     REWRITE_TAC[Once (GSYM AND_IMP_INTRO)] >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
     simp[] >>
-    discharge_hyps >- (
-      fs[top_to_i1_def,LET_THM,UNCURRY] >>
-      rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
-      MATCH_ACCEPT_TAC mod_decs_decs_to_i1) >>
     disch_then(qx_choosel_then[`new_genv_i2`,`s2_i2`,`gtagenv2`]strip_assume_tac) >>
     `∃n e. prompt_to_i3 non som (LENGTH grd0) p = (n,e)` by simp[GSYM EXISTS_PROD] >> fs[] >>
     first_assum (mp_tac o (MATCH_MP (
@@ -2654,8 +2639,6 @@ val compile_top_thm = store_thm("compile_top_thm",
     REWRITE_TAC[Once (GSYM CONJ_ASSOC)] >>
     REWRITE_TAC[Once (GSYM AND_IMP_INTRO)] >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
-    REWRITE_TAC[Once CONJ_COMM] >>
-    REWRITE_TAC[Once (GSYM CONJ_ASSOC)] >>
     REWRITE_TAC[Once (GSYM AND_IMP_INTRO)] >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
     simp[] >>
@@ -3026,12 +3009,6 @@ val compile_top_divergence = store_thm("compile_top_divergence",
   ONCE_REWRITE_TAC[EQ_SYM_EQ] >>
   ONCE_REWRITE_TAC[GSYM AND_IMP_INTRO] >>
   disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
-  discharge_hyps >- (
-    Cases_on`top`>>fs[top_to_i1_def,LET_THM,UNCURRY] >>
-    rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
-    TRY (MATCH_ACCEPT_TAC mod_decs_decs_to_i1) >>
-    simp[dec_to_i1_def] >>
-    BasicProvers.CASE_TAC >> simp[not_mod_decs_def] ) >>
   strip_tac >>
   (prompt_to_i3_correct
    |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]
@@ -3226,9 +3203,12 @@ val compile_prog_code_labels_ok = store_thm("compile_prog_code_labels_ok",
     simp[] >>
     fs[closed_prog_def,all_env_dom_def,SUBSET_DEF,PULL_EXISTS])
 
+(*
 val compile_prog_thm = store_thm("compile_prog_thm",
   ``∀ck env stm prog res. evaluate_prog ck env stm prog res ⇒
      ∀grd rss rsf bc bs bc0.
+      no_dup_mods prog stm ∧
+      no_dup_top_types prog stm ∧
       env_rs env stm grd init_compiler_state (bs with code := bc0) ∧
       closed_prog prog ∧
       (∀p. "it" ∈ FDOM (FST(SND(SND(prog_to_i1 0 FEMPTY FEMPTY prog)))) ∧
@@ -3277,6 +3257,7 @@ val compile_prog_thm = store_thm("compile_prog_thm",
   fs[GSYM init_tagenv_state_def] >>
   PairCases_on`v`>>simp[] >>
   discharge_hyps >- (
+    conj_tac >- cheat >>
     Cases_on`res6`>>TRY(PairCases_on`a`)>>fs[result_to_i1_cases] >> rw[] ) >>
   strip_tac >>
   (prog_to_i3_correct
@@ -3955,5 +3936,6 @@ val compile_prog_divergence = store_thm("compile_prog_divergence",
     metis_tac[APPEND_ASSOC]) >>
   HINT_EXISTS_TAC >>
   simp[Abbr`bs0`])
+*)
 
 val _ = export_theory()
