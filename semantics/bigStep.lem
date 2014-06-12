@@ -515,25 +515,35 @@ evaluate_top ck env s1 top (s2, new_tds, Rerr err)
 ==>
 evaluate_prog ck env s1 (top::tops) (s2, new_tds, Rerr err)
 
-val no_dup_mods : list top -> bool
-let no_dup_mods tops =
-  List.allDistinct (List.concat (List.map (fun top -> 
+val prog_to_mods : list top -> list modN
+let prog_to_mods tops =
+  List.concat (List.map (fun top -> 
         match top with 
           | Tmod mn _ _ -> [mn]
           | _ -> [] end)
-     tops))
- 
-val no_dup_top_types : list top -> bool
-let no_dup_top_types tops =
-  List.allDistinct (List.concat (List.map (fun top -> 
+     tops)
+
+val no_dup_mods : list top -> (count_store v * set tid_or_exn * set modN) -> bool
+let no_dup_mods tops (_,_,mods) =
+  List.allDistinct (prog_to_mods tops) &&
+  disjoint (Set.fromList (prog_to_mods tops)) mods
+
+val prog_to_top_types : list top -> list typeN
+let prog_to_top_types tops =
+  List.concat (List.map (fun top -> 
         match top with 
           | Tdec d -> decs_to_types [d]
           | _ -> [] end)
-     tops))
+     tops)
+ 
+val no_dup_top_types : list top -> (count_store v * set tid_or_exn * set modN) -> bool
+let no_dup_top_types tops (_,tids,_) =
+  List.allDistinct (prog_to_top_types tops) &&
+  disjoint (Set.fromList (List.map (fun tn -> TypeId (Short tn)) (prog_to_top_types tops))) tids
 
 val evaluate_whole_prog : bool -> all_env -> (count_store v * set tid_or_exn * set modN) -> prog -> (count_store v * set tid_or_exn * set modN) * envC * result (envM * envE) v -> bool
 let evaluate_whole_prog ck env s1 tops (s2, new_tds, res) =
-  if no_dup_mods tops && no_dup_top_types tops then
+  if no_dup_mods tops s1 && no_dup_top_types tops s1 then
     evaluate_prog ck env s1 tops (s2, new_tds, res)
   else
     res = Rerr Rtype_error

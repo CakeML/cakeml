@@ -17,6 +17,8 @@ val RW1 = ONCE_REWRITE_RULE;
 open hol_kernelTheory;
 open ml_monadTheory;
 
+val _ = (use_full_type_names := false);
+
 val _ = translation_extends "ml_monad";
 
 fun dest_monad_type ty = type_subst (match_type ``:'a M`` ty) ``:'a``;

@@ -63,6 +63,10 @@ val () = computeLib.add_thms
   ,terminationTheory.is_value_def
   ,pat_bindings_def
   ,typeSystemTheory.merge_tenvC_def
+  ,typeSystemTheory.check_ctor_tenv_def
+  ,terminationTheory.check_freevars_def
+  ,typeSystemTheory.build_ctor_tenv_def
+  ,evalPropsTheory.check_dup_ctors_thm
   ,bytecodeTheory.bool_to_tag_def
   ,bytecodeTheory.unit_tag_def
   ,bytecodeTheory.closure_tag_def
@@ -197,7 +201,9 @@ val () = computeLib.add_thms
   [elab_prog_def
   ,elab_top_def
   ,elab_dec_def
+  ,elab_decs_def
   ,elab_t_def
+  ,elab_td_def
   ,init_type_bindings_def
   ] compset
 (* inferencer *)
@@ -207,6 +213,7 @@ val () = computeLib.add_thms
   [infer_prog_def
   ,infer_top_def
   ,infer_d_def
+  ,infer_ds_def
   ,infer_e_def
   ,infer_p_def
   ,st_ex_bind_def
@@ -244,6 +251,7 @@ val () = computeLib.add_thms
   ,mk_id_def
   ,infer_type_subst_def
   ,typeSystemTheory.tid_exn_to_tc_def
+  ,check_signature_def
   ] compset
 val () = add_datatype ``:infer_t``
 val () = add_datatype ``:atom``
@@ -566,6 +574,8 @@ end
 (*
 val _ = Globals.max_print_depth := 50
 
+val input = ``"datatype foo = A;"``
+val input = ``"structure Nat = struct val zero = 0 end;"``
 val input = ``"val x = 1; val y = x; val it = x+y;"``
 val x1 = eval ``get_all_asts ^(input)``
 val x2 = eval ``elab_all_asts ^(x1 |> concl |> rhs)``

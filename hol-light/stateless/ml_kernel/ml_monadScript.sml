@@ -15,7 +15,7 @@ infix \\ val op \\ = op THEN;
 
 (* a few basics *)
 
-val _ = (use_full_type_names := true);
+val _ = (use_full_type_names := false);
 
 val _ = register_type ``:'a # 'b``;
 val _ = register_type ``:'a list``;

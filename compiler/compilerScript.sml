@@ -98,8 +98,8 @@ val _ = Define `
 (compile_print_vals types map (pat_bindings p []) s))
 /\
 (compile_print_dec types map (Dletrec defs) s =  
-(compile_print_vals types map (MAP (\p9608 .  
-  (case (p9608 ) of ( (n,_,_) ) => n )) defs) s))`;
+(compile_print_vals types map (MAP (\p13910 .  
+  (case (p13910 ) of ( (n,_,_) ) => n )) defs) s))`;
 
 
 val _ = Define `

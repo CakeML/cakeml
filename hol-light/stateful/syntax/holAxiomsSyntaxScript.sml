@@ -113,10 +113,7 @@ val infinity_extends = store_thm("infinity_extends",
     conj_tac >- (
       match_mp_tac term_ok_extend >>
       map_every qexists_tac[`tysof ctxt`,`tmsof ctxt`] >>
-      qpat_assum`DISJOINT X Y`mp_tac >>
-      simp[Abbr`cd2`,IN_DISJOINT] >>
-      strip_tac >> conj_tac >- PROVE_TAC[] >>
-      fs[] >>
+      fs[Abbr`cd2`] >>
       simp[term_ok_def,type_ok_def,tyvar_inst_exists,welltyped_equation
           ,EQUATION_HAS_TYPE_BOOL,typeof_equation,term_ok_equation] ) >>
     conj_tac >- (fs[Abbr`cd2`,IN_DISJOINT] >> PROVE_TAC[] ) >>
