@@ -14,7 +14,9 @@ open std_preludeTheory;
 
 (* translator setup *)
 
-val _ = translation_extends "std_prelude";
+val _ = translate_into_module "REPL";
+
+val _ = std_preludeLib.std_prelude ();
 
 val _ = register_type ``:lexer_fun$symbol``;
 
