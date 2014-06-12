@@ -4393,8 +4393,9 @@ val tac2 =
 val exh_disjoint1 = Q.prove (
 `prompt_to_i2 (next,tagenv,inv') prompt = ((next2,tagenv2,inv2),exh2,p2) ∧
   prog_to_i2 (next2,tagenv2,inv2) prog = ((next',tagenv',inv''),exh1,ps1)  ∧
-  no_dup_mods_i1 (prompt::prog) (s,tids,mods) ∧
-  no_dup_top_types_i1 (prompt::prog) (s,tids,mods)
+  no_dup_mods_i1 (prompt::prog) (s:v_i1 count_store,tids,mods) ∧
+  no_dup_top_types_i1 (prompt::prog) (s,tids,mods) ∧
+  EVERY (λprompt. case prompt of Prompt_i1 mn ds => prompt_mods_ok mn ds) (prompt::prog)
   ⇒
   DISJOINT (FDOM exh2) (FDOM exh1)`,
  rw [] >>
@@ -4404,8 +4405,56 @@ val exh_disjoint1 = Q.prove (
  fs [no_dup_mods_i1_eqn, no_dup_top_types_i1_eqn] >>
  every_case_tac >>
  fs [tids_of_prompt_def, LET_THM]
- >- cheat
- >- cheat);
+ >- (
+   fs[IN_DISJOINT,decs_to_types_i1_def,prog_i1_to_top_types_def,
+      tids_of_decs_def,tids_of_prog_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+   spose_not_then strip_assume_tac >>
+   every_case_tac >> fs[MEM_MAP] >> rw[] >>
+   qmatch_assum_rename_tac`MEM (Dtype_i1 mno tds) decs`[] >>
+   qmatch_assum_rename_tac`MEM td tds`[] >>
+   PairCases_on`td` >>
+   first_x_assum(qspec_then`td1`mp_tac) >> simp[PULL_EXISTS] >>
+   HINT_EXISTS_TAC >> simp[MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
+   first_assum(match_exists_tac o concl) >> simp[] >>
+   qmatch_assum_rename_tac`MEM prompt prog`[] >>
+   Cases_on`prompt`>>fs[tids_of_prompt_def] >>
+   HINT_EXISTS_TAC >> simp[] >>
+   fs[EVERY_MEM] >> res_tac >> fs[] >>
+   fs[prompt_mods_ok_def,EVERY_MEM] >>
+   res_tac >> fs[mk_id_def] >>
+   BasicProvers.CASE_TAC >- (
+     simp[MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+     qpat_assum`X ∈ tids_of_decs Y`mp_tac >>
+     simp[tids_of_decs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+     rw[] >>
+     every_case_tac >> fs[] >>
+     fs[MEM_MAP] >>
+     HINT_EXISTS_TAC >> simp[MEM_MAP,EXISTS_PROD] >>
+     PairCases_on`y`>>Cases_on`o'`>>fs[mk_id_def]>>metis_tac[]) >>
+   qpat_assum`X ∈ tids_of_decs Y`mp_tac >>
+   simp[tids_of_decs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+   spose_not_then strip_assume_tac >>
+   every_case_tac >> fs[] >>
+   res_tac >> fs[MEM_MAP,mk_id_def] )
+ >- (
+   pop_assum kall_tac >>
+   fs[IN_DISJOINT,tids_of_decs_def,tids_of_prog_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+   spose_not_then strip_assume_tac >> every_case_tac >> fs[] >>
+   fs[prompt_mods_ok_def,EVERY_MEM] >> res_tac >> fs[] >>
+   fs[MEM_MAP,mk_id_def] >> rw[] >>
+   qmatch_assum_rename_tac`MEM p prog`[] >>
+   Cases_on`p`>>fs[tids_of_prompt_def] >>
+   qpat_assum`X ∈ tids_of_decs Y`mp_tac >>
+   simp[tids_of_decs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+   spose_not_then strip_assume_tac >>
+   pop_assum mp_tac >> BasicProvers.CASE_TAC >> fs[MEM_MAP] >>
+   res_tac >> fs[] >> rw[] >>
+   every_case_tac >> fs[mk_id_def] >>
+   spose_not_then strip_assume_tac >> rw[] >>
+   fs[prog_i1_to_mods_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+   qmatch_assum_abbrev_tac`MEM p prog` >>
+   first_x_assum(qspec_then`p`mp_tac) >>
+   simp[Abbr`p`]));
 
 val exh_disjoint2 = Q.prove (
 `prog_to_i2 (next2,tagenv2,inv2) prog = ((next',tagenv',inv''),exh1,ps1)  ∧
@@ -4471,7 +4520,8 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
      rfs[] >>
      first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
      simp[] >>
-     `DISJOINT (FDOM exh2) (FDOM exh1)` by metis_tac [exh_disjoint1] >>
+     `DISJOINT (FDOM exh2) (FDOM exh1)` by (
+       MATCH_MP_TAC exh_disjoint1 >> simp[] ) >>
      `DISJOINT (FDOM exh) (FDOM exh1)`
               by (fs [to_i2_invariant_def] >>
                   metis_tac [exh_disjoint2]) >>
@@ -4553,8 +4603,13 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
      disj2_tac >>
      ONCE_REWRITE_TAC[GSYM(FUNION_ASSOC)] >>
      match_mp_tac evaluate_prompt_i2_exh_weak >>
-     `DISJOINT (FDOM exh2) (FDOM exh1)`
-              by metis_tac [pair_CASES, exh_disjoint1] >>
+     `DISJOINT (FDOM exh2) (FDOM exh1)` by (
+       match_mp_tac (GEN_ALL exh_disjoint1) >>
+       simp[] >>
+       PairCases_on`st2` >>
+       first_assum(match_exists_tac o concl) >> simp[] >>
+       first_assum(match_exists_tac o concl) >> simp[] >>
+       first_assum(match_exists_tac o concl) >> simp[]) >>
      `DISJOINT (FDOM exh) (FDOM exh1)`
               by (fs [to_i2_invariant_def] >>
                   metis_tac [pair_CASES, exh_disjoint2]) >>
