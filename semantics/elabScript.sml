@@ -88,7 +88,7 @@ val _ = type_abbrev( "tdef_env" , ``: (typeN, ast$tctor) env``);
 (let ts' = (MAP (elab_t type_bound) ts) in
     (case lookup tn type_bound of
         NONE => Tapp ts' (TC_name (Short tn))
-      | SOME tc3320 => Tapp ts' tc3320
+      | SOME tc0 => Tapp ts' tc0
     )))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn elab_t_defn;
