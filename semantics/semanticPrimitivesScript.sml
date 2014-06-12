@@ -521,12 +521,11 @@ val _ = Define `
 (*val check_dup_ctors : list (list tvarN * typeN * list (conN * list t)) -> bool*)
 val _ = Define `
  (check_dup_ctors tds =  
-(ALL_DISTINCT (let x2404 = 
+(ALL_DISTINCT (let x2 = 
   ([]) in  FOLDR
-   (\(tvs, tn, condefs) x2404 .  FOLDR
-                                   (\(n, ts) x2404 . 
-                                    if T then n :: x2404 else x2404) 
-                                 x2404 condefs) x2404 tds)))`;
+   (\(tvs, tn, condefs) x2 .  FOLDR
+                                (\(n, ts) x2 .  if T then n :: x2 else x2) 
+                              x2 condefs) x2 tds)))`;
 
 
 (*val combine_dec_result : forall 'a 'b 'c. env 'a 'b -> result (env 'a 'b) 'c -> result (env 'a 'b) 'c*)
