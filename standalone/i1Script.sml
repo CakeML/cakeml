@@ -1,7 +1,3 @@
-open HolKernel boolLib bossLib Parse astTheory terminationTheory
-open cakeml_computeLib progToBytecodeTheory
-open modLangTheory initialProgramTheory
-
 (*i1_Unnamed Prompts NONE => declist*)
 fun i1_promptNonePrint sys d t Top str brk blk=
   let
@@ -81,7 +77,7 @@ temp_add_user_printer ("i1_varlocalprint", ``Var_local_i1 x``,genPrint i1_varloc
 
 (*i1 global Var name*)
 fun i1_varglobalPrint sys d t Top str brk blk =
-    str"_g_">>sys (Top,Top,Top) d (strip t);
+    str"g_">>sys (Top,Top,Top) d (strip t);
 
 temp_add_user_printer ("i1_varglobalprint", ``Var_global_i1 n``,genPrint i1_varglobalPrint);
 

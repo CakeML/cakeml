@@ -4,7 +4,7 @@ fun i2_initglobalPrint sys d t Top str brk blk =
     val (t,x) = dest_comb t
     val num = rand (rand t)
   in
-    str"global_" >> sys (Top,Top,Top) (d-1) num >>str " := " >> blk CONSISTENT 0 (sys (Top,Top,Top) (d-1) x)
+    str"g_" >> sys (Top,Top,Top) (d-1) num >>str " := " >> blk CONSISTENT 0 (sys (Top,Top,Top) (d-1) x)
   end;
 
 temp_add_user_printer("i2_initglobal",``Uapp_i2 (Init_global_var_i2 n) x``,genPrint i2_initglobalPrint);
@@ -71,7 +71,7 @@ fun i2_pconPrint sys d t Top str brk blk =
     val (x::_) = pairSyntax.strip_pair name
   in
     (*TODO: Fix this*)
-    str "_ctor_" >> sys (Top,Top,Top) d x >> (pconPrint sys d t Top str brk blk)
+    str "c_" >> sys (Top,Top,Top) d x >> (pconPrint sys d t Top str brk blk)
   end;
 
 temp_add_user_printer ("i2_conprint", ``Con_i2 x y``,genPrint i2_pconPrint);

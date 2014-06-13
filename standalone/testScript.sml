@@ -29,7 +29,7 @@ fun dexnPrint sys d t Top str brk blk =
     |   printTerms (x::xs) = sys (Top,Top,Top) (d-1) x >> str "," >>brk(1,0)>> (printTerms xs);
   in 
     add_newline >> str "exception " >> str (stringSyntax.fromHOLstring x)
-    >> (case args of [] => str "" | (_::_) => str " of" >> brk (1,2) >> str "(" >> printTerms args >>str ")")
+    >> (case args of [] => str "" | [x] => str " of ">>printTerms args | (_::_) => str " of" >> brk (1,2) >> str "(" >> printTerms args >>str ")")
   end;
 
 temp_add_user_printer ("dexnprint", ``Dexn x y``,genPrint dexnPrint);
@@ -59,7 +59,9 @@ fun dtypePrint sys d t Top str brk blk =
           val (name, ctors) = pairSyntax.dest_pair rest
           val typaram = #1(listSyntax.dest_list params)
           in
-             add_newline>> str "datatype " >> (case typaram of [] => str"" | _ => str "(">>printTuple "," (str o stringSyntax.fromHOLstring) str typaram >> str") ")
+             add_newline>> str "datatype " >> (case typaram of [] => str"" 
+             | (x::y::xs) => str "(">>printTuple "," (str o stringSyntax.fromHOLstring) str typaram >> str") "
+             | _ => printTuple "," (str o stringSyntax.fromHOLstring) str typaram)>>str" "
              >> str (stringSyntax.fromHOLstring name) >> str" ">>blk CONSISTENT 0 
              (str "= " >> printCtors (#1(listSyntax.dest_list ctors)))
           end
@@ -218,10 +220,10 @@ fun pconPrint sys d t Top str brk blk =
   let
     fun printTerms [] = str ""
     |   printTerms [x] = sys (Top,Top,Top) (d-1) x
-    |   printTerms (x::xs) = sys (Top,Top,Top) (d-1) x >> str ",">>brk(0,0)>> (printTerms xs);
+    |   printTerms (x::xs) = sys (Top,Top,Top) (d-1) x >> str ",">> (printTerms xs);
     val terms = #1(listSyntax.dest_list (strip t))
   in
-    str "(" >> (blk CONSISTENT 0 (printTerms terms) )>>str ")"
+    str "(" >> (blk INCONSISTENT 0 (printTerms terms) )>>str ")"
   end;
     
 temp_add_user_printer ("pconprint", ``Pcon NONE x``,genPrint pconPrint);
@@ -235,11 +237,11 @@ fun pconsomePrint sys d t Top str brk blk=
     val args = #1(listSyntax.dest_list r)
     fun printTerms [] = str ""
     |   printTerms [x] = sys (Top,Top,Top) (d-1) x
-    |   printTerms (x::xs) = sys (Top,Top,Top) (d-1) x >> str ",">>brk(0,0)>> (printTerms xs);
+    |   printTerms (x::xs) = sys (Top,Top,Top) (d-1) x >> str ",">> (printTerms xs);
     val ctort = stringSyntax.fromHOLstring (strip (strip l));
     val ctor = if (ctort = "::") then "Cons" else ctort
   in
-    str ctor >> (case args of [] => str "" | (_::_) => str "(" >> (blk CONSISTENT 0 (printTerms args)) >>str ")")
+    str ctor >> (case args of [] => str "" | (_::_) => str "(" >> (blk INCONSISTENT 0 (printTerms args)) >>str ")")
   end;
 
 temp_add_user_printer ("pconsomeprint", ``Pcon (SOME x) y``,genPrint pconsomePrint);
@@ -303,7 +305,7 @@ fun oppappPrint sys d t Top str brk blk =
  
 temp_add_user_printer ("oppappprint", ``App Opapp f x``, genPrint oppappPrint);
 
-(*Infix apply, ignored for now*)
+(*Infix apply*)
 
 fun infixappPrint arithop sys d t Top str brk blk=
   let

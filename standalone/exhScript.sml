@@ -4,9 +4,6 @@ temp_add_user_printer("exh_initglobal",``Uapp_exh (Init_global_var_i2 n) x``,gen
 (*reuse i2 extend global*)
 temp_add_user_printer("exh_extendglobal",``Extend_global_exh n``,genPrint i2_extendglobalPrint);
 
-(*exh_prompt*)
-temp_add_user_printer("exh_promptnoneprint",``Prompt_exh x``,genPrint i1_promptNonePrint);
-
 (*exh_Pvar*)
 temp_add_user_printer ("exh_pvarprint", ``Pvar_exh x``, genPrint pvarPrint);
 

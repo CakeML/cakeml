@@ -139,8 +139,6 @@ val r = rhs(concl addIt)
 val emit = eval ``emit ^(r) [Stop T]``
 val rev = eval ``REVERSE (^(rhs(concl emit))).out``
 
-
-
 (*Nested ifs*)
 val ex1 = allIntermediates ``"exception Fail; val x = 5+4; if( (if(x>4) then 5 else 4) > 3 ) then (if x>5 then 4 else 5) else (if x<2 then 3 else raise Fail);"``;
 
