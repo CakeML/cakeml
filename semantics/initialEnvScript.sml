@@ -19,9 +19,11 @@ val _ = new_theory "initialEnv"
 val _ = Define `
  (init_envC =
   (emp,   
+(("NONE", ( 0, TypeId (Short "option"))) ::   
+(("SOME", ( 1, TypeId (Short "option"))) ::   
 (("nil", ( 0, TypeId (Short "list"))) ::   
 (("::", ( 2, TypeId (Short "list"))) ::
-   MAP (\ cn .  (cn, ( 0, TypeExn (Short cn)))) ["Bind"; "Div"; "Eq"]))))`;
+   MAP (\ cn .  (cn, ( 0, TypeExn (Short cn)))) ["Bind"; "Div"; "Eq"]))))))`;
 
 
 (*val init_env : envE*)
@@ -69,9 +71,11 @@ val _ = Define `
 val _ = Define `
  (init_tenvC =
   (emp,   
+(("NONE", (["'a"], [], TypeId (Short "option"))) ::   
+(("SOME", (["'a"], [Tvar "'a"], TypeId (Short "option"))) ::   
 (("nil", (["'a"], [], TypeId (Short "list"))) ::   
 (("::", (["'a"], [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))], TypeId (Short "list"))) ::
-   MAP (\ cn .  (cn, ([], [], TypeExn (Short cn)))) ["Bind"; "Div"; "Eq"]))))`;
+   MAP (\ cn .  (cn, ([], [], TypeExn (Short cn)))) ["Bind"; "Div"; "Eq"]))))))`;
 
 
 (*val init_type_bindings : tdef_env*)
@@ -82,13 +86,15 @@ val _ = Define `
    ("ref", TC_ref);
    ("exn", TC_exn);
    ("unit", TC_unit);
-   ("list", TC_name (Short "list"))]))`;
+   ("list", TC_name (Short "list"));
+   ("option", TC_name (Short "option"))]))`;
 
 
 (*val init_type_decs : set tid_or_exn*)
 val _ = Define `
  (init_type_decs =  
- ({ TypeId (Short "list");
+ ({ TypeId (Short "option");
+    TypeId (Short "list");
     TypeExn (Short "Bind");
     TypeExn (Short "Div");
     TypeExn (Short "Eq") }))`;
@@ -97,7 +103,7 @@ val _ = Define `
 (*val init_decls : decls*)
 val _ = Define `
  (init_decls = 
-  ({}, { Short "list" }, { Short "Bind"; Short "Div"; Short "Eq" }))`;
+  ({}, { Short "option"; Short "list" }, { Short "Bind"; Short "Div"; Short "Eq" }))`;
 
 val _ = export_theory()
 
