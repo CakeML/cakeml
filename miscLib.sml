@@ -29,7 +29,7 @@ in
   fun lift_conjunct_conv P =
     let
       fun loop tm =
-        if P tm then ALL_CONV
+        if P tm handle HOL_ERR _ => false then ALL_CONV
         else
           let
             val (c1,c2) = dest_conj tm

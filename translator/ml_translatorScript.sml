@@ -1454,7 +1454,7 @@ val ALL_DISTINCT_FLAT_REVERSE = prove(
 
 val no_dup_types_eval = prove(
   ``!ds. no_dup_types ds = ALL_DISTINCT (type_names ds [])``,
-  fs [no_dup_types_def,type_names_eq,ALL_DISTINCT_FLAT_REVERSE]);
+  fs [no_dup_types_def,type_names_eq,decs_to_types_def,ALL_DISTINCT_FLAT_REVERSE]);
 
 val DeclEnvTys_def = Define `
   DeclEnvTys mn ds = @(env,tys). DeclAssum mn ds env tys`;

@@ -93,7 +93,7 @@ let id_to_n id =
 (* Types
  * 0-ary type applications represent unparameterised types (e.g., num or string)
  *)
-type tc = 
+type tctor = 
   | TC_name of id typeN
   | TC_int
   | TC_string
@@ -108,7 +108,7 @@ type t =
   | Tvar of tvarN
   (* DeBruin indexed type variables. *)
   | Tvar_db of nat
-  | Tapp of list t * tc
+  | Tapp of list t * tctor
 
 let Tint = Tapp [] TC_int
 let Tstring = Tapp [] TC_string

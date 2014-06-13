@@ -42,7 +42,7 @@ type ast_top =
 
 type ast_prog = list ast_top
 
-type tdef_env = env typeN Ast.tc
+type tdef_env = env typeN Ast.tctor
 
 val elab_t : tdef_env -> ast_t -> t
 val elab_dec : maybe modN -> tdef_env -> ast_dec -> tdef_env * dec

@@ -4,6 +4,16 @@ val _ = new_theory "misc"
 
 (* TODO: move/categorize *)
 
+val domain_nat_set_from_list = store_thm("domain_nat_set_from_list",
+  ``∀ls ns. domain (FOLDL (λs n. insert n () s) ns ls) = domain ns ∪ set ls``,
+  Induct >> simp[sptreeTheory.domain_insert] >>
+  rw[EXTENSION] >> metis_tac[])
+val _ = export_rewrites["domain_nat_set_from_list"]
+
+val wf_nat_set_from_list = store_thm("wf_nat_set_from_list",
+  ``∀ls ns. wf ns ⇒ wf (FOLDL (λs n. insert n z s) ns ls)``,
+  Induct >> simp[] >> rw[sptreeTheory.wf_insert])
+
 val BIT_11 = store_thm("BIT_11",
   ``∀n m. (BIT n = BIT m) ⇔ (n = m)``,
   simp[EQ_IMP_THM] >>
@@ -191,6 +201,7 @@ val BIT_num_from_bin_list_leading = store_thm("BIT_num_from_bin_list_leading",
   MATCH_MP_TAC arithmeticTheory.LESS_LESS_EQ_TRANS >>
   qexists_tac`2 ** LENGTH l` >>
   simp[numposrepTheory.l2n_lt] )
+
 val least_from_def = Define`
   least_from P n = if (∃x. P x ∧ n ≤ x) then $LEAST (λx. P x ∧ n ≤ x) else $LEAST P`
 
@@ -1510,6 +1521,10 @@ val IN_FRANGE = store_thm(
 "IN_FRANGE",
 ``!f v. v IN FRANGE f ⇔ ?k. k IN FDOM f /\ (f ' k = v)``,
 SRW_TAC[][FRANGE_DEF])
+
+val IN_FRANGE_FLOOKUP = store_thm("IN_FRANGE_FLOOKUP",
+``!f v. v IN FRANGE f ⇔ ∃k. FLOOKUP f k = SOME v``,
+rw[IN_FRANGE,FLOOKUP_DEF])
 
 val ALOOKUP_IN_FRANGE = store_thm("ALOOKUP_IN_FRANGE",
   ``∀ls k v. (ALOOKUP ls k = SOME v) ⇒ v ∈ FRANGE (alist_to_fmap ls)``,

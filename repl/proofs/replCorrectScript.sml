@@ -1227,17 +1227,17 @@ rw [get_type_error_mask_def] >-
   metis_tac [lexer_correct,FST,SND]) >>
 simp[] >>
 
-`?infer_menv infer_cenv infer_env.
-  st.rinferencer_state = (infer_menv,infer_cenv,infer_env)`
+`?decls infer_menv infer_cenv infer_env.
+  st.rinferencer_state = (decls,infer_menv,infer_cenv,infer_env)`
             by metis_tac [pair_CASES] >>
 fs [infertype_top_def] >>
 
-`?res infer_st2. infer_top infer_menv infer_cenv infer_env top init_infer_state = (res,infer_st2)`
+`?res infer_st2. infer_top decls infer_menv infer_cenv infer_env top init_infer_state = (res,infer_st2)`
         by metis_tac [pair_CASES] >>
 fs [] >>
 cases_on `res` >>
 fs [] >>
-`∃new_infer_menv new_infer_cenv new_infer_env.  a = (new_infer_menv,new_infer_cenv,new_infer_env)`
+`∃new_decls new_infer_menv new_infer_cenv new_infer_env.  a = (new_decls, new_infer_menv,new_infer_cenv,new_infer_env)`
         by metis_tac [pair_CASES] >>
 fs [] >>
 BasicProvers.VAR_EQ_TAC >>

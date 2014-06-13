@@ -60,7 +60,7 @@ val _ = Hol_datatype `
 
 val _ = type_abbrev( "ast_prog" , ``: ast_top list``);
 
-val _ = type_abbrev( "tdef_env" , ``: (typeN, ast$tc0) env``);
+val _ = type_abbrev( "tdef_env" , ``: (typeN, ast$tctor) env``);
 
 (*val elab_t : tdef_env -> ast_t -> t*)
 (*val elab_dec : maybe modN -> tdef_env -> ast_dec -> tdef_env * dec*)

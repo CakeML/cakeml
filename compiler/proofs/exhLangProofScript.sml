@@ -125,7 +125,7 @@ val pmatch_i2_Pcon_No_match = prove(
      ∃cv vs tags.
        v = Conv_i2 (cv,SOME (TypeId t)) vs ∧
        FLOOKUP exh t = SOME tags ∧
-       MEM c tags ∧ MEM cv tags ∧
+       c ∈ domain tags ∧ cv ∈ domain tags ∧
        c ≠ cv)``,
   Cases_on`v`>>rw[pmatch_i2_def]>>
   PairCases_on`p`>>
@@ -156,7 +156,8 @@ val exh_to_exists_match = Q.prove (
      Cases_on `p1` >>
      fs [pmatch_i2_def] >>
      Cases_on `x` >>
-     fs [pmatch_i2_def])
+     fs [pmatch_i2_def] >>
+     pop_assum (assume_tac o SYM) >>simp[])
  >- (cases_on `v` >>
      rw [pmatch_i2_def] >>
      every_case_tac)
@@ -172,15 +173,10 @@ val exh_to_exists_match = Q.prove (
      Cases_on`b`>>simp[Abbr`pp2`,pmatch_i2_def]>>
      Cases_on`x`>>simp[pmatch_i2_def]>>
      rw[] >- metis_tac[pmatch_list_i2_all_vars_not_No_match] >>
-     qmatch_assum_rename_tac`get_tags ws = SOME ts`[] >>
      imp_res_tac get_tags_lemma >>
-     fs[EXTENSION] >>
-     `MEM cv ts` by metis_tac[] >>
-     first_x_assum(qspec_then`cv`mp_tac) >>
-     simp[] >> strip_tac >>
-     qmatch_assum_abbrev_tac`MEM p ws` >>
-     qexists_tac`p` >>
-     simp[Abbr`p`] >>
+     first_x_assum(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >>
+     fs[] >> rw[] >>
+     HINT_EXISTS_TAC >>
      Cases_on`x`>>simp[pmatch_i2_Pcon_No_match,pmatch_i2_def] >>
      qmatch_assum_rename_tac`MEM (Pcon_i2 (cv, SOME z) ps) ws`[] >>
      Cases_on`z`>>simp[pmatch_i2_def] >> rw[] >>
@@ -240,13 +236,13 @@ val env_to_exh_build_rec_env_i2 = prove(
 val _ = augment_srw_ss[rewrites[vs_to_exh_LIST_REL,find_recfun_funs_to_exh(*,env_to_exh_build_rec_env_i2*)]]
 
 val do_eq_exh_correct = Q.prove (
-`(!v1 v2 tagenv r v1_exh v2_exh exh.
+`(!v1 v2 tagenv r v1_exh v2_exh (exh:exh_ctors_env).
   do_eq_i2 v1 v2 = r ∧
   v_to_exh exh v1 v1_exh ∧
   v_to_exh exh v2 v2_exh
   ⇒
   do_eq_exh v1_exh v2_exh = r) ∧
- (!vs1 vs2 tagenv r vs1_exh vs2_exh exh.
+ (!vs1 vs2 tagenv r vs1_exh vs2_exh (exh:exh_ctors_env).
   do_eq_list_i2 vs1 vs2 = r ∧
   vs_to_exh exh vs1 vs1_exh ∧
   vs_to_exh exh vs2 vs2_exh
@@ -300,7 +296,7 @@ val match_result_nomatch = Q.prove (
  rw [match_result_to_exh_def]);
 
 val pmatch_exh_correct = Q.prove (
-`(!exh s p v env r env_exh s_exh v_exh.
+`(!(exh:exh_ctors_env) s p v env r env_exh s_exh v_exh.
   r ≠ Match_type_error ∧
   pmatch_i2 exh s p v env = r ∧
   vs_to_exh exh s s_exh ∧
@@ -310,7 +306,7 @@ val pmatch_exh_correct = Q.prove (
   ?r_exh.
     pmatch_exh s_exh (pat_to_exh p) v_exh env_exh = r_exh ∧
     match_result_to_exh exh r r_exh) ∧
- (!exh s ps vs env r env_exh s_exh vs_exh.
+ (!(exh:exh_ctors_env) s ps vs env r env_exh s_exh vs_exh.
   r ≠ Match_type_error ∧
   pmatch_list_i2 exh s ps vs env = r ∧
   vs_to_exh exh s s_exh ∧
@@ -355,9 +351,9 @@ val pat_bindings_exh_correct = prove(
   rw[] >> cases_on`p` >> rw[pat_to_exh_def,pat_bindings_exh_def,ETA_AX])
 
 val pmatch_i2_any_match = store_thm("pmatch_i2_any_match",
-  ``(∀exh s p v env env'. pmatch_i2 exh s p v env = Match env' ⇒
+  ``(∀(exh:exh_ctors_env) s p v env env'. pmatch_i2 exh s p v env = Match env' ⇒
        ∀env. ∃env'. pmatch_i2 exh s p v env = Match env') ∧
-    (∀exh s ps vs env env'. pmatch_list_i2 exh s ps vs env = Match env' ⇒
+    (∀(exh:exh_ctors_env) s ps vs env env'. pmatch_list_i2 exh s ps vs env = Match env' ⇒
        ∀env. ∃env'. pmatch_list_i2 exh s ps vs env = Match env')``,
   ho_match_mp_tac pmatch_i2_ind >>
   rw[pmatch_i2_def] >>
@@ -368,9 +364,9 @@ val pmatch_i2_any_match = store_thm("pmatch_i2_any_match",
   metis_tac[semanticPrimitivesTheory.match_result_distinct])
 
 val pmatch_i2_any_no_match = store_thm("pmatch_i2_any_no_match",
-  ``(∀exh s p v env. pmatch_i2 exh s p v env = No_match ⇒
+  ``(∀(exh:exh_ctors_env) s p v env. pmatch_i2 exh s p v env = No_match ⇒
        ∀env. pmatch_i2 exh s p v env = No_match) ∧
-    (∀exh s ps vs env. pmatch_list_i2 exh s ps vs env = No_match ⇒
+    (∀(exh:exh_ctors_env) s ps vs env. pmatch_list_i2 exh s ps vs env = No_match ⇒
        ∀env. pmatch_list_i2 exh s ps vs env = No_match)``,
   ho_match_mp_tac pmatch_i2_ind >>
   rw[pmatch_i2_def] >>
@@ -395,17 +391,17 @@ val v_to_exh_lit_loc = store_thm("v_to_exh_lit_loc",
 val _ = export_rewrites["v_to_exh_lit_loc"]
 
 val v_to_exh_extend_disjoint_helper = Q.prove (
-`(!exh v1 v2.
+`(!(exh:exh_ctors_env) v1 v2.
   v_to_exh exh v1 v2 ⇒
   !exh'. DISJOINT (FDOM exh') (FDOM exh)
     ⇒
     v_to_exh (exh' ⊌ exh) v1 v2) ∧
- (!exh vs1 vs2.
+ (!(exh:exh_ctors_env) vs1 vs2.
   vs_to_exh exh vs1 vs2 ⇒
   !exh'. DISJOINT (FDOM exh') (FDOM exh)
     ⇒
     vs_to_exh (exh' ⊌ exh) vs1 vs2) ∧
- (!exh env1 env2.
+ (!(exh:exh_ctors_env) env1 env2.
   env_to_exh exh env1 env2 ⇒
   !exh'. DISJOINT (FDOM exh') (FDOM exh)
     ⇒
@@ -422,7 +418,7 @@ val v_to_exh_extend_disjoint_helper = Q.prove (
  metis_tac [FUNION_FEMPTY_1, SUBMAP_FUNION]);
 
 val env_to_exh_submap = prove(
-  ``∀exh env1 env2 exh'. env_to_exh exh env1 env2 ⇒ exh ⊑ exh' ⇒ env_to_exh exh' env1 env2``,
+  ``∀(exh:exh_ctors_env) env1 env2 exh'. env_to_exh exh env1 env2 ⇒ exh ⊑ exh' ⇒ env_to_exh exh' env1 env2``,
   rw[] >>
   first_x_assum(mp_tac o MATCH_MP(CONJUNCT2(CONJUNCT2 v_to_exh_extend_disjoint_helper))) >>
   disch_then(qspec_then`DRESTRICT exh' (COMPL (FDOM exh)) `mp_tac) >>
@@ -436,7 +432,7 @@ val env_to_exh_submap = prove(
    conj_tac >- metis_tac[] >> rw[] ) >> rw[])
 
 val do_app_exh = Q.prove (
-`!exh env s1 s2 op v1 v2 e env' env_exh s1_exh v1_exh v2_exh locals.
+`!(exh:exh_ctors_env) env s1 s2 op v1 v2 e env' env_exh s1_exh v1_exh v2_exh locals.
   do_app_i2 env s1 op v1 v2 = SOME (env', s2, e) ∧
   env_to_exh exh env env_exh ∧
   LIST_REL (v_to_exh exh) s1 s1_exh ∧
@@ -517,7 +513,7 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
 `(!ck env s e r.
   evaluate_i3 ck env s e r
   ⇒
-  !exh env' env_exh s_exh exh'.
+  !(exh:exh_ctors_env) env' env_exh s_exh exh'.
     SND r ≠ Rerr Rtype_error ∧
     env = (exh,env') ∧
     env_to_exh exh env' env_exh ∧
@@ -530,7 +526,7 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
  (!ck env s es r.
   evaluate_list_i3 ck env s es r
   ⇒
-  !exh env' env_exh s_exh exh'.
+  !(exh:exh_ctors_env) env' env_exh s_exh exh'.
     SND r ≠ Rerr Rtype_error ∧
     env = (exh,env') ∧
     env_to_exh exh env' env_exh ∧
@@ -543,7 +539,7 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
  (!ck env s v pes err_v r.
   evaluate_match_i3 ck env s v pes err_v r
   ⇒
-  !exh env' pes' is_handle env_exh s_exh v_exh exh'.
+  !(exh:exh_ctors_env) env' pes' is_handle env_exh s_exh v_exh exh'.
     SND r ≠ Rerr Rtype_error ∧
     env = (exh,env') ∧
     env_to_exh exh env' env_exh ∧
@@ -980,7 +976,7 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
  rw[])
 
 val v_to_exh_extend_disjoint = store_thm("v_to_exh_extend_disjoint",
-  ``∀exh v1 v2 exh'. v_to_exh exh v1 v2 ∧ DISJOINT (FDOM exh') (FDOM exh) ⇒
+  ``∀(exh:exh_ctors_env) v1 v2 exh'. v_to_exh exh v1 v2 ∧ DISJOINT (FDOM exh') (FDOM exh) ⇒
                      v_to_exh (exh ⊌ exh') v1 v2``,
   metis_tac [v_to_exh_extend_disjoint_helper, FUNION_COMM])
 
