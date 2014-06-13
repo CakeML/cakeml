@@ -1,3 +1,24 @@
+(*i2_Init_global_var special case for Uapp_i2*)
+fun i2_initglobalPrint sys d t Top str brk blk =
+  let
+    val (t,x) = dest_comb t
+    val num = rand (rand t)
+  in
+    str"global_" >> sys (Top,Top,Top) (d-1) num >>str " := " >> blk CONSISTENT 0 (sys (Top,Top,Top) (d-1) x)
+  end;
+
+temp_add_user_printer("i2_initglobal",``Uapp_i2 (Init_global_var_i2 n) x``,genPrint i2_initglobalPrint);
+
+(*i2_extend_global creates n top level decls*)
+fun i2_extendglobalPrint sys d t Top str brk blk =
+  let
+    val n = rand t
+  in
+    str"extend_global ">>sys (Top,Top,Top) d n
+  end;
+
+temp_add_user_printer("i2_extendglobal",``Extend_global_i2 n``,genPrint i2_extendglobalPrint);
+
 (*i2_prompt*)
 temp_add_user_printer("i2_promptnoneprint",``Prompt_i2 x``,genPrint i1_promptNonePrint);
 
@@ -17,11 +38,29 @@ temp_add_user_printer ("i2_letrecprint", ``Letrec_i2 x y``,genPrint letrecPrint)
 (*i2_Lambdas varN*expr *)
 temp_add_user_printer ("i2_lambdaprint", ``Fun_i2 x y``,genPrint lambdaPrint);
 
-(*TODO Toplevel Dlet nat*expr *)
+(*i2_Toplevel Dlet nat*expr *)
 temp_add_user_printer ("i2_dletvalprint", ``Dlet_i2 x y``,genPrint i1_dletvalPrint);
 
 (*i2_Inner Let SOME*)
 temp_add_user_printer ("i2_letvalprint", ``Let_i2 (SOME x) y z``,genPrint letvalPrint);
+
+(*i2_Inner Let NONE*)
+(*Instead of printing let val _ = in i2, just print the RHS*)
+
+fun i2_letnonePrint sys d t Top str brk blk =
+  let
+    val (t,body) = dest_comb t
+    val (t,eq) = dest_comb t
+  in
+    (blk CONSISTENT 0 (
+    (sys (Top,Top,Top) d eq) >> add_newline 
+    >> str"in " >> (sys (Top,Top,Top) d body) >> add_newline
+    >> str"end" ))
+  end;
+
+temp_add_user_printer ("i2_letnoneprint", ``Let_i2 NONE y z``,genPrint i2_letnonePrint);
+
+temp_add_user_printer ("i2_letnoneprint",``Let_i2 NONE y z ``,genPrint letnonePrint);
 
 (*Prints all constructor args in a list comma separated*)
 
@@ -29,11 +68,15 @@ temp_add_user_printer ("i2_letvalprint", ``Let_i2 (SOME x) y z``,genPrint letval
 fun i2_pconPrint sys d t Top str brk blk =
   let
     val (_,name) = dest_comb (rator t)
+    val (x::_) = pairSyntax.strip_pair name
   in
-    sys (Top,Top,Top) d name >> pconPrint sys d t Top str brk blk
+    (*TODO: Fix this*)
+    str "_ctor_" >> sys (Top,Top,Top) d x >> (pconPrint sys d t Top str brk blk)
   end;
+
 temp_add_user_printer ("i2_conprint", ``Con_i2 x y``,genPrint i2_pconPrint);
 temp_add_user_printer ("i2_pconprint", ``Pcon_i2 x y``,genPrint i2_pconPrint);
+
 (*i2_Literals*)
 (*i2_Pattern lit*)
 temp_add_user_printer ("i2_litprint", ``Lit_i2 x``, genPrint plitPrint);
@@ -59,3 +102,5 @@ temp_add_user_printer ("i2_handleprint", ``Handle_i2 x y``,genPrint handlePrint)
 
 (*i2_If-then-else*)
 temp_add_user_printer("i2_ifthenelseprint", ``If_i2 x y z``,genPrint ifthenelsePrint);
+
+
