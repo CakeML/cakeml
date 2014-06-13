@@ -1133,10 +1133,11 @@ val env_rs_def = Define`
       Cenv_bs rd ((cnt,Cs),Cg) [] [] 0 bs`
 
 val env_rs_empty = store_thm("env_rs_empty",
-  ``∀envs s cs genv mods tids gtagenv rd grd bs ck.
+  ``∀envs s cs genv rd grd bs ck.
     bs.stack = [] ∧ bs.globals = [] ∧ FILTER is_Label bs.code = [] ∧
-    (∀n. bs.clock = SOME n ⇒ n = ck) ∧ envs = ([],init_envC,[]) ∧ s = ((ck,[]),tids,mods) ∧
-    grd = ([],gtagenv,rd) ∧
+    (∀n. bs.clock = SOME n ⇒ n = ck) ∧ envs = ([],init_envC,[]) ∧
+    s = ((ck,[]),IMAGE SND (FDOM init_gtagenv),{}) ∧
+    grd = ([],init_gtagenv,rd) ∧
     rd.sm = [] ∧ rd.cls = FEMPTY ∧ cs = init_compiler_state ⇒
     env_rs envs s grd cs bs``,
   rpt gen_tac >>
@@ -1150,7 +1151,10 @@ val env_rs_empty = store_thm("env_rs_empty",
   simp[Once s_to_i2_cases] >> simp[Once s_to_i2'_cases] >> simp[Once v_to_i2_cases] >>
   simp[Cenv_bs_def,env_renv_def,s_refs_def,good_rd_def,FEVERY_ALL_FLOOKUP] >>
   simp[all_vlabs_csg_def,vlabs_csg_def,closed_vlabs_def] >>
-  cheat)
+  conj_tac >- EVAL_TAC >>
+  Q.ISPEC_THEN`ck`assume_tac initial_i2_invariant >>
+  fs[to_i2_invariant_def] >>
+  fs[cenv_inv_def])
 
 (*
 (* TODO: move *)
