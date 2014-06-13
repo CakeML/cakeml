@@ -5,18 +5,6 @@ open modLangTheory conLangTheory decLangTheory exhLangTheory intLangTheory toInt
 
 val _ = new_theory"compilerProof"
 
-(* TODO: move *)
-
-val not_evaluate_whole_prog_timeout = store_thm("not_evaluate_whole_prog_timeout",
-  ``∀env stm prog.
-      (∀res. ¬evaluate_whole_prog F env stm prog res) ⇒
-      ∃r. evaluate_whole_prog T env stm prog r ∧
-          SND (SND r) = Rerr Rtimeout_error``,
-  rw[FORALL_PROD,EXISTS_PROD,evaluate_whole_prog_def] >>
-  BasicProvers.EVERY_CASE_TAC >> fs[] >>
-  fs[GSYM EXISTS_PROD,GSYM FORALL_PROD] >>
-  metis_tac[not_evaluate_prog_timeout,SND,pair_CASES])
-
 (* misc *)
 
 val code_env_cd_append = store_thm("code_env_cd_append",
