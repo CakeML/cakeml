@@ -3272,11 +3272,12 @@ val compile_prog_thm = store_thm("compile_prog_thm",
     fs[] ) >>
   simp[] >>
   (discharge_hyps >- (
-     simp[FLOOKUP_FUNION,FLOOKUP_UPDATE] >>
-     BasicProvers.CASE_TAC >>
+     simp[init_exh_def,flookup_fupdate_list,FLOOKUP_FUNION] >>
+     Cases_on`res6`>>fs[GSYM FORALL_PROD] >>
+     TRY (conj_tac >- (fs[result_to_i2_cases,result_to_i1_cases] >> rw[])) >>
+     BasicProvers.CASE_TAC >- EVAL_TAC >>
      fs[IN_DISJOINT,FLOOKUP_DEF] >>
-     fs[result_to_i2_cases,result_to_i1_cases] >> rw[] >>
-     Cases_on`res6`>>fs[GSYM FORALL_PROD])) >>
+     fs[init_exh_def,FDOM_FUPDATE_LIST] >> metis_tac[])) >>
   simp[result_to_i3_cases] >- (
     rw[] >> Cases_on`res6` >> fs[] >>
     PairCases_on`a`>>fs[]>>
@@ -3285,16 +3286,14 @@ val compile_prog_thm = store_thm("compile_prog_thm",
     fs[LIST_REL_O,OPTREL_O] >>
     qmatch_assum_rename_tac`LIST_REL (v_to_exh X) s2 sh`["X"] >>
     qmatch_assum_rename_tac`LIST_REL R genv2 gh`["R"] >>
-    Q.PAT_ABBREV_TAC`rsexh:exh_ctors_env = FEMPTY |+ X` >>
+    Q.PAT_ABBREV_TAC`rsexh = init_exh` >>
     `store_to_exh (exh ⊌ rsexh) ((stm0,s2),genv2) ((stm0,sh),gh)` by (
       simp[store_to_exh_def] >>
-      `FDOM rsexh = {Short "option"}` by simp[Abbr`rsexh`] >>
-      `DISJOINT (FDOM exh) (FDOM rsexh)` by simp[] >>
       conj_tac >>
       match_mp_tac (MP_CANON (GEN_ALL EVERY2_mono)) >>
       ONCE_REWRITE_TAC[CONJ_COMM] >>
       first_assum(match_exists_tac o concl) >> simp[] >>
-      metis_tac[optionTheory.OPTREL_MONO,v_to_exh_extend_disjoint,FUNION_COMM]) >>
+      metis_tac[optionTheory.OPTREL_MONO,v_to_exh_extend_disjoint,FUNION_COMM,DISJOINT_SYM]) >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     disch_then(qspec_then`exh ⊌ rsexh`mp_tac) >> simp[] >>
     strip_tac >>
@@ -3576,15 +3575,13 @@ val compile_prog_thm = store_thm("compile_prog_thm",
   fs[LIST_REL_O,OPTREL_O] >>
   qmatch_assum_rename_tac`LIST_REL (v_to_exh X) s2 sh`["X"] >>
   qmatch_assum_rename_tac`LIST_REL R genv2 gh`["R"] >>
-  Q.PAT_ABBREV_TAC`rsexh:exh_ctors_env = FEMPTY |+ X` >>
+  Q.PAT_ABBREV_TAC`rsexh = init_exh` >>
   `store_to_exh (exh ⊌ rsexh) ((stm0,s2),genv2) ((stm0,sh),gh)` by (
     simp[store_to_exh_def] >>
-    `FDOM rsexh = {Short "option"}` by simp[Abbr`rsexh`] >>
-    `DISJOINT (FDOM exh) (FDOM rsexh)` by simp[] >>
     conj_tac >>
     match_mp_tac (MP_CANON (GEN_ALL EVERY2_mono)) >>
     HINT_EXISTS_TAC >>
-    metis_tac[optionTheory.OPTREL_MONO,v_to_exh_extend_disjoint,FUNION_COMM]) >>
+    metis_tac[optionTheory.OPTREL_MONO,v_to_exh_extend_disjoint,FUNION_COMM,DISJOINT_SYM]) >>
   disch_then(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
   disch_then(qspec_then`exh ⊌ rsexh`mp_tac) >> simp[] >>
   strip_tac >>
@@ -3806,13 +3803,15 @@ val compile_prog_divergence = store_thm("compile_prog_divergence",
   fs[result_to_i2_cases] >>
   simp[FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
   reverse BasicProvers.CASE_TAC >- (
-    fs[IN_DISJOINT,FLOOKUP_DEF] ) >>
+    fs[IN_DISJOINT,FLOOKUP_DEF,init_exh_def,FDOM_FUPDATE_LIST] >>
+    metis_tac[]) >>
   rpt BasicProvers.VAR_EQ_TAC >>
   `LENGTH genv2 = LENGTH grd0` by (
     fs[to_i2_invariant_def] >>
     imp_res_tac EVERY2_LENGTH >>
     fs[] ) >>
-  simp[] >>
+  simp[Once init_exh_def,flookup_fupdate_list] >>
+  discharge_hyps >- EVAL_TAC >>
   strip_tac >>
   (exp_to_exh_correct
    |> CONJUNCT1
@@ -3827,8 +3826,7 @@ val compile_prog_divergence = store_thm("compile_prog_divergence",
     conj_tac >>
     match_mp_tac (MP_CANON (GEN_ALL EVERY2_mono)) >>
     HINT_EXISTS_TAC >>
-    `DISJOINT  (FDOM exh) (FDOM rsexh)` by simp[Abbr`rsexh`] >>
-    metis_tac[optionTheory.OPTREL_MONO,v_to_exh_extend_disjoint,FUNION_COMM]) >>
+    metis_tac[optionTheory.OPTREL_MONO,v_to_exh_extend_disjoint,FUNION_COMM,DISJOINT_SYM]) >>
   disch_then(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
   disch_then(qspec_then`exh ⊌ rsexh`mp_tac) >> simp[] >>
   strip_tac >>
