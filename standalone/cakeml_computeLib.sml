@@ -46,6 +46,26 @@ val () = combinLib.add_combin_compset compset
 val () = pairLib.add_pair_compset compset
 val () = finite_mapLib.add_finite_map_compset compset
 val () = pegLib.add_peg_compset compset
+(* sptree doesn't provide a compset :( *)
+val () = computeLib.add_thms
+  [sptreeTheory.lookup_compute
+  ,sptreeTheory.insert_compute
+  ,sptreeTheory.delete_compute
+  ,sptreeTheory.lrnext_thm
+  ,sptreeTheory.wf_def
+  ,sptreeTheory.mk_BN_def
+  ,sptreeTheory.mk_BS_def
+  ,sptreeTheory.fromList_def
+  ,sptreeTheory.size_def
+  ,sptreeTheory.union_def
+  ,sptreeTheory.inter_def
+  ,sptreeTheory.domain_def
+  ,sptreeTheory.foldi_def
+  ,sptreeTheory.toListA_def
+  ,sptreeTheory.toList_def
+  ,sptreeTheory.mk_wf_def
+  ] compset
+val () = add_datatype ``:'a spt``
 (* misc :( *)
 val () = computeLib.add_thms
   [miscTheory.find_index_def
