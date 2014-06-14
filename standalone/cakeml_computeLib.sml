@@ -28,6 +28,13 @@ val eval_real_inst_length =
     computeLib.CBV_CONV compset
   end
 
+val compile_top_code_ok =
+  prove(``∀types rs top ss sf code.
+          (compile_top types rs top = (ss,sf,code)) ⇒
+          (FV_top top ⊆ global_dom rs.globals_env) ⇒
+          code_labels_ok code``,
+  metis_tac[compile_top_labels,pair_CASES,SND])
+
 fun cakeml_compset() = let
 val compset = wordsLib.words_compset()
 val add_datatype = computeLib.add_datatype_info compset o valOf o TypeBase.fetch
@@ -297,6 +304,7 @@ val () = computeLib.add_thms
   ,pat_to_i2_def
   ,uop_to_i2_def
   ,init_tagenv_state_def
+  ,init_exh_def
   ,get_tagenv_def
   ,lookup_tag_env_def
   ,lookup_tag_flat_def
@@ -419,10 +427,38 @@ val () = computeLib.add_thms
   ,new_top_vs_def
   ,new_dec_vs_def
   ,FV_top_def
+  ,global_dom_def
   ,FV_decs_def
   ,FV_dec_def
   ,FV_def
   ] compset
+val () =
+  let
+    fun code_labels_ok_conv tm =
+      EQT_INTRO
+        (labels_computeLib.get_code_labels_ok_thm
+          (rand tm))
+  in
+    computeLib.add_conv(``code_labels_ok``,1,code_labels_ok_conv) compset ;
+    add_datatype ``:bc_inst``;
+    computeLib.add_thms [uses_label_def] compset
+  end
+(* compile_top *)
+val () =
+  let
+    fun compile_top_conv eval tm =
+      let
+        val th = (REWR_CONV compile_top_def THENC eval) tm
+        val th1 = MATCH_MP compile_top_code_ok th
+        val th2 = MP (CONV_RULE(LAND_CONV eval) th1) TRUTH
+        val () = labels_computeLib.add_code_labels_ok_thm th2
+      in
+        th
+      end
+  in
+    computeLib.add_thms [compile_print_top_def] compset ;
+    computeLib.add_conv(``compile_top``,3,(compile_top_conv (computeLib.CBV_CONV compset))) compset
+  end
 (* compile_prog *)
 val () =
   let
@@ -436,17 +472,8 @@ val () =
       in
         th
       end
-    fun code_labels_ok_conv tm =
-      EQT_INTRO
-        (labels_computeLib.get_code_labels_ok_thm
-          (rand tm))
   in
-    computeLib.add_thms
-      [uses_label_def
-      ,compile_print_err_def
-      ] compset ;
-    add_datatype ``:bc_inst`` ;
-    computeLib.add_conv(``code_labels_ok``,1,code_labels_ok_conv) compset ;
+    computeLib.add_thms [compile_print_err_def] compset ;
     computeLib.add_conv(``compile_prog``,1,(compile_prog_conv (computeLib.CBV_CONV compset))) compset
   end
 (* prog to bytecode *)
