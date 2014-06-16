@@ -53,6 +53,11 @@ val () = combinLib.add_combin_compset compset
 val () = pairLib.add_pair_compset compset
 val () = finite_mapLib.add_finite_map_compset compset
 val () = pegLib.add_peg_compset compset
+(* rich_list doesnt' provide a compset :( *)
+val () = computeLib.add_thms
+  [rich_listTheory.SPLITP_compute
+  ,rich_listTheory.SPLITP_AUX_def
+  ] compset
 (* sptree doesn't provide a compset :( *)
 val () = computeLib.add_thms
   [sptreeTheory.lookup_compute
@@ -626,6 +631,7 @@ val input = ``"datatype foo = A;"``
 val input = ``"val x = \"str\";"``
 val input = ``"structure Nat = struct val zero = 0 end;"``
 val input = ``"val x = 1; val y = x; val it = x+y;"``
+val input = ``"structure Nat = struct val zero = 0 fun succ x = x+1 end; val x = Nat.zero;"``;
 val x1 = eval ``get_all_asts ^(input)``
 val x2 = eval ``elab_all_asts ^(x1 |> concl |> rhs)``
 val x3 = eval ``infer_all_asts ^(x2 |> concl |> rhs)``
