@@ -3,7 +3,7 @@ open lexer_funTheory repl_funTheory replTheory untypedSafetyTheory bytecodeClock
 open lexer_implTheory cmlParseTheory inferSoundTheory bigStepTheory elabTheory compilerProofTheory;
 open semanticPrimitivesTheory typeSystemTheory typeSoundTheory weakeningTheory typeSysPropsTheory terminationTheory;
 open initialEnvTheory;
-open typeSoundInvariantsTheory;
+open typeSoundInvariantsTheory free_varsTheory;
 open bytecodeTheory repl_fun_altTheory repl_fun_alt_proofTheory;
 open gramPropsTheory pegSoundTheory pegCompleteTheory
 
@@ -630,9 +630,7 @@ val fst_lem = Q.prove (
 rw [FUN_EQ_THM] >>
 PairCases_on `x` >>
 fs []);
-*)
 
-(* TODO:
 val type_d_new_dec_vs = Q.prove (
 `!mn tenvM tenvC tenv d tenvC' tenv'.
   type_d mn tenvM tenvC tenv d tenvC' tenv'
@@ -645,12 +643,15 @@ imp_res_tac type_e_closed >>
 rw [tenv_add_tvs_def, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
 fs [LET_THM, LIST_TO_SET_MAP, GSYM fst_lem, IMAGE_COMPOSE] >>
 metis_tac [IMAGE_11, astTheory.id_11]);
+*)
 
 val new_top_vs_inf_tenv_to_string_map_lem = Q.prove (
 `!tenvM tenvC tenv top tenvM' tenvC' tenv'. 
-  type_top tenvM tenvC tenv top tenvM' tenvC' (convert_env2 tenv')
+  type_top decls tenvM tenvC tenv top decls' tenvM' tenvC' (convert_env2 tenv')
   ⇒ 
   set (new_top_vs top) ⊆ FDOM (inf_tenv_to_string_map tenv')`,
+cheat);
+(*
  rw [] >>
  cases_on `top` >>
  fs [new_top_vs_def, type_top_cases] >>
@@ -661,7 +662,9 @@ val new_top_vs_inf_tenv_to_string_map_lem = Q.prove (
  rw [inf_tenv_to_string_map_def] >>
  PairCases_on `h` >>
  rw [inf_tenv_to_string_map_def, SUBSET_INSERT_RIGHT]);
+ *)
 
+ (*
 val type_to_string_lem = Q.prove (
 `(!t n. check_t n {} t ⇒ (inf_type_to_string t = type_to_string (convert_t t))) ∧
  (!ts n. EVERY (check_t n {}) ts ⇒ 
@@ -861,14 +864,17 @@ val consistent_con_env_dom = Q.prove (
   (set (MAP FST envC) = set (MAP FST tenvC))`,
 ho_match_mp_tac typeSysPropsTheory.consistent_con_env_ind >>
 rw [typeSysPropsTheory.consistent_con_env_def]);
+*)
 
 val type_sound_inv_closed = Q.prove (
 `∀top rs new_tenvM new_tenvC new_tenv new_st envC r.
-  type_top rs.tenvM rs.tenvC rs.tenv top new_tenvM new_tenvC new_tenv ∧
-  type_sound_invariants (rs.tenvM,rs.tenvC,rs.tenv,rs.envM,rs.envC,rs.envE,rs.store)
+  type_top rs.tdecs rs.tenvM rs.tenvC rs.tenv top new_decls new_tenvM new_tenvC new_tenv ∧
+  type_sound_invariants (rs.tdecs,rs.tenvM,rs.tenvC,rs.tenv,decls',rs.envM,rs.envC,rs.envE,store)
   ⇒
-  FV_top top ⊆ set (MAP (Short o FST) rs.envE) ∪ menv_dom rs.envM ∧
+  FV_top top ⊆ all_env_dom env ∧
   top_cns top ⊆ cenv_dom rs.envC`,
+cheat);
+  (*
 rw [] >>
 imp_res_tac type_top_closed >>
 `(?err. r = Rerr err) ∨ (?menv env. r = Rval (menv,env))`
@@ -887,7 +893,9 @@ imp_res_tac consistent_con_env_dom >>
 fs [SUBSET_DEF, cenv_dom_def, MEM_MAP, EXTENSION] >>
 rw [] >>
 metis_tac []);
+*)
 
+(*
 val check_dup_ctors_names_lem1 = Q.prove (
 `!tds acc.
   FOLDR (λ(tvs,tn,condefs) x2. FOLDR (λ(n,ts) x2. n::x2) x2 condefs) acc tds
@@ -1301,8 +1309,8 @@ cases_on `bc_eval (install_code code bs)` >> fs[] >- (
     CONV_TAC(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(equal``compile_top`` o fst o strip_comb o lhs)))) >>
     first_assum(match_exists_tac o concl) >> simp[] >>
     simp[RIGHT_EXISTS_AND_THM,GSYM CONJ_ASSOC] >>
-    conj_tac >- ( cheat ) >>
-    conj_tac >- ( cheat ) >>
+    conj_tac >- ( metis_tac [new_top_vs_inf_tenv_to_string_map_lem] ) >>
+    conj_tac >- ( fs[closed_top_def] >> metis_tac [type_sound_inv_closed] ) >>
     qmatch_assum_abbrev_tac`bc_eval bs0 = NONE` >>
     map_every qexists_tac[`grd`,`bs0 with clock := SOME ck0`,`bs.code`] >>
     simp[] >>
