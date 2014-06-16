@@ -1156,7 +1156,6 @@ val env_rs_empty = store_thm("env_rs_empty",
   fs[to_i2_invariant_def] >>
   fs[cenv_inv_def])
 
-(*
 (* TODO: move *)
 val to_i1_invariant_change_clock = store_thm("to_i1_invariant_change_clock",
   ``to_i1_invariant genv mods tops menv env s s_i1 mod_names ∧
@@ -1170,22 +1169,22 @@ val to_i1_invariant_change_clock = store_thm("to_i1_invariant_change_clock",
 
 (* TODO: move *)
 val to_i2_invariant_change_clock = store_thm("to_i2_invariant_change_clock",
-  ``to_i2_invariant tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ∧
+  ``to_i2_invariant mods tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ∧
     SND s' = SND s ∧ SND s_i2' = SND s_i2 ∧ FST s' = FST s_i2'
     ⇒
-    to_i2_invariant tids envC exh tagenv_st gtagenv s' s_i2' genv genv_i2``,
+    to_i2_invariant mods tids envC exh tagenv_st gtagenv s' s_i2' genv genv_i2``,
   simp[to_i2_invariant_def] >>
   rw[Once s_to_i2_cases] >>
   rw[Once s_to_i2_cases] >>
   metis_tac[pair_CASES,PAIR_EQ,SND,FST])
 
 val env_rs_change_clock = store_thm("env_rs_change_clock",
-   ``∀env cs grd rs bs cs' ck' bs' new_clock.
-     env_rs env cs grd rs bs ∧ cs' = (ck',SND cs) ∧
+   ``∀env stm grd rs bs stm' ck bs' new_clock.
+     env_rs env stm grd rs bs ∧ stm' = ((ck,SND(FST stm)),SND stm) ∧
      (bs' = bs with clock := new_clock) ∧
-     (new_clock = NONE ∨ new_clock = SOME ck')
+     (new_clock = NONE ∨ new_clock = SOME ck)
      ⇒
-     env_rs env cs' grd rs bs'``,
+     env_rs env stm' grd rs bs'``,
   qx_gen_tac`p` >> PairCases_on`p` >>
   qx_gen_tac`q` >> PairCases_on`q` >>
   qx_gen_tac`r` >> PairCases_on`r` >>
@@ -1210,7 +1209,6 @@ val env_rs_change_clock = store_thm("env_rs_change_clock",
   first_assum(match_exists_tac o concl) >> simp[] >>
   simp[bc_state_component_equality] >>
   fs[Cenv_bs_def,s_refs_def,Abbr`d`,good_rd_def])
-*)
 
 (*
 val env_rs_change_store = store_thm("env_rs_change_store",

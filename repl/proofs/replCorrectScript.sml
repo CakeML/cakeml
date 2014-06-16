@@ -1177,6 +1177,19 @@ val bc_eval_NONE_NRC = store_thm("bc_eval_NONE_NRC",
   `bc_next^* bs bs'` by metis_tac[RTC_eq_NRC] >>
   imp_res_tac RTC_bc_next_bc_eval >> fs[] )
 
+fun HO_IMP_IMP_tac (g as (_,w)) =
+  let
+    val (l,r) = dest_imp w
+    val (xs,b) = strip_forall l
+    val xs' = map (fst o dest_var o variant (free_vars r)) xs
+    val l = rhs(concl(RENAME_VARS_CONV xs' l))
+    val (xs,b) = strip_forall l
+    val (h,c) = dest_imp b
+    val new = list_mk_exists(xs,mk_conj(h,mk_imp(c,r)))
+  in
+    suff_tac new >- metis_tac[]
+  end g
+
 val replCorrect'_lem = Q.prove (
 `!repl_state error_mask bc_state repl_fun_state.
   invariant repl_state repl_fun_state bc_state ⇒
@@ -1296,32 +1309,14 @@ cases_on `bc_eval (install_code code bs)` >> fs[] >- (
     conj_tac >- simp[Abbr`bs0`,install_code_def] >>
     conj_tac >- simp[Abbr`bs0`,install_code_def] >>
     conj_tac >- (
-      PairCases_on`grd` >>
-      fs[env_rs_def,Abbr`bs0`,install_code_def] >>
-      fs[modLangProofTheory.to_i1_invariant_def,
-         modLangProofTheory.s_to_i1_cases,
-         modLangProofTheory.s_to_i1'_cases] >>
-      first_assum(match_exists_tac o concl) >> simp[] >>
-      fs[conLangProofTheory.to_i2_invariant_def] >>
-      simp[GSYM CONJ_ASSOC,RIGHT_EXISTS_AND_THM] >>
-      conj_tac >- metis_tac[] >>
-      fs[conLangProofTheory.s_to_i2_cases,
-         conLangProofTheory.s_to_i2'_cases] >>
-      first_assum(match_exists_tac o concl) >> simp[] >>
-      first_assum(match_exists_tac o concl) >> simp[] >>
-      first_assum(match_exists_tac o concl) >> simp[] >>
-      first_assum(match_exists_tac o concl) >> simp[] >>
-      conj_tac >- (
-        fs[intLangExtraTheory.closed_vlabs_def,
-           intLangExtraTheory.all_vlabs_csg_def,
-           intLangExtraTheory.vlabs_csg_def] >>
-        metis_tac[] ) >>
-      match_mp_tac bytecodeProofTheory.Cenv_bs_with_irr >>
-      qexists_tac`bs with clock := SOME ck0` >> simp[] >>
-      match_mp_tac bytecodeProofTheory.Cenv_bs_change_store >>
-      first_assum(match_exists_tac o concl) >>
+      match_mp_tac env_rs_change_clock >>
+      CONV_TAC SWAP_EXISTS_CONV >>
+      qexists_tac`bs0 with code := bs.code` >>
       simp[bc_state_component_equality] >>
-      fs[bytecodeProofTheory.Cenv_bs_def,bytecodeProofTheory.s_refs_def,bytecodeProofTheory.good_rd_def] ) >>
+      simp[EXISTS_PROD] >> qexists_tac`ck` >>
+      match_mp_tac env_rs_with_bs_irr >>
+      first_assum(match_exists_tac o concl) >>
+      simp[Abbr`bs0`,install_code_def]) >>
     let
       val tac =
         `∀bs1. bc_next^* bs0 bs1 ⇒ ∃bs2. bc_next bs1 bs2` by (
@@ -1345,36 +1340,39 @@ cases_on `bc_eval (install_code code bs)` >> fs[] >- (
   fs[] >> fs[] >>
   fs[invariant_def] >>
   simp[code_executes_ok_def] >>
-
   disj2_tac >>
   qx_gen_tac`n` >>
-  qspecl_then[`rs.envM`,`rs.envC`,`rs.store`,`rs.envE`,`top`]mp_tac compile_top_divergence >>
-  disch_then(qspecl_then[`st.rcompiler_state`,`rd`,`n`,`inf_tenv_to_string_map new_infer_env`,`bs.code`]mp_tac) >> simp[] >>
-  disch_then(qspec_then`install_code (cpam css) code bs with clock := SOME n`mp_tac) >>
-  discharge_hyps >- (
-    conj_tac >- metis_tac[untyped_safety_top] >>
-    conj_tac >- (simp[closed_top_def] >> metis_tac[type_sound_inv_closed]) >>
-    conj_tac >- metis_tac[type_sound_inv_dup_ctors, type_sound_inv_dup_exns] >>
-    conj_tac >- (
-      match_mp_tac env_rs_change_clock >>
-      simp[] >>
-      qexists_tac`c,rs.store` >>
-      qexists_tac`bs with <|output:="";cons_names:=cpam css;pc:=next_addr bs.inst_length bs.code|>` >>
-      simp[bc_state_component_equality,install_code_def] >>
-      match_mp_tac env_rs_with_bs_irr >>
-      qexists_tac`bs` >> simp[] ) >>
-    simp[install_code_def] ) >>
+  `∃ck store tdecls. rs.store = ((ck,store),tdecls,FST rs.tdecs)` by metis_tac[pair_CASES,invariant_def,SND] >>
+  fs[remove_count_def] >>
+  (untyped_safety_top |> Q.SPECL[`d`,`a,b,c`] |> SPEC_ALL |> EQ_IMP_RULE |> fst |> CONTRAPOS |> SIMP_RULE std_ss []
+   |> GEN_ALL |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
+  disch_then(qspec_then`n`strip_assume_tac) >>
+  (compile_top_divergence |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]
+   |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
+  HO_IMP_IMP_tac >>
+  CONV_TAC(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(equal``compile_top`` o fst o strip_comb o lhs)))) >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  map_every qexists_tac[`grd`,`bs.code`,`install_code code (bs with clock := SOME n)`] >>
+  simp[install_code_def] >>
+  conj_tac >- (
+    reverse conj_tac >- cheat >>
+    match_mp_tac env_rs_with_bs_irr >>
+    qexists_tac`bs with clock := SOME n` >>
+    simp[] >>
+    match_mp_tac env_rs_change_clock >>
+    first_assum(match_exists_tac o concl) >>
+    simp[bc_state_component_equality] ) >>
   disch_then(qx_choosel_then[`s2`]strip_assume_tac) >> fs[] >>
   imp_res_tac RTC_bc_next_uses_clock >>
   rfs[] >>
   imp_res_tac NRC_bc_next_can_be_unclocked >> fs[] >>
-  qmatch_assum_abbrev_tac`NRC bc_next n (bs0 with clock := NONE) bs1` >>
-  `bs0 with clock := NONE = bs0` by (
-    simp[Abbr`bs0`,bc_state_component_equality,install_code_def] ) >>
-  qexists_tac`bs1`>>fs[]>>
+  qmatch_assum_abbrev_tac`NRC bc_next n bs0 bs1` >>
+  Q.PAT_ABBREV_TAC`bs0':bc_state = x y` >>
+  `bs0 = bs0'` by (
+    simp[Abbr`bs0`,Abbr`bs0'`,bc_state_component_equality] ) >>
+  rw[] >> HINT_EXISTS_TAC >> rw[Abbr`bs1`] >>
   imp_res_tac RTC_bc_next_output_IS_PREFIX >>
-  fs[Abbr`bs0`,install_code_def,Abbr`bs1`] >> rfs[] >>
-  fs[IS_PREFIX_NIL] ) >>
+  rfs[] >> fs[IS_PREFIX_NIL] ) >>
 
 `¬top_diverges rs.envM rs.envC rs.store rs.envE top` by (
   qpat_assum`X ⇒ Y`kall_tac >>
