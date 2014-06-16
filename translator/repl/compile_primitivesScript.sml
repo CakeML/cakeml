@@ -64,7 +64,6 @@ val () = add_datatype ``:dec``
 val () = add_datatype ``:pat``
 val () = add_datatype ``:exp``
 val () = add_datatype ``:tid_or_exn``
-val () = add_datatype ``:uop``
 val () = add_datatype ``:op``
 val () = add_datatype ``:lop``
 val () = add_datatype ``:lit``
@@ -90,7 +89,6 @@ val () = computeLib.add_thms
   ,decs_to_i2_def
   ,exp_to_i2_def
   ,pat_to_i2_def
-  ,uop_to_i2_def
   ,init_tagenv_state_def
   ,get_tagenv_def
   ,lookup_tag_env_def
@@ -129,13 +127,10 @@ val () = computeLib.add_thms
   ,sLet_pat_def
   ,sIf_pat_def
   ,ground_pat_def
-  ,uop_to_pat_def
   ,pure_pat_def
   ,(CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook)) Let_Els_pat_def
-  ,pure_uop_pat_def
   ] compset
 val () = add_datatype ``:exp_pat``
-val () = add_datatype ``:uop_pat``
 (* intLang compiler *)
 val () = computeLib.add_thms
   [exp_to_Cexp_def
@@ -143,6 +138,9 @@ val () = computeLib.add_thms
   ,free_labs_def
   ,free_vars_def
   ,no_labs_def
+  ,app_to_il_def
+  ,binop_to_il_def
+  ,unop_to_il_def
   ] compset
 val () = add_datatype ``:Cprim1``
 val () = add_datatype ``:Cprim2``
