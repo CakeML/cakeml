@@ -1363,7 +1363,7 @@ cases_on `bc_eval (install_code code bs)` >> fs[] >- (
   map_every qexists_tac[`grd`,`bs.code`,`install_code code (bs with clock := SOME n)`] >>
   simp[install_code_def] >>
   conj_tac >- (
-    reverse conj_tac >- cheat >>
+    reverse conj_tac >- ( fs[closed_top_def] >> metis_tac [type_sound_inv_closed] ) >>
     match_mp_tac env_rs_with_bs_irr >>
     qexists_tac`bs with clock := SOME n` >>
     simp[] >>
@@ -1410,7 +1410,7 @@ discharge_hyps >- (
     match_mp_tac env_rs_change_clock >>
     first_assum (match_exists_tac o concl) >> simp[] >>
     simp[bc_state_component_equality] ) >>
-  conj_tac >- cheat >>
+  conj_tac >- ( fs[closed_top_def] >> metis_tac [type_sound_inv_closed] )>>
   first_x_assum(mp_tac o MATCH_MP RTC_bc_next_add_clock) >>
   simp[] >>
   disch_then(qspec_then`1`mp_tac) >> strip_tac >>
