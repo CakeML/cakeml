@@ -378,3 +378,16 @@ fun ifthenelsePrint sys d t Top str brk blk =
 
 temp_add_user_printer("ifthenelseprint", ``If x y z``,genPrint ifthenelsePrint);
 
+(*Pretty Printer for Types*)
+
+fun tidPrinter sys d t Top str brk blk =
+  str "datatype " >>sys (Top,Top,Top) d (strip (strip t));
+
+fun texnPrinter sys d t Top str brk blk = 
+  str "exception " >>sys (Top,Top,Top) d (strip (strip t));
+
+temp_add_user_printer("typeidprint",``TypeId (Short x)``, genPrint tidPrinter);
+temp_add_user_printer("typeexnprint",``TypeExn (Short x)``, genPrint texnPrinter);
+
+
+

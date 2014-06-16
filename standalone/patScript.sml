@@ -1,6 +1,3 @@
-(*pat_Pvar*)
-temp_add_user_printer ("pat_pvarprint", ``Pvar_pat x``, genPrint pvarPrint);
-
 (*pat_Nested mutually recursive letrec*)
 fun pat_letrecPrint sys d t Top str brk blk =
   let
@@ -30,7 +27,6 @@ temp_add_user_printer("pat_extendglobal",``Extend_global_pat n``,genPrint i2_ext
 fun pat_uopPrint uop sys d t Top str brk blk =
   str uop>>str"_">>sys (Top,Top,Top) d (strip t);
 
-temp_add_user_printer("pat_opinitglobprint",``Init_global_var_pat x``,genPrint (pat_uopPrint "init_global"));
 temp_add_user_printer("pat_optageqprint",``Tag_eq_pat x``,genPrint (pat_uopPrint "tag_eq"));
 temp_add_user_printer("pat_opelpatprint",``El_pat x``,genPrint (pat_uopPrint "elem"));
 
@@ -41,6 +37,9 @@ fun pat_uappPrint sys d t Top str brk blk =
   end;
 
 temp_add_user_printer("pat_uappprint",``Uapp_pat x y``,genPrint pat_uappPrint);
+
+(*Special case for Uapp init global*)
+temp_add_user_printer("pat_initglobal",``Uapp_pat (Init_global_var_pat n) x``,genPrint i2_initglobalPrint);
 
 (*Prints all constructor args in a list comma separated*)
 temp_add_user_printer ("pat_conprint", ``Con_pat x y``,genPrint i2_pconPrint);

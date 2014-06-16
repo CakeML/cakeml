@@ -46,13 +46,20 @@ fun allIntermediates prog =
       (*i1 translation*)
       val n = rhsThm (eval ``compile_primitives.next_global``)
       val (m1,m2) = pairSyntax.dest_pair( rhsThm( eval ``compile_primitives.globals_env``))
-      val l1 = eval ``prog_to_i1 ^(n) ^(m1) ^(m2) ^(ast)``;
+      val l1 = eval ``prog_to_i1 ^(n) ^(m1) ^(m2) ^(ast)``
       val [v1,v2,m2,p1] = pairSyntax.strip_pair(rhsThm l1)    
+
+      val modMap = v2;
+      val globMap = m2;
 
       (*i2 translation*)
       val l2 = eval ``prog_to_i2 compile_primitives.contags_env ^(p1) ``
       val (v,rest) = pairSyntax.dest_pair (rhsThm l2)
       val (exh,p2) = pairSyntax.dest_pair rest
+
+      val p2' = (v,exh,p2)
+      (*print the CTORS (num,name,typeid)*)
+      val [_,_,_,ctors] =pairSyntax.strip_pair v 
 
       (*i3 translation*)
       val arg1 = rhsThm( eval ``(none_tag,SOME(TypeId (Short "option")))``)
@@ -76,53 +83,7 @@ fun allIntermediates prog =
       val compile_Cexp = eval ``compile_Cexp [] 0 <|out:=[];next_label:=compile_primitives.rnext_label|> ^(p6)``
       val p7 = rhsThm compile_Cexp
   in
-     {ast=ast,i1=p1,i2=p2,i3=p3,i4=p4,i5=p5,i6=p6,i7=p7}
-  end;
-
-
-(*RHS of theorem to term*)
-val rhsThm = rhs o concl;
-
-(*Return all intermediates during compilation in a record*)
-fun allIntermediates prog =
-  let val t1 = eval ``get_all_asts ^(prog)``
-      val t2 = eval ``elab_all_asts ^(rhsThm t1)``
-      val init_prog = rhsThm (eval ``initial_program``)
-      val ast = rhsThm (eval ``initial_program :: ^(rand (rhsThm t2))``)
-      (*i1 translation*)
-      val n = rhsThm (eval ``init_compiler_state.next_global``)
-      val (m1,m2) = pairSyntax.dest_pair( rhsThm( eval ``init_compiler_state.globals_env``))
-      val l1 = eval ``prog_to_i1 ^(n) ^(m1) ^(m2) ^(ast)``;
-      val [v1,v2,m2,p1] = pairSyntax.strip_pair(rhsThm l1)    
-
-      (*i2 translation*)
-      val l2 = eval ``prog_to_i2 init_compiler_state.contags_env ^(p1) ``
-      val (v,rest) = pairSyntax.dest_pair (rhsThm l2)
-      val (exh,p2) = pairSyntax.dest_pair rest
-
-      (*i3 translation*)
-      val arg1 = rhsThm( eval ``(none_tag,SOME(TypeId (Short "option")))``)
-      val arg2 = rhsThm( eval ``(some_tag,SOME(TypeId (Short "option")))``)
-      val l3 = eval ``prog_to_i3 ^(arg1) ^(arg2) ^(n) ^(p2)``
-      val (v,p3) = pairSyntax.dest_pair(rhsThm l3)
-
-      (*exp to exh trans*)
-      val exp_to_exh = eval ``exp_to_exh (^(exh) ⊌ init_compiler_state.exh) ^(p3)``
-      val p4 = rhsThm exp_to_exh
-
-      (*exp_to_pat trans*)
-      val exp_to_pat = eval ``exp_to_pat [] ^(p4)``
-      val p5 = rhsThm exp_to_pat
-      
-      (*exp_to_cexp*)
-      val exp_to_Cexp = eval ``exp_to_Cexp ^(p5)``
-      val p6 = rhsThm exp_to_Cexp
-
-      (*compileCexp*)
-      val compile_Cexp = eval ``compile_Cexp [] 0 <|out:=[];next_label:=init_compiler_state.rnext_label|> ^(p6)``
-      val p7 = rhsThm compile_Cexp
-  in
-     {ast=ast,i1=p1,i2=p2,i3=p3,i4=p4,i5=p5,i6=p6,i7=p7}
+     {ast=ast,i1=p1,i2=p2,i3=p3,i4=p4,i5=p5,i6=p6,i7=p7,ctors = ctors,globMap=globMap}
   end;
 
 (*Not included yet*)
@@ -140,7 +101,7 @@ val emit = eval ``emit ^(r) [Stop T]``
 val rev = eval ``REVERSE (^(rhs(concl emit))).out``
 
 (*Nested ifs*)
-val ex1 = allIntermediates ``"exception Fail; val x = 5+4; if( (if(x>4) then 5 else 4) > 3 ) then (if x>5 then 4 else 5) else (if x<2 then 3 else raise Fail);"``;
+val ex1 = allIntermediates ``"exception Fail; val x = 5+4; if( (if(x>4 andalso x>5) then 5 else 4) > 3 ) then (if x>5 then 4 else 5) else (if x<2 orelse x>100 then 3 else raise Fail);"``;
 
 (*Top lvl mutually recursive functions and function calls*)
 val ex2 = allIntermediates ``"fun f x y = (g x) + (g y) and g x = x+1; f 5 4; g it;"``;
@@ -158,7 +119,9 @@ val ex5 = allIntermediates ``"structure Nat = struct val zero = 0 fun succ x = x
 val ex5b = allIntermediates ``"structure Nat = struct val zero = 0 fun succ x = x+1 end;"``;
 
 (*Top lvl val, ref/deref*)
-val ex6 = allIntermediates ``"val x = ref 5; x:= !x+1;"``;
+val ex6 = allIntermediates ``"val x = ref 5; x:= 1+!x;"``;
+
+val ex6= allIntermediates ``"fun f y = let val x = ref y in x:= !x+1 end;"``;
 (*
 val prog = #ast ex6
 val tm = prog
@@ -224,3 +187,5 @@ val ex17 = allIntermediates ``"datatype tree = Br of int * tree * tree | Lf;"``
 
 (*Lists*)
 val ex18 = allIntermediates ``"fun append xs ys = case xs of [] => ys | (x::xs) => x :: append xs ys; fun reverse xs = case xs of [] => [] | x::xs => append (reverse xs) [x];"``
+
+val ex19 = fullEval ``"val x = \"hello\";"``;
