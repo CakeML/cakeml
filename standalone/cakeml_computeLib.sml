@@ -130,6 +130,7 @@ val () = computeLib.add_thms
   ,next_sym_def
   ,token_of_sym_def
   ,read_while_def
+  ,read_string_def
   ,skip_comment_def
   ,isSymbol_def
   ,isAlphaNumPrime_def
@@ -622,6 +623,7 @@ end
 val _ = Globals.max_print_depth := 50
 
 val input = ``"datatype foo = A;"``
+val input = ``"val x = \"str\";"``
 val input = ``"structure Nat = struct val zero = 0 end;"``
 val input = ``"val x = 1; val y = x; val it = x+y;"``
 val x1 = eval ``get_all_asts ^(input)``
