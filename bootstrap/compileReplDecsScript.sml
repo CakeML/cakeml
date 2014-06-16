@@ -3,12 +3,16 @@ val _ = new_theory"compileReplDecs"
 
 val _ = Globals.max_print_depth := 20
 
-val compile_repl_decs_def = zDefine
-  `compile_repl_decs = code_labels real_inst_length (compile_prog (MAP Tdec (TAKE 115 repl_decs)))`
+val compile_top_repl_decs_def = zDefine`
+  compile_top_repl_decs = compile_top NONE init_compiler_state (Tmod "REPL" NONE (TAKE 50 repl_decs))`
 
-val cs = cakeml_computeLib.cakeml_compset()
+val compile_repl_decs_def = zDefine
+  `compile_repl_decs = code_labels real_inst_length (SND(SND(compile_top_repl_decs)))`
+
+val cs = cakeml_compset()
 val () = computeLib.add_thms
-  [compile_repl_decs_def
+  [compile_top_repl_decs_def
+  ,compile_repl_decs_def
   ,repl_decs_def
   ,ml_repl_step_decls
   ]

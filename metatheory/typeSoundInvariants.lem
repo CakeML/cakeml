@@ -490,7 +490,7 @@ let ctMap_has_exns ctMap =
   (Map.lookup ("Bind", TypeExn (Short "Bind")) ctMap = Just ([],[])) &&
   (Map.lookup ("Div", TypeExn (Short "Div")) ctMap = Just ([],[])) &&
   (Map.lookup ("Eq", TypeExn (Short "Eq")) ctMap = Just ([],[])) &&
-  (Map.lookup ("Size", TypeExn (Short "Size")) ctMap = Just ([],[]))
+  (Map.lookup ("Subscript", TypeExn (Short "Subscript")) ctMap = Just ([],[]))
 
 (* The types and exceptions that are missing are all declared in modules. *)
 val weak_decls_only_mods : decls -> decls -> bool
@@ -555,7 +555,7 @@ let update_type_sound_inv ((decls1:decls),(tenvM:tenvM),(tenvC:tenvC),(tenv:tenv
 val init_type_decs : set tid_or_exn
 let init_type_decs = 
   { TypeId (Short "list");
-    TypeExn (Short "Size");
+    TypeExn (Short "Subscript");
     TypeExn (Short "Bind");
     TypeExn (Short "Div");
     TypeExn (Short "Eq") }

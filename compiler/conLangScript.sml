@@ -935,5 +935,11 @@ val _ = Define `
                  (none_tag, ("NONE", TypeId (Short "option")))]))`;
 
 
+(*val init_exh : exh_ctors_env*)
+val _ = Define `
+ (init_exh =  
+(FUPDATE_LIST FEMPTY [(Short "list", (FOLDL (\ s n. insert n ()  s) LN [cons_tag; nil_tag]));
+     (Short "option", (FOLDL (\ s n. insert n ()  s) LN [some_tag; none_tag]))]))`;
+
 val _ = export_theory()
 

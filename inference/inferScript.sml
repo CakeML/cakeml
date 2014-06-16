@@ -717,6 +717,6 @@ sub_completion tvs next_uvar s1 extra_constraints s2 =
    (!uv. uv ∈ FDOM s2 ⇒ check_t tvs {} (t_walkstar s2 (Infer_Tuvar uv))))`;
 
 val init_infer_decls_def = Define `
-init_infer_decls = ([],[Short "list"],[Short "Size"; Short "Bind"; Short "Div"; Short "Eq"])`;
+init_infer_decls = ([],[Short "option"; Short "list"],[Short "Subscript"; Short "Bind"; Short "Div"; Short "Eq"])`;
 
 val _ = export_theory ();

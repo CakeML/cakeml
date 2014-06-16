@@ -38,7 +38,7 @@ val _ = Define `
 (*val tenvC_ok : tenvC -> bool*)
 val _ = Define `
  (tenvC_ok (mtenvC, tenvC) =  
-(EVERY (\p2726 .  (case (p2726 ) of ( (_,tenvC) ) => flat_tenvC_ok tenvC )) mtenvC /\
+(EVERY (\p .  (case (p ) of ( (_,tenvC) ) => flat_tenvC_ok tenvC )) mtenvC /\
   flat_tenvC_ok tenvC))`;
 
 
@@ -440,7 +440,7 @@ val _ = Define `
 ((FLOOKUP ctMap ("Bind", TypeExn (Short "Bind")) = SOME ([],[])) /\
   (FLOOKUP ctMap ("Div", TypeExn (Short "Div")) = SOME ([],[])) /\
   (FLOOKUP ctMap ("Eq", TypeExn (Short "Eq")) = SOME ([],[])) /\
-  (FLOOKUP ctMap ("Size", TypeExn (Short "Size")) = SOME ([],[]))))`;
+  (FLOOKUP ctMap ("Subscript", TypeExn (Short "Subscript")) = SOME ([],[]))))`;
 
 
 (* The types and exceptions that are missing are all declared in modules. *)
@@ -519,7 +519,7 @@ val _ = Define `
 val _ = Define `
  (init_type_decs =  
  ({ TypeId (Short "list");
-    TypeExn (Short "Size");
+    TypeExn (Short "Subscript");
     TypeExn (Short "Bind");
     TypeExn (Short "Div");
     TypeExn (Short "Eq") }))`;

@@ -944,4 +944,14 @@ val not_evaluate_prog_timeout = store_thm("not_evaluate_prog_timeout",
   first_assum(match_exists_tac o concl) >> simp[] >>
   simp[combine_mod_result_def])
 
+val not_evaluate_whole_prog_timeout = store_thm("not_evaluate_whole_prog_timeout",
+  ``∀env stm prog.
+      (∀res. ¬evaluate_whole_prog F env stm prog res) ⇒
+      ∃r. evaluate_whole_prog T env stm prog r ∧
+          SND (SND r) = Rerr Rtimeout_error``,
+  rw[FORALL_PROD,EXISTS_PROD,evaluate_whole_prog_def] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[] >>
+  fs[GSYM EXISTS_PROD,GSYM FORALL_PROD] >>
+  metis_tac[not_evaluate_prog_timeout,SND,pair_CASES])
+
 val _ = export_theory ();

@@ -9,6 +9,8 @@ open import Elab
 val init_envC : envC
 let init_envC =
   (emp,
+   ("NONE", (0, TypeId (Short "option"))) ::
+   ("SOME", (1, TypeId (Short "option"))) ::
    ("nil", (0, TypeId (Short "list"))) ::
    ("::", (2, TypeId (Short "list"))) ::
    List.map (fun cn -> (cn, (0, TypeExn (Short cn)))) ["Subscript";"Bind"; "Div"; "Eq"])
@@ -57,6 +59,8 @@ let init_tenv =
 val init_tenvC : tenvC
 let init_tenvC =
   (emp,
+   ("NONE", (["'a"], [], TypeId (Short "option"))) ::
+   ("SOME", (["'a"], [Tvar "'a"], TypeId (Short "option"))) ::
    ("nil", (["'a"], [], TypeId (Short "list"))) ::
    ("::", (["'a"], [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))], TypeId (Short "list"))) ::
    List.map (fun cn -> (cn, ([], [], TypeExn (Short cn)))) ["Subscript";"Bind"; "Div"; "Eq"])
@@ -69,9 +73,10 @@ let init_type_bindings =
    ("ref", TC_ref);
    ("exn", TC_exn);
    ("unit", TC_unit);
-   ("list", TC_name (Short "list"))]
+   ("list", TC_name (Short "list"));
+   ("option", TC_name (Short "option"))]
 
 (* The modules, types, and exceptions that have been declared, for the type system to detect duplicates*)
 val init_decls : decls
-let init_decls = 
-  ({}, { Short "list" }, { Short "Subscript"; Short "Bind"; Short "Div"; Short "Eq" })
+let init_decls =
+  ({}, { Short "option"; Short "list" }, { Short "Subscript"; Short "Bind"; Short "Div"; Short "Eq" })
