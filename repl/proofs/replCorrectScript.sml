@@ -752,11 +752,10 @@ rw [SUBSET_DEF] >|
      metis_tac [] ]);
 
 val type_top_closed = store_thm("type_top_closed",
-  ``∀tmenv tcenv tenv top tm' tc' te'.
-      type_top tmenv tcenv tenv top tm' tc' te'
+  ``∀decls tmenv tcenv tenv top decls' tm' tc' te'.
+      type_top decls tmenv tcenv tenv top decls' tm' tc' te'
       ⇒
-      FV_top top ⊆ (IMAGE Short (tenv_names tenv)) ∪ tmenv_dom tmenv ∧
-      top_cns top ⊆ cenv_dom tcenv``,
+      FV_top top ⊆ (IMAGE Short (tenv_names tenv)) ∪ tmenv_dom tmenv``,
   ho_match_mp_tac type_top_ind >>
   strip_tac >- (
     simp[] >>
@@ -875,11 +874,11 @@ rw [typeSysPropsTheory.consistent_con_env_def]);
 *)
 
 val type_sound_inv_closed = Q.prove (
-`∀top rs new_tenvM new_tenvC new_tenv new_decls decls' store env.
+`∀top rs new_tenvM new_tenvC new_tenv new_decls decls' store.
   type_top rs.tdecs rs.tenvM rs.tenvC rs.tenv top new_decls new_tenvM new_tenvC new_tenv ∧
   type_sound_invariants (rs.tdecs,rs.tenvM,rs.tenvC,rs.tenv,decls',rs.envM,rs.envC,rs.envE,store)
   ⇒
-  FV_top top ⊆ all_env_dom env (*∧
+  FV_top top ⊆ all_env_dom (rs.envM,rs.envC,rs.envE) (*∧
   top_cns top ⊆ cenv_dom rs.envC*)`,
 cheat);
   (*
