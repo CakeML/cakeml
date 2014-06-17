@@ -465,23 +465,24 @@ val tenv_names_bind_var_list2 = store_thm("tenv_names_bind_var_list2",
 (* TODO: remove?
 val _ = Parse.overload_on("tmenv_dom",``λmenv:tenvM.  set (FLAT (MAP (λx. MAP (Long (FST x) o FST) (SND x)) menv))``)
 val _ = Parse.overload_on("tmenv_sdom",``λmenv:tenvM.  set (FLAT (MAP (λx. MAP (Short o FST) (SND x)) menv))``)
+*)
+
 
 val type_p_closed = store_thm("type_p_closed",
   ``(∀tvs tcenv p t tenv.
        type_p tvs tcenv p t tenv ⇒
-       pat_bindings p [] = MAP FST tenv ∧
-       all_cns_pat p ⊆ cenv_dom tcenv) ∧
+       pat_bindings p [] = MAP FST tenv (*∧
+       all_cns_pat p ⊆ cenv_dom tcenv*)) ∧
     (∀tvs cenv ps ts tenv.
       type_ps tvs cenv ps ts tenv ⇒
-      pats_bindings ps [] = MAP FST tenv ∧
-      all_cns_pats ps ⊆ cenv_dom cenv)``,
+      pats_bindings ps [] = MAP FST tenv (*∧
+      all_cns_pats ps ⊆ cenv_dom cenv*))``,
   ho_match_mp_tac type_p_ind >>
-  simp[astTheory.pat_bindings_def,pats_bindings_MAP] >>
+  simp[astTheory.pat_bindings_def] >>
   rw[] >> fs[SUBSET_DEF] >>
-  imp_res_tac alistTheory.ALOOKUP_MEM >>
-  simp[MEM_MAP,EXISTS_PROD] >>
-  fs [cenv_dom_def, MEM_MAP] >>
-  metis_tac[FST])
+  rw [Once modLangProofTheory.pat_bindings_accum]);
+
+  (*
 
 val type_e_closed = store_thm("type_e_closed",
   ``(∀tmenv tcenv tenv e t.
@@ -625,36 +626,44 @@ val type_d_closed = store_thm("type_d_closed",
     fs[SUBSET_DEF] >> metis_tac[] ) >>
   simp[])
 
+*)
+
 val fst_lem = Q.prove (
 `FST = λ(x,y). x`,
 rw [FUN_EQ_THM] >>
 PairCases_on `x` >>
 fs []);
 
+val type_funs_dom = Q.prove (
+`!tenvM tenvC tenv funs tenv'.
+  type_funs tenvM tenvC tenv funs tenv'
+  ⇒
+  IMAGE FST (set funs) = IMAGE FST (set tenv')`,
+ induct_on `funs` >>
+ rw [Once type_e_cases] >>
+ rw [] >>
+ metis_tac []);
+
 val type_d_new_dec_vs = Q.prove (
-`!mn tenvM tenvC tenv d tenvC' tenv'.
-  type_d mn tenvM tenvC tenv d tenvC' tenv'
+`!mn decls tenvM tenvC tenv d decls' tenvC' tenv'.
+  type_d mn decls tenvM tenvC tenv d decls' tenvC' tenv'
   ⇒
   set (new_dec_vs d) = set (MAP FST tenv')`,
-rw [type_d_cases, new_dec_vs_def, libTheory.emp_def] >>
-rw [new_dec_vs_def] >>
-imp_res_tac type_p_closed >>
-imp_res_tac type_e_closed >>
-rw [tenv_add_tvs_def, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-fs [LET_THM, LIST_TO_SET_MAP, GSYM fst_lem, IMAGE_COMPOSE] >>
-metis_tac [IMAGE_11, astTheory.id_11]);
-*)
+ rw [type_d_cases, new_dec_vs_def, libTheory.emp_def] >>
+ rw [new_dec_vs_def] >>
+ imp_res_tac type_p_closed >>
+ rw [tenv_add_tvs_def, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+ fs [LET_THM, LIST_TO_SET_MAP, GSYM fst_lem, IMAGE_COMPOSE] >>
+ metis_tac [type_funs_dom]);
 
 val new_top_vs_inf_tenv_to_string_map_lem = Q.prove (
-`!tenvM tenvC tenv top tenvM' tenvC' tenv'. 
+`!decls tenvM tenvC tenv top decls' tenvM' tenvC' tenv'. 
   type_top decls tenvM tenvC tenv top decls' tenvM' tenvC' (convert_env2 tenv')
   ⇒ 
   set (new_top_vs top) ⊆ FDOM (inf_tenv_to_string_map tenv')`,
-cheat);
-(*
  rw [] >>
  cases_on `top` >>
- fs [new_top_vs_def, type_top_cases] >>
+ fs [printingTheory.new_top_vs_def, type_top_cases] >>
  imp_res_tac type_d_new_dec_vs >>
  rw [convert_env2_def, MAP_MAP_o, combinTheory.o_DEF] >>
  rpt (pop_assum (fn _ => all_tac)) >>
@@ -662,7 +671,6 @@ cheat);
  rw [inf_tenv_to_string_map_def] >>
  PairCases_on `h` >>
  rw [inf_tenv_to_string_map_def, SUBSET_INSERT_RIGHT]);
- *)
 
  (*
 val type_to_string_lem = Q.prove (
@@ -867,12 +875,12 @@ rw [typeSysPropsTheory.consistent_con_env_def]);
 *)
 
 val type_sound_inv_closed = Q.prove (
-`∀top rs new_tenvM new_tenvC new_tenv new_st envC r.
+`∀top rs new_tenvM new_tenvC new_tenv new_decls decls' store env.
   type_top rs.tdecs rs.tenvM rs.tenvC rs.tenv top new_decls new_tenvM new_tenvC new_tenv ∧
   type_sound_invariants (rs.tdecs,rs.tenvM,rs.tenvC,rs.tenv,decls',rs.envM,rs.envC,rs.envE,store)
   ⇒
-  FV_top top ⊆ all_env_dom env ∧
-  top_cns top ⊆ cenv_dom rs.envC`,
+  FV_top top ⊆ all_env_dom env (*∧
+  top_cns top ⊆ cenv_dom rs.envC*)`,
 cheat);
   (*
 rw [] >>
