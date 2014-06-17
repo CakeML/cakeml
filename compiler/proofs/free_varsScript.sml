@@ -1,5 +1,5 @@
 open HolKernel boolLib bossLib lcsymtacs pred_setTheory arithmeticTheory listTheory pairTheory finite_mapTheory rich_listTheory
-open miscLib miscTheory boolSimps bigStepTheory astTheory semanticPrimitivesTheory libTheory terminationTheory
+open miscLib miscTheory boolSimps bigStepTheory astTheory semanticPrimitivesTheory libTheory terminationTheory evalPropsTheory
 open modLangTheory conLangTheory decLangTheory exhLangTheory patLangTheory toIntLangTheory compilerTerminationTheory
 open modLangProofTheory conLangProofTheory exhLangProofTheory patLangProofTheory
 

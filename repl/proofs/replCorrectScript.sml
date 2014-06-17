@@ -1,7 +1,7 @@
 open preamble boolSimps miscLib rich_listTheory arithmeticTheory;
 open lexer_funTheory repl_funTheory replTheory untypedSafetyTheory bytecodeClockTheory bytecodeExtraTheory bytecodeEvalTheory
 open lexer_implTheory cmlParseTheory inferSoundTheory bigStepTheory elabTheory compilerProofTheory;
-open semanticPrimitivesTheory typeSystemTheory typeSoundTheory weakeningTheory typeSysPropsTheory terminationTheory;
+open semanticPrimitivesTheory typeSystemTheory typeSoundTheory weakeningTheory evalPropsTheory typeSysPropsTheory terminationTheory;
 open initialEnvTheory;
 open typeSoundInvariantsTheory free_varsTheory;
 open bytecodeTheory repl_fun_altTheory repl_fun_alt_proofTheory;
@@ -480,7 +480,7 @@ val type_p_closed = store_thm("type_p_closed",
   ho_match_mp_tac type_p_ind >>
   simp[astTheory.pat_bindings_def] >>
   rw[] >> fs[SUBSET_DEF] >>
-  rw [Once modLangProofTheory.pat_bindings_accum]);
+  rw [Once pat_bindings_accum]);
 
   (*
 

@@ -70,18 +70,6 @@ val drestrict_iter_list = Q.prove (
  induct_on `l` >>
  rw [DRESTRICT_UNIV, compl_insert, DRESTRICT_DOMSUB]);
 
-val pat_bindings_accum = Q.store_thm ("pat_bindings_accum",
-`(!p acc. pat_bindings p acc = pat_bindings p [] ++ acc) ∧
- (!ps acc. pats_bindings ps acc = pats_bindings ps [] ++ acc)`,
- Induct >>
- rw []
- >- rw [pat_bindings_def]
- >- rw [pat_bindings_def]
- >- metis_tac [APPEND_ASSOC, pat_bindings_def]
- >- metis_tac [APPEND_ASSOC, pat_bindings_def]
- >- rw [pat_bindings_def]
- >- metis_tac [APPEND_ASSOC, pat_bindings_def]);
-
 val pmatch_extend = Q.prove (
 `(!cenv s p v env env' env''.
   pmatch cenv s p v env = Match env'

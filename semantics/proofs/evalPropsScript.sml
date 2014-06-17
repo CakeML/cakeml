@@ -250,4 +250,16 @@ val evaluate_decs_evaluate_prog_MAP_Tdec = store_thm("evaluate_decs_evaluate_pro
   >- (
     Cases_on`a`>>fs[]))
 
+val pat_bindings_accum = Q.store_thm ("pat_bindings_accum",
+`(!p acc. pat_bindings p acc = pat_bindings p [] ++ acc) ∧
+ (!ps acc. pats_bindings ps acc = pats_bindings ps [] ++ acc)`,
+ Induct >>
+ rw []
+ >- rw [pat_bindings_def]
+ >- rw [pat_bindings_def]
+ >- metis_tac [APPEND_ASSOC, pat_bindings_def]
+ >- metis_tac [APPEND_ASSOC, pat_bindings_def]
+ >- rw [pat_bindings_def]
+ >- metis_tac [APPEND_ASSOC, pat_bindings_def]);
+
 val _ = export_theory ();
