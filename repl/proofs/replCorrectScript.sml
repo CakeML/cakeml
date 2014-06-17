@@ -225,7 +225,7 @@ type_infer_invariants rs rinf_st ⇔
 
 val type_invariants_pres = Q.prove (
 `!rs rfs.
-  type_infer_invariants rs (infer_menv,infer_cenv,infer_env) ∧
+  type_infer_invariants rs (decls,infer_menv,infer_cenv,infer_env) ∧
   infer_top infer_menv infer_cenv infer_env top init_infer_state =
           (Success (new_infer_menv,new_infer_cenv,new_infer_env), infer_st2)
   ⇒
@@ -310,6 +310,7 @@ val infer_to_type = Q.prove (
       (Success (new_decls, new_menv,new_cenv,new_env),st2)) ∧
   (st.rinferencer_state = (decls,menv,cenv,env))
   ⇒
+  infer_sound_invariant (new_menv ++ menv) (merge_tenvC new_cenv cenv) (new_env++env) ∧
   type_top rs.tdecs rs.tenvM rs.tenvC rs.tenv top
            (convert_decls new_decls) (convert_menv new_menv) new_cenv (convert_env2 new_env)`,
  rw [invariant_def, type_infer_invariants_def, type_sound_invariants_def] >>
@@ -1488,7 +1489,7 @@ strip_tac >>
     reverse conj_tac >- (
       rpt (AP_THM_TAC ORELSE AP_TERM_TAC) >>
       match_mp_tac to_string_map_lem >>
-      cheat ) >>
+      fs [infer_sound_invariant_def, check_env_def] ) >>
     CONV_TAC(lift_conjunct_conv(equal``code_executes_ok`` o fst o strip_comb)) >>
     conj_tac >- (
       simp[code_executes_ok_def] >> disj1_tac >>
