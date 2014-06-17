@@ -37,10 +37,11 @@ temp_add_user_printer ("i1_dexnprint", ``Dexn_i1 NONE x y``,genPrint i1_dexnPrin
 
 (*i1_Top level datatypes list(list tvarN *typeN * list ... ) *)
 
-temp_add_user_printer ("i1_dtypeprint", ``Dtype_i1 NONE x``,genPrint dtypePrint);
+temp_add_user_printer ("i1_dtypenoneprint", ``Dtype_i1 NONE x``,genPrint dtypePrint);
 
 (*Dtype with module names TODO*)
 
+temp_add_user_printer ("i1_dtypesomeprint", ``Dtype_i1 SOME(
 
 (*i1_Top level letrec list varN*varN*exp -- Only strip once *)
 temp_add_user_printer ("i1_dletrecprint", ``Dletrec_i1 x``, genPrint dletrecPrint);

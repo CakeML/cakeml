@@ -111,45 +111,15 @@ val ex2 = allIntermediates ``"fun f x y = (g x) + (g y) and g x = x+1; f 5 4; g 
 (*raise, handle and case*)
 val ex3 = allIntermediates ``"exception Fail of int; exception Odd; exception Even; val x = 1; (case x of 1 => 2 | 2 => raise Even | 3 => raise Odd | _ => raise Fail 4) handle Odd => 1 | Even => 0 | Fail n => n;"``;
 
-(*Parse error*)
-val ex4 = allIntermediates ``"structure Nat :> sig type nat val zero:nat val succ:nat-> nat end = struct datatype nat = Int of int val zero = Int 0 fun succ (Int x) = (Int (x+1)) end;"``;
-
-(*HANGS Structs, using members of modules*)
-val prog = ``"structure Nat = struct val zero = 0 fun succ x = x+1 end; val x = Nat.zero;"``;
-val ex5 = allIntermediates ``"structure Nat = struct val zero = 0 fun succ x = x+1 end; val x = Nat.succ(Nat.zero);"``;
-(*Ok*)
-val ex5b = allIntermediates ``"structure Nat = struct val zero = 0 fun succ x = x+1 end;"``;
+(*Structure defn*)
+val ex4 = allIntermediates ``"structure Nat :> sig type nat val zero:nat val succ:nat-> nat end = struct datatype nat = Int of int val zero = Int 0 fun succ n = case n of Int x => Int (x+1) end;"``; 
 
 (*Top lvl val, ref/deref*)
-val ex6 = allIntermediates ``"val x = ref 5; x:= 1+!x;"``;
+(*ex5 should parse wrongly*)
+val ex5 = allIntermediates ``"val x = ref 5; x:= 1+!x;"``;
 
 val ex6= allIntermediates ``"fun f y = let val x = ref y in x:= !x+1 end;"``;
-(*
-val prog = #ast ex6
-val tm = prog
-val [tm] = tops
-datatype top_result = Tdec of ...
-datatype exp_view = 
 
-fun dest_top tm =
-  case total (match_term  ``Tdec dec``) tm
-   of NONE =>
-         case total (match_term ``Tmod ...``) tm of...
-   | SOME [s] =>
-     Tdec (#residue s)
-    val s = match_term ``Tdec dec`` tm
-   
-
-fun pp_top tm acc =
-  case dest_top tm of
-
-fun pp_prog tm acc =
-  let
-    val (tops,_) = listSyntax.dest_list tm
-  in
-    List.foldr (uncurry pp_top) acc tops
-  end
-*)
 (*datatypes, non exhausive pattern matching*)
 val ex7 = allIntermediates ``"datatype 'a foo = Br of 'a * 'a foo * 'a foo | Lf of 'a | Nil; fun f x = case x of Br(v,l,r) => v + (f l) + (f r) | Lf v => v ; f (Br (1, Br(2,Lf 1, Lf 2), (Lf 1)));"``;
 
@@ -157,7 +127,7 @@ val ex7 = allIntermediates ``"datatype 'a foo = Br of 'a * 'a foo * 'a foo | Lf 
 val ex8 = allIntermediates ``"fun f x y z= x+y+z; val (x,y,z) = (f 1 1 1,f 2 2 2,f (f (f 3 3 3) 1 2));"``;
 
 (*Coercion, parse error*)
-val ex9 = allIntermediates ``"val x:int = 5;"`` 
+val ex9 = allIntermediates ``"datatype foo = Br of ((int * string) * int) * string;"`` 
 
 (*complex datatypes*)
 
@@ -192,5 +162,8 @@ val ex18 = allIntermediates ``"fun append xs ys = case xs of [] => ys | (x::xs) 
 
 val ex19 = allIntermediates ``"val x = \"hello\";"``;
 
-val ex20 = allIntermediates ``"structure Nat = struct val zero = 0  fun succ x = x+1  fun iter f n = if n = 0 then (fn x=> x) else (fn y=> f ((iter f (n-1)) y))end;(Nat.iter Nat.succ 5) Nat.zero;"``
 val ex20 = allIntermediates ``"structure Nat = struct val zero = 0 fun succ x = x+1 fun iter f n = if n = 0 then (fn x=> x) else f o (iter f n) end; (Nat.iter Nat.succ 5) Nat.zero;"``;
+
+val ex22 = allIntermediates ``"structure blablablabla :> sig type nat     datatype 'a blabla= Lf of 'a | Br of 'a blabla * 'a     val k : nat     val f : 'a blabla -> 'a blabla  end = struct     datatype nat = Int of int     datatype 'a blabla = Lf of 'a | Br of 'a blabla * 'a     val k = Int 0     fun f x = x end;"``;
+
+val ex23 = allIntermediates ``"datatype foo = Lf of int * (int -> unit) * int| Br of (int * int) -> (unit * int);"``
