@@ -237,6 +237,7 @@ val () = computeLib.add_thms
   ,elab_decs_def
   ,elab_t_def
   ,elab_td_def
+  ,elab_spec_def
   ,init_type_bindings_def
   ] compset
 (* inferencer *)
