@@ -221,28 +221,27 @@ type_infer_invariants rs rinf_st ⇔
     ∧ (rs.tenvC = FST (SND (SND rinf_st)))
     ∧ (rs.tenv = (bind_var_list2 (convert_env2 (SND (SND (SND rinf_st)))) Empty))`;
 
-(* TODO:
-
 val type_invariants_pres = Q.prove (
 `!rs rfs.
   type_infer_invariants rs (decls,infer_menv,infer_cenv,infer_env) ∧
-  infer_top infer_menv infer_cenv infer_env top init_infer_state =
-          (Success (new_infer_menv,new_infer_cenv,new_infer_env), infer_st2)
+  infer_top decls infer_menv infer_cenv infer_env top init_infer_state =
+          (Success (new_decls,new_infer_menv,new_infer_cenv,new_infer_env), infer_st2)
   ⇒
-  type_infer_invariants (update_repl_state top rs el0 el1 (convert_menv new_infer_menv) new_infer_cenv (convert_env2 new_infer_env) st'
+  type_infer_invariants (update_repl_state top rs el (convert_decls new_decls) (convert_menv new_infer_menv) new_infer_cenv (convert_env2 new_infer_env) st'
                                      envC (Rval (envM,envE)))
-                  (new_infer_menv ++ infer_menv, new_infer_cenv ++ infer_cenv,new_infer_env ++ infer_env)`,
+                  (new_decls,new_infer_menv ++ infer_menv, merge_tenvC new_infer_cenv infer_cenv,new_infer_env ++ infer_env)`,
 rw [update_repl_state_def, type_infer_invariants_def] >>
 `check_menv new_infer_menv ∧
  check_cenv new_infer_cenv ∧
  check_env {} new_infer_env`
-           by metis_tac [infer_top_invariant] >|
+           by metis_tac [inferPropsTheory.infer_top_invariant] >|
 [fs [check_menv_def],
- fs [check_cenv_def],
+ cheat,
  fs [check_env_def],
  rw [convert_menv_def],
  rw [bvl2_append, convert_env2_def]]);
 
+(* TODO:
 val type_invariants_pres_err = Q.prove (
 `!rs rfs.
   type_infer_invariants rs (infer_menv,infer_cenv,infer_env) ∧
