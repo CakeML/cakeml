@@ -5,18 +5,6 @@ open modLangTheory conLangTheory decLangTheory exhLangTheory intLangTheory toInt
 
 val _ = new_theory"compilerProof"
 
-(* TODO: move *)
-
-val not_evaluate_whole_prog_timeout = store_thm("not_evaluate_whole_prog_timeout",
-  ``∀env stm prog.
-      (∀res. ¬evaluate_whole_prog F env stm prog res) ⇒
-      ∃r. evaluate_whole_prog T env stm prog r ∧
-          SND (SND r) = Rerr Rtimeout_error``,
-  rw[FORALL_PROD,EXISTS_PROD,evaluate_whole_prog_def] >>
-  BasicProvers.EVERY_CASE_TAC >> fs[] >>
-  fs[GSYM EXISTS_PROD,GSYM FORALL_PROD] >>
-  metis_tac[not_evaluate_prog_timeout,SND,pair_CASES])
-
 (* misc *)
 
 val code_env_cd_append = store_thm("code_env_cd_append",
@@ -1145,10 +1133,11 @@ val env_rs_def = Define`
       Cenv_bs rd ((cnt,Cs),Cg) [] [] 0 bs`
 
 val env_rs_empty = store_thm("env_rs_empty",
-  ``∀envs s cs genv mods tids gtagenv rd grd bs ck.
+  ``∀envs s cs genv rd grd bs ck.
     bs.stack = [] ∧ bs.globals = [] ∧ FILTER is_Label bs.code = [] ∧
-    (∀n. bs.clock = SOME n ⇒ n = ck) ∧ envs = ([],init_envC,[]) ∧ s = ((ck,[]),tids,mods) ∧
-    grd = ([],gtagenv,rd) ∧
+    (∀n. bs.clock = SOME n ⇒ n = ck) ∧ envs = ([],init_envC,[]) ∧
+    s = ((ck,[]),IMAGE SND (FDOM init_gtagenv),{}) ∧
+    grd = ([],init_gtagenv,rd) ∧
     rd.sm = [] ∧ rd.cls = FEMPTY ∧ cs = init_compiler_state ⇒
     env_rs envs s grd cs bs``,
   rpt gen_tac >>
@@ -1162,9 +1151,11 @@ val env_rs_empty = store_thm("env_rs_empty",
   simp[Once s_to_i2_cases] >> simp[Once s_to_i2'_cases] >> simp[Once v_to_i2_cases] >>
   simp[Cenv_bs_def,env_renv_def,s_refs_def,good_rd_def,FEVERY_ALL_FLOOKUP] >>
   simp[all_vlabs_csg_def,vlabs_csg_def,closed_vlabs_def] >>
-  cheat)
+  conj_tac >- EVAL_TAC >>
+  Q.ISPEC_THEN`ck`assume_tac initial_i2_invariant >>
+  fs[to_i2_invariant_def] >>
+  fs[cenv_inv_def])
 
-(*
 (* TODO: move *)
 val to_i1_invariant_change_clock = store_thm("to_i1_invariant_change_clock",
   ``to_i1_invariant genv mods tops menv env s s_i1 mod_names ∧
@@ -1178,22 +1169,22 @@ val to_i1_invariant_change_clock = store_thm("to_i1_invariant_change_clock",
 
 (* TODO: move *)
 val to_i2_invariant_change_clock = store_thm("to_i2_invariant_change_clock",
-  ``to_i2_invariant tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ∧
+  ``to_i2_invariant mods tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ∧
     SND s' = SND s ∧ SND s_i2' = SND s_i2 ∧ FST s' = FST s_i2'
     ⇒
-    to_i2_invariant tids envC exh tagenv_st gtagenv s' s_i2' genv genv_i2``,
+    to_i2_invariant mods tids envC exh tagenv_st gtagenv s' s_i2' genv genv_i2``,
   simp[to_i2_invariant_def] >>
   rw[Once s_to_i2_cases] >>
   rw[Once s_to_i2_cases] >>
   metis_tac[pair_CASES,PAIR_EQ,SND,FST])
 
 val env_rs_change_clock = store_thm("env_rs_change_clock",
-   ``∀env cs grd rs bs cs' ck' bs' new_clock.
-     env_rs env cs grd rs bs ∧ cs' = (ck',SND cs) ∧
+   ``∀env stm grd rs bs stm' ck bs' new_clock.
+     env_rs env stm grd rs bs ∧ stm' = ((ck,SND(FST stm)),SND stm) ∧
      (bs' = bs with clock := new_clock) ∧
-     (new_clock = NONE ∨ new_clock = SOME ck')
+     (new_clock = NONE ∨ new_clock = SOME ck)
      ⇒
-     env_rs env cs' grd rs bs'``,
+     env_rs env stm' grd rs bs'``,
   qx_gen_tac`p` >> PairCases_on`p` >>
   qx_gen_tac`q` >> PairCases_on`q` >>
   qx_gen_tac`r` >> PairCases_on`r` >>
@@ -1218,7 +1209,6 @@ val env_rs_change_clock = store_thm("env_rs_change_clock",
   first_assum(match_exists_tac o concl) >> simp[] >>
   simp[bc_state_component_equality] >>
   fs[Cenv_bs_def,s_refs_def,Abbr`d`,good_rd_def])
-*)
 
 (*
 val env_rs_change_store = store_thm("env_rs_change_store",
@@ -3280,11 +3270,12 @@ val compile_prog_thm = store_thm("compile_prog_thm",
     fs[] ) >>
   simp[] >>
   (discharge_hyps >- (
-     simp[FLOOKUP_FUNION,FLOOKUP_UPDATE] >>
-     BasicProvers.CASE_TAC >>
+     simp[init_exh_def,flookup_fupdate_list,FLOOKUP_FUNION] >>
+     Cases_on`res6`>>fs[GSYM FORALL_PROD] >>
+     TRY (conj_tac >- (fs[result_to_i2_cases,result_to_i1_cases] >> rw[])) >>
+     BasicProvers.CASE_TAC >- EVAL_TAC >>
      fs[IN_DISJOINT,FLOOKUP_DEF] >>
-     fs[result_to_i2_cases,result_to_i1_cases] >> rw[] >>
-     Cases_on`res6`>>fs[GSYM FORALL_PROD])) >>
+     fs[init_exh_def,FDOM_FUPDATE_LIST] >> metis_tac[])) >>
   simp[result_to_i3_cases] >- (
     rw[] >> Cases_on`res6` >> fs[] >>
     PairCases_on`a`>>fs[]>>
@@ -3293,16 +3284,14 @@ val compile_prog_thm = store_thm("compile_prog_thm",
     fs[LIST_REL_O,OPTREL_O] >>
     qmatch_assum_rename_tac`LIST_REL (v_to_exh X) s2 sh`["X"] >>
     qmatch_assum_rename_tac`LIST_REL R genv2 gh`["R"] >>
-    Q.PAT_ABBREV_TAC`rsexh:exh_ctors_env = FEMPTY |+ X` >>
+    Q.PAT_ABBREV_TAC`rsexh = init_exh` >>
     `store_to_exh (exh ⊌ rsexh) ((stm0,s2),genv2) ((stm0,sh),gh)` by (
       simp[store_to_exh_def] >>
-      `FDOM rsexh = {Short "option"}` by simp[Abbr`rsexh`] >>
-      `DISJOINT (FDOM exh) (FDOM rsexh)` by simp[] >>
       conj_tac >>
       match_mp_tac (MP_CANON (GEN_ALL EVERY2_mono)) >>
       ONCE_REWRITE_TAC[CONJ_COMM] >>
       first_assum(match_exists_tac o concl) >> simp[] >>
-      metis_tac[optionTheory.OPTREL_MONO,v_to_exh_extend_disjoint,FUNION_COMM]) >>
+      metis_tac[optionTheory.OPTREL_MONO,v_to_exh_extend_disjoint,FUNION_COMM,DISJOINT_SYM]) >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     disch_then(qspec_then`exh ⊌ rsexh`mp_tac) >> simp[] >>
     strip_tac >>
@@ -3584,15 +3573,13 @@ val compile_prog_thm = store_thm("compile_prog_thm",
   fs[LIST_REL_O,OPTREL_O] >>
   qmatch_assum_rename_tac`LIST_REL (v_to_exh X) s2 sh`["X"] >>
   qmatch_assum_rename_tac`LIST_REL R genv2 gh`["R"] >>
-  Q.PAT_ABBREV_TAC`rsexh:exh_ctors_env = FEMPTY |+ X` >>
+  Q.PAT_ABBREV_TAC`rsexh = init_exh` >>
   `store_to_exh (exh ⊌ rsexh) ((stm0,s2),genv2) ((stm0,sh),gh)` by (
     simp[store_to_exh_def] >>
-    `FDOM rsexh = {Short "option"}` by simp[Abbr`rsexh`] >>
-    `DISJOINT (FDOM exh) (FDOM rsexh)` by simp[] >>
     conj_tac >>
     match_mp_tac (MP_CANON (GEN_ALL EVERY2_mono)) >>
     HINT_EXISTS_TAC >>
-    metis_tac[optionTheory.OPTREL_MONO,v_to_exh_extend_disjoint,FUNION_COMM]) >>
+    metis_tac[optionTheory.OPTREL_MONO,v_to_exh_extend_disjoint,FUNION_COMM,DISJOINT_SYM]) >>
   disch_then(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
   disch_then(qspec_then`exh ⊌ rsexh`mp_tac) >> simp[] >>
   strip_tac >>
@@ -3814,13 +3801,15 @@ val compile_prog_divergence = store_thm("compile_prog_divergence",
   fs[result_to_i2_cases] >>
   simp[FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
   reverse BasicProvers.CASE_TAC >- (
-    fs[IN_DISJOINT,FLOOKUP_DEF] ) >>
+    fs[IN_DISJOINT,FLOOKUP_DEF,init_exh_def,FDOM_FUPDATE_LIST] >>
+    metis_tac[]) >>
   rpt BasicProvers.VAR_EQ_TAC >>
   `LENGTH genv2 = LENGTH grd0` by (
     fs[to_i2_invariant_def] >>
     imp_res_tac EVERY2_LENGTH >>
     fs[] ) >>
-  simp[] >>
+  simp[Once init_exh_def,flookup_fupdate_list] >>
+  discharge_hyps >- EVAL_TAC >>
   strip_tac >>
   (exp_to_exh_correct
    |> CONJUNCT1
@@ -3835,8 +3824,7 @@ val compile_prog_divergence = store_thm("compile_prog_divergence",
     conj_tac >>
     match_mp_tac (MP_CANON (GEN_ALL EVERY2_mono)) >>
     HINT_EXISTS_TAC >>
-    `DISJOINT  (FDOM exh) (FDOM rsexh)` by simp[Abbr`rsexh`] >>
-    metis_tac[optionTheory.OPTREL_MONO,v_to_exh_extend_disjoint,FUNION_COMM]) >>
+    metis_tac[optionTheory.OPTREL_MONO,v_to_exh_extend_disjoint,FUNION_COMM,DISJOINT_SYM]) >>
   disch_then(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
   disch_then(qspec_then`exh ⊌ rsexh`mp_tac) >> simp[] >>
   strip_tac >>

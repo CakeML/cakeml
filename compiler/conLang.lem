@@ -933,3 +933,8 @@ let init_tagenv_state =
                  (some_tag, ("SOME", TypeId (Short "option")));
                  (none_tag, ("NONE", TypeId (Short "option")))])
 
+val init_exh : exh_ctors_env
+let init_exh =
+  Map.fromList
+    [(Short "list", nat_set_from_list [cons_tag; nil_tag]);
+     (Short "option", nat_set_from_list [some_tag; none_tag])]
