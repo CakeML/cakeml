@@ -589,7 +589,7 @@ val type_e_closed = store_thm("type_e_closed",
     res_tac >>
     fs [] >>
     rw [] >>
-    cheat)
+    cheat) >>
   strip_tac >- simp[] >>
   strip_tac >- simp[] >>
   strip_tac >- simp[] >>
