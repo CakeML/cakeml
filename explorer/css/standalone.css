@@ -1,0 +1,23 @@
+body {
+    padding:20px 20px;
+    font-family: "Courier New", Courier, monospace;
+}
+
+/* get rid of those system borders being generated for A tags */
+a:active {
+    outline:none;
+}
+
+:focus {
+    -moz-outline-style:none;
+}
+
+textarea{
+    width: auto;
+    height: auto;
+    border: 3px solid #cccccc;
+    padding: 5px;
+    font-family: "Courier New", Courier, monospace;
+    resize: none;
+}
+
