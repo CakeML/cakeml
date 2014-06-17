@@ -3,6 +3,7 @@ open cakeml_computeLib progToBytecodeTheory
 open Portable smpp
 
 fun strip t = #2 (dest_comb t);
+fun toString s = stringSyntax.fromHOLstring s;
 
 (*Generic printer pass str,brk and blk*)
 fun genPrint printFunc Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
@@ -12,6 +13,23 @@ fun genPrint printFunc Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
   in
     printFunc sys d t Top str brk blk
   end handle HOL_ERR _ => raise term_pp_types.UserPP_Failed;
+ 
+(*Tmod*)
+fun tmodnonePrint sys d t Top str brk blk =
+  let val (_,[name,opt,decs]) = strip_comb t
+      val ls = #1(listSyntax.dest_list decs)
+      fun printTerms [] = str""
+      |   printTerms [x] = sys (Top,Top,Top) d x
+      |   printTerms (x::xs) = printTerms [x] >> printTerms xs
+  in
+    add_newline>>blk CONSISTENT 0 (str "structure ">>str (toString name) 
+    >>str" ">>str "=">>add_newline>>
+    str "  ">>blk CONSISTENT 2 (str"struct" >> printTerms ls )>>add_newline>>str"  end")
+  end;
+
+temp_add_user_printer ("tmodnoneprint", ``Tmod x NONE xs``,genPrint tmodnonePrint);
+(*temp_add_user_printer ("tmodsomeprint", ``Tmod x (SOME y) xs``,genPrint tmodsomePrint);
+*)
 
 (*TDec*)
 fun tdecPrint sys d t Top str brk blk =
@@ -28,8 +46,9 @@ fun dexnPrint sys d t Top str brk blk =
     |   printTerms [x] = sys (Top,Top,Top) (d-1) x
     |   printTerms (x::xs) = sys (Top,Top,Top) (d-1) x >> str "," >>brk(1,0)>> (printTerms xs);
   in 
-    add_newline >> str "exception " >> str (stringSyntax.fromHOLstring x)
-    >> (case args of [] => str "" | [x] => str " of ">>printTerms args | (_::_) => str " of" >> brk (1,2) >> str "(" >> printTerms args >>str ")")
+    add_newline >> str "exception " >> str (toString x) >> 
+    (case args of [] => str "" | [x] => str " of ">>printTerms args 
+    | (_::_) => str " of" >> brk (1,2) >> str "(" >> printTerms args >>str ")")
   end;
 
 temp_add_user_printer ("dexnprint", ``Dexn x y``,genPrint dexnPrint);
@@ -49,7 +68,7 @@ fun dtypePrint sys d t Top str brk blk =
           val (name,ls) = pairSyntax.dest_pair x
           val args = #1(listSyntax.dest_list ls)
           in
-            str (stringSyntax.fromHOLstring name) >> (case args of [] => str"" | _ => str " of ">>printTuple "*" (sys (Top,Top,Top) d) str args)
+            str (toString name) >> (case args of [] => str"" | _ => str " of ">>printTuple "*" (sys (Top,Top,Top) d) str args)
           end
     |   printCtors (x::xs) = printCtors[x] >> add_newline >> str"| ">>(printCtors xs)
 
@@ -60,9 +79,9 @@ fun dtypePrint sys d t Top str brk blk =
           val typaram = #1(listSyntax.dest_list params)
           in
              add_newline>> str "datatype " >> (case typaram of [] => str"" 
-             | (x::y::xs) => str "(">>printTuple "," (str o stringSyntax.fromHOLstring) str typaram >> str") "
-             | _ => printTuple "," (str o stringSyntax.fromHOLstring) str typaram)>>str" "
-             >> str (stringSyntax.fromHOLstring name) >> str" ">>blk CONSISTENT 0 
+             | (x::y::xs) => str "(">>printTuple "," (str o toString) str typaram >> str") "
+             | _ => printTuple "," (str o toString) str typaram)>>str" "
+             >> str (toString name) >> str" ">>blk CONSISTENT 0 
              (str "= " >> printCtors (#1(listSyntax.dest_list ctors)))
           end
     |   printTerms (x::xs) = printTerms [x] >> printTerms xs
@@ -74,7 +93,7 @@ temp_add_user_printer ("dtypeprint", ``Dtype x``,genPrint dtypePrint);
 
 (*tvar name*)
 fun tvarPrint sys d t Top str brk blk =
-  str (stringSyntax.fromHOLstring (strip t));
+  str (toString (strip t));
 
 temp_add_user_printer("tvarprint", ``Tvar x``,genPrint tvarPrint);
 
@@ -94,7 +113,7 @@ temp_add_user_printer("exntypeprint",``TC_exn``,genPrint (deftypePrint "exn"));
 
 (*TC_name*)
 fun tcnamePrint sys d t Top str brk blk =
-  str (stringSyntax.fromHOLstring (strip (strip t)));
+  str (toString (strip (strip t)));
 
 temp_add_user_printer("tcnameprint", ``TC_name x``,genPrint tcnamePrint);
 
@@ -127,7 +146,7 @@ fun dletrecPrint sys d t Top str brk blk =
     fun printTerms [] = str ""
     |   printTerms [t] = let val (x::y::[z]) = pairSyntax.strip_pair t
         in
-         blk CONSISTENT 0 (str (stringSyntax.fromHOLstring x) >> str " ">> str (stringSyntax.fromHOLstring y)>> str " =" >> brk(1,0)>> sys (Top,Top,Top) (d-1) z)
+         blk CONSISTENT ~2 (str (toString x) >> str " ">> str (toString y)>> str " =" >> brk(1,0)>> sys (Top,Top,Top) (d-1) z)
         end
     |   printTerms (t::xs) = printTerms [t] >>add_newline>>str "and " >> (printTerms xs)
   in
@@ -146,7 +165,7 @@ fun letrecPrint sys d t Top str brk blk =
     fun printTerms [] = str ""
     |   printTerms [t] = let val (x::y::[z]) = pairSyntax.strip_pair t
         in
-          blk CONSISTENT 0 (str (stringSyntax.fromHOLstring x) >> str " ">> str (stringSyntax.fromHOLstring y)
+          blk CONSISTENT 0 (str (toString x) >> str " ">> str (toString y)
           >> str " =">>brk(1,0) >> sys (Top,Top,Top) (d-1) z)
         end
     |   printTerms (t::xs) = printTerms [t] >>add_newline>>str "and ">> (printTerms xs)
@@ -162,7 +181,7 @@ fun lambdaPrint sys d t Top str brk blk =
   let
     val (_,[name,expr]) = strip_comb t
   in
-    str "(fn ">> str (stringSyntax.fromHOLstring name) >>str" =>">>brk(1,2)>> blk CONSISTENT 0 (sys (Top,Top,Top) (d-1) expr) >> str")"
+    str "(fn ">> str (toString name) >>str" =>">>brk(1,2)>> blk CONSISTENT 0 (sys (Top,Top,Top) (d-1) expr) >> str")"
   end;
 
 temp_add_user_printer ("lambdaprint", ``Fun x y``,genPrint lambdaPrint);
@@ -173,8 +192,8 @@ fun dletvalPrint sys d t Top str brk blk=
     open Portable smpp
     val (_,[l,r]) = strip_comb t;
   in
-    add_newline>> str "val " >>
-    blk CONSISTENT 0 (sys (Top,Top,Top) (d-1) l >>
+    add_newline>>blk CONSISTENT 2 (str "val " >>
+    sys (Top,Top,Top) (d-1) l >>
     str " =" >> brk (1,0) >> sys (Top,Top,Top) (d-1) r)
   end;
 
@@ -185,9 +204,9 @@ fun letvalPrint sys d t Top str brk blk =
   let
     val (t,body) = dest_comb t
     val (t,eq) = dest_comb t
-    val name = stringSyntax.fromHOLstring (strip (strip t))
+    val name = toString (strip (strip t))
   in
-    blk CONSISTENT 0 (str "let val " >> str name >>str" = ">> sys (Top,Top,Top) d eq
+    blk CONSISTENT 0 (blk CONSISTENT 2(str "let val " >> str name >>str" =">>brk(1,0)>> sys (Top,Top,Top) d eq)
     >> add_newline >> str "in">>add_newline >> str"  ">>(sys (Top,Top,Top) d body) >>add_newline>>str"end")
   end;
 
@@ -210,7 +229,7 @@ temp_add_user_printer ("letnoneprint", ``Let NONE x y``, genPrint letnonePrint);
 
 (*Pattern var*)
 fun pvarPrint sys d t Top str brk blk =
-    str (stringSyntax.fromHOLstring (strip t));
+    str (toString (strip t));
 
 temp_add_user_printer ("pvarprint", ``Pvar x``, genPrint pvarPrint);
 
@@ -238,7 +257,7 @@ fun pconsomePrint sys d t Top str brk blk=
     fun printTerms [] = str ""
     |   printTerms [x] = sys (Top,Top,Top) (d-1) x
     |   printTerms (x::xs) = sys (Top,Top,Top) (d-1) x >> str ",">> (printTerms xs);
-    val ctort = stringSyntax.fromHOLstring (strip (strip l));
+    val ctort = toString (strip (strip l));
     val ctor = if (ctort = "::") then "Cons" else ctort
   in
     str ctor >> (case args of [] => str "" | (_::_) => str "(" >> (blk INCONSISTENT 0 (printTerms args)) >>str ")")
@@ -262,7 +281,7 @@ fun plitPrint sys d t Top str brk blk=
 
 temp_add_user_printer("plitprint", ``Plit x``, genPrint plitPrint);
 
-fun unitPrint sys d t Top str brk blk=
+fun unitPrint sys d t Top str brk blk =
   str "()";  
 
 temp_add_user_printer ("litprint", ``Lit x``, genPrint plitPrint);
@@ -271,10 +290,19 @@ temp_add_user_printer ("punitprint", ``Plit Unit``,genPrint unitPrint);
 
 (*Short Var name*)
 fun varShortPrint sys d t Top str brk blk=
-    str (stringSyntax.fromHOLstring (strip (strip t)));
+    str (toString (strip (strip t)));
 
 temp_add_user_printer ("varshortprint", ``Var (Short x)``,genPrint varShortPrint);
 
+(*Long Var name*)
+fun varLongPrint sys d t Top str brk blk =
+  let val t = rand t
+      val (_,[l,r]) = strip_comb t
+  in
+    str (toString l)>> str".">>str(toString r)
+  end;
+
+temp_add_user_printer ("varlongprint", ``Var (Long x y)``,genPrint varLongPrint);
 
 (*Matching*)
 fun matPrint sys d t Top str brk blk=
@@ -378,7 +406,7 @@ fun ifthenelsePrint sys d t Top str brk blk =
 
 temp_add_user_printer("ifthenelseprint", ``If x y z``,genPrint ifthenelsePrint);
 
-(*Pretty Printer for Types*)
+(*Pretty Printer specifics for globals, types & exceptions*)
 
 fun tidPrinter sys d t Top str brk blk =
   str "datatype " >>sys (Top,Top,Top) d (strip (strip t));
@@ -389,5 +417,15 @@ fun texnPrinter sys d t Top str brk blk =
 temp_add_user_printer("typeidprint",``TypeId (Short x)``, genPrint tidPrinter);
 temp_add_user_printer("typeexnprint",``TypeExn (Short x)``, genPrint texnPrinter);
 
+fun globPrinter sys d t Top str brk blk =
+  case pairSyntax.strip_pair t
+  of
+     [x,y] => str"bla">>str (toString x) >>str " |-> " >>sys (Top,Top,Top) d y
+  |  [x,y,z] => str (toString x) >>str " of " >>sys (Top,Top,Top) d y >> sys (Top,Top,Top) d z;
 
+temp_add_user_printer("globprint",``(x,y)``,genPrint globPrinter);
 
+temp_add_user_printer("ctorprint",``($, x) (($, y) z)``,genPrint globPrinter);
+
+temp_remove_user_printer("ctorprint");
+temp_remove_user_printer("globprint");

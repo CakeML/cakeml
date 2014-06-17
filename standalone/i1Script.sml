@@ -1,3 +1,17 @@
+(*i1_named prompts*)
+fun i1_promptSomePrint sys d t Top str brk blk =
+  let
+    val (t,ls) = dest_comb t
+    val name = rand (rand t)
+    fun printAll [] = str""
+    |   printAll (x::xs) = sys (Top,Top,Top) (d-1) x >> add_newline
+  in
+    add_newline>>blk CONSISTENT 0 (
+    str (toString name)>>str" {">>printAll (#1(listSyntax.dest_list ls))>>str "}")
+  end;
+
+temp_add_user_printer("i1_promptsomeprint",``Prompt_i1 (SOME y) x``,genPrint i1_promptSomePrint);
+
 (*i1_Unnamed Prompts NONE => declist*)
 fun i1_promptNonePrint sys d t Top str brk blk=
   let
@@ -71,7 +85,7 @@ temp_add_user_printer ("i1_unitprint", ``Lit_i1 Unit``,genPrint unitPrint);
 
 (*i1 local Var name, no more long names*)
 fun i1_varlocalPrint sys d t Top str brk blk =
-    str (stringSyntax.fromHOLstring (strip t));
+    str (toString (strip t));
 
 temp_add_user_printer ("i1_varlocalprint", ``Var_local_i1 x``,genPrint i1_varlocalPrint);
 

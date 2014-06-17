@@ -1,4 +1,4 @@
-open HolKernel boolLib bossLib Parse astTheory terminationTheory
+open HolKernel boolLib bossLib Parse astTheory terminationTheory sptreeTheory conLangProofTheory
 open cakeml_computeLib progToBytecodeTheory
 open smpp Portable
 
@@ -49,8 +49,9 @@ fun allIntermediates prog =
       val l1 = eval ``prog_to_i1 ^(n) ^(m1) ^(m2) ^(ast)``
       val [v1,v2,m2,p1] = pairSyntax.strip_pair(rhsThm l1)    
 
-      val modMap = v2;
-      val globMap = m2;
+      (*Assume start from fempty*)
+      val (_,modMap) = finite_mapSyntax.strip_fupdate v2
+      val (_,globMap) = finite_mapSyntax.strip_fupdate m2
 
       (*i2 translation*)
       val l2 = eval ``prog_to_i2 compile_primitives.contags_env ^(p1) ``
@@ -59,8 +60,9 @@ fun allIntermediates prog =
 
       val p2' = (v,exh,p2)
       (*print the CTORS (num,name,typeid)*)
-      val [_,_,_,ctors] =pairSyntax.strip_pair v 
+      val [_,_,_,ct] =pairSyntax.strip_pair v 
 
+      val (_,ctors) = finite_mapSyntax.strip_fupdate ct;
       (*i3 translation*)
       val arg1 = rhsThm( eval ``(none_tag,SOME(TypeId (Short "option")))``)
       val arg2 = rhsThm( eval ``(some_tag,SOME(TypeId (Short "option")))``)
@@ -83,7 +85,7 @@ fun allIntermediates prog =
       val compile_Cexp = eval ``compile_Cexp [] 0 <|out:=[];next_label:=compile_primitives.rnext_label|> ^(p6)``
       val p7 = rhsThm compile_Cexp
   in
-     {ast=ast,i1=p1,i2=p2,i3=p3,i4=p4,i5=p5,i6=p6,i7=p7,ctors = ctors,globMap=globMap}
+     {ast=ast,i1=p1,i2=p2,i3=p3,i4=p4,i5=p5,i6=p6,i7=p7,ctors = ctors,globMap=globMap,modMap=modMap}
   end;
 
 (*Not included yet*)
@@ -110,11 +112,11 @@ val ex2 = allIntermediates ``"fun f x y = (g x) + (g y) and g x = x+1; f 5 4; g 
 val ex3 = allIntermediates ``"exception Fail of int; exception Odd; exception Even; val x = 1; (case x of 1 => 2 | 2 => raise Even | 3 => raise Odd | _ => raise Fail 4) handle Odd => 1 | Even => 0 | Fail n => n;"``;
 
 (*Parse error*)
-val ex4 = allIntermediates ``"structure Nat :> sig type nat val zero:nat val succ:nat-> nat end = struct datatype nat = int val zero = 0 fun succ x = x+1 end;"``;
+val ex4 = allIntermediates ``"structure Nat :> sig type nat val zero:nat val succ:nat-> nat end = struct datatype nat = Int of int val zero = Int 0 fun succ (Int x) = (Int (x+1)) end;"``;
 
 (*HANGS Structs, using members of modules*)
 val prog = ``"structure Nat = struct val zero = 0 fun succ x = x+1 end; val x = Nat.zero;"``;
-val ex5 = allIntermediates ``"structure Nat = struct val zero = 0 fun succ x = x+1 end; val x = Nat.zero;"``;
+val ex5 = allIntermediates ``"structure Nat = struct val zero = 0 fun succ x = x+1 end; val x = Nat.succ(Nat.zero);"``;
 (*Ok*)
 val ex5b = allIntermediates ``"structure Nat = struct val zero = 0 fun succ x = x+1 end;"``;
 
@@ -177,7 +179,7 @@ val ex13 = allIntermediates ``"fun f x = (fn y => x+y); (if true then (f 2) else
 val ex14 = allIntermediates ``"val it = let fun f x = g (x-1) and g x = if x = 0 then 1 else f (x-1) in f end 3;"``
 
 (*top level letrec*)
-val ex15 = allIntermediates ``"fun f x = g (x-1) and g x = if x = 0 then 1 else f (x-1); f 3;"``
+val ex15 = allIntermediates ``"fun fabracadabra x = gabracadabra (x-1) and gabracadabra x = if x = 0 then 1 else fabracadabra (x-1); fabracadabra 3;"``
 
 (*Exceptions*)
 val ex16 = allIntermediates ``"exception E of int*int->string*unit;"``
@@ -188,4 +190,4 @@ val ex17 = allIntermediates ``"datatype tree = Br of int * tree * tree | Lf;"``
 (*Lists*)
 val ex18 = allIntermediates ``"fun append xs ys = case xs of [] => ys | (x::xs) => x :: append xs ys; fun reverse xs = case xs of [] => [] | x::xs => append (reverse xs) [x];"``
 
-val ex19 = fullEval ``"val x = \"hello\";"``;
+val ex19 = allIntermediates ``"val x = \"hello\";"``;
