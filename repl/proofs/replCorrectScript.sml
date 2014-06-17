@@ -15,6 +15,11 @@ val o_f_FUNION = store_thm("o_f_FUNION",
   simp[GSYM fmap_EQ_THM,FUNION_DEF] >>
   rw[o_f_FAPPLY]);
 
+val FV_pes_MAP = store_thm("FV_pes_MAP",
+  ``FV_pes pes = BIGUNION (IMAGE (λ(p,e). FV e DIFF (IMAGE Short (set (pat_bindings p [])))) (set pes))``,
+  Induct_on`pes`>>simp[]>>
+  qx_gen_tac`p`>>PairCases_on`p`>>rw[])
+
 val lex_impl_all_def = tDefine "lex_impl_all" `
 lex_impl_all input =
   case lex_until_toplevel_semicolon input of
@@ -502,8 +507,6 @@ val type_e_closed = store_thm("type_e_closed",
   strip_tac >- simp[] >>
   strip_tac >- simp[] >>
   strip_tac >- (
-    cheat
-    (*
     simp[RES_FORALL_THM,FORALL_PROD,tenv_names_bind_var_list] >>
     rpt gen_tac >> strip_tac >>
     simp[FV_pes_MAP] >>
@@ -513,7 +516,7 @@ val type_e_closed = store_thm("type_e_closed",
     first_x_assum(qspecl_then[`p1`,`p2`]mp_tac) >>
     simp[EXISTS_PROD] >> disch_then(Q.X_CHOOSE_THEN`tv`strip_assume_tac) >>
     imp_res_tac type_p_closed >>
-    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,EXISTS_PROD,FORALL_PROD] >> metis_tac[] *) ) >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,EXISTS_PROD,FORALL_PROD] >> metis_tac[] ) >>
   strip_tac >- (
     simp[] >>
     rpt gen_tac >> strip_tac >>
@@ -547,18 +550,16 @@ val type_e_closed = store_thm("type_e_closed",
   strip_tac >- simp[] >>
   strip_tac >- simp[] >>
   strip_tac >- (
-    cheat
-    (*
     simp[RES_FORALL_THM,FORALL_PROD,tenv_names_bind_var_list] >>
     rpt gen_tac >> strip_tac >>
-    simp[FV_pes_MAP,all_cns_pes_MAP] >>
+    simp[FV_pes_MAP] >>
     simp_tac(srw_ss()++DNF_ss)[SUBSET_DEF,UNCURRY,FORALL_PROD,MEM_MAP] >>
     rw[] >> res_tac >>
     qmatch_assum_rename_tac`MEM (p1,p2) pes`[] >>
     first_x_assum(qspecl_then[`p1`,`p2`]mp_tac) >>
     simp[EXISTS_PROD] >> disch_then(Q.X_CHOOSE_THEN`tv`strip_assume_tac) >>
     imp_res_tac type_p_closed >>
-    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,EXISTS_PROD,FORALL_PROD] >> metis_tac[] *)) >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,EXISTS_PROD,FORALL_PROD] >> metis_tac[]) >>
   strip_tac >- (
     simp[] >>
     srw_tac[DNF_ss][SUBSET_DEF,bind_tvar_def,bind_tenv_def] >>
@@ -572,23 +573,23 @@ val type_e_closed = store_thm("type_e_closed",
     fs [opt_bind_tenv_def] >>
     metis_tac[] ) >>
   strip_tac >- (
-    cheat
-    (*
     simp[tenv_names_bind_var_list] >>
     rpt gen_tac >> strip_tac >>
-    qmatch_assum_abbrev_tac`FV_defs x y ⊆ a ∪ b DIFF c ∪ d` >>
-    `c = a` by (
-      simp[Abbr`c`,Abbr`a`,EXTENSION,MEM_MAP,EXISTS_PROD] >>
-      metis_tac[] ) >>
-    `b = IMAGE Short (tenv_names tenv)` by (
-      simp[Abbr`b`,bind_tvar_def] >> rw[] ) >>
-    `a ∪ b DIFF c ∪ d ⊆ b ∪ d` by (
-      simp[SUBSET_DEF] >>
-      metis_tac[] ) >>
-    conj_tac >- metis_tac[SUBSET_TRANS] >>
-    rpt BasicProvers.VAR_EQ_TAC >>
-    fs[Once SUBSET_DEF] >>
-    metis_tac[] *)) >>
+    fs [SUBSET_DEF] >>
+    rw [] >>
+    res_tac >>
+    fs [MEM_MAP]
+    >- metis_tac [] >>
+    `tenv_names (bind_tvar tvs tenv) = tenv_names tenv` 
+               by (rw [bind_tvar_def] >>
+                   every_case_tac >>
+                   fs [tenv_names_def]) >>
+    fs [] >>
+    rw [] >>
+    res_tac >>
+    fs [] >>
+    rw [] >>
+    cheat)
   strip_tac >- simp[] >>
   strip_tac >- simp[] >>
   strip_tac >- simp[] >>
