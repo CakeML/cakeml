@@ -94,7 +94,7 @@ fun pat_handlePrint sys d t Top str brk blk =
   let val (l,r) = dest_comb t
   in
     str"(">>sys(Top,Top,Top) d (strip l)>>str ")">>brk(1,0)
-    >>blk CONSISTENT 0 (str "handle _ =>">>brk(1,0) >>sys (Top,Top,Top) d r)
+    >>blk CONSISTENT 0 (str "handle _ =>">>brk(1,2) >>sys (Top,Top,Top) d r)
   end;
 
 temp_add_user_printer ("pat_handleprint", ``Handle_pat x y``,genPrint (pat_handlePrint));

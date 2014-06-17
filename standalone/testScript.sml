@@ -181,7 +181,7 @@ fun lambdaPrint sys d t Top str brk blk =
   let
     val (_,[name,expr]) = strip_comb t
   in
-    str "(fn ">> str (toString name) >>str" =>">>brk(1,2)>> blk CONSISTENT 0 (sys (Top,Top,Top) (d-1) expr) >> str")"
+    blk CONSISTENT 0 (str "(fn ">> str (toString name) >>str" =>">>brk(1,2)>> blk CONSISTENT 0 (sys (Top,Top,Top) (d-1) expr) >> str")")
   end;
 
 temp_add_user_printer ("lambdaprint", ``Fun x y``,genPrint lambdaPrint);

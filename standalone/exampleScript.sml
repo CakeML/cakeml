@@ -191,3 +191,5 @@ val ex17 = allIntermediates ``"datatype tree = Br of int * tree * tree | Lf;"``
 val ex18 = allIntermediates ``"fun append xs ys = case xs of [] => ys | (x::xs) => x :: append xs ys; fun reverse xs = case xs of [] => [] | x::xs => append (reverse xs) [x];"``
 
 val ex19 = allIntermediates ``"val x = \"hello\";"``;
+
+val ex20 = allIntermediates ``"structure Nat = struct val zero = 0 fun succ x = x+1 fun iter f n = if n = 0 then (fn x=> x) else f o (iter f n) end; (Nat.iter Nat.succ 5) Nat.zero;"``;
