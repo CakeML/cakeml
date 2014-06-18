@@ -1,47 +1,45 @@
-(*i1_named prompts*)
-fun i1_promptSomePrint sys d t Top str brk blk =
+(*Extracts the module prefix if any*)
+fun modoptionString t=
+  if optionSyntax.is_some t then toString (rand t) else "";
+
+(*i1_ Prompts opt => declist*)
+fun i1_promptPrint sys d t Top str brk blk=
   let
     val (t,ls) = dest_comb t
-    val name = rand (rand t)
+    val (_,opt) = dest_comb t
+    val opt = modoptionString opt
     fun printAll [] = str""
-    |   printAll (x::xs) = sys (Top,Top,Top) (d-1) x >> add_newline
+    |   printAll [x] = sys (Top,Top,Top) d x
+    |   printAll (x::xs) = sys (Top,Top,Top) (d-1) x >>printAll xs
   in
-    add_newline>>blk CONSISTENT 0 (
-    str (toString name)>>str" {">>printAll (#1(listSyntax.dest_list ls))>>str "}")
+    add_newline>>blk CONSISTENT 2 (
+    str (if opt="" then "prompt" else opt) >> str" {">>printAll (#1(listSyntax.dest_list ls)))>>add_newline>>str "}"
   end;
 
-temp_add_user_printer("i1_promptsomeprint",``Prompt_i1 (SOME y) x``,genPrint i1_promptSomePrint);
-
-(*i1_Unnamed Prompts NONE => declist*)
-fun i1_promptNonePrint sys d t Top str brk blk=
-  let
-    val (_,ls) = dest_comb t
-    fun printAll [] = str""
-    |   printAll (x::xs) = sys (Top,Top,Top) (d-1) x >> add_newline
-  in
-    add_newline>>blk CONSISTENT 0 (
-    str "prompt {">>printAll (#1(listSyntax.dest_list ls))>>str "}")
-  end;
-
-temp_add_user_printer("i1_promptnoneprint",``Prompt_i1 NONE x``,genPrint i1_promptNonePrint);
-
-(*Named Prompt SOME => declist TODO*)
+temp_add_user_printer("i1_promptprint",``Prompt_i1 opt x``,genPrint i1_promptPrint);
 
 (*i1_Top level exceptions*)
-(*DExn with moduel names TODO*)
+(*DExn with module names TODO*)
 (*Unwrap the term*)
 fun i1_dexnPrint sys d t Top str brk blk =
-  dexnPrint sys d ``Dexn ^(rand (rator t)) ^(rand t)`` Top str brk blk;
+  let val opt = (t|> rator|>rator|>rand)
+  in
+    (dexnPrint (modoptionString opt) sys d ``Dexn ^(rand (rator t)) ^(rand t)`` Top str brk blk)
+  end;
 
-temp_add_user_printer ("i1_dexnprint", ``Dexn_i1 NONE x y``,genPrint i1_dexnPrint);
+temp_add_user_printer ("i1_dexnprint", ``Dexn_i1 opt x y``,genPrint i1_dexnPrint);
 
 (*i1_Top level datatypes list(list tvarN *typeN * list ... ) *)
 
-temp_add_user_printer ("i1_dtypenoneprint", ``Dtype_i1 NONE x``,genPrint dtypePrint);
+fun i1_dtypePrint sys d t Top str brk blk =
+  let val opt = (t |> rator)|> rand
+  in
+     (dtypePrint (modoptionString opt) sys d t Top str brk blk)
+  end;
 
-(*Dtype with module names TODO*)
+temp_add_user_printer ("i1_dtypeprint", ``Dtype_i1 opt x``,genPrint i1_dtypePrint);
 
-temp_add_user_printer ("i1_dtypesomeprint", ``Dtype_i1 SOME(
+(*temp_add_user_printer ("i1_dtypesomeprint", ``Dtype_i1 SOME *)
 
 (*i1_Top level letrec list varN*varN*exp -- Only strip once *)
 temp_add_user_printer ("i1_dletrecprint", ``Dletrec_i1 x``, genPrint dletrecPrint);
@@ -53,13 +51,13 @@ temp_add_user_printer ("i1_letrecprint", ``Letrec_i1 x y``,genPrint letrecPrint)
 (*i1_Lambdas varN*expr *)
 temp_add_user_printer ("i1_lambdaprint", ``Fun_i1 x y``,genPrint lambdaPrint);
 
-(*TODO Toplevel Dlet nat*expr *)
+(*i1_ Toplevel Dlet nat*expr *)
 fun i1_dletvalPrint sys d t Top str brk blk=
   let
     val (_,[l,r]) = strip_comb t;
   in
-    add_newline>> sys (Top,Top,Top) (d-1) l >>str " var_binding">>add_newline 
-    >>sys (Top,Top,Top) (d-1) r
+    add_newline>> blk CONSISTENT 2 (sys (Top,Top,Top) (d-1) l >>str " var_binding">>add_newline 
+    >>sys (Top,Top,Top) (d-1) r)
   end;
 
 temp_add_user_printer ("i1_dletvalprint", ``Dlet_i1 x y``,genPrint i1_dletvalPrint);
@@ -111,6 +109,7 @@ temp_add_user_printer ("i1_handleprint", ``Handle_i1 x y``,genPrint handlePrint)
 (*i1_If-then-else*)
 temp_add_user_printer("i1_ifthenelseprint", ``If_i1 x y z``,genPrint ifthenelsePrint);
 
+(*i1 binops*)
 temp_add_user_printer ("i1_assignappprint", ``App_i1 Opapp (Var_global_i1 3) x``,genPrint (infixappPrint ":=")); 
 temp_add_user_printer ("i1_eqappprint", ``App_i1 Opapp (Var_global_i1 4) x``,genPrint (infixappPrint "=")); 
 temp_add_user_printer ("i1_gteqappprint", ``App_i1 Opapp (Var_global_i1 5) x``,genPrint (infixappPrint ">=")); 
@@ -123,3 +122,21 @@ temp_add_user_printer ("i1_timesappprint", ``App_i1 Opapp (Var_global_i1 11) x``
 temp_add_user_printer ("i1_minusappprint", ``App_i1 Opapp (Var_global_i1 12) x``,genPrint (infixappPrint "-")); 
 temp_add_user_printer ("i1_addappprint", ``App_i1 Opapp (Var_global_i1 13) x``,genPrint (infixappPrint "+"));
  
+temp_add_user_printer ("oppappprint", ``App Opapp f x``, genPrint oppappPrint);
+
+fun prefixappPrint uop sys d t Top str brk blk =
+  let
+    val (_,x) = dest_comb t
+  in
+    str "(" >> str uop >>str " " >> sys (Top,Top,Top) d x >> str ")"
+  end;
+
+(*i1 uops*)
+temp_add_user_printer ("i1_refappprint", ``App_i1 Opapp (Var_global_i1 0) x``,genPrint (prefixappPrint "ref")); 
+temp_add_user_printer ("i1_derefappprint", ``App_i1 Opapp (Var_global_i1 1) x``,genPrint (prefixappPrint "!"));
+temp_add_user_printer ("i1_negappprint", ``App_i1 Opapp (Var_global_i1 2) x``,genPrint (prefixappPrint "~"));
+
+
+temp_add_user_printer("i1_truelitprint",``Lit_i1 (Bool T)``,genPrint (boolPrint "true"));
+temp_add_user_printer("i1_falselitprint",``Lit_i1 (Bool F)``,genPrint (boolPrint "false"));
+

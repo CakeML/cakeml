@@ -164,6 +164,16 @@ val ex19 = allIntermediates ``"val x = \"hello\";"``;
 
 val ex20 = allIntermediates ``"structure Nat = struct val zero = 0 fun succ x = x+1 fun iter f n = if n = 0 then (fn x=> x) else f o (iter f n) end; (Nat.iter Nat.succ 5) Nat.zero;"``;
 
+val ex21 = allIntermediates ``"structure Nat2 = struct val x = 1 val y=2 val z=3 fun f n = x+y+z+n end;"``;
+
 val ex22 = allIntermediates ``"structure blablablabla :> sig type nat     datatype 'a blabla= Lf of 'a | Br of 'a blabla * 'a     val k : nat     val f : 'a blabla -> 'a blabla  end = struct     datatype nat = Int of int     datatype 'a blabla = Lf of 'a | Br of 'a blabla * 'a     val k = Int 0     fun f x = x end;"``;
 
 val ex23 = allIntermediates ``"datatype foo = Lf of int * (int -> unit) * int| Br of (int * int) -> (unit * int);"``
+
+val ex24 = allIntermediates ``"structure Nat = struct val zero = 0 fun succ x = x+1 fun iter f n = if n = 0 then (fn x=> x) else f o (iter f (n-1)) end;fun f x y z= x+y+z; val (x,y,z) = (f 1 1 1,f 2 2 2,f (f (f 3 3 3) 1 2)); (Nat.iter Nat.succ 5) Nat.zero;"``;
+
+(*random semicolons in the struct, exceptions*)
+val ex25 = allIntermediates ``"structure Nat = struct val one = 1 ; val zero = 0 fun succ x y z = x+y+z+(if x>0 then one else zero); end; "``;
+
+(*bug?*)
+val ex26 = allIntermediates ``"structure Nat2= struct exception e end;"``;

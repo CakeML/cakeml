@@ -53,7 +53,7 @@ fun tdecPrint sys d t Top str brk blk =
 temp_add_user_printer("tdecprint", ``Tdec x``,genPrint tdecPrint);
 
 (*Top level exceptions*)
-fun dexnPrint sys d t Top str brk blk =
+fun dexnPrint modn sys d t Top str brk blk =
   let
     val (_,[x,y]) = strip_comb t
     val args = #1(listSyntax.dest_list y)
@@ -61,17 +61,18 @@ fun dexnPrint sys d t Top str brk blk =
     |   printTerms [x] = sys (Top,Top,Top) (d-1) x
     |   printTerms (x::xs) = sys (Top,Top,Top) (d-1) x >> str "," >>brk(1,0)>> (printTerms xs);
   in 
-    add_newline >> str "exception " >> str (toString x) >> 
+    add_newline >> str "exception " >> (if(modn="") then str"" else str modn>>str ".") >>str (toString x) >> 
     (case args of [] => str "" 
     | [x] => str " of ">>printTerms args 
     | (_::_) => str " of" >> brk (1,2) >> str "(" >> printTerms args >>str ")")
   end;
 
-temp_add_user_printer ("dexnprint", ``Dexn x y``,genPrint dexnPrint);
+temp_add_user_printer ("dexnprint", ``Dexn x y``,genPrint (dexnPrint""));
 
 (*TODO: LHS tuples should be ('a,'b ,'c) and RHS tuples should be ('a*'b*'c) probably requires rewrite*)
 (*Top level datatypes list(list tvarN *typeN * list ... ) *)
-fun dtypePrint sys d t Top str brk blk =
+(*Extra arg at the front for i1 names*)
+fun dtypePrint modn sys d t Top str brk blk =
   let
     val ls = strip t
     val dtypelist = #1(listSyntax.dest_list ls);
@@ -95,15 +96,15 @@ fun dtypePrint sys d t Top str brk blk =
              add_newline>> str "datatype" >> (case typaram of [] => str"" 
              | (x::y::xs) => str " (">>printTuple "," (str o toString) str typaram >> str") "
              | _ => str" ">>printTuple "," (str o toString) str typaram)>>str" "
-             >> str (toString name) >> str" ">>blk CONSISTENT 0 
-             (str "= " >> printCtors (#1(listSyntax.dest_list ctors)))
+             >> (if(modn="") then str"" else str modn>>str ".") >> str (toString name) 
+             >> str" ">>blk CONSISTENT 0 (str "= " >> printCtors (#1(listSyntax.dest_list ctors)))
           end
     |   printTerms (x::xs) = printTerms [x] >> printTerms xs
   in
     printTerms dtypelist
   end;
 
-temp_add_user_printer ("dtypeprint", ``Dtype x``,genPrint dtypePrint);
+temp_add_user_printer ("dtypeprint", ``Dtype x``,genPrint (dtypePrint ""));
 
 (*tvar name*)
 fun tvarPrint sys d t Top str brk blk =
@@ -423,9 +424,9 @@ temp_add_user_printer("ifthenelseprint", ``If x y z``,genPrint ifthenelsePrint);
  
 (*Signatures*)
 (*Stype Concrete*)
-temp_add_user_printer("stypeprint",``Stype t``,genPrint dtypePrint);
+temp_add_user_printer("stypeprint",``Stype t``,genPrint (dtypePrint ""));
 (*Sexn*)
-temp_add_user_printer("sexnprint",``Sexn x y``,genPrint dexnPrint);
+temp_add_user_printer("sexnprint",``Sexn x y``,genPrint (dexnPrint ""));
 
 (*Sval*)
 fun svalPrint sys d t Top str brk blk =

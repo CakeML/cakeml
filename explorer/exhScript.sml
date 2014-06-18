@@ -53,4 +53,25 @@ temp_add_user_printer ("exh_handleprint", ``Handle_exh x y``,genPrint handlePrin
 (*exh_If-then-else*)
 temp_add_user_printer("exh_ifthenelseprint", ``If_exh x y z``,genPrint ifthenelsePrint);
 
+temp_add_user_printer("exh_truelitprint",``Lit_exh (Bool T)``,genPrint (boolPrint "true"));
+temp_add_user_printer("exh_falselitprint",``Lit_exh (Bool F)``,genPrint (boolPrint "false"));
+
+(*exh binops*)
+temp_add_user_printer ("exh_assignappprint", ``App_exh Opapp (Var_global_exh 3) x``,genPrint (infixappPrint ":=")); 
+temp_add_user_printer ("exh_eqappprint", ``App_exh Opapp (Var_global_exh 4) x``,genPrint (infixappPrint "=")); 
+temp_add_user_printer ("exh_gteqappprint", ``App_exh Opapp (Var_global_exh 5) x``,genPrint (infixappPrint ">=")); 
+temp_add_user_printer ("exh_lteqappprint", ``App_exh Opapp  (Var_global_exh 6) x``,genPrint (infixappPrint "<=")); 
+temp_add_user_printer ("exh_gtappprint", ``App_exh Opapp (Var_global_exh 7) x``,genPrint (infixappPrint ">")); 
+temp_add_user_printer ("exh_ltappprint", ``App_exh Opapp (Var_global_exh 8) x``,genPrint (infixappPrint "<")); 
+temp_add_user_printer ("exh_modappprint", ``App_exh Opapp (Var_global_exh 9) x``,genPrint (infixappPrint "mod")); 
+temp_add_user_printer ("exh_divappprint", ``App_exh Opapp (Var_global_exh 10) x``,genPrint (infixappPrint "div")); 
+temp_add_user_printer ("exh_timesappprint", ``App_exh Opapp (Var_global_exh 11) x``,genPrint (infixappPrint "*")); 
+temp_add_user_printer ("exh_minusappprint", ``App_exh Opapp (Var_global_exh 12) x``,genPrint (infixappPrint "-")); 
+temp_add_user_printer ("exh_addappprint", ``App_exh Opapp (Var_global_exh 13) x``,genPrint (infixappPrint "+"));
+ 
+(*exh uops*)
+temp_add_user_printer ("exh_refappprint", ``App_exh Opapp (Var_global_exh 0) x``,genPrint (prefixappPrint "ref")); 
+temp_add_user_printer ("exh_derefappprint", ``App_exh Opapp (Var_global_exh 1) x``,genPrint (prefixappPrint "!"));
+temp_add_user_printer ("exh_negappprint", ``App_exh Opapp (Var_global_exh 2) x``,genPrint (prefixappPrint "~"));
+
 

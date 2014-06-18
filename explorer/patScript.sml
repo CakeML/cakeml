@@ -60,7 +60,8 @@ temp_add_user_printer ("pat_oppappprint", ``App_pat Opapp f x``, genPrint oppapp
 fun pat_seqPrint sys d t Top str brk blk =
   let val (l,r) = dest_comb t
   in
-    str"(">>sys(Top,Top,Top) d (strip l) >>str ";" >> sys (Top,Top,Top) d r >>str ")"
+    blk CONSISTENT 0 (str"">> sys(Top,Top,Top) d (strip l) >>str ";">>
+    brk (1,0)>>sys (Top,Top,Top) d r >>str "")
   end;
 temp_add_user_printer ("pat_seqprint",``Seq_pat x y``,genPrint pat_seqPrint);
 
@@ -99,7 +100,7 @@ fun pat_handlePrint sys d t Top str brk blk =
 
 temp_add_user_printer ("pat_handleprint", ``Handle_pat x y``,genPrint (pat_handlePrint));
 
-(*Needs brackets*)
+(*TODO: this probabl needs brackets*)
 fun pat_seqPrint sys d t Top str brk blk =
   let val (l,r) = dest_comb t
   in
@@ -112,5 +113,29 @@ temp_add_user_printer ("pat_seqprint", ``Seq_pat x y``,genPrint pat_seqPrint);
 
 (*pat_If-then-else*)
 temp_add_user_printer("pat_ifthenelseprint", ``If_pat x y z``,genPrint ifthenelsePrint);
+
+temp_add_user_printer("pat_truelitprint",``Lit_pat (Bool T)``,genPrint (boolPrint "true"));
+temp_add_user_printer("pat_falselitprint",``Lit_pat (Bool F)``,genPrint (boolPrint "false"));
+
+(*pat binops*)
+temp_add_user_printer ("pat_assignappprint", ``App_pat Opapp (Var_global_pat 3) x``,genPrint (infixappPrint ":=")); 
+temp_add_user_printer ("pat_eqappprint", ``App_pat Opapp (Var_global_pat 4) x``,genPrint (infixappPrint "=")); 
+temp_add_user_printer ("pat_gteqappprint", ``App_pat Opapp (Var_global_pat 5) x``,genPrint (infixappPrint ">=")); 
+temp_add_user_printer ("pat_lteqappprint", ``App_pat Opapp  (Var_global_pat 6) x``,genPrint (infixappPrint "<=")); 
+temp_add_user_printer ("pat_gtappprint", ``App_pat Opapp (Var_global_pat 7) x``,genPrint (infixappPrint ">")); 
+temp_add_user_printer ("pat_ltappprint", ``App_pat Opapp (Var_global_pat 8) x``,genPrint (infixappPrint "<")); 
+temp_add_user_printer ("pat_modappprint", ``App_pat Opapp (Var_global_pat 9) x``,genPrint (infixappPrint "mod")); 
+temp_add_user_printer ("pat_divappprint", ``App_pat Opapp (Var_global_pat 10) x``,genPrint (infixappPrint "div")); 
+temp_add_user_printer ("pat_timesappprint", ``App_pat Opapp (Var_global_pat 11) x``,genPrint (infixappPrint "*")); 
+temp_add_user_printer ("pat_minusappprint", ``App_pat Opapp (Var_global_pat 12) x``,genPrint (infixappPrint "-")); 
+temp_add_user_printer ("pat_addappprint", ``App_pat Opapp (Var_global_pat 13) x``,genPrint (infixappPrint "+"));
+ 
+(*pat uops*)
+temp_add_user_printer ("pat_refappprint", ``App_pat Opapp (Var_global_pat 0) x``,genPrint (prefixappPrint "ref")); 
+temp_add_user_printer ("pat_derefappprint", ``App_pat Opapp (Var_global_pat 1) x``,genPrint (prefixappPrint "!"));
+temp_add_user_printer ("pat_negappprint", ``App_pat Opapp (Var_global_pat 2) x``,genPrint (prefixappPrint "~"));
+
+
+
 
 

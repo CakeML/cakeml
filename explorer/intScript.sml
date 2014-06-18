@@ -1,6 +1,4 @@
 (*INCOMPLETE*)
-(*pat_Pvar*)
-temp_add_user_printer ("pat_pvarprint", ``Pvar_pat x``, genPrint pvarPrint);
 
 (*pat_Nested mutually recursive letrec*)
 fun pat_letrecPrint sys d t Top str brk blk =
