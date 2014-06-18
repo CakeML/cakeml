@@ -24,9 +24,7 @@ val initial_bc_state_side_def = Define `
     let bs1 = empty_bc_state in
     let bs2 = install_code (SND (SND compile_primitives)) bs1 in
      ?bs3. (bc_eval bs2 = SOME bs3) /\
-           (bc_fetch bs3 = SOME (Stop T)) /\
-           (bs3.pc = next_addr bs1.inst_length bs3.code) /\
-           (bs3.stack <> [])`;
+           (bc_fetch bs3 = SOME (Stop T))`;
 
 val tac = (WF_REL_TAC `measure (LENGTH o SND)` \\ REPEAT STRIP_TAC
            \\ IMP_RES_TAC lex_until_toplevel_semicolon_LESS);
