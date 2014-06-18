@@ -1,6 +1,7 @@
 open cakeml_computeLib
 open HolKernel boolLib bossLib Parse
 open Portable smpp 
+open astPP modPP conPP exhPP patPP
 
 fun println str = (print str; print"#@#");
 fun printls sep str = (print str; print sep);
