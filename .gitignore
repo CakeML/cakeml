@@ -6,7 +6,7 @@
 *.ui
 *.o
 .HOLMK
-selftest.exe
+*.exe
 
 # regression test logs
 regression.log

@@ -2,15 +2,16 @@ INCLUDES = ../standalone
 
 OPTIONS = QUIT_ON_FAILURE
 
-buildPP.exe : buildPP.uo
-	$(HOLMOSMLC) -o $@ $<
-pp.o : buildPP.exe
-	./$<
+ifdef POLY
 pp.exe : pp.o
 	cc -o $@ $< -lpolymain -lpolyml
 
+buildPP.exe : buildPP.uo heap
+	$(HOLMOSMLC) -o $@ $<
 
-ifdef POLY
+pp.o : buildPP.exe
+	./$<
+
 HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
