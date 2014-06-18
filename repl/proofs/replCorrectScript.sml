@@ -236,7 +236,9 @@ rw [update_repl_state_def, type_infer_invariants_def] >>
  check_env {} new_infer_env`
            by metis_tac [inferPropsTheory.infer_top_invariant] >|
 [fs [check_menv_def],
- cheat,
+ cases_on `new_infer_cenv` >>
+     cases_on `rs.tenvC` >>
+     fs [merge_tenvC_def, libTheory.merge_def, check_cenv_def, check_flat_cenv_def],
  fs [check_env_def],
  rw [convert_menv_def],
  rw [bvl2_append, convert_env2_def]]);
@@ -467,8 +469,9 @@ val tenv_names_bind_var_list2 = store_thm("tenv_names_bind_var_list2",
   Induct >> TRY(qx_gen_tac`p`>>PairCases_on`p`) >> simp[bind_var_list2_def,bind_tenv_def] >>
   simp[EXTENSION] >> metis_tac[])
 
-(* TODO: remove?
 val _ = Parse.overload_on("tmenv_dom",``λmenv:tenvM.  set (FLAT (MAP (λx. MAP (Long (FST x) o FST) (SND x)) menv))``)
+
+(*
 val _ = Parse.overload_on("tmenv_sdom",``λmenv:tenvM.  set (FLAT (MAP (λx. MAP (Short o FST) (SND x)) menv))``)
 *)
 
@@ -476,12 +479,10 @@ val _ = Parse.overload_on("tmenv_sdom",``λmenv:tenvM.  set (FLAT (MAP (λx. MAP
 val type_p_closed = store_thm("type_p_closed",
   ``(∀tvs tcenv p t tenv.
        type_p tvs tcenv p t tenv ⇒
-       pat_bindings p [] = MAP FST tenv (*∧
-       all_cns_pat p ⊆ cenv_dom tcenv*)) ∧
+       pat_bindings p [] = MAP FST tenv) ∧
     (∀tvs cenv ps ts tenv.
       type_ps tvs cenv ps ts tenv ⇒
-      pats_bindings ps [] = MAP FST tenv (*∧
-      all_cns_pats ps ⊆ cenv_dom cenv*))``,
+      pats_bindings ps [] = MAP FST tenv)``,
   ho_match_mp_tac type_p_ind >>
   simp[astTheory.pat_bindings_def] >>
   rw[] >> fs[SUBSET_DEF] >>
@@ -491,15 +492,15 @@ val type_e_closed = store_thm("type_e_closed",
   ``(∀tmenv tcenv tenv e t.
       type_e tmenv tcenv tenv e t
       ⇒
-      FV e ⊆ (IMAGE Short (tenv_names tenv))) ∧
+      FV e ⊆ (IMAGE Short (tenv_names tenv) ∪ tmenv_dom tmenv)) ∧
     (∀tmenv tcenv tenv es ts.
       type_es tmenv tcenv tenv es ts
       ⇒
-      FV_list es ⊆ (IMAGE Short (tenv_names tenv))) ∧
+      FV_list es ⊆ (IMAGE Short (tenv_names tenv) ∪ tmenv_dom tmenv)) ∧
     (∀tmenv tcenv tenv funs ts.
       type_funs tmenv tcenv tenv funs ts ⇒
       let fs = set (MAP (Short o FST) ts) in
-      FV_defs funs ⊆ ((IMAGE Short (tenv_names tenv)) DIFF fs))``,
+      FV_defs funs ⊆ ((IMAGE Short (tenv_names tenv)) DIFF fs) ∪ tmenv_dom tmenv)``,
   ho_match_mp_tac type_e_ind >>
   strip_tac >- simp[] >>
   strip_tac >- simp[] >>
@@ -530,17 +531,15 @@ val type_e_closed = store_thm("type_e_closed",
     simp[MEM_MAP,EXISTS_PROD] >>
     metis_tac[] ) >>
   strip_tac >- (
-    cheat
-    (*
     simp[t_lookup_var_id_def] >>
     rpt gen_tac >>
     BasicProvers.CASE_TAC >> fs[] >>
     simp[MEM_FLAT,MEM_MAP,EXISTS_PROD] >-
       metis_tac[lookup_tenv_names] >>
     BasicProvers.CASE_TAC >> fs[] >> 
-    imp_res_tac alistTheory.ALOOKUP_MEM >>
     simp_tac(srw_ss()++DNF_ss)[MEM_MAP,EXISTS_PROD] >>
-    metis_tac[]*) ) >>
+    cheat  
+     ) >>
   strip_tac >- (
     simp[] >>
     srw_tac[DNF_ss][SUBSET_DEF,bind_tenv_def] >>
