@@ -1,8 +1,9 @@
-open cakeml_computeLib
+(*open cakeml_computeLib*)
 open HolKernel boolLib bossLib Parse
 open Portable smpp 
-open astPP modPP conPP exhPP patPP
-
+(*open astPP modPP conPP exhPP patPP*)
+open html
+(*
 fun println str = (print str; print"#@#");
 fun printls sep str = (print str; print sep);
 fun termToList ls = #1(listSyntax.dest_list(ls));
@@ -138,5 +139,120 @@ fun io_Handler() =
     end
   ) handle _ => TextIO.print "Invalid Input\n"
   end;
+*)
 
-val _ = PolyML.export("pp",io_Handler);
+
+fun io_Handler2() =
+  let open Html
+
+      val cgi_request_method = Process.getEnv("REQUEST_METHOD");
+      val cgi_content_length = Process.getEnv("CONTENT_LENGTH");
+      fun int_from_str_opt(NONE, default) = default
+      | int_from_str_opt(SOME(s), default) =
+        getOpt(Int.fromString(s),default);
+      
+      val url_encoded_string = if cgi_request_method = SOME("POST")
+			       then (print"POST ";TextIO.inputN(TextIO.stdIn,int_from_str_opt(cgi_content_length,0)))
+			       else "";
+      val sizeofStr = size url_encoded_string
+      val the_fields =
+	Substring.tokens(fn c => c = #"&")(Substring.substring (url_encoded_string,0,size url_encoded_string ));
+
+      val dict_with_codes =
+	map(Substring.fields(fn( c) => c = #"="))(the_fields);
+
+      fun decode(sus) =
+        let
+            val sz = Substring.size(sus);
+            exception Dehex;
+            fun dehex(ch) =
+                if #"0" <= ch andalso ch <= #"9"
+                    then ord(ch) - ord(#"0")
+                else if #"A" <= ch andalso ch <= #"F"
+                         then (ord(ch) - ord(#"A")) + 10
+                     else if #"a" <= ch andalso ch <= #"f"
+                              then (ord(ch) - ord(#"a")) + 10
+                          else raise Dehex;
+            fun decode_one(i) =
+                chr(16*dehex(Substring.sub(sus,i+1))+
+		    dehex(Substring.sub(sus,i+2)));
+            fun dec(i) =
+                if i>=sz then []
+                else case Substring.sub(sus,i)
+                       of #"+" => #" "::dec(i+1)
+                        | #"%" => decode_one(i)::dec(i+3)
+                        | ch => ch::dec(i+1);
+        in
+            String.implode(dec(0))
+        end;
+
+      val cgi_dict = List.map (fn item => (decode(hd(item)),decode(hd(tl(item))))) dict_with_codes;
+
+      fun cgi_field_string(name) =
+        let fun lookup [] = NONE
+            |   lookup ((x,y)::xs) = if x=name then SOME y else lookup xs
+        in 
+          lookup cgi_dict
+        end;
+      val src = case cgi_field_string("src") of NONE => "" | SOME(src) => src;
+  in
+    page {title = "The Title",
+         css = SOME("standalone.css"),
+         javascript = SOME("http://cdn.jquerytools.org/1.2.7/full/jquery.tools.min.js"),
+         body = ([], [
+         (*Form to submit code*)
+         FORM ([("action","pp.exe"),("method","POST")],
+           [ 
+             String(quote_to_string`Code`),
+             TEXTAREA([("name","src")],src),
+             INPUT [("type","submit") , ("name","run") , ("value","Compile")]
+           ]
+         ),
+
+         (*Tabs for compiler intermediates*)
+         DIV ([],
+           UL ([("class","tabs")],
+             Sequence(
+               [
+                 LI (A ([("href","#"),("class","m")], String (quote_to_string `AST`))) ,
+                 LI (A ([("href","#"),("class","m")], String (quote_to_string `modLang`))),
+                 LI (A ([("href","#"),("class","m")], String (quote_to_string `conLang`))),
+                 LI (A ([("href","#"),("class","m")], String (quote_to_string `decLang`))),
+                 LI (A ([("href","#"),("class","m")], String (quote_to_string `exhLang`))),
+                 LI (A ([("href","#"),("class","m")], String (quote_to_string `patLang`))),
+                 LI (A ([("href","#"),("class","m")], String (quote_to_string `intLang`))),
+                 LI (A ([("href","#"),("class","m")], String (quote_to_string `Bytecode 1`))),
+                 LI (A ([("href","#"),("class","m")], String (quote_to_string `Bytecode 2`))),
+                 LI (A ([("href","#"),("class","m")], String (quote_to_string `x86`)))
+
+               ])
+
+             )),
+
+         (*Tab contents need to set row cols and contents*)
+         DIV( [("class","panes")],
+           Sequence
+             [
+               DIV([],TEXTAREA ([], "AST")),
+               DIV([],TEXTAREA ([], "AST")),
+               DIV([],TEXTAREA ([], "AST")),
+               DIV([],TEXTAREA ([], "AST")),
+               DIV([],TEXTAREA ([], "AST")),
+               DIV([],TEXTAREA ([], "AST")),
+               DIV([],TEXTAREA ([], "AST")),
+               DIV([],TEXTAREA ([], "AST")),
+               DIV([],TEXTAREA ([], "AST")),
+               DIV([],TEXTAREA ([], "AST")),
+               DIV([],TEXTAREA ([], "AST"))
+             ]
+            ),
+
+          (*Javascript call*)
+          JAVASCRIPT ("test.js")
+
+         ])
+       }
+end;     
+
+val _ = PolyML.export("pp",io_Handler2);
+
