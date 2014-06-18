@@ -2,7 +2,7 @@ open preamble boolSimps miscLib rich_listTheory arithmeticTheory;
 open lexer_funTheory repl_funTheory replTheory untypedSafetyTheory bytecodeClockTheory bytecodeExtraTheory bytecodeEvalTheory
 open lexer_implTheory cmlParseTheory inferSoundTheory bigStepTheory elabTheory compilerProofTheory;
 open semanticPrimitivesTheory typeSystemTheory typeSoundTheory weakeningTheory evalPropsTheory typeSysPropsTheory terminationTheory;
-open initialEnvTheory;
+open initialEnvTheory interpTheory;
 open typeSoundInvariantsTheory inferTheory free_varsTheory;
 open bytecodeTheory repl_fun_altTheory repl_fun_alt_proofTheory;
 open gramPropsTheory pegSoundTheory pegCompleteTheory
@@ -1624,18 +1624,19 @@ val compile_primitives_renv = store_thm("compile_primitives_renv",
   rw[] >> simp[])
   *)
 
-(* Annoying to do this by hand.  With the clocked evaluate, it shouldn't be
- * too hard to set up a clocked interpreter function for the semantics and
- * do this automatically *)
-val eval_initial_program = Q.prove (
-`evaluate_dec NONE [] init_envC [] [] initial_program ([], Rval ([], init_env))`,
-rw [init_env_def, initial_program_def, evaluate_dec_cases, libTheory.emp_def, pmatch_def] >>
-NTAC 15 (rw [Once evaluate_cases]) >>
-srw_tac[DNF_ss][] >>
-rw [do_con_check_def, astTheory.pat_bindings_def, pmatch_def, libTheory.bind_def] >>
-simp[ADD1] >> rw[Once evaluate_cases] >>
-rw [do_con_check_def, astTheory.pat_bindings_def, pmatch_def, libTheory.bind_def]);
+val eval_initial_program = store_thm("eval_initial_program",
+``evaluate_top F ([],init_envC,[]) s (Tdec initial_program)
+  (s, ([],[]), Rval ([],init_env))``,
+PairCases_on`s` >>
+match_mp_tac (MP_CANON bigClockTheory.top_unclocked_ignore) >>
+qexists_tac`T` >> simp[] >>
+exists_suff_gen_then mp_tac run_eval_top_spec >>
+CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV EVAL))) >>
+REWRITE_TAC[astTheory.pat_bindings_def,run_eval_def] >>
+CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV EVAL))) >>
+metis_tac[])
 
+(*
 val compile_primitives_terminates = store_thm("compile_primitives_terminates",
   ``bc_eval (install_code [] (SND(SND compile_primitives)) (^(rand(rhs(concl(initial_bc_state_def)))))) = SOME initial_bc_state ∧
       initial_bc_state.pc = next_addr initial_bc_state.inst_length initial_bc_state.code ∧
@@ -1774,25 +1775,67 @@ val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   disj1_tac >>
   qexists_tac`initial_bc_state` >>
   simp[lemma])
+*)
 
-val initial_invariant = prove(
+val initial_invariant = store_thm("initial_invariant",
   ``invariant init_repl_state initial_repl_fun_state initial_bc_state``,
-
-
-  rw[invariant_def,initial_repl_fun_state_def,initial_elaborator_state_def,init_repl_state_def,LET_THM] >>
-  rw[initial_inferencer_state_def,initial_bc_state_invariant]
-  >- EVAL_TAC
-  >- simp[typeSoundTheory.initial_type_sound_invariant]
-  >- (
-    simp[closed_context_def] >>
-    simp[init_env_def,semanticsExtraTheory.closed_cases] >>
-    simp[init_env_def,closed_under_cenv_def] >>
-    simp[init_env_def,closed_under_menv_def] >>
-    simp[semanticsExtraTheory.closed_cases] >>
-    rw[] >> rw[semanticsExtraTheory.all_cns_def] >>
-    simp[SUBSET_DEF] >> metis_tac[] ) >>
-  TRY (assume_tac initial_bc_state_invariant >> fs[] >> NO_TAC) >>
-  TRY (metis_tac[compile_primitives_terminates]))
+  simp[invariant_def,initial_repl_fun_state_def,init_repl_state_def]>>
+  conj_tac >- EVAL_TAC >>
+  conj_tac >- EVAL_TAC >>
+  conj_tac >- (EVAL_TAC >> simp[]) >>
+  conj_tac >- simp[typeSoundTheory.initial_type_sound_invariant] >>
+  mp_tac (MATCH_MP bigClockTheory.top_add_clock
+           (Q.SPEC`init_repl_state.store`(Q.GEN`s`eval_initial_program))) >>
+  simp[init_repl_state_def] >>
+  disch_then(qx_choose_then`ck`(mp_tac o MATCH_MP compile_top_thm))>>
+  disch_then(qspecl_then[`init_compiler_state`,`NONE`]mp_tac) >>
+  simp[GSYM compile_primitives_def] >>
+  `∃rss rsf bc. compile_primitives = (rss,rsf,bc)` by metis_tac[pair_CASES] >>
+  simp[] >>
+  disch_then(qspecl_then[`([],init_gtagenv,<|sm:=[];cls:=FEMPTY|>)`,
+                         `install_code bc empty_bc_state with clock := SOME ck`,
+                         `[]`]mp_tac) >>
+  discharge_hyps >- (
+    conj_tac >- (
+      match_mp_tac env_rs_empty >>
+      simp[install_code_def,initialProgramTheory.empty_bc_state_def] >>
+      EVAL_TAC ) >>
+    conj_tac >- (EVAL_TAC >> simp[]) >>
+    simp[install_code_def,initialProgramTheory.empty_bc_state_def] ) >>
+  strip_tac >>
+  qmatch_assum_rename_tac`bc_fetch bs2 = SOME (Stop T)`[] >>
+  imp_res_tac RTC_bc_next_can_be_unclocked >>
+  `bs2 with clock := NONE = initial_bc_state` by (
+    rw[initial_bc_state_def] >>
+    imp_res_tac RTC_bc_next_bc_eval >>
+    pop_assum kall_tac >>
+    pop_assum mp_tac >>
+    discharge_hyps >- (
+      simp[bc_eval1_thm,bc_eval1_def,bc_fetch_with_clock] ) >>
+    `empty_bc_state with clock := NONE = empty_bc_state` by simp[initialProgramTheory.empty_bc_state_def] >>
+    rw[install_code_def] ) >>
+  conj_tac >- (
+    fs[merge_envC_def,init_envC_def,libTheory.merge_def] >>
+    qexists_tac`grd'` >>
+    match_mp_tac env_rs_change_clock >>
+    first_assum(match_exists_tac o concl) >>
+    simp[] >> metis_tac[] ) >>
+  conj_tac >- (
+    pop_assum(SUBST1_TAC o SYM) >> rw[] ) >>
+  conj_tac >- (
+    fs[compile_primitives_def] >>
+    qspecl_then[`NONE`,`init_compiler_state`,`Tdec initial_program`]mp_tac compile_top_labels >>
+    discharge_hyps >- (
+      simp[SUBSET_DEF] >>
+      EVAL_TAC >> simp[] ) >>
+    simp[] >>
+    imp_res_tac RTC_bc_next_preserves >>
+    simp[install_code_def,initialProgramTheory.empty_bc_state_def] ) >>
+  simp[code_executes_ok_def] >>
+  disj1_tac >>
+  qexists_tac`initial_bc_state` >>
+  simp[] >>
+  metis_tac[bc_fetch_with_clock])
 
 val initial_bc_state_side_thm = store_thm("initial_bc_state_side_thm",
   ``initial_bc_state_side``,
