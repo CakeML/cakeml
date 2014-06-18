@@ -1,0 +1,23 @@
+INCLUDES = ../standalone
+
+OPTIONS = QUIT_ON_FAILURE
+
+buildPP.exe : buildPP.uo
+	$(HOLMOSMLC) -o $@ $<
+pp.o : buildPP.exe
+	./$<
+pp.exe : pp.o
+	cc -o $@ $< -lpolymain -lpolyml
+
+
+ifdef POLY
+HOLHEAP = heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+
+BARE_THYS = ../standalone/progToBytecodeTheory ../standalone/cakeml_computeLib
+
+DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) $(BARE_THYS)
+endif

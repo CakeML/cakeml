@@ -1,3 +1,5 @@
+structure exhPP=
+struct
 (*exh_Init_global_var special case for Uapp_exh*)
 temp_add_user_printer("exh_initglobal",``Uapp_exh (Init_global_var_i2 n) x``,genPrint i2_initglobalPrint);
 
@@ -74,4 +76,4 @@ temp_add_user_printer ("exh_refappprint", ``App_exh Opapp (Var_global_exh 0) x``
 temp_add_user_printer ("exh_derefappprint", ``App_exh Opapp (Var_global_exh 1) x``,genPrint (prefixappPrint "!"));
 temp_add_user_printer ("exh_negappprint", ``App_exh Opapp (Var_global_exh 2) x``,genPrint (prefixappPrint "~"));
 
-
+end;

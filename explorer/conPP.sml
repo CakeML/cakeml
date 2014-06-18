@@ -1,3 +1,5 @@
+structure conPP =
+struct
 (*i2_Init_global_var special case for Uapp_i2*)
 fun i2_initglobalPrint sys d t Top str brk blk =
   let
@@ -134,4 +136,4 @@ temp_add_user_printer ("i2_refappprint", ``App_i2 Opapp (Var_global_i2 0) x``,ge
 temp_add_user_printer ("i2_derefappprint", ``App_i2 Opapp (Var_global_i2 1) x``,genPrint (prefixappPrint "!"));
 temp_add_user_printer ("i2_negappprint", ``App_i2 Opapp (Var_global_i2 2) x``,genPrint (prefixappPrint "~"));
 
-
+end;

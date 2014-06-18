@@ -1,3 +1,5 @@
+structure astPP=
+struct
 open HolKernel boolLib bossLib Parse astTheory terminationTheory
 open cakeml_computeLib progToBytecodeTheory
 open Portable smpp
@@ -490,3 +492,4 @@ temp_add_user_printer("ctorprint",``($, x) (($, y) z)``,genPrint globPrinter);
 temp_remove_user_printer("ctorprint");
 temp_remove_user_printer("globprint");
 *)
+end;

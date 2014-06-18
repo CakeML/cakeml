@@ -1,3 +1,6 @@
+structure patPP =
+
+struct
 (*pat_Nested mutually recursive letrec*)
 fun pat_letrecPrint sys d t Top str brk blk =
   let
@@ -136,6 +139,6 @@ temp_add_user_printer ("pat_derefappprint", ``App_pat Opapp (Var_global_pat 1) x
 temp_add_user_printer ("pat_negappprint", ``App_pat Opapp (Var_global_pat 2) x``,genPrint (prefixappPrint "~"));
 
 
-
+end;
 
 

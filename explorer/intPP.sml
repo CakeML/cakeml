@@ -1,3 +1,5 @@
+structure intPP =
+struct
 (*INCOMPLETE*)
 
 (*pat_Nested mutually recursive letrec*)
@@ -88,4 +90,4 @@ temp_add_user_printer ("cexp_handleprint", ``CHandle x y``,genPrint (pat_handleP
 (*cexp_If-then-else*)
 temp_add_user_printer("cexp_ifthenelseprint", ``CIf x y z``,genPrint ifthenelsePrint);
 
-
+end;

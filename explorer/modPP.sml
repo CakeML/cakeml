@@ -1,3 +1,5 @@
+structure modPP =
+struct
 (*Extracts the module prefix if any*)
 fun modoptionString t=
   if optionSyntax.is_some t then toString (rand t) else "";
@@ -139,4 +141,4 @@ temp_add_user_printer ("i1_negappprint", ``App_i1 Opapp (Var_global_i1 2) x``,ge
 
 temp_add_user_printer("i1_truelitprint",``Lit_i1 (Bool T)``,genPrint (boolPrint "true"));
 temp_add_user_printer("i1_falselitprint",``Lit_i1 (Bool F)``,genPrint (boolPrint "false"));
-
+end;
