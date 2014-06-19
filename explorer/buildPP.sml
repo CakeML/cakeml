@@ -1,9 +1,22 @@
-(*open cakeml_computeLib*)
+(*
+ Code for CGI modified from:
+ mosmlcgi.sml
+
+ (c) Jonas Barklund, Computing Science Dept., Uppsala University, 1996.
+
+ Anyone is granted to copy and/or use this code, provided that this note
+ is retained, also in modified versions.  The code is provided as is with
+ no guarantee about any functionality.  I take no responsibility for its
+ proper function.
+
+*)
+
+open cakeml_computeLib
 open HolKernel boolLib bossLib Parse
 open Portable smpp 
-(*open astPP modPP conPP exhPP patPP*)
+open astPP modPP conPP exhPP patPP
 open html
-(*
+
 fun println str = (print str; print"#@#");
 fun printls sep str = (print str; print sep);
 fun termToList ls = #1(listSyntax.dest_list(ls));
@@ -109,7 +122,7 @@ val addIt = eval ``case FLOOKUP ^(m2) "it" of
 val r = rhs(concl addIt)
 val emit = eval ``emit ^(r) [Stop T]``
 val rev = eval ``REVERSE (^(rhs(concl emit))).out``
-*)
+
 val tm = "val x = 5;";
 
 fun io_Handler() = 
@@ -144,7 +157,6 @@ fun io_Handler() =
 
 fun io_Handler2() =
   let open Html
-
       val cgi_request_method = Process.getEnv("REQUEST_METHOD");
       val cgi_content_length = Process.getEnv("CONTENT_LENGTH");
       fun int_from_str_opt(NONE, default) = default
@@ -152,8 +164,10 @@ fun io_Handler2() =
         getOpt(Int.fromString(s),default);
       
       val url_encoded_string = if cgi_request_method = SOME("POST")
-			       then (print"POST ";TextIO.inputN(TextIO.stdIn,int_from_str_opt(cgi_content_length,0)))
+			       then (TextIO.inputN(TextIO.stdIn,int_from_str_opt(cgi_content_length,0)))
 			       else "";
+      (*testing*)
+      (*val url_encoded_string = "asdasf=asdasasdf&asdfasd=asdasdasd&src=val+x+%3D5%2B5%3B%0D%0A&bla=bla&asdf=asf";*)
       val sizeofStr = size url_encoded_string
       val the_fields =
 	Substring.tokens(fn c => c = #"&")(Substring.substring (url_encoded_string,0,size url_encoded_string ));
@@ -194,25 +208,34 @@ fun io_Handler2() =
         in 
           lookup cgi_dict
         end;
+
       val src = case cgi_field_string("src") of NONE => "" | SOME(src) => src;
+      
+      (*probably needs error handling here*)
+      val out = allIntermediates (stringSyntax.fromMLstring src);
+
+      (*Could put this into the CSS*)
+      val taAtts = [("rows","22"),("cols","192")];
   in
-    page {title = "The Title",
-         css = SOME("standalone.css"),
+    page {title = "CakeML PP",
+         css = SOME("/css/standalone.css"),
          javascript = SOME("http://cdn.jquerytools.org/1.2.7/full/jquery.tools.min.js"),
          body = ([], [
          (*Form to submit code*)
-         FORM ([("action","pp.exe"),("method","POST")],
+         FORM ([("action","pp.cgi"),("method","POST")],
            [ 
-             String(quote_to_string`Code`),
-             TEXTAREA([("name","src")],src),
+             String(quote_to_string`Code`), BR,
+             TEXTAREA([("name","src")]@taAtts,src), BR,
              INPUT [("type","submit") , ("name","run") , ("value","Compile")]
            ]
          ),
 
          (*Tabs for compiler intermediates*)
          DIV ([],
-           UL ([("class","tabs")],
-             Sequence(
+           Sequence
+           [ 
+             UL ([("class","tabs")],
+               Sequence(
                [
                  LI (A ([("href","#"),("class","m")], String (quote_to_string `AST`))) ,
                  LI (A ([("href","#"),("class","m")], String (quote_to_string `modLang`))),
@@ -225,30 +248,57 @@ fun io_Handler2() =
                  LI (A ([("href","#"),("class","m")], String (quote_to_string `Bytecode 2`))),
                  LI (A ([("href","#"),("class","m")], String (quote_to_string `x86`)))
 
+               ])),
+             (*Tab contents, maybe set rows and cols dynamically?
+              need to somehow disable pretty printing in textarea...*)
+             DIV( [("class","panes")],
+               Sequence
+               [
+                 (*Prettify the list printing*)
+                 DIV([],TEXTAREA (taAtts,String.concat
+                 (map ((fn s => s^";") o term_to_string) (termToList (#ast out))))),
+
+                 DIV([],TEXTAREA (taAtts,String.concat 
+                 (map ((fn s => s^";") o term_to_string) (termToList (#i1 out))))),
+
+                 DIV([],TEXTAREA (taAtts,String.concat 
+                 (map ((fn s => s^";") o term_to_string) (termToList (#i2 out))))),
+
+                 DIV([],TEXTAREA (taAtts, term_to_string (#i3 out))),
+                 DIV([],TEXTAREA (taAtts, term_to_string (#i4 out))),
+                 DIV([],TEXTAREA (taAtts, term_to_string (#i5 out))),
+                 DIV([],TEXTAREA (taAtts, term_to_string (#i6 out))),
+                 DIV([],TEXTAREA (taAtts, "i7")),
+                 DIV([],TEXTAREA (taAtts,"i8")),
+                 DIV([],TEXTAREA (taAtts,"i9")),
+                 DIV([],TEXTAREA (taAtts, "i10"))
                ])
-
-             )),
-
-         (*Tab contents need to set row cols and contents*)
-         DIV( [("class","panes")],
-           Sequence
+           ]),
+          
+           (*Globals,Ctor and Module table*)
+           DIV ([],
+             Sequence
              [
-               DIV([],TEXTAREA ([], "AST")),
-               DIV([],TEXTAREA ([], "AST")),
-               DIV([],TEXTAREA ([], "AST")),
-               DIV([],TEXTAREA ([], "AST")),
-               DIV([],TEXTAREA ([], "AST")),
-               DIV([],TEXTAREA ([], "AST")),
-               DIV([],TEXTAREA ([], "AST")),
-               DIV([],TEXTAREA ([], "AST")),
-               DIV([],TEXTAREA ([], "AST")),
-               DIV([],TEXTAREA ([], "AST")),
-               DIV([],TEXTAREA ([], "AST"))
-             ]
-            ),
-
+               UL ([("class","tabs")],
+                 Sequence(
+                 [
+                   LI (A ([("href","#"),("class","m")], String (quote_to_string `Globals`))) ,
+                   LI (A ([("href","#"),("class","m")], String (quote_to_string `Modules`))),
+                   LI (A ([("href","#"),("class","m")], String (quote_to_string `Constructors`)))
+                 ])),     
+               DIV( [("class","panes")],
+                 Sequence
+                 [
+                   DIV([],TEXTAREA (taAtts, String.concat 
+                   (map ((fn s => s^"\n") o term_to_string) (#globMap out)))),
+                   DIV([],TEXTAREA (taAtts, String.concat 
+                   (map ((fn s => s^"\n") o term_to_string) (#modMap out)))),
+                   DIV([],TEXTAREA (taAtts, String.concat 
+                   (map ((fn s => s^"\n") o term_to_string) (#ctors out))))                 
+                 ])
+             ]),
           (*Javascript call*)
-          JAVASCRIPT ("test.js")
+          JAVASCRIPT ("/js/test.js")
 
          ])
        }
