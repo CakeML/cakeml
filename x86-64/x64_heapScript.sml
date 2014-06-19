@@ -8431,7 +8431,7 @@ gg goal
 (* deref *)
 
 val zHEAP_DEREF = let
-  val th = compose_specs ["mov r0,[r0+9w]"]
+  val th = compose_specs ["mov r0,[r0+9]"]
   val pc = get_pc th
   val target = ``~zS * zPC p * zVALS cs vals *
       cond (heap_inv (cs,x1,x2,x3,x4,refs,stack,s,NONE) vals /\ isRefPtr x1)``
@@ -8520,7 +8520,7 @@ val zHEAP_DEREF = let
 (* update ref *)
 
 val zHEAP_UPDATE_REF = let
-  val th = compose_specs ["mov [r1+9w],r0"]
+  val th = compose_specs ["mov [r1+9],r0"]
   val pc = get_pc th
   val target = ``~zS * zPC p * zVALS cs vals *
       cond (heap_inv (cs,x1,x2,x3,x4,refs,stack,s,NONE) vals /\ isRefPtr x2)``

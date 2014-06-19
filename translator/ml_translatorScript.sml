@@ -1316,6 +1316,32 @@ val DeclAssumExists_NIL = store_thm("DeclAssumExists_NIL",
   SIMP_TAC (srw_ss()) [PULL_EXISTS,Once evaluate_decs_cases,
      DeclAssumExists_def,DeclAssum_def,Decls_def]);
 
+val always_evaluates_def = Define `
+  always_evaluates exp =
+    !env s1. ?s2 res. evaluate F env (0,s1) exp ((0,s2),Rval res)`;
+
+val DeclAssumExists_evaluate = store_thm("DeclAssumExists_evaluate",
+  ``!ds name n exp P.
+      always_evaluates exp ==>
+      DeclAssumExists mn ds ==>
+      DeclAssumExists mn (SNOC (Dlet (Pvar name) exp) ds)``,
+  fs [always_evaluates_def]
+  \\ SIMP_TAC std_ss [DeclAssumExists_def,PULL_EXISTS] \\ REPEAT STRIP_TAC
+  \\ FULL_SIMP_TAC std_ss [DeclAssum_def,Decls_APPEND,SNOC_APPEND,PULL_EXISTS]
+  \\ RES_TAC \\ SIMP_TAC std_ss [Decls_def] \\ ONCE_REWRITE_TAC [CONJ_COMM]
+  \\ SIMP_TAC std_ss [Once evaluate_decs_cases]
+  \\ SIMP_TAC (srw_ss()) [CONS_11,NOT_CONS_NIL,PULL_EXISTS]
+  \\ SIMP_TAC (srw_ss()) [PULL_EXISTS,Once evaluate_decs_cases]
+  \\ SIMP_TAC (srw_ss()) [PULL_EXISTS,Once evaluate_dec_cases]
+  \\ SIMP_TAC std_ss [merge_def,APPEND_NIL]
+  \\ SIMP_TAC (srw_ss()) [pmatch_def,ALL_DISTINCT,pat_bindings_def,
+       combine_dec_result_def]
+  \\ FULL_SIMP_TAC std_ss [Decls_def,Eval_def,PULL_EXISTS,merge_def] \\ RES_TAC
+  \\ SRW_TAC [] []
+  \\ FIRST_X_ASSUM (STRIP_ASSUME_TAC o Q.SPECL
+        [`([],merge_envC (emp,new_tds) init_envC,res_env ++ init_env)`,`s`])
+  \\ Q.LIST_EXISTS_TAC [`tys`,`s2`,`new_tds`,`res_env`,`res`,`(0,s)`] \\ fs []);
+
 (* lookup cons *)
 
 val lookup_cons_write = store_thm("lookup_cons_write",
