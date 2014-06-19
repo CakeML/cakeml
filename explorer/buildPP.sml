@@ -211,7 +211,7 @@ fun io_Handler2() =
                       ,"//code.jquery.com/ui/1.10.4/jquery-ui.min.js"],
          body = ([], [
          (*Form to submit code*)
-         FORM ([("action","pp.cgi"),("method","POST")],
+         FORM ([("method","POST")],
            [
              String(quote_to_string`Code`), BR,
              TEXTAREA([("name","src")]@taAtts,src), BR,
