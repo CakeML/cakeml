@@ -298,8 +298,7 @@ fun io_Handler2() =
                  ])
              ]),
           (*Javascript call*)
-          JAVASCRIPT ("/js/test.js")
-
+          JSINLINE ("$(function() {$(\"ul.tabs\").tabs(\"div.panes > div\");});")
          ])
        }
 end;
