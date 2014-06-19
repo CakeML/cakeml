@@ -492,6 +492,16 @@ val type_p_closed = store_thm("type_p_closed",
   rw[] >> fs[SUBSET_DEF] >>
   rw [Once pat_bindings_accum]);
 
+val type_funs_dom = Q.prove (
+`!tenvM tenvC tenv funs tenv'.
+  type_funs tenvM tenvC tenv funs tenv'
+  ⇒
+  IMAGE FST (set funs) = IMAGE FST (set tenv')`,
+ induct_on `funs` >>
+ rw [Once type_e_cases] >>
+ rw [] >>
+ metis_tac []);
+
 val type_e_closed = store_thm("type_e_closed",
   ``(∀tmenv tcenv tenv e t.
       type_e tmenv tcenv tenv e t
@@ -503,9 +513,8 @@ val type_e_closed = store_thm("type_e_closed",
       FV_list es ⊆ (IMAGE Short (tenv_names tenv) ∪ tmenv_dom tmenv)) ∧
     (∀tmenv tcenv tenv funs ts.
       type_funs tmenv tcenv tenv funs ts ⇒
-      let fs = set (MAP (Short o FST) ts) in
-      FV_defs funs ⊆ ((IMAGE Short (tenv_names tenv)) DIFF fs) ∪ tmenv_dom tmenv)``,
-  ho_match_mp_tac type_e_ind >>
+      FV_defs funs ⊆ (IMAGE Short (tenv_names tenv)) ∪ tmenv_dom tmenv)``,
+  ho_match_mp_tac type_e_strongind >>
   strip_tac >- simp[] >>
   strip_tac >- simp[] >>
   strip_tac >- simp[] >>
@@ -579,11 +588,11 @@ val type_e_closed = store_thm("type_e_closed",
   strip_tac >- (
     simp[tenv_names_bind_var_list] >>
     rpt gen_tac >> strip_tac >>
+    imp_res_tac type_funs_dom >>
     fs [SUBSET_DEF] >>
     rw [] >>
     res_tac >>
-    fs [MEM_MAP]
-    >- metis_tac [] >>
+    fs [MEM_MAP] >>
     `tenv_names (bind_tvar tvs tenv) = tenv_names tenv` 
                by (rw [bind_tvar_def] >>
                    every_case_tac >>
@@ -592,18 +601,18 @@ val type_e_closed = store_thm("type_e_closed",
     rw [] >>
     res_tac >>
     fs [] >>
-    rw []
-    >- metis_tac []
-    >- cheat
-    >- metis_tac []) >> 
+    rw [] >>
+    fs [EXTENSION] >>
+    metis_tac []) >>
   strip_tac >- simp[] >>
   strip_tac >- simp[] >>
   strip_tac >- simp[] >>
   simp[] >>
-  srw_tac[DNF_ss][SUBSET_DEF,bind_tenv_def] >>
-  fsrw_tac[DNF_ss][FV_defs_MAP,UNCURRY]
-  >- cheat
-  >- cheat);
+  rw [SUBSET_DEF,bind_tenv_def] >>
+  res_tac >>
+  fsrw_tac[DNF_ss][MEM_MAP,FV_defs_MAP,UNCURRY] >>
+  rw [] >>
+  metis_tac []);
 
 val type_d_closed = store_thm("type_d_closed",
   ``∀mno decls tmenv tcenv tenv d x y z.
@@ -630,7 +639,11 @@ val type_d_closed = store_thm("type_d_closed",
     fs[SUBSET_DEF] >> 
     rw [] >>
     fs [MEM_MAP] >>
-    metis_tac[] ) >>
+    res_tac >>
+    rw [] >>
+    imp_res_tac type_funs_dom >>
+    fs [EXTENSION] >>
+    metis_tac[]) >>
   simp[]);
 
 val fst_lem = Q.prove (
@@ -638,16 +651,6 @@ val fst_lem = Q.prove (
 rw [FUN_EQ_THM] >>
 PairCases_on `x` >>
 fs []);
-
-val type_funs_dom = Q.prove (
-`!tenvM tenvC tenv funs tenv'.
-  type_funs tenvM tenvC tenv funs tenv'
-  ⇒
-  IMAGE FST (set funs) = IMAGE FST (set tenv')`,
- induct_on `funs` >>
- rw [Once type_e_cases] >>
- rw [] >>
- metis_tac []);
 
 val type_d_new_dec_vs = Q.prove (
 `!mn decls tenvM tenvC tenv d decls' tenvC' tenv'.
