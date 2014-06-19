@@ -44,9 +44,7 @@ update_repl_state ast state type_bindings tdecs tenvM tenvC tenv store envC r =
         * defines some datatype constructors and puts them into the store before
         * failing. *)
         state with <| store := store;
-                      tdecs := (case state.tdecs of 
-                                 (mdecs,tdecs,edecs) => 
-                                   set (MAP FST tenvM) ∪ mdecs, tdecs, edecs) |>`;
+                      tdecs := tdecs |>`;
 
 val print_envM_def = Define `
 print_envM envM = CONCAT (MAP (λ(x,m). "module " ++ x ++ " = <structure>\n") envM)`;

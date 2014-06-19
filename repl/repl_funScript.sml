@@ -84,7 +84,8 @@ val update_state_def = Define`
 
 val update_state_err_def = Define`
   update_state_err s is cs =
-  s with <| rinferencer_state := is
+  s with <| rinferencer_state := 
+              (FST is, FST (SND s.rinferencer_state), FST (SND (SND s.rinferencer_state)), SND (SND (SND s.rinferencer_state)))
           ; rcompiler_state   := cs
           |>`
 
