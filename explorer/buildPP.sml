@@ -205,7 +205,7 @@ fun io_Handler2() =
       val taAtts = [("rows","22"),("cols","192")];
   in
     page {title = "CakeML PP",
-         css = SOME("/css/standalone.css"),
+         css = SOME("css/explorer.css"),
          javascript = SOME("http://cdn.jquerytools.org/1.2.7/full/jquery.tools.min.js"),
          body = ([], [
          (*Form to submit code*)
