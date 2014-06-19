@@ -1,3 +1,4 @@
+(* Code originally comes from Anthony Fox's ARM model web interface. *)
 structure html =
 struct
 open HolKernel Parse
