@@ -206,7 +206,8 @@ fun io_Handler2() =
   in
     page {title = "CakeML PP",
          css = SOME("css/explorer.css"),
-         javascript = ["http://cdn.jquerytools.org/1.2.7/full/jquery.tools.min.js"],
+         javascript = ["//code.jquery.com/jquery-2.1.1.min.js"
+                      ,"//code.jquery.com/ui/1.10.4/jquery-ui.min.js"],
          body = ([], [
          (*Form to submit code*)
          FORM ([("action","pp.cgi"),("method","POST")],
@@ -218,87 +219,88 @@ fun io_Handler2() =
          ),
 
          (*Tabs for compiler intermediates*)
-         DIV ([],
+         DIV ([("class","tabs")],
            Sequence
            [
-             UL ([("class","tabs")],
+             UL ([],
                Sequence(
-               [
-                 LI (A ([("href","#"),("class","m")], String (quote_to_string `AST`))) ,
-                 LI (A ([("href","#"),("class","m")], String (quote_to_string `modLang`))),
-                 LI (A ([("href","#"),("class","m")], String (quote_to_string `conLang`))),
-                 LI (A ([("href","#"),("class","m")], String (quote_to_string `decLang`))),
-                 LI (A ([("href","#"),("class","m")], String (quote_to_string `exhLang`))),
-                 LI (A ([("href","#"),("class","m")], String (quote_to_string `patLang`))),
-                 LI (A ([("href","#"),("class","m")], String (quote_to_string `intLang`))),
-                 LI (A ([("href","#"),("class","m")], String (quote_to_string `Bytecode 1`))),
-                 LI (A ([("href","#"),("class","m")], String (quote_to_string `Bytecode 2`))),
-                 LI (A ([("href","#"),("class","m")], String (quote_to_string `x86`)))
-
-               ])),
+               let
+                 fun f i q = LI (A ([("href","#"^(Int.toString i)),("class","m")], String (quote_to_string q)))
+               in
+                 mapi f [`AST`
+                        ,`modLang`
+                        ,`conLang`
+                        ,`decLang`
+                        ,`exhLang`
+                        ,`patLang`
+                        ,`intLang`
+                        ,`Bytecode 1`
+                        ,`Bytecode 2`
+                        ,`x86`]
+               end)),
              (*Tab contents, maybe set rows and cols dynamically?
               need to somehow disable pretty printing in textarea...*)
-             DIV( [("class","panes")],
+             DIV( [],
                Sequence
                [
                  (*Prettify the list printing*)
-                 DIV([],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) => String.concat
+                 DIV([("id","0")],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) => String.concat
                  (map ((fn s => s^";") o term_to_string) (termToList (#ast out))))),
 
-                 DIV([],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) => String.concat
+                 DIV([("id","1")],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) => String.concat
                  (map ((fn s => s^";") o term_to_string) (termToList (#i1 out))))),
 
-                 DIV([],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) => String.concat
+                 DIV([("id","2")],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) => String.concat
                  (map ((fn s => s^";") o term_to_string) (termToList (#i2 out))))),
 
-                 DIV([],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
+                 DIV([("id","3")],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
                  term_to_string (#i3 out))),
 
-                 DIV([],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
+                 DIV([("id","4")],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
                  term_to_string (#i4 out))),
-                 DIV([],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
+                 DIV([("id","5")],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
                  term_to_string (#i5 out))),
-                 DIV([],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
+                 DIV([("id","6")],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
                  term_to_string (#i6 out))),
 
 
-                 DIV([],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>String.concat
+                 DIV([("id","7")],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>String.concat
                  (map ((fn s => if(String.isPrefix "Label" s) then s^":\n" else "\t"^s^";\n")
                   o term_to_string) (termToList (#i7 out))))),
 
-                 DIV([],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
+                 DIV([("id","8")],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
                  term_to_string (#i8 out))),
-                 DIV([],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
+                 DIV([("id","9")],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
                  term_to_string (#i9 out))),
-                 DIV([],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
+                 DIV([("id","10")],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
                  term_to_string (#i10 out)))
                ])
            ]), BR ,
 
            (*Globals,Ctor and Module table*)
-           DIV ([],
+           DIV ([("class","tabs")],
              Sequence
              [
-               UL ([("class","tabs")],
+               UL ([],
                  Sequence(
                  [
-                   LI (A ([("href","#"),("class","m")], String (quote_to_string `Globals`))) ,
-                   LI (A ([("href","#"),("class","m")], String (quote_to_string `Modules`))),
-                   LI (A ([("href","#"),("class","m")], String (quote_to_string `Constructors`)))
+                   LI (A ([("href","#globals"),("class","m")], String (quote_to_string `Globals`))) ,
+                   LI (A ([("href","#modules"),("class","m")], String (quote_to_string `Modules`))),
+                   LI (A ([("href","#constructors"),("class","m")], String (quote_to_string `Constructors`)))
                  ])),
-               DIV( [("class","panes")],
+               DIV( [],
                  Sequence
                  [
-                   DIV([],TEXTAREA (taAtts, case out of NONE => !errStr | SOME(out) => String.concat
+                   DIV([("id","globals")],TEXTAREA (taAtts, case out of NONE => !errStr | SOME(out) => String.concat
                    (map ((fn s => s^"\n") o term_to_string) (#globMap out)))),
-                   DIV([],TEXTAREA (taAtts, case out of NONE => !errStr | SOME(out) => String.concat
+                   DIV([("id","modules")],TEXTAREA (taAtts, case out of NONE => !errStr | SOME(out) => String.concat
                    (map ((fn s => s^"\n") o term_to_string) (#modMap out)))),
-                   DIV([],TEXTAREA (taAtts, case out of NONE => !errStr | SOME(out) => String.concat
+                   DIV([("id","constructors")],TEXTAREA (taAtts, case out of NONE => !errStr | SOME(out) => String.concat
                    (map ((fn s => s^"\n") o term_to_string) (#ctors out))))
                  ])
              ]),
           (*Javascript call*)
-          JSINLINE ("$(function() {$(\"ul.tabs\").tabs(\"div.panes > div\");});")
+          JSINLINE ("$( \".tabs\" ).tabs();")
          ])
        }
 end;
