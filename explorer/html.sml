@@ -72,7 +72,7 @@ struct
 
   type page = {title : string,
                css : string option,
-               javascript : string option,
+               javascript : string list,
                body : attribs * html list}
   local
     local
@@ -215,9 +215,7 @@ struct
                         (case #css p of
                             SOME c => [LINK_CSS c]
                           | NONE => []) @
-                        (case #javascript p of
-                            SOME j => [JAVASCRIPT j]
-                          | NONE => []),a,b)
+                        (List.map JAVASCRIPT (#javascript p)),a,b)
           val h = Element("!DOCTYPE",false,Attributes [("html","")],[h])
        in
           case !test_location of

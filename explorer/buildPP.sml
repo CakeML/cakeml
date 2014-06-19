@@ -206,7 +206,7 @@ fun io_Handler2() =
   in
     page {title = "CakeML PP",
          css = SOME("css/explorer.css"),
-         javascript = SOME("http://cdn.jquerytools.org/1.2.7/full/jquery.tools.min.js"),
+         javascript = ["http://cdn.jquerytools.org/1.2.7/full/jquery.tools.min.js"],
          body = ([], [
          (*Form to submit code*)
          FORM ([("action","pp.cgi"),("method","POST")],
