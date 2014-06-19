@@ -17,8 +17,6 @@ open Portable smpp
 open astPP modPP conPP exhPP patPP
 open html
 
-fun println str = (print str; print"#@#");
-fun printls sep str = (print str; print sep);
 fun termToList ls = #1(listSyntax.dest_list(ls));
 
 val _ = set_trace"pp_avoids_symbol_merges"0;
