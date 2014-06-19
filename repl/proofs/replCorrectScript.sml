@@ -15,6 +15,12 @@ val o_f_FUNION = store_thm("o_f_FUNION",
   simp[GSYM fmap_EQ_THM,FUNION_DEF] >>
   rw[o_f_FAPPLY]);
 
+val fst_lem = Q.prove (
+`FST = λ(x,y). x`,
+rw [FUN_EQ_THM] >>
+PairCases_on `x` >>
+fs []);
+
 val union_append_decls = Q.prove (
 `union_decls (convert_decls new_decls) (convert_decls decls) = convert_decls (append_decls new_decls decls)`,
  PairCases_on `new_decls` >>
@@ -249,26 +255,25 @@ rw [update_repl_state_def, type_infer_invariants_def] >>
  rw [convert_menv_def],
  rw [bvl2_append, convert_env2_def]]);
 
-(* TODO:
 val type_invariants_pres_err = Q.prove (
 `!rs rfs.
-  type_infer_invariants rs (infer_menv,infer_cenv,infer_env) ∧
-  infer_top infer_menv infer_cenv infer_env top init_infer_state =
-          (Success (new_infer_menv,new_infer_cenv,new_infer_env), infer_st2)
+  type_infer_invariants rs (decls,infer_menv,infer_cenv,infer_env) ∧
+  infer_top decls infer_menv infer_cenv infer_env top init_infer_state =
+          (Success (new_decls,new_infer_menv,new_infer_cenv,new_infer_env), infer_st2)
   ⇒
-  type_infer_invariants (update_repl_state top rs el0 el1 (convert_menv new_infer_menv) new_infer_cenv (convert_env2 new_infer_env) st'
+  type_infer_invariants (update_repl_state top rs el (convert_decls new_decls) (convert_menv new_infer_menv) new_infer_cenv (convert_env2 new_infer_env) st'
                                      envC (Rerr err))
-                  ((strip_mod_env new_infer_menv) ++ infer_menv, infer_cenv,infer_env)`,
+                  ((MAP FST new_infer_menv ++ FST decls, FST (SND decls), SND (SND decls)),
+                   infer_menv,infer_cenv,infer_env)`,
 rw [update_repl_state_def, type_infer_invariants_def] >>
 `check_menv new_infer_menv ∧
  check_cenv new_infer_cenv ∧
  check_env {} new_infer_env`
-           by metis_tac [infer_top_invariant] >>
-rw[strip_mod_env_def] >> rw[convert_menv_def] >- (
-  fs[check_menv_def,EVERY_MEM,MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
-  rw[] >> fs[] >> metis_tac[] ) >>
-simp[MAP_MAP_o,combinTheory.o_DEF,UNCURRY]);
-*)
+           by metis_tac [inferPropsTheory.infer_top_invariant] >>
+ every_case_tac >>
+ rw [] >>
+ PairCases_on `decls` >>
+ fs [convert_decls_def, convert_menv_def, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, fst_lem]);
 
 val invariant_def = Define`
   invariant rs rfs bs ⇔
@@ -651,12 +656,6 @@ val type_d_closed = store_thm("type_d_closed",
     fs [EXTENSION] >>
     metis_tac[]) >>
   simp[]);
-
-val fst_lem = Q.prove (
-`FST = λ(x,y). x`,
-rw [FUN_EQ_THM] >>
-PairCases_on `x` >>
-fs []);
 
 val type_d_new_dec_vs = Q.prove (
 `!mn decls tenvM tenvC tenv d decls' tenvC' tenv'.
