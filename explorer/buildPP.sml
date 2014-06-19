@@ -25,6 +25,7 @@ fun io_Handler2() =
       | int_from_str_opt(SOME(s), default) =
         getOpt(Int.fromString(s),default);
 
+      val _ = TextIO.input1 TextIO.stdIn (* discard leading newline *)
       val url_encoded_string = if cgi_request_method = SOME("POST")
 			       then (TextIO.inputN(TextIO.stdIn,int_from_str_opt(cgi_content_length,0)))
 			       else "";
