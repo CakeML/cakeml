@@ -187,6 +187,7 @@ struct
                           ("type","text/css")],[])
     fun JAVASCRIPT s = Element ("script",true,
                          Attributes [("src",s),("type","text/javascript")],[])
+    fun JSINLINE s   = a "script" ([("type","text/javascript")],String s)
     val NOSCRIPT     = c "noscript"
     fun HTML (h,a,bd)  = b "html" [HEAD h, BODY (a,bd)]
     fun TEXTAREA (a,s) = Element ("textarea",true,Attributes a,[String s])
