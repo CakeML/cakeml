@@ -71,7 +71,7 @@ struct
   end
 
   type page = {title : string,
-               css : string option,
+               css : string list,
                javascript : string list,
                body : attribs * html list}
   local
@@ -212,9 +212,7 @@ struct
           val h = HTML (META [("http-equiv", "content-type"),
                               ("content", "text/html; charset=UTF-8")] ::
                         TITLE (#title p) ::
-                        (case #css p of
-                            SOME c => [LINK_CSS c]
-                          | NONE => []) @
+                        (List.map LINK_CSS (#css p)) @
                         (List.map JAVASCRIPT (#javascript p)),a,b)
           val h = Element("!DOCTYPE",false,Attributes [("html","")],[h])
        in
