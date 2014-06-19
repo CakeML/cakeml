@@ -27,12 +27,14 @@ val x64_code_rev_eval =
   |> SIMP_RULE std_ss []
   |> REWRITE_RULE [GSYM IF_AND]
 
+val _ = save_thm("x64_code_rev_eval",x64_code_rev_eval);
+
 val x64_code_rev_thm = prove(
   ``!bs i res. x64_code_rev i bs res = REVERSE (x64_code i bs) ++ res``,
   Induct THEN1 (SRW_TAC [] [x64_code_def,x64_code_rev_def])
   \\ SRW_TAC [] [x64_code_ALT,x64_code_rev_def] \\ SRW_TAC [] []);
 
-val x64_code_rev_thm = prove(
+val x64_code_rev_thm = store_thm("x64_code_rev_thm",
   ``!bs i. x64_code i bs = REVERSE (x64_code_rev i bs [])``,
   SRW_TAC [] [x64_code_rev_thm]);
 
@@ -40,9 +42,11 @@ val x64_code_INTRO = prove(
   ``(x64_code_rev n xs [] = ys) = (x64_code n xs = REVERSE ys)``,
   SRW_TAC [] [x64_code_rev_thm]);
 
-val _ = computeLib.add_funs [x64_code_rev_eval]
+val _ = computeLib.add_funs [x64_code_rev_eval,x64_code_rev_thm];
 
 (*
+
+  EVAL ``x64_code 0 [Stack Pop]``
 
 val proper_code_labels_rev_bootstrap_lcode =
   MP (DISCH_ALL compileCallReplStepDecTheory.code_labels_rev_bootstrap_lcode)
