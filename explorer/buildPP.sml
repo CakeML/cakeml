@@ -13,11 +13,9 @@
 
 open allPP html
 
-fun termToList ls = #1(listSyntax.dest_list(ls));
+datatype result = Nothing | Success of allIntermediates | Error of string
 
-val _ = set_trace"pp_avoids_symbol_merges"0;
-
-fun io_Handler2() =
+fun io() =
   let open Html
       val cgi_request_method = Process.getEnv("REQUEST_METHOD");
       val cgi_content_length = Process.getEnv("CONTENT_LENGTH");
@@ -74,15 +72,11 @@ fun io_Handler2() =
 
       val src = case cgi_field_string("src") of NONE => "" | SOME(src) => src;
 
-      val errStr = ref "";
-      (*probably needs error handling here*)
-      val out = if src = "" then NONE
-                else (SOME(allIntermediates (stringSyntax.fromMLstring src)))
-                  handle compilationError e => (errStr:=e;NONE)
-                       | _ => (errStr := "Unknown error"; NONE)
+      val out = if src = "" then Nothing
+                else Success(allIntermediates (stringSyntax.fromMLstring src))
+                handle compilationError e => Error e
+                       | _ => Error "Unknown error"
 
-      (*Could put this into the CSS*)
-      val taAtts = [("rows","22"),("cols","192")];
   in
     page {title = "CakeML PP",
          css = ["css/explorer.css",
@@ -94,11 +88,13 @@ fun io_Handler2() =
          FORM ([("method","POST")],
            [
              String(quote_to_string`Code`), BR,
-             TEXTAREA([("name","src")]@taAtts,src), BR,
+             TEXTAREA([("name","src")],src), BR,
              INPUT [("type","submit") , ("name","run") , ("value","Compile")]
            ]
-         ),
-
+         )] @
+         (case out of Nothing => []
+          | Error err => [DIV ([("class","error")], PAR (String err))]
+          | Success out => [
          (*Tabs for compiler intermediates*)
          DIV ([("class","tabs")],
            Sequence
@@ -119,43 +115,13 @@ fun io_Handler2() =
                         ,`Bytecode 2`
                         ,`x86`]
                end)),
-             (*Tab contents, maybe set rows and cols dynamically?
-              need to somehow disable pretty printing in textarea...*)
-             DIV( [],
+             DIV([],
                Sequence
-               [
-                 (*Prettify the list printing*)
-                 DIV([("id","0")],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) => String.concat
-                 (map ((fn s => s^";") o term_to_string) (termToList (#ast out))))),
-
-                 DIV([("id","1")],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) => String.concat
-                 (map ((fn s => s^";") o term_to_string) (termToList (#i1 out))))),
-
-                 DIV([("id","2")],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) => String.concat
-                 (map ((fn s => s^";") o term_to_string) (termToList (#i2 out))))),
-
-                 DIV([("id","3")],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
-                 term_to_string (#i3 out))),
-
-                 DIV([("id","4")],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
-                 term_to_string (#i4 out))),
-                 DIV([("id","5")],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
-                 term_to_string (#i5 out))),
-                 DIV([("id","6")],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
-                 term_to_string (#i6 out))),
-
-
-                 DIV([("id","7")],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>String.concat
-                 (map ((fn s => if(String.isPrefix "Label" s) then s^":\n" else "\t"^s^";\n")
-                  o term_to_string) (termToList (#i7 out))))),
-
-                 DIV([("id","8")],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
-                 term_to_string (#i8 out))),
-                 DIV([("id","9")],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
-                 term_to_string (#i9 out))),
-                 DIV([("id","10")],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
-                 term_to_string (#i10 out)))
-               ])
+               let
+                 fun f i t = DIV([("id",Int.toString i)], T 80 t)
+               in
+                 mapi f (#ils out)
+               end)
            ]), BR ,
 
            (*Globals,Ctor and Module table*)
@@ -172,18 +138,18 @@ fun io_Handler2() =
                DIV( [],
                  Sequence
                  [
-                   DIV([("id","globals")],TEXTAREA (taAtts, case out of NONE => !errStr | SOME(out) => String.concat
+                   DIV([("id","globals")],Preformatted(String.concat
                    (map ((fn s => s^"\n") o term_to_string) (#globMap out)))),
-                   DIV([("id","modules")],TEXTAREA (taAtts, case out of NONE => !errStr | SOME(out) => String.concat
+                   DIV([("id","modules")],Preformatted(String.concat
                    (map ((fn s => s^"\n") o term_to_string) (#modMap out)))),
-                   DIV([("id","constructors")],TEXTAREA (taAtts, case out of NONE => !errStr | SOME(out) => String.concat
+                   DIV([("id","constructors")],Preformatted(String.concat
                    (map ((fn s => s^"\n") o term_to_string) (#ctors out))))
                  ])
              ]),
           (*Javascript call*)
           JSINLINE ("$( \".tabs\" ).tabs();")
-         ])
+         ]))
        }
 end;
 
-val _ = PolyML.export("pp",io_Handler2);
+val _ = PolyML.export("pp",io);

@@ -4,8 +4,8 @@ body {
 }
 
 textarea{
-    width: auto;
-    height: auto;
+    width: 80em;
+    height: 20em;
     border: 3px solid #cccccc;
     padding: 5px;
     font-family: "Courier New", Courier, monospace;

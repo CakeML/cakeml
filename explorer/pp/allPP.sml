@@ -38,6 +38,12 @@ val eval = computeLib.CBV_CONV cs
 in
 
 exception compilationError of string;
+type allIntermediates = {
+  ils:term list,
+  globMap:term list,
+  ctors:term list,
+  modMap:term list}
+
 (*Return all intermediates during compilation in a record*)
 fun allIntermediates prog =
   let val t1 = eval ``get_all_asts ^(prog)``
@@ -108,14 +114,9 @@ fun allIntermediates prog =
       val rev = eval ``REVERSE (^p7_4).out``
 
       val p7 = rhsThm rev
-      (*temporaries*)
-      val p8 = p7;
-      val p9 = p7;
-      val p10 =p7;
-      val p11 =p7;
   in
-     {ast=ast,i1=p1,i2=p2,i3=p3,i4=p4,i5=p5,i6=p6,i7=p7,i8=p8,i9=p9,i10=p10,i11=p11,ctors = ctors
-      ,globMap=globMap,modMap=modMap}
+     {ils=[ast,p1,p2,p3,p4,p5,p6,p7],
+      ctors=ctors,globMap=globMap,modMap=modMap}
   end;
 end
 end
