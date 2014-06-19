@@ -33,12 +33,43 @@ end
 
 structure Html =
 struct
+
   type attribs = (string * string) list
   datatype html = Element of string * bool * html * html list
                 | Attributes of attribs
                 | Sequence of html list
                 | String of string
                 | Preformatted of string
+
+  structure Inline =
+  struct
+    local
+      fun assign (s,v) = String.concat [s,"=",Lib.quote v]
+      val assigns = String.concat o (Lib.separate " ") o (List.map assign)
+    in
+      fun inline n [] s = String.concat ["<",n,">",s,"</",n,">"]
+        | inline n l s = String.concat ["<",n," ",assigns l,">",s,"</",n,">"]
+
+      fun link l src = inline "a" (("href",src)::l)
+      val span = inline "span"
+
+      fun tag sep escape f s =
+         let
+            val l = String.fields (equal sep) s
+            val l =
+               Lib.mapi
+                  (fn i => fn v =>
+                     let
+                        val h = if escape then PPBackEnd.html_escape v else v
+                     in
+                        if i mod 2 = 0 then h else f h
+                     end) l
+         in
+            String (String.concat l)
+         end
+    end
+  end
+
   type page = {title : string,
                css : string option,
                javascript : string option,
@@ -94,6 +125,9 @@ struct
             | Sequence [e] => html_printer d y e
             | Sequence l => break_block (fn (x,d) => html_printer d y x) (0,0)
                               (d + 1) true l
+            (*Special case for textarea with atts*)
+            | Element ("textarea", c , Attributes a, [String str]) =>
+                    PolyML.PrettyString (Inline.inline "textarea" a str)
             | Element (n, c, Attributes [], x) =>
                 let
                    val pp = ps (n, Sequence x)
@@ -192,35 +226,6 @@ struct
     val _ = PolyML.addPrettyPrinter html_printer;
   end
 end;
-
-structure Inline =
-struct
-  local
-    fun assign (s,v) = String.concat [s,"=",Lib.quote v]
-    val assigns = String.concat o (Lib.separate " ") o (List.map assign)
-  in
-    fun inline n [] s = String.concat ["<",n,">",s,"</",n,">"]
-      | inline n l s = String.concat ["<",n," ",assigns l,">",s,"</",n,">"]
-
-    fun link l src = inline "a" (("href",src)::l)
-    val span = inline "span"
-
-    fun tag sep escape f s =
-       let
-          val l = String.fields (equal sep) s
-          val l =
-             Lib.mapi
-                (fn i => fn v =>
-                   let
-                      val h = if escape then PPBackEnd.html_escape v else v
-                   in
-                      if i mod 2 = 0 then h else f h
-                   end) l
-       in
-          Html.String (String.concat l)
-       end
-  end
-end
 
 local
   fun hex_to_char s =

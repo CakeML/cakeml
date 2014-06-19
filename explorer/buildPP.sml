@@ -56,12 +56,16 @@ val cs = cakeml_compset();
 val _ = computeLib.add_thms [compile_primitives_pieces] cs
 val eval = computeLib.CBV_CONV cs
 
+exception compilationError of string;
+
 (*Return all intermediates during compilation in a record*)
 fun allIntermediates prog =
   let val t1 = eval ``get_all_asts ^(prog)``
       val t2 = eval ``elab_all_asts ^(rhsThm t1)``
       val ast = rand (rhsThm t2)
       
+      val _ =if ast = ``"<parse error>\n"`` then raise compilationError "Parse Error" else ();
+
       (*i1 translation*)
       val n = rhsThm (eval ``compile_primitives.next_global``)
       val (m1,m2) = pairSyntax.dest_pair( rhsThm( eval ``compile_primitives.globals_env``))
@@ -102,58 +106,37 @@ fun allIntermediates prog =
 
       (*compileCexp*)
       val compile_Cexp = eval ``compile_Cexp [] 0 <|out:=[];next_label:=compile_primitives.rnext_label|> ^(p6)``
-      val p7 = rhsThm compile_Cexp
+      val p7_1 = rhsThm compile_Cexp
 
+      (*compile print err*)
+      val compile_print_err = eval ``compile_print_err ^(p7_1)``;
+      val p7_2 = rhsThm compile_print_err
 
-  in
-     {ast=ast,i1=p1,i2=p2,i3=p3,i4=p4,i5=p5,i6=p6,i7=p7,ctors = ctors,globMap=globMap,modMap=modMap}
-  end;
-
-(*Not included yet
-val compile_print_err = eval ``compile_print_err ^(r)``;
-val r = rhs(concl compile_print_err)
-
-val addIt = eval ``case FLOOKUP ^(m2) "it" of
-                             NONE => ^(r)
+      (*Add it*)
+      val addIt = eval ``case FLOOKUP ^(m2) "it" of
+                             NONE => ^(p7_2)
                            | SOME n =>
-                               (let r = emit ^(r) [Gread n; Print]
+                               (let r = emit ^(p7_2) [Gread n; Print]
                                 in
                                   emit r (MAP PrintC (EXPLODE "\n")))``
-val r = rhs(concl addIt)
-val emit = eval ``emit ^(r) [Stop T]``
-val rev = eval ``REVERSE (^(rhs(concl emit))).out``
 
-val tm = "val x = 5;";
+      val p7_3 = rhsThm addIt
 
-fun io_Handler() = 
-  let val str = SOME(tm)
+      val emit = eval ``emit ^(p7_3) [Stop T]``
+      val p7_4 = rhsThm emit 
+
+      val rev = eval ``REVERSE (^p7_4).out``
+
+      val p7 = rhsThm rev
+      (*temporaries*)
+      val p8 = p7; 
+      val p9 = p7;
+      val p10 =p7;
+      val p11 =p7;
   in
-  (
-    case str 
-    of SOME(x) =>  
-    let val str = stringSyntax.fromMLstring x
-    val out = allIntermediates str
-    in
-      map (printls ";" o term_to_string) (termToList (#ast out));
-      println "";
-      map (printls ";" o term_to_string) (termToList (#i1 out));
-      println ""; 
-      map (printls ";" o term_to_string) (termToList (#i2 out));
-      println "";
-      println (term_to_string (#i3(out)));
-      println (term_to_string (#i4(out)));
-      println (term_to_string (#i5(out)));
-      println (term_to_string (#i6(out)));
-      map (printls "\n" o term_to_string) (#globMap out);
-      println "";
-      map (printls "\n" o term_to_string) (#modMap out);
-      println "";
-      map (printls "\n" o term_to_string) (#ctors out);()
-    end
-  ) handle _ => TextIO.print "Invalid Input\n"
+     {ast=ast,i1=p1,i2=p2,i3=p3,i4=p4,i5=p5,i6=p6,i7=p7,i8=p8,i9=p9,i10=p10,i11=p11,ctors = ctors
+      ,globMap=globMap,modMap=modMap}
   end;
-*)
-
 
 fun io_Handler2() =
   let open Html
@@ -210,9 +193,13 @@ fun io_Handler2() =
         end;
 
       val src = case cgi_field_string("src") of NONE => "" | SOME(src) => src;
-      
+     
+      val errStr = ref "";
       (*probably needs error handling here*)
-      val out = allIntermediates (stringSyntax.fromMLstring src);
+      val out = if src = "" then NONE 
+                else (SOME(allIntermediates (stringSyntax.fromMLstring src)))
+                  handle compilationError e => (errStr:=e;NONE) 
+                       | _ => (errStr := "Unknown error"; NONE)
 
       (*Could put this into the CSS*)
       val taAtts = [("rows","22"),("cols","192")];
@@ -255,25 +242,38 @@ fun io_Handler2() =
                Sequence
                [
                  (*Prettify the list printing*)
-                 DIV([],TEXTAREA (taAtts,String.concat
+                 DIV([],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) => String.concat
                  (map ((fn s => s^";") o term_to_string) (termToList (#ast out))))),
 
-                 DIV([],TEXTAREA (taAtts,String.concat 
+                 DIV([],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) => String.concat
                  (map ((fn s => s^";") o term_to_string) (termToList (#i1 out))))),
 
-                 DIV([],TEXTAREA (taAtts,String.concat 
+                 DIV([],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) => String.concat
                  (map ((fn s => s^";") o term_to_string) (termToList (#i2 out))))),
 
-                 DIV([],TEXTAREA (taAtts, term_to_string (#i3 out))),
-                 DIV([],TEXTAREA (taAtts, term_to_string (#i4 out))),
-                 DIV([],TEXTAREA (taAtts, term_to_string (#i5 out))),
-                 DIV([],TEXTAREA (taAtts, term_to_string (#i6 out))),
-                 DIV([],TEXTAREA (taAtts, "i7")),
-                 DIV([],TEXTAREA (taAtts,"i8")),
-                 DIV([],TEXTAREA (taAtts,"i9")),
-                 DIV([],TEXTAREA (taAtts, "i10"))
+                 DIV([],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
+                 term_to_string (#i3 out))),
+                 
+                 DIV([],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
+                 term_to_string (#i4 out))),
+                 DIV([],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
+                 term_to_string (#i5 out))),
+                 DIV([],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
+                 term_to_string (#i6 out))),
+
+
+                 DIV([],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>String.concat
+                 (map ((fn s => if(String.isPrefix "Label" s) then s^":\n" else "\t"^s^";\n") 
+                  o term_to_string) (termToList (#i7 out))))),
+
+                 DIV([],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
+                 term_to_string (#i8 out))),
+                 DIV([],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
+                 term_to_string (#i9 out))),
+                 DIV([],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
+                 term_to_string (#i10 out)))
                ])
-           ]),
+           ]), BR ,
           
            (*Globals,Ctor and Module table*)
            DIV ([],
@@ -289,11 +289,11 @@ fun io_Handler2() =
                DIV( [("class","panes")],
                  Sequence
                  [
-                   DIV([],TEXTAREA (taAtts, String.concat 
+                   DIV([],TEXTAREA (taAtts, case out of NONE => !errStr | SOME(out) => String.concat
                    (map ((fn s => s^"\n") o term_to_string) (#globMap out)))),
-                   DIV([],TEXTAREA (taAtts, String.concat 
+                   DIV([],TEXTAREA (taAtts, case out of NONE => !errStr | SOME(out) => String.concat
                    (map ((fn s => s^"\n") o term_to_string) (#modMap out)))),
-                   DIV([],TEXTAREA (taAtts, String.concat 
+                   DIV([],TEXTAREA (taAtts, case out of NONE => !errStr | SOME(out) => String.concat
                    (map ((fn s => s^"\n") o term_to_string) (#ctors out))))                 
                  ])
              ]),
