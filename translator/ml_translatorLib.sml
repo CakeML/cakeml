@@ -286,7 +286,11 @@ in
       val i = fst (match_term tm decl)
       val th = INST i th
       in decl_exists := th end
-    val thms = th |> CONJUNCTS |> map UNDISCH_ALL
+    fun SMART_CONJUNCTS th =
+      if aconv (concl th) T then [] else CONJUNCTS th
+    fun SMART_LIST_CONJ [] = TRUTH
+      | SMART_LIST_CONJ xs = LIST_CONJ xs
+    val thms = th |> SMART_CONJUNCTS |> map UNDISCH_ALL
     val pres = pres
 (*
 val (th,pre) = hd ((zip thms pres))
@@ -305,7 +309,7 @@ val (th,pre) = hd ((zip thms pres))
     val _ = update_decl_abbreviation ()
     val thms = take (length thms) (!cert_memory) |> rev
                  |> map (fn (_,_,th,pre) => th)
-    in LIST_CONJ thms end
+    in SMART_LIST_CONJ thms end
   fun lookup_cert const = let
     val (name,c,th,pre) = (first (fn (_,c,_,_) => can (match_term c) const) (!cert_memory))
     val th = th |> SPEC_ALL |> UNDISCH_ALL
@@ -793,6 +797,8 @@ fun find_mutrec_types ty = let (* e.g. input ``:v`` gives [``:exp``,``:v``]  *)
   in if is_pair_ty ty then [ty] else if length xs = 0 then [ty] else xs end
 
 fun tag_name type_name const_name =
+  if (type_name = "OPTION_TYPE") andalso (const_name = "NONE") then "NONE" else
+  if (type_name = "OPTION_TYPE") andalso (const_name = "SOME") then "SOME" else
   if (type_name = "LIST_TYPE") andalso (const_name = "NIL") then "nil" else
   if (type_name = "LIST_TYPE") andalso (const_name = "CONS") then "::" else let
     val x = clean_lowercase type_name
@@ -909,6 +915,8 @@ fun define_ref_inv tys = let
     (case tys of [ty] => can (match_type ty) ``:'a # 'b`` | _ => false)
   val is_list_type =
     (case tys of [ty] => can (match_type ty) ``:'a list`` | _ => false)
+  val is_option_type =
+    (case tys of [ty] => can (match_type ty) ``:'a option`` | _ => false)
   fun get_name ty = clean_uppercase (full_name_of_type ty) ^ "_TYPE"
   val names = map get_name tys
   val name = hd names
@@ -951,7 +959,7 @@ fun define_ref_inv tys = let
       val str_ty_name = stringLib.fromMLstring ml_ty_name
       val vs = listSyntax.mk_list(map (fn (_,z) => z) vars,``:v``)
       val tag_tm = if is_pair_type then ``NONE:(tvarN # tid_or_exn) option``
-                   else if is_list_type then
+                   else if is_list_type orelse is_option_type then
                      ``(SOME (^str, TypeId (Short ^str_ty_name)))``
                    else ``(SOME (^str, TypeId (^(full_id str_ty_name))))``
       val tm = mk_conj(``v = Conv ^tag_tm ^vs``,tm)
@@ -1118,6 +1126,8 @@ fun derive_thms_for_type ty = let
     (case tys of [ty] => can (match_type ty) ``:'a # 'b`` | _ => false)
   val is_list_type =
     (case tys of [ty] => can (match_type ty) ``:'a list`` | _ => false)
+  val is_option_type =
+    (case tys of [ty] => can (match_type ty) ``:'a option`` | _ => false)
   val _ = map (fn ty => print ("Adding type " ^ type_to_string ty ^ "\n")) tys
   (* look up case theorems *)
   val case_thms = map (fn ty => (ty, get_nchotomy_of ty)) tys
@@ -1154,7 +1164,7 @@ fun derive_thms_for_type ty = let
     in (``(Dtype ^dtype_list): dec``,dtype_list) end
   (* cons assumption *)
   fun smart_full_id tyname =
-    if is_list_type orelse is_pair_type
+    if is_list_type orelse is_option_type orelse is_pair_type
     then ``Short ^tyname`` else full_id tyname
   fun make_assum tyname c = let
     val (x1,x2) = dest_pair c
@@ -1392,7 +1402,8 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
     val conses = map (derive_cons ty inv_lhs inv_def) ts
     in (ty,eq_lemma,inv_def,conses,case_lemma,ts) end
   val res = map make_calls (zip case_thms inv_defs)
-  val _ = if mem name ["LIST_TYPE","PAIR_TYPE"] then () else snoc_dtype_decl dtype
+  val _ = if mem name ["LIST_TYPE","OPTION_TYPE","PAIR_TYPE"]
+          then () else snoc_dtype_decl dtype
   val (rws1,rws2) = if not is_record then ([],[])
                     else derive_record_specific_thms (hd tys)
   in (rws1,rws2,res) end;

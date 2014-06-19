@@ -1317,12 +1317,33 @@ val DeclAssumExists_NIL = store_thm("DeclAssumExists_NIL",
      DeclAssumExists_def,DeclAssum_def,Decls_def]);
 
 val always_evaluates_def = Define `
-  always_evaluates exp =
-    !env s1. ?s2 res. evaluate F env (0,s1) exp ((0,s2),Rval res)`;
+  always_evaluates env exp =
+    !s1. ?s2 res. evaluate F env (0,s1) exp ((0,s2),Rval res)`;
+
+val Eval_IMP_always_evaluates = store_thm("Eval_IMP_always_evaluates",
+  ``!env exp P. Eval env exp P ==> always_evaluates env exp``,
+  FULL_SIMP_TAC std_ss [Eval_def,always_evaluates_def] \\ REPEAT STRIP_TAC
+  \\ Q.LIST_EXISTS_TAC [`s1`,`res`] \\ FULL_SIMP_TAC std_ss []
+  \\ IMP_RES_TAC evaluate_empty_store_IMP \\ FULL_SIMP_TAC std_ss []);
+
+val always_evaluates_ref = store_thm("always_evaluates_ref",
+  ``!env exp. always_evaluates env exp ==>
+              always_evaluates env (Uapp Opref exp)``,
+  FULL_SIMP_TAC std_ss [always_evaluates_def]
+  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
+  \\ FIRST_X_ASSUM (STRIP_ASSUME_TAC o Q.SPEC `s1`)
+  \\ ONCE_REWRITE_TAC [evaluate_cases]
+  \\ SRW_TAC [] [do_uapp_def,store_alloc_def]
+  \\ METIS_TAC []);
+
+val always_evaluates_fn = store_thm("always_evaluates_fn",
+  ``!n exp env. always_evaluates env (Fun n exp)``,
+  FULL_SIMP_TAC std_ss [always_evaluates_def]
+  \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SRW_TAC [] []);
 
 val DeclAssumExists_evaluate = store_thm("DeclAssumExists_evaluate",
   ``!ds name n exp P.
-      always_evaluates exp ==>
+      (!env tys. DeclAssum mn ds env tys ==> always_evaluates env exp) ==>
       DeclAssumExists mn ds ==>
       DeclAssumExists mn (SNOC (Dlet (Pvar name) exp) ds)``,
   fs [always_evaluates_def]
@@ -1337,9 +1358,7 @@ val DeclAssumExists_evaluate = store_thm("DeclAssumExists_evaluate",
   \\ SIMP_TAC (srw_ss()) [pmatch_def,ALL_DISTINCT,pat_bindings_def,
        combine_dec_result_def]
   \\ FULL_SIMP_TAC std_ss [Decls_def,Eval_def,PULL_EXISTS,merge_def] \\ RES_TAC
-  \\ SRW_TAC [] []
-  \\ FIRST_X_ASSUM (STRIP_ASSUME_TAC o Q.SPECL
-        [`([],merge_envC (emp,new_tds) init_envC,res_env ++ init_env)`,`s`])
+  \\ SRW_TAC [] [] \\ FIRST_X_ASSUM (STRIP_ASSUME_TAC o Q.SPEC `s`)
   \\ Q.LIST_EXISTS_TAC [`tys`,`s2`,`new_tds`,`res_env`,`res`,`(0,s)`] \\ fs []);
 
 (* lookup cons *)
