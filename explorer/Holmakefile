@@ -15,7 +15,7 @@ pp.o : buildPP.exe
 HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = pp/astPP pp/conPP pp/exhPP pp/modPP pp/patPP
+BARE_THYS = pp/allPP
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
