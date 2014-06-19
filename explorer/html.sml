@@ -218,6 +218,7 @@ struct
                         (case #javascript p of
                             SOME j => [JAVASCRIPT j]
                           | NONE => []),a,b)
+          val h = Element("!DOCTYPE",false,Attributes [("html","")],[h])
        in
           case !test_location of
              SOME loc => output_html loc h
