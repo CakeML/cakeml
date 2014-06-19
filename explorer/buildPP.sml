@@ -13,7 +13,7 @@
 
 open cakeml_computeLib
 open HolKernel boolLib bossLib Parse
-open Portable smpp 
+open Portable smpp
 open astPP modPP conPP exhPP patPP
 open html
 
@@ -63,14 +63,14 @@ fun allIntermediates prog =
   let val t1 = eval ``get_all_asts ^(prog)``
       val t2 = eval ``elab_all_asts ^(rhsThm t1)``
       val ast = rand (rhsThm t2)
-      
+
       val _ =if ast = ``"<parse error>\n"`` then raise compilationError "Parse Error" else ();
 
       (*i1 translation*)
       val n = rhsThm (eval ``compile_primitives.next_global``)
       val (m1,m2) = pairSyntax.dest_pair( rhsThm( eval ``compile_primitives.globals_env``))
       val l1 = eval ``prog_to_i1 ^(n) ^(m1) ^(m2) ^(ast)``
-      val [v1,v2,m2,p1] = pairSyntax.strip_pair(rhsThm l1)    
+      val [v1,v2,m2,p1] = pairSyntax.strip_pair(rhsThm l1)
 
       (*Assume start from fempty*)
       val (_,modMap) = finite_mapSyntax.strip_fupdate v2
@@ -83,7 +83,7 @@ fun allIntermediates prog =
 
       val p2' = (v,exh,p2)
       (*print the CTORS (num,name,typeid)*)
-      val [_,_,_,ct] =pairSyntax.strip_pair v 
+      val [_,_,_,ct] =pairSyntax.strip_pair v
 
       val (_,ctors) = finite_mapSyntax.strip_fupdate ct;
       (*i3 translation*)
@@ -99,7 +99,7 @@ fun allIntermediates prog =
       (*exp_to_pat trans*)
       val exp_to_pat = eval ``exp_to_pat [] ^(p4)``
       val p5 = rhsThm exp_to_pat
-      
+
       (*exp_to_cexp*)
       val exp_to_Cexp = eval ``exp_to_Cexp ^(p5)``
       val p6 = rhsThm exp_to_Cexp
@@ -123,13 +123,13 @@ fun allIntermediates prog =
       val p7_3 = rhsThm addIt
 
       val emit = eval ``emit ^(p7_3) [Stop T]``
-      val p7_4 = rhsThm emit 
+      val p7_4 = rhsThm emit
 
       val rev = eval ``REVERSE (^p7_4).out``
 
       val p7 = rhsThm rev
       (*temporaries*)
-      val p8 = p7; 
+      val p8 = p7;
       val p9 = p7;
       val p10 =p7;
       val p11 =p7;
@@ -145,7 +145,7 @@ fun io_Handler2() =
       fun int_from_str_opt(NONE, default) = default
       | int_from_str_opt(SOME(s), default) =
         getOpt(Int.fromString(s),default);
-      
+
       val url_encoded_string = if cgi_request_method = SOME("POST")
 			       then (TextIO.inputN(TextIO.stdIn,int_from_str_opt(cgi_content_length,0)))
 			       else "";
@@ -188,17 +188,17 @@ fun io_Handler2() =
       fun cgi_field_string(name) =
         let fun lookup [] = NONE
             |   lookup ((x,y)::xs) = if x=name then SOME y else lookup xs
-        in 
+        in
           lookup cgi_dict
         end;
 
       val src = case cgi_field_string("src") of NONE => "" | SOME(src) => src;
-     
+
       val errStr = ref "";
       (*probably needs error handling here*)
-      val out = if src = "" then NONE 
+      val out = if src = "" then NONE
                 else (SOME(allIntermediates (stringSyntax.fromMLstring src)))
-                  handle compilationError e => (errStr:=e;NONE) 
+                  handle compilationError e => (errStr:=e;NONE)
                        | _ => (errStr := "Unknown error"; NONE)
 
       (*Could put this into the CSS*)
@@ -210,7 +210,7 @@ fun io_Handler2() =
          body = ([], [
          (*Form to submit code*)
          FORM ([("action","pp.cgi"),("method","POST")],
-           [ 
+           [
              String(quote_to_string`Code`), BR,
              TEXTAREA([("name","src")]@taAtts,src), BR,
              INPUT [("type","submit") , ("name","run") , ("value","Compile")]
@@ -220,7 +220,7 @@ fun io_Handler2() =
          (*Tabs for compiler intermediates*)
          DIV ([],
            Sequence
-           [ 
+           [
              UL ([("class","tabs")],
                Sequence(
                [
@@ -253,7 +253,7 @@ fun io_Handler2() =
 
                  DIV([],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
                  term_to_string (#i3 out))),
-                 
+
                  DIV([],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
                  term_to_string (#i4 out))),
                  DIV([],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
@@ -263,7 +263,7 @@ fun io_Handler2() =
 
 
                  DIV([],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>String.concat
-                 (map ((fn s => if(String.isPrefix "Label" s) then s^":\n" else "\t"^s^";\n") 
+                 (map ((fn s => if(String.isPrefix "Label" s) then s^":\n" else "\t"^s^";\n")
                   o term_to_string) (termToList (#i7 out))))),
 
                  DIV([],TEXTAREA (taAtts,case out of NONE => !errStr | SOME(out) =>
@@ -274,7 +274,7 @@ fun io_Handler2() =
                  term_to_string (#i10 out)))
                ])
            ]), BR ,
-          
+
            (*Globals,Ctor and Module table*)
            DIV ([],
              Sequence
@@ -285,7 +285,7 @@ fun io_Handler2() =
                    LI (A ([("href","#"),("class","m")], String (quote_to_string `Globals`))) ,
                    LI (A ([("href","#"),("class","m")], String (quote_to_string `Modules`))),
                    LI (A ([("href","#"),("class","m")], String (quote_to_string `Constructors`)))
-                 ])),     
+                 ])),
                DIV( [("class","panes")],
                  Sequence
                  [
@@ -294,7 +294,7 @@ fun io_Handler2() =
                    DIV([],TEXTAREA (taAtts, case out of NONE => !errStr | SOME(out) => String.concat
                    (map ((fn s => s^"\n") o term_to_string) (#modMap out)))),
                    DIV([],TEXTAREA (taAtts, case out of NONE => !errStr | SOME(out) => String.concat
-                   (map ((fn s => s^"\n") o term_to_string) (#ctors out))))                 
+                   (map ((fn s => s^"\n") o term_to_string) (#ctors out))))
                  ])
              ]),
           (*Javascript call*)
@@ -302,7 +302,6 @@ fun io_Handler2() =
 
          ])
        }
-end;     
+end;
 
 val _ = PolyML.export("pp",io_Handler2);
-
