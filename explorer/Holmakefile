@@ -3,7 +3,7 @@ INCLUDES = ../standalone
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
-pp.exe : pp.o
+pp.cgi : pp.o
 	cc -o $@ $< -lpolymain -lpolyml
 
 buildPP.exe : buildPP.uo heap
