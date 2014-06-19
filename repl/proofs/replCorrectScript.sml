@@ -15,6 +15,12 @@ val o_f_FUNION = store_thm("o_f_FUNION",
   simp[GSYM fmap_EQ_THM,FUNION_DEF] >>
   rw[o_f_FAPPLY]);
 
+val union_append_decls = Q.prove (
+`union_decls (convert_decls new_decls) (convert_decls decls) = convert_decls (append_decls new_decls decls)`,
+ PairCases_on `new_decls` >>
+ PairCases_on `decls` >>
+ rw [append_decls_def, union_decls_def, convert_decls_def]);
+
 val FV_pes_MAP = store_thm("FV_pes_MAP",
   ``FV_pes pes = BIGUNION (IMAGE (λ(p,e). FV e DIFF (IMAGE Short (set (pat_bindings p [])))) (set pes))``,
   Induct_on`pes`>>simp[]>>
@@ -810,26 +816,25 @@ metis_tac [FST]);
 *)
 
 val type_env_dom2 = Q.prove (
-`!mn ctMap tenvS env tenv.
+`!ctMap tenvS env tenv.
   type_env ctMap tenvS env (bind_var_list2 tenv Empty) ⇒
-  (set (MAP (Long mn o FST) env) = set (MAP (Long mn o FST) tenv))`,
-induct_on `env` >>
-ONCE_REWRITE_TAC [typeSoundInvariantsTheory.type_v_cases] >>
-fs [bind_var_list2_def, libTheory.emp_def, tenv_names_def] >>
-fs [bind_tenv_def, libTheory.bind_def, tenv_names_def] >>
-rw [] >>
-rw [] >>
-cases_on `tenv` >>
-TRY (PairCases_on `h`) >>
-fs [bind_var_list2_def, bind_tenv_def] >>
-metis_tac []);
+  (set (MAP FST env) = set (MAP FST tenv))`,
+ induct_on `env` >>
+ ONCE_REWRITE_TAC [typeSoundInvariantsTheory.type_v_cases] >>
+ fs [bind_var_list2_def, libTheory.emp_def, tenv_names_def] >>
+ fs [bind_tenv_def, libTheory.bind_def, tenv_names_def] >>
+ rw [] >>
+ rw [] >>
+ cases_on `tenv` >>
+ TRY (PairCases_on `h`) >>
+ fs [bind_var_list2_def, bind_tenv_def] >>
+ metis_tac []);
 
 val consistent_mod_env_dom = Q.prove (
 `!tenvS tenvC envM tenvM.
   consistent_mod_env tenvS tenvC envM tenvM
   ⇒
   (tmenv_dom tenvM = {Long m x | ∃e. lookup m envM = SOME e ∧ MEM x (MAP FST e)})`,
-  (*
  induct_on `envM` >>
  rw []
  >- (Cases_on `tenvM` >>
@@ -842,11 +847,14 @@ val consistent_mod_env_dom = Q.prove (
  fs [EXTENSION] >>
  rw [] >>
  eq_tac >>
- rw []
- >- (every_case_tac >>
-     rw []
-     *)
- cheat);
+ rw [] >>
+ every_case_tac >>
+ rw [] >>
+ fs [MEM_MAP] >>
+ rw [] >>
+ res_tac >>
+ fs [] >>
+ metis_tac []);
 
 (*
 val consistent_con_env_dom = Q.prove (
@@ -1539,9 +1547,12 @@ strip_tac >>
 
     (* invariant preservation *)
     simp[invariant_def,update_repl_state_def] >>
-    conj_tac >- cheat (* looks false *) >>
-    conj_tac >- cheat (* type_infer_invariants preservation *) >>
-    conj_tac >- cheat (* type_sound_invariants preservation *) >>
+    conj_tac >- metis_tac [pair_CASES, FST, union_decls_def] >>
+    conj_tac >-
+       ( imp_res_tac type_invariants_pres >>
+         fs [update_repl_state_def, type_infer_invariants_def] >> 
+         metis_tac [union_append_decls] ) >>
+    conj_tac >- fs [update_type_sound_inv_def] >> 
     inv_pres_tac) >>
 
   (* exception *)
@@ -1551,7 +1562,7 @@ strip_tac >>
   reverse conj_tac >- (
     rpt (AP_THM_TAC ORELSE AP_TERM_TAC) >>
     match_mp_tac to_string_map_lem >>
-    cheat ) >>
+    fs [infer_sound_invariant_def, check_env_def] ) >>
   CONV_TAC(lift_conjunct_conv(equal``code_executes_ok`` o fst o strip_comb)) >>
   conj_tac >- (
     simp[code_executes_ok_def] >> disj1_tac >>
