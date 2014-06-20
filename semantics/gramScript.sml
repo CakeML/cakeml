@@ -155,6 +155,7 @@ val cmlG_def = mk_grammar_def ginfo
  StructName ::= ^(``{AlphaT s | s ≠ ""}``) ;
  SpecLine ::= "val" V ":" Type
            |  "type" TypeName
+           |  "exception" Dconstructor
            |  TypeDec ;
  SpecLineList ::= SpecLine SpecLineList | ";" SpecLineList | ;
  SignatureValue ::= "sig" SpecLineList "end" ;

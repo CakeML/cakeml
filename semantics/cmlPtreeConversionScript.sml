@@ -1007,10 +1007,16 @@ val ptree_SpecLine_def = Define`
             SOME(Ast_Stype td)
           od
         | [typetok; tynm_pt] =>
+          if typetok = Lf (TOK TypeT) then
           do
-            assert(typetok = Lf (TOK TypeT));
             tynm <- ptree_TypeName tynm_pt;
             SOME(Ast_Stype_opq (FST tynm) (SND tynm))
+          od
+          else
+          do
+            assert (typetok = Lf (TOK ExceptionT));
+            (nm,tys) <- ptree_Dconstructor tynm_pt;
+            SOME(Ast_Sexn nm tys)
           od
         | [valtok; vname_pt; coltok; type_pt] =>
           do

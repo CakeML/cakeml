@@ -380,6 +380,7 @@ val cmlPEG_def = zDefine`
                choicel [seql [tokeq ValT; pnt nV; tokeq ColonT; pnt nType]
                              (bindNT nSpecLine);
                         seql [tokeq TypeT; pnt nTypeName] (bindNT nSpecLine);
+                        seql [tokeq ExceptionT; pnt nDconstructor] (bindNT nSpecLine);
                         pegf (pnt nTypeDec) (bindNT nSpecLine)]);
               (mkNT nSpecLineList,
                choicel [seql [pnt nSpecLine; pnt nSpecLineList]

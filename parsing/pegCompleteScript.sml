@@ -220,13 +220,13 @@ val firstSet_nTopLevelDecs = Store_thm(
 
 val firstSet_nSpecLine = Store_thm(
   "firstSet_nSpecLine",
-  ``firstSet cmlG [NT (mkNT nSpecLine)] = {ValT; DatatypeT; TypeT}``,
+  ``firstSet cmlG [NT (mkNT nSpecLine)] = {ValT; DatatypeT; TypeT; ExceptionT}``,
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied, INSERT_UNION_EQ, INSERT_COMM]);
 
 val firstSet_nSpecLineList = Store_thm(
   "firstSet_nSpecLineList",
   ``firstSet cmlG [NT (mkNT nSpecLineList)] =
-      {ValT; DatatypeT; TypeT; SemicolonT}``,
+      {ValT; DatatypeT; TypeT; SemicolonT; ExceptionT}``,
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied,
        INSERT_UNION_EQ, INSERT_COMM]);
@@ -1183,7 +1183,7 @@ val stoppers_def = Define`
   (stoppers nSpecLine =
      UNIV DIFF ({ArrowT; AndT; BarT; StarT; OfT}∪ firstSet cmlG [NN nTyOp])) ∧
   (stoppers nSpecLineList =
-     UNIV DIFF ({ValT; DatatypeT; TypeT; SemicolonT;
+     UNIV DIFF ({ValT; DatatypeT; TypeT; ExceptionT; SemicolonT;
                 ArrowT; AndT; BarT; StarT; OfT}∪ firstSet cmlG [NN nTyOp])) ∧
   (stoppers nTopLevelDec =
      nestoppers DIFF {BarT; StarT; AndT; OfT}) ∧
@@ -1808,16 +1808,18 @@ val completeness = store_thm(
       >- (DISJ1_TAC >> normlist >>
           first_assum (unify_firstconj kall_tac o has_length) >> simp[])
       >- simp[peg_eval_tok_NONE]
+      >- simp[peg_eval_tok_NONE]
+      >- simp[peg_eval_tok_NONE]
       >- (DISJ1_TAC >>
           erule mp_tac (MATCH_MP fringe_length_not_nullable  nullable_TypeDec)>>
           simp[] >> Cases_on `pfx` >> fs[peg_eval_tok_NONE] >> strip_tac >>
           rw[]>> IMP_RES_THEN mp_tac firstSet_nonempty_fringe >>
-          simp[]) >>
-      DISJ2_TAC >> simp[NT_rank_def] >> DISJ1_TAC >>
-      erule mp_tac (MATCH_MP fringe_length_not_nullable  nullable_TypeDec)>>
-      simp[] >> Cases_on `pfx` >> fs[peg_eval_tok_NONE] >> strip_tac >>
-      rw[]>> IMP_RES_THEN mp_tac firstSet_nonempty_fringe >>
-      simp[])
+          simp[])
+      >- (DISJ2_TAC >> simp[NT_rank_def] >>
+          erule mp_tac (MATCH_MP fringe_length_not_nullable  nullable_TypeDec)>>
+          simp[] >> Cases_on `pfx` >> fs[peg_eval_tok_NONE] >> strip_tac >>
+          rw[]>> IMP_RES_THEN mp_tac firstSet_nonempty_fringe >>
+          simp[]))
   >- (print_tac "nSignatureValue" >> dsimp[MAP_EQ_CONS] >>
       simp[peg_eval_NT_SOME] >> simp[FDOM_cmlPEG, cmlpeg_rules_applied] >>
       rw[] >> fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >>

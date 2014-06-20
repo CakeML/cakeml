@@ -446,6 +446,7 @@ val peg_sound = store_thm(
             by metis_tac[not_peg0_LENGTH_decreases, peg0_nV] >> fs[] >>
           `LENGTH i2 < SUC(LENGTH i1)` by decide_tac >>
           first_x_assum (erule strip_assume_tac) >> rveq >> dsimp[])
+      >- (dsimp[MAP_EQ_SING] >> csimp[] >> metis_tac[DECIDE``x<SUC x``])
       >- (dsimp[MAP_EQ_SING] >> csimp[] >> metis_tac[DECIDE``x<SUC x``])>>
       `NT_rank (mkNT nTypeDec) < NT_rank (mkNT nSpecLine)`
          by simp[NT_rank_def] >>
