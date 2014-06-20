@@ -1,20 +1,15 @@
-open preamble cakeml_computeLib ml_repl_stepTheory replDecsTheory
+open preamble cakeml_computeLib ml_repl_stepTheory sideTheory compile_primitivesTheory
 val _ = new_theory"compileReplDecs"
 
 val _ = Globals.max_print_depth := 20
-
-val compile_top_repl_decs_def = zDefine`
-  compile_top_repl_decs = compile_top NONE init_compiler_state (Tmod "REPL" NONE (TAKE 50 repl_decs))`
-
-val compile_repl_decs_def = zDefine
-  `compile_repl_decs = code_labels real_inst_length (SND(SND(compile_top_repl_decs)))`
 
 val cs = cakeml_compset()
 val () = computeLib.add_thms
   [compile_top_repl_decs_def
   ,compile_repl_decs_def
-  ,repl_decs_def
+  ,side_decls
   ,ml_repl_step_decls
+  ,compile_primitives_eq
   ]
   cs
 
