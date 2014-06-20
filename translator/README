@@ -14,14 +14,26 @@ ml_translatorLib.sml
 ml_translator_demoScript.sml
   - shows one a simple example what the translator provides
 
-mini_preludeScript.sml
+ml_module_demoScript.sml
+  - shows one a simple example that the translator can produce a module
+
+mini_preludeLib.sml
   - a minimal common starting point for translations
 
-std_preludeScript.sml
+mini_preludeScript.sml
+  - a file that calls runs the lib file above
+
+std_preludeLib.sml
   - a more elaborate prelude for translations to continue from
 
-Print_astScript.sml
+std_preludeScript.sml
+  - a file that calls runs the lib file above
+
+print_astScript.sml
   - defines a function for turning CakeML syntax into concrete syntax
 
-Print_astTerminationScript.sml
+print_astTerminationScript.sml
   - proves termination of the functions in the file above
+
+validate_printerLib.sml
+  - functions that test the printer defined in two files above
