@@ -700,9 +700,11 @@ val Decls_def = Define `
       evaluate_decs F mn env s1 ds (s2,new_tds, Rval res_env) /\
       (env2 = (menv1,merge_envC (emp,new_tds) cenv1,merge res_env env1))`;
 
+(* initialEnvTheory.init_type_decs_def *)
+
 val DeclAssum_def = Define `
   DeclAssum mn ds env tys =
-    ?s. Decls mn ([],init_envC,init_env) ((0,[]),{}) ds env ((0,s),tys)`;
+    ?s. Decls mn ([],init_envC,init_env) ((0,[]),init_type_decs) ds env ((0,s),tys)`;
 
 val write_tds_def = Define `
   write_tds mn tds ((menv1,cenv1,env1):all_env) =
@@ -1387,10 +1389,17 @@ val DeclAssumCons_def = Define `
 local
   val lemma = EVAL ``(SND (init_envC))``
   val tm = lemma |> concl |> rand
+  val lemma2 = EVAL ``init_type_decs``
+  val tm2 = lemma2 |> concl
+    |> find_terms (can pred_setSyntax.dest_insert)
+    |> map (rand o rator)
+    |> (fn xs => listSyntax.mk_list(xs,type_of (hd xs)))
 in
   val DeclAssumCons_NIL = store_thm("DeclAssumCons_NIL",
-    ``DeclAssumCons mn [] [] ^tm``,
-    fs [DeclAssumCons_def,DeclAssum_def,Decls_NIL,lemma]);
+    ``DeclAssumCons mn [] ^tm2 ^tm``,
+    fs [DeclAssumCons_def,DeclAssum_def,Decls_NIL,lemma,lemma2]
+    \\ fs [pred_setTheory.EXTENSION]
+    \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC \\ fs []);
 end
 
 val DeclAssumCons_SNOC_Dlet = store_thm("DeclAssumCons_SNOC_Dlet",
@@ -1532,7 +1541,7 @@ val Tmod_lemma = prove(
   ``DeclAssumExists (SOME m) ds ==>
     ALL_DISTINCT (type_names ds []) ==>
     ?s tds env. !specs.
-      evaluate_top F ([],init_envC,init_env) ((0,[]),{},{})
+      evaluate_top F ([],init_envC,init_env) ((0,[]),init_type_decs,{})
         (Tmod m specs ds)
         ((s,DeclTys (SOME m) ds,{m}),([(m,tds)],emp),Rval ([(m,env)],emp)) /\
       DeclEnv (SOME m) ds =
