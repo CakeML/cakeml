@@ -7,7 +7,36 @@ infix \\ val op \\ = op THEN;
 
 val RW = REWRITE_RULE
 
-val _ = Globals.max_print_depth := 50
+val _ = Globals.max_print_depth := 20
+
+(* REPL module is closed (should be proved elsewhere?) *)
+val all_env_dom_init =
+  ``all_env_dom ([],init_envC,init_env)``
+  |> (SIMP_CONV std_ss [free_varsTheory.all_env_dom_def,libTheory.lookup_def] THENC
+      SIMP_CONV (srw_ss()) [pred_setTheory.EXTENSION] THENC
+      EVAL)
+
+(*
+val FV_decs_side_decls =
+  ``FV_decs side_decls``
+  |> (RAND_CONV(REWR_CONV sideTheory.side_decls) THENC
+      computeLib.CBV_CONV(cakeml_computeLib.cakeml_compset()))
+*)
+val FV_decs_side_decls = prove(``FV_decs side_decls = {}``,cheat)
+
+val closed_top_REPL = prove(
+  ``closed_top ([],init_envC,init_env) (Tmod "REPL" NONE side_decls)``,
+  simp[free_varsTheory.closed_top_def,all_env_dom_init,FV_decs_side_decls])
+
+(* lemmas about the semantics of a module where we know the last few declarations *)
+
+val evaluate_Tmod_refs = prove(
+  ``evaluate_top ck env st (Tmod mn NONE decs) (((ck,s),u),envC,Rval ([(mn,env)],v)) ∧
+    MEM (Dlet (Pvar x) (Uapp Opref init)) decs
+  ⇒
+    ∃n. lookup x env = SOME (Loc n) ∧ n < LENGTH s
+  ``,
+
 
 (* Equality Type assumptions (should be proved elsewhere?) *)
 val EqualityType1 = prove(
@@ -26,9 +55,6 @@ val EqualityType5 = prove(
   ``EqualityType AST_EXP_TYPE``,
   cheat)
 val EqualityTypes = [EqualityType1, EqualityType2, EqualityType3, EqualityType4, EqualityType5]
-val closed_top_REPL = prove(
-  ``closed_top ([],init_envC,init_env) (Tmod "REPL" NONE side_decls)``,
-  cheat)
 
 (* Define things to bootstrap *)
 
@@ -44,7 +70,6 @@ val compile_repl_decs_eq = ASSUME``compile_repl_decs = bootstrap_code``
 
 val evaluate_side_decls = DISCH_ALL module_thm |> SIMP_RULE std_ss []
   |> RW EqualityTypes
-  |> RW[mk_thm([],``{}:tid_or_exn set = init_type_decs``)] (* TODO: translator output should used init_type_decs *)
 
 val (repl_store,repl_res) =
   CONJUNCT1 evaluate_side_decls
@@ -55,6 +80,20 @@ val (x,y) = dest_pair repl_res
 val y = rand y
 val (y,z) = dest_pair y
 val repl_all_env = ``^y,merge_envC ^x init_envC,init_env``
+
+val side_decls_cs =
+  let
+    val cs = listSimps.list_compset()
+    val _ = computeLib.add_thms[sideTheory.side_decls] cs
+    val _ = computeLib.add_thms[rich_listTheory.LASTN_compute] cs
+  in
+    cs
+  end
+
+val last_3_side_decls = computeLib.CBV_CONV side_decls_cs ``LASTN 3 side_decls``
+
+val side_decls_state_eqn = prove(
+  ``∃
 
 (* Compiler's invariant, holds after compiling REPL *)
 
