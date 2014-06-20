@@ -29,14 +29,84 @@ val closed_top_REPL = prove(
   simp[free_varsTheory.closed_top_def,all_env_dom_init,FV_decs_side_decls])
 
 (* lemmas about the semantics of a module where we know the last few declarations *)
+open bigStepTheory terminationTheory
 
-val evaluate_Tmod_refs = prove(
-  ``evaluate_top ck env st (Tmod mn NONE decs) (((ck,s),u),envC,Rval ([(mn,env)],v)) ∧
-    MEM (Dlet (Pvar x) (Uapp Opref init)) decs
+val evaluate_store_acc = store_thm("evaluate_store_acc",
+  ``(∀ck env s e res. evaluate ck env s e res ⇒ SND s ≼ SND(FST res)) ∧
+    (∀ck env s e res. evaluate_list ck env s e res ⇒ SND s ≼ SND (FST res)) ∧
+    (∀ck env s e f g res. evaluate_match ck env s e f g res ⇒ SND s ≼ SND (FST res))``,
+  ho_match_mp_tac evaluate_ind >> rw[] >>
+  cheat)
+  (*TRY(metis_tac[rich_listTheory.IS_PREFIX_TRANS])*)
+
+val evaluate_dec_store_acc = store_thm("evaluate_dec_store_acc",
+  ``∀ck mn env s d res. evaluate_dec ck mn env s d res ⇒
+      SND(FST s) ≼ SND(FST(FST res))``,
+  ho_match_mp_tac evaluate_dec_ind >> rw[]>>
+  imp_res_tac evaluate_store_acc >> fs[])
+
+val evaluate_decs_store_acc = store_thm("evaluate_decs_store_acc",
+  ``∀ck mn env s decs res. evaluate_decs ck mn env s decs res ⇒
+    SND(FST s) ≼ SND(FST(FST res))``,
+  ho_match_mp_tac evaluate_decs_ind >> rw[] >>
+  imp_res_tac evaluate_dec_store_acc >> fs[] >>
+  METIS_TAC[rich_listTheory.IS_PREFIX_TRANS])
+
+val evaluate_decs_new_decs_vs = store_thm("evaluate_decs_new_decs_vs",
+  ``∀ck mn env s decs res. evaluate_decs ck mn env s decs res ⇒
+      ∀env. SND(SND res) = Rval env ⇒ MAP FST env = new_decs_vs decs``,
+  ho_match_mp_tac evaluate_decs_ind >> simp[] >> rw[libTheory.emp_def] >>
+  imp_res_tac free_varsTheory.evaluate_dec_new_dec_vs >> fs[] >>
+  Cases_on`r`>>fs[semanticPrimitivesTheory.combine_dec_result_def]>>
+  rw[libTheory.merge_def])
+
+val build_conv_merge = store_thm("build_conv_merge",
+  ``build_conv cenv i ls = SOME v ⇒
+    build_conv (merge_envC j cenv) i ls = SOME v``,
+  rw[semanticPrimitivesTheory.build_conv_def] >>
+  BasicProvers.CASE_TAC>>fs[]>>
+  PairCases_on`j`>>PairCases_on`cenv`>>fs[semanticPrimitivesTheory.merge_envC_def]
+
+val evaluate_decs_ref = store_thm("evaluate_decs_ref",
+  ``∀ck mn env s decs a b c k i s1 x decs0 decs1 v.
+      evaluate_decs ck mn env s decs (((k,s1),a),b,Rval c) ∧
+      decs = decs0 ++ [Dlet (Pvar x) (Uapp Opref (Con i []))] ++ decs1 ∧
+      x ∉ set(new_decs_vs decs1) ∧
+      build_conv (all_env_to_cenv env) i [] = SOME v
+      ⇒
+      ∃n. lookup x c = SOME (Loc n) ∧ n < LENGTH s1 ∧ EL n s1 = v``,
+  Induct_on`decs0` >>
+  rw[Once bigStepTheory.evaluate_decs_cases] >- (
+    fs[Once bigStepTheory.evaluate_dec_cases] >>
+    fs[Once bigStepTheory.evaluate_cases] >>
+    fs[semanticPrimitivesTheory.do_uapp_def] >>
+    fs[semanticPrimitivesTheory.store_alloc_def,LET_THM] >>
+    fs[terminationTheory.pmatch_def] >>
+    Cases_on`r`>>fs[semanticPrimitivesTheory.combine_dec_result_def]>>
+    imp_res_tac evaluate_decs_new_decs_vs >> fs[] >>
+    rw[libTheory.merge_def,libPropsTheory.lookup_append,libTheory.bind_def] >>
+    BasicProvers.CASE_TAC >- (
+      imp_res_tac evaluate_decs_store_acc >> fs[] >>
+      imp_res_tac rich_listTheory.IS_PREFIX_LENGTH >> fs[] >>
+      conj_tac >- DECIDE_TAC >>
+      fs[Once bigStepTheory.evaluate_cases] >>
+      fs[Once bigStepTheory.evaluate_cases] >>
+      fs[rich_listTheory.IS_PREFIX_APPEND] >>
+      simp[rich_listTheory.EL_APPEND2,rich_listTheory.EL_APPEND1]) >>
+    imp_res_tac libPropsTheory.lookup_in2 >> rfs[]) >>
+  Cases_on`r`>>fs[semanticPrimitivesTheory.combine_dec_result_def]>>
+  first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
+  rfs[semanticPrimitivesTheory.all_env_to_cenv_def]
+  rw[libTheory.merge_def,libPropsTheory.lookup_append])
+
+val evaluate_Tmod_ref = prove(
+  ``evaluate_top ck env0 st (Tmod mn NONE decs) ((cs,u),envC,Rval ([(mn,env)],v)) ⇒
+    decs = decs0 ++[Dlet (Pvar x) (Uapp Opref init)] ++decs1 ∧
+    x ∉ set(new_decs_vs decs1)
   ⇒
-    ∃n. lookup x env = SOME (Loc n) ∧ n < LENGTH s
-  ``,
-
+    ∃n. lookup x env = SOME (Loc n) ∧ n < LENGTH (SND cs)``,
+  Cases_on`cs`>>rw[bigStepTheory.evaluate_top_cases]>>
+  metis_tac[evaluate_decs_ref]) |> GEN_ALL
 
 (* Equality Type assumptions (should be proved elsewhere?) *)
 val EqualityType1 = prove(
@@ -92,15 +162,38 @@ val side_decls_cs =
 
 val last_3_side_decls = computeLib.CBV_CONV side_decls_cs ``LASTN 3 side_decls``
 
-val side_decls_state_eqn = prove(
-  ``∃
+val side_decls_append_3 =
+  rich_listTheory.APPEND_BUTLASTN_LASTN |> Q.ISPECL[`3:num`,`side_decls`]
+  |> UNDISCH |> SYM |> RW[last_3_side_decls]
+  |> prove_hyps_by(CONV_TAC(computeLib.CBV_CONV side_decls_cs))
+
+val side_decls_state_locs = prove(
+  ``∃n1 n2.
+    lookup "input" (Tmod_env "REPL" side_decls) = SOME (Loc n1) ∧
+    lookup "output" (Tmod_env "REPL" side_decls) = SOME (Loc n2) ∧
+    n1 < LENGTH (SND (Tmod_state "REPL" side_decls)) ∧
+    n2 < LENGTH (SND (Tmod_state "REPL" side_decls))``,
+  mp_tac(MATCH_MP evaluate_Tmod_ref (CONJUNCT1 evaluate_side_decls)) >>
+  CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(REWRITE_CONV[Once side_decls_append_3])))) >>
+  Q.PAT_ABBREV_TAC`d3 = Dlet (Pvar "call_repl_step") X` >>
+  disch_then((fn th => mp_tac th >> mp_tac th) o CONV_RULE(RESORT_FORALL_CONV(sort_vars["decs1"]))) >>
+  disch_then(qspec_then`[d3]`STRIP_ASSUME_TAC) >>
+  Q.PAT_ABBREV_TAC`d2 = Dlet (Pvar "output") X` >>
+  disch_then(qspec_then`[d2;d3]`STRIP_ASSUME_TAC) >>
+  fs[Abbr`d2`,Abbr`d3`,astTheory.pat_bindings_def])
+
+val io_locs_def = new_specification("io_locs_def",["iloc","oloc"],side_decls_state_locs)
 
 (* Compiler's invariant, holds after compiling REPL *)
 
+val update_io_def  = Define`
+  update_io inp out ((c,s),x,y) =
+    ((c,LUPDATE inp iloc (LUPDATE out oloc s)),x,y)`
+
 val COMPILER_RUN_INV_def = Define `
-  COMPILER_RUN_INV bs =
+  COMPILER_RUN_INV bs inp out =
     ?grd.
-      env_rs ^repl_all_env ^repl_store grd
+      env_rs ^repl_all_env (update_io inp out ^repl_store) grd
         (FST compile_top_repl_decs) bs`
 (*
       closed_context [] (repl_decs_cenv ++ init_envC)
@@ -110,10 +203,10 @@ val COMPILER_RUN_INV_def = Define `
 *)
 
 val COMPILER_RUN_INV_empty_stack = store_thm("COMPILER_RUN_INV_empty_stack",
-  ``COMPILER_RUN_INV bs ⇒ bs.stack = []``,
+  ``COMPILER_RUN_INV bs inpu out ⇒ bs.stack = []``,
   rw[COMPILER_RUN_INV_def]>> PairCases_on`grd` >>
   Cases_on`Tmod_state "REPL" side_decls`>>
-  fs[compilerProofTheory.env_rs_def])
+  fs[update_io_def,compilerProofTheory.env_rs_def])
 
 val COMPILER_RUN_INV_init = store_thm("COMPILER_RUN_INV_init",
   ``∀bootstrap_lcode. (SND(SND(compile_top_repl_decs))) = bootstrap_lcode ⇒
