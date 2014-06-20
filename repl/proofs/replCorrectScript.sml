@@ -261,9 +261,8 @@ val type_invariants_pres_err = Q.prove (
   infer_top decls infer_menv infer_cenv infer_env top init_infer_state =
           (Success (new_decls,new_infer_menv,new_infer_cenv,new_infer_env), infer_st2)
   ⇒
-  type_infer_invariants (update_repl_state top rs el (convert_decls new_decls) (convert_menv new_infer_menv) new_infer_cenv (convert_env2 new_infer_env) st'
-                                     envC (Rerr err))
-                  (new_decls, infer_menv,infer_cenv,infer_env)`,
+  type_infer_invariants (update_repl_state top rs el (convert_decls (append_decls new_decls decls)) (convert_menv new_infer_menv) new_infer_cenv (convert_env2 new_infer_env) st' envC (Rerr err))
+                  (append_decls new_decls decls, infer_menv,infer_cenv,infer_env)`,
 rw [update_repl_state_def, type_infer_invariants_def] >>
 `check_menv new_infer_menv ∧
  check_cenv new_infer_cenv ∧
@@ -1585,7 +1584,9 @@ strip_tac >>
     PairCases_on`new_decls` >>
     simp[convert_menv_def,convert_decls_def,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
     fs [union_decls_def] ) >>
-  conj_tac >- cheat >>
+  conj_tac >- (
+    imp_res_tac type_invariants_pres_err >>
+    fs [update_repl_state_def, GSYM union_append_decls, type_infer_invariants_def]) >>
   conj_tac >- fs [update_type_sound_inv_def] >>
   inv_pres_tac);
 
