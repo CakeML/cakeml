@@ -1,11 +1,13 @@
 ml_repl_stepScript.sml
   - translate the CakeML compiler from HOL to CakeML
 
+ml_repl_moduleScript.sml
+  - packages the declarations produced by the script above into a module
+    and inserts three extra declarations at the end
+
 sideScript.sml
   - proves side conditions that the translator generates (mostly that the
     inferencer only uses well-founded substitutions)
-  - packages the declarations produced by the script above into a module
-    and inserts three extra declarations at the end
 
 oneshotScript.sml
   - declarations for loading the compiler and running it once.
