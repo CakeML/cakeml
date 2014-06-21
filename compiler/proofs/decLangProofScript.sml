@@ -257,7 +257,7 @@ val init_global_funs_thm = Q.prove (
   Cases_on`s`>>simp[] >>
   metis_tac[APPEND_ASSOC,CONS_APPEND])
 
-val decs_to_i3_correct = Q.prove (
+val decs_to_i3_correct = Q.store_thm("decs_to_i3_correct",
 `!ck exh genv s ds s' new_env r.
   evaluate_decs_i2 ck (exh:exh_ctors_env) genv s ds (s',new_env,r) ∧
   r ≠ SOME Rtype_error

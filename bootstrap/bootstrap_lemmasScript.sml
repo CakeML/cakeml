@@ -381,7 +381,7 @@ val COMPILER_RUN_INV_def = Define `
   COMPILER_RUN_INV bs inp out ⇔
     (∃grd.
        env_rs ^repl_all_env (update_io inp out ^repl_store) grd
-         (FST compile_repl_decs) (bs with code := bootstrap_bc_state.code)) ∧
+         (FST compile_call_repl_step) bs) ∧
     (∃rf. bs = repl_bc_state with refs := rf) `
 
 val COMPILER_RUN_INV_empty_stack = store_thm("COMPILER_RUN_INV_empty_stack",
@@ -402,9 +402,9 @@ val COMPILER_RUN_INV_init = store_thm("COMPILER_RUN_INV_init",
     strip_assume_tac bootstrap_bc_state_def >>
     qexists_tac`grd` >>
     MATCH_MP_TAC env_rs_with_bs_irr >>
-    qexists_tac`bootstrap_bc_state` >>
+    qexists_tac`bootstrap_bc_state with code := bootstrap_bc_state.code ++ REVERSE (SND(SND compile_call_repl_step))` >>
     simp[repl_funTheory.install_code_def] >>
-    rfs[] (* >>
+    rfs[]  >>
     MATCH_MP_TAC env_rs_append_code >>
     rfs[] >> first_assum(match_exists_tac o concl) >> simp[] >>
     simp[bytecodeTheory.bc_state_component_equality] >>
@@ -436,7 +436,7 @@ val COMPILER_RUN_INV_init = store_thm("COMPILER_RUN_INV_init",
     simp[ALL_DISTINCT_APPEND,ALL_DISTINCT_REVERSE,MEM_FILTER,EVERY_MEM,
          bytecodeExtraTheory.is_Label_rwt,PULL_EXISTS] >>
     rw[] >> spose_not_then strip_assume_tac >> res_tac >> fs[] >>
-    DECIDE_TAC *)) >>
+    DECIDE_TAC) >>
   simp[bytecodeTheory.bc_state_component_equality])
 
 (* Running the code preserves the invariant *)

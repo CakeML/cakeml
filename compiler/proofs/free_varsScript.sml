@@ -1588,7 +1588,8 @@ val free_vars_prog_i1_def = Define`
 
 val dec_to_i1_new_dec_vs = store_thm("dec_to_i1_new_dec_vs",
   ``∀a b c d e f g h. dec_to_i1 a b c d e = (f,g,h) ⇒
-      set (MAP FST g) = set (new_dec_vs e)``,
+      set (MAP FST g) = set (new_dec_vs e) ∧
+      f = a + LENGTH g``,
   rw[dec_to_i1_def] >>
   BasicProvers.EVERY_CASE_TAC >> fs[LET_THM] >> rw[] >>
   rw[alloc_defs_GENLIST,MAP_ZIP,FST_triple])
