@@ -700,8 +700,6 @@ val Decls_def = Define `
       evaluate_decs F mn env s1 ds (s2,new_tds, Rval res_env) /\
       (env2 = (menv1,merge_envC (emp,new_tds) cenv1,merge res_env env1))`;
 
-(* initialEnvTheory.init_type_decs_def *)
-
 val DeclAssum_def = Define `
   DeclAssum mn ds env tys =
     ?s. Decls mn ([],init_envC,init_env) ((0,[]),init_type_decs) ds env ((0,s),tys)`;

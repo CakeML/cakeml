@@ -21,13 +21,13 @@ mini_preludeLib.sml
   - a minimal common starting point for translations
 
 mini_preludeScript.sml
-  - a file that calls runs the lib file above
+  - a file that runs the lib file above
 
 std_preludeLib.sml
   - a more elaborate prelude for translations to continue from
 
 std_preludeScript.sml
-  - a file that calls runs the lib file above
+  - a file that runs the lib file above
 
 print_astScript.sml
   - defines a function for turning CakeML syntax into concrete syntax
