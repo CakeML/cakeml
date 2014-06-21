@@ -1,5 +1,5 @@
 open HolKernel boolLib bossLib pairTheory listTheory lcsymtacs miscLib
-open ml_translatorTheory replCorrectTheory compilerProofTheory sideTheory
+open ml_translatorTheory replCorrectTheory compilerProofTheory ml_repl_moduleTheory
 
 val _ = new_theory "bootstrap_lemmas"
 
@@ -21,16 +21,16 @@ val all_env_dom_init =
       EVAL)
 
 (*
-val FV_decs_side_decls =
-  ``FV_decs side_decls``
-  |> (RAND_CONV(REWR_CONV sideTheory.side_decls) THENC
+val FV_decs_ml_repl_module_decls =
+  ``FV_decs ml_repl_module_decls``
+  |> (RAND_CONV(REWR_CONV ml_repl_moduleTheory.ml_repl_module_decls) THENC
       computeLib.CBV_CONV(cakeml_computeLib.cakeml_compset()))
 *)
-val FV_decs_side_decls = prove(``FV_decs side_decls = {}``,cheat)
+val FV_decs_ml_repl_module_decls = prove(``FV_decs ml_repl_module_decls = {}``,cheat)
 
 val closed_top_REPL = prove(
-  ``closed_top ([],init_envC,init_env) (Tmod "REPL" NONE side_decls)``,
-  simp[free_varsTheory.closed_top_def,all_env_dom_init,FV_decs_side_decls])
+  ``closed_top ([],init_envC,init_env) (Tmod "REPL" NONE ml_repl_module_decls)``,
+  simp[free_varsTheory.closed_top_def,all_env_dom_init,FV_decs_ml_repl_module_decls])
 
 (* lemmas about the semantics of a module where we know the last few declarations *)
 open bigStepTheory terminationTheory
@@ -194,7 +194,7 @@ val EqualityTypes = [EqualityType1, EqualityType2, EqualityType3, EqualityType4,
 (* Define things to bootstrap *)
 
 val compile_repl_decs_def = zDefine`
-  compile_repl_decs = compile_top NONE (FST compile_primitives) (Tmod "REPL" NONE side_decls)`
+  compile_repl_decs = compile_top NONE (FST compile_primitives) (Tmod "REPL" NONE ml_repl_module_decls)`
 
 val repl_decs_code_def = zDefine
   `repl_decs_code = code_labels real_inst_length (SND(SND(compile_repl_decs)))`
@@ -219,11 +219,11 @@ val compile_call_repl_step_state = prove(
 
 (* Environment produced by repl_decs *)
 
-val evaluate_side_decls = DISCH_ALL module_thm |> SIMP_RULE std_ss []
+val evaluate_repl_decs = DISCH_ALL module_thm |> SIMP_RULE std_ss []
   |> RW EqualityTypes
 
 val (repl_store,repl_res) =
-  CONJUNCT1 evaluate_side_decls
+  CONJUNCT1 evaluate_repl_decs
   |> concl |> strip_comb
   |> snd |> last
   |> dest_pair
@@ -232,30 +232,30 @@ val y = rand y
 val (y,z) = dest_pair y
 val repl_all_env = ``^y,merge_envC ^x init_envC,init_env``
 
-val side_decls_cs =
+val repl_decs_cs =
   let
     val cs = listSimps.list_compset()
-    val _ = computeLib.add_thms[sideTheory.side_decls] cs
+    val _ = computeLib.add_thms[ml_repl_moduleTheory.ml_repl_module_decls] cs
     val _ = computeLib.add_thms[rich_listTheory.LASTN_compute] cs
   in
     cs
   end
 
-val last_3_side_decls = computeLib.CBV_CONV side_decls_cs ``LASTN 3 side_decls``
+val last_3_decs = computeLib.CBV_CONV repl_decs_cs ``LASTN 3 ml_repl_module_decls``
 
-val side_decls_append_3 =
-  rich_listTheory.APPEND_BUTLASTN_LASTN |> Q.ISPECL[`3:num`,`side_decls`]
-  |> UNDISCH |> SYM |> RW[last_3_side_decls]
-  |> prove_hyps_by(CONV_TAC(computeLib.CBV_CONV side_decls_cs))
+val append_3 =
+  rich_listTheory.APPEND_BUTLASTN_LASTN |> Q.ISPECL[`3:num`,`ml_repl_module_decls`]
+  |> UNDISCH |> SYM |> RW[last_3_decs]
+  |> prove_hyps_by(CONV_TAC(computeLib.CBV_CONV repl_decs_cs))
 
-val side_decls_state_locs = prove(
+val io_locs_exist = prove(
   ``∃n1 n2.
-    lookup "input" (Tmod_env "REPL" side_decls) = SOME (Loc n1) ∧
-    lookup "output" (Tmod_env "REPL" side_decls) = SOME (Loc n2) ∧
-    n1 < LENGTH (SND (Tmod_state "REPL" side_decls)) ∧
-    n2 < LENGTH (SND (Tmod_state "REPL" side_decls))``,
-  mp_tac(MATCH_MP evaluate_Tmod_ref (CONJUNCT1 evaluate_side_decls)) >>
-  CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(REWRITE_CONV[Once side_decls_append_3])))) >>
+    lookup "input" (Tmod_env "REPL" ml_repl_module_decls) = SOME (Loc n1) ∧
+    lookup "output" (Tmod_env "REPL" ml_repl_module_decls) = SOME (Loc n2) ∧
+    n1 < LENGTH (SND (Tmod_state "REPL" ml_repl_module_decls)) ∧
+    n2 < LENGTH (SND (Tmod_state "REPL" ml_repl_module_decls))``,
+  mp_tac(MATCH_MP evaluate_Tmod_ref (CONJUNCT1 evaluate_repl_decs)) >>
+  CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(REWRITE_CONV[Once append_3])))) >>
   Q.PAT_ABBREV_TAC`d3 = Dlet (Pvar "call_repl_step") X` >>
   disch_then((fn th => mp_tac th >> mp_tac th) o CONV_RULE(RESORT_FORALL_CONV(sort_vars["decs1"]))) >>
   disch_then(qspec_then`[d3]`STRIP_ASSUME_TAC) >>
@@ -263,23 +263,23 @@ val side_decls_state_locs = prove(
   disch_then(qspec_then`[d2;d3]`STRIP_ASSUME_TAC) >>
   fs[Abbr`d2`,Abbr`d3`,astTheory.pat_bindings_def])
 
-val io_locs_def = new_specification("io_locs_def",["iloc","oloc"],side_decls_state_locs)
+val io_locs_def = new_specification("io_locs_def",["iloc","oloc"],io_locs_exist)
 
 val lookup_call_repl_step = prove(
-  ``∃cenv. lookup "call_repl_step" (Tmod_env "REPL" side_decls) =
+  ``∃cenv. lookup "call_repl_step" (Tmod_env "REPL" ml_repl_module_decls) =
       SOME (Closure cenv "u" (App Opassign (Var (Short "output"))
       (App Opapp (Var (Short "repl_step")) (Uapp Opderef (Var (Short "input"))))))``,
-  mp_tac(MATCH_MP evaluate_Tmod_last (CONJUNCT1 evaluate_side_decls)) >>
-  CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(REWRITE_CONV[Once side_decls_append_3])))) >>
+  mp_tac(MATCH_MP evaluate_Tmod_last (CONJUNCT1 evaluate_repl_decs)) >>
+  CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(REWRITE_CONV[Once append_3])))) >>
   simp[])
 
 val INPUT_TYPE_def = Define `
   INPUT_TYPE =
-  ^(find_term (can (match_term ``OPTION_TYPE xx``)) (concl evaluate_side_decls))`;
+  ^(find_term (can (match_term ``OPTION_TYPE xx``)) (concl evaluate_repl_decs))`;
 
 val OUTPUT_TYPE_def = Define `
   OUTPUT_TYPE =
-  ^(find_term (can (match_term ``SUM_TYPE xx yy``)) (concl evaluate_side_decls))`;
+  ^(find_term (can (match_term ``SUM_TYPE xx yy``)) (concl evaluate_repl_decs))`;
 
 (* bytecode state produce by repl_decs *)
 
@@ -287,9 +287,9 @@ val bootstrap_bc_state_exists = prove(
   ``∃bs. bc_eval (install_code (SND(SND(compile_repl_decs))) initial_bc_state) = SOME bs ∧
          bc_fetch bs = SOME (Stop T) ∧
          ∃grd. env_rs ^repl_all_env ^repl_store grd (FST compile_repl_decs) bs``,
-  mp_tac(MATCH_MP bigClockTheory.top_add_clock (CONJUNCT1 evaluate_side_decls)) >>
+  mp_tac(MATCH_MP bigClockTheory.top_add_clock (CONJUNCT1 evaluate_repl_decs)) >>
   simp[] >>
-  `∃c r. Tmod_state "REPL" side_decls = (c,r)` by METIS_TAC[pair_CASES] >> simp[] >>
+  `∃c r. Tmod_state "REPL" ml_repl_module_decls = (c,r)` by METIS_TAC[pair_CASES] >> simp[] >>
   disch_then(qx_choose_then`ck`(mp_tac o MATCH_MP compile_top_thm)) >>
   simp[] >>
   (initial_invariant |> RW[invariant_def] |> CONJUNCTS |> el 5
@@ -352,15 +352,15 @@ val COMPILER_RUN_INV_def = Define `
 val COMPILER_RUN_INV_empty_stack = store_thm("COMPILER_RUN_INV_empty_stack",
   ``COMPILER_RUN_INV bs inp out ⇒ (bs.stack = [])``,
   rw[COMPILER_RUN_INV_def]>> PairCases_on`grd` >>
-  Cases_on`Tmod_state "REPL" side_decls`>>
+  Cases_on`Tmod_state "REPL" ml_repl_module_decls`>>
   fs[update_io_def,compilerProofTheory.env_rs_def])
 
 val COMPILER_RUN_INV_init = store_thm("COMPILER_RUN_INV_init",
   ``COMPILER_RUN_INV repl_bc_state
-       (EL iloc (SND (Tmod_state "REPL" side_decls)))
-       (EL oloc (SND (Tmod_state "REPL" side_decls)))``,
+       (EL iloc (SND (Tmod_state "REPL" ml_repl_module_decls)))
+       (EL oloc (SND (Tmod_state "REPL" ml_repl_module_decls)))``,
   rw[COMPILER_RUN_INV_def,repl_bc_state_def] >- (
-    Cases_on`Tmod_state "REPL" side_decls` >>
+    Cases_on`Tmod_state "REPL" ml_repl_module_decls` >>
     simp[update_io_def] >>
     strip_assume_tac io_locs_def >> rfs[] >>
     simp[LUPDATE_SAME] >>
