@@ -111,67 +111,53 @@ val evaluate_decs_ref = store_thm("evaluate_decs_ref",
   print_find"tids_of"
 *)
 
-val evaluate_decs_ref = store_thm("evaluate_decs_ref",
-  ``∀ck mn env s decs a b c k i s1 x decs0 decs1 v.
+val evaluate_decs_last3 = prove(
+  ``∀ck mn env s decs a b c k i j s1 x y decs0 decs1 v p q r.
       evaluate_decs ck mn env s decs (((k,s1),a),b,Rval c) ∧
-      decs = decs0 ++ [Dlet (Pvar x) (Uapp Opref i)] ++ decs1 ∧
-      x ∉ set(new_decs_vs decs1)
+      decs = decs0 ++ [Dlet (Pvar x) (Uapp Opref (Con i []));Dlet(Pvar y)(Uapp Opref (Con j []));Dlet (Pvar p) (Fun q r)]
       ⇒
-      ∃n. lookup x c = SOME (Loc n) ∧ n < LENGTH s1``,
+      ∃n ls1 ls2 ls.
+      c = ((p,(Closure(FST env,merge_envC([],b)(FST(SND env)),merge ls1(SND(SND env))) q r))::ls1) ∧
+      ls1 = ((y,Loc (n+1))::ls2) ∧ n+1 < LENGTH s1 ∧
+      ls2 = ((x,Loc n)::ls)``,
   Induct_on`decs0` >>
   rw[Once bigStepTheory.evaluate_decs_cases] >- (
+    fs[Once bigStepTheory.evaluate_decs_cases]>>
+    fs[semanticPrimitivesTheory.combine_dec_result_def] >>
     fs[Once bigStepTheory.evaluate_dec_cases] >>
     fs[Once bigStepTheory.evaluate_cases] >>
     fs[semanticPrimitivesTheory.do_uapp_def] >>
     fs[semanticPrimitivesTheory.store_alloc_def,LET_THM] >>
-    fs[terminationTheory.pmatch_def] >>
-    Cases_on`r`>>fs[semanticPrimitivesTheory.combine_dec_result_def]>>
-    imp_res_tac evaluate_decs_new_decs_vs >> fs[] >>
-    rw[libTheory.merge_def,libPropsTheory.lookup_append,libTheory.bind_def] >>
-    BasicProvers.CASE_TAC >- (
-      imp_res_tac evaluate_decs_store_acc >> fs[] >>
-      imp_res_tac rich_listTheory.IS_PREFIX_LENGTH >> fs[] >>
-      DECIDE_TAC) >>
-    imp_res_tac libPropsTheory.lookup_in2 >> rfs[]) >>
-  Cases_on`r`>>fs[semanticPrimitivesTheory.combine_dec_result_def]>>
+    fs[terminationTheory.pmatch_def] >> rw[] >>
+    fs[Once bigStepTheory.evaluate_decs_cases]>>
+    fs[semanticPrimitivesTheory.combine_dec_result_def] >>
+    fs[Once bigStepTheory.evaluate_dec_cases] >>
+    rator_x_assum`evaluate`mp_tac >>
+    simp[Once bigStepTheory.evaluate_cases] >> rw[] >>
+    fs[Once bigStepTheory.evaluate_decs_cases]>>
+    rw[libTheory.merge_def,libTheory.emp_def,libTheory.bind_def] >>
+    fs[pmatch_def,libTheory.bind_def] >> rw[] >>
+    fs[Once evaluate_cases] >>
+    fs[Once evaluate_cases] >> rw[] >>
+    PairCases_on`cenv` >>
+    rw[libTheory.emp_def,semanticPrimitivesTheory.merge_envC_def,libTheory.merge_def]) >>
+  Cases_on`r'`>>fs[semanticPrimitivesTheory.combine_dec_result_def]>>
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
   rfs[semanticPrimitivesTheory.all_env_to_cenv_def] >>
-  rw[libTheory.merge_def,libPropsTheory.lookup_append])
+  rw[libTheory.merge_def] >>
+  PairCases_on`cenv` >>
+  rw[libTheory.emp_def,semanticPrimitivesTheory.merge_envC_def,libTheory.merge_def])
 
-val evaluate_Tmod_ref = prove(
+val evaluate_Tmod_last3 = prove(
   ``evaluate_top ck env0 st (Tmod mn NONE decs) ((cs,u),envC,Rval ([(mn,env)],v)) ⇒
-    decs = decs0 ++[Dlet (Pvar x) (Uapp Opref init)] ++decs1 ∧
-    x ∉ set(new_decs_vs decs1)
+    decs = decs0 ++[Dlet (Pvar x) (Uapp Opref (Con i []));Dlet (Pvar y) (Uapp Opref (Con j []));Dlet (Pvar p) (Fun q z)]
   ⇒
-    ∃n. lookup x env = SOME (Loc n) ∧ n < LENGTH (SND cs)``,
+    ∃n ls1 ls.
+    env = (p,(Closure (FST env0,merge_envC ([],SND(HD(FST envC))) (FST(SND env0)),merge ls (SND(SND env0))) q z))::ls ∧
+    (ls = (y,Loc (n+1))::(x,Loc n)::ls1) ∧
+    n+1 < LENGTH (SND cs)``,
   Cases_on`cs`>>rw[bigStepTheory.evaluate_top_cases]>>
-  metis_tac[evaluate_decs_ref]) |> GEN_ALL
-
-val evaluate_decs_last = store_thm("evaluate_decs_last",
-  ``∀ck mn env s decs a b c k i s1 x decs0 y z v.
-      evaluate_decs ck mn env s decs (((k,s1),a),b,Rval c) ∧
-      (decs = decs0 ++ [Dlet (Pvar x) (Fun y z)])
-      ⇒
-      ∃xxx. (lookup x c = SOME (Closure xxx y z))``,
-  Induct_on`decs0` >>
-  rw[Once bigStepTheory.evaluate_decs_cases] >- (
-    fs[Once bigStepTheory.evaluate_dec_cases] >>
-    fs[Once bigStepTheory.evaluate_cases] >>
-    fs[terminationTheory.pmatch_def] >>
-    Cases_on`r`>>fs[semanticPrimitivesTheory.combine_dec_result_def]>>
-    fs[Once bigStepTheory.evaluate_decs_cases] >>
-    rw[libTheory.merge_def,libPropsTheory.lookup_append,libTheory.bind_def,libTheory.emp_def]) >>
-  Cases_on`r`>>fs[semanticPrimitivesTheory.combine_dec_result_def]>>
-  first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
-  rw[libTheory.merge_def,libPropsTheory.lookup_append])
-
-val evaluate_Tmod_last = prove(
-  ``evaluate_top ck env0 st (Tmod mn NONE decs) ((cs,u),envC,Rval ([(mn,env)],v)) ⇒
-    (decs = decs0 ++ [Dlet(Pvar x)(Fun y z)])
-  ⇒
-    ∃cenv. lookup x env = SOME (Closure cenv y z)``,
-  Cases_on`cs`>>rw[bigStepTheory.evaluate_top_cases]>>
-  metis_tac[evaluate_decs_last]) |> GEN_ALL
+  imp_res_tac evaluate_decs_last3 >> fs[]) |> GEN_ALL
 
 (* Equality Type assumptions (should be proved elsewhere?) *)
 val EqualityType1 = prove(
@@ -199,9 +185,10 @@ val compile_repl_decs_def = zDefine`
 val repl_decs_code_def = zDefine
   `repl_decs_code = code_labels real_inst_length (SND(SND(compile_repl_decs)))`
 
+val call_dec = ``Tdec (Dlet (Plit Unit) (App Opapp (Var(Long"REPL""call_repl_step")) (Lit Unit)))``
+
 val compile_call_repl_step_def = zDefine`
-  compile_call_repl_step = compile_top NONE (FST compile_repl_decs)
-    (Tdec (Dlet (Plit Unit) (App Opapp (Var(Long"REPL""call_repl_step")) (Lit Unit))))`
+  compile_call_repl_step = compile_top NONE (FST compile_repl_decs) ^call_dec`
 
 val compile_call_repl_step_state = prove(
   ``∃nl. (FST compile_call_repl_step) = (FST compile_repl_decs with rnext_label := nl)``,
@@ -248,30 +235,13 @@ val append_3 =
   |> UNDISCH |> SYM |> RW[last_3_decs]
   |> prove_hyps_by(CONV_TAC(computeLib.CBV_CONV repl_decs_cs))
 
-val io_locs_exist = prove(
-  ``∃n1 n2.
-    lookup "input" (Tmod_env "REPL" ml_repl_module_decls) = SOME (Loc n1) ∧
-    lookup "output" (Tmod_env "REPL" ml_repl_module_decls) = SOME (Loc n2) ∧
-    n1 < LENGTH (SND (Tmod_state "REPL" ml_repl_module_decls)) ∧
-    n2 < LENGTH (SND (Tmod_state "REPL" ml_repl_module_decls))``,
-  mp_tac(MATCH_MP evaluate_Tmod_ref (CONJUNCT1 evaluate_repl_decs)) >>
-  CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(REWRITE_CONV[Once append_3])))) >>
-  Q.PAT_ABBREV_TAC`d3 = Dlet (Pvar "call_repl_step") X` >>
-  disch_then((fn th => mp_tac th >> mp_tac th) o CONV_RULE(RESORT_FORALL_CONV(sort_vars["decs1"]))) >>
-  disch_then(qspec_then`[d3]`STRIP_ASSUME_TAC) >>
-  Q.PAT_ABBREV_TAC`d2 = Dlet (Pvar "output") X` >>
-  disch_then(qspec_then`[d2;d3]`STRIP_ASSUME_TAC) >>
-  fs[Abbr`d2`,Abbr`d3`,astTheory.pat_bindings_def])
+val iloc_repl_env_exist =
+  MATCH_MP evaluate_Tmod_last3 (CONJUNCT1 evaluate_repl_decs)
+  |> SIMP_RULE (srw_ss())[]
+  |> C MATCH_MP append_3
+  |> REWRITE_RULE[GSYM append_3]
 
-val io_locs_def = new_specification("io_locs_def",["iloc","oloc"],io_locs_exist)
-
-val lookup_call_repl_step = prove(
-  ``∃cenv. lookup "call_repl_step" (Tmod_env "REPL" ml_repl_module_decls) =
-      SOME (Closure cenv "u" (App Opassign (Var (Short "output"))
-      (App Opapp (Var (Short "repl_step")) (Uapp Opderef (Var (Short "input"))))))``,
-  mp_tac(MATCH_MP evaluate_Tmod_last (CONJUNCT1 evaluate_repl_decs)) >>
-  CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(REWRITE_CONV[Once append_3])))) >>
-  simp[])
+val repl_env_def = new_specification("repl_env_def",["iloc","repl_env"],iloc_repl_env_exist)
 
 val INPUT_TYPE_def = Define `
   INPUT_TYPE =
@@ -336,17 +306,82 @@ val bootstrap_bc_state_def = new_specification("bootstrap_bc_state_def",["bootst
 val repl_bc_state_def = Define`
   repl_bc_state = install_code (SND(SND compile_call_repl_step)) bootstrap_bc_state`
 
-(* Compiler's invariant, holds after compiling REPL *)
+val repl_bc_state_clock = prove(
+  ``bootstrap_bc_state.clock = NONE ∧ repl_bc_state.clock = NONE``,
+  rw[repl_bc_state_def,repl_funTheory.install_code_def] >>
+  strip_assume_tac bootstrap_bc_state_def >>
+  imp_res_tac bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next >>
+  imp_res_tac bytecodeExtraTheory.RTC_bc_next_clock_less >>
+  fs[optionTheory.OPTREL_def,repl_funTheory.install_code_def] >>
+  assume_tac replCorrectTheory.initial_bc_state_side_thm >>
+  fs[repl_fun_alt_proofTheory.initial_bc_state_side_def,LET_THM] >>
+  imp_res_tac bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next >>
+  imp_res_tac bytecodeExtraTheory.RTC_bc_next_clock_less >>
+  fs[optionTheory.OPTREL_def,repl_funTheory.install_code_def] >>
+  fs[initialProgramTheory.empty_bc_state_def,repl_funTheory.initial_bc_state_def] >>
+  rfs[repl_funTheory.install_code_def])
 
+(* Effect of evaluating the call *)
 val update_io_def  = Define`
   update_io inp out ((c,s),x,y) =
-    ((c,LUPDATE inp iloc (LUPDATE out oloc s)),x,y)`
+    ((c,LUPDATE out (iloc+1) (LUPDATE inp iloc s)),x,y)`
+
+val evaluate_call_repl_step = store_thm("evaluate_call_repl_step",
+  ``∀x inp out. INPUT_TYPE x inp ⇒
+      ∃out'. OUTPUT_TYPE (repl_step x) out' ∧
+      evaluate_top F ^repl_all_env (update_io inp out ^repl_store) ^call_dec
+        (update_io inp out' ^repl_store, ([],[]), Rval ([],[]))``,
+  rw[evaluate_top_cases,evaluate_dec_cases,Once evaluate_cases,libTheory.emp_def] >>
+  rw[Once evaluate_cases,semanticPrimitivesTheory.lookup_var_id_def] >>
+  rw[Once evaluate_cases,astTheory.pat_bindings_def] >>
+  mp_tac(CONJUNCT2 evaluate_repl_decs) >>
+  REWRITE_TAC[GSYM INPUT_TYPE_def,GSYM OUTPUT_TYPE_def] >>
+  simp[can_lookup_def] >> strip_tac >>
+  strip_assume_tac repl_env_def >>
+  simp[semanticPrimitivesTheory.do_app_def] >>
+  rw[Once evaluate_cases] >>
+  rw[Once evaluate_cases] >>
+  rw[semanticPrimitivesTheory.lookup_var_id_def,libTheory.bind_def] >>
+  rw[semanticPrimitivesTheory.all_env_to_cenv_def,libTheory.merge_def] >>
+  rw[Once evaluate_cases] >>
+  rw[Once evaluate_cases] >>
+  rw[semanticPrimitivesTheory.lookup_var_id_def,libTheory.bind_def] >>
+  rw[libPropsTheory.lookup_append] >> fs[] >>
+  rw[semanticPrimitivesTheory.do_app_def] >>
+  rw[Once evaluate_cases] >>
+  rw[Once evaluate_cases] >>
+  rw[semanticPrimitivesTheory.lookup_var_id_def,libTheory.bind_def] >>
+  rw[libPropsTheory.lookup_append] >>
+  rw[semanticPrimitivesTheory.do_uapp_def] >>
+  fs[Arrow_def,AppReturns_def] >>
+  first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
+  disch_then(qx_choose_then`out'`strip_assume_tac) >>
+  qexists_tac`out'` >> simp[] >>
+  simp[semanticPrimitivesTheory.store_lookup_def] >>
+  simp[semanticPrimitivesTheory.store_assign_def] >>
+  Cases_on`Tmod_state"REPL"ml_repl_module_decls`>>
+  simp[update_io_def,PULL_EXISTS] >>
+  qexists_tac`Litv Unit` >>
+  simp[pmatch_def] >>
+  fs[evaluate_closure_def] >>
+  fs[semanticPrimitivesTheory.do_app_def] >>
+  BasicProvers.EVERY_CASE_TAC>>fs[libTheory.bind_def]>>
+  simp[EL_LUPDATE] >>
+  imp_res_tac evaluate_empty_store_IMP >>
+  Q.PAT_ABBREV_TAC`ss:v count_store = (xx,LUPDATE  a b c)` >>
+  first_x_assum(qspec_then`ss`strip_assume_tac) >>
+  fs[Abbr`ss`] >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  rw[Once evaluate_cases] >>
+  rw[LIST_EQ_REWRITE,EL_LUPDATE] )
+
+(* Compiler's invariant, holds after compiling REPL *)
 
 val COMPILER_RUN_INV_def = Define `
   COMPILER_RUN_INV bs inp out ⇔
     (∃grd.
        env_rs ^repl_all_env (update_io inp out ^repl_store) grd
-         (FST compile_call_repl_step) bs) ∧
+         (FST compile_repl_decs) (bs with code := bootstrap_bc_state.code)) ∧
     (∃rf. bs = repl_bc_state with refs := rf) `
 
 val COMPILER_RUN_INV_empty_stack = store_thm("COMPILER_RUN_INV_empty_stack",
@@ -358,17 +393,18 @@ val COMPILER_RUN_INV_empty_stack = store_thm("COMPILER_RUN_INV_empty_stack",
 val COMPILER_RUN_INV_init = store_thm("COMPILER_RUN_INV_init",
   ``COMPILER_RUN_INV repl_bc_state
        (EL iloc (SND (Tmod_state "REPL" ml_repl_module_decls)))
-       (EL oloc (SND (Tmod_state "REPL" ml_repl_module_decls)))``,
+       (EL (iloc+1) (SND (Tmod_state "REPL" ml_repl_module_decls)))``,
   rw[COMPILER_RUN_INV_def,repl_bc_state_def] >- (
     Cases_on`Tmod_state "REPL" ml_repl_module_decls` >>
     simp[update_io_def] >>
-    strip_assume_tac io_locs_def >> rfs[] >>
+    strip_assume_tac repl_env_def >> rfs[] >>
     simp[LUPDATE_SAME] >>
     strip_assume_tac bootstrap_bc_state_def >>
     qexists_tac`grd` >>
     MATCH_MP_TAC env_rs_with_bs_irr >>
-    qexists_tac`bootstrap_bc_state with code := bootstrap_bc_state.code ++ REVERSE(SND(SND compile_call_repl_step))` >>
+    qexists_tac`bootstrap_bc_state` >>
     simp[repl_funTheory.install_code_def] >>
+    rfs[] (* >>
     MATCH_MP_TAC env_rs_append_code >>
     rfs[] >> first_assum(match_exists_tac o concl) >> simp[] >>
     simp[bytecodeTheory.bc_state_component_equality] >>
@@ -386,7 +422,7 @@ val COMPILER_RUN_INV_init = store_thm("COMPILER_RUN_INV_init",
       fs[Once modLangProofTheory.v_to_i1_cases] >>
       fs[Once modLangProofTheory.v_to_i1_cases] >>
       fs[finite_mapTheory.FLOOKUP_DEF] >>
-      METIS_TAC[lookup_call_repl_step] ) >>
+      METIS_TAC[] ) >>
     Q.PAT_ABBREV_TAC`cs = compile_top X Y Z` >>
     `∃a b c. cs = (a,b,c)` by METIS_TAC[pair_CASES] >>
     fs[Abbr`cs`] >> strip_tac >>
@@ -400,7 +436,7 @@ val COMPILER_RUN_INV_init = store_thm("COMPILER_RUN_INV_init",
     simp[ALL_DISTINCT_APPEND,ALL_DISTINCT_REVERSE,MEM_FILTER,EVERY_MEM,
          bytecodeExtraTheory.is_Label_rwt,PULL_EXISTS] >>
     rw[] >> spose_not_then strip_assume_tac >> res_tac >> fs[] >>
-    DECIDE_TAC ) >>
+    DECIDE_TAC *)) >>
   simp[bytecodeTheory.bc_state_component_equality])
 
 (* Running the code preserves the invariant *)
@@ -408,17 +444,80 @@ val COMPILER_RUN_INV_init = store_thm("COMPILER_RUN_INV_init",
 val code_start_def = Define `
   code_start bs = next_addr bs.inst_length bootstrap_bc_state.code`;
 
-val code_end_def = Define `
-  code_end bs = next_addr bs.inst_length repl_bc_state.code`;
-
 val COMPILER_RUN_INV_repl_step = store_thm("COMPILER_RUN_INV_repl_step",
   ``COMPILER_RUN_INV bs1 inp1 out1 /\
     INPUT_TYPE x inp1 ==>
-    ?bs2 inp2 out2.
+    ?bs2 out2.
       (bc_eval (bs1 with pc := code_start bs1) = SOME bs2) /\
-      COMPILER_RUN_INV bs2 inp2 out2 /\ (bs2.pc = code_end bs1) /\
+      bc_fetch bs2 = SOME (Stop T) /\
+      COMPILER_RUN_INV bs2 inp1 out2 /\
       OUTPUT_TYPE (repl_step x) out2``,
-  rw[Once COMPILER_RUN_INV_def,code_start_def]
+  rw[Once COMPILER_RUN_INV_def,code_start_def] >>
+  first_assum(mp_tac o MATCH_MP evaluate_call_repl_step) >>
+  disch_then(qspec_then`out1`strip_assume_tac) >>
+  pop_assum (mp_tac o MATCH_MP bigClockTheory.top_add_clock) >>
+  Cases_on`Tmod_state"REPL"ml_repl_module_decls`>>
+  fs[update_io_def] >>
+  disch_then(qx_choose_then`ck`STRIP_ASSUME_TAC) >>
+  pop_assum(mp_tac o MATCH_MP compile_top_thm) >> simp[] >>
+  disch_then(qspecl_then[`FST compile_repl_decs`,`NONE`]mp_tac) >>
+  simp[GSYM compile_call_repl_step_def] >>
+  simp[free_varsTheory.closed_top_def,free_varsTheory.all_env_dom_def] >>
+  `∃rss rsf bc. compile_call_repl_step = (rss,rsf,bc)` by METIS_TAC[pair_CASES] >>
+  simp[] >>
+  disch_then(qspecl_then[`grd`,`repl_bc_state with <| clock := SOME ck; refs := rf|>`,`bootstrap_bc_state.code`]mp_tac) >>
+  discharge_hyps >- (
+    conj_tac >- (
+      match_mp_tac env_rs_change_clock >>
+      first_assum(match_exists_tac o concl) >>
+      simp[bytecodeTheory.bc_state_component_equality] ) >>
+    simp[repl_bc_state_def,repl_funTheory.install_code_def] >>
+    simp[repl_env_def] ) >>
+  strip_tac >>
+  imp_res_tac bytecodeClockTheory.RTC_bc_next_can_be_unclocked >> fs[] >>
+  imp_res_tac bytecodeEvalTheory.RTC_bc_next_bc_eval >>
+  pop_assum kall_tac >> pop_assum mp_tac >>
+  discharge_hyps >-
+    simp[bytecodeEvalTheory.bc_eval1_thm,
+         bytecodeEvalTheory.bc_eval1_def,
+         bytecodeClockTheory.bc_fetch_with_clock] >>
+  strip_tac >>
+  Q.PAT_ABBREV_TAC`bs:bc_state = X Y` >>
+  qmatch_assum_abbrev_tac`bc_eval bs2 = SOME Y` >>
+  `bs = bs2` by (
+    unabbrev_all_tac >>
+    simp[bytecodeTheory.bc_state_component_equality,repl_bc_state_def] >>
+    simp[repl_funTheory.install_code_def,repl_bc_state_clock] ) >>
+  simp[Abbr`Y`,Abbr`bs2`,bytecodeClockTheory.bc_fetch_with_clock] >>
+  qexists_tac`out'` >>
+  simp[COMPILER_RUN_INV_def] >>
+  conj_asm1_tac >- (
+    simp[update_io_def] >>
+    strip_assume_tac compile_call_repl_step_state >>
+    rfs[] >> rw[] >>
+
+    qexists_tac`grd''` >>
+    MATCH_MP_TAC env_rs_change_clock >>
+    simp[EXISTS_PROD] >> qexists_tac`0` >>
+    qexists_tac`bs' with <|code := bootstrap_bc_state.code; clock := NONE|>` >>
+    simp[bytecodeTheory.bc_state_component_equality] >>
+    PairCases_on`grd''` >>
+    fs[env_rs_def] >>
+    reverse conj_tac >- (
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      fs[SIMP_RULE std_ss [libTheory.emp_def]merge_envC_emp] >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      imp_res_tac bytecodeExtraTheory.RTC_bc_next_preserves >>
+      fs[]
+      simp[]
+
+    compile_call_repl_step_def
+    simp[]
+
+  compile_call_repl_step_def
+  repl_bc_state_def
 
   REPEAT STRIP_TAC
   \\ REVERSE (`?out2.
