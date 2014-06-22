@@ -355,6 +355,7 @@ val () = computeLib.add_thms
   ,pure_pat_def
   ,SUC_TO_NUMERAL_RULE Let_Els_pat_def
   ,pure_uop_pat_def
+  ,pure_op_def
   ] compset
 val () = add_datatype ``:exp_pat``
 val () = add_datatype ``:uop_pat``
