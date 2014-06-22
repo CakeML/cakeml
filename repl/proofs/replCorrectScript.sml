@@ -289,30 +289,6 @@ val invariant_def = Define`
     ∧ code_executes_ok bs
     `;
 
-(*
-val check_menv_to_tenvM_ok = Q.prove (
-`!menv. check_menv menv ⇒ tenvM_ok (convert_menv menv)`,
-Induct >>
-rw [EVERY_MAP,
-    check_menv_def, typeSysPropsTheory.tenvM_ok_def, convert_menv_def] >|
-[PairCases_on `h` >>
-     fs [] >>
-     REPEAT (pop_assum mp_tac) >>
-     induct_on `h1` >>
-     rw [tenv_ok_def, terminationTheory.bind_var_list2_def] >>
-     PairCases_on `h` >>
-     fs [terminationTheory.bind_var_list2_def, bind_tenv_def,
-         tenv_ok_def, num_tvs_bvl2, num_tvs_def] >>
-     metis_tac [check_t_to_check_freevars],
- fs [check_menv_def, tenvM_ok_def] >>
-     REPEAT (pop_assum mp_tac) >>
-     induct_on `menv` >>
-     rw [] >>
-     PairCases_on `h` >>
-     rw [] >>
-     fs [convert_menv_def, EVERY_MAP]]);
-     *)
-
 val infer_to_type = Q.prove (
 `!rs st bs decls menv cenv env top new_decls new_menv new_cenv new_env st2.
   invariant rs st bs ∧
@@ -327,135 +303,6 @@ val infer_to_type = Q.prove (
  fs [] >>
  rw [] >>
  metis_tac [infer_top_sound, infer_sound_invariant_def]);
-
-(* TODO: remove?
-val closed_SUBSET = store_thm("closed_SUBSET",
-  ``∀v. closed menv v ⇒ ∀menv'. menv_dom menv ⊆ menv_dom menv' ⇒ closed menv' v``,
-  ho_match_mp_tac semanticsExtraTheory.closed_ind >>
-  simp[] >> rw[] >- fs[EVERY_MEM] >>
-  simp[Once semanticsExtraTheory.closed_cases] >>
-  fs[EVERY_MEM] >>
-  fsrw_tac[DNF_ss][SUBSET_DEF] >>
-  metis_tac[])
-
-val closed_context_strip_mod_env = store_thm("closed_context_strip_mod_env",
-  ``∀menv cenv s env menv'.
-    closed_context menv cenv s env ∧ ALL_DISTINCT (MAP FST menv') ∧ (∀m. MEM m (MAP FST menv') ⇒ m ∉ set (MAP FST menv)) ⇒
-     closed_context ((strip_mod_env menv')++menv) cenv s env``,
-  rw[] >> fs[closed_context_def] >>
-  fs[EVERY_MEM] >>
-  `menv_dom menv ⊆ menv_dom (strip_mod_env menv' ++ menv)` by (
-    srw_tac[DNF_ss][SUBSET_DEF] ) >>
-  conj_tac >- (
-    simp[ALL_DISTINCT_APPEND,strip_mod_env_def,MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,miscTheory.FST_pair] ) >>
-  conj_tac >- metis_tac[closed_SUBSET] >>
-  conj_tac >- metis_tac[closed_SUBSET] >>
-  conj_tac >- (
-    conj_tac >- (
-      simp[strip_mod_env_def,MEM_MAP,EXISTS_PROD,FORALL_PROD] >>
-      simp_tac(srw_ss()++DNF_ss)[] ) >>
-    metis_tac[closed_SUBSET] ) >>
-  conj_tac >- (
-    fs[closed_under_cenv_def] >>
-    simp[MAP_FLAT,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,strip_mod_env_def] >>
-    fsrw_tac[DNF_ss][MEM_MAP,SUBSET_DEF,MEM_FLAT] >>
-    metis_tac[] ) >>
-  conj_tac >- (
-    rator_x_assum`closed_under_menv`mp_tac >>
-    simp[closed_under_menv_def] >>
-    simp[EVERY_MEM] >>
-    strip_tac >>
-    conj_tac >- metis_tac[closed_SUBSET] >>
-    conj_tac >- metis_tac[closed_SUBSET] >>
-    conj_tac >- (
-      simp[strip_mod_env_def,MEM_MAP,EXISTS_PROD,FORALL_PROD] >>
-      simp_tac(srw_ss()++DNF_ss)[] ) >>
-    metis_tac[closed_SUBSET] ) >>
-  rw[]>>TRY(metis_tac[])>>
-  fsrw_tac[DNF_ss][strip_mod_env_def,MEM_FLAT,MEM_MAP,UNCURRY]);
-
-val closed_context_shift_menv = store_thm("closed_context_shift_menv",
-  ``closed_context menv cenv s (env' ++ env) ∧ m ∉ set (MAP FST menv) ⇒
-    closed_context ((m,env')::menv) cenv s env``,
-  strip_tac >>
-  fs[closed_context_def] >>
-  fs[EVERY_MEM] >>
-  `menv_dom menv ⊆ menv_dom ((m,env')::menv)` by rw[SUBSET_DEF] >>
-  conj_tac >- metis_tac[closed_SUBSET] >>
-  conj_tac >- metis_tac[closed_SUBSET] >>
-  conj_tac >- metis_tac[closed_SUBSET] >>
-  conj_tac >- (
-    fs[closed_under_cenv_def] >>
-    metis_tac[] ) >>
-  conj_tac >- (
-    rator_x_assum`closed_under_menv`mp_tac >>
-    simp[closed_under_menv_def] >>
-    simp[EVERY_MEM] >>
-    metis_tac[closed_SUBSET] ) >>
-  metis_tac[]);
-
-val evaluate_top_closed_context = store_thm("evaluate_top_closed_context",
-  ``∀menv cenv s env top s' cenv' res.
-    evaluate_top menv cenv s env top (s',cenv',res) ∧
-    closed_context menv cenv s env ∧
-    cenv_bind_div_eq cenv ∧
-    FV_top top ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
-    top_cns top ⊆ cenv_dom cenv
-    ⇒
-    let (menv',env') = case res of Rval (m,e) => (m ++ menv,e ++ env) | _ => (menv,env) in
-    closed_context menv' (cenv'++cenv) s' env'``,
-  rpt gen_tac >>
-  Cases_on`top`>>simp[Once evaluate_top_cases]>>
-  Cases_on`res`>>simp[]>>strip_tac>>rpt BasicProvers.VAR_EQ_TAC>>simp[libTheory.emp_def]
-  >- (
-    imp_res_tac evaluate_decs_closed_context >>
-    fs[LET_THM] >>
-    metis_tac[closed_context_shift_menv] )
-  >- (
-    imp_res_tac evaluate_decs_closed_context >>
-    pop_assum mp_tac >> simp[] >>
-    BasicProvers.CASE_TAC >> fs[])
-  >- (
-    imp_res_tac evaluate_dec_closed_context >>
-    fs[] >> fs[LET_THM] >>
-    Cases_on`d`>>fs[] )
-  >- (
-    imp_res_tac evaluate_dec_closed_context >>
-    pop_assum mp_tac >> simp[] >>
-    BasicProvers.CASE_TAC >> fs[]));
-
-val strip_mod_env_append = store_thm("strip_mod_env_append",
-  ``strip_mod_env (ls ++ l2) = strip_mod_env ls ++ strip_mod_env l2``,
-  rw[strip_mod_env_def])
-val strip_mod_env_length = store_thm("strip_mod_env_length",
-  ``LENGTH (strip_mod_env ls) = LENGTH ls``,
-  rw[strip_mod_env_def])
-*)
-
-(*
-val env_rs_strip_mod_env = store_thm("env_rs_strip_mod_env",
-  ``closed_context menv cenv (SND s) env ∧
-    DISJOINT (set (MAP FST menv')) (set (MAP FST menv)) ∧
-    env_rs menv cenv env cs rd s bs ⇒
-    env_rs (strip_mod_env menv' ++ menv) cenv env cs rd s bs``,
-  rw[env_rs_def] >>
-  fs[LET_THM] >>
-  qmatch_assum_abbrev_tac`LIST_REL syneq Cs00 Cs` >>
-  `Cs00 = Cs0` by (
-    UNABBREV_ALL_TAC >>
-    simp[MAP_EQ_f] >>
-    fs[closed_context_def] >>
-    rw[] >>
-    simp[o_f_FUNION] >>
-    simp[GSYM miscTheory.alist_to_fmap_MAP_values,strip_mod_env_def,MAP_MAP_o,UNCURRY,combinTheory.o_DEF]
-
-  compilerTerminationTheory.v_to_Cv_def
-    DB.find"v_to_Cv"
-
-    DB.find"v_to_Cv_def"
-    simp[Abbr`Cs00
-  simp[env_rs_def] >> strip_tac >>
-*)
 
 val tenv_names_def = Define`
   (tenv_names Empty = {}) ∧
@@ -478,16 +325,7 @@ val tenv_names_bind_var_list2 = store_thm("tenv_names_bind_var_list2",
   Induct >> TRY(qx_gen_tac`p`>>PairCases_on`p`) >> simp[bind_var_list2_def,bind_tenv_def] >>
   simp[EXTENSION] >> metis_tac[])
 
-  (*
-val _ = Parse.overload_on("tmenv_dom",``λmenv:tenvM.  set (FLAT (MAP (λx. MAP (Long (FST x) o FST) (SND x)) menv))``)
-*)
-
 val _ = Parse.overload_on("tmenv_dom",``λmenv:tenvM. {Long m x | (m,x) | ∃e. lookup m menv = SOME e ∧ MEM x (MAP FST e)}``);
-
-(*
-val _ = Parse.overload_on("tmenv_sdom",``λmenv:tenvM.  set (FLAT (MAP (λx. MAP (Short o FST) (SND x)) menv))``)
-*)
-
 
 val type_p_closed = store_thm("type_p_closed",
   ``(∀tvs tcenv p t tenv.
@@ -724,19 +562,6 @@ val to_string_map_lem = Q.prove (
  fs [check_env_def, convert_env2_def] >>
  metis_tac [type_to_string_lem]);
 
- (*
-val type_d_dec_cns = Q.prove (
-`!mn tenvM tenvC tenv d tenvC' tenv'.
-  type_d (SOME mn) tenvM tenvC tenv d tenvC' tenv'
-  ⇒
-  IMAGE (Long mn) (set (new_dec_cns d)) = set (MAP FST tenvC')`,
-rw [type_d_cases, new_dec_cns_def, libTheory.emp_def] >>
-rw [new_dec_cns_def, build_ctor_tenv_def, MAP_FLAT, MAP_MAP_o,
-    combinTheory.o_DEF, astTheory.mk_id_def, LAMBDA_PROD] >>
-fs [GSYM LIST_TO_SET_MAP, MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-rw [EXTENSION, MEM_MAP, libTheory.bind_def]);
-*)
-
 val type_ds_closed = store_thm("type_ds_closed",
   ``∀mn decls tmenv cenv tenv ds x y z. type_ds mn decls tmenv cenv tenv ds x y z ⇒
      !mn'. mn = SOME mn' ⇒
@@ -796,22 +621,6 @@ val weakM_dom = Q.prove (
  rw [] >>
  imp_res_tac libPropsTheory.lookup_in2); 
 
- (*
-val weakC_dom = Q.prove (
-`!tenvC1 tenvC2.
-  weakC tenvC1 tenvC2
-  ⇒
-  set (MAP FST tenvC2) ⊆ set (MAP FST tenvC1)`,
-rw [weakC_def, SUBSET_DEF] >>
-first_x_assum (mp_tac o Q.SPEC `x`) >>
-rw [] >>
-every_case_tac >>
-fs [alistTheory.ALOOKUP_NONE] >>
-imp_res_tac alistTheory.ALOOKUP_MEM >>
-rw [MEM_MAP] >>
-metis_tac [FST]);
-*)
-
 val type_env_dom2 = Q.prove (
 `!ctMap tenvS env tenv.
   type_env ctMap tenvS env (bind_var_list2 tenv Empty) ⇒
@@ -853,16 +662,6 @@ val consistent_mod_env_dom = Q.prove (
  fs [] >>
  metis_tac []);
 
-(*
-val consistent_con_env_dom = Q.prove (
-`!envC tenvC.
-  consistent_con_env envC tenvC
-  ⇒
-  (set (MAP FST envC) = set (MAP FST tenvC))`,
-ho_match_mp_tac typeSysPropsTheory.consistent_con_env_ind >>
-rw [typeSysPropsTheory.consistent_con_env_def]);
-*)
-
 val type_sound_inv_closed = Q.prove (
 `∀top rs new_tenvM new_tenvC new_tenv new_decls decls' store.
   type_top rs.tdecs rs.tenvM rs.tenvC rs.tenv top new_decls new_tenvM new_tenvC new_tenv ∧
@@ -886,216 +685,6 @@ fs [SUBSET_DEF] >>
 metis_tac []);
 
 (*
-val check_dup_ctors_names_lem1 = Q.prove (
-`!tds acc.
-  FOLDR (λ(tvs,tn,condefs) x2. FOLDR (λ(n,ts) x2. n::x2) x2 condefs) acc tds
-  =
-  MAP FST (FLAT (MAP (SND o SND) tds)) ++ acc`,
-induct_on `tds` >>
-rw [] >>
-PairCases_on `h` >>
-fs [FOLDR_APPEND] >>
-pop_assum (fn _ => all_tac) >>
-induct_on `h2` >>
-rw [] >>
-PairCases_on `h` >>
-fs []);
-
-val check_dup_ctors_eqn = Q.store_thm ("check_dup_ctors_eqn",
-`!tds.
-  check_dup_ctors mn cenv tds
-  =
-  (ALL_DISTINCT (MAP FST (FLAT (MAP (SND o SND) tds))) ∧
-   (!e. MEM e (MAP FST (FLAT (MAP (SND o SND) tds))) ⇒ mk_id mn e ∉ set (MAP FST cenv)))`,
-SIMP_TAC (srw_ss()) [LET_THM,RES_FORALL,check_dup_ctors_def, check_dup_ctors_names_lem1] >>
-induct_on `tds` >>
-rw [] >>
-`?tvs ts ctors. h = (tvs,ts,ctors)` by metis_tac [pair_CASES] >>
-rw [] >>
-fs [ALL_DISTINCT_APPEND] >>
-rw [] >>
-eq_tac >>
-rw [] >>
-fs [alistTheory.ALOOKUP_NONE] >>
-fs [] >>
-rw [] >|
-[qpat_assum `!x. x = (tvs,ts,ctors) ∨ MEM x tds ⇒ P x` (mp_tac o Q.SPEC `(tvs,ts,ctors)`) >>
-     rw [] >>
-     `?v. ALOOKUP ctors e = SOME v`
-              by metis_tac [alistTheory.ALOOKUP_NONE, optionTheory.NOT_SOME_NONE, optionTheory.option_nchotomy] >>
-     imp_res_tac alistTheory.ALOOKUP_MEM >>
-     res_tac >>
-     fs [],
- PairCases_on `x` >>
-     fs [] >>
-     metis_tac [MEM_MAP, FST]]);
-
-val type_ds_dup_ctors = Q.prove (
-`!mn tenvM tenvC tenv ds tenvC' tenv'.
-  type_ds mn tenvM tenvC tenv ds tenvC' tenv' ⇒
-  !i ts tenvC_no_sig.
-    i < LENGTH ds ∧ (EL i ds = Dtype ts)
-    ⇒
-    ALL_DISTINCT (MAP FST (FLAT (MAP (SND o SND) ts))) ∧
-    (!e. MEM e (MAP FST (FLAT (MAP (SND o SND) ts)))
-         ⇒
-         mk_id mn e ∉ set (MAP FST (decs_to_cenv mn (TAKE i ds))) ∧
-         mk_id mn e ∉ set (MAP FST tenvC))`,
-ho_match_mp_tac type_ds_ind >>
-REPEAT GEN_TAC >>
-STRIP_TAC >>
-REPEAT GEN_TAC >>
-STRIP_TAC >>
-REPEAT GEN_TAC >>
-cases_on `i = 0` >>
-fs [] >|
-[fs [type_d_cases] >>
-     rw [] >>
-     fs [check_ctor_tenv_def, check_dup_ctors_eqn, decs_to_cenv_def],
- `0 < i` by decide_tac >>
-     fs [EL_CONS] >>
-     STRIP_TAC >>
-     `PRE i < LENGTH ds`
-               by (cases_on `i` >>
-                  fs []) >>
-     `i - 1 = PRE i` by decide_tac >>
-     rw [decs_to_cenv_def] >>
-     res_tac >>
-     fs [libTheory.merge_def] >>
-     fs [type_d_cases, dec_to_cenv_def] >>
-     rw [] >>
-     fs [GSYM alistTheory.ALOOKUP_NONE, SIMP_RULE (srw_ss()) [] lookup_none] >>
-     fs [libTheory.emp_def, libTheory.bind_def]]);
-
-val type_sound_inv_dup_ctors = Q.prove (
-`∀mn spec ds rs new_tenvM new_tenvC new_tenv new_st envC r i ts.
-  type_top rs.tenvM rs.tenvC rs.tenv (Tmod mn spec ds) new_tenvM new_tenvC new_tenv  ∧
-  type_sound_invariants (rs.tenvM,rs.tenvC,rs.tenv,rs.envM,rs.envC,rs.envE,rs.store) ∧
-  i < LENGTH ds ∧ (EL i ds = Dtype ts)
-  ⇒
-  check_dup_ctors (SOME mn) (decs_to_cenv (SOME mn) (TAKE i ds) ++ rs.envC) ts`,
-rw [type_sound_invariants_def, type_top_cases, top_to_cenv_def] >>
-imp_res_tac consistent_con_env_dom >>
-rw [check_dup_ctors_eqn] >-
-metis_tac [type_ds_dup_ctors] >-
-metis_tac [type_ds_dup_ctors] >>
-`mk_id (SOME mn) e ∉ set (MAP FST rs.tenvC)` by metis_tac [type_ds_dup_ctors] >>
-imp_res_tac weakC_not_SOME >>
-imp_res_tac consistent_mod_env_distinct >>
-imp_res_tac weakM_dom >>
-res_tac >>
-fs [SUBSET_DEF] >>
-fs [weak_other_mods_def, GSYM alistTheory.ALOOKUP_NONE]);
-
-val type_ds_dup_exns = Q.prove (
-`!mn tenvM tenvC tenv ds tenvC' tenv'.
-  type_ds mn tenvM tenvC tenv ds tenvC' tenv' ⇒
-  !i cn ts tenvC_no_sig.
-    i < LENGTH ds ∧ (EL i ds = Dexn cn ts)
-    ⇒
-    mk_id mn cn ∉ set (MAP FST (decs_to_cenv mn (TAKE i ds))) ∧
-    mk_id mn cn ∉ set (MAP FST tenvC)`,
- ho_match_mp_tac type_ds_ind >>
- REPEAT GEN_TAC >>
- STRIP_TAC >>
- REPEAT GEN_TAC >>
- STRIP_TAC >>
- REPEAT GEN_TAC >>
- cases_on `i = 0` >>
- fs []
- >- (fs [type_d_cases] >>
-     rw [] >>
-     fs [check_ctor_tenv_def, check_dup_ctors_eqn, decs_to_cenv_def,
-         libTheory.bind_def, libTheory.merge_def, libTheory.emp_def,
-         alistTheory.ALOOKUP_NONE])
- >- (`0 < i` by decide_tac >>
-     fs [EL_CONS] >>
-     STRIP_TAC >>
-     `PRE i < LENGTH ds`
-               by (cases_on `i` >>
-                  fs []) >>
-     `i - 1 = PRE i` by decide_tac >>
-     rw [decs_to_cenv_def] >>
-     res_tac >>
-     fs [libTheory.merge_def] >>
-     fs [type_d_cases, dec_to_cenv_def] >>
-     rw [] >>
-     fs [GSYM alistTheory.ALOOKUP_NONE, SIMP_RULE (srw_ss()) [] lookup_none] >>
-     fs [libTheory.emp_def, libTheory.bind_def]));
-
-val type_sound_inv_dup_exns = Q.prove (
-`∀mn spec ds rs new_tenvM new_tenvC new_tenv new_st envC r i ts cn.
-  type_top rs.tenvM rs.tenvC rs.tenv (Tmod mn spec ds) new_tenvM new_tenvC new_tenv  ∧
-  type_sound_invariants (rs.tenvM,rs.tenvC,rs.tenv,rs.envM,rs.envC,rs.envE,rs.store) ∧
-  i < LENGTH ds ∧ (EL i ds = Dexn cn ts)
-  ⇒
-  mk_id (SOME mn) cn ∉ set (MAP FST (decs_to_cenv (SOME mn) (TAKE i ds))) ∧
-  mk_id (SOME mn) cn ∉ set (MAP FST rs.envC) `,
- rw [type_sound_invariants_def, type_top_cases, top_to_cenv_def] >>
- imp_res_tac consistent_con_env_dom >>
- rw []
- >- metis_tac [type_ds_dup_exns] >>
- `mk_id (SOME mn) cn ∉ set (MAP FST rs.tenvC)` by metis_tac [type_ds_dup_exns] >>
- imp_res_tac weakC_not_SOME >>
- imp_res_tac consistent_mod_env_distinct >>
- imp_res_tac weakM_dom >>
- res_tac >>
- fs [SUBSET_DEF] >>
- fs [weak_other_mods_def, GSYM alistTheory.ALOOKUP_NONE]);
-
-val consistent_mod_env_dom = Q.prove (
-`!tenvS tenvC menv tenvM.
-  consistent_mod_env tenvS tenvC menv tenvM ⇒
-  (MAP FST menv = MAP FST tenvM)`,
-ho_match_mp_tac metaTerminationTheory.consistent_mod_env_ind >>
-rw [metaTerminationTheory.consistent_mod_env_def]);
-
-val consistent_mod_env_dup_modules = Q.prove (
-`!tenvM_no_sig rs.
-  consistent_mod_env tenvS tenvC_no_sig
-        (MAP (λ(n,tenv). (n,[]))
-           (MAP
-              (λ(mn,env).
-                 (mn,MAP (λ(x,tvs,t). (x,tvs,convert_t t)) env))
-              new_infer_menv) ++ rs.envM) tenvM_no_sig
- ⇒
- ALL_DISTINCT (MAP FST new_infer_menv) ∧
- ∀m. MEM m (MAP FST new_infer_menv) ⇒ m ∉ set (MAP FST rs.envM)`,
- induct_on `new_infer_menv` >>
- rw [metaTerminationTheory.consistent_mod_env_def] >>
- PairCases_on `h` >>
- fs [] >>
- cases_on `tenvM_no_sig` >>
- fs [metaTerminationTheory.consistent_mod_env_def] >>
- PairCases_on `h` >>
- fs [metaTerminationTheory.consistent_mod_env_def, MEM_MAP] >>
- fs [METIS_PROVE [] ``(~a ∨ b) = (a ⇒ b)``] >>
- rw [] >>
- imp_res_tac consistent_mod_env_dom >>
- fs [MAP_APPEND, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM PFORALL_THM, GSYM PEXISTS_THM] >>
- metis_tac [fst_lem, consistent_mod_env_dom, pair_CASES, MEM_APPEND, MEM_MAP, FST]);
-
-val evaluate_top_to_cenv = store_thm("evaluate_top_to_cenv",
-  ``∀menv cenv store env top res.
-    evaluate_top menv cenv store env top res ⇒
-    SND (SND res) ≠ Rerr Rtype_error ⇒
-    ∃cenv'. top_to_cenv top = cenv' ++ (FST(SND res))``,
-  HO_MATCH_MP_TAC evaluate_top_ind >> simp[] >>
-  strip_tac >- (
-    simp[top_to_cenv_def] >> rw[] >>
-    imp_res_tac evaluate_dec_dec_to_cenv >> fs[] ) >>
-  strip_tac >- (
-    simp[top_to_cenv_def] >> rw[] >>
-    imp_res_tac evaluate_dec_err_cenv_emp >> fs[libTheory.emp_def] ) >>
-  strip_tac >- (
-    simp[top_to_cenv_def] >> rw[] >>
-    imp_res_tac evaluate_decs_to_cenv >> fs[] ) >>
-  rw[] >>
-  simp[top_to_cenv_def] >>
-  imp_res_tac evaluate_decs_to_cenv >>
-  fs[]);
-
-
 val ctac =
   qspecl_then[`inf_tenv_to_string_map new_infer_env`,`st.rcompiler_state`,`top`]mp_tac compile_top_append_code >>
   discharge_hyps >- (
