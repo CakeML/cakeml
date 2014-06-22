@@ -28,7 +28,7 @@ fun io() =
 			       then (TextIO.inputN(TextIO.stdIn,int_from_str_opt(cgi_content_length,0)))
 			       else "";
       (*testing*)
-      (*val url_encoded_string = "asdasf=asdasasdf&asdfasd=asdasdasd&src=val+x+%3D5%2B5%3B%0D%0A&bla=bla&asdf=asf";*)
+      (*val url_encoded_string = "asdasf=asdasasdf&asdfasd=asdasdasd&src=val+x+%3D5%2B5%3B%0D%0A&bla=bla&asdf=asf"; *)
       val sizeofStr = size url_encoded_string
       val the_fields =
 	Substring.tokens(fn c => c = #"&")(Substring.substring (url_encoded_string,0,size url_encoded_string ));
@@ -133,7 +133,9 @@ fun io() =
                  [
                    LI (A ([("href","#globals"),("class","m")], String (quote_to_string `Globals`))) ,
                    LI (A ([("href","#modules"),("class","m")], String (quote_to_string `Modules`))),
-                   LI (A ([("href","#constructors"),("class","m")], String (quote_to_string `Constructors`)))
+                   LI (A ([("href","#constructors"),("class","m")], String (quote_to_string `Constructors`))),
+                   LI (A ([("href","#annotations"),("class","m")], String (quote_to_string `Annotations`)))
+                   
                  ])),
                DIV( [],
                  Sequence
@@ -143,7 +145,9 @@ fun io() =
                    DIV([("id","modules")],Preformatted(String.concat
                    (map ((fn s => s^"\n") o term_to_string) (#modMap out)))),
                    DIV([("id","constructors")],Preformatted(String.concat
-                   (map ((fn s => s^"\n") o term_to_string) (#ctors out))))
+                   (map ((fn s => s^"\n") o term_to_string) (#ctors out)))),
+                   DIV([("id","annotations")],Preformatted(String.concat
+                   (map ((fn s => s^"\n") o term_to_string) (#annotations out))))
                  ])
              ]),
           (*Javascript call*)
