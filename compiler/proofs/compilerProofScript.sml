@@ -3818,13 +3818,11 @@ val compile_special_thm = store_thm("compile_special_thm",
       first_assum(match_exists_tac o concl) >> simp[] >>
       fs[to_i2_invariant_def] >>
       fs[Once s_to_i2_cases] >>
-      fs[Once s_to_i2'_cases] >>
       (v_to_i2_closed |> CONJUNCT2 |> CONJUNCT1 |> MP_CANON |> match_mp_tac) >>
       first_assum(match_exists_tac o concl) >> simp[] >>
       (v_to_i1_closed |> CONJUNCT2 |> CONJUNCT1 |> MP_CANON |> match_mp_tac) >>
       fs[to_i1_invariant_def] >>
       fs[Once s_to_i1_cases] >>
-      fs[Once s_to_i1'_cases] >>
       first_assum(match_exists_tac o concl) >> simp[]) >>
     match_mp_tac genv_to_pat_closed >>
     match_mp_tac genv_to_exh_closed >>
