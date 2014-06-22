@@ -3693,6 +3693,7 @@ val lookup_tag_env_NONE = prove(
   ``lookup_tag_env NONE x = (tuple_tag,NONE)``,
   Cases_on`x`>>simp[lookup_tag_env_def])
 
+(*
 val compile_special_thm = store_thm("compile_special_thm",
   ``∀ck env stm top res. evaluate_top ck env stm top res ⇒
      ∀rs grd bc bc0 bs s0 tm s.
@@ -4160,5 +4161,6 @@ val compile_special_thm = store_thm("compile_special_thm",
   match_mp_tac Cenv_bs_with_irr >>
   first_assum(match_exists_tac o concl) >>
   simp[])
+*)
 
 val _ = export_theory()
