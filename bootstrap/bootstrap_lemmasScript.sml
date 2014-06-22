@@ -340,6 +340,10 @@ val repl_bc_state_clock = prove(
   fs[initialProgramTheory.empty_bc_state_def,repl_funTheory.initial_bc_state_def] >>
   rfs[repl_funTheory.install_code_def])
 
+val bootstrap_bc_state_globals_SOME = prove(
+  ``EVERY IS_SOME bootstrap_bc_state.globals``,
+  cheat (* prove by evaluation? *))
+
 (* Effect of evaluating the call *)
 val update_io_def  = Define`
   update_io inp out ((c,s),x,y) =
@@ -536,60 +540,32 @@ val COMPILER_RUN_INV_repl_step = store_thm("COMPILER_RUN_INV_repl_step",
     [conLangProofTheory.to_i2_invariant_def,
      modLangProofTheory.to_i1_invariant_def,
      LIST_REL_LENGTH] ) >>
+  simp[repl_bc_state_def,repl_funTheory.install_code_def] >>
+  simp[bootstrap_bc_state_globals_SOME])
+  (* invariants are probably not strong enough to prove that semantically
   ntac 45 (pop_assum kall_tac) >>
-
-  REPEAT STRIP_TAC
-  \\ REVERSE (`?out2.
-     evaluate_dec NONE [] (repl_decs_cenv ++ init_envC)
-       (ml_repl_step_decls_s ++ [inp1; out1]) repl_decs_env
-       call_repl_step_dec
-       (ml_repl_step_decls_s ++ [inp1; out2],Rval ([],[])) /\
-     OUTPUT_TYPE (repl_step x) out2` by ALL_TAC)
-  THEN1 METIS_TAC [COMPILER_RUN_INV_STEP]
-  \\ SIMP_TAC (srw_ss()) [Once bigStepTheory.evaluate_dec_cases,
-       call_repl_step_dec_def,libTheory.emp_def,terminationTheory.pmatch_def,
-                          astTheory.pat_bindings_def]
-  \\ SIMP_TAC (srw_ss()) [Once bigStepTheory.evaluate_cases]
-  \\ SIMP_TAC (srw_ss()) [Once bigStepTheory.evaluate_cases]
-  \\ SIMP_TAC (srw_ss()) [Once repl_decs_env_def,lookup_var_id_def,do_app_def]
-  \\ SIMP_TAC (srw_ss()) [Once bigStepTheory.evaluate_cases]
-  \\ SIMP_TAC (srw_ss()) [Once bigStepTheory.evaluate_cases,libTheory.bind_def]
-  \\ SIMP_TAC (srw_ss()) [Once repl_decs_env_def,lookup_var_id_def,do_app_def]
-  \\ SIMP_TAC (srw_ss()) [Once bigStepTheory.evaluate_cases,PULL_EXISTS]
-  \\ SIMP_TAC (srw_ss()) [Once bigStepTheory.evaluate_cases,PULL_EXISTS]
-  \\ SIMP_TAC (srw_ss()) [Once repl_decs_env_def,lookup_var_id_def]
-  \\ SIMP_TAC (srw_ss()) [Once bigStepTheory.evaluate_cases,PULL_EXISTS]
-  \\ SIMP_TAC (srw_ss()) [Once bigStepTheory.evaluate_cases,PULL_EXISTS]
-  \\ SIMP_TAC (srw_ss()) [Once repl_decs_env_def,lookup_var_id_def,do_uapp_def,
-       store_lookup_def,rich_listTheory.EL_LENGTH_APPEND]
-  \\ STRIP_ASSUME_TAC repl_step_do_app
-  \\ FULL_SIMP_TAC std_ss [] \\ RES_TAC
-  \\ `!s env'. do_app s env' Opapp res inp1 = SOME (s,env,exp)` by ALL_TAC THEN1
-   (Cases_on `res` \\ FULL_SIMP_TAC (srw_ss()) [do_app_def]
-    \\ Cases_on `ALOOKUP l0 s` \\ FULL_SIMP_TAC (srw_ss()) [do_app_def]
-    \\ Cases_on `x'` \\ FULL_SIMP_TAC (srw_ss()) [do_app_def])
-  \\ FULL_SIMP_TAC std_ss []
-  \\ `!tt. evaluate F [] (repl_decs_cenv ++ init_envC)
-       (0,ml_repl_step_decls_s ++ [inp1; out1]) env exp
-       tt <=> (tt = ((0,ml_repl_step_decls_s ++ [inp1; out1]),Rval u))` by
-       cheat (* requires difficult proof: evaluate' ==> evaluate *)
-  \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ `store_assign (LENGTH ml_repl_step_decls_s + 1) u
-        (ml_repl_step_decls_s ++ [inp1; out1]) =
-      SOME (ml_repl_step_decls_s ++ [inp1; u])` by ALL_TAC THEN1
-   (SIMP_TAC std_ss [store_assign_def,LENGTH_APPEND,LENGTH]
-    \\ `ml_repl_step_decls_s ++ [inp1; out1] =
-        (ml_repl_step_decls_s ++ [inp1]) ++ [out1]` by ALL_TAC THEN1
-          FULL_SIMP_TAC std_ss [LUPDATE_LENGTH,APPEND,GSYM APPEND_ASSOC]
-    \\ `LENGTH ml_repl_step_decls_s + 1 =
-        LENGTH (ml_repl_step_decls_s ++ [inp1])` by SRW_TAC [] []
-    \\ FULL_SIMP_TAC std_ss []
-    \\ FULL_SIMP_TAC std_ss [LUPDATE_LENGTH]
-    \\ FULL_SIMP_TAC std_ss [APPEND,GSYM APPEND_ASSOC])
-  \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ SIMP_TAC (srw_ss()) [Once bigStepTheory.evaluate_dec_cases,
-       call_repl_step_dec_def,libTheory.emp_def,terminationTheory.pmatch_def,
-                          astTheory.pat_bindings_def]);
+  rator_x_assum`LIST_REL`mp_tac >>
+  rator_x_assum`LIST_REL`kall_tac >>
+  rator_x_assum`LIST_REL`mp_tac >>
+  rator_x_assum`LIST_REL`kall_tac >>
+  simp[LIST_REL_EL_EQN,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
+  simp[optionTheory.OPTREL_def] >> rw[] >>
+  first_x_assum(qspec_then`n`mp_tac) >>
+  first_x_assum(qspec_then`n`mp_tac) >>
+  simp[] >> rw[] >> rw[] >> fs[] >>
+  fs[conLangProofTheory.to_i2_invariant_def] >>
+  rator_x_assum`LIST_REL`assume_tac >>
+  fs[LIST_REL_EL_EQN] >>
+  first_x_assum(qspec_then`n`mp_tac) >>
+  simp[optionTheory.OPTREL_def] >>
+  fs[modLangProofTheory.to_i1_invariant_def] >>
+  fs[modLangProofTheory.s_to_i1_cases] >>
+  rator_x_assum`global_env_inv`mp_tac >>
+  simp[Once modLangProofTheory.v_to_i1_cases] >>
+  simp[Once modLangProofTheory.v_to_i1_cases] >>
+  strip_tac >> pop_assum mp_tac >>
+  simp[Once modLangProofTheory.v_to_i1_cases] >>
+*)
 
 (* Changing the references preserves the invariant *)
 
