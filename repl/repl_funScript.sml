@@ -42,14 +42,17 @@ val _ = type_abbrev ("inferencer_state",
      tenvC #
      (varN, num # infer_t) env``);
 
+val append_decls_def = Define `
+append_decls (a,b,c) (x,y,z) = (a++x,b++y,c++z)`;
+
 val infertype_top_def = Define `
 infertype_top ((decls, module_type_env, constructor_type_env, type_env) :inferencer_state) ast_top =
   case FST (infer_top decls module_type_env constructor_type_env type_env ast_top infer$init_infer_state) of
      | Failure _ => Failure "<type error>"
      | Success (new_decls, new_module_type_env, new_constructor_type_env, new_type_env) =>
-        Success ((new_decls,
+        Success ((append_decls new_decls decls,
                   new_module_type_env ++ module_type_env,
-                  merge_envC new_constructor_type_env constructor_type_env,
+                  merge_tenvC new_constructor_type_env constructor_type_env,
                   new_type_env ++ type_env),
                  inf_tenv_to_string_map new_type_env)`;
 
@@ -81,7 +84,8 @@ val update_state_def = Define`
 
 val update_state_err_def = Define`
   update_state_err s is cs =
-  s with <| rinferencer_state := is
+  s with <| rinferencer_state := 
+              (FST is, FST (SND s.rinferencer_state), FST (SND (SND s.rinferencer_state)), SND (SND (SND s.rinferencer_state)))
           ; rcompiler_state   := cs
           |>`
 

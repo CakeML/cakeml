@@ -201,7 +201,7 @@ val bc_eval1_def = Define`
          | _ => NONE)
   | (Galloc n, _) => SOME (bump_pc s with <| globals := s.globals ++ (GENLIST (λx. NONE) n) |>)
   | (Gupdate n, x::xs) =>
-    if n < LENGTH s.globals then
+    if n < LENGTH s.globals ∧ EL n s.globals = NONE then
       SOME (bump_pc s with <| stack := xs; globals := LUPDATE (SOME x) n s.globals |>)
     else NONE
   | (Gread n, xs) =>

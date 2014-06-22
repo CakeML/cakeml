@@ -1,4 +1,4 @@
-INCLUDES=.. ../.. ../../semantics ../../metatheory ../../bytecode ../../parsing ../../inference/proofs ../../compiler/proofs ../../initial
+INCLUDES=.. ../.. ../../semantics ../../semantics/proofs ../../metatheory ../../bytecode ../../parsing ../../inference/proofs ../../compiler/proofs ../../initial
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
@@ -7,7 +7,7 @@ EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 IMPL_BARE_THYS = repl_fun_altTheory repl_funTheory
 
-SEM_BARE_THYS = astTheory semanticPrimitivesTheory terminationTheory typeSystemTheory
+SEM_BARE_THYS = astTheory semanticPrimitivesTheory terminationTheory typeSystemTheory proofs/interpTheory
 
 META_BARE_THYS = typeSysPropsTheory
 

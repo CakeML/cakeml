@@ -702,7 +702,7 @@ val Decls_def = Define `
 
 val DeclAssum_def = Define `
   DeclAssum mn ds env tys =
-    ?s. Decls mn ([],init_envC,init_env) ((0,[]),{}) ds env ((0,s),tys)`;
+    ?s. Decls mn ([],init_envC,init_env) ((0,[]),init_type_decs) ds env ((0,s),tys)`;
 
 val write_tds_def = Define `
   write_tds mn tds ((menv1,cenv1,env1):all_env) =
@@ -1313,6 +1313,51 @@ val DeclAssumExists_NIL = store_thm("DeclAssumExists_NIL",
   SIMP_TAC (srw_ss()) [PULL_EXISTS,Once evaluate_decs_cases,
      DeclAssumExists_def,DeclAssum_def,Decls_def]);
 
+val always_evaluates_def = Define `
+  always_evaluates env exp =
+    !s1. ?s2 res. evaluate F env (0,s1) exp ((0,s2),Rval res)`;
+
+val Eval_IMP_always_evaluates = store_thm("Eval_IMP_always_evaluates",
+  ``!env exp P. Eval env exp P ==> always_evaluates env exp``,
+  FULL_SIMP_TAC std_ss [Eval_def,always_evaluates_def] \\ REPEAT STRIP_TAC
+  \\ Q.LIST_EXISTS_TAC [`s1`,`res`] \\ FULL_SIMP_TAC std_ss []
+  \\ IMP_RES_TAC evaluate_empty_store_IMP \\ FULL_SIMP_TAC std_ss []);
+
+val always_evaluates_ref = store_thm("always_evaluates_ref",
+  ``!env exp. always_evaluates env exp ==>
+              always_evaluates env (Uapp Opref exp)``,
+  FULL_SIMP_TAC std_ss [always_evaluates_def]
+  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
+  \\ FIRST_X_ASSUM (STRIP_ASSUME_TAC o Q.SPEC `s1`)
+  \\ ONCE_REWRITE_TAC [evaluate_cases]
+  \\ SRW_TAC [] [do_uapp_def,store_alloc_def]
+  \\ METIS_TAC []);
+
+val always_evaluates_fn = store_thm("always_evaluates_fn",
+  ``!n exp env. always_evaluates env (Fun n exp)``,
+  FULL_SIMP_TAC std_ss [always_evaluates_def]
+  \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SRW_TAC [] []);
+
+val DeclAssumExists_evaluate = store_thm("DeclAssumExists_evaluate",
+  ``!ds name n exp P.
+      (!env tys. DeclAssum mn ds env tys ==> always_evaluates env exp) ==>
+      DeclAssumExists mn ds ==>
+      DeclAssumExists mn (SNOC (Dlet (Pvar name) exp) ds)``,
+  fs [always_evaluates_def]
+  \\ SIMP_TAC std_ss [DeclAssumExists_def,PULL_EXISTS] \\ REPEAT STRIP_TAC
+  \\ FULL_SIMP_TAC std_ss [DeclAssum_def,Decls_APPEND,SNOC_APPEND,PULL_EXISTS]
+  \\ RES_TAC \\ SIMP_TAC std_ss [Decls_def] \\ ONCE_REWRITE_TAC [CONJ_COMM]
+  \\ SIMP_TAC std_ss [Once evaluate_decs_cases]
+  \\ SIMP_TAC (srw_ss()) [CONS_11,NOT_CONS_NIL,PULL_EXISTS]
+  \\ SIMP_TAC (srw_ss()) [PULL_EXISTS,Once evaluate_decs_cases]
+  \\ SIMP_TAC (srw_ss()) [PULL_EXISTS,Once evaluate_dec_cases]
+  \\ SIMP_TAC std_ss [merge_def,APPEND_NIL]
+  \\ SIMP_TAC (srw_ss()) [pmatch_def,ALL_DISTINCT,pat_bindings_def,
+       combine_dec_result_def]
+  \\ FULL_SIMP_TAC std_ss [Decls_def,Eval_def,PULL_EXISTS,merge_def] \\ RES_TAC
+  \\ SRW_TAC [] [] \\ FIRST_X_ASSUM (STRIP_ASSUME_TAC o Q.SPEC `s`)
+  \\ Q.LIST_EXISTS_TAC [`tys`,`s2`,`new_tds`,`res_env`,`res`,`(0,s)`] \\ fs []);
+
 (* lookup cons *)
 
 val lookup_cons_write = store_thm("lookup_cons_write",
@@ -1339,10 +1384,17 @@ val DeclAssumCons_def = Define `
 local
   val lemma = EVAL ``(SND (init_envC))``
   val tm = lemma |> concl |> rand
+  val lemma2 = EVAL ``init_type_decs``
+  val tm2 = lemma2 |> concl
+    |> find_terms (can pred_setSyntax.dest_insert)
+    |> map (rand o rator)
+    |> (fn xs => listSyntax.mk_list(xs,type_of (hd xs)))
 in
   val DeclAssumCons_NIL = store_thm("DeclAssumCons_NIL",
-    ``DeclAssumCons mn [] [] ^tm``,
-    fs [DeclAssumCons_def,DeclAssum_def,Decls_NIL,lemma]);
+    ``DeclAssumCons mn [] ^tm2 ^tm``,
+    fs [DeclAssumCons_def,DeclAssum_def,Decls_NIL,lemma,lemma2]
+    \\ fs [pred_setTheory.EXTENSION]
+    \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC \\ fs []);
 end
 
 val DeclAssumCons_SNOC_Dlet = store_thm("DeclAssumCons_SNOC_Dlet",
@@ -1484,7 +1536,7 @@ val Tmod_lemma = prove(
   ``DeclAssumExists (SOME m) ds ==>
     ALL_DISTINCT (type_names ds []) ==>
     ?s tds env. !specs.
-      evaluate_top F ([],init_envC,init_env) ((0,[]),{},{})
+      evaluate_top F ([],init_envC,init_env) ((0,[]),init_type_decs,{})
         (Tmod m specs ds)
         ((s,DeclTys (SOME m) ds,{m}),([(m,tds)],emp),Rval ([(m,env)],emp)) /\
       DeclEnv (SOME m) ds =

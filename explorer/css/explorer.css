@@ -1,0 +1,13 @@
+body {
+    padding:20px 20px;
+    font-family: "Courier New", Courier, monospace;
+}
+
+textarea{
+    width: 80em;
+    height: 20em;
+    border: 3px solid #cccccc;
+    padding: 5px;
+    font-family: "Courier New", Courier, monospace;
+    resize: none;
+}

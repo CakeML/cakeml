@@ -433,6 +433,7 @@ gupdate : forall s n x xs.
 bc_fetch s = Just (Gupdate n)
 && s.stack = x::xs
 && n < List.length s.globals
+&& List_extra.nth s.globals n = Nothing
 ==>
 bc_next s (<|bump_pc s with stack = xs;
                             globals = List.update s.globals n (Just x)|>)

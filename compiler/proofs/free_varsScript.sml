@@ -1,5 +1,5 @@
 open HolKernel boolLib bossLib lcsymtacs pred_setTheory arithmeticTheory listTheory pairTheory finite_mapTheory rich_listTheory
-open miscLib miscTheory boolSimps bigStepTheory astTheory semanticPrimitivesTheory libTheory terminationTheory
+open miscLib miscTheory boolSimps bigStepTheory astTheory semanticPrimitivesTheory libTheory terminationTheory evalPropsTheory
 open modLangTheory conLangTheory decLangTheory exhLangTheory patLangTheory toIntLangTheory compilerTerminationTheory
 open modLangProofTheory conLangProofTheory exhLangProofTheory patLangProofTheory
 
@@ -1425,13 +1425,13 @@ val closed_top_def = Define`
   closed_top env top ⇔ FV_top top ⊆ all_env_dom env`
 
 val new_top_vs_def = Define`
-  new_top_vs (Tdec d) = new_dec_vs d ∧
-  new_top_vs (Tmod _ _ _) = []`
+  new_top_vs (Tdec d) = MAP Short (new_dec_vs d) ∧
+  new_top_vs (Tmod mn _ ds) = MAP (Long mn) (new_decs_vs ds)`
 val _ = export_rewrites["new_top_vs_def"]
 
 val FV_prog_def = Define`
   (FV_prog [] = {}) ∧
-  (FV_prog (t::ts) = FV_top t ∪ ((FV_prog ts) DIFF (set (MAP Short (new_top_vs t)))))`
+  (FV_prog (t::ts) = FV_top t ∪ ((FV_prog ts) DIFF (set (new_top_vs t))))`
 
 val closed_prog_def = Define`
   closed_prog p ⇔ FV_prog p = {}`
@@ -1564,21 +1564,22 @@ val free_vars_prog_i1_def = Define`
 
 val dec_to_i1_new_dec_vs = store_thm("dec_to_i1_new_dec_vs",
   ``∀a b c d e f g h. dec_to_i1 a b c d e = (f,g,h) ⇒
-      set (MAP FST g) = set (new_dec_vs e)``,
+      set (MAP FST g) = set (new_dec_vs e) ∧
+      f = a + LENGTH g``,
   rw[dec_to_i1_def] >>
   BasicProvers.EVERY_CASE_TAC >> fs[LET_THM] >> rw[] >>
   rw[alloc_defs_GENLIST,MAP_ZIP,FST_triple])
 
 val top_to_i1_new_top_vs = store_thm("top_to_i1_new_top_vs",
   ``∀n m e h x y z p. top_to_i1 n m e h = (x,y,z,p) ⇒
-      FDOM z = FDOM e ∪ set (new_top_vs h)``,
+      FDOM z = FDOM e ∪ {x | MEM (Short x) (new_top_vs h)}``,
   rw[top_to_i1_def] >>
   BasicProvers.EVERY_CASE_TAC >> fs[LET_THM] >>
   first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
   rw[] >>
   simp[(Q.ISPECL[`FST`,`SND`]FOLDL_FUPDATE_LIST|>SIMP_RULE(srw_ss())[LAMBDA_PROD])] >>
   simp[FDOM_FUPDATE_LIST,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
-  imp_res_tac dec_to_i1_new_dec_vs >> rw[])
+  imp_res_tac dec_to_i1_new_dec_vs >> rw[MEM_MAP])
 
 val FV_prog_to_i1 = store_thm("FV_prog_to_i1",
   ``∀n m e ps x y z p. prog_to_i1 n m e ps = (x,y,z,p) ⇒

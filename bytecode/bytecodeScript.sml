@@ -459,7 +459,8 @@ bc_next s ((bump_pc s with<| globals := s.globals ++ (REPLICATE n NONE)|>)))
 /\ (! s n x xs.
 ((bc_fetch s = SOME (Gupdate n))
 /\ (s.stack = (x::xs))
-/\ (n < LENGTH s.globals))
+/\ (n < LENGTH s.globals)
+/\ (EL n s.globals = NONE))
 ==>
 bc_next s ((bump_pc s with<| stack := xs;
                             globals := LUPDATE (SOME x) n s.globals|>)))

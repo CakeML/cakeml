@@ -6,7 +6,6 @@
 *.ui
 *.o
 .HOLMK
-selftest.exe
 
 # regression test logs
 regression.log
@@ -20,3 +19,7 @@ timing.log
 
 # Emacs backup files
 *~
+
+# Compiler Explorer
+*.exe
+*.cgi

@@ -395,8 +395,8 @@ val SpecLine_OK = store_thm(
     MAP TK toks = ptree_fringe pt ⇒
     ∃sl. ptree_SpecLine pt = SOME sl``,
   start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, FORALL_AND_THM, DISJ_IMP_THM] >>
-  rveq >> simp[ptree_SpecLine_def] >>
-  metis_tac[V_OK, Type_OK, TypeName_OK, TypeDec_OK]);
+  rveq >> simp[ptree_SpecLine_def,pairTheory.UNCURRY] >>
+  metis_tac[V_OK, Type_OK, TypeName_OK, TypeDec_OK, Dconstructor_OK]);
 
 val SpecLineList_OK = store_thm(
   "SpecLineList_OK",

@@ -8431,7 +8431,7 @@ gg goal
 (* deref *)
 
 val zHEAP_DEREF = let
-  val th = compose_specs ["mov r0,[r0+9w]"]
+  val th = compose_specs ["mov r0,[r0+9]"]
   val pc = get_pc th
   val target = ``~zS * zPC p * zVALS cs vals *
       cond (heap_inv (cs,x1,x2,x3,x4,refs,stack,s,NONE) vals /\ isRefPtr x1)``
@@ -8520,7 +8520,7 @@ val zHEAP_DEREF = let
 (* update ref *)
 
 val zHEAP_UPDATE_REF = let
-  val th = compose_specs ["mov [r1+9w],r0"]
+  val th = compose_specs ["mov [r1+9],r0"]
   val pc = get_pc th
   val target = ``~zS * zPC p * zVALS cs vals *
       cond (heap_inv (cs,x1,x2,x3,x4,refs,stack,s,NONE) vals /\ isRefPtr x2)``
@@ -11235,7 +11235,7 @@ val LENGTH_x64_code = prove(
   Induct \\ ASM_SIMP_TAC std_ss [x64_code_def,SUM,MAP,LENGTH,
        LENGTH_APPEND,x64_length_def,LENGTH_x64_IGNORE]);
 
-val x64_code_ALT = prove(
+val x64_code_ALT = store_thm("x64_code_ALT",
   ``!b. x64_code i (b::bs) =
           let c = x64 i b in c ++ x64_code (i + LENGTH c) bs``,
   SIMP_TAC std_ss [x64_code_def,LET_DEF,x64_length_def,LENGTH_x64_IGNORE]);
@@ -11245,15 +11245,15 @@ val LENGTH_small_offset = prove(
       if n < 268435456 then LENGTH xs else 4``,
   SRW_TAC [] [small_offset_def]);
 
-val LENGTH_IF = prove(
+val LENGTH_IF = store_thm("LENGTH_IF",
   ``LENGTH (if b then xs else ys) = if b then LENGTH xs else LENGTH ys``,
   SRW_TAC [] []);
 
-val APPEND_IF = prove(
+val APPEND_IF = store_thm("APPEND_IF",
   ``(if b then xs else ys) ++ zs = if b then xs ++ zs else ys ++ zs:'a list``,
   SRW_TAC [] []);
 
-val IF_AND = prove(
+val IF_AND = store_thm("IF_AND",
   ``(if (b1 /\ b2) then c else d) =
     if b1 then (if b2 then c else d) else d``,
   SRW_TAC [] [] \\ FULL_SIMP_TAC std_ss []);

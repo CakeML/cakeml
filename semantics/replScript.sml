@@ -17,7 +17,7 @@ repl_state = <| (* Elaborator state *)
 val init_repl_state_def = Define`
   init_repl_state = <| type_bindings := init_type_bindings;
                        tdecs := init_decls; tenvM := []; tenvC := init_tenvC; tenv := init_tenv;
-                       envM := []; envC := init_envC; store := ((0,[]),{},{}); envE := init_env |>`
+                       envM := []; envC := init_envC; store := ((0,[]),init_type_decs,{}); envE := init_env |>`
 
 val _ = Hol_datatype `
 repl_result =
@@ -44,9 +44,7 @@ update_repl_state ast state type_bindings tdecs tenvM tenvC tenv store envC r =
         * defines some datatype constructors and puts them into the store before
         * failing. *)
         state with <| store := store;
-                      tdecs := (case state.tdecs of 
-                                 (mdecs,tdecs,edecs) => 
-                                   set (MAP FST tenvM) ∪ mdecs, tdecs, edecs) |>`;
+                      tdecs := tdecs |>`;
 
 val print_envM_def = Define `
 print_envM envM = CONCAT (MAP (λ(x,m). "module " ++ x ++ " = <structure>\n") envM)`;
@@ -123,7 +121,7 @@ val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
   (elab_top state.type_bindings ast = (type_bindings', top)) ∧
   (type_top state.tdecs state.tenvM state.tenvC state.tenv top tdecs' tenvM' tenvC' tenv') ∧
   evaluate_top F (state.envM, state.envC, state.envE) state.store top (store',envC',r) ∧
-  ast_repl (update_repl_state top state type_bindings' tdecs' tenvM' tenvC' tenv' store' envC' r) type_errors asts rest
+  ast_repl (update_repl_state top state type_bindings' (union_decls tdecs' state.tdecs) tenvM' tenvC' tenv' store' envC' r) type_errors asts rest
   ⇒
   ast_repl state (F::type_errors) (SOME ast::asts) (Result (print_result (tenv_to_string_map tenv') top envC' r) rest)) ∧
 
