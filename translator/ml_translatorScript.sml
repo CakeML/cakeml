@@ -1325,12 +1325,16 @@ val Eval_IMP_always_evaluates = store_thm("Eval_IMP_always_evaluates",
 
 val always_evaluates_ref = store_thm("always_evaluates_ref",
   ``!env exp. always_evaluates env exp ==>
-              always_evaluates env (Uapp Opref exp)``,
+              always_evaluates env (App Opref [exp])``,
   FULL_SIMP_TAC std_ss [always_evaluates_def]
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
   \\ FIRST_X_ASSUM (STRIP_ASSUME_TAC o Q.SPEC `s1`)
   \\ ONCE_REWRITE_TAC [evaluate_cases]
-  \\ SRW_TAC [] [do_uapp_def,store_alloc_def]
+  \\ SRW_TAC [] []
+  \\ ONCE_REWRITE_TAC [evaluate_cases]
+  \\ SRW_TAC [boolSimps.DNF_ss] [do_app_def,store_alloc_def]
+  \\ ONCE_REWRITE_TAC [hd (tl (CONJUNCTS evaluate_cases))]
+  \\ SRW_TAC [] []
   \\ METIS_TAC []);
 
 val always_evaluates_fn = store_thm("always_evaluates_fn",

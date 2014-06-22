@@ -199,13 +199,12 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
  val _ = Define `
 
-(lit_to_tok_tree l1147 =
-  ((case (l1147) of
-       ( (Bool T) ) => L (LongidT "" "true")
-     | ( (Bool F) ) => L (LongidT "" "false")
-     | ( (IntLit n) ) => L (IntT n)
-     | ( Unit ) => N (L LparT) (L RparT)
-   )))`;
+(lit_to_tok_tree l =((case (l) of
+     ( (Bool T) ) => L (LongidT "" "true")
+   | ( (Bool F) ) => L (LongidT "" "false")
+   | ( (IntLit n) ) => L (IntT n)
+   | ( Unit ) => N (L LparT) (L RparT)
+ )))`;
 
 
 
@@ -281,8 +280,8 @@ val _ = Define `
 /\
 (exp_to_tok_tree indent (App Equality [e1;e2]) = (N (L LparT) (N (exp_to_tok_tree indent e1) (N (L EqualsT) (N (exp_to_tok_tree indent e2) (L RparT))))))
 /\
-(exp_to_tok_tree indent (App (Opn o1459) [e1;e2]) =  
-(let s = ((case o1459 of
+(exp_to_tok_tree indent (App (Opn o0) [e1;e2]) =  
+(let s = ((case o0 of
       Plus => "+"
     | Minus => "-"
     | Times => "*"
@@ -357,10 +356,10 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (type_to_tok_tree (Tapp [t1;t2] TC_fn) = (N (L LparT) (N (type_to_tok_tree t1) (N (L ArrowT) (N (type_to_tok_tree t2) (L RparT))))))
 /\
-(type_to_tok_tree (Tapp ts tc1460) =  
+(type_to_tok_tree (Tapp ts tc0) =  
 (if ts = [] then
-    (tc_to_tok_tree tc1460)
-  else N (L LparT) (N (join_trees (L CommaT) (MAP type_to_tok_tree ts)) (N (L RparT) (tc_to_tok_tree tc1460)))))`;
+    (tc_to_tok_tree tc0)
+  else N (L LparT) (N (join_trees (L CommaT) (MAP type_to_tok_tree ts)) (N (L RparT) (tc_to_tok_tree tc0)))))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn type_to_tok_tree_defn;
 
