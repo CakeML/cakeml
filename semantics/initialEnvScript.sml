@@ -96,6 +96,16 @@ val _ = Define `
    ("option", TC_name (Short "option"))]))`;
 
 
+(*val init_type_decs : set tid_or_exn*)
+val _ = Define `
+ (init_type_decs =  
+ ({ TypeId (Short "option");
+    TypeId (Short "list");
+    TypeExn (Short "Bind");
+    TypeExn (Short "Div");
+    TypeExn (Short "Eq") }))`;
+
+
 (* The modules, types, and exceptions that have been declared, for the type system to detect duplicates*)
 (*val init_decls : decls*)
 val _ = Define `
