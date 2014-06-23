@@ -96,8 +96,7 @@ val RTC_bc_next_gvrel = store_thm("RTC_bc_next_gvrel",
 
 val same_length_gvrel_same = store_thm("same_length_gvrel_same",
   ``∀l1 l2. LENGTH l1 = LENGTH l2 ∧ EVERY IS_SOME l1 ∧ gvrel l1 l2 ⇒ l1 = l2``,
-  rw[bytecodeProofTheory.gvrel_def,LIST_EQ_REWRITE,EVERY_MEM,MEM_EL,PULL_EXISTS,
-     free_varsTheory.IS_SOME_EXISTS] >>
+  rw[gvrel_def,LIST_EQ_REWRITE,EVERY_MEM,MEM_EL,PULL_EXISTS,IS_SOME_EXISTS] >>
   metis_tac[])
 
 val exps_to_i1_MAP = store_thm("exps_to_i1_MAP",
@@ -1461,6 +1460,34 @@ val env_rs_can_Print = store_thm("env_rs_can_Print",
   metis_tac[optionTheory.NOT_SOME_NONE,optionTheory.SOME_11])
 *)
 
+(* prompt_to_i3_special, for compile_special below *)
+(* defined here to enable tactic reuse *)
+
+val prompt_to_i3_special_def = Define`
+  prompt_to_i3_special none_tag next (Prompt_i2 ds) =
+    Let_i2 NONE (decs_to_i3 next ds) (Con_i2 none_tag [])`
+
+val prompt_to_i3_special_correct = store_thm("prompt_to_i3_special_correct",
+  ``∀ck (exh:exh_ctors_env) genv s p new_env s' next' e.
+    evaluate_prompt_i2 ck exh genv s (Prompt_i2 p) (s',new_env,NONE) ⇒
+    num_defs p = 0 ∧
+    (e = prompt_to_i3_special (none_tag,SOME(TypeId(Short"option"))) (LENGTH genv) (Prompt_i2 p)) ⇒
+    evaluate_i3 ck (exh,[]) (s,genv) e ((s',genv++new_env),Rval(Conv_i2 (none_tag,SOME(TypeId(Short"option")))[]))``,
+  simp[prompt_to_i3_special_def] >>
+  simp[evaluate_prompt_i2_cases,PULL_EXISTS] >>
+  rw[] >>
+  first_x_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]decs_to_i3_correct)) >>
+  simp[dec_result_to_i3_cases,PULL_EXISTS] >> rw[] >>
+  simp[Once evaluate_i3_cases] >>
+  first_assum(match_exists_tac o concl) >> rw[] >>
+  simp[Once evaluate_i3_cases] >>
+  simp[Once evaluate_i3_cases])
+
+val free_vars_i2_prompt_to_i3_special = store_thm("free_vars_i2_prompt_to_i3_special",
+  ``∀x s p. free_vars_i2 (prompt_to_i3_special x s p) = free_vars_prompt_i2 p``,
+  Cases_on`p`>>simp[prompt_to_i3_special_def] >>
+  simp[free_vars_i2_decs_to_i3])
+
 (* compile_top *)
 
 val compile_top_labels = store_thm("compile_top_labels",
@@ -1532,6 +1559,7 @@ val tac2 =
     specl_args_of_then``exp_to_pat``(CONJUNCT1 free_vars_pat_exp_to_pat)mp_tac >>
     simp[] >> disch_then match_mp_tac >>
     imp_res_tac free_vars_i2_prompt_to_i3 >>
+    simp[free_vars_i2_prompt_to_i3_special] >>
     imp_res_tac free_vars_prompt_to_i2 >>
     imp_res_tac FV_top_to_i1 >>
     simp[] >>
@@ -2142,7 +2170,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[EL_MAP] >> ntac 3 strip_tac >> simp[] >>
       ntac 2 strip_tac >> simp[] >> ntac 2 strip_tac >>
       simp[] >> ntac 2 strip_tac >>
-      ntac 11 (first_x_assum(qspec_then`n`mp_tac)) >>
+      ntac 10 (first_x_assum(qspec_then`n`mp_tac)) >>
       simp[] >> strip_tac >> simp[] ) >>
     simp[EXISTS_PROD,libTheory.emp_def,merge_envC_def,libTheory.merge_def] >>
     PairCases_on`s2` >> simp[env_rs_def] >>
@@ -2583,9 +2611,8 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[EL_MAP] >> ntac 3 strip_tac >> simp[] >>
       ntac 2 strip_tac >> simp[] >> ntac 2 strip_tac >>
       simp[] >> ntac 2 strip_tac >>
-      ntac 11 (first_x_assum(qspec_then`n`mp_tac)) >>
-      simp[] >> strip_tac >> simp[] >>
-      ntac 2 strip_tac >> simp[]) >>
+      ntac 9 (first_x_assum(qspec_then`n`mp_tac)) >>
+      simp[] >> strip_tac >> simp[]) >>
     simp[EXISTS_PROD,libTheory.emp_def,merge_envC_def,libTheory.merge_def] >>
     PairCases_on`s2` >> simp[env_rs_def] >>
     simp[RIGHT_EXISTS_AND_THM] >>
@@ -3019,7 +3046,7 @@ val tac1 =
   simp[sv_to_exh_sv_rel] >>
   metis_tac[optionTheory.OPTREL_MONO,v_to_exh_extend_disjoint,FUNION_COMM,sv_rel_mono,DISJOINT_SYM]
 
-val tac2=
+val tac22=
   conj_asm1_tac >- (
     specl_args_of_then``exp_to_pat``(CONJUNCT1 free_vars_pat_exp_to_pat)mp_tac >>
     simp[] >> disch_then match_mp_tac >>
@@ -3185,7 +3212,7 @@ val compile_prog_thm = store_thm("compile_prog_thm",
     strip_tac >>
     first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_Cexp_correct)) >>
     simp[] >>
-    discharge_hyps_keep >- tac2 >>
+    discharge_hyps_keep >- tac22 >>
     disch_then(qx_choosel_then[`Cres0`]strip_assume_tac) >>
     qpat_assum`bs.code = X`mp_tac >>
     specl_args_of_then``compile_Cexp`` compile_Cexp_thm mp_tac >>
@@ -3414,7 +3441,7 @@ val compile_prog_thm = store_thm("compile_prog_thm",
   strip_tac >>
   first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_Cexp_correct)) >>
   simp[] >>
-  discharge_hyps_keep >- tac2 >>
+  discharge_hyps_keep >- tac22 >>
   disch_then(qx_choosel_then[`Cres0`]strip_assume_tac) >>
   qpat_assum`bs.code = X`mp_tac >>
   specl_args_of_then``compile_Cexp`` compile_Cexp_thm mp_tac >>
@@ -3592,7 +3619,7 @@ val compile_prog_divergence = store_thm("compile_prog_divergence",
   strip_tac >>
   first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_Cexp_correct)) >>
   simp[] >>
-  discharge_hyps_keep >- ( Cases_on`grd0`>>fs[]>> tac2 ) >>
+  discharge_hyps_keep >- ( Cases_on`grd0`>>fs[]>> tac22 ) >>
   disch_then(qx_choosel_then[`Cres0`]strip_assume_tac) >>
   qpat_assum`bs.code = X`mp_tac >>
   specl_args_of_then``compile_Cexp`` compile_Cexp_thm mp_tac >>
@@ -3631,31 +3658,6 @@ val compile_prog_divergence = store_thm("compile_prog_divergence",
   simp[Abbr`bs0`])
 
 (* compile_special, for the repl *)
-
-val prompt_to_i3_special_def = Define`
-  prompt_to_i3_special none_tag next (Prompt_i2 ds) =
-    Let_i2 NONE (decs_to_i3 next ds) (Con_i2 none_tag [])`
-
-val prompt_to_i3_special_correct = store_thm("prompt_to_i3_special_correct",
-  ``∀ck (exh:exh_ctors_env) genv s p new_env s' next' e.
-    evaluate_prompt_i2 ck exh genv s (Prompt_i2 p) (s',new_env,NONE) ⇒
-    num_defs p = 0 ∧
-    (e = prompt_to_i3_special (none_tag,SOME(TypeId(Short"option"))) (LENGTH genv) (Prompt_i2 p)) ⇒
-    evaluate_i3 ck (exh,[]) (s,genv) e ((s',genv++new_env),Rval(Conv_i2 (none_tag,SOME(TypeId(Short"option")))[]))``,
-  simp[prompt_to_i3_special_def] >>
-  simp[evaluate_prompt_i2_cases,PULL_EXISTS] >>
-  rw[] >>
-  first_x_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]decs_to_i3_correct)) >>
-  simp[dec_result_to_i3_cases,PULL_EXISTS] >> rw[] >>
-  simp[Once evaluate_i3_cases] >>
-  first_assum(match_exists_tac o concl) >> rw[] >>
-  simp[Once evaluate_i3_cases] >>
-  simp[Once evaluate_i3_cases])
-
-val free_vars_i2_prompt_to_i3_special = store_thm("free_vars_i2_prompt_to_i3_special",
-  ``∀x s p. free_vars_i2 (prompt_to_i3_special x s p) = free_vars_prompt_i2 p``,
-  Cases_on`p`>>simp[prompt_to_i3_special_def] >>
-  simp[free_vars_i2_decs_to_i3])
 
 val compile_special_def = Define`
   compile_special cs top =
@@ -3792,7 +3794,6 @@ val lookup_tag_env_NONE = prove(
   ``lookup_tag_env NONE x = (tuple_tag,NONE)``,
   Cases_on`x`>>simp[lookup_tag_env_def])
 
-(*
 val compile_special_thm = store_thm("compile_special_thm",
   ``∀ck env stm top res. evaluate_top ck env stm top res ⇒
      ∀rs grd bc bc0 bs s0 tm s.
@@ -3878,15 +3879,10 @@ val compile_special_thm = store_thm("compile_special_thm",
   strip_tac >>
   first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_exh_correct)) >>
   simp[env_to_exh_MAP,result_to_exh_cases,PULL_EXISTS,Once v_to_exh_cases,vs_to_exh_MAP] >>
-  fs[LIST_REL_O,OPTREL_O] >>
-  qmatch_assum_abbrev_tac`LIST_REL (v_to_exh rsexh) s20 sh` >>
+  fs[LIST_REL_O,OPTREL_O,sv_rel_O] >>
+  qmatch_assum_abbrev_tac`LIST_REL (sv_rel (v_to_exh rsexh)) s20 sh` >>
   qmatch_assum_rename_tac`LIST_REL R genv2 gh`["R"] >>
-  `store_to_exh (exh ⊌ rsexh) ((s10,s20),genv2) ((s10,sh),gh)` by (
-    simp[store_to_exh_def] >>
-    conj_tac >>
-    match_mp_tac (MP_CANON (GEN_ALL EVERY2_mono)) >>
-    HINT_EXISTS_TAC >>
-    metis_tac[optionTheory.OPTREL_MONO,v_to_exh_extend_disjoint,FUNION_COMM,DISJOINT_SYM]) >>
+  `store_to_exh (exh ⊌ rsexh) ((s10,s20),genv2) ((s10,sh),gh)` by tac1 >>
   disch_then(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
   disch_then(qspec_then`exh ⊌ rsexh`mp_tac) >> simp[] >>
   strip_tac >>
@@ -3897,81 +3893,14 @@ val compile_special_thm = store_thm("compile_special_thm",
   strip_tac >>
   first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_Cexp_correct)) >>
   simp[] >>
-  discharge_hyps_keep >- (
-    conj_asm1_tac >- (
-      specl_args_of_then``exp_to_pat``(CONJUNCT1 free_vars_pat_exp_to_pat)mp_tac >>
-      simp[] >> disch_then match_mp_tac >>
-      simp[free_vars_i2_prompt_to_i3_special] >>
-      imp_res_tac free_vars_prompt_to_i2 >>
-      imp_res_tac FV_top_to_i1 >>
-      fs[closed_top_def,all_env_dom_def,SUBSET_DEF,PULL_EXISTS] >>
-      simp[EXTENSION] >> rw[] >>
-      CCONTR_TAC >> fs[] >> res_tac >> fs[] >> rw[] >>
-      fs[to_i1_invariant_def] >>
-      imp_res_tac global_env_inv_inclusion >>
-      fs[SUBSET_DEF]) >>
-    simp[csg_closed_pat_def,map_count_store_genv_def,store_to_exh_def] >>
-    conj_tac >- (
-      (v_to_pat_closed |> CONJUNCT2 |> SIMP_RULE(srw_ss())[] |> match_mp_tac) >>
-      (v_to_exh_closed |> CONJUNCT2 |> CONJUNCT1 |> MP_CANON |> match_mp_tac) >>
-      fs[store_to_exh_def] >>
-      simp[vs_to_exh_MAP] >>
-      first_assum(match_exists_tac o concl) >> simp[] >>
-      fs[to_i2_invariant_def] >>
-      fs[Once s_to_i2_cases] >>
-      (v_to_i2_closed |> CONJUNCT2 |> CONJUNCT1 |> MP_CANON |> match_mp_tac) >>
-      first_assum(match_exists_tac o concl) >> simp[] >>
-      (v_to_i1_closed |> CONJUNCT2 |> CONJUNCT1 |> MP_CANON |> match_mp_tac) >>
-      fs[to_i1_invariant_def] >>
-      fs[Once s_to_i1_cases] >>
-      first_assum(match_exists_tac o concl) >> simp[]) >>
-    match_mp_tac genv_to_pat_closed >>
-    match_mp_tac genv_to_exh_closed >>
-    fs[store_to_exh_def] >>
-    ONCE_REWRITE_TAC[CONJ_COMM] >>
-    first_assum(match_exists_tac o concl) >> simp[] >>
-    fs[to_i2_invariant_def] >>
-    match_mp_tac (MP_CANON genv_to_i2_closed) >>
-    first_assum(match_exists_tac o concl) >> simp[]>>
-    first_assum(match_exists_tac o concl) >> simp[]) >>
+  discharge_hyps_keep >- tac2 >>
   disch_then(qx_choosel_then[`Cres0`]strip_assume_tac) >>
   first_assum(mp_tac o MATCH_MP (CONJUNCT1 Cevaluate_syneq)) >>
   simp[] >>
   Q.PAT_ABBREV_TAC`Cexp = exp_to_Cexp Z` >>
   qmatch_assum_abbrev_tac`closed_vlabs [] Csg XX` >>
   disch_then(qspecl_then[`$=`,`Csg`,`[]`,`Cexp`]mp_tac) >>
-  discharge_hyps >- (
-    simp[syneq_exp_refl] >>
-    fs[store_to_exh_def] >>
-    simp[Abbr`Csg`,map_count_store_genv_def,csg_rel_def] >>
-    simp[MAP_MAP_o,optionTheory.OPTION_MAP_COMPOSE,combinTheory.o_DEF] >>
-    simp[EVERY2_MAP] >>
-    conj_tac >>
-    match_mp_tac EVERY2_MEM_MONO >>
-    HINT_EXISTS_TAC >>
-    simp[exh_Cv_def,optionTheory.OPTREL_def,UNCURRY] >- (
-      rw[] >> rw[] >>
-      first_x_assum(mp_tac o MATCH_MP v_pat_syneq) >>
-      discharge_hyps >- (
-        simp[] >>
-        fs[csg_closed_pat_def,EVERY_MAP,EVERY_MEM] >>
-        first_x_assum match_mp_tac >>
-        simp[map_count_store_genv_def,MEM_MAP] >>
-        qexists_tac`FST x` >> simp[] >>
-        imp_res_tac MEM_ZIP_MEM_MAP >>
-        imp_res_tac EVERY2_LENGTH >> fs[] ) >>
-      metis_tac[syneq_trans] ) >>
-    rw[] >> rw[] >>
-    first_x_assum(mp_tac o MATCH_MP v_pat_syneq) >>
-    discharge_hyps >- (
-      simp[] >>
-      fs[csg_closed_pat_def,EVERY_MAP,EVERY_MEM] >>
-      first_x_assum(qspec_then`OPTION_MAP v_to_pat (FST x)`mp_tac) >>
-      simp[map_count_store_genv_def] >>
-      disch_then match_mp_tac >>
-      simp[MEM_MAP,PULL_EXISTS] >>
-      metis_tac[MEM_ZIP_MEM_MAP,EVERY2_LENGTH,FST,SND] ) >>
-    metis_tac[syneq_trans] ) >>
+  discharge_hyps >- tac3 >>
   strip_tac >>
   first_assum(mp_tac o MATCH_MP (CONJUNCT1 compile_val)) >>
   simp[] >>
@@ -4196,13 +4125,13 @@ val compile_special_thm = store_thm("compile_special_thm",
     rator_x_assum`s_to_i2`mp_tac >>
     simp[s_to_i2_cases] ) >>
   rator_x_assum`store_to_exh`mp_tac >>
-  simp[store_to_exh_csg_rel,csg_rel_unpair,LIST_REL_O] >>
+  simp[store_to_exh_csg_rel,csg_rel_unpair,LIST_REL_O,sv_rel_O] >>
   strip_tac >> simp[PULL_EXISTS] >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   rpt(rator_x_assum`csg_rel`mp_tac) >>
   simp[map_count_store_genv_def,csg_rel_unpair] >>
   rpt strip_tac >>
-  simp[LIST_REL_O,OPTREL_O,PULL_EXISTS] >>
+  simp[LIST_REL_O,OPTREL_O,sv_rel_O,PULL_EXISTS] >>
   simp[Once(GSYM CONJ_ASSOC)] >>
   qexists_tac`SND(FST q)` >>
   qexists_tac`SND q` >>
@@ -4229,14 +4158,15 @@ val compile_special_thm = store_thm("compile_special_thm",
       rfs[] >>
       disch_then(fn th => first_x_assum (mp_tac o MATCH_MP (CONJUNCT2 th))) >>
       simp[] ) >>
-    match_mp_tac LIST_REL_exh_Cv_syneq_trans >>
+    match_mp_tac LIST_REL_sv_rel_exh_Cv_syneq_trans >>
     HINT_EXISTS_TAC >> simp[] >>
-    match_mp_tac LIST_REL_exh_Cv_syneq_trans >>
+    match_mp_tac LIST_REL_sv_rel_exh_Cv_syneq_trans >>
     HINT_EXISTS_TAC >> simp[] >>
     fs[EVERY2_MAP] >>
     match_mp_tac EVERY2_MEM_MONO >>
     HINT_EXISTS_TAC >> simp[] >>
-    simp[UNCURRY] >>
+    simp[FORALL_PROD] >>
+    Cases >> Cases >> simp[sv_rel_cases] >>
     rw[exh_Cv_def] >> rw[] >>
     HINT_EXISTS_TAC >> simp[] >>
     first_x_assum(mp_tac o MATCH_MP (CONJUNCT1 evaluate_pat_closed)) >>
@@ -4244,7 +4174,8 @@ val compile_special_thm = store_thm("compile_special_thm",
     simp[EVERY_MEM] >>
     imp_res_tac EVERY2_LENGTH >>
     imp_res_tac MEM_ZIP_MEM_MAP >>
-    rfs[]) >>
+    rfs[] >>
+    metis_tac[sv_every_def]) >>
   conj_tac >- (
     rator_x_assum`Cevaluate`mp_tac >>
     specl_args_of_then``Cevaluate``Cevaluate_closed_vlabs mp_tac >>
@@ -4272,6 +4203,5 @@ val compile_special_thm = store_thm("compile_special_thm",
   match_mp_tac Cenv_bs_with_irr >>
   first_assum(match_exists_tac o concl) >>
   simp[])
-*)
 
 val _ = export_theory()
