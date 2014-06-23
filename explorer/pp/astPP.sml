@@ -277,8 +277,8 @@ fun pconsomePrint sys d t Top str brk blk=
     |   printTerms (x::xs) = sys (Top,Top,Top) (d-1) x >> str ",">> (printTerms xs);
     val (ty,ls) = strip_comb (rand l);
     (*Special case for cons and handle long names*)
-    val ctor = if ty = ``Short`` then let val ctort = toString (hd ls) in 
-                                      (if (ctort = "::") then "Cons" else ctort) end
+    val ctor = if (term_to_string ty = "Short") then (let val ctort = toString (hd ls) in 
+                                        (if (ctort = "::") then "Cons" else ctort) end)
                else case ls of [l,r] => (toString l)^"."^(toString r)
     (*Properly handle LONG names*)
   in
@@ -286,7 +286,7 @@ fun pconsomePrint sys d t Top str brk blk=
   end;
 
 val _=temp_add_user_printer ("pconsomeprint", ``Pcon (SOME x) y``,genPrint pconsomePrint);
-val _=temp_add_user_printer ("consomeprint", ``Con (Some x) y``,genPrint pconsomePrint);
+val _=temp_add_user_printer ("consomeprint", ``Con (SOME x) y``,genPrint pconsomePrint);
 
 (*Special case for list syntax*)
 
@@ -294,7 +294,6 @@ fun pconnilPrint sys d t Top str brk blk = str "[]";
 
 val _=temp_add_user_printer ("pconnilprint",``Con (SOME (Short "nil")) y``,genPrint pconnilPrint);
 val _=temp_add_user_printer ("pconnilprint",``Pcon (SOME (Short "nil")) y``,genPrint pconnilPrint);
-
 
 (*Literals*)
 (*Pattern lit*)
