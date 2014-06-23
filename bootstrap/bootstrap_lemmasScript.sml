@@ -9,9 +9,18 @@ val RW = REWRITE_RULE
 
 val _ = Globals.max_print_depth := 20
 
+(* TODO: move *)
+
 val LUPDATE_SAME = store_thm("LUPDATE_SAME",
   ``∀n ls. n < LENGTH ls ⇒ (LUPDATE (EL n ls) n ls = ls)``,
   rw[LIST_EQ_REWRITE,EL_LUPDATE]>>rw[])
+
+val vs_to_i1_MAP = store_thm("vs_to_i1_MAP",
+  ``∀x l1 l2. vs_to_i1 x l1 l2 ⇔ LIST_REL (v_to_i1 x) l1 l2``,
+  gen_tac >> Induct >> simp[Once modLangProofTheory.v_to_i1_cases])
+val vs_to_i2_MAP = store_thm("vs_to_i2_MAP",
+  ``∀x l1 l2. vs_to_i2 x l1 l2 ⇔ LIST_REL (v_to_i2 x) l1 l2``,
+  gen_tac >> Induct >> simp[Once conLangProofTheory.v_to_i2_cases])
 
 (* REPL module is closed (should be proved elsewhere?) *)
 val all_env_dom_init =
@@ -522,6 +531,155 @@ val COMPILER_RUN_INV_repl_step = store_thm("COMPILER_RUN_INV_repl_step",
      LIST_REL_LENGTH] ) >>
   simp[repl_bc_state_def,repl_funTheory.install_code_def] >>
   simp[bootstrap_bc_state_def])
+
+(* Data representation *)
+
+(* TODO: make these correct *)
+val pair_tag_def    = Define`pair_tag    = 12:num`
+val inl_tag_def     = Define`inl_tag     = 13:num`
+val inr_tag_def     = Define`inr_tag     = 14:num`
+val errors_tag_def  = Define`errors_tag  = 15:num`
+val others_tag_def  = Define`others_tag  = 16:num`
+val longs_tag_def   = Define`longs_tag   = 17:num`
+val numbers_tag_def = Define`numbers_tag = 18:num`
+val strings_tag_def = Define`strings_tag = 19:num`
+
+val BlockNil_def  = Define `BlockNil = Block (block_tag+nil_tag) []`;
+val BlockCons_def = Define `BlockCons (x,y) = Block (block_tag+cons_tag) [x;y]`;
+val BlockPair_def = Define `BlockPair (x,y) = Block (block_tag+pair_tag) [x;y]`;
+
+val BlockList_def = Define `
+  (BlockList [] = BlockNil) /\
+  (BlockList (x::xs) = BlockCons(x,BlockList xs))`;
+
+val BlockBool_def = Define `BlockBool b = Block (bool_to_tag b) []`;
+val BlockSome_def = Define `BlockSome x = Block (block_tag+some_tag) [x]`;
+
+val BlockInl_def = Define `BlockInl x = Block (block_tag+inl_tag) [x]`;
+val BlockInr_def = Define `BlockInr x = Block (block_tag+inr_tag) [x]`;
+
+val BlockOtherS_def  = Define `BlockOtherS x  = Block (block_tag+others_tag) [x]`;
+val BlockLongS_def   = Define `BlockLongS x   = Block (block_tag+longs_tag) [x]`;
+val BlockNumberS_def = Define `BlockNumberS x = Block (block_tag+numbers_tag) [x]`;
+val BlockStringS_def = Define `BlockStringS x = Block (block_tag+strings_tag) [x]`;
+val BlockErrorS_def  = Define `BlockErrorS    = Block (block_tag+errors_tag) []`;
+
+val Chr_def = Define `Chr c = Number (& (ORD c))`;
+
+val BlockSym_def = Define `
+  (BlockSym (StringS s) = BlockStringS (BlockList (MAP Chr s))) /\
+  (BlockSym (OtherS s) = BlockOtherS (BlockList (MAP Chr s))) /\
+  (BlockSym (LongS s) = BlockLongS (BlockList (MAP Chr s))) /\
+  (BlockSym (ErrorS) = BlockErrorS) /\
+  (BlockSym (NumberS n) = BlockNumberS (Number n))`;
+
+val BlockNum3_def = Define `
+  BlockNum3 (x,y,z) =
+    BlockPair (Number (&x), BlockPair (Number (&y),Number (&z)))`;
+
+(* Relationship between the invariant and the references *)
+
+val COMPILER_RUN_INV_references = store_thm("COMPILER_RUN_INV_references",
+  ``∀bs input output.
+    COMPILER_RUN_INV bs input output ⇒
+    ∃map iind oind iptr optr ibc obc.
+      FLOOKUP (FST(FST compile_repl_decs).globals_env) "REPL" = SOME map ∧
+      FLOOKUP map "input"  = SOME iind ∧
+      FLOOKUP map "output" = SOME oind ∧
+      iind < LENGTH bs.globals ∧
+      oind < LENGTH bs.globals ∧
+      EL iind bs.globals = SOME (RefPtr iptr) ∧
+      EL oind bs.globals = SOME (RefPtr optr) ∧
+      FLOOKUP bs.refs iptr = SOME ibc ∧
+      FLOOKUP bs.refs optr = SOME obc ∧
+      ∃d. v_bv d input ibc ∧ v_bv d output obc``,
+  rpt gen_tac >>
+  simp[COMPILER_RUN_INV_def] >> strip_tac >>
+  Cases_on`Tmod_state"REPL"ml_repl_module_decls`>>fs[update_io_def] >>
+  PairCases_on`grd`>> fs[env_rs_def]>>
+  rator_x_assum`to_i1_invariant`mp_tac >>
+  simp[modLangProofTheory.to_i1_invariant_def] >>
+  simp[Once modLangProofTheory.v_to_i1_cases] >>
+  rw[] >> simp[] >>
+  rator_x_assum`global_env_inv_flat`mp_tac >>
+  simp[repl_env_def,Once modLangProofTheory.v_to_i1_cases] >>
+  strip_tac >>
+  first_assum(qspec_then`"input"`mp_tac) >>
+  first_x_assum(qspec_then`"output"`mp_tac) >>
+  simp[] >> rw[] >> simp[] >>
+  fs[conLangProofTheory.to_i2_invariant_def] >>
+  fs[LIST_REL_EL_EQN,bytecodeProofTheory.Cenv_bs_def] >>
+  rator_x_assum`s_refs`mp_tac >>
+  simp[bytecodeProofTheory.s_refs_def,LIST_REL_EL_EQN] >>
+  simp[optionTheory.OPTREL_def] >> strip_tac >>
+  fs[Once modLangProofTheory.v_to_i1_cases] >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  fs[optionTheory.OPTREL_def] >>
+  qmatch_assum_rename_tac`EL ni grd0 = SOME (Loc_i1 iloc)`[] >>
+  qmatch_assum_rename_tac`EL no grd0 = SOME (Loc_i1 (iloc+1))`[] >>
+  first_assum(qspec_then`ni`mp_tac) >>
+  first_x_assum(qspec_then`no`mp_tac) >>
+  qpat_assum`∀n. n < LENGTH genv2 ⇒ P`(fn th =>
+    (qspec_then`ni`mp_tac) th >>
+    (qspec_then`no`mp_tac) th) >>
+  qpat_assum`∀n. n < LENGTH grd0 ⇒ P`(fn th =>
+    (qspec_then`ni`mp_tac) th >>
+    (qspec_then`no`mp_tac) th) >>
+  simp[] >> ntac 2 strip_tac >>
+  simp[] >> ntac 2 strip_tac >>
+  simp[] >> ntac 2 strip_tac >>
+  fs[Once conLangProofTheory.v_to_i2_cases] >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  fs[relationTheory.O_DEF,printingTheory.exh_Cv_def] >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  fs[Q.SPEC`CLoc X`(CONJUNCT1 (SPEC_ALL bytecodeProofTheory.Cv_bv_cases))] >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  fs[compilerLibTheory.el_check_def] >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  first_assum(qspec_then`iloc`mp_tac) >>
+  first_x_assum(qspec_then`iloc+1`mp_tac) >>
+  simp[EL_MAP] >>
+  simp[finite_mapTheory.FLOOKUP_DEF] >>
+  ntac 2 strip_tac >>
+  fs[bytecodeProofTheory.good_rd_def] >>
+  rator_x_assum`EVERY`mp_tac >>
+  simp[EVERY_MEM,MEM_EL,PULL_EXISTS] >>
+  strip_tac >>
+  simp[Ntimes EXISTS_PROD 3] >>
+  simp[printingTheory.v_bv_def,PULL_EXISTS] >>
+  CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(equal``Cv_bv`` o fst o strip_comb))) >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(equal``Cv_bv`` o fst o strip_comb))) >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  simp[printingTheory.exh_Cv_def,PULL_EXISTS] >>
+  qpat_assum`∀n. n < LENGTH s2 ⇒ Z`(fn th =>
+    (qspec_then`iloc`mp_tac) th >>
+    (qspec_then`iloc+1`mp_tac) th) >>
+  simp[] >> ntac 2 strip_tac >>
+  CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(equal``syneq`` o fst o strip_comb))) >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(equal``syneq`` o fst o strip_comb))) >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(equal``v_pat`` o fst o strip_comb))) >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  rator_x_assum`s_to_i1`mp_tac >>
+  simp[modLangProofTheory.s_to_i1_cases,
+       modLangProofTheory.s_to_i1'_cases,
+       vs_to_i1_MAP] >>
+  simp[LIST_REL_EL_EQN,EL_LUPDATE] >> strip_tac >>
+  first_assum(qspec_then`iloc`mp_tac) >>
+  first_x_assum(qspec_then`iloc+1`mp_tac) >>
+  rator_x_assum`s_to_i2`mp_tac >>
+  simp[conLangProofTheory.s_to_i2_cases,
+       conLangProofTheory.s_to_i2'_cases,
+       vs_to_i2_MAP] >>
+  simp[LIST_REL_EL_EQN,EL_LUPDATE] >> strip_tac >>
+  first_assum(qspec_then`iloc`mp_tac) >>
+  first_x_assum(qspec_then`iloc+1`mp_tac) >>
+  simp[] >> METIS_TAC[])
 
 (* Changing the references preserves the invariant *)
 
@@ -2609,60 +2767,6 @@ val COMPILER_RUN_INV_STEP = prove(
 
 (* --- connecting the Eval theorem with compiler correctness --- *)
 
-
-(* instances of Block *)
-
-fun tag_for str = let
-  val cnmap =
-    compileReplDecsTheory.repl_decs_compiled
-    |> concl |> rand |> rand |> rator |> rand |> rand
-  val tm = stringSyntax.fromMLstring str
-  val pat = ``(SOME (Short ^tm),n:num)``
-  val raw = find_term (can (match_term pat)) cnmap |> rand
-  in ``^raw + block_tag`` |> EVAL |> concl |> rand end
-
-val nil_tag_def  = Define `nil_tag  = ^(tag_for "nil")`;
-val cons_tag_def = Define `cons_tag = ^(tag_for "::")`;
-val pair_tag_def = Define `pair_tag = ^(tag_for "Pair")`;
-
-val BlockNil_def  = Define `BlockNil = Block nil_tag []`;
-val BlockCons_def = Define `BlockCons (x,y) = Block cons_tag [x;y]`;
-val BlockPair_def = Define `BlockPair (x,y) = Block pair_tag [x;y]`;
-
-val BlockList_def = Define `
-  (BlockList [] = BlockNil) /\
-  (BlockList (x::xs) = BlockCons(x,BlockList xs))`;
-
-val BlockBool_def = Define `BlockBool b = Block (bool_to_tag b) []`;
-val BlockSome_def = Define `BlockSome x = Block ^(tag_for "Some") [x]`;
-
-val BlockInl_def = Define `BlockInl x = Block ^(tag_for "Inl") [x]`;
-val BlockInr_def = Define `BlockInr x = Block ^(tag_for "Inr") [x]`;
-
-val errors_tag_def  = Define `errors_tag = ^(tag_for "Errors")`;
-val others_tag_def  = Define `others_tag = ^(tag_for "Others")`;
-val longs_tag_def   = Define `longs_tag = ^(tag_for "Longs")`;
-val numbers_tag_def = Define `numbers_tag = ^(tag_for "Numbers")`;
-val strings_tag_def = Define `strings_tag = ^(tag_for "Strings")`;
-
-val BlockOtherS_def  = Define `BlockOtherS x  = Block others_tag [x]`;
-val BlockLongS_def   = Define `BlockLongS x   = Block longs_tag [x]`;
-val BlockNumberS_def = Define `BlockNumberS x = Block numbers_tag [x]`;
-val BlockStringS_def = Define `BlockStringS x = Block strings_tag [x]`;
-val BlockErrorS_def  = Define `BlockErrorS    = Block errors_tag []`;
-
-val Chr_def = Define `Chr c = Number (& (ORD c))`;
-
-val BlockSym_def = Define `
-  (BlockSym (StringS s) = BlockStringS (BlockList (MAP Chr s))) /\
-  (BlockSym (OtherS s) = BlockOtherS (BlockList (MAP Chr s))) /\
-  (BlockSym (LongS s) = BlockLongS (BlockList (MAP Chr s))) /\
-  (BlockSym (ErrorS) = BlockErrorS) /\
-  (BlockSym (NumberS n) = BlockNumberS (Number n))`;
-
-val BlockNum3_def = Define `
-  BlockNum3 (x,y,z) =
-    BlockPair (Number (&x), BlockPair (Number (&y),Number (&z)))`;
 
 
 (* theorems used by x86-64 proofs *)
