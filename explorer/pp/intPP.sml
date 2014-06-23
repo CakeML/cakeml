@@ -6,6 +6,7 @@ val collectAnnotations :(term list ref)= ref ([]:term list);
 
 (*cexp_Nested mutually recursive letrec
 Collects annotations
+TODO: decide how to differentiate letrecs and lambdas
 *)
 fun cexp_letrecPrint sys d t Top str brk blk =
   let
@@ -27,7 +28,7 @@ fun cexp_letrecPrint sys d t Top str brk blk =
           end 
     |   printTerms (t::xs) = printTerms [t] >>add_newline>>str "and">> (printTerms xs)
   in
-     blk CONSISTENT 0 (str "let " >> (blk CONSISTENT 0 (str "fun">>printTerms fundef))
+     blk CONSISTENT 0 ((blk CONSISTENT 0 (str "fun">>printTerms fundef))
      >>add_newline>>str "in">>add_newline>>str"  ">>sys (Top,Top,Top) d expr >>add_newline>> str "end")
   end;
 
@@ -87,7 +88,7 @@ fun cexp_letpatPrint sys d t Top str brk blk =
     in
     if b = ``T``
     then
-      blk CONSISTENT 0 (str"bind = ">>sys(Top,Top,Top) d exp1 >>add_newline>>str"in">>add_newline>>str"  ">> sys (Top,Top,Top) d exp2>>add_newline>>str"end")
+      blk CONSISTENT 0 (str"bind ">>sys(Top,Top,Top) d exp1 >>add_newline>>str"in">>add_newline>>str"  ">> sys (Top,Top,Top) d exp2>>add_newline>>str"end")
     else
       blk CONSISTENT 0 (sys (Top,Top,Top) d exp1 >>str";">>brk(1,0)>>
       sys(Top,Top,Top) d exp2) 

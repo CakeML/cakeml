@@ -102,6 +102,7 @@ fun allIntermediates prog =
       val _ = (collectAnnotations := ([]:term list))
       (*Cheat and call PP internally so that the stateful annotations are updated*)
       val _ = term_to_string Ce
+      val p9 = p6 
       val p6 = Ce
 
       val cs = rhsThm (eval ``compile_code_env (^(cs) with next_label := ^(nl)) ^(Ce)``)
@@ -149,7 +150,7 @@ fun allIntermediates prog =
 
       val p7 = rhsThm (eval ``(SOME x,^(p7))``)
   in
-     {ils=[ast,p1,p2,p3,p4,p5,p6,p7,p8],
+     {ils=[ast,p1,p2,p3,p4,p5,p6,p7,p8,p9],
       ctors=ctors,globMap=globMap,modMap=modMap,annotations=(!collectAnnotations)}
   end;
 end

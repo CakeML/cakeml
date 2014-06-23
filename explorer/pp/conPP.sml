@@ -108,7 +108,7 @@ fun i2_pconPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
     val (_,name) = dest_comb (rator t)
     val (x::_) = pairSyntax.strip_pair name
   in
-    sty [FG RedBrown] (str "c" >> sys (Top,Top,Top) d x >> (pconPrint sys d t Top str brk blk))
+    sty [FG RedBrown] (str "c" >> sys (Top,Top,Top) d x )>> (pconPrint sys d t Top str brk blk)
   end handle HOL_ERR _ => raise term_pp_types.UserPP_Failed;
 
 val _=temp_add_user_printer ("i2_conprint", ``Con_i2 x y``,i2_pconPrint);

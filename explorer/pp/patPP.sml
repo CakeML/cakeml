@@ -1,6 +1,8 @@
 structure patPP =
 struct
 open astPP conPP modPP exhPP
+
+(*TODO: Decide how to differentiate letrec and lambdas?*)
 (*pat_Nested mutually recursive letrec*)
 fun pat_letrecPrint sys d t Top str brk blk =
   let
@@ -19,7 +21,7 @@ val _=temp_add_user_printer ("pat_letrecprint", ``Letrec_pat x y``,genPrint pat_
 
 (*pat_Lambdas expr*)
 fun pat_lambdaPrint sys d t Top str brk blk =
-  str"fun = ">>sys (Top,Top,Top) d (strip t);
+  blk CONSISTENT 0 (str"fun (">>brk(0,2)>>sys (Top,Top,Top) d (strip t)>>brk(0,0)>>str")");
 
 val _=temp_add_user_printer ("pat_lambdaprint", ``Fun_pat x``,genPrint pat_lambdaPrint);
 
@@ -72,7 +74,7 @@ val _=temp_add_user_printer ("pat_seqprint",``Seq_pat x y``,genPrint pat_seqPrin
 fun pat_letpatPrint sys d t Top str brk blk =
   let val (l,r) = dest_comb t
   in
-    blk CONSISTENT 0 (str"bind = ">>sys(Top,Top,Top) d (strip l) >>add_newline>>str"in">>add_newline>>str"  ">> sys (Top,Top,Top) d r>>add_newline>>str"end")
+    blk CONSISTENT 0 (str"bind ">>sys(Top,Top,Top) d (strip l) >>add_newline>>str"in">>add_newline>>str"  ">> sys (Top,Top,Top) d r>>add_newline>>str"end")
   end;
 
 val _=temp_add_user_printer ("pat_letprint",``Let_pat y z ``,genPrint pat_letpatPrint);
@@ -86,9 +88,15 @@ val _=temp_add_user_printer ("pat_litprint", ``Lit_pat x``, genPrint plitPrint);
 val _=temp_add_user_printer ("pat_unitprint", ``Lit_pat Unit``,genPrint unitPrint);
 
 (*pat local var name debrujin indices*)
-fun pat_varlocalPrint sys d t Top str brk blk =
-    str"l_">>sys (Top,Top,Top) d (strip t);
-val _=temp_add_user_printer ("pat_varlocalprint", ``Var_local_pat x``,genPrint pat_varlocalPrint);
+fun pat_varlocalPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
+  let
+    open term_pp_types PPBackEnd
+    val (str,brk,blk,sty) = (#add_string ppfns, #add_break ppfns,#ublock ppfns,#ustyle ppfns);
+  in
+    sty [FG VividGreen] (str"l">>sys (Top,Top,Top) d (strip t))
+  end handle HOL_ERR _ => raise term_pp_types.UserPP_Failed;
+
+val _=temp_add_user_printer ("pat_varlocalprint", ``Var_local_pat x``,pat_varlocalPrint);
 
 (*pat global Var name*)
 val _=temp_add_user_printer ("pat_varglobalprint", ``Var_global_pat n``,i1_varglobalPrint);
