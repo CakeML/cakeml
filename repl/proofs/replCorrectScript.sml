@@ -929,7 +929,16 @@ cases_on `bc_eval (install_code code bs)` >> fs[] >- (
     first_assum(match_exists_tac o concl) >> simp[] >>
     simp[RIGHT_EXISTS_AND_THM,GSYM CONJ_ASSOC] >>
     conj_tac >- ( metis_tac [new_top_vs_inf_tenv_to_string_map_lem] ) >>
-    conj_tac >- cheat >>
+    conj_tac >- (
+      reverse BasicProvers.CASE_TAC >- (
+        fs[update_type_sound_inv_def,type_sound_invariants_def] >>
+        Cases_on`e`>>fs[]>>
+        cheat (* raised a literal, which should be impossible. the goal looks false though, so something is missing. *)) >>
+      BasicProvers.CASE_TAC >>
+      rw[printingTheory.good_type_string_env_def] >>
+      simp[compilerTheory.tystr_def] >>
+      fs[update_type_sound_inv_def,type_sound_invariants_def] >>
+      cheat (* type_env ensures this? *) ) >>
     conj_tac >- ( fs[closed_top_def] >> metis_tac [type_sound_inv_closed] ) >>
     qmatch_assum_abbrev_tac`bc_eval bs0 = NONE` >>
     map_every qexists_tac[`grd`,`bs0 with clock := SOME ck0`,`bs.code`] >>
