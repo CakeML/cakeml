@@ -15,6 +15,21 @@ val o_f_FUNION = store_thm("o_f_FUNION",
   simp[GSYM fmap_EQ_THM,FUNION_DEF] >>
   rw[o_f_FAPPLY]);
 
+val type_env_list_rel = Q.prove (
+`!ctMap tenvS env tenv.
+  type_env ctMap tenvS env (bind_var_list2 tenv Empty) ⇔ LIST_REL (λ(x,v1) (y,n,v2). x = y ∧ type_v n ctMap tenvS v1 v2) env tenv`,
+ induct_on `env` >>
+ rw [] >>
+ cases_on `tenv` >>
+ rw [bind_var_list2_def] >>
+ ONCE_REWRITE_TAC [hd (tl (tl (CONJUNCTS type_v_cases)))] >>
+ rw [libTheory.emp_def, bind_var_list2_def, libTheory.bind_def] >>
+ PairCases_on `h` >>
+ fs [bind_var_list2_def, bind_tenv_def] >>
+ PairCases_on `h'` >>
+ fs [bind_var_list2_def, bind_tenv_def] >>
+ metis_tac []);
+
 val fst_lem = Q.prove (
 `FST = λ(x,y). x`,
 rw [FUN_EQ_THM] >>
@@ -817,6 +832,47 @@ val inv_pres_tac =
   qexists_tac`bs2 with clock := NONE` >>
   simp[bc_fetch_with_clock]
 
+val type_string_word8 = Q.prove (
+`∀envE tenvE.
+ type_env ctMap tenvS envE' tenvE' ∧
+ type_env ctMap' tenvS' (envE++envE') (bind_var_list2 (convert_env2 tenvE) tenvE')
+ ⇒
+ EVERY
+   (λ(x,v).
+      (case FLOOKUP (inf_tenv_to_string_map tenvE) x of
+         NONE => "<unknown>"
+       | SOME t => t) = "<word8>" ⇔ ∃w. v = Litv (Word8 w)) envE`,
+ cheat);
+
+       (*
+ rw [type_env_list_rel] >>
+ rw [EVERY_MEM] >>
+ PairCases_on `e` >>
+ fs [] >>
+ every_case_tac >>
+ fs []
+
+ induct_on `envE` >>
+ rw [] >>
+ PairCases_on `h` >>
+ fs [] >>
+ cases_on `tenvE` >>
+ fs [convert_env2_def, bind_var_list2_def, Once (hd (tl (tl (CONJUNCTS type_v_cases)))),
+     bind_tenv_def, libTheory.emp_def, libTheory.bind_def] >>
+ PairCases_on `h` >>
+ fs [] >>
+
+
+     FIRST_X_ASSUM match_mp_tac >>
+     rw []
+
+     fs [bind_var_list2_def, bind_tenv_def] >>
+     rw [] >>
+     metis_tac []
+
+cheat);
+*)
+
 val replCorrect'_lem = Q.prove (
 `!repl_state error_mask bc_state repl_fun_state.
   invariant repl_state repl_fun_state bc_state ⇒
@@ -938,7 +994,7 @@ cases_on `bc_eval (install_code code bs)` >> fs[] >- (
       rw[printingTheory.good_type_string_env_def] >>
       simp[compilerTheory.tystr_def] >>
       fs[update_type_sound_inv_def,type_sound_invariants_def] >>
-      cheat (* type_env ensures this? *) ) >>
+      metis_tac [type_string_word8] ) >>
     conj_tac >- ( fs[closed_top_def] >> metis_tac [type_sound_inv_closed] ) >>
     qmatch_assum_abbrev_tac`bc_eval bs0 = NONE` >>
     map_every qexists_tac[`grd`,`bs0 with clock := SOME ck0`,`bs.code`] >>
@@ -1097,7 +1153,16 @@ strip_tac >>
       first_assum(match_exists_tac o concl) >> simp[] >>
       simp[bc_state_component_equality] ) >>
     conj_tac >- metis_tac[new_top_vs_inf_tenv_to_string_map_lem] >>
-    conj_tac >- cheat >>
+    conj_tac >- (
+      reverse BasicProvers.CASE_TAC >- (
+        fs[update_type_sound_inv_def,type_sound_invariants_def] >>
+        Cases_on`e`>>fs[]>>
+        fs [Once type_v_cases]) >>
+      BasicProvers.CASE_TAC >>
+      rw[printingTheory.good_type_string_env_def] >>
+      simp[compilerTheory.tystr_def] >>
+      fs[update_type_sound_inv_def,type_sound_invariants_def] >>
+      metis_tac [type_string_word8] ) >>
     conj_tac >- ( fs[closed_top_def] >> metis_tac [type_sound_inv_closed] ) >>
     simp[install_code_def] ) >>
   strip_tac >>
