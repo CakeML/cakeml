@@ -1,58 +1,80 @@
 structure intPP =
 struct
+open astPP conPP modPP exhPP patPP
 (*INCOMPLETE*)
 
-(*pat_Nested mutually recursive letrec*)
-fun pat_letrecPrint sys d t Top str brk blk =
+val collectAnnotations :(term list ref)= ref ([]:term list);
+
+(*cexp_Nested mutually recursive letrec
+Collects annotations
+*)
+fun cexp_letrecPrint sys d t Top str brk blk =
   let
     val (temp,expr) = dest_comb t
     val (_,ls) = dest_comb temp
     val fundef = #1(listSyntax.dest_list ls)
     fun printTerms [] = str ""
-    |   printTerms [x] = sys (Top,Top,Top) d x    
-    |   printTerms (t::xs) = printTerms [t] >>add_newline>>str "and _ = ">> (printTerms xs)
+    |   printTerms [x] = 
+          let val ([opt,num,x]) = pairSyntax.strip_pair x
+          in
+            if optionSyntax.is_none(opt) then ()
+            else (*Has annotations*)
+                 collectAnnotations := optionSyntax.dest_some(opt) :: (!collectAnnotations)
+    	    ; sys (Top,Top,Top) d x
+          end 
+    |   printTerms (t::xs) = printTerms [t] >>add_newline>>str "and = ">> (printTerms xs)
   in
-     blk CONSISTENT 0 (str "let " >> (blk CONSISTENT 0 (str "fun _ = ">>printTerms fundef))
+     blk CONSISTENT 0 (str "let " >> (blk CONSISTENT 0 (str "fun = ">>printTerms fundef))
      >>add_newline>>str "in">>add_newline>>str"  ">>sys (Top,Top,Top) d expr >>add_newline>> str "end")
   end;
 
-temp_add_user_printer ("pat_letrecprint", ``Letrec_pat x y``,genPrint pat_letrecPrint);
+val _ = temp_add_user_printer ("cexp_letrecprint", ``CLetrec x y``,genPrint cexp_letrecPrint);
 
-(*pat_Lambdas expr*)
-fun pat_lambdaPrint sys d t Top str brk blk =
-  str"fun _ = ">>sys (Top,Top,Top) d (strip t);
-
-temp_add_user_printer ("pat_lambdaprint", ``Fun_pat x``,genPrint pat_lambdaPrint);
-
-(*cexp_Apply Equality*)
-temp_add_user_printer ("cexp_equalityprint", ``CPrim2 CEq x y``, genPrint pat_equalityPrint);
-
-(*cexp_Call*)
-fun cexp_ccallPrint sys d t Top str brk blk =
-  let val (t,ls) = dest_comb t
-      val name = strip t
+(*TODO: find an example where this occurs??*)
+(*cexp_CUpd*)
+fun cexp_cupdPrint sys d t Top str brk blk =
+  let val (_,[l,r]) = strip_comb t
   in
-     blk CONSISTENT 0 (str"call (">>sys (Top,Top,Top) d name >> str ")">>brk(1,0)>>str "with ">>sys (Top,Top,Top) d ls)
+    blk CONSISTENT 0 (sys(Top,Top,Top) d l >>str " =">>brk(1,2) >>sys(Top,Top,Top) d r)
   end;
 
-temp_add_user_printer ("cexp_ccallprint", ``CCall b f x``, genPrint cexp_ccallPrint);
+val _ = temp_add_user_printer("cexp_cupdprint", ``CUpd x y``,genPrint cexp_cupdPrint);
+
+(*cexp_Apply Equality*)
+val _ = temp_add_user_printer ("cexp_equalityprint", ``CPrim2 CEq x y``, genPrint pat_equalityPrint);
+
+(*cexp_Call TODO: decide whether to use callT/F or not*)
+(*Or maybe call (...) with [...]*)
+fun cexp_ccallPrint sys d t Top str brk blk =
+  let val (t,ls) = dest_comb t
+      val (t,name) = dest_comb t
+      val (_,b) = dest_comb t
+  in
+     blk CONSISTENT 0 ( str"call_">>sys(Top,Top,Top) d b>>str" (">>sys (Top,Top,Top) d name >> str ")"
+     >>brk(1,0)>>str"with ">>sys (Top,Top,Top) d ls)
+  end;
+
+val _ = temp_add_user_printer ("cexp_ccallprint", ``CCall b f x``, genPrint cexp_ccallPrint);
 
 (*cexp_prim1*)
-fun pat_uopPrint uop sys d t Top str brk blk =
-  str uop>>str"_">>sys (Top,Top,Top) d (strip t);
+(*TODO: these actually seem rather superfluous...*)
+fun cexp_isblockPrint sys d t Top str brk blk =
+  str"is_block";
 
-temp_add_user_printer("cexp_initgprint",``CInitG x``,genPrint (pat_uopPrint "init_global"));
-temp_add_user_printer("cexp_ctageqprint",``CTagEq x``,genPrint (pat_uopPrint "tag_eq"));
-temp_add_user_printer("cexp_cprojprint",``CProj x``,genPrint (pat_uopPrint "elem"));
+val _ = temp_add_user_printer("cexp_cisblockprint",``CIsBlock``,genPrint cexp_isblockPrint);
 
-temp_add_user_printer("cexp_prim1print",``CPrim1 x y``,genPrint pat_uappPrint);
+val _ = temp_add_user_printer("cexp_ctageqprint",``CTagEq x``,genPrint (pat_uopPrint "tag_eq"));
+val _ = temp_add_user_printer("cexp_cprojprint",``CProj x``,genPrint (pat_uopPrint "elem"));
 
+val _ = temp_add_user_printer("cexp_prim1print",``CPrim1 x y``,genPrint pat_uappPrint);
+
+val _ = temp_add_user_printer("cexp_initgprint",``CPrim1 (CInitG x) y``,genPrint i2_initglobalPrint);
 
 (*cexp_ constructors*)
-temp_add_user_printer ("cexp_conprint", ``CCon x y``,genPrint i2_pconPrint);
+val _ = temp_add_user_printer ("cexp_conprint", ``CCon x y``,genPrint i2_pconPrint);
 
 (*cexpextend global*)
-temp_add_user_printer("cexp_extendglobal",``CExtG n``,genPrint i2_extendglobalPrint);
+val _ = temp_add_user_printer("cexp_extendglobal",``CExtG n``,genPrint i2_extendglobalPrint);
 
 (*cexp_Let*)
 fun cexp_letpatPrint sys d t Top str brk blk =
@@ -62,32 +84,35 @@ fun cexp_letpatPrint sys d t Top str brk blk =
     in
     if b = ``T``
     then
-      blk CONSISTENT 0 (str"let _ = ">>sys(Top,Top,Top) d exp1 >>add_newline>>str"in">>add_newline>>str"  ">> sys (Top,Top,Top) d exp2>>add_newline>>str"end")
+      blk CONSISTENT 0 (str"bind = ">>sys(Top,Top,Top) d exp1 >>add_newline>>str"in">>add_newline>>str"  ">> sys (Top,Top,Top) d exp2>>add_newline>>str"end")
     else
-      blk CONSISTENT 0 (sys (Top,Top,Top) d exp1 >>str";">>brk(0,0)>>
+      blk CONSISTENT 0 (sys (Top,Top,Top) d exp1 >>str";">>brk(1,0)>>
       sys(Top,Top,Top) d exp2) 
   end;
 
-temp_add_user_printer ("cexp_letprint",``CLet b y z ``,genPrint cexp_letpatPrint);
+val _ = temp_add_user_printer ("cexp_letprint",``CLet b y z ``,genPrint cexp_letpatPrint);
 
 (*cexp_Literals*)
 (*cexp_Pattern lit*)
-temp_add_user_printer ("cexp_litprint", ``CLit x``, genPrint plitPrint);
-temp_add_user_printer ("cexp_unitprint", ``CLit Unit``,genPrint unitPrint);
+val _ = temp_add_user_printer ("cexp_litprint", ``CLit x``, genPrint plitPrint);
+val _ = temp_add_user_printer ("cexp_unitprint", ``CLit Unit``,genPrint unitPrint);
+
+val _ = temp_add_user_printer("cexp_truelitprint",``CLit (Bool T)``,genPrint (boolPrint "true"));
+val _ = temp_add_user_printer("cexp_falselitprint",``CLit (Bool F)``,genPrint (boolPrint "false"));
 
 (*cexp local var name debrujin indices*)
-temp_add_user_printer ("cexp_varlocalprint", ``CVar x``,genPrint pat_varlocalPrint);
+val _ = temp_add_user_printer ("cexp_varlocalprint", ``CVar x``,genPrint pat_varlocalPrint);
 
 (*cexp global Var name*)
-temp_add_user_printer ("cexp_varglobalprint", ``CGvar n``,genPrint i1_varglobalPrint);
+val _ = temp_add_user_printer ("cexp_varglobalprint", ``CGvar n``,genPrint i1_varglobalPrint);
 
 (*cexp_raise expr*) 
-temp_add_user_printer ("cexp_raiseprint", ``CRaise x``,genPrint raisePrint);
+val _ = temp_add_user_printer ("cexp_raiseprint", ``CRaise x``,genPrint raisePrint);
 
 (*cexp_handle*)
-temp_add_user_printer ("cexp_handleprint", ``CHandle x y``,genPrint (pat_handlePrint));
+val _ = temp_add_user_printer ("cexp_handleprint", ``CHandle x y``,genPrint (pat_handlePrint));
 
 (*cexp_If-then-else*)
-temp_add_user_printer("cexp_ifthenelseprint", ``CIf x y z``,genPrint ifthenelsePrint);
+val _ = temp_add_user_printer("cexp_ifthenelseprint", ``CIf x y z``,genPrint ifthenelsePrint);
 
 end;

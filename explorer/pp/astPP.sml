@@ -1,7 +1,7 @@
 structure astPP=
 struct
 open HolKernel boolLib bossLib Parse astTheory terminationTheory
-open cakeml_computeLib progToBytecodeTheory
+open cakeml_computeLib 
 open Portable smpp
 
 fun strip t = #2 (dest_comb t);
@@ -466,6 +466,20 @@ val _=temp_add_user_printer("trueplitprint",``Plit (Bool T)``,genPrint (boolPrin
 val _=temp_add_user_printer("falseplitprint",``Plit (Bool F)``,genPrint (boolPrint "false"));
 
 
+(*Pretty printer for ast list form, pattern to terms*)
+(*TODO: Check if this leaves a leading newline..*)
+fun astlistPrint sys d t Top str brk blk =
+  let val ls = #1(listSyntax.dest_list t)
+  fun printterms [] = str""
+  |   printterms [x] = sys(Top,Top,Top) d x
+  |   printterms (x::xs) = (printterms [x])>>str";">>printterms xs
+  in
+    printterms ls
+  end;
+
+(*TODO: This is broken ... it ends up matching all lists, not just ast ones!! 
+temp_add_user_printer("astlistprint",``x:prog``,genPrint astlistPrint);
+temp_remove_user_printer("astlistprint");*)
 
 (*Pretty Printer specifics for globals, types & exceptions*)
 

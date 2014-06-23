@@ -1198,7 +1198,7 @@ CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV EVAL))) >>
 metis_tac[])
 
 val initial_bc_state_side_thm = store_thm("initial_bc_state_side_thm",
-  ``initial_bc_state_side``,
+  ``initial_bc_state_side ∧ EVERY IS_SOME initial_bc_state.globals``,
   REWRITE_TAC[initial_bc_state_side_def] >> simp[] >>
   mp_tac (MATCH_MP bigClockTheory.top_add_clock
            (Q.SPEC`init_repl_state.store`(Q.GEN`s`eval_initial_program))) >>
@@ -1220,7 +1220,9 @@ val initial_bc_state_side_thm = store_thm("initial_bc_state_side_thm",
     simp[install_code_def,initialProgramTheory.empty_bc_state_def] ) >>
   strip_tac >>
   qmatch_assum_rename_tac`bc_fetch bs2 = SOME (Stop T)`[] >>
-  qexists_tac`initial_bc_state` >>
+  qho_match_abbrev_tac`(∃bs. P bs) ∧ Q` >>
+  qsuff_tac`P initial_bc_state ∧ Q`>-metis_tac[] >>
+  simp[Abbr`P`,Abbr`Q`] >>
   imp_res_tac RTC_bc_next_can_be_unclocked >>
   imp_res_tac RTC_bc_next_bc_eval >>
   pop_assum kall_tac >>
@@ -1229,7 +1231,10 @@ val initial_bc_state_side_thm = store_thm("initial_bc_state_side_thm",
     simp[bc_eval1_thm,bc_eval1_def,bc_fetch_with_clock] ) >>
   `install_code bc empty_bc_state with clock := NONE = install_code bc empty_bc_state` by
     simp[install_code_def,initialProgramTheory.empty_bc_state_def] >>
-  simp[initial_bc_state_def,bc_fetch_with_clock])
+  simp[initial_bc_state_def,bc_fetch_with_clock] >>
+  strip_tac >>
+  first_x_assum match_mp_tac >>
+  simp[install_code_def,initialProgramTheory.empty_bc_state_def])
 
 val initial_invariant = store_thm("initial_invariant",
   ``invariant init_repl_state initial_repl_fun_state initial_bc_state``,

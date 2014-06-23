@@ -9,9 +9,9 @@ fun pat_letrecPrint sys d t Top str brk blk =
     val fundef = #1(listSyntax.dest_list ls)
     fun printTerms [] = str ""
     |   printTerms [x] = sys (Top,Top,Top) d x    
-    |   printTerms (t::xs) = printTerms [t] >>add_newline>>str "and _ = ">> (printTerms xs)
+    |   printTerms (t::xs) = printTerms [t] >>add_newline>>str "and = ">> (printTerms xs)
   in
-     blk CONSISTENT 0 (str "let " >> (blk CONSISTENT 0 (str "fun _ = ">>printTerms fundef))
+     blk CONSISTENT 0 (str "let " >> (blk CONSISTENT 0 (str "fun = ">>printTerms fundef))
      >>add_newline>>str "in">>add_newline>>str"  ">>sys (Top,Top,Top) d expr >>add_newline>> str "end")
   end;
 
@@ -19,7 +19,7 @@ val _=temp_add_user_printer ("pat_letrecprint", ``Letrec_pat x y``,genPrint pat_
 
 (*pat_Lambdas expr*)
 fun pat_lambdaPrint sys d t Top str brk blk =
-  str"fun _ = ">>sys (Top,Top,Top) d (strip t);
+  str"fun = ">>sys (Top,Top,Top) d (strip t);
 
 val _=temp_add_user_printer ("pat_lambdaprint", ``Fun_pat x``,genPrint pat_lambdaPrint);
 
@@ -72,7 +72,7 @@ val _=temp_add_user_printer ("pat_seqprint",``Seq_pat x y``,genPrint pat_seqPrin
 fun pat_letpatPrint sys d t Top str brk blk =
   let val (l,r) = dest_comb t
   in
-    blk CONSISTENT 0 (str"let _ = ">>sys(Top,Top,Top) d (strip l) >>add_newline>>str"in">>add_newline>>str"  ">> sys (Top,Top,Top) d r>>add_newline>>str"end")
+    blk CONSISTENT 0 (str"bind = ">>sys(Top,Top,Top) d (strip l) >>add_newline>>str"in">>add_newline>>str"  ">> sys (Top,Top,Top) d r>>add_newline>>str"end")
   end;
 
 val _=temp_add_user_printer ("pat_letprint",``Let_pat y z ``,genPrint pat_letpatPrint);
@@ -98,7 +98,7 @@ fun pat_handlePrint sys d t Top str brk blk =
   let val (l,r) = dest_comb t
   in
     str"(">>sys(Top,Top,Top) d (strip l)>>str ")">>brk(1,0)
-    >>blk CONSISTENT 0 (str "handle _ =>">>brk(1,2) >>sys (Top,Top,Top) d r)
+    >>blk CONSISTENT 0 (str "handle =>">>brk(1,2) >>sys (Top,Top,Top) d r)
   end;
 
 val _=temp_add_user_printer ("pat_handleprint", ``Handle_pat x y``,genPrint (pat_handlePrint));
@@ -107,7 +107,7 @@ val _=temp_add_user_printer ("pat_handleprint", ``Handle_pat x y``,genPrint (pat
 fun pat_seqPrint sys d t Top str brk blk =
   let val (l,r) = dest_comb t
   in
-    blk CONSISTENT 0 (sys (Top,Top,Top) d (strip l) >>str";">>brk(0,0)>>
+    blk CONSISTENT 0 (sys (Top,Top,Top) d (strip l) >>str";">>brk(1,0)>>
     sys(Top,Top,Top) d r)
   end;
 

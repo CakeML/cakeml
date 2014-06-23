@@ -79,6 +79,27 @@ val FUPDATE_LIST_EQ_FEMPTY = store_thm("FUPDATE_LIST_EQ_FEMPTY",
   rw[EQ_IMP_THM,FUPDATE_LIST_THM] >>
   fs[GSYM fmap_EQ_THM,FDOM_FUPDATE_LIST])
 
+val bc_next_gvrel = store_thm("bc_next_gvrel",
+  ``∀bs1 bs2. bc_next bs1 bs2 ⇒ gvrel bs1.globals bs2.globals``,
+  ho_match_mp_tac bytecodeTheory.bc_next_ind >>
+  simp[bytecodeTheory.bump_pc_def] >>
+  rw[] >- ( BasicProvers.CASE_TAC >> simp[] ) >>
+  simp[bytecodeProofTheory.gvrel_def] >> rw[EL_LUPDATE] >>
+  simp[rich_listTheory.EL_APPEND1])
+
+val RTC_bc_next_gvrel = store_thm("RTC_bc_next_gvrel",
+  ``∀bs1 bs2. RTC bc_next bs1 bs2 ⇒
+    gvrel bs1.globals bs2.globals``,
+  ho_match_mp_tac relationTheory.RTC_lifts_reflexive_transitive_relations >>
+  rw[relationTheory.reflexive_def,relationTheory.transitive_def,bc_next_gvrel] >>
+  metis_tac[bytecodeProofTheory.gvrel_trans])
+
+val same_length_gvrel_same = store_thm("same_length_gvrel_same",
+  ``∀l1 l2. LENGTH l1 = LENGTH l2 ∧ EVERY IS_SOME l1 ∧ gvrel l1 l2 ⇒ l1 = l2``,
+  rw[bytecodeProofTheory.gvrel_def,LIST_EQ_REWRITE,EVERY_MEM,MEM_EL,PULL_EXISTS,
+     free_varsTheory.IS_SOME_EXISTS] >>
+  metis_tac[])
+
 val exps_to_i1_MAP = store_thm("exps_to_i1_MAP",
   ``∀es. exps_to_i1 a b es = MAP (exp_to_i1 a b) es``,
   Induct >> simp[exp_to_i1_def])
@@ -91,6 +112,12 @@ val exps_to_exh_MAP = store_thm("exps_to_exh_MAP",
 val exps_to_pat_MAP = store_thm("exps_to_pat_MAP",
   ``∀es. exps_to_pat a es = MAP (exp_to_pat a) es``,
   Induct >> simp[exp_to_pat_def])
+
+val evaluate_prompt_i1_success_globals = store_thm("evaluate_prompt_i1_success_globals",
+  ``∀ck genv cenv s prompt_i1 s' cenv' new_genv.
+    evaluate_prompt_i1 ck genv cenv s prompt_i1 (s',cenv',new_genv,NONE) ⇒
+    EVERY IS_SOME new_genv``,
+  rw[evaluate_prompt_i1_cases] >> rw[EVERY_MAP])
 
 (* misc *)
 
@@ -1715,6 +1742,7 @@ val compile_top_thm = store_thm("compile_top_thm",
              print_result (THE types) top envC env_or_err) in
         bc_fetch bs' = SOME (Stop success) ∧
         bs'.output = bs.output ++ str ∧
+        (success ∧ EVERY IS_SOME bs.globals ⇒ EVERY IS_SOME bs'.globals) ∧
         env_rs new_env s grd' rs' bs'``,
   ho_match_mp_tac evaluate_top_ind >>
   strip_tac >- (
@@ -2081,6 +2109,41 @@ val compile_top_thm = store_thm("compile_top_thm",
       imp_res_tac pmatch_dom >> fs[] >>
       qpat_assum`X ⊆ y`mp_tac >> simp[new_top_vs_def] >>
       simp[build_rec_env_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX]) >>
+    conj_asm2_tac >- (
+      first_x_assum(strip_assume_tac o MATCH_MP evaluate_prompt_i1_success_globals) >>
+      simp[Abbr`bs2`] >> rw[] >>
+      imp_res_tac RTC_bc_next_gvrel >>
+      fs[Abbr`bs1`,Abbr`bs0`] >>
+      fs[gvrel_def,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
+      PairCases_on`grd'`>>Cases_on`s2`>>
+      fs[env_rs_def,Cenv_bs_def,s_refs_def] >>
+      fs[to_i2_invariant_def,to_i1_invariant_def] >>
+      fs[LIST_REL_EL_EQN,optionTheory.OPTREL_def] >>
+      rw[] >>
+      Cases_on`n < LENGTH bs.globals` >- metis_tac[IS_SOME_EXISTS] >>
+      `∃m. n = m + LENGTH bs.globals` by (
+        qexists_tac`n - LENGTH bs.globals` >> simp[] ) >>
+      qpat_assum`∀n. n < LENGTH grd0 + Y ⇒ Z`(qspec_then`n`mp_tac) >>
+      simp[] >>
+      `LENGTH grd0 = LENGTH bs.globals` by fs[Abbr`Csg`] >>
+      simp[EL_APPEND2] >>
+      `m < LENGTH new_genv` by simp[] >>
+      strip_tac >- metis_tac[optionTheory.NOT_NONE_SOME,IS_SOME_EXISTS] >>
+      fs[Abbr`Csg`] >>
+      rator_x_assum`store_to_exh`mp_tac >>
+      simp[store_to_exh_csg_rel,csg_rel_unpair] >>
+      simp[LIST_REL_EL_EQN,optionTheory.OPTREL_def] >> strip_tac >>
+      first_x_assum(qspec_then`n`mp_tac) >>
+      simp[EL_APPEND2] >> strip_tac >>
+      rpt(rator_x_assum`csg_rel`mp_tac) >>
+      simp[map_count_store_genv_def,csg_rel_unpair,LIST_REL_EL_EQN,optionTheory.OPTREL_def] >>
+      rpt strip_tac >>
+      ntac 10 (first_x_assum(qspec_then`n`mp_tac)) >>
+      simp[EL_MAP] >> ntac 3 strip_tac >> simp[] >>
+      ntac 2 strip_tac >> simp[] >> ntac 2 strip_tac >>
+      simp[] >> ntac 2 strip_tac >>
+      ntac 11 (first_x_assum(qspec_then`n`mp_tac)) >>
+      simp[] >> strip_tac >> simp[] ) >>
     simp[EXISTS_PROD,libTheory.emp_def,merge_envC_def,libTheory.merge_def] >>
     PairCases_on`s2` >> simp[env_rs_def] >>
     simp[RIGHT_EXISTS_AND_THM] >>
@@ -2487,6 +2550,42 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[Abbr`bs2`] >>
       simp[optionTheory.option_case_compute] >>
       simp[print_result_def] ) >>
+    conj_asm2_tac >- (
+      first_x_assum(strip_assume_tac o MATCH_MP evaluate_prompt_i1_success_globals) >>
+      simp[Abbr`bs2`] >> rw[] >>
+      imp_res_tac RTC_bc_next_gvrel >>
+      fs[Abbr`bs1`,Abbr`bs0`] >>
+      fs[gvrel_def,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
+      PairCases_on`grd'`>>Cases_on`s2`>>
+      fs[env_rs_def,Cenv_bs_def,s_refs_def] >>
+      fs[to_i2_invariant_def,to_i1_invariant_def] >>
+      fs[LIST_REL_EL_EQN,optionTheory.OPTREL_def] >>
+      rw[] >>
+      Cases_on`n < LENGTH bs.globals` >- metis_tac[IS_SOME_EXISTS] >>
+      `∃m. n = m + LENGTH bs.globals` by (
+        qexists_tac`n - LENGTH bs.globals` >> simp[] ) >>
+      qpat_assum`∀n. n < LENGTH grd0 + Y ⇒ Z`(qspec_then`n`mp_tac) >>
+      simp[] >>
+      `LENGTH grd0 = LENGTH bs.globals` by fs[Abbr`Csg`] >>
+      simp[EL_APPEND2] >>
+      `m < LENGTH new_genv` by simp[] >>
+      strip_tac >- metis_tac[optionTheory.NOT_NONE_SOME,IS_SOME_EXISTS] >>
+      fs[Abbr`Csg`] >>
+      rator_x_assum`store_to_exh`mp_tac >>
+      simp[store_to_exh_csg_rel,csg_rel_unpair] >>
+      simp[LIST_REL_EL_EQN,optionTheory.OPTREL_def] >> strip_tac >>
+      first_x_assum(qspec_then`n`mp_tac) >>
+      simp[EL_APPEND2] >> strip_tac >>
+      rpt(rator_x_assum`csg_rel`mp_tac) >>
+      simp[map_count_store_genv_def,csg_rel_unpair,LIST_REL_EL_EQN,optionTheory.OPTREL_def] >>
+      rpt strip_tac >>
+      ntac 10 (first_x_assum(qspec_then`n`mp_tac)) >>
+      simp[EL_MAP] >> ntac 3 strip_tac >> simp[] >>
+      ntac 2 strip_tac >> simp[] >> ntac 2 strip_tac >>
+      simp[] >> ntac 2 strip_tac >>
+      ntac 11 (first_x_assum(qspec_then`n`mp_tac)) >>
+      simp[] >> strip_tac >> simp[] >>
+      ntac 2 strip_tac >> simp[]) >>
     simp[EXISTS_PROD,libTheory.emp_def,merge_envC_def,libTheory.merge_def] >>
     PairCases_on`s2` >> simp[env_rs_def] >>
     simp[RIGHT_EXISTS_AND_THM] >>
@@ -3720,6 +3819,7 @@ val compile_special_thm = store_thm("compile_special_thm",
         bc_next^* bs bs' ∧
         bc_fetch bs' = SOME (Stop T) ∧
         bs'.output = bs.output ∧
+        (EVERY IS_SOME bs.globals ⇒ bs'.globals = bs.globals) ∧
         env_rs env (s,tm) grd' rs bs'``,
   ho_match_mp_tac evaluate_top_ind >> simp[] >>
   simp[compile_special_def] >>
@@ -3938,6 +4038,17 @@ val compile_special_thm = store_thm("compile_special_thm",
     qexists_tac`[]`>>simp[Abbr`ZZ`] >>
     simp[SUM_APPEND,FILTER_APPEND] ) >>
   simp[bump_pc_def] >>
+  conj_asm2_tac >- (
+    imp_res_tac RTC_bc_next_gvrel >> fs[] >> strip_tac >>
+    match_mp_tac EQ_SYM >>
+    match_mp_tac same_length_gvrel_same >>
+    simp[] >>
+    PairCases_on`grd'` >> Cases_on`s2` >>
+    fs[env_rs_def,Cenv_bs_def,s_refs_def] >>
+    imp_res_tac LIST_REL_LENGTH >>
+    fs[Abbr`Csg`] >>
+    fs[to_i2_invariant_def,to_i1_invariant_def] >>
+    imp_res_tac LIST_REL_LENGTH >> fs[] ) >>
   simp[EXISTS_PROD] >>
   Cases_on`s2`>> simp[env_rs_def,PULL_EXISTS] >>
   rator_x_assum`to_i1_invariant`assume_tac >>

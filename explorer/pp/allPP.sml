@@ -1,6 +1,7 @@
 structure allPP = struct local
 open HolKernel boolLib bossLib Parse
-open cakeml_computeLib astPP modPP conPP exhPP patPP
+open cakeml_computeLib astPP modPP conPP exhPP patPP intPP
+open labels_computeLib
 
 fun fullEval p =
   let val asts = eval ``get_all_asts ^(p)``
@@ -42,11 +43,13 @@ type allIntermediates = {
   ils:term list,
   globMap:term list,
   ctors:term list,
-  modMap:term list}
+  modMap:term list,
+  annotations:term list}
 
 (*Return all intermediates during compilation in a record*)
 fun allIntermediates prog =
-  let val t1 = eval ``get_all_asts ^(prog)``
+  let 
+      val t1 = eval ``get_all_asts ^(prog)``
       val t2 = eval ``elab_all_asts ^(rhsThm t1)``
       val ast = rand (rhsThm t2)
 
@@ -91,9 +94,16 @@ fun allIntermediates prog =
       val p6 = rhsThm exp_to_Cexp
 
       (*compileCexp*)
+      val lab_closures = eval ``label_closures (LENGTH []) compile_primitives.rnext_label ^(p6)``
+      val (Ce,nl) = pairSyntax.dest_pair(rhsThm lab_closures)
+      (*probably need to change this to intP.collectAnnotations*)
+      val _ = (collectAnnotations := ([]:term list))
+      (*Cheat and call PP internally so that the stateful annotations are updated*)
+      val _ = term_to_string Ce
+
       val compile_Cexp = eval ``compile_Cexp [] 0 <|out:=[];next_label:=compile_primitives.rnext_label|> ^(p6)``
       val p7_1 = rhsThm compile_Cexp
-
+      
       (*compile print err*)
       val compile_print_err = eval ``compile_print_err ^(p7_1)``;
       val p7_2 = rhsThm compile_print_err
@@ -114,9 +124,34 @@ fun allIntermediates prog =
       val rev = eval ``REVERSE (^p7_4).out``
 
       val p7 = rhsThm rev
+
+      (*TODO: need to silence the call to prove*)
+      val code_labels_ok_thm = prove(
+        ``code_labels_ok ^p7``,
+         cheat)
+      (*
+         ONCE_REWRITE_TAC[SYM rev] >>
+         ONCE_REWRITE_TAC[SYM emit] >>
+         ONCE_REWRITE_TAC[SYM addIt])*)
+      val _ = add_code_labels_ok_thm code_labels_ok_thm
+
+      val rem_labels = eval ``remove_labels_all_asts (Success ^(p7))``
+
+      val p8 = rhsThm rem_labels |> rand
+
   in
-     {ils=[ast,p1,p2,p3,p4,p5,p6,p7],
-      ctors=ctors,globMap=globMap,modMap=modMap}
+     {ils=[ast,p1,p2,p3,p4,p5,p6,p7,p8],
+      ctors=ctors,globMap=globMap,modMap=modMap,annotations=(!collectAnnotations)}
   end;
 end
 end
+
+(*Helper for test calls*)
+
+(*val () = set_trace "pp_avoids_symbol_merges" 0
+
+fun take 0 (x::xs) = x
+|   take n (_::xs) = take (n-1) xs;
+
+fun i n (ex:allIntermediates) = take n (#ils ex);
+*)
