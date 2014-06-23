@@ -535,7 +535,6 @@ val COMPILER_RUN_INV_repl_step = store_thm("COMPILER_RUN_INV_repl_step",
 (* Data representation *)
 
 (* TODO: make these correct *)
-val pair_tag_def    = Define`pair_tag    = 12:num`
 val inl_tag_def     = Define`inl_tag     = 13:num`
 val inr_tag_def     = Define`inr_tag     = 14:num`
 val errors_tag_def  = Define`errors_tag  = 15:num`
@@ -546,7 +545,7 @@ val strings_tag_def = Define`strings_tag = 19:num`
 
 val BlockNil_def  = Define `BlockNil = Block (block_tag+nil_tag) []`;
 val BlockCons_def = Define `BlockCons (x,y) = Block (block_tag+cons_tag) [x;y]`;
-val BlockPair_def = Define `BlockPair (x,y) = Block (block_tag+pair_tag) [x;y]`;
+val BlockPair_def = Define `BlockPair (x,y) = Block (block_tag+tuple_tag) [x;y]`;
 
 val BlockList_def = Define `
   (BlockList [] = BlockNil) /\
@@ -592,7 +591,14 @@ val COMPILER_RUN_INV_references = store_thm("COMPILER_RUN_INV_references",
       EL oind bs.globals = SOME (RefPtr optr) ∧
       FLOOKUP bs.refs iptr = SOME ibc ∧
       FLOOKUP bs.refs optr = SOME obc ∧
-      ∃d. v_bv d input ibc ∧ v_bv d output obc``,
+      ∃x gtagenv y z.
+      let d = (x,gtagenv,y,z) in
+      v_bv d input ibc ∧ v_bv d output obc ∧
+      (∀n a t.
+        (lookup n (Tmod_tys "REPL" ml_repl_module_decls) = SOME (a,t)) ⇒
+        let (e1,e2) = FST(SND(FST compile_repl_decs).contags_env) in
+        let tag = FST(lookup_tag_flat n (e1 ' "REPL")) in
+          (FLOOKUP gtagenv (n,t) = SOME(tag,a)))``,
   rpt gen_tac >>
   simp[COMPILER_RUN_INV_def] >> strip_tac >>
   Cases_on`Tmod_state"REPL"ml_repl_module_decls`>>fs[update_io_def] >>
@@ -645,7 +651,6 @@ val COMPILER_RUN_INV_references = store_thm("COMPILER_RUN_INV_references",
   rator_x_assum`EVERY`mp_tac >>
   simp[EVERY_MEM,MEM_EL,PULL_EXISTS] >>
   strip_tac >>
-  simp[Ntimes EXISTS_PROD 3] >>
   simp[printingTheory.v_bv_def,PULL_EXISTS] >>
   CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(equal``Cv_bv`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
@@ -679,25 +684,111 @@ val COMPILER_RUN_INV_references = store_thm("COMPILER_RUN_INV_references",
   simp[LIST_REL_EL_EQN,EL_LUPDATE] >> strip_tac >>
   first_assum(qspec_then`iloc`mp_tac) >>
   first_x_assum(qspec_then`iloc+1`mp_tac) >>
-  simp[] >> METIS_TAC[])
+  simp[] >> rpt strip_tac >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(equal``v_to_i1`` o fst o strip_comb))) >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  rpt gen_tac >> strip_tac >>
+  rator_x_assum`cenv_inv`mp_tac >>
+  simp[conLangProofTheory.cenv_inv_def] >>
+  simp[conLangProofTheory.envC_tagged_def] >>
+  strip_tac >>
+  first_x_assum(qspec_then`Long"REPL"n`mp_tac) >>
+  Q.PAT_ABBREV_TAC`p:envC = merge_envC X init_envC` >>
+  `∃x y. p = (x,y)` by METIS_TAC[pair_CASES] >>
+  qunabbrev_tac`p` >>
+  simp[semanticPrimitivesTheory.lookup_con_id_def] >>
+  qmatch_assum_abbrev_tac`merge_envC([("REPL",e)],emp) init_envC = X` >>
+  `lookup "REPL" x = SOME e` by (
+    qmatch_assum_rename_tac`merge_envC Y p = X`["Y"] >>
+    Cases_on`p`>>fs[semanticPrimitivesTheory.merge_envC_def] >>
+    fs[libTheory.merge_def,Abbr`X`] >> rw[] ) >>
+  Cases_on`FST(SND(FST compile_repl_decs).contags_env)` >>
+  simp[conLangTheory.lookup_tag_env_def,astTheory.id_to_n_def] >>
+  strip_tac >>
+  fs[conLangProofTheory.gtagenv_wf_def] >>
+  fs[finite_mapTheory.FLOOKUP_DEF] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[] >>
+  METIS_TAC[])
 
 (* Changing the references preserves the invariant *)
 
 val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
   ``COMPILER_RUN_INV bs inp outp /\ OUTPUT_TYPE (INR (msg,s)) outp ==>
-    ?x outp_ptr inp_ptr rest s_bc_val.
-      (bs.stack = x::(RefPtr outp_ptr)::(RefPtr inp_ptr)::rest) /\
-      inp_ptr IN FDOM bs.refs /\
-      (FLOOKUP bs.refs outp_ptr =
+    ?map iind oind iptr optr s_bc_val.
+      FLOOKUP (FST(FST compile_repl_decs).globals_env) "REPL" = SOME map ∧
+      FLOOKUP map "input" = SOME iind ∧
+      FLOOKUP map "output" = SOME oind ∧
+      iind < LENGTH bs.globals ∧ oind < LENGTH bs.globals ∧
+      EL iind bs.globals = SOME (RefPtr iptr) ∧
+      EL oind bs.globals = SOME (RefPtr optr) ∧
+      iptr IN FDOM bs.refs /\
+      (FLOOKUP bs.refs optr =
          SOME (BlockInr (BlockPair (BlockList (MAP Chr msg),s_bc_val)))) /\
       !ts.
         let inp_bc_val = BlockSome (BlockPair (BlockList (MAP BlockSym ts),s_bc_val))
         in
           ?new_inp.
             INPUT_TYPE (SOME (ts,s)) new_inp /\
-            COMPILER_RUN_INV (bs with refs := bs.refs |+ (inp_ptr,inp_bc_val))
+            COMPILER_RUN_INV (bs with refs := bs.refs |+ (iptr,inp_bc_val))
               new_inp outp``,
+  rw[] >>
+  imp_res_tac COMPILER_RUN_INV_references >> simp[] >>
+  simp[RIGHT_EXISTS_AND_THM] >>
+  conj_tac >- fs[finite_mapTheory.FLOOKUP_DEF] >>
+  fs[OUTPUT_TYPE_def] >>
+  fs[ml_repl_stepTheory.SUM_TYPE_def] >>
+  fs[ml_repl_stepTheory.PAIR_TYPE_def] >>
+  rw[] >>
+  `∃g h i j. d = (g,h,i,j)` by METIS_TAC[pair_CASES] >>
+  rator_x_assum`v_bv`mp_tac >>
+  simp[printingTheory.v_bv_def] >>
+  simp[Once modLangProofTheory.v_to_i1_cases,PULL_EXISTS] >>
+  simp[Once modLangProofTheory.v_to_i1_cases,PULL_EXISTS] >>
+  simp[Once modLangProofTheory.v_to_i1_cases,PULL_EXISTS] >>
+  simp[Once modLangProofTheory.v_to_i1_cases,PULL_EXISTS] >>
+  simp[Once (CONJUNCT2 modLangProofTheory.v_to_i1_cases),PULL_EXISTS] >>
+  simp[Once (CONJUNCT2 modLangProofTheory.v_to_i1_cases),PULL_EXISTS] >>
+  simp[Once (CONJUNCT2 modLangProofTheory.v_to_i1_cases),PULL_EXISTS] >>
+  simp[Once conLangProofTheory.v_to_i2_cases,PULL_EXISTS] >>
+  simp[Once (CONJUNCT2 conLangProofTheory.v_to_i2_cases),PULL_EXISTS] >>
+  simp[Once (CONJUNCT2 conLangProofTheory.v_to_i2_cases),PULL_EXISTS] >>
+  simp[Once conLangProofTheory.v_to_i2_cases,PULL_EXISTS] >>
+  simp[Once (CONJUNCT2 conLangProofTheory.v_to_i2_cases),PULL_EXISTS] >>
+  simp[Once (CONJUNCT2 conLangProofTheory.v_to_i2_cases),PULL_EXISTS] >>
+  simp[Once (CONJUNCT2 conLangProofTheory.v_to_i2_cases),PULL_EXISTS] >>
+  simp[Once exhLangProofTheory.v_to_exh_cases,PULL_EXISTS] >>
+  simp[Once exhLangProofTheory.v_to_exh_cases,PULL_EXISTS] >>
+  simp[Once exhLangProofTheory.v_to_exh_cases,PULL_EXISTS] >>
+  simp[Once exhLangProofTheory.v_to_exh_cases,PULL_EXISTS] >>
+  simp[Once (CONJUNCT2 exhLangProofTheory.v_to_exh_cases),PULL_EXISTS] >>
+  simp[Once (CONJUNCT2 exhLangProofTheory.v_to_exh_cases),PULL_EXISTS] >>
+  simp[Once (CONJUNCT2 exhLangProofTheory.v_to_exh_cases),PULL_EXISTS] >>
+  simp[printingTheory.exh_Cv_def,PULL_EXISTS] >>
+  simp[Once patLangProofTheory.v_pat_cases,PULL_EXISTS] >>
+  simp[Once patLangProofTheory.v_pat_cases,PULL_EXISTS] >>
+  simp[Once intLangTheory.syneq_cases,PULL_EXISTS] >>
+  simp[Once intLangTheory.syneq_cases,PULL_EXISTS] >>
+  simp[Once bytecodeProofTheory.Cv_bv_cases,PULL_EXISTS] >>
+  simp[BlockInr_def] >>
+  simp[Once bytecodeProofTheory.Cv_bv_cases,PULL_EXISTS] >>
+  simp[BlockPair_def] >>
+  rpt gen_tac >> strip_tac
+
   simp[COMPILER_RUN_INV_def] >> strip_tac >> simp[] >>
+  rator_assum`env_rs`mp_tac >>
+  PairCases_on`grd`>>
+  Cases_on`Tmod_state"REPL"ml_repl_module_decls`>>
+  simp_tac std_ss [update_io_def] >>
+  simp_tac std_ss [env_rs_def] >>
+  simp[modLangProofTheory.to_i1_invariant_def] >>
+  simp[Once modLangProofTheory.v_to_i1_cases] >>
+  strip_tac >>
+  rator_x_assum`global_env_inv_flat`mp_tac >>
+  simp[Once modLangProofTheory.v_to_i1_cases] >>
+  simp[repl_env_def] >>
+
   imp_res_tac env_rs_repl_decs_inp_out >>
   simp[GSYM PULL_EXISTS] >>
   conj_tac >- fs[finite_mapTheory.FLOOKUP_DEF] >>
