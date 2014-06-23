@@ -5,11 +5,12 @@ open astPP conPP modPP exhPP patPP
 val collectAnnotations :(term list ref)= ref ([]:term list);
 
 (*cexp_Nested mutually recursive letrec
-Collects annotations
-TODO: decide how to differentiate letrecs and lambdas
-*)
-fun cexp_letrecPrint sys d t Top str brk blk =
+Collects annotations statefully when called*)
+
+fun cexp_letrecPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
   let
+    open term_pp_types PPBackEnd
+    val (str,brk,blk,sty) = (#add_string ppfns, #add_break ppfns,#ublock ppfns,#ustyle ppfns);
     val (temp,expr) = dest_comb t
     val (_,ls) = dest_comb temp
     val fundef = #1(listSyntax.dest_list ls)
@@ -17,22 +18,22 @@ fun cexp_letrecPrint sys d t Top str brk blk =
     |   printTerms [x] = 
           let val ([opt,num,x]) = pairSyntax.strip_pair x
           in
-            if optionSyntax.is_none(opt) then str ""
+            (if optionSyntax.is_none(opt) then str "fun" (*Should never be pretty printed*)
             else (*Has annotations*)
                 let val lab = hd (pairSyntax.strip_pair(strip opt))
                   in 
                     (collectAnnotations := optionSyntax.dest_some(opt) :: (!collectAnnotations));
-                     str "_">>str (term_to_string lab)
-                  end 
+                     sty [FG Purple] (str "f">>str (term_to_string lab))
+                  end) 
     	    >>str" = ">>sys (Top,Top,Top) d x
           end 
-    |   printTerms (t::xs) = printTerms [t] >>add_newline>>str "and">> (printTerms xs)
+    |   printTerms (t::xs) = printTerms [t] >>add_newline>> (printTerms xs)
   in
-     blk CONSISTENT 0 ((blk CONSISTENT 0 (str "fun">>printTerms fundef))
+     blk CONSISTENT 0 ((blk CONSISTENT 0 (printTerms fundef))
      >>add_newline>>str "in">>add_newline>>str"  ">>sys (Top,Top,Top) d expr >>add_newline>> str "end")
-  end;
+  end handle HOL_ERR _ => raise term_pp_types.UserPP_Failed;
 
-val _ = temp_add_user_printer ("cexp_letrecprint", ``CLetrec x y``,genPrint cexp_letrecPrint);
+val _ = temp_add_user_printer ("cexp_letrecprint", ``CLetrec x y``,cexp_letrecPrint);
 
 (*TODO: find an example where this occurs??*)
 (*cexp_CUpd*)
@@ -47,7 +48,7 @@ val _ = temp_add_user_printer("cexp_cupdprint", ``CUpd x y``,genPrint cexp_cupdP
 (*cexp_Apply Equality*)
 val _ = temp_add_user_printer ("cexp_equalityprint", ``CPrim2 CEq x y``, genPrint pat_equalityPrint);
 
-(*cexp_Call TODO: decide whether to use callT/F or not*)
+(*cexp_Call*)
 (*Or maybe call (...) with [...]*)
 fun cexp_ccallPrint sys d t Top str brk blk =
   let val (t,ls) = dest_comb t
@@ -61,7 +62,7 @@ fun cexp_ccallPrint sys d t Top str brk blk =
 val _ = temp_add_user_printer ("cexp_ccallprint", ``CCall b f x``, genPrint cexp_ccallPrint);
 
 (*cexp_prim1*)
-(*TODO: these actually seem rather superfluous...*)
+(*NOTE: these actually seem rather superfluous...*)
 fun cexp_isblockPrint sys d t Top str brk blk =
   str"is_block";
 
@@ -88,7 +89,7 @@ fun cexp_letpatPrint sys d t Top str brk blk =
     in
     if b = ``T``
     then
-      blk CONSISTENT 0 (str"bind ">>sys(Top,Top,Top) d exp1 >>add_newline>>str"in">>add_newline>>str"  ">> sys (Top,Top,Top) d exp2>>add_newline>>str"end")
+      blk CONSISTENT 0 (str"bind (">>sys(Top,Top,Top) d exp1 >>str")">>add_newline>>str"in">>add_newline>>str"  ">> sys (Top,Top,Top) d exp2>>add_newline>>str"end")
     else
       blk CONSISTENT 0 (sys (Top,Top,Top) d exp1 >>str";">>brk(1,0)>>
       sys(Top,Top,Top) d exp2) 
@@ -105,7 +106,7 @@ val _ = temp_add_user_printer("cexp_truelitprint",``CLit (Bool T)``,genPrint (bo
 val _ = temp_add_user_printer("cexp_falselitprint",``CLit (Bool F)``,genPrint (boolPrint "false"));
 
 (*cexp local var name debrujin indices*)
-val _ = temp_add_user_printer ("cexp_varlocalprint", ``CVar x``,genPrint pat_varlocalPrint);
+val _ = temp_add_user_printer ("cexp_varlocalprint", ``CVar x``,pat_varlocalPrint);
 
 (*cexp global Var name*)
 val _ = temp_add_user_printer ("cexp_varglobalprint", ``CGvar n``,i1_varglobalPrint);
@@ -119,4 +120,5 @@ val _ = temp_add_user_printer ("cexp_handleprint", ``CHandle x y``,genPrint (pat
 (*cexp_If-then-else*)
 val _ = temp_add_user_printer("cexp_ifthenelseprint", ``CIf x y z``,genPrint ifthenelsePrint);
 
+(*TODO: add the globals for binops?*)
 end;

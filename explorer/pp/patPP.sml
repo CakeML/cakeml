@@ -71,10 +71,11 @@ fun pat_seqPrint sys d t Top str brk blk =
 val _=temp_add_user_printer ("pat_seqprint",``Seq_pat x y``,genPrint pat_seqPrint);
 
 (*pat_Let*)
+(*brackets around bound expression to be safe, same in intLang*)
 fun pat_letpatPrint sys d t Top str brk blk =
   let val (l,r) = dest_comb t
   in
-    blk CONSISTENT 0 (str"bind ">>sys(Top,Top,Top) d (strip l) >>add_newline>>str"in">>add_newline>>str"  ">> sys (Top,Top,Top) d r>>add_newline>>str"end")
+    blk CONSISTENT 0 (str"bind (">>sys(Top,Top,Top) d (strip l)>>str")">>add_newline>>str"in">>add_newline>>str"  ">> sys (Top,Top,Top) d r>>add_newline>>str"end")
   end;
 
 val _=temp_add_user_printer ("pat_letprint",``Let_pat y z ``,genPrint pat_letpatPrint);
