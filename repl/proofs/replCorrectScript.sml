@@ -279,7 +279,7 @@ val invariant_def = Define`
     ∧ SND(SND rs.store) = FST rs.tdecs
 
     ∧ type_infer_invariants rs rfs.rinferencer_state
-    ∧ type_sound_invariants (rs.tdecs,rs.tenvM,rs.tenvC,rs.tenv,FST (SND rs.store),rs.envM,rs.envC,rs.envE,SND (FST rs.store))
+    ∧ type_sound_invariants (NONE : (v,v) result option) (rs.tdecs,rs.tenvM,rs.tenvC,rs.tenv,FST (SND rs.store),rs.envM,rs.envC,rs.envE,SND (FST rs.store))
 
     ∧ (∃grd. env_rs (rs.envM,rs.envC,rs.envE) rs.store grd rfs.rcompiler_state bs)
 
@@ -667,7 +667,7 @@ val consistent_mod_env_dom = Q.prove (
 val type_sound_inv_closed = Q.prove (
 `∀top rs new_tenvM new_tenvC new_tenv new_decls decls' store.
   type_top rs.tdecs rs.tenvM rs.tenvC rs.tenv top new_decls new_tenvM new_tenvC new_tenv ∧
-  type_sound_invariants (rs.tdecs,rs.tenvM,rs.tenvC,rs.tenv,decls',rs.envM,rs.envC,rs.envE,store)
+  type_sound_invariants NONE (rs.tdecs,rs.tenvM,rs.tenvC,rs.tenv,decls',rs.envM,rs.envC,rs.envE,store)
   ⇒
   FV_top top ⊆ all_env_dom (rs.envM,rs.envC,rs.envE)`,
 rw [] >>
@@ -879,7 +879,7 @@ fs [] >>
 fs [] >>
 BasicProvers.VAR_EQ_TAC >>
 imp_res_tac infer_to_type >>
-`type_sound_invariants (rs.tdecs,rs.tenvM,rs.tenvC,rs.tenv,FST (SND rs.store),rs.envM,rs.envC,rs.envE,SND (FST rs.store))`
+`type_sound_invariants (NONE:(v,v) result option) (rs.tdecs,rs.tenvM,rs.tenvC,rs.tenv,FST (SND rs.store),rs.envM,rs.envC,rs.envE,SND (FST rs.store))`
         by fs [invariant_def] >>
 `¬top_diverges (rs.envM,rs.envC,rs.envE)
           (SND (FST rs.store),FST (SND rs.store),FST rs.tdecs) top ⇒
@@ -891,7 +891,7 @@ imp_res_tac infer_to_type >>
               FST rs.tdecs) top
              (((count',store2),decls2',
                FST (convert_decls new_decls) ∪ FST rs.tdecs),cenv2,r) ∧
-           type_sound_invariants
+           type_sound_invariants (SOME r)
              (update_type_sound_inv
                 (rs.tdecs,rs.tenvM,rs.tenvC,rs.tenv,FST (SND rs.store),
                  rs.envM,rs.envC,rs.envE,SND (FST rs.store))
@@ -933,7 +933,7 @@ cases_on `bc_eval (install_code code bs)` >> fs[] >- (
       reverse BasicProvers.CASE_TAC >- (
         fs[update_type_sound_inv_def,type_sound_invariants_def] >>
         Cases_on`e`>>fs[]>>
-        cheat (* raised a literal, which should be impossible. the goal looks false though, so something is missing. *)) >>
+        fs [Once type_v_cases]) >>
       BasicProvers.CASE_TAC >>
       rw[printingTheory.good_type_string_env_def] >>
       simp[compilerTheory.tystr_def] >>
@@ -1151,7 +1151,7 @@ strip_tac >>
        ( imp_res_tac type_invariants_pres >>
          fs [update_repl_state_def, type_infer_invariants_def] >> 
          metis_tac [union_append_decls] ) >>
-    conj_tac >- fs [update_type_sound_inv_def] >> 
+    conj_tac >- (fs [update_type_sound_inv_def, type_sound_invariants_def] >> metis_tac []) >>
     inv_pres_tac) >>
 
   (* exception *)
@@ -1189,7 +1189,7 @@ strip_tac >>
   conj_tac >- (
     imp_res_tac type_invariants_pres_err >>
     fs [update_repl_state_def, GSYM union_append_decls, type_infer_invariants_def]) >>
-  conj_tac >- fs [update_type_sound_inv_def] >>
+  conj_tac >- (fs [update_type_sound_inv_def, type_sound_invariants_def] >> metis_tac []) >>
   inv_pres_tac);
 
 val _ = delete_const"and_shadow"
