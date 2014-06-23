@@ -28,7 +28,8 @@ fun io() =
 			       then (TextIO.inputN(TextIO.stdIn,int_from_str_opt(cgi_content_length,0)))
 			       else "";
       (*testing*)
-      (*val url_encoded_string = "asdasf=asdasasdf&asdfasd=asdasdasd&src=val+x+%3D5%2B5%3B%0D%0A&bla=bla&asdf=asf"; *)
+      (*val url_encoded_string = 
+          "asdasf=asdasasdf&asdfasd=asdasdasd&src=val+x+%3D5%2B5%3B%0D%0A&bla=bla&asdf=asf";*) 
       val sizeofStr = size url_encoded_string
       val the_fields =
 	Substring.tokens(fn c => c = #"&")(Substring.substring (url_encoded_string,0,size url_encoded_string ));
@@ -71,6 +72,9 @@ fun io() =
         end;
 
       val src = case cgi_field_string("src") of NONE => "" | SOME(src) => src;
+
+      (*testing*)
+      (*val src = "structure Nat = struct val zero = 0 fun succ x = x+1 fun iter f n = if n = 0 then (fn x=> x) else f o (iter f n) end; (Nat.iter Nat.succ 5) Nat.zero;"*)
 
       val out = if src = "" then Nothing
                 else Success(allIntermediates (stringSyntax.fromMLstring src))
@@ -124,7 +128,7 @@ fun io() =
                end)
            ]), BR ,
 
-           (*Globals,Ctor and Module table*)
+           (*Globals,Ctors Module and annotations table*)
            DIV ([("class","tabs")],
              Sequence
              [

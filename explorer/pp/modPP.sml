@@ -139,9 +139,8 @@ val _=temp_add_user_printer ("i1_refappprint", ``App_i1 Opapp (Var_global_i1 0) 
 val _=temp_add_user_printer ("i1_derefappprint", ``App_i1 Opapp (Var_global_i1 1) x``,genPrint (prefixappPrint "!"));
 val _=temp_add_user_printer ("i1_negappprint", ``App_i1 Opapp (Var_global_i1 2) x``,genPrint (prefixappPrint "~"));
 
-(*i1 list form-- broken
-temp_add_user_printer("i1listprint",``x:prompt_i1 store``,genPrint astlistPrint);
-temp_remove_user_printer("i1listprint");*)
+(*i1 list form *)
+val _=temp_add_user_printer("i1listprint",``x:prompt_i1 store``,genPrint astlistPrint);
 
 val _=temp_add_user_printer("i1_truelitprint",``Lit_i1 (Bool T)``,genPrint (boolPrint "true"));
 val _=temp_add_user_printer("i1_falselitprint",``Lit_i1 (Bool F)``,genPrint (boolPrint "false"));

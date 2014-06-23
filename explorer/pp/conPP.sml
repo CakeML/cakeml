@@ -137,4 +137,6 @@ val _=temp_add_user_printer ("i2_refappprint", ``App_i2 Opapp (Var_global_i2 0) 
 val _=temp_add_user_printer ("i2_derefappprint", ``App_i2 Opapp (Var_global_i2 1) x``,genPrint (prefixappPrint "!"));
 val _=temp_add_user_printer ("i2_negappprint", ``App_i2 Opapp (Var_global_i2 2) x``,genPrint (prefixappPrint "~"));
 
+(*i2 list form*)
+val _=temp_add_user_printer("i2listprint",``x:prompt_i2 store``,genPrint astlistPrint);
 end;

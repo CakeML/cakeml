@@ -275,8 +275,12 @@ fun pconsomePrint sys d t Top str brk blk=
     fun printTerms [] = str ""
     |   printTerms [x] = sys (Top,Top,Top) (d-1) x
     |   printTerms (x::xs) = sys (Top,Top,Top) (d-1) x >> str ",">> (printTerms xs);
-    val ctort = toString (strip (strip l));
-    val ctor = if (ctort = "::") then "Cons" else ctort
+    val (ty,ls) = strip_comb (rand l);
+    (*Special case for cons and handle long names*)
+    val ctor = if ty = ``Short`` then let val ctort = toString (hd ls) in 
+                                      (if (ctort = "::") then "Cons" else ctort) end
+               else case ls of [l,r] => (toString l)^"."^(toString r)
+    (*Properly handle LONG names*)
   in
     str ctor >> (case args of [] => str "" | (_::_) => str "(" >> (blk INCONSISTENT 0 (printTerms args)) >>str ")")
   end;
@@ -477,20 +481,60 @@ fun astlistPrint sys d t Top str brk blk =
     printterms ls
   end;
 
-(*TODO: This is broken ... it ends up matching all lists, not just ast ones!! 
-temp_add_user_printer("astlistprint",``x:prog``,genPrint astlistPrint);
-temp_remove_user_printer("astlistprint");*)
+(*Fixed in latest ver of HOL*)
+val _=temp_add_user_printer("astlistprint",``x:prog``,genPrint astlistPrint);
 
+(*TODO: the remainder of this should really go into a miscPP file*)
 (*Pretty Printer specifics for globals, types & exceptions*)
 
 fun tidPrinter sys d t Top str brk blk =
-  str "datatype " >>sys (Top,Top,Top) d (strip (strip t));
+  str "datatype " >>str (toString (strip (strip t)));
 
 fun texnPrinter sys d t Top str brk blk = 
-  str "exception " >>sys (Top,Top,Top) d (strip (strip t));
+  str "exception " >>str (toString (strip (strip t)));
+
+fun tlongPrinter pref sys d t Top str brk blk =
+  let val t = rand t
+      val(_,[l,r]) = strip_comb t
+  in
+    str pref >>str" ">> str (toString l) >> str".">>str(toString r)
+  end;
+
 
 val _=temp_add_user_printer("typeidprint",``TypeId (Short x)``, genPrint tidPrinter);
 val _=temp_add_user_printer("typeexnprint",``TypeExn (Short x)``, genPrint texnPrinter);
+
+
+val _=temp_add_user_printer("typelongidprint",``TypeId (Long x y)``, genPrint (tlongPrinter "datatype"));
+val _=temp_add_user_printer("typelongexnprint",``TypeExn (Long x y)``, genPrint (tlongPrinter "exception"));
+
+
+(*Pretty Printer specifics for bytecode*)
+fun bclistPrint sys d t Top str brk blk =
+  let val t = rand t
+      val ls = #1(listSyntax.dest_list t)
+  fun printterms [] = str""
+  |   printterms [x] = str ((fn s=> if(String.isPrefix "Label" s) then s^":" else "  "^s^";") 
+		               (term_to_string x))
+  |   printterms (x::xs) = (printterms [x])>>str"\n">>printterms xs
+  in
+    printterms ls
+  end;
+val _=temp_add_user_printer("bclistprint",``(SOME x ,(y:bc_inst store))``,genPrint bclistPrint);
+
+(*Unlabeled*)
+fun ubclistPrint sys d t Top str brk blk =
+  let val t = rand t
+      val ls = #1(listSyntax.dest_list t)
+  fun printterms _ [] = str""
+  |   printterms n [x] = str (Int.toString n) >>str":  ">> str (term_to_string x)
+  |   printterms n (x::xs) = (printterms n [x])>>str";\n">>printterms (n+1) xs
+  in
+    printterms 0 ls
+  end;
+val _=temp_add_user_printer("ubclistprint",``(NONE ,(y:bc_inst store))``,genPrint ubclistPrint);
+
+
 
 (*
 fun globPrinter sys d t Top str brk blk =

@@ -1,5 +1,5 @@
 open HolKernel boolLib bossLib Parse astTheory terminationTheory sptreeTheory conLangProofTheory
-open cakeml_computeLib progToBytecodeTheory
+open cakeml_computeLib progToBytecodeTheory bytecodeLabelsTheory
 open Portable
 open smpp 
 (*Nested ifs*)
@@ -73,7 +73,7 @@ val ex23 = allIntermediates ``"datatype foo = Lf of int * (int -> unit) * int| B
 val ex24 = allIntermediates ``"structure Nat = struct val zero = 0 fun succ x = x+1 fun iter f n = if n = 0 then (fn x=> x) else f o (iter f (n-1)) end;fun f x y z= x+y+z; val (x,y,z) = (f 1 1 1,f 2 2 2,f (f (f 3 3 3) 1 2)); (Nat.iter Nat.succ 5) Nat.zero;"``;
 
 (*random semicolons in the struct, exceptions*)
-val ex25 = allIntermediates ``"structure Nat = struct val one = 1 ; val zero = 0 fun succ x y z = x+y+z+(if x>0 then one else zero); end; "``;
+val ex25 = allIntermediates ``"structure Nat :> sig val one:int; val zero:int end = struct val one = 1 ; val zero = 0 fun succ x y z = x+y+z+(if x>0 then one else zero); end; "``;
 
-(*bug?*)
-val ex26 = allIntermediates ``"structure Nat2= struct exception e end;"``;
+(*Exception ctors must start with uppercase*)
+val ex26 = allIntermediates ``"structure Nat :> sig exception E end = struct exception E end; raise Nat.E;"``;

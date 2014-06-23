@@ -1,8 +1,7 @@
 structure intPP =
 struct
 open astPP conPP modPP exhPP patPP
-(*INCOMPLETE*)
-
+(*This is stateful!*)
 val collectAnnotations :(term list ref)= ref ([]:term list);
 
 (*cexp_Nested mutually recursive letrec
@@ -17,14 +16,18 @@ fun cexp_letrecPrint sys d t Top str brk blk =
     |   printTerms [x] = 
           let val ([opt,num,x]) = pairSyntax.strip_pair x
           in
-            if optionSyntax.is_none(opt) then ()
+            if optionSyntax.is_none(opt) then str ""
             else (*Has annotations*)
-                 collectAnnotations := optionSyntax.dest_some(opt) :: (!collectAnnotations)
-    	    ; sys (Top,Top,Top) d x
+                let val lab = hd (pairSyntax.strip_pair(strip opt))
+                  in 
+                    (collectAnnotations := optionSyntax.dest_some(opt) :: (!collectAnnotations));
+                     str "_">>str (term_to_string lab)
+                  end 
+    	    >>str" = ">>sys (Top,Top,Top) d x
           end 
-    |   printTerms (t::xs) = printTerms [t] >>add_newline>>str "and = ">> (printTerms xs)
+    |   printTerms (t::xs) = printTerms [t] >>add_newline>>str "and">> (printTerms xs)
   in
-     blk CONSISTENT 0 (str "let " >> (blk CONSISTENT 0 (str "fun = ">>printTerms fundef))
+     blk CONSISTENT 0 (str "let " >> (blk CONSISTENT 0 (str "fun">>printTerms fundef))
      >>add_newline>>str "in">>add_newline>>str"  ">>sys (Top,Top,Top) d expr >>add_newline>> str "end")
   end;
 
