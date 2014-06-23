@@ -486,7 +486,7 @@ val _ = Define `
  * constructor and module type environments that don't have bits hidden by a
  * signature. *)
 val _ = Define `
- (type_sound_invariants (decls1,tenvM,tenvC,tenv,decls2,envM,envC,envE,store) =  
+ (type_sound_invariants r (decls1,tenvM,tenvC,tenv,decls2,envM,envC,envE,store) =  
 (? ctMap tenvS decls_no_sig tenvM_no_sig tenvC_no_sig. 
     consistent_decls decls2 decls_no_sig /\
     consistent_ctMap decls_no_sig ctMap /\
@@ -501,7 +501,8 @@ val _ = Define `
     weakC tenvC_no_sig tenvC /\
     decls_ok decls_no_sig /\
     weak_decls decls_no_sig decls1 /\
-    weak_decls_only_mods decls_no_sig decls1))`;
+    weak_decls_only_mods decls_no_sig decls1 /\
+    (! err. (r = SOME (Rerr (Rraise err))) ==> type_v( 0) ctMap tenvS err Texn)))`;
 
 
 val _ = Define `
