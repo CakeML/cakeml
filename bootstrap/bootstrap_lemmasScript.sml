@@ -254,6 +254,7 @@ val OUTPUT_TYPE_def = Define `
 val bootstrap_bc_state_exists = prove(
   ``∃bs. bc_eval (install_code (SND(SND(compile_repl_decs))) initial_bc_state) = SOME bs ∧
          bc_fetch bs = SOME (Stop T) ∧
+         EVERY IS_SOME bs.globals ∧
          ∃grd. env_rs ^repl_all_env ^repl_store grd (FST compile_repl_decs) bs``,
   mp_tac(MATCH_MP bigClockTheory.top_add_clock (CONJUNCT1 evaluate_repl_decs)) >>
   simp[] >>
@@ -297,6 +298,10 @@ val bootstrap_bc_state_exists = prove(
     simp[invariant_def] ) >>
   pop_assum(SUBST1_TAC o SYM) >> simp[bytecodeClockTheory.bc_fetch_with_clock] >>
   `emp ++ init_env = init_env` by simp[libTheory.emp_def] >>
+  conj_tac >- (
+    first_x_assum match_mp_tac >>
+    simp[Abbr`bs`,repl_funTheory.install_code_def] >>
+    simp[replCorrectTheory.initial_bc_state_side_thm] ) >>
   METIS_TAC[env_rs_change_clock,SND,FST])
 
 val bootstrap_bc_state_def = new_specification("bootstrap_bc_state_def",["bootstrap_bc_state"],bootstrap_bc_state_exists)
@@ -318,10 +323,6 @@ val repl_bc_state_clock = prove(
   fs[optionTheory.OPTREL_def,repl_funTheory.install_code_def] >>
   fs[initialProgramTheory.empty_bc_state_def,repl_funTheory.initial_bc_state_def] >>
   rfs[repl_funTheory.install_code_def])
-
-val bootstrap_bc_state_globals_SOME = prove(
-  ``EVERY IS_SOME bootstrap_bc_state.globals``,
-  cheat (* prove by evaluation? *))
 
 (* Effect of evaluating the call *)
 val update_io_def  = Define`
@@ -520,31 +521,7 @@ val COMPILER_RUN_INV_repl_step = store_thm("COMPILER_RUN_INV_repl_step",
      modLangProofTheory.to_i1_invariant_def,
      LIST_REL_LENGTH] ) >>
   simp[repl_bc_state_def,repl_funTheory.install_code_def] >>
-  simp[bootstrap_bc_state_globals_SOME])
-  (* invariants are probably not strong enough to prove that semantically
-  ntac 45 (pop_assum kall_tac) >>
-  rator_x_assum`LIST_REL`mp_tac >>
-  rator_x_assum`LIST_REL`kall_tac >>
-  rator_x_assum`LIST_REL`mp_tac >>
-  rator_x_assum`LIST_REL`kall_tac >>
-  simp[LIST_REL_EL_EQN,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
-  simp[optionTheory.OPTREL_def] >> rw[] >>
-  first_x_assum(qspec_then`n`mp_tac) >>
-  first_x_assum(qspec_then`n`mp_tac) >>
-  simp[] >> rw[] >> rw[] >> fs[] >>
-  fs[conLangProofTheory.to_i2_invariant_def] >>
-  rator_x_assum`LIST_REL`assume_tac >>
-  fs[LIST_REL_EL_EQN] >>
-  first_x_assum(qspec_then`n`mp_tac) >>
-  simp[optionTheory.OPTREL_def] >>
-  fs[modLangProofTheory.to_i1_invariant_def] >>
-  fs[modLangProofTheory.s_to_i1_cases] >>
-  rator_x_assum`global_env_inv`mp_tac >>
-  simp[Once modLangProofTheory.v_to_i1_cases] >>
-  simp[Once modLangProofTheory.v_to_i1_cases] >>
-  strip_tac >> pop_assum mp_tac >>
-  simp[Once modLangProofTheory.v_to_i1_cases] >>
-*)
+  simp[bootstrap_bc_state_def])
 
 (* Changing the references preserves the invariant *)
 
