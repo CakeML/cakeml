@@ -148,8 +148,12 @@ local
 
   val init_db = Net.insert (rand(concl(code_labels_ok_nil)),code_labels_ok_nil) Net.empty
   val db = ref init_db
+  val quiet := false
+  fun info s = if !quiet then () else HOL_MESG s
+  fun time x = if !quiet then x else Lib.time x
 
 in
+  val quiet = quiet
 
   fun reset_code_labels_ok_db () = db := init_db
   fun add_code_labels_ok_thm th =
@@ -195,7 +199,7 @@ in
                    [code, us,
                     numSyntax.zero_tm,
                     l, ptabb])
-      val _ = print "proving good_label_map hypothesis: "
+      val _ = info "proving good_label_map hypothesis: "
       val th2 = time (good_label_map_conv lconv ptdef) tm2 |> EQT_ELIM
       val _ = delete_const (fst (dest_const ptabb))
     in
