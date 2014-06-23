@@ -92,10 +92,19 @@ fun i1_varlocalPrint sys d t Top str brk blk =
 val _=temp_add_user_printer ("i1_varlocalprint", ``Var_local_i1 x``,genPrint i1_varlocalPrint);
 
 (*i1 global Var name*)
-fun i1_varglobalPrint sys d t Top str brk blk =
-    str"g_">>sys (Top,Top,Top) d (strip t);
+fun i1_varglobalPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
+  let
+    open term_pp_types PPBackEnd
+    val (str,brk,blk,sty) = (#add_string ppfns, #add_break ppfns,#ublock ppfns,#ustyle ppfns);
+  in
+    sty [FG DarkBlue] (str"g">>sys (Top,Top,Top) d (strip t))
+  end handle HOL_ERR _ => raise term_pp_types.UserPP_Failed;
 
-val _=temp_add_user_printer ("i1_varglobalprint", ``Var_global_i1 n``,genPrint i1_varglobalPrint);
+(*
+fun i1_varglobalPrint sys d t Top str brk blk =
+    str"g_">>sys (Top,Top,Top) d (strip t);*)
+
+val _=temp_add_user_printer ("i1_varglobalprint", ``Var_global_i1 n``,i1_varglobalPrint);
 
 (*i1_Matching*)
 val _=temp_add_user_printer ("i1_matprint", ``Mat_i1 x y``,genPrint matPrint);

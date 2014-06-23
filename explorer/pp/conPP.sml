@@ -2,15 +2,26 @@ structure conPP =
 struct
 open astPP modPP
 (*i2_Init_global_var special case for Uapp_i2*)
-fun i2_initglobalPrint sys d t Top str brk blk =
+
+(*fun i2_initglobalPrint sys d t Top str brk blk =
   let
     val (t,x) = dest_comb t
     val num = rand (rand t)
   in
     str"g_" >> sys (Top,Top,Top) (d-1) num >>str " := " >> blk CONSISTENT 0 (sys (Top,Top,Top) (d-1) x)
   end;
+*)
+fun i2_initglobalPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
+  let
+    open term_pp_types PPBackEnd
+    val (str,brk,blk,sty) = (#add_string ppfns, #add_break ppfns,#ublock ppfns,#ustyle ppfns);
+    val (t,x) = dest_comb t
+    val num = rand (rand t)
+  in
+    sty [FG DarkBlue] (str"g" >> sys (Top,Top,Top) (d-1) num) >>str " := " >> blk CONSISTENT 0 (sys (Top,Top,Top) (d-1) x)
+  end handle HOL_ERR _ => raise term_pp_types.UserPP_Failed;
 
-val _=temp_add_user_printer("i2_initglobal",``Uapp_i2 (Init_global_var_i2 n) x``,genPrint i2_initglobalPrint);
+val _=temp_add_user_printer("i2_initglobal",``Uapp_i2 (Init_global_var_i2 n) x``,i2_initglobalPrint);
 
 (*i2_extend_global creates n top level decls*)
 fun i2_extendglobalPrint sys d t Top str brk blk =
@@ -77,7 +88,9 @@ val _=temp_add_user_printer ("i2_letnoneprint",``Let_i2 NONE y z ``,genPrint let
 
 (*Prints all constructor args in a list comma separated*)
 
+
 (*i2 Con, reuse AST CON NONE*)
+(*
 fun i2_pconPrint sys d t Top str brk blk =
   let
     val (_,name) = dest_comb (rator t)
@@ -86,9 +99,24 @@ fun i2_pconPrint sys d t Top str brk blk =
     (*TODO: Fix this*)
     str "c_" >> sys (Top,Top,Top) d x >> (pconPrint sys d t Top str brk blk)
   end;
+*)
 
-val _=temp_add_user_printer ("i2_conprint", ``Con_i2 x y``,genPrint i2_pconPrint);
-val _=temp_add_user_printer ("i2_pconprint", ``Pcon_i2 x y``,genPrint i2_pconPrint);
+fun i2_pconPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
+  let
+    open term_pp_types PPBackEnd
+    val (str,brk,blk,sty) = (#add_string ppfns, #add_break ppfns,#ublock ppfns,#ustyle ppfns);
+    val (_,name) = dest_comb (rator t)
+    val (x::_) = pairSyntax.strip_pair name
+  in
+    sty [FG RedBrown] (str "c" >> sys (Top,Top,Top) d x >> (pconPrint sys d t Top str brk blk))
+  end handle HOL_ERR _ => raise term_pp_types.UserPP_Failed;
+
+val _=temp_add_user_printer ("i2_conprint", ``Con_i2 x y``,i2_pconPrint);
+val _=temp_add_user_printer ("i2_pconprint", ``Pcon_i2 x y``,i2_pconPrint);
+
+
+(*val _=temp_add_user_printer ("i2_conprint", ``Con_i2 x y``,genPrint i2_pconPrint);
+val _=temp_add_user_printer ("i2_pconprint", ``Pcon_i2 x y``,genPrint i2_pconPrint);*)
 
 (*i2_Literals*)
 (*i2_Pattern lit*)
@@ -99,7 +127,7 @@ val _=temp_add_user_printer ("i2_unitprint", ``Lit_i2 Unit``,genPrint unitPrint)
 val _=temp_add_user_printer ("i2_varlocalprint", ``Var_local_i2 x``,genPrint i1_varlocalPrint);
 
 (*i2 global Var name*)
-val _=temp_add_user_printer ("i2_varglobalprint", ``Var_global_i2 n``,genPrint i1_varglobalPrint);
+val _=temp_add_user_printer ("i2_varglobalprint", ``Var_global_i2 n``,i1_varglobalPrint);
 
 (*i2_Matching*)
 val _=temp_add_user_printer ("i2_matprint", ``Mat_i2 x y``,genPrint matPrint);

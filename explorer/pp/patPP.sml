@@ -42,10 +42,10 @@ fun pat_uappPrint sys d t Top str brk blk =
 val _=temp_add_user_printer("pat_uappprint",``Uapp_pat x y``,genPrint pat_uappPrint);
 
 (*Special case for Uapp init global*)
-val _=temp_add_user_printer("pat_initglobal",``Uapp_pat (Init_global_var_pat n) x``,genPrint i2_initglobalPrint);
+val _=temp_add_user_printer("pat_initglobal",``Uapp_pat (Init_global_var_pat n) x``,i2_initglobalPrint);
 
 (*Prints all constructor args in a list comma separated*)
-val _=temp_add_user_printer ("pat_conprint", ``Con_pat x y``,genPrint i2_pconPrint);
+val _=temp_add_user_printer ("pat_conprint", ``Con_pat x y``,i2_pconPrint);
 
 (*pat_Apply Equality*)
 fun pat_equalityPrint sys d t Top str brk blk =
@@ -91,7 +91,7 @@ fun pat_varlocalPrint sys d t Top str brk blk =
 val _=temp_add_user_printer ("pat_varlocalprint", ``Var_local_pat x``,genPrint pat_varlocalPrint);
 
 (*pat global Var name*)
-val _=temp_add_user_printer ("pat_varglobalprint", ``Var_global_pat n``,genPrint i1_varglobalPrint);
+val _=temp_add_user_printer ("pat_varglobalprint", ``Var_global_pat n``,i1_varglobalPrint);
 
 (*pat_handle*)
 fun pat_handlePrint sys d t Top str brk blk =

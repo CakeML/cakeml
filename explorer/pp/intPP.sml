@@ -71,10 +71,10 @@ val _ = temp_add_user_printer("cexp_cprojprint",``CProj x``,genPrint (pat_uopPri
 
 val _ = temp_add_user_printer("cexp_prim1print",``CPrim1 x y``,genPrint pat_uappPrint);
 
-val _ = temp_add_user_printer("cexp_initgprint",``CPrim1 (CInitG x) y``,genPrint i2_initglobalPrint);
+val _ = temp_add_user_printer("cexp_initgprint",``CPrim1 (CInitG x) y``,i2_initglobalPrint);
 
 (*cexp_ constructors*)
-val _ = temp_add_user_printer ("cexp_conprint", ``CCon x y``,genPrint i2_pconPrint);
+val _ = temp_add_user_printer ("cexp_conprint", ``CCon x y``,i2_pconPrint);
 
 (*cexpextend global*)
 val _ = temp_add_user_printer("cexp_extendglobal",``CExtG n``,genPrint i2_extendglobalPrint);
@@ -107,7 +107,7 @@ val _ = temp_add_user_printer("cexp_falselitprint",``CLit (Bool F)``,genPrint (b
 val _ = temp_add_user_printer ("cexp_varlocalprint", ``CVar x``,genPrint pat_varlocalPrint);
 
 (*cexp global Var name*)
-val _ = temp_add_user_printer ("cexp_varglobalprint", ``CGvar n``,genPrint i1_varglobalPrint);
+val _ = temp_add_user_printer ("cexp_varglobalprint", ``CGvar n``,i1_varglobalPrint);
 
 (*cexp_raise expr*) 
 val _ = temp_add_user_printer ("cexp_raiseprint", ``CRaise x``,genPrint raisePrint);
