@@ -96,11 +96,13 @@ val _ = Define `
    ("option", TC_name (Short "option"))]))`;
 
 
+(* The types and exceptions that have been declared, for the type soundness invariant *)
 (*val init_type_decs : set tid_or_exn*)
 val _ = Define `
  (init_type_decs =  
- ({ TypeId (Short "option");
-    TypeId (Short "list");
+ ({ TypeId (Short "list");
+    TypeId (Short "option");
+    TypeExn (Short "Subscript");
     TypeExn (Short "Bind");
     TypeExn (Short "Div");
     TypeExn (Short "Eq") }))`;

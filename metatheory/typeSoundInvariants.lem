@@ -550,12 +550,3 @@ let update_type_sound_inv ((decls1:decls),(tenvM:tenvM),(tenvC:tenvC),(tenv:tenv
           decls2',envM'++envM,merge_envC envC' envC,envE'++envE,store')
      | Rerr _ -> (union_decls decls1' decls1,tenvM,tenvC,tenv,decls2',envM,envC,envE,store')
   end
-
-(* The types and exceptions that have been declared, for the type soundness invariant *)
-val init_type_decs : set tid_or_exn
-let init_type_decs = 
-  { TypeId (Short "list");
-    TypeExn (Short "Subscript");
-    TypeExn (Short "Bind");
-    TypeExn (Short "Div");
-    TypeExn (Short "Eq") }
