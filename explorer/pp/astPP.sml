@@ -278,7 +278,7 @@ fun pconsomePrint sys d t Top str brk blk=
     val (ty,ls) = strip_comb (rand l);
     (*Special case for cons and handle long names*)
     val ctor = if (term_to_string ty = "Short") then (let val ctort = toString (hd ls) in 
-                                        (if (ctort = "::") then "Cons" else ctort) end)
+                                                      (if (ctort = "::") then "Cons" else ctort) end)
                else case ls of [l,r] => (toString l)^"."^(toString r)
     (*Properly handle LONG names*)
   in
@@ -474,8 +474,8 @@ val _=temp_add_user_printer("falseplitprint",``Plit (Bool F)``,genPrint (boolPri
 fun astlistPrint sys d t Top str brk blk =
   let val ls = #1(listSyntax.dest_list t)
   fun printterms [] = str""
-  |   printterms [x] = sys(Top,Top,Top) d x
-  |   printterms (x::xs) = (printterms [x])>>str";">>printterms xs
+  |   printterms [x] = sys(Top,Top,Top) d x>>str";"
+  |   printterms (x::xs) = (printterms [x])>>printterms xs
   in
     printterms ls
   end;
@@ -513,9 +513,9 @@ fun bclistPrint sys d t Top str brk blk =
   let val t = rand t
       val ls = #1(listSyntax.dest_list t)
   fun printterms [] = str""
-  |   printterms [x] = str ((fn s=> if(String.isPrefix "Label" s) then s^":" else "  "^s^";") 
-		               (term_to_string x))
-  |   printterms (x::xs) = (printterms [x])>>str"\n">>printterms xs
+  |   printterms [x] = str ((fn s=> if(String.isPrefix "Label" s) then s^":" else "  "^s^"") 
+		               (term_to_string x)) >> str"\n"
+  |   printterms (x::xs) = (printterms [x])>>printterms xs
   in
     printterms ls
   end;
@@ -526,8 +526,8 @@ fun ubclistPrint sys d t Top str brk blk =
   let val t = rand t
       val ls = #1(listSyntax.dest_list t)
   fun printterms _ [] = str""
-  |   printterms n [x] = str (Int.toString n) >>str":  ">> str (term_to_string x)
-  |   printterms n (x::xs) = (printterms n [x])>>str";\n">>printterms (n+1) xs
+  |   printterms n [x] = str (Int.toString n) >>str":  ">> str (term_to_string x)>>str"\n"
+  |   printterms n (x::xs) = (printterms n [x])>>printterms (n+1) xs
   in
     printterms 0 ls
   end;
