@@ -13,27 +13,6 @@ val LUPDATE_SAME = store_thm("LUPDATE_SAME",
   ``∀n ls. n < LENGTH ls ⇒ (LUPDATE (EL n ls) n ls = ls)``,
   rw[LIST_EQ_REWRITE,EL_LUPDATE]>>rw[])
 
-val bc_next_gvrel = store_thm("bc_next_gvrel",
-  ``∀bs1 bs2. bc_next bs1 bs2 ⇒ gvrel bs1.globals bs2.globals``,
-  ho_match_mp_tac bytecodeTheory.bc_next_ind >>
-  simp[bytecodeTheory.bump_pc_def] >>
-  rw[] >- ( BasicProvers.CASE_TAC >> simp[] ) >>
-  simp[bytecodeProofTheory.gvrel_def] >> rw[EL_LUPDATE] >>
-  simp[rich_listTheory.EL_APPEND1])
-
-val RTC_bc_next_gvrel = store_thm("RTC_bc_next_gvrel",
-  ``∀bs1 bs2. RTC bc_next bs1 bs2 ⇒
-    gvrel bs1.globals bs2.globals``,
-  ho_match_mp_tac relationTheory.RTC_lifts_reflexive_transitive_relations >>
-  rw[relationTheory.reflexive_def,relationTheory.transitive_def,bc_next_gvrel] >>
-  metis_tac[bytecodeProofTheory.gvrel_trans])
-
-val same_length_gvrel_same = store_thm("same_length_gvrel_same",
-  ``∀l1 l2. LENGTH l1 = LENGTH l2 ∧ EVERY IS_SOME l1 ∧ gvrel l1 l2 ⇒ l1 = l2``,
-  rw[bytecodeProofTheory.gvrel_def,LIST_EQ_REWRITE,EVERY_MEM,MEM_EL,PULL_EXISTS,
-     free_varsTheory.IS_SOME_EXISTS] >>
-  metis_tac[])
-
 (* REPL module is closed (should be proved elsewhere?) *)
 val all_env_dom_init =
   ``all_env_dom ([],init_envC,init_env)``

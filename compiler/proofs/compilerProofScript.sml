@@ -14,6 +14,27 @@ val FUPDATE_LIST_EQ_FEMPTY = store_thm("FUPDATE_LIST_EQ_FEMPTY",
   rw[EQ_IMP_THM,FUPDATE_LIST_THM] >>
   fs[GSYM fmap_EQ_THM,FDOM_FUPDATE_LIST])
 
+val bc_next_gvrel = store_thm("bc_next_gvrel",
+  ``∀bs1 bs2. bc_next bs1 bs2 ⇒ gvrel bs1.globals bs2.globals``,
+  ho_match_mp_tac bytecodeTheory.bc_next_ind >>
+  simp[bytecodeTheory.bump_pc_def] >>
+  rw[] >- ( BasicProvers.CASE_TAC >> simp[] ) >>
+  simp[bytecodeProofTheory.gvrel_def] >> rw[EL_LUPDATE] >>
+  simp[rich_listTheory.EL_APPEND1])
+
+val RTC_bc_next_gvrel = store_thm("RTC_bc_next_gvrel",
+  ``∀bs1 bs2. RTC bc_next bs1 bs2 ⇒
+    gvrel bs1.globals bs2.globals``,
+  ho_match_mp_tac relationTheory.RTC_lifts_reflexive_transitive_relations >>
+  rw[relationTheory.reflexive_def,relationTheory.transitive_def,bc_next_gvrel] >>
+  metis_tac[bytecodeProofTheory.gvrel_trans])
+
+val same_length_gvrel_same = store_thm("same_length_gvrel_same",
+  ``∀l1 l2. LENGTH l1 = LENGTH l2 ∧ EVERY IS_SOME l1 ∧ gvrel l1 l2 ⇒ l1 = l2``,
+  rw[bytecodeProofTheory.gvrel_def,LIST_EQ_REWRITE,EVERY_MEM,MEM_EL,PULL_EXISTS,
+     free_varsTheory.IS_SOME_EXISTS] >>
+  metis_tac[])
+
 val exps_to_i1_MAP = store_thm("exps_to_i1_MAP",
   ``∀es. exps_to_i1 a b es = MAP (exp_to_i1 a b) es``,
   Induct >> simp[exp_to_i1_def])
@@ -4149,6 +4170,7 @@ val compile_special_thm = store_thm("compile_special_thm",
         bc_next^* bs bs' ∧
         bc_fetch bs' = SOME (Stop T) ∧
         bs'.output = bs.output ∧
+        (EVERY IS_SOME bs.globals ⇒ bs'.globals = bs.globals) ∧
         env_rs env (s,tm) grd' rs bs'``,
   ho_match_mp_tac evaluate_top_ind >> simp[] >>
   simp[compile_special_def] >>
@@ -4369,6 +4391,17 @@ val compile_special_thm = store_thm("compile_special_thm",
     qexists_tac`[]`>>simp[Abbr`ZZ`] >>
     simp[SUM_APPEND,FILTER_APPEND] ) >>
   simp[bump_pc_def] >>
+  conj_asm2_tac >- (
+    imp_res_tac RTC_bc_next_gvrel >> fs[] >> strip_tac >>
+    match_mp_tac EQ_SYM >>
+    match_mp_tac same_length_gvrel_same >>
+    simp[] >>
+    PairCases_on`grd'` >> Cases_on`s2` >>
+    fs[env_rs_def,Cenv_bs_def,s_refs_def] >>
+    imp_res_tac LIST_REL_LENGTH >>
+    fs[Abbr`Csg`] >>
+    fs[to_i2_invariant_def,to_i1_invariant_def] >>
+    imp_res_tac LIST_REL_LENGTH >> fs[] ) >>
   simp[EXISTS_PROD] >>
   Cases_on`s2`>> simp[env_rs_def,PULL_EXISTS] >>
   rator_x_assum`to_i1_invariant`assume_tac >>
