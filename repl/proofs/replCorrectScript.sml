@@ -30,6 +30,32 @@ val type_env_list_rel = Q.prove (
  fs [bind_var_list2_def, bind_tenv_def] >>
  metis_tac []);
 
+val type_env_subtract = Q.prove (
+`!ctMap tenvS ctMap' tenvS' envE tenvE.
+  type_env ctMap tenvS envE' tenvE' ∧
+  type_env ctMap' tenvS' (envE++envE') (bind_var_list2 tenvE tenvE')
+  ⇒
+  type_env ctMap' tenvS' envE (bind_var_list2 tenvE Empty)`,
+ induct_on `envE` >>
+ rw [] >>
+ cases_on `tenvE` >>
+ fs [bind_var_list2_def] >>
+ ONCE_REWRITE_TAC [type_v_cases] >>
+ rw [libTheory.emp_def, libTheory.bind_def, bind_tenv_def]
+ >- cheat
+ >- cheat
+ >- (PairCases_on `h'` >>
+     fs [bind_var_list2_def, bind_tenv_def] >>
+     pop_assum (assume_tac o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
+     fs [libTheory.bind_def, bind_tenv_def] >>
+     rw [] >>
+     metis_tac []));
+
+val inf_tenv_to_string_map_dom = Q.prove (
+`!ts. FDOM (inf_tenv_to_string_map ts) = set (MAP FST ts)`,
+ ho_match_mp_tac inf_tenv_to_string_map_ind >>
+ rw [inf_tenv_to_string_map_def]);
+
 val fst_lem = Q.prove (
 `FST = λ(x,y). x`,
 rw [FUN_EQ_THM] >>
@@ -832,8 +858,52 @@ val inv_pres_tac =
   qexists_tac`bs2 with clock := NONE` >>
   simp[bc_fetch_with_clock]
 
+  (*
+val type_string_word8_helper = Q.prove (
+`!x v e0 e1 envE tenvE.
+  LIST_REL (λ(x,v1) (y,n,v2). x = y ∧ type_v n ctMap' tenvS' v1 v2) envE (convert_env2 tenvE) ∧
+  MEM (e0,e1) envE ∧
+  inf_tenv_to_string_map tenvE ' e0 = x ∧
+  MEM e0 (MAP FST tenvE) ∧
+  (FEMPTY |++ envE) ' e0 = e1 ∧
+  MAP FST envE = MAP FST tenvE
+  ⇒
+  (x = "<word8>" ⇔ ∃w. e1 = Litv (Word8 w))`,
+
+ induct_on `envE` >>
+ rw [] >>
+ cases_on `tenvE` >>
+ rw [] >>
+ fs [] >>
+ PairCases_on `h'` >>
+ fs [inf_tenv_to_string_map_def, convert_env2_def] >>
+ rw [] >>
+ PairCases_on `h` >>
+ fs [] >>
+ eq_tac >>
+ rw [] >>
+ qpat_assum `type_v x0 x1 x2 x3 x4` (mp_tac o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
+ rw [] >>
+
+
+ cases_on `h'2` >>
+ fs [convert_t_def] >>
+ rw [] >>
+ fs [inf_type_to_string_def, tc_to_string_def] >>
+ TRY (cases_on `l` >> 
+      fs [inf_type_to_string_def, tc_to_string_def]) >>
+ TRY (cases_on `tn` >> 
+      fs [inf_type_to_string_def, tc_to_string_def, tid_exn_to_tc_def]) >>
+ 
+
+
+ >- metis_tac []
+ *)
+  
+
 val type_string_word8 = Q.prove (
 `∀envE tenvE.
+ (*ALL_DISTINCT (MAP FST envE) ∧*)
  type_env ctMap tenvS envE' tenvE' ∧
  type_env ctMap' tenvS' (envE++envE') (bind_var_list2 (convert_env2 tenvE) tenvE')
  ⇒
@@ -842,36 +912,24 @@ val type_string_word8 = Q.prove (
       (case FLOOKUP (inf_tenv_to_string_map tenvE) x of
          NONE => "<unknown>"
        | SOME t => t) = "<word8>" ⇔ ∃w. v = Litv (Word8 w)) envE`,
- cheat);
+
+       cheat);
 
        (*
- rw [type_env_list_rel] >>
+ rw [] >>
+ imp_res_tac type_env_subtract >>
+ fs [type_env_list_rel] >>
  rw [EVERY_MEM] >>
  PairCases_on `e` >>
  fs [] >>
  every_case_tac >>
- fs []
-
- induct_on `envE` >>
- rw [] >>
- PairCases_on `h` >>
+ fs [inf_tenv_to_string_map_def] >>
+ imp_res_tac miscTheory.mem_to_flookup >>
+ `MAP FST envE = MAP FST tenvE` by cheat >>
  fs [] >>
- cases_on `tenvE` >>
- fs [convert_env2_def, bind_var_list2_def, Once (hd (tl (tl (CONJUNCTS type_v_cases)))),
-     bind_tenv_def, libTheory.emp_def, libTheory.bind_def] >>
- PairCases_on `h` >>
- fs [] >>
-
-
-     FIRST_X_ASSUM match_mp_tac >>
-     rw []
-
-     fs [bind_var_list2_def, bind_tenv_def] >>
-     rw [] >>
-     metis_tac []
-
-cheat);
-*)
+ fs [miscTheory.flookup_thm, inf_tenv_to_string_map_dom, FDOM_FUPDATE_LIST] >>
+ 
+ *)
 
 val replCorrect'_lem = Q.prove (
 `!repl_state error_mask bc_state repl_fun_state.
