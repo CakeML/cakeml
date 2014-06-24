@@ -91,6 +91,34 @@ val evaluate_decs_new_decs_vs = store_thm("evaluate_decs_new_decs_vs",
   Cases_on`r`>>fs[semanticPrimitivesTheory.combine_dec_result_def]>>
   rw[libTheory.merge_def])
 
+val ctors_of_tdef_def = Define`
+  ctors_of_tdef (_,_,condefs) = MAP FST condefs`
+val _ = export_rewrites["ctors_of_tdef_def"]
+
+val ctors_of_dec_def = Define`
+  ctors_of_dec (Dtype tds) = FLAT (MAP ctors_of_tdef tds) ∧
+  ctors_of_dec (Dexn s _) = [s] ∧
+  ctors_of_dec _ = []`
+val _ = export_rewrites["ctors_of_dec_def"]
+
+val evaluate_decs_ctors_in = store_thm("evaluate_decs_ctors_in",
+  ``∀ck mn env s decs res. evaluate_decs ck mn env s decs res ⇒
+      ∀cn.
+        IS_SOME (lookup cn (FST(SND res))) ⇒
+        MEM cn (FLAT (MAP ctors_of_dec decs))``,
+  HO_MATCH_MP_TAC evaluate_decs_ind >>
+  simp[libTheory.emp_def] >>
+  rw[Once evaluate_dec_cases] >> simp[] >>
+  fs[libTheory.merge_def,libTheory.emp_def] >>
+  fs[libPropsTheory.lookup_append] >>
+  BasicProvers.EVERY_CASE_TAC >>
+  fs[libTheory.bind_def] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[] >>
+  fs[free_varsTheory.IS_SOME_EXISTS] >>
+  imp_res_tac libPropsTheory.lookup_in2 >>
+  fs[MEM_MAP,semanticPrimitivesTheory.build_tdefs_def,MEM_FLAT,PULL_EXISTS,EXISTS_PROD] >>
+  METIS_TAC[])
+
 val merge_envC_emp = prove(
   ``merge_envC (emp,emp) x = x``,
   PairCases_on`x`>>simp[semanticPrimitivesTheory.merge_envC_def,libTheory.emp_def,libTheory.merge_def])
@@ -186,6 +214,65 @@ val evaluate_Tmod_last3 = prove(
   Cases_on`cs`>>rw[bigStepTheory.evaluate_top_cases]>>
   imp_res_tac evaluate_decs_last3 >> fs[]) |> GEN_ALL
 
+val check_dup_ctors_flat = Q.prove (
+`!defs.
+  check_dup_ctors (defs:type_def) =
+  ALL_DISTINCT (MAP FST (build_tdefs mn defs))`,
+ rw [evalPropsTheory.check_dup_ctors_thm, MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
+     semanticPrimitivesTheory.build_tdefs_def,
+     rich_listTheory.MAP_REVERSE, ALL_DISTINCT_REVERSE]);
+
+val evaluate_decs_tys = prove(
+  ``∀decs0 decs1 decs ck mn env s s' tys c tds tvs tn cts cn as.
+    evaluate_decs ck (SOME mn) env s decs (s',tys,Rval c) ∧
+    decs = decs0 ++ [Dtype tds] ++ decs1 ∧
+    MEM (tvs,tn,cts) tds ∧ MEM (cn,as) cts ∧
+    ¬MEM cn (FLAT (MAP ctors_of_dec decs1))
+    ⇒
+    (lookup cn tys = SOME (LENGTH as, TypeId (Long mn tn)))``,
+  Induct >> rw[Once evaluate_decs_cases] >- (
+    fs[Once evaluate_dec_cases] >> rw[] >>
+    simp[libTheory.merge_def,libPropsTheory.lookup_append] >>
+    imp_res_tac evaluate_decs_ctors_in >> fs[] >>
+    BasicProvers.CASE_TAC >> fs[] >>
+    Cases_on`lookup cn (build_tdefs (SOME mn) tds)` >- (
+      imp_res_tac libPropsTheory.lookup_notin >>
+      fs[semanticPrimitivesTheory.build_tdefs_def,MEM_MAP,MEM_FLAT,PULL_EXISTS,EXISTS_PROD] >>
+      METIS_TAC[] ) >>
+    imp_res_tac (fst(EQ_IMP_RULE(SPEC_ALL check_dup_ctors_flat))) >>
+    imp_res_tac libPropsTheory.lookup_in3 >>
+    `MEM (cn,LENGTH as,TypeId(Long mn tn)) (build_tdefs (SOME mn) tds)` by (
+      simp[semanticPrimitivesTheory.build_tdefs_def,MEM_MAP,MEM_FLAT,PULL_EXISTS,EXISTS_PROD] >>
+      simp[astTheory.mk_id_def] >> METIS_TAC[] ) >>
+    first_x_assum(qspec_then`SOME mn`mp_tac) >>
+    strip_tac >>
+    fs[MEM_EL] >>
+    qmatch_assum_rename_tac`(cn,X) = EL n1 ls`["X","ls"] >>
+    qmatch_assum_rename_tac`(cn,x) = EL n2 ls`["ls"] >>
+    `EL n1 (MAP FST (build_tdefs (SOME mn) tds)) =
+     EL n2 (MAP FST (build_tdefs (SOME mn) tds))` by (
+       simp[EL_MAP] >> METIS_TAC[FST] ) >>
+    fs[EL_ALL_DISTINCT_EL_EQ] >>
+    `n1 = n2` by METIS_TAC[] >>
+    fs[] >>
+    METIS_TAC[PAIR_EQ] ) >>
+  simp[libPropsTheory.lookup_append,libTheory.merge_def] >>
+  Cases_on`r`>>fs[semanticPrimitivesTheory.combine_dec_result_def] >>
+  first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+  disch_then(fn th => first_x_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+  disch_then(fn th => first_x_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+  simp[])
+
+val evaluate_Tmod_tys = prove(
+  ``evaluate_top F env s (Tmod mn NONE decs) (s',([m,tys],e),Rval r) ⇒
+    decs = decs0 ++ [Dtype tds] ++ decs1 ⇒
+    MEM (tvs,tn,cts) tds ∧ MEM (cn,as) cts ∧
+    ¬MEM cn (FLAT (MAP ctors_of_dec decs1))
+    ⇒
+    (lookup cn tys = SOME (LENGTH as, TypeId (Long mn tn)))``,
+  rw[evaluate_top_cases] >>
+  METIS_TAC[evaluate_decs_tys]) |> GEN_ALL
+
 (* Define things to bootstrap *)
 
 val compile_repl_decs_def = zDefine`
@@ -230,7 +317,8 @@ val repl_decs_cs =
   let
     val cs = listSimps.list_compset()
     val _ = computeLib.add_thms[ml_repl_moduleTheory.ml_repl_module_decls] cs
-    val _ = computeLib.add_thms[rich_listTheory.LASTN_compute] cs
+    val _ = computeLib.add_thms[rich_listTheory.LASTN_compute,ctors_of_dec_def,ctors_of_tdef_def] cs
+    val _ = computeLib.add_datatype_info cs (valOf(TypeBase.fetch``:dec``))
   in
     cs
   end
@@ -249,6 +337,48 @@ val iloc_repl_env_exist =
   |> REWRITE_RULE[GSYM append_3]
 
 val repl_env_def = new_specification("repl_env_def",["iloc","repl_env"],iloc_repl_env_exist)
+
+val sum_idx = ``21:num``
+val sym_idx = ``77:num``
+val el_sum = computeLib.CBV_CONV repl_decs_cs ``EL ^sum_idx ml_repl_module_decls``
+val take_sum = computeLib.CBV_CONV repl_decs_cs ``TAKE ^sum_idx ml_repl_module_decls``
+val drop_sum = computeLib.CBV_CONV repl_decs_cs ``DROP (^sum_idx + 1) ml_repl_module_decls``
+val el_sym = computeLib.CBV_CONV repl_decs_cs ``EL ^sym_idx ml_repl_module_decls``
+val take_sym = computeLib.CBV_CONV repl_decs_cs ``TAKE ^sym_idx ml_repl_module_decls``
+val drop_sym = computeLib.CBV_CONV repl_decs_cs ``DROP (^sym_idx + 1) ml_repl_module_decls``
+val length = computeLib.CBV_CONV repl_decs_cs ``LENGTH ml_repl_module_decls``
+val tdefs_sum = prove(
+  ``ml_repl_module_decls = ^(lhs(concl take_sum)) ++ [^(lhs(concl el_sum))] ++ ^(lhs(concl drop_sum))``,
+  assume_tac length >>
+  rw[LIST_EQ_REWRITE] >>
+  Cases_on`x < ^sum_idx` >> simp[rich_listTheory.EL_APPEND1,rich_listTheory.EL_TAKE] >>
+  Cases_on`x = ^sum_idx` >> simp[rich_listTheory.EL_APPEND1,rich_listTheory.EL_APPEND2] >>
+  simp[rich_listTheory.EL_DROP])
+val tdefs_sym = prove(
+  ``ml_repl_module_decls = ^(lhs(concl take_sym)) ++ [^(lhs(concl el_sym))] ++ ^(lhs(concl drop_sym))``,
+  assume_tac length >>
+  rw[LIST_EQ_REWRITE] >>
+  Cases_on`x < ^sym_idx` >> simp[rich_listTheory.EL_APPEND1,rich_listTheory.EL_TAKE] >>
+  Cases_on`x = ^sym_idx` >> simp[rich_listTheory.EL_APPEND1,rich_listTheory.EL_APPEND2] >>
+  simp[rich_listTheory.EL_DROP])
+
+val sum_tags_exist =
+  MATCH_MP evaluate_Tmod_tys (CONJUNCT1 evaluate_repl_decs)
+  |> C MATCH_MP (RW[el_sum]tdefs_sum)
+  |> SIMP_RULE(srw_ss()++boolSimps.DNF_ss)[]
+  |> CONJUNCTS
+  |> List.map (CONV_RULE(LAND_CONV(PURE_REWRITE_CONV[drop_sum]THENC(computeLib.CBV_CONV repl_decs_cs))))
+  |> List.map (SIMP_RULE(srw_ss())[])
+  |> LIST_CONJ
+
+val sym_tags_exist =
+  MATCH_MP evaluate_Tmod_tys (CONJUNCT1 evaluate_repl_decs)
+  |> C MATCH_MP (RW[el_sym]tdefs_sym)
+  |> SIMP_RULE(srw_ss()++boolSimps.DNF_ss)[]
+  |> CONJUNCTS
+  |> List.map (CONV_RULE(LAND_CONV(PURE_REWRITE_CONV[drop_sym]THENC(computeLib.CBV_CONV repl_decs_cs))))
+  |> List.map (SIMP_RULE(srw_ss())[])
+  |> LIST_CONJ
 
 val INPUT_TYPE_def = Define `
   INPUT_TYPE =
@@ -534,17 +664,23 @@ val COMPILER_RUN_INV_repl_step = store_thm("COMPILER_RUN_INV_repl_step",
 
 (* Data representation *)
 
-(* TODO: make these correct *)
-val inl_tag_def     = Define`inl_tag     = 13:num`
-val inr_tag_def     = Define`inr_tag     = 14:num`
-val errors_tag_def  = Define`errors_tag  = 15:num`
-val others_tag_def  = Define`others_tag  = 16:num`
-val longs_tag_def   = Define`longs_tag   = 17:num`
-val numbers_tag_def = Define`numbers_tag = 18:num`
-val strings_tag_def = Define`strings_tag = 19:num`
+val map0 = ``FST(SND(FST compile_repl_decs).contags_env)``
+val map = ``FST ^map0 ' "REPL"``
+fun mktm s = ``FST(lookup_tag_flat ^(stringSyntax.fromMLstring s) ^map)``
+val inr_tag_def     = Define`inr_tag     = ^(mktm "Inr")`
+val inl_tag_def     = Define`inl_tag     = ^(mktm "Inl")`
+val errors_tag_def  = Define`errors_tag  = ^(mktm "ErrorS")`
+val others_tag_def  = Define`others_tag  = ^(mktm "OtherS")`
+val longs_tag_def   = Define`longs_tag   = ^(mktm "LongS")`
+val numbers_tag_def = Define`numbers_tag = ^(mktm "NumberS")`
+val strings_tag_def = Define`strings_tag = ^(mktm "StringS")`
 
-val BlockNil_def  = Define `BlockNil = Block (block_tag+nil_tag) []`;
-val BlockCons_def = Define `BlockCons (x,y) = Block (block_tag+cons_tag) [x;y]`;
+val compiler_nil_tag_def = Define`compiler_nil_tag = FST(lookup_tag_flat "nil" (SND ^map0))`
+val compiler_cons_tag_def = Define`compiler_cons_tag = FST(lookup_tag_flat "::" (SND ^map0))`
+val compiler_some_tag_def = Define`compiler_some_tag = FST(lookup_tag_flat "SOME" (SND ^map0))`
+
+val BlockNil_def  = Define `BlockNil = Block (block_tag+compiler_nil_tag) []`;
+val BlockCons_def = Define `BlockCons (x,y) = Block (block_tag+compiler_cons_tag) [x;y]`;
 val BlockPair_def = Define `BlockPair (x,y) = Block (block_tag+tuple_tag) [x;y]`;
 
 val BlockList_def = Define `
@@ -552,7 +688,7 @@ val BlockList_def = Define `
   (BlockList (x::xs) = BlockCons(x,BlockList xs))`;
 
 val BlockBool_def = Define `BlockBool b = Block (bool_to_tag b) []`;
-val BlockSome_def = Define `BlockSome x = Block (block_tag+some_tag) [x]`;
+val BlockSome_def = Define `BlockSome x = Block (block_tag+compiler_some_tag) [x]`;
 
 val BlockInl_def = Define `BlockInl x = Block (block_tag+inl_tag) [x]`;
 val BlockInr_def = Define `BlockInr x = Block (block_tag+inr_tag) [x]`;
@@ -576,6 +712,268 @@ val BlockNum3_def = Define `
   BlockNum3 (x,y,z) =
     BlockPair (Number (&x), BlockPair (Number (&y),Number (&z)))`;
 
+val has_primitive_types_def = Define`
+  has_primitive_types gtagenv ⇔
+    FLOOKUP gtagenv ("nil",TypeId(Short"list")) = SOME (compiler_nil_tag,0:num) ∧
+    FLOOKUP gtagenv ("::",TypeId(Short"list")) = SOME (compiler_cons_tag,2)`
+
+val v_to_i1_conv =
+  ``v_to_i1 x (Conv y z) a`` |> SIMP_CONV (srw_ss())[Once modLangProofTheory.v_to_i1_cases]
+val v_to_i1_lit =
+  ``v_to_i1 x (Litv y) a`` |> SIMP_CONV (srw_ss())[Once modLangProofTheory.v_to_i1_cases]
+val v_to_i2_conv =
+  ``v_to_i2 x (Conv_i1 y z) a`` |> SIMP_CONV (srw_ss())[Once conLangProofTheory.v_to_i2_cases]
+val v_to_i2_lit =
+  ``v_to_i2 x (Litv_i1 y) a`` |> SIMP_CONV (srw_ss())[Once conLangProofTheory.v_to_i2_cases]
+val v_to_exh_conv =
+  ``v_to_exh x (Conv_i2 y z) a`` |> SIMP_CONV (srw_ss())[Once exhLangProofTheory.v_to_exh_cases]
+val v_pat_conv =
+  ``v_pat (Conv_pat x y) a`` |> SIMP_CONV (srw_ss()) [Once patLangProofTheory.v_pat_cases]
+val syneq_conv =
+  ``syneq (CConv x y) z`` |> SIMP_CONV (srw_ss()) [Once intLangTheory.syneq_cases]
+val Cv_bv_conv =
+  ``Cv_bv a (CConv x y) z`` |> SIMP_CONV (srw_ss()) [Once bytecodeProofTheory.Cv_bv_cases]
+val Cv_bv_lit =
+  ``Cv_bv a (CLitv y) z`` |> SIMP_CONV (srw_ss()) [Once bytecodeProofTheory.Cv_bv_cases]
+
+val conv_rws = [printingTheory.v_bv_def,
+  v_to_i1_conv,vs_to_i1_MAP,v_to_i1_lit,
+  v_to_i2_conv,vs_to_i2_MAP,v_to_i2_lit,
+  v_to_exh_conv,free_varsTheory.vs_to_exh_MAP,
+  printingTheory.exh_Cv_def,
+  v_pat_conv,syneq_conv,Cv_bv_conv,Cv_bv_lit]
+
+val LIST_TYPE_CHAR_BlockList = prove(
+  ``(FLOOKUP cm ("nil",TypeId(Short"list")) = SOME (compiler_nil_tag,0)) ∧
+    (FLOOKUP cm ("::",TypeId(Short"list")) = SOME (compiler_cons_tag,2))
+  ⇒
+    ∀s l x y z b.
+      LIST_TYPE CHAR s l ∧ v_bv (x,cm,y,z) l b
+    ⇒ (b = BlockList (MAP Chr s))``,
+  strip_tac >>
+  simp[GSYM AND_IMP_INTRO] >>
+  Induct >> simp[ml_repl_stepTheory.LIST_TYPE_def] >- (
+    simp conv_rws >>
+    simp[BlockList_def,BlockNil_def]) >>
+  simp[PULL_EXISTS] >> simp conv_rws >>
+  simp[PULL_EXISTS] >> simp conv_rws >>
+  simp[PULL_EXISTS] >> simp conv_rws >>
+  simp[PULL_EXISTS] >> simp conv_rws >>
+  simp[PULL_EXISTS] >> simp conv_rws >>
+  simp[PULL_EXISTS] >> simp conv_rws >>
+  simp[PULL_EXISTS] >> simp conv_rws >>
+  simp[BlockList_def,BlockCons_def] >>
+  simp[ml_repl_stepTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+  simp conv_rws >>
+  simp[Chr_def] >> rw[] >>
+  fs[printingTheory.v_bv_def,printingTheory.exh_Cv_def] >>
+  metis_tac[])
+
+val LIST_TYPE_exists = prove(
+  ``∀x. (∀a. MEM a x ⇒ ∃v. A a v) ⇒ ∃l. LIST_TYPE A x l``,
+  Induct >>
+  simp[ml_repl_stepTheory.LIST_TYPE_def] >>
+  METIS_TAC[])
+
+val SPTREE_SPT_TYPE_exists = prove(
+  ``∀p. ∃v. SPTREE_SPT_TYPE UNIT_TYPE p v``,
+  Induct >>
+  simp[ml_repl_stepTheory.SPTREE_SPT_TYPE_def,
+       ml_translatorTheory.UNIT_TYPE_def] >>
+  METIS_TAC[])
+
+val STATE_TYPE_def = Define`
+  STATE_TYPE = ^(INPUT_TYPE_def |> concl |> rhs |> rand |> rand)`
+
+val tac =
+    qx_gen_tac`p`>>PairCases_on`p` >>
+    simp[ml_repl_stepTheory.PAIR_TYPE_def,PULL_EXISTS] >>
+    simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def]
+
+val ltchartac =
+  MATCH_MP_TAC LIST_TYPE_exists >>
+  simp[ml_repl_stepTheory.CHAR_def] >>
+  simp[ml_repl_stepTheory.PAIR_TYPE_def,PULL_EXISTS] >>
+  simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def]
+
+val infer_t_ind =
+  (TypeBase.induction_of``:infer_t``)
+  |> Q.SPECL[`P`,`EVERY P`]
+  |> SIMP_RULE (srw_ss())[]
+  |> UNDISCH_ALL
+  |> CONJUNCT1
+  |> DISCH_ALL
+  |> Q.GEN`P`
+
+val UNIFY_INFER_T_TYPE_exists = prove(
+  ``∀a. ∃v. UNIFY_INFER_T_TYPE a v``,
+  HO_MATCH_MP_TAC infer_t_ind >>
+  simp[ml_repl_stepTheory.UNIFY_INFER_T_TYPE_def] >>
+  simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+  simp[GSYM PULL_EXISTS,EVERY_MEM] >> rw[] >>
+  TRY(Cases_on`t`)>>
+  simp[ml_repl_stepTheory.AST_TCTOR_TYPE_def,PULL_EXISTS] >>
+  TRY(Cases_on`i`)>>simp[ml_repl_stepTheory.AST_ID_TYPE_def]>>
+  simp[GSYM PULL_EXISTS] >> rw[] >> ltchartac )
+
+val t_ind =
+  (TypeBase.induction_of``:t``)
+  |> Q.SPECL[`P`,`EVERY P`]
+  |> SIMP_RULE (srw_ss())[]
+  |> UNDISCH_ALL
+  |> CONJUNCT1
+  |> DISCH_ALL
+  |> Q.GEN`P`
+
+val AST_T_TYPE_exists = prove(
+  ``∀a. ∃v. AST_T_TYPE a v``,
+  HO_MATCH_MP_TAC t_ind >>
+  simp[ml_repl_stepTheory.AST_T_TYPE_def] >>
+  simp[NUM_def,ml_translatorTheory.INT_def] >>
+  rw[] >- ltchartac >>
+  Cases_on`a`>>
+  simp[ml_repl_stepTheory.AST_TCTOR_TYPE_def,PULL_EXISTS] >>
+  TRY(Cases_on`i`>>simp[ml_repl_stepTheory.AST_ID_TYPE_def]>>
+      simp[GSYM PULL_EXISTS] >> rw[] >> ltchartac ) >>
+  TRY (MATCH_MP_TAC LIST_TYPE_exists) >>
+  fs[EVERY_MEM])
+
+val COMPILER_COMPILER_STATE_TYPE_exists = prove(
+  ``∀s. ∃v. COMPILER_COMPILER_STATE_TYPE s v``,
+  Cases >> PairCases_on`p` >>
+  simp[ml_repl_stepTheory.COMPILER_COMPILER_STATE_TYPE_def] >>
+  simp[ml_repl_stepTheory.PAIR_TYPE_def,PULL_EXISTS] >>
+  simp[ml_repl_stepTheory.FMAP_TYPE_def,PULL_EXISTS,ml_repl_stepTheory.FMAP_EQ_ALIST_def] >>
+  simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+  CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
+  qexists_tac`fmap_to_alist f` >>
+  qexists_tac`fmap_to_alist p1` >> simp[] >>
+  qexists_tac`fmap_to_alist p0'` >> simp[] >>
+  simp[GSYM PULL_EXISTS] >>
+  conj_tac >- (
+    MATCH_MP_TAC LIST_TYPE_exists >> tac >> rw[] >>
+    simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
+    simp[ml_repl_stepTheory.FMAP_TYPE_def,PULL_EXISTS,ml_repl_stepTheory.FMAP_EQ_ALIST_def] >>
+    CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
+    qexists_tac`fmap_to_alist p1` >> simp[] >>
+    MATCH_MP_TAC LIST_TYPE_exists >> tac >> rw[] >>
+    ltchartac ) >>
+  conj_tac >- (
+    MATCH_MP_TAC LIST_TYPE_exists >> tac >> rw[] >>
+    ltchartac ) >>
+  conj_tac >- (
+    PairCases_on`p0` >>
+    simp[ml_repl_stepTheory.PAIR_TYPE_def,PULL_EXISTS] >>
+    simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+    simp[ml_repl_stepTheory.FMAP_TYPE_def,PULL_EXISTS,ml_repl_stepTheory.FMAP_EQ_ALIST_def] >>
+    CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
+    qexists_tac`fmap_to_alist p03` >>
+    qexists_tac`fmap_to_alist p02` >> simp[] >>
+    qexists_tac`fmap_to_alist p01` >> simp[] >>
+    simp[GSYM PULL_EXISTS] >>
+    rw[] >> MATCH_MP_TAC LIST_TYPE_exists >> tac >> rw[] >>
+    simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
+    TRY(Cases_on`p2`)>>
+    simp[ml_repl_stepTheory.SEMANTICPRIMITIVES_TID_OR_EXN_TYPE_def] >>
+    simp[ml_repl_stepTheory.OPTION_TYPE_def,ml_repl_stepTheory.FMAP_TYPE_def,ml_repl_stepTheory.FMAP_EQ_ALIST_def] >>
+    TRY (
+      Cases_on`x`>>simp[ml_repl_stepTheory.SEMANTICPRIMITIVES_TID_OR_EXN_TYPE_def] ) >>
+    TRY (
+      Cases_on`i`>>simp[ml_repl_stepTheory.AST_ID_TYPE_def] >>
+      simp[GSYM PULL_EXISTS] >> rw[] >> ltchartac ) >>
+    CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
+    qexists_tac`fmap_to_alist p1` >> simp[] >>
+    MATCH_MP_TAC LIST_TYPE_exists >> tac >> rw[] >>
+    simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
+    Cases_on`p2`>>
+    simp[ml_repl_stepTheory.OPTION_TYPE_def] >>
+    Cases_on`x`>>simp[ml_repl_stepTheory.SEMANTICPRIMITIVES_TID_OR_EXN_TYPE_def] >>
+    Cases_on`i`>>simp[ml_repl_stepTheory.AST_ID_TYPE_def] >>
+    simp[GSYM PULL_EXISTS] >> rw[] >> ltchartac ) >>
+  MATCH_MP_TAC LIST_TYPE_exists >> tac >>
+  rw[] >>
+  Cases_on`p0`>>simp[ml_repl_stepTheory.AST_ID_TYPE_def] >>
+  simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
+  simp[SPTREE_SPT_TYPE_exists])
+
+val REPL_FUN_REPL_FUN_STATE_TYPE_exists = prove(
+ ``∀s. ∃v. REPL_FUN_REPL_FUN_STATE_TYPE s v``,
+ Cases >>
+ PairCases_on`p` >>
+ Cases_on`c`>>
+ PairCases_on`p` >>
+ simp[ml_repl_stepTheory.REPL_FUN_REPL_FUN_STATE_TYPE_def] >>
+ simp[ml_repl_stepTheory.PAIR_TYPE_def,PULL_EXISTS] >>
+ simp[GSYM PULL_EXISTS] >>
+ conj_tac >- (
+   MATCH_MP_TAC LIST_TYPE_exists >> tac >>
+   Cases_on`p1`>>
+   simp[ml_repl_stepTheory.AST_TCTOR_TYPE_def,PULL_EXISTS] >>
+   strip_tac >>
+   TRY ltchartac >>
+   simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
+   Cases_on`i`>>simp[ml_repl_stepTheory.AST_ID_TYPE_def]>>
+   simp[GSYM PULL_EXISTS] >> rw[] >> ltchartac ) >>
+ conj_tac >- (
+   MATCH_MP_TAC LIST_TYPE_exists >>
+   rw[] >> ltchartac ) >>
+ conj_tac >- (
+   MATCH_MP_TAC LIST_TYPE_exists >>
+   strip_tac >> simp[GSYM PULL_EXISTS] >> rw[] >>
+   Cases_on`a`>>simp[ml_repl_stepTheory.AST_ID_TYPE_def]>>
+   simp[GSYM PULL_EXISTS] >> rw[] >> ltchartac ) >>
+ conj_tac >- (
+   MATCH_MP_TAC LIST_TYPE_exists >>
+   strip_tac >> simp[GSYM PULL_EXISTS] >> rw[] >>
+   Cases_on`a`>>simp[ml_repl_stepTheory.AST_ID_TYPE_def]>>
+   simp[GSYM PULL_EXISTS] >> rw[] >> ltchartac ) >>
+ conj_tac >- (
+   MATCH_MP_TAC LIST_TYPE_exists >>
+   tac >> simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
+   tac >> simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
+   simp[UNIFY_INFER_T_TYPE_exists] ) >>
+ conj_tac >- (
+   MATCH_MP_TAC LIST_TYPE_exists >>
+   tac >>
+   strip_tac >>
+   simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
+   tac >> simp[ml_repl_stepTheory.PAIR_TYPE_def] >>
+   simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
+   rw[] >> TRY ltchartac >> simp[AST_T_TYPE_exists] >>
+   Cases_on`p3`>>simp[ml_repl_stepTheory.SEMANTICPRIMITIVES_TID_OR_EXN_TYPE_def]>>
+   TRY(Cases_on`i`>>simp[ml_repl_stepTheory.AST_ID_TYPE_def,PULL_EXISTS])>>
+   simp[GSYM PULL_EXISTS] >> rw[] >>
+   TRY ltchartac >> rw[] >> TRY ltchartac) >>
+ conj_tac >- (
+   MATCH_MP_TAC LIST_TYPE_exists >>
+   tac >>
+   strip_tac >>
+   simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
+   rw[] >> TRY ltchartac >> simp[AST_T_TYPE_exists] >>
+   Cases_on`p3`>>simp[ml_repl_stepTheory.SEMANTICPRIMITIVES_TID_OR_EXN_TYPE_def]>>
+   TRY(Cases_on`i`>>simp[ml_repl_stepTheory.AST_ID_TYPE_def,PULL_EXISTS])>>
+   simp[GSYM PULL_EXISTS] >> rw[] >>
+   TRY ltchartac >> rw[] >> TRY ltchartac) >>
+ conj_tac >- (
+   MATCH_MP_TAC LIST_TYPE_exists >>
+   tac >> simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
+   simp[UNIFY_INFER_T_TYPE_exists] ) >>
+ simp[COMPILER_COMPILER_STATE_TYPE_exists])
+
+val INPUT_TYPE_exists = prove(
+  ``STATE_TYPE s v ⇒ ∃w. INPUT_TYPE (SOME (ts,s)) (Conv(SOME("SOME",TypeId(Short"option")))[Conv(NONE)[w;v]])``,
+  simp[STATE_TYPE_def,INPUT_TYPE_def,ml_repl_stepTheory.OPTION_TYPE_def,PULL_EXISTS] >>
+  PairCases_on`s` >>
+  simp[ml_repl_stepTheory.PAIR_TYPE_def,PULL_EXISTS] >>
+  simp[ml_translatorTheory.BOOL_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+  simp[ml_repl_stepTheory.FMAP_TYPE_def,PULL_EXISTS,ml_repl_stepTheory.FMAP_EQ_ALIST_def] >>
+  simp[GSYM PULL_EXISTS] >> rw[REPL_FUN_REPL_FUN_STATE_TYPE_exists] >>
+  MATCH_MP_TAC LIST_TYPE_exists >>
+  Cases >>
+  simp[ml_repl_stepTheory.LEXER_FUN_SYMBOL_TYPE_def] >> rw[] >>
+  simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+  ltchartac )
+
 (* Relationship between the invariant and the references *)
 
 val COMPILER_RUN_INV_references = store_thm("COMPILER_RUN_INV_references",
@@ -594,6 +992,7 @@ val COMPILER_RUN_INV_references = store_thm("COMPILER_RUN_INV_references",
       ∃x gtagenv y z.
       let d = (x,gtagenv,y,z) in
       v_bv d input ibc ∧ v_bv d output obc ∧
+      has_primitive_types gtagenv ∧
       (∀n a t.
         (lookup n (Tmod_tys "REPL" ml_repl_module_decls) = SOME (a,t)) ⇒
         let (e1,e2) = FST(SND(FST compile_repl_decs).contags_env) in
@@ -689,6 +1088,29 @@ val COMPILER_RUN_INV_references = store_thm("COMPILER_RUN_INV_references",
   first_assum(match_exists_tac o concl) >> simp[] >>
   CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(equal``v_to_i1`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
+  conj_tac >- (
+    simp[has_primitive_types_def] >>
+    rator_x_assum`cenv_inv`mp_tac >>
+    simp[conLangProofTheory.cenv_inv_def] >>
+    simp[conLangProofTheory.envC_tagged_def] >>
+    strip_tac >>
+    Cases_on`FST(SND(FST compile_repl_decs).contags_env)`>>
+    first_assum(qspec_then`Short"nil"`mp_tac) >>
+    REWRITE_TAC[initialEnvTheory.init_envC_def] >>
+    REWRITE_TAC[
+      semanticPrimitivesTheory.lookup_con_id_def,
+      semanticPrimitivesTheory.merge_envC_def] >>
+    simp[libTheory.merge_def,libTheory.emp_def,astTheory.id_to_n_def] >>
+    simp[conLangTheory.lookup_tag_env_def] >>
+    strip_tac >> simp[compiler_nil_tag_def] >>
+    first_assum(qspec_then`Short"::"`mp_tac) >>
+    REWRITE_TAC[initialEnvTheory.init_envC_def] >>
+    REWRITE_TAC[
+      semanticPrimitivesTheory.lookup_con_id_def,
+      semanticPrimitivesTheory.merge_envC_def] >>
+    simp[libTheory.merge_def,libTheory.emp_def,astTheory.id_to_n_def] >>
+    simp[conLangTheory.lookup_tag_env_def] >>
+    strip_tac >> simp[compiler_cons_tag_def] ) >>
   rpt gen_tac >> strip_tac >>
   rator_x_assum`cenv_inv`mp_tac >>
   simp[conLangProofTheory.cenv_inv_def] >>
@@ -741,53 +1163,53 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
   fs[ml_repl_stepTheory.SUM_TYPE_def] >>
   fs[ml_repl_stepTheory.PAIR_TYPE_def] >>
   rw[] >>
-  `∃g h i j. d = (g,h,i,j)` by METIS_TAC[pair_CASES] >>
+  fs[LET_THM] >>
   rator_x_assum`v_bv`mp_tac >>
   simp[printingTheory.v_bv_def] >>
-  simp[Once modLangProofTheory.v_to_i1_cases,PULL_EXISTS] >>
-  simp[Once modLangProofTheory.v_to_i1_cases,PULL_EXISTS] >>
-  simp[Once modLangProofTheory.v_to_i1_cases,PULL_EXISTS] >>
-  simp[Once modLangProofTheory.v_to_i1_cases,PULL_EXISTS] >>
-  simp[Once (CONJUNCT2 modLangProofTheory.v_to_i1_cases),PULL_EXISTS] >>
-  simp[Once (CONJUNCT2 modLangProofTheory.v_to_i1_cases),PULL_EXISTS] >>
-  simp[Once (CONJUNCT2 modLangProofTheory.v_to_i1_cases),PULL_EXISTS] >>
-  simp[Once conLangProofTheory.v_to_i2_cases,PULL_EXISTS] >>
-  simp[Once (CONJUNCT2 conLangProofTheory.v_to_i2_cases),PULL_EXISTS] >>
-  simp[Once (CONJUNCT2 conLangProofTheory.v_to_i2_cases),PULL_EXISTS] >>
-  simp[Once conLangProofTheory.v_to_i2_cases,PULL_EXISTS] >>
-  simp[Once (CONJUNCT2 conLangProofTheory.v_to_i2_cases),PULL_EXISTS] >>
-  simp[Once (CONJUNCT2 conLangProofTheory.v_to_i2_cases),PULL_EXISTS] >>
-  simp[Once (CONJUNCT2 conLangProofTheory.v_to_i2_cases),PULL_EXISTS] >>
-  simp[Once exhLangProofTheory.v_to_exh_cases,PULL_EXISTS] >>
-  simp[Once exhLangProofTheory.v_to_exh_cases,PULL_EXISTS] >>
-  simp[Once exhLangProofTheory.v_to_exh_cases,PULL_EXISTS] >>
-  simp[Once exhLangProofTheory.v_to_exh_cases,PULL_EXISTS] >>
-  simp[Once (CONJUNCT2 exhLangProofTheory.v_to_exh_cases),PULL_EXISTS] >>
-  simp[Once (CONJUNCT2 exhLangProofTheory.v_to_exh_cases),PULL_EXISTS] >>
-  simp[Once (CONJUNCT2 exhLangProofTheory.v_to_exh_cases),PULL_EXISTS] >>
+  simp[v_to_i1_conv,vs_to_i1_MAP,PULL_EXISTS] >>
+  simp[v_to_i2_conv,vs_to_i2_MAP,PULL_EXISTS] >>
+  simp[v_to_exh_conv,free_varsTheory.vs_to_exh_MAP,PULL_EXISTS] >>
   simp[printingTheory.exh_Cv_def,PULL_EXISTS] >>
-  simp[Once patLangProofTheory.v_pat_cases,PULL_EXISTS] >>
-  simp[Once patLangProofTheory.v_pat_cases,PULL_EXISTS] >>
-  simp[Once intLangTheory.syneq_cases,PULL_EXISTS] >>
-  simp[Once intLangTheory.syneq_cases,PULL_EXISTS] >>
-  simp[Once bytecodeProofTheory.Cv_bv_cases,PULL_EXISTS] >>
-  simp[BlockInr_def] >>
-  simp[Once bytecodeProofTheory.Cv_bv_cases,PULL_EXISTS] >>
+  simp[v_pat_conv,PULL_EXISTS] >>
+  simp[syneq_conv,PULL_EXISTS] >>
+  simp[Cv_bv_conv,PULL_EXISTS] >>
+  rpt gen_tac >> strip_tac >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  first_assum(qspecl_then[`"Inr"`,`1`,`TypeId(Long"REPL""sum")`]mp_tac) >>
+  discharge_hyps >- simp[sum_tags_exist] >>
+  simp[Once UNCURRY] >> strip_tac >> BasicProvers.VAR_EQ_TAC >>
+  simp[BlockInr_def,inr_tag_def] >>
   simp[BlockPair_def] >>
-  rpt gen_tac >> strip_tac
+  fs[has_primitive_types_def] >>
+  imp_res_tac LIST_TYPE_CHAR_BlockList >>
+  pop_assum kall_tac >>
+  conj_asm1_tac >- (
+    pop_assum mp_tac >>
+    simp[printingTheory.v_bv_def,printingTheory.exh_Cv_def,PULL_EXISTS] >>
+    disch_then match_mp_tac >>
+    METIS_TAC[] ) >>
+  rpt gen_tac >> strip_tac >>
+  fs[GSYM STATE_TYPE_def] >>
+  imp_res_tac INPUT_TYPE_exists >>
+  first_x_assum(qspec_then`ts`strip_assume_tac) >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
 
-  simp[COMPILER_RUN_INV_def] >> strip_tac >> simp[] >>
-  rator_assum`env_rs`mp_tac >>
-  PairCases_on`grd`>>
-  Cases_on`Tmod_state"REPL"ml_repl_module_decls`>>
-  simp_tac std_ss [update_io_def] >>
-  simp_tac std_ss [env_rs_def] >>
-  simp[modLangProofTheory.to_i1_invariant_def] >>
-  simp[Once modLangProofTheory.v_to_i1_cases] >>
-  strip_tac >>
-  rator_x_assum`global_env_inv_flat`mp_tac >>
-  simp[Once modLangProofTheory.v_to_i1_cases] >>
-  simp[repl_env_def] >>
+  simp[INPUT_TYPE_def,ml_repl_stepTheory.OPTION_TYPE_def,PULL_EXISTS] >>
+  simp[ml_repl_stepTheory.PAIR_TYPE_def,PULL_EXISTS] >>
+  `∃v. LIST_TYPE LEXER_FUN_SYMBOL_TYPE ts v` by (
+    MATCH_MP_TAC LIST_TYPE_exists >> Cases >>
+    simp[ml_repl_stepTheory.LEXER_FUN_SYMBOL_TYPE_def] >>
+    rw[ml_translatorTheory.INT_def] >>
+    MATCH_MP_TAC LIST_TYPE_exists >>
+    rw[ml_repl_stepTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] ) >>
+  first_assum(match_exists_tac o concl) >> rw[] >>
+  PairCases_on`s` >>
+  simp[ml_repl_stepTheory.PAIR_TYPE_def,PULL_EXISTS] >>
+  simp[ml_translatorTheory.BOOL_def] >>
+  simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+  simp[ml_repl_stepTheory.FMAP_TYPE_def,PULL_EXISTS] >>
+  FMAP_EQ_ALIST_def
+
 
   imp_res_tac env_rs_repl_decs_inp_out >>
   simp[GSYM PULL_EXISTS] >>
@@ -1345,24 +1767,6 @@ val AST_TC0_TYPE_no_closures = prove(
   map_every qexists_tac [`ll`,`A`] >> simp[] >>
   rw[Abbr`A`] >>
   fs[std_preludeTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def])
-
-val infer_t_ind =
-  (TypeBase.induction_of``:infer_t``)
-  |> Q.SPECL[`P`,`EVERY P`]
-  |> SIMP_RULE (srw_ss())[]
-  |> UNDISCH_ALL
-  |> CONJUNCT1
-  |> DISCH_ALL
-  |> Q.GEN`P`
-
-val t_ind =
-  (TypeBase.induction_of``:t``)
-  |> Q.SPECL[`P`,`EVERY P`]
-  |> SIMP_RULE (srw_ss())[]
-  |> UNDISCH_ALL
-  |> CONJUNCT1
-  |> DISCH_ALL
-  |> Q.GEN`P`
 
 val pat_ind =
   (TypeBase.induction_of``:pat``)
@@ -2859,32 +3263,7 @@ val COMPILER_RUN_INV_STEP = prove(
 (* --- connecting the Eval theorem with compiler correctness --- *)
 
 
-
 (* theorems used by x86-64 proofs *)
-
-val LIST_TYPE_CHAR_BlockList = prove(
-  ``(FLOOKUP cm (SOME (Short "nil")) = SOME (nil_tag - block_tag)) ∧
-    (FLOOKUP cm (SOME (Short "::")) = SOME (cons_tag - block_tag))
-  ⇒
-    ∀s l v b.
-      LIST_TYPE CHAR s l ∧ syneq (v_to_Cv m cm l) v ∧ Cv_bv pp v b
-    ⇒ (b = BlockList (MAP Chr s))``,
-  strip_tac >>
-  simp[GSYM AND_IMP_INTRO] >>
-  Induct >> simp[mini_preludeTheory.LIST_TYPE_def] >- (
-    simp[Once compilerTerminationTheory.v_to_Cv_def] >>
-    simp[Once intLangTheory.syneq_cases,PULL_EXISTS] >>
-    simp[Once toBytecodeProofsTheory.Cv_bv_cases,PULL_EXISTS,nil_tag_def] >>
-    simp[compilerTerminationTheory.v_to_Cv_def,BlockList_def,BlockNil_def,nil_tag_def] ) >>
-  simp[PULL_EXISTS] >>
-  simp[compilerTerminationTheory.v_to_Cv_def] >>
-  simp[Once intLangTheory.syneq_cases,PULL_EXISTS] >>
-  simp[Once toBytecodeProofsTheory.Cv_bv_cases,PULL_EXISTS,cons_tag_def] >>
-  simp[BlockList_def,BlockCons_def,cons_tag_def] >>
-  simp[std_preludeTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
-  simp[compilerTerminationTheory.v_to_Cv_def,PULL_FORALL] >>
-  simp[Once toBytecodeProofsTheory.Cv_bv_cases] >>
-  simp[Chr_def] >> metis_tac[])
 
 val LIST_TYPE_Num3_Blocklist = prove(
   ``(FLOOKUP cm (SOME (Short "nil")) = SOME (nil_tag - block_tag)) ∧
@@ -2925,12 +3304,6 @@ val LIST_TYPE_Num3_Blocklist = prove(
   simp[BlockNum3_def,BlockPair_def,pair_tag_def] >>
   metis_tac[])
 
-val LIST_TYPE_exists = prove(
-  ``∀x. (∀a. MEM a x ⇒ ∃v. A a v) ⇒ ∃l. LIST_TYPE A x l``,
-  Induct >>
-  simp[mini_preludeTheory.LIST_TYPE_def] >>
-  METIS_TAC[])
-
 val OPTION_TYPE_AST_ID_TYPE_LIST_TYPE_CHAR = prove(
   ``∃v. OPTION_TYPE (AST_ID_TYPE (LIST_TYPE CHAR)) p v``,
   Cases_on`p` >> simp[std_preludeTheory.OPTION_TYPE_def] >>
@@ -2939,9 +3312,6 @@ val OPTION_TYPE_AST_ID_TYPE_LIST_TYPE_CHAR = prove(
   MATCH_MP_TAC LIST_TYPE_exists >>
   simp[std_preludeTheory.CHAR_def] >>
   simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] )
-
-val STATE_TYPE_def = Define`
-  STATE_TYPE = ^(INPUT_TYPE_def |> concl |> rhs |> rand |> rand)`
 
 val SUBSTATE_TYPE_def = Define`
   SUBSTATE_TYPE = ^(STATE_TYPE_def |> concl |> rhs |> rand)`
@@ -3010,146 +3380,6 @@ val INPUT_TYPE_no_closures = prove(
   rw[Abbr`A`] >>
   Q.ISPEC_THEN`a`(match_mp_tac o MP_CANON o GEN_ALL) LEXER_FUN_SYMBOL_TYPE_no_closures >>
   METIS_TAC[])
-
-
-val COMPILER_COMPILER_STATE_TYPE_exists = prove(
-  ``∀s. ∃v. COMPILER_COMPILER_STATE_TYPE s v``,
-  Cases >> PairCases_on`p` >>
-  simp[ml_repl_stepTheory.COMPILER_COMPILER_STATE_TYPE_def] >>
-  simp[mini_preludeTheory.PAIR_TYPE_def,PULL_EXISTS] >>
-  simp[std_preludeTheory.FMAP_TYPE_def,PULL_EXISTS,std_preludeTheory.FMAP_EQ_ALIST_def] >>
-  simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
-  CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
-  qexists_tac`fmap_to_alist f` >>
-  qexists_tac`fmap_to_alist p0` >> simp[] >>
-  simp[GSYM PULL_EXISTS] >>
-  conj_tac >- (
-    MATCH_MP_TAC LIST_TYPE_exists >>
-    qx_gen_tac`p`>>PairCases_on`p` >>
-    simp[mini_preludeTheory.PAIR_TYPE_def,PULL_EXISTS] >>
-    simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
-    simp[OPTION_TYPE_AST_ID_TYPE_LIST_TYPE_CHAR] ) >>
-  conj_tac >- (
-    MATCH_MP_TAC LIST_TYPE_exists >>
-    qx_gen_tac`p`>>PairCases_on`p` >>
-    simp[mini_preludeTheory.PAIR_TYPE_def,PULL_EXISTS] >>
-    simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
-    simp[OPTION_TYPE_AST_ID_TYPE_LIST_TYPE_CHAR] ) >>
-  conj_tac >- (
-    MATCH_MP_TAC LIST_TYPE_exists >>
-    qx_gen_tac`p`>>PairCases_on`p` >>
-    simp[mini_preludeTheory.PAIR_TYPE_def,PULL_EXISTS] >>
-    simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
-    strip_tac >> MATCH_MP_TAC LIST_TYPE_exists >>
-    simp[std_preludeTheory.CHAR_def] >>
-    simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] ) >>
-  MATCH_MP_TAC LIST_TYPE_exists >>
-  qx_gen_tac`p`>>PairCases_on`p` >>
-  simp[mini_preludeTheory.PAIR_TYPE_def,PULL_EXISTS] >>
-  strip_tac >>
-  simp[GSYM PULL_EXISTS] >> conj_tac >>
-  MATCH_MP_TAC LIST_TYPE_exists >>
-  simp[std_preludeTheory.CHAR_def] >>
-  TRY(qx_gen_tac`p`>>PairCases_on`p`) >>
-  simp[mini_preludeTheory.PAIR_TYPE_def,PULL_EXISTS] >>
-  simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def]>>
-  strip_tac >> MATCH_MP_TAC LIST_TYPE_exists >>
-  simp[std_preludeTheory.CHAR_def] >>
-  simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def])
-
-val tac =
-    qx_gen_tac`p`>>PairCases_on`p` >>
-    simp[mini_preludeTheory.PAIR_TYPE_def,PULL_EXISTS] >>
-    simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def]
-
-val ltchartac =
-  MATCH_MP_TAC LIST_TYPE_exists >>
-  simp[std_preludeTheory.CHAR_def] >>
-  simp[mini_preludeTheory.PAIR_TYPE_def,PULL_EXISTS] >>
-  simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def]
-
-val UNIFY_INFER_T_TYPE_exists = prove(
-  ``∀a. ∃v. UNIFY_INFER_T_TYPE a v``,
-  HO_MATCH_MP_TAC infer_t_ind >>
-  simp[ml_repl_stepTheory.UNIFY_INFER_T_TYPE_def] >>
-  simp[NUM_def,ml_translatorTheory.INT_def] >>
-  simp[GSYM PULL_EXISTS,EVERY_MEM] >> rw[] >>
-  TRY(Cases_on`t`)>>
-  simp[ml_repl_stepTheory.AST_TC0_TYPE_def,PULL_EXISTS] >>
-  TRY(Cases_on`i`)>>simp[ml_repl_stepTheory.AST_ID_TYPE_def]>>
-  simp[GSYM PULL_EXISTS] >> rw[] >> ltchartac )
-
-val AST_T_TYPE_exists = prove(
-  ``∀a. ∃v. AST_T_TYPE a v``,
-  HO_MATCH_MP_TAC t_ind >>
-  simp[ml_repl_stepTheory.AST_T_TYPE_def] >>
-  simp[NUM_def,ml_translatorTheory.INT_def] >>
-  rw[] >- ltchartac >>
-  Cases_on`a`>>
-  simp[ml_repl_stepTheory.AST_TC0_TYPE_def,PULL_EXISTS] >>
-  TRY(Cases_on`i`>>simp[ml_repl_stepTheory.AST_ID_TYPE_def]>>
-      simp[GSYM PULL_EXISTS] >> rw[] >> ltchartac ) >>
-  TRY (MATCH_MP_TAC LIST_TYPE_exists) >>
-  fs[EVERY_MEM])
-
-val REPL_FUN_REPL_FUN_STATE_TYPE_exists = prove(
- ``∀s. ∃v. REPL_FUN_REPL_FUN_STATE_TYPE s v``,
- Cases >>
- PairCases_on`p` >>
- PairCases_on`p0` >>
- Cases_on`c`>>
- PairCases_on`p` >>
- simp[ml_repl_stepTheory.REPL_FUN_REPL_FUN_STATE_TYPE_def] >>
- simp[mini_preludeTheory.PAIR_TYPE_def,PULL_EXISTS] >>
- simp[GSYM PULL_EXISTS] >>
- conj_tac >- (
-   MATCH_MP_TAC LIST_TYPE_exists >> tac >>
-   Cases_on`p1`>>
-   simp[ml_repl_stepTheory.AST_TC0_TYPE_def,PULL_EXISTS] >>
-   TRY ltchartac >>
-   simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
-   Cases_on`i`>>simp[ml_repl_stepTheory.AST_ID_TYPE_def]>>
-   simp[GSYM PULL_EXISTS] >> rw[] >> ltchartac ) >>
- conj_tac >- (
-   MATCH_MP_TAC LIST_TYPE_exists >>
-   tac >>
-   strip_tac >> simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
-   Cases_on`p1'`>>simp[ml_repl_stepTheory.AST_ID_TYPE_def]>>
-   simp[GSYM PULL_EXISTS] >> rw[] >> ltchartac ) >>
- conj_tac >- (
-   MATCH_MP_TAC LIST_TYPE_exists >>
-   tac >> simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
-   tac >> simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
-   simp[UNIFY_INFER_T_TYPE_exists] ) >>
- conj_tac >- (
-   MATCH_MP_TAC LIST_TYPE_exists >>
-   tac >>
-   strip_tac >>
-   Cases_on`p0`>>simp[ml_repl_stepTheory.AST_ID_TYPE_def,PULL_EXISTS]>>
-   Cases_on`p3`>>simp[ml_repl_stepTheory.SEMANTICPRIMITIVES_TID_OR_EXN_TYPE_def]>>
-   TRY(Cases_on`i`>>simp[ml_repl_stepTheory.AST_ID_TYPE_def,PULL_EXISTS])>>
-   simp[GSYM PULL_EXISTS] >> rw[] >>
-   TRY ltchartac >> rw[] >> TRY ltchartac >>
-   simp[AST_T_TYPE_exists] ) >>
- conj_tac >- (
-   MATCH_MP_TAC LIST_TYPE_exists >>
-   tac >> simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
-   simp[UNIFY_INFER_T_TYPE_exists] ) >>
- simp[COMPILER_COMPILER_STATE_TYPE_exists])
-
-val INPUT_TYPE_exists = prove(
-  ``STATE_TYPE s v ⇒ ∃w. INPUT_TYPE (SOME (ts,s)) (Conv(SOME(Short"Some"))[Conv(SOME(Short"Pair"))[w;v]])``,
-  simp[STATE_TYPE_def,INPUT_TYPE_def,std_preludeTheory.OPTION_TYPE_def,PULL_EXISTS] >>
-  PairCases_on`s` >>
-  simp[mini_preludeTheory.PAIR_TYPE_def,PULL_EXISTS] >>
-  simp[ml_translatorTheory.BOOL_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
-  simp[std_preludeTheory.FMAP_TYPE_def,PULL_EXISTS,std_preludeTheory.FMAP_EQ_ALIST_def] >>
-  simp[GSYM PULL_EXISTS] >> rw[REPL_FUN_REPL_FUN_STATE_TYPE_exists] >>
-  MATCH_MP_TAC LIST_TYPE_exists >>
-  Cases >>
-  simp[ml_repl_stepTheory.LEXER_FUN_SYMBOL_TYPE_def] >> rw[] >>
-  simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
-  ltchartac )
 
 val LIST_TYPE_closed = prove(
   ``∀x. (∀a v. MEM a x ∧ A a v ⇒ closed env v) ⇒ ∀l. LIST_TYPE A x l ⇒ closed env l``,
