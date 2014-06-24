@@ -3,7 +3,7 @@ val _ = new_theory "ml_translator";
 local open intLib in end;
 open astTheory libTheory semanticPrimitivesTheory bigStepTheory;
 open terminationTheory determTheory evalPropsTheory bigClockTheory;
-open arithmeticTheory listTheory combinTheory pairTheory;
+open arithmeticTheory listTheory combinTheory pairTheory wordsTheory;
 open integerTheory terminationTheory;
 open lcsymtacs;
 
@@ -49,6 +49,9 @@ val NUM_def = Define `
 
 val BOOL_def = Define `
   BOOL b = \v:v. (v = Litv (Bool b))`;
+
+val WORD8_def = Define `
+  WORD8 w = \v:v. (v = Litv (Word8 w))`;
 
 val CONTAINER_def = Define `CONTAINER x = x`;
 
@@ -190,6 +193,10 @@ val Eval_Val_UNIT = store_thm("Eval_Val_UNIT",
 val Eval_Val_BOOL = store_thm("Eval_Val_BOOL",
   ``!n. Eval env (Lit (Bool n)) (BOOL n)``,
   SIMP_TAC (srw_ss()) [Once evaluate_cases,BOOL_def,Eval_def]);
+
+val Eval_Val_WORD8 = store_thm("Eval_Val_WORD8",
+  ``!w. Eval env (Lit (Word8 w)) (WORD8 w)``,
+  SIMP_TAC (srw_ss()) [Once evaluate_cases,WORD8_def,Eval_def]);
 
 val Eval_Or = store_thm("Eval_Or",
   ``Eval env x1 (BOOL b1) ==>
@@ -424,7 +431,7 @@ val Eval_Opn = prove(
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
   \\ Q.LIST_EXISTS_TAC [`[Litv (IntLit n1); Litv (IntLit n2)]`]
   \\ FULL_SIMP_TAC (srw_ss()) [do_app_def]
-  \\ ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases)))]) 
+  \\ ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases)))])
   \\ Cases_on `f` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ REPEAT (Q.EXISTS_TAC `0,empty_store`) \\ FULL_SIMP_TAC std_ss []
   \\ Q.EXISTS_TAC `empty_store`
@@ -454,7 +461,7 @@ val Eval_Opb = prove(
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
   \\ Q.LIST_EXISTS_TAC [`[Litv (IntLit n1);Litv (IntLit n2)]`]
   \\ FULL_SIMP_TAC (srw_ss()) [do_app_def]
-  \\ ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases)))]) 
+  \\ ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases)))])
   \\ Q.LIST_EXISTS_TAC [`0,empty_store`] \\ FULL_SIMP_TAC std_ss []);
 
 local
@@ -643,8 +650,10 @@ val EqualityType_def = Define `
 
 val EqualityType_NUM_BOOL = store_thm("EqualityType_NUM_BOOL",
   ``EqualityType NUM /\ EqualityType INT /\
-    EqualityType BOOL /\ EqualityType UNIT_TYPE``,
-  EVAL_TAC \\ FULL_SIMP_TAC (srw_ss()) [no_closures_def, types_match_def, lit_same_type_def]);
+    EqualityType BOOL /\ EqualityType WORD8 /\
+    EqualityType UNIT_TYPE``,
+  EVAL_TAC \\ fs [no_closures_def,
+    types_match_def, lit_same_type_def]);
 
 val no_closures_IMP_NOT_contains_closure = store_thm(
    "no_closures_IMP_NOT_contains_closure",
@@ -782,13 +791,13 @@ val evaluate_empty_store_lemma = prove(
   \\ TRY (Cases_on `op`)
   \\ FULL_SIMP_TAC (srw_ss()) [do_app_cases,LET_DEF,store_alloc_def]
   THEN1 (Cases_on `s2`
-    \\ FULL_SIMP_TAC (srw_ss()) [store_assign_def, store_alloc_def,empty_store_def,APPEND] 
+    \\ FULL_SIMP_TAC (srw_ss()) [store_assign_def, store_alloc_def,empty_store_def,APPEND]
     \\ Cases_on `lnum`
     \\ fs [LUPDATE_def])
   THEN1 (Cases_on `s2`
     \\ FULL_SIMP_TAC (srw_ss()) [store_alloc_def,empty_store_def,APPEND])
   THEN1 (Cases_on `s2`
-    \\ FULL_SIMP_TAC (srw_ss()) [store_assign_def, store_alloc_def,empty_store_def,APPEND] 
+    \\ FULL_SIMP_TAC (srw_ss()) [store_assign_def, store_alloc_def,empty_store_def,APPEND]
     \\ Cases_on `lnum`
     \\ fs [LUPDATE_def])
   \\ FULL_SIMP_TAC std_ss [IMP_DISJ_THM]
