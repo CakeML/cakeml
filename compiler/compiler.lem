@@ -1,6 +1,7 @@
 open import Pervasives
 open import SemanticPrimitives
 open import Ast
+open import Infer_t
 open import CompilerLib
 open import IntLang
 open import ToIntLang
@@ -34,17 +35,13 @@ let compile_Cexp env rsz cs Ce =
   let cs = compile_code_env <| cs with next_label = nl |> Ce in
   compile env TCNonTail rsz cs Ce
 
-let tystr types v =
-  match Map.lookup v types with
-    | Just t -> t
-    | Nothing -> "<unknown>"
-  end
+declare hol target_rep function inf_type_to_string = `inf_type_to_string`
 
 let rec
-compile_print_vals _ _ [] s = s
+compile_print_vals [] _ [] s = s
 and
-compile_print_vals types map (v::vs) s =
-  let ty = tystr types v in
+compile_print_vals ((x,(n,t))::types) map (v::vs) s =
+  let ty = inf_type_to_string t in
   let s = emit s (List.map PrintC (toCharList (String_extra.stringConcat ["val ";v;":"; ty;" = "]))) in
   let s = emit s [Gread (fapply 0 v map)] in
   let s = emit s (if ty = "<word8>" then (List.map PrintC (toCharList "0wx"))++[PrintWord8] else [Print]) in

@@ -58,10 +58,10 @@ val word8 = ``"<word8>"``
 
 val print_bv_def = Define`
   print_bv ty bv =
-    if ty = ^word8 then
+    if ty = Infer_Tapp [] TC_word8 then
       STRCAT "0wx" (word_to_hex_string ((n2w (Num (dest_Number bv))):word8))
     else THE (bv_to_string bv)`
-val print_bv_str_def = Define`print_bv_str t v w = "val "++v++":"++(tystr t v)++" = "++(print_bv (tystr t v) w)++"\n"`
+val print_bv_str_def = Define`print_bv_str t v w = "val "++v++":"++(inf_type_to_string t)++" = "++(print_bv t w)++"\n"`
 
 val append_cons_lemma = prove(``ls ++ [x] ++ a::b = ls ++ x::a::b``,lrw[])
 
@@ -90,9 +90,11 @@ val MAP_PrintC_thm = store_thm("MAP_PrintC_thm",
 
 val _ = Parse.overload_on("print_bv_list",``λt vs ws. FLAT (MAP (UNCURRY (print_bv_str t)) (ZIP (vs,ws)))``)
 
+(*
 val print_envE_cons = store_thm("print_envE_cons",
   ``print_envE types (x::xs) = print_envE types [x]++print_envE types xs``,
   rw[print_envE_def]);
+  *)
 
 val print_bv_print_v = prove(
   ``(∀genv v v1. v_to_i1 genv v v1 ⇒
@@ -100,7 +102,7 @@ val print_bv_print_v = prove(
         v_to_i2 gtagenv v1 v2 ∧
         v_to_exh exh v2 vh ∧ exh_Cv vh Cv ∧
         Cv_bv pp Cv bv ∧
-        (ty = ^word8 ⇔ ∃w. v = Litv (Word8 w))
+        (ty = Infer_Tapp [] TC_word8 ⇔ ∃w. v = Litv (Word8 w))
         ⇒
         print_bv ty bv = print_v v) ∧
     (∀genv vs vs1. vs_to_i1 genv vs vs1 ⇒ T) ∧
@@ -132,16 +134,18 @@ val print_bv_print_v = prove(
   simp[print_v_def,print_bv_def,bv_to_string_def])
 val print_bv_print_v = save_thm("print_bv_print_v",CONJUNCT1 print_bv_print_v)
 
+(*
 val good_type_string_env_def = Define`
   good_type_string_env types env ⇔
   EVERY (λ(x,v). tystr types x = ^word8 ⇔ ∃w. v = Litv (Word8 w)) env`
+  *)
 
 val print_bv_list_print_envE = store_thm("print_bv_list_print_envE",
   ``∀bvs types vars env data.
     vars = MAP FST env ∧
-    LIST_REL (v_bv data) (MAP SND env) bvs ∧
+    LIST_REL (v_bv data) (MAP SND env) bvs (*∧
     good_type_string_env types env ∧
-    set vars ⊆ FDOM types
+    set vars ⊆ FDOM types*)
     ⇒
     print_bv_list types vars bvs = print_envE types env``,
   Induct_on`env` >- ( simp[print_envE_def] ) >>
@@ -149,10 +153,10 @@ val print_bv_list_print_envE = store_thm("print_bv_list_print_envE",
   rpt gen_tac >> strip_tac >> fs[] >>
   fs[GSYM AND_IMP_INTRO] >>
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
-  fs[good_type_string_env_def] >>
+  fs[(*good_type_string_env_def*)] >>
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
-  simp[print_envE_def,print_bv_str_def] >> simp[tystr_def,FLOOKUP_DEF] >>
+  simp[print_envE_def,print_bv_str_def] >> simp[] >>
   PairCases_on`data` >> fs[v_bv_def] >>
   first_x_assum(mp_tac o MATCH_MP print_bv_print_v) >>
   simp[GSYM AND_IMP_INTRO] >>
@@ -161,7 +165,7 @@ val print_bv_list_print_envE = store_thm("print_bv_list_print_envE",
   disch_then(fn th => first_x_assum (mp_tac o MATCH_MP th)) >>
   disch_then(fn th => first_x_assum (mp_tac o MATCH_MP th)) >>
   disch_then match_mp_tac >>
-  fs[tystr_def,FLOOKUP_DEF])
+  fs[])
 
 val code_labels_ok_MAP_PrintC = store_thm("code_labels_ok_MAP_PrintC",
   ``∀ls. code_labels_ok (MAP PrintC ls)``,

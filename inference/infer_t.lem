@@ -1,0 +1,30 @@
+open import Pervasives
+open import String_extra
+open import Ast
+open import SemanticPrimitives
+
+
+type infer_t = 
+    Infer_Tvar_db of nat
+  | Infer_Tapp of list infer_t * tctor
+  | Infer_Tuvar of nat
+
+let rec inf_type_to_string (Infer_Tuvar _) = "<unification variable>"
+and inf_type_to_string (Infer_Tvar_db n) = show n
+and inf_type_to_string (Infer_Tapp [t1;t2] TC_fn) =
+  "(" ^ inf_type_to_string t1 ^ "->" ^ inf_type_to_string t2 ^ ")"
+and inf_type_to_string (Infer_Tapp ts TC_fn) = "<bad function type>"
+and inf_type_to_string (Infer_Tapp ts TC_tup) =
+  "(" ^ inf_types_to_string ts ^ ")"
+and inf_type_to_string (Infer_Tapp [] tc) = tc_to_string tc
+and inf_type_to_string (Infer_Tapp ts tc) =
+  "(" ^ inf_types_to_string ts ^ ") " ^ tc_to_string tc
+and inf_types_to_string [] = ""
+and inf_types_to_string [t] = inf_type_to_string t
+and inf_types_to_string (t::ts) = inf_type_to_string t ^ ", " ^ inf_types_to_string ts
+
+
+(*
+(WF_REL_TAC `measure (\x. case x of INL x => infer_t_size x | INR x => infer_t1_size x)`);
+*)
+
