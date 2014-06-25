@@ -1,4 +1,4 @@
-INCLUDES= .. ../.. ../../semantics ../../semantics/proofs/ ../../bytecode ../../lem_lib_stub
+INCLUDES= .. ../.. ../../semantics ../../semantics/proofs ../../bytecode ../../inference/proofs ../../lem_lib_stub
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
@@ -6,7 +6,7 @@ HOLHEAP = heap
 PARENT_HOLHEAP = ../heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../../semantics/terminationTheory ../compilerTerminationTheory ../../bytecode/bytecodeExtraTheory ../../semantics/proofs/evalPropsTheory
+BARE_THYS = ../../semantics/terminationTheory ../compilerTerminationTheory ../../bytecode/bytecodeExtraTheory ../../semantics/proofs/evalPropsTheory ../../inference/proofs/inferSoundTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)
