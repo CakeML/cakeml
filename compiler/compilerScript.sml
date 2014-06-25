@@ -53,15 +53,15 @@ val _ = Define `
 
  val _ = Define `
 
-(compile_print_vals [] _ [] s = s)
+(compile_print_vals [] _ s = s)
 /\
-(compile_print_vals ((x,(n,t))::types) map (v::vs) s =  
+(compile_print_vals ((x,(_,t))::types) map s =  
 (let ty = (inf_type_to_string t) in
-  let s = (emit s (MAP PrintC (EXPLODE (CONCAT ["val ";v;":"; ty;" = "])))) in
-  let s = (emit s [Gread (fapply( 0) v map)]) in
+  let s = (emit s (MAP PrintC (EXPLODE (CONCAT ["val ";x;":"; ty;" = "])))) in
+  let s = (emit s [Gread (fapply( 0) x map)]) in
   let s = (emit s (if t = (Infer_Tapp [] TC_word8) then (MAP PrintC (EXPLODE "0wx"))++[PrintWord8] else [Print])) in
   let s = (emit s (MAP PrintC (EXPLODE "\n"))) in
-    compile_print_vals types map vs s))`;
+    compile_print_vals types map s))`;
 
 
  val _ = Define `
@@ -87,12 +87,8 @@ val _ = Define `
 /\
 (compile_print_dec _ _ (Dexn c xs) s = (compile_print_types [(([]: tvarN list),"exn",[(c,xs)])] s))
 /\
-(compile_print_dec types map (Dlet p _) s =  
-(compile_print_vals types map (pat_bindings p []) s))
-/\
-(compile_print_dec types map (Dletrec defs) s =  
-(compile_print_vals types map (MAP (\p .  
-  (case (p ) of ( (n,_,_) ) => n )) defs) s))`;
+(compile_print_dec types map _ s =  
+(compile_print_vals types map s))`;
 
 
 val _ = Define `
