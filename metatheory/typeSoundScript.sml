@@ -16,6 +16,16 @@ val EVERY_LIST_REL = Q.prove (
  induct_on `l` >>
  rw [rich_listTheory.REPLICATE]);
 
+val EL_REPLICATE = Q.prove (
+`!n1 n2 x. n1 < n2 ⇒ EL n1 (REPLICATE n2 x) = x`,
+ induct_on `n2` >>
+ rw [] >>
+ cases_on `n1 = n2` >>
+ fs [rich_listTheory.REPLICATE, EL] >>
+ cases_on `n1` >>
+ rw [] >>
+ fs [rich_listTheory.REPLICATE, EL]);
+
 val union_decls_empty = Q.store_thm ("union_decls_empty",
 `!decls. union_decls empty_decls decls = decls`,
  rw [] >>
@@ -780,12 +790,42 @@ val do_app_exn_tac =
  SIMP_TAC (srw_ss()++boolSimps.DNF_ss) [prim_exn_def] >>
  metis_tac [type_v_exn];
 
+val v_to_list_type = Q.prove (
+`!v vs.
+  ctMap_ok ctMap ∧
+  ctMap_has_lists ctMap ∧
+  v_to_list v = SOME vs ∧
+  type_v 0 ctMap tenvS v (Tapp [t] (TC_name (Short "list")))
+  ⇒
+  type_v tvs ctMap tenvS (Vectorv vs) (Tapp [t] TC_vector)`,
+ ho_match_mp_tac v_to_list_ind >>
+ rw [v_to_list_def]
+ >- fs [Once type_v_cases_eqn] >>
+ every_case_tac >>
+ fs [] >>
+ rw [] >>
+ qpat_assum `type_v x0 x1 x2 (Conv x3 x4) x5` (mp_tac o SIMP_RULE (srw_ss()) [Once type_v_cases_eqn]) >>
+ rw [] >>
+ ntac 4 (fs [Once type_vs_cases_eqn]) >>
+ rw [Once type_v_cases_eqn] >>
+ res_tac >>
+ fs [ctMap_has_lists_def] >>
+ rw [] >>
+ fs [type_subst_def]
+ >- metis_tac [type_v_weakening, weakCT_refl, weakS_refl] >>
+ rw [] >>
+ fs [tid_exn_to_tc_def] >>
+ res_tac >>
+ FIRST_X_ASSUM (mp_tac o SIMP_RULE (srw_ss()) [Once type_v_cases_eqn]) >>
+ rw []);
+
 (* If a step can be taken from a well-typed state, the resulting state has the
 * same type *)
 val exp_type_preservation = Q.prove (
 `∀dec_tvs ctMap menv cenv st env e c t menv' cenv' st' env' e' c' tenvS.
   ctMap_ok ctMap ∧
   ctMap_has_exns ctMap ∧
+  ctMap_has_lists ctMap ∧
   type_state dec_tvs ctMap tenvS ((menv,cenv,env), st, e, c) t ∧
   (e_step ((menv,cenv,env), st, e, c) = Estep ((menv',cenv',env'), st', e', c'))
   ⇒
@@ -1235,8 +1275,14 @@ val exp_type_preservation = Q.prove (
              fs [])
          >- do_app_exn_tac
          >- do_app_exn_tac
-         >- cheat
-         >- cheat
+         >- metis_tac [v_to_list_type]
+         >- (qpat_assum `type_v 0 ctMap tenvS (Vectorv vs') (Tapp [t2] TC_vector)`
+                        (mp_tac o SIMP_RULE (srw_ss()) [Once type_v_cases_eqn]) >>
+             rw [] >>
+             fs [EVERY_LIST_REL] >>
+             fs [LIST_REL_EL_EQN] >>
+             res_tac >>
+             metis_tac [EL_REPLICATE])
          >- do_app_exn_tac
          >- do_app_exn_tac)
      >- (rw [Once type_ctxts_cases, type_ctxt_cases] >>
@@ -1487,6 +1533,7 @@ val exp_type_soundness_help = Q.prove (
     (state1 = (env,st,e,c)) ∧
     (state2 = (env',st',e',c')) ∧
     ctMap_has_exns ctMap ∧
+    ctMap_has_lists ctMap ∧
     ctMap_ok ctMap ∧
     type_state dec_tvs ctMap tenvS state1 t
     ⇒
@@ -2239,7 +2286,10 @@ val top_type_soundness = Q.store_thm ("top_type_soundness",
              PairCases_on `decls'` >>
              fs [consistent_ctMap_def, union_decls_def])
          >- metis_tac [still_has_exns]
-         >- cheat
+         >- (`DISJOINT (IMAGE SND (FDOM (flat_to_ctMap (tenvC1++tenvC2)))) (IMAGE SND (FDOM ctMap))`
+                       by metis_tac [type_ds_ctMap_disjoint] >>
+             fs [flat_to_ctMap_append] >>
+             metis_tac [still_has_lists])
          >- metis_tac [type_v_weakening, store_type_extension_weakS]
          >- metis_tac [consistent_con_env_weakening]
          >- metis_tac [type_v_weakening, store_type_extension_weakS]
