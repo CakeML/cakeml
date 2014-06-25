@@ -82,9 +82,11 @@ val code_labels_ok_MAP_PrintC = store_thm("code_labels_ok_MAP_PrintC",
   Induct>>simp[]>>rw[]>>match_mp_tac code_labels_ok_cons>>simp[])
 val _ = export_rewrites["code_labels_ok_MAP_PrintC"]
 
+val word8 = ``Infer_Tapp [] TC_word8``
+
 val print_bv_def = Define`
   print_bv ty bv =
-    if ty = Infer_Tapp [] TC_word8 then
+    if ty = ^word8 then
       STRCAT "0wx" (word_to_hex_string ((n2w (Num (dest_Number bv))):word8))
     else THE (bv_to_string bv)`
 
@@ -94,7 +96,7 @@ val print_bv_print_v = prove(
         v_to_i2 gtagenv v1 v2 ∧
         v_to_exh exh v2 vh ∧ exh_Cv vh Cv ∧
         Cv_bv pp Cv bv ∧
-        (ty = Infer_Tapp [] TC_word8 ⇔ ∃w. v = Litv (Word8 w))
+        (ty = ^word8 ⇔ ∃w. v = Litv (Word8 w))
         ⇒
         print_bv ty bv = print_v v) ∧
     (∀genv vs vs1. vs_to_i1 genv vs vs1 ⇒ T) ∧
@@ -624,14 +626,14 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
         bs.pc = next_addr bs.inst_length bc0 ∧
         bs.stack = (Block(block_tag+tag)(if tag = none_tag then [] else [bv]))::st0 ∧
         (tag ≠ none_tag ⇒ IS_SOME (bv_to_string bv)) ∧
-        (∀d. tag = none_tag ∧ IS_SOME tys ∧ t = Tdec d ⇒
+        (∀d. tag = none_tag ∧ t = Tdec d ⇒
+         case tys of SOME tvs =>
          LIST_REL
-         (λv bv. ∃n. FLOOKUP map v = SOME n ∧
+         (λ(v,_,t) bv. ∃n. FLOOKUP map v = SOME n ∧
                      el_check n bs.globals = SOME (SOME bv) ∧
                      IS_SOME (bv_to_string bv) ∧
-                     (IS_SOME tys ∧ tystr (THE tys) v = ^word8 ⇒
-                      ∃w. bv = Number &(w2n(w:word8))))
-         (new_dec_vs d) bvs)
+                     (t = ^word8 ⇒ ∃w. bv = Number &(w2n(w:word8))))
+         tvs bvs | NONE => T)
         ⇒ ∃pc.
         (let str =
           if tag ≠ none_tag then "raise " ++ THE(bv_to_string bv) ++ "\n" else
@@ -641,7 +643,7 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
             | Tdec d => (case d of
               | Dtype ts => print_envC ([],build_tdefs NONE ts)
               | Dexn cn ts => print_envC ([],[(cn, (LENGTH ts, TypeExn))])
-              | d => print_bv_list types (new_dec_vs d) bvs))) in
+              | d => print_bv_list types bvs))) in
          let bs' = bs with <| pc := pc
                             ; stack := st0
                             ; output := bs.output ++ str |> in
