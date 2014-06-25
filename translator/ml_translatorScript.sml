@@ -3,7 +3,8 @@ val _ = new_theory "ml_translator";
 local open intLib in end;
 open astTheory libTheory semanticPrimitivesTheory bigStepTheory;
 open terminationTheory determTheory evalPropsTheory bigClockTheory;
-open arithmeticTheory listTheory combinTheory pairTheory wordsTheory;
+open arithmeticTheory listTheory combinTheory pairTheory;
+open wordsTheory wordsLib;
 open integerTheory terminationTheory;
 open lcsymtacs;
 
@@ -51,7 +52,7 @@ val BOOL_def = Define `
   BOOL b = \v:v. (v = Litv (Bool b))`;
 
 val WORD8_def = Define `
-  WORD8 w = \v:v. (v = Litv (Word8 w))`;
+  WORD8 (w:word8) = NUM (w2n w)`;
 
 val CONTAINER_def = Define `CONTAINER x = x`;
 
@@ -195,8 +196,8 @@ val Eval_Val_BOOL = store_thm("Eval_Val_BOOL",
   SIMP_TAC (srw_ss()) [Once evaluate_cases,BOOL_def,Eval_def]);
 
 val Eval_Val_WORD8 = store_thm("Eval_Val_WORD8",
-  ``!w. Eval env (Lit (Word8 w)) (WORD8 w)``,
-  SIMP_TAC (srw_ss()) [Once evaluate_cases,WORD8_def,Eval_def]);
+  ``!n. n < 256 ==> Eval env (Lit (IntLit (& n))) (WORD8 (n2w n))``,
+  SIMP_TAC (srw_ss()) [WORD8_def,wordsTheory.w2n_n2w,Eval_Val_NUM]);
 
 val Eval_Or = store_thm("Eval_Or",
   ``Eval env x1 (BOOL b1) ==>
@@ -615,6 +616,11 @@ val Eval_NUM_EQ_0 = store_thm("Eval_NUM_EQ_0",
   \\ `(n = 0) = (&n <= 0)` by intLib.COOPER_TAC
   \\ FULL_SIMP_TAC std_ss [Eval_INT_LESS_EQ]);
 
+(* word8 arithmetic *)
+
+val Eval_w2n = store_thm("Eval_w2n",
+  ``Eval env x1 (WORD8 w) ==> Eval env x1 (NUM (w2n w))``,
+  SIMP_TAC std_ss [WORD8_def]);
 
 (* Equality *)
 

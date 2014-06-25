@@ -2208,7 +2208,8 @@ fun hol2deep tm =
   if tm = oneSyntax.one_tm then Eval_Val_UNIT else
   if numSyntax.is_numeral tm then SPEC tm Eval_Val_NUM else
   if intSyntax.is_int_literal tm then SPEC tm Eval_Val_INT else
-  if is_word8_literal tm then SPEC tm Eval_Val_WORD8 else
+  if is_word8_literal tm then
+    SPEC (tm |> rand) Eval_Val_WORD8 |> SIMP_RULE std_ss [] else
   if (tm = T) orelse (tm = F) then SPEC tm Eval_Val_BOOL else
   if (tm = ``TRUE``) orelse (tm = ``FALSE``) then SPEC tm Eval_Val_BOOL else
   (* data-type constructor *)
@@ -2307,9 +2308,15 @@ fun hol2deep tm =
     val th1 = hol2deep x1
     val result = MATCH_MP Eval_Num_ABS th1
     in check_inv "num_abs" tm result end else
+  (* w2n *)
+  if wordsSyntax.is_w2n tm andalso (type_of (rand tm) = ``:word8``) then let
+    val x1 = tm |> rand
+    val th1 = hol2deep x1
+    val result = MATCH_MP Eval_w2n th1
+    in check_inv "w2n" tm result end else
   (* &n *)
   if can (match_term int_of_num_pat) tm then let
-    val x1 = tm |> rand |> rand
+    val x1 = tm |> rand
     val th1 = hol2deep x1
     val result = MATCH_MP Eval_int_of_num th1
     in check_inv "int_of_num" tm result end else
