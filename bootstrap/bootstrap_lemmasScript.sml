@@ -1193,70 +1193,41 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
   imp_res_tac INPUT_TYPE_exists >>
   first_x_assum(qspec_then`ts`strip_assume_tac) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
-
-  simp[INPUT_TYPE_def,ml_repl_stepTheory.OPTION_TYPE_def,PULL_EXISTS] >>
-  simp[ml_repl_stepTheory.PAIR_TYPE_def,PULL_EXISTS] >>
-  `∃v. LIST_TYPE LEXER_FUN_SYMBOL_TYPE ts v` by (
-    MATCH_MP_TAC LIST_TYPE_exists >> Cases >>
-    simp[ml_repl_stepTheory.LEXER_FUN_SYMBOL_TYPE_def] >>
-    rw[ml_translatorTheory.INT_def] >>
-    MATCH_MP_TAC LIST_TYPE_exists >>
-    rw[ml_repl_stepTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] ) >>
-  first_assum(match_exists_tac o concl) >> rw[] >>
-  PairCases_on`s` >>
-  simp[ml_repl_stepTheory.PAIR_TYPE_def,PULL_EXISTS] >>
-  simp[ml_translatorTheory.BOOL_def] >>
-  simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
-  simp[ml_repl_stepTheory.FMAP_TYPE_def,PULL_EXISTS] >>
-  FMAP_EQ_ALIST_def
-
-
-  imp_res_tac env_rs_repl_decs_inp_out >>
-  simp[GSYM PULL_EXISTS] >>
-  conj_tac >- fs[finite_mapTheory.FLOOKUP_DEF] >>
-  fs[rich_listTheory.EL_APPEND2] >>
-  fs[OUTPUT_TYPE_def] >>
-  fs[std_preludeTheory.SUM_TYPE_def] >>
-  BasicProvers.VAR_EQ_TAC >>
-  fs[compilerTerminationTheory.v_to_Cv_def] >>
-  ntac 3 (pop_assum mp_tac) >>
-  simp[] >>
-  simp[Once intLangTheory.syneq_cases] >> rw[] >>
-  qpat_assum`Cv_bv X Y out`mp_tac >>
-  simp[Once toBytecodeProofsTheory.Cv_bv_cases] >>
-  rw[] >>
-  `FLOOKUP (cmap new_compiler_state.contab) (SOME (Short "Inr")) = SOME (14-block_tag)` by (
-    REWRITE_TAC[new_compiler_state_contab] >>
-    EVAL_TAC ) >>
-  fs[BlockInr_def] >>
-  qpat_assum`PAIR_TYPE X Y Z A`mp_tac >>
-  simp[Once mini_preludeTheory.PAIR_TYPE_def] >>
-  rw[] >>
-  fs[compilerTerminationTheory.v_to_Cv_def] >>
-  `FLOOKUP (cmap new_compiler_state.contab) (SOME (Short "Pair")) = SOME (pair_tag-block_tag)` by (
-    REWRITE_TAC[new_compiler_state_contab] >>
-    EVAL_TAC) >>
-  fs[] >>
-  qpat_assum`syneq (CConv X Y) Z`mp_tac >>
-  simp[Once intLangTheory.syneq_cases] >> rw[] >>
-  qpat_assum`Cv_bv X Y out`mp_tac >>
-  simp[Once toBytecodeProofsTheory.Cv_bv_cases] >>
-  rw[] >>
-  simp[BlockPair_def,pair_tag_def] >>
+  rator_x_assum`COMPILER_RUN_INV`mp_tac >>
+  simp[COMPILER_RUN_INV_def] >> strip_tac >>
+  reverse conj_tac >- (
+    pop_assum SUBST1_TAC >>
+    simp[bytecodeTheory.bc_state_component_equality] ) >>
+  simp[EXISTS_PROD] >>
+  PairCases_on`grd` >>
+  qexists_tac`grd0` >> qexists_tac`grd1` >>
+  rator_x_assum`env_rs`mp_tac >>
+  Cases_on`Tmod_state"REPL"ml_repl_module_decls` >>
+  simp[update_io_def] >>
+  simp[env_rs_def] >> strip_tac >>
+  simp[RIGHT_EXISTS_AND_THM] >>
   conj_tac >- (
-    MATCH_MP_TAC (MP_CANON (GEN_ALL LIST_TYPE_CHAR_BlockList)) >>
-    qmatch_assum_abbrev_tac `Cv_bv pp v y` >>
-    qmatch_assum_abbrev_tac `syneq (v_to_Cv m cm l) v` >>
-    map_every qexists_tac[`pp`,`m`,`cm`,`l`,`v`] >>
+    qpat_assum`EVERY closed (LUPDATE X Y Z)`mp_tac >>
+    simp[EVERY_MEM,MEM_LUPDATE,PULL_EXISTS] >>
+    strip_tac >> gen_tac >> strip_tac >- METIS_TAC[] >>
+    BasicProvers.VAR_EQ_TAC >>
+    simp[EL_LUPDATE] >>
+    reverse IF_CASES_TAC >- (
+      first_x_assum(qspec_then`EL j r`match_mp_tac) >>
+      simp[EL_LUPDATE] >> METIS_TAC[] ) >>
     simp[] >>
-    qunabbrev_tac`cm` >>
-    REWRITE_TAC[new_compiler_state_contab] >>
-    EVAL_TAC ) >>
-  gen_tac >>
-  fs[GSYM STATE_TYPE_def] >>
-  imp_res_tac INPUT_TYPE_exists >>
-  pop_assum(qspec_then`ts`strip_assume_tac) >>
-  qmatch_assum_abbrev_tac`INPUT_TYPE (SOME (ts,s)) new_inp` >>
+    conj_tac >- cheat (* INPUT_TYPE_closed *) >>
+    assume_tac (CONJUNCT2 repl_env_def) >> rfs[] >>
+    fsrw_tac[boolSimps.DNF_ss][] ) >>
+  exists_suff_gen_then (mp_tac o RW[GSYM AND_IMP_INTRO]) (INST_TYPE[alpha|->``:num``]to_i1_invariant_change_store) >>
+  disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
+  disch_then exists_suff_tac >>
+  fs[modLangProofTheory.to_i1_invariant_def] >>
+  rator_x_assum`s_to_i1`mp_tac >>
+  simp[modLangProofTheory.s_to_i1_cases] >>
+  simp[modLangProofTheory.s_to_i1'_cases] >>
+  simp[vs_to_i1_MAP] >>
+
   qexists_tac`new_inp` >> simp[] >>
   reverse conj_tac >- (
     fs[semanticsExtraTheory.closed_context_def] >>
