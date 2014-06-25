@@ -168,6 +168,5 @@ val _ = Define `
   in
     (merge type_bound'' type_bound', (top'::prog'))))`;
 
-      
 val _ = export_theory()
 

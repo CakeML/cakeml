@@ -441,7 +441,9 @@ val op_case_expand = Q.prove (
      | Alength => f8
      | Aalloc => f9
      | Asub => f10
-     | Aupdate => f11) st
+     | Aupdate => f11
+     | VfromList => f12
+     | Vsub => f13) st
    = (Success v, st'))
   =
   ((?opn. (op = Opn opn) ∧ (f1 st = (Success v, st'))) ∨
@@ -454,7 +456,9 @@ val op_case_expand = Q.prove (
    ((op = Alength) ∧ (f8 st = (Success v, st'))) ∨
    ((op = Aalloc) ∧ (f9 st = (Success v, st'))) ∨
    ((op = Asub) ∧ (f10 st = (Success v, st'))) ∨
-   ((op = Aupdate) ∧ (f11 st = (Success v, st'))))`,
+   ((op = Aupdate) ∧ (f11 st = (Success v, st'))) ∨
+   ((op = VfromList) ∧ (f12 st = (Success v, st'))) ∨
+   ((op = Vsub) ∧ (f13 st = (Success v, st'))))`,
 rw [] >>
 cases_on `op` >>
 rw []);

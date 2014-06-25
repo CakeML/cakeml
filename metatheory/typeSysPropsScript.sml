@@ -844,13 +844,15 @@ val type_op_cases = Q.store_thm ("type_op_cases",
    ((op = Aalloc) ∧ ts = [Tint; Tword8] ∧ t3 = Tword8array) ∨
    ((op = Asub) ∧ ts = [Tword8array; Tint] ∧ t3 = Tword8) ∨
    ((op = Alength) ∧ ts = [Tword8array] ∧ t3 = Tint) ∨
-   ((op = Aupdate) ∧ ts = [Tword8array; Tint; Tword8] ∧ t3 = Tunit))`,
+   ((op = Aupdate) ∧ ts = [Tword8array; Tint; Tword8] ∧ t3 = Tunit) ∨
+   ((op = VfromList) ∧ ?t2. ts = [Tapp [t2] (TC_name (Short "list"))] ∧ t3 = Tapp [t2] TC_vector) ∨
+   ((op = Vsub) ∧ ts = [Tapp [t3] TC_vector; Tint]))`,
  rw [type_op_def] >>
  every_case_tac >>
  fs [] >>
  metis_tac []);
 
- (* ---------- type_p ---------- *)
+(* ---------- type_p ---------- *)
 
 val type_ps_length = Q.store_thm ("type_ps_length",
 `∀tvs tenvC ps ts tenv.
@@ -1680,6 +1682,8 @@ val type_v_freevars = Q.store_thm ("type_v_freevars",
      metis_tac [type_funs_Tfn, num_tvs_bind_var_list, num_tvs_def,
                 arithmeticTheory.ADD, arithmeticTheory.ADD_COMM])
  >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ,
+               arithmeticTheory.GREATER_EQ]
+ >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ,
                arithmeticTheory.GREATER_EQ]);
 
 val type_vs_length = Q.store_thm ("type_vs_length",
@@ -1863,6 +1867,14 @@ val type_subst = Q.store_thm ("type_subst",
           fs [] >>
           rw [] >>
           metis_tac []])
+ >- (fs [EVERY_MEM] >>
+     rw [] >>
+     res_tac >>
+     fs [] >>
+     imp_res_tac nil_deBruijn_inc >>
+     fs [] >>
+     imp_res_tac nil_deBruijn_subst >>
+     fs [])
  >- (fs [bind_def, bind_tenv_def] >>
      metis_tac [type_v_rules])
  >- (fs [bind_def, bind_tenv_def] >>
@@ -2390,7 +2402,8 @@ val type_d_ctMap_disjoint = Q.store_thm ("type_d_ctMap_disjoint",
 `type_d mn tdecs1 tenvM tenvC tenv d tdecs1' tenvC' tenv' ∧
  consistent_ctMap tdecs1 ctMap
  ⇒
- DISJOINT (FDOM (flat_to_ctMap tenvC')) (FDOM ctMap)`,
+ DISJOINT (FDOM (flat_to_ctMap tenvC')) (FDOM ctMap) ∧
+ DISJOINT (IMAGE SND (FDOM (flat_to_ctMap tenvC'))) (IMAGE SND (FDOM ctMap))`,
  rw [type_d_cases, DISJOINT_DEF, EXTENSION, emp_def, flat_to_ctMap_def, FDOM_FUPDATE_LIST, 
      flat_to_ctMap_list_def] >>
  rw [MEM_MAP] >>

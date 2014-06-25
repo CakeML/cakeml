@@ -89,6 +89,9 @@ type op =
   | Asub
   | Alength
   | Aupdate
+  (* Vector operations *)
+  | VfromList
+  | Vsub
 
 (* Built-in logical operations *)
 type lop =
@@ -110,6 +113,7 @@ type tctor =
   | TC_fn
   | TC_tup
   | TC_exn
+  | TC_vector
 
 type t =
   | Tvar of tvarN

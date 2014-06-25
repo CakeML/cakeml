@@ -141,4 +141,3 @@ elab_prog type_bound (top::prog) =
     (merge type_bound'' type_bound', (top'::prog'))
 
 declare termination_argument elab_prog = automatic
-      
