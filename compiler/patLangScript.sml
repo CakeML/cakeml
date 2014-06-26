@@ -63,7 +63,8 @@ val _ = Hol_datatype `
   | Conv_pat of num => v_pat list
   | Closure_pat of v_pat list => exp_pat
   | Recclosure_pat of v_pat list => exp_pat list => num
-  | Loc_pat of num`;
+  | Loc_pat of num
+  | Vectorv_pat of v_pat list`;
 
 
 (*val sIf_pat : exp_pat -> exp_pat -> exp_pat -> exp_pat*)
@@ -440,6 +441,25 @@ val _ = Define `
  (prim_exn_pat tag = (Conv_pat tag []))`;
 
 
+(*val v_to_list_pat : v_pat -> maybe (list v_pat)*)
+ val _ = Define `
+ (v_to_list_pat (Conv_pat tag []) =  
+ (if tag = nil_tag then
+    SOME []
+  else
+    NONE))
+/\ (v_to_list_pat (Conv_pat tag [v1;v2]) =  
+(if tag = cons_tag  then
+    (case v_to_list_pat v2 of
+        SOME vs => SOME (v1::vs)
+      | NONE => NONE
+    )
+  else
+    NONE))
+/\ (v_to_list_pat _ = NONE)`;
+
+
+
 (*val do_app_pat : count_store_genv v_pat -> op_pat -> list v_pat -> maybe (count_store_genv v_pat * result v_pat v_pat)*)
 val _ = Define `
  (do_app_pat ((cnt,s),genv) op vs =  
@@ -521,6 +541,21 @@ val _ = Define `
                   )
         | _ => NONE
         )
+    | (Op_pat (Op_i2 VfromList), [v]) =>
+          (case v_to_list_pat v of
+              SOME vs =>
+                SOME (((cnt,s),genv), Rval (Vectorv_pat vs))
+            | NONE => NONE
+          )
+    | (Op_pat (Op_i2 Vsub), [Vectorv_pat vs; Litv_pat (IntLit i)]) =>
+        if i <( 0 : int) then
+          SOME (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
+        else
+          let n = (Num (ABS ( i))) in
+            if n >= LENGTH vs then
+              SOME (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
+            else 
+              SOME (((cnt,s),genv), Rval (EL n vs))
     | (Tag_eq_pat n, [Conv_pat tag _]) =>
         SOME (((cnt,s),genv), Rval (Litv_pat (Bool (tag = n))))
     | (El_pat n, [Conv_pat _ vs]) =>

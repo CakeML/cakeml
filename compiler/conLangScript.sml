@@ -139,7 +139,8 @@ val _ = Hol_datatype `
   | Conv_i2 of (num #  tid_or_exn option) => v_i2 list 
   | Closure_i2 of (varN, v_i2) env => varN => exp_i2
   | Recclosure_i2 of (varN, v_i2) env => (varN # varN # exp_i2) list => varN
-  | Loc_i2 of num`;
+  | Loc_i2 of num
+  | Vectorv_i2 of v_i2 list`;
 
 
 (*val pat_bindings_i2 : pat_i2 -> list varN -> list varN*)
@@ -451,6 +452,25 @@ val _ = Define `
  (prim_exn_i2 tag cn = (Conv_i2 (tag, SOME (TypeExn (Short cn))) []))`;
 
 
+(*val v_to_list_i2 : v_i2 -> maybe (list v_i2)*)
+ val _ = Define `
+ (v_to_list_i2 (Conv_i2 (tag, SOME (TypeId (Short tn))) []) =  
+ (if (tag = nil_tag) /\ (tn = "list") then
+    SOME []
+  else
+    NONE))
+/\ (v_to_list_i2 (Conv_i2 (tag,SOME (TypeId (Short tn))) [v1;v2]) =  
+(if (tag = cons_tag)  /\ (tn = "list") then
+    (case v_to_list_i2 v2 of
+        SOME vs => SOME (v1::vs)
+      | NONE => NONE
+    )
+  else
+    NONE))
+/\ (v_to_list_i2 _ = NONE)`;
+
+
+
 (*val do_app_i2 : store v_i2 -> op_i2 -> list v_i2 -> maybe (store v_i2 * result v_i2 v_i2)*)
 val _ = Define `
  (do_app_i2 s op vs =  
@@ -525,6 +545,21 @@ val _ = Define `
                   )
         | _ => NONE
       )
+    | (Op_i2 VfromList, [v]) =>
+          (case v_to_list_i2 v of
+              SOME vs =>
+                SOME (s, Rval (Vectorv_i2 vs))
+            | NONE => NONE
+          )
+    | (Op_i2 Vsub, [Vectorv_i2 vs; Litv_i2 (IntLit i)]) =>
+        if i <( 0 : int) then
+          SOME (s, Rerr (Rraise (prim_exn_i2 subscript_tag "Subscript")))
+        else
+          let n = (Num (ABS ( i))) in
+            if n >= LENGTH vs then
+              SOME (s, Rerr (Rraise (prim_exn_i2 subscript_tag "Subscript")))
+            else 
+              SOME (s, Rval (EL n vs))
     | _ => NONE
   )))`;
 

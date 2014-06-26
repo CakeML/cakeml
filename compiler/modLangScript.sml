@@ -94,7 +94,8 @@ val _ = Hol_datatype `
   | Conv_i1 of  (conN # tid_or_exn)option => v_i1 list 
   | Closure_i1 of (envC # (varN, v_i1) env) => varN => exp_i1
   | Recclosure_i1 of (envC # (varN, v_i1) env) => (varN # varN # exp_i1) list => varN
-  | Loc_i1 of num`;
+  | Loc_i1 of num
+  | Vectorv_i1 of v_i1 list`;
 
 
 (*val exp_to_i1 : map modN (map varN nat) -> map varN nat -> exp -> exp_i1*)
@@ -348,6 +349,24 @@ val _ = Define `
   )))`;
 
 
+(*val v_to_list_i1 : v_i1 -> maybe (list v_i1)*)
+ val _ = Define `
+ (v_to_list_i1 (Conv_i1 (SOME (cn, TypeId (Short tn))) []) =  
+ (if (cn = "nil") /\ (tn = "list") then
+    SOME []
+  else
+    NONE))
+/\ (v_to_list_i1 (Conv_i1 (SOME (cn,TypeId (Short tn))) [v1;v2]) =  
+(if (cn = "::")  /\ (tn = "list") then
+    (case v_to_list_i1 v2 of
+        SOME vs => SOME (v1::vs)
+      | NONE => NONE
+    )
+  else
+    NONE))
+/\ (v_to_list_i1 _ = NONE)`;
+
+
 (*val do_app_i1 : store v_i1 -> op -> list v_i1 -> maybe (store v_i1 * result v_i1 v_i1)*)
 val _ = Define `
  (do_app_i1 s op vs =  
@@ -420,7 +439,22 @@ val _ = Define `
                     | SOME s' => SOME (s', Rval (Litv_i1 Unit))
                   )
         | _ => NONE
-      )
+        )
+    | (VfromList, [v]) =>
+          (case v_to_list_i1 v of
+              SOME vs =>
+                SOME (s, Rval (Vectorv_i1 vs))
+            | NONE => NONE
+          )
+    | (Vsub, [Vectorv_i1 vs; Litv_i1 (IntLit i)]) =>
+        if i <( 0 : int) then
+          SOME (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
+        else
+          let n = (Num (ABS ( i))) in
+            if n >= LENGTH vs then
+              SOME (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
+            else 
+              SOME (s, Rval (EL n vs))
     | _ => NONE
   )))`;
 

@@ -67,7 +67,8 @@ val _ = Hol_datatype `
   | Conv_exh of num => v_exh list 
   | Closure_exh of (varN, v_exh) env => varN => exp_exh
   | Recclosure_exh of (varN, v_exh) env => (varN # varN # exp_exh) list => varN
-  | Loc_exh of num`;
+  | Loc_exh of num
+  | Vectorv_exh of v_exh list`;
 
 
 (*val is_var : pat_i2 -> bool*)
@@ -349,6 +350,25 @@ val _ = Define `
  (prim_exn_exh tag = (Conv_exh tag []))`;
 
 
+(*val v_to_list_exh : v_exh -> maybe (list v_exh)*)
+ val _ = Define `
+ (v_to_list_exh (Conv_exh tag []) =  
+ (if tag = nil_tag then
+    SOME []
+  else
+    NONE))
+/\ (v_to_list_exh (Conv_exh tag [v1;v2]) =  
+(if tag = cons_tag  then
+    (case v_to_list_exh v2 of
+        SOME vs => SOME (v1::vs)
+      | NONE => NONE
+    )
+  else
+    NONE))
+/\ (v_to_list_exh _ = NONE)`;
+
+
+
 (*val do_app_exh : count_store_genv v_exh -> op_i2 -> list v_exh -> maybe (count_store_genv v_exh * result v_exh v_exh)*)
 val _ = Define `
  (do_app_exh ((count0,s),genv) op vs =  
@@ -430,6 +450,21 @@ val _ = Define `
                   )
         | _ => NONE
       )
+    | (Op_i2 VfromList, [v]) =>
+          (case v_to_list_exh v of
+              SOME vs =>
+                SOME (((count0,s),genv), Rval (Vectorv_exh vs))
+            | NONE => NONE
+          )
+    | (Op_i2 Vsub, [Vectorv_exh vs; Litv_exh (IntLit i)]) =>
+        if i <( 0 : int) then
+          SOME (((count0,s),genv), Rerr (Rraise (prim_exn_exh subscript_tag)))
+        else
+          let n = (Num (ABS ( i))) in
+            if n >= LENGTH vs then
+              SOME (((count0,s),genv), Rerr (Rraise (prim_exn_exh subscript_tag)))
+            else 
+              SOME (((count0,s),genv), Rval (EL n vs))
     | _ => NONE
   )))`;
 
