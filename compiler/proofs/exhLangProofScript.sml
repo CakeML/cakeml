@@ -112,12 +112,35 @@ val pmatch_list_i2_all_vars_not_No_match = prove(
   Induct >> Cases_on`l2` >> simp[pmatch_i2_def,is_var_def] >>
   Cases >> simp[pmatch_i2_def])
 
-val get_tags_lemma = prove(
-  ``∀ps ts. get_tags ps = SOME ts ⇒
-      (∀p. MEM p ps ⇒ ∃t x vs. (p = Pcon_i2 (t,x) vs) ∧ EVERY is_var vs ∧ MEM t ts) ∧
-      (∀t. MEM t ts ⇒ ∃x vs. MEM (Pcon_i2 (t,x) vs) ps ∧ EVERY is_var vs)``,
-  Induct >> simp[get_tags_def] >> Cases >> simp[] >>
-  every_case_tac >> rw[] >> fs[] >> metis_tac[])
+val get_tags_acc = prove(
+  ``∀ls acc ts. get_tags ls acc = SOME ts ⇒ domain acc ⊆ domain ts``,
+  Induct >> simp[get_tags_def] >> Cases >> simp[] >> every_case_tac >> simp[] >>
+  rw[] >> res_tac >> fs[SUBSET_DEF])
+
+val gen_get_tags_lemma = prove(
+  ``!ps ts acc. get_tags ps acc = SOME ts ==> 
+         (!p. MEM p ps ==> ?t x vs. (p = Pcon_i2 (t,x) vs) /\ EVERY is_var vs /\ t IN (domain ts)) 
+         /\
+         (!t. t IN (domain ts) /\ t NOTIN (domain acc) ==> ?x vs. MEM (Pcon_i2(t,x) vs) ps /\ EVERY is_var vs)``,
+  Induct >> simp[get_tags_def] >>
+  Cases >> simp[] >>
+  Cases_on`p` >> simp[] >>
+  rpt gen_tac >> strip_tac >>
+  imp_res_tac get_tags_acc >>
+  first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
+  conj_tac >- (
+    gen_tac >> reverse strip_tac >- metis_tac[] >>
+    simp[] >> fs[SUBSET_DEF] ) >>
+  gen_tac >> strip_tac >>
+  Cases_on`t=q` >>
+  rw[] >> metis_tac[])
+
+val get_tags_lemma =
+  gen_get_tags_lemma 
+  |> CONV_RULE (RESORT_FORALL_CONV List.rev)
+  |> Q.SPEC`insert a () LN`
+  |> SIMP_RULE (srw_ss())[]
+  |> GEN_ALL
 
 val pmatch_i2_Pcon_No_match = prove(
   ``EVERY is_var ps ⇒
@@ -157,7 +180,8 @@ val exh_to_exists_match = Q.prove (
      fs [pmatch_i2_def] >>
      Cases_on `x` >>
      fs [pmatch_i2_def] >>
-     pop_assum (assume_tac o SYM) >>simp[])
+     rw[]>>
+     metis_tac[pmatch_list_i2_all_vars_not_No_match])
  >- (cases_on `v` >>
      rw [pmatch_i2_def] >>
      every_case_tac)
@@ -171,13 +195,14 @@ val exh_to_exists_match = Q.prove (
      simp[METIS_PROVE[]``a \/ b <=> ~a ==> b``] >>
      strip_tac >> rpt BasicProvers.VAR_EQ_TAC >>
      Cases_on`b`>>simp[Abbr`pp2`,pmatch_i2_def]>>
-     Cases_on`x`>>simp[pmatch_i2_def]>>
+     Cases_on`x'`>>simp[pmatch_i2_def]>>
+     Q.PAT_ABBREV_TAC`dd ⇔ A ∨ B` >>
      rw[] >- metis_tac[pmatch_list_i2_all_vars_not_No_match] >>
+     fs[] >>
      imp_res_tac get_tags_lemma >>
-     first_x_assum(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >>
-     fs[] >> rw[] >>
+     rfs[] >>
      HINT_EXISTS_TAC >>
-     Cases_on`x`>>simp[pmatch_i2_Pcon_No_match,pmatch_i2_def] >>
+     Cases_on`x'`>>simp[pmatch_i2_Pcon_No_match,pmatch_i2_def] >>
      qmatch_assum_rename_tac`MEM (Pcon_i2 (cv, SOME z) ps) ws`[] >>
      Cases_on`z`>>simp[pmatch_i2_def] >> rw[] >>
      metis_tac[pmatch_list_i2_all_vars_not_No_match]))

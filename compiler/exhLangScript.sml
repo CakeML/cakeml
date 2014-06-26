@@ -79,19 +79,14 @@ val _ = Define `
   )))`;
 
 
-(*val get_tags : list pat_i2 -> maybe (list nat)*)
+(*val get_tags : list pat_i2 -> nat_set -> maybe(nat_set)*)
  val _ = Define `
- (get_tags [] = (SOME []))
-/\ (get_tags (p::ps) =  
+ (get_tags [] acc = (SOME acc))
+/\ (get_tags (p::ps) acc =  
 ((case p of
       Pcon_i2 (tag,t) ps' =>
-        if EVERY is_var ps' then
-          (case get_tags ps of
-              NONE => NONE
-            | SOME tags => SOME (tag::tags)
-          )
-        else
-          NONE
+        if EVERY is_var ps' then get_tags ps (insert tag ()  acc)
+        else NONE
     | _ => NONE
   )))`;
 
@@ -107,13 +102,13 @@ val _ = Define `
     | [Pcon_i2 (tag,NONE) ps] => EVERY is_var ps
     | Pcon_i2 (tag,SOME (TypeId t)) ps'::ps =>
         if EVERY is_var ps' then
-          (case get_tags ps of
+          (case get_tags ps LN of
               NONE => F
             | SOME tags =>
                 (case FLOOKUP exh t of
                     NONE => F
-                  | SOME tags' =>                    
-(FOLDL (\ s n. insert n ()  s) LN tags) = tags'
+                  | SOME tags' =>
+                    (insert tag ()  tags) = tags'
                 )
           )
         else

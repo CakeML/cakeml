@@ -61,18 +61,13 @@ let is_var p =
     | _ -> false
   end
 
-val get_tags : list pat_i2 -> maybe (list nat)
-let rec get_tags [] = Just []
-and get_tags (p::ps) =
+val get_tags : list pat_i2 -> nat_set -> maybe(nat_set)
+let rec get_tags [] acc = Just acc
+and get_tags (p::ps) acc =
   match p with
     | Pcon_i2 (tag,t) ps' ->
-        if List.all is_var ps' then
-          match get_tags ps with
-            | Nothing -> Nothing
-            | Just tags -> Just (tag::tags)
-          end
-        else
-          Nothing
+        if List.all is_var ps' then get_tags ps (nat_set_insert acc tag)
+        else Nothing
     | _ -> Nothing
   end
 
@@ -88,13 +83,13 @@ let exhaustive_match exh ps =
     | [Pcon_i2 (tag,Nothing) ps] -> List.all is_var ps
     | Pcon_i2 (tag,Just (TypeId t)) ps'::ps ->
         if List.all is_var ps' then
-          match get_tags ps with
+          match get_tags ps nat_set_empty with
             | Nothing -> false
             | Just tags ->
                 match Map.lookup t exh with
                   | Nothing -> false
                   | Just tags' ->
-                    nat_set_from_list tags = tags'
+                    (nat_set_insert tags tag) = tags'
                 end
           end
         else
