@@ -561,6 +561,11 @@ val do_eq_i1 = Q.prove (
  imp_res_tac length_vs_to_i1 >>
  fs []
  >- metis_tac []
+ >- (rpt (qpat_assum `vs_to_i1 env vs x0` (mp_tac o SIMP_RULE (srw_ss()) [Once v_to_i1_cases])) >>
+     rw [] >>
+     fs [vs_to_i1_list_rel, do_eq_def, do_eq_i1_def] >>
+     res_tac >>
+     fs [do_eq_i1_def])
  >- (fs [Once v_to_i1_cases] >>
      rw [do_eq_i1_def])
  >- (fs [Once v_to_i1_cases] >>
@@ -600,7 +605,7 @@ val do_eq_i1 = Q.prove (
  >- (fs [Once v_to_i1_cases] >>
      rw [do_eq_i1_def])
  >- (fs [Once v_to_i1_cases] >>
-     rw [do_eq_i1_def])
+     rw [do_eq_i1_def]) >>
  res_tac >>
  every_case_tac >>
  fs [] >>
@@ -714,6 +719,16 @@ val funs_to_i1_map = Q.prove (
  PairCases_on `h` >>
  rw [exp_to_i1_def]);
 
+val v_to_list_i1_correct = Q.prove (
+`!v1 v2 vs1.
+  v_to_i1 genv v1 v2 ∧
+  v_to_list v1 = SOME vs1
+  ⇒
+  ?vs2.
+    v_to_list_i1 v2 = SOME vs2 ∧
+    vs_to_i1 genv vs1 vs2`,
+cheat);
+
 val do_app_i1 = Q.prove (
 `!genv s1 s2 op vs r s1_i1 vs_i1.
   do_app s1 op vs = SOME (s2, r) ∧
@@ -812,10 +827,20 @@ val do_app_i1 = Q.prove (
      rw [EL_LUPDATE] >>
      fs[store_v_same_type_def])
  >- (every_case_tac >>
-     fs [v_to_i1_def] >>
-
- 
- );
+     rw [] >>
+     imp_res_tac v_to_list_i1_correct >>
+     fs [] >>
+     metis_tac [SOME_11, NOT_SOME_NONE])
+ >- (rw [markerTheory.Abbrev_def] >>
+     metis_tac [])
+ >- (rw [markerTheory.Abbrev_def] >>
+     fs [vs_to_i1_list_rel] >>
+     metis_tac [LIST_REL_LENGTH])
+ >- (rw [markerTheory.Abbrev_def] >>
+     fs [vs_to_i1_list_rel] >>
+     imp_res_tac LIST_REL_LENGTH
+     >- intLib.ARITH_TAC >>
+     fs [LIST_REL_EL_EQN]));
 
 val do_opapp_i1 = Q.prove (
 `!genv vs vs_i1 env e.
