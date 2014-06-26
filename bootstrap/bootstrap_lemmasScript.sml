@@ -1,7 +1,7 @@
 open HolKernel boolLib bossLib pairTheory listTheory lcsymtacs miscLib
 open ml_translatorTheory replCorrectTheory compilerProofTheory ml_repl_moduleTheory
 open compile_repl_decsTheory
-
+val _ = temp_tight_equality()
 val _ = new_theory "bootstrap_lemmas"
 
 infix \\ val op \\ = op THEN;
@@ -954,13 +954,39 @@ val INPUT_TYPE_exists = prove(
 
 (* Relationship between the invariant and the references *)
 
+val repl_globals_env_def = Define`
+  repl_globals_env = THE (FLOOKUP (FST(FST compile_repl_decs).globals_env) "REPL")`
+
+val repl_globals_env_eq =
+  ``repl_globals_env``
+  |> (REWR_CONV repl_globals_env_def THENC
+      PURE_ONCE_REWRITE_CONV[compile_repl_decs_eq]
+      THENC EVAL)
+
+val iind_def = Define`
+  iind = THE(FLOOKUP repl_globals_env "input")`
+val iind_eq =
+  ``iind``
+  |> (REWR_CONV iind_def
+      THENC PURE_ONCE_REWRITE_CONV[repl_globals_env_eq]
+      THENC EVAL)
+
+val oind_def = Define`
+  oind = THE(FLOOKUP repl_globals_env "output")`
+val oind_eq =
+  ``oind``
+  |> (REWR_CONV oind_def
+      THENC PURE_ONCE_REWRITE_CONV[repl_globals_env_eq]
+      THENC EVAL)
+
+val inds_less = prove(
+  ``iind < LENGTH repl_bc_state.globals ∧
+    oind < LENGTH repl_bc_state.globals``,
+
 val COMPILER_RUN_INV_references = store_thm("COMPILER_RUN_INV_references",
   ``∀bs input output.
     COMPILER_RUN_INV bs input output ⇒
-    ∃map iind oind iptr optr ibc obc.
-      FLOOKUP (FST(FST compile_repl_decs).globals_env) "REPL" = SOME map ∧
-      FLOOKUP map "input"  = SOME iind ∧
-      FLOOKUP map "output" = SOME oind ∧
+    ∃iptr optr ibc obc.
       iind < LENGTH bs.globals ∧
       oind < LENGTH bs.globals ∧
       EL iind bs.globals = SOME (RefPtr iptr) ∧
@@ -990,6 +1016,10 @@ val COMPILER_RUN_INV_references = store_thm("COMPILER_RUN_INV_references",
   first_assum(qspec_then`"input"`mp_tac) >>
   first_x_assum(qspec_then`"output"`mp_tac) >>
   simp[] >> rw[] >> simp[] >>
+  `map = repl_globals_env`  by (
+    simp[repl_globals_env_def] ) >>
+
+  fs[GSYM iind_def,GSYM oind_def]
   fs[conLangProofTheory.to_i2_invariant_def] >>
   fs[LIST_REL_EL_EQN,bytecodeProofTheory.Cenv_bs_def] >>
   rator_x_assum`s_refs`mp_tac >>
