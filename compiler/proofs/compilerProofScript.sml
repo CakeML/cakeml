@@ -1660,7 +1660,7 @@ val tac4=
 fun tac5() =
   simp[print_result_def,Abbr`bs2`] >>
   qmatch_rename_tac`THE(bv_to_string bv) = print_v a`[] >>
-  `THE (bv_to_string bv) = print_bv "" bv` by (
+  `THE (bv_to_string bv) = print_bv (Infer_Tuvar 0) bv` by (
     simp[print_bv_def] ) >>
   pop_assum SUBST1_TAC >>
   match_mp_tac (MP_CANON print_bv_print_v) >> simp[] >>
@@ -3392,7 +3392,7 @@ val compile_prog_thm = store_thm("compile_prog_thm",
       CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`[]` >>
       simp[SUM_APPEND,FILTER_APPEND] ) >>
     qmatch_assum_rename_tac`bv_to_string bv = SOME str`[] >>
-    `str = print_bv "" bv` by simp[print_bv_def] >>
+    `str = print_bv (Infer_Tuvar 0) bv` by simp[print_bv_def] >>
     pop_assum SUBST1_TAC >>
     match_mp_tac (MP_CANON print_bv_print_v) >>
     simp[] >>
@@ -3499,7 +3499,7 @@ val compile_prog_thm = store_thm("compile_prog_thm",
       metis_tac[APPEND_ASSOC] ) >>
     simp[Abbr`bs4`] >>
     qmatch_rename_tac`THE (bv_to_string bv) = print_v v`[] >>
-    `THE (bv_to_string bv) = print_bv "" bv` by simp[print_bv_def] >>
+    `THE (bv_to_string bv) = print_bv (Infer_Tuvar 0) bv` by simp[print_bv_def] >>
     pop_assum SUBST1_TAC >>
     match_mp_tac (MP_CANON print_bv_print_v) >>
     first_assum(match_exists_tac o concl) >> simp[] >>
