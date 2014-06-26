@@ -1,5 +1,6 @@
 open HolKernel boolLib bossLib pairTheory listTheory lcsymtacs miscLib
 open ml_translatorTheory replCorrectTheory compilerProofTheory ml_repl_moduleTheory
+open compile_repl_decsTheory
 
 val _ = new_theory "bootstrap_lemmas"
 
@@ -273,31 +274,6 @@ val evaluate_Tmod_tys = prove(
   rw[evaluate_top_cases] >>
   METIS_TAC[evaluate_decs_tys]) |> GEN_ALL
 
-(* Define things to bootstrap *)
-
-val compile_repl_decs_def = zDefine`
-  compile_repl_decs = compile_top NONE (FST compile_primitives) (Tmod "REPL" NONE ml_repl_module_decls)`
-
-val repl_decs_code_def = zDefine
-  `repl_decs_code = code_labels real_inst_length (SND(SND(compile_repl_decs)))`
-
-val call_dec = ``Tdec (Dlet (Plit Unit) (App Opapp (Var(Long"REPL""call_repl_step")) (Lit Unit)))``
-
-val compile_call_repl_step_def = zDefine`
-  compile_call_repl_step = compile_special (FST compile_repl_decs) ^call_dec`
-
-val compile_call_repl_step_labels = store_thm("compile_call_repl_step_labels",
-  ``FILTER is_Label compile_call_repl_step = []``,
-  simp[compile_call_repl_step_def,compile_special_def] >>
-  EVAL_TAC >> simp[astTheory.pat_bindings_def] >>
-  EVAL_TAC >>
-  `∃a b c. (FST compile_repl_decs).contags_env = (a,b,c)` by METIS_TAC[pair_CASES] >>
-  rw[] >> EVAL_TAC >>
-  REWRITE_TAC[UNCURRY] >>
-  EVAL_TAC >>
-  rw[finite_mapTheory.FLOOKUP_DEF] >>
-  rw[] >> EVAL_TAC)
-
 (* Environment produced by repl_decs *)
 
 val evaluate_repl_decs = DISCH_ALL module_thm |> SIMP_RULE std_ss []
@@ -467,6 +443,8 @@ val repl_bc_state_clock = prove(
 val update_io_def  = Define`
   update_io inp out ((c,s),x,y) =
     ((c,LUPDATE out (iloc+1) (LUPDATE inp iloc s)),x,y)`
+
+val call_dec = rand(rhs(concl(compile_call_repl_step_def)))
 
 val evaluate_call_repl_step = store_thm("evaluate_call_repl_step",
   ``∀x inp out. INPUT_TYPE x inp ⇒
