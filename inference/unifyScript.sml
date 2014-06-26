@@ -1,6 +1,7 @@
 open preamble finite_mapTheory optionTheory libTheory astTheory; 
 open unifPropsTheory unifDefTheory walkTheory walkstarTheory collapseTheory;
 open substTheory;
+open infer_tTheory;
 open libPropsTheory;
 
 val option_map_case = prove (
@@ -27,17 +28,6 @@ val I_o_f = Q.prove (
 rw [GSYM fmap_EQ_THM]);
 
 val _ = new_theory "unify";
-
-val _ = Hol_datatype `
-infer_t = 
-    Infer_Tvar_db of num
-  | Infer_Tapp of infer_t list => tctor
-  | Infer_Tuvar of num`;
-
-val infer_t_size_def = fetch "-" "infer_t_size_def";
-val infer_t_induction = fetch "-" "infer_t_induction";
-val infer_t_distinct = fetch "-" "infer_t_distinct";
-val infer_t_11 = fetch "-" "infer_t_11";
 
 val _ = Hol_datatype `
 atom = 

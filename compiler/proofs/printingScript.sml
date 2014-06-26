@@ -2,7 +2,7 @@ open HolKernel boolLib boolSimps bossLib lcsymtacs listTheory stringTheory relat
 open miscLib miscTheory bytecodeTheory bytecodeExtraTheory bytecodeEvalTheory bytecodeLabelsTheory bytecodeTerminationTheory
 open intLangTheory intLangExtraTheory toBytecodeTheory compilerTheory compilerTerminationTheory
 open modLangProofTheory conLangProofTheory exhLangProofTheory patLangProofTheory intLangProofTheory bytecodeProofTheory free_varsTheory 
-open replTheory terminationTheory
+open replTheory inferSoundTheory terminationTheory
 
 val _ = new_theory"printing"
 
@@ -54,17 +54,6 @@ val LIST_REL_OPTREL_exh_Cv_syneq_trans = store_thm("LIST_REL_OPTREL_exh_Cv_syneq
 
 (* printing *)
 
-val word8 = ``"<word8>"``
-
-val print_bv_def = Define`
-  print_bv ty bv =
-    if ty = ^word8 then
-      STRCAT "0wx" (word_to_hex_string ((n2w (Num (dest_Number bv))):word8))
-    else THE (bv_to_string bv)`
-val print_bv_str_def = Define`print_bv_str t v w = "val "++v++":"++(tystr t v)++" = "++(print_bv (tystr t v) w)++"\n"`
-
-val append_cons_lemma = prove(``ls ++ [x] ++ a::b = ls ++ x::a::b``,lrw[])
-
 val MAP_PrintC_thm = store_thm("MAP_PrintC_thm",
   ``∀ls bs bc0 bc1 bs'.
     bs.code = bc0 ++ (MAP PrintC ls) ++ bc1 ∧
@@ -88,11 +77,18 @@ val MAP_PrintC_thm = store_thm("MAP_PrintC_thm",
   qexists_tac`bc0 ++ [PrintC h]` >>
   simp[FILTER_APPEND,SUM_APPEND])
 
-val _ = Parse.overload_on("print_bv_list",``λt vs ws. FLAT (MAP (UNCURRY (print_bv_str t)) (ZIP (vs,ws)))``)
+val code_labels_ok_MAP_PrintC = store_thm("code_labels_ok_MAP_PrintC",
+  ``∀ls. code_labels_ok (MAP PrintC ls)``,
+  Induct>>simp[]>>rw[]>>match_mp_tac code_labels_ok_cons>>simp[])
+val _ = export_rewrites["code_labels_ok_MAP_PrintC"]
 
-val print_envE_cons = store_thm("print_envE_cons",
-  ``print_envE types (x::xs) = print_envE types [x]++print_envE types xs``,
-  rw[print_envE_def]);
+val word8 = ``Infer_Tapp [] TC_word8``
+
+val print_bv_def = Define`
+  print_bv ty bv =
+    if ty = ^word8 then
+      STRCAT "0wx" (word_to_hex_string ((n2w (Num (dest_Number bv))):word8))
+    else THE (bv_to_string bv)`
 
 val print_bv_print_v = prove(
   ``(∀genv v v1. v_to_i1 genv v v1 ⇒
@@ -132,27 +128,28 @@ val print_bv_print_v = prove(
   simp[print_v_def,print_bv_def,bv_to_string_def])
 val print_bv_print_v = save_thm("print_bv_print_v",CONJUNCT1 print_bv_print_v)
 
-val good_type_string_env_def = Define`
-  good_type_string_env types env ⇔
-  EVERY (λ(x,v). tystr types x = ^word8 ⇔ ∃w. v = Litv (Word8 w)) env`
+val print_bv_str_def = Define`print_bv_str (v,_,t) w = "val "++v++":"++(inf_type_to_string t)++" = "++(print_bv t w)++"\n"`
+
+val _ = Parse.overload_on("print_bv_list",``λts ws. FLAT (MAP (UNCURRY (print_bv_str)) (ZIP (ts,ws)))``)
 
 val print_bv_list_print_envE = store_thm("print_bv_list_print_envE",
-  ``∀bvs types vars env data.
-    vars = MAP FST env ∧
+  ``∀tvs bvs types env data.
     LIST_REL (v_bv data) (MAP SND env) bvs ∧
-    good_type_string_env types env ∧
-    set vars ⊆ FDOM types
+    types = convert_env2 tvs ∧
+    EVERY (λt. (∀n. t ≠ Infer_Tuvar n) ∧ inf_type_to_string t = type_to_string (convert_t t)) (MAP (SND o SND) tvs) ∧
+    LIST_REL (λ(x,_,t) (y,v). x = y ∧ (t = Tapp [] TC_word8 ⇔ ∃w. v = Litv (Word8 w))) types env
     ⇒
-    print_bv_list types vars bvs = print_envE types env``,
+    print_bv_list tvs bvs = print_envE types env``,
+  REWRITE_TAC[convert_env2_def] >>
   Induct_on`env` >- ( simp[print_envE_def] ) >>
   qx_gen_tac`x`>>PairCases_on`x` >> simp[PULL_EXISTS] >>
   rpt gen_tac >> strip_tac >> fs[] >>
   fs[GSYM AND_IMP_INTRO] >>
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
-  fs[good_type_string_env_def] >>
+  `∃tv t. tvs = tv::t` by (Cases_on`tvs`>>fs[]) >> rw[] >> fs[] >> rw[] >>
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
-  first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
-  simp[print_envE_def,print_bv_str_def] >> simp[tystr_def,FLOOKUP_DEF] >>
+  PairCases_on`tv` >> fs[] >>
+  simp[print_envE_def,print_bv_str_def] >>
   PairCases_on`data` >> fs[v_bv_def] >>
   first_x_assum(mp_tac o MATCH_MP print_bv_print_v) >>
   simp[GSYM AND_IMP_INTRO] >>
@@ -161,15 +158,10 @@ val print_bv_list_print_envE = store_thm("print_bv_list_print_envE",
   disch_then(fn th => first_x_assum (mp_tac o MATCH_MP th)) >>
   disch_then(fn th => first_x_assum (mp_tac o MATCH_MP th)) >>
   disch_then match_mp_tac >>
-  fs[tystr_def,FLOOKUP_DEF])
-
-val code_labels_ok_MAP_PrintC = store_thm("code_labels_ok_MAP_PrintC",
-  ``∀ls. code_labels_ok (MAP PrintC ls)``,
-  Induct>>simp[]>>rw[]>>match_mp_tac code_labels_ok_cons>>simp[])
-val _ = export_rewrites["code_labels_ok_MAP_PrintC"]
+  Cases_on`tv2`>>fs[convert_t_def])
 
 val compile_print_vals_thm = store_thm("compile_print_vals_thm",
-  ``∀vs types map cs. let cs' = compile_print_vals types map vs cs in
+  ``∀tvs map cs. let cs' = compile_print_vals tvs map cs in
     ∃code. cs'.out = REVERSE code ++ cs.out
          ∧ cs'.next_label = cs.next_label
          ∧ EVERY ($~ o is_Label) code ∧
@@ -177,30 +169,31 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
     ∀bs bc0 bvs.
     bs.code = bc0 ++ code
     ∧ bs.pc = next_addr bs.inst_length bc0
-    ∧ LIST_REL (λv bv. ∃n. FLOOKUP map v = SOME n ∧
+    ∧ LIST_REL (λ(v,_,t) bv. ∃n. FLOOKUP map v = SOME n ∧
                            el_check n bs.globals = SOME (SOME bv) ∧
                            IS_SOME (bv_to_string bv) ∧
-                           (tystr types v = ^word8 ⇒
-                            ∃w. bv = Number &(w2n(w:word8)))) vs bvs
+                           (t = ^word8 ⇒
+                            ∃w. bv = Number &(w2n(w:word8)))) tvs bvs
     ⇒
     let bs' = bs with <|pc := next_addr bs.inst_length (bc0++code)
-                       ;output := bs.output ++ print_bv_list types vs bvs|> in
+                       ;output := bs.output ++ print_bv_list tvs bvs|> in
     bc_next^* bs bs'``,
   Induct >> simp[compile_print_vals_def] >- (
     simp[Once SWAP_REVERSE] >> rw[] >>
     simp[Once RTC_CASES1] >>
     simp[bc_state_component_equality] )>>
-  simp[FOLDL_emit_thm] >>
   qx_gen_tac`v` >>
+  PairCases_on`v` >> simp[compile_print_vals_def] >>
+  simp[FOLDL_emit_thm] >>
   rpt strip_tac >>
   Q.PAT_ABBREV_TAC`cs1 = compiler_result_out_fupd X Y` >>
-  first_x_assum(qspecl_then[`types`,`map`,`cs1`]mp_tac) >>
+  first_x_assum(qspecl_then[`map`,`cs1`]mp_tac) >>
   simp[] >>
   disch_then(qx_choosel_then[`c1`]strip_assume_tac) >>
   simp[Abbr`cs1`,Once SWAP_REVERSE] >>
   simp[EVERY_MAP] >> fs[] >>
   Q.PAT_ABBREV_TAC`cs1 = compiler_result_out_fupd X Y` >>
-  qmatch_assum_abbrev_tac`(compile_print_vals types map vs cs1').next_label = X` >>
+  qmatch_assum_abbrev_tac`(compile_print_vals tvs map cs1').next_label = X` >>
   `cs1' = cs1` by (
     simp[Abbr`cs1`,Abbr`cs1'`,compiler_result_component_equality] ) >>
   fs[Abbr`cs1'`] >> pop_assum kall_tac >>
@@ -213,14 +206,14 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
   rpt gen_tac >>
   strip_tac >>
   fs[IMPLODE_EXPLODE_I] >>
-  Q.PAT_ABBREV_TAC`PrintI = if tystr types v = Z then Y else [Print]` >>
-  `bs.code = bc0 ++ (MAP PrintC ("val "++v++":"++tystr types v++" = ")) ++ ([Gread n] ++ PrintI ++[PrintC(#"\n")]) ++ c1` by (
+  Q.PAT_ABBREV_TAC`PrintI = if v2 = Z then Y else [Print]` >>
+  `bs.code = bc0 ++ (MAP PrintC ("val "++v0++":"++inf_type_to_string v2++" = ")) ++ ([Gread n] ++ PrintI ++[PrintC(#"\n")]) ++ c1` by (
     simp[] ) >>
   qmatch_assum_abbrev_tac`bs.code = bc0 ++ l1 ++ l2 ++ c1` >>
   `bc_next^* bs (bs with <|pc:=next_addr bs.inst_length (bc0++l1)
-                          ;output:=STRCAT bs.output ("val "++v++":"++tystr types v++" = ")|>)` by (
+                          ;output:=STRCAT bs.output ("val "++v0++":"++inf_type_to_string v2++" = ")|>)` by (
     match_mp_tac MAP_PrintC_thm >>
-    qexists_tac`"val "++v++":"++tystr types v++" = "`>>
+    qexists_tac`"val "++v0++":"++inf_type_to_string v2++" = "`>>
     qexists_tac`bc0` >>
     simp[Abbr`l1`] ) >>
   qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
@@ -229,8 +222,9 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
     simp[Abbr`bs1`] >>
     qexists_tac`bc0++l1` >>
     simp[Abbr`l2`] ) >>
+  qmatch_assum_rename_tac`IS_SOME (bv_to_string bv)`[] >>
   `bc_next^* bs1 (bs1 with <|pc:=next_addr bs.inst_length(bc0++l1++l2)
-                            ;output := STRCAT bs1.output (print_bv (tystr types v) bv)++"\n"|>)` by (
+                            ;output := STRCAT bs1.output (print_bv v2 bv)++"\n"|>)` by (
     qunabbrev_tac`PrintI` >> qunabbrev_tac`l2` >>
     BasicProvers.CASE_TAC >- (
       srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
@@ -376,7 +370,7 @@ val compile_print_ctors_thm = store_thm("compile_print_ctors_thm",
   metis_tac[RTC_TRANSITIVE,transitive_def])
 
 val compile_print_dec_thm = store_thm("compile_print_dec_thm",
-  ``∀types map d cs. let cs' = compile_print_dec types map d cs in
+  ``∀tvs map d cs. let cs' = compile_print_dec tvs map d cs in
       ∃code. cs'.out = REVERSE code ++ cs.out
         ∧ EVERY ($~ o is_Label) code
         ∧ cs'.next_label = cs.next_label
@@ -385,18 +379,18 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
       bs.code = bc0 ++ code
       ∧ bs.pc = next_addr bs.inst_length bc0
       ∧ LIST_REL
-        (λv bv. ∃n. FLOOKUP map v = SOME n ∧
+        (λ(v,_,t) bv. ∃n. FLOOKUP map v = SOME n ∧
                     el_check n bs.globals = SOME (SOME bv) ∧
                     IS_SOME (bv_to_string bv) ∧
-                    (tystr types v = ^word8 ⇒
+                    (t = ^word8 ⇒
                      ∃w. bv = Number &(w2n(w:word8))))
-        (new_dec_vs d) bvs
+        tvs bvs
       ⇒
       let str =
         case d of
         | Dtype ts => print_envC ([],build_tdefs NONE ts)
         | Dexn cn ts => print_envC ([],[(cn, (LENGTH ts, TypeExn))])
-        | d => print_bv_list types (new_dec_vs d) bvs in
+        | d => print_bv_list tvs bvs in
       let bs' = bs with
         <|pc := next_addr bs.inst_length (bc0++code)
          ;output := bs.output ++ str|> in
@@ -404,21 +398,17 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
   Cases_on`d` >- (
     simp[compile_print_dec_def] >>
     rw[] >>
-    qspecl_then[`pat_bindings p []`,`types`, `map`,`cs`]mp_tac compile_print_vals_thm >>
+    qspecl_then[`tvs`, `map`,`cs`]mp_tac compile_print_vals_thm >>
     simp[] >> rw[] >> simp[])
   >- (
     simp[compile_print_dec_def] >>
     rw[] >>
-    Q.PAT_ABBREV_TAC`vs:string list = MAP X l` >>
-    qspecl_then[`vs`,`types`,`map`,`cs`]mp_tac compile_print_vals_thm >>
-    simp[] >> rw[] >> simp[] >> rpt gen_tac >> strip_tac >>
-    first_x_assum(qspecl_then[`bs`,`bc0`,`bvs`]mp_tac) >>
-    `vs = MAP FST l` by (
-      simp[Abbr`vs`,MAP_EQ_f,FORALL_PROD] ) >>
-    simp[TAKE_LENGTH_ID_rwt])
+    qspecl_then[`tvs`,`map`,`cs`]mp_tac compile_print_vals_thm >>
+    simp[] >> rw[] >> simp[] >> rpt gen_tac >> strip_tac)
   >- (
     simp[] >>
     simp[compile_print_dec_def] >>
+    ntac 2 gen_tac >>
     Induct_on`REVERSE l` >- (
       simp[compile_print_types_def,Once SWAP_REVERSE] >>
       simp[Once SWAP_REVERSE] >>
@@ -452,6 +442,7 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
     first_x_assum(qspecl_then[`bs1 with code := bs.code`]mp_tac) >>
     simp[Abbr`bs1`] >>
     simp[LENGTH_NIL] >>
+    disch_then(qspec_then`bvs`mp_tac) >> simp[] >>
     strip_tac >>
     qmatch_assum_abbrev_tac`bc_next^* bs1' bs2` >>
     qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
@@ -635,14 +626,14 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
         bs.pc = next_addr bs.inst_length bc0 ∧
         bs.stack = (Block(block_tag+tag)(if tag = none_tag then [] else [bv]))::st0 ∧
         (tag ≠ none_tag ⇒ IS_SOME (bv_to_string bv)) ∧
-        (∀d. tag = none_tag ∧ IS_SOME tys ∧ t = Tdec d ⇒
+        (∀d. tag = none_tag ∧ t = Tdec d ⇒
+         case tys of SOME tvs =>
          LIST_REL
-         (λv bv. ∃n. FLOOKUP map v = SOME n ∧
+         (λ(v,_,t) bv. ∃n. FLOOKUP map v = SOME n ∧
                      el_check n bs.globals = SOME (SOME bv) ∧
                      IS_SOME (bv_to_string bv) ∧
-                     (IS_SOME tys ∧ tystr (THE tys) v = ^word8 ⇒
-                      ∃w. bv = Number &(w2n(w:word8))))
-         (new_dec_vs d) bvs)
+                     (t = ^word8 ⇒ ∃w. bv = Number &(w2n(w:word8))))
+         tvs bvs | NONE => T)
         ⇒ ∃pc.
         (let str =
           if tag ≠ none_tag then "raise " ++ THE(bv_to_string bv) ++ "\n" else
@@ -652,7 +643,7 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
             | Tdec d => (case d of
               | Dtype ts => print_envC ([],build_tdefs NONE ts)
               | Dexn cn ts => print_envC ([],[(cn, (LENGTH ts, TypeExn))])
-              | d => print_bv_list types (new_dec_vs d) bvs))) in
+              | d => print_bv_list types bvs))) in
          let bs' = bs with <| pc := pc
                             ; stack := st0
                             ; output := bs.output ++ str |> in
