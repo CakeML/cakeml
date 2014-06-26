@@ -466,10 +466,6 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
     simp[] >> rw[] >> simp[] >>
     simp[print_envC_def]))
 
-val new_top_vs_def = Define`
-  (new_top_vs (Tdec dec) = new_dec_vs dec) ∧
-  (new_top_vs (Tmod _ _ _) = [])`
-
 val compile_print_err_thm = store_thm("compile_print_err_thm",
   ``∀cs. let cs' = compile_print_err cs in
     ∃code.
