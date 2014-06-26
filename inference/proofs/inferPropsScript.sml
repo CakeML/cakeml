@@ -1427,7 +1427,29 @@ val constrain_op_check_s = Q.prove (
             by metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0] >>
      `check_s tvs (count st.next_uvar) s'`
             by metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0] >>
-     metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0]));
+     metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0])
+ >- (`check_t 0 (count (st.next_uvar + 1)) h` 
+                    by metis_tac [EVERY_DEF, check_t_more4, DECIDE ``x ≤ x + 1:num``] >>
+     `check_s tvs (count (st.next_uvar+1)) st.subst`
+            by metis_tac [check_s_more] >>
+     match_mp_tac t_unify_check_s >>
+     qexists_tac `st.subst` >>
+     rw [] >>
+     `check_t tvs (count (st.next_uvar + 1)) 
+                  (Infer_Tapp [Infer_Tuvar st.next_uvar] (TC_name (Short "list")))`
+                       by (rw [check_t_def]) >>
+     metis_tac [check_t_more2, arithmeticTheory.ADD_0])
+ >- (match_mp_tac t_unify_check_s >>
+     MAP_EVERY qexists_tac [`s`, `h'`, `Infer_Tapp [] TC_int`] >>
+     rw []
+     >- metis_tac [t_unify_wfs]
+     >- (match_mp_tac t_unify_check_s >>
+         MAP_EVERY qexists_tac [`st.subst`, `h`, `Infer_Tapp [Infer_Tuvar st.next_uvar] TC_vector`] >>
+         rw [] 
+         >- metis_tac [check_s_more]
+         >- metis_tac [check_t_more2, check_t_more4, arithmeticTheory.ADD_0, DECIDE ``x ≤ x + 1:num``]
+         >- rw [check_t_def])
+     >- metis_tac [check_t_more2, check_t_more4, arithmeticTheory.ADD_0, DECIDE ``x ≤ x + 1:num``]));
 
 val infer_e_check_s = Q.store_thm ("infer_e_check_s",
 `(!menv cenv env e st st' t tvs.
@@ -1519,7 +1541,6 @@ rw [] >|
   EVERY (check_t 0 (count st''.next_uvar)) ts`
           by metis_tac [check_t_more4, infer_e_check_t, infer_e_wfs, check_env_more, infer_e_next_uvar_mono] >>
      metis_tac [constrain_op_check_s],
-
  `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_bool)` by rw [check_t_def] >>
      `t_wfs st'''.subst ∧ 
       t_wfs st''.subst ∧ 
