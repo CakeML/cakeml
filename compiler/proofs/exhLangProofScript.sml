@@ -393,7 +393,7 @@ val v_to_exh_lit_loc = store_thm("v_to_exh_lit_loc",
     (v_to_exh exh (Loc_i2 n) lh ⇔ lh = Loc_exh n) ∧
     (v_to_exh exh l2 (Loc_exh n) ⇔ l2 = Loc_i2 n)``,
   rw[] >> rw[Once v_to_exh_cases])
-val _ = export_rewrites["v_to_exh_lit_loc"]
+val _ = export_rewrites["v_to_exh_lit_loc"];
 
 val v_to_exh_extend_disjoint_helper = Q.prove (
 `(!(exh:exh_ctors_env) v1 v2.
@@ -434,7 +434,7 @@ val env_to_exh_submap = prove(
   `exh'' = exh'` by (
    simp[Abbr`exh''`,GSYM fmap_EQ_THM,DRESTRICT_DEF,FUNION_DEF] >>
    fs[SUBMAP_DEF,EXTENSION] >>
-   conj_tac >- metis_tac[] >> rw[] ) >> rw[])
+   conj_tac >- metis_tac[] >> rw[] ) >> rw[]);
 
 val do_app_exh_i2 = Q.prove (
 `!(exh:exh_ctors_env) s1 op vs s2 res s1_exh vs_exh c g.
@@ -506,7 +506,7 @@ val do_app_exh_i2 = Q.prove (
  fs[LIST_REL_EL_EQN,EL_LUPDATE]>>rw[]>>
  fs[store_v_same_type_def] >>
  every_case_tac>>fs[] >>
- metis_tac[sv_to_exh_def])
+ metis_tac[sv_to_exh_def]);
 
 val do_app_exh_i3 = prove(
   ``∀s1 op vs s2 res exh s1 s1_exh vs_exh.
@@ -531,7 +531,7 @@ val do_app_exh_i3 = prove(
   fs[store_to_exh_def,LIST_REL_EL_EQN] >>
   every_case_tac >> fs[] >> rw[] >>
   fs[result_to_exh_cases,store_to_exh_def,LIST_REL_EL_EQN,OPTREL_def,EL_LUPDATE] >>
-  rw[] >> metis_tac[NOT_SOME_NONE])
+  rw[] >> metis_tac[NOT_SOME_NONE]);
 
 val exhaustive_match_submap = prove(
   ``exhaustive_match exh pes ∧ exh ⊑ exh2 ⇒ exhaustive_match exh2 pes``,
@@ -563,7 +563,7 @@ val do_opapp_exh = prove(
   simp[Once v_to_exh_cases,funs_to_exh_MAP,MAP_EQ_f] >>
   match_mp_tac EVERY2_refl >>
   simp[UNCURRY,env_to_exh_LIST_REL] >>
-  metis_tac[])
+  metis_tac[]);
 
 val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
 `(!ck env s e r.

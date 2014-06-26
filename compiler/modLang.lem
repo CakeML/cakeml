@@ -259,6 +259,12 @@ do_eq_i1 (Conv_i1 cn1 vs1) (Conv_i1 cn2 vs2) =
   else
     Eq_val false
 and
+do_eq_i1 (Vectorv_i1 vs1) (Vectorv_i1 vs2) =
+  if List.length vs1 = List.length vs2 then
+    do_eq_list_i1 vs1 vs2
+  else
+    Eq_val false
+and
 do_eq_i1 (Closure_i1 _ _ _) (Closure_i1 _ _ _) = Eq_closure
 and
 do_eq_i1 (Closure_i1 _ _ _) (Recclosure_i1 _ _ _) = Eq_closure

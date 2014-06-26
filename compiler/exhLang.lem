@@ -263,6 +263,12 @@ do_eq_exh (Conv_exh tag1 vs1) (Conv_exh tag2 vs2) =
   else
     Eq_val false
 and
+do_eq_exh (Vectorv_exh vs1) (Vectorv_exh vs2) =
+  if List.length vs1 = List.length vs2 then
+    do_eq_list_exh vs1 vs2
+  else
+    Eq_val false
+and
 do_eq_exh (Closure_exh _ _ _) (Closure_exh _ _ _) = Eq_closure
 and
 do_eq_exh (Closure_exh _ _ _) (Recclosure_exh _ _ _) = Eq_closure

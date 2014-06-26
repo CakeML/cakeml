@@ -300,6 +300,12 @@ val _ = Define `
   else
     Eq_val F))
 /\
+(do_eq_exh (Vectorv_exh vs1) (Vectorv_exh vs2) =  
+(if LENGTH vs1 = LENGTH vs2 then
+    do_eq_list_exh vs1 vs2
+  else
+    Eq_val F))
+/\
 (do_eq_exh (Closure_exh _ _ _) (Closure_exh _ _ _) = Eq_closure)
 /\
 (do_eq_exh (Closure_exh _ _ _) (Recclosure_exh _ _ _) = Eq_closure)

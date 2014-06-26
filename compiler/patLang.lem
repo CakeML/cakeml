@@ -368,6 +368,12 @@ do_eq_pat (Conv_pat tag1 vs1) (Conv_pat tag2 vs2) =
   else
     Eq_val false
 and
+do_eq_pat (Vectorv_pat vs1) (Vectorv_pat vs2) =
+  if List.length vs1 = List.length vs2 then
+    do_eq_list_pat vs1 vs2
+  else
+    Eq_val false
+and
 do_eq_pat (Closure_pat _ _) (Closure_pat _ _) = Eq_closure
 and
 do_eq_pat (Closure_pat _ _) (Recclosure_pat _ _ _) = Eq_closure

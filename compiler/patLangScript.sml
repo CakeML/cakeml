@@ -409,6 +409,12 @@ val _ = Define `
   else
     Eq_val F))
 /\
+(do_eq_pat (Vectorv_pat vs1) (Vectorv_pat vs2) =  
+(if LENGTH vs1 = LENGTH vs2 then
+    do_eq_list_pat vs1 vs2
+  else
+    Eq_val F))
+/\
 (do_eq_pat (Closure_pat _ _) (Closure_pat _ _) = Eq_closure)
 /\
 (do_eq_pat (Closure_pat _ _) (Recclosure_pat _ _ _) = Eq_closure)

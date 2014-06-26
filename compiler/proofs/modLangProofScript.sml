@@ -162,6 +162,10 @@ val (v_to_i1_rules, v_to_i1_ind, v_to_i1_cases) = Hol_reln `
                (Closure_i1 (cenv,[]) y (exp_to_i1 mods ((tops |++ tops') \\ y) e))) ∧
 (!genv loc.
   v_to_i1 genv (Loc loc) (Loc_i1 loc)) ∧
+(!vs.
+  vs_to_i1 genv vs vs_i1
+  ⇒
+  v_to_i1 genv (Vectorv vs) (Vectorv_i1 vs_i1)) ∧
 (!genv.
   vs_to_i1 genv [] []) ∧
 (!genv v vs v' vs'.
@@ -209,6 +213,9 @@ val v_to_i1_eqns = Q.prove (
  (!genv l v.
   v_to_i1 genv (Loc l) v ⇔
     (v = Loc_i1 l)) ∧
+ (!genv vs v.
+  v_to_i1 genv (Vectorv vs) v ⇔
+    ?vs'. vs_to_i1 genv vs vs' ∧ (v = Vectorv_i1 vs')) ∧
  (!genv vs.
   vs_to_i1 genv [] vs ⇔
     (vs = [])) ∧
@@ -585,7 +592,15 @@ val do_eq_i1 = Q.prove (
  >- (fs [Once v_to_i1_cases] >>
      rw [do_eq_i1_def])
  >- (fs [Once v_to_i1_cases] >>
-     rw [do_eq_i1_def]) >>
+     rw [do_eq_i1_def])
+ >- (fs [Once v_to_i1_cases] >>
+     rw [do_eq_i1_def])
+ >- (fs [Once v_to_i1_cases] >>
+     rw [do_eq_i1_def])
+ >- (fs [Once v_to_i1_cases] >>
+     rw [do_eq_i1_def])
+ >- (fs [Once v_to_i1_cases] >>
+     rw [do_eq_i1_def])
  res_tac >>
  every_case_tac >>
  fs [] >>
@@ -795,7 +810,12 @@ val do_app_i1 = Q.prove (
      rw [markerTheory.Abbrev_def]
      >- decide_tac >>
      rw [EL_LUPDATE] >>
-     fs[store_v_same_type_def]));
+     fs[store_v_same_type_def])
+ >- (every_case_tac >>
+     fs [v_to_i1_def] >>
+
+ 
+ );
 
 val do_opapp_i1 = Q.prove (
 `!genv vs vs_i1 env e.
