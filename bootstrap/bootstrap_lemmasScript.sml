@@ -55,8 +55,131 @@ val EqualityType5 = prove(
   ``EqualityType AST_EXP_TYPE``,
   cheat)
 val EqualityTypes = [EqualityType1, EqualityType2, EqualityType3, EqualityType4, EqualityType5]
+(* see also cheated EqualityType_INPUT_TYPE later on *)
 
+val EqualityType_thm = prove(
+  ``EqualityType abs ⇔
+      (!x1 v1. abs x1 v1 ==> no_closures v1) /\
+      (!x1 v1 x2 v2. abs x1 v1 /\ abs x2 v2 ==> types_match v1 v2 /\
+                                                ((v1 = v2) ⇔ (x1 = x2)))``,
+  SIMP_TAC std_ss [EqualityType_def] \\ METIS_TAC []);
 
+val v_to_i1_conv =
+  ``v_to_i1 x (Conv y z) a`` |> SIMP_CONV (srw_ss())[Once modLangProofTheory.v_to_i1_cases]
+val v_to_i1_lit =
+  ``v_to_i1 x (Litv y) a`` |> SIMP_CONV (srw_ss())[Once modLangProofTheory.v_to_i1_cases]
+val v_to_i2_conv =
+  ``v_to_i2 x (Conv_i1 y z) a`` |> SIMP_CONV (srw_ss())[Once conLangProofTheory.v_to_i2_cases]
+val v_to_i2_lit =
+  ``v_to_i2 x (Litv_i1 y) a`` |> SIMP_CONV (srw_ss())[Once conLangProofTheory.v_to_i2_cases]
+val v_to_exh_conv =
+  ``v_to_exh x (Conv_i2 y z) a`` |> SIMP_CONV (srw_ss())[Once exhLangProofTheory.v_to_exh_cases]
+val v_pat_conv =
+  ``v_pat (Conv_pat x y) a`` |> SIMP_CONV (srw_ss()) [Once patLangProofTheory.v_pat_cases]
+val syneq_conv =
+  ``syneq (CConv x y) z`` |> SIMP_CONV (srw_ss()) [Once intLangTheory.syneq_cases]
+val Cv_bv_conv =
+  ``Cv_bv a (CConv x y) z`` |> SIMP_CONV (srw_ss()) [Once bytecodeProofTheory.Cv_bv_cases]
+val Cv_bv_lit =
+  ``Cv_bv a (CLitv y) z`` |> SIMP_CONV (srw_ss()) [Once bytecodeProofTheory.Cv_bv_cases]
+
+val conv_rws = [printingTheory.v_bv_def,
+  v_to_i1_conv,vs_to_i1_MAP,v_to_i1_lit,
+  v_to_i2_conv,vs_to_i2_MAP,v_to_i2_lit,
+  v_to_exh_conv,free_varsTheory.vs_to_exh_MAP,
+  printingTheory.exh_Cv_def,
+  v_pat_conv,syneq_conv,Cv_bv_conv,Cv_bv_lit]
+
+val no_closures_vlabs = prove(
+  ``∀b c d e f g.
+    no_closures b ⇒
+    v_to_i1 grd0 b c ∧
+    v_to_i2 grd1 c d ∧
+    v_to_exh grd2 d e ∧
+    v_pat (v_to_pat e) f ∧
+    syneq (v_to_Cv f) g
+    ⇒
+    vlabs g = {} ∧ all_vlabs g``,
+  ho_match_mp_tac no_closures_ind >>
+  simp[no_closures_def] >>
+  simp[Q.SPECL[`X`,`Litv Y`](CONJUNCT1 modLangProofTheory.v_to_i1_cases)] >>
+  simp[Q.SPECL[`X`,`Litv_i1 Y`](CONJUNCT1 conLangProofTheory.v_to_i2_cases)] >>
+  simp (PULL_EXISTS::conv_rws) >>
+  ntac 3 (rpt gen_tac >> strip_tac) >>
+  BasicProvers.VAR_EQ_TAC >>
+  fs conv_rws >> rpt BasicProvers.VAR_EQ_TAC >>
+  fs conv_rws >> rpt BasicProvers.VAR_EQ_TAC >>
+  fs conv_rws >> rpt BasicProvers.VAR_EQ_TAC >>
+  fs conv_rws >> rpt BasicProvers.VAR_EQ_TAC >>
+  fs[LIST_REL_EL_EQN,MEM_EL,PULL_EXISTS,EL_MAP,EVERY_MEM] >>
+  fs[intLangExtraTheory.vlabs_list_MAP,Once pred_setTheory.EXTENSION,PULL_EXISTS,MEM_EL] >>
+  METIS_TAC[])
+
+val LIST_TYPE_CHAR_vlabs = prove(
+  ``∀a b c d e f g.
+  LIST_TYPE CHAR a b ∧
+          v_to_i1 grd0 b c ∧
+          v_to_i2 grd1 c d ∧
+          v_to_exh grd2 d e ∧
+          v_pat (v_to_pat e) f ∧
+          syneq (v_to_Cv f) g
+          ⇒
+          vlabs g = {} ∧ all_vlabs g``,
+  Induct >> simp[ml_repl_stepTheory.LIST_TYPE_def] >>
+  simp(PULL_EXISTS::conv_rws) >>
+  simp[ml_repl_stepTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+  simp[Q.SPECL[`X`,`Litv Y`](CONJUNCT1 modLangProofTheory.v_to_i1_cases),
+       Q.SPECL[`X`,`Litv_i1 Y`](CONJUNCT1 conLangProofTheory.v_to_i2_cases)] >>
+  METIS_TAC[])
+
+val LEXER_FUN_SYMBOL_TYPE_vlabs = prove(
+  ``∀a b c d e f g.
+  LEXER_FUN_SYMBOL_TYPE a b ∧
+          v_to_i1 grd0 b c ∧
+          v_to_i2 grd1 c d ∧
+          v_to_exh grd2 d e ∧
+          v_pat (v_to_pat e) f ∧
+          syneq (v_to_Cv f) g
+          ⇒
+          vlabs g = {} ∧ all_vlabs g``,
+  Induct >> simp[ml_repl_stepTheory.LEXER_FUN_SYMBOL_TYPE_def,PULL_EXISTS] >>
+  simp(PULL_EXISTS::conv_rws) >>
+  simp[ml_translatorTheory.INT_def,
+       Q.SPECL[`X`,`Litv Y`](CONJUNCT1 modLangProofTheory.v_to_i1_cases),
+       Q.SPECL[`X`,`Litv_i1 Y`](CONJUNCT1 conLangProofTheory.v_to_i2_cases)] >>
+  METIS_TAC[LIST_TYPE_CHAR_vlabs])
+
+val LIST_TYPE_LEXER_FUN_SYMBOL_TYPE_vlabs = prove(
+  ``∀ts w w1 w2 w3 w4 w5.
+    LIST_TYPE LEXER_FUN_SYMBOL_TYPE ts w ∧
+    v_to_i1 grd0 w w1 ∧
+    v_to_i2 grd1 w1 w2 ∧
+    v_to_exh grd2 w2 w3 ∧
+    v_pat (v_to_pat w3) w4 ∧
+    syneq (v_to_Cv w4) w5
+    ⇒
+    vlabs w5 = {} ∧ all_vlabs w5``,
+  Induct >> simp[ml_repl_stepTheory.LIST_TYPE_def] >- (
+     rpt gen_tac >> strip_tac >>
+     rfs conv_rws  >> rpt BasicProvers.VAR_EQ_TAC >>
+     fs conv_rws >> BasicProvers.VAR_EQ_TAC >>
+     fs conv_rws >> BasicProvers.VAR_EQ_TAC >>
+     fs conv_rws >> BasicProvers.VAR_EQ_TAC ) >>
+  simp[PULL_EXISTS] >>
+  simp conv_rws >>
+  simp[PULL_EXISTS] >>
+  qx_gen_tac`z`>>rpt gen_tac >> strip_tac >>
+  fs conv_rws >> rpt BasicProvers.VAR_EQ_TAC >>
+  fs conv_rws >> rpt BasicProvers.VAR_EQ_TAC >>
+  fs conv_rws >> rpt BasicProvers.VAR_EQ_TAC >>
+  fs conv_rws >> rpt BasicProvers.VAR_EQ_TAC >>
+  fs[GSYM AND_IMP_INTRO] >>
+  first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
+  strip_tac >>
+  simp[GSYM CONJ_ASSOC] >>
+  res_tac >> simp[] >>
+  ntac 3 (pop_assum kall_tac) >>
+  METIS_TAC[LEXER_FUN_SYMBOL_TYPE_vlabs])
 
 (* lemmas about the semantics of a module where we know the last few declarations *)
 
@@ -360,6 +483,10 @@ val INPUT_TYPE_def = Define `
 val OUTPUT_TYPE_def = Define `
   OUTPUT_TYPE =
   ^(find_term (can (match_term ``SUM_TYPE xx yy``)) (concl evaluate_repl_decs))`;
+
+val EqualityType_INPUT_TYPE = prove(
+  ``EqualityType INPUT_TYPE``,
+  cheat)
 
 (* bytecode state produce by repl_decs *)
 
@@ -704,32 +831,6 @@ val has_primitive_types_def = Define`
     FLOOKUP gtagenv ("nil",TypeId(Short"list")) = SOME (nil_tag,0:num) ∧
     FLOOKUP gtagenv ("::",TypeId(Short"list")) = SOME (cons_tag,2) ∧
     FLOOKUP gtagenv ("SOME",TypeId(Short"option")) = SOME (some_tag,1)`
-
-val v_to_i1_conv =
-  ``v_to_i1 x (Conv y z) a`` |> SIMP_CONV (srw_ss())[Once modLangProofTheory.v_to_i1_cases]
-val v_to_i1_lit =
-  ``v_to_i1 x (Litv y) a`` |> SIMP_CONV (srw_ss())[Once modLangProofTheory.v_to_i1_cases]
-val v_to_i2_conv =
-  ``v_to_i2 x (Conv_i1 y z) a`` |> SIMP_CONV (srw_ss())[Once conLangProofTheory.v_to_i2_cases]
-val v_to_i2_lit =
-  ``v_to_i2 x (Litv_i1 y) a`` |> SIMP_CONV (srw_ss())[Once conLangProofTheory.v_to_i2_cases]
-val v_to_exh_conv =
-  ``v_to_exh x (Conv_i2 y z) a`` |> SIMP_CONV (srw_ss())[Once exhLangProofTheory.v_to_exh_cases]
-val v_pat_conv =
-  ``v_pat (Conv_pat x y) a`` |> SIMP_CONV (srw_ss()) [Once patLangProofTheory.v_pat_cases]
-val syneq_conv =
-  ``syneq (CConv x y) z`` |> SIMP_CONV (srw_ss()) [Once intLangTheory.syneq_cases]
-val Cv_bv_conv =
-  ``Cv_bv a (CConv x y) z`` |> SIMP_CONV (srw_ss()) [Once bytecodeProofTheory.Cv_bv_cases]
-val Cv_bv_lit =
-  ``Cv_bv a (CLitv y) z`` |> SIMP_CONV (srw_ss()) [Once bytecodeProofTheory.Cv_bv_cases]
-
-val conv_rws = [printingTheory.v_bv_def,
-  v_to_i1_conv,vs_to_i1_MAP,v_to_i1_lit,
-  v_to_i2_conv,vs_to_i2_MAP,v_to_i2_lit,
-  v_to_exh_conv,free_varsTheory.vs_to_exh_MAP,
-  printingTheory.exh_Cv_def,
-  v_pat_conv,syneq_conv,Cv_bv_conv,Cv_bv_lit]
 
 val LIST_TYPE_CHAR_BlockList = prove(
   ``(FLOOKUP cm ("nil",TypeId(Short"list")) = SOME (nil_tag,0)) ∧
@@ -1522,72 +1623,6 @@ fun just_exists_suff_tac th (g as (_,w)) =
     suff_tac(list_mk_exists(ws,list_mk_conj(b'::tl bs))) >|[assume_tac th,ALL_TAC]
   end g
 
-val LIST_TYPE_CHAR_vlabs = prove(
-  ``∀a b c d e f g.
-  LIST_TYPE CHAR a b ∧
-          v_to_i1 grd0 b c ∧
-          v_to_i2 grd1 c d ∧
-          v_to_exh grd2 d e ∧
-          v_pat (v_to_pat e) f ∧
-          syneq (v_to_Cv f) g
-          ⇒
-          vlabs g = {} ∧ all_vlabs g``,
-  Induct >> simp[ml_repl_stepTheory.LIST_TYPE_def] >>
-  simp(PULL_EXISTS::conv_rws) >>
-  simp[ml_repl_stepTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
-  simp[Q.SPECL[`X`,`Litv Y`](CONJUNCT1 modLangProofTheory.v_to_i1_cases),
-       Q.SPECL[`X`,`Litv_i1 Y`](CONJUNCT1 conLangProofTheory.v_to_i2_cases)] >>
-  METIS_TAC[])
-
-val LEXER_FUN_SYMBOL_TYPE_vlabs = prove(
-  ``∀a b c d e f g.
-  LEXER_FUN_SYMBOL_TYPE a b ∧
-          v_to_i1 grd0 b c ∧
-          v_to_i2 grd1 c d ∧
-          v_to_exh grd2 d e ∧
-          v_pat (v_to_pat e) f ∧
-          syneq (v_to_Cv f) g
-          ⇒
-          vlabs g = {} ∧ all_vlabs g``,
-  Induct >> simp[ml_repl_stepTheory.LEXER_FUN_SYMBOL_TYPE_def,PULL_EXISTS] >>
-  simp(PULL_EXISTS::conv_rws) >>
-  simp[ml_translatorTheory.INT_def,
-       Q.SPECL[`X`,`Litv Y`](CONJUNCT1 modLangProofTheory.v_to_i1_cases),
-       Q.SPECL[`X`,`Litv_i1 Y`](CONJUNCT1 conLangProofTheory.v_to_i2_cases)] >>
-  METIS_TAC[LIST_TYPE_CHAR_vlabs])
-
-val LIST_TYPE_LEXER_FUN_SYMBOL_TYPE_vlabs = prove(
-  ``∀ts w w1 w2 w3 w4 w5.
-    LIST_TYPE LEXER_FUN_SYMBOL_TYPE ts w ∧
-    v_to_i1 grd0 w w1 ∧
-    v_to_i2 grd1 w1 w2 ∧
-    v_to_exh grd2 w2 w3 ∧
-    v_pat (v_to_pat w3) w4 ∧
-    syneq (v_to_Cv w4) w5
-    ⇒
-    vlabs w5 = {} ∧ all_vlabs w5``,
-  Induct >> simp[ml_repl_stepTheory.LIST_TYPE_def] >- (
-     rpt gen_tac >> strip_tac >>
-     rfs conv_rws  >> rpt BasicProvers.VAR_EQ_TAC >>
-     fs conv_rws >> BasicProvers.VAR_EQ_TAC >>
-     fs conv_rws >> BasicProvers.VAR_EQ_TAC >>
-     fs conv_rws >> BasicProvers.VAR_EQ_TAC ) >>
-  simp[PULL_EXISTS] >>
-  simp conv_rws >>
-  simp[PULL_EXISTS] >>
-  qx_gen_tac`z`>>rpt gen_tac >> strip_tac >>
-  fs conv_rws >> rpt BasicProvers.VAR_EQ_TAC >>
-  fs conv_rws >> rpt BasicProvers.VAR_EQ_TAC >>
-  fs conv_rws >> rpt BasicProvers.VAR_EQ_TAC >>
-  fs conv_rws >> rpt BasicProvers.VAR_EQ_TAC >>
-  fs[GSYM AND_IMP_INTRO] >>
-  first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
-  strip_tac >>
-  simp[GSYM CONJ_ASSOC] >>
-  res_tac >> simp[] >>
-  ntac 3 (pop_assum kall_tac) >>
-  METIS_TAC[LEXER_FUN_SYMBOL_TYPE_vlabs])
-
 val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
   ``COMPILER_RUN_INV bs grd inp outp /\ OUTPUT_TYPE (INR (msg,s)) outp ==>
     ?s_bc_val.
@@ -1767,34 +1802,14 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
     simp[EVERY_MEM,intLangExtraTheory.vlabs_csg_def] >>
     strip_tac >>
     `vlabs v24 = {} ∧ all_vlabs v24` by (
-      rator_x_assum`INPUT_TYPE`mp_tac >>
-      simp[Abbr`inp2`,INPUT_TYPE_def,ml_repl_stepTheory.OPTION_TYPE_def,ml_repl_stepTheory.PAIR_TYPE_def] >>
-      strip_tac >>
-      qpat_assum`v_to_i1 X Y v12`mp_tac >>
-      simp (PULL_EXISTS::conv_rws) >>
-      rpt gen_tac >> strip_tac >> BasicProvers.VAR_EQ_TAC >>
-      qpat_assum`A X Y v22`mp_tac >>
-      simp (PULL_EXISTS::conv_rws) >>
-      rpt gen_tac >> strip_tac >> BasicProvers.VAR_EQ_TAC >>
-      qpat_assum`X Y v23`mp_tac >>
-      simp (PULL_EXISTS::conv_rws) >>
-      rpt gen_tac >> strip_tac >> BasicProvers.VAR_EQ_TAC >>
-      qpat_assum`X Y v24`mp_tac >>
-      simp (PULL_EXISTS::conv_rws) >>
-      rpt gen_tac >> strip_tac >> BasicProvers.VAR_EQ_TAC >>
-      qmatch_assum_rename_tac`v_to_i1 grd0 w w1`[] >>
-      qmatch_assum_rename_tac`v_to_i2 grd1 w1 w2`[] >>
-      qmatch_assum_rename_tac`v_to_exh X w2 w3`["X"] >>
-      qmatch_assum_rename_tac`v_pat (v_to_pat w3) w4`[] >>
-      qmatch_assum_rename_tac`syneq (v_to_Cv w4) w5`[] >>
-      `vlabs w5 = {} ∧ all_vlabs w5` by METIS_TAC[LIST_TYPE_LEXER_FUN_SYMBOL_TYPE_vlabs] >>
-      simp[] >>
-      qmatch_assum_rename_tac`v_to_i1 grd0 v1_2 l1`[] >>
-      qmatch_assum_rename_tac`v_to_i2 grd1 l1 l2`[] >>
-      qmatch_assum_rename_tac`v_to_exh X l2 y3`["X"] >>
-      qmatch_assum_rename_tac`v_pat (v_to_pat y3) y4`[] >>
-      qmatch_assum_rename_tac`syneq (v_to_Cv y4) y5`[] >>
-      cheat (* STATE_TYPE_vlabs *)) >>
+      MATCH_MP_TAC (MP_CANON (GEN_ALL no_closures_vlabs)) >>
+      fs[printingTheory.exh_Cv_def] >>
+      rw[Once CONJ_COMM] >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      METIS_TAC[EqualityType_thm,EqualityType_INPUT_TYPE]) >>
     conj_tac >- METIS_TAC[MEM_LUPDATE_E] >>
     fs[intLangExtraTheory.vlabs_list_MAP,PULL_EXISTS] >>
     METIS_TAC[MEM_LUPDATE_E,pred_setTheory.NOT_IN_EMPTY] ) >>
@@ -1936,20 +1951,20 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
     simp[PULL_EXISTS] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    simp conv_rws >> simp[PULL_EXISTS] >> >>
+    simp conv_rws >> simp[PULL_EXISTS] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    simp conv_rws >> simp[PULL_EXISTS] >> >>
+    simp conv_rws >> simp[PULL_EXISTS] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    simp conv_rws >> simp[PULL_EXISTS] >> >>
+    simp conv_rws >> simp[PULL_EXISTS] >>
     fs[printingTheory.exh_Cv_def] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    simp conv_rws >> simp[PULL_EXISTS] >> >>
+    simp conv_rws >> simp[PULL_EXISTS] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    simp conv_rws >> simp[PULL_EXISTS] >> >>
+    simp conv_rws >> simp[PULL_EXISTS] >>
     simp[BlockBool_def]) >>
   qunabbrev_tac`data` >>
   pop_assum(strip_assume_tac o SIMP_RULE (srw_ss()) [printingTheory.v_bv_def]) >>
@@ -2008,9 +2023,14 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
     simp[EVERY_MEM,intLangExtraTheory.vlabs_csg_def] >>
     strip_tac >>
     `vlabs v24 = {} ∧ all_vlabs v24` by (
-      rator_x_assum`INPUT_TYPE`mp_tac >>
-      simp[Abbr`inp2`,INPUT_TYPE_def,ml_repl_stepTheory.OPTION_TYPE_def,ml_repl_stepTheory.PAIR_TYPE_def] >>
-      cheat) >>
+      MATCH_MP_TAC(GEN_ALL(MP_CANON no_closures_vlabs)) >>
+      fs[printingTheory.exh_Cv_def] >>
+      rw[Once CONJ_COMM] >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      METIS_TAC[EqualityType_thm,EqualityType_INPUT_TYPE])) >>
     conj_tac >- METIS_TAC[MEM_LUPDATE_E] >>
     fs[intLangExtraTheory.vlabs_list_MAP,PULL_EXISTS] >>
     METIS_TAC[MEM_LUPDATE_E,pred_setTheory.NOT_IN_EMPTY] ) >>
@@ -2398,13 +2418,6 @@ val GRAM_MMLNONT_TYPE_no_closures = prove(
   Cases >> simp[ml_repl_stepTheory.GRAM_MMLNONT_TYPE_def])
 
 (* one_one theorems for types - should be more automatic *)
-
-val EqualityType_thm = prove(
-  ``EqualityType abs ⇔
-      (!x1 v1. abs x1 v1 ==> no_closures v1) /\
-      (!x1 v1 x2 v2. abs x1 v1 /\ abs x2 v2 ==> types_match v1 v2 /\
-                                                ((v1 = v2) ⇔ (x1 = x2)))``,
-  SIMP_TAC std_ss [EqualityType_def] \\ METIS_TAC []);
 
 val EqualityType_CHAR = store_thm("EqualityType_CHAR",
   ``EqualityType CHAR``,
