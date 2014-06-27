@@ -32,6 +32,10 @@ val (v_to_exh_rules, v_to_exh_ind, v_to_exh_cases) = Hol_reln `
   v_to_exh exh (Recclosure_i2 env funs x) (Recclosure_exh env' (funs_to_exh exh' funs) x)) ∧
 (!exh l.
   v_to_exh exh (Loc_i2 l) (Loc_exh l)) ∧
+(!exh vs vs'.
+  vs_to_exh exh vs vs'
+  ⇒
+  v_to_exh exh (Vectorv_i2 vs) (Vectorv_exh vs')) ∧
 (!exh.
   vs_to_exh exh [] []) ∧
 (!exh v v' vs vs'.
@@ -59,6 +63,11 @@ val v_to_exh_eqn = Q.prove (
  (!exh l.
   v_to_exh exh (Loc_i2 l) v ⇔
    v = Loc_exh l) ∧
+ (!exh vs v.
+  v_to_exh exh (Vectorv_i2 vs) v ⇔
+   ?vs'.
+    vs_to_exh exh vs vs' ∧
+    v = Vectorv_exh vs') ∧
  (!exh vs. vs_to_exh exh [] vs ⇔ vs = []) ∧
  (!exh v vs vs'. 
   vs_to_exh exh (v::vs) vs' ⇔ 
@@ -436,6 +445,16 @@ val env_to_exh_submap = prove(
    fs[SUBMAP_DEF,EXTENSION] >>
    conj_tac >- metis_tac[] >> rw[] ) >> rw[]);
 
+val v_to_list_exh_correct = Q.prove (
+`!v1 v2 vs1.
+  v_to_exh genv v1 v2 ∧
+  v_to_list_i2 v1 = SOME vs1
+  ⇒
+  ?vs2.
+    v_to_list_exh v2 = SOME vs2 ∧
+    vs_to_exh genv vs1 vs2`,
+cheat);
+
 val do_app_exh_i2 = Q.prove (
 `!(exh:exh_ctors_env) s1 op vs s2 res s1_exh vs_exh c g.
   do_app_i2 s1 op vs = SOME (s2, res) ∧
@@ -456,10 +475,17 @@ val do_app_exh_i2 = Q.prove (
  cases_on`op`>>fs[]>>rw[]>>
  cases_on`xs`>>fs[]>>rw[]>-(
    every_case_tac>>fs[store_alloc_def]>>rw[sv_to_exh_def]>>
-   fs[LIST_REL_EL_EQN] >> metis_tac[sv_to_exh_def] ) >>
+   fs[LIST_REL_EL_EQN, v_to_exh_eqn] >> 
+   imp_res_tac v_to_list_exh_correct >>
+   fs[v_to_list_exh_def] >> 
+   imp_res_tac LIST_REL_LENGTH >>
+   fs [] >>
+   rw [] >>
+   fs[LIST_REL_EL_EQN, v_to_exh_eqn] >> 
+   metis_tac[sv_to_exh_def] ) >>
  cases_on`ys`>>fs[]>>rw[]>-(
-   qmatch_assum_rename_tac`op_CASE op a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 = b`
-     ["a1","a2","a3","a4","a5","a6","a7","a8","a9","a10","a11","b"] >>
+   qmatch_assum_rename_tac`op_CASE op a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 = b`
+     ["a1","a2","a3","a4","a5","a6","a7","a8","a9","a10","a11","a12","a13","b"] >>
    cases_on`op`>>fs[]>-(
      every_case_tac>>fs[]>>rw[]>>
      rw[prim_exn_i2_def,prim_exn_exh_def,v_to_exh_eqn] )
@@ -491,7 +517,14 @@ val do_app_exh_i2 = Q.prove (
      every_case_tac>>fs[]>>rw[]>>
      rw[prim_exn_i2_def,prim_exn_exh_def,v_to_exh_eqn] >>
      fs[LIST_REL_EL_EQN] >>
-     metis_tac[sv_to_exh_def] )) >>
+     metis_tac[sv_to_exh_def] )
+   >- (
+     every_case_tac>>fs[]>>rw[]>>
+     fs [v_to_exh_eqn, prim_exn_i2_def, prim_exn_exh_def] >>
+     imp_res_tac LIST_REL_LENGTH >>
+     fs [LIST_REL_EL_EQN] >>
+     FIRST_X_ASSUM match_mp_tac >>
+     intLib.ARITH_TAC )) >>
  fs[] >>
  qmatch_assum_rename_tac`v_to_exh exh v1 v2`[] >>
  Cases_on`v1`>>fs[]>>rw[]>>

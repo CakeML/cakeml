@@ -373,6 +373,7 @@ val v_to_pat_def = tDefine"v_to_pat"`
       (funs_to_pat (MAP (SOME o FST) funs ++ MAP (SOME o FST) env) funs)
       (the (LENGTH funs) (find_index f (MAP FST funs) 0))) ∧
   (v_to_pat (Loc_exh n) = Loc_pat n) ∧
+  (v_to_pat (Vectorv_exh vs) = Vectorv_pat (vs_to_pat vs)) ∧
   (vs_to_pat [] = []) ∧
   (vs_to_pat (v::vs) = v_to_pat v :: vs_to_pat vs)`
 (WF_REL_TAC`inv_image $< (\x. case x of INL v => v_exh_size v
@@ -443,6 +444,16 @@ val do_opapp_pat_correct = prove(
   asm_simp_tac(std_ss)[EL_MAP] >>
   simp[])
 
+val v_to_list_pat_correct = Q.prove (
+`!v1 v2 vs1.
+  v_to_pat v1 = v2 ∧
+  v_to_list_exh v1 = SOME vs1
+  ⇒
+  ?vs2.
+    v_to_list_pat v2 = SOME vs2 ∧
+    vs_to_pat vs1 = vs2`,
+cheat);
+
 val do_app_pat_correct = prove(
   ``∀op vs s0 s0_pat env s res.
      do_app_exh s0 op vs = SOME (s,res)
@@ -454,7 +465,10 @@ val do_app_pat_correct = prove(
   Cases_on`vs`>>fs[]>>Cases_on`op`>>fs[]>-(
     Cases_on`t`>>fs[optionTheory.option_case_compute,LET_THM]>-(
       BasicProvers.EVERY_CASE_TAC>>fs[semanticPrimitivesTheory.store_alloc_def]>>rw[]>>
-      fs[semanticPrimitivesTheory.store_lookup_def,IS_SOME_EXISTS,EL_MAP] ) >>
+      fs[semanticPrimitivesTheory.store_lookup_def,IS_SOME_EXISTS,EL_MAP] >>
+      imp_res_tac v_to_list_pat_correct >>
+      rw [] >>
+      fs [] )>>
     Cases_on`t'`>>fs[]>-(
       Cases_on`o'`>>fs[]>-(
         BasicProvers.EVERY_CASE_TAC>>fs[]>>rw[prim_exn_exh_def,prim_exn_pat_def])
@@ -481,7 +495,12 @@ val do_app_pat_correct = prove(
         rfs[] >>
         BasicProvers.EVERY_CASE_TAC >> fs[] >>
         rw[prim_exn_exh_def,prim_exn_pat_def] >>
-        fsrw_tac[ARITH_ss][] )) >>
+        fsrw_tac[ARITH_ss][] )
+      >- (
+        BasicProvers.EVERY_CASE_TAC>>fs[]>>rw[prim_exn_exh_def,prim_exn_pat_def] >>
+        fs [] >>
+        `Num (ABS i) < LENGTH l'` by intLib.ARITH_TAC >>
+        rw [EL_MAP])) >>
     Cases_on`h''`>>fs[]>>
     Cases_on`l`>>fs[]>>
     Cases_on`h'`>>fs[]>>
@@ -527,8 +546,9 @@ val no_closures_pat_def = tDefine"no_closures_pat"`
   (no_closures_pat (Conv_pat _ vs) ⇔ EVERY no_closures_pat vs) ∧
   (no_closures_pat (Closure_pat _ _) = F) ∧
   (no_closures_pat (Recclosure_pat _ _ _) = F) ∧
-  (no_closures_pat (Loc_pat _) = T)`
-(WF_REL_TAC`measure v_pat_size`>>gen_tac>>Induct>>
+  (no_closures_pat (Loc_pat _) = T) ∧
+  (no_closures_pat (Vectorv_pat vs) ⇔ EVERY no_closures_pat vs)`
+(WF_REL_TAC`measure v_pat_size`>>CONJ_TAC >|[all_tac,gen_tac]>>Induct>>
  simp[v_pat_size_def]>>rw[]>>res_tac>>simp[])
 val _ = export_rewrites["no_closures_pat_def"]
 
@@ -550,10 +570,12 @@ val do_app_pat_cases = store_thm("do_app_pat_cases",
     (∃lnum i. op = Op_pat (Op_i2 Asub) ∧ vs = [Loc_pat lnum; Litv_pat (IntLit i)]) ∨
     (∃n. op = Op_pat (Op_i2 Alength) ∧ vs = [Loc_pat n]) ∨
     (∃lnum i w. op = Op_pat (Op_i2 Aupdate) ∧ vs = [Loc_pat lnum; Litv_pat (IntLit i); Litv_pat (Word8 w)]) ∨
+    (∃v vs'. op = Op_pat (Op_i2 VfromList) ∧ vs = [v] ∧ (v_to_list_pat v = SOME vs')) ∨
+    (∃vs i. op = Op_pat (Op_i2 Vsub) ∧ vs = [Vectorv_pat vs'; Litv_pat (IntLit i)]) ∨
     (∃n tag v. op = Tag_eq_pat n ∧ vs = [Conv_pat tag v]) ∨
     (∃n tag v. op = El_pat n ∧ vs = [Conv_pat tag v])``,
   PairCases_on`s`>>rw[do_app_pat_def] >>
-  BasicProvers.EVERY_CASE_TAC >> fs[])
+  BasicProvers.EVERY_CASE_TAC >> fs[]);
 
 val fo_pat_correct = store_thm("fo_pat_correct",
   ``(∀e. fo_pat e ⇒
