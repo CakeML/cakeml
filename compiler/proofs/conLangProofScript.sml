@@ -79,10 +79,16 @@ has_exns gtagenv ⇔
   FLOOKUP gtagenv ("Div", TypeExn (Short "Div")) = SOME (div_tag,0) ∧
   FLOOKUP gtagenv ("Eq", TypeExn (Short "Eq")) = SOME (eq_tag,0)`;
 
+val has_lists_def = Define `
+has_lists gtagenv ⇔
+  FLOOKUP gtagenv ("nil", TypeId (Short "list")) = SOME (nil_tag,0:num) ∧
+  FLOOKUP gtagenv ("::", TypeId (Short "list")) = SOME (cons_tag,2)`;
+
 val gtagenv_wf_def = Define `
 gtagenv_wf gtagenv ⇔
   (∀cn l. FLOOKUP gtagenv cn ≠ SOME (tuple_tag,l)) ∧
   has_exns gtagenv ∧
+  has_lists gtagenv ∧
   (∀t1 t2 tag l1 l2 cn cn'.
     (* Comment out same_tid because we're not using separate tag spaces per type *)
     (* same_tid t1 t2 ∧ *)
@@ -229,13 +235,13 @@ val FINITE_weakened_exh_dom = prove(
     metis_tac[IMAGE_FINITE,SUBSET_FINITE,FDOM_FINITE] >>
   simp[Abbr`P`,SUBSET_DEF] >>
   qexists_tac`λx. @y. SND x = TypeId y` >>
-  rw[EXISTS_PROD] >> metis_tac[tid_or_exn_11])
+  rw[EXISTS_PROD] >> metis_tac[tid_or_exn_11]);
 
 val FDOM_weakened_exh = prove(
   ``FDOM (weakened_exh ^gtagenv' exh) = { t | ∃cn. (cn, TypeId t) ∈ FDOM gtagenv' }``,
   rw[weakened_exh_def] >>
   (FUN_FMAP_DEF |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |> GEN_ALL |> match_mp_tac) >>
-  rw[FINITE_weakened_exh_dom])
+  rw[FINITE_weakened_exh_dom]);
 
 val FLOOKUP_weakened_exh_imp = prove(
   ``(FLOOKUP (weakened_exh ^gtagenv' exh) t = SOME tags) ⇒
@@ -266,7 +272,7 @@ val FLOOKUP_weakened_exh_imp = prove(
     qexists_tac`λx. FST (gtagenv' ' x)` >>
     rw[EXISTS_PROD] >> metis_tac[FST]) >>
   pop_assum(strip_assume_tac o MATCH_MP (GSYM SET_TO_LIST_IN_MEM)) >>
-  simp[Abbr`s`,Abbr`Z`])
+  simp[Abbr`s`,Abbr`Z`]);
 
 val exhaustive_env_weak = Q.prove (
 `!gtagenv gtagenv' exh.
@@ -339,6 +345,8 @@ val v_to_i2_weakening = Q.prove (
          metis_tac [FLOOKUP_SUBMAP])
      >- (fs [has_exns_def] >>
          metis_tac [FLOOKUP_SUBMAP])
+     >- (fs [has_lists_def] >>
+         metis_tac [FLOOKUP_SUBMAP])
      >- metis_tac []
      >- metis_tac [])
  >- (fs [cenv_inv_def, gtagenv_wf_def, envC_tagged_def] >>
@@ -350,6 +358,8 @@ val v_to_i2_weakening = Q.prove (
      >- (res_tac >>
          metis_tac [FLOOKUP_SUBMAP])
      >- (fs [has_exns_def] >>
+         metis_tac [FLOOKUP_SUBMAP])
+     >- (fs [has_lists_def] >>
          metis_tac [FLOOKUP_SUBMAP])
      >- metis_tac []
      >- metis_tac []));
@@ -914,10 +924,10 @@ val v_to_list_i2_correct = Q.prove (
  fs [v_to_i2_eqns, v_to_list_i2_def] >>
  rw [] >>
  res_tac >>
- fs [gtagenv_wf_def]
- >- cheat
- >- cheat
- >- metis_tac [NOT_SOME_NONE, SOME_11]);
+ fs [gtagenv_wf_def, has_lists_def] >>
+ res_tac >>
+ fs [] >>
+ metis_tac [NOT_SOME_NONE, SOME_11]);
 
 val do_app_i2_correct = Q.prove (
 `!gtagenv s1 s2 op vs r s1_i2 vs_i2.
@@ -2264,6 +2274,10 @@ val cenv_inv_to_mod = prove(
     fs[has_exns_def,FLOOKUP_UPDATE] >>
     rw[] >> fs[FLOOKUP_DEF,FORALL_PROD] >>
     metis_tac[] ) >>
+  conj_tac >- (
+    fs[has_lists_def,FLOOKUP_UPDATE] >>
+    rw[] >> fs[FLOOKUP_DEF,FORALL_PROD] >>
+    metis_tac[] ) >>
   rpt gen_tac >>
   BasicProvers.CASE_TAC >- (
     fs[] >>
@@ -2391,6 +2405,7 @@ val gtagenv_weak_galloc_tags = prove(
     imp_res_tac ALOOKUP_MEM >>
     fs[galloc_tags_def,MAP2_MAP,LENGTH_COUNT_LIST,MEM_MAP,MEM_ZIP,UNCURRY] >>
     rpt BasicProvers.VAR_EQ_TAC >> fs[EL_MAP,UNCURRY] ) >>
+  conj_tac >- ( cheat ) >>
   metis_tac[]);
 
 val gtagenv_weak_galloc_tags_build_tdefs = prove(
@@ -3171,6 +3186,10 @@ val decs_to_i2_correct = Q.prove (
        pop_assum kall_tac >>
        fs[cenv_inv_def,gtagenv_wf_def,has_exns_def,FLOOKUP_UPDATE] >>
        rw[] >> fs[FLOOKUP_DEF] ) >>
+     conj_tac >- (
+       pop_assum kall_tac >>
+       fs[cenv_inv_def,gtagenv_wf_def,has_lists_def,FLOOKUP_UPDATE] >>
+       rw[] >> fs[FLOOKUP_DEF] ) >>
      pop_assum (MATCH_ACCEPT_TAC o CONJUNCT2 o CONJUNCT2)) >>
    disch_then(qspecl_then[`s1_i2`,`genv_i2`,`gtagenv'`,`exh`]mp_tac) >>
    discharge_hyps >- (
@@ -3305,7 +3324,7 @@ val initial_i2_invariant = Q.store_thm ("initial_i2_invariant",
          rw [flookup_fupdate_list] >>
          every_case_tac >>
          rw[nat_set_from_list_def,domain_nat_set_from_list])
-     >- (rw [gtagenv_wf_def, has_exns_def, init_gtagenv_def, flookup_fupdate_list] >>
+     >- (rw [gtagenv_wf_def, has_lists_def, has_exns_def, init_gtagenv_def, flookup_fupdate_list] >>
          rw[nil_tag_def,cons_tag_def,eq_tag_def,tuple_tag_def,bind_tag_def,div_tag_def,none_tag_def,some_tag_def,subscript_tag_def] >>
          pop_assum mp_tac >>
          rw[nil_tag_def,cons_tag_def,eq_tag_def,tuple_tag_def,bind_tag_def,div_tag_def,none_tag_def,some_tag_def,subscript_tag_def] >>
