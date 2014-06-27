@@ -898,13 +898,26 @@ val do_eq_i2 = Q.prove (
 
 val v_to_list_i2_correct = Q.prove (
 `!v1 v2 vs1.
-  v_to_i2 genv v1 v2 ∧
+  gtagenv_wf gtagenv ∧
+  v_to_i2 gtagenv v1 v2 ∧
   v_to_list_i1 v1 = SOME vs1
   ⇒
   ?vs2.
     v_to_list_i2 v2 = SOME vs2 ∧
-    vs_to_i2 genv vs1 vs2`,
-cheat);
+    vs_to_i2 gtagenv vs1 vs2`,
+ ho_match_mp_tac v_to_list_i1_ind >>
+ rw [v_to_list_i1_def] >>
+ every_case_tac >>
+ fs [v_to_i2_eqns, v_to_list_i2_def] >>
+ rw [] >>
+ every_case_tac >>
+ fs [v_to_i2_eqns, v_to_list_i2_def] >>
+ rw [] >>
+ res_tac >>
+ fs [gtagenv_wf_def]
+ >- cheat
+ >- cheat
+ >- metis_tac [NOT_SOME_NONE, SOME_11]);
 
 val do_app_i2_correct = Q.prove (
 `!gtagenv s1 s2 op vs r s1_i2 vs_i2.

@@ -727,7 +727,15 @@ val v_to_list_i1_correct = Q.prove (
   ?vs2.
     v_to_list_i1 v2 = SOME vs2 ∧
     vs_to_i1 genv vs1 vs2`,
-cheat);
+ ho_match_mp_tac v_to_list_ind >>
+ rw [v_to_list_def] >>
+ every_case_tac >>
+ fs [v_to_i1_eqns, v_to_list_i1_def] >>
+ rw [] >>
+ every_case_tac >>
+ fs [v_to_i1_eqns, v_to_list_i1_def] >>
+ rw [] >>
+ metis_tac [NOT_SOME_NONE, SOME_11]);
 
 val do_app_i1 = Q.prove (
 `!genv s1 s2 op vs r s1_i1 vs_i1.
