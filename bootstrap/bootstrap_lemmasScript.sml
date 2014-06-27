@@ -26,13 +26,19 @@ val vs_to_i2_MAP = store_thm("vs_to_i2_MAP",
   gen_tac >> Induct >> simp[Once conLangProofTheory.v_to_i2_cases])
 
 (* REPL module is closed (should be proved elsewhere?) *)
+
 val all_env_dom_init =
   ``all_env_dom ([],init_envC,init_env)``
   |> (SIMP_CONV std_ss [free_varsTheory.all_env_dom_def,libTheory.lookup_def] THENC
       SIMP_CONV (srw_ss()) [pred_setTheory.EXTENSION] THENC
       EVAL)
 
+val closed_top_REPL = prove(
+  ``closed_top ([],init_envC,init_env) (Tmod "REPL" NONE ml_repl_module_decls)``,
+  simp[free_varsTheory.closed_top_def,all_env_dom_init,FV_decs_ml_repl_module_decls])
+
 (* Equality Type assumptions (should be proved elsewhere?) *)
+
 val EqualityType1 = prove(
   ``EqualityType (GRAMMAR_PARSETREE_TYPE TOKENS_TOKEN_TYPE GRAM_MMLNONT_TYPE)``,
   cheat)
@@ -50,17 +56,7 @@ val EqualityType5 = prove(
   cheat)
 val EqualityTypes = [EqualityType1, EqualityType2, EqualityType3, EqualityType4, EqualityType5]
 
-(*
-val FV_decs_ml_repl_module_decls =
-  ``FV_decs ml_repl_module_decls``
-  |> (RAND_CONV(REWR_CONV ml_repl_moduleTheory.ml_repl_module_decls) THENC
-      computeLib.CBV_CONV(cakeml_computeLib.cakeml_compset()))
-*)
-val FV_decs_ml_repl_module_decls = prove(``FV_decs ml_repl_module_decls = {}``,cheat)
 
-val closed_top_REPL = prove(
-  ``closed_top ([],init_envC,init_env) (Tmod "REPL" NONE ml_repl_module_decls)``,
-  simp[free_varsTheory.closed_top_def,all_env_dom_init,FV_decs_ml_repl_module_decls])
 
 (* lemmas about the semantics of a module where we know the last few declarations *)
 

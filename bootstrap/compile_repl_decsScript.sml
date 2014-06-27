@@ -43,5 +43,9 @@ val compile_call_repl_step_labels = store_thm("compile_call_repl_step_labels",
   ``FILTER is_Label compile_call_repl_step = []``,
   REWRITE_TAC[compile_call_repl_step_eq] THEN EVAL_TAC)
 
+val FV_decs_ml_repl_module_decls = save_thm("FV_decs_ml_repl_module_decls",
+  time (PURE_ONCE_REWRITE_CONV[ml_repl_module_decls] THENC eval)
+  ``FV_decs ml_repl_module_decls``)
+
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0
 val _ = export_theory()
