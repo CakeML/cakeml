@@ -50,20 +50,20 @@ val _ = temp_add_user_printer ("cexp_equalityprint", ``CPrim2 CEq x y``, genPrin
 
 (*cexp_Call*)
 (*Or maybe call (...) with [...]*)
-fun cexp_ccallPrint sys d t Top str brk blk =
+fun cexp_ccallPrint sys d t pg str brk blk =
   let val (t,ls) = dest_comb t
       val (t,name) = dest_comb t
       val (_,b) = dest_comb t
   in
-     blk CONSISTENT 0 ( str"call_">>sys(Top,Top,Top) d b>>str" (">>sys (Top,Top,Top) d name >> str ")"
-     >>brk(1,0)>>str"with ">>sys (Top,Top,Top) d ls)
+     m_brack str pg (blk CONSISTENT 0 ( str"call">>sys(Top,Top,Top) d b>>str" ">>sys (Prec(0,"cexpcall"),Top,Top) d name
+     >>brk(1,0)>>str"with ">>sys (Top,Top,Top) d ls))
   end;
 
 val _ = temp_add_user_printer ("cexp_ccallprint", ``CCall b f x``, genPrint cexp_ccallPrint);
 
 (*cexp_prim1*)
 (*NOTE: these actually seem rather superfluous...*)
-fun cexp_isblockPrint sys d t Top str brk blk =
+fun cexp_isblockPrint sys d t pg str brk blk =
   str"is_block";
 
 val _ = temp_add_user_printer("cexp_cisblockprint",``CIsBlock``,genPrint cexp_isblockPrint);
@@ -82,17 +82,22 @@ val _ = temp_add_user_printer ("cexp_conprint", ``CCon x y``,i2_pconPrint);
 val _ = temp_add_user_printer("cexp_extendglobal",``CExtG n``,genPrint i2_extendglobalPrint);
 
 (*cexp_Let*)
-fun cexp_letpatPrint sys d t Top str brk blk =
+fun cexp_letpatPrint sys d t pg str brk blk =
   let val (t1,exp2) = dest_comb t
       val (t,exp1) = dest_comb t1
       val (_,b) = dest_comb t
     in
     if b = ``T``
     then
-      blk CONSISTENT 0 (str"bind (">>sys(Top,Top,Top) d exp1 >>str")">>add_newline>>str"in">>add_newline>>str"  ">> sys (Top,Top,Top) d exp2>>add_newline>>str"end")
+      blk CONSISTENT 0 (str"bind ">>sys(Prec(0,"cexplet"),Top,Top) d exp1>>add_newline>>
+      str"in">>add_newline>>str"  ">> sys (Top,Top,Top) d exp2>>add_newline>>str"end")
     else
-      blk CONSISTENT 0 (sys (Top,Top,Top) d exp1 >>str";">>brk(1,0)>>
-      sys(Top,Top,Top) d exp2) 
+      let val os = blk CONSISTENT 0 ( sys(Prec(0,"cexpseq"),Top,Top) d exp1 >>str ";"
+                   >> brk (1,0)>>sys (Prec(0,"cexpseq"),Top,Top) d exp2 )
+      in
+      case pg of Prec(_,"cexpseq") => os
+            |  _ => str"(">>os>>str ")"
+      end
   end;
 
 val _ = temp_add_user_printer ("cexp_letprint",``CLet b y z ``,genPrint cexp_letpatPrint);

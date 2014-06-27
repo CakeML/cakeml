@@ -4,7 +4,7 @@ open astPP conPP modPP exhPP
 
 (*TODO: Decide how to differentiate letrec and lambdas?*)
 (*pat_Nested mutually recursive letrec*)
-fun pat_letrecPrint sys d t Top str brk blk =
+fun pat_letrecPrint sys d t pg str brk blk =
   let
     val (temp,expr) = dest_comb t
     val (_,ls) = dest_comb temp
@@ -20,8 +20,8 @@ fun pat_letrecPrint sys d t Top str brk blk =
 val _=temp_add_user_printer ("pat_letrecprint", ``Letrec_pat x y``,genPrint pat_letrecPrint);
 
 (*pat_Lambdas expr*)
-fun pat_lambdaPrint sys d t Top str brk blk =
-  blk CONSISTENT 0 (str"fun (">>brk(0,2)>>sys (Top,Top,Top) d (strip t)>>brk(0,0)>>str")");
+fun pat_lambdaPrint sys d t pg str brk blk =
+  blk CONSISTENT 0 (str"fun (">>brk(0,2)>>sys (Prec(0,"patlambda"),Top,Top) d (strip t)>>brk(0,0)>>str")");
 
 val _=temp_add_user_printer ("pat_lambdaprint", ``Fun_pat x``,genPrint pat_lambdaPrint);
 
@@ -29,16 +29,16 @@ val _=temp_add_user_printer ("pat_lambdaprint", ``Fun_pat x``,genPrint pat_lambd
 val _=temp_add_user_printer("pat_extendglobal",``Extend_global_pat n``,genPrint i2_extendglobalPrint);
 
 (*pat_uops with nat args*)
-fun pat_uopPrint uop sys d t Top str brk blk =
-  str uop>>str"_">>sys (Top,Top,Top) d (strip t);
+fun pat_uopPrint uop sys d t pg str brk blk =
+  (str uop>>str"_">>sys (Prec(0,"patuop"),Top,Top) d (strip t));
 
 val _=temp_add_user_printer("pat_optageqprint",``Tag_eq_pat x``,genPrint (pat_uopPrint "tag_eq"));
 val _=temp_add_user_printer("pat_opelpatprint",``El_pat x``,genPrint (pat_uopPrint "elem"));
 
-fun pat_uappPrint sys d t Top str brk blk =
+fun pat_uappPrint sys d t pg str brk blk =
   let val (l,r)= dest_comb t;
   in
-    sys(Top,Top,Top) d (strip l) >>str " ">> sys (Top,Top,Top) d r
+    m_brack str pg (sys(pg,pg,pg) d (strip l) >>str " ">> sys (pg,pg,pg) d r)
   end;
 
 val _=temp_add_user_printer("pat_uappprint",``Uapp_pat x y``,genPrint pat_uappPrint);
@@ -50,10 +50,10 @@ val _=temp_add_user_printer("pat_initglobal",``Uapp_pat (Init_global_var_pat n) 
 val _=temp_add_user_printer ("pat_conprint", ``Con_pat x y``,i2_pconPrint);
 
 (*pat_Apply Equality*)
-fun pat_equalityPrint sys d t Top str brk blk =
+fun pat_equalityPrint sys d t pg str brk blk =
   let val (l,r) = dest_comb t
   in 
-    sys (Top,Top,Top) d (strip l) >> str " = " >> sys (Top,Top,Top) d r
+    sys (Prec(0,"pateq"),Top,Top) d (strip l) >> str " = " >> sys (Prec(0,"pateq"),Top,Top) d r
 
   end;
 val _=temp_add_user_printer ("pat_equalityprint", ``App_pat Equality x y``, genPrint pat_equalityPrint);
@@ -62,20 +62,23 @@ val _=temp_add_user_printer ("pat_equalityprint", ``App_pat Equality x y``, genP
 val _=temp_add_user_printer ("pat_oppappprint", ``App_pat Opapp f x``, genPrint oppappPrint);
 
 (*pat_sequence*)
-fun pat_seqPrint sys d t Top str brk blk =
+fun pat_seqPrint sys d t pg str brk blk =
   let val (l,r) = dest_comb t
+      val os = blk CONSISTENT 0 ( sys(Prec(0,"patseq"),Top,Top) d (strip l) >>str ";">>
+    brk (1,0)>>sys (Prec(0,"patseq"),Top,Top) d r )
   in
-    blk CONSISTENT 0 (str"">> sys(Top,Top,Top) d (strip l) >>str ";">>
-    brk (1,0)>>sys (Top,Top,Top) d r >>str "")
+    case pg of Prec(_,"patseq") => os
+            |  _ => str"(">>os>>str ")"
   end;
+
 val _=temp_add_user_printer ("pat_seqprint",``Seq_pat x y``,genPrint pat_seqPrint);
 
 (*pat_Let*)
 (*brackets around bound expression to be safe, same in intLang*)
-fun pat_letpatPrint sys d t Top str brk blk =
+fun pat_letpatPrint sys d t pg str brk blk =
   let val (l,r) = dest_comb t
   in
-    blk CONSISTENT 0 (str"bind (">>sys(Top,Top,Top) d (strip l)>>str")">>add_newline>>str"in">>add_newline>>str"  ">> sys (Top,Top,Top) d r>>add_newline>>str"end")
+    blk CONSISTENT 0 (str"bind ">>sys(Prec(0,"patlet"),Top,Top) d (strip l)>>add_newline>>str"in">>add_newline>>str"  ">> sys (Top,Top,Top) d r>>add_newline>>str"end")
   end;
 
 val _=temp_add_user_printer ("pat_letprint",``Let_pat y z ``,genPrint pat_letpatPrint);
@@ -103,24 +106,14 @@ val _=temp_add_user_printer ("pat_varlocalprint", ``Var_local_pat x``,pat_varloc
 val _=temp_add_user_printer ("pat_varglobalprint", ``Var_global_pat n``,i1_varglobalPrint);
 
 (*pat_handle*)
-fun pat_handlePrint sys d t Top str brk blk =
+fun pat_handlePrint sys d t pg str brk blk =
   let val (l,r) = dest_comb t
   in
-    str"(">>sys(Top,Top,Top) d (strip l)>>str ")">>brk(1,0)
+    sys(Prec(0,"pathandle"),Top,Top) d (strip l)>>brk(1,0)
     >>blk CONSISTENT 0 (str "handle =>">>brk(1,2) >>sys (Top,Top,Top) d r)
   end;
 
 val _=temp_add_user_printer ("pat_handleprint", ``Handle_pat x y``,genPrint (pat_handlePrint));
-
-(*TODO: this probabl needs brackets*)
-fun pat_seqPrint sys d t Top str brk blk =
-  let val (l,r) = dest_comb t
-  in
-    blk CONSISTENT 0 (sys (Top,Top,Top) d (strip l) >>str";">>brk(1,0)>>
-    sys(Top,Top,Top) d r)
-  end;
-
-val _=temp_add_user_printer ("pat_seqprint", ``Seq_pat x y``,genPrint pat_seqPrint);
 
 
 (*pat_If-then-else*)

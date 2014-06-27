@@ -134,10 +134,21 @@ val _=temp_add_user_printer("exntypeprint",``TC_exn``,genPrint (deftypePrint "ex
 
 
 (*TC_name*)
-fun tcnamePrint sys d t pg str brk blk =
+fun tcnamelongPrint sys d t pg str brk blk =
+  let val (_,t) = dest_comb t
+      val (_,[x,y]) = strip_comb t
+  in
+    str (toString x)>>str".">>str (toString y)
+  end;
+
+val _=temp_add_user_printer("tcnamelongprint", ``TC_name (Long x y)``,genPrint tcnamelongPrint);
+
+fun tcnameshortPrint sys d t pg str brk blk =
   str (toString (strip (strip t)));
 
-val _=temp_add_user_printer("tcnameprint", ``TC_name x``,genPrint tcnamePrint);
+val _=temp_add_user_printer("tcnameshortprint", ``TC_name (Short x)``,genPrint tcnameshortPrint);
+
+
 
 (*Tapp*)
 fun tappPrint sys d t pg str brk blk = 
@@ -194,7 +205,7 @@ fun letrecPrint sys d t pg str brk blk =
     |   printTerms (t::xs) = printTerms [t] >>add_newline>>str "and ">> (printTerms xs)
   in
      m_brack str pg (blk CONSISTENT 0 (str "let " >> (blk CONSISTENT 0 (str "fun ">>printTerms fundef))
-     >>add_newline>>str "in">>add_newline>>str"  ">>sys (pg,pg,pg) d expr >>add_newline>> str "end"))
+     >>add_newline>>str "in">>add_newline>>str"  ">>sys (Top,pg,pg) d expr >>add_newline>> str "end"))
   end;
 
 val _=temp_add_user_printer ("letrecprint", ``Letrec x y``,genPrint letrecPrint);
@@ -229,8 +240,8 @@ fun letvalPrint sys d t pg str brk blk =
     val (t,eq) = dest_comb t
     val name = toString (strip (strip t))
   in
-    blk CONSISTENT 0 (blk CONSISTENT 2(str "let val " >> str name >>str" =">>brk(1,0)>> sys (pg,pg,pg) d eq)
-    >> add_newline >> str "in">>add_newline >> str"  ">>(sys (pg,pg,pg) d body) >>add_newline>>str"end")
+    m_brack str pg (blk CONSISTENT 0 (blk CONSISTENT 2(str "let val " >> str name >>str" =">>brk(1,0)>> sys (Top,pg,pg) d eq)
+    >> add_newline >> str "in">>add_newline >> str"  ">>(sys (Top,pg,pg) d body) >>add_newline>>str"end"))
   end;
 
 val _=temp_add_user_printer ("letvalprint", ``Let (SOME x) y z``,genPrint letvalPrint);
@@ -242,10 +253,10 @@ fun letnonePrint sys d t pg str brk blk =
     val (t,body) = dest_comb t
     val (t,eq) = dest_comb t
   in
-    blk CONSISTENT 0 (
-    str "let val _ = " >> (sys (pg,pg,pg) d eq) >> add_newline 
-    >> str"in" >> add_newline>>  str"  ">>(sys (pg,pg,pg) d body) >> add_newline
-    >> str"end" )
+    m_brack str pg (blk CONSISTENT 0 (
+    str "let val _ = " >> (sys (Top,pg,pg) d eq) >> add_newline 
+    >> str"in" >> add_newline>>  str"  ">>(sys (Top,pg,pg) d body) >> add_newline
+    >> str"end" ))
   end;
 
 val _=temp_add_user_printer ("letnoneprint", ``Let NONE x y``, genPrint letnonePrint);
@@ -264,8 +275,9 @@ fun pconPrint sys d t pg str brk blk =
     |   printTerms [x] = sys (Top,pg,pg) (d-1) x
     |   printTerms (x::xs) = sys (Top,pg,pg) (d-1) x >> str ",">> (printTerms xs);
     val terms = #1(listSyntax.dest_list (strip t))
-  in
-    str "(" >> (blk INCONSISTENT 0 (printTerms terms) )>>str ")"
+    val os =blk INCONSISTENT 0 (printTerms terms)
+    in
+      str"(">>os>>str ")"
   end;
     
 val _=temp_add_user_printer ("pconprint", ``Pcon NONE x``,genPrint pconPrint);
@@ -390,7 +402,7 @@ val _=temp_add_user_printer ("addappprint", ``App Opapp (Var (Short"+")) x``,gen
 
 (*raise expr*) 
 fun raisePrint sys d t pg str brk blk=
-    m_brack str pg (str "raise " >> sys (Prec(0,"raise"),pg,pg) (d-1) (strip t))
+    m_brack str pg (str "raise " >> sys (Top,pg,pg) (d-1) (strip t))
 
 val _=temp_add_user_printer ("raiseprint", ``Raise x``,genPrint raisePrint);
 
