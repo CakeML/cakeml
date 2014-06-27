@@ -82,12 +82,15 @@ fun io() =
                        | _ => Error "Unknown error"
 
   in
-    page {title = "CakeML PP",
+    page {title = "CakeML Compiler Explorer",
          css = ["css/explorer.css",
                 "//code.jquery.com/ui/1.10.4/themes/smoothness/jquery-ui.css"],
          javascript = ["//code.jquery.com/jquery-2.1.1.min.js"
                       ,"//code.jquery.com/ui/1.10.4/jquery-ui.min.js"],
          body = ([], [
+         (*Introductory header*)
+         H(2,[],"CakeML Compiler Explorer"),
+         P (Sequence [String "Write", A([("href","..")],String"CakeML"), String"code and see how it transformed by each phase of compilation."]),
          (*Form to submit code*)
          FORM ([("method","POST")],
            [
@@ -139,7 +142,6 @@ fun io() =
                    LI (A ([("href","#modules"),("class","m")], String (quote_to_string `Modules`))),
                    LI (A ([("href","#constructors"),("class","m")], String (quote_to_string `Constructors`))),
                    LI (A ([("href","#annotations"),("class","m")], String (quote_to_string `Annotations`)))
-                   
                  ])),
                DIV( [],
                  Sequence
