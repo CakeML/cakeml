@@ -453,7 +453,15 @@ val v_to_list_exh_correct = Q.prove (
   ?vs2.
     v_to_list_exh v2 = SOME vs2 ∧
     vs_to_exh genv vs1 vs2`,
-cheat);
+ ho_match_mp_tac v_to_list_i2_ind >>
+ rw [v_to_list_i2_def] >>
+ every_case_tac >>
+ fs [v_to_exh_eqn, v_to_list_exh_def] >>
+ rw [] >>
+ every_case_tac >>
+ fs [v_to_exh_eqn, v_to_list_exh_def] >>
+ rw [] >>
+ metis_tac [NOT_SOME_NONE, SOME_11]);
 
 val do_app_exh_i2 = Q.prove (
 `!(exh:exh_ctors_env) s1 op vs s2 res s1_exh vs_exh c g.
