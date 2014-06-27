@@ -9,7 +9,7 @@ val ex1 = allIntermediates ``"exception Fail; val x = 5+4; if( (if(x>4 andalso x
 val ex2 = allIntermediates ``"fun f x y = (g x) + (g y) and g x = x+1; f 5 4; g it;"``;
 
 (*raise, handle and case*)
-val ex3 = allIntermediates ``"exception Fail of int; exception Odd; exception Even; val x = 1; (case x of 1 => 2 | 2 => raise Even | 3 => raise Odd | _ => raise Fail 4) handle Odd => 1 | Even => 0 | Fail n => n;"``;
+val ex3 = allIntermediates ``"exception Fail of int; exception Odd; exception Even; val x = 1; (case x of 1 => 2 | 2 => raise Even | 3 => raise Odd | _ => raise Fail 4) handle Odd => 1 | Even => 0+1+2+((raise Fail 5) handle Fail _ => 4) | Fail n => n;"``;
 
 (*Structure defn*)
 val ex4 = allIntermediates ``"structure Nat :> sig type nat val zero:nat val succ:nat-> nat end = struct datatype nat = Int of int val zero = Int 0 fun succ n = case n of Int x => Int (x+1) end;"``; 
@@ -77,3 +77,9 @@ val ex25 = allIntermediates ``"structure Nat :> sig val one:int; val zero:int en
 
 (*Exception ctors must start with uppercase*)
 val ex26 = allIntermediates ``"structure Nat :> sig exception E end = struct exception E end; raise Nat.E;"``;
+
+(*Word8, broken*)
+val ex27 = allIntermediates ``"val x = 0wx5;"``;
+
+(*pretty print for brackets*)
+val ex28 = allIntermediates ``"val x = 1+2+3*4+5;"``;

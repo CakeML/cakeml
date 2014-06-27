@@ -132,14 +132,10 @@ fun allIntermediates prog =
 
       val p7 = rhsThm rev
 
-      (*TODO: need to silence the call to prove*)
       val code_labels_ok_thm = prove(
         ``code_labels_ok ^p7``,
          cheat)
-      (*
-         ONCE_REWRITE_TAC[SYM rev] >>
-         ONCE_REWRITE_TAC[SYM emit] >>
-         ONCE_REWRITE_TAC[SYM addIt])*)
+
       val _ = with_flag (quiet,true) add_code_labels_ok_thm code_labels_ok_thm
 
       val rem_labels = with_flag (quiet,true) eval ``remove_labels_all_asts (Success ^(p7))``
