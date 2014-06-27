@@ -12,9 +12,19 @@ fun fullEval p =
 (*RHS of theorem to term*)
 val rhsThm = rhs o concl;
 
-val compile_primitives_def = Define`
-  compile_primitives =
-    FST(compile_top NONE init_compiler_state
+(*Helper for test calls*)
+
+(*val () = set_trace "pp_avoids_symbol_merges" 0
+
+fun take 0 (x::xs) = x
+|   take n (_::xs) = take (n-1) xs;
+
+fun i n (ex:allIntermediates) = take n (#ils ex);
+*)
+
+
+val compile_primitives_def = Define
+`compile_primitives = FST(compile_top (NONE:(varN, num # infer_t) alist option) init_compiler_state
     (Tdec initial_program))`;
 
 val cs = cakeml_compset();
@@ -48,7 +58,7 @@ type allIntermediates = {
 
 (*Return all intermediates during compilation in a record*)
 fun allIntermediates prog =
-  let 
+  let
       val t1 = eval ``get_all_asts ^(prog)``
       val t2 = eval ``elab_all_asts ^(rhsThm t1)``
       val ast = rand (rhsThm t2)
@@ -94,14 +104,21 @@ fun allIntermediates prog =
       val p6 = rhsThm exp_to_Cexp
 
       (*compileCexp*)
-      val lab_closures = eval ``label_closures (LENGTH []) compile_primitives.rnext_label ^(p6)``
+      val cs = rhsThm (eval ``<|out:=[];next_label:=compile_primitives.rnext_label|>``);
+      
+      val lab_closures = eval ``label_closures (LENGTH []) (^(cs).next_label) ^(p6)``
       val (Ce,nl) = pairSyntax.dest_pair(rhsThm lab_closures)
-      (*probably need to change this to intP.collectAnnotations*)
+      
       val _ = (collectAnnotations := ([]:term list))
       (*Cheat and call PP internally so that the stateful annotations are updated*)
       val _ = term_to_string Ce
+      val p6 = Ce
 
-      val compile_Cexp = eval ``compile_Cexp [] 0 <|out:=[];next_label:=compile_primitives.rnext_label|> ^(p6)``
+      val cs = rhsThm (eval ``compile_code_env (^(cs) with next_label := ^(nl)) ^(Ce)``)
+
+      val compile_Cexp = eval ``compile [] TCNonTail 0 ^(cs) ^(Ce)``
+      (*val compile_Cexp = eval ``compile_Cexp [] 0 
+                           <|out:=[];next_label:=compile_primitives.rnext_label|> ^(p6)``*)
       val p7_1 = rhsThm compile_Cexp
       
       (*compile print err*)
@@ -133,12 +150,14 @@ fun allIntermediates prog =
          ONCE_REWRITE_TAC[SYM rev] >>
          ONCE_REWRITE_TAC[SYM emit] >>
          ONCE_REWRITE_TAC[SYM addIt])*)
-      val _ = add_code_labels_ok_thm code_labels_ok_thm
+      val _ = with_flag (quiet,true) add_code_labels_ok_thm code_labels_ok_thm
 
-      val rem_labels = eval ``remove_labels_all_asts (Success ^(p7))``
+      val rem_labels = with_flag (quiet,true) eval ``remove_labels_all_asts (Success ^(p7))``
 
       val p8 = rhsThm rem_labels |> rand
+      val p8 = rhsThm (eval ``(NONE,^(p8))``)
 
+      val p7 = rhsThm (eval ``(SOME x,^(p7))``)
   in
      {ils=[ast,p1,p2,p3,p4,p5,p6,p7,p8],
       ctors=ctors,globMap=globMap,modMap=modMap,annotations=(!collectAnnotations)}
@@ -146,12 +165,3 @@ fun allIntermediates prog =
 end
 end
 
-(*Helper for test calls*)
-
-(*val () = set_trace "pp_avoids_symbol_merges" 0
-
-fun take 0 (x::xs) = x
-|   take n (_::xs) = take (n-1) xs;
-
-fun i n (ex:allIntermediates) = take n (#ils ex);
-*)

@@ -3,7 +3,7 @@ open lexer_funTheory repl_funTheory replTheory untypedSafetyTheory bytecodeClock
 open lexer_implTheory cmlParseTheory inferSoundTheory bigStepTheory elabTheory compilerProofTheory;
 open semanticPrimitivesTheory typeSystemTheory typeSoundTheory weakeningTheory evalPropsTheory typeSysPropsTheory terminationTheory;
 open initialEnvTheory interpTheory;
-open typeSoundInvariantsTheory inferTheory free_varsTheory;
+open typeSoundInvariantsTheory inferTheory infer_tTheory free_varsTheory;
 open bytecodeTheory repl_fun_altTheory repl_fun_alt_proofTheory;
 open gramPropsTheory pegSoundTheory pegCompleteTheory
 
@@ -14,6 +14,9 @@ val o_f_FUNION = store_thm("o_f_FUNION",
   ``f o_f (f1 ⊌ f2) = (f o_f f1) ⊌ (f o_f f2)``,
   simp[GSYM fmap_EQ_THM,FUNION_DEF] >>
   rw[o_f_FAPPLY]);
+
+val (inf_type_to_string_def,inf_type_to_string_ind) = Defn.tprove_no_defn((inf_type_to_string_def,inf_type_to_string_ind),
+(WF_REL_TAC `measure (\x. case x of INL x => infer_t_size x | INR x => infer_t1_size x)`));
 
 val type_env_list_rel = Q.prove (
 `!ctMap tenvS env tenv.
@@ -29,32 +32,6 @@ val type_env_list_rel = Q.prove (
  PairCases_on `h'` >>
  fs [bind_var_list2_def, bind_tenv_def] >>
  metis_tac []);
-
-val type_env_subtract = Q.prove (
-`!ctMap tenvS ctMap' tenvS' envE tenvE.
-  type_env ctMap tenvS envE' tenvE' ∧
-  type_env ctMap' tenvS' (envE++envE') (bind_var_list2 tenvE tenvE')
-  ⇒
-  type_env ctMap' tenvS' envE (bind_var_list2 tenvE Empty)`,
- induct_on `envE` >>
- rw [] >>
- cases_on `tenvE` >>
- fs [bind_var_list2_def] >>
- ONCE_REWRITE_TAC [type_v_cases] >>
- rw [libTheory.emp_def, libTheory.bind_def, bind_tenv_def]
- >- cheat
- >- cheat
- >- (PairCases_on `h'` >>
-     fs [bind_var_list2_def, bind_tenv_def] >>
-     pop_assum (assume_tac o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
-     fs [libTheory.bind_def, bind_tenv_def] >>
-     rw [] >>
-     metis_tac []));
-
-val inf_tenv_to_string_map_dom = Q.prove (
-`!ts. FDOM (inf_tenv_to_string_map ts) = set (MAP FST ts)`,
- ho_match_mp_tac inf_tenv_to_string_map_ind >>
- rw [inf_tenv_to_string_map_def]);
 
 val fst_lem = Q.prove (
 `FST = λ(x,y). x`,
@@ -251,16 +228,21 @@ Cases>>simp[]>>
 Induct_on`q`>>simp[id_to_string_def]>>
 lrw[LIST_EQ_REWRITE])
 
-val print_envE_not_type_error = prove(``print_envE types en ≠ "<type error>\n"``,
-Induct_on`en`>>simp[print_envE_def]>>
-Cases>>simp[])
+val print_envE_not_type_error = prove(``!types en.
+  LENGTH types = LENGTH en ⇒ print_envE types en ≠ "<type error>\n"``,
+ho_match_mp_tac print_envE_ind >>
+simp[print_envE_def])
 
-val print_result_not_type_error = prove(``r ≠ Rerr Rtype_error ⇒ print_result types top envc r ≠ "<type error>\n"``,
+val print_result_not_type_error = prove(``
+  r ≠ Rerr Rtype_error ⇒
+  (∀v. r = Rval v ⇒ LENGTH types = LENGTH (SND v)) ⇒
+  print_result types top envc r ≠ "<type error>\n"``,
   Cases_on`r`>>
   TRY(Cases_on`e`)>>
   TRY(PairCases_on`a`)>>
   simp[print_result_def]>>
   Cases_on`top`>>simp[print_result_def]>>
+  strip_tac >>
   match_mp_tac print_envC_not_type_error >>
   simp[print_envE_not_type_error])
 
@@ -546,10 +528,11 @@ val type_d_new_dec_vs = Q.prove (
  fs [LET_THM, LIST_TO_SET_MAP, GSYM fst_lem, IMAGE_COMPOSE] >>
  metis_tac [type_funs_dom]);
 
+(*
 val new_top_vs_inf_tenv_to_string_map_lem = Q.prove (
-`!decls tenvM tenvC tenv top decls' tenvM' tenvC' tenv'. 
+`!decls tenvM tenvC tenv top decls' tenvM' tenvC' tenv'.
   type_top decls tenvM tenvC tenv top decls' tenvM' tenvC' (convert_env2 tenv')
-  ⇒ 
+  ⇒
   set (new_top_vs top) ⊆ FDOM (inf_tenv_to_string_map tenv')`,
  rw [] >>
  cases_on `top` >>
@@ -561,10 +544,11 @@ val new_top_vs_inf_tenv_to_string_map_lem = Q.prove (
  rw [inf_tenv_to_string_map_def] >>
  PairCases_on `h` >>
  rw [inf_tenv_to_string_map_def, SUBSET_INSERT_RIGHT]);
+*)
 
 val type_to_string_lem = Q.prove (
 `(!t n. check_t n {} t ⇒ (inf_type_to_string t = type_to_string (convert_t t))) ∧
- (!ts n. EVERY (check_t n {}) ts ⇒ 
+ (!ts n. EVERY (check_t n {}) ts ⇒
    (MAP inf_type_to_string ts = MAP (type_to_string o convert_t) ts) ∧
    (inf_types_to_string ts = types_to_string (MAP convert_t ts)))`,
  Induct >>
@@ -596,6 +580,7 @@ val type_to_string_lem = Q.prove (
  fs [EVERY_DEF] >>
  metis_tac []);
 
+(*
 val to_string_map_lem = Q.prove (
 `!env. check_env {} env ⇒ (inf_tenv_to_string_map env = tenv_to_string_map (convert_env2 env))`,
  induct_on `env` >>
@@ -604,6 +589,7 @@ val to_string_map_lem = Q.prove (
  rw [inf_tenv_to_string_map_def, tenv_to_string_map_def] >>
  fs [check_env_def, convert_env2_def] >>
  metis_tac [type_to_string_lem]);
+*)
 
 val type_ds_closed = store_thm("type_ds_closed",
   ``∀mn decls tmenv cenv tenv ds x y z. type_ds mn decls tmenv cenv tenv ds x y z ⇒
@@ -898,8 +884,6 @@ val type_string_word8_helper = Q.prove (
 
 
  >- metis_tac []
- *)
-  
 
 val type_string_word8 = Q.prove (
 `∀envE tenvE.
@@ -915,7 +899,6 @@ val type_string_word8 = Q.prove (
 
        cheat);
 
-       (*
  rw [] >>
  imp_res_tac type_env_subtract >>
  fs [type_env_list_rel] >>

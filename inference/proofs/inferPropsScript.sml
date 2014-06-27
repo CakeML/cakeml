@@ -1,7 +1,7 @@
 open preamble;
 open rich_listTheory;
 open miscTheory;
-open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
+open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory infer_tTheory unifyTheory;
 open libPropsTheory astPropsTheory;
 
 local open evalPropsTheory in

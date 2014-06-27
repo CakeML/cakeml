@@ -599,6 +599,21 @@ val _ = Define `
 (id_to_string (Long x y) = (STRCAT x(STRCAT"."y)))`;
 
 
+val _ = Define `
+ (tc_to_string tc0 =  
+ ((case tc0 of
+    TC_name id => id_to_string id
+  | TC_int => "<int>"
+  | TC_string => "<string>"
+  | TC_bool => "<bool>"
+  | TC_unit => "<unit>"
+  | TC_ref => "<ref>"
+  | TC_word8 => "<word8>"
+  | TC_word8array => "<word8array>"
+  | TC_exn => "<exn>"
+  )))`;
+
+
 (*val int_to_string : integer -> string*)
 val _ = Define `
  (int_to_string z =  

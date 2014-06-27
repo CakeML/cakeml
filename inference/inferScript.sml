@@ -1,5 +1,5 @@
 open preamble miscTheory astTheory typeSystemTheory;
-open unifyTheory;
+open infer_tTheory unifyTheory;
 open stringTheory monadsyntax;
 
 val _ = new_theory "infer";

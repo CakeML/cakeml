@@ -5,6 +5,10 @@ local
   val Addr_tm = ``Addr``
   fun mk_Addr x = mk_comb(Addr_tm,x)
 
+  val quiet = ref false
+  fun info s = if !quiet then () else HOL_MESG s
+  fun time x = if !quiet then x else Lib.time x
+
   fun ml_code_labels lconv code l =
     let
       fun f [] p acc = acc
@@ -117,7 +121,7 @@ local
                      THENC numLib.REDUCE_CONV)))
       fun f count tm =
         let
-          val _ = if count mod 1000 = 0 then print ((Int.toString count)^"..") else ()
+          val _ = if count mod 1000 = 0 then info ((Int.toString count)^"..") else ()
           val (_,[ls,us,p,l,pt]) = strip_comb tm
           val conv =
             let
@@ -148,9 +152,6 @@ local
 
   val init_db = Net.insert (rand(concl(code_labels_ok_nil)),code_labels_ok_nil) Net.empty
   val db = ref init_db
-  val quiet := false
-  fun info s = if !quiet then () else HOL_MESG s
-  fun time x = if !quiet then x else Lib.time x
 
 in
   val quiet = quiet
