@@ -275,14 +275,18 @@ fun pconsomePrint sys d t Top str brk blk=
     fun printTerms [] = str ""
     |   printTerms [x] = sys (Top,Top,Top) (d-1) x
     |   printTerms (x::xs) = sys (Top,Top,Top) (d-1) x >> str ",">> (printTerms xs);
-    val ctort = toString (strip (strip l));
-    val ctor = if (ctort = "::") then "Cons" else ctort
+    val (ty,ls) = strip_comb (rand l);
+    (*Special case for cons and handle long names*)
+    val ctor = if (term_to_string ty = "Short") then (let val ctort = toString (hd ls) in 
+                                                      (if (ctort = "::") then "Cons" else ctort) end)
+               else case ls of [l,r] => (toString l)^"."^(toString r)
+    (*Properly handle LONG names*)
   in
     str ctor >> (case args of [] => str "" | (_::_) => str "(" >> (blk INCONSISTENT 0 (printTerms args)) >>str ")")
   end;
 
 val _=temp_add_user_printer ("pconsomeprint", ``Pcon (SOME x) y``,genPrint pconsomePrint);
-val _=temp_add_user_printer ("consomeprint", ``Con (Some x) y``,genPrint pconsomePrint);
+val _=temp_add_user_printer ("consomeprint", ``Con (SOME x) y``,genPrint pconsomePrint);
 
 (*Special case for list syntax*)
 
@@ -290,7 +294,6 @@ fun pconnilPrint sys d t Top str brk blk = str "[]";
 
 val _=temp_add_user_printer ("pconnilprint",``Con (SOME (Short "nil")) y``,genPrint pconnilPrint);
 val _=temp_add_user_printer ("pconnilprint",``Pcon (SOME (Short "nil")) y``,genPrint pconnilPrint);
-
 
 (*Literals*)
 (*Pattern lit*)
@@ -339,39 +342,45 @@ fun matPrint sys d t Top str brk blk=
 
 val _=temp_add_user_printer ("matprint", ``Mat x y``,genPrint matPrint);
 
-(*Apply*)
+(*Apply with list args*)
 fun oppappPrint sys d t Top str brk blk =
   let
     open Portable smpp
-    val (temp,x) = dest_comb t
-    val (_,f) = dest_comb temp
+    val (_,ls) = dest_comb t
+    val (hd::tl) = #1(listSyntax.dest_list ls)
+    (*TODO: How are args passed, check it out?? ( a , b , c)? or curried?*)
+    fun printTerms [] = str""
+    |   printTerms [x] = sys (Top,Top,Top) d x
+    |   printTerms (x::xs) = printTerms [x] >> str" ">>printTerms xs
   in
-    str "(" >> sys (Top,Top,Top) (d-1) f >> str " " >> sys (Top,Top,Top) (d-1) x >> str ")"
+    str "(" >> sys (Top,Top,Top) (d-1) hd >> str " ">> printTerms tl >> str ")"
   end;
  
-val _=temp_add_user_printer ("oppappprint", ``App Opapp f x``, genPrint oppappPrint);
+val _=temp_add_user_printer ("oppappprint", ``App Opapp ls``, genPrint oppappPrint);
 
 (*Infix apply*)
 
 fun infixappPrint arithop sys d t Top str brk blk=
-  let
-    open Portable smpp
-    val (_,x) = dest_comb t
+  let val (_,ls) = dest_comb t
+      val (t::[y]) = #1(listSyntax.dest_list ls)
+      val (_,ls) = dest_comb t
+      val(_::[x]) = #1(listSyntax.dest_list ls)
   in
-    sys (Top,Top,Top) (d-1) x >>str" ">> str arithop
+    str"(">>sys (Top,Top,Top) d x>>str" ">> str arithop>>str" ">>sys (Top,Top,Top) d y>>str")"
   end;
 
-val _=temp_add_user_printer ("assignappprint", ``App Opapp (Var (Short":=")) x``,genPrint (infixappPrint ":=")); 
-val _=temp_add_user_printer ("eqappprint", ``App Opapp (Var (Short"=")) x``,genPrint (infixappPrint "=")); 
-val _=temp_add_user_printer ("gteqappprint", ``App Opapp (Var (Short">=")) x``,genPrint (infixappPrint ">=")); 
-val _=temp_add_user_printer ("lteqappprint", ``App Opapp (Var (Short"<=")) x``,genPrint (infixappPrint "<=")); 
-val _=temp_add_user_printer ("gtappprint", ``App Opapp (Var (Short">")) x``,genPrint (infixappPrint ">")); 
-val _=temp_add_user_printer ("ltappprint", ``App Opapp (Var (Short"<")) x``,genPrint (infixappPrint "<")); 
-val _=temp_add_user_printer ("modappprint", ``App Opapp (Var (Short"mod")) x``,genPrint (infixappPrint "mod")); 
-val _=temp_add_user_printer ("divappprint", ``App Opapp (Var (Short"div")) x``,genPrint (infixappPrint "div")); 
-val _=temp_add_user_printer ("timesappprint", ``App Opapp (Var (Short"*")) x``,genPrint (infixappPrint "*")); 
-val _=temp_add_user_printer ("minusappprint", ``App Opapp (Var (Short"-")) x``,genPrint (infixappPrint "-")); 
-val _=temp_add_user_printer ("addappprint", ``App Opapp (Var (Short"+")) x``,genPrint (infixappPrint "+")); 
+(*More icky to do binops in word8, need to match the full apply to both args*)
+val _=temp_add_user_printer ("assignappprint", ``App Opapp [App Opapp [Var (Short":="); x];y]``,genPrint (infixappPrint ":=")); 
+val _=temp_add_user_printer ("eqappprint", ``App Opapp [App Opapp [Var (Short"="); x];y]``,genPrint (infixappPrint "="));
+val _=temp_add_user_printer ("gteqappprint", ``App Opapp [App Opapp [Var (Short">="); x];y]``,genPrint (infixappPrint ">=")); 
+val _=temp_add_user_printer ("lteqappprint", ``App Opapp [App Opapp [Var (Short"<="); x];y]``,genPrint (infixappPrint "<=")); 
+val _=temp_add_user_printer ("gtappprint", ``App Opapp [App Opapp [Var (Short">"); x];y]``,genPrint (infixappPrint ">")); 
+val _=temp_add_user_printer ("ltappprint", ``App Opapp [App Opapp [Var (Short"<"); x];y]``,genPrint (infixappPrint "<")); 
+val _=temp_add_user_printer ("modappprint", ``App Opapp [App Opapp [Var (Short"mod"); x];y]``,genPrint (infixappPrint "mod")); 
+val _=temp_add_user_printer ("divappprint", ``App Opapp [App Opapp [Var (Short"div"); x];y]``,genPrint (infixappPrint "div")); 
+val _=temp_add_user_printer ("timesappprint", ``App Opapp [App Opapp [Var (Short"*"); x];y]``,genPrint (infixappPrint "*")); 
+val _=temp_add_user_printer ("minusappprint", ``App Opapp [App Opapp [Var (Short"-"); x];y]``,genPrint (infixappPrint "-")); 
+val _=temp_add_user_printer ("addappprint", ``App Opapp [App Opapp [Var (Short"+"); x];y]``,genPrint (infixappPrint "+")); 
 
 (*raise expr*) 
 fun raisePrint sys d t Top str brk blk=
@@ -465,45 +474,74 @@ val _=temp_add_user_printer("falselitprint",``Lit (Bool F)``,genPrint (boolPrint
 val _=temp_add_user_printer("trueplitprint",``Plit (Bool T)``,genPrint (boolPrint "true"));
 val _=temp_add_user_printer("falseplitprint",``Plit (Bool F)``,genPrint (boolPrint "false"));
 
+(*Word8 - may not be needed depending on how smart sys printer is..*)
+fun word8Print sys d t Top str brk blk =
+  let val w = strip t
+  in 
+    str "0wx">>sys (Top,Top,Top) d w
+  end
 
 (*Pretty printer for ast list form, pattern to terms*)
-(*TODO: Check if this leaves a leading newline..*)
 fun astlistPrint sys d t Top str brk blk =
   let val ls = #1(listSyntax.dest_list t)
   fun printterms [] = str""
-  |   printterms [x] = sys(Top,Top,Top) d x
-  |   printterms (x::xs) = (printterms [x])>>str";">>printterms xs
+  |   printterms [x] = sys(Top,Top,Top) d x>>str";"
+  |   printterms (x::xs) = (printterms [x])>>printterms xs
   in
     printterms ls
   end;
 
-(*TODO: This is broken ... it ends up matching all lists, not just ast ones!! 
-temp_add_user_printer("astlistprint",``x:prog``,genPrint astlistPrint);
-temp_remove_user_printer("astlistprint");*)
+(*List pattern matching should be fixed in latest ver of HOL*)
+val _=temp_add_user_printer("astlistprint",``x:prog``,genPrint astlistPrint);
 
+(*TODO: the remainder of this should really go into a miscPP file*)
 (*Pretty Printer specifics for globals, types & exceptions*)
 
 fun tidPrinter sys d t Top str brk blk =
-  str "datatype " >>sys (Top,Top,Top) d (strip (strip t));
+  str "datatype " >>str (toString (strip (strip t)));
 
 fun texnPrinter sys d t Top str brk blk = 
-  str "exception " >>sys (Top,Top,Top) d (strip (strip t));
+  str "exception " >>str (toString (strip (strip t)));
+
+fun tlongPrinter pref sys d t Top str brk blk =
+  let val t = rand t
+      val(_,[l,r]) = strip_comb t
+  in
+    str pref >>str" ">> str (toString l) >> str".">>str(toString r)
+  end;
+
 
 val _=temp_add_user_printer("typeidprint",``TypeId (Short x)``, genPrint tidPrinter);
 val _=temp_add_user_printer("typeexnprint",``TypeExn (Short x)``, genPrint texnPrinter);
 
-(*
-fun globPrinter sys d t Top str brk blk =
-  case pairSyntax.strip_pair t
-  of
-     [x,y] => str"bla">>str (toString x) >>str " |-> " >>sys (Top,Top,Top) d y
-  |  [x,y,z] => str (toString x) >>str " of " >>sys (Top,Top,Top) d y >> sys (Top,Top,Top) d z;
 
-val _=temp_add_user_printer("globprint",``(x,y)``,genPrint globPrinter);
+val _=temp_add_user_printer("typelongidprint",``TypeId (Long x y)``, genPrint (tlongPrinter "datatype"));
+val _=temp_add_user_printer("typelongexnprint",``TypeExn (Long x y)``, genPrint (tlongPrinter "exception"));
 
-val _=temp_add_user_printer("ctorprint",``($, x) (($, y) z)``,genPrint globPrinter);
 
-temp_remove_user_printer("ctorprint");
-temp_remove_user_printer("globprint");
-*)
+(*Pretty Printer specifics for bytecode*)
+fun bclistPrint sys d t Top str brk blk =
+  let val t = rand t
+      val ls = #1(listSyntax.dest_list t)
+  fun printterms [] = str""
+  |   printterms [x] = str ((fn s=> if(String.isPrefix "Label" s) then s^":" else "  "^s^"") 
+		               (term_to_string x)) >> str"\n"
+  |   printterms (x::xs) = (printterms [x])>>printterms xs
+  in
+    printterms ls
+  end;
+val _=temp_add_user_printer("bclistprint",``(SOME x ,(y:bc_inst store))``,genPrint bclistPrint);
+
+(*Unlabeled*)
+fun ubclistPrint sys d t Top str brk blk =
+  let val t = rand t
+      val ls = #1(listSyntax.dest_list t)
+  fun printterms _ [] = str""
+  |   printterms n [x] = str (Int.toString n) >>str":  ">> str (term_to_string x)>>str"\n"
+  |   printterms n (x::xs) = (printterms n [x])>>printterms (n+1) xs
+  in
+    printterms 0 ls
+  end;
+val _=temp_add_user_printer("ubclistprint",``(NONE ,(y:bc_inst store))``,genPrint ubclistPrint);
+
 end;
