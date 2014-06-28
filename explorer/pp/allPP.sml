@@ -113,15 +113,7 @@ fun allIntermediates prog =
       (*Cheat and call PP internally so that the stateful annotations are updated*)
       val _ = term_to_string Ce
       val p6 = Ce
-<<<<<<< HEAD
-
       val cs = rhsThm (eval ``compile_code_env (^(cs) with next_label := ^(nl)) ^(Ce)``)
-
-=======
-
-      val cs = rhsThm (eval ``compile_code_env (^(cs) with next_label := ^(nl)) ^(Ce)``)
-
->>>>>>> origin/master
       val compile_Cexp = eval ``compile [] TCNonTail 0 ^(cs) ^(Ce)``
       (*val compile_Cexp = eval ``compile_Cexp [] 0 
                            <|out:=[];next_label:=compile_primitives.rnext_label|> ^(p6)``*)
@@ -151,18 +143,9 @@ fun allIntermediates prog =
       val code_labels_ok_thm = prove(
         ``code_labels_ok ^p7``,
          cheat)
-<<<<<<< HEAD
-      (*
-         ONCE_REWRITE_TAC[SYM rev] >>
-         ONCE_REWRITE_TAC[SYM emit] >>
-         ONCE_REWRITE_TAC[SYM addIt])*)
-      val _ = with_flag (quiet,true) add_code_labels_ok_thm code_labels_ok_thm
-
-=======
 
       val _ = with_flag (quiet,true) add_code_labels_ok_thm code_labels_ok_thm
 
->>>>>>> origin/master
       val rem_labels = with_flag (quiet,true) eval ``remove_labels_all_asts (Success ^(p7))``
 
       val p8 = rhsThm rem_labels |> rand
