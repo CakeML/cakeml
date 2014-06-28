@@ -1987,7 +1987,7 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
       first_assum(match_exists_tac o concl) >> simp[] >>
       first_assum(match_exists_tac o concl) >> simp[] >>
       first_assum(match_exists_tac o concl) >> simp[] >>
-      METIS_TAC[EqualityType_thm,EqualityType_INPUT_TYPE])) >>
+      METIS_TAC[EqualityType_thm,EqualityType_INPUT_TYPE]) >>
     conj_tac >- METIS_TAC[MEM_LUPDATE_E] >>
     fs[intLangExtraTheory.vlabs_list_MAP,PULL_EXISTS] >>
     METIS_TAC[MEM_LUPDATE_E,pred_setTheory.NOT_IN_EMPTY] ) >>
