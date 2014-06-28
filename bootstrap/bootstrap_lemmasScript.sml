@@ -244,49 +244,6 @@ val merge_envC_emp = prove(
   ``merge_envC (emp,emp) x = x``,
   PairCases_on`x`>>simp[semanticPrimitivesTheory.merge_envC_def,libTheory.emp_def,libTheory.merge_def])
 
-(*
-val evaluate_decs_ref = store_thm("evaluate_decs_ref",
-  ``∀ck mn env s decs a b c k i s1 x decs0 decs1 v.
-      evaluate_decs ck mn env s decs (((k,s1),a),b,Rval c) ∧
-      decs = decs0 ++ [Dlet (Pvar x) (Uapp Opref (Con (SOME (Short i)) []))] ++ decs1 ∧
-      x ∉ set(new_decs_vs decs1) ∧
-      build_conv (all_env_to_cenv env) (SOME (Short i)) [] = SOME v
-      ⇒
-      ∃n. lookup x c = SOME (Loc n) ∧ n < LENGTH s1 ∧ EL n s1 = v``,
-  Induct_on`decs0` >>
-  rw[Once bigStepTheory.evaluate_decs_cases] >- (
-    fs[Once bigStepTheory.evaluate_dec_cases] >>
-    fs[Once bigStepTheory.evaluate_cases] >>
-    fs[semanticPrimitivesTheory.do_uapp_def] >>
-    fs[semanticPrimitivesTheory.store_alloc_def,LET_THM] >>
-    fs[terminationTheory.pmatch_def] >>
-    Cases_on`r`>>fs[semanticPrimitivesTheory.combine_dec_result_def]>>
-    imp_res_tac evaluate_decs_new_decs_vs >> fs[] >>
-    rw[libTheory.merge_def,libPropsTheory.lookup_append,libTheory.bind_def] >>
-    BasicProvers.CASE_TAC >- (
-      imp_res_tac evaluate_decs_store_acc >> fs[] >>
-      imp_res_tac rich_listTheory.IS_PREFIX_LENGTH >> fs[] >>
-      conj_tac >- DECIDE_TAC >>
-      fs[Once bigStepTheory.evaluate_cases] >>
-      fs[Once bigStepTheory.evaluate_cases] >>
-      fs[rich_listTheory.IS_PREFIX_APPEND] >>
-      simp[rich_listTheory.EL_APPEND2,rich_listTheory.EL_APPEND1]) >>
-    imp_res_tac libPropsTheory.lookup_in2 >> rfs[]) >>
-  Cases_on`r`>>fs[semanticPrimitivesTheory.combine_dec_result_def]>>
-  first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
-  rfs[semanticPrimitivesTheory.all_env_to_cenv_def] >>
-  rw[libTheory.merge_def,libPropsTheory.lookup_append] >>
-  Cases_on`d`>>fs[Once bigStepTheory.evaluate_dec_cases]>>rw[]>>rfs[merge_envC_emp]>>
-  PairCases_on`cenv`>>fs[semanticPrimitivesTheory.merge_envC_def,libTheory.emp_def,libTheory.bind_def]>>
-  fs[libTheory.merge_def,semanticPrimitivesTheory.build_conv_def,semanticPrimitivesTheory.lookup_con_id_def]>>
-  BasicProvers.EVERY_CASE_TAC>>fs[libPropsTheory.lookup_append,astTheory.id_to_n_def]>>rw[]>>
-  BasicProvers.EVERY_CASE_TAC>>fs[]
-  semanticPrimitivesTheory.build_conv_def
-  free_varsTheory.new_dec_vs_def
-  type_of``type_defs_to_new_tdecs``
-  print_find"tids_of"
-*)
-
 val evaluate_decs_last3 = prove(
   ``∀ck mn env s decs a b c k i j s1 x y decs0 decs1 v p q r.
       evaluate_decs ck mn env s decs (((k,s1),a),b,Rval c) ∧
