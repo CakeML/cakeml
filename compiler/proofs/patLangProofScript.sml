@@ -452,7 +452,15 @@ val v_to_list_pat_correct = Q.prove (
   ?vs2.
     v_to_list_pat v2 = SOME vs2 ∧
     vs_to_pat vs1 = vs2`,
-cheat);
+ ho_match_mp_tac v_to_list_exh_ind >>
+ rw [v_to_list_exh_def] >>
+ BasicProvers.EVERY_CASE_TAC >>
+ fs [v_to_pat_def, v_to_list_pat_def] >>
+ rw [] >>
+ BasicProvers.EVERY_CASE_TAC >>
+ fs [v_to_pat_def, v_to_list_pat_def] >>
+ rw [] >>
+ metis_tac [optionTheory.NOT_SOME_NONE, optionTheory.SOME_11]);
 
 val do_app_pat_correct = prove(
   ``∀op vs s0 s0_pat env s res.
@@ -464,7 +472,7 @@ val do_app_pat_correct = prove(
   rw[csg_to_pat_def,do_app_exh_def,do_app_pat_def] >>
   Cases_on`vs`>>fs[]>>Cases_on`op`>>fs[]>-(
     Cases_on`t`>>fs[optionTheory.option_case_compute,LET_THM]>-(
-      BasicProvers.EVERY_CASE_TAC>>fs[semanticPrimitivesTheory.store_alloc_def]>>rw[]>>
+      BasicProvers.EVERY_CASE_TAC>>fs>>fs[semanticPrimitivesTheory.store_alloc_def]>>rw[]>>
       fs[semanticPrimitivesTheory.store_lookup_def,IS_SOME_EXISTS,EL_MAP] >>
       imp_res_tac v_to_list_pat_correct >>
       rw [] >>
