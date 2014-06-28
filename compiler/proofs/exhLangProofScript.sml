@@ -136,7 +136,7 @@ val is_unconditional_thm = prove(
   >- (
     pop_assum mp_tac >>
     rw[Once is_unconditional_def] >>
-    BasicProvers.CASE_TAC >>
+    BasicProvers.EVERY_CASE_TAC >>
     metis_tac[]))
 
 val is_unconditional_list_thm = prove(
