@@ -2405,7 +2405,14 @@ val gtagenv_weak_galloc_tags = prove(
     imp_res_tac ALOOKUP_MEM >>
     fs[galloc_tags_def,MAP2_MAP,LENGTH_COUNT_LIST,MEM_MAP,MEM_ZIP,UNCURRY] >>
     rpt BasicProvers.VAR_EQ_TAC >> fs[EL_MAP,UNCURRY] ) >>
-  conj_tac >- ( cheat ) >>
+  conj_tac >- (
+    fs[has_lists_def,flookup_fupdate_list] >>
+    fs[FORALL_PROD,FLOOKUP_DEF] >>
+    every_case_tac >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[galloc_tags_def,MAP2_MAP,LENGTH_COUNT_LIST,MEM_MAP,MEM_ZIP,UNCURRY] >>
+    rpt BasicProvers.VAR_EQ_TAC >> fs[EL_MAP,UNCURRY]>>
+    metis_tac[]) >>
   metis_tac[]);
 
 val gtagenv_weak_galloc_tags_build_tdefs = prove(
