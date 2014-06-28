@@ -112,20 +112,72 @@ val exists_match_def = Define `
 exists_match exh s ps v ⇔
   !env. ?p. MEM p ps ∧ pmatch_i2 exh s p v env ≠ No_match`;
 
-val pmatch_list_i2_all_vars_not_No_match = prove(
-  ``∀l1 l2 a b c. EVERY is_var l1 ⇒ pmatch_list_i2 a b l1 l2 c ≠ No_match``,
-  Induct >> Cases_on`l2` >> simp[pmatch_i2_def,is_var_def] >>
-  Cases >> simp[pmatch_i2_def])
+val is_unconditional_thm = prove(
+  ``∀p a b c d. is_unconditional p ⇒ pmatch_i2 a b p c d ≠ No_match``,
+  ho_match_mp_tac is_unconditional_ind >>
+  Cases >> rw[] >>
+  Cases_on`c`>>rw[pmatch_i2_def]
+  >- (
+    fs[is_unconditional_def] >>
+    every_case_tac >> fs[lit_same_type_def] >>
+    every_case_tac >> fs[] )
+  >- (
+    pop_assum mp_tac >>
+    rw[Once is_unconditional_def] >>
+    every_case_tac >> fs[] >>
+    Cases_on`p`>>Cases_on`r`>>rw[pmatch_i2_def]>>
+    pop_assum mp_tac >>
+    map_every qid_spec_tac[`l'`,`a`,`b`,`d`] >>
+    Induct_on`l` >> simp[LENGTH_NIL_SYM,pmatch_i2_def] >>
+    rw[] >> Cases_on`l'`>>fs[] >>
+    rw[pmatch_i2_def] >>
+    BasicProvers.CASE_TAC >>
+    metis_tac[] )
+  >- (
+    pop_assum mp_tac >>
+    rw[Once is_unconditional_def] >>
+    BasicProvers.CASE_TAC >>
+    metis_tac[]))
 
-val get_tags_lemma = prove(
-  ``∀ps ts. get_tags ps = SOME ts ⇒
-      (∀p. MEM p ps ⇒ ∃t x vs. (p = Pcon_i2 (t,x) vs) ∧ EVERY is_var vs ∧ MEM t ts) ∧
-      (∀t. MEM t ts ⇒ ∃x vs. MEM (Pcon_i2 (t,x) vs) ps ∧ EVERY is_var vs)``,
-  Induct >> simp[get_tags_def] >> Cases >> simp[] >>
-  every_case_tac >> rw[] >> fs[] >> metis_tac[])
+val is_unconditional_list_thm = prove(
+  ``∀l1 l2 a b c. EVERY is_unconditional l1 ⇒ pmatch_list_i2 a b l1 l2 c ≠ No_match``,
+  Induct >> Cases_on`l2` >> simp[pmatch_i2_def] >>
+  rw[] >>
+  BasicProvers.CASE_TAC >>
+  metis_tac[is_unconditional_thm])
+
+val get_tags_acc = prove(
+  ``∀ls acc ts. get_tags ls acc = SOME ts ⇒ domain acc ⊆ domain ts``,
+  Induct >> simp[get_tags_def] >> Cases >> simp[] >> every_case_tac >> simp[] >>
+  rw[] >> res_tac >> fs[SUBSET_DEF])
+
+val gen_get_tags_lemma = prove(
+  ``!ps ts acc. get_tags ps acc = SOME ts ==>
+         (!p. MEM p ps ==> ?t x vs. (p = Pcon_i2 (t,x) vs) /\ EVERY is_unconditional vs /\ t IN (domain ts))
+         /\
+         (!t. t IN (domain ts) /\ t NOTIN (domain acc) ==> ?x vs. MEM (Pcon_i2(t,x) vs) ps /\ EVERY is_unconditional vs)``,
+  Induct >> simp[get_tags_def] >>
+  Cases >> simp[] >>
+  Cases_on`p` >> simp[] >>
+  rpt gen_tac >> strip_tac >>
+  imp_res_tac get_tags_acc >>
+  first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
+  conj_tac >- (
+    gen_tac >> reverse strip_tac >- metis_tac[] >>
+    simp[] >> fs[SUBSET_DEF] ) >>
+  gen_tac >> strip_tac >>
+  Cases_on`t=q` >>
+  rw[] >> metis_tac[])
+
+val get_tags_lemma =
+  gen_get_tags_lemma
+  |> CONV_RULE (RESORT_FORALL_CONV List.rev)
+  |> Q.SPEC`LN`
+  |> SIMP_RULE (srw_ss())[]
+  |> GEN_ALL
 
 val pmatch_i2_Pcon_No_match = prove(
-  ``EVERY is_var ps ⇒
+  ``EVERY is_unconditional ps ⇒
     ((pmatch_i2 exh s (Pcon_i2 (c,SOME (TypeId t)) ps) v env = No_match) ⇔
      ∃cv vs tags.
        v = Conv_i2 (cv,SOME (TypeId t)) vs ∧
@@ -137,55 +189,28 @@ val pmatch_i2_Pcon_No_match = prove(
   Cases_on`p1`>>simp[pmatch_i2_def]>>
   Cases_on`x`>>simp[pmatch_i2_def]>>
   rw[] >> BasicProvers.CASE_TAC >> rw[] >>
-  metis_tac[pmatch_list_i2_all_vars_not_No_match])
+  metis_tac[is_unconditional_list_thm])
 
 val exh_to_exists_match = Q.prove (
 `!exh ps. exhaustive_match exh ps ⇒ !s v. exists_match exh s ps v`,
- rw [exhaustive_match_def, exists_match_def] >>
- every_case_tac >>
- fs [get_tags_def, pmatch_i2_def]
- >- (cases_on `v` >>
-     rw [pmatch_i2_def] >>
-     cases_on `l` >>
-     fs [lit_same_type_def])
- >- (cases_on `v` >>
-     rw [pmatch_i2_def] >>
-     PairCases_on `p` >>
-     Cases_on `p1` >>
-     fs [pmatch_i2_def] >>
-     rw[] >>
-     metis_tac[pmatch_list_i2_all_vars_not_No_match])
- >- (cases_on `v` >>
-     rw [pmatch_i2_def] >>
-     PairCases_on `p` >>
-     Cases_on `p1` >>
-     fs [pmatch_i2_def] >>
-     Cases_on `x` >>
-     fs [pmatch_i2_def] >>
-     pop_assum (assume_tac o SYM) >>simp[])
- >- (cases_on `v` >>
-     rw [pmatch_i2_def] >>
-     every_case_tac)
- >- (every_case_tac >>
-     fs [] >> rw[] >>
-     Q.PAT_ABBREV_TAC`pp1 = Pcon_i2 X l` >>
-     Q.PAT_ABBREV_TAC`pp2 = Pcon_i2 X Y` >>
-     qmatch_assum_rename_tac`Abbrev(pp2 = Pcon_i2 (a,b) c)`[] >>
-     srw_tac[boolSimps.DNF_ss][]>>
-     simp[Abbr`pp1`,pmatch_i2_Pcon_No_match]>>
-     simp[METIS_PROVE[]``a \/ b <=> ~a ==> b``] >>
-     strip_tac >> rpt BasicProvers.VAR_EQ_TAC >>
-     Cases_on`b`>>simp[Abbr`pp2`,pmatch_i2_def]>>
-     Cases_on`x`>>simp[pmatch_i2_def]>>
-     rw[] >- metis_tac[pmatch_list_i2_all_vars_not_No_match] >>
-     imp_res_tac get_tags_lemma >>
-     first_x_assum(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >>
-     fs[] >> rw[] >>
-     HINT_EXISTS_TAC >>
-     Cases_on`x`>>simp[pmatch_i2_Pcon_No_match,pmatch_i2_def] >>
-     qmatch_assum_rename_tac`MEM (Pcon_i2 (cv, SOME z) ps) ws`[] >>
-     Cases_on`z`>>simp[pmatch_i2_def] >> rw[] >>
-     metis_tac[pmatch_list_i2_all_vars_not_No_match]))
+  rw [exhaustive_match_def, exists_match_def] >- (
+    fs[EXISTS_MEM] >>
+    metis_tac[is_unconditional_thm] ) >>
+  every_case_tac >>
+  fs [get_tags_def, pmatch_i2_def] >> rw[] >>
+  imp_res_tac get_tags_lemma >>
+  Q.PAT_ABBREV_TAC`pp1 = Pcon_i2 X l` >>
+  Cases_on`v`>>
+  TRY(qexists_tac`pp1`>>simp[pmatch_i2_def,Abbr`pp1`]>>NO_TAC) >>
+  srw_tac[boolSimps.DNF_ss][]>>
+  simp[Abbr`pp1`,pmatch_i2_Pcon_No_match]>>
+  simp[METIS_PROVE[]``a \/ b <=> ~a ==> b``] >>
+  strip_tac >> rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
+  res_tac >> HINT_EXISTS_TAC >> simp[] >>
+  Cases_on`x'`>>simp[pmatch_i2_def] >>
+  Cases_on`x''`>>simp[pmatch_i2_def] >>
+  rw[] >>
+  metis_tac[is_unconditional_list_thm])
 
 val vs_to_exh_LIST_REL = prove(
   ``∀vs vs' exh. vs_to_exh exh vs vs' = LIST_REL (v_to_exh exh) vs vs'``,

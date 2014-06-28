@@ -1,17 +1,14 @@
-Files which bootstrap the verified compiler.
-NB, may require 16GB of RAM to complete.
+compile_repl_decsScript.sml
+    Evaluate the compiler on the REPL module.
+    Takes around 30 minutes to complete.
+    Also, a few other bits of evaluation:
+      - the compiler on the bit of code required to call repl_step,
+      - prove that the above has no labels, and
+      - the free variables of the REPL module.
 
-compileReplDecsScript.sml
-    evaluate the compiler on repl_decs
-compileCallReplStepDecScript.sml
-    evaluate the compiler on the call of call_repl_step
-
-labels_computeLib.sml, labels_computeTheory.sml
-    utilities for calculating the offsets of labels in the bootstrapped code
-
-compileReplDecsCheat.sml
-    version of compileReplDecsScript.sml that simply asserts (with cheated
-    proof) the result of the bootstrap rather than calculating it anew
-
-toggle-cheat.sh
-    script to toggle whether to use the cheated bootstrap or not
+bootstrap_lemmasScript.sml
+    Define the invariant on the bytecode state that includes the bootstrapped
+    compiler. Prove that this invariant holds after jumping to the code to call
+    repl_step with a new value in the input reference. Also prove that the code
+    will run and leave the value of repl_step applied to the input in the
+    output reference and the invariant will hold again.

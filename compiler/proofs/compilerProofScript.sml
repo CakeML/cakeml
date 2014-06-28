@@ -1329,7 +1329,6 @@ val to_i1_invariant_change_clock = store_thm("to_i1_invariant_change_clock",
   rw[Once s_to_i1_cases] >>
   metis_tac[pair_CASES,PAIR_EQ,SND,FST])
 
-(* TODO: move *)
 val to_i2_invariant_change_clock = store_thm("to_i2_invariant_change_clock",
   ``to_i2_invariant mods tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ∧
     SND s' = SND s ∧ SND s_i2' = SND s_i2 ∧ FST s' = FST s_i2'
@@ -1339,6 +1338,20 @@ val to_i2_invariant_change_clock = store_thm("to_i2_invariant_change_clock",
   rw[Once s_to_i2_cases] >>
   rw[Once s_to_i2_cases] >>
   metis_tac[pair_CASES,PAIR_EQ,SND,FST])
+
+val to_i1_invariant_change_store = store_thm("to_i1_invariant_change_store",
+  ``to_i1_invariant genv mods tops menv env s s_i1 mod_names ∧
+    s_to_i1 genv s' s_i1'
+    ⇒
+    to_i1_invariant genv mods tops menv env s' s_i1' mod_names``,
+  simp[to_i1_invariant_def])
+
+val to_i2_invariant_change_store = store_thm("to_i2_invariant_change_store",
+  ``to_i2_invariant mods tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ∧
+    s_to_i2 gtagenv s' s_i2'
+    ⇒
+    to_i2_invariant mods tids envC exh tagenv_st gtagenv s' s_i2' genv genv_i2``,
+  simp[to_i2_invariant_def] >> metis_tac[])
 
 val env_rs_change_clock = store_thm("env_rs_change_clock",
    ``∀env stm grd rs bs stm' ck bs' new_clock.
@@ -1374,11 +1387,16 @@ val env_rs_change_clock = store_thm("env_rs_change_clock",
 
 (*
 val env_rs_change_store = store_thm("env_rs_change_store",
-  ``∀env cs rs rd bs rd' cs' Cs' bs' ck' rf'.
-    env_rs env cs rs rd bs ∧
-    (IS_SOME ck' ⇒ ck' = SOME (FST cs')) ∧
-    bs' = bs with <| refs := rf'; clock := ck'|> ∧
-    LENGTH (SND cs) ≤ LENGTH (SND cs') ∧
+  ``∀env stm grd rs bs stm' grd' bs' rf'.
+    env_rs env stm grd rs bs ∧
+    bs' = bs with <| refs := rf' |> ∧
+    FST grd' = FST grd ∧
+    FST (SND grd') = FST (SND grd) ∧
+    SND stm' = SND stm ∧
+    s_to_i1 (FST grd) (FST stm') cs1 ∧
+    s_to_i2 (FST (SND grd)) cs1 cs2 ∧
+    LIST_REL (exh_Cv O v_to_exh rs.exh) s2 Cs ∧
+
     s_refs rd' (FST cs',Cs') bs' ∧
     LIST_REL syneq (vs_to_Cvs (MAP FST o_f rs.rmenv) (cmap rs.contab) (SND cs')) Cs' ∧
     DRESTRICT bs.refs (COMPL (set rd.sm)) ⊑ DRESTRICT rf' (COMPL (set rd'.sm)) ∧
@@ -1386,7 +1404,7 @@ val env_rs_change_store = store_thm("env_rs_change_store",
     EVERY all_vlabs Cs' ∧
     (∀cd. cd ∈ vlabs_list Cs' ⇒ code_env_cd (MAP SND o_f rs.rmenv) bs.code cd)
     ⇒
-    env_rs env cs' rs rd' bs'``,
+    env_rs env stm' grd' rs bs'``,
   rw[] >>
   fs[env_rs_def,LET_THM] >> rfs[] >> fs[] >>
   rpt HINT_EXISTS_TAC >> simp[] >>

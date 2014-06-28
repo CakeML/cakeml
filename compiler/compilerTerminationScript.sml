@@ -290,6 +290,13 @@ val (do_eq_i2_def, do_eq_i2_ind) =
                                         | INR (xs,ys) => v_i23_size xs)`);
 val _ = register "do_eq_i2" (do_eq_i2_def,do_eq_i2_ind);
 
+val (is_unconditional_def, is_unconditional_ind) =
+  tprove_no_defn((is_unconditional_def, is_unconditional_ind),
+  WF_REL_TAC`measure pat_i2_size` >> gen_tac >>
+  Induct >> simp[pat_i2_size_def] >>
+  rw[] >> res_tac >> simp[pat_i2_size_def])
+val _ = register "is_unconditional" (is_unconditional_def, is_unconditional_ind);
+
 val (do_eq_exh_def, do_eq_exh_ind) =
   tprove_no_defn ((do_eq_exh_def, do_eq_exh_ind),
   WF_REL_TAC `inv_image $< (\x. case x of INL (x,y) => v_exh_size x

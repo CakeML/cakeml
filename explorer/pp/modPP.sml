@@ -6,14 +6,14 @@ fun modoptionString t=
   if optionSyntax.is_some t then toString (rand t) else "";
 
 (*i1_ Prompts opt => declist*)
-fun i1_promptPrint sys d t Top str brk blk=
+fun i1_promptPrint sys d t pg str brk blk=
   let
     val (t,ls) = dest_comb t
     val (_,opt) = dest_comb t
     val opt = modoptionString opt
     fun printAll [] = str""
-    |   printAll [x] = sys (Top,Top,Top) d x
-    |   printAll (x::xs) = sys (Top,Top,Top) (d-1) x >>printAll xs
+    |   printAll [x] = sys (pg,pg,pg) d x
+    |   printAll (x::xs) = sys (pg,pg,pg) (d-1) x >>printAll xs
   in
     add_newline>>blk CONSISTENT 2 (
     str (if opt="" then "prompt" else opt) >> str" {">>printAll (#1(listSyntax.dest_list ls)))>>add_newline>>str "}"
@@ -21,30 +21,30 @@ fun i1_promptPrint sys d t Top str brk blk=
 
 val _=temp_add_user_printer("i1_promptprint",``Prompt_i1 opt x``,genPrint i1_promptPrint);
 
-(*i1_Top level exceptions*)
+(*i1_pg level exceptions*)
 (*DExn with module names TODO*)
 (*Unwrap the term*)
-fun i1_dexnPrint sys d t Top str brk blk =
+fun i1_dexnPrint sys d t pg str brk blk =
   let val opt = (t|> rator|>rator|>rand)
   in
-    (dexnPrint (modoptionString opt) sys d ``Dexn ^(rand (rator t)) ^(rand t)`` Top str brk blk)
+    (dexnPrint (modoptionString opt) sys d ``Dexn ^(rand (rator t)) ^(rand t)`` pg str brk blk)
   end;
 
 val _=temp_add_user_printer ("i1_dexnprint", ``Dexn_i1 opt x y``,genPrint i1_dexnPrint);
 
-(*i1_Top level datatypes list(list tvarN *typeN * list ... ) *)
+(*i1_pg level datatypes list(list tvarN *typeN * list ... ) *)
 
-fun i1_dtypePrint sys d t Top str brk blk =
+fun i1_dtypePrint sys d t pg str brk blk =
   let val opt = (t |> rator)|> rand
   in
-     (dtypePrint (modoptionString opt) sys d t Top str brk blk)
+     (dtypePrint (modoptionString opt) sys d t pg str brk blk)
   end;
 
 val _=temp_add_user_printer ("i1_dtypeprint", ``Dtype_i1 opt x``,genPrint i1_dtypePrint);
 
 (*val _=temp_add_user_printer ("i1_dtypesomeprint", ``Dtype_i1 SOME *)
 
-(*i1_Top level letrec list varN*varN*exp -- Only strip once *)
+(*i1_pg level letrec list varN*varN*exp -- Only strip once *)
 val _=temp_add_user_printer ("i1_dletrecprint", ``Dletrec_i1 x``, genPrint dletrecPrint);
 
 (*i1_Nested mutually recursive letrec*)
@@ -54,13 +54,13 @@ val _=temp_add_user_printer ("i1_letrecprint", ``Letrec_i1 x y``,genPrint letrec
 (*i1_Lambdas varN*expr *)
 val _=temp_add_user_printer ("i1_lambdaprint", ``Fun_i1 x y``,genPrint lambdaPrint);
 
-(*i1_ Toplevel Dlet nat*expr *)
-fun i1_dletvalPrint sys d t Top str brk blk=
+(*i1_ pglevel Dlet nat*expr *)
+fun i1_dletvalPrint sys d t pg str brk blk=
   let
     val (_,[l,r]) = strip_comb t;
   in
-    add_newline>> blk CONSISTENT 2 (sys (Top,Top,Top) (d-1) l >>str " var_binding">>add_newline 
-    >>sys (Top,Top,Top) (d-1) r)
+    add_newline>> blk CONSISTENT 2 (sys (pg,pg,pg) (d-1) l >>str " var_binding">>add_newline 
+    >>sys (pg,pg,pg) (d-1) r)
   end;
 
 val _=temp_add_user_printer ("i1_dletvalprint", ``Dlet_i1 x y``,genPrint i1_dletvalPrint);
@@ -86,16 +86,25 @@ val _=temp_add_user_printer ("i1_litprint", ``Lit_i1 x``, genPrint plitPrint);
 val _=temp_add_user_printer ("i1_unitprint", ``Lit_i1 Unit``,genPrint unitPrint);
 
 (*i1 local Var name, no more long names*)
-fun i1_varlocalPrint sys d t Top str brk blk =
+fun i1_varlocalPrint sys d t pg str brk blk =
     str (toString (strip t));
 
 val _=temp_add_user_printer ("i1_varlocalprint", ``Var_local_i1 x``,genPrint i1_varlocalPrint);
 
 (*i1 global Var name*)
-fun i1_varglobalPrint sys d t Top str brk blk =
-    str"g_">>sys (Top,Top,Top) d (strip t);
+fun i1_varglobalPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
+  let
+    open term_pp_types PPBackEnd
+    val (str,brk,blk,sty) = (#add_string ppfns, #add_break ppfns,#ublock ppfns,#ustyle ppfns);
+  in
+    sty [FG DarkBlue] (str"g">>sys (Top,Top,Top) d (strip t))
+  end handle HOL_ERR _ => raise term_pp_types.UserPP_Failed;
 
-val _=temp_add_user_printer ("i1_varglobalprint", ``Var_global_i1 n``,genPrint i1_varglobalPrint);
+(*
+fun i1_varglobalPrint sys d t pg str brk blk =
+    str"g_">>sys (pg,pg,pg) d (strip t);*)
+
+val _=temp_add_user_printer ("i1_varglobalprint", ``Var_global_i1 n``,i1_varglobalPrint);
 
 (*i1_Matching*)
 val _=temp_add_user_printer ("i1_matprint", ``Mat_i1 x y``,genPrint matPrint);
@@ -127,11 +136,11 @@ val _=temp_add_user_printer ("i1_addappprint", ``App_i1 Opapp (Var_global_i1 13)
  
 val _=temp_add_user_printer ("oppappprint", ``App Opapp f x``, genPrint oppappPrint);
 
-fun prefixappPrint uop sys d t Top str brk blk =
+fun prefixappPrint uop sys d t pg str brk blk =
   let
     val (_,x) = dest_comb t
   in
-    str "(" >> str uop >>str " " >> sys (Top,Top,Top) d x >> str ")"
+    str "(" >> str uop >>str " " >> sys (pg,pg,pg) d x >> str ")"
   end;
 
 (*i1 uops*)
@@ -139,9 +148,8 @@ val _=temp_add_user_printer ("i1_refappprint", ``App_i1 Opapp (Var_global_i1 0) 
 val _=temp_add_user_printer ("i1_derefappprint", ``App_i1 Opapp (Var_global_i1 1) x``,genPrint (prefixappPrint "!"));
 val _=temp_add_user_printer ("i1_negappprint", ``App_i1 Opapp (Var_global_i1 2) x``,genPrint (prefixappPrint "~"));
 
-(*i1 list form-- broken
-temp_add_user_printer("i1listprint",``x:prompt_i1 store``,genPrint astlistPrint);
-temp_remove_user_printer("i1listprint");*)
+(*i1 list form *)
+val _=temp_add_user_printer("i1listprint",``x:prompt_i1 store``,genPrint astlistPrint);
 
 val _=temp_add_user_printer("i1_truelitprint",``Lit_i1 (Bool T)``,genPrint (boolPrint "true"));
 val _=temp_add_user_printer("i1_falselitprint",``Lit_i1 (Bool F)``,genPrint (boolPrint "false"));

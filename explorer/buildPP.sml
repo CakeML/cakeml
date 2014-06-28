@@ -28,7 +28,8 @@ fun io() =
 			       then (TextIO.inputN(TextIO.stdIn,int_from_str_opt(cgi_content_length,0)))
 			       else "";
       (*testing*)
-      (*val url_encoded_string = "asdasf=asdasasdf&asdfasd=asdasdasd&src=val+x+%3D5%2B5%3B%0D%0A&bla=bla&asdf=asf"; *)
+      (*val url_encoded_string = 
+          "asdasf=asdasasdf&asdfasd=asdasdasd&src=val+x+%3D5%2B5%3B%0D%0A&bla=bla&asdf=asf";*) 
       val sizeofStr = size url_encoded_string
       val the_fields =
 	Substring.tokens(fn c => c = #"&")(Substring.substring (url_encoded_string,0,size url_encoded_string ));
@@ -72,18 +73,24 @@ fun io() =
 
       val src = case cgi_field_string("src") of NONE => "" | SOME(src) => src;
 
+      (*testing*)
+      (*val src = "structure Nat = struct val zero = 0 fun succ x = x+1 fun iter f n = if n = 0 then (fn x=> x) else f o (iter f n) end; (Nat.iter Nat.succ 5) Nat.zero;"*)
+
       val out = if src = "" then Nothing
                 else Success(allIntermediates (stringSyntax.fromMLstring src))
                 handle compilationError e => Error e
                        | _ => Error "Unknown error"
 
   in
-    page {title = "CakeML PP",
+    page {title = "CakeML Compiler Explorer",
          css = ["css/explorer.css",
                 "//code.jquery.com/ui/1.10.4/themes/smoothness/jquery-ui.css"],
          javascript = ["//code.jquery.com/jquery-2.1.1.min.js"
                       ,"//code.jquery.com/ui/1.10.4/jquery-ui.min.js"],
          body = ([], [
+         (*Introductory header*)
+         H(2,[],"CakeML Compiler Explorer"),
+         P (Sequence [String "Write", A([("href","..")],String"CakeML"), String"code and see how it transformed by each phase of compilation."]),
          (*Form to submit code*)
          FORM ([("method","POST")],
            [
@@ -124,7 +131,7 @@ fun io() =
                end)
            ]), BR ,
 
-           (*Globals,Ctor and Module table*)
+           (*Globals,Ctors Module and annotations table*)
            DIV ([("class","tabs")],
              Sequence
              [
@@ -135,7 +142,6 @@ fun io() =
                    LI (A ([("href","#modules"),("class","m")], String (quote_to_string `Modules`))),
                    LI (A ([("href","#constructors"),("class","m")], String (quote_to_string `Constructors`))),
                    LI (A ([("href","#annotations"),("class","m")], String (quote_to_string `Annotations`)))
-                   
                  ])),
                DIV( [],
                  Sequence
