@@ -54,35 +54,34 @@ type v_exh =
   | Recclosure_exh of env varN v_exh * list (varN * varN * exp_exh) * varN
   | Loc_exh of nat
 
-val is_var : pat_i2 -> bool
-let is_var p =
-  match p with
-    | Pvar_i2 _ -> true
-    | _ -> false
-  end
+val is_unconditional : pat_i2 -> bool
+let rec
+  is_unconditional p =
+    match p with
+      | Pvar_i2 _ -> true
+      | (Plit_i2 Unit) -> true
+      | (Pcon_i2 (_,Nothing) ps) -> List.all is_unconditional ps
+      | (Pref_i2 p) -> is_unconditional p
+      | _ -> false
+    end
 
 val get_tags : list pat_i2 -> nat_set -> maybe(nat_set)
 let rec get_tags [] acc = Just acc
 and get_tags (p::ps) acc =
   match p with
     | Pcon_i2 (tag,t) ps' ->
-        if List.all is_var ps' then get_tags ps (nat_set_insert acc tag)
+        if List.all is_unconditional ps' then get_tags ps (nat_set_insert acc tag)
         else Nothing
     | _ -> Nothing
   end
-
 declare termination_argument get_tags = automatic
 
 val exhaustive_match : exh_ctors_env -> list pat_i2 -> bool
 let exhaustive_match exh ps =
+  List.any is_unconditional ps ||
   match ps with
-    | [] -> false
-    | [Pvar_i2 _] -> true
-    | [Pref_i2 (Pvar_i2 _)] -> true
-    | [Plit_i2 Unit] -> true
-    | [Pcon_i2 (tag,Nothing) ps] -> List.all is_var ps
     | Pcon_i2 (tag,Just (TypeId t)) ps'::ps ->
-        if List.all is_var ps' then
+        (List.all is_unconditional ps' &&
           match get_tags ps nat_set_empty with
             | Nothing -> false
             | Just tags ->
@@ -91,12 +90,9 @@ let exhaustive_match exh ps =
                   | Just tags' ->
                     (nat_set_insert tags tag) = tags'
                 end
-          end
-        else
-          false
+          end)
     | _ -> false
   end
-
 
 val add_default : bool -> bool -> list (pat_i2 * exp_i2) -> list (pat_i2 * exp_i2)
 let add_default is_handle is_exh pes =
