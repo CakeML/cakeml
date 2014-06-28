@@ -885,75 +885,71 @@ val inv_pres_tac =
   qexists_tac`bs2 with clock := NONE` >>
   simp[bc_fetch_with_clock]
 
-  (*
-val type_string_word8_helper = Q.prove (
-`!x v e0 e1 envE tenvE.
-  LIST_REL (λ(x,v1) (y,n,v2). x = y ∧ type_v n ctMap' tenvS' v1 v2) envE (convert_env2 tenvE) ∧
-  MEM (e0,e1) envE ∧
-  inf_tenv_to_string_map tenvE ' e0 = x ∧
-  MEM e0 (MAP FST tenvE) ∧
-  (FEMPTY |++ envE) ' e0 = e1 ∧
-  MAP FST envE = MAP FST tenvE
+val type_string_word8 = Q.prove (
+`∀envE tenvE n m envE' tenvE' ctMap tenvS ctMap' tenvS'.
+  n < LENGTH tenvE ∧
+  (?m. check_t m ∅ (SND (SND (EL n tenvE)))) ∧
+  type_env ctMap tenvS envE' tenvE' ∧
+  type_env ctMap' tenvS' (envE++envE') (bind_var_list2 (convert_env2 tenvE) tenvE')
   ⇒
-  (x = "<word8>" ⇔ ∃w. e1 = Litv (Word8 w))`,
-
- induct_on `envE` >>
+  (SND (SND (EL n tenvE)) = Infer_Tapp [] TC_word8 ⇔ ∃w. SND (EL n envE) = Litv (Word8 w))`,
  rw [] >>
- cases_on `tenvE` >>
- rw [] >>
+ imp_res_tac type_env_length >>
+ imp_res_tac type_env_list_rel_append >>
+ fs [LIST_REL_EL_EQN, convert_env2_def] >>
+ `n < LENGTH envE` by metis_tac [] >>
+ res_tac >>
  fs [] >>
- PairCases_on `h'` >>
- fs [inf_tenv_to_string_map_def, convert_env2_def] >>
- rw [] >>
- PairCases_on `h` >>
+ `?x v1. EL n envE = (x,v1)` by metis_tac [pair_CASES] >>
  fs [] >>
+ `?x' n' t'. EL n (MAP (λ(x,tvs,t). (x,tvs,convert_t t)) tenvE) = (x',n',t')` by metis_tac [pair_CASES] >>
+ fs [] >>
+ rw [] >>
+ pop_assum mp_tac >>
+ rw [EL_MAP] >>
+ `?x' n' t'. EL n tenvE = (x',n',t')` by metis_tac [pair_CASES] >>
+ fs [] >>
+ rw [] >>
  eq_tac >>
  rw [] >>
- qpat_assum `type_v x0 x1 x2 x3 x4` (mp_tac o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
- rw [] >>
-
-
- cases_on `h'2` >>
  fs [convert_t_def] >>
- rw [] >>
- fs [inf_type_to_string_def, tc_to_string_def] >>
- TRY (cases_on `l` >> 
-      fs [inf_type_to_string_def, tc_to_string_def]) >>
- TRY (cases_on `tn` >> 
-      fs [inf_type_to_string_def, tc_to_string_def, tid_exn_to_tc_def]) >>
- 
+ imp_res_tac (SIMP_RULE (bool_ss) [astTheory.Tword8_def] canonical_values_thm)
+ >- metis_tac [] >>
+ `convert_t t'' = Tword8` by fs [Once type_v_cases] >>
+ cases_on `t''` >>
+ fs [convert_t_def, check_t_def]);
 
-
- >- metis_tac []
-
-val type_string_word8 = Q.prove (
-`∀envE tenvE.
- (*ALL_DISTINCT (MAP FST envE) ∧*)
- type_env ctMap tenvS envE' tenvE' ∧
- type_env ctMap' tenvS' (envE++envE') (bind_var_list2 (convert_env2 tenvE) tenvE')
- ⇒
- EVERY
-   (λ(x,v).
-      (case FLOOKUP (inf_tenv_to_string_map tenvE) x of
-         NONE => "<unknown>"
-       | SOME t => t) = "<word8>" ⇔ ∃w. v = Litv (Word8 w)) envE`,
-
-       cheat);
-
- rw [] >>
- imp_res_tac type_env_subtract >>
- fs [type_env_list_rel] >>
- rw [EVERY_MEM] >>
- PairCases_on `e` >>
- fs [] >>
- every_case_tac >>
- fs [inf_tenv_to_string_map_def] >>
- imp_res_tac miscTheory.mem_to_flookup >>
- `MAP FST envE = MAP FST tenvE` by cheat >>
- fs [] >>
- fs [miscTheory.flookup_thm, inf_tenv_to_string_map_dom, FDOM_FUPDATE_LIST] >>
- 
- *)
+val word8_help_tac = 
+  reverse BasicProvers.CASE_TAC >- (
+        fs[update_type_sound_inv_def,type_sound_invariants_def] >>
+        Cases_on`e`>>fs[]>>
+        fs [Once type_v_cases]) >>
+      BasicProvers.CASE_TAC >>
+      fs[update_type_sound_inv_def,type_sound_invariants_def] >>
+      imp_res_tac type_env_list_rel_append >>
+      fs[convert_env2_def] >>
+      imp_res_tac type_env_length >> fs[] >>
+      pop_assum kall_tac >>
+      fs[LIST_REL_EL_EQN] >> rw[] >>
+      first_x_assum(qspec_then`n`mp_tac) >>
+      simp[EL_MAP,UNCURRY] >> strip_tac >>
+      Q.ABBREV_TAC `t = EL n new_infer_env` >>
+      `check_t (FST (SND t)) {} (SND (SND t))` 
+                by (fs [infer_sound_invariant_def, check_env_def] >>
+                    `MEM t new_infer_env` by metis_tac [EL_MEM] >>
+                    fs [EVERY_MEM] >>
+                    res_tac >>
+                    PairCases_on `t` >>
+                    fs []) >>
+      conj_tac >- ( 
+        PairCases_on `t` >>
+        fs [] >>
+        cases_on `t2` >>
+        fs [check_t_def]) >>
+      conj_tac >- (
+        match_mp_tac (CONJUNCT1 type_to_string_lem) >>
+        metis_tac [] ) >>   
+      metis_tac [convert_env2_def, type_string_word8];
 
 val replCorrect'_lem = Q.prove (
 `!repl_state error_mask bc_state repl_fun_state.
@@ -1066,30 +1062,7 @@ cases_on `bc_eval (install_code code bs)` >> fs[] >- (
     CONV_TAC(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(equal``compile_top`` o fst o strip_comb o lhs)))) >>
     first_assum(match_exists_tac o concl) >> simp[] >>
     simp[RIGHT_EXISTS_AND_THM,GSYM CONJ_ASSOC] >>
-    conj_tac >- (
-      reverse BasicProvers.CASE_TAC >- (
-        fs[update_type_sound_inv_def,type_sound_invariants_def] >>
-        Cases_on`e`>>fs[]>>
-        fs [Once type_v_cases]) >>
-      BasicProvers.CASE_TAC >>
-      fs[update_type_sound_inv_def,type_sound_invariants_def] >>
-      imp_res_tac type_env_list_rel_append >>
-      fs[convert_env2_def] >>
-      imp_res_tac type_env_length >> fs[] >>
-      pop_assum kall_tac >>
-      fs[LIST_REL_EL_EQN] >> rw[] >>
-      first_x_assum(qspec_then`n`mp_tac) >>
-      simp[EL_MAP,UNCURRY] >> strip_tac >>
-      conj_tac >- ( cheat ) >>
-      conj_tac >- (
-         match_mp_tac (CONJUNCT1 type_to_string_lem) >>
-         cheat ) >>
-      rw[EQ_IMP_THM] >>
-      rator_x_assum`type_v`mp_tac >>
-      simp[Once type_v_cases,convert_t_def,tid_exn_to_tc_def] >>
-      rw[] >- metis_tac[] >>
-      every_case_tac >> fs[] >>
-      cheat)) >>
+    conj_tac >- ( word8_help_tac ) >>
     conj_tac >- ( fs[closed_top_def] >> metis_tac [type_sound_inv_closed] ) >>
     qmatch_assum_abbrev_tac`bc_eval bs0 = NONE` >>
     map_every qexists_tac[`grd`,`bs0 with clock := SOME ck0`,`bs.code`] >>
@@ -1247,17 +1220,7 @@ strip_tac >>
       fs[] >>
       first_assum(match_exists_tac o concl) >> simp[] >>
       simp[bc_state_component_equality] ) >>
-    conj_tac >- metis_tac[new_top_vs_inf_tenv_to_string_map_lem] >>
-    conj_tac >- (
-      reverse BasicProvers.CASE_TAC >- (
-        fs[update_type_sound_inv_def,type_sound_invariants_def] >>
-        Cases_on`e`>>fs[]>>
-        fs [Once type_v_cases]) >>
-      BasicProvers.CASE_TAC >>
-      rw[printingTheory.good_type_string_env_def] >>
-      simp[compilerTheory.tystr_def] >>
-      fs[update_type_sound_inv_def,type_sound_invariants_def] >>
-      metis_tac [type_string_word8] ) >>
+    conj_tac >- ( word8_help_tac ) >>
     conj_tac >- ( fs[closed_top_def] >> metis_tac [type_sound_inv_closed] ) >>
     simp[install_code_def] ) >>
   strip_tac >>
@@ -1276,7 +1239,14 @@ strip_tac >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(equal``type_top`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
-  reverse conj_asm1_tac >- metis_tac[print_result_not_type_error] >>
+  reverse conj_asm1_tac >- (
+    fs [] >>
+    match_mp_tac (SIMP_RULE (srw_ss()++boolSimps.DNF_ss) [AND_IMP_INTRO] print_result_not_type_error) >>
+    rw [] >>
+    fs [convert_env2_def] >>
+    PairCases_on `v` >>
+    fs [type_sound_invariants_def, update_type_sound_inv_def] >>
+    metis_tac [type_env_length, LENGTH_MAP]) >>
 
   Cases_on `r` >> fs[] >- (
     (* successful declaration *)
@@ -1284,10 +1254,12 @@ strip_tac >>
     rpt BasicProvers.VAR_EQ_TAC >>
     rpt(qpat_assum`T`kall_tac) >>
     simp[install_code_def] >>
+    (*
     reverse conj_tac >- (
       rpt (AP_THM_TAC ORELSE AP_TERM_TAC) >>
       match_mp_tac to_string_map_lem >>
       fs [infer_sound_invariant_def, check_env_def] ) >>
+      *)
     CONV_TAC(lift_conjunct_conv(equal``code_executes_ok`` o fst o strip_comb)) >>
     conj_tac >- (
       simp[code_executes_ok_def] >> disj1_tac >>
@@ -1318,10 +1290,12 @@ strip_tac >>
   reverse(Cases_on`e`>>fs[])>>
   rpt BasicProvers.VAR_EQ_TAC >>
   simp[install_code_def] >>
+  (*
   reverse conj_tac >- (
     rpt (AP_THM_TAC ORELSE AP_TERM_TAC) >>
     match_mp_tac to_string_map_lem >>
     fs [infer_sound_invariant_def, check_env_def] ) >>
+    *)
   CONV_TAC(lift_conjunct_conv(equal``code_executes_ok`` o fst o strip_comb)) >>
   conj_tac >- (
     simp[code_executes_ok_def] >> disj1_tac >>

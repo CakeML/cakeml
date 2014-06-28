@@ -50,7 +50,7 @@ val tid_exn_not = Q.prove (
  metis_tac []);
 
 (* Classifying values of basic types *)
-val canonical_values_thm = Q.prove (
+val canonical_values_thm = Q.store_thm ("canonical_values_thm",
 `∀tvs tenvC tenvS v t1 t2.
   (type_v tvs tenvC tenvS v (Tref t1) ⇒ (∃n. v = Loc n)) ∧
   (type_v tvs tenvC tenvS v Tint ⇒ (∃n. v = Litv (IntLit n))) ∧
