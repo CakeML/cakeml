@@ -40,7 +40,7 @@ declare hol target_rep function inf_type_to_string = `inf_type_to_string`
 let rec
 compile_print_vals [] _ s = s
 and
-compile_print_vals ((x,(_,t))::types) map s =
+compile_print_vals ((x,((_:nat),t))::types) map s =
   let ty = inf_type_to_string t in
   let s = emit s (List.map PrintC (toCharList (String_extra.stringConcat ["val ";x;":"; ty;" = "]))) in
   let s = emit s [Gread (fapply 0 x map)] in
