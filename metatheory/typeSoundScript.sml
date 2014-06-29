@@ -98,14 +98,14 @@ val has_lists_v_to_list = Q.prove (
  rw []);
 
 (* Classifying values of basic types *)
-val canonical_values_thm = Q.prove (
-`∀tvs ctMap tenvS v t1 t2.
-  (type_v tvs ctMap tenvS v (Tref t1) ⇒ (∃n. v = Loc n)) ∧
-  (type_v tvs ctMap tenvS v Tint ⇒ (∃n. v = Litv (IntLit n))) ∧
-  (type_v tvs ctMap tenvS v Tstring ⇒ (∃s. v = Litv (StrLit s))) ∧
-  (type_v tvs ctMap tenvS v Tbool ⇒ (∃n. v = Litv (Bool n))) ∧
-  (type_v tvs ctMap tenvS v Tunit ⇒ (∃n. v = Litv Unit)) ∧
-  (type_v tvs ctMap tenvS v (Tfn t1 t2) ⇒
+val canonical_values_thm = Q.store_thm ("canonical_values_thm",
+`∀tvs tenvC tenvS v t1 t2.
+  (type_v tvs tenvC tenvS v (Tref t1) ⇒ (∃n. v = Loc n)) ∧
+  (type_v tvs tenvC tenvS v Tint ⇒ (∃n. v = Litv (IntLit n))) ∧
+  (type_v tvs tenvC tenvS v Tstring ⇒ (∃s. v = Litv (StrLit s))) ∧
+  (type_v tvs tenvC tenvS v Tbool ⇒ (∃n. v = Litv (Bool n))) ∧
+  (type_v tvs tenvC tenvS v Tunit ⇒ (∃n. v = Litv Unit)) ∧
+  (type_v tvs tenvC tenvS v (Tfn t1 t2) ⇒
     (∃env n topt e. v = Closure env n e) ∨
     (∃env funs n. v = Recclosure env funs n)) ∧
   (type_v tvs ctMap tenvS v Tword8 ⇒ (∃n. v = Litv (Word8 n))) ∧

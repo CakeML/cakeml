@@ -55,7 +55,7 @@ val _ = Define `
 
 (compile_print_vals [] _ s = s)
 /\
-(compile_print_vals ((x,(_,t))::types) map s =  
+(compile_print_vals ((x,((_:num),t))::types) map s =  
 (let ty = (inf_type_to_string t) in
   let s = (emit s (MAP PrintC (EXPLODE (CONCAT ["val ";x;":"; ty;" = "])))) in
   let s = (emit s [Gread (fapply( 0) x map)]) in

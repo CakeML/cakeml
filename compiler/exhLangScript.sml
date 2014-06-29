@@ -71,28 +71,28 @@ val _ = Hol_datatype `
   | Vectorv_exh of v_exh list`;
 
 
-(*val is_var : pat_i2 -> bool*)
-val _ = Define `
- (is_var p =  
+(*val is_unconditional : pat_i2 -> bool*)
+ val is_unconditional_defn = Hol_defn "is_unconditional" `
+
+  (is_unconditional p =    
 ((case p of
-      Pvar_i2 _ => T
-    | _ => F
-  )))`;
+        Pvar_i2 _ => T
+      | (Plit_i2 Unit) => T
+      | (Pcon_i2 (_,NONE) ps) => EVERY is_unconditional ps
+      | (Pref_i2 p) => is_unconditional p
+      | _ => F
+    )))`;
 
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn is_unconditional_defn;
 
-(*val get_tags : list pat_i2 -> maybe (list nat)*)
+(*val get_tags : list pat_i2 -> nat_set -> maybe(nat_set)*)
  val _ = Define `
- (get_tags [] = (SOME []))
-/\ (get_tags (p::ps) =  
+ (get_tags [] acc = (SOME acc))
+/\ (get_tags (p::ps) acc =  
 ((case p of
       Pcon_i2 (tag,t) ps' =>
-        if EVERY is_var ps' then
-          (case get_tags ps of
-              NONE => NONE
-            | SOME tags => SOME (tag::tags)
-          )
-        else
-          NONE
+        if EVERY is_unconditional ps' then get_tags ps (insert tag ()  acc)
+        else NONE
     | _ => NONE
   )))`;
 
@@ -100,28 +100,21 @@ val _ = Define `
 (*val exhaustive_match : exh_ctors_env -> list pat_i2 -> bool*)
 val _ = Define `
  (exhaustive_match exh ps =  
-((case ps of
-      [] => F
-    | [Pvar_i2 _] => T
-    | [Pref_i2 (Pvar_i2 _)] => T
-    | [Plit_i2 Unit] => T
-    | [Pcon_i2 (tag,NONE) ps] => EVERY is_var ps
-    | Pcon_i2 (tag,SOME (TypeId t)) ps'::ps =>
-        if EVERY is_var ps' then
-          (case get_tags ps of
+(EXISTS is_unconditional ps \/
+  (case ps of
+      Pcon_i2 (tag,SOME (TypeId t)) ps'::ps =>
+        (EVERY is_unconditional ps' /\
+          (case get_tags ps LN of
               NONE => F
             | SOME tags =>
                 (case FLOOKUP exh t of
                     NONE => F
-                  | SOME tags' =>                    
-(FOLDL (\ s n. insert n ()  s) LN tags) = tags'
+                  | SOME tags' =>
+                    (insert tag ()  tags) = tags'
                 )
-          )
-        else
-          F
+          ))
     | _ => F
   )))`;
-
 
 
 (*val add_default : bool -> bool -> list (pat_i2 * exp_i2) -> list (pat_i2 * exp_i2)*)

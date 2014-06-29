@@ -116,7 +116,7 @@ val () = computeLib.add_thms
   ,pat_to_exh_def
   ,add_default_def
   ,exhaustive_match_def
-  ,is_var_def
+  ,is_unconditional_def
   ,get_tags_def
   ] compset
 (* patLang compiler *)

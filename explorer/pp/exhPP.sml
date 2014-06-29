@@ -2,7 +2,7 @@ structure exhPP=
 struct
 open astPP conPP modPP
 (*exh_Init_global_var special case for Uapp_exh*)
-val _=temp_add_user_printer("exh_initglobal",``Uapp_exh (Init_global_var_i2 n) x``,genPrint i2_initglobalPrint);
+val _=temp_add_user_printer("exh_initglobal",``Uapp_exh (Init_global_var_i2 n) x``,i2_initglobalPrint);
 
 (*reuse i2 extend global*)
 val _=temp_add_user_printer("exh_extendglobal",``Extend_global_exh n``,genPrint i2_extendglobalPrint);
@@ -27,8 +27,8 @@ val _=temp_add_user_printer ("exh_letvalprint", ``Let_exh (SOME x) y z``,genPrin
 val _=temp_add_user_printer ("exh_letnoneprint",``Let_exh NONE y z ``,genPrint letnonePrint);
 
 (*Prints all constructor args in a list comma separated*)
-val _=temp_add_user_printer ("exh_conprint", ``Con_exh x y``,genPrint i2_pconPrint);
-val _=temp_add_user_printer ("exh_pconprint", ``Pcon_exh x y``,genPrint i2_pconPrint);
+val _=temp_add_user_printer ("exh_conprint", ``Con_exh x y``,i2_pconPrint);
+val _=temp_add_user_printer ("exh_pconprint", ``Pcon_exh x y``,i2_pconPrint);
 
 (*exh_Literals*)
 (*exh_Pattern lit*)
@@ -39,7 +39,7 @@ val _=temp_add_user_printer ("exh_unitprint", ``Lit_exh Unit``,genPrint unitPrin
 val _=temp_add_user_printer ("exh_varlocalprint", ``Var_local_exh x``,genPrint i1_varlocalPrint);
 
 (*exh global Var name*)
-val _=temp_add_user_printer ("exh_varglobalprint", ``Var_global_exh n``,genPrint i1_varglobalPrint);
+val _=temp_add_user_printer ("exh_varglobalprint", ``Var_global_exh n``,i1_varglobalPrint);
 
 (*exh_Matching*)
 val _=temp_add_user_printer ("exh_matprint", ``Mat_exh x y``,genPrint matPrint);
