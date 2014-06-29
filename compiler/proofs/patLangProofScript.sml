@@ -472,7 +472,7 @@ val do_app_pat_correct = prove(
   rw[csg_to_pat_def,do_app_exh_def,do_app_pat_def] >>
   Cases_on`vs`>>fs[]>>Cases_on`op`>>fs[]>-(
     Cases_on`t`>>fs[optionTheory.option_case_compute,LET_THM]>-(
-      BasicProvers.EVERY_CASE_TAC>>fs>>fs[semanticPrimitivesTheory.store_alloc_def]>>rw[]>>
+      BasicProvers.EVERY_CASE_TAC>>fs[semanticPrimitivesTheory.store_alloc_def]>>rw[]>>
       fs[semanticPrimitivesTheory.store_lookup_def,IS_SOME_EXISTS,EL_MAP] >>
       imp_res_tac v_to_list_pat_correct >>
       rw [] >>
@@ -608,10 +608,16 @@ val fo_pat_correct = store_thm("fo_pat_correct",
   >- (
     rw[] >>
     PairCases_on`s2` >>
-    imp_res_tac do_app_pat_cases >> fs[do_app_pat_def] >> rw[] >>
+    imp_res_tac do_app_pat_cases >> fs[do_app_pat_def] >> rw[] >> fs[] >>
     BasicProvers.EVERY_CASE_TAC >> fs[LET_THM,UNCURRY] >> rw[] >>
     fs[semanticPrimitivesTheory.store_assign_def,semanticPrimitivesTheory.store_lookup_def] >>
-    BasicProvers.EVERY_CASE_TAC >> fs[LET_THM,UNCURRY] >> rw[]))
+    BasicProvers.EVERY_CASE_TAC >> fs[LET_THM,UNCURRY] >> rw[] >>
+    res_tac >> fs[] >>
+    TRY (
+      fs[EVERY_MEM,MEM_EL,PULL_EXISTS] >>
+      first_x_assum(match_mp_tac) >>
+      simp[] >> NO_TAC) >>
+    cheat (* v_to_list_pat no_closures *)))
 
 val do_eq_no_closures_pat = store_thm("do_eq_no_closures_pat",
   ``(∀v1 v2. no_closures_pat v1 ∧ no_closures_pat v2 ⇒ do_eq_pat v1 v2 ≠ Eq_closure) ∧
