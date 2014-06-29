@@ -42,7 +42,9 @@ val x64_code_INTRO = prove(
   ``(x64_code_rev n xs [] = ys) = (x64_code n xs = REVERSE ys)``,
   SRW_TAC [] [x64_code_rev_thm]);
 
-val _ = computeLib.add_funs [x64_code_rev_eval,x64_code_rev_thm];
+val _ = computeLib.add_persistent_funs
+          ["x64_code_rev_eval",
+           "x64_code_rev_thm"];
 
 (*
 

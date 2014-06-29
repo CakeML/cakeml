@@ -675,6 +675,7 @@ val COMPILER_RUN_INV_repl_step = store_thm("COMPILER_RUN_INV_repl_step",
          decLangTheory.decs_to_i3_def,
          compilerTerminationTheory.exp_to_exh_def,
          astTheory.pat_bindings_def,
+         compilerTerminationTheory.is_unconditional_def,
          UNCURRY] >>
     rpt gen_tac >>
     BasicProvers.CASE_TAC >>

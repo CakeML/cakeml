@@ -2172,6 +2172,9 @@ fun rm_fix res = let
   in tm2 end
 
 val MAP_pattern = ``MAP (f:'a->'b)``
+val FILTER_pattern = ``FILTER (f:'a->bool)``
+val EVERY_pattern = ``EVERY (f:'a->bool)``
+val EXISTS_pattern = ``EXISTS (f:'a->bool)``
 val is_precond = can (match_term ``PRECONDITION b``)
 
 val IF_TAKEN = prove(
@@ -2345,9 +2348,13 @@ fun hol2deep tm =
     val result = MATCH_MP Eval_Let (CONJ th1 th2)
     in check_inv "let" tm result end else
   (* special pattern *) let
-    val _ = match_term MAP_pattern tm
+    fun pat_match pat tm = (match_term pat tm; rator pat)
+    val r = pat_match MAP_pattern tm handle HOL_ERR _ =>
+            pat_match EVERY_pattern tm handle HOL_ERR _ =>
+         (* pat_match EXISTS_pattern tm handle HOL_ERR _ =>
+            pat_match FILTER_pattern tm handle HOL_ERR _ => *) fail()
     val (m,f) = dest_comb tm
-    val th_m = hol2deep ``MAP:('a->'b) -> 'a list -> 'b list``
+    val th_m = hol2deep r
     val (v,x) = dest_abs f
     val th_f = hol2deep x
     val th_f = apply_Eval_Fun v th_f true
@@ -2358,11 +2365,11 @@ fun hol2deep tm =
       EVAL ``LIST_TYPE (a:('a -> v -> bool)) [] v``,
       EVAL ``LIST_TYPE (a:('a -> v -> bool)) (x::xs) v``]
     val LIST_TYPE_And = prove(
-     ``LIST_TYPE (And a P) = And (LIST_TYPE a) (EVERY (P:'a->bool))``,
-     SIMP_TAC std_ss [FUN_EQ_THM,And_def] \\ Induct
-     \\ FULL_SIMP_TAC std_ss [MEM,list_type_def]
-     \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
-     \\ FULL_SIMP_TAC (srw_ss()) [And_def])
+      ``LIST_TYPE (And a P) = And (LIST_TYPE a) (EVERY (P:'a->bool))``,
+      SIMP_TAC std_ss [FUN_EQ_THM,And_def] \\ Induct
+      \\ FULL_SIMP_TAC std_ss [MEM,list_type_def]
+      \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
+      \\ FULL_SIMP_TAC (srw_ss()) [And_def])
     val thi = RW [LIST_TYPE_And] thi
     val EVERY_MEM_CONTAINER = prove(
       ``!P l. EVERY P l <=> !e. CONTAINER (MEM e l) ==> P (e:'a)``,
