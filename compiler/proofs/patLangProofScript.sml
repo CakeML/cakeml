@@ -585,6 +585,19 @@ val do_app_pat_cases = store_thm("do_app_pat_cases",
   PairCases_on`s`>>rw[do_app_pat_def] >>
   BasicProvers.EVERY_CASE_TAC >> fs[]);
 
+val v_to_list_no_closures = Q.prove (
+`!v vs.
+  v_to_list_pat v = SOME vs ∧
+  no_closures_pat v
+  ⇒
+  EVERY no_closures_pat vs`,
+ ho_match_mp_tac v_to_list_pat_ind >>
+ rw [v_to_list_pat_def] >>
+ rw [] >>
+ BasicProvers.EVERY_CASE_TAC >>
+ fs [v_to_pat_def, v_to_list_pat_def] >>
+ rw []);
+
 val fo_pat_correct = store_thm("fo_pat_correct",
   ``(∀e. fo_pat e ⇒
        ∀ck env s s' v.
@@ -617,7 +630,7 @@ val fo_pat_correct = store_thm("fo_pat_correct",
       fs[EVERY_MEM,MEM_EL,PULL_EXISTS] >>
       first_x_assum(match_mp_tac) >>
       simp[] >> NO_TAC) >>
-    cheat (* v_to_list_pat no_closures *)))
+    metis_tac [v_to_list_no_closures]));
 
 val do_eq_no_closures_pat = store_thm("do_eq_no_closures_pat",
   ``(∀v1 v2. no_closures_pat v1 ∧ no_closures_pat v2 ⇒ do_eq_pat v1 v2 ≠ Eq_closure) ∧
@@ -668,8 +681,10 @@ val pure_pat_correct = store_thm("pure_pat_correct",
       disj2_tac >>
       first_assum(match_exists_tac o concl) >> simp[] >>
       PairCases_on`x`>>PairCases_on`s` >>
+      cheat
+      (*
       imp_res_tac do_app_pat_cases >> fs[do_app_pat_def] >> rw[] >>
-      BasicProvers.EVERY_CASE_TAC >> fs[pure_op_def,LET_THM] >> rw[]) >>
+      BasicProvers.EVERY_CASE_TAC >> fs[pure_op_def,LET_THM] >> rw[]*)) >>
     disj2_tac >>
     simp[Once evaluate_pat_cases] )
   >- (
@@ -1358,7 +1373,10 @@ val (v_pat_rules,v_pat_ind,v_pat_cases) = Hol_reln`
               (bindn_pat (SUC (LENGTH funs1)) (env_pat v_pat env1 env2)))
             funs1 funs2
    ⇒ v_pat (Recclosure_pat env1 funs1 n) (Recclosure_pat env2 funs2 n)) ∧
-  (v_pat (Loc_pat n) (Loc_pat n))`
+  (v_pat (Loc_pat n) (Loc_pat n)) ∧
+  (LIST_REL v_pat vs1 vs2
+   ⇒ v_pat (Vectorv_pat vs1) (Vectorv_pat vs2))`;
+
 
 val v_pat_lit = store_thm("v_pat_lit",
   ``(v_pat (Litv_pat l) v2 ⇔ (v2 = Litv_pat l)) ∧
@@ -1415,24 +1433,33 @@ val v_pat_trans = store_thm("v_pat_trans",
       rw[] >> fsrw_tac[ARITH_ss][] >> rfs[] ) >>
     match_mp_tac exp_pat_trans >>
     metis_tac[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    simp[Once v_pat_cases,PULL_EXISTS] >> rw[] >>
+    simp[Once v_pat_cases,PULL_EXISTS] >>
+    rfs[EVERY2_EVERY,EVERY_MEM] >>
+    fs[MEM_ZIP,PULL_EXISTS,MEM_EL] >> rw[] >>
+    res_tac >>
+    qmatch_assum_abbrev_tac`exp_pat z1 z2 V1 exp1 exp2` >>
+    qmatch_assum_abbrev_tac`exp_pat z2 z3 V2 exp2 exp3` >>
+    match_mp_tac (MP_CANON (GEN_ALL exp_pat_mono)) >>
+    qexists_tac`V2 O V1` >>
+    conj_tac >- (
+      simp[relationTheory.O_DEF,Abbr`V1`,Abbr`V2`] >>
+      simp[bindn_pat_thm,env_pat_def] >>
+      simp[arithmeticTheory.ADD1] >>
+      rw[] >> fsrw_tac[ARITH_ss][] >>
+      rev_full_simp_tac(srw_ss()++ARITH_ss)[] >>
+      fsrw_tac[ARITH_ss][] ) >>
+    metis_tac[exp_pat_trans]) >>
   rpt gen_tac >> strip_tac >>
-  simp[Once v_pat_cases,PULL_EXISTS] >> rw[] >>
   simp[Once v_pat_cases,PULL_EXISTS] >>
+  rpt gen_tac >> strip_tac >>
+  simp[Once v_pat_cases,PULL_EXISTS] >>
+  match_mp_tac LIST_REL_trans >>
+  qexists_tac`vs2` >> simp[] >>
   rfs[EVERY2_EVERY,EVERY_MEM] >>
-  fs[MEM_ZIP,PULL_EXISTS,MEM_EL] >> rw[] >>
-  res_tac >>
-  qmatch_assum_abbrev_tac`exp_pat z1 z2 V1 exp1 exp2` >>
-  qmatch_assum_abbrev_tac`exp_pat z2 z3 V2 exp2 exp3` >>
-  match_mp_tac (MP_CANON (GEN_ALL exp_pat_mono)) >>
-  qexists_tac`V2 O V1` >>
-  conj_tac >- (
-    simp[relationTheory.O_DEF,Abbr`V1`,Abbr`V2`] >>
-    simp[bindn_pat_thm,env_pat_def] >>
-    simp[arithmeticTheory.ADD1] >>
-    rw[] >> fsrw_tac[ARITH_ss][] >>
-    rev_full_simp_tac(srw_ss()++ARITH_ss)[] >>
-    fsrw_tac[ARITH_ss][] ) >>
-  metis_tac[exp_pat_trans])
+  fs[MEM_ZIP,PULL_EXISTS,MEM_EL] );
 
 val do_eq_pat_v_pat = store_thm("do_eq_pat_v_pat",
   ``∀v1 v2. v_pat v1 v2 ⇒ ∀v3 v4. v_pat v3 v4 ⇒ do_eq_pat v1 v3 = do_eq_pat v2 v4``,
@@ -1511,6 +1538,7 @@ val do_app_pat_v_pat = store_thm("do_app_pat_v_pat",
       BasicProvers.EVERY_CASE_TAC>>fs[LET_THM,UNCURRY]>>rw[]>>
       fs[LIST_REL_EL_EQN,optionTheory.OPTREL_def] >>
       fs[Once v_pat_cases,semanticPrimitivesTheory.store_lookup_def] >>
+      cheat >>
       metis_tac[optionTheory.NOT_SOME_NONE,LIST_REL_LENGTH,sv_rel_def] ) >>
     rw[] >> fs[] >>
     Cases_on`xs`>>fs[] >- (
@@ -1550,7 +1578,8 @@ val do_app_pat_v_pat = store_thm("do_app_pat_v_pat",
         BasicProvers.EVERY_CASE_TAC >> fs[LET_THM] >> rw[] >>
         fs[LIST_REL_EL_EQN] >>
         BasicProvers.EVERY_CASE_TAC >> fs[] >>
-        metis_tac[sv_rel_def] )) >>
+        metis_tac[sv_rel_def] )
+      >- cheat) >>
     rw[] >>
     BasicProvers.EVERY_CASE_TAC>>fs[LET_THM]>>rw[] >>
     fs[semanticPrimitivesTheory.store_lookup_def,semanticPrimitivesTheory.store_assign_def,
@@ -1565,6 +1594,7 @@ val do_app_pat_v_pat = store_thm("do_app_pat_v_pat",
   fs[UNCURRY]>>rw[csg_rel_def] >>
   fs[semanticPrimitivesTheory.store_assign_def,semanticPrimitivesTheory.store_lookup_def]>>
   fs[semanticPrimitivesTheory.store_alloc_def,LET_THM]>>
+  cheat >>
   imp_res_tac LIST_REL_LENGTH >> rw[]>>fs[]>>rw[csg_rel_def,sv_rel_def] >>
   imp_res_tac do_eq_pat_v_pat >>
   BasicProvers.EVERY_CASE_TAC>>fs[]>>rw[csg_rel_def]>>
