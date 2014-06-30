@@ -108,6 +108,7 @@ let pure_op op =
   op <> Aupdate &&
   op <> Aalloc &&
   op <> Asub &&
+  op <> Vsub &&
   op <> (Opn Divide) &&
   op <> (Opn Modulo)
 

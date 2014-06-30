@@ -126,6 +126,7 @@ val _ = Define `
 (op <> Aupdate) /\  
 (op <> Aalloc) /\  
 (op <> Asub) /\  
+(op <> Vsub) /\  
 (op <> (Opn Divide)) /\  
 (op <> (Opn Modulo))))`;
 
