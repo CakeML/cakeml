@@ -681,10 +681,8 @@ val pure_pat_correct = store_thm("pure_pat_correct",
       disj2_tac >>
       first_assum(match_exists_tac o concl) >> simp[] >>
       PairCases_on`x`>>PairCases_on`s` >>
-      cheat
-      (*
-      imp_res_tac do_app_pat_cases >> fs[do_app_pat_def] >> rw[] >>
-      BasicProvers.EVERY_CASE_TAC >> fs[pure_op_def,LET_THM] >> rw[]*)) >>
+      imp_res_tac do_app_pat_cases >> fs[do_app_pat_def] >> rw[] >> fs[] >>
+      BasicProvers.EVERY_CASE_TAC >> fs[pure_op_def,LET_THM] >> rw[]) >>
     disj2_tac >>
     simp[Once evaluate_pat_cases] )
   >- (
