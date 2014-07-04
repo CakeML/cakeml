@@ -250,19 +250,18 @@ fun letvalPrint sys d t pg str brk blk =
 val _=temp_add_user_printer ("letvalprint", ``Let (SOME x) y z``,genPrint letvalPrint);
 
 (*Inner Let NONE*)
-
+(*This should be sequencing*)
 fun letnonePrint sys d t pg str brk blk =
-  let
-    val (t,body) = dest_comb t
-    val (t,eq) = dest_comb t
+  let val (l,r) = dest_comb t
+      val os = blk CONSISTENT 0 ( sys(Prec(0,"letnone"),Top,Top) d (strip l) >>str ";">>
+    brk (1,0)>>sys (Prec(0,"letnone"),Top,Top) d r )
   in
-    m_brack str pg (blk CONSISTENT 0 (
-    str "let val _ = " >> (sys (Top,pg,pg) d eq) >> add_newline 
-    >> str"in" >> add_newline>>  str"  ">>(sys (Top,pg,pg) d body) >> add_newline
-    >> str"end" ))
+     (*Only bracketize if it is not a nested sequence*)
+     case pg of Prec(_,"letnone") => os
+            |  _ => str"(">>os>>str ")"
   end;
 
-val _=temp_add_user_printer ("letnoneprint", ``Let NONE x y``, genPrint letnonePrint);
+val _=temp_add_user_printer ("letnoneprint",``Let NONE x y``,genPrint letnonePrint);
 
 (*Pattern var*)
 fun pvarPrint sys d t pg str brk blk =

@@ -60,21 +60,6 @@ val _=temp_add_user_printer ("i2_dletvalprint", ``Dlet_i2 x y``,genPrint i1_dlet
 val _=temp_add_user_printer ("i2_letvalprint", ``Let_i2 (SOME x) y z``,genPrint letvalPrint);
 
 (*i2_Inner Let NONE*)
-(*Instead of printing let val _ = in i2, just print the RHS*)
-
-fun i2_letnonePrint sys d t pg str brk blk =
-  let
-    val (t,body) = dest_comb t
-    val (t,eq) = dest_comb t
-  in
-    (blk CONSISTENT 0 (
-    (sys (pg,pg,pg) d eq) >> add_newline 
-    >> str"in " >> (sys (pg,pg,pg) d body) >> add_newline
-    >> str"end" ))
-  end;
-
-val _=temp_add_user_printer ("i2_letnoneprint", ``Let_i2 NONE y z``,genPrint i2_letnonePrint);
-
 val _=temp_add_user_printer ("i2_letnoneprint",``Let_i2 NONE y z ``,genPrint letnonePrint);
 
 (*Prints all constructor args in a list comma separated*)

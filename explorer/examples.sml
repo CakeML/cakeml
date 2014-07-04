@@ -83,3 +83,5 @@ val ex27 = allIntermediates ``"val x = 0wx5;"``;
 
 (*pretty print for brackets*)
 val ex28 = allIntermediates ``"val x = 1+2+3*4+5;"``;
+
+val ex29 = allIntermediates ``"val x = (f y;if 5>4 then 3 else 2;let val x = 2 in 3 end;4;if(4<5) then 5 else f y);"``;
