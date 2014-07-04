@@ -255,9 +255,9 @@ val new_specification_correct = store_thm("new_specification_correct",
     rpt BasicProvers.VAR_EQ_TAC >> fs[termsem_def] >>
     rpt BasicProvers.VAR_EQ_TAC >>
     rpt (qpat_assum `termsem X Y Z tm = A`kall_tac) >>
-    qmatch_abbrev_tac`instance sig ii name ty τ <: x` >>
-    qspecl_then[`sig`,`ii`,`name`,`ty`]mp_tac instance_def >>
-    simp[Abbr`sig`,FLOOKUP_FUNION,ALOOKUP_MAP] >>
+    qmatch_abbrev_tac`instance tmenv ii name ty τ <: x` >>
+    qspecl_then[`tmenv`,`ii`,`name`,`ty`]mp_tac instance_def >>
+    simp[Abbr`tmenv`,Abbr`sig`,FLOOKUP_FUNION,ALOOKUP_MAP] >>
     imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
     simp[] >>
     disch_then(qspec_then`[]`mp_tac) >>
@@ -307,9 +307,9 @@ val new_specification_correct = store_thm("new_specification_correct",
   imp_res_tac ALOOKUP_MEM >>
   fs[MEM_MAP,Abbr`ilist`,EXISTS_PROD,PULL_EXISTS] >>
   simp[termsem_def] >>
-  qmatch_abbrev_tac`instance sig ii name ty τ = X` >>
-  qspecl_then[`sig`,`ii`,`name`,`ty`]mp_tac instance_def >>
-  simp[Abbr`sig`,FLOOKUP_FUNION,ALOOKUP_MAP] >>
+  qmatch_abbrev_tac`instance tmenv ii name ty τ = X` >>
+  qspecl_then[`tmenv`,`ii`,`name`,`ty`]mp_tac instance_def >>
+  simp[Abbr`tmenv`,Abbr`sig`,FLOOKUP_FUNION,ALOOKUP_MAP] >>
   imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
   simp[] >>
   disch_then(qspec_then`[]`mp_tac) >>
@@ -636,8 +636,8 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
       simp[] ) >>
     simp[termsem_equation,boolean_eq_true] >>
     simp[Abbr`l2`,Abbr`l1`,termsem_def] >>
-    qspecl_then[`sig`,`ii`,`abs`]mp_tac instance_def >>
-    qspecl_then[`sig`,`ii`,`rep`]mp_tac instance_def >>
+    qspecl_then[`tmsof sig`,`ii`,`abs`]mp_tac instance_def >>
+    qspecl_then[`tmsof sig`,`ii`,`rep`]mp_tac instance_def >>
     simp[Abbr`sig`,Abbr`tms'`,Abbr`tys'`,FLOOKUP_UPDATE] >>
     disch_then(qspec_then`[]`mp_tac)>>simp[] >> disch_then kall_tac >>
     disch_then(qspec_then`[]`mp_tac)>>simp[] >> disch_then kall_tac >>
@@ -699,8 +699,8 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
   imp_res_tac term_ok_welltyped >>
   simp[Abbr`l2`,Abbr`l1`,termsem_def,termsem_equation,Abbr`l4`] >>
   simp[Abbr`l3`,termsem_def] >>
-  qspecl_then[`sig`,`ii`,`abs`]mp_tac instance_def >>
-  qspecl_then[`sig`,`ii`,`rep`]mp_tac instance_def >>
+  qspecl_then[`tmsof sig`,`ii`,`abs`]mp_tac instance_def >>
+  qspecl_then[`tmsof sig`,`ii`,`rep`]mp_tac instance_def >>
   simp[Abbr`sig`,Abbr`tms'`,Abbr`tys'`,FLOOKUP_UPDATE] >>
   disch_then(qspec_then`[]`mp_tac)>>simp[] >> disch_then kall_tac >>
   disch_then(qspec_then`[]`mp_tac)>>simp[] >> disch_then kall_tac >>

@@ -336,17 +336,17 @@ val infinity_has_model = store_thm("infinity_has_model",
   fs[] >>
   simp[termsem_def] >>
   ntac 7 (pop_assum kall_tac) >>
-  Q.PAT_ABBREV_TAC`sig:sig = X` >>
+  Q.PAT_ABBREV_TAC`tmenv:tmenv = X` >>
   Q.PAT_ABBREV_TAC`int:'U interpretation = X` >>
-  qspecl_then[`sig`,`int`,`"/\\"`]mp_tac identity_instance >>
-  qspecl_then[`sig`,`int`,`"~"`]mp_tac identity_instance >>
-  qspecl_then[`sig`,`int`,`"?"`]mp_tac instance_def >>
-  `(FLOOKUP (tmsof sig) "?" = FLOOKUP (tmsof ctxt) "?") ∧
-   (FLOOKUP (tmsof sig) "/\\" = FLOOKUP (tmsof ctxt) "/\\") ∧
-   (FLOOKUP (tmsof sig) "~" = FLOOKUP (tmsof ctxt) "~")` by (
-    simp[Abbr`sig`,FLOOKUP_UPDATE] >>
+  qspecl_then[`tmenv`,`int`,`"/\\"`]mp_tac identity_instance >>
+  qspecl_then[`tmenv`,`int`,`"~"`]mp_tac identity_instance >>
+  qspecl_then[`tmenv`,`int`,`"?"`]mp_tac instance_def >>
+  `(FLOOKUP tmenv "?" = FLOOKUP (tmsof ctxt) "?") ∧
+   (FLOOKUP tmenv "/\\" = FLOOKUP (tmsof ctxt) "/\\") ∧
+   (FLOOKUP tmenv "~" = FLOOKUP (tmsof ctxt) "~")` by (
+    simp[Abbr`tmenv`,FLOOKUP_UPDATE] >>
     fs[mk_infinity_ctxt_def] >> rw[] ) >>
-  simp[] >>
+  simp[Abbr`tmenv`] >>
   disch_then(qspec_then`[(Fun Ind Ind,A)]`mp_tac) >>
   simp[REV_ASSOCD] >> disch_then kall_tac >>
   ntac 2 (disch_then kall_tac) >>
@@ -379,13 +379,13 @@ val infinity_has_model = store_thm("infinity_has_model",
     qexists_tac`Fun (Fun A Bool) Bool` >>
     simp[type_ok_def] >>qexists_tac`[]` >> simp[REV_ASSOCD]) >>
   simp[] >>
-  `(FLOOKUP (tmsof sig) "ONE_ONE" = SOME (Fun (Fun A B) Bool)) ∧
-   (FLOOKUP (tmsof sig) "ONTO"    = SOME (Fun (Fun A B) Bool))` by (
-    simp[Abbr`sig`] >>
+  `(FLOOKUP (tmsof ctxt1) "ONE_ONE" = SOME (Fun (Fun A B) Bool)) ∧
+   (FLOOKUP (tmsof ctxt1) "ONTO"    = SOME (Fun (Fun A B) Bool))` by (
+    simp[] >>
     fs[mk_infinity_ctxt_def] >>
     rw[] ) >>
-  qspecl_then[`sig`,`int`,`"ONE_ONE"`]mp_tac instance_def >>
-  qspecl_then[`sig`,`int`,`"ONTO"`]mp_tac instance_def >>
+  qspecl_then[`tmsof ctxt1`,`int`,`"ONE_ONE"`]mp_tac instance_def >>
+  qspecl_then[`tmsof ctxt1`,`int`,`"ONTO"`]mp_tac instance_def >>
   simp[] >>
   ntac 2(disch_then(qspec_then`[(Ind,A);(Ind,B)]`strip_assume_tac)) >>
   ntac 2 (pop_assum mp_tac) >>
@@ -468,7 +468,7 @@ val infinity_has_model = store_thm("infinity_has_model",
   discharge_hyps >- rw[] >> strip_tac >>
   discharge_hyps >- rw[] >> strip_tac >>
   simp[] >>
-  qspecl_then[`sigof ctxt1`,`i1`,`"!"`]mp_tac instance_def >>
+  qspecl_then[`tmsof ctxt1`,`i1`,`"!"`]mp_tac instance_def >>
   simp[] >>
   disch_then(qspec_then`[B,A]`mp_tac) >>
   simp[REV_ASSOCD] >> disch_then kall_tac >>
@@ -477,7 +477,7 @@ val infinity_has_model = store_thm("infinity_has_model",
   first_x_assum(qspec_then`τ`mp_tac) >>
   simp[] >> disch_then kall_tac >>
   simp[typeof_equation,EQUATION_HAS_TYPE_BOOL,welltyped_equation] >>
-  simp[typesem_def] >>
+  simp[typesem_def] >> fs[] >>
   conj_tac >- apply_abstract_tac >>
   qpat_assum`is_infinite Y X`mp_tac >>
   simp[is_infinite_def] >>

@@ -32,14 +32,14 @@ val Not_def = ``Absp (Implies p Falsity)``
 
 val bool_sig_instances = store_thm("bool_sig_instances",
   ``is_bool_sig sig ⇒
-    instance sig (i:'U interpretation) "T" Bool = (K (tmaof i "T" [])) ∧
-    instance sig i "F" Bool = (K (tmaof i "F" [])) ∧
-    instance sig i "==>" (Fun Bool (Fun Bool Bool)) = (K (tmaof i "==>" [])) ∧
-    instance sig i "/\\" (Fun Bool (Fun Bool Bool)) = (K (tmaof i "/\\" [])) ∧
-    instance sig i "\\/" (Fun Bool (Fun Bool Bool)) = (K (tmaof i "\\/" [])) ∧
-    instance sig i "~" (Fun Bool Bool) = (K (tmaof i "~" [])) ∧
-    instance sig i "!" (Fun (Fun A Bool) Bool) = (λτ. tmaof i "!" [τ "A"]) ∧
-    instance sig i "?" (Fun (Fun A Bool) Bool) = (λτ. tmaof i "?" [τ "A"])``,
+    instance (tmsof sig) (i:'U interpretation) "T" Bool = (K (tmaof i "T" [])) ∧
+    instance (tmsof sig) i "F" Bool = (K (tmaof i "F" [])) ∧
+    instance (tmsof sig) i "==>" (Fun Bool (Fun Bool Bool)) = (K (tmaof i "==>" [])) ∧
+    instance (tmsof sig) i "/\\" (Fun Bool (Fun Bool Bool)) = (K (tmaof i "/\\" [])) ∧
+    instance (tmsof sig) i "\\/" (Fun Bool (Fun Bool Bool)) = (K (tmaof i "\\/" [])) ∧
+    instance (tmsof sig) i "~" (Fun Bool Bool) = (K (tmaof i "~" [])) ∧
+    instance (tmsof sig) i "!" (Fun (Fun A Bool) Bool) = (λτ. tmaof i "!" [τ "A"]) ∧
+    instance (tmsof sig) i "?" (Fun (Fun A Bool) Bool) = (λτ. tmaof i "?" [τ "A"])``,
   rw[is_bool_sig_def] >> imp_res_tac identity_instance >> rw[FUN_EQ_THM] >>
   rpt AP_TERM_TAC >> rw[FUN_EQ_THM,tyvars_def] >> EVAL_TAC)
 
@@ -323,7 +323,7 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
     match_mp_tac (UNDISCH abstract_eq) >>
     qx_gen_tac`pp` >> strip_tac >>
     simp[boolean_in_boolset] >>
-    qspecl_then[`sig`,`i`,`"!"`,`Fun (Fun Bool Bool) Bool`,`Fun (Fun A Bool) Bool`,`[(Bool,A)]`]mp_tac instance_def >>
+    qspecl_then[`tmsof sig`,`i`,`"!"`,`Fun (Fun Bool Bool) Bool`,`Fun (Fun A Bool) Bool`,`[(Bool,A)]`]mp_tac instance_def >>
     discharge_hyps >- (fs[is_bool_sig_def] >> EVAL_TAC) >>
     simp[] >> disch_then kall_tac >>
     simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def,REV_ASSOCD] >>
@@ -379,7 +379,7 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
     imp_res_tac typesem_Bool >> simp[] >>
     match_mp_tac (UNDISCH abstract_eq) >>
     imp_res_tac typesem_Fun >>
-    qspecl_then[`sig`,`i`,`"!"`,`Fun (Fun Bool Bool) Bool`,`Fun (Fun A Bool) Bool`,`[(Bool,A)]`]mp_tac instance_def >>
+    qspecl_then[`tmsof sig`,`i`,`"!"`,`Fun (Fun Bool Bool) Bool`,`Fun (Fun A Bool) Bool`,`[(Bool,A)]`]mp_tac instance_def >>
     discharge_hyps >- (fs[is_bool_sig_def] >> EVAL_TAC) >>
     simp[] >> disch_then kall_tac >>
     simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def,REV_ASSOCD] >>
@@ -417,7 +417,7 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
     imp_res_tac is_std_interpretation_is_type >>
     imp_res_tac typesem_Bool >> simp[] >>
     imp_res_tac typesem_Fun >>
-    qspecl_then[`sig`,`i`,`"!"`,`Fun (Fun Bool Bool) Bool`,`Fun (Fun A Bool) Bool`,`[(Bool,A)]`]mp_tac instance_def >>
+    qspecl_then[`tmsof sig`,`i`,`"!"`,`Fun (Fun Bool Bool) Bool`,`Fun (Fun A Bool) Bool`,`[(Bool,A)]`]mp_tac instance_def >>
     discharge_hyps >- (fs[is_bool_sig_def] >> EVAL_TAC) >>
     simp[] >> disch_then kall_tac >>
     simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def,REV_ASSOCD] >>

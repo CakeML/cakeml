@@ -125,7 +125,7 @@ val termsem_Equal = store_thm("termsem_Equal",
       is_structure Γ i v ∧ type_ok (tysof Γ) ty ⇒
       termsem Γ i v (Equal ty) = ^Equalsem [typesem (FST i) (FST v) ty]``,
   rw[termsem_def,LET_THM] >> fs[is_structure_def] >>
-  qspecl_then[`Γ`,`i`,`"="`]mp_tac instance_def >> fs[is_std_sig_def]>>
+  qspecl_then[`tmsof Γ`,`i`,`"="`]mp_tac instance_def >> fs[is_std_sig_def]>>
   disch_then(qspec_then`[(ty,Tyvar"A")]`mp_tac)>>
   simp[REV_ASSOCD] >> disch_then kall_tac >>
   Q.PAT_ABBREV_TAC`aa = tyvars X` >>
@@ -240,8 +240,8 @@ val termsem_tyfrees = store_thm("termsem_tyfrees",
   ntac 2 gen_tac >> Induct >>
   simp[termsem_def,tvars_def,term_ok_def] >- (
     rw[] >>
-    qmatch_abbrev_tac`instance Γ i name ty τ = X` >>
-    qspecl_then[`Γ`,`i`,`name`,`ty`]mp_tac instance_def >>
+    qmatch_abbrev_tac`instance (tmsof Γ) i name ty τ = X` >>
+    qspecl_then[`tmsof Γ`,`i`,`name`,`ty`]mp_tac instance_def >>
     simp[Abbr`ty`] >> disch_then kall_tac >>
     rpt AP_TERM_TAC >> simp[FUN_EQ_THM,MAP_EQ_f] >> rw[] >>
     match_mp_tac typesem_frees >>
@@ -495,7 +495,7 @@ val termsem_consts = store_thm("termsem_consts",
   Induct >> simp[termsem_def] >- (
     rw[term_ok_def] >>
     imp_res_tac instance_def >>
-    qmatch_abbrev_tac`instance Γ i' s ty τ = X` >>
+    qmatch_abbrev_tac`instance tmenv i' s ty τ = X` >>
     qmatch_assum_abbrev_tac`Abbrev(ty = TYPE_SUBST tyin ty0)` >>
     first_x_assum(qspecl_then[`tyin`,`ty`]mp_tac) >>
     simp[Abbr`ty`] >> disch_then kall_tac >>
@@ -560,10 +560,10 @@ val valuation_exists = store_thm("valuation_exists",
 (* identity instance *)
 
 val identity_instance = store_thm("identity_instance",
-  ``∀sig (i:'U interpretation) name ty τ. FLOOKUP (tmsof sig) name = SOME ty ⇒
-      instance sig i name ty = λτ. tmaof i name (MAP τ (STRING_SORT (tyvars ty)))``,
+  ``∀tmenv (i:'U interpretation) name ty τ. FLOOKUP tmenv name = SOME ty ⇒
+      instance tmenv i name ty = λτ. tmaof i name (MAP τ (STRING_SORT (tyvars ty)))``,
   rw[] >>
-  qspecl_then[`sig`,`i`,`name`,`ty`,`ty`,`[]`]mp_tac instance_def >>
+  qspecl_then[`tmenv`,`i`,`name`,`ty`,`ty`,`[]`]mp_tac instance_def >>
   rw[FUN_EQ_THM,typesem_def,combinTheory.o_DEF,ETA_AX])
 
 (*
