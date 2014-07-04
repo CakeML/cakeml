@@ -61,14 +61,14 @@ val typesem_tyvars = store_thm("typesem_tyvars",
 
 val termsem_typesem = store_thm("termsem_typesem",
   ``is_set_theory ^mem ⇒
-    ∀sig i tm v δ τ.
+    ∀sig i tm v δ τ tmenv.
       δ = FST i ∧ τ = FST v ∧
       is_valuation (tysof sig) δ v ∧
       is_interpretation sig i ∧
       is_std_type_assignment δ ∧
-      term_ok sig tm
+      term_ok sig tm ∧ tmenv = tmsof sig
       ⇒
-      termsem sig i v tm <: typesem δ τ (typeof tm)``,
+      termsem tmenv i v tm <: typesem δ τ (typeof tm)``,
   strip_tac >> ntac 2 Cases >> Induct
   >- (
     Cases_on`v`>>
@@ -123,7 +123,7 @@ val termsem_Equal = store_thm("termsem_Equal",
   ``is_set_theory ^mem ⇒
     ∀Γ i v ty.
       is_structure Γ i v ∧ type_ok (tysof Γ) ty ⇒
-      termsem Γ i v (Equal ty) = ^Equalsem [typesem (FST i) (FST v) ty]``,
+      termsem (tmsof Γ) i v (Equal ty) = ^Equalsem [typesem (FST i) (FST v) ty]``,
   rw[termsem_def,LET_THM] >> fs[is_structure_def] >>
   qspecl_then[`tmsof Γ`,`i`,`"="`]mp_tac instance_def >> fs[is_std_sig_def]>>
   disch_then(qspec_then`[(ty,Tyvar"A")]`mp_tac)>>
@@ -147,10 +147,11 @@ val termsem_Equal = store_thm("termsem_Equal",
 
 val termsem_equation = store_thm("termsem_equation",
   ``is_set_theory ^mem ⇒
-    ∀sig i v s t.
+    ∀sig i v s t tmenv.
     is_structure sig i v ∧
-    term_ok sig (s === t)
-    ⇒ termsem sig i v (s === t) = Boolean (termsem sig i v s = termsem sig i v t)``,
+    term_ok sig (s === t) ∧
+    tmenv = tmsof sig
+    ⇒ termsem tmenv i v (s === t) = Boolean (termsem tmenv i v s = termsem tmenv i v t)``,
   rw[] >>
   `is_std_sig sig ∧ is_std_interpretation i` by fs[is_structure_def] >>
   fs[term_ok_equation] >>
@@ -232,11 +233,12 @@ val typesem_frees = store_thm("typesem_frees",
   fs[EVERY_MEM] >> metis_tac[])
 
 val termsem_tyfrees = store_thm("termsem_tyfrees",
-  ``∀Γ i t v1 v2.
+  ``∀Γ i t v1 v2 tmenv.
       term_ok Γ t ∧
       SND v1 = SND v2 ∧
-      (∀a. MEM a (tvars t) ⇒ FST v1 a = FST v2 a)
-      ⇒ termsem Γ i v1 t = termsem Γ i v2 t``,
+      (∀a. MEM a (tvars t) ⇒ FST v1 a = FST v2 a) ∧
+      tmenv = tmsof Γ
+      ⇒ termsem tmenv i v1 t = termsem tmenv i v2 t``,
   ntac 2 gen_tac >> Induct >>
   simp[termsem_def,tvars_def,term_ok_def] >- (
     rw[] >>
@@ -249,7 +251,7 @@ val termsem_tyfrees = store_thm("termsem_tyfrees",
     first_x_assum match_mp_tac >>
     rw[tyvars_TYPE_SUBST] >>
     metis_tac[] ) >>
-  rw[] >- PROVE_TAC[] >>
+  rw[] >- (res_tac >> PROVE_TAC[]) >>
   qmatch_abbrev_tac`Abstract d1 r1 f1 = Abstract d2 r2 f2` >>
   `d1 = d2 ∧ r1 = r2` by (
     unabbrev_all_tac >> rw[]  >>
@@ -364,14 +366,15 @@ val termsem_VSUBST = store_thm("termsem_VSUBST",
 (* semantics of instantiation *)
 
 val termsem_simple_inst = store_thm("termsem_simple_inst",
-  ``∀Γ tm tyin.
+  ``∀Γ tm tyin tmenv.
       welltyped tm ∧ term_ok Γ tm ∧
       ALL_DISTINCT (bv_names tm) ∧
-      DISJOINT (set (bv_names tm)) {x | ∃ty. VFREE_IN (Var x ty) tm}
+      DISJOINT (set (bv_names tm)) {x | ∃ty. VFREE_IN (Var x ty) tm} ∧
+      tmenv = tmsof Γ
       ⇒
       ∀i v.
-        termsem Γ i v (simple_inst tyin tm) =
-        termsem Γ i
+        termsem tmenv i v (simple_inst tyin tm) =
+        termsem tmenv i
           ((λx. typesem (FST i) (FST v) (TYPE_SUBST tyin (Tyvar x))),
            (λ(x,ty). SND v (x, TYPE_SUBST tyin ty)))
           tm``,
@@ -401,7 +404,7 @@ val termsem_simple_inst = store_thm("termsem_simple_inst",
     simp[Once typesem_TYPE_SUBST] ) >>
   rw[] >> rpt AP_TERM_TAC >>
   unabbrev_all_tac >> rw[FUN_EQ_THM] >>
-  first_x_assum(qspec_then`tyin`mp_tac) >>
+  first_x_assum(qspec_then`tyin`mp_tac) >> simp[] >>
   discharge_hyps >- ( fs[IN_DISJOINT] >> metis_tac[] ) >>
   rw[] >>
   match_mp_tac termsem_frees >>
@@ -410,11 +413,11 @@ val termsem_simple_inst = store_thm("termsem_simple_inst",
   metis_tac[])
 
 val termsem_INST = store_thm("termsem_INST",
-  ``∀Γ tm tyin.
-      welltyped tm ∧ term_ok Γ tm ⇒
+  ``∀Γ tm tyin tmenv.
+      welltyped tm ∧ term_ok Γ tm ∧ tmenv = tmsof Γ ⇒
       ∀i v.
-        termsem Γ i v (INST tyin tm) =
-        termsem Γ i
+        termsem tmenv i v (INST tyin tm) =
+        termsem tmenv i
           ((λx. typesem (FST i) (FST v) (TYPE_SUBST tyin (Tyvar x))),
            (λ(x,ty). SND v (x, TYPE_SUBST tyin ty)))
           tm``,
@@ -425,7 +428,7 @@ val termsem_INST = store_thm("termsem_INST",
   `ACONV (INST tyin tm) (INST tyin fm)` by (
     match_mp_tac ACONV_INST >> metis_tac[] ) >>
   `welltyped (INST tyin tm)` by metis_tac[INST_WELLTYPED] >>
-  `termsem Γ i v (INST tyin tm) = termsem Γ i v (INST tyin fm)` by
+  `termsem tmenv i v (INST tyin tm) = termsem tmenv i v (INST tyin fm)` by
     metis_tac[termsem_aconv] >>
   `{x | ∃ty. VFREE_IN (Var x ty) tm} = {x | ∃ty. VFREE_IN (Var x ty) fm}` by (
     simp[EXTENSION] >> metis_tac[VFREE_IN_ACONV] ) >>
@@ -441,8 +444,8 @@ val termsem_extend = store_thm("termsem_extend",
   ``∀tyenv tmenv tyenv' tmenv' tm.
       tmenv ⊑ tmenv' ∧
       term_ok (tyenv,tmenv) tm ⇒
-      ∀i v. termsem (tyenv',tmenv') i v tm =
-            termsem (tyenv,tmenv) i v tm``,
+      ∀i v. termsem tmenv' i v tm =
+            termsem tmenv i v tm``,
   ntac 4 gen_tac >> Induct >> simp[termsem_def,term_ok_def] >>
   rw[] >>
   qmatch_abbrev_tac`X = instance sig int name ty t` >>
@@ -486,12 +489,12 @@ val typesem_consts = store_thm("typesem_consts",
   metis_tac[])
 
 val termsem_consts = store_thm("termsem_consts",
-  ``∀tm Γ i v i'.
-      is_std_sig Γ ∧ term_ok Γ tm ∧
+  ``∀tm Γ i v i' tmenv.
+      is_std_sig Γ ∧ term_ok Γ tm ∧ tmenv = tmsof Γ ∧
       (∀name args. type_ok (tysof Γ) (Tyapp name args) ⇒ tyaof i' name = tyaof i name) ∧
       (∀name ty. term_ok Γ (Const name ty) ⇒ tmaof i' name = tmaof i name)
       ⇒
-      termsem Γ i' v tm = termsem Γ i v tm``,
+      termsem tmenv i' v tm = termsem tmenv i v tm``,
   Induct >> simp[termsem_def] >- (
     rw[term_ok_def] >>
     imp_res_tac instance_def >>
@@ -510,7 +513,7 @@ val termsem_consts = store_thm("termsem_consts",
     simp[] >> AP_THM_TAC >>
     unabbrev_all_tac >>
     metis_tac[]) >>
-  fs[term_ok_def] >- metis_tac[] >>
+  fs[term_ok_def] >- (fs[FORALL_PROD] >> rw[] >> res_tac >> PROVE_TAC[]) >>
   rw[term_ok_def] >>
   qmatch_abbrev_tac`Abstract d1 r1 f1 = Abstract d2 r2 f2` >>
   `d1 = d2 ∧ r1 = r2` by (
@@ -519,7 +522,7 @@ val termsem_consts = store_thm("termsem_consts",
     metis_tac[term_ok_type_ok] ) >>
   simp[] >> rpt AP_TERM_TAC >> rw[FUN_EQ_THM] >>
   unabbrev_all_tac >> fs[] >>
-  metis_tac[])
+  fs[FORALL_PROD] >> res_tac >> fs[])
 
 val satisfies_consts = store_thm("satisfies_consts",
   ``∀i i' sig h c.
@@ -531,7 +534,7 @@ val satisfies_consts = store_thm("satisfies_consts",
     ⇒
     i' satisfies (sig,h,c)``,
   rw[satisfies_def] >>
-  qsuff_tac`termsem sig i v c = True` >- metis_tac[termsem_consts] >>
+  qsuff_tac`termsem (tmsof sig) i v c = True` >- metis_tac[termsem_consts] >>
   first_x_assum match_mp_tac >>
   reverse conj_tac >- ( fs[EVERY_MEM] >> metis_tac[termsem_consts] ) >>
   fs[is_valuation_def] >>

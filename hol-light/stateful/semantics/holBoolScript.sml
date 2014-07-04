@@ -91,9 +91,9 @@ fun init_tac q =
     simp[term_ok_def] >>
     qpat_assum`is_std_sig X`mp_tac >>
     EVAL_TAC >> simp_tac bool_ss [GSYM alistTheory.alist_to_fmap_def,alistTheory.ALOOKUP_EQ_FLOOKUP,is_instance_refl]) >>
-    simp[termsem_equation,Abbr`eq`,boolean_eq_true] >>
-    simp[termsem_def,typeof_equation,welltyped_equation,EQUATION_HAS_TYPE_BOOL] >>
-    simp[bool_sig_instances,interprets_def,combinTheory.K_DEF] >> rw[]
+  simp[SIMP_RULE std_ss [] termsem_equation,Abbr`eq`,boolean_eq_true] >>
+  simp[termsem_def,typeof_equation,welltyped_equation,EQUATION_HAS_TYPE_BOOL] >>
+  simp[bool_sig_instances,interprets_def,combinTheory.K_DEF] >> rw[]
 
 val apply_abstract_tac = rpt ( (
     qmatch_abbrev_tac`Abstract AA BB CC ' DD <: EE` >>
@@ -159,7 +159,7 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
     init_tac`Const "T" Bool === ^Truth_def` >>
     `term_ok sig (Absp p === Absp p)` by (
       simp[term_ok_equation,term_ok_clauses] ) >>
-    rfs[Abbr`sig`,termsem_equation,boolean_eq_true,termsem_def]) >>
+    simp[SIMP_RULE std_ss [] termsem_equation,boolean_eq_true,termsem_def]) >>
   conj_asm1_tac >- (
     init_tac `Const "/\\" (Fun Bool (Fun Bool Bool)) === ^And_def` >>
     imp_res_tac is_std_interpretation_is_type >>
@@ -179,7 +179,7 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
         fs[is_structure_def,Abbr`vv`,is_valuation_def,is_term_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
         rw[] >> metis_tac[] ) >>
       qunabbrev_tac`eq` >>
-      simp[termsem_equation,boolean_in_boolset] ) >>
+      simp[SIMP_RULE std_ss [] termsem_equation,boolean_in_boolset] ) >>
     conj_asm1_tac >- (
       match_mp_tac (UNDISCH abstract_in_funspace) >>
       simp[boolean_in_boolset] ) >>
@@ -195,7 +195,7 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
       unabbrev_all_tac >>
       simp[term_ok_clauses,EQUATION_HAS_TYPE_BOOL,welltyped_equation,typeof_equation,bool_term_ok] ) >>
     qunabbrev_tac`eq` >>
-    simp[termsem_equation,boolean_in_boolset] >>
+    simp[SIMP_RULE std_ss [] termsem_equation,boolean_in_boolset] >>
     simp[termsem_def] >>
     simp[combinTheory.APPLY_UPDATE_THM,Abbr`vv`] >>
     simp[bool_sig_instances] >> fs[interprets_def] >>
@@ -248,7 +248,7 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
         fs[is_structure_def,Abbr`vv`,is_valuation_def,is_term_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
         rw[] >> metis_tac[] ) >>
       qunabbrev_tac`eq` >>
-      simp[termsem_equation,boolean_in_boolset] ) >>
+      simp[SIMP_RULE std_ss [] termsem_equation,boolean_in_boolset] ) >>
     conj_asm1_tac >- (
       match_mp_tac (UNDISCH abstract_in_funspace) >>
       simp[boolean_in_boolset] ) >>
@@ -264,7 +264,7 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
       unabbrev_all_tac >>
       simp[term_ok_clauses,EQUATION_HAS_TYPE_BOOL,welltyped_equation,typeof_equation,bool_term_ok] ) >>
     qunabbrev_tac`eq` >>
-    simp[termsem_equation,boolean_in_boolset] >>
+    simp[SIMP_RULE std_ss [] termsem_equation,boolean_in_boolset] >>
     simp[termsem_def] >>
     simp[combinTheory.APPLY_UPDATE_THM,Abbr`vv`] >>
     simp[bool_sig_instances] >> fs[interprets_def] >>
@@ -295,7 +295,7 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
       unabbrev_all_tac >>
       simp[term_ok_clauses,EQUATION_HAS_TYPE_BOOL,welltyped_equation,typeof_equation,bool_term_ok] ) >>
     qunabbrev_tac`eq` >>
-    simp[termsem_equation,boolean_in_boolset] >>
+    simp[SIMP_RULE std_ss [] termsem_equation,boolean_in_boolset] >>
     simp[termsem_def] >>
     simp[combinTheory.APPLY_UPDATE_THM,Abbr`vv`] >>
     simp[bool_sig_instances] >> fs[interprets_def] >>

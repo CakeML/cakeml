@@ -32,12 +32,15 @@ val eta_has_model = store_thm("eta_has_model",
   `term_ok (sigof ctxt) (Absx (Comb g x) === g)` by (
     rw[term_ok_equation,term_ok_def,type_ok_def] >>
     fs[is_std_sig_def] ) >>
-  rw[termsem_equation,boolean_eq_true] >>
+  `tmsof ctxt = tmsof (sigof ctxt)` by simp[] >> pop_assum SUBST1_TAC >>
+  rw[SIMP_RULE std_ss [] termsem_equation,boolean_eq_true] >>
   rw[termsem_def] >>
   imp_res_tac is_std_interpretation_is_type >>
   imp_res_tac typesem_Fun >>
-  `termsem (sigof ctxt) i v g <: typesem (tyaof i) (tyvof v) (typeof g)` by (
-    match_mp_tac (UNDISCH termsem_typesem) >> simp[term_ok_def,type_ok_def] >>
+  `termsem (tmsof ctxt) i v g <: typesem (tyaof i) (tyvof v) (typeof g)` by (
+    match_mp_tac (UNDISCH termsem_typesem) >>
+    qexists_tac`sigof ctxt` >>
+    simp[term_ok_def,type_ok_def] >>
     fs[is_std_sig_def]) >>
   rfs[termsem_def] >>
   rfs[typesem_def] >>
@@ -106,9 +109,9 @@ val select_has_model = store_thm("select_has_model",
     metis_tac[] ) >>
   simp[satisfies_def] >>
   gen_tac >> strip_tac >>
-  qmatch_abbrev_tac`termsem sig ii v tm = True` >>
-  `FLOOKUP (tmsof sig) "@" = SOME (Fun (Fun A Bool) A)` by simp[Abbr`sig`,FLOOKUP_UPDATE] >>
-  `FLOOKUP (tmsof sig) "==>" = SOME (Fun Bool (Fun Bool Bool))` by simp[Abbr`sig`,FLOOKUP_UPDATE] >>
+  qmatch_abbrev_tac`termsem tmenv ii v tm = True` >>
+  `FLOOKUP tmenv "@" = SOME (Fun (Fun A Bool) A)` by simp[Abbr`tmenv`,FLOOKUP_UPDATE] >>
+  `FLOOKUP tmenv "==>" = SOME (Fun Bool (Fun Bool Bool))` by simp[Abbr`tmenv`,FLOOKUP_UPDATE] >>
   imp_res_tac identity_instance >>
   simp[Abbr`tm`,termsem_def] >>
   simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def] >>
@@ -215,16 +218,17 @@ val apply_abstract_tac = rpt ( (
     map_every qunabbrev_tac[`RR`,`BB`,`FF`] >>
     rw[boolean_in_boolset]
     )) >>
-    qmatch_abbrev_tac`termsem ssig i1 tt (l1 === r1) <: boolset` >>
-    `term_ok ssig (l1 === r1)` by (
+    qmatch_abbrev_tac`termsem (tmsof sctx) i1 tt (l1 === r1) <: boolset` >>
+    `term_ok (sigof sctx) (l1 === r1)` by (
       unabbrev_all_tac >>
       simp[term_ok_equation,term_ok_def,type_ok_def] >>
       fs[is_std_sig_def] ) >>
-    `is_structure ssig i1 tt` by (
+    `is_structure (sigof sctx) i1 tt` by (
       fs[is_structure_def,Abbr`tt`,is_valuation_def,is_term_valuation_def] >>
       rw[combinTheory.APPLY_UPDATE_THM] >>
       rw[typesem_def] ) >>
-    rw[termsem_equation,boolean_in_boolset]
+    `tmsof sctx = tmsof (sigof sctx)` by simp[] >> pop_assum SUBST1_TAC >>
+    rw[SIMP_RULE std_ss [] termsem_equation,boolean_in_boolset]
 
 val infinity_has_model = store_thm("infinity_has_model",
   ``is_set_theory ^mem ∧ (∃inf. is_infinite ^mem inf) ⇒
@@ -440,7 +444,8 @@ val infinity_has_model = store_thm("infinity_has_model",
   `term_ok (sigof ctxt1) eq` by (
     simp[Abbr`eq`,term_ok_equation,term_ok_def,EQUATION_HAS_TYPE_BOOL,welltyped_equation,typeof_equation,type_ok_def] >>
     fs[is_std_sig_def] ) >>
-  simp[Abbr`eq`,termsem_equation,boolean_eq_true] >>
+  `tmsof ctxt1 = tmsof (sigof ctxt1)` by simp[] >> pop_assum SUBST1_TAC >>
+  simp[Abbr`eq`,SIMP_RULE std_ss [] termsem_equation,boolean_eq_true] >>
   simp[termsem_def,identity_instance] >>
   EVAL_STRING_SORT >>
   `(τ"A" = inf) ∧ (τ"B" = inf)` by (
@@ -460,7 +465,8 @@ val infinity_has_model = store_thm("infinity_has_model",
     simp[Abbr`eq`,term_ok_equation,term_ok_def,EQUATION_HAS_TYPE_BOOL,welltyped_equation,typeof_equation,type_ok_def] >>
     fs[is_std_sig_def] >>
     qexists_tac`[(B,A)]` >> simp[REV_ASSOCD]) >>
-  simp[termsem_equation,Abbr`eq`,boolean_eq_true] >>
+  `tmsof ctxt1 = tmsof (sigof ctxt1)` by simp[] >> pop_assum SUBST1_TAC >>
+  simp[SIMP_RULE std_ss [] termsem_equation,Abbr`eq`,boolean_eq_true] >>
   simp[termsem_def,identity_instance] >>
   EVAL_STRING_SORT >>
   simp[] >> disch_then kall_tac >>
@@ -526,7 +532,8 @@ val infinity_has_model = store_thm("infinity_has_model",
     `term_ok (sigof ctxt1) (x1 === x2)` by (
       unabbrev_all_tac >>
       simp[term_ok_equation,term_ok_def,type_ok_def] ) >>
-    simp[termsem_equation,boolean_in_boolset,boolean_eq_true,Abbr`eq`] >>
+    `tmsof ctxt1 = tmsof (sigof ctxt1)` by simp[] >> pop_assum SUBST1_TAC >>
+    simp[SIMP_RULE std_ss [] termsem_equation,boolean_in_boolset,boolean_eq_true,Abbr`eq`] >>
     simp[boolean_in_boolset] >>
     conj_tac >- apply_abstract_tac >>
     match_mp_tac (UNDISCH apply_boolrel) >>
@@ -613,7 +620,8 @@ val infinity_has_model = store_thm("infinity_has_model",
     fs[is_structure_def,Abbr`tt`,is_valuation_def,is_term_valuation_def] >>
     rw[combinTheory.APPLY_UPDATE_THM] >>
     rw[typesem_def] ) >>
-  simp[termsem_equation,boolean_in_boolset,Abbr`eq`] >>
+  `tmsof ctxt1 = tmsof (sigof ctxt1)` by simp[] >> pop_assum SUBST1_TAC >>
+  simp[SIMP_RULE std_ss [] termsem_equation,boolean_in_boolset,Abbr`eq`] >>
   rw[boolean_def] >> pop_assum mp_tac >>
   simp[termsem_def,Abbr`tt`,combinTheory.APPLY_UPDATE_THM] >>
   `Abstract (τ"B") (τ"B") f ' z = f z` by (

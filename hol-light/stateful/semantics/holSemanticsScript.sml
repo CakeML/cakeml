@@ -109,22 +109,22 @@ val instance_def = new_specification("instance_def",["instance"],
 (* Semantics of terms. *)
 
 val termsem_def = xDefine "termsem"`
-  (termsem0 ^mem (Γ:sig) (i:'U interpretation) (v:'U valuation) (Var x ty) = tmvof v (x,ty)) ∧
-  (termsem0 ^mem Γ i v (Const name ty) = instance (tmsof Γ) i name ty (tyvof v)) ∧
-  (termsem0 ^mem Γ i v (Comb t1 t2) =
-   termsem0 ^mem Γ i v t1 ' (termsem0 ^mem Γ i v t2)) ∧
-  (termsem0 ^mem Γ i v (Abs x ty b) =
+  (termsem0 ^mem (tmenv:tmenv) (i:'U interpretation) (v:'U valuation) (Var x ty) = tmvof v (x,ty)) ∧
+  (termsem0 ^mem tmenv i v (Const name ty) = instance tmenv i name ty (tyvof v)) ∧
+  (termsem0 ^mem tmenv i v (Comb t1 t2) =
+   termsem0 ^mem tmenv i v t1 ' (termsem0 ^mem tmenv i v t2)) ∧
+  (termsem0 ^mem tmenv i v (Abs x ty b) =
    Abstract (typesem (tyaof i) (tyvof v) ty) (typesem (tyaof i) (tyvof v) (typeof b))
-     (λm. termsem0 ^mem Γ i (tyvof v, ((x,ty)=+m)(tmvof v)) b))`
+     (λm. termsem0 ^mem tmenv i (tyvof v, ((x,ty)=+m)(tmvof v)) b))`
 val _ = Parse.overload_on("termsem",``termsem0 ^mem``)
 
 (* Satisfaction of sequents. *)
 
 val satisfies_def = xDefine"satisfies"`
-  satisfies0 ^mem i (sig,h,c) ⇔
+  satisfies0 ^mem i (sig:sig,h,c) ⇔
     ∀v. is_valuation (tysof sig) (tyaof i) v ∧
-      EVERY (λt. termsem sig i v t = True) h
-      ⇒ termsem sig i v c = True`
+      EVERY (λt. termsem (tmsof sig) i v t = True) h
+      ⇒ termsem (tmsof sig) i v c = True`
 val _ = Parse.add_infix("satisfies",450,Parse.NONASSOC)
 val _ = Parse.overload_on("satisfies",``satisfies0 ^mem``)
 
