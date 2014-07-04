@@ -10,9 +10,9 @@ open import DecLang
 (* Syntax *)
 
 (* pure applicative primitives with bytecode counterparts *)
-type Cprim1 = CRef | CDer | CIsBlock | CLen | CLenB
+type Cprim1 = CRef | CDer | CIsBlock | CLen | CLenB | CLenK
             | CTagEq of nat | CProj of nat | CInitG of nat
-type Cprim2p = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq
+type Cprim2p = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq | CDerV
 type Cprim2s = CRefB | CDerB
 type Cprim2 = P2p of Cprim2p | P2s of Cprim2s
 
@@ -123,6 +123,16 @@ CevalPrim2p CEq = fun v1 v2 ->
     | Eq_closure -> Rval (CLitv (IntLit 0))
     | Eq_type_error -> Rerr Rtype_error
   end
+and
+CevalPrim2p CDerV = fun v1 v2 ->
+  match (v1,v2) with
+    | (CConv _ vs, CLitv (IntLit i)) ->
+      if i < 0 || List.length vs <= natFromInteger i then
+        Rerr Rtype_error
+      else
+        Rval (List_extra.nth vs (natFromInteger i))
+    | _ -> Rerr Rtype_error
+  end
 
 val CevalPrim2s : store Cv -> Cprim2s -> Cv -> Cv -> store Cv * result Cv Cv
 let rec
@@ -193,6 +203,9 @@ CevalPrim1 CLenB (s,g) (CLoc n) =
       | Just (W8array ws) -> Rval (CLitv (IntLit (integerFromNat (List.length ws))))
       | _ -> Rerr Rtype_error
       end)
+and
+CevalPrim1 CLenK sg (CConv _ vs) =
+  (sg, Rval (CLitv (IntLit (integerFromNat (List.length vs)))))
 and
 CevalPrim1 CIsBlock sg (CLitv l) =
   (sg, Rval (CLitv (Bool (match l with IntLit _ -> false | Word8 _ -> false | _ -> true end))))

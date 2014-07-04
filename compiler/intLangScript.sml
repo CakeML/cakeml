@@ -21,11 +21,11 @@ val _ = new_theory "intLang"
 
 (* pure applicative primitives with bytecode counterparts *)
 val _ = Hol_datatype `
- Cprim1 = CRef | CDer | CIsBlock | CLen | CLenB
+ Cprim1 = CRef | CDer | CIsBlock | CLen | CLenB | CLenK
             | CTagEq of num | CProj of num | CInitG of num`;
 
 val _ = Hol_datatype `
- Cprim2p = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq`;
+ Cprim2p = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq | CDerV`;
 
 val _ = Hol_datatype `
  Cprim2s = CRefB | CDerB`;
@@ -157,6 +157,16 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
       Eq_val b => Rval (CLitv (Bool b))
     | Eq_closure => Rval (CLitv (IntLit(( 0 : int))))
     | Eq_type_error => Rerr Rtype_error
+  )))
+/\
+(CevalPrim2p CDerV = (\ v1 v2 . 
+  (case (v1,v2) of
+      (CConv _ vs, CLitv (IntLit i)) =>
+      if (i <( 0 : int)) \/ (LENGTH vs <= Num (ABS ( i))) then
+        Rerr Rtype_error
+      else
+        Rval (EL (Num (ABS ( i))) vs)
+    | _ => Rerr Rtype_error
   )))`;
 
 
@@ -236,6 +246,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
         SOME (W8array ws) => Rval (CLitv (IntLit (int_of_num (LENGTH ws))))
       | _ => Rerr Rtype_error
       )))
+/\
+(CevalPrim1 CLenK sg (CConv _ vs) =
+  (sg, Rval (CLitv (IntLit (int_of_num (LENGTH vs))))))
 /\
 (CevalPrim1 CIsBlock sg (CLitv l) =
   (sg, Rval (CLitv (Bool ((case l of IntLit _ => F | Word8 _ => F | _ => T ))))))

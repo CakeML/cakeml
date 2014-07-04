@@ -148,6 +148,8 @@ val _ = Hol_datatype `
 /\
 (prim1_to_bc CLenB = ([LengthByte]))
 /\
+(prim1_to_bc CLenK = ([Stack LengthBlock]))
+/\
 (prim1_to_bc (CTagEq n) = ([Stack (TagEq (n+block_tag))]))
 /\
 (prim1_to_bc (CProj n) = ([Stack (El n)]))
@@ -170,6 +172,8 @@ val _ = Hol_datatype `
 (prim2_to_bc (P2p CLt) = (Stack Less))
 /\
 (prim2_to_bc (P2p CEq) = (Stack Equal))
+/\
+(prim2_to_bc (P2p CDerV) = (Stack El2))
 /\
 (prim2_to_bc (P2s CRefB) = RefByte)
 /\
