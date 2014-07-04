@@ -3,6 +3,9 @@ struct
 open HolKernel boolLib bossLib Parse astTheory terminationTheory
 open cakeml_computeLib 
 open Portable smpp term_pp_types
+open x64DisassembleLib
+(*x64DisassembleLib.sig is missing include Abbrev*)
+
 
 fun strip t = #2 (dest_comb t);
 fun toString s = stringSyntax.fromHOLstring s;
@@ -489,7 +492,6 @@ val _=temp_add_user_printer("falselitprint",``Lit (Bool F)``,genPrint (boolPrint
 val _=temp_add_user_printer("trueplitprint",``Plit (Bool T)``,genPrint (boolPrint "true"));
 val _=temp_add_user_printer("falseplitprint",``Plit (Bool F)``,genPrint (boolPrint "false"));
 
-
 (*Pretty printer for ast list form, pattern to terms*)
 (*TODO: Check if this leaves a leading newline..*)
 fun astlistPrint sys d t pg str brk blk =
@@ -554,20 +556,21 @@ fun ubclistPrint sys d t pg str brk blk =
   end;
 val _=temp_add_user_printer("ubclistprint",``(NONE ,(y:bc_inst store))``,genPrint ubclistPrint);
 
+(*ASM*)
+fun asmPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
+  let
+    open term_pp_types PPBackEnd
+    val (str,brk,blk,sty) = (#add_string ppfns, #add_break ppfns,#ublock ppfns,#ustyle ppfns);
+    val ls = x64_disassemble t
+    val maxlen = 45 (*x86 inst at most 15 bytes long so leave 45 bytes of space, could probably do with less*)
+    fun pad 0 = str""
+    |   pad n = str" ">>pad (n-1)
+    fun printAsm [] = str""
+    |   printAsm (x::xs) = case x of (hex,dis) => 
+          (sty [FG DarkGrey] (str hex))>> pad (maxlen - size hex) >>str dis>>str"\n">>printAsm xs
+  in
+    printAsm ls
+  end;
+val _=temp_add_user_printer("asmlistprint",``x:word8 store``,asmPrint);
 
-
-(*
-fun globPrinter sys d t pg str brk blk =
-  case pairSyntax.strip_pair t
-  of
-     [x,y] => str"bla">>str (toString x) >>str " |-> " >>sys (pg,pg,pg) d y
-  |  [x,y,z] => str (toString x) >>str " of " >>sys (pg,pg,pg) d y >> sys (pg,pg,pg) d z;
-
-val _=temp_add_user_printer("globprint",``(x,y)``,genPrint globPrinter);
-
-val _=temp_add_user_printer("ctorprint",``($, x) (($, y) z)``,genPrint globPrinter);
-
-temp_remove_user_printer("ctorprint");
-temp_remove_user_printer("globprint");
-*)
 end;

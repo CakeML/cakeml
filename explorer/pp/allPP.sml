@@ -155,13 +155,14 @@ fun allIntermediates prog =
       val p8 = rhsThm (eval ``(NONE,^(p8))``)
 
       val p7 = rhsThm (eval ``(SOME x,^(p7))``)
-
+      
   in
      {ils=[ast,p1,p2,p3,p4,p5,p6,p7,p8,p9],
       ctors=ctors,globMap=globMap,modMap=modMap,annotations=(!collectAnnotations)}
   end;
 end
 end
+
 
 (*Helper for test calls*)
 
