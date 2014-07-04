@@ -2,7 +2,6 @@ structure allPP = struct local
 open HolKernel boolLib bossLib Parse
 open cakeml_computeLib astPP modPP conPP exhPP patPP intPP
 open labels_computeLib
-open x64_code_evalTheory x64_heapTheory
 
 fun fullEval p =
   let val asts = eval ``get_all_asts ^(p)``
@@ -34,10 +33,6 @@ val compile_primitives_pieces =
   ,eval ``compile_primitives.contags_env``
   ,eval ``compile_primitives.rnext_label``];
 val cs = cakeml_compset();
-
-(*x64 heap stuff should probably go into cakeml computelib?*)
-val _ = wordsLib.add_words_compset true cs
-val _= computeLib.add_thms [prog_x64_extraTheory.IMM32_def,small_offset_def,small_offset6_def,small_offset12_def,small_offset16_def,x64_def,x64_length_def,x64_code_def] cs
 
 val _ = computeLib.add_thms [compile_primitives_pieces] cs
 val eval = computeLib.CBV_CONV cs
