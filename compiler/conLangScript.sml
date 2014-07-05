@@ -888,32 +888,5 @@ evaluate_prog_i2 ck exh genv s1 (prompt::prompts) (s3, (env2++env3), r))
 ==>
 evaluate_prog_i2 ck exh genv s1 (prompt::prompts) (s2, env2, SOME err))`;
 
-(*val init_tagenv_state : (nat * tag_env * map nat (conN * tid_or_exn))*)
-val _ = Define `
- (init_tagenv_state =
-  ( 8,
-   (FEMPTY,
-    FUPDATE_LIST FEMPTY [("Div", (div_tag, SOME (TypeExn (Short "Div")))); 
-                  ("Bind", (bind_tag,SOME (TypeExn (Short "Bind")))); 
-                  ("Eq", (eq_tag, SOME (TypeExn (Short "Eq")))); 
-                  ("::", (cons_tag, SOME (TypeId (Short "list"))));
-                  ("nil", (nil_tag, SOME (TypeId (Short "list"))));
-                  ("SOME", (some_tag, SOME (TypeId (Short "option"))));
-                  ("NONE", (none_tag, SOME (TypeId (Short "option"))))]),
-   FUPDATE_LIST FEMPTY [(div_tag, ("Div", TypeExn (Short "Div"))); 
-                 (bind_tag, ("Bind", TypeExn (Short "Bind"))); 
-                 (eq_tag, ("Eq", TypeExn (Short "Eq"))); 
-                 (cons_tag, ("::", TypeId (Short "list")));
-                 (nil_tag, ("nil", TypeId (Short "list")));
-                 (some_tag, ("SOME", TypeId (Short "option")));
-                 (none_tag, ("NONE", TypeId (Short "option")))]))`;
-
-
-(*val init_exh : exh_ctors_env*)
-val _ = Define `
- (init_exh =  
-(FUPDATE_LIST FEMPTY [(Short "list", (FOLDL (\ s n. insert n ()  s) LN [cons_tag; nil_tag]));
-     (Short "option", (FOLDL (\ s n. insert n ()  s) LN [some_tag; none_tag]))]))`;
-
 val _ = export_theory()
 

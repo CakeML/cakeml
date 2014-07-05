@@ -34,16 +34,6 @@ val _ = Hol_datatype `
 
 
 val _ = Define `
- (init_compiler_state =  
-(<| next_global :=( 0)
-   ; globals_env := (FEMPTY, FEMPTY)
-   ; contags_env := init_tagenv_state
-   ; exh := init_exh
-   ; rnext_label :=( 0)
-   |>))`;
-
-
-val _ = Define `
  (compile_Cexp env rsz cs Ce =  
 (let (Ce,nl) = (label_closures (LENGTH env) cs.next_label Ce) in
   let cs = (compile_code_env ( cs with<| next_label := nl |>) Ce) in
@@ -150,7 +140,7 @@ val _ = Define `
 
 
 val _ = Define `
- (compile_prog prog =  
+ (compile_prog init_compiler_state prog =  
 (let n = (init_compiler_state.next_global) in
   let (m1,m2) = (init_compiler_state.globals_env) in  
   (case prog_to_i1 n m1 m2 prog of

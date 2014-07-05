@@ -5,6 +5,37 @@ open import SemanticPrimitives
 open import TypeSystem
 open import Elab
 
+val mk_binop : string -> op -> top
+let mk_binop name prim = 
+  Tdec (Dlet (Pvar name) (Fun "x" (Fun "y" (App prim (Var (Short "x")) (Var (Short "y"))))))
+
+val mk_unop : string -> uop -> top
+let mk_unop name prim = 
+  Tdec (Dlet (Pvar name) (Fun "x" (Uapp prim (Var (Short "x")))))
+
+val initial_program : prog
+let initial_program = 
+  [Tdec (Dtype [(["'a"], "option", [("NONE", []); ("SOME", [Tvar "'a"])])]);
+   Tdec (Dtype [(["'a"], "list", [("nil", []); ("::", [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))])])]);
+   Tdec (Dexn "Bind" []);
+   Tdec (Dexn "Div" []);
+   Tdec (Dexn "Eq" []);
+   mk_binop "+" (Opn Plus);
+   mk_binop "-" (Opn Minus);
+   mk_binop "*" (Opn Times);
+   mk_binop "div" (Opn Divide);
+   mk_binop "mod" (Opn Modulo);
+   mk_binop "<" (Opb Lt);
+   mk_binop ">" (Opb Gt);
+   mk_binop "<=" (Opb Leq);
+   mk_binop ">=" (Opb Geq);
+   mk_binop "=" Equality;
+   mk_binop ":=" Opassign;
+   Tdec (Dlet (Pvar "~") (Fun "x" (App (Opn Minus) (Lit (IntLit 0)) (Var(Short"x")))));
+   mk_unop "!" Opderef;
+   mk_unop "ref" Opref; ]
+
+(*
 val init_envC : envC
 let init_envC =
   (emp,
@@ -81,3 +112,4 @@ let init_type_decs =
 val init_decls : decls
 let init_decls = 
   ({}, { Short "option"; Short "list" }, { Short "Bind"; Short "Div"; Short "Eq" })
+*)

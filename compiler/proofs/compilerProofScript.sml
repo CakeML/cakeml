@@ -1181,30 +1181,6 @@ val env_rs_def = Define`
       closed_vlabs [] ((cnt,Cs),Cg) bs.code ∧
       Cenv_bs rd ((cnt,Cs),Cg) [] [] 0 bs`
 
-val env_rs_empty = store_thm("env_rs_empty",
-  ``∀envs s cs genv rd grd bs ck.
-    bs.stack = [] ∧ bs.globals = [] ∧ FILTER is_Label bs.code = [] ∧
-    (∀n. bs.clock = SOME n ⇒ n = ck) ∧ envs = ([],init_envC,[]) ∧
-    s = ((ck,[]),IMAGE SND (FDOM init_gtagenv),{}) ∧
-    grd = ([],init_gtagenv,rd) ∧
-    rd.sm = [] ∧ rd.cls = FEMPTY ∧ cs = init_compiler_state ⇒
-    env_rs envs s grd cs bs``,
-  rpt gen_tac >>
-  simp[env_rs_def,to_i1_invariant_def,to_i2_invariant_def] >>
-  strip_tac >>
-  conj_tac >- (EVAL_TAC >> simp[]) >>
-  conj_tac >- (EVAL_TAC >> simp[]) >>
-  rw[init_compiler_state_def,get_tagenv_def,cenv_inv_def] >>
-  rw[Once v_to_i1_cases] >> rw[Once v_to_i1_cases] >>
-  rw[Once s_to_i1_cases] >> rw[Once s_to_i1'_cases] >> rw[Once v_to_i1_cases] >>
-  simp[Once s_to_i2_cases] >> simp[Once s_to_i2'_cases] >> simp[Once v_to_i2_cases] >>
-  simp[Cenv_bs_def,env_renv_def,s_refs_def,good_rd_def,FEVERY_ALL_FLOOKUP] >>
-  simp[all_vlabs_csg_def,vlabs_csg_def,closed_vlabs_def] >>
-  conj_tac >- EVAL_TAC >>
-  Q.ISPEC_THEN`ck`assume_tac initial_i2_invariant >>
-  fs[to_i2_invariant_def] >>
-  fs[cenv_inv_def])
-
 (* TODO: move *)
 val to_i1_invariant_change_clock = store_thm("to_i1_invariant_change_clock",
   ``to_i1_invariant genv mods tops menv env s s_i1 mod_names ∧

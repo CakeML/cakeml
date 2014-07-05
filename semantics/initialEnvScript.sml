@@ -15,21 +15,55 @@ val _ = new_theory "initialEnv"
 (*open import TypeSystem*)
 (*open import Elab*)
 
-(*val init_envC : envC*)
+(*val mk_binop : string -> op -> top*)
 val _ = Define `
- (init_envC =
-  (emp,   
-(("NONE", ( 0, TypeId (Short "option"))) ::   
-(("SOME", ( 1, TypeId (Short "option"))) ::   
-(("nil", ( 0, TypeId (Short "list"))) ::   
-(("::", ( 2, TypeId (Short "list"))) ::
-   MAP (\ cn .  (cn, ( 0, TypeExn (Short cn)))) ["Bind"; "Div"; "Eq"]))))))`;
+ (mk_binop name prim =  
+ (Tdec (Dlet (Pvar name) (Fun "x" (Fun "y" (App prim (Var (Short "x")) (Var (Short "y"))))))))`;
 
 
-(*val init_env : envE*)
+(*val mk_unop : string -> uop -> top*)
 val _ = Define `
- (init_env =  
-([("+", Closure ([],init_envC,[]) "x" (Fun "y" (App (Opn Plus) (Var (Short "x")) (Var (Short "y")))));
+ (mk_unop name prim =  
+ (Tdec (Dlet (Pvar name) (Fun "x" (Uapp prim (Var (Short "x")))))))`;
+
+
+(*val initial_program : prog*)
+val _ = Define `
+ (initial_program =  
+ ([Tdec (Dtype [(["'a"], "option", [("NONE", []); ("SOME", [Tvar "'a"])])]);
+   Tdec (Dtype [(["'a"], "list", [("nil", []); ("::", [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))])])]);
+   Tdec (Dexn "Bind" []);
+   Tdec (Dexn "Div" []);
+   Tdec (Dexn "Eq" []);
+   mk_binop "+" (Opn Plus);
+   mk_binop "-" (Opn Minus);
+   mk_binop "*" (Opn Times);
+   mk_binop "div" (Opn Divide);
+   mk_binop "mod" (Opn Modulo);
+   mk_binop "<" (Opb Lt);
+   mk_binop ">" (Opb Gt);
+   mk_binop "<=" (Opb Leq);
+   mk_binop ">=" (Opb Geq);
+   mk_binop "=" Equality;
+   mk_binop ":=" Opassign;
+   Tdec (Dlet (Pvar "~") (Fun "x" (App (Opn Minus) (Lit (IntLit(( 0 : int)))) (Var(Short"x")))));
+   mk_unop "!" Opderef;
+   mk_unop "ref" Opref  ]))`;
+
+
+(*
+val init_envC : envC
+let init_envC =
+  (emp,
+   ("NONE", (0, TypeId (Short "option"))) ::
+   ("SOME", (1, TypeId (Short "option"))) ::
+   ("nil", (0, TypeId (Short "list"))) ::
+   ("::", (2, TypeId (Short "list"))) ::
+   List.map (fun cn -> (cn, (0, TypeExn (Short cn)))) ["Bind"; "Div"; "Eq"])
+
+val init_env : envE
+let init_env =
+  [("+", Closure ([],init_envC,[]) "x" (Fun "y" (App (Opn Plus) (Var (Short "x")) (Var (Short "y")))));
    ("-", Closure ([],init_envC,[]) "x" (Fun "y" (App (Opn Minus) (Var (Short "x")) (Var (Short "y")))));
    ("*", Closure ([],init_envC,[]) "x" (Fun "y" (App (Opn Times) (Var (Short "x")) (Var (Short "y")))));
    ("div", Closure ([],init_envC,[]) "x" (Fun "y" (App (Opn Divide) (Var (Short "x")) (Var (Short "y")))));
@@ -40,16 +74,14 @@ val _ = Define `
    (">=", Closure ([],init_envC,[]) "x" (Fun "y" (App (Opb Geq) (Var (Short "x")) (Var (Short "y")))));
    ("=", Closure ([],init_envC,[]) "x" (Fun "y" (App Equality (Var (Short "x")) (Var (Short "y")))));
    (":=", Closure ([],init_envC,[]) "x" (Fun "y" (App Opassign (Var (Short "x")) (Var (Short "y")))));
-   ("~", Closure ([],init_envC,[]) "x" (App (Opn Minus) (Lit (IntLit(( 0 : int)))) (Var (Short "x"))));
+   ("~", Closure ([],init_envC,[]) "x" (App (Opn Minus) (Lit (IntLit 0)) (Var (Short "x"))));
    ("!", Closure ([],init_envC,[]) "x" (Uapp Opderef (Var (Short "x"))));
-   ("ref", Closure ([],init_envC,[]) "x" (Uapp Opref (Var (Short "x"))))]))`;
+   ("ref", Closure ([],init_envC,[]) "x" (Uapp Opref (Var (Short "x"))))]
 
-
-(*val init_tenv : tenvE*)
-val _ = Define `
- (init_tenv =  
-(FOLDR 
-    (\ (tn,tvs,t) tenv .  Bind_name tn tvs t tenv) 
+val init_tenv : tenvE
+let init_tenv =
+  foldr 
+    (fun (tn,tvs,t) tenv -> Bind_name tn tvs t tenv) 
     Empty 
     [("+", 0, Tfn Tint (Tfn Tint Tint));
      ("-", 0, Tfn Tint (Tfn Tint Tint));
@@ -60,50 +92,42 @@ val _ = Define `
      (">", 0, Tfn Tint (Tfn Tint Tbool));
      ("<=", 0, Tfn Tint (Tfn Tint Tbool));
      (">=", 0, Tfn Tint (Tfn Tint Tbool));
-     ("=", 1, Tfn (Tvar_db( 0)) (Tfn (Tvar_db( 0)) Tbool));
-     (":=", 1, Tfn (Tref (Tvar_db( 0))) (Tfn (Tvar_db( 0)) Tunit));
+     ("=", 1, Tfn (Tvar_db 0) (Tfn (Tvar_db 0) Tbool));
+     (":=", 1, Tfn (Tref (Tvar_db 0)) (Tfn (Tvar_db 0) Tunit));
      ("~", 0, Tfn Tint Tint);
-     ("!", 1, Tfn (Tref (Tvar_db( 0))) (Tvar_db( 0)));
-     ("ref", 1, Tfn (Tvar_db( 0)) (Tref (Tvar_db( 0))))]))`;
+     ("!", 1, Tfn (Tref (Tvar_db 0)) (Tvar_db 0));
+     ("ref", 1, Tfn (Tvar_db 0) (Tref (Tvar_db 0)))]
 
+val init_tenvC : tenvC
+let init_tenvC =
+  (emp,
+   ("NONE", (["'a"], [], TypeId (Short "option"))) ::
+   ("SOME", (["'a"], [Tvar "'a"], TypeId (Short "option"))) ::
+   ("nil", (["'a"], [], TypeId (Short "list"))) ::
+   ("::", (["'a"], [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))], TypeId (Short "list"))) ::
+   List.map (fun cn -> (cn, ([], [], TypeExn (Short cn)))) ["Bind"; "Div"; "Eq"])
 
-(*val init_tenvC : tenvC*)
-val _ = Define `
- (init_tenvC =
-  (emp,   
-(("NONE", (["'a"], [], TypeId (Short "option"))) ::   
-(("SOME", (["'a"], [Tvar "'a"], TypeId (Short "option"))) ::   
-(("nil", (["'a"], [], TypeId (Short "list"))) ::   
-(("::", (["'a"], [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))], TypeId (Short "list"))) ::
-   MAP (\ cn .  (cn, ([], [], TypeExn (Short cn)))) ["Bind"; "Div"; "Eq"]))))))`;
-
-
-(*val init_type_bindings : tdef_env*)
-val _ = Define `
- (init_type_bindings =  
-([("int", TC_int);
+val init_type_bindings : tdef_env
+let init_type_bindings =
+  [("int", TC_int);
    ("bool", TC_bool);
    ("ref", TC_ref);
    ("exn", TC_exn);
    ("unit", TC_unit);
    ("list", TC_name (Short "list"));
-   ("option", TC_name (Short "option"))]))`;
+   ("option", TC_name (Short "option"))]
 
-
-(*val init_type_decs : set tid_or_exn*)
-val _ = Define `
- (init_type_decs =  
- ({ TypeId (Short "option");
+val init_type_decs : set tid_or_exn
+let init_type_decs = 
+  { TypeId (Short "option");
     TypeId (Short "list");
     TypeExn (Short "Bind");
     TypeExn (Short "Div");
-    TypeExn (Short "Eq") }))`;
+    TypeExn (Short "Eq") }
 
-
-(*val init_decls : decls*)
-val _ = Define `
- (init_decls = 
-  ({}, { Short "option"; Short "list" }, { Short "Bind"; Short "Div"; Short "Eq" }))`;
-
+val init_decls : decls
+let init_decls = 
+  ({}, { Short "option"; Short "list" }, { Short "Bind"; Short "Div"; Short "Eq" })
+*)
 val _ = export_theory()
 

@@ -14,11 +14,6 @@ repl_state = <| (* Elaborator state *)
                 (* Semantics state *)
                 envM : envM; envC : envC; store : (v count_store # tid_or_exn set # modN set); envE : envE |>`;
 
-val init_repl_state_def = Define`
-  init_repl_state = <| type_bindings := init_type_bindings;
-                       tdecs := init_decls; tenvM := []; tenvC := init_tenvC; tenv := init_tenv;
-                       envM := []; envC := init_envC; store := ((0,[]),init_type_decs,{}); envE := init_env |>`
-
 val _ = Hol_datatype `
 repl_result =
     Terminate
@@ -150,6 +145,6 @@ val parse_def = Define`
 `
 
 val repl_def = Define `
-repl type_errors input = ast_repl init_repl_state type_errors (MAP parse (split_top_level_semi (lexer_fun input)))`;
+repl init_repl_state type_errors input = ast_repl init_repl_state type_errors (MAP parse (split_top_level_semi (lexer_fun input)))`;
 
 val _ = export_theory ();

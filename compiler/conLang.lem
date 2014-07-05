@@ -914,27 +914,3 @@ evaluate_prompt_i2 ck exh genv s1 prompt (s2, env2, Just err)
 ==>
 evaluate_prog_i2 ck exh genv s1 (prompt::prompts) (s2, env2, Just err)
 
-val init_tagenv_state : (nat * tag_env * map nat (conN * tid_or_exn))
-let init_tagenv_state =
-  (8,
-   (Map.empty,
-    Map.fromList [("Div", (div_tag, Just (TypeExn (Short "Div")))); 
-                  ("Bind", (bind_tag,Just (TypeExn (Short "Bind")))); 
-                  ("Eq", (eq_tag, Just (TypeExn (Short "Eq")))); 
-                  ("::", (cons_tag, Just (TypeId (Short "list"))));
-                  ("nil", (nil_tag, Just (TypeId (Short "list"))));
-                  ("SOME", (some_tag, Just (TypeId (Short "option"))));
-                  ("NONE", (none_tag, Just (TypeId (Short "option"))))]),
-   Map.fromList [(div_tag, ("Div", TypeExn (Short "Div"))); 
-                 (bind_tag, ("Bind", TypeExn (Short "Bind"))); 
-                 (eq_tag, ("Eq", TypeExn (Short "Eq"))); 
-                 (cons_tag, ("::", TypeId (Short "list")));
-                 (nil_tag, ("nil", TypeId (Short "list")));
-                 (some_tag, ("SOME", TypeId (Short "option")));
-                 (none_tag, ("NONE", TypeId (Short "option")))])
-
-val init_exh : exh_ctors_env
-let init_exh =
-  Map.fromList
-    [(Short "list", nat_set_from_list [cons_tag; nil_tag]);
-     (Short "option", nat_set_from_list [some_tag; none_tag])]
