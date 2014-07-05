@@ -1226,6 +1226,14 @@ val inst_uses_label_prim2_to_bc = store_thm("inst_uses_label_prim2_to_bc",
   rw[inst_uses_label_def])
 val _ = export_rewrites["inst_uses_label_prim2_to_bc"]
 
+val Cv_bv_cases_lit =
+  Cv_bv_cases |> SPEC_ALL |> CONJUNCT1
+  |> Q.SPEC`CLitv X` |> SIMP_RULE (srw_ss())[]
+
+val Cv_bv_cases_conv =
+  Cv_bv_cases |> SPEC_ALL |> CONJUNCT1
+  |> Q.SPEC`CConv X Y` |> SIMP_RULE (srw_ss())[]
+
 val prim2_to_bc_thm = store_thm("prim2_to_bc_thm",
   ``∀s op v1 v2 s' v bs bce bc0 bc1 st bv1 bv2 pp.
     (bs.code = bc0 ++ [(prim2_to_bc op)] ++ bc1) ∧
@@ -1255,7 +1263,8 @@ val prim2_to_bc_thm = store_thm("prim2_to_bc_thm",
     qmatch_assum_rename_tac`bc_fetch bs = SOME (prim2_to_bc (P2p op))`[] >>
     qexists_tac`FST pp`>>
     qexists_tac`bs.refs` >> simp[] >>
-    reverse(Cases_on`op`)>>fs[bump_pc_with_stack] >- (
+    (Cases_on`op`)>>fs[bump_pc_with_stack] >>
+    TRY (
       Cases_on `do_Ceq v1 v2` >>
       fs [] >>
       rw [Once Cv_bv_cases, bc_eval_stack_def,bc_state_component_equality] >>
@@ -1268,7 +1277,7 @@ val prim2_to_bc_thm = store_thm("prim2_to_bc_thm",
     simp[bump_pc_def,s_refs_with_pc,s_refs_with_stack] >>
     Cases_on `v1` >> TRY (Cases_on `l`) >>
     Cases_on `v2` >> TRY (Cases_on `l`) >>
-    fs[] >> rw[] >> fs[Once Cv_bv_cases] >> rw[] >>
+    fs[] >> rw[] >> fs[Cv_bv_cases_lit,Cv_bv_cases_conv] >> rw[] >>
     BasicProvers.EVERY_CASE_TAC >>
     rw[bc_eval_stack_def] >> fs[] >>
     TRY (Cases_on `b` >> rw[]) >>
@@ -1276,7 +1285,15 @@ val prim2_to_bc_thm = store_thm("prim2_to_bc_thm",
     srw_tac[ARITH_ss][] >>
     fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
     fsrw_tac[DNF_ss][EL_ALL_DISTINCT_EL_EQ,el_check_def] >>
-    fs[s_refs_def,good_rd_def]) >>
+    fs[s_refs_def,good_rd_def] >>
+    simp[bc_state_component_equality] >>
+    fs[integerTheory.INT_NOT_LT] >>
+    rfs[GSYM integerTheory.INT_ABS_EQ_ID] >>
+    simp[arithmeticTheory.ADD1] >>
+    Cases_on`Num i`>>simp[] >>
+    first_x_assum match_mp_tac >>
+    simp[MEM_ZIP] >>
+    metis_tac[arithmeticTheory.LESS_EQ]) >>
   qmatch_assum_rename_tac`bc_fetch bs = SOME (prim2_to_bc (P2s op))`[] >>
   PairCases_on`s` >>
   Cases_on`op`>>simp[bump_pc_with_stack] >>
@@ -1555,6 +1572,16 @@ val prim1_to_bc_thm = store_thm("prim1_to_bc_thm",
     simp[bc_state_component_equality] >>
     qexists_tac`rd.sm` >>
     simp[s_refs_with_stack,FILTER_APPEND,SUM_APPEND] >>
+    match_mp_tac s_refs_with_irr >>
+    HINT_EXISTS_TAC >> simp[] )
+  >- ((*LengthBlock*)
+    Cases_on`v1`>>fs[Cv_bv_cases_conv]>>
+    simp[bc_eval_stack_def] >>
+    srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+    simp[bc_state_component_equality,FILTER_APPEND,SUM_APPEND] >>
+    simp[Cv_bv_cases_lit] >>
+    qexists_tac`rd.sm` >> simp[] >>
+    imp_res_tac LIST_REL_LENGTH >> simp[] >>
     match_mp_tac s_refs_with_irr >>
     HINT_EXISTS_TAC >> simp[] )
   >- ( (*TagEq*)
