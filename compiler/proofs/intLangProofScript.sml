@@ -316,6 +316,11 @@ val app_to_il_err = prove(
        rw[Once Cevaluate_cases] >>
        rpt(CHANGED_TAC(rw[Once (CONJUNCT2 Cevaluate_cases)])) >>
        srw_tac[DNF_ss][] >> disj2_tac >>
+       syneq_shift_tac >> use_assum_tac)
+    >-(first_disj(first_assum(match_exists_tac o concl)) >> rw[] >>
+       rw[Once Cevaluate_cases] >>
+       rpt(CHANGED_TAC(rw[Once (CONJUNCT2 Cevaluate_cases)])) >>
+       srw_tac[DNF_ss][] >> disj2_tac >>
        syneq_shift_tac >> use_assum_tac)) >>
   Cases_on`t`>- (
     rw[Once Cevaluate_cases,PULL_EXISTS] >> fs[] >> rw[] >>
