@@ -1,9 +1,30 @@
 open HolKernel boolLib bossLib Parse
-open astTheory initialEnvTheory inferTheory inferProofTheory;
+open astTheory initialEnvTheory interpTheory inferTheory;
 
 val _ = new_theory"initialProgram"
 
+val init_env_def = Define `
+  init_env = 
+    case run_eval_prog ([],([],[]),[]) ((100000, []), {}, {}) initial_program of
+      | ((count_store, tids, mods), envC, Rval (envM, envE)) =>
+          ((envM, envC, envE), tids, mods)`;
+
+val init_env_thm =
+  computeLib.EVAL_CONV ``init_env``
+
+val init_type_inf_env_def = Define `
+  init_type_inf_env = 
+    case infer_prog ([],[],[]) [] ([],[]) [] initial_program init_infer_state of
+      | (Success (decls, menv, cenv, env), st) =>
+          (decls,menv,cenv,env)`;
+
+val init_type_inf_env_thm =
+  computeLib.EVAL_CONV ``init_type_inf_env``
+
 (* From type inference *)
+
+val init_infer_decls_def = Define `
+init_infer_decls = ([],[Short "option"; Short "list"],[Short "Bind"; Short "Div"; Short "Eq"])`;
 
 val infer_init_thm = Q.store_thm ("infer_init_thm",
 `infer_sound_invariant [] ([],[]) init_type_env ∧

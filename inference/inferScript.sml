@@ -604,23 +604,6 @@ Infer_Tunit = Infer_Tapp [] TC_unit`;
 val Infer_Tref = Define `
 Infer_Tref t = Infer_Tapp [t] TC_ref`;
 
-val init_type_env_def = Define `
-init_type_env =
-  [("+", (0:num, Infer_Tfn Infer_Tint (Infer_Tfn Infer_Tint Infer_Tint)));
-   ("-", (0, Infer_Tfn Infer_Tint (Infer_Tfn Infer_Tint Infer_Tint)));
-   ("*", (0, Infer_Tfn Infer_Tint (Infer_Tfn Infer_Tint Infer_Tint)));
-   ("div", (0, Infer_Tfn Infer_Tint (Infer_Tfn Infer_Tint Infer_Tint)));
-   ("mod", (0, Infer_Tfn Infer_Tint (Infer_Tfn Infer_Tint Infer_Tint)));
-   ("<", (0, Infer_Tfn Infer_Tint (Infer_Tfn Infer_Tint Infer_Tbool)));
-   (">", (0, Infer_Tfn Infer_Tint (Infer_Tfn Infer_Tint Infer_Tbool)));
-   ("<=", (0, Infer_Tfn Infer_Tint (Infer_Tfn Infer_Tint Infer_Tbool)));
-   (">=", (0, Infer_Tfn Infer_Tint (Infer_Tfn Infer_Tint Infer_Tbool)));
-   ("=", (1, Infer_Tfn (Infer_Tvar_db 0) (Infer_Tfn (Infer_Tvar_db 0) Infer_Tbool)));
-   (":=", (1, Infer_Tfn (Infer_Tref (Infer_Tvar_db 0)) (Infer_Tfn (Infer_Tvar_db 0) Infer_Tunit)));
-   ("~", (0, Infer_Tfn Infer_Tint Infer_Tint));
-   ("!", (1, Infer_Tfn (Infer_Tref (Infer_Tvar_db 0)) (Infer_Tvar_db 0)));
-   ("ref", (1, Infer_Tfn (Infer_Tvar_db 0) (Infer_Tref (Infer_Tvar_db 0))))]`;
-
 (* The following aren't needed to run the inferencer, but are useful in the proofs
  * about it *)
 
@@ -700,8 +683,5 @@ sub_completion tvs next_uvar s1 extra_constraints s2 =
   (pure_add_constraints s1 extra_constraints s2 ∧
    (count next_uvar SUBSET FDOM s2) ∧
    (!uv. uv ∈ FDOM s2 ⇒ check_t tvs {} (t_walkstar s2 (Infer_Tuvar uv))))`;
-
-val init_infer_decls_def = Define `
-init_infer_decls = ([],[Short "option"; Short "list"],[Short "Bind"; Short "Div"; Short "Eq"])`;
 
 val _ = export_theory ();
