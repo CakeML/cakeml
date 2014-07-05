@@ -1,9 +1,4 @@
-open import Pervasives_extra
-open import Lib
 open import Ast
-open import SemanticPrimitives
-open import TypeSystem
-open import Elab
 
 val mk_binop : string -> op -> top
 let mk_binop name prim = 

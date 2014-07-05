@@ -3294,8 +3294,8 @@ val compile_print_err_code_ok_thm = prove(
   simp[code_labels_ok_REVERSE])
 
 val compile_prog_code_labels_ok = store_thm("compile_prog_code_labels_ok",
-  ``∀prog code.
-      (compile_prog prog = code) ∧ closed_prog prog ⇒
+  ``∀init_compiler_state prog code.
+      (compile_prog init_compiler_state prog = code) ∧ closed_prog prog ⇒
       code_labels_ok code``,
     rw[compile_prog_def] >>
     `∃a b c d. prog_to_i1 n m1 m2 prog = (a,b,c,d)` by simp[GSYM EXISTS_PROD] >>simp[] >>
@@ -3320,6 +3320,7 @@ val compile_prog_code_labels_ok = store_thm("compile_prog_code_labels_ok",
     simp[] >>
     fs[closed_prog_def,all_env_dom_def,SUBSET_DEF,PULL_EXISTS])
 
+    (*
 val compile_prog_thm = store_thm("compile_prog_thm",
   ``∀ck env stm prog res. evaluate_whole_prog ck env stm prog res ⇒
      ∀grd rss rsf bc bs bc0.
@@ -3327,7 +3328,7 @@ val compile_prog_thm = store_thm("compile_prog_thm",
       closed_prog prog ∧
       (∀p. "it" ∈ FDOM (FST(SND(SND(prog_to_i1 0 FEMPTY FEMPTY prog)))) ∧
            SND(SND(res)) = Rval p ⇒ lookup "it" (SND p) ≠ NONE) ∧
-      (bs.code = bc0 ++ compile_prog prog) ∧
+      (bs.code = bc0 ++ compile_prog init_compiler_state prog) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
       ck ∧ IS_SOME bs.clock ∧
       SND(SND res) ≠ Rerr Rtype_error ∧
@@ -4053,6 +4054,7 @@ val compile_prog_divergence = store_thm("compile_prog_divergence",
     metis_tac[APPEND_ASSOC]) >>
   HINT_EXISTS_TAC >>
   simp[Abbr`bs0`])
+  *)
 
 (* compile_special, for the repl *)
 

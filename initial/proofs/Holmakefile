@@ -1,0 +1,5 @@
+INCLUDES = ../.. ../../semantics ../../semantics/proof ../../compiler ../../inference ../../inference/proofs ../../metatheory ../../compiler ../../compiler/proofs
+
+OPTIONS = QUIT_ON_FAILURE
+
+

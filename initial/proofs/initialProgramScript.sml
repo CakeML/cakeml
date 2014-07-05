@@ -1,5 +1,5 @@
 open HolKernel boolLib bossLib Parse
-open astTheory bytecodeExtraTheory
+open astTheory initialEnvTheory inferTheory inferProofTheory;
 
 val _ = new_theory"initialProgram"
 
