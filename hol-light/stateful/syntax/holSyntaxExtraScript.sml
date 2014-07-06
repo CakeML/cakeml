@@ -876,41 +876,6 @@ val VSUBST_dbVSUBST = store_thm("VSUBST_dbVSUBST",
   rw[Abbr`x`] >>
   fs[dbVFREE_IN_bind])
 
-(* conversion into de Bruijn given an environment of already bound variables *)
-
-val dbterm_def = Define`
-  (dbterm env (Var s ty) =
-     case find_index (s,ty) env 0 of SOME n => dbBound n | NONE => dbVar s ty) ∧
-  (dbterm env (Const s ty) = dbConst s ty) ∧
-  (dbterm env (Comb t1 t2) = dbComb (dbterm env t1) (dbterm env t2)) ∧
-  (dbterm env (Abs x ty t) = dbAbs ty (dbterm ((x,ty)::env) t))`
-val _ = export_rewrites["dbterm_def"]
-
-val bind_list_aux_def = Define`
-  bind_list_aux n [] tm = tm ∧
-  bind_list_aux n (v::vs) tm = bind_list_aux (n+1) vs (bind v n tm)`
-val _ = export_rewrites["bind_list_aux_def"]
-
-val bind_list_aux_clauses = store_thm("bind_list_aux_clauses",
-  ``(∀env m. bind_list_aux m env (dbBound n) = dbBound n) ∧
-    (∀env m. bind_list_aux m env (dbConst x ty) = dbConst x ty) ∧
-    (∀env m t1 t2. bind_list_aux m env (dbComb t1 t2) = dbComb (bind_list_aux m env t1) (bind_list_aux m env t2)) ∧
-    (∀env m ty tm. bind_list_aux m env (dbAbs ty tm) = dbAbs ty (bind_list_aux (m+1) env tm))``,
-  rpt conj_tac >> Induct >> simp[])
-
-val dbterm_bind = store_thm("dbterm_bind",
-  ``∀tm env. dbterm env tm = bind_list_aux 0 env (db tm)``,
-  Induct >> simp[bind_list_aux_clauses] >>
-  gen_tac >>
-  Q.SPEC_TAC(`0`,`n`) >>
-  Induct_on`env` >> simp[find_index_def] >>
-  Cases >> simp[] >>
-  rw[] >> rw[bind_list_aux_clauses])
-
-val dbterm_db = store_thm("dbterm_db",
-  ``∀tm. dbterm [] tm = db tm``,
-  rw[dbterm_bind])
-
 (* de Bruijn version of INST *)
 
 val dbINST_def = Define`
@@ -1062,6 +1027,41 @@ val INST_dbINST = store_thm("INST_dbINST",
   Cases_on`INST_CORE [] tyin tm`>>fs[] >>
   qspecl_then[`tm`,`tyin`,`[]`,`a`]mp_tac INST_CORE_dbINST >>
   simp[])
+
+(* conversion into de Bruijn given an environment of already bound variables *)
+
+val dbterm_def = Define`
+  (dbterm env (Var s ty) =
+     case find_index (s,ty) env 0 of SOME n => dbBound n | NONE => dbVar s ty) ∧
+  (dbterm env (Const s ty) = dbConst s ty) ∧
+  (dbterm env (Comb t1 t2) = dbComb (dbterm env t1) (dbterm env t2)) ∧
+  (dbterm env (Abs x ty t) = dbAbs ty (dbterm ((x,ty)::env) t))`
+val _ = export_rewrites["dbterm_def"]
+
+val bind_list_aux_def = Define`
+  bind_list_aux n [] tm = tm ∧
+  bind_list_aux n (v::vs) tm = bind_list_aux (n+1) vs (bind v n tm)`
+val _ = export_rewrites["bind_list_aux_def"]
+
+val bind_list_aux_clauses = store_thm("bind_list_aux_clauses",
+  ``(∀env m. bind_list_aux m env (dbBound n) = dbBound n) ∧
+    (∀env m. bind_list_aux m env (dbConst x ty) = dbConst x ty) ∧
+    (∀env m t1 t2. bind_list_aux m env (dbComb t1 t2) = dbComb (bind_list_aux m env t1) (bind_list_aux m env t2)) ∧
+    (∀env m ty tm. bind_list_aux m env (dbAbs ty tm) = dbAbs ty (bind_list_aux (m+1) env tm))``,
+  rpt conj_tac >> Induct >> simp[])
+
+val dbterm_bind = store_thm("dbterm_bind",
+  ``∀tm env. dbterm env tm = bind_list_aux 0 env (db tm)``,
+  Induct >> simp[bind_list_aux_clauses] >>
+  gen_tac >>
+  Q.SPEC_TAC(`0`,`n`) >>
+  Induct_on`env` >> simp[find_index_def] >>
+  Cases >> simp[] >>
+  rw[] >> rw[bind_list_aux_clauses])
+
+val dbterm_db = store_thm("dbterm_db",
+  ``∀tm. dbterm [] tm = db tm``,
+  rw[dbterm_bind])
 
 (* alpha-equivalence on de Bruijn terms *)
 
