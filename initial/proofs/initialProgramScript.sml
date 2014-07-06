@@ -23,6 +23,15 @@ val _ = Hol_datatype `
                    comp_tagenv_st : (num # tag_env # (num |-> tvarN # tid_or_exn));
                    comp_exh : exh_ctors_env |>`;
 
+val invariant_def = Define `
+invariant e ⇔
+  type_sound_invariants (e.type_decls,e.type_tenvM,e.type_tenvC,e.type_tenvE,
+                         e.sem_tids,e.sem_envM,e.sem_envC,e.sem_envE,[]) ∧
+  infer_sound_invariant e.inf_tenvM e.type_tenvC e.inf_tenvE ∧
+  ?genv genv_i2 gtagenv.
+     to_i1_invariant genv e.comp_mod_alloc e.comp_top_alloc e.sem_envM e.sem_envE (ckl1,[]) (clk2,[]) mod_names ∧
+     to_i2_invariant mod_names tids envC exh_env tagenv_st gtagenv (clk3,[]) (clk4,[]) genv genv_i2`,
+
 val add_to_env_def = Define `
 add_to_env e prog =
   let sem_env = run_eval_prog (e.sem_envM, e.sem_envC, e.sem_envE) 
@@ -74,6 +83,10 @@ add_to_env <| sem_envM := [];
               comp_tagenv_st := (0, (FEMPTY, FEMPTY), FEMPTY);
               comp_exh := FEMPTY |>
         prim_types_program`;
+
+val basis_env_def = Define `
+basis_env =
+add_to_env prim_env basis_program`;
 
 (*
 val prim_type_sound_inv = Q.prove (
