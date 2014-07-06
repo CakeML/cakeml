@@ -155,7 +155,7 @@ binop_to_il Vsub Ce1 Ce2 =
     (CLet true (shift 1 0 Ce2)
       (CIf (CPrim2 (P2p CLt) (CVar 0) (CLit (IntLit 0)))
            (CRaise (CCon subscript_tag []))
-           (CIf (CPrim2 (P2p CLt) (CVar 0) (CPrim1 CLenK (CVar 1)))
+           (CIf (CPrim2 (P2p CLt) (CVar 0) (CPrim1 CLenV (CVar 1)))
                 (CPrim2 (P2p CDerV) (CVar 1) (CVar 0))
                 (CRaise (CCon subscript_tag [])))))
 and
@@ -281,8 +281,6 @@ declare termination_argument exps_to_Cexps = automatic
 
 (* source to intermediate values *)
 
-import Bytecode
-
 let rec
 v_to_Cv (Litv_pat l) = CLitv l
 and
@@ -301,7 +299,7 @@ v_to_Cv (Recclosure_pat env defs vn) =
 and
 v_to_Cv (Loc_pat n) = CLoc n
 and
-v_to_Cv (Vectorv_pat vs) = CConv Bytecode.vector_tag (vs_to_Cvs vs)
+v_to_Cv (Vectorv_pat vs) = CVectorv (vs_to_Cvs vs)
 and
 vs_to_Cvs [] = []
 and

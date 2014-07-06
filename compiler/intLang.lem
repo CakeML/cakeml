@@ -10,7 +10,7 @@ open import DecLang
 (* Syntax *)
 
 (* pure applicative primitives with bytecode counterparts *)
-type Cprim1 = CRef | CDer | CIsBlock | CLen | CLenB | CLenK
+type Cprim1 = CRef | CDer | CIsBlock | CLen | CLenB | CLenV
             | CTagEq of nat | CProj of nat | CInitG of nat
 type Cprim2p = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq | CDerV
 type Cprim2s = CRefB | CDerB
@@ -53,11 +53,14 @@ type Cv =
   | CConv of nat * list Cv
   | CRecClos of list Cv * list def * nat
   | CLoc of nat
+  | CVectorv of list Cv
 
 let rec
 no_closures (CLitv _) = true
 and
 no_closures (CConv _ vs) = List.all no_closures vs
+and
+no_closures (CVectorv vs) = List.all no_closures vs
 and
 no_closures (CRecClos _ _ _) = false
 and
@@ -126,7 +129,7 @@ CevalPrim2p CEq = fun v1 v2 ->
 and
 CevalPrim2p CDerV = fun v1 v2 ->
   match (v1,v2) with
-    | (CConv _ vs, CLitv (IntLit i)) ->
+    | (CVectorv vs, CLitv (IntLit i)) ->
       if i < 0 || List.length vs <= natFromInteger i then
         Rerr Rtype_error
       else
@@ -204,7 +207,7 @@ CevalPrim1 CLenB (s,g) (CLoc n) =
       | _ -> Rerr Rtype_error
       end)
 and
-CevalPrim1 CLenK sg (CConv _ vs) =
+CevalPrim1 CLenV sg (CVectorv vs) =
   (sg, Rval (CLitv (IntLit (integerFromNat (List.length vs)))))
 and
 CevalPrim1 CIsBlock sg (CLitv l) =
@@ -591,6 +594,11 @@ conv : forall cn vs1 vs2.
 all2 (syneq) vs1 vs2
 ==>
 syneq (CConv cn vs1) (CConv cn vs2)
+and
+vectorv : forall vs1 vs2.
+all2 (syneq) vs1 vs2
+==>
+syneq (CVectorv vs1) (CVectorv vs2)
 and
 recClos : forall V env1 env2 defs1 defs2 d1 d2 V'.
 (forall v1 v2. V v1 v2 -->

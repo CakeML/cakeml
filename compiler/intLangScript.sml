@@ -16,12 +16,13 @@ val _ = new_theory "intLang"
 (*open import Ast*)
 (*open import SemanticPrimitives*)
 (*open import DecLang*)
+(*open import ConLang*)
 
 (* Syntax *)
 
 (* pure applicative primitives with bytecode counterparts *)
 val _ = Hol_datatype `
- Cprim1 = CRef | CDer | CIsBlock | CLen | CLenB | CLenK
+ Cprim1 = CRef | CDer | CIsBlock | CLen | CLenB | CLenV
             | CTagEq of num | CProj of num | CInitG of num`;
 
 val _ = Hol_datatype `
@@ -77,7 +78,8 @@ val _ = Hol_datatype `
     CLitv of lit
   | CConv of num => Cv list
   | CRecClos of Cv list => def list => num
-  | CLoc of num`;
+  | CLoc of num
+  | CVectorv of Cv list`;
 
 
  val no_closures_defn = Hol_defn "no_closures" `
@@ -85,6 +87,8 @@ val _ = Hol_datatype `
 (no_closures (CLitv _) = T)
 /\
 (no_closures (CConv _ vs) = (EVERY no_closures vs))
+/\
+(no_closures (CVectorv vs) = (EVERY no_closures vs))
 /\
 (no_closures (CRecClos _ _ _) = F)
 /\
@@ -161,7 +165,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (CevalPrim2p CDerV = (\ v1 v2 . 
   (case (v1,v2) of
-      (CConv _ vs, CLitv (IntLit i)) =>
+      (CVectorv vs, CLitv (IntLit i)) =>
       if (i <( 0 : int)) \/ (LENGTH vs <= Num (ABS ( i))) then
         Rerr Rtype_error
       else
@@ -247,7 +251,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
       | _ => Rerr Rtype_error
       )))
 /\
-(CevalPrim1 CLenK sg (CConv _ vs) =
+(CevalPrim1 CLenV sg (CVectorv vs) =
   (sg, Rval (CLitv (IntLit (int_of_num (LENGTH vs))))))
 /\
 (CevalPrim1 CIsBlock sg (CLitv l) =
@@ -584,6 +588,10 @@ syneq (CLitv l) (CLitv l))
 (EVERY2 (syneq) vs1 vs2)
 ==>
 syneq (CConv cn vs1) (CConv cn vs2))
+/\ (! vs1 vs2.
+(EVERY2 (syneq) vs1 vs2)
+==>
+syneq (CVectorv vs1) (CVectorv vs2))
 /\ (! V env1 env2 defs1 defs2 d1 d2 V'.
 ((! v1 v2. V v1 v2 ==>
   ((v1 < LENGTH env1) /\ (v2 < LENGTH env2) /\

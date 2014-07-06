@@ -148,7 +148,7 @@ val _ = Hol_datatype `
 /\
 (prim1_to_bc CLenB = ([LengthByte]))
 /\
-(prim1_to_bc CLenK = ([Stack LengthBlock]))
+(prim1_to_bc CLenV = ([Stack LengthBlock]))
 /\
 (prim1_to_bc (CTagEq n) = ([Stack (TagEq (n+block_tag))]))
 /\

@@ -128,7 +128,7 @@ prim1_to_bc CLen = [Length]
 and
 prim1_to_bc CLenB = [LengthByte]
 and
-prim1_to_bc CLenK = [Stack LengthBlock]
+prim1_to_bc CLenV = [Stack LengthBlock]
 and
 prim1_to_bc (CTagEq n) = [Stack (TagEq (n+block_tag))]
 and
