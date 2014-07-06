@@ -16,8 +16,8 @@ let prim_types_program =
    Tdec (Dexn "Div" []);
    Tdec (Dexn "Eq" [])]
   
-val initial_program : prog
-let initial_program = 
+val basis_program : prog
+let basis_program = 
   [mk_binop "+" (Opn Plus);
    mk_binop "-" (Opn Minus);
    mk_binop "*" (Opn Times);

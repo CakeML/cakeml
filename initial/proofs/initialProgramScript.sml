@@ -1,7 +1,7 @@
-open HolKernel boolLib bossLib Parse
+open preamble;
 open astTheory initialEnvTheory interpTheory inferTheory;
 
-val _ = new_theory"initialProgram"
+val _ = new_theory "initialProgram";
 
 val init_env_def = Define `
   init_env = 

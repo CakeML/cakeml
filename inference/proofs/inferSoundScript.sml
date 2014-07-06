@@ -3,7 +3,6 @@ open rich_listTheory;
 open miscTheory;
 open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
 open libPropsTheory astPropsTheory;
-open initialEnvTheory;
 open inferPropsTheory;
 open typeSysPropsTheory;
 

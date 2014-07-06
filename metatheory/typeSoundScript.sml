@@ -6,7 +6,6 @@ open smallStepTheory bigStepTheory replTheory;
 open terminationTheory;
 open libPropsTheory;
 open weakeningTheory typeSysPropsTheory bigSmallEquivTheory;
-open initialEnvTheory;
 open typeSoundInvariantsTheory evalPropsTheory;
 
 val _ = new_theory "typeSound";

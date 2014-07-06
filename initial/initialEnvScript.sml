@@ -22,15 +22,20 @@ val _ = Define `
  (Tdec (Dlet (Pvar name) (Fun "x" (Uapp prim (Var (Short "x")))))))`;
 
 
-(*val initial_program : prog*)
+(*val prim_types_program : prog*)
 val _ = Define `
- (initial_program =  
+ (prim_types_program = 
  ([Tdec (Dtype [(["'a"], "option", [("NONE", []); ("SOME", [Tvar "'a"])])]);
    Tdec (Dtype [(["'a"], "list", [("nil", []); ("::", [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))])])]);
    Tdec (Dexn "Bind" []);
    Tdec (Dexn "Div" []);
-   Tdec (Dexn "Eq" []);
-   mk_binop "+" (Opn Plus);
+   Tdec (Dexn "Eq" [])]))`;
+
+  
+(*val basis_program : prog*)
+val _ = Define `
+ (basis_program =  
+ ([mk_binop "+" (Opn Plus);
    mk_binop "-" (Opn Minus);
    mk_binop "*" (Opn Times);
    mk_binop "div" (Opn Divide);

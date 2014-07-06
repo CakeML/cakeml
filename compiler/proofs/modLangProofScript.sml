@@ -1,7 +1,7 @@
 open preamble;
 open alistTheory optionTheory rich_listTheory;
 open miscTheory;
-open libTheory astTheory semanticPrimitivesTheory bigStepTheory initialEnvTheory terminationTheory;
+open libTheory astTheory semanticPrimitivesTheory bigStepTheory terminationTheory;
 open libPropsTheory;
 open bigClockTheory;
 open modLangTheory;
