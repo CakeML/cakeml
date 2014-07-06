@@ -1,25 +1,103 @@
 open preamble;
-open astTheory initialEnvTheory interpTheory inferTheory;
+open astTheory initialEnvTheory interpTheory inferTheory typeSystemTheory modLangTheory conLangTheory;
+open inferSoundTheory modLangProofTheory conLangProofTheory;
 
 val _ = new_theory "initialProgram";
 
-val init_env_def = Define `
-  init_env = 
-    case run_eval_prog ([],([],[]),[]) ((100000, []), {}, {}) initial_program of
-      | ((count_store, tids, mods), envC, Rval (envM, envE)) =>
-          ((envM, envC, envE), tids, mods)`;
+val _ = Hol_datatype `
+  environment = <| sem_envM : envM;
+                   sem_envC : envC;
+                   sem_envE : envE;
+                   sem_tids : tid_or_exn set;
+                   sem_mod_names : modN set;
+                   type_decls : decls;
+                   type_tenvM : tenvM;
+                   type_tenvC : tenvC;
+                   type_tenvE : tenvE;
+                   inf_decls : (tvarN store # tvarN id store # tvarN id store);
+                   inf_tenvM : (tvarN, (tvarN, num # infer_t) alist) alist;
+                   inf_tenvE : (tvarN, num # infer_t) alist;
+                   comp_next_global : num;
+                   comp_mod_alloc : (tvarN |-> tvarN |-> num);
+                   comp_top_alloc : (tvarN |-> num);
+                   comp_tagenv_st : (num # tag_env # (num |-> tvarN # tid_or_exn));
+                   comp_exh : exh_ctors_env |>`;
 
-val init_env_thm =
-  computeLib.EVAL_CONV ``init_env``
+val add_to_env_def = Define `
+add_to_env e prog =
+  let sem_env = run_eval_prog (e.sem_envM, e.sem_envC, e.sem_envE) 
+                              ((100000, []), e.sem_tids, e.sem_mod_names) 
+                              prog in
+  let inf_env = infer_prog e.inf_decls e.inf_tenvM e.type_tenvC e.inf_tenvE prog init_infer_state in
+  let (comp_next_global', comp_mod_alloc', comp_top_alloc', prog') = 
+    prog_to_i1 e.comp_next_global e.comp_mod_alloc e.comp_top_alloc prog 
+  in
+  let (comp_tagenv_st', comp_exh', prog'') = prog_to_i2 e.comp_tagenv_st prog' in
+    case (sem_env, inf_env) of
+      | (((count_store, sem_tids', sem_mod_names'), sem_envC', Rval (sem_envM', sem_envE')),
+         (Success (inf_decls', inf_tenvM', type_tenvC', inf_tenvE'), st)) =>
+             <| sem_envM := sem_envM' ++ e.sem_envM;
+                sem_envC := merge_envC sem_envC' e.sem_envC;
+                sem_envE := sem_envE' ++ e.sem_envE;
+                sem_tids := sem_tids' ∪ e.sem_tids;
+                sem_mod_names := sem_mod_names' ∪ e.sem_mod_names;
+                type_decls := union_decls (convert_decls inf_decls') e.type_decls;
+                type_tenvM := (convert_menv inf_tenvM') ++ e.type_tenvM;
+                type_tenvC := merge_tenvC type_tenvC' e.type_tenvC;
+                type_tenvE := bind_var_list2 (convert_env2 inf_tenvE') e.type_tenvE;
+                inf_decls := append_decls inf_decls' e.inf_decls;
+                inf_tenvM := inf_tenvM' ++ e.inf_tenvM;
+                inf_tenvE := inf_tenvE' ++ e.inf_tenvE;
+                comp_next_global := comp_next_global';
+                comp_mod_alloc := comp_mod_alloc';
+                comp_top_alloc := comp_top_alloc';
+                comp_tagenv_st := comp_tagenv_st';
+                comp_exh := comp_exh' |>`;
 
-val init_type_inf_env_def = Define `
-  init_type_inf_env = 
-    case infer_prog ([],[],[]) [] ([],[]) [] initial_program init_infer_state of
-      | (Success (decls, menv, cenv, env), st) =>
-          (decls,menv,cenv,env)`;
+val prim_env_def = Define `
+prim_env = 
+add_to_env <| sem_envM := [];
+              sem_envC := ([],[]);
+              sem_envE := [];
+              sem_tids := {};
+              sem_mod_names := {};
+              type_decls := ({},{},{});
+              type_tenvM := [];
+              type_tenvC := ([],[]);
+              type_tenvE := Empty;
+              inf_decls := ([],[],[]);
+              inf_tenvM := [];
+              inf_tenvE := [];
+              comp_next_global := 0;
+              comp_mod_alloc := FEMPTY;
+              comp_top_alloc := FEMPTY;
+              comp_tagenv_st := (0, (FEMPTY, FEMPTY), FEMPTY);
+              comp_exh := FEMPTY |>
+        prim_types_program`;
 
-val init_type_inf_env_thm =
-  computeLib.EVAL_CONV ``init_type_inf_env``
+(*
+val prim_type_sound_inv = Q.prove (
+`case (prim_types_env, prim_sem_env) of
+   | ((decls1,tenvM,tenvC,tenv), ((envM, envC, envE), decls2, mods)) =>
+       type_sound_invariants (decls1,tenvM,tenvC,tenv,decls2,envM,envC,envE,[])`,
+cheat);
+
+val prim_type_inf_inv = Q.prove (
+`case prim_types_inf_env of
+   | (decls,menv,cenv,env) =>
+       infer_sound_invariant menv cenv env`,
+cheat);
+
+val prim_comp_invs = Q.prove (
+`case (prim_comp_env,prim_sem_env) of
+   | ((next_global, mods, tops, tagenv_st, exh_env),
+      ((envM, envC, envE), tids, mod_names)) => 
+        ?genv genv_i2 gtagenv.
+          to_i1_invariant genv mods tops envM envE (ckl1,[]) (clk2,[]) mod_names ∧
+          to_i2_invariant mod_names tids envC exh_env tagenv_st gtagenv (clk3,[]) (clk4,[]) genv genv_i2`,
+cheat);
+
+
 
 (* From type inference *)
 
@@ -275,5 +353,5 @@ val empty_bc_state_def = Define `
   empty_bc_state = <| stack := []; code := []; pc := 0; refs := FEMPTY;
                       handler := 0; clock := NONE; output := "";
                       globals := []; inst_length := real_inst_length |>`;
-
+                      *)
 val _ = export_theory()
