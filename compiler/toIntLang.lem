@@ -176,7 +176,7 @@ unop_to_il Opderef Ce = CPrim1 CDer Ce
 and
 unop_to_il Alength Ce = CPrim1 CLenB Ce
 and
-unop_to_il VfromList Ce = Ce (* TODO *)
+unop_to_il VfromList Ce = CPrim1 CVfromList Ce
 and
 unop_to_il (Opn _)  Ce = Ce (* should not happen *)
 and

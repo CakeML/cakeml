@@ -6,12 +6,14 @@ open import CompilerLib
 open import Ast
 open import SemanticPrimitives
 open import DecLang
+open import ConLang
 
 (* Syntax *)
 
 (* pure applicative primitives with bytecode counterparts *)
 type Cprim1 = CRef | CDer | CIsBlock | CLen | CLenB | CLenV
             | CTagEq of nat | CProj of nat | CInitG of nat
+            | CVfromList
 type Cprim2p = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq | CDerV
 type Cprim2s = CRefB | CDerB
 type Cprim2 = P2p of Cprim2p | P2s of Cprim2s
@@ -185,6 +187,17 @@ CevalUpd true s (CLoc n) (CLitv (IntLit i)) (CLitv (Word8 w)) =
 and
 CevalUpd _ s _ _ _ = (s, Rerr Rtype_error)
 
+val CvFromList : Cv -> maybe (list Cv)
+let rec CvFromList (CConv g []) = if g = nil_tag then Just [] else Nothing
+and CvFromList (CConv g [h;t]) = if g = cons_tag then
+  match CvFromList t with
+  | Just t -> Just (h::t)
+  | Nothing -> Nothing
+  end
+                                  else Nothing
+and CvFromList _ = Nothing
+declare termination_argument CvFromList = automatic
+
 val CevalPrim1 : Cprim1 -> store_genv Cv -> Cv -> store_genv Cv * result Cv Cv
 let rec
 CevalPrim1 CRef (s,g) v = ((s++[Refv v],g), Rval (CLoc (List.length s)))
@@ -226,6 +239,12 @@ CevalPrim1 (CInitG n) (s,g) v =
   if n < List.length g && List_extra.nth g n = Nothing
   then ((s,List.update g n (Just v)),Rval (CLitv Unit))
   else ((s,g), Rerr Rtype_error)
+and
+CevalPrim1 CVfromList sg v =
+  (sg, match CvFromList v with
+       | Just vs -> Rval (CVectorv vs)
+       | Nothing -> Rerr Rtype_error
+       end)
 and
 CevalPrim1 _ sg _ = (sg, Rerr Rtype_error)
 

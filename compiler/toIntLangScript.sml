@@ -199,7 +199,7 @@ val _ = Define `
 /\
 (unop_to_il Alength Ce = (CPrim1 CLenB Ce))
 /\
-(unop_to_il VfromList Ce = Ce) (* TODO *)
+(unop_to_il VfromList Ce = (CPrim1 CVfromList Ce))
 /\
 (unop_to_il (Opn _)  Ce = Ce) (* should not happen *)
 /\
