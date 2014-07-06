@@ -22,6 +22,7 @@ val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
   (Cv_bv pp (CLitv Unit) unit_val) ∧
   ((el_check m (FST pp).sm = SOME p) ⇒ Cv_bv pp (CLoc m) (RefPtr p)) ∧
   (EVERY2 (Cv_bv pp) vs bvs ⇒ Cv_bv pp (CConv cn vs) (Block (cn+block_tag) bvs)) ∧
+  (EVERY2 (Cv_bv pp) vs bvs ⇒ Cv_bv pp (CVectorv vs) (Block vector_tag bvs)) ∧
   ((pp = (rd,l2a)) ∧
    (el_check n defs = SOME (SOME (l,cc,(recs,envs)),azb)) ∧
    EVERY (λn. n < LENGTH defs) recs ∧
@@ -94,6 +95,13 @@ val Cv_bv_syneq = store_thm("Cv_bv_syneq",
   strip_tac >- ( simp[Once Cv_bv_cases] ) >>
   strip_tac >- ( simp[Once Cv_bv_cases] ) >>
   strip_tac >- ( simp[Once Cv_bv_cases] ) >>
+  strip_tac >- (
+    rw[] >> pop_assum mp_tac >>
+    simp[Once syneq_cases] >>
+    rw[Once Cv_bv_cases] >>
+    fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
+    rfs[MEM_ZIP] >> fs[MEM_ZIP] >>
+    fsrw_tac[DNF_ss][] ) >>
   strip_tac >- (
     rw[] >> pop_assum mp_tac >>
     simp[Once syneq_cases] >>
@@ -192,6 +200,9 @@ val Cv_bv_SUBMAP = store_thm("Cv_bv_SUBMAP",
   strip_tac >- (
     rw[] >> rw[Once Cv_bv_cases,LENGTH_NIL] >>
     fs[FLOOKUP_DEF,IS_PREFIX_THM,EVERY2_EVERY,EVERY_MEM,FORALL_PROD,LENGTH_NIL] ) >>
+  strip_tac >- (
+    rw[] >> rw[Once Cv_bv_cases,LENGTH_NIL] >>
+    fs[FLOOKUP_DEF,IS_PREFIX_THM,EVERY2_EVERY,EVERY_MEM,FORALL_PROD,LENGTH_NIL] ) >>
   strip_tac >- ( rw[] >> simp[Once Cv_bv_cases] >> metis_tac[] ) >>
   rpt gen_tac >> strip_tac >> fs[] >>
   rpt gen_tac >> strip_tac >>
@@ -280,6 +291,10 @@ val Cv_bv_l2a_mono = store_thm("Cv_bv_l2a_mono",
     rw[Once Cv_bv_cases] >>
     fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,FORALL_PROD] ) >>
   strip_tac >- (
+    rw[] >>
+    rw[Once Cv_bv_cases] >>
+    fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,FORALL_PROD] ) >>
+  strip_tac >- (
     simp[] >> rpt gen_tac >> strip_tac >> strip_tac >>
     simp[Once Cv_bv_cases] >>
     strip_tac >>
@@ -295,6 +310,18 @@ val Cv_bv_not_env = store_thm("Cv_bv_not_env",
   ``∀pp Cv bv. Cv_bv pp Cv bv ⇒ ∀vs. (bv = Block 0 vs) ⇒ (vs = [])``,
   gen_tac >> ho_match_mp_tac Cv_bv_only_ind >> simp[])
 
+val Cv_bv_cases_lit =
+  Cv_bv_cases |> SPEC_ALL |> CONJUNCT1
+  |> Q.SPEC`CLitv X` |> SIMP_RULE (srw_ss())[]
+
+val Cv_bv_cases_conv =
+  Cv_bv_cases |> SPEC_ALL |> CONJUNCT1
+  |> Q.SPEC`CConv X Y` |> SIMP_RULE (srw_ss())[]
+
+val Cv_bv_cases_vectorv =
+  Cv_bv_cases |> SPEC_ALL |> CONJUNCT1
+  |> Q.SPEC`CVectorv Y` |> SIMP_RULE (srw_ss())[]
+
 val no_closures_Cv_bv = store_thm("no_closures_Cv_bv",
   ``∀Cv. no_closures Cv ⇒ ∀bv pp pp'. (FST pp').sm = (FST pp).sm ∧ Cv_bv pp Cv bv ⇒ Cv_bv pp' Cv bv``,
   ho_match_mp_tac compilerTerminationTheory.no_closures_ind >>
@@ -303,11 +330,7 @@ val no_closures_Cv_bv = store_thm("no_closures_Cv_bv",
     simp[Once Cv_bv_cases] >>
     fs[Once Cv_bv_cases] >>
     NO_TAC) >>
-  REWRITE_TAC[Once Cv_bv_cases] >>
-  simp[] >>
-  pop_assum mp_tac >>
-  REWRITE_TAC[Once Cv_bv_cases] >>
-  simp[] >> rw[] >>
+  fs[Cv_bv_cases_conv,Cv_bv_cases_vectorv] >>
   fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,MEM_ZIP] >>
   rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >> rw[] >>
   first_x_assum (match_mp_tac o MP_CANON) >>
@@ -1226,14 +1249,6 @@ val inst_uses_label_prim2_to_bc = store_thm("inst_uses_label_prim2_to_bc",
   rw[inst_uses_label_def])
 val _ = export_rewrites["inst_uses_label_prim2_to_bc"]
 
-val Cv_bv_cases_lit =
-  Cv_bv_cases |> SPEC_ALL |> CONJUNCT1
-  |> Q.SPEC`CLitv X` |> SIMP_RULE (srw_ss())[]
-
-val Cv_bv_cases_conv =
-  Cv_bv_cases |> SPEC_ALL |> CONJUNCT1
-  |> Q.SPEC`CConv X Y` |> SIMP_RULE (srw_ss())[]
-
 val prim2_to_bc_thm = store_thm("prim2_to_bc_thm",
   ``∀s op v1 v2 s' v bs bce bc0 bc1 st bv1 bv2 pp.
     (bs.code = bc0 ++ [(prim2_to_bc op)] ++ bc1) ∧
@@ -1277,7 +1292,7 @@ val prim2_to_bc_thm = store_thm("prim2_to_bc_thm",
     simp[bump_pc_def,s_refs_with_pc,s_refs_with_stack] >>
     Cases_on `v1` >> TRY (Cases_on `l`) >>
     Cases_on `v2` >> TRY (Cases_on `l`) >>
-    fs[] >> rw[] >> fs[Cv_bv_cases_lit,Cv_bv_cases_conv] >> rw[] >>
+    fs[] >> rw[] >> fs[Cv_bv_cases_lit,Cv_bv_cases_conv,Cv_bv_cases_vectorv] >> rw[] >>
     BasicProvers.EVERY_CASE_TAC >>
     rw[bc_eval_stack_def] >> fs[] >>
     TRY (Cases_on `b` >> rw[]) >>
