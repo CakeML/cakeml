@@ -3320,15 +3320,15 @@ val compile_prog_code_labels_ok = store_thm("compile_prog_code_labels_ok",
     simp[] >>
     fs[closed_prog_def,all_env_dom_def,SUBSET_DEF,PULL_EXISTS])
 
-    (*
 val compile_prog_thm = store_thm("compile_prog_thm",
   ``∀ck env stm prog res. evaluate_whole_prog ck env stm prog res ⇒
-     ∀grd rss rsf bc bs bc0.
-      env_rs env stm grd init_compiler_state (bs with code := bc0) ∧
+     ∀grd rs rss rsf bc bs bc0.
+      FLOOKUP rs.exh (Short "option") = SOME (insert some_tag () (insert none_tag () LN)) ∧
+      env_rs env stm grd rs (bs with code := bc0) ∧
       closed_prog prog ∧
-      (∀p. "it" ∈ FDOM (FST(SND(SND(prog_to_i1 0 FEMPTY FEMPTY prog)))) ∧
+      (∀p. "it" ∈ FDOM (FST(SND(SND(prog_to_i1 rs.next_global (FST rs.globals_env) (SND rs.globals_env) prog)))) ∧
            SND(SND(res)) = Rval p ⇒ lookup "it" (SND p) ≠ NONE) ∧
-      (bs.code = bc0 ++ compile_prog init_compiler_state prog) ∧
+      (bs.code = bc0 ++ compile_prog rs prog) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
       ck ∧ IS_SOME bs.clock ∧
       SND(SND res) ≠ Rerr Rtype_error ∧
@@ -3345,9 +3345,9 @@ val compile_prog_thm = store_thm("compile_prog_thm",
         bc_fetch bs' = SOME (Stop success) ∧
         bs'.output = bs.output ++ str``,
   simp[compile_prog_def] >> rw[] >>
-  fs[init_compiler_state_def] >>
-  `∃v1 v2 m2 p0. prog_to_i1 0 FEMPTY FEMPTY prog = (v1,v2,m2,p0)` by simp[GSYM EXISTS_PROD] >> fs[] >>
-  `∃v exh p. prog_to_i2 init_tagenv_state p0 = (v,exh,p)` by simp[GSYM EXISTS_PROD] >> fs[] >>
+  first_assum (split_applied_pair_tac o rand o rhs o concl) >> fs[] >>
+  `∃v1 v2 v3 p0. prog_to_i1 rs.next_global m1 m2 prog = (v1,v2,v3,p0)` by simp[GSYM EXISTS_PROD] >> fs[] >>
+  `∃v exh p. prog_to_i2 rs.contags_env p0 = (v,exh,p)` by simp[GSYM EXISTS_PROD] >> fs[] >>
   first_assum (split_pair_case_tac o rand o rhs o concl) >> fs[] >>
   PairCases_on`res`>>fs[] >>
   PairCases_on`stm` >> PairCases_on`env` >>
@@ -3360,7 +3360,7 @@ val compile_prog_thm = store_thm("compile_prog_thm",
   ONCE_REWRITE_TAC[GSYM AND_IMP_INTRO] >>
   PairCases_on`grd` >> fs[env_rs_def] >>
   disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
-  qpat_assum`0:num = X`(assume_tac o SYM) >> fs[] >>
+  qpat_assum`X = LENGTH grd0`(assume_tac o SYM) >> fs[] >>
   strip_tac >>
   (whole_prog_to_i2_correct
    |> ONCE_REWRITE_RULE[GSYM CONJ_ASSOC]
@@ -3370,9 +3370,10 @@ val compile_prog_thm = store_thm("compile_prog_thm",
   ONCE_REWRITE_TAC[CONJ_COMM] >>
   ONCE_REWRITE_TAC[GSYM CONJ_ASSOC] >>
   ONCE_REWRITE_TAC[GSYM AND_IMP_INTRO] >>
-  fs[init_tagenv_state_def] >>
+  `∃x y z. rs.contags_env = (x,y,z)` by metis_tac[pair_CASES] >> fs[] >>
   disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
-  fs[GSYM init_tagenv_state_def] >>
+  pop_assum(assume_tac o SYM) >> fs[] >>
+  pop_assum kall_tac >>
   PairCases_on`v`>>simp[] >>
   discharge_hyps >- (
     Cases_on`res6`>>TRY(PairCases_on`a`)>>fs[result_to_i1_cases] >> rw[] ) >>
@@ -3380,18 +3381,18 @@ val compile_prog_thm = store_thm("compile_prog_thm",
   (prog_to_i3_correct
    |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]
    |> (fn th => first_assum (mp_tac o MATCH_MP th))) >>
-  `LENGTH genv2 = 0` by (
+  `LENGTH genv2 = LENGTH grd0` by (
     fs[to_i2_invariant_def] >>
     imp_res_tac EVERY2_LENGTH >>
     fs[] ) >>
   simp[] >>
   (discharge_hyps >- (
-     simp[init_exh_def,flookup_fupdate_list,FLOOKUP_FUNION] >>
+     simp[flookup_fupdate_list,FLOOKUP_FUNION] >>
      Cases_on`res6`>>fs[GSYM FORALL_PROD] >>
      TRY (conj_tac >- (fs[result_to_i2_cases,result_to_i1_cases] >> rw[])) >>
-     BasicProvers.CASE_TAC >- EVAL_TAC >>
+     BasicProvers.CASE_TAC >>
      fs[IN_DISJOINT,FLOOKUP_DEF] >>
-     fs[init_exh_def,FDOM_FUPDATE_LIST] >> metis_tac[])) >>
+     fs[FDOM_FUPDATE_LIST] >> metis_tac[])) >>
   simp[result_to_i3_cases] >- (
     rw[] >> Cases_on`res6` >> fs[] >>
     PairCases_on`a`>>fs[]>>
@@ -3400,7 +3401,7 @@ val compile_prog_thm = store_thm("compile_prog_thm",
     fs[LIST_REL_O,OPTREL_O] >>
     qmatch_assum_rename_tac`LIST_REL (v_to_exh X) s2 sh`["X"] >>
     qmatch_assum_rename_tac`LIST_REL R genv2 gh`["R"] >>
-    Q.PAT_ABBREV_TAC`rsexh = init_exh` >>
+    Q.PAT_ABBREV_TAC`rsexh = rs.exh` >>
     `store_to_exh (exh ⊌ rsexh) ((stm0,s2),genv2) ((stm0,sh),gh)` by (
       simp[store_to_exh_def] >>
       conj_tac >>
@@ -3612,19 +3613,21 @@ val compile_prog_thm = store_thm("compile_prog_thm",
     simp[Once v_to_i1_cases] >> strip_tac >>
     simp[libPropsTheory.lookup_append] >>
     BasicProvers.CASE_TAC >> fs[] >- fs[FLOOKUP_DEF] >>
-    strip_tac >> Cases_on`grd0`>>fs[] >>
+    strip_tac >>
     rator_x_assum`to_i2_invariant`mp_tac >>
     simp[to_i2_invariant_def] >> strip_tac >>
     rfs[EVERY2_EVERY] >> fs[EVERY_MEM] >>
-    Cases_on`genv2`>>fs[] >>
+    qpat_assum`LENGTH genv2 = X`assume_tac >>
+    qpat_assum`LENGTH grd0 = X`assume_tac >>
     fs[MEM_ZIP,PULL_EXISTS] >>
-    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+    first_x_assum(qspec_then`x`mp_tac) >>
     simp[optionTheory.OPTREL_def] >> strip_tac >>
     rator_x_assum`store_to_exh`mp_tac >>
     simp[store_to_exh_csg_rel,csg_rel_unpair] >>
     strip_tac >>
     rfs[EVERY2_EVERY] >> fs[EVERY_MEM] >>
-    fs[MEM_ZIP,PULL_EXISTS] >>
+    qpat_assum`LENGTH genv2 = X`assume_tac >>
+    fsrw_tac[ARITH_ss][MEM_ZIP,PULL_EXISTS] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
     simp[optionTheory.OPTREL_def] >> strip_tac >>
     rpt(rator_x_assum`csg_rel`mp_tac) >>
@@ -3689,7 +3692,7 @@ val compile_prog_thm = store_thm("compile_prog_thm",
   fs[LIST_REL_O,OPTREL_O] >>
   qmatch_assum_rename_tac`LIST_REL (v_to_exh X) s2 sh`["X"] >>
   qmatch_assum_rename_tac`LIST_REL R genv2 gh`["R"] >>
-  Q.PAT_ABBREV_TAC`rsexh = init_exh` >>
+  Q.PAT_ABBREV_TAC`rsexh = rs.exh` >>
   `store_to_exh (exh ⊌ rsexh) ((stm0,s2),genv2) ((stm0,sh),gh)` by (
     simp[store_to_exh_def] >>
     conj_tac >>
@@ -3870,8 +3873,9 @@ val compile_prog_divergence = store_thm("compile_prog_divergence",
   ``∀env stm prog rs grd types bc0 bs.
       (∀res. ¬evaluate_whole_prog F env stm prog res) ∧
       closed_prog prog ∧
-      env_rs env stm grd init_compiler_state (bs with code := bc0) ∧
-      bs.code = bc0 ++ compile_prog prog ∧
+      FLOOKUP rs.exh (Short "option") = SOME (insert some_tag () (insert none_tag () LN)) ∧
+      env_rs env stm grd rs (bs with code := bc0) ∧
+      bs.code = bc0 ++ compile_prog rs prog ∧
       bs.pc = next_addr bs.inst_length bc0 ∧
       IS_SOME bs.clock
       ⇒
@@ -3879,9 +3883,9 @@ val compile_prog_divergence = store_thm("compile_prog_divergence",
   rw[closed_prog_def] >>
   imp_res_tac not_evaluate_whole_prog_timeout >>
   fs[compile_prog_def,LET_THM] >>
-  fs[init_compiler_state_def] >>
-  `∃v1 v2 m2 p0. prog_to_i1 0 FEMPTY FEMPTY prog = (v1,v2,m2,p0)` by simp[GSYM EXISTS_PROD] >> fs[] >>
-  `∃v exh p. prog_to_i2 init_tagenv_state p0 = (v,exh,p)` by simp[GSYM EXISTS_PROD] >> fs[] >>
+  first_assum (split_applied_pair_tac o rand o rhs o concl) >> fs[] >>
+  `∃v1 v2 v3 p0. prog_to_i1 rs.next_global m1 m2 prog = (v1,v2,v3,p0)` by simp[GSYM EXISTS_PROD] >> fs[] >>
+  `∃v exh p. prog_to_i2 rs.contags_env p0 = (v,exh,p)` by simp[GSYM EXISTS_PROD] >> fs[] >>
   first_assum (split_pair_case_tac o rand o rhs o concl) >> fs[] >>
   PairCases_on`env` >>
   PairCases_on`stm` >>
@@ -3906,9 +3910,10 @@ val compile_prog_divergence = store_thm("compile_prog_divergence",
    |> (fn th => first_assum (mp_tac o MATCH_MP th))) >>
   fs[result_to_i1_cases] >>
   ONCE_REWRITE_TAC[GSYM AND_IMP_INTRO] >>
-  fs[init_tagenv_state_def] >>
+  `∃x y z. rs.contags_env = (x,y,z)` by metis_tac[pair_CASES] >> fs[] >>
   disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
-  fs[GSYM init_tagenv_state_def] >>
+  pop_assum(assume_tac o SYM) >> fs[] >>
+  pop_assum kall_tac >>
   PairCases_on`v`>>simp[]>>
   strip_tac >>
   (prog_to_i3_correct
@@ -3917,15 +3922,14 @@ val compile_prog_divergence = store_thm("compile_prog_divergence",
   fs[result_to_i2_cases] >>
   simp[FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
   reverse BasicProvers.CASE_TAC >- (
-    fs[IN_DISJOINT,FLOOKUP_DEF,init_exh_def,FDOM_FUPDATE_LIST] >>
+    fs[IN_DISJOINT,FLOOKUP_DEF,FDOM_FUPDATE_LIST] >>
     metis_tac[]) >>
   rpt BasicProvers.VAR_EQ_TAC >>
   `LENGTH genv2 = LENGTH grd0` by (
     fs[to_i2_invariant_def] >>
     imp_res_tac EVERY2_LENGTH >>
     fs[] ) >>
-  simp[Once init_exh_def,flookup_fupdate_list] >>
-  discharge_hyps >- EVAL_TAC >>
+  simp[] >>
   strip_tac >>
   (exp_to_exh_correct
    |> CONJUNCT1
@@ -3952,7 +3956,6 @@ val compile_prog_divergence = store_thm("compile_prog_divergence",
   first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_Cexp_correct)) >>
   simp[] >>
   discharge_hyps_keep >- (
-    Cases_on`grd0`>>fs[]>>
     conj_asm1_tac >- (
       specl_args_of_then``exp_to_pat``(CONJUNCT1 free_vars_pat_exp_to_pat)mp_tac >>
       simp[] >> disch_then match_mp_tac >>
@@ -3961,6 +3964,7 @@ val compile_prog_divergence = store_thm("compile_prog_divergence",
       imp_res_tac FV_prog_to_i1 >>
       simp[] >>
       fs[closed_prog_def,all_env_dom_def,SUBSET_DEF,PULL_EXISTS]) >>
+    fs[result_to_exh_cases] >> BasicProvers.VAR_EQ_TAC >> fs[] >>
     simp[csg_closed_pat_def,map_count_store_genv_def,store_to_exh_def] >>
     conj_tac >- (
       (v_to_pat_closed |> CONJUNCT2 |> SIMP_RULE(srw_ss())[] |> match_mp_tac) >>
@@ -4054,7 +4058,6 @@ val compile_prog_divergence = store_thm("compile_prog_divergence",
     metis_tac[APPEND_ASSOC]) >>
   HINT_EXISTS_TAC >>
   simp[Abbr`bs0`])
-  *)
 
 (* compile_special, for the repl *)
 
