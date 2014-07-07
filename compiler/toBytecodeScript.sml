@@ -148,7 +148,7 @@ val _ = Define `
   Stack (PushInt(( 0 : int)));
   Label (VfromListLab+ 1);
   Stack (Load( 1));
-  Stack (TagEq conLang$nil_tag);
+  Stack (TagEq (block_tag+conLang$nil_tag));
   JumpIf (Lab (VfromListLab+ 2));
   Stack (PushInt(( 1 : int)));
   Stack Add;

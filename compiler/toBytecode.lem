@@ -126,7 +126,7 @@ let VfromListCode = [
   Stack (PushInt 0);
   Label (VfromListLab+1);
   Stack (Load 1);
-  Stack (TagEq ConLang.nil_tag);
+  Stack (TagEq (block_tag+ConLang.nil_tag));
   JumpIf (Lab (VfromListLab+2));
   Stack (PushInt 1);
   Stack Add;
