@@ -2530,7 +2530,6 @@ val new_basic_type_definition_thm = store_thm("new_basic_type_definition_thm",
       simp[Abbr`s1`] >>
       simp[hol_def_def,updates_cases] >>
       rfs[MEM_MAP,EXISTS_PROD] >>
-      qexists_tac`hol_ty (term_type x)` >>
       qexists_tac`hol_tm x` >>
       conj_tac >- fs[THM_def,hol_tm_def] >>
       imp_res_tac THM_term_ok_bool >>
@@ -2539,9 +2538,6 @@ val new_basic_type_definition_thm = store_thm("new_basic_type_definition_thm",
         fs[CLOSED_def] >>
         imp_res_tac freesin_IMP >>
         rfs[TERM_def] >> METIS_TAC[] ) >>
-      conj_tac >- (
-        fs[WELLTYPED] >> rfs[] >>
-        METIS_TAC[term_type,TERM_def,CONTEXT_def] ) >>
       qpat_assum`X = const_list Y`(assume_tac o SYM) >>
       simp[MEM_MAP,EXISTS_PROD] ) >>
     imp_res_tac THM >> rfs[TERM_Comb] >>

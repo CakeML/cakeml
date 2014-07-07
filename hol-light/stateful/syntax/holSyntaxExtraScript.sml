@@ -1679,13 +1679,15 @@ val updates_theory_ok = store_thm("updates_theory_ok",
   Q.PAT_ABBREV_TAC`eq1 = l1 === r1` >>
   Q.PAT_ABBREV_TAC`eq2 = l2 === r` >>
   Q.PAT_ABBREV_TAC`eq3 = l3 === r3` >>
+  qpat_assum`X has_type Y`mp_tac >>
+  simp[Once has_type_cases] >> strip_tac >> rfs[] >>
   `type_ok tys' rep_type` by (
     match_mp_tac type_ok_extend >>
-    HINT_EXISTS_TAC >> fs[type_ok_def] ) >>
+    HINT_EXISTS_TAC >> fs[Abbr`rep_type`] ) >>
   `term_ok (tys',tms') eq1` by (
     unabbrev_all_tac >>
     simp[term_ok_equation,term_ok_def,type_ok_def,FLOOKUP_FUNION,FLOOKUP_UPDATE,EVERY_MAP] >>
-    fs[is_std_sig_def] ) >>
+    rfs[is_std_sig_def] ) >>
   `term_ok (tys',tms') pred` by metis_tac[term_ok_extend] >>
   `eq1 has_type Bool` by (
     unabbrev_all_tac >> simp[EQUATION_HAS_TYPE_BOOL] ) >>
