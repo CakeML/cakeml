@@ -206,7 +206,7 @@ val (v_to_i2_rules, v_to_i2_ind, v_to_i2_cases) = Hol_reln `
   ⇒
   env_to_i2 gtagenv ((x,v)::env) ((x,v')::env'))`;
 
-val v_to_i2_eqns = Q.prove (
+val v_to_i2_eqns = Q.store_thm ("v_to_i2_eqns",
 `(!gtagenv l v.
   v_to_i2 gtagenv (Litv_i1 l) v ⇔
     (v = Litv_i2 l)) ∧

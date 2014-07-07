@@ -187,7 +187,7 @@ val (v_to_i1_rules, v_to_i1_ind, v_to_i1_cases) = Hol_reln `
   ⇒
   global_env_inv genv mods tops menv shadowers env)`;
 
-val v_to_i1_eqns = Q.prove (
+val v_to_i1_eqns = Q.store_thm ("v_to_i1_eqns",
 `(!genv l v.
   v_to_i1 genv (Litv l) v ⇔
     (v = Litv_i1 l)) ∧
