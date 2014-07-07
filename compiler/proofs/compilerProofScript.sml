@@ -3112,16 +3112,10 @@ val compile_prog_thm = store_thm("compile_prog_thm",
       FLOOKUP rs.exh (Short "option") = SOME (insert some_tag () (insert none_tag () LN)) ∧
       env_rs env stm grd rs (bs with code := bc0) ∧
       closed_prog prog ∧
-<<<<<<< HEAD
       (∀p. "it" ∈ FDOM (FST(SND(SND(prog_to_i1 rs.next_global (FST rs.globals_env) (SND rs.globals_env) prog)))) ∧
-           SND(SND(res)) = Rval p ⇒ lookup "it" (SND p) ≠ NONE) ∧
-      (bs.code = bc0 ++ compile_prog rs prog) ∧
-=======
-      (∀p. "it" ∈ FDOM (FST(SND(SND(prog_to_i1 0 FEMPTY FEMPTY prog)))) ∧
            SND(SND(res)) = Rval p ⇒ ∃v. lookup "it" (SND p) = SOME v ∧ ∀w. v ≠ Litv (Word8 w)) ∧
       (∀v. SND(SND(res)) = Rerr(Rraise v) ⇒ ∀w. v ≠ Litv (Word8 w)) ∧
-      (bs.code = bc0 ++ compile_prog prog) ∧
->>>>>>> origin/Word8Array
+      (bs.code = bc0 ++ compile_prog rs prog) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
       ck ∧ IS_SOME bs.clock ∧
       SND(SND res) ≠ Rerr Rtype_error ∧
@@ -3194,19 +3188,8 @@ val compile_prog_thm = store_thm("compile_prog_thm",
     fs[LIST_REL_O,OPTREL_O,sv_rel_O] >>
     qmatch_assum_rename_tac`LIST_REL (sv_rel (v_to_exh X)) s2 sh`["X"] >>
     qmatch_assum_rename_tac`LIST_REL R genv2 gh`["R"] >>
-<<<<<<< HEAD
     Q.PAT_ABBREV_TAC`rsexh = rs.exh` >>
-    `store_to_exh (exh ⊌ rsexh) ((stm0,s2),genv2) ((stm0,sh),gh)` by (
-      simp[store_to_exh_def] >>
-      conj_tac >>
-      match_mp_tac (MP_CANON (GEN_ALL EVERY2_mono)) >>
-      ONCE_REWRITE_TAC[CONJ_COMM] >>
-      first_assum(match_exists_tac o concl) >> simp[] >>
-      metis_tac[optionTheory.OPTREL_MONO,v_to_exh_extend_disjoint,FUNION_COMM,DISJOINT_SYM]) >>
-=======
-    Q.PAT_ABBREV_TAC`rsexh = init_exh` >>
     `store_to_exh (exh ⊌ rsexh) ((stm0,s2),genv2) ((stm0,sh),gh)` by tac1 >>
->>>>>>> origin/Word8Array
     disch_then(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     disch_then(qspec_then`exh ⊌ rsexh`mp_tac) >> simp[] >>
     strip_tac >>
@@ -3436,18 +3419,8 @@ val compile_prog_thm = store_thm("compile_prog_thm",
   fs[LIST_REL_O,OPTREL_O,sv_rel_O] >>
   qmatch_assum_rename_tac`LIST_REL (sv_rel (v_to_exh X)) s2 sh`["X"] >>
   qmatch_assum_rename_tac`LIST_REL R genv2 gh`["R"] >>
-<<<<<<< HEAD
   Q.PAT_ABBREV_TAC`rsexh = rs.exh` >>
-  `store_to_exh (exh ⊌ rsexh) ((stm0,s2),genv2) ((stm0,sh),gh)` by (
-    simp[store_to_exh_def] >>
-    conj_tac >>
-    match_mp_tac (MP_CANON (GEN_ALL EVERY2_mono)) >>
-    HINT_EXISTS_TAC >>
-    metis_tac[optionTheory.OPTREL_MONO,v_to_exh_extend_disjoint,FUNION_COMM,DISJOINT_SYM]) >>
-=======
-  Q.PAT_ABBREV_TAC`rsexh = init_exh` >>
   `store_to_exh (exh ⊌ rsexh) ((stm0,s2),genv2) ((stm0,sh),gh)` by tac1 >>
->>>>>>> origin/Word8Array
   disch_then(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
   disch_then(qspec_then`exh ⊌ rsexh`mp_tac) >> simp[] >>
   strip_tac >>
@@ -3635,46 +3608,7 @@ val compile_prog_divergence = store_thm("compile_prog_divergence",
   strip_tac >>
   first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_Cexp_correct)) >>
   simp[] >>
-<<<<<<< HEAD
-  discharge_hyps_keep >- (
-    conj_asm1_tac >- (
-      specl_args_of_then``exp_to_pat``(CONJUNCT1 free_vars_pat_exp_to_pat)mp_tac >>
-      simp[] >> disch_then match_mp_tac >>
-      imp_res_tac free_vars_i2_prog_to_i3 >>
-      imp_res_tac free_vars_prog_to_i2 >>
-      imp_res_tac FV_prog_to_i1 >>
-      simp[] >>
-      fs[closed_prog_def,all_env_dom_def,SUBSET_DEF,PULL_EXISTS]) >>
-    fs[result_to_exh_cases] >> BasicProvers.VAR_EQ_TAC >> fs[] >>
-    simp[csg_closed_pat_def,map_count_store_genv_def,store_to_exh_def] >>
-    conj_tac >- (
-      (v_to_pat_closed |> CONJUNCT2 |> SIMP_RULE(srw_ss())[] |> match_mp_tac) >>
-      (v_to_exh_closed |> CONJUNCT2 |> CONJUNCT1 |> MP_CANON |> match_mp_tac) >>
-      fs[store_to_exh_def] >>
-      simp[vs_to_exh_MAP] >>
-      first_assum(match_exists_tac o concl) >> simp[] >>
-      fs[to_i2_invariant_def] >>
-      fs[Once s_to_i2_cases] >>
-      fs[Once s_to_i2'_cases] >>
-      (v_to_i2_closed |> CONJUNCT2 |> CONJUNCT1 |> MP_CANON |> match_mp_tac) >>
-      first_assum(match_exists_tac o concl) >> simp[] >>
-      (v_to_i1_closed |> CONJUNCT2 |> CONJUNCT1 |> MP_CANON |> match_mp_tac) >>
-      fs[to_i1_invariant_def] >>
-      fs[Once s_to_i1_cases] >>
-      fs[Once s_to_i1'_cases] >>
-      first_assum(match_exists_tac o concl) >> simp[]) >>
-    match_mp_tac genv_to_pat_closed >>
-    match_mp_tac genv_to_exh_closed >>
-    fs[store_to_exh_def] >>
-    ONCE_REWRITE_TAC[CONJ_COMM] >>
-    first_assum(match_exists_tac o concl) >> simp[] >>
-    fs[to_i2_invariant_def] >>
-    match_mp_tac (MP_CANON genv_to_i2_closed) >>
-    first_assum(match_exists_tac o concl) >> simp[]>>
-    first_assum(match_exists_tac o concl) >> simp[]) >>
-=======
-  discharge_hyps_keep >- ( Cases_on`grd0`>>fs[]>> tac22 ) >>
->>>>>>> origin/Word8Array
+  discharge_hyps_keep >- tac22 >>
   disch_then(qx_choosel_then[`Cres0`]strip_assume_tac) >>
   qpat_assum`bs.code = X`mp_tac >>
   specl_args_of_then``compile_Cexp`` compile_Cexp_thm mp_tac >>
