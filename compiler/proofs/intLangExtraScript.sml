@@ -1323,17 +1323,12 @@ val syneq_do_Ceq = Q.prove (
  fs [Once syneq_cases] >>
  rw [] >>
  fs [do_Ceq_def] >>
- res_tac >>
- fs [] >>
- pop_assum mp_tac >>
- rw [Once syneq_cases] >>
- TRY (fs[EVERY2_EVERY] >> NO_TAC) >>
- pop_assum (assume_tac o Q.SPEC `CConv cn vs2'`) >>
- fs [] >>
- Cases_on `do_Ceq_list vs2 vs2'` >>
- rw [] >>
- fs [] >>
- fs[EVERY2_EVERY] >> rfs[]);
+ imp_res_tac LIST_REL_LENGTH >> fs[] >>
+ rw[] >> fs[PULL_EXISTS] >>
+ fs[Q.SPEC`CConv X Y`syneq_cases,Q.SPEC`CVectorv X`syneq_cases,PULL_EXISTS,do_Ceq_def] >>
+ rfs[] >>
+ res_tac >> simp[] >>
+ BasicProvers.CASE_TAC >> rw[] >> fs[])
 
 val CevalPrim2_syneq = store_thm("CevalPrim2_syneq",
   ``∀s1 s2 p2 v11 v21 v12 v22.

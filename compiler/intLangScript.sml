@@ -118,6 +118,12 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   else
     Eq_val F))
 /\
+(do_Ceq (CVectorv vs1) (CVectorv vs2) =  
+(if LENGTH vs1 = LENGTH vs2 then
+    do_Ceq_list vs1 vs2
+  else
+    Eq_val F))
+/\
 (do_Ceq (CLitv _) (CConv _ _) = (Eq_val F))
 /\
 (do_Ceq (CConv _ _) (CLitv _) = (Eq_val F))

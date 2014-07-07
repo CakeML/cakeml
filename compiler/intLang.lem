@@ -86,6 +86,12 @@ do_Ceq (CConv cn1 vs1) (CConv cn2 vs2) =
   else
     Eq_val false
 and
+do_Ceq (CVectorv vs1) (CVectorv vs2) =
+  if List.length vs1 = List.length vs2 then
+    do_Ceq_list vs1 vs2
+  else
+    Eq_val false
+and
 do_Ceq (CLitv _) (CConv _ _) = Eq_val false
 and
 do_Ceq (CConv _ _) (CLitv _) = Eq_val false
