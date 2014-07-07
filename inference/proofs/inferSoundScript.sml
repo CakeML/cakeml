@@ -1,7 +1,7 @@
 open preamble;
 open rich_listTheory;
 open miscTheory;
-open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
+open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory infer_tTheory unifyTheory;
 open libPropsTheory astPropsTheory;
 open inferPropsTheory;
 open typeSysPropsTheory;
@@ -384,6 +384,7 @@ fs [] >|
  metis_tac [APPEND, sub_completion_more_vars],
  metis_tac [APPEND, sub_completion_more_vars],
  metis_tac [APPEND, sub_completion_more_vars],
+ metis_tac [APPEND, sub_completion_more_vars],
  PairCases_on `v'` >>
      fs [] >>
      metis_tac [APPEND_ASSOC, APPEND, sub_completion_more_vars],
@@ -663,6 +664,32 @@ fs [t_walkstar_eqn, t_walk_eqn, convert_t_def, deBruijn_inc_def, check_t_def] >>
 rw [type_op_cases, Tint_def, Tstring_def, Tbool_def, Tref_def, Tfn_def, Tunit_def, Texn_def] >>
 metis_tac [MAP, infer_e_next_uvar_mono, check_env_more];
 
+val constrain_op_sub_completion = Q.prove (
+`sub_completion (num_tvs tenv) st.next_uvar st.subst extra_constraints s ∧
+ constrain_op op ts st' = (Success t,st)
+ ⇒
+ ∃c. sub_completion (num_tvs tenv) st'.next_uvar st'.subst c s`,
+ rw [] >>
+ fs [constrain_op_success] >>
+ every_case_tac >>
+ fs [success_eqns] >>
+ rw [] >>
+ fs [infer_st_rewrs] >>
+ metis_tac [sub_completion_unify2, sub_completion_unify]);
+
+val constrain_op_sound = Q.prove (
+`t_wfs st.subst ∧
+ sub_completion (num_tvs tenv) st'.next_uvar st'.subst c s ∧
+ constrain_op op ts st = (Success t,st')
+ ⇒
+ type_op op (MAP (convert_t o t_walkstar s) ts) (convert_t (t_walkstar s t))`,
+ fs [constrain_op_def, type_op_cases] >>
+ every_case_tac >>
+ fs [success_eqns] >>
+ rw [] >>
+ fs [infer_st_rewrs] >>
+ binop_tac);
+
 val infer_e_sound = Q.prove (
 `(!menv cenv env e st st' tenv t extra_constraints s.
     (infer_e menv cenv env e st = (Success t, st')) ∧
@@ -758,6 +785,8 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
  (* Lit string *)
      binop_tac,
  (* Lit unit *)
+     binop_tac,
+ (* Lit word8 *)
      binop_tac,
  (* Var short *)
      rw [t_lookup_var_id_def] >>
@@ -894,46 +923,11 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
                      by (rw [] >>
                          metis_tac [check_env_more, DECIDE ``x ≤ x + 1:num``]) >>
           metis_tac [num_tvs_def, infer_st_rewrs, bind_tenv_def]],
- (* Opref *)
-     rw [type_uop_cases, Tref_def] >>
-     binop_tac,
- (* Opderef *)
-     rw [type_uop_cases, Tref_def] >>
-     `t_wfs st''.subst` by metis_tac [infer_e_wfs] >>
-     imp_res_tac t_unify_apply >>
-     imp_res_tac sub_completion_unify >>
-     `t_wfs s'` by metis_tac [t_unify_wfs] >>
-     imp_res_tac sub_completion_apply >>
-     `t_wfs s` by metis_tac [sub_completion_wfs, infer_e_wfs] >>
-     fs [t_walkstar_eqn1] >>
-     `type_e (convert_menv menv) cenv tenv e (convert_t (t_walkstar s t'))`
-                by metis_tac [] >>
-     metis_tac [convert_t_def, MAP],
- (* Opn *)
-     binop_tac,
- (* Opb *)
-     binop_tac,
- (* Equality *)
-     binop_tac, 
- (* Opapp *)
-     `t_wfs st''.subst` by metis_tac [infer_e_wfs] >>
-     imp_res_tac sub_completion_unify >>
-     imp_res_tac sub_completion_infer >>
-     fs [] >>
+ (* App *)
+     `?c. sub_completion (num_tvs tenv) st''.next_uvar st''.subst c s` 
+           by metis_tac [constrain_op_sub_completion] >>
      res_tac >>
-     fs [] >>
-     rw [type_op_cases, Tint_def, Tbool_def, Tref_def, Tfn_def, Tunit_def] >>
-     qexists_tac `convert_t (t_walkstar s t2)` >>
-     rw [] >>
-     `t_wfs st'''.subst` by metis_tac [infer_e_wfs] >>
-     imp_res_tac t_unify_apply >>
-     imp_res_tac sub_completion_apply >>
-     imp_res_tac t_unify_wfs >>
-     imp_res_tac sub_completion_wfs >>
-     fs [t_walkstar_eqn, t_walk_eqn, convert_t_def] >>
-     metis_tac [check_env_more, infer_e_next_uvar_mono],
- (* Opassign *) 
-     binop_tac, 
+     metis_tac [constrain_op_sound, infer_e_wfs],
  (* Log *)
      binop_tac,
  (* Log *)

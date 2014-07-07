@@ -9,8 +9,10 @@ open import SmallStep
 open import TypeSystem
 import List_extra
 
+type store_t = Ref_t of t | W8array_t
+
 (* Store typing *)
-type tenvS = env nat t
+type tenvS = env nat store_t
 
 (* Global constructor type environments keyed by constructor name and type *)
 type ctMap = Map.map (conN * tid_or_exn) (list tvarN * list t)
@@ -136,6 +138,13 @@ type_v tvs cenv senv (Litv Unit) Tunit
 
 and
 
+lit_word8 : forall tvs cenv senv w.
+true
+==>
+type_v tvs cenv senv (Litv (Word8 w)) Tword8
+
+and
+
 conv_some : forall tvs cenv senv cn vs tvs' tn ts' ts.
 List.all (check_freevars tvs []) ts' &&
 List.length tvs' = List.length ts' &&
@@ -179,11 +188,18 @@ type_v tvs ctMap senv (Recclosure (envM, envC, env) funs n) t
 
 and
 
-loc : forall tvs cenv senv n t.
+loc1 : forall tvs cenv senv n t.
 check_freevars 0 [] t &&
-(Lib.lookup n senv = Just t)
+(Lib.lookup n senv = Just (Ref_t t))
 ==>
 type_v tvs cenv senv (Loc n) (Tref t)
+
+and
+
+loc2 : forall tvs cenv senv n.
+(Lib.lookup n senv = Just W8array_t)
+==>
+type_v tvs cenv senv (Loc n) Tword8array
 
 and
 
@@ -233,8 +249,13 @@ consistent_mod_env tenvS tenvC ((mn,env)::menv) ((mn',tenv)::tenvM)
 
 let type_s cenv senv s =
   forall l. 
-    ((exists t. Lib.lookup l senv = Just t) = (exists v. store_lookup l s = Just v)) &&
-    forall t v. ((Lib.lookup l senv = Just t) && (store_lookup l s = Just v)) --> type_v 0 cenv senv v t
+    ((exists st. Lib.lookup l senv = Just st) = (exists v. store_lookup l s = Just v)) &&
+    (forall st sv. ((Lib.lookup l senv = Just st) && (store_lookup l s = Just sv)) --> 
+       match (sv,st) with
+         | (Refv v, Ref_t t) -> type_v 0 cenv senv v t
+         | (W8array es, W8array_t) -> true
+         | _ -> false
+       end)
 
 indreln 
 [context_invariant : nat -> list ctxt -> nat -> bool]
@@ -260,17 +281,10 @@ context_invariant dec_tvs ((Chandle () pes,env) :: c) 0
 
 and
 
-app1 : forall dec_tvs c op e env.
+app : forall dec_tvs c op vs es env.
 context_invariant dec_tvs c 0
 ==>
-context_invariant dec_tvs ((Capp1 op () e,env) :: c) 0
-
-and
-
-app2 : forall dec_tvs c op v env.
-context_invariant dec_tvs c 0
-==>
-context_invariant dec_tvs ((Capp2 op v (),env) :: c) 0
+context_invariant dec_tvs ((Capp op vs () es,env) :: c) 0
 
 and
 
@@ -308,13 +322,6 @@ context_invariant dec_tvs c tvs &&
 ==>
 context_invariant dec_tvs ((Ccon cn vs () es,env) :: c) tvs
 
-and
-
-uapp : forall dec_tvs c op env.
-context_invariant dec_tvs c 0
-==>
-context_invariant dec_tvs ((Cuapp op (),env) :: c) 0
-
 indreln
 [type_ctxt : nat -> tenvM -> ctMap -> tenvC -> tenvS -> tenvE -> ctxt_frame -> t -> t -> bool]
 
@@ -335,32 +342,14 @@ type_ctxt tvs menv all_cenv cenv senv tenv (Chandle () pes) t t
 
 and
 
-uapp : forall tvs menv all_cenv cenv senv tenv uop t1 t2.
+app1 : forall tvs menv all_cenv cenv senv tenv vs es op t1 t2 ts1 ts2.
 check_freevars tvs [] t1 &&
 check_freevars tvs [] t2 &&
-type_uop uop t1 t2
+type_vs 0 all_cenv senv vs ts1 &&
+type_es menv cenv tenv es ts2 &&
+type_op op (List.reverse ts1 ++ [t1] ++ ts2) t2 
 ==>
-type_ctxt tvs menv all_cenv cenv senv tenv (Cuapp uop ()) t1 t2
-
-and
-
-app1 : forall tvs menv all_cenv cenv senv tenv e op t1 t2 t3.
-check_freevars tvs [] t1 &&
-check_freevars tvs [] t3 &&
-type_e menv cenv tenv e t2 &&
-type_op op t1 t2 t3
-==>
-type_ctxt tvs menv all_cenv cenv senv tenv (Capp1 op () e) t1 t3
-
-and
-
-app2 : forall tvs menv all_cenv cenv senv tenv op v t1 t2 t3.
-check_freevars tvs [] t2 &&
-check_freevars tvs [] t3 &&
-type_v 0 all_cenv senv v t1 &&
-type_op op t1 t2 t3
-==>
-type_ctxt tvs menv all_cenv cenv senv tenv (Capp2 op v ()) t2 t3
+type_ctxt tvs menv all_cenv cenv senv tenv (Capp op vs () es) t1 t2
 
 and
 
@@ -500,7 +489,8 @@ val ctMap_has_exns : ctMap -> bool
 let ctMap_has_exns ctMap =
   (Map.lookup ("Bind", TypeExn (Short "Bind")) ctMap = Just ([],[])) &&
   (Map.lookup ("Div", TypeExn (Short "Div")) ctMap = Just ([],[])) &&
-  (Map.lookup ("Eq", TypeExn (Short "Eq")) ctMap = Just ([],[]))
+  (Map.lookup ("Eq", TypeExn (Short "Eq")) ctMap = Just ([],[])) &&
+  (Map.lookup ("Subscript", TypeExn (Short "Subscript")) ctMap = Just ([],[]))
 
 (* The types and exceptions that are missing are all declared in modules. *)
 val weak_decls_only_mods : decls -> decls -> bool
@@ -536,7 +526,7 @@ let decls_ok (mdecls,tdecls,edecls) =
 (* For using the type soundess theorem, we have to know there are good
  * constructor and module type environments that don't have bits hidden by a
  * signature. *)
-let type_sound_invariants (decls1,tenvM,tenvC,tenv,decls2,envM,envC,envE,store) =
+let type_sound_invariants r (decls1,tenvM,tenvC,tenv,decls2,envM,envC,envE,store) =
   exists ctMap tenvS decls_no_sig tenvM_no_sig tenvC_no_sig. 
     consistent_decls decls2 decls_no_sig &&
     consistent_ctMap decls_no_sig ctMap &&
@@ -551,7 +541,8 @@ let type_sound_invariants (decls1,tenvM,tenvC,tenv,decls2,envM,envC,envE,store) 
     weakC tenvC_no_sig tenvC &&
     decls_ok decls_no_sig &&
     weak_decls decls_no_sig decls1 &&
-    weak_decls_only_mods decls_no_sig decls1
+    weak_decls_only_mods decls_no_sig decls1 &&
+    (forall err. r = Just (Rerr (Rraise err)) --> type_v 0 ctMap tenvS err Texn)
 
 let update_type_sound_inv ((decls1:decls),(tenvM:tenvM),(tenvC:tenvC),(tenv:tenvE),(decls2:set tid_or_exn),(envM:envM),(envC:envC),(envE:envE),store) decls1' tenvM' tenvC' tenv' store' decls2' envC' r =
   match r with

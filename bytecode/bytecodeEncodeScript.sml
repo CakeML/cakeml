@@ -38,14 +38,20 @@ val bc_inst_to_string_def = Define `
 (bc_inst_to_string PushExc = "pushExc") ∧
 (bc_inst_to_string PopExc = "popExc") ∧
 (bc_inst_to_string Ref = "ref") ∧
+(bc_inst_to_string RefByte = "refByte") ∧
 (bc_inst_to_string Deref = "deref") ∧
+(bc_inst_to_string DerefByte = "derefByte") ∧
 (bc_inst_to_string Update = "update") ∧
+(bc_inst_to_string UpdateByte = "updateByte") ∧
+(bc_inst_to_string Length = "length") ∧
+(bc_inst_to_string LengthByte = "lengthByte") ∧
 (bc_inst_to_string (Galloc n) = "galloc" ++ toString n) ∧
 (bc_inst_to_string (Gupdate n) = "gupdate" ++ toString n) ∧
 (bc_inst_to_string (Gread n) = "gread" ++ toString n) ∧
 (bc_inst_to_string (Stop b) = "stop" ++ (if b then toString 1 else toString 0)) ∧
 (bc_inst_to_string Tick = "tick") ∧
 (bc_inst_to_string Print = "print") ∧
+(bc_inst_to_string PrintWord8 = "printWord8") ∧
 (bc_inst_to_string (PrintC c) = "printC '" ++ (if c = #"\n" then "\\n" else [c]) ++ "'")`;
 
 val encode_num_def = Define `
@@ -56,7 +62,7 @@ encode_num n =
     NONE`;
 
 val encode_loc_def = Define `
-(encode_loc tag (Lab n) = 
+(encode_loc tag (Lab n) =
   OPTION_MAP (\w. [tag; w]) (encode_num n)) ∧
 (encode_loc tag (Addr n) =
   OPTION_MAP (\w. [tag+1w; w]) (encode_num n))`;
@@ -66,16 +72,16 @@ encode_char c = encode_num (ORD c)`;
 
 val encode_bc_inst_def = Define `
 (encode_bc_inst (Stack Pop) = SOME [0w]) ∧
-(encode_bc_inst (Stack (Pops n)) = 
+(encode_bc_inst (Stack (Pops n)) =
   OPTION_MAP (\w. [1w; w]) (encode_num n)) ∧
-(encode_bc_inst (Stack (PushInt i)) = 
+(encode_bc_inst (Stack (PushInt i)) =
   if i < 0 then
     OPTION_MAP (\w. [3w; w]) (encode_num (Num (-i)))
   else
     OPTION_MAP (\w. [4w; w]) (encode_num (Num (i)))) ∧
 (encode_bc_inst (Stack (Cons n1 n2)) =
   OPTION_BIND (encode_num n1) (\w1. OPTION_BIND (encode_num n2) (\w2. SOME [5w; w1; w2]))) ∧
-(encode_bc_inst (Stack (Load n)) = 
+(encode_bc_inst (Stack (Load n)) =
   OPTION_MAP (\w. [6w; w]) (encode_num n)) ∧
 (encode_bc_inst (Stack (Store n)) =
   OPTION_MAP (\w. [7w; w]) (encode_num n)) ∧
@@ -102,8 +108,13 @@ val encode_bc_inst_def = Define `
 (encode_bc_inst PushExc = SOME [31w]) ∧
 (encode_bc_inst PopExc = SOME [32w]) ∧
 (encode_bc_inst Ref = SOME [33w]) ∧
+(encode_bc_inst RefByte = SOME [42w]) ∧
 (encode_bc_inst Deref = SOME [34w]) ∧
+(encode_bc_inst DerefByte = SOME [43w]) ∧
 (encode_bc_inst Update = SOME [35w]) ∧
+(encode_bc_inst UpdateByte = SOME [44w]) ∧
+(encode_bc_inst Length = SOME [40w]) ∧
+(encode_bc_inst LengthByte = SOME [41w]) ∧
 (encode_bc_inst (Galloc n) = 
   OPTION_MAP (\w. [36w; w]) (encode_num n)) ∧
 (encode_bc_inst (Gupdate n) =
@@ -113,6 +124,7 @@ val encode_bc_inst_def = Define `
 (encode_bc_inst (Stop b) = OPTION_MAP (\w. [39w; w]) (encode_num (if b then 1 else 0))) ∧
 (encode_bc_inst Tick = SOME [8w]) ∧
 (encode_bc_inst Print = SOME [26w]) ∧
+(encode_bc_inst PrintWord8 = SOME [45w]) ∧
 (encode_bc_inst (PrintC c) = 
   OPTION_MAP (\w. [2w; w]) (encode_char c))`;
 
@@ -133,7 +145,7 @@ decode_char wl =
            NONE`;
 
 val option_map_fst_def = Define `
-option_map_fst f x = 
+option_map_fst f x =
   OPTION_MAP (\(x,y). (f x, y)) x`;
 
 val decode_bc_inst_def = Define `
@@ -203,10 +215,20 @@ decode_bc_inst wl =
            SOME (PopExc, rest)
          else if tag = 33w then
            SOME (Ref, rest)
+         else if tag = 42w then
+           SOME (RefByte, rest)
          else if tag = 34w then
            SOME (Deref, rest)
+         else if tag = 43w then
+           SOME (DerefByte, rest)
          else if tag = 35w then
            SOME (Update, rest)
+         else if tag = 44w then
+           SOME (UpdateByte, rest)
+         else if tag = 40w then
+           SOME (Length, rest)
+         else if tag = 41w then
+           SOME (LengthByte, rest)
          else if tag = 36w then
            option_map_fst (\n. Galloc n) (decode_num rest)
          else if tag = 37w then
@@ -219,6 +241,8 @@ decode_bc_inst wl =
            SOME (Tick, rest)
          else if tag = 26w then
            SOME (Print, rest)
+         else if tag = 45w then
+           SOME (PrintWord8, rest)
          else if tag = 2w then
            option_map_fst (\c. PrintC c) (decode_char rest)
          else
@@ -226,7 +250,7 @@ decode_bc_inst wl =
 
 val encode_bc_insts_def = Define `
 (encode_bc_insts [] = SOME []) ∧
-(encode_bc_insts (i::rest) = 
+(encode_bc_insts (i::rest) =
   case encode_bc_inst i of
        NONE => NONE
      | SOME wl =>
@@ -245,7 +269,7 @@ val decode_bc_insts_prim_def = tzDefine "decode_bc_insts" `
   case decode_bc_inst wl of
        NONE => NONE
      | SOME (i,rest) =>
-         if 39 < dimword (:'a) then
+         if 45 < dimword (:'a) then
            case decode_bc_insts rest of
                 NONE => NONE
               | SOME is => SOME (i::is)
@@ -269,7 +293,7 @@ val decode_bc_insts_prim_def = tzDefine "decode_bc_insts" `
 
 val decode_bc_insts_def = Q.store_thm ("decode_bc_insts_def",
 `(decode_bc_insts [] = SOME []) ∧
- (39 < dimword (:'a) ⇒
+ (45 < dimword (:'a) ⇒
    (decode_bc_insts ((w:'a word)::wl) =
      case decode_bc_inst (w::wl) of
          NONE => NONE
@@ -282,7 +306,7 @@ val decode_bc_insts_def = Q.store_thm ("decode_bc_insts_def",
  fs [decode_bc_inst_def]);
 
 val decode_encode_num = Q.prove (
-`!n w l. 
+`!n w l.
   (encode_num n = SOME w)
   ⇒
   (decode_num (w::l) = SOME (n,l))`,
@@ -291,7 +315,7 @@ val decode_encode_num = Q.prove (
  decide_tac);
 
 val decode_encode_bc_inst = Q.store_thm ("decode_encode_bc_inst",
-`39 < dimword (:'a) 
+`45 < dimword (:'a)
  ⇒
  !inst (l1:'a word list) l2.
   (encode_bc_inst inst = SOME l1)
@@ -312,7 +336,7 @@ val decode_encode_bc_inst = Q.store_thm ("decode_encode_bc_inst",
      rw [ORD_BOUND, CHR_ORD]));
 
 val decode_encode_bc_insts = Q.store_thm ("decode_encode_bc_insts",
-`39 < dimword (:'a) 
+`45 < dimword (:'a)
  ⇒
  !(l1:'a word list) insts.
   (encode_bc_insts insts = SOME l1)

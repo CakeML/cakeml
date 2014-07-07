@@ -13,9 +13,15 @@ val untyped_safety_exp_step = Q.prove (
 `∀env s e c.
   (e_step (env,s,e,c) = Estuck) =
   ((?v. e = Val v) ∧ ((c = []) ∨ (?env. c = [(Craise (), env)])))`,
-rw [e_step_def, continue_def, push_def, return_def] >>
-every_case_tac >>
-metis_tac [oneTheory.one]);
+ rw [e_step_def, continue_def, push_def, return_def] >>
+ cases_on `e` >>
+ rw [] >|
+ [cases_on `e'`,
+  cases_on `c`] >>
+ rw [] >>
+ every_case_tac >>
+ fs [application_def, oneTheory.one, push_def, return_def] >>
+ every_case_tac);
 
 val small_exp_safety1 = Q.prove (
 `!s env e r.

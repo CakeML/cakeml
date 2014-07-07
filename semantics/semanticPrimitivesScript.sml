@@ -88,15 +88,29 @@ val _ = Hol_datatype `
 
 
 (* Stores *)
+val _ = Hol_datatype `
+ store_v = Refv of 'a | W8array of word8 list`;
+
+
+(*val store_v_same_type : forall 'a. store_v 'a -> store_v 'a -> bool*)
+val _ = Define `
+ (store_v_same_type v1 v2 =  
+((case (v1,v2) of
+    (Refv _, Refv _) => T
+  | (W8array _,W8array _) => T
+  | _ => F
+  )))`;
+
+
 (* The nth item in the list is the value at location n *)
-val _ = type_abbrev((*  'a *) "store" , ``: 'a list``);
+val _ = type_abbrev((*  'a *) "store" , ``: ( 'a store_v) list``);
 
 (*val empty_store : forall 'a. store 'a*)
 val _ = Define `
  (empty_store = ([]))`;
 
 
-(*val store_lookup : forall 'a. nat -> store 'a -> maybe 'a*)
+(*val store_lookup : forall 'a. nat -> store 'a -> maybe (store_v 'a)*)
 val _ = Define `
  (store_lookup l st =  
 (if l < LENGTH st then
@@ -105,16 +119,18 @@ val _ = Define `
     NONE))`;
 
 
-(*val store_alloc : forall 'a. 'a -> store 'a -> store 'a * nat*)
+(*val store_alloc : forall 'a. store_v 'a -> store 'a -> store 'a * nat*)
 val _ = Define `
  (store_alloc v st =
   ((st ++ [v]), LENGTH st))`;
 
 
-(*val store_assign : forall 'a. nat -> 'a -> store 'a -> maybe (store 'a)*)
+(*val store_assign : forall 'a. nat -> store_v 'a -> store 'a -> maybe (store 'a)*)
 val _ = Define `
  (store_assign n v st =  
-(if n < LENGTH st then
+(if (n < LENGTH st) /\
+     store_v_same_type (EL n st) v
+  then
     SOME (LUPDATE v n st)
   else
     NONE))`;
@@ -183,6 +199,7 @@ val _ = Define `
     | (StrLit _, StrLit _) => T
     | (Bool _, Bool _) => T
     | (Unit, Unit) => T
+    | (Word8 _, Word8 _) => T
     | _ => F
   )))`;
 
@@ -249,7 +266,8 @@ val _ = Hol_datatype `
 /\
 (pmatch envC s (Pref p) (Loc lnum) env =  
 ((case store_lookup lnum s of
-      SOME v => pmatch envC s p v env
+      SOME (Refv v) => pmatch envC s p v env
+    | SOME _ => Match_type_error
     | NONE => Match_type_error
   )))
 /\
@@ -308,25 +326,6 @@ val _ = Define `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn contains_closure_defn;
 
-(*val do_uapp : store v -> uop -> v -> maybe (store v * v)*)
-val _ = Define `
- (do_uapp s uop v =  
-((case uop of
-      Opderef =>
-        (case v of
-            Loc n =>
-              (case store_lookup n s of
-                  SOME v => SOME (s,v)
-                | NONE => NONE
-              )
-          | _ => NONE
-        )
-    | Opref =>
-        let (s',n) = (store_alloc v s) in
-          SOME (s', Loc n)
-  )))`;
-
-
 val _ = Hol_datatype `
  eq_result = 
     Eq_val of bool
@@ -336,9 +335,10 @@ val _ = Hol_datatype `
 
 (*val do_eq : v -> v -> eq_result*)
  val do_eq_defn = Hol_defn "do_eq" `
- 
+
 (do_eq (Litv l1) (Litv l2) =  
- (Eq_val (l1 = l2)))
+(if lit_same_type l1 l2 then Eq_val (l1 = l2)
+  else Eq_type_error))
 /\
 (do_eq (Loc l1) (Loc l2) = (Eq_val (l1 = l2)))
 /\
@@ -375,44 +375,103 @@ val _ = Hol_datatype `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn do_eq_defn;
 
-(*val exn_env : all_env*)
+(*val prim_exn : conN -> v*)
 val _ = Define `
- (exn_env = (emp, (emp, MAP (\ cn .  (cn, ( 0, TypeExn (Short cn)))) ["Bind"; "Div"; "Eq"]), emp))`;
+ (prim_exn cn = (Conv (SOME (cn, TypeExn (Short cn))) []))`;
 
-                   
+
 (* Do an application *)
-(*val do_app : all_env -> store v -> op -> v -> v -> maybe (all_env * store v * exp)*)
+(*val do_opapp : list v -> maybe (all_env * exp)*)
 val _ = Define `
- (do_app env' s op v1 v2 =  
-((case (op, v1, v2) of
-      (Opapp, Closure (menv, cenv, env) n e, v) =>
-        SOME ((menv, cenv, bind n v env), s, e)
-    | (Opapp, Recclosure (menv, cenv, env) funs n, v) =>
-        if ALL_DISTINCT (MAP (\ (f,x,e) .  f) funs) then
-          (case find_recfun n funs of
-              SOME (n,e) => SOME ((menv, cenv, bind n v (build_rec_env funs (menv, cenv, env) env)), s, e)
-            | NONE => NONE
-          )
-        else
-          NONE
-    | (Opn op, Litv (IntLit n1), Litv (IntLit n2)) =>
+ (do_opapp vs =  
+((case vs of
+    [Closure (menv, cenv, env) n e; v] =>
+      SOME ((menv, cenv, bind n v env), e)
+  | [Recclosure (menv, cenv, env) funs n; v] =>
+      if ALL_DISTINCT (MAP (\ (f,x,e) .  f) funs) then
+        (case find_recfun n funs of
+            SOME (n,e) => SOME ((menv, cenv, bind n v (build_rec_env funs (menv, cenv, env) env)), e)
+          | NONE => NONE
+        )
+      else
+        NONE
+  | _ => NONE
+  )))`;
+
+
+(*val do_app : store v -> op -> list v -> maybe (store v * result v v)*)
+val _ = Define `
+ (do_app s op vs =  
+((case (op, vs) of
+      (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
         if ((op = Divide) \/ (op = Modulo)) /\ (n2 =( 0 : int)) then
-          SOME (exn_env, s, Raise (Con (SOME (Short "Div")) []))
+          SOME (s, Rerr (Rraise (prim_exn "Div")))
         else
-          SOME (env', s, Lit (IntLit (opn_lookup op n1 n2)))
-    | (Opb op, Litv (IntLit n1), Litv (IntLit n2)) =>
-        SOME (env', s, Lit (Bool (opb_lookup op n1 n2)))
-    | (Equality, v1, v2) =>
+          SOME (s, Rval (Litv (IntLit (opn_lookup op n1 n2))))
+    | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
+        SOME (s, Rval (Litv (Bool (opb_lookup op n1 n2))))
+    | (Equality, [v1; v2]) =>
         (case do_eq v1 v2 of
             Eq_type_error => NONE
-          | Eq_closure => SOME (exn_env, s, Raise (Con (SOME (Short "Eq")) []))
-          | Eq_val b => SOME (env', s, Lit (Bool b))
+          | Eq_closure => SOME (s, Rerr (Rraise (prim_exn "Eq")))
+          | Eq_val b => SOME (s, Rval (Litv (Bool b)))
         )
-    | (Opassign, (Loc lnum), v) =>
-        (case store_assign lnum v s of
-          SOME st => SOME (env', st, Lit Unit)
-        | NONE => NONE
+    | (Opassign, [Loc lnum; v]) =>
+        (case store_assign lnum (Refv v) s of
+            SOME st => SOME (st, Rval (Litv Unit))
+          | NONE => NONE
         )
+    | (Opref, [v]) =>
+        let (s',n) = (store_alloc (Refv v) s) in
+          SOME (s', Rval (Loc n))
+    | (Opderef, [Loc n]) =>
+        (case store_lookup n s of
+            SOME (Refv v) => SOME (s,Rval v)
+          | _ => NONE
+        )
+    | (Aalloc, [Litv (IntLit n); Litv (Word8 w)]) =>
+        if n <( 0 : int) then
+          SOME (s, Rerr (Rraise (prim_exn "Subscript")))
+        else
+          let (s',lnum) =            
+(store_alloc (W8array (REPLICATE (Num (ABS ( n))) w)) s)
+          in 
+            SOME (s', Rval (Loc lnum))
+    | (Asub, [Loc lnum; Litv (IntLit i)]) =>
+        (case store_lookup lnum s of
+            SOME (W8array ws) =>
+              if i <( 0 : int) then
+                SOME (s, Rerr (Rraise (prim_exn "Subscript")))
+              else
+                let n = (Num (ABS ( i))) in
+                  if n >= LENGTH ws then
+                    SOME (s, Rerr (Rraise (prim_exn "Subscript")))
+                  else 
+                    SOME (s, Rval (Litv (Word8 (EL n ws))))
+          | _ => NONE
+        )
+    | (Alength, [Loc n]) =>
+        (case store_lookup n s of
+            SOME (W8array ws) =>
+              SOME (s,Rval (Litv(IntLit(int_of_num(LENGTH ws)))))
+          | _ => NONE
+         )
+    | (Aupdate, [Loc lnum; Litv(IntLit i); Litv(Word8 w)]) =>
+        (case store_lookup lnum s of
+          SOME (W8array ws) =>
+            if i <( 0 : int) then
+              SOME (s, Rerr (Rraise (prim_exn "Subscript")))
+            else 
+              let n = (Num (ABS ( i))) in
+                if n >= LENGTH ws then
+                  SOME (s, Rerr (Rraise (prim_exn "Subscript")))
+                else
+                  (case store_assign lnum (W8array (LUPDATE w n ws)) s of
+                      NONE => NONE
+                    | SOME s' => SOME (s', Rval (Litv Unit))
+                  )
+        | _ => NONE
+      )
     | _ => NONE
   )))`;
 
@@ -494,6 +553,21 @@ val _ = Define `
 (id_to_string (Short s) = s)
 /\
 (id_to_string (Long x y) = (STRCAT x(STRCAT"."y)))`;
+
+
+val _ = Define `
+ (tc_to_string tc0 =  
+ ((case tc0 of
+    TC_name id => id_to_string id
+  | TC_int => "<int>"
+  | TC_string => "<string>"
+  | TC_bool => "<bool>"
+  | TC_unit => "<unit>"
+  | TC_ref => "<ref>"
+  | TC_word8 => "<word8>"
+  | TC_word8array => "<word8array>"
+  | TC_exn => "<exn>"
+  )))`;
 
 
 (*val int_to_string : integer -> string*)

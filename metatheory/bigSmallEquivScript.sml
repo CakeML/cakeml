@@ -7,6 +7,24 @@ val _ = new_theory "bigSmallEquiv";
 
 (* ------------------------ Big step/small step equivalence ----------------- *)
 
+val application_thm = Q.prove (
+`!op env s vs c.
+  application op env s vs c =
+    if op = Opapp then
+      case do_opapp vs of
+       | NONE => Etype_error
+       | SOME (env,e) => Estep (env,s,Exp e,c)
+    else
+      case do_app s op vs of
+       | NONE => Etype_error
+       | SOME (v1,Rval v') => return env v1 v' c
+       | SOME (v1,Rerr Rtype_error) => Etype_error
+       | SOME (v1,Rerr (Rraise v)) => Estep (env,v1,Val v,(Craise (),env)::c)
+       | SOME (v1,Rerr Rtimeout_error) => Etype_error`,
+ rw [application_def] >>
+ cases_on `op` >>
+ rw []);
+      
 val small_eval_prefix = Q.prove (
 `∀s env e c cenv' s' env' e' c' r.
   e_step_reln^* (env,s,Exp e,c) (env',s',Exp e',c') ∧
@@ -20,32 +38,38 @@ fs [small_eval_def] >-
 metis_tac [transitive_RTC, transitive_def] >>
 cases_on `e''` >>
 fs [small_eval_def] >>
-metis_tac [transitive_RTC, transitive_def])
+metis_tac [transitive_RTC, transitive_def]);
 
 val e_single_step_add_ctxt = Q.prove (
 `!s env e c s' env' e' c' c''.
   (e_step (env,s,e,c) = Estep (env',s',e',c'))
   ⇒
   (e_step (env,s,e,c++c'') = Estep (env',s',e',c'++c''))`,
-rw [e_step_def] >>
-cases_on `e` >>
-fs [push_def, return_def, emp_def] >>
-rw [] >>
-fs [] >>
-rw [] >>
-every_case_tac >>
-fs [] >>
-rw [] >>
-fs [continue_def] >>
-cases_on `c` >>
-fs [] >>
-cases_on `h` >>
-fs [] >>
-cases_on `q` >>
-fs [] >>
-every_case_tac >>
-fs [push_def, return_def] >>
-rw []);
+ rw [e_step_def] >>
+ cases_on `e` >>
+ fs [push_def, return_def, emp_def] >>
+ rw [] >>
+ fs [] >>
+ rw [] >>
+ every_case_tac >>
+ fs [] >>
+ rw []
+ >- (fs [application_thm] >>
+     every_case_tac >>
+     fs [return_def])
+ >- (fs [continue_def] >>
+     cases_on `c` >>
+     fs [] >>
+     cases_on `h` >>
+     fs [] >>
+     cases_on `q` >>
+     fs [] >>
+     every_case_tac >>
+     fs [push_def, return_def] >>
+     rw [] >>
+     fs [application_thm] >>
+     every_case_tac >>
+     fs [return_def]));
 
 val e_single_error_add_ctxt = Q.prove (
 `!env s e c c'.
@@ -60,17 +84,24 @@ fs [] >>
 rw [] >>
 every_case_tac >>
 fs [] >>
-rw [] >>
-fs [continue_def] >>
-cases_on `c` >>
-fs [] >>
-cases_on `h` >>
-fs [] >>
-cases_on `q` >>
-fs [] >>
-every_case_tac >>
-fs [push_def, return_def] >>
-rw []);
+rw []
+ >- (fs [application_thm] >>
+     every_case_tac >>
+     fs [return_def])
+ >- (fs [continue_def] >>
+     cases_on `c` >>
+     fs [] >>
+     cases_on `h` >>
+     fs [] >>
+     cases_on `q` >>
+     fs [] >>
+     every_case_tac >>
+     fs [push_def, return_def] >>
+     rw [] >>
+     fs [application_thm] >>
+     every_case_tac >>
+     fs [return_def]));
+
 
 val e_step_add_ctxt_help = Q.prove (
 `!st1 st2. e_step_reln^* st1 st2 ⇒
@@ -209,16 +240,23 @@ fs [] >>
 small_eval_step_tac);
 
 val small_eval_app = Q.prove (
-`!env s op e1 e2 c r.
-  small_eval env s (App op e1 e2) c r =
-  small_eval env s e1 ((Capp1 op () e2,env)::c) r`,
-small_eval_step_tac);
-
-val small_eval_uapp = Q.prove (
-`!env s uop e1 c r.
-  small_eval env s (Uapp uop e1) c r =
-  small_eval env s e1 ((Cuapp uop (),env)::c) r`,
-small_eval_step_tac);
+`!env s op es c r.
+  small_eval env s (App op es) c r ⇔
+  (es = [] ∧ small_eval env s (App op []) c r) ∨
+  (?e es'. (es = e::es') ∧ small_eval env s e ((Capp op [] () es',env)::c) r)`,
+ rw [] >>
+ `es = [] ∨ ?e es'. es = e::es'` by (cases_on `es` >> metis_tac []) >>
+ rw [] >>
+ `(?s' v. r = (s', Rval v)) ∨ (?s'. r = (s', Rerr Rtype_error)) ∨ (?s'. r = (s', Rerr Rtimeout_error)) ∨ 
+  (?s' err. r = (s', Rerr (Rraise err)))`
+              by metis_tac [pair_CASES, result_nchotomy, error_result_nchotomy] >>
+ fs [small_eval_def] >>
+ rw [Once RTC_CASES1, e_step_reln_def, e_step_def] >>
+ rw [push_def, application_thm] >>
+ EQ_TAC >>
+ rw [] >>
+ fs [] >>
+ metis_tac []);
 
 val small_eval_log = Q.prove (
 `!env s op e1 e2 c r.
@@ -507,6 +545,115 @@ val result_cases = Q.prove (
  cases_on `e` >>
  fs []);
 
+open miscLib
+
+val small_eval_opapp_err = prove(
+  ``∀env s es res. small_eval_list env s es res ⇒
+    ∀s' vs. res = (s',Rval vs) ⇒
+      ∀env0 v1 v0. LENGTH es + LENGTH v0 ≠ 1 ⇒
+        ∃env' e' c'.
+        e_step_reln^* (env0,s,Val v1,[Capp Opapp v0 () es,env]) (env',s',e',c') ∧
+        e_step (env',s',e',c') = Etype_error``,
+  ho_match_mp_tac small_eval_list_ind >> simp[] >> rw[] >>
+  srw_tac[boolSimps.DNF_ss][Once RTC_CASES1,e_step_reln_def] >- (
+    rw[Once e_step_def,continue_def,application_thm] >>
+    Cases_on`REVERSE v0++[v1]`>>fs[do_opapp_def] >>
+    Cases_on`t`>>fs[] >>
+    Cases_on`t'`>>fs[]) >>
+  disj2_tac >>
+  rw[Once e_step_def,continue_def,push_def] >>
+  imp_res_tac e_step_add_ctxt >>
+  pop_assum(qspec_then`[Capp Opapp (v1::v0) () es,env]`strip_assume_tac) >> fs[] >>
+  first_x_assum(qspecl_then[`env'`,`v`,`v1::v0`]mp_tac) >>
+  discharge_hyps >- simp[] >>
+  metis_tac[transitive_RTC,transitive_def] )
+
+val small_eval_app_err = prove(
+  ``∀env s es res. small_eval_list env s es res ⇒
+    ∀s' vs. res = (s',Rval vs) ⇒
+      ∀op env0 v1 v0. LENGTH es + LENGTH v0 > 2 ∧ op ≠ Opapp ⇒
+        ∃env' e' c'.
+        e_step_reln^* (env0,s,Val v1,[Capp op v0 () es,env]) (env',s',e',c') ∧
+        e_step (env',s',e',c') = Etype_error``,
+  ho_match_mp_tac small_eval_list_ind >> simp[] >> rw[] >>
+  srw_tac[boolSimps.DNF_ss][Once RTC_CASES1,e_step_reln_def] >- (
+    rw[Once e_step_def,continue_def,application_thm] >>
+    BasicProvers.CASE_TAC >>
+    Cases_on`op`>>
+    Cases_on`REVERSE v0++[v1]`>>fs[do_app_def] >>
+    every_case_tac >> fs[] >>
+    fs[miscTheory.SWAP_REVERSE_SYM])>>
+  disj2_tac >>
+  rw[Once e_step_def,continue_def,push_def] >>
+  imp_res_tac e_step_add_ctxt >>
+  pop_assum(qspec_then`[Capp op (v1::v0) () es,env]`strip_assume_tac) >> fs[] >>
+  first_x_assum(qspecl_then[`op`,`env'`,`v`,`v1::v0`]mp_tac) >>
+  discharge_hyps >- simp[] >>
+  metis_tac[transitive_RTC,transitive_def] )
+
+val small_eval_list_not_timeout = prove(
+  ``∀env s es res. small_eval_list env s es res ⇒
+    SND res ≠ Rerr Rtimeout_error``,
+  ho_match_mp_tac small_eval_list_ind >> rw[])
+
+val small_eval_list_app_type_error = prove(
+  ``∀env s es res. small_eval_list env s es res ⇒
+      ∀s' err. res = (s',Rerr Rtype_error) ⇒
+        ∀op env0 v1 v0.
+          ∃env' e' c'.
+            e_step_reln^* (env0,s,Val v1,[Capp op v0 () es,env]) (env',s',e',c') ∧
+            e_step (env',s',e',c') = Etype_error``,
+  ho_match_mp_tac (theorem"small_eval_list_strongind") >> simp[] >> rw[] >- (
+    rw[Once RTC_CASES1,e_step_reln_def,Once e_step_def,continue_def,push_def] >>
+    srw_tac[boolSimps.DNF_ss][] >> disj2_tac >>
+    imp_res_tac e_step_add_ctxt >>
+    Q.PAT_ABBREV_TAC`ctx = [(Capp A B C D,env)]` >>
+    first_x_assum(qspec_then`ctx`strip_assume_tac) >> fs[] >>
+    first_assum(match_exists_tac o concl) >> rw[] >>
+    metis_tac[e_single_error_add_ctxt] ) >>
+  rw[Once RTC_CASES1,e_step_reln_def,Once e_step_def,continue_def,push_def] >>
+  srw_tac[boolSimps.DNF_ss][] >> disj2_tac >>
+  rw[Once RTC_CASES_RTC_TWICE] >>
+  imp_res_tac e_step_add_ctxt >>
+  Q.PAT_ABBREV_TAC`ctx = [(Capp X Y Z A,env)]` >>
+  first_x_assum(qspec_then`ctx`strip_assume_tac) >> fs[] >>
+  simp[PULL_EXISTS] >>
+  first_assum(match_exists_tac o concl) >> rw[] >>
+  rw[Once RTC_CASES1,e_step_reln_def,e_step_def,continue_def,Abbr`ctx`])
+
+val small_eval_list_app_error = prove(
+  ``∀env s es res. small_eval_list env s es res ⇒
+      ∀s' v. res = (s',Rerr (Rraise v)) ⇒
+        ∀op env0 v1 v0.
+          ∃env' env''.
+            e_step_reln^* (env0,s,Val v1,[Capp op v0 () es,env]) (env',s',Val v,[(Craise (),env'')])``,
+  ho_match_mp_tac (theorem"small_eval_list_strongind") >> simp[] >> rw[] >- (
+    rw[Once RTC_CASES1,e_step_reln_def,Once e_step_def,continue_def,push_def] >>
+    imp_res_tac e_step_add_ctxt >>
+    Q.PAT_ABBREV_TAC`ctx = [(Capp A B C D,env)]` >>
+    first_x_assum(qspec_then`ctx`strip_assume_tac) >> fs[] >>
+    rw[Once RTC_CASES_RTC_TWICE] >>
+    first_assum(match_exists_tac o concl) >> rw[] >>
+    rw[Once RTC_CASES1,e_step_reln_def,e_step_def,continue_def,Abbr`ctx`] >>
+    metis_tac[RTC_REFL]) >>
+  rw[Once RTC_CASES1,e_step_reln_def,Once e_step_def,continue_def,push_def] >>
+  rw[Once RTC_CASES_RTC_TWICE] >>
+  imp_res_tac e_step_add_ctxt >>
+  Q.PAT_ABBREV_TAC`ctx = [(Capp X Y Z A,env)]` >>
+  first_x_assum(qspec_then`ctx`strip_assume_tac) >> fs[] >>
+  first_assum(match_exists_tac o concl) >> rw[] >>
+  rw[Once RTC_CASES1,e_step_reln_def,e_step_def,continue_def,Abbr`ctx`])
+
+val do_opapp_NONE_tail = prove(
+  ``do_opapp (h::t) = NONE ∧ LENGTH t ≠ 2 ⇒ do_opapp t = NONE``,
+  rw[do_opapp_def] >> every_case_tac >> fs[])
+
+val e_step_exp_err_any_ctxt = prove(
+  ``e_step (x,y,Exp z,c1) = Etype_error ⇒ e_step (x,y,Exp z,c2) = Etype_error``,
+  rw[e_step_def] >> every_case_tac >>
+  fs[push_def,return_def,continue_def,application_thm] >>
+  every_case_tac >> fs[] )
+
 val big_exp_to_small_exp = Q.prove (
 `(∀ck env s e r.
    evaluate ck env s e r ⇒
@@ -518,8 +665,8 @@ val big_exp_to_small_exp = Q.prove (
    evaluate_match ck env s v pes err_v r ⇒
    (ck = F) ⇒ small_eval_match env (SND s) v pes err_v (remove_count r))`,
  ho_match_mp_tac evaluate_ind >>
- rw [small_eval_app, small_eval_log, small_eval_if, small_eval_match,
-     small_eval_handle, small_eval_let, small_eval_letrec,small_eval_uapp,
+ rw [small_eval_log, small_eval_if, small_eval_match,
+     small_eval_handle, small_eval_let, small_eval_letrec,
      remove_count_def, small_eval_raise] 
  >- (rw [return_def, small_eval_def, Once RTC_CASES1, e_step_reln_def, e_step_def] >>
      metis_tac [RTC_REFL])
@@ -613,6 +760,7 @@ val big_exp_to_small_exp = Q.prove (
  >- (rw [small_eval_def] >>
      qexists_tac `env` >>
      rw [Once RTC_CASES1, e_step_reln_def, return_def, e_step_def])
+     (*
  >- (fs [small_eval_def] >>
      `e_step_reln^* (env,SND s,Exp e,[(Cuapp uop (),env)])
                     (env',s2,Val v,[(Cuapp uop (),env)])`
@@ -685,6 +833,238 @@ val big_exp_to_small_exp = Q.prove (
              by (match_mp_tac small_eval_err_add_ctxt >>
                  rw []) >>
      fs [])
+     *)
+(* 
+     rw [Once small_eval_app] >>
+     fs [Once small_eval_list_cases] >>
+     rw []
+     >- (Q.ISPEC_THEN `r` strip_assume_tac result_cases >>
+         fs [small_eval_def] >>
+         rw [Once RTC_CASES1, e_step_reln_def, Once e_step_def, application_thm] >>
+         metis_tac [])
+     >- (match_mp_tac small_eval_prefix >>
+         `e_step_reln^* (env,SND s,Exp e',[(Capp Opapp [] () es',env)]) (env'',s2',Val v,[(Capp Opapp [] () es',env)])`
+                  by metis_tac [e_step_add_ctxt, APPEND]
+                  *)
+ >- (
+   fs[Once small_eval_list_cases] >> rw[] >- fs[do_opapp_def] >>
+   fs[Once small_eval_list_cases] >> rw[] >- fs[do_opapp_def] >>
+   reverse(fs[Once small_eval_list_cases]) >> rw[] >- fs[do_opapp_def] >>
+   rw[Once small_eval_app] >>
+   match_mp_tac small_eval_prefix >>
+   Q.PAT_ABBREV_TAC`ctx = (Capp B X Y Z,env)` >>
+   last_x_assum(mp_tac o MATCH_MP e_step_add_ctxt) >>
+   disch_then(qspec_then`[ctx]`strip_assume_tac) >> fs[] >>
+   qabbrev_tac`ctx2 = (Capp Opapp [v] () [],env)` >>
+   `e_step_reln^* (env'',s2',Val v,[ctx]) (env,s2',Exp e'',[ctx2])` by (
+     simp[Once RTC_CASES1,e_step_reln_def,e_step_def,continue_def,Abbr`ctx`,push_def] ) >>
+   last_x_assum(mp_tac o MATCH_MP e_step_add_ctxt) >>
+   disch_then(qspec_then`[ctx2]`strip_assume_tac) >> fs[] >>
+   qmatch_assum_abbrev_tac`e_step_reln^* b c` >>
+   qmatch_assum_abbrev_tac`e_step_reln^* a b` >>
+   `e_step_reln^* a c` by metis_tac[transitive_RTC, transitive_def] >>
+   qpat_assum`X b c`kall_tac >>
+   qpat_assum`X a b`kall_tac >>
+   qunabbrev_tac`b` >>
+   ONCE_REWRITE_TAC[CONJ_COMM] >>
+   first_assum(match_exists_tac o concl) >> simp[] >>
+   qmatch_assum_abbrev_tac`e_step_reln^* d a` >>
+   qmatch_abbrev_tac`e_step_reln^* d f` >>
+   qsuff_tac`e_step_reln^* c f` >- metis_tac[transitive_RTC,transitive_def] >>
+   unabbrev_all_tac >>
+   simp[Once RTC_CASES1,e_step_reln_def,e_step_def,continue_def,application_thm] )
+ >- (
+   fs[] >>
+   rw[small_eval_def] >>
+   rw[Once RTC_CASES1,e_step_reln_def,Once e_step_def,
+      application_thm,do_opapp_def] >>
+   srw_tac[boolSimps.DNF_ss][] >>
+   rw[Once e_step_def,application_thm,do_opapp_def] >>
+   BasicProvers.CASE_TAC >- fs[Once small_eval_list_cases] >>
+   disj2_tac >>
+   rw[push_def] >>
+   fs[Once small_eval_list_cases] >>
+   first_x_assum(mp_tac o MATCH_MP e_step_add_ctxt) >>
+   disch_then(qspec_then`[(Capp Opapp [] () t,env)]`strip_assume_tac) >>
+   fs[] >> rw[] >>
+   Cases_on`LENGTH t = 1` >- (
+     Cases_on`t`>>fs[LENGTH_NIL]>>rw[]>>
+     fs[Once small_eval_list_cases] >> rw[] >>
+     fs[Once small_eval_list_cases] >> rw[] >>
+     qmatch_assum_abbrev_tac`e_step_reln^* a b` >>
+     qpat_assum`e_step_reln^* a b`mp_tac >>
+     first_x_assum(mp_tac o MATCH_MP e_step_add_ctxt) >>
+     disch_then(qspec_then`[Capp Opapp [v] () [],env]`strip_assume_tac) >> fs[] >>
+     qmatch_assum_abbrev_tac`e_step_reln^* c d` >>
+     `e_step_reln^* b c` by (
+       rw[Once RTC_CASES1,Abbr`b`,e_step_reln_def,e_step_def] >>
+       rw[continue_def,push_def] ) >>
+     strip_tac >>
+     `e_step_reln^* a d` by metis_tac[transitive_RTC,transitive_def] >>
+     qunabbrev_tac`d` >>
+     first_assum(match_exists_tac o concl) >>
+     simp[e_step_def,continue_def,application_thm] ) >>
+   imp_res_tac small_eval_opapp_err >> fs[] >>
+   first_x_assum(qspec_then`[]`mp_tac) >> simp[] >>
+   disch_then(qspecl_then[`v`,`env'`]strip_assume_tac) >>
+   metis_tac[transitive_RTC,transitive_def])
+ >- (
+   fs[Once small_eval_list_cases] >> rw[] >- fs[do_app_def] >>
+   rw[Once small_eval_app] >>
+   fs[Once small_eval_list_cases] >> rw[] >- (
+     fs[do_app_def] >>
+     Cases_on`op`>>fs[LET_THM,store_alloc_def] >> rw[] >>
+     TRY ( qpat_assum`X = SOME Y`assume_tac >> every_case_tac >> fs[] >> rw[] ) >>
+     rw[small_eval_def] >>
+     first_x_assum(mp_tac o MATCH_MP e_step_add_ctxt) >>
+     Q.PAT_ABBREV_TAC`ctx = [(Capp A X Y Z,env)]` >>
+     disch_then(qspec_then`ctx`strip_assume_tac) >> fs[] >>
+     srw_tac[boolSimps.DNF_ss][Once RTC_CASES2] >>
+     first_assum(match_exists_tac o concl) >>
+     simp[e_step_reln_def,e_step_def,continue_def,Abbr`ctx`] >>
+     simp[application_thm,do_app_def,store_alloc_def,return_def] ) >>
+   fs[Once small_eval_list_cases] >> rw[] >- (
+     fs[do_app_def] >>
+     Cases_on`op`>>fs[LET_THM,store_alloc_def] >>
+     TRY ( qpat_assum`X = SOME Y`assume_tac >> every_case_tac >> fs[] >> rw[] ) >>
+     rw[small_eval_def] >>
+     qpat_assum`e_step_reln^* (env,X,Exp e,[]) Y`(mp_tac o MATCH_MP e_step_add_ctxt) >>
+     Q.PAT_ABBREV_TAC`ctx = [(Capp A X Y Z,env)]` >>
+     disch_then(qspec_then`ctx`strip_assume_tac) >> fs[] >>
+     rw[Once RTC_CASES_RTC_TWICE] >>
+     first_assum(match_exists_tac o concl) >> rw[] >>
+     srw_tac[boolSimps.DNF_ss][Once RTC_CASES1] >> TRY disj2_tac >>
+     rw[e_step_reln_def,e_step_def,continue_def,Abbr`ctx`,push_def] >>
+     Q.PAT_ABBREV_TAC`ctx = [(Capp A X Y Z,env)]` >>
+     last_x_assum(mp_tac o MATCH_MP e_step_add_ctxt) >>
+     disch_then(qspec_then`ctx`strip_assume_tac) >> fs[] >>
+     srw_tac[boolSimps.DNF_ss][Once RTC_CASES2] >>
+     first_assum(match_exists_tac o concl) >>
+     simp[e_step_reln_def,e_step_def,continue_def,Abbr`ctx`] >>
+     simp[application_thm,do_app_def,return_def,store_alloc_def] ) >>
+   fs[Once small_eval_list_cases] >> rw[] >- (
+     fs[do_app_def] >>
+     Cases_on`op`>>fs[] >>
+     every_case_tac>>fs[]>>rw[]>>
+     fs[LET_THM,store_assign_def] >>
+     every_case_tac >> fs[] >> rw[] >>
+     rw[small_eval_def] >>
+     qpat_assum`e_step_reln^* (env,X,Exp e,[]) Y`(mp_tac o MATCH_MP e_step_add_ctxt) >>
+     Q.PAT_ABBREV_TAC`ctx = [(Capp A X Y Z,env)]` >>
+     disch_then(qspec_then`ctx`strip_assume_tac) >> fs[] >>
+     rw[Once RTC_CASES_RTC_TWICE] >>
+     first_assum(match_exists_tac o concl) >> rw[] >>
+     srw_tac[boolSimps.DNF_ss][Once RTC_CASES1] >> TRY disj2_tac >>
+     rw[e_step_reln_def,e_step_def,continue_def,Abbr`ctx`,push_def] >>
+     Q.PAT_ABBREV_TAC`ctx = [(Capp A X Y Z,env)]` >>
+     qpat_assum`e_step_reln^* (env,X,Exp e',[]) Y`(mp_tac o MATCH_MP e_step_add_ctxt) >>
+     disch_then(qspec_then`ctx`strip_assume_tac) >> fs[] >>
+     rw[Once RTC_CASES_RTC_TWICE] >>
+     first_assum(match_exists_tac o concl) >> rw[] >>
+     srw_tac[boolSimps.DNF_ss][Once RTC_CASES1] >> TRY disj2_tac >>
+     rw[e_step_reln_def,e_step_def,continue_def,Abbr`ctx`,push_def] >>
+     qpat_assum`e_step_reln^* (env,X,Exp e'',[]) Y`(mp_tac o MATCH_MP e_step_add_ctxt) >>
+     Q.PAT_ABBREV_TAC`ctx = [(Capp A X Y Z,env)]` >>
+     disch_then(qspec_then`ctx`strip_assume_tac) >> fs[] >>
+     srw_tac[boolSimps.DNF_ss][Once RTC_CASES2] >>
+     first_assum(match_exists_tac o concl) >>
+     simp[e_step_reln_def,e_step_def,continue_def,Abbr`ctx`] >>
+     simp[application_thm,do_app_def,store_assign_def,return_def] ) >>
+   fs[do_app_def] >>
+   Cases_on`op`>>fs[] >>
+   every_case_tac >> fs[])
+ >- (
+   fs[] >>
+   rw[small_eval_def] >>
+   rw[Once RTC_CASES1,e_step_reln_def,Once e_step_def,application_thm,do_app_def] >>
+   srw_tac[boolSimps.DNF_ss][] >>
+   rw[Once e_step_def,application_thm,do_app_def] >>
+   BasicProvers.CASE_TAC >- fs[Once small_eval_list_cases] >>
+   disj2_tac >>
+   rw[push_def] >>
+   fs[Once small_eval_list_cases] >>
+   first_x_assum(mp_tac o MATCH_MP e_step_add_ctxt) >>
+   disch_then(qspec_then`[(Capp op [] () t,env)]`strip_assume_tac) >>
+   fs[] >> rw[] >>
+   Cases_on`t` >- (
+     fs[Once small_eval_list_cases] >> rw[] >>
+     srw_tac[boolSimps.DNF_ss][Once RTC_CASES_RTC_TWICE] >>
+     first_assum(match_exists_tac o concl) >>
+     rw[e_step_reln_def,Once e_step_def,continue_def,application_thm] >>
+     rw[Once RTC_CASES1,e_step_reln_def,Once e_step_def,continue_def,application_thm] >>
+     rw[e_step_def,continue_def,application_thm] ) >>
+   Cases_on`t'` >- (
+     fs[Once small_eval_list_cases] >> rw[] >>
+     fs[Once small_eval_list_cases] >> rw[] >>
+     srw_tac[boolSimps.DNF_ss][Once RTC_CASES_RTC_TWICE] >>
+     first_assum(match_exists_tac o concl) >>
+     rw[e_step_reln_def,Once e_step_def,continue_def,application_thm] >>
+     rw[Once RTC_CASES1,e_step_reln_def,Once e_step_def,continue_def,application_thm] >>
+     srw_tac[boolSimps.DNF_ss][push_def] >> disj2_tac >>
+     Q.PAT_ABBREV_TAC`ctx = [(Capp op X Y Z,env)]` >>
+     last_x_assum(qspec_then`ctx`strip_assume_tac o MATCH_MP e_step_add_ctxt) >> fs[] >>
+     first_assum(match_exists_tac o concl) >>
+     rw[e_step_def,continue_def,Abbr`ctx`,application_thm] ) >>
+   Cases_on`t` >- (
+     fs[Once small_eval_list_cases] >> rw[] >>
+     fs[Once small_eval_list_cases] >> rw[] >>
+     fs[Once small_eval_list_cases] >> rw[] >>
+     srw_tac[boolSimps.DNF_ss][Once RTC_CASES_RTC_TWICE] >>
+     first_assum(match_exists_tac o concl) >>
+     rw[e_step_reln_def,Once e_step_def,continue_def,application_thm] >>
+     rw[Once RTC_CASES1,e_step_reln_def,Once e_step_def,continue_def,application_thm] >>
+     srw_tac[boolSimps.DNF_ss][push_def] >> disj2_tac >>
+     srw_tac[boolSimps.DNF_ss][Once RTC_CASES_RTC_TWICE] >>
+     Q.PAT_ABBREV_TAC`ctx = [(Capp op X Y Z,env)]` >>
+     qpat_assum`e_step_reln^* (env,X,Exp h',[]) Y`(qspec_then`ctx`strip_assume_tac o MATCH_MP e_step_add_ctxt) >> fs[] >>
+     first_assum(match_exists_tac o concl) >> rw[] >>
+     rw[Once RTC_CASES1,e_step_reln_def,Once e_step_def,Abbr`ctx`,continue_def,application_thm] >>
+     srw_tac[boolSimps.DNF_ss][push_def] >> disj2_tac >>
+     Q.PAT_ABBREV_TAC`ctx = [(Capp op X Y Z,env)]` >>
+     qpat_assum`e_step_reln^* (env,X,Exp h'',[]) Y`(qspec_then`ctx`strip_assume_tac o MATCH_MP e_step_add_ctxt) >> fs[] >>
+     first_assum(match_exists_tac o concl) >> rw[] >>
+     rw[e_step_def,continue_def,Abbr`ctx`,application_thm] ) >>
+   imp_res_tac small_eval_app_err >> fs[] >>
+   first_x_assum(qspec_then`op`mp_tac) >> simp[] >>
+   disch_then(qspecl_then[`[]`,`v`,`env'`]strip_assume_tac) >>
+   metis_tac[transitive_RTC,transitive_def])
+ >- (
+   fs[] >>
+   rw[Once small_eval_app] >>
+   Cases_on`es`>-fs[Once small_eval_list_cases] >> rw[] >>
+   Cases_on`err`>>rw[small_eval_def] >>
+   TRY (imp_res_tac small_eval_list_not_timeout >> fs[] >> NO_TAC) >>
+   fs[Once small_eval_list_cases] >>
+   TRY (
+     imp_res_tac e_step_add_ctxt >>
+     Q.PAT_ABBREV_TAC`ctx = [(Capp X Y Z A,env)]` >>
+     first_x_assum(qspec_then`ctx`strip_assume_tac)>>fs[] >>
+     first_assum(match_exists_tac o concl) >> rw[] >>
+     metis_tac[e_single_error_add_ctxt] ) >>
+   TRY (
+     imp_res_tac e_step_add_ctxt >>
+     Q.PAT_ABBREV_TAC`ctx = [(Capp X Y Z A,env)]` >>
+     first_x_assum(qspec_then`ctx`strip_assume_tac)>>fs[] >>
+     rw[Once RTC_CASES_RTC_TWICE] >>
+     first_assum(match_exists_tac o concl) >> rw[] >>
+     rw[Once RTC_CASES1,e_step_reln_def,e_step_def,continue_def,Abbr`ctx`] >>
+     metis_tac[RTC_REFL]) >>
+   TRY (
+     imp_res_tac small_eval_list_app_type_error >> fs[] >>
+     imp_res_tac e_step_add_ctxt >>
+     Q.PAT_ABBREV_TAC`ctx = [(Capp X Y Z A,env)]` >>
+     first_x_assum(qspec_then`ctx`strip_assume_tac)>>fs[] >>
+     rw[Once RTC_CASES_RTC_TWICE,PULL_EXISTS] >>
+     first_assum(match_exists_tac o concl) >> rw[] >>
+     rw[Once RTC_CASES1,e_step_reln_def,e_step_def,continue_def,Abbr`ctx`] >>
+     NO_TAC ) >>
+   imp_res_tac small_eval_list_app_error >> fs[] >>
+   imp_res_tac e_step_add_ctxt >>
+   Q.PAT_ABBREV_TAC`ctx = [(Capp X Y Z A,env)]` >>
+   first_x_assum(qspec_then`ctx`strip_assume_tac)>>fs[] >>
+   rw[Once RTC_CASES_RTC_TWICE,PULL_EXISTS] >>
+   first_assum(match_exists_tac o concl) >> rw[] >>
+   rw[Once RTC_CASES1,e_step_reln_def,e_step_def,continue_def,Abbr`ctx`])
  >- (fs [small_eval_def] >>
      `e_step_reln^* (env,SND s,Exp e,[(Clog op () e2,env)])
                     (env',SND s',Val v,[(Clog op () e2,env)])`
@@ -812,7 +1192,33 @@ fs [evaluate_ctxts_cons, evaluate_ctxt_cases] >>
 ONCE_REWRITE_TAC [hd (tl (CONJUNCTS evaluate_cases))] >>
 rw [] >>
 fs [evaluate_ctxts_cons, evaluate_ctxt_cases] >>
-metis_tac [DECIDE ``SUC x = x + 1``]
+metis_tac [DECIDE ``SUC x = x + 1``, pair_CASES]
+
+val evaluate_state_app_cons = prove(
+  ``evaluate_state (env,s,Exp e,(Capp op [] () es,env)::c) bv
+    ⇒ evaluate_state (env,s,Exp (App op (e::es)),c) bv``,
+  rw[evaluate_state_cases] >>
+  rw[Once evaluate_cases] >>
+  fs[evaluate_ctxts_cons] >> rw[] >>
+  ONCE_REWRITE_TAC[CONJ_COMM] >>
+  first_assum(match_exists_tac o concl) >> rw[] >- (
+    fs[Once evaluate_ctxt_cases] >> rw[] >>
+    rw[Once evaluate_cases,PULL_EXISTS] >>
+    TRY (
+      disj1_tac >>
+      first_assum(match_exists_tac o concl) >> rw[] >>
+      TRY(first_assum(split_pair_match o concl)) >>
+      first_assum(match_exists_tac o concl) >> rw[] >> NO_TAC) >>
+    TRY (
+      disj2_tac >> disj1_tac >>
+      rw[Once evaluate_cases,PULL_EXISTS] >>
+      first_assum(match_exists_tac o concl) >> rw[] >>
+      first_assum(match_exists_tac o concl) >> rw[] >> NO_TAC ) >>
+    rpt disj2_tac >>
+    rw[Once evaluate_cases] >> disj2_tac >>
+    first_assum(match_exists_tac o concl) >> rw[]) >>
+  rpt disj2_tac >>
+  rw[Once evaluate_cases])
 
 val one_step_backward = Q.prove (
 `!env s e c s' env' e' c' bv.
@@ -849,8 +1255,10 @@ val one_step_backward = Q.prove (
           rw [] >>
           tac3)
       >- tac3
-      >- tac3
-      >- tac3
+      >- (
+        fs[application_thm,do_opapp_def,do_app_def] >>
+        Cases_on`l`>>fs[] >> rw[] >>
+        metis_tac[evaluate_state_app_cons])
       >- tac3
       >- tac3
       >- tac3
@@ -859,7 +1267,7 @@ val one_step_backward = Q.prove (
           fs [] >>
           rw [] >>
           PairCases_on `env` >>
-          fs [all_env_to_menv_def, all_env_to_cenv_def, all_env_to_env_def] >> 
+          fs [all_env_to_menv_def, all_env_to_cenv_def, all_env_to_env_def] >>
           tac3))
  >- (fs [continue_def] >>
      cases_on `c` >>
@@ -869,15 +1277,60 @@ val one_step_backward = Q.prove (
      cases_on `q` >>
      fs [] >>
      every_case_tac >>
-     fs [push_def, return_def] >>
+     fs [push_def, return_def, application_def] >>
      rw [] >>
      full_simp_tac (srw_ss() ++ ARITH_ss) [evaluate_state_cases, evaluate_ctxts_cons, evaluate_ctxt_cases, oneTheory.one,
          evaluate_ctxts_cons, evaluate_ctxt_cases, arithmeticTheory.ADD1]
      >- metis_tac []
-     >- metis_tac []
-     >- metis_tac []
-     >- metis_tac []
-     >- metis_tac []
+     >- (
+       rw[] >>
+       every_case_tac >> fs[] >> rw[] >>
+       fs[do_app_def] >> every_case_tac >> fs[] >> rw[] >>
+       srw_tac[boolSimps.DNF_ss][] >> disj1_tac >>
+       rw[Once evaluate_cases] >>
+       metis_tac[] )
+     >- (
+       rw[] >>
+       every_case_tac >> fs[] >> rw[] >>
+       rw[Once(CONJUNCT2 evaluate_cases)] >>
+       rw[Once(CONJUNCT2 evaluate_cases)] >>
+       rw[Once(CONJUNCT2 evaluate_cases)] >>
+       fs[evaluate_ctxts_cons] >>
+       fs[Once evaluate_ctxt_cases] >> rw[])
+     >- (
+       rw[Once evaluate_cases,PULL_EXISTS] >>
+       srw_tac[boolSimps.DNF_ss][] >> disj1_tac >>
+       first_assum(match_exists_tac o concl) >> rw[] >>
+       first_assum(match_exists_tac o concl) >> rw[] >>
+       metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC] )
+     >- (
+       rw[Once evaluate_cases] >>
+       srw_tac[boolSimps.DNF_ss][] >> disj2_tac >> disj1_tac >>
+       rw[Once evaluate_cases] >>
+       srw_tac[boolSimps.DNF_ss][] >>
+       first_assum(match_exists_tac o concl) >> rw[] >>
+       first_assum(match_exists_tac o concl) >> rw[] >>
+       metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC])
+     >- (
+       rw[Once evaluate_cases] >>
+       srw_tac[boolSimps.DNF_ss][] >> disj1_tac >>
+       metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC])
+     >- (
+       rw[Once evaluate_cases] >>
+       srw_tac[boolSimps.DNF_ss][] >> disj2_tac >> disj1_tac >>
+       rw[Once evaluate_cases] >>
+       srw_tac[boolSimps.DNF_ss][] >>
+       metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC])
+     >- (
+       srw_tac[boolSimps.DNF_ss][] >>
+       rpt disj2_tac >>
+       rw[Once evaluate_cases] >>
+       metis_tac[])
+     >- (
+       srw_tac[boolSimps.DNF_ss][] >>
+       rpt disj2_tac >>
+       rw[Once evaluate_cases] >>
+       metis_tac[])
      >- metis_tac []
      >- metis_tac []
      >- (ONCE_REWRITE_TAC [evaluate_cases] >>
@@ -903,6 +1356,18 @@ rw [Once evaluate_ctxts_cases] >>
 PairCases_on `h` >>
 rw []);
 
+val do_app_type_error = prove(
+  ``do_app s op es = SOME (x,Rerr Rtype_error) ⇒ x = s``,
+  rw[do_app_def] >>
+  every_case_tac >> fs[LET_THM,UNCURRY] >>
+  every_case_tac >> fs[])
+
+val do_app_timeout_error = prove(
+  ``do_app s op es = SOME (x,Rerr err) ⇒ err ≠ Rtimeout_error``,
+  rw[do_app_def] >>
+  every_case_tac >> fs[LET_THM,UNCURRY] >> rw[] >>
+  every_case_tac >> fs[] >> rw[])
+
 val one_step_backward_type_error = Q.prove (
 `!env s e c.
   (e_step (env,s,e,c) = Etype_error)
@@ -917,7 +1382,15 @@ fs [] >|
      rw [evaluate_state_cases] >>
      rw [Once evaluate_cases] >>
      fs [] >>
-     rw [] >>
+     rw [] >> TRY (
+       fs[application_thm] >>
+       pop_assum mp_tac >> rw[] >>
+       every_case_tac >> fs[] >>
+       TRY(fs[do_app_def]>>NO_TAC) >>
+       rw[Once evaluate_cases] >>
+       rw[Once evaluate_cases] >>
+       rw[Once evaluate_cases] >>
+       metis_tac[evaluate_ctxts_type_error,FORALL_PROD]) >>
      metis_tac [evaluate_ctxts_type_error,do_con_check_build_conv, NOT_SOME_NONE],
  fs [continue_def] >>
      cases_on `c` >>
@@ -928,7 +1401,19 @@ fs [] >|
      fs [] >>
      every_case_tac >>
      fs [evaluate_state_cases, push_def, return_def] >>
-     rw [evaluate_ctxts_cons, evaluate_ctxt_cases] >>
+     rw [evaluate_ctxts_cons, evaluate_ctxt_cases] >- (
+       fs[application_thm] >>
+       every_case_tac >> fs[return_def] >>
+       TRY(qpat_assum`do_app X Opapp Y = Z`assume_tac >>
+           fs[do_app_def]>>every_case_tac>>fs[]>>NO_TAC) >>
+       rw[oneTheory.one] >>
+       rw[Once evaluate_cases] >>
+       rw[Once evaluate_cases] >>
+       rw[Once evaluate_cases] >>
+       imp_res_tac do_app_type_error >>
+       imp_res_tac do_app_timeout_error >>
+       fs[] >> rw[] >>
+       metis_tac[evaluate_ctxts_type_error,FORALL_PROD]) >>
      rw [Once evaluate_cases] >>
      full_simp_tac (srw_ss() ++ ARITH_ss) [arithmeticTheory.ADD1] >>
      rw [Once evaluate_cases] >>

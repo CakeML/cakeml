@@ -89,10 +89,16 @@ val bc_num_def = Define `
      | PushExc => (28,0,0)
      | PopExc => (29,0,0)
      | Ref => (30,0,0)
+     | RefByte => (45,0,0)
      | Deref => (31,0,0)
+     | DerefByte => (46,0,0)
      | Update => (32,0,0)
+     | UpdateByte => (47,0,0)
+     | Length => (39,0,0)
+     | LengthByte => (49,0,0)
      | Tick => (34,0,0)
      | Print => (35,0,0)
+     | PrintWord8 => (40,0,0)
      | PrintC c => (36,ORD c,0)
      | Galloc n => (2,n,0)
      | Gread n => (7,n,0)
@@ -135,12 +141,18 @@ val num_bc_def = Define `
     else if n = 28 then PushExc
     else if n = 29 then PopExc
     else if n = 30 then Ref
+    else if n = 45 then RefByte
     else if n = 31 then Deref
+    else if n = 46 then DerefByte
     else if n = 32 then Update
+    else if n = 47 then UpdateByte
+    else if n = 39 then Length
+    else if n = 49 then LengthByte
     else if n = 37 then Stop F
     else if n = 38 then Stop T
     else if n = 34 then Tick
     else if n = 35 then Print
+    else if n = 40 then PrintWord8
     else if n = 36 then PrintC (CHR (if x1 < 256 then x1 else 0))
     else Label 0`;
 
@@ -334,87 +346,20 @@ val bc_find_loc_append_code = store_thm("bc_find_loc_append_code",
 
 val bc_next_append_code = store_thm("bc_next_append_code",
   ``∀bs1 bs2. bc_next bs1 bs2 ⇒ ∀c0 c. (bs1.code = c0) ⇒ bc_next (bs1 with code := c0 ++ c) (bs2 with code := c0 ++ c)``,
-  ho_match_mp_tac bc_next_ind >>
-  strip_tac >- (
-    rw[bc_eval1_thm] >>
-    imp_res_tac bc_fetch_append_code >>
-    rw[bc_eval1_def] >>
-    fs[bc_eval_stack_thm] >>
-    rw[bump_pc_def] ) >>
-  strip_tac >- (
-    rw[bc_eval1_thm] >>
-    imp_res_tac bc_fetch_append_code >>
-    imp_res_tac bc_find_loc_append_code >>
-    rw[bc_eval1_def] ) >>
-  strip_tac >- (
-    rw[bc_eval1_thm] >>
-    imp_res_tac bc_fetch_append_code >>
-    imp_res_tac bc_find_loc_append_code >>
-    rw[bc_eval1_def,LET_THM] >>
-    rw[bump_pc_with_stack] >>
-    rw[bump_pc_def] ) >>
-  strip_tac >- (
-    rw[bc_eval1_thm] >>
-    imp_res_tac bc_fetch_append_code >>
-    imp_res_tac bc_find_loc_append_code >>
-    rw[bc_eval1_def,LET_THM] >>
-    rw[bc_state_component_equality] >>
-    rw[bump_pc_def] ) >>
-  strip_tac >- (
-    rw[bc_eval1_thm] >>
-    imp_res_tac bc_fetch_append_code >>
-    imp_res_tac bc_find_loc_append_code >>
-    rw[bc_eval1_def,LET_THM] >>
-    rw[bc_state_component_equality] >>
-    rw[bump_pc_def] ) >>
-  strip_tac >- (
-    rw[bc_eval1_thm] >>
-    imp_res_tac bc_fetch_append_code >>
-    imp_res_tac bc_find_loc_append_code >>
-    rw[bc_eval1_def,LET_THM] >>
-    rw[bc_state_component_equality] >>
-    rw[bump_pc_def] ) >>
-  strip_tac >- (
-    rw[bc_eval1_thm] >>
-    imp_res_tac bc_fetch_append_code >>
-    imp_res_tac bc_find_loc_append_code >>
-    rw[bc_eval1_def,LET_THM,bump_pc_def] ) >>
-  strip_tac >- (
-    rw[bc_eval1_thm,bump_pc_def] >>
-    imp_res_tac bc_fetch_append_code >>
-    imp_res_tac bc_find_loc_append_code >>
-    rw[bc_eval1_def,LET_THM,bump_pc_def] ) >>
-  strip_tac >- (
-    rw[bc_eval1_thm,bump_pc_def] >>
-    imp_res_tac bc_fetch_append_code >>
-    imp_res_tac bc_find_loc_append_code >>
-    srw_tac[ARITH_ss][bc_eval1_def,LET_THM,bump_pc_def] >>
-    lrw[REVERSE_APPEND,EL_APPEND2,TAKE_APPEND2]) >>
-  strip_tac >- (
-    rw[bc_eval1_thm] >>
-    imp_res_tac bc_fetch_append_code >>
-    imp_res_tac bc_find_loc_append_code >>
-    rw[bc_eval1_def,LET_THM] >>
-    rw[bump_pc_def]) >>
-  strip_tac >- (
-    rw[bc_eval1_thm] >>
-    imp_res_tac bc_fetch_append_code >>
-    imp_res_tac bc_find_loc_append_code >>
-    rw[bc_eval1_def,LET_THM] >>
-    rw[bump_pc_def]) >>
-  strip_tac >- (
-    rw[bc_eval1_thm] >>
-    imp_res_tac bc_fetch_append_code >>
-    imp_res_tac bc_find_loc_append_code >>
-    rw[bc_eval1_def,LET_THM] >>
-    rw[bump_pc_def]) >>
+  ho_match_mp_tac bc_next_ind >> rw[] >>
   rw[bc_eval1_thm] >>
   imp_res_tac bc_fetch_append_code >>
   imp_res_tac bc_find_loc_append_code >>
-  rw[bc_eval1_def,LET_THM,stringTheory.IMPLODE_EXPLODE_I] >>
+  rw[bc_eval1_def,LET_THM,wordsTheory.w2n_lt,
+     SIMP_RULE std_ss [combinTheory.K_DEF] REPLICATE_GENLIST] >>
+  simp[REVERSE_APPEND,EL_APPEND2,TAKE_APPEND2] >>
+  rw[bump_pc_with_stack] >>
   rw[bump_pc_def] >>
+  rw[bc_state_component_equality] >>
+  fs[bc_eval_stack_thm] >>
+  rw[stringTheory.IMPLODE_EXPLODE_I] >>
   BasicProvers.CASE_TAC >>
-  simp[bc_state_component_equality])
+  rw[bc_state_component_equality,PRE_SUB1])
 
 val bc_next_preserves_code = store_thm("bc_next_preserves_code",
   ``∀bs1 bs2. bc_next bs1 bs2 ⇒ (bs2.code = bs1.code)``,
@@ -499,5 +444,16 @@ val bvs_to_chars_thm = store_thm("bvs_to_chars_thm",
       else NONE``,
   Induct >> simp[bvs_to_chars_def] >>
   Cases >> rw[bvs_to_chars_def])
+
+val between_labels_def = Define`
+  between_labels bc l1 l2 ⇔
+  ALL_DISTINCT (FILTER is_Label bc) ∧
+  EVERY (between l1 l2) (MAP dest_Label (FILTER is_Label bc)) ∧
+  l1 ≤ l2`
+
+val good_labels_def = Define`
+  good_labels nl code ⇔
+    ALL_DISTINCT (FILTER is_Label code) ∧
+    EVERY (combin$C $< nl o dest_Label) (FILTER is_Label code)`
 
 val _ = export_theory()

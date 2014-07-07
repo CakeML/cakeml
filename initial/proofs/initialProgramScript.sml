@@ -422,14 +422,16 @@ val env_rs_empty = store_thm("env_rs_empty",
   conj_tac >- (EVAL_TAC >> simp[]) >>
   rw[init_compiler_state_def,get_tagenv_def,cenv_inv_def] >>
   rw[Once v_to_i1_cases] >> rw[Once v_to_i1_cases] >>
-  rw[Once s_to_i1_cases] >> rw[Once s_to_i1'_cases] >> rw[Once v_to_i1_cases] >>
-  simp[Once s_to_i2_cases] >> simp[Once s_to_i2'_cases] >> simp[Once v_to_i2_cases] >>
+  rw[Once s_to_i1_cases] >> rw[Once v_to_i1_cases] >>
+  simp[Once s_to_i2_cases] >> simp[Once v_to_i2_cases] >>
   simp[Cenv_bs_def,env_renv_def,s_refs_def,good_rd_def,FEVERY_ALL_FLOOKUP] >>
   simp[all_vlabs_csg_def,vlabs_csg_def,closed_vlabs_def] >>
+  simp[store_vs_def] >>
   conj_tac >- EVAL_TAC >>
   Q.ISPEC_THEN`ck`assume_tac initial_i2_invariant >>
   fs[to_i2_invariant_def] >>
   fs[cenv_inv_def])
+
 
 (* ----------------- *)
 

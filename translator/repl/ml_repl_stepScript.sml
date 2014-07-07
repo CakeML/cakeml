@@ -90,6 +90,14 @@ val NEQ_El_pat = prove(
 val _ = translate (patLangTheory.fo_pat_def |> RW [NEQ_El_pat]);
 val _ = translate patLangTheory.pure_pat_def;
 
+val _ = register_type ``:bc_inst``;
+
+val compile_thm =
+  compilerTerminationTheory.compile_def
+  |> SIMP_RULE std_ss [o_DEF,stringTheory.IMPLODE_EXPLODE_I];
+
+val _ = translate compile_thm;
+
 val _ = translate compile_top_def;
 
 (* elaborator *)
@@ -379,20 +387,33 @@ val option_case_apply = prove(
   ``!oo. option_CASE oo x1 x2 x = option_CASE oo (x1 x) (\y. x2 y x)``,
   Cases THEN SRW_TAC [] []);
 
-val uop_apply = prove(
-  ``!uop. uop_CASE uop x1 x2 x = uop_CASE uop (x1 x) (x2 x)``,
-  Cases THEN SRW_TAC [] []);
+val pr_CASE = prove(
+  ``pair_CASE (x,y) f = f x y``,
+  SRW_TAC [] []);
 
 val op_apply = prove(
-  ``!op. (op_CASE op x1 x2 x3 x4 x5) y =
-         (op_CASE op (\x. x1 x y) (\x. x2 x y) (x3 y) (x4 y) (x5 y))``,
+  ``!op. (op_CASE op x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11) y =
+         (op_CASE op (\z. x1 z y) (\z. x2 z y) (x3 y) (x4 y) (x5 y)
+            (x6 y) (x7 y) (x8 y) (x9 y) (x10 y) (x11 y))``,
   Cases THEN SRW_TAC [] []);
 
-fun infer_def const = let
-  val def = def_of_const const
-            |> RW1 [FUN_EQ_THM]
-            |> RW [op_apply,uop_apply,if_apply,option_case_apply]
-            |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV)
+val list_apply = prove(
+  ``!op. (list_CASE op x1 x2) y =
+         (list_CASE op (x1 y) (\z1 z2. x2 z1 z2 y))``,
+  Cases THEN SRW_TAC [] []);
+
+fun full_infer_def aggressive const = let
+  val def = if aggressive then
+              def_of_const const
+              |> RW1 [FUN_EQ_THM]
+              |> RW [op_apply,if_apply,option_case_apply,pr_CASE]
+              |> SIMP_RULE std_ss [op_apply,if_apply,
+                   option_case_apply,list_apply]
+            else
+              def_of_const const
+              |> RW1 [FUN_EQ_THM]
+              |> RW [op_apply,if_apply,option_case_apply]
+              |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV)
   val def = let
     val s_var = mk_var("state", ``: (num |-> infer_t) infer_st``)
     val s = def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL |> concl
@@ -402,12 +423,14 @@ fun infer_def const = let
   val () = fix_infer_induction_thm def
   in def end
 
-val _ = translate (infer_def ``apply_subst``)
-val _ = translate (infer_def ``apply_subst_list``)
+val infer_def = full_infer_def false;
+val aggr_infer_def = full_infer_def true;
+
+val _ = translate (infer_def ``apply_subst``);
+val _ = translate (infer_def ``apply_subst_list``);
 val _ = translate (infer_def ``add_constraint``);
-val _ = translate (infer_def ``add_constraints``)
-val _ = translate (infer_def ``constrain_uop``);
-val _ = translate (infer_def ``constrain_op``);
+val _ = translate (infer_def ``add_constraints``);
+val _ = translate (aggr_infer_def ``constrain_op``);
 val _ = translate (infer_def ``t_to_freevars``);
 val _ = translate (infer_def ``bind``);
 val _ = translate (infer_def ``merge``);

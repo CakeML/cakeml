@@ -129,4 +129,17 @@ val lookup_map = Q.store_thm ("lookup_map",
 ho_match_mp_tac lookup_ind >>
 rw []);
 
+val lookup_reverse = Q.store_thm ("lookup_reverse",
+`!env x.
+  ALL_DISTINCT (MAP FST env)
+  ⇒
+  lookup x (REVERSE env) = lookup x env`,
+induct_on `env` >>
+rw [] >>
+cases_on `h` >>
+rw [lookup_append] >>
+every_case_tac >>
+fs [] >>
+imp_res_tac lookup_in2);
+
 val _ = export_theory ();

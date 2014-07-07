@@ -532,12 +532,12 @@ val Eseq_encode_def = Define`
 val mkAst_App_def = Define`
   mkAst_App a1 a2 =
    case a1 of
-       Con (SOME (Short "ref")) [] => App Opapp (Var (Short "ref")) a2
+       Con (SOME (Short "ref")) [] => App Opapp [Var (Short "ref"); a2]
      | Con s [] =>
        (case a2 of
             Con NONE tuple => Con s tuple
           | _ => Con s [a2])
-     | _ => App Opapp a1 a2
+     | _ => App Opapp [a1; a2]
 `
 val ptree_Expr_def = Define`
   ptree_Expr ent (Lf _) = NONE ∧
@@ -627,7 +627,7 @@ val ptree_Expr_def = Define`
             a1 <- ptree_Expr nEmult t1;
             a_op <- ptree_Op opt;
             a2 <- ptree_Expr nEapp t2;
-            SOME(App Opapp (App Opapp (Var a_op) a1) a2)
+            SOME(App Opapp [App Opapp [Var a_op; a1]; a2])
           od
         | [t] => ptree_Expr nEapp t
         | _ => NONE
@@ -637,7 +637,7 @@ val ptree_Expr_def = Define`
               a1 <- ptree_Expr nEadd t1;
               a_op <- ptree_Op opt;
               a2 <- ptree_Expr nEmult t2;
-              SOME (App Opapp (App Opapp (Var a_op) a1) a2)
+              SOME (App Opapp [App Opapp [Var a_op; a1]; a2])
             od
           | [t] => ptree_Expr nEmult t
           | _ => NONE
@@ -649,7 +649,7 @@ val ptree_Expr_def = Define`
               a2 <- ptree_Expr nElistop t2;
               SOME (if a_op = Short "::" then
                       Con (SOME (Short "::")) [a1;a2]
-                    else App Opapp (App Opapp (Var a_op) a1) a2)
+                    else App Opapp [App Opapp [Var a_op; a1]; a2])
             od
           | [t] => ptree_Expr nEadd t
           | _ => NONE
@@ -659,7 +659,7 @@ val ptree_Expr_def = Define`
               a1 <- ptree_Expr nErel t1;
               a_op <- ptree_Op opt;
               a2 <- ptree_Expr nElistop t2;
-              SOME (App Opapp (App Opapp (Var a_op) a1) a2)
+              SOME (App Opapp [App Opapp [Var a_op; a1]; a2])
             od
           | [t] => ptree_Expr nElistop t
           | _ => NONE
@@ -669,7 +669,7 @@ val ptree_Expr_def = Define`
               a1 <- ptree_Expr nEcomp t1;
               a_op <- ptree_Op opt;
               a2 <- ptree_Expr nErel t2;
-              SOME(App Opapp (App Opapp (Var a_op) a1) a2)
+              SOME(App Opapp [App Opapp [Var a_op; a1]; a2])
             od
           | [t] => ptree_Expr nErel t
           | _ => NONE
@@ -679,7 +679,7 @@ val ptree_Expr_def = Define`
             assert(opt = Lf(TOK(AlphaT "before")));
             a1 <- ptree_Expr nEbefore t1;
             a2 <- ptree_Expr nEcomp t2;
-            SOME(App Opapp (App Opapp (Var (Short "before")) a1) a2)
+            SOME(App Opapp [App Opapp [Var (Short "before"); a1]; a2])
           od
         | [t] => ptree_Expr nEcomp t
         | _ => NONE

@@ -1,4 +1,5 @@
 open import Pervasives
+open import Lib
 
 (* Literal constants *)
 type lit =
@@ -6,6 +7,7 @@ type lit =
   | StrLit of string
   | Bool of bool
   | Unit
+  | Word8 of word8
 
 (* Built-in binary operations (including function application) *)
 
@@ -28,23 +30,6 @@ let opb_lookup n : integer -> integer -> bool = match n with
   | Leq -> (<=)
   | Geq -> (>=)
 end
-
-(* Opapp is function application *)
-type op =
-  | Opn of opn
-  | Opb of opb
-  | Equality
-  | Opapp
-  | Opassign
-
-type uop =
-  | Opref
-  | Opderef
-
-(* Built-in logical operations *)
-type lop =
-  | And
-  | Or
 
 (* Module names *)
 type modN = string
@@ -90,6 +75,26 @@ let id_to_n id =
     | Long _ n -> n
   end
 
+(* Opapp is function application. *)
+type op =
+  | Opn of opn
+  | Opb of opb
+  | Equality
+  | Opapp
+  | Opassign
+  | Opref
+  | Opderef
+  (* Word8Array operations *)
+  | Aalloc
+  | Asub
+  | Alength
+  | Aupdate
+
+(* Built-in logical operations *)
+type lop =
+  | And
+  | Or
+
 (* Types
  * 0-ary type applications represent unparameterised types (e.g., num or string)
  *)
@@ -100,6 +105,8 @@ type tctor =
   | TC_bool
   | TC_unit
   | TC_ref
+  | TC_word8
+  | TC_word8array
   | TC_fn
   | TC_tup
   | TC_exn
@@ -115,6 +122,8 @@ let Tstring = Tapp [] TC_string
 let Tunit = Tapp [] TC_unit
 let Tbool = Tapp [] TC_bool
 let Tref t = Tapp [t] TC_ref
+let Tword8 = Tapp [] TC_word8
+let Tword8array = Tapp [] TC_word8array
 let Tfn t1 t2 = Tapp [t1;t2] TC_fn
 let Texn = Tapp [] TC_exn
 
@@ -135,10 +144,8 @@ type exp =
   | Con of maybe (id conN) * list exp
   | Var of id varN
   | Fun of varN * exp
-  (* Application of a unary operator *)
-  | Uapp of uop * exp
-  (* Application of an operator (including function application) *)
-  | App of op * exp * exp
+  (* Application of a primitive operator to arguments. Includes function application. *)
+  | App of op * list exp
   (* Logical operations (and, or) *)
   | Log of lop * exp * exp
   | If of exp * exp * exp

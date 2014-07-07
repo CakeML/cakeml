@@ -120,7 +120,6 @@ val () = add_datatype ``:dec``
 val () = add_datatype ``:pat``
 val () = add_datatype ``:exp``
 val () = add_datatype ``:tid_or_exn``
-val () = add_datatype ``:uop``
 val () = add_datatype ``:op``
 val () = add_datatype ``:lop``
 val () = add_datatype ``:lit``
@@ -310,7 +309,6 @@ val () = computeLib.add_thms
   ,decs_to_i2_def
   ,exp_to_i2_def
   ,pat_to_i2_def
-  ,uop_to_i2_def
   ,init_tagenv_state_def
   ,init_exh_def
   ,get_tagenv_def
@@ -352,14 +350,12 @@ val () = computeLib.add_thms
   ,sLet_pat_thm
   ,sIf_pat_def
   ,ground_pat_def
-  ,uop_to_pat_def
   ,pure_pat_def
   ,SUC_TO_NUMERAL_RULE Let_Els_pat_def
-  ,pure_uop_pat_def
+  ,pure_op_pat_def
   ,pure_op_def
   ] compset
 val () = add_datatype ``:exp_pat``
-val () = add_datatype ``:uop_pat``
 (* intLang compiler *)
 val () = computeLib.add_thms
   [exp_to_Cexp_def
@@ -367,6 +363,9 @@ val () = computeLib.add_thms
   ,free_labs_def
   ,free_vars_def
   ,no_labs_def
+  ,app_to_il_def
+  ,binop_to_il_def
+  ,unop_to_il_def
   ] compset
 val () = add_datatype ``:Cprim1``
 val () = add_datatype ``:Cprim2``
@@ -560,10 +559,11 @@ in
       ,bytecodeTheory.bool_to_tag_def
       ,bytecodeTheory.bc_find_loc_def
       ,bytecodeTerminationTheory.bc_equal_def
-      ,bytecodeTheory.can_Print_def
-      ,printerTheory.ov_to_string_def
-      ,bytecodeTheory.bv_to_ov_def
+      ,bytecodeTheory.bv_to_string_def
+      ,bytecodeTheory.bvs_to_chars_def
       ,semanticPrimitivesTheory.int_to_string_def
+      ,semanticPrimitivesTheory.string_to_string_def
+      ,semanticPrimitivesTheory.string_escape_def
       ,SUC_TO_NUMERAL_RULE bc_evaln_def
       ,LEAST_thm
       ,least_from_thm
@@ -640,12 +640,13 @@ in
 end
 
 (*
-val _ = Globals.max_print_depth := 50
+val _ = Globals.max_print_depth := 30
 
 val input = ``"datatype foo = A;"``
 val input = ``"val x = \"str\";"``
 val input = ``"structure Nat = struct val zero = 0 end;"``
 val input = ``"val x = 1; val y = x; val it = x+y;"``
+val input = ``"val x = 1;"``
 val input = ``"structure Nat = struct val zero = 0 fun succ x = x+1 end; val x = Nat.zero;"``;
 val x1 = eval ``get_all_asts ^(input)``
 val x2 = eval ``elab_all_asts ^(x1 |> concl |> rhs)``

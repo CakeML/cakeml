@@ -829,69 +829,28 @@ val tenvM_ok_pres = Q.store_thm ("tenvM_ok_pres",
 induct_on `tenvM` >>
 rw [tenvM_ok_def, bind_def]);
 
-(* ---------- type_uop ---------- *)
-
-val type_uop_cases = Q.store_thm ("type_uop_cases",
-`∀uop t1 t2.
-  type_uop uop t1 t2 =
-  (((uop = Opref) ∧ (t2 = Tref t1)) ∨
-   ((uop = Opderef) ∧ (t1 = Tref t2)))`,
-rw [type_uop_def] >>
-cases_on `uop` >>
-rw [] >>
-cases_on `t1` >>
-rw [] >>
-cases_on `l` >>
-rw [] >>
-cases_on `t'` >>
-rw [] >>
-cases_on `t` >>
-rw [] >>
-metis_tac []);
-
 (* ---------- type_op ---------- *)
 
 val type_op_cases = Q.store_thm ("type_op_cases",
-`!op t1 t2 t3.
-  type_op op t1 t2 t3 =
-  (((∃op'. op = Opn op') ∧ (t1 = Tint) ∧ (t2 = Tint) ∧ (t3 = Tint)) ∨
-   ((∃op'. op = Opb op') ∧ (t1 = Tint) ∧ (t2 = Tint) ∧ (t3 = Tbool)) ∨
-   ((op = Opapp) ∧ (t1 = Tfn t2 t3)) ∨
-   ((op = Equality) ∧ (t1 = t2) ∧ (t3 = Tbool)) ∨
-   ((op = Opassign) ∧ (t1 = Tref t2) ∧ (t3 = Tunit)))`,
-rw [type_op_def] >>
-cases_on `op` >>
-rw [] >>
-cases_on `t1` >>
-rw [] >|
-[cases_on `t2` >>
-     fs [],
- cases_on `t2` >>
-     fs [],
- cases_on `t2` >>
-     rw [] >>
-     cases_on `t'` >>
-     rw [] >>
-     every_case_tac,
- cases_on `t2` >>
-     fs [],
- cases_on `t2` >>
-     fs [],
- cases_on `t2` >>
-     rw [] >>
-     cases_on `t'` >>
-     rw [] >>
-     every_case_tac,
- cases_on `t` >>
-     rw []  >>
-     every_case_tac >>
-     metis_tac [],
- cases_on `t` >>
-     rw []  >>
-     every_case_tac >>
-     metis_tac []]);
+`!op ts t3.
+  type_op op ts t3 =
+  (((∃op'. op = Opn op') ∧ ts = [Tint; Tint] ∧ (t3 = Tint)) ∨
+   ((∃op'. op = Opb op') ∧ ts = [Tint; Tint] ∧ (t3 = Tbool)) ∨
+   ((op = Opapp) ∧ ?t2. ts = [Tfn t2 t3;t2]) ∨
+   ((op = Equality) ∧ ?t1. ts = [t1; t1] ∧ (t3 = Tbool)) ∨
+   ((op = Opassign) ∧ ?t2. ts = [Tref t2; t2] ∧ (t3 = Tunit)) ∨
+   ((op = Opref) ∧ ?t1. ts = [t1] ∧ t3 = Tref t1) ∨ 
+   ((op = Opderef) ∧ ts = [Tref t3]) ∨
+   ((op = Aalloc) ∧ ts = [Tint; Tword8] ∧ t3 = Tword8array) ∨
+   ((op = Asub) ∧ ts = [Tword8array; Tint] ∧ t3 = Tword8) ∨
+   ((op = Alength) ∧ ts = [Tword8array] ∧ t3 = Tint) ∨
+   ((op = Aupdate) ∧ ts = [Tword8array; Tint; Tword8] ∧ t3 = Tunit))`,
+ rw [type_op_def] >>
+ every_case_tac >>
+ fs [] >>
+ metis_tac []);
 
-(* ---------- type_p ---------- *)
+ (* ---------- type_p ---------- *)
 
 val type_ps_length = Q.store_thm ("type_ps_length",
 `∀tvs tenvC ps ts tenv.
@@ -964,6 +923,12 @@ metis_tac [check_freevars_add]);
 
 (* ---------- type_e, type_es, type_funs ---------- *)
 
+val type_es_list_rel = Q.store_thm ("type_es_list_rel",
+`!es ts tenvM tenvC tenv. type_es tenvM tenvC tenv es ts = LIST_REL (type_e tenvM tenvC tenv) es ts`,
+ induct_on `es` >>
+ rw [] >>
+ rw [Once type_e_cases]);
+
 val type_es_length = Q.store_thm ("type_es_length",
 `∀tenvM tenvC tenv es ts.
   type_es tenvM tenvC tenv es ts ⇒ (LENGTH es = LENGTH ts)`,
@@ -1018,7 +983,7 @@ val type_e_freevars = Q.store_thm ("type_e_freevars",
    tenv_ok tenvE ⇒
    EVERY (check_freevars (num_tvs tenvE) []) (MAP SND env))`,
 ho_match_mp_tac type_e_strongind >>
-rw [check_freevars_def, bind_tenv_def, num_tvs_def, type_uop_cases, type_op_cases,
+rw [check_freevars_def, bind_tenv_def, num_tvs_def, type_op_cases,
     tenv_ok_def, bind_tvar_def, bind_var_list_def, opt_bind_tenv_def] >>
 fs [check_freevars_def] >|
 [metis_tac [deBruijn_subst_check_freevars],
@@ -1169,9 +1134,6 @@ val type_e_subst = Q.store_thm ("type_e_subst",
            (ASSUME_TAC o Q.SPEC `Bind_name n 0 t1 tenvE1`) >>
      fs [num_tvs_def, deBruijn_subst_tenvE_def, db_merge_def] >>
      metis_tac [type_e_subst_lem3])
- >- (fs [type_uop_cases] >>
-     rw [deBruijn_subst_def] >>
-     fs [deBruijn_subst_def])
  >- (fs [type_op_cases] >>
      rw [] >>
      fs [deBruijn_subst_def] >>
@@ -1684,6 +1646,12 @@ val consistent_decls_add_mod = Q.store_thm ("consistent_decls_add_mod",
  fs []);
 
 (* ---------- type_v, type_vs, type_env, consistent_mod_env ---------- *)
+
+val type_vs_list_rel = Q.store_thm ("type_vs_list_rel",
+`!vs ts tvs tenvC tenvS. type_vs tvs tenvC tenvS vs ts = LIST_REL (type_v tvs tenvC tenvS) vs ts`,
+ induct_on `vs` >>
+ rw [] >>
+ rw [Once type_v_cases]);
 
 val type_v_freevars = Q.store_thm ("type_v_freevars",
 `(!tvs tenvC tenvS v t. type_v tvs tenvC tenvS v t ⇒
@@ -2324,8 +2292,6 @@ val type_ctxts_freevars = Q.store_thm ("type_ctxts_freevars",
      fs [] >>
      metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ,
                 arithmeticTheory.GREATER_EQ])
- >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ, arithmeticTheory.GREATER_EQ]
- >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ, arithmeticTheory.GREATER_EQ]
  >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ, arithmeticTheory.GREATER_EQ]
  >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ, arithmeticTheory.GREATER_EQ]
  >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ, arithmeticTheory.GREATER_EQ]

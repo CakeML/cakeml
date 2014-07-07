@@ -24,8 +24,7 @@ val _ = Hol_datatype `
  ctxt_frame =
     Craise of unit
   | Chandle of unit => (pat # exp) list
-  | Capp1 of op => unit => exp
-  | Capp2 of op => v => unit
+  | Capp of op => v list => unit => exp list
   | Clog of lop => unit => exp
   | Cif of unit => exp => exp
   (* The value is raised if none of the patterns match *)
@@ -33,8 +32,7 @@ val _ = Hol_datatype `
   | Clet of  varN option => unit => exp
   (* Evaluating a constructor's arguments
    * The v list should be in reverse order. *)
-  | Ccon of  ( conN id)option => v list => unit => exp list
-  | Cuapp of uop => unit`;
+  | Ccon of  ( conN id)option => v list => unit => exp list`;
 
 val _ = type_abbrev( "ctxt" , ``: ctxt_frame # all_env``);
 
@@ -75,6 +73,28 @@ val _ = Define `
  (return env s v c = (Estep (env, s, Val v, c)))`;
 
 
+(*val applicaiton : op -> all_env -> store v -> list v -> list ctxt -> e_step_result*)
+val _ = Define `
+ (application op env s vs c =  
+ ((case op of
+      Opapp =>
+      (case do_opapp vs of
+          SOME (env,e) => Estep (env, s, Exp e, c)
+        | NONE => Etype_error
+      )
+    | _ =>
+      (case do_app s op vs of
+          SOME (s',r) =>
+          (case r of
+              Rerr (Rraise v) => Estep (env,s',Val v,((Craise () ,env)::c))
+            | Rval v => return env s' v c
+            | _ => Etype_error
+          )
+        | NONE => Etype_error
+      )
+    )))`;
+
+
 (* apply a context to a value *)
 (*val continue : store v -> v -> list ctxt -> e_step_result*)
 val _ = Define `
@@ -90,13 +110,10 @@ val _ = Define `
         )
     | (Chandle ()  pes, env) :: c =>
         return env s v c
-    | (Capp1 op ()  e, env) :: c =>
-        push env s e (Capp2 op v () ) c
-    | (Capp2 op v' () , env) :: c =>
-        (case do_app env s op v' v of
-            SOME (env,s',e) => Estep (env, s', Exp e, c)
-          | NONE => Etype_error
-        )
+    | (Capp op vs ()  [], env) :: c =>
+        application op env s (REVERSE (v::vs)) c
+    | (Capp op vs ()  (e::es), env) :: c =>
+        push env s e (Capp op (v::vs) ()  es) c
     | (Clog l ()  e, env) :: c =>
         (case do_log l v e of
             SOME e => Estep (env, s, Exp e, c)
@@ -133,11 +150,6 @@ val _ = Define `
           push env s e (Ccon n (v::vs) ()  es) c
         else
           Etype_error
-    | (Cuapp uop () , env) :: c =>
-       (case do_uapp s uop v of
-           SOME (s',v') => return env s' v' c
-         | NONE => Etype_error
-       )
   )))`;
 
 
@@ -180,7 +192,11 @@ val _ = Define `
                     return env s v c
               )
           | Fun n e => return env s (Closure env n e) c
-          | App op e1 e2 => push env s e1 (Capp1 op ()  e2) c
+          | App op es => 
+              (case es of
+                  [] => application op env s [] c
+                | (e::es) => push env s e (Capp op [] ()  es) c
+              )
           | Log l e1 e2 => push env s e1 (Clog l ()  e2) c
           | If e1 e2 e3 => push env s e1 (Cif ()  e2 e3) c
           | Mat e pes => push env s e (Cmat ()  pes (Conv (SOME ("Bind", TypeExn (Short "Bind"))) [])) c
@@ -191,8 +207,6 @@ val _ = Define `
               else
                 Estep ((all_env_to_menv env, all_env_to_cenv env, build_rec_env funs env (all_env_to_env env)), 
                        s, Exp e, c)
-          | Uapp uop e =>
-              push env s e (Cuapp uop () ) c
         )
   )))`;
 

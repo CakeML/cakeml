@@ -12,8 +12,7 @@ val _ = export_rewrites
 ,"bytecode.unit_tag_def","bytecode.unit_val_def","bytecode.closure_tag_def"
 ,"bytecode.string_tag_def","bytecode.block_tag_def","bytecode.is_Label_def"
 ,"bytecode.is_Block_def","bytecode.is_Number_def","bytecode.dest_Number_def"
-,"bytecode.bc_equality_result_to_val_def"
-,"bytecode.can_Print_def"]
+,"bytecode.bc_equality_result_to_val_def","bytecode.word8_to_val_def"]
 
 val _ = Parse.overload_on("next_addr", ``λil ls. SUM (MAP (SUC o il) (FILTER ($~ o is_Label) ls))``)
 
