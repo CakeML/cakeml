@@ -1430,7 +1430,7 @@ val VfromListCode_aux_correct = prove(
   ``∀vl ls bs bc0 bc1 bvl st cnt pp loopcode.
       loopcode = DROP 2 (TAKE 20 VfromListCode) ∧
       bs.code = bc0 ++ loopcode ++ bc1 ∧
-      ALL_DISTINCT (FILTER is_Label bs.code) ∧
+      ALL_DISTINCT (FILTER is_Label (bc0 ++ loopcode)) ∧
       bs.stack = Number cnt::bvl::st ∧
       bs.pc = next_addr bs.inst_length bc0 ∧
       Cv_bv pp vl bvl ∧
@@ -1471,6 +1471,7 @@ val VfromListCode_aux_correct = prove(
     qexists_tac`next_addr bs.inst_length (bc0 ++ DROP 2 (TAKE 19 VfromListCode))` >>
     conj_tac >- (
       simp[bc_find_loc_def] >>
+      match_mp_tac bc_find_loc_aux_append_code >>
       match_mp_tac bc_find_loc_aux_ALL_DISTINCT >>
       qexists_tac`LENGTH bc0 + 16` >>
       rfs[] >>
@@ -1516,6 +1517,7 @@ val VfromListCode_aux_correct = prove(
   simp[RIGHT_EXISTS_AND_THM] >>
   conj_tac >- (
     simp[bc_find_loc_def] >>
+    match_mp_tac bc_find_loc_aux_append_code >>
     match_mp_tac bc_find_loc_aux_ALL_DISTINCT >>
     qexists_tac`LENGTH bc0 + 16` >>
     rfs[] >>
@@ -1590,6 +1592,7 @@ val VfromListCode_aux_correct = prove(
   simp[RIGHT_EXISTS_AND_THM] >>
   conj_tac >- (
     simp[bc_find_loc_def] >>
+    match_mp_tac bc_find_loc_aux_append_code >>
     match_mp_tac bc_find_loc_aux_ALL_DISTINCT >>
     qexists_tac`LENGTH bc0` >>
     rfs[] >>
@@ -1608,8 +1611,9 @@ val VfromListCode_aux_correct = prove(
   simp[Abbr`P`])
 
 val VfromListCode_correct = prove(
-  ``∀bs. contains_primitives bs.code ⇒
-      ∀vl st bvl ls pp.
+  ``∀bce. contains_primitives bce ⇒
+      ∀bs bcr vl st bvl ls pp.
+      bs.code = bce ++ bcr ∧
       bc_fetch bs = SOME (Call (Lab VfromListLab)) ∧
       bs.stack = bvl::st ∧
       Cv_bv pp vl bvl ∧
@@ -1627,9 +1631,12 @@ val VfromListCode_correct = prove(
   qexists_tac`next_addr bs.inst_length (TAKE (LENGTH bc0) bs.code)` >>
   simp[RIGHT_EXISTS_AND_THM] >>
   conj_tac >- (
+    BasicProvers.VAR_EQ_TAC >>
+    match_mp_tac bc_find_loc_aux_append_code >>
     match_mp_tac bc_find_loc_aux_ALL_DISTINCT >>
     qexists_tac`LENGTH bc0` >> rfs[] >>
-    simp[EL_APPEND1,EL_APPEND2,VfromListCode_def]) >>
+    simp[EL_APPEND1,EL_APPEND2,VfromListCode_def] >>
+    simp[TAKE_APPEND1,TAKE_APPEND2]) >>
   simp[TAKE_APPEND1] >>
   qho_match_abbrev_tac`∃bls. bc_next^* bs1 (bs2 bls) ∧ P bls` >>
   `bc_fetch bs1 = SOME (Stack (PushInt 0))` by (
@@ -1652,9 +1659,12 @@ val VfromListCode_correct = prove(
   simp[Abbr`bs1`] >>
   disch_then(qspec_then`pp`mp_tac) >> simp[] >>
   discharge_hyps >- (
+    rator_x_assum`ALL_DISTINCT`mp_tac >>
     simp[VfromListCode_def] >>
-    REWRITE_TAC[SUM_APPEND,FILTER_APPEND,MAP_APPEND] >>
-    simp[] ) >>
+    REWRITE_TAC[SUM_APPEND,FILTER_APPEND,MAP_APPEND,ALL_DISTINCT_APPEND] >>
+    EVAL_TAC >>
+    strip_tac >> simp[]  >> rw[] >>
+    spose_not_then strip_assume_tac >> res_tac >> fs[]) >>
   strip_tac >>
   qexists_tac`bls` >> simp[] >>
   qho_match_abbrev_tac`bc_next^* bs1 (bs2 bls)` >>
@@ -1690,9 +1700,10 @@ val VfromListCode_correct = prove(
   simp[bc_eval1_thm,bc_eval1_def,Abbr`bs1`,Abbr`bs2`,bump_pc_def])
 
 val prim1_to_bc_thm = store_thm("prim1_to_bc_thm",
-  ``∀rd op ck s v1 s' v bs bc0 bc1 bce st bv1.
+  ``∀rd op ck s v1 s' v bs bc0 bc1 bce bcr st bv1.
     (bs.code = bc0 ++ prim1_to_bc op ++ bc1) ∧
-    contains_primitives bs.code ∧
+    (bs.code = bce ++ bcr) ∧
+    contains_primitives bce ∧
     (bs.pc = next_addr bs.inst_length bc0) ∧
     (CevalPrim1 op s v1 = (s', Rval v)) ∧
     Cv_bv (mk_pp rd (bs with code := bce)) v1 bv1 ∧
@@ -1711,12 +1722,14 @@ val prim1_to_bc_thm = store_thm("prim1_to_bc_thm",
   `bc_fetch bs = SOME (HD (prim1_to_bc op))` by (
     match_mp_tac bc_fetch_next_addr >>
     map_every qexists_tac[`bc0`,`(TL (prim1_to_bc op)) ++ bc1`] >>
+    qpat_assum`bs.code = bce ++ bcr`kall_tac >>
     Cases_on`op`>>rw[] ) >>
   Cases_on`op = CVfromList` >- (
     fs[] >> rw[] >>
     Cases_on`CvFromList v1`>>fs[]>>rw[]>>
-    qspec_then`bs`mp_tac VfromListCode_correct >>
+    qspec_then`bce`mp_tac VfromListCode_correct >>
     simp[] >>
+    disch_then(qspecl_then[`bs`,`bcr`]mp_tac)>>simp[]>>
     disch_then(qspec_then`v1`mp_tac)>>simp[]>>
     qmatch_assum_abbrev_tac`Cv_bv pp v1 bv1` >>
     disch_then(qspec_then`pp`mp_tac)>>simp[]>>
@@ -6455,7 +6468,6 @@ fun tac18 t =
     rpt gen_tac >> strip_tac >>
     first_x_assum(qspec_then`TCNonTail`mp_tac) >>
     simp[]) >>
-
   strip_tac >- (
     rpt gen_tac >> strip_tac >>
     simp[compile_def,pushret_def,FOLDL_emit_append_out] >>
@@ -6482,13 +6494,10 @@ fun tac18 t =
         map_every qx_gen_tac[`rf`,`rd'`,`ck`,`gv`,`bv`] >>
         strip_tac >>
         qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
-
-        qspecl_then[`rd'`,`uop`,`count'`,`(s',g)`,`v`,`(s'',g')`,`a`,`bs1`,`bc0 ++ REVERSE bc`,`bc10++bc1`,`bce`,`bs.stack`,`bv`]
+        qspecl_then[`rd'`,`uop`,`count'`,`(s',g)`,`v`,`(s'',g')`,`a`,`bs1`,`bc0 ++ REVERSE bc`,`bc10++bc1`,`bce`,`bcr`,`bs.stack`,`bv`]
           mp_tac (INST_TYPE[alpha|->``:Cv``]prim1_to_bc_thm) >>
         simp[Abbr`bs1`] >>
-        discharge_hyps >- (fs[Cenv_bs_def] >>
-          fs[contains_primitives_def]
-
+        discharge_hyps >- fs[Cenv_bs_def] >>
         disch_then(qx_choosel_then[`bvr`,`rfr`,`gvr`,`smr`]strip_assume_tac) >>
         map_every qexists_tac[`rfr`,`rd' with sm := smr`,`ck`,`gvr`,`bvr`] >>
         simp[] >>
