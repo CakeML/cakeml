@@ -3,7 +3,8 @@ structure compute_bytecodeLib = struct
 
 val bc_fetch_aux_0_thm = prove(
   ``∀code pc. bc_fetch_aux code (K 0) pc =
-    if no_labels code then el_check pc code
+    if no_labels code then
+      if pc < LENGTH code then SOME (EL pc code) else NONE
     else FAIL (bc_fetch_aux code (K 0) pc) "code has labels"``,
   REWRITE_TAC[bytecodeLabelsTheory.no_labels_def] >>
   Induct >> simp[bytecodeTheory.bc_fetch_aux_def] >>
@@ -51,7 +52,6 @@ val eval_real_inst_length =
         ,bc_fetch_aux_0_thm
         ,SUC_TO_NUMERAL_RULE bc_evaln_def
         ,listTheory.LUPDATE_compute
-        ,el_check_def
         ] compset
     end
     val () = computeLib.add_datatype_info compset (valOf(TypeBase.fetch``:bc_state``))
