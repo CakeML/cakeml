@@ -1419,9 +1419,9 @@ val contains_primitives_def = Define`
     code = bc0 ++ VfromListCode ++ bc1 ∧
     ALL_DISTINCT (FILTER is_Label code)`
 
-fun next_addr_tac n =
+fun next_addr_tac [QUOTE s] =
     match_mp_tac bc_fetch_next_addr >> simp[Abbr`bs1`] >>
-    qexists_tac`bc0 ++ (DROP 2 (TAKE ^(Term n) VfromListCode))` >>
+    qexists_tac`bc0 ++ (DROP 2 (TAKE ^(Parse.Term [QUOTE (s^":num")]) VfromListCode))` >>
     simp[VfromListCode_def] >>
     REWRITE_TAC[SUM_APPEND,FILTER_APPEND,MAP_APPEND] >>
     EVAL_TAC >> simp[]
@@ -2924,19 +2924,19 @@ val compile_append_out = store_thm("compile_append_out",
            cs.next_label ≤ (compile env t sz cs exp).next_label ∧
            ALL_DISTINCT (FILTER is_Label bc) ∧
            EVERY (between cs.next_label (compile env t sz cs exp).next_label) (MAP dest_Label (FILTER is_Label bc))
-           ∧ (all_labs exp ⇒ ∀l. uses_label bc l ⇒ MEM (Label l) bc ∨ MEM l (MAP (FST o FST o SND) (free_labs (LENGTH env) exp)))) ∧
+           ∧ (all_labs exp ⇒ ∀l. uses_label bc l ⇒ l = VfromListLab ∨ MEM (Label l) bc ∨ MEM l (MAP (FST o FST o SND) (free_labs (LENGTH env) exp)))) ∧
     (∀env t sz exp n cs xs.
       ∃bc. ((compile_bindings env t sz exp n cs xs).out = bc ++ cs.out) ∧
            cs.next_label ≤ (compile_bindings env t sz exp n cs xs).next_label ∧
            ALL_DISTINCT (FILTER is_Label bc) ∧
            EVERY (between cs.next_label (compile_bindings env t sz exp n cs xs).next_label) (MAP dest_Label (FILTER is_Label bc))
-           ∧ (all_labs exp ⇒ ∀l. uses_label bc l ⇒ MEM (Label l) bc ∨ MEM l (MAP (FST o FST o SND) (free_labs (LENGTH env + xs) exp)))) ∧
+           ∧ (all_labs exp ⇒ ∀l. uses_label bc l ⇒ l = VfromListLab ∨ MEM (Label l) bc ∨ MEM l (MAP (FST o FST o SND) (free_labs (LENGTH env + xs) exp)))) ∧
     (∀env sz cs exps.
       ∃bc. ((compile_nts env sz cs exps).out = bc ++ cs.out) ∧
            cs.next_label ≤ (compile_nts env sz cs exps).next_label ∧
            ALL_DISTINCT (FILTER is_Label bc) ∧
            EVERY (between cs.next_label (compile_nts env sz cs exps).next_label) (MAP dest_Label (FILTER is_Label bc))
-           ∧ (all_labs_list exps ⇒ ∀l. uses_label bc l ⇒ MEM (Label l) bc ∨ MEM l (MAP (FST o FST o SND) (free_labs_list (LENGTH env) exps))))``,
+           ∧ (all_labs_list exps ⇒ ∀l. uses_label bc l ⇒ l = VfromListLab ∨ MEM (Label l) bc ∨ MEM l (MAP (FST o FST o SND) (free_labs_list (LENGTH env) exps))))``,
   ho_match_mp_tac compile_ind >>
   strip_tac >- (
     simp[compile_def] >> rw[] >> rw[] >> fs[uses_label_thm]) >>
@@ -3012,7 +3012,7 @@ val compile_append_out = store_thm("compile_append_out",
     res_tac >> qmatch_assum_rename_tac`MEM def defs`[]>>PairCases_on`def`>>
     Cases_on`def0`>- (
       fs[EVERY_MEM] >> res_tac >> fs[] ) >>
-    disj2_tac >> disj1_tac >>
+    disj2_tac >> disj2_tac >> disj1_tac >>
     PairCases_on`x`>>fsrw_tac[DNF_ss][MEM_EL]>>
     pop_assum(assume_tac o SYM) >>
     qexists_tac`n`>>simp[]>>
