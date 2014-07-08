@@ -15,7 +15,7 @@ val _ = new_theory "compilerLib"
 (* TODO: these should be in the lem library *)
 (*val all2 : forall 'a 'b. ('a -> 'b -> bool) -> list 'a -> list 'b -> bool*)
 
- val _ = Define `
+val _ = Define `
  (el_check n ls = (if n < LENGTH ls then SOME (EL n ls) else NONE))`;
 
 
