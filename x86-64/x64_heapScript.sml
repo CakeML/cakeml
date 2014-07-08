@@ -1,4 +1,3 @@
-
 open HolKernel Parse boolLib bossLib;
 
 val _ = new_theory "x64_heap";
@@ -9,7 +8,7 @@ open wordsTheory wordsLib integer_wordTheory;
 open prog_x64_extraTheory prog_x64Theory temporalTheory;
 open lexer_funTheory lexer_implTheory;
 
-open bytecodeTheory bytecodeExtraTheory printerTheory;
+open bytecodeTheory bytecodeExtraTheory;
 
 open ml_copying_gcTheory ml_heapTheory
 open decompilerLib;

@@ -165,17 +165,3 @@ fun allIntermediates prog =
   end;
 end
 end
-
-<<<<<<< HEAD
-
-(*Helper for test calls*)
-
-(*val () = set_trace "pp_avoids_symbol_merges" 0
-
-fun take 0 (x::xs) = x
-|   take n (_::xs) = take (n-1) xs;
-
-fun i n (ex:allIntermediates) = take n (#ils ex);
-*)
-=======
->>>>>>> origin/Word8Array

@@ -400,7 +400,7 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
   ``is_set_theory ^mem ⇒
     ∀ctxt h c name pred abs rep rep_type witness.
     (thyof ctxt,[]) |- Comb pred witness ∧
-    CLOSED pred ∧ pred has_type (Fun rep_type Bool) ∧
+    CLOSED pred ∧
     name ∉ (FDOM (tysof ctxt)) ∧
     abs ∉ (FDOM (tmsof ctxt)) ∧
     rep ∉ (FDOM (tmsof ctxt)) ∧
@@ -432,6 +432,11 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
   imp_res_tac proves_sound >>
   imp_res_tac proves_term_ok >>
   fs[term_ok_def] >>
+  `pred has_type Fun rep_type Bool` by (
+    rator_x_assum`$has_type`mp_tac >>
+    simp[Once has_type_cases] >>
+    rw[Abbr`rep_type`] >>
+    imp_res_tac WELLTYPED_LEMMA >> fs[] >> rw[] ) >>
   imp_res_tac term_ok_type_ok >>
   rfs[type_ok_def] >>
   rpt BasicProvers.VAR_EQ_TAC >>
@@ -469,6 +474,7 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
     simp[termsem_def] >> strip_tac >>
     qexists_tac`termsem (tmsof ctxt) i (tt, sv tt) witness` >>
     conj_tac >- (
+      simp[Abbr`rep_type`] >>
       match_mp_tac (UNDISCH termsem_typesem) >>
       qexists_tac`sigof ctxt` >>
       simp[Abbr`δ`] ) >>
@@ -548,15 +554,15 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
       simp[Abbr`mabs`] >>
       qmatch_abbrev_tac`Abstract a b f <: Funspace c d` >>
       `a = c` by (
-        simp[Abbr`a`,Abbr`c`] >>
+        simp[Abbr`a`,Abbr`c`,Abbr`rep_type`] >>
         match_mp_tac typesem_frees >>
         fs[eqsh_def] >> rw[] >>
         imp_res_tac tyvars_typeof_subset_tvars >>
         fs[tyvars_def,SUBSET_DEF]) >>
       `b = d` by (
-        simp[Abbr`b`,Abbr`d`,Abbr`mty`,Abbr`abs_type`,typesem_def
+        simp[Abbr`b`,Abbr`d`,Abbr`mty`,Abbr`abs_type`,Abbr`rep_type`,typesem_def
             ,combinTheory.APPLY_UPDATE_THM,MAP_MAP_o,combinTheory.o_DEF] >>
-        fs[eqsh_def]) >>
+        fs[eqsh_def,Abbr`c`]) >>
       simp[] >>
       match_mp_tac (UNDISCH abstract_in_funspace) >>
       simp[Abbr`f`,Abbr`c`,Abbr`d`,Abbr`a`,Abbr`b`] >>
@@ -588,7 +594,7 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
       match_mp_tac (UNDISCH abstract_in_funspace) >>
       simp[Abbr`f`,Abbr`c`,Abbr`d`,Abbr`a`,Abbr`b`] >>
       simp[Abbr`abs_type`,typesem_def,combinTheory.APPLY_UPDATE_THM,MAP_MAP_o,combinTheory.o_DEF] >>
-      simp[Abbr`mty`,mem_sub] ) >>
+      simp[Abbr`mty`,Abbr`rep_type`,mem_sub] ) >>
     first_x_assum(qspecl_then[`k`,`v`]mp_tac) >>
     simp[] >> disch_then(qspec_then`τ`mp_tac) >>
     simp[] >>
@@ -630,6 +636,7 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
     metis_tac[] ) >>
   pop_assum mp_tac >>
   simp[conexts_of_upd_def] >>
+  fs[] >> rfs[] >>
   strip_tac >- (
     simp[satisfies_def] >>
     gen_tac >> strip_tac >>
@@ -640,7 +647,7 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
     `term_ok sig (l1 === l2)` by (
       simp[term_ok_equation,Abbr`l1`,Abbr`l2`,term_ok_def] >>
       simp[Abbr`sig`,Abbr`tms'`,Abbr`tys'`,FLOOKUP_UPDATE] >>
-      simp[Abbr`abs_type`,type_ok_def,FLOOKUP_UPDATE,EVERY_MAP,Abbr`argv`] >>
+      simp[Abbr`abs_type`,Abbr`rep_type`,type_ok_def,FLOOKUP_UPDATE,EVERY_MAP,Abbr`argv`] >>
       match_mp_tac type_ok_extend >>
       qexists_tac`tysof ctxt` >>
       simp[] ) >>
@@ -764,6 +771,7 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
   `f ' x <: boolset` by (
     match_mp_tac (UNDISCH apply_in_rng) >>
     qexists_tac`b` >>
+    imp_res_tac WELLTYPED_LEMMA >> fs[] >> rfs[] >>
     metis_tac[typesem_Bool] ) >>
   `inhabited a` by (
     simp[Abbr`a`] >>

@@ -640,16 +640,12 @@ fun asmPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
   end;
 val _=temp_add_user_printer("asmlistprint",``x:word8 store``,asmPrint);
 
-<<<<<<< HEAD
-=======
-
 (*
 fun globPrinter sys d t pg str brk blk =
   case pairSyntax.strip_pair t
   of
      [x,y] => str"bla">>str (toString x) >>str " |-> " >>sys (pg,pg,pg) d y
   |  [x,y,z] => str (toString x) >>str " of " >>sys (pg,pg,pg) d y >> sys (pg,pg,pg) d z;
->>>>>>> origin/master
 
 val _=temp_add_user_printer("typelongidprint",``TypeId (Long x y)``, genPrint (tlongPrinter "datatype"));
 val _=temp_add_user_printer("typelongexnprint",``TypeExn (Long x y)``, genPrint (tlongPrinter "exception"));
@@ -680,5 +676,5 @@ fun ubclistPrint sys d t Top str brk blk =
   end;
 val _=temp_add_user_printer("ubclistprint",``(NONE ,(y:bc_inst store))``,genPrint ubclistPrint);
 
->>>>>>> origin/Word8Array
+>>>>>>> master
 end;
