@@ -3455,7 +3455,7 @@ fun tac18 t =
       ∀rd s' beh cs cenv sz bs bce bcr bc0 code bc1.
         (res = (s', beh)) ∧
         (bce ++ bcr = bc0 ++ code ++ bc1) ∧
-        ALL_DISTINCT (FILTER is_Label bce) ∧
+        contains_primitives bce ∧
         all_vlabs_csg s ∧ all_vlabs_list env ∧ all_labs exp ∧
         EVERY (code_env_cd bce) (free_labs (LENGTH env) exp) ∧
         (∀cd. cd ∈ vlabs_list (store_vs (SND (FST s))) ⇒ code_env_cd bce cd) ∧
@@ -3506,7 +3506,7 @@ fun tac18 t =
       ∀rd s' beh cs cenv sz bs bce bcr bc0 code bc1.
         (ress = (s', beh)) ∧
         (bce ++ bcr = bc0 ++ code ++ bc1) ∧
-        ALL_DISTINCT (FILTER is_Label bce) ∧
+        contains_primitives bce ∧
         all_vlabs_csg s ∧ all_vlabs_list env ∧ all_labs_list exps ∧
         EVERY (code_env_cd bce) (free_labs_list (LENGTH env) exps) ∧
         (∀cd. cd ∈ vlabs_list (store_vs (SND (FST s))) ⇒ code_env_cd bce cd) ∧
@@ -5099,7 +5099,7 @@ fun tac18 t =
       metis_tac[MEM_EL]) >>
     Q.PAT_ABBREV_TAC`ccs = compile_closures cenv sz cs defs` >>
     qabbrev_tac`cenv' = REVERSE (GENLIST(λm. CTLet (sz+m+1))(LENGTH defs)) ++ cenv` >>
-    `ALL_DISTINCT (FILTER is_Label bce) ∧
+    `contains_primitives bce ∧
      EVERY all_vlabs (GENLIST (CRecClos env defs) (LENGTH defs)) ∧
      EVERY (code_env_cd bce) (free_labs (LENGTH defs + LENGTH env) exp) ∧
      (∀cd. cd ∈ vlabs_list (store_vs (SND (FST s))) ⇒ code_env_cd bce cd) ∧
@@ -5658,6 +5658,7 @@ fun tac18 t =
         simp[] >>
         discharge_hyps >- (
           fs[good_cd_def] >>
+          `ALL_DISTINCT (FILTER is_Label bce)` by fs[contains_primitives_def] >>
           conj_tac >- (
             qspecl_then[`s'`,`env`,`exps`,`((count',s''),g),Rval vs`]mp_tac(CONJUNCT2 Cevaluate_all_vlabs) >>
             qspecl_then[`s`,`env`,`exp`,`s',Rval (CRecClos fenv defs n)`]mp_tac(CONJUNCT1 Cevaluate_all_vlabs) >>
@@ -5918,6 +5919,7 @@ fun tac18 t =
         simp[] >>
         discharge_hyps >- (
           fs[good_cd_def] >>
+          `ALL_DISTINCT (FILTER is_Label bce)` by fs[contains_primitives_def] >>
           conj_tac >- (
             qspecl_then[`s'`,`env`,`exps`,`((count',s''),g),Rval vs`]mp_tac(CONJUNCT2 Cevaluate_all_vlabs) >>
             qspecl_then[`s`,`env`,`exp`,`s',Rval (CRecClos fenv defs n)`]mp_tac(CONJUNCT1 Cevaluate_all_vlabs) >>
@@ -6453,6 +6455,7 @@ fun tac18 t =
     rpt gen_tac >> strip_tac >>
     first_x_assum(qspec_then`TCNonTail`mp_tac) >>
     simp[]) >>
+
   strip_tac >- (
     rpt gen_tac >> strip_tac >>
     simp[compile_def,pushret_def,FOLDL_emit_append_out] >>
@@ -6479,10 +6482,13 @@ fun tac18 t =
         map_every qx_gen_tac[`rf`,`rd'`,`ck`,`gv`,`bv`] >>
         strip_tac >>
         qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
+
         qspecl_then[`rd'`,`uop`,`count'`,`(s',g)`,`v`,`(s'',g')`,`a`,`bs1`,`bc0 ++ REVERSE bc`,`bc10++bc1`,`bce`,`bs.stack`,`bv`]
           mp_tac (INST_TYPE[alpha|->``:Cv``]prim1_to_bc_thm) >>
         simp[Abbr`bs1`] >>
-        discharge_hyps >- fs[Cenv_bs_def] >>
+        discharge_hyps >- (fs[Cenv_bs_def] >>
+          fs[contains_primitives_def]
+
         disch_then(qx_choosel_then[`bvr`,`rfr`,`gvr`,`smr`]strip_assume_tac) >>
         map_every qexists_tac[`rfr`,`rd' with sm := smr`,`ck`,`gvr`,`bvr`] >>
         simp[] >>
