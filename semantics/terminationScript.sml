@@ -177,4 +177,26 @@ wf_rel_tac `inv_image $< (λx. case x of INL (v1,v2) => v_size v1
 srw_tac [ARITH_ss] [size_abbrevs, v_size_def]);
 val _ = register "do_eq" do_eq_def do_eq_ind;
 
+val check_ctor_foldr_flat_map = Q.prove (
+`!c. (FOLDR
+         (λ(tvs,tn,condefs) x2.
+            FOLDR (λ(n,ts) x2. n::x2) x2 condefs) [] c)
+    =
+    FLAT (MAP (\(tvs,tn,condefs). (MAP (λ(n,ts). n)) condefs) c)`,
+induct_on `c` >>
+rw [LET_THM] >>
+PairCases_on `h` >>
+fs [LET_THM] >>
+pop_assum (fn _ => all_tac) >>
+induct_on `h2` >>
+rw [] >>
+PairCases_on `h` >>
+rw []);
+
+val check_dup_ctors_thm = Q.store_thm ("check_dup_ctors_thm",
+`!tds.
+  check_dup_ctors tds =
+    ALL_DISTINCT (FLAT (MAP (\(tvs,tn,condefs). (MAP (λ(n,ts). n)) condefs) tds))`,
+metis_tac [check_dup_ctors_def,check_ctor_foldr_flat_map]);
+
 val _ = export_theory ();
