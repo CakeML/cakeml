@@ -237,6 +237,7 @@ bv_to_string (Block n vs) =
   if n = (bool_to_tag true) then Just "true" else
   if n = unit_tag then Just "()" else
   if n = closure_tag then Just "<fn>" else
+  if n = vector_tag then Just "<vector>" else
   if n = string_tag then
     match bvs_to_chars vs [] with
     | Nothing -> Nothing

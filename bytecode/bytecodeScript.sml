@@ -304,6 +304,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   if n = (bool_to_tag T) then SOME "true" else
   if n = unit_tag then SOME "()" else
   if n = closure_tag then SOME "<fn>" else
+  if n = vector_tag then SOME "<vector>" else
   if n = string_tag then
     (case bvs_to_chars vs [] of
       NONE => NONE
