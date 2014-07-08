@@ -1576,8 +1576,8 @@ val tac2 =
   conj_asm1_tac >- (
     specl_args_of_then``exp_to_pat``(CONJUNCT1 free_vars_pat_exp_to_pat)mp_tac >>
     simp[] >> disch_then match_mp_tac >>
+    simp[free_vars_i2_decs_to_i3] >>
     imp_res_tac free_vars_i2_prompt_to_i3 >>
-    simp[free_vars_i2_prompt_to_i3_special] >>
     imp_res_tac free_vars_prompt_to_i2 >>
     imp_res_tac FV_top_to_i1 >>
     simp[] >>
@@ -3674,122 +3674,13 @@ val compile_special_def = Define`
     let (m1,m2) = cs.globals_env in
     let (v,m1,m2,p) = top_to_i1 n m1 m2 top in
     let (c,exh,p) = prompt_to_i2 cs.contags_env p in
-    let e = prompt_to_i3_special (none_tag,SOME(TypeId(Short"option"))) n p in
+    let e = decs_to_i3 n (case p of Prompt_i2 ds => ds) in
     let exh = exh ⊌ cs.exh in
     let e = exp_to_exh exh e in
     let e = exp_to_pat [] e in
     let e = exp_to_Cexp e in
     let r = compile [] TCNonTail 0 <|out:=[];next_label:=cs.rnext_label|> e in
     (emit r [Stack Pop; Stop T]).out`
-
-(* for a version with a more general precondition
-
-val no_functions_def = tDefine"no_functions"`
-  (no_functions (Fun _ _) = F) ∧
-  (no_functions (Letrec _ _ ) = F) ∧
-  (no_functions (Raise e) = no_functions e) ∧
-  (no_functions (Handle e pes) ⇔ no_functions e ∧ EVERY no_functions (MAP SND pes)) ∧
-  (no_functions (Con _ es) = EVERY no_functions es) ∧
-  (no_functions (Uapp _ e) = no_functions e) ∧
-  (no_functions (App _ e1 e2) ⇔ no_functions e1 ∧ no_functions e2) ∧
-  (no_functions (Log _ e1 e2) ⇔ no_functions e1 ∧ no_functions e2) ∧
-  (no_functions (Let _ e1 e2) ⇔ no_functions e1 ∧ no_functions e2) ∧
-  (no_functions (If e1 e2 e3) ⇔ no_functions e1 ∧ no_functions e2 ∧ no_functions e3) ∧
-  (no_functions (Mat e pes) ⇔ no_functions e ∧ EVERY no_functions (MAP SND pes)) ∧
-  (no_functions _ = T)`
-  (WF_REL_TAC`measure exp_size` >> simp[] >>
-   rpt conj_tac >> gen_tac >> Induct >>
-   simp[exp_size_def] >>
-   TRY (
-     rpt gen_tac >> strip_tac >> simp[] >>
-     res_tac >> simp[]>>NO_TAC) >>
-   Cases >> simp[exp_size_def] >>
-   rpt gen_tac >> strip_tac >> simp[] >>
-   res_tac >> simp[])
-
-val no_functions_dec_def = Define`
-  no_functions_dec (Dlet p e) = no_functions e ∧
-  no_functions_dec (Dletrec _) = F ∧
-  no_functions_dec _ = T`
-
-val no_functions_top_def = Define`
-  no_functions_top (Tdec dec) = no_functions_dec dec ∧
-  no_functions_top _ = F`
-
-val all_labs_exp_to_Cexp_sIf_pat = prove(
-  ``all_labs (exp_to_Cexp (If_pat e1 e2 e3))
-    ⇒ all_labs (exp_to_Cexp (sIf_pat e1 e2 e3))``,
-  simp[patLangTheory.sIf_pat_def] >> rw[] >>
-  BasicProvers.CASE_TAC >> simp[] >> rw[] >> fs[] >>
-  BasicProvers.EVERY_CASE_TAC >> fs[LET_THM])
-
-val free_labs_exp_to_Cexp_sIf_pat = prove(
-  ``free_labs z (exp_to_Cexp (If_pat e1 e2 e3)) = []
-    ⇒ free_labs z (exp_to_Cexp (sIf_pat e1 e2 e3)) = []``,
-  simp[patLangTheory.sIf_pat_def] >> rw[] >>
-  BasicProvers.CASE_TAC >> simp[] >> rw[] >> fs[] >>
-  BasicProvers.EVERY_CASE_TAC >> fs[LET_THM] >>
-  fsrw_tac[ARITH_ss][])
-
-val no_functions_labs = store_thm("no_functions_labs",
-  ``∀e. no_functions e ⇒
-        ∀p h s q r z.
-        let Cexp = exp_to_Cexp (exp_to_pat p (exp_to_exh h (exp_to_i2 s (exp_to_i1 q r e)))) in
-        all_labs Cexp ∧
-        free_labs z Cexp = []``,
-  ho_match_mp_tac (theorem"no_functions_ind") >>
-  simp[no_functions_def,exp_to_i1_def,exp_to_i2_def,exp_to_exh_def,
-       exps_to_i1_MAP,exps_to_i2_MAP,exps_to_exh_MAP,exps_to_pat_MAP]>>rw[]>>
-  simp[add_default_def] >> rw[] >> fs[EVERY_MEM] >>
-  simp[MEM_MAP,PULL_EXISTS,free_labs_list_MAP,FLAT_EQ_NIL,EVERY_MAP,EVERY_MEM] >>
-  TRY (
-    (match_mp_tac all_labs_exp_to_Cexp_sIf_pat ORELSE
-     match_mp_tac free_labs_exp_to_Cexp_sIf_pat) >>
-    simp[] ) >>
-  TRY (
-    BasicProvers.CASE_TAC >>
-    simp[exp_to_i2_def,exp_to_exh_def] >>
-    (match_mp_tac all_labs_exp_to_Cexp_sIf_pat ORELSE
-     match_mp_tac free_labs_exp_to_Cexp_sIf_pat) >>
-    simp[] ) >>
-  TRY (
-    Q.PAT_ABBREV_TAC`opt:string option = X` >>
-    Cases_on`opt`>>simp[exp_to_i1_def,exp_to_i2_def,exp_to_exh_def,sLet_pat_thm]>>
-    IF_CASES_TAC >> simp[] >>
-    IF_CASES_TAC >> simp[] >>
-    IF_CASES_TAC >> simp[] ) >>
-  TRY (
-    Q.PAT_ABBREV_TAC`var:string id = X` >>
-    pop_assum kall_tac >>
-    Cases_on`var`>>simp[exp_to_i1_def,exp_to_i2_def] >>
-    BasicProvers.EVERY_CASE_TAC >>
-    simp[exp_to_i2_def,exp_to_exh_def] >>
-    BasicProvers.EVERY_CASE_TAC >>
-    simp[] ) >>
-  TRY (
-    simp[exp_to_i1_def,exp_to_i2_def,exp_to_exh_def,sLet_pat_thm]>>
-    IF_CASES_TAC >> simp[] >>
-    IF_CASES_TAC >> simp[] >>
-    IF_CASES_TAC >> simp[] ) >>
-
-val no_functions_dec_labs = store_thm("no_functions_dec_labs",
-  ``∀d. no_functions_dec d ⇒
-        let Cexp = exp_to_Cexp
-          (exp_to_pat p
-            (exp_to_exh h
-              (prompt_to_i3_special t s
-                (Prompt_i2(SND(SND(decs_to_i2 b [SND(SND(dec_to_i1 n a m e d))]))))))) in
-        all_labs Cexp ∧
-        free_labs z Cexp = []``,
-  Cases >>
-  simp[no_functions_dec_def,dec_to_i1_def,decs_to_i2_def,prompt_to_i3_special_def,
-       decs_to_i3_def,exp_to_exh_def] >>
-  simp[add_default_def,sLet_pat_thm] >>
-  IF_CASES_TAC >- (
-    simp[exp_to_i2_def,exp_to_exh_def] >>
-    simp[sLet_pat_thm] >>
-    IF_CASES_TAC >- (
-*)
 
 val mod_tagenv_lemma = prove(
   ``mod_tagenv NONE FEMPTY x = x``,
@@ -3810,13 +3701,13 @@ val compile_special_thm = store_thm("compile_special_thm",
       (compile_special rs top = bc) ∧
       closed_top env top ∧
       (∀d. top = Tdec d ⇒
-           ∀p h t s b n a m e z.
+           ∀p h s b n a m e z.
            let Cexp =
             exp_to_Cexp
               (exp_to_pat p
                 (exp_to_exh h
-                  (prompt_to_i3_special t s
-                    (Prompt_i2(SND(SND(decs_to_i2 b [SND(SND(dec_to_i1 n a m e d))])))))))
+                  (decs_to_i3 s
+                    (SND(SND(decs_to_i2 b [SND(SND(dec_to_i1 n a m e d))]))))))
            in all_labs Cexp ∧ free_labs z Cexp = []) ∧
       FILTER is_Label bc = [] ∧
       (bs.code = bc0 ++ REVERSE bc) ∧
@@ -3866,28 +3757,22 @@ val compile_special_thm = store_thm("compile_special_thm",
   simp[] >>
   disch_then(qx_choosel_then[`new_genv_i2`,`s2_i2`,`gtagenv2`]strip_assume_tac) >>
   Cases_on`p` >>
-  first_x_assum(mp_tac o MATCH_MP prompt_to_i3_special_correct) >>
+  fs[evaluate_prompt_i2_cases] >>
+  first_x_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]decs_to_i3_correct)) >>
   `new_dec_vs d = []` by (
     imp_res_tac evaluate_dec_new_dec_vs >> fs[] ) >>
-  simp[] >>
-  discharge_hyps >- (
+  `num_defs l = 0` by (
     fs[top_to_i1_def,LET_THM] >>
-    first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
-    imp_res_tac dec_to_i1_new_dec_vs >> rfs[] >> fs[LENGTH_NIL] >>
-    rpt BasicProvers.VAR_EQ_TAC >>
-    fs[Once evaluate_prompt_i1_cases] >>
-    fs[Once evaluate_decs_i1_cases] >>
-    fs[Once evaluate_decs_i1_cases] >>
+    first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >> rw[] >>
     fs[prompt_to_i2_def,LET_THM] >>
-    first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
-    rpt BasicProvers.VAR_EQ_TAC >>
-    fs[decs_to_i2_def,LET_THM] >>
-    Cases_on`d`>>fs[dec_to_i1_def,LET_THM,LENGTH_NIL]>>rw[]>>fs[]>>rw[]>>
-    simp[num_defs_def,funs_to_i1_MAP,funs_to_i2_MAP] >>
-    rfs[]) >>
+    first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >> rw[] >>
+    fs[decs_to_i2_def] >>
+    Cases_on`d` >> fs[dec_to_i1_def,LET_THM] >> rw[] >> fs[] >> rw[num_defs_def] >>
+    rfs[pat_bindings_def,LENGTH_NIL_SYM,funs_to_i1_MAP,funs_to_i2_MAP] ) >>
+  simp[dec_result_to_i3_cases] >>
   strip_tac >>
   first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_exh_correct)) >>
-  simp[env_to_exh_MAP,result_to_exh_cases,PULL_EXISTS,Once v_to_exh_cases,vs_to_exh_MAP] >>
+  simp[env_to_exh_MAP,result_to_exh_cases,PULL_EXISTS] >>
   fs[LIST_REL_O,OPTREL_O,sv_rel_O] >>
   qmatch_assum_abbrev_tac`LIST_REL (sv_rel (v_to_exh rsexh)) s20 sh` >>
   qmatch_assum_rename_tac`LIST_REL R genv2 gh`["R"] >>
@@ -3898,7 +3783,7 @@ val compile_special_thm = store_thm("compile_special_thm",
   (exp_to_pat_correct
    |> CONJUNCT1
    |> (fn th => first_assum (mp_tac o MATCH_MP th))) >>
-  simp[Once v_pat_cases] >>
+  simp[] >>
   strip_tac >>
   first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_Cexp_correct)) >>
   simp[] >>
@@ -4041,62 +3926,10 @@ val compile_special_thm = store_thm("compile_special_thm",
     ) >>
   rpt BasicProvers.VAR_EQ_TAC >>
   fs[FUNION_FEMPTY_1] >>
-  `new_genv_i2 = []` by (
-    rator_x_assum`evaluate_i3`mp_tac >>
-    simp[prompt_to_i3_special_def] >>
-    simp[Once evaluate_i3_cases,libTheory.opt_bind_def] >>
-    strip_tac >> pop_assum mp_tac >>
-    simp[Once evaluate_i3_cases] >>
-    simp[Once evaluate_i3_cases] >> strip_tac >>
-    BasicProvers.VAR_EQ_TAC >>
-    unabbrev_all_tac >>
-    qpat_assum`∀x. Y`kall_tac >>
-    rator_x_assum`bc_fetch`kall_tac>>
-    rator_x_assum`Cenv_bs`kall_tac>>
-    rator_x_assum`Cv_bv`kall_tac>>
-    rator_x_assum`RTC`kall_tac>>
-    rator_x_assum`closed_vlabs`kall_tac>>
-    rator_x_assum`Cevaluate`kall_tac>>
-    rator_x_assum`Cevaluate`kall_tac>>
-    rator_x_assum`free_vars_pat`kall_tac>>
-    rator_x_assum`evaluate_pat`kall_tac>>
-    rator_x_assum`evaluate_exh`kall_tac>>
-    fs[prompt_to_i2_def,LET_THM] >>
-    first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
-    rpt BasicProvers.VAR_EQ_TAC >>
-    fs[decs_to_i2_def,LET_THM] >>
-    Cases_on`d`>>fs[dec_to_i1_def,LET_THM,LENGTH_NIL]>>
-    rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
-    rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
-    fs[decs_to_i3_def,LET_THM] >>
-    fs[Once evaluate_i3_cases,exp_to_i2_def] >> rfs[] >>
-    rator_x_assum`evaluate_i3`mp_tac >>
-    simp[Once evaluate_i3_cases] >> strip_tac >>
-    rpt BasicProvers.VAR_EQ_TAC >>
-    fs[funs_to_i1_MAP,funs_to_i2_MAP,init_global_funs_def] >>
-    fs[alloc_defs_GENLIST,init_globals_def] >>
-    rator_x_assum`evaluate_i3`mp_tac >>
-    simp[Once evaluate_i3_cases] >> strip_tac >>
-    pop_assum mp_tac >>
-    simp[Once evaluate_i3_cases] >>
-    pop_assum mp_tac >>
-    simp[Once evaluate_i3_cases] >>
-    strip_tac >>
-    pop_assum mp_tac >>
-    simp[Once evaluate_i3_cases] >>
-    strip_tac >>
-    pop_assum mp_tac >>
-    simp[Once evaluate_i3_cases] >>
-    strip_tac >>
-    rpt BasicProvers.VAR_EQ_TAC >>
-    pop_assum mp_tac >>
-    simp[Once evaluate_i3_cases,exps_to_i2_MAP] >>
-    strip_tac >>
-    simp[pmatch_i2_def,lookup_tag_env_NONE,get_tagenv_def] >>
-    simp[Once evaluate_i3_cases] >> rw[] >>
-    fs[Once evaluate_dec_i1_cases] >>
-    fs[Once evaluate_i1_cases] >>
-    fs[to_i2_invariant_def,LIST_REL_EL_EQN] >>
+  `env = []` by (
+    fs[to_i2_invariant_def] >>
+    imp_res_tac LIST_REL_LENGTH >>
+    rfs[] >>
     REWRITE_TAC[GSYM LENGTH_NIL] >>
     DECIDE_TAC ) >>
   BasicProvers.VAR_EQ_TAC >> fs[] >>
@@ -4165,7 +3998,7 @@ val compile_special_thm = store_thm("compile_special_thm",
       imp_res_tac EVERY2_LENGTH >>
       imp_res_tac MEM_ZIP_MEM_MAP >>
       rfs[] >>
-      disch_then(fn th => first_x_assum (mp_tac o MATCH_MP (CONJUNCT2 th))) >>
+      disch_then(fn th => first_x_assum (mp_tac o MATCH_MP (CONJUNCT2 (CONJUNCT1 th)))) >>
       simp[] ) >>
     match_mp_tac LIST_REL_sv_rel_exh_Cv_syneq_trans >>
     HINT_EXISTS_TAC >> simp[] >>

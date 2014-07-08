@@ -3,6 +3,9 @@ struct
 open HolKernel boolLib bossLib Parse astTheory terminationTheory
 open cakeml_computeLib 
 open Portable smpp term_pp_types
+open x64DisassembleLib
+(*x64DisassembleLib.sig is missing include Abbrev*)
+
 
 fun strip t = #2 (dest_comb t);
 fun toString s = stringSyntax.fromHOLstring s;
@@ -247,19 +250,18 @@ fun letvalPrint sys d t pg str brk blk =
 val _=temp_add_user_printer ("letvalprint", ``Let (SOME x) y z``,genPrint letvalPrint);
 
 (*Inner Let NONE*)
-
+(*This should be sequencing*)
 fun letnonePrint sys d t pg str brk blk =
-  let
-    val (t,body) = dest_comb t
-    val (t,eq) = dest_comb t
+  let val (l,r) = dest_comb t
+      val os = blk CONSISTENT 0 ( sys(Prec(0,"letnone"),Top,Top) d (strip l) >>str ";">>
+    brk (1,0)>>sys (Prec(0,"letnone"),Top,Top) d r )
   in
-    m_brack str pg (blk CONSISTENT 0 (
-    str "let val _ = " >> (sys (Top,pg,pg) d eq) >> add_newline 
-    >> str"in" >> add_newline>>  str"  ">>(sys (Top,pg,pg) d body) >> add_newline
-    >> str"end" ))
+     (*Only bracketize if it is not a nested sequence*)
+     case pg of Prec(_,"letnone") => os
+            |  _ => str"(">>os>>str ")"
   end;
 
-val _=temp_add_user_printer ("letnoneprint", ``Let NONE x y``, genPrint letnonePrint);
+val _=temp_add_user_printer ("letnoneprint",``Let NONE x y``,genPrint letnonePrint);
 
 (*Pattern var*)
 fun pvarPrint sys d t pg str brk blk =
@@ -518,6 +520,7 @@ val _=temp_add_user_printer("falselitprint",``Lit (Bool F)``,genPrint (boolPrint
 val _=temp_add_user_printer("trueplitprint",``Plit (Bool T)``,genPrint (boolPrint "true"));
 val _=temp_add_user_printer("falseplitprint",``Plit (Bool F)``,genPrint (boolPrint "false"));
 
+<<<<<<< HEAD
 (*Word8 - may not be needed depending on how smart sys printer is..*)
 fun word8Print sys d t Top str brk blk =
   let val w = strip t
@@ -525,6 +528,8 @@ fun word8Print sys d t Top str brk blk =
     str "0wx">>sys (Top,Top,Top) d w
   end
 
+=======
+>>>>>>> master
 (*Pretty printer for ast list form, pattern to terms*)
 <<<<<<< HEAD
 fun astlistPrint sys d t Top str brk blk =
@@ -618,7 +623,24 @@ fun ubclistPrint sys d t pg str brk blk =
   end;
 val _=temp_add_user_printer("ubclistprint",``(NONE ,(y:bc_inst store))``,genPrint ubclistPrint);
 
+(*ASM*)
+fun asmPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
+  let
+    open term_pp_types PPBackEnd
+    val (str,brk,blk,sty) = (#add_string ppfns, #add_break ppfns,#ublock ppfns,#ustyle ppfns);
+    val ls = x64_disassemble t
+    val maxlen = 45 (*x86 inst at most 15 bytes long so leave 45 bytes of space, could probably do with less*)
+    fun pad 0 = str""
+    |   pad n = str" ">>pad (n-1)
+    fun printAsm [] = str""
+    |   printAsm (x::xs) = case x of (hex,dis) => 
+          (sty [FG DarkGrey] (str hex))>> pad (maxlen - size hex) >>str dis>>str"\n">>printAsm xs
+  in
+    printAsm ls
+  end;
+val _=temp_add_user_printer("asmlistprint",``x:word8 store``,asmPrint);
 
+<<<<<<< HEAD
 
 (*
 fun globPrinter sys d t pg str brk blk =
@@ -657,4 +679,6 @@ fun ubclistPrint sys d t Top str brk blk =
   end;
 val _=temp_add_user_printer("ubclistprint",``(NONE ,(y:bc_inst store))``,genPrint ubclistPrint);
 
+=======
+>>>>>>> master
 end;

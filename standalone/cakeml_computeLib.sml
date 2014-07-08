@@ -7,6 +7,7 @@ open lexer_implTheory inferTheory intLangTheory toIntLangTheory toBytecodeTheory
 open bytecodeLabelsTheory labels_computeLib bytecodeEncodeTheory bytecodeEvalTheory free_varsTheory progToBytecodeTheory
 open initialProgramTheory
 open terminationTheory compilerTerminationTheory
+open x64_code_evalTheory x64_heapTheory
 
 val encode_bc_insts_thm = prove(
   ``∀bcs. encode_bc_insts bcs =
@@ -510,6 +511,18 @@ val () = computeLib.add_thms
   ,remove_labels_all_asts_def
   ] compset
 val () = add_datatype ``:compiler_state``
+
+(*Bytecode to asm*)
+val () = computeLib.add_thms 
+  [prog_x64_extraTheory.IMM32_def,
+   small_offset_def,
+   small_offset6_def,
+   small_offset12_def,
+   small_offset16_def,
+   x64_def,
+   x64_length_def,
+   x64_code_def] compset
+
 in compset end
 
 val bc_fetch_aux_0_thm = prove(

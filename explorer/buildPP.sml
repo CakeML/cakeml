@@ -74,8 +74,7 @@ fun io() =
       val src = case cgi_field_string("src") of NONE => "" | SOME(src) => src;
 
       (*testing*)
-      (*val src = "structure Nat = struct val zero = 0 fun succ x = x+1 fun iter f n = if n = 0 then (fn x=> x) else f o (iter f n) end; (Nat.iter Nat.succ 5) Nat.zero;"*)
-
+      (*val src = "val x = 5;"*)
       val out = if src = "" then Nothing
                 else Success(allIntermediates (stringSyntax.fromMLstring src))
                 handle compilationError e => Error e
@@ -90,7 +89,7 @@ fun io() =
          body = ([], [
          (*Introductory header*)
          H(2,[],"CakeML Compiler Explorer"),
-         P (Sequence [String "Write", A([("href","..")],String"CakeML"), String"code and see how it transformed by each phase of compilation."]),
+         P (Sequence [String "Write", A([("href","..")],String"CakeML"), String"code and see how it is transformed by each phase of compilation."]),
          (*Form to submit code*)
          FORM ([("method","POST")],
            [

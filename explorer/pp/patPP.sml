@@ -71,7 +71,7 @@ fun pat_seqPrint sys d t pg str brk blk =
             |  _ => str"(">>os>>str ")"
   end;
 
-val _=temp_add_user_printer ("pat_seqprint",``Seq_pat x y``,genPrint pat_seqPrint);
+val _=temp_add_user_printer ("pat_seqprint",``Seq_pat x y``,genPrint letnonePrint);
 
 (*pat_Let*)
 (*brackets around bound expression to be safe, same in intLang*)

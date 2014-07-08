@@ -84,21 +84,15 @@ val _ = temp_add_user_printer("cexp_extendglobal",``CExtG n``,genPrint i2_extend
 (*cexp_Let*)
 fun cexp_letpatPrint sys d t pg str brk blk =
   let val (t1,exp2) = dest_comb t
-      val (t,exp1) = dest_comb t1
-      val (_,b) = dest_comb t
+      val (t2,exp1) = dest_comb t1
+      val (_,b) = dest_comb t2
     in
     if b = ``T``
     then
-      blk CONSISTENT 0 (str"bind ">>sys(Prec(0,"cexplet"),Top,Top) d exp1>>add_newline>>
-      str"in">>add_newline>>str"  ">> sys (Top,Top,Top) d exp2>>add_newline>>str"end")
+      pat_letpatPrint sys d t pg str brk blk
     else
-      let val os = blk CONSISTENT 0 ( sys(Prec(0,"cexpseq"),Top,Top) d exp1 >>str ";"
-                   >> brk (1,0)>>sys (Prec(0,"cexpseq"),Top,Top) d exp2 )
-      in
-      case pg of Prec(_,"cexpseq") => os
-            |  _ => str"(">>os>>str ")"
-      end
-  end;
+      letnonePrint sys d t pg str brk blk
+    end;
 
 val _ = temp_add_user_printer ("cexp_letprint",``CLet b y z ``,genPrint cexp_letpatPrint);
 

@@ -658,8 +658,7 @@ val COMPILER_RUN_INV_repl_step = store_thm("COMPILER_RUN_INV_repl_step",
       simp[bytecodeTheory.bc_state_component_equality,Abbr`b`] ) >>
     simp[repl_bc_state_def,repl_funTheory.install_code_def] >>
     simp[repl_env_def,compile_call_repl_step_labels] >>
-    simp[prompt_to_i3_special_def,
-         compilerTerminationTheory.exp_to_i1_def,
+    simp[compilerTerminationTheory.exp_to_i1_def,
          modLangTheory.dec_to_i1_def,
          modLangTheory.decs_to_i1_def,
          conLangTheory.decs_to_i2_def,

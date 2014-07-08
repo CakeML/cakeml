@@ -484,7 +484,7 @@ val (updates_rules,updates_ind,updates_cases) = Hol_reln`
 
   (* new_type_definition *)
   ((thyof ctxt, []) |- Comb pred witness ∧
-   CLOSED pred /\ pred has_type (Fun rep_type Bool) ∧
+   CLOSED pred ∧
    name ∉ (FDOM (tysof ctxt)) ∧
    abs ∉ (FDOM (tmsof ctxt)) ∧
    rep ∉ (FDOM (tmsof ctxt)) ∧

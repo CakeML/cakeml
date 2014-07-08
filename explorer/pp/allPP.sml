@@ -43,6 +43,7 @@ val compile_primitives_pieces =
   ,eval ``compile_primitives.contags_env``
   ,eval ``compile_primitives.rnext_label``];
 val cs = cakeml_compset();
+
 val _ = computeLib.add_thms [compile_primitives_pieces] cs
 val eval = computeLib.CBV_CONV cs
 
@@ -149,13 +150,18 @@ fun allIntermediates prog =
       val rem_labels = with_flag (quiet,true) eval ``remove_labels_all_asts (Success ^(p7))``
 
       val p8 = rhsThm rem_labels |> rand
+
+      (*Bytecode to asm*)
+      val asm = eval ``x64_code 0 ^(p8)``
+      val p9 = rhsThm asm
+
       val p8 = rhsThm (eval ``(NONE,^(p8))``)
 
       val p7 = rhsThm (eval ``(SOME x,^(p7))``)
+      
   in
-     {ils=[ast,p1,p2,p3,p4,p5,p6,p7,p8],
+     {ils=[ast,p1,p2,p3,p4,p5,p6,p7,p8,p9],
       ctors=ctors,globMap=globMap,modMap=modMap,annotations=(!collectAnnotations)}
   end;
 end
 end
-
