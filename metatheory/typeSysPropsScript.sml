@@ -15,7 +15,6 @@ val lookup_con_id_def = semanticPrimitivesTheory.lookup_con_id_def;
 val merge_envC_def = semanticPrimitivesTheory.merge_envC_def;
 val lookup_var_id_def = semanticPrimitivesTheory.lookup_var_id_def;
 val build_tdefs_cons = evalPropsTheory.build_tdefs_cons;
-val check_dup_ctors_thm = evalPropsTheory.check_dup_ctors_thm;
 val check_dup_ctors_cons = evalPropsTheory.check_dup_ctors_cons;
 
 val type_env_cases = List.nth (CONJUNCTS type_v_cases, 2);
