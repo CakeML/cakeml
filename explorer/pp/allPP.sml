@@ -139,7 +139,7 @@ fun allIntermediates prog =
 
       val _ = with_flag (quiet,true) add_code_labels_ok_thm code_labels_ok_thm
 
-      val rem_labels = with_flag (quiet,true) eval ``remove_labels_all_asts (Success ^(p7))``
+      val rem_labels = with_flag (quiet,true) eval ``remove_labels_all_asts real_inst_length (Success ^(p7))``
 
       val p8 = rhsThm rem_labels |> rand
 

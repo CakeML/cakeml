@@ -52,11 +52,11 @@ compile_all_asts_no_init asts =
          Success (compile_prog asts)`;
 
 val remove_labels_all_asts_def = Define `
-remove_labels_all_asts asts =
+remove_labels_all_asts len asts =
   case asts of
      | Failure x => Failure x
      | Success asts =>
-         Success (code_labels (\x. 0) asts)`;
+         Success (code_labels len asts)`;
 
 val all_asts_to_string_def = Define `
 all_asts_to_string asts =
@@ -71,16 +71,16 @@ all_asts_to_encoded asts =
      | Success bcs => Success (encode_bc_insts bcs : word64 list option)`;
 
 val prog_to_bytecode_def = Define `
-prog_to_bytecode p =
-  remove_labels_all_asts (compile_all_asts (infer_all_asts (elab_all_asts (get_all_asts p))))`;
+prog_to_bytecode len p =
+  remove_labels_all_asts len (compile_all_asts (infer_all_asts (elab_all_asts (get_all_asts p))))`;
 
 val prog_to_bytecode_string_def = Define `
-prog_to_bytecode_string p =
-  all_asts_to_string (prog_to_bytecode p)`;
+prog_to_bytecode_string len p =
+  all_asts_to_string (prog_to_bytecode len p)`;
 
 val prog_to_bytecode_encoded_def = Define `
-prog_to_bytecode_encoded p =
-  case prog_to_bytecode p of
+prog_to_bytecode_encoded len p =
+  case prog_to_bytecode len p of
      | Failure x => Failure x
      | Success bcs => Success (encode_bc_insts bcs : word64 list option)`;
 
