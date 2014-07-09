@@ -750,16 +750,16 @@ val longs_tag_def   = Define`longs_tag   = ^(mktm "Longs")`
 val numbers_tag_def = Define`numbers_tag = ^(mktm "Numbers")`
 val strings_tag_def = Define`strings_tag = ^(mktm "Strings")`
 
-val BlockNil_def  = Define `BlockNil = Block (block_tag+nil_tag) []`;
-val BlockCons_def = Define `BlockCons (x,y) = Block (block_tag+cons_tag) [x;y]`;
-val BlockPair_def = Define `BlockPair (x,y) = Block (block_tag+tuple_tag) [x;y]`;
+val BlockNil_def  = Define `BlockNil = Block (block_tag+conLang$nil_tag) []`;
+val BlockCons_def = Define `BlockCons (x,y) = Block (block_tag+conLang$cons_tag) [x;y]`;
+val BlockPair_def = Define `BlockPair (x,y) = Block (block_tag+conLang$tuple_tag) [x;y]`;
 
 val BlockList_def = Define `
   (BlockList [] = BlockNil) /\
   (BlockList (x::xs) = BlockCons(x,BlockList xs))`;
 
 val BlockBool_def = Define `BlockBool b = Block (bool_to_tag b) []`;
-val BlockSome_def = Define `BlockSome x = Block (block_tag+some_tag) [x]`;
+val BlockSome_def = Define `BlockSome x = Block (block_tag+conLang$some_tag) [x]`;
 
 val BlockInl_def = Define `BlockInl x = Block (block_tag+inl_tag) [x]`;
 val BlockInr_def = Define `BlockInr x = Block (block_tag+inr_tag) [x]`;
@@ -785,13 +785,13 @@ val BlockNum3_def = Define `
 
 val has_primitive_types_def = Define`
   has_primitive_types gtagenv ⇔
-    FLOOKUP gtagenv ("nil",TypeId(Short"list")) = SOME (nil_tag,0:num) ∧
-    FLOOKUP gtagenv ("::",TypeId(Short"list")) = SOME (cons_tag,2) ∧
-    FLOOKUP gtagenv ("SOME",TypeId(Short"option")) = SOME (some_tag,1)`
+    FLOOKUP gtagenv ("nil",TypeId(Short"list")) = SOME (conLang$nil_tag,0:num) ∧
+    FLOOKUP gtagenv ("::",TypeId(Short"list")) = SOME (conLang$cons_tag,2) ∧
+    FLOOKUP gtagenv ("SOME",TypeId(Short"option")) = SOME (conLang$some_tag,1)`
 
 val LIST_TYPE_CHAR_BlockList = prove(
-  ``(FLOOKUP cm ("nil",TypeId(Short"list")) = SOME (nil_tag,0)) ∧
-    (FLOOKUP cm ("::",TypeId(Short"list")) = SOME (cons_tag,2))
+  ``(FLOOKUP cm ("nil",TypeId(Short"list")) = SOME (conLang$nil_tag,0)) ∧
+    (FLOOKUP cm ("::",TypeId(Short"list")) = SOME (conLang$cons_tag,2))
   ⇒
     ∀s l x y z b.
       LIST_TYPE CHAR s l ∧ v_bv (x,cm,y,z) l b
@@ -816,8 +816,8 @@ val LIST_TYPE_CHAR_BlockList = prove(
   metis_tac[])
 
 val LIST_TYPE_code_BlockList = prove(
-  ``(FLOOKUP cm ("nil",TypeId(Short"list")) = SOME (nil_tag,0)) ∧
-    (FLOOKUP cm ("::",TypeId(Short"list")) = SOME (cons_tag,2))
+  ``(FLOOKUP cm ("nil",TypeId(Short"list")) = SOME (conLang$nil_tag,0)) ∧
+    (FLOOKUP cm ("::",TypeId(Short"list")) = SOME (conLang$cons_tag,2))
   ⇒
     ∀s l x y z b.
       LIST_TYPE (PAIR_TYPE NUM (PAIR_TYPE NUM NUM)) s l ∧ v_bv (x,cm,y,z) l b
@@ -843,8 +843,8 @@ val LIST_TYPE_code_BlockList = prove(
   metis_tac[])
 
 val LIST_TYPE_v_bv = prove(
-  ``(FLOOKUP (FST(SND d)) ("nil",TypeId(Short"list")) = SOME (nil_tag,0)) ∧
-    (FLOOKUP (FST(SND d)) ("::",TypeId(Short"list")) = SOME (cons_tag,2))
+  ``(FLOOKUP (FST(SND d)) ("nil",TypeId(Short"list")) = SOME (conLang$nil_tag,0)) ∧
+    (FLOOKUP (FST(SND d)) ("::",TypeId(Short"list")) = SOME (conLang$cons_tag,2))
   ⇒
     ∀ls v. LIST_TYPE A ls v ∧ (∀x y. MEM x ls ∧ A x y ⇒ v_bv d y (f x)) ⇒
       v_bv d v (BlockList (MAP f ls))``,
@@ -869,8 +869,8 @@ val LEXER_FUN_SYMBOL_TYPE_v_bv = prove(
     (FLOOKUP (FST(SND d)) ("Longs",TypeId(Long"REPL""lexer_fun_symbol")) = SOME (longs_tag,1)) ∧
     (FLOOKUP (FST(SND d)) ("Numbers",TypeId(Long"REPL""lexer_fun_symbol")) = SOME (numbers_tag,1)) ∧
     (FLOOKUP (FST(SND d)) ("Strings",TypeId(Long"REPL""lexer_fun_symbol")) = SOME (strings_tag,1)) ∧
-    (FLOOKUP (FST(SND d)) ("nil",TypeId(Short"list")) = SOME (nil_tag,0)) ∧
-    (FLOOKUP (FST(SND d)) ("::",TypeId(Short"list")) = SOME (cons_tag,2))
+    (FLOOKUP (FST(SND d)) ("nil",TypeId(Short"list")) = SOME (conLang$nil_tag,0)) ∧
+    (FLOOKUP (FST(SND d)) ("::",TypeId(Short"list")) = SOME (conLang$cons_tag,2))
     ⇒
     ∀x y. LEXER_FUN_SYMBOL_TYPE x y ⇒ v_bv d y (BlockSym x)``,
   strip_tac >> PairCases_on`d`>>fs[]>>
@@ -1583,13 +1583,13 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
     ?s_bc_val.
       iptr IN FDOM bs.refs /\
       (FLOOKUP bs.refs optr =
-         SOME (BlockInr (BlockPair (BlockList (MAP Chr msg),s_bc_val)))) /\
+         SOME (ValueArray [BlockInr (BlockPair (BlockList (MAP Chr msg),s_bc_val))])) /\
       !ts.
         let inp_bc_val = BlockSome (BlockPair (BlockList (MAP BlockSym ts),s_bc_val))
         in
           ?grd new_inp.
             INPUT_TYPE (SOME (ts,s)) new_inp /\
-            COMPILER_RUN_INV (bs with refs := bs.refs |+ (iptr,inp_bc_val))
+            COMPILER_RUN_INV (bs with refs := bs.refs |+ (iptr,ValueArray [inp_bc_val]))
               grd new_inp outp``,
   rw[] >>
   imp_res_tac COMPILER_RUN_INV_references >> simp[] >>
@@ -1642,7 +1642,7 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
   simp[env_rs_def] >> strip_tac >>
   simp[RIGHT_EXISTS_AND_THM] >>
   conj_tac >- (
-    qpat_assum`EVERY closed (LUPDATE X Y Z)`mp_tac >>
+    qpat_assum`EVERY (sv_every closed) (LUPDATE X Y Z)`mp_tac >>
     simp[EVERY_MEM,MEM_LUPDATE,PULL_EXISTS] >>
     strip_tac >> gen_tac >> strip_tac >- METIS_TAC[] >>
     BasicProvers.VAR_EQ_TAC >>
@@ -1664,8 +1664,6 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
   fs[modLangProofTheory.to_i1_invariant_def] >>
   rator_x_assum`s_to_i1`mp_tac >>
   simp[modLangProofTheory.s_to_i1_cases] >>
-  simp[modLangProofTheory.s_to_i1'_cases] >>
-  simp[vs_to_i1_MAP] >>
   strip_tac >>
   qmatch_assum_abbrev_tac`v_bv data inp ibc` >>
   `v_bv data w (BlockList (MAP BlockSym ts))` by (
@@ -1703,7 +1701,7 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
   qunabbrev_tac`data` >>
   pop_assum(strip_assume_tac o SIMP_RULE (srw_ss()) [printingTheory.v_bv_def]) >>
   qmatch_assum_rename_tac`v_to_i1 grd0 inp2 v12`[] >>
-  qexists_tac`LUPDATE v12 iloc s1` >>
+  qexists_tac`LUPDATE (Refv v12) iloc s1` >>
   simp[RIGHT_EXISTS_AND_THM] >>
   conj_tac >- (
     fs[LIST_REL_EL_EQN,EL_LUPDATE] >>
@@ -1711,7 +1709,8 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
     first_x_assum(qspec_then`n`mp_tac) >>
     simp[Abbr`inp2`] >>
     assume_tac(CONJUNCT2 repl_env_def) >> rfs[] >>
-    rw[] ) >>
+    rw[] >>
+    simp[modLangProofTheory.sv_to_i1_cases]) >>
   exists_suff_gen_then(mp_tac o RW[GSYM AND_IMP_INTRO]) (INST_TYPE[beta|->``:num``]to_i2_invariant_change_store) >>
   disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
   strip_tac >> (CONV_TAC (RESORT_EXISTS_CONV List.rev)) >>
@@ -1723,28 +1722,26 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
   fs[conLangProofTheory.to_i2_invariant_def] >>
   rator_x_assum`s_to_i2`mp_tac >>
   simp[conLangProofTheory.s_to_i2_cases] >>
-  simp[conLangProofTheory.s_to_i2'_cases] >>
-  simp[vs_to_i2_MAP] >>
   strip_tac >>
   qmatch_assum_rename_tac`v_to_i2 grd1 v12 v22`[] >>
-  qexists_tac`LUPDATE v22 iloc s2` >>
+  qexists_tac`LUPDATE (Refv v22) iloc s2` >>
   simp[RIGHT_EXISTS_AND_THM] >>
   conj_tac >- (
     fs[LIST_REL_EL_EQN,EL_LUPDATE] >>
     gen_tac >> strip_tac >>
-    rw[]) >>
-  simp[miscTheory.LIST_REL_O,PULL_EXISTS] >>
+    rw[] >> rw[conLangProofTheory.sv_to_i2_cases]) >>
+  simp[miscTheory.LIST_REL_O,PULL_EXISTS,exhLangProofTheory.sv_rel_O] >>
   qmatch_assum_rename_tac`v_to_exh Z v22 v23`["Z"] >>
   CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-  fs[miscTheory.LIST_REL_O] >>
-  qexists_tac`LUPDATE v23 iloc l3` >>
+  fs[miscTheory.LIST_REL_O,exhLangProofTheory.sv_rel_O] >>
+  qexists_tac`LUPDATE (Refv v23) iloc l3` >>
   simp[RIGHT_EXISTS_AND_THM,GSYM CONJ_ASSOC] >>
   conj_tac >- (
     fs[LIST_REL_EL_EQN,EL_LUPDATE] >>
     gen_tac >> strip_tac >> rw[]) >>
   CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
   qmatch_assum_rename_tac`exh_Cv v23 v24`[] >>
-  qexists_tac`LUPDATE v24 iloc Cs` >>
+  qexists_tac`LUPDATE (Refv v24) iloc Cs` >>
   simp[RIGHT_EXISTS_AND_THM] >>
   conj_tac >- (
     fs[LIST_REL_EL_EQN,EL_LUPDATE] >>
@@ -1765,9 +1762,12 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
       first_assum(match_exists_tac o concl) >> simp[] >>
       first_assum(match_exists_tac o concl) >> simp[] >>
       METIS_TAC[EqualityType_thm,EqualityType_INPUT_TYPE]) >>
-    conj_tac >- METIS_TAC[MEM_LUPDATE_E] >>
+    conj_tac >- (
+      fs[intLangExtraTheory.store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER] >>
+      METIS_TAC[MEM_LUPDATE_E,patLangProofTheory.dest_Refv_def] ) >>
     fs[intLangExtraTheory.vlabs_list_MAP,PULL_EXISTS] >>
-    METIS_TAC[MEM_LUPDATE_E,pred_setTheory.NOT_IN_EMPTY] ) >>
+    fs[intLangExtraTheory.store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER] >>
+    METIS_TAC[MEM_LUPDATE_E,pred_setTheory.NOT_IN_EMPTY,patLangProofTheory.dest_Refv_def] ) >>
   qexists_tac`grd2` >>
   MATCH_MP_TAC bytecodeProofTheory.Cenv_bs_change_store >>
   first_assum(match_exists_tac o concl) >> simp[] >>
@@ -1780,7 +1780,7 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
     fs[miscTheory.FEVERY_ALL_FLOOKUP] >> rw[] >>
     first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
     simp[UNCURRY] >> strip_tac >>
-    simp[finite_mapTheory.FAPPLY_FUPDATE_THM] >>
+    simp[finite_mapTheory.FLOOKUP_UPDATE] >>
     rw[] >> fs[] ) >>
   conj_tac >- fs[EVERY_MEM] >>
   fs[LIST_REL_EL_EQN,EL_MAP,EL_LUPDATE] >>
