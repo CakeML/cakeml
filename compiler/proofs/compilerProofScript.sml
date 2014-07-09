@@ -1092,8 +1092,9 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
     ∧ no_labs exp
     ⇒
     let cs' = compile_Cexp renv rsz cs exp in
-    ∃c0 code. cs'.out = REVERSE code ++ REVERSE c0 ++ cs.out ∧ between_labels (code++c0) cs.next_label cs'.next_label ∧
-    code_labels_ok (c0++code) ∧
+    ∃c0 code. cs'.out = REVERSE code ++ REVERSE c0 ++ cs.out ∧
+    between_labels (FILTER ($~ o inst_uses_label VfromListLab) (c0++code)) cs.next_label cs'.next_label ∧
+    code_labels_ok (FILTER ($~ o inst_uses_label VfromListLab) (c0++code)) ∧
     ∀s env res rd csz bs bc0 bc00.
       Cevaluate s env exp res
     ∧ closed_vlabs env s bc0
@@ -1103,6 +1104,7 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
     ∧ bs.pc = next_addr bs.inst_length bc0
     ∧ bs.clock = SOME (FST (FST s))
     ∧ good_labels cs.next_label bc0
+    ∧ contains_primitives bc0
     ⇒
     case SND res of
     | Rval v =>
@@ -1138,11 +1140,13 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
   conj_tac >- (
     simp[between_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND,FILTER_REVERSE,ALL_DISTINCT_REVERSE] >>
     fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,MEM_MAP,is_Label_rwt,between_def] >>
+    simp[FILTER_FILTER,Q.SPEC`is_Label X`CONJ_COMM] >>
+    simp[GSYM FILTER_FILTER,FILTER_ALL_DISTINCT] >>
     rw[] >> spose_not_then strip_assume_tac >>
     fsrw_tac[DNF_ss][MEM_GENLIST] >>
     res_tac >> DECIDE_TAC ) >>
   conj_tac >- (
-    rfs[code_labels_ok_def,uses_label_thm,EXISTS_REVERSE] >>
+    rfs[code_labels_ok_def,uses_label_thm,EXISTS_REVERSE,EXISTS_MEM,PULL_EXISTS,MEM_FILTER] >>
     qmatch_assum_abbrev_tac`P ⇒ Q` >>
     `P` by (
       simp[Abbr`P`] >>
@@ -1151,6 +1155,7 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
     qunabbrev_tac`P`>>fs[Abbr`Q`] >>
     reverse(rw[])>- metis_tac[] >>
     last_x_assum(qspec_then`l`mp_tac) >>
+    disch_then(qspec_then`e`mp_tac) >>
     simp[] >> strip_tac >> fs[] >>
     qsuff_tac`MEM l (MAP (FST o FST o SND) (free_labs (LENGTH renv) Ce))`>-metis_tac[] >>
     qmatch_assum_abbrev_tac`MEM l a` >>
@@ -1193,6 +1198,9 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
       rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC ) >>
     simp[Abbr`A`,Abbr`B`,Abbr`C`,GSYM CONJ_ASSOC] >>
     fs[closed_vlabs_def,vlabs_csg_def] >>
+    conj_tac >- (
+      fs[contains_primitives_def] >>
+      qexists_tac`bc0'`>>simp[] ) >>
     conj_tac >- metis_tac[code_env_cd_append] >>
     conj_tac >- metis_tac[code_env_cd_append] >>
     conj_tac >- metis_tac[code_env_cd_append] >>
