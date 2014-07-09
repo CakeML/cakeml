@@ -1294,6 +1294,7 @@ val env_rs_def = Define`
     (rs:compiler_state) (bs:bc_state)
   ⇔
     good_labels rs.rnext_label bs.code ∧
+    contains_primitives bs.code ∧
     rs.next_global = LENGTH genv ∧
     bs.stack = [] ∧
     EVERY (sv_every closed) s ∧
@@ -1313,8 +1314,10 @@ val env_rs_def = Define`
       Cenv_bs rd ((cnt,Cs),Cg) [] [] 0 bs`
 
 val env_rs_empty = store_thm("env_rs_empty",
-  ``∀envs s cs genv rd grd bs ck.
-    bs.stack = [] ∧ bs.globals = [] ∧ FILTER is_Label bs.code = [] ∧
+  ``∀envs s cs genv rd grd bs c ck.
+    bs.stack = [] ∧ bs.globals = [] ∧
+    bs.code = VfromListCode ++ c ∧
+    FILTER is_Label c = [] ∧
     (∀n. bs.clock = SOME n ⇒ n = ck) ∧ envs = ([],init_envC,[]) ∧
     s = ((ck,[]),IMAGE SND (FDOM init_gtagenv),{}) ∧
     grd = ([],init_gtagenv,rd) ∧
@@ -1323,7 +1326,12 @@ val env_rs_empty = store_thm("env_rs_empty",
   rpt gen_tac >>
   simp[env_rs_def,to_i1_invariant_def,to_i2_invariant_def] >>
   strip_tac >>
-  conj_tac >- (EVAL_TAC >> simp[]) >>
+  conj_tac >- (
+    fs[good_labels_def,FILTER_APPEND] >>
+    EVAL_TAC ) >>
+  conj_tac >- (
+    EVAL_TAC >> simp[] >>
+    qexists_tac`[]`>>simp[] ) >>
   conj_tac >- (EVAL_TAC >> simp[]) >>
   rw[init_compiler_state_def,get_tagenv_def,cenv_inv_def] >>
   rw[Once v_to_i1_cases] >> rw[Once v_to_i1_cases] >>
@@ -1467,6 +1475,10 @@ val env_rs_append_code = store_thm("env_rs_append_code",
   simp[FORALL_PROD] >>
   simp[env_rs_def] >>
   rpt gen_tac >> strip_tac  >>
+  conj_tac >- (
+    fs[contains_primitives_def] >>
+    qexists_tac`bc0`>>simp[] >>
+    fs[good_labels_def] >> rfs[] ) >>
   rpt(first_assum(match_exists_tac o concl) >> simp[]) >>
   conj_tac >- (
     fs[closed_vlabs_def] >> rw[]>>

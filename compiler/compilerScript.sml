@@ -40,7 +40,7 @@ val _ = Define `
    ; globals_env := (FEMPTY, FEMPTY)
    ; contags_env := init_tagenv_state
    ; exh := init_exh
-   ; rnext_label :=( 0)
+   ; rnext_label := (VfromListLab+VfromListLabs)
    |>))`;
 
 

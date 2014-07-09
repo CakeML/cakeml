@@ -27,7 +27,7 @@ let init_compiler_state =
    ; globals_env = (Map.empty, Map.empty)
    ; contags_env = init_tagenv_state
    ; exh = init_exh
-   ; rnext_label = 0
+   ; rnext_label = VfromListLab+VfromListLabs
    |>
 
 let compile_Cexp env rsz cs Ce =
