@@ -44,7 +44,7 @@ ho_match_mp_tac infer_e_ind >>
 rw [] >>
 rw [Once infer_e_side_def, add_constraint_side_def] >>
 fs [success_eqns, rich_listTheory.LENGTH_COUNT_LIST] >>
-rw [constrain_op_side_def, constrain_uop_side_def, add_constraint_side_def,
+rw [constrain_op_side_def, add_constraint_side_def,
     apply_subst_side_def, apply_subst_list_side_def] >>
 fs [success_eqns, rich_listTheory.LENGTH_COUNT_LIST] >>
 TRY (imp_res_tac infer_e_wfs >>
@@ -176,7 +176,7 @@ rw [infer_top_side_def, infer_ds_side_thm, infer_d_side_thm,
 val inf_type_to_string_side_thm = Q.store_thm ("inf_type_to_string_side_thm",
 `(!t. inf_type_to_string_side t) ∧
  (!ts. inf_types_to_string_side ts)`,
- ho_match_mp_tac unifyTheory.infer_t_induction >>
+ ho_match_mp_tac infer_tTheory.infer_t_induction >>
  rw [] >>
  rw [Once inf_type_to_string_side_def, tc_to_string_side_def] >>
  fs [] >-
@@ -185,18 +185,23 @@ val inf_type_to_string_side_thm = Q.store_thm ("inf_type_to_string_side_thm",
  rw [] >>
  fs [Once inf_type_to_string_side_def]);
 
-val inf_tenv_to_string_map_side_thm = Q.store_thm ("inf_tenv_to_string_map_side_thm",
-`!tenv. inf_tenv_to_string_map_side tenv`,
- induct_on `tenv` >-
- rw [inf_tenv_to_string_map_side_def] >>
- rw [Once inf_tenv_to_string_map_side_def] >>
- metis_tac [inf_type_to_string_side_thm]);
+val compile_print_vals_side_thm = store_thm("compile_print_vals_side_thm",
+  ``∀ls a b. compile_print_vals_side ls a b``,
+  Induct >> simp[Once compile_print_vals_side_def,inf_type_to_string_side_thm])
+
+val compile_top_side_thm = store_thm("compile_top_side_thm",
+  ``∀x y z. compile_top_side x y z``,
+  rw[compile_top_side_def,compile_print_top_side_def] >>
+  simp[compile_print_dec_side_def] >> rpt gen_tac >>
+  qmatch_abbrev_tac`(a ==> b) ∧ c` >>
+  qsuff_tac`b`>-rw[]>> unabbrev_all_tac >>
+  simp[compile_print_vals_side_thm])
 
 val parse_elaborate_infertype_compile_side_thm = Q.store_thm ("parse_elaborate_infertype_compile_side_thm",
 `!toks st. parse_elaborate_infertype_compile_side toks st`,
  rw [parse_elaborate_infertype_compile_side_def, infertype_top_side_def] >-
  metis_tac [infer_top_side_thm] >-
- metis_tac [inf_tenv_to_string_map_side_thm])
+ metis_tac [compile_top_side_thm])
 
 val repl_step_side_thm = Q.store_thm ("repl_step_side_thm",
 `!x. repl_step_side x = T`,
