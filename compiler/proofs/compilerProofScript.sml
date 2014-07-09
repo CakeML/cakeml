@@ -4090,6 +4090,14 @@ val compile_initial_prog_def = Define`
               |> in
     (cs, (emit r [Stack Pop; Stop T]).out)`
 
+val to_i1_invariant_clocks_match = prove(
+  ``to_i1_invariant a b c d e f g h ⇒ FST f = FST g``,
+  rw[to_i1_invariant_def,s_to_i1_cases] >> rw[])
+
+val to_i2_invariant_clocks_match = prove(
+  ``to_i2_invariant a b c d e i f g h k ⇒ FST f = FST g``,
+  rw[to_i2_invariant_def,s_to_i2_cases] >> rw[])
+
 val compile_initial_prog_thm = store_thm("compile_initial_prog_thm",
   ``∀ck env stm prog res. evaluate_whole_prog ck env stm prog res ⇒
      ∀grd rs rs' bc bs bc0 s envC envM envE.
@@ -4212,9 +4220,10 @@ val compile_initial_prog_thm = store_thm("compile_initial_prog_thm",
     qexists_tac`[]`>>simp[] >>
     REWRITE_TAC[SUM_APPEND,FILTER_APPEND,MAP_APPEND] >>
     simp[] ) >>
-  simp[EXISTS_PROD,env_rs_def] >>
-  simp[RIGHT_EXISTS_AND_THM] >>
-  conj_tac >- (
+  simp[EXISTS_PROD,env_rs_def,PULL_EXISTS] >>
+  Q.PAT_ABBREV_TAC`P = good_labels A B` >>
+  `P` by (
+    qunabbrev_tac`P` >>
     rator_x_assum`good_labels`mp_tac >>
     rator_x_assum`between_labels`mp_tac >>
     rpt(pop_assum kall_tac) >>
@@ -4222,7 +4231,62 @@ val compile_initial_prog_thm = store_thm("compile_initial_prog_thm",
     simp[FILTER_APPEND,ALL_DISTINCT_APPEND,EVERY_MAP,MEM_FILTER,is_Label_rwt] >>
     rw[] >> fs[PULL_EXISTS,EVERY_MEM,MEM_FILTER,is_Label_rwt,between_def] >>
     spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
-  qexists_tac`grd0 ++ new_genv` >> simp[] >>
+  simp[Abbr`P`] >>
+  fs[evaluate_whole_prog_def] >>
+  first_assum(mp_tac o MATCH_MP evaluate_prog_closed) >>
+  simp[] >> fs[closed_prog_def] >> fs[all_env_to_menv_def] >>
+  fs[all_env_closed_def] >>
+  discharge_hyps >- (
+    fs[to_i1_invariant_def] ) >>
+  simp[] >> strip_tac >>
+  imp_res_tac to_i1_invariant_clocks_match >>
+  CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``to_i1_invariant`` o fst o strip_comb))) >>
+  first_assum (split_pair_match o concl) >> fs[] >>
+  first_assum (match_exists_tac o concl) >> simp[] >>
+  imp_res_tac to_i2_invariant_clocks_match >>
+  CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``to_i2_invariant`` o fst o strip_comb))) >>
+  first_assum (split_pair_match o concl) >> fs[] >>
+  first_assum (match_exists_tac o concl) >> simp[] >> rw[] >>
+  rator_x_assum`RTC`kall_tac>>
+  rator_x_assum`RTC`kall_tac>>
+  fs[to_i2_invariant_def] >>
+  imp_res_tac LIST_REL_LENGTH >> fs[] >>
+  rator_x_assum`store_to_exh`mp_tac >>
+  simp[store_to_exh_csg_rel,csg_rel_unpair] >> strip_tac >>
+  rpt(rator_x_assum`csg_rel`mp_tac) >>
+  simp[csg_rel_unpair,map_count_store_genv_def] >>
+  rpt strip_tac >>
+  simp[LIST_REL_O,sv_rel_O,OPTREL_O,PULL_EXISTS] >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(can (match_term ``LIST_REL (OPTREL (v_to_exh X)) Y Z``)))) >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  fs[evaluate_whole_prog_i1_def] >>
+  qexists_tac`rd'` >>
+  qexists_tac`SND(FST s'')` >>
+  qexists_tac`SND s''` >>
+  CONV_TAC(lift_conjunct_conv(same_const``closed_vlabs`` o fst o strip_comb)) >>
+  conj_tac >- (
+    rator_x_assum `closed_vlabs`mp_tac >>
+    simp[closed_vlabs_def] >> strip_tac >> rw[] >>
+    match_mp_tac code_env_cd_append >>
+    conj_asm2_tac >- (
+      match_mp_tac code_env_cd_append >>
+      fs[FILTER_APPEND,ALL_DISTINCT_APPEND] >>
+      metis_tac[] ) >>
+    fs[good_labels_def] ) >>
+  CONV_TAC(lift_conjunct_conv(same_const``Cenv_bs`` o fst o strip_comb)) >>
+  conj_tac >- (
+    match_mp_tac Cenv_bs_imp_decsz >> simp[] >>
+    qexists_tac`Block 2 []` >>
+    match_mp_tac Cenv_bs_append_code >>
+    Q.PAT_ABBREV_TAC`bs1:bc_state = X Y` >>
+    qexists_tac`bs1 with code := bc0++c0'` >>
+    simp[Abbr`bs1`,bc_state_component_equality] >>
+    match_mp_tac Cenv_bs_with_irr >>
+    HINT_EXISTS_TAC >> simp[] ) >>
+  conj_tac >- tac7 >>
+  first_assum(mp_tac o MATCH_MP evaluate_prog_i1_closed) >> simp[] >>
+  disch_then match_mp_tac >>
   cheat)
 
 val _ = export_theory()
