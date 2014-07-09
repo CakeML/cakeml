@@ -409,6 +409,16 @@ val v_pat_syneq = store_thm("v_pat_syneq",
     ntac 2 gen_tac >>
     Cases >> Cases >> simp[bind_pat_def,syneq_cb_V_def,ADD1] >>
     simp[env_pat_def] ) >>
+  reverse conj_tac >- (
+    rw[] >>
+    simp[Once syneq_cases] >>
+    simp[EVERY2_MAP] >>
+    match_mp_tac EVERY2_MEM_MONO >>
+    HINT_EXISTS_TAC >>
+    imp_res_tac EVERY2_LENGTH >>
+    simp[UNCURRY,MEM_ZIP,PULL_EXISTS] >>
+    rw[] >> first_x_assum match_mp_tac >>
+    fs[EVERY_MEM] >> metis_tac[MEM_EL]) >>
   rw[] >>
   simp[Once syneq_cases] >>
   ntac 2 (pop_assum mp_tac) >>
@@ -920,7 +930,8 @@ val FOLDL_cce_aux_thm = store_thm("FOLDL_cce_aux_thm",
      EVERY (λn. MEM n (MAP (FST o FST) c) ∨ between s.next_label s'.next_label n)
        (MAP dest_Label (FILTER is_Label code)) ∧
      (EVERY all_labs (MAP (SND o SND) c) ⇒ ∀l. uses_label code l ⇒
-       MEM (Label l) code ∨ MEM l (MAP (FST o FST o SND) (FLAT (MAP (λ(p,p3,p4). free_labs (LENGTH (FST(SND p))) p4) c)))) ∧
+       l = VfromListLab ∨ MEM (Label l) code ∨
+       MEM l (MAP (FST o FST o SND) (FLAT (MAP (λ(p,p3,p4). free_labs (LENGTH (FST(SND p))) p4) c)))) ∧
      (∀l. MEM l (MAP (FST o FST) c) ⇒ MEM (Label l) code) ∧
      ∃cs.
      ∀i. i < LENGTH c ⇒ let ((l,ccenv,ce),(az,body)) = EL i c in
@@ -1000,7 +1011,7 @@ val compile_code_env_thm = store_thm("compile_code_env_thm",
       EVERY (λn. MEM n (MAP (FST o FST o SND) (free_labs ez e)) ∨ between s.next_label s'.next_label n)
         (MAP dest_Label (FILTER is_Label code)) ∧
       (EVERY all_labs (MAP (SND o SND o SND) (free_labs ez e)) ⇒
-       ∀l. uses_label code l ⇒ MEM (Label l) code ∨
+       ∀l. uses_label code l ⇒ MEM (Label l) code ∨ l = VfromListLab ∨
          MEM l (MAP (FST o FST o SND)
            (FLAT (MAP (λ(p,p3,p4). free_labs (LENGTH (FST (SND p))) p4) (MAP SND (free_labs ez e)))))) ∧
       (∀l. MEM l (MAP (FST o FST o SND) (free_labs ez e)) ⇒ MEM (Label l) code) ∧
