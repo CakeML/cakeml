@@ -9,6 +9,7 @@ open modLangTheory;
 open conLangTheory;
 open modLangProofTheory;
 open evalPropsTheory;
+open terminationTheory;
 open compilerTerminationTheory;
 open miscLib;
 
