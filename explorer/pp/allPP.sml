@@ -139,12 +139,16 @@ fun allIntermediates prog =
 
       val _ = with_flag (quiet,true) add_code_labels_ok_thm code_labels_ok_thm
 
-      val rem_labels = with_flag (quiet,true) eval ``remove_labels_all_asts (Success ^(p7))``
+      val rem_labels = with_flag (quiet,true) eval ``remove_labels_all_asts (\x.0) (Success ^(p7))``
 
+      (*Remove labels for bytecode*)
       val p8 = rhsThm rem_labels |> rand
 
+      (*Remove labels for asm*)
+      val rem_labels = with_flag (quiet,true) eval ``remove_labels_all_asts real_inst_length (Success ^(p7))``
+
       (*Bytecode to asm*)
-      val asm = eval ``x64_code 0 ^(p8)``
+      val asm = eval ``x64_code 0 ^(rhsThm rem_labels |> rand)``
       val p9 = rhsThm asm
 
       val p8 = rhsThm (eval ``(NONE,^(p8))``)
