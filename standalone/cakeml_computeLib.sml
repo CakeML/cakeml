@@ -113,6 +113,7 @@ val () = computeLib.add_thms
   ,conLangTheory.nil_tag_def
   ,conLangTheory.some_tag_def
   ,conLangTheory.none_tag_def
+  ,conLangTheory.subscript_tag_def
   ] compset
 val () = add_datatype ``:MMLnonT``
 val () = add_datatype ``:top``

@@ -8,11 +8,12 @@ fun i2_initglobalPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
     val (str,brk,blk,sty) = (#add_string ppfns, #add_break ppfns,#ublock ppfns,#ustyle ppfns);
     val (t,x) = dest_comb t
     val num = rand (rand t)
+    val [x] = #1(listSyntax.dest_list x) (*Assume singleton list for arg to init global as well...*)
   in
     sty [FG DarkBlue] (str"g" >> sys (Top,Top,Top) d num) >>str " := " >> blk CONSISTENT 0 (sys (Top,Top,Top) (d-1) x)
   end handle HOL_ERR _ => raise term_pp_types.UserPP_Failed;
 
-val _=temp_add_user_printer("i2_initglobal",``Uapp_i2 (Init_global_var_i2 n) x``,i2_initglobalPrint);
+val _=temp_add_user_printer("i2_initglobal",``App_i2 (Init_global_var_i2 n) x``,i2_initglobalPrint);
 
 (*i2_extend_global creates n top level decls*)
 fun i2_extendglobalPrint sys d t pg str brk blk =
@@ -89,7 +90,7 @@ fun i2_pconPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
 
 val _=temp_add_user_printer ("i2_conprint", ``Con_i2 x y``,i2_pconPrint);
 val _=temp_add_user_printer ("i2_pconprint", ``Pcon_i2 x y``,i2_pconPrint);
-
+(*TODO: Add special cases for built in CTORS?*)
 
 (*val _=temp_add_user_printer ("i2_conprint", ``Con_i2 x y``,genPrint i2_pconPrint);
 val _=temp_add_user_printer ("i2_pconprint", ``Pcon_i2 x y``,genPrint i2_pconPrint);*)
@@ -109,7 +110,7 @@ val _=temp_add_user_printer ("i2_varglobalprint", ``Var_global_i2 n``,i1_varglob
 val _=temp_add_user_printer ("i2_matprint", ``Mat_i2 x y``,genPrint matPrint);
 
 (*i2_Apply*)
-val _=temp_add_user_printer ("i2_oppappprint", ``App_i2 Opapp f x``, genPrint oppappPrint);
+val _=temp_add_user_printer ("i2_oppappprint", ``App_i2 (Op_i2 Opapp) ls``, genPrint oppappPrint);
 
 (*i2_raise expr*) 
 val _=temp_add_user_printer ("i2_raiseprint", ``Raise_i2 x``,genPrint raisePrint);
@@ -124,22 +125,22 @@ val _=temp_add_user_printer("i2_truelitprint",``Lit_i2 (Bool T)``,genPrint (bool
 val _=temp_add_user_printer("i2_falselitprint",``Lit_i2 (Bool F)``,genPrint (boolPrint "false"));
 
 (*i2 binops*)
-val _=temp_add_user_printer ("i2_assignappprint", ``App_i2 Opapp (Var_global_i2 3) x``,genPrint (infixappPrint ":=")); 
-val _=temp_add_user_printer ("i2_eqappprint", ``App_i2 Opapp (Var_global_i2 4) x``,genPrint (infixappPrint "=")); 
-val _=temp_add_user_printer ("i2_gteqappprint", ``App_i2 Opapp (Var_global_i2 5) x``,genPrint (infixappPrint ">=")); 
-val _=temp_add_user_printer ("i2_lteqappprint", ``App_i2 Opapp  (Var_global_i2 6) x``,genPrint (infixappPrint "<=")); 
-val _=temp_add_user_printer ("i2_gtappprint", ``App_i2 Opapp (Var_global_i2 7) x``,genPrint (infixappPrint ">")); 
-val _=temp_add_user_printer ("i2_ltappprint", ``App_i2 Opapp (Var_global_i2 8) x``,genPrint (infixappPrint "<")); 
-val _=temp_add_user_printer ("i2_modappprint", ``App_i2 Opapp (Var_global_i2 9) x``,genPrint (infixappPrint "mod")); 
-val _=temp_add_user_printer ("i2_divappprint", ``App_i2 Opapp (Var_global_i2 10) x``,genPrint (infixappPrint "div")); 
-val _=temp_add_user_printer ("i2_timesappprint", ``App_i2 Opapp (Var_global_i2 11) x``,genPrint (infixappPrint "*")); 
-val _=temp_add_user_printer ("i2_minusappprint", ``App_i2 Opapp (Var_global_i2 12) x``,genPrint (infixappPrint "-")); 
-val _=temp_add_user_printer ("i2_addappprint", ``App_i2 Opapp (Var_global_i2 13) x``,genPrint (infixappPrint "+"));
- 
+val _=temp_add_user_printer ("i2_assignappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 3; x]``,genPrint (infixappPrint ":=")); 
+val _=temp_add_user_printer ("i2_eqappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 4; x]``,genPrint (infixappPrint "=")); 
+val _=temp_add_user_printer ("i2_gteqappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 5; x]``,genPrint (infixappPrint ">=")); 
+val _=temp_add_user_printer ("i2_lteqappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 6; x]``,genPrint (infixappPrint "<=")); 
+val _=temp_add_user_printer ("i2_gtappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 7; x]``,genPrint (infixappPrint ">")); 
+val _=temp_add_user_printer ("i2_ltappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 8; x]``,genPrint (infixappPrint "<")); 
+val _=temp_add_user_printer ("i2_modappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 9; x]``,genPrint (infixappPrint "mod")); 
+val _=temp_add_user_printer ("i2_divappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 10; x]``,genPrint (infixappPrint "div")); 
+val _=temp_add_user_printer ("i2_timesappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 11; x]``,genPrint (infixappPrint "*")); 
+val _=temp_add_user_printer ("i2_minusappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 12; x]``,genPrint (infixappPrint "-")); 
+val _=temp_add_user_printer ("i2_addappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 13; x]``,genPrint (infixappPrint "+")); 
+
 (*i2 uops*)
-val _=temp_add_user_printer ("i2_refappprint", ``App_i2 Opapp (Var_global_i2 0) x``,genPrint (prefixappPrint "ref")); 
-val _=temp_add_user_printer ("i2_derefappprint", ``App_i2 Opapp (Var_global_i2 1) x``,genPrint (prefixappPrint "!"));
-val _=temp_add_user_printer ("i2_negappprint", ``App_i2 Opapp (Var_global_i2 2) x``,genPrint (prefixappPrint "~"));
+val _=temp_add_user_printer ("i2_refappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 0; x]``,genPrint (prefixappPrint "ref")); 
+val _=temp_add_user_printer ("i2_derefappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 1;x]``,genPrint (prefixappPrint "!"));
+val _=temp_add_user_printer ("i2_negappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 2; x]``,genPrint (prefixappPrint "~"));
 
 (*i2 list form*)
 val _=temp_add_user_printer("i2listprint",``x:prompt_i2 store``,genPrint astlistPrint);
