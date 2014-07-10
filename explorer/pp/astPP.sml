@@ -6,7 +6,6 @@ open Portable smpp term_pp_types
 open x64DisassembleLib
 (*x64DisassembleLib.sig is missing include Abbrev*)
 
-
 fun strip t = #2 (dest_comb t);
 fun toString s = stringSyntax.fromHOLstring s;
 
@@ -555,7 +554,6 @@ fun ubclistPrint sys d t pg str brk blk =
 val _=temp_add_user_printer("ubclistprint",``(NONE ,(y:bc_inst list))``,genPrint ubclistPrint);
 
 (*ASM*)
-(*
 fun asmPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
   let
     open term_pp_types PPBackEnd
@@ -567,11 +565,11 @@ fun asmPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
     fun printAsm [] = str""
     |   printAsm (x::xs) = case x of (hex,dis) => 
           (sty [FG DarkGrey] (str hex))>> pad (maxlen - size hex) >>str dis>>str"\n">>printAsm xs
-    fun print [] = str""
-    |   print (x::xs) = case x of (hex,dis) => str hex>>str" ">>print xs
+    (*Hex dump*)
+    (*fun print [] = str""
+    |   print (x::xs) = case x of (hex,dis) => str hex>>str" ">>print xs*)
   in
-    print ls
+    printAsm ls
   end;
-val _=temp_add_user_printer("asmlistprint",``x:word8 store``,asmPrint);
-*)
+val _=temp_add_user_printer("asmlistprint",``x:word8 list``,asmPrint);
 end;

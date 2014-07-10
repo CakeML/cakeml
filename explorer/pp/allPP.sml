@@ -148,16 +148,15 @@ fun allIntermediates prog =
       val rem_labels = with_flag (quiet,true) eval ``remove_labels_all_asts real_inst_length (Success ^(p7))``
 
       (*Bytecode to asm*)
-      (*val asm = eval ``x64_code 0 ^(rhsThm rem_labels |> rand)``
-      val p9 = rhsThm asm*)
+      val asm = eval ``x64_code 0 ^(rhsThm rem_labels |> rand)``
+      val p9 = rhsThm asm
 
       val p8 = rhsThm (eval ``(NONE,^(p8))``)
 
       val p7 = rhsThm (eval ``(SOME x,^(p7))``)
       
   in
-     {ils=[ast,p1,p2,p3,p4,p5,p6,p7,p8],
-     (*{ils=[ast,p1,p2,p3,p4,p5,p6,p7,p8,p9],*)
+     {ils=[ast,p1,p2,p3,p4,p5,p6,p7,p8,p9],
       ctors=ctors,globMap=globMap,modMap=modMap,annotations=(!collectAnnotations)}
   end;
 end
