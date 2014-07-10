@@ -248,6 +248,14 @@ val bvl_to_bvp_lemma = prove(
     ((bvl_to_bvp s t).space = t.space)``,
   fs [bvl_to_bvp_def]);
 
+val IMP_sptree_eq = prove(
+  ``wf x /\ wf y /\ (!a. lookup a x = lookup a y) ==> (x = y)``,
+  METIS_TAC [spt_eq_thm]);
+
+val mk_wf_inter = prove(
+  ``!t1 t2. inter t1 t2 = mk_wf (inter t1 t2)``,
+  fs []);
+
 val pEval_pSpaceOpt = prove(
   ``!c s res s2 vars l.
       res <> SOME Error /\ (pEval (c,s) = (res,s2)) /\
@@ -406,7 +414,7 @@ val pEval_pSpaceOpt = prove(
         \\ fs [bvp_state_explode] \\ SRW_TAC [] []
         \\ fs [domain_insert] \\ RES_TAC \\ NO_TAC) \\ fs []
       \\ `get_vars l'
-           (s with <|locals := mk_wf (inter l (list_insert l' (delete n y1)));
+           (s with <|locals := (inter l (list_insert l' (delete n y1)));
                      space := s.space + y0|>) = get_vars l' (s with locals := l)`
            by (MATCH_MP_TAC EVERY_get_vars
                \\ fs [EVERY_MEM,lookup_inter_alt,domain_list_insert]) \\ fs []
@@ -424,11 +432,11 @@ val pEval_pSpaceOpt = prove(
       \\ `s.space + y0 - op_space_req b =
           s.space - op_space_req b + y0` by DECIDE_TAC \\ fs []
       \\ Q.ABBREV_TAC `s7 = bvl_to_bvp r
-            (s with <|locals := mk_wf (inter w y1);
+            (s with <|locals := (inter w y1);
                        space := s.space - op_space_req b + y0|>)`
       \\ Q.ABBREV_TAC `s8 = bvl_to_bvp r
             (s with <|locals :=
-               mk_wf (insert n q (inter l (list_insert l' (delete n y1))));
+               (insert n q (inter l (list_insert l' (delete n y1))));
                  space := s.space - op_space_req b + y0|>)`
       \\ `s8 = s7 with locals := s8.locals` by
            (UNABBREV_ALL_TAC \\ fs [bvl_to_bvp_def] \\ NO_TAC)
@@ -470,7 +478,10 @@ val pEval_pSpaceOpt = prove(
         \\ fs [lookup_insert,lookup_inter_alt,lookup_delete]
         THEN1 (fs [get_var_def,domain_lookup])
         THEN1 (fs [SUBSET_DEF] \\ METIS_TAC [])
-        \\ Cases_on `x' = n0` THEN1 (fs [get_var_def]) \\ fs []
+        \\ MATCH_MP_TAC IMP_sptree_eq \\ fs [wf_insert,wf_delete]
+        \\ fs [lookup_insert,lookup_inter_alt,lookup_delete]
+        \\ REPEAT STRIP_TAC
+        \\ Cases_on `a = n0` THEN1 (fs [get_var_def]) \\ fs []
         \\ SRW_TAC [] [] \\ fs []) \\ fs []
       \\ SIMP_TAC (srw_ss()) [get_var_def]
       \\ Q.ABBREV_TAC `s4 = s with <|locals := x'; space := s.space + y0|>`
@@ -485,12 +496,18 @@ val pEval_pSpaceOpt = prove(
         \\ fs [lookup_insert,lookup_inter_alt,lookup_delete]
         \\ REPEAT STRIP_TAC \\ Cases_on `v=n` \\ fs []
         \\ Cases_on `v=n0` \\ fs []
+        \\ Q.PAT_ASSUM `inter xx tt = yy` MP_TAC
+        \\ ONCE_REWRITE_TAC [mk_wf_inter]
+        \\ SIMP_TAC std_ss [delete_mk_wf,insert_mk_wf]
+        \\ SIMP_TAC std_ss [mk_wf_eq]
+        \\ fs [lookup_insert,lookup_inter_alt,lookup_delete]
+        \\ REPEAT STRIP_TAC
         \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `n0`) \\ fs [])
-       \\ MP_TAC (Q.SPECL [`y2`,`s4`] pEval_locals)
-       \\ fs [] \\ REPEAT STRIP_TAC \\ RES_TAC \\ fs []
-       \\ Cases_on `res` \\ fs []
-       \\ fs [bvp_state_explode] \\ SRW_TAC [] []
-       \\ METIS_TAC [locals_ok_def])
+      \\ MP_TAC (Q.SPECL [`y2`,`s4`] pEval_locals)
+      \\ fs [] \\ REPEAT STRIP_TAC \\ RES_TAC \\ fs []
+      \\ Cases_on `res` \\ fs []
+      \\ fs [bvp_state_explode] \\ SRW_TAC [] []
+      \\ METIS_TAC [locals_ok_def])
     THEN1 (* Skip *)
      (fs [pMakeSpace_def,pSpace_def]
       \\ SIMP_TAC std_ss [Once pEval_def,LET_DEF]

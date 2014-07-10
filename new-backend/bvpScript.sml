@@ -61,12 +61,19 @@ val _ = Datatype `
      ; output  : string
      ; space   : num |> `
 
+
+val spt_set_def = Define `
+  (spt_set f LN = LN) /\
+  (spt_set f (LS x) = LS (f x)) /\
+  (spt_set f (BN t1 t2) = BN (spt_set f t1) (spt_set f t2)) /\
+  (spt_set f (BS t1 x t2) = BS (spt_set f t1) (f x) (spt_set f t2))`;
+
 val bvp_to_bvl_def = Define `
   (bvp_to_bvl:bvp_state->bvl_state) s =
     <| globals := s.globals
      ; refs := s.refs
      ; clock := s.clock
-     ; code := LN
+     ; code := spt_set ARB s.code
      ; output := s.output |>`;
 
 val bvl_to_bvp_def = Define `
@@ -311,7 +318,7 @@ val pEvalOp_clock = store_thm("pEvalOp_clock",
   SIMP_TAC std_ss [pEvalOp_def,pEvalOpSpace_def,consume_space_def]
   \\ REPEAT BasicProvers.FULL_CASE_TAC
   \\ FULL_SIMP_TAC std_ss []
-  \\ IMP_RES_TAC bEvalOp_clock
+  \\ IMP_RES_TAC bEvalOp_const
   \\ FULL_SIMP_TAC (srw_ss()) [bvp_to_bvl_def]
   \\ Q.SPEC_TAC (`s2`,`s2`)
   \\ FULL_SIMP_TAC (srw_ss()) [bvl_to_bvp_def]);

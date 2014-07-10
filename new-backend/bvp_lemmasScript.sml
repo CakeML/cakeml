@@ -73,8 +73,11 @@ local
                (get_vars args s = get_vars args t)``,
     Induct \\ fs [get_vars_def,get_var_def])
   val get_vars_with_stack_rwt = prove(
-    ``(get_vars args (s with stack := xs) = get_vars args s)``,
-    MATCH_MP_TAC get_vars_with_stack \\ fs [])
+    ``(get_vars args (s with stack := xs) = get_vars args s) /\
+      (get_vars args (s with <| locals := l ; stack := xs |>) =
+       get_vars args (s with <| locals := l |>))``,
+    REPEAT STRIP_TAC
+    \\ MATCH_MP_TAC get_vars_with_stack \\ fs [])
   val tac =
     fs [pEval_def]
     \\ REPEAT (BasicProvers.FULL_CASE_TAC
@@ -83,7 +86,7 @@ local
                  bvl_to_bvp_def,cut_state_def,cut_env_def,dec_clock_def,
                  jump_exc_def,get_var_def,push_exc_def,push_env_def,set_var_def,
                  get_vars_with_stack_rwt])
-    \\ SRW_TAC [] []
+    \\ SRW_TAC [] [] \\ fs [bvp_to_bvl_def]
 in
   val pEval_stack_swap = store_thm("pEval_stack_swap",
     ``!c s.
@@ -108,14 +111,7 @@ in
                               pEval (c,s with stack := xs) =
                                 (res, s1 with stack := xs))``,
     recInduct pEval_ind \\ REPEAT STRIP_TAC
-    THEN1 tac THEN1 tac
-    THEN1 (* Assign *)
-     (tac \\ fs [bvp_to_bvl_def]
-      \\ Q.MATCH_ASSUM_RENAME_TAC
-           `get_vars args (s with locals := mk_wf (inter s.locals x2)) = SOME vs` []
-      \\ `get_vars args (s with <|locals := mk_wf (inter s.locals x2); stack := xs|>) =
-          get_vars args (s with locals := mk_wf (inter s.locals x2))` by
-            (MATCH_MP_TAC get_vars_with_stack \\ fs [] \\ NO_TAC) \\ fs [])
+    THEN1 tac THEN1 tac THEN1 tac
     THEN1 tac THEN1 tac THEN1 (tac \\ tac) THEN1 tac
     THEN1 (* Seq *)
      (fs [pEval_def]

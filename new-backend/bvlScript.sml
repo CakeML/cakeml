@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib; val _ = new_theory "bvl";
 
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
-open bytecodeTheory sptreeTheory;
+open bytecodeTheory sptreeTheory lcsymtacs;
 
 infix \\ val op \\ = op THEN;
 
@@ -30,15 +30,25 @@ val _ = type_abbrev("num_set",``:unit spt``);
    and binding perspective are lumped together in bvl_op. *)
 
 val _ = Datatype `
-  bvl_op = Global num
-         | Cons num
-         | El num
-         | Add
-         | Sub
-         (* This list is incomplete *)
-         | Ref
-         | Deref
-         | Update `
+  bvl_op = Global num   (* load global var with index *)
+         | Cons num     (* construct a Block with given tag *)
+         | El num       (* read Block field index *)
+         | Const int    (* integer *)
+         | TagEq num    (* check whether Block's tag is eq *)
+         | IsBlock      (* is it a Block value? *)
+         | Equal        (* structural equality *)
+         | Ref          (* makes a reference *)
+         | Deref        (* loads a value from a reference *)
+         | Update       (* updates a reference *)
+         | Label num    (* constructs a CodePtr *)
+         | Print        (* prints a value *)
+         | PrintC char  (* prints a character *)
+         | Add          (* + over the integers *)
+         | Sub          (* - over the integers *)
+         | Mult         (* * over the integers *)
+         | Div          (* div over the integers *)
+         | Mod          (* mod over the integers *)
+         | Less         (* < over the integers *) `
 
 (* There are only a handful of "interesting" operations. *)
 
@@ -83,9 +93,48 @@ val bEvalOp_def = Define `
     | (Global n,[]) => (case lookup n s.globals of
                         | SOME v => SOME (v,s)
                         | NONE => NONE)
+    | (Const i,xs) => SOME (Number i, s)
+    | (Cons tag,xs) => SOME (Block tag xs, s)
+    | (El n,[Block tag xs]) =>
+        if n < LENGTH xs then SOME (EL n xs, s) else NONE
+    | (TagEq n,[Block tag xs]) =>
+        SOME (bool_to_val (tag = n),s)
+    | (Equal,[x1;x2]) =>
+        (case bc_equal x1 x2 of
+         | Eq_val b => SOME (bool_to_val b, s)
+         | Eq_closure => SOME (Number 0, s)
+         | _ => NONE)
+    | (IsBlock,[Number i]) => SOME (bool_to_val F, s)
+    | (IsBlock,[RefPtr ptr]) => SOME (bool_to_val F, s)
+    | (IsBlock,[Block tag ys]) => SOME (bool_to_val T, s)
+    | (Ref,[x]) =>
+        let ptr = (LEAST ptr. ~(ptr IN domain s.refs)) in
+          SOME (RefPtr ptr, s with refs := insert ptr x s.refs)
+    | (Deref,[RefPtr ptr]) =>
+        (case lookup ptr s.refs of
+         | NONE => NONE
+         | SOME x => SOME (x, s))
+    | (Update,[RefPtr ptr; x]) =>
+        if ptr IN domain s.refs then
+          SOME (x, s with refs := insert ptr x s.refs)
+        else NONE
+    | (Label n,[]) =>
+        if n IN domain s.code then SOME (CodePtr n, s) else NONE
+    | (Print, [x]) =>
+        (case bv_to_string x of
+         | SOME str => SOME (x, s with output := s.output ++ str)
+         | NONE => NONE)
+    | (PrintC c, []) =>
+          SOME (Number 0, s with output := s.output ++ [c])
     | (Add,[Number n1; Number n2]) => SOME (Number (n1 + n2),s)
     | (Sub,[Number n1; Number n2]) => SOME (Number (n1 - n2),s)
-    (* This definition is incomplete *)
+    | (Mult,[Number n1; Number n2]) => SOME (Number (n1 * n2),s)
+    | (Div,[Number n1; Number n2]) =>
+         if n2 = 0 then NONE else SOME (Number (n1 / n2),s)
+    | (Mod,[Number n1; Number n2]) =>
+         if n2 = 0 then NONE else SOME (Number (n1 % n2),s)
+    | (Less,[Number n1; Number n2]) =>
+         SOME (bool_to_val (n1 < n2),s)
     | _ => NONE`;
 
 val dec_clock_def = Define `
@@ -196,14 +245,16 @@ val check_clock_IMP = prove(
   ``n <= (check_clock r s).clock ==> n <= s.clock``,
   SRW_TAC [] [check_clock_def] \\ DECIDE_TAC);
 
-val bEvalOp_clock = store_thm("bEvalOp_clock",
-  ``(bEvalOp op args s1 = SOME (res,s2)) ==> s2.clock <= s1.clock``,
+val bEvalOp_const = store_thm("bEvalOp_const",
+  ``(bEvalOp op args s1 = SOME (res,s2)) ==>
+    (s2.clock = s1.clock) /\ (s2.code = s1.code)``,
   SIMP_TAC std_ss [bEvalOp_def]
   \\ REPEAT BasicProvers.FULL_CASE_TAC
-  \\ FULL_SIMP_TAC std_ss []);
+  \\ fs [LET_DEF] \\ SRW_TAC [] [] \\ fs []);
 
 val bEval_clock = store_thm("bEval_clock",
-  ``!xs env s1 vs s2. (bEval (xs,env,s1) = (vs,s2)) ==> s2.clock <= s1.clock``,
+  ``!xs env s1 vs s2.
+      (bEval (xs,env,s1) = (vs,s2)) ==> s2.clock <= s1.clock``,
   recInduct (fetch "-" "bEval_ind") \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [bEval_def]
   \\ FULL_SIMP_TAC std_ss [] \\ REPEAT BasicProvers.FULL_CASE_TAC
@@ -211,13 +262,14 @@ val bEval_clock = store_thm("bEval_clock",
   \\ RES_TAC \\ IMP_RES_TAC check_clock_IMP
   \\ FULL_SIMP_TAC std_ss [PULL_FORALL] \\ RES_TAC
   \\ IMP_RES_TAC check_clock_IMP
-  \\ IMP_RES_TAC bEvalOp_clock
+  \\ IMP_RES_TAC bEvalOp_const
   \\ FULL_SIMP_TAC (srw_ss()) [dec_clock_def] \\ TRY DECIDE_TAC
   \\ POP_ASSUM MP_TAC \\ REPEAT (POP_ASSUM (K ALL_TAC))
   \\ SRW_TAC [] [check_clock_def] \\ DECIDE_TAC);
 
 val bEval_check_clock = prove(
-  ``!xs env s1 vs s2. (bEval (xs,env,s1) = (vs,s2)) ==> (check_clock s2 s1 = s2)``,
+  ``!xs env s1 vs s2.
+      (bEval (xs,env,s1) = (vs,s2)) ==> (check_clock s2 s1 = s2)``,
   METIS_TAC [bEval_clock,check_clock_thm]);
 
 (* Finally, we remove check_clock from the induction and definition theorems. *)

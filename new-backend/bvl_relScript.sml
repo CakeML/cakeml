@@ -187,12 +187,9 @@ val bEvalRel_code = store_thm("bEvalRel_code",
   ``!xs env s res s1.
       bEvalRel (xs,env,s) (res,s1) ==> (s1.code = s.code)``,
   HO_MATCH_MP_TAC bEvalRel_ind \\ SRW_TAC [] [dec_clock_def]
-  \\ SIMP_TAC std_ss [bEvalOp_def]
   \\ BasicProvers.FULL_CASE_TAC \\ FULL_SIMP_TAC (srw_ss()) []
   \\ BasicProvers.FULL_CASE_TAC \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ BasicProvers.FULL_CASE_TAC \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ REPEAT BasicProvers.FULL_CASE_TAC
-  \\ FULL_SIMP_TAC (srw_ss()) []);
+  \\ IMP_RES_TAC bEvalOp_const \\ FULL_SIMP_TAC (srw_ss()) []);
 
 (* Equivalence between functional and relation definitions *)
 

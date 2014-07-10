@@ -279,17 +279,22 @@ val get_vars_add_space = prove(
 
 val bEvalOp_code = prove(
   ``!op s1 s2. (bEvalOp op a s1 = SOME (x0,s2)) ==> (s2.code = s1.code)``,
-  Cases \\ REPEAT GEN_TAC \\ EVAL_TAC
-  \\ REPEAT (BasicProvers.FULL_CASE_TAC) \\ fs []);
+  METIS_TAC [bEvalOp_const]);
+
+val domain_spt_set = prove(
+  ``!t. domain (spt_set f t) = domain t``,
+  Induct \\ fs [spt_set_def,domain_def]);
 
 val bEvalOp_bvp_to_bvl = prove(
   ``(bEvalOp op a s1 = SOME (x0,s2)) /\ state_rel s1 t1 ==>
-    (bEvalOp op a (bvp_to_bvl t1) = SOME (x0,s2 with code := LN))``,
+    (bEvalOp op a (bvp_to_bvl t1) = SOME (x0,s2 with code := spt_set ARB t1.code))``,
   fs [bvp_to_bvl_def,state_rel_def]
   \\ Cases_on `op` \\ fs [bEvalOp_def]
   \\ REPEAT BasicProvers.CASE_TAC \\ fs []
-  \\ CCONTR_TAC \\ fs [] \\ SRW_TAC [] []
-  \\ fs [bvl_state_explode] \\ fs []);
+  \\ CCONTR_TAC \\ fs [LET_DEF] \\ SRW_TAC [] []
+  \\ fs [bvl_state_explode] \\ fs []
+  \\ POP_ASSUM MP_TAC \\ fs [domain_spt_set]
+  \\ fs [code_rel_def]);
 
 val lookup_list_to_num_set = prove(
   ``!xs. lookup x (list_to_num_set xs) = if MEM x xs then SOME () else NONE``,
