@@ -3,7 +3,7 @@ open lexer_funTheory repl_funTheory replTheory untypedSafetyTheory bytecodeClock
 open lexer_implTheory cmlParseTheory inferSoundTheory bigStepTheory elabTheory compilerProofTheory;
 open semanticPrimitivesTheory typeSystemTheory typeSoundTheory weakeningTheory evalPropsTheory typeSysPropsTheory terminationTheory;
 open initialEnvTheory interpTheory;
-open typeSoundInvariantsTheory inferTheory infer_tTheory free_varsTheory;
+open typeSoundInvariantsTheory inferTheory free_varsTheory;
 open bytecodeTheory repl_fun_altTheory repl_fun_alt_proofTheory;
 open gramPropsTheory pegSoundTheory pegCompleteTheory
 
@@ -14,9 +14,6 @@ val o_f_FUNION = store_thm("o_f_FUNION",
   ``f o_f (f1 ⊌ f2) = (f o_f f1) ⊌ (f o_f f2)``,
   simp[GSYM fmap_EQ_THM,FUNION_DEF] >>
   rw[o_f_FAPPLY]);
-
-val (inf_type_to_string_def,inf_type_to_string_ind) = Defn.tprove_no_defn((inf_type_to_string_def,inf_type_to_string_ind),
-(WF_REL_TAC `measure (\x. case x of INL x => infer_t_size x | INR x => infer_t1_size x)`));
 
 val type_env_list_rel = Q.prove (
 `!ctMap tenvS env tenv.

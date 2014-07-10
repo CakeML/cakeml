@@ -1,7 +1,7 @@
 open preamble;
 open rich_listTheory;
 open miscTheory;
-open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory infer_tTheory unifyTheory;
+open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
 open libPropsTheory astPropsTheory;
 open inferPropsTheory;
 open typeSysPropsTheory;
@@ -20,7 +20,7 @@ val convert_t_def = tDefine "convert_t" `
 (WF_REL_TAC `measure infer_t_size` >>
  rw [] >>
  induct_on `ts` >>
- rw [infer_t_size_def] >>
+ rw [infer_tTheory.infer_t_size_def] >>
  res_tac >>
  decide_tac);
 
@@ -64,6 +64,8 @@ rw [check_t_def, convert_t_def, infer_deBruijn_inc_def, deBruijn_inc_def] >>
 induct_on `ts` >>
 fs [] >>
 metis_tac []);
+
+val infer_t_induction = infer_tTheory.infer_t_induction;
 
 val db_subst_infer_subst_swap = Q.prove (
 `(!t s tvs uvar n.
