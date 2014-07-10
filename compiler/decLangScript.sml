@@ -39,14 +39,14 @@ val _ = new_theory "decLang"
  val _ = Define `
  (init_globals [] idx = (Lit_i2 Unit))
 /\ (init_globals (x::vars) idx =  
-(Let_i2 NONE (Uapp_i2 (Init_global_var_i2 idx) (Var_local_i2 x)) (init_globals vars (idx + 1))))`;
+(Let_i2 NONE (App_i2 (Init_global_var_i2 idx) [Var_local_i2 x]) (init_globals vars (idx + 1))))`;
 
 
 (*val init_global_funs : nat -> list (varN * varN * exp_i2) -> exp_i2*)
  val _ = Define `
  (init_global_funs next [] = (Lit_i2 Unit))
 /\ (init_global_funs next ((f,x,e)::funs) =  
-(Let_i2 NONE (Uapp_i2 (Init_global_var_i2 next) (Fun_i2 x e)) (init_global_funs (next+ 1) funs)))`;
+(Let_i2 NONE (App_i2 (Init_global_var_i2 next) [Fun_i2 x e]) (init_global_funs (next+ 1) funs)))`;
 
 
 (*val decs_to_i3 : nat -> list dec_i2 -> exp_i2*)
@@ -85,34 +85,29 @@ val _ = Define `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn prog_to_i3_defn;
 
-(*val do_uapp_i3 : store v_i2 * list (maybe v_i2) -> uop_i2 -> v_i2 -> maybe ((store v_i2 * list (maybe v_i2)) * v_i2)*)
+val _ = type_abbrev((*  'a *) "count_store_genv" , ``: 'a count_store # ( 'a option) list``);
+val _ = type_abbrev((*  'a *) "store_genv" , ``: 'a store # ( 'a option) list``);
+
+(*val do_app_i3 : count_store_genv v_i2 -> op_i2 -> list v_i2 -> maybe (count_store_genv v_i2 * result v_i2 v_i2)*)
 val _ = Define `
- (do_uapp_i3 (s,genv) uop v =  
-((case uop of
-      Opderef_i2 =>
-        (case v of
-            Loc_i2 n =>
-              (case store_lookup n s of
-                  SOME v => SOME ((s,genv),v)
-                | NONE => NONE
-              )
-          | _ => NONE
-        )
-    | Opref_i2 =>
-        let (s',n) = (store_alloc v s) in
-          SOME ((s',genv), Loc_i2 n)
-    | Init_global_var_i2 idx =>
+ (do_app_i3 ((count0,s),genv) op vs =  
+((case (op,vs) of
+      (Op_i2 op, vs) =>
+        (case do_app_i2 s (Op_i2 op) vs of
+            NONE => NONE
+          | SOME (s,r) => SOME (((count0,s),genv),r)
+        ) 
+    | (Init_global_var_i2 idx, [v]) =>
         if idx < LENGTH genv then
           (case EL idx genv of
-              NONE => SOME ((s, LUPDATE (SOME v) idx genv), Litv_i2 Unit)
+              NONE => SOME (((count0,s), LUPDATE (SOME v) idx genv), (Rval (Litv_i2 Unit)))
             | SOME x => NONE
           )
         else
           NONE
+    | _ => NONE
   )))`;
 
-
-val _ = type_abbrev((*  'a *) "count_store_genv" , ``: 'a count_store # ( 'a option) list``);
 
 val _ = type_abbrev( "all_env_i3" , ``: exh_ctors_env # (varN, v_i2) env``);
 
@@ -190,59 +185,46 @@ T
 ==>
 evaluate_i3 ck (exh,env) s (Fun_i2 n e) (s, Rval (Closure_i2 env n e)))
 
-/\ (! ck env uop e v v' s1 s2 count s3 genv2 genv3.
-(evaluate_i3 ck env s1 e (((count,s2),genv2), Rval v) /\
-(do_uapp_i3 (s2,genv2) uop v = SOME ((s3,genv3),v')))
+/\ (! ck exh genv env es vs env' e bv s1 s2 count genv'.
+(evaluate_list_i3 ck (exh,env) (s1,genv) es (((count,s2),genv'), Rval vs) /\
+(do_opapp_i2 vs = SOME (env', e)) /\
+(ck ==> ~ (count =( 0))) /\
+evaluate_i3 ck (exh,env') (((if ck then count -  1 else count),s2),genv') e bv)
 ==>
-evaluate_i3 ck env s1 (Uapp_i2 uop e) (((count,s3),genv3), Rval v'))
+evaluate_i3 ck (exh,env) (s1,genv) (App_i2 (Op_i2 Opapp) es) bv)
 
-/\ (! ck env uop e v s1 s2 count genv2.
-(evaluate_i3 ck env s1 e (((count,s2),genv2), Rval v) /\
-(do_uapp_i3 (s2,genv2) uop v = NONE))
-==>
-evaluate_i3 ck env s1 (Uapp_i2 uop e) (((count,s2),genv2), Rerr Rtype_error))
-
-/\ (! ck env uop e err s s'.
-(evaluate_i3 ck env s e (s', Rerr err))
-==>
-evaluate_i3 ck env s (Uapp_i2 uop e) (s', Rerr err))
-
-/\ (! ck exh env op e1 e2 v1 v2 env' e3 bv s1 s2 s3 count s4 genv3.
-(evaluate_i3 ck (exh,env) s1 e1 (s2, Rval v1) /\
-evaluate_i3 ck (exh,env) s2 e2 (((count,s3),genv3), Rval v2) /\
-(do_app_i2 env s3 op v1 v2 = SOME (env', s4, e3)) /\
-((ck /\ (op = Opapp)) ==> ~ (count =( 0))) /\
-evaluate_i3 ck (exh,env') (((if ck then dec_count op count else count),s4),genv3) e3 bv)
-==>
-evaluate_i3 ck (exh,env) s1 (App_i2 op e1 e2) bv)
-
-/\ (! ck exh env op e1 e2 v1 v2 env' e3 s1 s2 s3 count s4 genv3.
-(evaluate_i3 ck (exh,env) s1 e1 (s2, Rval v1) /\
-evaluate_i3 ck (exh,env) s2 e2 (((count,s3),genv3), Rval v2) /\
-(do_app_i2 env s3 op v1 v2 = SOME (env', s4, e3)) /\
+/\ (! ck env es vs env' e s1 s2 count genv.
+(evaluate_list_i3 ck env s1 es (((count,s2), genv), Rval vs) /\
+(do_opapp_i2 vs = SOME (env', e)) /\
 (count = 0) /\
-(op = Opapp) /\
 ck)
 ==>
-evaluate_i3 ck (exh,env) s1 (App_i2 op e1 e2) ((( 0,s4),genv3),Rerr Rtimeout_error))
+evaluate_i3 ck env s1 (App_i2 (Op_i2 Opapp) es) ((( 0,s2),genv), Rerr Rtimeout_error))
 
-/\ (! ck exh env op e1 e2 v1 v2 s1 s2 s3 count genv3.
-(evaluate_i3 ck (exh,env) s1 e1 (s2, Rval v1) /\
-evaluate_i3 ck (exh,env) s2 e2 (((count,s3),genv3),Rval v2) /\
-(do_app_i2 env s3 op v1 v2 = NONE))
+/\ (! ck env es vs s1 s2.
+(evaluate_list_i3 ck env s1 es (s2, Rval vs) /\
+(do_opapp_i2 vs = NONE))
 ==>
-evaluate_i3 ck (exh,env) s1 (App_i2 op e1 e2) (((count,s3),genv3), Rerr Rtype_error))
+evaluate_i3 ck env s1 (App_i2 (Op_i2 Opapp) es) (s2, Rerr Rtype_error))
 
-/\ (! ck env op e1 e2 v1 err s1 s2 s3.
-(evaluate_i3 ck env s1 e1 (s2, Rval v1) /\
-evaluate_i3 ck env s2 e2 (s3, Rerr err))
+/\ (! ck env s1 op es s2 vs s3 res.
+(evaluate_list_i3 ck env s1 es (s2, Rval vs) /\
+(do_app_i3 s2 op vs = SOME (s3, res)) /\
+(op <> Op_i2 Opapp))
 ==>
-evaluate_i3 ck env s1 (App_i2 op e1 e2) (s3, Rerr err))
+evaluate_i3 ck env s1 (App_i2 op es) (s3, res))
 
-/\ (! ck env op e1 e2 err s s'.
-(evaluate_i3 ck env s e1 (s', Rerr err))
+/\ (! ck env s1 op es s2 vs.
+(evaluate_list_i3 ck env s1 es (s2, Rval vs) /\
+(do_app_i3 s2 op vs = NONE) /\
+(op <> Op_i2 Opapp))
 ==>
-evaluate_i3 ck env s (App_i2 op e1 e2) (s', Rerr err))
+evaluate_i3 ck env s1 (App_i2 op es) (s2, Rerr Rtype_error))
+
+/\ (! ck env s1 op es s2 err.
+(evaluate_list_i3 ck env s1 es (s2, Rerr err))
+==>
+evaluate_i3 ck env s1 (App_i2 op es) (s2, Rerr err))
 
 /\ (! ck env e1 e2 e3 v e' bv s1 s2.
 (evaluate_i3 ck env s1 e1 (s2, Rval v) /\

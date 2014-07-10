@@ -18,13 +18,6 @@ val LUPDATE_SAME = store_thm("LUPDATE_SAME",
   ``∀n ls. n < LENGTH ls ⇒ (LUPDATE (EL n ls) n ls = ls)``,
   rw[LIST_EQ_REWRITE,EL_LUPDATE]>>rw[])
 
-val vs_to_i1_MAP = store_thm("vs_to_i1_MAP",
-  ``∀x l1 l2. vs_to_i1 x l1 l2 ⇔ LIST_REL (v_to_i1 x) l1 l2``,
-  gen_tac >> Induct >> simp[Once modLangProofTheory.v_to_i1_cases])
-val vs_to_i2_MAP = store_thm("vs_to_i2_MAP",
-  ``∀x l1 l2. vs_to_i2 x l1 l2 ⇔ LIST_REL (v_to_i2 x) l1 l2``,
-  gen_tac >> Induct >> simp[Once conLangProofTheory.v_to_i2_cases])
-
 (* REPL module is closed (should be proved elsewhere?) *)
 
 val all_env_dom_init =
@@ -54,7 +47,10 @@ val EqualityType4 = prove(
 val EqualityType5 = prove(
   ``EqualityType AST_EXP_TYPE``,
   cheat)
-val EqualityTypes = [EqualityType1, EqualityType2, EqualityType3, EqualityType4, EqualityType5]
+val EqualityType6 = prove(
+  ``EqualityType INFER_T_INFER_T_TYPE``,
+  cheat)
+val EqualityTypes = [EqualityType1, EqualityType2, EqualityType3, EqualityType4, EqualityType5, EqualityType6]
 (* see also cheated EqualityType_INPUT_TYPE later on *)
 
 val EqualityType_thm = prove(
@@ -183,27 +179,6 @@ val LIST_TYPE_LEXER_FUN_SYMBOL_TYPE_vlabs = prove(
 
 (* lemmas about the semantics of a module where we know the last few declarations *)
 
-val evaluate_store_acc = store_thm("evaluate_store_acc",
-  ``(∀ck env s e res. evaluate ck env s e res ⇒ SND s ≼ SND(FST res)) ∧
-    (∀ck env s e res. evaluate_list ck env s e res ⇒ SND s ≼ SND (FST res)) ∧
-    (∀ck env s e f g res. evaluate_match ck env s e f g res ⇒ SND s ≼ SND (FST res))``,
-  ho_match_mp_tac evaluate_ind >> rw[] >>
-  cheat)
-  (*TRY(metis_tac[rich_listTheory.IS_PREFIX_TRANS])*)
-
-val evaluate_dec_store_acc = store_thm("evaluate_dec_store_acc",
-  ``∀ck mn env s d res. evaluate_dec ck mn env s d res ⇒
-      SND(FST s) ≼ SND(FST(FST res))``,
-  ho_match_mp_tac evaluate_dec_ind >> rw[]>>
-  imp_res_tac evaluate_store_acc >> fs[])
-
-val evaluate_decs_store_acc = store_thm("evaluate_decs_store_acc",
-  ``∀ck mn env s decs res. evaluate_decs ck mn env s decs res ⇒
-    SND(FST s) ≼ SND(FST(FST res))``,
-  ho_match_mp_tac evaluate_decs_ind >> rw[] >>
-  imp_res_tac evaluate_dec_store_acc >> fs[] >>
-  METIS_TAC[rich_listTheory.IS_PREFIX_TRANS])
-
 val evaluate_decs_new_decs_vs = store_thm("evaluate_decs_new_decs_vs",
   ``∀ck mn env s decs res. evaluate_decs ck mn env s decs res ⇒
       ∀env. SND(SND res) = Rval env ⇒ MAP FST env = new_decs_vs decs``,
@@ -235,7 +210,7 @@ val evaluate_decs_ctors_in = store_thm("evaluate_decs_ctors_in",
   BasicProvers.EVERY_CASE_TAC >>
   fs[libTheory.bind_def] >>
   BasicProvers.EVERY_CASE_TAC >> fs[] >>
-  fs[free_varsTheory.IS_SOME_EXISTS] >>
+  fs[miscTheory.IS_SOME_EXISTS] >>
   imp_res_tac libPropsTheory.lookup_in2 >>
   fs[MEM_MAP,semanticPrimitivesTheory.build_tdefs_def,MEM_FLAT,PULL_EXISTS,EXISTS_PROD] >>
   METIS_TAC[])
@@ -247,19 +222,24 @@ val merge_envC_emp = prove(
 val evaluate_decs_last3 = prove(
   ``∀ck mn env s decs a b c k i j s1 x y decs0 decs1 v p q r.
       evaluate_decs ck mn env s decs (((k,s1),a),b,Rval c) ∧
-      decs = decs0 ++ [Dlet (Pvar x) (Uapp Opref (Con i []));Dlet(Pvar y)(Uapp Opref (Con j []));Dlet (Pvar p) (Fun q r)]
+      decs = decs0 ++ [Dlet (Pvar x) (App Opref [Con i []]);Dlet(Pvar y)(App Opref [Con j []]);Dlet (Pvar p) (Fun q r)]
       ⇒
       ∃n ls1 ls2 ls.
       c = ((p,(Closure(FST env,merge_envC([],b)(FST(SND env)),merge ls1(SND(SND env))) q r))::ls1) ∧
       ls1 = ((y,Loc (n+1))::ls2) ∧ n+1 < LENGTH s1 ∧
-      ls2 = ((x,Loc n)::ls)``,
+      ls2 = ((x,Loc n)::ls) ∧
+      is_Refv (EL n s1) ∧
+      is_Refv (EL (n+1) s1)``,
   Induct_on`decs0` >>
   rw[Once bigStepTheory.evaluate_decs_cases] >- (
     fs[Once bigStepTheory.evaluate_decs_cases]>>
     fs[semanticPrimitivesTheory.combine_dec_result_def] >>
     fs[Once bigStepTheory.evaluate_dec_cases] >>
     fs[Once bigStepTheory.evaluate_cases] >>
-    fs[semanticPrimitivesTheory.do_uapp_def] >>
+    fs[Once (CONJUNCT2 bigStepTheory.evaluate_cases)] >>
+    fs[Once (CONJUNCT2 bigStepTheory.evaluate_cases)] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    fs[semanticPrimitivesTheory.do_app_def] >>
     fs[semanticPrimitivesTheory.store_alloc_def,LET_THM] >>
     fs[terminationTheory.pmatch_def] >> rw[] >>
     fs[Once bigStepTheory.evaluate_decs_cases]>>
@@ -273,7 +253,8 @@ val evaluate_decs_last3 = prove(
     fs[Once evaluate_cases] >>
     fs[Once evaluate_cases] >> rw[] >>
     PairCases_on`cenv` >>
-    rw[libTheory.emp_def,semanticPrimitivesTheory.merge_envC_def,libTheory.merge_def]) >>
+    rw[libTheory.emp_def,semanticPrimitivesTheory.merge_envC_def,libTheory.merge_def] >>
+    simp[rich_listTheory.EL_APPEND1,rich_listTheory.EL_APPEND2]) >>
   Cases_on`r'`>>fs[semanticPrimitivesTheory.combine_dec_result_def]>>
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
   rfs[semanticPrimitivesTheory.all_env_to_cenv_def] >>
@@ -283,12 +264,14 @@ val evaluate_decs_last3 = prove(
 
 val evaluate_Tmod_last3 = prove(
   ``evaluate_top ck env0 st (Tmod mn NONE decs) ((cs,u),envC,Rval ([(mn,env)],v)) ⇒
-    decs = decs0 ++[Dlet (Pvar x) (Uapp Opref (Con i []));Dlet (Pvar y) (Uapp Opref (Con j []));Dlet (Pvar p) (Fun q z)]
+    decs = decs0 ++[Dlet (Pvar x) (App Opref [Con i []]);Dlet (Pvar y) (App Opref [Con j []]);Dlet (Pvar p) (Fun q z)]
   ⇒
     ∃n ls1 ls.
     env = (p,(Closure (FST env0,merge_envC ([],SND(HD(FST envC))) (FST(SND env0)),merge ls (SND(SND env0))) q z))::ls ∧
     (ls = (y,Loc (n+1))::(x,Loc n)::ls1) ∧
-    n+1 < LENGTH (SND cs)``,
+    n+1 < LENGTH (SND cs) ∧
+    is_Refv (EL n (SND cs)) ∧
+    is_Refv (EL (n+1) (SND cs))``,
   Cases_on`cs`>>rw[bigStepTheory.evaluate_top_cases]>>
   imp_res_tac evaluate_decs_last3 >> fs[]) |> GEN_ALL
 
@@ -525,7 +508,7 @@ val repl_bc_state_clock = prove(
 (* Effect of evaluating the call *)
 val update_io_def  = Define`
   update_io inp out ((c,s),x,y) =
-    ((c,LUPDATE out (iloc+1) (LUPDATE inp iloc s)),x,y)`
+    ((c,LUPDATE (Refv out) (iloc+1) (LUPDATE (Refv inp) iloc s)),x,y)`
 
 val call_dec = rand(rhs(concl(compile_call_repl_step_def)))
 
@@ -547,15 +530,31 @@ val evaluate_call_repl_step = store_thm("evaluate_call_repl_step",
   rw[semanticPrimitivesTheory.lookup_var_id_def,libTheory.bind_def] >>
   rw[semanticPrimitivesTheory.all_env_to_cenv_def,libTheory.merge_def] >>
   rw[Once evaluate_cases] >>
-  rw[Once evaluate_cases] >>
   rw[semanticPrimitivesTheory.lookup_var_id_def,libTheory.bind_def] >>
   rw[libPropsTheory.lookup_append] >> fs[] >>
-  rw[semanticPrimitivesTheory.do_app_def] >>
+  rw[semanticPrimitivesTheory.do_opapp_def] >>
+  simp[PULL_EXISTS] >>
   rw[Once evaluate_cases] >>
+  rw[Once evaluate_cases] >>
+  rw[Once evaluate_cases] >>
+  rw[semanticPrimitivesTheory.lookup_var_id_def,libTheory.bind_def] >>
+  rw[Once evaluate_cases] >>
+  rw[Once evaluate_cases] >>
+  rw[Once evaluate_cases] >>
+  simp[PULL_EXISTS] >>
   rw[Once evaluate_cases] >>
   rw[semanticPrimitivesTheory.lookup_var_id_def,libTheory.bind_def] >>
   rw[libPropsTheory.lookup_append] >>
-  rw[semanticPrimitivesTheory.do_uapp_def] >>
+  rw[Once evaluate_cases] >>
+  rw[Once evaluate_cases] >>
+  rw[Once evaluate_cases] >>
+  simp[PULL_EXISTS] >>
+  rw[Once evaluate_cases] >>
+  rw[semanticPrimitivesTheory.lookup_var_id_def,libTheory.bind_def] >>
+  rw[Once evaluate_cases] >>
+  rw[Once evaluate_cases] >>
+  rw[semanticPrimitivesTheory.do_app_def] >>
+  rw[Once (CONJUNCT2 evaluate_cases)] >>
   fs[Arrow_def,AppReturns_def] >>
   first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
   disch_then(qx_choose_then`out'`strip_assume_tac) >>
@@ -567,15 +566,14 @@ val evaluate_call_repl_step = store_thm("evaluate_call_repl_step",
   qexists_tac`Litv Unit` >>
   simp[pmatch_def] >>
   fs[evaluate_closure_def] >>
-  fs[semanticPrimitivesTheory.do_app_def] >>
-  BasicProvers.EVERY_CASE_TAC>>fs[libTheory.bind_def]>>
   simp[EL_LUPDATE] >>
   imp_res_tac evaluate_empty_store_IMP >>
   Q.PAT_ABBREV_TAC`ss:v count_store = (xx,LUPDATE  a b c)` >>
   first_x_assum(qspec_then`ss`strip_assume_tac) >>
   fs[Abbr`ss`] >>
   first_assum(match_exists_tac o concl) >> simp[] >>
-  rw[Once evaluate_cases] >>
+  simp[EL_LUPDATE] >>
+  simp[semanticPrimitivesTheory.store_v_same_type_def] >>
   rw[LIST_EQ_REWRITE,EL_LUPDATE] )
 
 (* Compiler's invariant, holds after compiling REPL *)
@@ -594,13 +592,15 @@ val COMPILER_RUN_INV_empty_stack = store_thm("COMPILER_RUN_INV_empty_stack",
 
 val COMPILER_RUN_INV_init = store_thm("COMPILER_RUN_INV_init",
   ``COMPILER_RUN_INV repl_bc_state bootstrap_grd
-       (EL iloc (SND (Tmod_state "REPL" ml_repl_module_decls)))
-       (EL (iloc+1) (SND (Tmod_state "REPL" ml_repl_module_decls)))``,
+       (dest_Refv (EL iloc (SND (Tmod_state "REPL" ml_repl_module_decls))))
+       (dest_Refv (EL (iloc+1) (SND (Tmod_state "REPL" ml_repl_module_decls))))``,
   rw[COMPILER_RUN_INV_def,repl_bc_state_def] >- (
     Cases_on`Tmod_state "REPL" ml_repl_module_decls` >>
     simp[update_io_def] >>
     strip_assume_tac repl_env_def >> rfs[] >>
-    simp[LUPDATE_SAME] >>
+    Cases_on`EL iloc r`>>fs[]>>Cases_on`EL (iloc+1) r`>>fs[]>>
+    ntac 2 (pop_assum (mp_tac o SYM)) >>
+    simp[LUPDATE_SAME] >> rw[] >>
     strip_assume_tac bootstrap_bc_state_def >>
     MATCH_MP_TAC env_rs_with_bs_irr >>
     qexists_tac`bootstrap_bc_state with code := bootstrap_bc_state.code ++ REVERSE compile_call_repl_step` >>
@@ -613,7 +613,7 @@ val COMPILER_RUN_INV_init = store_thm("COMPILER_RUN_INV_init",
     `∃x y z. bootstrap_grd = (x,y,z)` by metis_tac[pair_CASES] >>
     fs[env_rs_def] >>
     rator_x_assum`good_labels`mp_tac >>
-    simp[printingTheory.good_labels_def,printingTheory.between_labels_def] >>
+    simp[bytecodeExtraTheory.good_labels_def,bytecodeExtraTheory.between_labels_def] >>
     simp[rich_listTheory.FILTER_APPEND,rich_listTheory.FILTER_REVERSE,
          rich_listTheory.EVERY_REVERSE,EVERY_MAP,miscTheory.between_def,
          EVERY_FILTER,compile_call_repl_step_labels] >>
@@ -934,10 +934,10 @@ val infer_t_ind =
   |> DISCH_ALL
   |> Q.GEN`P`
 
-val UNIFY_INFER_T_TYPE_exists = prove(
-  ``∀a. ∃v. UNIFY_INFER_T_TYPE a v``,
+val INFER_T_INFER_T_TYPE_exists = prove(
+  ``∀a. ∃v. INFER_T_INFER_T_TYPE a v``,
   HO_MATCH_MP_TAC infer_t_ind >>
-  simp[ml_repl_stepTheory.UNIFY_INFER_T_TYPE_def] >>
+  simp[ml_repl_stepTheory.INFER_T_INFER_T_TYPE_def] >>
   simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
   simp[GSYM PULL_EXISTS,EVERY_MEM] >> rw[] >>
   TRY(Cases_on`t`)>>
@@ -1060,7 +1060,7 @@ val REPL_FUN_REPL_FUN_STATE_TYPE_exists = prove(
    MATCH_MP_TAC LIST_TYPE_exists >>
    tac >> simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
    tac >> simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
-   simp[UNIFY_INFER_T_TYPE_exists] ) >>
+   simp[INFER_T_INFER_T_TYPE_exists] ) >>
  conj_tac >- (
    MATCH_MP_TAC LIST_TYPE_exists >>
    tac >>
@@ -1086,7 +1086,7 @@ val REPL_FUN_REPL_FUN_STATE_TYPE_exists = prove(
  conj_tac >- (
    MATCH_MP_TAC LIST_TYPE_exists >>
    tac >> simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
-   simp[UNIFY_INFER_T_TYPE_exists] ) >>
+   simp[INFER_T_INFER_T_TYPE_exists] ) >>
  simp[COMPILER_COMPILER_STATE_TYPE_exists])
 
 val INPUT_TYPE_exists = prove(
@@ -1158,10 +1158,10 @@ val AST_TCTOR_TYPE_closed = prove(
   simp[Abbr`A`] >>
   rw[ml_repl_stepTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] )
 
-val UNIFY_INFER_T_TYPE_closed = prove(
-  ``∀a b. UNIFY_INFER_T_TYPE a b ⇒ closed b``,
+val INFER_T_INFER_T_TYPE_closed = prove(
+  ``∀a b. INFER_T_INFER_T_TYPE a b ⇒ closed b``,
   HO_MATCH_MP_TAC infer_t_ind >>
-  simp[ml_repl_stepTheory.UNIFY_INFER_T_TYPE_def] >>
+  simp[ml_repl_stepTheory.INFER_T_INFER_T_TYPE_def] >>
   rw[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
   MATCH_MP_TAC (CONJUNCT1 (CONJUNCT2 (SPEC_ALL free_varsTheory.closed_rules))) >>
   rw[] >>
@@ -1260,7 +1260,7 @@ val REPL_FUN_REPL_FUN_STATE_TYPE_closed = prove(
       HINT_EXISTS_TAC >> rw[] ) >>
   rpt (
     TRY (MATCH_MP_TAC (GEN_ALL AST_TCTOR_TYPE_closed) >> HINT_EXISTS_TAC >> rw[]) >>
-    TRY (MATCH_MP_TAC (GEN_ALL UNIFY_INFER_T_TYPE_closed) >> HINT_EXISTS_TAC >> rw[]) >>
+    TRY (MATCH_MP_TAC (GEN_ALL INFER_T_INFER_T_TYPE_closed) >> HINT_EXISTS_TAC >> rw[]) >>
     TRY (MATCH_MP_TAC (GEN_ALL AST_T_TYPE_closed) >> HINT_EXISTS_TAC >> rw[]) >>
     TRY (MATCH_MP_TAC (GEN_ALL SEMANTICPRIMITIVES_TID_OR_EXN_TYPE_closed) >> HINT_EXISTS_TAC >> rw[]) >>
     qmatch_abbrev_tac`closed x` >>
@@ -1415,8 +1415,8 @@ val COMPILER_RUN_INV_references = store_thm("COMPILER_RUN_INV_references",
     EL iloc (SND(SND grd)).sm = iptr ∧
     EL (iloc+1) (SND(SND grd)).sm = optr ∧
     ∃ibc obc.
-      FLOOKUP bs.refs iptr = SOME ibc ∧
-      FLOOKUP bs.refs optr = SOME obc ∧
+      FLOOKUP bs.refs iptr = SOME (ValueArray [ibc]) ∧
+      FLOOKUP bs.refs optr = SOME (ValueArray [obc]) ∧
       let gtagenv = FST(SND grd) in
       let d = (FST grd,gtagenv,(FST compile_repl_decs).exh,mk_pp (SND (SND grd)) bs) in
       v_bv d input ibc ∧ v_bv d output obc ∧
@@ -1488,43 +1488,41 @@ val COMPILER_RUN_INV_references = store_thm("COMPILER_RUN_INV_references",
   simp[EVERY_MEM,MEM_EL,PULL_EXISTS] >>
   strip_tac >>
   simp[printingTheory.v_bv_def,PULL_EXISTS] >>
+  fs[modLangProofTheory.s_to_i1_cases,conLangProofTheory.s_to_i2_cases] >>
+  fs[LIST_REL_EL_EQN,EL_LUPDATE] >>
+  qpat_assum`∀n. n < LENGTH X ⇒ sv_to_i1 B Y Z`mp_tac >>
+  disch_then(fn th => (qspec_then`iloc`mp_tac th) >>
+                      (qspec_then`iloc+1`mp_tac th)) >>
+  simp[modLangProofTheory.sv_to_i1_cases] >> ntac 2 strip_tac >>
+  qpat_assum`∀n. n < LENGTH X ⇒ sv_to_i2 B Y Z`mp_tac >>
+  disch_then(fn th => (qspec_then`iloc`mp_tac th) >>
+                      (qspec_then`iloc+1`mp_tac th)) >>
+  simp[conLangProofTheory.sv_to_i2_cases] >> ntac 2 strip_tac >>
+  qpat_assum`∀n. n < LENGTH X ⇒ sv_rel B Y Z`mp_tac >>
+  disch_then(fn th => (qspec_then`iloc`mp_tac th) >>
+                      (qspec_then`iloc+1`mp_tac th)) >>
+  simp[exhLangProofTheory.sv_rel_cases] >>
+  ntac 2 strip_tac >>
+  fs[bytecodeProofTheory.sv_refv_rel_cases] >> rfs[] >>
   CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(equal``Cv_bv`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(equal``Cv_bv`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   simp[printingTheory.exh_Cv_def,PULL_EXISTS] >>
-  qpat_assum`∀n. n < LENGTH s2 ⇒ Z`(fn th =>
-    (qspec_then`iloc`mp_tac) th >>
-    (qspec_then`iloc+1`mp_tac) th) >>
-  simp[] >> ntac 2 strip_tac >>
+  fs[relationTheory.O_DEF,printingTheory.exh_Cv_def] >>
   CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(equal``syneq`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(equal``syneq`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   first_assum(match_exists_tac o concl) >> simp[] >>
-  CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(equal``v_pat`` o fst o strip_comb))) >>
-  first_assum(match_exists_tac o concl) >> simp[] >>
-  first_assum(match_exists_tac o concl) >> simp[] >>
-  rator_x_assum`s_to_i1`mp_tac >>
-  simp[modLangProofTheory.s_to_i1_cases,
-       modLangProofTheory.s_to_i1'_cases,
-       vs_to_i1_MAP] >>
-  simp[LIST_REL_EL_EQN,EL_LUPDATE] >> strip_tac >>
-  first_assum(qspec_then`iloc`mp_tac) >>
-  first_x_assum(qspec_then`iloc+1`mp_tac) >>
-  rator_x_assum`s_to_i2`mp_tac >>
-  simp[conLangProofTheory.s_to_i2_cases,
-       conLangProofTheory.s_to_i2'_cases,
-       vs_to_i2_MAP] >>
-  simp[LIST_REL_EL_EQN,EL_LUPDATE] >> strip_tac >>
-  first_assum(qspec_then`iloc`mp_tac) >>
-  first_x_assum(qspec_then`iloc+1`mp_tac) >>
-  simp[] >> rpt strip_tac >>
-  first_assum(match_exists_tac o concl) >> simp[] >>
+  simp[GSYM CONJ_ASSOC] >>
   CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(equal``v_to_i1`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
-  conj_tac >- (
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  reverse conj_tac >- (
     simp[has_primitive_types_def] >>
     rator_x_assum`cenv_inv`mp_tac >>
     simp[conLangProofTheory.cenv_inv_def] >>

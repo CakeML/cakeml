@@ -1,5 +1,5 @@
 open HolKernel boolLib boolSimps bossLib Defn pairTheory pred_setTheory listTheory finite_mapTheory state_transformerTheory lcsymtacs
-open terminationTheory compilerLibTheory intLangTheory toIntLangTheory toBytecodeTheory compilerTheory printerTheory bytecodeTheory
+open terminationTheory compilerLibTheory intLangTheory toIntLangTheory toBytecodeTheory compilerTheory bytecodeTheory
 open modLangTheory conLangTheory exhLangTheory patLangTheory;
 
 val _ = new_theory "compilerTermination"
@@ -11,7 +11,7 @@ val MEM_pair_MAP = store_thm(
 ``MEM (a,b) ls ==> MEM a (MAP FST ls) /\ MEM b (MAP SND ls)``,
 rw[MEM_MAP,pairTheory.EXISTS_PROD] >> PROVE_TAC[])
 
-val tac = Induct >- rw[Cexp_size_def,Cv_size_def,ov_size_def] >> srw_tac [ARITH_ss][Cexp_size_def,Cv_size_def,ov_size_def]
+val tac = Induct >- rw[Cexp_size_def,Cv_size_def] >> srw_tac [ARITH_ss][Cexp_size_def,Cv_size_def]
 fun tm t1 t2 =  ``∀ls. ^t1 ls = SUM (MAP ^t2 ls) + LENGTH ls``
 fun size_thm name t1 t2 = store_thm(name,tm t1 t2,tac)
 val Cexp1_size_thm = size_thm "Cexp1_size_thm" ``Cexp1_size`` ``Cexp2_size``
@@ -81,11 +81,13 @@ val (mkshift_def,mkshift_ind) = register "mkshift" (
   Q.ISPEC_THEN`Cexp2_size`imp_res_tac SUM_MAP_MEM_bound >>
   fsrw_tac[ARITH_ss][Cexp_size_def]))
 
+(*
 val (exp_to_Cexp_def,exp_to_Cexp_ind) = register "exp_to_Cexp" (
   tprove_no_defn ((exp_to_Cexp_def,exp_to_Cexp_ind),
   WF_REL_TAC `inv_image $< (λx. case x of
     | INL e => exp_pat_size e
     | INR es => exp_pat1_size es)`))
+*)
 
 val (compile_envref_def, compile_envref_ind) = register "compile_envref" (
   tprove_no_defn ((compile_envref_def, compile_envref_ind),
@@ -144,7 +146,7 @@ val zero_vars_def = Lib.with_flag (computeLib.auto_import_definitions, false) (t
   (zero_vars (CCall ck e es) = CCall ck (zero_vars e) (zero_vars_list es)) ∧
   (zero_vars (CPrim1 p1 e2) = CPrim1 p1 (zero_vars e2)) ∧
   (zero_vars (CPrim2 p2 e1 e2) = CPrim2 p2 (zero_vars e1) (zero_vars e2)) ∧
-  (zero_vars (CUpd e1 e2) = CUpd (zero_vars e1) (zero_vars e2)) ∧
+  (zero_vars (CUpd b e1 e2 e3) = CUpd b (zero_vars e1) (zero_vars e2) (zero_vars e3)) ∧
   (zero_vars (CIf e1 e2 e3) = CIf (zero_vars e1) (zero_vars e2) (zero_vars e3)) ∧
   (zero_vars (CExtG n) = CExtG n) ∧
   (zero_vars_list [] = []) ∧
@@ -318,11 +320,10 @@ val e2sz_def = Lib.with_flag (computeLib.auto_import_definitions, false) (tDefin
   (e2sz (Letrec_i2 funs e) = e2sz e + f2sz funs + 1) ∧
   (e2sz (Mat_i2 e pes) = e2sz e + p2sz pes + 4) ∧
   (e2sz (Handle_i2 e pes) = e2sz e + p2sz pes + 4) ∧
-  (e2sz (App_i2 op e1 e2) = e2sz e1 + e2sz e2 + 1) ∧
+  (e2sz (App_i2 op es) = l2sz es + 1) ∧
   (e2sz (Let_i2 x e1 e2) = e2sz e1 + e2sz e2 + 1) ∧
   (e2sz (Fun_i2 x e) = e2sz e + 1) ∧
   (e2sz (Con_i2 t es) = l2sz es + 1) ∧
-  (e2sz (Uapp_i2 uop e) = e2sz e + 1) ∧
   (e2sz _ = (0:num)) ∧
   (l2sz [] = 0) ∧
   (l2sz (e::es) = e2sz e + l2sz es + 1) ∧
@@ -402,24 +403,23 @@ val _ = register "do_eq_pat" (do_eq_pat_def,do_eq_pat_ind);
 (* export rewrites *)
 val _ = export_rewrites
   ["exp_to_pat_def"
-  ,"patLang.uop_to_pat_def"
   ,"patLang.fo_pat_def"
   ,"patLang.ground_pat_def"
-  ,"patLang.pure_uop_pat_def"
-  ,"patLang.pure_op_def"]
+  ,"patLang.pure_op_pat_def"]
 
 (* TODO: add missing *)
 val _ = export_rewrites
 ["toBytecode.emit_def","toBytecode.get_label_def","toBytecode.emit_ceref_def","toBytecode.emit_ceenv_def"
 ,"toBytecode.prim1_to_bc_def","toBytecode.prim2_to_bc_def"
 ,"free_vars_def","no_closures_def"
-,"intLang.Cv_to_ov_def","printer.v_to_ov_def"
 ,"toBytecode.compile_varref_def","compile_envref_def"
 ,"mkshift_def"
 ,"label_closures_def"
-,"intLang.doPrim2_def","intLang.CevalPrim2_def","intLang.CevalUpd_def","intLang.CevalPrim1_def"
+,"intLang.doPrim2_def","intLang.CevalPrim2_def","intLang.CevalPrim2s_def","intLang.CevalPrim2p_def"
+,"toIntLang.app_to_il_def","toIntLang.unop_to_il_def","toIntLang.binop_to_il_def"
+,"intLang.CevalUpd_def","intLang.CevalPrim1_def"
 ,"free_labs_def","no_labs_def","all_labs_def"
-,"exp_to_Cexp_def","toIntLang.v_to_Cv_def"
+,"toIntLang.exp_to_Cexp_def","toIntLang.v_to_Cv_def"
 ,"do_Ceq_def","compilerLib.the_def","compilerLib.fapply_def"];
 
 (*

@@ -1,6 +1,6 @@
 open preamble;
 open alistTheory optionTheory rich_listTheory;
-open miscTheory;
+open miscLib miscTheory;
 open astTheory;
 open semanticPrimitivesTheory;
 open libTheory;
@@ -12,24 +12,13 @@ open compilerTerminationTheory;
 
 val _ = new_theory "decLangProof";
 
-val el_append3 = Q.prove (
-`!l1 x l2. EL (LENGTH l1) (l1++ [x] ++ l2) = x`,
-induct_on `l1` >>
-rw [] >>
-rw []);
-
-val lupdate_append = Q.prove (
-`!x n l1 l2. n < LENGTH l1 ⇒ LUPDATE x n (l1++l2) = LUPDATE x n l1 ++ l2`,
- induct_on `l1` >>
- rw [] >>
- Cases_on `n` >>
- rw [LUPDATE_def] >>
- fs []);
-
-val lupdate_append2 = Q.prove (
-`!v l1 x l2 l3. LUPDATE v (LENGTH l1) (l1++[x]++l2) = l1++[v]++l2`,
- induct_on `l1` >>
- rw [LUPDATE_def])
+val do_app_i3_correct = prove(
+  ``∀s op vs res.
+      do_app_i2 s op vs = SOME res ⇒
+      ∀c g. do_app_i3 ((c,s),g) op vs = SOME (((c,FST res),g),SND res)``,
+  rw[do_app_i2_def,do_app_i3_def] >>
+  Cases_on`op`>>fs[]>>
+  rpt(BasicProvers.CASE_TAC >> fs[LET_THM,store_alloc_def]))
 
 val exp_to_i3_correct = Q.prove (
 `(∀b env s e res.
@@ -60,26 +49,17 @@ val exp_to_i3_correct = Q.prove (
  rw [] >>
  rw [Once evaluate_i3_cases] >>
  fs [all_env_i2_to_genv_def, all_env_i2_to_env_def]
- >- metis_tac []
- >- (* Uapp *)
-    (fs [do_uapp_i2_def, do_uapp_i3_def] >>
-     every_case_tac >>
-     fs [LET_THM]
-     >- (Q.LIST_EXISTS_TAC [`Loc_i2 n`,`s2`] >>
-         rw [])
-     >- (Q.LIST_EXISTS_TAC [`v`, `s2`, `genv`] >>
-         rw [] >>
-         cases_on `store_alloc v s2` >>
-         fs []))
- >- metis_tac []
- >- metis_tac []
- >- metis_tac []
- >- metis_tac []
- >- metis_tac []
- >- metis_tac []
- >- metis_tac []
- >- metis_tac []
- >- metis_tac []);
+ >> TRY(metis_tac []) >>
+ disj1_tac >>
+ first_assum(match_exists_tac o concl) >> rw[] >>
+ metis_tac[do_app_i3_correct,FST,SND]);
+
+val do_app_i3_genv_weakening = prove(
+  ``do_app_i3 (x,y) op vs = SOME ((a,b),c) ⇒
+    do_app_i3 (x,y++z) op vs = SOME ((a,b++z),c)``,
+  Cases_on`x` >> rw[do_app_i3_def] >>
+  every_case_tac >> fs[] >> rw[] >>
+  fsrw_tac[ARITH_ss][EL_APPEND1,LUPDATE_APPEND1])
 
 val eval_i3_genv_weakening = Q.prove (
 `(∀ck env s e res.
@@ -110,29 +90,9 @@ val eval_i3_genv_weakening = Q.prove (
  rw [] >>
  srw_tac [ARITH_ss] [Once evaluate_i3_cases]
  >- metis_tac [pair_CASES]
- >- srw_tac [ARITH_ss] [EL_APPEND1]
- >- (fs [do_uapp_i3_def] >>
-     every_case_tac >>
-     fs [LET_THM]
-     >- (Q.LIST_EXISTS_TAC [`Loc_i2 n`,`s2`] >>
-         rw [])
-     >- (Q.LIST_EXISTS_TAC [`v`, `s2`] >>
-         rw [] >>
-         cases_on `store_alloc v s2` >>
-         fs [])
-     >- (Q.LIST_EXISTS_TAC [`v`, `s3`, `genv2++GENLIST (\x.NONE) l`] >>
-         rw [EL_APPEND1, lupdate_append] >>
-         decide_tac))
- >- metis_tac [pair_CASES]
- >- metis_tac [pair_CASES]
- >- metis_tac [pair_CASES]
- >- metis_tac [pair_CASES]
- >- metis_tac [pair_CASES]
- >- metis_tac [pair_CASES]
- >- metis_tac [pair_CASES]
- >- srw_tac [ARITH_ss] [GSYM GENLIST_APPEND]
- >- metis_tac [pair_CASES]
- >- metis_tac [pair_CASES]);
+ >- srw_tac [ARITH_ss] [EL_APPEND1] >>
+ srw_tac[ARITH_ss][GSYM GENLIST_APPEND]>>
+ metis_tac[pair_CASES,do_app_i3_genv_weakening])
 
 val eval_i3_extend_genv = Q.prove (
 `!b env s genv n s' genv' v.
@@ -169,11 +129,16 @@ val eval_match_i3_var2 =
 SIMP_CONV (srw_ss()) [Once evaluate_i3_cases, eval_match_i3_nil, eval_i3_var, pmatch_i2_def, eval_i3_con, pat_bindings_i2_def]
   ``evaluate_match_i3 b env s v [(Pvar_i2 var, Var_local_i2 var)] err_v (s',r)``;
 
-val eval_init_global =
-SIMP_CONV (srw_ss()) [Once evaluate_i3_cases, eval_i3_var, do_uapp_i3_def] ``evaluate_i3 b env s (Uapp_i2 (Init_global_var_i2 i) (Var_local_i2 x)) (s',r)``;
+val eval_i3_nil =
+  SIMP_CONV (srw_ss()) [Once evaluate_i3_cases] ``evaluate_list_i3 b env s [] (s',r)``
+
+val eval_i3_cons =
+  SIMP_CONV (srw_ss()) [Once evaluate_i3_cases] ``evaluate_list_i3 b env s (e::es) (s',r)``
 
 val eval_init_global_fun =
-SIMP_CONV (srw_ss()) [Once evaluate_i3_cases, eval_i3_fun, do_uapp_i3_def] ``evaluate_i3 b env s (Uapp_i2 (Init_global_var_i2 i) (Fun_i2 x e)) (s',r)``;
+SIMP_CONV (srw_ss()) [Once evaluate_i3_cases, eval_i3_fun, do_app_i3_def,
+   EXISTS_PROD,eval_i3_cons,eval_i3_nil,PULL_EXISTS,option_case_compute]
+  ``evaluate_i3 b env s (App_i2 (Init_global_var_i2 i) [Fun_i2 x e]) (s',r)``;
 
 val eval_match_i3_con =
 SIMP_CONV (srw_ss()) [Once evaluate_i3_cases, pmatch_i2_def, pat_bindings_i2_def, eval_match_i3_var2, bind_def]
@@ -221,7 +186,9 @@ val init_globals_thm = Q.prove (
   simp[Once evaluate_i3_cases] >>
   simp[Once evaluate_i3_cases] >>
   simp[Once evaluate_i3_cases] >>
-  simp[do_uapp_i3_def,EL_APPEND1,EL_LENGTH_APPEND,PULL_EXISTS,opt_bind_def] >>
+  simp[Once evaluate_i3_cases] >>
+  simp[Once evaluate_i3_cases] >>
+  simp[do_app_i3_def,EL_APPEND1,EL_LENGTH_APPEND,PULL_EXISTS,opt_bind_def] >>
   simp[lookup_append,bind_def] >>
   reverse BasicProvers.CASE_TAC >- (
     imp_res_tac lookup_in2 >>
@@ -296,7 +263,7 @@ val decs_to_i3_correct = Q.store_thm("decs_to_i3_correct",
      rw []
      >- (simp_tac bool_ss [GSYM APPEND_ASSOC, GSYM GENLIST_APPEND] >>
          metis_tac [eval_i3_genv_weakening, result_distinct, pair_CASES])
-     >- (`!(l:v_i2 option store) x y. l ++ GENLIST (\x.NONE) y ++ GENLIST (\x.NONE) x = l ++ GENLIST (\x.NONE) x ++ GENLIST (\x.NONE) y`
+     >- (`!(l:v_i2 option list) x y. l ++ GENLIST (\x.NONE) y ++ GENLIST (\x.NONE) x = l ++ GENLIST (\x.NONE) x ++ GENLIST (\x.NONE) y`
                   by (rw [] >>
                       `!b. (\x. (\y. NONE) (x + b)) = (\y.NONE)` by rw [EXTENSION] >>
                       srw_tac [ARITH_ss] [GSYM GENLIST_APPEND]) >>
@@ -308,7 +275,7 @@ val decs_to_i3_correct = Q.store_thm("decs_to_i3_correct",
      MAP_EVERY qexists_tac [`Litv_i2 Unit`, `(s, genv ++ MAP SOME (MAP (λ(f,x,e).  Closure_i2 [] x e) l) ++ GENLIST (λx. NONE) (num_defs ds))`] >>
      rw [] >>
      fs [LENGTH_APPEND] >>
-     `!(l:v_i2 option store) x y. l ++ GENLIST (\x.NONE) y ++ GENLIST (\x.NONE) x = l ++ GENLIST (\x.NONE) x ++ GENLIST (\x.NONE) y`
+     `!(l:v_i2 option list) x y. l ++ GENLIST (\x.NONE) y ++ GENLIST (\x.NONE) x = l ++ GENLIST (\x.NONE) x ++ GENLIST (\x.NONE) y`
                   by (rw [] >>
                       `!b. (\x. (\y. NONE) (x + b)) = (\y.NONE)` by rw [EXTENSION] >>
                       srw_tac [ARITH_ss] [GSYM GENLIST_APPEND]) >>

@@ -441,6 +441,7 @@ in
   fun string_tl s = s |> explode |> tl |> implode
   fun type2t ty =
     if ty = ``:bool`` then ``Tapp [] TC_bool`` else
+    if ty = ``:word8`` then ``Tapp [] TC_word8`` else
     if ty = ``:int`` then ``Tapp [] TC_int`` else
     if ty = ``:num`` then ``Tapp [] TC_int`` else
     if can dest_vartype ty then
@@ -483,6 +484,7 @@ in
       in ``Arrow (^(get_type_inv t1)) (^(get_type_inv t2))`` end else
     if ty = ``:unit`` then ``UNIT_TYPE`` else
     if ty = ``:bool`` then ``BOOL`` else
+    if ty = ``:word8`` then ``WORD8`` else
     if ty = ``:num`` then ``NUM`` else
     if ty = ``:int`` then ``INT`` else
       list_inst_type_inv ty (!other_types)
@@ -1445,7 +1447,7 @@ fun register_term_types tm = let
     ((if is_abs tm then every_term f (snd (dest_abs tm))
       else if is_comb tm then (every_term f (rand tm); every_term f (rator tm))
       else ()); f tm)
-  val special_types = [``:num``,``:int``,``:bool``,``:unit``]
+  val special_types = [``:num``,``:int``,``:bool``,``:word8``,``:unit``]
                       @ get_user_supplied_types ()
   fun ignore_type ty =
     if can (first (fn ty1 => can (match_type ty1) ty)) special_types then true else
@@ -2178,6 +2180,15 @@ val is_precond = can (match_term ``PRECONDITION b``)
 val IF_TAKEN = prove(
   ``!b x y. b ==> ((if b then x else y) = x:'unlikely)``, SIMP_TAC std_ss []);
 
+local
+  val ty = ``:word8``
+in
+  fun is_word8_literal tm =
+    if type_of tm = ty
+    then numSyntax.is_numeral (rand tm)
+    else false
+end
+
 val Num_ABS_pat = Eval_Num_ABS |> concl |> rand |> rand |> rand
 
 val int_of_num_pat = Eval_int_of_num |> concl |> rand |> rand |> rand
@@ -2200,6 +2211,8 @@ fun hol2deep tm =
   if tm = oneSyntax.one_tm then Eval_Val_UNIT else
   if numSyntax.is_numeral tm then SPEC tm Eval_Val_NUM else
   if intSyntax.is_int_literal tm then SPEC tm Eval_Val_INT else
+  if is_word8_literal tm then
+    SPEC (tm |> rand) Eval_Val_WORD8 |> SIMP_RULE std_ss [] else
   if (tm = T) orelse (tm = F) then SPEC tm Eval_Val_BOOL else
   if (tm = ``TRUE``) orelse (tm = ``FALSE``) then SPEC tm Eval_Val_BOOL else
   (* data-type constructor *)
@@ -2298,9 +2311,15 @@ fun hol2deep tm =
     val th1 = hol2deep x1
     val result = MATCH_MP Eval_Num_ABS th1
     in check_inv "num_abs" tm result end else
+  (* w2n *)
+  if wordsSyntax.is_w2n tm andalso (type_of (rand tm) = ``:word8``) then let
+    val x1 = tm |> rand
+    val th1 = hol2deep x1
+    val result = MATCH_MP Eval_w2n th1
+    in check_inv "w2n" tm result end else
   (* &n *)
   if can (match_term int_of_num_pat) tm then let
-    val x1 = tm |> rand |> rand
+    val x1 = tm |> rand
     val th1 = hol2deep x1
     val result = MATCH_MP Eval_int_of_num th1
     in check_inv "int_of_num" tm result end else

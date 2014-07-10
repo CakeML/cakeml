@@ -89,10 +89,11 @@ val _ = new_theory "toBytecode"
   let (e2,j) = (label_closures ez j e2) in
   (CPrim2 p2 e1 e2, j)))
 /\
-(label_closures ez j (CUpd e1 e2) =  
+(label_closures ez j (CUpd b e1 e2 e3) =  
 (let (e1,j) = (label_closures ez j e1) in
   let (e2,j) = (label_closures ez j e2) in
-  (CUpd e1 e2, j)))
+  let (e3,j) = (label_closures ez j e3) in
+  (CUpd b e1 e2 e3, j)))
 /\
 (label_closures ez j (CIf e1 e2 e3) =  
 (let (e1,j) = (label_closures ez j e1) in
@@ -137,11 +138,15 @@ val _ = Hol_datatype `
 
  val _ = Define `
 
-(prim1_to_bc CRef = ([Ref]))
+(prim1_to_bc CRef = ([Stack (PushInt(( 1 : int))); Ref]))
 /\
-(prim1_to_bc CDer = ([Deref]))
+(prim1_to_bc CDer = ([Stack (PushInt(( 0 : int))); Deref]))
 /\
 (prim1_to_bc CIsBlock = ([Stack IsBlock]))
+/\
+(prim1_to_bc CLen = ([Length]))
+/\
+(prim1_to_bc CLenB = ([LengthByte]))
 /\
 (prim1_to_bc (CTagEq n) = ([Stack (TagEq (n+block_tag))]))
 /\
@@ -152,19 +157,23 @@ val _ = Hol_datatype `
 
  val _ = Define `
 
-(prim2_to_bc CAdd = Add)
+(prim2_to_bc (P2p CAdd) = (Stack Add))
 /\
-(prim2_to_bc CSub = Sub)
+(prim2_to_bc (P2p CSub) = (Stack Sub))
 /\
-(prim2_to_bc CMul = Mult)
+(prim2_to_bc (P2p CMul) = (Stack Mult))
 /\
-(prim2_to_bc CDiv = Div)
+(prim2_to_bc (P2p CDiv) = (Stack Div))
 /\
-(prim2_to_bc CMod = Mod)
+(prim2_to_bc (P2p CMod) = (Stack Mod))
 /\
-(prim2_to_bc CLt = Less)
+(prim2_to_bc (P2p CLt) = (Stack Less))
 /\
-(prim2_to_bc CEq = Equal)`;
+(prim2_to_bc (P2p CEq) = (Stack Equal))
+/\
+(prim2_to_bc (P2s CRefB) = RefByte)
+/\
+(prim2_to_bc (P2s CDerB) = DerefByte)`;
 
 
 val _ = Define `
@@ -182,7 +191,7 @@ val _ = Define `
 /\
 (compile_envref sz s (CCEnv n) = (emit s [Stack (Load sz); Stack (El n)]))
 /\
-(compile_envref sz s (CCRef n) = (emit (compile_envref sz s (CCEnv n)) [Deref]))`;
+(compile_envref sz s (CCRef n) = (emit (compile_envref sz s (CCEnv n)) [Stack (PushInt(( 0 : int))); Deref]))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_envref_defn;
 
@@ -268,7 +277,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (
   (* cl_1, ..., cl_nk, RefPtr_1 cl_1, ..., RefPtr_k 0, ..., RefPtr_nk 0, *)let s = (emit s [Stack (Load (nk + k))]) in
   (* RefPtr_k 0, cl_1, ..., cl_nk, RefPtr_1 cl_1, ..., RefPtr_k 0, ..., RefPtr_nk 0, *)
-  let s = (emit s [Stack (Load ( 1 + k))]) in
+  let s = (emit s [Stack (PushInt(( 0 : int))); Stack (Load ( 2 + k))]) in
   (* cl_k, RefPtr_k 0, cl_1, ..., cl_nk, RefPtr_1 cl_1, ..., RefPtr_k 0, ..., RefPtr_nk 0, *)
   let s = (emit s [Update]) in
   (* cl_1, ..., cl_nk, RefPtr_1 cl_1, ..., RefPtr_k cl_k, ..., RefPtr_nk 0, *)
@@ -279,7 +288,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (compile_closures env sz s defs =  
 (let nk = (LENGTH defs) in
-  let s = (num_fold (\ s .  emit s [Stack (PushInt(( 0 : int))); Ref]) s nk) in
+  let s = (num_fold (\ s .  emit s [Stack (PushInt(( 0 : int))); Stack (PushInt(( 1 : int))); Ref]) s nk) in
   (* RefPtr_1 0, ..., RefPtr_nk 0, *)
   let (s,ecs) = (FOLDL push_lab (s,[]) (REVERSE defs)) in
   (* CodePtr 1, ..., CodePtr nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
@@ -412,6 +421,9 @@ a b c x y z
 (compile _ t _ s (CLit Unit) =  
 (pushret t (emit s [Stack (Cons unit_tag( 0))])))
 /\
+(compile _ t _ s (CLit (Word8 w)) =  
+(pushret t (emit s [Stack (PushInt (int_of_num (w2n w)))])))
+/\
 (compile env t sz s (CVar vn) = (pushret t
   (compile_varref sz s
     ((case el_check vn env of
@@ -469,10 +481,10 @@ a b c x y z
 (pushret t (emit (compile env TCNonTail sz s e) (prim1_to_bc uop))))
 /\
 (compile env t sz s (CPrim2 op e1 e2) =  
-(pushret t (emit (compile_nts env sz s [e1;e2]) [Stack (prim2_to_bc op)])))
+(pushret t (emit (compile_nts env sz s [e1;e2]) [prim2_to_bc op])))
 /\
-(compile env t sz s (CUpd e1 e2) =  
-(pushret t (emit (compile_nts env sz s [e1;e2]) [Update; Stack (Cons unit_tag( 0))])))
+(compile env t sz s (CUpd b e1 e2 e3) =  
+(pushret t (emit (compile_nts env sz s [e1;e2;e3]) [(if b then UpdateByte else Update); Stack (Cons unit_tag( 0))])))
 /\
 (compile env t sz s (CIf e1 e2 e3) =  
 (let s = (compile env TCNonTail sz s e1) in
@@ -530,7 +542,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (free_labs ez (CPrim2 _ e1 e2) = (free_labs ez e1 ++ free_labs ez e2))
 /\
-(free_labs ez (CUpd e1 e2) = (free_labs ez e1 ++ free_labs ez e2))
+(free_labs ez (CUpd _ e1 e2 e3) = ((free_labs ez e1 ++ free_labs ez e2) ++ free_labs ez e3))
 /\
 (free_labs ez (CPrim1 _ e) = (free_labs ez e))
 /\

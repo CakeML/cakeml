@@ -1,8 +1,35 @@
 open HolKernel bossLib boolLib boolSimps optionTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory arithmeticTheory pairTheory sortingTheory relationTheory bitTheory lcsymtacs miscLib
+
+open sptreeTheory;
+
 (* Misc. lemmas (without any compiler constants) *)
 val _ = new_theory "misc"
 
 (* TODO: move/categorize *)
+
+val IS_SOME_EXISTS = store_thm("IS_SOME_EXISTS",
+  ``∀opt. IS_SOME opt ⇔ ∃x. opt = SOME x``,
+  Cases >> simp[])
+
+val FDOM_FOLDR_DOMSUB = store_thm("FDOM_FOLDR_DOMSUB",
+  ``∀ls fm. FDOM (FOLDR (λk m. m \\ k) fm ls) = FDOM fm DIFF set ls``,
+  Induct >> simp[] >>
+  ONCE_REWRITE_TAC[EXTENSION] >>
+  simp[] >> metis_tac[])
+
+val LIST_TO_SET_EQ_SING = store_thm("LIST_TO_SET_EQ_SING",
+  ``∀x ls. (set ls = {x}) ⇔ ls ≠ [] ∧ EVERY ($= x) ls``,
+  gen_tac >> Induct >> simp[] >>
+  simp[Once EXTENSION,EVERY_MEM] >>
+  metis_tac[])
+
+val INSERT_EQ_SING = store_thm("INSERT_EQ_SING",
+  ``∀s x y. (x INSERT s = {y}) ⇔ ((x = y) ∧ s ⊆ {y})``,
+  rw[SUBSET_DEF,EXTENSION] >> metis_tac[])
+
+val REPLICATE_GENLIST = store_thm("REPLICATE_GENLIST",
+  ``!n x. REPLICATE n x = GENLIST (K x) n``,
+  Induct THEN SRW_TAC[][rich_listTheory.REPLICATE,GENLIST_CONS])
 
 val domain_nat_set_from_list = store_thm("domain_nat_set_from_list",
   ``∀ls ns. domain (FOLDL (λs n. insert n () s) ns ls) = domain ns ∪ set ls``,
@@ -1977,5 +2004,97 @@ val mem_to_flookup = Q.store_thm ("mem_to_flookup",
  fs [MEM_MAP] >>
  rw [] >>
  metis_tac [FST]);
+
+val el_append3 = Q.store_thm ("el_append3",
+`!l1 x l2. EL (LENGTH l1) (l1++ [x] ++ l2) = x`,
+Induct_on `l1` >>
+rw [] >>
+rw []);
+
+val lupdate_append = Q.store_thm ("lupdate_append",
+`!x n l1 l2. n < LENGTH l1 ⇒ (LUPDATE x n (l1++l2) = LUPDATE x n l1 ++ l2)`,
+ Induct_on `l1` >>
+ rw [] >>
+ Cases_on `n` >>
+ rw [LUPDATE_def] >>
+ fs []);
+
+val lupdate_append2 = Q.store_thm ("lupdate_append2",
+`!v l1 x l2 l3. LUPDATE v (LENGTH l1) (l1++[x]++l2) = l1++[v]++l2`,
+ Induct_on `l1` >>
+ rw [LUPDATE_def])
+
+val fupdate_list_funion = store_thm("fupdate_list_funion",
+``!m l. m|++l = FUNION (FEMPTY |++l) m``,
+ Induct_on `l`
+ >- rw [FUPDATE_LIST, FUNION_FEMPTY_1] >> 
+ REWRITE_TAC [FUPDATE_LIST_THM] >>
+ rpt GEN_TAC >>
+ pop_assum (qspecl_then [`m|+h`] mp_tac) >>
+ rw [] >>
+ rw [fmap_eq_flookup, FLOOKUP_FUNION] >>
+ BasicProvers.EVERY_CASE_TAC >>
+ PairCases_on `h` >>
+ fs [FLOOKUP_UPDATE, flookup_fupdate_list] >>
+ BasicProvers.EVERY_CASE_TAC >>
+ fs []);
+
+val ZIP_COUNT_LIST = store_thm("ZIP_COUNT_LIST",
+  ``(n = LENGTH l1) ⇒
+    (ZIP (l1,COUNT_LIST n) = GENLIST (λn. (EL n l1, n)) (LENGTH l1))``,
+    simp[LIST_EQ_REWRITE,LENGTH_COUNT_LIST,EL_ZIP,EL_COUNT_LIST])
+
+val FUPDATE_EQ_FUPDATE_LIST = store_thm("FUPDATE_EQ_FUPDATE_LIST",
+  ``∀fm kv. fm |+ kv = fm |++ [kv]``,
+  rw[FUPDATE_LIST_THM])
+
+val fmap_inverse_def = Define `
+fmap_inverse m1 m2 =
+  !k. k ∈ FDOM m1 ⇒ ?v. (FLOOKUP m1 k = SOME v) ∧ (FLOOKUP m2 v = SOME k)`;
+
+val map_some_eq = Q.store_thm ("map_some_eq",
+`!l1 l2. (MAP SOME l1 = MAP SOME l2) ⇔ (l1 = l2)`,
+ Induct_on `l1` >>
+ rw [] >>
+ Cases_on `l2` >>
+ rw []);
+
+val map_some_eq_append = Q.store_thm ("map_some_eq_append",
+`!l1 l2 l3. (MAP SOME l1 ++ MAP SOME l2 = MAP SOME l3) ⇔ (l1 ++ l2 = l3)`,
+metis_tac [map_some_eq, MAP_APPEND]);
+
+val _ = augment_srw_ss [rewrites [map_some_eq,map_some_eq_append]];
+
+val fupdate_list_foldr = Q.store_thm ("fupdate_list_foldr",
+`!m l. FOLDR (λ(k,v) env. env |+ (k,v)) m l = m |++ REVERSE l`,
+ Induct_on `l` >>
+ rw [FUPDATE_LIST] >>
+ PairCases_on `h` >>
+ rw [FOLDL_APPEND]);
+
+val fupdate_list_foldl = Q.store_thm ("fupdate_list_foldl",
+`!m l. FOLDL (λenv (k,v). env |+ (k,v)) m l = m |++ l`,
+ Induct_on `l` >>
+ rw [FUPDATE_LIST] >>
+ PairCases_on `h` >>
+ rw []);
+
+val disjoint_drestrict = Q.store_thm ("disjoint_drestrict",
+`!s m. DISJOINT s (FDOM m) ⇒ (DRESTRICT m (COMPL s) = m)`,
+ rw [fmap_eq_flookup, FLOOKUP_DRESTRICT] >>
+ Cases_on `k ∉ s` >>
+ rw [] >>
+ fs [DISJOINT_DEF, EXTENSION, FLOOKUP_DEF] >>
+ metis_tac []);
+
+val compl_insert = Q.store_thm ("compl_insert",
+`!s x. COMPL (x INSERT s) = COMPL s DELETE x`,
+ rw [EXTENSION] >>
+ metis_tac []);
+
+val drestrict_iter_list = Q.store_thm ("drestrict_iter_list",
+`!m l. FOLDR (\k m. m \\ k) m l = DRESTRICT m (COMPL (set l))`,
+ Induct_on `l` >>
+ rw [DRESTRICT_UNIV, compl_insert, DRESTRICT_DOMSUB]);
 
 val _ = export_theory()

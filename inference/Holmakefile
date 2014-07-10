@@ -20,6 +20,18 @@ BARE_THYS = ../miscTheory $(patsubst %,../semantics/%,$(SEM_BARE_THYS)) $(patsub
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
+SEMANTICSI = lib semanticPrimitives
+INFER = infer_t
+GEN_SCRIPTS =  $(patsubst %,%Script.sml,$(INFER))
+
+LEMI = $(patsubst %,../semantics/%.lem,$(SEMANTICSI))
+LEMH = $(patsubst %,%.lem,$(INFER))
+
+$(GEN_SCRIPTS): $(LEMI) $(LEMH)
+	if type lem;\
+	then lem -auxiliary_level none $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMH));\
+	else touch $(GEN_SCRIPTS); fi
+
 $(HOLHEAP): $(DEPS)
 	$(protect $(HOLDIR)/bin/buildheap) -b ../semantics/sem_heap -o $(HOLHEAP) $(BARE_THYS)
 endif

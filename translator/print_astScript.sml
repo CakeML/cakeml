@@ -199,13 +199,12 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
  val _ = Define `
 
-(lit_to_tok_tree l1075 =
-  ((case (l1075) of
-       ( (Bool T) ) => L (LongidT "" "true")
-     | ( (Bool F) ) => L (LongidT "" "false")
-     | ( (IntLit n) ) => L (IntT n)
-     | ( Unit ) => N (L LparT) (L RparT)
-   )))`;
+(lit_to_tok_tree l =((case (l) of
+     ( (Bool T) ) => L (LongidT "" "true")
+   | ( (Bool F) ) => L (LongidT "" "false")
+   | ( (IntLit n) ) => L (IntT n)
+   | ( Unit ) => N (L LparT) (L RparT)
+ )))`;
 
 
 
@@ -277,20 +276,12 @@ val _ = Define `
 /\
 (exp_to_tok_tree indent (Fun v e) = (N (newline indent) (N (L LparT) (N (L FnT) (N (var_to_tok_tree v) (N (L DarrowT) (N (exp_to_tok_tree (inc_indent indent) e) (L RparT))))))))
 /\
-(exp_to_tok_tree indent (Uapp uop e) =  
-(let s =    
-((case uop of
-        Opref => "ref"
-      | Opderef => "!"
-    ))
-  in N (L LparT) (N (L (LongidT "" s)) (N (exp_to_tok_tree indent e) (L RparT)))))
+(exp_to_tok_tree indent (App Opapp [e1;e2]) = (N (L LparT) (N (exp_to_tok_tree indent e1) (N (exp_to_tok_tree indent e2) (L RparT)))))
 /\
-(exp_to_tok_tree indent (App Opapp e1 e2) = (N (L LparT) (N (exp_to_tok_tree indent e1) (N (exp_to_tok_tree indent e2) (L RparT)))))
+(exp_to_tok_tree indent (App Equality [e1;e2]) = (N (L LparT) (N (exp_to_tok_tree indent e1) (N (L EqualsT) (N (exp_to_tok_tree indent e2) (L RparT))))))
 /\
-(exp_to_tok_tree indent (App Equality e1 e2) = (N (L LparT) (N (exp_to_tok_tree indent e1) (N (L EqualsT) (N (exp_to_tok_tree indent e2) (L RparT))))))
-/\
-(exp_to_tok_tree indent (App (Opn o1312) e1 e2) =  
-(let s = ((case o1312 of
+(exp_to_tok_tree indent (App (Opn o0) [e1;e2]) =  
+(let s = ((case o0 of
       Plus => "+"
     | Minus => "-"
     | Times => "*"
@@ -299,7 +290,7 @@ val _ = Define `
   ))
   in N (L LparT) (N (exp_to_tok_tree indent e1) (N (L (LongidT "" s)) (N (exp_to_tok_tree indent e2) (L RparT))))))
 /\
-(exp_to_tok_tree indent (App (Opb o') e1 e2) =  
+(exp_to_tok_tree indent (App (Opb o') [e1;e2]) =  
 (let s = ((case o' of
       Lt => "<"
     | Gt => ">"
@@ -308,7 +299,11 @@ val _ = Define `
   ))
   in N (L LparT) (N (exp_to_tok_tree indent e1) (N (L (LongidT "" s)) (N (exp_to_tok_tree indent e2) (L RparT))))))
 /\
-(exp_to_tok_tree indent (App Opassign e1 e2) = (N (L LparT) (N (exp_to_tok_tree indent e1) (N (L (LongidT "" ":=")) (N (exp_to_tok_tree indent e2) (L RparT))))))
+(exp_to_tok_tree indent (App Opassign [e1;e2]) = (N (L LparT) (N (exp_to_tok_tree indent e1) (N (L (LongidT "" ":=")) (N (exp_to_tok_tree indent e2) (L RparT))))))
+/\
+(exp_to_tok_tree indent (App Opref [e1]) = (N (L LparT) (N (L (LongidT "" "ref")) (N (exp_to_tok_tree indent e1) (L RparT)))))
+/\
+(exp_to_tok_tree indent (App Opderef [e1]) = (N (L LparT) (N (L (LongidT "" "!")) (N (exp_to_tok_tree indent e1) (L RparT)))))
 /\
 (exp_to_tok_tree indent (Log lop e1 e2) = (N (L LparT) (N (exp_to_tok_tree indent e1)(N (if lop = And then
      L AndalsoT
@@ -361,10 +356,10 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (type_to_tok_tree (Tapp [t1;t2] TC_fn) = (N (L LparT) (N (type_to_tok_tree t1) (N (L ArrowT) (N (type_to_tok_tree t2) (L RparT))))))
 /\
-(type_to_tok_tree (Tapp ts tc1313) =  
+(type_to_tok_tree (Tapp ts tc0) =  
 (if ts = [] then
-    (tc_to_tok_tree tc1313)
-  else N (L LparT) (N (join_trees (L CommaT) (MAP type_to_tok_tree ts)) (N (L RparT) (tc_to_tok_tree tc1313)))))`;
+    (tc_to_tok_tree tc0)
+  else N (L LparT) (N (join_trees (L CommaT) (MAP type_to_tok_tree ts)) (N (L RparT) (tc_to_tok_tree tc0)))))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn type_to_tok_tree_defn;
 

@@ -76,10 +76,11 @@ label_closures ez j (CPrim2 p2 e1 e2) =
   let (e2,j) = label_closures ez j e2 in
   (CPrim2 p2 e1 e2, j)
 and
-label_closures ez j (CUpd e1 e2) =
+label_closures ez j (CUpd b e1 e2 e3) =
   let (e1,j) = label_closures ez j e1 in
   let (e2,j) = label_closures ez j e2 in
-  (CUpd e1 e2, j)
+  let (e3,j) = label_closures ez j e3 in
+  (CUpd b e1 e2 e3, j)
 and
 label_closures ez j (CIf e1 e2 e3) =
   let (e1,j) = label_closures ez j e1 in
@@ -117,11 +118,15 @@ type compiler_result =
    |>
 
 let rec
-prim1_to_bc CRef = [Ref]
+prim1_to_bc CRef = [Stack (PushInt 1); Ref]
 and
-prim1_to_bc CDer = [Deref]
+prim1_to_bc CDer = [Stack (PushInt 0); Deref]
 and
 prim1_to_bc CIsBlock = [Stack IsBlock]
+and
+prim1_to_bc CLen = [Length]
+and
+prim1_to_bc CLenB = [LengthByte]
 and
 prim1_to_bc (CTagEq n) = [Stack (TagEq (n+block_tag))]
 and
@@ -130,19 +135,23 @@ and
 prim1_to_bc (CInitG n) = [Gupdate n; Stack (Cons unit_tag 0)]
 
 let rec
-prim2_to_bc CAdd = Add
+prim2_to_bc (P2p CAdd) = Stack Add
 and
-prim2_to_bc CSub = Sub
+prim2_to_bc (P2p CSub) = Stack Sub
 and
-prim2_to_bc CMul = Mult
+prim2_to_bc (P2p CMul) = Stack Mult
 and
-prim2_to_bc CDiv = Div
+prim2_to_bc (P2p CDiv) = Stack Div
 and
-prim2_to_bc CMod = Mod
+prim2_to_bc (P2p CMod) = Stack Mod
 and
-prim2_to_bc CLt = Less
+prim2_to_bc (P2p CLt) = Stack Less
 and
-prim2_to_bc CEq = Equal
+prim2_to_bc (P2p CEq) = Stack Equal
+and
+prim2_to_bc (P2s CRefB) = RefByte
+and
+prim2_to_bc (P2s CDerB) = DerefByte
 
 let emit = List.foldl (fun s i -> <| s with out = i :: s.out |>)
 
@@ -154,7 +163,7 @@ compile_envref sz s (CCArg n) = emit s [Stack (Load (sz + n))]
 and
 compile_envref sz s (CCEnv n) = emit s [Stack (Load sz); Stack (El n)]
 and
-compile_envref sz s (CCRef n) = emit (compile_envref sz s (CCEnv n)) [Deref]
+compile_envref sz s (CCRef n) = emit (compile_envref sz s (CCEnv n)) [Stack (PushInt 0); Deref]
 
 let rec
 compile_varref sz s (CTLet n) = emit s [Stack (Load (sz - n))]
@@ -225,7 +234,7 @@ update_refptr nk (s,k) =
   (* cl_1, ..., cl_nk, RefPtr_1 cl_1, ..., RefPtr_k 0, ..., RefPtr_nk 0, *)
   let s = emit s [Stack (Load (nk + k))] in
   (* RefPtr_k 0, cl_1, ..., cl_nk, RefPtr_1 cl_1, ..., RefPtr_k 0, ..., RefPtr_nk 0, *)
-  let s = emit s [Stack (Load (1 + k))] in
+  let s = emit s [Stack (PushInt 0); Stack (Load (2 + k))] in
   (* cl_k, RefPtr_k 0, cl_1, ..., cl_nk, RefPtr_1 cl_1, ..., RefPtr_k 0, ..., RefPtr_nk 0, *)
   let s = emit s [Update] in
   (* cl_1, ..., cl_nk, RefPtr_1 cl_1, ..., RefPtr_k cl_k, ..., RefPtr_nk 0, *)
@@ -234,7 +243,7 @@ update_refptr nk (s,k) =
 let rec
 compile_closures env sz s defs =
   let nk = List.length defs in
-  let s = num_fold (fun s -> emit s [Stack (PushInt 0); Ref]) s nk in
+  let s = num_fold (fun s -> emit s [Stack (PushInt 0); Stack (PushInt 1); Ref]) s nk in
   (* RefPtr_1 0, ..., RefPtr_nk 0, *)
   let (s,ecs) = List.foldl push_lab (s,[]) (List.reverse defs) in
   (* CodePtr 1, ..., CodePtr nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
@@ -360,6 +369,9 @@ and
 compile _ t _ s (CLit Unit) =
   pushret t (emit s [Stack (Cons unit_tag 0)])
 and
+compile _ t _ s (CLit (Word8 w)) =
+  pushret t (emit s [Stack (PushInt (integerFromNat (natFromWord8 w)))])
+and
 compile env t sz s (CVar vn) = pushret t
   (compile_varref sz s
     (match el_check vn env with
@@ -417,10 +429,10 @@ compile env t sz s (CPrim1 uop e) =
   pushret t (emit (compile env TCNonTail sz s e) (prim1_to_bc uop))
 and
 compile env t sz s (CPrim2 op e1 e2) =
-  pushret t (emit (compile_nts env sz s [e1;e2]) [Stack (prim2_to_bc op)])
+  pushret t (emit (compile_nts env sz s [e1;e2]) [prim2_to_bc op])
 and
-compile env t sz s (CUpd e1 e2) =
-  pushret t (emit (compile_nts env sz s [e1;e2]) [Update; Stack (Cons unit_tag 0)])
+compile env t sz s (CUpd b e1 e2 e3) =
+  pushret t (emit (compile_nts env sz s [e1;e2;e3]) [if b then UpdateByte else Update; Stack (Cons unit_tag 0)])
 and
 compile env t sz s (CIf e1 e2 e3) =
   let s = compile env TCNonTail sz s e1 in
@@ -475,7 +487,7 @@ free_labs ez (CCall _ e es) = free_labs ez e ++ free_labs_list ez es
 and
 free_labs ez (CPrim2 _ e1 e2) = free_labs ez e1 ++ free_labs ez e2
 and
-free_labs ez (CUpd e1 e2) = free_labs ez e1 ++ free_labs ez e2
+free_labs ez (CUpd _ e1 e2 e3) = free_labs ez e1 ++ free_labs ez e2 ++ free_labs ez e3
 and
 free_labs ez (CPrim1 _ e) = free_labs ez e
 and

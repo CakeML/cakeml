@@ -230,27 +230,22 @@ val _ = Define `
 (*val type_specs : maybe modN -> specs -> decls -> flat_tenvC -> env varN (nat * t) -> bool*)
 (*val type_prog : decls -> tenvM -> tenvC -> tenvE -> list top -> decls -> tenvM -> tenvC -> env varN (nat * t) -> bool*)
 
-(* Check that the operator can have type (t1 -> t2 -> t3) *)
-(*val type_op : op -> t -> t -> t -> bool*)
+(* Check that the operator can have type (t1 -> ... -> tn -> t) *)
+(*val type_op : op -> list t -> t -> bool*)
 val _ = Define `
- (type_op op t1 t2 t3 =  
-((case (op,t1,t2) of
-      (Opapp, Tapp [t2'; t3'] TC_fn, _) => (t2 = t2') /\ (t3 = t3')
-    | (Opn _, Tapp [] TC_int, Tapp [] TC_int) => (t3 = Tint)
-    | (Opb _, Tapp [] TC_int, Tapp [] TC_int) => (t3 = Tbool)
-    | (Equality, t1, t2) => (t1 = t2) /\ (t3 = Tbool)
-    | (Opassign, Tapp [t1] TC_ref, t2) => (t1 = t2) /\ (t3 = Tunit)
-    | _ => F
-  )))`;
-
-
-(* Check that the operator can have type (t1 -> t2) *)
-(*val type_uop : uop -> t -> t -> bool*)
-val _ = Define `
- (type_uop uop t1 t2 =  
-((case (uop,t1) of
-      (Opref, _) => t2 = Tref t1
-    | (Opderef, Tapp [t1'] TC_ref) => t2 = t1'
+ (type_op op ts t =  
+((case (op,ts) of
+      (Opapp, [Tapp [t2'; t3'] TC_fn; t2]) => (t2 = t2') /\ (t = t3')
+    | (Opn _, [Tapp [] TC_int; Tapp [] TC_int]) => (t = Tint)
+    | (Opb _, [Tapp [] TC_int; Tapp [] TC_int]) => (t = Tbool)
+    | (Equality, [t1; t2]) => (t1 = t2) /\ (t = Tbool)
+    | (Opassign, [Tapp [t1] TC_ref; t2]) => (t1 = t2) /\ (t = Tunit)
+    | (Opref, [t1]) => (t = Tapp [t1] TC_ref)
+    | (Opderef, [Tapp [t1] TC_ref]) => (t = t1)
+    | (Aalloc, [Tapp [] TC_int; Tapp [] TC_word8]) => (t = Tapp [] TC_word8array)
+    | (Asub, [Tapp [] TC_word8array; Tapp [] TC_int]) => (t = Tapp [] TC_word8)
+    | (Alength, [Tapp [] TC_word8array]) => (t = Tapp [] TC_int)
+    | (Aupdate, [Tapp [] TC_word8array; Tapp [] TC_int; Tapp [] TC_word8]) => t = Tapp [] TC_unit
     | _ => F
   )))`;
 
@@ -343,6 +338,11 @@ T
 ==>
 type_p tvs cenv (Plit Unit) Tunit [])
 
+/\ (! tvs cenv w.
+T
+==>
+type_p tvs cenv (Plit (Word8 w)) Tword8 [])
+
 /\ (! tvs cenv cn ps ts tvs' tn ts' tenv.
 (EVERY (check_freevars tvs []) ts' /\
 (LENGTH ts' = LENGTH tvs') /\
@@ -392,6 +392,11 @@ T
 ==>
 type_e menv cenv tenv (Lit Unit) Tunit)
 
+/\ (! menv cenv tenv w.
+T
+==>
+type_e menv cenv tenv (Lit (Word8 w)) Tword8)
+
 /\ (! menv cenv tenv e t.
 (check_freevars (num_tvs tenv) [] t /\
 type_e menv cenv tenv e Texn) 
@@ -433,18 +438,11 @@ type_e menv cenv (bind_tenv n( 0) t1 tenv) e t2)
 ==>
 type_e menv cenv tenv (Fun n e) (Tfn t1 t2))
 
-/\ (! menv cenv tenv uop e t1 t2.
-(type_e menv cenv tenv e t1 /\
-type_uop uop t1 t2)
+/\ (! menv cenv tenv op es ts t.
+(type_es menv cenv tenv es ts /\
+type_op op ts t) 
 ==>
-type_e menv cenv tenv (Uapp uop e) t2)
-
-/\ (! menv cenv tenv op e1 e2 t1 t2 t3.
-(type_e menv cenv tenv e1 t1 /\
-type_e menv cenv tenv e2 t2 /\
-type_op op t1 t2 t3)
-==>
-type_e menv cenv tenv (App op e1 e2) t3)
+type_e menv cenv tenv (App op es) t)
 
 /\ (! menv cenv tenv l e1 e2.
 (type_e menv cenv tenv e1 Tbool /\

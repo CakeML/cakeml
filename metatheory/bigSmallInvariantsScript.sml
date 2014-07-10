@@ -17,8 +17,6 @@ val _ = new_theory "bigSmallInvariants"
 
 (* ------ Auxiliary relations for proving big/small step equivalence ------ *)
 
-(*val evaluate_ctxt : all_env -> count_store v -> ctxt_frame -> v -> count_store v * result v v -> bool*)
-(*val evaluate_ctxts : count_store v -> list ctxt -> result v v -> count_store v * result v v -> bool*)
 (*val evaluate_state : state -> count_store v * result v v -> bool*)
 
 val _ = Hol_reln ` (! env s v.
@@ -31,44 +29,37 @@ T
 ==>
 evaluate_ctxt env s (Chandle ()  pes) v (s, Rval v))
 
-/\ (! env op e2 v1 v2 env' e3 bv s1 s2 count s3.
-(evaluate F env s1 e2 ((count,s2), Rval v2) /\
-(do_app env s2 op v1 v2 = SOME (env',s3,e3)) /\
-evaluate F env' (count, s3) e3 bv)
+/\ (! env e v vs1 vs2 es env' bv s1 s2.
+(evaluate_list F env s1 es (s2, Rval vs2) /\
+(do_opapp ((REVERSE vs1 ++ [v]) ++ vs2) = SOME (env',e)) /\
+evaluate F env' s2 e bv)
 ==>
-evaluate_ctxt env s1 (Capp1 op ()  e2) v1 bv)
+evaluate_ctxt env s1 (Capp Opapp vs1 ()  es) v bv)
 
-/\ (! env op e2 v1 v2 s1 s2 count.
-(evaluate F env s1 e2 ((count,s2), Rval v2) /\
-(do_app env s2 op v1 v2 = NONE))
+/\ (! env v vs1 vs2 es s1 s2.
+(evaluate_list F env s1 es (s2, Rval vs2) /\
+(do_opapp ((REVERSE vs1 ++ [v]) ++ vs2) = NONE))
 ==>
-evaluate_ctxt env s1 (Capp1 op ()  e2) v1 ((count, s2), Rerr Rtype_error))
+evaluate_ctxt env s1 (Capp Opapp vs1 ()  es) v (s2, Rerr Rtype_error))
 
-/\ (! env op e2 v1 err s s'.
-(evaluate F env s e2 (s', Rerr err))
+/\ (! env op v vs1 vs2 es res s1 s2 s3 count.
+((op <> Opapp) /\
+evaluate_list F env s1 es ((count,s2), Rval vs2) /\
+(do_app s2 op ((REVERSE vs1 ++ [v]) ++ vs2) = SOME (s3,res)))
 ==>
-evaluate_ctxt env s (Capp1 op ()  e2) v1 (s', Rerr err))
+evaluate_ctxt env s1 (Capp op vs1 ()  es) v ((count,s3), res))
 
-/\ (! env op v1 v2 env' e3 bv s1 s2 count.
-((do_app env s1 op v1 v2 = SOME (env',s2,e3)) /\
-evaluate F env' (count, s2) e3 bv)
+/\ (! env op v vs1 vs2 es s1 s2 count.
+((op <> Opapp) /\
+evaluate_list F env s1 es ((count,s2), Rval vs2) /\
+(do_app s2 op ((REVERSE vs1 ++ [v]) ++ vs2) = NONE))
 ==>
-evaluate_ctxt env (count,s1) (Capp2 op v1 () ) v2 bv)
+evaluate_ctxt env s1 (Capp op vs1 ()  es) v ((count,s2), Rerr Rtype_error))
 
-/\ (! env op v1 v2 s count.
-(do_app env s op v1 v2 = NONE)
+/\ (! env op es vs v err s s'.
+(evaluate_list F env s es (s', Rerr err))
 ==>
-evaluate_ctxt env (count,s) (Capp2 op v1 () ) v2 ((count, s), Rerr Rtype_error))
-
-/\ (! env uop v v' s1 s2 count.
-(do_uapp s1 uop v = SOME (s2,v'))
-==>
-evaluate_ctxt env (count,s1) (Cuapp uop () ) v ((count,s2), Rval v'))
-
-/\ (! env uop v s count.
-(do_uapp s uop v = NONE)
-==>
-evaluate_ctxt env (count,s) (Cuapp uop () ) v ((count,s), Rerr Rtype_error))
+evaluate_ctxt env s (Capp op vs ()  es) v (s', Rerr err))
 
 /\ (! env op e2 v e' bv s.
 ((do_log op v e2 = SOME e') /\

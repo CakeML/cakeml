@@ -25,15 +25,6 @@ val _ = new_theory "bigStep"
 
 val _ = type_abbrev((*  'a *) "count_store" , ``: num # 'a store``);
 
-(*val dec_count : op -> nat -> nat*)
-val _ = Define `
- (dec_count op count0 =  
- (if op = Opapp then
-    count0 -  1
-  else
-    count0))`;
-
-
 val _ = Hol_reln ` (! ck env l s.
 T
 ==>
@@ -99,59 +90,46 @@ T
 ==>
 evaluate ck env s (Fun n e) (s, Rval (Closure env n e)))
 
-/\ (! ck env uop e v v' s1 s2 count s3.
-(evaluate ck env s1 e ((count,s2), Rval v) /\
-(do_uapp s2 uop v = SOME (s3,v')))
+/\ (! ck env es vs env' e bv s1 s2 count.
+(evaluate_list ck env s1 es ((count,s2), Rval vs) /\
+(do_opapp vs = SOME (env', e)) /\
+(ck ==> ~ (count =( 0))) /\
+evaluate ck env' ((if ck then count -  1 else count),s2) e bv)
 ==>
-evaluate ck env s1 (Uapp uop e) ((count,s3), Rval v'))
+evaluate ck env s1 (App Opapp es) bv)
 
-/\ (! ck env uop e v s1 s2 count.
-(evaluate ck env s1 e ((count,s2), Rval v) /\
-(do_uapp s2 uop v = NONE))
-==>
-evaluate ck env s1 (Uapp uop e) ((count,s2), Rerr Rtype_error))
-
-/\ (! ck env uop e err s s'.
-(evaluate ck env s e (s', Rerr err))
-==>
-evaluate ck env s (Uapp uop e) (s', Rerr err))
-
-/\ (! ck env op e1 e2 v1 v2 env' e3 bv s1 s2 s3 count s4.
-(evaluate ck env s1 e1 (s2, Rval v1) /\
-evaluate ck env s2 e2 ((count,s3), Rval v2) /\
-(do_app env s3 op v1 v2 = SOME (env', s4, e3)) /\
-((ck /\ (op = Opapp)) ==> ~ (count =( 0))) /\
-evaluate ck env' ((if ck then dec_count op count else count),s4) e3 bv)
-==>
-evaluate ck env s1 (App op e1 e2) bv)
-
-/\ (! ck env op e1 e2 v1 v2 env' e3 s1 s2 s3 count s4.
-(evaluate ck env s1 e1 (s2, Rval v1) /\
-evaluate ck env s2 e2 ((count,s3), Rval v2) /\
-(do_app env s3 op v1 v2 = SOME (env', s4, e3)) /\
+/\ (! ck env es vs env' e s1 s2 count.
+(evaluate_list ck env s1 es ((count,s2), Rval vs) /\
+(do_opapp vs = SOME (env', e)) /\
 (count = 0) /\
-(op = Opapp) /\
 ck)
 ==>
-evaluate ck env s1 (App op e1 e2) (( 0,s4), Rerr Rtimeout_error))
+evaluate ck env s1 (App Opapp es) (( 0,s2), Rerr Rtimeout_error))
 
-/\ (! ck env op e1 e2 v1 v2 s1 s2 s3 count.
-(evaluate ck env s1 e1 (s2, Rval v1) /\
-evaluate ck env s2 e2 ((count,s3), Rval v2) /\
-(do_app env s3 op v1 v2 = NONE))
+/\ (! ck env es vs s1 s2.
+(evaluate_list ck env s1 es (s2, Rval vs) /\
+(do_opapp vs = NONE))
 ==>
-evaluate ck env s1 (App op e1 e2) ((count,s3), Rerr Rtype_error))
+evaluate ck env s1 (App Opapp es) (s2, Rerr Rtype_error))
 
-/\ (! ck env op e1 e2 v1 err s1 s2 s3.
-(evaluate ck env s1 e1 (s2, Rval v1) /\
-evaluate ck env s2 e2 (s3, Rerr err))
+/\ (! ck env op es vs res s1 s2 s3 count.
+(evaluate_list ck env s1 es ((count,s2), Rval vs) /\
+(do_app s2 op vs = SOME (s3, res)) /\
+(op <> Opapp))
 ==>
-evaluate ck env s1 (App op e1 e2) (s3, Rerr err))
+evaluate ck env s1 (App op es) ((count,s3), res))
 
-/\ (! ck env op e1 e2 err s s'.
-(evaluate ck env s e1 (s', Rerr err))
+/\ (! ck env op es vs s1 s2 count.
+(evaluate_list ck env s1 es ((count,s2), Rval vs) /\
+(do_app s2 op vs = NONE) /\
+(op <> Opapp))
 ==>
-evaluate ck env s (App op e1 e2) (s', Rerr err))
+evaluate ck env s1 (App op es) ((count,s2), Rerr Rtype_error))
+
+/\ (! ck env op es err s1 s2.
+(evaluate_list ck env s1 es (s2, Rerr err))
+==>
+evaluate ck env s1 (App op es) (s2, Rerr err))
 
 /\ (! ck env op e1 e2 v e' bv s1 s2.
 (evaluate ck env s1 e1 (s2, Rval v) /\

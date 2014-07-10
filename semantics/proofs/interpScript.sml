@@ -150,31 +150,25 @@ val run_eval_def = Q.store_thm ("run_eval_def",
    run_eval env (Fun n e)
    =
    return (Closure env n e)) ∧
- (!st env uop e.
-  run_eval env (Uapp uop e)
-  =
-  do v <- run_eval env e;
-     st <- get_store;
-     case do_uapp st uop v of
-          NONE => raise Rtype_error
-        | SOME (st',v) => 
-            do () <- set_store st';
-               return v 
-            od
-  od) ∧
  (!env op e1 e2.
-   run_eval env (App op e1 e2)
+   run_eval env (App op es)
    =
-   do v1 <- run_eval env e1;
-      v2 <- run_eval env e2;
+   do vs <- run_eval_list env es;
       st <- get_store;
-      case do_app env st op v1 v2 of
-           NONE => raise Rtype_error
-         | SOME (env', st', e3) =>
-             do () <- if op = Opapp then dec_clock else return ();
-                () <- set_store st';
-                run_eval env' e3
-             od
+      if op = Opapp then
+        case do_opapp vs of
+        | NONE => raise Rtype_error
+        | SOME (env', e3) =>
+            do () <- dec_clock;
+               run_eval env' e3
+            od
+      else
+        case do_app st op vs of
+        | NONE => raise Rtype_error
+        | SOME (st',res) =>
+          do () <- set_store st';
+             combin$C return res
+          od
    od) ∧
  (!env lop e1 e2.
    run_eval env (Log lop e1 e2)
@@ -255,7 +249,7 @@ val run_eval_def = Q.store_thm ("run_eval_def",
      rw [] >>
      fs [GSYM evaluate_run_eval] >>
      metis_tac [])
- >- (rw [dec_count_def, dec_clock_def] >>
+ >- (rw [dec_clock_def] >>
      every_case_tac >>
      rw [] >>
      fs [remove_lambda_pair] >>
@@ -263,23 +257,8 @@ val run_eval_def = Q.store_thm ("run_eval_def",
      every_case_tac >>
      fs [GSYM evaluate_run_eval] >>
      rw [] >>
-     fs [do_app_cases] >>
-     rw [] >>
-     metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec])
- >- (rw [dec_count_def, dec_clock_def] >>
-     every_case_tac >>
-     rw [] >>
-     fs [remove_lambda_pair] >>
-     rw [] >>
-     every_case_tac >>
-     fs [GSYM evaluate_run_eval] >>
-     rw [] >>
-     fs [do_app_cases] >>
-     rw [] >>
-     metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec])
- >- (every_case_tac >>
-     rw [] >>
-     fs [remove_lambda_pair, GSYM evaluate_run_eval, dec_count_def] >>
+     fs [do_app_cases,do_opapp_cases] >>
+     rw [] >> fs[state_transformerTheory.UNIT_DEF] >>
      metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec])
  >- (every_case_tac >>
      rw [] >>

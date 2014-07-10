@@ -5,7 +5,6 @@ import String_extra
 open import Lib
 open import Ast
 open import SemanticPrimitives
-open import Printer
 
 (* TODO: should be in lem library? *)
 val snoc_char : char -> string -> string
@@ -47,14 +46,20 @@ type
   | PushExc                 (* push exception handler *)
   | PopExc                  (* pop exception handler *)
   | Ref                     (* create a new ref cell *)
+  | RefByte                 (* create new byte array *)
   | Deref                   (* dereference a ref cell *)
+  | DerefByte               (* index a byte array *)
   | Update                  (* update a ref cell *)
+  | UpdateByte              (* update a byte array *)
+  | Length                  (* get length of ref *)
+  | LengthByte              (* get length of byte array *)
   | Galloc of nat           (* allocate global variables *)
   | Gupdate of nat          (* update a global variable *)
   | Gread of nat            (* read a global variable *)
   | Stop of bool            (* halt execution with success/failure *)
   | Tick                    (* use fuel *)
-  | Print                   (* print value at top of stack *)
+  | Print                   (* print non-word value at top of stack *)
+  | PrintWord8              (* print word8 at top of stack *)
   | PrintC of char          (* print a character *)
 
 (* --- Semantics --- *)
@@ -70,12 +75,17 @@ type
   | StackPtr of nat                (* pointer into stack *)
 
 type
+  ref_value =
+    ValueArray of list bc_value
+  | ByteArray of list word8
+
+type
   bc_state =
    <| (* main state components *)
       stack : list bc_value;
       code : list bc_inst;
       pc : nat;
-      refs : map nat bc_value;
+      refs : map nat ref_value;
       globals : list (maybe bc_value);
       handler : nat;
       output : string;
@@ -98,6 +108,8 @@ let block_tag : nat = 5
 let bool_to_val b = Block (bool_to_tag b) []
 let unit_val = Block unit_tag []
 
+let word8_to_val w = Number (integerFromNat (natFromWord8 w))
+
 let rec
 is_Block (Block _ _) = true
 and
@@ -114,27 +126,6 @@ let rec
 is_char (Number n) = (0 <= n && n < 256)
 and
 is_char _ = false
-
-let rec
-only_chars [] = true
-and
-only_chars (x::xs) = is_char x && only_chars xs
-
-let rec
-can_Print (Number _) = true
-and
-can_Print (Block n vs) = (not (n = string_tag) || only_chars vs) &&
-                         (not (n = block_tag) || can_Print_list vs)
-and
-can_Print (CodePtr _) = false
-and
-can_Print (RefPtr _) = true
-and
-can_Print (StackPtr _) = false
-and
-can_Print_list [] = true
-and
-can_Print_list (v::vs) = can_Print v && can_Print_list vs
 
 (* comparing bc_values for equality *)
 
@@ -233,25 +224,25 @@ and
 bvs_to_chars _ _ = Nothing
 declare termination_argument bvs_to_chars = automatic
 
-val bv_to_ov :  bc_value -> ov
+val bv_to_string :  bc_value -> maybe string
 let rec
-bv_to_ov (Number i) = OLit (IntLit i)
+bv_to_string (Number i) = Just (int_to_string i)
 and
-bv_to_ov (Block n vs) =
-  if n = (bool_to_tag false) then OLit (Bool false) else
-  if n = (bool_to_tag true) then OLit (Bool true) else
-  if n = unit_tag then OLit Unit else
-  if n = closure_tag then OFn else
+bv_to_string (Block n vs) =
+  if n = (bool_to_tag false) then Just "false" else
+  if n = (bool_to_tag true) then Just "true" else
+  if n = unit_tag then Just "()" else
+  if n = closure_tag then Just "<fn>" else
   if n = string_tag then
     match bvs_to_chars vs [] with
-    | Nothing -> OError
-    | Just cs -> OLit (StrLit (String.toString cs))
-    end else
-  OConv
+    | Nothing -> Nothing
+    | Just cs -> Just (string_to_string (String.toString cs))
+    end
+  else Just "<constructor>"
 and
-bv_to_ov (RefPtr _) = OLoc
+bv_to_string (RefPtr _) = Just "<ref>"
 and
-bv_to_ov _ = OError
+bv_to_string _ = Nothing
 
 (* next state relation *)
 
@@ -368,31 +359,75 @@ List.length l2 = s.handler
 ==>
 bc_next s (<|bump_pc s with handler = sp; stack = x::l2|>)
 and
-ref : forall s x xs ptr.
+ref : forall s n v xs ptr.
 bc_fetch s = Just Ref
-&& s.stack = x::xs
+&& s.stack = (Number (integerFromNat n))::v::xs
 && (ptr = least (fun ptr -> not (Map.member ptr s.refs)))
 ==>
-bc_next s (<|bump_pc s with stack = (RefPtr ptr)::xs; refs = Map.insert ptr x s.refs|>)
+bc_next s (<|bump_pc s with stack = (RefPtr ptr)::xs;
+             refs = Map.insert ptr (ValueArray (List.replicate n v)) s.refs|>)
 and
-deref : forall s ptr xs.
+refByte : forall s n w xs ptr.
+bc_fetch s = Just RefByte
+&& s.stack = (Number (integerFromNat n))::(word8_to_val w)::xs
+&& (ptr = least (fun ptr -> not (Map.member ptr s.refs)))
+==>
+bc_next s (<|bump_pc s with stack = (RefPtr ptr)::xs;
+             refs = Map.insert ptr (ByteArray (List.replicate n w)) s.refs|>)
+and
+deref : forall s n ptr xs vs.
 bc_fetch s = Just Deref
-&& s.stack = (RefPtr ptr)::xs
-&& Map.member ptr s.refs
+&& s.stack = (Number (integerFromNat n))::(RefPtr ptr)::xs
+&& Map.lookup ptr s.refs = Just (ValueArray vs)
+&& n < List.length vs
 ==>
-bc_next s (<|bump_pc s with stack = Map_extra.find ptr s.refs::xs|>)
+bc_next s (<|bump_pc s with stack = (List_extra.nth vs n)::xs|>)
 and
-update : forall s x ptr xs.
-bc_fetch s = Just Update
-&& s.stack = x::(RefPtr ptr)::xs
-&& Map.member ptr s.refs
+derefByte : forall s n ptr xs vs.
+bc_fetch s = Just DerefByte
+&& s.stack = (Number (integerFromNat n))::(RefPtr ptr)::xs
+&& Map.lookup ptr s.refs = Just (ByteArray vs)
+&& n < List.length vs
 ==>
-bc_next s (<|bump_pc s with stack = xs; refs = Map.insert ptr x s.refs|>)
+bc_next s (<|bump_pc s with stack = (word8_to_val (List_extra.nth vs n))::xs|>)
+and
+update : forall s x n ptr xs vs.
+bc_fetch s = Just Update
+&& s.stack = x::(Number (integerFromNat n))::(RefPtr ptr)::xs
+&& Map.lookup ptr s.refs = Just (ValueArray vs)
+&& n < List.length vs
+==>
+bc_next s (<|bump_pc s with stack = xs;
+             refs = Map.insert ptr (ValueArray (List.update vs n x)) s.refs|>)
+and
+updateByte : forall s w n ptr xs vs.
+bc_fetch s = Just UpdateByte
+&& s.stack = (Number (integerFromNat (natFromWord8 w)))::
+             (Number (integerFromNat n))::(RefPtr ptr)::xs
+&& Map.lookup ptr s.refs = Just (ByteArray vs)
+&& n < List.length vs
+==>
+bc_next s (<|bump_pc s with stack = xs;
+             refs = Map.insert ptr (ByteArray (List.update vs n w)) s.refs|>)
+and
+length : forall s ptr xs vs.
+bc_fetch s = Just Length
+&& s.stack = (RefPtr ptr)::xs
+&& Map.lookup ptr s.refs = Just (ValueArray vs)
+==>
+bc_next s (<|bump_pc s with stack = (Number (integerFromNat (List.length vs)))::xs|>)
+and
+lengthByte : forall s ptr xs vs.
+bc_fetch s = Just LengthByte
+&& s.stack = (RefPtr ptr)::xs
+&& Map.lookup ptr s.refs = Just (ByteArray vs)
+==>
+bc_next s (<|bump_pc s with stack = (Number (integerFromNat (List.length vs)))::xs|>)
 and
 galloc : forall s n.
 bc_fetch s = Just (Galloc n)
 ==>
-bc_next s (<|bump_pc s with globals = s.globals ++ (genlist (fun x -> Nothing) n)|>)
+bc_next s (<|bump_pc s with globals = s.globals ++ (List.replicate n Nothing)|>)
 and
 gupdate : forall s n x xs.
 bc_fetch s = Just (Gupdate n)
@@ -416,13 +451,20 @@ bc_fetch s = Just Tick
 ==>
 bc_next s (<|bump_pc s with clock = Maybe.map natPred s.clock|>)
 and
-print : forall s x xs.
+print : forall s x xs str.
 bc_fetch s = Just Print
 && (s.stack = x::xs)
-&& can_Print x
+&& bv_to_string x = Just str
 ==>
 bc_next s (<|bump_pc s with stack = xs;
-  output = String_extra.stringConcat [s.output;ov_to_string (bv_to_ov x)]|>)
+  output = String_extra.stringConcat [s.output;str]|>)
+and
+printWord8 : forall s x xs.
+bc_fetch s = Just PrintWord8
+&& (s.stack = (Number (integerFromNat (natFromWord8 (x:word8))))::xs)
+==>
+bc_next s (<|bump_pc s with stack = xs;
+  output = String_extra.stringConcat [s.output;word_to_hex_string x]|>)
 and
 printC : forall s c.
 bc_fetch s = Just (PrintC c)

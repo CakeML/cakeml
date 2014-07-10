@@ -9,6 +9,8 @@ open terminationTheory;
 
 val _ = new_theory "weakening";
 
+val _ = Parse.bring_to_front_overload "lookup" {Name="lookup",Thy="lib"} 
+
 val weak_tenvE_def = Define `
 weak_tenvE tenv tenv' = 
   (num_tvs tenv ≥ num_tvs tenv' ∧
@@ -350,7 +352,6 @@ rw [Once type_e_cases] >|
  metis_tac [weak_tenvE_freevars, weak_tenvE_bind],
  metis_tac [weak_tenvE_bind, weak_tenvE_freevars],
  metis_tac [],
- metis_tac [],
  fs [RES_FORALL] >>
      qexists_tac `t` >>
      rw [] >>
@@ -491,6 +492,10 @@ val type_v_weakening = Q.store_thm ("type_v_weakening",
      metis_tac [])
  >- (fs [weakS_def] >>
      metis_tac [])
+ >- (fs [weakS_def] >>
+     metis_tac [])
+ >- (fs [weakS_def] >>
+     metis_tac [])
  >- rw [bind_def, emp_def, bind_tvar_def, bind_tenv_def]);
 
 val type_ctxt_weakening = Q.store_thm ("type_ctxt_weakening",
@@ -507,9 +512,8 @@ val type_ctxt_weakening = Q.store_thm ("type_ctxt_weakening",
      res_tac >>
      fs [] >>
      metis_tac [type_e_weakening, weak_tenvE_bind_var_list, type_p_weakening, DECIDE ``!x:num. x ≥ 0``])
+ >- metis_tac [type_v_weakening, type_e_weakening]
  >- metis_tac [type_e_weakening, weak_tenvE_refl]
- >- metis_tac [type_v_weakening]
- >- metis_tac [type_e_weakening]
  >- metis_tac [type_e_weakening]
  >- (fs [RES_FORALL] >>
      rw [] 
@@ -579,8 +583,12 @@ val type_s_weakening = Q.store_thm ("type_s_weakening",
   weakCT ctMap' ctMap
   ⇒
   type_s ctMap' tenvS st`,
-rw [type_s_def] >>
-metis_tac [type_v_weakening, weakS_refl]);
+ rw [type_s_def] >>
+ every_case_tac >>
+ rw [] >>
+ res_tac >>
+ fs [] >>
+ metis_tac [type_v_weakening, weakS_refl]);
 
 val weakCT_only_other_mods_def = Define `
 weakCT_only_other_mods mn ctMap' ctMap =

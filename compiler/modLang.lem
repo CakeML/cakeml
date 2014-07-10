@@ -51,8 +51,7 @@ type exp_i1 =
   | Var_local_i1 of varN
   | Var_global_i1 of nat
   | Fun_i1 of varN * exp_i1
-  | Uapp_i1 of uop * exp_i1
-  | App_i1 of op * exp_i1 * exp_i1
+  | App_i1 of op * list exp_i1
   | If_i1 of exp_i1 * exp_i1 * exp_i1
   | Mat_i1 of exp_i1 * list (pat * exp_i1)
   | Let_i1 of maybe varN * exp_i1 * exp_i1
@@ -116,11 +115,8 @@ and
 exp_to_i1 menv env (Fun x e) =
   Fun_i1 x (exp_to_i1 menv (Map.delete x env) e) 
 and
-exp_to_i1 menv env (Uapp uop e) =
-  Uapp_i1 uop (exp_to_i1 menv env e)
-and
-exp_to_i1 menv env (App op e1 e2) =
-  App_i1 op (exp_to_i1 menv env e1) (exp_to_i1 menv env e2)
+exp_to_i1 menv env (App op es) =
+  App_i1 op (exps_to_i1 menv env es)
 and
 exp_to_i1 menv env (Log lop e1 e2) =
   match lop with
@@ -241,23 +237,6 @@ let build_conv_i1 envC cn vs =
         end
   end
 
-val do_uapp_i1 : store v_i1 -> uop -> v_i1 -> maybe (store v_i1 * v_i1)
-let do_uapp_i1 s uop v =
-  match uop with
-    | Opderef ->
-        match v with
-          | Loc_i1 n ->
-              match store_lookup n s with
-                | Just v -> Just (s,v)
-                | Nothing -> Nothing
-              end
-          | _ -> Nothing
-        end
-    | Opref ->
-        let (s',n) = store_alloc v s in
-          Just (s', Loc_i1 n)
-  end
-
 val build_rec_env_i1 : list (varN * varN * exp_i1) -> (envC * env varN v_i1) -> env varN v_i1 -> env varN v_i1
 let build_rec_env_i1 funs cl_env add_to_env =
   foldr 
@@ -266,9 +245,10 @@ let build_rec_env_i1 funs cl_env add_to_env =
     funs
 
 val do_eq_i1 : v_i1 -> v_i1 -> eq_result
-let rec 
-do_eq_i1 (Litv_i1 l1) (Litv_i1 l2) = 
-  Eq_val (l1 = l2)
+let rec
+do_eq_i1 (Litv_i1 l1) (Litv_i1 l2) =
+  if lit_same_type l1 l2 then Eq_val (l1 = l2)
+  else Eq_type_error
 and
 do_eq_i1 (Loc_i1 l1) (Loc_i1 l2) = Eq_val (l1 = l2)
 and
@@ -303,40 +283,98 @@ do_eq_list_i1 (v1::vs1) (v2::vs2) =
 and
 do_eq_list_i1 _ _ = Eq_val false
 
-val exn_env_i1 : list (maybe v_i1) -> all_env_i1
-let exn_env_i1 genv = (genv, (emp, List.map (fun cn -> (cn, (0, TypeExn (Short cn)))) ["Bind"; "Div"; "Eq"]), emp)
+val prim_exn_i1 : conN -> v_i1
+let prim_exn_i1 cn = Conv_i1 (Just (cn, TypeExn (Short cn))) []
 
-val do_app_i1 : all_env_i1 -> store v_i1 -> op -> v_i1 -> v_i1 -> maybe (all_env_i1 * store v_i1 * exp_i1)
-let do_app_i1 env' s op v1 v2 =
-  match (op, v1, v2) with
-    | (Opapp, Closure_i1 (cenv, env) n e, v) ->
-        Just ((all_env_i1_to_genv env', cenv, bind n v env), s, e)
-    | (Opapp, Recclosure_i1 (cenv, env) funs n, v) ->
-        if allDistinct (List.map (fun (f,x,e) -> f) funs) then
-          match find_recfun n funs with
-            | Just (n,e) -> Just ((all_env_i1_to_genv env', cenv, bind n v (build_rec_env_i1 funs (cenv, env) env)), s, e)
-            | Nothing -> Nothing
-          end
-        else
-          Nothing
-    | (Opn op, Litv_i1 (IntLit n1), Litv_i1 (IntLit n2)) ->
+(* Do an application *)
+val do_opapp_i1 : list (maybe v_i1) -> list v_i1 -> maybe (all_env_i1 * exp_i1)
+let do_opapp_i1 genv vs =
+  match vs with
+  | [Closure_i1 (cenv, env) n e; v] ->
+      Just ((genv, cenv, bind n v env), e)
+  | [Recclosure_i1 (cenv, env) funs n; v] ->
+      if allDistinct (List.map (fun (f,x,e) -> f) funs) then
+        match find_recfun n funs with
+          | Just (n,e) -> Just ((genv, cenv, bind n v (build_rec_env_i1 funs (cenv, env) env)), e)
+          | Nothing -> Nothing
+        end
+      else
+        Nothing
+  | _ -> Nothing
+  end
+
+val do_app_i1 : store v_i1 -> op -> list v_i1 -> maybe (store v_i1 * result v_i1 v_i1)
+let do_app_i1 s op vs =
+  match (op, vs) with
+    | (Opn op, [Litv_i1 (IntLit n1); Litv_i1 (IntLit n2)]) ->
         if (op = Divide || (op = Modulo)) && (n2 = 0) then
-          Just (exn_env_i1 (all_env_i1_to_genv env'), s, Raise_i1 (Con_i1 (Just (Short "Div")) []))
+          Just (s, Rerr (Rraise (prim_exn_i1 "Div")))
         else
-          Just (env', s, Lit_i1 (IntLit (opn_lookup op n1 n2)))
-    | (Opb op, Litv_i1 (IntLit n1), Litv_i1 (IntLit n2)) ->
-        Just (env', s, Lit_i1 (Bool (opb_lookup op n1 n2)))
-    | (Equality, v1, v2) ->
+          Just (s, Rval (Litv_i1 (IntLit (opn_lookup op n1 n2))))
+    | (Opb op, [Litv_i1 (IntLit n1); Litv_i1 (IntLit n2)]) ->
+        Just (s, Rval (Litv_i1 (Bool (opb_lookup op n1 n2))))
+    | (Equality, [v1; v2]) ->
         match do_eq_i1 v1 v2 with
           | Eq_type_error -> Nothing
-          | Eq_closure -> Just (exn_env_i1 (all_env_i1_to_genv env'), s, Raise_i1 (Con_i1 (Just (Short "Eq")) []))
-          | Eq_val b -> Just (env', s, Lit_i1 (Bool b))
+          | Eq_closure -> Just (s, Rerr (Rraise (prim_exn_i1 "Eq")))
+          | Eq_val b -> Just (s, Rval (Litv_i1 (Bool b)))
         end
-    | (Opassign, (Loc_i1 lnum), v) ->
-        match store_assign lnum v s with
-        | Just st -> Just (env', st, Lit_i1 Unit)
-        | Nothing -> Nothing
+    | (Opassign, [Loc_i1 lnum; v]) ->
+        match store_assign lnum (Refv v) s with
+          | Just st -> Just (st, Rval (Litv_i1 Unit))
+          | Nothing -> Nothing
         end
+    | (Opref, [v]) ->
+        let (s',n) = store_alloc (Refv v) s in
+          Just (s', Rval (Loc_i1 n))
+    | (Opderef, [Loc_i1 n]) ->
+        match store_lookup n s with
+          | Just (Refv v) -> Just (s,Rval v)
+          | _ -> Nothing
+        end
+    | (Aalloc, [Litv_i1 (IntLit n); Litv_i1 (Word8 w)]) ->
+        if n < 0 then
+          Just (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
+        else
+          let (s',lnum) =
+            store_alloc (W8array (List.replicate (natFromInteger n) w)) s
+          in 
+            Just (s', Rval (Loc_i1 lnum))
+    | (Asub, [Loc_i1 lnum; Litv_i1 (IntLit i)]) ->
+        match store_lookup lnum s with
+          | Just (W8array ws) ->
+              if i < 0 then
+                Just (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
+              else
+                let n = natFromInteger i in
+                  if n >= List.length ws then
+                    Just (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
+                  else 
+                    Just (s, Rval (Litv_i1 (Word8 (List_extra.nth ws n))))
+          | _ -> Nothing
+        end
+    | (Alength, [Loc_i1 n]) ->
+        match store_lookup n s with
+          | Just (W8array ws) ->
+              Just (s,Rval (Litv_i1(IntLit(integerFromNat(List.length ws)))))
+          | _ -> Nothing
+         end
+    | (Aupdate, [Loc_i1 lnum; Litv_i1(IntLit i); Litv_i1(Word8 w)]) ->
+        match store_lookup lnum s with
+        | Just (W8array ws) ->
+            if i < 0 then
+              Just (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
+            else 
+              let n = natFromInteger i in
+                if n >= List.length ws then
+                  Just (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
+                else
+                  match store_assign lnum (W8array (List.update ws n w)) s with
+                    | Nothing -> Nothing
+                    | Just s' -> Just (s', Rval (Litv_i1 Unit))
+                  end
+        | _ -> Nothing
+      end
     | _ -> Nothing
   end
 
@@ -382,8 +420,8 @@ pmatch_i1 envC s (Pcon Nothing ps) (Conv_i1 Nothing vs) env =
 and
 pmatch_i1 envC s (Pref p) (Loc_i1 lnum) env =
   match store_lookup lnum s with
-    | Just v -> pmatch_i1 envC s p v env
-    | Nothing -> Match_type_error
+    | Just (Refv v) -> pmatch_i1 envC s p v env
+    | _ -> Match_type_error
   end
 and
 pmatch_i1 envC _ _ _ env = Match_type_error
@@ -515,73 +553,56 @@ evaluate_i1 ck env s (Fun_i1 n e) (s, Rval (Closure_i1 (all_env_i1_to_cenv env, 
 
 and
 
-uapp1 : forall ck env uop e v v' s1 s2 count s3.
-evaluate_i1 ck env s1 e ((count,s2), Rval v) &&
-(do_uapp_i1 s2 uop v = Just (s3,v'))
+app1 : forall ck env es vs env' e bv s1 s2 count.
+evaluate_list_i1 ck env s1 es ((count,s2), Rval vs) &&
+do_opapp_i1 (all_env_i1_to_genv env) vs = Just (env', e) &&
+(ck --> count <> 0) &&
+evaluate_i1 ck env' ((if ck then count-1 else count),s2) e bv
 ==>
-evaluate_i1 ck env s1 (Uapp_i1 uop e) ((count,s3), Rval v')
+evaluate_i1 ck env s1 (App_i1 Opapp es) bv
 
 and
 
-uapp2 : forall ck env uop e v s1 s2 count.
-evaluate_i1 ck env s1 e ((count,s2), Rval v) &&
-(do_uapp_i1 s2 uop v = Nothing)
-==>
-evaluate_i1 ck env s1 (Uapp_i1 uop e) ((count,s2), Rerr Rtype_error)
-
-and
-
-uapp3 : forall ck env uop e err s s'.
-evaluate_i1 ck env s e (s', Rerr err)
-==>
-evaluate_i1 ck env s (Uapp_i1 uop e) (s', Rerr err)
-
-and
-
-app1 : forall ck env op e1 e2 v1 v2 env' e3 bv s1 s2 s3 count s4.
-evaluate_i1 ck env s1 e1 (s2, Rval v1) &&
-evaluate_i1 ck env s2 e2 ((count,s3), Rval v2) &&
-do_app_i1 env s3 op v1 v2 = Just (env', s4, e3) &&
-((ck && (op = Opapp)) --> count <> 0) &&
-evaluate_i1 ck env' ((if ck then dec_count op count else count),s4) e3 bv
-==>
-evaluate_i1 ck env s1 (App_i1 op e1 e2) bv
-
-and
-
-app2 : forall ck env op e1 e2 v1 v2 env' e3 s1 s2 s3 count s4.
-evaluate_i1 ck env s1 e1 (s2, Rval v1) &&
-evaluate_i1 ck env s2 e2 ((count,s3), Rval v2) &&
-do_app_i1 env s3 op v1 v2 = Just (env', s4, e3) &&
+app2 : forall ck env es vs env' e s1 s2 count.
+evaluate_list_i1 ck env s1 es ((count,s2), Rval vs) &&
+do_opapp_i1 (all_env_i1_to_genv env) vs = Just (env', e) &&
 count = 0 &&
-op = Opapp &&
 ck
 ==>
-evaluate_i1 ck env s1 (App_i1 op e1 e2) ((0,s4), Rerr Rtimeout_error)
+evaluate_i1 ck env s1 (App_i1 Opapp es) ((0,s2), Rerr Rtimeout_error)
 
 and
 
-app3 : forall ck env op e1 e2 v1 v2 s1 s2 s3 count.
-evaluate_i1 ck env s1 e1 (s2, Rval v1) &&
-evaluate_i1 ck env s2 e2 ((count,s3), Rval v2) &&
-do_app_i1 env s3 op v1 v2 = Nothing
+app3 : forall ck env es vs s1 s2.
+evaluate_list_i1 ck env s1 es (s2, Rval vs) &&
+do_opapp_i1 (all_env_i1_to_genv env) vs = Nothing
 ==>
-evaluate_i1 ck env s1 (App_i1 op e1 e2) ((count,s3), Rerr Rtype_error)
+evaluate_i1 ck env s1 (App_i1 Opapp es) (s2, Rerr Rtype_error)
 
 and
 
-app4 : forall ck env op e1 e2 v1 err s1 s2 s3.
-evaluate_i1 ck env s1 e1 (s2, Rval v1) &&
-evaluate_i1 ck env s2 e2 (s3, Rerr err)
+app4 : forall ck env op es vs res s1 s2 s3 count.
+evaluate_list_i1 ck env s1 es ((count,s2), Rval vs) &&
+do_app_i1 s2 op vs = Just (s3, res) &&
+op <> Opapp
 ==>
-evaluate_i1 ck env s1 (App_i1 op e1 e2) (s3, Rerr err)
+evaluate_i1 ck env s1 (App_i1 op es) ((count,s3), res)
 
 and
 
-app5 : forall ck env op e1 e2 err s s'.
-evaluate_i1 ck env s e1 (s', Rerr err)
+app5 : forall ck env op es vs s1 s2 count.
+evaluate_list_i1 ck env s1 es ((count,s2), Rval vs) &&
+do_app_i1 s2 op vs = Nothing &&
+op <> Opapp
 ==>
-evaluate_i1 ck env s (App_i1 op e1 e2) (s', Rerr err)
+evaluate_i1 ck env s1 (App_i1 op es) ((count,s2), Rerr Rtype_error)
+
+and
+
+app6 : forall ck env op es err s1 s2.
+evaluate_list_i1 ck env s1 es (s2, Rerr err)
+==>
+evaluate_i1 ck env s1 (App_i1 op es) (s2, Rerr err)
 
 and
 

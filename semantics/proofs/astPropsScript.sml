@@ -11,6 +11,8 @@ val _ = export_rewrites ["ast.Tstring_def",
                          "ast.Tbool_def",
                          "ast.Tref_def",
                          "ast.Tfn_def",
+                         "ast.Tword8_def",
+                         "ast.Tword8array_def",
                          "ast.Texn_def"];
 
 val _ = export_theory ();

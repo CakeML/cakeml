@@ -13,8 +13,7 @@ open import SemanticPrimitives
 type ctxt_frame =
   | Craise of unit
   | Chandle of unit * list (pat * exp)
-  | Capp1 of op * unit * exp
-  | Capp2 of op * v * unit
+  | Capp of op * list v * unit * list exp
   | Clog of lop * unit * exp
   | Cif of unit * exp * exp
   (* The value is raised if none of the patterns match *)
@@ -23,7 +22,6 @@ type ctxt_frame =
   (* Evaluating a constructor's arguments
    * The v list should be in reverse order. *)
   | Ccon of maybe (id conN) * list v * unit * list exp
-  | Cuapp of uop * unit
 type ctxt = ctxt_frame * all_env
 
 (* State for CEK-style expression evaluation
@@ -55,6 +53,26 @@ let push env s e c' cs = Estep (env, s, Exp e, ((c',env)::cs))
 val return : all_env -> store v -> v -> list ctxt -> e_step_result
 let return env s v c = Estep (env, s, Val v, c)
 
+val applicaiton : op -> all_env -> store v -> list v -> list ctxt -> e_step_result
+let application op env s vs c = 
+  match op with
+    | Opapp ->
+      match do_opapp vs with
+        | Just (env,e) -> Estep (env, s, Exp e, c)
+        | Nothing -> Etype_error
+      end
+    | _ ->
+      match do_app s op vs with
+        | Just (s',r) ->
+          match r with
+            | Rerr (Rraise v) -> Estep (env,s',Val v,((Craise (),env)::c))
+            | Rval v -> return env s' v c
+            | _ -> Etype_error
+          end
+        | Nothing -> Etype_error
+      end
+    end
+
 (* apply a context to a value *)
 val continue : store v -> v -> list ctxt -> e_step_result
 let continue s v cs =
@@ -69,13 +87,10 @@ let continue s v cs =
         end
     | (Chandle () pes, env) :: c ->
         return env s v c
-    | (Capp1 op () e, env) :: c ->
-        push env s e (Capp2 op v ()) c
-    | (Capp2 op v' (), env) :: c ->
-        match do_app env s op v' v with
-          | Just (env,s',e) -> Estep (env, s', Exp e, c)
-          | Nothing -> Etype_error
-        end
+    | (Capp op vs () [], env) :: c ->
+        application op env s (List.reverse (v::vs)) c
+    | (Capp op vs () (e::es), env) :: c ->
+        push env s e (Capp op (v::vs) () es) c
     | (Clog l () e, env) :: c ->
         match do_log l v e with
           | Just e -> Estep (env, s, Exp e, c)
@@ -112,11 +127,6 @@ let continue s v cs =
           push env s e (Ccon n (v::vs) () es) c
         else
           Etype_error
-    | (Cuapp uop (), env) :: c ->
-       match do_uapp s uop v with
-         | Just (s',v') -> return env s' v' c
-         | Nothing -> Etype_error
-       end
   end
 
 (* The single step expression evaluator.  Returns None if there is nothing to
@@ -157,7 +167,11 @@ let e_step (env, s, ev, c) =
                     return env s v c
               end
           | Fun n e -> return env s (Closure env n e) c
-          | App op e1 e2 -> push env s e1 (Capp1 op () e2) c
+          | App op es -> 
+              match es with
+                | [] -> application op env s [] c
+                | (e::es) -> push env s e (Capp op [] () es) c
+              end
           | Log l e1 e2 -> push env s e1 (Clog l () e2) c
           | If e1 e2 e3 -> push env s e1 (Cif () e2 e3) c
           | Mat e pes -> push env s e (Cmat () pes (Conv (Just ("Bind", TypeExn (Short "Bind"))) [])) c
@@ -168,8 +182,6 @@ let e_step (env, s, ev, c) =
               else
                 Estep ((all_env_to_menv env, all_env_to_cenv env, build_rec_env funs env (all_env_to_env env)), 
                        s, Exp e, c)
-          | Uapp uop e ->
-              push env s e (Cuapp uop ()) c
         end
   end
 
