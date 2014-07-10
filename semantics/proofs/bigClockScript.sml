@@ -879,6 +879,24 @@ val top_clocked_unclocked_equiv = store_thm("top_clocked_unclocked_equiv",
   imp_res_tac top_unclocked_ignore >> fs[] >>
   metis_tac[])
 
+val top_clock_monotone = store_thm("top_clock_monotone",
+  ``∀ck mn env s d res. evaluate_top ck env s d res ⇒
+      ck ⇒ FST(FST(FST res)) ≤ FST(FST s)``,
+  rw [evaluate_top_cases] >>
+  imp_res_tac dec_clock_monotone >> fs[] >>
+  imp_res_tac decs_clock_monotone >> fs[]);
+
+val top_sub_from_counter = store_thm("top_sub_from_counter",
+  ``∀ck env s d res. evaluate_top ck env s d res ⇒
+      ∀extra count count' s0 s1 r0 r1 r2.
+         s = ((count + extra,s0),s1) ∧
+         res = (((count' + extra,r0),r1),r2) ∧ ck ⇒
+        evaluate_top ck env ((count,s0),s1) d (((count',r0),r1),r2)``,
+  rw[evaluate_top_cases] >>
+  imp_res_tac dec_sub_from_counter >> fs[] >>
+  imp_res_tac decs_sub_from_counter >> fs[] >>
+  metis_tac[]);
+
 val prog_unclocked = Q.store_thm ("prog_unclocked",
 `!mn count s env ds count' s' r env x y x' y' z.
   (evaluate_prog F env ((count, s),x,y) ds (((count',s'), x',y'),z,r)
@@ -953,5 +971,78 @@ val not_evaluate_whole_prog_timeout = store_thm("not_evaluate_whole_prog_timeout
   BasicProvers.EVERY_CASE_TAC >> fs[] >>
   fs[GSYM EXISTS_PROD,GSYM FORALL_PROD] >>
   metis_tac[not_evaluate_prog_timeout,SND,pair_CASES])
+
+val prog_clock_monotone = store_thm("prog_clock_monotone",
+  ``∀ck env s d res. evaluate_prog ck env s d res ⇒
+      ck ⇒ FST(FST(FST res)) ≤ FST(FST s)``,
+  ho_match_mp_tac evaluate_prog_ind >> rw[] >>
+  imp_res_tac top_clock_monotone >> fsrw_tac[ARITH_ss][])
+
+val prog_sub_from_counter = store_thm("prog_sub_from_counter",
+  ``∀ck env s d res. evaluate_prog ck env s d res ⇒
+      ∀extra count count' s0 s1 r0 r1 r2.
+         s = ((count + extra,s0),s1) ∧
+         res = (((count' + extra,r0),r1),r2) ∧ ck ⇒
+        evaluate_prog ck env ((count,s0),s1) d (((count',r0),r1),r2)``,
+  ho_match_mp_tac evaluate_prog_strongind >> rw[] >>
+  rw[Once evaluate_prog_cases] >>
+  imp_res_tac top_sub_from_counter >> fs[] >>
+  PairCases_on`s'`>>fs[]>>
+  imp_res_tac top_clock_monotone >>
+  imp_res_tac prog_clock_monotone >>
+  fs[] >> rw[] >>
+  metis_tac [DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``]);
+
+val prog_clocked_min_counter = store_thm("prog_clocked_min_counter",
+  ``∀ck env s ds res. evaluate_prog ck env s ds res ⇒
+    ck ⇒ evaluate_prog ck env ((FST (FST s) - FST(FST(FST res)),SND (FST s)),SND s) ds
+                (((0,SND(FST(FST res))),SND(FST res)),SND res)``,
+  rw[] >>
+  imp_res_tac prog_clock_monotone >>
+  PairCases_on`s`>>PairCases_on`res`>>fs[]>>
+  `res0 = 0 + res0 ∧ s0 = (s0 - res0) + res0` by decide_tac >>
+  metis_tac[prog_sub_from_counter]);
+
+val prog_add_clock = store_thm("prog_add_clock",
+  ``∀ck env s d res. evaluate_prog ck env s d res ⇒
+      ∀count1 s0 s1 count2 r1 r2 r3.
+        s = ((count1,s0),s1) ∧ res = (((count2,r1),r2),r3) ∧ ¬ck ⇒
+          ∃count. evaluate_prog T env ((count,s0),s1) d (((0,r1),r2),r3)``,
+  ho_match_mp_tac evaluate_prog_ind >> rw[] >>
+  rw[Once evaluate_prog_cases] >>
+  imp_res_tac top_add_clock >> fs[] 
+  >- (PairCases_on `s'` >>
+      fs [] >>
+      (*imp_res_tac top_add_to_counter*)
+      cheat)
+  >- metis_tac[]);
+
+val prog_unclocked_ignore = store_thm("prog_unclocked_ignore",
+  ``∀ck env s d res. evaluate_prog ck env s d res ⇒
+      ∀count1 s0 s1 count2 r1 r2 r3 count.
+        s = ((count1,s0),s1) ∧ res = (((count2,r1),r2),r3) ∧ SND r3 ≠ Rerr Rtimeout_error ⇒
+          evaluate_prog F env ((count,s0),s1) d (((count,r1),r2),r3)``,
+  ho_match_mp_tac evaluate_prog_ind >> rw[] >>
+  rw[Once evaluate_prog_cases] >>
+  imp_res_tac top_unclocked_ignore >> fs[] >>
+  PairCases_on`s'`>>fs[] >>
+  Cases_on`r=Rerr Rtimeout_error`>-fs[combine_mod_result_def]>>fs[]>>
+  metis_tac[])
+
+val prog_clocked_unclocked_equiv = store_thm("prog_clocked_unclocked_equiv",
+  ``∀env count1 s1 s2 s3 p r1 r2 r3 r4.
+      evaluate_prog F env ((count1,s1),s2,s3) p (((count1,r1),r2,r4),r3) ⇔
+      ∃count. evaluate_prog T env ((count,s1),s2,s3) p (((0,r1),r2,r4),r3) ∧
+              SND r3 ≠ Rerr Rtimeout_error``,
+ rw [] >>
+ simp[FORALL_PROD] >> rw[EQ_IMP_THM] >>
+ PairCases_on `r3` >>
+ fs [] >>
+ imp_res_tac prog_unclocked >>
+ rw [] >>
+ imp_res_tac prog_clocked_min_counter >>
+ imp_res_tac prog_add_clock >>
+ imp_res_tac prog_unclocked_ignore >> fs[] >>
+ metis_tac[]);
 
 val _ = export_theory ();
