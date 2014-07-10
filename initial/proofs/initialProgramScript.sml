@@ -65,7 +65,9 @@ val add_to_env_invariant = Q.prove (
  fs [invariant_def] >>
  imp_res_tac infer_prog_sound >>
  simp [] >>
- `~prog_diverges (envM,envC,envE) (s,tids,set e.inf_mdecls) prog` by cheat >>
+ `evaluate_prog F (envM,envC,envE) ((0,s),tids,set e.inf_mdecls) prog (((0,s'),tids',mdecls'),envC',Rval (envM',envE'))` 
+           by cheat >>
+ `~prog_diverges (envM,envC,envE) (s,tids,set e.inf_mdecls) prog` by metis_tac [untyped_safety_prog] >>
  imp_res_tac prog_type_soundness >>
  fs [convert_decls_def] >>
  ntac 2 (pop_assum (fn _ => all_tac)) >>
@@ -75,7 +77,6 @@ val add_to_env_invariant = Q.prove (
  rw [] >>
  pop_assum (qspec_then `0` assume_tac) >>
  fs [typeSoundInvariantsTheory.update_type_sound_inv_def, bigStepTheory.evaluate_whole_prog_def] >>
- `evaluate_prog F (envM,envC,envE) ((0,s),tids,set e.inf_mdecls) prog (((0,s'),tids',mdecls'),envC',Rval (envM',envE'))` by cheat >>
  imp_res_tac determTheory.prog_determ >>
  fs [] >>
  rw [] >>
