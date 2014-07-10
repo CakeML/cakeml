@@ -1,4 +1,4 @@
-open preamble;
+open preamble miscLib;
 open astTheory initialEnvTheory interpTheory inferTheory typeSystemTheory modLangTheory conLangTheory bytecodeTheory;
 open bigClockTheory untypedSafetyTheory inferSoundTheory modLangProofTheory conLangProofTheory typeSoundTheory;
 
@@ -86,14 +86,18 @@ val add_to_env_invariant = Q.prove (
  `env_rs (envM,envC,envE) ((cnt,s),tids,set e.inf_mdecls) (genv,gtagenv,rd) e.comp_rs (bs' with code := bc0)`
              by (UNABBREV_ALL_TAC >>
                  rw [bc_state_fn_updates] >>
-                 cheat) >>
+                 match_mp_tac compilerProofTheory.env_rs_with_bs_irr >>
+                 qexists_tac`bs with clock := SOME cnt` >> simp[] >>
+                 match_mp_tac compilerProofTheory.env_rs_change_clock >>
+                 first_assum(match_exists_tac o concl) >>
+                 simp[bc_state_component_equality]) >>
  `bs'.code = bc0 ++ REVERSE code`
              by (UNABBREV_ALL_TAC >>
                  rw [bc_state_fn_updates]) >>
  `IS_SOME bs'.clock` 
              by (UNABBREV_ALL_TAC >>
                  rw [bc_state_fn_updates]) >>
- `bs'.pc = next_addr bs'.inst_length bc0` by cheat >>
+ `bs'.pc = next_addr bs'.inst_length bc0` by simp[Abbr`bc0`,Abbr`bs'`] >>
  `?bs'' grd''.
     bc_next^* bs' bs'' ∧ bc_fetch bs'' = SOME (Stop T) ∧
     bs''.output = bs'.output ∧
