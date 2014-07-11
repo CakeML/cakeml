@@ -4287,6 +4287,13 @@ val compile_initial_prog_thm = store_thm("compile_initial_prog_thm",
   conj_tac >- tac7 >>
   first_assum(mp_tac o MATCH_MP evaluate_prog_i1_closed) >> simp[] >>
   disch_then match_mp_tac >>
-  cheat)
+  reverse conj_tac >- (
+    fs[to_i1_invariant_def,EVERY_sv_every_EVERY_store_vs,s_to_i1_cases] >>
+    (v_to_i1_closed |> CONJUNCT2 |> CONJUNCT1 |> MP_CANON |> match_mp_tac) >>
+    simp[vs_to_i1_MAP] >>
+    fs[sv_to_i1_sv_rel] >>
+    imp_res_tac LIST_REL_store_vs_intro >>
+    first_assum(match_exists_tac o concl) >> simp[]) >>
+  imp_res_tac FV_prog_to_i1 >> simp[])
 
 val _ = export_theory()
