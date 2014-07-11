@@ -1,4 +1,4 @@
-structure compute_semanticsLib = struct
+structure compute_interpLib = struct
 open HolKernel boolLib bossLib lcsymtacs replTheory
 
   val add_datatype = compute_basicLib.add_datatype
@@ -10,6 +10,7 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
       ,run_eval_decs_def
       ,run_eval_top_def
       ,run_eval_prog_def
+      ,result_return_def
       ] compset
     end
     in

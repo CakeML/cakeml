@@ -25,6 +25,14 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
     ,semanticPrimitivesTheory.int_to_string_def
     ,semanticPrimitivesTheory.string_to_string_def
     ,semanticPrimitivesTheory.string_escape_def
+    ,semanticPrimitivesTheory.build_tdefs_def
+    ,semanticPrimitivesTheory.all_env_to_menv_def
+    ,semanticPrimitivesTheory.all_env_to_cenv_def
+    ,semanticPrimitivesTheory.all_env_to_env_def
+    ,semanticPrimitivesTheory.result_case_def
+    ,semanticPrimitivesTheory.merge_envC_def
+    ,semanticPrimitivesTheory.match_result_case_def
+    ,terminationTheory.pmatch_def
     ] compset
     val () = add_datatype ``:MMLnonT`` compset
     val () = add_datatype ``:top`` compset

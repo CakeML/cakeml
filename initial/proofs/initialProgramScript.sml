@@ -1,6 +1,7 @@
 open preamble miscLib;
 open astTheory bigStepTheory initialEnvTheory interpTheory inferTheory typeSystemTheory modLangTheory conLangTheory bytecodeTheory;
 open bigClockTheory untypedSafetyTheory inferSoundTheory modLangProofTheory conLangProofTheory typeSoundTheory;
+open compute_interpLib;
 
 val _ = new_theory "initialProgram";
 
@@ -185,6 +186,12 @@ val prim_sem_env_def = Define `
 prim_sem_env =
 add_to_sem_env <| sem_envM := []; sem_envC := ([],[]); sem_envE := []; sem_s := []; sem_tids := {}; sem_mdecls := {} |> prim_types_program`;
 
+val prim_sem_env_thm = save_thm ("prim_sem_env_thm",
+(SIMP_CONV (srw_ss()) [add_to_sem_env_def, prim_sem_env_def, prim_types_program_def]
+THENC
+computeLib.CBV_CONV compute_interpLib.the_interp_compset)
+``prim_sem_env``);
+
 val basis_env_def = Define `
 basis_env =
 add_to_env (THE prim_env) basis_program`;
@@ -192,6 +199,14 @@ add_to_env (THE prim_env) basis_program`;
 val basis_sem_env_def = Define `
 basis_sem_env =
 add_to_sem_env (THE prim_sem_env) basis_program`;
+
+(*
+(SIMP_CONV (srw_ss()) [add_to_sem_env_def, basis_sem_env_def, basis_program_def,
+                       prim_sem_env_thm, mk_binop_def, mk_unop_def]
+THENC
+computeLib.CBV_CONV compute_interpLib.the_interp_compset)
+``basis_sem_env``);
+*)
 
 val prim_env_inv = Q.store_thm ("prim_env_inv",
 `?se e. 
