@@ -472,34 +472,6 @@ rw [] >|
                 result_distinct,result_11, error_result_distinct,result_nchotomy, error_result_nchotomy],
  metis_tac [big_exp_determ, pair_CASES, PAIR_EQ, big_unclocked, add_clock]]);
 
-val dec_evaluate_not_timeout = Q.store_thm ("dec_evaluate_not_timeout",
-`!mn s env d s' r.
-  evaluate_dec F mn env s d (s', r) ⇒ r ≠ Rerr Rtimeout_error`,
-rw [evaluate_dec_cases] >>
-PairCases_on `s''` >>
-PairCases_on `s'''` >>
-metis_tac [big_unclocked]);
-
-val decs_evaluate_not_timeout = Q.store_thm ("decs_evaluate_not_timeout",
-`!ck mn env s ds r.
-  evaluate_decs ck mn env s ds r ⇒
-    !s' cenv' r'. ck = F ∧ r = (s', cenv', r') ⇒ r' ≠ Rerr Rtimeout_error`,
-ho_match_mp_tac evaluate_decs_ind >>
-rw [] >>
-rw []
->- (CCONTR_TAC >>
-    fs [] >>
-    imp_res_tac dec_evaluate_not_timeout >>
-    fs []) >>
-cases_on `r` >>
-rw [combine_dec_result_def]);
-
-val top_evaluate_not_timeout = Q.store_thm ("top_evaluate_not_timeout",
-`!mn env s top s' cenv' r.
-  evaluate_top F env s top (s', cenv', r) ⇒ r ≠ Rerr Rtimeout_error`,
-rw [evaluate_top_cases] >>
-metis_tac [dec_evaluate_not_timeout, decs_evaluate_not_timeout]);
-
 val sub_from_counter = Q.store_thm ("sub_from_counter",
 `(∀ck env s e r1.
    evaluate ck env s e r1 ⇒
@@ -549,6 +521,14 @@ evaluate T env (count-count',s0) e ((0, s'), r')`,
  `count'' = 0 + count'' ∧ count' = (count' - count'') + count'':num` by decide_tac >>
  metis_tac [sub_from_counter]);
 
+val dec_evaluate_not_timeout = Q.store_thm ("dec_evaluate_not_timeout",
+`!mn s env d s' r.
+  evaluate_dec F mn env s d (s', r) ⇒ r ≠ Rerr Rtimeout_error`,
+rw [evaluate_dec_cases] >>
+PairCases_on `s''` >>
+PairCases_on `s'''` >>
+metis_tac [big_unclocked]);
+
 val dec_unclocked = Q.store_thm ("dec_unclocked",
 `!mn count s env d count' s' r env tdecls tdecls'.
   (evaluate_dec F mn env ((count, s),tdecls) d (((count',s'), tdecls'), r)
@@ -560,49 +540,6 @@ val dec_unclocked = Q.store_thm ("dec_unclocked",
    evaluate_dec F mn env ((count', s),tdecls) d (((count',s'), tdecls'), r))`,
  rw [evaluate_dec_cases] >>
  metis_tac [big_unclocked]);
-
-val decs_unclocked = Q.store_thm ("decs_unclocked",
-`!mn count s env ds count' s' r env tdecls tdecls' cenv.
-  (evaluate_decs F mn env ((count, s),tdecls) ds (((count',s'), tdecls'),cenv,r)
-   ⇒
-   (r ≠ Rerr Rtimeout_error) ∧
-   (count = count')) ∧
-  (evaluate_decs F mn env ((count, s),tdecls) ds (((count,s'), tdecls'),cenv,r)
-   =
-   evaluate_decs F mn env ((count', s),tdecls) ds (((count',s'), tdecls'),cenv,r))`,
- induct_on `ds` >>
- rpt gen_tac >>
- ONCE_REWRITE_TAC [evaluate_decs_cases] >>
- rw []
- >- metis_tac [dec_unclocked]
- >- metis_tac [dec_unclocked]
- >- (PairCases_on `s2` >>
-     res_tac >>
-     cases_on `r'` >>
-     rw [combine_dec_result_def])
- >- metis_tac [pair_CASES, dec_unclocked]
- >- (eq_tac >>
-     rw []
-     >- metis_tac [dec_unclocked]
-     >- (PairCases_on `s2` >>
-         fs [] >>
-         metis_tac [dec_unclocked])
-     >- metis_tac [dec_unclocked]
-     >- (PairCases_on `s2` >>
-         fs [] >>
-         metis_tac [dec_unclocked])));
-
-val top_unclocked = Q.store_thm ("top_unclocked",
-`!count s env top count' s' r env tdecls tdecls' mods mods' cenv.
-  (evaluate_top F env ((count, s),tdecls,mods) top (((count',s'), tdecls',mods'),cenv,r)
-   ⇒
-   (r ≠ Rerr Rtimeout_error) ∧
-   (count = count')) ∧
-  (evaluate_top F env ((count, s),tdecls,mods) top (((count,s'), tdecls',mods'),cenv,r)
-   =
-   evaluate_top F env ((count', s),tdecls,mods) top (((count',s'), tdecls',mods'),cenv,r))`,
- rw [evaluate_top_cases] >>
- metis_tac [dec_unclocked, decs_unclocked]);
 
 val not_evaluate_dec_timeout = store_thm("not_evaluate_dec_timeout",
   ``∀mn env s d.
@@ -658,6 +595,117 @@ val dec_clocked_unclocked_equiv = store_thm("dec_clocked_unclocked_equiv",
   TRY disj1_tac >>
   first_assum(match_exists_tac o concl) >> simp[])
 
+val dec_sub_from_counter = store_thm("dec_sub_from_counter",
+  ``∀ck mn env s d res. evaluate_dec ck mn env s d res ⇒
+      ∀extra count count' s0 s1 r0 r1 r2.
+         s = ((count + extra,s0),s1) ∧
+         res = (((count' + extra,r0),r1),r2) ∧ ck ⇒
+        evaluate_dec ck mn env ((count,s0),s1) d (((count',r0),r1),r2)``,
+  ho_match_mp_tac evaluate_dec_ind >> rw[] >>
+  rw[Once evaluate_dec_cases] >>
+  imp_res_tac sub_from_counter >> fs[] >>
+  metis_tac[])
+
+val dec_clock_monotone = store_thm("dec_clock_monotone",
+  ``∀ck mn env s d res. evaluate_dec ck mn env s d res ⇒
+      ck ⇒ FST(FST(FST res)) ≤ FST(FST s)``,
+  ho_match_mp_tac evaluate_dec_ind >> rw[] >>
+  imp_res_tac clock_monotone >> fs[] >>
+  TRY(PairCases_on`s1`)>>fs[]>>
+  PairCases_on`s'`>>fs[]>>
+  PairCases_on`s`>>fs[])
+
+val dec_add_clock = store_thm("dec_add_clock",
+  ``∀ck mn env s d res. evaluate_dec ck mn env s d res ⇒
+      ∀count1 s0 s1 count2 r1 r2 r3.
+        s = ((count1,s0),s1) ∧ res = (((count2,r1),r2),r3) ∧ ¬ck ⇒
+          ∃count. evaluate_dec T mn env ((count,s0),s1) d (((0,r1),r2),r3)``,
+  ho_match_mp_tac evaluate_dec_ind >> rw[] >>
+  rw[Once evaluate_dec_cases] >>
+  imp_res_tac add_clock >> fs[] >>
+  metis_tac[])
+
+val dec_add_to_counter = store_thm("dec_add_to_counter",
+  ``∀ck mn env s d res. evaluate_dec ck mn env s d res ⇒
+      ∀count1 s0 s1 count2 r1 r2 r3 extra.
+        s = ((count1,s0),s1) ∧ res = (((count2,r1),r2),r3) ∧ ck ∧ r3 ≠ Rerr Rtimeout_error ⇒
+          evaluate_dec T mn env ((count1+extra,s0),s1) d (((count2+extra,r1),r2),r3)``,
+  ho_match_mp_tac evaluate_dec_ind >> rw[] >>
+  rw[Once evaluate_dec_cases] >>
+  imp_res_tac add_to_counter >> fs[] >>
+  metis_tac[])
+
+val dec_unclocked_ignore = store_thm("dec_unclocked_ignore",
+  ``∀ck mn env s d res. evaluate_dec ck mn env s d res ⇒
+      ∀count1 s0 s1 count2 r1 r2 r3 count.
+        s = ((count1,s0),s1) ∧ res = (((count2,r1),r2),r3) ∧ r3 ≠ Rerr Rtimeout_error ⇒
+          evaluate_dec F mn env ((count,s0),s1) d (((count,r1),r2),r3)``,
+  ho_match_mp_tac evaluate_dec_ind >> rw[] >>
+  rw[Once evaluate_dec_cases] >>
+  imp_res_tac big_unclocked_ignore >> fs[] >>
+  metis_tac[])
+
+val decs_add_clock = store_thm("decs_add_clock",
+  ``∀ck mn env s d res. evaluate_decs ck mn env s d res ⇒
+      ∀count1 s0 s1 count2 r1 r2 r3.
+        s = ((count1,s0),s1) ∧ res = (((count2,r1),r2),r3) ∧ ¬ck ⇒
+          ∃count. evaluate_decs T mn env ((count,s0),s1) d (((0,r1),r2),r3)``,
+  ho_match_mp_tac evaluate_decs_ind >> rw[] >>
+  rw[Once evaluate_decs_cases] >>
+  imp_res_tac dec_add_clock >> fs[] >-
+  metis_tac[] >>
+  PairCases_on`s'`>>fs[] >>
+  srw_tac[DNF_ss][] >> disj2_tac >>
+  CONV_TAC(STRIP_BINDER_CONV(SOME existential)(lift_conjunct_conv(equal``evaluate_decs`` o fst o strip_comb))) >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  imp_res_tac dec_add_to_counter >> fs[] >>
+  metis_tac[])
+
+val decs_evaluate_not_timeout = Q.store_thm ("decs_evaluate_not_timeout",
+`!ck mn env s ds r.
+  evaluate_decs ck mn env s ds r ⇒
+    !s' cenv' r'. ck = F ∧ r = (s', cenv', r') ⇒ r' ≠ Rerr Rtimeout_error`,
+ho_match_mp_tac evaluate_decs_ind >>
+rw [] >>
+rw []
+>- (CCONTR_TAC >>
+    fs [] >>
+    imp_res_tac dec_evaluate_not_timeout >>
+    fs []) >>
+cases_on `r` >>
+rw [combine_dec_result_def]);
+
+val decs_unclocked = Q.store_thm ("decs_unclocked",
+`!mn count s env ds count' s' r env tdecls tdecls' cenv.
+  (evaluate_decs F mn env ((count, s),tdecls) ds (((count',s'), tdecls'),cenv,r)
+   ⇒
+   (r ≠ Rerr Rtimeout_error) ∧
+   (count = count')) ∧
+  (evaluate_decs F mn env ((count, s),tdecls) ds (((count,s'), tdecls'),cenv,r)
+   =
+   evaluate_decs F mn env ((count', s),tdecls) ds (((count',s'), tdecls'),cenv,r))`,
+ induct_on `ds` >>
+ rpt gen_tac >>
+ ONCE_REWRITE_TAC [evaluate_decs_cases] >>
+ rw []
+ >- metis_tac [dec_unclocked]
+ >- metis_tac [dec_unclocked]
+ >- (PairCases_on `s2` >>
+     res_tac >>
+     cases_on `r'` >>
+     rw [combine_dec_result_def])
+ >- metis_tac [pair_CASES, dec_unclocked]
+ >- (eq_tac >>
+     rw []
+     >- metis_tac [dec_unclocked]
+     >- (PairCases_on `s2` >>
+         fs [] >>
+         metis_tac [dec_unclocked])
+     >- metis_tac [dec_unclocked]
+     >- (PairCases_on `s2` >>
+         fs [] >>
+         metis_tac [dec_unclocked])));
+
 val not_evaluate_decs_timeout = store_thm("not_evaluate_decs_timeout",
   ``∀mn env s ds.
     (∀r. ¬evaluate_decs F mn env s ds r) ⇒
@@ -695,16 +743,6 @@ val not_evaluate_decs_timeout = store_thm("not_evaluate_decs_timeout",
   first_assum(match_exists_tac o concl) >> simp[] >>
   simp[combine_dec_result_def])
 
-val not_evaluate_top_timeout = store_thm("not_evaluate_top_timeout",
-  ``∀env stm top. (∀res. ¬evaluate_top F env stm top res) ⇒
-    ∃r. evaluate_top T env stm top r ∧ SND(SND r) = Rerr Rtimeout_error``,
-  Cases_on`top`>>simp[Once evaluate_top_cases]>> srw_tac[DNF_ss][] >>
-  simp[Once evaluate_top_cases] >> srw_tac[DNF_ss][] >>
-  PairCases_on`stm`>>fs[] >- (
-    Cases_on`no_dup_types l`>>fs[] >>
-    metis_tac[not_evaluate_decs_timeout,SND,result_nchotomy,pair_CASES]) >>
-  metis_tac[not_evaluate_dec_timeout,SND,result_nchotomy,pair_CASES])
-
 val decs_clocked_total = store_thm("decs_clocked_total",
   ``∀mn env s ds. ∃res. evaluate_decs T mn env s ds res``,
   Induct_on`ds`>>simp[Once evaluate_decs_cases] >>
@@ -717,37 +755,6 @@ val decs_clocked_total = store_thm("decs_clocked_total",
   disj2_tac >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   fs[EXISTS_PROD])
-
-val top_clocked_total = store_thm("top_clocked_total",
-  ``∀env s t. ∃res. evaluate_top T env s t res``,
-  rpt gen_tac >> PairCases_on`s` >>
-  reverse(Cases_on`t`)>>simp[Once evaluate_top_cases] >>
-  srw_tac[DNF_ss][] >- (
-    qspecl_then[`NONE`,`env`,`((s0,s1),s2)`,`d`]strip_assume_tac dec_clocked_total >>
-    PairCases_on`res`>>Cases_on`res3`>>metis_tac[pair_CASES] ) >>
-  qspecl_then[`SOME s`,`env`,`((s0,s1),s2)`,`l`]strip_assume_tac decs_clocked_total >>
-  PairCases_on`res`>>fs[]>>
-  Cases_on`res4`>>metis_tac[])
-
-val dec_sub_from_counter = store_thm("dec_sub_from_counter",
-  ``∀ck mn env s d res. evaluate_dec ck mn env s d res ⇒
-      ∀extra count count' s0 s1 r0 r1 r2.
-         s = ((count + extra,s0),s1) ∧
-         res = (((count' + extra,r0),r1),r2) ∧ ck ⇒
-        evaluate_dec ck mn env ((count,s0),s1) d (((count',r0),r1),r2)``,
-  ho_match_mp_tac evaluate_dec_ind >> rw[] >>
-  rw[Once evaluate_dec_cases] >>
-  imp_res_tac sub_from_counter >> fs[] >>
-  metis_tac[])
-
-val dec_clock_monotone = store_thm("dec_clock_monotone",
-  ``∀ck mn env s d res. evaluate_dec ck mn env s d res ⇒
-      ck ⇒ FST(FST(FST res)) ≤ FST(FST s)``,
-  ho_match_mp_tac evaluate_dec_ind >> rw[] >>
-  imp_res_tac clock_monotone >> fs[] >>
-  TRY(PairCases_on`s1`)>>fs[]>>
-  PairCases_on`s'`>>fs[]>>
-  PairCases_on`s`>>fs[])
 
 val decs_clock_monotone = store_thm("decs_clock_monotone",
   ``∀ck mn env s d res. evaluate_decs ck mn env s d res ⇒
@@ -780,71 +787,6 @@ val decs_clocked_min_counter = store_thm("decs_clocked_min_counter",
   `res0 = 0 + res0 ∧ s0 = (s0 - res0) + res0` by decide_tac >>
   metis_tac[decs_sub_from_counter])
 
-val top_clocked_min_counter = store_thm("top_clocked_min_counter",
-  ``∀ck env s top res. evaluate_top ck env s top res ⇒
-      ck ⇒
-        evaluate_top ck env (((FST(FST s)-FST(FST(FST res))),SND(FST s)),SND s) top
-          (((0,SND(FST(FST res))),SND (FST res)),SND res)``,
-  ho_match_mp_tac evaluate_top_ind >> rw[] >>
-  rw[Once evaluate_top_cases] >>
-  imp_res_tac dec_clocked_min_counter >> fs[] >>
-  imp_res_tac decs_clocked_min_counter >> fs[])
-
-val dec_add_clock = store_thm("dec_add_clock",
-  ``∀ck mn env s d res. evaluate_dec ck mn env s d res ⇒
-      ∀count1 s0 s1 count2 r1 r2 r3.
-        s = ((count1,s0),s1) ∧ res = (((count2,r1),r2),r3) ∧ ¬ck ⇒
-          ∃count. evaluate_dec T mn env ((count,s0),s1) d (((0,r1),r2),r3)``,
-  ho_match_mp_tac evaluate_dec_ind >> rw[] >>
-  rw[Once evaluate_dec_cases] >>
-  imp_res_tac add_clock >> fs[] >>
-  metis_tac[])
-
-val dec_add_to_counter = store_thm("dec_add_to_counter",
-  ``∀ck mn env s d res. evaluate_dec ck mn env s d res ⇒
-      ∀count1 s0 s1 count2 r1 r2 r3 extra.
-        s = ((count1,s0),s1) ∧ res = (((count2,r1),r2),r3) ∧ ck ∧ r3 ≠ Rerr Rtimeout_error ⇒
-          evaluate_dec T mn env ((count1+extra,s0),s1) d (((count2+extra,r1),r2),r3)``,
-  ho_match_mp_tac evaluate_dec_ind >> rw[] >>
-  rw[Once evaluate_dec_cases] >>
-  imp_res_tac add_to_counter >> fs[] >>
-  metis_tac[])
-
-val decs_add_clock = store_thm("decs_add_clock",
-  ``∀ck mn env s d res. evaluate_decs ck mn env s d res ⇒
-      ∀count1 s0 s1 count2 r1 r2 r3.
-        s = ((count1,s0),s1) ∧ res = (((count2,r1),r2),r3) ∧ ¬ck ⇒
-          ∃count. evaluate_decs T mn env ((count,s0),s1) d (((0,r1),r2),r3)``,
-  ho_match_mp_tac evaluate_decs_ind >> rw[] >>
-  rw[Once evaluate_decs_cases] >>
-  imp_res_tac dec_add_clock >> fs[] >-
-  metis_tac[] >>
-  PairCases_on`s'`>>fs[] >>
-  srw_tac[DNF_ss][] >> disj2_tac >>
-  CONV_TAC(STRIP_BINDER_CONV(SOME existential)(lift_conjunct_conv(equal``evaluate_decs`` o fst o strip_comb))) >>
-  first_assum(match_exists_tac o concl) >> simp[] >>
-  imp_res_tac dec_add_to_counter >> fs[] >>
-  metis_tac[])
-
-val top_add_clock = store_thm("top_add_clock",
-  ``∀ck env stm top res. evaluate_top ck env stm top res ⇒
-      ∀count1 s0 s1 count2 r1 r2 r3.
-        stm = ((count1,s0),s1) ∧ res = (((count2,r1),r2),r3) ∧ ¬ck
-        ⇒ ∃count. evaluate_top T env ((count,s0),s1) top (((0,r1),r2),r3)``,
-  ho_match_mp_tac evaluate_top_ind >> rw[] >>
-  rw[Once evaluate_top_cases] >>
-  metis_tac[dec_add_clock,decs_add_clock])
-
-val dec_unclocked_ignore = store_thm("dec_unclocked_ignore",
-  ``∀ck mn env s d res. evaluate_dec ck mn env s d res ⇒
-      ∀count1 s0 s1 count2 r1 r2 r3 count.
-        s = ((count1,s0),s1) ∧ res = (((count2,r1),r2),r3) ∧ r3 ≠ Rerr Rtimeout_error ⇒
-          evaluate_dec F mn env ((count,s0),s1) d (((count,r1),r2),r3)``,
-  ho_match_mp_tac evaluate_dec_ind >> rw[] >>
-  rw[Once evaluate_dec_cases] >>
-  imp_res_tac big_unclocked_ignore >> fs[] >>
-  metis_tac[])
-
 val decs_unclocked_ignore = store_thm("decs_unclocked_ignore",
   ``∀ck mn env s d res. evaluate_decs ck mn env s d res ⇒
       ∀count1 s0 s1 count2 r1 r2 r3 count.
@@ -856,6 +798,82 @@ val decs_unclocked_ignore = store_thm("decs_unclocked_ignore",
   PairCases_on`s'`>>fs[] >>
   Cases_on`r=Rerr Rtimeout_error`>-fs[combine_dec_result_def]>>fs[]>>
   metis_tac[])
+
+val decs_add_to_counter = store_thm("decs_add_to_counter",
+  ``∀ck mn env s d res. evaluate_decs ck mn env s d res ⇒
+      ∀count1 s0 s1 count2 r1 r2 r3 extra.
+        s = ((count1,s0),s1) ∧ res = (((count2,r1),r2),r3) ∧ ck ∧ SND r3 ≠ Rerr Rtimeout_error ⇒
+          evaluate_decs T mn env ((count1+extra,s0),s1) d (((count2+extra,r1),r2),r3)``,
+  ho_match_mp_tac evaluate_decs_ind >> rw[] >>
+  rw [Once evaluate_decs_cases] >>
+  imp_res_tac dec_add_to_counter >> 
+  fs [] >>
+  rw [] >>
+  PairCases_on `s'` >>
+  fs [] >>
+  `r ≠ Rerr Rtimeout_error` 
+        by (Cases_on `r` >>
+            fs [combine_dec_result_def]) >>
+  fs [] >>
+  metis_tac []);
+
+val top_evaluate_not_timeout = Q.store_thm ("top_evaluate_not_timeout",
+`!mn env s top s' cenv' r.
+  evaluate_top F env s top (s', cenv', r) ⇒ r ≠ Rerr Rtimeout_error`,
+rw [evaluate_top_cases] >>
+metis_tac [dec_evaluate_not_timeout, decs_evaluate_not_timeout]);
+
+val top_unclocked = Q.store_thm ("top_unclocked",
+`!count s env top count' s' r env tdecls tdecls' mods mods' cenv.
+  (evaluate_top F env ((count, s),tdecls,mods) top (((count',s'), tdecls',mods'),cenv,r)
+   ⇒
+   (r ≠ Rerr Rtimeout_error) ∧
+   (count = count')) ∧
+  (evaluate_top F env ((count, s),tdecls,mods) top (((count,s'), tdecls',mods'),cenv,r)
+   =
+   evaluate_top F env ((count', s),tdecls,mods) top (((count',s'), tdecls',mods'),cenv,r))`,
+ rw [evaluate_top_cases] >>
+ metis_tac [dec_unclocked, decs_unclocked]);
+
+val not_evaluate_top_timeout = store_thm("not_evaluate_top_timeout",
+  ``∀env stm top. (∀res. ¬evaluate_top F env stm top res) ⇒
+    ∃r. evaluate_top T env stm top r ∧ SND(SND r) = Rerr Rtimeout_error``,
+  Cases_on`top`>>simp[Once evaluate_top_cases]>> srw_tac[DNF_ss][] >>
+  simp[Once evaluate_top_cases] >> srw_tac[DNF_ss][] >>
+  PairCases_on`stm`>>fs[] >- (
+    Cases_on`no_dup_types l`>>fs[] >>
+    metis_tac[not_evaluate_decs_timeout,SND,result_nchotomy,pair_CASES]) >>
+  metis_tac[not_evaluate_dec_timeout,SND,result_nchotomy,pair_CASES])
+
+val top_clocked_total = store_thm("top_clocked_total",
+  ``∀env s t. ∃res. evaluate_top T env s t res``,
+  rpt gen_tac >> PairCases_on`s` >>
+  reverse(Cases_on`t`)>>simp[Once evaluate_top_cases] >>
+  srw_tac[DNF_ss][] >- (
+    qspecl_then[`NONE`,`env`,`((s0,s1),s2)`,`d`]strip_assume_tac dec_clocked_total >>
+    PairCases_on`res`>>Cases_on`res3`>>metis_tac[pair_CASES] ) >>
+  qspecl_then[`SOME s`,`env`,`((s0,s1),s2)`,`l`]strip_assume_tac decs_clocked_total >>
+  PairCases_on`res`>>fs[]>>
+  Cases_on`res4`>>metis_tac[])
+
+val top_clocked_min_counter = store_thm("top_clocked_min_counter",
+  ``∀ck env s top res. evaluate_top ck env s top res ⇒
+      ck ⇒
+        evaluate_top ck env (((FST(FST s)-FST(FST(FST res))),SND(FST s)),SND s) top
+          (((0,SND(FST(FST res))),SND (FST res)),SND res)``,
+  ho_match_mp_tac evaluate_top_ind >> rw[] >>
+  rw[Once evaluate_top_cases] >>
+  imp_res_tac dec_clocked_min_counter >> fs[] >>
+  imp_res_tac decs_clocked_min_counter >> fs[])
+
+val top_add_clock = store_thm("top_add_clock",
+  ``∀ck env stm top res. evaluate_top ck env stm top res ⇒
+      ∀count1 s0 s1 count2 r1 r2 r3.
+        stm = ((count1,s0),s1) ∧ res = (((count2,r1),r2),r3) ∧ ¬ck
+        ⇒ ∃count. evaluate_top T env ((count,s0),s1) top (((0,r1),r2),r3)``,
+  ho_match_mp_tac evaluate_top_ind >> rw[] >>
+  rw[Once evaluate_top_cases] >>
+  metis_tac[dec_add_clock,decs_add_clock])
 
 val top_unclocked_ignore = store_thm("top_unclocked_ignore",
   ``∀ck env stm top res. evaluate_top ck env stm top res ⇒
@@ -895,6 +913,16 @@ val top_sub_from_counter = store_thm("top_sub_from_counter",
   rw[evaluate_top_cases] >>
   imp_res_tac dec_sub_from_counter >> fs[] >>
   imp_res_tac decs_sub_from_counter >> fs[] >>
+  metis_tac[]);
+
+val top_add_to_counter = store_thm("top_add_to_counter",
+  ``∀ck env s d res. evaluate_top ck env s d res ⇒
+      ∀count1 s0 s1 count2 r1 r2 r3 extra.
+        s = ((count1,s0),s1) ∧ res = (((count2,r1),r2),r3) ∧ ck ∧ SND r3 ≠ Rerr Rtimeout_error ⇒
+          evaluate_top T env ((count1+extra,s0),s1) d (((count2+extra,r1),r2),r3)``,
+  rw[evaluate_top_cases] >>
+  imp_res_tac dec_add_to_counter >> fs[] >>
+  imp_res_tac decs_add_to_counter >> fs[] >>
   metis_tac[]);
 
 val prog_unclocked = Q.store_thm ("prog_unclocked",
@@ -1013,8 +1041,10 @@ val prog_add_clock = store_thm("prog_add_clock",
   imp_res_tac top_add_clock >> fs[] 
   >- (PairCases_on `s'` >>
       fs [] >>
-      (*imp_res_tac top_add_to_counter*)
-      cheat)
+      imp_res_tac top_add_to_counter >>
+      fs [] >>
+      rw [] >>
+      metis_tac [])
   >- metis_tac[]);
 
 val prog_unclocked_ignore = store_thm("prog_unclocked_ignore",
