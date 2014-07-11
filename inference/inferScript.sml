@@ -4,6 +4,12 @@ open stringTheory monadsyntax;
 
 val _ = new_theory "infer";
 
+val (inf_type_to_string_def,inf_type_to_string_ind) = Defn.tprove_no_defn((inf_type_to_string_def,inf_type_to_string_ind),
+(WF_REL_TAC `measure (\x. case x of INL x => infer_t_size x | INR x => infer_t1_size x)`));
+val _ = save_thm("inf_type_to_string_def",inf_type_to_string_def);
+val _ = save_thm("inf_type_to_string_ind",inf_type_to_string_ind);
+val _ = computeLib.add_persistent_funs ["inf_type_to_string_def"];
+
 val list_subset_def = Define `
 list_subset l1 l2 = EVERY (\x. MEM x l2) l1`;
 

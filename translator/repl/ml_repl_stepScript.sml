@@ -54,6 +54,10 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
+(* because the original theorems have termination side-conditions *)
+val _ = save_thm("inf_type_to_string_ind",inf_type_to_string_ind)
+val _ = translate inf_type_to_string_def;
+
 (* initial state *)
 
 val _ = translate (pred_setTheory.IN_INSERT |> SIMP_RULE std_ss [IN_DEF]);

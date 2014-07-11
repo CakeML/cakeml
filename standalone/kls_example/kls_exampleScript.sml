@@ -85,7 +85,7 @@ val kls_example_decls_def = fetch "-" "kls_example_decls";
 val th = fetch "-" "kls_example_translator_state_thm";
 
 val klsDeclAssumExists = Q.prove
-(`DeclAssumExists kls_example_decls`,
+(`DeclAssumExists NONE kls_example_decls`,
 ASSUME_TAC th THEN
 FULL_SIMP_TAC (srw_ss()) [markerTheory.Abbrev_def,ml_translatorTheory.TAG_def]);
 
@@ -98,7 +98,7 @@ val fact_eval_thm = SIMP_RULE std_ss [] (DISCH_ALL fact_eval);
 
 val Eval_fact_app = Q.prove
 (`Eval env (Var (Short "n")) (NUM n) /\
-  DeclAssum kls_example_decls env tys
+  DeclAssum NONE kls_example_decls env tys
   ==>
   Eval env
       (App Opapp (Var (Short "fact"))
@@ -116,7 +116,7 @@ val Eval_Var_lemma = prove(
 val ML_fact_CORRECT = store_thm
 ("ML_fact_CORRECT",
  ``!env tys n nml.
-      DeclAssum kls_example_decls env tys /\
+      DeclAssum NONE kls_example_decls env tys /\
       (NUM n nml) /\ (lookup "n" (all_env_to_env env) = SOME nml)
       ==>
       ?k kml.
@@ -136,7 +136,7 @@ val ML_fact_CORRECT = store_thm
 val ML_fact_THM = store_thm
 ("ML_fact_THM",
  ``!env tys n nml.
-      DeclAssum kls_example_decls env tys /\
+      DeclAssum NONE kls_example_decls env tys /\
      (lookup "n" (all_env_to_env env) = SOME nml)/\
       NUM n nml
       ==>
@@ -168,6 +168,14 @@ val int2_def = MATCH_MP decs_add_clock int1_def |> SIMP_RULE (srw_ss())[]
 val kls_init_clock_def = new_specification("kls_init_clock",["kls_init_clock"],int2_def)
 val kls_progs = kls_init_clock_def |> SIMP_RULE(srw_ss())[evaluate_decs_evaluate_prog_MAP_Tdec]
 
+val kls_whole_progs = Q.prove (
+`evaluate_whole_prog T ([],init_envC,init_env)
+     ((kls_init_clock,[]),init_type_decs,∅) (MAP Tdec kls_example_decls)
+     (((0,int_s),kls_tys,∅),([],int_new_tds),Rval (emp,int_res_env))`,
+ SRW_TAC [] [evaluate_whole_prog_def, kls_progs, kls_example_decls_def] THEN
+ EVAL_TAC);
+
+
 val option_case_lemma = prove(
   ``((case x of NONE => NONE | SOME x => SOME x) = SOME z) ⇔ (x = SOME z)``,
   BasicProvers.EVERY_CASE_TAC)
@@ -185,7 +193,7 @@ val closed_prog_kls =
 
 val kls_compiler_correctness =
     compile_prog_thm
-  |> C MATCH_MP kls_progs
+  |> C MATCH_MP kls_whole_progs
   |> SIMP_RULE(srw_ss()) [closed_prog_kls]
   |> ONCE_REWRITE_RULE [GSYM AND_IMP_INTRO]
   |> SIMP_RULE (srw_ss())[LET_THM,lookup_int_res_env]

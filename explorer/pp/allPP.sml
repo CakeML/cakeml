@@ -12,19 +12,9 @@ fun fullEval p =
 (*RHS of theorem to term*)
 val rhsThm = rhs o concl;
 
-(*Helper for test calls*)
-
-(*val () = set_trace "pp_avoids_symbol_merges" 0
-
-fun take 0 (x::xs) = x
-|   take n (_::xs) = take (n-1) xs;
-
-fun i n (ex:allIntermediates) = take n (#ils ex);
-*)
-
-
-val compile_primitives_def = Define
-`compile_primitives = FST(compile_top (NONE:(varN, num # infer_t) alist option) init_compiler_state
+val compile_primitives_def = Define`
+  compile_primitives =
+    FST(compile_top NONE init_compiler_state
     (Tdec initial_program))`;
 
 val cs = cakeml_compset();
@@ -43,6 +33,7 @@ val compile_primitives_pieces =
   ,eval ``compile_primitives.contags_env``
   ,eval ``compile_primitives.rnext_label``];
 val cs = cakeml_compset();
+
 val _ = computeLib.add_thms [compile_primitives_pieces] cs
 val eval = computeLib.CBV_CONV cs
 
@@ -58,7 +49,7 @@ type allIntermediates = {
 
 (*Return all intermediates during compilation in a record*)
 fun allIntermediates prog =
-  let
+  let 
       val t1 = eval ``get_all_asts ^(prog)``
       val t2 = eval ``elab_all_asts ^(rhsThm t1)``
       val ast = rand (rhsThm t2)
@@ -113,7 +104,9 @@ fun allIntermediates prog =
       (*Cheat and call PP internally so that the stateful annotations are updated*)
       val _ = term_to_string Ce
       val p6 = Ce
+
       val cs = rhsThm (eval ``compile_code_env (^(cs) with next_label := ^(nl)) ^(Ce)``)
+
       val compile_Cexp = eval ``compile [] TCNonTail 0 ^(cs) ^(Ce)``
       (*val compile_Cexp = eval ``compile_Cexp [] 0 
                            <|out:=[];next_label:=compile_primitives.rnext_label|> ^(p6)``*)
@@ -146,16 +139,37 @@ fun allIntermediates prog =
 
       val _ = with_flag (quiet,true) add_code_labels_ok_thm code_labels_ok_thm
 
-      val rem_labels = with_flag (quiet,true) eval ``remove_labels_all_asts (Success ^(p7))``
+      val rem_labels = with_flag (quiet,true) eval ``remove_labels_all_asts (\x.0) (Success ^(p7))``
 
+      (*Remove labels for bytecode*)
       val p8 = rhsThm rem_labels |> rand
+
+      (*Remove labels for asm*)
+      val rem_labels = with_flag (quiet,true) eval ``remove_labels_all_asts real_inst_length (Success ^(p7))``
+
+      (*Bytecode to asm*)
+      val asm = eval ``x64_code 0 ^(rhsThm rem_labels |> rand)``
+      val p9 = rhsThm asm
+
       val p8 = rhsThm (eval ``(NONE,^(p8))``)
 
       val p7 = rhsThm (eval ``(SOME x,^(p7))``)
+      
   in
-     {ils=[ast,p1,p2,p3,p4,p5,p6,p7,p8],
+     {ils=[ast,p1,p2,p3,p4,p5,p6,p7,p8,p9],
       ctors=ctors,globMap=globMap,modMap=modMap,annotations=(!collectAnnotations)}
   end;
 end
 end
 
+
+(*Helper for test calls*)
+
+(*
+val () = set_trace "pp_avoids_symbol_merges" 0
+
+fun take 0 (x::xs) = x
+|   take n (_::xs) = take (n-1) xs;
+
+fun i n (ex:allIntermediates) = take n (#ils ex);
+*)

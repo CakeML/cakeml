@@ -24,14 +24,13 @@ val repl_decs_code_eq = save_thm("repl_decs_code_eq",
   time (REWR_CONV repl_decs_code_def THENC PURE_ONCE_REWRITE_CONV[compile_repl_decs_eq] THENC eval)
   ``repl_decs_code``)
 
-val call_dec = ``Tdec (Dlet (Plit Unit) (App Opapp (Var(Long"REPL""call_repl_step")) (Lit Unit)))``
+val call_dec = ``Tdec (Dlet (Plit Unit) (App Opapp [Var(Long"REPL""call_repl_step"); Lit Unit]))``
 
 val compile_call_repl_step_def = zDefine`
   compile_call_repl_step = compile_special (FST compile_repl_decs) ^call_dec`
 
 
-val _ = computeLib.add_thms [compilerProofTheory.compile_special_def,
-                             compilerProofTheory.prompt_to_i3_special_def] cs
+val _ = computeLib.add_thms [compilerProofTheory.compile_special_def] cs
 val eval_special = computeLib.CBV_CONV cs
 val compile_call_repl_step_eq = save_thm("compile_call_repl_step_eq",
   time (REWR_CONV compile_call_repl_step_def THENC

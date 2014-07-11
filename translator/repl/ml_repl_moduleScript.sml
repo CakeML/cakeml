@@ -34,9 +34,9 @@ val _ = add_Ref_NONE_decl "output";
 val add_call_repl_step_decl = let
   val name = "call_repl_step"
   val exp =
-    ``App Opassign (Var (Short "output"))
-       (App Opapp (Var (Short "repl_step"))
-         (Uapp Opderef (Var (Short "input"))))``
+    ``App Opassign [Var (Short "output");
+        App Opapp [Var (Short "repl_step");
+          App Opderef [Var (Short "input")]]]``
   val decl_assum_x = always_evaluates_fn
     |> Q.SPECL [`"u"`,`^exp`,`env`]
     |> DISCH (ml_translatorLib.get_DeclAssum ())

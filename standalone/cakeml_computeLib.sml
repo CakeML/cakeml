@@ -7,6 +7,7 @@ open lexer_implTheory inferTheory intLangTheory toIntLangTheory toBytecodeTheory
 open bytecodeLabelsTheory labels_computeLib bytecodeEncodeTheory bytecodeEvalTheory free_varsTheory progToBytecodeTheory
 open initialProgramTheory
 open terminationTheory compilerTerminationTheory
+open x64_code_evalTheory x64_heapTheory
 
 val encode_bc_insts_thm = prove(
   ``∀bcs. encode_bc_insts bcs =
@@ -112,6 +113,7 @@ val () = computeLib.add_thms
   ,conLangTheory.nil_tag_def
   ,conLangTheory.some_tag_def
   ,conLangTheory.none_tag_def
+  ,conLangTheory.subscript_tag_def
   ] compset
 val () = add_datatype ``:MMLnonT``
 val () = add_datatype ``:top``
@@ -510,6 +512,18 @@ val () = computeLib.add_thms
   ,remove_labels_all_asts_def
   ] compset
 val () = add_datatype ``:compiler_state``
+
+(*Bytecode to asm*)
+val () = computeLib.add_thms 
+  [prog_x64_extraTheory.IMM32_def,
+   small_offset_def,
+   small_offset6_def,
+   small_offset12_def,
+   small_offset16_def,
+   x64_def,
+   x64_length_def,
+   x64_code_def] compset
+
 in compset end
 
 val bc_fetch_aux_0_thm = prove(
@@ -522,7 +536,7 @@ val bc_fetch_aux_0_thm = prove(
   simp[rich_listTheory.EL_CONS,arithmeticTheory.PRE_SUB1])
 
 val remove_labels_all_asts_no_labels = prove(
-  ``(remove_labels_all_asts x = Success ls) ⇒ no_labels ls``,
+  ``(remove_labels_all_asts len x = Success ls) ⇒ no_labels ls``,
   Cases_on`x`>>rw[remove_labels_all_asts_def]
   >> rw[code_labels_no_labels])
 
@@ -597,14 +611,14 @@ in
       end
     fun compile_string s =
       let
-        val thm = eval ``case prog_to_bytecode_string ^(fromMLstring s) of Failure x => "<compile error>" ++ x | Success s => s``
+        val thm = eval ``case prog_to_bytecode_string (\x. 0) ^(fromMLstring s) of Failure x => "<compile error>" ++ x | Success s => s``
         val _ = assert (fn x => hyp x = []) thm;
       in
         fromHOLstring (rhs (concl thm))
       end
     fun compile_binary s =
       let
-        val thm = eval ``case prog_to_bytecode_encoded ^(fromMLstring s)
+        val thm = eval ``case prog_to_bytecode_encoded (\x. 0) ^(fromMLstring s)
                          of Failure x =>
                            encode_bc_insts (MAP PrintC ("compile error: " ++ x ++ "\n"))
                          | Success s => s``
@@ -657,7 +671,7 @@ val x4 = eval ``compile_all_asts_no_init ^(x3 |> concl |> rhs)``
 
 val x4 = eval ``compile_all_asts ^(x3 |> concl |> rhs)``
 
-val x5 = eval ``remove_labels_all_asts ^(x4 |> concl |> rhs)``
+val x5 = eval ``remove_labels_all_asts (\x. 0) ^(x4 |> concl |> rhs)``
 
 val th1 = MATCH_MP remove_labels_all_asts_no_labels x5
 val th2 = eval(th1|>concl|>rand|>listSyntax.mk_length)
@@ -669,9 +683,9 @@ val x6 = eval ``all_asts_to_encoded ^(x5 |> concl |> rhs)``
 val code = rand(rhs(concl x5))
 eval ``REVERSE ^code``
 
-val res = eval ``prog_to_bytecode_encoded ^input``
-val res = eval ``prog_to_bytecode_string ^input``
-val res = eval ``prog_to_bytecode ^input``
+val res = eval ``prog_to_bytecode_encoded (\x. 0) ^input``
+val res = eval ``prog_to_bytecode_string (\x. 0) ^input``
+val res = eval ``prog_to_bytecode (\x. 0) ^input``
 
 val input = ``"fun fact n = if n <= 0 then 1 else n * fact (n-1); fact 5;"``
 time (do_compile_binary_str (fromHOLstring input)) "tests/fact5.byte"
@@ -704,11 +718,11 @@ do_compile_string "tests/test1.ml" "tests/test1.byte"
     val asts2 = computeLib.CBV_CONV compset ``elab_all_asts ^(asts1 |> concl |> rhs)``;
     val asts3 = computeLib.CBV_CONV compset ``infer_all_asts ^(asts2 |> concl |> rhs)``;
     val asts4 = computeLib.CBV_CONV compset ``compile_all_asts ^(asts3 |> concl |> rhs)``;
-    val asts5 = computeLib.CBV_CONV compset ``remove_labels_all_asts ^(asts4 |> concl |> rhs)``;
+    val asts5 = computeLib.CBV_CONV compset ``remove_labels_all_asts (\x. 0) ^(asts4 |> concl |> rhs)``;
     val asts6 = computeLib.CBV_CONV compset ``all_asts_to_string ^(asts5 |> concl |> rhs)``;
 
 
-    val thm = computeLib.CBV_CONV compset ``prog_to_bytecode_string ^(fromMLstring s)``
+    val thm = computeLib.CBV_CONV compset ``prog_to_bytecode_string (\x. 0) ^(fromMLstring s)``
 
 *)
 end

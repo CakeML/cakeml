@@ -1,7 +1,7 @@
 open preamble;
 open rich_listTheory;
 open miscTheory;
-open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory infer_tTheory unifyTheory;
+open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
 open libPropsTheory astPropsTheory;
 
 local open evalPropsTheory in
@@ -143,6 +143,8 @@ rw [type_subst_def, infer_type_subst_def, t_walkstar_eqn1] >|
      rw [] >>
      fs [DECIDE ``!(x:num) y. (x + SUC y) = ((SUC x) + y)``],
  metis_tac []]);
+
+val infer_t_induction = infer_tTheory.infer_t_induction;
 
 val infer_subst_FEMPTY = Q.store_thm ("infer_subst_FEMPTY",
 `(!t. infer_subst FEMPTY t = t) ∧

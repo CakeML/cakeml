@@ -47,18 +47,19 @@ Directory structure:
 - compiler/proofs
     Verification of the compiler.
 
+- initial
+    Definition of the initial program that sets up the initial
+    environment for CakeML programs.
+
 - repl
     The REPL implementation in HOL.
     Defines repl_fun : string -> repl_result.
-    Also includes some machinery for evaluating repl_fun in the logic.
 - repl/proofs
     The correctness proof for repl_fun.
-- repl/examples
-    Examples of evaluating repl_fun in the logic.
 
 - standalone
-    Compile a whole CakeML program to bytecode, instead of interleaving
-    compilation and execution as in the repl.
+    Compile a whole CakeML program to x86 (or bytecode), instead of
+    interleaving compilation and execution as in the REPL.
 
 - translator
     A proof-producing translator from HOL functions to CakeML.
@@ -70,10 +71,10 @@ Directory structure:
 
 - bootstrap
     Evaluation of the compiler on the deep embedding of repl_fun produced by
-    the translator.
+    the translator, and proofs about the result.
 
 - x86-64
-    (Work towards an) x86-64 implementation of repl_fun.
+    x86-64 implementation of repl_fun and the runtime.
 
 - unverified/interp
     Unverified implementation, in Haskell, of the CakeML frontend augmented
@@ -84,6 +85,27 @@ Directory structure:
 - hol-light
     An implementation of HOL Light (http://www.cl.cam.ac.uk/~jrh13/hol-light/)
     in CakeML.
+
+- explorer
+    Tools for stepping through execution of the compiler from one intermediate
+    language to the next, and pretty-printing the intermediate results. An
+    instance is available on the CakeML website.
+
+- new-backend
+    Work towards a new series of compilation phases to replace the bytecode.
+
+- miscLib.sml, miscScript.sml, preamble.sml
+    Theorems and proof tools (e.g. tactics) used throughout the development.
+
+- sem-reason
+    Work towards logical tools for reasoning about CakeML programs.
+
+- lem_lib_stub
+    empty versions of the Lem libraries (which we don't use, but building with
+    Lem requires)
+
+- developers
+    scripts for running regression tests and other miscellany
 
 - COPYING
     Copyright notice, license, and disclaimer.
