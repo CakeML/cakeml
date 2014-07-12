@@ -836,17 +836,34 @@ fun HO_IMP_IMP_tac (g as (_,w)) =
     suff_tac new >- metis_tac[]
   end g
 
+(* TODO: move *)
+val code_labels_ok_append_local = store_thm("code_labels_ok_append_local",
+  ``∀l1 l2. code_labels_ok l1 ∧ code_labels_ok (local_labels l2) ∧
+            contains_primitives l1 ⇒
+            code_labels_ok (l1 ++ l2)``,
+  rw[bytecodeLabelsTheory.code_labels_ok_def,
+     bytecodeLabelsTheory.uses_label_thm] >-
+  metis_tac[] >>
+  fs[local_labels_def,EXISTS_MEM,MEM_FILTER,PULL_EXISTS] >>
+  Cases_on`l = VfromListLab` >- (
+    fs[bytecodeProofTheory.contains_primitives_def,toBytecodeTheory.VfromListCode_def] ) >>
+  `¬inst_uses_label VfromListLab e` by (
+    Cases_on`e`>>fs[]>>
+    Cases_on`l'`>>fs[]) >>
+  metis_tac[])
+
 val inv_pres_tac =
+  imp_res_tac RTC_bc_next_preserves >> fs[] >>
   conj_tac >- (
     qexists_tac`grd'` >>
     match_mp_tac env_rs_change_clock >>
     first_assum(match_exists_tac o concl) >>
     simp[bc_state_component_equality] ) >>
-  imp_res_tac RTC_bc_next_preserves >> fs[] >>
   conj_tac >- (
     simp[install_code_def] >>
-    match_mp_tac bytecodeLabelsTheory.code_labels_ok_append >>
+    match_mp_tac code_labels_ok_append_local >>
     fs[] >>
+    reverse conj_tac >- (PairCases_on`grd`>>fs[env_rs_def])>>
     rator_x_assum`compile_top`mp_tac >>
     specl_args_of_then``compile_top``compile_top_labels mp_tac >>
     match_mp_tac SWAP_IMP >> simp[] >> strip_tac >>
