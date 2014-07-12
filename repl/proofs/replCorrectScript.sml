@@ -595,21 +595,13 @@ val type_to_string_lem = Q.prove (
     rw [inf_type_to_string_def, type_to_string_def, convert_t_def] >>
     cases_on `ts` >>
     rw [inf_type_to_string_def, type_to_string_def, convert_t_def] >>
-    fs [] >-
-    metis_tac [] >-
-    metis_tac [] >-
-    metis_tac [] >-
-    metis_tac [] >-
-    metis_tac [] >-
-    metis_tac [] >-
-    metis_tac [] >-
-    metis_tac [] >-
+    fs [] >>
+    TRY
     (cases_on `t` >>
        fs [inf_type_to_string_def, type_to_string_def, convert_t_def] >>
        cases_on `t'` >>
        fs [inf_type_to_string_def, type_to_string_def, convert_t_def] >>
-       metis_tac []) >-
-    metis_tac [] >-
+       metis_tac []) >>
     metis_tac []) >-
  metis_tac [] >-
  metis_tac [] >>
