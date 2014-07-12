@@ -17,6 +17,7 @@ structure compute_inferenceLib = struct
     ,lookup_tenvC_st_ex_def
     ,lookup_st_ex_def
     ,init_state_def
+    ,init_infer_state_def
     ,get_next_uvar_def
     ,fresh_uvar_def
     ,n_fresh_uvar_def
@@ -46,15 +47,14 @@ structure compute_inferenceLib = struct
     ()
   end
 
-  val the_infer_compset = let
+  val the_inference_compset = let
     val c = wordsLib.words_compset ()
     val () = compute_basicLib.add_basic_compset c
     val () = compute_semanticsLib.add_ast_compset c
     val get_wfs = unifyLib.add_unify_compset c
     val () = add_inference_compset c
   in
-    ()
+    c
   end
-    
 
 end
