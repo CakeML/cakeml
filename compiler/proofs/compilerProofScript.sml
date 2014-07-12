@@ -2946,18 +2946,6 @@ val compile_top_divergence = store_thm("compile_top_divergence",
 (* prog_to_i3_initial, for compile_initial_prog below *)
 (* defined here for tactic reuse *)
 
-val prompt_to_i3_initial_def = Define`
-  prompt_to_i3_initial next (Prompt_i2 ds) =
-    let n = num_defs ds in
-    (next+n, Let_i2 NONE (Extend_global_i2 n) (decs_to_i3 next ds))`
-
-val prog_to_i3_initial_def = Define`
-  prog_to_i3_initial next [] = (next, Lit_i2 Unit) ∧
-  prog_to_i3_initial next (p::ps) =
-    let (next,p) = prompt_to_i3_initial next p in
-    let (next',ps) = prog_to_i3_initial next ps in
-    (next', Let_i2 NONE p ps)`
-
 val free_vars_i2_prog_to_i3_initial = store_thm("free_vars_i2_prog_to_i3_initial",
   ``∀m p n e. prog_to_i3_initial m p = (n,e) ⇒ free_vars_i2 e = free_vars_prog_i2 p``,
   Induct_on`p` >- simp[prog_to_i3_initial_def,free_vars_prog_i2_def] >>
@@ -3647,20 +3635,6 @@ val compile_prog_divergence = store_thm("compile_prog_divergence",
 
 (* compile_special, for the repl *)
 
-val compile_special_def = Define`
-  compile_special cs top =
-    let n = cs.next_global in
-    let (m1,m2) = cs.globals_env in
-    let (v,m1,m2,p) = top_to_i1 n m1 m2 top in
-    let (c,exh,p) = prompt_to_i2 cs.contags_env p in
-    let e = decs_to_i3 n (case p of Prompt_i2 ds => ds) in
-    let exh = exh ⊌ cs.exh in
-    let e = exp_to_exh exh e in
-    let e = exp_to_pat [] e in
-    let e = exp_to_Cexp e in
-    let r = compile [] TCNonTail 0 <|out:=[];next_label:=cs.rnext_label|> e in
-    (emit r [Stack Pop; Stop T]).out`
-
 val mod_tagenv_lemma = prove(
   ``mod_tagenv NONE FEMPTY x = x``,
   Cases_on`x`>>simp[mod_tagenv_def,FUNION_FEMPTY_1])
@@ -4069,26 +4043,6 @@ val prog_to_i3_initial_correct = store_thm("prog_to_i3_initial_correct",
     simp[dec_result_to_i3_cases] >> rw[] >>
     first_assum(match_exists_tac o concl) >> rw[]) >>
   rw[])
-
-val compile_initial_prog_def = Define`
-  compile_initial_prog cs prog =
-    let n = cs.next_global in
-    let (m1,m2) = cs.globals_env in
-    let (v,m1,m2,p) = prog_to_i1 n m1 m2 prog in
-    let (c,exh,p) = prog_to_i2 cs.contags_env p in
-    let (n,e) = prog_to_i3_initial n p in
-    let exh = exh ⊌ cs.exh in
-    let e = exp_to_exh exh e in
-    let e = exp_to_pat [] e in
-    let e = exp_to_Cexp e in
-    let r = compile_Cexp [] 0 <|out:=[];next_label:=cs.rnext_label|> e in
-    let cs = <| next_global := n
-              ; globals_env := (m1,m2)
-              ; contags_env := c
-              ; exh := exh
-              ; rnext_label := r.next_label
-              |> in
-    (cs, (emit r [Stack Pop; Stop T]).out)`
 
 val to_i1_invariant_clocks_match = prove(
   ``to_i1_invariant a b c d e f g h ⇒ FST f = FST g``,
