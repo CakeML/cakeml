@@ -37,139 +37,6 @@ val compile_top_code_ok =
   metis_tac[compile_top_labels,pair_CASES,SND])
 
 fun cakeml_compset() = let
-  val () = computeLib.add_thms
-  [compilerLibTheory.lunion_def
-  ,compilerLibTheory.lshift_def
-  ,compilerLibTheory.el_check_def
-  ,compilerLibTheory.the_def
-  ,compilerLibTheory.num_fold_def
-  ] compset
-val () = computeLib.add_thms
-  [conLangTheory.tuple_tag_def
-  ,conLangTheory.div_tag_def
-  ,conLangTheory.bind_tag_def
-  ,conLangTheory.eq_tag_def
-  ,conLangTheory.cons_tag_def
-  ,conLangTheory.nil_tag_def
-  ,conLangTheory.some_tag_def
-  ,conLangTheory.none_tag_def
-  ,conLangTheory.subscript_tag_def
-  ] compset
-(* modLang compiler *)
-val () = computeLib.add_thms
-  [prog_to_i1_def
-  ,top_to_i1_def
-  ,decs_to_i1_def
-  ,dec_to_i1_def
-  ,exp_to_i1_def
-  ,alloc_defs_def
-  ] compset
-val () = add_datatype ``:prompt_i1``
-val () = add_datatype ``:dec_i1``
-(* conLang compiler *)
-val () = computeLib.add_thms
-  [prog_to_i2_def
-  ,prompt_to_i2_def
-  ,decs_to_i2_def
-  ,exp_to_i2_def
-  ,pat_to_i2_def
-  ,init_tagenv_state_def
-  ,init_exh_def
-  ,get_tagenv_def
-  ,lookup_tag_env_def
-  ,lookup_tag_flat_def
-  ,num_defs_def
-  ,mod_tagenv_def
-  ,insert_tag_env_def
-  ,alloc_tag_def
-  ,alloc_tags_def
-  ,build_exh_env_def
-  ] compset
-val () = add_datatype ``:prompt_i2``
-val () = add_datatype ``:dec_i2``
-val () = add_datatype ``:pat_i2``
-val () = add_datatype ``:exp_i2``
-(* decLang compiler *)
-val () = computeLib.add_thms
-  [prog_to_i3_def
-  ,prompt_to_i3_def
-  ,init_globals_def
-  ,init_global_funs_def
-  ,decs_to_i3_def
-  ] compset
-(* exhLang compiler *)
-val () = computeLib.add_thms
-  [exp_to_exh_def
-  ,pat_to_exh_def
-  ,add_default_def
-  ,exhaustive_match_def
-  ,is_unconditional_def
-  ,get_tags_def
-  ] compset
-(* patLang compiler *)
-val () = computeLib.add_thms
-  [exp_to_pat_def
-  ,row_to_pat_def
-  ,pat_to_pat_def
-  ,sLet_pat_thm
-  ,sIf_pat_def
-  ,ground_pat_def
-  ,pure_pat_def
-  ,SUC_TO_NUMERAL_RULE Let_Els_pat_def
-  ,pure_op_pat_def
-  ,pure_op_def
-  ] compset
-val () = add_datatype ``:exp_pat``
-(* intLang compiler *)
-val () = computeLib.add_thms
-  [exp_to_Cexp_def
-  ,opn_to_prim2_def
-  ,free_labs_def
-  ,free_vars_def
-  ,no_labs_def
-  ,app_to_il_def
-  ,binop_to_il_def
-  ,unop_to_il_def
-  ] compset
-val () = add_datatype ``:Cprim1``
-val () = add_datatype ``:Cprim2``
-(* bytecode compiler *)
-val () =
-  let
-    val nameof = fst o dest_const o fst o strip_comb o lhs o snd o strip_forall o concl
-    val (l1,l2) = List.partition(equal"compile" o nameof)(CONJUNCTS compile_def)
-    val (l2,l3) = List.partition(equal"compile_bindings" o nameof) l2
-  in
-    computeLib.add_thms
-      [label_closures_def
-      ,bind_fv_def
-      ,shift_def
-      ,mkshift_def
-      ,compile_code_env_def
-      ,cce_aux_def
-      ,get_label_def
-      ,emit_def
-      ,pushret_def
-      ,push_lab_def
-      ,cons_closure_def
-      ,emit_ceenv_def
-      ,emit_ceref_def
-      ,update_refptr_def
-      ,compile_closures_def
-      ,compile_envref_def
-      ,compile_varref_def
-      ,stackshift_def
-      ,stackshiftaux_def
-      ,prim1_to_bc_def
-      ,prim2_to_bc_def
-      ,LIST_CONJ l1
-      ,SUC_TO_NUMERAL_RULE (LIST_CONJ l2)
-      ,LIST_CONJ l3
-      ] compset
-  end
-val () = computeLib.add_thms
-  [compile_Cexp_def
-  ] compset
 (*
 val () =
   let
@@ -187,8 +54,6 @@ val () =
     computeLib.add_conv(``compile_Cexp``,4,(compile_Cexp_conv (computeLib.CBV_CONV compset))) compset
   end
 *)
-val () = add_datatype ``:compiler_result``
-val () = add_datatype ``:call_context``
 (* labels removal *)
 val () = labels_computeLib.reset_code_labels_ok_db()
 val () = computeLib.add_conv (``code_labels``,2,code_labels_conv eval_real_inst_length) compset
@@ -228,7 +93,6 @@ val () =
         th
       end
   in
-    computeLib.add_thms [compile_print_top_def] compset ;
     computeLib.add_conv(``compile_top``,3,(compile_top_conv (computeLib.CBV_CONV compset))) compset
   end
 (* compile_prog *)
@@ -245,7 +109,6 @@ val () =
         th
       end
   in
-    computeLib.add_thms [compile_print_err_def] compset ;
     computeLib.add_conv(``compile_prog``,1,(compile_prog_conv (computeLib.CBV_CONV compset))) compset
   end
 (* prog to bytecode *)
@@ -274,7 +137,6 @@ val () = computeLib.add_thms
   ,all_asts_to_encoded_def
   ,remove_labels_all_asts_def
   ] compset
-val () = add_datatype ``:compiler_state``
 
 (*Bytecode to asm*)
 val () = computeLib.add_thms 
