@@ -53,6 +53,7 @@ val () = computeLib.add_thms
   ,conLangTheory.nil_tag_def
   ,conLangTheory.some_tag_def
   ,conLangTheory.none_tag_def
+  ,conLangTheory.subscript_tag_def
   ] compset
 (* modLang compiler *)
 val () = computeLib.add_thms

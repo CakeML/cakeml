@@ -2,9 +2,12 @@ open HolKernel Parse boolLib bossLib; val _ = new_theory "bvl";
 
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
-open bytecodeTheory;
+open bytecodeTheory sptreeTheory lcsymtacs;
 
 infix \\ val op \\ = op THEN;
+
+val _ = type_abbrev("num_map",``:'a spt``);
+val _ = type_abbrev("num_set",``:unit spt``);
 
 (* BVL = bytecode-value language *)
 
@@ -26,16 +29,26 @@ infix \\ val op \\ = op THEN;
 (* All operations that are uninteresting from a control-flow
    and binding perspective are lumped together in bvl_op. *)
 
-val _ = Hol_datatype `
-  bvl_op = Global of num
-         | Cons of num
-         | El of num
-         | Add
-         | Sub
-         (* This list is incomplete *)
-         | Ref
-         | Deref
-         | Update `
+val _ = Datatype `
+  bvl_op = Global num   (* load global var with index *)
+         | Cons num     (* construct a Block with given tag *)
+         | El num       (* read Block field index *)
+         | Const int    (* integer *)
+         | TagEq num    (* check whether Block's tag is eq *)
+         | IsBlock      (* is it a Block value? *)
+         | Equal        (* structural equality *)
+         | Ref          (* makes a reference *)
+         | Deref        (* loads a value from a reference *)
+         | Update       (* updates a reference *)
+         | Label num    (* constructs a CodePtr *)
+         | Print        (* prints a value *)
+         | PrintC char  (* prints a character *)
+         | Add          (* + over the integers *)
+         | Sub          (* - over the integers *)
+         | Mult         (* * over the integers *)
+         | Div          (* div over the integers *)
+         | Mod          (* mod over the integers *)
+         | Less         (* < over the integers *) `
 
 (* There are only a handful of "interesting" operations. *)
 
@@ -48,41 +61,80 @@ val _ = Hol_datatype `
    case of NONE, the last bvl_exp in the argument list must evaluate
    to a CodePointer. *)
 
-val _ = Hol_datatype `
-  bvl_exp = Var of num
-          | If of bvl_exp => bvl_exp => bvl_exp
-          | Let of bvl_exp list => bvl_exp
-          | Raise of bvl_exp
-          | Handle of bvl_exp => bvl_exp
-          | Tick of bvl_exp
-          | Call of num option => bvl_exp list
-          | Op of bvl_op => bvl_exp list `
+val _ = Datatype `
+  bvl_exp = Var num
+          | If bvl_exp bvl_exp bvl_exp
+          | Let (bvl_exp list) bvl_exp
+          | Raise bvl_exp
+          | Handle bvl_exp bvl_exp
+          | Tick bvl_exp
+          | Call (num option) (bvl_exp list)
+          | Op bvl_op (bvl_exp list) `
 
 (* --- Semantics of BVL --- *)
 
-val _ = Hol_datatype `
-  bvl_result = Result of 'a
-             | Exception of bc_value
+val _ = Datatype `
+  bvl_result = Result 'a
+             | Exception bc_value
              | TimeOut
              | Error `
 
-val _ = Hol_datatype `
+val _ = Datatype `
   bvl_state =
-    <| globals : num |-> bc_value
-     ; refs    : num |-> bc_value
+    <| globals : bc_value num_map
+     ; refs    : bc_value num_map
      ; clock   : num
-     ; code    : num |-> (num # bvl_exp # num)
+     ; code    : (num # bvl_exp # num) num_map
      ; output  : string |> `
 
 val bEvalOp_def = Define `
   bEvalOp op vs (s:bvl_state) =
     case (op,vs) of
-    | (Global n,[]) => (case FLOOKUP s.globals n of
+    | (Global n,[]) => (case lookup n s.globals of
                         | SOME v => SOME (v,s)
                         | NONE => NONE)
+    | (Const i,xs) => SOME (Number i, s)
+    | (Cons tag,xs) => SOME (Block tag xs, s)
+    | (El n,[Block tag xs]) =>
+        if n < LENGTH xs then SOME (EL n xs, s) else NONE
+    | (TagEq n,[Block tag xs]) =>
+        SOME (bool_to_val (tag = n),s)
+    | (Equal,[x1;x2]) =>
+        (case bc_equal x1 x2 of
+         | Eq_val b => SOME (bool_to_val b, s)
+         | Eq_closure => SOME (Number 0, s)
+         | _ => NONE)
+    | (IsBlock,[Number i]) => SOME (bool_to_val F, s)
+    | (IsBlock,[RefPtr ptr]) => SOME (bool_to_val F, s)
+    | (IsBlock,[Block tag ys]) => SOME (bool_to_val T, s)
+    | (Ref,[x]) =>
+        let ptr = (LEAST ptr. ~(ptr IN domain s.refs)) in
+          SOME (RefPtr ptr, s with refs := insert ptr x s.refs)
+    | (Deref,[RefPtr ptr]) =>
+        (case lookup ptr s.refs of
+         | NONE => NONE
+         | SOME x => SOME (x, s))
+    | (Update,[RefPtr ptr; x]) =>
+        if ptr IN domain s.refs then
+          SOME (x, s with refs := insert ptr x s.refs)
+        else NONE
+    | (Label n,[]) =>
+        if n IN domain s.code then SOME (CodePtr n, s) else NONE
+    | (Print, [x]) =>
+        (case bv_to_string x of
+         | SOME str => SOME (x, s with output := s.output ++ str)
+         | NONE => NONE)
+    | (PrintC c, []) =>
+          SOME (Number 0, s with output := s.output ++ [c])
     | (Add,[Number n1; Number n2]) => SOME (Number (n1 + n2),s)
     | (Sub,[Number n1; Number n2]) => SOME (Number (n1 - n2),s)
-    (* This definition is incomplete *)
+    | (Mult,[Number n1; Number n2]) => SOME (Number (n1 * n2),s)
+    | (Div,[Number n1; Number n2]) =>
+         if n2 = 0 then NONE else SOME (Number (n1 / n2),s)
+    | (Mod,[Number n1; Number n2]) =>
+         if n2 = 0 then NONE else SOME (Number (n1 % n2),s)
+    | (Less,[Number n1; Number n2]) =>
+         SOME (bool_to_val (n1 < n2),s)
     | _ => NONE`;
 
 val dec_clock_def = Define `
@@ -90,15 +142,9 @@ val dec_clock_def = Define `
 
 (* Functions for looking up function definitions *)
 
-val find_loc_def = Define `
-  find_loc loc code =
-    if (?x p. FLOOKUP code p = SOME (loc,x))
-    then SOME (@x. ?p. FLOOKUP code p = SOME (loc,x))
-    else NONE`
-
 val find_code_def = Define `
   (find_code (SOME p) args code =
-     case FLOOKUP code p of
+     case lookup p code of
      | NONE => NONE
      | SOME (_,exp,arity) => if LENGTH args = arity then SOME (args,exp)
                                                     else NONE) /\
@@ -106,11 +152,11 @@ val find_code_def = Define `
      if args = [] then NONE else
        case LAST args of
        | CodePtr loc =>
-           (case find_loc loc code of
+           (case lookup loc code of
             | NONE => NONE
-            | SOME (exp,arity) => if LENGTH args = arity + 1
-                                  then SOME (FRONT args,exp)
-                                  else NONE)
+            | SOME (_,exp,arity) => if LENGTH args = arity + 1
+                                    then SOME (FRONT args,exp)
+                                    else NONE)
        | other => NONE)`
 
 (* The evaluation is defined as a clocked functional version of
@@ -155,7 +201,7 @@ val bEval_def = tDefine "bEval" `
      | (Result vs,s1) =>
           if bool_to_val T = HD vs then bEval([x2],env,check_clock s1 s) else
           if bool_to_val F = HD vs then bEval([x3],env,check_clock s1 s) else
-            (Error,s)
+            (Error,s1)
      | res => res) /\
   (bEval ([Let xs x2],env,s) =
      case bEval (xs,env,s) of
@@ -199,14 +245,16 @@ val check_clock_IMP = prove(
   ``n <= (check_clock r s).clock ==> n <= s.clock``,
   SRW_TAC [] [check_clock_def] \\ DECIDE_TAC);
 
-val bEvalOp_clock = store_thm("bEvalOp_clock",
-  ``(bEvalOp op args s1 = SOME (res,s2)) ==> s2.clock <= s1.clock``,
+val bEvalOp_const = store_thm("bEvalOp_const",
+  ``(bEvalOp op args s1 = SOME (res,s2)) ==>
+    (s2.clock = s1.clock) /\ (s2.code = s1.code)``,
   SIMP_TAC std_ss [bEvalOp_def]
   \\ REPEAT BasicProvers.FULL_CASE_TAC
-  \\ FULL_SIMP_TAC std_ss []);
+  \\ fs [LET_DEF] \\ SRW_TAC [] [] \\ fs []);
 
 val bEval_clock = store_thm("bEval_clock",
-  ``!xs env s1 vs s2. (bEval (xs,env,s1) = (vs,s2)) ==> s2.clock <= s1.clock``,
+  ``!xs env s1 vs s2.
+      (bEval (xs,env,s1) = (vs,s2)) ==> s2.clock <= s1.clock``,
   recInduct (fetch "-" "bEval_ind") \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [bEval_def]
   \\ FULL_SIMP_TAC std_ss [] \\ REPEAT BasicProvers.FULL_CASE_TAC
@@ -214,13 +262,14 @@ val bEval_clock = store_thm("bEval_clock",
   \\ RES_TAC \\ IMP_RES_TAC check_clock_IMP
   \\ FULL_SIMP_TAC std_ss [PULL_FORALL] \\ RES_TAC
   \\ IMP_RES_TAC check_clock_IMP
-  \\ IMP_RES_TAC bEvalOp_clock
+  \\ IMP_RES_TAC bEvalOp_const
   \\ FULL_SIMP_TAC (srw_ss()) [dec_clock_def] \\ TRY DECIDE_TAC
   \\ POP_ASSUM MP_TAC \\ REPEAT (POP_ASSUM (K ALL_TAC))
   \\ SRW_TAC [] [check_clock_def] \\ DECIDE_TAC);
 
 val bEval_check_clock = prove(
-  ``!xs env s1 vs s2. (bEval (xs,env,s1) = (vs,s2)) ==> (check_clock s2 s1 = s2)``,
+  ``!xs env s1 vs s2.
+      (bEval (xs,env,s1) = (vs,s2)) ==> (check_clock s2 s1 = s2)``,
   METIS_TAC [bEval_clock,check_clock_thm]);
 
 (* Finally, we remove check_clock from the induction and definition theorems. *)

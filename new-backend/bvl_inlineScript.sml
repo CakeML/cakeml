@@ -61,9 +61,7 @@ val bEval_code_lemma = prove(
   \\ REPEAT (BasicProvers.FULL_CASE_TAC \\ FULL_SIMP_TAC (srw_ss()) [])
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
   \\ FULL_SIMP_TAC (srw_ss()) [dec_clock_def]
-  \\ POP_ASSUM MP_TAC \\ SIMP_TAC std_ss [bEvalOp_def]
-  \\ REPEAT (BasicProvers.FULL_CASE_TAC \\ FULL_SIMP_TAC (srw_ss()) [])
-  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []);
+  \\ IMP_RES_TAC bEvalOp_const \\ FULL_SIMP_TAC std_ss []);
 
 val bEval_code = store_thm("bEval_code",
   ``!xs env s1 vs s2. (bEval (xs,env,s1) = (vs,s2)) ==> (s2.code = s1.code)``,
@@ -107,7 +105,7 @@ val HD_bInline = prove(
 
 val bEval_bInline = store_thm("bEval_bInline",
   ``!n code arity xs s env.
-      (FLOOKUP s.code n = SOME (loc,code,arity)) /\
+      (lookup n s.code = SOME (loc,code,arity)) /\
       FST (bEval (xs,env,s)) <> Error ==>
       (bEval (bInline n code arity xs,env,s) = bEval (xs,env,s))``,
   recInduct (fetch "-" "bInline_ind") \\ REVERSE (REPEAT STRIP_TAC)
