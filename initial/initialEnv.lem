@@ -16,7 +16,8 @@ let prim_types_program =
    Tdec (Dtype [(["'a"], "list", [("nil", []); ("::", [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))])])]);
    Tdec (Dexn "Bind" []);
    Tdec (Dexn "Div" []);
-   Tdec (Dexn "Eq" []); ]
+   Tdec (Dexn "Eq" []);
+   Tdec (Dexn "Subscript" []);]
 
 val basis_program : prog
 let basis_program =

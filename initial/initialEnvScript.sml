@@ -31,7 +31,8 @@ val _ = Define `
    Tdec (Dtype [(["'a"], "list", [("nil", []); ("::", [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))])])]);
    Tdec (Dexn "Bind" []);
    Tdec (Dexn "Div" []);
-   Tdec (Dexn "Eq" [])  ]))`;
+   Tdec (Dexn "Eq" []);
+   Tdec (Dexn "Subscript" []) ]))`;
 
 
 (*val basis_program : prog*)
@@ -53,8 +54,7 @@ val _ = Define `
    Tdec (mk_unop "ref" Opref);
    Tmod "Word8" NONE [];
    Tmod "Word8Array" NONE 
-     [Dtype [([], "array", [])];
-      mk_binop "array" Aalloc;
+     [mk_binop "array" Aalloc;
       mk_binop "sub" Asub;
       mk_unop "length" Alength;
       Dlet (Pvar "update") (Fun "x" (Fun "y" (Fun "z" (App Aupdate [Var (Short "x"); Var (Short "y"); Var (Short "z")])))) ] ]))`;
