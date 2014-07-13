@@ -1,7 +1,7 @@
 open preamble miscLib;
 open astTheory bigStepTheory initialEnvTheory interpTheory inferTheory typeSystemTheory modLangTheory conLangTheory bytecodeTheory;
 open bigClockTheory untypedSafetyTheory inferSoundTheory modLangProofTheory conLangProofTheory typeSoundTheory;
-open compute_interpLib;
+open compute_interpLib compute_inferenceLib compute_compilerLib;
 
 val _ = new_theory "initialProgram";
 
@@ -208,12 +208,94 @@ computeLib.CBV_CONV compute_interpLib.the_interp_compset)
 ``basis_sem_env``);
 *)
 
+val the_compiler_compset = the_compiler_compset false
+
 val prim_env_inv = Q.store_thm ("prim_env_inv",
-`?se e. 
-  prim_env = SOME e ∧ 
+`?se e.
+  prim_env = SOME e ∧
   prim_sem_env = SOME se ∧
   invariant se e`,
- rw [prim_env_def, prim_sem_env_def, invariant_def, add_to_env_def, add_to_sem_env_def] >>
+ simp [prim_env_def, prim_sem_env_def, invariant_def, add_to_env_def, add_to_sem_env_def] >>
+ simp[prim_types_program_def] >>
+ CONV_TAC(computeLib.CBV_CONV the_inference_compset) >>
+ CONV_TAC(computeLib.CBV_CONV the_compiler_compset) >>
+ CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+ simp[convert_decls_def,convert_menv_def,convert_env2_def,bind_var_list2_def,RIGHT_EXISTS_AND_THM] >>
+ conj_tac >- (
+   simp[typeSoundInvariantsTheory.type_sound_invariants_def] >>
+   qexists_tac`
+     FEMPTY |++
+     [(("Bind",TypeExn(Short"Bind")),([],[]))
+     ;(("Div",TypeExn(Short"Div")),([],[]))
+     ;(("Eq",TypeExn(Short"Eq")),([],[]))
+     ;(("Subscript",TypeExn(Short"Subscript")),([],[]))
+     ;(("::",TypeId(Short"list")),(["'a"],[Tvar"'a";Tapp[Tvar"'a"](TC_name(Short"list"))]))
+     ;(("nil",TypeId(Short"list")),(["'a"],[]))
+     ;(("SOME",TypeId(Short"option")),(["'a"],[Tvar"'a"]))
+     ;(("NONE",TypeId(Short"option")),(["'a"],[]))
+     ]` >>
+   simp[FUPDATE_LIST_THM,typeSoundInvariantsTheory.ctMap_has_exns_def,FLOOKUP_UPDATE,
+        typeSoundInvariantsTheory.consistent_con_env_def,
+        typeSoundInvariantsTheory.consistent_ctMap_def,
+        semanticPrimitivesTheory.lookup_con_id_def,
+        typeSoundInvariantsTheory.ctMap_ok_def
+        ] >>
+   simp[Once typeSoundInvariantsTheory.type_v_cases,
+        typeSoundInvariantsTheory.weakM_def,
+        typeSoundInvariantsTheory.tenvM_ok_def] >>
+   simp[Once typeSoundInvariantsTheory.type_v_cases,libTheory.emp_def] >>
+   qexists_tac`[]` >> simp[typeSoundInvariantsTheory.type_s_def] >>
+   qexists_tac`({},{Short"list";Short"option"},{Short "Eq";Short"Div";Short"Bind";Short"Subscript"})` >>
+   simp[typeSoundInvariantsTheory.consistent_ctMap_def,
+        typeSoundInvariantsTheory.consistent_decls_def,
+        RES_FORALL,RIGHT_EXISTS_AND_THM] >>
+   conj_tac >- (rw[] >> rw[]) >>
+   conj_tac >- (rw[] >> rw[]) >>
+   simp[typeSoundInvariantsTheory.decls_ok_def,
+        typeSoundInvariantsTheory.decls_to_mods_def,
+        weak_decls_def,
+        typeSoundInvariantsTheory.weak_decls_only_mods_def,
+        semanticPrimitivesTheory.store_lookup_def] >>
+   qexists_tac`([],[
+     ("Bind",([],[],TypeExn(Short"Bind")));
+     ("Div",([],[],TypeExn(Short"Div")));
+     ("Eq",([],[],TypeExn(Short"Eq")));
+     ("Subscript",([],[],TypeExn(Short"Subscript")));
+     ("::",(["'a"],[Tvar"'a";Tapp[Tvar"'a"](TC_name(Short"list"))],TypeId(Short"list")));
+     ("nil",(["'a"],[],TypeId(Short"list")));
+     ("SOME",(["'a"],[Tvar"'a"],TypeId(Short"option")));
+     ("NONE",(["'a"],[],TypeId(Short"option")))])` >>
+   simp[typeSoundInvariantsTheory.tenvC_ok_def,
+        typeSoundInvariantsTheory.flat_tenvC_ok_def,
+        miscTheory.FEVERY_ALL_FLOOKUP,FLOOKUP_UPDATE,
+        typeSoundInvariantsTheory.weakC_def,
+        flat_weakC_def] >>
+   conj_tac >- rw[terminationTheory.check_freevars_def] >>
+   conj_tac >- (
+     rw[] >> rw[terminationTheory.check_freevars_def] ) >>
+   conj_tac >- (
+     rpt gen_tac >>
+     BasicProvers.CASE_TAC >>
+     simp[semanticPrimitivesTheory.lookup_con_id_def,id_to_n_def] >>
+     IF_CASES_TAC >- rw[] >>
+     IF_CASES_TAC >- rw[] >>
+     IF_CASES_TAC >- rw[] >>
+     IF_CASES_TAC >- rw[] >>
+     IF_CASES_TAC >- rw[] >>
+     IF_CASES_TAC >- rw[] >>
+     IF_CASES_TAC >- rw[] >>
+     IF_CASES_TAC >- rw[] >>
+     simp[]) >>
+   conj_tac >- (
+     rw[] >>
+     Cases_on`cn`>>fs[id_to_n_def]>>
+     rw[semanticPrimitivesTheory.lookup_con_id_def] ) >>
+   conj_tac >- rw[] >>
+   rw[SUBSET_DEF,GSPECIFICATION])
+ conj_tac >- (
+   simp[infer_sound_invariant_def,check_menv_def,check_cenv_def,check_flat_cenv_def,terminationTheory.check_freevars_def]) >>
+ conj_tac >- simp[check_env_def] >>
+ simp[compilerProofTheory.env_rs_def,LENGTH_NIL_SYM] >>
  cheat); (* by EVALing prim_env *)
 
 val basis_env_inv = Q.store_thm ("basis_env_inv",
