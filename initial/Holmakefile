@@ -1,9 +1,8 @@
 INCLUDES = ../semantics
 OPTIONS = QUIT_ON_FAILURE
 
-
 SEMANTICSI = ast
-INITIAL = initialEnv 
+INITIAL = initialEnv
 GEN_SCRIPTS =  $(patsubst %,%Script.sml,$(INITIAL))
 
 LEMI = $(patsubst %,../semantics/%.lem,$(SEMANTICSI))
@@ -13,5 +12,3 @@ $(GEN_SCRIPTS): $(LEMI) $(LEMH)
 	if type lem;\
 	then lem -auxiliary_level none $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMH));\
 	else touch $(GEN_SCRIPTS); fi
-
-
