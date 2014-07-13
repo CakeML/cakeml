@@ -27,12 +27,12 @@ val _ = Define `
 (*val prim_types_program : prog*)
 val _ = Define `
  (prim_types_program =  
-([Tdec (Dtype [(["'a"], "option", [("NONE", []); ("SOME", [Tvar "'a"])])]);
-   Tdec (Dtype [(["'a"], "list", [("nil", []); ("::", [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))])])]);
-   Tdec (Dexn "Bind" []);
+([Tdec (Dexn "Bind" []);
    Tdec (Dexn "Div" []);
    Tdec (Dexn "Eq" []);
-   Tdec (Dexn "Subscript" []) ]))`;
+   Tdec (Dexn "Subscript" []);
+   Tdec (Dtype [(["'a"], "list", [("nil", []); ("::", [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))]) ])]);
+   Tdec (Dtype [(["'a"], "option", [("NONE", []);("SOME", [Tvar "'a"]) ])]) ]))`;
 
 
 (*val basis_program : prog*)

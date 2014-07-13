@@ -37,33 +37,33 @@ open import CompilerLib
 val tuple_tag : nat
 let tuple_tag = 0
 
-val div_tag : nat
-let div_tag = 1
-
 val bind_tag : nat
-let bind_tag = 2
+let bind_tag = 1
+
+val div_tag : nat
+let div_tag = 2
 
 val eq_tag : nat
 let eq_tag = 3
 
-val cons_tag : nat
-let cons_tag = 4
+val subscript_tag : nat
+let subscript_tag = 4
 
 val nil_tag : nat
 let nil_tag = 5
 
-val some_tag : nat
-let some_tag = 6
+val cons_tag : nat
+let cons_tag = 6
 
 val none_tag : nat
 let none_tag = 7
 
-val subscript_tag : nat
-let subscript_tag = 8
+val some_tag : nat
+let some_tag = 8
 
 type exh_ctors_env = Map.map (id typeN) nat_set
 
-type op_i2 = 
+type op_i2 =
   | Op_i2 of op
   | Init_global_var_i2 of nat
 

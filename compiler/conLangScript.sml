@@ -49,14 +49,14 @@ val _ = Define `
  (tuple_tag =( 0))`;
 
 
-(*val div_tag : nat*)
-val _ = Define `
- (div_tag =( 1))`;
-
-
 (*val bind_tag : nat*)
 val _ = Define `
- (bind_tag =( 2))`;
+ (bind_tag =( 1))`;
+
+
+(*val div_tag : nat*)
+val _ = Define `
+ (div_tag =( 2))`;
 
 
 (*val eq_tag : nat*)
@@ -64,9 +64,9 @@ val _ = Define `
  (eq_tag =( 3))`;
 
 
-(*val cons_tag : nat*)
+(*val subscript_tag : nat*)
 val _ = Define `
- (cons_tag =( 4))`;
+ (subscript_tag =( 4))`;
 
 
 (*val nil_tag : nat*)
@@ -74,9 +74,9 @@ val _ = Define `
  (nil_tag =( 5))`;
 
 
-(*val some_tag : nat*)
+(*val cons_tag : nat*)
 val _ = Define `
- (some_tag =( 6))`;
+ (cons_tag =( 6))`;
 
 
 (*val none_tag : nat*)
@@ -84,15 +84,15 @@ val _ = Define `
  (none_tag =( 7))`;
 
 
-(*val subscript_tag : nat*)
+(*val some_tag : nat*)
 val _ = Define `
- (subscript_tag =( 8))`;
+ (some_tag =( 8))`;
 
 
 val _ = type_abbrev( "exh_ctors_env" , ``: (( typeN id),  unit spt) fmap``);
 
 val _ = Hol_datatype `
- op_i2 = 
+ op_i2 =
     Op_i2 of op
   | Init_global_var_i2 of num`;
 
