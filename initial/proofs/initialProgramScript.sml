@@ -168,16 +168,16 @@ val add_to_env_invariant = Q.prove (
  fs [no_dup_mods_def, no_dup_top_types_def]);
 
 val prim_env_def = Define `
-prim_env = 
+prim_env =
 add_to_env <| inf_mdecls := [];
               inf_tdecls := [];
               inf_edecls := [];
               inf_tenvM := [];
               inf_tenvC := ([],[]);
               inf_tenvE := [];
-              comp_rs := <| next_global := 0; 
+              comp_rs := <| next_global := 0;
                             globals_env := (FEMPTY, FEMPTY);
-                            contags_env := (0, (FEMPTY,FEMPTY), FEMPTY);
+                            contags_env := (1, (FEMPTY,FEMPTY), FEMPTY);
                             exh := FEMPTY;
                             rnext_label := 0 |> |>
         prim_types_program`;
@@ -291,12 +291,54 @@ val prim_env_inv = Q.store_thm ("prim_env_inv",
      Cases_on`cn`>>fs[id_to_n_def]>>
      rw[semanticPrimitivesTheory.lookup_con_id_def] ) >>
    conj_tac >- rw[] >>
-   rw[SUBSET_DEF,GSPECIFICATION])
+   rw[SUBSET_DEF,GSPECIFICATION]) >>
  conj_tac >- (
-   simp[infer_sound_invariant_def,check_menv_def,check_cenv_def,check_flat_cenv_def,terminationTheory.check_freevars_def]) >>
- conj_tac >- simp[check_env_def] >>
+   simp[infer_sound_invariant_def,check_menv_def,check_cenv_def,check_flat_cenv_def,terminationTheory.check_freevars_def,check_env_def]) >>
  simp[compilerProofTheory.env_rs_def,LENGTH_NIL_SYM] >>
- cheat); (* by EVALing prim_env *)
+ qexists_tac`
+  FEMPTY |++ [(("NONE",TypeId (Short "option")), (none_tag, 0));
+              (("SOME",TypeId (Short "option")), (some_tag, 1));
+              (("nil",TypeId (Short "list")), (nil_tag, 0:num));
+              (("::",TypeId (Short "list")), (cons_tag, 2));
+              (("Bind",TypeExn (Short "Bind")), (bind_tag,0));
+              (("Div",TypeExn (Short "Div")), (div_tag,0));
+              (("Eq",TypeExn (Short "Eq")), (eq_tag,0));
+              (("Subscript",TypeExn(Short"Subscript")),(subscript_tag,0))]` >>
+ CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`<|stack:=[];code:=[];clock:=NONE;globals:=[]|>` >>
+ simp[RIGHT_EXISTS_AND_THM] >>
+ conj_tac >- simp[bytecodeExtraTheory.good_labels_def] >>
+ CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`[]` >> simp[RIGHT_EXISTS_AND_THM] >>
+ conj_tac >- (EVAL_TAC >> simp[s_to_i1_cases] >> simp[Once v_to_i1_cases] >> simp[Once v_to_i1_cases]) >>
+ CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`[]` >>
+ CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`[]` >>
+ simp[RIGHT_EXISTS_AND_THM] >>
+ conj_tac >- (
+   EVAL_TAC >> simp[s_to_i2_cases] >>
+   conj_tac >- (
+     conj_tac >- (
+       rpt gen_tac >>
+       BasicProvers.CASE_TAC >>
+       IF_CASES_TAC >- rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
+       IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
+       IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
+       IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
+       IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
+       IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
+       IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
+       IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
+       simp[] ) >>
+     conj_tac >- (
+       simp[miscTheory.IN_FRANGE_FLOOKUP,FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
+       rw[] >> every_case_tac >> fs[] >> rw[] >>
+       EVAL_TAC ) >>
+     conj_tac >- rw[] >>
+     rpt gen_tac >>
+     rw[] >> fs[] ) >>
+   rpt gen_tac >>
+   rw[] >> simp[] ) >>
+ EVAL_TAC >> rw[] >>
+ qexists_tac`<|cls:=FEMPTY;sm:=[]|>` >>
+ simp[miscTheory.FEVERY_ALL_FLOOKUP]);
 
 val basis_env_inv = Q.store_thm ("basis_env_inv",
 `?se e.
