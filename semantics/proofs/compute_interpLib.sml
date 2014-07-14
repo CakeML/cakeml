@@ -1,5 +1,5 @@
 structure compute_interpLib = struct
-open HolKernel boolLib bossLib lcsymtacs replTheory
+open HolKernel boolLib bossLib lcsymtacs bigStepTheory replTheory
 
   val add_datatype = compute_basicLib.add_datatype
   fun add_interp_compset compset = let
@@ -11,13 +11,17 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
       ,run_eval_top_def
       ,run_eval_prog_def
       ,result_return_def
+      ,result_bind_def
+      ,result_raise_def
+      ,no_dup_types_def
+      ,decs_to_types_def
       ] compset
     end
     in
       ()
     end
 
-  val the_interp_compset = let 
+  val the_interp_compset = let
     val c = wordsLib.words_compset ()
     val () = compute_basicLib.add_basic_compset c
     val () = compute_semanticsLib.add_ast_compset c

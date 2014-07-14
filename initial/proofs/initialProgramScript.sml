@@ -200,26 +200,25 @@ val basis_sem_env_def = Define `
 basis_sem_env =
 add_to_sem_env (THE prim_sem_env) basis_program`;
 
-(*
-(SIMP_CONV (srw_ss()) [add_to_sem_env_def, basis_sem_env_def, basis_program_def,
-                       prim_sem_env_thm, mk_binop_def, mk_unop_def]
-THENC
-computeLib.CBV_CONV compute_interpLib.the_interp_compset)
-``basis_sem_env``);
-*)
-
 val the_compiler_compset = the_compiler_compset false
+
+val prim_env_eq =
+  ``prim_env``
+  |> SIMP_CONV(srw_ss())[prim_env_def,add_to_env_def,LET_THM,prim_types_program_def]
+  |> CONV_RULE(computeLib.CBV_CONV the_inference_compset)
+  |> CONV_RULE(computeLib.CBV_CONV the_compiler_compset)
+
+val prim_sem_env_eq =
+  ``prim_sem_env``
+  |> SIMP_CONV(srw_ss())[prim_sem_env_def,add_to_sem_env_def,prim_types_program_def]
+  |> CONV_RULE(computeLib.CBV_CONV the_interp_compset)
 
 val prim_env_inv = Q.store_thm ("prim_env_inv",
 `?se e.
   prim_env = SOME e ∧
   prim_sem_env = SOME se ∧
   invariant se e`,
- simp [prim_env_def, prim_sem_env_def, invariant_def, add_to_env_def, add_to_sem_env_def] >>
- simp[prim_types_program_def] >>
- CONV_TAC(computeLib.CBV_CONV the_inference_compset) >>
- CONV_TAC(computeLib.CBV_CONV the_compiler_compset) >>
- CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+ simp [prim_env_eq, prim_sem_env_eq, invariant_def] >>
  simp[convert_decls_def,convert_menv_def,convert_env2_def,bind_var_list2_def,RIGHT_EXISTS_AND_THM] >>
  conj_tac >- (
    simp[typeSoundInvariantsTheory.type_sound_invariants_def] >>
@@ -342,13 +341,50 @@ val prim_env_inv = Q.store_thm ("prim_env_inv",
 
 val basis_env_inv = Q.store_thm ("basis_env_inv",
 `?se e.
-  basis_env = SOME e ∧ 
+  basis_env = SOME e ∧
   basis_sem_env = SOME se ∧
   invariant se e`,
  rw [basis_env_def, basis_sem_env_def] >>
  strip_assume_tac prim_env_inv >>
- `?e'. add_to_env e basis_program = SOME e'` by cheat >>
- `?se'. add_to_sem_env se basis_program = SOME se'` by cheat >>
+ `?e'. add_to_env e basis_program = SOME e'` by (
+   fs[prim_env_eq] >> rw[] >>
+   simp[add_to_env_def] >>
+   rpt BasicProvers.CASE_TAC >- simp[UNCURRY] >>
+   qsuff_tac`F`>-rw[]>>pop_assum mp_tac>>
+   simp[basis_program_def,mk_binop_def,mk_unop_def] >>
+   CONV_TAC(computeLib.CBV_CONV the_inference_compset)) >>
+ `?se'. add_to_sem_env se basis_program = SOME se'` by (
+   fs[prim_sem_env_eq] >> rw[] >>
+   simp[add_to_sem_env_def] >>
+   rpt BasicProvers.CASE_TAC >>
+   pop_assum mp_tac >>
+   simp[basis_program_def] >>
+   REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+   Q.PAT_ABBREV_TAC`cl1 = ("+",Closure X Y Z)` >>
+   REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+   Q.PAT_ABBREV_TAC`cl2 = ("-",Closure X Y Z)` >>
+   REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+   Q.PAT_ABBREV_TAC`cl3 = ("*",Closure X Y Z)` >>
+   REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+   Q.PAT_ABBREV_TAC`cl4 = ("div",Closure X Y Z)` >>
+   REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+   Q.PAT_ABBREV_TAC`cl5 = ("mod",Closure X Y Z)` >>
+   REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+   Q.PAT_ABBREV_TAC`cl6 = ("<",Closure X Y Z)` >>
+   REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+   Q.PAT_ABBREV_TAC`cl7 = (">",Closure X Y Z)` >>
+   REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+   Q.PAT_ABBREV_TAC`cl8 = ("<=",Closure X Y Z)` >>
+   REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+   Q.PAT_ABBREV_TAC`cl9 = (">=",Closure X Y Z)` >>
+   REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+   Q.PAT_ABBREV_TAC`cl10 = ("=",Closure X Y Z)` >>
+   REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+   Q.PAT_ABBREV_TAC`cl11 = (":=",Closure X Y Z)` >>
+   Q.PAT_ABBREV_TAC`cl12 = ("~",Closure X Y Z)` >>
+   REWRITE_TAC[mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+   REWRITE_TAC[mk_unop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+   rw[]) >>
  rw [] >>
  fs [add_to_sem_env_def] >>
  every_case_tac >>
@@ -356,7 +392,7 @@ val basis_env_inv = Q.store_thm ("basis_env_inv",
  imp_res_tac run_eval_prog_spec >>
  fs [] >>
  rw [] >>
- match_mp_tac add_to_env_invariant >> 
+ match_mp_tac add_to_env_invariant >>
  rw [evaluate_whole_prog_def] >>
  MAP_EVERY qexists_tac [`T`, `10000`, `se.sem_s`, `se.sem_tids`, `basis_program`, `q`, `e`] >>
  rw []

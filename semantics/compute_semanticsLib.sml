@@ -32,6 +32,8 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
     ,semanticPrimitivesTheory.result_case_def
     ,semanticPrimitivesTheory.merge_envC_def
     ,semanticPrimitivesTheory.match_result_case_def
+    ,semanticPrimitivesTheory.combine_dec_result_def
+    ,semanticPrimitivesTheory.build_rec_env_def
     ,terminationTheory.pmatch_def
     ] compset
     val () = add_datatype ``:MMLnonT`` compset
