@@ -15,6 +15,10 @@ open HolKernel boolLib bossLib lcsymtacs bigStepTheory replTheory
       ,result_raise_def
       ,no_dup_types_def
       ,decs_to_types_def
+      ,no_dup_mods_def
+      ,prog_to_mods_def
+      ,no_dup_top_types_def
+      ,prog_to_top_types_def
       ] compset
     end
     in

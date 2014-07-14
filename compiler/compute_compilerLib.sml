@@ -1,6 +1,6 @@
 structure compute_compilerLib = struct local
 open HolKernel boolLib bossLib computeLib
-open compilerLibTheory modLangTheory conLangTheory decLangTheory exhLangTheory patLangTheory toIntLangTheory toBytecodeTheory compilerTheory
+open compilerLibTheory modLangTheory conLangTheory decLangTheory exhLangTheory patLangTheory toIntLangTheory toBytecodeTheory free_varsTheory compilerTheory
 open compilerTerminationTheory
 
 val SUC_TO_NUMERAL_RULE = CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook)
@@ -155,6 +155,25 @@ in
 end
 
 in
+
+  val add_free_vars_compset = add_thms
+    [closed_prog_def
+    ,FV_prog_def
+    ,new_top_vs_def
+    ,new_dec_vs_def
+    ,FV_top_def
+    ,global_dom_def
+    ,FV_decs_def
+    ,FV_dec_def
+    ,FV_def
+    ]
+
+  val the_free_vars_compset =
+    let
+      val c = compute_basicLib.the_basic_compset
+      val () = compute_semanticsLib.add_ast_compset c
+      val () = add_free_vars_compset c
+    in c end
 
   fun add_compiler_compset track_labels compset = (
     add_intermediate_compiler_compset compset;

@@ -57,18 +57,6 @@ val () =
 (* labels removal *)
 val () = labels_computeLib.reset_code_labels_ok_db()
 val () = computeLib.add_conv (``code_labels``,2,code_labels_conv eval_real_inst_length) compset
-(* free vars and closed (for discharging labels hypothesis) *)
-val () = computeLib.add_thms
-  [closed_prog_def
-  ,FV_prog_def
-  ,new_top_vs_def
-  ,new_dec_vs_def
-  ,FV_top_def
-  ,global_dom_def
-  ,FV_decs_def
-  ,FV_dec_def
-  ,FV_def
-  ] compset
 val () =
   let
     fun code_labels_ok_conv tm =

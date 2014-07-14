@@ -68,11 +68,11 @@ add_to_sem_env se prog =
             sem_mdecls := mdecls |>
      | _ => NONE`;
 
-val compile_thm = 
+val compile_thm =
   SIMP_RULE (srw_ss()++boolSimps.DNF_ss) [AND_IMP_INTRO, evaluate_whole_prog_def] compilerProofTheory.compile_initial_prog_thm;
 
 val add_to_env_invariant_lem = Q.prove (
-`!envM envC envE cnt s tids prog cnt' s' envM' envC' envE' tids' mdecls' e e'. 
+`!envM envC envE cnt s tids prog cnt' s' envM' envC' envE' tids' mdecls' e e'.
   closed_prog prog ∧
   evaluate_whole_prog T (envM,envC,envE) ((cnt,s),tids,set e.inf_mdecls) prog (((cnt',s'),tids',mdecls'),envC',Rval (envM',envE')) ∧
   invariant <| sem_envM := envM; sem_envC := envC; sem_envE := envE; sem_s := s; sem_tids := tids; sem_mdecls := set e.inf_mdecls |> e ∧ 
@@ -143,7 +143,7 @@ val add_to_env_invariant_lem = Q.prove (
  metis_tac [pair_CASES]);
 
 val add_to_env_invariant = Q.prove (
-`!ck envM envC envE cnt s tids prog cnt' s' envM' envC' envE' tids' mdecls' e e'. 
+`!ck envM envC envE cnt s tids prog cnt' s' envM' envC' envE' tids' mdecls' e e'.
   closed_prog prog ∧
   evaluate_whole_prog ck (envM,envC,envE) ((cnt,s),tids,set e.inf_mdecls) prog (((cnt',s'),tids',mdecls'),envC',Rval (envM',envE')) ∧
   invariant <| sem_envM := envM; sem_envC := envC; sem_envE := envE; sem_s := s; sem_tids := tids; sem_mdecls := set e.inf_mdecls |> e ∧ 
@@ -396,9 +396,19 @@ val basis_env_inv = Q.store_thm ("basis_env_inv",
  rw [evaluate_whole_prog_def] >>
  MAP_EVERY qexists_tac [`T`, `10000`, `se.sem_s`, `se.sem_tids`, `basis_program`, `q`, `e`] >>
  rw []
- >- cheat
- >- cheat
- >- cheat
+ >- (
+   rw[basis_program_def] >>
+   CONV_TAC(computeLib.CBV_CONV the_free_vars_compset) >>
+   rw[mk_binop_def,mk_unop_def] >>
+   CONV_TAC(computeLib.CBV_CONV the_free_vars_compset))
+ >- (
+   rw[basis_program_def] >>
+   CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+   fs[prim_env_eq] >> rw[] )
+ >- (
+   rw[basis_program_def] >>
+   CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+   rw[mk_binop_def,mk_unop_def] )
  >- (fs [invariant_def] >>
      metis_tac [])
  >- (fs [invariant_def] >>
