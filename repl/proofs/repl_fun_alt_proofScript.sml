@@ -8,14 +8,6 @@ open lcsymtacs bytecodeEvalTheory bytecodeExtraTheory;
 
 infix \\ val op \\ = op THEN;
 
-val code_executes_ok_def = Define `
-  code_executes_ok s1 =
-    let len i = if is_Label i then 0 else s1.inst_length i + 1 in
-      (* termination *)
-      (?s2 b. bc_next^* s1 s2 /\ bc_fetch s2 = SOME (Stop b)) \/
-      (* or divergence with no output *)
-      !n. ?s2. NRC bc_next n s1 s2 /\ (s2.output = s1.output)`;
-
 (* We start by defining a new version of repl_fun called repl_fun'
    which brings with it a proof of side conditions. *)
 

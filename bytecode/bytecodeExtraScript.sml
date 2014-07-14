@@ -456,4 +456,11 @@ val good_labels_def = Define`
     ALL_DISTINCT (FILTER is_Label code) ∧
     EVERY (combin$C $< nl o dest_Label) (FILTER is_Label code)`
 
+val code_executes_ok_def = Define `
+  code_executes_ok s1 ⇔
+      (* termination *)
+      (?s2 b. bc_next^* s1 s2 /\ bc_fetch s2 = SOME (Stop b)) \/
+      (* or divergence with no output *)
+      !n. ?s2. NRC bc_next n s1 s2 /\ (s2.output = s1.output)`;
+
 val _ = export_theory()
