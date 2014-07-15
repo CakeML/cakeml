@@ -196,20 +196,39 @@ val bc_value_inv_related = prove(
   THEN1
     (FULL_SIMP_TAC (srw_ss()) [bc_value_inv_def,ADDR_APPLY_def,get_refs_def]));
 
-(* -- works up to this point -- *)
+val EVERY2_ADDR_MAP = prove(
+  ``!zs l. EVERY2 P (ADDR_MAP g zs) l <=>
+           EVERY2 (\x y. P (ADDR_APPLY g x) y) zs l``,
+  Induct \\ Cases_on `l`
+  \\ FULL_SIMP_TAC std_ss [EVERY2_def,ADDR_MAP_def] \\ Cases
+  \\ FULL_SIMP_TAC std_ss [EVERY2_def,ADDR_MAP_def,ADDR_APPLY_def]);
+
+val EVERY2_IMP_EVERY2 = prove(
+  ``!xs ys P1 P2.
+      (!x y. MEM x xs /\ MEM y ys /\ P1 x y ==> P2 x y) ==>
+      EVERY2 P1 xs ys ==> EVERY2 P2 xs ys``,
+  Induct \\ Cases_on `ys` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ REPEAT STRIP_TAC \\ METIS_TAC []);
 
 val bc_ref_inv_related = prove(
   ``gc_related g heap1 heap2 /\
     bc_ref_inv n refs (f,heap1) /\ (f ' n) IN FDOM g ==>
     bc_ref_inv n refs (g f_o_f f,heap2)``,
   FULL_SIMP_TAC std_ss [bc_ref_inv_def] \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss []
+  \\ MP_TAC bc_value_inv_related \\ ASM_SIMP_TAC std_ss []
   \\ FULL_SIMP_TAC (srw_ss()) [f_o_f_DEF,gc_related_def,RefBlock_def] \\ RES_TAC
-  \\ FULL_SIMP_TAC (srw_ss()) [] \\ Q.EXISTS_TAC `ADDR_APPLY (FAPPLY g) y`
-  \\ STRIP_TAC
-  THEN1 (Cases_on `y` \\ FULL_SIMP_TAC std_ss [ADDR_MAP_def,ADDR_APPLY_def])
-  \\ `gc_related g heap1 heap2` by ALL_TAC
-  THEN1 (FULL_SIMP_TAC (srw_ss()) [gc_related_def] \\ METIS_TAC [])
-  \\ IMP_RES_TAC bc_value_inv_related \\ METIS_TAC []);
+  \\ Cases_on `FLOOKUP f n` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ Cases_on `FLOOKUP refs n` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ FULL_SIMP_TAC (srw_ss()) [FLOOKUP_DEF,f_o_f_DEF]
+  \\ Cases_on `x'` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ RES_TAC \\ FULL_SIMP_TAC (srw_ss()) [LENGTH_ADDR_MAP,EVERY2_ADDR_MAP]
+  \\ REPEAT STRIP_TAC \\ Q.PAT_ASSUM `EVERY2 qqq zs l` MP_TAC
+  \\ MATCH_MP_TAC EVERY2_IMP_EVERY2 \\ SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
+  \\ Cases_on `x'` \\ FULL_SIMP_TAC (srw_ss()) [ADDR_APPLY_def]);
+
+val MEM_EVERY2_IMP = prove(
+  ``!l x zs P. MEM x l /\ EVERY2 P zs l ==> ?z. MEM z zs /\ P z x``,
+  Induct \\ Cases_on `zs` \\ FULL_SIMP_TAC (srw_ss()) [] \\ METIS_TAC []);
 
 val RTC_lemma = prove(
   ``!r n. RTC (ref_edge refs) r n ==>
@@ -223,14 +242,33 @@ val RTC_lemma = prove(
    (REPEAT STRIP_TAC \\ Q.PAT_ASSUM `!x.bb` MATCH_MP_TAC \\ METIS_TAC [RTC_CASES1])
   \\ `RTC (ref_edge refs) r r' /\ RTC (ref_edge refs) r r` by METIS_TAC [RTC_CASES1]
   \\ RES_TAC \\ Q.PAT_ASSUM `!x.bb` (K ALL_TAC)
-  \\ FULL_SIMP_TAC std_ss [bc_ref_inv_def,RefBlock_def]
-  \\ `!ptr. MEM (Pointer ptr) [y] ==> ptr IN FDOM g` by ALL_TAC
-  THEN1 (FULL_SIMP_TAC std_ss [gc_related_def] \\ RES_TAC)
-  \\ FULL_SIMP_TAC std_ss [MEM]
-  \\ POP_ASSUM (ASSUME_TAC o ONCE_REWRITE_RULE [EQ_SYM_EQ])
-  \\ `EVERY (\n. f ' n IN FDOM g) (get_refs (refs ' r))` by ALL_TAC
-  THEN1 (IMP_RES_TAC bc_value_inv_related)
-  \\ FULL_SIMP_TAC std_ss [ref_edge_def,EVERY_MEM]);
+  \\ FULL_SIMP_TAC std_ss [bc_ref_inv_def,RefBlock_def,RTC_REFL]
+  \\ Cases_on `FLOOKUP f r` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ Cases_on `FLOOKUP f r'` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ Cases_on `FLOOKUP refs r` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ Cases_on `FLOOKUP refs r'` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ Cases_on `x''` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ Cases_on `x'''` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ IMP_RES_TAC bc_value_inv_related
+  \\ FULL_SIMP_TAC std_ss [ref_edge_def]
+  \\ FULL_SIMP_TAC std_ss [gc_related_def,INJ_DEF,GSPECIFICATION]
+  \\ FULL_SIMP_TAC (srw_ss()) [FLOOKUP_DEF] \\ SRW_TAC [] []
+  \\ Cases_on `refs ' r` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ Cases_on `refs ' r'` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ RES_TAC \\ FULL_SIMP_TAC std_ss [get_refs_def] \\ SRW_TAC [] []
+  \\ FULL_SIMP_TAC std_ss [MEM_FLAT,MEM_MAP] \\ SRW_TAC [] []
+  \\ FULL_SIMP_TAC std_ss [ref_edge_def,EVERY_MEM]
+  \\ FULL_SIMP_TAC std_ss [PULL_FORALL,AND_IMP_INTRO]
+  \\ RES_TAC \\ CCONTR_TAC \\ FULL_SIMP_TAC std_ss []
+  \\ SRW_TAC [] [] \\ POP_ASSUM MP_TAC \\ SIMP_TAC std_ss []
+  \\ Q.PAT_ASSUM `!xx yy. bbb` MATCH_MP_TAC
+  \\ IMP_RES_TAC MEM_EVERY2_IMP
+  \\ FULL_SIMP_TAC std_ss []
+  \\ Q.LIST_EXISTS_TAC [`z`,`a`]
+  \\ FULL_SIMP_TAC std_ss []
+  \\ REPEAT STRIP_TAC
+  \\ FIRST_X_ASSUM MATCH_MP_TAC
+  \\ SRW_TAC [] []);
 
 val reachable_refs_lemma = prove(
   ``gc_related g heap heap2 /\
@@ -244,7 +282,8 @@ val reachable_refs_lemma = prove(
   \\ FULL_SIMP_TAC std_ss [MEM,MEM_APPEND]
   \\ `EVERY (\n. f ' n IN FDOM g) (get_refs x)` by METIS_TAC [bc_value_inv_related]
   \\ FULL_SIMP_TAC std_ss [EVERY_MEM] \\ RES_TAC \\ FULL_SIMP_TAC std_ss []
-  \\ `n IN FDOM f` by FULL_SIMP_TAC std_ss [bc_ref_inv_def]
+  \\ `n IN FDOM f` by ALL_TAC THEN1 (CCONTR_TAC
+    \\ FULL_SIMP_TAC (srw_ss()) [bc_ref_inv_def,FLOOKUP_DEF])
   \\ FULL_SIMP_TAC std_ss []
   \\ `bc_ref_inv r refs (f,heap)` by METIS_TAC [RTC_REFL]
   \\ `(!m. RTC (ref_edge refs) r m ==> bc_ref_inv m refs (f,heap))` by ALL_TAC
@@ -278,7 +317,8 @@ val full_gc_thm = store_thm("full_gc_thm",
         (roots2,heap2 ++ heap_expand (limit - a2),a2,limit - a2) limit /\
       (heap_length heap2 = a2)``,
   SIMP_TAC std_ss [abs_ml_inv_def,GSYM CONJ_ASSOC]
-  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC full_gc_related \\ NTAC 3 (POP_ASSUM (K ALL_TAC))
+  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC full_gc_related
+  \\ NTAC 3 (POP_ASSUM (K ALL_TAC))
   \\ `heap_length heap2 = a2` by ALL_TAC
   THEN1 (IMP_RES_TAC full_gc_LENGTH \\ FULL_SIMP_TAC std_ss [] \\ METIS_TAC [])
   \\ `unused_space_inv a2 (limit - a2) (heap2 ++ heap_expand (limit - a2))` by
@@ -291,6 +331,8 @@ val full_gc_thm = store_thm("full_gc_thm",
     \\ FULL_SIMP_TAC std_ss [] \\ METIS_TAC [])
   \\ MATCH_MP_TAC (GEN_ALL bc_stack_ref_inv_related) \\ FULL_SIMP_TAC std_ss []
   \\ Q.EXISTS_TAC `heap` \\ FULL_SIMP_TAC std_ss []);
+
+(* -- works up to this point -- *)
 
 (* Write to unused heap space is fine, e.g. cons *)
 
