@@ -78,23 +78,28 @@ val get_refs_def = tDefine "get_refs" `
   \\ SRW_TAC [] [bc_value_size_def] \\ RES_TAC \\ DECIDE_TAC);
 
 val ref_edge_def = Define `
-  ref_edge refs x y = x IN FDOM refs /\ MEM y (get_refs (refs ' x))`;
+  ref_edge (refs:num |-> ref_value) (x:num) (y:num) =
+    case FLOOKUP refs x of
+    | SOME (ValueArray ys) => MEM y (get_refs (Block ARB ys))
+    | _ => F`
 
 val reachable_refs_def = Define `
   reachable_refs roots refs t =
     ?x r. MEM x roots /\ MEM r (get_refs x) /\ RTC (ref_edge refs) r t`;
 
 val RefBlock_def = Define `
-  RefBlock x = DataElement [x] 1 (RefTag,[])`;
+  RefBlock xs = DataElement xs (LENGTH xs) (RefTag,[])`;
 
 val bc_ref_inv_def = Define `
-  bc_ref_inv n refs (f,heap) =
-    n IN FDOM f /\ n IN FDOM refs /\
-    ?y. (heap_lookup (FAPPLY f n) heap = SOME (RefBlock y)) /\
-        bc_value_inv (FAPPLY refs n) (y,f,heap)`;
+  bc_ref_inv n (refs:num |-> ref_value) (f,heap) =
+    case (FLOOKUP f n, FLOOKUP refs n) of
+    | (SOME x, SOME (ValueArray ys)) =>
+        (?zs. (heap_lookup x heap = SOME (RefBlock zs)) /\
+              EVERY2 (\z y. bc_value_inv y (z,f,heap)) zs ys)
+    | _ => F`;
 
 val bc_stack_ref_inv_def = Define `
-  bc_stack_ref_inv stack (refs:num|->bc_value) (roots, heap) =
+  bc_stack_ref_inv stack refs (roots, heap) =
     ?f. INJ (FAPPLY f) (FDOM f) { a | isSomeDataElement (heap_lookup a heap) } /\
         FDOM f SUBSET FDOM refs /\
         EVERY2 (\v x. bc_value_inv v (x,f,heap)) stack roots /\
@@ -190,6 +195,8 @@ val bc_value_inv_related = prove(
      \\ FULL_SIMP_TAC (srw_ss()) [f_o_f_DEF,get_refs_def])
   THEN1
     (FULL_SIMP_TAC (srw_ss()) [bc_value_inv_def,ADDR_APPLY_def,get_refs_def]));
+
+(* -- works up to this point -- *)
 
 val bc_ref_inv_related = prove(
   ``gc_related g heap1 heap2 /\
