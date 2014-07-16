@@ -332,8 +332,6 @@ val full_gc_thm = store_thm("full_gc_thm",
   \\ MATCH_MP_TAC (GEN_ALL bc_stack_ref_inv_related) \\ FULL_SIMP_TAC std_ss []
   \\ Q.EXISTS_TAC `heap` \\ FULL_SIMP_TAC std_ss []);
 
-(* -- works up to this point -- *)
-
 (* Write to unused heap space is fine, e.g. cons *)
 
 val heap_store_def = Define `
@@ -613,9 +611,14 @@ val cons_thm = store_thm("cons_thm",
     \\ FULL_SIMP_TAC std_ss [MEM_APPEND] \\ METIS_TAC [])
   \\ RES_TAC \\ POP_ASSUM MP_TAC \\ SIMP_TAC std_ss [bc_ref_inv_def]
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [RefBlock_def]
+  \\ Cases_on `FLOOKUP f n` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ Cases_on `FLOOKUP refs n` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ Cases_on `x'` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ IMP_RES_TAC heap_store_rel_lemma \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ `f SUBMAP f` by FULL_SIMP_TAC std_ss [SUBMAP_REFL]
-  \\ REPEAT STRIP_TAC \\ RES_TAC \\ IMP_RES_TAC bc_value_inv_SUBMAP)
+  \\ Q.PAT_ASSUM `EVERY2 PP zs l` MP_TAC
+  \\ MATCH_MP_TAC EVERY2_IMP_EVERY2 \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ REPEAT STRIP_TAC \\ RES_TAC \\ IMP_RES_TAC bc_value_inv_SUBMAP
+  \\ `f SUBMAP f` by FULL_SIMP_TAC std_ss [SUBMAP_REFL] \\ RES_TAC)
 
 val cons_thm_EMPTY = store_thm("cons_thm_EMPTY",
   ``abs_ml_inv stack refs (roots,heap:('a,'b) ml_heap,a,sp) limit /\
@@ -631,6 +634,9 @@ val cons_thm_EMPTY = store_thm("cons_thm_EMPTY",
   \\ FULL_SIMP_TAC std_ss [reachable_refs_def]
   \\ Cases_on `x = Block tag []` \\ FULL_SIMP_TAC std_ss []
   \\ FULL_SIMP_TAC (srw_ss()) [get_refs_def] \\ METIS_TAC []);
+
+
+(* -- works up to this point -- *)
 
 (* update ref *)
 
