@@ -13,7 +13,7 @@ elaborate_top (types : elaborator_state) ast_top =
     ((new_types++types), top)`;
 
 val initial_elaborator_state_def = Define `
-initial_elaborator_state : elaborator_state = init_repl_state.type_bindings`;
+initial_elaborator_state : elaborator_state = init_type_bindings`;
 
 val _ = type_abbrev ("inferencer_state",
   ``:(modN list # conN id list # varN id list) #
@@ -36,22 +36,18 @@ infertype_top ((decls, module_type_env, constructor_type_env, type_env) :inferen
                  new_type_env)`;
 
 val initial_inferencer_state_def = Define `
-initial_inferencer_state : inferencer_state = (init_infer_decls, [], init_tenvC, infer$init_type_env)`;
+initial_inferencer_state : inferencer_state = (((THE basis_env).inf_mdecls,(THE basis_env).inf_tdecls,(THE basis_env).inf_edecls), (THE basis_env).inf_tenvM, (THE basis_env).inf_tenvC, (THE basis_env).inf_tenvE)`;
 
 val _ = Hol_datatype`repl_fun_state = <|
   relaborator_state : elaborator_state;
   rinferencer_state : inferencer_state;
   rcompiler_state  : compiler_state |>`
 
-val compile_primitives_def = Define`
-  compile_primitives =
-    compile_top (NONE:(varN, num # infer_t) alist option) init_compiler_state (Tdec initial_program)`;
-
 val initial_repl_fun_state = Define`
   initial_repl_fun_state = <|
     relaborator_state := initial_elaborator_state;
     rinferencer_state := initial_inferencer_state;
-    rcompiler_state   := FST compile_primitives |>`
+    rcompiler_state   := (THE basis_env).comp_rs |>`
 
 val update_state_def = Define`
   update_state s es is cs =

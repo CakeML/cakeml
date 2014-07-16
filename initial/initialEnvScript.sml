@@ -60,6 +60,18 @@ val _ = Define `
       Dlet (Pvar "update") (Fun "x" (Fun "y" (Fun "z" (App Aupdate [Var (Short "x"); Var (Short "y"); Var (Short "z")])))) ] ]))`;
 
 
+(* The initial mapping of type names to primitive type constructors, for the elaborator *)
+val _ = Define `
+ (init_type_bindings =  
+([("int", TC_int);
+   ("bool", TC_bool);
+   ("ref", TC_ref);
+   ("exn", TC_exn);
+   ("unit", TC_unit);
+   ("list", TC_name (Short "list"));
+   ("option", TC_name (Short "option"))]))`;
+
+
 (*
 val init_envC : envC
 let init_envC =
@@ -119,17 +131,6 @@ let init_tenvC =
    ("nil", (["'a"], [], TypeId (Short "list"))) ::
    ("::", (["'a"], [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))], TypeId (Short "list"))) ::
    List.map (fun cn -> (cn, ([], [], TypeExn (Short cn)))) ["Subscript";"Bind"; "Div"; "Eq"])
-
-(* The initial mapping of type names to primitive type constructors, for the elaborator *)
-val init_type_bindings : tdef_env
-let init_type_bindings =
-  [("int", TC_int);
-   ("bool", TC_bool);
-   ("ref", TC_ref);
-   ("exn", TC_exn);
-   ("unit", TC_unit);
-   ("list", TC_name (Short "list"));
-   ("option", TC_name (Short "option"))]
 
 (* The types and exceptions that have been declared, for the type soundness invariant *)
 val init_type_decs : set tid_or_exn
