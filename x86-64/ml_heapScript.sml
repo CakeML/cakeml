@@ -877,28 +877,60 @@ val update_ref_thm = store_thm("update_ref_thm",
 
 (* new ref *)
 
+val EVERY2_APPEND_IMP_APPEND = prove(
+  ``!xs1 xs2 ys P.
+      EVERY2 P (xs1 ++ xs2) ys ==>
+      ?ys1 ys2. (ys = ys1 ++ ys2) /\ EVERY2 P xs1 ys1 /\ EVERY2 P xs2 ys2``,
+  Induct \\ Cases_on `ys` \\ FULL_SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
+  THEN1 (Q.EXISTS_TAC `[]` \\ FULL_SIMP_TAC (srw_ss()) [])
+  \\ RES_TAC \\ FULL_SIMP_TAC std_ss []
+  \\ Q.LIST_EXISTS_TAC [`h::ys1`,`ys2`]
+  \\ FULL_SIMP_TAC std_ss [APPEND,EVERY2_def]);
+
+val EVERY2_IMP_APPEND = prove(
+  ``!xs1 xs2 ys1 ys2.
+      EVERY2 P xs1 ys1 /\ EVERY2 P xs2 ys2 ==>
+      EVERY2 P (xs1 ++ xs2) (ys1 ++ ys2)``,
+  Induct \\ Cases_on `ys1` \\ FULL_SIMP_TAC (srw_ss()) []);
+
+val EVERY2_EQ_EL = prove(
+  ``!xs ys P. EVERY2 P xs ys <=>
+              (LENGTH xs = LENGTH ys) /\
+              !n. n < LENGTH ys ==> P (EL n xs) (EL n ys)``,
+  Induct \\ Cases_on `ys` \\ FULL_SIMP_TAC (srw_ss()) [EL,HD,TL]
+  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC EVERY2_IMP_LENGTH
+  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
+  \\ FULL_SIMP_TAC std_ss []
+  THEN1 (Cases_on `n` \\ FULL_SIMP_TAC (srw_ss()) [])
+  THEN1 (POP_ASSUM (MP_TAC o Q.SPEC `0`) \\ FULL_SIMP_TAC (srw_ss()) [])
+  \\ `SUC n < SUC (LENGTH t)` by DECIDE_TAC \\ RES_TAC
+  \\ FULL_SIMP_TAC (srw_ss()) []);
+
 val new_ref_thm = store_thm("new_ref_thm",
   ``abs_ml_inv (xs ++ stack) refs (roots,heap,a,sp) limit /\
     ~(ptr IN FDOM refs) /\ LENGTH xs + 1 <= sp ==>
-    ?p r roots2 heap2.
+    ?p rs roots2 heap2.
       (roots = rs ++ roots2) /\
-      (heap_store_unused a sp (RefBlock r) heap = (heap2,T)) /\
+      (heap_store_unused a sp (RefBlock rs) heap = (heap2,T)) /\
       abs_ml_inv (xs ++ (RefPtr ptr)::stack) (refs |+ (ptr,ValueArray xs))
-                 (rs ++ Pointer (a+sp-2)::roots2,heap2,a,sp - (LENGTH xs + 1)) limit``,
-  cheat
-(*
+                 (rs ++ Pointer (a+sp-(LENGTH xs + 1))::roots2,heap2,a,
+                  sp - (LENGTH xs + 1)) limit``,
   SIMP_TAC std_ss [abs_ml_inv_def]
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [bc_stack_ref_inv_def]
-  \\ Cases_on `roots` \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ `el_length (RefBlock h) <= sp` by ALL_TAC
+  \\ IMP_RES_TAC EVERY2_APPEND_IMP_APPEND
+  \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ Q.LIST_EXISTS_TAC [`ys1`,`ys2`] \\ FULL_SIMP_TAC std_ss []
+  \\ IMP_RES_TAC EVERY2_IMP_LENGTH
+  \\ `el_length (RefBlock ys1) <= sp` by ALL_TAC
   THEN1 (FULL_SIMP_TAC std_ss [el_length_def,RefBlock_def])
   \\ Q.PAT_ASSUM `unused_space_inv a sp heap` (fn th =>
-    MATCH_MP (IMP_heap_store_unused |> REWRITE_RULE [GSYM AND_IMP_INTRO] |> GEN_ALL) th
+    MATCH_MP (IMP_heap_store_unused
+    |> REWRITE_RULE [GSYM AND_IMP_INTRO] |> GEN_ALL) th
     |> ASSUME_TAC)
-  \\ POP_ASSUM (MP_TAC o Q.SPEC `RefBlock h`) \\ MATCH_MP_TAC IMP_IMP
+  \\ POP_ASSUM (MP_TAC o Q.SPEC `RefBlock ys1`) \\ MATCH_MP_TAC IMP_IMP
   \\ STRIP_TAC THEN1 FULL_SIMP_TAC std_ss [RefBlock_def,el_length_def]
   \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss []
-  \\ `unused_space_inv a (sp - 2) heap2` by ALL_TAC
+  \\ `unused_space_inv a (sp - (LENGTH ys1 + 1)) heap2` by ALL_TAC
   THEN1 FULL_SIMP_TAC std_ss [RefBlock_def,el_length_def]
   \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC THEN1
    (FULL_SIMP_TAC std_ss [roots_ok_def,MEM,heap_store_rel_def] \\ REPEAT STRIP_TAC
@@ -913,14 +945,16 @@ val new_ref_thm = store_thm("new_ref_thm",
       \\ METIS_TAC [heap_store_rel_def])
     \\ RES_TAC \\ FULL_SIMP_TAC std_ss [heap_store_rel_def])
   \\ `~(ptr IN FDOM f)` by (FULL_SIMP_TAC (srw_ss()) [SUBSET_DEF] \\ METIS_TAC [])
-  \\ Q.EXISTS_TAC `f |+ (ptr,a+sp-2)`
+  \\ Q.EXISTS_TAC `f |+ (ptr,a+sp-(LENGTH ys1 + 1))`
   \\ STRIP_TAC THEN1
    (FULL_SIMP_TAC (srw_ss()) [FDOM_FUPDATE]
-    \\ `(FAPPLY (f |+ (ptr,a + sp - 2))) = (ptr =+ (a+sp-2)) (FAPPLY f)` by
+    \\ `(FAPPLY (f |+ (ptr,a + sp - (LENGTH ys1 + 1)))) =
+          (ptr =+ (a+sp-(LENGTH ys1 + 1))) (FAPPLY f)` by
      (FULL_SIMP_TAC std_ss [FUN_EQ_THM,FAPPLY_FUPDATE_THM,APPLY_UPDATE_THM]
       \\ METIS_TAC []) \\ FULL_SIMP_TAC std_ss []
     \\ MATCH_MP_TAC (METIS_PROVE [] ``!y. (x = y) /\ f y ==> f x``)
-    \\ Q.EXISTS_TAC `(a + sp - 2) INSERT {a | isSomeDataElement (heap_lookup a heap)}`
+    \\ Q.EXISTS_TAC `(a + sp - (LENGTH ys1 + 1)) INSERT
+         {a | isSomeDataElement (heap_lookup a heap)}`
     \\ STRIP_TAC
     THEN1 (FULL_SIMP_TAC (srw_ss()) [RefBlock_def,isDataElement_def,el_length_def])
     \\ MATCH_MP_TAC INJ_UPDATE \\ FULL_SIMP_TAC std_ss []
@@ -928,44 +962,62 @@ val new_ref_thm = store_thm("new_ref_thm",
     \\ FULL_SIMP_TAC std_ss [RefBlock_def,el_length_def])
   \\ STRIP_TAC THEN1
      (FULL_SIMP_TAC (srw_ss()) [SUBSET_DEF,FDOM_FUPDATE] \\ METIS_TAC [])
-  \\ Q.ABBREV_TAC `f1 = f |+ (ptr,a + sp - 2)`
+  \\ Q.ABBREV_TAC `f1 = f |+ (ptr,a + sp - (LENGTH ys1 + 1))`
   \\ `f SUBMAP f1` by ALL_TAC THEN1
    (Q.UNABBREV_TAC `f1` \\ FULL_SIMP_TAC (srw_ss()) [SUBMAP_DEF,FAPPLY_FUPDATE_THM]
     \\ METIS_TAC [])
   \\ STRIP_TAC THEN1
-   (STRIP_TAC THEN1 METIS_TAC [bc_value_inv_SUBMAP] \\ STRIP_TAC THEN1
-     (Q.UNABBREV_TAC `f1`
-      \\ SIMP_TAC (srw_ss()) [bc_value_inv_def,FAPPLY_FUPDATE_THM,FDOM_FUPDATE])
-    \\ FULL_SIMP_TAC std_ss [EVERY2_EVERY,EVERY_MEM,MEM_ZIP,PULL_EXISTS]
-    \\ Q.PAT_ASSUM `LENGTH stack = LENGTH t` ASSUME_TAC
-    \\ FULL_SIMP_TAC std_ss [EVERY2_EVERY,EVERY_MEM,MEM_ZIP,PULL_EXISTS]
-    \\ REPEAT STRIP_TAC \\ METIS_TAC [bc_value_inv_SUBMAP])
+   (MATCH_MP_TAC EVERY2_IMP_APPEND
+    \\ FULL_SIMP_TAC std_ss [EVERY2_def]
+    \\ MATCH_MP_TAC (METIS_PROVE [] ``p2 /\ (p1 /\ p3) ==> p1 /\ p2 /\ p3``)
+    \\ STRIP_TAC THEN1 (UNABBREV_ALL_TAC \\ EVAL_TAC)
+    \\ FULL_SIMP_TAC (srw_ss()) [bc_value_inv_def,FAPPLY_FUPDATE_THM]
+    \\ FULL_SIMP_TAC std_ss [EVERY2_EQ_EL]
+    \\ IMP_RES_TAC EVERY2_IMP_LENGTH
+    \\ METIS_TAC [bc_value_inv_SUBMAP])
   \\ REPEAT STRIP_TAC
   \\ Cases_on `n = ptr` THEN1
    (Q.UNABBREV_TAC `f1` \\ ASM_SIMP_TAC (srw_ss()) [bc_ref_inv_def,FDOM_FUPDATE,
       FAPPLY_FUPDATE_THM] \\ FULL_SIMP_TAC std_ss [el_length_def,RefBlock_def]
-    \\ SIMP_TAC (srw_ss()) [] \\ METIS_TAC [bc_value_inv_SUBMAP])
-  \\ `reachable_refs (x::RefPtr ptr::stack) refs n` by ALL_TAC
+    \\ FULL_SIMP_TAC (srw_ss()) [FLOOKUP_DEF,EVERY2_EQ_EL]
+    \\ REPEAT STRIP_TAC
+    \\ MATCH_MP_TAC bc_value_inv_SUBMAP \\ FULL_SIMP_TAC (srw_ss()) [])
+  \\ `reachable_refs (xs ++ RefPtr ptr::stack) refs n` by ALL_TAC
   THEN1 IMP_RES_TAC reachable_refs_UPDATE
-  \\ Q.PAT_ASSUM `reachable_refs (x::RefPtr ptr::stack) (refs |+ (ptr,x)) n` (K ALL_TAC)
-  \\ `reachable_refs (x::stack) refs n` by ALL_TAC THEN1
-    (FULL_SIMP_TAC std_ss [reachable_refs_def] \\ REVERSE (Cases_on `x' = RefPtr ptr`)
-     THEN1 (FULL_SIMP_TAC std_ss [MEM] \\ METIS_TAC [])
+  \\ Q.PAT_ASSUM `reachable_refs (xs ++ RefPtr ptr::stack)
+        (refs |+ (ptr,x)) n` (K ALL_TAC)
+  \\ `reachable_refs (xs ++ stack) refs n` by ALL_TAC THEN1
+    (FULL_SIMP_TAC std_ss [reachable_refs_def]
+     \\ REVERSE (Cases_on `x = RefPtr ptr`)
+     THEN1 (FULL_SIMP_TAC std_ss [MEM,MEM_APPEND] \\ METIS_TAC [])
      \\ FULL_SIMP_TAC std_ss [get_refs_def,MEM]
-     \\ Q.PAT_ASSUM `RTC (ref_edge refs) r n` MP_TAC
-     \\ ONCE_REWRITE_TAC [RTC_CASES1]
-     \\ `r <> n` by FULL_SIMP_TAC std_ss [] \\ ASM_SIMP_TAC std_ss []
-     \\ FULL_SIMP_TAC std_ss [ref_edge_def])
+     \\ SRW_TAC [] []
+     \\ IMP_RES_TAC RTC_NRC
+     \\ Cases_on `n'` \\ FULL_SIMP_TAC std_ss [NRC]
+     \\ FULL_SIMP_TAC std_ss [ref_edge_def,FLOOKUP_DEF]
+     \\ REV_FULL_SIMP_TAC std_ss [])
   \\ RES_TAC \\ Q.UNABBREV_TAC `f1` \\ FULL_SIMP_TAC std_ss [bc_ref_inv_def]
-  \\ ASM_SIMP_TAC (srw_ss()) [FDOM_FUPDATE,FAPPLY_FUPDATE_THM]
-  \\ `isSomeDataElement (heap_lookup (f ' n) heap)` by ALL_TAC THEN1
-    (FULL_SIMP_TAC std_ss [RefBlock_def] \\ EVAL_TAC \\ SIMP_TAC (srw_ss()) [])
+  \\ Cases_on `FLOOKUP f n` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ Cases_on `FLOOKUP refs n` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ FULL_SIMP_TAC (srw_ss()) [FDOM_FUPDATE,FAPPLY_FUPDATE_THM,FLOOKUP_DEF]
+  \\ Cases_on `x'` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ `isSomeDataElement (heap_lookup (f ' n) heap)` by
+    (FULL_SIMP_TAC std_ss [RefBlock_def] \\ EVAL_TAC
+     \\ SIMP_TAC (srw_ss()) [] \\ NO_TAC)
   \\ RES_TAC \\ FULL_SIMP_TAC std_ss [] \\ SIMP_TAC (srw_ss()) [RefBlock_def]
-  \\ FULL_SIMP_TAC std_ss [RefBlock_def] \\ IMP_RES_TAC heap_store_rel_lemma
+  \\ Q.PAT_ASSUM `n IN FDOM f` ASSUME_TAC
+  \\ Q.PAT_ASSUM `n IN FDOM refs` ASSUME_TAC
+  \\ Q.PAT_ASSUM `refs ' n = ValueArray l` ASSUME_TAC
+  \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ SRW_TAC [] [] \\ FULL_SIMP_TAC std_ss [RefBlock_def]
+  \\ IMP_RES_TAC heap_store_rel_lemma
+  \\ RES_TAC \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ Q.PAT_ASSUM `EVERY2 PPP zs l` MP_TAC
+  \\ MATCH_MP_TAC EVERY2_IMP_EVERY2
   \\ FULL_SIMP_TAC std_ss [] \\ SIMP_TAC (srw_ss()) []
-  \\ METIS_TAC [bc_value_inv_SUBMAP]
-*)
-);
+  \\ REPEAT STRIP_TAC
+  \\ MATCH_MP_TAC bc_value_inv_SUBMAP
+  \\ FULL_SIMP_TAC (srw_ss()) []);
 
 (* deref *)
 
