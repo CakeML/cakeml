@@ -109,9 +109,9 @@ val select_has_model = store_thm("select_has_model",
     metis_tac[] ) >>
   simp[satisfies_def] >>
   gen_tac >> strip_tac >>
-  qmatch_abbrev_tac`termsem tmenv ii v tm = True` >>
-  `FLOOKUP tmenv "@" = SOME (Fun (Fun A Bool) A)` by simp[Abbr`tmenv`,FLOOKUP_UPDATE] >>
-  `FLOOKUP tmenv "==>" = SOME (Fun Bool (Fun Bool Bool))` by simp[Abbr`tmenv`,FLOOKUP_UPDATE] >>
+  qmatch_abbrev_tac`termsem tmsig ii v tm = True` >>
+  `FLOOKUP tmsig "@" = SOME (Fun (Fun A Bool) A)` by simp[Abbr`tmsig`,FLOOKUP_UPDATE] >>
+  `FLOOKUP tmsig "==>" = SOME (Fun Bool (Fun Bool Bool))` by simp[Abbr`tmsig`,FLOOKUP_UPDATE] >>
   imp_res_tac identity_instance >>
   simp[Abbr`tm`,termsem_def] >>
   simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def] >>
@@ -340,17 +340,17 @@ val infinity_has_model = store_thm("infinity_has_model",
   fs[] >>
   simp[termsem_def] >>
   ntac 7 (pop_assum kall_tac) >>
-  Q.PAT_ABBREV_TAC`tmenv:tmenv = X` >>
+  Q.PAT_ABBREV_TAC`tmsig:tmsig = X` >>
   Q.PAT_ABBREV_TAC`int:'U interpretation = X` >>
-  qspecl_then[`tmenv`,`int`,`"/\\"`]mp_tac identity_instance >>
-  qspecl_then[`tmenv`,`int`,`"~"`]mp_tac identity_instance >>
-  qspecl_then[`tmenv`,`int`,`"?"`]mp_tac instance_def >>
-  `(FLOOKUP tmenv "?" = FLOOKUP (tmsof ctxt) "?") ∧
-   (FLOOKUP tmenv "/\\" = FLOOKUP (tmsof ctxt) "/\\") ∧
-   (FLOOKUP tmenv "~" = FLOOKUP (tmsof ctxt) "~")` by (
-    simp[Abbr`tmenv`,FLOOKUP_UPDATE] >>
+  qspecl_then[`tmsig`,`int`,`"/\\"`]mp_tac identity_instance >>
+  qspecl_then[`tmsig`,`int`,`"~"`]mp_tac identity_instance >>
+  qspecl_then[`tmsig`,`int`,`"?"`]mp_tac instance_def >>
+  `(FLOOKUP tmsig "?" = FLOOKUP (tmsof ctxt) "?") ∧
+   (FLOOKUP tmsig "/\\" = FLOOKUP (tmsof ctxt) "/\\") ∧
+   (FLOOKUP tmsig "~" = FLOOKUP (tmsof ctxt) "~")` by (
+    simp[Abbr`tmsig`,FLOOKUP_UPDATE] >>
     fs[mk_infinity_ctxt_def] >> rw[] ) >>
-  simp[Abbr`tmenv`] >>
+  simp[Abbr`tmsig`] >>
   disch_then(qspec_then`[(Fun Ind Ind,A)]`mp_tac) >>
   simp[REV_ASSOCD] >> disch_then kall_tac >>
   ntac 2 (disch_then kall_tac) >>
