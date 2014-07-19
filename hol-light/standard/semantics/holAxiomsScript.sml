@@ -58,6 +58,128 @@ val eta_has_model = store_thm("eta_has_model",
   match_mp_tac (UNDISCH apply_abstract) >>
   rw[])
 
+val good_select_def = xDefine"good_select"`
+  good_select0 ^mem select = (∀ty p x. x <: ty ⇒ select ty p <: ty ∧ (p x ⇒ p (select ty p)))`
+val _ = Parse.overload_on("good_select",``good_select0 ^mem``)
+
+val select_has_model_gen = store_thm("select_has_model_gen",
+  ``is_set_theory ^mem ⇒
+    ∀ctxt.
+      "@" ∉ FDOM (tmsof ctxt) ∧
+      (FLOOKUP (tmsof ctxt) "==>" = SOME (Fun Bool (Fun Bool Bool))) ∧
+      theory_ok (thyof ctxt)
+      ⇒
+      ∀i select.
+        i models (thyof ctxt) ∧
+        tmaof i interprets "==>" on [] as
+          (K (Abstract boolset (Funspace boolset boolset)
+                 (λp. Abstract boolset boolset
+                     (λq. Boolean ((p = True) ⇒ (q = True)))))) ∧
+        good_select select
+      ⇒ ∃i'. subinterpretation ctxt i i' ∧
+             i' models (thyof (mk_select_ctxt ctxt)) ∧
+             (tmaof i' "@" =
+                (λls. Abstract (Funspace (HD ls) boolset) (HD ls)
+                        (λp. select (HD ls) (Holds p))))``,
+  rw[good_select_def,models_def,mk_select_ctxt_def,conexts_of_upd_def] >>
+  qexists_tac`(tyaof i, ("@" =+ λl. Abstract (Funspace (HD l) boolset) (HD l)
+                                      (λp. select (HD l) (Holds p))) (tmaof i))` >>
+  imp_res_tac is_std_interpretation_is_type >>
+  imp_res_tac typesem_Fun >>
+  conj_tac >- (
+    simp[subinterpretation_def,combinTheory.APPLY_UPDATE_THM,term_ok_def] >>
+    rw[] >> imp_res_tac ALOOKUP_MEM >> fs[MEM_MAP,EXISTS_PROD] >> metis_tac[] ) >>
+  conj_asm1_tac >- (
+    conj_asm1_tac >- (
+      fs[is_interpretation_def,is_term_assignment_def,FEVERY_ALL_FLOOKUP,FLOOKUP_UPDATE] >>
+      rw[] >> rw[combinTheory.APPLY_UPDATE_THM] >>
+      rw[typesem_def,tyvars_def,STRING_SORT_def,LIST_UNION_def,INORDER_INSERT_def,LIST_INSERT_def] >>
+      fs[is_std_type_assignment_def] >>
+      match_mp_tac (UNDISCH abstract_in_funspace) >>
+      rw[holds_def] >> fs[is_type_valuation_def]) >>
+    conj_tac >- (
+      fs[is_std_interpretation_def,combinTheory.APPLY_UPDATE_THM,interprets_def] ) >>
+    reverse(rw[]) >- (
+      match_mp_tac satisfies_extend >>
+      map_every qexists_tac[`tysof ctxt`,`tmsof ctxt`] >>
+      simp[] >>
+      conj_asm1_tac >- fs[theory_ok_def] >>
+      match_mp_tac satisfies_consts >>
+      imp_res_tac theory_ok_sig >>
+      fs[] >> qexists_tac`i` >>
+      simp[] >>
+      simp[combinTheory.APPLY_UPDATE_THM] >>
+      rw[] >> fs[term_ok_def] >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs[MEM_MAP,EXISTS_PROD] >>
+      metis_tac[] ) >>
+    simp[satisfies_def] >>
+    gen_tac >> strip_tac >>
+    qmatch_abbrev_tac`termsem tmsig ii v tm = True` >>
+    `FLOOKUP tmsig "@" = SOME (Fun (Fun A Bool) A)` by simp[Abbr`tmsig`,FLOOKUP_UPDATE] >>
+    `FLOOKUP tmsig "==>" = SOME (Fun Bool (Fun Bool Bool))` by simp[Abbr`tmsig`,FLOOKUP_UPDATE] >>
+    imp_res_tac identity_instance >>
+    simp[Abbr`tm`,termsem_def] >>
+    simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def] >>
+    simp[Abbr`ii`,combinTheory.APPLY_UPDATE_THM] >>
+    fs[interprets_def] >>
+    last_x_assum(qspec_then`tyvof v`mp_tac) >>
+    discharge_hyps >- fs[is_valuation_def] >>
+    simp[] >> disch_then kall_tac >>
+    qmatch_abbrev_tac`(Abstract bs fbs fi ' fz) ' fy = True` >>
+    `fi fz <: fbs` by (
+      unabbrev_all_tac >> simp[] >>
+      match_mp_tac (UNDISCH abstract_in_funspace) >>
+      simp[boolean_in_boolset] ) >>
+    qmatch_assum_abbrev_tac`Abbrev(fz = fp ' fx)` >>
+    Q.PAT_ABBREV_TAC`fa = tyvof v "A"` >>
+    `fx <: fa ∧ fp <: Funspace fa boolset` by (
+      fs[is_valuation_def,is_term_valuation_def] >>
+      first_assum(qspecl_then[`"P"`,`Fun A Bool`]mp_tac) >>
+      first_x_assum(qspecl_then[`"x"`,`A`]mp_tac) >>
+      imp_res_tac typesem_Bool >>
+      simp[type_ok_def,typesem_def] >>
+      imp_res_tac theory_ok_sig >>
+      fs[is_std_sig_def] ) >>
+    `fz <: bs` by (
+      unabbrev_all_tac >>
+      match_mp_tac (UNDISCH apply_in_rng) >>
+      PROVE_TAC[] ) >>
+    `Abstract bs fbs fi ' fz = fi fz` by (
+      match_mp_tac (UNDISCH apply_abstract) >>
+      simp[] ) >>
+    rfs[] >>
+    simp[Abbr`fi`] >>
+    match_mp_tac apply_abstract_matchable >>
+    qmatch_assum_abbrev_tac`Abbrev(fy = fp ' fm)` >>
+    qmatch_assum_abbrev_tac`Abbrev(fm = fo ' fp)` >>
+    `fo <: Funspace (Funspace fa bs) fa` by (
+      simp[Abbr`fo`] >>
+      match_mp_tac (UNDISCH abstract_in_funspace) >>
+      rw[holds_def] >>
+      metis_tac[]) >>
+    `fm <: fa` by (
+      unabbrev_all_tac >>
+      match_mp_tac (UNDISCH apply_in_rng) >>
+      PROVE_TAC[] ) >>
+    `fy <: bs` by (
+      unabbrev_all_tac >>
+      match_mp_tac (UNDISCH apply_in_rng) >>
+      PROVE_TAC[] ) >>
+    simp[Abbr`bs`,boolean_in_boolset,boolean_eq_true] >>
+    simp[Abbr`fz`,Abbr`fy`] >>
+    simp[GSYM holds_def] >> strip_tac >>
+    simp[Abbr`fm`] >>
+    qmatch_assum_abbrev_tac`Abbrev(fo = Abstract (Funspace fa boolset) fa fs)` >>
+    `fo ' fp = fs fp` by (
+      unabbrev_all_tac >>
+      match_mp_tac (UNDISCH apply_abstract) >> simp[] >>
+      rw[holds_def] >>
+      metis_tac[]) >>
+    simp[Abbr`fs`] >>
+    metis_tac[]) >>
+  simp[combinTheory.APPLY_UPDATE_THM])
+
 val select_has_model = store_thm("select_has_model",
   ``is_set_theory ^mem ⇒
     ∀ctxt.
@@ -65,122 +187,36 @@ val select_has_model = store_thm("select_has_model",
       (FLOOKUP (tmsof ctxt) "==>" = SOME (Fun Bool (Fun Bool Bool))) ∧
       theory_ok (thyof ctxt)
       ⇒
-      ∀i. i models (thyof ctxt) ∧
-          tmaof i interprets "==>" on [] as
-            (K (Abstract boolset (Funspace boolset boolset)
-                   (λp. Abstract boolset boolset
-                       (λq. Boolean ((p = True) ⇒ (q = True))))))
+      ∀i.
+        i models (thyof ctxt) ∧
+        tmaof i interprets "==>" on [] as
+          (K (Abstract boolset (Funspace boolset boolset)
+                 (λp. Abstract boolset boolset
+                     (λq. Boolean ((p = True) ⇒ (q = True))))))
       ⇒ ∃i'. subinterpretation ctxt i i' ∧
              i' models (thyof (mk_select_ctxt ctxt))``,
-  rw[models_def,mk_select_ctxt_def,conexts_of_upd_def] >>
-  qexists_tac`(tyaof i, ("@" =+ λl. Abstract (Funspace (HD l) boolset) (HD l)
-    (λp. case some v. v <: HD l ∧ Holds p v of NONE => @v. v <: HD l | SOME v => v)) (tmaof i))` >>
-  imp_res_tac is_std_interpretation_is_type >>
-  imp_res_tac typesem_Fun >>
-  conj_tac >- (
-    simp[subinterpretation_def,combinTheory.APPLY_UPDATE_THM,term_ok_def] >>
-    rw[] >> imp_res_tac ALOOKUP_MEM >> fs[MEM_MAP,EXISTS_PROD] >> metis_tac[] ) >>
-  conj_asm1_tac >- (
-    fs[is_interpretation_def,is_term_assignment_def,FEVERY_ALL_FLOOKUP,FLOOKUP_UPDATE] >>
-    rw[] >> rw[combinTheory.APPLY_UPDATE_THM] >>
-    rw[typesem_def,tyvars_def,STRING_SORT_def,LIST_UNION_def,INORDER_INSERT_def,LIST_INSERT_def] >>
-    fs[is_std_type_assignment_def] >>
-    match_mp_tac (UNDISCH abstract_in_funspace) >>
-    rw[holds_def] >> fs[is_type_valuation_def] >>
-    qho_match_abbrev_tac`(case ($some Q) of NONE => R | SOME v => v) <: τ"A"` >>
+  rw[] >>
+  qspec_then`ctxt`mp_tac(UNDISCH select_has_model_gen) >>
+  simp[good_select_def] >>
+  disch_then(qspec_then`i`mp_tac) >>
+  disch_then(qspec_then`λty p.
+    if inhabited ty then
+      (case some x. x <: ty ∧ p x of NONE => (@x. x <: ty) | SOME v => v)
+    else ARB`mp_tac) >>
+  simp[] >>
+  discharge_hyps >- (
+    rw[]>> TRY(metis_tac[]) >>
+    TRY (
+      qho_match_abbrev_tac`(case ($some Q) of NONE => R | SOME v => v) <: ty` >>
+      qho_match_abbrev_tac`Z ($some Q)` >>
+      match_mp_tac optionTheory.some_intro >>
+      simp[Abbr`Z`,Abbr`Q`,Abbr`R`] >>
+      metis_tac[] ) >>
+    qho_match_abbrev_tac`p (case ($some Q) of NONE => R | SOME v => v)` >>
     qho_match_abbrev_tac`Z ($some Q)` >>
     match_mp_tac optionTheory.some_intro >>
-    unabbrev_all_tac >> simp[] >> metis_tac[] ) >>
-  conj_tac >- (
-    fs[is_std_interpretation_def,combinTheory.APPLY_UPDATE_THM,interprets_def] ) >>
-  reverse(rw[]) >- (
-    match_mp_tac satisfies_extend >>
-    map_every qexists_tac[`tysof ctxt`,`tmsof ctxt`] >>
-    simp[] >>
-    conj_asm1_tac >- fs[theory_ok_def] >>
-    match_mp_tac satisfies_consts >>
-    imp_res_tac theory_ok_sig >>
-    fs[] >> qexists_tac`i` >>
-    simp[] >>
-    simp[combinTheory.APPLY_UPDATE_THM] >>
-    rw[] >> fs[term_ok_def] >>
-    imp_res_tac ALOOKUP_MEM >>
-    fs[MEM_MAP,EXISTS_PROD] >>
+    simp[Abbr`Z`,Abbr`Q`,Abbr`R`] >>
     metis_tac[] ) >>
-  simp[satisfies_def] >>
-  gen_tac >> strip_tac >>
-  qmatch_abbrev_tac`termsem tmsig ii v tm = True` >>
-  `FLOOKUP tmsig "@" = SOME (Fun (Fun A Bool) A)` by simp[Abbr`tmsig`,FLOOKUP_UPDATE] >>
-  `FLOOKUP tmsig "==>" = SOME (Fun Bool (Fun Bool Bool))` by simp[Abbr`tmsig`,FLOOKUP_UPDATE] >>
-  imp_res_tac identity_instance >>
-  simp[Abbr`tm`,termsem_def] >>
-  simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def] >>
-  simp[Abbr`ii`,combinTheory.APPLY_UPDATE_THM] >>
-  fs[interprets_def] >>
-  last_x_assum(qspec_then`tyvof v`mp_tac) >>
-  discharge_hyps >- fs[is_valuation_def] >>
-  simp[] >> disch_then kall_tac >>
-  qmatch_abbrev_tac`(Abstract bs fbs fi ' fz) ' fy = True` >>
-  `fi fz <: fbs` by (
-    unabbrev_all_tac >> simp[] >>
-    match_mp_tac (UNDISCH abstract_in_funspace) >>
-    simp[boolean_in_boolset] ) >>
-  qmatch_assum_abbrev_tac`Abbrev(fz = fp ' fx)` >>
-  Q.PAT_ABBREV_TAC`fa = tyvof v "A"` >>
-  `fx <: fa ∧ fp <: Funspace fa boolset` by (
-    fs[is_valuation_def,is_term_valuation_def] >>
-    first_assum(qspecl_then[`"P"`,`Fun A Bool`]mp_tac) >>
-    first_x_assum(qspecl_then[`"x"`,`A`]mp_tac) >>
-    imp_res_tac typesem_Bool >>
-    simp[type_ok_def,typesem_def] >>
-    imp_res_tac theory_ok_sig >>
-    fs[is_std_sig_def] ) >>
-  `fz <: bs` by (
-    unabbrev_all_tac >>
-    match_mp_tac (UNDISCH apply_in_rng) >>
-    PROVE_TAC[] ) >>
-  `Abstract bs fbs fi ' fz = fi fz` by (
-    match_mp_tac (UNDISCH apply_abstract) >>
-    simp[] ) >>
-  rfs[] >>
-  simp[Abbr`fi`] >>
-  match_mp_tac apply_abstract_matchable >>
-  qmatch_assum_abbrev_tac`Abbrev(fy = fp ' fm)` >>
-  qmatch_assum_abbrev_tac`Abbrev(fm = fo ' fp)` >>
-  `fo <: Funspace (Funspace fa bs) fa` by (
-    simp[Abbr`fo`] >>
-    match_mp_tac (UNDISCH abstract_in_funspace) >>
-    rw[holds_def] >>
-    qho_match_abbrev_tac`(case ($some Q) of NONE => R | SOME a => a) <: fa` >>
-    qho_match_abbrev_tac`Z ($some Q)` >>
-    match_mp_tac optionTheory.some_intro >>
-    unabbrev_all_tac >> simp[] >> metis_tac[] ) >>
-  `fm <: fa` by (
-    unabbrev_all_tac >>
-    match_mp_tac (UNDISCH apply_in_rng) >>
-    PROVE_TAC[] ) >>
-  `fy <: bs` by (
-    unabbrev_all_tac >>
-    match_mp_tac (UNDISCH apply_in_rng) >>
-    PROVE_TAC[] ) >>
-  simp[Abbr`bs`,boolean_in_boolset,boolean_eq_true] >>
-  simp[Abbr`fz`,Abbr`fy`] >>
-  simp[GSYM holds_def] >> strip_tac >>
-  simp[Abbr`fm`] >>
-  qmatch_assum_abbrev_tac`Abbrev(fo = Abstract (Funspace fa boolset) fa fs)` >>
-  `fo ' fp = fs fp` by (
-    unabbrev_all_tac >>
-    match_mp_tac (UNDISCH apply_abstract) >> simp[] >>
-    rw[holds_def] >>
-    qho_match_abbrev_tac`(case ($some Q) of NONE => R | SOME a => a) <: fa` >> rfs[] >>
-    qho_match_abbrev_tac`Z ($some Q)` >>
-    match_mp_tac optionTheory.some_intro >>
-    unabbrev_all_tac >> simp[] >> metis_tac[] ) >>
-  simp[Abbr`fs`] >>
-  qho_match_abbrev_tac`Holds fp (case ($some Q) of NONE => R | SOME a => a)` >>
-  qho_match_abbrev_tac`Z ($some Q)` >>
-  match_mp_tac optionTheory.some_intro >>
-  unabbrev_all_tac >> simp[] >>
   metis_tac[])
 
 open pred_setTheory
