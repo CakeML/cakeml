@@ -259,19 +259,19 @@ val equation_def = xDefine "equation"`
 (* Signature of a theory: indicates the defined type operators, with arities,
    and defined constants, with types. *)
 
-val _ = Parse.type_abbrev("tyenv",``:string |-> num``)
-val _ = Parse.type_abbrev("tmenv",``:string |-> type``)
-val _ = Parse.type_abbrev("sig",``:tyenv # tmenv``)
-val _ = Parse.overload_on("tysof",``FST:sig->tyenv``)
-val _ = Parse.overload_on("tmsof",``SND:sig->tmenv``)
+val _ = Parse.type_abbrev("tysig",``:string |-> num``)
+val _ = Parse.type_abbrev("tmsig",``:string |-> type``)
+val _ = Parse.type_abbrev("sig",``:tysig # tmsig``)
+val _ = Parse.overload_on("tysof",``FST:sig->tysig``)
+val _ = Parse.overload_on("tmsof",``SND:sig->tmsig``)
 
 (* Well-formedness of types/terms with respect to a signature *)
 
 val type_ok_def = tDefine "type_ok"`
-   (type_ok tyenv (Tyvar _) ⇔ T) ∧
-   (type_ok tyenv (Tyapp name args) ⇔
-      FLOOKUP tyenv name = SOME (LENGTH args) ∧
-      EVERY (type_ok tyenv) args)`
+   (type_ok tysig (Tyvar _) ⇔ T) ∧
+   (type_ok tysig (Tyapp name args) ⇔
+      FLOOKUP tysig name = SOME (LENGTH args) ∧
+      EVERY (type_ok tysig) args)`
 (type_rec_tac "SND")
 
 val term_ok_def = Define`
