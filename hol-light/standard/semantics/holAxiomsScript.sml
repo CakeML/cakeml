@@ -180,6 +180,30 @@ val select_has_model_gen = store_thm("select_has_model_gen",
     metis_tac[]) >>
   simp[combinTheory.APPLY_UPDATE_THM])
 
+val base_select_def = xDefine "base_select"`
+  base_select0 ^mem ty p =
+    if inhabited ty then
+      (case some x. x <: ty ∧ p x of NONE => (@x. x <: ty) | SOME v => v)
+    else ARB`
+val _ = Parse.overload_on("base_select",``base_select0 ^mem``)
+
+val good_select_base_select = store_thm("good_select_base_select",
+  ``is_set_theory ^mem ⇒
+    good_select base_select``,
+  rw[good_select_def,base_select_def] >>
+  rw[]>> TRY(metis_tac[]) >>
+  TRY (
+    qho_match_abbrev_tac`(case ($some Q) of NONE => R | SOME v => v) <: ty` >>
+    qho_match_abbrev_tac`Z ($some Q)` >>
+    match_mp_tac optionTheory.some_intro >>
+    simp[Abbr`Z`,Abbr`Q`,Abbr`R`] >>
+    metis_tac[] ) >>
+  qho_match_abbrev_tac`p (case ($some Q) of NONE => R | SOME v => v)` >>
+  qho_match_abbrev_tac`Z ($some Q)` >>
+  match_mp_tac optionTheory.some_intro >>
+  simp[Abbr`Z`,Abbr`Q`,Abbr`R`] >>
+  metis_tac[] )
+
 val select_has_model = store_thm("select_has_model",
   ``is_set_theory ^mem ⇒
     ∀ctxt.
@@ -197,27 +221,10 @@ val select_has_model = store_thm("select_has_model",
              i' models (thyof (mk_select_ctxt ctxt))``,
   rw[] >>
   qspec_then`ctxt`mp_tac(UNDISCH select_has_model_gen) >>
-  simp[good_select_def] >>
-  disch_then(qspec_then`i`mp_tac) >>
-  disch_then(qspec_then`λty p.
-    if inhabited ty then
-      (case some x. x <: ty ∧ p x of NONE => (@x. x <: ty) | SOME v => v)
-    else ARB`mp_tac) >>
   simp[] >>
-  discharge_hyps >- (
-    rw[]>> TRY(metis_tac[]) >>
-    TRY (
-      qho_match_abbrev_tac`(case ($some Q) of NONE => R | SOME v => v) <: ty` >>
-      qho_match_abbrev_tac`Z ($some Q)` >>
-      match_mp_tac optionTheory.some_intro >>
-      simp[Abbr`Z`,Abbr`Q`,Abbr`R`] >>
-      metis_tac[] ) >>
-    qho_match_abbrev_tac`p (case ($some Q) of NONE => R | SOME v => v)` >>
-    qho_match_abbrev_tac`Z ($some Q)` >>
-    match_mp_tac optionTheory.some_intro >>
-    simp[Abbr`Z`,Abbr`Q`,Abbr`R`] >>
-    metis_tac[] ) >>
-  metis_tac[])
+  disch_then(qspec_then`i`mp_tac) >>
+  disch_then(qspec_then`base_select` mp_tac) >>
+  metis_tac[good_select_base_select])
 
 open pred_setTheory
 
