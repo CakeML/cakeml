@@ -376,7 +376,7 @@ type_e menv cenv tenv (Lit Unit) Tunit
 
 and
 
-lit_unit : forall menv cenv tenv w.
+lit_word8 : forall menv cenv tenv w.
 true
 ==>
 type_e menv cenv tenv (Lit (Word8 w)) Tword8
