@@ -1,7 +1,7 @@
 open preamble miscLib;
 open astTheory bigStepTheory initialEnvTheory interpTheory inferTheory typeSystemTheory modLangTheory conLangTheory bytecodeTheory bytecodeExtraTheory;
 open bigClockTheory untypedSafetyTheory inferSoundTheory modLangProofTheory conLangProofTheory typeSoundTheory;
-open compute_interpLib compute_inferenceLib compute_compilerLib;
+open (*compute_bytecodeLib*) compute_interpLib compute_inferenceLib compute_compilerLib;
 
 val _ = new_theory "initialProgram";
 
@@ -23,8 +23,8 @@ val _ = Hol_datatype `
                        sem_mdecls : modN set |>`;
 
 val invariant_def = Define `
-invariant se ce ⇔
-  ?genv gtagenv rd bs.
+invariant se ce bs ⇔
+  ?genv gtagenv rd.
     type_sound_invariants (NONE : (v,v) result option)
                           (convert_decls (ce.inf_mdecls, ce.inf_tdecls, ce.inf_edecls),
                            convert_menv ce.inf_tenvM,
@@ -47,13 +47,14 @@ add_to_env e prog =
     case inf_env of
       | (Success ((mdecls',tdecls',edecls'), tenvM', tenvC', tenvE'), st) =>
             SOME
-             <| inf_mdecls := mdecls' ++ e.inf_mdecls;
-                inf_tdecls := tdecls' ++ e.inf_tdecls;
-                inf_edecls := edecls' ++ e.inf_edecls;
-                inf_tenvM := tenvM' ++ e.inf_tenvM;
-                inf_tenvC := merge_tenvC tenvC' e.inf_tenvC;
-                inf_tenvE := tenvE' ++ e.inf_tenvE;
-                comp_rs := rs' |>
+             (<| inf_mdecls := mdecls' ++ e.inf_mdecls;
+                 inf_tdecls := tdecls' ++ e.inf_tdecls;
+                 inf_edecls := edecls' ++ e.inf_edecls;
+                 inf_tenvM := tenvM' ++ e.inf_tenvM;
+                 inf_tenvC := merge_tenvC tenvC' e.inf_tenvC;
+                 inf_tenvE := tenvE' ++ e.inf_tenvE;
+                 comp_rs := rs' |>,
+              code)
       | _ => NONE`;
 
 val add_to_sem_env_def = Define `
@@ -73,11 +74,13 @@ val compile_thm =
   SIMP_RULE (srw_ss()++boolSimps.DNF_ss) [AND_IMP_INTRO, evaluate_whole_prog_def] compilerProofTheory.compile_initial_prog_thm;
 
 val add_to_env_invariant_lem = Q.prove (
-`!envM envC envE cnt s tids prog cnt' s' envM' envC' envE' tids' mdecls' e e'.
+`!envM envC envE cnt s tids prog cnt' s' envM' envC' envE' tids' mdecls' e e' code bs bs'.
   closed_prog prog ∧
   evaluate_whole_prog T (envM,envC,envE) ((cnt,s),tids,set e.inf_mdecls) prog (((cnt',s'),tids',mdecls'),envC',Rval (envM',envE')) ∧
-  invariant <| sem_envM := envM; sem_envC := envC; sem_envE := envE; sem_s := s; sem_tids := tids; sem_mdecls := set e.inf_mdecls |> e ∧
-  SOME e' = add_to_env e prog
+  invariant <| sem_envM := envM; sem_envC := envC; sem_envE := envE; sem_s := s; sem_tids := tids; sem_mdecls := set e.inf_mdecls |> e bs ∧
+  SOME (e',code) = add_to_env e prog ∧
+  SOME bs' = bc_eval (bs with <| code   := bs.code ++ REVERSE code
+                               ; pc     := next_addr bs.inst_length bs.code |>)
   ⇒
   invariant <| sem_envM := envM' ++ envM;
                sem_envC := merge_envC envC' envC;
@@ -85,7 +88,7 @@ val add_to_env_invariant_lem = Q.prove (
                sem_s := s';
                sem_tids := tids';
                sem_mdecls := mdecls' |>
-            e'`,
+            e' (bs' with clock := NONE)`,
  rw [add_to_env_def, LET_THM] >>
  every_case_tac >>
  fs [] >>
@@ -116,9 +119,9 @@ val add_to_env_invariant_lem = Q.prove (
  rw [] >>
  fs [union_decls_def, convert_menv_def, typeSysPropsTheory.bvl2_append, convert_env2_def] >>
  rw [] >>
- qabbrev_tac `bs' = bs with <| clock := SOME cnt; code := bs.code++REVERSE code; pc := next_addr bs.inst_length bs.code |>` >>
+ qabbrev_tac `bs1 = bs with <| clock := SOME cnt; code := bs.code++REVERSE code; pc := next_addr bs.inst_length bs.code |>` >>
  qabbrev_tac `bc0 = bs.code` >>
- `env_rs (envM,envC,envE) ((cnt,s),tids,set e.inf_mdecls) (genv,gtagenv,rd) e.comp_rs (bs' with code := bc0)`
+ `env_rs (envM,envC,envE) ((cnt,s),tids,set e.inf_mdecls) (genv,gtagenv,rd) e.comp_rs (bs1 with code := bc0)`
              by (UNABBREV_ALL_TAC >>
                  rw [bc_state_fn_updates] >>
                  match_mp_tac compilerProofTheory.env_rs_with_bs_irr >>
@@ -126,37 +129,45 @@ val add_to_env_invariant_lem = Q.prove (
                  match_mp_tac compilerProofTheory.env_rs_change_clock >>
                  first_assum(match_exists_tac o concl) >>
                  simp[bc_state_component_equality]) >>
- `bs'.code = bc0 ++ REVERSE code`
+ `bs1.code = bc0 ++ REVERSE code`
              by (UNABBREV_ALL_TAC >>
                  rw [bc_state_fn_updates]) >>
- `IS_SOME bs'.clock`
+ `IS_SOME bs1.clock`
              by (UNABBREV_ALL_TAC >>
                  rw [bc_state_fn_updates]) >>
- `bs'.pc = next_addr bs'.inst_length bc0` by simp[Abbr`bc0`,Abbr`bs'`] >>
+ `bs1.pc = next_addr bs1.inst_length bc0` by simp[Abbr`bc0`,Abbr`bs1`] >>
  `?bs'' grd''.
-    bc_next^* bs' bs'' ∧ bc_fetch bs'' = SOME (Stop T) ∧
-    bs''.output = bs'.output ∧
+    bc_next^* bs1 bs'' ∧ bc_fetch bs'' = SOME (Stop T) ∧
+    bs''.output = bs1.output ∧
     env_rs (envM' ++ FST (envM,envC,envE),merge_envC cenv2 (FST (SND (envM,envC,envE))), envE' ++ SND (SND (envM,envC,envE))) ((cnt',s'),decls2',set q''' ∪ set e.inf_mdecls) grd'' rs' bs''`
                by metis_tac [compile_thm] >>
  fs [] >>
  pop_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] compilerProofTheory.env_rs_change_clock)) >>
  simp[] >> disch_then(qspecl_then[`0`,`NONE`]mp_tac) >> simp[] >> strip_tac >>
- first_assum(split_pair_match o concl) >>
- first_assum(match_exists_tac o concl) >> simp[] >>
+ `bc_next^* (bs with <| code := bc0 ++ REVERSE code; pc := next_addr bs.inst_length bc0 |>) bs' ∧
+  ¬?s3. bc_next bs' s3`
+            by metis_tac [bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next] >>
+ `bs' = bs''` by cheat >>
+ unabbrev_all_tac >>
+ fs [] >>
  imp_res_tac RTC_bc_next_preserves >>
- simp[Abbr`bs'`] >>
- conj_tac >- (
-   imp_res_tac compilerProofTheory.compile_initial_prog_code_labels_ok >>
-   match_mp_tac bytecodeLabelsTheory.code_labels_ok_append >> simp[] ) >>
- simp[code_executes_ok_def] >> disj1_tac >>
- metis_tac[bytecodeClockTheory.bc_fetch_with_clock,RTC_REFL]);
+ fs [] >>
+ MAP_EVERY qexists_tac [`FST grd''`, `FST (SND grd'')`, `SND (SND grd'')`] >>
+ rw []
+ >- (imp_res_tac compilerProofTheory.compile_initial_prog_code_labels_ok >>
+     match_mp_tac bytecodeLabelsTheory.code_labels_ok_append >> 
+     simp[])
+ >- (simp[code_executes_ok_def] >> disj1_tac >>
+     metis_tac[bytecodeClockTheory.bc_fetch_with_clock,RTC_REFL]));
 
 val add_to_env_invariant = Q.prove (
-`!ck envM envC envE cnt s tids prog cnt' s' envM' envC' envE' tids' mdecls' e e'.
+`!ck envM envC envE cnt s tids prog cnt' s' envM' envC' envE' tids' mdecls' e e' code bs bs'.
   closed_prog prog ∧
   evaluate_whole_prog ck (envM,envC,envE) ((cnt,s),tids,set e.inf_mdecls) prog (((cnt',s'),tids',mdecls'),envC',Rval (envM',envE')) ∧
-  invariant <| sem_envM := envM; sem_envC := envC; sem_envE := envE; sem_s := s; sem_tids := tids; sem_mdecls := set e.inf_mdecls |> e ∧ 
-  SOME e' = add_to_env e prog
+  invariant <| sem_envM := envM; sem_envC := envC; sem_envE := envE; sem_s := s; sem_tids := tids; sem_mdecls := set e.inf_mdecls |> e bs ∧ 
+  SOME (e',code) = add_to_env e prog ∧
+  SOME bs' = bc_eval (bs with <| code   := bs.code ++ REVERSE code
+                               ; pc     := next_addr bs.inst_length bs.code |>)
   ⇒ 
   invariant <| sem_envM := envM' ++ envM;
                sem_envC := merge_envC envC' envC;
@@ -164,7 +175,7 @@ val add_to_env_invariant = Q.prove (
                sem_s := s';
                sem_tids := tids';
                sem_mdecls := mdecls' |>
-            e'`,
+            e' (bs' with clock := NONE)`,
  rw [] >>
  cases_on `ck`
  >- metis_tac [add_to_env_invariant_lem] >>
@@ -173,7 +184,7 @@ val add_to_env_invariant = Q.prove (
  fs [] >>
  match_mp_tac add_to_env_invariant_lem  >>
  rw [evaluate_whole_prog_def] >>
- MAP_EVERY Q.EXISTS_TAC [`count'`,`s`, `tids`, `prog`, `0`, `e`] >>
+ MAP_EVERY Q.EXISTS_TAC [`count'`,`s`, `tids`, `prog`, `0`, `e`, `code`, `bs`] >>
  fs [no_dup_mods_def, no_dup_top_types_def]);
 
 val prim_env_def = Define `
@@ -195,39 +206,50 @@ val prim_sem_env_def = Define `
 prim_sem_env =
 add_to_sem_env <| sem_envM := []; sem_envC := ([],[]); sem_envE := []; sem_s := []; sem_tids := {}; sem_mdecls := {} |> prim_types_program`;
 
-val prim_sem_env_thm = save_thm ("prim_sem_env_thm",
-(SIMP_CONV (srw_ss()) [add_to_sem_env_def, prim_sem_env_def, prim_types_program_def]
-THENC
-computeLib.CBV_CONV compute_interpLib.the_interp_compset)
-``prim_sem_env``);
+val empty_bc_state_def = Define `
+empty_bc_state = <| 
+      stack := [];
+      code := [];
+      pc := 0;
+      refs := FEMPTY;
+      globals := [];
+      handler := 0;
+      output := "";
+      inst_length := (\x.0);
+      clock := NONE |>`;
 
-val basis_env_def = Define `
-basis_env =
-add_to_env (THE prim_env) basis_program`;
-
-val basis_sem_env_def = Define `
-basis_sem_env =
-add_to_sem_env (THE prim_sem_env) basis_program`;
+val prim_bs_def = Define `
+prim_bs = bc_eval (empty_bc_state 
+                   with <| code   := empty_bc_state.code ++ REVERSE (SND (THE prim_env))
+                         ; pc     := next_addr empty_bc_state.inst_length empty_bc_state.code |>)`
 
 val the_compiler_compset = the_compiler_compset false
 
-val prim_env_eq =
+val prim_env_eq = save_thm ("prim_env_eq",
   ``prim_env``
   |> SIMP_CONV(srw_ss())[prim_env_def,add_to_env_def,LET_THM,prim_types_program_def]
   |> CONV_RULE(computeLib.CBV_CONV the_inference_compset)
-  |> CONV_RULE(computeLib.CBV_CONV the_compiler_compset)
+  |> CONV_RULE(computeLib.CBV_CONV the_compiler_compset));
 
-val prim_sem_env_eq =
+val prim_sem_env_eq = save_thm ("prim_sem_env_eq",
   ``prim_sem_env``
   |> SIMP_CONV(srw_ss())[prim_sem_env_def,add_to_sem_env_def,prim_types_program_def]
-  |> CONV_RULE(computeLib.CBV_CONV the_interp_compset)
+  |> CONV_RULE(computeLib.CBV_CONV the_interp_compset));
+
+  (* TODO: adding the bytecode compute lib breaks the parsing of equality
+val prim_bs_eq = save_thm ("prim_bs_eq",
+  ``prim_bs``
+  |> SIMP_CONV(srw_ss())[prim_bs_def]
+  |> CONV_RULE(computeLib.CBV_CONV the_bytecode_compset));
+  *)
 
 val prim_env_inv = Q.store_thm ("prim_env_inv",
-`?se e.
-  prim_env = SOME e ∧
+`?se e code bs.
+  prim_env = SOME (e,code) ∧
   prim_sem_env = SOME se ∧
-  invariant se e`,
- simp [prim_env_eq, prim_sem_env_eq, invariant_def] >>
+  prim_bs = SOME bs ∧
+  invariant se e bs`,
+ simp [prim_env_eq, prim_sem_env_eq, invariant_def, prim_bs_def] >>
  simp[convert_decls_def,convert_menv_def,convert_env2_def,bind_var_list2_def,RIGHT_EXISTS_AND_THM] >>
  conj_tac >- (
    simp[typeSoundInvariantsTheory.type_sound_invariants_def] >>
@@ -351,6 +373,14 @@ val prim_env_inv = Q.store_thm ("prim_env_inv",
  simp[miscTheory.FEVERY_ALL_FLOOKUP] >>
  disj1_tac >>
  srw_tac[boolSimps.DNF_ss][Once RTC_CASES1]);
+
+val basis_env_def = Define `
+basis_env =
+add_to_env (FST (THE prim_env)) basis_program`;
+
+val basis_sem_env_def = Define `
+basis_sem_env =
+add_to_sem_env (THE prim_sem_env) basis_program`;
 
 val basis_env_inv = Q.store_thm ("basis_env_inv",
 `?se e.
