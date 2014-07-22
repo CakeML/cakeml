@@ -12,8 +12,10 @@ elaborate_top (types : elaborator_state) ast_top =
   let (new_types, top) = elab_top types ast_top in
     ((new_types++types), top)`;
 
+    (*
 val initial_elaborator_state_def = Define `
 initial_elaborator_state : elaborator_state = init_type_bindings`;
+*)
 
 val _ = type_abbrev ("inferencer_state",
   ``:(modN list # conN id list # varN id list) #
@@ -35,19 +37,23 @@ infertype_top ((decls, module_type_env, constructor_type_env, type_env) :inferen
                   new_type_env ++ type_env),
                  new_type_env)`;
 
+                 (*
 val initial_inferencer_state_def = Define `
 initial_inferencer_state : inferencer_state = (((THE basis_env).inf_mdecls,(THE basis_env).inf_tdecls,(THE basis_env).inf_edecls), (THE basis_env).inf_tenvM, (THE basis_env).inf_tenvC, (THE basis_env).inf_tenvE)`;
+*)
 
 val _ = Hol_datatype`repl_fun_state = <|
   relaborator_state : elaborator_state;
   rinferencer_state : inferencer_state;
   rcompiler_state  : compiler_state |>`
 
+  (*
 val initial_repl_fun_state = Define`
   initial_repl_fun_state = <|
     relaborator_state := initial_elaborator_state;
     rinferencer_state := initial_inferencer_state;
     rcompiler_state   := (THE basis_env).comp_rs |>`
+    *)
 
 val update_state_def = Define`
   update_state s es is cs =
@@ -86,9 +92,6 @@ val install_code_def = Define `
              ; output := ""
              |>`;
 
-val initial_bc_state_def =  Define`
-  initial_bc_state = THE (bc_eval (install_code (SND (SND compile_primitives)) empty_bc_state))`
-
 val tac = (WF_REL_TAC `measure (LENGTH o SND)` THEN REPEAT STRIP_TAC
            THEN IMP_RES_TAC lex_until_toplevel_semicolon_LESS);
 
@@ -115,7 +118,7 @@ val main_loop_def = tDefine "main_loop" `
                       Result new_bs.output (main_loop (new_bs,new_s) rest_of_input)` tac ;
 
 val repl_fun_def = Define`
-  repl_fun input = main_loop (initial_bc_state,initial_repl_fun_state) input`;
+  repl_fun initial_bc_state initial_repl_fun_state input = main_loop (initial_bc_state,initial_repl_fun_state) input`;
 
 (*
 
