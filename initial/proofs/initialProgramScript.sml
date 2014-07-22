@@ -1,6 +1,6 @@
 open preamble miscLib;
 open astTheory bigStepTheory initialEnvTheory interpTheory inferTheory typeSystemTheory modLangTheory conLangTheory bytecodeTheory bytecodeExtraTheory;
-open bigClockTheory untypedSafetyTheory inferSoundTheory modLangProofTheory conLangProofTheory typeSoundTheory;
+open bigClockTheory untypedSafetyTheory inferSoundTheory modLangProofTheory conLangProofTheory typeSoundInvariantsTheory typeSoundTheory;
 open compute_bytecodeLib compute_interpLib compute_inferenceLib compute_compilerLib;
 
 val _ = new_theory "initialProgram";
@@ -240,9 +240,20 @@ val prim_sem_env_eq = save_thm ("prim_sem_env_eq",
 
 val prim_bs_eq = save_thm ("prim_bs_eq",
   ``prim_bs``
-  |> SIMP_CONV(srw_ss())[prim_bs_def, empty_bc_state_def, prim_env_eq, 
-                         Once bytecodeEvalTheory.bc_eval_compute]
+  |> SIMP_CONV(srw_ss())[prim_bs_def, empty_bc_state_def, prim_env_eq]
   |> CONV_RULE(computeLib.CBV_CONV the_bytecode_compset));
+
+val to_ctMap_list_def = Define `
+to_ctMap_list tenvC =  
+  flat_to_ctMap_list (SND tenvC) ++ FLAT (MAP (\(mn, tenvC). flat_to_ctMap_list tenvC) (FST tenvC))`;
+
+val to_ctMap_def = Define `
+  to_ctMap tenvC = FEMPTY |++ REVERSE (to_ctMap_list tenvC)`;
+ 
+val thms = [to_ctMap_def, to_ctMap_list_def, libTheory.emp_def, flat_to_ctMap_def, flat_to_ctMap_list_def, prim_env_eq]; 
+
+val to_ctMap_prim_tenvC = 
+  SIMP_CONV (srw_ss()) thms ``to_ctMap (FST (THE prim_env)).inf_tenvC``;
 
 val prim_env_inv = Q.store_thm ("prim_env_inv",
 `?se e code bs.
@@ -250,84 +261,56 @@ val prim_env_inv = Q.store_thm ("prim_env_inv",
   prim_sem_env = SOME se ∧
   prim_bs = SOME bs ∧
   invariant se e bs`,
- simp [prim_env_eq, prim_sem_env_eq, invariant_def, prim_bs_eq] >>
- simp[convert_decls_def,convert_menv_def,convert_env2_def,bind_var_list2_def,RIGHT_EXISTS_AND_THM] >>
- conj_tac >- (
-   simp[typeSoundInvariantsTheory.type_sound_invariants_def] >>
-   qexists_tac`
-     FEMPTY |++
-     [(("Bind",TypeExn(Short"Bind")),([],[]))
-     ;(("Div",TypeExn(Short"Div")),([],[]))
-     ;(("Eq",TypeExn(Short"Eq")),([],[]))
-     ;(("Subscript",TypeExn(Short"Subscript")),([],[]))
-     ;(("::",TypeId(Short"list")),(["'a"],[Tvar"'a";Tapp[Tvar"'a"](TC_name(Short"list"))]))
-     ;(("nil",TypeId(Short"list")),(["'a"],[]))
-     ;(("SOME",TypeId(Short"option")),(["'a"],[Tvar"'a"]))
-     ;(("NONE",TypeId(Short"option")),(["'a"],[]))
-     ]` >>
-   simp[FUPDATE_LIST_THM,typeSoundInvariantsTheory.ctMap_has_exns_def,FLOOKUP_UPDATE,
-        typeSoundInvariantsTheory.consistent_con_env_def,
-        typeSoundInvariantsTheory.consistent_ctMap_def,
-        semanticPrimitivesTheory.lookup_con_id_def,
-        typeSoundInvariantsTheory.ctMap_ok_def
-        ] >>
-   simp[Once typeSoundInvariantsTheory.type_v_cases,
-        typeSoundInvariantsTheory.weakM_def,
-        typeSoundInvariantsTheory.tenvM_ok_def] >>
-   simp[Once typeSoundInvariantsTheory.type_v_cases,libTheory.emp_def] >>
-   qexists_tac`[]` >> simp[typeSoundInvariantsTheory.type_s_def] >>
-   qexists_tac`({},{Short"list";Short"option"},{Short "Eq";Short"Div";Short"Bind";Short"Subscript"})` >>
-   simp[typeSoundInvariantsTheory.consistent_ctMap_def,
-        typeSoundInvariantsTheory.consistent_decls_def,
-        RES_FORALL,RIGHT_EXISTS_AND_THM] >>
-   conj_tac >- (rw[] >> rw[]) >>
-   conj_tac >- (rw[] >> rw[]) >>
-   simp[typeSoundInvariantsTheory.decls_ok_def,
-        typeSoundInvariantsTheory.decls_to_mods_def,
-        weak_decls_def,
-        typeSoundInvariantsTheory.weak_decls_only_mods_def,
-        semanticPrimitivesTheory.store_lookup_def] >>
-   qexists_tac`([],[
-     ("Bind",([],[],TypeExn(Short"Bind")));
-     ("Div",([],[],TypeExn(Short"Div")));
-     ("Eq",([],[],TypeExn(Short"Eq")));
-     ("Subscript",([],[],TypeExn(Short"Subscript")));
-     ("::",(["'a"],[Tvar"'a";Tapp[Tvar"'a"](TC_name(Short"list"))],TypeId(Short"list")));
-     ("nil",(["'a"],[],TypeId(Short"list")));
-     ("SOME",(["'a"],[Tvar"'a"],TypeId(Short"option")));
-     ("NONE",(["'a"],[],TypeId(Short"option")))])` >>
-   simp[typeSoundInvariantsTheory.tenvC_ok_def,
-        typeSoundInvariantsTheory.flat_tenvC_ok_def,
-        miscTheory.FEVERY_ALL_FLOOKUP,FLOOKUP_UPDATE,
-        typeSoundInvariantsTheory.weakC_def,
-        flat_weakC_def] >>
-   conj_tac >- rw[terminationTheory.check_freevars_def] >>
-   conj_tac >- (
-     rw[] >> rw[terminationTheory.check_freevars_def] ) >>
-   conj_tac >- (
-     rpt gen_tac >>
-     BasicProvers.CASE_TAC >>
-     simp[semanticPrimitivesTheory.lookup_con_id_def,id_to_n_def] >>
-     IF_CASES_TAC >- rw[] >>
-     IF_CASES_TAC >- rw[] >>
-     IF_CASES_TAC >- rw[] >>
-     IF_CASES_TAC >- rw[] >>
-     IF_CASES_TAC >- rw[] >>
-     IF_CASES_TAC >- rw[] >>
-     IF_CASES_TAC >- rw[] >>
-     IF_CASES_TAC >- rw[] >>
-     simp[]) >>
-   conj_tac >- (
-     rw[] >>
-     Cases_on`cn`>>fs[id_to_n_def]>>
-     rw[semanticPrimitivesTheory.lookup_con_id_def] ) >>
-   conj_tac >- rw[] >>
-   rw[SUBSET_DEF,GSPECIFICATION]) >>
- conj_tac >- (
-   simp[infer_sound_invariant_def,check_menv_def,check_cenv_def,check_flat_cenv_def,terminationTheory.check_freevars_def,check_env_def]) >>
- simp[compilerProofTheory.env_rs_def,LENGTH_NIL_SYM] >>
- qexists_tac`
-  FEMPTY |++ [(("NONE",TypeId (Short "option")), (none_tag, 0));
+ rw [prim_env_eq, prim_sem_env_eq, invariant_def, prim_bs_eq, GSYM PULL_EXISTS]
+ >- (rw [typeSoundInvariantsTheory.type_sound_invariants_def] >>
+     MAP_EVERY qexists_tac [`to_ctMap (FST (THE prim_env)).inf_tenvC`, 
+                            `[]`, 
+                            `(set (FST (THE prim_env)).inf_mdecls, set (FST (THE prim_env)).inf_tdecls, set (FST (THE prim_env)).inf_edecls)`, 
+                            `[]`, 
+                            `(FST (THE prim_env)).inf_tenvC`] >>
+     `consistent_con_env (to_ctMap (FST (THE prim_env)).inf_tenvC) (THE prim_sem_env).sem_envC (FST (THE prim_env)).inf_tenvC`
+         by (rw [to_ctMap_prim_tenvC] >>
+             rw [consistent_con_env_def, libTheory.emp_def, tenvC_ok_def, prim_env_eq, prim_sem_env_eq,
+                 flat_tenvC_ok_def, terminationTheory.check_freevars_def, ctMap_ok_def, miscTheory.FEVERY_ALL_FLOOKUP,
+                 miscTheory.flookup_fupdate_list, semanticPrimitivesTheory.lookup_con_id_def]
+             >- (every_case_tac >>
+                 rw [] >>
+                 rw [terminationTheory.check_freevars_def])
+             >- (Cases_on `cn` >>
+                 fs [id_to_n_def] >>
+                 every_case_tac >>
+                 fs [])
+             >- (Cases_on `cn` >>
+                 fs [id_to_n_def] >>
+                 every_case_tac >>
+                 fs [])) >>
+     rw []
+     >- (rw [consistent_decls_def, prim_env_eq, prim_sem_env_eq, RES_FORALL] >>
+         every_case_tac >>
+         fs [])
+     >- (rw [consistent_ctMap_def, to_ctMap_prim_tenvC, prim_env_eq, prim_sem_env_eq, RES_FORALL] >>
+         PairCases_on `x` >>
+         fs [] >>
+         every_case_tac >>
+         fs [FDOM_FUPDATE_LIST])
+     >- rw [ctMap_has_exns_def, to_ctMap_prim_tenvC, miscTheory.flookup_fupdate_list]
+     >- rw [tenvM_ok_def]
+     >- rw [tenvM_ok_def, convert_menv_def]
+     >- rw [Once type_v_cases]
+     >- fs [prim_sem_env_eq]
+     >- rw [to_ctMap_prim_tenvC, convert_env2_def, bind_var_list2_def,
+            Once type_v_cases, libTheory.emp_def]
+     >- rw [type_s_def, semanticPrimitivesTheory.store_lookup_def] 
+     >- rw [weakM_def, convert_menv_def]
+     >- rw [weakeningTheory.weakC_refl, prim_env_eq]
+     >- rw [decls_ok_def, prim_env_eq, decls_to_mods_def, SUBSET_DEF, GSPECIFICATION]
+     >- (rw [prim_env_eq, convert_decls_def] >>
+         metis_tac [weakeningTheory.weak_decls_refl])
+     >- rw [prim_env_eq, weak_decls_only_mods_def, convert_decls_def])
+ >- rw [infer_sound_invariant_def,check_menv_def,check_cenv_def,check_flat_cenv_def,terminationTheory.check_freevars_def,check_env_def]
+ >- (simp[compilerProofTheory.env_rs_def,LENGTH_NIL_SYM] >>
+     qexists_tac`
+      FEMPTY |++ [(("NONE",TypeId (Short "option")), (none_tag, 0));
               (("SOME",TypeId (Short "option")), (some_tag, 1));
               (("nil",TypeId (Short "list")), (nil_tag, 0:num));
               (("::",TypeId (Short "list")), (cons_tag, 2));
@@ -335,45 +318,46 @@ val prim_env_inv = Q.store_thm ("prim_env_inv",
               (("Div",TypeExn (Short "Div")), (div_tag,0));
               (("Eq",TypeExn (Short "Eq")), (eq_tag,0));
               (("Subscript",TypeExn(Short"Subscript")),(subscript_tag,0))]` >>
- CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`<|stack:=[];code:=[Stop T];pc:=0;clock:=NONE;globals:=[]|>` >>
- simp[Once RIGHT_EXISTS_AND_THM] >>
- conj_tac >- simp[bytecodeExtraTheory.good_labels_def] >>
- simp[PULL_EXISTS] >>
- CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`[]` >> simp[RIGHT_EXISTS_AND_THM] >>
- simp[RIGHT_EXISTS_AND_THM,GSYM CONJ_ASSOC] >>
- conj_tac >- (EVAL_TAC >> simp[s_to_i1_cases] >> simp[Once v_to_i1_cases] >> simp[Once v_to_i1_cases]) >>
- CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`[]` >>
- CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`[]` >>
- simp[RIGHT_EXISTS_AND_THM] >>
- conj_tac >- (
-   EVAL_TAC >> simp[s_to_i2_cases] >>
-   conj_tac >- (
+     simp[Once RIGHT_EXISTS_AND_THM] >>
+     conj_tac >- cheat (*simp[bytecodeExtraTheory.good_labels_def] >>*) >>
+     simp[PULL_EXISTS] >>
+     CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`[]` >> simp[RIGHT_EXISTS_AND_THM] >>
+     simp[RIGHT_EXISTS_AND_THM,GSYM CONJ_ASSOC] >>
+     conj_tac >- (EVAL_TAC >> simp[s_to_i1_cases] >> simp[Once v_to_i1_cases] >> simp[Once v_to_i1_cases]) >>
+     CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`[]` >>
+     CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`[]` >>
+     simp[RIGHT_EXISTS_AND_THM] >>
      conj_tac >- (
+       EVAL_TAC >> simp[s_to_i2_cases] >>
+       conj_tac >- (
+         conj_tac >- (
+           rpt gen_tac >>
+           BasicProvers.CASE_TAC >>
+           IF_CASES_TAC >- rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
+           IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
+           IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
+           IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
+           IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
+           IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
+           IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
+           IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
+           simp[] ) >>
+         conj_tac >- (
+           simp[miscTheory.IN_FRANGE_FLOOKUP,FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
+           rw[] >> every_case_tac >> fs[] >> rw[] >>
+           EVAL_TAC ) >>
+         conj_tac >- rw[] >>
+         rpt gen_tac >>
+         rw[] >> fs[] ) >>
        rpt gen_tac >>
-       BasicProvers.CASE_TAC >>
-       IF_CASES_TAC >- rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
-       IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
-       IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
-       IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
-       IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
-       IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
-       IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
-       IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
-       simp[] ) >>
-     conj_tac >- (
-       simp[miscTheory.IN_FRANGE_FLOOKUP,FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
-       rw[] >> every_case_tac >> fs[] >> rw[] >>
-       EVAL_TAC ) >>
-     conj_tac >- rw[] >>
-     rpt gen_tac >>
-     rw[] >> fs[] ) >>
-   rpt gen_tac >>
-   rw[] >> simp[] ) >>
- EVAL_TAC >> rw[] >>
- qexists_tac`<|cls:=FEMPTY;sm:=[]|>` >>
- simp[miscTheory.FEVERY_ALL_FLOOKUP] >>
- disj1_tac >>
- srw_tac[boolSimps.DNF_ss][Once RTC_CASES1]);
+       rw[] >> simp[] ) >>
+     EVAL_TAC >> rw[] >>
+     qexists_tac`<|cls:=FEMPTY;sm:=[]|>` >>
+     simp[miscTheory.FEVERY_ALL_FLOOKUP] >>
+     disj1_tac >>
+     srw_tac[boolSimps.DNF_ss][Once RTC_CASES1])
+ >- fs [bytecodeLabelsTheory.code_labels_ok_def, bytecodeLabelsTheory.uses_label_def]
+ >- cheat); 
 
 val basis_env_def = Define `
 basis_env =
@@ -383,11 +367,37 @@ val basis_sem_env_def = Define `
 basis_sem_env =
 add_to_sem_env (THE prim_sem_env) basis_program`;
 
+val basis_bs_def = Define `
+basis_bs = bc_eval (THE prim_bs 
+                    with <| code   := (THE prim_bs).code ++ REVERSE (SND (THE basis_env))
+                          ; pc     := next_addr (THE prim_bs).inst_length (THE prim_bs).code |>)`
+
+val basis_env_eq = save_thm ("basis_env_eq",
+  ``basis_env``
+  |> SIMP_CONV(srw_ss())[basis_env_def,add_to_env_def,LET_THM,basis_program_def, prim_env_eq,
+                         mk_binop_def, mk_unop_def]
+  |> CONV_RULE(computeLib.CBV_CONV the_inference_compset)
+  |> CONV_RULE(computeLib.CBV_CONV the_compiler_compset));
+
+(* Too big to evaluate in a reasonable timely was due to quadratic explosion in closure envs 
+val basis_sem_env_eq = save_thm ("basis_sem_env_eq",
+  ``basis_sem_env``
+  |> SIMP_CONV(srw_ss())[basis_sem_env_def,add_to_sem_env_def,basis_program_def, mk_binop_def, mk_unop_def, prim_sem_env_eq]
+  |> CONV_RULE(computeLib.CBV_CONV the_interp_compset));
+  *)
+
+(* This also takes too long, probably due to linear lookup of instruction fetching *)
+val basis_bs_eq = save_thm ("basis_bs_eq",
+  ``basis_bs``
+  |> SIMP_CONV std_ss [prim_bs_eq, basis_bs_def, basis_env_eq]
+  |> CONV_RULE(computeLib.CBV_CONV the_bytecode_compset)
+
 val basis_env_inv = Q.store_thm ("basis_env_inv",
-`?se e.
-  basis_env = SOME e ∧
+`?se e code bs.
+  basis_env = SOME (e,code) ∧
   basis_sem_env = SOME se ∧
-  invariant se e`,
+  basis_bs = SOME bs ∧
+  invariant se e bs`,
  rw [basis_env_def, basis_sem_env_def] >>
  strip_assume_tac prim_env_inv >>
  `?e'. add_to_env e basis_program = SOME e'` by (
