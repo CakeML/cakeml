@@ -1,9 +1,11 @@
 open preamble miscLib;
 open astTheory bigStepTheory initialEnvTheory interpTheory inferTheory typeSystemTheory modLangTheory conLangTheory bytecodeTheory bytecodeExtraTheory;
 open bigClockTheory untypedSafetyTheory inferSoundTheory modLangProofTheory conLangProofTheory typeSoundTheory;
-open (*compute_bytecodeLib*) compute_interpLib compute_inferenceLib compute_compilerLib;
+open compute_bytecodeLib compute_interpLib compute_inferenceLib compute_compilerLib;
 
 val _ = new_theory "initialProgram";
+
+val _ = ParseExtras.temp_tight_equality ();
 
 val _ = Hol_datatype `
   comp_environment = <| inf_mdecls : modN list;
@@ -236,10 +238,10 @@ val prim_sem_env_eq = save_thm ("prim_sem_env_eq",
   |> SIMP_CONV(srw_ss())[prim_sem_env_def,add_to_sem_env_def,prim_types_program_def]
   |> CONV_RULE(computeLib.CBV_CONV the_interp_compset));
 
-  (* TODO: adding the bytecode compute lib breaks the parsing of equality
+  (* Diverges
 val prim_bs_eq = save_thm ("prim_bs_eq",
   ``prim_bs``
-  |> SIMP_CONV(srw_ss())[prim_bs_def]
+  |> SIMP_CONV(srw_ss())[prim_bs_def, empty_bc_state_def, prim_env_eq]
   |> CONV_RULE(computeLib.CBV_CONV the_bytecode_compset));
   *)
 
