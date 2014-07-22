@@ -217,7 +217,7 @@ empty_bc_state = <|
       globals := [];
       handler := 0;
       output := "";
-      inst_length := (\x.0);
+      inst_length := K 0;
       clock := NONE |>`;
 
 val prim_bs_def = Define `
@@ -238,12 +238,11 @@ val prim_sem_env_eq = save_thm ("prim_sem_env_eq",
   |> SIMP_CONV(srw_ss())[prim_sem_env_def,add_to_sem_env_def,prim_types_program_def]
   |> CONV_RULE(computeLib.CBV_CONV the_interp_compset));
 
-  (* Diverges
 val prim_bs_eq = save_thm ("prim_bs_eq",
   ``prim_bs``
-  |> SIMP_CONV(srw_ss())[prim_bs_def, empty_bc_state_def, prim_env_eq]
+  |> SIMP_CONV(srw_ss())[prim_bs_def, empty_bc_state_def, prim_env_eq, 
+                         Once bytecodeEvalTheory.bc_eval_compute]
   |> CONV_RULE(computeLib.CBV_CONV the_bytecode_compset));
-  *)
 
 val prim_env_inv = Q.store_thm ("prim_env_inv",
 `?se e code bs.
@@ -251,7 +250,7 @@ val prim_env_inv = Q.store_thm ("prim_env_inv",
   prim_sem_env = SOME se ∧
   prim_bs = SOME bs ∧
   invariant se e bs`,
- simp [prim_env_eq, prim_sem_env_eq, invariant_def, prim_bs_def] >>
+ simp [prim_env_eq, prim_sem_env_eq, invariant_def, prim_bs_eq] >>
  simp[convert_decls_def,convert_menv_def,convert_env2_def,bind_var_list2_def,RIGHT_EXISTS_AND_THM] >>
  conj_tac >- (
    simp[typeSoundInvariantsTheory.type_sound_invariants_def] >>
