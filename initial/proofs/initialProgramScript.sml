@@ -149,7 +149,19 @@ val add_to_env_invariant_lem = Q.prove (
  `bc_next^* (bs with <| code := bc0 ++ REVERSE code; pc := next_addr bs.inst_length bc0 |>) bs' ∧
   ¬?s3. bc_next bs' s3`
             by metis_tac [bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next] >>
- `bs' = bs''` by cheat >>
+ `bs' = (bs'' with clock := NONE)` by (
+   qmatch_assum_abbrev_tac`bc_next^* bs0 bs'` >>
+   qspecl_then[`bs1`,`bs''`]mp_tac bytecodeClockTheory.RTC_bc_next_can_be_unclocked >>
+   discharge_hyps >- simp[] >> strip_tac >>
+   `bs1 with clock := NONE = bs0` by (
+     simp[Abbr`bs0`,Abbr`bs1`,bc_state_component_equality] ) >>
+   fs[] >>
+   qspecl_then[`bs0`,`bs'' with clock := NONE`]mp_tac bytecodeEvalTheory.RTC_bc_next_bc_eval >>
+   discharge_hyps >- simp[] >>
+   discharge_hyps >- (
+     simp[bytecodeEvalTheory.bc_eval1_thm,bytecodeEvalTheory.bc_eval1_def,
+          bytecodeClockTheory.bc_fetch_with_clock] ) >>
+   rw[] >> fs[] ) >>
  unabbrev_all_tac >>
  fs [] >>
  imp_res_tac RTC_bc_next_preserves >>
@@ -157,7 +169,7 @@ val add_to_env_invariant_lem = Q.prove (
  MAP_EVERY qexists_tac [`FST grd''`, `FST (SND grd'')`, `SND (SND grd'')`] >>
  rw []
  >- (imp_res_tac compilerProofTheory.compile_initial_prog_code_labels_ok >>
-     match_mp_tac bytecodeLabelsTheory.code_labels_ok_append >> 
+     match_mp_tac bytecodeLabelsTheory.code_labels_ok_append >>
      simp[])
  >- (simp[code_executes_ok_def] >> disj1_tac >>
      metis_tac[bytecodeClockTheory.bc_fetch_with_clock,RTC_REFL]));
@@ -244,15 +256,15 @@ val prim_bs_eq = save_thm ("prim_bs_eq",
   |> CONV_RULE(computeLib.CBV_CONV the_bytecode_compset));
 
 val to_ctMap_list_def = Define `
-to_ctMap_list tenvC =  
+to_ctMap_list tenvC =
   flat_to_ctMap_list (SND tenvC) ++ FLAT (MAP (\(mn, tenvC). flat_to_ctMap_list tenvC) (FST tenvC))`;
 
 val to_ctMap_def = Define `
   to_ctMap tenvC = FEMPTY |++ REVERSE (to_ctMap_list tenvC)`;
- 
-val thms = [to_ctMap_def, to_ctMap_list_def, libTheory.emp_def, flat_to_ctMap_def, flat_to_ctMap_list_def, prim_env_eq]; 
 
-val to_ctMap_prim_tenvC = 
+val thms = [to_ctMap_def, to_ctMap_list_def, libTheory.emp_def, flat_to_ctMap_def, flat_to_ctMap_list_def, prim_env_eq];
+
+val to_ctMap_prim_tenvC =
   SIMP_CONV (srw_ss()) thms ``to_ctMap (FST (THE prim_env)).inf_tenvC``;
 
 val prim_env_inv = Q.store_thm ("prim_env_inv",
@@ -357,7 +369,16 @@ val prim_env_inv = Q.store_thm ("prim_env_inv",
      disj1_tac >>
      srw_tac[boolSimps.DNF_ss][Once RTC_CASES1])
  >- fs [bytecodeLabelsTheory.code_labels_ok_def, bytecodeLabelsTheory.uses_label_def]
- >- cheat); 
+ >- (
+   simp[code_executes_ok_def] >>
+   disj1_tac >>
+   Q.PAT_ABBREV_TAC`bs0:bc_state = X` >>
+   `∃bs1. bc_eval bs0 = SOME bs1 ∧ bc_fetch bs1 = SOME (Stop T)` by (
+     simp[Abbr`bs0`] >>
+     CONV_TAC(QUANT_CONV(LAND_CONV (computeLib.CBV_CONV the_bytecode_compset))) >>
+     simp[] >>
+     CONV_TAC (computeLib.CBV_CONV the_bytecode_compset) ) >>
+   metis_tac[bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next]))
 
  (*
 val basis_env_def = Define `
