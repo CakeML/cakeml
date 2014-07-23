@@ -4,7 +4,7 @@ val _ = new_theory "repl_fun_alt_proof";
 
 open arithmeticTheory relationTheory listTheory lexer_implTheory;
 open repl_funTheory bytecodeLabelsTheory bytecodeTheory;
-open lcsymtacs bytecodeEvalTheory bytecodeExtraTheory;
+open lcsymtacs bytecodeEvalTheory bytecodeExtraTheory initialProgramTheory;
 
 infix \\ val op \\ = op THEN;
 

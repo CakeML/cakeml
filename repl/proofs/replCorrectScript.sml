@@ -6,7 +6,7 @@ open initialEnvTheory interpTheory;
 open typeSoundInvariantsTheory inferTheory free_varsTheory;
 open bytecodeTheory;
 open gramPropsTheory pegSoundTheory pegCompleteTheory;
-open repl_fun_alt_proofTheory;
+open repl_fun_alt_proofTheory initialProgramTheory;
 
 val _ = new_theory "replCorrect";
 
@@ -1329,7 +1329,7 @@ strip_tac >>
 val _ = delete_const"and_shadow"
 
 val simple_replCorrect = Q.store_thm ("simple_replCorrect",
-`!initial sem_initial input output b.
+`!init_bc_code init_repl_state sem_initial input output b.
   initial_bc_state_side init_bc_code ∧
   invariant sem_initial init_repl_state (THE (bc_eval (install_code init_bc_code empty_bc_state))) ∧
   (simple_repl_fun (init_repl_state,init_bc_code) input = (output,b)) ⇒
@@ -1414,134 +1414,47 @@ val convert_invariants2 = Q.prove (
  rw [] >>
  fs [bc_state_clock_fupd, bc_state_clock]);
 
-(*
-val eval_initial_program = store_thm("eval_initial_program",
-``evaluate_top F ([],init_envC,[]) s (Tdec initial_program)
-  (s, ([],[]), Rval ([],init_env))``,
-PairCases_on`s` >>
-match_mp_tac (MP_CANON bigClockTheory.top_unclocked_ignore) >>
-qexists_tac`T` >> simp[] >>
-exists_suff_gen_then mp_tac run_eval_top_spec >>
-CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV EVAL))) >>
-REWRITE_TAC[astTheory.pat_bindings_def,run_eval_def] >>
-CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV EVAL))) >>
-metis_tac[])
-
-val initial_bc_state_side_thm = store_thm("initial_bc_state_side_thm",
-  ``initial_bc_state_side ∧ EVERY IS_SOME initial_bc_state.globals``,
-  REWRITE_TAC[initial_bc_state_side_def] >> simp[] >>
-  mp_tac (MATCH_MP bigClockTheory.top_add_clock
-           (Q.SPEC`init_repl_state.store`(Q.GEN`s`eval_initial_program))) >>
-  simp[init_repl_state_def] >>
-  disch_then(qx_choose_then`ck`(mp_tac o MATCH_MP compile_top_thm))>>
-  disch_then(qspecl_then[`init_compiler_state`,`NONE`]mp_tac) >>
-  simp[GSYM compile_primitives_def] >>
-  `∃rss rsf bc. compile_primitives = (rss,rsf,bc)` by metis_tac[pair_CASES] >>
-  simp[] >>
-  disch_then(qspecl_then[`([],init_gtagenv,<|sm:=[];cls:=FEMPTY|>)`,
-                         `install_code bc empty_bc_state with clock := SOME ck`,
-                         `[]`]mp_tac) >>
-  discharge_hyps >- (
-    conj_tac >- (
-      match_mp_tac env_rs_empty >>
-      simp[install_code_def,initialProgramTheory.empty_bc_state_def] >>
-      EVAL_TAC ) >>
-    conj_tac >- (EVAL_TAC >> simp[]) >>
-    simp[install_code_def,initialProgramTheory.empty_bc_state_def] ) >>
-  strip_tac >>
-  qmatch_assum_rename_tac`bc_fetch bs2 = SOME (Stop T)`[] >>
-  qho_match_abbrev_tac`(∃bs. P bs) ∧ Q` >>
-  qsuff_tac`P initial_bc_state ∧ Q`>-metis_tac[] >>
-  simp[Abbr`P`,Abbr`Q`] >>
-  imp_res_tac RTC_bc_next_can_be_unclocked >>
-  imp_res_tac RTC_bc_next_bc_eval >>
-  pop_assum kall_tac >>
-  pop_assum mp_tac >>
-  discharge_hyps >- (
-    simp[bc_eval1_thm,bc_eval1_def,bc_fetch_with_clock] ) >>
-  `install_code bc empty_bc_state with clock := NONE = install_code bc empty_bc_state` by
-    simp[install_code_def,initialProgramTheory.empty_bc_state_def] >>
-  simp[initial_bc_state_def,bc_fetch_with_clock] >>
-  strip_tac >>
-  first_x_assum match_mp_tac >>
-  simp[install_code_def,initialProgramTheory.empty_bc_state_def])
-
-val initial_invariant = store_thm("initial_invariant",
-  ``invariant init_repl_state initial_repl_fun_state initial_bc_state``,
-  simp[invariant_def,initial_repl_fun_state_def,init_repl_state_def]>>
-  conj_tac >- EVAL_TAC >>
-  conj_tac >- EVAL_TAC >>
-  conj_tac >- (EVAL_TAC >> simp[]) >>
-  conj_tac >- simp[typeSoundTheory.initial_type_sound_invariant] >>
-  mp_tac (MATCH_MP bigClockTheory.top_add_clock
-           (Q.SPEC`init_repl_state.store`(Q.GEN`s`eval_initial_program))) >>
-  simp[init_repl_state_def] >>
-  disch_then(qx_choose_then`ck`(mp_tac o MATCH_MP compile_top_thm))>>
-  disch_then(qspecl_then[`init_compiler_state`,`NONE`]mp_tac) >>
-  simp[GSYM compile_primitives_def] >>
-  `∃rss rsf bc. compile_primitives = (rss,rsf,bc)` by metis_tac[pair_CASES] >>
-  simp[] >>
-  disch_then(qspecl_then[`([],init_gtagenv,<|sm:=[];cls:=FEMPTY|>)`,
-                         `install_code bc empty_bc_state with clock := SOME ck`,
-                         `[]`]mp_tac) >>
-  discharge_hyps >- (
-    conj_tac >- (
-      match_mp_tac env_rs_empty >>
-      simp[install_code_def,initialProgramTheory.empty_bc_state_def] >>
-      EVAL_TAC ) >>
-    conj_tac >- (EVAL_TAC >> simp[]) >>
-    simp[install_code_def,initialProgramTheory.empty_bc_state_def] ) >>
-  strip_tac >>
-  qmatch_assum_rename_tac`bc_fetch bs2 = SOME (Stop T)`[] >>
-  imp_res_tac RTC_bc_next_can_be_unclocked >>
-  `bs2 with clock := NONE = initial_bc_state` by (
-    rw[initial_bc_state_def] >>
-    imp_res_tac RTC_bc_next_bc_eval >>
-    pop_assum kall_tac >>
-    pop_assum mp_tac >>
-    discharge_hyps >- (
-      simp[bc_eval1_thm,bc_eval1_def,bc_fetch_with_clock] ) >>
-    `empty_bc_state with clock := NONE = empty_bc_state` by simp[initialProgramTheory.empty_bc_state_def] >>
-    rw[install_code_def] ) >>
-  conj_tac >- (
-    fs[merge_envC_def,init_envC_def,libTheory.merge_def] >>
-    qexists_tac`grd'` >>
-    match_mp_tac env_rs_change_clock >>
-    first_assum(match_exists_tac o concl) >>
-    simp[] >> metis_tac[] ) >>
-  conj_tac >- (
-    pop_assum(SUBST1_TAC o SYM) >> rw[] ) >>
-  conj_tac >- (
-    fs[compile_primitives_def] >>
-    qspecl_then[`NONE`,`init_compiler_state`,`Tdec initial_program`]mp_tac compile_top_labels >>
-    discharge_hyps >- (
-      simp[SUBSET_DEF] >>
-      EVAL_TAC >> simp[] ) >>
-    simp[] >>
-    imp_res_tac RTC_bc_next_preserves >>
-    simp[install_code_def,initialProgramTheory.empty_bc_state_def] ) >>
-  simp[code_executes_ok_def] >>
-  disj1_tac >>
-  qexists_tac`initial_bc_state` >>
-  simp[] >>
-  metis_tac[bc_fetch_with_clock])
-
-val replCorrect' = Q.store_thm ("replCorrect'",
+val simple_replCorrect_basis = Q.store_thm ("simple_replCorrect_basis",
 `!input output b.
-  (repl_fun' input = (output,b)) ⇒
-  (repl (get_type_error_mask output) input output) /\ b`,
-rpt gen_tac >> simp [repl_fun'_def, repl_def,UNCURRY] >>
-strip_tac >>
-fs[initial_bc_state_side_thm] >>
-rpt BasicProvers.VAR_EQ_TAC >>
-match_mp_tac replCorrect'_lem >>
-simp[initial_invariant])
-
-val replCorrect_thm = Q.store_thm ("replCorrect_thm",
-`!input output.
-  (repl_fun input = output) ⇒
-  (repl (get_type_error_mask output) input output)`,
-metis_tac [replCorrect',repl_fun'_thm,PAIR])
-*)
+  let e = FST (THE basis_env) in
+  let se = THE basis_sem_env in
+  let r = 
+      <| type_bindings := [];
+                tdecs := convert_decls (e.inf_mdecls, e.inf_tdecls, e.inf_edecls);
+                tenvM := convert_menv e.inf_tenvM;
+                tenvC := e.inf_tenvC;
+                tenv := bind_var_list2 (convert_env2 e.inf_tenvE) Empty;
+                envM := se.sem_envM;
+                envC := se.sem_envC;
+                envE := se.sem_envE; 
+                store := ((0,se.sem_s), se.sem_tids, se.sem_mdecls) |> in
+  let rf =
+       <| relaborator_state := [];
+                rinferencer_state := ((e.inf_mdecls, e.inf_tdecls, e.inf_edecls), 
+                                      e.inf_tenvM,
+                                      e.inf_tenvC,
+                                      e.inf_tenvE);
+                rcompiler_state := e.comp_rs |> in
+  (simple_repl_fun (rf,SND (THE basis_env) ++ SND (THE prim_env)) input = (output,b)) ⇒
+  (repl r (get_type_error_mask output) input output) /\ b`,
+  rpt gen_tac >>
+  simp [] >>
+  strip_tac >>
+  match_mp_tac simple_replCorrect >>
+  qexists_tac `SND (THE basis_env) ++ SND (THE prim_env)` >>
+  qabbrev_tac `e = FST (THE basis_env)` >>
+  qexists_tac `<| relaborator_state := [];
+                rinferencer_state := ((e.inf_mdecls, e.inf_tdecls, e.inf_edecls), 
+                                      e.inf_tenvM,
+                                      e.inf_tenvC,
+                                      e.inf_tenvE);
+                rcompiler_state := e.comp_rs |>` >>
+  strip_assume_tac basis_env_inv >>
+  fs [convert_invariants] >>
+  rw []
+  >- cheat
+  >- (cases_on `bc_eval (install_code (code ++ SND (THE prim_env)) empty_bc_state)` >>
+      fs [] >>
+      metis_tac []));
 
 val _ = export_theory ();

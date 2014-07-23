@@ -84,13 +84,6 @@ val parse_elaborate_infertype_compile_def = Define `
              let (css,csf,code) = compile_top (SOME types) s.rcompiler_state top in
                Success (code,update_state s es is css,update_state_err s is csf)`
 
-val install_code_def = Define `
-  install_code code bs =
-    bs with <| code   := bs.code ++ REVERSE code
-             ; pc     := next_addr bs.inst_length bs.code
-             ; output := ""
-             |>`;
-
 val repl_step_def = Define `
   repl_step state =
     case state of
