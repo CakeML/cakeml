@@ -1,7 +1,9 @@
 open HolKernel Parse boolLib bossLib lcsymtacs
 open lexer_implTheory cmlParseTheory astTheory inferTheory compilerTheory
      compilerTerminationTheory bytecodeEvalTheory replTheory
-     elabTheory initialProgramTheory
+     elabTheory initialProgramTheory;
+open listTheory arithmeticTheory relationTheory;
+open bytecodeLabelsTheory bytecodeTheory;
 
 val _ = new_theory "repl_fun";
 
@@ -89,34 +91,56 @@ val install_code_def = Define `
              ; output := ""
              |>`;
 
-val tac = (WF_REL_TAC `measure (LENGTH o SND)` THEN REPEAT STRIP_TAC
-           THEN IMP_RES_TAC lex_until_toplevel_semicolon_LESS);
+val repl_step_def = Define `
+  repl_step state =
+    case state of
+    | INL (initial,code) => (* first time around *)
+       let code = REVERSE code in
+       let labs = collect_labels code 0 real_inst_length in
+       let len = code_length real_inst_length code in
+       let code = inst_labels labs code in
+       INL (MAP bc_num code,len,labs,initial,initial)
+    | INR (tokens,new_s,len,labs,s',s_exc) => (* received some input *)
+        let s = if new_s then s' else s_exc in
+        case parse_elaborate_infertype_compile (MAP token_of_sym tokens) s of
+        | Success (code,s',s_exc) =>
+            let code = REVERSE code in
+            let labs = FUNION labs (collect_labels code len real_inst_length) in
+            let len = len + code_length real_inst_length code in
+            let code = inst_labels labs code in
+              INL (MAP bc_num code,len,labs,s',s_exc)
+        | Failure error_msg => INR (error_msg,(F,len,labs,s,s))`
+
+val install_bc_lists_def = Define `
+  install_bc_lists code bs =
+    install_code (REVERSE (MAP num_bc code)) bs`
+
+val tac = (WF_REL_TAC `measure (LENGTH o FST o SND)` THEN REPEAT STRIP_TAC
+           THEN IMP_RES_TAC lexer_implTheory.lex_until_top_semicolon_alt_LESS);
 
 val main_loop_def = tDefine "main_loop" `
-  main_loop (bs,s) input =
-    case lex_until_toplevel_semicolon input of
-      (* case: no semicolon found, i.e. trailing characters then end of input *)
-      NONE => Terminate
-    | (* case: tokens for next top have been read, now eval-print-and-loop *)
-      SOME (tokens, rest_of_input) =>
-        case parse_elaborate_infertype_compile tokens s of
-          (* case: cannot turn into code, print error message, continue *)
-          Failure error_msg => Result error_msg (main_loop (bs,s) rest_of_input)
-        | (* case: new code generated, install, run, print and continue *)
-          Success (code,s,s_exc) =>
-            case bc_eval (install_code code bs) of
-              (* case: evaluation of code does not terminate *)
-              NONE => Diverge
-            | (* case: evaluation terminated, analyse result and continue *)
-              SOME new_bs =>
-                case bc_fetch new_bs of
-                  SOME (Stop success) =>
-                    let new_s = if success then s else s_exc in
-                      Result new_bs.output (main_loop (new_bs,new_s) rest_of_input)` tac ;
+  main_loop bs input state init =
+    case repl_step state of
+      | INR (error_msg,x) =>
+            Result error_msg
+             (case lex_until_top_semicolon_alt input of
+              | NONE => Terminate
+              | SOME (ts,rest) =>
+                  (main_loop bs rest (INR (ts,x)) F))
+      | INL (code,new_state) =>
+        case bc_eval (install_bc_lists code bs) of
+        | NONE => Diverge
+        | SOME new_bs =>
+            let new_s = (bc_fetch new_bs = SOME (Stop T)) in
+              (if init then I else Result new_bs.output)
+                (case lex_until_top_semicolon_alt input of
+                 | NONE => Terminate
+                 | SOME (ts,rest) =>
+                     (main_loop new_bs rest (INR (ts,new_s,new_state)) F)) ` tac
 
-val repl_fun_def = Define`
-  repl_fun initial_bc_state initial_repl_fun_state input = main_loop (initial_bc_state,initial_repl_fun_state) input`;
-
+val repl_fun_def = Define `
+  repl_fun initial input = main_loop empty_bc_state input (INL initial) T`;
+  
 (*
 
 TODO:

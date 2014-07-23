@@ -41,9 +41,6 @@ val eval_real_inst_length =
         ,bool_to_tag_def
         ,bc_find_loc_def
         ,bytecodeTerminationTheory.bc_equal_def
-        ,bc_fetch_aux_def
-        ,bc_find_loc_aux_def
-        ,is_Label_def
         ] compset
     end
 
@@ -52,14 +49,14 @@ val eval_real_inst_length =
         [bc_eval_compute
         ,bc_eval1_def
         ,bc_eval_stack_def
-        (*,bc_fetch_aux_0_thm*)
+        ,bc_fetch_aux_0_thm
         ,SUC_TO_NUMERAL_RULE bc_evaln_def
         ,listTheory.LUPDATE_compute
         ] compset
     end
     val () = computeLib.add_datatype_info compset (valOf(TypeBase.fetch``:bc_state``))
     val () = computeLib.add_datatype_info compset (valOf(TypeBase.fetch``:bc_value``))
-    val () = computeLib.add_datatype_info compset (valOf(TypeBase.fetch``:bc_inst``))
+    (*val () = computeLib.add_datatype_info compset (valOf(TypeBase.fetch``:bc_inst``))*)
   in () end
 
   fun add_labels_compset compset = let

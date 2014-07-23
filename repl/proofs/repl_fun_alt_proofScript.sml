@@ -3,28 +3,20 @@ open HolKernel Parse boolLib bossLib;
 val _ = new_theory "repl_fun_alt_proof";
 
 open arithmeticTheory relationTheory listTheory lexer_implTheory;
-open repl_funTheory repl_fun_altTheory bytecodeLabelsTheory bytecodeTheory;
+open repl_funTheory bytecodeLabelsTheory bytecodeTheory;
 open lcsymtacs bytecodeEvalTheory bytecodeExtraTheory;
 
 infix \\ val op \\ = op THEN;
 
-(* We start by defining a new version of repl_fun called repl_fun'
-   which brings with it a proof of side conditions. *)
+val _ = ParseExtras.temp_tight_equality ();
 
-   (*
-val initial_bc_state_side_def = Define `
-  initial_bc_state_side =
-    let bs1 = empty_bc_state in
-    let bs2 = install_code (SND (SND compile_primitives)) bs1 in
-     ?bs3. (bc_eval bs2 = SOME bs3) /\
-           (bc_fetch bs3 = SOME (Stop T))`;
-           *)
-
+(* Define a main loop that corresponds closely to the repl's specification
+ * (i.e., doesn't go around once before starting on the user's program *)
 val tac = (WF_REL_TAC `measure (LENGTH o SND)` \\ REPEAT STRIP_TAC
            \\ IMP_RES_TAC lex_until_toplevel_semicolon_LESS);
 
-val main_loop'_def = tDefine "main_loop'" `
-  main_loop' (bs,s) input =
+val simple_main_loop_def = tDefine "simple_main_loop" `
+  simple_main_loop (bs,s) input =
    case lex_until_toplevel_semicolon input of
    | NONE => (Terminate,T)
    | SOME (tokens,rest_of_input) =>
@@ -39,71 +31,44 @@ val main_loop'_def = tDefine "main_loop'" `
           (case bc_fetch new_bs of
            | SOME (Stop success) =>
              let new_s = if success then s' else s_exc in
-             let (res,assert) = main_loop' (new_bs,new_s) rest_of_input in
+             let (res,assert) = simple_main_loop (new_bs,new_s) rest_of_input in
                (Result (new_bs.output) res, assert /\ code_assert)
            | _ => (ARB,F)))
      | Failure error_msg =>
-         let (res,assert) = main_loop' (bs,s) rest_of_input in
+         let (res,assert) = simple_main_loop (bs,s) rest_of_input in
            (Result error_msg res, assert)` tac
 
-           (*
-val repl_fun'_def = Define `
-  repl_fun' input =
-    let a1 = initial_bc_state_side in
-    let (res,a2) = main_loop' (initial_bc_state,initial_repl_fun_state) input in
+(* Define a simple repl_fun that corresponds to the repl's spec. We need to know
+ * that its initial bytecode terminates, and we eval it to get the initial
+ * bytecode state *)
+
+val initial_bc_state_side_def = Define `
+  initial_bc_state_side initial =
+    let bs1 = empty_bc_state in
+    let bs2 = install_code initial bs1 in
+     ?bs3. (bc_eval bs2 = SOME bs3) /\
+           (bc_fetch bs3 = SOME (Stop T))`;
+
+val simple_repl_fun_def = Define `
+  simple_repl_fun initial input =
+    let a1 = initial_bc_state_side (SND initial) in
+    let (res,a2) = simple_main_loop (THE (bc_eval (install_code (SND initial) empty_bc_state)),FST initial) input in
       (res,a1 /\ a2)`;
-      *)
 
-(* Theorem relating repl_fun' with repl_fun *)
-
-val main_loop'_thm = prove(
-  ``!bs s input. (\(bs,s) input. !res b.
-      (main_loop' (bs,s) input = (res,b)) ==>
-      (main_loop (bs,s) input = res)) (bs,s) input``,
-  HO_MATCH_MP_TAC main_loop_ind \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [PULL_FORALL]
-  \\ SIMP_TAC std_ss [Once main_loop'_def,Once main_loop_def]
-  \\ Cases_on `lex_until_toplevel_semicolon input`
-  \\ SIMP_TAC std_ss [] \\ Cases_on `x`
-  \\ Q.MATCH_ASSUM_RENAME_TAC
-       `lex_until_toplevel_semicolon input = SOME (ts,rest)` []
-  \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ REVERSE (Cases_on `parse_elaborate_infertype_compile ts s`)
-  \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
-  THEN1 (Cases_on `main_loop' (bs,s) rest` \\ FULL_SIMP_TAC std_ss [])
-  \\ `?code s1 s2. a = (code,s1,s2)` by METIS_TAC [pairTheory.PAIR]
-  \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ Cases_on `bc_eval (install_code code bs)`
-  \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ Cases_on`bc_fetch x` \\ FULL_SIMP_TAC (srw_ss())[]
-  \\ Q.MATCH_ASSUM_RENAME_TAC`bc_fetch x = SOME i`[]
-  \\ Cases_on`i` \\ FULL_SIMP_TAC (srw_ss())[]
-  \\ Cases_on `main_loop' (x,if b then s1 else s2) rest`
-  \\ FULL_SIMP_TAC (srw_ss()) []) |> SIMP_RULE std_ss [];
-
-  (*
-val repl_fun'_thm = store_thm("repl_fun'_thm",
-  ``!input res b. (repl_fun' input = (res,b)) ==> (repl_fun input = res)``,
-  SIMP_TAC std_ss [repl_fun_def,repl_fun'_def,LET_DEF] \\ REPEAT STRIP_TAC
-  \\ Cases_on `main_loop' (initial_bc_state,initial_repl_fun_state) input`
-  \\ FULL_SIMP_TAC std_ss [] \\ METIS_TAC [main_loop'_thm]);
-  *)
-
-
-(* proof of repl_fun_alt' = repl_fun' *)
-(*
+(* We start by defining a new version of repl_fun called repl_fun'
+   which brings with it a proof of side conditions. *)
 
 val tac = (WF_REL_TAC `measure (LENGTH o FST o SND)` \\ REPEAT STRIP_TAC
            \\ IMP_RES_TAC lex_until_top_semicolon_alt_LESS);
 
-val main_loop_alt'_def = tDefine "main_loop_alt'" `
-  main_loop_alt' bs input state init =
+val main_loop'_def = tDefine "main_loop'" `
+  main_loop' bs input state init =
     case repl_step state of
       | INR (error_msg,x) =>
        (case lex_until_top_semicolon_alt input of
         | NONE => (Result error_msg Terminate,T)
         | SOME (ts,rest) =>
-            let (res,assert) = main_loop_alt' bs rest (SOME (ts,x)) F in
+            let (res,assert) = main_loop' bs rest (INR (ts,x)) F in
               (Result error_msg res, assert))
       | INL (code,new_state) =>
         let bs = (install_bc_lists code bs) in
@@ -118,15 +83,15 @@ val main_loop_alt'_def = tDefine "main_loop_alt'" `
                | NONE => (out Terminate,code_assert)
                | SOME (ts,rest) =>
                   let (res,assert) =
-                    main_loop_alt' new_bs rest (SOME (ts,success,new_state)) F in
+                    main_loop' new_bs rest (INR (ts,success,new_state)) F in
                       (out res, assert /\ code_assert))
              | _ => (ARB,F))`
   tac
 
-val repl_fun_alt'_def = Define `
-  repl_fun_alt' input =
-    let a1 = initial_bc_state_side in
-    let (res,a2) = main_loop_alt' empty_bc_state input NONE T in
+val repl_fun'_def = Define `
+  repl_fun' initial input =
+    let a1 = initial_bc_state_side (SND initial) in
+    let (res,a2) = main_loop' empty_bc_state input (INL initial) T in
       (res,a1 /\ a2)`;
 
 val bc_eval_SOME_code = prove(
@@ -303,11 +268,11 @@ val install_bc_lists_alt = prove(
   SIMP_TAC std_ss [install_bc_lists_def,MAP_MAP_o,num_bc_bc_num,
     combinTheory.o_DEF] \\ SRW_TAC [] []);
 
-val main_loop_alt_eq = prove(
+val main_loop_eq_tmp = prove(
   ``!input ts b s1 s2 bs res.
       (bs.inst_length = real_inst_length) ==>
       temp
-      (main_loop_alt' (strip_labels bs) input (SOME (ts,b,
+      (main_loop' (strip_labels bs) input (INR (ts,b,
          code_length real_inst_length bs.code,
          all_labels real_inst_length bs.code,s1,s2)) F)
          (case
@@ -324,22 +289,22 @@ val main_loop_alt_eq = prove(
                     (case bc_fetch new_bs of
                        SOME (Stop success) =>
                          (let new_s = (if success then s' else s_exc) in
-                          let (res,assert) = main_loop' (new_bs,new_s) input in
+                          let (res,assert) = simple_main_loop (new_bs,new_s) input in
                             (Result new_bs.output res,
                              assert /\ code_assert))
                      | _ => (ARB,F)))
           | Failure error_msg =>
-              (let (res,assert) = main_loop' (bs,if b then s1 else s2) input in
+              (let (res,assert) = simple_main_loop (bs,if b then s1 else s2) input in
                  (Result error_msg res,assert)))``,
   STRIP_TAC \\ completeInduct_on `LENGTH input` \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [PULL_FORALL]
   \\ POP_ASSUM MP_TAC \\ POP_ASSUM (K ALL_TAC) \\ STRIP_TAC
-  \\ SIMP_TAC std_ss [Once main_loop_alt'_def,repl_step_def]
+  \\ SIMP_TAC std_ss [Once main_loop'_def,repl_step_def]
   \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
   \\ REVERSE (Cases_on `parse_elaborate_infertype_compile
        (MAP token_of_sym ts) (if b then s1 else s2)`)
   \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF] THEN1
-   (SIMP_TAC std_ss [Once main_loop'_def]
+   (SIMP_TAC std_ss [Once simple_main_loop_def]
     \\ SIMP_TAC std_ss [lex_lemma]
     \\ Cases_on `lex_until_top_semicolon_alt input` \\ FULL_SIMP_TAC std_ss []
     THEN1 (SIMP_TAC std_ss [temp_def])
@@ -362,7 +327,7 @@ val main_loop_alt_eq = prove(
     \\ FULL_SIMP_TAC std_ss []
     \\ Cases_on `bc_fetch x` \\ FULL_SIMP_TAC (srw_ss()) []
     \\ Cases_on `x'` \\ FULL_SIMP_TAC (srw_ss()) []
-    \\ Cases_on `main_loop' (x,if b' then s' else s_exc) input`
+    \\ Cases_on `simple_main_loop (x,if b' then s' else s_exc) input`
     \\ FULL_SIMP_TAC (srw_ss()) [])
   \\ Q.ABBREV_TAC `bs_code_stripped = (install_bc_lists
         (MAP bc_num
@@ -418,7 +383,7 @@ val main_loop_alt_eq = prove(
   \\ `bc_fetch x = (bc_fetch (strip_labels x))` by ALL_TAC
   THEN1 (METIS_TAC [bc_fetch_strip_labels])
   \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ ONCE_REWRITE_TAC [main_loop'_def]
+  \\ ONCE_REWRITE_TAC [simple_main_loop_def]
   \\ SIMP_TAC std_ss [lex_lemma]
   \\ Cases_on `lex_until_top_semicolon_alt input`
   \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF,temp_REFL]
@@ -458,6 +423,9 @@ val main_loop_alt_eq = prove(
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`q`,`ss`,`s'`,`s_exc`,`x`])
   \\ FULL_SIMP_TAC std_ss []);
 
+val main_loop_eq = save_thm ("main_loop_eq", REWRITE_RULE [temp_def] main_loop_eq_tmp);
+                
+
 val PAIR_I = prove(
   ``(\(r,a). (r,a)) = I``,
   SIMP_TAC std_ss [FUN_EQ_THM,pairTheory.FORALL_PROD]);
@@ -477,29 +445,30 @@ val IS_SOME_IFF_EXISTS = prove(
   ``!x. IS_SOME x <=> ?y. x = SOME y``,
   Cases \\ SRW_TAC [] []);
 
+
 val repl_fun_alt_correct = store_thm("repl_fun_alt_correct",
   ``!input res b.
-       (repl_fun' input = (res,T)) ==>
-       (repl_fun_alt' input = (res,T))``,
-  SIMP_TAC std_ss [repl_fun_alt'_def,FUN_EQ_THM,repl_fun'_def,LET_DEF]
-  \\ SIMP_TAC (srw_ss()) [Once main_loop_alt'_def,Once repl_step_def,LET_DEF]
+       (simple_repl_fun (init_repl_state, init_bc_code) input = (res,T)) ==>
+       (repl_fun' (init_repl_state, init_bc_code) input = (res,T))``,
+  SIMP_TAC std_ss [repl_fun'_def,FUN_EQ_THM,simple_repl_fun_def,LET_DEF]
+  \\ SIMP_TAC (srw_ss()) [Once main_loop'_def,Once repl_step_def,LET_DEF]
   \\ REPEAT GEN_TAC
-  \\ Cases_on `main_loop' (initial_bc_state,initial_repl_fun_state) input`
+  \\ Cases_on `simple_main_loop (THE (bc_eval (install_code init_bc_code empty_bc_state)), init_repl_state) input`
   \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [initial_bc_state_side_def,initial_bc_state_def,LET_DEF]
+  \\ FULL_SIMP_TAC std_ss [initial_bc_state_side_def,LET_DEF]
   \\ FULL_SIMP_TAC std_ss [LET_DEF,install_bc_lists_alt]
-  \\ Q.ABBREV_TAC `bs1 = (install_code (SND (SND compile_primitives)) empty_bc_state)`
+  \\ Q.ABBREV_TAC `bs1 = (install_code init_bc_code empty_bc_state)`
   \\ `(install_code
           (REVERSE
              (inst_labels
-                (collect_labels (REVERSE (SND (SND compile_primitives)))
+                (collect_labels (REVERSE init_bc_code)
                    0 real_inst_length)
-                (REVERSE (SND (SND compile_primitives)))))
+                (REVERSE init_bc_code)))
           empty_bc_state) = strip_labels bs1` by ALL_TAC THEN1
    (SIMP_TAC std_ss [GSYM all_labels_def]
     \\ UNABBREV_ALL_TAC
     \\ Q.ABBREV_TAC `l = real_inst_length`
-    \\ Q.ABBREV_TAC `c2 = REVERSE (SND (SND compile_primitives))`
+    \\ Q.ABBREV_TAC `c2 = REVERSE init_bc_code`
     \\ SIMP_TAC (srw_ss()) [install_code_def,strip_labels_def,
          initialProgramTheory.empty_bc_state_def]
     \\ ASM_SIMP_TAC std_ss [code_labels_def,inst_labels_def,GSYM all_labels_def])
@@ -540,9 +509,9 @@ val repl_fun_alt_correct = store_thm("repl_fun_alt_correct",
   THEN1 (METIS_TAC [bc_fetch_strip_labels])
   \\ FULL_SIMP_TAC (srw_ss()) []
   \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
-  \\ Q.PAT_ASSUM `main_loop' (bs,initial_repl_fun_state) input = (res,T)` MP_TAC
+  \\ Q.PAT_ASSUM `simple_main_loop (bs,initial_repl_state) input = (res,T)` MP_TAC
   \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
-  \\ SIMP_TAC std_ss [Once main_loop'_def]
+  \\ SIMP_TAC std_ss [Once simple_main_loop_def]
   \\ `x.inst_length = real_inst_length` by ALL_TAC THEN1
    (UNABBREV_ALL_TAC \\ FULL_SIMP_TAC (srw_ss()) [install_code_def])
   \\ FULL_SIMP_TAC std_ss [lex_lemma]
@@ -556,8 +525,8 @@ val repl_fun_alt_correct = store_thm("repl_fun_alt_correct",
   \\ HO_MATCH_MP_TAC temp_INTRO
   \\ FULL_SIMP_TAC std_ss []
   \\ MP_TAC (Q.SPECL [`r'`,`q'`,`bc_fetch x = SOME (Stop T)`,
-        `initial_repl_fun_state`,`initial_repl_fun_state`,`x`] main_loop_alt_eq)
-  \\ `bs3.code = (REVERSE (SND (SND compile_primitives)))` by ALL_TAC THEN1
+        `init_repl_state`,`init_repl_state`,`x`] main_loop_eq_tmp)
+  \\ `bs3.code = (REVERSE init_bc_code)` by ALL_TAC THEN1
    (SRW_TAC [] []
     \\ UNABBREV_ALL_TAC \\ FULL_SIMP_TAC (srw_ss()) [install_code_def]
     \\ IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
@@ -566,6 +535,5 @@ val repl_fun_alt_correct = store_thm("repl_fun_alt_correct",
   \\ FULL_SIMP_TAC std_ss [all_labels_def]);
 
 val _ = delete_const "temp";
-*)
 
 val _ = export_theory();

@@ -229,7 +229,7 @@ empty_bc_state = <|
       globals := [];
       handler := 0;
       output := "";
-      inst_length := K 0;
+      inst_length := real_inst_length;
       clock := NONE |>`;
 
 val prim_bs_def = Define `
@@ -250,6 +250,7 @@ val prim_sem_env_eq = save_thm ("prim_sem_env_eq",
   |> SIMP_CONV(srw_ss())[prim_sem_env_def,add_to_sem_env_def,prim_types_program_def]
   |> CONV_RULE(computeLib.CBV_CONV the_interp_compset));
 
+  (*
 val prim_bs_eq = save_thm ("prim_bs_eq",
   ``prim_bs``
   |> SIMP_CONV(srw_ss())[prim_bs_def, empty_bc_state_def, prim_env_eq]
@@ -491,4 +492,5 @@ val basis_env_inv = Q.store_thm ("basis_env_inv",
      metis_tac []));
      *)
 
+     *)
 val _ = export_theory();

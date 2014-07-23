@@ -5,8 +5,8 @@ open semanticPrimitivesTheory typeSystemTheory typeSoundTheory weakeningTheory e
 open initialEnvTheory interpTheory;
 open typeSoundInvariantsTheory inferTheory free_varsTheory;
 open bytecodeTheory;
-open gramPropsTheory pegSoundTheory pegCompleteTheory
-open repl_fun_altTheory repl_fun_alt_proofTheory;
+open gramPropsTheory pegSoundTheory pegCompleteTheory;
+open repl_fun_alt_proofTheory;
 
 val _ = new_theory "replCorrect";
 
@@ -955,15 +955,15 @@ val replCorrect'_lem = Q.prove (
 `!repl_state error_mask bc_state repl_fun_state.
   invariant repl_state repl_fun_state bc_state ⇒
   ast_repl repl_state
-    (get_type_error_mask (FST (main_loop' (bc_state,repl_fun_state) input)))
+    (get_type_error_mask (FST (simple_main_loop (bc_state,repl_fun_state) input)))
     (MAP parse (split_top_level_semi (lexer_fun input)))
-    (FST (main_loop' (bc_state,repl_fun_state) input))
-  ∧ SND (main_loop' (bc_state,repl_fun_state) input)`,
+    (FST (simple_main_loop (bc_state,repl_fun_state) input))
+  ∧ SND (simple_main_loop (bc_state,repl_fun_state) input)`,
 
 completeInduct_on `LENGTH input` >>
 simp[GSYM and_shadow_def] >>
 rw [lexer_correct, Once lex_impl_all_def] >>
-ONCE_REWRITE_TAC [main_loop'_def] >>
+ONCE_REWRITE_TAC [simple_main_loop_def] >>
 cases_on `lex_until_toplevel_semicolon input` >>
 rw [get_type_error_mask_def] >- (
   rw[and_shadow_def] >> metis_tac [ast_repl_rules] ) >>
@@ -1327,6 +1327,92 @@ strip_tac >>
   inv_pres_tac);
 
 val _ = delete_const"and_shadow"
+
+val simple_replCorrect = Q.store_thm ("simple_replCorrect",
+`!initial sem_initial input output b.
+  initial_bc_state_side init_bc_code ∧
+  invariant sem_initial init_repl_state (THE (bc_eval (install_code init_bc_code empty_bc_state))) ∧
+  (simple_repl_fun (init_repl_state,init_bc_code) input = (output,b)) ⇒
+  (repl sem_initial (get_type_error_mask output) input output) /\ b`,
+ rpt gen_tac >> 
+ simp [simple_repl_fun_def, repl_def, UNCURRY] >>
+ strip_tac >>
+ rpt BasicProvers.VAR_EQ_TAC >>
+ fs [] >>
+ match_mp_tac replCorrect'_lem >>
+ rw []);
+
+val convert_invariants = Q.prove (
+`!se e bs.
+   initialProgram$invariant se e bs 
+   = 
+   invariant <| type_bindings := [];
+                tdecs := convert_decls (e.inf_mdecls, e.inf_tdecls, e.inf_edecls);
+                tenvM := convert_menv e.inf_tenvM;
+                tenvC := e.inf_tenvC;
+                tenv := bind_var_list2 (convert_env2 e.inf_tenvE) Empty;
+                envM := se.sem_envM;
+                envC := se.sem_envC;
+                envE := se.sem_envE; 
+                store := ((0,se.sem_s), se.sem_tids, se.sem_mdecls) |>
+             <| relaborator_state := [];
+                rinferencer_state := ((e.inf_mdecls, e.inf_tdecls, e.inf_edecls), 
+                                      e.inf_tenvM,
+                                      e.inf_tenvC,
+                                      e.inf_tenvE);
+                rcompiler_state := e.comp_rs |>
+            bs`,
+ rw [invariant_def, initialProgramTheory.invariant_def] >>
+ rw [convert_decls_def] >>
+ eq_tac >>
+ rw [] >>
+ rw [GSYM PULL_EXISTS]
+ >- fs [type_infer_invariants_def, infer_sound_invariant_def, convert_decls_def]
+ >- metis_tac []
+ >- fs [type_infer_invariants_def, infer_sound_invariant_def, convert_decls_def]
+ >- metis_tac [pair_CASES]);
+
+
+val convert_invariants2 = Q.prove (
+`!r rf bs.
+   invariant r rf bs 
+   ⇒ 
+   initialProgram$invariant 
+             <| sem_envM := r.envM;
+                sem_envC := r.envC;
+                sem_envE := r.envE;
+                sem_s := SND (FST r.store);
+                sem_tids := FST (SND r.store);
+                sem_mdecls := SND (SND r.store) |>
+             <| inf_mdecls := FST (FST rf.rinferencer_state);
+                inf_tdecls := FST (SND (FST rf.rinferencer_state));
+                inf_edecls := SND (SND (FST rf.rinferencer_state));
+                inf_tenvM := FST (SND rf.rinferencer_state);
+                inf_tenvC := FST (SND (SND rf.rinferencer_state));
+                inf_tenvE := SND (SND (SND rf.rinferencer_state));
+                comp_rs := rf.rcompiler_state |>
+            bs`,
+ rw [invariant_def, initialProgramTheory.invariant_def] >>
+ qabbrev_tac `x = rf.rinferencer_state` >>
+ PairCases_on `x` >>
+ rw [GSYM PULL_EXISTS, infer_sound_invariant_def] >>
+ fs [type_infer_invariants_def] >>
+ rw [] >>
+ fs [convert_decls_def]
+ >- metis_tac [] >>
+ qabbrev_tac `y = r.store` >>
+ PairCases_on `y` >>
+ rw [] >>
+ PairCases_on `grd` >>
+ fs [] >>
+ rw [] >>
+ MAP_EVERY qexists_tac [`grd0`, `grd1`, `grd2`] >>
+ match_mp_tac env_rs_change_clock >>
+ MAP_EVERY qexists_tac [`((y0,y1),y2,LIST_TO_SET x0)`, `bs`, `0`, `bs.clock`] >>
+ rw [] >>
+ cases_on `bs` >>
+ rw [] >>
+ fs [bc_state_clock_fupd, bc_state_clock]);
 
 (*
 val eval_initial_program = store_thm("eval_initial_program",
