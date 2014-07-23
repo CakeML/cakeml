@@ -1723,6 +1723,19 @@ val init_theory_ok = store_thm("init_theory_ok",
   rw[theory_ok_def,init_ctxt_def,type_ok_def,FLOOKUP_UPDATE,conexts_of_upd_def] >>
   rw[is_std_sig_def,FLOOKUP_UPDATE])
 
+(* is_std_sig is preserved *)
+
+val is_std_sig_extends = store_thm("is_std_sig_extends",
+  ``∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒ is_std_sig (sigof ctxt1) ⇒ is_std_sig (sigof ctxt2)``,
+  ho_match_mp_tac extends_ind >>
+  REWRITE_TAC[GSYM AND_IMP_INTRO] >>
+  ho_match_mp_tac updates_ind >>
+  rw[is_std_sig_def,FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
+  TRY BasicProvers.CASE_TAC >>
+  imp_res_tac ALOOKUP_MEM >>
+  fs[MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
+  metis_tac[] )
+
 (* recover constant definition as a special case of specification *)
 
 val _ = Parse.overload_on("ConstDef",``λx t. ConstSpec [(x,t)] (Var x (typeof t) === t)``)
