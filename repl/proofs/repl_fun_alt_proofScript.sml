@@ -11,12 +11,14 @@ infix \\ val op \\ = op THEN;
 (* We start by defining a new version of repl_fun called repl_fun'
    which brings with it a proof of side conditions. *)
 
+   (*
 val initial_bc_state_side_def = Define `
   initial_bc_state_side =
     let bs1 = empty_bc_state in
     let bs2 = install_code (SND (SND compile_primitives)) bs1 in
      ?bs3. (bc_eval bs2 = SOME bs3) /\
            (bc_fetch bs3 = SOME (Stop T))`;
+           *)
 
 val tac = (WF_REL_TAC `measure (LENGTH o SND)` \\ REPEAT STRIP_TAC
            \\ IMP_RES_TAC lex_until_toplevel_semicolon_LESS);
@@ -44,11 +46,13 @@ val main_loop'_def = tDefine "main_loop'" `
          let (res,assert) = main_loop' (bs,s) rest_of_input in
            (Result error_msg res, assert)` tac
 
+           (*
 val repl_fun'_def = Define `
   repl_fun' input =
     let a1 = initial_bc_state_side in
     let (res,a2) = main_loop' (initial_bc_state,initial_repl_fun_state) input in
       (res,a1 /\ a2)`;
+      *)
 
 (* Theorem relating repl_fun' with repl_fun *)
 
@@ -77,14 +81,17 @@ val main_loop'_thm = prove(
   \\ Cases_on `main_loop' (x,if b then s1 else s2) rest`
   \\ FULL_SIMP_TAC (srw_ss()) []) |> SIMP_RULE std_ss [];
 
+  (*
 val repl_fun'_thm = store_thm("repl_fun'_thm",
   ``!input res b. (repl_fun' input = (res,b)) ==> (repl_fun input = res)``,
   SIMP_TAC std_ss [repl_fun_def,repl_fun'_def,LET_DEF] \\ REPEAT STRIP_TAC
   \\ Cases_on `main_loop' (initial_bc_state,initial_repl_fun_state) input`
   \\ FULL_SIMP_TAC std_ss [] \\ METIS_TAC [main_loop'_thm]);
+  *)
 
 
 (* proof of repl_fun_alt' = repl_fun' *)
+(*
 
 val tac = (WF_REL_TAC `measure (LENGTH o FST o SND)` \\ REPEAT STRIP_TAC
            \\ IMP_RES_TAC lex_until_top_semicolon_alt_LESS);
@@ -559,5 +566,6 @@ val repl_fun_alt_correct = store_thm("repl_fun_alt_correct",
   \\ FULL_SIMP_TAC std_ss [all_labels_def]);
 
 val _ = delete_const "temp";
+*)
 
 val _ = export_theory();

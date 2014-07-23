@@ -23,9 +23,6 @@ val _ = type_abbrev ("inferencer_state",
      tenvC #
      (varN, num # infer_t) env``);
 
-val append_decls_def = Define `
-append_decls (a,b,c) (x,y,z) = (a++x,b++y,c++z)`;
-
 val infertype_top_def = Define `
 infertype_top ((decls, module_type_env, constructor_type_env, type_env) :inferencer_state) ast_top =
   case FST (infer_top decls module_type_env constructor_type_env type_env ast_top infer$init_infer_state) of

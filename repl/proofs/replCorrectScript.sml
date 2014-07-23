@@ -4,10 +4,13 @@ open lexer_implTheory cmlParseTheory inferSoundTheory bigStepTheory elabTheory c
 open semanticPrimitivesTheory typeSystemTheory typeSoundTheory weakeningTheory evalPropsTheory typeSysPropsTheory terminationTheory;
 open initialEnvTheory interpTheory;
 open typeSoundInvariantsTheory inferTheory free_varsTheory;
-open bytecodeTheory repl_fun_altTheory repl_fun_alt_proofTheory;
+open bytecodeTheory;
 open gramPropsTheory pegSoundTheory pegCompleteTheory
+open repl_fun_altTheory repl_fun_alt_proofTheory;
 
 val _ = new_theory "replCorrect";
+
+val _ = ParseExtras.temp_tight_equality ();
 
 (* TODO: move *)
 val o_f_FUNION = store_thm("o_f_FUNION",
@@ -1325,6 +1328,7 @@ strip_tac >>
 
 val _ = delete_const"and_shadow"
 
+(*
 val eval_initial_program = store_thm("eval_initial_program",
 ``evaluate_top F ([],init_envC,[]) s (Tdec initial_program)
   (s, ([],[]), Rval ([],init_env))``,
@@ -1452,5 +1456,6 @@ val replCorrect_thm = Q.store_thm ("replCorrect_thm",
   (repl_fun input = output) ⇒
   (repl (get_type_error_mask output) input output)`,
 metis_tac [replCorrect',repl_fun'_thm,PAIR])
+*)
 
 val _ = export_theory ();

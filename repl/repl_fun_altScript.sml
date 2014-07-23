@@ -18,6 +18,7 @@ open repl_funTheory bytecodeLabelsTheory bytecodeTheory;
 
 *)
 
+(*
 val repl_step_def = Define `
   repl_step state =
     case state of
@@ -69,5 +70,5 @@ val main_loop_alt_def = tDefine "main_loop_alt" `
 
 val repl_fun_alt_def = Define `
   repl_fun_alt input = main_loop_alt empty_bc_state input NONE T`;
-
+  *)
 val _ = export_theory();
