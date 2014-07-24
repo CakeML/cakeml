@@ -460,6 +460,7 @@ val basis_env_inv = Q.store_thm ("basis_env_inv",
   invariant' se e bs`,
  rw [basis_env_def] >>
  strip_assume_tac prim_env_inv >>
+ rfs[prim_bs_def] >>
  `?e' code. basis_env = SOME (e',code)` by rw [basis_env_eq] >>
  fs [basis_env_def] >>
  `?se'. add_to_sem_env se basis_program = SOME se'` by (
@@ -501,6 +502,7 @@ val basis_env_inv = Q.store_thm ("basis_env_inv",
  imp_res_tac run_eval_prog_spec >>
  fs [] >>
  rw [] >>
+ rfs[] >>
  match_mp_tac add_to_env_invariant' >>
  rw [evaluate_whole_prog_def] >>
  MAP_EVERY qexists_tac [`T`, `10000`, `se.sem_s`, `se.sem_tids`, `basis_program`, `q`, `e`] >>
@@ -521,8 +523,7 @@ val basis_env_inv = Q.store_thm ("basis_env_inv",
  >- (fs [invariant'_def] >>
      metis_tac [])
  >- (fs [invariant'_def] >>
-     metis_tac [])
- >- metis_tac [optionTheory.THE_DEF, FST]);
+     metis_tac []));
 
 val add_stop_invariant = Q.store_thm ("add_stop_invariant",
 `!e se bs code.
