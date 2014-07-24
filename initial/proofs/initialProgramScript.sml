@@ -294,10 +294,12 @@ val prim_sem_env_eq = save_thm ("prim_sem_env_eq",
   |> SIMP_CONV(srw_ss())[prim_sem_env_def,add_to_sem_env_def,prim_types_program_def]
   |> CONV_RULE(computeLib.CBV_CONV the_interp_compset));
 
+  (*
 val prim_bs_eq = 
   ``prim_bs``
      |> SIMP_CONV (srw_ss()) [install_code_def, prim_bs_def, prim_env_eq, empty_bc_state_def, Once bc_eval_compute]
      |> CONV_RULE (computeLib.CBV_CONV the_bytecode_compset)
+     *)
 
 val to_ctMap_list_def = Define `
 to_ctMap_list tenvC =
