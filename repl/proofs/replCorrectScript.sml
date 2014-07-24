@@ -1345,7 +1345,7 @@ val simple_replCorrect = Q.store_thm ("simple_replCorrect",
 val convert_invariants = Q.prove (
 `!se e bs.
    initialProgram$invariant se e bs 
-   = 
+   ⇒
    invariant <| type_bindings := [];
                 tdecs := convert_decls (e.inf_mdecls, e.inf_tdecls, e.inf_edecls);
                 tenvM := convert_menv e.inf_tenvM;
@@ -1364,15 +1364,13 @@ val convert_invariants = Q.prove (
             bs`,
  rw [invariant_def, initialProgramTheory.invariant_def] >>
  rw [convert_decls_def] >>
- eq_tac >>
- rw [] >>
  rw [GSYM PULL_EXISTS]
  >- fs [type_infer_invariants_def, infer_sound_invariant_def, convert_decls_def]
  >- metis_tac []
- >- fs [type_infer_invariants_def, infer_sound_invariant_def, convert_decls_def]
- >- metis_tac [pair_CASES]);
+ >- (fs [init_code_executes_ok_def, code_executes_ok_def] >>
+     metis_tac []));
 
-
+     (*
 val convert_invariants2 = Q.prove (
 `!r rf bs.
    invariant r rf bs 
@@ -1413,6 +1411,7 @@ val convert_invariants2 = Q.prove (
  cases_on `bs` >>
  rw [] >>
  fs [bc_state_clock_fupd, bc_state_clock]);
+ *)
 
 val simple_replCorrect_basis = Q.store_thm ("simple_replCorrect_basis",
 `!input output b.
@@ -1435,26 +1434,34 @@ val simple_replCorrect_basis = Q.store_thm ("simple_replCorrect_basis",
                                       e.inf_tenvC,
                                       e.inf_tenvE);
                 rcompiler_state := e.comp_rs |> in
-  (simple_repl_fun (rf,SND (THE basis_env) ++ SND (THE prim_env)) input = (output,b)) ⇒
+  (simple_repl_fun (rf,Stop T :: SND (THE basis_env) ++ SND (THE prim_env)) input = (output,b)) ⇒
   (repl r (get_type_error_mask output) input output) /\ b`,
-  rpt gen_tac >>
-  simp [] >>
-  strip_tac >>
-  match_mp_tac simple_replCorrect >>
-  qexists_tac `SND (THE basis_env) ++ SND (THE prim_env)` >>
-  qabbrev_tac `e = FST (THE basis_env)` >>
-  qexists_tac `<| relaborator_state := [];
-                rinferencer_state := ((e.inf_mdecls, e.inf_tdecls, e.inf_edecls), 
-                                      e.inf_tenvM,
-                                      e.inf_tenvC,
-                                      e.inf_tenvE);
-                rcompiler_state := e.comp_rs |>` >>
-  strip_assume_tac basis_env_inv >>
-  fs [convert_invariants] >>
-  rw []
-  >- cheat
-  >- (cases_on `bc_eval (install_code (code ++ SND (THE prim_env)) empty_bc_state)` >>
-      fs [] >>
-      metis_tac []));
+ rpt gen_tac >>
+ simp [] >>
+ strip_tac >>
+ match_mp_tac simple_replCorrect >>
+ qexists_tac `Stop T :: SND (THE basis_env) ++ SND (THE prim_env)` >>
+ qabbrev_tac `e = FST (THE basis_env)` >>
+ qexists_tac `<| relaborator_state := [];
+               rinferencer_state := ((e.inf_mdecls, e.inf_tdecls, e.inf_edecls), 
+                                     e.inf_tenvM,
+                                     e.inf_tenvC,
+                                     e.inf_tenvE);
+               rcompiler_state := e.comp_rs |>` >>
+ strip_assume_tac basis_env_inv >>
+ imp_res_tac add_stop_invariant >>
+ imp_res_tac convert_invariants >>
+ rw [] >>
+ fs []
+ >- (rw [initial_bc_state_side_def] >>
+     fs [init_code_executes_ok_def, initialProgramTheory.invariant_def, env_rs_def, code_executes_ok_def] >>
+     `s2' = bs'` by all_tac >>
+     rw [] >>
+     imp_res_tac bc_eval_SOME_RTC_bc_next >>
+     fs [Once RTC_CASES1])
+ >- (cases_on `bc_eval (install_code (Stop T :: (code ++ SND (THE prim_env))) empty_bc_state)` >>
+     fs [] >>
+     metis_tac []));
+
 
 val _ = export_theory ();
