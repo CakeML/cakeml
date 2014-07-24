@@ -169,4 +169,4 @@ let compile_initial_prog cs prog =
             ; exh = exh
             ; rnext_label = r.next_label
             |> in
-  (cs, (emit r [Stack Pop; Stop true]).out)
+  (cs, (emit r [Stack Pop]).out)

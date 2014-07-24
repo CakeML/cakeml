@@ -209,7 +209,7 @@ val _ = Define `
   let r = (compile_Cexp [] ( 0) <|out := []; next_label := cs.rnext_label|> e) in
   let cs = (<| next_global := n ; globals_env := (m1,m2) ; contags_env := c
             ; exh := exh ; rnext_label := r.next_label |>) in
-  (cs, (emit r [Stack Pop; Stop T]).out)
+  (cs, (emit r [Stack Pop]).out)
   )))`;
 
 val _ = export_theory()

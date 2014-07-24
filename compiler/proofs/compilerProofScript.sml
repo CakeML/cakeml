@@ -4063,7 +4063,6 @@ val compile_initial_prog_code_labels_ok = store_thm("compile_initial_prog_code_l
     first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
     rw[] >>
     match_mp_tac code_labels_ok_cons >> simp[] >>
-    match_mp_tac code_labels_ok_cons >> simp[] >>
     match_mp_tac (MP_CANON compile_Cexp_code_ok_thm) >>
     (fn(g as (_,w)) => map_every exists_tac (w |> strip_exists |> snd |> dest_conj |> fst |> rhs |> strip_comb |> snd) g) >>
     simp[] >>
@@ -4088,7 +4087,8 @@ val compile_initial_prog_thm = store_thm("compile_initial_prog_thm",
       ⇒
       ∃bs' grd'.
       bc_next^* bs bs' ∧
-      bc_fetch bs' = SOME (Stop T) ∧
+      bc_fetch bs' = NONE ∧
+      bs'.pc = next_addr bs.inst_length bs.code ∧
       bs'.output = bs.output ∧
       env_rs (envM++FST env,merge_envC envC (FST(SND env)),envE++(SND(SND env))) s grd' rs' bs'``,
   simp[compile_initial_prog_def] >> rw[] >>
@@ -4167,7 +4167,7 @@ val compile_initial_prog_thm = store_thm("compile_initial_prog_thm",
   rpt gen_tac >> strip_tac >>
   qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
   strip_tac >>
-  `bc_next^* bs (bs1 with code := bs1.code++[Stack Pop; Stop T])` by (
+  `bc_next^* bs (bs1 with code := bs1.code++[Stack Pop])` by (
     match_mp_tac RTC_bc_next_append_code >>
     map_every qexists_tac[`bs0`,`bs1`] >>
     simp[Abbr`bs0`,bc_state_component_equality] >>
@@ -4191,11 +4191,12 @@ val compile_initial_prog_thm = store_thm("compile_initial_prog_thm",
   pop_assum kall_tac >>
   simp[RIGHT_EXISTS_AND_THM] >>
   conj_tac >- (
-    match_mp_tac bc_fetch_next_addr >>
-    simp[] >>
-    CONV_TAC SWAP_EXISTS_CONV >>
-    qexists_tac`[]`>>simp[] >>
+    simp[bc_fetch_def] >>
+    match_mp_tac bc_fetch_aux_end_NONE >>
     REWRITE_TAC[SUM_APPEND,FILTER_APPEND,MAP_APPEND] >>
+    simp[] ) >>
+  conj_tac >- (
+    REWRITE_TAC[SUM_APPEND,FILTER_APPEND,MAP_APPEND,REVERSE_APPEND] >>
     simp[] ) >>
   simp[EXISTS_PROD,env_rs_def,PULL_EXISTS] >>
   Q.PAT_ABBREV_TAC`P = good_labels A B` >>
