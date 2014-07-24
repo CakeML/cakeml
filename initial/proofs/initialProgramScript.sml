@@ -294,12 +294,14 @@ val prim_sem_env_eq = save_thm ("prim_sem_env_eq",
   |> SIMP_CONV(srw_ss())[prim_sem_env_def,add_to_sem_env_def,prim_types_program_def]
   |> CONV_RULE(computeLib.CBV_CONV the_interp_compset));
 
-  (*
-val prim_bs_eq = 
+val cs = the_bytecode_compset
+val () = computeLib.add_thms[bc_fetch_def,bc_fetch_aux_def,is_Label_def,bc_find_loc_aux_def] cs
+val () = computeLib.add_datatype_info cs (valOf(TypeBase.fetch``:bc_inst``))
+val () = computeLib.add_conv(``real_inst_length``,1,eval_real_inst_length) cs
+val prim_bs_eq =
   ``prim_bs``
      |> SIMP_CONV (srw_ss()) [install_code_def, prim_bs_def, prim_env_eq, empty_bc_state_def, Once bc_eval_compute]
-     |> CONV_RULE (computeLib.CBV_CONV the_bytecode_compset)
-     *)
+     |> CONV_RULE (computeLib.CBV_CONV cs)
 
 val to_ctMap_list_def = Define `
 to_ctMap_list tenvC =
@@ -317,14 +319,10 @@ val prim_env_inv = Q.store_thm ("prim_env_inv",
 `?se e code bs.
   prim_env = SOME (e,code) ∧
   prim_sem_env = SOME se ∧
-  bc_eval (install_code code empty_bc_state) = SOME bs ∧
+  prim_bs = SOME bs ∧
   invariant' se e bs`,
-cheat);
-(*
  rw [prim_bs_eq, prim_env_eq, prim_sem_env_eq, invariant'_def, GSYM PULL_EXISTS] >>
- qexists_tac `bs` >>
  rw []
- >- fs [prim_env_eq]
  >- (rw [typeSoundInvariantsTheory.type_sound_invariants_def] >>
      MAP_EVERY qexists_tac [`to_ctMap (FST (THE prim_env)).inf_tenvC`, 
                             `[]`, 
@@ -383,11 +381,10 @@ cheat);
               (("Eq",TypeExn (Short "Eq")), (eq_tag,0));
               (("Subscript",TypeExn(Short"Subscript")),(subscript_tag,0))]` >>
      simp[Once RIGHT_EXISTS_AND_THM] >>
-     conj_tac >- cheat >>
+     conj_tac >- EVAL_TAC >>
      simp[PULL_EXISTS] >>
      CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`[]` >> simp[RIGHT_EXISTS_AND_THM] >>
      simp[RIGHT_EXISTS_AND_THM,GSYM CONJ_ASSOC] >>
-     conj_tac >- cheat >>
      conj_tac >- (EVAL_TAC >> simp[s_to_i1_cases] >> simp[Once v_to_i1_cases] >> simp[Once v_to_i1_cases]) >>
      CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`[]` >>
      CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`[]` >>
@@ -423,16 +420,15 @@ cheat);
      srw_tac[boolSimps.DNF_ss][Once RTC_CASES1])
  >- fs [bytecodeLabelsTheory.code_labels_ok_def, bytecodeLabelsTheory.uses_label_def]
  >- (
-   simp[code_executes_ok_def] >>
-   disj1_tac >>
-   Q.PAT_ABBREV_TAC`bs0:bc_state = X` >>
-   `∃bs1. bc_eval bs0 = SOME bs1 ∧ bc_fetch bs1 = SOME (Stop T)` by (
-     simp[Abbr`bs0`] >>
-     CONV_TAC(QUANT_CONV(LAND_CONV (computeLib.CBV_CONV the_bytecode_compset))) >>
-     simp[] >>
-     CONV_TAC (computeLib.CBV_CONV the_bytecode_compset) ) >>
-   metis_tac[bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next]))
-   *)
+   REWRITE_TAC[code_executes_ok'_def] >>
+   CONV_TAC(QUANT_CONV(RAND_CONV (RAND_CONV EVAL))) >>
+   qho_match_abbrev_tac`∃s2. bc_next^* s1 s2 ∧ P s2` >>
+   qsuff_tac`∃s2. bc_eval s1 = SOME s2 ∧ P s2` >-
+     metis_tac[bc_eval_SOME_RTC_bc_next] >>
+   qunabbrev_tac`s1` >>
+   CONV_TAC(QUANT_CONV(LAND_CONV(computeLib.CBV_CONV cs))) >>
+   simp[Abbr`P`] >>
+   CONV_TAC(computeLib.CBV_CONV cs)))
 
 val basis_env_def = Define `
 basis_env =
