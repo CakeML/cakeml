@@ -65,9 +65,6 @@ Directory structure:
     A proof-producing translator from HOL functions to CakeML.
 - translator/repl
     A run of the translator on the translatable part of repl_fun.
-- translator/repl/proofs
-    Theorem about the correctness of the result of bootstrapping the above, as
-    done below.
 
 - bootstrap
     Evaluation of the compiler on the deep embedding of repl_fun produced by
@@ -92,6 +89,7 @@ Directory structure:
     instance is available on the CakeML website.
 
 - new-backend
+- targets
     Work towards a new series of compilation phases to replace the bytecode.
 
 - miscLib.sml, miscScript.sml, preamble.sml
