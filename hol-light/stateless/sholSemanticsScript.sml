@@ -4826,8 +4826,6 @@ val semantics_universal = store_thm("semantics_universal",
     simp[Once semantics_cases,FLOOKUP_UPDATE] ) >>
   qspecl_then[`p`,`mty`,`boolset`]mp_tac (UNDISCH in_funspace_abstract) >>
   simp[] >>
-  discharge_hyps >- (
-    metis_tac[typeset_inhabited,boolean_in_boolset] ) >>
   disch_then(qx_choose_then`f`strip_assume_tac) >>
   simp[boolean_def] >>
   BasicProvers.CASE_TAC >- (
@@ -5584,7 +5582,6 @@ val INFINITY_AX_correct = store_thm("INFINITY_AX_correct",
       simp[Once semantics_cases,FLOOKUP_UPDATE] >>
       qspecl_then[`mx`,`indset`,`indset`]mp_tac(UNDISCH in_funspace_abstract) >>
       simp[] >>
-      discharge_hyps >- metis_tac[indset_inhabited,is_model_def] >>
       strip_tac >> BasicProvers.VAR_EQ_TAC >>
       conj_tac >- (
         match_mp_tac (UNDISCH abstract_eq) >>
@@ -5601,7 +5598,6 @@ val INFINITY_AX_correct = store_thm("INFINITY_AX_correct",
       simp[Once semantics_cases,FLOOKUP_UPDATE] >>
       qspecl_then[`mx`,`indset`,`indset`]mp_tac(UNDISCH in_funspace_abstract) >>
       simp[] >>
-      discharge_hyps >- metis_tac[indset_inhabited,is_model_def] >>
       strip_tac >> BasicProvers.VAR_EQ_TAC >>
       conj_tac >- (
         match_mp_tac (UNDISCH abstract_eq) >>

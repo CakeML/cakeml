@@ -1,14 +1,15 @@
 bytecode.lem
   definition of bytecode language
 
-printer.lem
-  translations from CakeML values and Bytecode values to strings 
-
 bytecodeEvalScript.sml
   functional implementing the deterministic bytecode evaluation relation
 
 bytecodeExtraScript.sml
-  metatheory
+  various theorems and helpful definitions about the bytecode
+
+bytecodeEncodeScript.sml
+  theory about encoding bytecode as numbers or strings (used for the unverified
+  interpreter)
 
 bytecodeClockScript.sml
   proofs about clocked bytecode evaluation, used for the divergence
@@ -18,13 +19,8 @@ bytecodeLabelsScript.sml
   definition and proofs about routines for replacing bytecode labels by
   concrete addresses
 
+labels_computeLib.sml
+  library for removing labels by evaluation in the logic
+
 bytecodeTerminationScript.sml
   termination proofs for recursive functions
-
-hol_lib.lem
-compilerLib.lem
-  library functions used throughout the compiler
-
-miscLib.sml
-miscScript.sml
-  useful theorems and tactics not specific to the compiler or bytecode

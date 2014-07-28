@@ -1,17 +1,20 @@
-*PropsScript.sml
-  extra definitions and proofs about intermediate languages
-
-*ProofScript.sml
+modLangProofScript.sml
+decLangProofScript.sml
+conLangProofScript.sml
+exhLangProofScript.sml
+patLangProofScript.sml
+intLangExtraScript.sml
+intLangProofScript.sml
+bytecodeProofScript.sml
   verification of translations into intermediate languages
 
-replDecsProofScript.sml
-  specialisation of the compiler top-level correctness theorem for a setup
-  involving a list of declarations to be run from the initial state that define
-  the compiler and a function to call it. (these declarations are actually
-  defined in ../../translator/repl; the proofs here are generalised.)
+free_varsScript.sml
+  theorems concerning free variables in expressions and values (in all the
+  intermediate languages), and preservation of closed values by the semantics
 
-pmatchScript.sml
-toIntLangProofsScript.sml
-toBytecodeProofsScript.sml
-compilerProofsScript.sml
-  obsolete
+printingScript.sml
+  definition of the value refinement relation and theorems about the compiler
+  functions that generate code for printing REPL results
+
+compilerProofScript.sml
+  verification of the entry points to the compiler
