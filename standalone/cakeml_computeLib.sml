@@ -82,11 +82,11 @@ val () = add_datatype ``:'a spt``
 (* misc :( *)
 val () = computeLib.add_thms
   [miscTheory.find_index_def
-  ,compilerLibTheory.lunion_def
-  ,compilerLibTheory.lshift_def
-  ,compilerLibTheory.el_check_def
-  ,compilerLibTheory.the_def
-  ,compilerLibTheory.num_fold_def
+  ,libTheory.lunion_def
+  ,libTheory.lshift_def
+  ,libTheory.el_check_def
+  ,libTheory.the_def
+  ,libTheory.num_fold_def
   ] compset
 (* semantics *)
 val () = computeLib.add_thms
@@ -531,8 +531,8 @@ val bc_fetch_aux_0_thm = prove(
     if no_labels code then el_check pc code
     else FAIL (bc_fetch_aux code (K 0) pc) "code has labels"``,
   REWRITE_TAC[no_labels_def] >>
-  Induct >> simp[bytecodeTheory.bc_fetch_aux_def,compilerLibTheory.el_check_def] >>
-  rw[] >> fs[combinTheory.FAIL_DEF,compilerLibTheory.el_check_def] >>
+  Induct >> simp[bytecodeTheory.bc_fetch_aux_def,libTheory.el_check_def] >>
+  rw[] >> fs[combinTheory.FAIL_DEF,libTheory.el_check_def] >>
   simp[rich_listTheory.EL_CONS,arithmeticTheory.PRE_SUB1])
 
 val remove_labels_all_asts_no_labels = prove(
@@ -568,7 +568,7 @@ in
       ,SUC_TO_NUMERAL_RULE bc_evaln_def
       ,LEAST_thm
       ,least_from_thm
-      ,compilerLibTheory.el_check_def
+      ,libTheory.el_check_def
       ,listTheory.LUPDATE_compute
       ] compset
     val () = computeLib.add_datatype_info compset (valOf(TypeBase.fetch``:bc_state``))

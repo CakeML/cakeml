@@ -24,7 +24,6 @@ open import List_extra
 open import BigStep
 open import ConLang
 open import DecLang
-open import CompilerLib
 
 type pat_exh =
   | Pvar_exh of varN

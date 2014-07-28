@@ -30,11 +30,11 @@ val () = finite_mapLib.add_finite_map_compset compset
 (* misc :( *)
 val () = computeLib.add_thms
   [miscTheory.find_index_def
-  ,compilerLibTheory.lunion_def
-  ,compilerLibTheory.lshift_def
-  ,compilerLibTheory.el_check_def
-  ,compilerLibTheory.the_def
-  ,compilerLibTheory.num_fold_def
+  ,libTheory.lunion_def
+  ,libTheory.lshift_def
+  ,libTheory.el_check_def
+  ,libTheory.the_def
+  ,libTheory.num_fold_def
   ] compset
 (* semantics *)
 val () = computeLib.add_thms

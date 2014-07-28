@@ -1933,7 +1933,7 @@ val compile_top_thm = store_thm("compile_top_thm",
         metis_tac[LENGTH_MAP] ) >>
       rfs[Abbr`bvs`] >>
       simp[EVERY2_EVERY,EVERY_MEM,MEM_ZIP,PULL_EXISTS,EL_MAP] >>
-      simp[FLOOKUP_DEF,compilerLibTheory.el_check_def] >>
+      simp[FLOOKUP_DEF,libTheory.el_check_def] >>
       rpt BasicProvers.VAR_EQ_TAC >>
       TRY (BasicProvers.CASE_TAC >> fs[] >> NO_TAC) >>
       `LENGTH gv = LENGTH grd0 + LENGTH new_genv` by (

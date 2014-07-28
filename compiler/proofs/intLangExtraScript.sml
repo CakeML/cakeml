@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib miscLib boolSimps pairTheory listTheory rich_listTheory pred_setTheory finite_mapTheory relationTheory SatisfySimps arithmeticTheory quantHeuristicsLib lcsymtacs
-open miscTheory compilerLibTheory intLangTheory toIntLangTheory compilerTerminationTheory
+open miscTheory libTheory intLangTheory toIntLangTheory compilerTerminationTheory
 open exhLangProofTheory patLangProofTheory
 (* open semanticsExtraTheory *)
 val _ = new_theory "intLangExtra"

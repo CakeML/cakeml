@@ -401,7 +401,7 @@ val do_eq_pat_correct = prove(
 
 val the_less_rwt = prove(
   ``the X Y < (X:num) ⇔ ∃z. (Y = SOME z) ∧ z < X``,
-  Cases_on`Y`>>simp[compilerLibTheory.the_def])
+  Cases_on`Y`>>simp[libTheory.the_def])
 
 val sv_to_pat_def = Define`
   (sv_to_pat (Refv v) = Refv (v_to_pat v)) ∧

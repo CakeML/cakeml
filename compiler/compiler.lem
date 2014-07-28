@@ -1,8 +1,8 @@
 open import Pervasives
+open import Lib
 open import SemanticPrimitives
 open import Ast
 open import Infer_t
-open import CompilerLib
 open import IntLang
 open import ToIntLang
 open import ToBytecode

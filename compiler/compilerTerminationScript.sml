@@ -1,5 +1,5 @@
 open HolKernel boolLib boolSimps bossLib Defn pairTheory pred_setTheory listTheory finite_mapTheory state_transformerTheory lcsymtacs
-open terminationTheory compilerLibTheory intLangTheory toIntLangTheory toBytecodeTheory compilerTheory bytecodeTheory
+open terminationTheory libTheory intLangTheory toIntLangTheory toBytecodeTheory compilerTheory bytecodeTheory
 open modLangTheory conLangTheory exhLangTheory patLangTheory;
 
 val _ = new_theory "compilerTermination"
@@ -420,7 +420,7 @@ val _ = export_rewrites
 ,"intLang.CevalUpd_def","intLang.CevalPrim1_def"
 ,"free_labs_def","no_labs_def","all_labs_def"
 ,"toIntLang.exp_to_Cexp_def","toIntLang.v_to_Cv_def"
-,"do_Ceq_def","compilerLib.the_def","compilerLib.fapply_def"];
+,"do_Ceq_def","lib.the_def","lib.fapply_def"];
 
 (*
 val _ = export_rewrites
