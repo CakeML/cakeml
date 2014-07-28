@@ -1,9 +1,9 @@
-open HolKernel bossLib boolLib boolSimps optionTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory arithmeticTheory pairTheory sortingTheory relationTheory bitTheory lcsymtacs miscLib
-
-open sptreeTheory;
+open HolKernel bossLib boolLib boolSimps lcsymtacs miscLib
+open optionTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory arithmeticTheory pairTheory sortingTheory relationTheory bitTheory sptreeTheory
 
 (* Misc. lemmas (without any compiler constants) *)
 val _ = new_theory "misc"
+val _ = ParseExtras.temp_tight_equality()
 
 (* TODO: move/categorize *)
 
@@ -263,6 +263,11 @@ val FILTER_F = store_thm("FILTER_F",
   ``∀ls. FILTER (λx. F) ls = []``,
   Induct >> simp[])
 val _ = export_rewrites["FILTER_F"]
+
+val OPTREL_SOME = store_thm("OPTREL_SOME",
+  ``(!R x y. OPTREL R (SOME x) y <=> (?z. y = SOME z /\ R x z)) /\
+    (!R x y. OPTREL R x (SOME y) <=> (?z. x = SOME z /\ R z y))``,
+    rw[optionTheory.OPTREL_def])
 
 val LIST_REL_O = store_thm("LIST_REL_O",
   ``∀R1 R2 l1 l2. LIST_REL (R1 O R2) l1 l2 ⇔ ∃l3. LIST_REL R2 l1 l3 ∧ LIST_REL R1 l3 l2``,
