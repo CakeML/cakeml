@@ -17,13 +17,6 @@ val _ = Hol_datatype `
                         inf_tenvE : (tvarN, num # infer_t) alist;
                         comp_rs : compiler_state |>`;
 
-val _ = Hol_datatype `
-  sem_environment = <| sem_envM : envM;
-                       sem_envC : envC;
-                       sem_envE : envE;
-                       sem_s : v store;
-                       sem_tids : tid_or_exn set;
-                       sem_mdecls : modN set |>`;
 
 val code_executes_ok'_def = Define `
 code_executes_ok' s1 ⇔
@@ -369,7 +362,6 @@ val prim_env_inv = Q.store_thm ("prim_env_inv",
          metis_tac [weakeningTheory.weak_decls_refl])
      >- rw [prim_env_eq, weak_decls_only_mods_def, convert_decls_def])
  >- rw [infer_sound_invariant_def,check_menv_def,check_cenv_def,check_flat_cenv_def,terminationTheory.check_freevars_def,check_env_def]
-
  >- (simp[compilerProofTheory.env_rs_def,LENGTH_NIL_SYM] >>
      qexists_tac`
       FEMPTY |++ [(("NONE",TypeId (Short "option")), (none_tag, 0));
