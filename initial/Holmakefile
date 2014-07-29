@@ -1,14 +1,16 @@
-INCLUDES = ../semantics
+INCLUDES = .. ../bytecode ../semantics ../semantics/proofs ../compiler ../inference ../inference/proofs ../metatheory ../compiler ../compiler/proofs
+
 OPTIONS = QUIT_ON_FAILURE
 
-SEMANTICSI = ast
-INITIAL = initialEnv
-GEN_SCRIPTS =  $(patsubst %,%Script.sml,$(INITIAL))
+ifdef POLY
+HOLHEAP = heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-LEMI = $(patsubst %,../semantics/%.lem,$(SEMANTICSI))
-LEMH = $(patsubst %,%.lem,$(INITIAL))
+BARE_THYS = ../semantics/initialProgramTheory ../semantics/proofs/initSemEnvTheory ../semantics/proofs/interpTheory ../inference/proofs/inferSoundTheory ../compiler/proofs/compilerProofTheory ../metatheory/typeSoundTheory
 
-$(GEN_SCRIPTS): $(LEMI) $(LEMH)
-	if type lem;\
-	then lem -auxiliary_level none $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMH));\
-	else touch $(GEN_SCRIPTS); fi
+DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) $(BARE_THYS)
+endif
+

@@ -363,6 +363,13 @@ val run_eval_prog_def = Define `
               | (st'', cenv'', Rerr err) => (st'', merge_envC cenv'' cenv', Rerr err))
      | (st', cenv', Rerr err) => (st', cenv', Rerr err))`;
 
+val run_eval_whole_prog_def = Define `
+run_eval_whole_prog env st prog = 
+  if no_dup_mods prog st ∧ no_dup_top_types prog st then
+    run_eval_prog env st prog
+  else
+    (st,(emp,emp),Rerr Rtype_error)`;
+
 val run_eval_dec_spec = Q.store_thm ("run_eval_dec_spec",
 `!mn st tdecs env d st' tdecs' r.
   (run_eval_dec mn env (st,tdecs) d = ((st',tdecs'), r)) ⇒
@@ -434,5 +441,12 @@ val run_eval_prog_spec = Q.store_thm ("run_eval_prog_spec",
  >- (disj1_tac >>
      MAP_EVERY qexists_tac [`s,tdecs'',mdecs''`, `q''`, `q'`, `q''''`, `r'`, `Rerr e`] >>
      rw [combine_mod_result_def]));
+
+val run_eval_whole_prog_spec = Q.store_thm ("run_eval_whole_prog_spec",
+`!env st tdecs mdecs prog st' tdecs' mdecs' cenv' r.
+  run_eval_whole_prog env (st,tdecs,mdecs) prog = ((st',tdecs',mdecs'),cenv', r) ⇒
+  evaluate_whole_prog T env (st,tdecs,mdecs) prog ((st',tdecs',mdecs'),cenv', r)`,
+ rw [run_eval_whole_prog_def, evaluate_whole_prog_def] >>
+ metis_tac [run_eval_prog_spec]);
 
 val _ = export_theory ();

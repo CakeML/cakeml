@@ -5,6 +5,7 @@ val _ = new_theory "repl_fun_alt_proof";
 open arithmeticTheory relationTheory listTheory lexer_implTheory;
 open repl_funTheory bytecodeLabelsTheory bytecodeTheory;
 open lcsymtacs bytecodeEvalTheory bytecodeExtraTheory initialProgramTheory;
+open initCompEnvTheory;
 
 infix \\ val op \\ = op THEN;
 
@@ -470,7 +471,7 @@ val repl_fun_alt_correct = store_thm("repl_fun_alt_correct",
     \\ Q.ABBREV_TAC `l = real_inst_length`
     \\ Q.ABBREV_TAC `c2 = REVERSE init_bc_code`
     \\ SIMP_TAC (srw_ss()) [install_code_def,strip_labels_def,
-         initialProgramTheory.empty_bc_state_def]
+         empty_bc_state_def]
     \\ ASM_SIMP_TAC std_ss [code_labels_def,inst_labels_def,GSYM all_labels_def])
   \\ FULL_SIMP_TAC std_ss []
   \\ `empty_bc_state.inst_length = (THE (bc_eval bs1)).inst_length` by ALL_TAC
@@ -478,10 +479,10 @@ val repl_fun_alt_correct = store_thm("repl_fun_alt_correct",
    (UNABBREV_ALL_TAC \\ SIMP_TAC (srw_ss()) [install_code_def]
     \\ IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
     \\ IMP_RES_TAC bytecodeExtraTheory.RTC_bc_next_preserves
-    \\ FULL_SIMP_TAC (srw_ss()) [initialProgramTheory.empty_bc_state_def,install_code_def])
+    \\ FULL_SIMP_TAC (srw_ss()) [empty_bc_state_def,install_code_def])
   \\ `bs1.inst_length = real_inst_length` by ALL_TAC THEN1
    (UNABBREV_ALL_TAC \\ SIMP_TAC (srw_ss()) [install_code_def,
-      initialProgramTheory.empty_bc_state_def,FUN_EQ_THM])
+      empty_bc_state_def,FUN_EQ_THM])
   \\ `code_executes_ok bs1` by ALL_TAC THEN1
    (IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
     \\ IMP_RES_TAC bytecodeExtraTheory.RTC_bc_next_preserves
@@ -504,7 +505,7 @@ val repl_fun_alt_correct = store_thm("repl_fun_alt_correct",
     \\ UNABBREV_ALL_TAC \\ FULL_SIMP_TAC (srw_ss()) [install_code_def]
     \\ IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
     \\ IMP_RES_TAC bytecodeExtraTheory.RTC_bc_next_preserves
-    \\ FULL_SIMP_TAC (srw_ss()) [initialProgramTheory.empty_bc_state_def])
+    \\ FULL_SIMP_TAC (srw_ss()) [empty_bc_state_def])
   \\ `(bc_fetch (strip_labels bs3) = bc_fetch bs3)` by ALL_TAC
   THEN1 (METIS_TAC [bc_fetch_strip_labels])
   \\ FULL_SIMP_TAC (srw_ss()) []
@@ -531,7 +532,7 @@ val repl_fun_alt_correct = store_thm("repl_fun_alt_correct",
     \\ UNABBREV_ALL_TAC \\ FULL_SIMP_TAC (srw_ss()) [install_code_def]
     \\ IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
     \\ IMP_RES_TAC bytecodeExtraTheory.RTC_bc_next_preserves
-    \\ FULL_SIMP_TAC (srw_ss()) [initialProgramTheory.empty_bc_state_def])
+    \\ FULL_SIMP_TAC (srw_ss()) [empty_bc_state_def])
   \\ FULL_SIMP_TAC std_ss [all_labels_def]);
 
 val _ = delete_const "temp";

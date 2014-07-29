@@ -5,6 +5,8 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
 
   fun add_ast_compset compset =
   let
+    val () = compute_basicLib.add_basic_compset compset
+    
     val () = computeLib.add_thms
     [gramTheory.nt_distinct_ths
     ,libTheory.merge_def
@@ -35,6 +37,8 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
     ,semanticPrimitivesTheory.combine_dec_result_def
     ,semanticPrimitivesTheory.build_rec_env_def
     ,terminationTheory.pmatch_def
+    ,bigStepTheory.no_dup_mods_def
+    ,bigStepTheory.no_dup_top_types_def
     ] compset
     val () = add_datatype ``:MMLnonT`` compset
     val () = add_datatype ``:top`` compset
@@ -55,6 +59,7 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
 
   fun add_lexparse_compset compset = let
     local open lexer_funTheory in
+      val () = compute_basicLib.add_basic_compset compset
       val () = computeLib.add_thms
       [next_token_def
       ,next_sym_def
@@ -137,6 +142,9 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
     end
 
   fun add_elab_compset compset = let
+      
+    val () = compute_basicLib.add_basic_compset compset
+      
     local open elabTheory in
       val () = computeLib.add_thms
       [elab_prog_def
@@ -154,7 +162,6 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
 
   val the_semantics_compset = let 
     val c = wordsLib.words_compset ()
-    val () = compute_basicLib.add_basic_compset c
     val () = add_ast_compset c
     val () = add_lexparse_compset c
     val () = add_elab_compset c

@@ -494,7 +494,7 @@ val infer_d_def = Define `
   od)`;
 
 val append_decls_def = Define `
-append_decls (m1,t1,e1) (m2,t2,e2) = (m1++m2,t1++t2,e1++e2)`;
+append_decls ((m1:'a list),(t1:'b list),(e1:'c list)) (m2,t2,e2) = (m1++m2,t1++t2,e1++e2)`;
 
 val infer_ds_def = Define `
 (infer_ds mn decls menv cenv env [] =

@@ -5,7 +5,7 @@ ifdef POLY
 HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../../preamble ../../miscTheory ../libTheory ../bigStepTheory ../typeSystemTheory ../tokensTheory ../gramTheory ../elabTheory ../smallStepTheory ../terminationTheory
+BARE_THYS = ../../preamble ../../miscTheory ../libTheory ../bigStepTheory ../typeSystemTheory ../tokensTheory ../gramTheory ../elabTheory ../smallStepTheory ../terminationTheory ../compute_semanticsLib
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)

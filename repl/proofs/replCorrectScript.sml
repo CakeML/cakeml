@@ -2,11 +2,11 @@ open preamble boolSimps miscLib rich_listTheory arithmeticTheory;
 open lexer_funTheory repl_funTheory replTheory untypedSafetyTheory bytecodeClockTheory bytecodeExtraTheory bytecodeEvalTheory
 open lexer_implTheory cmlParseTheory inferSoundTheory bigStepTheory elabTheory compilerProofTheory;
 open semanticPrimitivesTheory typeSystemTheory typeSoundTheory weakeningTheory evalPropsTheory typeSysPropsTheory terminationTheory;
-open initialEnvTheory interpTheory;
+open initSemEnvTheory interpTheory;
 open typeSoundInvariantsTheory inferTheory free_varsTheory;
 open bytecodeTheory;
 open gramPropsTheory pegSoundTheory pegCompleteTheory;
-open repl_fun_alt_proofTheory initialProgramTheory;
+open repl_fun_alt_proofTheory initialProgramTheory initCompEnvTheory;
 
 val _ = new_theory "replCorrect";
 
@@ -340,12 +340,12 @@ rw [update_repl_state_def, type_infer_invariants_def] >>
 val invariant_def = Define`
   invariant rs rfs bs ⇔
     rfs.relaborator_state = rs.type_bindings
-    ∧ SND(SND rs.store) = FST rs.tdecs
+    ∧ SND(SND rs.sem_env.sem_store) = FST rs.tdecs
 
     ∧ type_infer_invariants rs rfs.rinferencer_state
-    ∧ type_sound_invariants (NONE : (v,v) result option) (rs.tdecs,rs.tenvM,rs.tenvC,rs.tenv,FST (SND rs.store),rs.envM,rs.envC,rs.envE,SND (FST rs.store))
+    ∧ type_sound_invariants (NONE : (v,v) result option) (rs.tdecs,rs.tenvM,rs.tenvC,rs.tenv,FST (SND rs.sem_env.sem_store),rs.sem_env.sem_envM,rs.sem_env.sem_envC,rs.sem_env.sem_envE,SND (FST rs.sem_env.sem_store))
 
-    ∧ (∃grd. env_rs (rs.envM,rs.envC,rs.envE) rs.store grd rfs.rcompiler_state bs)
+    ∧ (∃grd. env_rs (rs.sem_env.sem_envM,rs.sem_env.sem_envC,rs.sem_env.sem_envE) rs.sem_env.sem_store grd rfs.rcompiler_state bs)
 
     ∧ bs.clock = NONE
 
@@ -735,9 +735,9 @@ val consistent_mod_env_dom = Q.prove (
 val type_sound_inv_closed = Q.prove (
 `∀top rs new_tenvM new_tenvC new_tenv new_decls decls' store.
   type_top rs.tdecs rs.tenvM rs.tenvC rs.tenv top new_decls new_tenvM new_tenvC new_tenv ∧
-  type_sound_invariants NONE (rs.tdecs,rs.tenvM,rs.tenvC,rs.tenv,decls',rs.envM,rs.envC,rs.envE,store)
+  type_sound_invariants NONE (rs.tdecs,rs.tenvM,rs.tenvC,rs.tenv,decls',rs.sem_env.sem_envM,rs.sem_env.sem_envC,rs.sem_env.sem_envE,store)
   ⇒
-  FV_top top ⊆ all_env_dom (rs.envM,rs.envC,rs.envE)`,
+  FV_top top ⊆ all_env_dom (rs.sem_env.sem_envM,rs.sem_env.sem_envC,rs.sem_env.sem_envE)`,
 rw [] >>
 imp_res_tac type_top_closed >>
 `(?err. r = Rerr err) ∨ (?menv env. r = Rval (menv,env))`
@@ -1013,22 +1013,22 @@ fs [] >>
 fs [] >>
 BasicProvers.VAR_EQ_TAC >>
 imp_res_tac infer_to_type >>
-`type_sound_invariants (NONE:(v,v) result option) (rs.tdecs,rs.tenvM,rs.tenvC,rs.tenv,FST (SND rs.store),rs.envM,rs.envC,rs.envE,SND (FST rs.store))`
+`type_sound_invariants (NONE:(v,v) result option) (rs.tdecs,rs.tenvM,rs.tenvC,rs.tenv,FST (SND rs.sem_env.sem_store),rs.sem_env.sem_envM,rs.sem_env.sem_envC,rs.sem_env.sem_envE,SND (FST rs.sem_env.sem_store))`
         by fs [invariant_def] >>
-`¬top_diverges (rs.envM,rs.envC,rs.envE)
-          (SND (FST rs.store),FST (SND rs.store),FST rs.tdecs) top ⇒
+`¬top_diverges (rs.sem_env.sem_envM,rs.sem_env.sem_envC,rs.sem_env.sem_envE)
+          (SND (FST rs.sem_env.sem_store),FST (SND rs.sem_env.sem_store),FST rs.tdecs) top ⇒
        ∀count'.
          ∃r cenv2 store2 decls2'.
            r ≠ Rerr Rtype_error ∧
-           evaluate_top F (rs.envM,rs.envC,rs.envE)
-             ((count',SND (FST rs.store)),FST (SND rs.store),
+           evaluate_top F (rs.sem_env.sem_envM,rs.sem_env.sem_envC,rs.sem_env.sem_envE)
+             ((count',SND (FST rs.sem_env.sem_store)),FST (SND rs.sem_env.sem_store),
               FST rs.tdecs) top
              (((count',store2),decls2',
                FST (convert_decls new_decls) ∪ FST rs.tdecs),cenv2,r) ∧
            type_sound_invariants (SOME r)
              (update_type_sound_inv
-                (rs.tdecs,rs.tenvM,rs.tenvC,rs.tenv,FST (SND rs.store),
-                 rs.envM,rs.envC,rs.envE,SND (FST rs.store))
+                (rs.tdecs,rs.tenvM,rs.tenvC,rs.tenv,FST (SND rs.sem_env.sem_store),
+                 rs.sem_env.sem_envM,rs.sem_env.sem_envC,rs.sem_env.sem_envE,SND (FST rs.sem_env.sem_store))
                 (convert_decls new_decls) (convert_menv new_infer_menv)
                 new_infer_cenv (convert_env2 new_infer_env) store2
                 decls2' cenv2 r)`
@@ -1050,7 +1050,7 @@ cases_on `bc_eval (install_code code bs)` >> fs[] >- (
   conj_asm1_tac >- (
     first_assum(match_exists_tac o concl) >> rw[] >>
     qpat_assum`∀m. X ⇒ Y`kall_tac >>
-    `∃ck store tdecls. rs.store = ((ck,store),tdecls,FST rs.tdecs)` by metis_tac[pair_CASES,invariant_def,SND] >>
+    `∃ck store tdecls. rs.sem_env.sem_store = ((ck,store),tdecls,FST rs.tdecs)` by metis_tac[pair_CASES,invariant_def,SND] >>
     fs[remove_count_def] >>
     spose_not_then strip_assume_tac >> fs[] >>
     fs[invariant_def] >>
@@ -1103,7 +1103,7 @@ cases_on `bc_eval (install_code code bs)` >> fs[] >- (
   simp[code_executes_ok_def] >>
   disj2_tac >>
   qx_gen_tac`n` >>
-  `∃ck store tdecls. rs.store = ((ck,store),tdecls,FST rs.tdecs)` by metis_tac[pair_CASES,invariant_def,SND] >>
+  `∃ck store tdecls. rs.sem_env.sem_store = ((ck,store),tdecls,FST rs.tdecs)` by metis_tac[pair_CASES,invariant_def,SND] >>
   fs[remove_count_def] >>
   (untyped_safety_top |> Q.SPECL[`d`,`a,b,c`] |> SPEC_ALL |> EQ_IMP_RULE |> fst |> CONTRAPOS |> SIMP_RULE std_ss []
    |> GEN_ALL |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
@@ -1151,7 +1151,7 @@ discharge_hyps >- (
   fs[invariant_def] >>
   CONV_TAC(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(equal``compile_top`` o fst o strip_comb o lhs)))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
-  `∃ck0 store tdecls. rs.store = ((ck0,store),tdecls,FST rs.tdecs)` by metis_tac[pair_CASES,SND] >> fs[] >>
+  `∃ck0 store tdecls. rs.sem_env.sem_store = ((ck0,store),tdecls,FST rs.tdecs)` by metis_tac[pair_CASES,SND] >> fs[] >>
   map_every qexists_tac[`grd`,`bs.code`,`bs0 with clock := SOME (ck+1)`]>>
   simp[GSYM CONJ_ASSOC] >>
   conj_tac >- simp[Abbr`bs0`,install_code_def] >>
@@ -1196,7 +1196,7 @@ strip_tac >>
   simp[GSYM LEFT_EXISTS_AND_THM] >>
   Q.PAT_ABBREV_TAC`pp:repl_result#bool = X` >>
 
-  first_x_assum(qspec_then`FST(FST rs.store)`strip_assume_tac) >>
+  first_x_assum(qspec_then`FST(FST rs.sem_env.sem_store)`strip_assume_tac) >>
   imp_res_tac bigClockTheory.top_evaluate_not_timeout >>
   first_assum(mp_tac o MATCH_MP bigClockTheory.top_add_clock) >>
   simp[] >>
@@ -1216,7 +1216,7 @@ strip_tac >>
       qexists_tac`bs with clock := SOME ck` >>
       simp[install_code_def] >>
       match_mp_tac env_rs_change_clock >>
-      `∃ck0 store tdecls. rs.store = ((ck0,store),tdecls,FST rs.tdecs)` by metis_tac[pair_CASES,SND] >> fs[] >>
+      `∃ck0 store tdecls. rs.sem_env.sem_store = ((ck0,store),tdecls,FST rs.tdecs)` by metis_tac[pair_CASES,SND] >> fs[] >>
       fs[] >>
       first_assum(match_exists_tac o concl) >> simp[] >>
       simp[bc_state_component_equality] ) >>
@@ -1235,7 +1235,7 @@ strip_tac >>
   fs[] >> BasicProvers.VAR_EQ_TAC >> simp[Abbr`pp`,bc_fetch_with_clock] >>
   simp[get_type_error_mask_def] >>
   CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(equal``evaluate_top`` o fst o strip_comb))) >>
-  `∃ck0 store tdecls. rs.store = ((ck0,store),tdecls,FST rs.tdecs)` by metis_tac[pair_CASES,SND] >> fs[] >>
+  `∃ck0 store tdecls. rs.sem_env.sem_store = ((ck0,store),tdecls,FST rs.tdecs)` by metis_tac[pair_CASES,SND] >> fs[] >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(equal``type_top`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
@@ -1344,17 +1344,14 @@ val simple_replCorrect = Q.store_thm ("simple_replCorrect",
 
 val convert_invariants = Q.prove (
 `!se e bs.
-   initialProgram$invariant se e bs 
+   initCompEnv$invariant se e bs 
    ⇒
    invariant <| type_bindings := [];
                 tdecs := convert_decls (e.inf_mdecls, e.inf_tdecls, e.inf_edecls);
                 tenvM := convert_menv e.inf_tenvM;
                 tenvC := e.inf_tenvC;
                 tenv := bind_var_list2 (convert_env2 e.inf_tenvE) Empty;
-                envM := se.sem_envM;
-                envC := se.sem_envC;
-                envE := se.sem_envE; 
-                store := ((0,se.sem_s), se.sem_tids, se.sem_mdecls) |>
+                sem_env := se |>
              <| relaborator_state := [];
                 rinferencer_state := ((e.inf_mdecls, e.inf_tdecls, e.inf_edecls), 
                                       e.inf_tenvM,
@@ -1362,10 +1359,11 @@ val convert_invariants = Q.prove (
                                       e.inf_tenvE);
                 rcompiler_state := e.comp_rs |>
             bs`,
- rw [invariant_def, initialProgramTheory.invariant_def] >>
+ rw [invariant_def, initCompEnvTheory.invariant_def] >>
  rw [convert_decls_def] >>
  rw [GSYM PULL_EXISTS]
  >- fs [type_infer_invariants_def, infer_sound_invariant_def, convert_decls_def]
+ >- fs [convert_decls_def]
  >- metis_tac []
  >- (fs [init_code_executes_ok_def, code_executes_ok_def] >>
      metis_tac []));
@@ -1423,10 +1421,7 @@ val simple_replCorrect_basis = Q.store_thm ("simple_replCorrect_basis",
                 tenvM := convert_menv e.inf_tenvM;
                 tenvC := e.inf_tenvC;
                 tenv := bind_var_list2 (convert_env2 e.inf_tenvE) Empty;
-                envM := se.sem_envM;
-                envC := se.sem_envC;
-                envE := se.sem_envE; 
-                store := ((0,se.sem_s), se.sem_tids, se.sem_mdecls) |> in
+                sem_env := se |> in
   let rf =
        <| relaborator_state := [];
                 rinferencer_state := ((e.inf_mdecls, e.inf_tdecls, e.inf_edecls), 
@@ -1454,14 +1449,13 @@ val simple_replCorrect_basis = Q.store_thm ("simple_replCorrect_basis",
  rw [] >>
  fs []
  >- (rw [initial_bc_state_side_def] >>
-     fs [init_code_executes_ok_def, initialProgramTheory.invariant_def, env_rs_def, code_executes_ok_def] >>
-     `s2' = bs'` by all_tac >>
+     fs [init_code_executes_ok_def, initCompEnvTheory.invariant_def, env_rs_def, code_executes_ok_def] >>
+     `s2 = bs'` by all_tac >>
      rw [] >>
      imp_res_tac bc_eval_SOME_RTC_bc_next >>
      fs [Once RTC_CASES1])
  >- (cases_on `bc_eval (install_code (Stop T :: (code ++ SND (THE prim_env))) empty_bc_state)` >>
      fs [] >>
      metis_tac []));
-
 
 val _ = export_theory ();

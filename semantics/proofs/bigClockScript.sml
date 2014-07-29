@@ -8,6 +8,9 @@ open miscLib boolSimps;
 
 val _ = new_theory "bigClock";
 
+val set_counter_def = Define `
+  set_counter counter ((_,s),tids,mdecls) = ((counter,s),tids,mdecls)`;
+
 val big_unclocked_unchanged = Q.prove (
 `(∀ck env s e r1.
    evaluate ck env s e r1 ⇒

@@ -1,6 +1,7 @@
 open import Pervasives
 open import Ast
 open import SemanticPrimitives
+open import BigStep
 
 val mk_binop : string -> op -> dec
 let mk_binop name prim =
@@ -55,7 +56,27 @@ let init_type_bindings =
 type sem_environment = <| sem_envM : envM;
                           sem_envC : envC;
                           sem_envE : envE;
-                          sem_s : store v;
-                          sem_tids : set tid_or_exn;
-                          sem_mdecls : set modN |>
+                          sem_store : count_store v * set tid_or_exn * set modN |>
 
+val add_to_sem_env : sem_environment -> prog -> maybe sem_environment
+let add_to_sem_env se prog =
+  let res = { res | evaluate_whole_prog false (se.sem_envM,se.sem_envC,se.sem_envE) se.sem_store prog res } in
+    if res = {} then
+      Nothing
+    else 
+      match Set_extra.choose res with
+        | (s,envC,Rval (envM,envE)) ->
+           Just <| sem_envM = envM ++ se.sem_envM;
+                   sem_envC = merge_envC envC se.sem_envC;
+                   sem_envE = envE ++ se.sem_envE;
+                   sem_store = s |>
+        | _ -> Nothing
+      end
+
+val prim_sem_env : maybe sem_environment
+let prim_sem_env =
+  add_to_sem_env <| sem_envM = []; sem_envC = ([],[]); sem_envE = []; sem_store = ((0,[]),{},{}) |> prim_types_program
+
+val basis_sem_env : maybe sem_environment
+let basis_sem_env =
+  add_to_sem_env (Maybe_extra.fromJust prim_sem_env) basis_program

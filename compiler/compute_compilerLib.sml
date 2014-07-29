@@ -1,6 +1,6 @@
 structure compute_compilerLib = struct local
 open HolKernel boolLib bossLib computeLib
-open compilerLibTheory modLangTheory conLangTheory decLangTheory exhLangTheory patLangTheory toIntLangTheory toBytecodeTheory free_varsTheory compilerTheory
+open libTheory modLangTheory conLangTheory decLangTheory exhLangTheory patLangTheory toIntLangTheory toBytecodeTheory free_varsTheory compilerTheory
 open compilerTerminationTheory
 
 val SUC_TO_NUMERAL_RULE = CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook)

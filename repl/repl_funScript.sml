@@ -44,7 +44,7 @@ initial_inferencer_state : inferencer_state = (((THE basis_env).inf_mdecls,(THE 
 val _ = Hol_datatype`repl_fun_state = <|
   relaborator_state : elaborator_state;
   rinferencer_state : inferencer_state;
-  rcompiler_state  : compiler_state |>`
+  rcompiler_state  : compiler_state |>`;
 
   (*
 val initial_repl_fun_state = Define`
@@ -59,14 +59,14 @@ val update_state_def = Define`
   s with <| relaborator_state := es
           ; rinferencer_state := is
           ; rcompiler_state   := cs
-          |>`
+          |>`;
 
 val update_state_err_def = Define`
   update_state_err s is cs =
   s with <| rinferencer_state := 
               (FST is, FST (SND s.rinferencer_state), FST (SND (SND s.rinferencer_state)), SND (SND (SND s.rinferencer_state)))
           ; rcompiler_state   := cs
-          |>`
+          |>`;
 
 val parse_elaborate_infertype_compile_def = Define `
   parse_elaborate_infertype_compile tokens s =
@@ -82,7 +82,7 @@ val parse_elaborate_infertype_compile_def = Define `
             (* type found, type safe! *)
           | Success (is,types) =>
              let (css,csf,code) = compile_top (SOME types) s.rcompiler_state top in
-               Success (code,update_state s es is css,update_state_err s is csf)`
+               Success (code,update_state s es is css,update_state_err s is csf)`;
 
 val repl_step_def = Define `
   repl_step state =
@@ -102,11 +102,11 @@ val repl_step_def = Define `
             let len = len + code_length real_inst_length code in
             let code = inst_labels labs code in
               INL (MAP bc_num code,len,labs,s',s_exc)
-        | Failure error_msg => INR (error_msg,(F,len,labs,s,s))`
+        | Failure error_msg => INR (error_msg,(F,len,labs,s,s))`;
 
 val install_bc_lists_def = Define `
   install_bc_lists code bs =
-    install_code (REVERSE (MAP num_bc code)) bs`
+    install_code (REVERSE (MAP num_bc code)) bs`;
 
 val tac = (WF_REL_TAC `measure (LENGTH o FST o SND)` THEN REPEAT STRIP_TAC
            THEN IMP_RES_TAC lexer_implTheory.lex_until_top_semicolon_alt_LESS);
@@ -129,7 +129,7 @@ val main_loop_def = tDefine "main_loop" `
                 (case lex_until_top_semicolon_alt input of
                  | NONE => Terminate
                  | SOME (ts,rest) =>
-                     (main_loop new_bs rest (INR (ts,new_s,new_state)) F)) ` tac
+                     (main_loop new_bs rest (INR (ts,new_s,new_state)) F)) ` tac;
 
 val repl_fun_def = Define `
   repl_fun initial input = main_loop empty_bc_state input (INL initial) T`;

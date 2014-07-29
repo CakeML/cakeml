@@ -1,4 +1,4 @@
-INCLUDES=.. ../semantics ../parsing ../inference ../compiler ../bytecode ../initial/proofs
+INCLUDES=.. ../semantics ../parsing ../inference ../compiler ../bytecode ../initial
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
@@ -10,7 +10,7 @@ SEM_BARE_THYS = astTheory \
 	        lexer_funTheory \
 	        typeSystemTheory
 
-BARE_THYS = $(patsubst %,../semantics/%,$(SEM_BARE_THYS)) ../parsing/cmlParseTheory ../inference/inferTheory ../compiler/compilerTerminationTheory ../bytecode/bytecodeEvalTheory ../initial/proofs/initialProgramTheory
+BARE_THYS = $(patsubst %,../semantics/%,$(SEM_BARE_THYS)) ../parsing/cmlParseTheory ../inference/inferTheory ../compiler/compilerTerminationTheory ../bytecode/bytecodeEvalTheory ../initial/initCompEnvTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
