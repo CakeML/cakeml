@@ -7,7 +7,7 @@ pushd $HOME
 # Poly/ML
 
 svn checkout svn://svn.code.sf.net/p/polyml/code/trunk polyml
-pushd polyml
+pushd polyml/polyml
 ./configure --prefix=$HOME --enable-shared
 make
 make compiler
