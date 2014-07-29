@@ -6,7 +6,7 @@ pushd $HOME
 
 # Poly/ML
 
-svn checkout svn://svn.code.sf.net/p/polyml/code/trunk polyml
+svn checkout --quiet svn://svn.code.sf.net/p/polyml/code/trunk polyml
 pushd polyml/polyml
 ./configure --prefix=$HOME --enable-shared
 make
@@ -19,10 +19,10 @@ export LD_LIBRARY_PATH=$HOME/lib
 
 # HOL
 
-git clone https://github.com/mn200/HOL.git
+git clone --quiet https://github.com/mn200/HOL.git
 pushd HOL
 poly < tools/smart-configure.sml
-bin/build -nograph
+bin/build -nograph | tee /tmp/hol-build.log | grep --invert-match --only-matching '\(^Saved\)\|\(^Analysing\)'
 popd
 
 popd

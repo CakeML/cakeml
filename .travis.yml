@@ -1,4 +1,4 @@
 language: c
-install: developers/install-deps.sh
-script: developers/regression-test.sh
+install: developers/install-deps.sh || (cat <(tail -n50 /tmp/hol-build.log); exit 1)
+script: developers/regression-test.sh || (cat timing.log regression.log; exit 1)
 env: PATH=$PATH:$HOME/HOL/bin LD_LIBRARY_PATH=$HOME/lib
