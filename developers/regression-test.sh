@@ -17,8 +17,13 @@ fi
 cd $(dirname "$0")/..
 
 case $(uname -a) in
-    Linux* ) TIMECMD="/usr/bin/time -o timing.log -f 'User:%U Mem:%M'";;
+  Linux* ) TIMECMD="/usr/bin/time -o timing.log -f 'User:%U Mem:%M'";;
 esac
+
+if [ $TRAVIS ]
+then
+  TIMECMD=""
+fi
 
 echo
 
