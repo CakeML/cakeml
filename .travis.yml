@@ -1,4 +1,4 @@
 language: c
 install: developers/install-deps.sh
 script: developers/regression-test.sh
-env: PATH=$PATH:$HOME/HOL/bin
+env: PATH=$PATH:$HOME/HOL/bin LD_LIBRARY_PATH=$HOME/lib
