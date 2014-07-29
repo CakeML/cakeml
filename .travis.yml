@@ -1,0 +1,3 @@
+language: c
+install: developers/install-deps.sh
+script: developers/regression-test.sh
