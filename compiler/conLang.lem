@@ -32,7 +32,6 @@ open import SemanticPrimitives
 open import List_extra
 open import BigStep
 open import ModLang
-open import CompilerLib
 
 val tuple_tag : nat
 let tuple_tag = 0

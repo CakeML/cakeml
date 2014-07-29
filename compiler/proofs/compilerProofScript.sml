@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib boolSimps listTheory pairTheory rich_listTheory pred_setTheory arithmeticTheory finite_mapTheory relationTheory sortingTheory stringTheory
-open miscLib miscTheory bigStepTheory astTheory semanticPrimitivesTheory bigClockTheory replTheory terminationTheory
+open miscLib miscTheory bigStepTheory astTheory semanticPrimitivesTheory evalPropsTheory bigClockTheory replTheory terminationTheory
 open bytecodeTheory bytecodeExtraTheory bytecodeEvalTheory bytecodeClockTheory bytecodeLabelsTheory bytecodeTerminationTheory
 open modLangTheory conLangTheory decLangTheory exhLangTheory intLangTheory toIntLangTheory toBytecodeTheory compilerTheory intLangExtraTheory modLangProofTheory conLangProofTheory decLangProofTheory exhLangProofTheory patLangProofTheory intLangProofTheory bytecodeProofTheory free_varsTheory printingTheory compilerTerminationTheory
 
@@ -1880,7 +1880,7 @@ val compile_top_thm = store_thm("compile_top_thm",
         metis_tac[LENGTH_MAP] ) >>
       rfs[Abbr`bvs`] >>
       simp[EVERY2_EVERY,EVERY_MEM,MEM_ZIP,PULL_EXISTS,EL_MAP] >>
-      simp[FLOOKUP_DEF,compilerLibTheory.el_check_def] >>
+      simp[FLOOKUP_DEF,libTheory.el_check_def] >>
       rpt BasicProvers.VAR_EQ_TAC >>
       TRY (BasicProvers.CASE_TAC >> fs[] >> NO_TAC) >>
       `LENGTH gv = LENGTH grd0 + LENGTH new_genv` by (

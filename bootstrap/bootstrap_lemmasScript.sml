@@ -1474,7 +1474,7 @@ val COMPILER_RUN_INV_references = store_thm("COMPILER_RUN_INV_references",
   rpt BasicProvers.VAR_EQ_TAC >>
   fs[Q.SPEC`CLoc X`(CONJUNCT1 (SPEC_ALL bytecodeProofTheory.Cv_bv_cases))] >>
   rpt BasicProvers.VAR_EQ_TAC >>
-  fs[compilerLibTheory.el_check_def] >>
+  fs[libTheory.el_check_def] >>
   rpt BasicProvers.VAR_EQ_TAC >>
   first_assum(qspec_then`iloc`mp_tac) >>
   first_x_assum(qspec_then`iloc+1`mp_tac) >>

@@ -142,4 +142,17 @@ every_case_tac >>
 fs [] >>
 imp_res_tac lookup_in2);
 
+val lookup_ALOOKUP = store_thm("lookup_ALOOKUP",
+``lookup = combin$C ALOOKUP``,
+fs[FUN_EQ_THM] >> gen_tac >> Induct >- rw[] >> Cases >> rw[])
+
+val lookup_find_index_SOME = store_thm("lookup_find_index_SOME",
+  ``∀env. lookup n env = SOME v ⇒
+      ∀m. ∃i. (find_index (SOME n) (MAP (SOME o FST) env) m = SOME (m+i)) ∧
+          (v = EL i (MAP SND env))``,
+  Induct >> simp[] >> Cases >> rw[find_index_def] >-
+    (qexists_tac`0`>>simp[]) >> fs[] >>
+  first_x_assum(qspec_then`m+1`mp_tac)>>rw[]>>rw[]>>
+  qexists_tac`SUC i`>>simp[])
+
 val _ = export_theory ();
