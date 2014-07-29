@@ -229,7 +229,7 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
     BasicProvers.CASE_TAC >- (
       srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
       simp[bc_eval1_thm,bc_eval1_def] >>
-      fs[compilerLibTheory.el_check_def] >>
+      fs[libTheory.el_check_def] >>
       simp[bump_pc_def] >> simp[Abbr`bs1`] >>
       qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
       qspecl_then[`"0wx"`,`bs1`,`bc0++l1++[Gread n]`]mp_tac MAP_PrintC_thm >>
@@ -269,7 +269,7 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
     qho_match_abbrev_tac`∃z. bc_next bs1 z ∧ P z` >>
     simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
     simp[Abbr`bs1`,bc_eval_stack_def,EL_APPEND1]>>
-    fs[compilerLibTheory.el_check_def] >>
+    fs[libTheory.el_check_def] >>
     simp[Abbr`P`]>>
     qho_match_abbrev_tac`∃z. bc_next bs1 z ∧ P z` >>
     `bc_fetch bs1 = SOME Print` by (

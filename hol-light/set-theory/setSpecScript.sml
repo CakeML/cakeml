@@ -320,7 +320,7 @@ val abstract_eq = store_thm("abstract_eq",
 
 val in_funspace_abstract = store_thm("in_funspace_abstract",
   ``is_set_theory ^mem ⇒
-    ∀z s t. z <: Funspace s t ∧ (∃z. z <: s) ∧ (∃z. z <: t) ⇒
+    ∀z s t. z <: Funspace s t ⇒
     ∃f. z = Abstract s t f ∧ (∀x. x <: s ⇒ f x <: t)``,
   rw[funspace_def,mem_sub,relspace_def,mem_power] >>
   qexists_tac`λx. @y. (x,y) <: z` >>

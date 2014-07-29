@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib boolSimps lcsymtacs listTheory pairTheory pred_setTheory arithmeticTheory
-open miscLib miscTheory patLangTheory intLangTheory toIntLangTheory compilerTerminationTheory intLangExtraTheory semanticPrimitivesTheory
+open miscLib miscTheory evalPropsTheory patLangTheory intLangTheory toIntLangTheory compilerTerminationTheory intLangExtraTheory semanticPrimitivesTheory
 open exhLangProofTheory patLangProofTheory free_varsTheory
 val _ = new_theory "intLangProof"
 
@@ -741,7 +741,7 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
       fs[semanticPrimitivesTheory.store_assign_def] >>
       fs[csg_rel_def,map_count_store_genv_def] >>
       imp_res_tac EVERY2_LENGTH >> fs[] >>
-      simp[compilerLibTheory.el_check_def] >>
+      simp[libTheory.el_check_def] >>
       BasicProvers.CASE_TAC >> fs[] >>
       rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
       BasicProvers.EVERY_CASE_TAC >>
@@ -760,7 +760,7 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
       disj1_tac >>
       use_assum_tac >>
       fs[semanticPrimitivesTheory.store_lookup_def,
-         compilerLibTheory.el_check_def] >>
+         libTheory.el_check_def] >>
       BasicProvers.EVERY_CASE_TAC >> fs[] >>
       rpt BasicProvers.VAR_EQ_TAC >>
       fs[map_count_store_genv_def,csg_rel_def,LIST_REL_EL_EQN,EL_MAP] >>
@@ -826,7 +826,7 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
       >- metis_tac[csg_rel_syneq_trans] >>
       srw_tac[DNF_ss][Once Cevaluate_cases] >>
       srw_tac[DNF_ss][Once Cevaluate_cases] >>
-      simp[Once Cevaluate_cases,compilerLibTheory.el_check_def] >>
+      simp[Once Cevaluate_cases,libTheory.el_check_def] >>
       fs[csg_rel_def,map_count_store_genv_def,EXISTS_PROD] >>
       imp_res_tac LIST_REL_LENGTH >> fs[] >>
       `sv_rel syneq (map_sv v_to_Cv (EL lnum s21)) (EL lnum res21)` by (
@@ -843,12 +843,12 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
       srw_tac[DNF_ss][Once Cevaluate_cases] >>
       simp[Once Cevaluate_cases] >>
       srw_tac[DNF_ss][Once Cevaluate_cases] >>
-      simp[Once Cevaluate_cases,compilerLibTheory.el_check_def] >>
+      simp[Once Cevaluate_cases,libTheory.el_check_def] >>
       metis_tac[EVERY2_OPTREL_syneq_trans,EVERY2_sv_rel_syneq_trans] )
     >- (
       srw_tac[DNF_ss][Once Cevaluate_cases] >>
       disj1_tac >> use_assum_tac >>
-      fs[semanticPrimitivesTheory.store_lookup_def,compilerLibTheory.el_check_def] >>
+      fs[semanticPrimitivesTheory.store_lookup_def,libTheory.el_check_def] >>
       BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
       fs[csg_rel_def,map_count_store_genv_def,LIST_REL_EL_EQN,EL_MAP] >>
       metis_tac[sv_rel_def,map_sv_def])
@@ -909,7 +909,7 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
       simp[Once Cevaluate_cases] >>
       simp[Once Cevaluate_cases] >>
       simp[Once Cevaluate_cases] >>
-      simp[compilerLibTheory.el_check_def] >>
+      simp[libTheory.el_check_def] >>
       reverse BasicProvers.CASE_TAC >- (
         fs[csg_rel_def,LIST_REL_EL_EQN,map_count_store_genv_def] >> rw[] >>
         metis_tac[] ) >>
@@ -937,7 +937,7 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
       srw_tac[DNF_ss][Once Cevaluate_cases] >>
       srw_tac[DNF_ss][Once Cevaluate_cases] >>
       simp[Once Cevaluate_cases] >>
-      simp[Once Cevaluate_cases,compilerLibTheory.el_check_def] >>
+      simp[Once Cevaluate_cases,libTheory.el_check_def] >>
       simp[GSYM integerTheory.INT_NOT_LT] >>
       fs[] >> rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
       fs[csg_rel_def,map_count_store_genv_def] >>
@@ -958,7 +958,7 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
       srw_tac[DNF_ss][Once Cevaluate_cases] >>
       use_assum_tac >>
       fs[Q.SPEC`CConv X Y`syneq_cases] >>
-      simp[compilerLibTheory.el_check_def] >>
+      simp[libTheory.el_check_def] >>
       fs[LIST_REL_EL_EQN,EL_MAP] >> rfs[] )) >>
   strip_tac >- simp[] >>
   strip_tac >- (

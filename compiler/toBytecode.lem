@@ -5,7 +5,6 @@ import String
 
 open import Lib
 open import Ast
-open import CompilerLib
 open import IntLang
 open import ToIntLang
 open import Bytecode

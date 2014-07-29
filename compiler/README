@@ -19,11 +19,11 @@ compiler.lem
 proofs/
   compiler correctness proofs
 
-compilerPrimitives.lem
+compilerLib.lem
   some helper functions
 
 compilerTerminationScript.sml
   termination proofs and exporting of some rewrites
 
 tests/
-  rough testing infrastructure based on EmitML
+  out-of-date testing infrastructure based on EmitML
