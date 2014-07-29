@@ -25,6 +25,4 @@ poly < tools/smart-configure.sml
 bin/build -nograph
 popd
 
-export PATH=$PATH:$HOME/HOL/bin
-
 popd

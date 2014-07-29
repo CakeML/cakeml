@@ -3,8 +3,8 @@
 set -e
 
 echo "Running regression test on $(git rev-parse --short HEAD)"
-echo "HOL revision: $(cd $(heapname | xargs dirname); git rev-parse --short HEAD)"
-poly -v || echo "Poly/ML not found"
+HOLDIR=$(heapname | xargs dirname) || exit $?
+echo "HOL revision: $(cd $HOLDIR; git rev-parse --short HEAD)"
 echo "Machine: $(uname -nmo)"
 
 status=$(git status 2> /dev/null)
