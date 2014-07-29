@@ -22,7 +22,7 @@ export LD_LIBRARY_PATH=$HOME/lib
 git clone --quiet https://github.com/mn200/HOL.git
 pushd HOL
 poly < tools/smart-configure.sml
-bin/build -nograph | tee /tmp/hol-build.log | grep --invert-match --only-matching '\(^Saved\)\|\(^Analysing\)'
+bin/build -nograph
 popd
 
 popd
