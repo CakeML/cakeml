@@ -368,6 +368,16 @@ metis_tac []);
 (* ---------- tenvT stuff ---------- *)
 (* type_name_subst, check_type_names, tenvT_ok, merge_tenvT *)
 
+val merge_tenvT_assoc = Q.store_thm ("merge_tenvT_assoc",
+`∀tenvT1 tenvT2 tenvT3.
+  merge_tenvT tenvT1 (merge_tenvT tenvT2 tenvT3) =
+  merge_tenvT (merge_tenvT tenvT1 tenvT2) tenvT3`,
+rw [] >>
+PairCases_on `tenvT1` >>
+PairCases_on `tenvT2` >>
+PairCases_on `tenvT3` >>
+rw [merge_tenvT_def, merge_def])
+
 val flat_tenvT_ok_lookup = Q.prove (
 `!tenvT tn tvs t.
   flat_tenvT_ok tenvT ∧ 
@@ -2616,6 +2626,17 @@ val type_ds_tenvC_ok = Q.store_thm ("type_ds_tenvC_ok",
      `tenvC_ok ([],cenv')` by metis_tac [ctMap_ok_tenvC_ok, MAP_REVERSE, ALL_DISTINCT_REVERSE] >>
      fs [merge_def, flat_tenvC_ok_def, tenvC_ok_def, tenvT_ok_merge] >>
      fs [tenvT_ok_def, emp_def]));
+
+val type_ds_tenvT_ok = Q.store_thm ("type_ds_tenvT_ok",
+`!tvs tdecs tenvT tenvM tenvC tenv ds tdecs' tenvT' tenvC' tenv'.
+  type_ds tvs tdecs tenvT tenvM tenvC tenv ds tdecs' tenvT' tenvC' tenv'
+  ⇒
+  flat_tenvT_ok tenvT'`,
+ ho_match_mp_tac type_ds_strongind >>
+ rw []  >>
+ imp_res_tac type_d_tenvT_ok >>
+ rw [merge_def, flat_tenvT_ok_def, emp_def] >>
+ fs [flat_tenvT_ok_def]);
 
 (* ---------- type_specs ---------- *)
 
