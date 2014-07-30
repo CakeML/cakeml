@@ -640,7 +640,7 @@ type_specs mn tenvT (Sval x t :: specs) decls flat_tenvT cenv (tenv ++ [(x, (LEN
 check_ctor_tenv mn (merge_tenvT (emp,new_tenvT) tenvT) td /\
 type_specs mn (merge_tenvT (emp,new_tenvT) tenvT) specs decls flat_tenvT cenv tenv)
 ==>
-type_specs mn tenvT (Stype td :: specs) (union_decls decls ({},new_tdecls,{})) (merge flat_tenvT new_tenvT) (merge cenv (build_ctor_tenv mn tenvT td)) tenv)
+type_specs mn tenvT (Stype td :: specs) (union_decls decls ({},new_tdecls,{})) (merge flat_tenvT new_tenvT) (merge cenv (build_ctor_tenv mn (merge_tenvT (emp,new_tenvT) tenvT) td)) tenv)
 
 /\ (! mn tenvT flat_tenvT cenv tenv cn ts specs decls.
 (check_exn_tenv mn cn ts /\
