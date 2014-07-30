@@ -1,40 +1,50 @@
 structure allPP = struct local
+open preamble
 open HolKernel boolLib bossLib Parse
-open cakeml_computeLib astPP modPP conPP exhPP patPP intPP
-open labels_computeLib
+open compute_basicLib compute_parsingLib compute_compilerLib compute_inferenceLib compute_semanticsLib compute_bytecodeLib
+open lexer_implTheory
+open initialProgramTheory
+open initCompEnvTheory
+open astPP modPP conPP exhPP patPP intPP
 
-fun fullEval p =
-  let val asts = eval ``get_all_asts ^(p)``
-      val elab = eval ``elab_all_asts ^(asts |> concl |> rhs)``
-      in
-        rhs(concl elab) |>rand 
-      end;
 (*RHS of theorem to term*)
 val rhsThm = rhs o concl;
 
 val compile_primitives_def = Define`
   compile_primitives =
-    FST(compile_top NONE init_compiler_state
-    (Tdec initial_program))`;
+   (FST (THE basis_env)).comp_rs`;
 
-val cs = cakeml_compset();
-val _ = computeLib.add_thms [compile_primitives_def,compilerTheory.compile_top_def] cs
-val eval = computeLib.CBV_CONV cs
-val compile_primitives_full = eval ``compile_primitives``
+val get_all_asts_def = tDefine "get_all_asts" `
+get_all_asts input =
+  case lex_until_toplevel_semicolon input of
+       NONE => Success []
+     | SOME (tokens, rest_of_input) =>
+        case parse_top tokens of
+             NONE => Failure "<parse error>\n"
+           | SOME top =>
+               case get_all_asts rest_of_input of
+                    Failure x => Failure x
+                  | Success prog => Success (top::prog)`
+(wf_rel_tac `measure LENGTH` >>
+ rw [lex_until_toplevel_semicolon_LESS]);
 
-val cs = cakeml_compset();
-val _ = computeLib.add_thms [compile_primitives_full] cs
-val eval = computeLib.CBV_CONV cs
-val compile_primitives_pieces =
-  LIST_CONJ[
-  eval ``compile_primitives.globals_env``
-  ,eval ``compile_primitives.next_global``
-  ,eval ``compile_primitives.exh``
-  ,eval ``compile_primitives.contags_env``
-  ,eval ``compile_primitives.rnext_label``];
-val cs = cakeml_compset();
+val elab_all_asts_def = Define `
+elab_all_asts asts =
+  case asts of 
+     | Failure x => Failure x
+     | Success asts =>
+         Success (SND (elab_prog init_type_bindings asts))`;
 
-val _ = computeLib.add_thms [compile_primitives_pieces] cs
+
+val cs = the_basic_compset
+val _ = add_compiler_compset false cs
+val _ = add_parsing_compset cs
+val _ = add_inference_compset cs
+val _ = add_ast_compset cs
+val _ = add_lexparse_compset cs
+val _ = add_elab_compset cs
+val _ = computeLib.add_thms  [basis_env_eq,compile_primitives_def,get_all_asts_def,elab_all_asts_def] cs
+val _ = compute_basicLib.add_datatype ``:comp_environment`` cs
 val eval = computeLib.CBV_CONV cs
 
 in
@@ -46,7 +56,7 @@ type allIntermediates = {
   ctors:term list,
   modMap:term list,
   annotations:term list}
-
+val prog = ``"val x = 5;"``
 (*Return all intermediates during compilation in a record*)
 fun allIntermediates prog =
   let 
