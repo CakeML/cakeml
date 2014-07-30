@@ -15,11 +15,12 @@ EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 PRE_BARE_THYS1 = astTheory \
 		tokensTheory \
 		libTheory \
+		initialProgramTheory \
 		semanticPrimitivesTheory
 
 PRE_BARE_THYS2 = cmlParseTheory lexer_implTheory
 
-PRE_BARE_THYS3 = determTheory bigClockTheory
+PRE_BARE_THYS3 = determTheory bigClockTheory initSemEnvTheory
 
 BARE_THYS1 =  $(patsubst %,../semantics/%,$(PRE_BARE_THYS1))
 BARE_THYS2 =  $(patsubst %,../parsing/%,$(PRE_BARE_THYS2))

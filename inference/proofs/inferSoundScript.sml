@@ -3,7 +3,6 @@ open rich_listTheory;
 open miscTheory;
 open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
 open libPropsTheory astPropsTheory;
-open initialEnvTheory;
 open inferPropsTheory;
 open typeSysPropsTheory;
 
@@ -1798,18 +1797,4 @@ val infer_prog_sound = Q.store_thm ("infer_prog_sound",
      res_tac >>
      metis_tac [APPEND_ASSOC, merge_tenvC_assoc]));
  
-(* ---------- the initial type and inference environments correspond ---------- *)
-
-val infer_init_thm = Q.store_thm ("infer_init_thm",
-`infer_sound_invariant [] ([],[]) init_type_env ∧
- (convert_decls init_infer_decls = init_decls) ∧
- (convert_menv [] = []) ∧
- (bind_var_list2 (convert_env2 init_type_env) Empty = init_tenv)`,
-rw [check_t_def, check_menv_def, check_cenv_def, check_env_def, init_type_env_def,
-    Infer_Tfn_def, Infer_Tint_def, Infer_Tbool_def, Infer_Tunit_def, 
-    Infer_Tref_def, init_tenv_def, bind_var_list2_def, convert_env2_def,
-    convert_t_def, convert_menv_def, bind_tenv_def, check_flat_cenv_def,
-    infer_sound_invariant_def, init_decls_def, init_infer_decls_def, 
-    convert_decls_def]);
-
 val _ = export_theory ();

@@ -1,8 +1,7 @@
 open preamble;
 open ASCIInumbersTheory;
 open bigStepTheory typeSystemTheory astTheory elabTheory lexer_funTheory;
-open initialEnvTheory;
-open gramTheory cmlPtreeConversionTheory;
+open gramTheory cmlPtreeConversionTheory initialProgramTheory;
 
 val _ = new_theory "repl";
 
@@ -12,11 +11,7 @@ repl_state = <| (* Elaborator state *)
                 (* Type system state *)
                 tdecs : decls; tenvT : tenvT; tenvM : tenvM; tenvC : tenvC; tenv : tenvE;
                 (* Semantics state *)
-                envM : envM; envC : envC; store : (v count_store # tid_or_exn set # modN set); envE : envE |>`;
-
-val init_repl_state_def = Define`
-  init_repl_state = <| type_bindings := init_type_bindings; tdecs := init_decls; tenvT := ([],[]); tenvM := []; tenvC := init_tenvC; tenv := init_tenv;
-                       envM := []; envC := init_envC; store := ((0,[]),init_type_decs,{}); envE := init_env |>`
+                sem_env : sem_environment |>`;
 
 val _ = Hol_datatype `
 repl_result =
@@ -34,16 +29,16 @@ update_repl_state ast state type_bindings tdecs tenvT tenvM tenvC tenv store env
            tenvM := tenvM ++ state.tenvM;
            tenvC := merge_tenvC tenvC state.tenvC;
            tenv := bind_var_list2 tenv state.tenv;
-           store := store;
-           envM := envM ++ state.envM;
-           envC := merge_envC envC state.envC;
-           envE := envE ++ state.envE |>
+           sem_env := <| sem_store := store;
+                         sem_envM := envM ++ state.sem_env.sem_envM;
+                         sem_envC := merge_envC envC state.sem_env.sem_envC;
+                         sem_envE := envE ++ state.sem_env.sem_envE |> |>
     | Rerr _ =>
         (* We need to record the attempted module names (if any), so that it
         * can't be defined later.  To avoid the situation where a failing module
         * defines some datatype constructors and puts them into the store before
         * failing. *)
-        state with <| store := store;
+        state with <| sem_env := state.sem_env with sem_store := store;
                       tdecs := tdecs |>`;
 
 val type_to_string_def = tDefine "type_to_string" `
@@ -108,19 +103,19 @@ val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
 (!state.
   ast_repl state [] [] Terminate) ∧
 
-(!state type_errors ast asts top rest type_bindings' tdecs' tenvM' tenvC' tenv' store' envC' r.
+(!state type_errors ast asts top rest type_bindings' tdecs' tenvT' tenvM' tenvC' tenv' store' envC' r.
   (elab_top state.type_bindings ast = (type_bindings', top)) ∧
   (type_top state.tdecs state.tenvT state.tenvM state.tenvC state.tenv top tdecs' tenvT' tenvM' tenvC' tenv') ∧
-  evaluate_top F (state.envM, state.envC, state.envE) state.store top (store',envC',r) ∧
-  ast_repl (update_repl_state top state type_bindings' (union_decls tdecs' state.tdecs) tenvT' tenvM' tenvC' tenv' store' envC' r) type_errors asts rest
+  evaluate_top F (state.sem_env.sem_envM, state.sem_env.sem_envC, state.sem_env.sem_envE) state.sem_env.sem_store top (store',envC',r) ∧
+  ast_repl (update_repl_state top state type_bindings' (union_decls tdecs' state.tdecs) tenvM' tenvC' tenv' store' envC' r) type_errors asts rest
   ⇒
   ast_repl state (F::type_errors) (SOME ast::asts) (Result (print_result tenv' top envC' r) rest)) ∧
 
-(!state type_errors ast asts top type_bindings' tdecs' tenvM' tenvC' tenv'.
+(!state type_errors ast asts top type_bindings' tdecs' tenvT' tenvM' tenvC' tenv'.
   (elab_top state.type_bindings ast =
    (type_bindings', top)) ∧
   (type_top state.tdecs state.tenvT state.tenvM state.tenvC state.tenv top tdecs' tenvT' tenvM' tenvC' tenv') ∧
-  top_diverges (state.envM, state.envC, state.envE) (remove_count state.store) top
+  top_diverges (state.sem_env.sem_envM, state.sem_env.sem_envC, state.sem_env.sem_envE) (remove_count state.sem_env.sem_store) top
   ⇒
   ast_repl state (F::type_errors) (SOME ast::asts) Diverge) ∧
 
@@ -144,6 +139,6 @@ val parse_def = Define`
 `
 
 val repl_def = Define `
-repl type_errors input = ast_repl init_repl_state type_errors (MAP parse (split_top_level_semi (lexer_fun input)))`;
+repl init_repl_state type_errors input = ast_repl init_repl_state type_errors (MAP parse (split_top_level_semi (lexer_fun input)))`;
 
 val _ = export_theory ();

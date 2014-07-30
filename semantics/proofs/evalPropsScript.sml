@@ -174,28 +174,6 @@ val build_tdefs_cons = Q.store_thm ("build_tdefs_cons",
  (!mn. build_tdefs mn [] = [])`,
 rw [build_tdefs_def]);
 
-val check_ctor_foldr_flat_map = Q.prove (
-`!c. (FOLDR
-         (λ(tvs,tn,condefs) x2.
-            FOLDR (λ(n,ts) x2. n::x2) x2 condefs) [] c)
-    =
-    FLAT (MAP (\(tvs,tn,condefs). (MAP (λ(n,ts). n)) condefs) c)`,
-induct_on `c` >>
-rw [LET_THM] >>
-PairCases_on `h` >>
-fs [LET_THM] >>
-pop_assum (fn _ => all_tac) >>
-induct_on `h2` >>
-rw [] >>
-PairCases_on `h` >>
-rw []);
-
-val check_dup_ctors_thm = Q.store_thm ("check_dup_ctors_thm",
-`!tds.
-  check_dup_ctors tds =
-    ALL_DISTINCT (FLAT (MAP (\(tvs,tn,condefs). (MAP (λ(n,ts). n)) condefs) tds))`,
-metis_tac [check_dup_ctors_def,check_ctor_foldr_flat_map]);
-
 val check_dup_ctors_cons = Q.store_thm ("check_dup_ctors_cons",
 `!tvs ts ctors tds.
   check_dup_ctors ((tvs,ts,ctors)::tds)

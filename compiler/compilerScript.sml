@@ -35,16 +35,6 @@ val _ = Hol_datatype `
 
 
 val _ = Define `
- (init_compiler_state =  
-(<| next_global :=( 0)
-   ; globals_env := (FEMPTY, FEMPTY)
-   ; contags_env := init_tagenv_state
-   ; exh := init_exh
-   ; rnext_label :=( 0)
-   |>))`;
-
-
-val _ = Define `
  (compile_Cexp env rsz cs Ce =  
 (let (Ce,nl) = (label_closures (LENGTH env) cs.next_label Ce) in
   let cs = (compile_code_env ( cs with<| next_label := nl |>) Ce) in
@@ -141,7 +131,7 @@ val _ = Define `
 
 
 val _ = Define `
- (compile_prog prog =  
+ (compile_prog init_compiler_state prog =  
 (let n = (init_compiler_state.next_global) in
   let (m1,m2) = (init_compiler_state.globals_env) in  
   (case prog_to_i1 n m1 m2 prog of
@@ -165,6 +155,61 @@ val _ = Define `
            )) in let r = (emit r [Stop T]) in REVERSE (r.out)
   )
   )
+  )))`;
+
+
+(* special entrypoints *)
+
+val _ = Define `
+ (compile_special cs top =  
+(let n = (cs.next_global) in
+  let (m1,m2) = (cs.globals_env) in  
+  (case top_to_i1 n m1 m2 top of
+      (_,_,_,p) =>
+  (case prompt_to_i2 cs.contags_env p of
+      (_,exh,p) =>
+  let e = (decs_to_i3 n (case p of Prompt_i2 ds => ds )) in
+  let exh = (FUNION exh cs.exh) in
+  let e = (exp_to_exh exh e) in
+  let e = (exp_to_pat [] e) in
+  let e = (exp_to_Cexp e) in
+  let r = (compile [] TCNonTail ( 0)
+             <|out:=[]; next_label := cs.rnext_label|> e) in
+  (emit r [Stack Pop; Stop T]).out
+  )
+  )))`;
+
+
+val _ = Define `
+ (prompt_to_i3_initial next (Prompt_i2 ds) =  
+(let n = (num_defs ds) in
+  ((next+n), Let_i2 NONE (Extend_global_i2 n) (decs_to_i3 next ds))))`;
+
+
+ val _ = Define `
+ (prog_to_i3_initial next [] = (next, Lit_i2 Unit))
+    /\ (prog_to_i3_initial next (p::ps) =      
+(let (next,p) = (prompt_to_i3_initial next p) in
+      let (next',ps) = (prog_to_i3_initial next ps) in
+      (next', Let_i2 NONE p ps)))`;
+
+
+val _ = Define `
+ (compile_initial_prog cs prog =  
+(let n = (cs.next_global) in
+  let (m1,m2) = (cs.globals_env) in  
+  (case prog_to_i1 n m1 m2 prog of
+      (_,m1,m2,p) =>
+  let (c,exh,p) = (prog_to_i2 cs.contags_env p) in
+  let (n,e) = (prog_to_i3_initial n p) in
+  let exh = (FUNION exh cs.exh) in
+  let e = (exp_to_exh exh e) in
+  let e = (exp_to_pat [] e) in
+  let e = (exp_to_Cexp e) in
+  let r = (compile_Cexp [] ( 0) <|out := []; next_label := cs.rnext_label|> e) in
+  let cs = (<| next_global := n ; globals_env := (m1,m2) ; contags_env := c
+            ; exh := exh ; rnext_label := r.next_label |>) in
+  (cs, (emit r [Stack Pop]).out)
   )))`;
 
 val _ = export_theory()

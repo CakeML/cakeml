@@ -442,8 +442,8 @@ val _ = Define `
  (evaluate_whole_prog ck env s1 tops (s2, new_tds, res) =  
 (if no_dup_mods tops s1 /\ no_dup_top_types tops s1 then
     evaluate_prog ck env s1 tops (s2, new_tds, res)
-  else
-    res = Rerr Rtype_error))`;
+  else    
+(s1 = s2) /\ (new_tds = (emp,emp)) /\ (res = Rerr Rtype_error)))`;
 
 
 val _ = Define `

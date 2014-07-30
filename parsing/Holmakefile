@@ -1,4 +1,4 @@
-INCLUDES = $(HOLDIR)/examples/parsing ../semantics
+INCLUDES = $(HOLDIR)/examples/parsing .. ../semantics
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY

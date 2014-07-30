@@ -717,7 +717,10 @@ val Decls_def = Define `
 
 val DeclAssum_def = Define `
   DeclAssum mn ds env tys =
-    ?s. Decls mn ([],init_envC,init_env) ((0,[]),init_type_decs) ds env ((0,s),tys)`;
+    ?s. Decls mn
+          ((THE prim_sem_env).sem_envM,(THE prim_sem_env).sem_envC,(THE prim_sem_env).sem_envE)
+          (FST (THE prim_sem_env).sem_store,FST(SND(THE prim_sem_env).sem_store))
+          ds env ((0,s),tys)`;
 
 val write_tds_def = Define `
   write_tds mn tds ((menv1,cenv1,env1):all_env) =
@@ -1043,6 +1046,7 @@ val DeclAssum_Dlet = store_thm("DeclAssum_Dlet",
   \\ fs [APPEND,bind_def,Eval_Var_SIMP, merge_def,emp_def,write_def]
   \\ rw []
   \\ FIRST_X_ASSUM match_mp_tac
+  \\ fs[initSemEnvTheory.prim_sem_env_eq]
   \\ rw [DeclAssum_def]
   \\ Cases_on `s2` \\ FULL_SIMP_TAC std_ss []
   \\ Cases_on `q` \\ FULL_SIMP_TAC std_ss []
@@ -1326,7 +1330,7 @@ val DeclAssumExists_SNOC_Dletrec = store_thm("DeclAssumExists_SNOC_Dletrec",
 val DeclAssumExists_NIL = store_thm("DeclAssumExists_NIL",
   ``!mn. DeclAssumExists mn []``,
   SIMP_TAC (srw_ss()) [PULL_EXISTS,Once evaluate_decs_cases,
-     DeclAssumExists_def,DeclAssum_def,Decls_def]);
+     DeclAssumExists_def,DeclAssum_def,Decls_def,initSemEnvTheory.prim_sem_env_eq]);
 
 val always_evaluates_def = Define `
   always_evaluates env exp =
@@ -1401,9 +1405,10 @@ val DeclAssumCons_def = Define `
               (SND (FST (SND env)) = cons_env)`;
 
 local
-  val lemma = EVAL ``(SND (init_envC))``
+  val eval = SIMP_CONV (srw_ss()) [initSemEnvTheory.prim_sem_env_eq]
+  val lemma = eval ``(SND ((THE prim_sem_env).sem_envC))``
   val tm = lemma |> concl |> rand
-  val lemma2 = EVAL ``init_type_decs``
+  val lemma2 = eval ``SND (THE prim_sem_env).sem_store``
   val tm2 = lemma2 |> concl
     |> find_terms (can pred_setSyntax.dest_insert)
     |> map (rand o rator)
@@ -1413,7 +1418,8 @@ in
     ``DeclAssumCons mn [] ^tm2 ^tm``,
     fs [DeclAssumCons_def,DeclAssum_def,Decls_NIL,lemma,lemma2]
     \\ fs [pred_setTheory.EXTENSION]
-    \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC \\ fs []);
+    \\ rw[initSemEnvTheory.prim_sem_env_eq]
+    \\ EQ_TAC \\ REPEAT STRIP_TAC \\ fs []);
 end
 
 val DeclAssumCons_SNOC_Dlet = store_thm("DeclAssumCons_SNOC_Dlet",
@@ -1555,15 +1561,19 @@ val Tmod_lemma = prove(
   ``DeclAssumExists (SOME m) ds ==>
     ALL_DISTINCT (type_names ds []) ==>
     ?s tds env. !specs.
-      evaluate_top F ([],init_envC,init_env) ((0,[]),init_type_decs,{})
+      evaluate_top F
+        ((THE prim_sem_env).sem_envM,(THE prim_sem_env).sem_envC,(THE prim_sem_env).sem_envE)
+        (THE prim_sem_env).sem_store
         (Tmod m specs ds)
         ((s,DeclTys (SOME m) ds,{m}),([(m,tds)],emp),Rval ([(m,env)],emp)) /\
       DeclEnv (SOME m) ds =
-        ([],merge_envC (emp,tds) init_envC,merge env init_env)``,
+        ([],merge_envC (emp,tds) (THE prim_sem_env).sem_envC,
+            merge env (THE prim_sem_env).sem_envE)``,
   REPEAT STRIP_TAC \\ IMP_RES_TAC DeclEnv
   \\ fs [DeclAssum_def,Decls_def]
   \\ Q.LIST_EXISTS_TAC [`(0,s)`,`new_tds`,`res_env`]
-  \\ fs [] \\ MATCH_MP_TAC evaluate_top_Tmod_Rval \\ fs [])
+  \\ fs [initSemEnvTheory.prim_sem_env_eq]
+  \\ MATCH_MP_TAC evaluate_top_Tmod_Rval \\ fs [])
   |> Q.GENL [`ds`,`m`]
   |> SIMP_RULE std_ss [PULL_EXISTS_IMP,SKOLEM_THM]
   |> GEN_ALL |> SIMP_RULE std_ss [PULL_FORALL];
