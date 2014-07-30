@@ -236,7 +236,7 @@ check_type_names tenvT (Tvar tv) =
 and
 check_type_names tenvT (Tapp ts tn) =
   match tn with 
-     TC_name tn -> (exists x. lookup_type_name tn tenvT = Just x)
+     TC_name tn -> (exists tvs t. lookup_type_name tn tenvT = Just (tvs, t) && List.length tvs = List.length ts)
    | _ -> true
   end &&
   List.all (check_type_names tenvT) ts

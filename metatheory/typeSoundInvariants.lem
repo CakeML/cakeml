@@ -14,6 +14,16 @@ type store_t = Ref_t of t | W8array_t
 (* Store typing *)
 type tenvS = env nat store_t
 
+(* Check that the type names map to valid types *)
+val flat_tenvT_ok : flat_tenvT -> bool
+let flat_tenvT_ok tenvT =
+  List.all (fun (tn,(tvs,t)) -> check_freevars 0 tvs t) tenvT
+
+val tenvT_ok : tenvT -> bool
+let tenvT_ok (mtenvT, tenvT) =
+  List.all (fun (_,tenvT) -> flat_tenvT_ok tenvT) mtenvT &&
+  flat_tenvT_ok tenvT
+
 (* Global constructor type environments keyed by constructor name and type *)
 type ctMap = Map.map (conN * tid_or_exn) (list tvarN * list t)
 
@@ -526,11 +536,12 @@ let decls_ok (mdecls,tdecls,edecls) =
 (* For using the type soundess theorem, we have to know there are good
  * constructor and module type environments that don't have bits hidden by a
  * signature. *)
-let type_sound_invariants r (decls1,tenvM,tenvC,tenv,decls2,envM,envC,envE,store) =
+let type_sound_invariants r (decls1,tenvT,tenvM,tenvC,tenv,decls2,envM,envC,envE,store) =
   exists ctMap tenvS decls_no_sig tenvM_no_sig tenvC_no_sig. 
     consistent_decls decls2 decls_no_sig &&
     consistent_ctMap decls_no_sig ctMap &&
     ctMap_has_exns ctMap &&
+    tenvT_ok tenvT &&
     tenvM_ok tenvM_no_sig && 
     tenvM_ok tenvM &&
     consistent_mod_env tenvS ctMap envM tenvM_no_sig &&
@@ -544,10 +555,10 @@ let type_sound_invariants r (decls1,tenvM,tenvC,tenv,decls2,envM,envC,envE,store
     weak_decls_only_mods decls_no_sig decls1 &&
     (forall err. r = Just (Rerr (Rraise err)) --> type_v 0 ctMap tenvS err Texn)
 
-let update_type_sound_inv ((decls1:decls),(tenvM:tenvM),(tenvC:tenvC),(tenv:tenvE),(decls2:set tid_or_exn),(envM:envM),(envC:envC),(envE:envE),store) decls1' tenvM' tenvC' tenv' store' decls2' envC' r =
+let update_type_sound_inv ((decls1:decls),(tenvT:tenvT),(tenvM:tenvM),(tenvC:tenvC),(tenv:tenvE),(decls2:set tid_or_exn),(envM:envM),(envC:envC),(envE:envE),store) decls1' tenvT' tenvM' tenvC' tenv' store' decls2' envC' r =
   match r with
      | Rval (envM',envE') -> 
-         (union_decls decls1' decls1,tenvM'++tenvM,merge_tenvC tenvC' tenvC,bind_var_list2 tenv' tenv,
+         (union_decls decls1' decls1,merge_tenvT tenvT' tenvT, tenvM'++tenvM,merge_tenvC tenvC' tenvC,bind_var_list2 tenv' tenv,
           decls2',envM'++envM,merge_envC envC' envC,envE'++envE,store')
-     | Rerr _ -> (union_decls decls1' decls1,tenvM,tenvC,tenv,decls2',envM,envC,envE,store')
+     | Rerr _ -> (union_decls decls1' decls1,tenvT,tenvM,tenvC,tenv,decls2',envM,envC,envE,store')
   end

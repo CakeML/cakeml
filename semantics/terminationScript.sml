@@ -130,6 +130,26 @@ val (type_subst_def, type_subst_ind) =
   decide_tac);
 val _ = register "type_subst" type_subst_def type_subst_ind;
 
+val (type_name_subst_def, type_name_subst_ind) =
+  tprove_no_defn ((type_name_subst_def, type_name_subst_ind),
+  WF_REL_TAC `measure (λ(x,y). t_size y)` >>
+  rw [] >>
+  induct_on `ts` >>
+  rw [t_size_def] >>
+  res_tac >>
+  decide_tac);
+val _ = register "type_name_subst" type_name_subst_def type_name_subst_ind;
+
+val (check_type_names_def, check_type_names_ind) =
+  tprove_no_defn ((check_type_names_def, check_type_names_ind),
+  WF_REL_TAC `measure (λ(x,y). t_size y)` >>
+  rw [] >>
+  induct_on `ts` >>
+  rw [t_size_def] >>
+  res_tac >>
+  decide_tac);
+val _ = register "check_type_names" check_type_names_def check_type_names_ind;
+
 val (deBruijn_subst_def, deBruijn_subst_ind) =
   tprove_no_defn ((deBruijn_subst_def, deBruijn_subst_ind),
   WF_REL_TAC `measure (λ(_,x,y). t_size y)` >>
