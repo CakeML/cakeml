@@ -1705,6 +1705,10 @@ val dec_type_soundness = Q.store_thm ("dec_type_soundness",
          metis_tac [type_v_weakening, weakM_refl, weakC_refl, merge_def,
                     consistent_con_env_def, weakS_refl, ctMap_ok_def])
      >- metis_tac [type_env_eqn, emp_def, bind_var_list2_def])
+ >- (qexists_tac `tenvS` >>
+     rw [store_type_extension_refl, flat_to_ctMap_def, flat_to_ctMap_list_def, FUPDATE_LIST_THM, FUNION_FEMPTY_1,
+         bind_var_list2_def, merge_envC_empty] >>
+     rw [Once type_v_cases, emp_def])
  >- (Q.LIST_EXISTS_TAC [`st`, `Rval (bind cn (LENGTH ts,TypeExn (mk_id mn cn)) [], [])`, `tenvS`, `{TypeExn (mk_id mn cn)} ∪ tdecs2`] >>
      `DISJOINT (FDOM (flat_to_ctMap (bind cn ([]:tvarN list,ts,TypeExn (mk_id mn cn)) []))) (FDOM ctMap)`
                  by metis_tac [emp_def, consistent_decls_disjoint_exn] >>
@@ -1941,6 +1945,7 @@ val type_ds_no_dup_types_helper = Q.prove (
                 case d of
                   Dlet v6 v7 => []
                 | Dletrec v8 => []
+                | Dtabbrev x y z => []
                 | Dtype tds => MAP (λ(tvs,tn,ctors). mk_id mn tn) tds
                 | Dexn v10 v11 => []) ds))`,
  induct_on `ds` >>
@@ -2011,6 +2016,7 @@ val type_ds_no_dup_types = Q.prove (
          PairCases_on `y` >>
          fs [] >>
          metis_tac []))
+ >- metis_tac []
  >- metis_tac []);
 
 val top_type_soundness = Q.store_thm ("top_type_soundness",
@@ -2220,6 +2226,7 @@ val top_type_soundness = Q.store_thm ("top_type_soundness",
          >- metis_tac [still_has_exns]
          >- (imp_res_tac type_ds_tenvT_ok >>
              fs [tenvT_ok_merge, check_signature_cases] >>
+             imp_res_tac type_specs_tenv_ok >>
              rw [tenvT_ok_def, emp_def, flat_tenvT_ok_def])
          >- metis_tac [tenvM_ok_pres, bind_def]
          >- metis_tac [tenvM_ok_pres, bind_def]

@@ -39,7 +39,13 @@ val _ = Define `
 (*val basis_program : prog*)
 val _ = Define `
  (basis_program =  
-([Tdec (mk_binop "+" (Opn Plus));
+([Tdec (Dtabbrev [] "int" (Tapp [] TC_int));
+   Tdec (Dtabbrev [] "string" (Tapp [] TC_string));
+   Tdec (Dtabbrev [] "bool" (Tapp [] TC_bool));
+   Tdec (Dtabbrev [] "unit" (Tapp [] TC_unit));
+   Tdec (Dtabbrev [] "ref" (Tapp [] TC_ref));
+   Tdec (Dtabbrev [] "exn" (Tapp [] TC_exn));
+   Tdec (mk_binop "+" (Opn Plus));
    Tdec (mk_binop "-" (Opn Minus));
    Tdec (mk_binop "*" (Opn Times));
    Tdec (mk_binop "div" (Opn Divide));
@@ -53,9 +59,12 @@ val _ = Define `
    Tdec (Dlet (Pvar "~") (Fun "x" (App (Opn Minus) [Lit (IntLit(( 0 : int))); Var(Short"x")])));
    Tdec (mk_unop "!" Opderef);
    Tdec (mk_unop "ref" Opref);
-   Tmod "Word8" NONE [];
+   Tmod "Word8" NONE 
+     [Dtabbrev [] "word" (Tapp [] TC_word8)];
    Tmod "Word8Array" NONE 
-     [mk_binop "array" Aalloc;
+     [Dtabbrev [] "array" (Tapp [] TC_word8array);
+      Dtabbrev [] "elem" (Tapp [] TC_word8);
+      mk_binop "array" Aalloc;
       mk_binop "sub" Asub;
       mk_unop "length" Alength;
       Dlet (Pvar "update") (Fun "x" (Fun "y" (Fun "z" (App Aupdate [Var (Short "x"); Var (Short "y"); Var (Short "z")])))) ] ]))`;

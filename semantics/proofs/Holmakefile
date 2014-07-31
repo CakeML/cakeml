@@ -3,11 +3,12 @@ INCLUDES = .. ../..
 
 ifdef POLY
 HOLHEAP = heap
+PARENTHEAP = ../heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../../preamble ../../miscTheory ../libTheory ../bigStepTheory ../typeSystemTheory ../tokensTheory ../gramTheory ../elabTheory ../smallStepTheory ../terminationTheory ../compute_semanticsLib
-DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+BARE_THYS = ../libTheory ../bigStepTheory ../typeSystemTheory ../tokensTheory ../gramTheory ../smallStepTheory ../terminationTheory ../compute_semanticsLib
+DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP)
 
 $(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) $(BARE_THYS) ASCIInumbersTheory
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENTHEAP) -o $(HOLHEAP) $(BARE_THYS)
 endif

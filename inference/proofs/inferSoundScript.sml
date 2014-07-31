@@ -1388,6 +1388,7 @@ val infer_d_sound = Q.prove (
      Q.LIST_EXISTS_TAC [`set mdecls`, `set edecls`, `set tdecls`] >>
      rw [MEM_MAP] >>
      metis_tac [])
+ >- rw [convert_decls_def, convert_env2_def, empty_decls_def]
  >- rw [convert_decls_def, convert_env2_def]);
 
 val infer_ds_sound = Q.prove (
@@ -1563,6 +1564,20 @@ rw [] >>
 cases_on `lookup cn tenvC1` >>
 fs []);
 
+val check_flat_weakT_sound = Q.prove (
+`!mn tenvT1 tenvT2.
+  check_flat_weakT mn tenvT1 tenvT2
+  ⇒
+  flat_weakT mn tenvT1 tenvT2`,
+induct_on `tenvT2` >>
+fs [check_flat_weakT_def, flat_weakT_def, success_eqns] >>
+rw [] >>
+PairCases_on `h` >>
+fs [] >>
+rw [] >>
+cases_on `lookup cn tenvT1` >>
+fs []);
+
 val check_freevars_more = Q.prove (
 `(!t x fvs1 fvs2.
   check_freevars x fvs1 t ⇒
@@ -1644,6 +1659,10 @@ val check_specs_sound = Q.prove (
      qexists_tac `(set decls''0,set decls''1,set decls''2)` >>
      rw [union_decls_def, DISJOINT_DEF, EXTENSION, MEM_MAP] >>
      fs [EVERY_MEM, EVERY_MAP, emp_def])
+ >- (rw [Once type_specs_cases, PULL_EXISTS] >>
+     res_tac >>
+     rw [] >>
+     metis_tac [emp_def])
  >- (rw [Once type_specs_cases] >>
      rw [convert_decls_def] >>
      res_tac >>
@@ -1703,11 +1722,11 @@ val infer_top_sound = Q.store_thm ("infer_top_sound",
          >- (PairCases_on `v'` >>
              fs [success_eqns] >>
              rw [] >>
-             `check_env {} env'''` by metis_tac [check_specs_check] >>
+             `check_env {} env''' ∧ flat_tenvT_ok tenvT'''` by metis_tac [check_specs_check] >>
              imp_res_tac check_specs_sound >>
              fs [] >>
              rw [] >>
-             Q.LIST_EXISTS_TAC [`cenv''`, `convert_env2 env''`, `convert_env2 env'''`, `convert_decls decls''`, `set mdecls'''`] >>
+             Q.LIST_EXISTS_TAC [`tenvT''`, `cenv''`, `convert_env2 env''`, `convert_env2 env'''`, `convert_decls decls''`, `set mdecls'''`] >>
              rw []
              >- metis_tac [INSERT_SING_UNION]
              >- rw [convert_menv_def, convert_env2_def]
@@ -1721,6 +1740,7 @@ val infer_top_sound = Q.store_thm ("infer_top_sound",
                      list_subset_def, SUBSET_DEF, EVERY_MEM] >>
                  rw [] >>
                  metis_tac [])
+             >- metis_tac [check_flat_weakT_sound]
              >- (PairCases_on `decls'''` >>
                  fs [convert_decls_def, append_decls_def])))
      >- (rw [tenvT_ok_merge] >>
@@ -1731,7 +1751,8 @@ val infer_top_sound = Q.store_thm ("infer_top_sound",
          rw [] >>
          PairCases_on `v'` >>
          fs [success_eqns] >>
-         rw [])
+         rw [] >>
+         metis_tac [check_specs_check])
      >- (fs [success_eqns, check_menv_def] >>
          rw [] >>
          cases_on `o'` >>

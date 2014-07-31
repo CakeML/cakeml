@@ -489,6 +489,11 @@ val infer_d_def = Define `
      () <- guard (EVERY (\new_id. ~MEM new_id tdecls) new_tdecls) "Duplicate type definition";
      return (([],new_tdecls,[]), new_tenvT, build_ctor_tenv mn tenvT' tdefs, [])
   od) ∧
+(infer_d mn decls tenvT menv cenv env (Dtabbrev tvs tn t) =
+  do () <- guard (ALL_DISTINCT tvs) "Duplicate type variables";
+     () <- guard (check_freevars 0 tvs t ∧ check_type_names tenvT t) "Bad type definition";
+     return (([],[],[]), [(tn, (tvs,t))], [], [])
+  od) ∧
 (infer_d mn (mdecls,tdecls,edecls) tenvT menv cenv env (Dexn cn ts) =
   do () <- guard (check_exn_tenv mn cn ts) "Bad exception definition";
      () <- guard (~MEM (mk_id mn cn) edecls) "Duplicate exception definition";
@@ -538,6 +543,12 @@ val check_specs_def = Define `
      () <- guard (EVERY (\new_id. ~MEM new_id tdecls) new_tdecls) "Duplicate type definition";
      check_specs mn (merge_tenvT ([],new_tenvT) tenvT) (mdecls,new_tdecls++tdecls,edecls) (merge new_tenvT tenvT') (merge (build_ctor_tenv mn tenvT'' tdefs) cenv) env specs
   od) ∧
+(check_specs mn tenvT (mdecls,tdecls,edecls) tenvT' cenv env (Stabbrev tvs tn t :: specs) =
+  do () <- guard (ALL_DISTINCT tvs) "Duplicate type variables";
+     () <- guard (check_freevars 0 tvs t ∧ check_type_names tenvT t) "Bad type definition";
+     new_tenvT <- return (tn, (tvs, t));
+     check_specs mn (merge_tenvT ([],[new_tenvT]) tenvT) (mdecls,tdecls,edecls) (new_tenvT::tenvT') cenv env specs
+  od) ∧
 (check_specs mn tenvT (mdecls,tdecls,edecls) tenvT' cenv env (Sexn cn ts :: specs) =
   do () <- guard (check_exn_tenv mn cn ts) "Bad exception definition";
      () <- guard (~MEM (mk_id mn cn) edecls) "Duplicate exception definition";
@@ -560,6 +571,17 @@ val check_flat_weakC_def = Define `
                   (tvs_spec = tvs_impl) ∧
                   (ts_spec = ts_impl))
         cenv_spec)`;
+
+val check_flat_weakT_def = Define `
+(check_flat_weakT mn tenvT_impl tenvT_spec =
+  EVERY (\(tn, (tvs_spec, t_spec)).
+            case lookup tn tenvT_impl of
+              | NONE => F
+              | SOME (tvs_impl,t_impl) =>
+                  (tvs_spec = tvs_impl) ∧
+                  ((t_spec = t_impl) ∨
+                   t_spec = Tapp (MAP Tvar tvs_spec) (TC_name (mk_id mn tn))))
+        tenvT_spec)`;
 
 val check_weakE_def = Define `
 (check_weakE env_impl [] = return ()) ∧
@@ -585,7 +607,7 @@ val check_signature_def = Define `
   return (decls, tenvT', cenv, env)) ∧
 (check_signature mn tenvT init_decls decls tenvT' cenv env (SOME specs) =
   do (decls', tenvT'', cenv', env') <- check_specs mn tenvT ([],[],[]) [] [] [] specs;
-     () <- guard (tenvT'' = tenvT') "Signature mismatch";
+     () <- guard (check_flat_weakT mn tenvT' tenvT'') "Signature mismatch";
      () <- guard (check_flat_weakC cenv cenv') "Signature mismatch";
      () <- check_weakE env env';
      () <- guard (check_weak_decls decls decls') "Signature mismatch";

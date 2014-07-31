@@ -322,6 +322,8 @@ val run_eval_dec_def = Define `
       ((st, new_tdecs ∪ tdecs), Rval (build_tdefs mn tds, emp))
     else
       ((st,tdecs), Rerr Rtype_error)) ∧
+(run_eval_dec mn env (st,tdecs) (Dtabbrev tvs tn t) =
+  ((st,tdecs), Rval (emp, emp))) ∧
 (run_eval_dec mn env (st,tdecs) (Dexn cn ts) =
   if TypeExn (mk_id mn cn) ∉ tdecs  then
     ((st, {TypeExn (mk_id mn cn)} ∪ tdecs), Rval (bind cn (LENGTH ts, TypeExn (mk_id mn cn)) emp, emp))

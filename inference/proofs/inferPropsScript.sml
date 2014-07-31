@@ -2192,6 +2192,7 @@ val infer_d_check = Q.store_thm ("infer_d_check",
      rw [flat_tenvT_ok_def, EVERY_MAP, check_freevars_def, EVERY_MEM] >>
      PairCases_on `x` >>
      rw [check_freevars_def, EVERY_MAP, EVERY_MEM])
+ >- rw [check_flat_cenv_def, check_env_def, flat_tenvT_ok_def]
  >- (every_case_tac >>
      fs [success_eqns] >>
      rw [] >>
@@ -2317,9 +2318,7 @@ val check_specs_check = Q.store_thm ("check_specs_check",
  REPEAT GEN_TAC >-
  (rw [check_specs_def, success_eqns, bind_def] >>
   metis_tac []) >>
- STRIP_TAC >>
- REPEAT GEN_TAC >>
- STRIP_TAC >>
+ REPEAT CONJ_TAC >>
  REPEAT GEN_TAC >>
  STRIP_TAC >>
  fs [check_specs_def, success_eqns, check_env_bind] 
@@ -2352,11 +2351,19 @@ val check_specs_check = Q.store_thm ("check_specs_check",
      fs [GSYM check_flat_cenv_def] >>
      match_mp_tac check_build_ctor_tenv >>
      rw [tenvT_ok_merge])
- >- (fs [bind_def, emp_def, check_flat_cenv_def, check_exn_tenv_def] >>
-     metis_tac [])
  >- (rpt gen_tac >>
      strip_tac >>
-     rpt gen_tac >>
+     FIRST_X_ASSUM match_mp_tac >>
+     rw [GSYM PULL_EXISTS] >>
+     qexists_tac `(tn,tvs,t)` >>
+     rw [tenvT_ok_merge]
+     >- rw [tenvT_ok_def, flat_tenvT_ok_def]
+     >- fs [flat_tenvT_ok_def, check_freevars_def, EVERY_MAP, EVERY_MEM]
+     >- metis_tac [])
+ >- (fs [bind_def, emp_def, check_flat_cenv_def, check_exn_tenv_def,
+         tenvT_ok_merge, tenvT_ok_def, flat_tenvT_ok_def] >>
+     metis_tac [])
+ >- (rpt gen_tac >>
      strip_tac >>
      FIRST_X_ASSUM match_mp_tac >>
      rw [GSYM PULL_EXISTS] >>
@@ -2394,19 +2401,18 @@ val infer_top_invariant = Q.store_thm ("infer_top_invariant",
          rw [check_menv_def, check_env_def, emp_def] >>
          fs [check_env_def, check_cenv_def, check_flat_cenv_def, tenvT_ok_def,
              flat_tenvT_ok_def])
-     >- (rw [infer_top_def, success_eqns] >>
+     >- (fs [infer_top_def, success_eqns] >>
+         strip_tac >>
          `?decls'' tenvT'' cenv'' env''. v' = (decls'',tenvT'',cenv'',env'')` by metis_tac [pair_CASES] >>
          fs [success_eqns] >>
          `?mdecls''' tdecls''' edecls''' tenvT''' cenv''' env'''. v'' = ((mdecls''',tdecls''',edecls'''),tenvT''',cenv''',env''')` by metis_tac [pair_CASES] >>
          fs [success_eqns] >>
          fs [check_signature_def, success_eqns] >>
-         rw [] >>
          `?decls'''' tenvT'''' cenv'''' env''''. v''' = (decls'''',tenvT'''',cenv'''',env'''')` by metis_tac [pair_CASES] >>
          fs [success_eqns] >>
-         rw [] >>
          `flat_tenvT_ok ([]:flat_tenvT) ∧ check_flat_cenv [] ∧ check_env {} ([]:(tvarN, num # infer_t) env)` 
                    by rw [check_env_def, check_flat_cenv_def, flat_tenvT_ok_def] >>
-         `flat_tenvT_ok tenvT'' ∧ check_flat_cenv cenv''' ∧ check_env {} env'''` by metis_tac [check_specs_check] >>
+         `flat_tenvT_ok tenvT''' ∧ check_flat_cenv cenv''' ∧ check_env {} env'''` by metis_tac [check_specs_check] >>
          rw [check_menv_def, check_env_def, emp_def] >>
          fs [check_env_def, check_cenv_def, tenvT_ok_def]))
  >- (rw [infer_top_def, success_eqns] >>

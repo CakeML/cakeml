@@ -606,6 +606,13 @@ DISJOINT new_tdecls tdecls /\
 ==>
 type_d mn (mdecls,tdecls,edecls) tenvT menv cenv tenv (Dtype tdefs) ({},new_tdecls,{}) new_tenvT (build_ctor_tenv mn (merge_tenvT (emp,new_tenvT) tenvT) tdefs) emp)
 
+/\ (! mn decls tenvT menv cenv tenv tvs tn t.
+ (check_freevars( 0) tvs t /\
+check_type_names tenvT t /\
+ALL_DISTINCT tvs)
+==>
+type_d mn decls tenvT menv cenv tenv (Dtabbrev tvs tn t) empty_decls [(tn, (tvs,t))] emp emp) 
+
 /\ (! mn menv tenvT cenv tenv cn ts mdecls edecls tdecls.
 (check_exn_tenv mn cn ts /\
 ~ (mk_id mn cn IN edecls))
@@ -641,6 +648,15 @@ check_ctor_tenv mn (merge_tenvT (emp,new_tenvT) tenvT) td /\
 type_specs mn (merge_tenvT (emp,new_tenvT) tenvT) specs decls flat_tenvT cenv tenv)
 ==>
 type_specs mn tenvT (Stype td :: specs) (union_decls decls ({},new_tdecls,{})) (merge flat_tenvT new_tenvT) (merge cenv (build_ctor_tenv mn (merge_tenvT (emp,new_tenvT) tenvT) td)) tenv)
+
+/\ (! mn tenvT tvs tn t specs decls cenv tenv new_tenvT tenvT'.
+ (ALL_DISTINCT tvs /\
+check_freevars( 0) tvs t /\
+check_type_names tenvT t /\
+(new_tenvT = (tn, (tvs,t))) /\
+type_specs mn (merge_tenvT (emp,[new_tenvT]) tenvT) specs decls tenvT' cenv tenv)
+==>
+type_specs mn tenvT (Stabbrev tvs tn t :: specs) decls (tenvT'++[new_tenvT]) cenv tenv)
 
 /\ (! mn tenvT flat_tenvT cenv tenv cn ts specs decls.
 (check_exn_tenv mn cn ts /\
@@ -699,6 +715,25 @@ val _ = Define `
 (edecs_spec SUBSET edecs_impl)))`;
 
 
+(*val flat_weakT : maybe modN -> flat_tenvT -> flat_tenvT -> bool*)
+val _ = Define `
+ (flat_weakT mn tenvT_impl tenvT_spec =  
+(! tn.
+    (case lookup tn tenvT_spec of
+        SOME (tvs_spec, t_spec) =>
+          (case lookup tn tenvT_impl of
+              NONE => F
+            | SOME (tvs_impl, t_impl) =>                
+(
+                (* For simplicity, we reject matches that differ only by renaming of bound type variables *)tvs_spec = tvs_impl) /\                
+                ((t_spec = t_impl) \/                 
+(
+                 (* The specified type is opaque *)t_spec = Tapp (MAP Tvar tvs_spec) (TC_name (mk_id mn tn))))
+          )
+      | NONE => T
+    )))`;
+
+
 val _ = Hol_reln ` (! mn cenv tenv decls tenvT flat_tenvT.
 T
 ==>
@@ -708,8 +743,7 @@ check_signature mn tenvT decls flat_tenvT cenv tenv NONE decls flat_tenvT cenv t
 (weakE tenv tenv' /\
 flat_weakC cenv cenv' /\
 weak_decls decls decls' /\
-(
-(* TODO: weakening for type defs *)flat_tenvT = flat_tenvT') /\
+flat_weakT mn flat_tenvT flat_tenvT' /\
 type_specs mn tenvT specs decls' flat_tenvT' cenv' tenv')
 ==>
 check_signature mn tenvT decls flat_tenvT cenv tenv (SOME specs) decls' flat_tenvT' cenv' tenv')`;

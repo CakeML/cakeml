@@ -1,5 +1,18 @@
 INCLUDES=.. ../.. ../../semantics ../../semantics/proofs ../../metatheory
 OPTIONS = QUIT_ON_FAILURE
+
 ifdef POLY
-HOLHEAP = ../heap
+HOLHEAP = heap
+PARENTHEAP=../heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+
+META_BARE_THYS = typeSysPropsTheory
+INFER_BARE_THYS = inferTheory
+
+BARE_THYS = $(patsubst %,../../metatheory/%,$(META_BARE_THYS)) $(patsubst %,../%,$(INFER_BARE_THYS))
+
+DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP) 
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENTHEAP) -o $(HOLHEAP) $(BARE_THYS)
 endif

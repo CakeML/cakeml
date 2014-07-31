@@ -11,10 +11,10 @@ $(GENS): $(LEMS)
  	else touch $(GENS); fi
 
 ifdef POLY
-HOLHEAP = sem_heap
+HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../preamble $(HOLDIR)/examples/parsing/grammarLib
+BARE_THYS = ../preamble $(HOLDIR)/examples/parsing/grammarLib ../compute_basicLib ../miscLib
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)

@@ -171,6 +171,7 @@ type dec =
      Defines several types, each of which has several named variants, which can
      in turn have several arguments *)
   | Dtype of type_def
+  | Dtabbrev of list tvarN * typeN * t
   | Dexn of conN * list t
 
 type decs = list dec 
@@ -178,6 +179,7 @@ type decs = list dec
 type spec =
   | Sval of varN * t
   | Stype of type_def
+  | Stabbrev of list tvarN * typeN * t
   | Stype_opq of list tvarN * typeN
   | Sexn of conN * list t
 
