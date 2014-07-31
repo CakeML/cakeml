@@ -18,11 +18,11 @@ $(GEN_SCRIPTS): $(LEMI) $(LEMH)
 
 ifdef POLY
 HOLHEAP = heap
-PARENT_HOLHEAP = ../semantics/sem_heap
+PARENT_HOLHEAP = ../semantics/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 BARE_THYS = ../semantics/terminationTheory ../bytecode/bytecodeExtraTheory ../inference/infer_tTheory
-DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 
 $(HOLHEAP): $(DEPS)
 #	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)

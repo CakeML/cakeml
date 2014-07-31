@@ -358,8 +358,8 @@ val bc_next_append_code = store_thm("bc_next_append_code",
   rw[bc_state_component_equality] >>
   fs[bc_eval_stack_thm] >>
   rw[stringTheory.IMPLODE_EXPLODE_I] >>
-  BasicProvers.CASE_TAC >>
-  rw[bc_state_component_equality,PRE_SUB1])
+  TRY (BasicProvers.CASE_TAC >> rw[bc_state_component_equality,PRE_SUB1]) >>
+  wordsLib.WORD_DECIDE_TAC);
 
 val bc_next_preserves_code = store_thm("bc_next_preserves_code",
   ``∀bs1 bs2. bc_next bs1 bs2 ⇒ (bs2.code = bs1.code)``,
