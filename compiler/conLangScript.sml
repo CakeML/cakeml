@@ -303,8 +303,8 @@ val _ = Define `
       (\ (tvs,tn,constrs) . 
         (mk_id mn tn,
          FOLDL
-           (\ s (cn,ts) .  insert (FST (option_CASE (FLOOKUP acc cn) ( 0,NONE) I)) ()  s)
-           LN constrs))
+           (\ s (cn,ts) .  sptree$insert (FST (option_CASE (FLOOKUP acc cn) ( 0,NONE) I)) ()  s)
+           sptree$LN constrs))
       tds)))`;
 
 
@@ -566,7 +566,7 @@ val _ = Define `
     (case FLOOKUP exh t of
         NONE => Match_type_error
       | SOME tags =>
-          if n IN (domain tags) /\ n' IN (domain tags) then
+          if n IN (sptree$domain tags) /\ n' IN (sptree$domain tags) then
             if n = n' then
               if LENGTH ps = LENGTH vs then
                 pmatch_list_i2 exh s ps vs env

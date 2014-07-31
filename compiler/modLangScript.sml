@@ -204,6 +204,8 @@ val _ = Define `
            Dletrec_i1 (funs_to_i1 menv (FOLDL (\ env (k,v) . env |+ (k, v)) env env') (REVERSE funs)))
     | Dtype type_def =>
         (next, [], Dtype_i1 mn type_def)
+    | Dtabbrev tvs tn t =>
+        (next, [], Dtype_i1 mn [])
     | Dexn cn ts =>
         (next, [], Dexn_i1 mn cn ts)
   )))`;

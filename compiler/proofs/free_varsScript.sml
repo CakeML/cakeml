@@ -1348,6 +1348,7 @@ val FV_dec_def = Define`
   (FV_dec (Dlet p e) = FV (Mat e [(p,Lit ARB)])) ∧
   (FV_dec (Dletrec defs) = FV (Letrec defs (Lit ARB))) ∧
   (FV_dec (Dtype _) = {}) ∧
+  (FV_dec (Dtabbrev _ _ _) = {}) ∧
   (FV_dec (Dexn _ _) = {})`
 val _ = export_rewrites["FV_dec_def"]
 
@@ -1374,6 +1375,7 @@ val evaluate_dec_closed = store_thm("evaluate_dec_closed",
 
 val new_dec_vs_def = Define`
   (new_dec_vs (Dtype _) = []) ∧
+  (new_dec_vs (Dtabbrev _ _ _) = []) ∧
   (new_dec_vs (Dexn _ _) = []) ∧
   (new_dec_vs (Dlet p e) = pat_bindings p []) ∧
   (new_dec_vs (Dletrec funs) = MAP FST funs)`

@@ -1825,6 +1825,10 @@ val dec_to_i1_correct = Q.prove (
      >- metis_tac [letrec_global_env])
  >- fs [v_to_i1_eqns]
  >- fs [v_to_i1_eqns]
+ >- (rw [PULL_EXISTS, type_defs_to_new_tdecs_def, build_tdefs_def, check_dup_ctors_def] >>
+     unabbrev_all_tac >>
+     rw [ALL_DISTINCT, Once v_to_i1_cases] >>
+     rw [Once v_to_i1_cases])
  >- fs [v_to_i1_eqns]
  >- fs [v_to_i1_eqns]);
 

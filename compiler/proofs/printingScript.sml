@@ -457,6 +457,7 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
       simp[UNCURRY,astTheory.mk_id_def] >>
       simp[LAMBDA_PROD] ) >>
     metis_tac[RTC_TRANSITIVE,transitive_def])
+  >- cheat
   >- (
     simp[] >>
     simp[compile_print_dec_def] >>
