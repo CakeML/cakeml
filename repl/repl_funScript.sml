@@ -133,7 +133,7 @@ val main_loop_def = tDefine "main_loop" `
 
 val repl_fun_def = Define `
   repl_fun initial input = main_loop empty_bc_state input (INL initial) T`;
-  
+
 (*
 
 TODO:
