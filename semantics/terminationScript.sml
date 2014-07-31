@@ -1,5 +1,5 @@
 open preamble intSimps;
-open libTheory astTheory semanticPrimitivesTheory typeSystemTheory elabTheory;
+open libTheory astTheory semanticPrimitivesTheory typeSystemTheory;
 
 val _ = new_theory "termination";
 
@@ -13,18 +13,15 @@ val vs_size_def = Define `vs_size = v7_size`;
 val envE_size_def = Define `envE_size = v5_size`;
 val envM_size_def = Define `envM_size = v3_size`;
 
-val ast_ts_size_def = Define `ast_ts_size = ast_t1_size`;
-
 val size_abbrevs = save_thm ("size_abbrevs",
 LIST_CONJ [pats_size_def, 
            exps_size_def, pes_size_def, funs_size_def, 
-           vs_size_def, envE_size_def, envM_size_def, ast_ts_size_def]);
+           vs_size_def, envE_size_def, envM_size_def]);
 
 val _ = export_rewrites["size_abbrevs"];
 
-val tac = Induct >- rw[exp_size_def,pat_size_def,v_size_def,ast_t_size_def,
-                       size_abbrevs] >>
-  full_simp_tac (srw_ss()++ARITH_ss)[exp_size_def,pat_size_def,v_size_def,ast_t_size_def, size_abbrevs];
+val tac = Induct >- rw[exp_size_def,pat_size_def,v_size_def,size_abbrevs] >>
+  full_simp_tac (srw_ss()++ARITH_ss)[exp_size_def,pat_size_def,v_size_def, size_abbrevs];
 fun tm t1 t2 =  ``∀ls. ^t1 ls = SUM (MAP ^t2 ls) + LENGTH ls``;
 fun size_thm name t1 t2 = store_thm(name,tm t1 t2,tac);
 
@@ -35,7 +32,6 @@ val pats_size_thm = size_thm "pats_size_thm" ``pats_size`` ``pat_size``;
 val vs_size_thm = size_thm "vs_size_thm" ``vs_size`` ``v_size``;
 val envE_size_thm = size_thm "envE_size_thm" ``envE_size`` ``v6_size``;
 val envM_size_thm = size_thm "envM_size_thm" ``envM_size`` ``v4_size``;
-val ast_t1_size_thm = size_thm "ast_t1_size_thm" ``ast_t1_size`` ``ast_t_size``;
 
 val SUM_MAP_exp2_size_thm = store_thm(
 "SUM_MAP_exp2_size_thm",
@@ -96,12 +92,6 @@ fun register name def ind =
   in
     ()
   end;
-
-val _ = uncurry (register "elab_t") (
-  tprove_no_defn ((elab_t_def,elab_t_ind),
-  WF_REL_TAC`measure (ast_t_size o SND)` >>
-  srw_tac[ARITH_ss][ast_t_size_def,ast_t1_size_thm]>>
-  Q.ISPEC_THEN`ast_t_size`imp_res_tac SUM_MAP_MEM_bound >> fsrw_tac[ARITH_ss][]));
 
 val _ = export_rewrites["lib.lookup_def"];
 

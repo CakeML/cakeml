@@ -61,18 +61,6 @@ val _ = Define `
       Dlet (Pvar "update") (Fun "x" (Fun "y" (Fun "z" (App Aupdate [Var (Short "x"); Var (Short "y"); Var (Short "z")])))) ] ]))`;
 
 
-(* The initial mapping of type names to primitive type constructors, for the elaborator *)
-val _ = Define `
- (init_type_bindings =  
-([("int", TC_int);
-   ("bool", TC_bool);
-   ("ref", TC_ref);
-   ("exn", TC_exn);
-   ("unit", TC_unit);
-   ("list", TC_name (Short "list"));
-   ("option", TC_name (Short "option"))]))`;
-
-
 val _ = Hol_datatype `
  sem_environment = <| sem_envM : envM;
                           sem_envC : envC;

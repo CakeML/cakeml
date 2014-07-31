@@ -1,14 +1,12 @@
 open preamble;
 open ASCIInumbersTheory;
-open bigStepTheory typeSystemTheory astTheory elabTheory lexer_funTheory;
+open bigStepTheory typeSystemTheory astTheory lexer_funTheory;
 open gramTheory cmlPtreeConversionTheory initialProgramTheory;
 
 val _ = new_theory "repl";
 
 val _ = Hol_datatype `
-repl_state = <| (* Elaborator state *)
-                type_bindings : tdef_env;
-                (* Type system state *)
+repl_state = <| (* Type system state *)
                 tdecs : decls; tenvT : tenvT; tenvM : tenvM; tenvC : tenvC; tenv : tenvE;
                 (* Semantics state *)
                 sem_env : sem_environment |>`;
@@ -20,11 +18,10 @@ repl_result =
   | Result of string => repl_result`;
 
 val update_repl_state_def = Define `
-update_repl_state ast state type_bindings tdecs tenvT tenvM tenvC tenv store envC r =
+update_repl_state ast state tdecs tenvT tenvM tenvC tenv store envC r =
   case r of
     | Rval (envM,envE) =>
-        <| type_bindings := type_bindings ++ state.type_bindings;
-           tdecs := tdecs;
+        <| tdecs := tdecs;
            tenvT := merge_tenvT tenvT state.tenvT;
            tenvM := tenvM ++ state.tenvM;
            tenvC := merge_tenvC tenvC state.tenvC;
@@ -103,17 +100,14 @@ val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
 (!state.
   ast_repl state [] [] Terminate) ∧
 
-(!state type_errors ast asts top rest type_bindings' tdecs' tenvT' tenvM' tenvC' tenv' store' envC' r.
-  (elab_top state.type_bindings ast = (type_bindings', top)) ∧
+(!state type_errors ast asts top rest tdecs' tenvT' tenvM' tenvC' tenv' store' envC' r.
   (type_top state.tdecs state.tenvT state.tenvM state.tenvC state.tenv top tdecs' tenvT' tenvM' tenvC' tenv') ∧
   evaluate_top F (state.sem_env.sem_envM, state.sem_env.sem_envC, state.sem_env.sem_envE) state.sem_env.sem_store top (store',envC',r) ∧
-  ast_repl (update_repl_state top state type_bindings' (union_decls tdecs' state.tdecs) tenvT' tenvM' tenvC' tenv' store' envC' r) type_errors asts rest
+  ast_repl (update_repl_state top state (union_decls tdecs' state.tdecs) tenvT' tenvM' tenvC' tenv' store' envC' r) type_errors asts rest
   ⇒
   ast_repl state (F::type_errors) (SOME ast::asts) (Result (print_result tenv' top envC' r) rest)) ∧
 
-(!state type_errors ast asts top type_bindings' tdecs' tenvT' tenvM' tenvC' tenv'.
-  (elab_top state.type_bindings ast =
-   (type_bindings', top)) ∧
+(!state type_errors ast asts top tdecs' tenvT' tenvM' tenvC' tenv'.
   (type_top state.tdecs state.tenvT state.tenvM state.tenvC state.tenv top tdecs' tenvT' tenvM' tenvC' tenv') ∧
   top_diverges (state.sem_env.sem_envM, state.sem_env.sem_envC, state.sem_env.sem_envE) (remove_count state.sem_env.sem_store) top
   ⇒

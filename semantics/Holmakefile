@@ -1,7 +1,7 @@
 OPTIONS = QUIT_ON_FAILURE
 INCLUDES = $(HOLDIR)/examples/parsing/ .. ../lem_lib_stub
 
-SRC = lib tokens ast elab semanticPrimitives smallStep bigStep typeSystem initialProgram
+SRC = lib tokens ast semanticPrimitives smallStep bigStep typeSystem initialProgram
 LEMS = $(patsubst %,%.lem,$(SRC))
 GENS = $(patsubst %,%Script.sml,$(SRC))
 

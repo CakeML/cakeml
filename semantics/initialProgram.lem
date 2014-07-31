@@ -43,16 +43,6 @@ let basis_program =
       mk_unop "length" Alength;
       Dlet (Pvar "update") (Fun "x" (Fun "y" (Fun "z" (App Aupdate [Var (Short "x"); Var (Short "y"); Var (Short "z")])))) ] ]
 
-(* The initial mapping of type names to primitive type constructors, for the elaborator *)
-let init_type_bindings =
-  [("int", TC_int);
-   ("bool", TC_bool);
-   ("ref", TC_ref);
-   ("exn", TC_exn);
-   ("unit", TC_unit);
-   ("list", TC_name (Short "list"));
-   ("option", TC_name (Short "option"))]
-
 type sem_environment = <| sem_envM : envM;
                           sem_envC : envC;
                           sem_envE : envE;

@@ -141,30 +141,10 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
       ()
     end
 
-  fun add_elab_compset compset = let
-      
-    val () = compute_basicLib.add_basic_compset compset
-      
-    local open elabTheory in
-      val () = computeLib.add_thms
-      [elab_prog_def
-      ,elab_top_def
-      ,elab_dec_def
-      ,elab_decs_def
-      ,terminationTheory.elab_t_def
-      ,elab_td_def
-      ,elab_spec_def
-      ] compset
-    end
-    in
-      ()
-    end
-
   val the_semantics_compset = let 
     val c = wordsLib.words_compset ()
     val () = add_ast_compset c
     val () = add_lexparse_compset c
-    val () = add_elab_compset c
     in
       c
     end
