@@ -71,7 +71,7 @@ val (bEvalRel_rules, bEvalRel_ind_raw, bEvalRel_cases) = Hol_reln `
   /\
   (!xs env s s1 res.
      bEvalRel (xs,env,s) (Result vs,s1) /\
-     bEvalRel ([x2],REVERSE vs ++ env,s1) (res,s2) ==>
+     bEvalRel ([x2],vs ++ env,s1) (res,s2) ==>
      bEvalRel ([Let xs x2],env,s) (res,s2))
   /\
   (!x1 env s s2 res.
@@ -130,7 +130,7 @@ val (bEvalRel_rules, bEvalRel_ind_raw, bEvalRel_cases) = Hol_reln `
      bEvalRel (xs,env,s) (Result vs,s1) /\
      (find_code dest vs s1.code = SOME (args,exp)) /\
      (s1.clock <> 0) /\
-     bEvalRel ([exp],REVERSE args,dec_clock s1) (res,s2) ==>
+     bEvalRel ([exp],args,dec_clock s1) (res,s2) ==>
      bEvalRel ([Call dest xs],env,s) (res,s2))`;
 
 (* Improve ind thm *)
