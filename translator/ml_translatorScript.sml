@@ -715,12 +715,13 @@ val Decls_def = Define `
       evaluate_decs F mn env s1 ds (s2,new_tds, Rval res_env) /\
       (env2 = (menv1,merge_envC (emp,new_tds) cenv1,merge res_env env1))`;
 
-val DeclAssum_def = Define `
+val DeclAssum_def = zDefine `
   DeclAssum mn ds env tys =
     ?s. Decls mn
           ((THE prim_sem_env).sem_envM,(THE prim_sem_env).sem_envC,(THE prim_sem_env).sem_envE)
           (FST (THE prim_sem_env).sem_store,FST(SND(THE prim_sem_env).sem_store))
           ds env ((0,s),tys)`;
+val _ = computeLib.add_funs [DeclAssum_def |> SIMP_RULE (srw_ss()) [initSemEnvTheory.prim_sem_env_eq]]
 
 val write_tds_def = Define `
   write_tds mn tds ((menv1,cenv1,env1):all_env) =
