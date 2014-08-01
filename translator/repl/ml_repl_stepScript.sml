@@ -140,6 +140,8 @@ val _ = translate (def_of_const ``ptree_REPLTop``);
 
 val _ = translate (RW [monad_unitbind_assert,cmlParseREPLTop_def] parse_top_def);
 
+val _ = ParseExtras.temp_tight_equality()
+
 val parse_top_side_def = prove(
   ``!x. parse_top_side x = T``,
   SIMP_TAC std_ss [fetch "-" "parse_top_side_def",
