@@ -210,14 +210,49 @@ in
     val _ = map (fn s => delete_const s handle NotFound => ()) strs
     in () end;
   (* functions for appending a new declaration *)
+  val cs = listLib.list_compset()
+  val () = computeLib.scrub_thms [LIST_TO_SET_THM,MEM,ALL_DISTINCT] cs
+  val () = computeLib.add_thms [MEM,ALL_DISTINCT] cs
+  val () = stringLib.add_string_compset cs
+  val () = pairLib.add_pair_compset cs
+  val () = computeLib.add_thms [evalPropsTheory.build_tdefs_cons] cs
+  val eval = computeLib.CBV_CONV cs
+  (* val previous_all_distinct = ref TRUTH *)
   fun snoc_cenv_eq_thm decl =
     if can (match_term ``(Dtype x) : dec``) decl then
       MATCH_MP (INST_mn DeclAssumCons_SNOC_Dtype) (!cenv_eq_thm)
       |> SPEC (decl |> rand)
-      |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL)
+      (* |> (fn th => (print_term(th |> concl |> rator |> rand); print"\n"; th)) *)
+      (*
+      |> print_time "EVAL build_tdefs"
+        (CONV_RULE ((RATOR_CONV o RAND_CONV o RAND_CONV o RAND_CONV o RATOR_CONV o RAND_CONV) eval))
+      |> print_time "REWR MAP FST"
+        (CONV_RULE ((RATOR_CONV o RAND_CONV o RAND_CONV) (REWR_CONV MAP_APPEND)))
+      |> print_time "EVAL MAP 1"
+        (CONV_RULE ((RATOR_CONV o RAND_CONV o RAND_CONV o RATOR_CONV o RAND_CONV) eval))
+      |> print_time "EVAL MAP 2"
+        (CONV_RULE ((RATOR_CONV o RAND_CONV o RAND_CONV o RAND_CONV) eval))
+      |> (fn th =>
+          let
+            val goal = th |> concl |> rator |> rand
+            val eval_tac = CONV_TAC eval
+            fun WARN_ACCEPT_TAC th = ACCEPT_TAC th ORELSE (print_thm th; FAIL_TAC(" failed to be accepted"))
+            val tac =
+              CONV_TAC(REWR_CONV ALL_DISTINCT_APPEND) THEN
+              CONJ_TAC THEN1 eval_tac THEN
+              CONJ_TAC THEN1 (WARN_ACCEPT_TAC (!previous_all_distinct) ORELSE eval_tac) THEN
+              eval_tac THEN GEN_TAC THEN STRIP_TAC THEN BasicProvers.VAR_EQ_TAC THEN eval_tac
+            val lemma = auto_prove "DeclAssumCons_SNOC_Dtype: ALL_DISTINCT tdefs" (goal,tac)
+            val () = previous_all_distinct := (CONV_RULE (RAND_CONV eval) lemma)
+          in
+            MY_MP "DeclAssumCons_SNOC_Dtype" th lemma
+          end)
+      *)
+      |> print_time "EVAL ALL_DISTINCT" (CONV_RULE ((RATOR_CONV o RAND_CONV) eval))
       |> (fn th => MY_MP "DeclAssumCons_SNOC_Dtype" th TRUTH)
-      |> CONV_RULE (RAND_CONV EVAL THENC
-                    (RATOR_CONV o RAND_CONV) EVAL)
+      |> print_time "EVAL2" (
+         CONV_RULE (RAND_CONV EVAL THENC
+                    (RATOR_CONV o RAND_CONV) EVAL))
       |> (fn th => (cenv_eq_thm := th; th))
     else if can (match_term ``(Dlet v x) : dec``) decl then
       MATCH_MP (INST_mn DeclAssumCons_SNOC_Dlet) (!cenv_eq_thm)
