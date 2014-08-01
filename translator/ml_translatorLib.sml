@@ -2728,34 +2728,55 @@ in
     in th end end
 end
 
-fun finalise_module_translation () = let
-  fun DISCH_DeclAssum lemma = let
-    val th = lemma |> DISCH_ALL
-                   |> PURE_REWRITE_RULE [GSYM AND_IMP_INTRO]
-                   |> UNDISCH_ALL
-    val pattern = ``DeclAssum mn ds env tys``
-    val x = hyp th |> filter (can (match_term pattern)) |> hd
-            handle Empty => get_DeclAssum ()
-    in DISCH x th end
-  val _ = finalise_translation ()
-  val ex = get_DeclAssumExists ()
-  val th = MATCH_MP DeclAssumExists_SOME_IMP_Tmod ex |> SPEC_ALL
-  val tm = th |> concl |> dest_imp |> fst
-  val lemma = auto_prove "ALL_DISTINCT type_names" (tm,
-    ONCE_REWRITE_TAC [case get_decl_abbrev () of SOME x => x | NONE => TRUTH]
-    \\ PURE_REWRITE_TAC [type_names_def] \\ EVAL_TAC)
-  val th = MP th lemma
-  val th1 = CONJUNCT1 th
-  val th2 = CONJUNCT2 th
-  fun expand lemma = let
-    val th3 = MATCH_MP (DISCH_DeclAssum lemma) (MATCH_MP DeclEnv ex)
-    val th3 = MATCH_MP Eval_Var_Short_merge (th3 |> RW [th2])
-              |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL)
-    in MP th3 TRUTH |> DISCH_ALL |> GEN_ALL end
-    handle HOL_ERR _ => TRUTH;
-  val xs = (map (fst o get_cert) (rev (get_names ())))
-  val th4 = LIST_CONJ (map expand xs) |> RW []
-  in CONJ th1 th4 |> GEN_ALL end
+local
+  val cs = listLib.list_compset()
+  val () = computeLib.scrub_thms [LIST_TO_SET_THM,MEM,ALL_DISTINCT] cs
+  val () = computeLib.add_thms [MEM,ALL_DISTINCT] cs
+  val () = stringLib.add_string_compset cs
+  val () = combinLib.add_combin_compset cs
+  val () = pairLib.add_pair_compset cs
+  val eval = computeLib.CBV_CONV cs
+
+  val cs2 = listLib.list_compset()
+  val () = computeLib.scrub_thms [LIST_TO_SET_THM,MEM,ALL_DISTINCT] cs2
+  val () = computeLib.add_thms [MEM,ALL_DISTINCT] cs2
+  val () = stringLib.add_string_compset cs2
+  val () = combinLib.add_combin_compset cs2
+  val () = optionLib.OPTION_rws cs2
+  val () = computeLib.add_thms [initSemEnvTheory.prim_sem_env_eq] cs2
+  val () = computeLib.add_datatype_info cs2 (valOf(TypeBase.fetch``:sem_environment``))
+  val eval2 = computeLib.CBV_CONV cs2
+
+in
+  fun finalise_module_translation () = let
+    fun DISCH_DeclAssum lemma = let
+      val th = lemma |> DISCH_ALL
+                     |> PURE_REWRITE_RULE [GSYM AND_IMP_INTRO]
+                     |> UNDISCH_ALL
+      val pattern = ``DeclAssum mn ds env tys``
+      val x = hyp th |> filter (can (match_term pattern)) |> hd
+              handle Empty => get_DeclAssum ()
+      in DISCH x th end
+    val _ = finalise_translation ()
+    val ex = get_DeclAssumExists ()
+    val th = MATCH_MP DeclAssumExists_SOME_IMP_Tmod ex |> SPEC_ALL
+    val tm = th |> concl |> dest_imp |> fst
+    val lemma = auto_prove "ALL_DISTINCT type_names" (tm,
+      ONCE_REWRITE_TAC [case get_decl_abbrev () of SOME x => x | NONE => TRUTH]
+      \\ PURE_REWRITE_TAC [type_names_def] \\ CONV_TAC eval)
+    val th = MP th lemma
+    val th1 = CONJUNCT1 th
+    val th2 = CONJUNCT2 th
+    fun expand lemma = let
+      val th3 = MATCH_MP (DISCH_DeclAssum lemma) (MATCH_MP DeclEnv ex)
+      val th3 = MATCH_MP Eval_Var_Short_merge (th3 |> RW [th2])
+                |> CONV_RULE ((RATOR_CONV o RAND_CONV) eval2)
+      in MP th3 TRUTH |> DISCH_ALL |> GEN_ALL end
+      handle HOL_ERR _ => TRUTH;
+    val xs = (map (fst o get_cert) (rev (get_names ())))
+    val th4 = LIST_CONJ (map expand xs) |> RW []
+    in CONJ th1 th4 |> GEN_ALL end
+end
 
 (*
 
