@@ -444,6 +444,8 @@ val basis_env_eq = save_thm ("basis_env_eq",
   |> CONV_RULE(computeLib.CBV_CONV the_inference_compset)
   |> CONV_RULE(computeLib.CBV_CONV the_compiler_compset));
 
+val eval_fvs = computeLib.CBV_CONV (the_free_vars_compset())
+
 val basis_env_inv = Q.store_thm ("basis_env_inv",
 `?se e code bs.
   basis_env = SOME (e,code) ∧
@@ -472,9 +474,9 @@ val basis_env_inv = Q.store_thm ("basis_env_inv",
  rw []
  >- (
    rw[basis_program_def] >>
-   CONV_TAC(computeLib.CBV_CONV the_free_vars_compset) >>
+   CONV_TAC(eval_fvs) >>
    rw[mk_binop_def,mk_unop_def] >>
-   CONV_TAC(computeLib.CBV_CONV the_free_vars_compset))
+   CONV_TAC(eval_fvs))
  >- (
    rw[basis_program_def] >>
    CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>

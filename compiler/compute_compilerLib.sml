@@ -168,7 +168,7 @@ in
     ,FV_def
     ]
 
-  val the_free_vars_compset =
+  fun the_free_vars_compset () =
     let
       val c = compute_basicLib.the_basic_compset
       val () = compute_semanticsLib.add_ast_compset c
