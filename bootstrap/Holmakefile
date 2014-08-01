@@ -1,4 +1,4 @@
-INCLUDES = .. ../repl ../repl/proofs ../compiler/proofs ../translator ../translator/repl ../bytecode
+INCLUDES = .. ../repl ../repl/proofs ../compiler ../compiler/proofs ../translator ../translator/repl ../bytecode
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
