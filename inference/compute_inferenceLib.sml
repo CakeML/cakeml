@@ -4,6 +4,10 @@ structure compute_inferenceLib = struct
   fun add_inference_compset compset =
   let
 
+    val () = compute_semanticsLib.add_ast_compset compset
+
+    val get_wfs = unifyLib.add_unify_compset compset
+
     open inferTheory
     val () = computeLib.add_thms
     [infer_prog_def
@@ -44,15 +48,12 @@ structure compute_inferenceLib = struct
     val () = compute_basicLib.add_datatype ``:('a,'b)exc`` compset
     val () = compute_basicLib.add_datatype ``:'a infer_st`` compset
   in
-    ()
+   get_wfs 
   end
 
   val the_inference_compset = let
     val c = wordsLib.words_compset ()
-    val () = compute_basicLib.add_basic_compset c
-    val () = compute_semanticsLib.add_ast_compset c
-    val get_wfs = unifyLib.add_unify_compset c
-    val () = add_inference_compset c
+    val get_wfs = add_inference_compset c
   in
     c
   end

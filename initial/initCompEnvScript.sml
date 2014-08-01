@@ -12,6 +12,7 @@ val _ = Hol_datatype `
   comp_environment = <| inf_mdecls : modN list;
                         inf_tdecls : typeN id list;
                         inf_edecls : conN id list;
+                        inf_tenvT : tenvT;
                         inf_tenvM : (tvarN, (tvarN, num # infer_t) alist) alist;
                         inf_tenvC : tenvC;
                         inf_tenvE : (tvarN, num # infer_t) alist;
@@ -31,6 +32,7 @@ invariant' se ce bs ⇔
     se.sem_store = ((count,s),tids,mdecls) ∧
     type_sound_invariants (NONE : (v,v) result option)
                           (convert_decls (ce.inf_mdecls, ce.inf_tdecls, ce.inf_edecls),
+                           ce.inf_tenvT,
                            convert_menv ce.inf_tenvM,
                            ce.inf_tenvC,
                            bind_var_list2 (convert_env2 ce.inf_tenvE) Empty,
@@ -39,7 +41,7 @@ invariant' se ce bs ⇔
                            se.sem_envC,
                            se.sem_envE,
                            s) ∧
-    infer_sound_invariant ce.inf_tenvM ce.inf_tenvC ce.inf_tenvE ∧
+    infer_sound_invariant ce.inf_tenvT ce.inf_tenvM ce.inf_tenvC ce.inf_tenvE ∧
     mdecls = set ce.inf_mdecls ∧
     env_rs (se.sem_envM, se.sem_envC, se.sem_envE) se.sem_store (genv,gtagenv,rd) ce.comp_rs bs ∧
     bs.clock = NONE ∧ code_labels_ok bs.code ∧ code_executes_ok' bs`;
@@ -51,6 +53,7 @@ invariant se ce bs ⇔
     se.sem_store = ((count,s),tids,mdecls) ∧
     type_sound_invariants (NONE : (v,v) result option)
                           (convert_decls (ce.inf_mdecls, ce.inf_tdecls, ce.inf_edecls),
+                           ce.inf_tenvT,
                            convert_menv ce.inf_tenvM,
                            ce.inf_tenvC,
                            bind_var_list2 (convert_env2 ce.inf_tenvE) Empty,
@@ -59,21 +62,22 @@ invariant se ce bs ⇔
                            se.sem_envC,
                            se.sem_envE,
                            s) ∧
-    infer_sound_invariant ce.inf_tenvM ce.inf_tenvC ce.inf_tenvE ∧
+    infer_sound_invariant ce.inf_tenvT ce.inf_tenvM ce.inf_tenvC ce.inf_tenvE ∧
     mdecls = set ce.inf_mdecls ∧
     env_rs (se.sem_envM, se.sem_envC, se.sem_envE) se.sem_store (genv,gtagenv,rd) ce.comp_rs bs ∧
     bs.clock = NONE ∧ code_labels_ok bs.code ∧ init_code_executes_ok bs`;
 
 val add_to_env_def = Define `
 add_to_env e prog =
-  let inf_env = infer_prog (e.inf_mdecls,e.inf_tdecls,e.inf_edecls) e.inf_tenvM e.inf_tenvC e.inf_tenvE prog init_infer_state in
+  let inf_env = infer_prog (e.inf_mdecls,e.inf_tdecls,e.inf_edecls) e.inf_tenvT e.inf_tenvM e.inf_tenvC e.inf_tenvE prog init_infer_state in
   let (rs',code) = compile_initial_prog e.comp_rs prog in
     case inf_env of
-      | (Success ((mdecls',tdecls',edecls'), tenvM', tenvC', tenvE'), st) =>
+      | (Success ((mdecls',tdecls',edecls'), tenvT', tenvM', tenvC', tenvE'), st) =>
             SOME
              (<| inf_mdecls := mdecls' ++ e.inf_mdecls;
                  inf_tdecls := tdecls' ++ e.inf_tdecls;
                  inf_edecls := edecls' ++ e.inf_edecls;
+                 inf_tenvT := merge_tenvT tenvT' e.inf_tenvT;
                  inf_tenvM := tenvM' ++ e.inf_tenvM;
                  inf_tenvC := merge_tenvC tenvC' e.inf_tenvC;
                  inf_tenvE := tenvE' ++ e.inf_tenvE;
@@ -170,7 +174,7 @@ val add_to_env_invariant'_lem = Q.prove (
  `?bs'' grd''.
     bc_next^* bs1 bs'' ∧ bc_fetch bs'' = NONE ∧ bs''.pc = next_addr bs1.inst_length bs1.code ∧
     bs''.output = bs1.output ∧
-    env_rs (envM' ++ FST (envM,envC,envE),merge_envC cenv2 (FST (SND (envM,envC,envE))), envE' ++ SND (SND (envM,envC,envE))) ((cnt',s'),decls2',set q''' ∪ set e.inf_mdecls) grd'' rs' bs''`
+    env_rs (envM' ++ FST (envM,envC,envE),merge_envC cenv2 (FST (SND (envM,envC,envE))), envE' ++ SND (SND (envM,envC,envE))) ((cnt',s'),decls2',set q'''' ∪ set e.inf_mdecls) grd'' rs' bs''`
                by metis_tac [compile_thm] >>
  fs [] >>
  pop_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] compilerProofTheory.env_rs_change_clock)) >>
@@ -267,6 +271,7 @@ prim_env =
 add_to_env <| inf_mdecls := [];
               inf_tdecls := [];
               inf_edecls := [];
+              inf_tenvT := ([],[]);
               inf_tenvM := [];
               inf_tenvC := ([],[]);
               inf_tenvE := [];

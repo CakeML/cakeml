@@ -18,8 +18,12 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
     ,astTheory.pat_bindings_def
     ,astTheory.mk_id_def
     ,typeSystemTheory.merge_tenvC_def
+    ,typeSystemTheory.merge_tenvT_def
     ,typeSystemTheory.check_ctor_tenv_def
     ,terminationTheory.check_freevars_def
+    ,terminationTheory.check_type_names_def
+    ,terminationTheory.type_name_subst_def
+    ,typeSystemTheory.lookup_type_name_def
     ,typeSystemTheory.check_exn_tenv_def
     ,typeSystemTheory.tid_exn_to_tc_def
     ,typeSystemTheory.build_ctor_tenv_def
@@ -53,6 +57,7 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
     val () = add_datatype ``:opn`` compset
     val () = add_datatype ``:'a id`` compset
     val () = add_datatype ``:eq_result`` compset
+    val () = add_datatype ``:tctor`` compset
   in
     ()
   end
