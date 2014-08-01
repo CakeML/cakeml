@@ -14,6 +14,17 @@ infix \\ val op \\ = op THEN;
 val RW = REWRITE_RULE;
 val RW1 = ONCE_REWRITE_RULE;
 
+fun print_time s f x = f x
+(*
+let
+  val () = print "Starting "
+  val () = print s
+  val () = print "...\n"
+  val r = time f x
+  val () = print s
+  val () = print " done\n"
+in r end
+*)
 
 (* packers and unpackers for thms, terms and types *)
 
@@ -219,7 +230,7 @@ in
     else
       failwith "snoc_cenv_eq_thm input is not recognised decl"
   fun snoc_decl decl = let
-    val _ = snoc_cenv_eq_thm decl
+    val _ = print_time "snoc_cenv_eq_thm" snoc_cenv_eq_thm decl
     val _ = (decl_term := listSyntax.mk_snoc(decl,!decl_term))
     val f = if can (match_term ``(Dletrec funs) : dec``) decl then
               (fn (n:string,tm:term,th,pre) =>
@@ -243,7 +254,7 @@ in
                           |> Q.GEN `env`)
                       handle HOL_ERR _ => th,pre))
             else fail()
-    val _ = map_cert_memory f
+    val _ = print_time "map_cert_memory" map_cert_memory f
     in () end;
   fun snoc_dtype_decl dtype = let
     val decl = dtype
@@ -1401,11 +1412,11 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
     val inv_lhs = subst [x|->input] inv_lhs
     val (case_lemma,ts) = prove_case_of_lemma (ty,case_th,inv_lhs,inv_def)
 
-    val conses = map (derive_cons ty inv_lhs inv_def) ts
+    val conses = print_time "conses" (map (derive_cons ty inv_lhs inv_def)) ts
     in (ty,eq_lemma,inv_def,conses,case_lemma,ts) end
   val res = map make_calls (zip case_thms inv_defs)
   val _ = if mem name ["LIST_TYPE","OPTION_TYPE","PAIR_TYPE"]
-          then () else snoc_dtype_decl dtype
+          then () else print_time "snoc_dtype_decl" snoc_dtype_decl dtype
   val (rws1,rws2) = if not is_record then ([],[])
                     else derive_record_specific_thms (hd tys)
   in (rws1,rws2,res) end;
@@ -2817,7 +2828,7 @@ val _ = (max_print_depth := 25)
     val _ = code_def |> (delete_const o fst o dest_const o fst o dest_eq o concl)
     (* store certificate for later use *)
     val pre = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
-    val th = store_cert th [pre] decl_assum_x |> Q.SPEC `env` |> UNDISCH_ALL
+    val th = print_time "store_cert non-rec" (store_cert th [pre]) decl_assum_x |> Q.SPEC `env` |> UNDISCH_ALL
     val _ = print_fname fname def (* should really be original def *)
     in th end
     else (* is_rec *) let
@@ -2983,7 +2994,7 @@ val (th,(fname,def,_,pre)) = hd (zip results thms)
               (delete_const o fst o dest_const o fst o dest_eq o concl)
     (* store certificate for later use *)
     val pres = map (fn (fname,def,th,pre) => force_thm_the pre) thms
-    val th = store_cert th pres decl_assum_x
+    val th = print_time "store_cert" (store_cert th pres) decl_assum_x
                 |> CONJUNCTS |> map (UNDISCH_ALL o Q.SPEC `env`) |> LIST_CONJ
     val (fname,def,_,_) = hd thms
     val _ = print_fname fname def (* should be original def *)
