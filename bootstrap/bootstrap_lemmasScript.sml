@@ -21,13 +21,14 @@ val LUPDATE_SAME = store_thm("LUPDATE_SAME",
 (* REPL module is closed (should be proved elsewhere?) *)
 
 val all_env_dom_init =
-  ``all_env_dom ([],init_envC,init_env)``
-  |> (SIMP_CONV std_ss [free_varsTheory.all_env_dom_def,libTheory.lookup_def] THENC
+  ``all_env_dom ((THE prim_sem_env).sem_envM,(THE prim_sem_env).sem_envC,(THE prim_sem_env).sem_envE)``
+  |> (REWRITE_CONV [initSemEnvTheory.prim_sem_env_eq] THENC
+      SIMP_CONV std_ss [free_varsTheory.all_env_dom_def,libTheory.lookup_def] THENC
       SIMP_CONV (srw_ss()) [pred_setTheory.EXTENSION] THENC
       EVAL)
 
 val closed_top_REPL = prove(
-  ``closed_top ([],init_envC,init_env) (Tmod "REPL" NONE ml_repl_module_decls)``,
+  ``closed_top ((THE prim_sem_env).sem_envM,(THE prim_sem_env).sem_envC,(THE prim_sem_env).sem_envE) (Tmod "REPL" NONE ml_repl_module_decls)``,
   simp[free_varsTheory.closed_top_def,all_env_dom_init,FV_decs_ml_repl_module_decls])
 
 (* Equality Type assumptions (should be proved elsewhere?) *)
@@ -279,7 +280,7 @@ val check_dup_ctors_flat = Q.prove (
 `!defs.
   check_dup_ctors (defs:type_def) =
   ALL_DISTINCT (MAP FST (build_tdefs mn defs))`,
- rw [evalPropsTheory.check_dup_ctors_thm, MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
+ rw [check_dup_ctors_thm, MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
      semanticPrimitivesTheory.build_tdefs_def,
      rich_listTheory.MAP_REVERSE, ALL_DISTINCT_REVERSE]);
 
@@ -336,7 +337,8 @@ val evaluate_Tmod_tys = prove(
 
 (* Environment produced by repl_decs *)
 
-val evaluate_repl_decs = DISCH_ALL module_thm |> SIMP_RULE std_ss []
+val evaluate_repl_decs = DISCH_ALL module_thm
+  |> SIMP_RULE std_ss [PRECONDITION_def,sideTheory.basis_state_side_thm]
   |> RW EqualityTypes
 
 val (repl_store,repl_res) =
@@ -347,7 +349,7 @@ val (repl_store,repl_res) =
 val (x,y) = dest_pair repl_res
 val y = rand y
 val (y,z) = dest_pair y
-val repl_all_env = ``^y,merge_envC ^x init_envC,init_env``
+val repl_all_env = ``^y,merge_envC ^x (THE prim_sem_env).sem_envC,(THE prim_sem_env).sem_envE``
 
 val repl_decs_cs =
   let
