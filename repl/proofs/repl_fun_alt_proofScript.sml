@@ -21,7 +21,7 @@ val simple_main_loop_def = tDefine "simple_main_loop" `
    case lex_until_toplevel_semicolon input of
    | NONE => (Terminate,T)
    | SOME (tokens,rest_of_input) =>
-     case parse_elaborate_infertype_compile tokens s of
+     case parse_infertype_compile tokens s of
      | Success (code,s',s_exc) =>
        let code_assert = code_labels_ok bs.code in
        let s1 = install_code code bs in
@@ -63,12 +63,12 @@ val basis_state_def = Define`
   basis_state =
   let e = FST (THE basis_env) in
   let rf =
-       <| relaborator_state := [];
-                rinferencer_state := ((e.inf_mdecls, e.inf_tdecls, e.inf_edecls),
-                                      e.inf_tenvM,
-                                      e.inf_tenvC,
-                                      e.inf_tenvE);
-                rcompiler_state := e.comp_rs |> in
+       <| rinferencer_state := ((e.inf_mdecls, e.inf_tdecls, e.inf_edecls),
+                                 e.inf_tenvT,
+                                 e.inf_tenvM,
+                                 e.inf_tenvC,
+                                 e.inf_tenvE);
+           rcompiler_state := e.comp_rs |> in
   (rf,Stop T :: SND (THE basis_env) ++ SND (THE prim_env))`
 
 val basis_repl_step_def = Define`
@@ -293,7 +293,7 @@ val main_loop_eq_tmp = prove(
          code_length real_inst_length bs.code,
          all_labels real_inst_length bs.code,s1,s2)) F)
          (case
-            parse_elaborate_infertype_compile (MAP token_of_sym ts)
+            parse_infertype_compile (MAP token_of_sym ts)
               (if b then s1 else s2)
           of
             Success (code,s',s_exc) =>
@@ -318,7 +318,7 @@ val main_loop_eq_tmp = prove(
   \\ POP_ASSUM MP_TAC \\ POP_ASSUM (K ALL_TAC) \\ STRIP_TAC
   \\ SIMP_TAC std_ss [Once main_loop'_def,repl_step_def,basis_repl_step_def]
   \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
-  \\ REVERSE (Cases_on `parse_elaborate_infertype_compile
+  \\ REVERSE (Cases_on `parse_infertype_compile
        (MAP token_of_sym ts) (if b then s1 else s2)`)
   \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF] THEN1
    (SIMP_TAC std_ss [Once simple_main_loop_def]

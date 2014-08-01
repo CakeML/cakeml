@@ -3,6 +3,7 @@ OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
 HOLHEAP = heap
+PARENTHEAP = ../heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 IMPL_BARE_THYS = repl_funTheory
@@ -24,8 +25,8 @@ BARE_THYS = $(patsubst %,../../semantics/%,$(SEM_BARE_THYS))\
 	    $(patsubst %,../../bytecode/%,$(BYTECODE_BARE_THYS))\
 	    $(patsubst %,../../compiler/proofs/%,$(COMPILER_BARE_THYS))
 
-DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP)
 
 $(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -b ../heap -o $(HOLHEAP) $(BARE_THYS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENTHEAP) -o $(HOLHEAP) $(BARE_THYS)
 endif

@@ -1,6 +1,6 @@
 open preamble boolSimps miscLib rich_listTheory arithmeticTheory;
 open lexer_funTheory repl_funTheory replTheory untypedSafetyTheory bytecodeClockTheory bytecodeExtraTheory bytecodeEvalTheory
-open lexer_implTheory cmlParseTheory inferSoundTheory bigStepTheory elabTheory compilerProofTheory;
+open lexer_implTheory cmlParseTheory inferSoundTheory bigStepTheory compilerProofTheory;
 open semanticPrimitivesTheory typeSystemTheory typeSoundTheory weakeningTheory evalPropsTheory typeSysPropsTheory terminationTheory;
 open initSemEnvTheory interpTheory;
 open typeSoundInvariantsTheory inferTheory free_varsTheory;
@@ -288,45 +288,58 @@ val print_result_not_type_error = prove(``
   simp[print_envE_not_type_error])
 
 val type_infer_invariants_def = Define `
-type_infer_invariants rs rinf_st ⇔
-      check_menv (FST (SND rinf_st))
-    ∧ check_cenv (FST (SND (SND rinf_st)))
-    ∧ check_env {} (SND (SND (SND rinf_st)))
+type_infer_invariants rs (rinf_st : inferencer_state) ⇔
+      tenvT_ok (FST (SND rinf_st))
+    ∧ check_menv (FST (SND (SND rinf_st)))
+    ∧ check_cenv (FST (SND (SND (SND rinf_st))))
+    ∧ check_env {} (SND (SND (SND (SND rinf_st))))
     ∧ (rs.tdecs = convert_decls (FST rinf_st))
-    ∧ (rs.tenvM = convert_menv (FST (SND rinf_st)))
-    ∧ (rs.tenvC = FST (SND (SND rinf_st)))
-    ∧ (rs.tenv = (bind_var_list2 (convert_env2 (SND (SND (SND rinf_st)))) Empty))`;
+    ∧ (rs.tenvM = convert_menv (FST (SND (SND rinf_st))))
+    ∧ (rs.tenvC = FST (SND (SND (SND rinf_st))))
+    ∧ (rs.tenv = (bind_var_list2 (convert_env2 (SND (SND (SND (SND rinf_st))))) Empty))`;
 
 val type_invariants_pres = Q.prove (
 `!rs rfs.
-  type_infer_invariants rs (decls,infer_menv,infer_cenv,infer_env) ∧
-  infer_top decls infer_menv infer_cenv infer_env top init_infer_state =
-          (Success (new_decls,new_infer_menv,new_infer_cenv,new_infer_env), infer_st2)
+  type_infer_invariants rs (decls, infer_tenvT, infer_menv, infer_cenv, infer_env) ∧
+  infer_top decls infer_tenvT infer_menv infer_cenv infer_env top init_infer_state =
+          (Success (new_decls, new_infer_tenvT, new_infer_menv, new_infer_cenv, new_infer_env), infer_st2)
   ⇒
-  type_infer_invariants (update_repl_state top rs el (convert_decls new_decls) (convert_menv new_infer_menv) new_infer_cenv (convert_env2 new_infer_env) st'
-                                     envC (Rval (envM,envE)))
-                  (new_decls,new_infer_menv ++ infer_menv, merge_tenvC new_infer_cenv infer_cenv,new_infer_env ++ infer_env)`,
-rw [update_repl_state_def, type_infer_invariants_def] >>
-`check_menv new_infer_menv ∧
- check_cenv new_infer_cenv ∧
- check_env {} new_infer_env`
-           by metis_tac [inferPropsTheory.infer_top_invariant] >|
-[fs [check_menv_def],
- cases_on `new_infer_cenv` >>
+  type_infer_invariants 
+       (update_repl_state top rs (convert_decls new_decls)  
+                                 new_infer_tenvT (convert_menv new_infer_menv) new_infer_cenv 
+                                 (convert_env2 new_infer_env) st' envC (Rval (envM,envE)))
+       (new_decls, merge_tenvT new_infer_tenvT infer_tenvT,
+        new_infer_menv ++ infer_menv, merge_tenvC new_infer_cenv infer_cenv,
+        new_infer_env ++ infer_env)`,
+ simp [update_repl_state_def, type_infer_invariants_def] >>
+ gen_tac >>
+ strip_tac >>
+ `tenvT_ok new_infer_tenvT ∧
+  check_menv new_infer_menv ∧
+  check_cenv new_infer_cenv ∧
+  check_env {} new_infer_env`
+            by metis_tac [inferPropsTheory.infer_top_invariant] >>
+ rw []
+ >- rw [tenvT_ok_merge]
+ >- fs [check_menv_def]
+ >- (cases_on `new_infer_cenv` >>
      cases_on `rs.tenvC` >>
-     fs [merge_tenvC_def, libTheory.merge_def, check_cenv_def, check_flat_cenv_def],
- fs [check_env_def],
- rw [convert_menv_def],
- rw [bvl2_append, convert_env2_def]]);
+     fs [merge_tenvC_def, libTheory.merge_def, check_cenv_def, check_flat_cenv_def])
+ >- fs [check_env_def]
+ >- rw [convert_menv_def]
+ >- rw [bvl2_append, convert_env2_def]);
 
 val type_invariants_pres_err = Q.prove (
 `!rs rfs.
-  type_infer_invariants rs (decls,infer_menv,infer_cenv,infer_env) ∧
-  infer_top decls infer_menv infer_cenv infer_env top init_infer_state =
-          (Success (new_decls,new_infer_menv,new_infer_cenv,new_infer_env), infer_st2)
+  type_infer_invariants rs (decls, infer_tenvT, infer_menv, infer_cenv, infer_env) ∧
+  infer_top decls infer_tenvT infer_menv infer_cenv infer_env top init_infer_state =
+          (Success (new_decls, new_infer_tenvT, new_infer_menv, new_infer_cenv, new_infer_env), infer_st2)
   ⇒
-  type_infer_invariants (update_repl_state top rs el (convert_decls (append_decls new_decls decls)) (convert_menv new_infer_menv) new_infer_cenv (convert_env2 new_infer_env) st' envC (Rerr err))
-                  (append_decls new_decls decls, infer_menv,infer_cenv,infer_env)`,
+  type_infer_invariants
+       (update_repl_state top rs (convert_decls (append_decls new_decls decls)) 
+                                 new_infer_tenvT (convert_menv new_infer_menv) new_infer_cenv 
+                                 (convert_env2 new_infer_env) st' envC (Rerr err))
+       (append_decls new_decls decls, infer_tenvT, infer_menv, infer_cenv, infer_env)`,
 rw [update_repl_state_def, type_infer_invariants_def] >>
 `check_menv new_infer_menv ∧
  check_cenv new_infer_cenv ∧
@@ -339,11 +352,13 @@ rw [update_repl_state_def, type_infer_invariants_def] >>
 
 val invariant_def = Define`
   invariant rs rfs bs ⇔
-    rfs.relaborator_state = rs.type_bindings
-    ∧ SND(SND rs.sem_env.sem_store) = FST rs.tdecs
+      SND(SND rs.sem_env.sem_store) = FST rs.tdecs
 
     ∧ type_infer_invariants rs rfs.rinferencer_state
-    ∧ type_sound_invariants (NONE : (v,v) result option) (rs.tdecs,rs.tenvM,rs.tenvC,rs.tenv,FST (SND rs.sem_env.sem_store),rs.sem_env.sem_envM,rs.sem_env.sem_envC,rs.sem_env.sem_envE,SND (FST rs.sem_env.sem_store))
+    ∧ type_sound_invariants (NONE : (v,v) result option) 
+            (rs.tdecs,rs.tenvT, rs.tenvM, rs.tenvC, rs.tenv,
+             FST (SND rs.sem_env.sem_store), rs.sem_env.sem_envM,
+             rs.sem_env.sem_envC,rs.sem_env.sem_envE,SND (FST rs.sem_env.sem_store))
 
     ∧ (∃grd. env_rs (rs.sem_env.sem_envM,rs.sem_env.sem_envC,rs.sem_env.sem_envE) rs.sem_env.sem_store grd rfs.rcompiler_state bs)
 
@@ -356,13 +371,13 @@ val invariant_def = Define`
 val infer_to_type = Q.prove (
 `!rs st bs decls menv cenv env top new_decls new_menv new_cenv new_env st2.
   invariant rs st bs ∧
-  (infer_top decls menv cenv env top init_infer_state =
-      (Success (new_decls, new_menv,new_cenv,new_env),st2)) ∧
-  (st.rinferencer_state = (decls,menv,cenv,env))
+  (infer_top decls tenvT menv cenv env top init_infer_state =
+      (Success (new_decls,new_tenvT,new_menv,new_cenv,new_env),st2)) ∧
+  (st.rinferencer_state = (decls,tenvT,menv,cenv,env))
   ⇒
-  infer_sound_invariant (new_menv ++ menv) (merge_tenvC new_cenv cenv) (new_env++env) ∧
-  type_top rs.tdecs rs.tenvM rs.tenvC rs.tenv top
-           (convert_decls new_decls) (convert_menv new_menv) new_cenv (convert_env2 new_env)`,
+  infer_sound_invariant (merge_tenvT new_tenvT tenvT) (new_menv ++ menv) (merge_tenvC new_cenv cenv) (new_env++env) ∧
+  type_top rs.tdecs tenvT rs.tenvM rs.tenvC rs.tenv top
+           (convert_decls new_decls) new_tenvT (convert_menv new_menv) new_cenv (convert_env2 new_env)`,
  rw [invariant_def, type_infer_invariants_def, type_sound_invariants_def] >>
  fs [] >>
  rw [] >>
@@ -526,8 +541,8 @@ val type_e_closed = store_thm("type_e_closed",
   metis_tac []);
 
 val type_d_closed = store_thm("type_d_closed",
-  ``∀mno decls tmenv tcenv tenv d x y z.
-      type_d mno decls tmenv tcenv tenv d x y z ⇒
+  ``∀mno decls tenvT tmenv tcenv tenv d w x y z.
+      type_d mno decls tenvT tmenv tcenv tenv d w x y z ⇒
         FV_dec d ⊆ (IMAGE Short (tenv_names tenv) ∪ tmenv_dom tmenv)``,
   ho_match_mp_tac type_d_ind >>
   strip_tac >- (
@@ -558,8 +573,8 @@ val type_d_closed = store_thm("type_d_closed",
   simp[]);
 
 val type_d_new_dec_vs = Q.prove (
-`!mn decls tenvM tenvC tenv d decls' tenvC' tenv'.
-  type_d mn decls tenvM tenvC tenv d decls' tenvC' tenv'
+`!mn decls tenvT tenvM tenvC tenv d decls' tenvT' tenvC' tenv'.
+  type_d mn decls tenvT tenvM tenvC tenv d decls' tenvT' tenvC' tenv'
   ⇒
   set (new_dec_vs d) = set (MAP FST tenv')`,
  rw [type_d_cases, new_dec_vs_def, libTheory.emp_def] >>
@@ -633,7 +648,7 @@ val to_string_map_lem = Q.prove (
 *)
 
 val type_ds_closed = store_thm("type_ds_closed",
-  ``∀mn decls tmenv cenv tenv ds x y z. type_ds mn decls tmenv cenv tenv ds x y z ⇒
+  ``∀mn decls tenvT tmenv cenv tenv ds w x y z. type_ds mn decls tenvT tmenv cenv tenv ds w x y z ⇒
      !mn'. mn = SOME mn' ⇒
       FV_decs ds ⊆ (IMAGE Short (tenv_names tenv) ∪ tmenv_dom tmenv)``,
 ho_match_mp_tac type_ds_ind >>
@@ -649,8 +664,8 @@ fs[MEM_MAP] >>
 metis_tac [type_d_new_dec_vs,MEM_MAP]);
 
 val type_top_closed = store_thm("type_top_closed",
-  ``∀decls tmenv tcenv tenv top decls' tm' tc' te'.
-      type_top decls tmenv tcenv tenv top decls' tm' tc' te'
+  ``∀decls tenvT tmenv tcenv tenv top decls' tT' tm' tc' te'.
+      type_top decls tenvT tmenv tcenv tenv top decls' tT' tm' tc' te'
       ⇒
       FV_top top ⊆ (IMAGE Short (tenv_names tenv) ∪ tmenv_dom tmenv)``,
   ho_match_mp_tac type_top_ind >>
@@ -734,8 +749,8 @@ val consistent_mod_env_dom = Q.prove (
 
 val type_sound_inv_closed = Q.prove (
 `∀top rs new_tenvM new_tenvC new_tenv new_decls decls' store.
-  type_top rs.tdecs rs.tenvM rs.tenvC rs.tenv top new_decls new_tenvM new_tenvC new_tenv ∧
-  type_sound_invariants NONE (rs.tdecs,rs.tenvM,rs.tenvC,rs.tenv,decls',rs.sem_env.sem_envM,rs.sem_env.sem_envC,rs.sem_env.sem_envE,store)
+  type_top rs.tdecs rs.tenvT rs.tenvM rs.tenvC rs.tenv top new_decls new_tenvT new_tenvM new_tenvC new_tenv ∧
+  type_sound_invariants NONE (rs.tdecs,rs.tenvT,rs.tenvM,rs.tenvC,rs.tenv,decls',rs.sem_env.sem_envM,rs.sem_env.sem_envC,rs.sem_env.sem_envE,store)
   ⇒
   FV_top top ⊆ all_env_dom (rs.sem_env.sem_envM,rs.sem_env.sem_envC,rs.sem_env.sem_envE)`,
 rw [] >>
@@ -952,7 +967,7 @@ val word8_help_tac =
       metis_tac [convert_env2_def, type_string_word8];
 
 val replCorrect'_lem = Q.prove (
-`!repl_state error_mask bc_state repl_fun_state.
+`!repl_state bc_state repl_fun_state.
   invariant repl_state repl_fun_state bc_state ⇒
   ast_repl repl_state
     (get_type_error_mask (FST (simple_main_loop (bc_state,repl_fun_state) input)))
@@ -971,24 +986,23 @@ rw [get_type_error_mask_def] >- (
         by (cases_on `x` >>
             metis_tac []) >>
 rw [] >>
-`(parse tok' = NONE) ∨ ∃ast. parse tok' = SOME ast`
-        by (cases_on `parse tok'` >>
+`(parse tok' = (NONE : top option)) ∨ ∃(ast:top). parse tok' = SOME ast`
+        by (cases_on `(parse tok': top option)` >>
             metis_tac []) >-
 ((* A parse error *)
   rw [] >>
-  rw [Once ast_repl_cases, parse_elaborate_infertype_compile_def, parser_correct,
+  rw [Once ast_repl_cases, parse_infertype_compile_def, parser_correct,
       get_type_error_mask_def] >>
  `LENGTH input_rest < LENGTH input` by metis_tac [lex_until_toplevel_semicolon_LESS] >>
  rw[and_shadow_def] >>
  metis_tac [lexer_correct,FST,SND]) >>
-rw[parse_elaborate_infertype_compile_def,parser_correct] >>
-qmatch_assum_rename_tac`elaborate_top st.relaborator_state top0 = (new_elab_state, top)`[] >>
+rw[parse_infertype_compile_def,parser_correct] >>
 qmatch_assum_rename_tac`invariant rs st bs`[] >>
 rw [] >>
 `?error_msg next_repl_run_infer_state types.
-  infertype_top st.rinferencer_state top = Failure error_msg ∨
-  infertype_top st.rinferencer_state top = Success (next_repl_run_infer_state,types)`
-         by (cases_on `infertype_top st.rinferencer_state top` >>
+  infertype_top st.rinferencer_state ast = Failure error_msg ∨
+  infertype_top st.rinferencer_state ast = Success (next_repl_run_infer_state,types)`
+         by (cases_on `infertype_top st.rinferencer_state ast` >>
              TRY(Cases_on`a`)>>
              metis_tac []) >>
 rw [get_type_error_mask_def] >-
@@ -999,37 +1013,37 @@ rw [get_type_error_mask_def] >-
   rw[get_type_error_mask_def] >>
   metis_tac [lexer_correct,FST,SND]) >>
 simp[] >>
-`?decls infer_menv infer_cenv infer_env.
-  st.rinferencer_state = (decls,infer_menv,infer_cenv,infer_env)`
+`?decls infer_tenvT infer_menv infer_cenv infer_env.
+  st.rinferencer_state = (decls,infer_tenvT,infer_menv,infer_cenv,infer_env)`
             by metis_tac [pair_CASES] >>
 fs [infertype_top_def] >>
-`?res infer_st2. infer_top decls infer_menv infer_cenv infer_env top init_infer_state = (res,infer_st2)`
+`?res infer_st2. infer_top decls infer_tenvT infer_menv infer_cenv infer_env ast init_infer_state = (res,infer_st2)`
         by metis_tac [pair_CASES] >>
 fs [] >>
 cases_on `res` >>
 fs [] >>
-`∃new_decls new_infer_menv new_infer_cenv new_infer_env.  a = (new_decls, new_infer_menv,new_infer_cenv,new_infer_env)`
+`∃new_decls new_infer_tenvT new_infer_menv new_infer_cenv new_infer_env.  a = (new_decls, new_infer_tenvT, new_infer_menv,new_infer_cenv,new_infer_env)`
         by metis_tac [pair_CASES] >>
 fs [] >>
 BasicProvers.VAR_EQ_TAC >>
 imp_res_tac infer_to_type >>
-`type_sound_invariants (NONE:(v,v) result option) (rs.tdecs,rs.tenvM,rs.tenvC,rs.tenv,FST (SND rs.sem_env.sem_store),rs.sem_env.sem_envM,rs.sem_env.sem_envC,rs.sem_env.sem_envE,SND (FST rs.sem_env.sem_store))`
+`type_sound_invariants (NONE:(v,v) result option) (rs.tdecs,rs.tenvT,rs.tenvM,rs.tenvC,rs.tenv,FST (SND rs.sem_env.sem_store),rs.sem_env.sem_envM,rs.sem_env.sem_envC,rs.sem_env.sem_envE,SND (FST rs.sem_env.sem_store))`
         by fs [invariant_def] >>
 `¬top_diverges (rs.sem_env.sem_envM,rs.sem_env.sem_envC,rs.sem_env.sem_envE)
-          (SND (FST rs.sem_env.sem_store),FST (SND rs.sem_env.sem_store),FST rs.tdecs) top ⇒
+          (SND (FST rs.sem_env.sem_store),FST (SND rs.sem_env.sem_store),FST rs.tdecs) ast ⇒
        ∀count'.
          ∃r cenv2 store2 decls2'.
            r ≠ Rerr Rtype_error ∧
            evaluate_top F (rs.sem_env.sem_envM,rs.sem_env.sem_envC,rs.sem_env.sem_envE)
              ((count',SND (FST rs.sem_env.sem_store)),FST (SND rs.sem_env.sem_store),
-              FST rs.tdecs) top
+              FST rs.tdecs) ast
              (((count',store2),decls2',
                FST (convert_decls new_decls) ∪ FST rs.tdecs),cenv2,r) ∧
            type_sound_invariants (SOME r)
              (update_type_sound_inv
-                (rs.tdecs,rs.tenvM,rs.tenvC,rs.tenv,FST (SND rs.sem_env.sem_store),
+                (rs.tdecs,rs.tenvT,rs.tenvM,rs.tenvC,rs.tenv,FST (SND rs.sem_env.sem_store),
                  rs.sem_env.sem_envM,rs.sem_env.sem_envC,rs.sem_env.sem_envE,SND (FST rs.sem_env.sem_store))
-                (convert_decls new_decls) (convert_menv new_infer_menv)
+                (convert_decls new_decls) new_infer_tenvT (convert_menv new_infer_menv)
                 new_infer_cenv (convert_env2 new_infer_env) store2
                 decls2' cenv2 r)`
           by metis_tac [top_type_soundness] >>
