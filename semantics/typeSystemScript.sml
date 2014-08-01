@@ -281,7 +281,11 @@ val _ = Define `
 /\
 (check_type_names tenvT (Tapp ts tn) =  
 ((case tn of 
-     TC_name tn => (? tvs t. (lookup_type_name tn tenvT = SOME (tvs, t)) /\ (LENGTH tvs = LENGTH ts))
+     TC_name tn => 
+       (case lookup_type_name tn tenvT of
+           SOME (tvs, t) => LENGTH tvs = LENGTH ts
+         | NONE => F
+       )
    | _ => T
   ) /\
   EVERY (check_type_names tenvT) ts))

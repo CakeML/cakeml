@@ -2,13 +2,14 @@ INCLUDES = $(HOLDIR)/examples/parsing .. ../semantics
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
-HOLHEAP = parsing-heap
-EXTRA_CLEANS = parsing-heap
+HOLHEAP = heap
+PARENTHEAP = ../semantics/heap
+EXTRA_CLEANS = heap
 
-BARE_THYS = ../semantics/tokenUtilsTheory ../semantics/elabTheory ../semantics/gramTheory ../semantics/cmlPtreeConversionTheory $(HOLDIR)/examples/parsing/pegexecTheory
-DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+BARE_THYS = ../semantics/tokenUtilsTheory ../semantics/gramTheory ../semantics/cmlPtreeConversionTheory $(HOLDIR)/examples/parsing/pegexecTheory
+DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP)
 
 $(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -o $@ $(BARE_THYS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENTHEAP) -o $@ $(BARE_THYS)
 
 endif

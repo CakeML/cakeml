@@ -1,6 +1,7 @@
 open preamble miscLib;
 open astTheory bigStepTheory initialProgramTheory interpTheory inferTheory typeSystemTheory modLangTheory conLangTheory bytecodeTheory bytecodeExtraTheory;
 open bigClockTheory untypedSafetyTheory inferSoundTheory initSemEnvTheory modLangProofTheory conLangProofTheory typeSoundInvariantsTheory typeSoundTheory;
+open terminationTheory;
 open bytecodeLabelsTheory bytecodeEvalTheory;
 open compute_bytecodeLib compute_interpLib compute_inferenceLib compute_compilerLib;
 
@@ -331,11 +332,12 @@ val prim_env_inv = Q.store_thm ("prim_env_inv",
      `consistent_con_env (to_ctMap (FST (THE prim_env)).inf_tenvC) (THE prim_sem_env).sem_envC (FST (THE prim_env)).inf_tenvC`
          by (rw [to_ctMap_prim_tenvC] >>
              rw [consistent_con_env_def, libTheory.emp_def, tenvC_ok_def, prim_env_eq, prim_sem_env_eq,
-                 flat_tenvC_ok_def, terminationTheory.check_freevars_def, ctMap_ok_def, miscTheory.FEVERY_ALL_FLOOKUP,
+                 flat_tenvC_ok_def, check_freevars_def, ctMap_ok_def, miscTheory.FEVERY_ALL_FLOOKUP,
                  miscTheory.flookup_fupdate_list, semanticPrimitivesTheory.lookup_con_id_def]
+             >- rw [check_freevars_def, type_subst_def]
              >- (every_case_tac >>
                  rw [] >>
-                 rw [terminationTheory.check_freevars_def])
+                 rw [check_freevars_def, type_subst_def])
              >- (Cases_on `cn` >>
                  fs [id_to_n_def] >>
                  every_case_tac >>
@@ -354,6 +356,7 @@ val prim_env_inv = Q.store_thm ("prim_env_inv",
          every_case_tac >>
          fs [FDOM_FUPDATE_LIST])
      >- rw [ctMap_has_exns_def, to_ctMap_prim_tenvC, miscTheory.flookup_fupdate_list]
+     >- rw [tenvT_ok_def, flat_tenvT_ok_def, check_freevars_def, type_subst_def]
      >- rw [tenvM_ok_def]
      >- rw [tenvM_ok_def, convert_menv_def]
      >- rw [Once type_v_cases]
@@ -367,7 +370,9 @@ val prim_env_inv = Q.store_thm ("prim_env_inv",
      >- (rw [prim_env_eq, convert_decls_def] >>
          metis_tac [weakeningTheory.weak_decls_refl])
      >- rw [prim_env_eq, weak_decls_only_mods_def, convert_decls_def])
- >- rw [infer_sound_invariant_def,check_menv_def,check_cenv_def,check_flat_cenv_def,terminationTheory.check_freevars_def,check_env_def]
+ >- rw [tenvT_ok_def, flat_tenvT_ok_def, infer_sound_invariant_def,check_menv_def,
+        check_cenv_def,check_flat_cenv_def,check_freevars_def,
+        check_env_def, check_freevars_def, type_subst_def]
  >- (simp[compilerProofTheory.env_rs_def,LENGTH_NIL_SYM] >>
      qexists_tac`
       FEMPTY |++ [(("NONE",TypeId (Short "option")), (none_tag, 0));

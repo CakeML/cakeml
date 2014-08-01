@@ -3,18 +3,18 @@ OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
 HOLHEAP = heap
+PARENTHEAP = ../initial/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 SEM_BARE_THYS = astTheory \
-	        elabTheory \
 	        lexer_funTheory \
 	        typeSystemTheory
 
 BARE_THYS = $(patsubst %,../semantics/%,$(SEM_BARE_THYS)) ../parsing/cmlParseTheory ../inference/inferTheory ../compiler/compilerTerminationTheory ../bytecode/bytecodeEvalTheory ../initial/initCompEnvTheory
 
-DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP)
 
 $(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -b ../semantics/sem_heap -o $(HOLHEAP) $(BARE_THYS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENTHEAP) -o $(HOLHEAP) $(BARE_THYS)
 endif
 

@@ -1,36 +1,26 @@
 open HolKernel Parse boolLib bossLib lcsymtacs
 open lexer_implTheory cmlParseTheory astTheory inferTheory compilerTheory
      compilerTerminationTheory bytecodeEvalTheory replTheory
-     elabTheory initialProgramTheory;
+     initialProgramTheory;
 open listTheory arithmeticTheory relationTheory;
 open bytecodeLabelsTheory bytecodeTheory;
 
 val _ = new_theory "repl_fun";
 
-val _ = type_abbrev ("elaborator_state", ``:tdef_env``);
-
-val elaborate_top_def = Define `
-elaborate_top (types : elaborator_state) ast_top =
-  let (new_types, top) = elab_top types ast_top in
-    ((new_types++types), top)`;
-
-    (*
-val initial_elaborator_state_def = Define `
-initial_elaborator_state : elaborator_state = init_type_bindings`;
-*)
-
 val _ = type_abbrev ("inferencer_state",
   ``:(modN list # conN id list # varN id list) #
+     tenvT #
      (modN, (varN, num # infer_t) env) env #
      tenvC #
      (varN, num # infer_t) env``);
 
 val infertype_top_def = Define `
-infertype_top ((decls, module_type_env, constructor_type_env, type_env) :inferencer_state) ast_top =
-  case FST (infer_top decls module_type_env constructor_type_env type_env ast_top infer$init_infer_state) of
+infertype_top ((decls, type_name_env, module_type_env, constructor_type_env, type_env) :inferencer_state) ast_top =
+  case FST (infer_top decls type_name_env module_type_env constructor_type_env type_env ast_top infer$init_infer_state) of
      | Failure _ => Failure "<type error>"
-     | Success (new_decls, new_module_type_env, new_constructor_type_env, new_type_env) =>
+     | Success (new_decls, new_type_name_env, new_module_type_env, new_constructor_type_env, new_type_env) =>
         Success ((append_decls new_decls decls,
+                  merge_tenvT new_type_name_env type_name_env,
                   new_module_type_env ++ module_type_env,
                   merge_tenvC new_constructor_type_env constructor_type_env,
                   new_type_env ++ type_env),
@@ -42,22 +32,19 @@ initial_inferencer_state : inferencer_state = (((THE basis_env).inf_mdecls,(THE 
 *)
 
 val _ = Hol_datatype`repl_fun_state = <|
-  relaborator_state : elaborator_state;
   rinferencer_state : inferencer_state;
   rcompiler_state  : compiler_state |>`;
 
   (*
 val initial_repl_fun_state = Define`
   initial_repl_fun_state = <|
-    relaborator_state := initial_elaborator_state;
     rinferencer_state := initial_inferencer_state;
     rcompiler_state   := (THE basis_env).comp_rs |>`
     *)
 
 val update_state_def = Define`
-  update_state s es is cs =
-  s with <| relaborator_state := es
-          ; rinferencer_state := is
+  update_state s is cs =
+  s with <| rinferencer_state := is
           ; rcompiler_state   := cs
           |>`;
 
@@ -68,21 +55,20 @@ val update_state_err_def = Define`
           ; rcompiler_state   := cs
           |>`;
 
-val parse_elaborate_infertype_compile_def = Define `
-  parse_elaborate_infertype_compile tokens s =
+val parse_infertype_compile_def = Define `
+  parse_infertype_compile tokens s =
     case parse_top tokens of
       (* case: parse error *)
       NONE => Failure "<parse error>\n"
-    | (* case: ast_top produced *)
-      SOME ast_top =>
-        let (es,top) = elaborate_top s.relaborator_state ast_top in
-          case infertype_top s.rinferencer_state top of
-            (* type inference failed to find type *)
-          | Failure _ => Failure "<type error>\n"
-            (* type found, type safe! *)
-          | Success (is,types) =>
-             let (css,csf,code) = compile_top (SOME types) s.rcompiler_state top in
-               Success (code,update_state s es is css,update_state_err s is csf)`;
+    | (* case: top produced *)
+      SOME top =>
+        case infertype_top s.rinferencer_state top of
+          (* type inference failed to find type *)
+        | Failure _ => Failure "<type error>\n"
+          (* type found, type safe! *)
+        | Success (is,types) =>
+           let (css,csf,code) = compile_top (SOME types) s.rcompiler_state top in
+             Success (code,update_state s is css,update_state_err s is csf)`;
 
 val repl_step_def = Define `
   repl_step state =
@@ -95,7 +81,7 @@ val repl_step_def = Define `
        INL (MAP bc_num code,len,labs,initial,initial)
     | INR (tokens,new_s,len,labs,s',s_exc) => (* received some input *)
         let s = if new_s then s' else s_exc in
-        case parse_elaborate_infertype_compile (MAP token_of_sym tokens) s of
+        case parse_infertype_compile (MAP token_of_sym tokens) s of
         | Success (code,s',s_exc) =>
             let code = REVERSE code in
             let labs = FUNION labs (collect_labels code len real_inst_length) in
