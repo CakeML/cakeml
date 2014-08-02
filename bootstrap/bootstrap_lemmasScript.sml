@@ -1509,7 +1509,7 @@ val COMPILER_RUN_INV_references = store_thm("COMPILER_RUN_INV_references",
   qpat_assum`∀n. n < LENGTH X ⇒ sv_rel B Y Z`mp_tac >>
   disch_then(fn th => (qspec_then`iloc`mp_tac th) >>
                       (qspec_then`iloc+1`mp_tac th)) >>
-  simp[exhLangProofTheory.sv_rel_cases] >>
+  simp[evalPropsTheory.sv_rel_cases] >>
   ntac 2 strip_tac >>
   fs[bytecodeProofTheory.sv_refv_rel_cases] >> rfs[] >>
   CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(equal``Cv_bv`` o fst o strip_comb))) >>
@@ -1738,10 +1738,10 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
     fs[LIST_REL_EL_EQN,EL_LUPDATE] >>
     gen_tac >> strip_tac >>
     rw[] >> rw[conLangProofTheory.sv_to_i2_cases]) >>
-  simp[miscTheory.LIST_REL_O,PULL_EXISTS,exhLangProofTheory.sv_rel_O] >>
+  simp[miscTheory.LIST_REL_O,PULL_EXISTS,evalPropsTheory.sv_rel_O] >>
   qmatch_assum_rename_tac`v_to_exh Z v22 v23`["Z"] >>
   CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-  fs[miscTheory.LIST_REL_O,exhLangProofTheory.sv_rel_O] >>
+  fs[miscTheory.LIST_REL_O,evalPropsTheory.sv_rel_O] >>
   qexists_tac`LUPDATE (Refv v23) iloc l3` >>
   simp[RIGHT_EXISTS_AND_THM,GSYM CONJ_ASSOC] >>
   conj_tac >- (
@@ -1959,10 +1959,10 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
     fs[LIST_REL_EL_EQN,EL_LUPDATE] >>
     gen_tac >> strip_tac >>
     rw[] >> rw[conLangProofTheory.sv_to_i2_cases]) >>
-  simp[miscTheory.LIST_REL_O,PULL_EXISTS,exhLangProofTheory.sv_rel_O] >>
+  simp[miscTheory.LIST_REL_O,PULL_EXISTS,evalPropsTheory.sv_rel_O] >>
   qmatch_assum_rename_tac`v_to_exh Z v22 v23`["Z"] >>
   CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-  fs[miscTheory.LIST_REL_O,exhLangProofTheory.sv_rel_O] >>
+  fs[miscTheory.LIST_REL_O,evalPropsTheory.sv_rel_O] >>
   qexists_tac`LUPDATE (Refv v23) iloc l3` >>
   simp[RIGHT_EXISTS_AND_THM,GSYM CONJ_ASSOC] >>
   conj_tac >- (
