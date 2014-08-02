@@ -20,11 +20,6 @@ case $(uname -a) in
   Linux* ) TIMECMD="/usr/bin/time -o timing.log -f 'User:%U Mem:%M'";;
 esac
 
-if [ $TRAVIS ]
-then
-  TIMECMD=""
-fi
-
 echo
 
 while read i
