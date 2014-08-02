@@ -67,7 +67,11 @@ val _ = Define `
       mk_binop "array" Aalloc;
       mk_binop "sub" Asub;
       mk_unop "length" Alength;
-      Dlet (Pvar "update") (Fun "x" (Fun "y" (Fun "z" (App Aupdate [Var (Short "x"); Var (Short "y"); Var (Short "z")])))) ] ]))`;
+      Dlet (Pvar "update") (Fun "x" (Fun "y" (Fun "z" (App Aupdate [Var (Short "x"); Var (Short "y"); Var (Short "z")])))) ];
+   Tmod "Vector" NONE
+     [Dtabbrev ["'a"] "vector" (Tapp [Tvar "'a"] TC_vector);
+      mk_unop "fromList" VfromList;
+      mk_binop "sub" Vsub]]))`;
 
 
 val _ = Hol_datatype `
