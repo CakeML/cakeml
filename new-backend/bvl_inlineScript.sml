@@ -105,7 +105,7 @@ val HD_bInline = prove(
 
 val bEval_bInline = store_thm("bEval_bInline",
   ``!n code arity xs s env.
-      (lookup n s.code = SOME (loc,code,arity)) /\
+      (lookup n s.code = SOME (arity,code)) /\
       FST (bEval (xs,env,s)) <> Error ==>
       (bEval (bInline n code arity xs,env,s) = bEval (xs,env,s))``,
   recInduct (fetch "-" "bInline_ind") \\ REVERSE (REPEAT STRIP_TAC)
