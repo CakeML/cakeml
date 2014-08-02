@@ -294,6 +294,7 @@ type_infer_invariants rs (rinf_st : inferencer_state) ⇔
     ∧ check_cenv (FST (SND (SND (SND rinf_st))))
     ∧ check_env {} (SND (SND (SND (SND rinf_st))))
     ∧ (rs.tdecs = convert_decls (FST rinf_st))
+    ∧ (rs.tenvT = FST (SND rinf_st))
     ∧ (rs.tenvM = convert_menv (FST (SND (SND rinf_st))))
     ∧ (rs.tenvC = FST (SND (SND (SND rinf_st))))
     ∧ (rs.tenv = (bind_var_list2 (convert_env2 (SND (SND (SND (SND rinf_st))))) Empty))`;
@@ -376,7 +377,7 @@ val infer_to_type = Q.prove (
   (st.rinferencer_state = (decls,tenvT,menv,cenv,env))
   ⇒
   infer_sound_invariant (merge_tenvT new_tenvT tenvT) (new_menv ++ menv) (merge_tenvC new_cenv cenv) (new_env++env) ∧
-  type_top rs.tdecs tenvT rs.tenvM rs.tenvC rs.tenv top
+  type_top rs.tdecs rs.tenvT rs.tenvM rs.tenvC rs.tenv top
            (convert_decls new_decls) new_tenvT (convert_menv new_menv) new_cenv (convert_env2 new_env)`,
  rw [invariant_def, type_infer_invariants_def, type_sound_invariants_def] >>
  fs [] >>
@@ -1050,13 +1051,6 @@ imp_res_tac infer_to_type >>
 
 simp[update_state_def,update_state_err_def] >>
 
-qabbrev_tac`elab_res = elab_top st.relaborator_state top0` >> PairCases_on`elab_res` >>
-pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def])>>fs[]>>
-`st.relaborator_state = rs.type_bindings` by fs[invariant_def] >>
-rpt BasicProvers.VAR_EQ_TAC >>
-fs[elaborate_top_def,LET_THM] >>
-qmatch_assum_rename_tac`xxxxxxxx = top`[] >> rpt BasicProvers.VAR_EQ_TAC >>
-
 cases_on `bc_eval (install_code code bs)` >> fs[] >- (
   (* Divergence *)
   rw[Once ast_repl_cases,get_type_error_mask_def] >>
@@ -1360,14 +1354,14 @@ val convert_invariants = Q.prove (
 `!se e bs.
    initCompEnv$invariant se e bs 
    ⇒
-   invariant <| type_bindings := [];
-                tdecs := convert_decls (e.inf_mdecls, e.inf_tdecls, e.inf_edecls);
+   invariant <| tdecs := convert_decls (e.inf_mdecls, e.inf_tdecls, e.inf_edecls);
+                tenvT := e.inf_tenvT;
                 tenvM := convert_menv e.inf_tenvM;
                 tenvC := e.inf_tenvC;
                 tenv := bind_var_list2 (convert_env2 e.inf_tenvE) Empty;
                 sem_env := se |>
-             <| relaborator_state := [];
-                rinferencer_state := ((e.inf_mdecls, e.inf_tdecls, e.inf_edecls), 
+             <| rinferencer_state := ((e.inf_mdecls, e.inf_tdecls, e.inf_edecls), 
+                                      e.inf_tenvT,
                                       e.inf_tenvM,
                                       e.inf_tenvC,
                                       e.inf_tenvE);
@@ -1430,12 +1424,12 @@ val simple_replCorrect_basis = Q.store_thm ("simple_replCorrect_basis",
   let (output,b) = simple_repl_fun basis_state input in
   let e = FST (THE basis_env) in
   let r =
-      <| type_bindings := [];
-                tdecs := convert_decls (e.inf_mdecls, e.inf_tdecls, e.inf_edecls);
-                tenvM := convert_menv e.inf_tenvM;
-                tenvC := e.inf_tenvC;
-                tenv := bind_var_list2 (convert_env2 e.inf_tenvE) Empty;
-                sem_env := THE basis_sem_env |> in
+      <| tdecs := convert_decls (e.inf_mdecls, e.inf_tdecls, e.inf_edecls);
+         tenvT := e.inf_tenvT;
+         tenvM := convert_menv e.inf_tenvM;
+         tenvC := e.inf_tenvC;
+         tenv := bind_var_list2 (convert_env2 e.inf_tenvE) Empty;
+         sem_env := THE basis_sem_env |> in
   (repl r (get_type_error_mask output) input output) /\ b`,
  rpt gen_tac >>
  Cases_on`simple_repl_fun basis_state input` >>
