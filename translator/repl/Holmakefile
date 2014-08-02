@@ -5,7 +5,7 @@ OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
 HOLHEAP = heap
-PARENT_HOLHEAP = ../local-hol-heap
+PARENT_HOLHEAP = ../heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 PRE_BARE_THYS = astTheory \
@@ -22,7 +22,7 @@ BARE_THYS = $(patsubst %,../../semantics/%,$(PRE_BARE_THYS)) \
             ../../repl/proofs/repl_fun_alt_proofTheory \
             ../../inference/proofs/inferSoundTheory
 
-DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 
 $(HOLHEAP): $(DEPS)
 	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)

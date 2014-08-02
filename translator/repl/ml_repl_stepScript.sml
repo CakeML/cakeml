@@ -3,7 +3,7 @@ open HolKernel Parse boolLib bossLib;
 val _ = new_theory "ml_repl_step";
 
 open repl_funTheory compilerTheory libTheory;
-open toIntLangTheory toBytecodeTheory terminationTheory elabTheory;
+open toIntLangTheory toBytecodeTheory terminationTheory;
 open compilerTerminationTheory inferTheory;
 open bytecodeTheory cmlParseTheory cmlPEGTheory;
 open arithmeticTheory listTheory finite_mapTheory pred_setTheory;
@@ -95,10 +95,6 @@ val compile_thm =
 val _ = translate compile_thm;
 
 val _ = translate compile_top_def;
-
-(* elaborator *)
-
-val _ = translate (def_of_const ``elab_top``);
 
 (* parsing: peg_exec and cmlPEG *)
 
@@ -464,7 +460,7 @@ val _ = translate (infer_def ``infer_top``)
 
 (* tip of translation *)
 
-val _ = translate repl_funTheory.parse_elaborate_infertype_compile_def
+val _ = translate repl_funTheory.parse_infertype_compile_def
 
 (* initial state *)
 
