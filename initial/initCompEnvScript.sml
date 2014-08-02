@@ -298,10 +298,10 @@ val cs = the_bytecode_compset
 val () = computeLib.add_thms[bc_fetch_def,bc_fetch_aux_def,is_Label_def,bc_find_loc_aux_def] cs
 val () = computeLib.add_datatype_info cs (valOf(TypeBase.fetch``:bc_inst``))
 val () = computeLib.add_conv(``real_inst_length``,1,eval_real_inst_length) cs
-val prim_bs_eq =
+val prim_bs_eq = save_thm("prim_bs_eq",
   ``prim_bs``
      |> SIMP_CONV (srw_ss()) [install_code_def, prim_bs_def, prim_env_eq, empty_bc_state_def, Once bc_eval_compute]
-     |> CONV_RULE (computeLib.CBV_CONV cs)
+     |> CONV_RULE (computeLib.CBV_CONV cs))
 
 val to_ctMap_list_def = Define `
 to_ctMap_list tenvC =

@@ -30,25 +30,27 @@ val _ = type_abbrev("num_set",``:unit spt``);
    and binding perspective are lumped together in bvl_op. *)
 
 val _ = Datatype `
-  bvl_op = Global num   (* load global var with index *)
-         | Cons num     (* construct a Block with given tag *)
-         | El num       (* read Block field index *)
-         | Const int    (* integer *)
-         | TagEq num    (* check whether Block's tag is eq *)
-         | IsBlock      (* is it a Block value? *)
-         | Equal        (* structural equality *)
-         | Ref          (* makes a reference *)
-         | Deref        (* loads a value from a reference *)
-         | Update       (* updates a reference *)
-         | Label num    (* constructs a CodePtr *)
-         | Print        (* prints a value *)
-         | PrintC char  (* prints a character *)
-         | Add          (* + over the integers *)
-         | Sub          (* - over the integers *)
-         | Mult         (* * over the integers *)
-         | Div          (* div over the integers *)
-         | Mod          (* mod over the integers *)
-         | Less         (* < over the integers *) `
+  bvl_op = Global num    (* load global var with index *)
+         | AllocGlobal   (* make space for a new global *)
+         | SetGlobal num (* assign a value to a global *)
+         | Cons num      (* construct a Block with given tag *)
+         | El num        (* read Block field index *)
+         | Const int     (* integer *)
+         | TagEq num     (* check whether Block's tag is eq *)
+         | IsBlock       (* is it a Block value? *)
+         | Equal         (* structural equality *)
+         | Ref           (* makes a reference *)
+         | Deref         (* loads a value from a reference *)
+         | Update        (* updates a reference *)
+         | Label num     (* constructs a CodePtr *)
+         | Print         (* prints a value *)
+         | PrintC char   (* prints a character *)
+         | Add           (* + over the integers *)
+         | Sub           (* - over the integers *)
+         | Mult          (* * over the integers *)
+         | Div           (* div over the integers *)
+         | Mod           (* mod over the integers *)
+         | Less          (* < over the integers *) `
 
 (* There are only a handful of "interesting" operations. *)
 
@@ -81,18 +83,30 @@ val _ = Datatype `
 
 val _ = Datatype `
   bvl_state =
-    <| globals : bc_value num_map
-     ; refs    : bc_value num_map
+    <| globals : (bc_value option) list
+     ; refs    : num |-> ref_value
      ; clock   : num
-     ; code    : (num # bvl_exp # num) num_map
+     ; code    : (num # bvl_exp) num_map
      ; output  : string |> `
+
+val get_global_def = Define `
+  get_global n globals =
+    if n < LENGTH globals then NONE else EL n globals`
 
 val bEvalOp_def = Define `
   bEvalOp op vs (s:bvl_state) =
     case (op,vs) of
-    | (Global n,[]) => (case lookup n s.globals of
-                        | SOME v => SOME (v,s)
-                        | NONE => NONE)
+    | (Global n,[]) =>
+        (case get_global n s.globals of
+         | SOME v => SOME (v,s)
+         | NONE => NONE)
+    | (SetGlobal n,[v]) =>
+        (case get_global n s.globals of
+         | SOME v => NONE
+         | NONE => SOME (Number 0,
+             s with globals := (LUPDATE (SOME v) n s.globals)))
+    | (AllocGlobal,[]) =>
+        SOME (Number 0, s with globals := s.globals ++ [NONE])
     | (Const i,xs) => SOME (Number i, s)
     | (Cons tag,xs) => SOME (Block tag xs, s)
     | (El n,[Block tag xs]) =>
@@ -107,17 +121,24 @@ val bEvalOp_def = Define `
     | (IsBlock,[Number i]) => SOME (bool_to_val F, s)
     | (IsBlock,[RefPtr ptr]) => SOME (bool_to_val F, s)
     | (IsBlock,[Block tag ys]) => SOME (bool_to_val T, s)
-    | (Ref,[x]) =>
-        let ptr = (LEAST ptr. ~(ptr IN domain s.refs)) in
-          SOME (RefPtr ptr, s with refs := insert ptr x s.refs)
-    | (Deref,[RefPtr ptr]) =>
-        (case lookup ptr s.refs of
-         | NONE => NONE
-         | SOME x => SOME (x, s))
-    | (Update,[RefPtr ptr; x]) =>
-        if ptr IN domain s.refs then
-          SOME (x, s with refs := insert ptr x s.refs)
-        else NONE
+    | (Ref,xs) =>
+        let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
+          SOME (RefPtr ptr, s with refs := s.refs |+ (ptr,ValueArray xs))
+    | (Deref,[RefPtr ptr; Number i]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ValueArray xs) =>
+            (if 0 <= i /\ i < & (LENGTH xs)
+             then SOME (EL (Num i) xs, s)
+             else NONE)
+         | _ => NONE)
+    | (Update,[RefPtr ptr; Number i; x]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ValueArray xs) =>
+            (if 0 <= i /\ i < & (LENGTH xs)
+             then SOME (x, s with refs := s.refs |+
+                    (ptr,ValueArray (LUPDATE x (Num i) xs)))
+             else NONE)
+         | _ => NONE)
     | (Label n,[]) =>
         if n IN domain s.code then SOME (CodePtr n, s) else NONE
     | (Print, [x]) =>
@@ -146,17 +167,17 @@ val find_code_def = Define `
   (find_code (SOME p) args code =
      case lookup p code of
      | NONE => NONE
-     | SOME (_,exp,arity) => if LENGTH args = arity then SOME (args,exp)
-                                                    else NONE) /\
+     | SOME (arity,exp) => if LENGTH args = arity then SOME (args,exp)
+                                                  else NONE) /\
   (find_code NONE args code =
      if args = [] then NONE else
        case LAST args of
        | CodePtr loc =>
-           (case lookup loc code of
+           (case sptree$lookup loc code of
             | NONE => NONE
-            | SOME (_,exp,arity) => if LENGTH args = arity + 1
-                                    then SOME (FRONT args,exp)
-                                    else NONE)
+            | SOME (arity,exp) => if LENGTH args = arity + 1
+                                  then SOME (FRONT args,exp)
+                                  else NONE)
        | other => NONE)`
 
 (* The evaluation is defined as a clocked functional version of
@@ -186,7 +207,7 @@ val check_clock_lemma = prove(
    defined to evaluate a list of bvl_exp expressions. *)
 
 val bEval_def = tDefine "bEval" `
-  (bEval ([],env,s) = (Result [],s)) /\
+  (bEval ([],env,s:bvl_state) = (Result [],s)) /\
   (bEval (x::y::xs,env,s) =
      case bEval ([x],env,s) of
      | (Result v1,s1) =>
@@ -205,7 +226,7 @@ val bEval_def = tDefine "bEval" `
      | res => res) /\
   (bEval ([Let xs x2],env,s) =
      case bEval (xs,env,s) of
-     | (Result vs,s1) => bEval ([x2],REVERSE vs++env,check_clock s1 s)
+     | (Result vs,s1) => bEval ([x2],vs++env,check_clock s1 s)
      | res => res) /\
   (bEval ([Raise x1],env,s) =
      case bEval ([x1],env,s) of
@@ -230,7 +251,7 @@ val bEval_def = tDefine "bEval" `
           | NONE => (Error,s)
           | SOME (args,exp) =>
               if (s.clock = 0) \/ (s1.clock = 0) then (TimeOut,s) else
-                  bEval ([exp],REVERSE args,dec_clock (check_clock s s1)))
+                  bEval ([exp],args,dec_clock (check_clock s s1)))
      | res => res)`
  (WF_REL_TAC `(inv_image (measure I LEX measure bvl_exp1_size)
                             (\(xs,env,s). (s.clock,xs)))`
@@ -338,6 +359,63 @@ val bEval_def = save_thm("bEval_def",let
                   |> map (REWR_CONV def THENC SIMP_CONV (srw_ss()) [])
                   |> LIST_CONJ
   in new_def end);
+
+(* lemmas *)
+
+val bEval_LENGTH = prove(
+  ``!xs s env. (\(xs,s,env).
+      (case bEval (xs,s,env) of (Result res,s1) => (LENGTH xs = LENGTH res)
+            | _ => T))
+      (xs,s,env)``,
+  HO_MATCH_MP_TAC bEval_ind \\ REPEAT STRIP_TAC
+  \\ FULL_SIMP_TAC (srw_ss()) [bEval_def]
+  \\ SRW_TAC [] [] \\ SRW_TAC [] []
+  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ REV_FULL_SIMP_TAC std_ss [] \\ FULL_SIMP_TAC (srw_ss()) [])
+  |> SIMP_RULE std_ss [];
+
+val _ = save_thm("bEval_LENGTH", bEval_LENGTH);
+
+val bEval_IMP_LENGTH = store_thm("bEval_IMP_LENGTH",
+  ``(bEval (xs,s,env) = (Result res,s1)) ==> (LENGTH xs = LENGTH res)``,
+  REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL bEval_LENGTH) \\ fs []);
+
+val bEval_CONS = store_thm("bEval_CONS",
+  ``bEval (x::xs,env,s) =
+      case bEval ([x],env,s) of
+      | (Result v,s2) =>
+         (case bEval (xs,env,s2) of
+          | (Result vs,s1) => (Result (HD v::vs),s1)
+          | t => t)
+      | t => t``,
+  Cases_on `xs` \\ fs [bEval_def]
+  \\ Cases_on `bEval ([x],env,s)` \\ fs [bEval_def]
+  \\ Cases_on `q` \\ fs [bEval_def]
+  \\ IMP_RES_TAC bEval_IMP_LENGTH
+  \\ Cases_on `a` \\ fs []
+  \\ Cases_on `t` \\ fs []);
+
+val bEval_SNOC = store_thm("bEval_SNOC",
+  ``!xs env s x.
+      bEval (SNOC x xs,env,s) =
+      case bEval (xs,env,s) of
+      | (Result vs,s2) =>
+         (case bEval ([x],env,s2) of
+          | (Result v,s1) => (Result (vs ++ v),s1)
+          | t => t)
+      | t => t``,
+  Induct THEN1
+   (fs [SNOC_APPEND,bEval_def] \\ REPEAT STRIP_TAC
+    \\ Cases_on `bEval ([x],env,s)` \\ Cases_on `q` \\ fs [])
+  \\ fs [SNOC_APPEND,APPEND]
+  \\ ONCE_REWRITE_TAC [bEval_CONS]
+  \\ REPEAT STRIP_TAC
+  \\ Cases_on `bEval ([h],env,s)` \\ Cases_on `q` \\ fs []
+  \\ Cases_on `bEval (xs,env,r)` \\ Cases_on `q` \\ fs []
+  \\ Cases_on `bEval ([x],env,r')` \\ Cases_on `q` \\ fs [bEval_def]
+  \\ IMP_RES_TAC bEval_IMP_LENGTH
+  \\ Cases_on `a''` \\ fs [LENGTH]
+  \\ REV_FULL_SIMP_TAC std_ss [LENGTH_NIL] \\ fs []);
 
 (* clean up *)
 
