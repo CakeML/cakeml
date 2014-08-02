@@ -3643,6 +3643,7 @@ val compile_prog_divergence = store_thm("compile_prog_divergence",
   HINT_EXISTS_TAC >>
   simp[Abbr`bs0`])
 
+(* TODO: fix?
 val compile_Cexp_code_ok_thm = prove(
   ``∀renv rsz cs exp cs'.
     (compile_Cexp renv rsz cs exp = cs') ⇒
@@ -3664,8 +3665,6 @@ val compile_print_err_code_ok_thm = prove(
   match_mp_tac code_labels_ok_append >>
   simp[code_labels_ok_REVERSE])
 
-(* TODO: fix *)
-(*
 val compile_prog_code_labels_ok = store_thm("compile_prog_code_labels_ok",
   ``∀prog code.
       (compile_prog prog = code) ∧ closed_prog prog ⇒
@@ -4111,28 +4110,6 @@ val to_i2_invariant_clocks_match = prove(
   ``to_i2_invariant a b c d e i f g h k ⇒ FST f = FST g``,
   rw[to_i2_invariant_def,s_to_i2_cases] >> rw[])
 
-val compile_initial_prog_code_labels_ok = store_thm("compile_initial_prog_code_labels_ok",
-  ``∀init_compiler_state prog res code.
-      (compile_initial_prog init_compiler_state prog = (res,code)) ∧ closed_prog prog ⇒
-      code_labels_ok code``,
-    rw[compile_initial_prog_def] >> fs[LET_THM] >>
-    first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
-    `∃a b c d. prog_to_i1 init_compiler_state.next_global m1 m2 prog = (a,b,c,d)` by simp[GSYM EXISTS_PROD] >>fs[] >>
-    first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
-    first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
-    rw[] >>
-    match_mp_tac code_labels_ok_cons >> simp[] >>
-    match_mp_tac (MP_CANON compile_Cexp_code_ok_thm) >>
-    (fn(g as (_,w)) => map_every exists_tac (w |> strip_exists |> snd |> dest_conj |> fst |> rhs |> strip_comb |> snd) g) >>
-    simp[] >>
-    specl_args_of_then``exp_to_pat``(CONJUNCT1 free_vars_pat_exp_to_pat)mp_tac >>
-    simp[] >> disch_then match_mp_tac >>
-    imp_res_tac free_vars_i2_prog_to_i3_initial >>
-    imp_res_tac free_vars_prog_to_i2 >>
-    imp_res_tac FV_prog_to_i1 >>
-    simp[] >>
-    fs[closed_prog_def,all_env_dom_def,SUBSET_DEF,PULL_EXISTS])
-
 val compile_initial_prog_thm = store_thm("compile_initial_prog_thm",
   ``∀ck env stm prog res. evaluate_whole_prog ck env stm prog res ⇒
      ∀grd rs rs' bc bs bc0 s envC envM envE.
@@ -4332,5 +4309,29 @@ val compile_initial_prog_thm = store_thm("compile_initial_prog_thm",
     imp_res_tac LIST_REL_store_vs_intro >>
     first_assum(match_exists_tac o concl) >> simp[]) >>
   imp_res_tac FV_prog_to_i1 >> simp[])
+
+(* TODO: fix?
+val compile_initial_prog_code_labels_ok = store_thm("compile_initial_prog_code_labels_ok",
+  ``∀init_compiler_state prog res code.
+      (compile_initial_prog init_compiler_state prog = (res,code)) ∧ closed_prog prog ⇒
+      code_labels_ok code``,
+    rw[compile_initial_prog_def] >> fs[LET_THM] >>
+    first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
+    `∃a b c d. prog_to_i1 init_compiler_state.next_global m1 m2 prog = (a,b,c,d)` by simp[GSYM EXISTS_PROD] >>fs[] >>
+    first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
+    first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
+    rw[] >>
+    match_mp_tac code_labels_ok_cons >> simp[] >>
+    match_mp_tac (MP_CANON compile_Cexp_code_ok_thm) >>
+    (fn(g as (_,w)) => map_every exists_tac (w |> strip_exists |> snd |> dest_conj |> fst |> rhs |> strip_comb |> snd) g) >>
+    simp[] >>
+    specl_args_of_then``exp_to_pat``(CONJUNCT1 free_vars_pat_exp_to_pat)mp_tac >>
+    simp[] >> disch_then match_mp_tac >>
+    imp_res_tac free_vars_i2_prog_to_i3_initial >>
+    imp_res_tac free_vars_prog_to_i2 >>
+    imp_res_tac FV_prog_to_i1 >>
+    simp[] >>
+    fs[closed_prog_def,all_env_dom_def,SUBSET_DEF,PULL_EXISTS])
+*)
 
 val _ = export_theory()

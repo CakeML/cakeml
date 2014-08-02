@@ -1,8 +1,11 @@
 %{
 #include <stdio.h>
 #include <stdlib.h>
-#include "bytecode_inst.h"
 %}
+
+%code requires{
+#include "bytecode_inst.h"
+}
 
 %union {
   unsigned long num;
