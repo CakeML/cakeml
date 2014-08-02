@@ -1,4 +1,4 @@
 language: c
-install: developers/install-deps.sh
+install: developers/cached-deps.sh
 script: developers/build-travis.sh
-env: PATH=$PATH:$HOME/HOL/bin LD_LIBRARY_PATH=$HOME/lib
+env: PATH=$PATH:$HOME/HOL/bin LD_LIBRARY_PATH=$HOME/polyml/lib
