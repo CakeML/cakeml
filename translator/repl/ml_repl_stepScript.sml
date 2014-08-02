@@ -429,6 +429,12 @@ val _ = translate (infer_def ``t_to_freevars``);
 val _ = translate (infer_def ``bind``);
 val _ = translate (infer_def ``merge``);
 
+val _ = translate (typeSystemTheory.build_ctor_tenv_def
+                   |> CONV_RULE(((STRIP_QUANT_CONV o funpow 3 RAND_CONV o
+                                  funpow 2 (LAND_CONV o PairRules.PABS_CONV) o
+                                  funpow 2 RAND_CONV o funpow 2 LAND_CONV)
+                                 (ONCE_REWRITE_CONV [GSYM ETA_AX]))))
+
 val EVERY_INTRO = prove(
   ``(!x::set s. P x) = EVERY P s``,
   SIMP_TAC std_ss [res_quanTheory.RES_FORALL,EVERY_MEM]);
