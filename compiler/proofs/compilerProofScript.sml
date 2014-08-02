@@ -4298,6 +4298,12 @@ val compile_initial_prog_thm = store_thm("compile_initial_prog_thm",
     simp[Abbr`bs1`,bc_state_component_equality] >>
     match_mp_tac Cenv_bs_with_irr >>
     HINT_EXISTS_TAC >> simp[] ) >>
+  reverse conj_tac >- (
+    rator_x_assum`contains_primitives`mp_tac >>
+    rator_x_assum`good_labels`mp_tac >>
+    simp[good_labels_def] >> strip_tac >>
+    simp[contains_primitives_def] >> strip_tac >>
+    rw[] >> metis_tac[APPEND_ASSOC]) >>
   conj_tac >- tac7 >>
   first_assum(mp_tac o MATCH_MP evaluate_prog_i1_closed) >> simp[] >>
   disch_then match_mp_tac >>
