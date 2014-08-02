@@ -13,7 +13,7 @@ LEMH = $(patsubst %,%.lem,$(COMPILER))
 
 $(GEN_SCRIPTS): $(LEMI) $(LEMH)
 	if type lem;\
-	then lem -auxiliary_level none $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMH));\
+	then lem -suppress_renaming -auxiliary_level none $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMH));\
 	else touch $(GEN_SCRIPTS); fi
 
 ifdef POLY

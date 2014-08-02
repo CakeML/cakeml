@@ -270,7 +270,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 val _ = type_abbrev( "tagenv_state" , ``: (num # tag_env # (num, (conN # tid_or_exn)) fmap) # (conN, (num #  tid_or_exn option)) fmap``);
 
 val _ = Define `
- (get_tagenv ((next,tagenv,inv0),acc) = tagenv)`;
+ (get_tagenv ((next,tagenv,inv),acc) = tagenv)`;
 
 
 (*val insert_tag_env : conN -> (nat * maybe tid_or_exn) -> tag_env  -> tag_env*)
@@ -281,8 +281,8 @@ val _ = Define `
 
 (*val alloc_tag : tid_or_exn -> conN -> tagenv_state -> tagenv_state*)
 val _ = Define `
- (alloc_tag tn cn ((next,tagenv,inv0),acc) =
-  (((next+ 1),insert_tag_env cn (next,SOME tn) tagenv,inv0 |+ (next, (cn,tn))),acc |+ (cn, (next,SOME tn))))`;
+ (alloc_tag tn cn ((next,tagenv,inv),acc) =
+  (((next+ 1),insert_tag_env cn (next,SOME tn) tagenv,inv |+ (next, (cn,tn))),acc |+ (cn, (next,SOME tn))))`;
 
 
 (*val alloc_tags : maybe modN -> tagenv_state -> type_def -> tagenv_state*)

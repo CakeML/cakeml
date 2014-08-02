@@ -90,17 +90,17 @@ val _ = type_abbrev((*  'a *) "store_genv" , ``: 'a store # ( 'a option) list``)
 
 (*val do_app_i3 : count_store_genv v_i2 -> op_i2 -> list v_i2 -> maybe (count_store_genv v_i2 * result v_i2 v_i2)*)
 val _ = Define `
- (do_app_i3 ((count0,s),genv) op vs =  
+ (do_app_i3 ((count,s),genv) op vs =  
 ((case (op,vs) of
       (Op_i2 op, vs) =>
         (case do_app_i2 s (Op_i2 op) vs of
             NONE => NONE
-          | SOME (s,r) => SOME (((count0,s),genv),r)
+          | SOME (s,r) => SOME (((count,s),genv),r)
         ) 
     | (Init_global_var_i2 idx, [v]) =>
         if idx < LENGTH genv then
           (case EL idx genv of
-              NONE => SOME (((count0,s), LUPDATE (SOME v) idx genv), (Rval (Litv_i2 Unit)))
+              NONE => SOME (((count,s), LUPDATE (SOME v) idx genv), (Rval (Litv_i2 Unit)))
             | SOME x => NONE
           )
         else
