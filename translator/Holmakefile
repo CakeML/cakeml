@@ -8,8 +8,8 @@ print_astScript.sml : $(print_ast_deps) print_ast.lem
 	else touch print_astScript.sml; fi
 
 ifdef POLY
-HOLHEAP = local-hol-heap
-PARENT_HOLHEAP = ../semantics/sem_heap
+HOLHEAP = heap
+PARENT_HOLHEAP = ../semantics/proofs/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 PRE_BARE_THYS1 = astTheory \
@@ -26,7 +26,7 @@ BARE_THYS1 =  $(patsubst %,../semantics/%,$(PRE_BARE_THYS1))
 BARE_THYS2 =  $(patsubst %,../parsing/%,$(PRE_BARE_THYS2))
 BARE_THYS3 =  $(patsubst %,../semantics/proofs/%,$(PRE_BARE_THYS3))
 
-DEPS = $(patsubst %,%.uo,$(BARE_THYS1)) $(patsubst %,%.uo,$(BARE_THYS2)) $(patsubst %,%.uo,$(BARE_THYS3))
+DEPS = $(patsubst %,%.uo,$(BARE_THYS1)) $(patsubst %,%.uo,$(BARE_THYS2)) $(patsubst %,%.uo,$(BARE_THYS3)) $(PARENTHEAP)
 
 $(HOLHEAP): $(DEPS)
 	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS1) $(BARE_THYS3) $(BARE_THYS2)

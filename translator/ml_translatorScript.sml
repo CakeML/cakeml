@@ -1518,6 +1518,7 @@ val type_names_eq = prove(
                   Dlet v6 v7 => []
                 | Dletrec v8 => []
                 | Dtype tds => MAP (\(tvs,tn,ctors). tn) tds
+                | Dtabbrev tvs tn t => []
                 | Dexn v10 v11 => []) ds))) ++ names``,
   Induct \\ fs [type_names_def] \\ Cases_on `h`
   \\ fs [type_names_def] \\ fs [FORALL_PROD,listTheory.MAP_EQ_f]);
