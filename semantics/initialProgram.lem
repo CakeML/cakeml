@@ -52,7 +52,7 @@ let basis_program =
       mk_unop "length" Alength;
       Dlet (Pvar "update") (Fun "x" (Fun "y" (Fun "z" (App Aupdate [Var (Short "x"); Var (Short "y"); Var (Short "z")])))) ];
    Tmod "Vector" Nothing
-     [Dtabbrev ["'a"] "vector" (Tapp ["'a"] TC_vector);
+     [Dtabbrev ["'a"] "vector" (Tapp [Tvar "'a"] TC_vector);
       mk_unop "fromList" VfromList;
       mk_binop "sub" Vsub]]
 
