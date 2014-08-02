@@ -37,376 +37,6 @@ val compile_top_code_ok =
   metis_tac[compile_top_labels,pair_CASES,SND])
 
 fun cakeml_compset() = let
-val compset = wordsLib.words_compset()
-val add_datatype = computeLib.add_datatype_info compset o valOf o TypeBase.fetch
-(* good libraries which provide compsets :) *)
-val () = intReduce.add_int_compset compset
-(* included in words_compset
-val () = listLib.list_rws compset
-val () = numposrepLib.add_numposrep_compset compset
-val () = ASCIInumbersLib.add_ASCIInumbers_compset compset
-*)
-val () = stringLib.add_string_compset compset
-val () = sumSimps.SUM_rws compset
-val () = optionLib.OPTION_rws compset
-val () = pred_setLib.add_pred_set_compset compset
-val () = combinLib.add_combin_compset compset
-val () = pairLib.add_pair_compset compset
-val () = finite_mapLib.add_finite_map_compset compset
-val () = pegLib.add_peg_compset compset
-(* rich_list doesnt' provide a compset :( *)
-val () = computeLib.add_thms
-  [rich_listTheory.SPLITP_compute
-  ,rich_listTheory.SPLITP_AUX_def
-  ] compset
-(* sptree doesn't provide a compset :( *)
-val () = computeLib.add_thms
-  [sptreeTheory.lookup_compute
-  ,sptreeTheory.insert_compute
-  ,sptreeTheory.delete_compute
-  ,sptreeTheory.lrnext_thm
-  ,sptreeTheory.wf_def
-  ,sptreeTheory.mk_BN_def
-  ,sptreeTheory.mk_BS_def
-  ,sptreeTheory.fromList_def
-  ,sptreeTheory.size_def
-  ,sptreeTheory.union_def
-  ,sptreeTheory.inter_def
-  ,sptreeTheory.domain_def
-  ,sptreeTheory.foldi_def
-  ,sptreeTheory.toListA_def
-  ,sptreeTheory.toList_def
-  ,sptreeTheory.mk_wf_def
-  ] compset
-val () = add_datatype ``:'a spt``
-(* misc :( *)
-val () = computeLib.add_thms
-  [miscTheory.find_index_def
-  ,compilerLibTheory.lunion_def
-  ,compilerLibTheory.lshift_def
-  ,compilerLibTheory.el_check_def
-  ,compilerLibTheory.the_def
-  ,compilerLibTheory.num_fold_def
-  ] compset
-(* semantics *)
-val () = computeLib.add_thms
-  [gramTheory.nt_distinct_ths
-  ,libTheory.merge_def
-  ,libTheory.bind_def
-  ,terminationTheory.is_value_def
-  ,pat_bindings_def
-  ,typeSystemTheory.merge_tenvC_def
-  ,typeSystemTheory.check_ctor_tenv_def
-  ,terminationTheory.check_freevars_def
-  ,typeSystemTheory.build_ctor_tenv_def
-  ,evalPropsTheory.check_dup_ctors_thm
-  ,bytecodeTheory.bool_to_tag_def
-  ,bytecodeTheory.unit_tag_def
-  ,bytecodeTheory.closure_tag_def
-  ,bytecodeTheory.string_tag_def
-  ,bytecodeTheory.block_tag_def
-  ,conLangTheory.tuple_tag_def
-  ,conLangTheory.div_tag_def
-  ,conLangTheory.bind_tag_def
-  ,conLangTheory.eq_tag_def
-  ,conLangTheory.cons_tag_def
-  ,conLangTheory.nil_tag_def
-  ,conLangTheory.some_tag_def
-  ,conLangTheory.none_tag_def
-  ,conLangTheory.subscript_tag_def
-  ] compset
-val () = add_datatype ``:MMLnonT``
-val () = add_datatype ``:top``
-val () = add_datatype ``:dec``
-val () = add_datatype ``:pat``
-val () = add_datatype ``:exp``
-val () = add_datatype ``:tid_or_exn``
-val () = add_datatype ``:op``
-val () = add_datatype ``:lop``
-val () = add_datatype ``:lit``
-val () = add_datatype ``:opb``
-val () = add_datatype ``:opn``
-val () = add_datatype ``:'a id``
-val () = add_datatype ``:eq_result``
-(* lexer *)
-val () = computeLib.add_thms
-  [lex_until_toplevel_semicolon_def
-  ,lex_aux_def
-  ,next_token_def
-  ,next_sym_def
-  ,token_of_sym_def
-  ,read_while_def
-  ,read_string_def
-  ,skip_comment_def
-  ,isSymbol_def
-  ,isAlphaNumPrime_def
-  ,isAlphaNum_def
-  ,is_single_char_symbol_def
-  ,get_token_def
-  ,processIdent_def
-  ,tokenUtilsTheory.isInt_def
-  ,tokenUtilsTheory.isTyvarT_def
-  ,tokenUtilsTheory.destStringT_def
-  ,tokenUtilsTheory.destIntT_def
-  ,tokenUtilsTheory.destSymbolT_def
-  ,tokenUtilsTheory.destAlphaT_def
-  ,tokenUtilsTheory.destTOK_def
-  ,tokenUtilsTheory.destLf_def
-  ,tokenUtilsTheory.destTyvarPT_def
-  ,tokenUtilsTheory.destLongidT_def
-  ,tokenUtilsTheory.isLongidT_def
-  ,tokenUtilsTheory.isWhitespaceT_def
-  ,tokenUtilsTheory.isString_def
-  ,tokenUtilsTheory.isAlphaSym_def
-  ,tokenUtilsTheory.isSymbolT_def
-  ,tokenUtilsTheory.isAlphaT_def
-  ] compset
-val () = add_datatype ``:symbol``
-val () = add_datatype ``:token``
-(* parser *)
-val () = computeLib.add_thms
-  [destResult_def
-  ,parse_REPLphrase_def
-  ,parse_def
-  ,parse_top_def
-  ,cmlParseREPLTop_def
-  ,cmlParseExpr_def
-  ,cmlParseREPLPhrase_def
-  ,sumID_def
-  ,tokeq_def
-  ,cmlPEG_exec_thm
-  ,peg_StructName_def
-  ,peg_EbaseParen_def
-  ,peg_EbaseParenFn_def
-  ,peg_longV_def
-  ,peg_V_def
-  ,peg_TypeDec_def
-  ,peg_UQConstructorName_def
-  ,pnt_def
-  ,try_def
-  ,peg_nonfix_def
-  ,pegf_def
-  ,seql_def
-  ,choicel_def
-  ,mktokLf_def
-  ,bindNT_def
-  ,peg_linfix_def
-  ,mk_linfix_def
-  ,mk_rinfix_def
-  ,cmlPtreeConversionTheory.tuplify_def
-  ,cmlPtreeConversionTheory.ptree_REPLTop_def
-  ,cmlPtreeConversionTheory.ptree_REPLPhrase_def
-  ,cmlPtreeConversionTheory.ptree_TopLevelDecs_def
-  ,cmlPtreeConversionTheory.ptree_TopLevelDec_def
-  ,cmlPtreeConversionTheory.ptree_Structure_def
-  ,cmlPtreeConversionTheory.ptree_StructName_def
-  ,cmlPtreeConversionTheory.ptree_SignatureValue_def
-  ,cmlPtreeConversionTheory.ptree_SpeclineList_def
-  ,cmlPtreeConversionTheory.ptree_SpecLine_def
-  ,cmlPtreeConversionTheory.ptree_Decls_def
-  ,cmlPtreeConversionTheory.ptree_Decl_def
-  ,cmlPtreeConversionTheory.ptree_Expr_def
-  ,cmlPtreeConversionTheory.mkAst_App_def
-  ,cmlPtreeConversionTheory.Eseq_encode_def
-  ,cmlPtreeConversionTheory.ptree_Pattern_def
-  ,cmlPtreeConversionTheory.mkPatApp_def
-  ,cmlPtreeConversionTheory.ptree_FQV_def
-  ,cmlPtreeConversionTheory.ptree_Vlist1_def
-  ,cmlPtreeConversionTheory.ptree_V_def
-  ,cmlPtreeConversionTheory.ptree_Op_def
-  ,cmlPtreeConversionTheory.ptree_TypeDec_def
-  ,cmlPtreeConversionTheory.ptree_DtypeDecl_def
-  ,cmlPtreeConversionTheory.ptree_Dconstructor_def
-  ,cmlPtreeConversionTheory.detuplify_def
-  ,cmlPtreeConversionTheory.ptree_ConstructorName_def
-  ,cmlPtreeConversionTheory.ptree_UQConstructorName_def
-  ,cmlPtreeConversionTheory.ptree_TypeName_def
-  ,cmlPtreeConversionTheory.ptree_Type_def
-  ,cmlPtreeConversionTheory.ptree_linfix_def
-  ,cmlPtreeConversionTheory.ptree_Tyop_def
-  ,cmlPtreeConversionTheory.ptree_TyvarN_def
-  ,cmlPtreeConversionTheory.ptree_UQTyop_def
-  ,cmlPtreeConversionTheory.safeTL_def
-  ,cmlPtreeConversionTheory.oHD_def
-  ] compset
-val () = add_datatype ``:repl_parse_result``
-(* elaborator *)
-val () = computeLib.add_thms
-  [elab_prog_def
-  ,elab_top_def
-  ,elab_dec_def
-  ,elab_decs_def
-  ,elab_t_def
-  ,elab_td_def
-  ,elab_spec_def
-  ,init_type_bindings_def
-  ] compset
-(* inferencer *)
-val () = unifyLib.reset_wfs_thms()
-val () = unifyLib.add_unify_compset compset
-val () = computeLib.add_thms
-  [infer_prog_def
-  ,infer_top_def
-  ,infer_d_def
-  ,infer_ds_def
-  ,infer_e_def
-  ,infer_p_def
-  ,st_ex_bind_def
-  ,st_ex_return_def
-  ,libTheory.lookup_def
-  ,libTheory.opt_bind_def
-  ,libTheory.emp_def
-  ,lookup_tenvC_st_ex_def
-  ,typeSystemTheory.merge_tenvC_def
-  ,init_tenvC_def
-  ,lookup_st_ex_def
-  ,init_state_def
-  ,get_next_uvar_def
-  ,fresh_uvar_def
-  ,n_fresh_uvar_def
-  ,guard_def
-  ,add_constraint_def
-  ,add_constraints_def
-  ,read_def
-  ,generalise_def
-  ,apply_subst_list_def
-  ,append_decls_def
-  ,constrain_op_def
-  ,infer_deBruijn_subst_def
-  ,Infer_Tfn_def
-  ,Infer_Tint_def
-  ,Infer_Tbool_def
-  ,Infer_Tref_def
-  ,Infer_Tunit_def
-  ,init_infer_decls_def
-  ,init_infer_state_def
-  ,init_type_env_def
-  ,typeSystemTheory.check_exn_tenv_def
-  ,check_freevars_def
-  ,mk_id_def
-  ,infer_type_subst_def
-  ,typeSystemTheory.tid_exn_to_tc_def
-  ,check_signature_def
-  ] compset
-val () = add_datatype ``:infer_t``
-val () = add_datatype ``:atom``
-val () = add_datatype ``:('a,'b)exc``
-val () = add_datatype ``:'a infer_st``
-(* modLang compiler *)
-val () = computeLib.add_thms
-  [prog_to_i1_def
-  ,top_to_i1_def
-  ,decs_to_i1_def
-  ,dec_to_i1_def
-  ,exp_to_i1_def
-  ,alloc_defs_def
-  ] compset
-val () = add_datatype ``:prompt_i1``
-val () = add_datatype ``:dec_i1``
-(* conLang compiler *)
-val () = computeLib.add_thms
-  [prog_to_i2_def
-  ,prompt_to_i2_def
-  ,decs_to_i2_def
-  ,exp_to_i2_def
-  ,pat_to_i2_def
-  ,init_tagenv_state_def
-  ,init_exh_def
-  ,get_tagenv_def
-  ,lookup_tag_env_def
-  ,lookup_tag_flat_def
-  ,num_defs_def
-  ,mod_tagenv_def
-  ,insert_tag_env_def
-  ,alloc_tag_def
-  ,alloc_tags_def
-  ,build_exh_env_def
-  ] compset
-val () = add_datatype ``:prompt_i2``
-val () = add_datatype ``:dec_i2``
-val () = add_datatype ``:pat_i2``
-val () = add_datatype ``:exp_i2``
-(* decLang compiler *)
-val () = computeLib.add_thms
-  [prog_to_i3_def
-  ,prompt_to_i3_def
-  ,init_globals_def
-  ,init_global_funs_def
-  ,decs_to_i3_def
-  ] compset
-(* exhLang compiler *)
-val () = computeLib.add_thms
-  [exp_to_exh_def
-  ,pat_to_exh_def
-  ,add_default_def
-  ,exhaustive_match_def
-  ,is_unconditional_def
-  ,get_tags_def
-  ] compset
-(* patLang compiler *)
-val () = computeLib.add_thms
-  [exp_to_pat_def
-  ,row_to_pat_def
-  ,pat_to_pat_def
-  ,sLet_pat_thm
-  ,sIf_pat_def
-  ,ground_pat_def
-  ,pure_pat_def
-  ,SUC_TO_NUMERAL_RULE Let_Els_pat_def
-  ,pure_op_pat_def
-  ,pure_op_def
-  ] compset
-val () = add_datatype ``:exp_pat``
-(* intLang compiler *)
-val () = computeLib.add_thms
-  [exp_to_Cexp_def
-  ,opn_to_prim2_def
-  ,free_labs_def
-  ,free_vars_def
-  ,no_labs_def
-  ,app_to_il_def
-  ,binop_to_il_def
-  ,unop_to_il_def
-  ] compset
-val () = add_datatype ``:Cprim1``
-val () = add_datatype ``:Cprim2``
-(* bytecode compiler *)
-val () =
-  let
-    val nameof = fst o dest_const o fst o strip_comb o lhs o snd o strip_forall o concl
-    val (l1,l2) = List.partition(equal"compile" o nameof)(CONJUNCTS compile_def)
-    val (l2,l3) = List.partition(equal"compile_bindings" o nameof) l2
-  in
-    computeLib.add_thms
-      [label_closures_def
-      ,bind_fv_def
-      ,shift_def
-      ,mkshift_def
-      ,compile_code_env_def
-      ,cce_aux_def
-      ,get_label_def
-      ,emit_def
-      ,pushret_def
-      ,push_lab_def
-      ,cons_closure_def
-      ,emit_ceenv_def
-      ,emit_ceref_def
-      ,update_refptr_def
-      ,compile_closures_def
-      ,compile_envref_def
-      ,compile_varref_def
-      ,stackshift_def
-      ,stackshiftaux_def
-      ,prim1_to_bc_def
-      ,prim2_to_bc_def
-      ,LIST_CONJ l1
-      ,SUC_TO_NUMERAL_RULE (LIST_CONJ l2)
-      ,LIST_CONJ l3
-      ] compset
-  end
-val () = computeLib.add_thms
-  [compile_Cexp_def
-  ] compset
 (*
 val () =
   let
@@ -424,23 +54,9 @@ val () =
     computeLib.add_conv(``compile_Cexp``,4,(compile_Cexp_conv (computeLib.CBV_CONV compset))) compset
   end
 *)
-val () = add_datatype ``:compiler_result``
-val () = add_datatype ``:call_context``
 (* labels removal *)
 val () = labels_computeLib.reset_code_labels_ok_db()
 val () = computeLib.add_conv (``code_labels``,2,code_labels_conv eval_real_inst_length) compset
-(* free vars and closed (for discharging labels hypothesis) *)
-val () = computeLib.add_thms
-  [closed_prog_def
-  ,FV_prog_def
-  ,new_top_vs_def
-  ,new_dec_vs_def
-  ,FV_top_def
-  ,global_dom_def
-  ,FV_decs_def
-  ,FV_dec_def
-  ,FV_def
-  ] compset
 val () =
   let
     fun code_labels_ok_conv tm =
@@ -465,7 +81,6 @@ val () =
         th
       end
   in
-    computeLib.add_thms [compile_print_top_def] compset ;
     computeLib.add_conv(``compile_top``,3,(compile_top_conv (computeLib.CBV_CONV compset))) compset
   end
 (* compile_prog *)
@@ -482,7 +97,6 @@ val () =
         th
       end
   in
-    computeLib.add_thms [compile_print_err_def] compset ;
     computeLib.add_conv(``compile_prog``,1,(compile_prog_conv (computeLib.CBV_CONV compset))) compset
   end
 (* prog to bytecode *)
@@ -511,7 +125,6 @@ val () = computeLib.add_thms
   ,all_asts_to_encoded_def
   ,remove_labels_all_asts_def
   ] compset
-val () = add_datatype ``:compiler_state``
 
 (*Bytecode to asm*)
 val () = computeLib.add_thms 
@@ -531,8 +144,8 @@ val bc_fetch_aux_0_thm = prove(
     if no_labels code then el_check pc code
     else FAIL (bc_fetch_aux code (K 0) pc) "code has labels"``,
   REWRITE_TAC[no_labels_def] >>
-  Induct >> simp[bytecodeTheory.bc_fetch_aux_def,compilerLibTheory.el_check_def] >>
-  rw[] >> fs[combinTheory.FAIL_DEF,compilerLibTheory.el_check_def] >>
+  Induct >> simp[bytecodeTheory.bc_fetch_aux_def,libTheory.el_check_def] >>
+  rw[] >> fs[combinTheory.FAIL_DEF,libTheory.el_check_def] >>
   simp[rich_listTheory.EL_CONS,arithmeticTheory.PRE_SUB1])
 
 val remove_labels_all_asts_no_labels = prove(
@@ -568,7 +181,7 @@ in
       ,SUC_TO_NUMERAL_RULE bc_evaln_def
       ,LEAST_thm
       ,least_from_thm
-      ,compilerLibTheory.el_check_def
+      ,libTheory.el_check_def
       ,listTheory.LUPDATE_compute
       ] compset
     val () = computeLib.add_datatype_info compset (valOf(TypeBase.fetch``:bc_state``))

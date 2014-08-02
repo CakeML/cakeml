@@ -9,5 +9,5 @@ sideScript.sml
   - proves side conditions that the translator generates (mostly that the
     inferencer only uses well-founded substitutions)
 
-oneshotScript.sml
-  - declarations for loading the compiler and running it once.
+compile_primitivesScript.sml
+  - pre-computed evaluation of the initial program

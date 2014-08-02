@@ -6,3 +6,16 @@ bytecodeScript.sml: bytecode.lem
 	if type lem;\
 	then lem -auxiliary_level none $(patsubst %,-i ../semantics/%.lem,lib ast semanticPrimitives) -hol bytecode.lem;\
 	else touch bytecodeScript.sml; fi
+
+ifdef POLY
+HOLHEAP = heap
+PARENTHEAP = ../semantics/heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+
+BARE_THYS = ../semantics/semanticPrimitivesTheory
+DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP)
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENTHEAP) -o $(HOLHEAP) $(BARE_THYS)
+endif
+

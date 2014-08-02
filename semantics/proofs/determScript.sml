@@ -85,4 +85,20 @@ rw [] >>
 metis_tac [top_determ, result_11, result_distinct,PAIR_EQ,
            match_result_11, match_result_distinct, optionTheory.SOME_11]);
 
+val whole_prog_determ = Q.store_thm ("whole_prog_determ",
+`!ck env s ds r1.
+  evaluate_whole_prog ck env s ds r1 ⇒
+  !r2.
+    evaluate_whole_prog ck env s ds r2
+    ⇒
+    (r1 = r2)`,
+ rw [] >>
+ PairCases_on `r1` >>
+ PairCases_on `r2` >>
+ fs [evaluate_whole_prog_def] >>
+ every_case_tac >>
+ fs [] >>
+ imp_res_tac prog_determ >>
+ rw []);
+
 val _ = export_theory ();

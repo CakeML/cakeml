@@ -400,6 +400,13 @@ evaluate_dec ck mn env (s,tdecs) (Dtype tds) ((s,tdecs), Rerr Rtype_error)
 
 and
 
+dtabbrev : forall ck mn env tvs tn t s tdecs. 
+true
+==>
+evaluate_dec ck mn env (s,tdecs) (Dtabbrev tvs tn t) ((s,tdecs), Rval (emp, emp))
+
+and
+
 dexn1 : forall ck mn env cn ts s tdecs.
 not (TypeExn (mk_id mn cn) IN tdecs)
 ==>
@@ -546,13 +553,14 @@ let evaluate_whole_prog ck env s1 tops (s2, new_tds, res) =
   if no_dup_mods tops s1 && no_dup_top_types tops s1 then
     evaluate_prog ck env s1 tops (s2, new_tds, res)
   else
-    res = Rerr Rtype_error
+    s1 = s2 && new_tds = (emp,emp) && res = Rerr Rtype_error
 
 let dec_diverges env (st,tdecs) d =
   match d with
     | Dlet p e -> List.allDistinct (pat_bindings p []) && e_diverges env st e
     | Dletrec funs -> false
     | Dtype tds -> false
+    | Dtabbrev tvs tn t -> false
     | Dexn cn ts -> false
   end
 

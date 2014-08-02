@@ -1,2 +1,17 @@
-INCLUDES = .. ../semantics ../bytecode
+INCLUDES = .. ../bytecode ../semantics ../semantics/proofs ../compiler ../inference ../inference/proofs ../metatheory ../compiler ../compiler/proofs
+
 OPTIONS = QUIT_ON_FAILURE
+
+ifdef POLY
+HOLHEAP = heap
+PARENTHEAP = ../compiler/proofs/heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+
+BARE_THYS = ../semantics/initialProgramTheory ../semantics/proofs/initSemEnvTheory ../semantics/proofs/interpTheory ../inference/proofs/inferSoundTheory ../compiler/proofs/compilerProofTheory ../metatheory/typeSoundTheory ../inference/compute_inferenceLib ../compiler/compute_compilerLib
+
+DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP)
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENTHEAP) -o $(HOLHEAP) $(BARE_THYS)
+endif
+

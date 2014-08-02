@@ -5,24 +5,17 @@ set-theory/
 syntax-lib/
   Common helpers used for manipulating (deeply embedded) HOL syntax
 
-stateless/
-  Defines the inference system for stateless HOL and proves soundness and
-  consistency. Also, defines stateful HOL with semantics by translation to
-  stateless, and synthesises a verified CakeML implementation.
-
-stateful/
-  Defines the inference system for stateful HOL, gives a direct semantics (i.e.
+standard/
+  Defines the inference system for HOL, giving a direct semantics (i.e.
   ignoring the stateless version), and proves soundness and consistency.
 
   In this version, the inference system has support for adding new axioms, and
   therefore the three mathematical axioms are not baked in. Also, the semantics
   for new_specification is more correct (in particular, more abstract).
 
-  The remaining directories mirror the stateless development for this system.
+stateless/
+  Defines the inference system for stateless HOL and proves soundness and
+  consistency. Also, defines stateful HOL with semantics by translation to
+  stateless, and synthesises a verified CakeML implementation.
 
-monadic/
-  Defines the HOL light kernel as monadic functions in HOL4, and proves it
-  implements the stateful inference system.
-
-ml_kernel/
-  Synthesised CakeML implementation of the HOL Light kernel.
+  N.B. The standard version supersedes the stateless version.

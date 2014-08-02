@@ -24,10 +24,6 @@ cmlPtreeConversionScript.sml
     Functions to convert the concrete syntax tree into a parsing AST.  Removes
     some syntactic sugar. 
 
-elab.lem
-    Defines parsing ASTs, and an elaboration function that converts into the
-    main AST by resolving references to datatype constructors and types.
-
 ast.lem
     Defines the AST
 
@@ -50,8 +46,8 @@ bigStep.lem
 terminationScript.sml
     Termination proofs for recursive functions defined in the .lem files
 
-initialEnv.lem
-    Initial environments for the elaborator, type system, and semantics.
+initialProgram.lem
+    CakeML ASTs that define the initial basis environment
 
 replScript.sml
     Pulls everything together into a semantics for the CakeML repl

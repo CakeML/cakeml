@@ -208,4 +208,12 @@ val repl_step_side_thm = Q.store_thm ("repl_step_side_thm",
  rw [repl_step_side_def] >>
  metis_tac [parse_elaborate_infertype_compile_side_thm]);
 
+val basis_state_side_thm = store_thm("basis_state_side_thm",
+  ``basis_state_side = T``,
+  rw[basis_state_side_def,initCompEnvTheory.prim_env_eq,initCompEnvTheory.basis_env_eq])
+
+val basis_repl_step_side_thm = store_thm("basis_repl_step_side_thm",
+  ``!x. basis_repl_step_side x = T``,
+  rw[basis_repl_step_side_def,repl_step_side_thm,basis_state_side_thm])
+
 val _ = export_theory ();

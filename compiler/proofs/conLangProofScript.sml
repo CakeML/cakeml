@@ -9,6 +9,7 @@ open modLangTheory;
 open conLangTheory;
 open modLangProofTheory;
 open evalPropsTheory;
+open terminationTheory;
 open compilerTerminationTheory;
 open miscLib;
 
@@ -165,7 +166,7 @@ val (v_to_i2_rules, v_to_i2_ind, v_to_i2_cases) = Hol_reln `
   ⇒
   env_to_i2 gtagenv ((x,v)::env) ((x,v')::env'))`;
 
-val v_to_i2_eqns = Q.prove (
+val v_to_i2_eqns = Q.store_thm ("v_to_i2_eqns",
 `(!gtagenv l v.
   v_to_i2 gtagenv (Litv_i1 l) v ⇔
     (v = Litv_i2 l)) ∧
@@ -805,14 +806,18 @@ val do_uapp_correct = Q.prove (
  >- metis_tac [store_lookup_vs_to_i2_2, NOT_SOME_NONE]
  >- metis_tac [store_lookup_vs_to_i2]);
 
+val simple_exn_env_i2_def = Define `
+simple_exn_env_i2 = (FEMPTY, FEMPTY |++ [("Div", (div_tag, SOME (TypeExn (Short "Div")))); 
+                ("Bind", (bind_tag, SOME (TypeExn (Short "Bind")))); 
+                ("Eq", (eq_tag, SOME (TypeExn (Short "Eq"))))])`;
+
 val exn_env_i2_correct = Q.prove (
 `!gtagenv.
   env_all_to_i2 tagenv env (exh,genv,env_i2) gtagenv
   ⇒
-  env_all_to_i2 (FST (SND init_tagenv_state)) (exn_env_i1 (all_env_i1_to_genv env))
-    (exh, genv, exn_env_i2) gtagenv`,
+  env_all_to_i2 simple_exn_env_i2 (exn_env_i1 (all_env_i1_to_genv env)) (exh, genv, exn_env_i2) gtagenv`,
  rw [env_all_to_i2_cases, exn_env_i1_def, exn_env_i2_def, emp_def, v_to_i2_eqns,
-     all_env_i1_to_genv_def, all_env_i2_to_genv_def, init_tagenv_state_def] >>
+     all_env_i1_to_genv_def, all_env_i2_to_genv_def, simple_exn_env_i2_def] >>
  fs [cenv_inv_def, envC_tagged_def, gtagenv_wf_def, lookup_con_id_def] >>
  rw [] >>
  every_case_tac >>
@@ -3285,62 +3290,6 @@ to_i2_invariant mods tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ⇔
   s_to_i2 gtagenv s s_i2 ∧
   LIST_REL (OPTION_REL (v_to_i2 gtagenv)) genv genv_i2 ∧
   alloc_tags_invariant tids (tagenv_st,FEMPTY:conN |-> (num # tid_or_exn option)) gtagenv`;
-
-val init_gtagenv_def = Define `
-init_gtagenv =
-  FEMPTY |++ [(("NONE",TypeId (Short "option")), (none_tag, 0));
-              (("SOME",TypeId (Short "option")), (some_tag, 1));
-              (("nil",TypeId (Short "list")), (nil_tag, 0:num));
-              (("::",TypeId (Short "list")), (cons_tag, 2));
-              (("Subscript",TypeExn (Short "Subscript")), (subscript_tag,0));
-              (("Bind",TypeExn (Short "Bind")), (bind_tag,0));
-              (("Div",TypeExn (Short "Div")), (div_tag,0));
-              (("Eq",TypeExn (Short "Eq")), (eq_tag,0))]`;
-
-val initial_i2_invariant = Q.store_thm ("initial_i2_invariant",
-`!ck.
-  to_i2_invariant
-    {}
-    (IMAGE SND (FDOM init_gtagenv))
-    init_envC
-    init_exh
-    init_tagenv_state
-    init_gtagenv
-    (ck,[]) (ck,[])
-    [] []`,
- rw [to_i2_invariant_def, s_to_i2_cases, v_to_i2_eqns]
- >- EVAL_TAC
- >- (simp[EXISTS_PROD] >>
-     pop_assum mp_tac >> EVAL_TAC >> simp[] >>
-     metis_tac[] )
- >- EVAL_TAC
- >- (rw [cenv_inv_def, envC_tagged_def, exhaustive_env_correct_def]
-     >- (fs [initialEnvTheory.init_envC_def] >>
-         cases_on `cn` >>
-         fs [id_to_n_def] >>
-         fs [lookup_con_id_def, emp_def, nil_tag_def, emp_def, cons_tag_def,
-             bind_tag_def, div_tag_def, eq_tag_def] >>
-         EVAL_TAC >> rw[] >> fs[])
-     >- (
-       fs[init_exh_def,IN_FRANGE_FLOOKUP,flookup_fupdate_list] >>
-       every_case_tac >> fs[] >> rw[] >>
-       rw[nat_set_from_list_def] >>
-       rpt (match_mp_tac sptreeTheory.wf_insert) >>
-       rw[sptreeTheory.wf_def] )
-     >- (fs [FDOM_FUPDATE_LIST, init_exh_def, init_gtagenv_def] >>
-         rw [flookup_fupdate_list] >>
-         every_case_tac >>
-         rw[nat_set_from_list_def,domain_nat_set_from_list])
-     >- (rw [gtagenv_wf_def, has_lists_def, has_exns_def, init_gtagenv_def, flookup_fupdate_list] >>
-         rw[nil_tag_def,cons_tag_def,eq_tag_def,tuple_tag_def,bind_tag_def,div_tag_def,none_tag_def,some_tag_def,subscript_tag_def] >>
-         pop_assum mp_tac >>
-         rw[nil_tag_def,cons_tag_def,eq_tag_def,tuple_tag_def,bind_tag_def,div_tag_def,none_tag_def,some_tag_def,subscript_tag_def] >>
-         pop_assum mp_tac >>
-         rw[nil_tag_def,cons_tag_def,eq_tag_def,tuple_tag_def,bind_tag_def,div_tag_def,none_tag_def,some_tag_def,subscript_tag_def]))
- >- (rw [alloc_tags_invariant_def, init_gtagenv_def, FDOM_FUPDATE_LIST, get_next_def,
-         tuple_tag_def, init_tagenv_state_def, flookup_fupdate_list, get_tagacc_def] >>
-     pop_assum mp_tac >>
-     srw_tac [ARITH_ss] [nil_tag_def,cons_tag_def,eq_tag_def,tuple_tag_def, bind_tag_def, div_tag_def,none_tag_def,some_tag_def,subscript_tag_def]));
 
 fun dec_lem t =
 (SIMP_RULE (srw_ss()) [] o

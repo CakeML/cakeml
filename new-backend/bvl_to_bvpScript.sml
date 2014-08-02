@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib; val _ = new_theory "bvl_to_bvp";
 
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
-open bytecodeTheory bvlTheory;
+open bytecodeTheory bvlTheory bvl_constTheory;
 open bvl_inlineTheory bvpTheory;
 open bvp_lemmasTheory bvp_simpTheory bvp_liveTheory bvp_spaceTheory;
 open sptreeTheory lcsymtacs;
@@ -43,7 +43,7 @@ val bComp_def = tDefine "bComp" `
                         (Seq c3 (Move n3 (HD v3))),[n3],n3+1)) /\
   (bComp n env tail live [Let xs x2] =
      let (c1,vs,n1) = bComp n env F live xs in
-     let (c2,v2,n2) = bComp n1 (REVERSE vs ++ env) tail live [x2] in
+     let (c2,v2,n2) = bComp n1 (vs ++ env) tail live [x2] in
        (Seq c1 c2, v2, n2)) /\
   (bComp n env tail live [Raise x1] =
      let (c1,v1,n1) = bComp n env F live [x1] in
@@ -74,7 +74,7 @@ val pOptimise_def = Define `
 
 val bCompile_def = Define `
   bCompile arg_count exp =
-    let env = REVERSE (GENLIST I arg_count) in
+    let env = GENLIST I arg_count in
       pOptimise (FST (bComp arg_count env T [] [exp]))`;
 
 (* verification proof *)
@@ -167,9 +167,9 @@ val LIST_REL_REVERSE = prove(
 val code_rel_def = Define `
   code_rel bvl_code bvp_code <=>
     (domain bvl_code = domain bvp_code) /\
-    !n (ignore:num) exp arg_count.
-      (lookup n bvl_code = SOME (ignore,exp,arg_count)) ==>
-      (lookup n bvp_code = SOME (ignore,bCompile arg_count exp,arg_count))`;
+    !n exp arg_count.
+      (lookup n bvl_code = SOME (arg_count,exp)) ==>
+      (lookup n bvp_code = SOME (arg_count,bCompile arg_count exp))`;
 
 val state_rel_def = Define `
   state_rel (s:bvl_state) (t:bvp_state) <=>
@@ -200,7 +200,7 @@ val find_code_lemma = prove(
   \\ Cases_on `lookup n r.code` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ PairCases_on `x` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ RES_TAC \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ `x2 = LENGTH args` by ALL_TAC \\ FULL_SIMP_TAC std_ss []
+  \\ `x0 = LENGTH args` by ALL_TAC \\ FULL_SIMP_TAC std_ss []
   \\ `?t1 t2. a = SNOC t1 t2` by METIS_TAC [SNOC_CASES]
   \\ FULL_SIMP_TAC std_ss [FRONT_SNOC,LENGTH_SNOC,ADD1]);
 
@@ -540,7 +540,7 @@ val bComp_correct = prove(
       \\ FULL_SIMP_TAC std_ss [jump_exc_NONE]))
   THEN1 (* Let *)
    (`?c1 vs n1. bComp n corr F live xs = (c1,vs,n1)` by METIS_TAC [PAIR]
-    \\ `?c2 v2 n2. bComp n1 (REVERSE vs ++ corr) tail live [x2] =
+    \\ `?c2 v2 n2. bComp n1 (vs ++ corr) tail live [x2] =
                    (c2,v2,n2)` by METIS_TAC [PAIR]
     \\ FULL_SIMP_TAC std_ss [LET_DEF,pEval_def]
     \\ Cases_on `bEval (xs,env,s)`
@@ -552,12 +552,12 @@ val bComp_correct = prove(
     \\ FULL_SIMP_TAC (srw_ss()) [isResult_def,isException_def]
     \\ Q.PAT_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
     \\ FULL_SIMP_TAC std_ss []
-    \\ `var_corr (REVERSE a ++ env) (REVERSE vs ++ corr) t2` by
+    \\ `var_corr (a ++ env) (vs ++ corr) t2` by
      (FULL_SIMP_TAC (srw_ss()) [var_corr_def]
       \\ MATCH_MP_TAC LIST_REL_APPEND
       \\ FULL_SIMP_TAC std_ss [LIST_REL_REVERSE])
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t2`,`n1`,
-         `(REVERSE vs ++ corr)`,`tail`,`live`])
+         `vs ++ corr`,`tail`,`live`])
     \\ `EVERY (\n. lookup n t2.locals <> NONE) live` by
       (fs [EVERY_MEM] \\ REPEAT STRIP_TAC \\ RES_TAC
        \\ Cases_on `lookup n' t1.locals` \\ fs [] \\ METIS_TAC [])
@@ -931,7 +931,7 @@ val bComp_correct = prove(
     \\ Cases_on `tail` THEN1
      (FIRST_X_ASSUM (MP_TAC o Q.SPECL [`call_env args (dec_clock t2)`,
            `LENGTH (args:bc_value list)`,
-           `REVERSE (GENLIST I (LENGTH (args:bc_value list)))`,`T`,`[]`])
+           `GENLIST I (LENGTH (args:bc_value list))`,`T`,`[]`])
       \\ FULL_SIMP_TAC std_ss []
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
        (FULL_SIMP_TAC (srw_ss()) [state_rel_def,dec_clock_def,call_env_def,
@@ -961,7 +961,7 @@ val bComp_correct = prove(
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL
           [`call_env args (push_env env2 (dec_clock t2))`,
            `LENGTH (args:bc_value list)`,
-           `REVERSE (GENLIST I (LENGTH (args:bc_value list)))`,`T`,`[]`])
+           `GENLIST I (LENGTH (args:bc_value list))`,`T`,`[]`])
     \\ FULL_SIMP_TAC std_ss []
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
        (FULL_SIMP_TAC (srw_ss()) [state_rel_def,dec_clock_def,call_env_def,
@@ -1049,8 +1049,7 @@ val option_case_NONE = prove(
   Cases_on `pres` \\ SRW_TAC [] []);
 
 val bCompile_lemma = bComp_correct
-  |> Q.SPECL [`[exp]`,`env`,`s1`,`res`,`s2`,`t1`,`n`,
-              `REVERSE (GENLIST I n)`,`T`,`[]`]
+  |> Q.SPECL [`[exp]`,`env`,`s1`,`res`,`s2`,`t1`,`n`,`GENLIST I n`,`T`,`[]`]
   |> SIMP_RULE std_ss [LENGTH,GSYM bCompile_def,option_case_NONE,
        PULL_EXISTS,EVERY_DEF];
 

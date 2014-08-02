@@ -13,27 +13,20 @@ $(GENS) : $(LEMI) $(LEMS)
 	else touch $(GENS); fi
 
 ifdef POLY
-HOLHEAP = meta_heap
+HOLHEAP = heap
+PARENTHEAP = ../semantics/proofs/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-PRE_BARE_THYS = astTheory \
-		bigStepTheory \
-		libTheory \
-		semanticPrimitivesTheory \
-		smallStepTheory \
-		tokensTheory \
-		typeSystemTheory \
-		terminationTheory \
-		tokenUtilsTheory \
-		proofs/libPropsTheory \
-		proofs/bigClockTheory \
-		proofs/astPropsTheory
+PRE_BARE_THYS = libPropsTheory \
+		bigClockTheory \
+		astPropsTheory \
+		compute_interpLib
 
-BARE_THYS = $(patsubst %,../semantics/%,$(PRE_BARE_THYS))
+BARE_THYS = $(patsubst %,../semantics/proofs/%,$(PRE_BARE_THYS))
 
-DEPS = $(patsubst %,%.uo,$(BARE_THYS)) ../semantics/sem_heap
+DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP)
 
 $(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -b ../semantics/sem_heap -o $(HOLHEAP) $(BARE_THYS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENTHEAP) -o $(HOLHEAP) $(BARE_THYS)
 endif
 

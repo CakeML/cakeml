@@ -18,7 +18,6 @@ open import BigStep
 open import ExhLang
 open import ConLang
 open import DecLang
-open import CompilerLib
 
 (* TODO: Lem's builtin find index has a different type *)
 val find_index : forall 'a. 'a -> list 'a -> nat -> maybe nat

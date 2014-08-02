@@ -1,4 +1,4 @@
-open HolKernel boolLib bossLib lcsymtacs relationTheory listTheory pred_setTheory finite_mapTheory
+open HolKernel boolLib bossLib lcsymtacs relationTheory listTheory pred_setTheory finite_mapTheory alistTheory pairTheory
 open miscLib holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
 val _ = temp_tight_equality()
 val _ = new_theory"holBoolSyntax"
@@ -149,6 +149,37 @@ val bool_has_bool_sig = store_thm("bool_has_bool_sig",
 
 val is_bool_sig_std = store_thm("is_bool_sig_std",
   ``is_bool_sig sig ⇒ is_std_sig sig``, rw[is_bool_sig_def])
+
+val is_bool_sig_extends = store_thm("is_bool_sig_extends",
+  ``∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒ is_bool_sig (sigof ctxt1) ⇒ is_bool_sig (sigof ctxt2)``,
+  ho_match_mp_tac extends_ind >>
+  REWRITE_TAC[GSYM AND_IMP_INTRO] >>
+  ho_match_mp_tac updates_ind >>
+  conj_tac >- rw[is_bool_sig_def] >>
+  conj_tac >- (
+    rw[is_bool_sig_def,is_std_sig_def] >>
+    rw[FLOOKUP_UPDATE] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,FORALL_PROD] >>
+    metis_tac[] ) >>
+  conj_tac >- (
+    rw[is_bool_sig_def,is_std_sig_def] >>
+    rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
+    BasicProvers.CASE_TAC >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
+    metis_tac[] ) >>
+  conj_tac >- (
+    rw[is_bool_sig_def,is_std_sig_def] >>
+    rw[FLOOKUP_UPDATE] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,FORALL_PROD] >>
+    metis_tac[] ) >>
+  rw[is_bool_sig_def,is_std_sig_def] >>
+  rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
+  imp_res_tac ALOOKUP_MEM >>
+  fs[MEM_MAP,FORALL_PROD] >>
+  metis_tac[] )
 
 (* Boolean terms are ok *)
 val bool_term_ok = store_thm("bool_term_ok",

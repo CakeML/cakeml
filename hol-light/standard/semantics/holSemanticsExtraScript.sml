@@ -551,13 +551,17 @@ val term_valuation_exists = store_thm("term_valuation_exists",
   qexists_tac`λ(x,ty). @v. v <: typesem δ τ ty` >> rw[] >>
   metis_tac[typesem_inhabited])
 
+val is_type_valuation_exists = prove(
+  ``is_set_theory ^mem ⇒ is_type_valuation (K boolset)``,
+  simp[is_type_valuation_def] >> metis_tac[boolean_in_boolset]) |> UNDISCH
+
 val valuation_exists = store_thm("valuation_exists",
   ``is_set_theory ^mem ⇒
     ∀tyenv δ. is_type_assignment tyenv δ ⇒
       ∃v. is_valuation tyenv δ v``,
   rw[is_valuation_def] >>
   qexists_tac`K boolset, λ(x,ty). @v. v <: typesem δ (K boolset) ty` >>
-  conj_asm1_tac >- (simp[is_type_valuation_def] >> metis_tac[boolean_in_boolset]) >>
+  conj_asm1_tac >- simp[is_type_valuation_exists] >>
   fs[is_term_valuation_def] >> metis_tac[typesem_inhabited])
 
 (* identity instance *)
@@ -568,6 +572,24 @@ val identity_instance = store_thm("identity_instance",
   rw[] >>
   qspecl_then[`tmenv`,`i`,`name`,`ty`,`ty`,`[]`]mp_tac instance_def >>
   rw[FUN_EQ_THM,typesem_def,combinTheory.o_DEF,ETA_AX])
+
+(* special cases of interprets *)
+
+val rwt = MATCH_MP (PROVE[]``P x ⇒ ((∀x. P x ⇒ Q) ⇔ Q)``) is_type_valuation_exists
+val interprets_nil = save_thm("interprets_nil",
+  interprets_def |> SPEC_ALL |> Q.GEN`vs` |> Q.SPEC`[]`
+  |> SIMP_RULE (std_ss++listSimps.LIST_ss) [rwt] |> GEN_ALL)
+
+val interprets_one = store_thm("interprets_one",
+  ``i interprets name on [v] as f ⇔
+    (∀x. inhabited x ⇒ (i name [x] = f [x]))``,
+  rw[interprets_def,EQ_IMP_THM] >>
+  TRY (
+    first_x_assum match_mp_tac >>
+    fs[is_type_valuation_def] ) >>
+  first_x_assum(qspec_then`K x`mp_tac) >>
+  simp[] >> disch_then match_mp_tac >>
+  rw[is_type_valuation_def] >> metis_tac[])
 
 (*
 (* for models, reducing the context *)

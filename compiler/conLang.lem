@@ -32,38 +32,37 @@ open import SemanticPrimitives
 open import List_extra
 open import BigStep
 open import ModLang
-open import CompilerLib
 
 val tuple_tag : nat
 let tuple_tag = 0
 
-val div_tag : nat
-let div_tag = 1
-
 val bind_tag : nat
-let bind_tag = 2
+let bind_tag = 1
+
+val div_tag : nat
+let div_tag = 2
 
 val eq_tag : nat
 let eq_tag = 3
 
-val cons_tag : nat
-let cons_tag = 4
+val subscript_tag : nat
+let subscript_tag = 4
 
 val nil_tag : nat
 let nil_tag = 5
 
-val some_tag : nat
-let some_tag = 6
+val cons_tag : nat
+let cons_tag = 6
 
 val none_tag : nat
 let none_tag = 7
 
-val subscript_tag : nat
-let subscript_tag = 8
+val some_tag : nat
+let some_tag = 8
 
 type exh_ctors_env = Map.map (id typeN) nat_set
 
-type op_i2 = 
+type op_i2 =
   | Op_i2 of op
   | Init_global_var_i2 of nat
 
@@ -972,29 +971,3 @@ evaluate_prompt_i2 ck exh genv s1 prompt (s2, env2, Just err)
 ==>
 evaluate_prog_i2 ck exh genv s1 (prompt::prompts) (s2, env2, Just err)
 
-val init_tagenv_state : (nat * tag_env * map nat (conN * tid_or_exn))
-let init_tagenv_state =
-  (9,
-   (Map.empty,
-    Map.fromList [("Div", (div_tag, Just (TypeExn (Short "Div")))); 
-                  ("Bind", (bind_tag,Just (TypeExn (Short "Bind")))); 
-                  ("Eq", (eq_tag, Just (TypeExn (Short "Eq")))); 
-                  ("Subscript", (subscript_tag, Just (TypeExn (Short "Subscript")))); 
-                  ("::", (cons_tag, Just (TypeId (Short "list"))));
-                  ("nil", (nil_tag, Just (TypeId (Short "list"))));
-                  ("SOME", (some_tag, Just (TypeId (Short "option"))));
-                  ("NONE", (none_tag, Just (TypeId (Short "option"))))]),
-   Map.fromList [(div_tag, ("Div", TypeExn (Short "Div"))); 
-                 (bind_tag, ("Bind", TypeExn (Short "Bind"))); 
-                 (eq_tag, ("Eq", TypeExn (Short "Eq"))); 
-                 (subscript_tag, ("Subscript", TypeExn (Short "Subscript"))); 
-                 (cons_tag, ("::", TypeId (Short "list")));
-                 (nil_tag, ("nil", TypeId (Short "list")));
-                 (some_tag, ("SOME", TypeId (Short "option")));
-                 (none_tag, ("NONE", TypeId (Short "option")))])
-
-val init_exh : exh_ctors_env
-let init_exh =
-  Map.fromList
-    [(Short "list", nat_set_from_list [cons_tag; nil_tag]);
-     (Short "option", nat_set_from_list [some_tag; none_tag])]

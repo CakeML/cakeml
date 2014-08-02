@@ -26,6 +26,20 @@ val _ = Hol_datatype `
 (* Store typing *)
 val _ = type_abbrev( "tenvS" , ``: (num, store_t) env``);
 
+(* Check that the type names map to valid types *)
+(*val flat_tenvT_ok : flat_tenvT -> bool*)
+val _ = Define `
+ (flat_tenvT_ok tenvT =  
+(EVERY (\ (tn,(tvs,t)) .  check_freevars( 0) tvs t) tenvT))`;
+
+
+(*val tenvT_ok : tenvT -> bool*)
+val _ = Define `
+ (tenvT_ok (mtenvT, tenvT) =  
+(EVERY (\p .  (case (p ) of ( (_,tenvT) ) => flat_tenvT_ok tenvT )) mtenvT /\
+  flat_tenvT_ok tenvT))`;
+
+
 (* Global constructor type environments keyed by constructor name and type *)
 val _ = type_abbrev( "ctMap" , ``: ((conN # tid_or_exn), ( tvarN list # t list)) fmap``);
 
@@ -502,12 +516,13 @@ val _ = Define `
  * constructor and module type environments that don't have bits hidden by a
  * signature. *)
 val _ = Define `
- (type_sound_invariants r (decls1,tenvM,tenvC,tenv,decls2,envM,envC,envE,store) =  
+ (type_sound_invariants r (decls1,tenvT,tenvM,tenvC,tenv,decls2,envM,envC,envE,store) =  
 (? ctMap tenvS decls_no_sig tenvM_no_sig tenvC_no_sig. 
     consistent_decls decls2 decls_no_sig /\
     consistent_ctMap decls_no_sig ctMap /\
     ctMap_has_exns ctMap /\
     ctMap_has_lists ctMap /\
+    tenvT_ok tenvT /\
     tenvM_ok tenvM_no_sig /\ 
     tenvM_ok tenvM /\
     consistent_mod_env tenvS ctMap envM tenvM_no_sig /\
@@ -523,12 +538,12 @@ val _ = Define `
 
 
 val _ = Define `
- (update_type_sound_inv ((decls1:decls),(tenvM:tenvM),(tenvC:tenvC),(tenv:tenvE),(decls2: tid_or_exn set),(envM:envM),(envC:envC),(envE:envE),store) decls1' tenvM' tenvC' tenv' store' decls2' envC' r =  
+ (update_type_sound_inv ((decls1:decls),(tenvT:tenvT),(tenvM:tenvM),(tenvC:tenvC),(tenv:tenvE),(decls2: tid_or_exn set),(envM:envM),(envC:envC),(envE:envE),store) decls1' tenvT' tenvM' tenvC' tenv' store' decls2' envC' r =  
 ((case r of
        Rval (envM',envE') => 
-         (union_decls decls1' decls1,(tenvM'++tenvM),merge_tenvC tenvC' tenvC,bind_var_list2 tenv' tenv,
+         (union_decls decls1' decls1,merge_tenvT tenvT' tenvT, (tenvM'++tenvM),merge_tenvC tenvC' tenvC,bind_var_list2 tenv' tenv,
           decls2',(envM'++envM),merge_envC envC' envC,(envE'++envE),store')
-     | Rerr _ => (union_decls decls1' decls1,tenvM,tenvC,tenv,decls2',envM,envC,envE,store')
+     | Rerr _ => (union_decls decls1' decls1,tenvT,tenvM,tenvC,tenv,decls2',envM,envC,envE,store')
   )))`;
 
 val _ = export_theory()

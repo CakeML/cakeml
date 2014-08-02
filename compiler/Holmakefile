@@ -5,7 +5,7 @@ OPTIONS = QUIT_ON_FAILURE
 SEMANTICSI = lib ast semanticPrimitives bigStep
 BYTECODEI = bytecode
 INFERI = infer_t
-COMPILER = compilerLib modLang conLang decLang exhLang patLang intLang toIntLang toBytecode compiler
+COMPILER = modLang conLang decLang exhLang patLang intLang toIntLang toBytecode compiler
 GEN_SCRIPTS =  $(patsubst %,%Script.sml,$(COMPILER))
 
 LEMI = $(patsubst %,../semantics/%.lem,$(SEMANTICSI)) $(patsubst %,../bytecode/%.lem,$(BYTECODEI)) $(patsubst %,../inference/%.lem,$(INFERI))
@@ -18,11 +18,11 @@ $(GEN_SCRIPTS): $(LEMI) $(LEMH)
 
 ifdef POLY
 HOLHEAP = heap
-PARENT_HOLHEAP = ../semantics/sem_heap
+PARENT_HOLHEAP = ../semantics/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 BARE_THYS = ../semantics/terminationTheory ../bytecode/bytecodeExtraTheory ../inference/infer_tTheory
-DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 
 $(HOLHEAP): $(DEPS)
 #	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)

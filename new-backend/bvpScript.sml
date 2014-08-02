@@ -51,16 +51,15 @@ val _ = Datatype `
 
 val _ = Datatype `
   bvp_state =
-    <| globals : bc_value num_map
+    <| globals : (bc_value option) list
      ; locals  : bc_value num_map
      ; stack   : bvp_st list
      ; handler : num
-     ; refs    : bc_value num_map
+     ; refs    : num |-> ref_value
      ; clock   : num
-     ; code    : (num # bvp_prog # num) num_map
+     ; code    : (num # bvp_prog) num_map
      ; output  : string
      ; space   : num |> `
-
 
 val spt_set_def = Define `
   (spt_set f LN = LN) /\

@@ -76,7 +76,7 @@ val Seq_Skip = prove(
 
 val locals_ok_def = Define `
   locals_ok l1 l2 =
-    !v x. (lookup v l1 = SOME x) ==> (lookup v l2 = SOME x)`;
+    !v x. (sptree$lookup v l1 = SOME x) ==> (sptree$lookup v l2 = SOME x)`;
 
 val locals_ok_IMP = prove(
   ``locals_ok l1 l2 ==> domain l1 SUBSET domain l2``,

@@ -1054,37 +1054,6 @@ val v_to_exh_extend_disjoint = store_thm("v_to_exh_extend_disjoint",
 
 (* TODO: move *)
 
-val sv_rel_def = Define`
-  sv_rel R (Refv v1) (Refv v2) = R v1 v2 ∧
-  sv_rel R (W8array w1) (W8array w2) = (w1 = w2) ∧
-  sv_rel R _ _ = F`
-val _ = export_rewrites["sv_rel_def"]
-
-val sv_rel_refl = store_thm("sv_rel_refl",
-  ``∀R x. (∀x. R x x) ⇒ sv_rel R x x``,
-  gen_tac >> Cases >> rw[sv_rel_def])
-val _ = export_rewrites["sv_rel_refl"]
-
-val sv_rel_trans = store_thm("sv_rel_trans",
-  ``∀R. (∀x y z. R x y ∧ R y z ⇒ R x z) ⇒ ∀x y z. sv_rel R x y ∧ sv_rel R y z ⇒ sv_rel R x z``,
-  gen_tac >> strip_tac >> Cases >> Cases >> Cases >> rw[sv_rel_def] >> metis_tac[])
-
-val sv_rel_cases = store_thm("sv_rel_cases",
-  ``∀x y.
-    sv_rel R x y ⇔
-    (∃v1 v2. x = Refv v1 ∧ y = Refv v2 ∧ R v1 v2) ∨
-    (∃w. x = W8array w ∧ y = W8array w)``,
-  Cases >> Cases >> simp[sv_rel_def,EQ_IMP_THM])
-
-val sv_rel_O = store_thm("sv_rel_O",
-  ``∀R1 R2. sv_rel (R1 O R2) = sv_rel R1 O sv_rel R2``,
-  rw[FUN_EQ_THM,sv_rel_cases,O_DEF,EQ_IMP_THM] >>
-  metis_tac[])
-
-val sv_rel_mono = store_thm("sv_rel_mono",
-  ``(∀x y. P x y ⇒ Q x y) ⇒ sv_rel P x y ⇒ sv_rel Q x y``,
-  rw[sv_rel_cases])
-
 val csg_rel_def = Define`
   csg_rel R ((c1,s1),g1) (((c2,s2),g2):'a count_store_genv) ⇔
     c1 = c2 ∧ LIST_REL (sv_rel R) s1 s2 ∧ LIST_REL (OPTION_REL R) g1 g2`

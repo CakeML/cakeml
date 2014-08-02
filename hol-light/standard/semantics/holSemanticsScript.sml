@@ -14,18 +14,18 @@ val _ = Parse.overload_on("inhabited",``λs. ∃x. x <: s``)
 (* A type assignment is a map from type operator names to semantic functions.
    Each function takes a list of sets representing the meanings of the
    arguments and returns the meaning of the applied operator. The assignment is
-   with respect to a type environment, and is only constrained for defined type
+   with respect to a type signature, and is only constrained for defined type
    operators applied to the right number of non-empty arguments. *)
 
 val _ = Parse.type_abbrev("tyass",``:string -> 'U list -> 'U``)
 
 val is_type_assignment_def = xDefine "is_type_assignment"`
-  is_type_assignment0 ^mem tyenv (δ:'U tyass) ⇔
+  is_type_assignment0 ^mem tysig (δ:'U tyass) ⇔
     FEVERY
       (λ(name,arity).
         ∀ls. LENGTH ls = arity ∧ EVERY inhabited ls ⇒
              inhabited ((δ name) ls))
-      tyenv`
+      tysig`
 val _ = Parse.overload_on("is_type_assignment",``is_type_assignment0 ^mem``)
 
 (* A type valuation is a map from type variable names to non-empty sets. *)
@@ -46,17 +46,17 @@ val typesem_def = tDefine "typesem"`
 
 (* A term assignment is a map from a constant name and a list of values for the
    free type variables to a value for the constant. The assignment is with
-   respect to an environment and is only constrained for defined constants. *)
+   respect to a signature and is only constrained for defined constants. *)
 
 val _ = Parse.type_abbrev("tmass",``:string -> 'U list -> 'U``)
 
 val is_term_assignment_def = xDefine "is_term_assignment"`
-  is_term_assignment0 ^mem tmenv δ (γ:'U tmass) ⇔
+  is_term_assignment0 ^mem tmsig δ (γ:'U tmass) ⇔
     FEVERY
       (λ(name,ty).
         ∀τ. is_type_valuation τ ⇒
               γ name (MAP τ (STRING_SORT (tyvars ty))) <: typesem δ τ ty)
-      tmenv`
+      tmsig`
 val _ = Parse.overload_on("is_term_assignment",``is_term_assignment0 ^mem``)
 
 (* A term valuation is a map from a variable to an element of its type. The
@@ -66,8 +66,8 @@ val _ = Parse.overload_on("is_term_assignment",``is_term_assignment0 ^mem``)
 val _ = Parse.type_abbrev("tmval",``:string # type -> 'U``)
 
 val is_term_valuation_def = xDefine "is_term_valuation"`
-  is_term_valuation0 ^mem tyenv δ τ (σ:'U tmval) ⇔
-    ∀v ty. type_ok tyenv ty ⇒ σ (v,ty) <: typesem δ τ ty`
+  is_term_valuation0 ^mem tysig δ τ (σ:'U tmval) ⇔
+    ∀v ty. type_ok tysig ty ⇒ σ (v,ty) <: typesem δ τ ty`
 val _ = Parse.overload_on("is_term_valuation",``is_term_valuation0 ^mem``)
 
 (* An interpretation is a pair of assignments.
@@ -81,24 +81,24 @@ val _ = Parse.overload_on("tyvof",``FST:'U valuation->'U tyval``)
 val _ = Parse.overload_on("tmvof",``SND:'U valuation->'U tmval``)
 
 val is_valuation_def = xDefine"is_valuation"`
-  is_valuation0 ^mem tyenv δ v ⇔
+  is_valuation0 ^mem tysig δ v ⇔
     is_type_valuation (tyvof v) ∧
-    is_term_valuation tyenv δ (tyvof v) (tmvof v)`
+    is_term_valuation tysig δ (tyvof v) (tmvof v)`
 val _ = Parse.overload_on("is_valuation",``is_valuation0 ^mem``)
 
 (* term assignment for instances of constants *)
 
 val instance_def = new_specification("instance_def",["instance"],
-  prove(``∃f. ∀tmenv (i:'U interpretation) name ty ty0 tyin.
-              FLOOKUP tmenv name = SOME ty0 ∧
+  prove(``∃f. ∀tmsig (i:'U interpretation) name ty ty0 tyin.
+              FLOOKUP tmsig name = SOME ty0 ∧
               ty = TYPE_SUBST tyin ty0
               ⇒
-              f tmenv i name ty =
+              f tmsig i name ty =
               λτ. tmaof i name
                 (MAP (typesem (tyaof i) τ o TYPE_SUBST tyin o Tyvar) (STRING_SORT (tyvars ty0)))``,
     simp[GSYM SKOLEM_THM] >> rw[] >>
-    Cases_on`FLOOKUP tmenv name`>>simp[] >>
-    qmatch_assum_rename_tac`FLOOKUP tmenv name = SOME ty0`[] >>
+    Cases_on`FLOOKUP tmsig name`>>simp[] >>
+    qmatch_assum_rename_tac`FLOOKUP tmsig name = SOME ty0`[] >>
     Cases_on`is_instance ty0 ty` >> fs[] >>
     qmatch_assum_rename_tac`ty = TYPE_SUBST tyin ty0`[] >>
     qho_match_abbrev_tac`∃f. ∀tyin. P tyin ⇒ f = Q tyin` >>
@@ -109,13 +109,13 @@ val instance_def = new_specification("instance_def",["instance"],
 (* Semantics of terms. *)
 
 val termsem_def = xDefine "termsem"`
-  (termsem0 ^mem (tmenv:tmenv) (i:'U interpretation) (v:'U valuation) (Var x ty) = tmvof v (x,ty)) ∧
-  (termsem0 ^mem tmenv i v (Const name ty) = instance tmenv i name ty (tyvof v)) ∧
-  (termsem0 ^mem tmenv i v (Comb t1 t2) =
-   termsem0 ^mem tmenv i v t1 ' (termsem0 ^mem tmenv i v t2)) ∧
-  (termsem0 ^mem tmenv i v (Abs x ty b) =
+  (termsem0 ^mem (tmsig:tmsig) (i:'U interpretation) (v:'U valuation) (Var x ty) = tmvof v (x,ty)) ∧
+  (termsem0 ^mem tmsig i v (Const name ty) = instance tmsig i name ty (tyvof v)) ∧
+  (termsem0 ^mem tmsig i v (Comb t1 t2) =
+   termsem0 ^mem tmsig i v t1 ' (termsem0 ^mem tmsig i v t2)) ∧
+  (termsem0 ^mem tmsig i v (Abs x ty b) =
    Abstract (typesem (tyaof i) (tyvof v) ty) (typesem (tyaof i) (tyvof v) (typeof b))
-     (λm. termsem0 ^mem tmenv i (tyvof v, ((x,ty)=+m)(tmvof v)) b))`
+     (λm. termsem0 ^mem tmsig i (tyvof v, ((x,ty)=+m)(tmvof v)) b))`
 val _ = Parse.overload_on("termsem",``termsem0 ^mem``)
 
 (* Satisfaction of sequents. *)
