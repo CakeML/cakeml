@@ -600,8 +600,8 @@ val _ = Define `
 
 
 val _ = Define `
- (tc_to_string tc0 =  
- ((case tc0 of
+ (tc_to_string tc =  
+ ((case tc of
     TC_name id => id_to_string id
   | TC_int => "<int>"
   | TC_string => "<string>"
