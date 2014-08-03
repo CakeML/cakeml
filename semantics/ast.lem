@@ -85,13 +85,19 @@ type op =
   | Opref
   | Opderef
   (* Word8Array operations *)
+  | Aw8alloc
+  | Aw8sub
+  | Aw8length
+  | Aw8update
+  (* Vector operations *)
+  | VfromList
+  | Vsub
+  | Vlength
+  (* Array operations *)
   | Aalloc
   | Asub
   | Alength
   | Aupdate
-  (* Vector operations *)
-  | VfromList
-  | Vsub
 
 (* Built-in logical operations *)
 type lop =
@@ -114,6 +120,7 @@ type tctor =
   | TC_tup
   | TC_exn
   | TC_vector
+  | TC_array
 
 type t =
   | Tvar of tvarN

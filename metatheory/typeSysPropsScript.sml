@@ -927,7 +927,7 @@ rw [tenvM_ok_def, bind_def]);
 
 val type_op_cases = Q.store_thm ("type_op_cases",
 `!op ts t3.
-  type_op op ts t3 =
+  type_op op ts t3 ⇔
   (((∃op'. op = Opn op') ∧ ts = [Tint; Tint] ∧ (t3 = Tint)) ∨
    ((∃op'. op = Opb op') ∧ ts = [Tint; Tint] ∧ (t3 = Tbool)) ∨
    ((op = Opapp) ∧ ?t2. ts = [Tfn t2 t3;t2]) ∨
@@ -935,12 +935,17 @@ val type_op_cases = Q.store_thm ("type_op_cases",
    ((op = Opassign) ∧ ?t2. ts = [Tref t2; t2] ∧ (t3 = Tunit)) ∨
    ((op = Opref) ∧ ?t1. ts = [t1] ∧ t3 = Tref t1) ∨ 
    ((op = Opderef) ∧ ts = [Tref t3]) ∨
-   ((op = Aalloc) ∧ ts = [Tint; Tword8] ∧ t3 = Tword8array) ∨
-   ((op = Asub) ∧ ts = [Tword8array; Tint] ∧ t3 = Tword8) ∨
-   ((op = Alength) ∧ ts = [Tword8array] ∧ t3 = Tint) ∨
-   ((op = Aupdate) ∧ ts = [Tword8array; Tint; Tword8] ∧ t3 = Tunit) ∨
+   ((op = Aw8alloc) ∧ ts = [Tint; Tword8] ∧ t3 = Tword8array) ∨
+   ((op = Aw8sub) ∧ ts = [Tword8array; Tint] ∧ t3 = Tword8) ∨
+   ((op = Aw8length) ∧ ts = [Tword8array] ∧ t3 = Tint) ∨
+   ((op = Aw8update) ∧ ts = [Tword8array; Tint; Tword8] ∧ t3 = Tunit) ∨
    ((op = VfromList) ∧ ?t2. ts = [Tapp [t2] (TC_name (Short "list"))] ∧ t3 = Tapp [t2] TC_vector) ∨
-   ((op = Vsub) ∧ ts = [Tapp [t3] TC_vector; Tint]))`,
+   ((op = Vsub) ∧ ts = [Tapp [t3] TC_vector; Tint]) ∨
+   ((op = Vlength) ∧ ?t1. ts = [Tapp [t1] TC_vector] ∧ t3 = Tint) ∨
+   ((op = Aalloc) ∧ ?t1. ts = [Tint; t1] ∧ t3 = Tapp [t1] TC_array) ∨
+   ((op = Asub) ∧ ts = [Tapp [t3] TC_array; Tint]) ∨
+   ((op = Alength) ∧ ?t1. ts = [Tapp [t1] TC_array] ∧ t3 = Tint) ∨
+   ((op = Aupdate) ∧ ?t1. ts = [Tapp [t1] TC_array; Tint; t1] ∧ t3 = Tunit))`,
  rw [type_op_def] >>
  every_case_tac >>
  fs [] >>
@@ -1078,26 +1083,26 @@ val type_e_freevars = Q.store_thm ("type_e_freevars",
    tenvM_ok tenvM ∧
    tenv_ok tenvE ⇒
    EVERY (check_freevars (num_tvs tenvE) []) (MAP SND env))`,
-ho_match_mp_tac type_e_strongind >>
-rw [check_freevars_def, bind_tenv_def, num_tvs_def, type_op_cases,
-    tenv_ok_def, bind_tvar_def, bind_var_list_def, opt_bind_tenv_def] >>
-fs [check_freevars_def] >|
-[metis_tac [deBruijn_subst_check_freevars],
- metis_tac [type_e_freevars_lem4, arithmeticTheory.ADD],
- metis_tac [type_e_freevars_lem4, arithmeticTheory.ADD],
- cases_on `pes` >>
+ ho_match_mp_tac type_e_strongind >>
+ rw [check_freevars_def, bind_tenv_def, num_tvs_def, type_op_cases,
+     tenv_ok_def, bind_tvar_def, bind_var_list_def, opt_bind_tenv_def] >>
+ fs [check_freevars_def]
+ >- metis_tac [deBruijn_subst_check_freevars]
+ >- metis_tac [type_e_freevars_lem4, arithmeticTheory.ADD]
+ >- metis_tac [type_e_freevars_lem4, arithmeticTheory.ADD]
+ >- (cases_on `pes` >>
      fs [RES_FORALL, num_tvs_bind_var_list] >>
      qpat_assum `!x. P x` (ASSUME_TAC o Q.SPEC `(FST h, SND h)`) >>
      fs [] >>
-     metis_tac [type_p_freevars, tenv_ok_bind_var_list],
- every_case_tac >>
-     fs [num_tvs_def, tenv_ok_def],
- every_case_tac >>
-     fs [num_tvs_def, tenv_ok_def],
- every_case_tac >>
-     fs [num_tvs_def, tenv_ok_def],
- metis_tac [tenv_ok_bind_var_list_funs, num_tvs_bind_var_list],
- metis_tac [tenv_ok_bind_var_list_tvs, num_tvs_bind_var_list, bind_tvar_def]]);
+     metis_tac [type_p_freevars, tenv_ok_bind_var_list])
+ >- (every_case_tac >>
+     fs [num_tvs_def, tenv_ok_def])
+ >- (every_case_tac >>
+     fs [num_tvs_def, tenv_ok_def])
+ >- (every_case_tac >>
+     fs [num_tvs_def, tenv_ok_def])
+ >- metis_tac [tenv_ok_bind_var_list_funs, num_tvs_bind_var_list]
+ >- metis_tac [tenv_ok_bind_var_list_tvs, num_tvs_bind_var_list, bind_tvar_def]);
 
 val type_e_subst = Q.store_thm ("type_e_subst",
 `(!tenvM tenvC tenvE e t. type_e tenvM tenvC tenvE e t ⇒

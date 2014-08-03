@@ -211,12 +211,17 @@ let type_op op ts t =
     | (Opassign, [Tapp [t1] TC_ref; t2]) -> (t1 = t2) && (t = Tunit)
     | (Opref, [t1]) -> (t = Tapp [t1] TC_ref)
     | (Opderef, [Tapp [t1] TC_ref]) -> (t = t1)
-    | (Aalloc, [Tapp [] TC_int; Tapp [] TC_word8]) -> (t = Tapp [] TC_word8array)
-    | (Asub, [Tapp [] TC_word8array; Tapp [] TC_int]) -> (t = Tapp [] TC_word8)
-    | (Alength, [Tapp [] TC_word8array]) -> (t = Tapp [] TC_int)
-    | (Aupdate, [Tapp [] TC_word8array; Tapp [] TC_int; Tapp [] TC_word8]) -> t = Tapp [] TC_unit
+    | (Aw8alloc, [Tapp [] TC_int; Tapp [] TC_word8]) -> (t = Tapp [] TC_word8array)
+    | (Aw8sub, [Tapp [] TC_word8array; Tapp [] TC_int]) -> (t = Tapp [] TC_word8)
+    | (Aw8length, [Tapp [] TC_word8array]) -> (t = Tapp [] TC_int)
+    | (Aw8update, [Tapp [] TC_word8array; Tapp [] TC_int; Tapp [] TC_word8]) -> t = Tapp [] TC_unit
     | (VfromList, [Tapp [t1] (TC_name (Short "list"))]) -> t = Tapp [t1] TC_vector
     | (Vsub, [Tapp [t1] TC_vector; Tapp [] TC_int]) -> t = t1
+    | (Vlength, [Tapp [t1] TC_vector]) -> (t = Tapp [] TC_int)
+    | (Aalloc, [Tapp [] TC_int; t1]) -> t = Tapp [t1] TC_array
+    | (Asub, [Tapp [t1] TC_array; Tapp [] TC_int]) -> t = t1
+    | (Alength, [Tapp [t1] TC_array]) -> t = Tapp [] TC_int
+    | (Aupdate, [Tapp [t1] TC_array; Tapp [] TC_int; t2]) -> t1 = t2 && t = Tapp [] TC_unit
     | _ -> false
   end
 

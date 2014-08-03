@@ -112,13 +112,19 @@ val _ = Hol_datatype `
   | Opref
   | Opderef
   (* Word8Array operations *)
+  | Aw8alloc
+  | Aw8sub
+  | Aw8length
+  | Aw8update
+  (* Vector operations *)
+  | VfromList
+  | Vsub
+  | Vlength
+  (* Array operations *)
   | Aalloc
   | Asub
   | Alength
-  | Aupdate
-  (* Vector operations *)
-  | VfromList
-  | Vsub`;
+  | Aupdate`;
 
 
 (* Built-in logical operations *)
@@ -144,7 +150,8 @@ val _ = Hol_datatype `
   | TC_fn
   | TC_tup
   | TC_exn
-  | TC_vector`;
+  | TC_vector
+  | TC_array`;
 
 
 val _ = Hol_datatype `

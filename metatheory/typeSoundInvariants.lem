@@ -9,7 +9,7 @@ open import SmallStep
 open import TypeSystem
 import List_extra
 
-type store_t = Ref_t of t | W8array_t
+type store_t = Ref_t of t | W8array_t | Varray_t of t
 
 (* Store typing *)
 type tenvS = env nat store_t
@@ -212,6 +212,15 @@ loc2 : forall tvs cenv senv n.
 type_v tvs cenv senv (Loc n) Tword8array
 
 and
+
+loc3 : forall tvs cenv senv n t.
+check_freevars 0 [] t &&
+(Lib.lookup n senv = Just (Varray_t t))
+==>
+type_v tvs cenv senv (Loc n) (Tapp [t] TC_array)
+
+and
+
 vec : forall tvs cenv senv vs t.
 check_freevars 0 [] t &&
 List.all (fun v -> type_v tvs cenv senv v t) vs
@@ -271,6 +280,7 @@ let type_s cenv senv s =
        match (sv,st) with
          | (Refv v, Ref_t t) -> type_v 0 cenv senv v t
          | (W8array es, W8array_t) -> true
+         | (Varray vs, Varray_t t) -> List.all (fun v -> type_v 0 cenv senv v t) vs
          | _ -> false
        end)
 

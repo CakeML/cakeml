@@ -111,7 +111,8 @@ val canonical_values_thm = Q.store_thm ("canonical_values_thm",
   (type_v tvs ctMap tenvS v Tword8array ⇒ (∃n. v = Loc n)) ∧
   (!t3. ctMap_has_lists ctMap ∧ type_v tvs ctMap tenvS v (Tapp [t3] (TC_name (Short "list"))) ⇒ 
         ?vs. v_to_list v = SOME vs) ∧
-  (!t3. type_v tvs ctMap tenvS v (Tapp [t3] TC_vector) ⇒ (?vs. v = Vectorv vs))`,
+  (!t3. type_v tvs ctMap tenvS v (Tapp [t3] TC_vector) ⇒ (?vs. v = Vectorv vs)) ∧
+  (!t3. type_v tvs ctMap tenvS v (Tapp [t3] TC_array) ⇒ (∃n. v = Loc n))`,
  rw [] >>
  fs [Once type_v_cases, deBruijn_subst_def] >>
  fs [] >>
@@ -476,7 +477,40 @@ val exp_type_progress = Q.prove (
              every_case_tac >>
              fs [] >>
              fs[store_v_same_type_def])
-         >- srw_tac [boolSimps.DNF_ss] [markerTheory.Abbrev_def])
+         >- srw_tac [boolSimps.DNF_ss] [markerTheory.Abbrev_def]
+         >- (every_case_tac >>
+             fs [store_alloc_def])
+         >- (qpat_assum `type_v a ctMap senv (Loc n') z` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
+             fs [type_s_def] >>
+             res_tac >>
+             fs [is_ccon_def, store_assign_def, store_lookup_def] >>
+             rw [] >>
+             every_case_tac >>
+             fs [LET_THM] >>
+             rw [] >>
+             every_case_tac >>
+             fs [])
+         >- (qpat_assum `type_v a ctMap senv (Loc n) z` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
+             fs [type_s_def] >>
+             res_tac >>
+             fs [store_assign_def, store_lookup_def] >>
+             rw [] >>
+             every_case_tac >>
+             fs [])
+         >- (fs [METIS_PROVE [REVERSE_REVERSE] ``REVERSE x = y ⇔ x = REVERSE y``] >>
+             rw [] >>
+             imp_res_tac (SIMP_RULE (srw_ss()) [] canonical_values_thm) >>
+             rw [] >>
+             qpat_assum `type_v a ctMap senv (Loc n''') z` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
+             fs [type_s_def] >>
+             res_tac >>
+             fs [store_assign_def, store_lookup_def] >>
+             every_case_tac >>
+             fs [LET_THM] >>
+             rw [] >>
+             every_case_tac >>
+             fs [] >>
+             fs[store_v_same_type_def]))
      >- (rw [do_log_def] >>
          every_case_tac >>
          fs [])
@@ -1283,7 +1317,18 @@ val exp_type_preservation = Q.prove (
              res_tac >>
              metis_tac [EL_REPLICATE])
          >- do_app_exn_tac
-         >- do_app_exn_tac)
+         >- do_app_exn_tac
+         >- (rw [Once type_v_cases_eqn] >>
+             metis_tac [])
+         >- cheat
+         >- cheat
+         >- cheat
+         >- cheat
+         >- cheat
+         >- cheat
+         >- cheat
+         >- cheat
+         >- cheat)
      >- (rw [Once type_ctxts_cases, type_ctxt_cases] >>
          ONCE_REWRITE_TAC [context_invariant_cases] >>
          rw [] >>
