@@ -121,6 +121,13 @@ val evaluate_prompt_i1_success_globals = store_thm("evaluate_prompt_i1_success_g
 val local_labels_def = Define`
   local_labels code = FILTER ($~ o inst_uses_label VfromListLab) code`
 
+val local_labels_cons = store_thm("local_labels_cons",
+  ``∀l ls. local_labels (l::ls) =
+           if inst_uses_label VfromListLab l
+           then local_labels ls
+           else l::(local_labels ls)``,
+  rw[local_labels_def] >> fs[])
+
 val local_labels_append = store_thm("local_labels_append[simp]",
   ``∀l1 l2. local_labels (l1 ++ l2) = local_labels l1 ++ local_labels l2``,
   rw[local_labels_def,FILTER_APPEND])
@@ -3643,7 +3650,6 @@ val compile_prog_divergence = store_thm("compile_prog_divergence",
   HINT_EXISTS_TAC >>
   simp[Abbr`bs0`])
 
-(* TODO: fix?
 val compile_Cexp_code_ok_thm = prove(
   ``∀renv rsz cs exp cs'.
     (compile_Cexp renv rsz cs exp = cs') ⇒
@@ -3654,6 +3660,8 @@ val compile_Cexp_code_ok_thm = prove(
   qspecl_then[`renv`,`rsz`,`cs`,`exp`]mp_tac compile_Cexp_thm >>
   simp[] >> strip_tac >> simp[] >>
   PROVE_TAC[REVERSE_APPEND,code_labels_ok_REVERSE])
+
+(* TODO: fix?
 
 val compile_print_err_code_ok_thm = prove(
   ``∀cs cs'. (compile_print_err cs = cs') ⇒
@@ -4316,17 +4324,16 @@ val compile_initial_prog_thm = store_thm("compile_initial_prog_thm",
     first_assum(match_exists_tac o concl) >> simp[]) >>
   imp_res_tac FV_prog_to_i1 >> simp[])
 
-(* TODO: fix?
 val compile_initial_prog_code_labels_ok = store_thm("compile_initial_prog_code_labels_ok",
   ``∀init_compiler_state prog res code.
       (compile_initial_prog init_compiler_state prog = (res,code)) ∧ closed_prog prog ⇒
-      code_labels_ok code``,
+      code_labels_ok (local_labels code)``,
     rw[compile_initial_prog_def] >> fs[LET_THM] >>
     first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
     `∃a b c d. prog_to_i1 init_compiler_state.next_global m1 m2 prog = (a,b,c,d)` by simp[GSYM EXISTS_PROD] >>fs[] >>
     first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
     first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
-    rw[] >>
+    rw[local_labels_cons] >>
     match_mp_tac code_labels_ok_cons >> simp[] >>
     match_mp_tac (MP_CANON compile_Cexp_code_ok_thm) >>
     (fn(g as (_,w)) => map_every exists_tac (w |> strip_exists |> snd |> dest_conj |> fst |> rhs |> strip_comb |> snd) g) >>
@@ -4338,6 +4345,5 @@ val compile_initial_prog_code_labels_ok = store_thm("compile_initial_prog_code_l
     imp_res_tac FV_prog_to_i1 >>
     simp[] >>
     fs[closed_prog_def,all_env_dom_def,SUBSET_DEF,PULL_EXISTS])
-*)
 
 val _ = export_theory()
