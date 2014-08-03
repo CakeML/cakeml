@@ -1042,34 +1042,14 @@ val REPL_FUN_REPL_FUN_STATE_TYPE_exists = prove(
  simp[ml_repl_stepTheory.REPL_FUN_REPL_FUN_STATE_TYPE_def] >>
  simp[ml_repl_stepTheory.PAIR_TYPE_def,PULL_EXISTS] >>
  simp[GSYM PULL_EXISTS] >>
- conj_tac >- (
-   MATCH_MP_TAC LIST_TYPE_exists >> tac >>
-   Cases_on`p1`>>
-   simp[ml_repl_stepTheory.AST_TCTOR_TYPE_def,PULL_EXISTS] >>
-   strip_tac >>
-   TRY ltchartac >>
-   simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
-   Cases_on`i`>>simp[ml_repl_stepTheory.AST_ID_TYPE_def]>>
-   simp[GSYM PULL_EXISTS] >> rw[] >> ltchartac ) >>
- conj_tac >- (
-   MATCH_MP_TAC LIST_TYPE_exists >>
-   rw[] >> ltchartac ) >>
- conj_tac >- (
+ rpt conj_tac >>
+ TRY ( ltchartac >> rw[] >> ltchartac >> NO_TAC) >>
+ TRY (
    MATCH_MP_TAC LIST_TYPE_exists >>
    strip_tac >> simp[GSYM PULL_EXISTS] >> rw[] >>
    Cases_on`a`>>simp[ml_repl_stepTheory.AST_ID_TYPE_def]>>
-   simp[GSYM PULL_EXISTS] >> rw[] >> ltchartac ) >>
- conj_tac >- (
-   MATCH_MP_TAC LIST_TYPE_exists >>
-   strip_tac >> simp[GSYM PULL_EXISTS] >> rw[] >>
-   Cases_on`a`>>simp[ml_repl_stepTheory.AST_ID_TYPE_def]>>
-   simp[GSYM PULL_EXISTS] >> rw[] >> ltchartac ) >>
- conj_tac >- (
-   MATCH_MP_TAC LIST_TYPE_exists >>
-   tac >> simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
-   tac >> simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
-   simp[INFER_T_INFER_T_TYPE_exists] ) >>
- conj_tac >- (
+   simp[GSYM PULL_EXISTS] >> rw[] >> ltchartac >> NO_TAC) >>
+ TRY (
    MATCH_MP_TAC LIST_TYPE_exists >>
    tac >>
    strip_tac >>
@@ -1080,8 +1060,8 @@ val REPL_FUN_REPL_FUN_STATE_TYPE_exists = prove(
    Cases_on`p3`>>simp[ml_repl_stepTheory.SEMANTICPRIMITIVES_TID_OR_EXN_TYPE_def]>>
    TRY(Cases_on`i`>>simp[ml_repl_stepTheory.AST_ID_TYPE_def,PULL_EXISTS])>>
    simp[GSYM PULL_EXISTS] >> rw[] >>
-   TRY ltchartac >> rw[] >> TRY ltchartac) >>
- conj_tac >- (
+   TRY ltchartac >> rw[] >> TRY ltchartac >> NO_TAC) >>
+ TRY (
    MATCH_MP_TAC LIST_TYPE_exists >>
    tac >>
    strip_tac >>
@@ -1090,8 +1070,13 @@ val REPL_FUN_REPL_FUN_STATE_TYPE_exists = prove(
    Cases_on`p3`>>simp[ml_repl_stepTheory.SEMANTICPRIMITIVES_TID_OR_EXN_TYPE_def]>>
    TRY(Cases_on`i`>>simp[ml_repl_stepTheory.AST_ID_TYPE_def,PULL_EXISTS])>>
    simp[GSYM PULL_EXISTS] >> rw[] >>
-   TRY ltchartac >> rw[] >> TRY ltchartac) >>
- conj_tac >- (
+   TRY ltchartac >> rw[] >> TRY ltchartac >> NO_TAC) >>
+ TRY (
+   MATCH_MP_TAC LIST_TYPE_exists >>
+   tac >> simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
+   tac >> simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
+   simp[INFER_T_INFER_T_TYPE_exists] ) >>
+ TRY (
    MATCH_MP_TAC LIST_TYPE_exists >>
    tac >> simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
    simp[INFER_T_INFER_T_TYPE_exists] ) >>
