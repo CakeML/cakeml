@@ -13526,6 +13526,8 @@ val bc_adjust_def = tDefine "bc_adjust" `
    \\ REPEAT STRIP_TAC \\ RES_TAC \\ TRY (POP_ASSUM (MP_TAC o Q.SPEC `tag`))
    \\ DECIDE_TAC) |> CONV_RULE (DEPTH_CONV ETA_CONV);
 
+(*
+
 val ref_adjust_def = Define `
   ref_adjust (cb,sb,ev) (refs1:num |-> ref_value) =
     let adj = (\n. if ev then 2 * n else 2 * n + 1) in
