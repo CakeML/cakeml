@@ -357,6 +357,18 @@ val TypeDec_OK = store_thm(
   simp[ptree_TypeDec_def] >>
   erule strip_assume_tac (n DtypeDecls_OK) >> simp[]);
 
+val TypeAbbrevDec_OK = store_thm(
+  "TypeAbbrevDec_OK",
+  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nTypeAbbrevDec ∧
+    MAP TK toks = ptree_fringe pt ⇒
+    ∃td. ptree_TypeAbbrevDec pt = SOME td``,
+  start >> fs[MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >>
+  rveq >> fs[MAP_EQ_CONS] >> rveq >>
+  simp[ptree_TypeAbbrevDec_def, pairTheory.EXISTS_PROD,
+       PULL_EXISTS] >>
+  metis_tac[SIMP_RULE (srw_ss()) [pairTheory.EXISTS_PROD] TypeName_OK,
+            Type_OK]);
+
 val Decl_OK = store_thm(
   "Decl_OK",
   ``valid_ptree cmlG pt ∧ ptree_head pt = NN nDecl ∧
@@ -368,10 +380,13 @@ val Decl_OK = store_thm(
   >- (map_every (erule strip_assume_tac o n) [Pattern_OK, E_OK] >>
       simp[])
   >- (erule strip_assume_tac (n AndFDecls_OK) >> simp[])
-  >- (erule strip_assume_tac (n TypeDec_OK) >> simp[]) >>
-  erule strip_assume_tac (n Dconstructor_OK) >> simp[] >>
-  asm_match `ptree_Dconstructor pt' = SOME dc` >>
-  Cases_on `dc` >> simp[]);
+  >- (erule strip_assume_tac (n TypeDec_OK) >> simp[])
+  >- (erule strip_assume_tac (n Dconstructor_OK) >> simp[] >>
+      asm_match `ptree_Dconstructor pt' = SOME dc` >>
+      Cases_on `dc` >> simp[])
+  >- (erule strip_assume_tac (n TypeAbbrevDec_OK) >> simp[] >>
+      qmatch_abbrev_tac `∃d. foo ++ SOME x = SOME d` >>
+      Cases_on `foo` >> simp[]));
 
 val Decls_OK = store_thm(
   "Decls_OK",

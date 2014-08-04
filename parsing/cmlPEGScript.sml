@@ -370,8 +370,12 @@ val cmlPEG_def = zDefine`
                       (bindNT nDecl);
                  seql [tokeq FunT; pnt nAndFDecls] (bindNT nDecl);
                  seql [tokeq ExceptionT; pnt nDconstructor] (bindNT nDecl);
-                 seql [pnt nTypeDec] (bindNT nDecl)
+                 seql [pnt nTypeDec] (bindNT nDecl);
+                 seql [pnt nTypeAbbrevDec] (bindNT nDecl)
                ]);
+              (mkNT nTypeAbbrevDec,
+               seql [tokeq TypeT; pnt nTypeName; tokeq EqualsT; pnt nType]
+                    (bindNT nTypeAbbrevDec));
               (mkNT nDecls,
                choicel [seql [pnt nDecl; pnt nDecls] (bindNT nDecls);
                         seql [tokeq SemicolonT; pnt nDecls] (bindNT nDecls);
@@ -561,7 +565,8 @@ end
 
 val npeg0_rwts =
     List.foldl pegnt []
-               [``nTypeDec``, ``nDecl``, ``nV``, ``nVlist1``, ``nUQTyOp``,
+               [``nTypeDec``, ``nTypeAbbrevDec``,
+                ``nDecl``, ``nV``, ``nVlist1``, ``nUQTyOp``,
                 ``nUQConstructorName``, ``nStructName``, ``nConstructorName``, ``nTypeName``,
                 ``nDtypeDecl``, ``nDconstructor``, ``nFDecl``, ``nTyvarN``,
                 ``nTyOp``, ``nTbase``, ``nDType``, ``nPType``, ``nType``,
@@ -643,7 +648,7 @@ in
   th::acc
 end;
 
-val topo_nts = [``nV``, ``nTyvarN``, ``nTypeDec``, ``nDecl``,
+val topo_nts = [``nV``, ``nTyvarN``, ``nTypeDec``, ``nTypeAbbrevDec``, ``nDecl``,
                 ``nVlist1``, ``nUQTyOp``, ``nUQConstructorName``, ``nStructName``,
                 ``nConstructorName``, ``nTyVarList``, ``nTypeName``, ``nTyOp``,
                 ``nTbase``, ``nDType``, ``nPType``, ``nListOps``,
