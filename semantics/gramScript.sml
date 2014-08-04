@@ -84,6 +84,7 @@ val cmlG_def = mk_grammar_def ginfo
  DtypeDecl ::= TypeName "=" DtypeCons ;
  DtypeDecls ::= DtypeDecl | DtypeDecls "and" DtypeDecl;
  TypeDec ::= "datatype" DtypeDecls;
+ TypeAbbrevDec ::= "type" TypeName "=" Type;
 
  (* expressions - base cases and function applications *)
  UQConstructorName ::= ^(``{AlphaT s | s ≠ "" ∧ isUpper (HD s)}``)
@@ -135,7 +136,8 @@ val cmlG_def = mk_grammar_def ginfo
  FDecl ::= V Vlist1 "=" E ;
  AndFDecls ::= FDecl | AndFDecls "and" FDecl;
  Decl ::= "val" Pattern "=" E  | "fun" AndFDecls |  TypeDec
-       |  "exception" Dconstructor ;
+       |  "exception" Dconstructor
+       | TypeAbbrevDec ;
  Decls ::= Decl Decls | ";" Decls | ;
  LetDec ::= "val" V "=" E | "fun" AndFDecls ;
  LetDecs ::= LetDec LetDecs | ";" LetDecs | ;

@@ -324,6 +324,23 @@ val ptree_TypeDec_def = Define`
           | _ => NONE
       else NONE`;
 
+val ptree_TypeAbbrevDec_def = Define`
+  ptree_TypeAbbrevDec ptree : dec option =
+    case ptree of
+      Lf _ => NONE
+    | Nd nt args =>
+      if nt = mkNT nTypeAbbrevDec then
+        case args of
+          [typetok; tynm ; eqtok ; typ_pt] => do
+            assert(typetok = Lf (TK TypeT) ∧ eqtok = Lf (TK EqualsT)) ;
+            (vars, nm) <- ptree_TypeName tynm;
+            typ <- ptree_Type nType typ_pt;
+            SOME(Dtabbrev vars nm typ)
+          od
+        | _ => NONE
+      else NONE
+`
+
 val ptree_Op_def = Define`
   ptree_Op (Lf _) = NONE ∧
   ptree_Op (Nd nt subs) =
@@ -953,7 +970,7 @@ val ptree_Decl_def = Define`
              do
                tydec <- ptree_TypeDec dt;
                SOME (Dtype tydec)
-             od
+             od ++ ptree_TypeAbbrevDec dt
            | [funtok; fdecls] =>
              do
                assert(funtok = Lf (TOK FunT));
