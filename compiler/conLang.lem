@@ -426,7 +426,7 @@ let do_app_i2 s op vs =
           | _ -> Nothing
         end
     | (Init_global_var_i2 idx, _) -> Nothing
-    | (Op_i2 Aalloc, [Litv_i2 (IntLit n); Litv_i2 (Word8 w)]) ->
+    | (Op_i2 Aw8alloc, [Litv_i2 (IntLit n); Litv_i2 (Word8 w)]) ->
         if n < 0 then
           Just (s, Rerr (Rraise (prim_exn_i2 subscript_tag "Subscript")))
         else
@@ -434,7 +434,7 @@ let do_app_i2 s op vs =
             store_alloc (W8array (List.replicate (natFromInteger n) w)) s
           in 
             Just (s', Rval (Loc_i2 lnum))
-    | (Op_i2 Asub, [Loc_i2 lnum; Litv_i2 (IntLit i)]) ->
+    | (Op_i2 Aw8sub, [Loc_i2 lnum; Litv_i2 (IntLit i)]) ->
         match store_lookup lnum s with
           | Just (W8array ws) ->
               if i < 0 then
@@ -447,13 +447,13 @@ let do_app_i2 s op vs =
                     Just (s, Rval (Litv_i2 (Word8 (List_extra.nth ws n))))
           | _ -> Nothing
         end
-    | (Op_i2 Alength, [Loc_i2 n]) ->
+    | (Op_i2 Aw8length, [Loc_i2 n]) ->
         match store_lookup n s with
           | Just (W8array ws) ->
               Just (s,Rval (Litv_i2(IntLit(integerFromNat(List.length ws)))))
           | _ -> Nothing
          end
-    | (Op_i2 Aupdate, [Loc_i2 lnum; Litv_i2(IntLit i); Litv_i2(Word8 w)]) ->
+    | (Op_i2 Aw8update, [Loc_i2 lnum; Litv_i2(IntLit i); Litv_i2(Word8 w)]) ->
         match store_lookup lnum s with
         | Just (W8array ws) ->
             if i < 0 then
@@ -484,6 +484,51 @@ let do_app_i2 s op vs =
               Just (s, Rerr (Rraise (prim_exn_i2 subscript_tag "Subscript")))
             else 
               Just (s, Rval (List_extra.nth vs n))
+    | (Op_i2 Vlength, [Vectorv_i2 vs]) ->
+        Just (s, Rval (Litv_i2 (IntLit (integerFromNat (List.length vs)))))
+    | (Op_i2 Aalloc, [Litv_i2 (IntLit n); v]) ->
+        if n < 0 then
+          Just (s, Rerr (Rraise (prim_exn_i2 subscript_tag "Subscript")))
+        else
+          let (s',lnum) =
+            store_alloc (Varray (List.replicate (natFromInteger n) v)) s
+          in 
+            Just (s', Rval (Loc_i2 lnum))
+    | (Op_i2 Asub, [Loc_i2 lnum; Litv_i2 (IntLit i)]) ->
+        match store_lookup lnum s with
+          | Just (Varray vs) ->
+              if i < 0 then
+                Just (s, Rerr (Rraise (prim_exn_i2 subscript_tag "Subscript")))
+              else
+                let n = natFromInteger i in
+                  if n >= List.length vs then
+                    Just (s, Rerr (Rraise (prim_exn_i2 subscript_tag "Subscript")))
+                  else 
+                    Just (s, Rval (List_extra.nth vs n))
+          | _ -> Nothing
+        end
+    | (Op_i2 Alength, [Loc_i2 n]) ->
+        match store_lookup n s with
+          | Just (Varray ws) ->
+              Just (s,Rval (Litv_i2 (IntLit(integerFromNat(List.length ws)))))
+          | _ -> Nothing
+         end
+    | (Op_i2 Aupdate, [Loc_i2 lnum; Litv_i2 (IntLit i); v]) ->
+        match store_lookup lnum s with
+        | Just (Varray vs) ->
+            if i < 0 then
+              Just (s, Rerr (Rraise (prim_exn_i2 subscript_tag "Subscript")))
+            else 
+              let n = natFromInteger i in
+                if n >= List.length vs then
+                  Just (s, Rerr (Rraise (prim_exn_i2 subscript_tag "Subscript")))
+                else
+                  match store_assign lnum (Varray (List.update vs n v)) s with
+                    | Nothing -> Nothing
+                    | Just s' -> Just (s', Rval (Litv_i2 Unit))
+                  end
+        | _ -> Nothing
+      end
     | _ -> Nothing
   end
 

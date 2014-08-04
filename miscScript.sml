@@ -31,6 +31,22 @@ val REPLICATE_GENLIST = store_thm("REPLICATE_GENLIST",
   ``!n x. REPLICATE n x = GENLIST (K x) n``,
   Induct THEN SRW_TAC[][rich_listTheory.REPLICATE,GENLIST_CONS])
 
+val EL_REPLICATE = Q.store_thm ("EL_REPLICATE",
+`!n1 n2 x. n1 < n2 ⇒ EL n1 (REPLICATE n2 x) = x`,
+ Induct_on `n2` >>
+ rw [] >>
+ Cases_on `n1 = n2` >>
+ fs [rich_listTheory.REPLICATE, EL] >>
+ Cases_on `n1` >>
+ rw [] >>
+ fs [rich_listTheory.REPLICATE, EL]);
+
+val EVERY_REPLICATE = Q.store_thm ("EVERY_REPLICATE",
+`!f n x. EVERY f (REPLICATE n x) ⇔ n = 0 ∨ f x`,
+ Induct_on `n` >>
+ rw [rich_listTheory.REPLICATE] >>
+ metis_tac []);
+
 val domain_nat_set_from_list = store_thm("domain_nat_set_from_list",
   ``∀ls ns. domain (FOLDL (λs n. insert n () s) ns ls) = domain ns ∪ set ls``,
   Induct >> simp[sptreeTheory.domain_insert] >>

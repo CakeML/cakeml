@@ -328,7 +328,11 @@ val (sv_to_i1_rules, sv_to_i1_ind, sv_to_i1_cases) = Hol_reln `
   ⇒
   sv_to_i1 genv (Refv v) (Refv v')) ∧
 (!genv w.
-  sv_to_i1 genv (W8array w) (W8array w))`;
+  sv_to_i1 genv (W8array w) (W8array w)) ∧
+(!genv vs vs'.
+  vs_to_i1 genv vs vs'
+  ⇒
+  sv_to_i1 genv (Varray vs) (Varray vs'))`;
 
 val sv_to_i1_weakening = Q.prove (
 `(!genv sv sv_i1.
@@ -780,16 +784,14 @@ val do_app_i1 = Q.prove (
      res_tac >>
      rw [] >>
      fs [] >>
-     rw [] >>
-     metis_tac [])
+     rw [markerTheory.Abbrev_def])
  >- (fs [store_lookup_def] >>
      every_case_tac >>
      fs [LIST_REL_EL_EQN, sv_to_i1_cases] >>
      res_tac >>
      rw [] >>
      fs [] >>
-     rw [] >>
-     metis_tac [])
+     rw [markerTheory.Abbrev_def])
  >- (fs [store_lookup_def] >>
      every_case_tac >>
      fs [LIST_REL_EL_EQN, sv_to_i1_cases] >>
@@ -806,24 +808,21 @@ val do_app_i1 = Q.prove (
      res_tac >>
      rw [] >>
      fs [] >>
-     rw [] >>
-     metis_tac [])
+     rw [markerTheory.Abbrev_def])
  >- (fs [store_lookup_def] >>
      every_case_tac >>
      fs [LIST_REL_EL_EQN, sv_to_i1_cases] >>
      res_tac >>
      rw [] >>
      fs [] >>
-     rw [] >>
-     metis_tac [])
+     rw [markerTheory.Abbrev_def])
  >- (fs [store_lookup_def] >>
      every_case_tac >>
      fs [LIST_REL_EL_EQN, sv_to_i1_cases] >>
      res_tac >>
      rw [] >>
      fs [] >>
-     rw [] >>
-     metis_tac [])
+     rw [markerTheory.Abbrev_def])
  >- (fs [store_lookup_def] >>
      every_case_tac >>
      fs [LIST_REL_EL_EQN, sv_to_i1_cases, store_assign_def] >>
@@ -848,8 +847,71 @@ val do_app_i1 = Q.prove (
      fs [vs_to_i1_list_rel] >>
      imp_res_tac LIST_REL_LENGTH
      >- intLib.ARITH_TAC >>
-     fs [LIST_REL_EL_EQN]));
-
+     fs [LIST_REL_EL_EQN])
+ >- (fs [vs_to_i1_list_rel] >>
+     metis_tac [LIST_REL_LENGTH])
+ >- fs [store_alloc_def]
+ >- (fs [store_alloc_def, sv_to_i1_cases, vs_to_i1_list_rel] >>
+     rw [EL_REPLICATE, LIST_REL_EL_EQN, LENGTH_REPLICATE, sv_to_i1_cases])
+ >- (fs [store_lookup_def] >>
+     every_case_tac >>
+     fs [LIST_REL_EL_EQN, sv_to_i1_cases, store_assign_def] >>
+     res_tac >>
+     rw [] >>
+     fs [markerTheory.Abbrev_def])
+ >- (fs [store_lookup_def] >>
+     every_case_tac >>
+     fs [LIST_REL_EL_EQN, sv_to_i1_cases, store_assign_def] >>
+     res_tac >>
+     rw [] >>
+     fs [markerTheory.Abbrev_def, vs_to_i1_list_rel] >>
+     imp_res_tac LIST_REL_LENGTH >>
+     rw [] >>
+     decide_tac)
+ >- (fs [store_lookup_def] >>
+     every_case_tac >>
+     fs [LIST_REL_EL_EQN, sv_to_i1_cases, store_assign_def] >>
+     res_tac >>
+     rw [] >>
+     fs [markerTheory.Abbrev_def] >>
+     qexists_tac `s1_i1` >>
+     fs [LIST_REL_EL_EQN, vs_to_i1_list_rel] >>
+     srw_tac [ARITH_ss] [])
+ >- (fs [store_lookup_def] >>
+     every_case_tac >>
+     fs [LIST_REL_EL_EQN, sv_to_i1_cases, store_assign_def] >>
+     res_tac >>
+     rw [] >>
+     fs [markerTheory.Abbrev_def] >>
+     fs [LIST_REL_EL_EQN, vs_to_i1_list_rel] >>
+     srw_tac [ARITH_ss] [])
+ >- (fs [store_lookup_def] >>
+     every_case_tac >>
+     fs [LIST_REL_EL_EQN, sv_to_i1_cases, store_assign_def] >>
+     res_tac >>
+     rw [] >>
+     fs [markerTheory.Abbrev_def] >>
+     fs [LIST_REL_EL_EQN, vs_to_i1_list_rel] >>
+     srw_tac [ARITH_ss] [])
+ >- (fs [store_lookup_def] >>
+     every_case_tac >>
+     fs [LIST_REL_EL_EQN, sv_to_i1_cases, store_assign_def] >>
+     res_tac >>
+     rw [] >>
+     fs [markerTheory.Abbrev_def] >>
+     fs [LIST_REL_EL_EQN, vs_to_i1_list_rel] >>
+     srw_tac [ARITH_ss] [])
+ >- (fs [store_lookup_def] >>
+     every_case_tac >>
+     fs [LIST_REL_EL_EQN, sv_to_i1_cases, store_assign_def] >>
+     res_tac >>
+     rw [] >>
+     fs [markerTheory.Abbrev_def] >>
+     rw [] >>
+     fs [LIST_REL_EL_EQN, vs_to_i1_list_rel, store_v_same_type_def, EL_LUPDATE] >>
+     srw_tac [ARITH_ss] [] >>
+     rw [EL_LUPDATE]));
+     
 val do_opapp_i1 = Q.prove (
 `!genv vs vs_i1 env e.
   do_opapp vs = SOME (env, e) ∧
@@ -965,6 +1027,16 @@ val pmatch_to_i1_correct = Q.prove (
          res_tac >>
          fs [] >>
          rw [])
+     >- (fs [store_lookup_def, LIST_REL_EL_EQN] >>
+         rw [] >>
+         fs [sv_to_i1_cases] >>
+         res_tac >>
+         fs [])
+     >- (fs [store_lookup_def, LIST_REL_EL_EQN] >>
+         rw [] >>
+         fs [sv_to_i1_cases] >>
+         res_tac >>
+         fs [])
      >- (fs [store_lookup_def, LIST_REL_EL_EQN] >>
          rw [] >>
          fs [sv_to_i1_cases] >>

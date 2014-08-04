@@ -15,22 +15,6 @@ val EVERY_LIST_REL = Q.prove (
  induct_on `l` >>
  rw [rich_listTheory.REPLICATE]);
 
-val EL_REPLICATE = Q.prove (
-`!n1 n2 x. n1 < n2 ⇒ EL n1 (REPLICATE n2 x) = x`,
- induct_on `n2` >>
- rw [] >>
- cases_on `n1 = n2` >>
- fs [rich_listTheory.REPLICATE, EL] >>
- cases_on `n1` >>
- rw [] >>
- fs [rich_listTheory.REPLICATE, EL]);
-
-val EVERY_REPLICATE = Q.prove (
-`!f n x. EVERY f (REPLICATE n x) ⇔ n = 0 ∨ f x`,
- induct_on `n` >>
- rw [rich_listTheory.REPLICATE] >>
- metis_tac []);
-
 val union_decls_empty = Q.store_thm ("union_decls_empty",
 `!decls. union_decls empty_decls decls = decls`,
  rw [] >>
