@@ -64,14 +64,21 @@ val _ = Define `
    Tmod "Word8Array" NONE 
      [Dtabbrev [] "array" (Tapp [] TC_word8array);
       Dtabbrev [] "elem" (Tapp [] TC_word8);
-      mk_binop "array" Aalloc;
-      mk_binop "sub" Asub;
-      mk_unop "length" Alength;
-      Dlet (Pvar "update") (Fun "x" (Fun "y" (Fun "z" (App Aupdate [Var (Short "x"); Var (Short "y"); Var (Short "z")])))) ];
+      mk_binop "array" Aw8alloc;
+      mk_binop "sub" Aw8sub;
+      mk_unop "length" Aw8length;
+      Dlet (Pvar "update") (Fun "x" (Fun "y" (Fun "z" (App Aw8update [Var (Short "x"); Var (Short "y"); Var (Short "z")])))) ];
    Tmod "Vector" NONE
      [Dtabbrev ["'a"] "vector" (Tapp [Tvar "'a"] TC_vector);
       mk_unop "fromList" VfromList;
-      mk_binop "sub" Vsub]]))`;
+      mk_unop "length" Vlength;
+      mk_binop "sub" Vsub];
+   Tmod "Array" NONE 
+     [Dtabbrev ["'a"] "array" (Tapp [Tvar "'a"] TC_array);
+      mk_binop "array" Aalloc;
+      mk_binop "sub" Asub;
+      mk_unop "length" Alength;
+      Dlet (Pvar "update") (Fun "x" (Fun "y" (Fun "z" (App Aupdate [Var (Short "x"); Var (Short "y"); Var (Short "z")])))) ]]))`;
 
 
 val _ = Hol_datatype `

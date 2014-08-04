@@ -1783,6 +1783,8 @@ val type_v_freevars = Q.store_thm ("type_v_freevars",
  >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ,
                arithmeticTheory.GREATER_EQ]
  >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ,
+               arithmeticTheory.GREATER_EQ]
+ >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ,
                arithmeticTheory.GREATER_EQ]);
 
 val type_vs_length = Q.store_thm ("type_vs_length",

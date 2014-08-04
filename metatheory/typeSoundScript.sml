@@ -25,6 +25,12 @@ val EL_REPLICATE = Q.prove (
  rw [] >>
  fs [rich_listTheory.REPLICATE, EL]);
 
+val EVERY_REPLICATE = Q.prove (
+`!f n x. EVERY f (REPLICATE n x) ⇔ n = 0 ∨ f x`,
+ induct_on `n` >>
+ rw [rich_listTheory.REPLICATE] >>
+ metis_tac []);
+
 val union_decls_empty = Q.store_thm ("union_decls_empty",
 `!decls. union_decls empty_decls decls = decls`,
  rw [] >>
@@ -58,7 +64,8 @@ val tid_exn_not = Q.prove (
  (!tn. tid_exn_to_tc tn ≠ TC_fn) ∧
  (!tn. tid_exn_to_tc tn ≠ TC_word8) ∧
  (!tn. tid_exn_to_tc tn ≠ TC_word8array) ∧
- (!tn. tid_exn_to_tc tn ≠ TC_vector)`,
+ (!tn. tid_exn_to_tc tn ≠ TC_vector) ∧
+ (!tn. tid_exn_to_tc tn ≠ TC_array)`,
  rw [] >>
  cases_on `tn` >>
  fs [tid_exn_to_tc_def] >>
@@ -1247,7 +1254,7 @@ val exp_type_preservation = Q.prove (
                      cases_on `EL l st` >>
                      fs [] >>
                      cases_on `st'` >>
-                     fs [] >>
+                     fs [EVERY_MEM] >>
                      metis_tac [type_v_weakening, weakS_bind, weakCT_refl, weakC_refl, weakM_refl, bind_def])))
          >- (fs [store_lookup_def] >>
              qpat_assum `type_v x0 x1 x2 (Loc l) x3` (assume_tac o SIMP_RULE (srw_ss()) [Once type_v_cases_eqn]) >>
@@ -1286,7 +1293,7 @@ val exp_type_preservation = Q.prove (
                      cases_on `EL l st` >>
                      fs [] >>
                      cases_on `st'` >>
-                     fs [] >>
+                     fs [EVERY_MEM] >>
                      metis_tac [type_v_weakening, weakS_bind, weakCT_refl, weakC_refl, weakM_refl, bind_def])))
          >- do_app_exn_tac
          >- (rw [Once type_v_cases_eqn] >>
@@ -1320,15 +1327,68 @@ val exp_type_preservation = Q.prove (
          >- do_app_exn_tac
          >- (rw [Once type_v_cases_eqn] >>
              metis_tac [])
-         >- cheat
-         >- cheat
-         >- cheat
-         >- cheat
-         >- cheat
-         >- cheat
-         >- cheat
-         >- cheat
-         >- cheat)
+         >- (disj2_tac >>
+             rw [Once type_v_cases_eqn] >>
+             fs [store_alloc_def, store_lookup_def] >>
+             rw [] >>
+             qexists_tac `Tapp [t1] TC_array` >>
+             qexists_tac `0` >>
+             qexists_tac `LENGTH st` >>
+             rw [bind_def] >>
+             `lookup (LENGTH st) tenvS = NONE`
+                           by (fs [type_s_def, store_lookup_def] >>
+                               `~(LENGTH st < LENGTH st)` by decide_tac >>
+                               `~(?t. lookup (LENGTH st) tenvS = SOME t)` by metis_tac [] >>
+                               fs [] >>
+                               cases_on `lookup (LENGTH st) tenvS` >>
+                               fs [])
+             >- metis_tac [type_ctxts_weakening, weakCT_refl, weakC_refl, weakM_refl, weakS_bind, bind_def]
+             >- (fs [type_s_def, lookup_def, bind_def, store_lookup_def] >>
+                 rw []
+                 >- decide_tac
+                 >- (rw [rich_listTheory.EL_LENGTH_APPEND, EVERY_REPLICATE] >>
+                     metis_tac [bind_def, type_v_weakening, weakS_bind, weakC_refl, weakM_refl, weakCT_refl])
+                 >- (`l < LENGTH st` by decide_tac >>
+                     rw [rich_listTheory.EL_APPEND1] >>
+                     res_tac  >>
+                     cases_on `EL l st` >>
+                     fs [] >>
+                     cases_on `st'` >>
+                     fs [EVERY_MEM] >>
+                     metis_tac [type_v_weakening, weakS_bind, weakCT_refl, weakC_refl, weakM_refl, bind_def])))
+         >- do_app_exn_tac
+         >- (fs [store_lookup_def] >>
+             qpat_assum `type_v x0 x1 x2 (Loc l) x3` (assume_tac o SIMP_RULE (srw_ss()) [Once type_v_cases_eqn]) >>
+             disj1_tac >>
+             fs [type_s_def] >>
+             res_tac >>
+             every_case_tac >>
+             fs [] >>
+             rw [] >>
+             fs [store_lookup_def, EVERY_EL] >>
+             metis_tac [])
+         >- do_app_exn_tac
+         >- do_app_exn_tac
+         >- (rw [Once type_v_cases_eqn] >>
+             metis_tac [])
+         >- (rw [Once type_v_cases_eqn] >>
+             disj1_tac >>
+             qexists_tac `0` >>
+             fs [type_s_def, store_lookup_def, store_assign_def] >>
+             res_tac >>
+             rw [EL_LUPDATE] >>
+             every_case_tac >>
+             fs [SWAP_REVERSE_SYM] >>
+             rw [] >>
+             qpat_assum `type_v x0 x1 x2 (Loc l) x3` (assume_tac o SIMP_RULE (srw_ss()) [Once type_v_cases_eqn]) >>
+             fs [EVERY_MEM, MEM_LUPDATE] >>
+             rw [] >>
+             fs [] >>
+             FIRST_X_ASSUM match_mp_tac >>
+             rw [MEM_EL] >>
+             metis_tac [])
+         >- do_app_exn_tac
+         >- do_app_exn_tac)
      >- (rw [Once type_ctxts_cases, type_ctxt_cases] >>
          ONCE_REWRITE_TAC [context_invariant_cases] >>
          rw [] >>
