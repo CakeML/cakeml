@@ -1024,6 +1024,11 @@ val _ = export_rewrites["FV_def"]
 
 val _ = Parse.overload_on("SFV",``λe. {x | Short x ∈ FV e}``)
 
+val FV_pes_MAP = store_thm("FV_pes_MAP",
+  ``FV_pes pes = BIGUNION (IMAGE (λ(p,e). FV e DIFF (IMAGE Short (set (pat_bindings p [])))) (set pes))``,
+  Induct_on`pes`>>simp[]>>
+  qx_gen_tac`p`>>PairCases_on`p`>>rw[])
+
 val (closed_rules,closed_ind,closed_cases) = Hol_reln`
 (closed (Litv l)) ∧
 (EVERY closed vs ⇒ closed (Conv cn vs)) ∧
