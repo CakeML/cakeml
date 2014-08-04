@@ -405,7 +405,7 @@ val _ = Define `
           )
         else
           NONE
-    | (Op_i2 Aalloc, [Litv_exh (IntLit n); Litv_exh (Word8 w)]) =>
+    | (Op_i2 Aw8alloc, [Litv_exh (IntLit n); Litv_exh (Word8 w)]) =>
         if n <( 0 : int) then
           SOME (((count,s),genv), Rerr (Rraise (prim_exn_exh subscript_tag)))
         else

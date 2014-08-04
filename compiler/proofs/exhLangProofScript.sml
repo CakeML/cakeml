@@ -89,6 +89,7 @@ val v_to_exh_eqn = Q.prove (
 val sv_to_exh_def = Define`
   sv_to_exh exh (Refv v1) (Refv v2) = v_to_exh exh v1 v2 ∧
   sv_to_exh exh (W8array w1) (W8array w2) = (w1 = w2) ∧
+  sv_to_exh exh (Varray vs1) (Varray vs2) = vs_to_exh exh vs1 vs2 ∧
   sv_to_exh exh _ _ = F`
 
 val store_to_exh_def = Define `
@@ -515,10 +516,10 @@ val do_app_exh_i2 = Q.prove (
    fs [] >>
    rw [] >>
    fs[LIST_REL_EL_EQN, v_to_exh_eqn] >> 
-   metis_tac[sv_to_exh_def] ) >>
+   metis_tac[sv_to_exh_def, vs_to_exh_LIST_REL, LIST_REL_LENGTH] ) >>
  cases_on`ys`>>fs[]>>rw[]>-(
-   qmatch_assum_rename_tac`op_CASE op a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 = b`
-     ["a1","a2","a3","a4","a5","a6","a7","a8","a9","a10","a11","a12","a13","b"] >>
+   qmatch_assum_rename_tac`op_CASE op a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 a16 a17 a18 = b`
+     ["a1","a2","a3","a4","a5","a6","a7","a8","a9","a10","a11","a12","a13","a14","a15","a16","a17","a18","b"] >>
    cases_on`op`>>fs[]>-(
      every_case_tac>>fs[]>>rw[]>>
      rw[prim_exn_i2_def,prim_exn_exh_def,v_to_exh_eqn] )
@@ -538,7 +539,7 @@ val do_app_exh_i2 = Q.prove (
      every_case_tac >> fs[] >> rw[] >>
      rw[prim_exn_i2_def,prim_exn_exh_def,v_to_exh_eqn] >>
      fs[store_alloc_def] >> rw[] >>
-     fs[LIST_REL_EL_EQN] >> rw[sv_to_exh_def] )
+     fs[LIST_REL_EL_EQN] >> rw[sv_to_exh_def])
    >- (
      qmatch_assum_rename_tac`v_to_exh exh v1 v2`[] >>
      Cases_on`v1`>>fs[]>>rw[]>>
@@ -557,7 +558,25 @@ val do_app_exh_i2 = Q.prove (
      imp_res_tac LIST_REL_LENGTH >>
      fs [LIST_REL_EL_EQN] >>
      FIRST_X_ASSUM match_mp_tac >>
-     intLib.ARITH_TAC )) >>
+     intLib.ARITH_TAC )
+   >- (
+     every_case_tac>>fs[]>>rw[]>>
+     fs [store_alloc_def, v_to_exh_eqn, prim_exn_i2_def, prim_exn_exh_def] >>
+     rw [] >>
+     imp_res_tac LIST_REL_LENGTH >>
+     fs [sv_to_exh_def, LIST_REL_EL_EQN] >>
+     rw [LENGTH_REPLICATE, EL_REPLICATE])
+   >- (
+     every_case_tac>>fs[]>>rw[]>>
+     fs [store_alloc_def, v_to_exh_eqn, prim_exn_i2_def, prim_exn_exh_def] >>
+     rw [] >>
+     imp_res_tac LIST_REL_LENGTH >>
+     full_simp_tac (srw_ss()++ARITH_ss) [sv_to_exh_def, LIST_REL_EL_EQN] >>
+     res_tac >>
+     rw [] >>
+     pop_assum mp_tac >>
+     ASM_REWRITE_TAC [sv_to_exh_def] >>
+     full_simp_tac (srw_ss()++ARITH_ss) [LIST_REL_EL_EQN])) >>
  fs[] >>
  qmatch_assum_rename_tac`v_to_exh exh v1 v2`[] >>
  Cases_on`v1`>>fs[]>>rw[]>>
