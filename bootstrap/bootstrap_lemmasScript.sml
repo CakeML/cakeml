@@ -30,28 +30,14 @@ val closed_top_REPL = prove(
   ``closed_top ([],init_envC,init_env) (Tmod "REPL" NONE ml_repl_module_decls)``,
   simp[free_varsTheory.closed_top_def,all_env_dom_init,FV_decs_ml_repl_module_decls])
 
-(* Equality Type assumptions (should be proved elsewhere?) *)
+(* Equality Type assumptions *)
 
-val EqualityType1 = prove(
-  ``EqualityType (GRAMMAR_PARSETREE_TYPE TOKENS_TOKEN_TYPE GRAM_MMLNONT_TYPE)``,
-  cheat)
-val EqualityType2 = prove(
-  ``EqualityType AST_T_TYPE``,
-  cheat)
-val EqualityType3 = prove(
-  ``EqualityType AST_PAT_TYPE``,
-  cheat)
-val EqualityType4 = prove(
-  ``EqualityType PATLANG_EXP_PAT_TYPE``,
-  cheat)
-val EqualityType5 = prove(
-  ``EqualityType AST_EXP_TYPE``,
-  cheat)
-val EqualityType6 = prove(
-  ``EqualityType INFER_T_INFER_T_TYPE``,
-  cheat)
-val EqualityTypes = [EqualityType1, EqualityType2, EqualityType3, EqualityType4, EqualityType5, EqualityType6]
-(* see also cheated EqualityType_INPUT_TYPE later on *)
+local
+  val ths = CONJUNCTS equality_types
+in
+  fun find_equality_type_thm tm =
+    first (can (C match_term tm) o rand o snd o strip_imp o concl) ths
+end
 
 val EqualityType_thm = prove(
   ``EqualityType abs ⇔
@@ -59,6 +45,44 @@ val EqualityType_thm = prove(
       (!x1 v1 x2 v2. abs x1 v1 /\ abs x2 v2 ==> types_match v1 v2 /\
                                                 ((v1 = v2) ⇔ (x1 = x2)))``,
   SIMP_TAC std_ss [EqualityType_def] \\ METIS_TAC []);
+
+(*
+val EqualityType_CHAR = find_equality_type_thm``CHAR``
+val EqualityType_INT = find_equality_type_thm``INT``
+val EqualityType_NUM = find_equality_type_thm``NUM``
+val EqualityType_LIST_TYPE_CHAR = find_equality_type_thm``LIST_TYPE CHAR``
+  |> Q.GEN`a` |> Q.ISPEC`CHAR` |> SIMP_RULE std_ss [EqualityType_CHAR]
+val EqualityType_TOKENS_TOKEN_TYPE = find_equality_type_thm``TOKENS_TOKEN_TYPE``
+  |> SIMP_RULE std_ss [EqualityType_LIST_TYPE_CHAR,EqualityType_INT,EqualityType_NUM]
+val EqualityType_GRAM_MMLNONT_TYPE = find_equality_type_thm``GRAM_MMLNONT_TYPE``
+  |> SIMP_RULE std_ss []
+
+val EqualityType1 = prove(
+  ``EqualityType (GRAMMAR_PARSETREE_TYPE TOKENS_TOKEN_TYPE GRAM_MMLNONT_TYPE)``
+  assume_tac EqualityType_TOKENS_TOKEN_TYPE >>
+  assume_tac EqualityType_GRAM_MMLNONT_TYPE >>
+  qmatch_abbrev_tac`EqualityType (GRAMMAR_PARSETREE_TYPE a b)` >>
+  ntac 2 (pop_assum kall_tac) >>
+  simp[EqualityType_thm] >>
+  simp[GSYM FORALL_AND_THM] >>
+  ntac 2 (pop_assum mp_tac)
+  simp[GSYM RIGHT_FORALL_IMP_THM] >>
+  map_every qid_spec_tac[`b`,`a`] >>
+  ho_match_mp_tac ml_repl_stepTheory.GRAMMAR_PARSETREE_TYPE_ind >>
+  rw[ml_repl_stepTheory.GRAMMAR_PARSETREE_TYPE_def] >>
+  TRY (
+    Cases_on`x2`>>fs[ml_repl_stepTheory.GRAMMAR_PARSETREE_TYPE_def,types_match_def]
+*)
+
+fun prove_equality_type tm = prove(``EqualityType ^tm``,cheat)
+val EqualityType1 = prove_equality_type ``GRAMMAR_PARSETREE_TYPE TOKENS_TOKEN_TYPE GRAM_MMLNONT_TYPE``
+val EqualityType2 = prove_equality_type ``AST_T_TYPE``
+val EqualityType3 = prove_equality_type ``AST_PAT_TYPE``
+val EqualityType4 = prove_equality_type ``PATLANG_EXP_PAT_TYPE``
+val EqualityType5 = prove_equality_type ``AST_EXP_TYPE``
+val EqualityType6 = prove_equality_type ``INFER_T_INFER_T_TYPE``
+val EqualityTypes = [EqualityType1, EqualityType2, EqualityType3, EqualityType4, EqualityType5, EqualityType6]
+(* see also cheated EqualityType_INPUT_TYPE later on *)
 
 val v_to_i1_conv =
   ``v_to_i1 x (Conv y z) a`` |> SIMP_CONV (srw_ss())[Once modLangProofTheory.v_to_i1_cases]
