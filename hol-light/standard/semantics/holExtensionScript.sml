@@ -39,6 +39,20 @@ val subinterpretation_refl = store_thm("subinterpretation_refl",
   ``∀ctxt i. subinterpretation ctxt i i``,
   rw[subinterpretation_def])
 
+val subinterpretation_interprets = store_thm("subinterpretation_interprets",
+  ``∀ctxt i1 i2 name args ty m.
+      subinterpretation ctxt i1 i2 ∧
+      tmaof i1 interprets name on args as m ∧
+      (FLOOKUP (tmsof ctxt) name = SOME ty) ∧
+      type_ok (tysof ctxt) ty ∧
+      (set (tyvars ty) = set args) ⇒
+      tmaof i2 interprets name on args as m``,
+  rw[subinterpretation_def,interprets_def] >>
+  qsuff_tac`tmaof i2 name = tmaof i1 name` >- metis_tac[] >>
+  first_x_assum match_mp_tac >>
+  rw[term_ok_def] >>
+  qexists_tac`ty`>>rw[])
+
 val consistent_update_def = xDefine"consistent_update"`
   consistent_update0 ^mem ctxt upd ⇔
     ∀i. i models (thyof ctxt) ⇒
