@@ -127,20 +127,25 @@ val unrolled_main_loop_def = tDefine "unrolled_main_loop" `
   unrolled_main_loop s bs input =
   case labelled_repl_step s of
     | INR (error_msg,x) =>
-      Result error_msg
-       (case lex_until_toplevel_semicolon input of
-        | NONE => Terminate
-        | SOME (ts,rest) =>
-            (unrolled_main_loop (INR (ts,x)) bs rest))
+     (case lex_until_toplevel_semicolon input of
+      | NONE => (Result error_msg Terminate,T)
+      | SOME (ts,rest) =>
+          let (res,assert) = (unrolled_main_loop (INR (ts,x)) bs rest) in
+            (Result error_msg res, assert))
     | INL (code,new_states) =>
-      case bc_eval (install_code code bs) of
-      | NONE => Diverge
+      let code_assert = code_labels_ok bs.code in
+      let bs = install_code code bs in
+      let code_assert = code_assert ∧ code_executes_ok bs in
+      case bc_eval bs of
+      | NONE => (Diverge,code_assert)
       | SOME new_bs =>
           let success = (bc_fetch new_bs = SOME (Stop T)) in
             case lex_until_toplevel_semicolon input of
-             | NONE => Terminate
+             | NONE => (Terminate,code_assert)
              | SOME (ts,rest) =>
-                 (unrolled_main_loop (INR (ts,success,new_states)) new_bs rest)`
+               let (res,assert) =
+                 unrolled_main_loop (INR (ts,success,new_states)) new_bs rest in
+                 (res, code_assert ∧ assert)`
   tac;
 
 val unrolled_repl_fun_def = Define `
@@ -182,20 +187,24 @@ val unlabelled_main_loop_def = tDefine "unlabelled_main_loop" `
   unlabelled_main_loop s bs input =
   case unlabelled_repl_step s of
     | INR (error_msg,x) =>
-      Result error_msg
-       (case lex_until_top_semicolon_alt input of
-        | NONE => Terminate
-        | SOME (ts,rest) =>
-            (unlabelled_main_loop (INR (ts,x)) bs rest))
+     (case lex_until_top_semicolon_alt input of
+      | NONE => (Result error_msg Terminate,T)
+      | SOME (ts,rest) =>
+          let (res,assert) = (unlabelled_main_loop (INR (ts,x)) bs rest) in
+            (Result error_msg res, assert))
     | INL (code,new_states) =>
-      case bc_eval (install_bc_lists code bs) of
-      | NONE => Diverge
+      let bs = install_bc_lists code bs in
+      let code_assert = code_executes_ok bs in
+      case bc_eval bs of
+      | NONE => (Diverge,code_assert)
       | SOME new_bs =>
           let success = (bc_fetch new_bs = SOME (Stop T)) in
             case lex_until_top_semicolon_alt input of
-             | NONE => Terminate
+             | NONE => (Terminate,code_assert)
              | SOME (syms,rest) =>
-                 (unlabelled_main_loop (INR (syms,success,new_states)) new_bs rest)`
+                 let (res,assert) =
+                   (unlabelled_main_loop (INR (syms,success,new_states)) new_bs rest)
+                 in (res, code_assert ∧ assert)`
   tac;
 
 val unlabelled_repl_fun_def = Define`
@@ -228,20 +237,24 @@ val basis_main_loop_def = tDefine "basis_main_loop" `
   basis_main_loop s bs input =
   case basis_repl_step s of
     | INR (error_msg,x) =>
-      Result error_msg
-       (case lex_until_top_semicolon_alt input of
-        | NONE => Terminate
-        | SOME (ts,rest) =>
-            (basis_main_loop (SOME (ts,x)) bs rest))
+     (case lex_until_top_semicolon_alt input of
+      | NONE => (Result error_msg Terminate,T)
+      | SOME (ts,rest) =>
+          let (res,assert) = basis_main_loop (SOME (ts,x)) bs rest in
+            (Result error_msg res, assert))
     | INL (code,new_states) =>
-      case bc_eval (install_bc_lists code bs) of
-      | NONE => Diverge
+      let bs = install_bc_lists code bs in
+      let code_assert = code_executes_ok bs in
+      case bc_eval bs of
+      | NONE => (Diverge,code_assert)
       | SOME new_bs =>
           let success = (bc_fetch new_bs = SOME (Stop T)) in
             case lex_until_top_semicolon_alt input of
-             | NONE => Terminate
+             | NONE => (Terminate,code_assert)
              | SOME (syms,rest) =>
-                 (basis_main_loop (SOME (syms,success,new_states)) new_bs rest)`
+                 let (res,assert) =
+                   basis_main_loop (SOME (syms,success,new_states)) new_bs rest
+                 in (res, assert ∧ code_assert)`
   tac;
 
 val basis_repl_fun_def = Define`
