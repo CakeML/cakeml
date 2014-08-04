@@ -433,7 +433,7 @@ val lookup_tenvC_st_ex_success = Q.prove (
  fs [st_ex_return_def]);
 
 val op_case_expand = Q.prove (
-`!f1 f2 f3 f4 f5 op st v st'.
+`!f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 op st v st'.
   ((case op of
        Opn opn => f1
      | Opb opb => f2
@@ -442,12 +442,17 @@ val op_case_expand = Q.prove (
      | Opassign => f5 
      | Opref => f6
      | Opderef => f7
-     | Alength => f8
-     | Aalloc => f9
-     | Asub => f10
-     | Aupdate => f11
+     | Aw8length => f8
+     | Aw8alloc => f9
+     | Aw8sub => f10
+     | Aw8update => f11
      | VfromList => f12
-     | Vsub => f13) st
+     | Vsub => f13
+     | Vlength => f14
+     | Alength => f15 
+     | Aalloc => f16
+     | Asub => f17
+     | Aupdate => f18) st
    = (Success v, st'))
   =
   ((?opn. (op = Opn opn) ∧ (f1 st = (Success v, st'))) ∨
@@ -457,12 +462,17 @@ val op_case_expand = Q.prove (
    ((op = Opassign) ∧ (f5 st = (Success v, st'))) ∨
    ((op = Opref) ∧ (f6 st = (Success v, st'))) ∨
    ((op = Opderef) ∧ (f7 st = (Success v, st'))) ∨
-   ((op = Alength) ∧ (f8 st = (Success v, st'))) ∨
-   ((op = Aalloc) ∧ (f9 st = (Success v, st'))) ∨
-   ((op = Asub) ∧ (f10 st = (Success v, st'))) ∨
-   ((op = Aupdate) ∧ (f11 st = (Success v, st'))) ∨
+   ((op = Aw8length) ∧ (f8 st = (Success v, st'))) ∨
+   ((op = Aw8alloc) ∧ (f9 st = (Success v, st'))) ∨
+   ((op = Aw8sub) ∧ (f10 st = (Success v, st'))) ∨
+   ((op = Aw8update) ∧ (f11 st = (Success v, st'))) ∨
    ((op = VfromList) ∧ (f12 st = (Success v, st'))) ∨
-   ((op = Vsub) ∧ (f13 st = (Success v, st'))))`,
+   ((op = Vsub) ∧ (f13 st = (Success v, st'))) ∨
+   ((op = Vlength) ∧ (f14 st = (Success v, st'))) ∨
+   ((op = Alength) ∧ (f15 st = (Success v, st'))) ∨
+   ((op = Aalloc) ∧ (f16 st = (Success v, st'))) ∨
+   ((op = Asub) ∧ (f17 st = (Success v, st'))) ∨
+   ((op = Aupdate) ∧ (f18 st = (Success v, st'))))`,
 rw [] >>
 cases_on `op` >>
 rw []);
@@ -1453,6 +1463,42 @@ val constrain_op_check_s = Q.prove (
          >- metis_tac [check_s_more]
          >- metis_tac [check_t_more2, check_t_more4, arithmeticTheory.ADD_0, DECIDE ``x ≤ x + 1:num``]
          >- rw [check_t_def])
+     >- metis_tac [check_t_more2, check_t_more4, arithmeticTheory.ADD_0, DECIDE ``x ≤ x + 1:num``])
+ >- (match_mp_tac t_unify_check_s >>
+     MAP_EVERY qexists_tac [`st.subst`, `h`, `Infer_Tapp [Infer_Tuvar st.next_uvar] TC_vector`] >>
+     rw []
+     >- metis_tac [check_s_more]
+     >- metis_tac [check_t_more2, check_t_more4, arithmeticTheory.ADD_0, DECIDE ``x ≤ x + 1:num``]
+     >- rw [check_t_def])
+ >- (`check_s tvs (count st.next_uvar) s`
+            by metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0] >>
+     metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0])
+ >- (match_mp_tac t_unify_check_s >>
+     MAP_EVERY qexists_tac [`s`, `h'`, `Infer_Tapp [] TC_int`] >>
+     rw []
+     >- metis_tac [t_unify_wfs]
+     >- (match_mp_tac t_unify_check_s >>
+         MAP_EVERY qexists_tac [`st.subst`, `h`, `Infer_Tapp [Infer_Tuvar st.next_uvar] TC_array`] >>
+         rw [] 
+         >- metis_tac [check_s_more]
+         >- metis_tac [check_t_more2, check_t_more4, arithmeticTheory.ADD_0, DECIDE ``x ≤ x + 1:num``]
+         >- rw [check_t_def])
+     >- metis_tac [check_t_more2, check_t_more4, arithmeticTheory.ADD_0, DECIDE
+     ``x ≤ x + 1:num``])
+ >- (match_mp_tac t_unify_check_s >>
+     MAP_EVERY qexists_tac [`st.subst`, `h`, `Infer_Tapp [Infer_Tuvar st.next_uvar] TC_array`] >>
+     rw []
+     >- metis_tac [check_s_more]
+     >- metis_tac [check_t_more2, check_t_more4, arithmeticTheory.ADD_0, DECIDE ``x ≤ x + 1:num``]
+     >- rw [check_t_def])
+ >- (match_mp_tac t_unify_check_s >>
+     MAP_EVERY qexists_tac [`s`, `h'`, `Infer_Tapp [] TC_int`] >>
+     rw []
+     >- metis_tac [t_unify_wfs]
+     >- (match_mp_tac t_unify_check_s >>
+         MAP_EVERY qexists_tac [`st.subst`, `h`, `Infer_Tapp [h''] TC_array`] >>
+         rw [check_t_def] >>
+         metis_tac [check_t_more2, check_t_more4, arithmeticTheory.ADD_0, DECIDE ``x ≤ x + 1:num``])
      >- metis_tac [check_t_more2, check_t_more4, arithmeticTheory.ADD_0, DECIDE ``x ≤ x + 1:num``]));
 
 val infer_e_check_s = Q.store_thm ("infer_e_check_s",
