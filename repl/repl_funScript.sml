@@ -91,7 +91,7 @@ val simple_main_loop_def = tDefine "simple_main_loop" `
 
 val initial_bc_state_side_def = Define `
   initial_bc_state_side initial =
-    let bs1 = empty_bc_state in
+    let bs1 = initial_bc_state in
     let bs2 = install_code initial bs1 in
      ?bs3. (bc_eval bs2 = SOME bs3) /\
            (bc_fetch bs3 = SOME (Stop T))`;
@@ -99,19 +99,21 @@ val initial_bc_state_side_def = Define `
 val simple_repl_fun_def = Define `
   simple_repl_fun initial input =
     let a1 = initial_bc_state_side (SND initial) in
-    let (res,a2) = simple_main_loop (THE (bc_eval (install_code (SND initial) (empty_bc_state))),FST initial) input in
+    let (res,a2) = simple_main_loop (THE (bc_eval (install_code (SND initial) (initial_bc_state))),FST initial) input in
       (res,a1 /\ a2)`;
 
 (* The remainder of the file makes definitions of a REPL function that get
    progressively closer to a specification suitable for implementation in
-   machine-code. The first step is unrolling (some of) the first iteration of
-   the loop, and packaging up iterations in a function called repl_step. *)
+   machine-code. The first step is unrolling the first iteration of the loop,
+   and packaging up iterations in a function called repl_step. The first
+   iteration also installs the code in initial_bc_state, so that
+   unrolled_repl_fun can start with the empty_bc_state. *)
 
 val labelled_repl_step_def = Define `
   labelled_repl_step state =
     case state of
     | INL (initial,code) => (* first time around *)
-       INL (code,initial,initial)
+       INL (code ++ REVERSE initial_bc_state.code,initial,initial)
     | INR (tokens,success,s,s_exc) => (* received some input *)
         let s = if success then s else s_exc in
         case parse_infertype_compile tokens s of
@@ -153,7 +155,7 @@ val unlabelled_repl_step_def = Define `
   unlabelled_repl_step state =
     case state of
     | INL (initial,code) =>
-       let code = REVERSE code in
+       let code = initial_bc_state.code ++ REVERSE code in
        let labs = collect_labels code 0 real_inst_length in
        let len = code_length real_inst_length code in
        let code = inst_labels labs code in
@@ -213,7 +215,7 @@ val basis_state_def = Define`
                                  e.inf_tenvC,
                                  e.inf_tenvE);
            rcompiler_state := e.comp_rs |> in
-  (rf,Stop T :: SND (THE basis_env) ++ SND (THE prim_env) ++ REVERSE (empty_bc_state.code))`
+  (rf,Stop T :: SND (THE basis_env) ++ SND (THE prim_env))`
 
 val basis_repl_step_def = Define `
   (basis_repl_step NONE = unlabelled_repl_step (INL basis_state)) ∧
@@ -244,7 +246,7 @@ val basis_main_loop_def = tDefine "basis_main_loop" `
 
 val basis_repl_fun_def = Define`
   basis_repl_fun input =
-    basis_main_loop NONE (empty_bc_state with code := []) input`
+    basis_main_loop NONE empty_bc_state input`
 
 val basis_repl_env_def = Define`
   basis_repl_env =

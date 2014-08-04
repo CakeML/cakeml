@@ -105,7 +105,7 @@ val compile_thm =
 val empty_bc_state_def = Define `
 empty_bc_state = <|
       stack := [];
-      code := VfromListCode;
+      code := [];
       pc := 0;
       refs := FEMPTY;
       globals := [];
@@ -113,6 +113,9 @@ empty_bc_state = <|
       output := "";
       inst_length := real_inst_length;
       clock := NONE |>`;
+
+val initial_bc_state_def = Define`
+  initial_bc_state = empty_bc_state with code := VfromListCode`
 
 val install_code_def = Define `
   install_code code bs =
@@ -125,14 +128,14 @@ val add_to_env_invariant'_lem = Q.prove (
 `!envM envC envE cnt s tids prog cnt' s' envM' envC' envE' tids' mdecls' e e' code code' bs.
   closed_prog prog ∧
   evaluate_whole_prog T (envM,envC,envE) ((cnt,s),tids,set e.inf_mdecls) prog (((cnt',s'),tids',mdecls'),envC',Rval (envM',envE')) ∧
-  bc_eval (install_code code empty_bc_state) = SOME bs ∧
+  bc_eval (install_code code initial_bc_state) = SOME bs ∧
   invariant' <| sem_envM := envM; sem_envC := envC; sem_envE := envE; sem_store := ((cnt,s),tids,set e.inf_mdecls) |>
             e
             bs ∧
   add_to_env e prog = SOME (e',code')
   ⇒
   ?bs'.
-  bc_eval (install_code (code'++code) empty_bc_state) = SOME bs' ∧
+  bc_eval (install_code (code'++code) initial_bc_state) = SOME bs' ∧
   invariant' <| sem_envM := envM' ++ envM;
                sem_envC := merge_envC envC' envC;
                sem_envE := envE' ++ envE;
@@ -212,7 +215,7 @@ val add_to_env_invariant'_lem = Q.prove (
      imp_res_tac bytecodeClockTheory.RTC_bc_next_can_be_unclocked >>
      match_mp_tac (SIMP_RULE (srw_ss()) [AND_IMP_INTRO] RTC_bc_next_bc_eval) >>
      rw []
-     >- (fs [empty_bc_state_def] >>
+     >- (fs [initial_bc_state_def,empty_bc_state_def] >>
          metis_tac [transitive_RTC, transitive_def]) >>
      rw [bc_next_cases, bytecodeClockTheory.bc_fetch_with_clock]) >>
  MAP_EVERY qexists_tac [`FST grd''`, `FST (SND grd'')`, `SND (SND grd'')`] >>
@@ -220,7 +223,7 @@ val add_to_env_invariant'_lem = Q.prove (
  >- (imp_res_tac compilerProofTheory.compile_initial_prog_code_labels_ok >>
      fs [install_code_def] >>
      match_mp_tac code_labels_ok_append >>
-     fs [empty_bc_state_def])
+     fs [initial_bc_state_def,empty_bc_state_def])
  >- (simp[code_executes_ok'_def] >>
      qexists_tac `(bs'' with clock := NONE)` >>
      rw [] >>
@@ -255,12 +258,12 @@ val add_to_env_invariant' = Q.prove (
 `!ck envM envC envE cnt s tids prog cnt' s' envM' envC' envE' tids' mdecls' e e' code code' bs.
   closed_prog prog ∧
   evaluate_whole_prog ck (envM,envC,envE) ((cnt,s),tids,set e.inf_mdecls) prog (((cnt',s'),tids',mdecls'),envC',Rval (envM',envE')) ∧
-  bc_eval (install_code code empty_bc_state) = SOME bs ∧
+  bc_eval (install_code code initial_bc_state) = SOME bs ∧
   invariant' <| sem_envM := envM; sem_envC := envC; sem_envE := envE; sem_store := ((cnt,s),tids,set e.inf_mdecls) |> e bs ∧ 
   add_to_env e prog = SOME (e',code')
   ⇒ 
   ?bs'.
-  bc_eval (install_code (code'++code) empty_bc_state) = SOME bs' ∧
+  bc_eval (install_code (code'++code) initial_bc_state) = SOME bs' ∧
   invariant' <| sem_envM := envM' ++ envM;
                sem_envC := merge_envC envC' envC;
                sem_envE := envE' ++ envE;
@@ -295,7 +298,7 @@ add_to_env <| inf_mdecls := [];
         prim_types_program`;
 
 val prim_bs_def = Define `
-prim_bs = bc_eval (install_code (SND (THE prim_env)) empty_bc_state)`;
+prim_bs = bc_eval (install_code (SND (THE prim_env)) initial_bc_state)`;
 
 val the_compiler_compset = the_compiler_compset false
 
@@ -312,7 +315,7 @@ val () = computeLib.add_datatype_info cs (valOf(TypeBase.fetch``:bc_inst``))
 val () = computeLib.add_conv(``real_inst_length``,1,eval_real_inst_length) cs
 val prim_bs_eq = save_thm("prim_bs_eq",
   ``prim_bs``
-     |> SIMP_CONV (srw_ss()) [install_code_def, prim_bs_def, prim_env_eq, empty_bc_state_def, Once bc_eval_compute]
+     |> SIMP_CONV (srw_ss()) [install_code_def, prim_bs_def, prim_env_eq, initial_bc_state_def, empty_bc_state_def, Once bc_eval_compute]
      |> CONV_RULE (computeLib.CBV_CONV cs))
 
 val to_ctMap_list_def = Define `
@@ -466,7 +469,7 @@ val basis_env_inv = Q.store_thm ("basis_env_inv",
 `?se e code bs.
   basis_env = SOME (e,code) ∧
   basis_sem_env = SOME se ∧
-  bc_eval (install_code (code ++ SND (THE prim_env)) empty_bc_state) = SOME bs ∧
+  bc_eval (install_code (code ++ SND (THE prim_env)) initial_bc_state) = SOME bs ∧
   invariant' se e bs`,
  rw [basis_env_def] >>
  strip_assume_tac prim_env_inv >>
@@ -518,11 +521,11 @@ val basis_env_inv = Q.store_thm ("basis_env_inv",
 
 val add_stop_invariant = Q.store_thm ("add_stop_invariant",
 `!e se bs code.
-  bc_eval (install_code code empty_bc_state) = SOME bs ∧
+  bc_eval (install_code code initial_bc_state) = SOME bs ∧
   invariant' e se bs
   ⇒
   ?bs'.
-    bc_eval (install_code (Stop T :: code) empty_bc_state) = SOME bs' ∧
+    bc_eval (install_code (Stop T :: code) initial_bc_state) = SOME bs' ∧
     invariant e se bs'`,
  rw [invariant'_def, invariant_def, GSYM PULL_EXISTS, code_executes_ok'_def] >>
  imp_res_tac bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next  >>
@@ -530,7 +533,7 @@ val add_stop_invariant = Q.store_thm ("add_stop_invariant",
  rw [] >>
  FIRST_ASSUM (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [AND_IMP_INTRO] RTC_bc_next_append_code)) >>
  pop_assum (qspecl_then [`[Stop T]`] strip_assume_tac) >>
- fs [install_code_def, empty_bc_state_def] >>
+ fs [install_code_def, empty_bc_state_def, initial_bc_state_def] >>
  `bc_fetch (bs with code := bs.code ++ [Stop T]) = SOME (Stop T)`
             by (match_mp_tac bc_fetch_next_addr >>
                 MAP_EVERY qexists_tac [`bs.code`, `[]`] >>

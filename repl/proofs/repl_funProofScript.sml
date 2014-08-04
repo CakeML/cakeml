@@ -1048,7 +1048,7 @@ val _ = delete_const"and_shadow"
 val simple_repl_thm = Q.store_thm ("simple_repl_thm",
   `!init_bc_code init_repl_state sem_initial input output b.
     initial_bc_state_side init_bc_code ∧
-    repl_invariant sem_initial init_repl_state (THE (bc_eval (install_code init_bc_code empty_bc_state))) ∧
+    repl_invariant sem_initial init_repl_state (THE (bc_eval (install_code init_bc_code initial_bc_state))) ∧
     (simple_repl_fun (init_repl_state,init_bc_code) input = (output,b)) ⇒
     (repl sem_initial (get_type_error_mask output) input output) /\ b`,
    rpt gen_tac >>
@@ -1058,6 +1058,17 @@ val simple_repl_thm = Q.store_thm ("simple_repl_thm",
    fs [] >>
    match_mp_tac repl_correct_lemma >>
    rw []);
+
+(*
+val unrolled_repl_thm = store_thm("unrolled_repl_thm",
+  ``∀initial input.
+    unrolled_repl_fun initial input =
+    FST (simple_repl_fun initial input)``,
+  rw[unrolled_repl_fun_def,simple_repl_fun_def] >> rw[] >>
+  rw[Once unrolled_main_loop_def] >>
+  rw[labelled_repl_step_def] >>
+  Cases_on`initial` >> fs[] >>
+*)
 
 val convert_invariants = Q.prove (
 `!se e bs.
@@ -1087,35 +1098,60 @@ val convert_invariants = Q.prove (
  >- (fs [init_code_executes_ok_def, code_executes_ok_def] >>
      metis_tac []));
 
-(*
-val simple_repl_basis_thm = Q.store_thm ("simple_repl_basis_thm",
-`!input.
-  let (output,b) = simple_repl_fun basis_state input in
-  (repl basis_repl_env (get_type_error_mask output) input output) /\ b`,
- rpt gen_tac >>
- Cases_on`simple_repl_fun basis_state input` >>
- simp[] >>
- match_mp_tac simple_repl_thm >>
- qexists_tac `SND basis_state` >>
- qexists_tac `FST basis_state` >>
- simp[] >>
- conj_tac >- (
+val simple_repl_basis_lemma = prove(
+  ``!input.
+    let (output,b) = simple_repl_fun basis_state input in
+    (repl basis_repl_env (get_type_error_mask output) input output) /\ b``,
+   rpt gen_tac >>
+   Cases_on`simple_repl_fun basis_state input` >>
+   simp[] >>
+   match_mp_tac simple_repl_thm >>
+   qexists_tac `SND basis_state` >>
+   qexists_tac `FST basis_state` >> simp[] >>
    strip_assume_tac basis_env_inv >>
-   rw[initial_bc_state_side_def,basis_state_def] >> fs[] >>
-   rw[Abbr`bs1`] >>
-   imp_res_tac add_stop_invariant >>
+   rw[initial_bc_state_side_def,basis_state_def] >> fs[] >- (
+     rw[Abbr`bs1`] >>
+     imp_res_tac add_stop_invariant >> rfs[] >>
+     fs[invariant_def,init_code_executes_ok_def] >>
+     imp_res_tac bc_eval_SOME_RTC_bc_next >>
+     fs[Once RTC_CASES1] ) >>
+   imp_res_tac add_stop_invariant >> rfs[] >>
+   imp_res_tac convert_invariants >>
+   fs[basis_repl_env_def,LET_THM] >> rfs[])
 
- fs[basis_state_def,LET_THM] >>
- imp_res_tac add_stop_invariant >>
- imp_res_tac convert_invariants >>
- rw [] >>
- fs [] >>
- rw [basis_state_def,initial_bc_state_side_def] >>
- fs [init_code_executes_ok_def, initCompEnvTheory.invariant_def, env_rs_def, code_executes_ok_def] >>
- `s2 = bs'` by all_tac >>
- rw [] >>
- imp_res_tac bc_eval_SOME_RTC_bc_next >>
- fs [Once RTC_CASES1])
+(* TODO: move
+
+These are probably not true because of the type error mask.
+
+val ast_repl_determ = store_thm("ast_repl_determ",
+  ``∀s t i o1. ast_repl s t i o1 ⇒ ∀o2. ast_repl s t i o2 ⇒ (o2 = o1)``,
+  HO_MATCH_MP_TAC ast_repl_ind >>
+  conj_tac >- rw[Once ast_repl_cases] >>
+  conj_tac >- cheat >>
+  conj_tac >- cheat >>
+  conj_tac >- (
+    rw[] >>
+    pop_assum mp_tac >>
+    rw[Once ast_repl_cases] ) >>
+  rw[] >>
+    pop_assum mp_tac >>
+  rw[Once ast_repl_cases] )
+
+val repl_determ = store_thm("repl_determ",
+  ``∀s t i o1 o2. repl s t i o1 ∧ repl s t i o2 ⇒ (o1 = o2)``,
+  rw[repl_def] >> metis_tac[ast_repl_determ])
+
+val simple_repl_fun_basis_thm = store_thm("simple_repl_fun_basis_thm",
+  ``∀input output.
+    repl basis_repl_env (get_type_error_mask output) input output ⇔
+    simple_repl_fun basis_state input = (output,T)``,
+  rw[] >>
+  qspec_then`input`mp_tac simple_repl_basis_lemma >>
+  Cases_on`simple_repl_fun basis_state input` >> simp[] >>
+  rw[EQ_IMP_THM] >> rw[] >> metis_tac[repl_determ])
 *)
+
+val simple_repl_fun_basis_thm = save_thm("simple_repl_fun_basis_thm",
+   simple_repl_basis_lemma)
 
 val _ = export_theory ()
