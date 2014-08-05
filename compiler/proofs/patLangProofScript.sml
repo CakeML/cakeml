@@ -1,6 +1,6 @@
 open HolKernel boolLib boolSimps bossLib lcsymtacs listTheory alistTheory pairTheory
 open Defn miscLib miscTheory libPropsTheory evalPropsTheory exhLangTheory patLangTheory compilerTerminationTheory
-open exhLangProofTheory
+open exhLangProofTheory semanticPrimitivesTheory;
 val _ = new_theory"patLangProof"
 
 (* TODO: move *)
@@ -37,7 +37,7 @@ val pmatch_exh_any_match = store_thm("pmatch_exh_any_match",
   BasicProvers.CASE_TAC >>
   fs[] >> strip_tac >> fs[] >>
   BasicProvers.CASE_TAC >> fs[] >>
-  metis_tac[semanticPrimitivesTheory.match_result_distinct])
+  metis_tac[match_result_distinct])
 
 val pmatch_exh_any_no_match = store_thm("pmatch_exh_any_no_match",
   ``(∀s p v env. pmatch_exh s p v env = No_match ⇒
@@ -51,7 +51,7 @@ val pmatch_exh_any_no_match = store_thm("pmatch_exh_any_no_match",
   fs[] >> strip_tac >> fs[] >>
   BasicProvers.CASE_TAC >> fs[] >>
   imp_res_tac pmatch_exh_any_match >>
-  metis_tac[semanticPrimitivesTheory.match_result_distinct])
+  metis_tac[match_result_distinct])
 
 val pmatch_exh_any_match_error = store_thm("pmatch_exh_any_match_error",
   ``(∀s p v env. pmatch_exh s p v env = Match_type_error ⇒
@@ -59,7 +59,7 @@ val pmatch_exh_any_match_error = store_thm("pmatch_exh_any_match_error",
     (∀s ps vs env. pmatch_list_exh s ps vs env = Match_type_error ⇒
        ∀env. pmatch_list_exh s ps vs env = Match_type_error)``,
   rw[] >> qmatch_abbrev_tac`X = Y` >> Cases_on`X` >> fs[markerTheory.Abbrev_def] >>
-  metis_tac[semanticPrimitivesTheory.match_result_distinct
+  metis_tac[match_result_distinct
            ,pmatch_exh_any_no_match,pmatch_exh_any_match])
 
 val pmatch_list_exh_pairwise = store_thm("pmatch_list_exh_pairwise",
@@ -354,7 +354,6 @@ val do_app_exh_cases = Q.store_thm("do_app_exh_cases",
   BasicProvers.EVERY_CASE_TAC >>
   fs[]);
 
-local open semanticPrimitivesTheory in
 val tac =
   rw [do_app_pat_def, prim_exn_exh_def, prim_exn_pat_def] >>
   rw [] >>
@@ -373,7 +372,6 @@ val tac =
   BasicProvers.EVERY_CASE_TAC >>
   fs [] >>
   rw [prim_exn_exh_def, v_to_pat_def];
-end;
 
 val do_app_pat_correct = prove(
   ``∀op vs s0 s0_pat env s res.
@@ -523,7 +521,7 @@ val fo_pat_correct = store_thm("fo_pat_correct",
     PairCases_on`s2` >>
     imp_res_tac do_app_pat_cases >> fs[do_app_pat_def] >> rw[] >> fs[] >>
     BasicProvers.EVERY_CASE_TAC >> fs[LET_THM,UNCURRY] >> rw[] >>
-    fs[semanticPrimitivesTheory.store_assign_def,semanticPrimitivesTheory.store_lookup_def] >>
+    fs[store_assign_def,store_lookup_def] >>
     BasicProvers.EVERY_CASE_TAC >> fs[LET_THM,UNCURRY] >> rw[] >>
     res_tac >> fs[] >>
     TRY (
@@ -872,7 +870,7 @@ val pat_to_pat_correct = prove(
     rw[do_app_pat_def,map_count_store_genv_def] >>
     Cases_on`v`>>fs[pmatch_exh_def]>>pop_assum mp_tac >> rw[] >>
     fs[map_count_store_genv_def] >>
-    fs[semanticPrimitivesTheory.store_lookup_def] >>
+    fs[store_lookup_def] >>
     rw[] >> fs[] >> simp[EL_MAP] >>
     Cases_on`EL n s`>>fs[map_sv_def])
   >- (Cases_on`DROP (LENGTH qs) vs`>>fs[pmatch_exh_def]) >>
@@ -916,7 +914,7 @@ val pat_to_pat_correct = prove(
   metis_tac[pmatch_exh_any_match_error
            ,pmatch_exh_any_match
            ,pmatch_exh_any_no_match
-           ,semanticPrimitivesTheory.match_result_distinct])
+           ,match_result_distinct])
 
 val row_to_pat_correct = prove(
   ``(∀Nbvs0 p bvs0 s v menv bvs1 n f.
@@ -999,7 +997,7 @@ val row_to_pat_correct = prove(
     simp[Once evaluate_pat_cases] >>
     simp[Once evaluate_pat_cases] >>
     simp[do_app_pat_def] >> simp[Abbr`w`] >>
-    fs[semanticPrimitivesTheory.store_lookup_def] >>
+    fs[store_lookup_def] >>
     simp[EL_MAP] ) >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
@@ -1495,7 +1493,7 @@ val do_app_pat_v_pat = store_thm("do_app_pat_v_pat",
       rw[]>>fs[]>>
       BasicProvers.EVERY_CASE_TAC>>fs[LET_THM,UNCURRY]>>rw[]>>
       fs[LIST_REL_EL_EQN,optionTheory.OPTREL_def] >>
-      fs[Once v_pat_cases,semanticPrimitivesTheory.store_lookup_def] >>
+      fs[Once v_pat_cases,store_lookup_def] >>
       rw[] >>
       fs[v_to_list_pat_def] >>
       imp_res_tac v_to_list_pat_v_pat >>
@@ -1506,27 +1504,27 @@ val do_app_pat_v_pat = store_thm("do_app_pat_v_pat",
       Cases_on`o'`>>fs[]>>
       Cases_on`o''`>>fs[]
       >- (BasicProvers.EVERY_CASE_TAC >>
-          fs [LET_THM, semanticPrimitivesTheory.store_alloc_def])
+          fs [LET_THM, store_alloc_def])
       >- (BasicProvers.EVERY_CASE_TAC >>
-          fs [LET_THM, semanticPrimitivesTheory.store_alloc_def])
+          fs [LET_THM, store_alloc_def])
       >- (
         imp_res_tac do_eq_pat_v_pat >>
         BasicProvers.EVERY_CASE_TAC>>fs[]>>rw[]>>fs[] )
       >- (
         BasicProvers.EVERY_CASE_TAC >>
-        fs[semanticPrimitivesTheory.store_assign_def] >>
+        fs[store_assign_def] >>
         rw[] >> imp_res_tac LIST_REL_LENGTH >> fs[] >>
-        fs[semanticPrimitivesTheory.store_v_same_type_def] >>
+        fs[store_v_same_type_def] >>
         BasicProvers.EVERY_CASE_TAC >> fs[LIST_REL_EL_EQN] >>
         metis_tac[sv_rel_def])
       >- (
         BasicProvers.EVERY_CASE_TAC >>
-        fs[semanticPrimitivesTheory.store_alloc_def,LET_THM] )
+        fs[store_alloc_def,LET_THM] )
       >- (
         Cases_on`x`>>fs[]>>TRY(Cases_on`l:lit`)>>fs[]>>
         Cases_on`y`>>fs[]>>TRY(Cases_on`l:lit`)>>fs[]>>
         rw[] >> fs[] >> rw[] >>
-        fs[semanticPrimitivesTheory.store_lookup_def] >>
+        fs[store_lookup_def] >>
         rw[] >> fs[] >>
         imp_res_tac LIST_REL_LENGTH >> fs[] >>
         BasicProvers.EVERY_CASE_TAC >> fs[LET_THM] >> rw[] >>
@@ -1537,7 +1535,7 @@ val do_app_pat_v_pat = store_thm("do_app_pat_v_pat",
         Cases_on`x`>>fs[]>>TRY(Cases_on`l:lit`)>>fs[]>>
         Cases_on`y`>>fs[]>>TRY(Cases_on`l:lit`)>>fs[]>>
         rw[] >> fs[] >> rw[] >>
-        fs[semanticPrimitivesTheory.store_lookup_def] >>
+        fs[store_lookup_def] >>
         rw[] >> fs[] >>
         imp_res_tac LIST_REL_LENGTH >> fs[] >>
         BasicProvers.EVERY_CASE_TAC >> fs[LET_THM] >> rw[] >>
@@ -1546,9 +1544,9 @@ val do_app_pat_v_pat = store_thm("do_app_pat_v_pat",
         pop_assum mp_tac >>
         simp[Once v_pat_cases])
       >- (BasicProvers.EVERY_CASE_TAC >>
-          fs [LET_THM, semanticPrimitivesTheory.store_alloc_def])
+          fs [LET_THM, store_alloc_def])
       >- (BasicProvers.EVERY_CASE_TAC >>
-          fs [LET_THM, semanticPrimitivesTheory.store_lookup_def] >>
+          fs [LET_THM, store_lookup_def] >>
           imp_res_tac LIST_REL_LENGTH >> fs[] >>
           rw [] >>
           fs[LIST_REL_EL_EQN] >>
@@ -1560,8 +1558,8 @@ val do_app_pat_v_pat = store_thm("do_app_pat_v_pat",
     rw[] >>
     cheat >>
     BasicProvers.EVERY_CASE_TAC>>fs[LET_THM]>>rw[] >>
-    fs[semanticPrimitivesTheory.store_lookup_def,semanticPrimitivesTheory.store_assign_def,
-       semanticPrimitivesTheory.store_v_same_type_def,LIST_REL_EL_EQN] >>
+    fs[store_lookup_def,store_assign_def,
+       store_v_same_type_def,LIST_REL_EL_EQN] >>
     rw[] >> rfs[] >>
     BasicProvers.EVERY_CASE_TAC >> fs[] >>
     metis_tac[sv_rel_def] ) >>
@@ -1570,8 +1568,8 @@ val do_app_pat_v_pat = store_thm("do_app_pat_v_pat",
   fs[do_app_pat_def,csg_rel_def] >>
   rw[]>>fs[csg_rel_def]>>
   fs[UNCURRY]>>rw[csg_rel_def] >>
-  fs[semanticPrimitivesTheory.store_assign_def,semanticPrimitivesTheory.store_lookup_def]>>
-  fs[semanticPrimitivesTheory.store_alloc_def,LET_THM]>>
+  fs[store_assign_def,store_lookup_def]>>
+  fs[store_alloc_def,LET_THM]>>
   imp_res_tac LIST_REL_LENGTH >> rw[]>>fs[]>>rw[csg_rel_def,sv_rel_def] >>
   imp_res_tac do_eq_pat_v_pat >>
   imp_res_tac v_to_list_pat_v_pat >> simp[] >>
@@ -1613,7 +1611,7 @@ val do_app_pat_v_pat = store_thm("do_app_pat_v_pat",
     rator_x_assum`v_pat`mp_tac >>
     simp[Once v_pat_cases,LIST_REL_EL_EQN] >> NO_TAC) >>
   TRY (
-    CHANGED_TAC(fs[semanticPrimitivesTheory.store_v_same_type_def]) >>
+    CHANGED_TAC(fs[store_v_same_type_def]) >>
     BasicProvers.EVERY_CASE_TAC>>fs[])>>
   metis_tac[sv_rel_def,optionTheory.NOT_SOME_NONE])
 
