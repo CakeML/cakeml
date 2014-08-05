@@ -340,7 +340,8 @@ val _ = export_rewrites["every_result_def"]
 
 val map_sv_def = Define`
   map_sv f (Refv v) = Refv (f v) ∧
-  map_sv _ (W8array w) = (W8array w)`
+  map_sv _ (W8array w) = (W8array w) ∧
+  map_sv f (Varray vs) = (Varray (MAP f vs))`
 val _ = export_rewrites["map_sv_def"]
 
 val dest_Refv_def = Define`
