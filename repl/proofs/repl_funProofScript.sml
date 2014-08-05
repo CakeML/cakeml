@@ -1512,4 +1512,55 @@ val unlabelled_repl_fun_basis_thm = store_thm("unlabelled_repl_fun_basis_thm",
   qspecl_then[`SND(SND basis_state)`,`input`]mp_tac unlabelled_repl_thm >>
   simp[])
 
+val basis_main_loop_thm = store_thm("basis_main_loop_thm",
+  ``∀input s bs.
+    basis_main_loop (SOME s) bs input =
+    unlabelled_main_loop (INR s) bs input``,
+  gen_tac >> completeInduct_on`LENGTH input` >> rw[] >>
+  simp[Once basis_main_loop_def] >>
+  simp[basis_repl_step_def] >>
+  simp[Once unlabelled_main_loop_def] >>
+  BasicProvers.CASE_TAC >>
+  BasicProvers.CASE_TAC >>
+  reverse BasicProvers.CASE_TAC >- (
+    BasicProvers.CASE_TAC >>
+    metis_tac[lex_until_top_semicolon_alt_LESS] ) >>
+  BasicProvers.CASE_TAC >>
+  BasicProvers.CASE_TAC >>
+  metis_tac[lex_until_top_semicolon_alt_LESS] )
+
+val basis_repl_fun_lemma = prove(
+  ``∀input. basis_repl_fun input =
+            unlabelled_repl_fun (SND (SND basis_state)) input``,
+  rw[basis_repl_fun_def] >>
+  rw[unlabelled_repl_fun_def] >>
+  rw[Once basis_main_loop_def] >>
+  rw[basis_repl_step_def] >>
+  rw[Once unlabelled_main_loop_def] >>
+  `(len,labs,SND(SND basis_state)) = basis_state` by (
+    simp[basis_state_def] ) >>
+  simp[] >>
+  BasicProvers.CASE_TAC >>
+  BasicProvers.CASE_TAC >>
+  reverse BasicProvers.CASE_TAC >- (
+    BasicProvers.CASE_TAC >>
+    metis_tac[basis_main_loop_thm] ) >>
+  BasicProvers.CASE_TAC >>
+  BasicProvers.CASE_TAC >>
+  metis_tac[basis_main_loop_thm] )
+
+val basis_repl_fun_thm = store_thm("basis_repl_fun_thm",
+  ``∀input.
+    let (output',b) = basis_repl_fun input in
+    ∃output.
+      let res = (THE (bc_eval (install_code (SND(SND(SND basis_state))) initial_bc_state))).output in
+      output' = Result res output ∧
+      repl basis_repl_env (get_type_error_mask output) input output ∧
+      b``,
+  rw[LET_THM] >>
+  qspec_then`input`mp_tac unlabelled_repl_fun_basis_thm >>
+  simp[UNCURRY] >> strip_tac >>
+  qexists_tac`output` >> simp[] >>
+  simp[basis_repl_fun_lemma])
+
 val _ = export_theory ()
