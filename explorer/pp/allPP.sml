@@ -1,17 +1,10 @@
 structure allPP = struct local
+open astPP modPP conPP exhPP patPP intPP
 open preamble
 open HolKernel boolLib bossLib Parse
 open compute_basicLib compute_parsingLib compute_compilerLib compute_inferenceLib compute_semanticsLib compute_bytecodeLib
-open lexer_implTheory
+open lexer_implTheory free_varsTheory
 open initialProgramTheory initCompEnvTheory
-open astPP modPP conPP exhPP patPP intPP
-
-(*RHS of theorem to term*)
-val rhsThm = rhs o concl;
-
-val compile_primitives_def = Define`
-  compile_primitives =
-   (FST (THE basis_env)).comp_rs`;
 
 val get_all_asts_def = tDefine "get_all_asts" `
 get_all_asts input =
@@ -32,7 +25,14 @@ remove_labels_all_asts len asts =
   case asts of
      | Failure x => Failure x
      | Success asts =>
-         Success (code_labels len asts)`
+         Success (code_labels len asts)`;
+
+(*RHS of theorem to term*)
+val rhsThm = rhs o concl;
+
+val compile_primitives_def = Define`
+  compile_primitives =
+   (FST (THE basis_env)).comp_rs`;
 
 val cs = the_basic_compset
 val _ = add_compiler_compset false cs
@@ -44,6 +44,29 @@ val _ = add_bytecode_compset cs
 val _ = add_labels_compset cs
 val _ = computeLib.add_thms  [basis_env_eq,compile_primitives_def,get_all_asts_def,remove_labels_all_asts_def] cs
 
+val _ = computeLib.add_thms
+      [closed_prog_def
+      ,FV_prog_def
+      ,new_top_vs_def
+      ,new_dec_vs_def
+      ,FV_top_def
+      ,global_dom_def
+      ,FV_decs_def
+      ,FV_dec_def
+      ,FV_def
+      ] cs
+
+val _ =
+      let
+        fun code_labels_ok_conv tm =
+          EQT_INTRO
+            (get_code_labels_ok_thm
+          (rand tm))
+      in
+        computeLib.add_conv(``code_labels_ok``,1,code_labels_ok_conv) cs ;
+        compute_basicLib.add_datatype ``:bc_inst`` cs;
+        computeLib.add_thms [uses_label_def] cs
+      end
 val _ = compute_basicLib.add_datatype ``:comp_environment`` cs
 val eval = computeLib.CBV_CONV cs
 

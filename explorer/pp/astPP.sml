@@ -538,7 +538,10 @@ fun bclistPrint sys d t pg str brk blk =
   in
     printterms ls
   end;
+
+(*
 val _=temp_add_user_printer("bclistprint",``(SOME x ,(y:bc_inst list))``,genPrint bclistPrint);
+*)
 
 (*Unlabeled*)
 fun ubclistPrint sys d t pg str brk blk =
@@ -550,7 +553,9 @@ fun ubclistPrint sys d t pg str brk blk =
   in
     printterms 0 ls
   end;
+(*
 val _=temp_add_user_printer("ubclistprint",``(NONE ,(y:bc_inst list))``,genPrint ubclistPrint);
+*)
 
 (*ASM*)
 fun asmPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =

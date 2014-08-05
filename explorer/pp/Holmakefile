@@ -8,7 +8,7 @@ ifdef POLY
 HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS =  $(HOLDIR)/examples/l3-machine-code/x64/model/x64DisassembleLib $(HOLDIR)/examples/parsing/pegexecTheory 
+BARE_THYS =  $(HOLDIR)/examples/l3-machine-code/x64/model/x64DisassembleLib $(HOLDIR)/examples/parsing/pegexecTheory ../../compiler/proofs/free_varsTheory
 #../../standalone/progToBytecodeTheory 
 #../../standalone/cakeml_computeLib ../../x86-64/x64_code_evalTheory ../../x86-64/x64_heapTheory ../../standalone/progToX86Theory
 

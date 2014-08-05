@@ -74,7 +74,7 @@ fun io() =
       val src = case cgi_field_string("src") of NONE => "" | SOME(src) => src;
 
       (*testing*)
-      (*val src = "val x = 5;"*)
+      val src = "val x = 5;"
       val out = if src = "" then Nothing
                 else Success(allIntermediates (stringSyntax.fromMLstring src))
                 handle compilationError e => Error e

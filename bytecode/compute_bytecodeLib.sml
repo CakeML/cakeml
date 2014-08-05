@@ -1,5 +1,5 @@
 structure compute_bytecodeLib = struct
-  open HolKernel boolLib bossLib lcsymtacs bytecodeLabelsTheory labels_computeTheory patriciaLib free_varsTheory
+  open HolKernel boolLib bossLib lcsymtacs bytecodeLabelsTheory labels_computeTheory patriciaLib
 
 
 val bc_fetch_aux_0_thm = prove(
@@ -268,28 +268,6 @@ val eval_real_inst_length =
   fun add_labels_compset compset = let
     val () = reset_code_labels_ok_db()
     val () = computeLib.add_conv (``code_labels``,2,code_labels_conv eval_real_inst_length) compset
-    val () = computeLib.add_thms
-      [closed_prog_def
-      ,FV_prog_def
-      ,new_top_vs_def
-      ,new_dec_vs_def
-      ,FV_top_def
-      ,global_dom_def
-      ,FV_decs_def
-      ,FV_dec_def
-      ,FV_def
-      ] compset
-    val () =
-      let
-        fun code_labels_ok_conv tm =
-          EQT_INTRO
-            (get_code_labels_ok_thm
-          (rand tm))
-      in
-        computeLib.add_conv(``code_labels_ok``,1,code_labels_ok_conv) compset ;
-        compute_basicLib.add_datatype ``:bc_inst`` compset;
-        computeLib.add_thms [uses_label_def] compset
-      end
      in () end
 
   val the_bytecode_compset = let
