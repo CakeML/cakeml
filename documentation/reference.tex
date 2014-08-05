@@ -1,0 +1,128 @@
+\documentclass{article}
+
+\usepackage{hyperref}
+\usepackage{amssymb}
+\usepackage{amsmath}
+
+\usepackage{supertabular}
+
+\title{CakeML Reference Manual}
+\author{Scott Owens}
+\usepackage[T1]{fontenc}
+
+\begin{document}\sloppy
+\maketitle
+\vspace{-24pt}
+\begin{center}\url{https://cakeml.org}\end{center}
+\vspace{12pt}
+
+\section{The CakeML Language}
+
+CakeML is a functional language in the ML family. Its syntax and semantics closely resembles Standard ML, but the concepts will also be very familiar to OCaml programmers.
+
+\subsection{Types}
+
+
+
+\subsection{Primitive data and operations}
+
+CakeML supports data of boolean, integer, byte, and string types. It also supports compound data of tuple, list, array, vector, and byte array types. Additionally, users can define new algebraic data types: these are described in  \S\ref{expressions} on pattern matching, and in \S\ref{declarations} on type definitions.
+
+\paragraph{Booleans} The boolean values are written as \texttt{true} and \texttt{false}. The type of booleans is \texttt{bool}. Left-to-right short-circuit logical operators are written \texttt{andalso} and \texttt{orelse}.
+
+\paragraph{Integers} Integers values are written in decimal. \verb|~| acts as the minus sign for writing negative numbers. So write \verb|~1| instead of \verb|-1|. Hexidecimal and other non-decimal notations are not currently supported. The type of integers is \texttt{int}.
+
+CakeML provides the following operations on integers. Integers are represented internally as arbitrary precision numbers (\emph{bignums}) so they can never overflow, and there is no maximum or minimum representable integer. The \texttt{div} and \texttt{mod} operations will raise the \texttt{Div} exception if given divisor of 0.
+\begin{itemize}
+\item Arithmetic: \texttt{+},\texttt{-}, \texttt{*}, \texttt{div}, \texttt{mod}
+\item Comparison: \texttt{<}, \texttt{>}, \texttt{<=}, \texttt{>=}
+\end{itemize}
+
+\paragraph{Bytes} There is currently no concrete syntax for writing byte values. The type of bytes is \texttt{Word8.word}. There are currently no operations on bytes.
+
+\paragraph{Strings} String constants are enclosed in double quotation marks (\texttt{"}). The type of strings is \texttt{string}. There are currently no operations on strings.
+
+The escape character is \verb|\|, and it supports the following:
+\begin{itemize}
+\item
+\verb|\n| : a newline character
+\item 
+\verb|\"| : a double quotation (\texttt{"}) character
+\item
+\verb|\\| : a single backslash (\verb|\|) character, and
+\item 
+\verb|\t| : a tab character.
+\end{itemize}
+
+\paragraph{Tuples} A tuple of values is surrounded by parentheses and separated by commas. For example, \texttt{(1,2,true)} is a three element tuple. The empty tuple \texttt{()} is the (only) member of the special type \texttt{unit}. The type of a tuple is formed from the types of its members, separated by \texttt{*}, so the previous tuple has type \texttt{int * int * bool}. There are no operations on tuples (but see \S\ref{expressions} on pattern matching).
+
+\paragraph{Lists} A list of values is surrounded by square brackets and separated by commas. Each element of the list must have the same type. The expression \texttt{[1,2,3,4]} is a list of integers containing four elements. Its type is \texttt{int list}. The empty list is written \texttt{[]}, and has a polymorphic type \texttt{'a list}, indicating that it can be used as an empty list of any type of contents. The cons operator (constructing a list with one more element) is written as \texttt{::}, so the above list could also have been written as \texttt{1::2::3::4::[]}. There are no operations for de-structuring lists (but see \S\ref{expressions} on pattern matching).
+
+\paragraph{Vectors}
+
+Vectors are immutable array-like structures. They have a fixed length and support constant-time indexing. Each element of a vector must have the same type. The operations on vectors are collected in the \texttt{Vector} module. If the elements of a vector are of some type $\tau$ then the vector's type is $\tau$\ \texttt{Vector.vector}.
+
+The following are the supported operations on vectors. If an index is out of bounds (or negative), the \texttt{Subscript} exception is raised.
+\begin{itemize}
+\item \texttt{fromList : 'a list -> 'a vector} Convert a list to a vector.
+\item \texttt{length : 'a vector -> int} Get the vector's length.
+\item \texttt{sub : 'a vector -> int -> 'a} Get the i$^\textrm{th}$ element.
+\end{itemize}
+
+\paragraph{Arrays}
+
+Arrays have a fixed length and support constant-time indexing. Each element of an array must have the same type. The operations on arrays are collected in the \texttt{Array} module. If the elements of an array are of some type $\tau$ then the vector's type is $\tau$\ \texttt{Array.array}.
+
+The following are the supported operations on arrays. If an index is out of bounds (or negative), the \texttt{Subscript} exception is raised.
+\begin{itemize}
+\item \texttt{array : int -> 'a -> 'a array} Create a new array of given length and default value.
+\item \texttt{length : 'a array -> int} Get the array's length.
+\item \texttt{sub : 'a array -> int -> 'a} Get the i$^\textrm{th}$ element.
+\item \texttt{update : 'a array -> int -> 'a -> unit} Set the i$^\textrm{th}$ element.
+\end{itemize}
+
+
+\paragraph{Byte arrays}
+Byte arrays have a fixed length and support constant-time indexing. Each element of an array must be a byte (\texttt{Word8.word} type). The operations on byte arrays are collected in the \texttt{Word8Array} module. The type of a byte array is \texttt{Word8Array.array}.
+
+The following are the supported operations on byte arrays. If an index is out of bounds (or negative), the \texttt{Subscript} exception is raised.
+\begin{itemize}
+\item \texttt{array : int -> Word8.word -> Word8Array.array} Create a new array of given length and default value.
+\item \texttt{length : Word8Array.array -> int} Get the array's length.
+\item \texttt{sub : Word8Array.array -> int -> Word8.word} Get the i$^\textrm{th}$ element.
+\item \texttt{update : Word8Array.array -> int -> Word8.word -> unit} Set the i$^\textrm{th}$ element.
+\end{itemize}
+
+\subsection{Expressions}
+\label{expressions}
+
+\paragraph{Variables}
+
+A variable must begin with a lower case letter.
+
+\paragraph{Conditionals}
+
+\paragraph{Functions}
+
+\paragraph{Pattern matching}
+
+\paragraph{Exceptions}
+
+\paragraph{Local bindings}
+
+\subsection{Declarations}
+\label{declarations}
+
+\subsection{Modules}
+
+\section{The CakeML Abstract Syntax}
+
+\appendix
+
+\section{Grammar}
+
+\section{Formal type system}
+
+\section{Formal semantics}
+
+\end{document}
