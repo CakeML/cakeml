@@ -83,7 +83,7 @@ val simple_main_loop_def = tDefine "simple_main_loop" `
            | SOME (Stop success) =>
              let new_s = if success then s' else s_exc in
              let (res,assert) = simple_main_loop (new_bs,new_s) rest_of_input in
-               (Result (new_bs.output) res, assert /\ code_assert)
+               (Result (new_bs.output) res, code_assert /\ assert)
            | _ => (ARB,F)))
      | Failure error_msg =>
          let (res,assert) = simple_main_loop (bs,s) rest_of_input in
@@ -105,15 +105,13 @@ val simple_repl_fun_def = Define `
 (* The remainder of the file makes definitions of a REPL function that get
    progressively closer to a specification suitable for implementation in
    machine-code. The first step is unrolling the first iteration of the loop,
-   and packaging up iterations in a function called repl_step. The first
-   iteration also installs the code in initial_bc_state, so that
-   unrolled_repl_fun can start with the empty_bc_state. *)
+   and packaging up iterations in a function called repl_step. *)
 
 val labelled_repl_step_def = Define `
   labelled_repl_step state =
     case state of
     | INL (initial,code) => (* first time around *)
-       INL (code ++ REVERSE initial_bc_state.code,initial,initial)
+       INL (code,initial,initial)
     | INR (tokens,success,s,s_exc) => (* received some input *)
         let s = if success then s else s_exc in
         case parse_infertype_compile tokens s of
@@ -141,16 +139,16 @@ val unrolled_main_loop_def = tDefine "unrolled_main_loop" `
       | SOME new_bs =>
           let success = (bc_fetch new_bs = SOME (Stop T)) in
             case lex_until_toplevel_semicolon input of
-             | NONE => (Terminate,code_assert)
+             | NONE => (Result new_bs.output Terminate,code_assert)
              | SOME (ts,rest) =>
                let (res,assert) =
                  unrolled_main_loop (INR (ts,success,new_states)) new_bs rest in
-                 (res, code_assert ∧ assert)`
+                 (Result new_bs.output res, code_assert ∧ assert)`
   tac;
 
 val unrolled_repl_fun_def = Define `
   unrolled_repl_fun initial input =
-    unrolled_main_loop (INL initial) empty_bc_state input`
+    unrolled_main_loop (INL initial) initial_bc_state input`
 
 (* The next step does label removal and moves to more concrete types, in
    particular bytecode instructions are encoded as numbers and tokens are
@@ -159,10 +157,10 @@ val unrolled_repl_fun_def = Define `
 val unlabelled_repl_step_def = Define `
   unlabelled_repl_step state =
     case state of
-    | INL (initial,code) =>
-       let code = initial_bc_state.code ++ REVERSE code in
-       let labs = collect_labels code 0 real_inst_length in
-       let len = code_length real_inst_length code in
+    | INL (len,labs,(initial,code)) =>
+       let code = REVERSE code in
+       let labs = FUNION labs (collect_labels code len real_inst_length) in
+       let len = len + code_length real_inst_length code in
        let code = inst_labels labs code in
        INL (MAP bc_num code,len,labs,initial,initial)
     | INR (symbols,success,len,labs,s,s_exc) =>
@@ -200,16 +198,19 @@ val unlabelled_main_loop_def = tDefine "unlabelled_main_loop" `
       | SOME new_bs =>
           let success = (bc_fetch new_bs = SOME (Stop T)) in
             case lex_until_top_semicolon_alt input of
-             | NONE => (Terminate,code_assert)
+             | NONE => (Result new_bs.output Terminate,code_assert)
              | SOME (syms,rest) =>
                  let (res,assert) =
                    (unlabelled_main_loop (INR (syms,success,new_states)) new_bs rest)
-                 in (res, code_assert ∧ assert)`
+                 in (Result new_bs.output res, code_assert ∧ assert)`
   tac;
 
 val unlabelled_repl_fun_def = Define`
   unlabelled_repl_fun initial input =
-    unlabelled_main_loop (INL initial) empty_bc_state input`
+    let code = REVERSE initial_bc_state.code in
+    let labs = collect_labels code 0 real_inst_length in
+    let len = code_length real_inst_length code in
+    unlabelled_main_loop (INL (len,labs,initial)) (strip_labels initial_bc_state) input`
 
 (* The last step introduces the actual initial repl state (obtained by running
    the semantics on the initial program). *)
@@ -224,7 +225,10 @@ val basis_state_def = Define`
                                  e.inf_tenvC,
                                  e.inf_tenvE);
            rcompiler_state := e.comp_rs |> in
-  (rf,Stop T :: SND (THE basis_env) ++ SND (THE prim_env))`
+  let code = REVERSE initial_bc_state.code in
+  let labs = collect_labels code 0 real_inst_length in
+  let len = code_length real_inst_length code in
+  (len,labs,(rf,Stop T :: SND (THE basis_env) ++ SND (THE prim_env)))`
 
 val basis_repl_step_def = Define `
   (basis_repl_step NONE = unlabelled_repl_step (INL basis_state)) ∧
@@ -250,16 +254,16 @@ val basis_main_loop_def = tDefine "basis_main_loop" `
       | SOME new_bs =>
           let success = (bc_fetch new_bs = SOME (Stop T)) in
             case lex_until_top_semicolon_alt input of
-             | NONE => (Terminate,code_assert)
+             | NONE => (Result new_bs.output Terminate,code_assert)
              | SOME (syms,rest) =>
                  let (res,assert) =
                    basis_main_loop (SOME (syms,success,new_states)) new_bs rest
-                 in (res, assert ∧ code_assert)`
+                 in (Result new_bs.output res, code_assert ∧ assert)`
   tac;
 
 val basis_repl_fun_def = Define`
   basis_repl_fun input =
-    basis_main_loop NONE empty_bc_state input`
+    basis_main_loop NONE (strip_labels initial_bc_state) input`
 
 val basis_repl_env_def = Define`
   basis_repl_env =
