@@ -68,12 +68,12 @@ val tac = (WF_REL_TAC `measure (LENGTH o SND)` \\ REPEAT STRIP_TAC
 
 val simple_main_loop_def = tDefine "simple_main_loop" `
   simple_main_loop (bs,s) input =
+   let code_assert = code_labels_ok bs.code in
    case lex_until_toplevel_semicolon input of
-   | NONE => (Terminate,T)
+   | NONE => (Terminate,code_assert)
    | SOME (tokens,rest_of_input) =>
      case parse_infertype_compile tokens s of
      | Success (code,s',s_exc) =>
-       let code_assert = code_labels_ok bs.code in
        let s1 = install_code code bs in
        let code_assert = (code_assert /\ code_executes_ok s1) in
        (case bc_eval s1 of
@@ -87,7 +87,7 @@ val simple_main_loop_def = tDefine "simple_main_loop" `
            | _ => (ARB,F)))
      | Failure error_msg =>
          let (res,assert) = simple_main_loop (bs,s) rest_of_input in
-           (Result error_msg res, assert)` tac
+           (Result error_msg res, code_assert ∧ assert)` tac
 
 val initial_bc_state_side_def = Define `
   initial_bc_state_side initial =
@@ -123,15 +123,15 @@ val tac = (WF_REL_TAC `measure (LENGTH o SND o SND)` \\ REPEAT STRIP_TAC
 
 val unrolled_main_loop_def = tDefine "unrolled_main_loop" `
   unrolled_main_loop s bs input =
+  let code_assert = code_labels_ok bs.code in
   case labelled_repl_step s of
     | INR (error_msg,x) =>
      (case lex_until_toplevel_semicolon input of
-      | NONE => (Result error_msg Terminate,T)
+      | NONE => (Result error_msg Terminate,code_assert)
       | SOME (ts,rest) =>
           let (res,assert) = (unrolled_main_loop (INR (ts,x)) bs rest) in
-            (Result error_msg res, assert))
+            (Result error_msg res, code_assert ∧ assert))
     | INL (code,new_states) =>
-      let code_assert = code_labels_ok bs.code in
       let bs = install_code code bs in
       let code_assert = code_assert ∧ code_executes_ok bs in
       case bc_eval bs of

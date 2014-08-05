@@ -711,7 +711,10 @@ val repl_correct_lemma = Q.prove (
   ONCE_REWRITE_TAC [simple_main_loop_def] >>
   cases_on `lex_until_toplevel_semicolon input` >>
   rw [get_type_error_mask_def] >- (
-    rw[and_shadow_def] >> metis_tac [ast_repl_rules] ) >>
+    rw[Abbr`code_assert`] >> fs[repl_invariant_def] >>
+    rw[and_shadow_def,get_type_error_mask_def] >>
+    metis_tac [ast_repl_rules] ) >>
+  rw[Abbr`code_assert`] >>
   `?tok input_rest. x = (tok, input_rest)`
           by (cases_on `x` >>
               metis_tac []) >>
@@ -725,6 +728,7 @@ val repl_correct_lemma = Q.prove (
         get_type_error_mask_def] >>
    `LENGTH input_rest < LENGTH input` by metis_tac [lex_until_toplevel_semicolon_LESS] >>
    rw[and_shadow_def] >>
+   TRY (fs[repl_invariant_def] >> NO_TAC) >>
    metis_tac [lexer_correct,FST,SND]) >>
   rw[parse_infertype_compile_def,parser_correct] >>
   qmatch_assum_rename_tac`repl_invariant rs st bs`[] >>
@@ -740,6 +744,7 @@ val repl_correct_lemma = Q.prove (
     `LENGTH input_rest < LENGTH input` by metis_tac [lex_until_toplevel_semicolon_LESS] >>
     rw[Once ast_repl_cases] >>
     rw[and_shadow_def] >>
+    TRY (fs[repl_invariant_def] >> NO_TAC) >>
     rw[get_type_error_mask_def] >>
     metis_tac [lexer_correct,FST,SND]) >>
   simp[] >>
@@ -1132,7 +1137,7 @@ val unrolled_repl_thm = store_thm("unrolled_repl_thm",
     metis_tac[bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next] ) >>
   fs[Abbr`code_assert'`] >>
   BasicProvers.CASE_TAC >> fs[] >- (
-    fs[Once simple_main_loop_def] ) >>
+    fs[Once simple_main_loop_def,LET_THM] ) >>
   BasicProvers.CASE_TAC >> fs[] >>
   simp[UNCURRY] >>
   first_x_assum(
@@ -1222,9 +1227,11 @@ val bc_eval_SOME_strip_labels = prove(
 (* -- *)
 
 val unlabelled_main_loop_thm = store_thm("unlabelled_main_loop_thm",
-  ``∀input syms len labs success ss sf bs.
-    labs = collect_labels bs.code 0 real_inst_length ∧
-    len = code_length real_inst_length bs.code
+  ``∀input bs syms len labs success ss sf.
+    labs = collect_labels bs.code 0 bs.inst_length ∧
+    len = code_length bs.inst_length bs.code ∧
+    bs.inst_length = real_inst_length ∧
+    SND (unrolled_main_loop (INR (MAP token_of_sym syms,success,ss,sf)) bs input)
     ⇒
     unlabelled_main_loop (INR (syms,success,len,labs,ss,sf)) (strip_labels bs) input =
     unrolled_main_loop (INR (MAP token_of_sym syms,success,ss,sf)) bs input``,
@@ -1236,16 +1243,80 @@ val unlabelled_main_loop_thm = store_thm("unlabelled_main_loop_thm",
   Q.PAT_ABBREV_TAC`s = if success then ss else sf` >>
   reverse BasicProvers.CASE_TAC >- (
     assume_tac lex_until_top_semicolon_alt_thm >>
+    `code_labels_ok bs.code` by (
+      fs[Once unrolled_main_loop_def,LET_THM,labelled_repl_step_def] >>
+      qpat_assum`SND X`mp_tac >>
+      BasicProvers.CASE_TAC >> simp[] >>
+      BasicProvers.CASE_TAC >> simp[UNCURRY] ) >>
     BasicProvers.CASE_TAC >> fs[] >>
     BasicProvers.CASE_TAC >> fs[] >>
     AP_TERM_TAC >>
     first_x_assum (match_mp_tac o MP_CANON) >>
     simp[] >>
-    metis_tac[lex_until_top_semicolon_alt_LESS] ) >>
+    conj_tac >- metis_tac[lex_until_top_semicolon_alt_LESS] >>
+    qpat_assum`SND x`mp_tac >>
+    simp[Once unrolled_main_loop_def,labelled_repl_step_def,UNCURRY]) >>
   BasicProvers.CASE_TAC >>
   BasicProvers.CASE_TAC >>
   simp[install_bc_lists_thm] >>
-  cheat)
+  Q.PAT_ABBREV_TAC`bs' = install_code X (strip_labels bs)` >>
+  `code_labels_ok bs.code` by (
+    UNABBREV_ALL_TAC >>
+    fs[Once unrolled_main_loop_def,LET_THM,labelled_repl_step_def] >>
+    qpat_assum`SND X`mp_tac >>
+    BasicProvers.CASE_TAC >> simp[] >>
+    BasicProvers.CASE_TAC >> simp[] >>
+    BasicProvers.CASE_TAC >> simp[] >>
+    simp[UNCURRY]) >>
+  `bs' = strip_labels (install_code q bs)` by (
+    UNABBREV_ALL_TAC >>
+    simp[install_code_def,strip_labels_def,bc_state_component_equality] >>
+    reverse conj_tac >- (
+      simp[next_addr_thm,code_labels_def] >>
+      match_mp_tac code_length_inst_labels >>
+      simp[real_inst_length_ok] ) >>
+    qspecl_then[`bs.code`,`REVERSE q`,`bs.inst_length`]mp_tac code_labels_APPEND >>
+    discharge_hyps >- (
+      simp[GSYM code_labels_ok_def]) >>
+    simp[] >>
+    disch_then SUBST1_TAC >>
+    simp[GSYM all_labels_def] >>
+    simp[code_labels_def]) >>
+  fs[Abbr`bs'`] >> pop_assum kall_tac >>
+  Q.PAT_ABBREV_TAC`bs' = install_code q bs` >>
+  `length_ok bs'.inst_length` by (
+    simp[Abbr`bs'`,install_code_def,real_inst_length_ok] ) >>
+  `code_executes_ok bs'` by (
+    qpat_assum`SND x`mp_tac >>
+    simp[Once unrolled_main_loop_def,labelled_repl_step_def] >>
+    Cases_on`bc_eval bs'`>>simp[] >>
+    BasicProvers.CASE_TAC >> simp[] >>
+    BasicProvers.CASE_TAC >> simp[] >>
+    simp[UNCURRY] ) >>
+  imp_res_tac code_executes_ok_strip_labels >>
+  Cases_on`bc_eval bs'` >> simp[] >- (
+    imp_res_tac bc_eval_NONE_strip_labels >> simp[] ) >>
+  imp_res_tac bc_eval_SOME_strip_labels >> simp[] >>
+  assume_tac lex_until_top_semicolon_alt_thm >>
+  BasicProvers.CASE_TAC >> fs[] >- (
+    simp[strip_labels_def] ) >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  `length_ok x.inst_length` by (
+    metis_tac[bc_eval_SOME_RTC_bc_next,RTC_bc_next_preserves] ) >>
+  simp[bc_fetch_strip_labels] >>
+  simp[strip_labels_def] >> simp[GSYM strip_labels_def] >>
+  AP_TERM_TAC >>
+  first_x_assum(qspec_then`LENGTH r`mp_tac) >>
+  discharge_hyps >- metis_tac[lex_until_top_semicolon_alt_LESS] >>
+  disch_then(qspec_then`r`mp_tac) >> simp[] >>
+  disch_then(qspec_then`x`mp_tac) >>
+  imp_res_tac bc_eval_SOME_RTC_bc_next >>
+  imp_res_tac RTC_bc_next_preserves >>
+  simp[Abbr`bs'`,install_code_def] >>
+  simp[code_length_append,collect_labels_APPEND] >>
+  disch_then match_mp_tac >>
+  qpat_assum`SND X`mp_tac >>
+  simp[Once unrolled_main_loop_def,labelled_repl_step_def,UNCURRY])
 
 val unlabelled_repl_thm = store_thm("unlabelled_repl_thm",
   ``∀initial input.
@@ -1258,11 +1329,11 @@ val unlabelled_repl_thm = store_thm("unlabelled_repl_thm",
   Cases_on`initial`>>rw[] >>
   rw[Once unrolled_main_loop_def] >>
   rw[labelled_repl_step_def] >>
-  `code_assert'` by (
-    simp[Abbr`code_assert'`,Abbr`code`] >>
+  `code_assert` by (
+    simp[Abbr`code_assert`,Abbr`code`] >>
     simp[initial_bc_state_def] >>
     ACCEPT_TAC code_labels_ok_VfromListCode) >>
-  fs[Abbr`code_assert'`] >>
+  fs[Abbr`code_assert`] >>
   fs[install_bc_lists_thm] >>
   `bs' = strip_labels bs''` by (
     simp[Abbr`bs'`,Abbr`bs''`] >>
@@ -1296,10 +1367,10 @@ val unlabelled_repl_thm = store_thm("unlabelled_repl_thm",
     simp[UNCURRY] ) >>
   `code_assert''` by rfs[] >>
   fs[Abbr`code_assert''`] >>
-  `code_assert` by (
+  `code_assert'` by (
     UNABBREV_ALL_TAC >>
     simp[code_executes_ok_strip_labels] ) >>
-  fs[Abbr`code_assert`] >>
+  fs[Abbr`code_assert'`] >>
   Cases_on`bc_eval bs''` >> simp[] >- (
     imp_res_tac bc_eval_NONE_strip_labels >> simp[] ) >>
   imp_res_tac bc_eval_SOME_strip_labels >> simp[] >>
@@ -1317,7 +1388,11 @@ val unlabelled_repl_thm = store_thm("unlabelled_repl_thm",
   imp_res_tac bc_eval_SOME_RTC_bc_next >>
   imp_res_tac RTC_bc_next_preserves >>
   simp[install_code_def] >>
-  simp[collect_labels_APPEND,code_length_append])
+  `initial_bc_state.inst_length = real_inst_length` by (
+      simp[initial_bc_state_def,empty_bc_state_def] ) >>
+  simp[collect_labels_APPEND,code_length_append] >>
+  qpat_assum`SND X`mp_tac >>
+  simp[Once unrolled_main_loop_def,labelled_repl_step_def,UNCURRY])
 
 val convert_invariants = Q.prove (
 `!se e bs.
