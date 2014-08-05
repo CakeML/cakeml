@@ -7,6 +7,11 @@ val _ = ParseExtras.temp_tight_equality()
 
 (* TODO: move/categorize *)
 
+val o_f_FUNION = store_thm("o_f_FUNION",
+  ``f o_f (f1 ⊌ f2) = (f o_f f1) ⊌ (f o_f f2)``,
+  simp[GSYM fmap_EQ_THM,FUNION_DEF] >>
+  rw[o_f_FAPPLY]);
+
 val IS_SOME_EXISTS = store_thm("IS_SOME_EXISTS",
   ``∀opt. IS_SOME opt ⇔ ∃x. opt = SOME x``,
   Cases >> simp[])

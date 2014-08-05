@@ -1,4 +1,3 @@
-
 open HolKernel Parse boolLib bossLib lcsymtacs;
 
 val _ = new_theory "lexer_impl";
@@ -207,6 +206,8 @@ val lex_until_toplevel_semicolon_LESS = store_thm(
 
 (* lex_until_toplevel_semicolon_alt *)
 
+open rich_listTheory
+
 val lex_aux_alt_def = tDefine "lex_aux_alt" `
   lex_aux_alt acc (d:num) input =
     case next_sym input of
@@ -293,5 +294,137 @@ val lex_until_top_semicolon_alt_thm = store_thm(
         (lex_until_toplevel_semicolon input = SOME (MAP token_of_sym ts,rest))``,
   SIMP_TAC std_ss [lex_until_top_semicolon_alt_def,
     lex_until_toplevel_semicolon_def,lex_aux_alt_thm]);
+
+(* lex_impl_all *)
+
+val lex_impl_all_def = tDefine "lex_impl_all" `
+  lex_impl_all input =
+    case lex_until_toplevel_semicolon input of
+      | NONE => []
+      | SOME (t,input') => t::lex_impl_all input'`
+  (WF_REL_TAC `measure LENGTH` >>
+   rw [] >>
+   metis_tac [lex_until_toplevel_semicolon_LESS]);
+
+val lex_aux_tokens_def = Define `
+  lex_aux_tokens acc (d:num) input =
+     case input of
+       [] => NONE
+     | token::rest =>
+         let new_acc = token::acc in
+           if token = SemicolonT /\ (d = 0) then
+             SOME (REVERSE (new_acc),rest)
+           else
+             if token = LetT then
+               lex_aux_tokens new_acc (d+1) rest
+             else if token = StructT then
+               lex_aux_tokens new_acc (d+1) rest
+             else if token = SigT then
+               lex_aux_tokens new_acc (d+1) rest
+             else if token = LparT then
+               lex_aux_tokens new_acc (d+1) rest
+             else if token = EndT then
+               lex_aux_tokens new_acc (d-1) rest
+             else if token = RparT then
+               lex_aux_tokens new_acc (d-1) rest
+             else lex_aux_tokens new_acc d rest`
+
+val lex_until_toplevel_semicolon_tokens_def = Define `
+  lex_until_toplevel_semicolon_tokens input = lex_aux_tokens [] 0 input`;
+
+val lex_aux_tokens_LESS = prove(
+  ``!acc d input.
+      (lex_aux_tokens acc d input = SOME (t,rest)) ==>
+      (if acc = [] then LENGTH rest < LENGTH input
+                   else LENGTH rest <= LENGTH input)``,
+  Induct_on `input`
+  THEN1 (EVAL_TAC >> SRW_TAC [] [LENGTH] >> SRW_TAC [] [LENGTH])
+  >> SIMP_TAC (srw_ss()) [Once lex_aux_tokens_def,LET_DEF]
+  >> SRW_TAC [] [] >> RES_TAC
+  >> FULL_SIMP_TAC std_ss [NOT_CONS_NIL]
+  >> TRY (Cases_on `h`) >> RES_TAC
+  >> FULL_SIMP_TAC (srw_ss()) [] >> RES_TAC
+  >> FULL_SIMP_TAC (srw_ss()) [] >> RES_TAC
+  >> DECIDE_TAC);
+
+val lex_impl_all_tokens_def = tDefine "lex_impl_all_tokens" `
+  lex_impl_all_tokens input =
+     case lex_until_toplevel_semicolon_tokens input of
+       NONE => []
+     | SOME (t,input) => t::lex_impl_all_tokens input`
+  (WF_REL_TAC `measure LENGTH`
+   >> SIMP_TAC std_ss [lex_until_toplevel_semicolon_tokens_def]
+   >> METIS_TAC [lex_aux_tokens_LESS])
+
+val lex_aux_tokens_thm = prove(
+  ``!input acc d res1 res2.
+      (lex_aux_tokens acc d (lexer_fun input) = res1) /\
+      (lex_aux acc d input = res2) ==>
+      (case res2 of NONE => (res1 = NONE)
+                  | SOME (ts,rest) => (res1 = SOME (ts,lexer_fun rest)))``,
+  HO_MATCH_MP_TAC lexer_fun_ind >> SIMP_TAC std_ss []
+  >> REPEAT STRIP_TAC >> SIMP_TAC std_ss [Once lex_aux_def]
+  >> ONCE_REWRITE_TAC [lexer_fun_def]
+  >> ONCE_REWRITE_TAC [lex_aux_tokens_def]
+  >> Cases_on `next_token input` >> ASM_SIMP_TAC (srw_ss()) []
+  >> Cases_on `x`
+  >> Q.MATCH_ASSUM_RENAME_TAC `next_token input = SOME (t,rest)` []
+  >> FULL_SIMP_TAC (srw_ss()) []
+  >> SRW_TAC [] [] >> SRW_TAC [] []
+  >> ASM_SIMP_TAC std_ss [GSYM lexer_fun_def]) |> SIMP_RULE std_ss [];
+
+val lex_impl_all_tokens_thm = prove(
+  ``!input. lex_impl_all input =
+            lex_impl_all_tokens (lexer_fun input)``,
+  HO_MATCH_MP_TAC (fetch "-" "lex_impl_all_ind") >> REPEAT STRIP_TAC
+  >> SIMP_TAC std_ss [Once lex_impl_all_def,Once lex_impl_all_tokens_def]
+  >> FULL_SIMP_TAC std_ss [lex_until_toplevel_semicolon_tokens_def]
+  >> FULL_SIMP_TAC std_ss [lex_until_toplevel_semicolon_def]
+  >> MP_TAC (lex_aux_tokens_thm |> Q.SPECL [`input`,`[]`,`0`])
+  >> Cases_on `lex_aux [] 0 input` >> FULL_SIMP_TAC std_ss []
+  >> Cases_on `x` >> FULL_SIMP_TAC (srw_ss()) []
+  >> REPEAT STRIP_TAC >> RES_TAC);
+
+val lex_aux_tokens_thm = prove(
+  ``!input d acc.
+      (res = lex_aux_tokens acc d input) ==>
+      case res of
+        NONE => (toplevel_semi_dex (LENGTH acc) d input = NONE)
+      | SOME (toks,rest) =>
+          (toplevel_semi_dex (LENGTH acc) d input = SOME (LENGTH toks)) /\
+          (REVERSE acc ++ input = toks ++ rest)``,
+  Induct
+  >> SIMP_TAC (srw_ss()) [Once lex_aux_tokens_def]
+  >> ONCE_REWRITE_TAC [toplevel_semi_dex_def]
+  >> SIMP_TAC std_ss [LET_DEF] >> Cases
+  >> FULL_SIMP_TAC (srw_ss()) []
+  >> REPEAT STRIP_TAC >> RES_TAC
+  >> POP_ASSUM MP_TAC
+  >> POP_ASSUM (ASSUME_TAC o GSYM)
+  >> ASM_REWRITE_TAC []
+  >> Cases_on `res` >> SIMP_TAC (srw_ss()) [arithmeticTheory.ADD1]
+  >> Cases_on `d = 0` >> ASM_SIMP_TAC (srw_ss()) [arithmeticTheory.ADD1]
+  >> TRY (Cases_on `x`) >> SIMP_TAC (srw_ss()) [arithmeticTheory.ADD1]
+  >> SIMP_TAC std_ss [Once EQ_SYM_EQ]
+  >> FULL_SIMP_TAC std_ss []
+  >> REPEAT STRIP_TAC >> RES_TAC
+  >> FULL_SIMP_TAC (srw_ss()) [LENGTH,arithmeticTheory.ADD1])
+  |> Q.SPECL [`input`,`0`,`[]`] |> Q.GEN `res` |> SIMP_RULE std_ss [LENGTH];
+
+val split_top_level_semi_thm = prove(
+  ``!input. split_top_level_semi input = lex_impl_all_tokens input``,
+  HO_MATCH_MP_TAC split_top_level_semi_ind >> REPEAT STRIP_TAC
+  >> SIMP_TAC std_ss [Once split_top_level_semi_def,Once lex_impl_all_tokens_def,
+      Once lex_until_toplevel_semicolon_tokens_def]
+  >> MP_TAC lex_aux_tokens_thm
+  >> Cases_on `lex_aux_tokens [] 0 input` >> FULL_SIMP_TAC std_ss []
+  >> Cases_on `x` >> FULL_SIMP_TAC (srw_ss()) []
+  >> FULL_SIMP_TAC std_ss [TAKE_LENGTH_APPEND,DROP_LENGTH_APPEND]
+  >> STRIP_TAC >> RES_TAC >> POP_ASSUM MP_TAC
+  >> FULL_SIMP_TAC std_ss [TAKE_LENGTH_APPEND,DROP_LENGTH_APPEND]);
+
+val lexer_correct = store_thm("lexer_correct",
+  ``!input. split_top_level_semi (lexer_fun input) = lex_impl_all input``,
+  SIMP_TAC std_ss [lex_impl_all_tokens_thm,split_top_level_semi_thm]);
 
 val _ = export_theory();
