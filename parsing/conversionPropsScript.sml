@@ -404,14 +404,23 @@ val Decls_OK = store_thm(
       erule strip_assume_tac (n Decl_OK) >> simp[]) >>
   metis_tac[]);
 
+val OptTypEqn_OK = store_thm(
+  "OptTypEqn_OK",
+  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nOptTypEqn ∧
+    MAP TK toks = ptree_fringe pt ⇒
+    ∃typopt. ptree_OptTypEqn pt = SOME typopt``,
+  start >> fs[DISJ_IMP_THM, FORALL_AND_THM] >>
+  simp[ptree_OptTypEqn_def] >> metis_tac[Type_OK]);
+
 val SpecLine_OK = store_thm(
   "SpecLine_OK",
   ``valid_ptree cmlG pt ∧ ptree_head pt = NN nSpecLine ∧
     MAP TK toks = ptree_fringe pt ⇒
     ∃sl. ptree_SpecLine pt = SOME sl``,
   start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, FORALL_AND_THM, DISJ_IMP_THM] >>
-  rveq >> simp[ptree_SpecLine_def,pairTheory.UNCURRY] >>
-  metis_tac[V_OK, Type_OK, TypeName_OK, TypeDec_OK, Dconstructor_OK]);
+  rveq >> simp[ptree_SpecLine_def, pairTheory.EXISTS_PROD, PULL_EXISTS] >>
+  metis_tac[V_OK, Type_OK, TypeName_OK, TypeDec_OK, Dconstructor_OK,
+            pairTheory.pair_CASES, OptTypEqn_OK]);
 
 val SpecLineList_OK = store_thm(
   "SpecLineList_OK",

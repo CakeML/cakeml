@@ -1173,6 +1173,8 @@ val stoppers_def = Define`
   (stoppers nFDecl = nestoppers) ∧
   (stoppers nLetDec = nestoppers DELETE AndT) ∧
   (stoppers nLetDecs = nestoppers DIFF {AndT; FunT; ValT; SemicolonT}) ∧
+  (stoppers nOptTypEqn =
+     UNIV DIFF ({ArrowT; StarT; EqualsT} ∪ firstSet cmlG [NN nTyOp])) ∧
   (stoppers nPapp =
      UNIV DIFF ({LparT; UnderbarT; LbrackT} ∪ { IntT i | T } ∪ { StringT s | T } ∪
                 firstSet cmlG [NN nV] ∪ firstSet cmlG [NN nConstructorName])) ∧
@@ -1188,10 +1190,12 @@ val stoppers_def = Define`
   (stoppers nPEs = nestoppers) ∧
   (stoppers nPType = UNIV DIFF ({StarT} ∪ firstSet cmlG [NN nTyOp])) ∧
   (stoppers nSpecLine =
-     UNIV DIFF ({ArrowT; AndT; BarT; StarT; OfT}∪ firstSet cmlG [NN nTyOp])) ∧
+     UNIV DIFF ({ArrowT; AndT; BarT; StarT; OfT; EqualsT} ∪
+                firstSet cmlG [NN nTyOp])) ∧
   (stoppers nSpecLineList =
      UNIV DIFF ({ValT; DatatypeT; TypeT; ExceptionT; SemicolonT;
-                ArrowT; AndT; BarT; StarT; OfT}∪ firstSet cmlG [NN nTyOp])) ∧
+                 ArrowT; AndT; BarT; StarT; OfT; EqualsT} ∪
+                firstSet cmlG [NN nTyOp])) ∧
   (stoppers nTopLevelDec =
      nestoppers DIFF {BarT; StarT; AndT; OfT}) ∧
   (stoppers nTopLevelDecs =
@@ -1827,6 +1831,9 @@ val completeness = store_thm(
       >- (DISJ1_TAC >> normlist >>
           first_assum (unify_firstconj kall_tac o has_length) >> simp[])
       >- simp[peg_eval_tok_NONE]
+      >- (simp[peg_eval_tok_NONE] >> DISJ1_TAC >> normlist >>
+          first_assum (unify_firstconj kall_tac) >> simp[] >> normlist >>
+          simp[] >> first_assum match_mp_tac >> simp[])
       >- simp[peg_eval_tok_NONE]
       >- simp[peg_eval_tok_NONE]
       >- (DISJ1_TAC >>
@@ -2026,6 +2033,10 @@ val completeness = store_thm(
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied]>>
       strip_tac >>
       fs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >> rw[] >>
+      Cases_on `sfx` >> simp[peg_eval_tok_NONE] >> fs[])
+  >- (print_tac "nOptTypEqn" >>
+      simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
+      strip_tac >> rw[] >> fs[MAP_EQ_CONS] >> rw[] >>
       Cases_on `sfx` >> simp[peg_eval_tok_NONE] >> fs[])
   >- (print_tac "nMultOps" >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>

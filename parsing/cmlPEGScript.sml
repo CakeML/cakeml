@@ -380,10 +380,14 @@ val cmlPEG_def = zDefine`
                choicel [seql [pnt nDecl; pnt nDecls] (bindNT nDecls);
                         seql [tokeq SemicolonT; pnt nDecls] (bindNT nDecls);
                         pegf (empty []) (bindNT nDecls)]);
+              (mkNT nOptTypEqn,
+               choicel [seql [tokeq EqualsT; pnt nType] (bindNT nOptTypEqn);
+                        pegf (empty []) (bindNT nOptTypEqn)]);
               (mkNT nSpecLine,
                choicel [seql [tokeq ValT; pnt nV; tokeq ColonT; pnt nType]
                              (bindNT nSpecLine);
-                        seql [tokeq TypeT; pnt nTypeName] (bindNT nSpecLine);
+                        seql [tokeq TypeT; pnt nTypeName; pnt nOptTypEqn]
+                             (bindNT nSpecLine);
                         seql [tokeq ExceptionT; pnt nDconstructor] (bindNT nSpecLine);
                         pegf (pnt nTypeDec) (bindNT nSpecLine)]);
               (mkNT nSpecLineList,
@@ -662,6 +666,7 @@ val topo_nts = [``nV``, ``nTyvarN``, ``nTypeDec``, ``nTypeAbbrevDec``, ``nDecl``
                 ``nElogicOR``, ``nEhandle``, ``nE``, ``nE'``,
                 ``nType``, ``nTypeList1``, ``nTypeList2``,
                 ``nEseq``, ``nElist1``, ``nDtypeDecl``,
+                ``nOptTypEqn``,
                 ``nDecls``, ``nDconstructor``, ``nAndFDecls``, ``nSpecLine``,
                 ``nSpecLineList``, ``nSignatureValue``,
                 ``nOptionalSignatureAscription``, ``nStructure``,

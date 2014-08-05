@@ -452,11 +452,24 @@ val peg_sound = store_thm(
             by metis_tac[not_peg0_LENGTH_decreases, peg0_nV] >> fs[] >>
           `LENGTH i2 < SUC(LENGTH i1)` by decide_tac >>
           first_x_assum (erule strip_assume_tac) >> rveq >> dsimp[])
-      >- (dsimp[MAP_EQ_SING] >> csimp[] >> metis_tac[DECIDE``x<SUC x``])
+      >- (asm_match
+            `peg_eval cmlPEG (i1, nt (mkNT nTypeName) I) (SOME(i2, nmpts))` >>
+          first_assum (qspecl_then [`mkNT nTypeName`, `i1`, `i2`, `nmpts`]
+                                   mp_tac) >>
+          simp_tac (srw_ss()) [] >> ASM_REWRITE_TAC [] >>
+          disch_then (qx_choose_then `nmpt` strip_assume_tac) >>
+          dsimp[MAP_EQ_SING] >> csimp[] >>
+          `LENGTH i2 < LENGTH i1`
+            by metis_tac[not_peg0_LENGTH_decreases, peg0_nTypeName] >>
+          `LENGTH i2 < SUC (LENGTH i1)` by simp[] >>
+          metis_tac[])
       >- (dsimp[MAP_EQ_SING] >> csimp[] >> metis_tac[DECIDE``x<SUC x``])>>
       `NT_rank (mkNT nTypeDec) < NT_rank (mkNT nSpecLine)`
          by simp[NT_rank_def] >>
       first_x_assum (erule strip_assume_tac) >> rveq >> simp[])
+  >- (print_tac "nOptTypEqn" >> strip_tac >> rveq >>
+      simp[cmlG_FDOM, cmlG_applied] >> dsimp[MAP_EQ_SING] >> csimp[] >>
+      fs[] >> metis_tac[DECIDE ``x < SUC x``])
   >- (print_tac "nDecls" >>
       `NT_rank (mkNT nDecl) < NT_rank (mkNT nDecls)`
         by simp[NT_rank_def] >>

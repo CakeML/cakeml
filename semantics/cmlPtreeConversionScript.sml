@@ -1010,6 +1010,22 @@ val ptree_Decls_def = Define`
         | _ => NONE
 `
 
+val ptree_OptTypEqn_def = Define`
+  ptree_OptTypEqn (Lf _) = NONE : t option option ∧
+  ptree_OptTypEqn (Nd nt args) =
+    if nt <> mkNT nOptTypEqn then NONE
+    else
+      case args of
+          [] => SOME NONE
+        | [eqtok; typ_pt] =>
+          do
+            assert (eqtok = Lf (TOK EqualsT));
+            typ <- ptree_Type nType typ_pt;
+            SOME (SOME typ)
+          od
+        | _ => NONE
+`
+
 val ptree_SpecLine_def = Define`
   ptree_SpecLine (Lf _) = NONE ∧
   ptree_SpecLine (Nd nt args) =
@@ -1021,17 +1037,20 @@ val ptree_SpecLine_def = Define`
             td <- ptree_TypeDec td_pt;
             SOME(Stype td)
           od
-        | [typetok; tynm_pt] =>
-          if typetok = Lf (TOK TypeT) then
+        | [exntok; dcon_pt] =>
           do
-            tynm <- ptree_TypeName tynm_pt;
-            SOME(Stype_opq (FST tynm) (SND tynm))
-          od
-          else
-          do
-            assert (typetok = Lf (TOK ExceptionT));
-            (nm,tys) <- ptree_Dconstructor tynm_pt;
+            assert (exntok = Lf (TOK ExceptionT));
+            (nm,tys) <- ptree_Dconstructor dcon_pt;
             SOME(Sexn nm tys)
+          od
+        | [typetok; tynm_pt; opteqn_pt] =>
+          do
+            assert(typetok = Lf (TOK TypeT));
+            (vs,nm) <- ptree_TypeName tynm_pt;
+            opteqn <- ptree_OptTypEqn opteqn_pt;
+            SOME(case opteqn of
+                     NONE => Stype_opq vs nm
+                   | SOME ty => Stabbrev vs nm ty)
           od
         | [valtok; vname_pt; coltok; type_pt] =>
           do

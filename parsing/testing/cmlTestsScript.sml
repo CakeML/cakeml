@@ -97,6 +97,10 @@ val tytest = parsetest ``nType`` ``ptree_Type nType``
 
 val elab_decls = ``OPTION_MAP (elab_decs NONE [] []) o ptree_Decls``
 
+val _ = parsetest0 ``nSpecLine`` ``ptree_SpecLine`` "type 'a foo = 'a list"
+                   (SOME ``Stabbrev ["'a"] "foo"
+                             (Tapp [Tvar "'a"] (TC_name (Short "list")))``)
+
 val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "type 'a foo = 'a list"
                    (SOME ``Dtabbrev ["'a"] "foo"
                              (Tapp [Tvar "'a"] (TC_name (Short "list")))``)

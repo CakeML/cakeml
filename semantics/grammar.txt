@@ -23,8 +23,9 @@ Ebase ::=
    "(" E ")"
  | V
  | Literal
- | "let" "val" V "=" E "in" E "end"   // Let V E1 E2
- | "let" "fun" AndFDecls "in" E "end" // Letrec AndFDecls E
+ | "let" LetDecs "in" Eseq "end"
+
+Eseq ::= E | E ";" Eseq
 
 Eapp ::=
   Eapp Ebase | Ebase | ConstructorName Etuple
@@ -83,6 +84,13 @@ Fdecl ::= V V "=" E                    // (V,V,E)
 AndFDecls ::= FDecl                    // ([FDecl])
            |  FDecl "and" AndFDecls    // FDecl :: AndFDecls
 
+LetDec ::= "val" V "=" E
+         | "fun" AndFDecls
+
+LetDecs ::= LetDec LetDecs
+          | ";" LetDecs
+          |
+
 PEs ::= PE                             // ([PE])
      |  PE "|" PEs                     // PE::PEs
 
@@ -136,3 +144,22 @@ StarTypes ::=
 Decl ::= "val" Pattern "=" E
        | "fun" AndFDecls
        | TypeDec
+       | "type" TypeName "=" Type
+
+SpecLine ::= "val" V ":" Type
+           | "type" TypeName OptTypEqn
+           | "exception" Dconstructor
+           | TypeDec
+
+OptTypEqn ::= "=" Type |
+
+SpecLineList ::= SpecLine SpecLineList
+               | ";" SpecLineList
+               |
+
+SignatureValue ::= "sig" SpecLineList "end"
+
+OptionalSignatureAscription ::= ":>" SignatureValue
+                              |
+
+Structure ::= "structure" StructName OptionalSignatureAscription "=" "struct" Decls "end"
