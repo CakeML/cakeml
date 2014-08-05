@@ -329,83 +329,97 @@ val v_to_list_pat_correct = Q.prove (
  rw [] >>
  metis_tac [optionTheory.NOT_SOME_NONE, optionTheory.SOME_11]);
 
+val do_app_exh_cases = Q.store_thm("do_app_exh_cases",
+  `do_app_exh s op vs = SOME x ⇒
+    (∃z n1 n2. op = (Op_i2 (Opn z)) ∧ vs = [Litv_exh (IntLit n1); Litv_exh (IntLit n2)]) ∨
+    (∃z n1 n2. op = (Op_i2 (Opb z)) ∧ vs = [Litv_exh (IntLit n1); Litv_exh (IntLit n2)]) ∨
+    (∃v1 v2. op = (Op_i2 Equality) ∧ vs = [v1; v2]) ∨
+    (∃lnum v. op = (Op_i2 Opassign) ∧ vs = [Loc_exh lnum; v]) ∨
+    (∃n. op = (Op_i2 Opderef) ∧ vs = [Loc_exh n]) ∨
+    (∃v. op = (Op_i2 Opref) ∧ vs = [v]) ∨
+    (∃idx v. op = (Init_global_var_i2 idx) ∧ vs = [v]) ∨
+    (∃n w. op = (Op_i2 Aw8alloc) ∧ vs = [Litv_exh (IntLit n); Litv_exh (Word8 w)]) ∨
+    (∃lnum i. op = (Op_i2 Aw8sub) ∧ vs = [Loc_exh lnum; Litv_exh (IntLit i)]) ∨
+    (∃n. op = (Op_i2 Aw8length) ∧ vs = [Loc_exh n]) ∨
+    (∃lnum i w. op = (Op_i2 Aw8update) ∧ vs = [Loc_exh lnum; Litv_exh (IntLit i); Litv_exh (Word8 w)]) ∨
+    (∃v vs'. op = (Op_i2 VfromList) ∧ vs = [v] ∧ (v_to_list_exh v = SOME vs')) ∨
+    (∃vs' i. op = (Op_i2 Vsub) ∧ vs = [Vectorv_exh vs'; Litv_exh (IntLit i)]) ∨
+    (∃vs'. op = (Op_i2 Vlength) ∧ vs = [Vectorv_exh vs']) ∨
+    (∃v n. op = (Op_i2 Aalloc) ∧ vs = [Litv_exh (IntLit n); v]) ∨
+    (∃lnum i. op = (Op_i2 Asub) ∧ vs = [Loc_exh lnum; Litv_exh (IntLit i)]) ∨
+    (∃n. op = (Op_i2 Alength) ∧ vs = [Loc_exh n]) ∨
+    (∃lnum i v. op = (Op_i2 Aupdate) ∧ vs = [Loc_exh lnum; Litv_exh (IntLit i); v])`,
+  PairCases_on `s` >>
+  rw[do_app_exh_def] >>
+  BasicProvers.EVERY_CASE_TAC >>
+  fs[]);
+
+local open semanticPrimitivesTheory in
+val tac =
+  rw [do_app_pat_def, prim_exn_exh_def, prim_exn_pat_def] >>
+  rw [] >>
+  fs [] >>
+  rw [] >>
+  fs [] >>
+  rw [] >>
+  fs [store_assign_def, store_to_exh_def, store_lookup_def, store_alloc_def, LET_THM] >>
+  rw [] >>
+  fs [] >>
+  BasicProvers.EVERY_CASE_TAC >>
+  fs [] >>
+  rw [] >>
+  fs [LUPDATE_MAP, EL_MAP] >>
+  fs [store_v_same_type_def] >>
+  BasicProvers.EVERY_CASE_TAC >>
+  fs [] >>
+  rw [prim_exn_exh_def, v_to_pat_def];
+end;
+
 val do_app_pat_correct = prove(
   ``∀op vs s0 s0_pat env s res.
      do_app_exh s0 op vs = SOME (s,res)
      ⇒
      do_app_pat (csg_to_pat s0) (Op_pat op) (vs_to_pat vs) = SOME (csg_to_pat s,map_result v_to_pat v_to_pat res)``,
-  rpt gen_tac >>
-  PairCases_on`s0` >>
-  rw[csg_to_pat_def,do_app_exh_def,do_app_pat_def] >>
-  Cases_on`vs`>>fs[]>>Cases_on`op`>>fs[]>-(
-    Cases_on`t`>>fs[optionTheory.option_case_compute,LET_THM]>-(
-      BasicProvers.EVERY_CASE_TAC>>fs[semanticPrimitivesTheory.store_alloc_def]>>rw[]>>
-      fs[semanticPrimitivesTheory.store_lookup_def,IS_SOME_EXISTS,EL_MAP] >>
-      imp_res_tac v_to_list_pat_correct >>
-      rw [] >>
-      fs [] )>>
-    Cases_on`t'`>>fs[]>-(
-      Cases_on`o'`>>fs[]>-(
-        BasicProvers.EVERY_CASE_TAC>>fs[]>>rw[prim_exn_exh_def,prim_exn_pat_def])
-      >-(
-        BasicProvers.EVERY_CASE_TAC>>fs[]>>rw[])
-      >-(
-        BasicProvers.EVERY_CASE_TAC>>fs[]>>rw[]>>
-        fs[do_eq_pat_correct] >> rw[prim_exn_exh_def,prim_exn_pat_def])
-      >-(
-        BasicProvers.EVERY_CASE_TAC>>fs[]>>rw[]>>
-        fs[semanticPrimitivesTheory.store_assign_def,semanticPrimitivesTheory.store_v_same_type_def]>>rw[]>>
-        fs[IS_SOME_EXISTS] >> rw[LUPDATE_MAP] >>
-        BasicProvers.EVERY_CASE_TAC >> fs[] >>
-        rfs[EL_MAP])
-      >-(
-        BasicProvers.EVERY_CASE_TAC>>fs[]>>rw[]>>
-        fs[semanticPrimitivesTheory.store_alloc_def]>>
-        rw[prim_exn_exh_def,prim_exn_pat_def])
-      >-(
-        Cases_on`h'`>>fs[]>>
-        Cases_on`l`>>fs[]>>
-        Cases_on`h`>>fs[]>>
-        fs[semanticPrimitivesTheory.store_lookup_def,IS_SOME_EXISTS,EL_MAP] >>
-        rfs[] >>
-        BasicProvers.EVERY_CASE_TAC >> fs[] >>
-        rw[prim_exn_exh_def,prim_exn_pat_def] >>
-        fsrw_tac[ARITH_ss][] )
-      >- (
-        BasicProvers.EVERY_CASE_TAC>>fs[]>>rw[prim_exn_exh_def,prim_exn_pat_def] >>
-        fs [] >>
-        `Num (ABS i) < LENGTH l'` by intLib.ARITH_TAC >>
-        rw [EL_MAP])
-      >-(
-        BasicProvers.EVERY_CASE_TAC>>fs[]>>rw[]>>
-        fs[semanticPrimitivesTheory.store_alloc_def]>>
-        rw[prim_exn_exh_def,prim_exn_pat_def, map_replicate])
-      >-(
-        Cases_on`h'`>>fs[]>>
-        Cases_on`l`>>fs[]>>
-        Cases_on`h`>>fs[]>>
-        fs[semanticPrimitivesTheory.store_lookup_def,IS_SOME_EXISTS,EL_MAP] >>
-        rfs[] >>
-        BasicProvers.EVERY_CASE_TAC >> fs[] >>
-        rw[prim_exn_exh_def,prim_exn_pat_def] >>
-        fsrw_tac[ARITH_ss][EL_MAP] ) ) >>
-    cheat >>
-    Cases_on`h''`>>fs[]>>
-    Cases_on`l`>>fs[]>>
-    Cases_on`h'`>>fs[]>>
-    Cases_on`l`>>fs[]>>
-    Cases_on`h`>>fs[]>>
-    Cases_on`t`>>fs[]>>
-    BasicProvers.EVERY_CASE_TAC>>
-    fs[semanticPrimitivesTheory.store_lookup_def,IS_SOME_EXISTS]>>
-    rw[]>>fs[EL_MAP]>>rw[prim_exn_exh_def,prim_exn_pat_def]>>
-    fs[semanticPrimitivesTheory.store_assign_def,semanticPrimitivesTheory.store_v_same_type_def]>>rw[]>>
-    BasicProvers.EVERY_CASE_TAC>>fs[]>>
-    rw[LUPDATE_MAP] >>
-    rfs[EL_MAP])>>
-  Cases_on`t`>>fs[EL_MAP]>>
-  BasicProvers.EVERY_CASE_TAC>>fs[]>>
-  rw[LUPDATE_MAP])
+ rw [csg_to_pat_def] >>
+ imp_res_tac do_app_exh_cases >>
+ PairCases_on `s0` >>
+ fs [do_app_exh_def]
+ >- tac
+ >- tac
+ >- (BasicProvers.EVERY_CASE_TAC >>
+     fs [do_eq_pat_correct, do_app_pat_def] >>
+     rw [prim_exn_exh_def, prim_exn_pat_def])
+ >- tac
+ >- (tac >>
+     metis_tac [EL_MAP, sv_to_pat_def, store_v_distinct, store_v_11])
+ >- tac
+ >- (tac >>
+     metis_tac [EL_MAP, v_to_pat_def, optionTheory.NOT_SOME_NONE, 
+                optionTheory.OPTION_MAP_DEF])
+ >- (tac >>
+     metis_tac [EL_MAP, sv_to_pat_def, store_v_distinct, store_v_11])
+ >- (tac >>
+     metis_tac [EL_MAP, sv_to_pat_def, store_v_distinct, store_v_11])
+ >- (tac >>
+     metis_tac [EL_MAP, sv_to_pat_def, store_v_distinct, store_v_11])
+ >- (tac >>
+     metis_tac [EL_MAP, sv_to_pat_def, store_v_distinct, store_v_11])
+ >- (rw [do_app_pat_def] >>
+     BasicProvers.EVERY_CASE_TAC >>
+     imp_res_tac v_to_list_pat_correct >>
+     fs [])
+ >- (tac >>
+     UNABBREV_ALL_TAC >>
+     fs [DECIDE ``~(x ≥ y:num) ⇔ x < y``, EL_MAP])
+ >- tac
+ >- (tac >>
+     rw [map_replicate])
+ >- (tac >>
+     metis_tac [DECIDE ``~(x ≥ y:num) ⇔ x < y``, EL_MAP, sv_to_pat_def, store_v_distinct, store_v_11, LENGTH_MAP])
+ >- (tac >>
+     metis_tac [DECIDE ``~(x ≥ y:num) ⇔ x < y``, EL_MAP, sv_to_pat_def, store_v_distinct, store_v_11, LENGTH_MAP])
+ >- (tac >>
+     metis_tac [DECIDE ``~(x ≥ y:num) ⇔ x < y``, EL_MAP, sv_to_pat_def, store_v_distinct, store_v_11, LENGTH_MAP]));
 
 val evaluate_pat_lit = store_thm("evaluate_pat_lit",
   ``∀ck env s l res.
@@ -460,7 +474,7 @@ val do_app_pat_cases = store_thm("do_app_pat_cases",
     (∃n. op = Op_pat (Op_i2 Aw8length) ∧ vs = [Loc_pat n]) ∨
     (∃lnum i w. op = Op_pat (Op_i2 Aw8update) ∧ vs = [Loc_pat lnum; Litv_pat (IntLit i); Litv_pat (Word8 w)]) ∨
     (∃v vs'. op = Op_pat (Op_i2 VfromList) ∧ vs = [v] ∧ (v_to_list_pat v = SOME vs')) ∨
-    (∃vs i. op = Op_pat (Op_i2 Vsub) ∧ vs = [Vectorv_pat vs'; Litv_pat (IntLit i)]) ∨
+    (∃vs' i. op = Op_pat (Op_i2 Vsub) ∧ vs = [Vectorv_pat vs'; Litv_pat (IntLit i)]) ∨
     (∃vs'. op = Op_pat (Op_i2 Vlength) ∧ vs = [Vectorv_pat vs']) ∨
     (∃v n. op = Op_pat (Op_i2 Aalloc) ∧ vs = [Litv_pat (IntLit n); v]) ∨
     (∃lnum i. op = Op_pat (Op_i2 Asub) ∧ vs = [Loc_pat lnum; Litv_pat (IntLit i)]) ∨
@@ -1561,6 +1575,7 @@ val do_app_pat_v_pat = store_thm("do_app_pat_v_pat",
   imp_res_tac LIST_REL_LENGTH >> rw[]>>fs[]>>rw[csg_rel_def,sv_rel_def] >>
   imp_res_tac do_eq_pat_v_pat >>
   imp_res_tac v_to_list_pat_v_pat >> simp[] >>
+  cheat >>
   TRY(
     Cases_on`vs`>>fs[]>>
     Cases_on`t`>>fs[]>>
