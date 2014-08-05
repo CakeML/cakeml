@@ -178,6 +178,13 @@ val install_bc_lists_def = Define `
   install_bc_lists code bs =
     install_code (REVERSE (MAP num_bc code)) bs`;
 
+val install_bc_lists_thm = store_thm("install_bc_lists_thm",
+  ``install_bc_lists (MAP bc_num code) bs =
+    install_code (REVERSE code) bs``,
+  SIMP_TAC std_ss [install_bc_lists_def,MAP_MAP_o,
+    bytecodeExtraTheory.num_bc_bc_num,combinTheory.o_DEF]
+  \\ SRW_TAC [] []);
+
 val tac = (WF_REL_TAC `measure (LENGTH o SND o SND)` \\ REPEAT STRIP_TAC
            \\ IMP_RES_TAC lex_until_top_semicolon_alt_LESS);
 
@@ -207,7 +214,7 @@ val unlabelled_main_loop_def = tDefine "unlabelled_main_loop" `
 
 val unlabelled_repl_fun_def = Define`
   unlabelled_repl_fun initial input =
-    let code = REVERSE initial_bc_state.code in
+    let code = initial_bc_state.code in
     let labs = collect_labels code 0 real_inst_length in
     let len = code_length real_inst_length code in
     unlabelled_main_loop (INL (len,labs,initial)) (strip_labels initial_bc_state) input`
@@ -225,7 +232,7 @@ val basis_state_def = Define`
                                  e.inf_tenvC,
                                  e.inf_tenvE);
            rcompiler_state := e.comp_rs |> in
-  let code = REVERSE initial_bc_state.code in
+  let code = initial_bc_state.code in
   let labs = collect_labels code 0 real_inst_length in
   let len = code_length real_inst_length code in
   (len,labs,(rf,Stop T :: SND (THE basis_env) ++ SND (THE prim_env)))`

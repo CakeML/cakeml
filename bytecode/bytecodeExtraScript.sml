@@ -443,6 +443,12 @@ val RTC_bc_next_output_IS_PREFIX = store_thm("RTC_bc_next_output_IS_PREFIX",
     match_mp_tac bc_next_output_IS_PREFIX >> rw[] ) >>
   metis_tac[IS_PREFIX_TRANS])
 
+val RTC_bc_next_output_squeeze = store_thm("RTC_bc_next_output_squeeze",
+  ``RTC bc_next x y /\ RTC bc_next y z /\ (z.output = x.output) ==>
+    (y.output = x.output)``,
+  REPEAT STRIP_TAC \\ IMP_RES_TAC RTC_bc_next_output_IS_PREFIX
+  \\ METIS_TAC [rich_listTheory.IS_PREFIX_ANTISYM]);
+
 val bvs_to_chars_thm = store_thm("bvs_to_chars_thm",
   ``∀bvs ac. bvs_to_chars bvs ac =
       if EVERY is_Number bvs then
