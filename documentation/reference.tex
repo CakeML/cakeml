@@ -26,7 +26,7 @@ CakeML is a functional language in the ML family. Its syntax and semantics close
 
 \subsection{Primitive data and operations}
 
-CakeML supports data of boolean, integer, byte, and string types. It also supports compound data of tuple, list, array, vector, and byte array types. Additionally, users can define new algebraic data types: these are described in  \S\ref{expressions} on pattern matching, and in \S\ref{declarations} on type definitions.
+CakeML supports data of boolean, integer, byte, and string types. It also supports compound data of tuple, list, vector, reference, array, and byte array types. Additionally, users can define new algebraic data types: these are described in  \S\ref{expressions} on pattern matching, and in \S\ref{declarations} on type definitions.
 
 \paragraph{Booleans} The boolean values are written as \texttt{true} and \texttt{false}. The type of booleans is \texttt{bool}. Left-to-right short-circuit logical operators are written \texttt{andalso} and \texttt{orelse}.
 
@@ -69,6 +69,8 @@ The following are the supported operations on vectors. If an index is out of bou
 \item \texttt{sub : 'a vector -> int -> 'a} Get the i$^\textrm{th}$ element.
 \end{itemize}
 
+\paragraph{References}
+
 \paragraph{Arrays}
 
 Arrays have a fixed length and support constant-time indexing. Each element of an array must have the same type. The operations on arrays are collected in the \texttt{Array} module. If the elements of an array are of some type $\tau$ then the vector's type is $\tau$\ \texttt{Array.array}.
@@ -99,6 +101,13 @@ The following are the supported operations on byte arrays. If an index is out of
 \paragraph{Variables}
 
 A variable must begin with a lower case letter.
+
+
+\paragraph{Equality}
+
+The infix equality operator \texttt{=} checks whether two values are equal, returning a boolean. The values must be of the same type. For atomic data (booleans, integers, bytes, and strings), they are equal exactly when they are the same value. For immutable data (tuples, lists, vectors, and user defined datatypes), they are equal if they are made up of equal elements, recursively. For mutable data (references, arrays, and byte arrays), they are equal if they are the same structure, their elements are not inspected.
+
+If the equality function encounters a function value while traversing its arguments, it raises the \texttt{Eq} exception.
 
 \paragraph{Conditionals}
 
