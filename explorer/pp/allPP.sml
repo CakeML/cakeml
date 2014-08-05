@@ -3,8 +3,7 @@ open preamble
 open HolKernel boolLib bossLib Parse
 open compute_basicLib compute_parsingLib compute_compilerLib compute_inferenceLib compute_semanticsLib compute_bytecodeLib
 open lexer_implTheory
-open initialProgramTheory
-open initCompEnvTheory
+open initialProgramTheory initCompEnvTheory
 open astPP modPP conPP exhPP patPP intPP
 
 (*RHS of theorem to term*)
@@ -28,13 +27,12 @@ get_all_asts input =
 (wf_rel_tac `measure LENGTH` >>
  rw [lex_until_toplevel_semicolon_LESS]);
 
-val elab_all_asts_def = Define `
-elab_all_asts asts =
-  case asts of 
+val remove_labels_all_asts_def = Define `
+remove_labels_all_asts len asts =
+  case asts of
      | Failure x => Failure x
      | Success asts =>
-         Success (SND (elab_prog init_type_bindings asts))`;
-
+         Success (code_labels len asts)`
 
 val cs = the_basic_compset
 val _ = add_compiler_compset false cs
@@ -42,8 +40,10 @@ val _ = add_parsing_compset cs
 val _ = add_inference_compset cs
 val _ = add_ast_compset cs
 val _ = add_lexparse_compset cs
-val _ = add_elab_compset cs
-val _ = computeLib.add_thms  [basis_env_eq,compile_primitives_def,get_all_asts_def,elab_all_asts_def] cs
+val _ = add_bytecode_compset cs
+val _ = add_labels_compset cs
+val _ = computeLib.add_thms  [basis_env_eq,compile_primitives_def,get_all_asts_def,remove_labels_all_asts_def] cs
+
 val _ = compute_basicLib.add_datatype ``:comp_environment`` cs
 val eval = computeLib.CBV_CONV cs
 
@@ -56,13 +56,11 @@ type allIntermediates = {
   ctors:term list,
   modMap:term list,
   annotations:term list}
-val prog = ``"val x = 5;"``
 (*Return all intermediates during compilation in a record*)
 fun allIntermediates prog =
   let 
       val t1 = eval ``get_all_asts ^(prog)``
-      val t2 = eval ``elab_all_asts ^(rhsThm t1)``
-      val ast = rand (rhsThm t2)
+      val ast = rand (rhsThm t1)
 
       val _ =if ast = ``"<parse error>\n"`` then raise compilationError "Parse Error" else ();
 
@@ -158,15 +156,15 @@ fun allIntermediates prog =
       val rem_labels = with_flag (quiet,true) eval ``remove_labels_all_asts real_inst_length (Success ^(p7))``
 
       (*Bytecode to asm*)
-      val asm = eval ``x64_code 0 ^(rhsThm rem_labels |> rand)``
-      val p9 = rhsThm asm
+      (*val asm = eval ``x64_code 0 ^(rhsThm rem_labels |> rand)``
+      val p9 = rhsThm asm*)
 
       val p8 = rhsThm (eval ``(NONE,^(p8))``)
 
       val p7 = rhsThm (eval ``(SOME x,^(p7))``)
       
   in
-     {ils=[ast,p1,p2,p3,p4,p5,p6,p7,p8,p9],
+     {ils=[ast,p1,p2,p3,p4,p5,p6,p7,p8],
       ctors=ctors,globMap=globMap,modMap=modMap,annotations=(!collectAnnotations)}
   end;
 end

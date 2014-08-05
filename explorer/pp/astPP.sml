@@ -1,7 +1,6 @@
 structure astPP=
 struct
 open HolKernel boolLib bossLib Parse astTheory terminationTheory
-open cakeml_computeLib 
 open Portable smpp term_pp_types
 open x64DisassembleLib
 (*x64DisassembleLib.sig is missing include Abbrev*)
