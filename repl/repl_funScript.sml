@@ -282,21 +282,22 @@ val basis_repl_env_def = Define`
        tenv := bind_var_list2 (convert_env2 e.inf_tenvE) Empty;
        sem_env := THE basis_sem_env |>`
 
-(* proof aim:
-∀input output.
-  repl basis_repl_env (get_type_error_mask output) input output
-  ⇔
-  basis_repl_fun input = (output,T)
-*)
-
-(*
-x86 will provide:
-  ∀input output. basis_repl_fun input = (output,T) ⇒
-                 x86_implementation on (encode input) behaves as output
-  or, equivalently,
-  ∀input output.
-    SND (basis_repl_fun input) (* this should be discharged *) ⇒
-    x86_implementation on (encode input) behaves as (FST(basis_repl_fun input))
-*)
+val cs = compute_bytecodeLib.the_bytecode_compset()
+val () = computeLib.add_datatype_info cs (valOf(TypeBase.fetch``:repl_fun_state``))
+val () = computeLib.add_datatype_info cs (valOf(TypeBase.fetch``:comp_environment``))
+val basis_state_eq = save_thm("basis_state_eq",
+``basis_state`` |> (
+  REWR_CONV basis_state_def
+  THENC computeLib.CBV_CONV cs
+  THENC REWRITE_CONV
+  [initCompEnvTheory.basis_env_eq,
+   initCompEnvTheory.prim_env_eq,
+   initCompEnvTheory.initial_bc_state_def,
+   initCompEnvTheory.empty_bc_state_def]
+  THENC computeLib.CBV_CONV cs
+  THENC REWRITE_CONV[
+   initCompEnvTheory.code_length_VfromListCode,
+   initCompEnvTheory.collect_labels_VfromListCode]
+  THENC computeLib.CBV_CONV cs))
 
 val _ = export_theory()

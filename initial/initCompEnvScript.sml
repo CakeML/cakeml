@@ -560,4 +560,10 @@ val add_stop_invariant = Q.store_thm ("add_stop_invariant",
  >- (fs [init_code_executes_ok_def, code_executes_ok'_def] >>
      metis_tac [RTC_REFL]));
 
+val code_length_VfromListCode = save_thm("code_length_VfromListCode",
+  ``code_length real_inst_length VfromListCode`` |> EVAL)
+
+val collect_labels_VfromListCode = save_thm("collect_labels_VfromListCode",
+  ``collect_labels VfromListCode 0 real_inst_length`` |> EVAL)
+
 val _ = export_theory();
