@@ -3,7 +3,7 @@ open astTheory bigStepTheory initialProgramTheory interpTheory inferTheory typeS
 open bigClockTheory untypedSafetyTheory inferSoundTheory initSemEnvTheory modLangProofTheory conLangProofTheory typeSoundInvariantsTheory typeSoundTheory;
 open terminationTheory;
 open bytecodeLabelsTheory bytecodeEvalTheory;
-open compute_bytecodeLib compute_interpLib compute_inferenceLib compute_compilerLib;
+open compute_bytecodeLib compute_interpLib compute_inferenceLib compute_compilerLib compute_free_varsLib;
 
 val _ = new_theory "initCompEnv";
 

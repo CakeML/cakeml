@@ -1,4 +1,4 @@
-open HolKernel boolLib bossLib ml_repl_moduleTheory flookupLib compute_compilerLib
+open HolKernel boolLib bossLib ml_repl_moduleTheory flookupLib compute_compilerLib compute_free_varsLib
 val _ = new_theory"compile_repl_decs"
 
 val compile_repl_decs_def = zDefine`

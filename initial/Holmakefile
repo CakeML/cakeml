@@ -1,4 +1,4 @@
-INCLUDES = .. ../bytecode ../semantics ../semantics/proofs ../compiler ../inference ../inference/proofs ../metatheory ../compiler ../compiler/proofs
+INCLUDES = .. ../bytecode ../semantics ../semantics/proofs ../inference ../inference/proofs ../metatheory ../compiler ../compiler/proofs
 
 OPTIONS = QUIT_ON_FAILURE
 
@@ -7,7 +7,7 @@ HOLHEAP = heap
 PARENTHEAP = ../compiler/proofs/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../semantics/initialProgramTheory ../semantics/proofs/initSemEnvTheory ../semantics/proofs/interpTheory ../inference/proofs/inferSoundTheory ../compiler/proofs/compilerProofTheory ../metatheory/typeSoundTheory ../inference/compute_inferenceLib ../compiler/compute_compilerLib
+BARE_THYS = ../semantics/initialProgramTheory ../semantics/proofs/initSemEnvTheory ../semantics/proofs/interpTheory ../inference/proofs/inferSoundTheory ../compiler/proofs/compilerProofTheory ../metatheory/typeSoundTheory ../inference/compute_inferenceLib ../compiler/compute_compilerLib ../compiler/proofs/compute_free_varsLib
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP)
 
