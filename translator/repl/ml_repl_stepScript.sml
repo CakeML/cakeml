@@ -474,10 +474,8 @@ val _ = translate repl_funTheory.parse_infertype_compile_def
 val _ = translate (pred_setTheory.IN_INSERT |> SIMP_RULE std_ss [IN_DEF]);
 *)
 
-val _ = translate initCompEnvTheory.prim_env_eq
-val _ = translate initCompEnvTheory.basis_env_eq
-
-val _ = translate repl_fun_alt_proofTheory.basis_repl_step_def
+val _ = translate repl_funTheory.basis_state_eq
+val _ = translate repl_funTheory.basis_repl_step_def
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
 
