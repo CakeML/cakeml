@@ -308,7 +308,7 @@ val prim_env_eq = save_thm ("prim_env_eq",
   |> CONV_RULE(computeLib.CBV_CONV the_inference_compset)
   |> CONV_RULE(computeLib.CBV_CONV the_compiler_compset));
 
-val cs = the_bytecode_compset
+val cs = the_bytecode_compset()
 val () = computeLib.add_thms[bc_fetch_def,bc_fetch_aux_def,is_Label_def,bc_find_loc_aux_def] cs
 val () = computeLib.add_thms[toBytecodeTheory.VfromListCode_def |> CONV_RULE (RAND_CONV EVAL)] cs
 val () = computeLib.add_datatype_info cs (valOf(TypeBase.fetch``:bc_inst``))
