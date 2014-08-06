@@ -1,4 +1,4 @@
-\documentclass{article}
+\documentclass[12pt,a4paper]{book}
 
 \usepackage{hyperref}
 \usepackage{amssymb}
@@ -7,24 +7,34 @@
 \usepackage{supertabular}
 
 \title{CakeML Reference Manual}
-\author{Scott Owens}
+\author{Scott Owens\\
+\url{https://cakeml.org}
+}
 \usepackage[T1]{fontenc}
 
 \begin{document}\sloppy
 \maketitle
-\vspace{-24pt}
-\begin{center}\url{https://cakeml.org}\end{center}
-\vspace{12pt}
 
-\section{The CakeML Language}
+\frontmatter
+
+\chapter{Preface}
+
+
+
+\mainmatter
+\tableofcontents
+
+
+\part{The CakeML Language}
+
+\chapter{An informal description of CakeML}
 
 CakeML is a functional language in the ML family. Its syntax and semantics closely resembles Standard ML, but the concepts will also be very familiar to OCaml programmers.
 
-\subsection{Types}
+\section{Types}
 
 
-
-\subsection{Primitive data and operations}
+\section{Primitive data and operations}
 
 CakeML supports data of boolean, integer, byte, and string types. It also supports compound data of tuple, list, vector, reference, array, and byte array types. Additionally, users can define new algebraic data types: these are described in  \S\ref{expressions} on pattern matching, and in \S\ref{declarations} on type definitions.
 
@@ -95,7 +105,7 @@ The following are the supported operations on byte arrays. If an index is out of
 \item \texttt{update : Word8Array.array -> int -> Word8.word -> unit} Set the i$^\textrm{th}$ element.
 \end{itemize}
 
-\subsection{Expressions}
+\section{Expressions}
 \label{expressions}
 
 \paragraph{Variables}
@@ -119,19 +129,35 @@ If the equality function encounters a function value while traversing its argume
 
 \paragraph{Local bindings}
 
-\subsection{Declarations}
+\section{Declarations}
 \label{declarations}
 
-\subsection{Modules}
+\section{Modules}
 
-\section{The CakeML Abstract Syntax}
-
-\appendix
-
+\chapter{Formal syntax and semantics}
 \section{Grammar}
 
-\section{Formal type system}
+\section{Abstract syntax}
 
-\section{Formal semantics}
+\section{Type system}
+
+\section{Operational semantics}
+
+\chapter{Theorems}
+
+
+\part{The CakeML implementation}
+
+\chapter{Installing CakeML}
+
+\chapter{Extracting CakeML programs from HOL4}
+
+\chapter{Construction a complete system}
+
+\section{Interactive loop}
+
+\section{Standalone compilation}
+
+\section{Bootstrapping}
 
 \end{document}
