@@ -1,4 +1,6 @@
-INCLUDES = $(HOLDIR)/examples/l3-machine-code/x64/model ../../standalone ../../x86-64
+INCLUDES = ../.. $(HOLDIR)/examples/l3-machine-code/x64/model $(HOLDIR)/examples/parsing ../../parsing ../../compiler ../../compiler/proofs ../../inference ../../semantics ../../initial ../../bytecode 
+#../../standalone 
+#../../x86-64
 
 OPTIONS = QUIT_ON_FAILURE
 
@@ -6,7 +8,9 @@ ifdef POLY
 HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS =  $(HOLDIR)/examples/l3-machine-code/x64/model/x64DisassembleLib ../../standalone/progToBytecodeTheory ../../standalone/cakeml_computeLib ../../x86-64/x64_code_evalTheory ../../x86-64/x64_heapTheory ../../standalone/progToX86Theory
+BARE_THYS =  $(HOLDIR)/examples/l3-machine-code/x64/model/x64DisassembleLib $(HOLDIR)/examples/parsing/pegexecTheory ../../compiler/proofs/free_varsTheory
+#../../standalone/progToBytecodeTheory 
+#../../standalone/cakeml_computeLib ../../x86-64/x64_code_evalTheory ../../x86-64/x64_heapTheory ../../standalone/progToX86Theory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 

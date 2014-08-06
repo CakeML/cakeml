@@ -5,7 +5,7 @@ open ml_translatorTheory sideTheory;
 val _ = new_theory "ml_repl_module";
 
 val _ = ml_translatorLib.translation_extends "ml_repl_step";
-val _ = ml_translatorLib.update_precondition repl_step_side_thm;
+val _ = ml_translatorLib.update_precondition basis_repl_step_side_thm;
 
 fun add_Ref_NONE_decl name = let
   val decl_assum_x = ml_translatorLib.hol2deep ``(NONE:'a option)``
@@ -35,7 +35,7 @@ val add_call_repl_step_decl = let
   val name = "call_repl_step"
   val exp =
     ``App Opassign [Var (Short "output");
-        App Opapp [Var (Short "repl_step");
+        App Opapp [Var (Short "basis_repl_step");
           App Opderef [Var (Short "input")]]]``
   val decl_assum_x = always_evaluates_fn
     |> Q.SPECL [`"u"`,`^exp`,`env`]

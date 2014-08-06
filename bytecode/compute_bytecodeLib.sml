@@ -1,6 +1,64 @@
-structure labels_computeLib = struct
-local
-  open HolKernel boolLib bossLib bytecodeLabelsTheory labels_computeTheory patriciaLib
+structure compute_bytecodeLib = struct
+  open HolKernel boolLib bossLib lcsymtacs bytecodeLabelsTheory labels_computeTheory patriciaLib
+
+
+val bc_fetch_aux_0_thm = prove(
+  ``∀code pc. bc_fetch_aux code (K 0) pc =
+    if no_labels code then
+      if pc < LENGTH code then SOME (EL pc code) else NONE
+    else FAIL (bc_fetch_aux code (K 0) pc) "code has labels"``,
+  REWRITE_TAC[bytecodeLabelsTheory.no_labels_def] >>
+  Induct >> simp[bytecodeTheory.bc_fetch_aux_def] >>
+  rw[] >> fs[combinTheory.FAIL_DEF] >>
+  simp[rich_listTheory.EL_CONS,arithmeticTheory.PRE_SUB1])
+
+  val SUC_TO_NUMERAL_RULE = CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook)
+
+val eval_real_inst_length =
+  let
+    val compset = reduceLib.num_compset()
+    val () = intReduce.add_int_compset compset
+    val () = computeLib.add_thms [bytecodeExtraTheory.real_inst_length_compute] compset
+  in
+    computeLib.CBV_CONV compset
+  end
+
+
+  fun add_bytecode_compset compset = let
+
+    local open bytecodeTheory in
+      val () = computeLib.add_thms
+        [bool_to_tag_def
+        ,unit_tag_def
+        ,closure_tag_def
+        ,string_tag_def
+        ,block_tag_def
+        ,bump_pc_def
+        ,bc_fetch_def
+        ,bv_to_string_def
+        ,bvs_to_chars_def
+        ,bc_equality_result_to_val_def
+        ,bool_to_val_def
+        ,bool_to_tag_def
+        ,bc_find_loc_def
+        ,bytecodeTerminationTheory.bc_equal_def
+        ] compset
+    end
+
+    local open bytecodeEvalTheory in
+      val () = computeLib.add_thms
+        [bc_eval_compute
+        ,bc_eval1_def
+        ,bc_eval_stack_def
+        ,bc_fetch_aux_0_thm
+        ,SUC_TO_NUMERAL_RULE bc_evaln_def
+        ,listTheory.LUPDATE_compute
+        ] compset
+    end
+    val () = computeLib.add_datatype_info compset (valOf(TypeBase.fetch``:bc_state``))
+    val () = computeLib.add_datatype_info compset (valOf(TypeBase.fetch``:bc_value``))
+    (*val () = computeLib.add_datatype_info compset (valOf(TypeBase.fetch``:bc_inst``))*)
+  in () end
 
   val Addr_tm = ``Addr``
   fun mk_Addr x = mk_comb(Addr_tm,x)
@@ -153,7 +211,6 @@ local
   val init_db = Net.insert (rand(concl(code_labels_ok_nil)),code_labels_ok_nil) Net.empty
   val db = ref init_db
 
-in
   val quiet = quiet
 
   fun reset_code_labels_ok_db () = db := init_db
@@ -171,7 +228,7 @@ in
     case Net.index tm (!db) of th::_ => th
     | [] =>
       ( last_code_not_found := tm
-      ; raise (mk_HOL_ERR "labels_computeLib" "get_code_labels_ok_thm" "code_labels_ok theorem not found."))
+      ; raise (mk_HOL_ERR "compute_bytecode_Lib" "get_code_labels_ok_thm" "code_labels_ok theorem not found."))
   fun code_labels_ok_thms() = Net.listItems(!db)
 
   val mk_def = let
@@ -207,5 +264,22 @@ in
       MP th (CONJ th2 th0)
     end
 
+
+  fun add_labels_compset compset = let
+    val () = reset_code_labels_ok_db()
+    val () = computeLib.add_conv (``code_labels``,2,code_labels_conv eval_real_inst_length) compset
+     in () end
+
+  val the_bytecode_compset = let
+    val c = wordsLib.words_compset ()
+    val () = compute_basicLib.add_basic_compset c
+    val () = compute_semanticsLib.add_ast_compset c
+    val () = add_bytecode_compset c
+    val () = add_labels_compset c
+  in
+    c
+  end
+
+
 end
-end
+

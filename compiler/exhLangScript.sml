@@ -89,7 +89,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\ (get_tags (p::ps) acc =  
 ((case p of
       Pcon_i2 (tag,t) ps' =>
-        if EVERY is_unconditional ps' then get_tags ps (insert tag ()  acc)
+        if EVERY is_unconditional ps' then get_tags ps (sptree$insert tag ()  acc)
         else NONE
     | _ => NONE
   )))`;
@@ -102,13 +102,13 @@ val _ = Define `
   (case ps of
       Pcon_i2 (tag,SOME (TypeId t)) ps'::ps =>
         (EVERY is_unconditional ps' /\
-          (case get_tags ps LN of
+          (case get_tags ps sptree$LN of
               NONE => F
             | SOME tags =>
                 (case FLOOKUP exh t of
                     NONE => F
                   | SOME tags' =>
-                    (insert tag ()  tags) = tags'
+                    (sptree$insert tag ()  tags) = tags'
                 )
           ))
     | _ => F

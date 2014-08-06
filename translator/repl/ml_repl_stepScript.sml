@@ -1,10 +1,9 @@
-
 open HolKernel Parse boolLib bossLib;
 
 val _ = new_theory "ml_repl_step";
 
 open repl_funTheory compilerTheory libTheory;
-open toIntLangTheory toBytecodeTheory terminationTheory elabTheory;
+open toIntLangTheory toBytecodeTheory terminationTheory;
 open compilerTerminationTheory inferTheory;
 open bytecodeTheory cmlParseTheory cmlPEGTheory;
 open arithmeticTheory listTheory finite_mapTheory pred_setTheory;
@@ -58,13 +57,6 @@ val _ = (find_def_for_const := def_of_const);
 val _ = save_thm("inf_type_to_string_ind",inf_type_to_string_ind)
 val _ = translate inf_type_to_string_def;
 
-(* initial state *)
-
-val _ = translate (pred_setTheory.IN_INSERT |> SIMP_RULE std_ss [IN_DEF]);
-
-val _ = translate (initial_repl_fun_state_def |> SIMP_RULE std_ss
-          [compile_primitivesTheory.compile_primitives_eq]);
-
 (* compiler *)
 
 val _ = translate (def_of_const ``stackshift``);
@@ -103,10 +95,6 @@ val compile_thm =
 val _ = translate compile_thm;
 
 val _ = translate compile_top_def;
-
-(* elaborator *)
-
-val _ = translate (def_of_const ``elab_top``);
 
 (* parsing: peg_exec and cmlPEG *)
 
@@ -147,6 +135,8 @@ val _ = translate (def_of_const ``ptree_REPLTop``);
 (* parsing: top-level parser *)
 
 val _ = translate (RW [monad_unitbind_assert,cmlParseREPLTop_def] parse_top_def);
+
+val _ = ParseExtras.temp_tight_equality()
 
 val parse_top_side_def = prove(
   ``!x. parse_top_side x = T``,
@@ -439,6 +429,12 @@ val _ = translate (infer_def ``t_to_freevars``);
 val _ = translate (infer_def ``bind``);
 val _ = translate (infer_def ``merge``);
 
+val _ = translate (typeSystemTheory.build_ctor_tenv_def
+                   |> CONV_RULE(((STRIP_QUANT_CONV o funpow 3 RAND_CONV o
+                                  funpow 2 (LAND_CONV o PairRules.PABS_CONV) o
+                                  funpow 2 RAND_CONV o funpow 2 LAND_CONV)
+                                 (ONCE_REWRITE_CONV [GSYM ETA_AX]))))
+
 val EVERY_INTRO = prove(
   ``(!x::set s. P x) = EVERY P s``,
   SIMP_TAC std_ss [res_quanTheory.RES_FORALL,EVERY_MEM]);
@@ -470,16 +466,18 @@ val _ = translate (infer_def ``infer_top``)
 
 (* tip of translation *)
 
-val _ = translate repl_funTheory.parse_elaborate_infertype_compile_def
+val _ = translate repl_funTheory.parse_infertype_compile_def
 
-val init_code_def = Define `
-  init_code = SND (SND compile_primitives)`;
+(* initial state *)
 
-val _ = translate (init_code_def |> SIMP_RULE std_ss
-          [compile_primitivesTheory.compile_primitives_eq]);
+(* don't know what this is for
+val _ = translate (pred_setTheory.IN_INSERT |> SIMP_RULE std_ss [IN_DEF]);
+*)
 
-val _ = translate (repl_fun_altTheory.repl_step_def
-                   |> RW [GSYM init_code_def])
+val _ = translate initCompEnvTheory.prim_env_eq
+val _ = translate initCompEnvTheory.basis_env_eq
+
+val _ = translate repl_fun_alt_proofTheory.basis_repl_step_def
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
 

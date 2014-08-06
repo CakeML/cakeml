@@ -364,7 +364,8 @@ TRY(
   pop_assum (assume_tac o SYM) >>
   lrw[rich_listTheory.TAKE_REVERSE,rich_listTheory.LASTN_LENGTH_ID]) >>
 BasicProvers.EVERY_CASE_TAC >> fs[PRE_SUB1] >>
-rw[bytecodeTheory.bc_state_component_equality,bump_pc_def])
+rw[bytecodeTheory.bc_state_component_equality,bump_pc_def] >>
+wordsLib.WORD_DECIDE_TAC)
 
 val bc_eval1_thm = store_thm("bc_eval1_thm",
   ``!s1 s2. bc_next s1 s2 = (bc_eval1 s1 = SOME s2)``,

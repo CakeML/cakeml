@@ -458,6 +458,11 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
       simp[LAMBDA_PROD] ) >>
     metis_tac[RTC_TRANSITIVE,transitive_def])
   >- (
+    simp[compile_print_dec_def] >>
+    rw[] >>
+    qspecl_then[`tvs`, `map`,`cs`]mp_tac compile_print_vals_thm >>
+    simp[] >> rw[] >> simp[])
+  >- (
     simp[] >>
     simp[compile_print_dec_def] >>
     simp[compile_print_types_def] >>

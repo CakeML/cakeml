@@ -49,10 +49,10 @@ val cmlpeg_executed =
 
 (* This function parses declarations, no junk is allowed at the end. *)
 val parse_def = Define `
-  (parse : token list -> ast_prog option) tokens =
+  (parse : token list -> prog option) tokens =
     do
-      (ts,ast_tdecs) <- cmlParseREPLPhrase tokens;
-      if ts <> [] then NONE else SOME ast_tdecs
+      (ts,tdecs) <- cmlParseREPLPhrase tokens;
+      if ts <> [] then NONE else SOME tdecs
     od
 `;
 
@@ -60,16 +60,16 @@ val parse_def = Define `
    No junk is allowed at the end.
    It is used in implementation/repl_funScript.sml. *)
 val parse_top_def = Define `
-  (parse_top : token list -> ast_top option) tokens =
+  (parse_top : token list -> top option) tokens =
     do
-      (ts,ast_top) <- cmlParseREPLTop tokens;
-      if ts <> [] then NONE else SOME ast_top
+      (ts,top) <- cmlParseREPLTop tokens;
+      if ts <> [] then NONE else SOME top
     od
 `;
 
 val _ = Hol_datatype`
   repl_parse_result = RPR_INCOMPLETE of token list
-                    | RPR_PROG of ast_prog option => token list
+                    | RPR_PROG of prog option => token list
 `
 
 val parse_REPLphrase_def = Define`

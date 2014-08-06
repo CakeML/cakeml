@@ -14,6 +14,17 @@ infix \\ val op \\ = op THEN;
 val RW = REWRITE_RULE;
 val RW1 = ONCE_REWRITE_RULE;
 
+fun print_time s f x = f x
+(*
+let
+  val () = print "Starting "
+  val () = print s
+  val () = print "...\n"
+  val r = time f x
+  val () = print s
+  val () = print " done\n"
+in r end
+*)
 
 (* packers and unpackers for thms, terms and types *)
 
@@ -199,14 +210,49 @@ in
     val _ = map (fn s => delete_const s handle NotFound => ()) strs
     in () end;
   (* functions for appending a new declaration *)
+  val cs = listLib.list_compset()
+  val () = computeLib.scrub_thms [LIST_TO_SET_THM,MEM,ALL_DISTINCT] cs
+  val () = computeLib.add_thms [MEM,ALL_DISTINCT] cs
+  val () = stringLib.add_string_compset cs
+  val () = pairLib.add_pair_compset cs
+  val () = computeLib.add_thms [evalPropsTheory.build_tdefs_cons] cs
+  val eval = computeLib.CBV_CONV cs
+  (* val previous_all_distinct = ref TRUTH *)
   fun snoc_cenv_eq_thm decl =
     if can (match_term ``(Dtype x) : dec``) decl then
       MATCH_MP (INST_mn DeclAssumCons_SNOC_Dtype) (!cenv_eq_thm)
       |> SPEC (decl |> rand)
-      |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL)
+      (* |> (fn th => (print_term(th |> concl |> rator |> rand); print"\n"; th)) *)
+      (*
+      |> print_time "EVAL build_tdefs"
+        (CONV_RULE ((RATOR_CONV o RAND_CONV o RAND_CONV o RAND_CONV o RATOR_CONV o RAND_CONV) eval))
+      |> print_time "REWR MAP FST"
+        (CONV_RULE ((RATOR_CONV o RAND_CONV o RAND_CONV) (REWR_CONV MAP_APPEND)))
+      |> print_time "EVAL MAP 1"
+        (CONV_RULE ((RATOR_CONV o RAND_CONV o RAND_CONV o RATOR_CONV o RAND_CONV) eval))
+      |> print_time "EVAL MAP 2"
+        (CONV_RULE ((RATOR_CONV o RAND_CONV o RAND_CONV o RAND_CONV) eval))
+      |> (fn th =>
+          let
+            val goal = th |> concl |> rator |> rand
+            val eval_tac = CONV_TAC eval
+            fun WARN_ACCEPT_TAC th = ACCEPT_TAC th ORELSE (print_thm th; FAIL_TAC(" failed to be accepted"))
+            val tac =
+              CONV_TAC(REWR_CONV ALL_DISTINCT_APPEND) THEN
+              CONJ_TAC THEN1 eval_tac THEN
+              CONJ_TAC THEN1 (WARN_ACCEPT_TAC (!previous_all_distinct) ORELSE eval_tac) THEN
+              eval_tac THEN GEN_TAC THEN STRIP_TAC THEN BasicProvers.VAR_EQ_TAC THEN eval_tac
+            val lemma = auto_prove "DeclAssumCons_SNOC_Dtype: ALL_DISTINCT tdefs" (goal,tac)
+            val () = previous_all_distinct := (CONV_RULE (RAND_CONV eval) lemma)
+          in
+            MY_MP "DeclAssumCons_SNOC_Dtype" th lemma
+          end)
+      *)
+      |> print_time "EVAL ALL_DISTINCT" (CONV_RULE ((RATOR_CONV o RAND_CONV) eval))
       |> (fn th => MY_MP "DeclAssumCons_SNOC_Dtype" th TRUTH)
-      |> CONV_RULE (RAND_CONV EVAL THENC
-                    (RATOR_CONV o RAND_CONV) EVAL)
+      |> print_time "EVAL2" (
+         CONV_RULE (RAND_CONV EVAL THENC
+                    (RATOR_CONV o RAND_CONV) EVAL))
       |> (fn th => (cenv_eq_thm := th; th))
     else if can (match_term ``(Dlet v x) : dec``) decl then
       MATCH_MP (INST_mn DeclAssumCons_SNOC_Dlet) (!cenv_eq_thm)
@@ -219,7 +265,7 @@ in
     else
       failwith "snoc_cenv_eq_thm input is not recognised decl"
   fun snoc_decl decl = let
-    val _ = snoc_cenv_eq_thm decl
+    val _ = print_time "snoc_cenv_eq_thm" snoc_cenv_eq_thm decl
     val _ = (decl_term := listSyntax.mk_snoc(decl,!decl_term))
     val f = if can (match_term ``(Dletrec funs) : dec``) decl then
               (fn (n:string,tm:term,th,pre) =>
@@ -243,7 +289,7 @@ in
                           |> Q.GEN `env`)
                       handle HOL_ERR _ => th,pre))
             else fail()
-    val _ = map_cert_memory f
+    val _ = print_time "map_cert_memory" map_cert_memory f
     in () end;
   fun snoc_dtype_decl dtype = let
     val decl = dtype
@@ -1401,11 +1447,11 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
     val inv_lhs = subst [x|->input] inv_lhs
     val (case_lemma,ts) = prove_case_of_lemma (ty,case_th,inv_lhs,inv_def)
 
-    val conses = map (derive_cons ty inv_lhs inv_def) ts
+    val conses = print_time "conses" (map (derive_cons ty inv_lhs inv_def)) ts
     in (ty,eq_lemma,inv_def,conses,case_lemma,ts) end
   val res = map make_calls (zip case_thms inv_defs)
   val _ = if mem name ["LIST_TYPE","OPTION_TYPE","PAIR_TYPE"]
-          then () else snoc_dtype_decl dtype
+          then () else print_time "snoc_dtype_decl" snoc_dtype_decl dtype
   val (rws1,rws2) = if not is_record then ([],[])
                     else derive_record_specific_thms (hd tys)
   in (rws1,rws2,res) end;
@@ -2682,34 +2728,55 @@ in
     in th end end
 end
 
-fun finalise_module_translation () = let
-  fun DISCH_DeclAssum lemma = let
-    val th = lemma |> DISCH_ALL
-                   |> PURE_REWRITE_RULE [GSYM AND_IMP_INTRO]
-                   |> UNDISCH_ALL
-    val pattern = ``DeclAssum mn ds env tys``
-    val x = hyp th |> filter (can (match_term pattern)) |> hd
-            handle Empty => get_DeclAssum ()
-    in DISCH x th end
-  val _ = finalise_translation ()
-  val ex = get_DeclAssumExists ()
-  val th = MATCH_MP DeclAssumExists_SOME_IMP_Tmod ex |> SPEC_ALL
-  val tm = th |> concl |> dest_imp |> fst
-  val lemma = auto_prove "ALL_DISTINCT type_names" (tm,
-    ONCE_REWRITE_TAC [case get_decl_abbrev () of SOME x => x | NONE => TRUTH]
-    \\ PURE_REWRITE_TAC [type_names_def] \\ EVAL_TAC)
-  val th = MP th lemma
-  val th1 = CONJUNCT1 th
-  val th2 = CONJUNCT2 th
-  fun expand lemma = let
-    val th3 = MATCH_MP (DISCH_DeclAssum lemma) (MATCH_MP DeclEnv ex)
-    val th3 = MATCH_MP Eval_Var_Short_merge (th3 |> RW [th2])
-              |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL)
-    in MP th3 TRUTH |> DISCH_ALL |> GEN_ALL end
-    handle HOL_ERR _ => TRUTH;
-  val xs = (map (fst o get_cert) (rev (get_names ())))
-  val th4 = LIST_CONJ (map expand xs) |> RW []
-  in CONJ th1 th4 |> GEN_ALL end
+local
+  val cs = listLib.list_compset()
+  val () = computeLib.scrub_thms [LIST_TO_SET_THM,MEM,ALL_DISTINCT] cs
+  val () = computeLib.add_thms [MEM,ALL_DISTINCT] cs
+  val () = stringLib.add_string_compset cs
+  val () = combinLib.add_combin_compset cs
+  val () = pairLib.add_pair_compset cs
+  val eval = computeLib.CBV_CONV cs
+
+  val cs2 = listLib.list_compset()
+  val () = computeLib.scrub_thms [LIST_TO_SET_THM,MEM,ALL_DISTINCT] cs2
+  val () = computeLib.add_thms [MEM,ALL_DISTINCT] cs2
+  val () = stringLib.add_string_compset cs2
+  val () = combinLib.add_combin_compset cs2
+  val () = optionLib.OPTION_rws cs2
+  val () = computeLib.add_thms [initSemEnvTheory.prim_sem_env_eq] cs2
+  val () = computeLib.add_datatype_info cs2 (valOf(TypeBase.fetch``:sem_environment``))
+  val eval2 = computeLib.CBV_CONV cs2
+
+in
+  fun finalise_module_translation () = let
+    fun DISCH_DeclAssum lemma = let
+      val th = lemma |> DISCH_ALL
+                     |> PURE_REWRITE_RULE [GSYM AND_IMP_INTRO]
+                     |> UNDISCH_ALL
+      val pattern = ``DeclAssum mn ds env tys``
+      val x = hyp th |> filter (can (match_term pattern)) |> hd
+              handle Empty => get_DeclAssum ()
+      in DISCH x th end
+    val _ = finalise_translation ()
+    val ex = get_DeclAssumExists ()
+    val th = MATCH_MP DeclAssumExists_SOME_IMP_Tmod ex |> SPEC_ALL
+    val tm = th |> concl |> dest_imp |> fst
+    val lemma = auto_prove "ALL_DISTINCT type_names" (tm,
+      ONCE_REWRITE_TAC [case get_decl_abbrev () of SOME x => x | NONE => TRUTH]
+      \\ PURE_REWRITE_TAC [type_names_def] \\ CONV_TAC eval)
+    val th = MP th lemma
+    val th1 = CONJUNCT1 th
+    val th2 = CONJUNCT2 th
+    fun expand lemma = let
+      val th3 = MATCH_MP (DISCH_DeclAssum lemma) (MATCH_MP DeclEnv ex)
+      val th3 = MATCH_MP Eval_Var_Short_merge (th3 |> RW [th2])
+                |> CONV_RULE ((RATOR_CONV o RAND_CONV) eval2)
+      in MP th3 TRUTH |> DISCH_ALL |> GEN_ALL end
+      handle HOL_ERR _ => TRUTH;
+    val xs = (map (fst o get_cert) (rev (get_names ())))
+    val th4 = LIST_CONJ (map expand xs) |> RW []
+    in CONJ th1 th4 |> GEN_ALL end
+end
 
 (*
 
@@ -2817,7 +2884,7 @@ val _ = (max_print_depth := 25)
     val _ = code_def |> (delete_const o fst o dest_const o fst o dest_eq o concl)
     (* store certificate for later use *)
     val pre = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
-    val th = store_cert th [pre] decl_assum_x |> Q.SPEC `env` |> UNDISCH_ALL
+    val th = print_time "store_cert non-rec" (store_cert th [pre]) decl_assum_x |> Q.SPEC `env` |> UNDISCH_ALL
     val _ = print_fname fname def (* should really be original def *)
     in th end
     else (* is_rec *) let
@@ -2983,7 +3050,7 @@ val (th,(fname,def,_,pre)) = hd (zip results thms)
               (delete_const o fst o dest_const o fst o dest_eq o concl)
     (* store certificate for later use *)
     val pres = map (fn (fname,def,th,pre) => force_thm_the pre) thms
-    val th = store_cert th pres decl_assum_x
+    val th = print_time "store_cert" (store_cert th pres) decl_assum_x
                 |> CONJUNCTS |> map (UNDISCH_ALL o Q.SPEC `env`) |> LIST_CONJ
     val (fname,def,_,_) = hd thms
     val _ = print_fname fname def (* should be original def *)

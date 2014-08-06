@@ -1,7 +1,7 @@
 OPTIONS = QUIT_ON_FAILURE
 INCLUDES = $(HOLDIR)/examples/parsing/ .. ../lem_lib_stub
 
-SRC = lib tokens ast elab semanticPrimitives smallStep bigStep typeSystem initialEnv
+SRC = lib tokens ast semanticPrimitives smallStep bigStep typeSystem initialProgram
 LEMS = $(patsubst %,%.lem,$(SRC))
 GENS = $(patsubst %,%Script.sml,$(SRC))
 
@@ -11,10 +11,10 @@ $(GENS): $(LEMS)
  	else touch $(GENS); fi
 
 ifdef POLY
-HOLHEAP = sem_heap
+HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../preamble $(HOLDIR)/examples/parsing/grammarLib
+BARE_THYS = ../preamble $(HOLDIR)/examples/parsing/grammarLib ../compute_basicLib ../miscLib
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)

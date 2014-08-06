@@ -139,14 +139,31 @@ val firstSet_nLetDecs = Store_thm(
        cmlG_applied] >>
   simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied, INSERT_UNION_EQ]);
 
+val firstSet_nTypeDec = Store_thm(
+  "firstSet_nTypeDec",
+  ``firstSet cmlG [NT (mkNT nTypeDec)] = {DatatypeT}``,
+  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied]);
+
+val firstSet_nTypeAbbrevDec = Store_thm(
+  "firstSet_nTypeAbbrevDec",
+  ``firstSet cmlG [NT (mkNT nTypeAbbrevDec)] = {TypeT}``,
+  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied])
+
+val firstSet_nDecl = Store_thm(
+  "firstSet_nDecl",
+  ``firstSet cmlG [NT (mkNT nDecl)] =
+      {ValT; FunT; DatatypeT;ExceptionT;TypeT}``,
+  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied,
+       INSERT_UNION_EQ]);
+
 val firstSet_nDecls = Store_thm(
   "firstSet_nDecls",
   ``firstSet cmlG [NN nDecls] =
-      {ValT; DatatypeT; FunT; SemicolonT; ExceptionT}``,
+      {ValT; DatatypeT; FunT; SemicolonT; ExceptionT; TypeT}``,
   simp[firstSetML_eqn, Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
   simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
-  simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM, INSERT_UNION_EQ,
-       INSERT_COMM]);
+  ONCE_REWRITE_TAC [firstSetML_def] >>
+  simp[cmlG_applied, cmlG_FDOM, INSERT_UNION_EQ, INSERT_COMM]);
 
 val firstSet_nMultOps = Store_thm(
   "firstSet_nMultOps",
@@ -193,27 +210,17 @@ val firstSet_nStructure = Store_thm(
   ``firstSet cmlG [NT (mkNT nStructure)] = {StructureT}``,
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied]);
 
-val firstSet_nTypeDec = Store_thm(
-  "firstSet_nTypeDec",
-  ``firstSet cmlG [NT (mkNT nTypeDec)] = {DatatypeT}``,
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied]);
-
-val firstSet_nDecl = Store_thm(
-  "firstSet_nDecl",
-  ``firstSet cmlG [NT (mkNT nDecl)] = {ValT; FunT; DatatypeT;ExceptionT}``,
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied,
-       INSERT_UNION_EQ]);
 
 val firstSet_nTopLevelDec = Store_thm(
   "firstSet_nTopLevelDec",
   ``firstSet cmlG [NT (mkNT nTopLevelDec)] =
-    {ValT; FunT; DatatypeT; StructureT; ExceptionT}``,
+    {ValT; FunT; DatatypeT; StructureT; ExceptionT; TypeT}``,
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied, INSERT_UNION_EQ, INSERT_COMM]);
 
 val firstSet_nTopLevelDecs = Store_thm(
   "firstSet_nTopLevelDecs",
   ``firstSet cmlG [NN nTopLevelDecs] =
-      {ValT; FunT; DatatypeT; StructureT; ExceptionT}``,
+      {ValT; FunT; DatatypeT; StructureT; ExceptionT; TypeT}``,
   simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
   simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
   simp[INSERT_UNION_EQ, INSERT_COMM]);
@@ -230,11 +237,6 @@ val firstSet_nSpecLineList = Store_thm(
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied,
        INSERT_UNION_EQ, INSERT_COMM]);
-
-val firstSet_nTypeDec = Store_thm(
-  "firstSet_nTypeDec",
-  ``firstSet cmlG [NT (mkNT nTypeDec)] = {DatatypeT}``,
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied]);
 
 val firstSet_nV = store_thm(
   "firstSet_nV",
@@ -517,7 +519,8 @@ val NOTIN_firstSet_nE = Store_thm(
     ExceptionT ∉ firstSet cmlG (NT (mkNT nE) :: rest) ∧
     SemicolonT ∉ firstSet cmlG (NT (mkNT nE) :: rest) ∧
     RparT ∉ firstSet cmlG (NN nE :: rest) ∧
-    RbrackT ∉ firstSet cmlG (NN nE :: rest)``,
+    RbrackT ∉ firstSet cmlG (NN nE :: rest) ∧
+    TypeT ∉ firstSet cmlG (NN nE :: rest)``,
   simp[firstSet_nE, firstSet_nFQV] >>
   rpt (dsimp[Once firstSet_NT, cmlG_FDOM, cmlG_applied, disjImpI]))
 
@@ -636,6 +639,7 @@ val NOTIN_firstSet_nV = Store_thm(
     OfT ∉ firstSet cmlG [NN nV] ∧
     RaiseT ∉ firstSet cmlG [NN nV] ∧
     DatatypeT ∉ firstSet cmlG [NN nV] ∧
+    TypeT ∉ firstSet cmlG [NN nV] ∧
     SemicolonT ∉ firstSet cmlG [NN nV] ∧ ColonT ∉ firstSet cmlG [NN nV]``,
   simp[firstSet_nV]);
 
@@ -663,6 +667,7 @@ val NOTIN_firstSet_nFQV = Store_thm(
     OfT ∉ firstSet cmlG [NN nFQV] ∧
     DatatypeT ∉ firstSet cmlG [NN nFQV] ∧
     RaiseT ∉ firstSet cmlG [NN nFQV] ∧
+    TypeT ∉ firstSet cmlG [NN nFQV] ∧
     SemicolonT ∉ firstSet cmlG [NN nFQV] ∧ ColonT ∉ firstSet cmlG [NN nFQV]``,
   simp[firstSet_nFQV]);
 
@@ -694,6 +699,7 @@ val NOTIN_firstSet_nConstructorName = Store_thm(
     RparT ∉ firstSet cmlG [NN nConstructorName] ∧
     SemicolonT ∉ firstSet cmlG [NN nConstructorName] ∧
     ThenT ∉ firstSet cmlG [NN nConstructorName] ∧
+    TypeT ∉ firstSet cmlG [NN nConstructorName] ∧
     UnderbarT ∉ firstSet cmlG [NN nConstructorName] ∧
     ValT ∉ firstSet cmlG [NN nConstructorName]``,
   simp[firstSet_nConstructorName]);
@@ -1092,7 +1098,8 @@ val stoppers_def = Define`
   (stoppers nDecl = nestoppers DIFF {BarT; StarT; AndT; OfT}) ∧
   (stoppers nDecls =
      nestoppers DIFF
-     {BarT; StarT; AndT; SemicolonT; FunT; ValT; DatatypeT; OfT; ExceptionT}) ∧
+     {BarT; StarT; AndT; SemicolonT; FunT; ValT; DatatypeT; OfT; ExceptionT;
+      TypeT}) ∧
   (stoppers nDType = UNIV DIFF firstSet cmlG [NN nTyOp]) ∧
   (stoppers nDtypeCons =
      UNIV DIFF ({ArrowT; BarT; StarT; OfT} ∪ firstSet cmlG [NN nTyOp])) ∧
@@ -1166,6 +1173,8 @@ val stoppers_def = Define`
   (stoppers nFDecl = nestoppers) ∧
   (stoppers nLetDec = nestoppers DELETE AndT) ∧
   (stoppers nLetDecs = nestoppers DIFF {AndT; FunT; ValT; SemicolonT}) ∧
+  (stoppers nOptTypEqn =
+     UNIV DIFF ({ArrowT; StarT; EqualsT} ∪ firstSet cmlG [NN nTyOp])) ∧
   (stoppers nPapp =
      UNIV DIFF ({LparT; UnderbarT; LbrackT} ∪ { IntT i | T } ∪ { StringT s | T } ∪
                 firstSet cmlG [NN nV] ∪ firstSet cmlG [NN nConstructorName])) ∧
@@ -1181,16 +1190,21 @@ val stoppers_def = Define`
   (stoppers nPEs = nestoppers) ∧
   (stoppers nPType = UNIV DIFF ({StarT} ∪ firstSet cmlG [NN nTyOp])) ∧
   (stoppers nSpecLine =
-     UNIV DIFF ({ArrowT; AndT; BarT; StarT; OfT}∪ firstSet cmlG [NN nTyOp])) ∧
+     UNIV DIFF ({ArrowT; AndT; BarT; StarT; OfT; EqualsT} ∪
+                firstSet cmlG [NN nTyOp])) ∧
   (stoppers nSpecLineList =
      UNIV DIFF ({ValT; DatatypeT; TypeT; ExceptionT; SemicolonT;
-                ArrowT; AndT; BarT; StarT; OfT}∪ firstSet cmlG [NN nTyOp])) ∧
+                 ArrowT; AndT; BarT; StarT; OfT; EqualsT} ∪
+                firstSet cmlG [NN nTyOp])) ∧
   (stoppers nTopLevelDec =
      nestoppers DIFF {BarT; StarT; AndT; OfT}) ∧
   (stoppers nTopLevelDecs =
      nestoppers DIFF
-     {BarT; StarT; AndT; StructureT; OfT; ValT; FunT; DatatypeT; ExceptionT}) ∧
+     {BarT; StarT; AndT; StructureT; OfT; ValT; FunT; DatatypeT; ExceptionT;
+      TypeT}) ∧
   (stoppers nType = UNIV DIFF ({ArrowT; StarT} ∪ firstSet cmlG [NN nTyOp])) ∧
+  (stoppers nTypeAbbrevDec =
+     UNIV DIFF ({ArrowT; StarT} ∪ firstSet cmlG [NN nTyOp])) ∧
   (stoppers nTypeDec =
      UNIV DIFF ({AndT; ArrowT; StarT; BarT; OfT} ∪ firstSet cmlG [NN nTyOp])) ∧
   (stoppers nTypeList1 =
@@ -1648,6 +1662,15 @@ val completeness = store_thm(
                                             cmlG_applied, EXTENSION,
                                             DISJ_COMM, AND_IMP_INTRO]) >>
       simp[FDOM_cmlPEG])
+  >- (print_tac "nTypeAbbrevDec" >> dsimp[MAP_EQ_CONS] >>
+      qx_genl_tac [`nmpt`, `typt`] >> rw[] >>
+      fs[DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_CONS] >> rw[] >>
+      simp[peg_eval_NT_SOME] >>
+      simp[FDOM_cmlPEG, cmlpeg_rules_applied] >> dsimp[] >>
+      qexists_tac `[nmpt]` >> simp[] >>
+      fs[MAP_EQ_APPEND] >> rveq >> fs[MAP_EQ_CONS] >> rveq >>
+      REWRITE_TAC [GSYM APPEND_ASSOC, listTheory.APPEND] >>
+      first_assum (unify_firstconj kall_tac) >> simp[])
   >- (print_tac "nType" >>
       simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied, MAP_EQ_CONS] >> rw[] >>
       fs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >> rw[]
@@ -1808,6 +1831,9 @@ val completeness = store_thm(
       >- (DISJ1_TAC >> normlist >>
           first_assum (unify_firstconj kall_tac o has_length) >> simp[])
       >- simp[peg_eval_tok_NONE]
+      >- (simp[peg_eval_tok_NONE] >> DISJ1_TAC >> normlist >>
+          first_assum (unify_firstconj kall_tac) >> simp[] >> normlist >>
+          simp[] >> first_assum match_mp_tac >> simp[])
       >- simp[peg_eval_tok_NONE]
       >- simp[peg_eval_tok_NONE]
       >- (DISJ1_TAC >>
@@ -1843,11 +1869,9 @@ val completeness = store_thm(
                 by metis_tac [firstSet_nonempty_fringe] >>
               match_mp_tac peg_respects_firstSets >>
               simp[PEG_exprs] >> fs[]) >>
-          normlist >>
-          asimp[]) >>
+          normlist >> asimp[]) >>
       simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied, FDOM_cmlPEG] >>
-      normlist >>
-      asimp[])
+      normlist >> asimp[])
   >- (print_tac "nREPLPhrase" >> fs[FDOM_cmlPEG])
       (*
       (simp[MAP_EQ_CONS] >> rw[] >>
@@ -2009,6 +2033,10 @@ val completeness = store_thm(
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied]>>
       strip_tac >>
       fs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >> rw[] >>
+      Cases_on `sfx` >> simp[peg_eval_tok_NONE] >> fs[])
+  >- (print_tac "nOptTypEqn" >>
+      simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
+      strip_tac >> rw[] >> fs[MAP_EQ_CONS] >> rw[] >>
       Cases_on `sfx` >> simp[peg_eval_tok_NONE] >> fs[])
   >- (print_tac "nMultOps" >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
@@ -2429,13 +2457,25 @@ val completeness = store_thm(
           `0 < LENGTH (ptree_fringe tpt)`
             by metis_tac[fringe_length_not_nullable, nullable_TypeDec] >>
           pop_assum mp_tac >> simp[] >> Cases_on `pfx` >> fs[] >>
-          IMP_RES_THEN mp_tac firstSet_nonempty_fringe >> simp[]) >>
-      simp[NT_rank_def, peg_eval_tok_NONE] >>
-      asm_match `ptree_head tpt = NN nTypeDec` >>
-      `0 < LENGTH (ptree_fringe tpt)`
-        by metis_tac[fringe_length_not_nullable, nullable_TypeDec] >>
-      pop_assum mp_tac >> simp[] >> Cases_on `pfx` >> fs[] >>
-      IMP_RES_THEN mp_tac firstSet_nonempty_fringe >> simp[])
+          IMP_RES_THEN mp_tac firstSet_nonempty_fringe >> simp[])
+      >- (simp[NT_rank_def, peg_eval_tok_NONE] >>
+          asm_match `ptree_head tpt = NN nTypeDec` >>
+          `0 < LENGTH (ptree_fringe tpt)`
+            by metis_tac[fringe_length_not_nullable, nullable_TypeDec] >>
+          pop_assum mp_tac >> simp[] >> Cases_on `pfx` >> fs[] >>
+          IMP_RES_THEN mp_tac firstSet_nonempty_fringe >> simp[])
+      >- (dsimp[] >> asm_match `ptree_head tpt = NN nTypeAbbrevDec` >>
+          `0 < LENGTH (ptree_fringe tpt)`
+            by metis_tac[fringe_length_not_nullable, nullable_TypeAbbrevDec] >>
+          pop_assum mp_tac >> simp[] >> Cases_on `pfx` >> fs[] >>
+          IMP_RES_THEN mp_tac firstSet_nonempty_fringe >> simp[])
+      >- (asm_match `ptree_head tpt = NN nTypeAbbrevDec` >>
+          `0 < LENGTH (ptree_fringe tpt)`
+            by metis_tac[fringe_length_not_nullable, nullable_TypeAbbrevDec] >>
+          pop_assum mp_tac >> simp[] >> Cases_on `pfx` >> fs[] >>
+          IMP_RES_THEN mp_tac firstSet_nonempty_fringe >> simp[] >>
+          rpt strip_tac >> disj2_tac >> simp[peg_respects_firstSets] >> rw[] >>
+          first_x_assum match_mp_tac >> simp[NT_rank_def]))
   >- (print_tac "nDconstructor" >> stdstart
       >- (normlist >> first_assum (unify_firstconj kall_tac) >> simp[]) >>
       first_assum (unify_firstconj kall_tac) >> simp[NT_rank_def] >>
@@ -2497,6 +2537,5 @@ val cmlG_unambiguous = store_thm(
   first_x_assum (qspec_then `SOME ([], [pt2])`
                             (mp_tac o SIMP_RULE (srw_ss()) [])) >>
   metis_tac[]);
-
 
 val _ = export_theory();

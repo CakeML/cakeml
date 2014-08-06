@@ -228,6 +228,7 @@ val _ = Hol_datatype `
      Defines several types, each of which has several named variants, which can
      in turn have several arguments *)
   | Dtype of type_def
+  | Dtabbrev of tvarN list => typeN => t
   | Dexn of conN => t list`;
 
 
@@ -237,6 +238,7 @@ val _ = Hol_datatype `
  spec =
     Sval of varN => t
   | Stype of type_def
+  | Stabbrev of tvarN list => typeN => t
   | Stype_opq of tvarN list => typeN
   | Sexn of conN => t list`;
 

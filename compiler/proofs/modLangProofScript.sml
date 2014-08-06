@@ -1,7 +1,7 @@
 open preamble;
 open alistTheory optionTheory rich_listTheory;
 open miscTheory;
-open libTheory astTheory semanticPrimitivesTheory bigStepTheory initialEnvTheory terminationTheory;
+open libTheory astTheory semanticPrimitivesTheory bigStepTheory terminationTheory;
 open libPropsTheory;
 open bigClockTheory;
 open modLangTheory;
@@ -199,7 +199,7 @@ val (v_to_i1_rules, v_to_i1_ind, v_to_i1_cases) = Hol_reln `
   ⇒
   global_env_inv genv mods tops menv shadowers env)`;
 
-val v_to_i1_eqns = Q.prove (
+val v_to_i1_eqns = Q.store_thm ("v_to_i1_eqns",
 `(!genv l v.
   v_to_i1 genv (Litv l) v ⇔
     (v = Litv_i1 l)) ∧
@@ -1825,6 +1825,10 @@ val dec_to_i1_correct = Q.prove (
      >- metis_tac [letrec_global_env])
  >- fs [v_to_i1_eqns]
  >- fs [v_to_i1_eqns]
+ >- (rw [PULL_EXISTS, type_defs_to_new_tdecs_def, build_tdefs_def, check_dup_ctors_def] >>
+     unabbrev_all_tac >>
+     rw [ALL_DISTINCT, Once v_to_i1_cases] >>
+     rw [Once v_to_i1_cases])
  >- fs [v_to_i1_eqns]
  >- fs [v_to_i1_eqns]);
 
@@ -2409,38 +2413,5 @@ val whole_prog_to_i1_correct = Q.store_thm ("whole_prog_to_i1_correct",
  rw [] >>
  fs [no_dup_mods_def, no_dup_mods_i1_def, no_dup_top_types_def, no_dup_top_types_i1_def] >>
  metis_tac [prog_to_i1_mods, prog_to_i1_top_types, prog_to_i1_mods_ok, NOT_EVERY]);
-
-val init_mods_def = Define `
-  init_mods = FEMPTY`;
-
-val init_tops_def = Define `
-  init_tops = FEMPTY |++ alloc_defs 0 (MAP FST init_env)`;
-
-val init_genv_def = Define `
-  init_genv =
-    MAP (\(x,v).
-           case v of
-             | Closure _ x e => SOME (Closure_i1 (init_envC,[]) x (exp_to_i1 init_mods (init_tops\\x) e)))
-        init_env`;
-
-val initial_i1_invariant = Q.prove (
-`global_env_inv init_genv init_mods init_tops [] {} init_env ∧
- LIST_REL (sv_to_i1 init_genv) [] []`,
- rw [last (CONJUNCTS v_to_i1_eqns)]
- >- (rw [v_to_i1_eqns, init_tops_def] >>
-     fs [init_env_def, alloc_defs_def] >>
-     rpt (full_case_tac
-          >- (rw [] >>
-              rw [flookup_fupdate_list] >>
-              rw [init_genv_def, Once v_to_i1_cases] >>
-              rw [v_to_i1_eqns] >>
-              rw [init_env_def, DRESTRICT_UNIV] >>
-              metis_tac [])) >>
-     fs []));
-
-val init_to_i1_invariant = Q.store_thm ("init_to_i1_invariant",
-`!count. to_i1_invariant init_genv init_mods init_tops [] init_env (count,[]) (count,[]) {}`,
- rw [to_i1_invariant_def, s_to_i1_cases] >>
- metis_tac [initial_i1_invariant]);
 
 val _ = export_theory ();

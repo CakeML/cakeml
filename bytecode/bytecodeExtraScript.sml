@@ -358,8 +358,8 @@ val bc_next_append_code = store_thm("bc_next_append_code",
   rw[bc_state_component_equality] >>
   fs[bc_eval_stack_thm] >>
   rw[stringTheory.IMPLODE_EXPLODE_I] >>
-  BasicProvers.CASE_TAC >>
-  rw[bc_state_component_equality,PRE_SUB1])
+  TRY (BasicProvers.CASE_TAC >> rw[bc_state_component_equality,PRE_SUB1]) >>
+  wordsLib.WORD_DECIDE_TAC);
 
 val bc_next_preserves_code = store_thm("bc_next_preserves_code",
   ``∀bs1 bs2. bc_next bs1 bs2 ⇒ (bs2.code = bs1.code)``,
@@ -455,5 +455,12 @@ val good_labels_def = Define`
   good_labels nl code ⇔
     ALL_DISTINCT (FILTER is_Label code) ∧
     EVERY (combin$C $< nl o dest_Label) (FILTER is_Label code)`
+
+val code_executes_ok_def = Define `
+  code_executes_ok s1 ⇔
+      (* termination *)
+      (?s2 b. bc_next^* s1 s2 /\ bc_fetch s2 = SOME (Stop b)) \/
+      (* or divergence with no output *)
+      !n. ?s2. NRC bc_next n s1 s2 /\ (s2.output = s1.output)`;
 
 val _ = export_theory()

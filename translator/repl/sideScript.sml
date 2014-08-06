@@ -101,8 +101,27 @@ rw [generalise_def] >>
 rw [] >>
 metis_tac [SND]);
 
+val type_name_subst_side_thm = store_thm("type_name_subst_side_thm",
+  ``∀a b. check_type_names a b
+    ⇒ type_name_subst_side a b``,
+  ho_match_mp_tac terminationTheory.type_name_subst_ind >>
+  rw[Once type_name_subst_side_def] >>
+  rw[Once type_name_subst_side_def] >>
+  fs[terminationTheory.check_type_names_def,EVERY_MEM])
+
+val build_ctor_tenv_side_thm = store_thm("build_ctor_tenv_side_thm",
+  ``∀x y z. check_ctor_tenv x y z ⇒ build_ctor_tenv_side x y z``,
+  rw[build_ctor_tenv_side_def] >>
+  fs[typeSystemTheory.check_ctor_tenv_def] >>
+  fs[EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
+  last_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >> simp[] >> strip_tac >>
+  first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >> simp[] >> strip_tac >>
+  first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >> simp[] >> strip_tac >>
+  match_mp_tac type_name_subst_side_thm >>
+  pop_assum ACCEPT_TAC);
+
 val infer_d_side_thm = Q.store_thm ("infer_d_side_thm",
-`!mn decls menv cenv env d st. infer_d_side mn decls menv cenv env d st`,
+`!mn decls z menv cenv env d st. infer_d_side mn decls z menv cenv env d st`,
 rw [infer_d_side_def] >>
 fs [init_state_def, success_eqns] >>
 rw [add_constraint_side_def, apply_subst_list_side_def] >>
@@ -139,21 +158,24 @@ rw [add_constraint_side_def, apply_subst_list_side_def] >>
      fs [],
  imp_res_tac pure_add_constraints_wfs >>
      imp_res_tac infer_e_wfs >>
-     fs []]);
+     fs [],
+ match_mp_tac build_ctor_tenv_side_thm >>
+ last_x_assum mp_tac >> rw[]]);
 
 val infer_ds_side_thm = Q.store_thm ("infer_ds_side_thm",
-`!mn decls menv cenv env ds st. infer_ds_side mn decls menv cenv env ds st`,
+`!mn decls z menv cenv env ds st. infer_ds_side mn decls z menv cenv env ds st`,
 induct_on `ds` >>
 rw [] >>
 rw [Once infer_ds_side_def, infer_d_side_thm]);
 
 val check_specs_side_thm = Q.store_thm ("check_specs_side_thm",
-`!mn decls cenv env specs st. check_specs_side mn decls cenv env specs st`,
+`!mn decls z y cenv env specs st. check_specs_side mn decls z y cenv env specs st`,
 (check_specs_ind |> SPEC_ALL |> UNDISCH |> Q.SPEC`v`
   |> SIMP_RULE std_ss [GSYM FORALL_PROD] |> Q.GEN`v` |> DISCH_ALL
   |> Q.GEN`P` |> ho_match_mp_tac) >>
 rw [] >>
-rw [Once check_specs_side_def, rich_listTheory.LENGTH_COUNT_LIST]);
+rw [Once check_specs_side_def, rich_listTheory.LENGTH_COUNT_LIST] >>
+match_mp_tac build_ctor_tenv_side_thm >>rw[]);
 
 val check_weake_side_thm = Q.store_thm ("check_weake_side_thm",
 `!env specs st. check_weake_side env specs st`,
@@ -165,11 +187,11 @@ rw [] >>
 fs [init_infer_state_def, unifyTheory.t_wfs_def]);
 
 val check_signature_side_thm = Q.store_thm ("check_signature_side_thm",
-`!mn decls cenv env specs st foo. check_signature_side mn decls cenv env specs st foo`,
+`!mn decls cenv env specs st baz bar foo. check_signature_side mn decls cenv env specs st baz bar foo`,
 rw [check_signature_side_def, check_specs_side_thm ,check_weake_side_thm]);
 
 val infer_top_side_thm = Q.store_thm ("infer_top_side_thm",
-`!menv cenv env top st foo. infer_top_side menv cenv env top st foo`,
+`!menv cenv env top st bar foo. infer_top_side menv cenv env top st bar foo`,
 rw [infer_top_side_def, infer_ds_side_thm, infer_d_side_thm,
     check_signature_side_thm]);
 
@@ -197,15 +219,23 @@ val compile_top_side_thm = store_thm("compile_top_side_thm",
   qsuff_tac`b`>-rw[]>> unabbrev_all_tac >>
   simp[compile_print_vals_side_thm])
 
-val parse_elaborate_infertype_compile_side_thm = Q.store_thm ("parse_elaborate_infertype_compile_side_thm",
-`!toks st. parse_elaborate_infertype_compile_side toks st`,
- rw [parse_elaborate_infertype_compile_side_def, infertype_top_side_def] >-
+val parse_infertype_compile_side_thm = Q.store_thm ("parse_infertype_compile_side_thm",
+`!toks st. parse_infertype_compile_side toks st`,
+ rw [parse_infertype_compile_side_def, infertype_top_side_def] >-
  metis_tac [infer_top_side_thm] >-
  metis_tac [compile_top_side_thm])
 
 val repl_step_side_thm = Q.store_thm ("repl_step_side_thm",
 `!x. repl_step_side x = T`,
  rw [repl_step_side_def] >>
- metis_tac [parse_elaborate_infertype_compile_side_thm]);
+ metis_tac [parse_infertype_compile_side_thm]);
+
+val basis_state_side_thm = store_thm("basis_state_side_thm",
+  ``basis_state_side = T``,
+  rw[basis_state_side_def,initCompEnvTheory.prim_env_eq,initCompEnvTheory.basis_env_eq])
+
+val basis_repl_step_side_thm = store_thm("basis_repl_step_side_thm",
+  ``!x. basis_repl_step_side x = T``,
+  rw[basis_repl_step_side_def,repl_step_side_thm,basis_state_side_thm])
 
 val _ = export_theory ();

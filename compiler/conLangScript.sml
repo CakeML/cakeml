@@ -48,14 +48,14 @@ val _ = Define `
  (tuple_tag =( 0))`;
 
 
-(*val div_tag : nat*)
-val _ = Define `
- (div_tag =( 1))`;
-
-
 (*val bind_tag : nat*)
 val _ = Define `
- (bind_tag =( 2))`;
+ (bind_tag =( 1))`;
+
+
+(*val div_tag : nat*)
+val _ = Define `
+ (div_tag =( 2))`;
 
 
 (*val eq_tag : nat*)
@@ -63,9 +63,9 @@ val _ = Define `
  (eq_tag =( 3))`;
 
 
-(*val cons_tag : nat*)
+(*val subscript_tag : nat*)
 val _ = Define `
- (cons_tag =( 4))`;
+ (subscript_tag =( 4))`;
 
 
 (*val nil_tag : nat*)
@@ -73,9 +73,9 @@ val _ = Define `
  (nil_tag =( 5))`;
 
 
-(*val some_tag : nat*)
+(*val cons_tag : nat*)
 val _ = Define `
- (some_tag =( 6))`;
+ (cons_tag =( 6))`;
 
 
 (*val none_tag : nat*)
@@ -83,15 +83,15 @@ val _ = Define `
  (none_tag =( 7))`;
 
 
-(*val subscript_tag : nat*)
+(*val some_tag : nat*)
 val _ = Define `
- (subscript_tag =( 8))`;
+ (some_tag =( 8))`;
 
 
 val _ = type_abbrev( "exh_ctors_env" , ``: (( typeN id),  unit spt) fmap``);
 
 val _ = Hol_datatype `
- op_i2 = 
+ op_i2 =
     Op_i2 of op
   | Init_global_var_i2 of num`;
 
@@ -303,8 +303,8 @@ val _ = Define `
       (\ (tvs,tn,constrs) . 
         (mk_id mn tn,
          FOLDL
-           (\ s (cn,ts) .  insert (FST (option_CASE (FLOOKUP acc cn) ( 0,NONE) I)) ()  s)
-           LN constrs))
+           (\ s (cn,ts) .  sptree$insert (FST (option_CASE (FLOOKUP acc cn) ( 0,NONE) I)) ()  s)
+           sptree$LN constrs))
       tds)))`;
 
 
@@ -566,7 +566,7 @@ val _ = Define `
     (case FLOOKUP exh t of
         NONE => Match_type_error
       | SOME tags =>
-          if n IN (domain tags) /\ n' IN (domain tags) then
+          if n IN (sptree$domain tags) /\ n' IN (sptree$domain tags) then
             if n = n' then
               if LENGTH ps = LENGTH vs then
                 pmatch_list_i2 exh s ps vs env
@@ -910,35 +910,6 @@ evaluate_prog_i2 ck exh genv s1 (prompt::prompts) (s3, (env2++env3), r))
 (evaluate_prompt_i2 ck exh genv s1 prompt (s2, env2, SOME err))
 ==>
 evaluate_prog_i2 ck exh genv s1 (prompt::prompts) (s2, env2, SOME err))`;
-
-(*val init_tagenv_state : (nat * tag_env * map nat (conN * tid_or_exn))*)
-val _ = Define `
- (init_tagenv_state =
-  ( 9,
-   (FEMPTY,
-    FUPDATE_LIST FEMPTY [("Div", (div_tag, SOME (TypeExn (Short "Div")))); 
-                  ("Bind", (bind_tag,SOME (TypeExn (Short "Bind")))); 
-                  ("Eq", (eq_tag, SOME (TypeExn (Short "Eq")))); 
-                  ("Subscript", (subscript_tag, SOME (TypeExn (Short "Subscript")))); 
-                  ("::", (cons_tag, SOME (TypeId (Short "list"))));
-                  ("nil", (nil_tag, SOME (TypeId (Short "list"))));
-                  ("SOME", (some_tag, SOME (TypeId (Short "option"))));
-                  ("NONE", (none_tag, SOME (TypeId (Short "option"))))]),
-   FUPDATE_LIST FEMPTY [(div_tag, ("Div", TypeExn (Short "Div"))); 
-                 (bind_tag, ("Bind", TypeExn (Short "Bind"))); 
-                 (eq_tag, ("Eq", TypeExn (Short "Eq"))); 
-                 (subscript_tag, ("Subscript", TypeExn (Short "Subscript"))); 
-                 (cons_tag, ("::", TypeId (Short "list")));
-                 (nil_tag, ("nil", TypeId (Short "list")));
-                 (some_tag, ("SOME", TypeId (Short "option")));
-                 (none_tag, ("NONE", TypeId (Short "option")))]))`;
-
-
-(*val init_exh : exh_ctors_env*)
-val _ = Define `
- (init_exh =  
-(FUPDATE_LIST FEMPTY [(Short "list", (FOLDL (\ s n. insert n ()  s) LN [cons_tag; nil_tag]));
-     (Short "option", (FOLDL (\ s n. insert n ()  s) LN [some_tag; none_tag]))]))`;
 
 val _ = export_theory()
 

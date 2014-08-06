@@ -310,6 +310,11 @@ evaluate_dec ck mn env (s,tdecs) (Dtype tds) ((s,(new_tdecs UNION tdecs)), Rval 
 ==>
 evaluate_dec ck mn env (s,tdecs) (Dtype tds) ((s,tdecs), Rerr Rtype_error))
 
+/\ (! ck mn env tvs tn t s tdecs. 
+T
+==>
+evaluate_dec ck mn env (s,tdecs) (Dtabbrev tvs tn t) ((s,tdecs), Rval (emp, emp)))
+
 /\ (! ck mn env cn ts s tdecs.
 (~ (TypeExn (mk_id mn cn) IN tdecs))
 ==>
@@ -442,8 +447,8 @@ val _ = Define `
  (evaluate_whole_prog ck env s1 tops (s2, new_tds, res) =  
 (if no_dup_mods tops s1 /\ no_dup_top_types tops s1 then
     evaluate_prog ck env s1 tops (s2, new_tds, res)
-  else
-    res = Rerr Rtype_error))`;
+  else    
+(s1 = s2) /\ (new_tds = (emp,emp)) /\ (res = Rerr Rtype_error)))`;
 
 
 val _ = Define `
@@ -452,6 +457,7 @@ val _ = Define `
       Dlet p e => ALL_DISTINCT (pat_bindings p []) /\ e_diverges env st e
     | Dletrec funs => F
     | Dtype tds => F
+    | Dtabbrev tvs tn t => F
     | Dexn cn ts => F
   )))`;
 

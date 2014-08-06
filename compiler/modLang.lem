@@ -182,6 +182,8 @@ let dec_to_i1 next mn menv env d =
            Dletrec_i1 (funs_to_i1 menv (List.foldl (fun env (k,v) -> Map.insert k v env) env env') (List.reverse funs)))
     | Dtype type_def ->
         (next, [], Dtype_i1 mn type_def)
+    | Dtabbrev tvs tn t ->
+        (next, [], Dtype_i1 mn [])
     | Dexn cn ts ->
         (next, [], Dexn_i1 mn cn ts)
   end

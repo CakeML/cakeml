@@ -42,9 +42,9 @@ val nat_set_insert : nat_set -> nat -> nat_set
 val nat_set_to_set : nat_set -> set nat
 val nat_set_elem : nat_set -> nat -> bool
 val nat_set_from_list : list nat -> nat_set
-declare hol target_rep function nat_set_empty = `LN`
-declare hol target_rep function nat_set_insert s n = `insert` n () s
-declare hol target_rep function nat_set_to_set s = `domain` s
+declare hol target_rep function nat_set_empty = `sptree$LN`
+declare hol target_rep function nat_set_insert s n = `sptree$insert` n () s
+declare hol target_rep function nat_set_to_set s = `sptree$domain` s
 declare hol target_rep function nat_set_elem s n = n IN (nat_set_to_set s)
 declare hol target_rep function nat_set_from_list = List.foldl nat_set_insert nat_set_empty
 
