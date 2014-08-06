@@ -76,9 +76,11 @@ The escape character is \verb|\|, and it supports the following:
 
 \paragraph{Tuples} A tuple of values is surrounded by parentheses and separated by commas. For example, \texttt{(1,2,true)} is a three element tuple. The empty tuple \texttt{()} is the (only) member of the special type \texttt{unit}. The type of a tuple is formed from the types of its members, separated by \texttt{*}, so the previous tuple has type \texttt{int * int * bool}. There are no operations on tuples (but see \S\ref{expressions} on pattern matching).
 
-\paragraph{Lists} A list of values is surrounded by square brackets and separated by commas. Each element of the list must have the same type. The expression \texttt{[1,2,3,4]} is a list of integers containing four elements. Its type is \texttt{int list}. The empty list is written \texttt{[]}, and has a polymorphic type \texttt{'a list}, indicating that it can be used as an empty list of any type of contents. The cons operator (constructing a list with one more element) is written as \texttt{::}, so the above list could also have been written as \texttt{1::2::3::4::[]}. There are no operations for de-structuring lists (but see \S\ref{expressions} on pattern matching).
+\paragraph{Lists} A list of values is surrounded by square brackets and separated by commas. Each element of the list must have the same type. For example, the expression \texttt{[1,2,3,4]} is a list of integers containing four elements. Its type is \texttt{int list}. The empty list is written \texttt{[]}, and has a polymorphic type \texttt{'a list}, indicating that it can be used as an empty list of any type of contents. The cons operator (constructing a list with one more element) is written as \texttt{::}, so the above list could also have been written as \texttt{1::2::3::4::[]}. There are no operations for de-structuring lists (but see \S\ref{expressions} on pattern matching).
 
-\paragraph{Options}
+\paragraph{Options} An optional value is either \texttt{NONE}, indicating that no value is present, or \texttt{SOME}\ $v$ for a value $v$. They type of an optional value that might contain a value of type $\tau$ is $\tau$\ \texttt{option}. There are no operations for de-structuring options (but see \S\ref{expressions} on pattern matching).
+
+
 
 \paragraph{Vectors}
 
@@ -134,26 +136,34 @@ The following are the supported operations on byte arrays. If an index is out of
 \paragraph{Infix operators}
 
 \begin{figure}
-\begin{itemize}
-\item \texttt{*} \texttt{div} \texttt{mod} \texttt{/}
-\item \texttt{+} \texttt{-}
-\item \texttt{@} \texttt{::}
-\item \texttt{<} \texttt{>} \texttt{<=} \texttt{>=} \texttt{<>} \texttt{=}
-\item \texttt{o} \texttt{:=}
-\item \texttt{before}
-\item \texttt{orelse} \texttt{andalso}
-\end{itemize}
-\caption{Infix operators from tightest to loosest binding}
+\centering
+\begin{tabular}{l}
+ \texttt{*} \texttt{div} \texttt{mod} \texttt{/}\\
+ \texttt{+} \texttt{-}\\
+ \texttt{@} \texttt{::}\\
+ \texttt{<} \texttt{>} \texttt{<=} \texttt{>=} \texttt{<>} \texttt{=}\\
+ \texttt{o} \texttt{:=}\\
+ \texttt{before}\\
+ \texttt{orelse} \texttt{andalso}
+ \end{tabular}
+\caption{Infix operators from tightest (at the top) to loosest binding}
 \label{precedences}
 \end{figure}
 
-Figure~\ref{precedences}.
+CakeML supports the limited set of infix operators listed in Figure~\ref{precedences}.
 
 
 \paragraph{Variables}
 
-A variable must begin with a lower case letter. \TODO{Put reserved words here.}
+A variable must begin with a lower case letter, and be alphanumeric (letters, numbers, \texttt{\_}, and \texttt{'}), or it can be symbolic, consisting entirely of the following characters: \verb)! % & $ # + - / : < = > ? @ \ ~ ^ | ` *). It cannot be any of the following reserved words:
+\begin{verbatim}
+and  andalso  before  case  datatype  div  else  end  exception
+false  fn  handle  if  in  let  mod  nil  o  of  orelse  raise
+ref  sig  struct  structure  then  true  type  val
+:=  :>  ::  @  =>  =  :  |  +  *  -  /  <  >  <=  >=  <>
+\end{verbatim}
 
+Variables in expressions can be prefixed with a structure name S with a full stop (\texttt{.}) character in between. For example, \texttt{Vector.length} refers to the binding of length in the structure Vector. Where variables are bound in patterns or as function names or parameters, a structure prefix must not be present.
 
 \paragraph{Equality}
 
@@ -162,6 +172,10 @@ The infix equality operator \texttt{=} checks whether two values are equal, retu
 If the equality function encounters a function value while traversing its arguments, it raises the \texttt{Eq} exception.
 
 \paragraph{Conditionals}
+%
+\[\texttt{if}\ e_1\ \texttt{then}\ e_2\ \texttt{else}\ e_3\]
+
+A conditional expression (above) evaluates expression $e_1$, and if it is \texttt{true}, then return the value of $e_2$, otherwise return the value of $e_3$. $e_1$ must have type \texttt{bool}, and $e_2$ and $e_3$ must have the same type.
 
 \paragraph{Functions}
 
@@ -189,6 +203,8 @@ CakeML has a fixed set of infix operators, and does not support user defined par
 
 Floating point numbers are not supported, nor are word constants (numbers prefixed with \texttt{0w} or \texttt{0xw}), or integer constants written in hexadecimal notation (\texttt{0x}). Lastly, only the most basic escape sequences are supported in strings (just \texttt{\textbackslash n}, \texttt{\textbackslash t}, \texttt{\textbackslash "}, and \texttt{\textbackslash\textbackslash}), and character constants (\texttt{e.g., \#"a"}) are not supported at all.
 
+Syntactic sugar for functions with pattern parameters is not provided, instead parameters are variables, and must be matched against with \texttt{case} expressions, if desired.
+
 \subsection{Syntactic and semantic differences}
 
 All names must follow the OCaml convention where structure and constructor names start with a capital letter, and type and variable names must either start with a lower case letter, or be symbolic names.
@@ -213,9 +229,17 @@ The \texttt{=} operator does not traverse mutable data (arrays and references), 
 
 \chapter{Formal syntax and semantics}
 
-\section{Grammar}
+\section{Lexical and context free syntax}
 
-\TODO{Lexical syntax for alpha, i, str, tn, v, fqv, C, fqC, S}
+\[
+\begin{array}{lcll}
+\alpha&=& \mbox{\texttt{'}[\texttt{a}-\texttt{z}\texttt{A}-\texttt{Z}\texttt{'}\texttt{\_}]}^*&\mbox{type variable}\\
+i &=& \verb|~|^?\mbox{[\texttt{0}-\texttt{9}]}^+&\mbox{integer constant}\\
+\end{array}
+\]
+
+
+\TODO{Lexical syntax for str, tn, v, fqv, C, fqC, S}
 
 \[
 \begin{array}{lcll}
