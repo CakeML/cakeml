@@ -7,6 +7,7 @@
 \usepackage{supertabular}
 
 \usepackage{xcolor}
+\usepackage{lem}
 
 \newcommand{\TODO}[1]{{\color{red}#1}}
 
@@ -341,6 +342,87 @@ s &::=& \texttt{:>}\ \texttt{sig}\ (\mathit{sp}|\texttt{;})^*\ \texttt{end}&\mbo
 
 
 \section{Abstract syntax}
+
+The abstract syntax of CakeML is defined in Lem in \texttt{semantics/ast.lem}\footnote{\url{https://github.com/CakeML/cakeml/blob/master/semantics/ast.lem}}. This file is included here.
+
+{\setlength{\parindent}{0pt}
+\TODO{Figure out why Lem is omitting leading comments. Possibly change the typesetting}
+\include{lem-generated/Ast-inc}
+
+\LEMTypeLit
+
+\LEMTypeOpn
+
+\LEMTypeOpb
+
+\LEMTypeModN
+
+\LEMTypeId
+
+\LEMTypeVarN
+
+\LEMTypeConN
+
+\LEMTypeTypeN
+
+\LEMTypeTvarN
+
+\LEMValspecMkId
+
+\LEMmkId
+
+\LEMValspecIdToN
+
+\LEMidToN
+
+\LEMTypeOp
+
+\LEMTypeLop
+
+\LEMTypeTctor
+
+\LEMTypeT
+
+\LEMTint
+
+\LEMTstring
+
+\LEMTunit
+
+\LEMTbool
+
+\LEMTref
+
+\LEMTwordEight
+
+\LEMTwordEightarray
+
+\LEMTfn
+
+\LEMTexn
+
+\LEMTypePat
+
+\LEMTypeExp
+
+\LEMTypeTypeDef
+
+\LEMTypeDec
+
+\LEMTypeDecs
+
+\LEMTypeSpec
+
+\LEMTypeSpecs
+
+\LEMTypeTop
+
+\LEMTypeProg
+
+\LEMValspecPatBindings
+
+\LEMconstZero
+}
 
 \section{Type system}
 

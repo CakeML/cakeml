@@ -359,6 +359,23 @@ and v_to_list (Conv (Just (cn,TypeId (Short tn))) [v1;v2]) =
     Nothing
 and v_to_list _ = Nothing
 
+val opn_lookup : opn -> integer -> integer -> integer
+let opn_lookup n : integer -> integer -> integer = match n with
+  | Plus -> (+)
+  | Minus -> (-)
+  | Times -> ( * )
+  | Divide -> (/)
+  | Modulo -> (mod)
+end
+
+val opb_lookup : opb -> integer -> integer -> bool
+let opb_lookup n : integer -> integer -> bool = match n with
+  | Lt -> (<)
+  | Gt -> (>)
+  | Leq -> (<=)
+  | Geq -> (>=)
+end
+
 val do_app : store v -> op -> list v -> maybe (store v * result v v)
 let do_app s op vs =
   match (op, vs) with

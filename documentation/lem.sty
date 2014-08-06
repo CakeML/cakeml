@@ -1,0 +1,109 @@
+%========================================================================%
+%                        Lem                                             %
+%                                                                        %
+%          Dominic Mulligan, University of Cambridge                     %
+%          Francesco Zappa Nardelli, INRIA Paris-Rocquencourt            %
+%          Gabriel Kerneis, University of Cambridge                      %
+%          Kathy Gray, University of Cambridge                           %
+%          Peter Boehm, University of Cambridge (while working on Lem)   %
+%          Peter Sewell, University of Cambridge                         %
+%          Scott Owens, University of Kent                               %
+%          Thomas Tuerk, University of Cambridge                         %
+%                                                                        %
+%  The Lem sources are copyright 2010-2013                               %
+%  by the UK authors above and Institut National de Recherche en         %
+%  Informatique et en Automatique (INRIA).                               %
+%                                                                        %
+%  All files except ocaml-lib/pmap.{ml,mli} and ocaml-libpset.{ml,mli}   %
+%  are distributed under the license below.  The former are distributed  %
+%  under the LGPLv2, as in the LICENSE file.                             %
+%                                                                        %
+%                                                                        %
+%  Redistribution and use in source and binary forms, with or without    %
+%  modification, are permitted provided that the following conditions    %
+%  are met:                                                              %
+%  1. Redistributions of source code must retain the above copyright     %
+%  notice, this list of conditions and the following disclaimer.         %
+%  2. Redistributions in binary form must reproduce the above copyright  %
+%  notice, this list of conditions and the following disclaimer in the   %
+%  documentation and/or other materials provided with the distribution.  %
+%  3. The names of the authors may not be used to endorse or promote     %
+%  products derived from this software without specific prior written    %
+%  permission.                                                           %
+%                                                                        %
+%  THIS SOFTWARE IS PROVIDED BY THE AUTHORS ``AS IS'' AND ANY EXPRESS    %
+%  OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED     %
+%  WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE    %
+%  ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY       %
+%  DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL    %
+%  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE     %
+%  GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS         %
+%  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER  %
+%  IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR       %
+%  OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN   %
+%  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.                         %
+%========================================================================%
+
+\usepackage{xstring}
+\usepackage{ifthen}
+
+%auxiliary definitions for records
+\newcommand{\lemlrec}{\langle\!\mid}
+\newcommand{\lemrrec}{\mid\!\rangle}
+
+
+%formatting for various Lem entities
+\newcommand{\lemkw}[1]{\textsf{#1}}
+
+\newcommand{\lemTermConst}[1]{\textrm{#1}}
+\newcommand{\lemTermConstQuote}[1]{\texttt{'#1'}}
+\newcommand{\lemComponent}[1]{\textsf{#1}}
+\newcommand{\lemTermField}[1]{\mathit{#1}}
+\newcommand{\lemTermMethod}[1]{\mathit{#1}}
+\newcommand{\lemTermVar}[1]{\mathit{#1}}
+\newcommand{\lemTermVarToplevel}[1]{\mathit{#1}}
+\newcommand{\lemTermSpec}[1]{\mathit{#1}}
+\newcommand{\lemTypeCtor}[1]{\textsc{#1}}
+\newcommand{\lemTypeCtorQuote}[1]{\texttt{'#1'}}
+\newcommand{\lemModuleName}[1]{\mathit{#1}}
+\newcommand{\lemClassName}[1]{\mathit{#1}}
+\newcommand{\lemTarget}[1]{\mathit{#1}}
+
+\newcommand{\lemTypeVar}[1]{\mathit{'\!#1}}
+\newcommand{\lemTypeVarA}{\lemTypeVar{a}}
+\newcommand{\lemTypeVarB}{\lemTypeVar{b}}
+\newcommand{\lemTypeVarC}{\lemTypeVar{c}}
+\newcommand{\lemTypeVarD}{\lemTypeVar{d}}
+
+% comment the following re-definintion out, if you prefer 'a instead of \alpha ...
+\renewcommand{\lemTypeVarA}{\alpha}
+\renewcommand{\lemTypeVarB}{\beta}
+\renewcommand{\lemTypeVarC}{\gamma}
+\renewcommand{\lemTypeVarD}{\delta}
+
+
+%comments and defs
+\newcommand{\lemcomm}[1]{${\tt #1}$\displaystyle}
+\newcommand{\lemdef}[1]{$\displaystyle #1$}
+
+% inc macros that allow choosing what exactly to print
+% #1 what to print
+% #2 latex label
+% #3 typeset name (eg to go in index and contents line)
+% #4 immediately-preceding comment
+% #5 full def
+% #6 core
+% #7 immediately-following comment
+\newcommand{\newlineAfter}[1]{\ifthenelse{\equal{#1}{}}{}{#1\\}}
+\newcommand{\lemdefn}[7]{
+\IfEqCase{#1}{%
+  {default}{\label{#2}\lemdef{#5}}
+  {defWithComment}{\label{#2}\lemdef{\newlineAfter{#4}\newlineAfter{#5}}}
+  {def}{\label{#2}\lemdef{#5}}
+  {comment}{\lemdef{#4}}
+  {commentPre}{\lemdef{#4}}
+  {commentPost}{\lemdef{#7}}
+  {core}{\lemdef{#6}}
+  {label}{#2}
+  {name}{#3}}%
+  [UNKNOWN ARGUMENT TO lemdefn]}
