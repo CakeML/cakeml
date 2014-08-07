@@ -10,7 +10,6 @@ open stringTheory listTheory pairTheory;
 open astTheory libTheory bigStepTheory semanticPrimitivesTheory;
 open terminationTheory lcsymtacs;
 
-
 infix \\ val op \\ = op THEN;
 
 (* a few basics *)
@@ -190,6 +189,8 @@ val EvalM_def = Define `
                             P (refs,s) (refs2,s2,res) /\ HOL_STORE s2 refs2`;
 
 (* refinement invariant for ``:'a M`` *)
+
+val _ = type_abbrev("M", ``:hol_refs -> 'a hol_result # hol_refs``);
 
 val HOL_MONAD_def = Define `
   HOL_MONAD (a:'a->v->bool) (x:'a M) (state1:hol_refs,s1:v store)
@@ -742,6 +743,7 @@ val simple_decl_IMP = prove(
   Q.SPEC_TAC (`k`,`k`) \\ SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [DeclAssum_def,Decls_APPEND,SNOC_APPEND,
        Decls_Dlet,Eval_Var_SIMP,EVERY_APPEND,EVERY_DEF]
+  \\ FULL_SIMP_TAC (srw_ss()) [initSemEnvTheory.prim_sem_env_eq]
   \\ Cases_on `exp` \\ fs [simple_decl_def,evaluate_SIMP]
   \\ Cases_on `l` \\ fs [simple_decl_def,evaluate_SIMP]
   \\ Cases_on `t` \\ fs [simple_decl_def]
