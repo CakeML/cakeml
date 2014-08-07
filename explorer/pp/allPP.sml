@@ -2,8 +2,8 @@ structure allPP = struct local
 open astPP modPP conPP exhPP patPP intPP
 open preamble
 open HolKernel boolLib bossLib Parse
-open compute_basicLib compute_parsingLib compute_compilerLib compute_inferenceLib compute_semanticsLib compute_bytecodeLib
-open lexer_implTheory free_varsTheory
+open compute_basicLib compute_parsingLib compute_compilerLib compute_inferenceLib compute_semanticsLib compute_bytecodeLib compute_free_varsLib compute_x64Lib
+open lexer_implTheory
 open initialProgramTheory initCompEnvTheory
 
 val get_all_asts_def = tDefine "get_all_asts" `
@@ -42,19 +42,9 @@ val _ = add_ast_compset cs
 val _ = add_lexparse_compset cs
 val _ = add_bytecode_compset cs
 val _ = add_labels_compset cs
+val _ = add_free_vars_compset cs
+val _ = add_x64_compset cs
 val _ = computeLib.add_thms  [basis_env_eq,compile_primitives_def,get_all_asts_def,remove_labels_all_asts_def] cs
-
-val _ = computeLib.add_thms
-      [closed_prog_def
-      ,FV_prog_def
-      ,new_top_vs_def
-      ,new_dec_vs_def
-      ,FV_top_def
-      ,global_dom_def
-      ,FV_decs_def
-      ,FV_dec_def
-      ,FV_def
-      ] cs
 
 val _ =
       let
@@ -68,6 +58,7 @@ val _ =
         computeLib.add_thms [uses_label_def] cs
       end
 val _ = compute_basicLib.add_datatype ``:comp_environment`` cs
+
 val eval = computeLib.CBV_CONV cs
 
 in
@@ -179,15 +170,15 @@ fun allIntermediates prog =
       val rem_labels = with_flag (quiet,true) eval ``remove_labels_all_asts real_inst_length (Success ^(p7))``
 
       (*Bytecode to asm*)
-      (*val asm = eval ``x64_code 0 ^(rhsThm rem_labels |> rand)``
-      val p9 = rhsThm asm*)
+      val asm = eval ``x64_code 0 ^(rhsThm rem_labels |> rand)``
+      val p9 = rhsThm asm
 
       val p8 = rhsThm (eval ``(NONE,^(p8))``)
 
       val p7 = rhsThm (eval ``(SOME x,^(p7))``)
       
   in
-     {ils=[ast,p1,p2,p3,p4,p5,p6,p7,p8],
+     {ils=[ast,p1,p2,p3,p4,p5,p6,p7,p8,p9],
       ctors=ctors,globMap=globMap,modMap=modMap,annotations=(!collectAnnotations)}
   end;
 end
