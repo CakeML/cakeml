@@ -256,18 +256,6 @@ val jump_exc_IMP_jump_exc = prove(
   Cases_on `jump_exc t1` \\ fs [] \\ IMP_RES_TAC jump_exc_IMP
   \\ fs [jump_exc_def]);
 
-val bvl_state_explode = prove(
-  ``!s1 (s2:bvl_state).
-      s1 = s2 <=>
-      (s1.code = s2.code) /\
-      (s1.clock = s2.clock) /\
-      (s1.globals = s2.globals) /\
-      (s1.output = s2.output) /\
-      (s1.refs = s2.refs)``,
-  Cases \\ Cases \\ fs (TypeBase.updates_of ``:bvl_state`` @
-                        TypeBase.accessors_of ``:bvl_state``)
-  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC \\ fs []);
-
 val s_space_ID = prove(
   ``!s. (s with space := s.space) = s``,
   fs [bvp_state_explode]);

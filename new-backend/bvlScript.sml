@@ -91,23 +91,23 @@ val _ = Datatype `
 
 val get_global_def = Define `
   get_global n globals =
-    if n < LENGTH globals then NONE else EL n globals`
+    if n < LENGTH globals then SOME (EL n globals) else NONE`
 
 val bEvalOp_def = Define `
   bEvalOp op vs (s:bvl_state) =
     case (op,vs) of
     | (Global n,[]) =>
         (case get_global n s.globals of
-         | SOME v => SOME (v,s)
-         | NONE => NONE)
+         | SOME (SOME v) => SOME (v,s)
+         | _ => NONE)
     | (SetGlobal n,[v]) =>
         (case get_global n s.globals of
-         | SOME v => NONE
-         | NONE => SOME (Number 0,
-             s with globals := (LUPDATE (SOME v) n s.globals)))
+         | SOME NONE => SOME (Number 0,
+             s with globals := (LUPDATE (SOME v) n s.globals))
+         | _ => NONE)
     | (AllocGlobal,[]) =>
         SOME (Number 0, s with globals := s.globals ++ [NONE])
-    | (Const i,xs) => SOME (Number i, s)
+    | (Const i,[]) => SOME (Number i, s)
     | (Cons tag,xs) => SOME (Block tag xs, s)
     | (El n,[Block tag xs]) =>
         if n < LENGTH xs then SOME (EL n xs, s) else NONE
@@ -416,6 +416,18 @@ val bEval_SNOC = store_thm("bEval_SNOC",
   \\ IMP_RES_TAC bEval_IMP_LENGTH
   \\ Cases_on `a''` \\ fs [LENGTH]
   \\ REV_FULL_SIMP_TAC std_ss [LENGTH_NIL] \\ fs []);
+
+val bvl_state_explode = store_thm("bvl_state_explode",
+  ``!s1 (s2:bvl_state).
+      s1 = s2 <=>
+      (s1.code = s2.code) /\
+      (s1.clock = s2.clock) /\
+      (s1.globals = s2.globals) /\
+      (s1.output = s2.output) /\
+      (s1.refs = s2.refs)``,
+  Cases \\ Cases \\ fs (TypeBase.updates_of ``:bvl_state`` @
+                        TypeBase.accessors_of ``:bvl_state``)
+  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC \\ fs []);
 
 (* clean up *)
 
