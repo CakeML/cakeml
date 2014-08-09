@@ -35,10 +35,10 @@ val pSimp_def = Define `
   (pSimp (Return n) c = Return n) /\
   (pSimp (Raise n) c = Raise n) /\
   (pSimp (Seq c1 c2) c = pSimp c1 (pSimp c2 c)) /\
-  (pSimp (Handle ns1 c1 n1 n2 ns2 c2) c =
-     pSeq (Handle ns1 (pSimp c1 Skip) n1 n2 ns2 (pSimp c2 Skip)) c) /\
   (pSimp (If c1 n c2 c3) c =
      pSeq (If (pSimp c1 Skip) n (pSimp c2 Skip) (pSimp c3 Skip)) c) /\
+  (pSimp (Call ret dest args (SOME (v,handler))) c =
+     pSeq (Call ret dest args (SOME (v,pSimp handler Skip))) c) /\
   (pSimp c1 c2 = pSeq c1 c2)`;
 
 val isSkip_thm = prove(
@@ -56,7 +56,13 @@ val pEval_pSeq = prove(
 
 val pEval_pSimp = prove(
   ``!c1 s c2. pEval (pSimp c1 c2,s) = pEval (Seq c1 c2,s)``,
-  recInduct pEval_ind \\ REPEAT STRIP_TAC
+  recInduct pEval_ind \\ REVERSE (REPEAT STRIP_TAC) THEN1
+   (Cases_on `handler` \\ fs [pSimp_def,pEval_pSeq]
+    \\ Cases_on `x` \\ fs [pSimp_def,pEval_pSeq]
+    \\ fs [pEval_def]
+    \\ REPEAT (BasicProvers.FULL_CASE_TAC \\ fs [pEval_def])
+    \\ Cases_on `pEval (r,set_var q b r''')` \\ fs [LET_DEF]
+    \\ Cases_on `q'` \\ fs [])
   \\ fs [pSimp_def,pEval_def,LET_DEF,pEval_pSeq,pEval_pSeq]
   \\ Cases_on `pEval (c1,s)` \\ fs []
   \\ Cases_on `pEval (c2,r)` \\ fs []
