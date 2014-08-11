@@ -435,6 +435,27 @@ val _ = Define `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn v_to_list_defn;
 
+(*val opn_lookup : opn -> integer -> integer -> integer*)
+val _ = Define `
+ (opn_lookup n : int -> int -> int = ((case n of
+    Plus => (+)
+  | Minus => (-)
+  | Times => ( * )
+  | Divide => (/)
+  | Modulo => (%)
+)))`;
+
+
+(*val opb_lookup : opb -> integer -> integer -> bool*)
+val _ = Define `
+ (opb_lookup n : int -> int -> bool = ((case n of
+    Lt => (<)
+  | Gt => (>)
+  | Leq => (<=)
+  | Geq => (>=)
+)))`;
+
+
 (*val do_app : store v -> op -> list v -> maybe (store v * result v v)*)
 val _ = Define `
  (do_app s op vs =  
