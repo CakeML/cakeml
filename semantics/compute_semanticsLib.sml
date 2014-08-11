@@ -43,6 +43,15 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
     ,terminationTheory.pmatch_def
     ,bigStepTheory.no_dup_mods_def
     ,bigStepTheory.no_dup_top_types_def
+    ,astTheory.Tbool_def
+    ,astTheory.Texn_def
+    ,astTheory.Tfn_def
+    ,astTheory.Tint_def
+    ,astTheory.Tref_def
+    ,astTheory.Tstring_def
+    ,astTheory.Tunit_def
+    ,astTheory.Tword8_def
+    ,astTheory.Tword8array_def
     ] compset
     val () = add_datatype ``:MMLnonT`` compset
     val () = add_datatype ``:top`` compset
@@ -138,6 +147,8 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
       ,ptree_Tyop_def
       ,ptree_TyvarN_def
       ,ptree_UQTyop_def
+      ,ptree_TypeAbbrevDec_def
+      ,ptree_OptTypEqn_def
       ,safeTL_def
       ,oHD_def
       ] compset

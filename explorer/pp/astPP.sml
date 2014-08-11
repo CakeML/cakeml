@@ -77,8 +77,6 @@ fun dexnPrint modn sys d t pg str brk blk =
 
 val _=temp_add_user_printer ("dexnprint", ``Dexn x y``,genPrint (dexnPrint""));
 
-(*TODO: LHS tuples should be ('a,'b ,'c) and RHS tuples should be ('a*'b*'c) probably requires rewrite*)
-(*May also need to fix tupling*)
 (*Top level datatypes list(list tvarN *typeN * list ... ) *)
 (*Extra arg at the front for i1 names*)
 fun dtypePrint modn sys d t pg str brk blk =
@@ -103,8 +101,8 @@ fun dtypePrint modn sys d t pg str brk blk =
           val typaram = #1(listSyntax.dest_list params)
           in
              add_newline>> str "datatype" >> (case typaram of [] => str"" 
-             | (x::y::xs) => str " (">>printTuple "," (str o toString) str typaram >> str") "
-             | _ => str" ">>printTuple "," (str o toString) str typaram)>>str" "
+             | (x::y::xs) => str " (">>printTuple " , " (str o toString) str typaram >> str")"
+             | _ => str" ">>printTuple " , " (str o toString) str typaram)>>str" "
              >> (if(modn="") then str"" else str modn>>str ".") >> str (toString name) 
              >> str" ">>blk CONSISTENT 0 (str "= " >> printCtors (#1(listSyntax.dest_list ctors)))
           end
@@ -115,6 +113,20 @@ fun dtypePrint modn sys d t pg str brk blk =
 
 val _=temp_add_user_printer ("dtypeprint", ``Dtype x``,genPrint (dtypePrint ""));
 
+fun dtabbrevPrint sys d t pg str brk blk =
+  let val (t,typ) = dest_comb t
+      val (t,name) = dest_comb t
+      val (_,ls) = dest_comb t
+      val typaram = #1(listSyntax.dest_list ls)
+  in
+    add_newline >> str"type" >> (case typaram of [] => str"" 
+             | (x::y::xs) => str " (">>printTuple " , " (str o toString) str typaram >> str")"
+             | _ => str" ">>printTuple " , " (str o toString) str typaram)>>str" "
+             >> str (toString name) 
+             >> str" ">>blk CONSISTENT 0 (str "= " >> sys (pg,pg,pg) d typ)
+  end;
+
+val _ = temp_add_user_printer ("dtabbrevprint",``Dtabbrev x y z``,genPrint (dtabbrevPrint ));
 (*tvar name*)
 fun tvarPrint sys d t pg str brk blk =
   str (toString (strip t));
@@ -150,15 +162,16 @@ fun tcnameshortPrint sys d t pg str brk blk =
 
 val _=temp_add_user_printer("tcnameshortprint", ``TC_name (Short x)``,genPrint tcnameshortPrint);
 
-
-
 (*Tapp*)
 fun tappPrint sys d t pg str brk blk = 
   let val (l,r) = dest_comb t
       val args = #1(listSyntax.dest_list (strip l))
+      val sep = if r = ``TC_tup`` then " * " else " , "
+      val spa = if r = ``TC_tup`` then "" else " "
   in
-    (case args of [] => str"" | (_::_::_) => str"(">>printTuple "," (sys (pg,pg,pg) d) str args >>str ")"
-     | _ => printTuple "," (sys (pg,pg,pg) d) str args >> str" ")  >> sys (pg,pg,pg) d r
+    (case args of [] => str"" | (_::_::_) => str"(">>printTuple sep (sys (pg,pg,pg) d) str args >>str ")" >>str spa
+     | _ => printTuple sep (sys (pg,pg,pg) d) str args >>str spa)
+     >> sys (pg,pg,pg) d r
   end;
 
 val _=temp_add_user_printer("tappprint", ``Tapp x y``,genPrint tappPrint);
@@ -168,7 +181,7 @@ val _=temp_add_user_printer("tappprint", ``Tapp x y``,genPrint tappPrint);
 fun tfnPrint sys d t pg str brk blk =
   let val (l,r) = dest_comb t
   in
-    str"(">>sys (pg,pg,pg) d (rand l) >> str "->" >> sys (pg,pg,pg) d r>>str")"
+    str"(">>sys (pg,pg,pg) d (rand l) >> str " -> " >> sys (pg,pg,pg) d r>>str")"
   end;
   
 val _=temp_add_user_printer("tfunprint", ``Tfn x y``,genPrint tfnPrint);
@@ -471,12 +484,15 @@ fun stypeopqPrint sys d t pg str brk blk =
   in
     add_newline>>str "type ">>
     (case typaram of [] => str"" 
-                  | (x::y::xs) => str "(">>printTuple "," (str o toString) str typaram >> str") "
-                  | _ => printTuple "," (str o toString) str typaram >>str" ")
+                  | (x::y::xs) => str "(">>printTuple " , " (str o toString) str typaram >> str") "
+                  | _ => printTuple " , " (str o toString) str typaram >>str" ")
     >>str (toString ty)
   end;
 
 val _=temp_add_user_printer("stypeopqprint",``Stype_opq l t``,genPrint stypeopqPrint);
+
+(*Stabbrev*)
+val _ = temp_add_user_printer("stabbrevprint",``Sabbrev x y z``,genPrint (dtabbrevPrint));
 
 (*Booleans*)
 fun boolPrint b sys d t pg str brk blk =

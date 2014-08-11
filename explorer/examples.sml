@@ -26,12 +26,13 @@ val ex7 = allIntermediates ``"datatype 'a foo = Br of 'a * 'a foo * 'a foo | Lf 
 (*Pattern matching vals*)
 val ex8 = allIntermediates ``"fun f x y z= x+y+z; val (x,y,z) = (f 1 1 1,f 2 2 2,f (f (f 3 3 3) 1 2));"``;
 
-(*Coercion, parse error*)
+(*Datatype*)
 val ex9 = allIntermediates ``"datatype foo = Br of ((int * string) * int) * string;"`` 
 
 (*complex datatypes*)
 
-val ex10 = allIntermediates ``"datatype ('a,'b,'c) foo2 = Foo of 'a * 'b | Foo2 of 'b * 'c | Foo3 of 'a*'b*'c*('a,'a,'a) foo2;"``
+val ex10 = allIntermediates ``"datatype ('a,'b,'c) foo2 = Foo of 'a * 'b | Foo2 of 'b * ('c * 'a->'b) | Foo3 of ('a*'b)*'c*('a,'a,'a) foo2;"``
+
 
 (*Nested let vals*)
 
@@ -85,3 +86,12 @@ val ex27 = allIntermediates ``"val x = 0wx5;"``;
 val ex28 = allIntermediates ``"val x = 1+2+3*4+5;"``;
 
 val ex29 = allIntermediates ``"val x = (f y;if 5>4 then 3 else 2;let val x = 2 in 3 end;4;if(4<5) then 5 else f y);"``;
+
+(*Type abbreviations*)
+val ex30 = allIntermediates ``"type 'a nat = int*string*string*int*'a;"``
+
+val ex31 = allIntermediates ``"structure Nat :> sig type nat; type nat2 = nat*nat; val zero:nat; val succ:nat->nat end = struct type nat = int; type nat2 = nat*nat; val zero = 5:nat end;"``
+
+val ex32 = allIntermediates ``"type ('a,'b) compose = 'a -> 'b;"``;
+
+val ex33 = allIntermediates ``"type t = exn`` 
