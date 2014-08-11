@@ -41,13 +41,13 @@ update_repl_state ast state tdecs tenvT tenvM tenvC tenv store envC r =
 val type_to_string_def = tDefine "type_to_string" `
 (type_to_string (Tvar tvn) ⇔ tvn) ∧
 (type_to_string (Tvar_db n) ⇔ num_to_dec_string n) ∧
-(type_to_string (Tapp [t1;t2] TC_fn) ⇔ 
+(type_to_string (Tapp [t1;t2] TC_fn) ⇔
   "(" ++ type_to_string t1 ++ "->" ++ type_to_string t2 ++ ")") ∧
 (type_to_string (Tapp ts TC_fn) ⇔ "<bad function type>") ∧
 (type_to_string (Tapp ts TC_tup) ⇔
   "(" ++ types_to_string ts ++ ")") ∧
 (type_to_string (Tapp [] tc) ⇔ tc_to_string tc) ∧
-(type_to_string (Tapp ts tc) ⇔ 
+(type_to_string (Tapp ts tc) ⇔
   "(" ++ types_to_string ts ++ ") " ++ tc_to_string tc) ∧
 (types_to_string [] ⇔ "") ∧
 (types_to_string [t] ⇔ type_to_string t) ∧
@@ -71,6 +71,7 @@ val print_lit_def = Define `
 val print_v_def = Define `
 (print_v (Litv l) = print_lit l) ∧
 (print_v (Conv _ _) = "<constructor>") ∧
+(print_v (Vectorv _) = "<vector>") ∧
 (print_v (Closure _ _ _) = "<fn>") ∧
 (print_v (Recclosure _ _ _) = "<fn>") ∧
 (print_v (Loc _) = "<ref>")`;

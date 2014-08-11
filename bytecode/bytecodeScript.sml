@@ -29,9 +29,12 @@ val _ = Hol_datatype `
   | Pops of num             (* pop n elements under stack top *)
   | PushInt of int      (* push int onto stack *)
   | Cons of num => num       (* push new cons with tag m and n elements *)
+  | Cons2 of num            (* push new cons with tag m and given elements *)
   | Load of num             (* push stack[n] *)
   | Store of num            (* pop and store in stack[n] *)
+  | LengthBlock             (* read length of cons block *)
   | El of num               (* read field n of cons block *)
+  | El2                     (* read field of cons block *)
   | TagEq of num            (* test tag of block *)
   | IsBlock                 (* test for a block *)
   | Equal                   (* test equality *)
@@ -132,7 +135,10 @@ val _ = Define `
  (string_tag : num =( 4))`;
 
 val _ = Define `
- (block_tag : num =( 5))`;
+ (vector_tag : num =( 5))`;
+
+val _ = Define `
+ (block_tag : num =( 6))`;
 
 
 val _ = Define `
@@ -298,6 +304,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   if n = (bool_to_tag T) then SOME "true" else
   if n = unit_tag then SOME "()" else
   if n = closure_tag then SOME "<fn>" else
+  if n = vector_tag then SOME "<vector>" else
   if n = string_tag then
     (case bvs_to_chars vs [] of
       NONE => NONE
@@ -320,12 +327,18 @@ bc_stack_op (Pops (LENGTH ys)) ((x::ys)++xs) (x::xs))
 bc_stack_op (PushInt n) (xs) (Number n::xs))
 /\ (! tag ys xs. T ==>
 bc_stack_op (Cons tag (LENGTH ys)) (ys++xs) (Block tag (REVERSE ys)::xs))
+/\ (! tag ys xs. T ==>
+bc_stack_op (Cons2 tag) (Number (int_of_num (LENGTH ys))::(ys++xs)) (Block tag (REVERSE ys)::xs))
 /\ (! k xs. (k < LENGTH xs) ==>
 bc_stack_op (Load k) xs (EL k xs::xs))
 /\ (! y ys x xs. T ==>
 bc_stack_op (Store (LENGTH ys)) ((y::ys)++(x::xs)) (ys++(y::xs)))
+/\ (! tag ys xs. T ==>
+bc_stack_op LengthBlock ((Block tag ys)::xs) (Number (int_of_num (LENGTH ys))::xs))
 /\ (! k tag ys xs. (k < LENGTH ys) ==>
 bc_stack_op (El k) ((Block tag ys)::xs) (EL k ys::xs))
+/\ (! k tag ys xs. (k < LENGTH ys) ==>
+bc_stack_op El2 (Number (int_of_num k)::((Block tag ys)::xs)) (EL k ys::xs))
 /\ (! t tag ys xs. T ==>
 bc_stack_op (TagEq t) ((Block tag ys)::xs) (bool_to_val (tag = t)::xs))
 /\ (! x xs. (! n. ~ (x = CodePtr n) /\ ~ (x = StackPtr n)) ==>

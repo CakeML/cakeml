@@ -118,6 +118,34 @@ val evaluate_prompt_i1_success_globals = store_thm("evaluate_prompt_i1_success_g
     EVERY IS_SOME new_genv``,
   rw[evaluate_prompt_i1_cases] >> rw[EVERY_MAP])
 
+val local_labels_def = Define`
+  local_labels code = FILTER ($~ o inst_uses_label VfromListLab) code`
+
+val local_labels_cons = store_thm("local_labels_cons",
+  ``∀l ls. local_labels (l::ls) =
+           if inst_uses_label VfromListLab l
+           then local_labels ls
+           else l::(local_labels ls)``,
+  rw[local_labels_def] >> fs[])
+
+val local_labels_append = store_thm("local_labels_append[simp]",
+  ``∀l1 l2. local_labels (l1 ++ l2) = local_labels l1 ++ local_labels l2``,
+  rw[local_labels_def,FILTER_APPEND])
+
+val local_labels_reverse = store_thm("local_labels_reverse[simp]",
+  ``∀l1. local_labels (REVERSE l1) = REVERSE (local_labels l1)``,
+  rw[local_labels_def,FILTER_REVERSE])
+
+val FILTER_is_Label_local_labels = store_thm("FILTER_is_Label_local_labels[simp]",
+  ``∀code. FILTER is_Label (local_labels code) = FILTER is_Label code``,
+  rw[local_labels_def,FILTER_FILTER] >>
+  rw[FILTER_EQ,is_Label_rwt,EQ_IMP_THM] >>
+  rw[])
+
+val MEM_Label_local_labels = store_thm("MEM_Label_local_labels[simp]",
+  ``∀l c. MEM (Label l) (local_labels c) ⇔ MEM (Label l) c``,
+  rw[local_labels_def,MEM_FILTER])
+
 (* misc *)
 
 val code_env_cd_append = store_thm("code_env_cd_append",
@@ -409,6 +437,16 @@ val v_pat_syneq = store_thm("v_pat_syneq",
     ntac 2 gen_tac >>
     Cases >> Cases >> simp[bind_pat_def,syneq_cb_V_def,ADD1] >>
     simp[env_pat_def] ) >>
+  reverse conj_tac >- (
+    rw[] >>
+    simp[Once syneq_cases] >>
+    simp[EVERY2_MAP] >>
+    match_mp_tac EVERY2_MEM_MONO >>
+    HINT_EXISTS_TAC >>
+    imp_res_tac EVERY2_LENGTH >>
+    simp[UNCURRY,MEM_ZIP,PULL_EXISTS] >>
+    rw[] >> first_x_assum match_mp_tac >>
+    fs[EVERY_MEM] >> metis_tac[MEM_EL]) >>
   rw[] >>
   simp[Once syneq_cases] >>
   ntac 2 (pop_assum mp_tac) >>
@@ -920,7 +958,8 @@ val FOLDL_cce_aux_thm = store_thm("FOLDL_cce_aux_thm",
      EVERY (λn. MEM n (MAP (FST o FST) c) ∨ between s.next_label s'.next_label n)
        (MAP dest_Label (FILTER is_Label code)) ∧
      (EVERY all_labs (MAP (SND o SND) c) ⇒ ∀l. uses_label code l ⇒
-       MEM (Label l) code ∨ MEM l (MAP (FST o FST o SND) (FLAT (MAP (λ(p,p3,p4). free_labs (LENGTH (FST(SND p))) p4) c)))) ∧
+       l = VfromListLab ∨ MEM (Label l) code ∨
+       MEM l (MAP (FST o FST o SND) (FLAT (MAP (λ(p,p3,p4). free_labs (LENGTH (FST(SND p))) p4) c)))) ∧
      (∀l. MEM l (MAP (FST o FST) c) ⇒ MEM (Label l) code) ∧
      ∃cs.
      ∀i. i < LENGTH c ⇒ let ((l,ccenv,ce),(az,body)) = EL i c in
@@ -1000,7 +1039,7 @@ val compile_code_env_thm = store_thm("compile_code_env_thm",
       EVERY (λn. MEM n (MAP (FST o FST o SND) (free_labs ez e)) ∨ between s.next_label s'.next_label n)
         (MAP dest_Label (FILTER is_Label code)) ∧
       (EVERY all_labs (MAP (SND o SND o SND) (free_labs ez e)) ⇒
-       ∀l. uses_label code l ⇒ MEM (Label l) code ∨
+       ∀l. uses_label code l ⇒ MEM (Label l) code ∨ l = VfromListLab ∨
          MEM l (MAP (FST o FST o SND)
            (FLAT (MAP (λ(p,p3,p4). free_labs (LENGTH (FST (SND p))) p4) (MAP SND (free_labs ez e)))))) ∧
       (∀l. MEM l (MAP (FST o FST o SND) (free_labs ez e)) ⇒ MEM (Label l) code) ∧
@@ -1081,8 +1120,9 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
     ∧ no_labs exp
     ⇒
     let cs' = compile_Cexp renv rsz cs exp in
-    ∃c0 code. cs'.out = REVERSE code ++ REVERSE c0 ++ cs.out ∧ between_labels (code++c0) cs.next_label cs'.next_label ∧
-    code_labels_ok (c0++code) ∧
+    ∃c0 code. cs'.out = REVERSE code ++ REVERSE c0 ++ cs.out ∧
+    between_labels (local_labels (c0++code)) cs.next_label cs'.next_label ∧
+    code_labels_ok (local_labels (c0++code)) ∧
     ∀s env res rd csz bs bc0 bc00.
       Cevaluate s env exp res
     ∧ closed_vlabs env s bc0
@@ -1092,6 +1132,7 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
     ∧ bs.pc = next_addr bs.inst_length bc0
     ∧ bs.clock = SOME (FST (FST s))
     ∧ good_labels cs.next_label bc0
+    ∧ contains_primitives bc0
     ⇒
     case SND res of
     | Rval v =>
@@ -1112,6 +1153,7 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
     | Rerr Rtimeout_error =>
       ∃bs'. bc_next^* bs bs' ∧ bs'.clock = SOME 0 ∧ bc_fetch bs' = SOME Tick ∧ bs'.output = bs.output
     | _ => T``,
+  REWRITE_TAC[local_labels_def] >>
   rw[compile_Cexp_def] >>
   qspecl_then[`LENGTH renv`,`cs.next_label`,`exp`]mp_tac (CONJUNCT1 label_closures_thm) >>
   simp[] >> strip_tac >>
@@ -1127,11 +1169,13 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
   conj_tac >- (
     simp[between_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND,FILTER_REVERSE,ALL_DISTINCT_REVERSE] >>
     fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,MEM_MAP,is_Label_rwt,between_def] >>
+    simp[FILTER_FILTER,Q.SPEC`is_Label X`CONJ_COMM] >>
+    simp[GSYM FILTER_FILTER,FILTER_ALL_DISTINCT] >>
     rw[] >> spose_not_then strip_assume_tac >>
     fsrw_tac[DNF_ss][MEM_GENLIST] >>
     res_tac >> DECIDE_TAC ) >>
   conj_tac >- (
-    rfs[code_labels_ok_def,uses_label_thm,EXISTS_REVERSE] >>
+    rfs[code_labels_ok_def,uses_label_thm,EXISTS_REVERSE,EXISTS_MEM,PULL_EXISTS,MEM_FILTER] >>
     qmatch_assum_abbrev_tac`P ⇒ Q` >>
     `P` by (
       simp[Abbr`P`] >>
@@ -1140,6 +1184,7 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
     qunabbrev_tac`P`>>fs[Abbr`Q`] >>
     reverse(rw[])>- metis_tac[] >>
     last_x_assum(qspec_then`l`mp_tac) >>
+    disch_then(qspec_then`e`mp_tac) >>
     simp[] >> strip_tac >> fs[] >>
     qsuff_tac`MEM l (MAP (FST o FST o SND) (free_labs (LENGTH renv) Ce))`>-metis_tac[] >>
     qmatch_assum_abbrev_tac`MEM l a` >>
@@ -1182,6 +1227,9 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
       rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC ) >>
     simp[Abbr`A`,Abbr`B`,Abbr`C`,GSYM CONJ_ASSOC] >>
     fs[closed_vlabs_def,vlabs_csg_def] >>
+    conj_tac >- (
+      fs[contains_primitives_def] >>
+      qexists_tac`bc0'`>>simp[] ) >>
     conj_tac >- metis_tac[code_env_cd_append] >>
     conj_tac >- metis_tac[code_env_cd_append] >>
     conj_tac >- metis_tac[code_env_cd_append] >>
@@ -1275,6 +1323,7 @@ val env_rs_def = Define`
     (rs:compiler_state) (bs:bc_state)
   ⇔
     good_labels rs.rnext_label bs.code ∧
+    contains_primitives bs.code ∧
     rs.next_global = LENGTH genv ∧
     bs.stack = [] ∧
     EVERY (sv_every closed) s ∧
@@ -1423,6 +1472,10 @@ val env_rs_append_code = store_thm("env_rs_append_code",
   simp[FORALL_PROD] >>
   simp[env_rs_def] >>
   rpt gen_tac >> strip_tac  >>
+  conj_tac >- (
+    fs[contains_primitives_def] >>
+    qexists_tac`bc0`>>simp[] >>
+    fs[good_labels_def] >> rfs[] ) >>
   rpt(first_assum(match_exists_tac o concl) >> simp[]) >>
   conj_tac >- (
     fs[closed_vlabs_def] >> rw[]>>
@@ -1460,8 +1513,8 @@ val compile_top_labels = store_thm("compile_top_labels",
       FV_top top ⊆ global_dom rs.globals_env
       ⇒
       (FST(SND(compile_top types rs top))).rnext_label = (FST(compile_top types rs top)).rnext_label ∧
-      between_labels (SND(SND(compile_top types rs top))) rs.rnext_label (FST(compile_top types rs top)).rnext_label ∧
-      code_labels_ok (SND(SND(compile_top types rs top)))``,
+      between_labels (local_labels (SND(SND(compile_top types rs top)))) rs.rnext_label (FST(compile_top types rs top)).rnext_label ∧
+      code_labels_ok (local_labels (SND(SND(compile_top types rs top))))``,
    simp[compile_top_def,UNCURRY,pair_CASE_def] >>
    rpt gen_tac >> strip_tac >>
    specl_args_of_then``compile_Cexp``compile_Cexp_thm mp_tac >>
@@ -1509,7 +1562,9 @@ val compile_top_labels = store_thm("compile_top_labels",
    match_mp_tac code_labels_ok_append >>
    simp[code_labels_ok_REVERSE] >>
    REWRITE_TAC[GSYM REVERSE_APPEND] >>
-   simp[code_labels_ok_REVERSE] )
+   simp[code_labels_ok_REVERSE] >>
+   fs[local_labels_def,code_labels_ok_def,uses_label_thm,EXISTS_MEM,MEM_FILTER,PULL_EXISTS] >>
+   metis_tac[])
 
 val tac1 =
   simp[store_to_exh_def] >>
@@ -1704,6 +1759,12 @@ val tac7=
   imp_res_tac MEM_ZIP_MEM_MAP >>
   rfs[] >>
   metis_tac[sv_every_def]
+
+val tac9=
+  rator_x_assum`contains_primitives`mp_tac >>
+  rator_x_assum`good_labels`mp_tac >>
+  simp[Abbr`bs2`,contains_primitives_def,good_labels_def] >>
+  ntac 2 strip_tac >> qexists_tac`bc0'`>>simp[]
 
 val compile_top_thm = store_thm("compile_top_thm",
   ``∀ck env stm top res. evaluate_top ck env stm top res ⇒
@@ -2139,6 +2200,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[good_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER,is_Label_rwt,PULL_EXISTS
           ,EVERY_FILTER,between_labels_def,EVERY_MAP,EVERY_MEM,between_def,PULL_FORALL] >>
       rw[] >> spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
+    conj_tac >- tac9 >>
     qexists_tac`grd0 ++ new_genv` >>
     conj_tac >- (
       rpt(BasicProvers.VAR_EQ_TAC) >> simp[] >>
@@ -2355,6 +2417,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[good_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER,is_Label_rwt,PULL_EXISTS
           ,EVERY_FILTER,between_labels_def,EVERY_MAP,EVERY_MEM,between_def,PULL_FORALL] >>
       rw[] >> spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
+    conj_tac >- tac9 >>
     qexists_tac`grd0 ++ new_genv` >>
     conj_tac >- (
       rpt(BasicProvers.VAR_EQ_TAC) >> simp[] >>
@@ -2580,6 +2643,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[good_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER,is_Label_rwt,PULL_EXISTS
           ,EVERY_FILTER,between_labels_def,EVERY_MAP,EVERY_MEM,between_def,PULL_FORALL] >>
       rw[] >> spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
+    conj_tac >- tac9 >>
     qexists_tac`grd0 ++ new_genv` >>
     conj_tac >- (
       rpt(BasicProvers.VAR_EQ_TAC) >> simp[] >>
@@ -2780,6 +2844,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[good_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER,is_Label_rwt,PULL_EXISTS
           ,EVERY_FILTER,between_labels_def,EVERY_MAP,EVERY_MEM,between_def,PULL_FORALL] >>
       rw[] >> spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
+    conj_tac >- tac9 >>
     qexists_tac`grd0 ++ new_genv` >>
     conj_tac >- (
       rpt(BasicProvers.VAR_EQ_TAC) >> simp[] >>
@@ -2958,54 +3023,6 @@ val free_vars_i2_prog_to_i3_initial = store_thm("free_vars_i2_prog_to_i3_initial
   rw[free_vars_i2_decs_to_i3])
 
 (* compile_prog *)
-
-val compile_Cexp_code_ok_thm = prove(
-  ``∀renv rsz cs exp cs'.
-    (compile_Cexp renv rsz cs exp = cs') ⇒
-    set (free_vars exp) ⊆ count (LENGTH renv) ∧
-    no_labs exp ∧ (cs.out = []) ⇒
-    code_labels_ok cs'.out``,
-  rw[] >>
-  qspecl_then[`renv`,`rsz`,`cs`,`exp`]mp_tac compile_Cexp_thm >>
-  simp[] >> strip_tac >> simp[] >>
-  PROVE_TAC[REVERSE_APPEND,code_labels_ok_REVERSE])
-
-val compile_print_err_code_ok_thm = prove(
-  ``∀cs cs'. (compile_print_err cs = cs') ⇒
-             code_labels_ok cs.out ⇒
-             code_labels_ok cs'.out``,
-  rw[] >>
-  qspec_then`cs`mp_tac compile_print_err_thm >>
-  simp[] >> strip_tac >> simp[] >>
-  match_mp_tac code_labels_ok_append >>
-  simp[code_labels_ok_REVERSE])
-
-val compile_prog_code_labels_ok = store_thm("compile_prog_code_labels_ok",
-  ``∀init_compiler_state prog code.
-      (compile_prog init_compiler_state prog = code) ∧ closed_prog prog ⇒
-      code_labels_ok code``,
-    rw[compile_prog_def] >>
-    `∃a b c d. prog_to_i1 n m1 m2 prog = (a,b,c,d)` by simp[GSYM EXISTS_PROD] >>simp[] >>
-    `∃e f g. prog_to_i2 init_compiler_state.contags_env d = (e,f,g)` by simp[GSYM EXISTS_PROD] >>simp[] >>
-    (fn(g as (_,w)) => split_pair_case_tac (rand w) g) >> simp[] >>
-    match_mp_tac code_labels_ok_append >>
-    reverse conj_tac >- (match_mp_tac code_labels_ok_cons >> simp[]) >>
-    simp[code_labels_ok_REVERSE] >>
-    BasicProvers.CASE_TAC >> simp[] >>
-    rpt(match_mp_tac code_labels_ok_cons >> simp[]) >>
-    match_mp_tac (MP_CANON compile_print_err_code_ok_thm) >>
-    (fn(g as (_,w)) => exists_tac (w |> dest_exists |> snd |> dest_conj |> fst |> rhs |> rand) g) >>
-    simp[] >>
-    match_mp_tac (MP_CANON compile_Cexp_code_ok_thm) >>
-    (fn(g as (_,w)) => map_every exists_tac (w |> strip_exists |> snd |> dest_conj |> fst |> rhs |> strip_comb |> snd) g) >>
-    simp[] >>
-    specl_args_of_then``exp_to_pat``(CONJUNCT1 free_vars_pat_exp_to_pat)mp_tac >>
-    simp[] >> disch_then match_mp_tac >>
-    imp_res_tac free_vars_i2_prog_to_i3 >>
-    imp_res_tac free_vars_prog_to_i2 >>
-    imp_res_tac FV_prog_to_i1 >>
-    simp[] >>
-    fs[closed_prog_def,all_env_dom_def,SUBSET_DEF,PULL_EXISTS])
 
 val tac1 =
   simp[store_to_exh_def] >>
@@ -3633,6 +3650,57 @@ val compile_prog_divergence = store_thm("compile_prog_divergence",
   HINT_EXISTS_TAC >>
   simp[Abbr`bs0`])
 
+val compile_Cexp_code_ok_thm = prove(
+  ``∀renv rsz cs exp cs'.
+    (compile_Cexp renv rsz cs exp = cs') ⇒
+    set (free_vars exp) ⊆ count (LENGTH renv) ∧
+    no_labs exp ∧ (cs.out = []) ⇒
+    code_labels_ok (local_labels cs'.out)``,
+  rw[] >>
+  qspecl_then[`renv`,`rsz`,`cs`,`exp`]mp_tac compile_Cexp_thm >>
+  simp[] >> strip_tac >> simp[] >>
+  PROVE_TAC[REVERSE_APPEND,code_labels_ok_REVERSE])
+
+(* TODO: fix?
+
+val compile_print_err_code_ok_thm = prove(
+  ``∀cs cs'. (compile_print_err cs = cs') ⇒
+             code_labels_ok cs.out ⇒
+             code_labels_ok cs'.out``,
+  rw[] >>
+  qspec_then`cs`mp_tac compile_print_err_thm >>
+  simp[] >> strip_tac >> simp[] >>
+  match_mp_tac code_labels_ok_append >>
+  simp[code_labels_ok_REVERSE])
+
+val compile_prog_code_labels_ok = store_thm("compile_prog_code_labels_ok",
+  ``∀prog code.
+      (compile_prog prog = code) ∧ closed_prog prog ⇒
+      code_labels_ok code``,
+    rw[compile_prog_def] >>
+    `∃a b c d. prog_to_i1 n m1 m2 prog = (a,b,c,d)` by simp[GSYM EXISTS_PROD] >>simp[] >>
+    `∃e f g. prog_to_i2 init_compiler_state.contags_env d = (e,f,g)` by simp[GSYM EXISTS_PROD] >>simp[] >>
+    (fn(g as (_,w)) => split_pair_case_tac (rand w) g) >> simp[] >>
+    match_mp_tac code_labels_ok_append >>
+    reverse conj_tac >- (match_mp_tac code_labels_ok_cons >> simp[]) >>
+    simp[code_labels_ok_REVERSE] >>
+    BasicProvers.CASE_TAC >> simp[] >>
+    rpt(match_mp_tac code_labels_ok_cons >> simp[]) >>
+    match_mp_tac (MP_CANON compile_print_err_code_ok_thm) >>
+    (fn(g as (_,w)) => exists_tac (w |> dest_exists |> snd |> dest_conj |> fst |> rhs |> rand) g) >>
+    simp[] >>
+    match_mp_tac (MP_CANON compile_Cexp_code_ok_thm) >>
+    (fn(g as (_,w)) => map_every exists_tac (w |> strip_exists |> snd |> dest_conj |> fst |> rhs |> strip_comb |> snd) g) >>
+    simp[] >>
+    specl_args_of_then``exp_to_pat``(CONJUNCT1 free_vars_pat_exp_to_pat)mp_tac >>
+    simp[] >> disch_then match_mp_tac >>
+    imp_res_tac free_vars_i2_prog_to_i3 >>
+    imp_res_tac free_vars_prog_to_i2 >>
+    imp_res_tac FV_prog_to_i1 >>
+    simp[] >>
+    fs[closed_prog_def,all_env_dom_def,SUBSET_DEF,PULL_EXISTS])
+*)
+
 (* compile_special, for the repl *)
 
 val mod_tagenv_lemma = prove(
@@ -3858,7 +3926,6 @@ val compile_special_thm = store_thm("compile_special_thm",
     rator_x_assum`EVERY`kall_tac>>
     rator_x_assum`all_labs`kall_tac>>
     rator_x_assum`ALL_DISTINCT`kall_tac>>
-    rator_x_assum`ALL_DISTINCT`kall_tac>>
     fs[prompt_to_i2_def,LET_THM] >>
     first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
     rpt BasicProvers.VAR_EQ_TAC >>
@@ -3875,8 +3942,7 @@ val compile_special_thm = store_thm("compile_special_thm",
     fs[type_defs_to_new_tdecs_def,alloc_tags_def] >>
     rpt BasicProvers.VAR_EQ_TAC >>
     simp[mod_tagenv_lemma,get_tagenv_def] >>
-    rfs[] >> fs[]
-    ) >>
+    rfs[] >> fs[]) >>
   rpt BasicProvers.VAR_EQ_TAC >>
   fs[FUNION_FEMPTY_1] >>
   `env = []` by (
@@ -4051,28 +4117,6 @@ val to_i1_invariant_clocks_match = prove(
 val to_i2_invariant_clocks_match = prove(
   ``to_i2_invariant a b c d e i f g h k ⇒ FST f = FST g``,
   rw[to_i2_invariant_def,s_to_i2_cases] >> rw[])
-
-val compile_initial_prog_code_labels_ok = store_thm("compile_initial_prog_code_labels_ok",
-  ``∀init_compiler_state prog res code.
-      (compile_initial_prog init_compiler_state prog = (res,code)) ∧ closed_prog prog ⇒
-      code_labels_ok code``,
-    rw[compile_initial_prog_def] >> fs[LET_THM] >>
-    first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
-    `∃a b c d. prog_to_i1 init_compiler_state.next_global m1 m2 prog = (a,b,c,d)` by simp[GSYM EXISTS_PROD] >>fs[] >>
-    first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
-    first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
-    rw[] >>
-    match_mp_tac code_labels_ok_cons >> simp[] >>
-    match_mp_tac (MP_CANON compile_Cexp_code_ok_thm) >>
-    (fn(g as (_,w)) => map_every exists_tac (w |> strip_exists |> snd |> dest_conj |> fst |> rhs |> strip_comb |> snd) g) >>
-    simp[] >>
-    specl_args_of_then``exp_to_pat``(CONJUNCT1 free_vars_pat_exp_to_pat)mp_tac >>
-    simp[] >> disch_then match_mp_tac >>
-    imp_res_tac free_vars_i2_prog_to_i3_initial >>
-    imp_res_tac free_vars_prog_to_i2 >>
-    imp_res_tac FV_prog_to_i1 >>
-    simp[] >>
-    fs[closed_prog_def,all_env_dom_def,SUBSET_DEF,PULL_EXISTS])
 
 val compile_initial_prog_thm = store_thm("compile_initial_prog_thm",
   ``∀ck env stm prog res. evaluate_whole_prog ck env stm prog res ⇒
@@ -4262,6 +4306,12 @@ val compile_initial_prog_thm = store_thm("compile_initial_prog_thm",
     simp[Abbr`bs1`,bc_state_component_equality] >>
     match_mp_tac Cenv_bs_with_irr >>
     HINT_EXISTS_TAC >> simp[] ) >>
+  reverse conj_tac >- (
+    rator_x_assum`contains_primitives`mp_tac >>
+    rator_x_assum`good_labels`mp_tac >>
+    simp[good_labels_def] >> strip_tac >>
+    simp[contains_primitives_def] >> strip_tac >>
+    rw[] >> metis_tac[APPEND_ASSOC]) >>
   conj_tac >- tac7 >>
   first_assum(mp_tac o MATCH_MP evaluate_prog_i1_closed) >> simp[] >>
   disch_then match_mp_tac >>
@@ -4273,5 +4323,27 @@ val compile_initial_prog_thm = store_thm("compile_initial_prog_thm",
     imp_res_tac LIST_REL_store_vs_intro >>
     first_assum(match_exists_tac o concl) >> simp[]) >>
   imp_res_tac FV_prog_to_i1 >> simp[])
+
+val compile_initial_prog_code_labels_ok = store_thm("compile_initial_prog_code_labels_ok",
+  ``∀init_compiler_state prog res code.
+      (compile_initial_prog init_compiler_state prog = (res,code)) ∧ closed_prog prog ⇒
+      code_labels_ok (local_labels code)``,
+    rw[compile_initial_prog_def] >> fs[LET_THM] >>
+    first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
+    `∃a b c d. prog_to_i1 init_compiler_state.next_global m1 m2 prog = (a,b,c,d)` by simp[GSYM EXISTS_PROD] >>fs[] >>
+    first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
+    first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
+    rw[local_labels_cons] >>
+    match_mp_tac code_labels_ok_cons >> simp[] >>
+    match_mp_tac (MP_CANON compile_Cexp_code_ok_thm) >>
+    (fn(g as (_,w)) => map_every exists_tac (w |> strip_exists |> snd |> dest_conj |> fst |> rhs |> strip_comb |> snd) g) >>
+    simp[] >>
+    specl_args_of_then``exp_to_pat``(CONJUNCT1 free_vars_pat_exp_to_pat)mp_tac >>
+    simp[] >> disch_then match_mp_tac >>
+    imp_res_tac free_vars_i2_prog_to_i3_initial >>
+    imp_res_tac free_vars_prog_to_i2 >>
+    imp_res_tac FV_prog_to_i1 >>
+    simp[] >>
+    fs[closed_prog_def,all_env_dom_def,SUBSET_DEF,PULL_EXISTS])
 
 val _ = export_theory()

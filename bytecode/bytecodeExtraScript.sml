@@ -66,7 +66,10 @@ val bc_num_def = Define `
      | Stack (Load n) => (5,n,0)
      | Stack (Store n) => (6,n,0)
      | Stack (El n) => (8,n,0)
+     | Stack El2 => (50,0,0)
+     | Stack (Cons2 n) => (51,n,0)
      | Stack (TagEq n) => (9,n,0)
+     | Stack LengthBlock => (48,0,0)
      | Stack IsBlock => (10,0,0)
      | Stack Equal => (11,0,0)
      | Stack Add => (12,0,0)
@@ -118,6 +121,9 @@ val num_bc_def = Define `
     else if n = 7 then Gread x1
     else if n = 8 then Stack (El x1)
     else if n = 9 then Stack (TagEq x1)
+    else if n = 48 then Stack LengthBlock
+    else if n = 50 then Stack El2
+    else if n = 51 then Stack (Cons2 x1)
     else if n = 10 then Stack IsBlock
     else if n = 11 then Stack Equal
     else if n = 12 then Stack Add
@@ -436,6 +442,12 @@ val RTC_bc_next_output_IS_PREFIX = store_thm("RTC_bc_next_output_IS_PREFIX",
   rw[reflexive_def,transitive_def] >- (
     match_mp_tac bc_next_output_IS_PREFIX >> rw[] ) >>
   metis_tac[IS_PREFIX_TRANS])
+
+val RTC_bc_next_output_squeeze = store_thm("RTC_bc_next_output_squeeze",
+  ``RTC bc_next x y /\ RTC bc_next y z /\ (z.output = x.output) ==>
+    (y.output = x.output)``,
+  REPEAT STRIP_TAC \\ IMP_RES_TAC RTC_bc_next_output_IS_PREFIX
+  \\ METIS_TAC [rich_listTheory.IS_PREFIX_ANTISYM]);
 
 val bvs_to_chars_thm = store_thm("bvs_to_chars_thm",
   ``∀bvs ac. bvs_to_chars bvs ac =

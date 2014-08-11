@@ -7,7 +7,7 @@ GENS = $(patsubst %,%Script.sml,$(SRC))
 
 $(GENS): $(LEMS)
  	if type lem;\
- 	then lem -auxiliary_level none -hol $(LEMS);\
+ 	then lem -suppress_renaming -auxiliary_level none -hol $(LEMS);\
  	else touch $(GENS); fi
 
 ifdef POLY

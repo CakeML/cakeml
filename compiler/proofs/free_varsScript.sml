@@ -18,7 +18,9 @@ val do_app_cases = store_thm("do_app_cases",
     (∃n w. op = Aalloc ∧ vs = [Litv (IntLit n); Litv (Word8 w)]) ∨
     (∃lnum i. op = Asub ∧ vs = [Loc lnum; Litv (IntLit i)]) ∨
     (∃n. op = Alength ∧ vs = [Loc n]) ∨
-    (∃lnum i w. op = Aupdate ∧ vs = [Loc lnum; Litv (IntLit i); Litv (Word8 w)])``,
+    (∃lnum i w. op = Aupdate ∧ vs = [Loc lnum; Litv (IntLit i); Litv (Word8 w)]) ∨
+    (∃v ls. op = VfromList ∧ vs = [v] ∧ v_to_list v = SOME ls) ∨
+    (∃ls i. op = Vsub ∧ vs = [Vectorv ls; Litv (IntLit i)])``,
   rw[do_app_def] >>
   BasicProvers.EVERY_CASE_TAC >> fs[])
 
@@ -33,7 +35,9 @@ val do_app_i1_cases = store_thm("do_app_i1_cases",
     (∃n w. op = Aalloc ∧ vs = [Litv_i1 (IntLit n); Litv_i1 (Word8 w)]) ∨
     (∃lnum i. op = Asub ∧ vs = [Loc_i1 lnum; Litv_i1 (IntLit i)]) ∨
     (∃n. op = Alength ∧ vs = [Loc_i1 n]) ∨
-    (∃lnum i w. op = Aupdate ∧ vs = [Loc_i1 lnum; Litv_i1 (IntLit i); Litv_i1 (Word8 w)])``,
+    (∃lnum i w. op = Aupdate ∧ vs = [Loc_i1 lnum; Litv_i1 (IntLit i); Litv_i1 (Word8 w)]) ∨
+    (∃v ls. op = VfromList ∧ vs = [v] ∧ v_to_list_i1 v = SOME ls) ∨
+    (∃ls i. op = Vsub ∧ vs = [Vectorv_i1 ls; Litv_i1 (IntLit i)])``,
   rw[do_app_i1_def] >>
   BasicProvers.EVERY_CASE_TAC >> fs[])
 
@@ -101,11 +105,13 @@ val (closed_exh_rules,closed_exh_ind,closed_exh_cases) = Hol_reln`
 (EVERY (closed_exh) (MAP SND env) ∧ MEM d (MAP FST defs) ∧
  EVERY (λ(f,x,e). free_vars_exh e ⊆ {x} ∪ set (MAP FST defs) ∪ set (MAP FST env)) defs
 ⇒ closed_exh (Recclosure_exh env defs d)) ∧
-(closed_exh (Loc_exh n))`;
+(closed_exh (Loc_exh n)) ∧
+(EVERY closed_exh vs ⇒ closed_exh (Vectorv_exh vs))`;
 
 val closed_exh_lit_loc_conv = store_thm("closed_exh_lit_loc_conv",
   ``closed_exh (Litv_exh l) ∧ closed_exh (Loc_exh n) ∧
-    (closed_exh (Conv_exh a bs) ⇔ EVERY closed_exh bs)``,
+    (closed_exh (Conv_exh a bs) ⇔ EVERY closed_exh bs) ∧
+    (closed_exh (Vectorv_exh bs) ⇔ EVERY closed_exh bs)``,
   rw[closed_exh_cases])
 val _ = export_rewrites["closed_exh_lit_loc_conv"]
 
@@ -672,11 +678,13 @@ val (closed_pat_rules,closed_pat_ind,closed_pat_cases) = Hol_reln`
 (EVERY (closed_pat) env ∧ d < LENGTH defs ∧
  EVERY (λe. set (free_vars_pat e) ⊆ count (LENGTH env + LENGTH defs + 1)) defs
 ⇒ closed_pat (Recclosure_pat env defs d)) ∧
-(closed_pat (Loc_pat n))`;
+(closed_pat (Loc_pat n)) ∧
+(EVERY closed_pat vs ⇒ closed_pat (Vectorv_pat vs))`;
 
 val closed_pat_lit_loc_conv = store_thm("closed_pat_lit_loc_conv",
   ``closed_pat (Litv_pat l) ∧ closed_pat (Loc_pat n) ∧
-    (closed_pat (Conv_pat a bs) ⇔ EVERY closed_pat bs)``,
+    (closed_pat (Conv_pat a bs) ⇔ EVERY closed_pat bs) ∧
+    (closed_pat (Vectorv_pat bs) ⇔ EVERY closed_pat bs)``,
   rw[closed_pat_cases])
 val _ = export_rewrites["closed_pat_lit_loc_conv"]
 
@@ -684,6 +692,12 @@ val csg_closed_pat_def = Define`
   csg_closed_pat csg ⇔
     EVERY (sv_every closed_pat) (SND(FST csg)) ∧
     EVERY (OPTION_EVERY closed_pat) (SND csg)`
+
+val v_to_list_pat_closed = prove(
+  ``∀v vs. v_to_list_pat v = SOME vs ⇒ closed_pat v ⇒ EVERY closed_pat vs``,
+  ho_match_mp_tac v_to_list_pat_ind >>
+  simp[v_to_list_pat_def] >> rw[] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[])
 
 val evaluate_pat_closed = store_thm("evaluate_pat_closed",
   ``(∀ck env s e res. evaluate_pat ck env s e res ⇒
@@ -732,14 +746,15 @@ val evaluate_pat_closed = store_thm("evaluate_pat_closed",
     PairCases_on`s2` >>
     imp_res_tac do_app_pat_cases >>
     fs[do_app_pat_def] >>
-    rpt BasicProvers.VAR_EQ_TAC >>
+    rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
     BasicProvers.EVERY_CASE_TAC >> fs[] >>
     rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
     simp[prim_exn_pat_def] >>
+    imp_res_tac v_to_list_pat_closed >>
     fs[store_assign_def,store_lookup_def,LET_THM,csg_closed_pat_def,UNCURRY,store_alloc_def] >>
     rw[] >> BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[prim_exn_pat_def] >>
     fs[EVERY_MEM] >>
-    metis_tac[MEM_LUPDATE_E,sv_every_def,MEM_EL,OPTION_EVERY_def] ) >>
+    metis_tac[MEM_LUPDATE_E,sv_every_def,MEM_EL,OPTION_EVERY_def,NOT_LESS_EQUAL,GREATER_EQ] ) >>
   strip_tac >- (
     ntac 4 gen_tac >>
     Cases >> simp[do_if_pat_def] >>
@@ -870,11 +885,13 @@ val (closed_i2_rules,closed_i2_ind,closed_i2_cases) = Hol_reln`
 (EVERY (closed_i2) (MAP SND env) ∧ MEM d (MAP FST defs) ∧
  EVERY (λ(f,x,e). free_vars_i2 e ⊆ {x} ∪ set (MAP FST defs) ∪ set (MAP FST env)) defs
 ⇒ closed_i2 (Recclosure_i2 env defs d)) ∧
-(closed_i2 (Loc_i2 n))`;
+(closed_i2 (Loc_i2 n)) ∧
+(EVERY closed_i2 vs ⇒ closed_i2 (Vectorv_i2 vs))`;
 
 val closed_i2_lit_loc_conv = store_thm("closed_i2_lit_loc_conv",
   ``closed_i2 (Litv_i2 l) ∧ closed_i2 (Loc_i2 n) ∧
-    (closed_i2 (Conv_i2 a bs) ⇔ EVERY closed_i2 bs)``,
+    (closed_i2 (Conv_i2 a bs) ⇔ EVERY closed_i2 bs) ∧
+    (closed_i2 (Vectorv_i2 bs) ⇔ EVERY closed_i2 bs)``,
   rw[closed_i2_cases])
 val _ = export_rewrites["closed_i2_lit_loc_conv"]
 
@@ -933,11 +950,13 @@ val (closed_i1_rules,closed_i1_ind,closed_i1_cases) = Hol_reln`
 (EVERY (closed_i1) (MAP SND env) ∧ MEM d (MAP FST defs) ∧
  EVERY (λ(f,x,e). free_vars_i1 e ⊆ {x} ∪ set (MAP FST defs) ∪ set (MAP FST env)) defs
 ⇒ closed_i1 (Recclosure_i1 (envC,env) defs d)) ∧
-(closed_i1 (Loc_i1 n))`;
+(closed_i1 (Loc_i1 n)) ∧
+(EVERY closed_i1 vs ⇒ closed_i1 (Vectorv_i1 vs))`;
 
 val closed_i1_lit_loc_conv = store_thm("closed_i1_lit_loc_conv",
   ``closed_i1 (Litv_i1 l) ∧ closed_i1 (Loc_i1 n) ∧
-    (closed_i1 (Conv_i1 a bs) ⇔ EVERY closed_i1 bs)``,
+    (closed_i1 (Conv_i1 a bs) ⇔ EVERY closed_i1 bs) ∧
+    (closed_i1 (Vectorv_i1 bs) ⇔ EVERY closed_i1 bs)``,
   rw[closed_i1_cases])
 val _ = export_rewrites["closed_i1_lit_loc_conv"]
 
@@ -1005,6 +1024,11 @@ val _ = export_rewrites["FV_def"]
 
 val _ = Parse.overload_on("SFV",``λe. {x | Short x ∈ FV e}``)
 
+val FV_pes_MAP = store_thm("FV_pes_MAP",
+  ``FV_pes pes = BIGUNION (IMAGE (λ(p,e). FV e DIFF (IMAGE Short (set (pat_bindings p [])))) (set pes))``,
+  Induct_on`pes`>>simp[]>>
+  qx_gen_tac`p`>>PairCases_on`p`>>rw[])
+
 val (closed_rules,closed_ind,closed_cases) = Hol_reln`
 (closed (Litv l)) ∧
 (EVERY closed vs ⇒ closed (Conv cn vs)) ∧
@@ -1019,11 +1043,13 @@ val (closed_rules,closed_ind,closed_cases) = Hol_reln`
  EVERY (λ(f,x,e). FV e ⊆ (IMAGE Short ({x} ∪ set (MAP FST defs) ∪ set (MAP FST envE))) ∪
                          { Long mn x | ∃env. lookup mn envM = SOME env ∧ MEM x (MAP FST env) }) defs
 ⇒ closed (Recclosure (envM,envC,envE) defs d)) ∧
-(closed (Loc n))`;
+(closed (Loc n)) ∧
+(EVERY closed vs ⇒ closed (Vectorv vs))`;
 
 val closed_lit_loc_conv = store_thm("closed_lit_loc_conv",
   ``closed (Litv l) ∧ closed (Loc n) ∧
-    (closed (Conv a bs) ⇔ EVERY closed bs)``,
+    (closed (Conv a bs) ⇔ EVERY closed bs) ∧
+    (closed (Vectorv bs) ⇔ EVERY closed bs)``,
   rw[closed_cases])
 val _ = export_rewrites["closed_lit_loc_conv"]
 
@@ -1062,6 +1088,12 @@ val build_rec_env_closed = store_thm("build_rec_env_closed",
   simp[EVERY_MEM,FORALL_PROD] >>
   fs[MEM_MAP,EXISTS_PROD] >> metis_tac[])
 
+val v_to_list_closed = prove(
+  ``∀v vs. v_to_list v = SOME vs ⇒ closed v ⇒ EVERY closed vs``,
+  ho_match_mp_tac v_to_list_ind >>
+  simp[v_to_list_def] >> rw[] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[])
+
 val do_app_closed = store_thm("do_app_closed",
   ``∀s op vs s' res.
     EVERY closed vs ∧ EVERY (sv_every closed) s ∧
@@ -1075,8 +1107,9 @@ val do_app_closed = store_thm("do_app_closed",
   rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
   BasicProvers.EVERY_CASE_TAC >> fs[] >>
   rpt BasicProvers.VAR_EQ_TAC >> simp[prim_exn_def] >>
+  imp_res_tac v_to_list_closed >>
   fs[EVERY_MEM] >>
-  metis_tac[MEM_LUPDATE_E,sv_every_def,MEM_EL])
+  metis_tac[MEM_LUPDATE_E,sv_every_def,MEM_EL,GREATER_EQ,NOT_LESS_EQUAL])
 
 val pmatch_closed = store_thm("pmatch_closed",
   ``(∀cenv s p v env env'.
@@ -1764,6 +1797,12 @@ val build_rec_env_i1_closed = store_thm("build_rec_env_i1_closed",
   simp[EVERY_MEM,FORALL_PROD] >>
   fs[MEM_MAP,EXISTS_PROD] >> metis_tac[])
 
+val v_to_list_i1_closed = prove(
+  ``∀v vs. v_to_list_i1 v = SOME vs ⇒ closed_i1 v ⇒ EVERY closed_i1 vs``,
+  ho_match_mp_tac v_to_list_i1_ind >>
+  simp[v_to_list_i1_def] >> rw[] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[])
+
 val do_app_i1_closed = store_thm("do_app_i1_closed",
   ``∀s op vs s' res.
     EVERY closed_i1 vs ∧ EVERY (sv_every closed_i1) s ∧
@@ -1777,8 +1816,9 @@ val do_app_i1_closed = store_thm("do_app_i1_closed",
   rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
   BasicProvers.EVERY_CASE_TAC >> fs[] >>
   rpt BasicProvers.VAR_EQ_TAC >> simp[prim_exn_i1_def] >>
+  imp_res_tac v_to_list_i1_closed >>
   fs[EVERY_MEM] >>
-  metis_tac[MEM_LUPDATE_E,sv_every_def,MEM_EL])
+  metis_tac[MEM_LUPDATE_E,sv_every_def,MEM_EL,GREATER_EQ,NOT_LESS_EQUAL])
 
 val do_opapp_i1_closed = store_thm("do_opapp_i1_closed",
   ``∀genv vs env exp.

@@ -316,6 +316,11 @@ val app_to_il_err = prove(
        rw[Once Cevaluate_cases] >>
        rpt(CHANGED_TAC(rw[Once (CONJUNCT2 Cevaluate_cases)])) >>
        srw_tac[DNF_ss][] >> disj2_tac >>
+       syneq_shift_tac >> use_assum_tac)
+    >-(first_disj(first_assum(match_exists_tac o concl)) >> rw[] >>
+       rw[Once Cevaluate_cases] >>
+       rpt(CHANGED_TAC(rw[Once (CONJUNCT2 Cevaluate_cases)])) >>
+       srw_tac[DNF_ss][] >> disj2_tac >>
        syneq_shift_tac >> use_assum_tac)) >>
   Cases_on`t`>- (
     rw[Once Cevaluate_cases,PULL_EXISTS] >> fs[] >> rw[] >>
@@ -398,6 +403,23 @@ val app_to_il_err = prove(
   Q.PAT_ABBREV_TAC`X = CCon Y Z` >> unabbrev_all_tac >>
   rw[Once Cevaluate_cases] >>
   use_assum_tac)
+
+val CvFromList_correct = prove(
+  ``∀v ls. v_to_list_pat v = SOME ls ⇒
+           CvFromList (v_to_Cv v) = SOME (vs_to_Cvs ls)``,
+  ho_match_mp_tac v_to_list_pat_ind >>
+  simp[v_to_list_pat_def,CvFromList_def] >>
+  rw[] >> BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[])
+
+val CvFromList_syneq = prove(
+  ``∀v1 v2. syneq v1 v2 ⇒ OPTREL (LIST_REL syneq) (CvFromList v1) (CvFromList v2)``,
+  ho_match_mp_tac CvFromList_ind >>
+  rw[CvFromList_def] >>
+  TRY(fs[Once syneq_cases,CvFromList_def]>>NO_TAC)>>
+  fs[Q.SPEC`CConv X Y`syneq_cases] >> rw[] >>
+  rw[CvFromList_def] >>
+  first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
+  BasicProvers.CASE_TAC >> fs[optionTheory.OPTREL_def])
 
 val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
   ``(∀ck env s e res. evaluate_pat ck env s e res ⇒
@@ -613,10 +635,10 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
     simp[] >> strip_tac >>
     PairCases_on`s2` >>
     PairCases_on`Cres`>>
-    imp_res_tac do_app_pat_cases >> fs[do_app_pat_def] >> rw[] >>
+    imp_res_tac do_app_pat_cases >> fs[do_app_pat_def] >> rw[] >> fs[] >> rw[] >>
     rator_x_assum`Cevaluate_list`mp_tac >>
     Cases_on`es`>>simp[Once (CONJUNCT2 Cevaluate_cases)]>>
-    Cases_on`t`>>simp[Once (CONJUNCT2 Cevaluate_cases),PULL_EXISTS]>>
+    TRY(Cases_on`t:exp_pat list`)>>simp[Once (CONJUNCT2 Cevaluate_cases),PULL_EXISTS]>>
     TRY(Cases_on`t':exp_pat list` >> simp[Once (CONJUNCT2 Cevaluate_cases),PULL_EXISTS]) >>
     rw[] >- (
       BasicProvers.CASE_TAC >- (
@@ -949,6 +971,69 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
       fs[EVERY2_MAP] >>
       fs[LIST_REL_EL_EQN] >>
       metis_tac[sv_rel_syneq_trans] )
+    >- (
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      use_assum_tac >>
+      imp_res_tac CvFromList_syneq >>
+      imp_res_tac CvFromList_correct >>
+      fs[optionTheory.OPTREL_def] >>
+      simp[Once syneq_cases])
+    >- (fs[] >> rw[] >> fs[])
+    >- (fs[] >> Cases_on`vs`>>fs[] >> rw[] >> fs[])
+    >- (
+      fs[] >> rw[] >>
+      Cases_on`vs`>>fs[] >> rw[] >>
+      Cases_on`t`>>fs[] >> rw[] >> fs[] >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >> disj1_tac >>
+      use_assum_tac >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >> disj1_tac >>
+      syneq_shift_tac >> use_assum_tac >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >> disj1_tac >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >- (
+        srw_tac[DNF_ss][Once Cevaluate_cases] >>
+        srw_tac[DNF_ss][Once Cevaluate_cases] >>
+        srw_tac[DNF_ss][Once Cevaluate_cases] >>
+        simp[prim_exn_pat_def] >>
+        disj1_tac >>
+        metis_tac[csg_rel_syneq_trans] ) >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >> disj1_tac >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      fs[Q.SPEC`CVectorv X`syneq_cases] >> simp[] >>
+      BasicProvers.VAR_EQ_TAC >> fs[LET_THM] >>
+      simp[Once Cevaluate_cases] >>
+      imp_res_tac LIST_REL_LENGTH >> fs[] >>
+      fs[integerTheory.INT_ABS] >>
+      fs[arithmeticTheory.GREATER_EQ] >>
+      `i = &Num i` by (
+        simp[integerTheory.INT_OF_NUM] >>
+        intLib.COOPER_TAC ) >>
+      pop_assum SUBST1_TAC >>
+      simp[integerTheory.INT_LT] >>
+      reverse(rw[]) >> fsrw_tac[ARITH_ss][] >> rw[] >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      rfs[integerTheory.INT_ABS] >>
+      fsrw_tac[ARITH_ss][prim_exn_pat_def] >-
+        metis_tac[csg_rel_syneq_trans] >>
+      simp[Once Cevaluate_cases] >>
+      conj_tac >- metis_tac[csg_rel_syneq_trans] >>
+      fs[LIST_REL_EL_EQN,EL_MAP] >>
+      first_x_assum match_mp_tac >>
+      simp[] )
+    >- (
+      fs[] >> rw[] >>
+      Cases_on`vs`>>fs[]>>
+      Cases_on`t'`>>fs[]>>
+      Cases_on`t''`>>fs[]>> rw[] >>
+      BasicProvers.EVERY_CASE_TAC >> fs[])
     >- (
       srw_tac[DNF_ss][Once Cevaluate_cases] >>
       use_assum_tac >>

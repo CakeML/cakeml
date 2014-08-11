@@ -496,6 +496,8 @@ val type_v_weakening = Q.store_thm ("type_v_weakening",
      metis_tac [])
  >- (fs [weakS_def] >>
      metis_tac [])
+ >- fs [EVERY_MEM]
+ >- fs [EVERY_MEM]
  >- rw [bind_def, emp_def, bind_tvar_def, bind_tenv_def]);
 
 val type_ctxt_weakening = Q.store_thm ("type_ctxt_weakening",
@@ -799,9 +801,11 @@ val type_ds_ctMap_disjoint = Q.store_thm ("type_ds_ctMap_disjoint",
   ⇒
   !(ctMap:ctMap). consistent_ctMap tdecs1 ctMap
   ⇒
-  DISJOINT (FDOM (flat_to_ctMap tenvC')) (FDOM ctMap)`,
+  DISJOINT (FDOM (flat_to_ctMap tenvC')) (FDOM ctMap) ∧
+  DISJOINT (IMAGE SND (FDOM (flat_to_ctMap tenvC'))) (IMAGE SND (FDOM ctMap))`,
  ho_match_mp_tac type_ds_ind >>
  rw []
+ >- rw [flat_to_ctMap_def, emp_def, flat_to_ctMap_list_def, FDOM_FUPDATE_LIST]
  >- rw [flat_to_ctMap_def, emp_def, flat_to_ctMap_list_def, FDOM_FUPDATE_LIST] >>
  rw [flat_to_ctMap_def, merge_def, flat_to_ctMap_list_append, FDOM_FUPDATE_LIST,
      DISJOINT_DEF, EXTENSION, REVERSE_APPEND] >>

@@ -78,6 +78,7 @@ type v_i1 =
   | Closure_i1 of (envC * env varN v_i1) * varN * exp_i1
   | Recclosure_i1 of (envC * env varN v_i1) * list (varN * varN * exp_i1) * varN
   | Loc_i1 of nat
+  | Vectorv_i1 of list v_i1
 
 val exp_to_i1 : map modN (map varN nat) -> map varN nat -> exp -> exp_i1
 val exps_to_i1 : map modN (map varN nat) -> map varN nat -> list exp -> list exp_i1
@@ -260,6 +261,12 @@ do_eq_i1 (Conv_i1 cn1 vs1) (Conv_i1 cn2 vs2) =
   else
     Eq_val false
 and
+do_eq_i1 (Vectorv_i1 vs1) (Vectorv_i1 vs2) =
+  if List.length vs1 = List.length vs2 then
+    do_eq_list_i1 vs1 vs2
+  else
+    Eq_val false
+and
 do_eq_i1 (Closure_i1 _ _ _) (Closure_i1 _ _ _) = Eq_closure
 and
 do_eq_i1 (Closure_i1 _ _ _) (Recclosure_i1 _ _ _) = Eq_closure
@@ -304,6 +311,23 @@ let do_opapp_i1 genv vs =
         Nothing
   | _ -> Nothing
   end
+
+val v_to_list_i1 : v_i1 -> maybe (list v_i1)
+let rec v_to_list_i1 (Conv_i1 (Just (cn, TypeId (Short tn))) []) = 
+  if cn = "nil" && tn = "list" then
+    Just []
+  else
+    Nothing
+and v_to_list_i1 (Conv_i1 (Just (cn,TypeId (Short tn))) [v1;v2]) =
+  if cn = "::"  && tn = "list" then
+    match v_to_list_i1 v2 with
+      | Just vs -> Just (v1::vs)
+      | Nothing -> Nothing
+    end
+  else
+    Nothing
+and v_to_list_i1 _ = Nothing
+declare termination_argument v_to_list_i1 = automatic
 
 val do_app_i1 : store v_i1 -> op -> list v_i1 -> maybe (store v_i1 * result v_i1 v_i1)
 let do_app_i1 s op vs =
@@ -376,7 +400,22 @@ let do_app_i1 s op vs =
                     | Just s' -> Just (s', Rval (Litv_i1 Unit))
                   end
         | _ -> Nothing
-      end
+        end
+    | (VfromList, [v]) ->
+          match v_to_list_i1 v with
+            | Just vs ->
+                Just (s, Rval (Vectorv_i1 vs))
+            | Nothing -> Nothing
+          end
+    | (Vsub, [Vectorv_i1 vs; Litv_i1 (IntLit i)]) ->
+        if i < 0 then
+          Just (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
+        else
+          let n = natFromInteger i in
+            if n >= List.length vs then
+              Just (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
+            else 
+              Just (s, Rval (List_extra.nth vs n))
     | _ -> Nothing
   end
 

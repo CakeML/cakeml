@@ -97,7 +97,6 @@ opn_to_prim2 Divide = Right (P2p CDiv)
 and
 opn_to_prim2 Modulo = Right (P2p CMod)
 
-
 let rec
 binop_to_il (Opn opn) Ce1 Ce2 =
   match opn_to_prim2 opn with
@@ -150,6 +149,15 @@ binop_to_il Asub Ce1 Ce2 =
                 (CPrim2 (P2s CDerB) (CVar 1) (CVar 0))
                 (CRaise (CCon subscript_tag [])))))
 and
+binop_to_il Vsub Ce1 Ce2 =
+  CLet true Ce1
+    (CLet true (shift 1 0 Ce2)
+      (CIf (CPrim2 (P2p CLt) (CVar 0) (CLit (IntLit 0)))
+           (CRaise (CCon subscript_tag []))
+           (CIf (CPrim2 (P2p CLt) (CVar 0) (CPrim1 CLenV (CVar 1)))
+                (CPrim2 (P2p CDerV) (CVar 1) (CVar 0))
+                (CRaise (CCon subscript_tag [])))))
+and
 binop_to_il Alength Ce1 Ce2 = CCon tuple_tag [Ce1;Ce2] (* should not happen *)
 and
 binop_to_il Aupdate Ce1 Ce2 = CCon tuple_tag [Ce1;Ce2] (* should not happen *)
@@ -157,6 +165,8 @@ and
 binop_to_il Opref   Ce1 Ce2 = CCon tuple_tag [Ce1;Ce2] (* should not happen *)
 and
 binop_to_il Opderef Ce1 Ce2 = CCon tuple_tag [Ce1;Ce2] (* should not happen *)
+and
+binop_to_il VfromList Ce1 Ce2 = CCon tuple_tag [Ce1;Ce2] (* should not happen *)
 
 let rec
 unop_to_il Opref Ce = CPrim1 CRef Ce
@@ -164,6 +174,8 @@ and
 unop_to_il Opderef Ce = CPrim1 CDer Ce
 and
 unop_to_il Alength Ce = CPrim1 CLenB Ce
+and
+unop_to_il VfromList Ce = CPrim1 CVfromList Ce
 and
 unop_to_il (Opn _)  Ce = Ce (* should not happen *)
 and
@@ -178,6 +190,8 @@ and
 unop_to_il Aalloc   Ce = Ce (* should not happen *)
 and
 unop_to_il Asub     Ce = Ce (* should not happen *)
+and
+unop_to_il Vsub     Ce = Ce (* should not happen *)
 and
 unop_to_il Aupdate  Ce = Ce (* should not happen *)
 
@@ -283,6 +297,8 @@ v_to_Cv (Recclosure_pat env defs vn) =
   CRecClos Cenv Cdefs vn
 and
 v_to_Cv (Loc_pat n) = CLoc n
+and
+v_to_Cv (Vectorv_pat vs) = CVectorv (vs_to_Cvs vs)
 and
 vs_to_Cvs [] = []
 and

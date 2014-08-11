@@ -9,6 +9,7 @@ open import IntLang
 open import ToIntLang
 open import Bytecode
 open import PatLang
+import ConLang
 
 (* pull closure bodies into code environment *)
 
@@ -116,6 +117,35 @@ type compiler_result =
    ; next_label: nat
    |>
 
+val VfromListLab : nat
+let VfromListLab = 0
+val VfromListCode : list bc_inst
+let VfromListCode = [
+  Label VfromListLab;
+  Stack (PushInt 0);
+  Label (VfromListLab+1);
+  Stack (Load 1);
+  Stack (TagEq (block_tag+ConLang.nil_tag));
+  JumpIf (Lab (VfromListLab+2));
+  Stack (PushInt 1);
+  Stack Add;
+  Stack (Load 1);
+  Stack (El 1);
+  Stack (Load 2);
+  Stack (El 0);
+  Stack (Store 2);
+  Stack (Load 0);
+  Stack (Load 2);
+  Stack (Store 1);
+  Stack (Store 1);
+  Jump (Lab (VfromListLab+1));
+  Label (VfromListLab+2);
+  Stack (Pops 1);
+  Stack (Cons2 vector_tag);
+  Return]
+val VfromListLabs : nat
+let VfromListLabs = 3
+
 let rec
 prim1_to_bc CRef = [Stack (PushInt 1); Ref]
 and
@@ -127,11 +157,15 @@ prim1_to_bc CLen = [Length]
 and
 prim1_to_bc CLenB = [LengthByte]
 and
+prim1_to_bc CLenV = [Stack LengthBlock]
+and
 prim1_to_bc (CTagEq n) = [Stack (TagEq (n+block_tag))]
 and
 prim1_to_bc (CProj n) = [Stack (El n)]
 and
 prim1_to_bc (CInitG n) = [Gupdate n; Stack (Cons unit_tag 0)]
+and
+prim1_to_bc CVfromList = [Call (Lab VfromListLab)]
 
 let rec
 prim2_to_bc (P2p CAdd) = Stack Add
@@ -147,6 +181,8 @@ and
 prim2_to_bc (P2p CLt) = Stack Less
 and
 prim2_to_bc (P2p CEq) = Stack Equal
+and
+prim2_to_bc (P2p CDerV) = Stack El2
 and
 prim2_to_bc (P2s CRefB) = RefByte
 and

@@ -256,6 +256,8 @@ val _ = Define `
     | (Asub, [Tapp [] TC_word8array; Tapp [] TC_int]) => (t = Tapp [] TC_word8)
     | (Alength, [Tapp [] TC_word8array]) => (t = Tapp [] TC_int)
     | (Aupdate, [Tapp [] TC_word8array; Tapp [] TC_int; Tapp [] TC_word8]) => t = Tapp [] TC_unit
+    | (VfromList, [Tapp [t1] (TC_name (Short "list"))]) => t = Tapp [t1] TC_vector
+    | (Vsub, [Tapp [t1] TC_vector; Tapp [] TC_int]) => t = t1
     | _ => F
   )))`;
 
@@ -301,15 +303,15 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (type_name_subst tenvT (Tvar tv) = (Tvar tv))
 /\
-(type_name_subst tenvT (Tapp ts tc0) =  
+(type_name_subst tenvT (Tapp ts tc) =  
 (let args = (MAP (type_name_subst tenvT) ts) in
-    (case tc0 of
+    (case tc of
         TC_name tn => 
           (case lookup_type_name tn tenvT of
               SOME (tvs, t) => type_subst (ZIP (tvs, args)) t
-            | NONE => Tapp args tc0
+            | NONE => Tapp args tc
           )
-      | _ => Tapp args tc0
+      | _ => Tapp args tc
     )))
 /\
 (type_name_subst tenvT (Tvar_db n) = (Tvar_db n))`;

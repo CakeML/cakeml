@@ -20,9 +20,12 @@ type
   | Pops of nat             (* pop n elements under stack top *)
   | PushInt of integer      (* push int onto stack *)
   | Cons of nat * nat       (* push new cons with tag m and n elements *)
+  | Cons2 of nat            (* push new cons with tag m and given elements *)
   | Load of nat             (* push stack[n] *)
   | Store of nat            (* pop and store in stack[n] *)
+  | LengthBlock             (* read length of cons block *)
   | El of nat               (* read field n of cons block *)
+  | El2                     (* read field of cons block *)
   | TagEq of nat            (* test tag of block *)
   | IsBlock                 (* test for a block *)
   | Equal                   (* test equality *)
@@ -103,7 +106,8 @@ bool_to_tag true = 1
 let unit_tag : nat = 2
 let closure_tag : nat = 3
 let string_tag : nat = 4
-let block_tag : nat = 5
+let vector_tag : nat = 5
+let block_tag : nat = 6
 
 let bool_to_val b = Block (bool_to_tag b) []
 let unit_val = Block unit_tag []
@@ -233,6 +237,7 @@ bv_to_string (Block n vs) =
   if n = (bool_to_tag true) then Just "true" else
   if n = unit_tag then Just "()" else
   if n = closure_tag then Just "<fn>" else
+  if n = vector_tag then Just "<vector>" else
   if n = string_tag then
     match bvs_to_chars vs [] with
     | Nothing -> Nothing
@@ -261,14 +266,23 @@ and
 cons : forall tag ys xs. true ==>
 bc_stack_op (Cons tag (List.length ys)) (ys++xs) (Block tag (List.reverse ys)::xs)
 and
+cons2 : forall tag ys xs. true ==>
+bc_stack_op (Cons2 tag) (Number (integerFromNat (List.length ys))::ys++xs) (Block tag (List.reverse ys)::xs)
+and
 load : forall k xs. k < List.length xs ==>
 bc_stack_op (Load k) xs (List_extra.nth xs k::xs)
 and
 store : forall y ys x xs. true ==>
 bc_stack_op (Store (List.length ys)) ((y::ys)++(x::xs)) (ys++(y::xs))
 and
+lengthBlock : forall tag ys xs. true ==>
+bc_stack_op LengthBlock ((Block tag ys)::xs) (Number (integerFromNat (List.length ys))::xs)
+and
 block : forall k tag ys xs. k < List.length ys ==>
 bc_stack_op (El k) ((Block tag ys)::xs) (List_extra.nth ys k::xs)
+and
+el2 : forall k tag ys xs. k < List.length ys ==>
+bc_stack_op El2 (Number (integerFromNat k)::(Block tag ys)::xs) (List_extra.nth ys k::xs)
 and
 tagEq : forall t tag ys xs. true ==>
 bc_stack_op (TagEq t) ((Block tag ys)::xs) (bool_to_val (tag = t)::xs)

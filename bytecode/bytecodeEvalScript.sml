@@ -10,6 +10,8 @@ val bc_eval_stack_def = Define`
    SOME (Number n::xs))
 ∧ (bc_eval_stack (Cons tag k) xs =
    if k ≤ LENGTH xs then SOME (Block tag (REVERSE (TAKE k xs))::(DROP k xs)) else NONE)
+∧ (bc_eval_stack (Cons2 tag) (Number k::xs) =
+   if 0 ≤ k ∧ Num k ≤ LENGTH xs then SOME (Block tag (REVERSE (TAKE (Num k) xs))::(DROP (Num k) xs)) else NONE)
 ∧ (bc_eval_stack (Load k) xs =
    if k < LENGTH xs then SOME (EL k xs::xs) else NONE)
 ∧ (bc_eval_stack (Store k) (y::xs) =
@@ -17,8 +19,11 @@ val bc_eval_stack_def = Define`
    then SOME (TAKE k xs ++ y :: (DROP (k+1) xs)) else NONE)
 ∧ (bc_eval_stack (El k) ((Block tag ys)::xs) =
    if k < LENGTH ys then SOME (EL k ys::xs) else NONE)
+∧ (bc_eval_stack El2 ((Number k)::(Block tag ys)::xs) =
+   if 0 ≤ k ∧ Num k < LENGTH ys then SOME (EL (Num k) ys::xs) else NONE)
 ∧ (bc_eval_stack (TagEq t) ((Block tag ys)::xs) =
    SOME (bool_to_val (tag = t)::xs))
+∧ (bc_eval_stack LengthBlock (Block _ ys::xs) = SOME (Number (&(LENGTH ys))::xs))
 ∧ (bc_eval_stack IsBlock (Block _ _::xs) = SOME (bool_to_val T::xs))
 ∧ (bc_eval_stack IsBlock (CodePtr _ ::xs) = NONE)
 ∧ (bc_eval_stack IsBlock (StackPtr _ ::xs) = NONE)
@@ -66,15 +71,24 @@ fs[bc_eval_stack_def,bc_stack_op_cases] >> rw[]
 >- (
   Cases_on`n0`>>fsrw_tac[ARITH_ss][] )
 >- (
+  Cases_on`h`>>fs[bc_eval_stack_def] >> rw[] >>
+  rw[INT_OF_NUM] )
+>- (
   qexists_tac`TAKE n t` >> simp[] >>
   rpt (pop_assum mp_tac) >>
   map_every qid_spec_tac[`n`,`t`] >>
   Induct >> simp[] >>
   gen_tac >> Cases >> fs[] >> strip_tac >>
   res_tac >> Cases_on`t`>>fs[])
+>- ( Cases_on `h` >> fs[bc_eval_stack_def] )
 >- (
   qmatch_assum_rename_tac `bc_eval_stack (El n) (h::t) = SOME ys` [] >>
   Cases_on `h` >> fs[bc_eval_stack_def] )
+>- (
+  qmatch_assum_rename_tac `bc_eval_stack (El2) (h::t) = SOME ys` [] >>
+  Cases_on `h` >> Cases_on`t` >> fs[bc_eval_stack_def] >>
+  Cases_on`h`>>fs[bc_eval_stack_def] >> rw[] >>
+  qexists_tac`Num i` >> rw[INT_OF_NUM])
 >- (
   qmatch_assum_rename_tac `bc_eval_stack (TagEq n) (h::t) = SOME ys` [] >>
   Cases_on `h` >> fs[bc_eval_stack_def] )

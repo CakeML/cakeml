@@ -53,7 +53,8 @@ val _ = Hol_datatype `
    * The last variable name indicates which function from the mutually
    * recursive bundle this closure value represents *)
   | Recclosure of ( (modN, ( (varN, v)env))env # envC # (varN, v) env) => (varN # varN # exp) list => varN
-  | Loc of num`;
+  | Loc of num
+  | Vectorv of v list`;
 
 
 val _ = type_abbrev( "envE" , ``: (varN, v) env``);
@@ -322,7 +323,9 @@ val _ = Define `
 /\
 (contains_closure (Recclosure env funs n) = T)
 /\
-(contains_closure (Loc n) = F)`;
+(contains_closure (Loc n) = F)
+/\
+(contains_closure (Vectorv vs) = (EXISTS contains_closure vs))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn contains_closure_defn;
 
@@ -344,6 +347,12 @@ val _ = Hol_datatype `
 /\
 (do_eq (Conv cn1 vs1) (Conv cn2 vs2) =  
 (if (cn1 = cn2) /\ (LENGTH vs1 = LENGTH vs2) then
+    do_eq_list vs1 vs2
+  else
+    Eq_val F))
+/\
+(do_eq (Vectorv vs1) (Vectorv vs2) =  
+(if LENGTH vs1 = LENGTH vs2 then
     do_eq_list vs1 vs2
   else
     Eq_val F))
@@ -398,6 +407,26 @@ val _ = Define `
   | _ => NONE
   )))`;
 
+
+(* If a value represents a list, get that list. Otherwise return Nothing *)
+(*val v_to_list : v -> maybe (list v)*)
+ val v_to_list_defn = Hol_defn "v_to_list" `
+ (v_to_list (Conv (SOME (cn, TypeId (Short tn))) []) =  
+ (if (cn = "nil") /\ (tn = "list") then
+    SOME []
+  else
+    NONE))
+/\ (v_to_list (Conv (SOME (cn,TypeId (Short tn))) [v1;v2]) =  
+(if (cn = "::")  /\ (tn = "list") then
+    (case v_to_list v2 of
+        SOME vs => SOME (v1::vs)
+      | NONE => NONE
+    )
+  else
+    NONE))
+/\ (v_to_list _ = NONE)`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn v_to_list_defn;
 
 (*val do_app : store v -> op -> list v -> maybe (store v * result v v)*)
 val _ = Define `
@@ -472,6 +501,21 @@ val _ = Define `
                   )
         | _ => NONE
       )
+    | (VfromList, [v]) =>
+          (case v_to_list v of
+              SOME vs =>
+                SOME (s, Rval (Vectorv vs))
+            | NONE => NONE
+          )
+    | (Vsub, [Vectorv vs; Litv (IntLit i)]) =>
+        if i <( 0 : int) then
+          SOME (s, Rerr (Rraise (prim_exn "Subscript")))
+        else
+          let n = (Num (ABS ( i))) in
+            if n >= LENGTH vs then
+              SOME (s, Rerr (Rraise (prim_exn "Subscript")))
+            else 
+              SOME (s, Rval (EL n vs))
     | _ => NONE
   )))`;
 
@@ -556,8 +600,8 @@ val _ = Define `
 
 
 val _ = Define `
- (tc_to_string tc0 =  
- ((case tc0 of
+ (tc_to_string tc =  
+((case tc of
     TC_name id => id_to_string id
   | TC_int => "<int>"
   | TC_string => "<string>"
@@ -567,6 +611,7 @@ val _ = Define `
   | TC_word8 => "<word8>"
   | TC_word8array => "<word8array>"
   | TC_exn => "<exn>"
+  | TC_vector => "<vector>"
   )))`;
 
 

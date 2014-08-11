@@ -1,5 +1,5 @@
 open HolKernel boolLib bossLib pairTheory listTheory lcsymtacs miscLib
-open ml_translatorTheory replCorrectTheory compilerProofTheory ml_repl_moduleTheory
+open ml_translatorTheory repl_funProofTheory compilerProofTheory ml_repl_moduleTheory
 open compile_repl_decsTheory
 open bigStepTheory terminationTheory
 
@@ -362,7 +362,6 @@ val evaluate_Tmod_tys = prove(
 (* Environment produced by repl_decs *)
 
 val evaluate_repl_decs = DISCH_ALL module_thm
-  |> SIMP_RULE std_ss [PRECONDITION_def,sideTheory.basis_state_side_thm]
   |> RW EqualityTypes
 
 val (repl_store,repl_res) =
@@ -468,7 +467,7 @@ val prim_env_rs = prove(
 
 val bootstrap_bc_state_exists = prove(
   ``∃bs grd.
-      bc_eval (install_code ((SND(SND(compile_repl_decs)))++SND(THE prim_env)) empty_bc_state) = SOME bs ∧
+      bc_eval (install_code ((SND(SND(compile_repl_decs)))++SND(THE prim_env)) initial_bc_state) = SOME bs ∧
       bc_fetch bs = SOME (Stop T) ∧
       EVERY IS_SOME bs.globals ∧
       env_rs ^repl_all_env ^repl_store grd (FST compile_repl_decs) bs``,
@@ -535,7 +534,7 @@ val repl_bc_state_clock = prove(
   imp_res_tac bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next >>
   imp_res_tac bytecodeExtraTheory.RTC_bc_next_clock_less >>
   fs[optionTheory.OPTREL_def,initCompEnvTheory.install_code_def] >>
-  fs[initCompEnvTheory.empty_bc_state_def])
+  fs[initCompEnvTheory.initial_bc_state_def,initCompEnvTheory.empty_bc_state_def])
 
 (* Effect of evaluating the call *)
 val update_io_def  = Define`

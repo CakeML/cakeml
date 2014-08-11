@@ -162,6 +162,10 @@ val (v_to_i1_rules, v_to_i1_ind, v_to_i1_cases) = Hol_reln `
                (Closure_i1 (cenv,[]) y (exp_to_i1 mods ((tops |++ tops') \\ y) e))) ∧
 (!genv loc.
   v_to_i1 genv (Loc loc) (Loc_i1 loc)) ∧
+(!vs.
+  vs_to_i1 genv vs vs_i1
+  ⇒
+  v_to_i1 genv (Vectorv vs) (Vectorv_i1 vs_i1)) ∧
 (!genv.
   vs_to_i1 genv [] []) ∧
 (!genv v vs v' vs'.
@@ -209,6 +213,9 @@ val v_to_i1_eqns = Q.store_thm ("v_to_i1_eqns",
  (!genv l v.
   v_to_i1 genv (Loc l) v ⇔
     (v = Loc_i1 l)) ∧
+ (!genv vs v.
+  v_to_i1 genv (Vectorv vs) v ⇔
+    ?vs'. vs_to_i1 genv vs vs' ∧ (v = Vectorv_i1 vs')) ∧
  (!genv vs.
   vs_to_i1 genv [] vs ⇔
     (vs = [])) ∧
@@ -554,6 +561,19 @@ val do_eq_i1 = Q.prove (
  imp_res_tac length_vs_to_i1 >>
  fs []
  >- metis_tac []
+ >- (rpt (qpat_assum `vs_to_i1 env vs x0` (mp_tac o SIMP_RULE (srw_ss()) [Once v_to_i1_cases])) >>
+     rw [] >>
+     fs [vs_to_i1_list_rel, do_eq_def, do_eq_i1_def] >>
+     res_tac >>
+     fs [do_eq_i1_def])
+ >- (fs [Once v_to_i1_cases] >>
+     rw [do_eq_i1_def])
+ >- (fs [Once v_to_i1_cases] >>
+     rw [do_eq_i1_def])
+ >- (fs [Once v_to_i1_cases] >>
+     rw [do_eq_i1_def])
+ >- (fs [Once v_to_i1_cases] >>
+     rw [do_eq_i1_def])
  >- (fs [Once v_to_i1_cases] >>
      rw [do_eq_i1_def])
  >- (fs [Once v_to_i1_cases] >>
@@ -699,6 +719,24 @@ val funs_to_i1_map = Q.prove (
  PairCases_on `h` >>
  rw [exp_to_i1_def]);
 
+val v_to_list_i1_correct = Q.prove (
+`!v1 v2 vs1.
+  v_to_i1 genv v1 v2 ∧
+  v_to_list v1 = SOME vs1
+  ⇒
+  ?vs2.
+    v_to_list_i1 v2 = SOME vs2 ∧
+    vs_to_i1 genv vs1 vs2`,
+ ho_match_mp_tac v_to_list_ind >>
+ rw [v_to_list_def] >>
+ every_case_tac >>
+ fs [v_to_i1_eqns, v_to_list_i1_def] >>
+ rw [] >>
+ every_case_tac >>
+ fs [v_to_i1_eqns, v_to_list_i1_def] >>
+ rw [] >>
+ metis_tac [NOT_SOME_NONE, SOME_11]);
+
 val do_app_i1 = Q.prove (
 `!genv s1 s2 op vs r s1_i1 vs_i1.
   do_app s1 op vs = SOME (s2, r) ∧
@@ -795,7 +833,22 @@ val do_app_i1 = Q.prove (
      rw [markerTheory.Abbrev_def]
      >- decide_tac >>
      rw [EL_LUPDATE] >>
-     fs[store_v_same_type_def]));
+     fs[store_v_same_type_def])
+ >- (every_case_tac >>
+     rw [] >>
+     imp_res_tac v_to_list_i1_correct >>
+     fs [] >>
+     metis_tac [SOME_11, NOT_SOME_NONE])
+ >- (rw [markerTheory.Abbrev_def] >>
+     metis_tac [])
+ >- (rw [markerTheory.Abbrev_def] >>
+     fs [vs_to_i1_list_rel] >>
+     metis_tac [LIST_REL_LENGTH])
+ >- (rw [markerTheory.Abbrev_def] >>
+     fs [vs_to_i1_list_rel] >>
+     imp_res_tac LIST_REL_LENGTH
+     >- intLib.ARITH_TAC >>
+     fs [LIST_REL_EL_EQN]));
 
 val do_opapp_i1 = Q.prove (
 `!genv vs vs_i1 env e.

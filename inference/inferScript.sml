@@ -300,6 +300,17 @@ constrain_op op ts =
           () <- add_constraint t3 (Infer_Tapp [] TC_word8);
           return (Infer_Tapp [] TC_unit)
        od
+   | (VfromList, [t]) =>
+       do uvar <- fresh_uvar;
+          () <- add_constraint t (Infer_Tapp [uvar] (TC_name (Short "list")));
+          return (Infer_Tapp [uvar] TC_vector)
+       od
+   | (Vsub, [t1;t2]) =>
+       do uvar <- fresh_uvar;
+          () <- add_constraint t1 (Infer_Tapp [uvar] TC_vector);
+          () <- add_constraint t2 (Infer_Tapp [] TC_int);
+          return uvar
+       od
    | _ => failwith "Wrong number of arguments to primitive"`;
 
 val infer_e_def = tDefine "infer_e" `

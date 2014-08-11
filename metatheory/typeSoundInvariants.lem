@@ -212,6 +212,13 @@ loc2 : forall tvs cenv senv n.
 type_v tvs cenv senv (Loc n) Tword8array
 
 and
+vec : forall tvs cenv senv vs t.
+check_freevars 0 [] t &&
+List.all (fun v -> type_v tvs cenv senv v t) vs
+==>
+type_v tvs cenv senv (Vectorv vs) (Tapp [t] TC_vector)
+
+and
 
 empty : forall tvs cenv senv.
 true
@@ -502,6 +509,14 @@ let ctMap_has_exns ctMap =
   (Map.lookup ("Eq", TypeExn (Short "Eq")) ctMap = Just ([],[])) &&
   (Map.lookup ("Subscript", TypeExn (Short "Subscript")) ctMap = Just ([],[]))
 
+(* The global constructor type environment has the list primitives in it *)
+val ctMap_has_lists : ctMap -> bool
+let ctMap_has_lists ctMap =
+  (Map.lookup ("nil", TypeId (Short "list")) ctMap = Just (["'a"],[])) &&
+  (Map.lookup ("::", TypeId (Short "list")) ctMap = 
+   Just (["'a"],[Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))])) &&
+  (forall cn. cn <> "::" && cn <> "nil" --> Map.lookup (cn, TypeId (Short "list")) ctMap = Nothing)
+
 (* The types and exceptions that are missing are all declared in modules. *)
 val weak_decls_only_mods : decls -> decls -> bool
 let  weak_decls_only_mods (mdecls1,tdecls1,edecls1) (mdecls2,tdecls2,edecls2) =
@@ -541,6 +556,7 @@ let type_sound_invariants r (decls1,tenvT,tenvM,tenvC,tenv,decls2,envM,envC,envE
     consistent_decls decls2 decls_no_sig &&
     consistent_ctMap decls_no_sig ctMap &&
     ctMap_has_exns ctMap &&
+    ctMap_has_lists ctMap &&
     tenvT_ok tenvT &&
     tenvM_ok tenvM_no_sig && 
     tenvM_ok tenvM &&

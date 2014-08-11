@@ -214,6 +214,12 @@ type_v tvs cenv senv (Loc n) (Tref t))
 ==>
 type_v tvs cenv senv (Loc n) Tword8array)
 
+/\ (! tvs cenv senv vs t.
+(check_freevars( 0) [] t /\
+EVERY (\ v .  type_v tvs cenv senv v t) vs)
+==>
+type_v tvs cenv senv (Vectorv vs) (Tapp [t] TC_vector))
+
 /\ (! tvs cenv senv.
 T
 ==>
@@ -457,6 +463,16 @@ val _ = Define `
   (FLOOKUP ctMap ("Subscript", TypeExn (Short "Subscript")) = SOME ([],[]))))`;
 
 
+(* The global constructor type environment has the list primitives in it *)
+(*val ctMap_has_lists : ctMap -> bool*)
+val _ = Define `
+ (ctMap_has_lists ctMap =  
+((FLOOKUP ctMap ("nil", TypeId (Short "list")) = SOME (["'a"],[])) /\
+  (FLOOKUP ctMap ("::", TypeId (Short "list")) = 
+   SOME (["'a"],[Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))])) /\
+  (! cn. (~ (cn = "::") /\ ~ (cn = "nil")) ==> (FLOOKUP ctMap (cn, TypeId (Short "list")) = NONE))))`;
+
+
 (* The types and exceptions that are missing are all declared in modules. *)
 (*val weak_decls_only_mods : decls -> decls -> bool*)
 val _ = Define `
@@ -505,6 +521,7 @@ val _ = Define `
     consistent_decls decls2 decls_no_sig /\
     consistent_ctMap decls_no_sig ctMap /\
     ctMap_has_exns ctMap /\
+    ctMap_has_lists ctMap /\
     tenvT_ok tenvT /\
     tenvM_ok tenvM_no_sig /\ 
     tenvM_ok tenvM /\

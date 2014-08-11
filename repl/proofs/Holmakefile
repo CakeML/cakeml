@@ -10,6 +10,8 @@ IMPL_BARE_THYS = repl_funTheory
 
 SEM_BARE_THYS = astTheory semanticPrimitivesTheory terminationTheory typeSystemTheory proofs/interpTheory
 
+PARSING_BARE_THYS = lexer_implTheory
+
 META_BARE_THYS = typeSysPropsTheory
 
 INFER_BARE_THYS = inferSoundTheory
@@ -19,6 +21,7 @@ COMPILER_BARE_THYS = compilerProofTheory
 BYTECODE_BARE_THYS = bytecodeLabelsTheory
 
 BARE_THYS = $(patsubst %,../../semantics/%,$(SEM_BARE_THYS))\
+			$(patsubst %,../../parsing/%,$(PARSING_BARE_THYS))\
 	    $(patsubst %,../%,$(IMPL_BARE_THYS))\
 	    $(patsubst %,../../inference/proofs/%,$(INFER_BARE_THYS))\
 	    $(patsubst %,../../metatheory/%,$(META_BARE_THYS))\

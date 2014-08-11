@@ -105,9 +105,9 @@ val _ = register "pmatch" pmatch_def pmatch_ind;
 
 val (contains_closure_def, contains_closure_ind) =
   tprove_no_defn ((contains_closure_def, contains_closure_ind),
-  wf_rel_tac `measure v_size`
+  wf_rel_tac `measure v_size` >> conj_tac
   THEN Induct_on `vs` THEN rw [v_size_def] THEN1 decide_tac
-  THEN RES_TAC THEN POP_ASSUM (ASSUME_TAC o Q.SPEC `cn`) THEN decide_tac);
+  THEN RES_TAC THEN TRY (POP_ASSUM (ASSUME_TAC o Q.SPEC `cn`)) THEN decide_tac);
 val _ = register "contains_closure" contains_closure_def contains_closure_ind;
 
 val (type_subst_def, type_subst_ind) =
@@ -186,6 +186,11 @@ wf_rel_tac `inv_image $< (λx. case x of INL (v1,v2) => v_size v1
                                       | INR (vs1,vs2) => vs_size vs1)` >>
 srw_tac [ARITH_ss] [size_abbrevs, v_size_def]);
 val _ = register "do_eq" do_eq_def do_eq_ind;
+
+val (v_to_list_def,v_to_list_ind) =
+  tprove_no_defn ((v_to_list_def,v_to_list_ind),
+wf_rel_tac `measure v_size`);
+val _ = register "v_to_list" v_to_list_def v_to_list_ind;
 
 val check_ctor_foldr_flat_map = Q.prove (
 `!c. (FOLDR

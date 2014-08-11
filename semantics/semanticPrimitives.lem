@@ -37,6 +37,7 @@ type v =
    * recursive bundle this closure value represents *)
   | Recclosure of (env modN (env varN v) * envC * env varN v) * list (varN * varN * exp) * varN
   | Loc of nat
+  | Vectorv of list v
 
 type envE = env varN v
 
@@ -261,6 +262,8 @@ and
 contains_closure (Recclosure env funs n) = true
 and
 contains_closure (Loc n) = false
+and
+contains_closure (Vectorv vs) = List.any contains_closure vs
 
 type eq_result = 
   | Eq_val of bool
@@ -277,6 +280,12 @@ do_eq (Loc l1) (Loc l2) = Eq_val (l1 = l2)
 and
 do_eq (Conv cn1 vs1) (Conv cn2 vs2) =
   if cn1 = cn2 && (List.length vs1 = List.length vs2) then
+    do_eq_list vs1 vs2
+  else
+    Eq_val false
+and
+do_eq (Vectorv vs1) (Vectorv vs2) =
+  if List.length vs1 = List.length vs2 then
     do_eq_list vs1 vs2
   else
     Eq_val false
@@ -325,6 +334,23 @@ let do_opapp vs =
         Nothing
   | _ -> Nothing
   end
+
+(* If a value represents a list, get that list. Otherwise return Nothing *)
+val v_to_list : v -> maybe (list v)
+let rec v_to_list (Conv (Just (cn, TypeId (Short tn))) []) = 
+  if cn = "nil" && tn = "list" then
+    Just []
+  else
+    Nothing
+and v_to_list (Conv (Just (cn,TypeId (Short tn))) [v1;v2]) =
+  if cn = "::"  && tn = "list" then
+    match v_to_list v2 with
+      | Just vs -> Just (v1::vs)
+      | Nothing -> Nothing
+    end
+  else
+    Nothing
+and v_to_list _ = Nothing
 
 val do_app : store v -> op -> list v -> maybe (store v * result v v)
 let do_app s op vs =
@@ -398,6 +424,21 @@ let do_app s op vs =
                   end
         | _ -> Nothing
       end
+    | (VfromList, [v]) ->
+          match v_to_list v with
+            | Just vs ->
+                Just (s, Rval (Vectorv vs))
+            | Nothing -> Nothing
+          end
+    | (Vsub, [Vectorv vs; Litv (IntLit i)]) ->
+        if i < 0 then
+          Just (s, Rerr (Rraise (prim_exn "Subscript")))
+        else
+          let n = natFromInteger i in
+            if n >= List.length vs then
+              Just (s, Rerr (Rraise (prim_exn "Subscript")))
+            else 
+              Just (s, Rval (List_extra.nth vs n))
     | _ -> Nothing
   end
 
@@ -462,7 +503,7 @@ id_to_string (Short s) = s
 and
 id_to_string (Long x y) = x^"."^y
 
-let tc_to_string tc = 
+let tc_to_string tc =
   match tc with
     TC_name id -> id_to_string id
   | TC_int -> "<int>"
@@ -473,6 +514,7 @@ let tc_to_string tc =
   | TC_word8 -> "<word8>"
   | TC_word8array -> "<word8array>"
   | TC_exn -> "<exn>"
+  | TC_vector -> "<vector>"
   end
 
 val int_to_string : integer -> string

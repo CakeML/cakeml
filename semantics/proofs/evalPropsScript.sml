@@ -86,7 +86,19 @@ val do_app_cases = Q.store_thm ("do_app_cases",
      (~(i < 0) ∧
       Num (ABS i) < LENGTH ws ∧
       store_assign lnum (W8array (LUPDATE w (Num (ABS i)) ws)) st = SOME st' ∧
-      v = Rval (Litv Unit)))))`,
+      v = Rval (Litv Unit)))) ∨
+  (?vs' v'.
+    (op = VfromList) ∧ (vs = [v']) ∧ (SOME vs' = v_to_list v') ∧
+    st = st' ∧
+    v = Rval (Vectorv vs')) ∨
+  (?vs' lnum i.
+    (op = Vsub) ∧ (vs = [Vectorv vs'; Litv (IntLit i)]) ∧ (st = st') ∧
+    (((i < 0) ∧ v = Rerr (Rraise (prim_exn "Subscript"))) ∨
+     ((~(i < 0) ∧ Num (ABS i) ≥ LENGTH vs' ∧
+       v = Rerr (Rraise (prim_exn "Subscript")))) ∨
+     (~(i < 0) ∧
+      Num (ABS i) < LENGTH vs' ∧
+      (v = Rval (EL (Num(ABS i)) vs'))))))`,
  SIMP_TAC (srw_ss()) [do_app_def] >>
  cases_on `op` >>
  rw [] >>

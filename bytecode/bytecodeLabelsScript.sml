@@ -60,6 +60,11 @@ val ilength_def = Define `
 val code_length_def = Define `
   code_length l code = SUM (MAP (ilength l) code)`;
 
+val next_addr_thm = store_thm("next_addr_thm",
+  ``!xs l. next_addr l xs = code_length l xs``,
+  Induct \\ SRW_TAC [] [code_length_def,ilength_def,ADD1]
+  \\ FULL_SIMP_TAC std_ss []);
+
 val bc_fetch_aux_SOME = store_thm("bc_fetch_aux_SOME",
   ``!xs l p x.
       (bc_fetch_aux xs l p = SOME x) ==>
@@ -551,6 +556,40 @@ val code_labels_no_labels = store_thm("code_labels_no_labels",
   rw[code_labels_def,inst_labels_no_labels])
 
 open bytecodeExtraTheory
+
+val code_executes_ok_strip_labels = store_thm("code_executes_ok_strip_labels",
+  ``code_executes_ok bs1 /\ length_ok bs1.inst_length ==>
+    code_executes_ok (strip_labels bs1)``,
+  SIMP_TAC std_ss [code_executes_ok_def,GSYM ilength_def,LET_DEF]
+  \\ REPEAT STRIP_TAC THEN1
+   (DISJ1_TAC \\ Q.EXISTS_TAC `strip_labels s2`
+    \\ IMP_RES_TAC bc_next_strip_labels_RTC
+    \\ FULL_SIMP_TAC std_ss []
+    \\ IMP_RES_TAC RTC_bc_next_preserves
+    \\ METIS_TAC [bc_fetch_strip_labels])
+  \\ DISJ2_TAC \\ REPEAT GEN_TAC
+  \\ POP_ASSUM MP_TAC
+  \\ POP_ASSUM (STRIP_ASSUME_TAC o Q.SPECL [`n`]) \\ STRIP_TAC
+  \\ Q.EXISTS_TAC `strip_labels s2`
+  \\ POP_ASSUM MP_TAC
+  \\ POP_ASSUM MP_TAC
+  \\ POP_ASSUM MP_TAC
+  \\ Q.SPEC_TAC (`bs1`,`s1`)
+  \\ Q.SPEC_TAC (`s2`,`s2`)
+  \\ Induct_on `n`
+  THEN1 (ONCE_REWRITE_TAC [NRC_0] \\ SIMP_TAC (srw_ss()) [strip_labels_def])
+  \\ ONCE_REWRITE_TAC [NRC]
+  \\ SIMP_TAC std_ss [PULL_FORALL,PULL_EXISTS] \\ REPEAT STRIP_TAC
+  \\ Q.EXISTS_TAC `strip_labels z`
+  \\ `bc_next^* s1 z` by METIS_TAC [RTC_RULES] \\ IMP_RES_TAC NRC_RTC
+  \\ IMP_RES_TAC RTC_bc_next_preserves
+  \\ FULL_SIMP_TAC std_ss [strip_labels_output,AND_IMP_INTRO]
+  \\ REVERSE STRIP_TAC THEN1
+   (Q.PAT_ASSUM `!xx.bbb` MATCH_MP_TAC \\ FULL_SIMP_TAC std_ss []
+    \\ IMP_RES_TAC RTC_bc_next_output_squeeze
+    \\ FULL_SIMP_TAC std_ss [])
+  \\ MATCH_MP_TAC (bc_next_strip_labels |> REWRITE_RULE [AND_IMP_INTRO])
+  \\ FULL_SIMP_TAC std_ss []);
 
 val real_inst_length_ok = store_thm("real_inst_length_ok",
   ``length_ok real_inst_length``,

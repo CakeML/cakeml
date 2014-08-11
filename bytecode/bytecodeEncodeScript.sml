@@ -16,11 +16,14 @@ val bc_inst_to_string_def = Define `
 (bc_inst_to_string (Stack (Pops n)) = "pops " ++ toString n) ∧
 (bc_inst_to_string (Stack (PushInt i)) = "pushInt " ++ int_to_string2 i) ∧
 (bc_inst_to_string (Stack (Cons n1 n2)) = "cons " ++ toString n1 ++ " " ++ toString n2) ∧
+(bc_inst_to_string (Stack (Cons2 n1)) = "cons2 " ++ toString n1) ∧
 (bc_inst_to_string (Stack (Load n)) = "load " ++ toString n) ∧
 (bc_inst_to_string (Stack (Store n)) = "store " ++ toString n) ∧
 (bc_inst_to_string (Stack (El n)) = "el " ++ toString n) ∧
+(bc_inst_to_string (Stack El2) = "el2") ∧
 (bc_inst_to_string (Stack (TagEq n)) = "tagEq " ++ toString n) ∧
 (bc_inst_to_string (Stack IsBlock) = "isBlock") ∧
+(bc_inst_to_string (Stack LengthBlock) = "lengthBlock") ∧
 (bc_inst_to_string (Stack Equal) = "=") ∧
 (bc_inst_to_string (Stack Add) = "+") ∧
 (bc_inst_to_string (Stack Sub) = "-") ∧
@@ -81,6 +84,8 @@ val encode_bc_inst_def = Define `
     OPTION_MAP (\w. [4w; w]) (encode_num (Num (i)))) ∧
 (encode_bc_inst (Stack (Cons n1 n2)) =
   OPTION_BIND (encode_num n1) (\w1. OPTION_BIND (encode_num n2) (\w2. SOME [5w; w1; w2]))) ∧
+(encode_bc_inst (Stack (Cons2 n1)) =
+  OPTION_BIND (encode_num n1) (\w1. SOME [48w; w1])) ∧
 (encode_bc_inst (Stack (Load n)) =
   OPTION_MAP (\w. [6w; w]) (encode_num n)) ∧
 (encode_bc_inst (Stack (Store n)) =
@@ -89,6 +94,8 @@ val encode_bc_inst_def = Define `
   OPTION_MAP (\w. [9w; w]) (encode_num n)) ∧
 (encode_bc_inst (Stack (TagEq n)) =
   OPTION_MAP (\w. [10w; w]) (encode_num n)) ∧
+(encode_bc_inst (Stack El2) = SOME [47w]) ∧
+(encode_bc_inst (Stack LengthBlock) = SOME [46w]) ∧
 (encode_bc_inst (Stack IsBlock) = SOME [11w]) ∧
 (encode_bc_inst (Stack Equal) = SOME [12w]) ∧
 (encode_bc_inst (Stack Add) = SOME [13w]) ∧
@@ -161,6 +168,8 @@ decode_bc_inst wl =
            option_map_fst (\n. Stack (PushInt (-&n))) (decode_num rest)
          else if tag = 4w then
            option_map_fst (\n. Stack (PushInt (&n))) (decode_num rest)
+         else if tag = 48w then
+           option_map_fst (\n. Stack (Cons2 (&n))) (decode_num rest)
          else if tag = 5w then
            OPTION_BIND (decode_num rest) (\(n1, rest). OPTION_BIND (decode_num rest) (\(n2, rest). SOME (Stack (Cons n1 n2), rest)))
          else if tag = 6w then
@@ -171,6 +180,10 @@ decode_bc_inst wl =
            option_map_fst (\n. Stack (El n)) (decode_num rest)
          else if tag = 10w then
            option_map_fst (\n. Stack (TagEq n)) (decode_num rest)
+         else if tag = 47w then
+           SOME (Stack El2, rest)
+         else if tag = 46w then
+           SOME (Stack LengthBlock, rest)
          else if tag = 11w then
            SOME (Stack IsBlock, rest)
          else if tag = 12w then
@@ -269,7 +282,7 @@ val decode_bc_insts_prim_def = tzDefine "decode_bc_insts" `
   case decode_bc_inst wl of
        NONE => NONE
      | SOME (i,rest) =>
-         if 45 < dimword (:'a) then
+         if 48 < dimword (:'a) then
            case decode_bc_insts rest of
                 NONE => NONE
               | SOME is => SOME (i::is)
@@ -293,7 +306,7 @@ val decode_bc_insts_prim_def = tzDefine "decode_bc_insts" `
 
 val decode_bc_insts_def = Q.store_thm ("decode_bc_insts_def",
 `(decode_bc_insts [] = SOME []) ∧
- (45 < dimword (:'a) ⇒
+ (48 < dimword (:'a) ⇒
    (decode_bc_insts ((w:'a word)::wl) =
      case decode_bc_inst (w::wl) of
          NONE => NONE
@@ -315,7 +328,7 @@ val decode_encode_num = Q.prove (
  decide_tac);
 
 val decode_encode_bc_inst = Q.store_thm ("decode_encode_bc_inst",
-`45 < dimword (:'a)
+`48 < dimword (:'a)
  ⇒
  !inst (l1:'a word list) l2.
   (encode_bc_inst inst = SOME l1)
@@ -336,7 +349,7 @@ val decode_encode_bc_inst = Q.store_thm ("decode_encode_bc_inst",
      rw [ORD_BOUND, CHR_ORD]));
 
 val decode_encode_bc_insts = Q.store_thm ("decode_encode_bc_insts",
-`45 < dimword (:'a)
+`48 < dimword (:'a)
  ⇒
  !(l1:'a word list) insts.
   (encode_bc_insts insts = SOME l1)

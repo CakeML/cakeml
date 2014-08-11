@@ -49,6 +49,7 @@ type v_pat =
   | Closure_pat of list v_pat * exp_pat
   | Recclosure_pat of list v_pat * list exp_pat * nat
   | Loc_pat of nat
+  | Vectorv_pat of list v_pat
 
 val sIf_pat : exp_pat -> exp_pat -> exp_pat -> exp_pat
 let
@@ -106,6 +107,7 @@ let pure_op op =
   op <> Aupdate &&
   op <> Aalloc &&
   op <> Asub &&
+  op <> Vsub &&
   op <> (Opn Divide) &&
   op <> (Opn Modulo)
 
@@ -366,6 +368,12 @@ do_eq_pat (Conv_pat tag1 vs1) (Conv_pat tag2 vs2) =
   else
     Eq_val false
 and
+do_eq_pat (Vectorv_pat vs1) (Vectorv_pat vs2) =
+  if List.length vs1 = List.length vs2 then
+    do_eq_list_pat vs1 vs2
+  else
+    Eq_val false
+and
 do_eq_pat (Closure_pat _ _) (Closure_pat _ _) = Eq_closure
 and
 do_eq_pat (Closure_pat _ _) (Recclosure_pat _ _ _) = Eq_closure
@@ -393,6 +401,24 @@ do_eq_list_pat _ _ = Eq_val false
 
 val prim_exn_pat : nat -> v_pat
 let prim_exn_pat tag = Conv_pat tag []
+
+val v_to_list_pat : v_pat -> maybe (list v_pat)
+let rec v_to_list_pat (Conv_pat tag []) = 
+  if tag = nil_tag then
+    Just []
+  else
+    Nothing
+and v_to_list_pat (Conv_pat tag [v1;v2]) =
+  if tag = cons_tag  then
+    match v_to_list_pat v2 with
+      | Just vs -> Just (v1::vs)
+      | Nothing -> Nothing
+    end
+  else
+    Nothing
+and v_to_list_pat _ = Nothing
+declare termination_argument v_to_list_pat = automatic
+
 
 val do_app_pat : count_store_genv v_pat -> op_pat -> list v_pat -> maybe (count_store_genv v_pat * result v_pat v_pat)
 let do_app_pat ((cnt,s),genv) op vs =
@@ -474,6 +500,21 @@ let do_app_pat ((cnt,s),genv) op vs =
                   end
         | _ -> Nothing
         end
+    | (Op_pat (Op_i2 VfromList), [v]) ->
+          match v_to_list_pat v with
+            | Just vs ->
+                Just (((cnt,s),genv), Rval (Vectorv_pat vs))
+            | Nothing -> Nothing
+          end
+    | (Op_pat (Op_i2 Vsub), [Vectorv_pat vs; Litv_pat (IntLit i)]) ->
+        if i < 0 then
+          Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
+        else
+          let n = natFromInteger i in
+            if n >= List.length vs then
+              Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
+            else 
+              Just (((cnt,s),genv), Rval (List_extra.nth vs n))
     | (Tag_eq_pat n, [Conv_pat tag _]) ->
         Just (((cnt,s),genv), Rval (Litv_pat (Bool (tag = n))))
     | (El_pat n, [Conv_pat _ vs]) ->

@@ -5,13 +5,15 @@ open import Lib
 open import Ast
 open import SemanticPrimitives
 open import DecLang
+open import ConLang
 
 (* Syntax *)
 
 (* pure applicative primitives with bytecode counterparts *)
-type Cprim1 = CRef | CDer | CIsBlock | CLen | CLenB
+type Cprim1 = CRef | CDer | CIsBlock | CLen | CLenB | CLenV
             | CTagEq of nat | CProj of nat | CInitG of nat
-type Cprim2p = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq
+            | CVfromList
+type Cprim2p = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq | CDerV
 type Cprim2s = CRefB | CDerB
 type Cprim2 = P2p of Cprim2p | P2s of Cprim2s
 
@@ -52,11 +54,14 @@ type Cv =
   | CConv of nat * list Cv
   | CRecClos of list Cv * list def * nat
   | CLoc of nat
+  | CVectorv of list Cv
 
 let rec
 no_closures (CLitv _) = true
 and
 no_closures (CConv _ vs) = List.all no_closures vs
+and
+no_closures (CVectorv vs) = List.all no_closures vs
 and
 no_closures (CRecClos _ _ _) = false
 and
@@ -76,6 +81,12 @@ do_Ceq (CLoc l1) (CLoc l2) = Eq_val (l1 = l2)
 and
 do_Ceq (CConv cn1 vs1) (CConv cn2 vs2) =
   if cn1 = cn2 && List.length vs1 = List.length vs2 then
+    do_Ceq_list vs1 vs2
+  else
+    Eq_val false
+and
+do_Ceq (CVectorv vs1) (CVectorv vs2) =
+  if List.length vs1 = List.length vs2 then
     do_Ceq_list vs1 vs2
   else
     Eq_val false
@@ -121,6 +132,16 @@ CevalPrim2p CEq = fun v1 v2 ->
     | Eq_val b -> Rval (CLitv (Bool b))
     | Eq_closure -> Rval (CLitv (IntLit 0))
     | Eq_type_error -> Rerr Rtype_error
+  end
+and
+CevalPrim2p CDerV = fun v1 v2 ->
+  match (v1,v2) with
+    | (CVectorv vs, CLitv (IntLit i)) ->
+      if i < 0 || List.length vs <= natFromInteger i then
+        Rerr Rtype_error
+      else
+        Rval (List_extra.nth vs (natFromInteger i))
+    | _ -> Rerr Rtype_error
   end
 
 val CevalPrim2s : store Cv -> Cprim2s -> Cv -> Cv -> store Cv * result Cv Cv
@@ -171,6 +192,17 @@ CevalUpd true s (CLoc n) (CLitv (IntLit i)) (CLitv (Word8 w)) =
 and
 CevalUpd _ s _ _ _ = (s, Rerr Rtype_error)
 
+val CvFromList : Cv -> maybe (list Cv)
+let rec CvFromList (CConv g []) = if g = nil_tag then Just [] else Nothing
+and CvFromList (CConv g [h;t]) = if g = cons_tag then
+  match CvFromList t with
+  | Just t -> Just (h::t)
+  | Nothing -> Nothing
+  end
+                                  else Nothing
+and CvFromList _ = Nothing
+declare termination_argument CvFromList = automatic
+
 val CevalPrim1 : Cprim1 -> store_genv Cv -> Cv -> store_genv Cv * result Cv Cv
 let rec
 CevalPrim1 CRef (s,g) v = ((s++[Refv v],g), Rval (CLoc (List.length s)))
@@ -193,6 +225,9 @@ CevalPrim1 CLenB (s,g) (CLoc n) =
       | _ -> Rerr Rtype_error
       end)
 and
+CevalPrim1 CLenV sg (CVectorv vs) =
+  (sg, Rval (CLitv (IntLit (integerFromNat (List.length vs)))))
+and
 CevalPrim1 CIsBlock sg (CLitv l) =
   (sg, Rval (CLitv (Bool (match l with IntLit _ -> false | Word8 _ -> false | _ -> true end))))
 and
@@ -209,6 +244,12 @@ CevalPrim1 (CInitG n) (s,g) v =
   if n < List.length g && List_extra.nth g n = Nothing
   then ((s,List.update g n (Just v)),Rval (CLitv Unit))
   else ((s,g), Rerr Rtype_error)
+and
+CevalPrim1 CVfromList sg v =
+  (sg, match CvFromList v with
+       | Just vs -> Rval (CVectorv vs)
+       | Nothing -> Rerr Rtype_error
+       end)
 and
 CevalPrim1 _ sg _ = (sg, Rerr Rtype_error)
 
@@ -577,6 +618,11 @@ conv : forall cn vs1 vs2.
 all2 (syneq) vs1 vs2
 ==>
 syneq (CConv cn vs1) (CConv cn vs2)
+and
+vectorv : forall vs1 vs2.
+all2 (syneq) vs1 vs2
+==>
+syneq (CVectorv vs1) (CVectorv vs2)
 and
 recClos : forall V env1 env2 defs1 defs2 d1 d2 V'.
 (forall v1 v2. V v1 v2 -->

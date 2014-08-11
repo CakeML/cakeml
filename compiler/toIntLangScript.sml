@@ -117,7 +117,6 @@ val _ = Define `
 (opn_to_prim2 Modulo = (INR (P2p CMod)))`;
 
 
-
  val _ = Define `
 
 (binop_to_il (Opn opn) Ce1 Ce2 =  
@@ -171,13 +170,24 @@ val _ = Define `
                 (CPrim2 (P2s CDerB) (CVar( 1)) (CVar( 0)))
                 (CRaise (CCon subscript_tag [])))))))
 /\
+(binop_to_il Vsub Ce1 Ce2 =  
+(CLet T Ce1
+    (CLet T (shift( 1)( 0) Ce2)
+      (CIf (CPrim2 (P2p CLt) (CVar( 0)) (CLit (IntLit(( 0 : int)))))
+           (CRaise (CCon subscript_tag []))
+           (CIf (CPrim2 (P2p CLt) (CVar( 0)) (CPrim1 CLenV (CVar( 1))))
+                (CPrim2 (P2p CDerV) (CVar( 1)) (CVar( 0)))
+                (CRaise (CCon subscript_tag [])))))))
+/\
 (binop_to_il Alength Ce1 Ce2 = (CCon tuple_tag [Ce1;Ce2])) (* should not happen *)
 /\
 (binop_to_il Aupdate Ce1 Ce2 = (CCon tuple_tag [Ce1;Ce2])) (* should not happen *)
 /\
 (binop_to_il Opref   Ce1 Ce2 = (CCon tuple_tag [Ce1;Ce2])) (* should not happen *)
 /\
-(binop_to_il Opderef Ce1 Ce2 = (CCon tuple_tag [Ce1;Ce2]))`;
+(binop_to_il Opderef Ce1 Ce2 = (CCon tuple_tag [Ce1;Ce2])) (* should not happen *)
+/\
+(binop_to_il VfromList Ce1 Ce2 = (CCon tuple_tag [Ce1;Ce2]))`;
  (* should not happen *)
 
  val _ = Define `
@@ -187,6 +197,8 @@ val _ = Define `
 (unop_to_il Opderef Ce = (CPrim1 CDer Ce))
 /\
 (unop_to_il Alength Ce = (CPrim1 CLenB Ce))
+/\
+(unop_to_il VfromList Ce = (CPrim1 CVfromList Ce))
 /\
 (unop_to_il (Opn _)  Ce = Ce) (* should not happen *)
 /\
@@ -201,6 +213,8 @@ val _ = Define `
 (unop_to_il Aalloc   Ce = Ce) (* should not happen *)
 /\
 (unop_to_il Asub     Ce = Ce) (* should not happen *)
+/\
+(unop_to_il Vsub     Ce = Ce) (* should not happen *)
 /\
 (unop_to_il Aupdate  Ce = Ce)`;
  (* should not happen *)
@@ -310,6 +324,8 @@ val _ = Define `
   CRecClos Cenv Cdefs vn))
 /\
 (v_to_Cv (Loc_pat n) = (CLoc n))
+/\
+(v_to_Cv (Vectorv_pat vs) = (CVectorv (vs_to_Cvs vs)))
 /\
 (vs_to_Cvs [] = ([]))
 /\

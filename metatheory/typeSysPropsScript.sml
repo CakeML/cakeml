@@ -20,6 +20,64 @@ val check_dup_ctors_cons = evalPropsTheory.check_dup_ctors_cons;
 val type_env_cases = List.nth (CONJUNCTS type_v_cases, 2);
 val consistent_mod_cases = List.nth (CONJUNCTS type_v_cases, 3);
 
+(* miscellany TODO: reorganise *)
+
+val type_env_list_rel = store_thm("type_env_list_rel",
+  ``!ctMap tenvS env tenv.
+   type_env ctMap tenvS env (bind_var_list2 tenv Empty) ⇔ LIST_REL (λ(x,v1) (y,n,v2). x = y ∧ type_v n ctMap tenvS v1 v2) env tenv``,
+  induct_on `env` >>
+  rw [] >>
+  cases_on `tenv` >>
+  rw [bind_var_list2_def] >>
+  ONCE_REWRITE_TAC [hd (tl (tl (CONJUNCTS type_v_cases)))] >>
+  rw [libTheory.emp_def, bind_var_list2_def, libTheory.bind_def] >>
+  PairCases_on `h` >>
+  fs [bind_var_list2_def, bind_tenv_def] >>
+  PairCases_on `h'` >>
+  fs [bind_var_list2_def, bind_tenv_def] >>
+  metis_tac []);
+
+val type_env_list_rel_append = store_thm("type_env_list_rel_append",
+  ``!ctMap tenvS env tenv rest rst.
+   type_env ctMap tenvS (env ++ rest) (bind_var_list2 tenv rst) ∧ LENGTH env = LENGTH tenv
+     ⇒ LIST_REL (λ(x,v1) (y,n,v2). x = y ∧ type_v n ctMap tenvS v1 v2) env tenv``,
+  induct_on `env` >>
+  rw [LENGTH_NIL_SYM] >>
+  cases_on `tenv` >> fs[] >>
+  PairCases_on`h'` >>
+  fs [bind_var_list2_def] >>
+  PairCases_on`h`>>simp[] >>
+  miscLib.rator_x_assum`type_env`mp_tac >>
+  simp[Once type_v_cases,libTheory.emp_def,libTheory.bind_def] >>
+  rw[bind_tenv_def] >>
+  metis_tac[])
+
+val bind_var_list2_append = store_thm("bind_var_list2_append",
+  ``∀l1 l2 g. bind_var_list2 (l1 ++ l2) g = bind_var_list2 l1 (bind_var_list2 l2 g)``,
+  Induct >> simp[bind_var_list2_def] >>
+  qx_gen_tac`p`>>PairCases_on`p`>>simp[bind_var_list2_def])
+
+val type_env_length = store_thm("type_env_length",
+  ``∀d a b c e f g h.
+    type_env a b (c ++ d) (bind_var_list2 e f) ∧
+    type_env g h d f ⇒
+    LENGTH c = LENGTH e``,
+  Induct >> simp[] >- (
+    rw[] >>
+    pop_assum mp_tac >>
+    simp[Once type_v_cases,libTheory.bind_def] >>
+    rw[] >>
+    imp_res_tac type_env_list_rel >>
+    fs[LIST_REL_EL_EQN] ) >>
+  rw[] >>
+  pop_assum mp_tac >>
+  simp[Once type_v_cases,libTheory.bind_def,libTheory.emp_def] >>
+  rw[] >>
+  qsuff_tac`LENGTH (c ++ [n,v]) = LENGTH (e++[n,tvs,t])` >- simp[] >>
+  first_x_assum match_mp_tac >>
+  simp[bind_var_list2_append,bind_var_list2_def] >>
+  metis_tac[CONS_APPEND,APPEND_ASSOC])
+
 (* ---------- check_freevars ---------- *)
 
 val check_freevars_add = Q.store_thm ("check_freevars_add",
@@ -938,13 +996,15 @@ val type_op_cases = Q.store_thm ("type_op_cases",
    ((op = Aalloc) ∧ ts = [Tint; Tword8] ∧ t3 = Tword8array) ∨
    ((op = Asub) ∧ ts = [Tword8array; Tint] ∧ t3 = Tword8) ∨
    ((op = Alength) ∧ ts = [Tword8array] ∧ t3 = Tint) ∨
-   ((op = Aupdate) ∧ ts = [Tword8array; Tint; Tword8] ∧ t3 = Tunit))`,
+   ((op = Aupdate) ∧ ts = [Tword8array; Tint; Tword8] ∧ t3 = Tunit) ∨
+   ((op = VfromList) ∧ ?t2. ts = [Tapp [t2] (TC_name (Short "list"))] ∧ t3 = Tapp [t2] TC_vector) ∨
+   ((op = Vsub) ∧ ts = [Tapp [t3] TC_vector; Tint]))`,
  rw [type_op_def] >>
  every_case_tac >>
  fs [] >>
  metis_tac []);
 
- (* ---------- type_p ---------- *)
+(* ---------- type_p ---------- *)
 
 val type_ps_length = Q.store_thm ("type_ps_length",
 `∀tvs tenvC ps ts tenv.
@@ -1774,6 +1834,8 @@ val type_v_freevars = Q.store_thm ("type_v_freevars",
      metis_tac [type_funs_Tfn, num_tvs_bind_var_list, num_tvs_def,
                 arithmeticTheory.ADD, arithmeticTheory.ADD_COMM])
  >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ,
+               arithmeticTheory.GREATER_EQ]
+ >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ,
                arithmeticTheory.GREATER_EQ]);
 
 val type_vs_length = Q.store_thm ("type_vs_length",
@@ -1957,6 +2019,14 @@ val type_subst = Q.store_thm ("type_subst",
           fs [] >>
           rw [] >>
           metis_tac []])
+ >- (fs [EVERY_MEM] >>
+     rw [] >>
+     res_tac >>
+     fs [] >>
+     imp_res_tac nil_deBruijn_inc >>
+     fs [] >>
+     imp_res_tac nil_deBruijn_subst >>
+     fs [])
  >- (fs [bind_def, bind_tenv_def] >>
      metis_tac [type_v_rules])
  >- (fs [bind_def, bind_tenv_def] >>
@@ -2534,7 +2604,8 @@ val type_d_ctMap_disjoint = Q.store_thm ("type_d_ctMap_disjoint",
 `type_d mn tdecs1 tenvT tenvM tenvC tenv d tdecs1' tenvT' tenvC' tenv' ∧
  consistent_ctMap tdecs1 ctMap
  ⇒
- DISJOINT (FDOM (flat_to_ctMap tenvC')) (FDOM ctMap)`,
+ DISJOINT (FDOM (flat_to_ctMap tenvC')) (FDOM ctMap) ∧
+ DISJOINT (IMAGE SND (FDOM (flat_to_ctMap tenvC'))) (IMAGE SND (FDOM ctMap))`,
  rw [type_d_cases, DISJOINT_DEF, EXTENSION, emp_def, flat_to_ctMap_def, FDOM_FUPDATE_LIST, 
      flat_to_ctMap_list_def] >>
  rw [MEM_MAP] >>
