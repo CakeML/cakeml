@@ -101,7 +101,7 @@ type lop =
 (* Types
  * 0-ary type applications represent unparameterised types (e.g., num or string)
  *)
-type tctor = 
+type tctor =
   | TC_name of id typeN
   | TC_int
   | TC_string
