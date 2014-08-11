@@ -58,6 +58,9 @@ val module_thm = let
 
 val _ = save_thm("module_thm", module_thm);
 
+val _ = save_thm("equality_types",
+  LIST_CONJ (ml_translatorLib.eq_lemmas()));
+
 val _ = Theory.delete_binding "side_translator_state_thm";
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;

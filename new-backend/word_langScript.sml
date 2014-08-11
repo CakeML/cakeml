@@ -8,6 +8,8 @@ infix \\ val op \\ = op THEN;
 
 (* word lang = structured program with words, stack and memory *)
 
+(*
+
 (* --- Syntax of word lang --- *)
 
 val _ = Datatype `
@@ -559,5 +561,7 @@ val wEval_def = save_thm("wEval_def",let
 (* clean up *)
 
 val _ = map delete_binding ["wEval_AUX_def", "wEval_primitive_def"];
+
+*)
 
 val _ = export_theory();

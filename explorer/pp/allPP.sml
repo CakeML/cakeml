@@ -1,40 +1,64 @@
 structure allPP = struct local
+open astPP modPP conPP exhPP patPP intPP
+open preamble
 open HolKernel boolLib bossLib Parse
-open cakeml_computeLib astPP modPP conPP exhPP patPP intPP
-open labels_computeLib
+open compute_basicLib compute_parsingLib compute_compilerLib compute_inferenceLib compute_semanticsLib compute_bytecodeLib compute_free_varsLib compute_x64Lib
+open lexer_implTheory
+open initialProgramTheory initCompEnvTheory
 
-fun fullEval p =
-  let val asts = eval ``get_all_asts ^(p)``
-      val elab = eval ``elab_all_asts ^(asts |> concl |> rhs)``
-      in
-        rhs(concl elab) |>rand 
-      end;
+val get_all_asts_def = tDefine "get_all_asts" `
+get_all_asts input =
+  case lex_until_toplevel_semicolon input of
+       NONE => Success []
+     | SOME (tokens, rest_of_input) =>
+        case parse_top tokens of
+             NONE => Failure "<parse error>\n"
+           | SOME top =>
+               case get_all_asts rest_of_input of
+                    Failure x => Failure x
+                  | Success prog => Success (top::prog)`
+(wf_rel_tac `measure LENGTH` >>
+ rw [lex_until_toplevel_semicolon_LESS]);
+
+val remove_labels_all_asts_def = Define `
+remove_labels_all_asts len asts =
+  case asts of
+     | Failure x => Failure x
+     | Success asts =>
+         Success (code_labels len asts)`;
+
 (*RHS of theorem to term*)
 val rhsThm = rhs o concl;
 
 val compile_primitives_def = Define`
   compile_primitives =
-    FST(compile_top NONE init_compiler_state
-    (Tdec initial_program))`;
+   (FST (THE basis_env)).comp_rs`;
 
-val cs = cakeml_compset();
-val _ = computeLib.add_thms [compile_primitives_def,compilerTheory.compile_top_def] cs
-val eval = computeLib.CBV_CONV cs
-val compile_primitives_full = eval ``compile_primitives``
+val cs = the_basic_compset
+val _ = add_compiler_compset false cs
+val _ = add_parsing_compset cs
+val _ = add_inference_compset cs
+val _ = add_ast_compset cs
+val _ = add_lexparse_compset cs
+val _ = add_bytecode_compset cs
+val _ = add_labels_compset cs
+val _ = add_free_vars_compset cs
+val _ = add_x64_compset cs
+val _ = computeLib.add_thms  [basis_env_eq,compile_primitives_def,get_all_asts_def,remove_labels_all_asts_def] cs
 
-val cs = cakeml_compset();
-val _ = computeLib.add_thms [compile_primitives_full] cs
-val eval = computeLib.CBV_CONV cs
-val compile_primitives_pieces =
-  LIST_CONJ[
-  eval ``compile_primitives.globals_env``
-  ,eval ``compile_primitives.next_global``
-  ,eval ``compile_primitives.exh``
-  ,eval ``compile_primitives.contags_env``
-  ,eval ``compile_primitives.rnext_label``];
-val cs = cakeml_compset();
+val _ =
+      let
+        fun code_labels_ok_conv tm =
+          EQT_INTRO
+            (get_code_labels_ok_thm
+          (rand tm))
+      in
+        computeLib.add_conv(``code_labels_ok``,1,code_labels_ok_conv) cs ;
+        compute_basicLib.add_datatype ``:bc_inst`` cs;
+        computeLib.add_thms [uses_label_def] cs
+      end
+val _ = compute_basicLib.add_datatype ``:comp_environment`` cs
 
-val _ = computeLib.add_thms [compile_primitives_pieces] cs
 val eval = computeLib.CBV_CONV cs
 
 in
@@ -46,13 +70,11 @@ type allIntermediates = {
   ctors:term list,
   modMap:term list,
   annotations:term list}
-
 (*Return all intermediates during compilation in a record*)
 fun allIntermediates prog =
   let 
       val t1 = eval ``get_all_asts ^(prog)``
-      val t2 = eval ``elab_all_asts ^(rhsThm t1)``
-      val ast = rand (rhsThm t2)
+      val ast = rand (rhsThm t1)
 
       val _ =if ast = ``"<parse error>\n"`` then raise compilationError "Parse Error" else ();
 

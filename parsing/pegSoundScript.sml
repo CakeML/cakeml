@@ -131,6 +131,12 @@ val peg_eval_TypeDec_wrongtok = store_thm(
   simp[Once pegTheory.peg_eval_cases, cmlpeg_rules_applied, FDOM_cmlPEG,
        peg_TypeDec_def, peg_eval_seq_SOME, tokeq_def, peg_eval_tok_SOME]);
 
+val peg_eval_TypeAbbrevDec_wrongtok = store_thm(
+  "peg_eval_TypeAbbrevDec_wrongtok",
+  ``tk ≠ TypeT ⇒ ¬peg_eval cmlPEG (tk::i, nt (mkNT nTypeAbbrevDec) f) (SOME x)``,
+  simp[Once pegTheory.peg_eval_cases, cmlpeg_rules_applied, FDOM_cmlPEG,
+       peg_eval_seq_SOME, tokeq_def, peg_eval_tok_SOME]);
+
 val peg_eval_LetDec_wrongtok = store_thm(
   "peg_eval_LetDec_wrongtok",
   ``¬peg_eval cmlPEG (SemicolonT::i, nt (mkNT nLetDec) f) (SOME x)``,
@@ -446,11 +452,24 @@ val peg_sound = store_thm(
             by metis_tac[not_peg0_LENGTH_decreases, peg0_nV] >> fs[] >>
           `LENGTH i2 < SUC(LENGTH i1)` by decide_tac >>
           first_x_assum (erule strip_assume_tac) >> rveq >> dsimp[])
-      >- (dsimp[MAP_EQ_SING] >> csimp[] >> metis_tac[DECIDE``x<SUC x``])
+      >- (asm_match
+            `peg_eval cmlPEG (i1, nt (mkNT nTypeName) I) (SOME(i2, nmpts))` >>
+          first_assum (qspecl_then [`mkNT nTypeName`, `i1`, `i2`, `nmpts`]
+                                   mp_tac) >>
+          simp_tac (srw_ss()) [] >> ASM_REWRITE_TAC [] >>
+          disch_then (qx_choose_then `nmpt` strip_assume_tac) >>
+          dsimp[MAP_EQ_SING] >> csimp[] >>
+          `LENGTH i2 < LENGTH i1`
+            by metis_tac[not_peg0_LENGTH_decreases, peg0_nTypeName] >>
+          `LENGTH i2 < SUC (LENGTH i1)` by simp[] >>
+          metis_tac[])
       >- (dsimp[MAP_EQ_SING] >> csimp[] >> metis_tac[DECIDE``x<SUC x``])>>
       `NT_rank (mkNT nTypeDec) < NT_rank (mkNT nSpecLine)`
          by simp[NT_rank_def] >>
       first_x_assum (erule strip_assume_tac) >> rveq >> simp[])
+  >- (print_tac "nOptTypEqn" >> strip_tac >> rveq >>
+      simp[cmlG_FDOM, cmlG_applied] >> dsimp[MAP_EQ_SING] >> csimp[] >>
+      fs[] >> metis_tac[DECIDE ``x < SUC x``])
   >- (print_tac "nDecls" >>
       `NT_rank (mkNT nDecl) < NT_rank (mkNT nDecls)`
         by simp[NT_rank_def] >>
@@ -464,8 +483,26 @@ val peg_sound = store_thm(
           dsimp[MAP_EQ_SING])
       >- (dsimp[MAP_EQ_SING] >> csimp[] >> metis_tac[DECIDE``x<SUC x``]) >>
       dsimp[MAP_EQ_SING] >> csimp[] >> metis_tac[DECIDE``x<SUC x``])
+  >- (print_tac "nTypeAbbrevDec" >>
+      rpt strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM] >>
+      dsimp[listTheory.APPEND_EQ_CONS, MAP_EQ_SING] >> csimp[] >>
+      qmatch_assum_rename_tac
+        `peg_eval cmlPEG (inp, nt(mkNT nTypeName) I) (SOME(EqualsT::inp1,t1))`
+        [] >>
+      first_assum
+        (qspecl_then [`mkNT nTypeName`, `inp`, `EqualsT::inp1`, `t1`] mp_tac) >>
+      simp_tac (srw_ss()) [] >> ASM_REWRITE_TAC[] >>
+      disch_then (qx_choose_then `tree1` strip_assume_tac) >> simp[] >>
+      qmatch_assum_rename_tac
+        `peg_eval cmlPEG (inp1, nt(mkNT nType) I) (SOME(inp2,t2))` [] >>
+      `LENGTH (EqualsT::inp1) < LENGTH inp`
+        by metis_tac[not_peg0_LENGTH_decreases, peg0_nTypeName] >> fs[] >>
+      `LENGTH inp1 < SUC (LENGTH inp)` by simp[] >>
+      first_x_assum (qspecl_then [`mkNT nType`, `inp1`, `inp2`, `t2`] mp_tac) >>
+      simp[] >> metis_tac[])
   >- (print_tac "nDecl" >>
-      rpt strip_tac >> rveq >> fs[peg_eval_TypeDec_wrongtok]
+      rpt strip_tac >> rveq >>
+      fs[peg_eval_TypeDec_wrongtok, peg_eval_TypeAbbrevDec_wrongtok]
       >- (asm_match `peg_eval cmlPEG (i1, nt (mkNT nPattern) I)
                               (SOME(EqualsT::i2,r))` >>
           `LENGTH i1 < SUC (LENGTH i1)` by decide_tac >>
@@ -479,11 +516,15 @@ val peg_sound = store_thm(
       >- (dsimp[cmlG_applied, cmlG_FDOM, MAP_EQ_SING] >> csimp[] >>
           metis_tac[DECIDE ``x<SUC x``])
       >- (dsimp[cmlG_FDOM, cmlG_applied, MAP_EQ_SING] >> csimp[] >>
-          metis_tac[DECIDE``x<SUC x``]) >>
-      `NT_rank (mkNT nTypeDec) < NT_rank (mkNT nDecl)`
-        by simp[NT_rank_def] >>
-      first_x_assum (erule strip_assume_tac) >>
-      dsimp[cmlG_FDOM, cmlG_applied])
+          metis_tac[DECIDE``x<SUC x``])
+      >- (`NT_rank (mkNT nTypeDec) < NT_rank (mkNT nDecl)`
+            by simp[NT_rank_def] >>
+          first_x_assum (erule strip_assume_tac) >>
+          dsimp[cmlG_FDOM, cmlG_applied])
+      >- (`NT_rank (mkNT nTypeAbbrevDec) < NT_rank (mkNT nDecl)`
+            by simp[NT_rank_def] >>
+          first_x_assum (erule strip_assume_tac) >>
+          dsimp[cmlG_FDOM, cmlG_applied]))
   >- (print_tac "nLetDecs" >> rpt strip_tac >> rveq >>
       simp[cmlG_applied, cmlG_FDOM] >> fs[peg_eval_LetDec_wrongtok]
       >- (simp[] >>
