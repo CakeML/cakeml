@@ -386,9 +386,9 @@ val pr_CASE = prove(
   SRW_TAC [] []);
 
 val op_apply = prove(
-  ``!op. (op_CASE op x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11) y =
+  ``!op. (op_CASE op x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13) y =
          (op_CASE op (\z. x1 z y) (\z. x2 z y) (x3 y) (x4 y) (x5 y)
-            (x6 y) (x7 y) (x8 y) (x9 y) (x10 y) (x11 y))``,
+            (x6 y) (x7 y) (x8 y) (x9 y) (x10 y) (x11 y) (x12 y) (x13 y))``,
   Cases THEN SRW_TAC [] []);
 
 val list_apply = prove(
@@ -474,10 +474,8 @@ val _ = translate repl_funTheory.parse_infertype_compile_def
 val _ = translate (pred_setTheory.IN_INSERT |> SIMP_RULE std_ss [IN_DEF]);
 *)
 
-val _ = translate initCompEnvTheory.prim_env_eq
-val _ = translate initCompEnvTheory.basis_env_eq
-
-val _ = translate repl_fun_alt_proofTheory.basis_repl_step_def
+val _ = translate repl_funTheory.basis_state_eq
+val _ = translate repl_funTheory.basis_repl_step_def
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
 

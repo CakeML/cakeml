@@ -33,9 +33,6 @@ val pSpace_def = Define `
                INR (k,list_insert args (delete dest names),
                     Seq (Assign dest op args NONE) c4)
            | _ => INL (Seq d1 (pMakeSpace x2)))) /\
-  (pSpace (Handle ns1 c1 n1 n2 ns2 c2) =
-     INL (Handle ns1 (pMakeSpace (pSpace c1)) n1 n2 ns2
-                     (pMakeSpace (pSpace c2)))) /\
   (pSpace (If c1 n c2 c3) =
      INL (If (pMakeSpace (pSpace c1)) n (pMakeSpace (pSpace c2))
                                         (pMakeSpace (pSpace c3)))) /\
@@ -52,23 +49,17 @@ val pEvalOp_SOME_IMP = prove(
   ``(pEvalOp op x s = SOME (q,r)) ==>
     (pEvalOp op x (s with locals := extra) =
        SOME (q,r with locals := extra))``,
-  fs [pEvalOp_def,pEvalOpSpace_def,consume_space_def,bvp_to_bvl_def]
+  fs [pEvalOp_def,pEvalOpSpace_def,consume_space_def,bvp_to_bvi_def]
   \\ REPEAT (BasicProvers.CASE_TAC \\ fs []) \\ SRW_TAC [] []
-  \\ fs [bvl_to_bvp_def,bvp_state_explode]);
+  \\ fs [bvi_to_bvp_def,bvp_state_explode]);
 
 val pEvalOp_SOME_IMP_ALT = prove(
   ``(pEvalOp op x s = SOME (q,r)) ==>
     (pEvalOp op x (s with locals := extra) =
        SOME (q,r with locals := extra))``,
-  fs [pEvalOp_def,pEvalOpSpace_def,consume_space_def,bvp_to_bvl_def]
+  fs [pEvalOp_def,pEvalOpSpace_def,consume_space_def,bvp_to_bvi_def]
   \\ REPEAT (BasicProvers.CASE_TAC \\ fs []) \\ SRW_TAC [] []
-  \\ fs [bvl_to_bvp_def,bvp_state_explode]);
-
-val push_exc_with_locals = prove(
-  ``((push_exc env1 env2 (s with locals := xs)) = push_exc env1 env2 s) /\
-    ((s with locals := s.locals) = s) /\
-    ((push_exc env1 env2 s).locals = env1)``,
-  fs [push_exc_def,bvp_state_explode]);
+  \\ fs [bvi_to_bvp_def,bvp_state_explode]);
 
 val Seq_Skip = prove(
   ``pEval (Seq c Skip,s) = pEval (c,s)``,
@@ -111,6 +102,10 @@ val locals_ok_get_vars = prove(
   \\ Cases_on `get_var h s` \\ fs []
   \\ Cases_on `get_vars x s` \\ fs []
   \\ IMP_RES_TAC locals_ok_get_var \\ fs []);
+
+val s_with_locals = prove(
+  ``(s with locals := s.locals) = s``,
+  fs [bvp_state_explode]);
 
 val pEval_locals = prove(
   ``!c s res s2 vars l.
@@ -173,29 +168,6 @@ val pEval_locals = prove(
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`) \\ fs []
     \\ REPEAT STRIP_TAC \\ fs []
     \\ Cases_on `q` \\ fs [] \\ SRW_TAC [] [] \\ METIS_TAC [])
-  THEN1 (* Handle *)
-   (Cases_on `cut_env ns1 s.locals` \\ fs []
-    \\ Cases_on `cut_env ns2 s.locals` \\ fs []
-    \\ IMP_RES_TAC locals_ok_cut_env
-    \\ fs [] \\ `push_exc x x' (s with locals := union s.locals vars) =
-                 push_exc x x' s` by fs [push_exc_def] \\ fs []
-    \\ Cases_on `pEval (c1,push_exc x x' s)` \\ fs []
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `x`) \\ fs [union_LN]
-    \\ fs [push_exc_with_locals,locals_ok_id]
-    \\ Cases_on `q` \\ fs [] \\ REPEAT STRIP_TAC
-    \\ fs [push_exc_with_locals]
-    \\ `(push_exc x x' s with locals := x) = push_exc x x' s` by
-         (fs [push_exc_def,bvp_state_explode] \\ NO_TAC) \\ fs []
-    THEN1
-     (Cases_on `get_var v r` \\ fs []
-      \\ IMP_RES_TAC locals_ok_get_var \\ fs []
-      \\ Cases_on `pop_exc r` \\ fs [] \\ SRW_TAC [] []
-      \\ fs [pop_exc_def,set_var_def]
-      \\ METIS_TAC [locals_ok_id])
-    \\ REVERSE (Cases_on `x''`) \\ fs [push_exc_with_locals]
-    \\ SRW_TAC [] [] THEN1 METIS_TAC [locals_ok_id]
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `(set_var n b r).locals`)
-    \\ fs [push_exc_with_locals,locals_ok_id])
   THEN1 (* If *)
    (Cases_on `pEval (g,s)` \\ fs []
     \\ REVERSE (Cases_on `q`) \\ fs []
@@ -216,17 +188,22 @@ val pEval_locals = prove(
     \\ Cases_on `find_code dest x s.code` \\ fs []
     \\ Cases_on `x'` \\ fs []
     \\ Cases_on `ret` \\ fs [] THEN1
-     (`call_env q (dec_clock (s with locals := l)) =
-       call_env q (dec_clock s)` by
+     (Cases_on `handler` \\ fs []
+      \\ `call_env q (dec_clock (s with locals := l)) =
+          call_env q (dec_clock s)` by
          fs [bvp_state_explode,dec_clock_def,call_env_def] \\ fs []
-      \\ METIS_TAC [locals_ok_id,push_exc_with_locals])
+      \\ Q.EXISTS_TAC `s2.locals` \\ fs [locals_ok_id]
+      \\ SRW_TAC [] [bvp_state_explode])
     \\ Cases_on `x'` \\ fs []
     \\ Cases_on `cut_env r' s.locals` \\ fs []
     \\ IMP_RES_TAC locals_ok_cut_env \\ fs []
-    \\ `call_env q (push_env x' (dec_clock (s with locals := l))) =
-        call_env q (push_env x' (dec_clock s))` by ALL_TAC THEN1
-     (fs [bvp_state_explode,dec_clock_def,call_env_def,push_env_def])
-    \\ fs [] \\ METIS_TAC [locals_ok_id,push_exc_with_locals]));
+    \\ `call_env q (push_env x' (IS_SOME handler)
+          (dec_clock (s with locals := l))) =
+        call_env q (push_env x' (IS_SOME handler)
+          (dec_clock s))` by ALL_TAC THEN1
+     (Cases_on `handler`
+      \\ fs [bvp_state_explode,dec_clock_def,call_env_def,push_env_def])
+    \\ fs [] \\ METIS_TAC [locals_ok_id,s_with_locals]));
 
 val pEvalOpSpace_alt = prove(
   ``pEvalOpSpace op s =
@@ -235,18 +212,18 @@ val pEvalOpSpace_alt = prove(
   fs [pEvalOpSpace_def] \\ SRW_TAC [] [consume_space_def]
   \\ fs [bvp_state_explode] \\ fs [] \\ DECIDE_TAC);
 
-val bvp_to_bvl_ignore = prove(
-  ``(bvp_to_bvl (s with space := t) = bvp_to_bvl s) /\
-    (bvp_to_bvl (s with locals := l) = bvp_to_bvl s) /\
-    (bvp_to_bvl (s with <| locals := l; space := t |>) = bvp_to_bvl s)``,
-  fs [bvp_to_bvl_def]);
+val bvp_to_bvi_ignore = prove(
+  ``(bvp_to_bvi (s with space := t) = bvp_to_bvi s) /\
+    (bvp_to_bvi (s with locals := l) = bvp_to_bvi s) /\
+    (bvp_to_bvi (s with <| locals := l; space := t |>) = bvp_to_bvi s)``,
+  fs [bvp_to_bvi_def]);
 
-val bvl_to_bvp_lemma = prove(
-  ``((bvl_to_bvp s t with locals := x) = bvl_to_bvp s (t with locals := x)) /\
-    ((bvl_to_bvp s t).locals = t.locals) /\
-    ((bvl_to_bvp s t with space := y) = bvl_to_bvp s (t with space := y)) /\
-    ((bvl_to_bvp s t).space = t.space)``,
-  fs [bvl_to_bvp_def]);
+val bvi_to_bvp_lemma = prove(
+  ``((bvi_to_bvp s t with locals := x) = bvi_to_bvp s (t with locals := x)) /\
+    ((bvi_to_bvp s t).locals = t.locals) /\
+    ((bvi_to_bvp s t with space := y) = bvi_to_bvp s (t with space := y)) /\
+    ((bvi_to_bvp s t).space = t.space)``,
+  fs [bvi_to_bvp_def]);
 
 val IMP_sptree_eq = prove(
   ``wf x /\ wf y /\ (!a. lookup a x = lookup a y) ==> (x = y)``,
@@ -422,31 +399,31 @@ val pEval_pSpaceOpt = prove(
       \\ REV_FULL_SIMP_TAC std_ss []
       \\ fs [consume_space_def]
       \\ Cases_on `s.space < op_space_req b` \\ fs []
-      \\ `(bvp_to_bvl (s with space := s.space - op_space_req b)) =
-           bvp_to_bvl s` by (fs [bvp_to_bvl_def] \\ NO_TAC) \\ fs []
+      \\ `(bvp_to_bvi (s with space := s.space - op_space_req b)) =
+           bvp_to_bvi s` by (fs [bvp_to_bvi_def] \\ NO_TAC) \\ fs []
       \\ `~(s.space + y0 < op_space_req b)` by DECIDE_TAC \\ fs []
-      \\ fs [bvp_to_bvl_ignore]
-      \\ Cases_on `bEvalOp b x (bvp_to_bvl s)` \\ fs []
+      \\ fs [bvp_to_bvi_ignore]
+      \\ Cases_on `iEvalOp b x (bvp_to_bvi s)` \\ fs []
       \\ Cases_on `x''` \\ fs [] \\ SRW_TAC [] []
-      \\ fs [bvl_to_bvp_lemma]
+      \\ fs [bvi_to_bvp_lemma]
       \\ `s.space + y0 - op_space_req b =
           s.space - op_space_req b + y0` by DECIDE_TAC \\ fs []
-      \\ Q.ABBREV_TAC `s7 = bvl_to_bvp r
+      \\ Q.ABBREV_TAC `s7 = bvi_to_bvp r
             (s with <|locals := (inter w y1);
                        space := s.space - op_space_req b + y0|>)`
-      \\ Q.ABBREV_TAC `s8 = bvl_to_bvp r
+      \\ Q.ABBREV_TAC `s8 = bvi_to_bvp r
             (s with <|locals :=
                (insert n q (inter l (list_insert l' (delete n y1))));
                  space := s.space - op_space_req b + y0|>)`
       \\ `s8 = s7 with locals := s8.locals` by
-           (UNABBREV_ALL_TAC \\ fs [bvl_to_bvp_def] \\ NO_TAC)
+           (UNABBREV_ALL_TAC \\ fs [bvi_to_bvp_def] \\ NO_TAC)
       \\ POP_ASSUM (fn th => ONCE_REWRITE_TAC [th])
       \\ MP_TAC (Q.SPECL [`y2`,`s7`] pEval_locals) \\ fs []
       \\ REPEAT STRIP_TAC
       \\ POP_ASSUM (MP_TAC o Q.SPEC `s8.locals`)
       \\ `locals_ok s7.locals s8.locals` by ALL_TAC THEN1
-       (UNABBREV_ALL_TAC \\ fs [bvl_to_bvp_lemma]
-        \\ fs [bvp_state_explode,bvl_to_bvp_lemma] \\ SRW_TAC [] []
+       (UNABBREV_ALL_TAC \\ fs [bvi_to_bvp_lemma]
+        \\ fs [bvp_state_explode,bvi_to_bvp_lemma] \\ SRW_TAC [] []
         \\ fs [locals_ok_def,lookup_insert,lookup_inter_alt]
         \\ fs [domain_delete,domain_list_insert])
       \\ fs [] \\ REPEAT STRIP_TAC \\ fs []
@@ -516,29 +493,6 @@ val pEval_pSpaceOpt = prove(
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`) \\ fs []
       \\ SIMP_TAC std_ss [Once pEval_def,LET_DEF]
       \\ REPEAT STRIP_TAC \\ fs [] \\ NO_TAC))
-   THEN1 (* Handle *)
-   (Cases_on `cut_env ns1 s.locals` \\ fs []
-    \\ Cases_on `cut_env ns2 s.locals` \\ fs []
-    \\ IMP_RES_TAC locals_ok_cut_env
-    \\ fs [] \\ `push_exc x x' (s with locals := union s.locals vars) =
-                 push_exc x x' s` by fs [push_exc_def] \\ fs []
-    \\ Cases_on `pEval (c1,push_exc x x' s)` \\ fs []
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `x`) \\ fs [union_LN]
-    \\ fs [push_exc_with_locals,locals_ok_id]
-    \\ Cases_on `q` \\ fs [] \\ REPEAT STRIP_TAC
-    \\ fs [push_exc_with_locals]
-    \\ `(push_exc x x' s with locals := x) = push_exc x x' s` by
-         (fs [push_exc_def,bvp_state_explode] \\ NO_TAC) \\ fs []
-    THEN1
-     (Cases_on `get_var v r` \\ fs []
-      \\ IMP_RES_TAC locals_ok_get_var \\ fs []
-      \\ Cases_on `pop_exc r` \\ fs [] \\ SRW_TAC [] []
-      \\ fs [pop_exc_def,set_var_def]
-      \\ METIS_TAC [locals_ok_id])
-    \\ REVERSE (Cases_on `x''`) \\ fs [push_exc_with_locals]
-    \\ SRW_TAC [] [] THEN1 METIS_TAC [locals_ok_id]
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `(set_var n b r).locals`)
-    \\ fs [push_exc_with_locals,locals_ok_id])
   THEN1 (* If *)
    (Cases_on `pEval (g,s)` \\ fs []
     \\ REVERSE (Cases_on `q`) \\ fs []
@@ -559,17 +513,22 @@ val pEval_pSpaceOpt = prove(
     \\ Cases_on `find_code dest x s.code` \\ fs []
     \\ Cases_on `x'` \\ fs []
     \\ Cases_on `ret` \\ fs [] THEN1
-     (`call_env q (dec_clock (s with locals := l)) =
-       call_env q (dec_clock s)` by
+     (Cases_on `handler` \\ fs []
+      \\ `call_env q (dec_clock (s with locals := l)) =
+          call_env q (dec_clock s)` by
          fs [bvp_state_explode,dec_clock_def,call_env_def] \\ fs []
-      \\ METIS_TAC [locals_ok_id,push_exc_with_locals])
+      \\ Q.EXISTS_TAC `s2.locals` \\ fs [locals_ok_id]
+      \\ SRW_TAC [] [bvp_state_explode])
     \\ Cases_on `x'` \\ fs []
     \\ Cases_on `cut_env r' s.locals` \\ fs []
     \\ IMP_RES_TAC locals_ok_cut_env \\ fs []
-    \\ `call_env q (push_env x' (dec_clock (s with locals := l))) =
-        call_env q (push_env x' (dec_clock s))` by ALL_TAC THEN1
-     (fs [bvp_state_explode,dec_clock_def,call_env_def,push_env_def])
-    \\ fs [] \\ METIS_TAC [locals_ok_id,push_exc_with_locals]));
+    \\ `call_env q (push_env x' (IS_SOME handler)
+          (dec_clock (s with locals := l))) =
+        call_env q (push_env x' (IS_SOME handler)
+          (dec_clock s))` by ALL_TAC THEN1
+     (Cases_on `handler`
+      \\ fs [bvp_state_explode,dec_clock_def,call_env_def,push_env_def])
+    \\ fs [] \\ METIS_TAC [locals_ok_id,s_with_locals]));
 
 val pSpaceOpt = store_thm("pSpaceOpt_correct",
   ``!c s.
@@ -580,7 +539,7 @@ val pSpaceOpt = store_thm("pSpaceOpt_correct",
   \\ MP_TAC (Q.SPECL [`c`,`s`] pEval_pSpaceOpt)
   \\ fs [] \\ REPEAT STRIP_TAC
   \\ POP_ASSUM (MP_TAC o Q.SPECL [`s.locals`])
-  \\ fs [locals_ok_id,push_exc_with_locals]
-  \\ REPEAT STRIP_TAC \\ fs []);
+  \\ fs [locals_ok_id]
+  \\ REPEAT STRIP_TAC \\ fs [s_with_locals]);
 
 val _ = export_theory();

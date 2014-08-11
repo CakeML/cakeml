@@ -653,7 +653,7 @@ val _ = Define `
 
 val _ = Define `
  (tc_to_string tc =  
- ((case tc of
+((case tc of
     TC_name id => id_to_string id
   | TC_int => "<int>"
   | TC_string => "<string>"
@@ -663,6 +663,7 @@ val _ = Define `
   | TC_word8 => "<word8>"
   | TC_word8array => "<word8array>"
   | TC_exn => "<exn>"
+  | TC_vector => "<vector>"
   )))`;
 
 

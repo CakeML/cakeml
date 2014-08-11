@@ -572,7 +572,7 @@ id_to_string (Short s) = s
 and
 id_to_string (Long x y) = x^"."^y
 
-let tc_to_string tc = 
+let tc_to_string tc =
   match tc with
     TC_name id -> id_to_string id
   | TC_int -> "<int>"
@@ -583,6 +583,7 @@ let tc_to_string tc =
   | TC_word8 -> "<word8>"
   | TC_word8array -> "<word8array>"
   | TC_exn -> "<exn>"
+  | TC_vector -> "<vector>"
   end
 
 val int_to_string : integer -> string

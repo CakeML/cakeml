@@ -65,7 +65,7 @@ val bvi_to_bvl_def = Define `
     <| globals := s.globals
      ; refs := s.refs
      ; clock := s.clock
-     ; code := spt_set ARB s.code
+     ; code := spt_set (K ARB) s.code
      ; output := s.output |>`;
 
 val bvl_to_bvi_def = Define `
@@ -84,6 +84,9 @@ val iEvalOpAux_def = Define `
     | (Const i,xs) => if small_enough_int i then
                         SOME (SOME (Number i, s))
                       else NONE
+    | (Label l,xs) => (case xs of
+                       | [] => SOME (SOME (CodePtr (2 * l), s))
+                       | _ => NONE)
     | _ => SOME NONE`
 
 val iEvalOp_def = Define `
@@ -97,25 +100,6 @@ val iEvalOp_def = Define `
 
 val dec_clock_def = Define `
   dec_clock s = s with clock := s.clock - 1`;
-
-(* looking up function definitions *)
-
-val find_code_def = Define `
-  (find_code (SOME p) args code =
-     case lookup p code of
-     | NONE => NONE
-     | SOME (arity,exp) => if LENGTH args = arity then SOME (args,exp)
-                                                  else NONE) /\
-  (find_code NONE args code =
-     if args = [] then NONE else
-       case LAST args of
-       | CodePtr loc =>
-           (case lookup loc code of
-            | NONE => NONE
-            | SOME (arity,exp) => if LENGTH args = arity + 1
-                                  then SOME (FRONT args,exp)
-                                  else NONE)
-       | other => NONE)`
 
 (* The evaluation is defined as a clocked functional version of
    a conventional big-step operational semantics. *)
@@ -384,6 +368,18 @@ val iEval_SNOC = store_thm("iEval_SNOC",
   \\ IMP_RES_TAC iEval_IMP_LENGTH
   \\ Cases_on `a''` \\ fs [LENGTH]
   \\ REV_FULL_SIMP_TAC std_ss [LENGTH_NIL] \\ fs []);
+
+val bvi_state_explode = store_thm("bvi_state_explode",
+  ``!s1 (s2:bvi_state).
+      s1 = s2 <=>
+      (s1.code = s2.code) /\
+      (s1.clock = s2.clock) /\
+      (s1.globals = s2.globals) /\
+      (s1.output = s2.output) /\
+      (s1.refs = s2.refs)``,
+  Cases \\ Cases \\ fs (TypeBase.updates_of ``:bvi_state`` @
+                        TypeBase.accessors_of ``:bvi_state``)
+  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC \\ fs []);
 
 (* clean up *)
 

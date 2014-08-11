@@ -1,5 +1,6 @@
 structure compute_bytecodeLib = struct
-  open HolKernel boolLib bossLib lcsymtacs
+  open HolKernel boolLib bossLib lcsymtacs bytecodeLabelsTheory labels_computeTheory patriciaLib
+
 
 val bc_fetch_aux_0_thm = prove(
   ``∀code pc. bc_fetch_aux code (K 0) pc =
@@ -56,12 +57,9 @@ val eval_real_inst_length =
     end
     val () = computeLib.add_datatype_info compset (valOf(TypeBase.fetch``:bc_state``))
     val () = computeLib.add_datatype_info compset (valOf(TypeBase.fetch``:bc_value``))
+    val () = computeLib.add_conv(``real_inst_length``,1,eval_real_inst_length) compset
     (*val () = computeLib.add_datatype_info compset (valOf(TypeBase.fetch``:bc_inst``))*)
   in () end
-
-  fun add_labels_compset compset = let
-
-  open bytecodeLabelsTheory labels_computeTheory patriciaLib
 
   val Addr_tm = ``Addr``
   fun mk_Addr x = mk_comb(Addr_tm,x)
@@ -267,11 +265,13 @@ val eval_real_inst_length =
       MP th (CONJ th2 th0)
     end
 
+
+  fun add_labels_compset compset = let
     val () = reset_code_labels_ok_db()
     val () = computeLib.add_conv (``code_labels``,2,code_labels_conv eval_real_inst_length) compset
-  in () end
+     in () end
 
-  val the_bytecode_compset = let
+  fun the_bytecode_compset() = let
     val c = wordsLib.words_compset ()
     val () = compute_basicLib.add_basic_compset c
     val () = compute_semanticsLib.add_ast_compset c

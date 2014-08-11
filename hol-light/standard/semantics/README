@@ -8,11 +8,10 @@ holSemanticsExtraScript.sml
 holSoundnessScript.sml
   Proves soundness of the inference system: any provable sequent is valid.
 
-holConsistencyScript.sml
-  Proves consistency of the inference system: the initial context has a model,
-  and starting from any context with a model, any context reached by
-  non-axiomatic extensions has both provable and unprovable sequents. Soundness
-  of the context extension rules is proved here.
+holExtensionScript.sml
+  Proves soundness of the context extension rules: any model of a context can
+  be extended to a model of the context obtained by applying one of the
+  non-axiomatic context updates.
 
 holBoolScript.sml
   Define semantics for the Boolean operations and show the definitions are
@@ -21,3 +20,10 @@ holBoolScript.sml
 holAxiomsScript.sml
   Prove consistency of each of the axioms. (For the axiom of infinity, this
   requires an additional assumption on the set theory.)
+
+holConsistencyScript.sml
+  Proves consistency of the inference system: starting from any context with a
+  model, any context reached by non-axiomatic extensions has both provable and
+  unprovable sequents. And the base case: the HOL contexts (initial context
+  with no axioms, with all but infinity axiom, with all three axioms) have
+  models (under suitable assumptions).

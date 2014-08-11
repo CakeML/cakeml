@@ -3,7 +3,7 @@ open astTheory bigStepTheory initialProgramTheory interpTheory inferTheory typeS
 open bigClockTheory untypedSafetyTheory inferSoundTheory initSemEnvTheory modLangProofTheory conLangProofTheory typeSoundInvariantsTheory typeSoundTheory;
 open terminationTheory;
 open bytecodeLabelsTheory bytecodeEvalTheory;
-open compute_bytecodeLib compute_interpLib compute_inferenceLib compute_compilerLib;
+open compute_bytecodeLib compute_interpLib compute_inferenceLib compute_compilerLib compute_free_varsLib;
 
 val _ = new_theory "initCompEnv";
 
@@ -308,7 +308,7 @@ val prim_env_eq = save_thm ("prim_env_eq",
   |> CONV_RULE(computeLib.CBV_CONV the_inference_compset)
   |> CONV_RULE(computeLib.CBV_CONV the_compiler_compset));
 
-val cs = the_bytecode_compset
+val cs = the_bytecode_compset()
 val () = computeLib.add_thms[bc_fetch_def,bc_fetch_aux_def,is_Label_def,bc_find_loc_aux_def] cs
 val () = computeLib.add_thms[toBytecodeTheory.VfromListCode_def |> CONV_RULE (RAND_CONV EVAL)] cs
 val () = computeLib.add_datatype_info cs (valOf(TypeBase.fetch``:bc_inst``))
@@ -559,5 +559,11 @@ val add_stop_invariant = Q.store_thm ("add_stop_invariant",
      rw [code_labels_ok_def, compilerProofTheory.local_labels_def, uses_label_def])
  >- (fs [init_code_executes_ok_def, code_executes_ok'_def] >>
      metis_tac [RTC_REFL]));
+
+val code_length_VfromListCode = save_thm("code_length_VfromListCode",
+  ``code_length real_inst_length VfromListCode`` |> EVAL)
+
+val collect_labels_VfromListCode = save_thm("collect_labels_VfromListCode",
+  ``collect_labels VfromListCode 0 real_inst_length`` |> EVAL)
 
 val _ = export_theory();

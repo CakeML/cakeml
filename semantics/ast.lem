@@ -81,7 +81,7 @@ type lop =
 (* Type constructors.
  * 0-ary type applications represent unparameterised types (e.g., num or string)
  *)
-type tctor = 
+type tctor =
   (* User defined types *)
   | TC_name of id typeN
   (* Built-in types *)

@@ -138,7 +138,7 @@ val _ = Hol_datatype `
  * 0-ary type applications represent unparameterised types (e.g., num or string)
  *)
 val _ = Hol_datatype `
- tctor = 
+ tctor =
     TC_name of typeN id
   | TC_int
   | TC_string
