@@ -116,11 +116,11 @@ val state_rel_IMP_pEvalOp = prove(
   \\ fs [pEvalOp_def,pEvalOpSpace_def]
   \\ fs [state_rel_def,consume_space_def]
   \\ REPEAT (BasicProvers.CASE_TAC \\ fs [])
-  \\ `(!n. (bvp_to_bvl (s1 with space := n)) =
-           (bvp_to_bvl (t1 with space := n))) /\
-      (bvp_to_bvl (s1) = (bvp_to_bvl (t1)))` by
-       (fs [bvp_to_bvl_def] \\ NO_TAC)
-  \\ fs [bvl_to_bvp_def]
+  \\ `(!n. (bvp_to_bvi (s1 with space := n)) =
+           (bvp_to_bvi (t1 with space := n))) /\
+      (bvp_to_bvi (s1) = (bvp_to_bvi (t1)))` by
+       (fs [bvp_to_bvi_def] \\ NO_TAC)
+  \\ fs [bvi_to_bvp_def]
   \\ ASM_SIMP_TAC (srw_ss()) [bvp_state_explode]
   \\ SRW_TAC [] []);
 

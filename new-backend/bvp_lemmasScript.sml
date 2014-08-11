@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib; val _ = new_theory "bvp_lemmas";
 
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
-open bytecodeTheory bvlTheory bvpTheory;
+open bytecodeTheory bvlTheory bviTheory bvpTheory;
 open sptreeTheory lcsymtacs;
 
 val bvp_state_explode = store_thm("bvp_state_explode",
@@ -86,10 +86,10 @@ val tac =
   \\ REPEAT (BasicProvers.FULL_CASE_TAC
         \\ fs [call_env_def,fromList_def,set_var_def,cut_state_opt_def,
                pEvalOp_def,pEvalOpSpace_def,consume_space_def,add_space_def,
-               bvl_to_bvp_def,cut_state_def,cut_env_def,dec_clock_def,
+               bvi_to_bvp_def,cut_state_def,cut_env_def,dec_clock_def,
                get_var_def,push_env_def,set_var_def,jump_exc_def,
                get_vars_with_stack_rwt])
-  \\ SRW_TAC [] [] \\ fs [bvp_to_bvl_def]
+  \\ SRW_TAC [] [] \\ fs [bvp_to_bvi_def]
 
 val pEval_stack_swap = store_thm("pEval_stack_swap",
   ``!c s.
@@ -336,7 +336,7 @@ val lookup_inter_alt = store_thm("lookup_inter_alt",
 val pEvalOp_IMP = store_thm("pEvalOp_IMP",
   ``(pEvalOp op args s1 = SOME (v,s2)) ==>
     (s1.handler = s2.handler) /\ (s1.stack = s2.stack) /\ (s1.locals = s2.locals)``,
-  fs [pEvalOp_def,pEvalOpSpace_def,bvp_to_bvl_def,bvl_to_bvp_def,consume_space_def]
+  fs [pEvalOp_def,pEvalOpSpace_def,bvp_to_bvi_def,bvi_to_bvp_def,consume_space_def]
   \\ REPEAT (BasicProvers.CASE_TAC \\ fs [])
   \\ SRW_TAC [] [] \\ SRW_TAC [] []);
 

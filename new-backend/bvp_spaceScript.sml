@@ -49,25 +49,17 @@ val pEvalOp_SOME_IMP = prove(
   ``(pEvalOp op x s = SOME (q,r)) ==>
     (pEvalOp op x (s with locals := extra) =
        SOME (q,r with locals := extra))``,
-  fs [pEvalOp_def,pEvalOpSpace_def,consume_space_def,bvp_to_bvl_def]
+  fs [pEvalOp_def,pEvalOpSpace_def,consume_space_def,bvp_to_bvi_def]
   \\ REPEAT (BasicProvers.CASE_TAC \\ fs []) \\ SRW_TAC [] []
-  \\ fs [bvl_to_bvp_def,bvp_state_explode]);
+  \\ fs [bvi_to_bvp_def,bvp_state_explode]);
 
 val pEvalOp_SOME_IMP_ALT = prove(
   ``(pEvalOp op x s = SOME (q,r)) ==>
     (pEvalOp op x (s with locals := extra) =
        SOME (q,r with locals := extra))``,
-  fs [pEvalOp_def,pEvalOpSpace_def,consume_space_def,bvp_to_bvl_def]
+  fs [pEvalOp_def,pEvalOpSpace_def,consume_space_def,bvp_to_bvi_def]
   \\ REPEAT (BasicProvers.CASE_TAC \\ fs []) \\ SRW_TAC [] []
-  \\ fs [bvl_to_bvp_def,bvp_state_explode]);
-
-(*
-val push_exc_with_locals = prove(
-  ``((push_exc env1 env2 (s with locals := xs)) = push_exc env1 env2 s) /\
-    ((s with locals := s.locals) = s) /\
-    ((push_exc env1 env2 s).locals = env1)``,
-  fs [push_exc_def,bvp_state_explode]);
-*)
+  \\ fs [bvi_to_bvp_def,bvp_state_explode]);
 
 val Seq_Skip = prove(
   ``pEval (Seq c Skip,s) = pEval (c,s)``,
@@ -220,18 +212,18 @@ val pEvalOpSpace_alt = prove(
   fs [pEvalOpSpace_def] \\ SRW_TAC [] [consume_space_def]
   \\ fs [bvp_state_explode] \\ fs [] \\ DECIDE_TAC);
 
-val bvp_to_bvl_ignore = prove(
-  ``(bvp_to_bvl (s with space := t) = bvp_to_bvl s) /\
-    (bvp_to_bvl (s with locals := l) = bvp_to_bvl s) /\
-    (bvp_to_bvl (s with <| locals := l; space := t |>) = bvp_to_bvl s)``,
-  fs [bvp_to_bvl_def]);
+val bvp_to_bvi_ignore = prove(
+  ``(bvp_to_bvi (s with space := t) = bvp_to_bvi s) /\
+    (bvp_to_bvi (s with locals := l) = bvp_to_bvi s) /\
+    (bvp_to_bvi (s with <| locals := l; space := t |>) = bvp_to_bvi s)``,
+  fs [bvp_to_bvi_def]);
 
-val bvl_to_bvp_lemma = prove(
-  ``((bvl_to_bvp s t with locals := x) = bvl_to_bvp s (t with locals := x)) /\
-    ((bvl_to_bvp s t).locals = t.locals) /\
-    ((bvl_to_bvp s t with space := y) = bvl_to_bvp s (t with space := y)) /\
-    ((bvl_to_bvp s t).space = t.space)``,
-  fs [bvl_to_bvp_def]);
+val bvi_to_bvp_lemma = prove(
+  ``((bvi_to_bvp s t with locals := x) = bvi_to_bvp s (t with locals := x)) /\
+    ((bvi_to_bvp s t).locals = t.locals) /\
+    ((bvi_to_bvp s t with space := y) = bvi_to_bvp s (t with space := y)) /\
+    ((bvi_to_bvp s t).space = t.space)``,
+  fs [bvi_to_bvp_def]);
 
 val IMP_sptree_eq = prove(
   ``wf x /\ wf y /\ (!a. lookup a x = lookup a y) ==> (x = y)``,
@@ -407,31 +399,31 @@ val pEval_pSpaceOpt = prove(
       \\ REV_FULL_SIMP_TAC std_ss []
       \\ fs [consume_space_def]
       \\ Cases_on `s.space < op_space_req b` \\ fs []
-      \\ `(bvp_to_bvl (s with space := s.space - op_space_req b)) =
-           bvp_to_bvl s` by (fs [bvp_to_bvl_def] \\ NO_TAC) \\ fs []
+      \\ `(bvp_to_bvi (s with space := s.space - op_space_req b)) =
+           bvp_to_bvi s` by (fs [bvp_to_bvi_def] \\ NO_TAC) \\ fs []
       \\ `~(s.space + y0 < op_space_req b)` by DECIDE_TAC \\ fs []
-      \\ fs [bvp_to_bvl_ignore]
-      \\ Cases_on `bEvalOp b x (bvp_to_bvl s)` \\ fs []
+      \\ fs [bvp_to_bvi_ignore]
+      \\ Cases_on `iEvalOp b x (bvp_to_bvi s)` \\ fs []
       \\ Cases_on `x''` \\ fs [] \\ SRW_TAC [] []
-      \\ fs [bvl_to_bvp_lemma]
+      \\ fs [bvi_to_bvp_lemma]
       \\ `s.space + y0 - op_space_req b =
           s.space - op_space_req b + y0` by DECIDE_TAC \\ fs []
-      \\ Q.ABBREV_TAC `s7 = bvl_to_bvp r
+      \\ Q.ABBREV_TAC `s7 = bvi_to_bvp r
             (s with <|locals := (inter w y1);
                        space := s.space - op_space_req b + y0|>)`
-      \\ Q.ABBREV_TAC `s8 = bvl_to_bvp r
+      \\ Q.ABBREV_TAC `s8 = bvi_to_bvp r
             (s with <|locals :=
                (insert n q (inter l (list_insert l' (delete n y1))));
                  space := s.space - op_space_req b + y0|>)`
       \\ `s8 = s7 with locals := s8.locals` by
-           (UNABBREV_ALL_TAC \\ fs [bvl_to_bvp_def] \\ NO_TAC)
+           (UNABBREV_ALL_TAC \\ fs [bvi_to_bvp_def] \\ NO_TAC)
       \\ POP_ASSUM (fn th => ONCE_REWRITE_TAC [th])
       \\ MP_TAC (Q.SPECL [`y2`,`s7`] pEval_locals) \\ fs []
       \\ REPEAT STRIP_TAC
       \\ POP_ASSUM (MP_TAC o Q.SPEC `s8.locals`)
       \\ `locals_ok s7.locals s8.locals` by ALL_TAC THEN1
-       (UNABBREV_ALL_TAC \\ fs [bvl_to_bvp_lemma]
-        \\ fs [bvp_state_explode,bvl_to_bvp_lemma] \\ SRW_TAC [] []
+       (UNABBREV_ALL_TAC \\ fs [bvi_to_bvp_lemma]
+        \\ fs [bvp_state_explode,bvi_to_bvp_lemma] \\ SRW_TAC [] []
         \\ fs [locals_ok_def,lookup_insert,lookup_inter_alt]
         \\ fs [domain_delete,domain_list_insert])
       \\ fs [] \\ REPEAT STRIP_TAC \\ fs []

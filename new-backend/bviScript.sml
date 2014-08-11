@@ -65,7 +65,7 @@ val bvi_to_bvl_def = Define `
     <| globals := s.globals
      ; refs := s.refs
      ; clock := s.clock
-     ; code := spt_set ARB s.code
+     ; code := spt_set (K ARB) s.code
      ; output := s.output |>`;
 
 val bvl_to_bvi_def = Define `
