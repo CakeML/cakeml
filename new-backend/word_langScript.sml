@@ -37,7 +37,7 @@ val _ = Datatype `
 
 val _ = Datatype `
   word_prog = Skip
-            | Move num num
+            | Move ((num # num) list)
             | Assign num ('a word_exp)
             | Set store_name ('a word_exp)
             | Store ('a word_exp) num
@@ -169,8 +169,18 @@ val get_vars_def = Define `
                   | NONE => NONE
                   | SOME xs => SOME (x::xs)))`;
 
+val list_insert_def = Define `
+  (list_insert [] xs t = t) /\
+  (list_insert vs [] t = t) /\
+  (list_insert (v::vs) (x::xs) t = insert v x (list_insert vs xs t))`
+
 val set_var_def = Define `
-  set_var v x (s:'a word_state) = (s with locals := (insert v x s.locals))`;
+  set_var v x (s:'a word_state) =
+    (s with locals := (insert v x s.locals))`;
+
+val set_vars_def = Define `
+  set_vars vs xs (s:'a word_state) =
+    (s with locals := (list_insert vs xs s.locals))`;
 
 val set_store_def = Define `
   set_store v x (s:'a word_state) = (s with store := s.store |+ (v,x))`;
@@ -345,10 +355,12 @@ val wEval_def = tDefine "wEval" `
        | NONE => (SOME Error, s)
        | SOME T => (NONE,s)
        | SOME F => wAlloc w names s)) /\
-  (wEval (Move dest src,s) =
-     case get_var src s of
-     | NONE => (SOME Error,s)
-     | SOME v => (NONE, set_var dest v s)) /\
+  (wEval (Move moves,s) =
+     if ALL_DISTINCT (MAP FST moves) then
+       case get_vars (MAP SND moves) s of
+       | NONE => (SOME Error,s)
+       | SOME vs => (NONE, set_vars (MAP FST moves) vs s)
+     else (SOME Error,s)) /\
   (wEval (Assign v exp,s) =
      case word_exp s exp of
      | NONE => (SOME Error, s)
@@ -467,7 +479,7 @@ val wEval_clock = store_thm("wEval_clock",
   \\ IMP_RES_TAC check_clock_IMP
   \\ IMP_RES_TAC wAlloc_clock
   \\ FULL_SIMP_TAC (srw_ss()) [dec_clock_def,set_var_def,push_env_def,pop_env_def,
-       add_space_def,jump_exc_def,get_var_def,push_env_clock,
+       add_space_def,jump_exc_def,get_var_def,push_env_clock,set_vars_def,
        call_env_def,cut_state_def,set_store_def,mem_store_def]
   \\ TRY DECIDE_TAC
   \\ SRW_TAC [] []
