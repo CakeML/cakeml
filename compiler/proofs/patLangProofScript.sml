@@ -1556,7 +1556,8 @@ val do_app_pat_v_pat = store_thm("do_app_pat_v_pat",
           pop_assum mp_tac >>
           ASM_REWRITE_TAC [sv_rel_def]) ) >>
     rw[] >>
-    cheat >>
+    Cases_on`h'`>>fs[]>>Cases_on`l`>>fs[]>>rw[]>>fs[]>>
+    Cases_on`y`>>fs[]>>rw[]>>fs[]>>
     BasicProvers.EVERY_CASE_TAC>>fs[LET_THM]>>rw[] >>
     fs[store_lookup_def,store_assign_def,
        store_v_same_type_def,LIST_REL_EL_EQN] >>
@@ -1571,36 +1572,11 @@ val do_app_pat_v_pat = store_thm("do_app_pat_v_pat",
   fs[store_assign_def,store_lookup_def]>>
   fs[store_alloc_def,LET_THM]>>
   imp_res_tac LIST_REL_LENGTH >> rw[]>>fs[]>>rw[csg_rel_def,sv_rel_def] >>
-  imp_res_tac do_eq_pat_v_pat >>
+  imp_res_tac do_eq_pat_v_pat >> fs[] >>
   imp_res_tac v_to_list_pat_v_pat >> simp[] >>
-  cheat >>
-  TRY(
-    Cases_on`vs`>>fs[]>>
-    Cases_on`t`>>fs[]>>
-    Cases_on`t'`>>fs[]>- (
-      BasicProvers.CASE_TAC >> fs[] >>
-      BasicProvers.CASE_TAC >> fs[] >>
-      rw[] >>
-      fs[Once v_pat_cases] >> fs[] >>
-      BasicProvers.CASE_TAC >> fs[] >>
-      IF_CASES_TAC >> fs[] >> rw[] >>
-      fs[csg_rel_def] >>
-      BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
-      fs[csg_rel_def] >>
-      imp_res_tac LIST_REL_LENGTH >>
-      fsrw_tac[ARITH_ss][] >>
-      fs[LIST_REL_EL_EQN] >>
-      first_x_assum match_mp_tac >>
-      simp[] ) >>
-    rw[] >>
-    Cases_on`h''`>>fs[] >>
-    Cases_on`l`>>fs[] >>
-    Cases_on`h'`>>fs[] >>
-    Cases_on`l`>>fs[] >>
-    Cases_on`h`>>fs[] >>
-    NO_TAC) >>
   BasicProvers.EVERY_CASE_TAC>>fs[]>>rw[csg_rel_def]>>
   fs[LIST_REL_EL_EQN,EL_LUPDATE]>>rw[sv_rel_def] >>
+  fs[rich_listTheory.LENGTH_REPLICATE,EL_REPLICATE] >>
   TRY(
     simp[Once v_pat_cases] >>
     simp[LIST_REL_EL_EQN] >> NO_TAC) >>
@@ -1610,9 +1586,18 @@ val do_app_pat_v_pat = store_thm("do_app_pat_v_pat",
     qmatch_assum_rename_tac`v_pat (Conv_pat t1 v1) (Conv_pat t2 v2)`[] >>
     rator_x_assum`v_pat`mp_tac >>
     simp[Once v_pat_cases,LIST_REL_EL_EQN] >> NO_TAC) >>
+  TRY(
+    qmatch_assum_rename_tac`v_pat (Vectorv_pat l1) (Vectorv_pat l2)`[] >>
+    rator_x_assum`v_pat`mp_tac >>
+    simp[Once v_pat_cases,LIST_REL_EL_EQN] >> NO_TAC) >>
   TRY (
     CHANGED_TAC(fs[store_v_same_type_def]) >>
     BasicProvers.EVERY_CASE_TAC>>fs[])>>
+  TRY (
+    qmatch_assum_rename_tac`EL lnum s1 = Varray l1`[] >>
+    last_x_assum(qspec_then`lnum`mp_tac) >>
+    simp[Once sv_rel_cases,LIST_REL_EL_EQN] >>
+    simp[EL_LUPDATE] >> rw[] >> rw[] >> NO_TAC) >>
   metis_tac[sv_rel_def,optionTheory.NOT_SOME_NONE])
 
 val evaluate_pat_exp_pat = store_thm("evaluate_pat_exp_pat",
