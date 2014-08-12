@@ -5,11 +5,6 @@ val _ = new_theory"patLangProof"
 
 (* TODO: move *)
 
-val map_replicate = Q.prove (
-`!f n x. MAP f (REPLICATE n x) = REPLICATE n (f x)`,
- Induct_on `n` >>
- rw [rich_listTheory.REPLICATE]);
-
 val map_count_store_genv_def = Define`
   map_count_store_genv f (csg:'a count_store_genv) =
     ((FST(FST csg), MAP (map_sv f) (SND(FST csg))), MAP (OPTION_MAP f) (SND csg))`

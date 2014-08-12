@@ -50,38 +50,6 @@ every_case_tac >>
 fs [] >>
 imp_res_tac lookup_in2);
 
-val fupdate_list_foldr = Q.prove (
-`!m l. FOLDR (λ(k,v) env. env |+ (k,v)) m l = m |++ REVERSE l`,
- induct_on `l` >>
- rw [FUPDATE_LIST] >>
- PairCases_on `h` >>
- rw [FOLDL_APPEND]);
-
-val fupdate_list_foldl = Q.prove (
-`!m l. FOLDL (λenv (k,v). env |+ (k,v)) m l = m |++ l`,
- induct_on `l` >>
- rw [FUPDATE_LIST] >>
- PairCases_on `h` >>
- rw []);
-
-val disjoint_drestrict = Q.prove (
-`!s m. DISJOINT s (FDOM m) ⇒ DRESTRICT m (COMPL s) = m`,
- rw [fmap_eq_flookup, FLOOKUP_DRESTRICT] >>
- cases_on `k ∉ s` >>
- rw [] >>
- fs [DISJOINT_DEF, EXTENSION, FLOOKUP_DEF] >>
- metis_tac []);
-
-val compl_insert = Q.prove (
-`!s x. COMPL (x INSERT s) = COMPL s DELETE x`,
- rw [EXTENSION] >>
- metis_tac []);
-
-val drestrict_iter_list = Q.prove (
-`!m l. FOLDR (\k m. m \\ k) m l = DRESTRICT m (COMPL (set l))`,
- induct_on `l` >>
- rw [DRESTRICT_UNIV, compl_insert, DRESTRICT_DOMSUB]);
-
 val pmatch_extend = Q.prove (
 `(!cenv s p v env env' env''.
   pmatch cenv s p v env = Match env'
