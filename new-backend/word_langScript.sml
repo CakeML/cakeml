@@ -58,8 +58,7 @@ val _ = Datatype `
   word_loc = Word ('a word) | Loc num num `;
 
 val _ = Datatype `
-  word_st = Env (('a word_loc) num_map)
-          | Exc (('a word_loc) num_map) num `;
+  word_st = StackFrame ((num # ('a word_loc)) list) (num option) `;
 
 val _ = type_abbrev("gc_fun_type",
   ``: (('a word_loc list) list) # (('a word) -> ('a word_loc)) # ('a word) set #
@@ -74,7 +73,7 @@ val _ = Datatype `
      ; stack   : ('a word_st) list
      ; memory  : 'a word -> 'a word_loc
      ; mdomain : ('a word) set
-     ; gc_bij  : num -> num -> num (* sequence of bijective mappings *)
+     ; permute : num -> num -> num (* sequence of bijective mappings *)
      ; gc_fun  : 'a gc_fun_type
      ; handler : num
      ; clock   : num
@@ -203,24 +202,41 @@ val call_env_def = Define `
   call_env args (s:'a word_state) =
     s with <| locals := fromList args |>`;
 
+val env_to_list_def = Define `
+  env_to_list env (bij_seq:num->num->num) =
+    let renamer = bij_seq 0 in
+    let permute = (\n. bij_seq (n + 1)) in
+    let l = toAList env in
+    let l = QSORT (\x y. renamer (FST x) <= renamer (FST y)) l in
+      (l,permute)`
+
 val push_env_def = Define `
-  (push_env env F s = s with <| stack := Env env :: s.stack |>) /\
-  (push_env env T s = s with <| stack := Exc env s.handler :: s.stack
-                              ; handler := LENGTH s.stack |>)`;
+  push_env env b s =
+    let (l,permute) = env_to_list s.locals s.permute in
+    let handler = if b then SOME s.handler else NONE in
+      s with <| stack := StackFrame l handler :: s.stack
+              ; permute := permute
+              ; handler := if b then LENGTH s.stack else s.handler |>`;
+
+val fromAList_def = Define `
+  (fromAList [] = LN) /\
+  (fromAList ((x,y)::xs) = insert x y (fromAList xs))`;
 
 val pop_env_def = Define `
   pop_env s =
     case s.stack of
-    | (Env e::xs) => SOME (s with <| locals := e ; stack := xs |>)
-    | (Exc e n::xs) => SOME (s with <| locals := e; stack := xs ; handler := n |>)
+    | (StackFrame e NONE::xs) =>
+         SOME (s with <| locals := fromAList e ; stack := xs |>)
+    | (StackFrame e (SOME n)::xs) =>
+         SOME (s with <| locals := fromAList e ; stack := xs ; handler := n |>)
     | _ => NONE`;
 
 val jump_exc_def = Define `
   jump_exc s =
     if s.handler < LENGTH s.stack then
       case LAST_N (s.handler+1) s.stack of
-      | Exc e n :: xs =>
-          SOME (s with <| handler := n ; locals := e ; stack := xs |>)
+      | StackFrame e (SOME n) :: xs =>
+          SOME (s with <| handler := n ; locals := fromAList e ; stack := xs |>)
       | _ => NONE
     else NONE`;
 
@@ -277,51 +293,31 @@ val find_code_def = Define `
                                     else NONE)
        | other => NONE)`
 
-val inv_fun_def = Define `
-  inv_fun f x = @y. f y = x`;
-
 val enc_stack_def = Define `
-  (enc_stack (bij:num->num->num) [] = []) /\
-  (enc_stack bij ((Exc env n :: st)) =
-     let l = MAP (\(i,x). (bij 0 i,x)) (toAList env) in
-     let l = QSORT (\(i,x) (j,y). j <= i) l in
-       (MAP SND l) :: enc_stack (\n. bij (n+1)) st) /\
-  (enc_stack bij ((Env env :: st)) =
-     let l = MAP (\(i,x). (bij 0 i,x)) (toAList env) in
-     let l = QSORT (\(i,x) (j,y). j <= i) l in
-       (MAP SND l) :: enc_stack (\n. bij (n+1)) st)`;
+  (enc_stack [] = []) /\
+  (enc_stack ((StackFrame l handler :: st)) =
+     (MAP SND l) :: enc_stack st)`;
 
 val dec_stack_def = Define `
-  (dec_stack (bij:num->num->num) [] [] = SOME []) /\
-  (dec_stack bij (ws::xs) ((Exc env n :: st)) =
-     case dec_stack (\n. bij (n+1)) xs st of
-     | NONE => NONE
-     | SOME s => SOME (Exc env n :: s)) /\
-  (dec_stack bij (ws::xs) ((Env env :: st)) =
-     let l = MAP (\(i,x). (bij 0 i,x)) (toAList env) in
-     let l = QSORT (\(i,x) (j,y). j <= i) l in
-     let l = MAP FST l in
-     let l1 = ZIP (l, ws) in
-     let l2 = MAP (\(i,x). (inv_fun (bij 0) i,x)) l1 in
-     let env = FOLDL (\f (k,v). insert k v f) LN l2 in
-       if LENGTH l <> LENGTH ws then NONE else
-         case dec_stack (\n. bij (n+1)) xs st of
-         | NONE => NONE
-         | SOME s => SOME (Env env :: s))`;
+  (dec_stack [] [] = SOME []) /\
+  (dec_stack (ws::xs) ((StackFrame l handler :: st)) =
+     if LENGTH ws <> LENGTH l then NONE else
+       case dec_stack xs st of
+       | NONE => NONE
+       | SOME s => SOME (StackFrame (ZIP (MAP FST l,ws)) handler :: s))`
 
 val wGC_def = Define `
   wGC s =
-    let wl_list = enc_stack s.gc_bij s.stack in
+    let wl_list = enc_stack s.stack in
       case s.gc_fun (wl_list, s.memory, s.mdomain, s.store) of
       | NONE => NONE
       | SOME (wl,m,st) =>
-       (case dec_stack s.gc_bij wl s.stack of
+       (case dec_stack wl s.stack of
         | NONE => NONE
         | SOME stack =>
             SOME (s with <| stack := stack
                           ; store := st
-                          ; memory := m
-                          ; gc_bij := (\n. s.gc_bij (n + LENGTH s.stack)) |>))`
+                          ; memory := m |>))`
 
 val has_space_def = Define `
   has_space wl s =
@@ -426,11 +422,17 @@ val wEval_def = tDefine "wEval" `
                 | (SOME (Result x),s2) =>
                    (case pop_env s2 of
                     | NONE => (SOME Error,s2)
-                    | SOME s1 => (NONE, set_var n x s1))
+                    | SOME s1 =>
+                        (if domain s1.locals = domain env
+                         then (NONE, set_var n x s1)
+                         else (SOME Error,s1)))
                 | (SOME (Exception x),s2) =>
                    (case handler of (* if handler is present, then handle exc *)
                     | NONE => (SOME (Exception x),s2)
-                    | SOME (n,h) => wEval (h, set_var n x (check_clock s2 s)))
+                    | SOME (n,h) =>
+                        (if domain s2.locals = domain env
+                         then wEval (h, set_var n x (check_clock s2 s))
+                         else (SOME Error,s2)))
                 | (NONE,s) => (SOME Error,s)
                 | res => res)))))`
  (WF_REL_TAC `(inv_image (measure I LEX measure (word_prog_size (K 0)))
@@ -460,12 +462,14 @@ val wAlloc_clock = store_thm("wAlloc_clock",
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ SRW_TAC [] [] \\ fs []
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ SRW_TAC [] [] \\ fs []
   \\ POP_ASSUM MP_TAC \\ SRW_TAC [] []
-  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ SRW_TAC [] [] \\ fs []
   \\ IMP_RES_TAC wGC_clock
   \\ fs [push_env_def,set_store_def,pop_env_def] \\ SRW_TAC [] []
-  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ SRW_TAC [] [] \\ fs []
-  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ SRW_TAC [] [] \\ fs []
-  \\ SRW_TAC [] []);
+ \\  Cases_on `env_to_list s1.locals s1.permute` \\ fs [LET_DEF]);
+
+val pop_env_clock = prove(
+  ``(pop_env s = SOME t) ==> (s.clock = t.clock)``,
+  fs [pop_env_def] \\ REPEAT BasicProvers.FULL_CASE_TAC
+  \\ SRW_TAC [] [] \\ fs []);
 
 val wEval_clock = store_thm("wEval_clock",
   ``!xs s1 vs s2. (wEval (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock``,
@@ -473,14 +477,17 @@ val wEval_clock = store_thm("wEval_clock",
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [wEval_def]
   \\ FULL_SIMP_TAC std_ss [cut_state_opt_def]
   \\ REPEAT BasicProvers.FULL_CASE_TAC
-  \\ REPEAT STRIP_TAC \\ SRW_TAC [] [check_clock_def]
+  \\ REPEAT STRIP_TAC \\ SRW_TAC [] [check_clock_def,call_env_def]
+  \\ fs [call_env_def]
   \\ RES_TAC \\ IMP_RES_TAC check_clock_IMP
   \\ FULL_SIMP_TAC std_ss [PULL_FORALL] \\ RES_TAC
   \\ IMP_RES_TAC check_clock_IMP
   \\ IMP_RES_TAC wAlloc_clock
-  \\ FULL_SIMP_TAC (srw_ss()) [dec_clock_def,set_var_def,push_env_def,pop_env_def,
+  \\ FULL_SIMP_TAC (srw_ss()) [dec_clock_def,set_var_def,
        add_space_def,jump_exc_def,get_var_def,push_env_clock,set_vars_def,
        call_env_def,cut_state_def,set_store_def,mem_store_def]
+  \\ REV_FULL_SIMP_TAC std_ss [] \\ RES_TAC
+  \\ IMP_RES_TAC pop_env_clock
   \\ TRY DECIDE_TAC
   \\ SRW_TAC [] []
   \\ Cases_on `wEval (c1,s)` \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
