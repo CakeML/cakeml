@@ -596,13 +596,13 @@ val _ = map delete_binding ["wEval_AUX_def", "wEval_primitive_def"];
 
   word_lang --> word_lang compiler correctness thm:
 
-    !t1 t2 d1 d2.
+    !wprog t1 t2 d1 res c.
       ?p n.
         state_rel p t1 d1 /\
-        colouring_ok wprog c /\
+        colouring_ok wprog c /\ res <> SOME Error /\
         wEval (wprog,t1) = (res,t2) ==>
-        wEval (apply_colour c wprog,d1) = (res,d2) /\
-        state_rel (\i. p (i+n)) t2 d2
+        ?d2. wEval (apply_colour c wprog,d1) = (res,d2) /\
+             state_rel (\i. p (i+n)) t2 d2
 
     where state_rel is roughly
 
@@ -612,7 +612,7 @@ val _ = map delete_binding ["wEval_AUX_def", "wEval_primitive_def"];
         t1.permute = p /\
         !k arity code.
           lookup k t1.code = SOME (arity,code)
-          ?c. colouring_ok c code /\
+          ?c. colouring_ok code c /\
               lookup k d1.code = SOME (arity,apply_colour c code)
 
   word_lang --> stack_lang compiler correctness thm:
