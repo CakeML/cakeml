@@ -515,7 +515,7 @@ fun sub f tm = f tm handle HOL_ERR _ =>
   handle HOL_ERR _ => tm
 
 val remove_check_clock = sub (fn tm =>
-  if can (match_term ``check_clock s1 (s2:bvp_state)``) tm
+  if can (match_term ``check_clock s1 (s2:'a word_state)``) tm
   then tm |> rator |> rand else fail())
 
 val remove_disj = sub (fn tm => if is_disj tm then tm |> rator |> rand else fail())
@@ -533,9 +533,9 @@ val wEval_ind = save_thm("wEval_ind",let
     \\ REVERSE (REPEAT STRIP_TAC) \\ ASM_REWRITE_TAC []
     THEN1 (FIRST_X_ASSUM MATCH_MP_TAC
            \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC
-           \\ IMP_RES_TAC pEval_clock \\ SRW_TAC [] []
+           \\ IMP_RES_TAC wEval_clock \\ SRW_TAC [] []
            \\ `s2.clock <= s.clock` by
-            (fs [call_env_def,push_env_def,dec_clock_def]
+            (fs [call_env_def,dec_clock_def,push_env_clock]
              \\ IMP_RES_TAC pop_env_clock \\ DECIDE_TAC)
            \\ `s2 = check_clock s2 s` by fs [check_clock_def]
            \\ POP_ASSUM (fn th => ONCE_REWRITE_TAC [th])
@@ -568,15 +568,14 @@ val wEval_def = save_thm("wEval_def",let
     \\ Cases_on `wEval (g,s)`
     \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
     \\ IMP_RES_TAC wEval_check_clock \\ FULL_SIMP_TAC std_ss []
-    \\ Cases_on `q`
-    \\ FULL_SIMP_TAC (srw_ss()) [GSYM set_var_check_clock]
+    \\ REPEAT BasicProvers.CASE_TAC
+    \\ SRW_TAC [] [] \\ IMP_RES_TAC wEval_check_clock
     \\ FULL_SIMP_TAC (srw_ss()) [check_clock_def]
-    \\ NTAC 3 BasicProvers.CASE_TAC
-    \\ FULL_SIMP_TAC (srw_ss()) []
-    \\ IMP_RES_TAC wEval_check_clock \\ FULL_SIMP_TAC std_ss []
-    \\ Cases_on `q`
-    \\ FULL_SIMP_TAC (srw_ss()) [GSYM set_var_check_clock,GSYM check_clock_def]
-    \\ FULL_SIMP_TAC (srw_ss()) [check_clock_def])
+    \\ fs [call_env_def,dec_clock_def,push_env_clock]
+    \\ SRW_TAC [] []
+    \\ IMP_RES_TAC wEval_clock
+    \\ fs [call_env_def,dec_clock_def,push_env_clock]
+    \\ `F` by DECIDE_TAC)
   val new_def = wEval_def |> CONJUNCTS |> map (fst o dest_eq o concl o SPEC_ALL)
                   |> map (REWR_CONV def THENC SIMP_CONV (srw_ss()) [])
                   |> LIST_CONJ
@@ -585,5 +584,42 @@ val wEval_def = save_thm("wEval_def",let
 (* clean up *)
 
 val _ = map delete_binding ["wEval_AUX_def", "wEval_primitive_def"];
+
+(*
+
+  BVP --> word_lang compiler correctness thm:
+
+    pEval (prog,s1) = (res,s2) ==>
+    state_rel s1 t1 ==>
+      wEval (pCompile prog,t1) = (res1,t2) /\
+      state_rel s2 t2 /\ res_rel res res1
+
+  word_lang --> word_lang compiler correctness thm:
+
+    !t1 t2 d1 d2.
+      ?p n.
+        state_rel p t1 d1 /\
+        colouring_ok wprog c /\
+        wEval (wprog,t1) = (res,t2) ==>
+        wEval (apply_colour c wprog,d1) = (res,d2) /\
+        state_rel (\i. p (i+n)) t2 d2
+
+    where state_rel is roughly
+
+    state_rel p t1 d1 =
+      ?dp dl dc.
+        (d1 = t1 with <| permute := dp; locals := dl; code := dc |>) /\
+        t1.permute = p /\
+        !k arity code.
+          lookup k t1.code = SOME (arity,code)
+          ?c. colouring_ok c code /\
+              lookup k d1.code = SOME (arity,apply_colour c code)
+
+  word_lang --> stack_lang compiler correctness thm:
+
+    wEval (wprog,t1 with permute := K I) = (res,t2) ==>
+    sEval (wCompile wprog,r1) = (res1,r2)
+
+*)
 
 val _ = export_theory();
