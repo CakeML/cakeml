@@ -44,7 +44,6 @@ val _ = Datatype `
            | MakeSpace num num_set
            | Raise num
            | Return num
-         (* | Handle num_set bvp_prog num num num_set bvp_prog *)
            | Tick `;
 
 (* --- Semantics of BVP --- *)
@@ -305,18 +304,10 @@ val check_clock_IMP = prove(
 
 val pEvalOp_clock = store_thm("pEvalOp_clock",
   ``(pEvalOp op args s1 = SOME (res,s2)) ==> s2.clock <= s1.clock``,
-  cheat
-(*
-  SIMP_TAC std_ss [pEvalOp_def,pEvalOpSpace_def,consume_space_def,
-      iEvalOp_def,iEvalOpAux_def,bEvalOp_def]
-  \\ Cases_on `op` \\ fs []
-  \\ iEvalOp_clock
-  \\ REPEAT BasicProvers.FULL_CASE_TAC
-  \\ FULL_SIMP_TAC std_ss []
-  \\ IMP_RES_TAC bEvalOp_const
-  \\ FULL_SIMP_TAC (srw_ss()) [bvp_to_bvi_def]
-  \\ Q.SPEC_TAC (`s2`,`s2`)
-  \\ FULL_SIMP_TAC (srw_ss()) [bvi_to_bvp_def]*));
+  SIMP_TAC std_ss [pEvalOp_def,pEvalOpSpace_def,consume_space_def]
+  \\ SRW_TAC [] [] \\ REPEAT (BasicProvers.FULL_CASE_TAC \\ fs [])
+  \\ IMP_RES_TAC iEvalOp_const \\ fs []
+  \\ fs [bvp_to_bvi_def,bvi_to_bvp_def] \\ SRW_TAC [] []);
 
 val pEval_clock = store_thm("pEval_clock",
   ``!xs s1 vs s2. (pEval (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock``,
