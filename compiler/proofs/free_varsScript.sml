@@ -15,12 +15,17 @@ val do_app_cases = store_thm("do_app_cases",
     (∃lnum v. op = Opassign ∧ vs = [Loc lnum; v]) ∨
     (∃n. op = Opderef ∧ vs = [Loc n]) ∨
     (∃v. op = Opref ∧ vs = [v]) ∨
-    (∃n w. op = Aalloc ∧ vs = [Litv (IntLit n); Litv (Word8 w)]) ∨
+    (∃n w. op = Aw8alloc ∧ vs = [Litv (IntLit n); Litv (Word8 w)]) ∨
+    (∃lnum i. op = Aw8sub ∧ vs = [Loc lnum; Litv (IntLit i)]) ∨
+    (∃n. op = Aw8length ∧ vs = [Loc n]) ∨
+    (∃lnum i w. op = Aw8update ∧ vs = [Loc lnum; Litv (IntLit i); Litv (Word8 w)]) ∨
+    (∃v ls. op = VfromList ∧ vs = [v] ∧ v_to_list v = SOME ls) ∨
+    (∃ls i. op = Vsub ∧ vs = [Vectorv ls; Litv (IntLit i)]) ∨
+    (∃ls. op = Vlength ∧ vs = [Vectorv ls]) ∨
+    (∃n v. op = Aalloc ∧ vs = [Litv (IntLit n); v]) ∨
     (∃lnum i. op = Asub ∧ vs = [Loc lnum; Litv (IntLit i)]) ∨
     (∃n. op = Alength ∧ vs = [Loc n]) ∨
-    (∃lnum i w. op = Aupdate ∧ vs = [Loc lnum; Litv (IntLit i); Litv (Word8 w)]) ∨
-    (∃v ls. op = VfromList ∧ vs = [v] ∧ v_to_list v = SOME ls) ∨
-    (∃ls i. op = Vsub ∧ vs = [Vectorv ls; Litv (IntLit i)])``,
+    (∃lnum i v. op = Aupdate ∧ vs = [Loc lnum; Litv (IntLit i); v])``,
   rw[do_app_def] >>
   BasicProvers.EVERY_CASE_TAC >> fs[])
 
@@ -32,12 +37,17 @@ val do_app_i1_cases = store_thm("do_app_i1_cases",
     (∃lnum v. op = Opassign ∧ vs = [Loc_i1 lnum; v]) ∨
     (∃n. op = Opderef ∧ vs = [Loc_i1 n]) ∨
     (∃v. op = Opref ∧ vs = [v]) ∨
-    (∃n w. op = Aalloc ∧ vs = [Litv_i1 (IntLit n); Litv_i1 (Word8 w)]) ∨
+    (∃n w. op = Aw8alloc ∧ vs = [Litv_i1 (IntLit n); Litv_i1 (Word8 w)]) ∨
+    (∃lnum i. op = Aw8sub ∧ vs = [Loc_i1 lnum; Litv_i1 (IntLit i)]) ∨
+    (∃n. op = Aw8length ∧ vs = [Loc_i1 n]) ∨
+    (∃lnum i w. op = Aw8update ∧ vs = [Loc_i1 lnum; Litv_i1 (IntLit i); Litv_i1 (Word8 w)]) ∨
+    (∃v ls. op = VfromList ∧ vs = [v] ∧ v_to_list_i1 v = SOME ls) ∨
+    (∃ls i. op = Vsub ∧ vs = [Vectorv_i1 ls; Litv_i1 (IntLit i)]) ∨
+    (∃ls. op = Vlength ∧ vs = [Vectorv_i1 ls]) ∨
+    (∃n v. op = Aalloc ∧ vs = [Litv_i1 (IntLit n); v]) ∨
     (∃lnum i. op = Asub ∧ vs = [Loc_i1 lnum; Litv_i1 (IntLit i)]) ∨
     (∃n. op = Alength ∧ vs = [Loc_i1 n]) ∨
-    (∃lnum i w. op = Aupdate ∧ vs = [Loc_i1 lnum; Litv_i1 (IntLit i); Litv_i1 (Word8 w)]) ∨
-    (∃v ls. op = VfromList ∧ vs = [v] ∧ v_to_list_i1 v = SOME ls) ∨
-    (∃ls i. op = Vsub ∧ vs = [Vectorv_i1 ls; Litv_i1 (IntLit i)])``,
+    (∃lnum i v. op = Aupdate ∧ vs = [Loc_i1 lnum; Litv_i1 (IntLit i); v])``,
   rw[do_app_i1_def] >>
   BasicProvers.EVERY_CASE_TAC >> fs[])
 
@@ -523,10 +533,10 @@ val free_vars_mkshift = store_thm("free_vars_mkshift",
     >- metis_tac[]
     >- (
       fsrw_tac[ARITH_ss][PRE_SUB1] >>
-      qexists_tac`v-1` >>
+      qexists_tac`m-1` >>
       fsrw_tac[ARITH_ss][] >>
       disj2_tac >>
-      qexists_tac`v` >>
+      qexists_tac`m` >>
       fsrw_tac[ARITH_ss][] )
     >- (
       disj1_tac >>
@@ -536,9 +546,9 @@ val free_vars_mkshift = store_thm("free_vars_mkshift",
       fsrw_tac[ARITH_ss][PRE_SUB1] >>
       disj2_tac >>
       srw_tac[ARITH_ss][]
-      >- metis_tac[] >>
-      fsrw_tac[ARITH_ss][] >>
-      fsrw_tac[ARITH_ss,DNF_ss][] >>
+      >- (qexists_tac`m-1` >> srw_tac[ARITH_ss][]>>
+          qexists_tac`m`>>simp[]) >>
+      qexists_tac`m-1`>>simp[]>>
       qexists_tac`m`>>simp[])) >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
@@ -553,35 +563,24 @@ val free_vars_mkshift = store_thm("free_vars_mkshift",
     rw[EQ_IMP_THM]
     >- metis_tac[]
     >- (
-      fsrw_tac[ARITH_ss][PRE_SUB1,MEM_MAP,MEM_FILTER] >>
-      res_tac >>
-      qexists_tac`v-1` >>
+      fsrw_tac[ARITH_ss][PRE_SUB1] >>
+      qexists_tac`m-1` >>
       fsrw_tac[ARITH_ss][] >>
       disj2_tac >>
-      qexists_tac`v` >>
+      qexists_tac`m` >>
       fsrw_tac[ARITH_ss][] )
     >- (
       disj1_tac >>
       qexists_tac`v` >>
       srw_tac[ARITH_ss][] )
     >- (
-      fsrw_tac[ARITH_ss][PRE_SUB1,MEM_MAP,MEM_FILTER,EQ_IMP_THM,GSYM LEFT_FORALL_IMP_THM,FORALL_AND_THM] >>
-      res_tac >>
-      srw_tac[ARITH_ss][] >>
-      fsrw_tac[ARITH_ss][]
-      >- (
-        disj2_tac >>
-        qexists_tac`m` >>
-        simp[] )
-      >- (
-        disj2_tac >>
-        fsrw_tac[ARITH_ss][] >>
-        qexists_tac`k + (f (m - (k + 1))) + 1` >>
-        simp[] ) >>
-      Cases_on`k`>> fsrw_tac[ARITH_ss][] >>
-      Cases_on`m`>>fsrw_tac[ARITH_ss][] >>
+      fsrw_tac[ARITH_ss][PRE_SUB1] >>
       disj2_tac >>
-      qexists_tac`SUC (f n)`>>simp[ADD1])) >>
+      srw_tac[ARITH_ss][]
+      >- (qexists_tac`m-1` >> srw_tac[ARITH_ss][]>>
+          qexists_tac`m`>>simp[]) >>
+      qexists_tac`m-1`>>simp[]>>
+      qexists_tac`m`>>simp[])) >>
     metis_tac[]) >>
   strip_tac >- (
     simp[] >> rw[] >>
