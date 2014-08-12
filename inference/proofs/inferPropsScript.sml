@@ -1,5 +1,5 @@
 open preamble;
-open rich_listTheory;
+open rich_listTheory listTheory alistTheory;
 open miscTheory;
 open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
 open libPropsTheory astPropsTheory typeSysPropsTheory;
@@ -2370,7 +2370,7 @@ val t_to_freevars_check2 = Q.prove (
    EVERY (\t. check_t (LENGTH (nub fvs)) {} (infer_type_subst (ZIP (nub fvs, MAP Infer_Tvar_db (COUNT_LIST (LENGTH (nub fvs))))) t)) ts)`,
 Induct >>
 rw [t_to_freevars_def, success_eqns, check_t_def, infer_type_subst_def] >>
-rw [EVERY_MAP, nub_def, count_list_one, check_t_def] >>
+rw [EVERY_MAP, nub_DEF, count_list_one, check_t_def] >>
 metis_tac [check_lem, check_lem2]);
 
 val check_specs_check = Q.store_thm ("check_specs_check",

@@ -372,7 +372,7 @@ val _ = export_rewrites["sv_rel_refl"]
 
 val sv_rel_trans = store_thm("sv_rel_trans",
   ``∀R. (∀x y z. R x y ∧ R y z ⇒ R x z) ⇒ ∀x y z. sv_rel R x y ∧ sv_rel R y z ⇒ sv_rel R x z``,
-  gen_tac >> strip_tac >> Cases >> Cases >> Cases >> rw [] >> fs [sv_rel_def] >> metis_tac[miscTheory.LIST_REL_trans]);
+  gen_tac >> strip_tac >> Cases >> Cases >> Cases >> rw [] >> fs [sv_rel_def] >> metis_tac[LIST_REL_trans]);
 
 val sv_rel_cases = store_thm("sv_rel_cases",
   ``∀x y.

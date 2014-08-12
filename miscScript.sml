@@ -5,6 +5,12 @@ open optionTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_li
 val _ = new_theory "misc"
 val _ = ParseExtras.temp_tight_equality()
 
+val _ = export_rewrites["list.EVERY2_THM"]
+val _ = export_rewrites["rich_list.LIST_REL_APPEND_SING"]
+val _ = export_rewrites["alist.set_MAP_FST_fmap_to_alist"]
+val _ = export_rewrites["alist.MAP_KEYS_I"]
+
+
 (* TODO: move/categorize *)
 
 val IS_SOME_EXISTS = store_thm("IS_SOME_EXISTS",
@@ -759,9 +765,6 @@ val IS_PREFIX_THM = store_thm("IS_PREFIX_THM",
  THEN1 (
    FIRST_X_ASSUM(Q.SPEC_THEN`SUC n`MP_TAC)THEN SRW_TAC[][] ))
 
-val _ = export_rewrites["EVERY2_THM"]
-val _ = export_rewrites["LIST_REL_APPEND_SING"]
-
 val EVERY2_RC_same = store_thm("EVERY2_RC_same",
   ``EVERY2 (RC R) l l``,
   srw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,MEM_ZIP,relationTheory.RC_DEF])
@@ -937,14 +940,12 @@ MAP_ZIP
 |> MATCH_ACCEPT_TAC))
 
 (* Specialisations to identity function *)
-val _ = export_rewrites["set_MAP_FST_fmap_to_alist"]
 
 val INJ_I = store_thm(
 "INJ_I",
 ``∀s t. INJ I s t ⇔ s ⊆ t``,
 SRW_TAC[][INJ_DEF,SUBSET_DEF])
 
-val _ = export_rewrites["MAP_KEYS_I"]
 
 val MAP_EQ_ID = store_thm(
 "MAP_EQ_ID",

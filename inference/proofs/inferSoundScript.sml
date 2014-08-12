@@ -1,5 +1,5 @@
 open preamble;
-open rich_listTheory;
+open rich_listTheory alistTheory;
 open miscTheory;
 open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
 open libPropsTheory astPropsTheory;

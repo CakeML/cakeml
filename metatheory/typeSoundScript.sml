@@ -1,5 +1,5 @@
 open preamble;
-open pairTheory optionTheory alistTheory;
+open pairTheory optionTheory alistTheory rich_listTheory;
 open miscTheory;
 open libTheory astTheory typeSystemTheory semanticPrimitivesTheory;
 open smallStepTheory bigStepTheory replTheory;
@@ -13,7 +13,7 @@ val _ = new_theory "typeSound";
 val EVERY_LIST_REL = Q.prove (
 `EVERY (\x. f x y) l = LIST_REL (\x y. f x y) l (REPLICATE (LENGTH l) y)`,
  induct_on `l` >>
- rw [rich_listTheory.REPLICATE]);
+ rw [REPLICATE]);
 
 val union_decls_empty = Q.store_thm ("union_decls_empty",
 `!decls. union_decls empty_decls decls = decls`,
@@ -1230,10 +1230,10 @@ val exp_type_preservation = Q.prove (
              >- (fs [type_s_def, lookup_def, bind_def, store_lookup_def] >>
                  rw []
                  >- decide_tac
-                 >- (rw [rich_listTheory.EL_LENGTH_APPEND] >>
+                 >- (rw [EL_LENGTH_APPEND] >>
                      metis_tac [bind_def, type_v_weakening, weakS_bind, weakC_refl, weakM_refl, weakCT_refl])
                  >- (`l < LENGTH st` by decide_tac >>
-                     rw [rich_listTheory.EL_APPEND1] >>
+                     rw [EL_APPEND1] >>
                      res_tac  >>
                      cases_on `EL l st` >>
                      fs [] >>
@@ -1269,10 +1269,10 @@ val exp_type_preservation = Q.prove (
              >- (fs [type_s_def, lookup_def, bind_def, store_lookup_def] >>
                  rw []
                  >- decide_tac
-                 >- (rw [rich_listTheory.EL_LENGTH_APPEND] >>
+                 >- (rw [EL_LENGTH_APPEND] >>
                      metis_tac [bind_def, type_v_weakening, weakS_bind, weakC_refl, weakM_refl, weakCT_refl])
                  >- (`l < LENGTH st` by decide_tac >>
-                     rw [rich_listTheory.EL_APPEND1] >>
+                     rw [EL_APPEND1] >>
                      res_tac  >>
                      cases_on `EL l st` >>
                      fs [] >>
@@ -1330,10 +1330,10 @@ val exp_type_preservation = Q.prove (
              >- (fs [type_s_def, lookup_def, bind_def, store_lookup_def] >>
                  rw []
                  >- decide_tac
-                 >- (rw [rich_listTheory.EL_LENGTH_APPEND, EVERY_REPLICATE] >>
+                 >- (rw [EL_LENGTH_APPEND, EVERY_REPLICATE] >>
                      metis_tac [bind_def, type_v_weakening, weakS_bind, weakC_refl, weakM_refl, weakCT_refl])
                  >- (`l < LENGTH st` by decide_tac >>
-                     rw [rich_listTheory.EL_APPEND1] >>
+                     rw [EL_APPEND1] >>
                      res_tac  >>
                      cases_on `EL l st` >>
                      fs [] >>
@@ -1459,7 +1459,7 @@ val exp_type_preservation = Q.prove (
          rw [] >>
          rw [type_vs_end] >>
          fs [is_ccon_def] >>
-         metis_tac [ctxt_inv_not_poly, rich_listTheory.MAP_REVERSE])
+         metis_tac [ctxt_inv_not_poly, MAP_REVERSE])
      >- (fs [all_env_to_cenv_def, build_conv_def] >>
          rw [Once type_v_cases_eqn] >>
          imp_res_tac type_es_length >>
@@ -1471,7 +1471,7 @@ val exp_type_preservation = Q.prove (
          rw [] >>
          rw [type_vs_end] >>
          fs [is_ccon_def] >>
-         metis_tac [ctxt_inv_not_poly, rich_listTheory.MAP_REVERSE, type_vs_end])
+         metis_tac [ctxt_inv_not_poly, MAP_REVERSE, type_vs_end])
      >- (fs [all_env_to_cenv_def, build_conv_def] >>
          cases_on `lookup_con_id cn cenv'` >>
          fs [] >>
