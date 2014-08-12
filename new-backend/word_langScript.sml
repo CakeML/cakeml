@@ -108,7 +108,12 @@ val get_word_def = Define `
 val word_op_def = Define `
   word_op op (ws:('a word) list) =
     case (op,ws) of
+    | (AND,ws) => SOME (FOLDR word_and (~0w) ws)
     | (ADD,ws) => SOME (FOLDR word_add 0w ws)
+    | (OR,ws) => SOME (FOLDR word_or 0w ws)
+    | (XOR,ws) => SOME (FOLDR word_xor 0w ws)
+    | (SUB,[w1;w2]) => SOME (w1 - w2)
+    | (MUL,[w1;w2]) => SOME (w1 * w2)
     | _ => NONE`;
 
 val word_sh_def = Define `
