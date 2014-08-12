@@ -187,6 +187,10 @@ and
 prim2_to_bc (P2s CRefB) = RefByte
 and
 prim2_to_bc (P2s CDerB) = DerefByte
+and
+prim2_to_bc (P2s CRefA) = Ref
+and
+prim2_to_bc (P2s CDerA) = Deref
 
 let emit = List.foldl (fun s i -> <| s with out = i :: s.out |>)
 
@@ -467,7 +471,7 @@ compile env t sz s (CPrim2 op e1 e2) =
   pushret t (emit (compile_nts env sz s [e1;e2]) [prim2_to_bc op])
 and
 compile env t sz s (CUpd b e1 e2 e3) =
-  pushret t (emit (compile_nts env sz s [e1;e2;e3]) [if b then UpdateByte else Update; Stack (Cons unit_tag 0)])
+  pushret t (emit (compile_nts env sz s [e1;e2;e3]) [match b with UpB -> UpdateByte | _ -> Update end; Stack (Cons unit_tag 0)])
 and
 compile env t sz s (CIf e1 e2 e3) =
   let s = compile env TCNonTail sz s e1 in

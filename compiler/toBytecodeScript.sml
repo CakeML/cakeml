@@ -214,7 +214,11 @@ val _ = Define `
 /\
 (prim2_to_bc (P2s CRefB) = RefByte)
 /\
-(prim2_to_bc (P2s CDerB) = DerefByte)`;
+(prim2_to_bc (P2s CDerB) = DerefByte)
+/\
+(prim2_to_bc (P2s CRefA) = Ref)
+/\
+(prim2_to_bc (P2s CDerA) = Deref)`;
 
 
 val _ = Define `
@@ -525,7 +529,7 @@ a b c x y z
 (pushret t (emit (compile_nts env sz s [e1;e2]) [prim2_to_bc op])))
 /\
 (compile env t sz s (CUpd b e1 e2 e3) =  
-(pushret t (emit (compile_nts env sz s [e1;e2;e3]) [(if b then UpdateByte else Update); Stack (Cons unit_tag( 0))])))
+(pushret t (emit (compile_nts env sz s [e1;e2;e3]) [(case b of UpB => UpdateByte | _ => Update ); Stack (Cons unit_tag( 0))])))
 /\
 (compile env t sz s (CIf e1 e2 e3) =  
 (let s = (compile env TCNonTail sz s e1) in
