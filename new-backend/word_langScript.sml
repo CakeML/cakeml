@@ -8,8 +8,6 @@ infix \\ val op \\ = op THEN;
 
 (* word lang = structured program with words, stack and memory *)
 
-(*
-
 (* --- Syntax of word lang --- *)
 
 val _ = Datatype `
@@ -43,22 +41,25 @@ val _ = Datatype `
             | Assign num ('a word_exp)
             | Set store_name ('a word_exp)
             | Store ('a word_exp) num
-            | Call ((num # num_set) option) (num option) (num list)
+            | Call ((num # num_set) option) (* return var, cut-set *)
+                               (num option) (* target of call *)
+                                 (num list) (* arguments *)
+                 ((num # word_prog) option) (* handler: varname, handler code *)
             | Seq word_prog word_prog
             | If word_prog num word_prog word_prog
-            | GC ('a word_exp) num_set
+            | Alloc ('a word_exp) num_set
             | Raise num
             | Return num
-            | Handle num_set word_prog num num num_set word_prog
             | Tick `;
 
 (* --- Semantics of word lang --- *)
 
 val _ = Datatype `
-  word_loc = Word ('a word) | Loc num `;
+  word_loc = Word ('a word) | Loc num num `;
 
 val _ = Datatype `
-  word_st = Env (('a word_loc) num_map) | Exc num `;
+  word_st = Env (('a word_loc) num_map)
+          | Exc (('a word_loc) num_map) num `;
 
 val _ = type_abbrev("gc_fun_type",
   ``: (('a word_loc list) list) # (('a word) -> ('a word_loc)) # ('a word) set #
@@ -88,7 +89,7 @@ val _ = Datatype `
               | Error `
 
 val gc_bij_ok_def = Define `
-  gc_bij_ok (seq:num->num->num) = !n. BIJ (seq n) UNIV UNIV`;
+  gc_bij_ok (seq':num->num->num) = !n. BIJ (seq' n) UNIV UNIV`;
 
 val num_exp_def = Define `
   (num_exp (Nat n) = n) /\
@@ -193,36 +194,25 @@ val call_env_def = Define `
     s with <| locals := fromList args |>`;
 
 val push_env_def = Define `
-  push_env env (s:'a word_state) =
-    s with <| stack := Env env :: s.stack |>`;
+  (push_env env F s = s with <| stack := Env env :: s.stack |>) /\
+  (push_env env T s = s with <| stack := Exc env s.handler :: s.stack
+                              ; handler := LENGTH s.stack |>)`;
 
 val pop_env_def = Define `
-  pop_env (s:'a word_state) =
+  pop_env s =
     case s.stack of
     | (Env e::xs) => SOME (s with <| locals := e ; stack := xs |>)
+    | (Exc e n::xs) => SOME (s with <| locals := e; stack := xs ; handler := n |>)
     | _ => NONE`;
 
 val jump_exc_def = Define `
-  jump_exc (s:'a word_state) =
+  jump_exc s =
     if s.handler < LENGTH s.stack then
-      case LAST_N (s.handler + 1) s.stack of
-      | Exc n :: Env e :: xs =>
+      case LAST_N (s.handler+1) s.stack of
+      | Exc e n :: xs =>
           SOME (s with <| handler := n ; locals := e ; stack := xs |>)
       | _ => NONE
     else NONE`;
-
-val pop_exc_def = Define `
-  pop_exc (s:'a word_state) =
-    case s.stack of
-    | (Exc n :: Env e :: rest) =>
-        SOME (s with <| stack := rest ; handler := n ; locals := e |>)
-    | _ => NONE `;
-
-val push_exc_def = Define `
-  push_exc env1 env2 (s:'a word_state) =
-    s with <| locals := env1
-            ; stack := Exc s.handler :: Env env2 :: s.stack
-            ; handler := LENGTH s.stack + 1 |> `;
 
 val cut_env_def = Define `
   cut_env (name_set:num_set) env =
@@ -231,16 +221,28 @@ val cut_env_def = Define `
     else NONE`
 
 val cut_state_def = Define `
-  cut_state names (s:'a word_state) =
+  cut_state names s =
     case cut_env names s.locals of
     | NONE => NONE
     | SOME env => SOME (s with locals := env)`;
 
 val cut_state_opt_def = Define `
-  cut_state_opt names (s:'a word_state) =
+  cut_state_opt names s =
     case names of
     | NONE => SOME s
     | SOME names => cut_state names s`;
+
+val pop_env_clock = prove(
+  ``(pop_env s = SOME s1) ==> (s1.clock = s.clock)``,
+  fs [pop_env_def]
+  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ fs []
+  \\ SRW_TAC [] [] \\ fs []);
+
+val push_env_clock = prove(
+  ``(push_env env b s).clock = s.clock``,
+  Cases_on `b` \\ fs [push_env_def]
+  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ fs []
+  \\ SRW_TAC [] [] \\ fs []);
 
 val mem_store_def = Define `
   mem_store (addr:'a word) (w:'a word_loc) (s:'a word_state) =
@@ -257,7 +259,7 @@ val find_code_def = Define `
   (find_code NONE args code =
      if args = [] then NONE else
        case LAST args of
-       | Loc loc =>
+       | Loc loc 0 =>
            (case lookup loc code of
             | NONE => NONE
             | SOME (_,exp,arity) => if LENGTH args = arity + 1
@@ -270,8 +272,10 @@ val inv_fun_def = Define `
 
 val enc_stack_def = Define `
   (enc_stack (bij:num->num->num) [] = []) /\
-  (enc_stack bij ((Exc n :: st)) =
-     [] :: enc_stack (\n. bij (n+1)) st) /\
+  (enc_stack bij ((Exc env n :: st)) =
+     let l = MAP (\(i,x). (bij 0 i,x)) (toAList env) in
+     let l = QSORT (\(i,x) (j,y). j <= i) l in
+       (MAP SND l) :: enc_stack (\n. bij (n+1)) st) /\
   (enc_stack bij ((Env env :: st)) =
      let l = MAP (\(i,x). (bij 0 i,x)) (toAList env) in
      let l = QSORT (\(i,x) (j,y). j <= i) l in
@@ -279,10 +283,10 @@ val enc_stack_def = Define `
 
 val dec_stack_def = Define `
   (dec_stack (bij:num->num->num) [] [] = SOME []) /\
-  (dec_stack bij (ws::xs) ((Exc n :: st)) =
+  (dec_stack bij (ws::xs) ((Exc env n :: st)) =
      case dec_stack (\n. bij (n+1)) xs st of
      | NONE => NONE
-     | SOME s => SOME (Exc n :: s)) /\
+     | SOME s => SOME (Exc env n :: s)) /\
   (dec_stack bij (ws::xs) ((Env env :: st)) =
      let l = MAP (\(i,x). (bij 0 i,x)) (toAList env) in
      let l = QSORT (\(i,x) (j,y). j <= i) l in
@@ -320,7 +324,7 @@ val wAlloc_def = Define `
     case cut_env names s.locals of
     | NONE => (SOME Error,s)
     | SOME env =>
-     (case wGC (push_env env (set_store AllocSize (Word w) s)) of
+     (case wGC (push_env env F (set_store AllocSize (Word w) s)) of
       | NONE => (SOME Error,s)
       | SOME s1 =>
        (case FLOOKUP s.store AllocSize of
@@ -329,14 +333,11 @@ val wAlloc_def = Define `
          (case has_space w s of
           | NONE => (SOME Error, s)
           | SOME T => (NONE,s)
-          | SOME F =>
-           (case pop_env s1 of
-            | NONE => (SOME Error,s1)
-            | SOME s2 => (NONE,s2)))))`
+          | SOME F => (SOME NotEnoughSpace,s1))))`
 
 val wEval_def = tDefine "wEval" `
   (wEval (Skip:'a word_prog,s) = (NONE,s:'a word_state)) /\
-  (wEval (GC exp names,s) =
+  (wEval (Alloc exp names,s) =
      case word_exp s exp of
      | NONE => (SOME Error, s)
      | SOME w =>
@@ -389,24 +390,8 @@ val wEval_def = tDefine "wEval" `
                              else wEval (c1,check_clock s1 s)
           | _ => (SOME Error,s1))
      | res => res) /\
-  (wEval (Handle ns1 c1 v n ns2 c2,s) =
-     case cut_env ns1 s.locals of
-     | NONE => (SOME Error,s)
-     | SOME env1 =>
-        (case cut_env ns2 s.locals of
-        | NONE => (SOME Error,s)
-        | SOME env2 =>
-           (case wEval (c1,push_exc env1 env2 s) of
-           | (SOME (Exception v),s1) =>
-                wEval (c2, check_clock (set_var n v s1) s)
-           | (SOME (Result _),s1) => (SOME Error,s1)
-           | (NONE,s1) =>
-               (case (get_var v s1, pop_exc s1) of
-                | (SOME x, SOME s2) => (NONE, set_var v x s2)
-                | _ => (SOME Error,s1))
-           | res => res))) /\
-  (wEval (Call ret dest args,s) =
-     if s.clock = 0 then (SOME TimeOut, call_env [] s with stack := []) else
+  (wEval (Call ret dest args handler,s) =
+     if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := []) else
        case get_vars args s of
        | NONE => (SOME Error,s)
        | SOME xs =>
@@ -415,26 +400,35 @@ val wEval_def = tDefine "wEval" `
           | SOME (args1,prog) =>
             (case ret of
              | NONE (* tail call *) =>
-               (case wEval (prog, call_env args1 (dec_clock s)) of
-                | (NONE,s) => (SOME Error,s)
-                | (SOME res,s) => (SOME res,s))
+               if handler = NONE then
+                 (case wEval (prog, call_env args1 (dec_clock s)) of
+                  | (NONE,s) => (SOME Error,s)
+                  | (SOME res,s) => (SOME res,s))
+               else (SOME Error,s)
              | SOME (n,names) (* returning call, returns into var n *) =>
                (case cut_env names s.locals of
                 | NONE => (SOME Error,s)
                 | SOME env =>
-               (case wEval (prog, call_env args1 (push_env env (dec_clock s))) of
-                | (SOME (Result x),s) =>
-                   (case pop_env s of
-                    | NONE => (SOME Error,s)
+               (case wEval (prog, call_env args1
+                       (push_env env (IS_SOME handler) (dec_clock s))) of
+                | (SOME (Result x),s2) =>
+                   (case pop_env s2 of
+                    | NONE => (SOME Error,s2)
                     | SOME s1 => (NONE, set_var n x s1))
-                | (NONE,s1) => (SOME Error,s1)
+                | (SOME (Exception x),s2) =>
+                   (case handler of (* if handler is present, then handle exc *)
+                    | NONE => (SOME (Exception x),s2)
+                    | SOME (n,h) => wEval (h, set_var n x (check_clock s2 s)))
+                | (NONE,s) => (SOME Error,s)
                 | res => res)))))`
  (WF_REL_TAC `(inv_image (measure I LEX measure (word_prog_size (K 0)))
                             (\(xs,(s:'a word_state)). (s.clock,xs)))`
   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
   \\ TRY (MATCH_MP_TAC check_clock_lemma \\ DECIDE_TAC)
   \\ EVAL_TAC \\ Cases_on `s.clock <= s1.clock`
-  \\ FULL_SIMP_TAC (srw_ss()) [] \\ DECIDE_TAC);
+  \\ FULL_SIMP_TAC (srw_ss()) [push_env_clock]
+  \\ IMP_RES_TAC pop_env_clock \\ fs [] \\ SRW_TAC [] []
+  \\ Cases_on `s2.clock < s.clock` \\ fs [] \\ DECIDE_TAC)
 
 (* We prove that the clock never increases. *)
 
@@ -473,9 +467,10 @@ val wEval_clock = store_thm("wEval_clock",
   \\ IMP_RES_TAC check_clock_IMP
   \\ IMP_RES_TAC wAlloc_clock
   \\ FULL_SIMP_TAC (srw_ss()) [dec_clock_def,set_var_def,push_env_def,pop_env_def,
-       add_space_def,jump_exc_def,get_var_def,pop_exc_def,push_exc_def,
+       add_space_def,jump_exc_def,get_var_def,push_env_clock,
        call_env_def,cut_state_def,set_store_def,mem_store_def]
   \\ TRY DECIDE_TAC
+  \\ SRW_TAC [] []
   \\ Cases_on `wEval (c1,s)` \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
   \\ NTAC 5 (REPEAT (BasicProvers.FULL_CASE_TAC)
              \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] [])
@@ -514,14 +509,19 @@ val wEval_ind = save_thm("wEval_ind",let
     \\ REVERSE (REPEAT STRIP_TAC) \\ ASM_REWRITE_TAC []
     THEN1 (FIRST_X_ASSUM MATCH_MP_TAC
            \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC
-           \\ IMP_RES_TAC wEval_clock)
+           \\ IMP_RES_TAC pEval_clock \\ SRW_TAC [] []
+           \\ `s2.clock <= s.clock` by
+            (fs [call_env_def,push_env_def,dec_clock_def]
+             \\ IMP_RES_TAC pop_env_clock \\ DECIDE_TAC)
+           \\ `s2 = check_clock s2 s` by fs [check_clock_def]
+           \\ POP_ASSUM (fn th => ONCE_REWRITE_TAC [th])
+           \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs [])
     \\ FIRST_X_ASSUM (MATCH_MP_TAC)
     \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC \\ RES_TAC
     \\ REPEAT (Q.PAT_ASSUM `!x.bbb` (K ALL_TAC))
     \\ IMP_RES_TAC wEval_clock
     \\ IMP_RES_TAC (GSYM wEval_clock)
-    \\ FULL_SIMP_TAC (srw_ss()) [check_clock_thm,GSYM set_var_check_clock,
-         push_exc_def])
+    \\ FULL_SIMP_TAC (srw_ss()) [check_clock_thm,GSYM set_var_check_clock])
   val lemma = EVAL ``bool_to_val F = bool_to_val T``
   in ind |> SIMP_RULE std_ss [lemma] end);
 
@@ -546,13 +546,13 @@ val wEval_def = save_thm("wEval_def",let
     \\ IMP_RES_TAC wEval_check_clock \\ FULL_SIMP_TAC std_ss []
     \\ Cases_on `q`
     \\ FULL_SIMP_TAC (srw_ss()) [GSYM set_var_check_clock]
-    \\ FULL_SIMP_TAC (srw_ss()) [check_clock_def,push_exc_def]
+    \\ FULL_SIMP_TAC (srw_ss()) [check_clock_def]
     \\ NTAC 3 BasicProvers.CASE_TAC
     \\ FULL_SIMP_TAC (srw_ss()) []
     \\ IMP_RES_TAC wEval_check_clock \\ FULL_SIMP_TAC std_ss []
     \\ Cases_on `q`
     \\ FULL_SIMP_TAC (srw_ss()) [GSYM set_var_check_clock,GSYM check_clock_def]
-    \\ FULL_SIMP_TAC (srw_ss()) [check_clock_def,push_exc_def])
+    \\ FULL_SIMP_TAC (srw_ss()) [check_clock_def])
   val new_def = wEval_def |> CONJUNCTS |> map (fst o dest_eq o concl o SPEC_ALL)
                   |> map (REWR_CONV def THENC SIMP_CONV (srw_ss()) [])
                   |> LIST_CONJ
@@ -561,7 +561,5 @@ val wEval_def = save_thm("wEval_def",let
 (* clean up *)
 
 val _ = map delete_binding ["wEval_AUX_def", "wEval_primitive_def"];
-
-*)
 
 val _ = export_theory();
