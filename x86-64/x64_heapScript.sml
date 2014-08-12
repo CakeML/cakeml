@@ -13916,8 +13916,7 @@ val bv_to_string_bc_adjust = prove(
   \\ SRW_TAC [] [bvs_to_chars_bc_adjust]);
 
 val zBC_HEAP_THM = prove(
-  ``EVEN (w2n cb) /\ (cs.stack_trunk - n2w (8 * SUC (LENGTH stack)) = sb)
-    (* (s.base_offset = LENGTH stack + 1) *) ==>
+  ``EVEN (w2n cb) /\ (cs.stack_trunk - n2w (8 * SUC (LENGTH stack)) = sb) ==>
     !s1 s2.
       bc_next s1 s2 ==> (s1.inst_length = x64_inst_length) /\
       (!r. r IN FDOM f2 ==> if ev then ODD r else EVEN r) ==>
@@ -14835,6 +14834,52 @@ val zBC_HEAP_THM = prove(
     \\ Q.LIST_EXISTS_TAC [`x2`,`x3`]
     \\ FULL_SIMP_TAC (std_ss++star_ss) [GSYM ADD_ASSOC]));
 
+val zBC_HEAP_Stop = prove(
+  ``(bc_fetch s1 = SOME (Stop b)) ==>
+    SPEC X64_MODEL
+       (zBC_HEAP s1 (x,cs,stack,s,out) (cb,sb,ev,f2) *
+        zPC (cb + n2w (2 * s1.pc)) * ~zS)
+      ((cb + n2w (2 * s1.pc),x64 (2 * s1.pc) (THE (bc_fetch s1)))
+       INSERT code_abbrevs cs)
+      (zBC_HEAP (s1 with stack := bool_to_val b::s1.stack)
+         (x,cs,stack,s,out) (cb,sb,ev,f2) *
+       zPC s.local.stop_addr * ~zS \/ zHEAP_ERROR cs)``,
+  Cases_on `b` \\ fs [x64_def]
+  THEN1 (* Stop T *)
+   (SIMP_TAC (srw_ss()) [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF,MAP_APPEND,MAP]
+    \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
+    \\ REPEAT STRIP_TAC
+    \\ MATCH_MP_TAC (MATCH_MP SPEC_WEAKEN (prepare zBC_Stop_T) |> SPEC_ALL
+                  |> DISCH_ALL |> RW [AND_IMP_INTRO])
+    \\ ASM_SIMP_TAC (srw_ss()) []
+    \\ REPEAT STRIP_TAC
+    \\ FULL_SIMP_TAC std_ss [APPEND,TL,HD,x64_length_def,x64_def,
+         LENGTH,x64_inst_length_def,LEFT_ADD_DISTRIB,word_arith_lemma1]
+    \\ SIMP_TAC std_ss [SEP_IMP_def,SEP_EXISTS_THM] \\ REPEAT STRIP_TAC
+    \\ FULL_SIMP_TAC (srw_ss()) [SEP_DISJ_def]
+    \\ Q.LIST_EXISTS_TAC [`x2`,`x3`]
+    \\ FULL_SIMP_TAC (std_ss++star_ss) []
+    \\ FULL_SIMP_TAC std_ss [HD,TL,bc_adjust_def,MAP,APPEND,
+         isRefPtr_def,getRefPtr_def]
+    \\ FULL_SIMP_TAC (srw_ss()) [word_mul_n2w,HD_CONS_TL])
+  THEN1 (* Stop F *)
+   (SIMP_TAC (srw_ss()) [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF,MAP_APPEND,MAP]
+    \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
+    \\ REPEAT STRIP_TAC
+    \\ MATCH_MP_TAC (MATCH_MP SPEC_WEAKEN (prepare zBC_Stop_F) |> SPEC_ALL
+                  |> DISCH_ALL |> RW [AND_IMP_INTRO])
+    \\ ASM_SIMP_TAC (srw_ss()) []
+    \\ REPEAT STRIP_TAC
+    \\ FULL_SIMP_TAC std_ss [APPEND,TL,HD,x64_length_def,x64_def,
+         LENGTH,x64_inst_length_def,LEFT_ADD_DISTRIB,word_arith_lemma1]
+    \\ SIMP_TAC std_ss [SEP_IMP_def,SEP_EXISTS_THM] \\ REPEAT STRIP_TAC
+    \\ FULL_SIMP_TAC (srw_ss()) [SEP_DISJ_def]
+    \\ Q.LIST_EXISTS_TAC [`x2`,`x3`]
+    \\ FULL_SIMP_TAC (std_ss++star_ss) []
+    \\ FULL_SIMP_TAC std_ss [HD,TL,bc_adjust_def,MAP,APPEND,
+         isRefPtr_def,getRefPtr_def]
+    \\ FULL_SIMP_TAC (srw_ss()) [word_mul_n2w,HD_CONS_TL]));
+
 val LATER_def = Define `
   LATER p = NEXT (EVENTUALLY p)`;
 
@@ -14892,6 +14937,56 @@ val zBC_HEAP_N = prove(
          zPC (cb + n2w (2 * s2.pc)) * ~zS) (zHEAP_ERROR cs)``,
   cheat) (* req some lemmas, but otherwise easy induction *)
 
+val T_OR_F_thm = prove(
+  ``T_OR_F p post = T_DISJ p (EVENTUALLY (NOW post))``,
+  FULL_SIMP_TAC std_ss [FUN_EQ_THM,T_OR_F_def,T_DISJ_def]);
+
+val SPEC_IMP_SPEC_N = prove(
+  ``SPEC model p c (q \/ err) ==> SPEC_N 0 model p c q err``,
+  fs [SPEC_EQ_TEMPORAL,SPEC_N_def,N_NEXT_def,T_OR_F_thm,TEMPORAL_def]
+  \\ PairCases_on `model` \\ fs [TEMPORAL_def,LET_DEF]
+  \\ fs [T_IMPLIES_def,FUN_EQ_THM,EVENTUALLY_def,T_DISJ_def,NOW_def,SEP_CLAUSES]
+  \\ REVERSE (REPEAT STRIP_TAC) THEN1 METIS_TAC []
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`state`,`seq'`,`r`]) \\ fs []
+  \\ REVERSE (REPEAT STRIP_TAC) THEN1 METIS_TAC []
+  \\ fs [SEP_REFINE_def,SEP_DISJ_def] \\ METIS_TAC []);
+
+val SPEC_N_Stop =
+  MATCH_MP SPEC_IMP_SPEC_N (UNDISCH zBC_HEAP_Stop)
+
+val N_NEXT_thm = prove(
+  ``!k p f s. N_NEXT k p f s = p f (\n. s (n + k))``,
+  Induct \\ fs [N_NEXT_def,NEXT_def,ADD1,AC ADD_COMM ADD_ASSOC]
+  \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs []);
+
+val rel_sequence_shift = prove(
+  ``!n seq' s. rel_sequence n seq' s ==> !i. rel_sequence n (\j. seq' (i + j)) (seq' i)``,
+  REWRITE_TAC [rel_sequence_def] \\ REPEAT STRIP_TAC \\ SIMP_TAC std_ss []
+  \\ Cases_on `?s. n (seq' (i + n')) s` \\ ASM_REWRITE_TAC []
+  \\ FULL_SIMP_TAC std_ss [ADD1,ADD_ASSOC] \\ METIS_TAC []);
+
+val SPEC_N_COMPOSE = prove(
+  ``SPEC_N m model p2 c p3 err ==>
+    SPEC_N n model p1 c p2 err ==>
+    SPEC_N (m+n) model p1 c p3 err``,
+  PairCases_on `model`
+  \\ fs [SPEC_N_def,T_OR_F_thm,TEMPORAL_def,LET_DEF]
+  \\ fs [T_IMPLIES_def,T_DISJ_def,EVENTUALLY_def,NOW_def]
+  \\ fs [N_NEXT_thm,EVENTUALLY_def,NOW_def]
+  \\ REVERSE (REPEAT STRIP_TAC) THEN1 METIS_TAC []
+  \\ Q.MATCH_ASSUM_RENAME_TAC `rel_sequence model1 s state` []
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`state`,`s`,`r`]) \\ fs []
+  \\ REVERSE (REPEAT STRIP_TAC)
+  THEN1 METIS_TAC [] THEN1 METIS_TAC [] THEN1 METIS_TAC []
+  \\ IMP_RES_TAC rel_sequence_shift
+  \\ POP_ASSUM (ASSUME_TAC o Q.SPEC `k + n`)
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`(s (k + n:num))`,`\j. s (k + n + j:num)`,`r`])
+  \\ fs [] \\ REPEAT STRIP_TAC
+  THEN1 (DISJ1_TAC \\ Q.EXISTS_TAC `k+k'` \\ fs [AC ADD_COMM ADD_ASSOC])
+  THEN1 (DISJ2_TAC \\ METIS_TAC [])
+  THEN1 (DISJ2_TAC \\ Q.EXISTS_TAC `k+k'+n` \\ fs [AC ADD_COMM ADD_ASSOC])
+  THEN1 (DISJ2_TAC \\ METIS_TAC []));
+
 val zBYTECODE_DIVERGED_def = Define `
   zBYTECODE_DIVERGED output (cs,cb) =
     ALWAYS
@@ -14944,10 +15039,6 @@ val FORALL_TEMPORAL_N_NEXT_IMP_ALWAYS = prove(
   \\ Cases_on `r (\p state. SEP_REFINE (p * CODE_POOL x3 code * r')
                     x4 x1 state \/ x5 state) seq'` \\ FULL_SIMP_TAC std_ss []
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [N_NEXT_THM]);
-
-val T_OR_F_thm = prove(
-  ``T_OR_F p post = T_DISJ p (EVENTUALLY (NOW post))``,
-  FULL_SIMP_TAC std_ss [FUN_EQ_THM,T_OR_F_def,T_DISJ_def]);
 
 val bc_diverges_def = Define `
   bc_diverges s = !n. ?s2. NRC bc_next n s s2`;
@@ -15048,7 +15139,9 @@ val zBC_HEAP_INIT = let
   zBC_HEAP_DIVERGES |> DISCH_ALL |> Q.GEN `sb`
   |> Q.INST [`stack`|->`[]`,`f2`|->`FEMPTY`]
   |> SIMP_RULE std_ss [LENGTH,FDOM_FEMPTY,NOT_IN_EMPTY]
-  |>
+
+  zBC_HEAP_INIT
+
 
 
 
