@@ -1058,7 +1058,7 @@ val Cevaluate_store_SUBSET = store_thm("Cevaluate_store_SUBSET",
     PairCases_on`s'`>>
     Cases_on`p2`>>fs[LET_THM,UNCURRY] >>
     qmatch_rename_tac`X ≤ LENGTH (FST (CevalPrim2s s0 op v1 v2))`["X"] >>
-    Cases_on`op`>>Cases_on`v2`>>fs[]>>Cases_on`l`>>fs[]>>
+    Cases_on`op`>>Cases_on`v2`>>fs[]>>Cases_on`l`>>fs[]>>rw[]>> simp[] >>
     Cases_on`v1`>>fs[]>>Cases_on`l`>>fs[]>>
     rw[] >> simp[] ) >>
   qmatch_assum_rename_tac`X = CevalUpd b s0 v1 v2 v3`["X"] >>
@@ -1368,6 +1368,13 @@ val CevalPrim2_syneq = store_thm("CevalPrim2_syneq",
     rw[el_check_def] >> rfs[] >> res_tac >>
     BasicProvers.CASE_TAC >> fs[sv_rel_cases] >>
     NO_TAC) >>
+  TRY (
+    Cases_on`l':lit`>>simp[]>>rw[]>>
+    fs[csg_rel_def] >>
+    fs[Once syneq_cases] >>
+    fs[LIST_REL_EL_EQN,LENGTH_REPLICATE,EL_REPLICATE] >>
+    simp[Once syneq_cases,LIST_REL_EL_EQN,PULL_EXISTS] >>
+    metis_tac[]) >>
   simp[Once syneq_cases] >>
   simp[Once syneq_cases] >>
   rpt strip_tac >>
@@ -2042,6 +2049,10 @@ val CevalPrim2_closed = store_thm("CevalPrim2_closed",
   Cases_on`op`>>simp[UNCURRY] >- (
     Cases_on `do_Ceq v1 v2` >>
     rw [Cclosed_cases]) >>
+  TRY(
+    Cases_on`v2`>>simp[]>>Cases_on`l:lit`>>simp[]>>rw[]>>
+    fs[csg_every_def,EVERY_MEM,REPLICATE_GENLIST,MEM_GENLIST,PULL_EXISTS] >>
+    NO_TAC) >>
   Cases_on`v1`>>Cases_on`v2`>>simp[]>>
   TRY(Cases_on`l:lit`)>>TRY(Cases_on`l':lit`)>>simp[] >>
   BasicProvers.EVERY_CASE_TAC >> simp[] >>

@@ -191,6 +191,11 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   ((s++[W8array (REPLICATE (Num (ABS ( n))) w)]),
    Rval (CLoc (LENGTH s)))))
 /\
+(CevalPrim2s s CRefA v (CLitv (IntLit n)) =  
+(if n <( 0 : int) then (s, Rerr Rtype_error) else
+  ((s++[Varray (REPLICATE (Num (ABS ( n))) v)]),
+   Rval (CLoc (LENGTH s)))))
+/\
 (CevalPrim2s s CDerB (CLoc n) (CLitv (IntLit i)) =
   (s,
   (case el_check n s of

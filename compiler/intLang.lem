@@ -152,6 +152,11 @@ CevalPrim2s s CRefB (CLitv (Word8 w)) (CLitv (IntLit n)) =
   (s++[W8array (List.replicate (natFromInteger n) w)],
    Rval (CLoc (List.length s)))
 and
+CevalPrim2s s CRefA v (CLitv (IntLit n)) =
+  if n < 0 then (s, Rerr Rtype_error) else
+  (s++[Varray (List.replicate (natFromInteger n) v)],
+   Rval (CLoc (List.length s)))
+and
 CevalPrim2s s CDerB (CLoc n) (CLitv (IntLit i)) =
   (s,
   match el_check n s with
