@@ -32,6 +32,7 @@ val _ = Datatype `
   word_exp = Const ('a word)
            | Var num
            | Get store_name
+           | Load word_exp
            | Op word_op (word_exp list)
            | Shift word_sh word_exp ('a num_exp)`
 
@@ -105,6 +106,18 @@ val is_word_def = Define `
 val get_word_def = Define `
   get_word (Word w) = w`
 
+val mem_store_def = Define `
+  mem_store (addr:'a word) (w:'a word_loc) (s:'a word_state) =
+    if addr IN s.mdomain then
+      SOME (s with memory := (addr =+ w) s.memory)
+    else NONE`
+
+val mem_load_def = Define `
+  mem_load (addr:'a word) (s:'a word_state) =
+    if addr IN s.mdomain then
+      SOME (s.memory addr)
+    else NONE`
+
 val word_op_def = Define `
   word_op op (ws:('a word) list) =
     case (op,ws) of
@@ -139,6 +152,12 @@ val word_exp_def = tDefine "word_exp" `
   (word_exp s (Get name) =
      case FLOOKUP s.store name of
      | SOME (Word w) => SOME w
+     | _ => NONE) /\
+  (word_exp s (Load addr) =
+     case word_exp s addr of
+     | SOME w => (case mem_load w s of
+                  | SOME (Word w) => SOME w
+                  | _ => NONE)
      | _ => NONE) /\
   (word_exp s (Op op wexps) =
      let ws = MAP (word_exp s) wexps in
@@ -294,12 +313,6 @@ val push_env_clock = prove(
   Cases_on `b` \\ fs [push_env_def]
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ fs []
   \\ SRW_TAC [] [] \\ fs []);
-
-val mem_store_def = Define `
-  mem_store (addr:'a word) (w:'a word_loc) (s:'a word_state) =
-    if addr IN s.mdomain then
-      SOME (s with memory := (addr =+ w) s.memory)
-    else NONE`
 
 val find_code_def = Define `
   (find_code (SOME p) args code =
