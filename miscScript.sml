@@ -306,16 +306,6 @@ val IS_SUFFIX_CONS = store_thm("IS_SUFFIX_CONS",
   rw[rich_listTheory.IS_SUFFIX_APPEND] >>
   qexists_tac`a::l` >>rw[])
 
-val SORTED_weaken = store_thm("SORTED_weaken",
-  ``∀R R' ls. SORTED R ls /\ (!x y. MEM x ls /\ MEM y ls /\ R x y ==> R' x y)
-      ==> SORTED R' ls``,
-  NTAC 2 GEN_TAC THEN
-  Induct THEN SRW_TAC[][] THEN
-  Cases_on`ls` THEN
-  FULL_SIMP_TAC(srw_ss())[sortingTheory.SORTED_DEF] THEN
-  FIRST_X_ASSUM MATCH_MP_TAC THEN
-  METIS_TAC[])
-
 val INFINITE_INJ_NOT_SURJ = store_thm("INFINITE_INJ_NOT_SURJ",
   ``∀s. INFINITE s ⇔ (s ≠ ∅) ∧ (∃f. INJ f s s ∧ ¬SURJ f s s)``,
   rw[EQ_IMP_THM] >- (
@@ -556,22 +546,6 @@ val find_index_in_FILTER_ZIP_EQ = store_thm("find_index_in_FILTER_ZIP_EQ",
   Cases_on`j1=0`>>fsrw_tac[ARITH_ss][]>>
   disch_then(qspec_then`PRE j1`mp_tac) >>
   simp[rich_listTheory.EL_CONS] )
-
-val ALOOKUP_ALL_DISTINCT_PERM_same = store_thm("ALOOKUP_ALL_DISTINCT_PERM_same",
-  ``∀l1 l2. ALL_DISTINCT (MAP FST l1) ∧ PERM (MAP FST l1) (MAP FST l2) ∧ (set l1 = set l2) ⇒ (ALOOKUP l1 = ALOOKUP l2)``,
-  simp[EXTENSION] >>
-  rw[FUN_EQ_THM] >>
-  Cases_on`ALOOKUP l2 x` >- (
-    imp_res_tac ALOOKUP_FAILS >>
-    imp_res_tac MEM_PERM >>
-    fs[FORALL_PROD,MEM_MAP,EXISTS_PROD] >>
-    metis_tac[ALOOKUP_FAILS] ) >>
-  qmatch_assum_rename_tac`ALOOKUP l2 x = SOME p`[] >>
-  imp_res_tac ALOOKUP_MEM >>
-  `ALL_DISTINCT (MAP FST l2)` by (
-    metis_tac[ALL_DISTINCT_PERM]) >>
-  imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
-  metis_tac[])
 
 val ALL_DISTINCT_PERM_ALOOKUP_ZIP = store_thm("ALL_DISTINCT_PERM_ALOOKUP_ZIP",
   ``∀l1 l2 l3. ALL_DISTINCT (MAP FST l1) ∧ PERM (MAP FST l1) l2
@@ -972,20 +946,6 @@ DECIDE_TAC)
 val _ = export_rewrites["LESS_1"]
 
 
-val FUPDATE_LIST_ALL_DISTINCT_PERM = store_thm("FUPDATE_LIST_ALL_DISTINCT_PERM",
-  ``!ls ls' fm. ALL_DISTINCT (MAP FST ls) /\ PERM ls ls' ==> (fm |++ ls = fm |++ ls')``,
-  Induct >> rw[] >>
-  fs[sortingTheory.PERM_CONS_EQ_APPEND] >>
-  rw[FUPDATE_LIST_THM] >>
-  PairCases_on`h` >> fs[] >>
-  imp_res_tac FUPDATE_FUPDATE_LIST_COMMUTES >>
-  match_mp_tac EQ_TRANS >>
-  qexists_tac `(fm |++ (M ++ N)) |+ (h0,h1)` >>
-  conj_tac >- metis_tac[sortingTheory.ALL_DISTINCT_PERM,sortingTheory.PERM_MAP] >>
-  rw[FUPDATE_LIST_APPEND] >>
-  `h0 ∉ set (MAP FST N)` by metis_tac[sortingTheory.PERM_MEM_EQ,MEM_MAP,MEM_APPEND] >>
-  imp_res_tac FUPDATE_FUPDATE_LIST_COMMUTES >>
-  rw[FUPDATE_LIST_THM]);
 
   (* --------- SO additions --------- *)
 
