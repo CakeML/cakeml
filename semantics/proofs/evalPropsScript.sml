@@ -353,6 +353,7 @@ val _ = export_rewrites["dest_Refv_def","is_Refv_def"]
 
 val sv_every_def = Define`
   sv_every P (Refv v) = P v ∧
+  sv_every P (Varray vs) = EVERY P vs ∧
   sv_every P _ = T`
 val _ = export_rewrites["sv_every_def"]
 
