@@ -406,7 +406,7 @@ val do_app_pat_correct = prove(
      fs [DECIDE ``~(x ≥ y:num) ⇔ x < y``, EL_MAP])
  >- tac
  >- (tac >>
-     rw [map_replicate])
+     rw [rich_listTheory.map_replicate])
  >- (tac >>
      metis_tac [DECIDE ``~(x ≥ y:num) ⇔ x < y``, EL_MAP, sv_to_pat_def, store_v_distinct, store_v_11, LENGTH_MAP])
  >- (tac >>
@@ -784,7 +784,7 @@ val Let_Els_pat_correct = prove(
   discharge_hyps >- (
     fs[arithmeticTheory.ADD1] >>
     `k < LENGTH vs` by simp[] >>
-    fs[TAKE_EL_SNOC] >>
+    fs[rich_listTheory.TAKE_EL_SNOC] >>
     fs[SNOC_APPEND] >>
     metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC] ) >>
   rw[])
@@ -879,14 +879,14 @@ val pat_to_pat_correct = prove(
   rw[Once evaluate_pat_cases] >>
   rw[Once evaluate_pat_cases] >>
   Cases_on`LENGTH qs = LENGTH vs` >- (
-    fs[DROP_LENGTH_NIL_rwt,pmatch_exh_def] ) >>
+    fs[rich_listTheory.DROP_LENGTH_NIL_rwt,pmatch_exh_def] ) >>
   simp[rich_listTheory.EL_APPEND1,EL_MAP] >>
   imp_res_tac pmatch_list_exh_pairwise >>
   Cases_on`DROP (LENGTH qs) vs` >> fs[pmatch_exh_def] >>
   qmatch_assum_rename_tac`DROP (LENGTH qs) vs = v::ws`[] >>
   Q.PAT_ABBREV_TAC`env5 = X ++ env4` >>
   `LENGTH qs < LENGTH vs` by simp[] >>
-  fs[DROP_EL_CONS] >>
+  fs[rich_listTheory.DROP_EL_CONS] >>
   first_x_assum(qspecl_then[`v`,`s`,`env`,`env5`,`ck`]mp_tac) >>
   Cases_on`pmatch_exh s p v env`>>fs[] >- (
     strip_tac >> qexists_tac`Litv_pat (Bool F)` >>
@@ -898,7 +898,7 @@ val pat_to_pat_correct = prove(
   simp[Abbr`s2`,Abbr`env5`] >>
   first_x_assum(qspecl_then[`qs++[p]`,`vs`,`s`,`env`]mp_tac) >>
   simp[] >>
-  simp[TAKE_EL_SNOC,GSYM SNOC_APPEND] >>
+  simp[rich_listTheory.TAKE_EL_SNOC,GSYM SNOC_APPEND] >>
   simp[pmatch_list_exh_SNOC] >>
   imp_res_tac pmatch_exh_any_match >>
   qmatch_assum_rename_tac`pmatch_list_exh s qs X env = Match env2`["X"] >>
@@ -1013,10 +1013,10 @@ val row_to_pat_correct = prove(
   first_x_assum(qspecl_then[`s`,`v`]mp_tac) >> simp[] >>
   strip_tac >> rw[] >>
   first_x_assum(qspecl_then[`tag`,`s`,`qs++[p]`,`vs`]mp_tac) >>
-  Cases_on`LENGTH vs = LENGTH qs`>>fs[DROP_LENGTH_NIL_rwt] >>
+  Cases_on`LENGTH vs = LENGTH qs`>>fs[rich_listTheory.DROP_LENGTH_NIL_rwt] >>
   `LENGTH qs < LENGTH vs` by simp[] >>
-  fs[DROP_EL_CONS] >>
-  simp[TAKE_EL_SNOC,Once(GSYM SNOC_APPEND)] >>
+  fs[rich_listTheory.DROP_EL_CONS] >>
+  simp[rich_listTheory.TAKE_EL_SNOC,Once(GSYM SNOC_APPEND)] >>
   simp[pmatch_list_exh_SNOC] >>
   imp_res_tac (CONJUNCT1 pmatch_exh_any_match) >>
   pop_assum(qspec_then`menvk`strip_assume_tac) >> simp[] >>
@@ -1571,7 +1571,7 @@ val do_app_pat_v_pat = store_thm("do_app_pat_v_pat",
   imp_res_tac v_to_list_pat_v_pat >> simp[] >>
   BasicProvers.EVERY_CASE_TAC>>fs[]>>rw[csg_rel_def]>>
   fs[LIST_REL_EL_EQN,EL_LUPDATE]>>rw[sv_rel_def] >>
-  fs[rich_listTheory.LENGTH_REPLICATE,EL_REPLICATE] >>
+  fs[rich_listTheory.LENGTH_REPLICATE,rich_listTheory.EL_REPLICATE] >>
   TRY(
     simp[Once v_pat_cases] >>
     simp[LIST_REL_EL_EQN] >> NO_TAC) >>
@@ -1893,7 +1893,7 @@ val evaluate_pat_exp_pat = store_thm("evaluate_pat_exp_pat",
     rw[Once evaluate_pat_cases,PULL_EXISTS] >>
     PairCases_on`s` >>
     PairCases_on`s2`>>fs[csg_rel_def] >>
-    match_mp_tac EVERY2_APPEND_suff >>
+    match_mp_tac rich_listTheory.EVERY2_APPEND_suff >>
     simp[] >> simp[EVERY2_EVERY,EVERY_MEM] >>
     simp[MEM_ZIP,PULL_EXISTS,optionTheory.OPTREL_def] ) >>
   strip_tac >- ( rw[] >> rw[Once evaluate_pat_cases] ) >>

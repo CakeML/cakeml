@@ -523,33 +523,35 @@ val free_vars_pat_exp_to_pat = store_thm("free_vars_pat_exp_to_pat",
   imp_res_tac(SIMP_RULE(srw_ss())[SUBSET_DEF](CONJUNCT1 free_vars_pat_to_pat)) >>
   rw[])
 
+val tac =
+  rw[EQ_IMP_THM]
+  >- metis_tac[]
+  >- (
+    fsrw_tac[ARITH_ss][PRE_SUB1] >>
+    qexists_tac`v-1` >>
+    fsrw_tac[ARITH_ss][] >>
+    disj2_tac >>
+    qexists_tac`v` >>
+    fsrw_tac[ARITH_ss][] )
+  >- (
+    disj1_tac >>
+    qexists_tac`v` >>
+    srw_tac[ARITH_ss][] )
+  >- (
+    fsrw_tac[ARITH_ss][PRE_SUB1] >>
+    disj2_tac >>
+    srw_tac[ARITH_ss][]
+    >- (qexists_tac`m`>>simp[] >>
+        qexists_tac`m`>>simp[]) >>
+    srw_tac[ARITH_ss][PULL_EXISTS] >>
+    qexists_tac`m`>>simp[])
+
 val free_vars_mkshift = store_thm("free_vars_mkshift",
   ``∀f k e. set (free_vars (mkshift f k e)) = IMAGE (λv. if v < k then v else f (v-k) + k) (set (free_vars e))``,
   ho_match_mp_tac mkshift_ind >>
   strip_tac >- rw[] >>
   strip_tac >- (
-    rw[EXTENSION,MEM_MAP,MEM_FILTER] >>
-    rw[EQ_IMP_THM]
-    >- metis_tac[]
-    >- (
-      fsrw_tac[ARITH_ss][PRE_SUB1] >>
-      qexists_tac`m-1` >>
-      fsrw_tac[ARITH_ss][] >>
-      disj2_tac >>
-      qexists_tac`m` >>
-      fsrw_tac[ARITH_ss][] )
-    >- (
-      disj1_tac >>
-      qexists_tac`v` >>
-      srw_tac[ARITH_ss][] )
-    >- (
-      fsrw_tac[ARITH_ss][PRE_SUB1] >>
-      disj2_tac >>
-      srw_tac[ARITH_ss][]
-      >- (qexists_tac`m-1` >> srw_tac[ARITH_ss][]>>
-          qexists_tac`m`>>simp[]) >>
-      qexists_tac`m-1`>>simp[]>>
-      qexists_tac`m`>>simp[])) >>
+    rw[EXTENSION,MEM_MAP,MEM_FILTER] >> tac ) >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
@@ -559,29 +561,7 @@ val free_vars_mkshift = store_thm("free_vars_mkshift",
     fsrw_tac[DNF_ss][MEM_MAP,EQ_IMP_THM] >>
     metis_tac[] ) >>
   strip_tac >- (
-    rw[EXTENSION] >- (
-    rw[EQ_IMP_THM]
-    >- metis_tac[]
-    >- (
-      fsrw_tac[ARITH_ss][PRE_SUB1] >>
-      qexists_tac`m-1` >>
-      fsrw_tac[ARITH_ss][] >>
-      disj2_tac >>
-      qexists_tac`m` >>
-      fsrw_tac[ARITH_ss][] )
-    >- (
-      disj1_tac >>
-      qexists_tac`v` >>
-      srw_tac[ARITH_ss][] )
-    >- (
-      fsrw_tac[ARITH_ss][PRE_SUB1] >>
-      disj2_tac >>
-      srw_tac[ARITH_ss][]
-      >- (qexists_tac`m-1` >> srw_tac[ARITH_ss][]>>
-          qexists_tac`m`>>simp[]) >>
-      qexists_tac`m-1`>>simp[]>>
-      qexists_tac`m`>>simp[])) >>
-    metis_tac[]) >>
+    rw[EXTENSION] >- tac >> metis_tac[]) >>
   strip_tac >- (
     simp[] >> rw[] >>
     simp[free_vars_defs_MAP] >>
@@ -753,6 +733,17 @@ val evaluate_pat_closed = store_thm("evaluate_pat_closed",
     fs[store_assign_def,store_lookup_def,LET_THM,csg_closed_pat_def,UNCURRY,store_alloc_def] >>
     rw[] >> BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[prim_exn_pat_def] >>
     fs[EVERY_MEM] >>
+    simp[REPLICATE_GENLIST,MEM_GENLIST,PULL_EXISTS] >>
+    TRY (
+      fs[MEM_EL,PULL_EXISTS] >>
+      last_x_assum(qspec_then`lnum`mp_tac) >>
+      simp[EVERY_MEM,MEM_EL,PULL_EXISTS] >> NO_TAC) >>
+    TRY (
+      fs[MEM_EL,PULL_EXISTS,EL_LUPDATE] >> rw[] >>
+      simp[EVERY_MEM,MEM_EL,PULL_EXISTS,EL_LUPDATE] >>
+      rw[] >>
+      last_x_assum(qspec_then`lnum`mp_tac) >>
+      simp[EVERY_MEM,MEM_EL,PULL_EXISTS] >> NO_TAC) >>
     metis_tac[MEM_LUPDATE_E,sv_every_def,MEM_EL,OPTION_EVERY_def,NOT_LESS_EQUAL,GREATER_EQ] ) >>
   strip_tac >- (
     ntac 4 gen_tac >>
@@ -1108,6 +1099,20 @@ val do_app_closed = store_thm("do_app_closed",
   rpt BasicProvers.VAR_EQ_TAC >> simp[prim_exn_def] >>
   imp_res_tac v_to_list_closed >>
   fs[EVERY_MEM] >>
+  TRY (
+    simp[REPLICATE_GENLIST,MEM_GENLIST,PULL_EXISTS] >>
+    fs[MEM_EL,PULL_EXISTS] >>
+    first_x_assum(qspec_then`lnum`mp_tac) >>
+    simp[EVERY_MEM,MEM_EL,PULL_EXISTS,EL_LUPDATE] >>
+    NO_TAC) >>
+  TRY (
+    rw[] >>
+    imp_res_tac MEM_LUPDATE_E >> rw[] >>
+    simp[EVERY_MEM] >> rw[] >>
+    fs[MEM_EL,PULL_EXISTS] >>
+    first_x_assum(qspec_then`lnum`mp_tac) >>
+    simp[EL_LUPDATE,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
+    rw[] >> NO_TAC) >>
   metis_tac[MEM_LUPDATE_E,sv_every_def,MEM_EL,GREATER_EQ,NOT_LESS_EQUAL])
 
 val pmatch_closed = store_thm("pmatch_closed",
@@ -1817,6 +1822,20 @@ val do_app_i1_closed = store_thm("do_app_i1_closed",
   rpt BasicProvers.VAR_EQ_TAC >> simp[prim_exn_i1_def] >>
   imp_res_tac v_to_list_i1_closed >>
   fs[EVERY_MEM] >>
+  TRY (
+    simp[REPLICATE_GENLIST,MEM_GENLIST,PULL_EXISTS] >>
+    fs[MEM_EL,PULL_EXISTS] >>
+    first_x_assum(qspec_then`lnum`mp_tac) >>
+    simp[EVERY_MEM,MEM_EL,PULL_EXISTS,EL_LUPDATE] >>
+    NO_TAC) >>
+  TRY (
+    rw[] >>
+    imp_res_tac MEM_LUPDATE_E >> rw[] >>
+    simp[EVERY_MEM] >> rw[] >>
+    fs[MEM_EL,PULL_EXISTS] >>
+    first_x_assum(qspec_then`lnum`mp_tac) >>
+    simp[EL_LUPDATE,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
+    rw[] >> NO_TAC) >>
   metis_tac[MEM_LUPDATE_E,sv_every_def,MEM_EL,GREATER_EQ,NOT_LESS_EQUAL])
 
 val do_opapp_i1_closed = store_thm("do_opapp_i1_closed",

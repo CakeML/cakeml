@@ -2083,13 +2083,13 @@ val CevalUpd_closed = store_thm("CevalUpd_closed",
   Cases_on`v1`>>simp[]>>rw[]>>
   BasicProvers.EVERY_CASE_TAC >> fs[]>>
   TRY(
+    Cases_on`v3`>>simp[]>>
+    Cases_on`l`>>simp[]>>
+    BasicProvers.EVERY_CASE_TAC>>simp[]>>
     fs[EVERY_MEM] >>
-    metis_tac[MEM_LUPDATE_E,sv_every_def] ) >>
-  Cases_on`v3`>>simp[]>>
-  Cases_on`l`>>simp[]>>
-  BasicProvers.EVERY_CASE_TAC>>simp[]>>
-  fs[EVERY_MEM] >>
-  metis_tac[MEM_LUPDATE_E,sv_every_def] )
+    metis_tac[MEM_LUPDATE_E,sv_every_def]) >>
+  fs[EVERY_MEM,el_check_def] >>
+  metis_tac[MEM_LUPDATE_E,sv_every_def,MEM_EL,EVERY_MEM] )
 
 val Cevaluate_closed = store_thm("Cevaluate_closed",
   ``(∀s env exp res. Cevaluate s env exp res
