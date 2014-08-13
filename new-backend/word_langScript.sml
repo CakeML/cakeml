@@ -203,9 +203,29 @@ val check_clock_lemma = prove(
           ((check_clock s1 s).clock = s.clock) /\ b)``,
   SRW_TAC [] [check_clock_def] \\ DECIDE_TAC);
 
+val fromList2_def = Define `
+  fromList2 l = SND (FOLDL (\(i,t) a. (i + 2,insert i a t)) (0,LN) l)`
+
+val EVEN_fromList2_lemma = prove(
+  ``!l n t.
+      EVEN n /\ (!x. x IN domain t ==> EVEN x) ==>
+      !x. x IN domain (SND (FOLDL (\(i,t) a. (i + 2,insert i a t)) (n,t) l)) ==> EVEN x``,
+  Induct \\ fs [FOLDL] \\ REPEAT STRIP_TAC \\ fs [PULL_FORALL]
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n+2`,`insert n h t`,`x`])
+  \\ fs [] \\ SRW_TAC [] [] \\ POP_ASSUM MATCH_MP_TAC
+  \\ REPEAT STRIP_TAC \\ fs [] \\ fs [EVEN_EXISTS]
+  \\ Q.EXISTS_TAC `SUC m` \\ DECIDE_TAC);
+
+val EVEN_fromList2 = store_thm("EVEN_fromList2",
+  ``!l n. n IN domain (fromList2 l) ==> EVEN n``,
+  ASSUME_TAC (EVEN_fromList2_lemma
+    |> Q.SPECL [`l`,`0`,`LN`]
+    |> SIMP_RULE (srw_ss()) [GSYM fromList2_def]
+    |> GEN_ALL) \\ fs []);
+
 val call_env_def = Define `
   call_env args (s:'a word_state) =
-    s with <| locals := fromList args |>`;
+    s with <| locals := fromList2 args |>`;
 
 val env_to_list_def = Define `
   env_to_list env (bij_seq:num->num->num) =
