@@ -1438,7 +1438,25 @@ val prim2_to_bc_thm = store_thm("prim2_to_bc_thm",
     simp[bump_pc_def,bc_fetch_with_refs,bc_state_component_equality] >>
     fs[el_check_def] >>
     fs[integerTheory.INT_ABS] >>
-    tac2 ))
+    tac2 )
+  >- (
+    fs[Q.SPECL[`CLitv X`](CONJUNCT1 (Q.SPEC`pp`Cv_bv_cases))] >> rw[] >>
+    Cases_on`v1`>>fs[] >>
+    fs[Q.SPEC`CLoc X`(CONJUNCT1 (Q.SPEC`pp`Cv_bv_cases)),PULL_EXISTS] >>
+    BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
+    `LIST_REL (sv_refv_rel (Cv_bv (mk_pp (FST pp) (bs with code := bce)))) s1 (MAP ($' bs.refs) (FST pp).sm)` by (
+      fs[s_refs_def] ) >>
+    fs[el_check_def,LIST_REL_EL_EQN] >>
+    pop_assum(qspec_then`n`mp_tac) >>
+    simp[Once sv_refv_rel_cases,EL_MAP,FLOOKUP_DEF] >> rw[] >> simp[] >>
+    fs[LIST_REL_EL_EQN] >> rfs[integerTheory.INT_ABS] >>
+    `0 ≤ i ∧ Num i < LENGTH bvs` by (
+      intLib.COOPER_TAC ) >> simp[] >>
+    first_x_assum(qspec_then`Num i`mp_tac) >>
+    simp[] >> strip_tac >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    simp[bc_fetch_with_refs,bump_pc_def,bc_state_component_equality] >>
+    fs[s_refs_def,good_rd_def,EVERY_MEM,MEM_EL,PULL_EXISTS] ))
 
 val is_Label_prim1_to_bc = store_thm("is_Label_prim1_to_bc",
   ``∀uop. EVERY ($~ o is_Label) (prim1_to_bc uop)``,
