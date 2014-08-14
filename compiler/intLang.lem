@@ -168,6 +168,17 @@ CevalPrim2s s CDerB (CLoc n) (CLitv (IntLit i)) =
   | _ -> Rerr Rtype_error
   end)
 and
+CevalPrim2s s CDerA (CLoc n) (CLitv (IntLit i)) =
+  (s,
+  match el_check n s with
+  | Just (Varray vs) ->
+    if i < 0 || List.length vs <= natFromInteger i then
+      Rerr Rtype_error
+    else
+      Rval (List_extra.nth vs (natFromInteger i))
+  | _ -> Rerr Rtype_error
+  end)
+and
 CevalPrim2s s _ _ _ = (s, Rerr Rtype_error)
 
 let rec

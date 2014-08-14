@@ -207,6 +207,17 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   | _ => Rerr Rtype_error
   )))
 /\
+(CevalPrim2s s CDerA (CLoc n) (CLitv (IntLit i)) =
+  (s,
+  (case el_check n s of
+    SOME (Varray vs) =>
+    if (i <( 0 : int)) \/ (LENGTH vs <= Num (ABS ( i))) then
+      Rerr Rtype_error
+    else
+      Rval (EL (Num (ABS ( i))) vs)
+  | _ => Rerr Rtype_error
+  )))
+/\
 (CevalPrim2s s _ _ _ = (s, Rerr Rtype_error))`;
 
 
