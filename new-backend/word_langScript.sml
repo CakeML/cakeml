@@ -1,4 +1,5 @@
-open HolKernel Parse boolLib bossLib; val _ = new_theory "word_lang";
+open HolKernel Parse boolLib bossLib; 
+val _ = new_theory "word_lang";
 
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
@@ -76,7 +77,7 @@ val _ = Datatype `
      ; mdomain : ('a word) set
      ; permute : num -> num -> num (* sequence of bijective mappings *)
      ; gc_fun  : 'a gc_fun_type
-     ; handler : num
+     ; handler : num (*position of current handle frame on stack*)
      ; clock   : num
      ; code    : (num # ('a word_prog) # num) num_map
      ; output  : string |> `
