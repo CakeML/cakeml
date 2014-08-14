@@ -1255,6 +1255,95 @@ val inst_uses_label_prim2_to_bc = store_thm("inst_uses_label_prim2_to_bc",
   rw[inst_uses_label_def])
 val _ = export_rewrites["inst_uses_label_prim2_to_bc"]
 
+val tac1 =
+  Cases_on `v1` >> TRY (Cases_on `l:lit`) >> fs[] >>
+  fs[Q.SPECL[`CLitv X`](CONJUNCT1 (Q.SPEC`pp`Cv_bv_cases))] >>
+  fs[Q.SPEC`CLoc X`(CONJUNCT1 (Q.SPEC`pp`Cv_bv_cases))] >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  rpt(qpat_assum`X = Rval v`mp_tac >>
+      BasicProvers.CASE_TAC >> strip_tac) >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  simp[bump_pc_def,bc_fetch_with_refs,bc_state_component_equality] >>
+  simp[Once Cv_bv_cases] >>
+  fs[el_check_def]
+
+val tac2 =
+  `LENGTH (FST pp).sm = LENGTH s1` by fs[s_refs_def] >>
+  qexists_tac`FST pp with sm := (FST pp).sm ++ [(LEAST n. n ∉ FDOM bs.refs)]` >>
+  simp[EL_APPEND2] >>
+  simp[wordsTheory.w2n_lt,integerTheory.int_le] >>
+  simp[s_refs_with_stack,s_refs_with_pc] >>
+  Q.PAT_ABBREV_TAC`z = LEAST n. n ∉ FDOM bs.refs` >>
+  `z ∉ FDOM bs.refs` by (
+    unabbrev_all_tac >>
+    numLib.LEAST_ELIM_TAC >>
+    simp[] >>
+    metis_tac[NOT_IN_FINITE,INFINITE_NUM_UNIV,FDOM_FINITE] ) >>
+  fs[s_refs_def] >>
+  simp[GSYM CONJ_ASSOC] >>
+  conj_tac >- (
+    fs[good_rd_def,FEVERY_DEF,UNCURRY,FLOOKUP_UPDATE] >>
+    gen_tac >> strip_tac >>
+    first_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
+    conj_asm1_tac >- (spose_not_then strip_assume_tac >> fs[FLOOKUP_DEF]) >>
+    simp[] >>
+    match_mp_tac(MP_CANON(GEN_ALL(CONJUNCT1(SPEC_ALL Cv_bv_SUBMAP)))) >>
+    first_assum(match_exists_tac o concl) >>
+    simp[] >>
+    fs[EVERY_MEM,FLOOKUP_DEF] >>
+    metis_tac[] ) >>
+  conj_tac >- fs[EVERY_MEM] >>
+  conj_tac >- (
+    fs[ALL_DISTINCT_APPEND,EVERY_MEM] >>
+    metis_tac[] ) >>
+  simp[integerTheory.INT_ABS] >>
+  simp[CONJ_ASSOC] >>
+  reverse conj_tac >- (
+    simp[SUBMAP_DEF,DRESTRICT_DEF] >> rw[] >> rw[] ) >>
+  rpt conj_tac >>
+  TRY (
+    simp[LIST_REL_EL_EQN,LENGTH_REPLICATE,EL_REPLICATE] >>
+    TRY (
+      Cases_on`pp`>>fs[]>>rw[]>>
+      match_mp_tac(MP_CANON(GEN_ALL(CONJUNCT1(SPEC_ALL Cv_bv_SUBMAP)))) >>
+      first_assum(match_exists_tac o concl) >>
+      simp[] >>
+      fs[EVERY_MEM,FLOOKUP_DEF,good_rd_def,FEVERY_DEF,UNCURRY] >>
+      metis_tac[] ) >>
+    fs[Once Cv_bv_cases] >> NO_TAC) >>
+  match_mp_tac (MP_CANON (GEN_ALL EVERY2_mono)) >>
+  ONCE_REWRITE_TAC[CONJ_COMM] >>
+  TRY (
+    first_assum(match_exists_tac o concl) >>
+    simp[] >>
+    Cases >> simp[optionTheory.OPTREL_def,PULL_EXISTS] >>
+    rw[] >>
+    match_mp_tac(MP_CANON(GEN_ALL(CONJUNCT1(SPEC_ALL Cv_bv_SUBMAP)))) >>
+    first_assum(match_exists_tac o concl) >>
+    simp[] >>
+    fs[EVERY_MEM,FLOOKUP_DEF,good_rd_def,FEVERY_DEF,UNCURRY] >>
+    metis_tac[] ) >>
+  qmatch_assum_abbrev_tac`LIST_REL R s1 Y` >>
+  qexists_tac`R` >>
+  simp[Abbr`R`,UNCURRY,Abbr`Y`] >>
+  fs[LIST_REL_EL_EQN] >> rw[] >>
+  match_mp_tac (MP_CANON (GEN_ALL sv_refv_rel_mono)) >>
+  TRY(first_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+      simp[EL_MAP] >> strip_tac)>>
+  ONCE_REWRITE_TAC[CONJ_COMM] >>
+  simp[FAPPLY_FUPDATE_THM] >>
+  TRY(
+    BasicProvers.CASE_TAC >- (
+      fs[EVERY_MEM] >>
+      metis_tac[MEM_EL] )) >>
+  first_assum(match_exists_tac o concl) >>
+  simp[] >> rw[] >>
+  match_mp_tac(MP_CANON(GEN_ALL(CONJUNCT1(SPEC_ALL Cv_bv_SUBMAP)))) >>
+  first_assum(match_exists_tac o concl) >>
+  simp[] >>
+  fs[EVERY_MEM,FLOOKUP_DEF,good_rd_def,FEVERY_DEF,UNCURRY] >>
+  metis_tac[]
+
 val prim2_to_bc_thm = store_thm("prim2_to_bc_thm",
   ``∀s op v1 v2 s' v bs bce bc0 bc1 st bv1 bv2 pp.
     (bs.code = bc0 ++ [(prim2_to_bc op)] ++ bc1) ∧
@@ -1264,7 +1353,8 @@ val prim2_to_bc_thm = store_thm("prim2_to_bc_thm",
     (CevalPrim2 s op v1 v2 = (s', Rval v)) ∧
     Cv_bv pp v1 bv1 ∧ Cv_bv pp v2 bv2 ∧
     (bs.stack = bv2::bv1::st) ∧
-    ALL_DISTINCT (FST pp).sm
+    ALL_DISTINCT (FST pp).sm ∧
+    SND pp = SND (mk_pp (FST pp) (bs with code := bce))
     ⇒ ∃rd rf bv.
       Cv_bv (rd,SND pp) v bv ∧
       let bs' = bump_pc (bs with <|stack := bv::st; refs := rf|>) in
@@ -1312,6 +1402,7 @@ val prim2_to_bc_thm = store_thm("prim2_to_bc_thm",
     rfs[GSYM integerTheory.INT_ABS_EQ_ID] >>
     simp[arithmeticTheory.ADD1] >>
     Cases_on`Num i`>>simp[] >>
+    Cases_on`pp`>>fs[]>>
     first_x_assum match_mp_tac >>
     simp[MEM_ZIP] >>
     metis_tac[arithmeticTheory.LESS_EQ]) >>
@@ -1319,97 +1410,35 @@ val prim2_to_bc_thm = store_thm("prim2_to_bc_thm",
   PairCases_on`s` >>
   Cases_on`op`>>simp[bump_pc_with_stack] >>
   fs[LET_THM,UNCURRY] >> rw[] >>
-  Cases_on `v2` >> TRY (Cases_on `l`) >> fs[] >>
-  Cases_on `v1` >> TRY (Cases_on `l`) >> fs[] >>
-  fs[Q.SPECL[`CLitv X`](CONJUNCT1 (Q.SPEC`pp`Cv_bv_cases))] >>
-  fs[Q.SPEC`CLoc X`(CONJUNCT1 (Q.SPEC`pp`Cv_bv_cases))] >>
-  rpt BasicProvers.VAR_EQ_TAC >>
-  rpt(qpat_assum`X = Rval v`mp_tac >>
-      BasicProvers.CASE_TAC >> strip_tac) >>
-  rpt BasicProvers.VAR_EQ_TAC >>
-  simp[bump_pc_def,bc_fetch_with_refs,bc_state_component_equality] >>
-  simp[Once Cv_bv_cases] >>
-  fs[el_check_def] >- (
-    `LENGTH (FST pp).sm = LENGTH s1` by fs[s_refs_def] >>
-    qexists_tac`FST pp with sm := (FST pp).sm ++ [(LEAST n. n ∉ FDOM bs.refs)]` >>
-    simp[EL_APPEND2] >>
-    simp[wordsTheory.w2n_lt,integerTheory.int_le] >>
+  Cases_on `v2` >> TRY (Cases_on `l:lit`) >> fs[]
+  >- ( tac1 >> tac2 )
+  >- (
+    tac1 >>
     simp[s_refs_with_stack,s_refs_with_pc] >>
-    Q.PAT_ABBREV_TAC`n = LEAST n. n ∉ FDOM bs.refs` >>
-    `n ∉ FDOM bs.refs` by (
-      unabbrev_all_tac >>
-      numLib.LEAST_ELIM_TAC >>
-      simp[] >>
-      metis_tac[NOT_IN_FINITE,INFINITE_NUM_UNIV,FDOM_FINITE] ) >>
-    fs[s_refs_def] >>
-    simp[GSYM CONJ_ASSOC] >>
-    conj_tac >- (
-      fs[good_rd_def,FEVERY_DEF,UNCURRY,FLOOKUP_UPDATE] >>
-      gen_tac >> strip_tac >>
-      first_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
-      conj_asm1_tac >- (spose_not_then strip_assume_tac >> fs[FLOOKUP_DEF]) >>
-      simp[] >>
-      match_mp_tac(MP_CANON(GEN_ALL(CONJUNCT1(SPEC_ALL Cv_bv_SUBMAP)))) >>
-      first_assum(match_exists_tac o concl) >>
-      simp[] >>
-      fs[EVERY_MEM,FLOOKUP_DEF] >>
-      metis_tac[] ) >>
-    conj_tac >- fs[EVERY_MEM] >>
-    conj_tac >- (
-      fs[ALL_DISTINCT_APPEND,EVERY_MEM] >>
-      metis_tac[] ) >>
-    simp[integerTheory.INT_ABS] >>
-    simp[CONJ_ASSOC] >>
-    reverse conj_tac >- (
-      simp[SUBMAP_DEF,DRESTRICT_DEF] >> rw[] >> rw[] ) >>
-    conj_tac >>
-    match_mp_tac (MP_CANON (GEN_ALL EVERY2_mono)) >>
-    ONCE_REWRITE_TAC[CONJ_COMM] >>
-    TRY (
-      first_assum(match_exists_tac o concl) >>
-      simp[] >>
-      Cases >> simp[optionTheory.OPTREL_def,PULL_EXISTS] >>
-      rw[] >>
-      match_mp_tac(MP_CANON(GEN_ALL(CONJUNCT1(SPEC_ALL Cv_bv_SUBMAP)))) >>
-      first_assum(match_exists_tac o concl) >>
-      simp[] >>
-      fs[EVERY_MEM,FLOOKUP_DEF,good_rd_def,FEVERY_DEF,UNCURRY] >>
-      metis_tac[] ) >>
-    qmatch_assum_abbrev_tac`LIST_REL R s1 Y` >>
-    qexists_tac`R` >>
-    simp[Abbr`R`,UNCURRY,Abbr`Y`] >>
-    fs[LIST_REL_EL_EQN] >> rw[] >>
-    match_mp_tac (MP_CANON (GEN_ALL sv_refv_rel_mono)) >>
-    TRY(first_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
-        simp[EL_MAP] >> strip_tac)>>
-    ONCE_REWRITE_TAC[CONJ_COMM] >>
-    simp[FAPPLY_FUPDATE_THM] >>
-    TRY(
-      BasicProvers.CASE_TAC >- (
-        fs[EVERY_MEM] >>
-        metis_tac[MEM_EL] )) >>
-    first_assum(match_exists_tac o concl) >>
-    simp[] >> rw[] >>
-    match_mp_tac(MP_CANON(GEN_ALL(CONJUNCT1(SPEC_ALL Cv_bv_SUBMAP)))) >>
-    first_assum(match_exists_tac o concl) >>
+    qexists_tac`FST pp` >>
+    qexists_tac`bs.refs` >>
     simp[] >>
-    fs[EVERY_MEM,FLOOKUP_DEF,good_rd_def,FEVERY_DEF,UNCURRY] >>
-    metis_tac[] ) >>
-  simp[s_refs_with_stack,s_refs_with_pc] >>
-  qexists_tac`FST pp` >>
-  qexists_tac`bs.refs` >>
-  simp[] >>
-  fs[s_refs_def,FLOOKUP_DEF,EVERY_MEM] >>
-  rpt BasicProvers.VAR_EQ_TAC >>
-  fs[good_rd_def] >>
-  conj_asm1_tac >- (
-    first_x_assum match_mp_tac >>
-    metis_tac[MEM_EL] ) >>
-  fs[LIST_REL_EL_EQN] >>
-  rpt(first_x_assum(qspec_then`n`mp_tac)) >>
-  simp[sv_refv_rel_cases,EL_MAP,bc_state_component_equality] >>
-  rfs[integerTheory.int_le,integerTheory.INT_ABS] >>
-  rw[] >> DECIDE_TAC)
+    fs[s_refs_def,FLOOKUP_DEF,EVERY_MEM] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    fs[good_rd_def] >>
+    conj_asm1_tac >- (
+      first_x_assum match_mp_tac >>
+      metis_tac[MEM_EL] ) >>
+    fs[LIST_REL_EL_EQN] >>
+    rpt(first_x_assum(qspec_then`n`mp_tac)) >>
+    simp[sv_refv_rel_cases,EL_MAP,bc_state_component_equality] >>
+    rfs[integerTheory.int_le,integerTheory.INT_ABS] >>
+    rw[] >> DECIDE_TAC)
+  >- (
+    qpat_assum`X = Rval v`mp_tac >>
+    IF_CASES_TAC >> simp[] >> rw[] >>
+    fs[Q.SPECL[`CLitv X`](CONJUNCT1 (Q.SPEC`pp`Cv_bv_cases))] >>
+    rw[] >> simp[integerTheory.int_le] >>
+    simp[Q.SPEC`CLoc X`(CONJUNCT1 (Q.SPEC`pp`Cv_bv_cases)),PULL_EXISTS] >>
+    simp[bump_pc_def,bc_fetch_with_refs,bc_state_component_equality] >>
+    fs[el_check_def] >>
+    fs[integerTheory.INT_ABS] >>
+    tac2 ))
 
 val is_Label_prim1_to_bc = store_thm("is_Label_prim1_to_bc",
   ``∀uop. EVERY ($~ o is_Label) (prim1_to_bc uop)``,
@@ -6607,7 +6636,7 @@ fun tac18 t =
         fs[Cenv_bs_def,s_refs_def,good_rd_def] >>
       simp[] >>
       discharge_hyps >- (
-        fs[Cenv_bs_def] >>
+        fs[Cenv_bs_def,Abbr`pp`] >>
         match_mp_tac s_refs_append_code >>
         Q.PAT_ABBREV_TAC`bs1:bc_state = (X Y)` >>
         qexists_tac`bs1 with code := bce`>>
@@ -6634,9 +6663,11 @@ fun tac18 t =
         unabbrev_all_tac >>
         srw_tac[ARITH_ss][SUM_APPEND,FILTER_APPEND,ADD1] >>
         rw[bc_state_component_equality]) >>
+      (*
       conj_tac >- (
         match_mp_tac (MP_CANON (GEN_ALL (CONJUNCT1 (SPEC_ALL Cv_bv_SUBMAP)))) >>
         HINT_EXISTS_TAC >> simp[Abbr`pp`] ) >>
+        *)
       reverse conj_tac >- (
         metis_tac[SUBMAP_TRANS,IS_PREFIX_TRANS] ) >>
       qmatch_assum_abbrev_tac `Cenv_bs sms s' renv cenv (sz + 2) bs0` >>
