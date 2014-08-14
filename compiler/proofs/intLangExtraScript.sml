@@ -1459,6 +1459,8 @@ val CevalPrim2_syneq = store_thm("CevalPrim2_syneq",
     fs[LIST_REL_EL_EQN] >>
     rw[el_check_def] >> rfs[] >> res_tac >>
     BasicProvers.CASE_TAC >> fs[sv_rel_cases] >>
+    rw[] >> fs[] >> rfs[integerTheory.INT_ABS] >>
+    fsrw_tac[ARITH_ss][LIST_REL_EL_EQN] >>
     NO_TAC) >>
   TRY (
     Cases_on`l':lit`>>simp[]>>rw[]>>
@@ -2149,6 +2151,10 @@ val CevalPrim2_closed = store_thm("CevalPrim2_closed",
   TRY(Cases_on`l:lit`)>>TRY(Cases_on`l':lit`)>>simp[] >>
   BasicProvers.EVERY_CASE_TAC >> simp[] >>
   simp[csg_every_def] >>
+  TRY (
+    fs[EVERY_MEM,MEM_EL,PULL_EXISTS,el_check_def] >> rw[] >>
+    last_x_assum(qspec_then`n`mp_tac) >> simp[] >>
+    simp[EVERY_MEM,PULL_EXISTS,MEM_EL] >> NO_TAC) >>
   simp[Once Cclosed_cases,EVERY_MEM,MEM_EL,PULL_EXISTS] >> rw[] >>
   first_x_assum match_mp_tac >> fs[] >> simp[])
 
