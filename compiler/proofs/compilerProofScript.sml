@@ -273,7 +273,7 @@ val exp_pat_syneq_exp = store_thm("exp_pat_syneq_exp",
         Cases_on`o'`>>simp[]>-(
           Cases_on`o''`>>simp[]>>
           simp[Once syneq_exp_cases] >>
-          simp[Once syneq_exp_cases] >>
+          simp[Once syneq_exp_cases] >> (
           conj_tac >- (
             match_mp_tac syneq_exp_shift_both >>
             first_assum (match_exists_tac o concl) >> simp[] >>
@@ -285,7 +285,7 @@ val exp_pat_syneq_exp = store_thm("exp_pat_syneq_exp",
             first_assum (match_exists_tac o concl) >> simp[] >>
             fs[SUBSET_DEF] >>
             simp[O_DEF,inv_DEF,PULL_EXISTS] ) >>
-          rpt(simp[Once syneq_exp_cases])) >>
+          rpt(simp[Once syneq_exp_cases]))) >>
         simp[Once syneq_exp_cases]) >>
       simp[Once syneq_exp_cases]) >>
     `∃h4 t4. t3 = h4::t4` by (Cases_on`t3`>>fs[]) >> fs[]>>
@@ -1634,18 +1634,34 @@ val tac3=
   match_mp_tac EVERY2_MEM_MONO >>
   HINT_EXISTS_TAC >>
   simp[exh_Cv_def,optionTheory.OPTREL_def,UNCURRY] >- (
-    rw[] >> rw[] >> fs[sv_rel_cases] >>
-    fs[exh_Cv_def] >>
-    first_x_assum(mp_tac o MATCH_MP v_pat_syneq) >>
-    discharge_hyps >- (
-      simp[] >>
-      fs[csg_closed_pat_def,EVERY_MAP,EVERY_MEM,map_count_store_genv_def] >>
-      imp_res_tac MEM_ZIP_MEM_MAP >>
-      imp_res_tac EVERY2_LENGTH >> fs[] >>
-      fs[MEM_MAP,PULL_EXISTS] >>
-      first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
-      simp[]) >>
-    metis_tac[syneq_trans] ) >>
+    rw[] >> rw[] >> fs[sv_rel_cases] >- (
+      fs[exh_Cv_def] >>
+      first_x_assum(mp_tac o MATCH_MP v_pat_syneq) >>
+      discharge_hyps >- (
+        simp[] >>
+        fs[csg_closed_pat_def,EVERY_MAP,EVERY_MEM,map_count_store_genv_def] >>
+        imp_res_tac MEM_ZIP_MEM_MAP >>
+        imp_res_tac EVERY2_LENGTH >> fs[] >>
+        fs[MEM_MAP,PULL_EXISTS] >>
+        first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
+        simp[]) >>
+      metis_tac[syneq_trans] ) >>
+    simp[EVERY2_MAP] >>
+    match_mp_tac EVERY2_MEM_MONO >>
+    qexists_tac`exh_Cv` >>
+    imp_res_tac LIST_REL_LENGTH >>
+    simp[exh_Cv_def,PULL_EXISTS,MEM_ZIP,FORALL_PROD] >>
+    rw[] >>
+    match_mp_tac (MP_CANON syneq_trans) >>
+    HINT_EXISTS_TAC >> simp[] >>
+    match_mp_tac (MP_CANON v_pat_syneq) >> simp[] >>
+    rator_x_assum`csg_closed_pat`mp_tac >>
+    simp[csg_closed_pat_def,EVERY_MEM,map_count_store_genv_def,MEM_MAP,PULL_EXISTS] >>
+    strip_tac >>
+    first_x_assum(qspec_then`FST x`mp_tac) >>
+    simp[EVERY_MAP,EVERY_MEM] >> disch_then (match_mp_tac o MP_CANON) >>
+    fs[MEM_ZIP] >> rfs[] >>
+    metis_tac[MEM_EL] ) >>
   rw[] >> rw[] >>
   first_x_assum(mp_tac o MATCH_MP v_pat_syneq) >>
   discharge_hyps >- (
@@ -1752,7 +1768,10 @@ val tac7=
   match_mp_tac EVERY2_MEM_MONO >>
   HINT_EXISTS_TAC >> simp[] >>
   simp[FORALL_PROD] >>
-  Cases >> Cases >> simp[sv_rel_cases] >>
+  reverse (Cases >> Cases >> simp[sv_rel_cases]) >>
+  simp[EVERY2_MAP] >> strip_tac >>
+  TRY(match_mp_tac EVERY2_MEM_MONO >> HINT_EXISTS_TAC >>
+      imp_res_tac LIST_REL_LENGTH >> simp[MEM_ZIP,PULL_EXISTS]) >>
   rw[exh_Cv_def] >> rw[] >>
   HINT_EXISTS_TAC >> simp[] >>
   first_x_assum(mp_tac o MATCH_MP (CONJUNCT1 evaluate_pat_closed)) >>
@@ -1761,7 +1780,7 @@ val tac7=
   imp_res_tac EVERY2_LENGTH >>
   imp_res_tac MEM_ZIP_MEM_MAP >>
   rfs[] >>
-  metis_tac[sv_every_def]
+  metis_tac[sv_every_def,EVERY_MEM,MEM_EL]
 
 val tac9=
   rator_x_assum`contains_primitives`mp_tac >>
@@ -3079,40 +3098,6 @@ val tac22=
   first_assum(match_exists_tac o concl) >> simp[]>>
   first_assum(match_exists_tac o concl) >> simp[]
 
-val tac3=
-  simp[syneq_exp_refl] >>
-  fs[store_to_exh_def] >>
-  simp[Abbr`Csg`,map_count_store_genv_def,csg_rel_def] >>
-  simp[MAP_MAP_o,optionTheory.OPTION_MAP_COMPOSE,combinTheory.o_DEF] >>
-  simp[EVERY2_MAP] >>
-  conj_tac >>
-  match_mp_tac EVERY2_MEM_MONO >>
-  HINT_EXISTS_TAC >>
-  simp[exh_Cv_def,optionTheory.OPTREL_def,UNCURRY] >- (
-    rw[] >> rw[] >> fs[sv_rel_cases] >>
-    fs[exh_Cv_def] >>
-    first_x_assum(mp_tac o MATCH_MP v_pat_syneq) >>
-    discharge_hyps >- (
-      simp[] >>
-      fs[csg_closed_pat_def,EVERY_MAP,EVERY_MEM,map_count_store_genv_def] >>
-      imp_res_tac MEM_ZIP_MEM_MAP >>
-      imp_res_tac EVERY2_LENGTH >> fs[] >>
-      fs[MEM_MAP,PULL_EXISTS] >>
-      first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
-      simp[]) >>
-    metis_tac[syneq_trans] ) >>
-  rw[] >> rw[] >>
-  first_x_assum(mp_tac o MATCH_MP v_pat_syneq) >>
-  discharge_hyps >- (
-    simp[] >>
-    fs[csg_closed_pat_def,EVERY_MAP,EVERY_MEM] >>
-    first_x_assum(qspec_then`OPTION_MAP v_to_pat (FST x)`mp_tac) >>
-    simp[map_count_store_genv_def] >>
-    disch_then match_mp_tac >>
-    simp[MEM_MAP,PULL_EXISTS] >>
-    metis_tac[MEM_ZIP_MEM_MAP,EVERY2_LENGTH,FST,SND] ) >>
-  metis_tac[syneq_trans]
-
 val compile_prog_thm = store_thm("compile_prog_thm",
   ``∀ck env stm prog res. evaluate_whole_prog ck env stm prog res ⇒
      ∀grd rs rss rsf bc bs bc0.
@@ -4031,6 +4016,9 @@ val compile_special_thm = store_thm("compile_special_thm",
     HINT_EXISTS_TAC >> simp[] >>
     simp[FORALL_PROD] >>
     Cases >> Cases >> simp[sv_rel_cases] >>
+    simp[EVERY2_MAP] >> strip_tac >>
+    TRY(match_mp_tac EVERY2_MEM_MONO >> HINT_EXISTS_TAC >>
+      imp_res_tac LIST_REL_LENGTH >> simp[MEM_ZIP,PULL_EXISTS]) >>
     rw[exh_Cv_def] >> rw[] >>
     HINT_EXISTS_TAC >> simp[] >>
     first_x_assum(mp_tac o MATCH_MP (CONJUNCT1 evaluate_pat_closed)) >>
@@ -4039,7 +4027,7 @@ val compile_special_thm = store_thm("compile_special_thm",
     imp_res_tac EVERY2_LENGTH >>
     imp_res_tac MEM_ZIP_MEM_MAP >>
     rfs[] >>
-    metis_tac[sv_every_def]) >>
+    metis_tac[sv_every_def,MEM_EL,EVERY_MEM]) >>
   conj_tac >- (
     rator_x_assum`Cevaluate`mp_tac >>
     specl_args_of_then``Cevaluate``Cevaluate_closed_vlabs mp_tac >>
