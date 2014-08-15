@@ -3178,7 +3178,7 @@ val compile_prog_thm = store_thm("compile_prog_thm",
     fs[] ) >>
   simp[] >>
   (discharge_hyps >- (
-     simp[flookup_fupdate_list,FLOOKUP_FUNION] >>
+     simp[alistTheory.flookup_fupdate_list,FLOOKUP_FUNION] >>
      Cases_on`res6`>>fs[GSYM FORALL_PROD] >>
      TRY (conj_tac >- (fs[result_to_i2_cases,result_to_i1_cases] >> rw[])) >>
      BasicProvers.CASE_TAC >>
