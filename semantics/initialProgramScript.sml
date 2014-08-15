@@ -43,7 +43,7 @@ val _ = Define `
    Tdec (Dtabbrev [] "string" (Tapp [] TC_string));
    Tdec (Dtabbrev [] "bool" (Tapp [] TC_bool));
    Tdec (Dtabbrev [] "unit" (Tapp [] TC_unit));
-   Tdec (Dtabbrev [] "ref" (Tapp [Tvar "'a"] TC_ref));
+   Tdec (Dtabbrev ["'a"] "ref" (Tapp [Tvar "'a"] TC_ref));
    Tdec (Dtabbrev [] "exn" (Tapp [] TC_exn));
    Tdec (mk_binop "+" (Opn Plus));
    Tdec (mk_binop "-" (Opn Minus));

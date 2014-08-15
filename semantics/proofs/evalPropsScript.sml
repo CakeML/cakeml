@@ -2,6 +2,7 @@
  * semantic primitives. *)
 
 open preamble;
+open optionTheory;
 open libTheory astTheory bigStepTheory semanticPrimitivesTheory;
 open terminationTheory;
 open miscLib boolSimps;
