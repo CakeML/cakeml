@@ -584,6 +584,7 @@ let tc_to_string tc =
   | TC_word8array -> "<word8array>"
   | TC_exn -> "<exn>"
   | TC_vector -> "<vector>"
+  | TC_array -> "<array>"
   end
 
 val int_to_string : integer -> string

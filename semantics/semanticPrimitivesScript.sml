@@ -685,6 +685,7 @@ val _ = Define `
   | TC_word8array => "<word8array>"
   | TC_exn => "<exn>"
   | TC_vector => "<vector>"
+  | TC_array => "<array>"
   )))`;
 
 
