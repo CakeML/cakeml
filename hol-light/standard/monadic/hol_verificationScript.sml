@@ -1724,7 +1724,7 @@ val QSORT_type_vars_in_term = prove(
     simp[relationTheory.total_def,stringTheory.string_le_def] >>
     METIS_TAC[stringTheory.string_lt_cases] ) >>
   conj_tac >- (
-    MATCH_MP_TAC SORTED_weaken >>
+    MATCH_MP_TAC sortingTheory.SORTED_weaken >>
     qexists_tac`$<` >>
     simp[STRING_SORT_SORTED,stringTheory.string_le_def] ) >>
   MATCH_MP_TAC (MP_CANON sortingTheory.PERM_ALL_DISTINCT) >>

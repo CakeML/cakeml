@@ -1185,7 +1185,7 @@ val VSUBST_simple_subst = store_thm("VSUBST_simple_subst",
     Cases_on`e`>>fs[]>>res_tac>>fs[MEM_MAP,FORALL_PROD,EXISTS_PROD]>>
     metis_tac[VFREE_IN_def]) >>
   first_x_assum match_mp_tac >>
-  simp[MAP_SND_FILTER_NEQ,MEM_FILTER,MEM_MAP,EXISTS_PROD] >>
+  simp[rich_listTheory.MAP_SND_FILTER_NEQ,MEM_FILTER,MEM_MAP,EXISTS_PROD] >>
   fs[MEM_MAP,EXISTS_PROD,IN_DISJOINT] >>
   metis_tac[])
 
