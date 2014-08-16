@@ -47,10 +47,10 @@ val EqualityType_thm = prove(
                                                 ((v1 = v2) ⇔ (x1 = x2)))``,
   SIMP_TAC std_ss [EqualityType_def] \\ METIS_TAC []);
 
-(*
 val EqualityType_CHAR = find_equality_type_thm``CHAR``
 val EqualityType_INT = find_equality_type_thm``INT``
 val EqualityType_NUM = find_equality_type_thm``NUM``
+val EqualityType_SUM_TYPE = find_equality_type_thm``SUM_TYPE a b``
 val EqualityType_LIST_TYPE_CHAR = find_equality_type_thm``LIST_TYPE CHAR``
   |> Q.GEN`a` |> Q.ISPEC`CHAR` |> SIMP_RULE std_ss [EqualityType_CHAR]
 val EqualityType_TOKENS_TOKEN_TYPE = find_equality_type_thm``TOKENS_TOKEN_TYPE``
@@ -58,25 +58,82 @@ val EqualityType_TOKENS_TOKEN_TYPE = find_equality_type_thm``TOKENS_TOKEN_TYPE``
 val EqualityType_GRAM_MMLNONT_TYPE = find_equality_type_thm``GRAM_MMLNONT_TYPE``
   |> SIMP_RULE std_ss []
 
+val EqualityType_GRAMMAR_SYMBOL_TYPE = prove(
+  ``∀a b. EqualityType a ∧ EqualityType b ⇒ EqualityType (GRAMMAR_SYMBOL_TYPE a b)``,
+  rw[EqualityType_thm] >- (
+    Cases_on`x1`>>fs[ml_repl_stepTheory.GRAMMAR_SYMBOL_TYPE_def]>>rw[]>>
+    rw[no_closures_def] >- METIS_TAC[] >>
+    METIS_TAC[EqualityType_SUM_TYPE,EqualityType_NUM,EqualityType_thm] )
+  >- (
+    Cases_on`x1`>>Cases_on`x2`>>fs[ml_repl_stepTheory.GRAMMAR_SYMBOL_TYPE_def]>>
+    rw[types_match_def] >- METIS_TAC[] >>
+    METIS_TAC[EqualityType_SUM_TYPE,EqualityType_NUM,EqualityType_thm] )
+  >- (
+    Cases_on`x1`>>Cases_on`x2`>>fs[ml_repl_stepTheory.GRAMMAR_SYMBOL_TYPE_def]>>
+    rw[] >>
+    METIS_TAC[EqualityType_SUM_TYPE,EqualityType_NUM,EqualityType_thm] ))
+
+  ntac 2 gen_tac >>
+  Cases >> simp[ml_repl_stepTheory.GRAMMAR_SYMBOL_TYPE_def,PULL_EXISTS,no_closures_def] >>
+  rw[] >>
+
+val GRAMMAR_PARSETREE_TYPE_no_closures = prove(
+  ``∀a b c d. EqualityType a ∧ EqualityType b ∧ GRAMMAR_PARSETREE_TYPE a b c d ⇒ no_closures d``,
+  ho_match_mp_tac ml_repl_stepTheory.GRAMMAR_PARSETREE_TYPE_ind >>
+  simp[ml_repl_stepTheory.GRAMMAR_PARSETREE_TYPE_def,PULL_EXISTS,no_closures_def] >>
+  rw[] >- METIS_TAC[EqualityType_SUM_TYPE,EqualityType_NUM,EqualityType_thm]
+  >- (
+    pop_assum mp_tac >>
+    Q.ID_SPEC_TAC`v2_2` >>
+    Induct_on`x_2` >> simp[ml_repl_stepTheory.LIST_TYPE_def,no_closures_def,PULL_EXISTS] >>
+    rw[] >> METIS_TAC[]) >>
+  METIS_TAC[EqualityType_GRAMMAR_SYMBOL_TYPE,EqualityType_thm])
+
+val GRAMMAR_PARSETREE_TYPE_types_match = prove(
+  ``∀a b c d e f.
+      EqualityType a ∧ EqualityType b ∧ GRAMMAR_PARSETREE_TYPE a b c d ∧
+      GRAMMAR_PARSETREE_TYPE a b e f ⇒ types_match d f``,
+  ho_match_mp_tac ml_repl_stepTheory.GRAMMAR_PARSETREE_TYPE_ind >>
+  simp[ml_repl_stepTheory.GRAMMAR_PARSETREE_TYPE_def,PULL_EXISTS,types_match_def] >>
+  rw[] >- (
+    Cases_on`e`>>fs[ml_repl_stepTheory.GRAMMAR_PARSETREE_TYPE_def,types_match_def] >>
+    conj_tac >- METIS_TAC[EqualityType_SUM_TYPE,EqualityType_NUM,EqualityType_thm] >>
+    rw[] >> rpt(rator_x_assum`LIST_TYPE`mp_tac) >>
+    last_x_assum mp_tac >>
+    map_every qid_spec_tac[`v2_2`,`v2_2'`,`x_2`,`l`] >>
+    Induct >> simp[ml_repl_stepTheory.LIST_TYPE_def,PULL_EXISTS] >> rw[] >>
+    Cases_on`x_2`>>fs[ml_repl_stepTheory.LIST_TYPE_def,types_match_def] >>
+    METIS_TAC[]) >>
+  Cases_on`e`>>fs[ml_repl_stepTheory.GRAMMAR_PARSETREE_TYPE_def,types_match_def] >>
+  METIS_TAC[EqualityType_GRAMMAR_SYMBOL_TYPE,EqualityType_thm])
+
+val GRAMMAR_PARSETREE_TYPE_11 = prove(
+  ``∀a b c d e f.
+      EqualityType a ∧ EqualityType b ∧ GRAMMAR_PARSETREE_TYPE a b c d ∧
+      GRAMMAR_PARSETREE_TYPE a b e f ⇒ (c = e ⇔ d = f)``,
+  ho_match_mp_tac ml_repl_stepTheory.GRAMMAR_PARSETREE_TYPE_ind >>
+  simp[ml_repl_stepTheory.GRAMMAR_PARSETREE_TYPE_def,PULL_EXISTS] >>
+  rw[] >- (
+    Cases_on`e`>>fs[ml_repl_stepTheory.GRAMMAR_PARSETREE_TYPE_def] >>
+    `x_3 = s ⇔ v2_1 = v2_1'` by METIS_TAC[EqualityType_SUM_TYPE,EqualityType_NUM,EqualityType_thm] >>
+    rw[] >> rpt(rator_x_assum`LIST_TYPE`mp_tac) >>
+    last_x_assum mp_tac >>
+    map_every qid_spec_tac[`v2_2`,`v2_2'`,`x_2`,`l`] >>
+    Induct >> simp[ml_repl_stepTheory.LIST_TYPE_def,PULL_EXISTS] >> rw[] >>
+    Cases_on`x_2`>>fs[ml_repl_stepTheory.LIST_TYPE_def] >>
+    METIS_TAC[]) >>
+  Cases_on`e`>>fs[ml_repl_stepTheory.GRAMMAR_PARSETREE_TYPE_def] >>
+  METIS_TAC[EqualityType_GRAMMAR_SYMBOL_TYPE,EqualityType_thm])
+
 val EqualityType1 = prove(
-  ``EqualityType (GRAMMAR_PARSETREE_TYPE TOKENS_TOKEN_TYPE GRAM_MMLNONT_TYPE)``
+  ``EqualityType (GRAMMAR_PARSETREE_TYPE TOKENS_TOKEN_TYPE GRAM_MMLNONT_TYPE)``,
+  simp[EqualityType_thm] >>
   assume_tac EqualityType_TOKENS_TOKEN_TYPE >>
   assume_tac EqualityType_GRAM_MMLNONT_TYPE >>
-  qmatch_abbrev_tac`EqualityType (GRAMMAR_PARSETREE_TYPE a b)` >>
-  ntac 2 (pop_assum kall_tac) >>
-  simp[EqualityType_thm] >>
-  simp[GSYM FORALL_AND_THM] >>
-  ntac 2 (pop_assum mp_tac)
-  simp[GSYM RIGHT_FORALL_IMP_THM] >>
-  map_every qid_spec_tac[`b`,`a`] >>
-  ho_match_mp_tac ml_repl_stepTheory.GRAMMAR_PARSETREE_TYPE_ind >>
-  rw[ml_repl_stepTheory.GRAMMAR_PARSETREE_TYPE_def] >>
-  TRY (
-    Cases_on`x2`>>fs[ml_repl_stepTheory.GRAMMAR_PARSETREE_TYPE_def,types_match_def]
-*)
+  conj_tac >- METIS_TAC[GRAMMAR_PARSETREE_TYPE_no_closures] >>
+  METIS_TAC[GRAMMAR_PARSETREE_TYPE_types_match,GRAMMAR_PARSETREE_TYPE_11])
 
 fun prove_equality_type tm = prove(``EqualityType ^tm``,cheat)
-val EqualityType1 = prove_equality_type ``GRAMMAR_PARSETREE_TYPE TOKENS_TOKEN_TYPE GRAM_MMLNONT_TYPE``
 val EqualityType2 = prove_equality_type ``AST_T_TYPE``
 val EqualityType3 = prove_equality_type ``AST_PAT_TYPE``
 val EqualityType4 = prove_equality_type ``PATLANG_EXP_PAT_TYPE``
