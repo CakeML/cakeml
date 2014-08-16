@@ -1779,11 +1779,11 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
       first_assum(match_exists_tac o concl) >> simp[] >>
       METIS_TAC[EqualityType_thm,EqualityType_INPUT_TYPE]) >>
     conj_tac >- (
-      fs[intLangExtraTheory.store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER] >>
-      METIS_TAC[MEM_LUPDATE_E,evalPropsTheory.dest_Refv_def] ) >>
+      fs[intLangExtraTheory.store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_FLAT] >>
+      rw[] >> imp_res_tac MEM_LUPDATE_E >> fs[] >> METIS_TAC[] ) >>
     fs[intLangExtraTheory.vlabs_list_MAP,PULL_EXISTS] >>
-    fs[intLangExtraTheory.store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER] >>
-    METIS_TAC[MEM_LUPDATE_E,pred_setTheory.NOT_IN_EMPTY,evalPropsTheory.dest_Refv_def] ) >>
+    fs[intLangExtraTheory.store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_FLAT] >>
+    rw[] >> imp_res_tac MEM_LUPDATE_E >> fs[] >> METIS_TAC[pred_setTheory.NOT_IN_EMPTY] ) >>
   qexists_tac`grd2` >>
   MATCH_MP_TAC bytecodeProofTheory.Cenv_bs_change_store >>
   first_assum(match_exists_tac o concl) >> simp[] >>
@@ -2000,11 +2000,11 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
       first_assum(match_exists_tac o concl) >> simp[] >>
       METIS_TAC[EqualityType_thm,EqualityType_INPUT_TYPE]) >>
     conj_tac >- (
-      fs[intLangExtraTheory.store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER] >>
-      METIS_TAC[MEM_LUPDATE_E,evalPropsTheory.dest_Refv_def] ) >>
+      fs[intLangExtraTheory.store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_FLAT] >>
+      rw[] >> imp_res_tac MEM_LUPDATE_E >> fs[] >> METIS_TAC[] ) >>
     fs[intLangExtraTheory.vlabs_list_MAP,PULL_EXISTS] >>
-    fs[intLangExtraTheory.store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER] >>
-    METIS_TAC[MEM_LUPDATE_E,pred_setTheory.NOT_IN_EMPTY,evalPropsTheory.dest_Refv_def] ) >>
+    fs[intLangExtraTheory.store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_FLAT] >>
+    rw[] >> imp_res_tac MEM_LUPDATE_E >> fs[] >> METIS_TAC[pred_setTheory.NOT_IN_EMPTY] ) >>
   qexists_tac`grd2` >>
   MATCH_MP_TAC bytecodeProofTheory.Cenv_bs_change_store >>
   first_assum(match_exists_tac o concl) >> simp[] >>
