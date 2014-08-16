@@ -813,7 +813,8 @@ val evaluate_empty_store_lemma = prove(
   \\ FULL_SIMP_TAC std_ss [IMP_DISJ_THM]
   \\ SRW_TAC [] []
   \\ FULL_SIMP_TAC std_ss []
-  \\ FULL_SIMP_TAC std_ss [store_assign_def,empty_store_def,LUPDATE_NIL])
+  \\ FULL_SIMP_TAC std_ss [store_assign_def,empty_store_def,LUPDATE_NIL]
+  \\ FULL_SIMP_TAC list_ss [])
   |> SIMP_RULE std_ss [PULL_EXISTS,AND_IMP_INTRO];
 
 val _ = temp_overload_on("has_emp_no_fail",

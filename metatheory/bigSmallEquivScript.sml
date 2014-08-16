@@ -582,7 +582,7 @@ val small_eval_app_err = prove(
     Cases_on`op`>>
     Cases_on`REVERSE v0++[v1]`>>fs[do_app_def] >>
     every_case_tac >> fs[] >>
-    fs[miscTheory.SWAP_REVERSE_SYM])>>
+    fs[SWAP_REVERSE_SYM])>>
   disj2_tac >>
   rw[Once e_step_def,continue_def,push_def] >>
   imp_res_tac e_step_add_ctxt >>

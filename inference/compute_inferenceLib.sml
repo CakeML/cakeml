@@ -18,6 +18,7 @@ structure compute_inferenceLib = struct
     ,infer_p_def
     ,st_ex_bind_def
     ,st_ex_return_def
+    ,failwith_def
     ,lookup_tenvC_st_ex_def
     ,lookup_st_ex_def
     ,init_state_def
@@ -48,7 +49,7 @@ structure compute_inferenceLib = struct
     val () = compute_basicLib.add_datatype ``:('a,'b)exc`` compset
     val () = compute_basicLib.add_datatype ``:'a infer_st`` compset
   in
-   get_wfs 
+   get_wfs
   end
 
   val the_inference_compset = let

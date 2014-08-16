@@ -1,5 +1,5 @@
 open preamble;
-open rich_listTheory;
+open rich_listTheory alistTheory;
 open miscTheory;
 open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
 open libPropsTheory astPropsTheory;
@@ -1613,7 +1613,7 @@ val check_freevars_nub = Q.prove (
   EVERY (check_freevars x fvs) ts ⇒
   EVERY (check_freevars x (nub fvs)) ts)`,
 Induct >>
-rw [check_freevars_def, GSYM nub_set] >>
+rw [check_freevars_def] >>
 metis_tac []);
 
 val check_specs_sound = Q.prove (

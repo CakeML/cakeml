@@ -280,26 +280,26 @@ constrain_op op ts =
           () <- add_constraint t (Infer_Tapp [uvar] TC_ref);
           return uvar
        od
-   | (Aalloc, [t1;t2]) =>
-       do () <- add_constraint t1 (Infer_Tapp [] TC_int);
-          () <- add_constraint t2 (Infer_Tapp [] TC_word8);
-          return (Infer_Tapp [] TC_word8array)
-       od
-   | (Asub, [t1;t2]) =>
+    | (Aw8alloc, [t1;t2]) =>
+        do () <- add_constraint t1 (Infer_Tapp [] TC_int);
+           () <- add_constraint t2 (Infer_Tapp [] TC_word8);
+           return (Infer_Tapp [] TC_word8array)
+        od
+    | (Aw8sub, [t1;t2]) =>
        do () <- add_constraint t1 (Infer_Tapp [] TC_word8array);
           () <- add_constraint t2 (Infer_Tapp [] TC_int);
           return (Infer_Tapp [] TC_word8)
-       od
-   | (Alength, [t]) =>
+        od
+    | (Aw8length, [t]) =>
        do () <- add_constraint t1 (Infer_Tapp [] TC_word8array);
           return (Infer_Tapp [] TC_int)
-       od
-   | (Aupdate, [t1;t2;t3]) =>
+        od
+    | (Aw8update, [t1;t2;t3]) =>
        do () <- add_constraint t1 (Infer_Tapp [] TC_word8array);
           () <- add_constraint t2 (Infer_Tapp [] TC_int);
           () <- add_constraint t3 (Infer_Tapp [] TC_word8);
           return (Infer_Tapp [] TC_unit)
-       od
+        od
    | (VfromList, [t]) =>
        do uvar <- fresh_uvar;
           () <- add_constraint t (Infer_Tapp [uvar] (TC_name (Short "list")));
@@ -310,6 +310,31 @@ constrain_op op ts =
           () <- add_constraint t1 (Infer_Tapp [uvar] TC_vector);
           () <- add_constraint t2 (Infer_Tapp [] TC_int);
           return uvar
+       od
+   | (Vlength, [t]) =>
+       do uvar <- fresh_uvar;
+          () <- add_constraint t (Infer_Tapp [uvar] TC_vector);
+          return (Infer_Tapp [] TC_int)
+       od
+   | (Aalloc, [t1;t2]) =>
+       do () <- add_constraint t1 (Infer_Tapp [] TC_int);
+          return (Infer_Tapp [t2] TC_array)
+       od
+   | (Asub, [t1;t2]) =>
+       do uvar <- fresh_uvar;
+          () <- add_constraint t1 (Infer_Tapp [uvar] TC_array);
+          () <- add_constraint t2 (Infer_Tapp [] TC_int);
+          return uvar 
+       od
+   | (Alength, [t]) =>
+       do uvar <- fresh_uvar;
+          () <- add_constraint t (Infer_Tapp [uvar] TC_array);
+          return (Infer_Tapp [] TC_int)
+       od
+   | (Aupdate, [t1;t2;t3]) =>
+       do () <- add_constraint t1 (Infer_Tapp [t3] TC_array);
+          () <- add_constraint t2 (Infer_Tapp [] TC_int);
+          return (Infer_Tapp [] TC_unit)
        od
    | _ => failwith "Wrong number of arguments to primitive"`;
 
