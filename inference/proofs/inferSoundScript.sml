@@ -1613,11 +1613,8 @@ val check_freevars_nub = Q.prove (
   EVERY (check_freevars x fvs) ts ⇒
   EVERY (check_freevars x (nub fvs)) ts)`,
 Induct >>
-rw [check_freevars_def] >-
-  (Induct_on`fvs` >>
-  rw[nub_DEF]>>
-  metis_tac[]) >>
-  metis_tac[])
+rw [check_freevars_def] >> metis_tac[]
+)
 
 val check_specs_sound = Q.prove (
 `!mn orig_tenvT mdecls tdecls edecls tenvT cenv env specs st decls' tenvT' cenv' env' st' init_decls.
