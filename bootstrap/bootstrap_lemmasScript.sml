@@ -1793,7 +1793,7 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
   reverse conj_tac >- rw[] >>
   fs[bytecodeProofTheory.Cenv_bs_def,bytecodeProofTheory.s_refs_def,bytecodeProofTheory.good_rd_def] >>
   conj_tac >- (
-    fs[miscTheory.FEVERY_ALL_FLOOKUP] >> rw[] >>
+    fs[finite_mapTheory.FEVERY_ALL_FLOOKUP] >> rw[] >>
     first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
     simp[UNCURRY] >> strip_tac >>
     simp[finite_mapTheory.FLOOKUP_UPDATE] >>
@@ -2014,7 +2014,7 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
   reverse conj_tac >- rw[] >>
   fs[bytecodeProofTheory.Cenv_bs_def,bytecodeProofTheory.s_refs_def,bytecodeProofTheory.good_rd_def] >>
   conj_tac >- (
-    fs[miscTheory.FEVERY_ALL_FLOOKUP] >> rw[] >>
+    fs[finite_mapTheory.FEVERY_ALL_FLOOKUP] >> rw[] >>
     first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
     simp[UNCURRY] >> strip_tac >>
     simp[finite_mapTheory.FLOOKUP_UPDATE] >>
