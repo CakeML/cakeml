@@ -146,9 +146,9 @@ fun io() =
                  Sequence
                  [
                    DIV([("id","globals")],Preformatted(String.concat
-                   (map ((fn s => s^"\n") o term_to_string) (#globMap out)))),
+                   (map ((fn s => s^"\n") o (term_to_html_string 80)) (#globMap out)))),
                    DIV([("id","modules")],Preformatted(String.concat
-                   (map ((fn s => s^"\n") o term_to_string) (#modMap out)))),
+                   (map ((fn s => s^"\n") o (term_to_html_string 80)) (#modMap out)))),
                    DIV([("id","constructors")],Preformatted(String.concat
                    (map ((fn s => s^"\n") o term_to_string) (#ctors out)))),
                    DIV([("id","annotations")],Preformatted(String.concat

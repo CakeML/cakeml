@@ -593,4 +593,31 @@ fun asmPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
     printAsm ls
   end;
 val _=temp_add_user_printer("asmlistprint",``x:word8 list``,asmPrint);
+
+fun modmapPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
+  let open term_pp_types PPBackEnd
+      val (str,brk,blk,sty) = (#add_string ppfns, #add_break ppfns,#ublock ppfns,#ustyle ppfns);
+      val (modname,map) = pairSyntax.dest_pair t
+      val modname = toString modname
+  (*Assume first is always FEMPTY*)
+      val (_,ls) = finite_mapSyntax.strip_fupdate map
+      fun printer [] = str""
+      |   printer [x] = 
+            let val (name,num) = pairSyntax.dest_pair x in 
+              str (modname^"."^(toString name)^" --> ")>>sys (Top,Top,Top) d num >>add_newline
+            end
+      |   printer (x::xs) = printer [x] >>printer xs
+  in
+    (sty [FG DarkGrey] (str modname)) >>add_newline>> blk CONSISTENT 0 (printer ls)
+  end;
+
+val _=temp_add_user_printer("modmapprint",``x:(tvarN #(tvarN |-> num))``,modmapPrint);
+
+fun globmapPrint sys d t pg str brk blk=
+   let val (name,num) = pairSyntax.dest_pair t in 
+     str ((toString name)^" --> ")>>sys (Top,Top,Top) d num
+   end
+
+val _ = temp_add_user_printer ("globmapprint",``x:(tvarN # num)``,genPrint globmapPrint);
+
 end;

@@ -143,9 +143,28 @@ val _=temp_add_user_printer ("i1_minusappprint", ``App_i1 Opapp [Var_global_i1 1
 val _=temp_add_user_printer ("i1_addappprint", ``App_i1 Opapp [Var_global_i1 13; x]``,genPrint (infixappPrint "+")); 
 
 (*i1 uops*)
-val _=temp_add_user_printer ("i1_refappprint", ``App_i1 Opapp [Var_global_i1 0; x]``,genPrint (prefixappPrint "ref")); 
 val _=temp_add_user_printer ("i1_derefappprint", ``App_i1 Opapp [Var_global_i1 1;x]``,genPrint (prefixappPrint "!"));
 val _=temp_add_user_printer ("i1_negappprint", ``App_i1 Opapp [Var_global_i1 2; x]``,genPrint (prefixappPrint "~"));
+
+(*Not sure if necessary*)
+val _=temp_add_user_printer ("i1_word8array_arrayprint", ``App_i1 Opapp [Var_global_i1 14; x]``,genPrint (prefixappPrint "Word8Array.array")); 
+val _=temp_add_user_printer ("i1_word8array_subprint", ``App_i1 Opapp [Var_global_i1 15; x]``,genPrint (prefixappPrint "Word8Array.sub")); 
+val _=temp_add_user_printer ("i1_word8array_lengthprint", ``App_i1 Opapp [Var_global_i1 16; x]``,genPrint (prefixappPrint "Word8Array.length")); 
+val _=temp_add_user_printer ("i1_word8Array_updateprint", ``App_i1 Opapp [Var_global_i1 17; x]``,genPrint (prefixappPrint "Word8Array.update")); 
+
+val _=temp_add_user_printer ("i1_vector_fromlistprint", ``App_i1 Opapp [Var_global_i1 18; x]``,genPrint (prefixappPrint "Vector.fromList")); 
+val _=temp_add_user_printer ("i1_vector_lengthprint", ``App_i1 Opapp [Var_global_i1 19; x]``,genPrint (prefixappPrint "Vector.length")); 
+val _=temp_add_user_printer ("i1_vector_subprint", ``App_i1 Opapp [Var_global_i1 20; x]``,genPrint (prefixappPrint "Vector.sub")); 
+
+val _=temp_add_user_printer ("i1_array_arrayprint", ``App_i1 Opapp [Var_global_i1 21; x]``,genPrint (prefixappPrint "Array.array")); 
+val _=temp_add_user_printer ("i1_array_subprint", ``App_i1 Opapp [Var_global_i1 22; x]``,genPrint (prefixappPrint "Array.sub")); 
+val _=temp_add_user_printer ("i1_array_lengthprint", ``App_i1 Opapp [Var_global_i1 23; x]``,genPrint (prefixappPrint "Array.length")); 
+val _=temp_add_user_printer ("i1_array_updateprint", ``App_i1 Opapp [Var_global_i1 24; x]``,genPrint (prefixappPrint "Array.update")); 
+
+
+
+
+
 
 (*i1 list form *)
 val _=temp_add_user_printer("i1listprint",``x:prompt_i1 store``,genPrint astlistPrint);
