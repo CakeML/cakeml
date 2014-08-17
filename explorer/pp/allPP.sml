@@ -61,23 +61,38 @@ val _ = compute_basicLib.add_datatype ``:comp_environment`` cs
 
 val eval = computeLib.CBV_CONV cs
 
+(*Extracted here in case we want to print this at some point*)
+val basis  = rhsThm (eval ``FST (THE basis_env)``);
+val decls = rhsThm (eval ``(^(basis).inf_mdecls,^(basis).inf_tdecls,^(basis).inf_edecls)``);
+val tenvT = rhsThm (eval ``^(basis).inf_tenvT``);
+val menv = rhsThm (eval ``^(basis).inf_tenvM``);
+val cenv = rhsThm (eval ``^(basis).inf_tenvC``);
+val env = rhsThm (eval ``^(basis).inf_tenvE``);
+
 in
 
 
 exception compilationError of string;
 type allIntermediates = {
   ils:term list,
-  globMap:term list,
+  globMap:term list, 
   ctors:term list,
   modMap:term list,
   annotations:term list}
 (*Return all intermediates during compilation in a record*)
+
 fun allIntermediates prog =
-  let 
+  let
       val t1 = eval ``get_all_asts ^(prog)``
       val ast = rand (rhsThm t1)
 
       val _ =if ast = ``"<parse error>\n"`` then raise compilationError "Parse Error" else ();
+
+      val infer = eval ``(infer_prog ^(decls) ^(tenvT) ^(menv) ^(cenv) ^(env)  ^(ast)) x``
+      val infer_res = #1 (pairSyntax.dest_pair (rhsThm infer));
+      (*Bypass type checks*)
+      val _ = let val (res,msg) = dest_comb infer_res in 
+                if (term_to_string res) = "Failure" then raise compilationError ("Type Inference Error: "^(term_to_string msg)) else () end;
 
       (*i1 translation*)
       val n = rhsThm (eval ``compile_primitives.next_global``)
