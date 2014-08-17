@@ -50,6 +50,8 @@ val EqualityType_thm = prove(
 val EqualityType_CHAR = find_equality_type_thm``CHAR``
 val EqualityType_INT = find_equality_type_thm``INT``
 val EqualityType_NUM = find_equality_type_thm``NUM``
+val EqualityType_BOOL = find_equality_type_thm``BOOL``
+val EqualityType_WORD8 = find_equality_type_thm``WORD8``
 val EqualityType_SUM_TYPE = find_equality_type_thm``SUM_TYPE a b``
 val EqualityType_LIST_TYPE_CHAR = find_equality_type_thm``LIST_TYPE CHAR``
   |> Q.GEN`a` |> Q.ISPEC`CHAR` |> SIMP_RULE std_ss [EqualityType_CHAR]
@@ -59,6 +61,18 @@ val EqualityType_GRAM_MMLNONT_TYPE = find_equality_type_thm``GRAM_MMLNONT_TYPE``
   |> SIMP_RULE std_ss []
 val EqualityType_AST_ID_TYPE_LIST_TYPE_CHAR = find_equality_type_thm``AST_ID_TYPE a``
   |> Q.GEN`a` |> Q.ISPEC`LIST_TYPE CHAR` |> SIMP_RULE std_ss [EqualityType_LIST_TYPE_CHAR]
+val EqualityType_OPTION_TYPE_AST_ID_TYPE_LIST_TYPE_CHAR = find_equality_type_thm``OPTION_TYPE a``
+  |> Q.GEN`a` |> Q.ISPEC`AST_ID_TYPE (LIST_TYPE CHAR)` |> SIMP_RULE std_ss [EqualityType_AST_ID_TYPE_LIST_TYPE_CHAR]
+val EqualityType_AST_LIT_TYPE = find_equality_type_thm``AST_LIT_TYPE``
+  |> SIMP_RULE std_ss [EqualityType_LIST_TYPE_CHAR,EqualityType_INT,EqualityType_BOOL,EqualityType_WORD8]
+val EqualityType_AST_OPN_TYPE = find_equality_type_thm``AST_OPN_TYPE`` |> SIMP_RULE std_ss []
+val EqualityType_AST_OPB_TYPE = find_equality_type_thm``AST_OPB_TYPE`` |> SIMP_RULE std_ss []
+val EqualityType_AST_OP_TYPE = find_equality_type_thm``AST_OP_TYPE``
+  |> SIMP_RULE std_ss [EqualityType_AST_OPB_TYPE,EqualityType_AST_OPN_TYPE]
+val EqualityType_CONLANG_OP_I2_TYPE = find_equality_type_thm``CONLANG_OP_I2_TYPE``
+  |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_AST_OP_TYPE]
+val EqualityType_PATLANG_OP_PAT_TYPE = find_equality_type_thm``PATLANG_OP_PAT_TYPE``
+  |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_CONLANG_OP_I2_TYPE]
 
 val EqualityType_GRAMMAR_SYMBOL_TYPE = prove(
   ``∀a b. EqualityType a ∧ EqualityType b ⇒ EqualityType (GRAMMAR_SYMBOL_TYPE a b)``,
@@ -202,9 +216,131 @@ val EqualityType2 = prove(
   simp[EqualityType_thm] >>
   METIS_TAC[AST_T_TYPE_no_closures,AST_T_TYPE_types_match,AST_T_TYPE_11])
 
+val AST_PAT_TYPE_no_closures = prove(
+  ``∀a b. AST_PAT_TYPE a b ⇒ no_closures b``,
+  ho_match_mp_tac ml_repl_stepTheory.AST_PAT_TYPE_ind >>
+  simp[ml_repl_stepTheory.AST_PAT_TYPE_def,PULL_EXISTS,no_closures_def] >>
+  rw[] >>
+  TRY (
+    pop_assum mp_tac >>
+    pop_assum kall_tac >>
+    pop_assum mp_tac >>
+    map_every qid_spec_tac[`v3_2`,`x_3`] >>
+    Induct >> simp[ml_repl_stepTheory.LIST_TYPE_def,no_closures_def,PULL_EXISTS] >>
+    rw[] >> METIS_TAC[] ) >>
+  METIS_TAC[EqualityType_thm,
+            EqualityType_OPTION_TYPE_AST_ID_TYPE_LIST_TYPE_CHAR,
+            EqualityType_AST_LIT_TYPE,
+            EqualityType_LIST_TYPE_CHAR])
+
+val AST_PAT_TYPE_types_match = prove(
+  ``∀a b c d. AST_PAT_TYPE a b ∧ AST_PAT_TYPE c d ⇒ types_match b d``,
+  ho_match_mp_tac ml_repl_stepTheory.AST_PAT_TYPE_ind >>
+  simp[ml_repl_stepTheory.AST_PAT_TYPE_def,PULL_EXISTS,types_match_def] >> rw[] >>
+  Cases_on`c`>>fs[ml_repl_stepTheory.AST_PAT_TYPE_def,types_match_def] >> rw[] >>
+  TRY (
+    rpt(rator_x_assum`LIST_TYPE`mp_tac) >>
+    ntac 2 (pop_assum kall_tac) >> pop_assum mp_tac >>
+    map_every qid_spec_tac[`v3_2`,`v3_2'`,`l`,`x_3`] >>
+    Induct >> simp[ml_repl_stepTheory.LIST_TYPE_def] >- (
+      Cases >> simp[ml_repl_stepTheory.LIST_TYPE_def,types_match_def,PULL_EXISTS] ) >>
+    gen_tac >> Cases >> rw[ml_repl_stepTheory.LIST_TYPE_def] >> rw[types_match_def] >>
+    METIS_TAC[] ) >>
+  METIS_TAC[EqualityType_thm,EqualityType_LIST_TYPE_CHAR,EqualityType_AST_LIT_TYPE,
+            EqualityType_OPTION_TYPE_AST_ID_TYPE_LIST_TYPE_CHAR])
+
+val AST_PAT_TYPE_11 = prove(
+  ``∀a b c d. AST_PAT_TYPE a b ∧ AST_PAT_TYPE c d ⇒ (a = c ⇔ b = d)``,
+  ho_match_mp_tac ml_repl_stepTheory.AST_PAT_TYPE_ind >>
+  simp[ml_repl_stepTheory.AST_PAT_TYPE_def,PULL_EXISTS] >> rw[] >>
+  Cases_on`c`>>fs[ml_repl_stepTheory.AST_PAT_TYPE_def] >> rw[] >>
+  TRY (
+    rpt(rator_x_assum`LIST_TYPE`mp_tac) >>
+    `x_4 = o' ⇔ v3_1 = v3_1'` by METIS_TAC[EqualityType_thm,EqualityType_OPTION_TYPE_AST_ID_TYPE_LIST_TYPE_CHAR] >>
+    simp[] >>
+    ntac 3 (pop_assum kall_tac) >> pop_assum mp_tac >>
+    map_every qid_spec_tac[`v3_2`,`v3_2'`,`l`,`x_3`] >>
+    Induct >> simp[ml_repl_stepTheory.LIST_TYPE_def] >- (
+      Cases >> simp[ml_repl_stepTheory.LIST_TYPE_def,PULL_EXISTS] ) >>
+    gen_tac >> Cases >> rw[ml_repl_stepTheory.LIST_TYPE_def] >> rw[] >>
+    METIS_TAC[] ) >>
+  METIS_TAC[EqualityType_thm,EqualityType_LIST_TYPE_CHAR,EqualityType_AST_LIT_TYPE,
+            EqualityType_OPTION_TYPE_AST_ID_TYPE_LIST_TYPE_CHAR])
+
+val EqualityType3 = prove(
+  ``EqualityType AST_PAT_TYPE``,
+  METIS_TAC[EqualityType_thm,AST_PAT_TYPE_no_closures,AST_PAT_TYPE_types_match,AST_PAT_TYPE_11])
+
+val PATLANG_EXP_PAT_TYPE_no_closures = prove(
+  ``∀a b. PATLANG_EXP_PAT_TYPE a b ⇒ no_closures b``,
+  ho_match_mp_tac ml_repl_stepTheory.PATLANG_EXP_PAT_TYPE_ind >>
+  simp[ml_repl_stepTheory.PATLANG_EXP_PAT_TYPE_def,no_closures_def,PULL_EXISTS] >>
+  rw[] >>
+  TRY (
+    qmatch_assum_rename_tac`LIST_TYPE PATLANG_EXP_PAT_TYPE x1 y1`[] >>
+    rator_x_assum`LIST_TYPE`mp_tac >> last_x_assum mp_tac >>
+    rpt(pop_assum kall_tac) >>
+    map_every qid_spec_tac[`y1`,`x1`] >>
+    Induct >> simp[ml_repl_stepTheory.LIST_TYPE_def,no_closures_def,PULL_EXISTS] >>
+    rw[] >> METIS_TAC[] ) >>
+  METIS_TAC[EqualityType_thm,EqualityType_NUM,EqualityType_PATLANG_OP_PAT_TYPE,EqualityType_AST_LIT_TYPE])
+
+val PATLANG_EXP_PAT_TYPE_types_match = prove(
+  ``∀a b c d. PATLANG_EXP_PAT_TYPE a b ∧ PATLANG_EXP_PAT_TYPE c d ⇒ types_match b d``,
+  ho_match_mp_tac ml_repl_stepTheory.PATLANG_EXP_PAT_TYPE_ind >>
+  simp[ml_repl_stepTheory.PATLANG_EXP_PAT_TYPE_def,types_match_def,PULL_EXISTS] >> rw[] >>
+  Cases_on`c`>>fs[ml_repl_stepTheory.PATLANG_EXP_PAT_TYPE_def,types_match_def] >> rw[] >>
+  TRY (
+    qmatch_assum_rename_tac`LIST_TYPE PATLANG_EXP_PAT_TYPE x1 y1`[] >>
+    rator_x_assum`LIST_TYPE`mp_tac >>
+    qmatch_assum_rename_tac`LIST_TYPE PATLANG_EXP_PAT_TYPE x2 y2`[] >>
+    rator_x_assum`LIST_TYPE`mp_tac >>
+    last_x_assum mp_tac >>
+    rpt(pop_assum kall_tac) >>
+    map_every qid_spec_tac[`y2`,`y1`,`x1`,`x2`] >>
+    Induct >> simp[ml_repl_stepTheory.LIST_TYPE_def] >- (
+      Cases >> simp[ml_repl_stepTheory.LIST_TYPE_def,types_match_def,PULL_EXISTS] ) >>
+    gen_tac >> Cases >> simp[ml_repl_stepTheory.LIST_TYPE_def,PULL_EXISTS] >> rw[] >>
+    rw[types_match_def] >> METIS_TAC[] ) >>
+  METIS_TAC[EqualityType_thm,EqualityType_NUM,EqualityType_PATLANG_OP_PAT_TYPE,EqualityType_AST_LIT_TYPE])
+
+val PATLANG_EXP_PAT_TYPE_11 = prove(
+  ``∀a b c d. PATLANG_EXP_PAT_TYPE a b ∧ PATLANG_EXP_PAT_TYPE c d ⇒ (a = c ⇔ b = d)``,
+  ho_match_mp_tac ml_repl_stepTheory.PATLANG_EXP_PAT_TYPE_ind >>
+  simp[ml_repl_stepTheory.PATLANG_EXP_PAT_TYPE_def,PULL_EXISTS] >> rw[] >>
+  Cases_on`c`>>fs[ml_repl_stepTheory.PATLANG_EXP_PAT_TYPE_def] >> rw[] >>
+  TRY (
+    qmatch_assum_rename_tac`LIST_TYPE PATLANG_EXP_PAT_TYPE x1 y1`[] >>
+    rator_x_assum`LIST_TYPE`mp_tac >>
+    qmatch_assum_rename_tac`LIST_TYPE PATLANG_EXP_PAT_TYPE x2 y2`[] >>
+    rator_x_assum`LIST_TYPE`mp_tac >>
+    ((qmatch_assum_rename_tac`PATLANG_EXP_PAT_TYPE a1 b1`[] >>
+      rator_x_assum`PATLANG_EXP_PAT_TYPE`mp_tac >>
+      qmatch_assum_rename_tac`PATLANG_EXP_PAT_TYPE c1 d1`[] >>
+      strip_tac) ORELSE
+     (qmatch_assum_rename_tac`NUM a1 b1`[] >>
+      rator_x_assum`NUM`mp_tac >>
+      qmatch_assum_rename_tac`NUM c1 d1`[] >>
+      strip_tac) ORELSE
+     (qmatch_assum_rename_tac`PATLANG_OP_PAT_TYPE a1 b1`[] >>
+      rator_x_assum`PATLANG_OP_PAT_TYPE`mp_tac >>
+      qmatch_assum_rename_tac`PATLANG_OP_PAT_TYPE c1 d1`[] >>
+      strip_tac)) >>
+    `c1 = a1 ⇔ d1 = b1` by METIS_TAC[EqualityType_thm,EqualityType_PATLANG_OP_PAT_TYPE,EqualityType_NUM] >> simp[] >>
+    last_x_assum mp_tac >>
+    rpt(pop_assum kall_tac) >>
+    map_every qid_spec_tac[`y2`,`y1`,`x1`,`x2`] >>
+    Induct >> simp[ml_repl_stepTheory.LIST_TYPE_def] >- (
+      Cases >> simp[ml_repl_stepTheory.LIST_TYPE_def,PULL_EXISTS] ) >>
+    gen_tac >> Cases >> simp[ml_repl_stepTheory.LIST_TYPE_def,PULL_EXISTS] >> rw[] >>
+    rw[] >> METIS_TAC[] ) >>
+  METIS_TAC[EqualityType_thm,EqualityType_NUM,EqualityType_PATLANG_OP_PAT_TYPE,EqualityType_AST_LIT_TYPE])
+
+val EqualityType4 = prove(
+  ``EqualityType PATLANG_EXP_PAT_TYPE``,
+  METIS_TAC[EqualityType_thm,PATLANG_EXP_PAT_TYPE_no_closures,PATLANG_EXP_PAT_TYPE_types_match,PATLANG_EXP_PAT_TYPE_11])
+
 fun prove_equality_type tm = prove(``EqualityType ^tm``,cheat)
-val EqualityType3 = prove_equality_type ``AST_PAT_TYPE``
-val EqualityType4 = prove_equality_type ``PATLANG_EXP_PAT_TYPE``
 val EqualityType5 = prove_equality_type ``AST_EXP_TYPE``
 val EqualityType6 = prove_equality_type ``INFER_T_INFER_T_TYPE``
 val EqualityTypes = [EqualityType1, EqualityType2, EqualityType3, EqualityType4, EqualityType5, EqualityType6]
