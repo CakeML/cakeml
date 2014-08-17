@@ -199,14 +199,13 @@ val ZIP_CORRECT_INJ = store_thm ("ZIP_CORRECT_INJ",
   metis_tac[INJ_DEF])
 
 (*Prove that get_var gives the same result under an injective f*)
-val inj_apply_nummap_key = store_thm("inj_apply_nummap_key_invariant",
+val get_var_inj = prove(
   ``!f v s x. INJ f UNIV UNIV /\ get_var v s = x 
     ==> get_var (f v) (s with locals := apply_nummap_key f s.locals) = x``,
   rpt strip_tac>>
   Cases_on `x`>>
   fs[get_var_def]>-
-   (
-  SPOSE_NOT_THEN ASSUME_TAC>>
+  (SPOSE_NOT_THEN ASSUME_TAC>>
   fs[lookup_NONE_domain] >>
   IMP_RES_TAC MEM_fromAList>>
   fs[MAP_ZIP]>>
@@ -230,7 +229,6 @@ val inj_apply_nummap_key = store_thm("inj_apply_nummap_key_invariant",
   ASSUME_TAC (INST_TYPE [``:'c``|-> ``:num``,``:'b``|->``:'a word_loc``,``:'a``|-> ``:num``] ZIP_CORRECT) >>
  first_x_assum(qspecl_then [`toAList s.locals`,`v`,`x'`,`f`] mp_tac)>>
   strip_tac>>
-  (*HOW TO: reapply an abbrev???*)
   Q.UNABBREV_TAC `ls`>>
   Q.ABBREV_TAC `ls = (ZIP
         (MAP (f o FST) (toAList s.locals),
@@ -243,7 +241,6 @@ val inj_apply_nummap_key = store_thm("inj_apply_nummap_key_invariant",
   first_x_assum (qspecl_then [`f v`,`x`,`ls`] assume_tac) >>
   `MEM (v,x') (toAList s.locals)` by metis_tac[MEM_toAList] >>
   `MEM (f v,x') ls` by metis_tac[ZIP_CORRECT]>>
-
   `!y. MEM (v,y) (toAList s.locals) ==> y=x'` by
     (rw[] >> fs[MEM_toAList]) >>
   `MEM (f v,x) ls` by metis_tac[] >> 
@@ -252,69 +249,15 @@ val inj_apply_nummap_key = store_thm("inj_apply_nummap_key_invariant",
    first_assum(qspecl_then [`x'`,`f`] assume_tac)>>
    first_assum(qspecl_then [`x`,`f`] assume_tac)>>
    metis_tac[]) 
- 
 
-    metis_tac[MEM_toAList,lookup_def,spt_eq_thm]
-   rw[]>>
-    Q.UNABBREV_TAC `ls`>>
-    ASSUME_TAC ZIP_CORRECT_INJ>>
-
-  metis_tac[ZIP_CORRECT_INJ]
-  rw[]>>
-   
-
- SPOSE_NOT_THEN ASSUME_TAC>>
-   metis_tac[INJ_DEF]
-
-  
-
-  SPOSE_NOT_THEN ASSUME_TAC>>  
-  ASSUME_TAC (INST_TYPE [``:'a`` |-> ``:'a word_loc``] domain_lookup)>>
-  first_x_assum(qspecl_then [`fromAList ls`,`f v`] assume_tac)>>
-  ASSUME_TAC MEM_fromAList>>
-  `?v'. lookup (f v) (fromAList ls) = SOME v'` by metis_tac[] >>
-  fs[] >>
-  first_x_assum(qspecl_then [`ls`,`f v`] assume_tac)>>
-  `MEM (f v) (MAP FST ls)` by metis_tac[] >>
-  Q.UNABBREV_TAC `ls`>>
-  fs[MAP_ZIP]>>
-  fs[MEM_MAP] >>
-  Cases_on`y` >>
-    Cases_on`q=v`>-
-      
-  
-  metis_tac[MAP_ZIP, MEM_MAP, INJ_DEF,MEM_fromAList]
-
-
-  HINT_EXISTS_TAC
-
-lookup_NONE_domain >>
-  
-  IMP_RES_TAC MEM_fromAList>>
-  fs[MAP_ZIP]>>
-  fs[MEM_MAP]>>
-
-  Cases_on `y`>>
-    fs[MEM_toAList]>>
-    Cases_on `q=v`>- 
-      fs[domain_lookup] 
-    >> fs[INJ_DEF] >>metis_tac[]) >> 
-
-
-  IMP_RES_TAC MEM_MAP_FST>>
-   
-  
-  metis_tac[
-  fs[] >> pop_assum mp_tac>>
-  simp[] >> strip_tac>>
-  `!x t. lookup x t <> NONE <=> x IN domain t` by
-  fs[lookup_NONE_domain,domain_lookup]>>
-  first_x_assum(qspecl_then [`v`,`s.locals`] assume_tac) >>
-   
-   
-
-   
-
+(*Same thing as get_var_inj except for get_vars*)
+val get_vars_inj = prove(
+  ``!f ls s. INJ f UNIV UNIV ==> get_vars ls s = get_vars (MAP f ls) (s with locals := apply_nummap_key f s.locals)``, 
+  strip_tac >> Induct >> rpt strip_tac>> fs[get_vars_def]>>
+  ASSUME_TAC get_var_inj >>
+  first_x_assum(qspecl_then [`f`,`h`,`s`] assume_tac)>>
+  Cases_on `get_var h s` >> 
+  fs[]);
 
 (*Helpful:
    traces();
@@ -324,59 +267,12 @@ lookup_NONE_domain >>
     show_types:=false;
  *)
 
-  IMP_RES_TAC MEM_toAList >>
-    ASSUME_TAC MEM_fromAList>>
-  `!ls. MEM (f v,x') ls ==> MEM (f v) (MAP FST ls)` by
-     rpt strip_tac>>
-     fs[MEM_MAP] >>
-     EXISTS_TAC ``(f v,x')``>> simp[])
+(*Map compose*)
 
-     metis_tac[]
-       EXISTS_TAC
-                     metis_tac[]
-    Induct_on `ls`>>
-      fs[]>>
-
-
-   )
-
-
-
-  fs[MAP_ZIP]
-  IMP_RES_TAC MEM_MAP>>
-  fs[]>> 
-  first_assum(qspec_then `b` assume_tac)
-
-   IMP_RES_TAC MEM_fromAList >> 
-
-
-      fs[MAP_ZIP,MEM_toAList,domain_lookup] >>
-     rw[] 
-      >> fs[INJ_DEF] >> metis_tac[])
-    
-
-
-
-     metis_tac[MEM_fromAList,MEM_toAList] 
-    strip_tac>>
-     first_assum(qspec_then `ls` assume_tac)
-     first_x_assum(qspec_then `ls` mp_tac) 
-   (*SOME*)
-   >>
-   
-
- 
-    `lookup v s.locals = NONE ==> ~(v IN domain s.locals)` by
-      fs[domain_lookup,lookup_def]>> 
-   fs[domain_lookup,lookup_NONE_domain]>>
-    Cases_on `
-    rw[fromAList_def] 
-  CONTR_TAC
-
-_CASES_TAC
-  fs[MEM_toAList]
-
-  rw[get_var_def,toAList_def,fromAList_def]
+val map_compose = prove (
+  ``!f g ls. MAP (f o g) ls = MAP f (MAP g ls)``,
+   strip_tac>>strip_tac>>Induct>>
+   fs[]);
 
 (*Prove that mapping injective f over a prog + initial state variables gives the same result and a new state which contains mapped vars*)
 val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
@@ -391,6 +287,8 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
   (*Skip*)
   fs[wEval_def] >-
 
+  (*Alloc*)
+   >-
   (*Move*)
 
   fs[MAP_ZIP,wEval_def,get_vars_def,set_vars_def,list_insert_def]>>
@@ -399,6 +297,24 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
     fs[]>>
     Cases_on `get_vars (MAP SND moves) s` >>
     fs[]>>
+    `get_vars (MAP (f o SND) moves) (s with locals := 
+    apply_nummap_key f s.locals) = SOME x` by
+    (ASSUME_TAC get_vars_inj>>
+    fs[map_compose]>>
+    first_x_assum(qspecl_then [`f`,`MAP SND moves`,`s`] assume_tac) >>
+    metis_tac[]) >> fs[apply_nummap_key_def]>>
+   (*Just need to prove something about list_insert now*)
+
+  et_vars_inj,map_compose,apply_nummap_key_def]>>
+    
+
+    fs[get_vars_inj]>>fs[]
+    `get_vars (MAP (f o SND) moves) 
+       (s with locals := apply_nummap_key f s.locals) =
+     get_vars (MAP SND moves) s` by
+      fs[map_compose] >>
+      
+
     `!x f. INJ f UNIV UNIV /\ get_vars (MAP SND moves) s = SOME x ==>
      get_vars (MAP (f o SND) moves) (s with locals := apply_nummap_key f s.locals) = SOME x` by
     Induct_on `moves`>>
@@ -407,7 +323,24 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
     Cases_on`get_var (SND h) s`>> fs[]>>
     rw[get_var_def]>> 
 
-    rw[fromAList_def]
+(*2nd subgoal of moves*)
+  >> `ALL_DISTINCT (MAP FST moves)` by 
+   (SPOSE_NOT_THEN ASSUME_TAC>> fs[])>>
+   `MAP (f o FST) moves = MAP f (MAP FST moves)` by fs[map_compose]>>
+   fs[INJ_DEF] 
+   >> metis_tac[miscTheory.ALL_DISTINCT_MAP_INJ]
+   
+fs[]
+     rw[]
+      metis_tac[]
+
+     Induct_on`moves` >- fs[] >>
+       metis_tac[] 
+   metis_tac[miscTheory.ALL_DISTINCT_MAP_INJ]
+   IF_CASES_TAC
+   simp[]>>
+metis_tac[INJ_DEF]
+    rw[fromAList_def]]
     rw[get_vars_def]>>
        Induct_on `moves`>-
          fs[get_vars_def] >>
