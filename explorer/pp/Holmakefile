@@ -1,4 +1,4 @@
-INCLUDES = ../.. $(HOLDIR)/examples/l3-machine-code/x64/model $(HOLDIR)/examples/parsing ../../parsing ../../compiler ../../compiler/proofs ../../inference ../../semantics ../../initial ../../bytecode ../../x86-64 
+INCLUDES = ../.. $(HOLDIR)/examples/l3-machine-code/x64/model $(HOLDIR)/examples/parsing ../../parsing ../../compiler ../../compiler/proofs ../../inference ../../semantics ../../initial ../../bytecode ../../x86-64 ../../standalone
 
 OPTIONS = QUIT_ON_FAILURE
 

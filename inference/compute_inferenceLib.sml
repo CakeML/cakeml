@@ -42,6 +42,7 @@ structure compute_inferenceLib = struct
     ,Infer_Tunit_def
     ,infer_type_subst_def
     ,check_signature_def
+    ,exc_case_def
     ] compset
 
     val () = compute_basicLib.add_datatype ``:infer_t`` compset

@@ -1,6 +1,6 @@
 open preamble;
 open intLib wordsLib unifyLib;
-open astTheory initialEnvTheory lexer_implTheory;
+open astTheory initCompEnvTheory lexer_implTheory;
 open terminationTheory;
 open compilerTheory initialProgramTheory;
 open compilerTerminationTheory bytecodeEncodeTheory;
@@ -21,20 +21,16 @@ get_all_asts input =
 (wf_rel_tac `measure LENGTH` >>
  rw [lex_until_toplevel_semicolon_LESS]);
 
-val elab_all_asts_def = Define `
-elab_all_asts asts =
-  case asts of 
-     | Failure x => Failure x
-     | Success asts =>
-         Success (SND (elab_prog init_type_bindings asts))`;
-
 val infer_all_asts_def = Define `
 infer_all_asts asts =
   case asts of
-     | Failure x => Failure x
      | Success asts =>
-         case FST (infer_prog init_infer_decls [] init_tenvC init_type_env asts infer$init_infer_state) of
-            | Failure x => Failure x
+         let basis = FST(THE basis_env) in
+         let decls = (basis.inf_mdecls,basis.inf_tdecls,basis.inf_edecls) in
+         let (tenvT,menv,cenv,env) = (basis.inf_tenvT,basis.inf_tenvM,
+                                      basis.inf_tenvC,basis.inf_tenvE) in
+         case FST (infer_prog decls tenvT menv cenv env asts init_infer_state)
+         of | Failure x => Failure x
             | Success x => Success asts`; 
 
 val compile_all_asts_def = Define `
@@ -42,14 +38,14 @@ compile_all_asts asts =
   case asts of
      | Failure x => Failure x
      | Success asts =>
-         Success (compile_prog (Tdec initial_program::asts))`;
+         Success (compile_prog (FST (THE basis_env)).comp_rs (basis_program++asts))`;
 
 val compile_all_asts_no_init_def = Define `
 compile_all_asts_no_init asts =
   case asts of
      | Failure x => Failure x
      | Success asts =>
-         Success (compile_prog asts)`;
+         Success (compile_prog (FST (THE basis_env)).comp_rs asts)`;
 
 val remove_labels_all_asts_def = Define `
 remove_labels_all_asts len asts =
@@ -72,7 +68,7 @@ all_asts_to_encoded asts =
 
 val prog_to_bytecode_def = Define `
 prog_to_bytecode len p =
-  remove_labels_all_asts len (compile_all_asts (infer_all_asts (elab_all_asts (get_all_asts p))))`;
+  remove_labels_all_asts len (compile_all_asts (infer_all_asts (get_all_asts p)))`;
 
 val prog_to_bytecode_string_def = Define `
 prog_to_bytecode_string len p =
