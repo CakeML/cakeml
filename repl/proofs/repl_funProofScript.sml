@@ -1233,7 +1233,7 @@ val unlabelled_main_loop_thm = store_thm("unlabelled_main_loop_thm",
     bs.inst_length = real_inst_length ∧
     SND (unrolled_main_loop (INR (MAP token_of_sym syms,success,ss,sf)) bs input)
     ⇒
-    unlabelled_main_loop (INR (syms,success,len,labs,ss,sf)) (strip_labels bs) input =
+    unlabelled_main_loop (INR (syms,success,(len,labs),ss,sf)) (strip_labels bs) input =
     unrolled_main_loop (INR (MAP token_of_sym syms,success,ss,sf)) bs input``,
   strip_tac >>
   completeInduct_on`LENGTH input` >>
@@ -1258,7 +1258,7 @@ val unlabelled_main_loop_thm = store_thm("unlabelled_main_loop_thm",
     simp[Once unrolled_main_loop_def,labelled_repl_step_def,UNCURRY]) >>
   BasicProvers.CASE_TAC >>
   BasicProvers.CASE_TAC >>
-  simp[install_bc_lists_thm] >>
+  simp[install_bc_lists_thm,unlabel_and_encode_def] >>
   Q.PAT_ABBREV_TAC`bs' = install_code X (strip_labels bs)` >>
   `code_labels_ok bs.code` by (
     UNABBREV_ALL_TAC >>
@@ -1326,7 +1326,7 @@ val unlabelled_repl_thm = store_thm("unlabelled_repl_thm",
   rw[unlabelled_repl_fun_def,unrolled_repl_fun_def] >>
   rw[Once unlabelled_main_loop_def] >>
   rw[unlabelled_repl_step_def] >>
-  Cases_on`initial`>>rw[] >>
+  Cases_on`initial`>>rw[unlabel_and_encode_def] >>
   rw[Once unrolled_main_loop_def] >>
   rw[labelled_repl_step_def] >>
   `code_assert` by (
@@ -1423,7 +1423,7 @@ val convert_invariants = Q.prove (
      metis_tac []));
 
 val initial_bc_state_side_basis_state = store_thm("initial_bc_state_side_basis_state",
-  ``initial_bc_state_side (SND (SND (SND basis_state)))``,
+  ``initial_bc_state_side (SND (SND basis_state))``,
    strip_assume_tac basis_env_inv >>
    rw[initial_bc_state_side_def,basis_state_def] >> fs[] >>
    rw[Abbr`bs1`] >>
@@ -1434,14 +1434,14 @@ val initial_bc_state_side_basis_state = store_thm("initial_bc_state_side_basis_s
 
 val simple_repl_basis_lemma = prove(
   ``!input.
-    let (output,b) = simple_repl_fun (SND (SND basis_state)) input in
+    let (output,b) = simple_repl_fun (SND basis_state) input in
     (repl basis_repl_env (get_type_error_mask output) input output) /\ b``,
    rpt gen_tac >>
-   Cases_on`simple_repl_fun (SND (SND basis_state)) input` >>
+   Cases_on`simple_repl_fun (SND basis_state) input` >>
    simp[] >>
    match_mp_tac simple_repl_thm >>
-   qexists_tac `SND (SND (SND basis_state))` >>
-   qexists_tac `FST (SND (SND basis_state))` >> simp[initial_bc_state_side_basis_state] >>
+   qexists_tac `SND (SND basis_state)` >>
+   qexists_tac `FST (SND basis_state)` >> simp[initial_bc_state_side_basis_state] >>
    strip_assume_tac basis_env_inv >>
    imp_res_tac add_stop_invariant >> rfs[basis_state_def] >>
    imp_res_tac convert_invariants >>
@@ -1484,24 +1484,24 @@ val simple_repl_fun_basis_thm = save_thm("simple_repl_fun_basis_thm",
 
 val unrolled_repl_fun_basis_thm = store_thm("unrolled_repl_fun_basis_thm",
   ``∀input.
-    let (output',b) = unrolled_repl_fun (SND (SND basis_state)) input in
+    let (output',b) = unrolled_repl_fun (SND basis_state) input in
       ∃output.
-        let res = (THE (bc_eval (install_code (SND(SND(SND basis_state))) initial_bc_state))).output in
+        let res = (THE (bc_eval (install_code (SND(SND basis_state)) initial_bc_state))).output in
         output' = Result res output ∧
         repl basis_repl_env (get_type_error_mask output) input output ∧
         b``,
   rw[LET_THM] >>
   qspec_then`input`mp_tac simple_repl_fun_basis_thm >>
   simp[UNCURRY] >> strip_tac >>
-  qspecl_then[`SND(SND basis_state)`,`input`]mp_tac unrolled_repl_thm >>
+  qspecl_then[`SND basis_state`,`input`]mp_tac unrolled_repl_thm >>
   simp[initial_bc_state_side_basis_state] >>
-  Cases_on`simple_repl_fun (SND(SND basis_state)) input`>>fs[])
+  Cases_on`simple_repl_fun (SND basis_state) input`>>fs[])
 
 val unlabelled_repl_fun_basis_thm = store_thm("unlabelled_repl_fun_basis_thm",
   ``∀input.
-    let (output',b) = unlabelled_repl_fun (SND(SND basis_state)) input in
+    let (output',b) = unlabelled_repl_fun (SND basis_state) input in
     ∃output.
-      let res = (THE (bc_eval (install_code (SND(SND(SND basis_state))) initial_bc_state))).output in
+      let res = (THE (bc_eval (install_code (SND(SND basis_state)) initial_bc_state))).output in
       output' = Result res output ∧
       repl basis_repl_env (get_type_error_mask output) input output ∧
       b``,
@@ -1509,7 +1509,7 @@ val unlabelled_repl_fun_basis_thm = store_thm("unlabelled_repl_fun_basis_thm",
   qspec_then`input`mp_tac unrolled_repl_fun_basis_thm >>
   simp[UNCURRY] >> strip_tac >>
   qexists_tac`output` >> simp[] >>
-  qspecl_then[`SND(SND basis_state)`,`input`]mp_tac unlabelled_repl_thm >>
+  qspecl_then[`SND basis_state`,`input`]mp_tac unlabelled_repl_thm >>
   simp[])
 
 val basis_main_loop_thm = store_thm("basis_main_loop_thm",
@@ -1531,13 +1531,13 @@ val basis_main_loop_thm = store_thm("basis_main_loop_thm",
 
 val basis_repl_fun_lemma = prove(
   ``∀input. basis_repl_fun input =
-            unlabelled_repl_fun (SND (SND basis_state)) input``,
+            unlabelled_repl_fun (SND basis_state) input``,
   rw[basis_repl_fun_def] >>
   rw[unlabelled_repl_fun_def] >>
   rw[Once basis_main_loop_def] >>
   rw[basis_repl_step_def] >>
   rw[Once unlabelled_main_loop_def] >>
-  `(len,labs,SND(SND basis_state)) = basis_state` by (
+  `((len,labs),SND basis_state) = basis_state` by (
     simp[basis_state_def] ) >>
   simp[] >>
   BasicProvers.CASE_TAC >>
@@ -1553,7 +1553,7 @@ val basis_repl_fun_thm = store_thm("basis_repl_fun_thm",
   ``∀input.
     let (output',b) = basis_repl_fun input in
     ∃output.
-      let res = (THE (bc_eval (install_code (SND(SND(SND basis_state))) initial_bc_state))).output in
+      let res = (THE (bc_eval (install_code (SND(SND basis_state)) initial_bc_state))).output in
       output' = Result res output ∧
       repl basis_repl_env (get_type_error_mask output) input output ∧
       b``,

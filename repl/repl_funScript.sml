@@ -154,25 +154,27 @@ val unrolled_repl_fun_def = Define `
    particular bytecode instructions are encoded as numbers and tokens are
    mapped from symbols. *)
 
+val unlabel_and_encode_def = Define`
+  unlabel_and_encode (len,labs) code =
+    let code = REVERSE code in
+    let labs = FUNION labs (collect_labels code len real_inst_length) in
+    let len = len + code_length real_inst_length code in
+    let code = inst_labels labs code in
+    ((len,labs),MAP bc_num code)`
+
 val unlabelled_repl_step_def = Define `
   unlabelled_repl_step state =
     case state of
-    | INL (len,labs,(initial,code)) =>
-       let code = REVERSE code in
-       let labs = FUNION labs (collect_labels code len real_inst_length) in
-       let len = len + code_length real_inst_length code in
-       let code = inst_labels labs code in
-       INL (MAP bc_num code,len,labs,initial,initial)
-    | INR (symbols,success,len,labs,s,s_exc) =>
+    | INL (ls,(initial,code)) =>
+       let (ls,code) = unlabel_and_encode ls code in
+       INL (code,ls,initial,initial)
+    | INR (symbols,success,ls,s,s_exc) =>
         let s = if success then s else s_exc in
         case parse_infertype_compile (MAP token_of_sym symbols) s of
         | Success (code,s,s_exc) =>
-            let code = REVERSE code in
-            let labs = FUNION labs (collect_labels code len real_inst_length) in
-            let len = len + code_length real_inst_length code in
-            let code = inst_labels labs code in
-              INL (MAP bc_num code,len,labs,s,s_exc)
-        | Failure error_msg => INR (error_msg,(F,len,labs,s,s))`;
+            let (ls,code) = unlabel_and_encode ls code in
+              INL (code,ls,s,s_exc)
+        | Failure error_msg => INR (error_msg,(F,ls,s,s))`;
 
 val install_bc_lists_def = Define `
   install_bc_lists code bs =
@@ -217,7 +219,7 @@ val unlabelled_repl_fun_def = Define`
     let code = initial_bc_state.code in
     let labs = collect_labels code 0 real_inst_length in
     let len = code_length real_inst_length code in
-    unlabelled_main_loop (INL (len,labs,initial)) (strip_labels initial_bc_state) input`
+    unlabelled_main_loop (INL ((len,labs),initial)) (strip_labels initial_bc_state) input`
 
 (* The last step introduces the actual initial repl state (obtained by running
    the semantics on the initial program). *)
@@ -235,7 +237,7 @@ val basis_state_def = Define`
   let code = initial_bc_state.code in
   let labs = collect_labels code 0 real_inst_length in
   let len = code_length real_inst_length code in
-  (len,labs,(rf,Stop T :: SND (THE basis_env) ++ SND (THE prim_env)))`
+  ((len,labs),(rf,Stop T :: SND (THE basis_env) ++ SND (THE prim_env)))`
 
 val basis_repl_step_def = Define `
   (basis_repl_step NONE = unlabelled_repl_step (INL basis_state)) ∧
