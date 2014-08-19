@@ -67,18 +67,13 @@ val parse_top_def = Define `
     od
 `;
 
-val _ = Hol_datatype`
-  repl_parse_result = RPR_INCOMPLETE of token list
-                    | RPR_PROG of prog option => token list
-`
-
-val parse_REPLphrase_def = Define`
-  parse_REPLphrase toks =
+val parse_prog_def = Define`
+  parse_prog toks =
     do
-      (toks',pts) <- destResult (cmlpegexec nREPLPhrase toks);
+      (toks',pts) <- destResult (cmlpegexec nTopLevelDecs toks);
       pt <- oHD pts;
-      tds <- ptree_REPLPhrase pt;
-      SOME(toks',tds)
+      tds <- ptree_TopLevelDecs pt;
+      if toks' <> [] then NONE else SOME tds
     od
 `
 
