@@ -777,8 +777,8 @@ val evaluate_Tmod_tys = prove(
 
 (* Environment produced by repl_decs *)
 
-val evaluate_repl_decs = DISCH_ALL module_thm
-  |> RW EqualityTypes
+val evaluate_repl_decs = save_thm("evaluate_repl_decs",DISCH_ALL module_thm
+  |> RW EqualityTypes)
 
 val (repl_store,repl_res) =
   CONJUNCT1 evaluate_repl_decs
