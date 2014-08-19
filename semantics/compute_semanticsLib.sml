@@ -6,7 +6,7 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
   fun add_ast_compset compset =
   let
     val () = compute_basicLib.add_basic_compset compset
-    
+
     val () = computeLib.add_thms
     [gramTheory.nt_distinct_ths
     ,libTheory.merge_def
@@ -116,7 +116,6 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
       val () = computeLib.add_thms
       [tuplify_def
       ,ptree_REPLTop_def
-      ,ptree_REPLPhrase_def
       ,ptree_TopLevelDecs_def
       ,ptree_TopLevelDec_def
       ,ptree_Structure_def
