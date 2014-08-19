@@ -23,15 +23,6 @@ val cmlParseExpr_def = Define`
   od
 `;
 
-val cmlParseREPLPhrase_def = Define`
-  cmlParseREPLPhrase toks = do
-    (toks', pts) <- destResult (cmlpegexec nREPLPhrase toks);
-    pt <- oHD pts;
-    ast <- ptree_REPLPhrase pt;
-    SOME(toks',ast)
-  od
-`
-
 val cmlParseREPLTop_def = Define`
   cmlParseREPLTop toks = do
     (toks', pts) <- destResult (cmlpegexec nREPLTop toks);
@@ -47,18 +38,9 @@ val cmlpeg_executed =
       |> SIMP_RULE (srw_ss()) [cmlPEGTheory.PEG_wellformed]
       |> Q.GEN `s` |> Q.GEN `r` |> Q.GEN `e` |> GSYM
 
-(* This function parses declarations, no junk is allowed at the end. *)
-val parse_def = Define `
-  (parse : token list -> prog option) tokens =
-    do
-      (ts,tdecs) <- cmlParseREPLPhrase tokens;
-      if ts <> [] then NONE else SOME tdecs
-    od
-`;
-
 (* This function parses a single declaration followed by a semicolon.
    No junk is allowed at the end.
-   It is used in implementation/repl_funScript.sml. *)
+   It is used in repl/repl_funScript.sml. *)
 val parse_top_def = Define `
   (parse_top : token list -> top option) tokens =
     do
