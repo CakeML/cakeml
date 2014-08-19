@@ -220,7 +220,7 @@ val firstSet_nTopLevelDec = Store_thm(
 val firstSet_nTopLevelDecs = Store_thm(
   "firstSet_nTopLevelDecs",
   ``firstSet cmlG [NN nTopLevelDecs] =
-      {ValT; FunT; DatatypeT; StructureT; ExceptionT; TypeT}``,
+      {ValT; FunT; SemicolonT; DatatypeT; StructureT; ExceptionT; TypeT}``,
   simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
   simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
   simp[INSERT_UNION_EQ, INSERT_COMM]);
@@ -1872,28 +1872,6 @@ val completeness = store_thm(
           normlist >> asimp[]) >>
       simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied, FDOM_cmlPEG] >>
       normlist >> asimp[])
-  >- (print_tac "nREPLPhrase" >> fs[FDOM_cmlPEG])
-      (*
-      (simp[MAP_EQ_CONS] >> rw[] >>
-      fs[DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_APPEND, MAP_EQ_CONS] >> rw[]
-      >- (simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied, FDOM_cmlPEG] >>
-          DISJ2_TAC >> asm_match `ptree_head tdspt = NN nTopLevelDecs` >>
-          asm_match `ptree_fringe tdspt = MAP TK tf` >> conj_tac
-          >- (DISJ1_TAC >>
-              `tf = [] ∨ ∃tf0 tft. tf = tf0 :: tft`
-                by (Cases_on `tf` >> fs[]) >> rveq >> fs[] >|
-              [
-                ALL_TAC,
-                `tf0 ∈ firstSet cmlG [NN nTopLevelDecs]`
-                  by metis_tac [firstSet_nonempty_fringe]
-              ] >>
-              match_mp_tac peg_respects_firstSets >>
-              simp[PEG_exprs] >> fs[]) >>
-          normlist >>
-          asimp[]) >>
-      simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied, FDOM_cmlPEG] >>
-      normlist >>
-      asimp[]) *)
   >- (print_tac "nPtuple" >> stdstart
       >- (simp[peg_eval_tok_NONE] >>
           erule mp_tac
