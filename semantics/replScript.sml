@@ -78,7 +78,7 @@ val print_v_def = Define `
 
 val print_envE_def = Define `
 (print_envE [] [] = "") ∧
-(print_envE ((x', (n,t))::types) ((x,v)::envE) = 
+(print_envE ((x', (n,t))::types) ((x,v)::envE) =
   "val " ++ x ++ ":" ++ type_to_string t ++ " = " ++ print_v v ++ "\n" ++ print_envE types envE)`;
 
 val print_result_def = Define `
