@@ -13,6 +13,10 @@ val _ = export_rewrites["alist.MAP_KEYS_I"]
 
 (* TODO: move/categorize *)
 
+val LUPDATE_SAME = store_thm("LUPDATE_SAME",
+  ``∀n ls. n < LENGTH ls ⇒ (LUPDATE (EL n ls) n ls = ls)``,
+  rw[LIST_EQ_REWRITE,EL_LUPDATE]>>rw[])
+
 val IS_SOME_EXISTS = store_thm("IS_SOME_EXISTS",
   ``∀opt. IS_SOME opt ⇔ ∃x. opt = SOME x``,
   Cases >> simp[])

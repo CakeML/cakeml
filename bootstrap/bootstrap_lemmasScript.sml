@@ -12,13 +12,7 @@ val RW = REWRITE_RULE
 
 val _ = Globals.max_print_depth := 20
 
-(* TODO: move *)
-
-val LUPDATE_SAME = store_thm("LUPDATE_SAME",
-  ``∀n ls. n < LENGTH ls ⇒ (LUPDATE (EL n ls) n ls = ls)``,
-  rw[LIST_EQ_REWRITE,EL_LUPDATE]>>rw[])
-
-(* REPL module is closed (should be proved elsewhere?) *)
+(* REPL module is closed (TODO: should be proved elsewhere?) *)
 
 val all_env_dom_init =
   ``all_env_dom ((THE prim_sem_env).sem_envM,(THE prim_sem_env).sem_envC,(THE prim_sem_env).sem_envE)``
