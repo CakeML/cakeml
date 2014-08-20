@@ -1156,27 +1156,14 @@ val ptree_TopLevelDecs_def = Define`
       case args of
           [] => SOME []
         | [td_pt; tds_pt] =>
+          if td_pt = Lf (TOK SemicolonT) then ptree_TopLevelDecs tds_pt
+          else
           do
             td <- ptree_TopLevelDec td_pt;
             tds <- ptree_TopLevelDecs tds_pt;
             SOME(td::tds)
           od
         | _ => NONE
-`;
-
-val ptree_REPLPhrase_def = Define`
-  ptree_REPLPhrase (Lf _) = NONE ∧
-  ptree_REPLPhrase (Nd nt args) =
-    if nt <> mkNT nREPLPhrase then NONE
-    else
-      case args of
-          [pt; semitok] =>
-            ptree_TopLevelDecs pt ++
-            do
-              e <- ptree_Expr nE pt;
-              SOME[Tdec (Dlet (Pvar "it") e)]
-            od
-         | _ => NONE
 `;
 
 val ptree_REPLTop_def = Define`

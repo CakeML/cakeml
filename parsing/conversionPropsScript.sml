@@ -488,19 +488,9 @@ val TopLevelDecs_OK = store_thm(
   dsimp[] >> rpt strip_tac >> fs[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM] >>
   rveq >> dsimp[ptree_TopLevelDecs_def] >>
   fs[DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_APPEND] >>
+  TRY (Cases_on`toks`>>fs[]>>metis_tac[]) >>
   first_x_assum (erule strip_assume_tac) >>
-  erule strip_assume_tac (n TopLevelDec_OK) >> simp[]);
-
-val REPLPhrase_OK = store_thm(
-  "REPLPhrase_OK",
-  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nREPLPhrase ∧
-    MAP TK toks = ptree_fringe pt ⇒
-    ∃r. ptree_REPLPhrase pt = SOME r``,
-  start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >>
-  simp[ptree_REPLPhrase_def]
-  >- (erule strip_assume_tac (n TopLevelDecs_OK) >> simp[]) >>
-  Cases_on `ptree_TopLevelDecs e` >> simp[] >>
-  erule strip_assume_tac (n E_OK) >> simp[]);
+  erule strip_assume_tac (n TopLevelDec_OK) >> simp[]>> rw[]);
 
 val REPLTop_OK = store_thm(
   "REPLTop_OK",

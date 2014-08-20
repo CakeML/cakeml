@@ -565,6 +565,8 @@ let combine_mod_result menv env r =
     | Rval (menv',env') -> Rval (merge menv' menv, merge env' env)
   end
 
+let remove_count ((count,store),tdecls,mods) = (store,tdecls,mods)
+
 (* conversions to strings *)
 
 let rec

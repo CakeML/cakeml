@@ -663,6 +663,10 @@ val _ = Define `
   )))`;
 
 
+val _ = Define `
+ (remove_count ((count,store),tdecls,mods) = (store,tdecls,mods))`;
+
+
 (* conversions to strings *)
 
  val _ = Define `

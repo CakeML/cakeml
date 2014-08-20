@@ -90,3 +90,10 @@ let prim_sem_env =
 val basis_sem_env : maybe sem_environment
 let basis_sem_env =
   add_to_sem_env (Maybe_extra.fromJust prim_sem_env) basis_program
+
+open import TypeSystem
+type semantics_state =
+             <| (* Type system state *)
+                tdecs : decls; tenvT : tenvT; tenvM : tenvM; tenvC : tenvC; tenv : tenvE;
+                (* Semantics state *)
+                sem_env : sem_environment |>
