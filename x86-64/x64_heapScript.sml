@@ -5272,10 +5272,12 @@ val zHEAP_isNumber = let
     ``(0x1w && w << 1) = 0x0w:word64``
   val blast_lemma2 = blastLib.BBLAST_PROVE
     ``((0x2w && ~w) <> 0x0w:word64) <=> ~(w ' 1)``
+  val blast_lemma3 = blastLib.BBLAST_PROVE
+    ``(0x2w && ~(0x10000w * w + 0x1w)) ≠ 0x0w:word64``
 (*
 gg goal
 *)
-  val lemma = prove(goal,cheat) (*
+  val lemma = prove(goal,
     SIMP_TAC std_ss [LET_DEF,SEP_CLAUSES]
     \\ SIMP_TAC std_ss [zHEAP_def,SEP_IMP_def,SEP_CLAUSES,SEP_EXISTS_THM]
     \\ FULL_SIMP_TAC std_ss [PULL_FORALL] \\ GEN_TAC
@@ -5335,12 +5337,15 @@ gg goal
        (SIMP_TAC std_ss [reachable_refs_def]
         \\ FULL_SIMP_TAC std_ss [MEM] \\ Q.EXISTS_TAC `RefPtr n`
         \\ FULL_SIMP_TAC std_ss [get_refs_def,MEM,RTC_REFL])
-      \\ RES_TAC \\ FULL_SIMP_TAC std_ss [bc_ref_inv_def]
+      \\ RES_TAC
+      \\ `FLOOKUP f n = SOME (f ' n)` by ( simp[FLOOKUP_DEF] )
+      \\ `FLOOKUP refs n = SOME (refs ' n)` by ( fs[FLOOKUP_DEF,SUBSET_DEF] )
+      \\ Cases_on`refs ' n` \\ FULL_SIMP_TAC (srw_ss()) [bc_ref_inv_def]
       \\ IMP_RES_TAC heap_lookup_SPLIT
       \\ FULL_SIMP_TAC std_ss [x64_heap_APPEND,x64_heap_def,WORD_MUL_LSL,
            x64_el_def,RefBlock_def,x64_payload_def,LET_DEF,word_mul_n2w]
       \\ SEP_R_TAC \\ SIMP_TAC std_ss [GSYM word_mul_n2w]
-      \\ EVAL_TAC)) *)
+      \\ MATCH_ACCEPT_TAC blast_lemma3))
   val th = MP th lemma
   val th = Q.GEN `vals` th |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
   val (th,goal) = SPEC_STRENGTHEN_RULE th
