@@ -1129,7 +1129,7 @@ val COMPILER_RUN_INV_init = store_thm("COMPILER_RUN_INV_init",
     strip_assume_tac repl_env_def >> rfs[] >>
     Cases_on`EL iloc r`>>fs[]>>Cases_on`EL (iloc+1) r`>>fs[]>>
     ntac 2 (pop_assum (mp_tac o SYM)) >>
-    simp[LUPDATE_SAME] >> rw[] >>
+    simp[miscTheory.LUPDATE_SAME] >> rw[] >>
     strip_assume_tac bootstrap_bc_state_def >>
     MATCH_MP_TAC env_rs_with_bs_irr >>
     qexists_tac`bootstrap_bc_state with code := bootstrap_bc_state.code ++ REVERSE compile_call_repl_step` >>
