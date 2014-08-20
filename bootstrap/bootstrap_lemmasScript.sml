@@ -26,6 +26,7 @@ val closed_top_REPL = prove(
   simp[free_varsTheory.closed_top_def,all_env_dom_init,FV_decs_ml_repl_module_decls])
 
 (* Equality Type assumptions *)
+(* TODO: move all this (and other stuff?) to ml_repl_moduleTheory? *)
 
 local
   val ths = CONJUNCTS equality_types
@@ -40,9 +41,6 @@ val EqualityType_thm = prove(
       (!x1 v1 x2 v2. abs x1 v1 /\ abs x2 v2 ==> types_match v1 v2 /\
                                                 ((v1 = v2) ⇔ (x1 = x2)))``,
   SIMP_TAC std_ss [EqualityType_def] \\ METIS_TAC []);
-val EqualityType_FMAP_TYPE = prove(
-  ``∀a b. EqualityType a ∧ EqualityType b ⇒ EqualityType (FMAP_TYPE a b)``,
-  cheat)
 val EqualityType_CHAR = find_equality_type_thm``CHAR``
 val EqualityType_INT = find_equality_type_thm``INT``
 val EqualityType_NUM = find_equality_type_thm``NUM``
@@ -884,6 +882,50 @@ val FMAP_TYPE_no_closures = prove(
   Induct >> simp[ml_repl_stepTheory.FMAP_TYPE_def,PULL_EXISTS] >> rw[] >>
   METIS_TAC[LIST_TYPE_no_closures,PAIR_TYPE_no_closures])
 
+val COMPILER_COMPILER_STATE_TYPE_no_closures = prove(
+  ``∀a b. COMPILER_COMPILER_STATE_TYPE a b ⇒ no_closures b``,
+  Cases >>
+  simp[ml_repl_stepTheory.COMPILER_COMPILER_STATE_TYPE_def,PULL_EXISTS,no_closures_def] >>
+  rw[] >>
+  rpt (
+    qmatch_rename_tac`no_closures z`[] >>
+    qmatch_assum_abbrev_tac`A a z` >>
+    qpat_assum`A a z`mp_tac >>
+    unabbrev_all_tac >>
+    (( match_mp_tac PAIR_TYPE_no_closures ) ORELSE
+     ( match_mp_tac FMAP_TYPE_no_closures ) ORELSE
+     ( match_mp_tac OPTION_TYPE_no_closures )
+    ) >> rw[]) >>
+  METIS_TAC[EqualityType_thm,EqualityType_NUM,EqualityType_LIST_TYPE_CHAR,
+            EqualityType_SEMANTICPRIMITIVES_TID_OR_EXN_TYPE,
+            EqualityType_AST_ID_TYPE_LIST_TYPE_CHAR,
+            EqualityType_SPTREE_SPT_TYPE_UNIT_TYPE])
+
+val LIST_TYPE_CHAR_no_closures =
+  EqualityType_LIST_TYPE_CHAR |> REWRITE_RULE[EqualityType_thm] |> CONJUNCT1
+
+val REPL_FUN_REPL_FUN_STATE_TYPE_no_closures = prove(
+  ``∀a b. REPL_FUN_REPL_FUN_STATE_TYPE a b ⇒ no_closures b``,
+  Cases >>
+  simp[ml_repl_stepTheory.REPL_FUN_REPL_FUN_STATE_TYPE_def,PULL_EXISTS,no_closures_def] >>
+  rw[] >>
+  rpt (
+    qmatch_rename_tac`no_closures z`[] >>
+    qmatch_assum_abbrev_tac`A a z` >>
+    qpat_assum`A a z`mp_tac >>
+    unabbrev_all_tac >>
+    (( match_mp_tac PAIR_TYPE_no_closures ) ORELSE
+     ( match_mp_tac FMAP_TYPE_no_closures ) ORELSE
+     ( MATCH_ACCEPT_TAC LIST_TYPE_CHAR_no_closures) ORELSE
+     ( match_mp_tac LIST_TYPE_no_closures ) ORELSE
+     ( match_mp_tac OPTION_TYPE_no_closures ) ORELSE
+     ( MATCH_ACCEPT_TAC COMPILER_COMPILER_STATE_TYPE_no_closures )
+    ) >> rw[]) >>
+  METIS_TAC[EqualityType_thm,EqualityType_NUM,
+            EqualityType_AST_ID_TYPE_LIST_TYPE_CHAR,
+            EqualityType2, EqualityType6,
+            EqualityType_SEMANTICPRIMITIVES_TID_OR_EXN_TYPE])
+
 val INPUT_TYPE_no_closures = prove(
   ``∀a b. INPUT_TYPE a b ⇒ no_closures b``,
   simp[INPUT_TYPE_def] >>
@@ -905,51 +947,8 @@ val INPUT_TYPE_no_closures = prove(
     match_mp_tac FMAP_TYPE_no_closures >>
     METIS_TAC[EqualityType_thm, EqualityType_NUM] ) >>
   match_mp_tac PAIR_TYPE_no_closures >>
-  `EqualityType REPL_FUN_REPL_FUN_STATE_TYPE` by (
-    match_mp_tac(find_equality_type_thm``REPL_FUN_REPL_FUN_STATE_TYPE``) >>
-    reverse conj_tac >- (
-      match_mp_tac(find_equality_type_thm``COMPILER_COMPILER_STATE_TYPE``) >>
-      simp[EqualityType_NUM] >>
-      conj_tac >- (
-        match_mp_tac EqualityType_PAIR_TYPE >>
-        conj_tac >>
-        match_mp_tac EqualityType_FMAP_TYPE >>
-        simp[EqualityType_LIST_TYPE_CHAR,EqualityType_NUM] >>
-        match_mp_tac EqualityType_FMAP_TYPE >>
-        simp[EqualityType_LIST_TYPE_CHAR,EqualityType_NUM]) >>
-      conj_tac >- (
-        match_mp_tac EqualityType_PAIR_TYPE >>
-        simp[EqualityType_NUM] >>
-        match_mp_tac EqualityType_PAIR_TYPE >>
-        conj_tac >- (
-          match_mp_tac EqualityType_PAIR_TYPE >>
-          conj_tac >>
-          match_mp_tac EqualityType_FMAP_TYPE >>
-          simp[EqualityType_LIST_TYPE_CHAR] >- (
-            match_mp_tac EqualityType_FMAP_TYPE >>
-            simp[EqualityType_LIST_TYPE_CHAR] >>
-            match_mp_tac EqualityType_PAIR_TYPE >>
-            simp[EqualityType_NUM] >>
-            match_mp_tac EqualityType_OPTION_TYPE >>
-            simp[EqualityType_SEMANTICPRIMITIVES_TID_OR_EXN_TYPE] ) >>
-          match_mp_tac EqualityType_PAIR_TYPE >>
-          simp[EqualityType_NUM] >>
-          match_mp_tac EqualityType_OPTION_TYPE >>
-          simp[EqualityType_SEMANTICPRIMITIVES_TID_OR_EXN_TYPE] ) >>
-        match_mp_tac EqualityType_FMAP_TYPE >>
-        simp[EqualityType_NUM] >>
-        match_mp_tac EqualityType_PAIR_TYPE >>
-        simp[EqualityType_LIST_TYPE_CHAR,EqualityType_SEMANTICPRIMITIVES_TID_OR_EXN_TYPE] ) >>
-      match_mp_tac EqualityType_FMAP_TYPE >>
-      simp[EqualityType_AST_ID_TYPE_LIST_TYPE_CHAR,EqualityType_SPTREE_SPT_TYPE_UNIT_TYPE] ) >>
-    rpt (
-      simp[EqualityType_LIST_TYPE_CHAR,EqualityType_AST_ID_TYPE_LIST_TYPE_CHAR,
-           EqualityType2,EqualityType_NUM,EqualityType6,
-           EqualityType_SEMANTICPRIMITIVES_TID_OR_EXN_TYPE] >>
-      (match_mp_tac EqualityType_PAIR_TYPE ORELSE match_mp_tac EqualityType_LIST_TYPE) >>
-      rw[])) >>
-  fs[EqualityType_thm] >>
-  METIS_TAC[])
+  reverse conj_asm1_tac >- (pop_assum ACCEPT_TAC) >>
+  MATCH_ACCEPT_TAC REPL_FUN_REPL_FUN_STATE_TYPE_no_closures)
 
 (* bytecode state produce by repl_decs *)
 
