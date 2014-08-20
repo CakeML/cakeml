@@ -792,7 +792,7 @@ val repl_correct_lemma = Q.prove (
       first_assum(match_exists_tac o concl) >> rw[] >>
       qpat_assum`∀m. X ⇒ Y`kall_tac >>
       `∃ck store tdecls. rs.sem_env.sem_store = ((ck,store),tdecls,FST rs.tdecs)` by metis_tac[pair_CASES,repl_invariant_def,SND] >>
-      fs[remove_count_def] >>
+      fs[semanticPrimitivesTheory.remove_count_def] >>
       spose_not_then strip_assume_tac >> fs[] >>
       fs[repl_invariant_def] >>
       first_x_assum(qspec_then`ck`strip_assume_tac) >>
@@ -845,7 +845,7 @@ val repl_correct_lemma = Q.prove (
     disj2_tac >>
     qx_gen_tac`n` >>
     `∃ck store tdecls. rs.sem_env.sem_store = ((ck,store),tdecls,FST rs.tdecs)` by metis_tac[pair_CASES,repl_invariant_def,SND] >>
-    fs[remove_count_def] >>
+    fs[semanticPrimitivesTheory.remove_count_def] >>
     (untyped_safety_top |> Q.SPECL[`d`,`a,b,c`] |> SPEC_ALL |> EQ_IMP_RULE |> fst |> CONTRAPOS |> SIMP_RULE std_ss []
      |> GEN_ALL |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
     disch_then(qspec_then`n`strip_assume_tac) >>
