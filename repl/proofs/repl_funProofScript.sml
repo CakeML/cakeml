@@ -1,6 +1,6 @@
 open HolKernel boolLib boolSimps bossLib lcsymtacs preamble miscLib miscTheory arithmeticTheory rich_listTheory
 open typeSystemTheory typeSoundTheory typeSoundInvariantsTheory typeSysPropsTheory untypedSafetyTheory
-open replTheory evalPropsTheory free_varsTheory 
+open replTheory printTheory evalPropsTheory free_varsTheory
 open inferTheory inferSoundTheory
 open lexer_implTheory cmlParseTheory pegSoundTheory pegCompleteTheory
 open bytecodeTheory bytecodeExtraTheory bytecodeClockTheory bytecodeEvalTheory compilerProofTheory
