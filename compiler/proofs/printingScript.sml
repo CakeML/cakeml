@@ -2,7 +2,7 @@ open HolKernel boolLib boolSimps bossLib lcsymtacs listTheory stringTheory relat
 open miscLib miscTheory bytecodeTheory bytecodeExtraTheory bytecodeEvalTheory bytecodeLabelsTheory bytecodeTerminationTheory
 open intLangTheory intLangExtraTheory toBytecodeTheory compilerTheory compilerTerminationTheory
 open modLangProofTheory conLangProofTheory exhLangProofTheory patLangProofTheory intLangProofTheory bytecodeProofTheory free_varsTheory 
-open replTheory inferSoundTheory terminationTheory
+open replTheory printTheory inferSoundTheory terminationTheory
 
 val _ = new_theory"printing"
 
