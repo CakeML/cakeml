@@ -1,4 +1,5 @@
-open HolKernel boolLib bossLib Parse; val _ = new_theory "ml_copying_gc";
+open HolKernel boolLib bossLib Parse;
+val _ = new_theory "ml_copying_gc";
 
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
@@ -9,6 +10,50 @@ open bytecodeTheory;
 val _ = set_fixity "=" (Infix(NONASSOC, 100));
 
 infix \\ val op \\ = op THEN;
+
+(* TODO: move *)
+
+val FILTER_APPEND = rich_listTheory.FILTER_APPEND
+
+val EVERY2_SPLIT = store_thm("EVERY2_SPLIT",
+  ``!xs1 zs.
+      EVERY2 P zs (xs1 ++ x::xs2) ==>
+      ?ys1 y ys2. (zs = ys1 ++ y::ys2) /\ EVERY2 P ys1 xs1 /\
+                  EVERY2 P ys2 xs2 /\ P y x``,
+  Induct \\ FULL_SIMP_TAC std_ss [APPEND]
+  \\ Cases_on `zs` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ REPEAT STRIP_TAC \\ RES_TAC \\ FULL_SIMP_TAC std_ss []
+  \\ Q.LIST_EXISTS_TAC [`h::ys1`,`y`,`ys2`] \\ FULL_SIMP_TAC (srw_ss()) []);
+
+val EVERY2_SPLIT_ALT = store_thm("EVERY2_SPLIT_ALT",
+  ``!xs1 zs.
+      EVERY2 P (xs1 ++ x::xs2) zs ==>
+      ?ys1 y ys2. (zs = ys1 ++ y::ys2) /\ EVERY2 P xs1 ys1 /\
+                  EVERY2 P xs2 ys2 /\ P x y``,
+  Induct \\ FULL_SIMP_TAC std_ss [APPEND]
+  \\ Cases_on `zs` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ REPEAT STRIP_TAC \\ RES_TAC \\ FULL_SIMP_TAC std_ss []
+  \\ Q.LIST_EXISTS_TAC [`h::ys1`,`y`,`ys2`] \\ FULL_SIMP_TAC (srw_ss()) []);
+
+val EVERY2_APPEND = store_thm("EVERY2_APPEND",
+  ``!xs ts.
+      (LENGTH xs = LENGTH ts) ==>
+      (EVERY2 P (xs ++ ys) (ts ++ us) = EVERY2 P xs ts /\ EVERY2 P ys us)``,
+  Induct \\ Cases_on `ts` \\ FULL_SIMP_TAC (srw_ss()) [LENGTH,CONJ_ASSOC]);
+
+val EVERY2_IMP_LENGTH = listTheory.LIST_REL_LENGTH
+
+val BIJ_UPDATE = prove(
+  ``BIJ f s t /\ ~(x IN s) /\ ~(y IN t) ==>
+    BIJ ((x =+ y) f) (x INSERT s) (y INSERT t)``,
+  SIMP_TAC std_ss [BIJ_DEF,SURJ_DEF,INJ_DEF,IN_INSERT,APPLY_UPDATE_THM]
+  \\ METIS_TAC []);
+
+val INJ_UPDATE = store_thm("INJ_UPDATE",
+  ``INJ f s t /\ ~(x IN s) /\ ~(y IN t) ==>
+    INJ ((x =+ y) f) (x INSERT s) (y INSERT t)``,
+  SIMP_TAC std_ss [BIJ_DEF,SURJ_DEF,INJ_DEF,IN_INSERT,APPLY_UPDATE_THM]
+  \\ METIS_TAC []);
 
 (* The ML heap is represented as a list of heap_elements. *)
 
@@ -90,10 +135,6 @@ val gc_move_list_def = Define `
      let (xs,h2,a,n,heap,c) = gc_move_list (xs,h2,a,n,heap,c,limit) in
        (x::xs,h2,a,n,heap,c))`;
 
-val SUM_APPEND = prove(
-  ``!xs ys. SUM (xs ++ ys) = SUM xs + SUM ys``,
-  Induct \\ SRW_TAC [] [ADD_ASSOC]);
-
 val gc_move_loop_def = tDefine "gc_move_loop" `
   (gc_move_loop (h1,[],a,n,heap,c,limit) = (h1,a,n,heap,c)) /\
   (gc_move_loop (h1,h::h2,a,n,heap,c,limit) =
@@ -150,13 +191,7 @@ val isSomeForwardPointer_def = Define `
 val isSomeDataOrForward_def = Define `
   isSomeDataOrForward x = isSomeForwardPointer x \/ isSomeDataElement x`;
 
-val EVERY2_def = Define `
-  (EVERY2 f [] [] = T) /\
-  (EVERY2 f [] (y::ys) = F) /\
-  (EVERY2 f (x::xs) [] = F) /\
-  (EVERY2 f (x::xs) (y::ys) = f x y /\ EVERY2 f xs ys)`;
-
-val _ = augment_srw_ss [rewrites [EVERY2_def]];
+val _ = augment_srw_ss [rewrites [LIST_REL_def]];
 
 val heaps_similar_def = Define `
   heaps_similar heap0 heap =
@@ -261,42 +296,6 @@ val isSomeDataOrForward_lemma = prove(
   \\ SRW_TAC [] [] \\ FULL_SIMP_TAC std_ss []
   \\ EVAL_TAC \\ FULL_SIMP_TAC std_ss [el_length_def]);
 
-val FILTER_APPEND = store_thm("FILTER_APPEND",
-  ``!xs ys p. FILTER p (xs ++ ys) = FILTER p xs ++ FILTER p ys``,
-  Induct \\ SRW_TAC [] [FILTER]);
-
-val EVERY2_SPLIT = store_thm("EVERY2_SPLIT",
-  ``!xs1 zs.
-      EVERY2 P zs (xs1 ++ x::xs2) ==>
-      ?ys1 y ys2. (zs = ys1 ++ y::ys2) /\ EVERY2 P ys1 xs1 /\
-                  EVERY2 P ys2 xs2 /\ P y x``,
-  Induct \\ FULL_SIMP_TAC std_ss [APPEND]
-  \\ Cases_on `zs` \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ REPEAT STRIP_TAC \\ RES_TAC \\ FULL_SIMP_TAC std_ss []
-  THEN1 (REPEAT STRIP_TAC \\ Q.LIST_EXISTS_TAC [`[]`,`h`,`t`] \\ SRW_TAC [] [])
-  \\ Q.LIST_EXISTS_TAC [`h::ys1`,`y`,`ys2`] \\ FULL_SIMP_TAC (srw_ss()) []);
-
-val EVERY2_SPLIT_ALT = store_thm("EVERY2_SPLIT_ALT",
-  ``!xs1 zs.
-      EVERY2 P (xs1 ++ x::xs2) zs ==>
-      ?ys1 y ys2. (zs = ys1 ++ y::ys2) /\ EVERY2 P xs1 ys1 /\
-                  EVERY2 P xs2 ys2 /\ P x y``,
-  Induct \\ FULL_SIMP_TAC std_ss [APPEND]
-  \\ Cases_on `zs` \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ REPEAT STRIP_TAC \\ RES_TAC \\ FULL_SIMP_TAC std_ss []
-  THEN1 (Q.LIST_EXISTS_TAC [`[]`] \\ FULL_SIMP_TAC (srw_ss()) [])
-  \\ Q.LIST_EXISTS_TAC [`h::ys1`,`y`,`ys2`] \\ FULL_SIMP_TAC (srw_ss()) []);
-
-val EVERY2_APPEND = store_thm("EVERY2_APPEND",
-  ``!xs ts.
-      (LENGTH xs = LENGTH ts) ==>
-      (EVERY2 P (xs ++ ys) (ts ++ us) = EVERY2 P xs ts /\ EVERY2 P ys us)``,
-  Induct \\ Cases_on `ts` \\ FULL_SIMP_TAC (srw_ss()) [LENGTH,CONJ_ASSOC]);
-
-val EVERY2_IMP_LENGTH = store_thm("EVERY2_IMP_LENGTH",
-  ``!xs ys. EVERY2 P xs ys ==> (LENGTH xs = LENGTH ys)``,
-  Induct \\ Cases_on `ys` \\ FULL_SIMP_TAC (srw_ss()) [LENGTH,CONJ_ASSOC]);
-
 val heaps_similar_IMP_heap_length = prove(
   ``!xs ys. heaps_similar xs ys ==> (heap_length xs = heap_length ys)``,
   Induct \\ Cases_on `ys`
@@ -323,7 +322,7 @@ val heaps_similar_lemma = prove(
   \\ IMP_RES_TAC EVERY2_SPLIT \\ FULL_SIMP_TAC std_ss []
   \\ IMP_RES_TAC EVERY2_IMP_LENGTH
   \\ FULL_SIMP_TAC std_ss [APPEND,GSYM APPEND_ASSOC]
-  \\ FULL_SIMP_TAC std_ss [EVERY2_APPEND,EVERY2_def]
+  \\ FULL_SIMP_TAC std_ss [EVERY2_APPEND,LIST_REL_def]
   \\ EVAL_TAC \\ FULL_SIMP_TAC std_ss [isForwardPointer_def]
   \\ Q.PAT_ASSUM `DataElement ys l d = y` (MP_TAC o GSYM)
   \\ FULL_SIMP_TAC (srw_ss()) [el_length_def]);
@@ -343,18 +342,6 @@ val NOT_IN_heap_addresses = prove(
   \\ FULL_SIMP_TAC std_ss [ADD_ASSOC]
   THEN1 (Cases_on `h` \\ EVAL_TAC \\ DECIDE_TAC) \\ METIS_TAC [])
   |> Q.SPECL [`xs`,`0`] |> SIMP_RULE std_ss [];
-
-val BIJ_UPDATE = prove(
-  ``BIJ f s t /\ ~(x IN s) /\ ~(y IN t) ==>
-    BIJ ((x =+ y) f) (x INSERT s) (y INSERT t)``,
-  SIMP_TAC std_ss [BIJ_DEF,SURJ_DEF,INJ_DEF,IN_INSERT,APPLY_UPDATE_THM]
-  \\ METIS_TAC []);
-
-val INJ_UPDATE = store_thm("INJ_UPDATE",
-  ``INJ f s t /\ ~(x IN s) /\ ~(y IN t) ==>
-    INJ ((x =+ y) f) (x INSERT s) (y INSERT t)``,
-  SIMP_TAC std_ss [BIJ_DEF,SURJ_DEF,INJ_DEF,IN_INSERT,APPLY_UPDATE_THM]
-  \\ METIS_TAC []);
 
 val heap_lookup_PREFIX = store_thm("heap_lookup_PREFIX",
   ``!xs. (heap_lookup (heap_length xs) (xs ++ x::ys) = SOME x)``,
@@ -506,8 +493,6 @@ val gc_move_list_thm = prove(
     \\ FULL_SIMP_TAC std_ss [heap_map1_def,SUBMAP_DEF])
   \\ FULL_SIMP_TAC std_ss [SUBMAP_DEF] \\ METIS_TAC []);
 
-val PULL_FORALL = METIS_PROVE [] ``(b ==> !x. P x) = !x. b ==> P x``
-
 val APPEND_NIL_LEMMA = METIS_PROVE [APPEND_NIL] ``?xs1. xs = xs ++ xs1:'a list``
 
 val gc_move_ALT = store_thm("gc_move_ALT",
@@ -539,9 +524,6 @@ val gc_move_list_APPEND_lemma = prove(
   ONCE_REWRITE_TAC [gc_move_list_ALT] \\ FULL_SIMP_TAC std_ss [LET_DEF]
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
   \\ FULL_SIMP_TAC std_ss [APPEND_ASSOC] \\ METIS_TAC []);
-
-val IMP_IMP = save_thm("IMP_IMP",
-  METIS_PROVE [] ``b /\ (b1 ==> b2) ==> (b ==> b1) ==> b2``);
 
 val heap_addresses_APPEND = prove(
   ``!xs ys n. heap_addresses n (xs ++ ys) =
@@ -584,6 +566,7 @@ val heap_similar_Data_IMP_DataOrForward = prove(
   THEN1 FULL_SIMP_TAC std_ss [isSomeDataElement_def]
   \\ FULL_SIMP_TAC std_ss [] \\ RES_TAC);
 
+val IMP_IMP = miscLib.IMP_IMP
 val gc_move_loop_thm = prove(
   ``!h1 h2 a n heap c.
       gc_inv (h1,h2,a,n,heap:('a,'b) heap_element list,c,limit) heap0 ==>

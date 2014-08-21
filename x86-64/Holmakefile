@@ -1,4 +1,4 @@
-INCLUDES = ../bytecode/ ../semantics/ ../parsing/ \
+INCLUDES = .. ../bytecode/ ../semantics/ ../parsing/ \
            $(HOLDIR)/examples/machine-code/x64_compiler \
            $(HOLDIR)/examples/machine-code/decompiler \
            $(HOLDIR)/examples/machine-code/hoare-triple \
@@ -8,7 +8,7 @@ INCLUDES = ../bytecode/ ../semantics/ ../parsing/ \
 OPTIONS=QUIT_ON_FAILURE
 
 ifdef POLY
-HOLHEAP = local-hol-heap
+HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 BARE_THYS = $(HOLDIR)/examples/machine-code/decompiler/decompilerLib \

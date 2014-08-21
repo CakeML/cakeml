@@ -381,9 +381,7 @@ val SPEC_WEAKEN_LEMMA = prove(
   Cases_on `i` THEN Cases_on `b` THEN SIMP_TAC std_ss [SPEC_MOVE_COND]
   THEN METIS_TAC [SPEC_WEAKEN]);
 
-val EVERY2_IMP_LENGTH = prove(
-  ``!xs ys P. EVERY2 P xs ys ==> (LENGTH xs = LENGTH ys)``,
-  Induct \\ Cases_on `ys` \\ SRW_TAC [] [EVERY2_def] \\ METIS_TAC []);
+val EVERY2_IMP_LENGTH = LIST_REL_LENGTH
 
 val blast_align_lemma = prove(
   ``(8w + w && 7w = w && 7w:word64) /\
@@ -1034,7 +1032,7 @@ gg goal
     \\ FULL_SIMP_TAC std_ss [ADD1,GSYM word_add_n2w] \\ SRW_TAC [] []
     \\ Cases_on `x2` \\ FULL_SIMP_TAC std_ss [isNumber_def,getNumber_def]
     \\ FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,
-         EVERY2_def,bc_value_inv_def,x64_addr_def]
+         LIST_REL_def,bc_value_inv_def,x64_addr_def]
     \\ `(n2w (Num i) = (w2w:63 word -> word8) (n2w (Num i)))` by ALL_TAC
     THEN1 (FULL_SIMP_TAC (srw_ss()) [w2w_n2w])
     \\ FULL_SIMP_TAC std_ss [] \\ Q.SPEC_TAC (`n2w (Num i):63 word`,`w`)
@@ -1122,7 +1120,7 @@ gg goal
     \\ ASM_SIMP_TAC (srw_ss()) []
     \\ Cases_on `x2` \\ FULL_SIMP_TAC std_ss [isNumber_def,getNumber_def]
     \\ FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,
-         EVERY2_def,bc_value_inv_def,x64_addr_def]
+         LIST_REL_def,bc_value_inv_def,x64_addr_def]
     \\ `(n2w (Num i) = (w2w:63 word -> word32) (n2w (Num i)))` by ALL_TAC
     THEN1 (FULL_SIMP_TAC (srw_ss()) [w2w_n2w])
     \\ FULL_SIMP_TAC std_ss [] \\ Q.SPEC_TAC (`n2w (Num i):63 word`,`w`)
@@ -1225,7 +1223,7 @@ gg goal
     \\ Cases_on `x2` \\ FULL_SIMP_TAC std_ss [isNumber_def,getNumber_def]
     \\ Cases_on `x3` \\ FULL_SIMP_TAC std_ss [isNumber_def,getNumber_def]
     \\ FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,
-         EVERY2_def,bc_value_inv_def,x64_addr_def,reintro_word_sub32]
+         LIST_REL_def,bc_value_inv_def,x64_addr_def,reintro_word_sub32]
     \\ `(n2w (Num i) = (w2w:63 word -> word32) (n2w (Num i)))` by ALL_TAC
     THEN1 (FULL_SIMP_TAC (srw_ss()) [w2w_n2w])
     \\ `(n2w (Num i') = (w2w:63 word -> word32) (n2w (Num i')))` by ALL_TAC
@@ -1402,7 +1400,7 @@ gg goal
     \\ FULL_SIMP_TAC std_ss [bc_stack_ref_inv_def] \\ Q.EXISTS_TAC `f`
     \\ `small_int (&LENGTH s.code)` by ALL_TAC
     THEN1 (FULL_SIMP_TAC std_ss [small_int_def] \\ intLib.COOPER_TAC)
-    \\ FULL_SIMP_TAC std_ss [EVERY2_def,bc_value_inv_def,reachable_refs_SIMP]
+    \\ FULL_SIMP_TAC std_ss [LIST_REL_def,bc_value_inv_def,reachable_refs_SIMP]
     \\ STRIP_TAC THEN1
       (SRW_TAC [] [] \\ REPEAT AP_TERM_TAC \\ intLib.COOPER_TAC)
     \\ REPEAT STRIP_TAC \\ FIRST_ASSUM MATCH_MP_TAC
@@ -1924,7 +1922,7 @@ val abs_ml_inv_Num = prove(
   \\ FULL_SIMP_TAC std_ss [abs_ml_inv_def]
   \\ FULL_SIMP_TAC (srw_ss()) [roots_ok_def,MEM]
   \\ FULL_SIMP_TAC std_ss [bc_stack_ref_inv_def]
-  \\ Q.EXISTS_TAC `f` \\ FULL_SIMP_TAC std_ss [EVERY2_def]
+  \\ Q.EXISTS_TAC `f` \\ FULL_SIMP_TAC std_ss [LIST_REL_def]
   \\ REPEAT STRIP_TAC THEN1
    (`small_int (&n)` by ALL_TAC
     THEN1 (SIMP_TAC std_ss [small_int_def] \\ intLib.COOPER_TAC)
@@ -2038,7 +2036,7 @@ val abs_ml_inv_Block_NIL = prove(
   \\ FULL_SIMP_TAC std_ss [abs_ml_inv_def]
   \\ FULL_SIMP_TAC (srw_ss()) [roots_ok_def,MEM]
   \\ FULL_SIMP_TAC std_ss [bc_stack_ref_inv_def]
-  \\ Q.EXISTS_TAC `f` \\ FULL_SIMP_TAC std_ss [EVERY2_def]
+  \\ Q.EXISTS_TAC `f` \\ FULL_SIMP_TAC std_ss [LIST_REL_def]
   \\ ASM_SIMP_TAC std_ss [bc_value_inv_def,word_mul_n2w,word_add_n2w]
   \\ REPEAT STRIP_TAC
   \\ `reachable_refs stack refs n'` by ALL_TAC
@@ -2922,7 +2920,7 @@ gg goal
     \\ FULL_SIMP_TAC (srw_ss()) [MEM]
     \\ STRIP_TAC THEN1 METIS_TAC []
     \\ FULL_SIMP_TAC std_ss [bc_stack_ref_inv_def]
-    \\ Q.EXISTS_TAC `f` \\ FULL_SIMP_TAC std_ss [EVERY2_def]
+    \\ Q.EXISTS_TAC `f` \\ FULL_SIMP_TAC std_ss [LIST_REL_def]
     \\ FULL_SIMP_TAC std_ss [bc_value_inv_def]
     \\ REPEAT STRIP_TAC
     \\ FIRST_ASSUM MATCH_MP_TAC
@@ -3092,7 +3090,7 @@ val abs_ml_inv_PushExc = prove(
        (LENGTH l2 = LENGTH rr2)``,
   SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def]
   \\ REPEAT STRIP_TAC \\ POP_ASSUM (K ALL_TAC)
-  \\ FULL_SIMP_TAC std_ss [EVERY2_def]
+  \\ FULL_SIMP_TAC std_ss [LIST_REL_def]
   \\ IMP_RES_TAC EVERY2_SPLIT_ALT \\ FULL_SIMP_TAC std_ss []
   \\ Q.LIST_EXISTS_TAC [`ys1`,`ys2`]
   \\ FULL_SIMP_TAC std_ss [bc_value_inv_def]
@@ -3174,7 +3172,7 @@ gg goal
     \\ `(LENGTH vals.stack - (LENGTH cs.rest_of_stack + LENGTH l2 + 3)) =
         LENGTH l1` by ALL_TAC THEN1
      (FULL_SIMP_TAC (std_ss++sep_cond_ss) [heap_inv_def,stack_inv_def,cond_STAR]
-      \\ FULL_SIMP_TAC std_ss [EVERY2_def,abs_ml_inv_def,APPEND,bc_stack_ref_inv_def]
+      \\ FULL_SIMP_TAC std_ss [LIST_REL_def,abs_ml_inv_def,APPEND,bc_stack_ref_inv_def]
       \\ IMP_RES_TAC (GSYM EVERY2_IMP_LENGTH)
       \\ FULL_SIMP_TAC (srw_ss()) [] \\ DECIDE_TAC)
     \\ FULL_SIMP_TAC std_ss []
@@ -3205,8 +3203,8 @@ gg goal
      (FULL_SIMP_TAC std_ss [abs_ml_inv_def,roots_ok_def,MEM,MEM_APPEND]
       \\ STRIP_TAC THEN1 METIS_TAC []
       \\ FULL_SIMP_TAC std_ss [bc_stack_ref_inv_def]
-      \\ Q.EXISTS_TAC `f` \\ FULL_SIMP_TAC std_ss [EVERY2_def]
-      \\ FULL_SIMP_TAC std_ss [EVERY2_APPEND,LENGTH_MAP,EVERY2_def]
+      \\ Q.EXISTS_TAC `f` \\ FULL_SIMP_TAC std_ss [LIST_REL_def]
+      \\ FULL_SIMP_TAC std_ss [EVERY2_APPEND,LENGTH_MAP,LIST_REL_def]
       \\ REPEAT STRIP_TAC \\ FIRST_ASSUM MATCH_MP_TAC
       \\ FULL_SIMP_TAC std_ss [reachable_refs_def]
       \\ Q.LIST_EXISTS_TAC [`x`,`r`]
@@ -3359,7 +3357,7 @@ val zHEAP_LoadRev = let
     \\ FULL_SIMP_TAC std_ss []
     \\ `8 * (2 + s.base_offset + LENGTH cs.rest_of_stack + offset) < 2**64` by
      (`LENGTH stack = LENGTH roots` by ALL_TAC THEN1
-       (FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,EVERY2_def,APPEND]
+       (FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,LIST_REL_def,APPEND]
         \\ IMP_RES_TAC EVERY2_IMP_LENGTH)
       \\ Q.PAT_ASSUM `8 * LENGTH vals.stack < ll` MP_TAC
       \\ FULL_SIMP_TAC (srw_ss()) [] \\ DECIDE_TAC)
@@ -3371,7 +3369,7 @@ val zHEAP_LoadRev = let
         (SIMP_TAC std_ss [word_arith_lemma1] \\ NTAC 2 AP_TERM_TAC \\ DECIDE_TAC)
       \\ FULL_SIMP_TAC std_ss [LENGTH,LENGTH_APPEND,LENGTH_MAP]
       \\ FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,
-           APPEND,EVERY2_def]
+           APPEND,LIST_REL_def]
       \\ IMP_RES_TAC EVERY2_IMP_LENGTH \\ DECIDE_TAC)
     \\ `(EL (2 + s.base_offset + LENGTH cs.rest_of_stack + offset)
           (REVERSE (MAP (x64_addr vs.current_heap) roots ++
@@ -3399,7 +3397,7 @@ val zHEAP_LoadRev = let
     THEN1 FULL_SIMP_TAC std_ss [word_sub_def,AC WORD_ADD_COMM WORD_ADD_ASSOC]
     \\ SIMP_TAC std_ss [GSYM rich_listTheory.MAP_REVERSE]
     \\ `LENGTH stack = LENGTH roots` by ALL_TAC THEN1
-     (FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,EVERY2_def]
+     (FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,LIST_REL_def]
       \\ IMP_RES_TAC EVERY2_IMP_LENGTH)
     \\ `offset + s.base_offset < LENGTH roots` by DECIDE_TAC
     \\ IMP_RES_TAC LENGTH_LESS_REV
@@ -3419,7 +3417,7 @@ val zHEAP_LoadRev = let
     THEN1 (FULL_SIMP_TAC std_ss [MEM_APPEND,SUBSET_DEF,MEM_MAP] \\ METIS_TAC [])
     \\ Q.EXISTS_TAC `f` \\ FULL_SIMP_TAC std_ss []
     \\ Q.PAT_ASSUM `LENGTH ys' = LENGTH ys` ASSUME_TAC
-    \\ FULL_SIMP_TAC std_ss [EVERY2_APPEND,LENGTH_MAP,EVERY2_def]
+    \\ FULL_SIMP_TAC std_ss [EVERY2_APPEND,LENGTH_MAP,LIST_REL_def]
     \\ FULL_SIMP_TAC std_ss [reachable_refs_def,MEM_APPEND,MEM_MAP,MEM]
     \\ METIS_TAC [])
   val th = MP th lemma
@@ -3478,7 +3476,7 @@ gg goal
     THEN1
      (`(r1 = Data (2w * n2w n + 1w)) /\ n < 2**61` by ALL_TAC THEN1
          (FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,
-            EVERY2_def,bc_value_inv_def])
+            LIST_REL_def,bc_value_inv_def])
       \\ FULL_SIMP_TAC std_ss [x64_addr_def,x64_get_tag_pre_def,x64_get_tag_def]
       \\ `(w2w (0x2w * n2w n + 0x1w:63 word) << 1 && 0x1w = 0x0w:word64) /\
           (w2w (0x2w * n2w n + 0x1w:63 word) << 1 - 0x2w:word64 =
@@ -3500,7 +3498,7 @@ gg goal
       \\ FULL_SIMP_TAC (std_ss++star_ss) []
       \\ FULL_SIMP_TAC std_ss [STAR_ASSOC])
     \\ `?f. bc_value_inv (Block n l) (r1,f,heap)` by ALL_TAC THEN1
-     (FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,EVERY2_def]
+     (FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,LIST_REL_def]
       \\ METIS_TAC []) \\ POP_ASSUM MP_TAC
     \\ FULL_SIMP_TAC std_ss [bc_value_inv_def] \\ STRIP_TAC
     \\ FULL_SIMP_TAC std_ss [x64_get_tag_def,x64_get_tag_pre_def,LET_DEF]
@@ -3620,7 +3618,7 @@ gg goal
     THEN1
      (`(r1 = Data (2w * n2w n + 1w)) /\ n < 2**61` by ALL_TAC THEN1
          (FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,
-            EVERY2_def,bc_value_inv_def])
+            LIST_REL_def,bc_value_inv_def])
       \\ FULL_SIMP_TAC std_ss [x64_addr_def,
            x64_get_length_pre_def,x64_get_length_def]
       \\ `(w2w (0x2w * n2w n + 0x1w:63 word) << 1 && 0x1w = 0x0w:word64) /\
@@ -3643,7 +3641,7 @@ gg goal
       \\ FULL_SIMP_TAC (std_ss++star_ss) []
       \\ FULL_SIMP_TAC std_ss [STAR_ASSOC])
     \\ `?f. bc_value_inv (Block n l) (r1,f,heap)` by ALL_TAC THEN1
-     (FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,EVERY2_def]
+     (FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,LIST_REL_def]
       \\ METIS_TAC []) \\ POP_ASSUM MP_TAC
     \\ FULL_SIMP_TAC std_ss [bc_value_inv_def] \\ STRIP_TAC
     \\ FULL_SIMP_TAC std_ss [x64_get_length_def,x64_get_length_pre_def,LET_DEF]
@@ -3703,7 +3701,7 @@ gg goal
       \\ FULL_SIMP_TAC std_ss [MULT_ASSOC]
       \\ `LENGTH xs = LENGTH l` by ALL_TAC \\ FULL_SIMP_TAC std_ss []
       \\ Q.PAT_ASSUM `abs_ml_inv xx yy tt rr` MP_TAC
-      \\ SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,EVERY2_def]
+      \\ SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,LIST_REL_def]
       \\ ASM_SIMP_TAC (srw_ss()) [bc_value_inv_def,BlockRep_def]
       \\ REPEAT STRIP_TAC
       \\ IMP_RES_TAC EVERY2_IMP_LENGTH
@@ -3768,7 +3766,7 @@ gg goal
     \\ Q.PAT_ASSUM `r1::r2::r3::r4::roots = r::roots2` (ASSUME_TAC o GSYM)
     \\ FULL_SIMP_TAC std_ss [CONS_11]
     \\ `?f. bc_value_inv (Block n l) (r1,f,heap)` by ALL_TAC THEN1
-     (FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,EVERY2_def]
+     (FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,LIST_REL_def]
       \\ METIS_TAC []) \\ POP_ASSUM MP_TAC
     \\ FULL_SIMP_TAC std_ss [bc_value_inv_def] \\ STRIP_TAC
     \\ FULL_SIMP_TAC std_ss [heap_el_def]
@@ -3782,7 +3780,7 @@ gg goal
     \\ `r2 = Data (2w * n2w (Num i))` by ALL_TAC THEN1
      (`small_int i /\ ~(i < 0)` by ALL_TAC THEN1
         (FULL_SIMP_TAC std_ss [small_int_def] \\ intLib.COOPER_TAC)
-      \\ FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,EVERY2_def,
+      \\ FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,LIST_REL_def,
             bc_value_inv_def])
     \\ FULL_SIMP_TAC (srw_ss()) [x64_addr_def,WORD_MUL_LSL,w2w_def,word_mul_n2w]
     \\ `(2 * Num i) < 9223372036854775808` by DECIDE_TAC
@@ -3893,7 +3891,7 @@ gg goal
         if ^n = 2 then (r2 = Data (0x2w * n2w (Num i))) else
         if ^n = 3 then (r3 = Data (0x2w * n2w (Num i))) else
         if ^n = 4 then (r4 = Data (0x2w * n2w (Num i))) else ARB` by ALL_TAC THEN1
-     (FULL_SIMP_TAC std_ss [abs_ml_inv_def,APPEND,bc_stack_ref_inv_def,EVERY2_def]
+     (FULL_SIMP_TAC std_ss [abs_ml_inv_def,APPEND,bc_stack_ref_inv_def,LIST_REL_def]
       \\ POP_ASSUM MP_TAC \\ FULL_SIMP_TAC std_ss [getNumber_def]
       \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [bc_value_inv_def])
     \\ FULL_SIMP_TAC std_ss [x64_addr_def,WORD_MUL_LSL,w2w_def,word_mul_n2w]
@@ -3998,7 +3996,7 @@ gg goal
         if ^n = 2 then (r2 = Data (0x2w * n2w (Num i))) else
         if ^n = 3 then (r3 = Data (0x2w * n2w (Num i))) else
         if ^n = 4 then (r4 = Data (0x2w * n2w (Num i))) else ARB` by ALL_TAC THEN1
-     (FULL_SIMP_TAC std_ss [abs_ml_inv_def,APPEND,bc_stack_ref_inv_def,EVERY2_def]
+     (FULL_SIMP_TAC std_ss [abs_ml_inv_def,APPEND,bc_stack_ref_inv_def,LIST_REL_def]
       \\ FULL_SIMP_TAC std_ss [bc_value_inv_def])
     \\ FULL_SIMP_TAC std_ss [x64_addr_def,WORD_MUL_LSL,w2w_def,word_mul_n2w]
     \\ IMP_RES_TAC small_int_IMP
@@ -4121,7 +4119,7 @@ gg goal
         if ^n = 2 then (r2 = Data (0x2w * n2w (Num i))) else
         if ^n = 3 then (r3 = Data (0x2w * n2w (Num i))) else
         if ^n = 4 then (r4 = Data (0x2w * n2w (Num i))) else ARB` by ALL_TAC THEN1
-     (FULL_SIMP_TAC std_ss [abs_ml_inv_def,APPEND,bc_stack_ref_inv_def,EVERY2_def]
+     (FULL_SIMP_TAC std_ss [abs_ml_inv_def,APPEND,bc_stack_ref_inv_def,LIST_REL_def]
       \\ FULL_SIMP_TAC std_ss [bc_value_inv_def])
     \\ FULL_SIMP_TAC std_ss [x64_addr_def,WORD_MUL_LSL,w2w_def,word_mul_n2w]
     \\ IMP_RES_TAC small_int_IMP
@@ -4252,7 +4250,7 @@ gg goal
     \\ `EVEN (Num (getNumber ^x)) <=> (^reg && 4w = 0x0w)` by ALL_TAC THEN1
      (FULL_SIMP_TAC std_ss [isNumber_EXISTS,getNumber_def]
       \\ FULL_SIMP_TAC std_ss [heap_inv_def,abs_ml_inv_def,APPEND,
-           bc_stack_ref_inv_def,EVERY2_def,bc_value_inv_def]
+           bc_stack_ref_inv_def,LIST_REL_def,bc_value_inv_def]
       \\ FULL_SIMP_TAC std_ss [getNumber_def,x64_addr_def]
       \\ `(2 * (Num i)) < dimword (:63)` by IMP_RES_TAC small_int_IMP
       \\ REVERSE (Cases_on `i`) \\ FULL_SIMP_TAC (srw_ss()) []
@@ -4331,7 +4329,7 @@ gg goal
     \\ `(getNumber ^x = 0) <=> (^reg = 0x0w)` by ALL_TAC THEN1
      (FULL_SIMP_TAC std_ss [isNumber_EXISTS,getNumber_def]
       \\ FULL_SIMP_TAC std_ss [heap_inv_def,abs_ml_inv_def,APPEND,
-           bc_stack_ref_inv_def,EVERY2_def,bc_value_inv_def]
+           bc_stack_ref_inv_def,LIST_REL_def,bc_value_inv_def]
       \\ REVERSE (Cases_on `small_int i`) \\ FULL_SIMP_TAC std_ss [] THEN1
        (`i <> 0` by ALL_TAC THEN1
           (FULL_SIMP_TAC std_ss [small_int_def] \\ intLib.COOPER_TAC)
@@ -4424,7 +4422,7 @@ gg goal
     \\ `(getNumber ^x = &(^k)) <=> (^reg = n2w (^kk))` by ALL_TAC THEN1
      (FULL_SIMP_TAC std_ss [isNumber_EXISTS,getNumber_def]
       \\ FULL_SIMP_TAC std_ss [heap_inv_def,abs_ml_inv_def,APPEND,
-           bc_stack_ref_inv_def,EVERY2_def,bc_value_inv_def]
+           bc_stack_ref_inv_def,LIST_REL_def,bc_value_inv_def]
       \\ REVERSE (Cases_on `small_int i`) \\ FULL_SIMP_TAC std_ss [] THEN1
        (`i <> &(^k)` by ALL_TAC THEN1
           (FULL_SIMP_TAC std_ss [small_int_def] \\ intLib.COOPER_TAC)
@@ -4532,7 +4530,7 @@ gg goal
     \\ `(getNumber ^x = getNumber ^y) <=> (^regn = ^regm)` by ALL_TAC THEN1
      (FULL_SIMP_TAC std_ss [isNumber_EXISTS,getNumber_def]
       \\ FULL_SIMP_TAC std_ss [heap_inv_def,abs_ml_inv_def,APPEND,
-           bc_stack_ref_inv_def,EVERY2_def,bc_value_inv_def,getNumber_def]
+           bc_stack_ref_inv_def,LIST_REL_def,bc_value_inv_def,getNumber_def]
       \\ FULL_SIMP_TAC std_ss [x64_addr_def,word_mul_n2w,w2w_def,w2n_n2w]
       \\ Q.MATCH_ASSUM_RENAME_TAC `xxx = Number j` []
       \\ Cases_on `small_int i` \\ Cases_on `small_int j`
@@ -4679,7 +4677,7 @@ gg goal
     \\ POP_ASSUM (K ALL_TAC)
     \\ FULL_SIMP_TAC std_ss [isNumber_EXISTS,getNumber_def]
     \\ FULL_SIMP_TAC std_ss [heap_inv_def,abs_ml_inv_def,APPEND,
-         bc_stack_ref_inv_def,EVERY2_def,bc_value_inv_def,getNumber_def]
+         bc_stack_ref_inv_def,LIST_REL_def,bc_value_inv_def,getNumber_def]
     \\ FULL_SIMP_TAC std_ss [x64_addr_def,word_mul_n2w,w2w_def,w2n_n2w]
     \\ Q.MATCH_ASSUM_RENAME_TAC `xxx = Number j` []
     \\ Cases_on `small_int i` \\ Cases_on `small_int j`
@@ -4759,7 +4757,7 @@ gg goal
     \\ `(getNumber ^x < & ^m) <=> (^regn <+ n2w (4 * ^m))` by ALL_TAC THEN1
      (FULL_SIMP_TAC std_ss [isNumber_EXISTS,getNumber_def]
       \\ FULL_SIMP_TAC std_ss [heap_inv_def,abs_ml_inv_def,APPEND,
-           bc_stack_ref_inv_def,EVERY2_def,bc_value_inv_def,getNumber_def]
+           bc_stack_ref_inv_def,LIST_REL_def,bc_value_inv_def,getNumber_def]
       \\ FULL_SIMP_TAC std_ss [x64_addr_def,word_mul_n2w,w2w_def,w2n_n2w]
       \\ Q.MATCH_ASSUM_RENAME_TAC `xxx = Number j` []
       \\ `(2 * Num j) < dimword (:63)` by ALL_TAC
@@ -4862,7 +4860,7 @@ gg goal
           `if ^n = 4 then Data (0x2w * n2w (Num i) << ^m) else r4`,
           `roots`,`heap`,`a`,`sp`]
     \\ FULL_SIMP_TAC std_ss []
-    \\ FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,EVERY2_def]
+    \\ FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,LIST_REL_def]
     \\ FULL_SIMP_TAC std_ss [bc_value_inv_def,x64_addr_def]
     \\ SIMP_TAC std_ss [PULL_EXISTS]
     \\ Q.EXISTS_TAC `f` \\ FULL_SIMP_TAC std_ss []
@@ -4942,7 +4940,7 @@ gg goal
     \\ POP_ASSUM (K ALL_TAC)
     \\ Cases_on `x1` \\ FULL_SIMP_TAC (srw_ss()) [isBlock_def]
     \\ FULL_SIMP_TAC std_ss [heap_inv_def,abs_ml_inv_def,APPEND,
-         bc_stack_ref_inv_def,EVERY2_def,bc_value_inv_def,getNumber_def]
+         bc_stack_ref_inv_def,LIST_REL_def,bc_value_inv_def,getNumber_def]
     \\ FULL_SIMP_TAC std_ss [x64_addr_def,word_mul_n2w,w2w_def,w2n_n2w]
     \\ REVERSE (Cases_on `l = []`) \\ FULL_SIMP_TAC std_ss [] THEN1
      (FULL_SIMP_TAC std_ss [x64_addr_def]
@@ -5155,7 +5153,7 @@ gg goal
     \\ CONJ_TAC THEN1 FULL_SIMP_TAC (std_ss++star_ss) []
     \\ UNABBREV_ALL_TAC
     \\ FULL_SIMP_TAC std_ss [heap_inv_def,APPEND,abs_ml_inv_def,
-         bc_stack_ref_inv_def,EVERY2_def]
+         bc_stack_ref_inv_def,LIST_REL_def]
     \\ Q.PAT_ASSUM `bc_value_inv x1 (r1,f,heap)` ASSUME_TAC
     \\ Cases_on `x1` \\ FULL_SIMP_TAC std_ss [canCompare_def,isBlock_def]
     THEN1 (Cases_on `small_int i`
@@ -5294,7 +5292,7 @@ gg goal
     \\ CONJ_TAC THEN1 FULL_SIMP_TAC (std_ss++star_ss) []
     \\ UNABBREV_ALL_TAC
     \\ FULL_SIMP_TAC std_ss [heap_inv_def,APPEND,abs_ml_inv_def,
-         bc_stack_ref_inv_def,EVERY2_def]
+         bc_stack_ref_inv_def,LIST_REL_def]
     \\ Q.PAT_ASSUM `bc_value_inv x1 (r1,f,heap)` ASSUME_TAC
     \\ Cases_on `x1` \\ FULL_SIMP_TAC std_ss [canCompare_def,isNumber_def]
     THEN1 (Cases_on `small_int i`
@@ -5419,7 +5417,7 @@ gg goal
     \\ POP_ASSUM (K ALL_TAC)
     \\ Cases_on `^x` \\ FULL_SIMP_TAC (srw_ss()) [canCompare_def,isSmall_def]
     \\ FULL_SIMP_TAC std_ss [heap_inv_def,abs_ml_inv_def,
-         bc_stack_ref_inv_def,APPEND,EVERY2_def]
+         bc_stack_ref_inv_def,APPEND,LIST_REL_def]
     THEN1 (Cases_on `small_int i`
       \\ FULL_SIMP_TAC std_ss [bc_value_inv_def,x64_addr_def]
       THEN1 blastLib.BBLAST_TAC
@@ -5528,7 +5526,7 @@ val Block_size_small_int = prove(
   Cases \\ SIMP_TAC std_ss [isBlock_def,getContent_def,getTag_def]
   \\ SIMP_TAC std_ss [heap_inv_def] \\ STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,APPEND,
-       EVERY2_def,bc_value_inv_def]
+       LIST_REL_def,bc_value_inv_def]
   \\ Cases_on `l = []` \\ FULL_SIMP_TAC std_ss [LENGTH]
   THEN1 (ASM_SIMP_TAC (srw_ss()) [small_int_def])
   \\ IMP_RES_TAC heap_lookup_SPLIT
@@ -5796,7 +5794,7 @@ gg goal
     \\ FULL_SIMP_TAC (std_ss++star_ss) []
     \\ POP_ASSUM (K ALL_TAC)
     \\ FULL_SIMP_TAC std_ss [heap_inv_def,abs_ml_inv_def,
-         bc_stack_ref_inv_def,APPEND,EVERY2_def]
+         bc_stack_ref_inv_def,APPEND,LIST_REL_def]
     \\ FULL_SIMP_TAC std_ss [bc_value_inv_def,x64_addr_def]
     \\ FULL_SIMP_TAC std_ss [WORD_EQ_ADD_CANCEL,word_sub_def]
     \\ FULL_SIMP_TAC std_ss [INJ_DEF]
@@ -6041,7 +6039,7 @@ gg goal
                       |> SIMP_RULE std_ss [word_mul_n2w] |> GEN_ALL))
       \\ METIS_TAC [])
     \\ FULL_SIMP_TAC std_ss [] \\ POP_ASSUM (K ALL_TAC)
-    \\ FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,EVERY2_def]
+    \\ FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,LIST_REL_def]
     \\ FULL_SIMP_TAC std_ss [bc_value_inv_def]
     \\ IMP_RES_TAC heap_lookup_DataOnly_IMP \\ NTAC 2 (POP_ASSUM (K ALL_TAC))
     \\ FULL_SIMP_TAC std_ss [DataOnly_def,x64_el_def,x64_payload_def,LET_DEF]
@@ -6494,7 +6492,7 @@ val push_num_lemma = prove(
   ``abs_ml_inv (Number 0::stack) refs (Data 0x0w::roots,x,a,k) l <=>
     abs_ml_inv stack refs (roots,x,a,k) l``,
   FULL_SIMP_TAC (srw_ss()) [abs_ml_inv_def,roots_ok_def,MEM,reachable_refs_Number,
-    bc_stack_ref_inv_def,EVERY2_def,bc_value_inv_def,EVAL ``small_int 0``]);
+    bc_stack_ref_inv_def,LIST_REL_def,bc_value_inv_def,EVAL ``small_int 0``]);
 
 val zHEAP_GC = let
   val th = x64_gc_op_res
@@ -6905,7 +6903,7 @@ gg goal
     \\ FULL_SIMP_TAC (srw_ss()) [zVALS_def,AC STAR_COMM STAR_ASSOC]
     \\ POP_ASSUM (K ALL_TAC)
     \\ FULL_SIMP_TAC std_ss [heap_inv_def,abs_ml_inv_def,APPEND,
-           bc_stack_ref_inv_def,EVERY2_def,bc_value_inv_def]
+           bc_stack_ref_inv_def,LIST_REL_def,bc_value_inv_def]
     \\ Cases_on `s.input` \\ FULL_SIMP_TAC std_ss [HD,MAP,APPEND]
     \\ FULL_SIMP_TAC (srw_ss()) [WORD_LO]
     \\ `ORD h < 256` by FULL_SIMP_TAC std_ss [ORD_BOUND]
@@ -6976,7 +6974,7 @@ gg goal
     \\ FULL_SIMP_TAC (srw_ss()) [zVALS_def,AC STAR_COMM STAR_ASSOC]
     \\ POP_ASSUM (K ALL_TAC)
     \\ FULL_SIMP_TAC std_ss [heap_inv_def,abs_ml_inv_def,APPEND,
-           bc_stack_ref_inv_def,EVERY2_def,bc_value_inv_def]
+           bc_stack_ref_inv_def,LIST_REL_def,bc_value_inv_def]
     \\ Cases_on `s.input` \\ FULL_SIMP_TAC std_ss [HD,MAP,APPEND]
     \\ FULL_SIMP_TAC (srw_ss()) [WORD_LO]
     \\ `ORD h < 256` by FULL_SIMP_TAC std_ss [ORD_BOUND]
@@ -7048,7 +7046,7 @@ gg goal
     \\ FULL_SIMP_TAC (srw_ss()) [zVALS_def,AC STAR_COMM STAR_ASSOC]
     \\ POP_ASSUM (K ALL_TAC)
     \\ FULL_SIMP_TAC std_ss [heap_inv_def,abs_ml_inv_def,APPEND,
-           bc_stack_ref_inv_def,EVERY2_def,bc_value_inv_def]
+           bc_stack_ref_inv_def,LIST_REL_def,bc_value_inv_def]
     \\ Cases_on `s.input` \\ FULL_SIMP_TAC std_ss [HD,MAP,APPEND]
     THEN1 EVAL_TAC
     \\ FULL_SIMP_TAC (srw_ss()) [WORD_LO]
@@ -7260,7 +7258,7 @@ gg goal
     \\ FULL_SIMP_TAC std_ss []
     \\ SIMP_TAC std_ss [zHEAP_def,SEP_IMP_def,SEP_CLAUSES,SEP_EXISTS_THM]
     \\ SIMP_TAC std_ss [PULL_FORALL] \\ STRIP_TAC
-    \\ FULL_SIMP_TAC std_ss [abs_ml_inv_def,APPEND,bc_stack_ref_inv_def,EVERY2_def]
+    \\ FULL_SIMP_TAC std_ss [abs_ml_inv_def,APPEND,bc_stack_ref_inv_def,LIST_REL_def]
     \\ Cases_on `x1` \\ FULL_SIMP_TAC std_ss [isNumber_def,getNumber_def]
     \\ FULL_SIMP_TAC std_ss [bc_value_inv_def]
     \\ `small_int i` by ALL_TAC
@@ -7287,7 +7285,7 @@ gg goal
     \\ FULL_SIMP_TAC (srw_ss()) [heap_inv_def,abs_ml_inv_def]
     \\ Q.LIST_EXISTS_TAC [`vs`,`r1`,`r2`,`r3`,`r4`,`roots`,`heap`,`a`,`sp`]
     \\ FULL_SIMP_TAC (std_ss++star_ss) []
-    \\ FULL_SIMP_TAC std_ss [abs_ml_inv_def,APPEND,bc_stack_ref_inv_def,EVERY2_def]
+    \\ FULL_SIMP_TAC std_ss [abs_ml_inv_def,APPEND,bc_stack_ref_inv_def,LIST_REL_def]
     \\ FULL_SIMP_TAC std_ss [bc_value_inv_def,PULL_EXISTS]
     \\ Q.EXISTS_TAC `f` \\ FULL_SIMP_TAC std_ss []
     \\ `Num i < 256` by intLib.COOPER_TAC
@@ -8470,7 +8468,7 @@ val zHEAP_DEREF = let
     \\ Q.PAT_ASSUM `r1::r2::r3::r4::roots = r::roots2` (ASSUME_TAC o GSYM)
     \\ FULL_SIMP_TAC std_ss [heap_el_def,CONS_11]
     \\ `?f. (r1 = Pointer (f ' n)) /\ bc_ref_inv n refs (f,heap)` by ALL_TAC THEN1
-      (FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,EVERY2_def,
+      (FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,LIST_REL_def,
         bc_value_inv_def] \\ Q.LIST_EXISTS_TAC [`f`]
       \\ ASM_SIMP_TAC std_ss []
       \\ `reachable_refs (RefPtr n::x2::x3::x4::stack) refs n` by ALL_TAC THEN1
@@ -8558,7 +8556,7 @@ val zHEAP_UPDATE_REF = let
     \\ `?f. (r2 = Pointer (f ' n)) /\ bc_ref_inv n refs (f,heap)` by ALL_TAC THEN1
      (Q.PAT_ASSUM `abs_ml_inv (x1::RefPtr n::x3::x4::stack) (refs |+ (n,x1))
          (r1::r2::r3::r4::roots,heap2,a,sp) cs.heap_limit` (K ALL_TAC)
-      \\ FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,EVERY2_def,
+      \\ FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,LIST_REL_def,
            bc_value_inv_def] \\ Q.LIST_EXISTS_TAC [`f`]
       \\ ASM_SIMP_TAC std_ss []
       \\ `reachable_refs (x1::RefPtr n::x3::x4::stack) refs n` by ALL_TAC THEN1
@@ -8871,7 +8869,7 @@ gg goal
     \\ SIMP_TAC (srw_ss()) [heap_inv_def]
     \\ Q.LIST_EXISTS_TAC [`vs`,`r1`,`r2`,`r3`,`r4`,`roots`,`heap`,`a`,`sp`]
     \\ FULL_SIMP_TAC (std_ss++star_ss) [APPEND,GSYM APPEND_ASSOC]
-    \\ FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,EVERY2_def]
+    \\ FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,LIST_REL_def]
     \\ `!x1 r1.
           bc_value_inv x1 (r1,f,heap) /\ isNumber x1 ==>
           (FST (SND (x64_num_size1 (x64_addr vs.current_heap r1,
@@ -9860,8 +9858,8 @@ gg goal
     \\ STRIP_TAC THEN1 (FULL_SIMP_TAC (srw_ss()) [])
     \\ `?rs. (roots = Data (n2w n) :: rs)` by ALL_TAC THEN1
      (FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,
-        APPEND,EVERY2_def] \\ Cases_on `roots`
-      \\ FULL_SIMP_TAC (srw_ss()) [EVERY2_def,bc_value_inv_def,CONS_11])
+        APPEND,LIST_REL_def] \\ Cases_on `roots`
+      \\ FULL_SIMP_TAC (srw_ss()) [LIST_REL_def,bc_value_inv_def,CONS_11])
     \\ FULL_SIMP_TAC std_ss [APPEND,HD,TL,MAP]
     \\ FULL_SIMP_TAC (srw_ss()) []
     \\ SIMP_TAC std_ss [zHEAP_def,SEP_IMP_def,SEP_CLAUSES,SEP_EXISTS_THM]
@@ -9933,7 +9931,7 @@ val zHEAP_CALL_R15 = let
     \\ STRIP_TAC THEN1
      (FULL_SIMP_TAC (srw_ss()) [abs_ml_inv_def,roots_ok_def,MEM]
       \\ STRIP_TAC THEN1 METIS_TAC []
-      \\ FULL_SIMP_TAC (srw_ss()) [bc_stack_ref_inv_def,EVERY2_def,
+      \\ FULL_SIMP_TAC (srw_ss()) [bc_stack_ref_inv_def,LIST_REL_def,
             reachable_refs_def,MEM]
       \\ Q.EXISTS_TAC `f` \\ FULL_SIMP_TAC std_ss []
       \\ FULL_SIMP_TAC (srw_ss()) [bc_value_inv_def,w2w_def]
@@ -10425,7 +10423,7 @@ gg goal
     \\ FULL_SIMP_TAC std_ss [heap_inv_def]
     \\ Cases_on `x2` \\ FULL_SIMP_TAC std_ss [isCodePtr_def,getCodePtr_def]
     \\ FULL_SIMP_TAC (srw_ss()) [abs_ml_inv_def,bc_stack_ref_inv_def,
-          EVERY2_def,bc_value_inv_def,x64_addr_def,w2w_def,WORD_MUL_LSL]
+          LIST_REL_def,bc_value_inv_def,x64_addr_def,w2w_def,WORD_MUL_LSL]
     \\ FULL_SIMP_TAC std_ss [word_mul_n2w]
     \\ FULL_SIMP_TAC (srw_ss()) [n2w_11]
     \\ FULL_SIMP_TAC (srw_ss()) [MOD_COMMON_FACTOR])
@@ -10475,7 +10473,7 @@ gg goal
     \\ REVERSE STRIP_TAC THEN1
      (POP_ASSUM MP_TAC \\ SIMP_TAC std_ss [STAR_ASSOC] \\ ASM_SIMP_TAC std_ss []
       \\ Cases_on `x2` \\ FULL_SIMP_TAC std_ss [isCodePtr_def,getCodePtr_def]
-      \\ FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,EVERY2_def]
+      \\ FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,LIST_REL_def]
       \\ FULL_SIMP_TAC std_ss [bc_value_inv_def,x64_addr_def]
       \\ `(w2w:63 word -> word64) (n2w n) << 1 = n2w (2 * n)` by ALL_TAC THEN1
         (SIMP_TAC (srw_ss()) [w2w_def,WORD_MUL_LSL,word_mul_n2w,MOD_COMMON_FACTOR])
@@ -10487,7 +10485,7 @@ gg goal
     \\ STRIP_TAC THEN1
      (FULL_SIMP_TAC (srw_ss()) [abs_ml_inv_def,roots_ok_def,MEM]
       \\ STRIP_TAC THEN1 METIS_TAC []
-      \\ FULL_SIMP_TAC (srw_ss()) [bc_stack_ref_inv_def,EVERY2_def,
+      \\ FULL_SIMP_TAC (srw_ss()) [bc_stack_ref_inv_def,LIST_REL_def,
             reachable_refs_def,MEM]
       \\ Q.EXISTS_TAC `f` \\ FULL_SIMP_TAC std_ss []
       \\ FULL_SIMP_TAC (srw_ss()) [bc_value_inv_def,w2w_def]
@@ -10566,7 +10564,7 @@ gg goal
     \\ FULL_SIMP_TAC (srw_ss()) [abs_ml_inv_def,roots_ok_def,MEM]
     \\ STRIP_TAC THEN1 METIS_TAC []
     \\ FULL_SIMP_TAC std_ss [bc_stack_ref_inv_def]
-    \\ Q.EXISTS_TAC `f` \\ FULL_SIMP_TAC std_ss [EVERY2_def]
+    \\ Q.EXISTS_TAC `f` \\ FULL_SIMP_TAC std_ss [LIST_REL_def]
     \\ FULL_SIMP_TAC std_ss [bc_value_inv_def]
     \\ REPEAT STRIP_TAC
     \\ FIRST_ASSUM MATCH_MP_TAC
@@ -10624,10 +10622,10 @@ gg goal
     \\ FULL_SIMP_TAC (std_ss++star_ss) [] \\ REPEAT STRIP_TAC
     \\ POP_ASSUM (K ALL_TAC)
     \\ FULL_SIMP_TAC std_ss [heap_inv_def] \\ ASM_SIMP_TAC (srw_ss()) []
-    \\ FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,EVERY2_def]
+    \\ FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,LIST_REL_def]
     \\ FULL_SIMP_TAC std_ss [bc_value_inv_def,PULL_EXISTS]
     \\ Q.LIST_EXISTS_TAC [`vs`,`r2`,`r3`,`r4`,`roots`,`heap`,`a`,`sp`,`f`]
-    \\ FULL_SIMP_TAC std_ss [APPEND,EVERY2_def,x64_addr_def,roots_ok_def]
+    \\ FULL_SIMP_TAC std_ss [APPEND,LIST_REL_def,x64_addr_def,roots_ok_def]
     \\ FULL_SIMP_TAC (srw_ss()) [MEM] \\ STRIP_TAC THEN1 METIS_TAC []
     \\ REPEAT STRIP_TAC THEN1
      (FIRST_ASSUM MATCH_MP_TAC
@@ -13777,7 +13775,7 @@ val output_simp = prove(
 val EVERY2_CONS = prove(
   ``EVERY2 P (x::xs) ys <=>
     ?y ys'. P x y /\ EVERY2 P xs ys' /\ (ys = y::ys')``,
-  Cases_on `ys` \\ FULL_SIMP_TAC (srw_ss()) [EVERY2_def]);
+  Cases_on `ys` \\ FULL_SIMP_TAC (srw_ss()) [LIST_REL_def]);
 
 val reachable_refs_CodePtr = prove(
   ``(reachable_refs (x1::x2::x3::x4::CodePtr x::stack) refs n =
@@ -13795,7 +13793,7 @@ val zHEAP_CodePtr = prove(
     (zHEAP (cs,CodePtr n,x2,x3,x4,refs,stack,s,space) =
      zHEAP (cs,CodePtr (w2n ((n2w n):63 word)),x2,x3,x4,refs,stack,s,space))``,
   SIMP_TAC std_ss [zHEAP_def,heap_inv_def,abs_ml_inv_def,
-    APPEND,bc_stack_ref_inv_def,EVERY2_def,EVERY2_CONS,PULL_EXISTS]
+    APPEND,bc_stack_ref_inv_def,LIST_REL_def,EVERY2_CONS,PULL_EXISTS]
   \\ SIMP_TAC std_ss [bc_value_inv_def,n2w_w2n,reachable_refs_CodePtr]);
 
 val MOD64_DIV2_MOD63 = prove(
