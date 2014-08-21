@@ -1,5 +1,5 @@
 open HolKernel boolLib boolSimps bossLib lcsymtacs sholSyntaxTheory miscLib
-open SatisfySimps miscTheory pairTheory listTheory pred_setTheory finite_mapTheory alistTheory sortingTheory stringTheory relationTheory holSyntaxLibTheory
+open SatisfySimps miscTheory pairTheory listTheory pred_setTheory finite_mapTheory alistTheory sortingTheory stringTheory relationTheory rich_listTheory holSyntaxLibTheory
 val _ = temp_tight_equality()
 val _ = new_theory"sholSyntaxExtra"
 
@@ -537,7 +537,7 @@ val FST_rename_bvars = store_thm("FST_rename_bvars",
   Cases_on`rename_bvars names env tm` >> fs[] >>
   fsrw_tac[ARITH_ss][] >>
   REWRITE_TAC[Once arithmeticTheory.ADD_SYM] >>
-  match_mp_tac rich_listTheory.DROP_DROP >>
+  match_mp_tac DROP_DROP >>
   simp[])
 
 val rename_bvars_RACONV = store_thm("rename_bvars_RACONV",
@@ -589,15 +589,15 @@ val rename_bvars_RACONV = store_thm("rename_bvars_RACONV",
       conj_tac >- DECIDE_TAC >>
       conj_tac >- (
         rw[] >> spose_not_then strip_assume_tac >>
-        imp_res_tac rich_listTheory.MEM_DROP >>
+        imp_res_tac MEM_DROP >>
         metis_tac[] ) >>
       conj_tac >- (
         rw[] >> spose_not_then strip_assume_tac >>
-        imp_res_tac rich_listTheory.MEM_DROP >>
+        imp_res_tac MEM_DROP >>
         metis_tac[] ) >>
       conj_tac >- metis_tac[ALL_DISTINCT_DROP] >>
       rw[] >> spose_not_then strip_assume_tac >>
-      imp_res_tac rich_listTheory.MEM_DROP >>
+      imp_res_tac MEM_DROP >>
       metis_tac[]) >>
     conj_tac >- DECIDE_TAC >> metis_tac[]) >>
   rw[UNCURRY] >>
