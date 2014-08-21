@@ -1476,13 +1476,6 @@ val lookup_tag_env_insert = Q.prove (
  every_case_tac >>
  fs []);
 
-val check_dup_ctors_flat = Q.prove (
-`!defs.
-  check_dup_ctors (defs:type_def) =
-  ALL_DISTINCT (MAP FST (build_tdefs mn defs))`,
- rw [check_dup_ctors_thm, MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, build_tdefs_def,
-     MAP_REVERSE, ALL_DISTINCT_REVERSE]);
-
 val gtagenv_weak_refl = Q.prove (
 `!gtagenv envC tagenv.
   gtagenv_wf gtagenv

@@ -1433,6 +1433,14 @@ val evaluate_dec_new_dec_vs = store_thm("evaluate_dec_new_dec_vs",
   imp_res_tac pmatch_dom >>
   fs[build_rec_env_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX])
 
+val evaluate_decs_new_decs_vs = store_thm("evaluate_decs_new_decs_vs",
+  ``∀ck mn env s decs res. evaluate_decs ck mn env s decs res ⇒
+      ∀env. SND(SND res) = Rval env ⇒ MAP FST env = new_decs_vs decs``,
+  ho_match_mp_tac evaluate_decs_ind >> simp[] >> rw[libTheory.emp_def] >>
+  imp_res_tac evaluate_dec_new_dec_vs >> fs[] >>
+  Cases_on`r`>>fs[semanticPrimitivesTheory.combine_dec_result_def]>>
+  rw[libTheory.merge_def])
+
 val evaluate_decs_closed = store_thm("evaluate_decs_closed",
   ``∀ck mn env s ds res. evaluate_decs ck mn env s ds res ⇒
       FV_decs ds ⊆ all_env_dom env ∧
