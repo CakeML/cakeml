@@ -4,16 +4,13 @@ open HolKernel boolLib bossLib lcsymtacs
   val add_datatype = compute_basicLib.add_datatype
 
   fun add_parsing_compset compset = let
-    
+
     local open cmlParseTheory cmlPEGTheory in
       val () = computeLib.add_thms
       [destResult_def
-      ,parse_REPLphrase_def
-      ,parse_def
       ,parse_top_def
       ,cmlParseREPLTop_def
       ,cmlParseExpr_def
-      ,cmlParseREPLPhrase_def
       ,sumID_def
       ,tokeq_def
       ,cmlPEG_exec_thm
@@ -46,7 +43,7 @@ open HolKernel boolLib bossLib lcsymtacs
     end
     val () = add_datatype ``:repl_parse_result`` compset
 
-    in 
+    in
       ()
     end
 
@@ -58,6 +55,5 @@ open HolKernel boolLib bossLib lcsymtacs
     in
       c
     end
-
 
 end
