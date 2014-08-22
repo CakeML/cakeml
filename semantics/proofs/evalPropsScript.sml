@@ -500,6 +500,88 @@ val check_dup_ctors_flat = Q.store_thm("check_dup_ctors_flat",
      semanticPrimitivesTheory.build_tdefs_def,
      rich_listTheory.MAP_REVERSE, ALL_DISTINCT_REVERSE]);
 
+(* free vars *)
+
+val FV_def = tDefine "FV"`
+  (FV (Raise e) = FV e) ∧
+  (FV (Handle e pes) = FV e ∪ FV_pes pes) ∧
+  (FV (Lit _) = {}) ∧
+  (FV (Con _ ls) = FV_list ls) ∧
+  (FV (Var id) = {id}) ∧
+  (FV (Fun x e) = FV e DIFF {Short x}) ∧
+  (FV (App _ es) = FV_list es) ∧
+  (FV (Log _ e1 e2) = FV e1 ∪ FV e2) ∧
+  (FV (If e1 e2 e3) = FV e1 ∪ FV e2 ∪ FV e3) ∧
+  (FV (Mat e pes) = FV e ∪ FV_pes pes) ∧
+  (FV (Let xo e b) = FV e ∪ (FV b DIFF (case xo of NONE => {} | SOME x => {Short x}))) ∧
+  (FV (Letrec defs b) = FV_defs defs ∪ FV b DIFF set (MAP (Short o FST) defs)) ∧
+  (FV_list [] = {}) ∧
+  (FV_list (e::es) = FV e ∪ FV_list es) ∧
+  (FV_pes [] = {}) ∧
+  (FV_pes ((p,e)::pes) =
+     (FV e DIFF (IMAGE Short (set (pat_bindings p [])))) ∪ FV_pes pes) ∧
+  (FV_defs [] = {}) ∧
+  (FV_defs ((_,x,e)::defs) =
+     (FV e DIFF {Short x}) ∪ FV_defs defs)`
+  (WF_REL_TAC `inv_image $< (λx. case x of
+     | INL e => exp_size e
+     | INR (INL es) => exp6_size es
+     | INR (INR (INL pes)) => exp3_size pes
+     | INR (INR (INR (defs))) => exp1_size defs)`)
+val _ = export_rewrites["FV_def"]
+
+val _ = Parse.overload_on("SFV",``λe. {x | Short x ∈ FV e}``)
+
+val FV_pes_MAP = store_thm("FV_pes_MAP",
+  ``FV_pes pes = BIGUNION (IMAGE (λ(p,e). FV e DIFF (IMAGE Short (set (pat_bindings p [])))) (set pes))``,
+  Induct_on`pes`>>simp[]>>
+  qx_gen_tac`p`>>PairCases_on`p`>>rw[])
+
+val FV_defs_MAP = store_thm("FV_defs_MAP",
+  ``∀ls. FV_defs ls = BIGUNION (IMAGE (λ(f,x,e). FV e DIFF {Short x}) (set ls))``,
+  Induct_on`ls`>>simp[FORALL_PROD])
+
+val FV_dec_def = Define`
+  (FV_dec (Dlet p e) = FV (Mat e [(p,Lit ARB)])) ∧
+  (FV_dec (Dletrec defs) = FV (Letrec defs (Lit ARB))) ∧
+  (FV_dec (Dtype _) = {}) ∧
+  (FV_dec (Dtabbrev _ _ _) = {}) ∧
+  (FV_dec (Dexn _ _) = {})`
+val _ = export_rewrites["FV_dec_def"]
+
+val new_dec_vs_def = Define`
+  (new_dec_vs (Dtype _) = []) ∧
+  (new_dec_vs (Dtabbrev _ _ _) = []) ∧
+  (new_dec_vs (Dexn _ _) = []) ∧
+  (new_dec_vs (Dlet p e) = pat_bindings p []) ∧
+  (new_dec_vs (Dletrec funs) = MAP FST funs)`
+val _ = export_rewrites["new_dec_vs_def"]
+
+val _ = Parse.overload_on("new_decs_vs",``λdecs. FLAT (REVERSE (MAP new_dec_vs decs))``)
+
+val FV_decs_def = Define`
+  (FV_decs [] = {}) ∧
+  (FV_decs (d::ds) = FV_dec d ∪ ((FV_decs ds) DIFF (set (MAP Short (new_dec_vs d)))))`
+
+val FV_top_def = Define`
+  (FV_top (Tdec d) = FV_dec d) ∧
+  (FV_top (Tmod mn _ ds) = FV_decs ds)`
+val _ = export_rewrites["FV_top_def"]
+
+val new_top_vs_def = Define`
+  new_top_vs (Tdec d) = MAP Short (new_dec_vs d) ∧
+  new_top_vs (Tmod mn _ ds) = MAP (Long mn) (new_decs_vs ds)`
+val _ = export_rewrites["new_top_vs_def"]
+
+val FV_prog_def = Define`
+  (FV_prog [] = {}) ∧
+  (FV_prog (t::ts) = FV_top t ∪ ((FV_prog ts) DIFF (set (new_top_vs t))))`
+
+val all_env_dom_def = Define`
+  all_env_dom (envM,envC,envE) =
+    IMAGE Short (set (MAP FST envE)) ∪
+    { Long m x | ∃e. lookup m envM = SOME e ∧ MEM x (MAP FST e) }`
+
 (* REPL bootstrap lemmas *)
 
 val evaluate_decs_last3 = prove(

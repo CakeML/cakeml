@@ -984,41 +984,6 @@ val v_to_i2_closed = store_thm("v_to_i2_closed",
   simp[funs_to_i2_MAP,EVERY_MAP,MAP_MAP_o,UNCURRY,combinTheory.o_DEF,ETA_AX] >>
   simp[LAMBDA_PROD,MAP_MAP_o,UNCURRY,combinTheory.o_DEF,FST_pair])
 
-val FV_def = tDefine "FV"`
-  (FV (Raise e) = FV e) ∧
-  (FV (Handle e pes) = FV e ∪ FV_pes pes) ∧
-  (FV (Lit _) = {}) ∧
-  (FV (Con _ ls) = FV_list ls) ∧
-  (FV (Var id) = {id}) ∧
-  (FV (Fun x e) = FV e DIFF {Short x}) ∧
-  (FV (App _ es) = FV_list es) ∧
-  (FV (Log _ e1 e2) = FV e1 ∪ FV e2) ∧
-  (FV (If e1 e2 e3) = FV e1 ∪ FV e2 ∪ FV e3) ∧
-  (FV (Mat e pes) = FV e ∪ FV_pes pes) ∧
-  (FV (Let xo e b) = FV e ∪ (FV b DIFF (case xo of NONE => {} | SOME x => {Short x}))) ∧
-  (FV (Letrec defs b) = FV_defs defs ∪ FV b DIFF set (MAP (Short o FST) defs)) ∧
-  (FV_list [] = {}) ∧
-  (FV_list (e::es) = FV e ∪ FV_list es) ∧
-  (FV_pes [] = {}) ∧
-  (FV_pes ((p,e)::pes) =
-     (FV e DIFF (IMAGE Short (set (pat_bindings p [])))) ∪ FV_pes pes) ∧
-  (FV_defs [] = {}) ∧
-  (FV_defs ((_,x,e)::defs) =
-     (FV e DIFF {Short x}) ∪ FV_defs defs)`
-  (WF_REL_TAC `inv_image $< (λx. case x of
-     | INL e => exp_size e
-     | INR (INL es) => exp6_size es
-     | INR (INR (INL pes)) => exp3_size pes
-     | INR (INR (INR (defs))) => exp1_size defs)`)
-val _ = export_rewrites["FV_def"]
-
-val _ = Parse.overload_on("SFV",``λe. {x | Short x ∈ FV e}``)
-
-val FV_pes_MAP = store_thm("FV_pes_MAP",
-  ``FV_pes pes = BIGUNION (IMAGE (λ(p,e). FV e DIFF (IMAGE Short (set (pat_bindings p [])))) (set pes))``,
-  Induct_on`pes`>>simp[]>>
-  qx_gen_tac`p`>>PairCases_on`p`>>rw[])
-
 val (closed_rules,closed_ind,closed_cases) = Hol_reln`
 (closed (Litv l)) ∧
 (EVERY closed vs ⇒ closed (Conv cn vs)) ∧
@@ -1043,16 +1008,7 @@ val closed_lit_loc_conv = store_thm("closed_lit_loc_conv",
   rw[closed_cases])
 val _ = export_rewrites["closed_lit_loc_conv"]
 
-val FV_defs_MAP = store_thm("FV_defs_MAP",
-  ``∀ls. FV_defs ls = BIGUNION (IMAGE (λ(f,x,e). FV e DIFF {Short x}) (set ls))``,
-  Induct_on`ls`>>simp[FORALL_PROD])
-
 val closed_strongind=theorem"closed_strongind"
-
-val all_env_dom_def = Define`
-  all_env_dom (envM,envC,envE) =
-    IMAGE Short (set (MAP FST envE)) ∪
-    { Long m x | ∃e. lookup m envM = SOME e ∧ MEM x (MAP FST e) }`
 
 val all_env_closed_def = Define`
   all_env_closed (envM,envC,envE) ⇔
@@ -1381,14 +1337,6 @@ val v_to_i1_closed = store_thm("v_to_i1_closed",
   fs[FLOOKUP_DEF,FDOM_FUPDATE_LIST] >>
   metis_tac[SUBSET_DEF] )
 
-val FV_dec_def = Define`
-  (FV_dec (Dlet p e) = FV (Mat e [(p,Lit ARB)])) ∧
-  (FV_dec (Dletrec defs) = FV (Letrec defs (Lit ARB))) ∧
-  (FV_dec (Dtype _) = {}) ∧
-  (FV_dec (Dtabbrev _ _ _) = {}) ∧
-  (FV_dec (Dexn _ _) = {})`
-val _ = export_rewrites["FV_dec_def"]
-
 val evaluate_dec_closed = store_thm("evaluate_dec_closed",
   ``∀ck mn env s dec res. evaluate_dec ck mn env s dec res ⇒
       FV_dec dec ⊆ all_env_dom env ∧
@@ -1409,20 +1357,6 @@ val evaluate_dec_closed = store_thm("evaluate_dec_closed",
   fs[all_env_dom_def,all_env_closed_def,FST_triple,all_env_to_env_def,all_env_to_menv_def] >>
   fsrw_tac[DNF_ss][SUBSET_DEF,FV_defs_MAP,FORALL_PROD,MEM_MAP,EXISTS_PROD] >>
   metis_tac[])
-
-val new_dec_vs_def = Define`
-  (new_dec_vs (Dtype _) = []) ∧
-  (new_dec_vs (Dtabbrev _ _ _) = []) ∧
-  (new_dec_vs (Dexn _ _) = []) ∧
-  (new_dec_vs (Dlet p e) = pat_bindings p []) ∧
-  (new_dec_vs (Dletrec funs) = MAP FST funs)`
-val _ = export_rewrites["new_dec_vs_def"]
-
-val _ = Parse.overload_on("new_decs_vs",``λdecs. FLAT (REVERSE (MAP new_dec_vs decs))``)
-
-val FV_decs_def = Define`
-  (FV_decs [] = {}) ∧
-  (FV_decs (d::ds) = FV_dec d ∪ ((FV_decs ds) DIFF (set (MAP Short (new_dec_vs d)))))`
 
 val evaluate_dec_new_dec_vs = store_thm("evaluate_dec_new_dec_vs",
   ``∀ck mn env s dec res.
@@ -1471,22 +1405,8 @@ val evaluate_decs_new_decs_vs = store_thm("evaluate_decs_new_decs_vs",
   Cases_on`r`>>fs[combine_dec_result_def,libTheory.merge_def] >>
   imp_res_tac evaluate_dec_new_dec_vs >> fs[] >> rw[])
 
-val FV_top_def = Define`
-  (FV_top (Tdec d) = FV_dec d) ∧
-  (FV_top (Tmod mn _ ds) = FV_decs ds)`
-val _ = export_rewrites["FV_top_def"]
-
 val closed_top_def = Define`
   closed_top env top ⇔ FV_top top ⊆ all_env_dom env`
-
-val new_top_vs_def = Define`
-  new_top_vs (Tdec d) = MAP Short (new_dec_vs d) ∧
-  new_top_vs (Tmod mn _ ds) = MAP (Long mn) (new_decs_vs ds)`
-val _ = export_rewrites["new_top_vs_def"]
-
-val FV_prog_def = Define`
-  (FV_prog [] = {}) ∧
-  (FV_prog (t::ts) = FV_top t ∪ ((FV_prog ts) DIFF (set (new_top_vs t))))`
 
 val closed_prog_def = Define`
   closed_prog p ⇔ FV_prog p = {}`
