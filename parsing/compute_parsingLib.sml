@@ -41,7 +41,6 @@ open HolKernel boolLib bossLib lcsymtacs
       ,lex_aux_def
       ] compset
     end
-    val () = add_datatype ``:repl_parse_result`` compset
 
     in
       ()
