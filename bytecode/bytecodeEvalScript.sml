@@ -17,9 +17,7 @@ val bc_eval_stack_def = Define`
 ∧ (bc_eval_stack (Store k) (y::xs) =
    if k < LENGTH xs ∧ 0 < LENGTH xs
    then SOME (TAKE k xs ++ y :: (DROP (k+1) xs)) else NONE)
-∧ (bc_eval_stack (El k) ((Block tag ys)::xs) =
-   if k < LENGTH ys then SOME (EL k ys::xs) else NONE)
-∧ (bc_eval_stack El2 ((Number k)::(Block tag ys)::xs) =
+∧ (bc_eval_stack El ((Number k)::(Block tag ys)::xs) =
    if 0 ≤ k ∧ Num k < LENGTH ys then SOME (EL (Num k) ys::xs) else NONE)
 ∧ (bc_eval_stack (TagEq t) ((Block tag ys)::xs) =
    SOME (bool_to_val (tag = t)::xs))
@@ -82,10 +80,7 @@ fs[bc_eval_stack_def,bc_stack_op_cases] >> rw[]
   res_tac >> Cases_on`t`>>fs[])
 >- ( Cases_on `h` >> fs[bc_eval_stack_def] )
 >- (
-  qmatch_assum_rename_tac `bc_eval_stack (El n) (h::t) = SOME ys` [] >>
-  Cases_on `h` >> fs[bc_eval_stack_def] )
->- (
-  qmatch_assum_rename_tac `bc_eval_stack (El2) (h::t) = SOME ys` [] >>
+  qmatch_assum_rename_tac `bc_eval_stack (El) (h::t) = SOME ys` [] >>
   Cases_on `h` >> Cases_on`t` >> fs[bc_eval_stack_def] >>
   Cases_on`h`>>fs[bc_eval_stack_def] >> rw[] >>
   qexists_tac`Num i` >> rw[INT_OF_NUM])

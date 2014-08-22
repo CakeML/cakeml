@@ -16,7 +16,7 @@ val real_inst_length_def = zDefine `
        else 1
    | Stack (Load v31) => if v31 <= 268435455 then 4 else 1
    | Stack (Store v32) => if v32 <= 268435455 then 4 else 1
-   | Stack (El v34) => if v34 <= 268435455 then 6 else 1
+   | Stack El => 6
    | Stack (TagEq v35) => if v35 <= 268435455 then 28 else 1
    | Stack IsBlock => 25
    | Stack Equal => 5
@@ -65,8 +65,7 @@ val bc_num_def = Define `
      | Stack (Cons n m) => (4,n,m)
      | Stack (Load n) => (5,n,0)
      | Stack (Store n) => (6,n,0)
-     | Stack (El n) => (8,n,0)
-     | Stack El2 => (50,0,0)
+     | Stack El => (50,0,0)
      | Stack (Cons2 n) => (51,n,0)
      | Stack (TagEq n) => (9,n,0)
      | Stack LengthBlock => (48,0,0)
@@ -119,10 +118,9 @@ val num_bc_def = Define `
     else if n = 5 then Stack (Load x1)
     else if n = 6 then Stack (Store x1)
     else if n = 7 then Gread x1
-    else if n = 8 then Stack (El x1)
     else if n = 9 then Stack (TagEq x1)
     else if n = 48 then Stack LengthBlock
-    else if n = 50 then Stack El2
+    else if n = 50 then Stack El
     else if n = 51 then Stack (Cons2 x1)
     else if n = 10 then Stack IsBlock
     else if n = 11 then Stack Equal

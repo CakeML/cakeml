@@ -19,8 +19,7 @@ val bc_inst_to_string_def = Define `
 (bc_inst_to_string (Stack (Cons2 n1)) = "cons2 " ++ toString n1) ∧
 (bc_inst_to_string (Stack (Load n)) = "load " ++ toString n) ∧
 (bc_inst_to_string (Stack (Store n)) = "store " ++ toString n) ∧
-(bc_inst_to_string (Stack (El n)) = "el " ++ toString n) ∧
-(bc_inst_to_string (Stack El2) = "el2") ∧
+(bc_inst_to_string (Stack El) = "el") ∧
 (bc_inst_to_string (Stack (TagEq n)) = "tagEq " ++ toString n) ∧
 (bc_inst_to_string (Stack IsBlock) = "isBlock") ∧
 (bc_inst_to_string (Stack LengthBlock) = "lengthBlock") ∧
@@ -90,11 +89,9 @@ val encode_bc_inst_def = Define `
   OPTION_MAP (\w. [6w; w]) (encode_num n)) ∧
 (encode_bc_inst (Stack (Store n)) =
   OPTION_MAP (\w. [7w; w]) (encode_num n)) ∧
-(encode_bc_inst (Stack (El n)) =
-  OPTION_MAP (\w. [9w; w]) (encode_num n)) ∧
 (encode_bc_inst (Stack (TagEq n)) =
   OPTION_MAP (\w. [10w; w]) (encode_num n)) ∧
-(encode_bc_inst (Stack El2) = SOME [47w]) ∧
+(encode_bc_inst (Stack El) = SOME [47w]) ∧
 (encode_bc_inst (Stack LengthBlock) = SOME [46w]) ∧
 (encode_bc_inst (Stack IsBlock) = SOME [11w]) ∧
 (encode_bc_inst (Stack Equal) = SOME [12w]) ∧
@@ -176,12 +173,10 @@ decode_bc_inst wl =
            option_map_fst (\n. Stack (Load n)) (decode_num rest)
          else if tag = 7w then
            option_map_fst (\n. Stack (Store n)) (decode_num rest)
-         else if tag = 9w then
-           option_map_fst (\n. Stack (El n)) (decode_num rest)
          else if tag = 10w then
            option_map_fst (\n. Stack (TagEq n)) (decode_num rest)
          else if tag = 47w then
-           SOME (Stack El2, rest)
+           SOME (Stack El, rest)
          else if tag = 46w then
            SOME (Stack LengthBlock, rest)
          else if tag = 11w then
