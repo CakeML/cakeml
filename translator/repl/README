@@ -4,10 +4,9 @@ ml_repl_stepScript.sml
 ml_repl_moduleScript.sml
   - packages the declarations produced by the script above into a module
     and inserts three extra declarations at the end
+  - proves some properties about the refinement invariants for the repl_step
+    closure
 
 sideScript.sml
   - proves side conditions that the translator generates (mostly that the
     inferencer only uses well-founded substitutions)
-
-compile_primitivesScript.sml
-  - pre-computed evaluation of the initial program
