@@ -1,8 +1,6 @@
-open HolKernel Parse boolLib bossLib; 
-
+open HolKernel Parse boolLib bossLib miscLib word_langTheory
+open listTheory sptreeTheory pred_setTheory pairTheory
 val _ = new_theory "word_proc";
-
-set_trace "Goalstack.print_goal_at_top" 0;
 
 (*Coloring expressions*)
 val apply_color_exp_def = tDefine "apply_color_exp" `
@@ -21,6 +19,10 @@ val apply_nummap_key_def = Define `
   apply_nummap_key f nummap = fromAList (
                                  ZIP (MAP (f o FST) (toAList nummap),
                                       MAP SND (toAList nummap)))`
+
+val apply_numset_key_def = Define `
+  apply_numset_key f (numset:num_set) = apply_nummap_key f numset`
+
 
 (*Color a prog*)
 val apply_color_def = Define `
@@ -53,276 +55,7 @@ val _ = export_rewrites ["apply_nummap_key_def","apply_color_exp_def","apply_col
 (*
 EVAL ``apply_color (\x.x+1) (Seq (Call (SOME (5,LN)) (SOME 4) [3;2;1] NONE) Skip)``
 *)
-
-(*Prove side results about fromAList: 
-  The keys in the Alist will always be in the resulting domain*)
-val MEM_fromAList = store_thm ("MEM_fromAList",
-  ``∀t k. MEM k (MAP FST t) <=> 
-          k IN domain (fromAList t) ``,
-  Induct_on`t`>>
-    rw[fromAList_def]>>
-  Cases_on`h`>> 
-  Cases_on`q=k`>>
-    rw[fromAList_def])
-
-val lookup_fromAList = store_thm ("lookup_fromAList",
-  ``!x v ls. lookup x (fromAList ls) = SOME v ==> MEM (x,v) ls``,
-  strip_tac>>strip_tac>>Induct>>
-  fs[fromAList_def,lookup_def]>>
-  Cases_on`h`>>
-    Cases_on`q=x`>>
-      rw[lookup_def,fromAList_def]>> fs[lookup_insert] >>
-      metis_tac[]
-  )
-
-val MEM_MAP_FST = store_thm ("MEM_MAP_FST",
-``!f v x ls. MEM (f v,x) ls ==> MEM (f v) (MAP FST ls)``,
-     Induct_on `ls` >>
-      fs[]>> 
-      Cases>>
-      rpt strip_tac>>
-      fs[]>>
-      metis_tac[])
-
-(*Map compose*)
-val map_compose = prove (
-  ``!f g ls. MAP (f o g) ls = MAP f (MAP g ls)``,
-   strip_tac>>strip_tac>>Induct>>
-   fs[]);
-
-val ZIP_CORRECT = store_thm ("ZIP_CORRECT",
-``!l v x' f. MEM (v,x') l 
-  ==> MEM (f v,x') (ZIP (MAP (f o FST) l,MAP SND l))``,
-     (Induct_on `l`>>
-     fs[] >>
-     Cases >>
-     rpt strip_tac>>
-     fs[]) )
-
-val ZIP_CORRECT_INJ = store_thm ("ZIP_CORRECT_INJ",
-``!l v x' f. INJ f UNIV UNIV
-  ==> 
-  ((MEM (v,x') l) <=> (MEM (f v,x') (ZIP (MAP (f o FST) l,MAP SND l))))``,
-  Induct_on `l`>>
-  fs[] >>
-  Cases >>
-  rpt strip_tac>>
-  fs[]>>
-  Cases_on `v=q`>-
-    (fs[]>>metis_tac[])>>
-  fs[] >> 
-  `f v <> f q` by
-  fs[INJ_DEF]>>
-  metis_tac[INJ_DEF])
-
-(*fromAList list_insert*)
-
-val fromAList_list_insert = prove(
-  ``!x y ls ls'. ls = fromAList ls' /\ LENGTH x = LENGTH y ==> 
-      list_insert x y ls = fromAList (ZIP (x,y) ++ ls')``,
-  ho_match_mp_tac (fetch "-" "list_insert_ind")>> 
-  rw[]>-
-    (Cases_on`y`>> fs[list_insert_def])>>
-  fs[list_insert_def,fromAList_def])
-
-(*ZIP equivalence - Simplification for Move*)
-val ZIP_MAP_EQ = prove(
-  ``!f ls. ZIP ( MAP (f o FST) ls , MAP SND ls)  = MAP (\x,y.f x,y) ls``,
-  strip_tac>>Induct>> fs[]>>
-  Cases>>simp[])
-
-(*Delete repeated keys in AList*)
-(*val unique_key_def =  tDefine "unique_key"`
-  (unique_key [] = [] ) /\
-  (unique_key ((x,y)::xs) = (x,y) :: unique_key (FILTER (\a,b. a<>x) xs))`
-  (WF_REL_TAC `measure LENGTH` >>
-  rpt strip_tac>>
-  `LENGTH (FILTER (\a,b. a<>x) xs) <= LENGTH xs` by
-  fs[rich_listTheory.LENGTH_FILTER_LEQ]>> simp[])
-*)
-
-(*This defn seems much easier to work with:*)
-val unique_key_def = Define`
-  (unique_key ls = toAList (fromAList ls))`
- 
-val MEM_MAP_FST_gen = prove(
-  ``!ls x. (?y. MEM (x,y) ls) <=> MEM x (MAP FST ls)``,
- Induct >- fs[]>>
- Cases>>strip_tac>>
- rw[]>>Cases_on`x=q`>>
- fs[]>> 
- EXISTS_TAC ``r:'b`` >>fs[] >>
- fs[])
-
-(*toAList fromAList cancellation thms*)
-val fromAList_toAList_lemma = prove(
-  ``!t x. lookup x (fromAList (toAList t)) = lookup x t``,
-  rpt strip_tac>>Cases_on`lookup x t`>-(
-    `!y. ~MEM (x,y) (toAList t)` by fs[MEM_toAList]>>
-    ASSUME_TAC lookup_fromAList >>
-    SPOSE_NOT_THEN ASSUME_TAC>> simp[] >> 
-    metis_tac[lookup_def,lookup_fromAList,MEM_toAList,NOT_SOME_NONE,fromAList_def,toAList_def,option_nchotomy]) >>
-  Cases_on `lookup x (fromAList (toAList t))`>-
-    (fs[lookup_NONE_domain]>> ASSUME_TAC MEM_fromAList >>
-    `~ MEM x (MAP FST (toAList t))` by metis_tac[]>>
-    ASSUME_TAC MEM_toAList >> 
-    `!y. ~MEM (x,y) (toAList t)` by metis_tac[MEM_MAP_FST_gen]>>
-    metis_tac[])>>
-    `MEM (x,x'') (toAList t)` by metis_tac[lookup_fromAList]>>
-    metis_tac[MEM_toAList])
-
-val fromAList_wf = prove(
-  ``!ls. wf (fromAList ls)``,
-  Induct >> 
-    rw[fromAList_def,wf_def]>>
-  Cases_on`h`>>
-  rw[fromAList_def]>>
-    simp[wf_insert])
-
-val fromAList_toAList = prove (
-  ``!t. wf t ==> fromAList (toAList t) = t``,
-  metis_tac[fromAList_wf,fromAList_toAList_lemma,spt_eq_thm])
-
-val fromAList_unique_key = prove(
-  ``!ls. fromAList ls = fromAList (unique_key ls)``,
-  metis_tac[unique_key_def,fromAList_toAList,fromAList_wf])
-
-val toAList_unique_key = prove(
-  ``!t.wf t ==> toAList t = unique_key (toAList t)``,
-  metis_tac[unique_key_def,fromAList_toAList,fromAList_wf] )
-
-val fromAList_split = prove(
-  ``!x y. fromAList(x++y)=list_insert (MAP FST x) (MAP SND x) (fromAList y)``,
-  Induct>> fs[list_insert_def]>>
-    Cases>> rw[fromAList_def])
-
-val toAList_list_insert = prove(
-  ``!x y t. LENGTH x = LENGTH y /\ wf t ==>
-      toAList(list_insert x y t) = unique_key (ZIP (x,y) ++ (toAList t))``,
-  rw[unique_key_def,fromAList_split]>>
-  fs[MAP_ZIP,fromAList_toAList])
-
-val lookup_list_insert = prove(
-  ``!x y t (z:num). LENGTH x = LENGTH y ==> 
-    (lookup z (list_insert x y t) = 
-    case ALOOKUP (ZIP(x,y)) z of SOME a => SOME a | NONE => lookup z t)``,
-    ho_match_mp_tac (fetch "-" "list_insert_ind")>>
-    rw[]>-
-      (Cases_on`y`>>
-      rw[list_insert_def]>>fs[LENGTH]) >>
-    Cases_on`z=x`>>
-      rw[lookup_def,list_insert_def]>>
-    fs[lookup_insert]) 
-
-val ALOOKUP_toAList_eq = prove(
-  ``!t x. ALOOKUP (toAList t) x = lookup x t``,
-  strip_tac>>strip_tac>>Cases_on `lookup x t` >-
-    (*NONE*)
-    (SPOSE_NOT_THEN ASSUME_TAC>>
-    `?y. ALOOKUP(toAList t) x = SOME y` by metis_tac[option_nchotomy]>>
-    metis_tac[alistTheory.ALOOKUP_MEM,MEM_toAList])>>
-    (*SOME*)
-    SPOSE_NOT_THEN ASSUME_TAC>>
-    Cases_on`ALOOKUP (toAList t) x`>-(
-      `MEM (x,x') (toAList t)` by fs[MEM_toAList]>>
-      `MEM x (MAP FST (toAList t))` by
-        (simp[MEM_MAP,EXISTS_PROD]>>metis_tac[])>>
-       metis_tac[alistTheory.ALOOKUP_NONE]
-       ) >>
-      `MEM(x,x'') (toAList t)` by fs[alistTheory.ALOOKUP_MEM]>>
-      metis_tac[alistTheory.ALOOKUP_NONE,MEM_toAList])
-  
-val ALOOKUP_toAList_list_insert = prove(
-  ``!z x y t. LENGTH x = LENGTH y ==>
-   ALOOKUP (toAList (list_insert x y t)) z = 
-   case ALOOKUP (ZIP(x,y)) z of SOME a => SOME a | NONE => lookup z t``,
-  strip_tac>>ho_match_mp_tac (fetch "-" "list_insert_ind")>>
-  rw[]>-
-    (Cases_on`y`>>rw[list_insert_def]>>fs[LENGTH,ALOOKUP_toAList_eq])>>
-  fs[ALOOKUP_toAList_eq,list_insert_def,lookup_insert])
-    
-val toAList_unique_key = prove(
-  ``!t. ALL_DISTINCT (MAP FST (toAList t))``>>
-  SPOSE_NOT_THEN ASSUME_TAC >>
-  fs[]>>
-  `?k1 k2. MEM k1 (MAP FST (toAList t)) /\ MEM k2 (MAP FST (toAList t)`>>
-  by rw[]
-
-val ALOOKUP_toAList_list_insert_inj = prove(
-  ``!f z x y t. INJ f UNIV UNIV /\ LENGTH x = LENGTH y ==>
-    ALOOKUP (MAP (\x,y. (f x,y)) (toAList (list_insert x y t))) z = 
-    case ALOOKUP (ZIP ((MAP f x),y)) z of 
-      NONE => ALOOKUP (MAP (\x,y. (f x,y)) (toAList t)) z
-    | SOME a => SOME a``,
-   strip_tac>>strip_tac>>ho_match_mp_tac (fetch "-" "list_insert_ind")>>
-  rw[]>-(
-    Cases_on`y`>> 
-     fs[list_insert_def,LENGTH]) >-(
-
-    fs[list_insert_def]>>
-    `lookup x (insert x x'' (list_insert x' y t)) = SOME x''` 
-    by fs[lookup_insert]>>
-    Q.ABBREV_TAC `tree = (insert x x'' (list_insert x' y t))`
-    `MEM (x,x'') (toAList tree) /\ 
-      !y. MEM (x,y) (toAList tree) ==> y=x''` by
-      fs[MEM_toAList] >>
-    `MEM (f x,x'') (MAP (λ(x,y). (f x,y)) (toAList tree)) /\
-      !y.MEM (f x,y) (MAP (λ(x,y). (f x,y)) (toAList tree)) ==> y=x''` by
-      (CONJ_TAC >-
-        (fs[MEM_MAP]>> HINT_EXISTS_TAC >> simp[])>-
-      (SPOSE_NOT_THEN ASSUME_TAC>> 
-      fs[MEM_MAP]>> Cases_on`y''`>> fs[]>>
-      `x=q` by fs[INJ_DEF] >>
-      metis_tac[MEM_toAList]) >>
-     SPOSE_NOT_THEN ASSUME_TAC>>
-     Cases_on`ALOOKUP (MAP (λ(x,y). (f x,y)) (toAList tree)) (f x)`>-
-     (*NONE CASE*)
-     (fs[alistTheory.ALOOKUP_NONE]>>
-     `MEM (f x,x'') (MAP (λ(x,y). (f x,y)) (toAList tree))` by 
-       (fs[MEM_MAP]>>HINT_EXISTS_TAC>> fs[])>>
-     metis_tac[MEM_MAP,MEM_MAP_FST])>>
-     (*SOME CASE*)
-     `MEM (f x,x''') (MAP (λ(x,y). (f x,y)) (toAList tree))` 
-     by fs[alistTheory.ALOOKUP_MEM]>>
-     `MEM (f x,x'') (MAP (λ(x,y). (f x,y)) (toAList tree))` by 
-        (fs[MEM_MAP]>> Q.EXISTS_TAC `x,x''` >> rw[])>> 
-     `MEM (x,x''') (toAList tree)` by fs[]>> metis_tac[MEM_toAList]>>
-    (*OUTER MOST INDUCTIVE CASE*)
-    fs[]>>
-    `ALOOKUP (MAP (λ(x,y). (f x,y)) 
-       (toAList (list_insert (x::x') (x''::y) t))) z =
-     ALOOKUP (MAP (λ(x,y). (f x,y)) (toAList (list_insert x' y t))) z`
-     by SPOSE_NOT_THEN ASSUME_TAC >>
-     Cases_on `ALOOKUP (MAP (λ(x,y). (f x,y)) 
-        (toAList (list_insert x' y t))) z`>-
-       (*NONE CASE*)
-        `?a. f a = z /\ MEM a (MAP FST (toAList (list
-`
-   fs[]
-
-   
-   metis_tac[INJ_DEF]
-
-       metis_tac[]
-  fs[MEM_MAP,INJ_DEF]>>CONJ_TAC>>
-  
-
-
-val lookup_fromAList_eq = prove(
-  ``!ls x.lookup x (fromAList ls) = ALOOKUP ls x``,
-  ho_match_mp_tac (fetch "-" "fromAList_ind")>>
-  rw[fromAList_def,lookup_def]>>
-  fs[lookup_insert]>> simp[EQ_SYM_EQ])
-
-(*Can make this stronger*)
-val domain_list_insert = prove(
-  ``!x y t. LENGTH x = LENGTH y ==> 
-    domain t SUBSET domain (list_insert x y t)``,
-  ho_match_mp_tac (fetch "-" "list_insert_ind")>>
-  rw[]>-
-    (Cases_on`y`>>rw[list_insert_def]>>fs[LENGTH])>>
-  rw[list_insert_def]>>
-  metis_tac[pred_setTheory.SUBSET_INSERT_RIGHT,pred_setTheory.SUBSET_TRANS])
+(*Note that we cannot use get_var v s = get_var f v t because t is allowed to contain extra variables ==> get_var (f v) t may succeed*)
 
 (*Prove that get_var gives the same result under an injective f*)
 val get_var_inj = prove(
@@ -384,10 +117,6 @@ val get_vars_inj = prove(
   Cases_on `get_var h s` >> 
   fs[]);
 
-(*ALOOKUP under an injective map over the keys*)
-val ALOOKUP_MAP_inj = prove(
-  ``!f. ALOOKUP (MAP (\x,y. (f x,y)) ls) 
-  
 (*Helpful:
    traces();
    Goalstack.print_goal_fvs := 1;
@@ -398,85 +127,470 @@ val ALOOKUP_MAP_inj = prove(
 (*Prove that mapping injective f over an exp + initial state gives the same result*)
 
 (*Relation over states parameterized by f*)
-val state_rel_def = Define`
-  (state_rel f s t <=> (t=s \/ t = s with locals := apply_nummap_key f s.locals))`
 
+(*For NONE results, the strong state rel should hold*)
+val strong_state_rel_def = Define`
+  strong_state_rel f s t <=> 
+  t.store = s.store /\
+  t.stack = s.stack /\
+  t.memory = s.memory /\
+  t.mdomain = s.mdomain /\
+  t.permute = s.permute /\
+  t.gc_fun = s.gc_fun /\
+  t.handler = s.handler /\
+  t.clock = s.clock /\
+  t.code = s.code /\
+  t.output = s.output /\
+  !n v. (lookup n s.locals = SOME v) ==> (lookup (f n) t.locals = SOME v)`
+
+(*For SOME results, the weak state rel should hold*)
+val weak_state_rel_def = Define`
+  weak_state_rel f s t <=> (t=s \/ strong_state_rel f s t)`
+
+val strong_imp_weak_state_rel = prove
+  (``!f s t. strong_state_rel f s t ==> weak_state_rel f s t``,
+     rw[strong_state_rel_def,weak_state_rel_def])
+
+val strong_state_rel_get_var_lemma = prove(
+  ``!f s t v x. strong_state_rel f s t /\ get_var v s = SOME x
+    ==> get_var (f v) t = SOME x``,
+    fs[strong_state_rel_def,get_var_def]>>
+    metis_tac[])
+
+val strong_state_rel_get_vars_lemma = prove(
+  ``!f s t ls x. strong_state_rel f s t /\ get_vars ls s = SOME x
+    ==> get_vars (MAP f ls) t = SOME x``,
+  strip_tac>>strip_tac>>strip_tac>>Induct >>
+  fs[get_vars_def,strong_state_rel_def,get_var_def]>>
+  rw[]>> Cases_on`lookup h s.locals`>>fs[]>>
+  `lookup (f h) t.locals = SOME x'` by metis_tac[]>> fs[]>>
+  Cases_on`get_vars ls s`>>fs[])
+
+val strong_state_rel_set_var_lemma = prove(
+  ``!f s t v x. INJ f UNIV UNIV /\ strong_state_rel f s t ==> 
+                strong_state_rel f (set_var v x s) (set_var (f v) x t)``,
+   rw[strong_state_rel_def,set_var_def]>>fs[strong_state_rel_def]>>
+   Cases_on`n=v`>>fs[lookup_insert]>>
+   `f n <> f v` by (fs[INJ_DEF]>>metis_tac[])>>
+   simp[])
+
+val strong_state_rel_set_vars_lemma = prove(
+   ``!f s t vs xs. INJ f UNIV UNIV /\ strong_state_rel f s t 
+                   /\ LENGTH vs = LENGTH xs ==>
+                 strong_state_rel f (set_vars vs xs s) 
+                                    (set_vars (MAP f vs) xs t)``,
+   Induct_on`vs`>>
+   fs[set_vars_def,list_insert_def
+      ,word_state_component_equality,strong_state_rel_def]>>
+   rw[list_insert_def]>>
+   Cases_on `xs`>>fs[list_insert_def]>>
+   Cases_on`n=h`>>fs[lookup_insert]>>
+   `f n <> f h` by (fs[INJ_DEF]>>metis_tac[])>>
+   last_x_assum(qspecl_then [`f`,`s`,`t`,`t'`] assume_tac)>>
+   simp[])
+
+val get_vars_length_lemma = prove(
+  ``!ls s y. get_vars ls s = SOME y ==>
+           LENGTH y = LENGTH ls``,
+  Induct>>fs[get_vars_def]>>
+  Cases_on`get_var h s`>>fs[]>>
+  Cases_on`get_vars ls s`>>fs[]>>
+  metis_tac[LENGTH])
+
+val get_var_top_of_stack_lemma = prove(
+  ``!v s s'. s.locals = s'.locals ==> get_var v s = get_var v s'``,
+  rw[get_var_def])
+
+val get_vars_top_of_stack_lemma = prove(
+  ``!l s s'. s.locals = s'.locals ==> get_vars l s = get_vars l s'``,
+  Induct>>rw[get_vars_def]>>
+  `get_var h s = get_var h s'` by fs[get_var_top_of_stack_lemma]>>
+  Cases_on`get_var h s'`>>fs[]>> 
+  Cases_on`get_vars l s`>>metis_tac[])
+
+val MEM_fromAList = store_thm ("MEM_fromAList",
+  ``∀t k. MEM k (MAP FST t) <=> 
+          k IN domain (fromAList t) ``,
+  Induct_on`t`>> rw[fromAList_def]>>
+  Cases_on`h`>> Cases_on`q=k`>>rw[fromAList_def])
+
+val lookup_apply_nummap_key = prove(
+  ``!f t z. INJ f UNIV UNIV ==>
+     lookup (f z) (apply_nummap_key f t) = lookup z t``,cheat)
+ 
+(*cutting the environment on strongly related locals returns locals where equality is true*)
+val cut_env_lemma = prove(
+  ``!names sloc tloc x f. INJ f UNIV UNIV /\ cut_env names sloc = SOME x /\
+    (!n v. (lookup n sloc = SOME v) ==> (lookup (f n) tloc = SOME v))
+    ==> (?y. cut_env (apply_nummap_key f names) tloc = SOME y /\
+        !z. lookup z x = lookup (f z) y)``,
+    rw[cut_env_def]>-
+    (*domain*)
+    (simp[SUBSET_DEF]>>
+    strip_tac>>
+    disch_then(mp_tac o MATCH_MP(snd(EQ_IMP_RULE(SPEC_ALL MEM_fromAList))))>>
+    simp[MAP_ZIP,MEM_MAP]>>rw[]>>
+    fs[MEM_ZIP,EL_MAP]>>
+    qmatch_abbrev_tac`f x IN s` >>
+    `∃v. lookup x names = SOME v`
+       by metis_tac[MEM_toAList,MEM_EL,
+                    pairTheory.pair_CASES,pairTheory.FST] >>
+    `?v. lookup x sloc = SOME v` by metis_tac[domain_lookup,SUBSET_DEF]>>
+    metis_tac[domain_lookup])>>
+    (*lookup*)
+    simp[lookup_inter]>> Cases_on`lookup z sloc`>-
+      (*NONE*)
+      (simp[]>>Cases_on`lookup (f z) tloc`>>simp[]>>
+      `lookup z names = NONE` by 
+        metis_tac[SUBSET_DEF,lookup_NONE_domain]>>
+      BasicProvers.EVERY_CASE_TAC>>fs[]>>
+      IMP_RES_TAC domain_lookup>> IMP_RES_TAC MEM_fromAList>>
+      fs[MEM_MAP,MAP_ZIP,MEM_ZIP]>>
+      rw[]>>fs[EL_MAP]>>
+      `z = FST (EL n (toAList names))` by fs[INJ_DEF]>>
+      `∃v. lookup z names = SOME v`
+       by metis_tac[MEM_toAList,MEM_EL,
+                    pairTheory.pair_CASES,pairTheory.FST] >>fs[])>>
+       (*SOME*)
+       simp[]>>
+       (*Match assumption and pop*)
+       first_assum(fn th => first_x_assum(assume_tac o C MATCH_MP th)) >> 
+       fs[]>>
+       IMP_RES_TAC (INST_TYPE [``:'a``|->``:unit``] 
+         lookup_apply_nummap_key)>>fs[])
+
+
+(*wEval of same prog with different top of stack gives the same result*)
+(*Abbrev the and away to make the proofs easier to handle..*)
+val abbrev_and_def = Define`
+  abbrev_and a b <=> a /\ b`
+
+val wEval_top_of_stack_lemma = prove(
+  ``!prog st rst res. wEval(prog,st) = (res,rst) 
+           /\
+           res <> SOME Error /\ res <> NONE (*Don't need NONE case for call*)
+           /\
+           st.gc_fun = ident_gc (*Identity gc fun?*)
+    ==>
+      !hd.
+      let (res',rst') = wEval(prog,st with stack := hd::(TL st.stack))
+      in abbrev_and (res' = res)
+        (case res of 
+          SOME(Exception x') => 
+            (case hd of StackFrame x NONE => rst' = rst (*handler goes past*)
+            |          StackFrame x (SOME h) => T) 
+                       (*Need some condition here*)
+        | SOME(TimeOut) => rst'=rst 
+        | _ => rst' = rst with stack := hd::(TL rst.stack))
+            (*I think there should be an extra condition in this case*)``,
+   ho_match_mp_tac (wEval_ind |> Q.SPEC`UNCURRY P` |> SIMP_RULE (srw_ss())[] |> Q.GEN`P`) >> rw[]>-
+    (*Skip*)
+    fs[wEval_def]>-
+    (*Alloc*)
+    fs[wEval_def,LET_THM]>>
+    `get_var n (st with stack := hd::TL st.stack) = get_var n st` by 
+       fs[get_var_top_of_stack_lemma]>>
+     Cases_on`get_var n st`>>fs[]>>
+     Cases_on`x`>>fs[wAlloc_def]>>
+     Cases_on`cut_env names st.locals`>>fs[]>> 
+     Q.ABBREV_TAC `ns = push_env x F (set_store AllocSize (Word c) st)`>>
+     Q.ABBREV_TAC `ns2 = push_env x F (set_store AllocSize (Word c)
+                 (st with stack := hd::TL st.stack))`>>
+     `ns.gc_fun = ident_gc /\ ns2.gc_fun = ident_gc` by 
+       CONJ_TAC>> Q.UNABBREV_TAC`ns` >>Q.UNABBREV_TAC `ns2`>>
+       simp[push_env_def,set_store_def]
+     `wGC (push_env x F (set_store AllocSize (Word c) st))`
+     fs[push_env_def,set_store_def,ident_gc_wGC,word_state_component_equality]
+     wGC_def,push_env_def]
+    (rpt strip_tac >> fs[wEval_def])>>
+   strip_tac>-(
+     rpt strip_tac >>fs[wEval_def,LET_THM] >>
+     fs[wAlloc_def,get_var_def]>>
+     Cases_on`lookup n st.locals`>>fs[]
+     Cases_on`x`>>fs[]>> 
+     Cases_on`cut_env names st.locals`>>fs[]>>
+     
+     BasicProvers.EVERY_CASE_TAC>>fs[]
+
+ rw[]>>
+     
+    rpt strip_tac >>
+    >> BasicProvers.EVERY_CASE_TAC>>fs[]
+  >>rpt strip_tac>>fs[wEval_def,LET_THM]>-
+    (BasicProvers.EVERY_CASE_TAC>>fs[])>-
+    (BasicProvers.EVERY_CASE_TAC>>fs[])>-
+    (BasicProvers.EVERY_CASE_TAC>>fs[])>-
+    (BasicProvers.EVERY_CASE_TAC>>fs[])>-
+      Cases_on`st.clock=0`>>fs[call_env_def,LET_THM]>>rw[EQ_SYM_EQ]>>
+      `get_vars l (st with stack := hd :: TL st.stack) =
+       get_vars l st` by fs[get_vars_top_of_stack_lemma] >> fs[]
+      Cases_on`get_vars l st`>>fs[get_vars_def]>>
+      Cases_on`find_code o0 x st.code`>>fs[]>> Cases_on`x'`>>fs[]>>
+      Cases_on`o1`>>fs[]>-
+        (*NONE*)
+
+
+    BasicProvers.EVERY_CASE_TAC>>fs[call_env_def,LET_THM]>-
+    
+  rw[wEval_def]>>fs[]
+      
+
+
+)      
+
+           case res of SOME (Exception x') ==> 
+
+val get_var_tactic = 
+  Cases_on`get_var n st`>>fs[]>>
+  `get_var (f n) cst = SOME x` by 
+  metis_tac[strong_state_rel_get_var_lemma];
+
+(*Prove that mapping (doesnt need to be injective) f over an exp + initial state vars gives the same result and a new state which contains mapped vars*)
+val inj_apply_color_exp_invariant = store_thm("inj_apply_color_exp_invariant",
+  ``!st exp cst f res. word_exp st exp = SOME res 
+                        /\ strong_state_rel f st cst
+    ==> word_exp cst (apply_color_exp f exp) = SOME res``,
+  ho_match_mp_tac word_exp_ind>>rw[]>>
+  fs[word_exp_def,apply_color_exp_def,strong_state_rel_def]>-
+    (Cases_on`lookup st' st.locals`>>fs[]>>
+      Cases_on`x`>>`lookup (f st') cst.locals = lookup st' st.locals` by 
+      fs[strong_state_rel_def] >> fs[]) >-
+    (Cases_on`word_exp st exp`>>fs[]>>
+    `mem_load x st = mem_load x cst` by 
+      fs[mem_load_def]>>fs[])>-
+    (fs[LET_THM]>> 
+    `MAP (\a.word_exp st a) wexps = 
+     MAP (\a.word_exp cst a) (MAP (\a. apply_color_exp f a) wexps)` 
+     by  (
+       simp[MAP_MAP_o] >>
+       simp[MAP_EQ_f] >>
+       gen_tac >>
+       strip_tac >>
+       first_assum(fn th => first_x_assum(mp_tac o C MATCH_MP th)) >>
+       fs[EVERY_MEM,MEM_MAP,PULL_EXISTS
+         ,miscTheory.IS_SOME_EXISTS] >>
+       pop_assum(fn th => first_x_assum(mp_tac o C MATCH_MP th)) >>
+       strip_tac >>
+       disch_then(qspec_then`cst`mp_tac) >> simp[] ) >>
+     pop_assum(SUBST1_TAC o SYM) >>
+     simp[EQ_SYM_EQ] )
+     >>
+    Cases_on`word_exp st exp`>>fs[])
+  
 (*Prove that mapping injective f over a prog + initial state variables gives the same result and a new state which contains mapped vars*)
 val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
-  ``!prog s s1 f res. wEval(prog,s) = (res,s1) 
+  ``!prog st rst f cst res. 
+                  wEval(prog,st) = (res,rst) 
                   /\ INJ f UNIV UNIV
                   /\ res <> SOME Error
-                  /\ wf s.locals
-    ==> ?s2. wEval(apply_color f prog, 
-              s with locals := apply_nummap_key f s.locals) = 
-        (res,s2) /\ state_rel f s1 s2``,
+                  (*/\ wf st.locals*)
+                  /\ strong_state_rel f st cst ==>
+     let (res',rcst) = wEval(apply_color f prog,cst) in
+     (res' = res) /\
+      case res of
+        NONE => strong_state_rel f rst rcst
+      | SOME _ => weak_state_rel f rst rcst``
+(*
+  ho_match_mp_tac (wEval_ind |> Q.SPEC`UNCURRY P` |> SIMP_RULE (srw_ss())[] |> Q.GEN`P`) >> 
+*)
+  Induct>> rpt strip_tac>>simp[]>-
+   (*Skip*)
+    (rw[apply_color_def,wEval_def,EQ_SYM_EQ]>>fs[wEval_def]>>
+    rw[EQ_SYM_EQ]) >-
+   (*Move*)
+     (fs[wEval_def]>>
+     Cases_on`ALL_DISTINCT (MAP FST l)`>>fs[MAP_ZIP]>>
+      `ALL_DISTINCT (MAP (f o FST) l)` by (
+          `MAP (f o FST) l = MAP f (MAP FST l)` by fs[MAP_MAP_o]>>
+          fs[INJ_DEF]>>
+          metis_tac[miscTheory.ALL_DISTINCT_MAP_INJ])>>
+      `MAP (f o SND) l = MAP f (MAP SND l)` by fs[MAP_MAP_o]>>
+      Cases_on`get_vars (MAP SND l) st`>>fs[]>>
+      ASSUME_TAC strong_state_rel_get_vars_lemma>>
+      first_x_assum(qspecl_then [`f`,`st`,`cst`,`MAP SND l`,`x`] assume_tac)>>
+      Cases_on`res`>>fs[]>>
+      `MAP (f o FST) l = MAP f (MAP FST l)` by fs[MAP_MAP_o]>>
+      `LENGTH (MAP FST l) = LENGTH x` by (
+         ASSUME_TAC get_vars_length_lemma>>
+         first_x_assum(qspecl_then [`MAP SND l`,`st`,`x`] assume_tac)>>
+         fs[])>>
+      ASSUME_TAC strong_state_rel_set_vars_lemma>>
+      metis_tac[]) >-
+   (*Assign*)
+     (fs[wEval_def]>> Cases_on`word_exp st w`>>fs[]>>
+     `word_exp cst (apply_color_exp f w) =  word_exp st w` by 
+       metis_tac[inj_apply_color_exp_invariant]>>
+     simp[] >>Cases_on`res`>>fs[]>> 
+     metis_tac[strong_state_rel_set_var_lemma])>-
+   (*Set*)
+     (fs[wEval_def]>>
+     Cases_on`word_exp st w`>>fs[set_store_def]>>
+     `word_exp cst (apply_color_exp f w) = word_exp st w` by 
+       metis_tac[inj_apply_color_exp_invariant]>>
+     Cases_on`res`>>fs[strong_state_rel_def,word_state_component_equality])>-
+   (*Store*)
+     (fs[wEval_def]>>
+     Cases_on`word_exp st w`>>fs[]>>
+     IMP_RES_TAC inj_apply_color_exp_invariant>>
+     Cases_on`get_var n st`>>fs[]>>
+     IMP_RES_TAC strong_state_rel_get_var_lemma>>
+     fs[mem_store_def]>>Cases_on`x IN st.mdomain`>>fs[]>>
+     Cases_on`res`>>
+     fs[strong_state_rel_def,word_state_component_equality]>>
+     Cases_on`x IN rst.mdomain`>>fs[]>>metis_tac[])
+   (*Call*)cheat>-
+     fs[wEval_def,LET_THM]>>
+     Cases_on`st.clock=0`>-(
+       rw[]>>
+       fs[strong_state_rel_def,wEval_def]>>
+       rfs[]>>
+       rw[call_env_def,weak_state_rel_def,fromList2_def]>>
+       DISJ1_TAC>>
+       fs[word_state_component_equality])>>
+     `cst.clock <> 0` by fs[strong_state_rel_def]>>fs[]>>
+     ASSUME_TAC strong_state_rel_
+     Cases_on`get_vars l st`>>
+     fs[]>>
+     (*get_vars of the new set is equal*)
+     IMP_RES_TAC strong_state_rel_get_vars_lemma>> fs[]
+     Cases_on`find_code o0 x st.code` >> fs[strong_state_rel_def]>>
+       Cases_on`x'` >> fs[]>>
+       Cases_on`o1`>>fs[]>-
+        (*NONE i.e. TAIL CALL*)
+        (Cases_on`o'`>>fs[]>>
+          `call_env q (dec_clock st) = call_env q (dec_clock cst)` by
+            fs[dec_clock_def,call_env_def,word_state_component_equality]>>
+          fs[weak_state_rel_def]>>BasicProvers.EVERY_CASE_TAC>> fs[]) >>
+        (*SOME i.e. RETURNING CALL*)
+        Cases_on`x'`>>fs[]>> 
+        Cases_on`cut_env r' st.locals`>>fs[]>>
+        (*cut_env r' st.locals = SOME x' 
+          ==> dom r' SUBSET dom st.locals
+          consider x IN dom (apply_nummap_key r') ==> ?y. y in dom r'
+          ==> y in dom st.locals ==> f y  in dom cst.locals therefore
+          subset is true on cst therefore it gives SOME env
+          TODO: needs more condition on the cut, I think strong state rel
+         *)
+         `cut_env (apply_nummap_key f r') cst.locals = SOME a` by cheat>>
+         fs[call_env_def,push_env_def]>>
+         Cases_on`o'`>-
+           (*NONE i.e. NO HANDLER*)
+           fs[LET_THM,env_to_list_def,dec_clock_def]
 
-  ho_match_mp_tac (wEval_ind |> Q.SPEC`UNCURRY P` |> SIMP_RULE (srw_ss())[] |> Q.GEN`P`) >> rw[] >-
-  (*Skip*)
-  fs[wEval_def] >-
 
-  (*Alloc*)
-   >-
-  (*Move*)
-  fs[MAP_ZIP,wEval_def,get_vars_def,set_vars_def,list_insert_def]>>
-  rw[]>> simp[] >-
-    Cases_on`ALL_DISTINCT (MAP FST moves)` >>
-    fs[]>>
-    Cases_on `get_vars (MAP SND moves) s` >>
-    fs[]>>
-    `get_vars (MAP (f o SND) moves) (s with locals := 
-    apply_nummap_key f s.locals) = SOME x` by
-    (ASSUME_TAC get_vars_inj>>
-    fs[map_compose]>>
-    first_x_assum(qspecl_then [`f`,`MAP SND moves`,`s`] assume_tac) >>
-    metis_tac[]) >> fs[apply_nummap_key_def]>>
-   (*Just need to prove something about list_insert now*)
-    (*This follows from get_vars = SOME*)
-    `LENGTH moves = LENGTH x` by cheat >>
-    fs[ZIP_MAP_EQ]>>rw[]>>
-    `!z. lookup z (list_insert (MAP (f o FST) moves) x
-    (fromAList (MAP (λ(x,y). (f x,y)) (toAList s.locals)))) =
-         lookup z (fromAList (MAP (λ(x,y). (f x,y)) 
-    (toAList (list_insert (MAP FST moves) x s.locals))))` by
-    rw[lookup_list_insert,lookup_fromAList_eq]>>
-    CASE_TAC>-
-      (*ALOOKUP NONE*)
-      `LENGTH (MAP (f o FST) moves) = LENGTH x` by fs[LENGTH_MAP]>>
-      `LENGTH (MAP FST moves) = LENGTH x` by fs[LENGTH_MAP]>>
-      fs[alistTheory.ALOOKUP_NONE,MAP_ZIP,LENGTH_MAP]>>
-      Cases_on `lookup z (fromAList (MAP (λ(x,y). (f x,y))
-       (toAList (list_insert (MAP FST moves) x s.locals))))`>-
-        (*NONE*)
-        fs[lookup_NONE_domain]>>
-        SPOSE_NOT_THEN ASSUME_TAC>>
-        `MEM z (MAP FST (MAP (λ(x,y). (f x,y)) (toAList s.locals)))` by
-           metis_tac[MEM_fromAList]>>
-        fs[MEM_MAP]>>
-        `~MEM z (MAP FST (MAP (λ(x,y). (f x,y))
-         (toAList (list_insert (MAP FST moves) x s.locals))))` 
-        by metis_tac[MEM_fromAList]>>
-        fs[alistTheory.ALOOKUP_NONE]>>
-        `(FST y') ∈ domain (s.locals)` by 
-           (rw[]>>Cases_on`y'`>>
-           fs[MEM_toAList,domain_lookup])>>
-        `(FST y') ∈ (domain (list_insert (MAP FST moves) x s.locals))` by
-           (rw[] >>metis_tac[SUBSET_DEF,domain_list_insert])>>
-        `z = f (FST y')` by (Cases_on`y'`>>rw[]>>EVAL_TAC) >>
-        `?v. MEM (FST y',v) 
-           (toAList (list_insert (MAP FST moves) x s.locals))` by
-        metis_tac[MEM_toAList,domain_lookup]>>
-        metis_tac[MEM_MAP]
-          
-    (*Assign*)
-    >-
-    (*Set*)
-    >- 
-    (*Store*)
-    >-
-    (*Tick*)
-    >-
+    simp[]
+        rw[]>>fs[wEval_def]>-
+          fs[]
+
+        
+              SPOSE_NOT_THEN ASSUME_TAC>> fs[strong_state_rel_def,fetch "-" "word_state_updates_eq_literal"]
+         rw[strong_state_rel_def] >> simp[]
     (*Seq*)
     >-
+      (Cases_on`wEval (prog,st)`>>
+      last_x_assum (qspecl_then [`st`,`r`,`f`,`cst`,`q`] assume_tac)>>
+      Cases_on`q`>-
+      (*prog-->NONE*)
+      (fs[apply_color_def,wEval_def]>> rfs[]>>
+      fs[LET_THM]>>
+      first_assum(split_applied_pair_tac o concl)>>
+      fs[]>>
+      first_x_assum (qspecl_then [`r`,`rst`,`f`,`rcst`,`res`] assume_tac)>>
+      rfs[])>>
+      (*prog-->SOME*)
+      fs[apply_color_def,wEval_def]>>
+      (*Instantiate the induction hyp*)
+      last_x_assum(qspecl_then [`st`,`r`,`f`,`cst`,`SOME x`] assume_tac)>>
+      fs[]>>
+      `res = SOME x` by (rw[]>> fs[LET_THM])>>
+      `x<>Error` by fs[]>>
+       rfs[]>> fs[LET_THM] >>
+       first_assum(split_applied_pair_tac o concl) >> fs[] >> rw[])>-
+    (*If*)
+    (fs[wEval_def]>>
+     Cases_on`wEval(prog,st)`>>
+     last_x_assum (qspecl_then [`st`,`r`,`f`,`cst`,`q`] assume_tac)>>
+     Cases_on`q`>-
+       (*NONE*)
+       (rfs[LET_THM]>>fs[]>>
+       Cases_on`wEval(apply_color f prog,cst)` >>fs[]>>
+       IMP_RES_TAC strong_state_rel_get_var_lemma>>
+       Cases_on`get_var n r`>>fs[]>>
+       first_assum(fn th => first_x_assum(assume_tac o C MATCH_MP th))>>
+       fs[]>>
+       Cases_on`x`>>fs[]>>
+       Cases_on`c=0w`>> fs[]>>metis_tac[])>>
+       (*SOME*)
+       rfs[LET_THM]>>`x<>Error`by (SPOSE_NOT_THEN assume_tac>>fs[])>>
+       Cases_on`wEval(apply_color f prog,cst)`>>fs[]>>
+       Cases_on`res`>>fs[])
+    (*Alloc*)
+      fs[wEval_def]>>
+      Cases_on`get_var n st`>>fs[]>>
+      IMP_RES_TAC strong_state_rel_get_var_lemma>> fs[]>>
+      Cases_on`x`>>fs[wAlloc_def]>>
+      Cases_on`cut_env s st.locals`>> fs[strong_state_rel_def]>>
+      IMP_RES_TAC cut_env_lemma>>
+      fs[]>>rw[]>>
+      last_x_assum mp_tac>> 
+      qpat_abbrev_tac `X = set_store a w t`
+      qpat_abbrev_tac `X' = set_store a w t`
+      Cases_on`wGC (push_env x F X)`>>fs[]
+Cases_on`wGC (push_env x F (set_store AllocSize
+      fs[set_store_def,push_env_def,env_to_list_def,wGC_def]
+        qmatch_abbrev_tac`asdf = cut_env ls cst.locals`
+fs[enc_stack_def,push_env_def,wGC_def]
+      `get_var (f n) cst = get_var n st` by cheat>>
+      fs[]>>Cases_on`get_var n st`>>fs[]>>
+      Cases_on`x`>>fs[wAlloc_def]>>cheat>-
+    (*Raise*)
+      (fs[wEval_def]>>get_var_tactic>>
+       Cases_on`jump_exc st`>>fs[strong_state_rel_def,jump_exc_def]>>
+      BasicProvers.EVERY_CASE_TAC>>fs[weak_state_rel_def]>>DISJ1_TAC>>
+      fs[word_state_component_equality])>-
+    (*Return*)
+      (fs[wEval_def]>>get_var_tactic>>
+       fs[call_env_def,fromList2_def,word_state_component_equality]>>
+       BasicProvers.EVERY_CASE_TAC>>
+       fs[strong_state_rel_def,weak_state_rel_def
+       ,word_state_component_equality])>-
+    (*Tick*)
+    (fs[wEval_def,strong_state_rel_def]>>Cases_on`st.clock=0`>>
+     fs[call_env_def,fromList2_def]>>
+     BasicProvers.EVERY_CASE_TAC>>fs[word_state_component_equality]>-
+       fs[weak_state_rel_def,word_state_component_equality]>>
+     fs[dec_clock_def])
+
+
+>>DISJ1_TAC>>
+       fs[word_state_component_equality]
+
+
+    (*Raise*)
+    >-
+    fs[wEval_def]>>Cases_on`get_var n st`>>fs[]>>
+    `get_var (f n) cst = SOME x` by cheat (*same thm about get_var*)>>
+    BasicProvers.EVERY_CASE_TAC>>fs[strong_state_rel_def,jump_exc_def]>-
+      (`cst.handler < LENGTH cst.stack` by rw[] >> fs[]>>
+      Cases_on`LAST_N (st.handler +1) st.stack`>> fs[]>>
+      `LAST_N (cst.handler +1) cst.stack = LAST_N (st.handler+1) st.stack`
+      by rw[]>>fs[]>>simp[]>>Cases_on`h`>>fs[]>>Cases_on`o'`>>fs[])>>
+    simp[weak_state_rel_def]>>DISJ1_TAC>>
+    Cases_on`LAST_N (st.handler +1) st.stack`>> fs[]>>
+    `LAST_N (cst.handler +1) cst.stack = LAST_N (st.handler+1) st.stack`
+    by rw[]>>fs[]>>Cases_on`h`>>fs[]>>Cases_on`o'`>>fs[]>>rw[word_state_component_equality]
+
+    BasicProvers.EVERY_CASE_TAC>>fs[]>>
+     
+    fs[jump_exc_def]
+
+
+
+    (*Seq*)
+    >-
+    fs[wEval_def]>>
+    fs[LET_THM] >>
+    first_assum(miscLib.split_applied_pair_tac o lhs o concl) 
     (*Return*)
     >-
     (*Raise*)
@@ -486,7 +600,7 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
     (*Call rotate 10 after skip*)
     fs[MAP_ZIP,wEval_def,get_vars_def,set_vars_def,list_insert_def]>>
     Cases_on`s.clock=0`>>fs[]>-
-      (rw[call_env_def,fromList2_def,toAList_def]>>EVAL_TAC)>>
+      (rw[call_env_def,fromList2_def,toAList_def]>>EVAL_TAC>>HINT_EXISTS_TAC)>>
     BasicProvers.EVERY_CASE_TAC >>fs[]
     Cases_on`get_vars args s`>> fs[] >>
     `get_vars args' (s with locals := 
@@ -517,7 +631,7 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
     ASSUME_TAC 
       (INST_TYPE [``:'a``|->``:'a word_loc``] fromAList_list_insert)>>
     first_x_assum(qspecl_then [`MAP(f o FST) moves`,`x`] assume_tac)>>
-    fs[rich_listTheory.ZIP_APPEND,MAP_APPEND]>>
+    fs[rich_ZIP_APPEND,MAP_APPEND]>>
     fs[LENGTH_MAP,ZIP_MAP_EQ]>>
     
     rw[]
@@ -664,8 +778,8 @@ val move_conv_lemma = store_thm ("move_conv_lemma",
   >>
   Q.UNABBREV_TAC `args`>>
   rw[wEval_def]>-
-    (fs[listTheory.MAP_ZIP,listTheory.ALL_DISTINCT_SET_TO_LIST,
-       listTheory.ALL_DISTINCT_MAP_INJ,INJ_DEF,listTheory.MEM_SET_TO_LIST]>> 
+    (fs[MAP_ZIP,ALL_DISTINCT_SET_TO_LIST,
+       ALL_DISTINCT_MAP_INJ,INJ_DEF,MEM_SET_TO_LIST]>> 
     first_x_assum(qspec_then`SET_TO_LIST (domain s.locals)`mp_tac) >>
     simp[] >> Q.ABBREV_TAC `args = SET_TO_LIST (domain s.locals)`>>
     rw[set_vars_def,list_insert_def] >> simp[]

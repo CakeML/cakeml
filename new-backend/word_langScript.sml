@@ -138,7 +138,7 @@ val word_sh_def = Define `
       | LSR => SOME (w >>> n)
       | ASR => SOME (w >> n)`;
 
-val MEM_IMP_word_exp_size = prove(
+val MEM_IMP_word_exp_size = store_thm("MEM_IMP_word_exp_size",
   ``!xs a. MEM a xs ==> (word_exp_size l a < word_exp1_size l xs)``,
   Induct \\ FULL_SIMP_TAC (srw_ss()) []
   \\ REPEAT STRIP_TAC \\ SRW_TAC [] [fetch "-" "word_exp_size_def"]
@@ -373,7 +373,7 @@ val wAlloc_def = Define `
      (* perform garbage collection *)
      (case wGC (push_env env F (set_store AllocSize (Word w) s)) of
       | NONE => (SOME Error,s)
-      | SOME s1 =>
+      | SOME s =>
        (* restore local variables *)
        (case pop_env s of
         | NONE => (SOME Error, s)
@@ -388,7 +388,7 @@ val wAlloc_def = Define `
             | SOME T => (* success there is that much space *)
                         (NONE,s)
             | SOME F => (* fail, GC didn't free up enough space *)
-                        (SOME NotEnoughSpace,s1)))))`
+                        (SOME NotEnoughSpace,s)))))`
 
 val wEval_def = tDefine "wEval" `
   (wEval (Skip:'a word_prog,s) = (NONE,s:'a word_state)) /\
@@ -506,12 +506,19 @@ val wAlloc_clock = store_thm("wAlloc_clock",
   SIMP_TAC std_ss [wAlloc_def] \\ REPEAT STRIP_TAC
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ SRW_TAC [] [] \\ fs []
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ SRW_TAC [] [] \\ fs []
+  \\ Q.ABBREV_TAC `s3 = set_store AllocSize (Word x) s1`
+  \\ `s3.clock=s1.clock` by Q.UNABBREV_TAC`s3`>>fs[set_store_def] 
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ SRW_TAC [] [] \\ fs []
+  >- (IMP_RES_TAC wGC_clock 
+     \\ ASSUME_TAC (INST_TYPE [``:'a``|->``:'b``] 
+        (Q.GENL [`env`,`b`,`s`] push_env_clock)) 
+     \\ first_x_assum(qspecl_then [`s3`,`F`,`x'`] assume_tac)\\fs[]\\rfs[])
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ SRW_TAC [] [] \\ fs []
   \\ POP_ASSUM MP_TAC \\ SRW_TAC [] []
   \\ IMP_RES_TAC pop_env_clock \\ IMP_RES_TAC wGC_clock
   \\ fs [push_env_clock,set_store_def] \\ SRW_TAC [] []
-  \\ Cases_on `env_to_list s1.locals s1.permute` \\ fs [LET_DEF]);
+  \\ Cases_on `env_to_list s1.locals s1.permute` \\ fs [LET_DEF]\\rfs[]
+  \\ BasicProvers.EVERY_CASE_TAC>>fs[]);
 
 val pop_env_clock = prove(
   ``(pop_env s = SOME t) ==> (s.clock = t.clock)``,
