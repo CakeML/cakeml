@@ -1097,7 +1097,7 @@ val compile_varref_thm = store_thm("compile_varref_thm",
     qpat_assum `X = SOME bv` mp_tac >>
     BasicProvers.EVERY_CASE_TAC >> rw[] >>
     srw_tac[DNF_ss][RTC_eq_NRC] >>
-    qexists_tac `SUC (SUC (SUC (SUC ZERO)))` >> rw[NRC] >>
+    qexists_tac `SUC (SUC (SUC (SUC (SUC ZERO))))` >> rw[NRC] >>
     srw_tac[DNF_ss][ALT_ZERO] >>
     rw[bc_eval1_thm] >>
     rw[Once bc_eval1_def,Abbr`x`] >>
@@ -1106,29 +1106,39 @@ val compile_varref_thm = store_thm("compile_varref_thm",
     Q.PAT_ABBREV_TAC `bs0 = bump_pc bs with stack := st` >>
     qunabbrev_tac`ls1` >>
     fs[] >>
-    qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x;y;z;w] ++ bc1` >>
+    qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x;yy;y;z;w] ++ bc1` >>
+    `bc_fetch bs0 = SOME yy` by (
+      match_mp_tac bc_fetch_next_addr >>
+      map_every qexists_tac [`ls0++[x]`,`y::z::w::bc1`] >>
+      rw[Abbr`bs0`,Abbr`yy`,bump_pc_def] >>
+      srw_tac[ARITH_ss][FILTER_APPEND,SUM_APPEND,Abbr`x`] ) >>
+    rw[Once bc_eval1_def,Abbr`yy`] >>
+    srw_tac[DNF_ss][] >>
+    rw[bc_eval_stack_def,Abbr`bs0`] >>
+    Q.PAT_ABBREV_TAC`bs0 = bump_pc X with stack := Y` >>
+    qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x;yy;y;z;w] ++ bc1` >>
     `bc_fetch bs0 = SOME y` by (
       match_mp_tac bc_fetch_next_addr >>
-      map_every qexists_tac [`ls0++[x]`,`z::w::bc1`] >>
+      map_every qexists_tac [`ls0++[x;yy]`,`z::w::bc1`] >>
       rw[Abbr`bs0`,Abbr`y`,bump_pc_def] >>
-      srw_tac[ARITH_ss][FILTER_APPEND,SUM_APPEND,Abbr`x`] ) >>
+      srw_tac[ARITH_ss][FILTER_APPEND,SUM_APPEND,Abbr`x`,Abbr`yy`] ) >>
     rw[Once bc_eval1_def,Abbr`y`] >>
     srw_tac[DNF_ss][] >>
     rw[bc_eval_stack_def,Abbr`bs0`] >>
     Q.PAT_ABBREV_TAC`bs0 = bump_pc X with stack := Y` >>
-    qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x;y;z;w] ++ bc1` >>
+    qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x;yy;y;z;w] ++ bc1` >>
     `bc_fetch bs0 = SOME z` by (
       match_mp_tac bc_fetch_next_addr >>
-      map_every qexists_tac [`ls0++[x;y]`,`w::bc1`] >>
+      map_every qexists_tac [`ls0++[x;yy;y]`,`w::bc1`] >>
       rw[Abbr`bs0`,bump_pc_def,Abbr`z`] >>
-      srw_tac[ARITH_ss][FILTER_APPEND,SUM_APPEND,Abbr`y`,Abbr`x`] ) >>
+      srw_tac[ARITH_ss][FILTER_APPEND,SUM_APPEND,Abbr`yy`,Abbr`y`,Abbr`x`] ) >>
     rw[Once bc_eval1_def,Abbr`z`,bc_eval_stack_def,bump_pc_def] >>
     qunabbrev_tac`bs0` >>
     qmatch_abbrev_tac`bc_eval1 bs0 = SOME bs2` >>
     `bc_fetch bs0 = SOME w` by (
       match_mp_tac bc_fetch_next_addr >>
-      qexists_tac `ls0++[x;y;Stack(PushInt 0)]` >>
-      simp[Abbr`bs0`,bump_pc_def,Abbr`w`,Abbr`x`,Abbr`y`] >>
+      qexists_tac `ls0++[x;yy;y;Stack(PushInt 0)]` >>
+      simp[Abbr`bs0`,bump_pc_def,Abbr`yy`,Abbr`w`,Abbr`x`,Abbr`y`] >>
       srw_tac[ARITH_ss][FILTER_APPEND,SUM_APPEND] ) >>
     simp[bc_eval1_def,Abbr`w`,Abbr`bs0`,bump_pc_def] >>
     fs[FLOOKUP_DEF] >>
@@ -1143,18 +1153,27 @@ val compile_varref_thm = store_thm("compile_varref_thm",
     qpat_assum `X = SOME bv` mp_tac >>
     BasicProvers.EVERY_CASE_TAC >> rw[] >>
     rw[RTC_eq_NRC] >>
-    qexists_tac `SUC (SUC ZERO)` >> rw[NRC] >>
+    qexists_tac `SUC (SUC (SUC ZERO))` >> rw[NRC] >>
     srw_tac[DNF_ss][ALT_ZERO] >>
     rw[bc_eval1_thm] >>
     rw[Once bc_eval1_def,Abbr`x`] >>
     rfs[el_check_def] >>
     rw[bc_eval_stack_def] >>
     qunabbrev_tac`ls1` >> fs[] >>
-    qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x;y] ++ bc1` >>
+    qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x;yy;y] ++ bc1` >>
+    qho_match_abbrev_tac `∃zz. bc_eval1 bs0 = SOME zz ∧ P zz` >>
+    `bc_fetch bs0 = SOME yy` by (
+      match_mp_tac bc_fetch_next_addr >>
+      map_every qexists_tac [`ls0++[x]`,`y::bc1`] >>
+      unabbrev_all_tac >> rw[bump_pc_def] >>
+      srw_tac[ARITH_ss][FILTER_APPEND,SUM_APPEND] ) >>
+    rw[bc_eval1_def,Abbr`yy`] >>
+    rw[bc_eval_stack_def,Abbr`bs0`,Abbr`bs'`,Abbr`P`] >>
     qmatch_abbrev_tac `bc_eval1 bs0 = SOME bs'` >>
+    qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x;yy;y] ++ bc1` >>
     `bc_fetch bs0 = SOME y` by (
       match_mp_tac bc_fetch_next_addr >>
-      map_every qexists_tac [`ls0++[x]`,`bc1`] >>
+      map_every qexists_tac [`ls0++[x;yy]`,`bc1`] >>
       unabbrev_all_tac >> rw[bump_pc_def] >>
       srw_tac[ARITH_ss][FILTER_APPEND,SUM_APPEND] ) >>
     rw[bc_eval1_def,Abbr`y`] >>
