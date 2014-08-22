@@ -425,7 +425,7 @@ val prim_env_inv = Q.store_thm ("prim_env_inv",
            IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
            simp[] ) >>
          conj_tac >- (
-           simp[IN_FRANGE_FLOOKUP,FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
+           simp[IN_FRANGE_FLOOKUP,FLOOKUP_UPDATE,FLOOKUP_FUNION,DOMSUB_FLOOKUP_THM] >>
            rw[] >> every_case_tac >> fs[] >> rw[] >>
            EVAL_TAC ) >>
          conj_tac >- rw[] >>
