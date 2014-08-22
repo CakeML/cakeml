@@ -2906,13 +2906,13 @@ val type_e_closed = prove(
     every_case_tac >>
     fs [opt_bind_tenv_def] >>
     metis_tac[] ) >>
+    (* COMPLETENESS
   strip_tac >- (
     simp[] >>
     srw_tac[DNF_ss][SUBSET_DEF,bind_tvar_def,bind_tenv_def] >>
     every_case_tac >>
     fs [opt_bind_tenv_def] >>
-    cheat >>
-    metis_tac[] ) >>
+    metis_tac[] ) >> *)
   strip_tac >- (
     simp[tenv_names_bind_var_list] >>
     rpt gen_tac >> strip_tac >>
