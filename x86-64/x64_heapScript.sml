@@ -21,6 +21,8 @@ open addressTheory
 open x64_copying_gcTheory;
 open progTheory;
 
+(* intLib blastLib bytecodeLabelsTheory *)
+
 val _ = (max_print_depth := 50);
 
 infix \\ val op \\ = op THEN;
@@ -10887,6 +10889,9 @@ val zHEAP_Block_El =
   SPEC_COMPOSE_RULE [zHEAP_LOAD_IMM2_ALT,zHEAP_EL]
   |> SIMP_RULE (srw_ss()) [getNumber_def,isNumber_def]
 
+val zHEAP_El2 =
+  SPEC_COMPOSE_RULE [zHEAP_SWAP_12,zHEAP_EL]
+
 
 (* collection of bytecode code abbreviations *)
 
@@ -11030,7 +11035,7 @@ val zBC_PopExc = zBC_PopExc_raw |> fix_code
 val zBC_Print = zHEAP_PRINT |> fix_code
 val zBC_IsBlock = zHEAP_isBlock_Intr |> fix_code
 val zBC_TagEq = zHEAP_TagEq |> fix_code
-val zBC_El = zHEAP_Block_El |> fix_code
+val zBC_El = zHEAP_El2 |> fix_code
 val zBC_PushInt = SPEC_COMPOSE_RULE [zHEAP_PUSH1,zHEAP_LOAD_IMM1] |> fix_code
 
 val zBC_ConsNil = SPEC_COMPOSE_RULE [zHEAP_PUSH1,zHEAP_Nil,zHEAP_NOP] |> fix_code
@@ -11151,7 +11156,7 @@ val x64_def = Define `
   (x64 i (Stack Equal) = ^(get_code zBC_Equal)) /\
   (x64 i (Stack IsBlock) = ^(get_code zBC_IsBlock)) /\
   (x64 i (Stack (TagEq k)) = small_offset k (^(get_code zBC_TagEq))) /\
-  (x64 i (Stack (El k)) = small_offset k (^(get_code zBC_El))) /\
+  (x64 i (Stack El) = ^(get_code zBC_El)) /\
 (*
   (x64 i (Stack (LoadRev k)) =
     small_offset k (let offset = k in ^(get_code zBC_LoadRev))) /\
@@ -11509,25 +11514,6 @@ val (res,ic_TagEq_def,ic_TagEq_pre_def) = x64_compile `
     else let s = s with code := s.code ++ ^err in (x2,s,cs)`
 
 (*
-  EVAL ``x64 i (Stack (El k))``
-*)
-
-val el1 = ``[0x48w; 0x31w; 0xC9w; 0x81w; 0xC1w]:word8 list`` |> gen
-val el2 = ``[0x48w; 0x8Bw; 0x44w; 0x48w; 0x9w]:word8 list`` |> gen
-
-val (res,ic_El_def,ic_El_pre_def) = x64_compile `
-  ic_El (x2,s,cs:zheap_consts) =
-    if isSmall x2 then
-    if getNumber x2 < 268435456 then
-      let x2 = Number (getNumber x2 * 4) in
-      let s = s with code := s.code ++ ^el1 in
-      let s = s with code := s.code ++ IMM32 (n2w (Num (getNumber x2))) in
-      let s = s with code := s.code ++ ^el2 in
-        (x2,s,cs)
-    else let s = s with code := s.code ++ ^err in (x2,s,cs)
-    else let s = s with code := s.code ++ ^err in (x2,s,cs)`
-
-(*
   EVAL ``x64 i (Stack (PushInt k))``
 *)
 
@@ -11845,8 +11831,6 @@ val (res,ic_Any_def,ic_Any_pre_def) = x64_compile `
       let (x2,s,cs) = ic_TagEq (x2,s,cs) in (x1,x2,x3,s,cs)
     else if getNumber x1 = & ^(index ``Stack (PushInt a)``) then
       let (x2,x3,s,cs) = ic_PushInt (x2,x3,s,cs) in (x1,x2,x3,s,cs)
-    else if getNumber x1 = & ^(index ``Stack (El a)``) then
-      let (x2,s,cs) = ic_El (x2,s,cs) in (x1,x2,x3,s,cs)
     else if getNumber x1 = & ^(index ``Stack (Cons a b)``) then
       let (x1,x2,x3,s,cs) = ic_Cons (x1,x2,x3,s,cs) in (x1,x2,x3,s,cs)
     else
@@ -11912,7 +11896,6 @@ val ic_Any_thm = prove(
        ic_PrintC_def,ic_PrintC_pre_def,
        ic_Load_def,ic_Load_pre_def,
        ic_Store_def,ic_Store_pre_def,
-       ic_El_def,ic_El_pre_def,
        ic_PushInt_def,ic_PushInt_pre_def,
        ic_TagEq_def,ic_TagEq_pre_def,
        isSmall_def,canCompare_def]
@@ -14129,7 +14112,8 @@ val zBC_HEAP_THM = prove(
     \\ Q.LIST_EXISTS_TAC [`x2`,`x3`]
     \\ FULL_SIMP_TAC (std_ss++star_ss) [GSYM ADD_ASSOC])
   THEN1 (* LengthBlock *) ERROR_TAC
-  THEN1 (* El *)
+  THEN1 (* El *) ERROR_TAC
+   (*
    (SIMP_TAC std_ss [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF]
     \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
     \\ REPEAT STRIP_TAC
@@ -14139,8 +14123,8 @@ val zBC_HEAP_THM = prove(
          |> MATCH_MP_TAC)
     \\ FULL_SIMP_TAC std_ss [HD,TL,bc_adjust_def,MAP,APPEND,
          isRefPtr_def,getRefPtr_def]
-    \\ FULL_SIMP_TAC (srw_ss()) [word_mul_n2w]
-    \\ Q.MATCH_ASSUM_RENAME_TAC `s1.stack = Block tag ts::xs` []
+    \\ FULL_SIMP_TAC (srw_ss()) [word_mul_n2w,isNumber_def,getNumber_def]
+    \\ Q.MATCH_ASSUM_RENAME_TAC `s1.stack = Number(&k)::Block tag ts::xs` []
     \\ ASM_SIMP_TAC std_ss [x64_inst_length_def,x64_def,small_offset_def,
          LEFT_ADD_DISTRIB,GSYM ADD_ASSOC,word_arith_lemma1,x64_length_def,
          LENGTH] \\ STRIP_TAC THEN1
@@ -14153,7 +14137,7 @@ val zBC_HEAP_THM = prove(
     \\ Q.LIST_EXISTS_TAC [`Number (&n)`,`x3`]
     \\ FULL_SIMP_TAC (std_ss++star_ss) [GSYM ADD_ASSOC,bc_adjust_def,
          MAP,getTag_def])
-  THEN1 (* El2 *) ERROR_TAC
+     *)
   THEN1 (* TagEq *)
    (SIMP_TAC std_ss [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF]
     \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
