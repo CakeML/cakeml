@@ -361,7 +361,7 @@ rw [Once type_e_cases] >|
      fs [] >>
      metis_tac [type_p_weakening, weak_tenvE_def, weak_tenvE_bind_var_list],
  metis_tac [weak_tenvE_opt_bind, weak_tenvE_bind_tvar],
- metis_tac [weak_tenvE_opt_bind, weak_tenvE_bind_tvar],
+ (* COMPLETENESS metis_tac [weak_tenvE_opt_bind, weak_tenvE_bind_tvar], *)
  metis_tac [weak_tenvE_bind_var_list, weak_tenvE_bind_tvar],
  metis_tac [weak_tenvE_bind, weak_tenvE_bind_tvar, weak_tenvE_freevars],
  metis_tac [weak_tenvE_bind, weak_tenvE_bind_tvar, weak_tenvE_freevars]]);

@@ -1011,7 +1011,7 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
      pop_assum (mp_tac o Q.SPEC `(p,e')`) >>
      rw [],
  (* Let *)
-     disj2_tac >>
+     (* COMPLETENESS disj2_tac >>*)
      imp_res_tac sub_completion_infer >>
      fs [] >>
      imp_res_tac sub_completion_unify >>
@@ -1069,7 +1069,7 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
      `type_e (convert_menv menv) cenv (bind_var_list 0 tenv' tenv) e (convert_t (t_walkstar s t))`
                  by metis_tac [check_env_more] >>
      qexists_tac `tenv'` >>
-     qexists_tac `0` >>
+     (* COMPLETENESS qexists_tac `0` >>*)
      rw [bind_tvar_def] >>
      `tenv' = MAP2 (λ(x,y,z) t. (x,convert_t (t_walkstar s t))) funs funs_ts`
                  by (Q.UNABBREV_TAC `tenv'` >>

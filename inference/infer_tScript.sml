@@ -29,9 +29,9 @@ val _ = Hol_datatype `
 /\ (inf_type_to_string (Infer_Tapp ts TC_fn) = "<bad function type>")
 /\ (inf_type_to_string (Infer_Tapp ts TC_tup) =   
 (STRCAT"("  (STRCAT(inf_types_to_string ts) ")")))
-/\ (inf_type_to_string (Infer_Tapp [] tc0) = (tc_to_string tc0))
-/\ (inf_type_to_string (Infer_Tapp ts tc0) =   
-(STRCAT"("  (STRCAT(inf_types_to_string ts)  (STRCAT") " (tc_to_string tc0)))))
+/\ (inf_type_to_string (Infer_Tapp [] tc1) = (tc_to_string tc1))
+/\ (inf_type_to_string (Infer_Tapp ts tc1) =   
+(STRCAT"("  (STRCAT(inf_types_to_string ts)  (STRCAT") " (tc_to_string tc1)))))
 /\ (inf_types_to_string [] = "")
 /\ (inf_types_to_string [t] = (inf_type_to_string t))
 /\ (inf_types_to_string (t::ts) =  (STRCAT(inf_type_to_string t)  (STRCAT", " (inf_types_to_string ts))))`;

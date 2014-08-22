@@ -1043,44 +1043,46 @@ val exp_type_preservation = Q.prove (
      >- (qpat_assum `type_e x0 x1 x2 x3 x4` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
          rw [Once type_ctxts_cases, type_ctxt_cases] >>
          ONCE_REWRITE_TAC [context_invariant_cases] >>
-         fs [bind_tvar_def] >|
-         [qexists_tac `tenvS` >>
-              rw [] >>
-              qexists_tac `tenvM` >>
-              qexists_tac `tenvC` >>
-              qexists_tac `t1'` >>
-              qexists_tac `tenv` >>
-              qexists_tac `tvs` >>
-              rw [] >>
-              qexists_tac `tenvM` >>
-              qexists_tac `tenvC` >>
-              qexists_tac `tenv` >>
-              qexists_tac `t1` >>
-              rw [] >-
-              metis_tac [arithmeticTheory.ADD, arithmeticTheory.ADD_COMM,
-                         num_tvs_def, type_v_freevars, tenv_ok_def,
-                         type_e_freevars] >>
-              fs [is_ccon_def] >>
-              metis_tac [arithmeticTheory.ADD, arithmeticTheory.ADD_COMM,
-                         num_tvs_def, type_v_freevars, tenv_ok_def,
-                         type_e_freevars],
-          qexists_tac `tenvS` >>
-              rw [] >>
-              qexists_tac `tenvM` >>
-              qexists_tac `tenvC` >>
-              qexists_tac `t1'` >>
-              qexists_tac `tenv` >>
-              rw [] >>
-              qexists_tac `0` >>
-              rw [] >>
-              qexists_tac `tenvM` >>
-              qexists_tac `tenvC` >>
-              qexists_tac `tenv` >>
-              qexists_tac `t1` >>
-              rw [] >>
-              metis_tac [arithmeticTheory.ADD, arithmeticTheory.ADD_COMM,
-                         num_tvs_def, type_v_freevars, tenv_ok_def,
-                         type_e_freevars]])
+         fs [bind_tvar_def]
+         (* COMPLETENESS
+         >- (qexists_tac `tenvS` >>
+             rw [] >>
+             qexists_tac `tenvM` >>
+             qexists_tac `tenvC` >>
+             qexists_tac `t1'` >>
+             qexists_tac `tenv` >>
+             qexists_tac `tvs` >>
+             rw [] >>
+             qexists_tac `tenvM` >>
+             qexists_tac `tenvC` >>
+             qexists_tac `tenv` >>
+             qexists_tac `t1` >>
+             rw [] >-
+             metis_tac [arithmeticTheory.ADD, arithmeticTheory.ADD_COMM,
+                        num_tvs_def, type_v_freevars, tenv_ok_def,
+                        type_e_freevars] >>
+             fs [is_ccon_def] >>
+             metis_tac [arithmeticTheory.ADD, arithmeticTheory.ADD_COMM,
+                        num_tvs_def, type_v_freevars, tenv_ok_def,
+                        type_e_freevars])
+                        *)
+         >- (qexists_tac `tenvS` >>
+             rw [] >>
+             qexists_tac `tenvM` >>
+             qexists_tac `tenvC` >>
+             qexists_tac `t1'` >>
+             qexists_tac `tenv` >>
+             rw [] >>
+             qexists_tac `0` >>
+             rw [] >>
+             qexists_tac `tenvM` >>
+             qexists_tac `tenvC` >>
+             qexists_tac `tenv` >>
+             qexists_tac `t1` >>
+             rw [] >>
+             metis_tac [arithmeticTheory.ADD, arithmeticTheory.ADD_COMM,
+                        num_tvs_def, type_v_freevars, tenv_ok_def,
+                        type_e_freevars]))
      >- (every_case_tac >>
          fs [] >>
          rw [] >>
@@ -1093,7 +1095,8 @@ val exp_type_preservation = Q.prove (
          qexists_tac `tenvM` >>
          qexists_tac `tenvC` >>
          qexists_tac `t1` >>
-         qexists_tac `bind_var_list tvs tenv' tenv` >>
+         (* COMPLETENESS qexists_tac `bind_var_list tvs tenv' tenv` >>*)
+         qexists_tac `bind_var_list 0 tenv' tenv` >>
          rw [] >>
          fs [bind_tvar_def, all_env_to_cenv_def, all_env_to_menv_def, all_env_to_env_def] >>
          qexists_tac `0` >>

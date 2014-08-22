@@ -1155,12 +1155,16 @@ val type_e_freevars = Q.store_thm ("type_e_freevars",
      metis_tac [type_p_freevars, tenv_ok_bind_var_list])
  >- (every_case_tac >>
      fs [num_tvs_def, tenv_ok_def])
+     (* COMPLETENESS
  >- (every_case_tac >>
      fs [num_tvs_def, tenv_ok_def])
  >- (every_case_tac >>
      fs [num_tvs_def, tenv_ok_def])
+     *)
  >- metis_tac [tenv_ok_bind_var_list_funs, num_tvs_bind_var_list]
- >- metis_tac [tenv_ok_bind_var_list_tvs, num_tvs_bind_var_list, bind_tvar_def]);
+ (* COMPLETENESS
+ >- metis_tac [tenv_ok_bind_var_list_tvs, num_tvs_bind_var_list, bind_tvar_def]
+ *));
 
 val type_e_subst = Q.store_thm ("type_e_subst",
 `(!tenvM tenvC tenvE e t. type_e tenvM tenvC tenvE e t ⇒
@@ -1316,6 +1320,7 @@ val type_e_subst = Q.store_thm ("type_e_subst",
      match_mp_tac tenv_ok_bind_var_list >>
      rw [num_tvs_db_merge, bind_tvar_rewrites] >>
      metis_tac [type_p_freevars])
+     (* COMPLETENESS
  >- (disj1_tac >>
      rw [] >>
      qexists_tac `deBruijn_subst (tvs + num_tvs tenvE1)
@@ -1346,7 +1351,8 @@ val type_e_subst = Q.store_thm ("type_e_subst",
               num_tvs_def] >>
           imp_res_tac type_e_freevars >>
           fs [tenv_ok_def, num_tvs_def, bind_tvar_rewrites, num_tvs_db_merge]])
- >- (disj2_tac >>
+          *)
+ >- ((* COMPLETENESS disj2_tac >> *)
      rw [] >>
      qexists_tac `deBruijn_subst (num_tvs tenvE1)
                         (MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs) t` >>
@@ -1361,6 +1367,7 @@ val type_e_subst = Q.store_thm ("type_e_subst",
          num_tvs_def] >>
      imp_res_tac type_e_freevars >>
      fs [tenv_ok_def, num_tvs_def, bind_tvar_rewrites, num_tvs_db_merge])
+     (* COMPLETENESS
  >- (qexists_tac `MAP (λ(x,t').
                  (x,
                   deBruijn_subst (tvs + num_tvs tenvE1)
@@ -1416,6 +1423,26 @@ val type_e_subst = Q.store_thm ("type_e_subst",
           pop_assum match_mp_tac >>
           match_mp_tac tenv_ok_bind_var_list_tvs >>
           metis_tac []])
+          *)
+ >- (qexists_tac `MAP (λ(x,t').
+                 (x,
+                  deBruijn_subst (num_tvs tenvE1)
+                    (MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs)
+                    t')) env` >>
+    rw []
+    >- (LAST_X_ASSUM (MP_TAC o Q.SPECL [`bind_var_list 0 env tenvE1`, `targs`, `tvs`]) >>
+        rw [bind_tvar_rewrites, db_merge_bind_var_list, num_tvs_bind_var_list, 
+            deBruijn_subst_E_bind_var_list] >>
+        pop_assum match_mp_tac >>
+        match_mp_tac tenv_ok_bind_var_list_funs >>
+        rw [bind_tvar_rewrites] >>
+        metis_tac [])
+    >- (FIRST_X_ASSUM (MP_TAC o Q.SPECL [`bind_var_list 0 env tenvE1`, `targs`, `tvs`]) >>
+        rw [num_tvs_bind_var_list, deBruijn_subst_E_bind_var_list, db_merge_bind_var_list] >>
+        pop_assum match_mp_tac >>
+        match_mp_tac tenv_ok_bind_var_list_funs >>
+        rw [] >>
+        metis_tac []))
  >- (fs [check_freevars_def] >>
      metis_tac [check_freevars_lem])
  >- (fs [check_freevars_def] >>
