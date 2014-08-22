@@ -2020,10 +2020,18 @@ val prim1_to_bc_thm = store_thm("prim1_to_bc_thm",
     fs[s_refs_def,good_rd_def] >>
     AP_TERM_TAC >> metis_tac[] )
   >- ( (*Proj*)
+    simp[Once RTC_CASES1] >> srw_tac[DNF_ss][] >> disj2_tac >>
     simp[Once RTC_CASES1] >> srw_tac[DNF_ss][] >> disj1_tac >>
     Cases_on`v1`>>fs[]>>rw[]>>
     fs[Q.SPEC`CConv X Y`(CONJUNCT1(SPEC_ALL(Cv_bv_cases)))] >>
-    rw[bc_eval_stack_def] >> simp[bc_state_component_equality] >>
+    rw[bc_eval_stack_def,bc_eval1_thm] >>
+    Q.PAT_ABBREV_TAC`bs2:bc_state = X Y` >>
+    `bc_fetch bs2 = SOME (Stack El)` by (
+      match_mp_tac bc_fetch_next_addr >>
+      map_every qexists_tac[`bc0 ++ [Stack (PushInt (&n))]`,`bc1`] >>
+      simp[Abbr`bs2`,FILTER_APPEND,SUM_APPEND]) >>
+    simp[bc_eval1_thm,bc_eval1_def,bc_eval_stack_def,bump_pc_def] >>
+    simp[bc_state_component_equality,Abbr`bs2`,bc_eval_stack_def] >>
     fs[el_check_def] >> BasicProvers.EVERY_CASE_TAC >> fs[] >>
     rfs[EVERY2_EVERY,EVERY_MEM] >> fs[MEM_ZIP,PULL_EXISTS] >> rw[] >>
     simp[FILTER_APPEND,SUM_APPEND] >>
