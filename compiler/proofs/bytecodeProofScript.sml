@@ -3249,7 +3249,9 @@ val retbc_thm = store_thm("retbc_thm",
   rw[bc_eval1_def])
 
 val _ = Parse.overload_on("jmpbc",``λck n j k.
-  [Stack (Load (n + k + 2)); Stack (Load (n + 1)); Stack (El 0); Stack (Load (n + 2)); Stack (El 1)]
+  [Stack (Load (n + k + 2)); Stack (Load (n + 1));
+   Stack (PushInt 0);  Stack El; Stack (Load (n + 2));
+   Stack (PushInt 1); Stack El]
   ++ (MAP Stack (stackshift (n + 4) (k + j + 3)))
   ++ (if ck then [Tick] else []) ++ [Return]``)
 
@@ -3295,6 +3297,15 @@ val jmpbc_thm = store_thm("jmpbc_thm",
   rw[bump_pc_def] >>
   qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
   qspecl_then[`bc0++(TAKE 3 ^code)`,`bs1`]mp_tac bc_fetch_next_addr >>
+  simp[Abbr`bs1`,FILTER_APPEND,SUM_APPEND,ADD1] >>
+  rw[Once RTC_CASES1] >> disj2_tac >>
+  rw[bc_eval1_thm] >>
+  rw[bc_eval1_def] >>
+  simp_tac std_ss [bc_eval_stack_def] >>
+  srw_tac[ARITH_ss][ADD1] >>
+  rw[bump_pc_def] >>
+  qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+  qspecl_then[`bc0++(TAKE 4 ^code)`,`bs1`]mp_tac bc_fetch_next_addr >>
   simp[Abbr`bs1`,FILTER_APPEND,SUM_APPEND] >>
   rw[Once RTC_CASES1] >> disj2_tac >>
   rw[bc_eval1_thm] >>
@@ -3308,7 +3319,16 @@ val jmpbc_thm = store_thm("jmpbc_thm",
   REWRITE_TAC[GSYM ADD_SUC] >>
   srw_tac[ARITH_ss][] >>
   qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
-  qspecl_then[`bc0++(TAKE 4 ^code)`,`bs1`]mp_tac bc_fetch_next_addr >>
+  qspecl_then[`bc0++(TAKE 5 ^code)`,`bs1`]mp_tac bc_fetch_next_addr >>
+  simp[Abbr`bs1`,FILTER_APPEND,SUM_APPEND,ADD1] >>
+  rw[Once RTC_CASES1] >> disj2_tac >>
+  rw[bc_eval1_thm] >>
+  rw[bc_eval1_def] >>
+  simp_tac std_ss [bc_eval_stack_def] >>
+  srw_tac[ARITH_ss][ADD1] >>
+  rw[bump_pc_def] >>
+  qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+  qspecl_then[`bc0++(TAKE 6 ^code)`,`bs1`]mp_tac bc_fetch_next_addr >>
   simp[Abbr`bs1`,FILTER_APPEND,SUM_APPEND,ADD1] >>
   rw[Once RTC_CASES1] >> disj2_tac >>
   rw[bc_eval1_thm] >>
