@@ -1,8 +1,8 @@
-INCLUDES = ../bytecode/
+INCLUDES = .. ../bytecode/
 OPTIONS=QUIT_ON_FAILURE
 
 ifdef POLY
-HOLHEAP = local-hol-heap
+HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 BARE_THYS = ../bytecode/bytecodeTheory ../bytecode/bytecodeTerminationTheory
