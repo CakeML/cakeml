@@ -33,8 +33,7 @@ val _ = Hol_datatype `
   | Load of num             (* push stack[n] *)
   | Store of num            (* pop and store in stack[n] *)
   | LengthBlock             (* read length of cons block *)
-  | El of num               (* read field n of cons block *)
-  | El2                     (* read field of cons block *)
+  | El                      (* read field of cons block *)
   | TagEq of num            (* test tag of block *)
   | IsBlock                 (* test for a block *)
   | Equal                   (* test equality *)
@@ -336,9 +335,7 @@ bc_stack_op (Store (LENGTH ys)) ((y::ys)++(x::xs)) (ys++(y::xs)))
 /\ (! tag ys xs. T ==>
 bc_stack_op LengthBlock ((Block tag ys)::xs) (Number (int_of_num (LENGTH ys))::xs))
 /\ (! k tag ys xs. (k < LENGTH ys) ==>
-bc_stack_op (El k) ((Block tag ys)::xs) (EL k ys::xs))
-/\ (! k tag ys xs. (k < LENGTH ys) ==>
-bc_stack_op El2 (Number (int_of_num k)::((Block tag ys)::xs)) (EL k ys::xs))
+bc_stack_op El (Number (int_of_num k)::((Block tag ys)::xs)) (EL k ys::xs))
 /\ (! t tag ys xs. T ==>
 bc_stack_op (TagEq t) ((Block tag ys)::xs) (bool_to_val (tag = t)::xs))
 /\ (! x xs. (! n. ~ (x = CodePtr n) /\ ~ (x = StackPtr n)) ==>

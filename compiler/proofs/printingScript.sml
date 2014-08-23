@@ -522,7 +522,7 @@ val compile_print_err_thm = store_thm("compile_print_err_thm",
   simp[Abbr`bs1`] >>
   simp[PULL_EXISTS,bc_find_loc_def] >>
   exists_suff_gen_then mp_tac bc_find_loc_aux_ALL_DISTINCT >>
-  disch_then(qspec_then`LENGTH bc0 + 13`mp_tac o CONV_RULE (RESORT_FORALL_CONV(sort_vars["k"]))) >>
+  disch_then(qspec_then`LENGTH bc0 + 14`mp_tac o CONV_RULE (RESORT_FORALL_CONV(sort_vars["k"]))) >>
   disch_then exists_suff_tac >>
   simp[EL_APPEND1,EL_APPEND2,RIGHT_EXISTS_AND_THM] >>
   conj_tac >- (
@@ -535,10 +535,20 @@ val compile_print_err_thm = store_thm("compile_print_err_thm",
   reverse(Cases_on`tag=none_tag`>>fs[]) >- (
     rfs[bc_fetch_def] >>
     qho_match_abbrev_tac`∃p. bc_next^* bs1 (bs2 p) ∧ P p` >>
-    `bc_fetch bs1 = SOME(Stack(El 0))` by (
+    `bc_fetch bs1 = SOME(Stack(PushInt 0))` by (
       match_mp_tac bc_fetch_next_addr >>
       simp_tac (srw_ss()) [Abbr`bs1`] >>
       qexists_tac`TAKE (LENGTH bc0 + 3) bs.code` >>
+      simp[TAKE_APPEND1,TAKE_APPEND2,SUM_APPEND,FILTER_APPEND] >>
+      NO_TAC) >>
+    srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+    simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+    simp[Abbr`bs1`,bc_eval_stack_def] >>
+    qho_match_abbrev_tac`∃p. bc_next^* bs1 (bs2 p) ∧ P p` >>
+    `bc_fetch bs1 = SOME(Stack El)` by (
+      match_mp_tac bc_fetch_next_addr >>
+      simp_tac (srw_ss()) [Abbr`bs1`] >>
+      qexists_tac`TAKE (LENGTH bc0 + 4) bs.code` >>
       simp[TAKE_APPEND1,TAKE_APPEND2,SUM_APPEND,FILTER_APPEND] >>
       NO_TAC) >>
     srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
@@ -549,7 +559,7 @@ val compile_print_err_thm = store_thm("compile_print_err_thm",
     exists_suff_gen_then (qspec_then`"raise "`mp_tac) MAP_PrintC_thm >>
     simp[] >> disch_then(qspec_then`bs1`mp_tac) >>
     simp[Abbr`bs1`] >>
-    disch_then(qspec_then`TAKE (LENGTH bc0 + 4) bs.code`mp_tac o CONV_RULE SWAP_FORALL_CONV) >>
+    disch_then(qspec_then`TAKE (LENGTH bc0 + 5) bs.code`mp_tac o CONV_RULE SWAP_FORALL_CONV) >>
     simp[TAKE_APPEND1,TAKE_APPEND2] >>
     discharge_hyps >- ( simp[SUM_APPEND,FILTER_APPEND] ) >>
     qmatch_abbrev_tac`bc_next^* bs1' bs3 ⇒ Z` >>
@@ -562,8 +572,8 @@ val compile_print_err_thm = store_thm("compile_print_err_thm",
     `bc_fetch bs3 = SOME(Print)` by (
       match_mp_tac bc_fetch_next_addr >>
       simp_tac (srw_ss()) [Abbr`bs3`] >>
-      qexists_tac`TAKE (LENGTH bc0 + 10) bs.code` >>
-      simp[TAKE_APPEND1,TAKE_APPEND2,SUM_APPEND,FILTER_APPEND] ) >>
+      qexists_tac`TAKE (LENGTH bc0 + 11) bs.code` >>
+      simp[TAKE_APPEND1,TAKE_APPEND2,SUM_APPEND,FILTER_APPEND] >> NO_TAC) >>
     srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
     simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
     simp[Abbr`bs3`,Abbr`bs1`] >>
@@ -573,7 +583,7 @@ val compile_print_err_thm = store_thm("compile_print_err_thm",
     exists_suff_gen_then (qspec_then`"\n"`mp_tac) MAP_PrintC_thm >>
     simp[] >> disch_then(qspec_then`bs1`mp_tac) >>
     simp[Abbr`bs1`] >>
-    disch_then(qspec_then`TAKE (LENGTH bc0 + 11) bs.code`mp_tac o CONV_RULE SWAP_FORALL_CONV) >>
+    disch_then(qspec_then`TAKE (LENGTH bc0 + 12) bs.code`mp_tac o CONV_RULE SWAP_FORALL_CONV) >>
     simp[TAKE_APPEND1,TAKE_APPEND2] >>
     discharge_hyps >- ( simp[SUM_APPEND,FILTER_APPEND] ) >>
     qmatch_abbrev_tac`bc_next^* bs1' bs3 ⇒ Z` >>
@@ -586,7 +596,7 @@ val compile_print_err_thm = store_thm("compile_print_err_thm",
     `bc_fetch bs3 = SOME(Stop F)` by (
       match_mp_tac bc_fetch_next_addr >>
       simp_tac (srw_ss()) [Abbr`bs3`] >>
-      qexists_tac`TAKE (LENGTH bc0 + 12) bs.code` >>
+      qexists_tac`TAKE (LENGTH bc0 + 13) bs.code` >>
       simp[TAKE_APPEND1,TAKE_APPEND2] >>
       REWRITE_TAC[FILTER_APPEND] >>
       EVAL_TAC >>
@@ -599,7 +609,7 @@ val compile_print_err_thm = store_thm("compile_print_err_thm",
   `bc_fetch bs1 = SOME(Stack Pop)` by (
     match_mp_tac bc_fetch_next_addr >>
     simp_tac (srw_ss()) [Abbr`bs1`] >>
-    qexists_tac`TAKE (LENGTH bc0 + 14) bs.code` >>
+    qexists_tac`TAKE (LENGTH bc0 + 15) bs.code` >>
     simp[TAKE_APPEND2] >>
     simp_tac std_ss [FILTER_APPEND,SUM_APPEND] >>
     EVAL_TAC ) >>

@@ -152,9 +152,11 @@ val _ = Define `
   Stack (PushInt(( 1 : int)));
   Stack Add;
   Stack (Load( 1));
-  Stack (El( 1));
+  Stack (PushInt(( 1 : int)));
+  Stack El;
   Stack (Load( 2));
-  Stack (El( 0));
+  Stack (PushInt(( 0 : int)));
+  Stack El;
   Stack (Store( 2));
   Stack (Load( 0));
   Stack (Load( 2));
@@ -187,7 +189,7 @@ val _ = Define `
 /\
 (prim1_to_bc (CTagEq n) = ([Stack (TagEq (n+block_tag))]))
 /\
-(prim1_to_bc (CProj n) = ([Stack (El n)]))
+(prim1_to_bc (CProj n) = ([Stack (PushInt (int_of_num n)); Stack El]))
 /\
 (prim1_to_bc (CInitG n) = ([Gupdate n; Stack (Cons unit_tag( 0))]))
 /\
@@ -210,7 +212,7 @@ val _ = Define `
 /\
 (prim2_to_bc (P2p CEq) = (Stack Equal))
 /\
-(prim2_to_bc (P2p CDerV) = (Stack El2))
+(prim2_to_bc (P2p CDerV) = (Stack El))
 /\
 (prim2_to_bc (P2s CRefB) = RefByte)
 /\
@@ -234,7 +236,7 @@ val _ = Define `
 
 (compile_envref sz s (CCArg n) = (emit s [Stack (Load (sz + n))]))
 /\
-(compile_envref sz s (CCEnv n) = (emit s [Stack (Load sz); Stack (El n)]))
+(compile_envref sz s (CCEnv n) = (emit s [Stack (Load sz); Stack (PushInt (int_of_num n)); Stack El]))
 /\
 (compile_envref sz s (CCRef n) = (emit (compile_envref sz s (CCEnv n)) [Stack (PushInt(( 0 : int))); Deref]))`;
 
@@ -499,9 +501,9 @@ a b c x y z
   (case t of
     TCNonTail =>
     (* argn, ..., arg2, arg1, Block 0 [CodePtr c; env], *)
-    let s = (emit s [Stack (Load n); Stack (El( 1))]) in
+    let s = (emit s [Stack (Load n); Stack (PushInt(( 1 : int))); Stack El]) in
     (* env, argn, ..., arg1, Block 0 [CodePtr c; env], *)
-    let s = (emit s [Stack (Load (n+ 1)); Stack (El( 0))]) in
+    let s = (emit s [Stack (Load (n+ 1)); Stack (PushInt(( 0 : int))); Stack El]) in
     (* CodePtr c, env, argn, ..., arg1, Block 0 [CodePtr c; env], *)
     emit s ((if ck then [Tick] else [])++[CallPtr])
     (* before: env, CodePtr ret, argn, ..., arg1, Block 0 [CodePtr c; env], *)
@@ -512,10 +514,10 @@ a b c x y z
     let s = (emit s [Stack (Load (((n+ 1)+k)+ 1))]) in
     (* CodePtr ret, argn, ..., arg1, Block 0 [CodePtr c; env],
      * vk, ..., v1, env1, CodePtr ret, argj, ..., arg1, Block 0 [CodePtr c1; env1], *)
-    let s = (emit s [Stack (Load (n+ 1)); Stack (El( 0))]) in
+    let s = (emit s [Stack (Load (n+ 1)); Stack (PushInt(( 0 : int))); Stack El]) in
     (* CodePtr c, CodePtr ret, argn, ..., arg1, Block 0 [CodePtr c; env],
      * vk, ..., v1, env1, CodePtr ret, argj, ..., arg1, Block 0 [CodePtr c1; env1], *)
-    let s = (emit s [Stack (Load (n+ 2)); Stack (El( 1))]) in
+    let s = (emit s [Stack (Load (n+ 2)); Stack (PushInt(( 1 : int))); Stack El]) in
     (* env, CodePtr c, CodePtr ret, argn, ..., arg1, Block 0 [CodePtr c; env],
      * vk, ..., v1, env1, CodePtr ret, argj, ..., arg1, Block 0 [CodePtr c1; env1], *)
     let s = (emit s (MAP Stack (stackshift (((( 1+ 1)+ 1)+n)+ 1) ((((k+ 1)+ 1)+j)+ 1)))) in

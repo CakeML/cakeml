@@ -87,7 +87,8 @@ val _ = Define `
   let cs = (emit cs [Stack (Load( 0));
                     Stack (TagEq (block_tag+none_tag));
                     JumpIf (Lab n);
-                    Stack (El( 0)) ]) in
+                    Stack (PushInt(( 0 : int)));
+                    Stack El]) in
   let cs = (emit cs (MAP PrintC (EXPLODE "raise "))) in
   let cs = (emit cs [Print]) in
   let cs = (emit cs (MAP PrintC (EXPLODE "\n"))) in
