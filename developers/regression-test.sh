@@ -17,10 +17,12 @@ fi
 cd $(dirname "$0")/..
 
 case $(uname -a) in
-  Linux* ) TIMECMD="/usr/bin/time -o timing.log -f 'User:%U Mem:%M'";;
+  Linux* ) TIMECMD="/usr/bin/time -o timing.log -f '%U %K %M'";;
 esac
 
 echo
+
+source misc.sh
 
 while read i
 do
@@ -37,7 +39,8 @@ do
       echo -n "OK: $i"
       if [ -f timing.log ]
       then
-          echo -n " -- " ; cat timing.log
+        printf '%0.*s' $((32 - ${#i})) "$pad"
+        eval displayline $(cat timing.log)
       else
           echo
       fi
