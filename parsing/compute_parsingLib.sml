@@ -38,6 +38,7 @@ open HolKernel boolLib bossLib lcsymtacs
     local open lexer_implTheory in
       val () = computeLib.add_thms
       [lex_until_toplevel_semicolon_def
+      ,get_token_eqn
       ,lex_aux_def
       ] compset
     end

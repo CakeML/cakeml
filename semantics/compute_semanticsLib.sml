@@ -84,7 +84,6 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
       ,isSymbol_def
       ,isAlphaNumPrime_def
       ,is_single_char_symbol_def
-      ,get_token_def
       ,processIdent_def
       ] compset
     end

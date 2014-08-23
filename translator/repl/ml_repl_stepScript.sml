@@ -475,6 +475,7 @@ val _ = translate (pred_setTheory.IN_INSERT |> SIMP_RULE std_ss [IN_DEF]);
 *)
 
 val _ = translate repl_funTheory.basis_state_eq
+val _ = translate lexer_implTheory.get_token_eqn
 val _ = translate repl_funTheory.basis_repl_step_def
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
