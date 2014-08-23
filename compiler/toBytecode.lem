@@ -143,7 +143,7 @@ let VfromListCode = [
   Jump (Lab (VfromListLab+1));
   Label (VfromListLab+2);
   Stack (Pops 1);
-  Stack (Cons2 vector_tag);
+  Stack (Cons vector_tag);
   Return]
 val VfromListLabs : nat
 let VfromListLabs = 3
@@ -165,7 +165,7 @@ prim1_to_bc (CTagEq n) = [Stack (TagEq (n+block_tag))]
 and
 prim1_to_bc (CProj n) = [Stack (PushInt (integerFromNat n)); Stack El]
 and
-prim1_to_bc (CInitG n) = [Gupdate n; Stack (Cons unit_tag 0)]
+prim1_to_bc (CInitG n) = [Gupdate n; Stack (PushInt 0); Stack (Cons unit_tag)]
 and
 prim1_to_bc CVfromList = [Call (Lab VfromListLab)]
 
@@ -262,9 +262,9 @@ cons_closure env0 sz nk (s,k) (refs,envs) =
   let (z,s) = List.foldl (emit_ceref (sz+nk)) (sz+nk+nk+1,s) refs in
   let (_,s) = List.foldl (emit_ceenv env0) (z,s) envs in
   (* e_kj, ..., e_k1, CodePtr_k, cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
-  let s = emit s [Stack (Cons 0 (List.length refs + List.length envs))] in
+  let s = emit s [Stack (PushInt (integerFromNat (List.length refs + List.length envs))); Stack (Cons 0)] in
   (* env_k, CodePtr_k, cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
-  let s = emit s [Stack (Cons closure_tag 2)] in
+  let s = emit s [Stack (PushInt 2); Stack (Cons closure_tag)] in
   (* cl_k,  cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
   let s = emit s [Stack (Store k)] in
   (* cl_1, ..., cl_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
@@ -402,13 +402,13 @@ and
 compile _ t _ s (CLit (StrLit r)) =
   let r = String.toCharList r in
   let s = emit s (List.map (comb Stack (comb PushInt (comb integerFromNat String_extra.ord))) r) in
-  pushret t (emit s [Stack (Cons string_tag (List.length r))])
+  pushret t (emit s [Stack (PushInt (integerFromNat (List.length r))); Stack (Cons string_tag)])
 and
 compile _ t _ s (CLit (Bool b)) =
-  pushret t (emit s [Stack (Cons (bool_to_tag b) 0)])
+  pushret t (emit s [Stack (PushInt 0); Stack (Cons (bool_to_tag b))])
 and
 compile _ t _ s (CLit Unit) =
-  pushret t (emit s [Stack (Cons unit_tag 0)])
+  pushret t (emit s [Stack (PushInt 0); Stack (Cons unit_tag)])
 and
 compile _ t _ s (CLit (Word8 w)) =
   pushret t (emit s [Stack (PushInt (integerFromNat (natFromWord8 w)))])
@@ -423,7 +423,9 @@ and
 compile _ t sz s (CGvar n) = pushret t (compile_varref sz s (CTDec n))
 and
 compile env t sz s (CCon n es) =
-  pushret t (emit (compile_nts env sz s es) [Stack (Cons (n+block_tag) (List.length es))])
+  pushret t (emit (compile_nts env sz s es)
+                  [Stack (PushInt (integerFromNat (List.length es)));
+                   Stack (Cons (n+block_tag))])
 and
 compile env t sz s (CLet false e1 e2) =
   let s = compile env TCNonTail sz s e1 in
@@ -473,7 +475,8 @@ compile env t sz s (CPrim2 op e1 e2) =
   pushret t (emit (compile_nts env sz s [e1;e2]) [prim2_to_bc op])
 and
 compile env t sz s (CUpd b e1 e2 e3) =
-  pushret t (emit (compile_nts env sz s [e1;e2;e3]) [match b with UpB -> UpdateByte | _ -> Update end; Stack (Cons unit_tag 0)])
+  pushret t (emit (compile_nts env sz s [e1;e2;e3]) [match b with UpB -> UpdateByte | _ -> Update end;
+                                                     Stack (PushInt 0); Stack (Cons unit_tag)])
 and
 compile env t sz s (CIf e1 e2 e3) =
   let s = compile env TCNonTail sz s e1 in
@@ -486,7 +489,7 @@ compile env t sz s (CIf e1 e2 e3) =
   let s = compile env t sz s e3 in
   emit s [Label n2]
 and
-compile _ t _ s (CExtG n) = pushret t (emit s [Galloc n; Stack (Cons unit_tag 0)])
+compile _ t _ s (CExtG n) = pushret t (emit s [Galloc n; Stack (PushInt 0); Stack (Cons unit_tag)])
 and
 compile_bindings env t sz e n s 0 =
   match t with
