@@ -2,9 +2,9 @@
 
 set -e
 
-echo "Running regression test on $(git rev-parse --short HEAD)"
+echo "Running regression test on $(git log -1 --oneline --no-color)"
 HOLDIR=$(heapname | xargs dirname) || exit $?
-echo "HOL revision: $(cd $HOLDIR; git rev-parse --short HEAD)"
+echo "HOL revision: $(cd $HOLDIR; git log -1 --oneline --no-color)"
 echo "Machine: $(uname -nmo)"
 
 status=$(git status 2> /dev/null)
