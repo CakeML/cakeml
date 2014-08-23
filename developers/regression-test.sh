@@ -14,15 +14,15 @@ then
     echo "WARNING: working directory is dirty!"
 fi
 
-cd $(dirname "$0")/..
+cd $(dirname "$0")
+source misc.sh
+cd ..
 
 case $(uname -a) in
   Linux* ) TIMECMD="/usr/bin/time -o timing.log -f '%U %K %M'";;
 esac
 
 echo
-
-source misc.sh
 
 while read i
 do

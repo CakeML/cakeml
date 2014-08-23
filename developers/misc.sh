@@ -1,5 +1,3 @@
-#!/bin/bash
-
 pad=$(printf '%0.1s' "."{1..40})
 
 function displaytime() {
@@ -33,7 +31,3 @@ function displayline() {
   local M=$3
   printf 'avg:%5s max:%5s %8s\n' $(displaymem $K) $(displaymem $M) $(displaytime $U)
 }
-
-export -f displaytime
-export -f displaymem
-export -f displayline
