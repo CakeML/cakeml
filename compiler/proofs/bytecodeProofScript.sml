@@ -2209,9 +2209,7 @@ val cons_closure_thm = store_thm("cons_closure_thm",
     match_mp_tac code_labels_ok_append >> simp[] >>
     conj_tac >- (
       match_mp_tac code_labels_ok_append >> simp[] ) >>
-    match_mp_tac code_labels_ok_cons >> simp[] >>
-    match_mp_tac code_labels_ok_cons >> simp[] >>
-    match_mp_tac code_labels_ok_cons >> simp[] ) >>
+    rpt(match_mp_tac code_labels_ok_cons >> simp[])) >>
   rpt (qpat_assum `X = Y.next_label` kall_tac) >>
   rpt(qpat_assum`X.out = Y`kall_tac) >>
   rpt gen_tac >> strip_tac >>
@@ -2238,7 +2236,7 @@ val cons_closure_thm = store_thm("cons_closure_thm",
   qpat_assum`bc_fetch bs = X`kall_tac >>
   match_mp_tac(SIMP_RULE std_ss [transitive_def] RTC_TRANSITIVE) >>
   qpat_assum`bs.code = X` mp_tac >>
-  Q.PAT_ABBREV_TAC`bc2:bc_inst list = [x;y;z]` >> strip_tac >>
+  Q.PAT_ABBREV_TAC`bc2:bc_inst list = [x;yy;y;zz;z]` >> strip_tac >>
   first_x_assum(qspecl_then[`bs3`,`bc0 ++ [Stack (Load k)] ++ bc`,`bc2 ++ bc1'`,`cls`,`LENGTH refs + 1 + 2 * nk`]mp_tac) >>
   discharge_hyps >- (
     simp[Abbr`bs3`,SUM_APPEND,FILTER_APPEND] >>
@@ -2247,15 +2245,26 @@ val cons_closure_thm = store_thm("cons_closure_thm",
   pop_assum kall_tac >>
   qpat_assum`bs.code = X`mp_tac >>
   qunabbrev_tac`bc2` >>
-  Q.PAT_ABBREV_TAC`x = Cons 0 j` >>
+  Q.PAT_ABBREV_TAC`jj = PushInt (&Z)` >>
   strip_tac >>
   simp[Abbr`bs3`] >>
   qmatch_abbrev_tac`bc_next^* bs3 bs2` >>
-  `bc_fetch bs3 = SOME (Stack x)` by (
+  `bc_fetch bs3 = SOME (Stack jj)` by (
     match_mp_tac bc_fetch_next_addr >>
     rw[Abbr`bs3`] >>
     qexists_tac`bc0 ++ [Stack (Load k)] ++ bc ++ bc1` >>
-    lrw[SUM_APPEND,FILTER_APPEND] ) >>
+    lrw[SUM_APPEND,FILTER_APPEND]) >>
+  simp[Once RTC_CASES1] >> disj2_tac >>
+  simp[bc_eval1_thm,bc_eval1_def] >>
+  simp[Abbr`bs3`,bump_pc_def,Abbr`jj`,bc_eval_stack_def] >>
+  pop_assum kall_tac >>
+  qmatch_abbrev_tac`bc_next^* bs3 bs2` >>
+  `bc_fetch bs3 = SOME (Stack (Cons 0))` by (
+    match_mp_tac bc_fetch_next_addr >>
+    rw[Abbr`bs3`] >>
+    Q.PAT_ABBREV_TAC`jj = Stack(PushInt (&Z))` >>
+    qexists_tac`bc0 ++ [Stack (Load k)] ++ bc ++ bc1 ++ [jj]` >>
+    lrw[SUM_APPEND,FILTER_APPEND,Abbr`jj`] ) >>
   simp[Once RTC_CASES1] >> disj2_tac >>
   simp[bc_eval1_thm,bc_eval1_def] >>
   simp_tac(srw_ss()++DNF_ss)[] >>
@@ -2265,7 +2274,7 @@ val cons_closure_thm = store_thm("cons_closure_thm",
   qabbrev_tac`env = Block 0 (REVERSE evs)` >>
   qexists_tac`env::EL k bs.stack::bs.stack` >>
   conj_tac >- (
-    simp[Abbr`x`,bc_eval_stack_def,Abbr`bs3`,ADD1] >>
+    simp[bc_eval_stack_def,Abbr`bs3`,ADD1] >>
     conj_tac >- simp[Abbr`evs`] >>
     `LENGTH envs + LENGTH refs = LENGTH evs` by simp[Abbr`evs`] >>
     pop_assum SUBST1_TAC >>
@@ -2276,12 +2285,25 @@ val cons_closure_thm = store_thm("cons_closure_thm",
   rw[bump_pc_def,Abbr`bs3`] >>
   qpat_assum`bc_fetch X = Y`kall_tac >>
   qmatch_abbrev_tac`bc_next^* bs3 bs2` >>
-  `bc_fetch bs3 = SOME (Stack (Cons 3 2))` by (
+  `bc_fetch bs3 = SOME (Stack (PushInt 2))` by (
     match_mp_tac bc_fetch_next_addr >>
     rw[Abbr`bs3`] >>
     Q.PAT_ABBREV_TAC`ls = X ++ bc` >>
-    qexists_tac`ls ++ bc1 ++ [Stack x]` >>
-    lrw[SUM_APPEND,FILTER_APPEND,ADD1,Abbr`ls`] ) >>
+    Q.PAT_ABBREV_TAC`ls2:bc_inst list = X::Y` >>
+    qexists_tac`ls ++ bc1 ++ (TAKE 2 ls2)` >>
+    lrw[SUM_APPEND,FILTER_APPEND,ADD1,Abbr`ls`,Abbr`ls2`] ) >>
+  simp[Once RTC_CASES1] >> disj2_tac >>
+  simp[bc_eval1_thm,bc_eval1_def] >>
+  simp[bc_eval_stack_def,Abbr`bs3`,bump_pc_def] >>
+  qpat_assum`bc_fetch X = Y`kall_tac >>
+  qmatch_abbrev_tac`bc_next^* bs3 bs2` >>
+  `bc_fetch bs3 = SOME (Stack (Cons 3))` by (
+    match_mp_tac bc_fetch_next_addr >>
+    rw[Abbr`bs3`] >>
+    Q.PAT_ABBREV_TAC`ls = X ++ bc` >>
+    Q.PAT_ABBREV_TAC`ls2:bc_inst list = X::Y` >>
+    qexists_tac`ls ++ bc1 ++ (TAKE 3 ls2)` >>
+    lrw[SUM_APPEND,FILTER_APPEND,ADD1,Abbr`ls`,Abbr`ls2`] ) >>
   simp[Once RTC_CASES1] >> disj2_tac >>
   simp[bc_eval1_thm,bc_eval1_def] >>
   simp[bc_eval_stack_def,Abbr`bs3`,bump_pc_def] >>
@@ -2291,8 +2313,9 @@ val cons_closure_thm = store_thm("cons_closure_thm",
     match_mp_tac bc_fetch_next_addr >>
     rw[Abbr`bs3`] >>
     Q.PAT_ABBREV_TAC`ls = X ++ bc` >>
-    qexists_tac`ls ++ bc1 ++ [Stack x; Stack (Cons 3 2)]` >>
-    lrw[SUM_APPEND,FILTER_APPEND,ADD1,Abbr`ls`] ) >>
+    Q.PAT_ABBREV_TAC`ls2:bc_inst list = X::Y` >>
+    qexists_tac`ls ++ bc1 ++ (TAKE 4 ls2)` >>
+    lrw[SUM_APPEND,FILTER_APPEND,ADD1,Abbr`ls`,Abbr`ls2`] ) >>
   simp[Once RTC_CASES1] >> disj2_tac >>
   simp[bc_eval1_thm,bc_eval1_def] >>
   simp[bc_eval_stack_def,Abbr`bs3`,bump_pc_def] >>
