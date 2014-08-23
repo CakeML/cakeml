@@ -1,4 +1,4 @@
-open HolKernel bossLib boolLib boolSimps SatisfySimps listTheory rich_listTheory pairTheory pred_setTheory finite_mapTheory alistTheory relationTheory arithmeticTheory sortingTheory lcsymtacs quantHeuristicsLib quantHeuristicsLibAbbrev
+open HolKernel bossLib boolLib boolSimps SatisfySimps listTheory rich_listTheory pairTheory pred_setTheory finite_mapTheory alistTheory relationTheory arithmeticTheory sortingTheory lcsymtacs quantHeuristicsLib quantHeuristicsLibAbbrev intLib
 open miscTheory libTheory evalPropsTheory miscLib bytecodeTheory bytecodeTerminationTheory bytecodeEvalTheory bytecodeExtraTheory bytecodeLabelsTheory intLangTheory toBytecodeTheory compilerTerminationTheory intLangExtraTheory
 open exhLangProofTheory patLangProofTheory
 val _ = new_theory "bytecodeProof"
@@ -1756,7 +1756,7 @@ val VfromListCode_correct = prove(
   simp[Once RTC_CASES_RTC_TWICE] >>
   qunabbrev_tac`bs1'`>>fs[] >> pop_assum kall_tac >>
   HINT_EXISTS_TAC >> simp[Abbr`bs1`] >>
-  `bc_fetch bs3 = SOME (Stack (Cons2 vector_tag))` by (
+  `bc_fetch bs3 = SOME (Stack (Cons vector_tag))` by (
     match_mp_tac bc_fetch_next_addr >>
     simp[Abbr`bs3`] >>
     qexists_tac`bc0 ++ (TAKE 22 VfromListCode)` >>
@@ -2041,13 +2041,21 @@ val prim1_to_bc_thm = store_thm("prim1_to_bc_thm",
     BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
     simp[Once RTC_CASES1] >> srw_tac[DNF_ss][] >> disj2_tac >>
     Q.PAT_ABBREV_TAC`bs2:bc_state = X Y` >>
-    `bc_fetch bs2 = SOME (Stack (Cons unit_tag 0))` by (
+    `bc_fetch bs2 = SOME (Stack (PushInt 0))` by (
       match_mp_tac bc_fetch_next_addr >>
-      map_every qexists_tac[`bc0 ++ [Gupdate n]`,`bc1`] >>
+      map_every qexists_tac[`bc0 ++ [Gupdate n]`,`Stack(Cons unit_tag)::bc1`] >>
+      simp[Abbr`bs2`,FILTER_APPEND,SUM_APPEND]) >>
+    simp[bc_eval1_thm,bc_eval1_def,bc_eval_stack_def,bump_pc_def] >>
+    simp[Once RTC_CASES1] >> srw_tac[DNF_ss][] >> disj2_tac >>
+    simp[Abbr`bs2`] >>
+    Q.PAT_ABBREV_TAC`bs2:bc_state = X Y` >>
+    `bc_fetch bs2 = SOME (Stack (Cons unit_tag))` by (
+      match_mp_tac bc_fetch_next_addr >>
+      map_every qexists_tac[`bc0 ++ [Gupdate n;Stack(PushInt 0)]`,`bc1`] >>
       simp[Abbr`bs2`,FILTER_APPEND,SUM_APPEND]) >>
     simp[bc_eval1_thm,bc_eval1_def,bc_eval_stack_def,bump_pc_def] >>
     simp[Once RTC_CASES1] >> srw_tac[DNF_ss][] >> disj1_tac >>
-    simp[bc_state_component_equality,Abbr`bs2`] >>
+    simp[bc_state_component_equality,Abbr`bs2`,bc_eval_stack_def] >>
     simp[SUM_APPEND,FILTER_APPEND] >>
     simp[Once Cv_bv_cases] >>
     qexists_tac`rd.sm` >>
