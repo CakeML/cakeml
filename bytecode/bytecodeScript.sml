@@ -28,8 +28,7 @@ val _ = Hol_datatype `
     Pop                     (* pop top of stack *)
   | Pops of num             (* pop n elements under stack top *)
   | PushInt of int      (* push int onto stack *)
-  | Cons of num => num       (* push new cons with tag m and n elements *)
-  | Cons2 of num            (* push new cons with tag m and given elements *)
+  | Cons of num             (* push new cons with tag m and given elements *)
   | Load of num             (* push stack[n] *)
   | Store of num            (* pop and store in stack[n] *)
   | LengthBlock             (* read length of cons block *)
@@ -325,9 +324,7 @@ bc_stack_op (Pops (LENGTH ys)) ((x::ys)++xs) (x::xs))
 /\ (! n xs. T ==>
 bc_stack_op (PushInt n) (xs) (Number n::xs))
 /\ (! tag ys xs. T ==>
-bc_stack_op (Cons tag (LENGTH ys)) (ys++xs) (Block tag (REVERSE ys)::xs))
-/\ (! tag ys xs. T ==>
-bc_stack_op (Cons2 tag) (Number (int_of_num (LENGTH ys))::(ys++xs)) (Block tag (REVERSE ys)::xs))
+bc_stack_op (Cons tag) (Number (int_of_num (LENGTH ys))::(ys++xs)) (Block tag (REVERSE ys)::xs))
 /\ (! k xs. (k < LENGTH xs) ==>
 bc_stack_op (Load k) xs (EL k xs::xs))
 /\ (! y ys x xs. T ==>
