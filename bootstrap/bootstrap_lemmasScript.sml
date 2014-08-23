@@ -16,7 +16,7 @@ val _ = Globals.max_print_depth := 20
 val all_env_dom_init =
   ``all_env_dom ((THE prim_sem_env).sem_envM,(THE prim_sem_env).sem_envC,(THE prim_sem_env).sem_envE)``
   |> (REWRITE_CONV [initSemEnvTheory.prim_sem_env_eq] THENC
-      SIMP_CONV std_ss [free_varsTheory.all_env_dom_def,libTheory.lookup_def] THENC
+      SIMP_CONV std_ss [evalPropsTheory.all_env_dom_def,libTheory.lookup_def] THENC
       SIMP_CONV (srw_ss()) [pred_setTheory.EXTENSION] THENC
       EVAL)
 
@@ -234,7 +234,7 @@ val COMPILER_RUN_INV_repl_step = store_thm("COMPILER_RUN_INV_repl_step",
   pop_assum(mp_tac o MATCH_MP compile_special_thm) >> simp[] >>
   disch_then(qspecl_then[`FST compile_repl_decs`]mp_tac) >>
   simp[GSYM compile_call_repl_step_def] >>
-  simp[free_varsTheory.closed_top_def,free_varsTheory.all_env_dom_def] >>
+  simp[free_varsTheory.closed_top_def,evalPropsTheory.all_env_dom_def] >>
   disch_then(qspecl_then[`grd1`,`bootstrap_bc_state.code`
     ,`repl_bc_state with <| clock := SOME ck; refs := rf; handler := hdl|>`]mp_tac) >>
   discharge_hyps >- (
