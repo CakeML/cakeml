@@ -343,7 +343,8 @@ val dec_stack_def = Define `
      if LENGTH ws <> LENGTH l then NONE else
        case dec_stack xs st of
        | NONE => NONE
-       | SOME s => SOME (StackFrame (ZIP (MAP FST l,ws)) handler :: s))`
+       | SOME s => SOME (StackFrame (ZIP (MAP FST l,ws)) handler :: s)) /\
+  (dec_stack _ _ = NONE)`
 
 val wGC_def = Define `  (* wGC runs the garbage collector algorithm *)
   wGC s =
