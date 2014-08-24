@@ -1003,8 +1003,8 @@ val deref_thm = store_thm("deref_thm",
     ?r roots2 ts.
       (roots = r::roots2) /\ (refs ' ptr = ValueArray ts) /\ ptr IN FDOM refs /\
       !n. n < LENGTH ts ==>
-          ?y t. (heap_el r n heap = (y,T)) /\
-                abs_ml_inv (t::RefPtr ptr::stack) refs
+          ?y. (heap_el r n heap = (y,T)) /\
+                abs_ml_inv (EL n ts::RefPtr ptr::stack) refs
                   (y::roots,heap,a,sp) limit``,
   FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def]
   \\ REPEAT STRIP_TAC \\ Cases_on `roots` \\ FULL_SIMP_TAC (srw_ss()) [LIST_REL_def]
@@ -1020,7 +1020,7 @@ val deref_thm = store_thm("deref_thm",
   \\ NTAC 3 STRIP_TAC
   \\ IMP_RES_TAC EVERY2_IMP_LENGTH
   \\ ASM_SIMP_TAC (srw_ss()) [heap_el_def,RefBlock_def]
-  \\ Q.EXISTS_TAC `EL n l` \\ SRW_TAC [] [] THEN1
+  \\ SRW_TAC [] [] THEN1
    (FULL_SIMP_TAC std_ss [roots_ok_def,heap_ok_def]
     \\ IMP_RES_TAC heap_lookup_MEM
     \\ STRIP_TAC \\ ONCE_REWRITE_TAC [MEM] \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]

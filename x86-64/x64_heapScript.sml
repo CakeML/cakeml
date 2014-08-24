@@ -8753,7 +8753,6 @@ gg goal
 
 (* deref *)
 
-(*
 val zHEAP_DEREF = let
   val th = compose_specs ["mov r0,[r1+2*r0+9]"]
   val pc = get_pc th
@@ -8800,15 +8799,11 @@ val zHEAP_DEREF = let
         \\ Q.LIST_EXISTS_TAC [`RefPtr n`,`n`]
         \\ FULL_SIMP_TAC std_ss [get_refs_def,MEM,RTC_REFL])
       \\ RES_TAC \\ fs[])
-    \\ rpt(qpat_assum`T`kall_tac)
-    \\ rpt BasicProvers.VAR_EQ_TAC
     \\ fs[bc_ref_inv_def,heap_el_def,FLOOKUP_DEF]
     \\ Cases_on`n IN FDOM f` \\ fs[]
     \\ Cases_on`n IN FDOM refs` \\ fs[]
     \\ Cases_on`refs ' n` \\ fs[RefBlock_def] \\ fs[]
     \\ Cases_on`Num i < LENGTH zs` \\ fs[]
-    \\ rpt BasicProvers.VAR_EQ_TAC
-    \\ rpt(qpat_assum`T`kall_tac)
     \\ IMP_RES_TAC heap_lookup_SPLIT
     \\ FULL_SIMP_TAC (std_ss++sep_cond_ss) [x64_heap_APPEND,x64_heap_def,x64_el_def,
          x64_payload_def,SEP_CLAUSES,cond_STAR,MAP,LET_DEF,LENGTH,one_list_def,
@@ -8816,7 +8811,7 @@ val zHEAP_DEREF = let
     \\ SIMP_TAC std_ss [WORD_ADD_ASSOC,WORD_SUB_ADD]
     \\ `r1 = Data (2w * n2w (Num i))` by ALL_TAC THEN1
      (`small_int i /\ ~(i < 0)` by ALL_TAC THEN1
-        (FULL_SIMP_TAC std_ss [small_int_def] \\ intLib.COOPER_TAC)
+        (rw[] >> FULL_SIMP_TAC std_ss [small_int_def] \\ intLib.COOPER_TAC)
       \\ FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,LIST_REL_def,
             bc_value_inv_def])
     \\ FULL_SIMP_TAC (srw_ss()) [x64_addr_def,WORD_MUL_LSL,w2w_def,word_mul_n2w]
@@ -8847,44 +8842,30 @@ val zHEAP_DEREF = let
          x64_addr_def,WORD_MUL_LSL,BlockRep_def]
     \\ STRIP_TAC THEN1
      (Q.PAT_ASSUM `abs_ml_inv xx yy zz tt` MP_TAC
-      \\ FULL_SIMP_TAC std_ss [LIST_REL_EL_EQN]
       \\ `EL (Num i) (zs1 ++ z::zs2) = z` by METIS_TAC [EL_LENGTH]
-      \\ first_x_assum(qspec_then`Num i`mp_tac)
-      \\ simp[]
       \\ FULL_SIMP_TAC std_ss [ADD1,AC ADD_COMM ADD_ASSOC]
       \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND]
       \\ REPEAT STRIP_TAC
       \\ MATCH_MP_TAC el_lemma1
       \\ METIS_TAC [])
-
-    \\ FULL_SIMP_TAC std_ss [zVALS_def]
-    \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND]
-    \\ FULL_SIMP_TAC (srw_ss()++star_ss) []
-    \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND]
-    \\ FULL_SIMP_TAC (srw_ss()++star_ss) [] \\ POP_ASSUM (K ALL_TAC)
-    \\ FULL_SIMP_TAC std_ss [heap_inv_def]
-    \\ SIMP_TAC (srw_ss()) []
-    \\ Q.LIST_EXISTS_TAC [`vs`,`y'`,`r2`,`r3`,`r4`,`roots`,`heap`,`a`,`sp`]
-    \\ FULL_SIMP_TAC std_ss [getRefPtr_def]
-    \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND]
-    \\ FULL_SIMP_TAC std_ss [AC MULT_COMM MULT_ASSOC]
-    \\ FULL_SIMP_TAC (std_ss++sep_cond_ss) [x64_heap_APPEND,x64_heap_def,x64_el_def,
-         x64_payload_def,SEP_CLAUSES,cond_STAR,MAP,LET_DEF,LENGTH,one_list_def,
-         x64_addr_def,WORD_MUL_LSL,word_mul_n2w,word_add_n2w]
+    \\ FULL_SIMP_TAC std_ss [LENGTH,LENGTH_APPEND]
+    \\ FULL_SIMP_TAC std_ss [ADD1,AC ADD_COMM ADD_ASSOC]
+    \\ STRIP_TAC THEN1
+      (FULL_SIMP_TAC (srw_ss()) [w2w_def,w2n_n2w,word_mul_n2w,MULT_ASSOC])
     \\ Q.PAT_ASSUM `xxx (fun2set (vals.memory,vals.memory_domain))` MP_TAC
-    \\ FULL_SIMP_TAC std_ss [AC MULT_COMM MULT_ASSOC,heap_length_APPEND,SUM,MAP,
-         LEFT_ADD_DISTRIB,word_add_n2w,AC ADD_COMM ADD_ASSOC,heap_length_def]
-    \\ FULL_SIMP_TAC (srw_ss()++star_ss) []
-    \\ FULL_SIMP_TAC std_ss [STAR_ASSOC]
-    \\ FULL_SIMP_TAC std_ss [AC MULT_COMM MULT_ASSOC,heap_length_APPEND,SUM,MAP,
-         LEFT_ADD_DISTRIB,word_add_n2w,AC ADD_COMM ADD_ASSOC,heap_length_def]
-    \\ FULL_SIMP_TAC (srw_ss()++star_ss) []
-    \\ FULL_SIMP_TAC std_ss [STAR_ASSOC])
+    \\ NTAC 2 (FULL_SIMP_TAC (srw_ss()++star_ss) [one_list_APPEND,one_list_def]
+      \\ FULL_SIMP_TAC std_ss [STAR_ASSOC,SEP_CLAUSES,APPEND,GSYM APPEND_ASSOC]
+      \\ FULL_SIMP_TAC std_ss [word_add_n2w,word_mul_n2w,LEFT_ADD_DISTRIB]
+      \\ FULL_SIMP_TAC std_ss [GSYM word_add_n2w,LEFT_ADD_DISTRIB,heap_length_APPEND,
+           AC WORD_ADD_ASSOC WORD_ADD_COMM,word_mul_n2w,AC MULT_COMM MULT_ASSOC,
+           heap_length_def]))
   val th = MP th lemma
   val th = Q.GEN `vals` th |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
   val (th,goal) = SPEC_STRENGTHEN_RULE th
     ``zHEAP (cs, x1, x2, x3, x4, refs, stack, s, NONE) * ~zS * zPC p *
-      cond (isRefPtr x1)``
+      cond (isRefPtr x2 /\ isNumber x1 /\ 0 <= getNumber x1 /\
+            isValueArray (refs ' (getRefPtr x2)) /\
+            getNumber x1 < & LENGTH (getValueArray (refs ' (getRefPtr x2))))``
   val lemma= prove(goal,
     SIMP_TAC (std_ss++sep_cond_ss) [zHEAP_def,SEP_IMP_REFL,SEP_CLAUSES,
          AC CONJ_ASSOC CONJ_COMM]
@@ -8892,7 +8873,6 @@ val zHEAP_DEREF = let
          AC CONJ_ASSOC CONJ_COMM])
   val th = MP th lemma
   in th end;
-*)
 
 (* update ref *)
 
