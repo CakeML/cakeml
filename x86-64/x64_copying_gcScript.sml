@@ -44,7 +44,7 @@ val x64_payload_def = Define `
   (x64_payload ys l (RefTag) qs base =
      let h = n2w l << 16 + 1w in
      let ts = MAP (x64_addr base) ys in
-     let c = (qs = []) /\ (LENGTH ys = 1) /\ (l = 1) in
+     let c = (qs = []) /\ (LENGTH ys = l) /\ (l < 2 ** (64 - 16)) in
        (h,ts,c)) /\
   (x64_payload ys l (NumTag b) qs base =
      let h = n2w l << 16 + 2w + b2w b in
