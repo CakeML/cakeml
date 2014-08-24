@@ -2172,10 +2172,10 @@ val compile_top_thm = store_thm("compile_top_thm",
       first_x_assum(qspec_then`n`mp_tac) >>
       simp[] >> ntac 2 strip_tac >>
       ((qmatch_rename_tac`convert_t tt = X ⇔ Y`["X","Y"] >>
-        Cases_on`tt`>>fs[inferSoundTheory.convert_t_def])
+        Cases_on`tt`>>fs[inferPropsTheory.convert_t_def])
        ORELSE
        (qmatch_rename_tac`convert_t tt ≠ X`["X"] >>
-       Cases_on`tt`>>fs[inferSoundTheory.convert_t_def] ))) >>
+       Cases_on`tt`>>fs[inferPropsTheory.convert_t_def] ))) >>
     conj_asm2_tac >- (
       first_x_assum(strip_assume_tac o MATCH_MP evaluate_prompt_i1_success_globals) >>
       simp[Abbr`bs2`] >> rw[] >>
