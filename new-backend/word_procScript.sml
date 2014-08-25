@@ -57,66 +57,6 @@ EVAL ``apply_color (\x.x+1) (Seq (Call (SOME (5,LN)) (SOME 4) [3;2;1] NONE) Skip
 *)
 (*Note that we cannot use get_var v s = get_var f v t because t is allowed to contain extra variables ==> get_var (f v) t may succeed*)
 
-(*Prove that get_var gives the same result under an injective f*)
-val get_var_inj = prove(
-  ``!f v s x. INJ f UNIV UNIV /\ get_var v s = x 
-    ==> get_var (f v) (s with locals := apply_nummap_key f s.locals) = x``,
-  rpt strip_tac>>
-  Cases_on `x`>>
-  fs[get_var_def]>-
-  (SPOSE_NOT_THEN ASSUME_TAC>>
-  fs[lookup_NONE_domain] >>
-  IMP_RES_TAC MEM_fromAList>>
-  fs[MAP_ZIP]>>
-  fs[MEM_MAP]>>
-  Cases_on `y`>>
-    fs[MEM_toAList]>>
-    Cases_on `q=v`>- 
-      fs[domain_lookup] 
-    >> fs[INJ_DEF] >>metis_tac[]) >> 
-  (*FIND A NEATER WAY*)
-  Q.ABBREV_TAC `ls = (ZIP
-        (MAP (f o FST) (toAList s.locals),
-         MAP SND (toAList s.locals)))` >>
-  Cases_on `lookup (f v) (fromAList ls)` >> rw[] 
-   >-(
-    fs[lookup_NONE_domain]>>
-    ASSUME_TAC (INST_TYPE [``:'a``|->``:'a word_loc``]MEM_fromAList)>>
-    first_x_assum(qspecl_then [`ls`,`f v`] assume_tac)>>
-    IMP_RES_TAC MEM_toAList>>
-  ASSUME_TAC (INST_TYPE [``:'c``|-> ``:num``,``:'b``|->``:'a word_loc``,``:'a``|-> ``:num``] ZIP_CORRECT) >>
- first_x_assum(qspecl_then [`toAList s.locals`,`v`,`x'`,`f`] mp_tac)>>
-  strip_tac>>
-  Q.UNABBREV_TAC `ls`>>
-  Q.ABBREV_TAC `ls = (ZIP
-        (MAP (f o FST) (toAList s.locals),
-         MAP SND (toAList s.locals)))` >>
-  ASSUME_TAC (INST_TYPE [``:'a`` |-> ``:num``,``:'b``|->``:num``,
-                         ``:'c``|->``:'a word_loc``] MEM_MAP_FST)>>
-  first_x_assum(qspecl_then [`f`,`v`,`x'`,`ls`] assume_tac)>>
-  metis_tac[])>>
-  ASSUME_TAC (INST_TYPE [``:'a`` |->``:'a word_loc``] lookup_fromAList) >>
-  first_x_assum (qspecl_then [`f v`,`x`,`ls`] assume_tac) >>
-  `MEM (v,x') (toAList s.locals)` by metis_tac[MEM_toAList] >>
-  `MEM (f v,x') ls` by metis_tac[ZIP_CORRECT]>>
-  `!y. MEM (v,y) (toAList s.locals) ==> y=x'` by
-    (rw[] >> fs[MEM_toAList]) >>
-  `MEM (f v,x) ls` by metis_tac[] >> 
-   ASSUME_TAC (INST_TYPE [``:'c``|-> ``:num``,``:'b``|->``:'a word_loc``,``:'a``|-> ``:num``] ZIP_CORRECT_INJ)>>
-   first_x_assum (qspecl_then [`toAList s.locals`,`v`] assume_tac) >>
-   first_assum(qspecl_then [`x'`,`f`] assume_tac)>>
-   first_assum(qspecl_then [`x`,`f`] assume_tac)>>
-   metis_tac[]) 
-
-(*Same thing as get_var_inj except for get_vars*)
-val get_vars_inj = prove(
-  ``!f ls s. INJ f UNIV UNIV ==> get_vars ls s = get_vars (MAP f ls) (s with locals := apply_nummap_key f s.locals)``, 
-  strip_tac >> Induct >> rpt strip_tac>> fs[get_vars_def]>>
-  ASSUME_TAC get_var_inj >>
-  first_x_assum(qspecl_then [`f`,`h`,`s`] assume_tac)>>
-  Cases_on `get_var h s` >> 
-  fs[]);
-
 (*Helpful:
    traces();
    Goalstack.print_goal_fvs := 1;
@@ -126,46 +66,56 @@ val get_vars_inj = prove(
 
 (*Prove that mapping injective f over an exp + initial state gives the same result*)
 
-(*Eq Relation over stacks
-  1 - Stack frames have same handler
-  2 - Same values
-  1 guarantees that exceptional results pop the same frames
-  2 guarantees that gc (with eq memories) have the same result*)
+(*Prove 2 side conditions on the semantics that help in the Call case
+               1
+wEval(prog,st) ==> (res,rst)
+  ||                  || 2
+  \/                  \/
+wEval(prog,st') ==> (res',rst')
 
-val stack_frames_val_eq_rel_def = Define`
-  (stack_frames_eq_rel (StackFrame ls NONE) (StackFrame ls' NONE) 
+1) Show that st,rst have the same keys on stack and in the case of 
+
+   where does SOME Exception go?? the locals??
+
+2) Show that rst,rst' have the same values on the stack
+*)
+
+(*TODO: may need to define the [] (x::xs) cases?*)
+(*Stacks look the same except for the keys (recolored and in order)*)
+val s_frame_val_eq_def = Define`
+  (s_frame_val_eq (StackFrame ls NONE) (StackFrame ls' NONE)
      <=> MAP SND ls = MAP SND ls') /\
-  (stack_frames_eq_rel (StackFrame ls (SOME y)) (StackFrame ls' (SOME y'))
-    <=> MAP SND ls = MAP SND ls' /\ y = y')`
+  (s_frame_val_eq (StackFrame ls (SOME y)) (StackFrame ls' (SOME y'))
+     <=> MAP SND ls = MAP SND ls' /\ y=y')`
 
-val stack_eq_rel_def = Define`
-  (stack_eq_rel [] [] = T) /\
-  (stack_eq_rel (x::xs) (y::ys) = (stack_eq_rel xs ys /\
-                                    stack_frames_eq_rel x y))`
+val s_val_eq_def = Define`
+  (s_val_eq [] [] = T) /\
+  (s_val_eq (x::xs) (y::ys) = (s_val_eq xs ys /\
+                                    s_frame_val_eq x y))`
 
-EVAL ``stack_eq_rel [] []``
-
-val stack_eq_rel_refl = prove(
-  ``!ls .stack_eq_rel ls ls = T``,
-   Induct >> rw[stack_eq_rel_def]>>
-   Cases_on`h`>> Cases_on`o'`>>rw[stack_frames_eq_rel_def])
-
-(*Key Eq Relation over stacks*)
-val stack_frames_key_eq_rel_def = Define`
-  (stack_frames_key_eq_rel (StackFrame ls NONE) (StackFrame ls' NONE) 
+(*Stacks look the same except for the values (result of gc)*)
+val s_frame_key_eq_def = Define`
+  (s_frame_key_eq (StackFrame ls NONE) (StackFrame ls' NONE)
      <=> MAP FST ls = MAP FST ls') /\
-  (stack_frames_key_eq_rel (StackFrame ls (SOME y)) (StackFrame ls' (SOME y'))
-    <=> MAP FST ls = MAP FST ls' /\ y = y')`
+  (s_frame_key_eq (StackFrame ls (SOME y)) (StackFrame ls' (SOME y'))
+     <=> MAP FST ls = MAP FST ls' /\ y=y')`
 
-val stack_key_eq_rel_def = Define`
-  (stack_key_eq_rel [] [] = T) /\
-  (stack_key_eq_rel (x::xs) (y::ys) = (stack_key_eq_rel xs ys /\
-                                    stack_frames_key_eq_rel x y))`
+val s_key_eq_def = Define`
+  (s_key_eq [] [] = T) /\
+  (s_key_eq (x::xs) (y::ys) = (s_key_eq xs ys /\
+                                    s_frame_key_eq x y)) /\
+  (s_key_eq _ _ = F)`
 
-val stack_key_eq_rel_refl = prove(
-  ``!ls .stack_key_eq_rel ls ls = T``,
-   Induct >> rw[stack_key_eq_rel_def]>>
-   Cases_on`h`>> Cases_on`o'`>>rw[stack_frames_key_eq_rel_def])
+(*
+EVAL ``s_val_eq [] []``
+EVAL ``s_key_eq [] []``
+*)
+
+(*Reflexive*)
+val s_key_eq_refl = prove(
+  ``!ls .s_key_eq ls ls = T``,
+   Induct >> rw[s_key_eq_def]>>
+   Cases_on`h`>> Cases_on`o'`>>rw[s_frame_key_eq_def])
 
 (*If wEval goes to 
   NONE/SOME result then the resulting stack must be stack_key_eq_rel 
@@ -182,24 +132,123 @@ val dec_stack_stack_key_eq_rel = prove(
   Cases_on`handler`>>fs[MAP_ZIP,stack_frames_key_eq_rel_def])
 
 (*wGC preserves the stack_key relation*)
-val wGC_stack_key_eq_rel = prove(
+val wGC_s_key_eq_rel = prove(
   ``!s x. wGC s = SOME x ==> stack_key_eq_rel s.stack x.stack``,
   rw[wGC_def] >>fs[LET_THM]>>BasicProvers.EVERY_CASE_TAC>>fs[]>>
   IMP_RES_TAC dec_stack_stack_key_eq_rel>>
   fs[word_state_component_equality]>>rfs[])
 
-val push_env_pop_env_stack_key_eq_rel = prove(
-  ``!s t x b. stack_key_eq_rel (push_env x b s).stack t.stack ==>
+(*pushing and popping*)
+val push_env_pop_env_s_key_eq = prove(
+  ``!s t x b. s_key_eq (push_env x b s).stack t.stack ==>
               ?y. (pop_env t = SOME y /\
-                   stack_key_eq_rel s.stack y.stack)``
+                   s_key_eq s.stack y.stack)``,
+  rw[push_env_def]>>fs[LET_THM,env_to_list_def]>>Cases_on`t.stack`>>
+  fs[s_key_eq_def,pop_env_def]>>BasicProvers.EVERY_CASE_TAC>>
+  fs[])
 
-val wEval_stack = prove(
+(*LAST_N lemma*)
+val LAST_N_lemma = prove(
+  ``!x y ls xs. LAST_N x ls = xs /\ xs <> [] ==>LAST_N x (y::ls) = xs``,
+  strip_tac>>strip_tac>>Induct>>
+  strip_tac>>
+  `xs = []` >>
+  fs[bvpTheory.LAST_N_def]
+
+(*wEval of a prog should retain the keys of the stack
+Unless there is SOME Exception in which case it should exactly retain the remainder of the stack after handle (AND the locals must be popped)
+*)
+val wEval_s_key_eq = prove(
   ``!prog st res rst. 
-      wEval (prog,st) = (res,rst) ==> 
-         case res of NONE => stack_key_eq_rel st.stack rst.stack
-         |  SOME (Exception x)=> T (*rst.stack is exactly the popped*)
-         | _ => T``,
+      wEval (prog,st) = (res,rst) /\ (st.handler < LENGTH st.stack) ==> 
+         case res of NONE => s_key_eq st.stack rst.stack
+         |  SOME (Result x) => s_key_eq st.stack rst.stack
+         |  SOME (Exception x)=> 
+              (case LAST_N (st.handler+1) st.stack of
+              StackFrame ls (SOME y) :: xs =>
+                s_key_eq xs rst.stack /\
+                MAP FST ls = MAP FST (toAList rst.locals)
+              | _ => F) 
+              (*In exceptional cases the stack is exactly popped and 
+                the locals are exactly corresponding*)
+         | _ => T (*not entirely sure about the other cases*)``,
   ho_match_mp_tac (wEval_ind |> Q.SPEC`UNCURRY P` |> SIMP_RULE (srw_ss())[] |> Q.GEN`P`) >> rw[]>-
+  (*Skip*)
+  (fs[wEval_def,s_key_eq_refl]>>rw[])
+
+  (*Call 10hR*)
+  pop_assum mp_tac>>pop_assum mp_tac>>
+  fs[wEval_def]>>IF_CASES_TAC>-(rw[]>>fs[])>>
+  Cases_on`get_vars args st`>> fs[]>-
+    (rw[]>>fs[optionTheory.option_nchotomy])>>
+  Cases_on`find_code dest x st.code`>>fs[]>-
+    (rw[]>>fs[optionTheory.option_nchotomy])>>
+  Cases_on`x'`>>fs[]>>Cases_on`ret`>>fs[]>-
+    (*NONE - Tail call*)
+    (IF_CASES_TAC>-
+      (BasicProvers.EVERY_CASE_TAC>>rfs[]>>rw[]>>
+      `(call_env q (dec_clock st)).stack = st.stack` by
+         fs[dec_clock_def,call_env_def]>>
+      `(call_env q (dec_clock st)).handler = st.handler` by
+         fs[dec_clock_def,call_env_def]>>
+      fs[]>> rfs[]>>Cases_on`x'`>>fs[])>>
+    rw[]>>fs[] )>>
+    (*SOME*)
+    Cases_on`x'`>>simp[]>>Cases_on`cut_env r' st.locals`>-(rw[]>>fs[])>>
+    fs[]>>
+    CASE_TAC>>fs[]>-
+      (*NO HANDLER*)
+      (
+      Cases_on`wEval (r,call_env q (push_env x' F (dec_clock st)))`>>
+      Cases_on`q''`>>rw[]>>fs[]>>
+      Cases_on`x''`>>fs[]>>rw[]>>
+      `(call_env q (push_env x' F (dec_clock st))).handler <
+      LENGTH (call_env q (push_env x' F (dec_clock st))).stack` by
+      (fs[dec_clock_def,push_env_def,call_env_def,LET_THM,env_to_list_def]>>
+      simp[])>-
+        (*Result*)
+        (Cases_on`pop_env r''`>>fs[]>>rw[]>>
+        Cases_on`domain x''.locals = domain x'`>>fs[]>>rw[]>>
+        `s_key_eq (push_env x' F (dec_clock st)).stack r''.stack` by
+          fs[call_env_def]>>
+        IMP_RES_TAC push_env_pop_env_s_key_eq >> fs[dec_clock_def]>>
+        rw[set_var_def])>>
+        (*Exception -> should just need a lemma about LAST_N on sublist*)
+        fs[]>> cheat)
+      (*SOME HANDLER*)
+
+     (*HANDLER*)
+      Cases_on`wEval(r,call_env q (push_env x' T (dec_clock st)))`>>
+      Cases_on`q''`>>fs[]>>rw[]>>fs[]>>
+      Cases_on`x'''`>>fs[]>>rw[]>-
+        (*Result*)
+        (Cases_on`pop_env r''`>>fs[]>>rw[]>>
+        pop_assum mp_tac >> pop_assum mp_tac>>pop_assum mp_tac>>
+        IF_CASES_TAC>>rw[]>>simp[]>>
+        `s_key_eq (push_env x' T (dec_clock st)).stack r''.stack` by 
+          (fs[LET_THM,dec_clock_def,push_env_def,call_env_def]>>
+          cheat)>>
+        IMP_RES_TAC push_env_pop_env_s_key_eq >>
+        fs[dec_clock_def]>>rfs[set_var_def])>>
+        (*Exception*)
+        Cases_on`x''`>>fs[]>>
+        pop_assum mp_tac >> pop_assum mp_tac >> IF_CASES_TAC>> rw[]>>fs[]>>
+        
+
+         
+
+      BasicProvers.EVERY_CASE_TAC     
+
+       CASE_TAC>>BasicProvers.EVERY_CASE_TAC>>fs[]>>rfs[]>>
+      fs[]
+       fs[]>>BasicProvers.FULL_CASE_TAC>>
+      BasicProvers.FULL_CASE_TAC>>
+      
+
+CASE_TAC>>rw[]>>fs[]>>Cases_on`q''`
+
+
+BasicProvers.EVERY_CASE_TAC>>fs[s_key_eq_def]
  (fs[wEval_def,stack_key_eq_rel_refl]>>BasicProvers.EVERY_CASE_TAC>>fs[])>-
  fs[wEval_def,wAlloc_def] >> first_x_assum mp_tac>> BasicProvers.EVERY_CASE_TAC>>
  IMP_RES_TAC wGC_stack_key_eq_rel
@@ -638,12 +687,13 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
                   (*/\ wf st.locals*)
                   /\ strong_state_rel f st cst ==>
      let (res',rcst) = wEval(apply_color f prog,cst) in
-     abbrev_and (res' = res) 
+     (res' = res) /\
       (case res of
         NONE => strong_state_rel f rst rcst
       | SOME _ => weak_state_rel f rst rcst)``
   ho_match_mp_tac (wEval_ind |> Q.SPEC`UNCURRY P` |> SIMP_RULE (srw_ss())[] |> Q.GEN`P`) >> rw[] 
   (*Induct>> rpt strip_tac>>simp[]>-*)
+Cases_on`o'`>>Cases_on`x`
    (*Skip*)
     (rw[abbrev_and_def,apply_color_def,wEval_def,EQ_SYM_EQ]>>fs[wEval_def]>>
     rw[EQ_SYM_EQ]) >-
