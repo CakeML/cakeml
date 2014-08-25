@@ -15060,7 +15060,6 @@ val zBC_HEAP_THM = prove(
     \\ Q.LIST_EXISTS_TAC [`RefPtr (if ev then 2 * ptr else 2 * ptr + 1)`,`x3`]
     \\ FULL_SIMP_TAC (std_ss++star_ss) [GSYM ADD_ASSOC,bc_adjust_def,
          MAP,getTag_def])
-*)
   THEN1 (* DerefByte *) ERROR_TAC
   THEN1 (* Update *) ERROR_TAC
 (*
