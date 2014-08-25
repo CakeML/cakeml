@@ -62,6 +62,7 @@ fun add_intermediate_compiler_compset compset = let
   val () = add_datatype ``:dec_i2``
   val () = add_datatype ``:pat_i2``
   val () = add_datatype ``:exp_i2``
+  val () = add_datatype ``:op_i2``
   (* decLang compiler *)
   val () = add_thms
     [prog_to_i3_def
@@ -93,6 +94,7 @@ fun add_intermediate_compiler_compset compset = let
     ,pure_op_def
     ] compset
   val () = add_datatype ``:exp_pat``
+  val () = add_datatype ``:op_pat``
   (* intLang compiler *)
   val () = add_thms
     [exp_to_Cexp_def
