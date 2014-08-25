@@ -79,6 +79,9 @@ wEval(prog,st') ==> (res',rst')
 
 2) Show that rst,rst' have the same values on the stack
 *)
+(*Abbrev the and away to make the proofs easier to handle..*)
+val abbrev_and_def = Define`
+  abbrev_and a b <=> a /\ b`
 
 (*TODO: may need to define the [] (x::xs) cases?*)
 (*Stacks look the same except for the keys (recolored and in order)*)
@@ -98,7 +101,8 @@ val s_frame_key_eq_def = Define`
   (s_frame_key_eq (StackFrame ls NONE) (StackFrame ls' NONE)
      <=> MAP FST ls = MAP FST ls') /\
   (s_frame_key_eq (StackFrame ls (SOME y)) (StackFrame ls' (SOME y'))
-     <=> MAP FST ls = MAP FST ls' /\ y=y')`
+     <=> MAP FST ls = MAP FST ls' /\ y=y') /\
+  (s_frame_key_eq _ _ = F)`
 
 val s_key_eq_def = Define`
   (s_key_eq [] [] = T) /\
@@ -117,6 +121,21 @@ val s_key_eq_refl = prove(
    Induct >> rw[s_key_eq_def]>>
    Cases_on`h`>> Cases_on`o'`>>rw[s_frame_key_eq_def])
 
+val s_frame_key_eq_trans = prove(
+  ``!a b c. s_frame_key_eq a b /\ s_frame_key_eq b c ==>
+            s_frame_key_eq a c``,
+  Cases_on`a`>>Cases_on`b`>>Cases_on`c`>>
+  Cases_on`o'`>>Cases_on`o''`>>Cases_on`o'''`>>
+  fs[s_frame_key_eq_def])
+
+val s_key_eq_trans = prove(
+  ``!a b c. s_key_eq a b /\ s_key_eq b c ==>
+            s_key_eq a c``,
+  Induct>>
+  Cases_on`b`>>Cases_on`c`>>fs[s_key_eq_def]>>
+  rw[]>>metis_tac[s_frame_key_eq_trans])
+    
+    
 (*If wEval goes to 
   NONE/SOME result then the resulting stack must be stack_key_eq_rel 
   to the starting stack i.e. successful programs do not disturb the stack
@@ -160,15 +179,20 @@ Unless there is SOME Exception in which case it should exactly retain the remain
 *)
 val wEval_s_key_eq = prove(
   ``!prog st res rst. 
-      wEval (prog,st) = (res,rst) /\ (st.handler < LENGTH st.stack) ==> 
-         case res of NONE => s_key_eq st.stack rst.stack
-         |  SOME (Result x) => s_key_eq st.stack rst.stack
+      wEval (prog,st) = (res,rst) /\ (st.handler < LENGTH st.stack) ==>
+         case res of NONE => s_key_eq st.stack rst.stack /\ 
+                             rst.handler = st.handler
+                             (*implies rst.handler < LENGTH rst.stack*)
+         |  SOME (Result x) => s_key_eq st.stack rst.stack /\
+                               rst.handler = st.handler
          |  SOME (Exception x)=> 
               (case LAST_N (st.handler+1) st.stack of
               StackFrame ls (SOME y) :: xs =>
                 s_key_eq xs rst.stack /\
-                MAP FST ls = MAP FST (toAList rst.locals)
-              | _ => F) 
+                MAP FST ls = MAP FST (toAList rst.locals) /\
+                rst.handler = y
+              | _ => F) /\
+              rst.handler < LENGTH rst.stack 
               (*In exceptional cases the stack is exactly popped and 
                 the locals are exactly corresponding*)
          | _ => T (*not entirely sure about the other cases*)``,
@@ -178,7 +202,7 @@ val wEval_s_key_eq = prove(
 
   (*Call 10hR*)
   pop_assum mp_tac>>pop_assum mp_tac>>
-  fs[wEval_def]>>IF_CASES_TAC>-(rw[]>>fs[])>>
+  fs[wEval_def]>>IF_CASES_TAC>-(rw[abbrev_and_def]>>fs[])>>
   Cases_on`get_vars args st`>> fs[]>-
     (rw[]>>fs[optionTheory.option_nchotomy])>>
   Cases_on`find_code dest x st.code`>>fs[]>-
@@ -208,34 +232,62 @@ val wEval_s_key_eq = prove(
       simp[])>-
         (*Result*)
         (Cases_on`pop_env r''`>>fs[]>>rw[]>>
-        Cases_on`domain x''.locals = domain x'`>>fs[]>>rw[]>>
-        `s_key_eq (push_env x' F (dec_clock st)).stack r''.stack` by
+        Cases_on`domain x''.locals = domain x'`>>fs[]>>rw[]>-
+        (`s_key_eq (push_env x' F (dec_clock st)).stack r''.stack` by
           fs[call_env_def]>>
         IMP_RES_TAC push_env_pop_env_s_key_eq >> fs[dec_clock_def]>>
         rw[set_var_def])>>
-        (*Exception -> should just need a lemma about LAST_N on sublist*)
-        fs[]>> cheat)
+        rw[set_var_def]>>
+        fs[call_env_def,push_env_def,dec_clock_def,LET_THM,env_to_list_def]>>
+        `x''.handler = r''.handler` by cheat>>fs[])>>
+         (*Argument:
+           r''.stack's head is s_key_eq to a push_env .. F... 
+           therefore it is SOME NONE therefore the handler is unchanged 
+           therefore x''.handler = r''.handler*)
+        (*exception*) 
+        (fs[]>> cheat)>>fs[])>>
+        (*Argument:
+          since st.handler < LENGTH st.stack
+          we have that LAST_N st.handler (_::st.stack) = 
+                       LAST_N st.handler st.stack
+          therefore, can just use assum 6 immediately*)
       (*SOME HANDLER*)
-
-     (*HANDLER*)
       Cases_on`wEval(r,call_env q (push_env x' T (dec_clock st)))`>>
       Cases_on`q''`>>fs[]>>rw[]>>fs[]>>
-      Cases_on`x'''`>>fs[]>>rw[]>-
+      Cases_on`x'''`>>fs[]>>rw[]>>
+      `(call_env q (push_env x' T (dec_clock st))).handler <
+      LENGTH (call_env q (push_env x' T (dec_clock st))).stack` by
+      (fs[dec_clock_def,push_env_def,call_env_def,LET_THM,env_to_list_def]>>
+      simp[])>-
         (*Result*)
         (Cases_on`pop_env r''`>>fs[]>>rw[]>>
-        pop_assum mp_tac >> pop_assum mp_tac>>pop_assum mp_tac>>
-        IF_CASES_TAC>>rw[]>>simp[]>>
-        `s_key_eq (push_env x' T (dec_clock st)).stack r''.stack` by 
-          (fs[LET_THM,dec_clock_def,push_env_def,call_env_def]>>
-          cheat)>>
-        IMP_RES_TAC push_env_pop_env_s_key_eq >>
-        fs[dec_clock_def]>>rfs[set_var_def])>>
-        (*Exception*)
-        Cases_on`x''`>>fs[]>>
-        pop_assum mp_tac >> pop_assum mp_tac >> IF_CASES_TAC>> rw[]>>fs[]>>
-        
+        Cases_on`domain x''.locals = domain x'`>>fs[]>>rw[]>-
+        (`s_key_eq (push_env x' T (dec_clock st)).stack r''.stack` by
+          fs[call_env_def]>>
+        IMP_RES_TAC push_env_pop_env_s_key_eq >> fs[dec_clock_def]>>
+        rw[set_var_def])>>
+        rw[set_var_def]>>
+        fs[call_env_def,push_env_def,dec_clock_def,LET_THM,env_to_list_def]>>
+        cheat)>> 
+        (*Argument: 
+          since r'' is skey_eq to SOME st.handler :: xs then 
+          the pop_env should be exactly equal to st.handler*)       
+        (*Exception
+        First prove this lemma using assum 4 and 9
+        Argument: push_env ... T ... 
+        pushes a handler exactly*)
+        `s_key_eq st.stack r''.stack /\
+         (*MAP FST (toAList x') = MAP FST (toAList r''.locals) /\*)
+         r''.handler = st.handler` by cheat>>
+         Cases_on`x''`>>Cases_on`domain r''.locals = domain x'`>>fs[]>>rw[]>>
+         Cases_on`res`>>fs[]>-
+           (fs[set_var_def]>>rfs[]>>cheat)>>
+           (*Argument: s_key_eq is an equivalence relation assum 6 13*)
+         Cases_on`x''`>>fs[set_var_def]>>rfs[]>- cheat>>
+         cheat>> (*use assum 7 and s_key_eq is an equivalence*)
 
-         
+
+
 
       BasicProvers.EVERY_CASE_TAC     
 
@@ -388,9 +440,6 @@ val cut_env_lemma = prove(
 
 
 (*wEval of same prog with different top of stack gives the same result*)
-(*Abbrev the and away to make the proofs easier to handle..*)
-val abbrev_and_def = Define`
-  abbrev_and a b <=> a /\ b`
 val pop_assum_wEval =
    fs[wEval_def]>> first_x_assum mp_tac>>last_x_assum mp_tac
    
