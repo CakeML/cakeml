@@ -682,6 +682,46 @@ val reachable_refs_UPDATE = prove(
   \\ REVERSE (Cases_on `r = ptr`)
   \\ FULL_SIMP_TAC std_ss [] \\ RES_TAC);
 
+val reachable_refs_UPDATE1 = prove(
+  ``reachable_refs (xs ++ RefPtr ptr::stack) (refs |+ (ptr,ValueArray xs1)) n ==>
+    (!v. MEM v xs1 ==> ~MEM v xs ==> ?xs2. (FLOOKUP refs ptr = SOME (ValueArray xs2)) /\ MEM v xs2) ==>
+    reachable_refs (xs ++ RefPtr ptr::stack) refs n``,
+  FULL_SIMP_TAC std_ss [reachable_refs_def] \\ REPEAT STRIP_TAC
+  \\ pop_assum mp_tac \\ last_x_assum mp_tac \\ last_x_assum mp_tac
+  \\ map_every qid_spec_tac[`stack`,`xs`,`x`]
+  \\ pop_assum mp_tac
+  \\ map_every qid_spec_tac[`n`,`r`] >>
+  HO_MATCH_MP_TAC RTC_INDUCT >>
+  conj_tac >- ( simp[] >> rw[] >> METIS_TAC[RTC_REFL] ) >>
+  simp[ref_edge_ValueArray] >> rpt gen_tac >>
+  IF_CASES_TAC >> simp[get_refs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >- (
+    gen_tac >> strip_tac >>
+    rpt gen_tac >> strip_tac >>
+    BasicProvers.VAR_EQ_TAC >>
+    first_assum(qspecl_then[`a`,`xs1`]mp_tac) >>
+    first_x_assum(qspecl_then[`a`,`xs`]mp_tac) >>
+    simp[] >> strip_tac >>
+    disch_then(qspec_then`[]`mp_tac) >> simp[] >>
+    strip_tac >- (
+      disch_then kall_tac >>
+      disch_then(qspec_then`x'`mp_tac) >>
+      simp[] >>
+      Cases_on`MEM x' xs`>-METIS_TAC[]>>simp[]>>strip_tac>>
+      qexists_tac`RefPtr ptr`>>simp[get_refs_def]>>
+      simp[Once RTC_CASES1]>>simp[ref_edge_def,get_refs_def]>>
+      simp[MEM_MAP,MEM_FLAT,PULL_EXISTS]>>METIS_TAC[]) >>
+    BasicProvers.VAR_EQ_TAC >>
+    METIS_TAC[]) >>
+  strip_tac >>
+  rpt gen_tac >> strip_tac >>
+  MATCH_MP_TAC (METIS_PROVE[]``(P ==> (Q ==> R)) ==> (Q ==> P ==> R)``) >>
+  strip_tac >>
+  first_x_assum(qspecl_then[`RefPtr r'`,`xs`,`[RefPtr r']`]mp_tac) >>
+  simp[get_refs_def] >>
+  strip_tac >- METIS_TAC[] >- METIS_TAC[] >>
+  BasicProvers.VAR_EQ_TAC >> fs[get_refs_def] >>
+  rw[] >> METIS_TAC[RTC_CASES1]);
+
 val isRefBlock_def = Define `
   isRefBlock x = ?p. x = RefBlock p`;
 
@@ -861,6 +901,89 @@ val update_ref_thm = store_thm("update_ref_thm",
   \\ Cases_on `n = ptr` \\ FULL_SIMP_TAC (srw_ss()) [bc_ref_inv_def] THEN1
    (SRW_TAC [] [] \\ FULL_SIMP_TAC (srw_ss()) [FLOOKUP_DEF,RefBlock_def]
     \\ IMP_RES_TAC EVERY2_SWAP \\ FULL_SIMP_TAC std_ss []) \\ RES_TAC
+  \\ Cases_on `FLOOKUP f n` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ Cases_on `FLOOKUP refs n` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ Cases_on `x'''` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ FULL_SIMP_TAC (srw_ss()) [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
+  \\ SRW_TAC [] []
+  \\ Q.EXISTS_TAC `zs'` \\ FULL_SIMP_TAC std_ss []
+  \\ FIRST_X_ASSUM MATCH_MP_TAC
+  \\ FULL_SIMP_TAC (srw_ss()) [INJ_DEF]
+  \\ METIS_TAC []);
+
+val heap_deref_def = Define `
+  (heap_deref a heap =
+    case heap_lookup a heap of
+    | SOME (DataElement xs l (RefTag,[])) => SOME xs
+    | _ => NONE)`;
+
+val update_ref_thm1 = store_thm("update_ref_thm1",
+  ``abs_ml_inv (xs ++ RefPtr ptr::stack) refs (roots,heap,a,sp) limit /\
+    (FLOOKUP refs ptr = SOME (ValueArray xs1)) /\ i < LENGTH xs1 /\ 0 < LENGTH xs
+    ==>
+    ?p rs roots2 vs1 heap2.
+      (roots = rs ++ Pointer p :: roots2) /\ (LENGTH rs = LENGTH xs) /\
+      (heap_deref p heap = SOME vs1) /\
+      (heap_store p [RefBlock (LUPDATE (HD rs) i vs1)] heap = (heap2,T)) /\
+      abs_ml_inv (xs ++ (RefPtr ptr)::stack) (refs |+ (ptr,ValueArray (LUPDATE (HD xs) i xs1)))
+        (roots,heap2,a,sp) limit``,
+  SIMP_TAC std_ss [abs_ml_inv_def]
+  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [bc_stack_ref_inv_def]
+  \\ IMP_RES_TAC EVERY2_APPEND_CONS
+  \\ FULL_SIMP_TAC std_ss [bc_value_inv_def]
+  \\ Q.LIST_EXISTS_TAC [`f ' ptr`,`t1`,`t2`]
+  \\ FULL_SIMP_TAC std_ss []
+  \\ `reachable_refs (xs ++ RefPtr ptr::stack) refs ptr` by ALL_TAC THEN1
+   (FULL_SIMP_TAC std_ss [reachable_refs_def] \\ Q.EXISTS_TAC `RefPtr ptr`
+    \\ FULL_SIMP_TAC (srw_ss()) [get_refs_def])
+  \\ RES_TAC \\ POP_ASSUM MP_TAC \\ SIMP_TAC std_ss [Once bc_ref_inv_def]
+  \\ Cases_on `FLOOKUP refs ptr` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ Cases_on `FLOOKUP f ptr` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ REPEAT STRIP_TAC
+  \\ `heap_deref (f ' ptr) heap = SOME zs` by (
+       fs[heap_deref_def,RefBlock_def,FLOOKUP_DEF] )
+  \\ IMP_RES_TAC heap_store_RefBlock
+  \\ POP_ASSUM (MP_TAC o Q.SPEC `LUPDATE (HD t1) i zs`)
+  \\ FULL_SIMP_TAC std_ss [] \\ simp[LENGTH_LUPDATE]
+  \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss []
+  \\ FULL_SIMP_TAC (srw_ss()) [FLOOKUP_DEF]
+  \\ STRIP_TAC THEN1 (FULL_SIMP_TAC std_ss [roots_ok_def])
+  \\ STRIP_TAC THEN1
+   (FULL_SIMP_TAC std_ss [heap_ok_def] \\ REPEAT STRIP_TAC \\ RES_TAC
+    \\ FULL_SIMP_TAC (srw_ss()) [RefBlock_def] \\ SRW_TAC [] []
+    \\ Q.ABBREV_TAC `p1 = ptr'` \\ POP_ASSUM (K ALL_TAC)
+    \\ Cases_on `p1 = f ' ptr` \\ FULL_SIMP_TAC std_ss []
+    THEN1 (EVAL_TAC \\ SIMP_TAC std_ss [])
+    \\ FULL_SIMP_TAC std_ss [roots_ok_def,MEM_APPEND,MEM]
+    \\ Cases_on`t1`>>fs[]
+    \\ imp_res_tac MEM_LUPDATE_E >> fs[]
+    \\ rfs[heap_deref_def] >> METIS_TAC[heap_lookup_MEM])
+  \\ STRIP_TAC THEN1
+   (FULL_SIMP_TAC std_ss [unused_space_inv_def] \\ REPEAT STRIP_TAC
+    \\ RES_TAC \\ Cases_on `a = f ' ptr` \\ FULL_SIMP_TAC (srw_ss()) []
+    THEN1 FULL_SIMP_TAC (srw_ss()) [RefBlock_def]
+    \\ FULL_SIMP_TAC std_ss [RefBlock_inv_def]
+    \\ RES_TAC \\ FULL_SIMP_TAC (srw_ss()) [isRefBlock_def,RefBlock_def])
+  \\ Q.EXISTS_TAC `f` \\ FULL_SIMP_TAC std_ss []
+  \\ FULL_SIMP_TAC std_ss []
+  \\ MP_TAC bc_value_inv_Ref
+  \\ FULL_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
+  THEN1 (FULL_SIMP_TAC (srw_ss()) [SUBSET_DEF])
+  \\ Cases_on `n = ptr` THEN1 (
+    FULL_SIMP_TAC (srw_ss()) [bc_ref_inv_def]
+    \\ SRW_TAC [] [] \\ FULL_SIMP_TAC (srw_ss()) [FLOOKUP_DEF,RefBlock_def]
+    \\ IMP_RES_TAC EVERY2_SWAP \\ FULL_SIMP_TAC std_ss []
+    \\ MATCH_MP_TAC EVERY2_LUPDATE_same
+    \\ Cases_on`t1`>>fs[])
+  \\ `reachable_refs (xs ++ RefPtr ptr::stack) refs n` by ALL_TAC
+  THEN1 (
+    MATCH_MP_TAC (GEN_ALL (MP_CANON reachable_refs_UPDATE1)) >>
+    qexists_tac`LUPDATE (HD xs) i xs1` >> rw[] >>
+    Cases_on`xs`>>fs[]>>
+    imp_res_tac MEM_LUPDATE_E >> fs[]>>
+    simp[FLOOKUP_DEF] ) >>
+  FULL_SIMP_TAC (srw_ss()) [bc_ref_inv_def]
+  \\ RES_TAC
   \\ Cases_on `FLOOKUP f n` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ Cases_on `FLOOKUP refs n` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ Cases_on `x'''` \\ FULL_SIMP_TAC (srw_ss()) []
