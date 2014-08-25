@@ -52,7 +52,7 @@ val drop_sum = computeLib.CBV_CONV repl_decs_cs ``DROP (^sum_idx + 1) ml_repl_mo
 val el_sym = computeLib.CBV_CONV repl_decs_cs ``EL ^sym_idx ml_repl_module_decls``
 val take_sym = computeLib.CBV_CONV repl_decs_cs ``TAKE ^sym_idx ml_repl_module_decls``
 val drop_sym = computeLib.CBV_CONV repl_decs_cs ``DROP (^sym_idx + 1) ml_repl_module_decls``
-val length = computeLib.CBV_CONV repl_decs_cs ``LENGTH ml_repl_module_decls``
+val length = save_thm("length_repl_decs",computeLib.CBV_CONV repl_decs_cs ``LENGTH ml_repl_module_decls``)
 val tdefs_sum = prove(
   ``ml_repl_module_decls = ^(lhs(concl take_sum)) ++ [^(lhs(concl el_sum))] ++ ^(lhs(concl drop_sum))``,
   assume_tac length >>
