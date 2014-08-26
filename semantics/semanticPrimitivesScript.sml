@@ -70,9 +70,10 @@ val _ = Hol_datatype `
   | Vectorv of v list`;
 
 
+(* These are alists rather than finite maps because the type of values (v above) 
+ * recurs through them, and HOL4 does not easily support that kind of data type
+ * (although Isabelle/HOL does) *)
 val _ = type_abbrev( "envE" , ``: (varN, v) alist``);
-
-(* The bindings of a module *)
 val _ = type_abbrev( "envM" , ``: (modN, envE) alist``);
 
 val _ = type_abbrev( "all_env" , ``: envM # envC # envE``);

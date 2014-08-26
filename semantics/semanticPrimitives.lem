@@ -50,9 +50,10 @@ type v =
   | Loc of nat
   | Vectorv of list v
 
+(* These are alists rather than finite maps because the type of values (v above) 
+ * recurs through them, and HOL4 does not easily support that kind of data type
+ * (although Isabelle/HOL does) *)
 type envE = alist varN v
-
-(* The bindings of a module *)
 type envM = alist modN envE
 
 type all_env = envM * envC * envE

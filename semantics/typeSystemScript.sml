@@ -84,13 +84,18 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn deBruijn_subst_defn;
 
-val _ = type_abbrev( "flat_tenvC" , ``: (conN, ( tvarN list # t list # tid_or_exn)) fmap``);
+(* flat_tenvC is kept as an alist rather than a map because in the type
+ * soundness proof, we sometimes need to look at all defined constructors, even
+ * those shadowed by a later definition *)
+val _ = type_abbrev( "flat_tenvC" , ``: (conN, ( tvarN list # t list # tid_or_exn)) alist``);
 val _ = type_abbrev( "flat_tenvT" , ``: (typeN, ( tvarN list # t)) fmap``);
 
 val _ = type_abbrev( "tenvC" , ``: (conN, ( tvarN list # t list # tid_or_exn)) mod_env``);
 val _ = type_abbrev( "tenvT" , ``: (typeN, ( tvarN list # t)) mod_env``);
 
 (* Type environments *)
+(* This is a list-like structure, rather than a finite map because the
+ * Bind_tvar constructor makes the ordering relevant *)
 val _ = Hol_datatype `
  tenvE =
     Empty
@@ -100,7 +105,11 @@ val _ = Hol_datatype `
   | Bind_name of varN => num => t => tenvE`;
 
 
-val _ = type_abbrev( "tenvM" , ``: (modN, ( (varN, (num # t))fmap)) fmap``);
+(* Type environments without any binding, but still an alist rather than a map,
+ * so that they can be added to tenvEs *)
+val _ = type_abbrev( "flat_tenvE" , ``: (varN, (num # t)) alist``); 
+
+val _ = type_abbrev( "tenvM" , ``: (modN, flat_tenvE) fmap``);
 
 val _ = Define `
  (bind_tvar tvs tenv = (if tvs = 0 then tenv else Bind_tvar tvs tenv))`;
@@ -142,7 +151,7 @@ val _ = Define `
     | Long x y =>
         (case FLOOKUP tenvM x of
             NONE => NONE
-          | SOME tenvE' => FLOOKUP tenvE' y
+          | SOME tenvE' => ALOOKUP tenvE' y
         )
   )))`;
 
@@ -216,13 +225,13 @@ val _ = Define `
  * - the types of the new constructors
  * - the type schemes of the new bindings *)
 
-(*val type_d : maybe modN -> decls -> tenvT -> tenvM -> tenvC -> tenvE -> dec -> decls -> flat_tenvT -> flat_tenvC -> alist varN (nat * t) -> bool*)
+(*val type_d : maybe modN -> decls -> tenvT -> tenvM -> tenvC -> tenvE -> dec -> decls -> flat_tenvT -> flat_tenvC -> flat_tenvE -> bool*)
 
-(*val type_ds : maybe modN -> decls -> tenvT -> tenvM -> tenvC -> tenvE -> list dec -> decls -> flat_tenvT -> flat_tenvC -> alist varN (nat * t) -> bool*)
-(*val weakE : Map.map varN (nat * t) -> Map.map varN (nat * t) -> bool*)
-(*val check_signature : maybe modN -> tenvT -> decls -> flat_tenvT -> flat_tenvC -> Map.map varN (nat * t) -> maybe specs -> decls -> flat_tenvT -> flat_tenvC -> Map.map varN (nat * t) -> bool*)
-(*val type_specs : maybe modN -> tenvT -> specs -> decls -> flat_tenvT -> flat_tenvC -> Map.map varN (nat * t) -> bool*)
-(*val type_prog : decls -> tenvT -> tenvM -> tenvC -> tenvE -> list top -> decls -> tenvT -> tenvM -> tenvC -> alist varN (nat * t) -> bool*)
+(*val type_ds : maybe modN -> decls -> tenvT -> tenvM -> tenvC -> tenvE -> list dec -> decls -> flat_tenvT -> flat_tenvC -> flat_tenvE -> bool*)
+(*val weakE : flat_tenvE -> flat_tenvE -> bool*)
+(*val check_signature : maybe modN -> tenvT -> decls -> flat_tenvT -> flat_tenvC -> flat_tenvE -> maybe specs -> decls -> flat_tenvT -> flat_tenvC -> flat_tenvE -> bool*)
+(*val type_specs : maybe modN -> tenvT -> specs -> decls -> flat_tenvT -> flat_tenvC -> flat_tenvE -> bool*)
+(*val type_prog : decls -> tenvT -> tenvM -> tenvC -> tenvE -> list top -> decls -> tenvT -> tenvM -> tenvC -> flat_tenvE -> bool*)
 
 (* Check that the operator can have type (t1 -> ... -> tn -> t) *)
 (*val type_op : op -> list t -> t -> bool*)
@@ -317,7 +326,8 @@ val _ = Define `
 (*val build_ctor_tenv : maybe modN -> tenvT -> list (list tvarN * typeN * list (conN * list t)) -> flat_tenvC*)
 val _ = Define `
  (build_ctor_tenv mn tenvT tds =  
-(FUPDATE_LIST FEMPTY (FLAT
+(REVERSE
+    (FLAT
       (MAP
          (\ (tvs,tn,ctors) . 
             MAP (\ (cn,ts) .  (cn,(tvs,MAP (type_name_subst tenvT) ts, TypeId (mk_id mn tn)))) ctors)
@@ -556,7 +566,7 @@ type_funs menv cenv env funs env' /\
 ==>
 type_funs menv cenv env ((fn, n, e)::funs) ((fn, Tfn t1 t2)::env'))`;
 
-(*val tenv_add_tvs : nat -> alist varN t -> alist varN (nat * t)*)
+(*val tenv_add_tvs : nat -> alist varN t -> flat_tenvE*)
 val _ = Define `
  (tenv_add_tvs tvs tenv =  
 (MAP (\ (n,t) .  (n,(tvs,t))) tenv))`;
@@ -568,19 +578,19 @@ ALL_DISTINCT (pat_bindings p []) /\
 type_p tvs cenv p t tenv' /\
 type_e menv cenv (bind_tvar tvs tenv) e t)
 ==>
-type_d mn decls tenvT menv cenv tenv (Dlet p e) empty_decls FEMPTY FEMPTY (tenv_add_tvs tvs tenv'))
+type_d mn decls tenvT menv cenv tenv (Dlet p e) empty_decls FEMPTY [] (tenv_add_tvs tvs tenv'))
 
 /\ (! mn tenvT menv cenv tenv p e t tenv' decls.
 (ALL_DISTINCT (pat_bindings p []) /\
 type_p( 0) cenv p t tenv' /\
 type_e menv cenv tenv e t)
 ==>
-type_d mn decls tenvT menv cenv tenv (Dlet p e) empty_decls FEMPTY FEMPTY (tenv_add_tvs( 0) tenv'))
+type_d mn decls tenvT menv cenv tenv (Dlet p e) empty_decls FEMPTY [] (tenv_add_tvs( 0) tenv'))
 
 /\ (! mn tenvT menv cenv tenv funs tenv' tvs decls.
 (type_funs menv cenv (bind_var_list( 0) tenv' (bind_tvar tvs tenv)) funs tenv')
 ==>
-type_d mn decls tenvT menv cenv tenv (Dletrec funs) empty_decls FEMPTY FEMPTY (tenv_add_tvs tvs tenv'))
+type_d mn decls tenvT menv cenv tenv (Dletrec funs) empty_decls FEMPTY [] (tenv_add_tvs tvs tenv'))
 
 /\ (! mn tenvT menv cenv tenv tdefs mdecls edecls tdecls new_tdecls new_tenvT.
 (check_ctor_tenv mn (merge_mod_env (FEMPTY,new_tenvT) tenvT) tdefs /\
@@ -595,35 +605,35 @@ type_d mn (mdecls,tdecls,edecls) tenvT menv cenv tenv (Dtype tdefs) ({},new_tdec
 check_type_names tenvT t /\
 ALL_DISTINCT tvs)
 ==>
-type_d mn decls tenvT menv cenv tenv (Dtabbrev tvs tn t) empty_decls (FEMPTY |+ (tn, (tvs,t))) FEMPTY []) 
+type_d mn decls tenvT menv cenv tenv (Dtabbrev tvs tn t) empty_decls (FEMPTY |+ (tn, (tvs,t))) [] []) 
 
 /\ (! mn menv tenvT cenv tenv cn ts mdecls edecls tdecls.
 (check_exn_tenv mn cn ts /\
 ~ (mk_id mn cn IN edecls))
 ==>
-type_d mn (mdecls,tdecls,edecls) tenvT menv cenv tenv (Dexn cn ts) ({},{},{mk_id mn cn}) FEMPTY (FEMPTY |+ (cn, ([], ts, TypeExn (mk_id mn cn)))) [])`;
+type_d mn (mdecls,tdecls,edecls) tenvT menv cenv tenv (Dexn cn ts) ({},{},{mk_id mn cn}) FEMPTY [(cn, ([], ts, TypeExn (mk_id mn cn)))] [])`;
  
 val _ = Hol_reln ` (! mn tenvT menv cenv tenv decls.
 T
 ==>
-type_ds mn decls tenvT menv cenv tenv [] empty_decls FEMPTY FEMPTY [])
+type_ds mn decls tenvT menv cenv tenv [] empty_decls FEMPTY [] [])
 
 /\ (! mn tenvT menv cenv tenv d ds tenvT' cenv' tenv' tenvT'' cenv'' tenv'' decls decls' decls''.
 (type_d mn decls tenvT menv cenv tenv d decls' tenvT' cenv' tenv' /\
-type_ds mn (union_decls decls' decls) (merge_mod_env (FEMPTY,tenvT') tenvT) menv (merge_mod_env (FEMPTY,cenv') cenv) (bind_var_list2 tenv' tenv) ds decls'' tenvT'' cenv'' tenv'')
+type_ds mn (union_decls decls' decls) (merge_mod_env (FEMPTY,tenvT') tenvT) menv (merge_mod_env (FEMPTY,FUPDATE_LIST FEMPTY (REVERSE cenv')) cenv) (bind_var_list2 tenv' tenv) ds decls'' tenvT'' cenv'' tenv'')
 ==>
-type_ds mn decls tenvT menv cenv tenv (d::ds) (union_decls decls'' decls') (FUNION tenvT'' tenvT') (FUNION cenv'' cenv') (tenv''++tenv'))`;
+type_ds mn decls tenvT menv cenv tenv (d::ds) (union_decls decls'' decls') (FUNION tenvT'' tenvT') (cenv''++cenv') (tenv''++tenv'))`;
 
 val _ = Hol_reln ` (! mn tenvT. 
 T
 ==>
-type_specs mn tenvT [] empty_decls FEMPTY FEMPTY FEMPTY)
+type_specs mn tenvT [] empty_decls FEMPTY [] [])
 
 /\ (! mn tenvT x t specs flat_tenvT cenv tenv fvs decls.
 (check_freevars( 0) fvs t /\
 type_specs mn tenvT specs decls flat_tenvT cenv tenv)
 ==>
-type_specs mn tenvT (Sval x t :: specs) decls flat_tenvT cenv (FUNION tenv (FEMPTY |+ (x, (LENGTH fvs, type_subst (FUPDATE_LIST FEMPTY (ZIP (fvs, (MAP Tvar_db (GENLIST (\ x .  x) (LENGTH fvs)))))) t))))) 
+type_specs mn tenvT (Sval x t :: specs) decls flat_tenvT cenv (tenv++[(x,(LENGTH fvs, type_subst (FUPDATE_LIST FEMPTY (ZIP (fvs, (MAP Tvar_db (GENLIST (\ x .  x) (LENGTH fvs)))))) t))])) 
 
 /\ (! mn tenvT flat_tenvT cenv tenv td specs new_tdecls decls new_tenvT.
 ((new_tenvT = FUPDATE_LIST FEMPTY (MAP (\ (tvs,tn,ctors) .  (tn, (tvs, Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))))) td)) /\
@@ -631,7 +641,7 @@ type_specs mn tenvT (Sval x t :: specs) decls flat_tenvT cenv (FUNION tenv (FEMP
 check_ctor_tenv mn (merge_mod_env (FEMPTY,new_tenvT) tenvT) td /\
 type_specs mn (merge_mod_env (FEMPTY,new_tenvT) tenvT) specs decls flat_tenvT cenv tenv)
 ==>
-type_specs mn tenvT (Stype td :: specs) (union_decls decls ({},new_tdecls,{})) (FUNION flat_tenvT new_tenvT) (FUNION cenv (build_ctor_tenv mn (merge_mod_env (FEMPTY,new_tenvT) tenvT) td)) tenv)
+type_specs mn tenvT (Stype td :: specs) (union_decls decls ({},new_tdecls,{})) (FUNION flat_tenvT new_tenvT) (cenv ++ build_ctor_tenv mn (merge_mod_env (FEMPTY,new_tenvT) tenvT) td) tenv)
 
 /\ (! mn tenvT tvs tn t specs decls cenv tenv new_tenvT tenvT'.
  (ALL_DISTINCT tvs /\
@@ -646,7 +656,7 @@ type_specs mn tenvT (Stabbrev tvs tn t :: specs) decls (FUNION tenvT' new_tenvT)
 (check_exn_tenv mn cn ts /\
 type_specs mn tenvT specs decls flat_tenvT cenv tenv)
 ==>
-type_specs mn tenvT (Sexn cn ts :: specs) (union_decls decls ({},{},{mk_id mn cn})) flat_tenvT (FUNION cenv (FEMPTY |+ (cn, ([], ts, TypeExn (mk_id mn cn))))) tenv)
+type_specs mn tenvT (Sexn cn ts :: specs) (union_decls decls ({},{},{mk_id mn cn})) flat_tenvT (cenv ++ [(cn, ([], ts, TypeExn (mk_id mn cn)))]) tenv)
 
 /\ (! mn tenvT flat_tenvT cenv tenv tn specs tvs decls new_tenvT.
 (ALL_DISTINCT tvs /\
@@ -658,9 +668,9 @@ type_specs mn tenvT (Stype_opq tvs tn :: specs) (union_decls decls ({},{mk_id mn
 val _ = Define `
  (weakE tenv_impl tenv_spec =  
 (! x.
-    (case FLOOKUP tenv_spec x of
+    (case ALOOKUP tenv_spec x of
         SOME (tvs_spec, t_spec) =>
-          (case FLOOKUP tenv_impl x of
+          (case ALOOKUP tenv_impl x of
               NONE => F
             | SOME (tvs_impl, t_impl) =>
                 ? subst.                  
@@ -677,9 +687,9 @@ val _ = Define `
 val _ = Define `
  (flat_weakC cenv_impl cenv_spec =  
 (! cn.
-    (case FLOOKUP cenv_spec cn of
+    (case ALOOKUP cenv_spec cn of
         SOME (tvs_spec,ts_spec,tn_spec) =>
-          (case FLOOKUP cenv_impl cn of
+          (case ALOOKUP cenv_impl cn of
               NONE => F
             | SOME (tvs_impl, ts_impl, tn_impl) =>                
 (tn_spec = tn_impl) /\                
@@ -735,14 +745,14 @@ check_signature mn tenvT decls flat_tenvT cenv tenv (SOME specs) decls' flat_ten
 val _ = Hol_reln ` (! menv cenv tenv d cenv' tenv' decls decls' tenvT tenvT'.
 (type_d NONE decls tenvT menv cenv tenv d decls' tenvT' cenv' tenv')
 ==>
-type_top decls tenvT menv cenv tenv (Tdec d) decls' (FEMPTY,tenvT') FEMPTY (FEMPTY,cenv') tenv')
+type_top decls tenvT menv cenv tenv (Tdec d) decls' (FEMPTY,tenvT') FEMPTY (FEMPTY,FUPDATE_LIST FEMPTY (REVERSE cenv')) tenv')
 
 /\ (! menv tenvT cenv tenv mn spec ds tenvT' cenv' tenv' cenv'' tenv'' mdecls tdecls edecls decls' mdecls'' tdecls'' edecls'' tenvT''.
 (~ (mn IN mdecls) /\
 type_ds (SOME mn) (mdecls,tdecls,edecls) tenvT menv cenv tenv ds decls' tenvT' cenv' tenv' /\
-check_signature (SOME mn) tenvT decls' tenvT' cenv' (FUPDATE_LIST FEMPTY tenv') spec (mdecls'',tdecls'',edecls'') tenvT'' cenv'' tenv'')
+check_signature (SOME mn) tenvT decls' tenvT' cenv' tenv' spec (mdecls'',tdecls'',edecls'') tenvT'' cenv'' tenv'')
 ==>
-type_top (mdecls,tdecls,edecls) tenvT menv cenv tenv (Tmod mn spec ds) (({mn} UNION mdecls''),tdecls'',edecls'') (FEMPTY |+ (mn, tenvT''), FEMPTY) (FEMPTY |+ (mn, tenv'')) ((FEMPTY |+ (mn, cenv'')), FEMPTY) [])`;
+type_top (mdecls,tdecls,edecls) tenvT menv cenv tenv (Tmod mn spec ds) (({mn} UNION mdecls''),tdecls'',edecls'') (FEMPTY |+ (mn, tenvT''), FEMPTY) (FEMPTY |+ (mn, tenv'')) ((FEMPTY |+ (mn, (FUPDATE_LIST FEMPTY (REVERSE cenv'')))), FEMPTY) [])`;
 
 val _ = Hol_reln ` (! tenvT menv cenv tenv decls.
 T
