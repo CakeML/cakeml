@@ -22,7 +22,7 @@ val print_envM_def = Define `
 print_envM envM = CONCAT (MAP (λ(x,m). "module " ++ x ++ " = <structure>\n") envM)`;
 
 val print_envC_def = Define `
-print_envC (menvC,envC) = CONCAT (MAP (λ(x,c). x ++ " = <constructor>\n") envC)`;
+print_envC (menvC,envC) = CONCAT (MAP (λx. x ++ " = <constructor>\n") (SET_TO_LIST (FDOM envC)))`;
 
 val print_lit_def = Define `
 (print_lit (IntLit i) = int_to_string i) ∧
@@ -54,7 +54,7 @@ val print_result_def = Define `
 
 val print_prog_result_def = Define`
   (print_prog_result types (Rval (envM,envE)) =
-   case lookup "it" envE of
+   case ALOOKUP envE "it" of
      SOME v => print_v v ++ "\n"
    | NONE => "") ∧
   (print_prog_result _ (Rerr Rtimeout_error) = "<timeout error>\n") ∧

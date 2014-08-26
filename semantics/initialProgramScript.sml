@@ -99,7 +99,7 @@ val _ = Define `
       (case CHOICE res of
           (s,envC,Rval (envM,envE)) =>
            SOME <| sem_envM := (envM ++ se.sem_envM);
-                   sem_envC := (merge_envC envC se.sem_envC);
+                   sem_envC := (merge_mod_env envC se.sem_envC);
                    sem_envE := (envE ++ se.sem_envE);
                    sem_store := s |>
         | _ => NONE
@@ -109,7 +109,7 @@ val _ = Define `
 (*val prim_sem_env : maybe sem_environment*)
 val _ = Define `
  (prim_sem_env =  
-(add_to_sem_env <| sem_envM := []; sem_envC := ([],[]); sem_envE := []; sem_store := (( 0,[]),{},{}) |> prim_types_program))`;
+(add_to_sem_env <| sem_envM := []; sem_envC := (FEMPTY,FEMPTY); sem_envE := []; sem_store := (( 0,[]),{},{}) |> prim_types_program))`;
 
 
 (*val basis_sem_env : maybe sem_environment*)

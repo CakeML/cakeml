@@ -16,13 +16,13 @@ update_repl_state ast state tdecs tenvT tenvM tenvC tenv store envC r =
   case r of
     | Rval (envM,envE) =>
         <| tdecs := tdecs;
-           tenvT := merge_tenvT tenvT state.tenvT;
-           tenvM := tenvM ++ state.tenvM;
-           tenvC := merge_tenvC tenvC state.tenvC;
+           tenvT := merge_mod_env tenvT state.tenvT;
+           tenvM := FUNION tenvM state.tenvM;
+           tenvC := merge_mod_env tenvC state.tenvC;
            tenv := bind_var_list2 tenv state.tenv;
            sem_env := <| sem_store := store;
                          sem_envM := envM ++ state.sem_env.sem_envM;
-                         sem_envC := merge_envC envC state.sem_env.sem_envC;
+                         sem_envC := merge_mod_env envC state.sem_env.sem_envC;
                          sem_envE := envE ++ state.sem_env.sem_envE |> |>
     | Rerr _ =>
         (* We need to record the attempted module names (if any), so that it

@@ -61,35 +61,16 @@ declare hol target_rep function word_to_hex_string = `word_to_hex_string`
 val ZIP : forall 'a 'b. list 'a -> list 'b -> list ('a * 'b)
 let inline ZIP = List_extra.zipSameLength
 
-(* Environments *)
-type env 'a 'b = list ('a*'b)
+open import {hol} `alistTheory`
+type alist 'a 'b = list ('a * 'b)
+declare hol target_rep function lookup x y = `ALOOKUP` y x
 
-val emp : forall 'a 'b. env 'a 'b
-let emp = []
-
-val lookup : forall 'a 'b. Eq 'a => 'a -> env 'a 'b -> maybe 'b
-let rec
-lookup _ [] = Nothing
-and
-lookup n ((n',v)::e) =
-  if n' = n then
-    Just v
-  else
-    lookup n e
-declare termination_argument lookup = automatic
-
-val bind : forall 'a 'b. 'a -> 'b -> env 'a 'b -> env 'a 'b
-let bind n v e = (n,v)::e
-
-val opt_bind : forall 'a 'b. maybe 'a -> 'b -> env 'a 'b -> env 'a 'b
+val opt_bind : forall 'a 'b. maybe 'a -> 'b -> alist 'a 'b -> alist 'a 'b
 let opt_bind n v e =
   match n with 
     | Nothing -> e
     | Just n' -> (n',v)::e
   end
-
-val merge : forall 'a 'b. env 'a 'b -> env 'a 'b -> env 'a 'b
-let merge e1 e2 = e1 ++ e2
 
 (* Lists of indices *)
 
