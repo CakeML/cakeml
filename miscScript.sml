@@ -9,6 +9,8 @@ val _ = export_rewrites["list.EVERY2_THM"]
 val _ = export_rewrites["rich_list.LIST_REL_APPEND_SING"]
 val _ = export_rewrites["alist.set_MAP_FST_fmap_to_alist"]
 val _ = export_rewrites["alist.MAP_KEYS_I"]
+val _ = export_rewrites["finite_map.FUNION_FEMPTY_1"]
+val _ = export_rewrites["finite_map.FUNION_FEMPTY_2"]
 
 
 (* TODO: move/categorize *)

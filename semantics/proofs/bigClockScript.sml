@@ -846,7 +846,7 @@ val not_evaluate_top_timeout = store_thm("not_evaluate_top_timeout",
   PairCases_on`stm`>>fs[] >- (
     Cases_on`no_dup_types l`>>fs[] >>
     metis_tac[not_evaluate_decs_timeout,SND,result_nchotomy,pair_CASES]) >>
-  metis_tac[not_evaluate_dec_timeout,SND,result_nchotomy,pair_CASES])
+  metis_tac[not_evaluate_dec_timeout,SND,result_nchotomy,pair_CASES]);
 
 val top_clocked_total = store_thm("top_clocked_total",
   ``∀env s t. ∃res. evaluate_top T env s t res``,
@@ -867,7 +867,7 @@ val top_clocked_min_counter = store_thm("top_clocked_min_counter",
   ho_match_mp_tac evaluate_top_ind >> rw[] >>
   rw[Once evaluate_top_cases] >>
   imp_res_tac dec_clocked_min_counter >> fs[] >>
-  imp_res_tac decs_clocked_min_counter >> fs[])
+  imp_res_tac decs_clocked_min_counter >> fs[FMEQ_SINGLE_SIMPLE_DISJ_ELIM]);
 
 val top_add_clock = store_thm("top_add_clock",
   ``∀ck env stm top res. evaluate_top ck env stm top res ⇒
@@ -876,7 +876,7 @@ val top_add_clock = store_thm("top_add_clock",
         ⇒ ∃count. evaluate_top T env ((count,s0),s1) top (((0,r1),r2),r3)``,
   ho_match_mp_tac evaluate_top_ind >> rw[] >>
   rw[Once evaluate_top_cases] >>
-  metis_tac[dec_add_clock,decs_add_clock])
+  metis_tac[dec_add_clock,decs_add_clock]);
 
 val top_unclocked_ignore = store_thm("top_unclocked_ignore",
   ``∀ck env stm top res. evaluate_top ck env stm top res ⇒
@@ -886,7 +886,7 @@ val top_unclocked_ignore = store_thm("top_unclocked_ignore",
   ho_match_mp_tac evaluate_top_ind >> rw[] >>
   rw[Once evaluate_top_cases] >>
   imp_res_tac dec_unclocked_ignore >>
-  imp_res_tac decs_unclocked_ignore >> fs[])
+  imp_res_tac decs_unclocked_ignore >> fs[FMEQ_SINGLE_SIMPLE_DISJ_ELIM]);
 
 val top_clocked_unclocked_equiv = store_thm("top_clocked_unclocked_equiv",
   ``∀env count1 s1 s2 t r1 r2 r3.
@@ -898,7 +898,7 @@ val top_clocked_unclocked_equiv = store_thm("top_clocked_unclocked_equiv",
   imp_res_tac top_clocked_min_counter >>
   imp_res_tac top_add_clock >>
   imp_res_tac top_unclocked_ignore >> fs[] >>
-  metis_tac[])
+  metis_tac[]);
 
 val top_clock_monotone = store_thm("top_clock_monotone",
   ``∀ck mn env s d res. evaluate_top ck env s d res ⇒
@@ -1060,7 +1060,7 @@ val prog_unclocked_ignore = store_thm("prog_unclocked_ignore",
   imp_res_tac top_unclocked_ignore >> fs[] >>
   PairCases_on`s'`>>fs[] >>
   Cases_on`r=Rerr Rtimeout_error`>-fs[combine_mod_result_def]>>fs[]>>
-  metis_tac[])
+  metis_tac[]);
 
 val prog_clocked_unclocked_equiv = store_thm("prog_clocked_unclocked_equiv",
   ``∀env count1 s1 s2 s3 p r1 r2 r3 r4.
