@@ -1,5 +1,6 @@
 open preamble
 open okasaki_miscTheory bagLib bagTheory sortingTheory ml_translatorLib mini_preludeTheory;
+val _ = numLib.prefer_num()
 
 val _ = new_theory "BottomUpMergeSort"
 
@@ -48,6 +49,8 @@ val mrg_ind = fetch "-" "mrg_ind"
 
 val empty_def = mlDefine `
 empty = (0, [])`;
+
+val sptree_size = Parse.hide"size"
 
 val add_seg_def = tDefine "add_seg" `
 add_seg leq seg segs size =
