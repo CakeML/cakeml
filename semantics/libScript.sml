@@ -64,11 +64,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (*val natFromWord8 : word8 -> nat*)
 (*val word_to_hex_string : word8 -> string*)
 
-(* The builtin List.zip maps to list_combine in HOL, but I want to map to ZIP *)
-(*val ZIP : forall 'a 'b. list 'a -> list 'b -> list ('a * 'b)*)
-
 (*open import {hol} `alistTheory`*)
 val _ = type_abbrev((* ( 'a, 'b) *) "alist" , ``: ('a # 'b) list``);
+(*val alistToFmap : forall 'k 'v. alist 'k 'v -> Map.map 'k 'v*)
 
 (*val opt_bind : forall 'a 'b. maybe 'a -> 'b -> alist 'a 'b -> alist 'a 'b*)
 val _ = Define `

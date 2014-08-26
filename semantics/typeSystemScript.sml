@@ -88,9 +88,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
  * soundness proof, we sometimes need to look at all defined constructors, even
  * those shadowed by a later definition *)
 val _ = type_abbrev( "flat_tenvC" , ``: (conN, ( tvarN list # t list # tid_or_exn)) alist``);
-val _ = type_abbrev( "flat_tenvT" , ``: (typeN, ( tvarN list # t)) fmap``);
+val _ = type_abbrev( "tenvC" , ``: (modN, flat_tenvC) alist # flat_tenvC``);
 
-val _ = type_abbrev( "tenvC" , ``: (conN, ( tvarN list # t list # tid_or_exn)) mod_env``);
+val _ = type_abbrev( "flat_tenvT" , ``: (typeN, ( tvarN list # t)) fmap``);
 val _ = type_abbrev( "tenvT" , ``: (typeN, ( tvarN list # t)) mod_env``);
 
 (* Type environments *)
@@ -154,6 +154,23 @@ val _ = Define `
           | SOME tenvE' => ALOOKUP tenvE' y
         )
   )))`;
+
+
+val _ = Define `
+ (lookup_tenvC id (mcenv,cenv) =  
+((case id of
+      Short x => ALOOKUP cenv x
+    | Long x y =>
+        (case ALOOKUP mcenv x of
+            NONE => NONE
+          | SOME cenv => ALOOKUP cenv y
+        )
+  )))`;
+
+
+val _ = Define `
+ (merge_tenvC (menv1,env1) (menv2,env2) = 
+  ((menv1 ++ menv2), (env1 ++ env2)))`;
 
 
 (*val num_tvs : tenvE -> nat*)
@@ -293,7 +310,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
     (case tc of
         TC_name tn => 
           (case lookup_mod_env tn tenvT of
-              SOME (tvs, t) => type_subst (FUPDATE_LIST FEMPTY (ZIP (tvs, args))) t
+              SOME (tvs, t) => type_subst (alist_to_fmap (ZIP (tvs, args))) t
             | NONE => Tapp args tc
           )
       | _ => Tapp args tc
@@ -400,8 +417,8 @@ type_p tvs cenv (Plit (Word8 w)) Tword8 [])
 /\ (! tvs cenv cn ps ts tvs' tn ts' tenv.
 (EVERY (check_freevars tvs []) ts' /\
 (LENGTH ts' = LENGTH tvs') /\
-type_ps tvs cenv ps (MAP (type_subst (FUPDATE_LIST FEMPTY (ZIP (tvs', ts')))) ts) tenv /\
-(lookup_mod_env cn cenv = SOME (tvs', ts, tn)))
+type_ps tvs cenv ps (MAP (type_subst (alist_to_fmap (ZIP (tvs', ts')))) ts) tenv /\
+(lookup_tenvC cn cenv = SOME (tvs', ts, tn)))
 ==>
 type_p tvs cenv (Pcon (SOME cn) ps) (Tapp ts' (tid_exn_to_tc tn)) tenv)
 
@@ -469,8 +486,8 @@ type_e menv cenv tenv (Handle e pes) t)
 /\ (! menv cenv tenv cn es tvs tn ts' ts.
 (EVERY (check_freevars (num_tvs tenv) []) ts' /\
 (LENGTH tvs = LENGTH ts') /\
-type_es menv cenv tenv es (MAP (type_subst (FUPDATE_LIST FEMPTY (ZIP (tvs, ts')))) ts) /\
-(lookup_mod_env cn cenv = SOME (tvs, ts, tn)))
+type_es menv cenv tenv es (MAP (type_subst (alist_to_fmap (ZIP (tvs, ts')))) ts) /\
+(lookup_tenvC cn cenv = SOME (tvs, ts, tn)))
 ==>
 type_e menv cenv tenv (Con (SOME cn) es) (Tapp ts' (tid_exn_to_tc tn)))
 
@@ -620,7 +637,7 @@ type_ds mn decls tenvT menv cenv tenv [] empty_decls FEMPTY [] [])
 
 /\ (! mn tenvT menv cenv tenv d ds tenvT' cenv' tenv' tenvT'' cenv'' tenv'' decls decls' decls''.
 (type_d mn decls tenvT menv cenv tenv d decls' tenvT' cenv' tenv' /\
-type_ds mn (union_decls decls' decls) (merge_mod_env (FEMPTY,tenvT') tenvT) menv (merge_mod_env (FEMPTY,FUPDATE_LIST FEMPTY (REVERSE cenv')) cenv) (bind_var_list2 tenv' tenv) ds decls'' tenvT'' cenv'' tenv'')
+type_ds mn (union_decls decls' decls) (merge_mod_env (FEMPTY,tenvT') tenvT) menv (merge_tenvC ([],cenv') cenv) (bind_var_list2 tenv' tenv) ds decls'' tenvT'' cenv'' tenv'')
 ==>
 type_ds mn decls tenvT menv cenv tenv (d::ds) (union_decls decls'' decls') (FUNION tenvT'' tenvT') (cenv''++cenv') (tenv''++tenv'))`;
 
@@ -633,7 +650,7 @@ type_specs mn tenvT [] empty_decls FEMPTY [] [])
 (check_freevars( 0) fvs t /\
 type_specs mn tenvT specs decls flat_tenvT cenv tenv)
 ==>
-type_specs mn tenvT (Sval x t :: specs) decls flat_tenvT cenv (tenv++[(x,(LENGTH fvs, type_subst (FUPDATE_LIST FEMPTY (ZIP (fvs, (MAP Tvar_db (GENLIST (\ x .  x) (LENGTH fvs)))))) t))])) 
+type_specs mn tenvT (Sval x t :: specs) decls flat_tenvT cenv (tenv++[(x,(LENGTH fvs, type_subst (alist_to_fmap (ZIP (fvs, (MAP Tvar_db (GENLIST (\ x .  x) (LENGTH fvs)))))) t))])) 
 
 /\ (! mn tenvT flat_tenvT cenv tenv td specs new_tdecls decls new_tenvT.
 ((new_tenvT = FUPDATE_LIST FEMPTY (MAP (\ (tvs,tn,ctors) .  (tn, (tvs, Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))))) td)) /\
@@ -745,24 +762,24 @@ check_signature mn tenvT decls flat_tenvT cenv tenv (SOME specs) decls' flat_ten
 val _ = Hol_reln ` (! menv cenv tenv d cenv' tenv' decls decls' tenvT tenvT'.
 (type_d NONE decls tenvT menv cenv tenv d decls' tenvT' cenv' tenv')
 ==>
-type_top decls tenvT menv cenv tenv (Tdec d) decls' (FEMPTY,tenvT') FEMPTY (FEMPTY,FUPDATE_LIST FEMPTY (REVERSE cenv')) tenv')
+type_top decls tenvT menv cenv tenv (Tdec d) decls' (FEMPTY,tenvT') FEMPTY ([],cenv') tenv')
 
 /\ (! menv tenvT cenv tenv mn spec ds tenvT' cenv' tenv' cenv'' tenv'' mdecls tdecls edecls decls' mdecls'' tdecls'' edecls'' tenvT''.
 (~ (mn IN mdecls) /\
 type_ds (SOME mn) (mdecls,tdecls,edecls) tenvT menv cenv tenv ds decls' tenvT' cenv' tenv' /\
 check_signature (SOME mn) tenvT decls' tenvT' cenv' tenv' spec (mdecls'',tdecls'',edecls'') tenvT'' cenv'' tenv'')
 ==>
-type_top (mdecls,tdecls,edecls) tenvT menv cenv tenv (Tmod mn spec ds) (({mn} UNION mdecls''),tdecls'',edecls'') (FEMPTY |+ (mn, tenvT''), FEMPTY) (FEMPTY |+ (mn, tenv'')) ((FEMPTY |+ (mn, (FUPDATE_LIST FEMPTY (REVERSE cenv'')))), FEMPTY) [])`;
+type_top (mdecls,tdecls,edecls) tenvT menv cenv tenv (Tmod mn spec ds) (({mn} UNION mdecls''),tdecls'',edecls'') (FEMPTY |+ (mn, tenvT''), FEMPTY) (FEMPTY |+ (mn, tenv'')) ([(mn,cenv'')], []) [])`;
 
 val _ = Hol_reln ` (! tenvT menv cenv tenv decls.
 T
 ==>
-type_prog decls tenvT menv cenv tenv [] empty_decls (FEMPTY,FEMPTY) FEMPTY (FEMPTY,FEMPTY) [])
+type_prog decls tenvT menv cenv tenv [] empty_decls (FEMPTY,FEMPTY) FEMPTY ([],[]) [])
 
 /\ (! tenvT menv cenv tenv top tops tenvT' menv' cenv' tenv' tenvT'' menv'' cenv'' tenv'' decls decls' decls''.
 (type_top decls tenvT menv cenv tenv top decls' tenvT' menv' cenv' tenv' /\
-type_prog (union_decls decls' decls) (merge_mod_env tenvT' tenvT) (FUNION menv' menv) (merge_mod_env cenv' cenv) (bind_var_list2 tenv' tenv) tops decls'' tenvT'' menv'' cenv'' tenv'')
+type_prog (union_decls decls' decls) (merge_mod_env tenvT' tenvT) (FUNION menv' menv) (merge_tenvC cenv' cenv) (bind_var_list2 tenv' tenv) tops decls'' tenvT'' menv'' cenv'' tenv'')
 ==>
-type_prog decls tenvT menv cenv tenv (top :: tops) (union_decls decls'' decls') (merge_mod_env tenvT'' tenvT') (FUNION menv'' menv') (merge_mod_env cenv'' cenv') (tenv''++tenv'))`;
+type_prog decls tenvT menv cenv tenv (top :: tops) (union_decls decls'' decls') (merge_mod_env tenvT'' tenvT') (FUNION menv'' menv') (merge_tenvC cenv'' cenv') (tenv''++tenv'))`;
 val _ = export_theory()
 

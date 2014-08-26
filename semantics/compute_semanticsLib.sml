@@ -18,6 +18,8 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
     ,terminationTheory.check_type_names_def
     ,terminationTheory.type_name_subst_def
     ,typeSystemTheory.check_exn_tenv_def
+    ,typeSystemTheory.merge_tenvC_def
+    ,typeSystemTheory.lookup_tenvC_def
     ,typeSystemTheory.tid_exn_to_tc_def
     ,typeSystemTheory.build_ctor_tenv_def
     ,terminationTheory.check_dup_ctors_thm

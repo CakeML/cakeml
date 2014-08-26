@@ -3,13 +3,11 @@ open optionTheory rich_listTheory alistTheory;
 open miscTheory;
 open libTheory astTheory typeSystemTheory typeSysPropsTheory;
 open semanticPrimitivesTheory;
-open libPropsTheory astPropsTheory;
+open astPropsTheory;
 open typeSoundInvariantsTheory;
 open terminationTheory;
 
 val _ = new_theory "weakening";
-
-val _ = Parse.bring_to_front_overload "lookup" {Name="lookup",Thy="lib"} 
 
 val weak_tenvE_def = Define `
 weak_tenvE tenv tenv' = 
@@ -19,8 +17,7 @@ weak_tenvE tenv tenv' =
     (lookup_tenv n inc tenv = SOME (tvs,t)))`;
 
 val weakS_def = Define `
-weakS tenvS tenvS' =
-  !l v. (lib$lookup l tenvS' = SOME v) ⇒ (lib$lookup l tenvS = SOME v)`;
+weakS tenvS tenvS' ⇔ tenvS' SUBMAP tenvS`;
 
 val weak_tenvE_refl = Q.prove (
 `!tenv. weak_tenvE tenv tenv`,

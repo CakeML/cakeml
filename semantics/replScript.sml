@@ -18,7 +18,7 @@ update_repl_state ast state tdecs tenvT tenvM tenvC tenv store envC r =
         <| tdecs := tdecs;
            tenvT := merge_mod_env tenvT state.tenvT;
            tenvM := FUNION tenvM state.tenvM;
-           tenvC := merge_mod_env tenvC state.tenvC;
+           tenvC := merge_tenvC tenvC state.tenvC;
            tenv := bind_var_list2 tenv state.tenv;
            sem_env := <| sem_store := store;
                          sem_envM := envM ++ state.sem_env.sem_envM;

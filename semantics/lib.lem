@@ -57,13 +57,11 @@ declare hol target_rep function natFromWord8 = `w2n`
 val word_to_hex_string : word8 -> string
 declare hol target_rep function word_to_hex_string = `word_to_hex_string`
 
-(* The builtin List.zip maps to list_combine in HOL, but I want to map to ZIP *)
-val ZIP : forall 'a 'b. list 'a -> list 'b -> list ('a * 'b)
-let inline ZIP = List_extra.zipSameLength
-
 open import {hol} `alistTheory`
 type alist 'a 'b = list ('a * 'b)
 declare hol target_rep function lookup x y = `ALOOKUP` y x
+val alistToFmap : forall 'k 'v. alist 'k 'v -> Map.map 'k 'v
+declare hol target_rep function alistToFmap = `alist_to_fmap`
 
 val opt_bind : forall 'a 'b. maybe 'a -> 'b -> alist 'a 'b -> alist 'a 'b
 let opt_bind n v e =
