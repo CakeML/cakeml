@@ -46,8 +46,8 @@ val Cv_bv_lit =
   ``Cv_bv a (CLitv y) z`` |> SIMP_CONV (srw_ss()) [Once bytecodeProofTheory.Cv_bv_cases]
 
 val conv_rws = [printingTheory.v_bv_def,
-  v_to_i1_conv,vs_to_i1_MAP,v_to_i1_lit,
-  v_to_i2_conv,vs_to_i2_MAP,v_to_i2_lit,
+  v_to_i1_conv,free_varsTheory.vs_to_i1_MAP,v_to_i1_lit,
+  v_to_i2_conv,free_varsTheory.vs_to_i2_MAP,v_to_i2_lit,
   v_to_exh_conv,free_varsTheory.vs_to_exh_MAP,
   printingTheory.exh_Cv_def,
   v_pat_conv,syneq_conv,Cv_bv_conv,Cv_bv_lit]
@@ -301,8 +301,8 @@ val COMPILER_RUN_INV_repl_step = store_thm("COMPILER_RUN_INV_repl_step",
   PairCases_on`grd1`>>PairCases_on`grd'`>>
   fs[env_rs_def,update_io_def] >> rw[] >> fs[] >>
   MATCH_MP_TAC EQ_SYM >>
-  MATCH_MP_TAC same_length_gvrel_same >>
-  imp_res_tac RTC_bc_next_gvrel >>
+  MATCH_MP_TAC bytecodeExtraTheory.same_length_gvrel_same >>
+  imp_res_tac bytecodeExtraTheory.RTC_bc_next_gvrel >>
   fs[bytecodeProofTheory.Cenv_bs_def,bytecodeProofTheory.s_refs_def] >>
   conj_tac >- (
     metis_tac
@@ -935,10 +935,10 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
       first_assum(match_exists_tac o concl) >> simp[] >>
       METIS_TAC[INPUT_TYPE_no_closures]) >>
     conj_tac >- (
-      fs[intLangExtraTheory.store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_FLAT] >>
+      fs[evalPropsTheory.store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_FLAT] >>
       rw[] >> imp_res_tac MEM_LUPDATE_E >> fs[] >> METIS_TAC[] ) >>
     fs[intLangExtraTheory.vlabs_list_MAP,PULL_EXISTS] >>
-    fs[intLangExtraTheory.store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_FLAT] >>
+    fs[evalPropsTheory.store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_FLAT] >>
     rw[] >> imp_res_tac MEM_LUPDATE_E >> fs[] >> METIS_TAC[pred_setTheory.NOT_IN_EMPTY] ) >>
   qexists_tac`grd2` >>
   MATCH_MP_TAC bytecodeProofTheory.Cenv_bs_change_store >>
@@ -1156,10 +1156,10 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
       first_assum(match_exists_tac o concl) >> simp[] >>
       METIS_TAC[INPUT_TYPE_no_closures]) >>
     conj_tac >- (
-      fs[intLangExtraTheory.store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_FLAT] >>
+      fs[evalPropsTheory.store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_FLAT] >>
       rw[] >> imp_res_tac MEM_LUPDATE_E >> fs[] >> METIS_TAC[] ) >>
     fs[intLangExtraTheory.vlabs_list_MAP,PULL_EXISTS] >>
-    fs[intLangExtraTheory.store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_FLAT] >>
+    fs[evalPropsTheory.store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_FLAT] >>
     rw[] >> imp_res_tac MEM_LUPDATE_E >> fs[] >> METIS_TAC[pred_setTheory.NOT_IN_EMPTY] ) >>
   qexists_tac`grd2` >>
   MATCH_MP_TAC bytecodeProofTheory.Cenv_bs_change_store >>
