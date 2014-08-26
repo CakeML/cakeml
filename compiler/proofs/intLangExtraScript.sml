@@ -81,15 +81,6 @@ val all_vlabs_list_MAP = store_thm("all_vlabs_list_MAP",
   Induct >> rw[])
 val _ = export_rewrites["no_vlabs_list_MAP","all_vlabs_list_MAP"]
 
-val store_v_vs_def = Define`
-  store_v_vs (Refv v) = [v] ∧
-  store_v_vs (Varray vs) = vs ∧
-  store_v_vs (W8array _) = []`
-val _ = export_rewrites["store_v_vs_def"]
-
-val store_vs_def = Define`
-  store_vs s = FLAT (MAP store_v_vs s)`
-
 val vlabs_csg_def = Define
   `vlabs_csg csg = vlabs_list (store_vs (SND(FST csg))) ∪ vlabs_list (MAP THE (FILTER IS_SOME (SND csg)))`
 

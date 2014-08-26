@@ -13,6 +13,15 @@ val _ = export_rewrites["alist.MAP_KEYS_I"]
 
 (* TODO: move/categorize *)
 
+val ZIP_EQ_NIL = store_thm("ZIP_EQ_NIL",
+  ``∀l1 l2. LENGTH l1 = LENGTH l2 ⇒ (ZIP (l1,l2) = [] ⇔ (l1 = [] ∧ l2 = []))``,
+  rpt gen_tac >> Cases_on`l1`>>rw[LENGTH_NIL_SYM]>> Cases_on`l2`>>fs[])
+
+val FUPDATE_LIST_EQ_FEMPTY = store_thm("FUPDATE_LIST_EQ_FEMPTY",
+  ``∀fm ls. fm |++ ls = FEMPTY ⇔ fm = FEMPTY ∧ ls = []``,
+  rw[EQ_IMP_THM,FUPDATE_LIST_THM] >>
+  fs[GSYM fmap_EQ_THM,FDOM_FUPDATE_LIST])
+
 val LUPDATE_SAME = store_thm("LUPDATE_SAME",
   ``∀n ls. n < LENGTH ls ⇒ (LUPDATE (EL n ls) n ls = ls)``,
   rw[LIST_EQ_REWRITE,EL_LUPDATE]>>rw[])

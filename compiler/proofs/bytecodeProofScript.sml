@@ -779,18 +779,6 @@ val Cenv_bs_DOMSUB = store_thm("Cenv_bs_DOMSUB",
   rw[Cenv_bs_def,EVERY2_EVERY,env_renv_def,fmap_rel_def] >>
   metis_tac[o_f_FAPPLY])
 
-val gvrel_def = Define`
-  gvrel gv1 gv2 ⇔ LENGTH gv1 ≤ LENGTH gv2 ∧
-    (∀n x. n < LENGTH gv1 ∧ (EL n gv1 = SOME x) ⇒ (EL n gv2 = SOME x))`
-
-val gvrel_refl = store_thm("gvrel_refl",
-  ``gvrel g g``, rw[gvrel_def])
-val _ = export_rewrites["gvrel_refl"]
-
-val gvrel_trans = store_thm("gvrel_trans",
-  ``gvrel gv1 gv2 ∧ gvrel gv2 gv3 ⇒ gvrel gv1 gv3``,
-  rw[gvrel_def] >> fsrw_tac[ARITH_ss][])
-
 val env_renv_change_store = store_thm("env_renv_change_store",
   ``env_renv rd rsz bs env renv ∧
     (bs' = bs with <| refs := rfs'; clock := ck'; globals := gv'|>) ∧

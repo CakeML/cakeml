@@ -52,6 +52,25 @@ val LIST_REL_OPTREL_exh_Cv_syneq_trans = store_thm("LIST_REL_OPTREL_exh_Cv_syneq
   fs[optionTheory.OPTREL_def] >>
   metis_tac[exh_Cv_syneq_trans,optionTheory.SOME_11,optionTheory.NOT_SOME_NONE])
 
+val LIST_REL_sv_rel_exh_Cv_syneq_trans = store_thm("LIST_REL_sv_rel_exh_Cv_syneq_trans",
+  ``∀vs Cvs Cvs2.
+     LIST_REL (sv_rel syneq) Cvs Cvs2 ∧
+     LIST_REL (sv_rel exh_Cv) vs Cvs ⇒
+     LIST_REL (sv_rel exh_Cv) vs Cvs2``,
+  rw[LIST_REL_EL_EQN] >>
+  fs[evalPropsTheory.sv_rel_cases,PULL_EXISTS] >>
+  rpt(first_x_assum(qspec_then`n`mp_tac)) >> simp[] >> rw[] >> fs[] >>
+  metis_tac[exh_Cv_syneq_trans,LIST_REL_exh_Cv_syneq_trans])
+
+val Cv_bv_can_Print = save_thm("Cv_bv_can_Print",prove(
+  ``(∀Cv bv. Cv_bv pp Cv bv ⇒ IS_SOME (bv_to_string bv)) ∧
+    (∀bvs ce env defs. benv_bvs pp bvs ce env defs ⇒ T)``,
+  ho_match_mp_tac Cv_bv_ind >> simp[bv_to_string_def,bvs_to_chars_thm] >>
+  rw[] >> pop_assum mp_tac >> simp[] >>
+  simp[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >> rw[] >>
+  rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,MEM_EL,EL_MAP])
+  |> CONJUNCT1)
+
 (* printing *)
 
 val MAP_PrintC_thm = store_thm("MAP_PrintC_thm",

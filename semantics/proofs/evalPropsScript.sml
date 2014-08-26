@@ -393,6 +393,46 @@ val sv_rel_mono = store_thm("sv_rel_mono",
   ``(∀x y. P x y ⇒ Q x y) ⇒ sv_rel P x y ⇒ sv_rel Q x y``,
   rw[sv_rel_cases] >> metis_tac [LIST_REL_mono])
 
+val store_v_vs_def = Define`
+  store_v_vs (Refv v) = [v] ∧
+  store_v_vs (Varray vs) = vs ∧
+  store_v_vs (W8array _) = []`
+val _ = export_rewrites["store_v_vs_def"]
+
+val store_vs_def = Define`
+  store_vs s = FLAT (MAP store_v_vs s)`
+
+val EVERY_sv_every_MAP_map_sv = store_thm("EVERY_sv_every_MAP_map_sv",
+  ``∀P f ls. EVERY P (MAP f (store_vs ls)) ⇒ EVERY (sv_every P) (MAP (map_sv f) ls)``,
+  rpt gen_tac >>
+  simp[EVERY_MAP,EVERY_MEM,store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_FLAT] >>
+  strip_tac >> Cases >> simp[] >> rw[] >> res_tac >> fs[EVERY_MEM,MEM_MAP,PULL_EXISTS])
+
+val LIST_REL_store_vs_intro = store_thm("LIST_REL_store_vs_intro",
+  ``∀P l1 l2. LIST_REL (sv_rel P) l1 l2 ⇒ LIST_REL P (store_vs l1) (store_vs l2)``,
+  gen_tac >>
+  Induct >- simp[store_vs_def] >>
+  Cases >> simp[PULL_EXISTS,sv_rel_cases] >>
+  fs[store_vs_def] >> rw[] >>
+  match_mp_tac rich_listTheory.EVERY2_APPEND_suff >> simp[])
+
+val EVERY_sv_every_EVERY_store_vs = store_thm("EVERY_sv_every_EVERY_store_vs",
+  ``∀P ls. EVERY (sv_every P ) ls ⇔ EVERY P (store_vs ls)``,
+  rw[EVERY_MEM,EQ_IMP_THM,store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_FLAT] >>
+  res_tac >> TRY(Cases_on`e`) >> TRY(Cases_on`y`) >> fs[] >>
+  fs[EVERY_MEM])
+
+val EVERY_store_vs_intro = store_thm("EVERY_store_vs_intro",
+  ``∀P ls. EVERY (sv_every P) ls ⇒ EVERY P (store_vs ls)``,
+  rw[EVERY_MEM,store_vs_def,MEM_MAP,MEM_FILTER,MEM_FLAT] >>
+  res_tac >>
+  qmatch_assum_rename_tac`sv_every P x`[] >>
+  Cases_on`x`>>fs[EVERY_MEM])
+
+val map_sv_compose = store_thm("map_sv_compose",
+  ``map_sv f (map_sv g x) = map_sv (f o g) x``,
+  Cases_on`x`>>simp[MAP_MAP_o])
+
 val map_match_def = Define`
   (map_match f (Match env) = Match (f env)) ∧
   (map_match f x = x)`

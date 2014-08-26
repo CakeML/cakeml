@@ -51,9 +51,28 @@ val do_app_i1_cases = store_thm("do_app_i1_cases",
   rw[do_app_i1_def] >>
   BasicProvers.EVERY_CASE_TAC >> fs[])
 
+val vs_to_i1_MAP = store_thm("vs_to_i1_MAP",
+  ``∀g vs1 vs2. vs_to_i1 g vs1 vs2 ⇔ LIST_REL (v_to_i1 g) vs1 vs2``,
+  gen_tac >> Induct >> simp[Once v_to_i1_cases])
+val vs_to_i2_MAP = store_thm("vs_to_i2_MAP",
+  ``∀g vs1 vs2. vs_to_i2 g vs1 vs2 ⇔ LIST_REL (v_to_i2 g) vs1 vs2``,
+  gen_tac >> Induct >> simp[Once v_to_i2_cases])
 val vs_to_exh_MAP = store_thm("vs_to_exh_MAP",
   ``∀exh vs1 vs2. vs_to_exh exh vs1 vs2 = LIST_REL (v_to_exh exh) vs1 vs2``,
   Induct_on`vs1`>>simp[Once v_to_exh_cases])
+
+val exps_to_i1_MAP = store_thm("exps_to_i1_MAP",
+  ``∀es. exps_to_i1 a b es = MAP (exp_to_i1 a b) es``,
+  Induct >> simp[exp_to_i1_def])
+val exps_to_i2_MAP = store_thm("exps_to_i2_MAP",
+  ``∀es. exps_to_i2 a es = MAP (exp_to_i2 a) es``,
+  Induct >> simp[exp_to_i2_def])
+val exps_to_exh_MAP = store_thm("exps_to_exh_MAP",
+  ``∀es. exps_to_exh a es = MAP (exp_to_exh a) es``,
+  Induct >> simp[exp_to_exh_def])
+val exps_to_pat_MAP = store_thm("exps_to_pat_MAP",
+  ``∀es. exps_to_pat a es = MAP (exp_to_pat a) es``,
+  Induct >> simp[exp_to_pat_def])
 
 val env_to_exh_MAP = store_thm("env_to_exh_MAP",
   ``∀exh env1 env2. env_to_exh exh env1 env2 ⇔ MAP FST env1 = MAP FST env2 ∧
@@ -93,6 +112,14 @@ val alloc_defs_GENLIST = store_thm("alloc_defs_GENLIST",
 val pats_bindings_i2_MAP_Pvar_i2 = store_thm("pats_bindings_i2_MAP_Pvar_i2",
   ``∀ls ly. set (pats_bindings_i2 (MAP Pvar_i2 ls) ly) = set ls ∪ set ly``,
   Induct >> simp[pat_bindings_i2_def,EXTENSION] >> metis_tac[])
+
+val sv_to_i1_sv_rel = store_thm("sv_to_i1_sv_rel",
+  ``∀g. sv_to_i1 g = sv_rel (v_to_i1 g)``,
+  rw[FUN_EQ_THM,sv_to_i1_cases,EQ_IMP_THM,sv_rel_cases,vs_to_i1_MAP])
+
+val sv_to_i2_sv_rel = store_thm("sv_to_i2_sv_rel",
+  ``∀g. sv_to_i2 g = sv_rel (v_to_i2 g)``,
+  rw[FUN_EQ_THM,sv_to_i2_cases,EQ_IMP_THM,sv_rel_cases,vs_to_i2_MAP])
 
 val pmatch_dom = store_thm("pmatch_dom",
   ``(∀cenv s p v env env'.
