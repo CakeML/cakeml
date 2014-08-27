@@ -2,7 +2,7 @@ open preamble;
 open rich_listTheory alistTheory;
 open miscTheory;
 open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory infer_tTheory;
-open libPropsTheory astPropsTheory;
+open astPropsTheory;
 open inferPropsTheory;
 open typeSysPropsTheory;
 
@@ -22,7 +22,7 @@ val _ = new_theory "inferSound";
 val tenv_inv_def = Define `
 tenv_inv s env tenv =
   (!x tvs t.
-   (lookup x env = SOME (tvs,t)) ⇒
+   (ALOOKUP env x = SOME (tvs,t)) ⇒
    ((lookup_tenv x 0 tenv = 
      SOME (tvs, convert_t (t_walkstar (infer_deBruijn_inc tvs o_f s) t)))))`;
 
@@ -84,14 +84,14 @@ val tenv_inv_letrec_merge = Q.prove (
 `!funs tenv' env tenv st s.
   tenv_inv s env tenv 
   ⇒
-  tenv_inv s (merge (MAP2 (λ(f,x,e) uvar. (f,0,uvar)) funs (MAP (λn. Infer_Tuvar (st.next_uvar + n)) (COUNT_LIST (LENGTH funs)))) env)
+  tenv_inv s (MAP2 (λ(f,x,e) uvar. (f,0,uvar)) funs (MAP (λn. Infer_Tuvar (st.next_uvar + n)) (COUNT_LIST (LENGTH funs))) ++ env)
              (bind_var_list 0 (MAP2 (λ(f,x,e) t. (f,t)) funs (MAP (λn. convert_t (t_walkstar s (Infer_Tuvar (st.next_uvar + n)))) (COUNT_LIST (LENGTH funs)))) tenv)`,
 induct_on `funs` >>
-rw [COUNT_LIST_def, merge_def, bind_var_list_def] >>
+rw [COUNT_LIST_def, bind_var_list_def] >>
 PairCases_on `h` >>
 rw [bind_var_list_def] >>
 match_mp_tac tenv_inv_extend0 >>
-fs [merge_def] >>
+fs [] >>
 rw [check_t_def] >>
 res_tac >>
 pop_assum (mp_tac o Q.SPEC `st with next_uvar := st.next_uvar + 1`) >>
@@ -103,9 +103,9 @@ val tenv_inv_merge = Q.prove (
 `!s x uv env env' tenv. 
   tenv_inv s env tenv
   ⇒
-  tenv_inv s (merge (MAP (λ(n,t). (n,0,t)) env') env) (bind_var_list 0 (convert_env s env') tenv)`,
+  tenv_inv s (MAP (λ(n,t). (n,0,t)) env' ++ env) (bind_var_list 0 (convert_env s env') tenv)`,
 induct_on `env'` >>
-rw [merge_def, convert_env_def, bind_var_list_def] >>
+rw [convert_env_def, bind_var_list_def] >>
 res_tac >>
 fs [tenv_inv_def] >>
 rw [] >>
@@ -113,24 +113,25 @@ PairCases_on `h` >>
 fs [] >>
 cases_on `h0 = x` >>
 fs [] >>
-rw [bind_var_list_def, bind_tenv_def, lookup_def, lookup_tenv_def,
+rw [bind_var_list_def, bind_tenv_def, lookup_tenv_def,
     deBruijn_inc0, infer_deBruijn_inc0_id, o_f_id] >>
-fs [merge_def] >>
+fs [] >>
 res_tac >>
 metis_tac [convert_env_def]);
+
 val tenv_inv_merge2 = Q.prove (
 `!env tenv env'' s tvs.
   tenv_inv FEMPTY env tenv 
   ⇒
   tenv_inv FEMPTY
-    (merge (MAP (λx. (FST x,tvs,t_walkstar s (SND x))) env'') env)
+    (MAP (λx. (FST x,tvs,t_walkstar s (SND x))) env'' ++ env)
     (bind_var_list2 (MAP (λx. (FST x,tvs, convert_t (t_walkstar s (SND x)))) env'') tenv)`,
 induct_on `env''` >>
-rw [bind_var_list2_def, merge_def] >>
+rw [bind_var_list2_def] >>
 PairCases_on `h` >>
-rw [bind_var_list2_def, merge_def] >>
+rw [bind_var_list2_def] >>
 res_tac >>
-fs [merge_def, tenv_inv_def, bind_tenv_def, lookup_tenv_def] >>
+fs [tenv_inv_def, bind_tenv_def, lookup_tenv_def] >>
 rw [deBruijn_inc0, t_walkstar_FEMPTY] >>
 metis_tac [t_walkstar_FEMPTY]);
 
@@ -140,10 +141,9 @@ val tenv_inv_merge3 = Q.prove (
 tenv_inv FEMPTY env tenv
 ⇒
 tenv_inv FEMPTY
-  (merge
      (MAP2 (λ(f,x,e) t. (f,tvs,t)) l
         (MAP (λx. t_walkstar s (Infer_Tuvar x))
-           l')) env)
+           l') ++ env)
   (bind_var_list2
      (MAP (λ(x,tvs,t). (x,tvs,convert_t t))
         (MAP2 (λ(f,x,e) t. (f,tvs,t)) l
@@ -152,11 +152,11 @@ tenv_inv FEMPTY
 induct_on `l` >>
 rw [] >>
 cases_on `l'` >>
-rw [merge_def, bind_var_list2_def] >>
+rw [bind_var_list2_def] >>
 fs [] >>
 PairCases_on `h` >>
-fs [merge_def, bind_var_list2_def] >>
-fs [merge_def, tenv_inv_def, bind_tenv_def, lookup_tenv_def] >>
+fs [bind_var_list2_def] >>
+fs [tenv_inv_def, bind_tenv_def, lookup_tenv_def] >>
 rw [deBruijn_inc0, t_walkstar_FEMPTY] >>
 fs [t_walkstar_FEMPTY] >>
 res_tac >>
@@ -585,7 +585,7 @@ val infer_e_sound = Q.prove (
 ho_match_mp_tac infer_e_ind >>
 rw [infer_e_def, success_eqns, remove_pair_lem] >>
 rw [check_t_def] >>
-fs [bind_def, check_t_def, check_env_bind, check_env_merge] >>
+fs [check_t_def, check_env_bind, check_env_merge] >>
 ONCE_REWRITE_TAC [type_e_cases] >>
 rw [Tbool_def, Tint_def, Tunit_def] >|
 [(* Raise *)

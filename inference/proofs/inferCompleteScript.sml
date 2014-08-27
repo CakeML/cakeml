@@ -2,7 +2,7 @@ open preamble;
 open rich_listTheory alistTheory;
 open miscTheory;
 open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
-open libPropsTheory astPropsTheory;
+open astPropsTheory;
 open typeSysPropsTheory;
 open inferPropsTheory;
 
@@ -42,7 +42,7 @@ tenv_inv s env tenv =
     lookup_tenv x 0 tenv = SOME (tvs, t)
     ⇒
     check_freevars tvs [] t ∧
-    ?t'. unconvert_t t = t_walkstar s t' ∧ lookup x env = SOME (tvs,t'))`;
+    ?t'. unconvert_t t = t_walkstar s t' ∧ ALOOKUP env x = SOME (tvs,t'))`;
 
     (*
 val pure_add_constraints_exists = Q.prove (
