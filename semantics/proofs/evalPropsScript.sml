@@ -189,12 +189,22 @@ every_case_tac >>
 fs []);
 
 val merge_mod_env_assoc = Q.store_thm ("merge_mod_env_assoc",
+`∀env1 env2 env3.
+  merge_mod_env env1 (merge_mod_env env2 env3) =
+  merge_mod_env (merge_mod_env env1 env2) env3`,
+rw [] >>
+PairCases_on `env1` >>
+PairCases_on `env2` >>
+PairCases_on `env3` >>
+rw [merge_mod_env_def, FUNION_ASSOC]);
+
+val merge_mod_env_empty_assoc = Q.store_thm ("merge_mod_env_empty_assoc",
 `!env1 env2 env3.
-  merge_mod_env (FEMPTY,envC1) (merge_mod_env (FEMPTY,envC2) envC3)
+  merge_mod_env (FEMPTY,env1) (merge_mod_env (FEMPTY,env2) env3)
   =
-  merge_mod_env (FEMPTY,FUNION envC1 envC2) envC3`,
+  merge_mod_env (FEMPTY,FUNION env1 env2) env3`,
  rw [] >>
- PairCases_on `envC3` >>
+ PairCases_on `env3` >>
  rw [merge_mod_env_def, FUNION_ASSOC]);
 
 val same_ctor_and_same_tid = Q.store_thm ("same_ctor_and_same_tid",
