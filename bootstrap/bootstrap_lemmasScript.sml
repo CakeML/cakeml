@@ -1,6 +1,6 @@
 open HolKernel boolLib bossLib pairTheory listTheory lcsymtacs miscLib
 open ml_translatorTheory repl_funProofTheory compilerProofTheory ml_repl_moduleTheory
-open evaluate_repl_decsTheory compile_repl_decsTheory
+open evaluate_repl_decsTheory compile_repl_decsTheory closedReplDecsTheory removeLabelsReplDecsTheory
 
 val _ = temp_tight_equality()
 val _ = new_theory "bootstrap_lemmas"
@@ -10,19 +10,6 @@ infix \\ val op \\ = op THEN;
 val RW = REWRITE_RULE
 
 val _ = Globals.max_print_depth := 20
-
-(* REPL module is closed (TODO: should be proved elsewhere?) *)
-
-val all_env_dom_init =
-  ``all_env_dom ((THE prim_sem_env).sem_envM,(THE prim_sem_env).sem_envC,(THE prim_sem_env).sem_envE)``
-  |> (REWRITE_CONV [initSemEnvTheory.prim_sem_env_eq] THENC
-      SIMP_CONV std_ss [evalPropsTheory.all_env_dom_def,libTheory.lookup_def] THENC
-      SIMP_CONV (srw_ss()) [pred_setTheory.EXTENSION] THENC
-      EVAL)
-
-val closed_top_REPL = prove(
-  ``closed_top ((THE prim_sem_env).sem_envM,(THE prim_sem_env).sem_envC,(THE prim_sem_env).sem_envE) (Tmod "REPL" NONE ml_repl_module_decls)``,
-  simp[free_varsTheory.closed_top_def,all_env_dom_init,FV_decs_ml_repl_module_decls])
 
 (* no_closures implies empty vlabs (TODO: should be moved?) *)
 
