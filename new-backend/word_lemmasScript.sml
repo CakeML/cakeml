@@ -163,14 +163,6 @@ val push_env_pop_env_s_key_eq = prove(
   fs[s_key_eq_def,pop_env_def]>>BasicProvers.EVERY_CASE_TAC>>
   fs[])
 
-(*pop_env maintains the stack relations*)
-val pop_env_s_val_eq = prove(
-  ``!s st y. s_key_eq s.stack st /\ pop_env s = SOME y
-   ==> ?z. pop_env (s with stack := st) = SOME (y with stack:=z) /\
-           s_val_eq y.stack z /\ s_key_eq z st``,
-  rw[pop_env_def]>>pop_assum mp_tac>>
-  BasicProvers.EVERY_CASE_TAC>>fs[s_key_eq_def,s_frame_key_eq_def]>>
- 
 val get_vars_stack_swap = prove(
   ``!l s t. s.locals = t.locals ==>
     get_vars l s = get_vars l t``,
@@ -192,21 +184,6 @@ val s_val_eq_REVERSE = prove(
   ``!s t. s_val_eq s t ==> s_val_eq (REVERSE s) (REVERSE t)``,
   ho_match_mp_tac (fetch "-" "s_val_eq_ind")>>
   rw[]>>fs[s_val_eq_def,s_val_eq_APPEND])
-
-val s_val_eq_LASTN = prove(
-  ``!s t n. s_val_eq s t /\ n <= LENGTH s 
-   ==> s_val_eq (LASTN n s) (LASTN n t)``,
-  ho_match_mp_tac (fetch "-" "s_val_eq_ind")>>
-  rw[]>>fs[s_val_eq_def,rich_listTheory.LASTN]>>
-  Cases_on`n=SUC(LENGTH s)`>> 
-  rw[]>>
-  `LENGTH t = LENGTH s` by fs[s_val_eq_length]>-
-    metis_tac[rich_listTheory.LASTN_LENGTH_ID,LENGTH,s_val_eq_def]>>
-
-val LASTN_eq = prove
-  ``!xs n. LASTN n xs = REVERSE(TAKE n (REVERSE xs))``,
-  strip_tac>>strip_tac>>
-  Casefs[rich_listTheory.TAKE_REVERSE] 
 
 (*CHEATED NOTE: I hope these are also true for n > LENGTH s
  so I don't have to add preconditions everywhere...*)
@@ -338,12 +315,12 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
   (*Assign*)>-
 
   (*Seq*)
-  fs[wEval_def]>>
+  (fs[wEval_def]>>
   Cases_on`wEval(c,s)`>>
   fs[LET_THM]>>
   IF_CASES_TAC>-
     (*q = NONE*)
-    BasicProvers.EVERY_CASE_TAC>>
+    (BasicProvers.EVERY_CASE_TAC>>
     fs[s_key_eq_trans]>> rpt
       (CONJ_TAC>-metis_tac[s_key_eq_trans]>>
       rpt strip_tac>>
@@ -351,15 +328,44 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
       first_x_assum(qspec_then `st` assume_tac)>>rfs[]>> 
       HINT_EXISTS_TAC>>metis_tac[s_key_eq_trans])>>
       ASSUME_TAC (INST_TYPE [``:'b``|->``:'a``]s_key_eq_exists)>>
+      (*get the result stack from first eval*)
       first_x_assum(qspecl_then [`r.stack`,`s.stack`,`s.handler+1`,`e`,
         `r'.handler`,`ls`] assume_tac)>>
       `s_key_eq r.stack s.stack` by rw[s_key_eq_sym]>>
       fs[]>>rfs[]>>Q.EXISTS_TAC`lss`>>
-      simp[]>>CONJ_TAC>- metis_tac[s_key_eq_trans]>>
+      simp[]>>CONJ_TAC>-metis_tac[s_key_eq_trans]>>
       rpt strip_tac>>
-      first_x_assum(qspecl_then [`xs`,`e''`,`ls''`] assume_tac)>> rfs[]>>
-      fs[s_val_eq_trans]
+      first_x_assum(qspec_then `xs` assume_tac)>>
+      rfs[]>>
+      IMP_RES_TAC s_key_eq_exists>>
+      last_x_assum(qspecl_then [`st`,`e'''''''`,`ls'''''''`] assume_tac)>>
+      rfs[]>>
+      HINT_EXISTS_TAC>>
+      Q.EXISTS_TAC`fromAList lss'`>>
+      fs[]>>
+      CONJ_TAC>- (Q.EXISTS_TAC`lss'`>>fs[])>>
+      metis_tac[s_key_eq_trans])>>
+    Cases_on`q`>>fs[]>>
+    Cases_on`x`>>fs[]>>
+    rpt strip_tac>-
+      (first_x_assum(qspec_then `xs` assume_tac)>>rfs[]>>HINT_EXISTS_TAC>>
+      fs[])>>
+    Q.EXISTS_TAC`lss`>>fs[]>>
+    rpt strip_tac>>
+    first_x_assum (qspecl_then [`xs`,`e'`,`ls'`] assume_tac)>>rfs[]>>
+    HINT_EXISTS_TAC>>
+    Q.EXISTS_TAC`fromAList lss'`>>fs[]>>
+    Q.EXISTS_TAC`lss'`>>fs[])
 
+      pop_assum mp_tac>>
+      first_x_assum (qspec_then `xs` assume_tac)>>rfs[]>>
+      strip_tac>> 
+
+      simp[]>>CONJ_TAC>- metis_tac[s_key_eq_trans]>>
+
+
+      first_x_assum(qspecl_then [`st`,`e''`,`ls''`] assume_tac)>> rfs[]>>
+      `s_val_eq r.stack xs` by metis_tac[s_val_eq_trans]>>
     last_x_assum(qspec_then `s.stack` assume_tac)>>rfs[]
 
   (*Raise*)
