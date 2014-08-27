@@ -8974,59 +8974,32 @@ val zHEAP_UPDATE_REF = let
       \\ FULL_SIMP_TAC (srw_ss()++star_ss) [])
     \\ FULL_SIMP_TAC (srw_ss()) [heap_inv_def]
     \\ Q.LIST_EXISTS_TAC [`vs`,`r1`,`r2`,`r3`,`r4`,`roots`,
-                          `heap`,`a`,`sp`]
+                          `heap2`,`a`,`sp`]
+    \\ conj_tac >- rw[]
     \\ FULL_SIMP_TAC (std_ss++star_ss) [word_mul_n2w] \\ POP_ASSUM (K ALL_TAC)
     \\ FULL_SIMP_TAC (std_ss++sep_cond_ss) [x64_heap_APPEND,x64_heap_def,x64_el_def,
          x64_payload_def,SEP_CLAUSES,cond_STAR,MAP,LET_DEF,LENGTH,one_list_def,
          x64_addr_def,WORD_MUL_LSL,BlockRep_def]
     \\ Q.PAT_ASSUM `xxx = heap2` (ASSUME_TAC o GSYM)
-    \\ reverse STRIP_TAC THEN1
-     (
-      FULL_SIMP_TAC std_ss []
-      \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND]
-      \\ FULL_SIMP_TAC std_ss [AC MULT_COMM MULT_ASSOC,x64_addr_def,
-           WORD_MUL_LSL,word_mul_n2w] \\ SIMP_TAC (srw_ss()) []
-      \\ FULL_SIMP_TAC std_ss [heap_store_lemma]
-      \\ FULL_SIMP_TAC (std_ss++sep_cond_ss) [x64_heap_APPEND,x64_heap_def,x64_el_def,
-           x64_payload_def,SEP_CLAUSES,cond_STAR,MAP,LET_DEF,LENGTH,one_list_def,
-           x64_addr_def,WORD_MUL_LSL,word_mul_n2w,word_add_n2w]
-      \\ FULL_SIMP_TAC std_ss [ADD1,AC ADD_COMM ADD_ASSOC,CONJ_ASSOC]
-      \\ STRIP_TAC THEN1
-        (FULL_SIMP_TAC (srw_ss()++ARITH_ss) [w2w_def,w2n_n2w,word_mul_n2w,MULT_ASSOC])
-      \\ Q.PAT_ASSUM `xxx (fun2set (vals.memory,vals.memory_domain))` MP_TAC
-      \\ NTAC 2 (FULL_SIMP_TAC (srw_ss()++star_ss) [one_list_APPEND,one_list_def]
-        \\ FULL_SIMP_TAC std_ss [STAR_ASSOC,SEP_CLAUSES,APPEND,GSYM APPEND_ASSOC]
-        \\ FULL_SIMP_TAC std_ss [word_add_n2w,word_mul_n2w,LEFT_ADD_DISTRIB]
-        \\ FULL_SIMP_TAC std_ss [GSYM word_add_n2w,LEFT_ADD_DISTRIB,heap_length_APPEND,
-             AC WORD_ADD_ASSOC WORD_ADD_COMM,word_mul_n2w,AC MULT_COMM MULT_ASSOC,
-             heap_length_def])
-      \\ SEP_W_TAC
-      \\ FULL_SIMP_TAC std_ss [heap_length_APPEND,heap_length_def,el_length_def
-           ,MAP,SUM] \\ FULL_SIMP_TAC (srw_ss()++star_ss) [AC MULT_COMM MULT_ASSOC]
-      \\ FULL_SIMP_TAC std_ss [STAR_ASSOC]
-      >> cheat) >>
-     (ntac 2 (Q.PAT_ASSUM `abs_ml_inv xx yy zz tt` MP_TAC)
-      \\ FULL_SIMP_TAC std_ss [ADD1,AC ADD_COMM ADD_ASSOC,GSYM RefBlock_def]
-      \\ simp[GSYM rich_listTheory.CONS_APPEND]
-
-      \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND]
-      \\ simp[abs_ml_inv_def]
-      \\ REPEAT STRIP_TAC
-      \\ MATCH_MP_TAC el_lemma1
-      \\ METIS_TAC [])
-
-    \\ FULL_SIMP_TAC std_ss [heap_inv_def]
-    \\ SIMP_TAC (srw_ss()) [getRefPtr_def]
-    \\ Q.LIST_EXISTS_TAC [`vs`,`r1`,`r2`,`r3`,`r4`,`roots`,`heap2`,`a`,`sp`]
     \\ FULL_SIMP_TAC std_ss []
     \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND]
     \\ FULL_SIMP_TAC std_ss [AC MULT_COMM MULT_ASSOC,x64_addr_def,
          WORD_MUL_LSL,word_mul_n2w] \\ SIMP_TAC (srw_ss()) []
-    \\ Q.PAT_ASSUM `xxx = (heap2,T)` (ASSUME_TAC o GSYM)
     \\ FULL_SIMP_TAC std_ss [heap_store_lemma]
     \\ FULL_SIMP_TAC (std_ss++sep_cond_ss) [x64_heap_APPEND,x64_heap_def,x64_el_def,
          x64_payload_def,SEP_CLAUSES,cond_STAR,MAP,LET_DEF,LENGTH,one_list_def,
          x64_addr_def,WORD_MUL_LSL,word_mul_n2w,word_add_n2w]
+    \\ FULL_SIMP_TAC std_ss [ADD1,AC ADD_COMM ADD_ASSOC,CONJ_ASSOC]
+    \\ STRIP_TAC THEN1
+      (FULL_SIMP_TAC (srw_ss()++ARITH_ss) [w2w_def,w2n_n2w,word_mul_n2w,MULT_ASSOC])
+    \\ Q.PAT_ASSUM `xxx (fun2set (vals.memory,vals.memory_domain))` MP_TAC
+    \\ NTAC 2 (FULL_SIMP_TAC (srw_ss()++star_ss) [one_list_APPEND,one_list_def]
+      \\ FULL_SIMP_TAC std_ss [STAR_ASSOC,SEP_CLAUSES,APPEND,GSYM APPEND_ASSOC]
+      \\ FULL_SIMP_TAC std_ss [word_add_n2w,word_mul_n2w,LEFT_ADD_DISTRIB]
+      \\ FULL_SIMP_TAC std_ss [GSYM word_add_n2w,LEFT_ADD_DISTRIB,heap_length_APPEND,
+           AC WORD_ADD_ASSOC WORD_ADD_COMM,word_mul_n2w,AC MULT_COMM MULT_ASSOC,
+           heap_length_def])
+
     \\ Q.ABBREV_TAC `m = vals.memory`
     \\ Q.ABBREV_TAC `dm = vals.memory_domain`
     \\ SEP_W_TAC \\ POP_ASSUM MP_TAC
