@@ -1,4 +1,4 @@
-open HolKernel boolLib bossLib Parse;
+open HolKernel boolLib bossLib Parse lcsymtacs;
 val _ = new_theory "ml_heap";
 
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
