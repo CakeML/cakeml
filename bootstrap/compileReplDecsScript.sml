@@ -1,5 +1,5 @@
-open HolKernel boolLib bossLib evaluate_repl_decsTheory flookupLib compute_compilerLib
-val _ = new_theory"compile_repl_decs"
+open HolKernel boolLib bossLib evaluateReplDecsTheory flookupLib compute_compilerLib
+val _ = new_theory"compileReplDecs"
 
 val _ = Globals.max_print_depth := 20
 

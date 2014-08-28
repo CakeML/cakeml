@@ -1,9 +1,9 @@
 open HolKernel boolLib bossLib pairTheory listTheory lcsymtacs miscLib
 open ml_translatorTheory repl_funProofTheory compilerProofTheory ml_repl_moduleTheory
-open evaluate_repl_decsTheory compile_repl_decsTheory closedReplDecsTheory removeLabelsReplDecsTheory
+open evaluateReplDecsTheory compileReplDecsTheory closedReplDecsTheory removeLabelsReplDecsTheory
 
 val _ = temp_tight_equality()
-val _ = new_theory "bootstrap_lemmas"
+val _ = new_theory "bootstrapProof"
 
 infix \\ val op \\ = op THEN;
 

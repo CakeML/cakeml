@@ -2,7 +2,7 @@ open HolKernel boolLib bossLib lcsymtacs pairSyntax listTheory miscLib
 open ml_translatorTheory bigStepTheory terminationTheory
 open ml_repl_moduleTheory
 
-val _ = new_theory"evaluate_repl_decs"
+val _ = new_theory"evaluateReplDecs"
 
 (* Environment produced by evaluating the repl decs *)
 
