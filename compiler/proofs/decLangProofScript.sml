@@ -4,7 +4,6 @@ open miscLib miscTheory;
 open astTheory;
 open semanticPrimitivesTheory;
 open libTheory;
-open libPropsTheory;
 open conLangTheory;
 open decLangTheory;
 open evalPropsTheory;
@@ -141,7 +140,7 @@ SIMP_CONV (srw_ss()) [Once evaluate_i3_cases, eval_i3_fun, do_app_i3_def,
   ``evaluate_i3 b env s (App_i2 (Init_global_var_i2 i) [Fun_i2 x e]) (s',r)``;
 
 val eval_match_i3_con =
-SIMP_CONV (srw_ss()) [Once evaluate_i3_cases, pmatch_i2_def, pat_bindings_i2_def, eval_match_i3_var2, bind_def]
+SIMP_CONV (srw_ss()) [Once evaluate_i3_cases, pmatch_i2_def, pat_bindings_i2_def, eval_match_i3_var2]
   ``evaluate_match_i3 b env s v [(Pcon_i2 n [], e); (Pvar_i2 "x",Var_local_i2 "x")] err_v (s',r)``;
 
 val (dec_result_to_i3_rules, dec_result_to_i3_ind, dec_result_to_i3_cases) = Hol_reln `
@@ -155,7 +154,7 @@ val pmatch_list_i2_Pvar = prove(
       LENGTH xs = LENGTH vs ⇒
       pmatch_list_i2 exh s (MAP Pvar_i2 xs) vs env = Match (REVERSE(ZIP(xs,vs))++env)``,
   Induct >> simp[LENGTH_NIL_SYM,pmatch_i2_def] >>
-  Cases_on`vs`>>simp[pmatch_i2_def,bind_def]);
+  Cases_on`vs`>>simp[pmatch_i2_def]);
 
 val pats_bindings_i2_MAP_Pvar = prove(
   ``∀ws ls. pats_bindings_i2 (MAP Pvar_i2 ws) ls = (REVERSE ws) ++ ls``,
@@ -189,9 +188,9 @@ val init_globals_thm = Q.prove (
   simp[Once evaluate_i3_cases] >>
   simp[Once evaluate_i3_cases] >>
   simp[do_app_i3_def,EL_APPEND1,EL_LENGTH_APPEND,PULL_EXISTS,opt_bind_def] >>
-  simp[lookup_append,bind_def] >>
+  simp[ALOOKUP_APPEND] >>
   reverse BasicProvers.CASE_TAC >- (
-    imp_res_tac lookup_in2 >>
+    imp_res_tac ALOOKUP_MEM >>
     fs[MEM_MAP] >> rfs[MEM_ZIP] >>
     fs[] >> metis_tac[MEM_EL] ) >>
   simp[LUPDATE_APPEND1,combinTheory.o_DEF] >>
@@ -244,7 +243,7 @@ val decs_to_i3_correct = Q.store_thm("decs_to_i3_correct",
  fs [evaluate_dec_i2_cases] >>
  rw [] >>
  imp_res_tac exp_to_i3_correct >>
- fs [emp_def] >>
+ fs [] >>
  pop_assum mp_tac >>
  rw [eval_i3_mat, opt_bind_def]
  >- (qexists_tac `Rerr e'` >>
@@ -327,7 +326,7 @@ val prompt_to_i3_correct = Q.store_thm ("prompt_to_i3_correct",
     evaluate_i3 ck (exh,[]) (s,genv) e ((s',genv++new_env),r_i3)`,
  rw [evaluate_prompt_i2_cases, prompt_to_i3_def] >>
  fs [LET_THM, eval_i3_let, eval_i3_extend_genv] >>
- rw [eval_i3_con, eval_match_i3_var, pat_bindings_i2_def, bind_def, lookup_def, opt_bind_def, prompt_num_defs_def] >>
+ rw [eval_i3_con, eval_match_i3_var, pat_bindings_i2_def, opt_bind_def, prompt_num_defs_def] >>
  imp_res_tac decs_to_i3_correct >>
  fs [dec_result_to_i3_cases, result_to_i3_cases] >>
  ONCE_REWRITE_TAC [evaluate_i3_cases] >>
@@ -343,7 +342,7 @@ val prompt_to_i3_correct = Q.store_thm ("prompt_to_i3_correct",
      imp_res_tac eval_decs_num_defs_err
      >- decide_tac
      >- (ntac 4 (rw [Once (hd (tl (CONJUNCTS evaluate_i3_cases)))]) >>
-         rw [bind_def,eval_i3_var, pat_bindings_i2_def] >>
+         rw [eval_i3_var, pat_bindings_i2_def] >>
          metis_tac [PAIR_EQ, pair_CASES])
      >- decide_tac));
 
