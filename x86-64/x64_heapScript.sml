@@ -8876,9 +8876,8 @@ val zHEAP_DEREF = let
 
 (* update ref *)
 
-(*
 val zHEAP_UPDATE_REF = let
-  val th = compose_specs ["mov [r2+1],r0"]
+  val th = compose_specs ["mov [r2+2*r1+9],r0"]
   val pc = get_pc th
   val target = ``~zS * zPC p * zVALS cs vals *
       cond (heap_inv (cs,x1,x2,x3,x4,refs,stack,s,NONE) vals /\
@@ -8959,12 +8958,18 @@ val zHEAP_UPDATE_REF = let
          LENGTH_MAP]
     \\ FULL_SIMP_TAC std_ss [GSYM word_mul_n2w,AC WORD_ADD_COMM WORD_ADD_ASSOC,
          AC WORD_MULT_ASSOC WORD_MULT_COMM]
-    \\ SEP_R_TAC \\ STRIP_TAC THEN1
+    \\ STRIP_TAC THEN1
      (SIMP_TAC std_ss [] \\ ONCE_REWRITE_TAC [WORD_AND_COMM]
       \\ SIMP_TAC std_ss [WORD_ADD_ASSOC,blast_align_lemma]
-      \\ FULL_SIMP_TAC std_ss [heap_vars_ok_def])
+      \\ FULL_SIMP_TAC std_ss [heap_vars_ok_def]
+      \\ qpat_assum`(xx * yy) ss`mp_tac
+      \\ rpt BasicProvers.VAR_EQ_TAC
+      \\ simp[one_list_APPEND,one_list_def]
+      \\ SIMP_TAC std_ss [AC WORD_ADD_ASSOC WORD_ADD_COMM,word_add_n2w,word_mul_n2w]
+      \\ STRIP_TAC \\ SEP_R_TAC)
     \\ REPEAT STRIP_TAC
-    \\ Q.ABBREV_TAC `addr = (vs.current_heap + (0x8w * n2w (heap_length ys1)))`
+    \\ Q.ABBREV_TAC `addr = (vs.current_heap + (0x8w + (n2w (Num i) * 0x8w
+                             + n2w (heap_length ys1) * 0x8w)))`
     \\ Q.EXISTS_TAC `vals with <| memory :=
          (addr =+ x64_addr vs.current_heap r1) vals.memory |>`
     \\ Q.UNABBREV_TAC `addr`
@@ -8999,18 +9004,23 @@ val zHEAP_UPDATE_REF = let
       \\ FULL_SIMP_TAC std_ss [GSYM word_add_n2w,LEFT_ADD_DISTRIB,heap_length_APPEND,
            AC WORD_ADD_ASSOC WORD_ADD_COMM,word_mul_n2w,AC MULT_COMM MULT_ASSOC,
            heap_length_def])
-
+    \\ rpt BasicProvers.VAR_EQ_TAC
+    \\ simp[one_list_APPEND,one_list_def,rich_listTheory.LUPDATE_APPEND2,LUPDATE_def]
+    \\ FULL_SIMP_TAC (std_ss++star_ss) []
     \\ Q.ABBREV_TAC `m = vals.memory`
     \\ Q.ABBREV_TAC `dm = vals.memory_domain`
-    \\ SEP_W_TAC \\ POP_ASSUM MP_TAC
+    \\ STRIP_TAC \\ CHANGED_TAC SEP_W_TAC
+    \\ POP_ASSUM MP_TAC
     \\ FULL_SIMP_TAC std_ss [heap_length_APPEND,heap_length_def,el_length_def
-         ,MAP,SUM] \\ FULL_SIMP_TAC (srw_ss()++star_ss) [AC MULT_COMM MULT_ASSOC]
-    \\ FULL_SIMP_TAC std_ss [STAR_ASSOC])
+         ,MAP,SUM] \\ FULL_SIMP_TAC (srw_ss()++star_ss) [AC MULT_COMM MULT_ASSOC])
   val th = MP th lemma
   val th = Q.GEN `vals` th |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
   val (th,goal) = SPEC_STRENGTHEN_RULE th
     ``zHEAP (cs, x1, x2, x3, x4, refs, stack, s, NONE) * ~zS * zPC p *
-      cond (isRefPtr x2)``
+      cond (
+        isRefPtr x3 /\ isNumber x2 /\ 0 <= getNumber x2 /\
+        isValueArray (refs ' (getRefPtr x3)) /\
+        getNumber x2 < & LENGTH (getValueArray (refs ' (getRefPtr x3))))``
   val lemma= prove(goal,
     SIMP_TAC (std_ss++sep_cond_ss) [zHEAP_def,SEP_IMP_REFL,SEP_CLAUSES,
          AC CONJ_ASSOC CONJ_COMM]
@@ -9018,7 +9028,6 @@ val zHEAP_UPDATE_REF = let
          AC CONJ_ASSOC CONJ_COMM])
   val th = MP th lemma
   in th end;
-*)
 
 (* swap *)
 
