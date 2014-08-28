@@ -11389,9 +11389,9 @@ val zBC_Store = SPEC_COMPOSE_RULE [zHEAP_STORE,zHEAP_POP1]
 val zBC_Error = zHEAP_TERMINATE_WITH_ERROR |> fix_code
 
 val zBC_Deref = SPEC_COMPOSE_RULE [zHEAP_POP2,zHEAP_DEREF,zHEAP_NOP] |> fix_code
+val zBC_Update = SPEC_COMPOSE_RULE [zHEAP_POP2,zHEAP_POP3,zHEAP_UPDATE_REF,zHEAP_POP1,zHEAP_NOP] |> fix_code
 (*
 val zBC_Ref = SPEC_COMPOSE_RULE [zHEAP_NEW_REF,zHEAP_NOP] |> fix_code
-val zBC_Update = SPEC_COMPOSE_RULE [zHEAP_POP2,zHEAP_UPDATE_REF,zHEAP_POP1] |> fix_code
 *)
 
 val zBC_Tick = zHEAP_NOP2 |> fix_code
@@ -11593,8 +11593,8 @@ val x64_def = Define `
   (x64 i (Deref) = ^(get_code zBC_Deref)) /\
 (*
   (x64 i (Ref) = ^(get_code zBC_Ref)) /\
-  (x64 i (Update) = ^(get_code zBC_Update)) /\
 *)
+  (x64 i (Update) = ^(get_code zBC_Update)) /\
   (x64 i (PopExc) = ^(get_code zBC_PopExc)) /\
   (x64 i (PushExc) = ^(get_code zBC_PushExc)) /\
   (x64 i (Label l) = []) /\
@@ -15125,8 +15125,7 @@ val zBC_HEAP_THM = prove(
     \\ FULL_SIMP_TAC (std_ss++star_ss) [GSYM ADD_ASSOC,bc_adjust_def,
          MAP,getTag_def])
   THEN1 (* DerefByte *) ERROR_TAC
-  THEN1 (* Update *) ERROR_TAC
-(*
+  THEN1 (* Update *)
    (SIMP_TAC std_ss [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF]
     \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
     \\ REPEAT STRIP_TAC
@@ -15135,43 +15134,63 @@ val zBC_HEAP_THM = prove(
          |> DISCH_ALL |> RW [AND_IMP_INTRO]
          |> MATCH_MP_TAC)
     \\ FULL_SIMP_TAC std_ss [HD,TL,bc_adjust_def,MAP,APPEND,
-         isRefPtr_def,getRefPtr_def]
+         isRefPtr_def,getRefPtr_def,isNumber_def,getNumber_def]
     \\ FULL_SIMP_TAC (srw_ss()) [word_mul_n2w]
-    \\ FULL_SIMP_TAC std_ss [APPEND,TL,HD,x64_length_def,x64_def,
-         LENGTH,x64_inst_length_def,LEFT_ADD_DISTRIB,word_arith_lemma1]
-    \\ FULL_SIMP_TAC std_ss [GSYM ADD_ASSOC]
-    \\ SIMP_TAC std_ss [SEP_IMP_def,SEP_EXISTS_THM] \\ REPEAT STRIP_TAC
+    \\ Q.PAT_ABBREV_TAC`v:ref_value = a ' b`
+    \\ `v = ValueArray (MAP (bc_adjust (cb,sb,ev)) vs)`  by (
+      simp[Abbr`v`,ref_adjust_def,FUN_FMAP_DEF,FUNION_DEF] >>
+      reverse IF_CASES_TAC >- (fs[FLOOKUP_DEF] >> METIS_TAC[]) >>
+      fs[FLOOKUP_DEF] >> qmatch_assum_rename_tac`z IN FDOM s1.refs`[] >>
+      `z = ptr` by (Cases_on`ev`>>fsrw_tac[ARITH_ss][]) >>
+      BasicProvers.VAR_EQ_TAC >>
+      Q.PAT_ABBREV_TAC`z = X DIV 2` >>
+      `z = ptr` by (Cases_on`ev`>>simp[Abbr`z`]
+        >- METIS_TAC[MULT_DIV,MULT_COMM,DECIDE``0:num < 2``] >>
+        ONCE_REWRITE_TAC[MULT_COMM] >>
+        simp[ADD_DIV_ADD_DIV]) >>
+      simp[] )
+    \\ Q.UNABBREV_TAC`v` \\ POP_ASSUM SUBST1_TAC
+    \\ SIMP_TAC std_ss [isValueArray_def,getValueArray_def]
+    \\ ASM_SIMP_TAC std_ss [x64_inst_length_def,x64_def,small_offset_def,
+         LEFT_ADD_DISTRIB,GSYM ADD_ASSOC,word_arith_lemma1,x64_length_def,
+         LENGTH] \\ STRIP_TAC THEN1 simp[]
+    \\ ASM_SIMP_TAC std_ss [SEP_IMP_def,SEP_EXISTS_THM,getContent_def,EL_MAP]
+    \\ REPEAT STRIP_TAC
     \\ FULL_SIMP_TAC (srw_ss()) [SEP_DISJ_def]
-    \\ Q.LIST_EXISTS_TAC [`RefPtr (if ev then 2 * ptr else 2 * ptr + 1)`,`x3`]
-    \\ `FUNION (ref_adjust (cb,sb,ev) (s1.refs |+ (ptr,x'))) f2 =
+    \\ Q.LIST_EXISTS_TAC [`Number (&n)`,`RefPtr (if ev then 2 * ptr else 2 * ptr + 1)`]
+    \\ `FUNION (ref_adjust (cb,sb,ev) (s1.refs |+ (ptr,ValueArray (LUPDATE x' n vs)))) f2 =
         FUNION (ref_adjust (cb,sb,ev) s1.refs) f2 |+
            (if ev then 2 * ptr else 2 * ptr + 1,
-            bc_adjust (cb,sb,ev) x')` by ALL_TAC
-    \\ FULL_SIMP_TAC (std_ss++star_ss) []
-    \\ FULL_SIMP_TAC std_ss [ref_adjust_def,LET_DEF,FDOM_FUPDATE,
-        IMAGE_INSERT,bc_adjust_def,FAPPLY_FUPDATE_THM]
-    \\ ONCE_REWRITE_TAC [GSYM fmap_EQ]
-    \\ FULL_SIMP_TAC (srw_ss()) [INSERT_UNION_EQ]
-    \\ FULL_SIMP_TAC (srw_ss()) [FUN_EQ_THM,FUNION_DEF,FAPPLY_FUPDATE_THM]
-    \\ STRIP_TAC
-    \\ `(if ev then 2 * ptr else (2 * ptr + 1)) DIV 2 = ptr` by ALL_TAC
-    THEN1 (SRW_TAC [] [DIV_EQ_X] \\ DECIDE_TAC)
-    \\ Cases_on `x'' = if ev then 2 * ptr else 2 * ptr + 1`
-    THEN1 FULL_SIMP_TAC (srw_ss()) [FUN_FMAP_DEF,IN_INSERT]
-    \\ FULL_SIMP_TAC (srw_ss()) []
-    \\ MATCH_MP_TAC (METIS_PROVE [] ``(b1 ==> (x1 = x2)) /\ (y1 = y2) ==>
-       ((if b1 then x1 else y1) = (if b1 then x2 else y2))``)
-    \\ FULL_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
-    \\ ASM_SIMP_TAC (srw_ss()) [FUN_FMAP_DEF,IN_INSERT]
-    \\ `(if ev then 2 * n else 2 * n + 1) IN
-        IMAGE (\n. if ev then 2 * n else 2 * n + 1) (FDOM s1.refs)` by ALL_TAC
-    THEN1 (FULL_SIMP_TAC std_ss [IN_IMAGE] \\ METIS_TAC [])
-    \\ ASM_SIMP_TAC (srw_ss()) [FUN_FMAP_DEF,IN_INSERT]
-    \\ `n <> ptr` by (Cases_on `ev` \\ FULL_SIMP_TAC std_ss [] \\ DECIDE_TAC)
-    \\ `(if ev then 2 * n else (2 * n + 1)) DIV 2 <> ptr` by ALL_TAC
-    THEN1 (SRW_TAC [] [DIV_EQ_X] \\ DECIDE_TAC)
-    \\ ASM_SIMP_TAC std_ss [])
-*)
+            ValueArray (LUPDATE (bc_adjust (cb,sb,ev) x') n (MAP (bc_adjust (cb,sb,ev)) vs)))` by (
+         simp[ref_adjust_def,GSYM fmap_EQ,FDOM_FUPDATE,FUN_EQ_THM,FUNION_DEF] >>
+         conj_tac >- METIS_TAC[] >>
+         simp[FUN_FMAP_DEF] >>
+         gen_tac >>
+         reverse IF_CASES_TAC >- (
+           simp[FAPPLY_FUPDATE_THM,FUNION_DEF] >>
+           rw[] >> fs[] >> rw[] >> fs[] >>
+           METIS_TAC[] ) >>
+         fs[] >- (
+           qmatch_assum_abbrev_tac`z = nn` >>
+           `nn DIV 2 = ptr` by (
+             UNABBREV_ALL_TAC >>
+             rw[] >> simp[DIV_EQ_X] ) >>
+           simp[FAPPLY_FUPDATE_THM,LUPDATE_MAP] ) >>
+         qmatch_assum_rename_tac`z ∈ FDOM s1.refs`[] >>
+         qmatch_assum_abbrev_tac`y = nn` >>
+         `nn DIV 2 = z` by (
+             UNABBREV_ALL_TAC >>
+             rw[] >> simp[DIV_EQ_X] ) >>
+         simp[FAPPLY_FUPDATE_THM] >>
+         Cases_on`z=ptr`>>simp[]>-(
+           simp[Abbr`nn`,LUPDATE_MAP]) >>
+         IF_CASES_TAC >- (
+           fs[Abbr`nn`] >> pop_assum mp_tac >>
+           rw[] >> fsrw_tac[ARITH_ss][DIV_EQ_X] ) >>
+         simp[FUNION_DEF,FUN_FMAP_DEF] >>
+         IF_CASES_TAC >> simp[] >>
+         METIS_TAC[] )
+    \\ FULL_SIMP_TAC (std_ss++star_ss) [])
   THEN1 (* UpdateByte *) ERROR_TAC
   THEN1 (* Length *) ERROR_TAC
   THEN1 (* LengthByte *) ERROR_TAC
