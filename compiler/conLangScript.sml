@@ -136,8 +136,8 @@ val _ = Hol_datatype `
  v_i2 =
     Litv_i2 of lit
   | Conv_i2 of (num #  tid_or_exn option) => v_i2 list 
-  | Closure_i2 of (varN, v_i2) env => varN => exp_i2
-  | Recclosure_i2 of (varN, v_i2) env => (varN # varN # exp_i2) list => varN
+  | Closure_i2 of (varN, v_i2) alist => varN => exp_i2
+  | Recclosure_i2 of (varN, v_i2) alist => (varN # varN # exp_i2) list => varN
   | Loc_i2 of num
   | Vectorv_i2 of v_i2 list`;
 
@@ -363,11 +363,11 @@ val _ = Define `
     (st'',FUNION exh'' exh', (p'::ps'))))`;
 
 
-(*val build_rec_env_i2 : list (varN * varN * exp_i2) -> env varN v_i2 -> env varN v_i2 -> env varN v_i2*)
+(*val build_rec_env_i2 : list (varN * varN * exp_i2) -> alist varN v_i2 -> alist varN v_i2 -> alist varN v_i2*)
 val _ = Define `
  (build_rec_env_i2 funs cl_env add_to_env =  
 (FOLDR 
-    (\ (f,x,e) env' .  bind f (Recclosure_i2 cl_env funs f) env') 
+    (\ (f,x,e) env' .  (f, Recclosure_i2 cl_env funs f) :: env') 
     add_to_env 
     funs))`;
 
@@ -420,7 +420,7 @@ val _ = Define `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn do_eq_i2_defn;
 
-val _ = type_abbrev( "all_env_i2" , ``: (exh_ctors_env # ( v_i2 option) list # (varN, v_i2) env)``);
+val _ = type_abbrev( "all_env_i2" , ``: (exh_ctors_env # ( v_i2 option) list # (varN, v_i2) alist)``);
 
 val _ = Define `
  (all_env_i2_to_genv (exh,genv,env) = genv)`;
@@ -429,21 +429,21 @@ val _ = Define `
  (all_env_i2_to_env (exh,genv,env) = env)`;
 
 
-(*val exn_env_i2 : env varN v_i2*)
+(*val exn_env_i2 : alist varN v_i2*)
 val _ = Define `
- (exn_env_i2 = emp)`;
+ (exn_env_i2 = ([]))`;
 
 
-(*val do_opapp_i2 : list v_i2 -> maybe (env varN v_i2 * exp_i2)*)
+(*val do_opapp_i2 : list v_i2 -> maybe (alist varN v_i2 * exp_i2)*)
 val _ = Define `
  (do_opapp_i2 vs =  
 ((case vs of
       [Closure_i2 env n e; v] =>
-        SOME (bind n v env, e)
+        SOME (((n,v)::env), e)
     | [Recclosure_i2 env funs n; v] =>
         if ALL_DISTINCT (MAP (\ (f,x,e) .  f) funs) then
           (case find_recfun n funs of
-              SOME (n,e) => SOME (bind n v (build_rec_env_i2 funs env env), e)
+              SOME (n,e) => SOME (((n,v)::build_rec_env_i2 funs env env), e)
             | NONE => NONE
           )
         else
@@ -625,10 +625,10 @@ val _ = Define `
     NONE))`;
 
 
-(*val pmatch_i2 : exh_ctors_env -> store v_i2 -> pat_i2 -> v_i2 -> env varN v_i2 -> match_result (env varN v_i2)*)
+(*val pmatch_i2 : exh_ctors_env -> store v_i2 -> pat_i2 -> v_i2 -> alist varN v_i2 -> match_result (alist varN v_i2)*)
  val pmatch_i2_defn = Hol_defn "pmatch_i2" `
 
-(pmatch_i2 exh s (Pvar_i2 x) v' env = (Match (bind x v' env)))
+(pmatch_i2 exh s (Pvar_i2 x) v' env = (Match ((x,v')::env)))
 /\
 (pmatch_i2 exh s (Plit_i2 l) (Litv_i2 l') env =  
 (if l = l' then
@@ -737,12 +737,12 @@ evaluate_i2 ck env s (Con_i2 tag es) (s', Rval (Conv_i2 tag vs)))
 evaluate_i2 ck env s (Con_i2 tag es) (s', Rerr err))
 
 /\ (! ck env n v s.
-(lookup n (all_env_i2_to_env env) = SOME v)
+(ALOOKUP (all_env_i2_to_env env) n = SOME v)
 ==>
 evaluate_i2 ck env s (Var_local_i2 n) (s, Rval v))
 
 /\ (! ck env n s.
-(lookup n (all_env_i2_to_env env) = NONE)
+(ALOOKUP (all_env_i2_to_env env) n = NONE)
 ==>
 evaluate_i2 ck env s (Var_local_i2 n) (s, Rerr Rtype_error))
 
@@ -917,24 +917,24 @@ evaluate_match_i2 ck (exh,genv,env) (count,s) v ((p,e)::pes) err_v ((count,s), R
 evaluate_match_i2 ck env s v ((p,e)::pes) err_v (s, Rerr Rtype_error))`;
 
 val _ = Hol_reln ` (! ck exh genv n e vs s1 s2.
-(evaluate_i2 ck (exh,genv,emp) s1 e (s2, Rval (Conv_i2 (tuple_tag,NONE) vs)) /\
+(evaluate_i2 ck (exh,genv,[]) s1 e (s2, Rval (Conv_i2 (tuple_tag,NONE) vs)) /\
 (LENGTH vs = n))
 ==>
 evaluate_dec_i2 ck exh genv s1 (Dlet_i2 n e) (s2, Rval vs))
 
 /\ (! ck exh genv n e vs s1 s2.
-(evaluate_i2 ck (exh,genv,emp) s1 e (s2, Rval (Conv_i2 (tuple_tag,NONE) vs)) /\ ~ ((LENGTH vs) = n))
+(evaluate_i2 ck (exh,genv,[]) s1 e (s2, Rval (Conv_i2 (tuple_tag,NONE) vs)) /\ ~ ((LENGTH vs) = n))
 ==>
 evaluate_dec_i2 ck exh genv s1 (Dlet_i2 n e) (s2, Rerr Rtype_error))
 
 /\ (! ck exh genv n e v s1 s2.
-(evaluate_i2 ck (exh,genv,emp) s1 e (s2, Rval v) /\
+(evaluate_i2 ck (exh,genv,[]) s1 e (s2, Rval v) /\
 ~ (? vs. v = Conv_i2 (tuple_tag,NONE) vs))
 ==>
 evaluate_dec_i2 ck exh genv s1 (Dlet_i2 n e) (s2, Rerr Rtype_error))
 
 /\ (! ck exh genv n e err s s'.
-(evaluate_i2 ck (exh,genv,emp) s e (s', Rerr err))
+(evaluate_i2 ck (exh,genv,[]) s e (s', Rerr err))
 ==>
 evaluate_dec_i2 ck exh genv s (Dlet_i2 n e) (s', Rerr err))
 

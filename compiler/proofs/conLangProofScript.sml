@@ -4,7 +4,6 @@ open miscTheory;
 open astTheory;
 open semanticPrimitivesTheory;
 open libTheory;
-open libPropsTheory;
 open modLangTheory;
 open conLangTheory;
 open modLangProofTheory;
@@ -16,29 +15,6 @@ open miscLib;
 (*open decLangProofTheory *)
 
 val _ = new_theory "conLangProof";
-
-val merge_envC_assoc = Q.prove (
-`!envC1 envC2 envC3.
-  merge_envC envC1 (merge_envC envC2 envC3) = merge_envC (merge_envC envC1 envC2) envC3`,
- rw [] >>
- PairCases_on `envC1` >>
- PairCases_on `envC2` >>
- PairCases_on `envC3` >>
- rw [merge_envC_def, merge_def]);
-
-val lookup_con_id_rev = Q.prove (
-`!cn fenvC envC.
-  ALL_DISTINCT (MAP FST fenvC) ⇒
-  lookup_con_id cn (merge_envC ([],REVERSE fenvC) envC)
-  =
-  lookup_con_id cn (merge_envC ([],fenvC) envC)`,
- rw [] >>
- cases_on `cn` >>
- PairCases_on `envC` >>
- fs [merge_envC_def, lookup_con_id_def, merge_def, lookup_append] >>
- every_case_tac >>
- fs [] >>
- metis_tac [lookup_reverse, SOME_11, NOT_SOME_NONE]);
 
 val same_tid_diff_ctor = Q.prove (
 `!cn1 cn2 t1 t2.
@@ -52,17 +28,17 @@ fs [same_tid_def, same_ctor_def]);
 
 val build_rec_env_i2_help_lem = Q.prove (
 `∀funs env funs'.
-FOLDR (λ(f,x,e) env'. bind f (Recclosure_i2 env funs' f) env') env' funs =
-merge (MAP (λ(fn,n,e). (fn, Recclosure_i2 env funs' fn)) funs) env'`,
+FOLDR (λ(f,x,e) env'. ((f, Recclosure_i2 env funs' f) :: env')) env' funs =
+MAP (λ(fn,n,e). (fn, Recclosure_i2 env funs' fn)) funs ++ env'`,
 Induct >>
-rw [merge_def, bind_def] >>
+rw [] >>
 PairCases_on `h` >>
 rw []);
 
 val build_rec_env_i2_merge = Q.store_thm ("build_rec_env_i2_merge",
 `∀funs funs' env env'.
   build_rec_env_i2 funs env env' =
-  merge (MAP (λ(fn,n,e). (fn, Recclosure_i2 env funs fn)) funs) env'`,
+  MAP (λ(fn,n,e). (fn, Recclosure_i2 env funs fn)) funs ++ env'`,
 rw [build_rec_env_i2_def, build_rec_env_i2_help_lem]);
 
 val funs_to_i2_map = Q.prove (
@@ -100,7 +76,7 @@ gtagenv_wf gtagenv ⇔
 val envC_tagged_def = Define `
 envC_tagged envC tagenv gtagenv =
   (!cn num_args t.
-    lookup_con_id cn envC = SOME (num_args, t)
+    lookup_mod_env cn envC = SOME (num_args, t)
     ⇒
     ?tag t'.
       lookup_tag_env (SOME cn) tagenv = (tag, t') ∧
@@ -548,7 +524,7 @@ val pmatch_to_i2_correct = Q.prove (
     match_result_to_i2 gtagenv r r_i2)`,
  ho_match_mp_tac pmatch_i1_ind >>
  rw [pmatch_i1_def, pmatch_i2_def, pat_to_i2_def, match_result_to_i2_def] >>
- fs [match_result_to_i2_def, bind_def, v_to_i2_eqns] >>
+ fs [match_result_to_i2_def, v_to_i2_eqns] >>
  rw [pmatch_i2_def, match_result_to_i2_def]
  >- (every_case_tac >>
      fs []
@@ -726,12 +702,12 @@ val env_to_i2_append = Q.prove (
 
 val env_to_i2_lookup = Q.prove (
 `!gtagenv env x v env'.
-  lookup x env = SOME v ∧
+  ALOOKUP env x = SOME v ∧
   env_to_i2 gtagenv env env'
   ⇒
   ?v'.
     v_to_i2 gtagenv v v' ∧
-    lookup x env' = SOME v'`,
+    ALOOKUP env' x = SOME v'`,
  induct_on `env` >>
  rw [] >>
  PairCases_on `h` >>
@@ -1080,7 +1056,7 @@ val do_opapp_i2 = Q.prove (
      rw [] >>
      qexists_tac `tagenv'` >>
      rw [] >>
-     fs [env_all_to_i2_cases, bind_def] >>
+     fs [env_all_to_i2_cases] >>
      rw [v_to_i2_eqns, all_env_i1_to_genv_def, all_env_i2_to_genv_def, get_tagenv_def] >>
      fs [cenv_inv_def])
  >- (qpat_assum `v_to_i2 a0 (Recclosure_i1 b0 c0 d0) e0` (mp_tac o SIMP_RULE (srw_ss()) [Once v_to_i2_cases]) >>
@@ -1097,9 +1073,9 @@ val do_opapp_i2 = Q.prove (
          fs [])
      >- (qexists_tac `tagenv'` >>
          rw [] >>
-         fs [env_all_to_i2_cases, bind_def] >>
+         fs [env_all_to_i2_cases] >>
          rw [v_to_i2_eqns, all_env_i1_to_genv_def, all_env_i2_to_genv_def,
-             build_rec_env_i1_merge, build_rec_env_i2_merge, merge_def] >>
+             build_rec_env_i1_merge, build_rec_env_i2_merge] >>
          fs [funs_to_i2_map]
          >- fs [cenv_inv_def]
          >- (match_mp_tac env_to_i2_append >>
@@ -1324,7 +1300,7 @@ val exp_to_i2_correct = Q.prove (
                     every_case_tac >>
                     fs [] >>
                     rw [v_to_i2_eqns]) >>
-     metis_tac [bind_def])
+     metis_tac [])
  >- metis_tac []
  >- metis_tac []
  >- (* Letrec *)
@@ -1336,7 +1312,7 @@ val exp_to_i2_correct = Q.prove (
                            (exh',genv',build_rec_env_i2 (funs_to_i2 tagenv funs) env' env')
                            gtagenv`
          by (fs [env_all_to_i2_cases] >>
-             rw [build_rec_env_i1_merge, build_rec_env_i2_merge, merge_def] >>
+             rw [build_rec_env_i1_merge, build_rec_env_i2_merge] >>
              rw [] >>
              match_mp_tac env_to_i2_append >>
              rw [] >>
