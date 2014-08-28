@@ -10,14 +10,15 @@ val tenvT_ok_def = tenvT_ok_def;
 val flat_tenvT_ok_def = flat_tenvT_ok_def;
 end;
 
+val _ = new_theory "inferProps";
+
 val fevery_to_drestrict = Q.prove (
 `!P m s.
   FEVERY P m ⇒ FEVERY P (DRESTRICT m s)`,
  rw [FEVERY_ALL_FLOOKUP,FLOOKUP_DRESTRICT]);
 
-
 (* Not sure these are general enough to go elsewhere.*)
-val flookup_update_list_none = Q.prove (
+val flookup_update_list_none = Q.store_thm ("flookup_update_list_none",
 `!x m l.
   (FLOOKUP (m |++ l) x = NONE)
   =
@@ -29,7 +30,7 @@ val flookup_update_list_none = Q.prove (
  fs [] >>
  metis_tac []);
 
-val flookup_update_list_some = Q.prove (
+val flookup_update_list_some = Q.store_thm ("flookup_update_list_some",
 `!x m l y. 
   (FLOOKUP (m |++ l) x = SOME y)
   =
@@ -49,8 +50,6 @@ rw [] >>
 PairCases_on `h` >>
 rw [] >>
 metis_tac []);
-
-val _ = new_theory "inferProps";
 
 val every_shim = Q.store_thm ("every_shim",
 `!l P. EVERY (\(x,y). P y) l = EVERY P (MAP SND l)`,
@@ -438,6 +437,15 @@ val lookup_st_ex_success = Q.prove (
 ho_match_mp_tac lookup_st_ex_ind >>
 rw [lookup_st_ex_def, failwith_def, st_ex_return_success]);
 
+val flookup_st_ex_success = Q.prove (
+`!pr x l st v st'. 
+  (flookup_st_ex pr x l st = (Success v, st'))
+  =
+  ((FLOOKUP l x = SOME v) ∧ (st = st'))`,
+rw [flookup_st_ex_def] >>
+every_case_tac >>
+fs [failwith_def, st_ex_return_success]);
+
 val lookup_tenvC_st_ex_success = Q.prove (
 `!cn l st v st'. 
   (lookup_tenvC_st_ex cn l st = (Success v, st'))
@@ -541,7 +549,7 @@ val success_eqns =
   LIST_CONJ [st_ex_return_success, st_ex_bind_success, fresh_uvar_success,
              apply_subst_success, add_constraint_success, lookup_st_ex_success,
              n_fresh_uvar_success, failwith_success, add_constraints_success,
-             oneTheory.one,
+             oneTheory.one,flookup_st_ex_success,
              get_next_uvar_success, apply_subst_list_success, guard_success,
              read_def, option_case_eq, lookup_tenvC_st_ex_success];
 
@@ -674,7 +682,7 @@ every_case_tac >>
 fs [success_eqns] >>
 rw [] >>
 fs [infer_st_rewrs] >>
-prove_tac [pure_add_constraints_append, pure_add_constraints_def, infer_p_constraints]); 
+prove_tac [pure_add_constraints_append, pure_add_constraints_def, infer_p_constraints]);
 
 val pure_add_constraints_wfs = Q.store_thm ("pure_add_constraints_wfs",
 `!s1 ts s2.
@@ -823,25 +831,16 @@ val check_env_lookup = Q.store_thm ("check_env_lookup",
 val check_menv_lookup = Q.store_thm ("check_menv_lookup",
 `!menv mn n env tvs t.
   check_menv menv ∧
-  (ALOOKUP menv mn = SOME env) ∧
+  (FLOOKUP menv mn = SOME env) ∧
   (ALOOKUP env n = SOME (tvs,t))
   ⇒
   check_t tvs {} t`,
- induct_on `menv` >>
- rw [check_t_def, check_menv_def] >>
- PairCases_on `h` >>
- fs [] >>
- cases_on `h0 = mn` >>
- fs [] >>
- rw [] >|
- [induct_on `env` >>
-      fs [] >>
-      rw [] >>
-      PairCases_on `h` >>
-      fs [] >>
-      cases_on `h0 = n` >>
-      fs [],
-  metis_tac [check_menv_def]]);
+ rw [check_menv_def] >>
+ imp_res_tac FEVERY_FLOOKUP >>
+ imp_res_tac ALOOKUP_MEM >>
+ fs [EVERY_MEM] >>
+ res_tac >>
+ fs []);
 
 val check_cenv_lookup = Q.store_thm ("check_cenv_lookup",
 `!cenv cn tvs ts t.
@@ -2170,8 +2169,8 @@ val infer_d_check = Q.store_thm ("infer_d_check",
   check_flat_cenv cenv' ∧
   check_env {} env'`,
  cases_on `d` >>
- REPEAT GEN_TAC >>
- STRIP_TAC >>
+ rpt gen_tac >>
+ strip_tac >>
  `?mdecls tdecls edecls. decls = (mdecls,tdecls,edecls)` by metis_tac [pair_CASES] >>
  fs [infer_d_def, success_eqns] >>
  fs []
@@ -2245,10 +2244,10 @@ val infer_d_check = Q.store_thm ("infer_d_check",
      `n ∈ FDOM last_sub` by fs [SUBSET_DEF] >>
      metis_tac [])
  >- (every_case_tac >>
-     fs [success_eqns] >>
+     fs [success_eqns, flookup_update_list_some] >>
      rw [check_env_def]
      >- (fs [flat_tenvT_ok_def, EVERY_MAP, EVERY_MEM] >>
-         rw [FEVERY_ALL_FLOOKUP] >>
+         rw [FEVERY_ALL_FLOOKUP, flookup_update_list_some] >>
          imp_res_tac ALOOKUP_MEM >>
          PairCases_on `v` >>
          fs [EVERY_MAP, EVERY_MEM, MEM_MAP] >>
@@ -2259,7 +2258,7 @@ val infer_d_check = Q.store_thm ("infer_d_check",
      rw [EVERY_MAP, check_freevars_def, EVERY_MEM] >>
      match_mp_tac tenvT_ok_merge >>
      rw [tenvT_ok_def, FEVERY_FEMPTY] >>
-     rw [flat_tenvT_ok_def, FEVERY_ALL_FLOOKUP] >>
+     rw [flat_tenvT_ok_def, FEVERY_ALL_FLOOKUP, flookup_update_list_some] >>
      imp_res_tac ALOOKUP_MEM >>
      fs [EVERY_MAP, EVERY_MEM, MEM_MAP] >>
      PairCases_on `y` >>
@@ -2403,12 +2402,14 @@ val check_specs_check = Q.store_thm ("check_specs_check",
      strip_tac >>
      FIRST_X_ASSUM match_mp_tac >>
      rw [] >>
-     qabbrev_tac `new_tenvT = alist_to_fmap (MAP (λ(tvs,tn,ctors). (tn,tvs,Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn)))) tdefs)` >>
+     qabbrev_tac `new_tenvT = FEMPTY |++ MAP (λ(tvs,tn,ctors). (tn,tvs,Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn)))) tdefs` >>
      `flat_tenvT_ok (FUNION new_tenvT tenvT')`
           by (fs [flat_tenvT_ok_def] >>
               unabbrev_all_tac >>
               match_mp_tac fevery_funion >>
-              rw [FEVERY_ALL_FLOOKUP] >>
+              rw [flookup_fupdate_list, FEVERY_ALL_FLOOKUP] >>
+              full_case_tac >>
+              fs [] >>
               imp_res_tac ALOOKUP_MEM >>
               fs [MEM_MAP] >>
               PairCases_on `y` >>
@@ -2418,7 +2419,9 @@ val check_specs_check = Q.store_thm ("check_specs_check",
           by (match_mp_tac tenvT_ok_merge >>
               fs [tenvT_ok_def, flat_tenvT_ok_def] >>
               unabbrev_all_tac >>
-              rw [FEVERY_ALL_FLOOKUP] >>
+              rw [FEVERY_ALL_FLOOKUP, flookup_fupdate_list] >>
+              full_case_tac >>
+              fs [] >>
               imp_res_tac ALOOKUP_MEM >>
               fs [MEM_MAP] >>
               PairCases_on `y` >>
@@ -2504,7 +2507,7 @@ val infer_top_invariant = Q.store_thm ("infer_top_invariant",
      PairCases_on `v'` >>
      fs [success_eqns] >>
      rw [] >>
-     TRY(rw[check_menv_def]>>NO_TAC)>>
+     TRY(rw[check_menv_def, FEVERY_FEMPTY]>>NO_TAC)>>
      fs [check_cenv_def, check_flat_cenv_def, tenvT_ok_def, FEVERY_FEMPTY] >>
      metis_tac [infer_d_check, check_flat_cenv_def]));
 
@@ -2523,7 +2526,7 @@ val convert_t_def = tDefine "convert_t" `
 
 val convert_menv_def = Define `
 convert_menv menv = 
-  MAP (\(mn,env). (mn, MAP (\(x,(tvs,t)). (x,(tvs,convert_t t))) env)) menv`;
+  MAP (\(x,(tvs,t)). (x,(tvs,convert_t t))) o_f menv`;
 
 val convert_env_def = Define `
 convert_env s env = MAP (\(x,t). (x, convert_t (t_walkstar s t))) env`;
