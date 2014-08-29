@@ -1531,7 +1531,6 @@ val DeclAssumCons_SNOC_Dletrec = store_thm("DeclAssumCons_SNOC_Dletrec",
     Decls_Dletrec] \\ srw_tac [] [] \\ res_tac
   \\ PairCases_on `env2` \\ fs [write_rec_def]);
 
-  (*
 val DeclAssumCons_SNOC_Dtype = store_thm("DeclAssumCons_SNOC_Dtype",
   ``DeclAssumCons mn ds conses ce ==>
     !tds.
@@ -1539,14 +1538,13 @@ val DeclAssumCons_SNOC_Dtype = store_thm("DeclAssumCons_SNOC_Dtype",
         (MAP (\(tvs,tn,ctors). TypeId
           (case mn of NONE => Short tn
                     | SOME m => Long m tn)) tds ++ conses)
-        (build_tdefs mn tds ++ ce)``,
+        (FUNION (build_tdefs mn tds) ce)``,
   fs [DeclAssumCons_def,DeclAssum_def,Decls_NIL,Decls_APPEND,SNOC_APPEND,
     Decls_Dtype] \\ srw_tac [] [] \\ res_tac
   \\ PairCases_on `s2` \\ fs [] \\ srw_tac [] [] \\ res_tac \\ fs []
   \\ PairCases_on `env2`
   \\ fs [type_defs_to_new_tdecs_def,mk_id_def,write_tds_def,
          merge_mod_env_def]);
-         *)
 
 val EVERY_lookup_lemma = prove(
   ``!xs. ALL_DISTINCT (MAP FST xs) ==>
@@ -1555,16 +1553,17 @@ val EVERY_lookup_lemma = prove(
   \\ fs [EVERY_MEM,FORALL_PROD] \\ rpt strip_tac
   \\ res_tac \\ Cases_on `h0 = p_1` \\ fs [MEM_MAP,FORALL_PROD] \\ metis_tac []);
 
-  (*
 val DeclAssumCons_cons_lookup = store_thm("DeclAssumCons_cons_lookup",
   ``DeclAssumCons mn ds conses ce ==>
     !env tys.
        DeclAssum mn ds env tys ==>
-         EVERY (\(cn,l,tyname). lookup_cons cn env = SOME (l, tyname)) ce``,
+         FEVERY (\(cn,l,tyname). lookup_cons cn env = SOME (l, tyname)) ce``,
   fs [DeclAssumCons_def] \\ srw_tac [] [lookup_cons_def] \\ res_tac
-  \\ PairCases_on `env` \\ fs [lookup_con_id_def]
+  \\ PairCases_on `env` \\ fs [lookup_mod_env_def]
+  >> rw [finite_mapTheory.FEVERY_DEF] >>
+  Cases_on `ce ' x` >>
+  rw [finite_mapTheory.FLOOKUP_DEF]
   \\ match_mp_tac EVERY_lookup_lemma \\ fs []);
-  *)
 
 (* size lemmas *)
 

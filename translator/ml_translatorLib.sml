@@ -1389,13 +1389,13 @@ fun derive_thms_for_type ty = let
           \\ ASM_REWRITE_TAC [evaluate_Mat]
           \\ Q.LIST_EXISTS_TAC [`v`,`0,empty_store`] \\ ASM_REWRITE_TAC []
           \\ PairCases_on `env`
-          \\ FULL_SIMP_TAC (srw_ss()) [pmatch_def,bind_def,pat_bindings_def,
+          \\ FULL_SIMP_TAC (srw_ss()) [pmatch_def,pat_bindings_def,
                   lookup_cons_def,same_tid_def,id_to_n_def,
                   same_ctor_def,write_def]
           \\ NTAC n
             (ONCE_REWRITE_TAC [evaluate_match_rw]
              \\ ASM_SIMP_TAC (srw_ss()) [pat_bindings_def,pmatch_def,
-                  same_ctor_def,same_tid_def,id_to_n_def,write_def,bind_def])
+                  same_ctor_def,same_tid_def,id_to_n_def,write_def])
     val tac = init_tac THENL (map (fn (n,f,fxs,pxs,tm,exp,xs) => case_tac n) ts)
 (*
 val n = 1
@@ -1612,7 +1612,7 @@ fun inst_case_thm tm hol2deep = let
     val (z1,z2) = dest_imp (concl lemma)
     val thz =
       QCONV (SIMP_CONV std_ss [ASSUME x1,Eval_Var_SIMP,
-               lookup_def,lookup_var_write] THENC
+               lookup_var_write] THENC
              DEPTH_CONV stringLib.string_EQ_CONV THENC
              SIMP_CONV std_ss []) z1 |> DISCH x1
     val lemma = MATCH_MP sat_hyp_lemma (CONJ thz lemma)
@@ -2077,7 +2077,7 @@ fun inst_Eval_env v th = let
   val assum = ``Eval env (Var (Short ^str)) (^inv ^v)``
   val new_env = ``write ^str (v:v) env``
   val old_env = new_env |> rand
-  val c = SIMP_CONV bool_ss [Eval_Var_SIMP,lookup_def,lookup_var_write]
+  val c = SIMP_CONV bool_ss [Eval_Var_SIMP,lookup_var_write]
           THENC DEPTH_CONV stringLib.string_EQ_CONV
           THENC REWRITE_CONV []
   val c = (RATOR_CONV o RAND_CONV) c THENC
@@ -2134,7 +2134,7 @@ fun apply_Eval_Recclosure recc fname v th = let
   val thx = th |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
                |> DISCH_ALL |> DISCH assum (* |> SIMP_RULE bool_ss [] *)
                |> INST [old_env|->new_env]
-               |> PURE_REWRITE_RULE [Eval_Var_SIMP,lookup_def,
+               |> PURE_REWRITE_RULE [Eval_Var_SIMP,
                                      lookup_var_write,lookup_cons_write]
                |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
                |> REWRITE_RULE [SafeVar_def]
@@ -2146,10 +2146,10 @@ fun apply_Eval_Recclosure recc fname v th = let
   val th2 = MATCH_MP lemma (Q.INST [`env`|->`cl_env`] (GEN ``v:v`` th1))
   val assum = ASSUME (fst (dest_imp (concl th2)))
   val th3 = D th2 |> REWRITE_RULE [assum]
-                  |> REWRITE_RULE [Eval_Var_SIMP,lookup_def,
+                  |> REWRITE_RULE [Eval_Var_SIMP,
                        lookup_var_write,FOLDR,write_rec_thm]
                   |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV)
-                  |> REWRITE_RULE [Eval_Var_SIMP,lookup_def,lookup_var_write,FOLDR]
+                  |> REWRITE_RULE [Eval_Var_SIMP,lookup_var_write,FOLDR]
                   |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
                   |> REWRITE_RULE [SafeVar_def]
   val lemma = Eval_Eq_Recclosure |> UNDISCH
