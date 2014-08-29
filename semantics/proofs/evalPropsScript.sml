@@ -736,7 +736,7 @@ val evaluate_Tmod_tys = store_thm("evaluate_Tmod_tys",
     ¬MEM cn (FLAT (MAP ctors_of_dec decs1))
     ⇒
     (FLOOKUP tys cn = SOME (LENGTH as, TypeId (Long mn tn)))``,
-  rw[evaluate_top_cases,FEMPTY_FUPDATE_EQ] >>
+  rw[evaluate_top_cases,miscTheory.FEMPTY_FUPDATE_EQ] >>
   METIS_TAC[evaluate_decs_tys]) |> GEN_ALL
 
 val _ = export_theory ();
