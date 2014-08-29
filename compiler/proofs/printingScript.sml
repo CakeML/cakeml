@@ -407,8 +407,8 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
       ⇒
       let str =
         case d of
-        | Dtype ts => print_envC ([],build_tdefs NONE ts)
-        | Dexn cn ts => print_envC ([],[(cn, (LENGTH ts, TypeExn))])
+        | Dtype ts => print_envC (FEMPTY,build_tdefs NONE ts)
+        | Dexn cn ts => print_envC (FEMPTY,FEMPTY |+ (cn, (LENGTH ts, TypeExn)))
         | d => print_bv_list tvs bvs in
       let bs' = bs with
         <|pc := next_addr bs.inst_length (bc0++code)
@@ -432,7 +432,7 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
       simp[compile_print_types_def,Once SWAP_REVERSE] >>
       simp[Once SWAP_REVERSE] >>
       simp[print_envC_def,semanticPrimitivesTheory.build_tdefs_def,LENGTH_NIL] >>
-      rw[] >> simp[Once RTC_CASES1] >> simp[bc_state_component_equality] ) >>
+      rw[] >> simp[Once RTC_CASES1] >> simp[bc_state_component_equality, FDOM_FUPDATE_LIST] ) >>
     qx_gen_tac`x` >> PairCases_on`x` >>
     gen_tac >> (disch_then (assume_tac o SYM)) >>
     simp[compile_print_types_def] >>
@@ -475,6 +475,8 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
       simp[MAP_REVERSE,MAP_MAP_o,combinTheory.o_DEF] >>
       simp[UNCURRY,astTheory.mk_id_def] >>
       simp[LAMBDA_PROD] ) >>
+    simp [FDOM_FUPDATE_LIST] >>
+    cheat >>
     metis_tac[RTC_TRANSITIVE,transitive_def])
   >- (
     simp[compile_print_dec_def] >>

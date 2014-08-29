@@ -21,9 +21,6 @@ val type_to_string_def = tDefine "type_to_string" `
 val print_envM_def = Define `
 print_envM envM = CONCAT (MAP (λ(x,m). "module " ++ x ++ " = <structure>\n") envM)`;
 
-val print_envC_def = Define `
-print_envC (menvC,envC) = CONCAT (MAP (λx. x ++ " = <constructor>\n") (SET_TO_LIST (FDOM envC)))`;
-
 val print_lit_def = Define `
 (print_lit (IntLit i) = int_to_string i) ∧
 (print_lit (StrLit s) = string_to_string s) ∧
@@ -46,11 +43,11 @@ val print_envE_def = Define `
   "val " ++ x ++ ":" ++ type_to_string t ++ " = " ++ print_v v ++ "\n" ++ print_envE types envE)`;
 
 val print_result_def = Define `
-(print_result types (Tdec _) envC (Rval (envM,envE)) = print_envC envC ++ print_envE types envE) ∧
-(print_result _ (Tmod mn _ _) _ (Rval _) = "structure "++mn++" = <structure>\n") ∧
-(print_result _ _ _ (Rerr Rtimeout_error) = "<timeout error>\n") ∧
-(print_result _ _ _ (Rerr Rtype_error) = "<type error>\n") ∧
-(print_result _ _ _ (Rerr (Rraise e)) = "raise " ++ print_v e ++ "\n")`;
+(print_result types (Tdec _) (Rval (envM,envE)) = print_envE types envE) ∧
+(print_result _ (Tmod mn _ _) (Rval _) = "structure "++mn++" = <structure>\n") ∧
+(print_result _ _ (Rerr Rtimeout_error) = "<timeout error>\n") ∧
+(print_result _ _ (Rerr Rtype_error) = "<type error>\n") ∧
+(print_result _ _ (Rerr (Rraise e)) = "raise " ++ print_v e ++ "\n")`;
 
 val print_prog_result_def = Define`
   (print_prog_result types (Rval (envM,envE)) =
