@@ -193,51 +193,50 @@ val s_val_eq_REVERSE = prove(
   ho_match_mp_tac (fetch "-" "s_val_eq_ind")>>
   rw[]>>fs[s_val_eq_def,s_val_eq_APPEND])
 
-
-(*CHEATED NOTE: I hope these are also true for n > LENGTH s
- so I don't have to add preconditions everywhere...*)
-val LAST_N_GT_LENGTH = prove(
-  ``!s n. n>=LENGTH s ==> LAST_N n s = s``,
-  fs[bvpTheory.LAST_N_def] >>
-  Induct>>fs[listTheory.TAKE_def]
-
-val s_val_eq_equiv = prove(
-  ``!s t. s_val_eq s t ==>
-      !n. n< LENGTH s ==>
-          s_frame_val_eq (EL n s) (EL n t)``,
+val s_val_eq_TAKE = prove(
+  ``!s t n. s_val_eq s t ==> s_val_eq (TAKE n s) (TAKE n t)``,
   ho_match_mp_tac (fetch "-" "s_val_eq_ind")>>
-  rw[]>>fs[s_val_eq_def,s_frame_val_eq_def]
-  
-
-
-EVERY s_frame_val_eq s
+  rw[]>>fs[s_val_eq_def]>>IF_CASES_TAC>>
+  fs[s_val_eq_def])
 
 val s_val_eq_LAST_N = prove(
   ``!s t n. s_val_eq s t 
     ==> s_val_eq (LAST_N n s) (LAST_N n t)``,
   ho_match_mp_tac (fetch "-" "s_val_eq_ind")>>
   rw[bvpTheory.LAST_N_def]>>fs[s_val_eq_def]>>
- 
+  `s_val_eq [x] [y]` by fs[s_val_eq_def]>>
+  `s_val_eq (REVERSE s ++ [x]) (REVERSE t ++[y])` by
+    fs[s_val_eq_APPEND,s_val_eq_REVERSE]>>
+  IMP_RES_TAC s_val_eq_TAKE>> 
+  metis_tac[s_val_eq_REVERSE])
 
-  fs[bvpTheory.LAST_N_def]>>rpt strip_tac>>
-  `LENGTH t = LENGTH s` by fs[s_val_eq_length]>>
-  Cases_on`n<=LENGTH s`>-
-    (fs[rich_listTheory.TAKE_REVERSE]>>
-     Cases_on`LAST
-      
-  cheat)
+val s_key_eq_APPEND = prove(
+  ``!s t x y. (s_key_eq s t /\ s_key_eq x y)==> s_key_eq (s++x) (t++y)``,
+  ho_match_mp_tac (fetch "-" "s_key_eq_ind")>>
+  rw[]>>fs[s_key_eq_def])
+
+val s_key_eq_REVERSE = prove(
+  ``!s t. s_key_eq s t ==> s_key_eq (REVERSE s) (REVERSE t)``,
+  ho_match_mp_tac (fetch "-" "s_key_eq_ind")>>
+  rw[]>>fs[s_key_eq_def,s_key_eq_APPEND])
+
+val s_key_eq_TAKE = prove(
+  ``!s t n. s_key_eq s t ==> s_key_eq (TAKE n s) (TAKE n t)``,
+  ho_match_mp_tac (fetch "-" "s_key_eq_ind")>>
+  rw[]>>fs[s_key_eq_def]>>IF_CASES_TAC>>
+  fs[s_key_eq_def])
 
 val s_key_eq_LAST_N = prove(
   ``!s t n. s_key_eq s t 
     ==> s_key_eq (LAST_N n s) (LAST_N n t)``,
-
-  fs[bvpTheory.LAST_N_def]>>rpt strip_tac>>
-  `LENGTH t = LENGTH s` by fs[s_val_eq_length]>>
-  Cases_on`n > LENGTH s`>>
-  `
-  fs[rich_listTheory.TAKE_REVERSE]>>
-  cheat)
-
+  ho_match_mp_tac (fetch "-" "s_key_eq_ind")>>
+  rw[bvpTheory.LAST_N_def]>>fs[s_key_eq_def]>>
+  `s_key_eq [x] [y]` by fs[s_key_eq_def]>>
+  `s_key_eq (REVERSE s ++ [x]) (REVERSE t ++[y])` by
+    fs[s_key_eq_APPEND,s_key_eq_REVERSE]>>
+  IMP_RES_TAC s_key_eq_TAKE>> 
+  metis_tac[s_key_eq_REVERSE])
+ 
 val s_key_eq_tail = prove(
  ``!a b c d. s_key_eq (a::b) (c::d) ==> s_key_eq b d``,
   fs[s_key_eq_def])
@@ -271,7 +270,6 @@ val s_val_eq_LAST_N_exists = prove(
   Cases_on`LAST_N n t`>>
   fs[s_val_eq_def]>>
   Cases_on`h`>>Cases_on`o'`>>fs[s_frame_val_eq_def])
-
 
 
 val LAST_N_LENGTH_cond = prove(
@@ -609,18 +607,20 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
          (*handler*)
          fs[call_env_def,push_env_def,dec_clock_def,LET_THM,env_to_list_def]>>
          Cases_on`x''`>>BasicProvers.EVERY_CASE_TAC>>rfs[set_var_def]>>fs[]>>
-         `r''.handler = s.handler` by (`LENGTH s.stack +1 = LENGTH (StackFrame
-             (QSORT (λx y. s.permute 0 (FST x) ≤ s.permute 0 (FST y))
-             (toAList x')) (SOME s.handler)::s.stack)` by fs[arithmeticTheory.ADD1]>>
+         `r''.handler = s.handler` by (`LENGTH s.stack +1 = 
+          LENGTH (StackFrame (list_rearrange (s.permute 0) 
+             (QSORT (λx y.FST x ≤ FST y) (toAList x'))) 
+             (SOME s.handler)::s.stack)` by fs[arithmeticTheory.ADD1]>>
            pop_assum SUBST_ALL_TAC>>
            fs[LAST_N_LENGTH]>>
            metis_tac[s_key_eq_trans,s_key_eq_sym])>>
          TRY
            (qho_match_abbrev_tac`A ∧ B /\ C` >> unabbrev_all_tac>>
            (ONCE_REWRITE_TAC[CONJ_ASSOC]>>CONJ_TAC>-
-           (`LENGTH s.stack +1 = LENGTH (StackFrame
-             (QSORT (λx y. s.permute 0 (FST x) ≤ s.permute 0 (FST y))
-             (toAList x')) (SOME s.handler)::s.stack)` by fs[arithmeticTheory.ADD1]>>
+           (`LENGTH s.stack +1 = 
+             LENGTH (StackFrame (list_rearrange (s.permute 0) 
+             (QSORT (λx y.FST x ≤ FST y) (toAList x'))) 
+             (SOME s.handler)::s.stack)` by fs[arithmeticTheory.ADD1]>>
            pop_assum SUBST_ALL_TAC>>
            fs[LAST_N_LENGTH]>>
            metis_tac[s_key_eq_trans,s_key_eq_sym])>>
@@ -645,9 +645,11 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
             first_x_assum(qspec_then `st` assume_tac)>>
             rfs[]>> HINT_EXISTS_TAC>>
             metis_tac[s_key_eq_trans,handler_eq]))>>
-            CONJ_TAC >- (`LENGTH s.stack +1 = LENGTH (StackFrame
-             (QSORT (λx y. s.permute 0 (FST x) ≤ s.permute 0 (FST y))
-             (toAList x')) (SOME s.handler)::s.stack)` by fs[arithmeticTheory.ADD1]>>
+            CONJ_TAC >- (
+            `LENGTH s.stack +1 = 
+             LENGTH (StackFrame (list_rearrange (s.permute 0) 
+             (QSORT (λx y.FST x ≤ FST y) (toAList x'))) 
+             (SOME s.handler)::s.stack)` by fs[arithmeticTheory.ADD1]>>
              pop_assum SUBST_ALL_TAC>>
              fs[LAST_N_LENGTH]>>
              `LENGTH ls = LENGTH r''.stack` by fs[s_key_eq_length]>>
@@ -659,9 +661,10 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
              Q.EXISTS_TAC`lss'`>> 
             (*check*)
              CONJ_TAC>-
-             (`LENGTH s.stack +1 = LENGTH (StackFrame
-             (QSORT (λx y. s.permute 0 (FST x) ≤ s.permute 0 (FST y))
-             (toAList x')) (SOME s.handler)::s.stack)` by fs[arithmeticTheory.ADD1]>>
+             (`LENGTH s.stack +1 = 
+               LENGTH (StackFrame (list_rearrange (s.permute 0) 
+               (QSORT (λx y.FST x ≤ FST y) (toAList x'))) 
+               (SOME s.handler)::s.stack)` by fs[arithmeticTheory.ADD1]>>
              pop_assum SUBST_ALL_TAC>>
              fs[LAST_N_LENGTH]>>
              `LENGTH ls = LENGTH r''.stack` by fs[s_key_eq_length]>>
@@ -698,148 +701,4 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
              metis_tac[s_key_eq_trans]))
 (*DONE*)
 
-             (`LENGTH s.stack +1 = LENGTH (StackFrame
-             (QSORT (λx y. s.permute 0 (FST x) ≤ s.permute 0 (FST y))
-             (toAList x')) (SOME s.handler)::s.stack)` by fs[arithmeticTheory.ADD1]>>
-             pop_assum SUBST_ALL_TAC>>
-             fs[LAST_N_LENGTH]>>
-             `LENGTH ls = LENGTH r''.stack` by fs[s_key_eq_length]>>
-             fs[])
-             rpt BasicProvers.VAR_EQ_TAC>>
-             CONJ_TAC>-
-              Q.EXISTS_TAC`lss'''`>>fs[]>>
-               rw[]>>
-          
-          
-             metis_tac[s_key_eq_trans,s_key_eq_sym]
-                metis_tac[EQ_SYM_EQ]
-             HINT_EXISTS_TAC
-
-
-              first_x_assum(qspecl_then [`frame::s.stack`
-             first_x_assum(qspecl_then [`frame::xs`, 
-
-
- BasicProvers.VAR_EQ_TAC>>            
- first_x_assum(qspecl_then [`frame::xs`,`e''''''`,`ls''''''`] assume_tac)>>
-               rfs[]>>
-             `SUC (LENGTH xs) = LENGTH (frame::xs)` by fs[]>>
-              fs[LAST_N_LENGTH_cond]>> 
-              Q.UNABBREV_TAC`frame`>>
-
-
-              `e=e'` by metis_tac[]
-            `MAP FST lss = MAP FST lss'` by metis_tac[EQ_SYM_EQ]>>
-            `lss = lss'` by fs[LIST_EQ_MAP_PAIR]>>
-            pop_assum (SUBST1_TAC o SYM)>>
-            fs[]>>
-            first_x_assum(qspec_then `st` assume_tac)>>
-            rfs[]>> HINT_EXISTS_TAC>>
-            metis_tac[s_key_eq_trans,handler_eq]
-
-
-metis_tac[s_key_eq_trans,s_key_eq_sym])>>
-
-
-
-
-          last_x_assum(qspecl_then [`r''.stack`,`e'`,`ls'`] assume_tac)>>rfs[]>> 
-
-
-
-           `e'=e` by 
-          `lss = lss'` by
-             
-
-           FULL_SIMP_TAC pure_ss []        
-
-   pop_assum SUBST_ALL_TAC>>
-            fs[LAST_N_LENGTH]>>
-           pop_assum SUBST_ALL_TAC>> fs[LAST_N_LENGTH]>>
-           metis_tac[s_key_eq_trans,s_key_eq_sym])>>
-           
-
-        IMP_RES_TAC (GEN_ALL LAST_N_TL)>>
-         last_x_assum(qspec_then `frame` assume_tac)>>
-         fs[]>> rfs[]>>
-         `s_val_eq (frame::s.stack) (frame::xs)` by
-           metis_tac[s_val_eq_def,s_frame_val_eq_def] >>
-         fs[]>> HINT_EXISTS_TAC>>
-         Q.EXISTS_TAC`fromAList lss'`>>fs[word_state_component_equality]>>
-         Q.EXISTS_TAC`lss'`>>fs[]
- 
-       
-
- HINT_EXISTS_TAC>>
-
-
-metis_tac[]
-
-metis_tac[arithmeticTheory.ADD1]
-           fs[LENGTH]
-           fs[LAST_N_LENGTH]
-         `s.handler <= LENGTH s.stack` by fs[arithmeticTheory.ADD1,arithmeticTheory.LESS_OR]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-           Cases_on`
-    Cases_on`handler`>>fs[]>-
-      (*No handler*)
-      BasicProvers.EVERY_CASE_TAC>>fs[]
-    Cases_on`wEval (r,call_env q (push_env x' (IS_S
-
-    
-    BasicProvers.EVERY_CASE_TAC>>
-
-    rpt strip_tac>>fs[]>>
-    HINT_EXISTS_TAC
-
-
- ASSUME_TAC get_vars_stack_swap >> 
-  first_x_assum(qspecl_then[`args`,`s`,`s with stack := xs`
-simp[]>>
-   (*Tail call*)
-      (*result*)
-
-    `s.locals = (s with stack := xs).locals` by
-    fs[word_state_component_equality]>>
-  IMP_RES_TAC get_vars_stack_swap>>
-  first_x_assum(qspec_then `args` (SUBST1_TAC o SYM))>>simp[] 
-
- 
- BasicProvers.EVERY_CASE_TAC>>
-  Cases_on`MAP SND moves`>>fs[get_vars_def,get_var_def,s_key_eq_refl]>> 
-
-metis_tac[s_frame_key_eq_trans,s_frame_key_eq_sym]>>
-
-    
-  BasicProvers.FULL_CASE_TAC>- cheat>>
-  `x''''''.store = x''.store` by cheat>>
-  fs[has_space_def]>>
-  HINT_EXISTS_TAC
-  `  fs[pop_env_def,wGC_def]
-  
-  metis_tac[option_nchotomy]>>
-
-fs[option_nchotomy]
-
-  EXISTS_TAC ``xs``
-     
-BasicProvers.EVERY_CASE_TAC>>fs[] 
-
-uu
+val _ = export_theory();
