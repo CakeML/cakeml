@@ -247,13 +247,35 @@ val call_env_def = Define `
   call_env args (s:'a word_state) =
     s with <| locals := fromList2 args |>`;
 
+val list_rearrange_def = Define `
+  list_rearrange mover xs =
+    (* if the mover function is well-formed, use it *)
+    if (!i. i < LENGTH xs ==> mover i < LENGTH xs) then
+      GENLIST (\i. EL (mover i) xs) (LENGTH xs)
+    else (* if it isn't well-formed, just pretend it is I *)
+      xs`
+
 val env_to_list_def = Define `
   env_to_list env (bij_seq:num->num->num) =
-    let renamer = bij_seq 0 in
+    let mover = bij_seq 0 in
     let permute = (\n. bij_seq (n + 1)) in
     let l = toAList env in
-    let l = QSORT (\x y. renamer (FST x) <= renamer (FST y)) l in
+    let l = QSORT (\x y. FST x <= FST y) l in
+    let l = list_rearrange mover l in
       (l,permute)`
+
+
+val GENLIST_MAP = prove(
+  ``!k. (!i. i < LENGTH l ==> m i < LENGTH l) /\ k <= LENGTH l ==>
+        GENLIST (\i. EL (m i) (MAP f l)) k =
+        MAP f (GENLIST (\i. EL (m i) l) k)``,
+  Induct \\ fs [GENLIST] \\ REPEAT STRIP_TAC
+  \\ `k < LENGTH l /\ k <= LENGTH l` by DECIDE_TAC
+  \\ fs [EL_MAP]);
+
+val list_rearrange_MAP = prove(
+  ``!l f m. list_rearrange m (MAP f l) = MAP f (list_rearrange m l)``,
+  SRW_TAC [] [list_rearrange_def] \\ MATCH_MP_TAC GENLIST_MAP \\ fs []);
 
 val push_env_def = Define `
   push_env env b s =
