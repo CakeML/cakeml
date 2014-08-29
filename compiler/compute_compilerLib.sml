@@ -30,6 +30,7 @@ fun add_intermediate_compiler_compset compset = let
     ,none_tag_def
     ,subscript_tag_def
     ] compset
+  val () = compute_bytecodeLib.add_bytecode_tags_compset compset
   (* modLang compiler *)
   val () = add_thms
     [prog_to_i1_def
@@ -108,6 +109,9 @@ fun add_intermediate_compiler_compset compset = let
     ] compset
   val () = add_datatype ``:Cprim1``
   val () = add_datatype ``:Cprim2``
+  val () = add_datatype ``:Cprim2p``
+  val () = add_datatype ``:Cprim2s``
+  val () = add_datatype ``:Cupd``
   (* bytecode compiler *)
   val () =
     let

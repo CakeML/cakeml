@@ -1158,27 +1158,32 @@ val simple_repl_fun_basis_thm = store_thm("simple_repl_fun_basis_thm",
 val simple_repl_fun_basis_thm = save_thm("simple_repl_fun_basis_thm",
    simple_repl_basis_lemma)
 
+val basis_output = store_thm("basis_output",
+  ``(THE (bc_eval (install_code (SND(SND basis_state)) initial_bc_state))).output = ""``,
+  simp[basis_state_def] >>
+  strip_assume_tac basis_env_inv >>
+  imp_res_tac add_stop_invariant >>
+  simp[] >> fs[invariant_def])
+
 val unrolled_repl_fun_basis_thm = store_thm("unrolled_repl_fun_basis_thm",
   ``∀input.
     let (output',b) = unrolled_repl_fun (SND basis_state) input in
       ∃output.
-        let res = (THE (bc_eval (install_code (SND(SND basis_state)) initial_bc_state))).output in
-        output' = Result res output ∧
+        output' = Result "" output ∧
         repl basis_repl_env (get_type_error_mask output) input output ∧
         b``,
   rw[LET_THM] >>
   qspec_then`input`mp_tac simple_repl_fun_basis_thm >>
   simp[UNCURRY] >> strip_tac >>
   qspecl_then[`SND basis_state`,`input`]mp_tac unrolled_repl_thm >>
-  simp[initial_bc_state_side_basis_state] >>
+  simp[initial_bc_state_side_basis_state,basis_output] >>
   Cases_on`simple_repl_fun (SND basis_state) input`>>fs[])
 
 val unlabelled_repl_fun_basis_thm = store_thm("unlabelled_repl_fun_basis_thm",
   ``∀input.
     let (output',b) = unlabelled_repl_fun (SND basis_state) input in
     ∃output.
-      let res = (THE (bc_eval (install_code (SND(SND basis_state)) initial_bc_state))).output in
-      output' = Result res output ∧
+      output' = Result "" output ∧
       repl basis_repl_env (get_type_error_mask output) input output ∧
       b``,
   rw[LET_THM] >>
@@ -1229,8 +1234,7 @@ val basis_repl_fun_thm = store_thm("basis_repl_fun_thm",
   ``∀input.
     let (output',b) = basis_repl_fun input in
     ∃output.
-      let res = (THE (bc_eval (install_code (SND(SND basis_state)) initial_bc_state))).output in
-      output' = Result res output ∧
+      output' = Result "" output ∧
       repl basis_repl_env (get_type_error_mask output) input output ∧
       b``,
   rw[LET_THM] >>
