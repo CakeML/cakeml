@@ -58,7 +58,7 @@ invariant' se ce bs ⇔
     infer_sound_invariant ce.inf_tenvT ce.inf_tenvM ce.inf_tenvC ce.inf_tenvE ∧
     mdecls = set ce.inf_mdecls ∧
     env_rs (se.sem_envM, se.sem_envC, se.sem_envE) se.sem_store (genv,gtagenv,rd) ce.comp_rs bs ∧
-    bs.clock = NONE ∧ code_labels_ok (local_labels bs.code) ∧ code_executes_ok' bs`;
+    bs.output = "" ∧ bs.clock = NONE ∧ code_labels_ok (local_labels bs.code) ∧ code_executes_ok' bs`;
 
 (* Same as invariant', but with code_executes_ok *)
 val invariant_def = Define `
@@ -79,7 +79,7 @@ invariant se ce bs ⇔
     infer_sound_invariant ce.inf_tenvT ce.inf_tenvM ce.inf_tenvC ce.inf_tenvE ∧
     mdecls = set ce.inf_mdecls ∧
     env_rs (se.sem_envM, se.sem_envC, se.sem_envE) se.sem_store (genv,gtagenv,rd) ce.comp_rs bs ∧
-    bs.clock = NONE ∧ code_labels_ok (local_labels bs.code) ∧ init_code_executes_ok bs`;
+    bs.output = "" ∧ bs.clock = NONE ∧ code_labels_ok (local_labels bs.code) ∧ init_code_executes_ok bs`;
 
 val add_to_env_def = Define `
 add_to_env e prog =
