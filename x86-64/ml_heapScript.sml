@@ -80,13 +80,24 @@ val mw_def = tDefine "mw" `
     \\ SIMP_TAC std_ss [MATCH_MP DIV_LT_X ZERO_LT_dimword,ONE_LT_dimword]
     \\ DECIDE_TAC);
 
-val _ = Hol_datatype `tag = BlockTag of num | RefTag | NumTag of bool`;
+val _ = Hol_datatype `tag = BlockTag of num | RefTag | NumTag of bool | BytesTag of num`;
 
 val DataOnly_def = Define `
   DataOnly b xs = DataElement [] (LENGTH xs) (NumTag b,xs)`;
 
 val BlockRep_def = Define `
   BlockRep tag xs = DataElement xs (LENGTH xs) (BlockTag tag,[])`;
+
+val bytesToWords_def = Define`
+  (bytesToWords ([]:word8  list) = []) ∧
+  (bytesToWords (w1::w2::w3::w4::w5::w6::w7::w8::rest) =
+    (l2w 256 (MAP w2n [w1;w2;w3;w4;w5;w6;w7;w8]))::(bytesToWords rest)) ∧
+  (bytesToWords fewer = [l2w 256 (PAD_RIGHT 0 8 (MAP w2n fewer))])`
+
+val Bytes_def = Define`
+  Bytes (bs:word8 list) =
+    let ws = bytesToWords bs in
+    DataElement [] (LENGTH ws) (BytesTag (LENGTH bs), ws)`
 
 val bc_value_size_LEMMA = prove(
   ``!vs v. MEM v vs ==> bc_value_size v <= bc_value1_size vs``,
@@ -146,6 +157,8 @@ val bc_ref_inv_def = Define `
     | (SOME x, SOME (ValueArray ys)) =>
         (?zs. (heap_lookup x heap = SOME (RefBlock zs)) /\
               EVERY2 (\z y. bc_value_inv y (z,f,heap)) zs ys)
+    | (SOME x, SOME (ByteArray ws)) =>
+        (heap_lookup x heap = SOME (Bytes ws))
     | _ => F`;
 
 val bc_stack_ref_inv_def = Define `
@@ -255,10 +268,12 @@ val bc_ref_inv_related = prove(
   \\ Cases_on `FLOOKUP refs n` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ FULL_SIMP_TAC (srw_ss()) [FLOOKUP_DEF,f_o_f_DEF]
   \\ Cases_on `x'` \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ RES_TAC \\ FULL_SIMP_TAC (srw_ss()) [LENGTH_ADDR_MAP,EVERY2_ADDR_MAP]
-  \\ REPEAT STRIP_TAC \\ Q.PAT_ASSUM `EVERY2 qqq zs l` MP_TAC
-  \\ MATCH_MP_TAC EVERY2_IMP_EVERY2 \\ SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
-  \\ Cases_on `x'` \\ FULL_SIMP_TAC (srw_ss()) [ADDR_APPLY_def]);
+  THEN1 (
+    RES_TAC \\ FULL_SIMP_TAC (srw_ss()) [LENGTH_ADDR_MAP,EVERY2_ADDR_MAP]
+    \\ REPEAT STRIP_TAC \\ Q.PAT_ASSUM `EVERY2 qqq zs l` MP_TAC
+    \\ MATCH_MP_TAC EVERY2_IMP_EVERY2 \\ SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
+    \\ Cases_on `x'` \\ FULL_SIMP_TAC (srw_ss()) [ADDR_APPLY_def])
+  \\ ( fs[Bytes_def,LET_THM] >> res_tac >> simp[ADDR_MAP_def]));
 
 val RTC_lemma = prove(
   ``!r n. RTC (ref_edge refs) r n ==>
@@ -628,11 +643,13 @@ val cons_thm = store_thm("cons_thm",
   \\ Cases_on `FLOOKUP f n` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ Cases_on `FLOOKUP refs n` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ Cases_on `x'` \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ IMP_RES_TAC heap_store_rel_lemma \\ FULL_SIMP_TAC (srw_ss()) []
+  THEN1 (
+    IMP_RES_TAC heap_store_rel_lemma \\ FULL_SIMP_TAC (srw_ss()) []
   \\ Q.PAT_ASSUM `EVERY2 PP zs l` MP_TAC
   \\ MATCH_MP_TAC EVERY2_IMP_EVERY2 \\ FULL_SIMP_TAC (srw_ss()) []
   \\ REPEAT STRIP_TAC \\ RES_TAC \\ IMP_RES_TAC bc_value_inv_SUBMAP
   \\ `f SUBMAP f` by FULL_SIMP_TAC std_ss [SUBMAP_REFL] \\ RES_TAC)
+  THEN ( fs[Bytes_def,LET_THM] >> imp_res_tac heap_store_rel_lemma ))
 
 val cons_thm_EMPTY = store_thm("cons_thm_EMPTY",
   ``abs_ml_inv stack refs (roots,heap:('a,'b) ml_heap,a,sp) limit /\
@@ -904,12 +921,20 @@ val update_ref_thm = store_thm("update_ref_thm",
   \\ Cases_on `FLOOKUP f n` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ Cases_on `FLOOKUP refs n` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ Cases_on `x'''` \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ FULL_SIMP_TAC (srw_ss()) [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
-  \\ SRW_TAC [] []
-  \\ Q.EXISTS_TAC `zs'` \\ FULL_SIMP_TAC std_ss []
-  \\ FIRST_X_ASSUM MATCH_MP_TAC
-  \\ FULL_SIMP_TAC (srw_ss()) [INJ_DEF]
-  \\ METIS_TAC []);
+  THEN1 (
+    FULL_SIMP_TAC (srw_ss()) [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
+    \\ SRW_TAC [] []
+    \\ Q.EXISTS_TAC `zs'` \\ FULL_SIMP_TAC std_ss []
+    \\ FIRST_X_ASSUM MATCH_MP_TAC
+    \\ FULL_SIMP_TAC (srw_ss()) [INJ_DEF]
+    \\ METIS_TAC [])
+  THEN (
+    FULL_SIMP_TAC (srw_ss()) [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
+    \\ fs[Bytes_def,LET_THM] >>
+    first_x_assum(qspec_then`x''`mp_tac) >>
+    simp[] >> disch_then MATCH_MP_TAC >>
+    spose_not_then strip_assume_tac >>
+    fs[RefBlock_def]));
 
 val heap_deref_def = Define `
   (heap_deref a heap =
@@ -987,12 +1012,20 @@ val update_ref_thm1 = store_thm("update_ref_thm1",
   \\ Cases_on `FLOOKUP f n` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ Cases_on `FLOOKUP refs n` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ Cases_on `x'''` \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ FULL_SIMP_TAC (srw_ss()) [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
-  \\ SRW_TAC [] []
-  \\ Q.EXISTS_TAC `zs'` \\ FULL_SIMP_TAC std_ss []
-  \\ FIRST_X_ASSUM MATCH_MP_TAC
-  \\ FULL_SIMP_TAC (srw_ss()) [INJ_DEF]
-  \\ METIS_TAC []);
+  THEN1 (
+    FULL_SIMP_TAC (srw_ss()) [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
+    \\ SRW_TAC [] []
+    \\ Q.EXISTS_TAC `zs'` \\ FULL_SIMP_TAC std_ss []
+    \\ FIRST_X_ASSUM MATCH_MP_TAC
+    \\ FULL_SIMP_TAC (srw_ss()) [INJ_DEF]
+    \\ METIS_TAC [])
+  THEN (
+    FULL_SIMP_TAC (srw_ss()) [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
+    \\ fs[Bytes_def,LET_THM] >>
+    first_x_assum(qspec_then`x''`mp_tac) >>
+    simp[] >> disch_then MATCH_MP_TAC >>
+    spose_not_then strip_assume_tac >>
+    fs[RefBlock_def]));
 
 (* -- works up to this point -- *)
 
@@ -1092,7 +1125,10 @@ val new_ref_thm = store_thm("new_ref_thm",
   \\ Cases_on `FLOOKUP f n` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ Cases_on `FLOOKUP refs n` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ FULL_SIMP_TAC (srw_ss()) [FDOM_FUPDATE,FAPPLY_FUPDATE_THM,FLOOKUP_DEF]
-  \\ Cases_on `x'` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ reverse (Cases_on `x'`) \\ FULL_SIMP_TAC (srw_ss()) []
+  THEN1 (
+    fs[Bytes_def,LET_THM] >>
+    imp_res_tac heap_store_rel_lemma )
   \\ `isSomeDataElement (heap_lookup (f ' n) heap)` by
     (FULL_SIMP_TAC std_ss [RefBlock_def] \\ EVAL_TAC
      \\ SIMP_TAC (srw_ss()) [] \\ NO_TAC)
@@ -1123,8 +1159,11 @@ val heap_el_def = Define `
 
 val deref_thm = store_thm("deref_thm",
   ``abs_ml_inv (RefPtr ptr::stack) refs (roots,heap,a,sp) limit ==>
-    ?r roots2 ts.
-      (roots = r::roots2) /\ (refs ' ptr = ValueArray ts) /\ ptr IN FDOM refs /\
+    ?r roots2.
+      (roots = r::roots2) /\ ptr IN FDOM refs /\
+      case refs ' ptr of
+      | ByteArray _ => T
+      | ValueArray ts =>
       !n. n < LENGTH ts ==>
           ?y. (heap_el r n heap = (y,T)) /\
                 abs_ml_inv (EL n ts::RefPtr ptr::stack) refs
@@ -1139,7 +1178,7 @@ val deref_thm = store_thm("deref_thm",
   \\ SIMP_TAC std_ss [Once bc_ref_inv_def]
   \\ FULL_SIMP_TAC (srw_ss()) [FLOOKUP_DEF]
   \\ Cases_on `ptr IN FDOM refs` \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ Cases_on `refs ' ptr` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ reverse (Cases_on `refs ' ptr`) \\ FULL_SIMP_TAC (srw_ss()) []
   \\ NTAC 3 STRIP_TAC
   \\ IMP_RES_TAC EVERY2_IMP_LENGTH
   \\ ASM_SIMP_TAC (srw_ss()) [heap_el_def,RefBlock_def]
