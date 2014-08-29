@@ -678,20 +678,18 @@ val evaluate_decs_last3 = prove(
   PairCases_on`cenv` >>
   rw[semanticPrimitivesTheory.merge_mod_env_def, FUNION_ASSOC])
 
-  (* TODO FMAP
 val evaluate_Tmod_last3 = store_thm("evaluate_Tmod_last3",
   ``evaluate_top ck env0 st (Tmod mn NONE decs) ((cs,u),envC,Rval ([(mn,env)],v)) ⇒
     decs = decs0 ++[Dlet (Pvar x) (App Opref [Con i []]);Dlet (Pvar y) (App Opref [Con j []]);Dlet (Pvar p) (Fun q z)]
   ⇒
     ∃n ls1 ls.
-    env = (p,(Closure (FST env0,merge_mod_env (FEMPTY,SND(HD(FST envC))) (FST(SND env0)),merge ls (SND(SND env0))) q z))::ls ∧
+    env = (p,(Closure (FST env0,merge_mod_env (FEMPTY,FAPPLY (FST envC) mn) (FST(SND env0)),ls++(SND(SND env0))) q z))::ls ∧
     (ls = (y,Loc (n+1))::(x,Loc n)::ls1) ∧
     n+1 < LENGTH (SND cs) ∧
     is_Refv (EL n (SND cs)) ∧
     is_Refv (EL (n+1) (SND cs))``,
   Cases_on`cs`>>rw[bigStepTheory.evaluate_top_cases]>>
   imp_res_tac evaluate_decs_last3 >> fs[]) |> GEN_ALL
-
 
 val evaluate_decs_tys = prove(
   ``∀decs0 decs1 decs ck mn env s s' tys c tds tvs tn cts cn as.
@@ -709,21 +707,21 @@ val evaluate_decs_tys = prove(
     Cases_on`FLOOKUP  (build_tdefs (SOME mn) tds) cn` >- (
       fs[FDOM_FUPDATE_LIST, flookup_thm, semanticPrimitivesTheory.build_tdefs_def,MEM_MAP,MEM_FLAT,PULL_EXISTS,EXISTS_PROD] >>
       METIS_TAC[] ) >>
-    `MEM (cn,LENGTH as,TypeId(Long mn tn)) (build_tdefs (SOME mn) tds)` by (
-      simp[semanticPrimitivesTheory.build_tdefs_def,MEM_MAP,MEM_FLAT,PULL_EXISTS,EXISTS_PROD] >>
-      simp[astTheory.mk_id_def] >> METIS_TAC[] ) >>
-    first_x_assum(qspec_then`SOME mn`mp_tac) >>
-    strip_tac >>
-    fs[MEM_EL] >>
-    qmatch_assum_rename_tac`(cn,X) = EL n1 ls`["X","ls"] >>
-    qmatch_assum_rename_tac`(cn,x) = EL n2 ls`["ls"] >>
-    `EL n1 (MAP FST (build_tdefs (SOME mn) tds)) =
-     EL n2 (MAP FST (build_tdefs (SOME mn) tds))` by (
-       simp[EL_MAP] >> METIS_TAC[FST] ) >>
-    fs[EL_ALL_DISTINCT_EL_EQ] >>
-    `n1 = n2` by METIS_TAC[] >>
-    fs[] >>
-    METIS_TAC[PAIR_EQ] ) >>
+    pop_assum mp_tac >>
+    simp[build_tdefs_def,flookup_fupdate_list] >>
+    BasicProvers.CASE_TAC >> simp[] >>
+    imp_res_tac ALOOKUP_MEM >> fs[] >> rw[] >>
+    qmatch_assum_abbrev_tac`ALOOKUP al k = SOME v` >>
+    `ALL_DISTINCT (MAP FST al)` by (
+      simp[Abbr`al`,ALL_DISTINCT_REVERSE,rich_listTheory.MAP_REVERSE] >>
+      simp[MAP_FLAT,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
+      fs[check_dup_ctors_thm,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,LAMBDA_PROD] ) >>
+    qmatch_abbrev_tac`v = w` >>
+    `MEM (k,w) al` by (
+      simp[Abbr`al`] >>
+      simp[Abbr`w`,MEM_FLAT,MEM_MAP,PULL_EXISTS,EXISTS_PROD,mk_id_def] >>
+      METIS_TAC[]) >>
+    imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >> fs[]) >>
   simp[FLOOKUP_FUNION] >>
   Cases_on`r`>>fs[semanticPrimitivesTheory.combine_dec_result_def] >>
   first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
@@ -732,15 +730,13 @@ val evaluate_decs_tys = prove(
   simp[])
 
 val evaluate_Tmod_tys = store_thm("evaluate_Tmod_tys",
-  ``evaluate_top F env s (Tmod mn NONE decs) (s',([m,tys],e),Rval r) ⇒
+  ``evaluate_top F env s (Tmod mn NONE decs) (s',(FEMPTY|+(m,tys),e),Rval r) ⇒
     decs = decs0 ++ [Dtype tds] ++ decs1 ⇒
     MEM (tvs,tn,cts) tds ∧ MEM (cn,as) cts ∧
     ¬MEM cn (FLAT (MAP ctors_of_dec decs1))
     ⇒
-    (lookup cn tys = SOME (LENGTH as, TypeId (Long mn tn)))``,
-  rw[evaluate_top_cases] >>
+    (FLOOKUP tys cn = SOME (LENGTH as, TypeId (Long mn tn)))``,
+  rw[evaluate_top_cases,FEMPTY_FUPDATE_EQ] >>
   METIS_TAC[evaluate_decs_tys]) |> GEN_ALL
-
-  *)
 
 val _ = export_theory ();

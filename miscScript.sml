@@ -15,6 +15,14 @@ val _ = export_rewrites["finite_map.FUNION_FEMPTY_2"]
 
 (* TODO: move/categorize *)
 
+val FEMPTY_FUPDATE_EQ = store_thm("FEMPTY_FUPDATE_EQ",
+  ``∀x y. (FEMPTY |+ x = FEMPTY |+ y) ⇔ (x = y)``,
+  Cases >> Cases >> rw[fmap_eq_flookup,FDOM_FUPDATE,FLOOKUP_UPDATE] >>
+  Cases_on`q=q'`>>rw[] >- (
+    rw[EQ_IMP_THM] >>
+    pop_assum(qspec_then`q`mp_tac) >> rw[] ) >>
+  qexists_tac`q`>>rw[])
+
 val ZIP_EQ_NIL = store_thm("ZIP_EQ_NIL",
   ``∀l1 l2. LENGTH l1 = LENGTH l2 ⇒ (ZIP (l1,l2) = [] ⇔ (l1 = [] ∧ l2 = []))``,
   rpt gen_tac >> Cases_on`l1`>>rw[LENGTH_NIL_SYM]>> Cases_on`l2`>>fs[])
