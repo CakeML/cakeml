@@ -138,9 +138,7 @@ val x64_enc_def = Define`
 
 (* ------------------------------------------------------------------------- *)
 
-(* Proof of backend_correct property *)
-
-(* some lemmas *)
+(* some lemmas ---------------------------------------------------------- *)
 
 val Zreg2num_num2Zreg_imp =
    fst (Thm.EQ_IMP_RULE (SPEC_ALL x64Theory.Zreg2num_num2Zreg))
@@ -478,7 +476,231 @@ val bytes_in_memory_concat =
    Q.GENL [`l2`, `l1`]
       (fst (Thm.EQ_IMP_RULE (Drule.SPEC_ALL bytes_in_memory_concat)))
 
-(* some rewrites *)
+val tac =
+   rewrite_tac [DECIDE ``~(3n < n) = n < 4``]
+   \\ NTAC 3 strip_tac
+   \\ fs [wordsTheory.NUMERAL_LESS_THM]
+   \\ rfs []
+
+val sh_neq_lem = Q.prove(
+   `!n1 n2.
+      n1 < 64 /\ n2 < 64 /\ n1 <> n2 ==>
+      ~((BIT 6 n1 = BIT 6 n2) /\ (BIT 5 n1 = BIT 5 n2) /\
+        (BIT 4 n1 = BIT 4 n2) /\ (BIT 3 n1 = BIT 3 n2) /\
+        (BIT 2 n1 = BIT 2 n2) /\ (BIT 1 n1 = BIT 1 n2) /\
+        (BIT 0 n1 = BIT 0 n2))`,
+   tac
+   )
+
+val reg_neq_lem = Q.prove(
+   `!n1 n2.
+      n1 < 16 /\ n2 < 16 /\ n1 <> n2 ==>
+      ~((BIT 3 n1 = BIT 3 n2) /\ (BIT 2 n1 = BIT 2 n2) /\
+        (BIT 1 n1 = BIT 1 n2) /\ (BIT 0 n1 = BIT 0 n2))`,
+   tac
+   )
+
+val reg4_neq_lem = Q.prove(
+   `!n1 n2.
+      ~(3 < n1) /\ ~(3 < n2) /\ n1 <> n2 ==>
+      ~((BIT 1 n1 = BIT 1 n2) /\ (BIT 0 n1 = BIT 0 n2))`,
+   tac
+   )
+
+val reg4_neq_lem2 = Q.prove(
+   `!n1 n2.
+      ~(3 < n1) /\ 3 < n2 /\ n2 < 16 /\
+      ((3 >< 3) (n2w n2: word4) = (0w: word1)) /\
+      n1 <> n2 ==>
+      ~((BIT 2 n1 = BIT 2 n2) /\ (BIT 1 n1 = BIT 1 n2) /\
+        (BIT 0 n1 = BIT 0 n2))`,
+   tac
+   )
+
+val bop_enc_lem = Q.prove(
+   `!b. x64_bop b <> Ztest /\
+        ~word_bit 3 (n2w (Zbinop_name2num (x64_bop b)) : word4)`,
+   Cases
+   \\ rw [x64_bop_def, x64Theory.Zbinop_name2num_thm]
+   \\ EVAL_TAC
+   )
+
+val sh_enc_lem = Q.prove(
+   `!s. x64_sh s <> Ztest /\
+        word_bit 3 (n2w (Zbinop_name2num (x64_sh s)) : word4)`,
+   Cases
+   \\ rw [x64_sh_def, x64Theory.Zbinop_name2num_thm]
+   \\ EVAL_TAC
+   )
+
+val sh_enc_lem2 = Q.prove(
+   `!n. n < 64n /\ (n2w n = 1w: word64) ==> (n = 1)`,
+   simp []
+   \\ metis_tac [arithmeticTheory.LESS_MOD, arithmeticTheory.LESS_TRANS,
+                 DECIDE ``64 < 18446744073709551616``]
+   )
+
+val cmp_enc_lem = Q.prove(
+   `!c. x64_cmp c <> Z_ALWAYS`,
+   Cases
+   \\ rw [x64_cmp_def]
+   )
+
+val mem_enc_lem = Q.prove(
+   `(case 0 of 0 => 0w | 1 => 1w | v => 2w: word2) = 0w`,
+   simp []
+   )
+
+val mem_enc_lem2 = Q.prove(
+   `!b. (if b then 1 else 4) IN {0; 1; 4}`,
+   rw []
+   )
+
+val mem_enc_lem3 =
+   blastLib.BBLAST_PROVE
+     ``!r1 r2.
+          ~(((3 >< 3) r1 = 0w) /\ ((3 >< 3) r2 = 0w)) ==>
+          (7w && (0w: word1) @@ (3 >< 3) (r1: word4) @@
+           (0w: word1) @@ (3 >< 3) (r2: word4)) <> (0w: word4)``
+
+val mem_enc_lem4 = Q.prove(
+   `!b l1 x.
+      (case if b then [x] else [] of [] => (4, l1) | l2 => (1, l2)) =
+      (if b then 1 else 4, if b then [x] else l1)`,
+   rw []
+   )
+
+val mem_enc_lem5 = Q.prove(
+   `!b x.
+      (case (if b then 1 else 4) of 0 => x | 1 => 1w | _ => 2w) =
+      if b then 1w else 2w`,
+   rw []
+   \\ fs []
+   )
+
+val concat_lems =
+   blastLib.BBLAST_PROVE
+      ``(!a b c. ((a: word4) @@ (b: word4) = ((a @@ c): word8)) = (b = c)) /\
+        (!a b c. ((a: word2) @@ (b: word6) = ((a @@ c): word8)) = (b = c)) /\
+        (!a b c. ((a: word3) @@ (b: word3) = ((c @@ b): word6)) = (a = c)) /\
+        (!a b c. ((a: word1) @@ (b: word3) = ((a @@ c): word4)) = (b = c))``
+
+val byte_neq =
+   blastLib.BBLAST_PROVE
+      ``!c1 c2: word64.
+          c1 <> c2 /\
+          0xFFFFFFFFFFFFFF80w <= c1 /\ c1 <= 0x7Fw /\
+          0xFFFFFFFFFFFFFF80w <= c2 /\ c2 <= 0x7Fw ==>
+          (7 >< 0) c1 <> (7 >< 0) c2: word8``
+
+val byte_neq2 =
+   blastLib.BBLAST_PROVE
+      ``!c1 c2: word64.
+          c1 <> c2 /\
+          0xFFFFFFFF80000000w <= c1 /\ c1 <= 0x7FFFFFFFw /\
+          0xFFFFFFFF80000000w <= c2 /\ c2 <= 0x7FFFFFFFw ==>
+          (7 >< 0) c1 <> (7 >< 0) c2: word8 \/
+          (15 >< 8) c1 <> (15 >< 8) c2: word8 \/
+          (23 >< 16) c1 <> (23 >< 16) c2: word8 \/
+          (31 >< 24) c1 <> (31 >< 24) c2: word8``
+
+val byte_neq3 =
+   blastLib.BBLAST_PROVE
+      ``!c1 c2: word64.
+          c1 <> c2 /\
+          0w <= c1 /\ c1 <= 0x7FFFFFFFw /\
+          0w <= c2 /\ c2 <= 0x7FFFFFFFw ==>
+          (7 >< 0) c1 <> (7 >< 0) c2: word8 \/
+          (15 >< 8) c1 <> (15 >< 8) c2: word8 \/
+          (23 >< 16) c1 <> (23 >< 16) c2: word8 \/
+          (31 >< 24) c1 <> (31 >< 24) c2: word8``
+
+val byte_neq4 =
+   blastLib.BBLAST_PROVE
+      ``!c1 c2: word64.
+          c1 <> c2  ==>
+          (7 >< 0) c1 <> (7 >< 0) c2: word8 \/
+          (15 >< 8) c1 <> (15 >< 8) c2: word8 \/
+          (23 >< 16) c1 <> (23 >< 16) c2: word8 \/
+          (31 >< 24) c1 <> (31 >< 24) c2: word8 \/
+          (39 >< 32) c1 <> (39 >< 32) c2: word8 \/
+          (47 >< 40) c1 <> (47 >< 40) c2: word8 \/
+          (55 >< 48) c1 <> (55 >< 48) c2: word8 \/
+          (63 >< 56) c1 <> (63 >< 56) c2: word8``
+
+val byte_neq5 = Q.prove(
+   `!b. (7w && (if b then 1w else 0w) = (0w: word4)) = ~b`,
+   rw []
+   )
+
+val byte_neq6 = Q.prove(
+   `!n1 n2.
+      n1 < 16 /\ n2 < 16 /\
+      (word_bit 3 (n2w n1: word4) = word_bit 3 (n2w n2: word4)) /\
+      n1 <> n2 ==>
+      (2 >< 0) (n2w n1: word4) <> (2 >< 0) (n2w n2: word4) : word3`,
+   NTAC 3 strip_tac
+   \\ fs [wordsTheory.NUMERAL_LESS_THM]
+   \\ rfs []
+   )
+
+val byte_neq7 =
+   blastLib.BBLAST_PROVE
+    ``((0w: word1) @@ (a: word1) @@ (0w: word1) @@ (b: word1) || (8w: word4) =
+       (0w: word1) @@ (c: word1) @@ (0w: word1) @@ (d: word1) || (8w: word4)) =
+      (a = c) /\ (b = d)``
+
+val byte_neq8 = Q.prove(
+   `!n. ~(3 < n) ==> ((3 >< 3) (n2w n : word4) = 0w: word1)`,
+   REPEAT strip_tac
+   \\ fs [wordsTheory.NUMERAL_LESS_THM, DECIDE ``~(3n < n) = n < 4``]
+   )
+
+val cmp_neq = Q.prove(
+   `!b1 b2. b1 <> b2 /\ b1 <> Test /\ b2 <> Test ==>
+            ~word_bit 7 (n2w (Zcond2num (x64_cmp b1)): word8) /\
+            ~word_bit 7 (n2w (Zcond2num (x64_cmp b2)): word8) /\
+            (n2w (Zcond2num (x64_cmp b1)): word8) <>
+            (n2w (Zcond2num (x64_cmp b2)))`,
+   Cases
+   \\ Cases
+   \\ simp [x64_cmp_def, x64Theory.Zcond2num_thm]
+   )
+
+val sh_neq = Q.prove(
+   `!b1 b2. b1 <> b2 ==>
+            word_bit 3 (n2w (Zbinop_name2num (x64_sh b1)) : word4) /\
+            word_bit 3 (n2w (Zbinop_name2num (x64_sh b2)) : word4) /\
+            (n2w (Zbinop_name2num (x64_sh b1)): word4) <>
+            (n2w (Zbinop_name2num (x64_sh b2)))`,
+   Cases
+   \\ Cases
+   \\ simp [x64_sh_def, x64Theory.Zbinop_name2num_thm]
+   )
+
+val bop_neq = Q.prove(
+   `!b1 b2. b1 <> b2 ==>
+            ~word_bit 3 (n2w (Zbinop_name2num (x64_bop b1)) : word4) /\
+            ~word_bit 3 (n2w (Zbinop_name2num (x64_bop b2)) : word4) /\
+            (n2w (Zbinop_name2num (x64_bop b1)): word4) <>
+            (n2w (Zbinop_name2num (x64_bop b2)))`,
+   Cases
+   \\ Cases
+   \\ simp [x64_bop_def, x64Theory.Zbinop_name2num_thm]
+   )
+
+val bop_neq2 = Q.prove(
+   `!b. ~(BIT 0 (Zbinop_name2num (x64_bop b)) /\
+          BIT 1 (Zbinop_name2num (x64_bop b)) /\
+          BIT 2 (Zbinop_name2num (x64_bop b)))`,
+   Cases
+   \\ simp [x64_bop_def, x64Theory.Zbinop_name2num_thm]
+   )
+
+val bop_neq2 =
+   CONJ bop_neq2 (REWRITE_RULE [boolTheory.DE_MORGAN_THM] bop_neq2)
+
+(* some rewrites ---------------------------------------------------------- *)
 
 fun read_mem_word n =
    EVAL ``(read_mem_word (b: word64) ^n s): word64 # 64 asm_state``
@@ -518,7 +740,7 @@ val enc_rwts =
 val enc_ok_rwts =
   encode_rwts @ asm_ok_rwts @ [enc_ok_def, x64_config_def, same_enc_length_def]
 
-(* some custom tactics *)
+(* some custom tactics ---------------------------------------------------- *)
 
 fun using_first n thms_tac =
    POP_ASSUM_LIST
@@ -792,6 +1014,13 @@ val cmp_tac =
 
 val total_strip = Lib.total boolSyntax.dest_strip_comb
 
+fun pos_neg_term q =
+   let
+      val tm = Parse.Term q
+   in
+      (q, (tm, boolSyntax.mk_neg tm))
+   end
+
 fun explode_x64_enc_tac left (asl, g) =
    let
       val tm = g |> boolSyntax.dest_neg
@@ -799,6 +1028,12 @@ fun explode_x64_enc_tac left (asl, g) =
                  |> (if left then fst else snd)
                  |> rand
       fun contains l = List.exists (fn t => Lib.mem t l) asl
+      fun qcase q =
+         let
+            val (tm, ntm) = snd (pos_neg_term q)
+         in
+            if contains [tm, ntm] then Tactical.NO_TAC else Cases_on q
+         end
    in
      (case total_strip tm of
          SOME ("asm$Call", [_, _]) => fs enc_rwts
@@ -807,22 +1042,23 @@ fun explode_x64_enc_tac left (asl, g) =
                 SOME ("asm$Skip", []) => Tactical.NO_TAC
               | SOME ("asm$Arith", [a]) =>
                    (case total_strip a of
-                       SOME ("asm$Shift", [s, _, _, n]) =>
-                          if Term.is_var s
-                             then Cases_on `^s`
-                                  \\ Cases_on
-                                       `^n MOD 18446744073709551616 = 1n`
-                          else Tactical.NO_TAC
-                     | SOME ("asm$Binop", [b, _, _, r]) =>
+                       SOME ("asm$Shift", [_, _, _, n]) =>
+                          qcase `n2w ^n = 1w: word64`
+                     | SOME ("asm$Binop", [_, _, _, r]) =>
                           if Term.is_var r
-                             then Cases_on `^r` \\ Cases_on `^b`
+                             then Cases_on `^r`
                           else Tactical.NO_TAC
                      | SOME _ => Tactical.NO_TAC
                      | NONE => Cases_on `^a`)
               | SOME ("asm$Mem", [m, n1, a]) =>
                   (case total_strip a of
-                      SOME ("asm$Addr", [n2, _]) =>
-                        if Lib.mem m [``Load32``, ``Store32``, ``Store8``]
+                      SOME ("asm$Addr", [n2, c]) =>
+                       let
+                          val c0_n5 =
+                             qcase `(^c = 0w) /\
+                                    (2 >< 0) (n2w ^n2: word4) <> (5w: word3)`
+                       in
+                        if m = ``Store8``
                            then
                              let
                                 val q1 = `(3 >< 3) (n2w ^n1 : word4) : word1`
@@ -833,23 +1069,20 @@ fun explode_x64_enc_tac left (asl, g) =
                                    then Tactical.NO_TAC
                                 else wordsLib.Cases_on_word_value q1
                                      \\ wordsLib.Cases_on_word_value q2
-                                     \\ (if m = ``Store8``
-                                            then Cases_on `3 < ^n1`
-                                         else all_tac)
+                                     \\ Cases_on `3 < ^n1`
+                                     \\ c0_n5
                              end
-                        else Tactical.NO_TAC
+                        else if Lib.mem m [``Load32``, ``Store32``]
+                           then qcase
+                                  `((3 >< 3) (n2w ^n1 : word4) = (0w: word1)) /\
+                                   ((3 >< 3) (n2w ^n2 : word4) = (0w: word1))`
+                                \\ c0_n5
+                        else c0_n5
+                       end
                     | SOME _ => Tactical.NO_TAC
                     | NONE => Cases_on `^a` \\ Cases_on `^m`)
               | SOME ("asm$Const", [_, c]) =>
-                   let
-                      val q = `0w <= ^c /\ ^c <= 0x7FFFFFFFw`
-                      val tm = Parse.Term q
-                      val ntm = boolSyntax.mk_neg tm
-                   in
-                      if contains [tm, ntm]
-                         then Tactical.NO_TAC
-                      else Cases_on q
-                   end
+                   qcase `0w <= ^c /\ ^c <= 0x7FFFFFFFw`
               | SOME _ => Tactical.NO_TAC
               | NONE => Cases_on `^i`
             )
@@ -861,20 +1094,18 @@ fun explode_x64_enc_tac left (asl, g) =
           (if Term.is_var i
               then REVERSE (Cases_on `^i`) >- fs enc_rwts
                    \\ Cases_on `^r`
-                   \\ Cases_on `^c`
+                   \\ Cases_on `^c = Test`
            else case total_strip r of
                    SOME ("asm$Imm", [v]) =>
                       let
-                         val q1 = `^n = 0`
-                         val q2 = `0xFFFFFFFFFFFFFF80w <= ^v /\ ^v <= 0x7fw`
-                         val tm1 = Parse.Term q1
-                         val tm2 = Parse.Term q2
-                         val ntm1 = boolSyntax.mk_neg tm1
-                         val ntm2 = boolSyntax.mk_neg tm2
+                         val (q1, (tm1, ntm1)) = pos_neg_term `^n = 0`
+                         val (q2, (tm2, ntm2)) =
+                            pos_neg_term
+                              `0xFFFFFFFFFFFFFF80w <= ^v /\ ^v <= 0x7fw`
                       in
                          if contains [tm1, ntm1, tm2, ntm2]
                             then Tactical.NO_TAC
-                         else if c = ``Test``
+                         else if contains [``^c = Test``]
                             then Cases_on q1
                          else Cases_on q2
                               >| [all_tac, Cases_on q1]
@@ -894,35 +1125,6 @@ fun explode_x64_enc_tac left (asl, g) =
    end
 
 local
-   val sh_neq_lem = Q.prove(
-      `!n1 n2.
-         n1 < 64 /\ n2 < 64 /\ n1 <> n2 ==>
-         ~((BIT 6 n1 = BIT 6 n2) /\ (BIT 5 n1 = BIT 5 n2) /\
-           (BIT 4 n1 = BIT 4 n2) /\ (BIT 3 n1 = BIT 3 n2) /\
-           (BIT 2 n1 = BIT 2 n2) /\ (BIT 1 n1 = BIT 1 n2) /\
-           (BIT 0 n1 = BIT 0 n2))`,
-      NTAC 3 strip_tac
-      \\ fs [wordsTheory.NUMERAL_LESS_THM]
-      \\ rfs []
-      )
-   val reg_neq_lem = Q.prove(
-      `!n1 n2.
-         n1 < 16 /\ n2 < 16 /\ n1 <> n2 ==>
-         ~((BIT 3 n1 = BIT 3 n2) /\ (BIT 2 n1 = BIT 2 n2) /\
-           (BIT 1 n1 = BIT 1 n2) /\ (BIT 0 n1 = BIT 0 n2))`,
-      NTAC 3 strip_tac
-      \\ fs [wordsTheory.NUMERAL_LESS_THM]
-      \\ rfs []
-      )
-   val reg4_neq_lem = Q.prove(
-      `!n1 n2.
-         ~(3 < n1) /\ ~(3 < n2) /\ n1 <> n2 ==>
-         ~((BIT 1 n1 = BIT 1 n2) /\ (BIT 0 n1 = BIT 0 n2))`,
-      rewrite_tac [DECIDE ``~(3n < n) = n < 4``]
-      \\ NTAC 3 strip_tac
-      \\ fs [wordsTheory.NUMERAL_LESS_THM]
-      \\ rfs []
-      )
    fun is_n tm =
       case Lib.total (snd o Term.dest_var) tm of
          SOME ty => ty = numSyntax.num
@@ -931,99 +1133,150 @@ local
       case Lib.total (boolSyntax.dest_eq o boolSyntax.dest_neg) tm of
          SOME (l, r) => if is_n l andalso is_n r then SOME (l, r) else NONE
        | NONE => NONE
+   fun try_thm (l, r) th =
+      let
+         val tm = th |> Drule.SPECL [l, r] |> Thm.concl |> Term.rand
+      in
+         `^tm` by (match_mp_tac th
+                   \\ asm_rewrite_tac []
+                   \\ simp []
+                   \\ Tactical.NO_TAC)
+         \\ pop_assum mp_tac
+      end
+   fun try_both_thm (l, r) th = try_thm (l, r) th ORELSE try_thm (r, l) th
 in
    fun val_neq_tac (asl, g) =
      (case List.mapPartial reg_neq asl of
-         [(l, r)] =>
-            let
-               val thm =
-                  if Lib.exists (Lib.equal ``~(3n < ^l)``) asl andalso
-                     Lib.exists (Lib.equal ``~(3n < ^r)``) asl
-                     then reg4_neq_lem
-                  else if Lib.exists (Lib.equal ``^l < 64n``) asl
-                     then sh_neq_lem
-                  else reg_neq_lem
-               val tm = thm |> Drule.SPECL [l, r] |> Thm.concl |> Term.rand
-            in
-               `^tm` by (imp_res_tac thm \\ Tactical.NO_TAC)
-               \\ pop_assum mp_tac
-            end
+         [lr] => Tactical.MAP_FIRST (try_both_thm lr)
+                    [reg4_neq_lem2, reg4_neq_lem, reg_neq_lem, sh_neq_lem]
        | _ => all_tac) (asl, g)
 end
 
-val is_neg_conj =
-   not o Lib.can (boolSyntax.dest_conj o boolSyntax.dest_neg) o Thm.concl
-
-val enc_rwts' =
-   [const_lem1, loc_lem1, loc_lem2, jump_lem1, jump_lem3, jump_lem4, jump_lem5,
-    jump_lem6, cmp_lem7, binop_lem9b, binop_lem11, x64Theory.Zcond2num_thm] @
-   enc_rwts
+local
+   val enc_rwts' =
+      [const_lem1, loc_lem1, loc_lem2, jump_lem1, jump_lem3, jump_lem4,
+       jump_lem5, jump_lem6, cmp_lem7, binop_lem9b, binop_lem11,
+       x64Theory.Zcond2num_thm] @ enc_rwts
+   fun simpfrag_to_ssfrag name ({convs, rewrs}: simpfrag.simpfrag) =
+      simpLib.SSFRAG
+         {name = SOME name, convs = convs, rewrs = rewrs, ac = [],
+          filter = NONE, dprocs = [], congs = []}
+   fun type_frag name ty = simpfrag_to_ssfrag name (TypeBase.simpls_of ty)
+   val enc_ss =
+      pureSimps.pure_ss ++
+      boolSimps.LET_ss ++
+      pairSimps.PAIR_ss ++
+      pairSimps.gen_beta_ss ++
+      optionSimps.OPTION_ss ++
+      listSimps.LIST_ss ++
+      wordsLib.WORD_ss ++
+      type_frag "asm_config" ``:64 asm_config`` ++
+      type_frag "asm" ``:64 asm`` ++
+      type_frag "instruction" ``:instruction`` ++
+      type_frag "instruction" ``:Zcond`` ++
+      type_frag "instruction" ``:Zdest_src`` ++
+      type_frag "instruction" ``:cmp`` ++
+      type_frag "instruction" ``:Zrm`` ++
+      type_frag "instruction" ``:Zsize`` ++
+      type_frag "instruction" ``:Zbase`` ++
+      type_frag "instruction" ``:Zbinop_name`` ++ (* remove later? *)
+      simpLib.conv_ss
+        {name = "BETA_CONV (beta reduction)",
+         trace = 2,
+         key = SOME ([],``(\x:'a. y:'b) z``),
+         conv = K (K Thm.BETA_CONV)} ++
+      simpLib.rewrites
+        ([combinTheory.K_THM, boolTheory.AND_CLAUSES, boolTheory.IMP_CLAUSES,
+          boolTheory.NOT_CLAUSES, boolTheory.COND_CLAUSES,
+          pairTheory.pair_case_thm, boolTheory.EQ_REFL,
+          pred_setTheory.COMPONENT, DECIDE ``8n < 64``,
+          bop_enc_lem, sh_enc_lem, cmp_enc_lem,
+          mem_enc_lem, mem_enc_lem2, mem_enc_lem3, mem_enc_lem4, mem_enc_lem5
+          (*, utilsLib.mk_cond_rand_thms [pairSyntax.fst_tm] *)] @
+         enc_rwts')
+in
+   val enc_simp_tac = full_simp_tac enc_ss []
+end
 
 local
-   val reg_neq_lem2 = Q.prove(
-      `!n1 n2. 3 < n1 /\ ~(3 < n2) ==> n1 <> n2 /\ n2 < 16`, lrw [])
+   fun not_le th =
+      let
+         val tm = Thm.concl th
+      in
+         not (wordsSyntax.is_word_le tm orelse
+              Lib.can (wordsSyntax.dest_word_le o boolSyntax.dest_neg) tm)
+      end
    val CACHE_BBLAST_CONV = utilsLib.cache 200 Term.compare blastLib.BBLAST_CONV
-   fun loop a =
-      fn [] => PURE_REWRITE_TAC a
-               \\ TRY (imp_res_tac reg_neq_lem2 \\ val_neq_tac)
-               \\ blastLib.BBLAST_TAC
-               \\ blastLib.FULL_BBLAST_TAC
-       | h :: t =>
-           let
-              val thm = CACHE_BBLAST_CONV h
-              (*
-              val () = print_thm thm
-              val () = print "\n"
-              *)
-           in
-              if boolSyntax.rhs (Thm.concl thm) = boolSyntax.T
-                 then REWRITE_TAC [thm]
-              else loop (thm :: a) t
-           end
+   fun loop jump [] = (* Tactical.NO_TAC for testing *)
+      imp_res_tac sh_enc_lem2
+      \\ fs [concat_lems, byte_neq, byte_neq2, byte_neq3, byte_neq4,
+             byte_neq5, byte_neq6, byte_neq7, byte_neq8]
+      \\ map_every imp_res_tac [bop_neq, cmp_neq, sh_neq]
+      \\ val_neq_tac
+      \\ (if jump
+             then all_tac
+          else POP_ASSUM_LIST
+                (fn ths =>
+                    MAP_EVERY ASSUME_TAC (List.filter not_le (List.rev ths))))
+      \\ blastLib.FULL_BBLAST_TAC
+      \\ REWRITE_TAC [bop_neq2]
+     | loop jump (h :: t) =
+        let
+           val thm = CACHE_BBLAST_CONV h
+        in
+           if boolSyntax.rhs (Thm.concl thm) = boolSyntax.T
+              then REWRITE_TAC [thm]
+           else loop jump t
+        end
 in
-   fun byte_blast_tac (asl, g) = loop [] (boolSyntax.strip_disj g) (asl, g)
+   fun byte_blast_tac jump (asl, g) =
+      loop jump (boolSyntax.strip_disj g) (asl, g)
 end
 
 local
    val i = ref 0
-   val tac =
-      lfs enc_rwts'
+   fun tac jump =
+      enc_simp_tac
       \\ rw []
-      \\ fs []
-      \\ rfs []
-      \\ byte_blast_tac
+      \\ byte_blast_tac jump
    val asm64_ty = ``:64 asm``
    fun is_asm_neq tm =
       case Lib.total (Term.type_of o rhs o boolSyntax.dest_neg) tm of
          SOME ty => ty = asm64_ty
        | NONE => false
+   fun is_jump tm =
+      case Lib.total boolSyntax.dest_strip_comb tm of
+         SOME ("asm$Loc", [_, _]) => true
+       | SOME ("asm$Jump", [_, _]) => true
+       | SOME ("asm$JumpCmp", [_, _, _, _, _]) => true
+       | _ => false
 in
-   fun reset_i_tac x = (i := 0; all_tac x)
+   (* fun reset_i_tac x = (i := 0; all_tac x) *)
    fun enc_tac (asl, g) =
-      ( i := (!i) + 1
-      ; print (Int.toString (!i) ^ "\n")
-      ; case List.find is_asm_neq asl of SOME tm => print_term tm | _ => ()
-      ; print "\n\n"
-      ; (tac \\ goalStack.print_tac "" \\ Tactical.NO_TAC) (asl, g)
-      )
+      let
+         val tm = Option.valOf (List.find is_asm_neq asl)
+         val (l, r) = boolSyntax.dest_eq (boolSyntax.dest_neg tm)
+         val jump = is_jump l andalso is_jump r
+      in
+         i := (!i) + 1
+       ; print (Int.toString (!i) ^ "\n")
+       ; print_term tm
+       ; print "\n\n"
+       ; (tac jump \\ goalStack.print_tac "" \\ Tactical.NO_TAC) (asl, g)
+     end
 end
 
-(* ------------------------------------------------------------------------- *)
+(* -------------------------------------------------------------------------
+   x64_enc_deterministic
+   x64_backend_correct
+   ------------------------------------------------------------------------- *)
 
-val x64_enc_deterministic = Q.store_thm("x64_enc_deterministic",
+val x64_enc_deterministic = Count.apply Q.store_thm ("x64_enc_deterministic",
    `enc_deterministic x64_enc x64_config`,
    match_mp_tac asmTheory.simple_enc_deterministic
    \\ NTAC 3 strip_tac
    \\ REPEAT (explode_x64_enc_tac false)
-   \\ qpat_assum `asm_ok x x64_config`
-        (assume_tac o SIMP_RULE (srw_ss()++boolSimps.LET_ss) enc_rwts')
-   \\ POP_ASSUM_LIST
-        (fn thms =>
-           CONV_TAC
-             (Conv.RAND_CONV
-                (Conv.RAND_CONV
-                   (SIMP_CONV (srw_ss()++boolSimps.LET_ss) (thms @ enc_rwts'))))
-           \\ MAP_EVERY assume_tac (List.filter is_neg_conj (List.rev thms)))
+   \\ enc_simp_tac
    \\ REPEAT (explode_x64_enc_tac true)
    \\ enc_tac
    )
@@ -1363,38 +1616,13 @@ val x64_backend_correct = Count.apply Q.store_thm ("x64_backend_correct",
 
 (*
 
-15.46PM
-17.29PM
-
-1hr 43m
-
 val x64_enc_deterministic = proofManagerLib.top_thm ()
-
-
 
 val x64_enc_deterministic = Theory.new_axiom ("x64_enc_deterministic",
    ``enc_deterministic x64_enc x64_config``)
 
-fun rot i l = List.drop (l, i) @ List.take (l, i)
-
-fun ROTATE i (tac: tactic) g =
-   let
-      val (gl, jf) = tac g
-   in
-      (rot i gl, jf o rot i)
-   end
-
-58 * 58
-
- proofManagerLib.r 19
- proofManagerLib.r 5
- proofManagerLib.r (3364 - (1530 + 772))
-
-   set_trace "Goalstack.howmany_printed_subgoals" 3
-   set_trace "Goalstack.howmany_printed_subgoals" 12
+   proofManagerLib.r
    set_trace "Goalstack.howmany_printed_subgoals" 60
-
-x64_backend_correct: 3m33s
 
 *)
 
