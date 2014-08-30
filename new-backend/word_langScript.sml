@@ -255,6 +255,7 @@ val list_rearrange_def = Define `
     else (* if it isn't well-formed, just pretend it is I *)
       xs`
 
+(*This does not quite work...($< LEX $<=)*)
 val env_to_list_def = Define `
   env_to_list env (bij_seq:num->num->num) =
     let mover = bij_seq 0 in

@@ -39,12 +39,12 @@ EVAL ``s_key_eq [] []``
 *)
 
 (*Reflexive*)
-val s_key_eq_refl = prove(
+val s_key_eq_refl = store_thm( "s_key_eq_refl",
   ``!ls .s_key_eq ls ls = T``,
    Induct >> rw[s_key_eq_def]>>
    Cases_on`h`>> Cases_on`o'`>>rw[s_frame_key_eq_def])
 
-val s_val_eq_refl = prove(
+val s_val_eq_refl = store_thm( "s_val_eq_refl",
   ``!ls.s_val_eq ls ls = T``,
   Induct >> rw[s_val_eq_def]>>
   Cases_on`h`>> Cases_on`o'`>>rw[s_frame_val_eq_def])
@@ -156,6 +156,30 @@ val wGC_s_val_eq = prove(
   IMP_RES_TAC dec_stack_stack_key_eq>>
   IMP_RES_TAC s_key_eq_sym>>
   Q.EXISTS_TAC`y'`>>fs[word_state_component_equality]>>rfs[])
+
+(*Slightly more general theorem allows the unused locals to be differnt*)
+val wGC_s_val_eq_word_state = store_thm("wGC_s_val_eq_word_state",
+  ``!s tlocs tstack y.
+          s_val_eq s.stack tstack /\
+          wGC s = SOME y ==>
+    ?zlocs zstack. 
+          wGC (s with <|stack:=tstack;locals:=tlocs|>) = 
+          SOME (y with <|stack:=zstack;locals:=zlocs|>) /\
+          s_val_eq y.stack zstack /\ s_key_eq zstack tstack``,
+  rw[wGC_def]>>fs[LET_THM]>>
+  SIMP_TAC std_ss [markerTheory.Abbrev_def]>>
+  IMP_RES_TAC s_val_eq_enc_stack>>fs[]>>
+  qpat_assum `x = SOME y` mp_tac>>
+  ntac 4 CASE_TAC>>
+  IMP_RES_TAC s_val_eq_dec_stack>> fs[]>>
+  strip_tac>>fs[]>>
+  IMP_RES_TAC dec_stack_stack_key_eq>>
+  IMP_RES_TAC s_key_eq_sym>>
+  Q.EXISTS_TAC`tlocs`>>
+  Q.EXISTS_TAC`y'`>> 
+  fs[word_state_component_equality]>>rfs[])
+         
+
 
 (*pushing and popping maintain the stack_key relation*)
 val push_env_pop_env_s_key_eq = prove(
