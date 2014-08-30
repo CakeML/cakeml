@@ -5,7 +5,7 @@ open HolKernel boolLib bossLib;
 
 open astTheory libTheory semanticPrimitivesTheory bigStepTheory print_astTheory;
 open terminationTheory print_astTerminationTheory stringLib;
-open ml_translatorTheory intLib;
+open ml_translatorTheory intLib lcsymtacs;
 open arithmeticTheory listTheory combinTheory pairTheory pairLib;
 open integerTheory intLib ml_optimiseTheory;
 
@@ -99,6 +99,7 @@ fun auto_prove proof_name (goal,tac) = let
   in if length rest = 0 then validation [] else let
   in failwith("auto_prove failed for " ^ proof_name) end end
 
+local
   (* inv: get_DeclAssum () is a hyp in each thm in each !cert_memory *)
   val decl_abbrev = ref TRUTH;
   val decl_term   = ref ``[]:dec list``;
@@ -109,7 +110,6 @@ fun auto_prove proof_name (goal,tac) = let
   val decl_name = ref "";
   val abbrev_counter = ref 0;
   val abbrev_defs = ref ([]:thm list);
-local
 in
   fun get_mn () = (!decl_exists) |> concl |> rator |> rand
   fun INST_mn th = INST [``mn:string option`` |-> get_mn()] th
@@ -222,34 +222,8 @@ in
     if can (match_term ``(Dtype x) : dec``) decl then
       MATCH_MP (INST_mn DeclAssumCons_SNOC_Dtype) (!cenv_eq_thm)
       |> SPEC (decl |> rand)
-      (* |> (fn th => (print_term(th |> concl |> rator |> rand); print"\n"; th)) *)
-      (*
-      |> print_time "EVAL build_tdefs"
-        (CONV_RULE ((RATOR_CONV o RAND_CONV o RAND_CONV o RAND_CONV o RATOR_CONV o RAND_CONV) eval))
-      |> print_time "REWR MAP FST"
-        (CONV_RULE ((RATOR_CONV o RAND_CONV o RAND_CONV) (REWR_CONV MAP_APPEND)))
-      |> print_time "EVAL MAP 1"
-        (CONV_RULE ((RATOR_CONV o RAND_CONV o RAND_CONV o RATOR_CONV o RAND_CONV) eval))
-      |> print_time "EVAL MAP 2"
-        (CONV_RULE ((RATOR_CONV o RAND_CONV o RAND_CONV o RAND_CONV) eval))
-      |> (fn th =>
-          let
-            val goal = th |> concl |> rator |> rand
-            val eval_tac = CONV_TAC eval
-            fun WARN_ACCEPT_TAC th = ACCEPT_TAC th ORELSE (print_thm th; FAIL_TAC(" failed to be accepted"))
-            val tac =
-              CONV_TAC(REWR_CONV ALL_DISTINCT_APPEND) THEN
-              CONJ_TAC THEN1 eval_tac THEN
-              CONJ_TAC THEN1 (WARN_ACCEPT_TAC (!previous_all_distinct) ORELSE eval_tac) THEN
-              eval_tac THEN GEN_TAC THEN STRIP_TAC THEN BasicProvers.VAR_EQ_TAC THEN eval_tac
-            val lemma = auto_prove "DeclAssumCons_SNOC_Dtype: ALL_DISTINCT tdefs" (goal,tac)
-            val () = previous_all_distinct := (CONV_RULE (RAND_CONV eval) lemma)
-          in
-            MY_MP "DeclAssumCons_SNOC_Dtype" th lemma
-          end)
-      *)
       |> print_time "EVAL ALL_DISTINCT" (CONV_RULE ((RATOR_CONV o RAND_CONV) eval))
-      |> (fn th => MY_MP "DeclAssumCons_SNOC_Dtype" th TRUTH)
+     (* |> (fn th => MY_MP "DeclAssumCons_SNOC_Dtype" th TRUTH) *)
       |> print_time "EVAL2" (
          CONV_RULE (RAND_CONV EVAL THENC
                     (RATOR_CONV o RAND_CONV) EVAL))
@@ -301,9 +275,10 @@ in
       val tac =
         REPEAT STRIP_TAC
         THEN1 (SIMP_TAC std_ss [check_dup_ctors_def,LET_DEF,FOLDR] THEN EVAL_TAC)
+        THEN1 EVAL_TAC
         THEN SIMP_TAC std_ss [type_defs_to_new_tdecs_def,MAP,
                DISJOINT_set_SIMP,mk_id_def]
-        THEN (lemma |> RW1 [DeclAssumCons_def] |> CONJUNCT2 |> SPEC_ALL
+        THEN (lemma |> RW1 [DeclAssumCons_def] |> SPEC_ALL
                     |> UNDISCH |> CONJUNCT1 |> ASSUME_TAC)
         THEN POP_ASSUM (fn th => ONCE_REWRITE_TAC [th])
         THEN EVAL_TAC
@@ -1174,7 +1149,6 @@ val ty = ``:'a # 'b``; derive_thms_for_type ty
 val ty = ``:'a + num``; derive_thms_for_type ty
 val ty = ``:num option``; derive_thms_for_type ty
 val ty = ``:unit``; derive_thms_for_type ty
-
 *)
 
 fun derive_thms_for_type ty = let
@@ -1457,7 +1431,6 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
     val input = mk_var("input",type_of x)
     val inv_lhs = subst [x|->input] inv_lhs
     val (case_lemma,ts) = prove_case_of_lemma (ty,case_th,inv_lhs,inv_def)
-
     val conses = print_time "conses" (map (derive_cons ty inv_lhs inv_def)) ts
     in (ty,eq_lemma,inv_def,conses,case_lemma,ts) end
   val res = map make_calls (zip case_thms inv_defs)
@@ -2123,7 +2096,7 @@ fun apply_Eval_Recclosure recc fname v th = let
               |> CONV_RULE ((FORALL_CONV o FORALL_CONV o
                              RATOR_CONV o RAND_CONV) EVAL)
   val pat = lemma |> concl |> find_term (can
-               (match_term ``find_recfun name (funs :(tvarN, tvarN # exp) env)``))
+               (match_term ``find_recfun name (funs:('a,'b # 'c) alist)``))
   val lemma = SIMP_RULE std_ss [EVAL pat] lemma
   val inv = get_type_inv (type_of v)
   val pat = lemma |> concl |> find_term (can (match_term ``Eval env``))
@@ -2743,15 +2716,26 @@ local
   val lookup_cons_pat = ``lookup_cons cname env = SOME x``
   val imp_lemma = prove(``(f x = y) ==> !z. (f x = f z) ==> ((f:'a->'b) z = y)``,
                         REPEAT STRIP_TAC THEN FULL_SIMP_TAC bool_ss [])
+  val fmap_lemmas = LIST_CONJ [finite_mapTheory.FUNION_FUPDATE_1,
+                               finite_mapTheory.FUNION_FEMPTY_1,
+                               finite_mapTheory.FEVERY_FUPDATE,
+                               finite_mapTheory.FEVERY_STRENGTHEN_THM |> CONJUNCT1,
+                               FEVERY_DRESTRICT_FUPDATE,
+                               finite_mapTheory.DRESTRICT_FEMPTY]
+  fun eval_imp_lhs th =
+    if can dest_imp (concl th) then
+      MP (CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL) th) TRUTH
+    else th
 in
   fun clean_lookup_cons th = let
     val tms = find_terms (can (match_term lookup_cons_pat)) (concl th)
               |> all_distinct
     in if length tms = 0 then th else let
     val lemmas = MATCH_MP (INST_mn DeclAssumCons_cons_lookup) (get_cenv_eq_thm ())
-                 |> CONV_RULE (REWRITE_CONV [EVERY_DEF] THENC
+                 |> CONV_RULE (REWRITE_CONV [fmap_lemmas] THENC
                                DEPTH_CONV PairRules.PBETA_CONV)
                  |> SPEC_ALL |> UNDISCH |> CONJUNCTS
+                 |> map eval_imp_lhs
     fun in_term_list [] t = false
       | in_term_list (tm::tms) t = aconv t tm orelse in_term_list tms t
     val rwt = filter (in_term_list tms o concl) lemmas

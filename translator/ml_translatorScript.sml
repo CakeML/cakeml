@@ -1700,4 +1700,14 @@ val Eval_Var_Short_merge = store_thm("Eval_Var_Short_merge",
   \\ FULL_SIMP_TAC std_ss [])
   |> SIMP_RULE std_ss [EVAL ``MAP FST init_env``,MEM];
 
+val FEVERY_DRESTRICT_FUPDATE = store_thm("FEVERY_DRESTRICT_FUPDATE",
+  ``FEVERY P (DRESTRICT (f |+ (x,y)) (COMPL s)) <=>
+    (~(x IN s) ==> P (x,y)) /\
+    FEVERY P (DRESTRICT f (COMPL (x INSERT s)))``,
+  fs [] \\ SRW_TAC [] [finite_mapTheory.FEVERY_FUPDATE]
+  THEN1 (`COMPL s INTER COMPL {x} = COMPL (x INSERT s)` by
+      (fs [Once pred_setTheory.EXTENSION] \\ METIS_TAC []) \\ fs [])
+  \\ `COMPL s = COMPL (x INSERT s)` by
+     (fs [Once pred_setTheory.EXTENSION] \\ METIS_TAC []) \\ fs [])
+
 val _ = export_theory();
