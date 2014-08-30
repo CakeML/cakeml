@@ -159,7 +159,7 @@ val COMPILER_RUN_INV_def = Define `
   COMPILER_RUN_INV bs grd inp out ⇔
      env_rs ^repl_all_env (update_io inp out ^repl_store) grd
        (FST compile_repl_decs) bs ∧
-    (∃rf pc hdl. bs = repl_bc_state with <| pc := pc; refs := rf; handler := hdl |>) `
+    (∃rf pc. bs = repl_bc_state with <| pc := pc; refs := rf |>) `
 
 val COMPILER_RUN_INV_empty_stack = store_thm("COMPILER_RUN_INV_empty_stack",
   ``COMPILER_RUN_INV bs grd inp out ⇒ (bs.stack = [])``,
@@ -223,7 +223,7 @@ val COMPILER_RUN_INV_repl_step = store_thm("COMPILER_RUN_INV_repl_step",
   simp[GSYM compile_call_repl_step_def] >>
   simp[free_varsTheory.closed_top_def,evalPropsTheory.all_env_dom_def] >>
   disch_then(qspecl_then[`grd1`,`bootstrap_bc_state.code`
-    ,`repl_bc_state with <| clock := SOME ck; refs := rf; handler := hdl|>`]mp_tac) >>
+    ,`repl_bc_state with <| clock := SOME ck; refs := rf|>`]mp_tac) >>
   discharge_hyps >- (
     conj_tac >- (
       qmatch_assum_abbrev_tac`env_rs a b c d e` >>

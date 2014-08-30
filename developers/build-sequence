@@ -24,6 +24,7 @@ hol-light/standard/monadic
 hol-light/standard/ml_kernel
 new-backend
 targets
+targets/x64
 hol-light/stateless
 hol-light/stateless/stateful
 hol-light/stateless/monadic
