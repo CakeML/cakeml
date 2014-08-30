@@ -3618,6 +3618,7 @@ val compile_special_thm = store_thm("compile_special_thm",
         bc_next^* bs bs' ∧
         bc_fetch bs' = SOME (Stop T) ∧
         bs'.output = bs.output ∧
+        bs'.handler = bs.handler ∧
         (EVERY IS_SOME bs.globals ⇒ bs'.globals = bs.globals) ∧
         env_rs env (s,tm) grd' rs bs'``,
   ho_match_mp_tac evaluate_top_ind >> simp[] >>
