@@ -36,9 +36,17 @@ val add_constraints_thm = store_thm("add_constraints_thm",
   rw[] >> fs[models_def] >>
   REWRITE_TAC[CONJ_ASSOC] >>
   `theory_ok (thyof ctxt)` by metis_tac[extends_theory_ok,init_theory_ok] >>
-  conj_tac >- (
-    `∃δ γ. i =(δ,γ)` by metis_tac[pair_CASES] >>
-    `∃tycs tmcs. cs =(tycs,tmcs)` by metis_tac[pair_CASES] >>
+  `∃δ γ. i =(δ,γ)` by metis_tac[pair_CASES] >>
+  `∃tycs tmcs. cs =(tycs,tmcs)` by metis_tac[pair_CASES] >>
+  `ALL_DISTINCT (MAP FST (type_list (upd::ctxt))) ∧
+   ALL_DISTINCT (MAP FST (const_list (upd::ctxt)))` by (
+    conj_tac >>
+    imp_res_tac updates_ALL_DISTINCT >>
+    first_x_assum match_mp_tac >>
+    imp_res_tac extends_ALL_DISTINCT >>
+    first_x_assum match_mp_tac >>
+    EVAL_TAC ) >>
+  conj_asm1_tac >- (
     fs[is_interpretation_def,is_std_interpretation_def,constrain_interpretation_def] >>
     simp[GSYM CONJ_ASSOC] >>
     conj_tac >- (
@@ -55,14 +63,6 @@ val add_constraints_thm = store_thm("add_constraints_thm",
       imp_res_tac theory_ok_sig >>
       fs[is_std_sig_def] >>
       imp_res_tac ALOOKUP_MEM >>
-      `ALL_DISTINCT (MAP FST (type_list (upd::ctxt))) ∧
-       ALL_DISTINCT (MAP FST (const_list (upd::ctxt)))` by (
-        conj_tac >>
-        imp_res_tac updates_ALL_DISTINCT >>
-        first_x_assum match_mp_tac >>
-        imp_res_tac extends_ALL_DISTINCT >>
-        first_x_assum match_mp_tac >>
-        EVAL_TAC ) >>
       rw[] >> fs[ALL_DISTINCT_APPEND] >>
       BasicProvers.CASE_TAC >>
       BasicProvers.CASE_TAC >>
@@ -197,6 +197,32 @@ val add_constraints_thm = store_thm("add_constraints_thm",
   strip_tac >> qunabbrev_tac`q` >>
   first_x_assum(qspec_then`p`mp_tac) >>
   fs[Abbr`P`] >>
+  disch_then kall_tac >>
+  first_x_assum(qspec_then`p`mp_tac) >> simp[] >>
+  strip_tac >>
+  `term_ok (sigof ctxt) p` by fs[theory_ok_def] >>
+  imp_res_tac theory_ok_sig >>
+  match_mp_tac satisfies_extend >>
+  map_every qexists_tac[`tysof ctxt`,`tmsof ctxt`] >>
+  simp[] >>
+  REWRITE_TAC[CONJ_ASSOC] >>
+  conj_tac >- (
+    conj_tac >>
+    match_mp_tac SUBMAP_FUNION >>
+    disj2_tac >>
+    fs[ALL_DISTINCT_APPEND,pred_setTheory.IN_DISJOINT] >>
+    metis_tac[] ) >>
+  match_mp_tac satisfies_consts >>
+  qexists_tac`i` >> simp[] >> fs[] >>
+  simp[term_ok_def,type_ok_def] >>
+  REWRITE_TAC[CONJ_ASSOC] >>
+  conj_tac >- (
+    rw[constrain_interpretation_def,constrain_assignment_def,FUN_EQ_THM] >>
+    BasicProvers.CASE_TAC >>
+    fs[IS_SOME_EXISTS,PULL_EXISTS] >> res_tac >>
+    fs[ALL_DISTINCT_APPEND,MEM_MAP,EXISTS_PROD] >>
+    imp_res_tac ALOOKUP_MEM >>
+    metis_tac[] ) >>
   cheat)
 
 val _ = export_theory()
