@@ -5,8 +5,6 @@ open listTheory sptreeTheory pred_setTheory pairTheory
 
 val _ = new_theory "word_proc";
 
-
-
 (*Coloring expressions*)
 val apply_color_exp_def = tDefine "apply_color_exp" `
   (apply_color_exp f (Var num) = Var (f num)) /\
@@ -705,39 +703,66 @@ wEval
     Cases_on`get_var (SND h) s`>> fs[]>>
     rw[get_var_def]>> 
 
-(*2nd subgoal of moves*)
-  >> `ALL_DISTINCT (MAP FST moves)` by 
-   (SPOSE_NOT_THEN ASSUME_TAC>> fs[])>>
-   `MAP (f o FST) moves = MAP f (MAP FST moves)` by fs[map_compose]>>
-   fs[INJ_DEF] 
-   >> metis_tac[miscTheory.ALL_DISTINCT_MAP_INJ]
-   
-fs[]
-     rw[]
-      metis_tac[]
 
-     Induct_on`moves` >- fs[] >>
-       metis_tac[] 
-   metis_tac[miscTheory.ALL_DISTINCT_MAP_INJ]
-   IF_CASES_TAC
-   simp[]>>
-metis_tac[INJ_DEF]
-    rw[fromAList_def]]
-    rw[get_vars_def]>>
-       Induct_on `moves`>-
-         fs[get_vars_def] >>
-       rw[get_vars_def,get_var_def]>>
+(*Adding a move: takes an f and a state and moves all its locals under f*)
+val move_locals_def = Define`
+  move_locals f s = 
+    let names = SET_TO_LIST (domain s.locals) in
+      Move (ZIP (MAP f names , names))`
 
-  Induct_on `moves`>-
-   (>>
-   strip_tac>>
-   rw[word_state_updates_eq_literal])>>
+val get_vars_domain_eq_lemma = prove(
+  ``!ls s x.
+        (set ls) SUBSET (domain s.locals) ==>
+        get_vars ls s = SOME (MAP (THE o (\x.lookup x s.locals)) ls)``,
+  Induct>>rw[get_vars_def,get_var_def]>>
+  fs[domain_lookup])
 
-  rw[wEval_def,apply_color_def] >
-   fs[MAP_ZIP,get_vars_def,apply_nummap_key_def]
+val lookup_list_insert = prove(
+  ``!x y t (z:num). LENGTH x = LENGTH y ==> 
+    (lookup z (list_insert x y t) = 
+    case ALOOKUP (ZIP(x,y)) z of SOME a => SOME a | NONE => lookup z t)``,
+    ho_match_mp_tac list_insert_ind>>
+    rw[]>-
+      (Cases_on`y`>>
+      rw[list_insert_def]>>fs[LENGTH]) >>
+    Cases_on`z=x`>>
+      rw[lookup_def,list_insert_def]>>
+    fs[lookup_insert]) 
+
+(*Need injectivity to ensure ALL_DISTINCT of the move target,
+  problem with needing to know that the keys are ALL_DISTINCT..*)
+val move_locals_strong_state_rel = prove(
+  ``!f s. INJ f UNIV UNIV ==>
+  let (res,s') = wEval (move_locals f s,s) in
+    res = NONE /\ strong_state_rel f s s'``,
+  rpt strip_tac>>fs[wEval_def,LET_THM,move_locals_def,MAP_ZIP]>>
+  fs[GEN_ALL FINITE_domain,ALL_DISTINCT_MAP_INJ,INJ_DEF
+    ,ALL_DISTINCT_SET_TO_LIST]>>
+  qabbrev_tac `ls = SET_TO_LIST (domain s.locals)`>>
+  `(set ls) SUBSET (domain s.locals)` by
+     fs[GEN_ALL FINITE_domain,SET_TO_LIST_INV,pred_setTheory.SUBSET_REFL
+       ,Abbr`ls`]>>
+  IMP_RES_TAC get_vars_domain_eq_lemma >>
+  fs[set_vars_def,strong_state_rel_def]>>
+  rw[]>>
+  assume_tac lookup_list_insert>>
+  qmatch_abbrev_tac `lookup (f n) (list_insert A B s.locals) = SOME v`>>
+  `LENGTH A = LENGTH B` by (unabbrev_all_tac>>fs[LENGTH_MAP])>>
+  imp_res_tac lookup_list_insert>>
+  last_x_assum (qspecl_then [`f n`,`s.locals`] assume_tac)>>
+  simp[ZIP_MAP]>>
+  
+
+  `MEM n ls` by fs[domain_lookup]>>
+  MEM n move_locals_strong_state_rel
+
+  Induct_on`SET_TO_LIST (domain s.locals)`>>
+
+  fs[get_var_def,et_vars_def,strong_state_rel_def,set_vars_def,list_insert_def]
 
 
-
+val mov_state = prove(
+``
 
 
 
@@ -819,7 +844,7 @@ val move_conv_lemma = store_thm ("move_conv_lemma",
   Q.UNABBREV_TAC `args`>>
   rw[wEval_def]>-
     (fs[MAP_ZIP,ALL_DISTINCT_SET_TO_LIST,
-       ALL_DISTINCT_MAP_INJ,INJ_DEF,MEM_SET_TO_LIST]>> 
+       doALL_DISTINCT_MAP_INJ,INJ_DEF,MEM_SET_TO_LIST]>> 
     first_x_assum(qspec_then`SET_TO_LIST (domain s.locals)`mp_tac) >>
     simp[] >> Q.ABBREV_TAC `args = SET_TO_LIST (domain s.locals)`>>
     rw[set_vars_def,list_insert_def] >> simp[]
@@ -830,6 +855,7 @@ val move_conv_lemma = store_thm ("move_conv_lemma",
   pop_assum mp_tac>> simp[] >>
   match_mp_tac ALL_DISTINCT_MAP_INJ>> simp[]>>
   fs[INJ_DEF] );
+
 
   
 
