@@ -1,7 +1,10 @@
 open HolKernel Parse boolLib bossLib miscLib word_langTheory
 open listTheory sptreeTheory pred_setTheory pairTheory optionTheory
+open sortingTheory relationTheory
+(*open wordsLib*)
+
 (*TODO: remove the last_n lemmas*)
-open bvp_lemmasTheory
+open bvp_lemmasTheory miscTheory
 
 val _ = new_theory "word_lemmas";
 
@@ -141,7 +144,7 @@ val s_val_eq_dec_stack = prove(
 
 (*wGC succeeds on all stacks related by stack_val and there are relations
   in the result*)
-val wGC_s_val_eq = prove(
+val wGC_s_val_eq = store_thm("wGC_s_val_eq",
   ``!s x st y. s_val_eq s.stack st /\ 
              wGC s = SOME y ==> 
       ?z. wGC (s with stack := st) = SOME (y with stack := z) /\
@@ -182,7 +185,7 @@ val wGC_s_val_eq_word_state = store_thm("wGC_s_val_eq_word_state",
 
 
 (*pushing and popping maintain the stack_key relation*)
-val push_env_pop_env_s_key_eq = prove(
+val push_env_pop_env_s_key_eq = store_thm("push_env_pop_env_s_key_eq",
   ``!s t x b. s_key_eq (push_env x b s).stack t.stack ==>
               ?y. (pop_env t = SOME y /\
                    s_key_eq s.stack y.stack)``,
@@ -633,7 +636,7 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
          Cases_on`x''`>>BasicProvers.EVERY_CASE_TAC>>rfs[set_var_def]>>fs[]>>
          `r''.handler = s.handler` by (`LENGTH s.stack +1 = 
           LENGTH (StackFrame (list_rearrange (s.permute 0) 
-             (QSORT (λx y.FST x ≤ FST y) (toAList x'))) 
+             (QSORT key_val_compare (nub (toAList x')))) 
              (SOME s.handler)::s.stack)` by fs[arithmeticTheory.ADD1]>>
            pop_assum SUBST_ALL_TAC>>
            fs[LAST_N_LENGTH]>>
@@ -643,7 +646,7 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
            (ONCE_REWRITE_TAC[CONJ_ASSOC]>>CONJ_TAC>-
            (`LENGTH s.stack +1 = 
              LENGTH (StackFrame (list_rearrange (s.permute 0) 
-             (QSORT (λx y.FST x ≤ FST y) (toAList x'))) 
+             (QSORT key_val_compare (nub (toAList x')))) 
              (SOME s.handler)::s.stack)` by fs[arithmeticTheory.ADD1]>>
            pop_assum SUBST_ALL_TAC>>
            fs[LAST_N_LENGTH]>>
@@ -672,7 +675,7 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
             CONJ_TAC >- (
             `LENGTH s.stack +1 = 
              LENGTH (StackFrame (list_rearrange (s.permute 0) 
-             (QSORT (λx y.FST x ≤ FST y) (toAList x'))) 
+             (QSORT key_val_compare (nub (toAList x')))) 
              (SOME s.handler)::s.stack)` by fs[arithmeticTheory.ADD1]>>
              pop_assum SUBST_ALL_TAC>>
              fs[LAST_N_LENGTH]>>
@@ -687,7 +690,7 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
              CONJ_TAC>-
              (`LENGTH s.stack +1 = 
                LENGTH (StackFrame (list_rearrange (s.permute 0) 
-               (QSORT (λx y.FST x ≤ FST y) (toAList x'))) 
+               (QSORT key_val_compare (nub (toAList x')))) 
                (SOME s.handler)::s.stack)` by fs[arithmeticTheory.ADD1]>>
              pop_assum SUBST_ALL_TAC>>
              fs[LAST_N_LENGTH]>>
@@ -724,5 +727,226 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
                (Q.EXISTS_TAC`lss'''`>>fs[])>>
              metis_tac[s_key_eq_trans]))
 (*DONE*)
+
+val GENLIST_MAP = prove(
+  ``!k. (!i. i < LENGTH l ==> m i < LENGTH l) /\ k <= LENGTH l ==>
+        GENLIST (\i. EL (m i) (MAP f l)) k =
+        MAP f (GENLIST (\i. EL (m i) l) k)``,
+  Induct \\ fs [GENLIST] \\ REPEAT STRIP_TAC
+  \\ `k < LENGTH l /\ k <= LENGTH l` by DECIDE_TAC
+  \\ fs [EL_MAP]);
+
+val list_rearrange_MAP = store_thm ("list_rearrange_MAP",
+  ``!l f m. list_rearrange m (MAP f l) = MAP f (list_rearrange m l)``,
+  SRW_TAC [] [list_rearrange_def] \\ MATCH_MP_TAC GENLIST_MAP \\ fs []);
+
+val monotonic_color_def = Define`
+  !f. monotonic_color f <=>
+        !x:num y. x < y ==> (f x):num < f y`
+
+val rel_monotonic_def = Define`
+  !R f. rel_monotonic R f <=>
+    !x y. R x y ==> R (f x) (f y)`
+
+(*Theorems about sorting under a rel_monotonic relation*)
+val rel_monotonic_SORTED = prove(
+ ``!R ls f. rel_monotonic R f /\ SORTED R ls==> 
+   SORTED R (MAP f ls)``,
+  ho_match_mp_tac SORTED_IND>> rw[]>>
+  fs[SORTED_DEF,rel_monotonic_def])
+
+
+val MAP_monotonic_QSORT_EQ = prove(
+  ``!R f ls. total R /\ transitive R /\ antisymmetric R /\ 
+             rel_monotonic R f
+    ==> MAP f (QSORT R ls) = QSORT R (MAP f ls)`` ,
+    rpt strip_tac>>
+    match_mp_tac (MP_CANON SORTED_PERM_EQ) >>
+    HINT_EXISTS_TAC >> simp[] >>
+    conj_tac >- (
+      metis_tac[QSORT_SORTED,rel_monotonic_SORTED])>>
+    conj_tac >- metis_tac[QSORT_SORTED] >>
+    match_mp_tac PERM_TRANS >>
+    qexists_tac`MAP f ls` >>
+    conj_tac >- (
+      match_mp_tac PERM_MAP >>
+      metis_tac[QSORT_PERM,PERM_SYM] ) >>
+    metis_tac[QSORT_PERM] )
+
+val facts = prove(
+  ``total key_val_compare /\
+    transitive key_val_compare /\
+    antisymmetric key_val_compare``,
+  fs[total_def,transitive_def,antisymmetric_def,key_val_compare_def]>>
+  rw[]>>fsrw_tac[ARITH_ss][]>-
+    (Cases_on`a'=a`>>
+    BasicProvers.EVERY_CASE_TAC>>
+    fsrw_tac[ARITH_ss][]>>
+    wordsLib.WORD_DECIDE_TAC)>-
+    (Cases_on`y`>>fs[LET_THM]>>
+    BasicProvers.EVERY_CASE_TAC>>
+    fsrw_tac[ARITH_ss][]>>
+    wordsLib.WORD_DECIDE_TAC)>>
+  (Cases_on`x`>>Cases_on`y`>>
+  Cases_on`q=q'`>>fsrw_tac[ARITH_ss][LET_THM]>>
+  BasicProvers.EVERY_CASE_TAC>-
+    wordsLib.WORD_DECIDE_TAC>-
+    fs[]>- fs[]>>
+    Cases_on`n=n'`>>
+    fsrw_tac[ARITH_ss][]))
+
+(*Pull out the definition of exactly matched locals
+  We use an injective f so the 2nd condition is insufficient*)
+val exact_colored_locals_def = Define`
+exact_colored_locals f x y <=>
+  (domain y = IMAGE f (domain x) /\
+   !z. lookup z x = lookup (f z) y)`
+
+val MEM_nub = prove(
+ ``!ls x. MEM x (nub ls) <=> MEM x ls``,
+  Induct>> rw[miscTheory.nub_def]>>
+  metis_tac[])
+
+val toAList_exact_colored_locals_permute = prove(
+  ``!f x y. INJ f UNIV UNIV /\
+            exact_colored_locals f x y
+       ==>  PERM (MAP (\a,b.(f a,b)) (nub (toAList x))) (nub (toAList y))``,
+  rw[]>> fs[exact_colored_locals_def]>>
+  match_mp_tac PERM_ALL_DISTINCT>>
+  rw[]>-
+    (`INJ (\a,b:'a. (f a,b)) UNIV UNIV` by 
+      (fs[INJ_DEF]>>rpt strip_tac>> Cases_on`x'`>>Cases_on`y'`>>fs[])>>
+    ASSUME_TAC (INST_TYPE [``:'a``|-> ``:num # 'a``] all_distinct_nub)>>
+    first_assum (qspec_then `toAList x` assume_tac)>>
+    match_mp_tac ALL_DISTINCT_MAP_INJ>>
+    rw[]>- (Cases_on`x'`>>Cases_on`y'`>>fs[INJ_DEF]))>-
+    fs[all_distinct_nub]>>
+  Cases_on`x'`>> 
+  rw[EQ_IMP_THM]>-
+    (fs[MEM_MAP]>>Cases_on`y'`>>fs[]>>
+    IMP_RES_TAC MEM_nub>> 
+    metis_tac[MEM_toAList,MEM_nub])>>
+  IMP_RES_TAC MEM_nub>>
+  IMP_RES_TAC MEM_toAList>>
+    `?z. lookup z x = SOME r /\ f z = q` by
+      (IMP_RES_TAC domain_lookup>>
+      fs[EXTENSION] >> last_x_assum(qspec_then `q` assume_tac)>>fs[]>>
+      fs[domain_lookup]>>
+      HINT_EXISTS_TAC>>fs[])>>
+      match_mp_tac (GEN_ALL (snd(EQ_IMP_RULE (SPEC_ALL MEM_MAP))))>>
+    Q.EXISTS_TAC `z,r`>>
+    fs[]>>metis_tac[PAIR,MEM_toAList,MEM_nub])
+
+val color_fst_monotonic = prove(``
+  monotonic_color f ==> rel_monotonic key_val_compare (\x,y.f x,y)``,
+  strip_tac>>fs[monotonic_color_def,rel_monotonic_def]>>
+  Cases>>Cases>>fs[LET_THM,key_val_compare_def]>>
+  metis_tac[])
+
+(*Under a monotonic coloring f rename of keys in the locals
+TODO: Might want to add conditions on the FSTs as well*)
+val env_to_list_monotonic_eq = store_thm("env_to_list_monotonic_eq",
+  ``!f x y p.
+    monotonic_color f /\
+    INJ f UNIV UNIV /\
+    exact_colored_locals f x y
+    ==>
+    let (x',p') = env_to_list x p in
+    let (y',p'') = env_to_list y p in
+      MAP SND x' = MAP SND y' /\
+      p' = p'' ``,
+  rpt strip_tac>>fs[env_to_list_def,LET_THM]>>
+  ASSUME_TAC (SPEC_ALL toAList_exact_colored_locals_permute)>>
+  simp[GSYM list_rearrange_MAP]>>
+  AP_TERM_TAC>>
+  qmatch_abbrev_tac`MAP SND (QSORT R l1) = X` >>
+  qunabbrev_tac`X` >>
+  assume_tac color_fst_monotonic>>
+  fs[LET_THM]>>rfs[]>>
+  `MAP SND (QSORT R l1) =
+   MAP SND (MAP (\x,y.f x,y) (QSORT R l1))` by (
+     simp[MAP_MAP_o,MAP_EQ_f,FORALL_PROD] ) >>
+  pop_assum SUBST1_TAC >>
+  AP_TERM_TAC >>
+  qmatch_abbrev_tac`MAP h (QSORT R ls) = X` >>
+  Q.ISPECL_THEN[`R`,`h`,`ls`]mp_tac MAP_monotonic_QSORT_EQ >>
+  discharge_hyps_keep >- (
+    assume_tac (INST_TYPE [``:'b``|->``:'a``,``:'c``|->``:'a``] facts)>> 
+    fs[LET_THM,Abbr`R`,Abbr`h`]) >>
+  disch_then SUBST1_TAC >>
+  fs[Abbr`X`] >> simp[QSORT_eq_if_PERM] >>
+  unabbrev_all_tac >>
+  fs[toAList_exact_colored_locals_permute])
+
+(*Theorems about sorting that ended up not used*)
+
+
+(*Equality under a relation R*)
+val EQ_R_def = Define`
+  EQ_R R x y <=> R x y /\ R y x`
+
+
+(*set_trace "simplifier" 0*)
+(*all distinct with respect to R which is meant to be
+total, transitive and reflexive i.e. a total order*)
+val ALL_DISTINCT_R_def = Define`
+  (ALL_DISTINCT_R R [] <=> T) /\
+  (ALL_DISTINCT_R R (x::xs) <=>
+    ~EXISTS (EQ_R R x) xs /\ ALL_DISTINCT_R R xs)`
+
+val SORTED_HEAD_SWAP = prove(
+``!R x h xs. transitive R /\ SORTED R (h::xs) /\ R x h ==>
+             SORTED R (x::xs)``,
+  Induct_on `xs`>> fs[]>>
+  rpt strip_tac>>
+  metis_tac[SORTED_DEF,transitive_def])
+ 
+(*Head element is < everything in the list*)  
+val SORTED_ALL_DISTINCT_R_head = prove
+(``!R x xs. transitive R /\
+           SORTED R (x::xs) /\ 
+           ALL_DISTINCT_R R (x::xs)
+  ==> EVERY (\y. R x y /\~R y x) xs``,
+Induct_on `xs`>>
+fs[]>>rpt strip_tac>>
+fs[SORTED_DEF,ALL_DISTINCT_R_def,EQ_R_def]>>
+IMP_RES_TAC SORTED_HEAD_SWAP>>
+last_assum(qspecl_then [`R`,`x`] assume_tac)>>
+metis_tac[])
+ 
+val SORTED_HEAD_LT = prove
+(``!R x xs. transitive R /\
+            SORTED R (x::xs)
+        ==> EVERY (\y. R x y) xs``,
+  Induct_on`xs`>>
+  fs[SORTED_DEF]>>rpt strip_tac>>
+  last_x_assum(qspecl_then [`R`,`h`] assume_tac)>> rfs[]>>
+  fs [EVERY_MEM] >> rpt strip_tac>> 
+  metis_tac[transitive_def])
+
+val UNIQUE_SORTED_PERM_ALL_DISTINCT_R = prove
+(``!R l1 l2.
+  transitive R /\
+  SORTED R l1 /\
+  SORTED R l2 /\
+  ALL_DISTINCT_R R l1 /\
+  PERM l1 l2 (*Implies ALL_DISTINCT_R l2*)
+  ==>
+  l1 = l2``,
+ho_match_mp_tac SORTED_IND>>
+rw[SORTED_DEF]>>
+Cases_on`l2`>> fs[]>>
+`SORTED R t` by (Cases_on`t`>>fs[SORTED_DEF])>>
+CONJ_ASM1_TAC>-
+  (`MEM x (h::t) /\ MEM h (x::y::rst)` by 
+    (IMP_RES_TAC PERM_MEM_EQ>> metis_tac[MEM])>>
+  `SORTED R (x::y::rst)` by fs[SORTED_DEF]>>
+  IMP_RES_TAC SORTED_HEAD_LT>>
+  Cases_on`x=h`>> simp[]>>
+  `MEM x t /\ MEM h (y::rst)` by fs[]>>
+  `EQ_R R x h` by fs[EQ_R_def,EVERY_MEM]>>
+  metis_tac[EXISTS_MEM,ALL_DISTINCT_R_def])>>
+(`PERM(y::rst) t` by fs[PERM_CONS_IFF]>>
+metis_tac[ALL_DISTINCT_R_def]))
 
 val _ = export_theory();

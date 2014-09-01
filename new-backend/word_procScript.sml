@@ -164,15 +164,16 @@ val MEM_fromAList = store_thm ("MEM_fromAList",
   Cases_on`q=k`>>
     rw[fromAList_def])
  
-(*cutting the environment on strongly related locals returns locals where equality is true*)
+(*cutting the environment on strongly related locals returns an
+ exact_colored_locals *)
+
 val cut_env_lemma = prove(
   ``!names sloc tloc x f. INJ f UNIV UNIV /\ cut_env names sloc = SOME x /\
     (!n v. (lookup n sloc = SOME v) ==> (lookup (f n) tloc = SOME v))
     ==> (?y. cut_env (apply_nummap_key f names) tloc = SOME y /\
-        (!z. lookup z x = lookup (f z) y) /\
-        domain y = IMAGE f (domain x))``,
+              exact_colored_locals f x y)``,
     rpt strip_tac>>
-    fs[cut_env_def]>>
+    fs[cut_env_def,exact_colored_locals_def]>>
     CONV_TAC(lift_conjunct_conv(can dest_forall))>>
     CONJ_TAC>-
     (*lookup*)
@@ -196,7 +197,7 @@ val cut_env_lemma = prove(
        fs[]>>
        IMP_RES_TAC (INST_TYPE [``:'a``|->``:unit``] 
          lookup_apply_nummap_key)>>fs[])>>
-    REVERSE CONJ_ASM2_TAC>>
+    REVERSE CONJ_ASM2_TAC>-
     (*domain*)
     (simp[SUBSET_DEF]>>
     strip_tac>>
@@ -217,29 +218,21 @@ val cut_env_lemma = prove(
      fs[]>> unabbrev_all_tac>>
      simp[EXTENSION]>>
      rw[EQ_IMP_THM]>-
-       IMP_RES_TAC MEM_fromAList>>
-       fs[MAP_MAP_o,MEM_MAP,MAP_ZIP,MEM_ZIP,EL_MAP,MEM_toAList,domain_lookup]>>
-       fs[GEN_ALL (SYM (SPEC_ALL MAP_MAP_o))]>>
-       IMP_RES_TAC EL_MAP
-,LENGTH_MAP]
-     fs[IMAGE_DEF] 
-
->>fs[]>>
-    `domain x = domain names`
-
- CONJ_TAC >-
-        simp[SUBSET_DEF]>>
-    strip_tac>>
-    disch_then(mp_tac o MATCH_MP(snd(EQ_IMP_RULE(SPEC_ALL MEM_fromAList))))>>
-    simp[MAP_ZIP,MEM_MAP]>>rw[]>>
-    fs[MEM_ZIP,EL_MAP]>>
-    qmatch_abbrev_tac`f x IN s` >>
-    `∃v. lookup x names = SOME v`
-       by metis_tac[MEM_toAList,MEM_EL,
-                    pairTheory.pair_CASES,pairTheory.FST] >>
-    `?v. lookup x sloc = SOME v` by metis_tac[domain_lookup,SUBSET_DEF]>>
-    metis_tac[domain_lookup]
-
+       (IMP_RES_TAC MEM_fromAList>>
+       fs[MAP_MAP_o,MEM_MAP,MAP_ZIP,MEM_ZIP]>>
+       Cases_on`y`>>
+       fs[EL_MAP]>>
+       IMP_RES_TAC rich_listTheory.EL_MEM>>
+       Q.ABBREV_TAC `elem = (EL n (toAList names))`>>
+       Q.EXISTS_TAC `FST elem`>>
+       Cases_on`elem`>>fs[MEM_toAList,domain_lookup])>>
+       IMP_RES_TAC domain_lookup>>
+       IMP_RES_TAC MEM_toAList>>
+       qmatch_abbrev_tac `f x IN domain (fromAList (ZIP (A,B)))`>>
+       `MEM (f x) (MAP FST (ZIP(A,B)))` by 
+         (simp[MAP_ZIP,LENGTH_MAP,Abbr`A`,Abbr`B`]>>
+         metis_tac[ZIP_MAP,EVAL``(f o FST) (x,v)``,Abbr`A`,MEM_MAP])>>
+       fs[MEM_fromAList])
 
 val enc_stack_push_env = prove(
   ``!x b s s'. s.permute = s'.permute ==>(
@@ -253,11 +246,36 @@ val enc_stack_set_store = prove(
      enc_stack s.stack = enc_stack s'.stack)``,
   fs[set_store_def])
 
-
 val get_var_tactic = 
   Cases_on`get_var n st`>>fs[]>>
   `get_var (f n) cst = SOME x` by 
   metis_tac[strong_state_rel_get_var_lemma];
+
+
+(*Exact colored locals and stack preserved by wGC push env then pop*)
+val wGC_exact_colored_locals = prove(
+  ``!f s t b st y z. 
+                monotonic_color f /\
+                INJ f UNIV UNIV /\
+                exact_colored_locals f s t /\
+                wGC (push_env s b st) = SOME y /\
+                pop_env y = SOME z ==>
+        ?y' z'. wGC (push_env t b st) = SOME y' /\
+                pop_env y' = SOME z' /\
+                exact_colored_locals f z.locals z'.locals /\
+                z'.stack = z.stack``,
+  rw[]>>
+  `s_val_eq (push_env s b st).stack (push_env t b st).stack` by
+    (fs[push_env_def]>>
+    IMP_RES_TAC env_to_list_monotonic_eq>>
+    fs[LET_THM,env_to_list_def,s_val_eq_def,s_frame_val_eq_def]>>
+    CONJ_TAC>- fs[s_val_eq_refl] >>
+    Cases_on`b`>> fs[s_frame_val_eq_def])>>
+  IMP_RES_TAC wGC_s_val_eq_word_state>>
+  last_x_assum(qspec_then `ARB` assume_tac) >>
+  fs[]
+
+  fs[push_env_def,LET_THM]
 
 (*Prove that mapping (doesnt need to be injective) f over an exp + initial state vars gives the same result and a new state which contains mapped vars*)
 val inj_apply_color_exp_invariant = store_thm("inj_apply_color_exp_invariant",
@@ -291,215 +309,17 @@ val inj_apply_color_exp_invariant = store_thm("inj_apply_color_exp_invariant",
      >>
     Cases_on`word_exp st exp`>>fs[])
 
-val monotonic_color_def = Define`
-  !f. monotonic_color f <=>
-        !x:num y. x < y ==> (f x):num < f y`
-
 val locals_eq_toAList = prove(
   ``!x y f.
      (!z:num. lookup z x = lookup (f z) y)
       ==> !k v. MEM(k,v) (toAList x) <=> MEM (f k,v) (toAList y)``,
   metis_tac[MEM_toAList])
 
-val locals_eq_LENGTH_toAList = prove(
-  ``!x y f. INJ f UNIV UNIV /\
-      (!z:num. lookup z x = lookup (f z) y)
-       ==> LENGTH (toAList x) = LENGTH (toAList y)``,
-  rpt strip_tac>>
-  IMP_RES_TAC locals_eq_toAList>>
-
-(*Need something like*)
-ALL_DISTINCT_R R ls ==>
-  SORTED R (QSORT R ls) /\
-
-(*Equality under a relation*)
-val EQ_R_def = Define`
-  EQ_R R x y <=> R x y /\ R y x`
-
-(*all distinct with respect to R which is meant to be
-total, transitive and reflexive*)
-val ALL_DISTINCT_R_def = Define`
-  (ALL_DISTINCT_R R [] <=> T) /\
-  (ALL_DISTINCT_R R (x::xs) <=>
-    ~EXISTS (EQ_R R x) xs /\ ALL_DISTINCT_R R xs)`
-
-val SORTED_HEAD = prove(
-``!R x h xs. transitive R /\ SORTED R (h::xs) /\ R x h ==>
-             SORTED R (x::xs)``,
-  Induct_on `xs`>> fs[]>>
-  rpt strip_tac>>
-  metis_tac[SORTED_DEF,transitive_def])
- 
-(*Head element is < everything in the list*)  
-val SORTED_ALL_DISTINCT_R_head = prove
-(``!R x xs. transitive R /\
-           SORTED R (x::xs) /\ 
-           ALL_DISTINCT_R R (x::xs)
-  ==> ~EXISTS (\y.R y x) xs``,
-Induct_on `xs`>>
-fs[]>>rpt strip_tac>-
-  fs[SORTED_DEF,ALL_DISTINCT_R_def,EQ_R_def]>>
-fs[SORTED_DEF,ALL_DISTINCT_R_def]>>
-IMP_RES_TAC SORTED_HEAD>>
-last_assum(qspecl_then [`R`,`x`] assume_tac)>>
-metis_tac[])
-
-``!R l1 l2.
-  transitive R /\
-  SORTED R l1 /\
-  SORTED R l2 /\
-  ALL_DISTINCT_R R l1 /\
-  PERM l1 l2 (*Implies ALL_DISTINCT_R l2*)
-  ==>
-  l1 = l2``,
-ho_match_mp_tac SORTED_IND>>
-rw[SORTED_DEF]>>
-Cases_on`l2`>> fs[]>>
-IMP_RES_TAC SORTED_ALL_DISTINCT_R_head>>
-Cases_on`t`>> fs[]>>
-fs[SORTED_DEF,ALL_DISTINCT_R_def]>>rfs[]>>
-fs[SORTED_DEF]
-IMP_RES_TAC PERM_MEM_EQ>>
-`MEM x (h::h'::t')` by fs[]
-fs[ALL_DISTINCT_R_def,PERM_DEF]>>
-
-
- 
- PERM l1 ls ==> SORTED R (QSORT R l1)
-
-
-
-  `MEM
-  IMP_RES_TAC MEM_toAList
-  fs[toAList_def]>>
-
-∀f R l1 l2.
-  PERM (MAP f l1) (MAP f l2)
-  ⇒
-  MAP f (QSORT R l1) =
-  MAP f (QSORT R l2)
-  ``inv_image (arithmetic$<=) FST``
-
-open sortingTheory
-``∀R ls x y. (R = inv_image x y) ⇒ QSORT R ls = QSORT x (MAP y ls)``
-ho_match_mp_tac QSORT_IND >> simp[QSORT_DEF]
-Induct >> simp[QSORT_DEF]
-print_find"sorted_ind"
-
-val th = prove(``∀f g h.
-(QSORT R (MAP (h o f) l1) = QSORT R (MAP f l2)) ∧
-(∀x y. MEM x l1 ∧ MEM y l2 ∧ (h (f x) = f y) ⇒ (g x = g y))
-⇒
-MAP g (QSORT (inv_image R f) l1) =
-MAP g (QSORT (inv_image R f) l2)``,
-
-val rel_monotonic_def = Define`
-  !R f. rel_monotonic R f <=>
-    !x y. R x y ==> R (f x) (f y)`
-
-val rel_monotonic_SORTED = prove(
- ``!R ls f. rel_monotonic R f /\ SORTED R ls==> 
-   SORTED R (MAP f ls)``,
-  ho_match_mp_tac SORTED_IND>> rw[]>>
-  fs[SORTED_DEF,rel_monotonic_def])
-
-val MAP_monotonic_QSORT_EQ = prove(
-  ``!R f ls. total R /\ transitive R /\ antisymmetric R /\ 
-             rel_monotonic R f
-    ==> MAP f (QSORT R ls) = QSORT R (MAP f ls)`` ,
-    rpt strip_tac>>
-    match_mp_tac (MP_CANON SORTED_PERM_EQ) >>
-    HINT_EXISTS_TAC >> simp[] >>
-    conj_tac >- (
-      metis_tac[QSORT_SORTED,rel_monotonic_SORTED])>>
-    conj_tac >- metis_tac[QSORT_SORTED] >>
-    match_mp_tac PERM_TRANS >>
-    qexists_tac`MAP f ls` >>
-    conj_tac >- (
-      match_mp_tac PERM_MAP >>
-      metis_tac[QSORT_PERM,PERM_SYM] ) >>
-    metis_tac[QSORT_PERM] )
-
-open relationTheory sortingTheory
-val facts = prove(``
-let R = prim_rec$< LEX word_le in
-   total R ∧ antisymmetric R ∧ transitive R``,
-  simp[total_def,antisymmetric_def,transitive_def] >>
-  simp[LEX_DEF,pairTheory.FORALL_PROD] >>
-  rw[] >> fsrw_tac[ARITH_ss][] >>
-  wordsLib.WORD_DECIDE_TAC)
-  	
-val color_fst_monotonic = prove(``
-  let R = prim_rec$< LEX word_le in
-    monotonic_color f ==> rel_monotonic R (\x,y. f x,y)``,
-  simp[LEX_DEF]>>strip_tac>>fs[monotonic_color_def,rel_monotonic_def]>>
-  Cases>>Cases>> rw[]>>
-  metis_tac[])
-
-          
-
-(*Under a monotonic color f*)
-val env_to_list_monotonic_eq = prove(
-  ``!f x y p.
-    monotonic_color f /\
-    INJ f UNIV UNIV /\
-    (!z:num. lookup z x = lookup (f z) y)
-    ==>
-    let (x',p') = env_to_list x p in
-    let (y',p'') = env_to_list y p in
-      MAP SND x' = MAP SND y' /\
-      p' = p'' ``,
-  rpt strip_tac>>fs[env_to_list_def,LET_THM]>>
-  simp[GSYM list_rearrange_MAP]>>
-  AP_TERM_TAC>>
-  qmatch_abbrev_tac`MAP SND (QSORT R l1) = X` >>
-  qunabbrev_tac`X` >>
-  assume_tac color_fst_monotonic>>
-  fs[LET_THM]>>rfs[]>>
-  `MAP SND (QSORT R l1) =
-   MAP SND (MAP (\x,y.f x,y) (QSORT R l1))` by (
-     simp[MAP_MAP_o,MAP_EQ_f,FORALL_PROD] ) >>
-  pop_assum SUBST1_TAC >>
-  AP_TERM_TAC >>
-  qmatch_abbrev_tac`MAP h (QSORT R ls) = X` >>
-  Q.ISPECL_THEN[`R`,`h`,`ls`]mp_tac MAP_monotonic_QSORT_EQ >>
-  discharge_hyps_keep >- (
-    assume_tac facts >> fs[LET_THM,Abbr`R`,Abbr`h`] ) >>
-  disch_then SUBST1_TAC >>
-  fs[Abbr`X`] >> simp[QSORT_eq_if_PERM] >>
-  unabbrev_all_tac >>
-  match_mp_tac PERM_ALL_DISTINCT >>
-  conj_tac >- (
-    match_mp_tac ALL_DISTINCT_MAP_INJ >>
-    simp[FORALL_PROD] >>
-    conj_tac >- fs[INJ_DEF] >>
-    cheat ) >>
-  conj_tac >- cheat >>
-  simp[MEM_toAList,MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
-  rw[EQ_IMP_THM] >> rw[] >>
-  SPOSE_NOT_THEN strip_assume_tac >>
-  
-  metis_tac[]
-print_find"PERM"
-  print_find"sorted_perm_eq"
-
-
-  `R = inv_image $<= FST` by (
-    simp[Abbr`R`,FUN_EQ_THM] ) >>
-  rw[Abbr`R`,Abbr`l1`] >>
-match_mp_tac th
-qexists_tac`f`
-  
-  
-  simp[MAP_EQ_f]
-  `LIST_REL (\a b. lookup a x = lookup b y) 
-
-
-(*Prove that mapping injective f over a prog + initial state variables gives the same result and a new state which contains mapped vars*)
 val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
   ``!prog st rst f cst res. 
                   wEval(prog,st) = (res,rst) 
                   /\ INJ f UNIV UNIV
+                  /\ monotonic_color f
                   /\ res <> SOME Error
                   (*/\ wf st.locals*)
                   /\ strong_state_rel f st cst ==>
@@ -526,14 +346,42 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
     qpat_abbrev_tac`Y = set_store a w t`>>
     (*Prove that (push env x F X) and (push_env y F Y) are s_val_eq*)
     `s_val_eq X.stack Y.stack` by 
-       (bossLib.UNABBREV_ALL_TAC>>fs[s_val_eq_refl,set_store_def])
-    `s_val_eq (push_env x F X).stack (push_env y F y).stack` by
-       fs[push_env_def]
-
-,LET_THM,env_to_list_def] 
-
+       (bossLib.UNABBREV_ALL_TAC>>fs[s_val_eq_refl,set_store_def])>>
+    `s_val_eq (push_env x F X).stack (push_env y F Y).stack` by
+       (fs[push_env_def,LET_THM,env_to_list_def,s_val_eq_def,s_frame_val_eq_def]>>
+      `X.permute = Y.permute` by fs[set_store_def,Abbr`X`,Abbr`Y`]>>
+       IMP_RES_TAC env_to_list_monotonic_eq>>
+       pop_assum mp_tac>>simp[env_to_list_def]>>
+       simp [GSYM list_rearrange_MAP])>>
     Cases_on`wGC (push_env x F X)`>>fs[]>>
+    Q.ABBREV_TAC `Y' = push_env y F Y`>>
+    IMP_RES_TAC wGC_s_val_eq_word_state>>
+    first_x_assum(qspec_then `Y'.locals` assume_tac)>>
+    fs[]>>
+    `(push_env x F X with <|locals := Y'.locals; stack := Y'.stack|>) = Y'` by 
+      (unabbrev_all_tac>>
+      fs[set_store_def,word_state_component_equality,push_env_def,env_to_list_def,LET_THM])>>
+    pop_assum SUBST_ALL_TAC>> fs[]>>
+    Cases_on`pop_env x'`>>fs[]>>
+    `s_key_eq Y'.stack zstack` by 
+      metis_tac[s_key_eq_sym]
+    Q.UNABBREV_TAC `Y'`>> 
+    qabbrev_tac `Z = x' with <|locals := zlocs; stack:= zstack|>`>>
+    `s_key_eq (push_env y F Y).stack Z.stack` by fs[word_state_component_equality,Abbr`Z`]>>
+    IMP_RES_TAC push_env_pop_env_s_key_eq>>
+    fs[]>>
+    unabbrev_all_tac>>
+    `strong_state_rel f x'' y''''` by 
+      fs[strong_state_rel_def,pop_env_def]>>
+      BasicProvers.EVERY_CASE_TAC>>fs[s_key_eq_def,word_state_component_equality]
+
     BasicProvers.FULL_CASE_TAC>> fs[]>>
+    unabbrev_all_tac>>
+    `FLOOKUP y''''.store AllocSize = SOME x'''` by 
+    fs[pop_env_def]
+
+
+
     (*need a lemma about wGC here*)
     `wGC(push_env y F X') = SOME z' /\
      pop_env z' = SOME z'' /\

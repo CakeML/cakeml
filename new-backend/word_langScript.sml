@@ -255,28 +255,31 @@ val list_rearrange_def = Define `
     else (* if it isn't well-formed, just pretend it is I *)
       xs`
 
+(*Compare on keys, if keys match (never), then compare on the word_loc vals
+Treat Words as < Locs*)
+val key_val_compare_def = Define `
+  key_val_compare x y =
+    let (a:num,b) = x in
+    let (a':num,b') = y in
+      (a < a') \/
+      (a = a' /\
+        case b of 
+          Word x => (case b' of Word y => x <= y | _ => T)
+        | Loc a b => case b' of Loc a' b' => (a<a') \/ (a=a' /\ b<=b') | _ => F)`
+  
+(*
+EVAL ``key_val_compare (1,Loc 3 4) (1,Loc 1 2)``
+*)
+
 (*This does not quite work...($< LEX $<=)*)
 val env_to_list_def = Define `
   env_to_list env (bij_seq:num->num->num) =
     let mover = bij_seq 0 in
     let permute = (\n. bij_seq (n + 1)) in
-    let l = toAList env in
-    let l = QSORT (\x y. FST x <= FST y) l in
+    let l = nub (toAList env) in
+    let l = QSORT key_val_compare l in
     let l = list_rearrange mover l in
       (l,permute)`
-
-
-val GENLIST_MAP = prove(
-  ``!k. (!i. i < LENGTH l ==> m i < LENGTH l) /\ k <= LENGTH l ==>
-        GENLIST (\i. EL (m i) (MAP f l)) k =
-        MAP f (GENLIST (\i. EL (m i) l) k)``,
-  Induct \\ fs [GENLIST] \\ REPEAT STRIP_TAC
-  \\ `k < LENGTH l /\ k <= LENGTH l` by DECIDE_TAC
-  \\ fs [EL_MAP]);
-
-val list_rearrange_MAP = prove(
-  ``!l f m. list_rearrange m (MAP f l) = MAP f (list_rearrange m l)``,
-  SRW_TAC [] [list_rearrange_def] \\ MATCH_MP_TAC GENLIST_MAP \\ fs []);
 
 val push_env_def = Define `
   push_env env b s =
@@ -285,10 +288,6 @@ val push_env_def = Define `
       s with <| stack := StackFrame l handler :: s.stack
               ; permute := permute
               ; handler := if b then LENGTH s.stack else s.handler |>`;
-
-val fromAList_def = Define `
-  (fromAList [] = LN) /\
-  (fromAList ((x,y)::xs) = insert x y (fromAList xs))`;
 
 val pop_env_def = Define `
   pop_env s =
