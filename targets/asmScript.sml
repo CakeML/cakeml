@@ -319,12 +319,19 @@ val asm_step_def = Define `
 
 (* -- semantics is deterministic if encoding is deterministic enough -- *)
 
+val asm_deterministic_def = Define `
+   asm_deterministic enc c =
+     !s1 s2 s3. asm_step enc c s1 s2 /\ asm_step enc c s1 s3 ==> (s2 = s3)`
+
 val enc_deterministic_def = Define `
   enc_deterministic enc c =
     !i j s1.
       asm_ok i c /\ asm_ok j c /\ isPREFIX (enc i) (enc j) ==>
         (asm i (s1.pc + n2w (LENGTH (enc i))) s1 =
          asm j (s1.pc + n2w (LENGTH (enc j))) s1)`
+
+val has_decoder_def = Define `
+  has_decoder enc c = ?dec. !i x. asm_ok i c ==> (dec (enc i ++ x) = i)`
 
 val bytes_in_memory_IMP = prove(
   ``!xs ys a icache m dm.
@@ -335,18 +342,23 @@ val bytes_in_memory_IMP = prove(
   THEN SRW_TAC [] []
   THEN METIS_TAC [bytes_in_memory_def])
 
-val asm_deterministic = store_thm("asm_deterministic",
-  ``enc_deterministic enc config ==>
-    !s1 s2 s3.
-      asm_step enc config s1 s2 /\ asm_step enc config s1 s3 ==> (s2 = s3)``,
-  SRW_TAC [] [asm_step_def]
+val decoder_asm_deterministic = Q.store_thm("decoder_asm_deterministic",
+   `!enc c. has_decoder enc c ==> asm_deterministic enc c`,
+   METIS_TAC [asm_deterministic_def, has_decoder_def, asm_step_def,
+              listTheory.APPEND_NIL, bytes_in_memory_IMP,
+              rich_listTheory.IS_PREFIX_APPEND]
+   )
+
+val enc_deterministic = store_thm("enc_deterministic",
+  ``!enc c. enc_deterministic enc c ==> asm_deterministic enc c``,
+  SRW_TAC [] [asm_step_def, asm_deterministic_def]
   THEN METIS_TAC [enc_deterministic_def, bytes_in_memory_IMP])
 
 val simple_enc_deterministic = Q.store_thm("simple_enc_deterministic",
    `!enc c.
       (!i j. asm_ok i c /\ asm_ok j c /\ i <> j ==>
-             ~isPREFIX (enc i) (enc j)) ==> enc_deterministic enc c`,
-   METIS_TAC [enc_deterministic_def]
+             ~isPREFIX (enc i) (enc j)) ==> asm_deterministic enc c`,
+   METIS_TAC [enc_deterministic_def, enc_deterministic]
    )
 
 (* -- well-formedness of encoding -- *)
@@ -368,7 +380,7 @@ val enc_ok_def = Define `
     (!w r. same_enc_length enc c (Call w r) (Call 0w r)) /\
     (!w r. same_enc_length enc c (Loc r w) (Loc r 0w)) /\
     (* no overlap between instructions with different behaviour *)
-    enc_deterministic enc c`
+    asm_deterministic enc c`
 
 (* -- correctness property to be proved for each backend -- *)
 
