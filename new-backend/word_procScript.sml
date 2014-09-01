@@ -2,7 +2,10 @@ open HolKernel Parse boolLib bossLib miscLib
 open word_langTheory 
 open word_lemmasTheory
 open listTheory sptreeTheory pred_setTheory pairTheory
+
 val _ = new_theory "word_proc";
+
+
 
 (*Coloring expressions*)
 val apply_color_exp_def = tDefine "apply_color_exp" `
@@ -315,6 +318,27 @@ val locals_eq_toAList = prove(
       ==> !k v. MEM(k,v) (toAList x) <=> MEM (f k,v) (toAList y)``,
   metis_tac[MEM_toAList])
 
+val map_keys = prove(
+  ``!ls f. MAP SND (MAP (\x,y. f x,y) ls) = MAP SND ls``,
+  simp[MAP_MAP_o,MAP_EQ_f]>> rpt strip_tac>>Cases_on`e`>>
+  EVAL_TAC)
+
+(*Can just prove with a single MAP but this form is easier..*)
+val ALOOKUP_key_remap = prove(
+  ``!ls ls' f. INJ f UNIV UNIV /\
+               MAP SND ls = MAP SND ls' /\
+               MAP (f o FST) ls = MAP FST ls'
+      ==> !k. ALOOKUP ls k = ALOOKUP ls' (f k)``,
+  Induct>>rw[]>>
+  Cases_on`ls'`>> fs[]>>
+  Cases_on`h`>>Cases_on`h'`>>fs[alistTheory.ALOOKUP_def]>>
+  IF_CASES_TAC>-
+    fs[]>>
+  IF_CASES_TAC>-
+    (fs[INJ_DEF]>>metis_tac[])>>
+  metis_tac[])
+  
+
 val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
   ``!prog st rst f cst res. 
                   wEval(prog,st) = (res,rst) 
@@ -334,8 +358,7 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
     (rw[abbrev_and_def,apply_color_def,wEval_def,EQ_SYM_EQ]>>fs[wEval_def]>>
     rw[EQ_SYM_EQ]) >-
    (*Alloc*)
-    (
-    pop_assum mp_tac>>fs[wEval_def]>>
+    (pop_assum mp_tac>>fs[wEval_def]>>
     last_x_assum mp_tac>>
     BasicProvers.FULL_CASE_TAC>>fs[]>>
     IMP_RES_TAC strong_state_rel_get_var_lemma>> fs[]>>
@@ -351,8 +374,9 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
        (fs[push_env_def,LET_THM,env_to_list_def,s_val_eq_def,s_frame_val_eq_def]>>
       `X.permute = Y.permute` by fs[set_store_def,Abbr`X`,Abbr`Y`]>>
        IMP_RES_TAC env_to_list_monotonic_eq>>
-       pop_assum mp_tac>>simp[env_to_list_def]>>
-       simp [GSYM list_rearrange_MAP])>>
+       last_x_assum (qspec_then `Y.permute` mp_tac)>>
+       simp[LET_THM,env_to_list_def]>>
+       metis_tac[map_keys])>>
     Cases_on`wGC (push_env x F X)`>>fs[]>>
     Q.ABBREV_TAC `Y' = push_env y F Y`>>
     IMP_RES_TAC wGC_s_val_eq_word_state>>
@@ -364,7 +388,7 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
     pop_assum SUBST_ALL_TAC>> fs[]>>
     Cases_on`pop_env x'`>>fs[]>>
     `s_key_eq Y'.stack zstack` by 
-      metis_tac[s_key_eq_sym]
+      metis_tac[s_key_eq_sym]>>
     Q.UNABBREV_TAC `Y'`>> 
     qabbrev_tac `Z = x' with <|locals := zlocs; stack:= zstack|>`>>
     `s_key_eq (push_env y F Y).stack Z.stack` by fs[word_state_component_equality,Abbr`Z`]>>
@@ -372,25 +396,46 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
     fs[]>>
     unabbrev_all_tac>>
     `strong_state_rel f x'' y''''` by 
-      fs[strong_state_rel_def,pop_env_def]>>
-      BasicProvers.EVERY_CASE_TAC>>fs[s_key_eq_def,word_state_component_equality]
-
-    BasicProvers.FULL_CASE_TAC>> fs[]>>
-    unabbrev_all_tac>>
-    `FLOOKUP y''''.store AllocSize = SOME x'''` by 
-    fs[pop_env_def]
-
-
-
-    (*need a lemma about wGC here*)
-    `wGC(push_env y F X') = SOME z' /\
-     pop_env z' = SOME z'' /\
-     strong_state_rel f x'' z''` by cheat >>
-    fs[has_space_def,strong_state_rel_def,wGC_def,abbrev_and_def]>> rw[]>>
-    BasicProvers.EVERY_CASE_TAC>>fs[weak_state_rel_def]>>
-    DISJ2_TAC>>fs[strong_state_rel_def])
+      (fs[strong_state_rel_def,pop_env_def]>>
+      BasicProvers.EVERY_CASE_TAC>>
+      fs[s_key_eq_def,word_state_component_equality,s_val_eq_def,s_frame_val_eq_def]>>
+      CONJ_TAC>-
+        (`s_key_eq y''''.stack x''.stack` by
+          (IMP_RES_TAC wGC_s_key_eq>>
+          fs[push_env_def,LET_THM,set_store_def,env_to_list_def]>>
+          metis_tac[s_key_eq_tail,s_key_eq_sym,s_key_eq_refl,EQ_SYM_EQ,s_key_eq_trans])>>
+        metis_tac[s_val_eq_sym,s_val_and_key_eq])>>
+        ntac 2 (qpat_assum `fromAList L = X.locals` (SUBST1_TAC o SYM))>>
+        simp[lookup_fromAList]>>
+        IMP_RES_TAC wGC_s_key_eq>>
+        qpat_assum `x'.stack = bla` SUBST_ALL_TAC>>
+        fs[push_env_def,LET_THM,set_store_def,env_to_list_def
+          ,s_key_eq_def,s_frame_key_eq_def]>>        
+        IMP_RES_TAC env_to_list_monotonic_eq>>
+        rpt BasicProvers.VAR_EQ_TAC>>
+        `MAP (f o FST) l' = MAP FST l` by(
+           fs[env_to_list_def,LET_THM]>>
+           last_x_assum (qspec_then `st.permute` assume_tac)>>
+           qpat_assum `MAP FST ls = MAP FST l` (SUBST1_TAC o SYM)>>
+           simp[(GEN_ALL o SYM o SPEC_ALL) MAP_MAP_o]>>
+           qpat_assum `MAP FST ls = MAP FST l'` (SUBST1_TAC o SYM)>>
+           (*got to be a simpler way to do this..*)
+           `MAP FST  (MAP (λ(x,y). (f x,y))
+            (list_rearrange (st.permute 0)
+            (QSORT key_val_compare (nub (toAList x))))) = MAP FST (
+            list_rearrange (st.permute 0)
+            (QSORT key_val_compare (nub (toAList y))))` by fs[]>>
+            `!ls.MAP f (MAP FST ls) = MAP FST (MAP (\x,y:'a word_loc. (f x,y)) ls)` by
+               (simp[MAP_MAP_o,MAP_EQ_f]>>strip_tac>>Cases>>EVAL_TAC)>>
+            metis_tac[])>>
+         metis_tac[ALOOKUP_key_remap])>>
+    BasicProvers.FULL_CASE_TAC>>fs[strong_state_rel_def]>>
+    BasicProvers.FULL_CASE_TAC>>fs[has_space_def]>>
+    IF_CASES_TAC>>rw[abbrev_and_def]>>fs[weak_state_rel_def]>>
+    DISJ2_TAC>>fs[strong_state_rel_def]) 
    (*Move*)
-    (pop_assum_wEval>>
+    (
+    fs[wEval_def]>> pop_assum mp_tac>> last_x_assum mp_tac>>
     BasicProvers.FULL_CASE_TAC>>fs[MAP_ZIP]>>
     BasicProvers.FULL_CASE_TAC>>fs[MAP_ZIP]>>
     `ALL_DISTINCT (MAP (f o FST) moves)` by (
@@ -401,36 +446,39 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
     ASSUME_TAC strong_state_rel_get_vars_lemma>>
     first_x_assum(qspecl_then [`f`,`st`,`cst`,`MAP SND moves`,`x`] 
       assume_tac)>>
-    simp[]>>    
+    simp[]>> rw[]>>fs[abbrev_and_def]>>
       `MAP (f o FST) l = MAP f (MAP FST l)` by fs[MAP_MAP_o]>>
-      `LENGTH (MAP FST l) = LENGTH x` by (
+      `LENGTH (MAP FST moves) = LENGTH x` by (
          ASSUME_TAC get_vars_length_lemma>>
-         first_x_assum(qspecl_then [`MAP SND l`,`st`,`x`] assume_tac)>>
+         first_x_assum(qspecl_then [`MAP SND moves`,`st`,`x`] assume_tac)>>
          fs[])>>
       ASSUME_TAC strong_state_rel_set_vars_lemma>>
-      metis_tac[]) >-
+      metis_tac[MAP_MAP_o]) >-
    (*Assign*)
-     (fs[wEval_def]>> Cases_on`word_exp st w`>>fs[]>>
-     `word_exp cst (apply_color_exp f w) =  word_exp st w` by 
-       metis_tac[inj_apply_color_exp_invariant]>>
-     simp[] >>Cases_on`res`>>fs[]>> 
+     (fs[wEval_def]>> last_assum mp_tac>>
+     BasicProvers.EVERY_CASE_TAC>> fs[abbrev_and_def]>>BasicProvers.VAR_EQ_TAC>>
+     `word_exp cst (apply_color_exp f exp) =  word_exp st exp` by 
+       metis_tac[inj_apply_color_exp_invariant]>- fs[optionTheory.SOME_11]>>
+     fs[]>>
      metis_tac[strong_state_rel_set_var_lemma])>-
    (*Set*)
-     (fs[wEval_def]>>
-     Cases_on`word_exp st w`>>fs[set_store_def]>>
-     `word_exp cst (apply_color_exp f w) = word_exp st w` by 
-       metis_tac[inj_apply_color_exp_invariant]>>
-     Cases_on`res`>>fs[strong_state_rel_def,word_state_component_equality])>-
+     (
+     fs[wEval_def]>>first_assum mp_tac>>last_assum mp_tac>>
+     BasicProvers.EVERY_CASE_TAC>>fs[set_store_def,abbrev_and_def]>>
+     `word_exp cst (apply_color_exp f exp) = word_exp st exp` by 
+       metis_tac[inj_apply_color_exp_invariant]>-rfs[optionTheory.SOME_11]>>
+     fs[strong_state_rel_def,word_state_component_equality,optionTheory.SOME_11]>>
+     fs[EQ_SYM_EQ]
+     )>-
    (*Store*)
-     (fs[wEval_def]>>
-     Cases_on`word_exp st w`>>fs[]>>
-     IMP_RES_TAC inj_apply_color_exp_invariant>>
-     Cases_on`get_var n st`>>fs[]>>
+     (fs[wEval_def]>>pop_assum mp_tac>> last_x_assum mp_tac>>
+     Cases_on`word_exp st exp`>>
+     IMP_RES_TAC inj_apply_color_exp_invariant>> fs[]>>
+     Cases_on`get_var prog st`>>fs[]>>
      IMP_RES_TAC strong_state_rel_get_var_lemma>>
      fs[mem_store_def]>>Cases_on`x IN st.mdomain`>>fs[]>>
-     Cases_on`res`>>
-     fs[strong_state_rel_def,word_state_component_equality]>>
-     Cases_on`x IN rst.mdomain`>>fs[]>>metis_tac[])>-
+     fs[strong_state_rel_def,word_state_component_equality,abbrev_and_def]>>
+     rw[]>>fs[])>-
    (*Call*)cheat>- 
      fs[wEval_def,LET_THM]>>
      Cases_on`st.clock=0`>-(
