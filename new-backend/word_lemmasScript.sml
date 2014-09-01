@@ -2,7 +2,6 @@ open HolKernel Parse boolLib bossLib miscLib word_langTheory
 open listTheory sptreeTheory pred_setTheory pairTheory optionTheory
 open sortingTheory relationTheory
 (*open wordsLib*)
-
 (*TODO: remove the last_n lemmas*)
 open bvp_lemmasTheory miscTheory
 
@@ -60,7 +59,7 @@ val s_frame_key_eq_trans = prove(
   Cases_on`o'`>>Cases_on`o''`>>Cases_on`o'''`>>
   fs[s_frame_key_eq_def])
 
-val s_key_eq_trans = prove(
+val s_key_eq_trans = store_thm("s_key_eq_trans",
   ``!a b c. s_key_eq a b /\ s_key_eq b c ==>
             s_key_eq a c``,
   Induct>>
@@ -87,7 +86,7 @@ val s_frame_key_eq_sym = prove(
   ``!a b. s_frame_key_eq a b <=> s_frame_key_eq b a``,
   Cases>>Cases>>Cases_on`o'`>>Cases_on`o''`>>fs[s_frame_key_eq_def,EQ_SYM_EQ])
 
-val s_key_eq_sym = prove(
+val s_key_eq_sym = store_thm("s_key_eq_sym",
   ``!a b. s_key_eq a b <=> s_key_eq b a``,
   Induct>> Cases_on`b`>>fs[s_key_eq_def]>>
   strip_tac>>metis_tac[s_frame_key_eq_sym])
@@ -96,7 +95,7 @@ val s_frame_val_eq_sym = prove(
    ``!a b. s_frame_val_eq a b <=> s_frame_val_eq b a``,
   Cases>>Cases>>Cases_on`o'`>>Cases_on`o''`>>fs[s_frame_val_eq_def,EQ_SYM_EQ])
 
-val s_val_eq_sym = prove(
+val s_val_eq_sym = store_thm("s_val_eq_sym",
   ``!a b. s_val_eq a b <=> s_val_eq b a``,
   Induct>> Cases_on`b`>>fs[s_val_eq_def]>>
   strip_tac>>metis_tac[s_frame_val_eq_sym])
@@ -105,6 +104,13 @@ val s_frame_val_and_key_eq = prove(
   ``!s t. s_frame_val_eq s t /\ s_frame_key_eq s t ==> s = t``,
   Cases>>Cases>>Cases_on`o'`>>Cases_on`o''`>>
   fs[s_frame_val_eq_def,s_frame_key_eq_def,LIST_EQ_MAP_PAIR])
+
+val s_val_and_key_eq = store_thm("s_val_and_key_eq",
+  ``!s t. s_val_eq s t /\ s_key_eq s t ==> s =t``,
+  Induct>-
+    (Cases>>fs[s_val_eq_def])>>
+  rw[]>>
+  Cases_on`t`>>fs[s_val_eq_def,s_key_eq_def,s_frame_val_and_key_eq])
 
 val dec_stack_stack_key_eq = prove(
   ``!wl st st'. dec_stack wl st = SOME st' ==> s_key_eq st st'``,
@@ -116,7 +122,7 @@ val dec_stack_stack_key_eq = prove(
   Cases_on`handler`>>fs[MAP_ZIP,s_frame_key_eq_def])
 
 (*wGC preserves the stack_key relation*)
-val wGC_s_key_eq = prove(
+val wGC_s_key_eq = store_thm("wGC_s_key_eq",
   ``!s x. wGC s = SOME x ==> s_key_eq s.stack x.stack``,
   rw[wGC_def] >>fs[LET_THM]>>BasicProvers.EVERY_CASE_TAC>>fs[]>>
   IMP_RES_TAC dec_stack_stack_key_eq>>
@@ -264,7 +270,7 @@ val s_key_eq_LAST_N = prove(
   IMP_RES_TAC s_key_eq_TAKE>> 
   metis_tac[s_key_eq_REVERSE])
  
-val s_key_eq_tail = prove(
+val s_key_eq_tail = store_thm("s_key_eq_tail",
  ``!a b c d. s_key_eq (a::b) (c::d) ==> s_key_eq b d``,
   fs[s_key_eq_def])
 
@@ -843,8 +849,7 @@ val color_fst_monotonic = prove(``
   Cases>>Cases>>fs[LET_THM,key_val_compare_def]>>
   metis_tac[])
 
-(*Under a monotonic coloring f rename of keys in the locals
-TODO: Might want to add conditions on the FSTs as well*)
+(*Under a monotonic coloring f rename of keys in the locals*)
 val env_to_list_monotonic_eq = store_thm("env_to_list_monotonic_eq",
   ``!f x y p.
     monotonic_color f /\
@@ -853,22 +858,14 @@ val env_to_list_monotonic_eq = store_thm("env_to_list_monotonic_eq",
     ==>
     let (x',p') = env_to_list x p in
     let (y',p'') = env_to_list y p in
-      MAP SND x' = MAP SND y' /\
+      MAP (\x,y.f x,y) x' = y' /\
       p' = p'' ``,
   rpt strip_tac>>fs[env_to_list_def,LET_THM]>>
   ASSUME_TAC (SPEC_ALL toAList_exact_colored_locals_permute)>>
   simp[GSYM list_rearrange_MAP]>>
   AP_TERM_TAC>>
-  qmatch_abbrev_tac`MAP SND (QSORT R l1) = X` >>
-  qunabbrev_tac`X` >>
   assume_tac color_fst_monotonic>>
-  fs[LET_THM]>>rfs[]>>
-  `MAP SND (QSORT R l1) =
-   MAP SND (MAP (\x,y.f x,y) (QSORT R l1))` by (
-     simp[MAP_MAP_o,MAP_EQ_f,FORALL_PROD] ) >>
-  pop_assum SUBST1_TAC >>
-  AP_TERM_TAC >>
-  qmatch_abbrev_tac`MAP h (QSORT R ls) = X` >>
+  qmatch_abbrev_tac`MAP h (QSORT R ls) = X`>>
   Q.ISPECL_THEN[`R`,`h`,`ls`]mp_tac MAP_monotonic_QSORT_EQ >>
   discharge_hyps_keep >- (
     assume_tac (INST_TYPE [``:'b``|->``:'a``,``:'c``|->``:'a``] facts)>> 
@@ -879,7 +876,6 @@ val env_to_list_monotonic_eq = store_thm("env_to_list_monotonic_eq",
   fs[toAList_exact_colored_locals_permute])
 
 (*Theorems about sorting that ended up not used*)
-
 
 (*Equality under a relation R*)
 val EQ_R_def = Define`
