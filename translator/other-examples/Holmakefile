@@ -7,7 +7,7 @@ $(HOLDIR)/examples/miller/miller
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
-HOLHEAP = miniml-heap
+HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 BARE_THYS = ../ml_translatorLib
