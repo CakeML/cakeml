@@ -1172,10 +1172,10 @@ local
       wordsLib.WORD_ss ++
       type_frag "asm_config" ``:64 asm_config`` ++
       type_frag "asm" ``:64 asm`` ++
+      type_frag "asm" ``:cmp`` ++
       type_frag "instruction" ``:instruction`` ++
       type_frag "instruction" ``:Zcond`` ++
       type_frag "instruction" ``:Zdest_src`` ++
-      type_frag "instruction" ``:cmp`` ++
       type_frag "instruction" ``:Zrm`` ++
       type_frag "instruction" ``:Zsize`` ++
       type_frag "instruction" ``:Zbase`` ++
