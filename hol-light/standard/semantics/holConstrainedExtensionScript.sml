@@ -3,6 +3,8 @@ open miscTheory finite_mapTheory alistTheory listTheory pairTheory
 open holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory holExtensionTheory
 val _ = new_theory"holConstrainedExtension"
 
+val mem = ``mem:'U->'U->bool``
+
 val constrain_assignment_def = Define`
   constrain_assignment cs f =
     λname args. case cs name args of SOME x => x | NONE => f name args`
@@ -13,7 +15,8 @@ val constrain_interpretation_def = Define`
      constrain_assignment tmcs γ)`
 
 val add_constraints_thm = store_thm("add_constraints_thm",
-  ``∀i upd ctxt cs.
+  ``is_set_theory ^mem ⇒
+    ∀i upd ctxt cs.
       upd updates ctxt ∧ ctxt extends init_ctxt ∧
       i models (thyof (upd::ctxt)) ∧
       (∀name args. IS_SOME (FST cs name args) ⇒
@@ -206,7 +209,7 @@ val add_constraints_thm = store_thm("add_constraints_thm",
   map_every qexists_tac[`tysof ctxt`,`tmsof ctxt`] >>
   simp[] >>
   REWRITE_TAC[CONJ_ASSOC] >>
-  conj_tac >- (
+  conj_asm1_tac >- (
     conj_tac >>
     match_mp_tac SUBMAP_FUNION >>
     disj2_tac >>
@@ -223,6 +226,23 @@ val add_constraints_thm = store_thm("add_constraints_thm",
     fs[ALL_DISTINCT_APPEND,MEM_MAP,EXISTS_PROD] >>
     imp_res_tac ALOOKUP_MEM >>
     metis_tac[] ) >>
-  cheat)
+  fs[satisfies_def] >> rw[] >>
+  qmatch_assum_abbrev_tac`tmsof ctxt ⊑ tmsig` >>
+  qmatch_assum_abbrev_tac`tysof ctxt ⊑ tysig` >>
+  first_assum(
+    mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO](UNDISCH extend_valuation_exists))) >>
+  first_assum(fn th => disch_then (mp_tac o C MATCH_MP th)) >>
+  discharge_hyps >- fs[is_interpretation_def] >> strip_tac >>
+  first_x_assum(qspec_then`v'`mp_tac) >> simp[] >>
+  disch_then (SUBST1_TAC o SYM) >>
+  match_mp_tac EQ_TRANS >>
+  qexists_tac`termsem (tmsof ctxt) (δ,γ) v' p` >>
+  conj_tac >- (
+    match_mp_tac termsem_frees >>
+    simp[] >> rw[] >>
+    first_x_assum match_mp_tac >>
+    imp_res_tac term_ok_VFREE_IN >>
+    fs[term_ok_def] ) >>
+  metis_tac[termsem_extend])
 
 val _ = export_theory()
