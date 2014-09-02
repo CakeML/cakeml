@@ -323,9 +323,11 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
       abbrev_and (res' = res) 
       (case res of
         NONE => strong_state_rel f rst rcst
-      | SOME _ => weak_state_rel f rst rcst)``
+      | SOME (Result x) => weak_state_rel f rst rcst
+      | SOME (Exception e) => weak_state_rel f rst rcst
+      | _ => T)`` (*TODO: Ignore the state results for the others?*)
   ho_match_mp_tac (wEval_ind |> Q.SPEC`UNCURRY P` |> SIMP_RULE (srw_ss())[] |> Q.GEN`P`) >>
-  rw[] >>
+  rw[] >-
    (*Skip*)
     (rw[abbrev_and_def,apply_color_def,wEval_def,EQ_SYM_EQ]>>fs[wEval_def]>>
     rw[EQ_SYM_EQ]) >-
@@ -426,15 +428,14 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
       ASSUME_TAC strong_state_rel_set_vars_lemma>>
       metis_tac[MAP_MAP_o]) >-
    (*Assign*)
-     (fs[wEval_def]>> last_assum mp_tac>>
-     BasicProvers.EVERY_CASE_TAC>> fs[abbrev_and_def]>>BasicProvers.VAR_EQ_TAC>>
+     (fs[wEval_def]>> pop_assum mp_tac>>last_x_assum mp_tac>>
+     BasicProvers.EVERY_CASE_TAC>> fs[abbrev_and_def]>>
      `word_exp cst (apply_color_exp f exp) =  word_exp st exp` by 
-       metis_tac[inj_apply_color_exp_invariant]>- fs[optionTheory.SOME_11]>>
-     fs[]>>
+       metis_tac[inj_apply_color_exp_invariant]>>rfs[]>>rw[]>>
      metis_tac[strong_state_rel_set_var_lemma])>-
    (*Set*)
      (
-     fs[wEval_def]>>first_assum mp_tac>>last_assum mp_tac>>
+     fs[wEval_def]>>first_assum mp_tac>>last_x_assum mp_tac>>
      BasicProvers.EVERY_CASE_TAC>>fs[set_store_def,abbrev_and_def]>>
      `word_exp cst (apply_color_exp f exp) = word_exp st exp` by 
        metis_tac[inj_apply_color_exp_invariant]>-rfs[optionTheory.SOME_11]>>
@@ -492,9 +493,12 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
          fs[strong_state_rel_def,word_state_component_equality]))>>
        assume_tac wEval_stack_swap>>
        pop_assum (qspecl_then [`r`,`envx`] mp_tac)>>
-       ntac 3 BasicProvers.FULL_CASE_TAC>>fs[]>-
+       ntac 3 BasicProvers.FULL_CASE_TAC>>fs[]>>
+       (*Apply the stack swap lemma*)
+       (rw[]>>pop_assum (qspec_then `envy.stack` assume_tac)>>rfs[]>>
+       qpat_assum `envy = X` (SUBST_ALL_TAC o SYM) >>fs[abbrev_and_def])>-
          (*Result*)
-         rw[]>>pop_assum(qspec_then `envy.stack` assume_tac)>>
+         (rw[]>>pop_assum(qspec_then `envy.stack` assume_tac)>>
          rfs[]>>
          qpat_assum `envy = X` (SUBST_ALL_TAC o SYM) >>fs[]>>
          Cases_on`pop_env r''`>>fs[]>>
@@ -507,9 +511,6 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
          IMP_RES_TAC push_env_pop_env_s_key_eq>>
          fs[]>>
          Cases_on`domain x''.locals = domain x'`>> fs[]>>
-         (*Use the property on the FSTs of both toALists..*)
-         `domain y'.locals = IMAGE f (domain x''.locals)``
-        
          `strong_state_rel f x'' y'` by
            (fs[strong_state_rel_def,pop_env_def]>>
            BasicProvers.EVERY_CASE_TAC>>
@@ -547,43 +548,70 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
                 (simp[MAP_MAP_o,MAP_EQ_f]>>strip_tac>>Cases>>EVAL_TAC)>>
               metis_tac[])>>
             metis_tac[ALOOKUP_key_remap]))>>
-        `domain x''.locals = domain x' /\ domain y'.locals = domain y` by
-          fs[strong_state_rel_def,pop_env_def]>> 
-          BasicProvers.EVERY_CASE_TAC>>
-          fs[s_key_eq_def,word_state_component_equality,s_val_eq_def,s_frame_val_eq_def]>>
-           (
-         `domain y'.locals = domain y` by
+            (*Get down to the MAP FST level again...*)
+            unabbrev_all_tac>>
             fs[pop_env_def,s_key_eq_def,push_env_def,env_to_list_def,LET_THM]>>
             Cases_on`st'`>>fs[]>>Cases_on`h`>>Cases_on`o'`>>
+            Cases_on`r''.stack`>>fs[]>>Cases_on`h`>>Cases_on`o'`>>
             fs[s_key_eq_def,s_frame_key_eq_def]>> Cases_on`handler`>>
+            fs[s_val_eq_def,s_frame_key_eq_def,s_frame_val_eq_def]>>
+            fs[dec_clock_def]>>
+            IMP_RES_TAC env_to_list_monotonic_eq>>
+            `MAP (f o FST) l' = MAP FST l` by(
+             fs[env_to_list_def,LET_THM]>>
+             last_x_assum (qspec_then `st.permute` assume_tac)>>
+             qpat_assum `MAP FST ls = MAP FST l` (SUBST1_TAC o SYM)>>
+             simp[(GEN_ALL o SYM o SPEC_ALL) MAP_MAP_o]>>
+             qpat_assum `MAP FST ls = MAP FST l'` (SUBST1_TAC o SYM)>>
+             (*got to be a simpler way to do this..*)
+             `MAP FST  (MAP (λ(x,y). (f x,y))
+              (list_rearrange (st.permute 0)
+              (QSORT key_val_compare (nub (toAList x'))))) = MAP FST (
+              list_rearrange (st.permute 0)
+              (QSORT key_val_compare (nub (toAList y))))` by fs[]>>
+              `!ls.MAP f (MAP FST ls) = MAP FST (MAP (\x,y:'a word_loc. (f x,y)) ls)` by
+                (simp[MAP_MAP_o,MAP_EQ_f]>>strip_tac>>Cases>>EVAL_TAC)>>
+              fs[]>>metis_tac[])>>
+             fs[exact_colored_locals_def]>>
+            `domain y'.locals = domain y` by
+               (`y'.locals = fromAList l /\ x''.locals = fromAList l'` by 
+                 fs[word_state_component_equality]>>
+                 assume_tac (INST_TYPE [``:'a``|->``:'a word_loc``] domain_fromAList)>>
+                 first_assum(qspec_then `l` assume_tac)>>
+                 first_x_assum(qspec_then `l'` assume_tac)>>
+                 `set(MAP FST l') = domain x'` by fs[]>>
+                 `IMAGE f (set (MAP FST l')) = domain y` by fs[]>>
+                 `set (MAP (f o FST) l') = domain y` by 
+                   metis_tac[LIST_TO_SET_MAP,MAP_MAP_o]>> 
+                 qpat_assum `MAP g l' = MAP FST l` SUBST_ALL_TAC>>
+                 `domain y'.locals = set(MAP FST l)` by fs[]>>
+                 metis_tac[])>> fs[abbrev_and_def]>>metis_tac[strong_state_rel_def]
+                 
+
             fs[s_frame_key_eq_def]>>
+            
+            `y'.locals = fromAList l` by fs[word_state_component_equality]>> 
+            pop_assum SUBST1_TAC>>
+            simp[domain_fromAList]>>
+            qpat_assum `A = MAP FST l` (SUBST1_TAC o SYM)
+            fs[list_rearrange_MAP]
+
             `y'.locals = fromAList l` by fs[word_state_component_equality]
             simp[EXTENSION]>>
             
         
 
 
-         qunabbrev_tac `Z`>>fs[]
- 
-
-        
-       (*Need lemma here about wEval:
-          wEval on 2 stacks differing only in the head's keys:
-          wEval (prog, call_env locs (push_env y b (
-          If SOME (Exception e) ->
-            If head was a SOME handler and the handler position was correct
-              then locals is exactly the popped handler in both cases 
-          If SOME(Result x) then resulting states 
-            should be the same except differ in head keys
-        *)
-       Cases_on `handler`>-
-         (*No handler*)
-         (fs[abbrev_and_def]>>BasicProvers.FULL_CASE_TAC>>cheat)>>
-         (*SOME handler*) 
-         fs[]
-wEval 
-         (r,call_env q (push_env x' (IS_SOME handler) (dec_clock st)))`>>
-       Cases_on
+         qunabbrev_tac `Z`>>fs[])
+         (*Exception*) 
+         IMP_RES_TAC s_val_eq_LAST_N_exists>>
+         last_x_assum (qspecl_then [`e''`,`ls''`] assume_tac)>>
+         rfs[]>>Cases_on`handler`>>fs[]>-
+           (*No handler*)
+           qpat_assum`X = res` (SUBST_ALL_TAC o SYM)>>fs[weak_state_rel_def]>-
+           DISJ1_TAC>>fs[strong_state_rel_def,word_state_component_equality]>>
+           (*We know there is no handler, so envx.handler+1 is not the top of stack
+             therefore the LAST_N after that are equal and the rest follows*)
        
         (*cut_env r' st.locals = SOME x' 
           ==> dom r' SUBSET dom st.locals
