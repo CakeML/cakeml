@@ -291,7 +291,7 @@ val s_key_eq_LAST_N_exists = prove(
    fs[s_key_eq_def]>>
    Cases_on`h`>>Cases_on`o'`>>fs[s_frame_key_eq_def])
 
-val s_val_eq_LAST_N_exists = prove(
+val s_val_eq_LAST_N_exists = store_thm("s_val_eq_LAST_N_exists",
   ``!s t n e y xs. s_val_eq s t /\
    LAST_N n s = StackFrame e (SOME y)::xs
     ==> ?e' ls. LAST_N n t = StackFrame e' (SOME y)::ls
@@ -329,7 +329,7 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
   ``!c s.
       case wEval (c,s) of
       | (SOME Error,s1) => T
-      | (SOME TimeOut,s1) => s1.stack = [] /\ s1.locals = LN /\ s1.handler = s.handler /\
+      | (SOME TimeOut,s1) => s1.stack = [] /\ s1.locals = LN /\
                              (!xs. s_val_eq s.stack xs ==>
                                    wEval(c,s with stack := xs) = 
                                         (SOME TimeOut, s1)) 
@@ -355,7 +355,14 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
                                locs = fromAList lss' /\
                                MAP SND lss = MAP SND lss')/\
                             s_val_eq s1.stack st /\ s_key_eq ls' st)))
-      (*NONE, SOME Result and SOME Exception cases*)
+      (*Don't really want the s_key_eq conditions which is difficult to state:
+        -> Calls that fail with NotEnoughSpace leave the caller frame on the stack*) 
+      | (SOME NotEnoughSpace,s1) => 
+                          (!xs. s_val_eq s.stack xs ==>
+                          ?st. wEval (c,s with stack := xs) =
+                                (SOME NotEnoughSpace, s1 with stack := st)  /\ 
+                                s_val_eq s1.stack st)
+      (*NONE, SOME Result cases*)
       | (res,s1) => (s_key_eq s.stack s1.stack) /\ (s1.handler = s.handler) /\
                     (!xs. s_val_eq s.stack xs ==>
                           ?st. wEval (c,s with stack := xs) =
@@ -372,13 +379,13 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
   IMP_RES_TAC wGC_s_key_eq>>
   IMP_RES_TAC push_env_pop_env_s_key_eq>>
   `s_key_eq s.stack y.stack` by fs[set_store_def]>>
-  fs[SOME_11]>>rw[]>-
+  fs[SOME_11]>>TRY(CONJ_TAC>>rw[]>-
     (qpat_assum`wGC a = SOME b` mp_tac>>
     qpat_assum`pop_env a = b` mp_tac>>
     fs[pop_env_def,wGC_def,push_env_def,set_store_def
       ,LET_THM,env_to_list_def]>>
     BasicProvers.EVERY_CASE_TAC>>fs[s_key_eq_def,s_frame_key_eq_def]>>
-    rw[]>>fs[])>>
+    rw[]>>fs[]))>>rw[]>>
   BasicProvers.FULL_CASE_TAC>>fs[get_var_def]>>
   BasicProvers.FULL_CASE_TAC>>
   Q.MATCH_ASSUM_ABBREV_TAC `wGC a = y`>>
@@ -477,7 +484,7 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
     HINT_EXISTS_TAC>>
     Q.EXISTS_TAC`fromAList lss'`>>fs[]>>
     Q.EXISTS_TAC`lss'`>>fs[])>>
-    first_x_assum (qspec_then `xs` assume_tac)>> rfs[]>>HINT_EXISTS_TAC>>fs[])
+    first_x_assum (qspec_then `xs` assume_tac)>> rfs[]>>HINT_EXISTS_TAC>>fs[])>-
   (*Return*)
   (fs[wEval_def]>> BasicProvers.EVERY_CASE_TAC>>
   fs[call_env_def,s_key_eq_refl]>>
@@ -758,10 +765,23 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
               first_x_assum(qspec_then `st` assume_tac)>>
               rfs[]>>
               `r'' with handler := s.handler = r''` by fs[word_state_component_equality]>>
-              fs[])>>
+              fs[]>>HINT_EXISTS_TAC>>fs[])>>
       (*Cleanup...*)
-      fs[call_env_def,push_env_def,dec_clock_def,env_to_lis]    
-             ))
+      (ntac 2 strip_tac>>
+      `s.locals = (s with stack := xs).locals` by fs[word_state_component_equality]>>
+      IMP_RES_TAC get_vars_stack_swap >>
+      first_x_assum(qspec_then `args` (SUBST1_TAC o SYM))>>simp[]>>
+      `!a. s_val_eq (a::s.stack) (a::xs)` by 
+         (strip_tac>> fs[s_val_eq_def]>>Cases_on`a`>>
+          Cases_on`o'`>>fs[s_frame_val_eq_def])>>
+       fs[push_env_def,LET_THM,env_to_list_def,dec_clock_def]>>
+       qpat_abbrev_tac `frame = StackFrame ls n`>>
+       first_x_assum (qspec_then `frame` assume_tac)>>
+       first_x_assum(qspec_then `frame::xs` assume_tac)>>
+       rfs[call_env_def]>>
+       `LENGTH xs = LENGTH s.stack` by fs[s_val_eq_length]>> fs[])>>
+       HINT_EXISTS_TAC>>fs[]))
+
 (*DONE*)
 
 val GENLIST_MAP = prove(
