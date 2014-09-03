@@ -1,7 +1,7 @@
 open HolKernel Parse boolLib bossLib
 
 open cmlPEGTheory gramTheory cmlPtreeConversionTheory
-     grammarTheory lexer_funTheory
+     grammarTheory lexer_funTheory lexer_implTheory
 
 local open ASCIInumbersLib in end
 
@@ -24,8 +24,6 @@ val _ = overload_on (
 val _ = overload_on ("OLDAPP", ``λt1 t2. App Opapp [t1; t2]``)
 val _ = overload_on ("", ``λt1 t2. App Opapp [t1; t2]``)
 val _ = overload_on ("SOME", ``TC_name``)
-
-val _ = computeLib.add_persistent_funs ["lexer_fun.get_token_def"]
 
 val result_t = ``Result``
 fun parsetest0 nt sem s opt = let
