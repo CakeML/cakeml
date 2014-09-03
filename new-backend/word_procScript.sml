@@ -323,9 +323,9 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
       abbrev_and (res' = res) 
       (case res of
         NONE => strong_state_rel f rst rcst
-      | SOME (Result x) => weak_state_rel f rst rcst
-      | SOME (Exception e) => weak_state_rel f rst rcst
-      | _ => T)`` (*TODO: Ignore the state results for the others?*)
+      | _ => weak_state_rel f rst rcst)`` 
+  (*Actually: when we have Some Timeout or Some NotEnoughSpace - locals := LN and stack:=[]
+    This is implied by this theorem + the stack swap theorem*)
   ho_match_mp_tac (wEval_ind |> Q.SPEC`UNCURRY P` |> SIMP_RULE (srw_ss())[] |> Q.GEN`P`) >>
   rw[] >-
    (*Skip*)
@@ -406,7 +406,7 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
     BasicProvers.FULL_CASE_TAC>>fs[strong_state_rel_def]>>
     BasicProvers.FULL_CASE_TAC>>fs[has_space_def]>>
     IF_CASES_TAC>>rw[abbrev_and_def]>>fs[weak_state_rel_def]>>
-    DISJ2_TAC>>fs[strong_state_rel_def]) >-
+    DISJ1_TAC>>fs[call_env_def,fromList2_def,word_state_component_equality])>-
    (*Move*)
     (fs[wEval_def]>> pop_assum mp_tac>> last_x_assum mp_tac>>
     BasicProvers.FULL_CASE_TAC>>fs[MAP_ZIP]>>
@@ -434,8 +434,7 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
        metis_tac[inj_apply_color_exp_invariant]>>rfs[]>>rw[]>>
      metis_tac[strong_state_rel_set_var_lemma])>-
    (*Set*)
-     (
-     fs[wEval_def]>>first_assum mp_tac>>last_x_assum mp_tac>>
+     (fs[wEval_def]>>first_assum mp_tac>>last_x_assum mp_tac>>
      BasicProvers.EVERY_CASE_TAC>>fs[set_store_def,abbrev_and_def]>>
      `word_exp cst (apply_color_exp f exp) = word_exp st exp` by 
        metis_tac[inj_apply_color_exp_invariant]>-rfs[optionTheory.SOME_11]>>

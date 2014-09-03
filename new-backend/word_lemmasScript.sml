@@ -332,8 +332,14 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
       | (SOME TimeOut,s1) => s1.stack = [] /\ s1.locals = LN /\
                              (!xs. s_val_eq s.stack xs ==>
                                    wEval(c,s with stack := xs) = 
-                                        (SOME TimeOut, s1)) 
-                             (*the stack and locs should also be []*) 
+                                        (SOME TimeOut, s1))
+      | (SOME NotEnoughSpace,s1) => s1.stack = [] /\ s1.locals = LN /\
+                                    (!xs. s_val_eq s.stack xs ==>
+                                          wEval(c,s with stack := xs) = 
+                                               (SOME NotEnoughSpace, s1))
+                             (*for both errors,
+                               the stack and locs should also be [] so the swapped stack
+                               result should be exactly the same*) 
       | (SOME (Exception t),s1) =>
             (s.handler<LENGTH s.stack) /\ (*precondition for jump_exc*)
             (?e n ls lss. 
@@ -355,13 +361,6 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
                                locs = fromAList lss' /\
                                MAP SND lss = MAP SND lss')/\
                             s_val_eq s1.stack st /\ s_key_eq ls' st)))
-      (*Don't really want the s_key_eq conditions which is difficult to state:
-        -> Calls that fail with NotEnoughSpace leave the caller frame on the stack*) 
-      | (SOME NotEnoughSpace,s1) => 
-                          (!xs. s_val_eq s.stack xs ==>
-                          ?st. wEval (c,s with stack := xs) =
-                                (SOME NotEnoughSpace, s1 with stack := st)  /\ 
-                                s_val_eq s1.stack st)
       (*NONE, SOME Result cases*)
       | (res,s1) => (s_key_eq s.stack s1.stack) /\ (s1.handler = s.handler) /\
                     (!xs. s_val_eq s.stack xs ==>
@@ -373,8 +372,7 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
   (*Skip*)
   (fs[wEval_def,s_key_eq_refl]>>rw[]>>HINT_EXISTS_TAC>>fs[s_key_eq_refl])>-
   (*Alloc*) 
-  (
-  fs[wEval_def,wAlloc_def]>>BasicProvers.EVERY_CASE_TAC>>
+  (fs[wEval_def,wAlloc_def]>>REVERSE BasicProvers.EVERY_CASE_TAC>>
   (BasicProvers.EVERY_CASE_TAC>>
   IMP_RES_TAC wGC_s_key_eq>>
   IMP_RES_TAC push_env_pop_env_s_key_eq>>
@@ -385,7 +383,7 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
     fs[pop_env_def,wGC_def,push_env_def,set_store_def
       ,LET_THM,env_to_list_def]>>
     BasicProvers.EVERY_CASE_TAC>>fs[s_key_eq_def,s_frame_key_eq_def]>>
-    rw[]>>fs[]))>>rw[]>>
+    rw[]>>fs[]))>> TRY(fs[call_env_def,fromList2_def]>>rw[])>>
   BasicProvers.FULL_CASE_TAC>>fs[get_var_def]>>
   BasicProvers.FULL_CASE_TAC>>
   Q.MATCH_ASSUM_ABBREV_TAC `wGC a = y`>>
@@ -406,10 +404,10 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
     metis_tac[s_frame_val_and_key_eq,s_frame_key_eq_sym])>>
   fs[pop_env_def] >>Cases_on`h'`>>Cases_on`o'`>>fs[s_frame_key_eq_def]>>
   fs[word_state_component_equality]>>
-  fs[has_space_def]>>
+  fs[has_space_def])>-fs[word_state_component_equality]>> 
   Q.EXISTS_TAC`t'`>>
   fs[word_state_component_equality]>>
-  metis_tac[s_val_eq_def,s_key_eq_sym]))>-
+  metis_tac[s_val_eq_def,s_key_eq_sym])>-
   (*Move*)
   (fs[wEval_def]>>BasicProvers.EVERY_CASE_TAC>>
   fs[set_vars_def,s_key_eq_refl]>>
