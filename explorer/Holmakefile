@@ -6,11 +6,19 @@ ifdef POLY
 pp.cgi : pp.o
 	cc -o $@ $< -lpolymain -lpolyml
 
+regression.cgi : regression.o
+	cc -o $@ $< -lpolymain -lpolyml
+
 buildPP.exe : buildPP.uo heap
 	$(HOLMOSMLC) -o $@ $<
 
 pp.o : buildPP.exe
 	./$<
+
+regression.o : buildPP.exe
+	./$<
+
+
 
 HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o

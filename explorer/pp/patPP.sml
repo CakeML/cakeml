@@ -139,22 +139,22 @@ val _=temp_add_user_printer("pat_truelitprint",``Lit_pat (Bool T)``,genPrint (bo
 val _=temp_add_user_printer("pat_falselitprint",``Lit_pat (Bool F)``,genPrint (boolPrint "false"));
 
 (*pat binops*)
-val _=temp_add_user_printer ("pat_assignappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 3; x]``,genPrint (infixappPrint ":=")); 
-val _=temp_add_user_printer ("pat_eqappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 4; x]``,genPrint (infixappPrint "=")); 
-val _=temp_add_user_printer ("pat_gteqappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 5; x]``,genPrint (infixappPrint ">=")); 
-val _=temp_add_user_printer ("pat_lteqappprint", ``App_pat (Op_pat (Op_i2_Opapp)) [Var_global_pat 6; x]``,genPrint (infixappPrint "<=")); 
-val _=temp_add_user_printer ("pat_gtappprint", ``App_pat (Op_pat (Op_i2_Opapp)) [Var_global_pat 7; x]``,genPrint (infixappPrint ">")); 
-val _=temp_add_user_printer ("pat_ltappprint", ``App_pat (Op_pat (Op_i2_Opapp)) [Var_global_pat 8; x]``,genPrint (infixappPrint "<")); 
-val _=temp_add_user_printer ("pat_modappprint", ``App_pat (Op_pat (Op_i2_Opapp)) [Var_global_pat 9; x]``,genPrint (infixappPrint "mod")); 
-val _=temp_add_user_printer ("pat_divappprint", ``App_pat (Op_pat (Op_i2_Opapp)) [Var_global_pat 10; x]``,genPrint (infixappPrint "div")); 
-val _=temp_add_user_printer ("pat_timesappprint", ``App_pat (Op_pat (Op_i2_Opapp)) [Var_global_pat 11; x]``,genPrint (infixappPrint "*")); 
-val _=temp_add_user_printer ("pat_minusappprint", ``App_pat (Op_pat (Op_i2_Opapp)) [Var_global_pat 12; x]``,genPrint (infixappPrint "-")); 
-val _=temp_add_user_printer ("pat_addappprint", ``App_pat (Op_pat (Op_i2_Opapp)) [Var_global_pat 13; x]``,genPrint (infixappPrint "+")); 
+val _=temp_add_user_printer ("pat_assignappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 10; x]``,genPrint (infixappPrint ":=")); 
+val _=temp_add_user_printer ("pat_eqappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 9; x]``,genPrint (infixappPrint "=")); 
+val _=temp_add_user_printer ("pat_gteqappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 8; x]``,genPrint (infixappPrint ">=")); 
+val _=temp_add_user_printer ("pat_lteqappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 7; x]``,genPrint (infixappPrint "<=")); 
+val _=temp_add_user_printer ("pat_gtappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 6; x]``,genPrint (infixappPrint ">")); 
+val _=temp_add_user_printer ("pat_ltappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 5; x]``,genPrint (infixappPrint "<")); 
+val _=temp_add_user_printer ("pat_modappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 4; x]``,genPrint (infixappPrint "mod")); 
+val _=temp_add_user_printer ("pat_divappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 3; x]``,genPrint (infixappPrint "div")); 
+val _=temp_add_user_printer ("pat_timesappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 2; x]``,genPrint (infixappPrint "*")); 
+val _=temp_add_user_printer ("pat_minusappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 1; x]``,genPrint (infixappPrint "-")); 
+val _=temp_add_user_printer ("pat_addappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 0; x]``,genPrint (infixappPrint "+")); 
 
 (*pat uops*)
-val _=temp_add_user_printer ("pat_refappprint", ``App_pat (Op_pat (Op_i2_Opapp)) [Var_global_pat 0; x]``,genPrint (prefixappPrint "ref")); 
-val _=temp_add_user_printer ("pat_derefappprint", ``App_pat (Op_pat (Op_i2_Opapp)) [Var_global_pat 1;x]``,genPrint (prefixappPrint "!"));
-val _=temp_add_user_printer ("pat_negappprint", ``App_pat (Op_pat (Op_i2_Opapp)) [Var_global_pat 2; x]``,genPrint (prefixappPrint "~"));
+val _=temp_add_user_printer ("pat_refappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 13; x]``,genPrint (prefixappPrint "ref")); 
+val _=temp_add_user_printer ("pat_derefappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 12;x]``,genPrint (prefixappPrint "!"));
+val _=temp_add_user_printer ("pat_negappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 11; x]``,genPrint (prefixappPrint "~"));
 
 
 end;
