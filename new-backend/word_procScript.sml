@@ -322,7 +322,7 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
       abbrev_and (res' = res) 
       (case res of
         NONE => strong_state_rel f rst rcst
-      | _ => weak_state_rel f rst rcst)`` 
+      | _ => weak_state_rel f rst rcst)``,
   (*Actually: when we have Some Timeout or Some NotEnoughSpace - locals := LN and stack:=[]
     This is implied by this theorem + the stack swap theorem*)
   ho_match_mp_tac (wEval_ind |> Q.SPEC`UNCURRY P` |> SIMP_RULE (srw_ss())[] |> Q.GEN`P`) >>
@@ -449,8 +449,60 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
      fs[mem_store_def]>>Cases_on`x IN st.mdomain`>>fs[]>>
      fs[strong_state_rel_def,word_state_component_equality,abbrev_and_def]>>
      rw[]>>fs[])>-
-
-
+    (*Tick*)
+    (fs[wEval_def]>>pop_assum mp_tac>> last_x_assum mp_tac>>
+     BasicProvers.EVERY_CASE_TAC>>
+     fs[abbrev_and_def,call_env_def,fromList2_def,strong_state_rel_def,
+        word_state_component_equality,weak_state_rel_def,dec_clock_def]>>rw[]>>
+     metis_tac[])>-
+    (*Seq*)
+     (Cases_on`wEval (prog,st)`>>
+      first_x_assum (qspecl_then [`r`,`f`,`cst`,`q`] assume_tac)>>
+      Cases_on`q`>-
+      (*prog-->NONE*)
+      (fs[apply_color_def,wEval_def]>> rfs[]>>
+      fs[LET_THM,abbrev_and_def]>>
+      first_assum(split_applied_pair_tac o concl)>>
+      fs[]>>
+      first_x_assum (qspecl_then [`f`,`rcst'`] assume_tac)>>
+      rfs[])>>
+      (*prog-->SOME*)
+      fs[apply_color_def,wEval_def,LET_THM]>>rfs[]>>
+      `res = SOME x` by (rw[]>> fs[LET_THM])>>
+      `x<>Error` by fs[]>>
+      rfs[]>> fs[LET_THM,abbrev_and_def] >>
+      first_assum(split_applied_pair_tac o concl) >> fs[] >> rw[]>>simp[])>-
+    (*Return*)
+    (fs[wEval_def]>>pop_assum mp_tac>> last_x_assum mp_tac>>
+     Cases_on`get_var n st`>>fs[]>>
+     IMP_RES_TAC strong_state_rel_get_var_lemma>>rw[]>>
+     fs[call_env_def,fromList2_def,strong_state_rel_def,abbrev_and_def,
+          weak_state_rel_def,word_state_component_equality])>-
+    (*Raise*)
+    (fs[wEval_def]>>pop_assum mp_tac>>last_x_assum mp_tac>>
+     Cases_on`get_var n st`>>fs[]>>
+     IMP_RES_TAC strong_state_rel_get_var_lemma>>rw[]>>
+     Cases_on`jump_exc st`>>fs[strong_state_rel_def,jump_exc_def]>>
+     rfs[]>>fs[]>>
+     BasicProvers.EVERY_CASE_TAC>>fs[weak_state_rel_def,abbrev_and_def]>>DISJ1_TAC>>
+     fs[word_state_component_equality])>-
+    (*If*)
+    (fs[wEval_def]>>
+     Cases_on`wEval(prog,st)`>>
+     last_x_assum (qspecl_then [`r`,`f`,`cst`,`q`] assume_tac)>>
+     Cases_on`q`>-
+       (*NONE*)
+       (rfs[LET_THM]>>fs[abbrev_and_def]>>
+       first_assum(split_applied_pair_tac o concl)>>fs[]>>
+       Cases_on`get_var n r`>>fs[]>>       
+       IMP_RES_TAC strong_state_rel_get_var_lemma>>fs[]>>
+       Cases_on`x`>>fs[]>>
+       Cases_on`c=0w`>> fs[]>>
+       first_x_assum(qspecl_then [`f`,`rcst'`] assume_tac)>>rfs[])>>
+       (*SOME*)
+       rfs[LET_THM]>>`x<>Error`by (SPOSE_NOT_THEN assume_tac>>fs[])>>
+       Cases_on`wEval(apply_color f prog,cst)`>>fs[]>>
+       Cases_on`res`>>fs[abbrev_and_def]>>metis_tac[])>-
    (*Call*) 
      (fs[wEval_def,LET_THM]>>
      Cases_on`st.clock=0`>-(
@@ -641,220 +693,7 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
           `insert q' w (fromAList lss) = X.locals` by (unabbrev_all_tac>>
             fs[insert_def,word_state_component_equality])>>pop_assum SUBST_ALL_TAC>>
           first_x_assum(qspecl_then [`rst`,`f`,`Y`,`res`] assume_tac)>>
-          fs[strong_state_rel_def,Abbr`X`]>>rfs[])
-
-           `strong_state_rel r'' with
-          <|locals := insert (f q') w (fromAList lss'); stack := st';
-            handler := r''.handler|>(
-
-
-
-           (*We know there is no handler, so envx.handler+1 is not the top of stack
-             therefore the LAST_N after that are equal and the rest follows*)
-
- 
-            (*Get down to the MAP FST level again...*)
-             fs[abbrev_and_def]>>metis_tac[strong_state_rel_def]
-                 
-
-            fs[s_frame_key_eq_def]>>
-            
-            `y'.locals = fromAList l` by fs[word_state_component_equality]>> 
-            pop_assum SUBST1_TAC>>
-            simp[domain_fromAList]>>
-            qpat_assum `A = MAP FST l` (SUBST1_TAC o SYM)
-            fs[list_rearrange_MAP]
-
-            `y'.locals = fromAList l` by fs[word_state_component_equality]
-            simp[EXTENSION]>>
-            
-        
-
-
-         qunabbrev_tac `Z`>>fs[])
-         (*Exception*) 
-               
-        (*cut_env r' st.locals = SOME x' 
-          ==> dom r' SUBSET dom st.locals
-          consider x IN dom (apply_nummap_key r') ==> ?y. y in dom r'
-          ==> y in dom st.locals ==> f y  in dom cst.locals therefore
-          subset is true on cst therefore it gives SOME env
-          TODO: needs more condition on the cut, I think strong state rel
-         *)
-         `cut_env (apply_nummap_key f r') cst.locals = SOME a` by cheat>>
-         fs[call_env_def,push_env_def]>>
-         Cases_on`o'`>-
-           (*NONE i.e. NO HANDLER*)
-           fs[LET_THM,env_to_list_def,dec_clock_def]
-
-
-    simp[]
-        rw[]>>fs[wEval_def]>-
-          fs[]
-
-        
-              SPOSE_NOT_THEN ASSUME_TAC>> fs[strong_state_rel_def,fetch "-" "word_state_updates_eq_literal"]
-         rw[strong_state_rel_def] >> simp[]
-    (*Seq*)
-    >-
-      (Cases_on`wEval (prog,st)`>>
-      last_x_assum (qspecl_then [`st`,`r`,`f`,`cst`,`q`] assume_tac)>>
-      Cases_on`q`>-
-      (*prog-->NONE*)
-      (fs[apply_color_def,wEval_def]>> rfs[]>>
-      fs[LET_THM]>>
-      first_assum(split_applied_pair_tac o concl)>>
-      fs[]>>
-      first_x_assum (qspecl_then [`r`,`rst`,`f`,`rcst`,`res`] assume_tac)>>
-      rfs[])>>
-      (*prog-->SOME*)
-      fs[apply_color_def,wEval_def]>>
-      (*Instantiate the induction hyp*)
-      last_x_assum(qspecl_then [`st`,`r`,`f`,`cst`,`SOME x`] assume_tac)>>
-      fs[]>>
-      `res = SOME x` by (rw[]>> fs[LET_THM])>>
-      `x<>Error` by fs[]>>
-       rfs[]>> fs[LET_THM] >>
-       first_assum(split_applied_pair_tac o concl) >> fs[] >> rw[])>-
-    (*If*)
-    (fs[wEval_def]>>
-     Cases_on`wEval(prog,st)`>>
-     last_x_assum (qspecl_then [`st`,`r`,`f`,`cst`,`q`] assume_tac)>>
-     Cases_on`q`>-
-       (*NONE*)
-       (rfs[LET_THM]>>fs[]>>
-       Cases_on`wEval(apply_color f prog,cst)` >>fs[]>>
-       IMP_RES_TAC strong_state_rel_get_var_lemma>>
-       Cases_on`get_var n r`>>fs[]>>
-       first_assum(fn th => first_x_assum(assume_tac o C MATCH_MP th))>>
-       fs[]>>
-       Cases_on`x`>>fs[]>>
-       Cases_on`c=0w`>> fs[]>>metis_tac[])>>
-       (*SOME*)
-       rfs[LET_THM]>>`x<>Error`by (SPOSE_NOT_THEN assume_tac>>fs[])>>
-       Cases_on`wEval(apply_color f prog,cst)`>>fs[]>>
-       Cases_on`res`>>fs[])>-
-   (*Raise*)
-      (fs[wEval_def]>>get_var_tactic>>
-       Cases_on`jump_exc st`>>fs[strong_state_rel_def,jump_exc_def]>>
-      BasicProvers.EVERY_CASE_TAC>>fs[weak_state_rel_def]>>DISJ1_TAC>>
-      fs[word_state_component_equality])>-
-    (*Return*)
-      (fs[wEval_def]>>get_var_tactic>>
-       fs[call_env_def,fromList2_def,word_state_component_equality]>>
-       BasicProvers.EVERY_CASE_TAC>>
-       fs[strong_state_rel_def,weak_state_rel_def
-       ,word_state_component_equality])>-
-    (*Tick*)
-    (fs[wEval_def,strong_state_rel_def]>>Cases_on`st.clock=0`>>
-     fs[call_env_def,fromList2_def]>>
-     BasicProvers.EVERY_CASE_TAC>>fs[word_state_component_equality]>-
-       fs[weak_state_rel_def,word_state_component_equality]>>
-     fs[dec_clock_def])
-
-
->>DISJ1_TAC>>
-       fs[word_state_component_equality]
-
-
-    (*Raise*)
-    >-
-    fs[wEval_def]>>Cases_on`get_var n st`>>fs[]>>
-    `get_var (f n) cst = SOME x` by cheat (*same thm about get_var*)>>
-    BasicProvers.EVERY_CASE_TAC>>fs[strong_state_rel_def,jump_exc_def]>-
-      (`cst.handler < LENGTH cst.stack` by rw[] >> fs[]>>
-      Cases_on`LAST_N (st.handler +1) st.stack`>> fs[]>>
-      `LAST_N (cst.handler +1) cst.stack = LAST_N (st.handler+1) st.stack`
-      by rw[]>>fs[]>>simp[]>>Cases_on`h`>>fs[]>>Cases_on`o'`>>fs[])>>
-    simp[weak_state_rel_def]>>DISJ1_TAC>>
-    Cases_on`LAST_N (st.handler +1) st.stack`>> fs[]>>
-    `LAST_N (cst.handler +1) cst.stack = LAST_N (st.handler+1) st.stack`
-    by rw[]>>fs[]>>Cases_on`h`>>fs[]>>Cases_on`o'`>>fs[]>>rw[word_state_component_equality]
-
-    BasicProvers.EVERY_CASE_TAC>>fs[]>>
-     
-    fs[jump_exc_def]
-
-
-
-    (*Seq*)
-    >-
-    fs[wEval_def]>>
-    fs[LET_THM] >>
-    first_assum(miscLib.split_applied_pair_tac o lhs o concl) 
-    (*Return*)
-    >-
-    (*Raise*)
-    >-   
-    (*If*)
-    >-
-    (*Call rotate 10 after skip*)
-    fs[MAP_ZIP,wEval_def,get_vars_def,set_vars_def,list_insert_def]>>
-    Cases_on`s.clock=0`>>fs[]>-
-      (rw[call_env_def,fromList2_def,toAList_def]>>EVAL_TAC>>HINT_EXISTS_TAC)>>
-    BasicProvers.EVERY_CASE_TAC >>fs[]
-    Cases_on`get_vars args s`>> fs[] >>
-    `get_vars args' (s with locals := 
-    apply_nummap_key f s.locals) = SOME x` by
-    (ASSUME_TAC get_vars_inj>>
-    fs[map_compose]>>
-    first_x_assum(qspecl_then [`f`,`args`,`s`] assume_tac) >>
-    metis_tac[])>>
-    fs[apply_nummap_key_def]>>simp[]>>
-    Cases_on`find_code dest x s.code`>> fs[] >>
-    Cases_on`x'`>>simp[]>>
-    Cases_on`ret`>-( 
-      (*NONE RETURN*)
-      fs[]>>Q.UNABBREV_TAC`ret'`>>simp[]>>
-      Cases_on`handler`>-(
-         (*NONE HANDLER*)
-         fs[]>> 
-         fs[call_env_def,dec_clock_def]>>
-          
-          
-
-    (s with locals :=
-        fromAList (ZIP (MAP (f o FST) (toAList s.locals),
-        MAP SND (toAList s.locals))))`>>
-    simp[]>>fs[]
-
-
-    ASSUME_TAC 
-      (INST_TYPE [``:'a``|->``:'a word_loc``] fromAList_list_insert)>>
-    first_x_assum(qspecl_then [`MAP(f o FST) moves`,`x`] assume_tac)>>
-    fs[rich_ZIP_APPEND,MAP_APPEND]>>
-    fs[LENGTH_MAP,ZIP_MAP_EQ]>>
-    
-    rw[]
- strip_tac>> 
-     (*Cases split on whethere y was in MAP FST moves*)
-     ASSUME_TAC lookup_list_insert
-     Cases_on`?z.f z =y/\ MEM z (MAP FST moves)`
-
-     Cases_on `?z.f z = y /\ MEM z (toAList s.locals)`
-          
-
-    `MAP (f o FST) moves ++ MAP (f o FST) (toAList s.locals)
-
-    ASSUME_TAC (INST_TYPE [``:'a``|->``:'a word_loc``] toAList_list_insert)>>
-    first_x_assum(qspecl_then [`MAP FST moves`,`x`,`s.locals`] assume_tac)>>
-    fs[] >> 
-    
-
-    fs[get_vars_inj]>>fs[]
-    `get_vars (MAP (f o SND) moves) 
-       (s with locals := apply_nummap_key f s.locals) =
-     get_vars (MAP SND moves) s` by
-      fs[map_compose] >>
-      
-
-    `!x f. INJ f UNIV UNIV /\ get_vars (MAP SND moves) s = SOME x ==>
-     get_vars (MAP (f o SND) moves) (s with locals := apply_nummap_key f s.locals) = SOME x` by
-    Induct_on `moves`>>
-      fs[get_vars_def]>>
-    rpt strip_tac >>
-    Cases_on`get_var (SND h) s`>> fs[]>>
-    rw[get_var_def]>> 
+          fs[strong_state_rel_def,Abbr`X`]>>rfs[]))
 
 val even_list_def = Define `
   (even_list (0:num) = []) /\

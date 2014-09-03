@@ -305,7 +305,7 @@ val s_val_eq_LAST_N_exists = store_thm("s_val_eq_LAST_N_exists",
   Cases_on`h`>>Cases_on`o'`>>fs[s_frame_val_eq_def])
 
 
-val LAST_N_LENGTH_cond = prove(
+val LAST_N_LENGTH_cond = store_thm("LAST_N_LENGTH_cond",
   ``!n xs. n = LENGTH xs ==> LAST_N n xs =xs``,
   metis_tac[LAST_N_LENGTH] )
 
