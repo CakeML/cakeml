@@ -206,12 +206,12 @@ val get_vars_stack_swap = prove(
   rw[]>> BasicProvers.EVERY_CASE_TAC>>
   metis_tac[NOT_NONE_SOME,SOME_11])
 
-val s_val_eq_length = prove(
+val s_val_eq_length = store_thm("s_val_eq_length",
   ``!s t. s_val_eq s t ==> LENGTH s = LENGTH t``,
   Induct>>Cases>>fs[s_val_eq_def,LENGTH]>>
   Cases>>fs[s_val_eq_def])
 
-val s_key_eq_length = prove(
+val s_key_eq_length = store_thm("s_key_eq_length",
   ``!s t. s_key_eq s t ==> LENGTH s = LENGTH t``,
   Induct>>Cases>>fs[s_key_eq_def,LENGTH]>>
   Cases>>fs[s_key_eq_def])
