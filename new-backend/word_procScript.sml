@@ -1,8 +1,10 @@
 open HolKernel Parse boolLib bossLib miscLib
-open word_langTheory 
-open word_lemmasTheory
 open listTheory sptreeTheory pred_setTheory pairTheory
 open bvp_lemmasTheory
+open word_langTheory 
+open word_lemmasTheory
+open alistTheory
+
 val _ = new_theory "word_proc";
 
 (*Coloring expressions*)
@@ -25,7 +27,6 @@ val apply_nummap_key_def = Define `
 
 val apply_numset_key_def = Define `
   apply_numset_key f (numset:num_set) = apply_nummap_key f numset`
-
 
 (*Color a prog*)
 val apply_color_def = Define `
@@ -152,9 +153,50 @@ val MEM_fromAList = store_thm ("MEM_fromAList",
   Induct_on`t`>> rw[fromAList_def]>>
   Cases_on`h`>> Cases_on`q=k`>>rw[fromAList_def])
 
+val ZIP_MAP_MAP_EQ = prove(
+  ``!ls f g. ZIP (MAP f ls, MAP g ls) = MAP (\x. f x,g x) ls``,
+  Induct>>fs[])
+
+val ALOOKUP_INJ_keys = prove(
+  ``!ls f. INJ f UNIV UNIV ==>
+           !k. ALOOKUP ls k = ALOOKUP (MAP (\x,y.f x,y) ls) (f k)``,
+  Induct>>rw[]>>
+  Cases_on`h`>>fs[]>>IF_CASES_TAC>>fs[]>>
+  `f q <> f k` by (SPOSE_NOT_THEN assume_tac >> fs[INJ_DEF] >>metis_tac[])>> fs[])
+
+(*Generalize a theorem in sptree*)
+val ALOOKUP_INJ_toAList = store_thm("ALOOKUP_INJ_toAList",
+  ``!f t x.INJ f UNIV UNIV ==>
+      ALOOKUP ((MAP \x,y. f x,y) (toAList t)) (f x) = lookup x t``,
+  rpt strip_tac>>Cases_on `lookup x t` >-
+    (simp[ALOOKUP_FAILS,MEM_toAList,MEM_MAP] >>
+    rpt strip_tac>>Cases_on`y`>>fs[]>>
+    Cases_on`f x = f q`>>fs[MEM_toAList]>>
+    `x = q` by fs[INJ_DEF]>>fs[])>>
+  Cases_on`ALOOKUP (toAList t) x`>-
+    fs[ALOOKUP_FAILS,MEM_toAList] >>
+  imp_res_tac ALOOKUP_MEM >>
+  fs[MEM_toAList]>>
+  Q.ISPECL_THEN [`toAList t`,`f`] assume_tac ALOOKUP_INJ_keys >> rfs[]>>
+  metis_tac[])
+
 val lookup_apply_nummap_key = prove(
   ``!f t z. INJ f UNIV UNIV ==>
-     lookup (f z) (apply_nummap_key f t) = lookup z t``,cheat)
+     lookup (f z) (apply_nummap_key f t) = lookup z t``,
+  rw[]>>
+  simp[lookup_fromAList,ZIP_MAP_MAP_EQ]>>
+  `(\x. (f (FST x),SND x)) = (\x,y. f x,y)` by
+    (rw[FUN_EQ_THM]>>Cases_on`x`>>fs[])>>
+  simp[ALOOKUP_INJ_toAList])
+
+val ALOOKUP_toAList = store_thm("ALOOKUP_toAList",
+  ``!t x. ALOOKUP (toAList t) x = lookup x t``,
+  strip_tac>>strip_tac>>Cases_on `lookup x t` >-
+    simp[ALOOKUP_FAILS,MEM_toAList] >>
+  Cases_on`ALOOKUP (toAList t) x`>-
+    fs[ALOOKUP_FAILS,MEM_toAList] >>
+  imp_res_tac ALOOKUP_MEM >>
+  fs[MEM_toAList])
 
 val MEM_fromAList = store_thm ("MEM_fromAList",
   ``∀t k. MEM k (MAP FST t) <=> 
@@ -712,11 +754,12 @@ val ALL_DISTINCT_even_list = prove(
   SPOSE_NOT_THEN assume_tac>>
   IMP_RES_TAC LT_even_list>> fs[])
 
-(*Adding a move: takes an f and n = expected local number and generates a move*)
+(*Adding a move: takes an f and n = num of locals and generates a move*)
 val move_locals_def = Define`
   move_locals f n = 
     let names = even_list n in
       Move ((MAP \n. f n,n) names)`
+
 (*
 EVAL ``move_locals (\x.2*x+1) 10``
 *)
@@ -728,6 +771,7 @@ val get_vars_domain_eq_lemma = prove(
   Induct>>rw[get_vars_def,get_var_def]>>
   fs[domain_lookup])
 
+(*TODO: There are multiple defs of list_insert..*)
 val lookup_list_insert = prove(
   ``!x y t (z:num). LENGTH x = LENGTH y ==> 
     (lookup z (list_insert x y t) = 
@@ -735,14 +779,10 @@ val lookup_list_insert = prove(
     ho_match_mp_tac list_insert_ind>>
     rw[]>-
       (Cases_on`y`>>
-      rw[list_insert_def]>>fs[LENGTH]) >>
+      fs[LENGTH,list_insert_def]) >>
     Cases_on`z=x`>>
       rw[lookup_def,list_insert_def]>>
     fs[lookup_insert]) 
-
-val ZIP_MAP_MAP_EQ = prove(
-  ``!ls f g. ZIP (MAP f ls, MAP g ls) = MAP (\x. f x,g x) ls``,
-  Induct>>fs[])
 
 (*Need injectivity to ensure ALL_DISTINCT of the move target,
   problem with needing to know that the keys are ALL_DISTINCT..*)
@@ -792,25 +832,27 @@ val odd_coloring_facts = prove(
 
 (*The full theorem for the first conversion*)
 val seq_move_locals_def = Define`
-  seq_move_locals f n prog = Seq (move_locals f n) prog`
+  seq_move_locals f n prog = Seq (move_locals f n) (apply_color f prog)`
 
 val seq_move_correct = store_thm("seq_move_correct",
-  ``!prog s n.
-       wEval(prog,s) = (res,s') /\
+  ``!prog s n res rst.
+       wEval(prog,s) = (res,rst) /\
        domain s.locals = set(even_list n) /\
-       res <> SOME Error ==> 
-       wEval(seq_move_locals odd_coloring n prog,s) = (res,s'') /\
-       strong_state_rel (odd_coloring) s' s''``
+       res <> SOME Error ==>
+       let (res',rcst) = wEval(seq_move_locals odd_coloring n prog,s) in
+         res' = res /\ 
+         (case res of
+            NONE => strong_state_rel odd_coloring rst rcst
+             | _ => weak_state_rel odd_coloring rst rcst) ``,
+  rpt strip_tac>>
+  fs[wEval_def,seq_move_locals_def]>>
+  assume_tac odd_coloring_facts>>
+  IMP_RES_TAC move_locals_strong_state_rel>>
+  pop_assum(qspec_then `odd_coloring` assume_tac)>> rfs[LET_THM]>>
+  first_assum (split_applied_pair_tac o concl)>>fs[]>>
+  metis_tac[inj_apply_color_invariant,abbrev_and_def])
 
-
-
-  `MEM n ls` by fs[domain_lookup]>>
-  MEM n move_locals_strong_state_rel
-
-  Induct_on`SET_TO_LIST (domain s.locals)`>>
-
-  fs[get_var_def,et_vars_def,strong_state_rel_def,set_vars_def,list_insert_def]
-
+(*
 val FV_exp_def = tDefine "FV_exp" `
   (FV_exp (Const c) = {}) /\
   (FV_exp (Var v) = {v}) /\
@@ -840,169 +882,7 @@ val FV_def = Define`
   (FV (Move ls) = set (MAP SND ls)) /\
   (FV (Assign v exp s) = 
   TypeBase.constructors_of ``:'a word_prog``
-
-
-(*move_conv takes prog, the initial args and a function. 
-  adds a move and 
-  replaces the varnames in the body*)
-val move_conv_def = Define `
-  move_conv prog f args= 
-    let mov = Move (ZIP (MAP f args, args)) in
-    let body = apply_color f prog in
-      Seq mov body`
-
-(*
-EVAL ``move_conv (Seq (Call (SOME (5,LN)) (SOME 4) [3;2;1] NONE) Skip) 
-       (\x.x+1) [1;2;3]`` 
 *)
 
-
-(*Correctness of move_conv
-  For states which is a function entry point i.e. locals are 
-  equal to some list some list [0,2,...,2*(n-1)]
-  then p1_conv produces the same result, 
-  TODO: with a different state
-*)
-val all_distinct_even_list_def = store_thm ("all_distinct_even_list",
-  ``!n. ALL_DISTINCT (even_list n) /\ (!x. MEM x (even_list n)==> x < 2*n)``,
-  Induct_on`n`>-
-    rw [even_list_def]>>simp[] >>
-  CONJ_TAC>>
-  rw[even_list_def]>>
-first_x_assum(qspec_then`2*n`mp_tac)>>
-  simp[]>>
-FULL_SIMP_TAC arith_ss []>>
-
-(*The move added by move conv does not result in an Error if started 
-  with locals of a state
-  The resulting state is equivalent except it has new locals as given by the
-  injection
-  The injection does not overwrite any of the existing locals
-*)
-val move_conv_lemma = store_thm ("move_conv_lemma",
-  ``!s f. (INJ f UNIV UNIV) /\ (!x y. f x = y ==> ~(y IN (domain s.locals)))
-    ==> 
-      let args = SET_TO_LIST (domain s.locals) in
-        ?l. wEval(Move(ZIP (MAP f args,args)),s) = (NONE,s with locals := l)
-                (*Original locals unchanged and there is a copy*) 
-             /\ (!x. x IN domain s.locals ==>
-                    lookup x s.locals = lookup x l
-                 /\ lookup x s.locals = lookup (f x) l)
-                (*Only those locals exist*)
-             /\ (!x. x IN domain l ==>
-                     x IN domain s.locals \/ 
-                     ?y. x = f y /\ y IN domain s.locals)``
-  rpt strip_tac>> rw[]>>
-  EXISTS_TAC ``(let ls = toAList s.locals in fromAList (MAP f ls ++ ls))``>>
-  rw[]>>
-  (*`MEM x (SET_TO_LIST (domain s.locals)) ==> 
-    IS_SOME (get_var x s)` by
-    (strip_tac>>
-    rw[get_var_def]>> fs[MEM_SET_TO_LIST,domain_lookup]) >>*)
-  `!l. (!x.MEM x l ==> x IN (domain s.locals)) ==> 
-        get_vars l s = 
-          SOME(MAP (\x. case (lookup x s.locals) of SOME y => y)l)` by
-    (Induct>-
-      rw[get_vars_def] >>
-    rpt strip_tac>>
-    fs[]>>
-    rw[get_vars_def,get_var_def,domain_lookup] >>
-    first_x_assum(qspec_then`h`mp_tac) >>
-    simp[]>> fs[domain_lookup]>>
-    strip_tac>> fs[] )
-  >>
-  Q.UNABBREV_TAC `args`>>
-  rw[wEval_def]>-
-    (fs[MAP_ZIP,ALL_DISTINCT_SET_TO_LIST,
-       doALL_DISTINCT_MAP_INJ,INJ_DEF,MEM_SET_TO_LIST]>> 
-    first_x_assum(qspec_then`SET_TO_LIST (domain s.locals)`mp_tac) >>
-    simp[] >> Q.ABBREV_TAC `args = SET_TO_LIST (domain s.locals)`>>
-    rw[set_vars_def,list_insert_def] >> simp[]
-    
-    Cases_on `get_vars args s` >>
-    fs[] ) >>
-  fs[MAP_ZIP,ALL_DISTINCT_MAP_INJ,ALL_DISTINCT_SET_TO_LIST]>>
-  pop_assum mp_tac>> simp[] >>
-  match_mp_tac ALL_DISTINCT_MAP_INJ>> simp[]>>
-  fs[INJ_DEF] );
-
-
-  
-
-(*Result of adding a move using injective f is invariant
-Resulting state might have extra locals (depending on f) 
-but any of the original locals must be present
-*)
-val inj_move_conv_invariant = store_thm ("move_invariant",
-  ``!prog s s1 f res. wEval(prog,s) = (res,s1) 
-            /\ res <> SOME Error
-            /\ (INJ f UNIV UNIV)
-     ==> ?s2. 
-         wEval (move_conv prog f (SET_TO_LIST (domain s.locals)),s) = (res,s2)
-         /\ (!x y. lookup x s1.locals = y ==> lookup (f x) s2.locals = y)
-         (*Other state conditions TODO *)
-         /\ (?l. s2 = s1 with locals := l) ``,
-
-  ho_match_mp_tac (wEval_ind |> Q.SPEC`UNCURRY P` |> SIMP_RULE (srw_ss())[] |> Q.GEN`P`) >>
-  rw[] >>
-  
-  (*Move rotate 6*)
-  rw[move_conv_def,wEval_def]>>
-  rw[wEval_def]>>
-  Cases_on `res`>-
-    Q.UNABBREV_TAC `mov` >>
-    IMP_RES_TAC move_conv_lemma>>
-    first_x_assum(qspec_then`s`mp_tac)>>
-    simp[] >> rw[] >>
-    
-
-    
-   
-  Cases_on `s.locals`>-
-    fs[move_conv_def,wEval_def]>>
-    
-  rw[]>-
-    
-  strip_tac
- 
-
- 
-val p1_conv_correct = store_thm ("p1_conv_correct",
-  ``!prog n s s1 s2 res. wEval (prog,s) = (res, s1) /\ res <> SOME Error /\
-            (!x. x IN (domain s.locals) <=>  MEM x (even_list n)) 
-     ==> FST (wEval ((p1_conv prog n),s)) = res``,
-strip_tac >>
-ho_mp
-
-Induct_on `prog` >>
-
-(*Move*)
-rw[p1_conv_def]>>
-Cases_on`l`>-
-  fs[get_vars_def,wEval_def,set_vars_def]>>
-  Q.UNABBREV_TAC `body`>> Q.UNABBREV_TAC `f`>> Q.UNABBREV_TAC `mov`>>
-  rw [apply_args_list_def,apply_color_def] >>
-  Q.ABBREV_TAC `mov2 = ((ZIP (MAP (λx. 2 * x + 1) ls,ls)))` >>
-  fs [wEval_def]
-  
-fs[apply_color_def]
-
-fs[wEval_def,get_vars_def]>>
-
-
-print_apropos ``Abbrev x``
-
-(*
-GOAL:
-!prog s1 s2 res. wEval (prog,s) = (res,s2) /\ res <> SOME Error /\ ...
-                 ==> ?s3. wEval (add_mov prog,s) = (res,s3) /\
-                          state_rel s2 s3
-
-
-(*Convert prog
-(*Change function body to use odd vars*)
-
-val rename_var_def = Define `
-  (rename_var Skip = Skip) /\
-  (rename_var (Move ls) =  
+val _ = export_theory();
 
