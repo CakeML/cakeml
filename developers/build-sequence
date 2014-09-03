@@ -32,5 +32,4 @@ hol-light/stateless/ml_kernel
 translator/okasaki-examples
 translator/other-examples
 parsing/testing
-compiler/tests
 standalone/tests
