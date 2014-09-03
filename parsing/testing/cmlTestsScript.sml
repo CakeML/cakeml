@@ -25,6 +25,8 @@ val _ = overload_on ("OLDAPP", ``λt1 t2. App Opapp [t1; t2]``)
 val _ = overload_on ("", ``λt1 t2. App Opapp [t1; t2]``)
 val _ = overload_on ("SOME", ``TC_name``)
 
+val _ = computeLib.add_persistent_funs ["lexer_fun.get_token_def"]
+
 val result_t = ``Result``
 fun parsetest0 nt sem s opt = let
   val s_t = stringSyntax.lift_string bool s
