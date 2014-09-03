@@ -411,7 +411,7 @@ val wAlloc_def = Define `
             | SOME T => (* success there is that much space *)
                         (NONE,s)
             | SOME F => (* fail, GC didn't free up enough space *)
-                        (SOME NotEnoughSpace,s)))))`
+                        (SOME NotEnoughSpace,call_env [] s with stack:= [])))))`
 
 val wEval_def = tDefine "wEval" `
   (wEval (Skip:'a word_prog,s) = (NONE,s:'a word_state)) /\
@@ -541,7 +541,8 @@ val wAlloc_clock = store_thm("wAlloc_clock",
   \\ IMP_RES_TAC pop_env_clock \\ IMP_RES_TAC wGC_clock
   \\ fs [push_env_clock,set_store_def] \\ SRW_TAC [] []
   \\ Cases_on `env_to_list s1.locals s1.permute` \\ fs [LET_DEF]\\rfs[]
-  \\ BasicProvers.EVERY_CASE_TAC>>fs[]);
+  \\ BasicProvers.EVERY_CASE_TAC 
+  \\ fs[call_env_def,fetch "-" "word_state_component_equality"]);
 
 val pop_env_clock = prove(
   ``(pop_env s = SOME t) ==> (s.clock = t.clock)``,
