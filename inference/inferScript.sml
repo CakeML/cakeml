@@ -528,12 +528,12 @@ val infer_d_def = Define `
 (infer_d mn decls tenvT menv cenv env (Dtabbrev tvs tn t) =
   do () <- guard (ALL_DISTINCT tvs) "Duplicate type variables";
      () <- guard (check_freevars 0 tvs t ∧ check_type_names tenvT t) "Bad type definition";
-     return (([],[],[]), [(tn, (tvs,t))], [], [])
+     return (([],[],[]), [(tn, (tvs,type_name_subst tenvT t))], [], [])
   od) ∧
 (infer_d mn (mdecls,tdecls,edecls) tenvT menv cenv env (Dexn cn ts) =
-  do () <- guard (check_exn_tenv mn cn ts) "Bad exception definition";
+  do () <- guard (check_exn_tenv mn cn ts ∧ EVERY (check_type_names tenvT) ts ) "Bad exception definition";
      () <- guard (~MEM (mk_id mn cn) edecls) "Duplicate exception definition";
-     return (([],[],[mk_id mn cn]), [], bind cn ([], ts, TypeExn (mk_id mn cn)) emp, [])
+     return (([],[],[mk_id mn cn]), [], bind cn ([],MAP (type_name_subst tenvT) ts, TypeExn (mk_id mn cn)) emp, [])
   od)`;
 
 val append_decls_def = Define `
