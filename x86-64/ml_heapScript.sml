@@ -97,7 +97,7 @@ val bytesToWords_def = Define`
 val Bytes_def = Define`
   Bytes (bs:word8 list) =
     let ws = bytesToWords bs in
-    DataElement [] (LENGTH ws) (BytesTag (LENGTH bs), ws)`
+    DataElement [] (LENGTH ws) (BytesTag (LENGTH bs MOD 8), ws)`
 
 val bc_value_size_LEMMA = prove(
   ``!vs v. MEM v vs ==> bc_value_size v <= bc_value1_size vs``,
