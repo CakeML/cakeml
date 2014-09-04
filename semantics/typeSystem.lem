@@ -652,15 +652,16 @@ check_freevars 0 tvs t &&
 check_type_names tenvT t &&
 List.allDistinct tvs
 ==>
-type_d mn decls tenvT menv cenv tenv (Dtabbrev tvs tn t) empty_decls [(tn, (tvs,t))] emp emp 
+type_d mn decls tenvT menv cenv tenv (Dtabbrev tvs tn t) empty_decls [(tn, (tvs,type_name_subst tenvT t))] emp emp 
 
 and
 
 dexn : forall mn menv tenvT cenv tenv cn ts mdecls edecls tdecls.
 check_exn_tenv mn cn ts &&
-not (mk_id mn cn IN edecls)
+not (mk_id mn cn IN edecls) && 
+List.all (check_type_names tenvT) ts
 ==>
-type_d mn (mdecls,tdecls,edecls) tenvT menv cenv tenv (Dexn cn ts) ({},{},{mk_id mn cn}) emp (bind cn ([], ts, TypeExn (mk_id mn cn)) emp) emp
+type_d mn (mdecls,tdecls,edecls) tenvT menv cenv tenv (Dexn cn ts) ({},{},{mk_id mn cn}) emp (bind cn ([],List.map (type_name_subst tenvT) ts, TypeExn (mk_id mn cn)) emp) emp
  
 indreln [ type_ds : maybe modN -> decls -> tenvT -> tenvM -> tenvC -> tenvE -> list dec -> decls -> flat_tenvT -> flat_tenvC -> env varN (nat * t) -> bool]
 
