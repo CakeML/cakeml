@@ -625,13 +625,14 @@ type_d mn (mdecls,tdecls,edecls) tenvT menv cenv tenv (Dtype tdefs) ({},new_tdec
 check_type_names tenvT t /\
 ALL_DISTINCT tvs)
 ==>
-type_d mn decls tenvT menv cenv tenv (Dtabbrev tvs tn t) empty_decls [(tn, (tvs,t))] emp emp) 
+type_d mn decls tenvT menv cenv tenv (Dtabbrev tvs tn t) empty_decls [(tn, (tvs,type_name_subst tenvT t))] emp emp) 
 
 /\ (! mn menv tenvT cenv tenv cn ts mdecls edecls tdecls.
 (check_exn_tenv mn cn ts /\
-~ (mk_id mn cn IN edecls))
+~ (mk_id mn cn IN edecls)/\
+EVERY(check_type_names tenvT) ts)
 ==>
-type_d mn (mdecls,tdecls,edecls) tenvT menv cenv tenv (Dexn cn ts) ({},{},{mk_id mn cn}) emp (bind cn ([], ts, TypeExn (mk_id mn cn)) emp) emp)`;
+type_d mn (mdecls,tdecls,edecls) tenvT menv cenv tenv (Dexn cn ts) ({},{},{mk_id mn cn}) emp (bind cn ([], MAP (type_name_subst tenvT) ts, TypeExn (mk_id mn cn)) emp) emp)`;
  
 val _ = Hol_reln ` (! mn tenvT menv cenv tenv decls.
 T
