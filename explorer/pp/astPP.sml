@@ -142,7 +142,7 @@ val _=temp_add_user_printer("stringtypeprint",``TC_string``,genPrint (deftypePri
 val _=temp_add_user_printer("booltypeprint",``TC_bool``,genPrint (deftypePrint "bool"));
 val _=temp_add_user_printer("unittypeprint",``TC_unit``,genPrint (deftypePrint "unit"));
 val _=temp_add_user_printer("reftypeprint",``TC_ref``,genPrint (deftypePrint "ref"));
-val _=temp_add_user_printer("fntypeprint",``TC_fn``,genPrint (deftypePrint "fn"));
+val _=temp_add_user_printer("fntypeprint",``TC_fn``,genPrint (deftypePrint ""));
 val _=temp_add_user_printer("tuptypeprint",``TC_tup``,genPrint (deftypePrint ""));
 val _=temp_add_user_printer("exntypeprint",``TC_exn``,genPrint (deftypePrint "exn"));
 
@@ -166,7 +166,8 @@ val _=temp_add_user_printer("tcnameshortprint", ``TC_name (Short x)``,genPrint t
 fun tappPrint sys d t pg str brk blk = 
   let val (l,r) = dest_comb t
       val args = #1(listSyntax.dest_list (strip l))
-      val sep = if r = ``TC_tup`` then " * " else " , "
+      val sep = if r = ``TC_tup`` then " * " else 
+                if r = ``TC_fn``  then " -> " else " , "
       val spa = if r = ``TC_tup`` then "" else " "
   in
     (case args of [] => str"" | (_::_::_) => str"(">>printTuple sep (sys (pg,pg,pg) d) str args >>str ")" >>str spa
