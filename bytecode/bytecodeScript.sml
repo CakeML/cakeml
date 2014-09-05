@@ -287,7 +287,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (bvs_to_chars [] ac = (SOME (REVERSE ac)))
 /\
 (bvs_to_chars (Number i::vs) ac =  
-(bvs_to_chars vs ((CHR (Num (ABS ( i))))::ac)))
+(if(( 0 : int) <= i) /\ (i <( 256 : int)) then
+    bvs_to_chars vs ((CHR (Num (ABS ( i))))::ac)
+  else NONE))
 /\
 (bvs_to_chars _ _ = NONE)`;
 

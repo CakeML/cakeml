@@ -442,13 +442,18 @@ val RTC_bc_next_output_squeeze = store_thm("RTC_bc_next_output_squeeze",
   REPEAT STRIP_TAC \\ IMP_RES_TAC RTC_bc_next_output_IS_PREFIX
   \\ METIS_TAC [rich_listTheory.IS_PREFIX_ANTISYM]);
 
+val is_Char_def = Define`
+  (is_Char (Number i) ⇔ 0 <= i ∧ i < 256) ∧
+  (is_Char _ = F)`
+val _ = export_rewrites["is_Char_def"]
+
 val bvs_to_chars_thm = store_thm("bvs_to_chars_thm",
   ``∀bvs ac. bvs_to_chars bvs ac =
-      if EVERY is_Number bvs then
+      if EVERY is_Char bvs then
          SOME(REVERSE ac ++ MAP (CHR o Num o ABS o dest_Number) bvs)
       else NONE``,
   Induct >> simp[bvs_to_chars_def] >>
-  Cases >> rw[bvs_to_chars_def])
+  Cases >> rw[bvs_to_chars_def] >> fs[])
 
 val between_labels_def = Define`
   between_labels bc l1 l2 ⇔
