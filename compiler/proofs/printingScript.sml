@@ -109,7 +109,8 @@ val print_bv_print_v = prove(
     simp[print_bv_def,print_v_def] >>
     fs[Once Cv_bv_cases,print_lit_def] >>
     rw[] >> fs[bv_to_string_def,bvs_to_chars_thm] >- (
-      simp[EVERY_MAP,IMPLODE_EXPLODE_I,MAP_MAP_o,combinTheory.o_DEF,integerTheory.INT_ABS_NUM,CHR_ORD] ) >>
+      simp[EVERY_MAP,IMPLODE_EXPLODE_I,MAP_MAP_o,combinTheory.o_DEF,integerTheory.INT_ABS_NUM,CHR_ORD] >>
+      rw[] >> fs[EXISTS_MEM] >> metis_tac[ORD_ONTO]) >>
     Cases_on`b`>>simp[print_v_def,print_lit_def] ) >>
   rpt conj_tac >>
   simp[Once v_to_i2_cases] >>

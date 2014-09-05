@@ -69,7 +69,8 @@ val Cv_bv_can_Print = save_thm("Cv_bv_can_Print",prove(
   ho_match_mp_tac Cv_bv_ind >> simp[bv_to_string_def,bvs_to_chars_thm] >>
   rw[] >> pop_assum mp_tac >> simp[] >>
   simp[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >> rw[] >>
-  rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,MEM_EL,EL_MAP])
+  rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,MEM_EL,EL_MAP] >>
+  metis_tac[ORD_ONTO])
   |> CONJUNCT1)
 
 val LIST_REL_sv_rel_exh_Cv_syneq_trans = store_thm("LIST_REL_sv_rel_exh_Cv_syneq_trans",
