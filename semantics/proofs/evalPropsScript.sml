@@ -188,24 +188,24 @@ rw [do_con_check_def, build_conv_def] >>
 every_case_tac >>
 fs []);
 
-val merge_mod_env_assoc = Q.store_thm ("merge_mod_env_assoc",
+val merge_alist_mod_env_assoc = Q.store_thm ("merge_alist_mod_env_assoc",
 `∀env1 env2 env3.
-  merge_mod_env env1 (merge_mod_env env2 env3) =
-  merge_mod_env (merge_mod_env env1 env2) env3`,
+  merge_alist_mod_env env1 (merge_alist_mod_env env2 env3) =
+  merge_alist_mod_env (merge_alist_mod_env env1 env2) env3`,
 rw [] >>
 PairCases_on `env1` >>
 PairCases_on `env2` >>
 PairCases_on `env3` >>
-rw [merge_mod_env_def, FUNION_ASSOC]);
+rw [merge_alist_mod_env_def, FUNION_ASSOC]);
 
-val merge_mod_env_empty_assoc = Q.store_thm ("merge_mod_env_empty_assoc",
+val merge_alist_mod_env_empty_assoc = Q.store_thm ("merge_alist_mod_env_empty_assoc",
 `!env1 env2 env3.
-  merge_mod_env (FEMPTY,env1) (merge_mod_env (FEMPTY,env2) env3)
+  merge_alist_mod_env ([],env1) (merge_alist_mod_env ([],env2) env3)
   =
-  merge_mod_env (FEMPTY,FUNION env1 env2) env3`,
+  merge_alist_mod_env ([],env1 ++ env2) env3`,
  rw [] >>
  PairCases_on `env3` >>
- rw [merge_mod_env_def, FUNION_ASSOC]);
+ rw [merge_alist_mod_env_def]);
 
 val same_ctor_and_same_tid = Q.store_thm ("same_ctor_and_same_tid",
 `!cn1 tn1 cn2 tn2.
@@ -227,9 +227,9 @@ val same_tid_sym = Q.store_thm ("same_tid_sym",
 val build_tdefs_cons = Q.store_thm ("build_tdefs_cons",
 `(!tvs tn ctors tds mn.
   build_tdefs mn ((tvs,tn,ctors)::tds) =
-    FUNION (build_tdefs mn tds) (FEMPTY |++ MAP (\(conN,ts). (conN, LENGTH ts, TypeId (mk_id mn tn))) ctors)) ∧
- (!mn. build_tdefs mn [] = FEMPTY)`,
- rw [build_tdefs_def, FUPDATE_LIST_THM, FUPDATE_LIST_APPEND, GSYM fupdate_list_funion]);
+    build_tdefs mn tds  ++ REVERSE (MAP (\(conN,ts). (conN, LENGTH ts, TypeId (mk_id mn tn))) ctors)) ∧
+ (!mn. build_tdefs mn [] = [])`,
+ rw [build_tdefs_def]);
 
 val check_dup_ctors_cons = Q.store_thm ("check_dup_ctors_cons",
 `!tvs ts ctors tds.
@@ -453,7 +453,7 @@ val evaluate_decs_evaluate_prog_MAP_Tdec = store_thm("evaluate_decs_evaluate_pro
       evaluate_decs ck NONE env (cs,tids) ds res
       ⇔
       case res of ((s,tids'),envC,r) =>
-      evaluate_prog ck env (cs,tids,{}) (MAP Tdec ds) ((s,tids',{}),(FEMPTY,envC),map_result(λenvE. ([],envE))(I)r)``,
+      evaluate_prog ck env (cs,tids,{}) (MAP Tdec ds) ((s,tids',{}),([],envC),map_result(λenvE. ([],envE))(I)r)``,
   Induct_on`ds`>>simp[Once evaluate_decs_cases,Once evaluate_prog_cases] >- (
     rpt gen_tac >> BasicProvers.EVERY_CASE_TAC >> simp[] >>
     Cases_on`r'`>>simp[] ) >>
@@ -473,19 +473,19 @@ val evaluate_decs_evaluate_prog_MAP_Tdec = store_thm("evaluate_decs_evaluate_pro
     simp[] >> strip_tac >>
     fs[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    Cases_on`r`>> simp[combine_dec_result_def,combine_mod_result_def,merge_mod_env_def] )
+    Cases_on`r`>> simp[combine_dec_result_def,combine_mod_result_def,merge_alist_mod_env_def] )
   >- (
     disj2_tac >>
     CONV_TAC(STRIP_BINDER_CONV(SOME existential)(lift_conjunct_conv(equal``evaluate_dec`` o fst o strip_comb))) >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    fsrw_tac[DNF_ss][EQ_IMP_THM,FORALL_PROD,merge_mod_env_def] >>
+    fsrw_tac[DNF_ss][EQ_IMP_THM,FORALL_PROD,merge_alist_mod_env_def] >>
     `∃z. r' = map_result (λenvE. ([],envE)) I z` by (
       Cases_on`r'`>>fs[combine_mod_result_def] >>
       TRY(METIS_TAC[]) >>
       Cases_on`a`>>fs[]>>
       Cases_on`res4`>>fs[]>>rw[]>>
       qexists_tac`Rval r` >> simp[] ) >>
-    PairCases_on`new_tds'`>>fs[merge_mod_env_def]>>rw[]>>
+    PairCases_on`new_tds'`>>fs[merge_alist_mod_env_def]>>rw[]>>
     first_assum(match_exists_tac o concl) >> simp[] >>
     fs[combine_dec_result_def,combine_mod_result_def] >>
     BasicProvers.EVERY_CASE_TAC >> fs[] >>
@@ -527,12 +527,12 @@ val _ = export_rewrites["ctors_of_dec_def"]
 val evaluate_decs_ctors_in = store_thm("evaluate_decs_ctors_in",
   ``∀ck mn env s decs res. evaluate_decs ck mn env s decs res ⇒
       ∀cn.
-        IS_SOME (FLOOKUP (FST(SND res)) cn) ⇒
+        IS_SOME (ALOOKUP (FST(SND res)) cn) ⇒
         MEM cn (FLAT (MAP ctors_of_dec decs))``,
   HO_MATCH_MP_TAC evaluate_decs_ind >>
   simp[] >>
   rw[Once evaluate_dec_cases] >> simp[] >>
-  fs[FLOOKUP_FUNION, FLOOKUP_FUNION] >>
+  fs[ALOOKUP_APPEND] >>
   fs[] >>
   BasicProvers.EVERY_CASE_TAC >>
   fs[FLOOKUP_UPDATE] >>
@@ -641,7 +641,7 @@ val evaluate_decs_last3 = prove(
       decs = decs0 ++ [Dlet (Pvar x) (App Opref [Con i []]);Dlet(Pvar y)(App Opref [Con j []]);Dlet (Pvar p) (Fun q r)]
       ⇒
       ∃n ls1 ls2 ls.
-      c = ((p,(Closure(FST env,merge_mod_env(FEMPTY,b)(FST(SND env)),ls1 ++ SND(SND env)) q r))::ls1) ∧
+      c = ((p,(Closure(FST env,merge_alist_mod_env([],b)(FST(SND env)),ls1 ++ SND(SND env)) q r))::ls1) ∧
       ls1 = ((y,Loc (n+1))::ls2) ∧ n+1 < LENGTH s1 ∧
       ls2 = ((x,Loc n)::ls) ∧
       is_Refv (EL n s1) ∧
@@ -669,21 +669,21 @@ val evaluate_decs_last3 = prove(
     fs[Once evaluate_cases] >>
     fs[Once evaluate_cases] >> rw[] >>
     PairCases_on`cenv` >>
-    rw[merge_mod_env_def] >>
+    rw[merge_alist_mod_env_def] >>
     simp[rich_listTheory.EL_APPEND1,rich_listTheory.EL_APPEND2]) >>
   Cases_on`r'`>>fs[semanticPrimitivesTheory.combine_dec_result_def]>>
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
   rfs[semanticPrimitivesTheory.all_env_to_cenv_def] >>
   rw[] >>
   PairCases_on`cenv` >>
-  rw[semanticPrimitivesTheory.merge_mod_env_def, FUNION_ASSOC])
+  rw[semanticPrimitivesTheory.merge_alist_mod_env_def, FUNION_ASSOC])
 
 val evaluate_Tmod_last3 = store_thm("evaluate_Tmod_last3",
   ``evaluate_top ck env0 st (Tmod mn NONE decs) ((cs,u),envC,Rval ([(mn,env)],v)) ⇒
     decs = decs0 ++[Dlet (Pvar x) (App Opref [Con i []]);Dlet (Pvar y) (App Opref [Con j []]);Dlet (Pvar p) (Fun q z)]
   ⇒
     ∃n ls1 ls.
-    env = (p,(Closure (FST env0,merge_mod_env (FEMPTY,FAPPLY (FST envC) mn) (FST(SND env0)),ls++(SND(SND env0))) q z))::ls ∧
+    env = (p,(Closure (FST env0,merge_alist_mod_env ([],THE (ALOOKUP (FST envC) mn)) (FST(SND env0)),ls++(SND(SND env0))) q z))::ls ∧
     (ls = (y,Loc (n+1))::(x,Loc n)::ls1) ∧
     n+1 < LENGTH (SND cs) ∧
     is_Refv (EL n (SND cs)) ∧
@@ -698,17 +698,17 @@ val evaluate_decs_tys = prove(
     MEM (tvs,tn,cts) tds ∧ MEM (cn,as) cts ∧
     ¬MEM cn (FLAT (MAP ctors_of_dec decs1))
     ⇒
-    (FLOOKUP tys cn = SOME (LENGTH as, TypeId (Long mn tn)))``,
+    (ALOOKUP tys cn = SOME (LENGTH as, TypeId (Long mn tn)))``,
   Induct >> rw[Once evaluate_decs_cases] >- (
     fs[Once evaluate_dec_cases] >> rw[] >>
-    simp[FLOOKUP_FUNION] >>
+    simp[ALOOKUP_APPEND] >>
     imp_res_tac evaluate_decs_ctors_in >> fs[] >>
     BasicProvers.CASE_TAC >> fs[] >>
-    Cases_on`FLOOKUP  (build_tdefs (SOME mn) tds) cn` >- (
-      fs[FDOM_FUPDATE_LIST, flookup_thm, semanticPrimitivesTheory.build_tdefs_def,MEM_MAP,MEM_FLAT,PULL_EXISTS,EXISTS_PROD] >>
+    Cases_on`ALOOKUP  (build_tdefs (SOME mn) tds) cn` >- (
+      fs[FDOM_FUPDATE_LIST, ALOOKUP_NONE, semanticPrimitivesTheory.build_tdefs_def,MEM_MAP,MEM_FLAT,PULL_EXISTS,EXISTS_PROD] >>
       METIS_TAC[] ) >>
     pop_assum mp_tac >>
-    simp[build_tdefs_def,flookup_fupdate_list] >>
+    simp[build_tdefs_def] >>
     BasicProvers.CASE_TAC >> simp[] >>
     imp_res_tac ALOOKUP_MEM >> fs[] >> rw[] >>
     qmatch_assum_abbrev_tac`ALOOKUP al k = SOME v` >>

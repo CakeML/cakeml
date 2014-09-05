@@ -77,7 +77,7 @@ let add_to_sem_env se prog =
       match Set_extra.choose res with
         | (s,envC,Rval (envM,envE)) ->
            Just <| sem_envM = envM ++ se.sem_envM;
-                   sem_envC = merge_mod_env envC se.sem_envC;
+                   sem_envC = merge_alist_mod_env envC se.sem_envC;
                    sem_envE = envE ++ se.sem_envE;
                    sem_store = s |>
         | _ -> Nothing
@@ -85,7 +85,7 @@ let add_to_sem_env se prog =
 
 val prim_sem_env : maybe sem_environment
 let prim_sem_env =
-  add_to_sem_env <| sem_envM = []; sem_envC = (Map.empty,Map.empty); sem_envE = []; sem_store = ((0,[]),{},{}) |> prim_types_program
+  add_to_sem_env <| sem_envM = []; sem_envC = ([],[]); sem_envE = []; sem_store = ((0,[]),{},{}) |> prim_types_program
 
 val basis_sem_env : maybe sem_environment
 let basis_sem_env =

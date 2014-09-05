@@ -258,7 +258,7 @@ val _ = Hol_reln ` (! ck mn env p e v env' s1 s2 count tdecs.
 ALL_DISTINCT (pat_bindings p []) /\
 (pmatch (all_env_to_cenv env) s2 p v [] = Match env'))
 ==>
-evaluate_dec ck mn env (s1,tdecs) (Dlet p e) (((count,s2),tdecs), Rval (FEMPTY, env')))
+evaluate_dec ck mn env (s1,tdecs) (Dlet p e) (((count,s2),tdecs), Rval ([], env')))
 
 /\ (! ck mn env p e v s1 s2 count tdecs.
 (evaluate ck env s1 e ((count,s2), Rval v) /\
@@ -288,7 +288,7 @@ evaluate_dec ck mn env (s,tdecs) (Dlet p e) ((s',tdecs), Rerr err))
 /\ (! ck mn env funs s.
 (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs))
 ==>
-evaluate_dec ck mn env s (Dletrec funs) (s, Rval (FEMPTY, build_rec_env funs env [])))
+evaluate_dec ck mn env s (Dletrec funs) (s, Rval ([], build_rec_env funs env [])))
 
 /\ (! ck mn env funs s.
 (~ (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs)))
@@ -313,12 +313,12 @@ evaluate_dec ck mn env (s,tdecs) (Dtype tds) ((s,tdecs), Rerr Rtype_error))
 /\ (! ck mn env tvs tn t s tdecs. 
 T
 ==>
-evaluate_dec ck mn env (s,tdecs) (Dtabbrev tvs tn t) ((s,tdecs), Rval (FEMPTY, [])))
+evaluate_dec ck mn env (s,tdecs) (Dtabbrev tvs tn t) ((s,tdecs), Rval ([], [])))
 
 /\ (! ck mn env cn ts s tdecs.
 (~ (TypeExn (mk_id mn cn) IN tdecs))
 ==>
-evaluate_dec ck mn env (s,tdecs) (Dexn cn ts) ((s, ({TypeExn (mk_id mn cn)} UNION tdecs)), Rval (FEMPTY |+ (cn, (LENGTH ts, TypeExn (mk_id mn cn))), [])))
+evaluate_dec ck mn env (s,tdecs) (Dexn cn ts) ((s, ({TypeExn (mk_id mn cn)} UNION tdecs)), Rval ([(cn, (LENGTH ts, TypeExn (mk_id mn cn)))], [])))
 
 /\ (! ck mn env cn ts s tdecs.
 (TypeExn (mk_id mn cn) IN tdecs)
@@ -328,18 +328,18 @@ evaluate_dec ck mn env (s,tdecs) (Dexn cn ts) ((s,tdecs), Rerr Rtype_error))`;
 val _ = Hol_reln ` (! ck mn env s.
 T
 ==>
-evaluate_decs ck mn env s [] (s, FEMPTY, Rval []))
+evaluate_decs ck mn env s [] (s, [], Rval []))
 
 /\ (! ck mn s1 s2 env d ds e.
 (evaluate_dec ck mn env s1 d (s2, Rerr e))
 ==>
-evaluate_decs ck mn env s1 (d::ds) (s2, FEMPTY, Rerr e))
+evaluate_decs ck mn env s1 (d::ds) (s2, [], Rerr e))
 
 /\ (! ck mn s1 s2 s3 menv cenv env d ds new_tds' new_tds new_env r.
 (evaluate_dec ck mn (menv,cenv,env) s1 d (s2, Rval (new_tds,new_env)) /\
-evaluate_decs ck mn (menv, merge_mod_env (FEMPTY,new_tds) cenv, (new_env++env)) s2 ds (s3, new_tds', r))
+evaluate_decs ck mn (menv, merge_alist_mod_env ([],new_tds) cenv, (new_env++env)) s2 ds (s3, new_tds', r))
 ==>
-evaluate_decs ck mn (menv,cenv,env) s1 (d::ds) (s3, FUNION new_tds' new_tds, combine_dec_result new_env r))`;
+evaluate_decs ck mn (menv,cenv,env) s1 (d::ds) (s3, (new_tds' ++ new_tds), combine_dec_result new_env r))`;
 
 (*val decs_to_types : list dec -> list typeN*)
 val _ = Define `
@@ -361,47 +361,47 @@ val _ = Define `
 val _ = Hol_reln ` (! ck s1 s2 env d new_tds new_env tdecls1 tdecls2 mdecls.
 (evaluate_dec ck NONE env (s1,tdecls1) d ((s2,tdecls2), Rval (new_tds, new_env)))
 ==>
-evaluate_top ck env (s1,tdecls1,mdecls) (Tdec d) ((s2,tdecls2,mdecls), (FEMPTY,new_tds), Rval ([], new_env)))
+evaluate_top ck env (s1,tdecls1,mdecls) (Tdec d) ((s2,tdecls2,mdecls), ([],new_tds), Rval ([], new_env)))
 
 /\ (! ck s1 s2 env d err tdecls1 tdecls2 mdecls.
 (evaluate_dec ck NONE env (s1,tdecls1) d ((s2,tdecls2), Rerr err))
 ==>
-evaluate_top ck env (s1,tdecls1,mdecls) (Tdec d) ((s2,tdecls2,mdecls), (FEMPTY,FEMPTY), Rerr err))
+evaluate_top ck env (s1,tdecls1,mdecls) (Tdec d) ((s2,tdecls2,mdecls), ([],[]), Rerr err))
 
 /\ (! ck s1 s2 env ds mn specs new_tds new_env tdecls1 tdecls2 mdecls.
 (~ (mn IN mdecls) /\
 no_dup_types ds /\
 evaluate_decs ck (SOME mn) env (s1,tdecls1) ds ((s2,tdecls2), new_tds, Rval new_env))
 ==>
-evaluate_top ck env (s1,tdecls1,mdecls) (Tmod mn specs ds) ((s2,tdecls2,({mn} UNION mdecls)), (FEMPTY |+ (mn, new_tds), FEMPTY), Rval ([(mn,new_env)], [])))
+evaluate_top ck env (s1,tdecls1,mdecls) (Tmod mn specs ds) ((s2,tdecls2,({mn} UNION mdecls)), ([(mn,new_tds)], []), Rval ([(mn,new_env)], [])))
 
 /\ (! ck s1 s2 env ds mn specs new_tds err tdecls1 tdecls2 mdecls.
 (~ (mn IN mdecls) /\
 no_dup_types ds /\
 evaluate_decs ck (SOME mn) env (s1,tdecls1) ds ((s2,tdecls2), new_tds, Rerr err))
 ==>
-evaluate_top ck env (s1,tdecls1,mdecls) (Tmod mn specs ds) ((s2,tdecls2,({mn} UNION mdecls)), (FEMPTY |+ (mn, new_tds), FEMPTY), Rerr err))
+evaluate_top ck env (s1,tdecls1,mdecls) (Tmod mn specs ds) ((s2,tdecls2,({mn} UNION mdecls)), ([(mn,new_tds)], []), Rerr err))
 
 /\ (! ck s1 env ds mn specs tdecls1 mdecls.
 (~ (no_dup_types ds))
 ==>
-evaluate_top ck env (s1,tdecls1,mdecls) (Tmod mn specs ds) ((s1,tdecls1,mdecls), (FEMPTY, FEMPTY), Rerr Rtype_error))
+evaluate_top ck env (s1,tdecls1,mdecls) (Tmod mn specs ds) ((s1,tdecls1,mdecls), ([],[]), Rerr Rtype_error))
 
 /\ (! ck env s mn specs ds tdecls mdecls.
 (mn IN mdecls)
 ==>
-evaluate_top ck env (s,tdecls,mdecls) (Tmod mn specs ds) ((s,tdecls,mdecls), (FEMPTY,FEMPTY), Rerr Rtype_error))`;
+evaluate_top ck env (s,tdecls,mdecls) (Tmod mn specs ds) ((s,tdecls,mdecls), ([],[]), Rerr Rtype_error))`;
 
 val _ = Hol_reln ` (! ck env s.
 T
 ==>
-evaluate_prog ck env s [] (s, (FEMPTY,FEMPTY), Rval ([], [])))
+evaluate_prog ck env s [] (s, ([],[]), Rval ([], [])))
 
 /\ (! ck s1 s2 s3 menv cenv env top tops new_mods new_tds new_tds' new_env r.
 (evaluate_top ck (menv,cenv,env) s1 top (s2, new_tds, Rval (new_mods,new_env)) /\
-evaluate_prog ck ((new_mods++menv), merge_mod_env new_tds cenv, (new_env++env)) s2 tops (s3,new_tds',r))
+evaluate_prog ck ((new_mods++menv), merge_alist_mod_env new_tds cenv, (new_env++env)) s2 tops (s3,new_tds',r))
 ==>
-evaluate_prog ck (menv,cenv,env) s1 (top::tops) (s3, merge_mod_env new_tds' new_tds, combine_mod_result new_mods new_env r))
+evaluate_prog ck (menv,cenv,env) s1 (top::tops) (s3, merge_alist_mod_env new_tds' new_tds, combine_mod_result new_mods new_env r))
 
 /\ (! ck s1 s2 env top tops err new_tds.
 (evaluate_top ck env s1 top (s2, new_tds, Rerr err))
@@ -448,7 +448,7 @@ val _ = Define `
 (if no_dup_mods tops s1 /\ no_dup_top_types tops s1 then
     evaluate_prog ck env s1 tops (s2, new_tds, res)
   else    
-(s1 = s2) /\ (new_tds = (FEMPTY,FEMPTY)) /\ (res = Rerr Rtype_error)))`;
+(s1 = s2) /\ (new_tds = ([],[])) /\ (res = Rerr Rtype_error)))`;
 
 
 val _ = Define `
@@ -469,7 +469,7 @@ decs_diverges mn env st (d::ds))
 
 /\ (! mn s1 s2 menv cenv env d ds new_tds new_env count tdecs tdecs'.
 (evaluate_dec F mn (menv,cenv,env) ((count,s1),tdecs) d (((count,s2),tdecs'), Rval (new_tds, new_env)) /\
-decs_diverges mn (menv,merge_mod_env (FEMPTY,new_tds) cenv, (new_env++env)) (s2,tdecs') ds)
+decs_diverges mn (menv,merge_alist_mod_env ([],new_tds) cenv, (new_env++env)) (s2,tdecs') ds)
 ==>
 decs_diverges mn (menv,cenv,env) (s1,tdecs) (d::ds))`;
 
@@ -492,7 +492,7 @@ prog_diverges env st (top::tops))
 
 /\ (! s1 s2 menv cenv env top tops new_mods new_tds new_env tdecs tdecs' mods mods' count.
 (evaluate_top F (menv,cenv,env) ((count,s1),tdecs,mods) top (((count,s2), tdecs',mods'), new_tds, Rval (new_mods, new_env)) /\
-prog_diverges ((new_mods++menv), merge_mod_env new_tds cenv, (new_env++env)) (s2,tdecs',mods') tops)
+prog_diverges ((new_mods++menv), merge_alist_mod_env new_tds cenv, (new_env++env)) (s2,tdecs',mods') tops)
 ==>
 prog_diverges (menv,cenv,env) (s1,tdecs,mods) (top::tops))`;
 val _ = export_theory()

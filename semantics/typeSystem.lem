@@ -2,7 +2,6 @@ open import Pervasives_extra
 open import Lib
 open import Ast
 
-(* Only to get check_dup_ctors *)
 open import SemanticPrimitives 
 
 (* Check that the free type variables are in the given list.  Every deBruijn
@@ -68,6 +67,21 @@ deBruijn_subst skip ts (Tapp ts' tn) =
 type flat_tenvC = alist conN (list tvarN * list t * tid_or_exn)
 type tenvC = alist modN flat_tenvC * flat_tenvC
 
+type mod_env 'k 'v = Map.map modN (Map.map 'k 'v) * Map.map 'k 'v
+
+let merge_mod_env (menv1,env1) (menv2,env2) = 
+  (Map.(union) menv1 menv2, Map.(union) env1 env2)
+
+let lookup_mod_env id (mcenv,cenv) =
+  match id with
+    | Short x -> Map.lookup x cenv
+    | Long x y ->
+        match Map.lookup x mcenv with
+          | Nothing -> Nothing
+          | Just cenv -> Map.lookup y cenv
+        end
+  end
+
 type flat_tenvT = Map.map typeN (list tvarN * t)
 type tenvT = mod_env typeN (list tvarN * t)
 
@@ -123,19 +137,6 @@ let t_lookup_var_id id tenvM tenvE =
           | Just tenvE' -> lookup y tenvE'
         end
   end
-
-let lookup_tenvC id (mcenv,cenv) =
-  match id with
-    | Short x -> lookup x cenv
-    | Long x y ->
-        match lookup x mcenv with
-          | Nothing -> Nothing
-          | Just cenv -> lookup y cenv
-        end
-  end
-
-let merge_tenvC (menv1,env1) (menv2,env2) = 
-  (menv1 ++ menv2, env1 ++ env2)
 
 val num_tvs : tenvE -> nat
 let rec 
@@ -373,7 +374,7 @@ pcon_some : forall tvs cenv cn ps ts tvs' tn ts' tenv.
 List.all (check_freevars tvs []) ts' &&
 List.length ts' = List.length tvs' &&
 type_ps tvs cenv ps (List.map (type_subst (alistToFmap (List_extra.zipSameLength tvs' ts'))) ts) tenv &&
-lookup_tenvC cn cenv = Just (tvs', ts, tn)
+lookup_alist_mod_env cn cenv = Just (tvs', ts, tn)
 ==>
 type_p tvs cenv (Pcon (Just cn) ps) (Tapp ts' (tid_exn_to_tc tn)) tenv
 
@@ -470,7 +471,7 @@ con_some : forall menv cenv tenv cn es tvs tn ts' ts.
 List.all (check_freevars (num_tvs tenv) []) ts' &&
 List.length tvs = List.length ts' &&
 type_es menv cenv tenv es (List.map (type_subst (alistToFmap (List_extra.zipSameLength tvs ts'))) ts) &&
-lookup_tenvC cn cenv = Just (tvs, ts, tn)
+lookup_alist_mod_env cn cenv = Just (tvs, ts, tn)
 ==>
 type_e menv cenv tenv (Con (Just cn) es) (Tapp ts' (tid_exn_to_tc tn))
 
@@ -672,7 +673,7 @@ and
 
 cons : forall mn tenvT menv cenv tenv d ds tenvT' cenv' tenv' tenvT'' cenv'' tenv'' decls decls' decls''.
 type_d mn decls tenvT menv cenv tenv d decls' tenvT' cenv' tenv' &&
-type_ds mn (union_decls decls' decls) (merge_mod_env (Map.empty,tenvT') tenvT) menv (merge_tenvC ([],cenv') cenv) (bind_var_list2 tenv' tenv) ds decls'' tenvT'' cenv'' tenv''
+type_ds mn (union_decls decls' decls) (merge_mod_env (Map.empty,tenvT') tenvT) menv (merge_alist_mod_env ([],cenv') cenv) (bind_var_list2 tenv' tenv) ds decls'' tenvT'' cenv'' tenv''
 ==>
 type_ds mn decls tenvT menv cenv tenv (d::ds) (union_decls decls'' decls') (Map.(union) tenvT'' tenvT') (cenv''++cenv') (tenv''++tenv')
 
@@ -829,6 +830,6 @@ and
 
 cons : forall tenvT menv cenv tenv top tops tenvT' menv' cenv' tenv' tenvT'' menv'' cenv'' tenv'' decls decls' decls''.
 type_top decls tenvT menv cenv tenv top decls' tenvT' menv' cenv' tenv' &&
-type_prog (union_decls decls' decls) (merge_mod_env tenvT' tenvT) (Map.(union) menv' menv) (merge_tenvC cenv' cenv) (bind_var_list2 tenv' tenv) tops decls'' tenvT'' menv'' cenv'' tenv''
+type_prog (union_decls decls' decls) (merge_mod_env tenvT' tenvT) (Map.(union) menv' menv) (merge_alist_mod_env cenv' cenv) (bind_var_list2 tenv' tenv) tops decls'' tenvT'' menv'' cenv'' tenv''
 ==>
-type_prog decls tenvT menv cenv tenv (top :: tops) (union_decls decls'' decls') (merge_mod_env tenvT'' tenvT') (Map.(union) menv'' menv') (merge_tenvC cenv'' cenv') (tenv''++tenv')
+type_prog decls tenvT menv cenv tenv (top :: tops) (union_decls decls'' decls') (merge_mod_env tenvT'' tenvT') (Map.(union) menv'' menv') (merge_alist_mod_env cenv'' cenv') (tenv''++tenv')

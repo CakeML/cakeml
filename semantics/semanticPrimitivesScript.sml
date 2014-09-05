@@ -29,28 +29,28 @@ val _ = Define `
 (LIST_TO_SET (MAP (\ (tvs,tn,ctors) .  TypeId (mk_id mn tn)) tdefs)))`;
 
 
-val _ = type_abbrev((* ( 'k, 'v) *) "mod_env" , ``: (modN, ( ('k, 'v)fmap)) fmap # ('k, 'v) fmap``);
+val _ = type_abbrev((* ( 'k, 'v) *) "alist_mod_env" , ``: (modN, ( ('k, 'v)alist)) alist # ('k, 'v) alist``);
 
 val _ = Define `
- (merge_mod_env (menv1,env1) (menv2,env2) = 
-  (FUNION menv1 menv2, FUNION env1 env2))`;
+ (merge_alist_mod_env (menv1,env1) (menv2,env2) = 
+  ((menv1 ++ menv2), (env1 ++ env2)))`;
 
 
 val _ = Define `
- (lookup_mod_env id (mcenv,cenv) =  
+ (lookup_alist_mod_env id (mcenv,cenv) =  
 ((case id of
-      Short x => FLOOKUP cenv x
+      Short x => ALOOKUP cenv x
     | Long x y =>
-        (case FLOOKUP mcenv x of
+        (case ALOOKUP mcenv x of
             NONE => NONE
-          | SOME cenv => FLOOKUP cenv y
+          | SOME cenv => ALOOKUP cenv y
         )
   )))`;
 
 
 (* Maps each constructor to its arity and which type it is from *)
-val _ = type_abbrev( "flat_envC" , ``: (conN, (num # tid_or_exn)) fmap``);
-val _ = type_abbrev( "envC" , ``: (modN, (num # tid_or_exn)) mod_env``);
+val _ = type_abbrev( "flat_envC" , ``: (conN, (num # tid_or_exn)) alist``);
+val _ = type_abbrev( "envC" , ``: (conN, (num # tid_or_exn)) alist_mod_env``);
 
 (* Value forms *)
 val _ = Hol_datatype `
@@ -179,7 +179,7 @@ val _ = Define `
 ((case n_opt of
       NONE => T
     | SOME n =>
-        (case lookup_mod_env n cenv of
+        (case lookup_alist_mod_env n cenv of
             NONE => F
           | SOME (l',ns) => l = l'
         )
@@ -193,7 +193,7 @@ val _ = Define `
       NONE => 
         SOME (Conv NONE vs)
     | SOME id => 
-        (case lookup_mod_env id envC of
+        (case lookup_alist_mod_env id envC of
             NONE => NONE
           | SOME (len,t) => SOME (Conv (SOME (id_to_n id, t)) vs)
         )
@@ -255,7 +255,7 @@ val _ = Hol_datatype `
     Match_type_error))
 /\
 (pmatch envC s (Pcon (SOME n) ps) (Conv (SOME (n', t')) vs) env =  
-((case lookup_mod_env n envC of
+((case lookup_alist_mod_env n envC of
       SOME (l, t)=>
         if same_tid t t' /\ (LENGTH ps = l) then
           if same_ctor (id_to_n n, t) (n',t') then
@@ -624,7 +624,8 @@ val _ = Define `
 (*val build_tdefs : maybe modN -> list (list tvarN * typeN * list (conN * list t)) -> flat_envC*)
 val _ = Define `
  (build_tdefs mn tds =  
-(FUPDATE_LIST FEMPTY (FLAT
+(REVERSE
+    (FLAT
       (MAP
         (\ (tvs, tn, condefs) . 
            MAP

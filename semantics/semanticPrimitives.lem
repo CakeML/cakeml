@@ -15,24 +15,24 @@ val type_defs_to_new_tdecs : maybe modN -> type_def -> set tid_or_exn
 let type_defs_to_new_tdecs mn tdefs =
   Set.fromList (List.map (fun (tvs,tn,ctors) -> TypeId (mk_id mn tn)) tdefs)
 
-type mod_env 'k 'v = Map.map modN (Map.map 'k 'v) * Map.map 'k 'v
+type alist_mod_env 'k 'v = alist modN (alist 'k 'v) * alist 'k 'v
 
-let merge_mod_env (menv1,env1) (menv2,env2) = 
-  (Map.(union) menv1 menv2, Map.(union) env1 env2)
+let merge_alist_mod_env (menv1,env1) (menv2,env2) = 
+  (menv1 ++ menv2, env1 ++ env2)
 
-let lookup_mod_env id (mcenv,cenv) =
+let lookup_alist_mod_env id (mcenv,cenv) =
   match id with
-    | Short x -> Map.lookup x cenv
+    | Short x -> lookup x cenv
     | Long x y ->
-        match Map.lookup x mcenv with
+        match lookup x mcenv with
           | Nothing -> Nothing
-          | Just cenv -> Map.lookup y cenv
+          | Just cenv -> lookup y cenv
         end
   end
 
 (* Maps each constructor to its arity and which type it is from *)
-type flat_envC = Map.map conN (nat * tid_or_exn)
-type envC = mod_env modN (nat * tid_or_exn)
+type flat_envC = alist conN (nat * tid_or_exn)
+type envC = alist_mod_env conN (nat * tid_or_exn)
 
 (* Value forms *)
 type v =
@@ -134,7 +134,7 @@ let do_con_check cenv n_opt l =
   match n_opt with
     | Nothing -> true
     | Just n ->
-        match lookup_mod_env n cenv with
+        match lookup_alist_mod_env n cenv with
           | Nothing -> false
           | Just (l',ns) -> l = l'
         end
@@ -146,7 +146,7 @@ let build_conv envC cn vs =
     | Nothing -> 
         Just (Conv Nothing vs)
     | Just id -> 
-        match lookup_mod_env id envC with
+        match lookup_alist_mod_env id envC with
           | Nothing -> Nothing
           | Just (len,t) -> Just (Conv (Just (id_to_n id, t)) vs)
         end
@@ -198,7 +198,7 @@ pmatch envC s (Plit l) (Litv l') env =
     Match_type_error
 and
 pmatch envC s (Pcon (Just n) ps) (Conv (Just (n', t')) vs) env =
-  match lookup_mod_env n envC with
+  match lookup_alist_mod_env n envC with
     | Just (l, t)->
         if same_tid t t' && List.length ps = l then
           if same_ctor (id_to_n n, t) (n',t') then
@@ -537,7 +537,7 @@ let do_if v e1 e2 =
 (* Build a constructor environment for the type definition tds *)
 val build_tdefs : maybe modN -> list (list tvarN * typeN * list (conN * list t)) -> flat_envC
 let build_tdefs mn tds =
-  Map.fromList
+  List.reverse
     (concat
       (List.map
         (fun (tvs, tn, condefs) ->
