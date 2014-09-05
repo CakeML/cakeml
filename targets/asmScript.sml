@@ -110,7 +110,7 @@ val () = Datatype `
       | Jump ('a word) ('a inst option) (* delay slot *)
       | JumpCmp cmp reg ('a reg_imm) ('a word) ('a inst option)
       | Call ('a word) reg
-      | JumpReg reg
+      | JumpReg num reg
       | Loc reg ('a word)
       | Cache`
 
@@ -148,7 +148,8 @@ val arith_ok_def = Define `
      reg_ok r1 c /\ reg_ok r2 c /\ reg_imm_ok ri c) /\
   (arith_ok (Shift l r1 r2 n) (c: 'a asm_config) =
      (c.two_reg_arith ==> (r1 = r2)) /\
-     reg_ok r1 c /\ reg_ok r2 c /\ n < dimindex(:'a))`
+     reg_ok r1 c /\ reg_ok r2 c /\
+     ((n = 0) ==> (l = Lsl)) /\ n < dimindex(:'a))`
 
 val cmp_ok_def = Define `
   cmp_ok (cmp: cmp) r ri c = reg_ok r c /\ reg_imm_ok ri c`
@@ -187,7 +188,7 @@ val asm_ok_def = Define `
      case c.link_reg of
         NONE => F
       | SOME lr => reg_ok r c /\ (lr = r) /\ jump_offset_ok w c) /\
-  (asm_ok (JumpReg r) c = reg_ok r c) /\
+  (asm_ok (JumpReg n r) c = (n = c.code_alignment) /\ reg_ok r c) /\
   (asm_ok (Loc r w) c = reg_ok r c /\ loc_offset_ok w c) /\
   (asm_ok Cache c = c.has_icache)`
 
@@ -296,9 +297,12 @@ val asm_def = Define `
      then inst_opt i (jump_to_offset l s)
      else inst_opt i (upd_pc pc s)) /\
   (asm (Call l r) pc s = jump_to_offset l (upd_reg r pc s)) /\
-  (asm (JumpReg r) pc s = upd_pc (read_reg r s) s) /\
+  (asm (JumpReg n r) pc s =
+      let a = read_reg r s in
+        upd_pc a (assert (a && n2w (n - 1) = 0w) s)) /\
   (asm (Loc r l) pc s = upd_pc pc (upd_reg r (s.pc + l) s)) /\
-  (asm Cache pc s = (* this is a hack to simulate x86-64's CPUID instruction *)
+  (asm Cache pc s =
+      (* this is a hack to simulate x86-64's CPUID instruction *)
       upd_pc pc
         (upd_reg 3 ARB
            (upd_reg 2 ARB
@@ -359,6 +363,18 @@ val simple_enc_deterministic = Q.store_thm("simple_enc_deterministic",
       (!i j. asm_ok i c /\ asm_ok j c /\ i <> j ==>
              ~isPREFIX (enc i) (enc j)) ==> asm_deterministic enc c`,
    METIS_TAC [enc_deterministic_def, enc_deterministic]
+   )
+
+val bytes_in_memory_concat = Q.store_thm("bytes_in_memory_concat",
+   `!l1 l2 pc icache mem mem_domain.
+       bytes_in_memory pc (l1 ++ l2) icache mem mem_domain =
+       bytes_in_memory pc l1 icache mem mem_domain /\
+       bytes_in_memory (pc + n2w (LENGTH l1)) l2 icache mem mem_domain`,
+   Induct
+   THEN ASM_SIMP_TAC list_ss
+         [bytes_in_memory_def, wordsTheory.WORD_ADD_0, wordsTheory.word_add_n2w,
+          GSYM wordsTheory.WORD_ADD_ASSOC, arithmeticTheory.ADD1]
+   THEN DECIDE_TAC
    )
 
 (* -- well-formedness of encoding -- *)
