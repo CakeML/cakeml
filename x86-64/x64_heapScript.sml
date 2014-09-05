@@ -5368,16 +5368,23 @@ val (x64_is_number_cert, x64_is_number_def) = x64_decompile_no_status "x64_is_nu
   jmp EXIT
 PTR:
   mov r15,[r0+1]
+  test r15,4
+  jne EXIT
   not r15
   test r15,2
 EXIT: `;
+
+val FST_SND_IF = prove(
+  ``(FST (if b then x else y) = if b then FST x else FST y) ∧
+    (SND (if b then x else y) = if b then SND x else SND y)``,
+  rw[])
 
 val zHEAP_isNumber = let
   val th =
     x64_is_number_cert
     |> SIMP_RULE std_ss [LET_DEF,x64_is_number_def]
     |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV)
-    |> SIMP_RULE std_ss [FST_IF,SND_IF]
+    |> SIMP_RULE std_ss [FST_SND_IF]
     |> SIMP_RULE (std_ss++sep_cond_ss) [SPEC_MOVE_COND]
     |> UNDISCH
   val th = HIDE_STATUS_RULE false sts th
@@ -5423,10 +5430,8 @@ gg goal
     \\ Q.EXISTS_TAC `vals with reg15 := pat`
     \\ FULL_SIMP_TAC (srw_ss()) [heap_inv_ignore_reg15,SEP_CLAUSES,zVALS_def]
     \\ STRIP_TAC \\ MATCH_MP_TAC lemma
-    \\ Q.EXISTS_TAC `
-        (if 0x1w && vals.reg0 = 0x0w then SOME (0x3w && vals.reg0 = 0x0w)
-         else SOME (0x2w && (~vals.memory (vals.reg0 + 0x1w)) = 0x0w)) =
-        SOME (isNumber x1)`
+    \\ Q.PAT_ABBREV_TAC `wit:bool option = if X then SOME y else Z`
+    \\ Q.EXISTS_TAC `wit = SOME (isNumber x1)`
     \\ CONJ_TAC THEN1 FULL_SIMP_TAC (std_ss++star_ss) []
     \\ UNABBREV_ALL_TAC
     \\ FULL_SIMP_TAC std_ss [heap_inv_def,APPEND,abs_ml_inv_def,
@@ -5479,9 +5484,12 @@ gg goal
       \\ Cases_on`refs ' n` \\ FULL_SIMP_TAC (srw_ss()) [bc_ref_inv_def]
       \\ IMP_RES_TAC heap_lookup_SPLIT
       \\ FULL_SIMP_TAC std_ss [x64_heap_APPEND,x64_heap_def,WORD_MUL_LSL,
-           x64_el_def,RefBlock_def,x64_payload_def,LET_DEF,word_mul_n2w]
-      \\ SEP_R_TAC \\ SIMP_TAC std_ss [GSYM word_mul_n2w]
-      \\ MATCH_ACCEPT_TAC blast_lemma3))
+           x64_el_def,RefBlock_def,x64_payload_def,LET_DEF,word_mul_n2w,Bytes_def]
+      \\ SEP_R_TAC \\ SIMP_TAC std_ss [GSYM word_mul_n2w,GSYM word_add_n2w]
+      \\ rw[] \\ ((MATCH_ACCEPT_TAC blast_lemma3) ORELSE
+        (qsuff_tac`F`>-rw[]>>
+         pop_assum mp_tac >>
+         blastLib.BBLAST_TAC))))
   val th = MP th lemma
   val th = Q.GEN `vals` th |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
   val (th,goal) = SPEC_STRENGTHEN_RULE th
