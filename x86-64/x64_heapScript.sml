@@ -7543,6 +7543,7 @@ val print_ref = zHEAP_PRINT_MSG "<ref>"
 val print_true = zHEAP_PRINT_MSG "true"
 val print_false = zHEAP_PRINT_MSG "false"
 val print_cons = zHEAP_PRINT_MSG "<constructor>"
+val _ = zHEAP_PRINT_MSG "<vector>"
 
 val _ = zHEAP_PRINT_MSG "\\n"
 val _ = zHEAP_PRINT_MSG "\\t"
@@ -10171,6 +10172,8 @@ val (bc_print_aux_res,bc_print_aux_def,bc_print_aux_pre_def) = x64_compile `
           let s = s with output := STRCAT s.output ")" in (x1,x2,s)
         else if getNumber x1 = 3 then (* closure_tag *)
           let s = s with output := STRCAT s.output "<fn>" in (x1,x2,s)
+        else if getNumber x1 = 5 then (* vector_tag *)
+          let s = s with output := STRCAT s.output "<vector>" in (x1,x2,s)
         else if getNumber x1 = 4 then (* string_tag *)
           let x1 = x2 in
           let (x1,s) = bc_print_str (x1,s) in (x1,x2,s)
@@ -10202,6 +10205,12 @@ val bvs_to_chars_lemma = prove(
   \\ REPEAT AP_TERM_TAC
   \\ intLib.COOPER_TAC);
 
+val bvs_to_chars_imp = prove(
+  ``∀l acc z. (bvs_to_chars l acc = SOME z) ⇒ only_chars l``,
+  Induct >> simp[bvs_to_chars_def,only_chars_def] >>
+  Cases >> simp[bvs_to_chars_def,only_chars_def] >>
+  rw[] >> res_tac)
+
 val bc_print_thm = prove(
   ``IS_SOME (bv_to_string x1) ==>
     bc_print_pre (x1,x2,s) /\
@@ -10209,30 +10218,24 @@ val bc_print_thm = prove(
       (Number 0,Number 0,
        if s.local.printing_on = 0x0w then s else
        s with output := s.output ++ THE (bv_to_string x1)))``,
-  cheat (* printing *)
-(*
-  Cases_on `x1` \\ FULL_SIMP_TAC (srw_ss()) [canCompare_def,bc_print_aux_def,
-    bc_print_def,bc_print_pre_def,isBlock_def,isNumber_def,LET_DEF,
-    getNumber_def,better_bv_to_ov_def,ov_to_string_def,can_Print_def,
-    semanticPrimitivesTheory.int_to_string_def,bc_print_aux_pre_def,
-    multiwordTheory.int_to_str_def,getTag_def,append_number_def]
-  \\ Cases_on `s.local.printing_on = 0x0w` \\ ASM_SIMP_TAC std_ss []
-  \\ REVERSE (Cases_on `n = 4`)
-  \\ SRW_TAC [] [] \\ FULL_SIMP_TAC (srw_ss()) [ov_to_string_def]
-  \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND]
-  \\ FULL_SIMP_TAC std_ss [bc_print_str_def,bc_print_str_pre_def,LET_DEF,
-        is_Block_def,getContent_def] THEN1 EVAL_TAC
-  \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ AP_THM_TAC \\ AP_TERM_TAC \\ AP_TERM_TAC
-  \\ FULL_SIMP_TAC (srw_ss()) [bvs_to_chars_lemma,ov_to_string_def,
-       semanticPrimitivesTheory.string_to_string_def] *))
+  Cases_on`x1` >> rw[] >>
+  simp[bc_print_pre_def,bc_print_aux_pre_def,getNumber_def,isNumber_def,
+       isBlock_def,getTag_def,canCompare_def,bv_to_string_def,
+       bc_print_aux_def,bc_print_def,append_number_def,bc_print_str_def,
+       bc_print_str_pre_def,getContent_def] >>
+  rw[] >> fs[bv_to_string_def,miscTheory.IS_SOME_EXISTS] >> rw[] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[] >>
+  simp[theorem"zheap_state_component_equality"] >> rw[] >>
+  simp[IMPLODE_EXPLODE_I] >>
+  imp_res_tac bvs_to_chars_imp >>
+  imp_res_tac bvs_to_chars_lemma >> fs[] >>
+  EVAL_TAC)
 
 val zHEAP_RAW_PRINT =
   bc_print_res
     |> DISCH ``IS_SOME (bv_to_string x1)``
     |> SIMP_RULE std_ss [bc_print_thm,SEP_CLAUSES,LET_DEF]
     |> RW [GSYM SPEC_MOVE_COND]
-
 
 (* IsBlock instruction *)
 
