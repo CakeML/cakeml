@@ -668,16 +668,17 @@ type_specs mn tenvT (Stype td :: specs) (union_decls decls ({},new_tdecls,{})) (
  (ALL_DISTINCT tvs /\
 check_freevars( 0) tvs t /\
 check_type_names tenvT t /\
-(new_tenvT = (tn, (tvs,t))) /\
+(new_tenvT = (tn, (tvs,type_name_subst tenvT t))) /\
 type_specs mn (merge_tenvT (emp,[new_tenvT]) tenvT) specs decls tenvT' cenv tenv)
 ==>
 type_specs mn tenvT (Stabbrev tvs tn t :: specs) decls (tenvT'++[new_tenvT]) cenv tenv)
 
 /\ (! mn tenvT flat_tenvT cenv tenv cn ts specs decls.
 (check_exn_tenv mn cn ts /\
-type_specs mn tenvT specs decls flat_tenvT cenv tenv)
+type_specs mn tenvT specs decls flat_tenvT cenv tenv /\
+EVERY (check_type_names tenvT) ts)
 ==>
-type_specs mn tenvT (Sexn cn ts :: specs) (union_decls decls ({},{},{mk_id mn cn})) flat_tenvT (cenv ++ [(cn,([], ts, TypeExn (mk_id mn cn)))]) tenv)
+type_specs mn tenvT (Sexn cn ts :: specs) (union_decls decls ({},{},{mk_id mn cn})) flat_tenvT (cenv ++ [(cn,([],MAP (type_name_subst tenvT) ts, TypeExn (mk_id mn cn)))]) tenv)
 
 /\ (! mn tenvT flat_tenvT cenv tenv tn specs tvs decls new_tenvT.
 (ALL_DISTINCT tvs /\
