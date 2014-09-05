@@ -2263,11 +2263,15 @@ val infer_d_check = Q.store_thm ("infer_d_check",
      rw [flat_tenvT_ok_def, EVERY_MAP, check_freevars_def, EVERY_MEM] >>
      PairCases_on `x` >>
      rw [check_freevars_def, EVERY_MAP, EVERY_MEM])
- >- rw [check_flat_cenv_def, check_env_def, flat_tenvT_ok_def]
+ >- (rw [check_flat_cenv_def, check_env_def, flat_tenvT_ok_def]>>
+    match_mp_tac check_freevars_type_name_subst>>fs[])
  >- (every_case_tac >>
      fs [success_eqns] >>
      rw [] >>
-     fs [check_env_def, flat_tenvT_ok_def, check_flat_cenv_def, bind_def, check_exn_tenv_def]));
+     fs [check_env_def, flat_tenvT_ok_def, check_flat_cenv_def, bind_def, check_exn_tenv_def]>>
+     fs[EVERY_MEM,MEM_MAP]>>rpt strip_tac>>
+     metis_tac[EVERY_MEM,MEM_MAP,check_freevars_type_name_subst]
+     ));
 
 val infer_ds_check = Q.store_thm ("infer_ds_check",
 `!mn decls tenvT menv cenv env ds st1 st2 decls' tenvT' cenv' env' tenv.
@@ -2426,14 +2430,16 @@ val check_specs_check = Q.store_thm ("check_specs_check",
      strip_tac >>
      FIRST_X_ASSUM match_mp_tac >>
      rw [GSYM PULL_EXISTS] >>
-     qexists_tac `(tn,tvs,t)` >>
+     qexists_tac `(tn,tvs,type_name_subst tenvT t)` >>
      rw [tenvT_ok_merge]
-     >- rw [tenvT_ok_def, flat_tenvT_ok_def]
-     >- fs [flat_tenvT_ok_def, check_freevars_def, EVERY_MAP, EVERY_MEM]
+     >- (rw [tenvT_ok_def, flat_tenvT_ok_def]>> metis_tac[check_freevars_type_name_subst])
+     >- (fs [flat_tenvT_ok_def, check_freevars_def, EVERY_MAP, EVERY_MEM]>>
+         metis_tac[check_freevars_type_name_subst])
      >- metis_tac [])
  >- (fs [bind_def, emp_def, check_flat_cenv_def, check_exn_tenv_def,
          tenvT_ok_merge, tenvT_ok_def, flat_tenvT_ok_def] >>
-     metis_tac [])
+     fs[EVERY_MAP,EVERY_MEM]>> rw[]>>
+     metis_tac [check_freevars_type_name_subst])
  >- (rpt gen_tac >>
      strip_tac >>
      FIRST_X_ASSUM match_mp_tac >>

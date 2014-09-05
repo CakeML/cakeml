@@ -1919,7 +1919,7 @@ val dec_type_soundness = Q.store_thm ("dec_type_soundness",
          bind_var_list2_def, merge_envC_empty] >>
      rw [Once type_v_cases, emp_def])
  >- (Q.LIST_EXISTS_TAC [`st`, `Rval (bind cn (LENGTH ts,TypeExn (mk_id mn cn)) [], [])`, `tenvS`, `{TypeExn (mk_id mn cn)} ∪ tdecs2`] >>
-     `DISJOINT (FDOM (flat_to_ctMap (bind cn ([]:tvarN list,ts,TypeExn (mk_id mn cn)) []))) (FDOM ctMap)`
+     `DISJOINT (FDOM (flat_to_ctMap (bind cn ([]:tvarN list,MAP (type_name_subst tenvT) ts,TypeExn (mk_id mn cn)) []))) (FDOM ctMap)`
                  by metis_tac [emp_def, consistent_decls_disjoint_exn] >>
      rw []
      >- (fs [consistent_decls_def, RES_FORALL] >>
@@ -1946,9 +1946,9 @@ val dec_type_soundness = Q.store_thm ("dec_type_soundness",
          fs [DISJOINT_DEF, EXTENSION, flat_to_ctMap_def, flat_to_ctMap_list_def, bind_def,
              FDOM_FUPDATE_LIST])
      >- (rw [bind_var_list2_def] >>
-         `weakCT (FUNION  (flat_to_ctMap (bind cn ([],ts,TypeExn (mk_id mn cn)) [])) ctMap) ctMap`
+         `weakCT (FUNION  (flat_to_ctMap (bind cn ([],MAP (type_name_subst tenvT)ts,TypeExn (mk_id mn cn)) [])) ctMap) ctMap`
                        by metis_tac [disjoint_env_weakCT, merge_def] >>
-         `ctMap_ok (FUNION (flat_to_ctMap (bind cn ([],ts,TypeExn (mk_id mn cn)) [])) ctMap)`
+         `ctMap_ok (FUNION (flat_to_ctMap (bind cn ([],MAP (type_name_subst tenvT) ts,TypeExn (mk_id mn cn)) [])) ctMap)`
                        by (match_mp_tac ctMap_ok_merge_imp >>
                            fs [consistent_con_env_def] >>
                            rw [bind_def, flat_to_ctMap_def, flat_to_ctMap_list_def, ctMap_ok_def,
@@ -1956,7 +1956,9 @@ val dec_type_soundness = Q.store_thm ("dec_type_soundness",
                            every_case_tac >>
                            fs [] >>
                            rw [] >>
-                           fs [check_exn_tenv_def]) >>
+                           fs [check_exn_tenv_def]>>
+                           fs[EVERY_MEM,MEM_MAP]>>rpt strip_tac>>
+                           metis_tac[check_freevars_type_name_subst]) >>
          metis_tac [type_v_weakening, weakM_refl, weakC_refl, merge_def,
                     consistent_con_env_def, weakS_refl])
      >- metis_tac [type_env_eqn, emp_def, bind_var_list2_def]));
