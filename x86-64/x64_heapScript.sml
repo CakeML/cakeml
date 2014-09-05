@@ -6671,9 +6671,9 @@ gg goal
     \\ SIMP_TAC std_ss [Once heap_inv_def] \\ STRIP_TAC
     \\ FULL_SIMP_TAC std_ss []
     \\ `(vals.memory (vs.base_ptr) = vs.current_heap)` by ALL_TAC
-    THEN1 (FULL_SIMP_TAC std_ss [x64_store_def,one_list_def] \\ SEP_R_TAC)
+    THEN1 (FULL_SIMP_TAC std_ss [x64_store_def,Once one_list_def] \\ SEP_R_TAC)
     \\ `(vals.memory (vs.base_ptr + 0x8w) = vs.other_heap)` by ALL_TAC
-    THEN1 (FULL_SIMP_TAC std_ss [x64_store_def,one_list_def] \\ SEP_R_TAC)
+    THEN1 (FULL_SIMP_TAC std_ss [x64_store_def,Ntimes one_list_def 3] \\ SEP_R_TAC)
     \\ FULL_SIMP_TAC std_ss [MAP_APPEND_LEMMA,APPEND]
     \\ Q.ABBREV_TAC `m1 = (vs.base_ptr + 0x8w =+ vs.current_heap)
          ((vs.base_ptr =+ vs.other_heap) vals.memory)`
@@ -6721,7 +6721,7 @@ gg goal
     \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss []
     \\ STRIP_TAC THEN1
      (UNABBREV_ALL_TAC \\ FULL_SIMP_TAC (srw_ss()) []
-      \\ FULL_SIMP_TAC std_ss [x64_store_def,one_list_def,word_arith_lemma1]
+      \\ FULL_SIMP_TAC std_ss [x64_store_def,Ntimes one_list_def 3,word_arith_lemma1]
       \\ SEP_R_TAC \\ Q.PAT_ASSUM `heap_vars_ok vs` MP_TAC
       \\ FULL_SIMP_TAC std_ss [heap_vars_ok_def] \\ blastLib.BBLAST_TAC)
     \\ SIMP_TAC std_ss [zHEAP_def,SEP_CLAUSES,SEP_IMP_def,MAP,HD,TL]
@@ -6730,7 +6730,7 @@ gg goal
     \\ `m1' (vs.base_ptr + 0x10w) << 3 + m1' vs.base_ptr =
         vs.other_heap + n2w (8 * cs.heap_limit)` by ALL_TAC THEN1
      (UNABBREV_ALL_TAC
-      \\ FULL_SIMP_TAC (srw_ss()) [x64_store_def,one_list_def,word_arith_lemma1]
+      \\ FULL_SIMP_TAC (srw_ss()) [x64_store_def,Ntimes one_list_def 3,word_arith_lemma1]
       \\ SEP_R_TAC
       \\ SIMP_TAC std_ss [WORD_MUL_LSL,word_mul_n2w,word_add_n2w]
       \\ SIMP_TAC std_ss [AC WORD_ADD_COMM WORD_ADD_ASSOC])
@@ -6764,7 +6764,7 @@ gg goal
     \\ Q.UNABBREV_TAC `vs1` \\ ASM_SIMP_TAC (srw_ss()) [x64_addr_def]
     \\ FULL_SIMP_TAC std_ss [APPEND,x64_heap_APPEND]
     \\ FULL_SIMP_TAC (std_ss++star_ss) [x64_heap_heap_expand]
-    \\ FULL_SIMP_TAC (srw_ss()) [x64_store_def,one_list_def]
+    \\ FULL_SIMP_TAC (srw_ss()) [x64_store_def,Ntimes one_list_def 3]
     \\ SEP_R_TAC
     \\ `a2 <= cs.heap_limit` by ALL_TAC THEN1
      (FULL_SIMP_TAC std_ss [abs_ml_inv_def,heap_ok_def,heap_length_APPEND]
@@ -8801,9 +8801,9 @@ val zHEAP_DEREF = let
          (r2::r1::r3::r4::roots,heap,a,sp) cs.heap_limit` by
        (MATCH_MP_TAC el_lemma2 \\ fs [] \\ REPEAT STRIP_TAC \\ fs [])
     \\ IMP_RES_TAC deref_thm
-    \\ POP_ASSUM (Q.SPEC_THEN`Num i`STRIP_ASSUME_TAC)
-    \\ `Num i < LENGTH ts` by fs[]
-    \\ POP_ASSUM (fn th => POP_ASSUM (STRIP_ASSUME_TAC o C MATCH_MP th))
+    \\ pop_assum mp_tac >> simp[]
+    \\ disch_then (Q.SPEC_THEN`Num i`STRIP_ASSUME_TAC)
+    \\ REV_FULL_SIMP_TAC std_ss []
     \\ Q.PAT_ASSUM `heap_el r (Num i) heap = (y,T)` (ASSUME_TAC o GSYM)
     \\ Q.PAT_ASSUM `r1::r2::r3::r4::roots = r::roots2` (ASSUME_TAC o GSYM)
     \\ FULL_SIMP_TAC std_ss [CONS_11]
