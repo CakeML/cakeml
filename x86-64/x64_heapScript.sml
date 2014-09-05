@@ -12284,11 +12284,8 @@ val ic_PrintC_test_thm = prove(
 
 val real_inst_length_limit = prove(
   ``!bc. real_inst_length bc < 35``,
-  cheat); (* fix def of real_inst_length *)
-(*
   Cases \\ SIMP_TAC (srw_ss()) [bytecodeExtraTheory.real_inst_length_def]
   \\ TRY (Cases_on `b`) \\ SRW_TAC [] []);
-*)
 
 fun ASSERT_TAC P goal = if P goal then ALL_TAC goal
                         else (print "ASSERT_TAC failed."; NO_TAC goal);
@@ -12344,6 +12341,10 @@ val ic_Any_thm = prove(
         AC MULT_COMM MULT_ASSOC]
     \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND]
     \\ REPEAT STRIP_TAC \\ intLib.COOPER_TAC)
+  \\ TRY (
+    rw[] >> fs[] >> fsrw_tac[ARITH_ss][x64_def] >>
+    simp[theorem"zheap_state_component_equality"] >>
+    NO_TAC)
   \\ cheat (* install code is broken *)
 (*
   (* only Cons from here on *)
