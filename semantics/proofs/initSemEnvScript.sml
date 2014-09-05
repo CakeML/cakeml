@@ -12,7 +12,7 @@ interp_add_to_sem_env se prog =
      | (store,envC,Rval (envM,envE)) =>
          SOME 
          <| sem_envM := envM ++ se.sem_envM;
-            sem_envC := merge_mod_env envC se.sem_envC;
+            sem_envC := merge_alist_mod_env envC se.sem_envC;
             sem_envE := envE ++ se.sem_envE;
             sem_store := set_counter (FST (FST (se.sem_store))) store |>
      | _ => NONE`;
@@ -62,7 +62,7 @@ val interp_add_to_sem_env_thm = Q.store_thm ("interp_add_to_sem_env_thm",
 
 val prim_sem_env_eq = save_thm ("prim_sem_env_eq",
   ``interp_add_to_sem_env
-     <|sem_envM := []; sem_envC := (FEMPTY,FEMPTY); sem_envE := [];
+     <|sem_envM := []; sem_envC := ([],[]); sem_envE := [];
        sem_store := ((0,[]),∅,∅)|> prim_types_program``
   |> SIMP_CONV(srw_ss())[interp_add_to_sem_env_def,prim_types_program_def]
   |> CONV_RULE(computeLib.CBV_CONV the_interp_compset) 

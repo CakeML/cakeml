@@ -131,7 +131,7 @@ val run_eval_def = Q.store_thm ("run_eval_def",
            return (Conv NONE vs)
         od
     | SOME n =>
-       (case lookup_mod_env n (all_env_to_cenv env) of
+       (case lookup_alist_mod_env n (all_env_to_cenv env) of
           | NONE => raise Rtype_error
           | SOME (l,t) =>
               if l = LENGTH es then
@@ -305,7 +305,7 @@ val run_eval_dec_def = Define `
     case run_eval env e st of
        | (st', Rval v) =>
            (case pmatch (all_env_to_cenv env) (SND st') p v [] of
-              | Match env' => ((st',tdecs), Rval (FEMPTY, env'))
+              | Match env' => ((st',tdecs), Rval ([], env'))
               | No_match => ((st',tdecs), Rerr (Rraise (Conv (SOME ("Bind",TypeExn (Short "Bind"))) [])))
               | Match_type_error => ((st',tdecs), Rerr Rtype_error))
        | (st', Rerr e) => ((st',tdecs), Rerr e)
@@ -313,7 +313,7 @@ val run_eval_dec_def = Define `
     ((st,tdecs), Rerr Rtype_error)) ∧
 (run_eval_dec mn env st (Dletrec funs) =
   if ALL_DISTINCT (MAP FST funs) then
-    (st, Rval (FEMPTY, build_rec_env funs env []))
+    (st, Rval ([], build_rec_env funs env []))
   else
     (st, Rerr Rtype_error)) ∧
 (run_eval_dec mn env (st,tdecs) (Dtype tds) =
@@ -323,46 +323,47 @@ val run_eval_dec_def = Define `
     else
       ((st,tdecs), Rerr Rtype_error)) ∧
 (run_eval_dec mn env (st,tdecs) (Dtabbrev tvs tn t) =
-  ((st,tdecs), Rval (FEMPTY, []))) ∧
+  ((st,tdecs), Rval ([], []))) ∧
 (run_eval_dec mn env (st,tdecs) (Dexn cn ts) =
   if TypeExn (mk_id mn cn) ∉ tdecs  then
-    ((st, {TypeExn (mk_id mn cn)} ∪ tdecs), Rval (FEMPTY |+ (cn,(LENGTH ts, TypeExn (mk_id mn cn))), []))
+    ((st, {TypeExn (mk_id mn cn)} ∪ tdecs), Rval ([(cn,(LENGTH ts, TypeExn (mk_id mn cn)))], []))
   else
     ((st,tdecs), Rerr Rtype_error))`;
 
 val run_eval_decs_def = Define `
-(run_eval_decs mn env st [] = (st, FEMPTY, Rval [])) ∧
+(run_eval_decs mn env st [] = (st, [], Rval [])) ∧
 (run_eval_decs mn env st (d::ds) =
   case run_eval_dec mn env st d of
       (st', Rval (cenv',env')) =>
-         (case run_eval_decs mn (all_env_to_menv env, merge_mod_env (FEMPTY,cenv') (all_env_to_cenv env), env' ++ all_env_to_env env) st' ds of
+         (case run_eval_decs mn (all_env_to_menv env, merge_alist_mod_env ([],cenv') (all_env_to_cenv env), env' ++ all_env_to_env env) st' ds of
                (st'', cenv'', r) =>
-                 (st'', FUNION cenv'' cenv', combine_dec_result env' r))
-    | (st',Rerr err) => (st',FEMPTY,Rerr err))`;
+                 (st'', cenv'' ++ cenv', combine_dec_result env' r))
+    | (st',Rerr err) => (st',[],Rerr err))`;
 
 val run_eval_top_def = Define `
 (run_eval_top env (st,tdecls,mdecls) (Tdec d) = 
   case run_eval_dec NONE env (st,tdecls) d of
-       ((st',tdecls'), Rval (cenv', env')) => ((st',tdecls',mdecls), (FEMPTY,cenv'), Rval ([], env'))
-     | ((st',tdecls'), Rerr err) => ((st',tdecls',mdecls), (FEMPTY,FEMPTY), Rerr err)) ∧
+       ((st',tdecls'), Rval (cenv', env')) => ((st',tdecls',mdecls), ([],cenv'), Rval ([], env'))
+     | ((st',tdecls'), Rerr err) => ((st',tdecls',mdecls), ([],[]), Rerr err)) ∧
 (run_eval_top env (st,tdecls,mdecls) (Tmod mn specs ds) =
   if mn ∉ mdecls ∧ no_dup_types ds then
     case run_eval_decs (SOME mn) env (st,tdecls) ds of
-         ((st',tdecls'), cenv', Rval env') => ((st',tdecls',{mn} ∪ mdecls), (FEMPTY|+(mn,cenv'),FEMPTY), (Rval ([(mn, env')], [])))
+         ((st',tdecls'), cenv', Rval env') => ((st',tdecls',{mn} ∪ mdecls),
+         ([(mn,cenv')],[]), (Rval ([(mn, env')], [])))
        | ((st',tdecls'), cenv', Rerr err) => 
-           ((st',tdecls',{mn} ∪ mdecls), (FEMPTY|+(mn,cenv'),FEMPTY), Rerr err)
+           ((st',tdecls',{mn} ∪ mdecls), ([(mn,cenv')],[]), Rerr err)
   else
-    ((st,tdecls,mdecls), (FEMPTY,FEMPTY), Rerr Rtype_error))`;
+    ((st,tdecls,mdecls), ([],[]), Rerr Rtype_error))`;
 
 val run_eval_prog_def = Define `
-(run_eval_prog env st [] = (st, (FEMPTY,FEMPTY), Rval ([], []))) ∧
+(run_eval_prog env st [] = (st, ([],[]), Rval ([], []))) ∧
 (run_eval_prog env st (top::prog) =
   case run_eval_top env st top of
        (st', cenv', Rval (menv', env')) =>
-          (case run_eval_prog (menv' ++ all_env_to_menv env, merge_mod_env cenv' (all_env_to_cenv env), env' ++ all_env_to_env env) st' prog of
+          (case run_eval_prog (menv' ++ all_env_to_menv env, merge_alist_mod_env cenv' (all_env_to_cenv env), env' ++ all_env_to_env env) st' prog of
               | (st'', cenv'', Rval (menv'', env'')) =>
-                  (st'', merge_mod_env cenv'' cenv', Rval (menv'' ++ menv', env'' ++ env'))
-              | (st'', cenv'', Rerr err) => (st'', merge_mod_env cenv'' cenv', Rerr err))
+                  (st'', merge_alist_mod_env cenv'' cenv', Rval (menv'' ++ menv', env'' ++ env'))
+              | (st'', cenv'', Rerr err) => (st'', merge_alist_mod_env cenv'' cenv', Rerr err))
      | (st', cenv', Rerr err) => (st', cenv', Rerr err))`;
 
 val run_eval_whole_prog_def = Define `
@@ -370,7 +371,7 @@ run_eval_whole_prog env st prog =
   if no_dup_mods prog st ∧ no_dup_top_types prog st then
     run_eval_prog env st prog
   else
-    (st,(FEMPTY,FEMPTY),Rerr Rtype_error)`;
+    (st,([],[]),Rerr Rtype_error)`;
 
 val run_eval_dec_spec = Q.store_thm ("run_eval_dec_spec",
 `!mn st tdecs env d st' tdecs' r.
