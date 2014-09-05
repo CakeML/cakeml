@@ -623,13 +623,14 @@ type_d mn (mdecls,tdecls,edecls) tenvT menv cenv tenv (Dtype tdefs) ({},new_tdec
 check_type_names tenvT t /\
 ALL_DISTINCT tvs)
 ==>
-type_d mn decls tenvT menv cenv tenv (Dtabbrev tvs tn t) empty_decls (FEMPTY |+ (tn, (tvs,t))) [] []) 
+type_d mn decls tenvT menv cenv tenv (Dtabbrev tvs tn t) empty_decls (FEMPTY |+ (tn, (tvs,type_name_subst tenvT t))) [] []) 
 
 /\ (! mn menv tenvT cenv tenv cn ts mdecls edecls tdecls.
 (check_exn_tenv mn cn ts /\
-~ (mk_id mn cn IN edecls))
+~ (mk_id mn cn IN edecls) /\ 
+EVERY (check_type_names tenvT) ts)
 ==>
-type_d mn (mdecls,tdecls,edecls) tenvT menv cenv tenv (Dexn cn ts) ({},{},{mk_id mn cn}) FEMPTY [(cn, ([], ts, TypeExn (mk_id mn cn)))] [])`;
+type_d mn (mdecls,tdecls,edecls) tenvT menv cenv tenv (Dexn cn ts) ({},{},{mk_id mn cn}) FEMPTY [(cn, ([], MAP (type_name_subst tenvT) ts, TypeExn (mk_id mn cn)))] [])`;
  
 val _ = Hol_reln ` (! mn tenvT menv cenv tenv decls.
 T
@@ -665,16 +666,17 @@ type_specs mn tenvT (Stype td :: specs) (union_decls decls ({},new_tdecls,{})) (
  (ALL_DISTINCT tvs /\
 check_freevars( 0) tvs t /\
 check_type_names tenvT t /\
-(new_tenvT =FEMPTY |+ (tn, (tvs,t))) /\
+(new_tenvT =FEMPTY |+ (tn, (tvs,type_name_subst tenvT t))) /\
 type_specs mn (merge_mod_env (FEMPTY,new_tenvT) tenvT) specs decls tenvT' cenv tenv)
 ==>
 type_specs mn tenvT (Stabbrev tvs tn t :: specs) decls (FUNION tenvT' new_tenvT) cenv tenv)
 
 /\ (! mn tenvT flat_tenvT cenv tenv cn ts specs decls.
 (check_exn_tenv mn cn ts /\
-type_specs mn tenvT specs decls flat_tenvT cenv tenv)
+type_specs mn tenvT specs decls flat_tenvT cenv tenv /\
+EVERY (check_type_names tenvT) ts)
 ==>
-type_specs mn tenvT (Sexn cn ts :: specs) (union_decls decls ({},{},{mk_id mn cn})) flat_tenvT (cenv ++ [(cn, ([], ts, TypeExn (mk_id mn cn)))]) tenv)
+type_specs mn tenvT (Sexn cn ts :: specs) (union_decls decls ({},{},{mk_id mn cn})) flat_tenvT (cenv ++ [(cn, ([], MAP (type_name_subst tenvT) ts, TypeExn (mk_id mn cn)))]) tenv)
 
 /\ (! mn tenvT flat_tenvT cenv tenv tn specs tvs decls new_tenvT.
 (ALL_DISTINCT tvs /\

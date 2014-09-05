@@ -1509,8 +1509,13 @@ val check_specs_sound = Q.prove (
      rw [convert_decls_def] >>
      res_tac >>
      qexists_tac `append_decls decls'' ([],[],[mk_id mn cn])` >>
+<<<<<<< HEAD
      rw [PULL_EXISTS] >>
      qexists_tac `tenvT'''` >>
+=======
+     rw [] >>
+     qexists_tac `cenv'' ++ [(cn,([],MAP (type_name_subst tenvT) ts,TypeExn (mk_id mn cn)))]` >>
+>>>>>>> origin/master
      PairCases_on `decls''` >>
      rw [convert_decls_def, append_decls_def] >>
      qexists_tac `convert_decls (decls''0,decls''1,decls''2)` >>

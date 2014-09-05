@@ -1,11 +1,19 @@
 structure allPP = struct local
-open astPP modPP conPP exhPP patPP intPP
+open astPP modPP conPP exhPP patPP intPP miscPP
 open preamble
 open HolKernel boolLib bossLib Parse
 open compute_basicLib compute_parsingLib compute_compilerLib compute_inferenceLib compute_semanticsLib compute_bytecodeLib compute_free_varsLib compute_x64Lib
 open lexer_implTheory
 open initialProgramTheory initCompEnvTheory
 open progToBytecodeTheory
+
+val _ = enable_astPP();
+val _ = enable_modPP();
+val _ = enable_conPP();
+val _ = enable_exhPP();
+val _ = enable_patPP();
+val _ = enable_intPP();
+val _ = enable_miscPP();
 
 (*RHS of theorem to term*)
 val rhsThm = rhs o concl;
@@ -27,6 +35,9 @@ val _ = add_x64_compset cs
 val _ = computeLib.add_thms  [basis_env_eq,compile_primitives_def,get_all_asts_def,infer_all_asts_def,remove_labels_all_asts_def] cs
 
 val _ = compute_basicLib.add_datatype ``:comp_environment`` cs
+
+val eval = computeLib.CBV_CONV cs
+
 (*Some temporary code for testing standalone*)
 (*
 val _ = computeLib.add_thms [compile_all_asts_def,compile_all_asts_no_init_def,all_asts_to_string_def,all_asts_to_encoded_def,prog_to_bytecode_def,prog_to_bytecode_string_def,prog_to_bytecode_encoded_def,basis_program_def] cs
@@ -107,7 +118,6 @@ val () =
     computeLib.add_conv(``compile_prog``,1,(compile_prog_conv (computeLib.CBV_CONV cs))) cs
   end
 *)
-val eval = computeLib.CBV_CONV cs
 
 in
 
@@ -121,7 +131,6 @@ type allIntermediates = {
   annotations:term list}
 (*Return all intermediates during compilation in a record*)
 
-
 fun allIntermediates prog =
   let
       val t1 = eval ``get_all_asts ^(prog)``
@@ -131,7 +140,7 @@ fun allIntermediates prog =
 
       val infer = eval ``infer_all_asts ^(t1|>concl|>rhs)``
       val infer_res = rhsThm infer;
-      (*Bypass type checks*)
+      (*Bypass type checks -- dangerous!*)
       val _ = let val (res,msg) = dest_comb infer_res in 
                 if (term_to_string res) = "Failure" then raise compilationError ("Type Inference Error: "^(term_to_string msg)) else () end;
 

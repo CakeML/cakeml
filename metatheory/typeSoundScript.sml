@@ -1927,6 +1927,7 @@ val dec_type_soundness = Q.store_thm ("dec_type_soundness",
      >- metis_tac [type_env_eqn, bind_var_list2_def])
  >- (qexists_tac `tenvS` >>
      rw [store_type_extension_refl, flat_to_ctMap_def, flat_to_ctMap_list_def, FUPDATE_LIST_THM, FUNION_FEMPTY_1,
+<<<<<<< HEAD
          bind_var_list2_def, merge_tenvC_empty]
      >- (PairCases_on `cenv` >>
          rw [merge_mod_env_def])
@@ -1934,6 +1935,13 @@ val dec_type_soundness = Q.store_thm ("dec_type_soundness",
  >- (Q.LIST_EXISTS_TAC [`st`, `Rval (FEMPTY |+ (cn,LENGTH ts,TypeExn (mk_id mn cn)),[])`, `tenvS`, `{TypeExn (mk_id mn cn)} ∪ tdecs2`] >>
      `DISJOINT (FDOM (flat_to_ctMap [(cn, ([]:tvarN list,ts,TypeExn (mk_id mn cn)))])) (FDOM ctMap)`
                  by metis_tac [consistent_decls_disjoint_exn] >>
+=======
+         bind_var_list2_def, merge_envC_empty] >>
+     rw [Once type_v_cases, emp_def])
+ >- (Q.LIST_EXISTS_TAC [`st`, `Rval (bind cn (LENGTH ts,TypeExn (mk_id mn cn)) [], [])`, `tenvS`, `{TypeExn (mk_id mn cn)} ∪ tdecs2`] >>
+     `DISJOINT (FDOM (flat_to_ctMap (bind cn ([]:tvarN list,MAP (type_name_subst tenvT) ts,TypeExn (mk_id mn cn)) []))) (FDOM ctMap)`
+                 by metis_tac [emp_def, consistent_decls_disjoint_exn] >>
+>>>>>>> origin/master
      rw []
      >- (fs [consistent_decls_def, RES_FORALL] >>
          CCONTR_TAC >>
@@ -1961,9 +1969,15 @@ val dec_type_soundness = Q.store_thm ("dec_type_soundness",
          fs [DISJOINT_DEF, EXTENSION, flat_to_ctMap_def, flat_to_ctMap_list_def,
              FDOM_FUPDATE_LIST])
      >- (rw [bind_var_list2_def] >>
+<<<<<<< HEAD
          `weakCT (FUNION  (flat_to_ctMap [(cn,[],ts,TypeExn (mk_id mn cn))]) ctMap) ctMap`
                        by metis_tac [disjoint_env_weakCT] >>
          `ctMap_ok (FUNION  (flat_to_ctMap [(cn,[],ts,TypeExn (mk_id mn cn))]) ctMap)`
+=======
+         `weakCT (FUNION  (flat_to_ctMap (bind cn ([],MAP (type_name_subst tenvT)ts,TypeExn (mk_id mn cn)) [])) ctMap) ctMap`
+                       by metis_tac [disjoint_env_weakCT, merge_def] >>
+         `ctMap_ok (FUNION (flat_to_ctMap (bind cn ([],MAP (type_name_subst tenvT) ts,TypeExn (mk_id mn cn)) [])) ctMap)`
+>>>>>>> origin/master
                        by (match_mp_tac ctMap_ok_merge_imp >>
                            fs [consistent_con_env_def] >>
                            rw [flat_to_ctMap_def, flat_to_ctMap_list_def, ctMap_ok_def,
@@ -1971,8 +1985,15 @@ val dec_type_soundness = Q.store_thm ("dec_type_soundness",
                            every_case_tac >>
                            fs [] >>
                            rw [] >>
+<<<<<<< HEAD
                            fs [check_exn_tenv_def]) >>
          metis_tac [type_v_weakening, weakM_refl, weakC_refl,
+=======
+                           fs [check_exn_tenv_def]>>
+                           fs[EVERY_MEM,MEM_MAP]>>rpt strip_tac>>
+                           metis_tac[check_freevars_type_name_subst]) >>
+         metis_tac [type_v_weakening, weakM_refl, weakC_refl, merge_def,
+>>>>>>> origin/master
                     consistent_con_env_def, weakS_refl])
      >- metis_tac [type_env_eqn, bind_var_list2_def]));
 

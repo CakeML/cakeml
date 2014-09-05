@@ -534,12 +534,20 @@ val infer_d_def = Define `
 (infer_d mn decls tenvT menv cenv env (Dtabbrev tvs tn t) =
   do () <- guard (ALL_DISTINCT tvs) "Duplicate type variables";
      () <- guard (check_freevars 0 tvs t ∧ check_type_names tenvT t) "Bad type definition";
+<<<<<<< HEAD
      return (([],[],[]), FEMPTY |+ (tn, (tvs,t)), [], [])
+=======
+     return (([],[],[]), [(tn, (tvs,type_name_subst tenvT t))], [], [])
+>>>>>>> origin/master
   od) ∧
 (infer_d mn (mdecls,tdecls,edecls) tenvT menv cenv env (Dexn cn ts) =
-  do () <- guard (check_exn_tenv mn cn ts) "Bad exception definition";
+  do () <- guard (check_exn_tenv mn cn ts ∧ EVERY (check_type_names tenvT) ts ) "Bad exception definition";
      () <- guard (~MEM (mk_id mn cn) edecls) "Duplicate exception definition";
+<<<<<<< HEAD
      return (([],[],[mk_id mn cn]), FEMPTY, [(cn, ([], ts, TypeExn (mk_id mn cn)))], [])
+=======
+     return (([],[],[mk_id mn cn]), [], bind cn ([],MAP (type_name_subst tenvT) ts, TypeExn (mk_id mn cn)) emp, [])
+>>>>>>> origin/master
   od)`;
 
 val append_decls_def = Define `
@@ -582,12 +590,17 @@ val check_specs_def = Define `
      tenvT'' <- return (merge_mod_env (FEMPTY,new_tenvT) tenvT);
      () <- guard (check_ctor_tenv mn tenvT'' tdefs) "Bad type definition";
      new_tdecls <- return (MAP (\(tvs,tn,ctors). mk_id mn tn) tdefs);
+<<<<<<< HEAD
      () <- guard (EVERY (\new_id. ~MEM new_id tdecls) new_tdecls) "Duplicate type definition";
      check_specs mn (merge_mod_env (FEMPTY,new_tenvT) tenvT) (mdecls,new_tdecls++tdecls,edecls) (FUNION new_tenvT tenvT') (build_ctor_tenv mn tenvT'' tdefs ++ cenv) env specs
+=======
+     check_specs mn (merge_tenvT ([],new_tenvT) tenvT) (mdecls,new_tdecls++tdecls,edecls) (merge new_tenvT tenvT') (merge (build_ctor_tenv mn tenvT'' tdefs) cenv) env specs
+>>>>>>> origin/master
   od) ∧
 (check_specs mn tenvT (mdecls,tdecls,edecls) tenvT' cenv env (Stabbrev tvs tn t :: specs) =
   do () <- guard (ALL_DISTINCT tvs) "Duplicate type variables";
      () <- guard (check_freevars 0 tvs t ∧ check_type_names tenvT t) "Bad type definition";
+<<<<<<< HEAD
      new_tenvT <- return (tn, (tvs, t));
      check_specs mn (merge_mod_env (FEMPTY,FEMPTY |+ new_tenvT) tenvT) (mdecls,tdecls,edecls) (tenvT' |+ new_tenvT) cenv env specs
   od) ∧
@@ -595,6 +608,14 @@ val check_specs_def = Define `
   do () <- guard (check_exn_tenv mn cn ts) "Bad exception definition";
      () <- guard (~MEM (mk_id mn cn) edecls) "Duplicate exception definition";
      check_specs mn tenvT (mdecls,tdecls,mk_id mn cn::edecls) tenvT' ((cn, ([], ts, TypeExn (mk_id mn cn))) :: cenv) env specs
+=======
+     new_tenvT <- return (tn, (tvs,type_name_subst tenvT t));
+     check_specs mn (merge_tenvT ([],[new_tenvT]) tenvT) (mdecls,tdecls,edecls) (new_tenvT::tenvT') cenv env specs
+  od) ∧
+(check_specs mn tenvT (mdecls,tdecls,edecls) tenvT' cenv env (Sexn cn ts :: specs) =
+  do () <- guard (check_exn_tenv mn cn ts ∧ EVERY (check_type_names tenvT) ts ) "Bad exception definition";
+     check_specs mn tenvT (mdecls,tdecls,mk_id mn cn::edecls) tenvT' (bind cn ([],MAP (type_name_subst tenvT) ts, TypeExn (mk_id mn cn)) cenv) env specs
+>>>>>>> origin/master
   od) ∧
 (check_specs mn tenvT (mdecls,tdecls,edecls) tenvT' cenv env (Stype_opq tvs tn :: specs) =
   do () <- guard (~MEM (mk_id mn tn) tdecls) "Duplicate type definition";
