@@ -43,6 +43,13 @@ structure compute_inferenceLib = struct
     ,infer_type_subst_def
     ,check_signature_def
     ,exc_case_def
+    ,check_specs_def
+    ,t_to_freevars_def
+    ,check_flat_weakT_def
+    ,check_flat_weakC_def
+    ,check_weakE_def
+    ,check_weak_decls_def
+    ,list_subset_def
     ] compset
 
     val () = compute_basicLib.add_datatype ``:infer_t`` compset

@@ -349,7 +349,6 @@ val prim_env_inv = Q.store_thm ("prim_env_inv",
              rw [consistent_con_env_def, libTheory.emp_def, tenvC_ok_def, prim_env_eq, prim_sem_env_eq,
                  flat_tenvC_ok_def, check_freevars_def, ctMap_ok_def, FEVERY_ALL_FLOOKUP,
                  alistTheory.flookup_fupdate_list, semanticPrimitivesTheory.lookup_con_id_def]
-             >- rw [check_freevars_def, type_subst_def]
              >- (every_case_tac >>
                  rw [] >>
                  rw [check_freevars_def, type_subst_def])
