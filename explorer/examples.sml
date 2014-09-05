@@ -94,4 +94,4 @@ val ex31 = allIntermediates ``"structure Nat :> sig type nat; type nat2 = nat*na
 
 val ex32 = allIntermediates ``"type ('a,'b) compose = 'a -> 'b;"``;
 
-val ex33 = allIntermediates ``"type t = exn`` 
+val ex33 = allIntermediates ``"type t = exn;"`` 

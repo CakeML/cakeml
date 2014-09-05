@@ -1172,10 +1172,10 @@ local
       wordsLib.WORD_ss ++
       type_frag "asm_config" ``:64 asm_config`` ++
       type_frag "asm" ``:64 asm`` ++
+      type_frag "asm" ``:cmp`` ++
       type_frag "instruction" ``:instruction`` ++
       type_frag "instruction" ``:Zcond`` ++
       type_frag "instruction" ``:Zdest_src`` ++
-      type_frag "instruction" ``:cmp`` ++
       type_frag "instruction" ``:Zrm`` ++
       type_frag "instruction" ``:Zsize`` ++
       type_frag "instruction" ``:Zbase`` ++
@@ -1271,8 +1271,8 @@ end
    x64_backend_correct
    ------------------------------------------------------------------------- *)
 
-val x64_enc_deterministic = Count.apply Q.store_thm ("x64_enc_deterministic",
-   `enc_deterministic x64_enc x64_config`,
+val x64_asm_deterministic = Count.apply Q.store_thm ("x64_asm_deterministic",
+   `asm_deterministic x64_enc x64_config`,
    match_mp_tac asmTheory.simple_enc_deterministic
    \\ NTAC 3 strip_tac
    \\ REPEAT (explode_x64_enc_tac false)
@@ -1281,8 +1281,8 @@ val x64_enc_deterministic = Count.apply Q.store_thm ("x64_enc_deterministic",
    \\ enc_tac
    )
 
-val x64_enc_deterministic_config =
-   SIMP_RULE (srw_ss()) [x64_config_def] x64_enc_deterministic
+val x64_asm_deterministic_config =
+   SIMP_RULE (srw_ss()) [x64_config_def] x64_asm_deterministic
 
 val x64_backend_correct = Count.apply Q.store_thm ("x64_backend_correct",
    `backend_correct x64_enc x64_config x64_next x64_asm_state`,
@@ -1608,10 +1608,10 @@ val x64_backend_correct = Count.apply Q.store_thm ("x64_backend_correct",
       )
       (*
         --------------
-          enc_deterministic
+          asm_deterministic
         --------------*)
-   \\ print_tac "enc_deterministic"
-   \\ rewrite_tac [x64_enc_deterministic_config]
+   \\ print_tac "asm_deterministic"
+   \\ rewrite_tac [x64_asm_deterministic_config]
    )
 
 (*

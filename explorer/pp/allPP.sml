@@ -26,6 +26,7 @@ val _ = add_free_vars_compset cs
 val _ = add_x64_compset cs
 val _ = computeLib.add_thms  [basis_env_eq,compile_primitives_def,get_all_asts_def,infer_all_asts_def,remove_labels_all_asts_def] cs
 
+val _ = compute_basicLib.add_datatype ``:comp_environment`` cs
 (*Some temporary code for testing standalone*)
 (*
 val _ = computeLib.add_thms [compile_all_asts_def,compile_all_asts_no_init_def,all_asts_to_string_def,all_asts_to_encoded_def,prog_to_bytecode_def,prog_to_bytecode_string_def,prog_to_bytecode_encoded_def,basis_program_def] cs
@@ -43,7 +44,6 @@ val _ =
         compute_basicLib.add_datatype ``:bc_inst`` cs;
         computeLib.add_thms [uses_label_def] cs
       end
-val _ = compute_basicLib.add_datatype ``:comp_environment`` cs
 
 (* labels removal *)
 (*In bytecodeLib*)
@@ -120,6 +120,7 @@ type allIntermediates = {
   modMap:term list,
   annotations:term list}
 (*Return all intermediates during compilation in a record*)
+
 
 fun allIntermediates prog =
   let

@@ -647,6 +647,10 @@ val term_ok_aconv = store_thm("term_ok_aconv",
   ``∀sig t1 t2. ACONV t1 t2 ∧ term_ok sig t1 ⇒ term_ok sig t2``,
   rw[ACONV_def] >> imp_res_tac term_ok_raconv >> fs[])
 
+val term_ok_VFREE_IN = store_thm("term_ok_VFREE_IN",
+  ``∀sig t x. VFREE_IN x t ∧ term_ok sig t ⇒ term_ok sig x``,
+  gen_tac >> Induct >> simp[term_ok_def] >> metis_tac[])
+
 (* de Bruijn terms, for showing alpha-equivalence respect
    by substitution and instantiation *)
 

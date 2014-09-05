@@ -14,6 +14,7 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
     ,astTheory.pat_bindings_def
     ,astTheory.mk_id_def
     ,typeSystemTheory.check_ctor_tenv_def
+    ,terminationTheory.type_subst_def
     ,terminationTheory.check_freevars_def
     ,terminationTheory.check_type_names_def
     ,terminationTheory.type_name_subst_def
