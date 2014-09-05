@@ -5329,11 +5329,20 @@ gg goal
       \\ `FLOOKUP f n = SOME (f ' n)` by ( simp[FLOOKUP_DEF] )
       \\ `FLOOKUP refs n = SOME (refs ' n)` by ( fs[FLOOKUP_DEF,SUBSET_DEF] )
       \\ Cases_on`refs ' n` \\ FULL_SIMP_TAC (srw_ss()) [bc_ref_inv_def]
-      \\ IMP_RES_TAC heap_lookup_SPLIT
+      THEN1 (
+        IMP_RES_TAC heap_lookup_SPLIT
       \\ FULL_SIMP_TAC std_ss [x64_heap_APPEND,x64_heap_def,WORD_MUL_LSL,
            x64_el_def,RefBlock_def,x64_payload_def,LET_DEF,word_mul_n2w]
       \\ SEP_R_TAC \\ SIMP_TAC std_ss [GSYM word_mul_n2w]
-      \\ MATCH_ACCEPT_TAC blast_lemma2))
+      \\ MATCH_ACCEPT_TAC blast_lemma2)
+      THEN (
+        IMP_RES_TAC heap_lookup_SPLIT
+      \\ FULL_SIMP_TAC std_ss [x64_heap_APPEND,x64_heap_def,WORD_MUL_LSL,
+           x64_el_def,RefBlock_def,x64_payload_def,LET_DEF,word_mul_n2w,
+           Bytes_def]
+      \\ SEP_R_TAC \\ SIMP_TAC std_ss [GSYM word_mul_n2w]
+      \\ simp[GSYM word_add_n2w,GSYM word_mul_n2w]
+      \\ blastLib.BBLAST_TAC)))
   val th = MP th lemma
   val th = Q.GEN `vals` th |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
   val (th,goal) = SPEC_STRENGTHEN_RULE th
