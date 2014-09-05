@@ -61,13 +61,20 @@ type result 'a 'b =
   | Rerr of error_result 'b
 
 (* Stores *)
-type store_v 'a = Refv of 'a | W8array of list word8
+type store_v 'a = 
+  (* A ref cell *) 
+    Refv of 'a 
+  (* A byte array *)
+  | W8array of list word8 
+  (* An array of values *) 
+  | Varray of list 'a
 
 val store_v_same_type : forall 'a. store_v 'a -> store_v 'a -> bool
 let store_v_same_type v1 v2 =
   match (v1,v2) with
   | (Refv _, Refv _) -> true
   | (W8array _,W8array _) -> true
+  | (Varray _,Varray _) -> true
   | _ -> false
   end
 
@@ -352,6 +359,23 @@ and v_to_list (Conv (Just (cn,TypeId (Short tn))) [v1;v2]) =
     Nothing
 and v_to_list _ = Nothing
 
+val opn_lookup : opn -> integer -> integer -> integer
+let opn_lookup n : integer -> integer -> integer = match n with
+  | Plus -> (+)
+  | Minus -> (-)
+  | Times -> ( * )
+  | Divide -> (/)
+  | Modulo -> (mod)
+end
+
+val opb_lookup : opb -> integer -> integer -> bool
+let opb_lookup n : integer -> integer -> bool = match n with
+  | Lt -> (<)
+  | Gt -> (>)
+  | Leq -> (<=)
+  | Geq -> (>=)
+end
+
 val do_app : store v -> op -> list v -> maybe (store v * result v v)
 let do_app s op vs =
   match (op, vs) with
@@ -381,7 +405,7 @@ let do_app s op vs =
           | Just (Refv v) -> Just (s,Rval v)
           | _ -> Nothing
         end
-    | (Aalloc, [Litv (IntLit n); Litv (Word8 w)]) ->
+    | (Aw8alloc, [Litv (IntLit n); Litv (Word8 w)]) ->
         if n < 0 then
           Just (s, Rerr (Rraise (prim_exn "Subscript")))
         else
@@ -389,7 +413,7 @@ let do_app s op vs =
             store_alloc (W8array (List.replicate (natFromInteger n) w)) s
           in 
             Just (s', Rval (Loc lnum))
-    | (Asub, [Loc lnum; Litv (IntLit i)]) ->
+    | (Aw8sub, [Loc lnum; Litv (IntLit i)]) ->
         match store_lookup lnum s with
           | Just (W8array ws) ->
               if i < 0 then
@@ -402,13 +426,13 @@ let do_app s op vs =
                     Just (s, Rval (Litv (Word8 (List_extra.nth ws n))))
           | _ -> Nothing
         end
-    | (Alength, [Loc n]) ->
+    | (Aw8length, [Loc n]) ->
         match store_lookup n s with
           | Just (W8array ws) ->
               Just (s,Rval (Litv(IntLit(integerFromNat(List.length ws)))))
           | _ -> Nothing
          end
-    | (Aupdate, [Loc lnum; Litv(IntLit i); Litv(Word8 w)]) ->
+    | (Aw8update, [Loc lnum; Litv(IntLit i); Litv(Word8 w)]) ->
         match store_lookup lnum s with
         | Just (W8array ws) ->
             if i < 0 then
@@ -439,6 +463,51 @@ let do_app s op vs =
               Just (s, Rerr (Rraise (prim_exn "Subscript")))
             else 
               Just (s, Rval (List_extra.nth vs n))
+    | (Vlength, [Vectorv vs]) ->
+        Just (s, Rval (Litv (IntLit (integerFromNat (List.length vs)))))
+    | (Aalloc, [Litv (IntLit n); v]) ->
+        if n < 0 then
+          Just (s, Rerr (Rraise (prim_exn "Subscript")))
+        else
+          let (s',lnum) =
+            store_alloc (Varray (List.replicate (natFromInteger n) v)) s
+          in 
+            Just (s', Rval (Loc lnum))
+    | (Asub, [Loc lnum; Litv (IntLit i)]) ->
+        match store_lookup lnum s with
+          | Just (Varray vs) ->
+              if i < 0 then
+                Just (s, Rerr (Rraise (prim_exn "Subscript")))
+              else
+                let n = natFromInteger i in
+                  if n >= List.length vs then
+                    Just (s, Rerr (Rraise (prim_exn "Subscript")))
+                  else 
+                    Just (s, Rval (List_extra.nth vs n))
+          | _ -> Nothing
+        end
+    | (Alength, [Loc n]) ->
+        match store_lookup n s with
+          | Just (Varray ws) ->
+              Just (s,Rval (Litv(IntLit(integerFromNat(List.length ws)))))
+          | _ -> Nothing
+         end
+    | (Aupdate, [Loc lnum; Litv (IntLit i); v]) ->
+        match store_lookup lnum s with
+        | Just (Varray vs) ->
+            if i < 0 then
+              Just (s, Rerr (Rraise (prim_exn "Subscript")))
+            else 
+              let n = natFromInteger i in
+                if n >= List.length vs then
+                  Just (s, Rerr (Rraise (prim_exn "Subscript")))
+                else
+                  match store_assign lnum (Varray (List.update vs n v)) s with
+                    | Nothing -> Nothing
+                    | Just s' -> Just (s', Rval (Litv Unit))
+                  end
+        | _ -> Nothing
+      end
     | _ -> Nothing
   end
 
@@ -496,6 +565,8 @@ let combine_mod_result menv env r =
     | Rval (menv',env') -> Rval (merge menv' menv, merge env' env)
   end
 
+let remove_count ((count,store),tdecls,mods) = (store,tdecls,mods)
+
 (* conversions to strings *)
 
 let rec
@@ -515,6 +586,7 @@ let tc_to_string tc =
   | TC_word8array -> "<word8array>"
   | TC_exn -> "<exn>"
   | TC_vector -> "<vector>"
+  | TC_array -> "<array>"
   end
 
 val int_to_string : integer -> string

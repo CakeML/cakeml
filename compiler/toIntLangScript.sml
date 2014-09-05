@@ -152,16 +152,23 @@ val _ = Define `
 (CCall T Ce1 [Ce2]))
 /\
 (binop_to_il Opassign Ce1 Ce2 =  
-(CUpd F Ce1 (CLit (IntLit(( 0 : int)))) Ce2))
+(CUpd Up1 Ce1 (CLit (IntLit(( 0 : int)))) Ce2))
 /\
-(binop_to_il Aalloc Ce1 Ce2 =  
+(binop_to_il Aw8alloc Ce1 Ce2 =  
 (CLet T Ce1
     (CLet T (shift( 1)( 0) Ce2)
       (CIf (CPrim2 (P2p CLt) (CVar( 1)) (CLit (IntLit(( 0 : int)))))
            (CRaise (CCon subscript_tag []))
            (CPrim2 (P2s CRefB) (CVar( 0)) (CVar( 1)))))))
 /\
-(binop_to_il Asub Ce1 Ce2 =  
+(binop_to_il Aalloc Ce1 Ce2 =  
+(CLet T Ce1
+    (CLet T (shift( 1)( 0) Ce2)
+      (CIf (CPrim2 (P2p CLt) (CVar( 1)) (CLit (IntLit(( 0 : int)))))
+           (CRaise (CCon subscript_tag []))
+           (CPrim2 (P2s CRefA) (CVar( 0)) (CVar( 1)))))))
+/\
+(binop_to_il Aw8sub Ce1 Ce2 =  
 (CLet T Ce1
     (CLet T (shift( 1)( 0) Ce2)
       (CIf (CPrim2 (P2p CLt) (CVar( 0)) (CLit (IntLit(( 0 : int)))))
@@ -179,13 +186,28 @@ val _ = Define `
                 (CPrim2 (P2p CDerV) (CVar( 1)) (CVar( 0)))
                 (CRaise (CCon subscript_tag [])))))))
 /\
-(binop_to_il Alength Ce1 Ce2 = (CCon tuple_tag [Ce1;Ce2])) (* should not happen *)
+(binop_to_il Asub Ce1 Ce2 =  
+(CLet T Ce1
+    (CLet T (shift( 1)( 0) Ce2)
+      (CIf (CPrim2 (P2p CLt) (CVar( 0)) (CLit (IntLit(( 0 : int)))))
+           (CRaise (CCon subscript_tag []))
+           (CIf (CPrim2 (P2p CLt) (CVar( 0)) (CPrim1 CLen (CVar( 1))))
+                (CPrim2 (P2s CDerA) (CVar( 1)) (CVar( 0)))
+                (CRaise (CCon subscript_tag [])))))))
 /\
-(binop_to_il Aupdate Ce1 Ce2 = (CCon tuple_tag [Ce1;Ce2])) (* should not happen *)
+(binop_to_il Aw8length Ce1 Ce2 = (CCon tuple_tag [Ce1;Ce2])) (* should not happen *)
 /\
-(binop_to_il Opref   Ce1 Ce2 = (CCon tuple_tag [Ce1;Ce2])) (* should not happen *)
+(binop_to_il Vlength   Ce1 Ce2 = (CCon tuple_tag [Ce1;Ce2])) (* should not happen *)
 /\
-(binop_to_il Opderef Ce1 Ce2 = (CCon tuple_tag [Ce1;Ce2])) (* should not happen *)
+(binop_to_il Alength   Ce1 Ce2 = (CCon tuple_tag [Ce1;Ce2])) (* should not happen *)
+/\
+(binop_to_il Aw8update Ce1 Ce2 = (CCon tuple_tag [Ce1;Ce2])) (* should not happen *)
+/\
+(binop_to_il Aupdate   Ce1 Ce2 = (CCon tuple_tag [Ce1;Ce2])) (* should not happen *)
+/\
+(binop_to_il Opref     Ce1 Ce2 = (CCon tuple_tag [Ce1;Ce2])) (* should not happen *)
+/\
+(binop_to_il Opderef   Ce1 Ce2 = (CCon tuple_tag [Ce1;Ce2])) (* should not happen *)
 /\
 (binop_to_il VfromList Ce1 Ce2 = (CCon tuple_tag [Ce1;Ce2]))`;
  (* should not happen *)
@@ -196,39 +218,59 @@ val _ = Define `
 /\
 (unop_to_il Opderef Ce = (CPrim1 CDer Ce))
 /\
-(unop_to_il Alength Ce = (CPrim1 CLenB Ce))
+(unop_to_il Aw8length Ce = (CPrim1 CLenB Ce))
+/\
+(unop_to_il Vlength Ce = (CPrim1 CLenV Ce))
+/\
+(unop_to_il Alength Ce = (CPrim1 CLen Ce))
 /\
 (unop_to_il VfromList Ce = (CPrim1 CVfromList Ce))
 /\
-(unop_to_il (Opn _)  Ce = Ce) (* should not happen *)
+(unop_to_il (Opn _)   Ce = Ce) (* should not happen *)
 /\
-(unop_to_il (Opb _)  Ce = Ce) (* should not happen *)
+(unop_to_il (Opb _)   Ce = Ce) (* should not happen *)
 /\
-(unop_to_il Equality Ce = Ce) (* should not happen *)
+(unop_to_il Equality  Ce = Ce) (* should not happen *)
 /\
-(unop_to_il Opapp    Ce = Ce) (* should not happen *)
+(unop_to_il Opapp     Ce = Ce) (* should not happen *)
 /\
-(unop_to_il Opassign Ce = Ce) (* should not happen *)
+(unop_to_il Opassign  Ce = Ce) (* should not happen *)
 /\
-(unop_to_il Aalloc   Ce = Ce) (* should not happen *)
+(unop_to_il Aw8alloc  Ce = Ce) (* should not happen *)
 /\
-(unop_to_il Asub     Ce = Ce) (* should not happen *)
+(unop_to_il Aw8sub    Ce = Ce) (* should not happen *)
 /\
-(unop_to_il Vsub     Ce = Ce) (* should not happen *)
+(unop_to_il Vsub      Ce = Ce) (* should not happen *)
 /\
-(unop_to_il Aupdate  Ce = Ce)`;
+(unop_to_il Aw8update Ce = Ce) (* should not happen *)
+/\
+(unop_to_il Aalloc    Ce = Ce) (* should not happen *)
+/\
+(unop_to_il Asub      Ce = Ce) (* should not happen *)
+/\
+(unop_to_il Aupdate   Ce = Ce)`;
  (* should not happen *)
 
  val _ = Define `
 
-(app_to_il (Op_pat (Op_i2 Aupdate)) [Ce1; Ce2; Ce3] =  
+(app_to_il (Op_pat (Op_i2 Aw8update)) [Ce1; Ce2; Ce3] =  
 (CLet T Ce1
     (CLet T (shift( 1)( 0) Ce2)
       (CLet T (shift( 2)( 0) Ce3)
         (CIf (CPrim2 (P2p CLt) (CVar( 1)) (CLit (IntLit(( 0 : int)))))
              (CRaise (CCon subscript_tag []))
              (CIf (CPrim2 (P2p CLt) (CVar( 1)) (CPrim1 CLenB (CVar( 2))))
-                  (CUpd T (CVar( 2)) (CVar( 1)) (CVar( 0)))
+                  (CUpd UpB (CVar( 2)) (CVar( 1)) (CVar( 0)))
+                  (CRaise (CCon subscript_tag []))))))))
+/\
+(app_to_il (Op_pat (Op_i2 Aupdate)) [Ce1; Ce2; Ce3] =  
+(CLet T Ce1
+    (CLet T (shift( 1)( 0) Ce2)
+      (CLet T (shift( 2)( 0) Ce3)
+        (CIf (CPrim2 (P2p CLt) (CVar( 1)) (CLit (IntLit(( 0 : int)))))
+             (CRaise (CCon subscript_tag []))
+             (CIf (CPrim2 (P2p CLt) (CVar( 1)) (CPrim1 CLen (CVar( 2))))
+                  (CUpd UpA (CVar( 2)) (CVar( 1)) (CVar( 0)))
                   (CRaise (CCon subscript_tag []))))))))
 /\
 (app_to_il (Op_pat (Op_i2 op)) [Ce1; Ce2] =  

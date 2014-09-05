@@ -9,27 +9,9 @@ type lit =
   | Unit
   | Word8 of word8
 
-(* Built-in binary operations (including function application) *)
-
+(* Built-in binary operations *)
 type opn = Plus | Minus | Times | Divide | Modulo
 type opb = Lt | Gt | Leq | Geq
-
-val opn_lookup : opn -> integer -> integer -> integer
-let opn_lookup n : integer -> integer -> integer = match n with
-  | Plus -> (+)
-  | Minus -> (-)
-  | Times -> ( * )
-  | Divide -> (/)
-  | Modulo -> (mod)
-end
-
-val opb_lookup : opb -> integer -> integer -> bool
-let opb_lookup n : integer -> integer -> bool = match n with
-  | Lt -> (<)
-  | Gt -> (>)
-  | Leq -> (<=)
-  | Geq -> (>=)
-end
 
 (* Module names *)
 type modN = string
@@ -38,16 +20,6 @@ type modN = string
 type id 'a =
   | Short of 'a
   | Long of modN * 'a
-
-(*
-instance forall 'a. Eq 'a => (Eq (id 'a))
-  let (=) x y =
-    match (x,y) with
-      | (Short a, Short b) -> a = b
-      | (Long mn a, Long mn' b) -> mn = mn' && (a = b)
-    end
-end
-*)
 
 (* Variable names *)
 type varN = string
@@ -75,34 +47,44 @@ let id_to_n id =
     | Long _ n -> n
   end
 
-(* Opapp is function application. *)
 type op =
+  (* Operations on integers *)
   | Opn of opn
   | Opb of opb
   | Equality
+  (* Function application *)
   | Opapp
+  (* Reference operations *)
   | Opassign
   | Opref
   | Opderef
   (* Word8Array operations *)
+  | Aw8alloc
+  | Aw8sub
+  | Aw8length
+  | Aw8update
+  (* Vector operations *)
+  | VfromList
+  | Vsub
+  | Vlength
+  (* Array operations *)
   | Aalloc
   | Asub
   | Alength
   | Aupdate
-  (* Vector operations *)
-  | VfromList
-  | Vsub
 
-(* Built-in logical operations *)
+(* Logical operations *)
 type lop =
   | And
   | Or
 
-(* Types
+(* Type constructors.
  * 0-ary type applications represent unparameterised types (e.g., num or string)
  *)
 type tctor =
+  (* User defined types *)
   | TC_name of id typeN
+  (* Built-in types *)
   | TC_int
   | TC_string
   | TC_bool
@@ -114,13 +96,18 @@ type tctor =
   | TC_tup
   | TC_exn
   | TC_vector
+  | TC_array
 
+(* Types *)
 type t =
+  (* Type variables that the user writes down ('a, 'b, etc.) *)
   | Tvar of tvarN
-  (* DeBruin indexed type variables. *)
+  (* DeBruin indexed type variables. 
+     The type system uses these internally. *)
   | Tvar_db of nat
   | Tapp of list t * tctor
 
+(* Some abbreviations *)
 let Tint = Tapp [] TC_int
 let Tstring = Tapp [] TC_string
 let Tunit = Tapp [] TC_unit
@@ -135,7 +122,8 @@ let Texn = Tapp [] TC_exn
 type pat =
   | Pvar of varN
   | Plit of lit
-  (* Constructor applications. *)
+  (* Constructor applications. 
+     A Nothing constructor indicates a tuple pattern. *)
   | Pcon of maybe (id conN) * list pat
   | Pref of pat
 
@@ -144,21 +132,27 @@ type exp =
   | Raise of exp
   | Handle of exp * list (pat * exp)
   | Lit of lit
-  (* Constructor application. *)
+  (* Constructor application.
+     A Nothing constructor indicates a tuple pattern. *)
   | Con of maybe (id conN) * list exp
   | Var of id varN
   | Fun of varN * exp
-  (* Application of a primitive operator to arguments. Includes function application. *)
+  (* Application of a primitive operator to arguments.
+     Includes function application. *)
   | App of op * list exp
   (* Logical operations (and, or) *)
   | Log of lop * exp * exp
   | If of exp * exp * exp
   (* Pattern matching *)
   | Mat of exp * list (pat * exp)
+  (* A let expression
+     A Nothing value for the binding indicates that this is a
+     sequencing expression, that is: (e1; e2). *)
   | Let of maybe varN * exp * exp
-  (* Local definition of (potentially) mutually recursive functions
-   * The first varN is the function's name, and the second varN is its
-   * parameter. *)
+  (* Local definition of (potentially) mutually recursive
+     functions.
+     The first varN is the function's name, and the second varN
+     is its parameter. *)
   | Letrec of list (varN * varN * exp) * exp
 
 type type_def = list (list tvarN * typeN * list (conN * list t))
@@ -166,20 +160,24 @@ type type_def = list (list tvarN * typeN * list (conN * list t))
 (* Declarations *)
 type dec =
   (* Top-level bindings
-   * The number is how many type variables are bound.
    * The pattern allows several names to be bound at once *)
   | Dlet of pat * exp
   (* Mutually recursive function definition *)
   | Dletrec of list (varN * varN * exp)
   (* Type definition
-     Defines several types, each of which has several named variants, which can
-     in turn have several arguments *)
+     Defines several data types, each of which has several
+     named variants, which can in turn have several arguments.
+   *)
   | Dtype of type_def
+  (* Type abbreviations *)
   | Dtabbrev of list tvarN * typeN * t
+  (* New exceptions *)
   | Dexn of conN * list t
 
 type decs = list dec 
 
+(* Specifications
+   For giving the signature of a module *)
 type spec =
   | Sval of varN * t
   | Stype of type_def

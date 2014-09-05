@@ -564,6 +564,21 @@ val valuation_exists = store_thm("valuation_exists",
   conj_asm1_tac >- simp[is_type_valuation_exists] >>
   fs[is_term_valuation_def] >> metis_tac[typesem_inhabited])
 
+val extend_valuation_exists = store_thm("extend_valuation_exists",
+  ``is_set_theory ^mem ⇒
+    ∀tysig δ v tysig'.
+    is_valuation tysig δ v ∧ tysig ⊑ tysig' ∧
+    is_type_assignment tysig' δ ⇒
+    ∃v'. is_valuation tysig' δ v' ∧
+         (tyvof v' = tyvof v) ∧
+         (∀x ty. type_ok tysig ty ⇒ (tmvof v (x,ty) = tmvof v' (x,ty)))``,
+  rw[] >> simp[EXISTS_PROD] >>
+  fs[is_valuation_def,is_term_valuation_def] >>
+  qexists_tac`λ(x,ty).
+    if type_ok tysig ty then tmvof v (x,ty)
+    else @m. m <: typesem δ (tyvof v) ty` >>
+  rw[] >> metis_tac[typesem_inhabited])
+
 (* identity instance *)
 
 val identity_instance = store_thm("identity_instance",

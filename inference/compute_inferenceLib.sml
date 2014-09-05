@@ -18,6 +18,7 @@ structure compute_inferenceLib = struct
     ,infer_p_def
     ,st_ex_bind_def
     ,st_ex_return_def
+    ,failwith_def
     ,lookup_tenvC_st_ex_def
     ,lookup_st_ex_def
     ,init_state_def
@@ -41,6 +42,14 @@ structure compute_inferenceLib = struct
     ,Infer_Tunit_def
     ,infer_type_subst_def
     ,check_signature_def
+    ,exc_case_def
+    ,check_specs_def
+    ,t_to_freevars_def
+    ,check_flat_weakT_def
+    ,check_flat_weakC_def
+    ,check_weakE_def
+    ,check_weak_decls_def
+    ,list_subset_def
     ] compset
 
     val () = compute_basicLib.add_datatype ``:infer_t`` compset
@@ -48,7 +57,7 @@ structure compute_inferenceLib = struct
     val () = compute_basicLib.add_datatype ``:('a,'b)exc`` compset
     val () = compute_basicLib.add_datatype ``:'a infer_st`` compset
   in
-   get_wfs 
+   get_wfs
   end
 
   val the_inference_compset = let

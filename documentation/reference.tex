@@ -1,0 +1,474 @@
+\documentclass[12pt,a4paper]{book}
+
+\usepackage{hyperref}
+\usepackage{amssymb}
+\usepackage{amsmath}
+
+\usepackage{supertabular}
+
+\usepackage{xcolor}
+\usepackage{lem}
+
+\newcommand{\TODO}[1]{{\color{red}#1}}
+
+\newcommand{\gramsep}{|}
+
+\title{CakeML Reference Manual}
+\author{Scott Owens\\
+University of Kent\\
+\url{https://cakeml.org}
+}
+\usepackage[T1]{fontenc}
+
+\begin{document}\sloppy
+\maketitle
+
+\frontmatter
+
+\chapter{Preface}
+
+This manual is intended to describe the CakeML language, and the system that implements it. We hope that it will be useful for anyone who wants to understand  CakeML and its implementation, whether its with an aim to collaborate with main CakeML team,\footnote{Project ideas are listed at \url{https://cakeml.org/projects.html.}}
+or to work with the CakeML code base independently.
+
+We have attempted to make this manual self-contained. However, our aim is not to explain the basics of functional programming, programming language semantics, or interactive theorem proving, and so we expect of the reader at least some familiarity with a functional programming language, and with basic discrete mathematics: logic, inductively defined relations, etc.
+
+CakeML is a work in progress, and currently lacks many features that a full featured programming language needs. We are working toward remedying this situation, prioritising features based on our need for them in our own research into using CakeML for verified programs.
+
+\mainmatter
+\tableofcontents
+
+
+\part{The CakeML Language}
+
+\chapter{An informal description of CakeML}
+
+CakeML is a functional language in the ML family. Its syntax and semantics closely resembles Standard ML, but the concepts will also be very familiar to OCaml programmers.
+
+\section{Primitive data and operations}
+
+CakeML supports data of boolean, integer, byte, and string types. It also supports compound data of tuple, list, option, vector, reference, array, and byte array types. Additionally, users can define new algebraic data types: these are described in  \S\ref{expressions} on pattern matching, and in \S\ref{declarations} on type definitions.
+
+\paragraph{Booleans} The boolean values are written as \texttt{true} and \texttt{false}. The type of booleans is \texttt{bool}. Left-to-right short-circuit logical operators are written \texttt{andalso} and \texttt{orelse}.
+
+\paragraph{Integers} Integers values are written in decimal. \verb|~| acts as the minus sign for writing negative numbers. So write \verb|~1| instead of \verb|-1|. Hexidecimal and other non-decimal notations are not currently supported. The type of integers is \texttt{int}.
+
+CakeML provides the following infix operators on integers. Integers are represented internally as arbitrary precision numbers (\emph{bignums}) so they can never overflow, and there is no maximum or minimum representable integer. The \texttt{div} and \texttt{mod} operations will raise the \texttt{Div} exception if given divisor of 0.
+\begin{itemize}
+\item Arithmetic: \texttt{+},\texttt{-}, \texttt{*}, \texttt{div}, \texttt{mod}
+\item Comparison: \texttt{<}, \texttt{>}, \texttt{<=}, \texttt{>=}
+\end{itemize}
+
+\paragraph{Bytes} There is currently no concrete syntax for writing byte values. The type of bytes is \texttt{Word8.word}. There are currently no operations on bytes.
+
+\paragraph{Strings} String constants are enclosed in double quotation marks (\texttt{"}). The type of strings is \texttt{string}. There are currently no operations on strings.
+
+The escape character is \verb|\|, and it supports the following:
+\begin{itemize}
+\item
+\verb|\n| : a newline character
+\item 
+\verb|\"| : a double quotation (\texttt{"}) character
+\item
+\verb|\\| : a single backslash (\verb|\|) character, and
+\item 
+\verb|\t| : a tab character.
+\end{itemize}
+
+\paragraph{Tuples} A tuple of values is surrounded by parentheses and separated by commas. For example, \texttt{(1,2,true)} is a three element tuple. The empty tuple \texttt{()} is the (only) member of the special type \texttt{unit}. The type of a tuple is formed from the types of its members, separated by \texttt{*}, so the previous tuple has type \texttt{int * int * bool}. There are no operations on tuples (but see \S\ref{expressions} on pattern matching).
+
+\paragraph{Lists} A list of values is surrounded by square brackets and separated by commas. Each element of the list must have the same type. For example, the expression \texttt{[1,2,3,4]} is a list of integers containing four elements. Its type is \texttt{int list}. The empty list is written \texttt{[]}, and has a polymorphic type \texttt{'a list}, indicating that it can be used as an empty list of any type of contents. The cons operator (constructing a list with one more element) is written as \texttt{::}, so the above list could also have been written as \texttt{1::2::3::4::[]}. There are no operations for de-structuring lists (but see \S\ref{expressions} on pattern matching).
+
+\paragraph{Options} An optional value is either \texttt{NONE}, indicating that no value is present, or \texttt{SOME}\ $v$ for a value $v$. They type of an optional value that might contain a value of type $\tau$ is $\tau$\ \texttt{option}. There are no operations for de-structuring options (but see \S\ref{expressions} on pattern matching).
+
+
+
+\paragraph{Vectors}
+
+Vectors are immutable array-like structures. They have a fixed length and support constant-time indexing. Each element of a vector must have the same type. The operations on vectors are collected in the \texttt{Vector} module. If the elements of a vector are of some type $\tau$ then the vector's type is $\tau$\ \texttt{Vector.vector}.
+
+The following are the supported operations on vectors. If an index is out of bounds (or negative), the \texttt{Subscript} exception is raised.
+\begin{itemize}
+\item \texttt{Vector.fromList : 'a list -> 'a vector} Convert a list to a vector containing the same elements (in order).
+\item \texttt{Vector.length : 'a vector -> int} Get the vector's length.
+\item \texttt{Vector.sub : 'a vector -> int -> 'a} Get the i$^\textrm{th}$ element.
+\end{itemize}
+
+\paragraph{References}
+
+A reference is a mutable structure that contains exactly one value. The type of a reference containing a value of type $\tau$ is written $\tau$ \texttt{ref}.
+References have the following operations.
+\begin{itemize}
+\item
+\texttt{ref : 'a -> 'a ref} Create a new reference with an initial value.
+\item
+\texttt{! : 'a ref -> 'a} Get the value from a reference.
+\item
+\texttt{:= : 'a ref -> 'a -> unit} Replace the value in the reference with a new one.
+\end{itemize}
+
+\paragraph{Arrays}
+
+Arrays have a fixed length and support constant-time indexing. Each element of an array must have the same type. The operations on arrays are collected in the \texttt{Array} module. If the elements of an array are of some type $\tau$ then the vector's type is $\tau$\ \texttt{Array.array}.
+
+The following are the supported operations on arrays. If an index is out of bounds (or negative), the \texttt{Subscript} exception is raised.
+\begin{itemize}
+\item \texttt{Array.array : int -> 'a -> 'a array} Create a new array of given length and default value.
+\item \texttt{Array.length : 'a array -> int} Get the array's length.
+\item \texttt{Array.sub : 'a array -> int -> 'a} Get the i$^\textrm{th}$ element.
+\item \texttt{Array.update : 'a array -> int -> 'a -> unit} Set the i$^\textrm{th}$ element.
+\end{itemize}
+
+
+\paragraph{Byte arrays}
+Byte arrays have a fixed length and support constant-time indexing. Each element of an array must be a byte (\texttt{Word8.word} type). The operations on byte arrays are collected in the \texttt{Word8Array} module. The type of a byte array is \texttt{Word8Array.array}.
+
+The following are the supported operations on byte arrays. If an index is out of bounds (or negative), the \texttt{Subscript} exception is raised.
+\begin{itemize}
+\item \texttt{Word8Array.array : int -> Word8.word -> Word8Array.array} Create a new array of given length and default value.
+\item \texttt{Word8Array.length : Word8Array.array -> int} Get the array's length.
+\item \texttt{Word8Array.sub : Word8Array.array -> int -> Word8.word} Get the i$^\textrm{th}$ element.
+\item \texttt{Word8Array.update : Word8Array.array -> int -> Word8.word -> unit} Set the i$^\textrm{th}$ element.
+\end{itemize}
+
+\section{Expressions}
+\label{expressions}
+
+\paragraph{Infix operators}
+
+\begin{figure}
+\centering
+\begin{tabular}{l}
+ \texttt{*} \texttt{div} \texttt{mod} \texttt{/}\\
+ \texttt{+} \texttt{-}\\
+ \texttt{@} \texttt{::}\\
+ \texttt{<} \texttt{>} \texttt{<=} \texttt{>=} \texttt{<>} \texttt{=}\\
+ \texttt{o} \texttt{:=}\\
+ \texttt{before}\\
+ \texttt{orelse} \texttt{andalso}
+ \end{tabular}
+\caption{Infix operators from tightest (at the top) to loosest binding}
+\label{precedences}
+\end{figure}
+
+CakeML supports the limited set of infix operators listed in Figure~\ref{precedences}.
+
+
+\paragraph{Variables}
+
+A variable must begin with a lower case letter, and be alphanumeric (letters, numbers, \texttt{\_}, and \texttt{'}), or it can be symbolic, consisting entirely of the following characters: \verb)! % & $ # + - / : < = > ? @ \ ~ ^ | ` *). It cannot be any of the following reserved words:
+\begin{verbatim}
+and  andalso  before  case  datatype  div  else  end  exception
+false  fn  handle  if  in  let  mod  nil  o  of  orelse  raise
+ref  sig  struct  structure  then  true  type  val
+:=  :>  ::  @  =>  =  :  |  +  *  -  /  <  >  <=  >=  <>
+\end{verbatim}
+
+Variables in expressions can be prefixed with a structure name S with a full stop (\texttt{.}) character in between. For example, \texttt{Vector.length} refers to the binding of length in the structure Vector. Where variables are bound in patterns or as function names or parameters, a structure prefix must not be present.
+
+\paragraph{Equality}
+
+The infix equality operator \texttt{=} checks whether two values are equal, returning a boolean. The values must be of the same type. For atomic data (booleans, integers, bytes, and strings), they are equal exactly when they are the same value. For immutable data (tuples, lists, vectors, and user defined datatypes), they are equal if they are made up of equal elements, recursively. For mutable data (references, arrays, and byte arrays), they are equal if they are the same structure, their elements are not inspected.
+
+If the equality function encounters a function value while traversing its arguments, it raises the \texttt{Eq} exception.
+
+\paragraph{Conditionals}
+%
+\[\texttt{if}\ e_1\ \texttt{then}\ e_2\ \texttt{else}\ e_3\]
+
+A conditional expression (above) evaluates expression $e_1$, and if it is \texttt{true}, then return the value of $e_2$, otherwise return the value of $e_3$. $e_1$ must have type \texttt{bool}, and $e_2$ and $e_3$ must have the same type.
+
+\paragraph{Functions}
+
+\paragraph{Pattern matching}
+
+\paragraph{Exceptions}
+
+\paragraph{Local bindings}
+
+\section{Declarations}
+\label{declarations}
+
+\section{Modules}
+
+\section{Differences from Standard ML}
+
+\subsection{Unsupported features}
+Here we only list missing features of the language, and not the basis library.
+
+The CakeML module system is basic compared to SML's. Structures cannot be nested, and functors are not supported. Structures cannot be given alternate names, or opened. Signatures cannot be named, and must appear directly on the structure that they seal. Only opaque sealing is supported (\texttt{:>}, but not \texttt{:}). Signatures cannot contain \texttt{include}, \texttt{sharing}, \texttt{structure}, \texttt{eqtype} or datatype replication specifications.
+
+In contrast, CakeML's core language is much more fully featured, with only the following omissions. The \texttt{local}, \texttt{abstype}, and datatype replication declarations are not supported. Neither are records, type annotations, and \texttt{while} loops. Furthermore, \texttt{let} expressions are restricted to \texttt{val} and \texttt{fun} declarations; they cannot contain type or exception declarations. The pattern language does not support the \texttt{as} form.
+
+CakeML has a fixed set of infix operators, and does not support user defined parsing precedences (\texttt{infix}, \texttt{infixr}, and \texttt{nonfix}). See Figure~\ref{precedences} for the supported infix operators. The infix status of these operators cannot be suppressed (\texttt{op}).
+
+Floating point numbers are not supported, nor are word constants (numbers prefixed with \texttt{0w} or \texttt{0xw}), or integer constants written in hexadecimal notation (\texttt{0x}). Lastly, only the most basic escape sequences are supported in strings (just \texttt{\textbackslash n}, \texttt{\textbackslash t}, \texttt{\textbackslash "}, and \texttt{\textbackslash\textbackslash}), and character constants (\texttt{e.g., \#"a"}) are not supported at all.
+
+Syntactic sugar for functions with pattern parameters is not provided, instead parameters are variables, and must be matched against with \texttt{case} expressions, if desired.
+
+\subsection{Syntactic and semantic differences}
+
+All names must follow the OCaml convention where structure and constructor names start with a capital letter, and type and variable names must either start with a lower case letter, or be symbolic names.
+
+CakeML does not support the limited overloading found in the SML Basis Library.
+
+CakeML does not support the equality types that SML uses to ensure that the \texttt{=} operation never encounters a function value. Instead, the \texttt{=} raises an exception \texttt{Eq} if it does.
+
+The types of bindings in \texttt{let} expressions cannot be generalised. This restriction does not affect top level, or structure top level declarations.
+
+The built-in CakeML functions prefer the curried style over SML's preferred tupled style. For example, we write \texttt{Vector.sub v 12} to get the 12$^\textrm{th}$ element of vector v, rather than \texttt{Vector.sub (v,12)}.
+
+\section{Differences from OCaml}
+
+Because CakeML has a significantly different syntax, we focus here on the major features and semantic differences rather than attempt to catalogue every piece of OCaml syntax that lacks a CakeML analogue. Briefly, CakeML does not have character date, floating point numbers, records, objects,  polymorphic variants, labels, nested/local modules, or functors.
+
+Strings are immutable; however, theWord8Array structure provides byte arrays.
+
+CakeML guarantees left to right evaluation order.
+
+The \texttt{=} operator does not traverse mutable data (arrays and references), instead it compares the pointers, SML style.
+
+\chapter{Formal syntax and semantics}
+
+\section{Lexical and context free syntax}
+
+\[
+\begin{array}{lcll}
+\alpha&=& \mbox{\texttt{'}[\texttt{a}-\texttt{z}\texttt{A}-\texttt{Z}\texttt{'}\texttt{\_}]}^*&\mbox{type variable}\\
+i &=& \verb|~|^?\mbox{[\texttt{0}-\texttt{9}]}^+&\mbox{integer constant}\\
+\end{array}
+\]
+
+
+\TODO{Lexical syntax for str, tn, v, fqv, C, fqC, S}
+
+\[
+\begin{array}{lcll}
+t & ::= & &\mbox{types}\\
+&&\alpha & \mbox{type variable}\\
+& \gramsep& t\ \texttt{*}\ t & \mbox{tuple}\\
+ &\gramsep &t\ \texttt{->}\ t&\mbox{function}\\
+ &\gramsep& \mathit{tn}&\mbox{type name}\\
+ &\gramsep&t\ \mathit{tn}&\mbox{type application}\\
+ &\gramsep& \texttt{(}t\texttt{,}t(\texttt{,}t)^*\texttt{)}\ \mathit{tn}&\mbox{type application}\\
+ &\gramsep&\texttt{(}t\texttt{)}
+ \end{array}
+ \]
+
+ \[
+\begin{array}{lcll}
+l & ::= &&\mbox{literal constants}\\
+&& \texttt{true}\\
+&\gramsep& \texttt{false}\\
+&\gramsep& \texttt{(}\texttt{)}&\mbox{unit}\\
+&\gramsep& \texttt{[}\texttt{]}&\mbox{empty list}\\
+&\gramsep& \texttt{nil}&\mbox{empty list}\\
+&\gramsep& i &\mbox{integer}\\
+&\gramsep& \textit{str} &\mbox{string}\\
+ \end{array}
+\]
+
+\[
+\begin{array}{lcll}
+p & ::= & &\mbox{patterns}\\
+&&\texttt{\_}&\mbox{wildcard}\\
+&\gramsep& v &\mbox{variable}\\
+&\gramsep& l &\mbox{constant}\\
+&\gramsep& \mathit{fqC} & \mbox{constant constructor}\\
+&\gramsep& \mathit{fqC}\ p & \mbox{constructor application}\\
+&\gramsep& \texttt{(}p\texttt{,}p(\texttt{,}p)^*\texttt{)}&\mbox{tuple}\\
+&\gramsep& p \texttt{::} p&\mbox{list (first and rest)}\\
+&\gramsep& \texttt{[}p(\texttt{,}p)^*\texttt{]}&\mbox{list (fixed length)}\\
+ &\gramsep& \texttt{ref}\ p&\mbox{reference}\\
+ &\gramsep& \texttt{(}p\texttt{)}
+ \end{array}
+\]
+
+\[
+\begin{array}{lcll}
+
+e & ::= & &\mbox{expressions}\\
+&&l &\mbox{constant}\\
+&|& \mathit{fqv}&\mbox{variable}\\
+&|&\mathit{fqC}&\mbox{constant constructor}\\
+&|&\mathit{fqC}\ e&\mbox{constructor application}\\
+&|&\texttt{(}e\texttt{,}e(\texttt{,}e)^*\texttt{)}&\mbox{tuple}\\
+&|&\texttt{[}e(\texttt{,}e)^*\texttt{]}&\mbox{list}\\
+&|&\texttt{raise}\ e & \mbox{exception raising}\\
+&|& e\ \texttt{handle}\ p\ \texttt{=>}\ e\ (\texttt{|}p\ \texttt{=>}\ e)^*&\mbox{exception handling}\\
+&|& \texttt{fn}\ v\ \texttt{=>}\ e&\mbox{function}\\
+&|& e\ e&\mbox{function application}\\
+&|& e\ \mathit{op}\ e&\mbox{binary operator}\\
+&|& \texttt{(}(e\texttt{;})^*e\texttt{)}&\mbox{sequencing}\\
+&|& \texttt{if}\ e\ \texttt{then}\ e\ \texttt{else}\ e&\mbox{conditional}\\
+&|& \texttt{case}\ e\ \texttt{of}\ p\ \texttt{=>}\ e\ (\texttt{|}p\ \texttt{=>}\ e)^*&\mbox{pattern matching}\\
+&|& \texttt{let}\ (\mathit{ld}|\texttt{;})^*\ \texttt{in}\ (e\texttt{;})^*e\ \texttt{end}&\mbox{let}\\
+&|&\texttt{(}e\texttt{)}\\\\
+
+\mathit{ld} &::=& &\mbox{local definition}\\
+&& \texttt{val}\ x\ \texttt{=}\ e&\mbox{value}\\
+ &|&\texttt{fun}\ v\ v^+\ \texttt{=}\ e\ (\texttt{and}\ v\ v^+\ \texttt{=}\ e)^*&\mbox{function}\\\\
+
+\mathit{op} &::=& &\mbox{infix operators}\\
+&&\texttt{*}\gramsep \texttt{div}\gramsep \texttt{mod}&\mbox{multipicative}\\
+&|& \texttt{+}\gramsep \texttt{-}&\mbox{additive} \\
+&|&\texttt{@}\gramsep{::} & \mbox{list}\\
+&|&\texttt{=} \gramsep \texttt{<}\gramsep \texttt{<=}\gramsep \texttt{>}\gramsep \texttt{>=} \gramsep\texttt{<>}&\mbox{comparison}\\
+&|&\texttt{o}\gramsep \texttt{:=}\\
+&|&\texttt{before}&\mbox{sequencing}\\
+&|&\texttt{andalso} \gramsep \texttt{orelse}&\mbox{logical}
+\end{array}
+\]
+
+
+\[
+\begin{array}{lcll}
+d &::=& &\mbox{declarations}\\
+&&\texttt{val}\ p\ \texttt{=}\ e&\mbox{value}\\
+&|& \texttt{fun}\ v\ v^+\ \texttt{=}\ e\ (\texttt{and}\ v\ v^+\ \texttt{=}\ e)^*&\mbox{function}\\
+&|&  \texttt{datatype}\ \mathit{tyd}\ (\texttt{and}\ \mathit{tyd})^*&\mbox{type}\\
+&|& \texttt{exception}\ c&\mbox{exception}\\\\
+
+c & ::= &&\mbox{constructors}\\
+&& C&\mbox{constant}\\
+& \gramsep &C\ \texttt{of}\ t&\mbox{with arguments}\\\\
+
+\mathit{ptn} &::=& &\mbox{type names w/parameters}\\
+&& \texttt{(}\alpha(\texttt{,}\alpha)^*\texttt{)}\ \mathit{tn}\\
+&\gramsep& \alpha\ \mathit{tn}\\
+&\gramsep& \mathit{tn}\\\\
+
+\mathit{tyd} & ::= & \mathit{ptn}\ \texttt{=}\ c(\texttt{|}c)^* & \mbox{define a single type}
+\end{array}
+\]
+
+\[
+\begin{array}{lcll}
+m &::=& \texttt{structure}\ S\ s^?\ \texttt{=}\ \texttt{struct}\ (d|\texttt{;})^*\ \texttt{end}&\mbox{modules}\\\\
+
+s &::=& \texttt{:>}\ \texttt{sig}\ (\mathit{sp}|\texttt{;})^*\ \texttt{end}&\mbox{signatures}\\\\
+
+\mathit{sp}&::=&  &\mbox{specifications}\\
+&&\texttt{val}\ v\ \texttt{:}\ t& \mbox{value}\\
+&\gramsep& \texttt{type}\ \textit{tyn}&\mbox{opaque type}\\
+&|&  \texttt{datatype}\ \mathit{tyd}\ (\texttt{and}\ \mathit{tyd})^*&\mbox{type}\\
+&|& \texttt{exception}\ c&\mbox{exception}
+\end{array}
+\]
+
+\[
+\begin{array}{lcll}
+\mathit{top} &::=& &\mbox{top-level declaration}\\
+&& m &\mbox{module}\\
+&& d &\mbox{declaration}\\
+\end{array}
+\]
+
+
+
+\section{Abstract syntax}
+
+The abstract syntax of CakeML is defined in Lem in \texttt{semantics/ast.lem}\footnote{\url{https://github.com/CakeML/cakeml/blob/master/semantics/ast.lem}}. This file is included here.
+
+{\setlength{\parindent}{0pt}
+\TODO{Figure out why Lem is omitting leading comments. Possibly change the typesetting}
+\include{lem-generated/Ast-inc}
+
+\LEMTypeLit
+
+\LEMTypeOpn
+
+\LEMTypeOpb
+
+\LEMTypeModN
+
+\LEMTypeId
+
+\LEMTypeVarN
+
+\LEMTypeConN
+
+\LEMTypeTypeN
+
+\LEMTypeTvarN
+
+\LEMValspecMkId
+
+\LEMmkId
+
+\LEMValspecIdToN
+
+\LEMidToN
+
+\LEMTypeOp
+
+\LEMTypeLop
+
+\LEMTypeTctor
+
+\LEMTypeT
+
+\LEMTint
+
+\LEMTstring
+
+\LEMTunit
+
+\LEMTbool
+
+\LEMTref
+
+\LEMTwordEight
+
+\LEMTwordEightarray
+
+\LEMTfn
+
+\LEMTexn
+
+\LEMTypePat
+
+\LEMTypeExp
+
+\LEMTypeTypeDef
+
+\LEMTypeDec
+
+\LEMTypeDecs
+
+\LEMTypeSpec
+
+\LEMTypeSpecs
+
+\LEMTypeTop
+
+\LEMTypeProg
+
+\LEMValspecPatBindings
+
+\LEMconstZero
+}
+
+\section{Type system}
+
+\section{Operational semantics}
+
+\chapter{Theorems}
+
+
+\part{The CakeML implementation}
+
+\chapter{Installing CakeML}
+
+\chapter{Extracting CakeML programs from HOL4}
+
+\chapter{Construction a complete system}
+
+\section{Interactive loop}
+
+\section{Standalone compilation}
+
+\section{Bootstrapping}
+
+\chapter{Unverified utilities}
+
+\end{document}

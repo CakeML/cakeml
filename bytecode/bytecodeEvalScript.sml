@@ -17,9 +17,7 @@ val bc_eval_stack_def = Define`
 ∧ (bc_eval_stack (Store k) (y::xs) =
    if k < LENGTH xs ∧ 0 < LENGTH xs
    then SOME (TAKE k xs ++ y :: (DROP (k+1) xs)) else NONE)
-∧ (bc_eval_stack (El k) ((Block tag ys)::xs) =
-   if k < LENGTH ys then SOME (EL k ys::xs) else NONE)
-∧ (bc_eval_stack El2 ((Number k)::(Block tag ys)::xs) =
+∧ (bc_eval_stack El ((Number k)::(Block tag ys)::xs) =
    if 0 ≤ k ∧ Num k < LENGTH ys then SOME (EL (Num k) ys::xs) else NONE)
 ∧ (bc_eval_stack (TagEq t) ((Block tag ys)::xs) =
    SOME (bool_to_val (tag = t)::xs))
@@ -82,10 +80,7 @@ fs[bc_eval_stack_def,bc_stack_op_cases] >> rw[]
   res_tac >> Cases_on`t`>>fs[])
 >- ( Cases_on `h` >> fs[bc_eval_stack_def] )
 >- (
-  qmatch_assum_rename_tac `bc_eval_stack (El n) (h::t) = SOME ys` [] >>
-  Cases_on `h` >> fs[bc_eval_stack_def] )
->- (
-  qmatch_assum_rename_tac `bc_eval_stack (El2) (h::t) = SOME ys` [] >>
+  qmatch_assum_rename_tac `bc_eval_stack (El) (h::t) = SOME ys` [] >>
   Cases_on `h` >> Cases_on`t` >> fs[bc_eval_stack_def] >>
   Cases_on`h`>>fs[bc_eval_stack_def] >> rw[] >>
   qexists_tac`Num i` >> rw[INT_OF_NUM])
@@ -342,7 +337,7 @@ Cases_on `inst` >> fs[GSYM bc_eval_stack_thm]
   BasicProvers.EVERY_CASE_TAC >> fs[] >>
   BasicProvers.EVERY_CASE_TAC >> fs[] >>
   rw[bc_next_cases] )
->- ( rw[bc_next_cases,REPLICATE_GENLIST,combinTheory.K_DEF] )
+>- ( rw[bc_next_cases,rich_listTheory.REPLICATE_GENLIST,combinTheory.K_DEF] )
 >- (
   Cases_on`s1.stack`>>fs[]>>
   rw[bc_next_cases] )
@@ -372,7 +367,7 @@ ho_match_mp_tac bc_next_ind >>
 rw[bc_eval1_def] >>
 fs[bc_eval_stack_thm] >>
 unabbrev_all_tac >> rw[] >>
-fsrw_tac[ARITH_ss][REPLICATE_GENLIST,combinTheory.K_DEF,wordsTheory.w2n_lt] >>
+fsrw_tac[ARITH_ss][rich_listTheory.REPLICATE_GENLIST,combinTheory.K_DEF,wordsTheory.w2n_lt] >>
 lrw[REVERSE_APPEND,rich_listTheory.EL_APPEND2,rich_listTheory.TAKE_APPEND1,stringTheory.IMPLODE_EXPLODE_I] >>
 TRY(
   pop_assum (assume_tac o SYM) >>

@@ -711,10 +711,11 @@ val obviously_pure_IMP = prove(
   \\ REPEAT STRIP_TAC \\ RES_TAC \\ FULL_SIMP_TAC std_ss []);
 
 val LENGTH_FILTER_decl_let = prove(
-  ``!ds s1 s2 env env2 tys.
-      EVERY simple_decl ds /\ Decls mn env ((0,s1),tys) ds env2 s2 ==>
-      (LENGTH (FILTER decl_let ds) + LENGTH s1 = LENGTH (SND (FST s2)))``,
+  ``!ds cs1 s2 env env2 tys.
+      EVERY simple_decl ds /\ Decls mn env (cs1,tys) ds env2 s2 ==>
+      (LENGTH (FILTER decl_let ds) + LENGTH (SND cs1) = LENGTH (SND (FST s2)))``,
   Induct \\ SRW_TAC [] [Decls_NIL,FILTER,LENGTH]
+  \\ Cases_on`cs1`
   \\ FULL_SIMP_TAC std_ss [Once Decls_CONS]
   \\ Cases_on `h` \\ FULL_SIMP_TAC std_ss [decl_let_def,simple_decl_def]
   \\ TRY (Cases_on `e`) \\ FULL_SIMP_TAC std_ss [decl_let_def,simple_decl_def]
@@ -749,7 +750,7 @@ val simple_decl_IMP = prove(
   \\ Cases_on `s2` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ IMP_RES_TAC LENGTH_FILTER_decl_let
   \\ IMP_RES_TAC obviously_pure_IMP
-  \\ SRW_TAC [] [] \\ FULL_SIMP_TAC (srw_ss()) []);
+  \\ SRW_TAC [] [] \\ FULL_SIMP_TAC (srw_ss()) [initSemEnvTheory.prim_sem_env_eq]);
 
 fun tac () =
   SIMP_TAC std_ss [all_decls (),PULL_EXISTS]

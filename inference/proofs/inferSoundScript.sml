@@ -1,7 +1,7 @@
 open preamble;
-open rich_listTheory;
+open rich_listTheory alistTheory;
 open miscTheory;
-open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
+open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory infer_tTheory;
 open libPropsTheory astPropsTheory;
 open inferPropsTheory;
 open typeSysPropsTheory;
@@ -16,146 +16,6 @@ val o_f_id = Q.prove (
 rw [fmap_EXT]);
 
 val _ = new_theory "inferSound";
-
-(* ---------- Converting infer types and envs to type system ones ---------- *)
-
-val convert_t_def = tDefine "convert_t" `
-(convert_t (Infer_Tvar_db n) = Tvar_db n) ∧
-(convert_t (Infer_Tapp ts tc) = Tapp (MAP convert_t ts) tc)`
-(WF_REL_TAC `measure infer_t_size` >>
- rw [] >>
- induct_on `ts` >>
- rw [infer_tTheory.infer_t_size_def] >>
- res_tac >>
- decide_tac);
-
-val convert_menv_def = Define `
-convert_menv menv = 
-  MAP (\(mn,env). (mn, MAP (\(x,(tvs,t)). (x,(tvs,convert_t t))) env)) menv`;
-
-val convert_env_def = Define `
-convert_env s env = MAP (\(x,t). (x, convert_t (t_walkstar s t))) env`;
-
-val convert_decls_def = Define `
-convert_decls (mdecls,tdecls,edecls) = (set mdecls,set tdecls,set edecls)`;
-
-val convert_append_decls = Q.prove (
-`!decls1 decls2. convert_decls (append_decls decls1 decls2) = union_decls (convert_decls decls1) (convert_decls decls2)`,
- rw [] >>
- PairCases_on `decls1` >>
- PairCases_on `decls2` >>
- rw [convert_decls_def, append_decls_def, union_decls_def]);
-
-val check_convert_freevars = Q.prove (
-`(!tvs uvs t. check_t tvs uvs t ⇒ (uvs = {}) ⇒ check_freevars tvs [] (convert_t t))`,
-ho_match_mp_tac check_t_ind >>
-rw [check_freevars_def, check_t_def, convert_t_def] >>
-fs [EVERY_MEM, MEM_MAP] >>
-metis_tac []);
-
-val check_t_to_check_freevars = Q.store_thm ("check_t_to_check_freevars",
-`!tvs (n:num set) t. check_t tvs {} t ⇒ check_freevars tvs [] (convert_t t)`,
-ho_match_mp_tac check_t_ind >>
-rw [check_t_def, check_freevars_def, convert_t_def, EVERY_MAP] >>
-fs [EVERY_MEM]);
-
-val convert_inc = Q.prove (
-`!t tvs tvs'. 
-  check_t tvs' {} t
-  ⇒
-  (convert_t (infer_deBruijn_inc tvs t) = deBruijn_inc 0 tvs (convert_t t))`,
-ho_match_mp_tac (fetch "-" "convert_t_ind") >>
-rw [check_t_def, convert_t_def, infer_deBruijn_inc_def, deBruijn_inc_def] >>
-induct_on `ts` >>
-fs [] >>
-metis_tac []);
-
-val infer_t_induction = infer_tTheory.infer_t_induction;
-
-val db_subst_infer_subst_swap = Q.prove (
-`(!t s tvs uvar n.
-  t_wfs s ∧
-  count (uvar + tvs) ⊆ FDOM s ∧
-  (!uv. uv ∈ FDOM s ⇒ check_t n {} (t_walkstar s (Infer_Tuvar uv))) ∧
-  check_t tvs (FDOM s) t
-  ⇒
-  (convert_t
-    (t_walkstar s
-       (infer_deBruijn_subst
-          (MAP (λn. Infer_Tuvar (uvar + n)) (COUNT_LIST tvs))
-          t)) =
-   deBruijn_subst 0
-    (MAP (convert_t o t_walkstar s)
-       (MAP (λn. Infer_Tuvar (uvar + n)) (COUNT_LIST tvs)))
-    (convert_t (t_walkstar (infer_deBruijn_inc tvs o_f s) t)))) ∧
- (!ts s tvs uvar n.
-  t_wfs s ∧
-  count (uvar + tvs) ⊆ FDOM s ∧
-  (!uv. uv ∈ FDOM s ⇒ check_t n {} (t_walkstar s (Infer_Tuvar uv))) ∧
-  EVERY (\t. check_t tvs (FDOM s) t) ts ⇒
-  (MAP (convert_t o
-       t_walkstar s o
-       infer_deBruijn_subst (MAP (λn. Infer_Tuvar (uvar + n)) (COUNT_LIST tvs)))
-      ts =
-   MAP (deBruijn_subst 0 (MAP (convert_t o t_walkstar s) (MAP (λn. Infer_Tuvar (uvar + n)) (COUNT_LIST tvs))) o
-       convert_t o 
-       t_walkstar (infer_deBruijn_inc tvs o_f s))
-      ts))`,
-ho_match_mp_tac infer_t_induction >>
-rw [convert_t_def, deBruijn_subst_def, EL_MAP, t_walkstar_eqn1,
-    infer_deBruijn_subst_def, MAP_MAP_o, combinTheory.o_DEF, check_t_def,
-    LENGTH_COUNT_LIST] >|
-[`t_wfs (infer_deBruijn_inc tvs o_f s)` by metis_tac [inc_wfs] >>
-     fs [t_walkstar_eqn1, convert_t_def, deBruijn_subst_def,
-         LENGTH_COUNT_LIST] >>
-     fs [LENGTH_MAP, el_map_count, EL_COUNT_LIST],
- `t_wfs (infer_deBruijn_inc tvs o_f s)` by metis_tac [inc_wfs] >>
-     fs [t_walkstar_eqn1, convert_t_def, deBruijn_subst_def, MAP_MAP_o, 
-         combinTheory.o_DEF] >>
-     metis_tac [],
- res_tac >>
-     imp_res_tac convert_inc >>
-     rw [walkstar_inc2] >>
-     metis_tac [subst_inc_cancel, arithmeticTheory.ADD,
-                deBruijn_inc0,
-                LENGTH_COUNT_LIST, LENGTH_MAP],
- metis_tac [],
- metis_tac []]);
-
-val inc_convert_t = Q.prove (
-`(!t tvs' tvs. check_t tvs' {} t ⇒ (deBruijn_inc tvs' tvs (convert_t t) = convert_t t)) ∧
- (!ts tvs' tvs. EVERY (check_t tvs' {}) ts ⇒ (MAP (deBruijn_inc tvs' tvs o convert_t) ts = MAP convert_t ts))`,
-ho_match_mp_tac infer_t_induction >>
-rw [check_t_def, convert_t_def, deBruijn_inc_def] >>
-metis_tac [MAP_MAP_o]);
-
-val convert_t_subst = Q.prove (
-`(!t tvs ts'. 
-    (LENGTH tvs = LENGTH ts') ∧
-    check_freevars 0 tvs t ⇒
-    convert_t (infer_type_subst (ZIP (tvs,ts')) t) = 
-    type_subst (ZIP (tvs, MAP convert_t ts')) t) ∧
- (!ts tvs ts'. 
-    (LENGTH tvs = LENGTH ts') ∧
-    EVERY (check_freevars 0 tvs) ts ⇒
-    MAP convert_t (MAP (infer_type_subst (ZIP (tvs,ts'))) ts) = 
-    MAP (type_subst (ZIP (tvs, MAP convert_t ts'))) ts)`,
-ho_match_mp_tac t_induction >>
-rw [check_freevars_def, convert_t_def, type_subst_def, infer_type_subst_def] >|
-[full_case_tac >>
-     full_case_tac >>
-     fs [lookup_notin] >>
-     imp_res_tac lookup_in2 >>
-     REPEAT (pop_assum mp_tac) >>
-     rw [MAP_ZIP] >>
-     REPEAT (pop_assum mp_tac) >>
-     Q.SPEC_TAC (`tvs`,`tvs`) >>
-     induct_on `ts'` >>
-     rw [] >>
-     cases_on `tvs` >>
-     fs [] >>
-     metis_tac [optionTheory.SOME_11],
- metis_tac []]);
 
 (* ---------- tenv_inv, the invariant relating inference and type system * environments ---------- *)
 
@@ -482,25 +342,6 @@ rw [] >>
 cases_on `ts2` >>
 fs [] >>
 metis_tac [sub_completion_apply]);
-
-val sub_completion_wfs = Q.prove (
-`!n uvars s1 ts s2.
-  t_wfs s1 ∧
-  sub_completion n uvars s1 ts s2 
-  ⇒
-  t_wfs s2`,
-rw [sub_completion_def] >>
-pop_assum (fn _ => all_tac) >>
-pop_assum (fn _ => all_tac) >>
-pop_assum mp_tac >>
-pop_assum mp_tac >>
-Q.SPEC_TAC (`s1`, `s1`) >>
-induct_on `ts` >>
-rw [pure_add_constraints_def] >-
-metis_tac [] >>
-PairCases_on `h` >>
-fs [pure_add_constraints_def] >>
-metis_tac [t_unify_wfs]);
 
 val sub_completion_check = Q.prove (
 `!tvs m s uvar s' extra_constraints.
@@ -1011,7 +852,7 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
      pop_assum (mp_tac o Q.SPEC `(p,e')`) >>
      rw [],
  (* Let *)
-     disj2_tac >>
+     (* COMPLETENESS disj2_tac >>*)
      imp_res_tac sub_completion_infer >>
      fs [] >>
      imp_res_tac sub_completion_unify >>
@@ -1069,7 +910,7 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
      `type_e (convert_menv menv) cenv (bind_var_list 0 tenv' tenv) e (convert_t (t_walkstar s t))`
                  by metis_tac [check_env_more] >>
      qexists_tac `tenv'` >>
-     qexists_tac `0` >>
+     (* COMPLETENESS qexists_tac `0` >>*)
      rw [bind_tvar_def] >>
      `tenv' = MAP2 (λ(x,y,z) t. (x,convert_t (t_walkstar s t))) funs funs_ts`
                  by (Q.UNABBREV_TAC `tenv'` >>
@@ -1613,8 +1454,8 @@ val check_freevars_nub = Q.prove (
   EVERY (check_freevars x fvs) ts ⇒
   EVERY (check_freevars x (nub fvs)) ts)`,
 Induct >>
-rw [check_freevars_def, GSYM nub_set] >>
-metis_tac []);
+rw [check_freevars_def] >> metis_tac[]
+)
 
 val check_specs_sound = Q.prove (
 `!mn orig_tenvT mdecls tdecls edecls tenvT cenv env specs st decls' tenvT' cenv' env' st' init_decls.
@@ -1668,7 +1509,7 @@ val check_specs_sound = Q.prove (
      res_tac >>
      qexists_tac `append_decls decls'' ([],[],[mk_id mn cn])` >>
      rw [] >>
-     qexists_tac `cenv'' ++ [(cn,([],ts,TypeExn (mk_id mn cn)))]` >>
+     qexists_tac `cenv'' ++ [(cn,([],MAP (type_name_subst tenvT) ts,TypeExn (mk_id mn cn)))]` >>
      PairCases_on `decls''` >>
      rw [convert_decls_def, bind_def, append_decls_def] >>
      qexists_tac `convert_decls (decls''0,decls''1,decls''2)` >>

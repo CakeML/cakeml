@@ -706,6 +706,93 @@ val Eval_Equality = store_thm("Eval_Equality",
   \\ Q.LIST_EXISTS_TAC [`0,empty_store`]
   \\ FULL_SIMP_TAC std_ss []);
 
+(* list definition *)
+
+val LIST_TYPE_def = Define `
+  (!a x_2 x_1 v.
+     LIST_TYPE a (x_2::x_1) v <=>
+     ?v2_1 v2_2.
+       v = Conv (SOME ("::",TypeId (Short "list"))) [v2_1; v2_2] /\
+       a x_2 v2_1 /\ LIST_TYPE a x_1 v2_2) /\
+  !a v.
+     LIST_TYPE a [] v <=>
+     v = Conv (SOME ("nil",TypeId (Short "list"))) []`
+
+(* vectors *)
+
+val _ = Datatype `
+  vector = Vector ('a list)`;
+
+val fromList_def = Define `
+  fromList l = Vector l`;
+
+val sub_def = Define `
+  sub (Vector l) n = EL n l`;
+
+val length_def = Define `
+  length (Vector l) = LENGTH l`;
+
+val VECTOR_TYPE_def = Define `
+  VECTOR_TYPE a (Vector l) v <=>
+    ?l'. v = Vectorv l' /\ LENGTH l = LENGTH l' /\ LIST_REL a l l'`;
+
+val VEC_LENGTH_def = Define `
+  VEC_LENGTH (Vector l) = LENGTH l`;
+
+val Eval_sub = store_thm("Eval_sub",
+ ``!env x1 x2 a n v.
+     Eval env x1 (VECTOR_TYPE a v) ==>
+     Eval env x2 (NUM n) ==>
+     n < VEC_LENGTH v ==>
+     Eval env (App Vsub [x1; x2]) (a (sub v n))``,
+  rw [Eval_def] >>
+  rw [Once evaluate_cases] >>
+  ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases)))]) >>
+  rw [do_app_cases] >>
+  rw [PULL_EXISTS] >>
+  `?l. v = Vector l` by metis_tac [fetch "-" "vector_nchotomy"] >>
+  rw [] >>
+  fs [VECTOR_TYPE_def, VEC_LENGTH_def, NUM_def, sub_def, INT_def] >>
+  MAP_EVERY qexists_tac [`(0,empty_store)`, `l'`, `&n`] >>
+  fs [INT_ABS_NUM, LIST_REL_EL_EQN] >>
+  metis_tac []);
+
+val Eval_vector = store_thm("Eval_vector",
+ ``!env x1 a l.
+     Eval env x1 (LIST_TYPE a l) ==>
+     Eval env (App VfromList [x1]) (VECTOR_TYPE a (Vector l))``,
+  rw [Eval_def] >>
+  rw [Once evaluate_cases] >>
+  ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases)))]) >>
+  rw [do_app_cases] >>
+  rw [PULL_EXISTS] >>
+  fs [VECTOR_TYPE_def] >>
+  qexists_tac `res` >>
+  rw [] >>
+  pop_assum mp_tac >>
+  pop_assum (fn _ => all_tac) >>
+  Q.SPEC_TAC (`res`, `res`) >>
+  Induct_on `l` >>
+  rw [] >>
+  fs [LIST_TYPE_def, v_to_list_def, PULL_EXISTS] >>
+  BasicProvers.FULL_CASE_TAC >>
+  fs [] >>
+  metis_tac [optionTheory.NOT_SOME_NONE, optionTheory.SOME_11]);
+
+val Eval_length = store_thm("Eval_length",
+  ``!env x1 x2 a n v.
+      Eval env x1 (VECTOR_TYPE a v) ==>
+      Eval env (App Vlength [x1]) (NUM (length v))``,
+  rw [Eval_def] >>
+  rw [Once evaluate_cases] >>
+  ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases)))]) >>
+  rw [do_app_cases] >>
+  rw [PULL_EXISTS] >>
+  `?l. v = Vector l` by metis_tac [fetch "-" "vector_nchotomy"] >>
+  rw [] >>
+  fs [VECTOR_TYPE_def, length_def, NUM_def, INT_def] >>
+  metis_tac []);
+
 (* evaluation of declarations *)
 
 val Decls_def = Define `
@@ -813,7 +900,8 @@ val evaluate_empty_store_lemma = prove(
   \\ FULL_SIMP_TAC std_ss [IMP_DISJ_THM]
   \\ SRW_TAC [] []
   \\ FULL_SIMP_TAC std_ss []
-  \\ FULL_SIMP_TAC std_ss [store_assign_def,empty_store_def,LUPDATE_NIL])
+  \\ FULL_SIMP_TAC std_ss [store_assign_def,empty_store_def,LUPDATE_NIL]
+  \\ FULL_SIMP_TAC list_ss [])
   |> SIMP_RULE std_ss [PULL_EXISTS,AND_IMP_INTRO];
 
 val _ = temp_overload_on("has_emp_no_fail",

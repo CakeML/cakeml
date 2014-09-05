@@ -89,6 +89,7 @@ val v_to_exh_eqn = Q.prove (
 val sv_to_exh_def = Define`
   sv_to_exh exh (Refv v1) (Refv v2) = v_to_exh exh v1 v2 ∧
   sv_to_exh exh (W8array w1) (W8array w2) = (w1 = w2) ∧
+  sv_to_exh exh (Varray vs1) (Varray vs2) = vs_to_exh exh vs1 vs2 ∧
   sv_to_exh exh _ _ = F`
 
 val store_to_exh_def = Define `
@@ -488,6 +489,48 @@ val v_to_list_exh_correct = Q.prove (
  rw [] >>
  metis_tac [NOT_SOME_NONE, SOME_11]);
 
+val do_app_i2_cases = Q.store_thm("do_app_i2_cases",
+  `do_app_i2 s op vs = SOME x ⇒
+    (∃z n1 n2. op = (Op_i2 (Opn z)) ∧ vs = [Litv_i2 (IntLit n1); Litv_i2 (IntLit n2)]) ∨
+    (∃z n1 n2. op = (Op_i2 (Opb z)) ∧ vs = [Litv_i2 (IntLit n1); Litv_i2 (IntLit n2)]) ∨
+    (∃v1 v2. op = (Op_i2 Equality) ∧ vs = [v1; v2]) ∨
+    (∃lnum v. op = (Op_i2 Opassign) ∧ vs = [Loc_i2 lnum; v]) ∨
+    (∃n. op = (Op_i2 Opderef) ∧ vs = [Loc_i2 n]) ∨
+    (∃v. op = (Op_i2 Opref) ∧ vs = [v]) ∨
+    (∃n w. op = (Op_i2 Aw8alloc) ∧ vs = [Litv_i2 (IntLit n); Litv_i2 (Word8 w)]) ∨
+    (∃lnum i. op = (Op_i2 Aw8sub) ∧ vs = [Loc_i2 lnum; Litv_i2 (IntLit i)]) ∨
+    (∃n. op = (Op_i2 Aw8length) ∧ vs = [Loc_i2 n]) ∨
+    (∃lnum i w. op = (Op_i2 Aw8update) ∧ vs = [Loc_i2 lnum; Litv_i2 (IntLit i); Litv_i2 (Word8 w)]) ∨
+    (∃v vs'. op = (Op_i2 VfromList) ∧ vs = [v] ∧ (v_to_list_i2 v = SOME vs')) ∨
+    (∃vs' i. op = (Op_i2 Vsub) ∧ vs = [Vectorv_i2 vs'; Litv_i2 (IntLit i)]) ∨
+    (∃vs'. op = (Op_i2 Vlength) ∧ vs = [Vectorv_i2 vs']) ∨
+    (∃v n. op = (Op_i2 Aalloc) ∧ vs = [Litv_i2 (IntLit n); v]) ∨
+    (∃lnum i. op = (Op_i2 Asub) ∧ vs = [Loc_i2 lnum; Litv_i2 (IntLit i)]) ∨
+    (∃n. op = (Op_i2 Alength) ∧ vs = [Loc_i2 n]) ∨
+    (∃lnum i v. op = (Op_i2 Aupdate) ∧ vs = [Loc_i2 lnum; Litv_i2 (IntLit i); v])`,
+  rw[do_app_i2_def] >>
+  every_case_tac >> 
+  fs[]);
+
+val tac =
+  rw [do_app_exh_def, result_to_exh_cases, store_to_exh_def, prim_exn_i2_def,
+      prim_exn_exh_def, v_to_exh_eqn] >>
+  fs [] >>
+  fs [store_assign_def,store_to_exh_def, store_lookup_def, store_alloc_def,
+      LET_THM] >>
+  rw [] >>
+  imp_res_tac LIST_REL_LENGTH >>
+  fs [prim_exn_i2_def, v_to_exh_eqn] >>
+  every_case_tac >>
+  fs [store_to_exh_def, LIST_REL_EL_EQN, EL_LUPDATE] >>
+  rw [store_to_exh_def, EL_LUPDATE, sv_to_exh_def] >>
+  res_tac >>
+  pop_assum mp_tac >>
+  ASM_REWRITE_TAC [sv_to_exh_def] >>
+  fs [v_to_exh_eqn, store_v_same_type_def] >>
+  every_case_tac >>
+  fs [];
+
 val do_app_exh_i2 = Q.prove (
 `!(exh:exh_ctors_env) s1 op vs s2 res s1_exh vs_exh c g.
   do_app_i2 s1 op vs = SOME (s2, res) ∧
@@ -497,82 +540,75 @@ val do_app_exh_i2 = Q.prove (
    ∃s2_exh res_exh.
      result_to_exh v_to_exh exh (((c,s2),g),res) (s2_exh,res_exh) ∧
      do_app_exh s1_exh op vs_exh = SOME (s2_exh, res_exh)`,
- rpt gen_tac >> PairCases_on`s1_exh`>>
- simp[result_to_exh_cases] >>
- simp[store_to_exh_def,EXISTS_PROD] >>
- rw[PULL_EXISTS] >>
- fs [do_app_i2_def, do_app_exh_def] >>
- BasicProvers.CASE_TAC >> fs[] >- (
-   every_case_tac >> fs[] ) >>
- fs[LET_THM,store_lookup_def,store_assign_def] >>
- cases_on`op`>>fs[]>>rw[]>>
- cases_on`xs`>>fs[]>>rw[]>-(
-   every_case_tac>>fs[store_alloc_def]>>rw[sv_to_exh_def]>>
-   fs[LIST_REL_EL_EQN, v_to_exh_eqn] >> 
-   imp_res_tac v_to_list_exh_correct >>
-   fs[v_to_list_exh_def] >> 
-   imp_res_tac LIST_REL_LENGTH >>
-   fs [] >>
-   rw [] >>
-   fs[LIST_REL_EL_EQN, v_to_exh_eqn] >> 
-   metis_tac[sv_to_exh_def] ) >>
- cases_on`ys`>>fs[]>>rw[]>-(
-   qmatch_assum_rename_tac`op_CASE op a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 = b`
-     ["a1","a2","a3","a4","a5","a6","a7","a8","a9","a10","a11","a12","a13","b"] >>
-   cases_on`op`>>fs[]>-(
-     every_case_tac>>fs[]>>rw[]>>
-     rw[prim_exn_i2_def,prim_exn_exh_def,v_to_exh_eqn] )
-   >- ( every_case_tac>>fs[] )
-   >- (
-     every_case_tac>>fs[]>>rw[]>>
-     imp_res_tac do_eq_exh_correct>>fs[]>>
-     rw[prim_exn_i2_def,prim_exn_exh_def,v_to_exh_eqn] )
-   >- (
-     every_case_tac >> fs[] >> rw[] >>
-     fs[LIST_REL_EL_EQN,EL_LUPDATE] >> rw[] >>
-     rw[sv_to_exh_def] >> rfs[] >>
-     fs[store_v_same_type_def] >>
-     every_case_tac >> fs[] >>
-     metis_tac[sv_to_exh_def])
-   >- (
-     every_case_tac >> fs[] >> rw[] >>
-     rw[prim_exn_i2_def,prim_exn_exh_def,v_to_exh_eqn] >>
-     fs[store_alloc_def] >> rw[] >>
-     fs[LIST_REL_EL_EQN] >> rw[sv_to_exh_def] )
-   >- (
-     qmatch_assum_rename_tac`v_to_exh exh v1 v2`[] >>
-     Cases_on`v1`>>fs[]>>rw[]>>
-     qmatch_assum_rename_tac`v_to_exh exh v1 v2`[] >>
-     Cases_on`v2`>>fs[]>>rw[]>>
-     TRY(Cases_on`v1`>>fs[])>>
-     TRY(Cases_on`l:lit`>>fs[])>>
-     rw[]>>fs[]>>
-     every_case_tac>>fs[]>>rw[]>>
-     rw[prim_exn_i2_def,prim_exn_exh_def,v_to_exh_eqn] >>
-     fs[LIST_REL_EL_EQN] >>
-     metis_tac[sv_to_exh_def] )
-   >- (
-     every_case_tac>>fs[]>>rw[]>>
-     fs [v_to_exh_eqn, prim_exn_i2_def, prim_exn_exh_def] >>
-     imp_res_tac LIST_REL_LENGTH >>
-     fs [LIST_REL_EL_EQN] >>
-     FIRST_X_ASSUM match_mp_tac >>
-     intLib.ARITH_TAC )) >>
- fs[] >>
- qmatch_assum_rename_tac`v_to_exh exh v1 v2`[] >>
- Cases_on`v1`>>fs[]>>rw[]>>
- Cases_on`l:lit`>>fs[]>>
- qmatch_assum_rename_tac`v_to_exh exh v1 v2`[] >>
- Cases_on`v1`>>fs[]>>rw[]>>
- Cases_on`l:lit`>>fs[]>>
- qmatch_assum_rename_tac`v_to_exh exh v1 v2`[] >>
- Cases_on`v1`>>fs[]>>rw[]>>
- every_case_tac>>fs[]>>rw[]>>
- rw[prim_exn_i2_def,prim_exn_exh_def,v_to_exh_eqn] >>
- fs[LIST_REL_EL_EQN,EL_LUPDATE]>>rw[]>>
- fs[store_v_same_type_def] >>
- every_case_tac>>fs[] >>
- metis_tac[sv_to_exh_def]);
+ rw [] >>
+ PairCases_on `s1_exh` >>
+ imp_res_tac do_app_i2_cases >>
+ fs [] >>
+ rw [] >>
+ fs [do_app_i2_def, store_to_exh_def]
+ >- tac
+ >- tac
+ >- (every_case_tac >>
+     imp_res_tac do_eq_exh_correct >>
+     fs [] >>
+     rw [do_app_exh_def, result_to_exh_cases, store_to_exh_def,
+         prim_exn_i2_def, prim_exn_exh_def, v_to_exh_eqn])
+ >- (tac >>
+     metis_tac [v_to_exh_eqn, store_v_distinct, sv_to_exh_def])
+ >- tac
+ >- tac
+ >- tac
+ >- (tac >>
+     metis_tac [v_to_exh_eqn, store_v_distinct, sv_to_exh_def])
+ >- tac
+ >- (tac >>
+     metis_tac [v_to_exh_eqn, store_v_distinct, sv_to_exh_def])
+ >- (imp_res_tac v_to_list_exh_correct >>
+     rw [do_app_exh_def, result_to_exh_cases, v_to_exh_eqn, store_to_exh_def] >>
+     fs [vs_to_exh_LIST_REL])
+ >- (tac >>
+     full_simp_tac (srw_ss()++ARITH_ss) [])
+ >- tac
+ >- (tac >>
+     rw [LIST_REL_EL_EQN, LENGTH_REPLICATE, EL_REPLICATE])
+ >- (tac >>
+     rw []
+     >- (CCONTR_TAC >>
+         fs [] >>
+         imp_res_tac LIST_REL_LENGTH >> 
+         full_simp_tac (srw_ss()++ARITH_ss) [])
+     >- (CCONTR_TAC >>
+         fs [] >>
+         imp_res_tac LIST_REL_LENGTH >> 
+         full_simp_tac (srw_ss()++ARITH_ss) [])
+     >- (fs [LIST_REL_EL_EQN] >>
+         `Num (ABS i) < LENGTH l'` by decide_tac >>
+         res_tac))
+ >- (tac >>
+     metis_tac [LIST_REL_LENGTH])
+ >- (tac >>
+     rw []
+     >- (CCONTR_TAC >>
+         fs [] >>
+         imp_res_tac LIST_REL_LENGTH >> 
+         full_simp_tac (srw_ss()++ARITH_ss) [])
+     >- (CCONTR_TAC >>
+         fs [] >>
+         imp_res_tac LIST_REL_LENGTH >> 
+         full_simp_tac (srw_ss()++ARITH_ss) [])
+     >- (CCONTR_TAC >>
+         fs [] >>
+         imp_res_tac LIST_REL_LENGTH >> 
+         full_simp_tac (srw_ss()++ARITH_ss) [])
+     >- (fs [LIST_REL_EL_EQN] >>
+         `Num (ABS i) < LENGTH l'` by decide_tac >>
+         res_tac >>
+         pop_assum mp_tac >>
+         ASM_REWRITE_TAC [sv_to_exh_def, vs_to_exh_LIST_REL] >>
+         rw [EL_LUPDATE] >>
+         fs [] >>
+         every_case_tac >>
+         fs [])));
 
 val do_app_exh_i3 = prove(
   ``∀s1 op vs s2 res exh s1 s1_exh vs_exh.
@@ -1084,6 +1120,13 @@ val csg_rel_count = store_thm("csg_rel_count",
   PairCases_on`csg2` >>
   simp[csg_rel_def])
 
+val map_count_store_genv_def = Define`
+  map_count_store_genv f (csg:'a count_store_genv) =
+    ((FST(FST csg), MAP (map_sv f) (SND(FST csg))), MAP (OPTION_MAP f) (SND csg))`
+
+val csg_every_def = Define`
+  csg_every P ((c,s),g) ⇔ EVERY (sv_every P) s ∧ EVERY (OPTION_EVERY P) g`
+
 (* exhLangExtra *)
 
 val free_vars_exh_def = tDefine"free_vars_exh"`
@@ -1124,5 +1167,104 @@ val sv_to_exh_sv_rel = store_thm("sv_to_exh_sv_rel",
 val store_to_exh_csg_rel = store_thm("store_to_exh_csg_rel",
   ``store_to_exh exh = csg_rel (v_to_exh exh)``,
   simp[FUN_EQ_THM,FORALL_PROD,store_to_exh_def,csg_rel_def,sv_to_exh_sv_rel])
+
+val build_rec_env_exh_MAP = store_thm("build_rec_env_exh_MAP",
+  ``build_rec_env_exh funs cle env = MAP (λ(f,cdr). (f, (Recclosure_exh cle funs f))) funs ++ env``,
+  rw[build_rec_env_exh_def] >>
+  qho_match_abbrev_tac `FOLDR (f funs) env funs = MAP (g funs) funs ++ env` >>
+  qsuff_tac `∀funs env funs0. FOLDR (f funs0) env funs = MAP (g funs0) funs ++ env` >- rw[]  >>
+  unabbrev_all_tac >> simp[] >>
+  Induct >> rw[libTheory.bind_def] >>
+  PairCases_on`h` >> rw[])
+
+val pmatch_exh_any_match = store_thm("pmatch_exh_any_match",
+  ``(∀s p v env env'. pmatch_exh s p v env = Match env' ⇒
+       ∀env. ∃env'. pmatch_exh s p v env = Match env') ∧
+    (∀s ps vs env env'. pmatch_list_exh s ps vs env = Match env' ⇒
+       ∀env. ∃env'. pmatch_list_exh s ps vs env = Match env')``,
+  ho_match_mp_tac pmatch_exh_ind >>
+  rw[pmatch_exh_def] >>
+  pop_assum mp_tac >>
+  BasicProvers.CASE_TAC >>
+  fs[] >> strip_tac >> fs[] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  metis_tac[match_result_distinct])
+
+val pmatch_exh_any_no_match = store_thm("pmatch_exh_any_no_match",
+  ``(∀s p v env. pmatch_exh s p v env = No_match ⇒
+       ∀env. pmatch_exh s p v env = No_match) ∧
+    (∀s ps vs env. pmatch_list_exh s ps vs env = No_match ⇒
+       ∀env. pmatch_list_exh s ps vs env = No_match)``,
+  ho_match_mp_tac pmatch_exh_ind >>
+  rw[pmatch_exh_def] >>
+  pop_assum mp_tac >>
+  BasicProvers.CASE_TAC >>
+  fs[] >> strip_tac >> fs[] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  imp_res_tac pmatch_exh_any_match >>
+  metis_tac[match_result_distinct])
+
+val pmatch_exh_any_match_error = store_thm("pmatch_exh_any_match_error",
+  ``(∀s p v env. pmatch_exh s p v env = Match_type_error ⇒
+       ∀env. pmatch_exh s p v env = Match_type_error) ∧
+    (∀s ps vs env. pmatch_list_exh s ps vs env = Match_type_error ⇒
+       ∀env. pmatch_list_exh s ps vs env = Match_type_error)``,
+  rw[] >> qmatch_abbrev_tac`X = Y` >> Cases_on`X` >> fs[markerTheory.Abbrev_def] >>
+  metis_tac[match_result_distinct
+           ,pmatch_exh_any_no_match,pmatch_exh_any_match])
+
+val pmatch_list_exh_pairwise = store_thm("pmatch_list_exh_pairwise",
+  ``∀ps vs s env env'. pmatch_list_exh s ps vs env = Match env' ⇒
+      EVERY2 (λp v. ∀env. ∃env'. pmatch_exh s p v env = Match env') ps vs``,
+  Induct >> Cases_on`vs` >> simp[pmatch_exh_def] >>
+  rpt gen_tac >> BasicProvers.CASE_TAC >> strip_tac >>
+  res_tac >> simp[] >> metis_tac[pmatch_exh_any_match])
+
+val pmatch_list_exh_SNOC_nil = store_thm("pmatch_list_exh_SNOC_nil",
+  ``∀p ps v vs s env.
+      (pmatch_list_exh s [] (SNOC v vs) env = Match_type_error) ∧
+      (pmatch_list_exh s (SNOC p ps) [] env = Match_type_error)``,
+  Cases_on`ps`>>Cases_on`vs`>>simp[pmatch_exh_def])
+val _ = export_rewrites["pmatch_list_exh_SNOC_nil"]
+
+val pmatch_list_exh_SNOC = store_thm("pmatch_list_exh_SNOC",
+  ``∀ps vs p v s env. LENGTH ps = LENGTH vs ⇒
+      pmatch_list_exh s (SNOC p ps) (SNOC v vs) env =
+      case pmatch_list_exh s ps vs env of
+      | Match env' => pmatch_exh s p v env'
+      | res => res``,
+  Induct >> Cases_on`vs` >> simp[pmatch_exh_def] >> rw[] >>
+  BasicProvers.CASE_TAC)
+
+val pmatch_exh_APPEND = store_thm("pmatch_exh_APPEND",
+  ``(∀s p v env n.
+      (pmatch_exh s p v env =
+       map_match (combin$C APPEND (DROP n env)) (pmatch_exh s p v (TAKE n env)))) ∧
+    (∀s ps vs env n.
+      (pmatch_list_exh s ps vs env =
+       map_match (combin$C APPEND (DROP n env)) (pmatch_list_exh s ps vs (TAKE n env))))``,
+  ho_match_mp_tac pmatch_exh_ind >>
+  rw[pmatch_exh_def,libTheory.bind_def]
+  >- ( BasicProvers.CASE_TAC >> fs[] >>
+       BasicProvers.CASE_TAC >> fs[]) >>
+  pop_assum (qspec_then`n`mp_tac) >>
+  Cases_on `pmatch_exh s p v (TAKE n env)`>>fs[] >>
+  strip_tac >> res_tac >>
+  qmatch_assum_rename_tac`pmatch_exh s p v (TAKE n env) = Match env1`[] >>
+  pop_assum(qspec_then`LENGTH env1`mp_tac) >>
+  simp_tac(srw_ss())[rich_listTheory.TAKE_LENGTH_APPEND,rich_listTheory.DROP_LENGTH_APPEND] )
+
+val pmatch_exh_nil = save_thm("pmatch_exh_nil",
+  LIST_CONJ [
+    pmatch_exh_APPEND
+    |> CONJUNCT1
+    |> Q.SPECL[`s`,`p`,`v`,`env`,`0`]
+    |> SIMP_RULE(srw_ss())[]
+  ,
+    pmatch_exh_APPEND
+    |> CONJUNCT2
+    |> Q.SPECL[`s`,`ps`,`vs`,`env`,`0`]
+    |> SIMP_RULE(srw_ss())[]
+  ])
 
 val _ = export_theory ();

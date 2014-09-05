@@ -14,8 +14,9 @@ type Cprim1 = CRef | CDer | CIsBlock | CLen | CLenB | CLenV
             | CTagEq of nat | CProj of nat | CInitG of nat
             | CVfromList
 type Cprim2p = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq | CDerV
-type Cprim2s = CRefB | CDerB
+type Cprim2s = CRefB | CDerB | CRefA | CDerA
 type Cprim2 = P2p of Cprim2p | P2s of Cprim2s
+type Cupd = Up1 | UpA | UpB
 
 (* values in compile-time environment *)
 type ccbind = CCArg of nat | CCRef of nat | CCEnv of nat
@@ -41,7 +42,7 @@ type Cexp =
   | CCall of bool * Cexp * list Cexp
   | CPrim1 of Cprim1 * Cexp
   | CPrim2 of Cprim2 * Cexp * Cexp
-  | CUpd of bool * Cexp * Cexp * Cexp
+  | CUpd of Cupd * Cexp * Cexp * Cexp
   | CIf of Cexp * Cexp * Cexp
   | CExtG of nat
 
@@ -151,6 +152,11 @@ CevalPrim2s s CRefB (CLitv (Word8 w)) (CLitv (IntLit n)) =
   (s++[W8array (List.replicate (natFromInteger n) w)],
    Rval (CLoc (List.length s)))
 and
+CevalPrim2s s CRefA v (CLitv (IntLit n)) =
+  if n < 0 then (s, Rerr Rtype_error) else
+  (s++[Varray (List.replicate (natFromInteger n) v)],
+   Rval (CLoc (List.length s)))
+and
 CevalPrim2s s CDerB (CLoc n) (CLitv (IntLit i)) =
   (s,
   match el_check n s with
@@ -162,6 +168,17 @@ CevalPrim2s s CDerB (CLoc n) (CLitv (IntLit i)) =
   | _ -> Rerr Rtype_error
   end)
 and
+CevalPrim2s s CDerA (CLoc n) (CLitv (IntLit i)) =
+  (s,
+  match el_check n s with
+  | Just (Varray vs) ->
+    if i < 0 || List.length vs <= natFromInteger i then
+      Rerr Rtype_error
+    else
+      Rval (List_extra.nth vs (natFromInteger i))
+  | _ -> Rerr Rtype_error
+  end)
+and
 CevalPrim2s s _ _ _ = (s, Rerr Rtype_error)
 
 let rec
@@ -170,9 +187,9 @@ and
 CevalPrim2 ((c,s),g) (P2s x) y z =
   let (s,r) = CevalPrim2s s x y z in (((c,s),g),r)
 
-val CevalUpd : bool -> store Cv -> Cv -> Cv -> Cv -> store Cv * result Cv Cv
+val CevalUpd : Cupd -> store Cv -> Cv -> Cv -> Cv -> store Cv * result Cv Cv
 let rec
-CevalUpd false s (CLoc n) (CLitv (IntLit i)) (v:Cv) =
+CevalUpd Up1 s (CLoc n) (CLitv (IntLit i)) (v:Cv) =
   match el_check n s with
   | Just (Refv _) ->
     if i = 0 then
@@ -181,7 +198,16 @@ CevalUpd false s (CLoc n) (CLitv (IntLit i)) (v:Cv) =
   | _ -> (s, Rerr Rtype_error)
   end
 and
-CevalUpd true s (CLoc n) (CLitv (IntLit i)) (CLitv (Word8 w)) =
+CevalUpd UpA s (CLoc n) (CLitv (IntLit i)) (v:Cv) =
+  match el_check n s with
+  | Just (Varray vs) ->
+    if 0 <= i && natFromInteger i < List.length vs then
+      (List.update s n (Varray (List.update vs (natFromInteger i) v)), Rval (CLitv Unit))
+    else (s, Rerr Rtype_error)
+  | _ -> (s, Rerr Rtype_error)
+  end
+and
+CevalUpd UpB s (CLoc n) (CLitv (IntLit i)) (CLitv (Word8 w)) =
   match el_check n s with
   | Just (W8array ws) ->
     if 0 <= i && natFromInteger i < List.length ws then
@@ -216,6 +242,7 @@ and
 CevalPrim1 CLen (s,g) (CLoc n) =
   ((s,g), match el_check n s with
       | Just (Refv _) -> Rval (CLitv (IntLit 1))
+      | Just (Varray vs) -> Rval (CLitv (IntLit (integerFromNat (List.length vs))))
       | _ -> Rerr Rtype_error
       end)
 and

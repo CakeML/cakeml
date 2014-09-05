@@ -1,116 +1,45 @@
 open HolKernel bossLib boolLib boolSimps listTheory pairTheory rich_listTheory pred_setTheory arithmeticTheory finite_mapTheory relationTheory sortingTheory stringTheory
-open miscLib miscTheory bigStepTheory astTheory semanticPrimitivesTheory evalPropsTheory bigClockTheory replTheory terminationTheory
+open miscLib miscTheory bigStepTheory astTheory semanticPrimitivesTheory evalPropsTheory bigClockTheory replTheory printTheory terminationTheory
 open bytecodeTheory bytecodeExtraTheory bytecodeEvalTheory bytecodeClockTheory bytecodeLabelsTheory bytecodeTerminationTheory
 open modLangTheory conLangTheory decLangTheory exhLangTheory intLangTheory toIntLangTheory toBytecodeTheory compilerTheory intLangExtraTheory modLangProofTheory conLangProofTheory decLangProofTheory exhLangProofTheory patLangProofTheory intLangProofTheory bytecodeProofTheory free_varsTheory printingTheory compilerTerminationTheory
 
 val _ = new_theory"compilerProof"
 
-(* TODO: move *)
+(* misc (TODO: move?) *)
 
-val EVERY_sv_every_MAP_map_sv = store_thm("EVERY_sv_every_MAP_map_sv",
-  ``∀P f ls. EVERY P (MAP f (store_vs ls)) ⇒ EVERY (sv_every P) (MAP (map_sv f) ls)``,
-  rpt gen_tac >>
-  simp[EVERY_MAP,EVERY_MEM,store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER] >>
-  strip_tac >> Cases >> simp[] >> rw[] >> res_tac >> fs[])
+val to_i1_invariant_change_clock = store_thm("to_i1_invariant_change_clock",
+  ``to_i1_invariant genv mods tops menv env s s_i1 mod_names ∧
+    SND s' = SND s ∧ SND s_i1' = SND s_i1 ∧ FST s' = FST s_i1'
+    ⇒
+    to_i1_invariant genv mods tops menv env s' s_i1' mod_names``,
+  simp[to_i1_invariant_def] >>
+  rw[Once s_to_i1_cases] >>
+  rw[Once s_to_i1_cases] >>
+  metis_tac[pair_CASES,PAIR_EQ,SND,FST])
 
-val LIST_REL_store_vs_intro = store_thm("LIST_REL_store_vs_intro",
-  ``∀P l1 l2. LIST_REL (sv_rel P) l1 l2 ⇒ LIST_REL P (store_vs l1) (store_vs l2)``,
-  gen_tac >>
-  Induct >- simp[store_vs_def] >>
-  Cases >> simp[PULL_EXISTS,sv_rel_cases] >>
-  fs[store_vs_def])
+val to_i2_invariant_change_clock = store_thm("to_i2_invariant_change_clock",
+  ``to_i2_invariant mods tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ∧
+    SND s' = SND s ∧ SND s_i2' = SND s_i2 ∧ FST s' = FST s_i2'
+    ⇒
+    to_i2_invariant mods tids envC exh tagenv_st gtagenv s' s_i2' genv genv_i2``,
+  simp[to_i2_invariant_def] >>
+  rw[Once s_to_i2_cases] >>
+  rw[Once s_to_i2_cases] >>
+  metis_tac[pair_CASES,PAIR_EQ,SND,FST])
 
-val sv_to_i2_sv_rel = store_thm("sv_to_i2_sv_rel",
-  ``∀g. sv_to_i2 g = sv_rel (v_to_i2 g)``,
-  rw[FUN_EQ_THM,sv_to_i2_cases,EQ_IMP_THM,sv_rel_cases])
+val to_i1_invariant_change_store = store_thm("to_i1_invariant_change_store",
+  ``to_i1_invariant genv mods tops menv env s s_i1 mod_names ∧
+    s_to_i1 genv s' s_i1'
+    ⇒
+    to_i1_invariant genv mods tops menv env s' s_i1' mod_names``,
+  simp[to_i1_invariant_def])
 
-val sv_to_i1_sv_rel = store_thm("sv_to_i1_sv_rel",
-  ``∀g. sv_to_i1 g = sv_rel (v_to_i1 g)``,
-  rw[FUN_EQ_THM,sv_to_i1_cases,EQ_IMP_THM,sv_rel_cases])
-
-val EVERY_sv_every_EVERY_store_vs = store_thm("EVERY_sv_every",
-  ``∀P ls. EVERY (sv_every P ) ls ⇔ EVERY P (store_vs ls)``,
-  rw[EVERY_MEM,EQ_IMP_THM,store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER] >>
-  res_tac >> TRY(Cases_on`e`) >> TRY(Cases_on`y`) >> fs[])
-
-val EVERY_store_vs_intro = store_thm("EVERY_store_vs_intro",
-  ``∀P ls. EVERY (sv_every P) ls ⇒ EVERY P (store_vs ls)``,
-  rw[EVERY_MEM,store_vs_def,MEM_MAP,MEM_FILTER] >>
-  res_tac >>
-  qmatch_assum_rename_tac`sv_every P x`[] >>
-  Cases_on`x`>>fs[])
-
-val vs_to_i2_MAP = store_thm("vs_to_i2_MAP",
-  ``∀g vs1 vs2. vs_to_i2 g vs1 vs2 ⇔ LIST_REL (v_to_i2 g) vs1 vs2``,
-  gen_tac >> Induct >> simp[Once v_to_i2_cases])
-
-val vs_to_i1_MAP = store_thm("vs_to_i1_MAP",
-  ``∀g vs1 vs2. vs_to_i1 g vs1 vs2 ⇔ LIST_REL (v_to_i1 g) vs1 vs2``,
-  gen_tac >> Induct >> simp[Once v_to_i1_cases])
-
-val map_sv_compose = store_thm("map_sv_compose",
-  ``map_sv f (map_sv g x) = map_sv (f o g) x``,
-  Cases_on`x`>>simp[])
-
-val Cv_bv_can_Print = save_thm("Cv_bv_can_Print",prove(
-  ``(∀Cv bv. Cv_bv pp Cv bv ⇒ IS_SOME (bv_to_string bv)) ∧
-    (∀bvs ce env defs. benv_bvs pp bvs ce env defs ⇒ T)``,
-  ho_match_mp_tac Cv_bv_ind >> simp[bv_to_string_def,bvs_to_chars_thm] >>
-  rw[] >> pop_assum mp_tac >> simp[] >>
-  simp[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >> rw[] >>
-  rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,MEM_EL,EL_MAP])
-  |> CONJUNCT1)
-
-val LIST_REL_sv_rel_exh_Cv_syneq_trans = store_thm("LIST_REL_sv_rel_exh_Cv_syneq_trans",
-  ``∀vs Cvs Cvs2.
-     LIST_REL (sv_rel syneq) Cvs Cvs2 ∧
-     LIST_REL (sv_rel exh_Cv) vs Cvs ⇒
-     LIST_REL (sv_rel exh_Cv) vs Cvs2``,
-  rw[EVERY2_EVERY,EVERY_MEM] >> rfs[MEM_ZIP,PULL_EXISTS] >>
-  fs[sv_rel_cases,PULL_EXISTS] >> rw[] >>
-  metis_tac[exh_Cv_syneq_trans,store_v_distinct,store_v_11])
-
-val ZIP_EQ_NIL = store_thm("ZIP_EQ_NIL",
-  ``∀l1 l2. LENGTH l1 = LENGTH l2 ⇒ (ZIP (l1,l2) = [] ⇔ (l1 = [] ∧ l2 = []))``,
-  rpt gen_tac >> Cases_on`l1`>>rw[LENGTH_NIL_SYM]>> Cases_on`l2`>>fs[])
-
-val FUPDATE_LIST_EQ_FEMPTY = store_thm("FUPDATE_LIST_EQ_FEMPTY",
-  ``∀fm ls. fm |++ ls = FEMPTY ⇔ fm = FEMPTY ∧ ls = []``,
-  rw[EQ_IMP_THM,FUPDATE_LIST_THM] >>
-  fs[GSYM fmap_EQ_THM,FDOM_FUPDATE_LIST])
-
-val bc_next_gvrel = store_thm("bc_next_gvrel",
-  ``∀bs1 bs2. bc_next bs1 bs2 ⇒ gvrel bs1.globals bs2.globals``,
-  ho_match_mp_tac bytecodeTheory.bc_next_ind >>
-  simp[bytecodeTheory.bump_pc_def] >>
-  rw[] >- ( BasicProvers.CASE_TAC >> simp[] ) >>
-  simp[bytecodeProofTheory.gvrel_def] >> rw[EL_LUPDATE] >>
-  simp[rich_listTheory.EL_APPEND1])
-
-val RTC_bc_next_gvrel = store_thm("RTC_bc_next_gvrel",
-  ``∀bs1 bs2. RTC bc_next bs1 bs2 ⇒
-    gvrel bs1.globals bs2.globals``,
-  ho_match_mp_tac relationTheory.RTC_lifts_reflexive_transitive_relations >>
-  rw[relationTheory.reflexive_def,relationTheory.transitive_def,bc_next_gvrel] >>
-  metis_tac[bytecodeProofTheory.gvrel_trans])
-
-val same_length_gvrel_same = store_thm("same_length_gvrel_same",
-  ``∀l1 l2. LENGTH l1 = LENGTH l2 ∧ EVERY IS_SOME l1 ∧ gvrel l1 l2 ⇒ l1 = l2``,
-  rw[gvrel_def,LIST_EQ_REWRITE,EVERY_MEM,MEM_EL,PULL_EXISTS,IS_SOME_EXISTS] >>
-  metis_tac[])
-
-val exps_to_i1_MAP = store_thm("exps_to_i1_MAP",
-  ``∀es. exps_to_i1 a b es = MAP (exp_to_i1 a b) es``,
-  Induct >> simp[exp_to_i1_def])
-val exps_to_i2_MAP = store_thm("exps_to_i2_MAP",
-  ``∀es. exps_to_i2 a es = MAP (exp_to_i2 a) es``,
-  Induct >> simp[exp_to_i2_def])
-val exps_to_exh_MAP = store_thm("exps_to_exh_MAP",
-  ``∀es. exps_to_exh a es = MAP (exp_to_exh a) es``,
-  Induct >> simp[exp_to_exh_def])
-val exps_to_pat_MAP = store_thm("exps_to_pat_MAP",
-  ``∀es. exps_to_pat a es = MAP (exp_to_pat a) es``,
-  Induct >> simp[exp_to_pat_def])
+val to_i2_invariant_change_store = store_thm("to_i2_invariant_change_store",
+  ``to_i2_invariant mods tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ∧
+    s_to_i2 gtagenv s' s_i2'
+    ⇒
+    to_i2_invariant mods tids envC exh tagenv_st gtagenv s' s_i2' genv genv_i2``,
+  simp[to_i2_invariant_def] >> metis_tac[])
 
 val evaluate_prompt_i1_success_globals = store_thm("evaluate_prompt_i1_success_globals",
   ``∀ck genv cenv s prompt_i1 s' cenv' new_genv.
@@ -145,8 +74,6 @@ val FILTER_is_Label_local_labels = store_thm("FILTER_is_Label_local_labels[simp]
 val MEM_Label_local_labels = store_thm("MEM_Label_local_labels[simp]",
   ``∀l c. MEM (Label l) (local_labels c) ⇔ MEM (Label l) c``,
   rw[local_labels_def,MEM_FILTER])
-
-(* misc *)
 
 val code_env_cd_append = store_thm("code_env_cd_append",
   ``∀code cd code'. code_env_cd code cd ∧ ALL_DISTINCT (FILTER is_Label (code ++ code')) ⇒ code_env_cd (code ++ code') cd``,
@@ -270,7 +197,7 @@ val exp_pat_syneq_exp = store_thm("exp_pat_syneq_exp",
         Cases_on`o'`>>simp[]>-(
           Cases_on`o''`>>simp[]>>
           simp[Once syneq_exp_cases] >>
-          simp[Once syneq_exp_cases] >>
+          simp[Once syneq_exp_cases] >> (
           conj_tac >- (
             match_mp_tac syneq_exp_shift_both >>
             first_assum (match_exists_tac o concl) >> simp[] >>
@@ -282,7 +209,7 @@ val exp_pat_syneq_exp = store_thm("exp_pat_syneq_exp",
             first_assum (match_exists_tac o concl) >> simp[] >>
             fs[SUBSET_DEF] >>
             simp[O_DEF,inv_DEF,PULL_EXISTS] ) >>
-          rpt(simp[Once syneq_exp_cases])) >>
+          rpt(simp[Once syneq_exp_cases]))) >>
         simp[Once syneq_exp_cases]) >>
       simp[Once syneq_exp_cases]) >>
     `∃h4 t4. t3 = h4::t4` by (Cases_on`t3`>>fs[]) >> fs[]>>
@@ -1342,41 +1269,6 @@ val env_rs_def = Define`
       closed_vlabs [] ((cnt,Cs),Cg) bs.code ∧
       Cenv_bs rd ((cnt,Cs),Cg) [] [] 0 bs`
 
-(* TODO: move *)
-val to_i1_invariant_change_clock = store_thm("to_i1_invariant_change_clock",
-  ``to_i1_invariant genv mods tops menv env s s_i1 mod_names ∧
-    SND s' = SND s ∧ SND s_i1' = SND s_i1 ∧ FST s' = FST s_i1'
-    ⇒
-    to_i1_invariant genv mods tops menv env s' s_i1' mod_names``,
-  simp[to_i1_invariant_def] >>
-  rw[Once s_to_i1_cases] >>
-  rw[Once s_to_i1_cases] >>
-  metis_tac[pair_CASES,PAIR_EQ,SND,FST])
-
-val to_i2_invariant_change_clock = store_thm("to_i2_invariant_change_clock",
-  ``to_i2_invariant mods tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ∧
-    SND s' = SND s ∧ SND s_i2' = SND s_i2 ∧ FST s' = FST s_i2'
-    ⇒
-    to_i2_invariant mods tids envC exh tagenv_st gtagenv s' s_i2' genv genv_i2``,
-  simp[to_i2_invariant_def] >>
-  rw[Once s_to_i2_cases] >>
-  rw[Once s_to_i2_cases] >>
-  metis_tac[pair_CASES,PAIR_EQ,SND,FST])
-
-val to_i1_invariant_change_store = store_thm("to_i1_invariant_change_store",
-  ``to_i1_invariant genv mods tops menv env s s_i1 mod_names ∧
-    s_to_i1 genv s' s_i1'
-    ⇒
-    to_i1_invariant genv mods tops menv env s' s_i1' mod_names``,
-  simp[to_i1_invariant_def])
-
-val to_i2_invariant_change_store = store_thm("to_i2_invariant_change_store",
-  ``to_i2_invariant mods tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ∧
-    s_to_i2 gtagenv s' s_i2'
-    ⇒
-    to_i2_invariant mods tids envC exh tagenv_st gtagenv s' s_i2' genv genv_i2``,
-  simp[to_i2_invariant_def] >> metis_tac[])
-
 val env_rs_change_clock = store_thm("env_rs_change_clock",
    ``∀env stm grd rs bs stm' ck bs' new_clock.
      env_rs env stm grd rs bs ∧ stm' = ((ck,SND(FST stm)),SND stm) ∧
@@ -1631,18 +1523,34 @@ val tac3=
   match_mp_tac EVERY2_MEM_MONO >>
   HINT_EXISTS_TAC >>
   simp[exh_Cv_def,optionTheory.OPTREL_def,UNCURRY] >- (
-    rw[] >> rw[] >> fs[sv_rel_cases] >>
-    fs[exh_Cv_def] >>
-    first_x_assum(mp_tac o MATCH_MP v_pat_syneq) >>
-    discharge_hyps >- (
-      simp[] >>
-      fs[csg_closed_pat_def,EVERY_MAP,EVERY_MEM,map_count_store_genv_def] >>
-      imp_res_tac MEM_ZIP_MEM_MAP >>
-      imp_res_tac EVERY2_LENGTH >> fs[] >>
-      fs[MEM_MAP,PULL_EXISTS] >>
-      first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
-      simp[]) >>
-    metis_tac[syneq_trans] ) >>
+    rw[] >> rw[] >> fs[sv_rel_cases] >- (
+      fs[exh_Cv_def] >>
+      first_x_assum(mp_tac o MATCH_MP v_pat_syneq) >>
+      discharge_hyps >- (
+        simp[] >>
+        fs[csg_closed_pat_def,EVERY_MAP,EVERY_MEM,map_count_store_genv_def] >>
+        imp_res_tac MEM_ZIP_MEM_MAP >>
+        imp_res_tac EVERY2_LENGTH >> fs[] >>
+        fs[MEM_MAP,PULL_EXISTS] >>
+        first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
+        simp[]) >>
+      metis_tac[syneq_trans] ) >>
+    simp[EVERY2_MAP] >>
+    match_mp_tac EVERY2_MEM_MONO >>
+    qexists_tac`exh_Cv` >>
+    imp_res_tac LIST_REL_LENGTH >>
+    simp[exh_Cv_def,PULL_EXISTS,MEM_ZIP,FORALL_PROD] >>
+    rw[] >>
+    match_mp_tac (MP_CANON syneq_trans) >>
+    HINT_EXISTS_TAC >> simp[] >>
+    match_mp_tac (MP_CANON v_pat_syneq) >> simp[] >>
+    rator_x_assum`csg_closed_pat`mp_tac >>
+    simp[csg_closed_pat_def,EVERY_MEM,map_count_store_genv_def,MEM_MAP,PULL_EXISTS] >>
+    strip_tac >>
+    first_x_assum(qspec_then`FST x`mp_tac) >>
+    simp[EVERY_MAP,EVERY_MEM] >> disch_then (match_mp_tac o MP_CANON) >>
+    fs[MEM_ZIP] >> rfs[] >>
+    metis_tac[MEM_EL] ) >>
   rw[] >> rw[] >>
   first_x_assum(mp_tac o MATCH_MP v_pat_syneq) >>
   discharge_hyps >- (
@@ -1749,7 +1657,10 @@ val tac7=
   match_mp_tac EVERY2_MEM_MONO >>
   HINT_EXISTS_TAC >> simp[] >>
   simp[FORALL_PROD] >>
-  Cases >> Cases >> simp[sv_rel_cases] >>
+  reverse (Cases >> Cases >> simp[sv_rel_cases]) >>
+  simp[EVERY2_MAP] >> strip_tac >>
+  TRY(match_mp_tac EVERY2_MEM_MONO >> HINT_EXISTS_TAC >>
+      imp_res_tac LIST_REL_LENGTH >> simp[MEM_ZIP,PULL_EXISTS]) >>
   rw[exh_Cv_def] >> rw[] >>
   HINT_EXISTS_TAC >> simp[] >>
   first_x_assum(mp_tac o MATCH_MP (CONJUNCT1 evaluate_pat_closed)) >>
@@ -1758,7 +1669,7 @@ val tac7=
   imp_res_tac EVERY2_LENGTH >>
   imp_res_tac MEM_ZIP_MEM_MAP >>
   rfs[] >>
-  metis_tac[sv_every_def]
+  metis_tac[sv_every_def,EVERY_MEM,MEM_EL]
 
 val tac9=
   rator_x_assum`contains_primitives`mp_tac >>
@@ -2150,10 +2061,10 @@ val compile_top_thm = store_thm("compile_top_thm",
       first_x_assum(qspec_then`n`mp_tac) >>
       simp[] >> ntac 2 strip_tac >>
       ((qmatch_rename_tac`convert_t tt = X ⇔ Y`["X","Y"] >>
-        Cases_on`tt`>>fs[inferSoundTheory.convert_t_def])
+        Cases_on`tt`>>fs[inferPropsTheory.convert_t_def])
        ORELSE
        (qmatch_rename_tac`convert_t tt ≠ X`["X"] >>
-       Cases_on`tt`>>fs[inferSoundTheory.convert_t_def] ))) >>
+       Cases_on`tt`>>fs[inferPropsTheory.convert_t_def] ))) >>
     conj_asm2_tac >- (
       first_x_assum(strip_assume_tac o MATCH_MP evaluate_prompt_i1_success_globals) >>
       simp[Abbr`bs2`] >> rw[] >>
@@ -3076,40 +2987,6 @@ val tac22=
   first_assum(match_exists_tac o concl) >> simp[]>>
   first_assum(match_exists_tac o concl) >> simp[]
 
-val tac3=
-  simp[syneq_exp_refl] >>
-  fs[store_to_exh_def] >>
-  simp[Abbr`Csg`,map_count_store_genv_def,csg_rel_def] >>
-  simp[MAP_MAP_o,optionTheory.OPTION_MAP_COMPOSE,combinTheory.o_DEF] >>
-  simp[EVERY2_MAP] >>
-  conj_tac >>
-  match_mp_tac EVERY2_MEM_MONO >>
-  HINT_EXISTS_TAC >>
-  simp[exh_Cv_def,optionTheory.OPTREL_def,UNCURRY] >- (
-    rw[] >> rw[] >> fs[sv_rel_cases] >>
-    fs[exh_Cv_def] >>
-    first_x_assum(mp_tac o MATCH_MP v_pat_syneq) >>
-    discharge_hyps >- (
-      simp[] >>
-      fs[csg_closed_pat_def,EVERY_MAP,EVERY_MEM,map_count_store_genv_def] >>
-      imp_res_tac MEM_ZIP_MEM_MAP >>
-      imp_res_tac EVERY2_LENGTH >> fs[] >>
-      fs[MEM_MAP,PULL_EXISTS] >>
-      first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
-      simp[]) >>
-    metis_tac[syneq_trans] ) >>
-  rw[] >> rw[] >>
-  first_x_assum(mp_tac o MATCH_MP v_pat_syneq) >>
-  discharge_hyps >- (
-    simp[] >>
-    fs[csg_closed_pat_def,EVERY_MAP,EVERY_MEM] >>
-    first_x_assum(qspec_then`OPTION_MAP v_to_pat (FST x)`mp_tac) >>
-    simp[map_count_store_genv_def] >>
-    disch_then match_mp_tac >>
-    simp[MEM_MAP,PULL_EXISTS] >>
-    metis_tac[MEM_ZIP_MEM_MAP,EVERY2_LENGTH,FST,SND] ) >>
-  metis_tac[syneq_trans]
-
 val compile_prog_thm = store_thm("compile_prog_thm",
   ``∀ck env stm prog res. evaluate_whole_prog ck env stm prog res ⇒
      ∀grd rs rss rsf bc bs bc0.
@@ -3178,7 +3055,7 @@ val compile_prog_thm = store_thm("compile_prog_thm",
     fs[] ) >>
   simp[] >>
   (discharge_hyps >- (
-     simp[flookup_fupdate_list,FLOOKUP_FUNION] >>
+     simp[alistTheory.flookup_fupdate_list,FLOOKUP_FUNION] >>
      Cases_on`res6`>>fs[GSYM FORALL_PROD] >>
      TRY (conj_tac >- (fs[result_to_i2_cases,result_to_i1_cases] >> rw[])) >>
      BasicProvers.CASE_TAC >>
@@ -3741,6 +3618,7 @@ val compile_special_thm = store_thm("compile_special_thm",
         bc_next^* bs bs' ∧
         bc_fetch bs' = SOME (Stop T) ∧
         bs'.output = bs.output ∧
+        bs'.handler = bs.handler ∧
         (EVERY IS_SOME bs.globals ⇒ bs'.globals = bs.globals) ∧
         env_rs env (s,tm) grd' rs bs'``,
   ho_match_mp_tac evaluate_top_ind >> simp[] >>
@@ -4028,6 +3906,9 @@ val compile_special_thm = store_thm("compile_special_thm",
     HINT_EXISTS_TAC >> simp[] >>
     simp[FORALL_PROD] >>
     Cases >> Cases >> simp[sv_rel_cases] >>
+    simp[EVERY2_MAP] >> strip_tac >>
+    TRY(match_mp_tac EVERY2_MEM_MONO >> HINT_EXISTS_TAC >>
+      imp_res_tac LIST_REL_LENGTH >> simp[MEM_ZIP,PULL_EXISTS]) >>
     rw[exh_Cv_def] >> rw[] >>
     HINT_EXISTS_TAC >> simp[] >>
     first_x_assum(mp_tac o MATCH_MP (CONJUNCT1 evaluate_pat_closed)) >>
@@ -4036,7 +3917,7 @@ val compile_special_thm = store_thm("compile_special_thm",
     imp_res_tac EVERY2_LENGTH >>
     imp_res_tac MEM_ZIP_MEM_MAP >>
     rfs[] >>
-    metis_tac[sv_every_def]) >>
+    metis_tac[sv_every_def,MEM_EL,EVERY_MEM]) >>
   conj_tac >- (
     rator_x_assum`Cevaluate`mp_tac >>
     specl_args_of_then``Cevaluate``Cevaluate_closed_vlabs mp_tac >>

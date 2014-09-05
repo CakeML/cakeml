@@ -96,7 +96,8 @@ val _ = Define `
 /\
 (fo_pat (App_pat op es) =
   ((op <> (Op_pat (Op_i2 Opapp))) /\  
-(op <> (Op_pat (Op_i2 Opderef))) /\
+(op <> (Op_pat (Op_i2 Opderef))) /\  
+(op <> (Op_pat (Op_i2 Asub))) /\
   (! n. op <> El_pat n) /\
   fo_list_pat es))
 /\
@@ -122,10 +123,13 @@ val _ = Define `
 (op <> Equality) /\  
 (op <> Opapp) /\  
 (op <> Opassign) /\  
+(op <> Aw8update) /\  
+(op <> Aw8alloc) /\  
+(op <> Aw8sub) /\  
+(op <> Vsub) /\  
 (op <> Aupdate) /\  
 (op <> Aalloc) /\  
 (op <> Asub) /\  
-(op <> Vsub) /\  
 (op <> (Opn Divide)) /\  
 (op <> (Opn Modulo))))`;
 
@@ -504,7 +508,7 @@ val _ = Define `
           )
         else
           NONE
-    | (Op_pat (Op_i2 Aalloc), [Litv_pat (IntLit n); Litv_pat (Word8 w)]) =>
+    | (Op_pat (Op_i2 Aw8alloc), [Litv_pat (IntLit n); Litv_pat (Word8 w)]) =>
         if n <( 0 : int) then
           SOME (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
         else
@@ -512,7 +516,7 @@ val _ = Define `
 (store_alloc (W8array (REPLICATE (Num (ABS ( n))) w)) s)
           in
             SOME (((cnt,st),genv), Rval (Loc_pat lnum))
-    | (Op_pat (Op_i2 Asub), [Loc_pat lnum; Litv_pat (IntLit i)]) =>
+    | (Op_pat (Op_i2 Aw8sub), [Loc_pat lnum; Litv_pat (IntLit i)]) =>
         (case store_lookup lnum s of
             SOME (W8array ws) =>
               if i <( 0 : int) then
@@ -525,13 +529,13 @@ val _ = Define `
                     SOME (((cnt,s),genv), Rval (Litv_pat (Word8 (EL n ws))))
           | _ => NONE
         )
-    | (Op_pat (Op_i2 Alength), [Loc_pat n]) =>
+    | (Op_pat (Op_i2 Aw8length), [Loc_pat n]) =>
         (case store_lookup n s of
             SOME (W8array ws) =>
               SOME (((cnt,s),genv),Rval (Litv_pat (IntLit (int_of_num (LENGTH ws)))))
           | _ => NONE
         )
-    | (Op_pat (Op_i2 Aupdate), [Loc_pat lnum; Litv_pat (IntLit i); Litv_pat (Word8 w)]) =>
+    | (Op_pat (Op_i2 Aw8update), [Loc_pat lnum; Litv_pat (IntLit i); Litv_pat (Word8 w)]) =>
         (case store_lookup lnum s of
           SOME (W8array ws) =>
             if i <( 0 : int) then
@@ -562,6 +566,51 @@ val _ = Define `
               SOME (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
             else 
               SOME (((cnt,s),genv), Rval (EL n vs))
+    | (Op_pat (Op_i2 Vlength), [Vectorv_pat vs]) =>
+        SOME (((cnt,s),genv), Rval (Litv_pat (IntLit (int_of_num (LENGTH vs)))))
+    | (Op_pat (Op_i2 Aalloc), [Litv_pat (IntLit n); v]) =>
+        if n <( 0 : int) then
+          SOME (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
+        else
+          let (s',lnum) =            
+(store_alloc (Varray (REPLICATE (Num (ABS ( n))) v)) s)
+          in 
+            SOME (((cnt,s'),genv), Rval (Loc_pat lnum))
+    | (Op_pat (Op_i2 Asub), [Loc_pat lnum; Litv_pat (IntLit i)]) =>
+        (case store_lookup lnum s of
+            SOME (Varray vs) =>
+              if i <( 0 : int) then
+                SOME (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
+              else
+                let n = (Num (ABS ( i))) in
+                  if n >= LENGTH vs then
+                    SOME (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
+                  else 
+                    SOME (((cnt,s),genv), Rval (EL n vs))
+          | _ => NONE
+        )
+    | (Op_pat (Op_i2 Alength), [Loc_pat n]) =>
+        (case store_lookup n s of
+            SOME (Varray ws) =>
+              SOME (((cnt,s),genv),Rval (Litv_pat (IntLit(int_of_num(LENGTH ws)))))
+          | _ => NONE
+         )
+    | (Op_pat (Op_i2 Aupdate), [Loc_pat lnum; Litv_pat (IntLit i); v]) =>
+        (case store_lookup lnum s of
+          SOME (Varray vs) =>
+            if i <( 0 : int) then
+              SOME (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
+            else 
+              let n = (Num (ABS ( i))) in
+                if n >= LENGTH vs then
+                  SOME (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
+                else
+                  (case store_assign lnum (Varray (LUPDATE v n vs)) s of
+                      NONE => NONE
+                    | SOME s' => SOME (((cnt,s'),genv), Rval (Litv_pat Unit))
+                  )
+        | _ => NONE
+      )
     | (Tag_eq_pat n, [Conv_pat tag _]) =>
         SOME (((cnt,s),genv), Rval (Litv_pat (Bool (tag = n))))
     | (El_pat n, [Conv_pat _ vs]) =>

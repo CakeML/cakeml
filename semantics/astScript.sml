@@ -21,34 +21,12 @@ val _ = Hol_datatype `
   | Word8 of word8`;
 
 
-(* Built-in binary operations (including function application) *)
-
+(* Built-in binary operations *)
 val _ = Hol_datatype `
  opn = Plus | Minus | Times | Divide | Modulo`;
 
 val _ = Hol_datatype `
  opb = Lt | Gt | Leq | Geq`;
-
-
-(*val opn_lookup : opn -> integer -> integer -> integer*)
-val _ = Define `
- (opn_lookup n : int -> int -> int = ((case n of
-    Plus => (+)
-  | Minus => (-)
-  | Times => ( * )
-  | Divide => (/)
-  | Modulo => (%)
-)))`;
-
-
-(*val opb_lookup : opb -> integer -> integer -> bool*)
-val _ = Define `
- (opb_lookup n : int -> int -> bool = ((case n of
-    Lt => (<)
-  | Gt => (>)
-  | Leq => (<=)
-  | Geq => (>=)
-)))`;
 
 
 (* Module names *)
@@ -60,16 +38,6 @@ val _ = Hol_datatype `
     Short of 'a
   | Long of modN => 'a`;
 
-
-(*
-instance forall 'a. Eq 'a => (Eq (id 'a))
-  let (=) x y =
-    match (x,y) with
-      | (Short a, Short b) -> a = b
-      | (Long mn a, Long mn' b) -> mn = mn' && (a = b)
-    end
-end
-*)
 
 (* Variable names *)
 val _ = type_abbrev( "varN" , ``: string``);
@@ -101,39 +69,49 @@ val _ = Define `
   )))`;
 
 
-(* Opapp is function application. *)
 val _ = Hol_datatype `
  op =
+  (* Operations on integers *)
     Opn of opn
   | Opb of opb
   | Equality
+  (* Function application *)
   | Opapp
+  (* Reference operations *)
   | Opassign
   | Opref
   | Opderef
   (* Word8Array operations *)
+  | Aw8alloc
+  | Aw8sub
+  | Aw8length
+  | Aw8update
+  (* Vector operations *)
+  | VfromList
+  | Vsub
+  | Vlength
+  (* Array operations *)
   | Aalloc
   | Asub
   | Alength
-  | Aupdate
-  (* Vector operations *)
-  | VfromList
-  | Vsub`;
+  | Aupdate`;
 
 
-(* Built-in logical operations *)
+(* Logical operations *)
 val _ = Hol_datatype `
  lop =
     And
   | Or`;
 
 
-(* Types
+(* Type constructors.
  * 0-ary type applications represent unparameterised types (e.g., num or string)
  *)
 val _ = Hol_datatype `
  tctor =
+  (* User defined types *)
     TC_name of typeN id
+  (* Built-in types *)
   | TC_int
   | TC_string
   | TC_bool
@@ -144,17 +122,22 @@ val _ = Hol_datatype `
   | TC_fn
   | TC_tup
   | TC_exn
-  | TC_vector`;
+  | TC_vector
+  | TC_array`;
 
 
+(* Types *)
 val _ = Hol_datatype `
  t =
+  (* Type variables that the user writes down ('a, 'b, etc.) *)
     Tvar of tvarN
-  (* DeBruin indexed type variables. *)
+  (* DeBruin indexed type variables. 
+     The type system uses these internally. *)
   | Tvar_db of num
   | Tapp of t list => tctor`;
 
 
+(* Some abbreviations *)
 val _ = Define `
  (Tint = (Tapp [] TC_int))`;
 
@@ -188,7 +171,8 @@ val _ = Hol_datatype `
  pat =
     Pvar of varN
   | Plit of lit
-  (* Constructor applications. *)
+  (* Constructor applications. 
+     A Nothing constructor indicates a tuple pattern. *)
   | Pcon of  ( conN id)option => pat list
   | Pref of pat`;
 
@@ -199,21 +183,27 @@ val _ = Hol_datatype `
     Raise of exp
   | Handle of exp => (pat # exp) list
   | Lit of lit
-  (* Constructor application. *)
+  (* Constructor application.
+     A Nothing constructor indicates a tuple pattern. *)
   | Con of  ( conN id)option => exp list
   | Var of varN id
   | Fun of varN => exp
-  (* Application of a primitive operator to arguments. Includes function application. *)
+  (* Application of a primitive operator to arguments.
+     Includes function application. *)
   | App of op => exp list
   (* Logical operations (and, or) *)
   | Log of lop => exp => exp
   | If of exp => exp => exp
   (* Pattern matching *)
   | Mat of exp => (pat # exp) list
+  (* A let expression
+     A Nothing value for the binding indicates that this is a
+     sequencing expression, that is: (e1; e2). *)
   | Let of  varN option => exp => exp
-  (* Local definition of (potentially) mutually recursive functions
-   * The first varN is the function's name, and the second varN is its
-   * parameter. *)
+  (* Local definition of (potentially) mutually recursive
+     functions.
+     The first varN is the function's name, and the second varN
+     is its parameter. *)
   | Letrec of (varN # varN # exp) list => exp`;
 
 
@@ -223,21 +213,25 @@ val _ = type_abbrev( "type_def" , ``: ( tvarN list # typeN # (conN # t list) lis
 val _ = Hol_datatype `
  dec =
   (* Top-level bindings
-   * The number is how many type variables are bound.
    * The pattern allows several names to be bound at once *)
     Dlet of pat => exp
   (* Mutually recursive function definition *)
   | Dletrec of (varN # varN # exp) list
   (* Type definition
-     Defines several types, each of which has several named variants, which can
-     in turn have several arguments *)
+     Defines several data types, each of which has several
+     named variants, which can in turn have several arguments.
+   *)
   | Dtype of type_def
+  (* Type abbreviations *)
   | Dtabbrev of tvarN list => typeN => t
+  (* New exceptions *)
   | Dexn of conN => t list`;
 
 
 val _ = type_abbrev( "decs" , ``: dec list``); 
 
+(* Specifications
+   For giving the signature of a module *)
 val _ = Hol_datatype `
  spec =
     Sval of varN => t

@@ -20,7 +20,7 @@ val _ = new_theory "typeSoundInvariants"
 (*import List_extra*)
 
 val _ = Hol_datatype `
- store_t = Ref_t of t | W8array_t`;
+ store_t = Ref_t of t | W8array_t | Varray_t of t`;
 
 
 (* Store typing *)
@@ -214,6 +214,12 @@ type_v tvs cenv senv (Loc n) (Tref t))
 ==>
 type_v tvs cenv senv (Loc n) Tword8array)
 
+/\ (! tvs cenv senv n t.
+(check_freevars( 0) [] t /\
+(lib$lookup n senv = SOME (Varray_t t)))
+==>
+type_v tvs cenv senv (Loc n) (Tapp [t] TC_array))
+
 /\ (! tvs cenv senv vs t.
 (check_freevars( 0) [] t /\
 EVERY (\ v .  type_v tvs cenv senv v t) vs)
@@ -262,6 +268,7 @@ val _ = Define `
        (case (sv,st) of
            (Refv v, Ref_t t) => type_v( 0) cenv senv v t
          | (W8array es, W8array_t) => T
+         | (Varray vs, Varray_t t) => EVERY (\ v .  type_v( 0) cenv senv v t) vs
          | _ => F
        ))))`;
 

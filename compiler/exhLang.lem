@@ -358,7 +358,7 @@ let do_app_exh ((count,s),genv) op vs =
           end
         else
           Nothing
-    | (Op_i2 Aalloc, [Litv_exh (IntLit n); Litv_exh (Word8 w)]) ->
+    | (Op_i2 Aw8alloc, [Litv_exh (IntLit n); Litv_exh (Word8 w)]) ->
         if n < 0 then
           Just (((count,s),genv), Rerr (Rraise (prim_exn_exh subscript_tag)))
         else
@@ -366,7 +366,7 @@ let do_app_exh ((count,s),genv) op vs =
             store_alloc (W8array (List.replicate (natFromInteger n) w)) s
           in 
             Just (((count,s'),genv), Rval (Loc_exh lnum))
-    | (Op_i2 Asub, [Loc_exh lnum; Litv_exh (IntLit i)]) ->
+    | (Op_i2 Aw8sub, [Loc_exh lnum; Litv_exh (IntLit i)]) ->
         match store_lookup lnum s with
           | Just (W8array ws) ->
               if i < 0 then
@@ -379,13 +379,13 @@ let do_app_exh ((count,s),genv) op vs =
                     Just (((count,s),genv), Rval (Litv_exh (Word8 (List_extra.nth ws n))))
           | _ -> Nothing
         end
-    | (Op_i2 Alength, [Loc_exh n]) ->
+    | (Op_i2 Aw8length, [Loc_exh n]) ->
         match store_lookup n s with
           | Just (W8array ws) ->
               Just (((count,s),genv),Rval (Litv_exh(IntLit(integerFromNat(List.length ws)))))
           | _ -> Nothing
          end
-    | (Op_i2 Aupdate, [Loc_exh lnum; Litv_exh(IntLit i); Litv_exh(Word8 w)]) ->
+    | (Op_i2 Aw8update, [Loc_exh lnum; Litv_exh(IntLit i); Litv_exh(Word8 w)]) ->
         match store_lookup lnum s with
         | Just (W8array ws) ->
             if i < 0 then
@@ -416,6 +416,51 @@ let do_app_exh ((count,s),genv) op vs =
               Just (((count,s),genv), Rerr (Rraise (prim_exn_exh subscript_tag)))
             else 
               Just (((count,s),genv), Rval (List_extra.nth vs n))
+    | (Op_i2 Vlength, [Vectorv_exh vs]) ->
+        Just (((count,s),genv), Rval (Litv_exh (IntLit (integerFromNat (List.length vs)))))
+    | (Op_i2 Aalloc, [Litv_exh (IntLit n); v]) ->
+        if n < 0 then
+          Just (((count,s),genv), Rerr (Rraise (prim_exn_exh subscript_tag)))
+        else
+          let (s',lnum) =
+            store_alloc (Varray (List.replicate (natFromInteger n) v)) s
+          in 
+            Just (((count,s'),genv), Rval (Loc_exh lnum))
+    | (Op_i2 Asub, [Loc_exh lnum; Litv_exh (IntLit i)]) ->
+        match store_lookup lnum s with
+          | Just (Varray vs) ->
+              if i < 0 then
+                Just (((count,s),genv), Rerr (Rraise (prim_exn_exh subscript_tag)))
+              else
+                let n = natFromInteger i in
+                  if n >= List.length vs then
+                    Just (((count,s),genv), Rerr (Rraise (prim_exn_exh subscript_tag)))
+                  else 
+                    Just (((count,s),genv), Rval (List_extra.nth vs n))
+          | _ -> Nothing
+        end
+    | (Op_i2 Alength, [Loc_exh n]) ->
+        match store_lookup n s with
+          | Just (Varray ws) ->
+              Just (((count,s),genv),Rval (Litv_exh (IntLit(integerFromNat(List.length ws)))))
+          | _ -> Nothing
+         end
+    | (Op_i2 Aupdate, [Loc_exh lnum; Litv_exh (IntLit i); v]) ->
+        match store_lookup lnum s with
+        | Just (Varray vs) ->
+            if i < 0 then
+              Just (((count,s),genv), Rerr (Rraise (prim_exn_exh subscript_tag)))
+            else 
+              let n = natFromInteger i in
+                if n >= List.length vs then
+                  Just (((count,s),genv), Rerr (Rraise (prim_exn_exh subscript_tag)))
+                else
+                  match store_assign lnum (Varray (List.update vs n v)) s with
+                    | Nothing -> Nothing
+                    | Just s' -> Just (((count,s'),genv), Rval (Litv_exh Unit))
+                  end
+        | _ -> Nothing
+      end
     | _ -> Nothing
   end
 

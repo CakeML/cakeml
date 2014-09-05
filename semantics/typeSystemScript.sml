@@ -252,12 +252,17 @@ val _ = Define `
     | (Opassign, [Tapp [t1] TC_ref; t2]) => (t1 = t2) /\ (t = Tunit)
     | (Opref, [t1]) => (t = Tapp [t1] TC_ref)
     | (Opderef, [Tapp [t1] TC_ref]) => (t = t1)
-    | (Aalloc, [Tapp [] TC_int; Tapp [] TC_word8]) => (t = Tapp [] TC_word8array)
-    | (Asub, [Tapp [] TC_word8array; Tapp [] TC_int]) => (t = Tapp [] TC_word8)
-    | (Alength, [Tapp [] TC_word8array]) => (t = Tapp [] TC_int)
-    | (Aupdate, [Tapp [] TC_word8array; Tapp [] TC_int; Tapp [] TC_word8]) => t = Tapp [] TC_unit
+    | (Aw8alloc, [Tapp [] TC_int; Tapp [] TC_word8]) => (t = Tapp [] TC_word8array)
+    | (Aw8sub, [Tapp [] TC_word8array; Tapp [] TC_int]) => (t = Tapp [] TC_word8)
+    | (Aw8length, [Tapp [] TC_word8array]) => (t = Tapp [] TC_int)
+    | (Aw8update, [Tapp [] TC_word8array; Tapp [] TC_int; Tapp [] TC_word8]) => t = Tapp [] TC_unit
     | (VfromList, [Tapp [t1] (TC_name (Short "list"))]) => t = Tapp [t1] TC_vector
     | (Vsub, [Tapp [t1] TC_vector; Tapp [] TC_int]) => t = t1
+    | (Vlength, [Tapp [t1] TC_vector]) => (t = Tapp [] TC_int)
+    | (Aalloc, [Tapp [] TC_int; t1]) => t = Tapp [t1] TC_array
+    | (Asub, [Tapp [t1] TC_array; Tapp [] TC_int]) => t = t1
+    | (Alength, [Tapp [t1] TC_array]) => t = Tapp [] TC_int
+    | (Aupdate, [Tapp [t1] TC_array; Tapp [] TC_int; t2]) => (t1 = t2) /\ (t = Tapp [] TC_unit)
     | _ => F
   )))`;
 
@@ -535,22 +540,25 @@ type_e menv cenv tenv (If e1 e2 e3) t)
 ==>
 type_e menv cenv tenv (Mat e pes) t2)
 
-/\ (! menv cenv tenv n e1 e2 t1 t2 tvs.
-(is_value e1 /\
-type_e menv cenv (bind_tvar tvs tenv) e1 t1 /\
-type_e menv cenv (opt_bind_tenv n tvs t1 tenv) e2 t2)
-==>
-type_e menv cenv tenv (Let n e1 e2) t2)
-
 /\ (! menv cenv tenv n e1 e2 t1 t2.
 (type_e menv cenv tenv e1 t1 /\
 type_e menv cenv (opt_bind_tenv n( 0) t1 tenv) e2 t2)
 ==>
 type_e menv cenv tenv (Let n e1 e2) t2)
 
-/\ (! menv cenv tenv funs e t tenv' tvs.
-(type_funs menv cenv (bind_var_list( 0) tenv' (bind_tvar tvs tenv)) funs tenv' /\
-type_e menv cenv (bind_var_list tvs tenv' tenv) e t)
+(*
+and
+
+letrec : forall menv cenv tenv funs e t tenv' tvs.
+type_funs menv cenv (bind_var_list 0 tenv' (bind_tvar tvs tenv)) funs tenv' &&
+type_e menv cenv (bind_var_list tvs tenv' tenv) e t
+==>
+type_e menv cenv tenv (Letrec funs e) t
+*)
+
+/\ (! menv cenv tenv funs e t tenv'.
+(type_funs menv cenv (bind_var_list( 0) tenv' tenv) funs tenv' /\
+type_e menv cenv (bind_var_list( 0) tenv' tenv) e t)
 ==>
 type_e menv cenv tenv (Letrec funs e) t)
 
@@ -617,13 +625,14 @@ type_d mn (mdecls,tdecls,edecls) tenvT menv cenv tenv (Dtype tdefs) ({},new_tdec
 check_type_names tenvT t /\
 ALL_DISTINCT tvs)
 ==>
-type_d mn decls tenvT menv cenv tenv (Dtabbrev tvs tn t) empty_decls [(tn, (tvs,t))] emp emp) 
+type_d mn decls tenvT menv cenv tenv (Dtabbrev tvs tn t) empty_decls [(tn, (tvs,type_name_subst tenvT t))] emp emp) 
 
 /\ (! mn menv tenvT cenv tenv cn ts mdecls edecls tdecls.
 (check_exn_tenv mn cn ts /\
-~ (mk_id mn cn IN edecls))
+~ (mk_id mn cn IN edecls) /\ 
+EVERY (check_type_names tenvT) ts)
 ==>
-type_d mn (mdecls,tdecls,edecls) tenvT menv cenv tenv (Dexn cn ts) ({},{},{mk_id mn cn}) emp (bind cn ([], ts, TypeExn (mk_id mn cn)) emp) emp)`;
+type_d mn (mdecls,tdecls,edecls) tenvT menv cenv tenv (Dexn cn ts) ({},{},{mk_id mn cn}) emp (bind cn ([],MAP (type_name_subst tenvT) ts, TypeExn (mk_id mn cn)) emp) emp)`;
  
 val _ = Hol_reln ` (! mn tenvT menv cenv tenv decls.
 T
@@ -659,16 +668,17 @@ type_specs mn tenvT (Stype td :: specs) (union_decls decls ({},new_tdecls,{})) (
  (ALL_DISTINCT tvs /\
 check_freevars( 0) tvs t /\
 check_type_names tenvT t /\
-(new_tenvT = (tn, (tvs,t))) /\
+(new_tenvT = (tn, (tvs,type_name_subst tenvT t))) /\
 type_specs mn (merge_tenvT (emp,[new_tenvT]) tenvT) specs decls tenvT' cenv tenv)
 ==>
 type_specs mn tenvT (Stabbrev tvs tn t :: specs) decls (tenvT'++[new_tenvT]) cenv tenv)
 
 /\ (! mn tenvT flat_tenvT cenv tenv cn ts specs decls.
 (check_exn_tenv mn cn ts /\
-type_specs mn tenvT specs decls flat_tenvT cenv tenv)
+type_specs mn tenvT specs decls flat_tenvT cenv tenv /\
+EVERY (check_type_names tenvT) ts)
 ==>
-type_specs mn tenvT (Sexn cn ts :: specs) (union_decls decls ({},{},{mk_id mn cn})) flat_tenvT (cenv ++ [(cn,([], ts, TypeExn (mk_id mn cn)))]) tenv)
+type_specs mn tenvT (Sexn cn ts :: specs) (union_decls decls ({},{},{mk_id mn cn})) flat_tenvT (cenv ++ [(cn,([],MAP (type_name_subst tenvT) ts, TypeExn (mk_id mn cn)))]) tenv)
 
 /\ (! mn tenvT flat_tenvT cenv tenv tn specs tvs decls new_tenvT.
 (ALL_DISTINCT tvs /\

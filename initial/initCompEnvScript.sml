@@ -1,6 +1,6 @@
 open preamble miscLib;
 open astTheory bigStepTheory initialProgramTheory interpTheory inferTheory typeSystemTheory modLangTheory conLangTheory bytecodeTheory bytecodeExtraTheory;
-open bigClockTheory untypedSafetyTheory inferSoundTheory initSemEnvTheory modLangProofTheory conLangProofTheory typeSoundInvariantsTheory typeSoundTheory;
+open bigClockTheory untypedSafetyTheory inferSoundTheory inferPropsTheory initSemEnvTheory modLangProofTheory conLangProofTheory typeSoundInvariantsTheory typeSoundTheory;
 open terminationTheory;
 open bytecodeLabelsTheory bytecodeEvalTheory;
 open compute_bytecodeLib compute_interpLib compute_inferenceLib compute_compilerLib compute_free_varsLib;
@@ -58,7 +58,7 @@ invariant' se ce bs ⇔
     infer_sound_invariant ce.inf_tenvT ce.inf_tenvM ce.inf_tenvC ce.inf_tenvE ∧
     mdecls = set ce.inf_mdecls ∧
     env_rs (se.sem_envM, se.sem_envC, se.sem_envE) se.sem_store (genv,gtagenv,rd) ce.comp_rs bs ∧
-    bs.clock = NONE ∧ code_labels_ok (local_labels bs.code) ∧ code_executes_ok' bs`;
+    bs.output = "" ∧ bs.clock = NONE ∧ code_labels_ok (local_labels bs.code) ∧ code_executes_ok' bs`;
 
 (* Same as invariant', but with code_executes_ok *)
 val invariant_def = Define `
@@ -79,7 +79,7 @@ invariant se ce bs ⇔
     infer_sound_invariant ce.inf_tenvT ce.inf_tenvM ce.inf_tenvC ce.inf_tenvE ∧
     mdecls = set ce.inf_mdecls ∧
     env_rs (se.sem_envM, se.sem_envC, se.sem_envE) se.sem_store (genv,gtagenv,rd) ce.comp_rs bs ∧
-    bs.clock = NONE ∧ code_labels_ok (local_labels bs.code) ∧ init_code_executes_ok bs`;
+    bs.output = "" ∧ bs.clock = NONE ∧ code_labels_ok (local_labels bs.code) ∧ init_code_executes_ok bs`;
 
 val add_to_env_def = Define `
 add_to_env e prog =
@@ -347,9 +347,8 @@ val prim_env_inv = Q.store_thm ("prim_env_inv",
      `consistent_con_env (to_ctMap (FST (THE prim_env)).inf_tenvC) (THE prim_sem_env).sem_envC (FST (THE prim_env)).inf_tenvC`
          by (rw [to_ctMap_prim_tenvC] >>
              rw [consistent_con_env_def, libTheory.emp_def, tenvC_ok_def, prim_env_eq, prim_sem_env_eq,
-                 flat_tenvC_ok_def, check_freevars_def, ctMap_ok_def, miscTheory.FEVERY_ALL_FLOOKUP,
-                 miscTheory.flookup_fupdate_list, semanticPrimitivesTheory.lookup_con_id_def]
-             >- rw [check_freevars_def, type_subst_def]
+                 flat_tenvC_ok_def, check_freevars_def, ctMap_ok_def, FEVERY_ALL_FLOOKUP,
+                 alistTheory.flookup_fupdate_list, semanticPrimitivesTheory.lookup_con_id_def]
              >- (every_case_tac >>
                  rw [] >>
                  rw [check_freevars_def, type_subst_def])
@@ -370,8 +369,8 @@ val prim_env_inv = Q.store_thm ("prim_env_inv",
          fs [] >>
          every_case_tac >>
          fs [FDOM_FUPDATE_LIST])
-     >- rw [ctMap_has_exns_def, to_ctMap_prim_tenvC, miscTheory.flookup_fupdate_list]
-     >- rw [ctMap_has_lists_def, to_ctMap_prim_tenvC, miscTheory.flookup_fupdate_list, type_subst_def]
+     >- rw [ctMap_has_exns_def, to_ctMap_prim_tenvC, alistTheory.flookup_fupdate_list]
+     >- rw [ctMap_has_lists_def, to_ctMap_prim_tenvC, alistTheory.flookup_fupdate_list, type_subst_def]
      >- (rw [tenvM_ok_def,tenvT_ok_def,flat_tenvT_ok_def,check_freevars_def])
      >- rw [tenvM_ok_def, convert_menv_def]
      >- rw [tenvM_ok_def, convert_menv_def]
@@ -425,7 +424,7 @@ val prim_env_inv = Q.store_thm ("prim_env_inv",
            IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
            simp[] ) >>
          conj_tac >- (
-           simp[miscTheory.IN_FRANGE_FLOOKUP,FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
+           simp[IN_FRANGE_FLOOKUP,FLOOKUP_UPDATE,FLOOKUP_FUNION,DOMSUB_FLOOKUP_THM] >>
            rw[] >> every_case_tac >> fs[] >> rw[] >>
            EVAL_TAC ) >>
          conj_tac >- rw[] >>
@@ -435,7 +434,7 @@ val prim_env_inv = Q.store_thm ("prim_env_inv",
        rw[] >> simp[] ) >>
      EVAL_TAC >> rw[] >>
      qexists_tac`<|cls:=FEMPTY;sm:=[]|>` >>
-     simp[miscTheory.FEVERY_ALL_FLOOKUP] >>
+     simp[FEVERY_ALL_FLOOKUP] >>
      disj1_tac >>
      srw_tac[boolSimps.DNF_ss][Once RTC_CASES1])
  >- (CONV_TAC(RAND_CONV EVAL) >>

@@ -1,7 +1,7 @@
 open HolKernel Parse boolLib bossLib
 
 open cmlPEGTheory gramTheory cmlPtreeConversionTheory
-     grammarTheory lexer_funTheory
+     grammarTheory lexer_funTheory lexer_implTheory
 
 local open ASCIInumbersLib in end
 

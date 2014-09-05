@@ -215,7 +215,7 @@ val processIdent_def = Define `
            else
              SymbolT (c::s)`;
 
-val get_token_def = Define `
+val get_token_def = zDefine `
   get_token s =
     if s = "#" then HashT else
     if s = "(" then LparT else

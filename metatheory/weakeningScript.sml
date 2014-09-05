@@ -361,7 +361,7 @@ rw [Once type_e_cases] >|
      fs [] >>
      metis_tac [type_p_weakening, weak_tenvE_def, weak_tenvE_bind_var_list],
  metis_tac [weak_tenvE_opt_bind, weak_tenvE_bind_tvar],
- metis_tac [weak_tenvE_opt_bind, weak_tenvE_bind_tvar],
+ (* COMPLETENESS metis_tac [weak_tenvE_opt_bind, weak_tenvE_bind_tvar], *)
  metis_tac [weak_tenvE_bind_var_list, weak_tenvE_bind_tvar],
  metis_tac [weak_tenvE_bind, weak_tenvE_bind_tvar, weak_tenvE_freevars],
  metis_tac [weak_tenvE_bind, weak_tenvE_bind_tvar, weak_tenvE_freevars]]);
@@ -496,6 +496,10 @@ val type_v_weakening = Q.store_thm ("type_v_weakening",
      metis_tac [])
  >- (fs [weakS_def] >>
      metis_tac [])
+ >- (fs [weakS_def] >>
+     metis_tac [])
+ >- (fs [weakS_def] >>
+     metis_tac [])
  >- fs [EVERY_MEM]
  >- fs [EVERY_MEM]
  >- rw [bind_def, emp_def, bind_tvar_def, bind_tenv_def]);
@@ -589,7 +593,7 @@ val type_s_weakening = Q.store_thm ("type_s_weakening",
  every_case_tac >>
  rw [] >>
  res_tac >>
- fs [] >>
+ fs [EVERY_MEM] >>
  metis_tac [type_v_weakening, weakS_refl]);
 
 val weakCT_only_other_mods_def = Define `

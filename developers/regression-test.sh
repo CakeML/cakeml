@@ -2,9 +2,9 @@
 
 set -e
 
-echo "Running regression test on $(git rev-parse --short HEAD)"
+echo "Running regression test on $(git log -1 --oneline --no-color)"
 HOLDIR=$(heapname | xargs dirname) || exit $?
-echo "HOL revision: $(cd $HOLDIR; git rev-parse --short HEAD)"
+echo "HOL revision: $(cd $HOLDIR; git log -1 --oneline --no-color)"
 echo "Machine: $(uname -nmo)"
 
 status=$(git status 2> /dev/null)
@@ -14,10 +14,12 @@ then
     echo "WARNING: working directory is dirty!"
 fi
 
-cd $(dirname "$0")/..
+cd $(dirname "$0")
+source misc.sh
+cd ..
 
 case $(uname -a) in
-  Linux* ) TIMECMD="/usr/bin/time -o timing.log -f 'User:%U Mem:%M'";;
+  Linux* ) TIMECMD="/usr/bin/time -o timing.log -f '%U %M'";;
 esac
 
 echo
@@ -37,7 +39,8 @@ do
       echo -n "OK: $i"
       if [ -f timing.log ]
       then
-          echo -n " -- " ; cat timing.log
+        printf '%0.*s' $((32 - ${#i})) "$pad"
+        eval displayline $(cat timing.log)
       else
           echo
       fi

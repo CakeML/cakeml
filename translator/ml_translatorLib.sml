@@ -99,7 +99,6 @@ fun auto_prove proof_name (goal,tac) = let
   in if length rest = 0 then validation [] else let
   in failwith("auto_prove failed for " ^ proof_name) end end
 
-local
   (* inv: get_DeclAssum () is a hyp in each thm in each !cert_memory *)
   val decl_abbrev = ref TRUTH;
   val decl_term   = ref ``[]:dec list``;
@@ -110,6 +109,7 @@ local
   val decl_name = ref "";
   val abbrev_counter = ref 0;
   val abbrev_defs = ref ([]:thm list);
+local
 in
   fun get_mn () = (!decl_exists) |> concl |> rator |> rand
   fun INST_mn th = INST [``mn:string option`` |-> get_mn()] th
@@ -512,6 +512,11 @@ in
          if name = "prod" then ``Tapp [^(el 1 tt);^(el 2 tt)] TC_tup`` else
          if name = "list" then ``Tapp ^tt_list (TC_name (Short ^name_tm))`` else
                                ``Tapp ^tt_list (TC_name (^(full_id name_tm)))`` end
+  val vector_type_pat = ``:'a ml_translator$vector``
+  fun dest_vector_type ty =
+    if can (match_type vector_type_pat) ty then
+      dest_type ty |> snd |> hd
+    else failwith "not vector type"
   fun inst_type_inv (ty,inv) ty0 = let
     val i = match_type ty ty0
     val ii = map (fn {redex = x, residue = y} => (x,y)) i
@@ -533,6 +538,11 @@ in
     if ty = ``:word8`` then ``WORD8`` else
     if ty = ``:num`` then ``NUM`` else
     if ty = ``:int`` then ``INT`` else
+    if can dest_vector_type ty then let
+      val inv = get_type_inv (dest_vector_type ty)
+      in VECTOR_TYPE_def |> ISPEC inv |> SPEC_ALL
+         |> concl |> dest_eq |> fst |> rator |> rator end
+    else
       list_inst_type_inv ty (!other_types)
       handle HOL_ERR _ => raise UnsupportedType ty
   fun new_type_inv ty inv = (other_types := (ty,inv) :: (!other_types))
@@ -954,7 +964,7 @@ fun list_dest f tm =
   handle HOL_ERR _ => [tm];
 
 (*
-  val ty = ``:v``
+  val ty = ``:'a list``
   val tys = find_mutrec_types ty
 *)
 
@@ -1048,7 +1058,8 @@ fun define_ref_inv tys = let
 (*
   Define [ANTIQUOTE def_tm]
 *)
-  val inv_def = tDefine name [ANTIQUOTE def_tm] tac
+  val inv_def = if is_list_type then LIST_TYPE_def else
+                  tDefine name [ANTIQUOTE def_tm] tac
   val inv_def = CONV_RULE (DEPTH_CONV ETA_CONV) inv_def
   val inv_def = REWRITE_RULE [GSYM rw_lemmas] inv_def
   val _ = save_thm(name ^ "_def",inv_def)
@@ -2241,6 +2252,13 @@ val int_of_num_pat = Eval_int_of_num |> concl |> rand |> rand |> rand
 val int_of_num_o_pat = Eval_int_of_num_o |> concl |> rand |> rand |> rand
 val o_int_of_num_pat = Eval_o_int_of_num |> concl |> rand |> rand |> rand
 
+val vec_vec_pat = Eval_vector |> SPEC_ALL |> RW [AND_IMP_INTRO]
+  |> concl |> dest_imp |> snd |> rand |> rand
+val vec_sub_pat = Eval_sub |> SPEC_ALL |> RW [AND_IMP_INTRO]
+  |> concl |> dest_imp |> snd |> rand |> rand
+val vec_len_pat = Eval_length |> SPEC_ALL |> RW [AND_IMP_INTRO]
+  |> concl |> dest_imp |> snd |> rand |> rand
+
 (*
 val tm = rhs
 *)
@@ -2424,6 +2442,22 @@ fun hol2deep tm =
     val thi = SIMP_RULE std_ss [EVERY_MEM_CONTAINER] thi
     val result = thi |> UNDISCH_ALL
     in check_inv "map" tm result end handle HOL_ERR _ =>
+  (* vectors *)
+  if can (match_term vec_vec_pat) tm then let
+    val th1 = hol2deep (rand tm)
+    val result = MATCH_MP Eval_vector th1
+    in check_inv "vec_vec" tm result end else
+  if can (match_term vec_sub_pat) tm then let
+    val th1 = hol2deep (rand (rator tm))
+    val th2 = hol2deep (rand tm)
+    val result = MATCH_MP Eval_sub th1
+    val result = MATCH_MP result th2
+    val result = result |> UNDISCH
+    in check_inv "vec_sub" tm result end else
+  if can (match_term vec_len_pat) tm then let
+    val th1 = hol2deep (rand tm)
+    val result = MATCH_MP Eval_length th1
+    in check_inv "vec_len" tm result end else
   (* normal function applications *)
   if is_comb tm then let
     val (f,x) = dest_comb tm
@@ -2975,8 +3009,7 @@ val _ = (max_print_depth := 25)
         \\ REPEAT STRIP_TAC
         \\ MATCH_MP_TAC PreImp_IMP
         \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV pres))
-        \\ STRIP_TAC
-        THENL (map MATCH_MP_TAC (map (fst o snd) goals))
+        \\ (STRIP_TAC THENL (map MATCH_MP_TAC (map (fst o snd) goals)))
         \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
         \\ REPEAT STRIP_TAC
         \\ FULL_SIMP_TAC (srw_ss()) [ADD1]

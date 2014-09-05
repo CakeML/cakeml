@@ -16,7 +16,7 @@ val real_inst_length_def = zDefine `
        else 1
    | Stack (Load v31) => if v31 <= 268435455 then 4 else 1
    | Stack (Store v32) => if v32 <= 268435455 then 4 else 1
-   | Stack (El v34) => if v34 <= 268435455 then 6 else 1
+   | Stack El => 6
    | Stack (TagEq v35) => if v35 <= 268435455 then 28 else 1
    | Stack IsBlock => 25
    | Stack Equal => 5
@@ -65,8 +65,7 @@ val bc_num_def = Define `
      | Stack (Cons n m) => (4,n,m)
      | Stack (Load n) => (5,n,0)
      | Stack (Store n) => (6,n,0)
-     | Stack (El n) => (8,n,0)
-     | Stack El2 => (50,0,0)
+     | Stack El => (50,0,0)
      | Stack (Cons2 n) => (51,n,0)
      | Stack (TagEq n) => (9,n,0)
      | Stack LengthBlock => (48,0,0)
@@ -119,10 +118,9 @@ val num_bc_def = Define `
     else if n = 5 then Stack (Load x1)
     else if n = 6 then Stack (Store x1)
     else if n = 7 then Gread x1
-    else if n = 8 then Stack (El x1)
     else if n = 9 then Stack (TagEq x1)
     else if n = 48 then Stack LengthBlock
-    else if n = 50 then Stack El2
+    else if n = 50 then Stack El
     else if n = 51 then Stack (Cons2 x1)
     else if n = 10 then Stack IsBlock
     else if n = 11 then Stack Equal
@@ -474,5 +472,37 @@ val code_executes_ok_def = Define `
       (?s2 b. bc_next^* s1 s2 /\ bc_fetch s2 = SOME (Stop b)) \/
       (* or divergence with no output *)
       !n. ?s2. NRC bc_next n s1 s2 /\ (s2.output = s1.output)`;
+
+val gvrel_def = Define`
+  gvrel gv1 gv2 ⇔ LENGTH gv1 ≤ LENGTH gv2 ∧
+    (∀n x. n < LENGTH gv1 ∧ (EL n gv1 = SOME x) ⇒ (EL n gv2 = SOME x))`
+
+val gvrel_refl = store_thm("gvrel_refl",
+  ``gvrel g g``, rw[gvrel_def])
+val _ = export_rewrites["gvrel_refl"]
+
+val gvrel_trans = store_thm("gvrel_trans",
+  ``gvrel gv1 gv2 ∧ gvrel gv2 gv3 ⇒ gvrel gv1 gv3``,
+  rw[gvrel_def] >> fsrw_tac[ARITH_ss][])
+
+val bc_next_gvrel = store_thm("bc_next_gvrel",
+  ``∀bs1 bs2. bc_next bs1 bs2 ⇒ gvrel bs1.globals bs2.globals``,
+  ho_match_mp_tac bytecodeTheory.bc_next_ind >>
+  simp[bytecodeTheory.bump_pc_def] >>
+  rw[] >- ( BasicProvers.CASE_TAC >> simp[] ) >>
+  simp[gvrel_def] >> rw[EL_LUPDATE] >>
+  simp[rich_listTheory.EL_APPEND1])
+
+val RTC_bc_next_gvrel = store_thm("RTC_bc_next_gvrel",
+  ``∀bs1 bs2. RTC bc_next bs1 bs2 ⇒
+    gvrel bs1.globals bs2.globals``,
+  ho_match_mp_tac relationTheory.RTC_lifts_reflexive_transitive_relations >>
+  rw[relationTheory.reflexive_def,relationTheory.transitive_def,bc_next_gvrel] >>
+  metis_tac[gvrel_trans])
+
+val same_length_gvrel_same = store_thm("same_length_gvrel_same",
+  ``∀l1 l2. LENGTH l1 = LENGTH l2 ∧ EVERY IS_SOME l1 ∧ gvrel l1 l2 ⇒ l1 = l2``,
+  rw[gvrel_def,LIST_EQ_REWRITE,EVERY_MEM,MEM_EL,PULL_EXISTS,IS_SOME_EXISTS] >>
+  metis_tac[])
 
 val _ = export_theory()

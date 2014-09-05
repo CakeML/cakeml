@@ -29,10 +29,13 @@ val _ = Hol_datatype `
  Cprim2p = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq | CDerV`;
 
 val _ = Hol_datatype `
- Cprim2s = CRefB | CDerB`;
+ Cprim2s = CRefB | CDerB | CRefA | CDerA`;
 
 val _ = Hol_datatype `
  Cprim2 = P2p of Cprim2p | P2s of Cprim2s`;
+
+val _ = Hol_datatype `
+ Cupd = Up1 | UpA | UpB`;
 
 
 (* values in compile-time environment *)
@@ -64,7 +67,7 @@ val _ = Hol_datatype `
   | CCall of bool => Cexp => Cexp list
   | CPrim1 of Cprim1 => Cexp
   | CPrim2 of Cprim2 => Cexp => Cexp
-  | CUpd of bool => Cexp => Cexp => Cexp
+  | CUpd of Cupd => Cexp => Cexp => Cexp
   | CIf of Cexp => Cexp => Cexp
   | CExtG of num`;
 
@@ -188,6 +191,11 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   ((s++[W8array (REPLICATE (Num (ABS ( n))) w)]),
    Rval (CLoc (LENGTH s)))))
 /\
+(CevalPrim2s s CRefA v (CLitv (IntLit n)) =  
+(if n <( 0 : int) then (s, Rerr Rtype_error) else
+  ((s++[Varray (REPLICATE (Num (ABS ( n))) v)]),
+   Rval (CLoc (LENGTH s)))))
+/\
 (CevalPrim2s s CDerB (CLoc n) (CLitv (IntLit i)) =
   (s,
   (case el_check n s of
@@ -196,6 +204,17 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
       Rerr Rtype_error
     else
       Rval (CLitv (Word8 (EL (Num (ABS ( i))) ws)))
+  | _ => Rerr Rtype_error
+  )))
+/\
+(CevalPrim2s s CDerA (CLoc n) (CLitv (IntLit i)) =
+  (s,
+  (case el_check n s of
+    SOME (Varray vs) =>
+    if (i <( 0 : int)) \/ (LENGTH vs <= Num (ABS ( i))) then
+      Rerr Rtype_error
+    else
+      Rval (EL (Num (ABS ( i))) vs)
   | _ => Rerr Rtype_error
   )))
 /\
@@ -210,10 +229,10 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (let (s,r) = (CevalPrim2s s x y z) in (((c,s),g),r)))`;
 
 
-(*val CevalUpd : bool -> store Cv -> Cv -> Cv -> Cv -> store Cv * result Cv Cv*)
+(*val CevalUpd : Cupd -> store Cv -> Cv -> Cv -> Cv -> store Cv * result Cv Cv*)
  val _ = Define `
 
-(CevalUpd F s (CLoc n) (CLitv (IntLit i)) (v:Cv) =  
+(CevalUpd Up1 s (CLoc n) (CLitv (IntLit i)) (v:Cv) =  
 ((case el_check n s of
     SOME (Refv _) =>
     if i =( 0 : int) then
@@ -222,7 +241,16 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   | _ => (s, Rerr Rtype_error)
   )))
 /\
-(CevalUpd T s (CLoc n) (CLitv (IntLit i)) (CLitv (Word8 w)) =  
+(CevalUpd UpA s (CLoc n) (CLitv (IntLit i)) (v:Cv) =  
+((case el_check n s of
+    SOME (Varray vs) =>
+    if(( 0 : int) <= i) /\ (Num (ABS ( i)) < LENGTH vs) then
+      (LUPDATE (Varray (LUPDATE v (Num (ABS ( i))) vs)) n s, Rval (CLitv Unit))
+    else (s, Rerr Rtype_error)
+  | _ => (s, Rerr Rtype_error)
+  )))
+/\
+(CevalUpd UpB s (CLoc n) (CLitv (IntLit i)) (CLitv (Word8 w)) =  
 ((case el_check n s of
     SOME (W8array ws) =>
     if(( 0 : int) <= i) /\ (Num (ABS ( i)) < LENGTH ws) then
@@ -260,6 +288,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (CevalPrim1 CLen (s,g) (CLoc n) =
   ((s,g), (case el_check n s of
         SOME (Refv _) => Rval (CLitv (IntLit(( 1 : int))))
+      | SOME (Varray vs) => Rval (CLitv (IntLit (int_of_num (LENGTH vs))))
       | _ => Rerr Rtype_error
       )))
 /\

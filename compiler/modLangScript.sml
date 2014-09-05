@@ -405,7 +405,7 @@ val _ = Define `
             SOME (Refv v) => SOME (s,Rval v)
           | _ => NONE
         )
-    | (Aalloc, [Litv_i1 (IntLit n); Litv_i1 (Word8 w)]) =>
+    | (Aw8alloc, [Litv_i1 (IntLit n); Litv_i1 (Word8 w)]) =>
         if n <( 0 : int) then
           SOME (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
         else
@@ -413,7 +413,7 @@ val _ = Define `
 (store_alloc (W8array (REPLICATE (Num (ABS ( n))) w)) s)
           in 
             SOME (s', Rval (Loc_i1 lnum))
-    | (Asub, [Loc_i1 lnum; Litv_i1 (IntLit i)]) =>
+    | (Aw8sub, [Loc_i1 lnum; Litv_i1 (IntLit i)]) =>
         (case store_lookup lnum s of
             SOME (W8array ws) =>
               if i <( 0 : int) then
@@ -426,13 +426,13 @@ val _ = Define `
                     SOME (s, Rval (Litv_i1 (Word8 (EL n ws))))
           | _ => NONE
         )
-    | (Alength, [Loc_i1 n]) =>
+    | (Aw8length, [Loc_i1 n]) =>
         (case store_lookup n s of
             SOME (W8array ws) =>
               SOME (s,Rval (Litv_i1(IntLit(int_of_num(LENGTH ws)))))
           | _ => NONE
          )
-    | (Aupdate, [Loc_i1 lnum; Litv_i1(IntLit i); Litv_i1(Word8 w)]) =>
+    | (Aw8update, [Loc_i1 lnum; Litv_i1(IntLit i); Litv_i1(Word8 w)]) =>
         (case store_lookup lnum s of
           SOME (W8array ws) =>
             if i <( 0 : int) then
@@ -463,6 +463,51 @@ val _ = Define `
               SOME (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
             else 
               SOME (s, Rval (EL n vs))
+    | (Vlength, [Vectorv_i1 vs]) =>
+        SOME (s, Rval (Litv_i1 (IntLit (int_of_num (LENGTH vs)))))
+    | (Aalloc, [Litv_i1 (IntLit n); v]) =>
+        if n <( 0 : int) then
+          SOME (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
+        else
+          let (s',lnum) =            
+(store_alloc (Varray (REPLICATE (Num (ABS ( n))) v)) s)
+          in 
+            SOME (s', Rval (Loc_i1 lnum))
+    | (Asub, [Loc_i1 lnum; Litv_i1 (IntLit i)]) =>
+        (case store_lookup lnum s of
+            SOME (Varray vs) =>
+              if i <( 0 : int) then
+                SOME (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
+              else
+                let n = (Num (ABS ( i))) in
+                  if n >= LENGTH vs then
+                    SOME (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
+                  else 
+                    SOME (s, Rval (EL n vs))
+          | _ => NONE
+        )
+    | (Alength, [Loc_i1 n]) =>
+        (case store_lookup n s of
+            SOME (Varray ws) =>
+              SOME (s,Rval (Litv_i1 (IntLit(int_of_num(LENGTH ws)))))
+          | _ => NONE
+         )
+    | (Aupdate, [Loc_i1 lnum; Litv_i1 (IntLit i); v]) =>
+        (case store_lookup lnum s of
+          SOME (Varray vs) =>
+            if i <( 0 : int) then
+              SOME (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
+            else 
+              let n = (Num (ABS ( i))) in
+                if n >= LENGTH vs then
+                  SOME (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
+                else
+                  (case store_assign lnum (Varray (LUPDATE v n vs)) s of
+                      NONE => NONE
+                    | SOME s' => SOME (s', Rval (Litv_i1 Unit))
+                  )
+        | _ => NONE
+      )
     | _ => NONE
   )))`;
 

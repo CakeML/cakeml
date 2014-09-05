@@ -23,23 +23,30 @@ val eval_real_inst_length =
     computeLib.CBV_CONV compset
   end
 
-
-  fun add_bytecode_compset compset = let
-
-    local open bytecodeTheory in
-      val () = computeLib.add_thms
+  fun add_bytecode_tags_compset compset =
+    let open bytecodeTheory in
+      computeLib.add_thms
         [bool_to_tag_def
         ,unit_tag_def
         ,closure_tag_def
         ,string_tag_def
         ,block_tag_def
-        ,bump_pc_def
+        ,bool_to_tag_def
+        ,vector_tag_def
+        ] compset
+    end
+
+  fun add_bytecode_compset compset = let
+
+    local open bytecodeTheory in
+      val () = add_bytecode_tags_compset compset
+      val () = computeLib.add_thms
+        [bump_pc_def
         ,bc_fetch_def
         ,bv_to_string_def
         ,bvs_to_chars_def
         ,bc_equality_result_to_val_def
         ,bool_to_val_def
-        ,bool_to_tag_def
         ,bc_find_loc_def
         ,bytecodeTerminationTheory.bc_equal_def
         ] compset

@@ -1,31 +1,19 @@
 structure allPP = struct local
-open astPP modPP conPP exhPP patPP intPP
+open astPP modPP conPP exhPP patPP intPP miscPP
 open preamble
 open HolKernel boolLib bossLib Parse
 open compute_basicLib compute_parsingLib compute_compilerLib compute_inferenceLib compute_semanticsLib compute_bytecodeLib compute_free_varsLib compute_x64Lib
 open lexer_implTheory
 open initialProgramTheory initCompEnvTheory
+open progToBytecodeTheory
 
-val get_all_asts_def = tDefine "get_all_asts" `
-get_all_asts input =
-  case lex_until_toplevel_semicolon input of
-       NONE => Success []
-     | SOME (tokens, rest_of_input) =>
-        case parse_top tokens of
-             NONE => Failure "<parse error>\n"
-           | SOME top =>
-               case get_all_asts rest_of_input of
-                    Failure x => Failure x
-                  | Success prog => Success (top::prog)`
-(wf_rel_tac `measure LENGTH` >>
- rw [lex_until_toplevel_semicolon_LESS]);
-
-val remove_labels_all_asts_def = Define `
-remove_labels_all_asts len asts =
-  case asts of
-     | Failure x => Failure x
-     | Success asts =>
-         Success (code_labels len asts)`;
+val _ = enable_astPP();
+val _ = enable_modPP();
+val _ = enable_conPP();
+val _ = enable_exhPP();
+val _ = enable_patPP();
+val _ = enable_intPP();
+val _ = enable_miscPP();
 
 (*RHS of theorem to term*)
 val rhsThm = rhs o concl;
@@ -44,7 +32,17 @@ val _ = add_bytecode_compset cs
 val _ = add_labels_compset cs
 val _ = add_free_vars_compset cs
 val _ = add_x64_compset cs
-val _ = computeLib.add_thms  [basis_env_eq,compile_primitives_def,get_all_asts_def,remove_labels_all_asts_def] cs
+val _ = computeLib.add_thms  [basis_env_eq,compile_primitives_def,get_all_asts_def,infer_all_asts_def,remove_labels_all_asts_def] cs
+
+val _ = compute_basicLib.add_datatype ``:comp_environment`` cs
+
+val eval = computeLib.CBV_CONV cs
+
+(*Some temporary code for testing standalone*)
+(*
+val _ = computeLib.add_thms [compile_all_asts_def,compile_all_asts_no_init_def,all_asts_to_string_def,all_asts_to_encoded_def,prog_to_bytecode_def,prog_to_bytecode_string_def,prog_to_bytecode_encoded_def,basis_program_def] cs
+
+val _ = computeLib.add_thms [initialProgramTheory.mk_binop_def,initialProgramTheory.mk_unop_def] cs
 
 val _ =
       let
@@ -57,9 +55,69 @@ val _ =
         compute_basicLib.add_datatype ``:bc_inst`` cs;
         computeLib.add_thms [uses_label_def] cs
       end
-val _ = compute_basicLib.add_datatype ``:comp_environment`` cs
 
-val eval = computeLib.CBV_CONV cs
+(* labels removal *)
+(*In bytecodeLib*)
+val () = reset_code_labels_ok_db()
+
+val () = computeLib.add_conv (``code_labels``,2,code_labels_conv eval_real_inst_length) cs
+
+val () =
+  let
+    fun code_labels_ok_conv tm =
+      EQT_INTRO
+        (get_code_labels_ok_thm
+          (rand tm))
+  in
+    computeLib.add_conv(``code_labels_ok``,1,code_labels_ok_conv) cs;
+    add_datatype ``:bc_inst``;
+    computeLib.add_thms [uses_label_def] cs
+  end
+
+
+open compilerTheory
+open compilerProofTheory
+
+(*
+val compile_top_code_ok =
+  prove(``∀types rs top ss sf code.
+          (compile_top types rs top = (ss,sf,code)) ⇒
+          (FV_top top ⊆ global_dom rs.globals_env) ⇒
+          code_labels_ok code``,
+  metis_tac[compile_top_labels,pair_CASES,SND])
+(* compile_top *)
+val () =
+  let
+    fun compile_top_conv eval tm =
+      let
+        val th = (REWR_CONV compile_top_def THENC eval) tm
+        val th1 = MATCH_MP compile_top_code_ok th
+        val th2 = MP (CONV_RULE(LAND_CONV eval) th1) TRUTH
+        val () = add_code_labels_ok_thm th2
+      in
+        th
+      end
+  in
+    computeLib.add_conv(``compile_top``,3,(compile_top_conv (computeLib.CBV_CONV cs))) cs
+  end
+*)
+(* compile_prog *)
+val () =
+  let
+    val compile_prog_code_ok = compilerProofTheory.compile_prog_code_labels_ok |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+    fun compile_prog_conv eval tm =
+      let
+        val th = (REWR_CONV compile_prog_def THENC eval) tm
+        val th1 = MATCH_MP compile_prog_code_ok th
+        val th2 = MP (CONV_RULE(LAND_CONV eval) th1) TRUTH
+        val () = add_code_labels_ok_thm th2
+      in
+        th
+      end
+  in
+    computeLib.add_conv(``compile_prog``,1,(compile_prog_conv (computeLib.CBV_CONV cs))) cs
+  end
+*)
 
 in
 
@@ -67,17 +125,24 @@ in
 exception compilationError of string;
 type allIntermediates = {
   ils:term list,
-  globMap:term list,
+  globMap:term list, 
   ctors:term list,
   modMap:term list,
   annotations:term list}
 (*Return all intermediates during compilation in a record*)
+
 fun allIntermediates prog =
-  let 
+  let
       val t1 = eval ``get_all_asts ^(prog)``
       val ast = rand (rhsThm t1)
-
+      
       val _ =if ast = ``"<parse error>\n"`` then raise compilationError "Parse Error" else ();
+
+      val infer = eval ``infer_all_asts ^(t1|>concl|>rhs)``
+      val infer_res = rhsThm infer;
+      (*Bypass type checks -- dangerous!*)
+      val _ = let val (res,msg) = dest_comb infer_res in 
+                if (term_to_string res) = "Failure" then raise compilationError ("Type Inference Error: "^(term_to_string msg)) else () end;
 
       (*i1 translation*)
       val n = rhsThm (eval ``compile_primitives.next_global``)

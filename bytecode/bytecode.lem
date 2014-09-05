@@ -24,8 +24,7 @@ type
   | Load of nat             (* push stack[n] *)
   | Store of nat            (* pop and store in stack[n] *)
   | LengthBlock             (* read length of cons block *)
-  | El of nat               (* read field n of cons block *)
-  | El2                     (* read field of cons block *)
+  | El                      (* read field of cons block *)
   | TagEq of nat            (* test tag of block *)
   | IsBlock                 (* test for a block *)
   | Equal                   (* test equality *)
@@ -278,11 +277,8 @@ and
 lengthBlock : forall tag ys xs. true ==>
 bc_stack_op LengthBlock ((Block tag ys)::xs) (Number (integerFromNat (List.length ys))::xs)
 and
-block : forall k tag ys xs. k < List.length ys ==>
-bc_stack_op (El k) ((Block tag ys)::xs) (List_extra.nth ys k::xs)
-and
-el2 : forall k tag ys xs. k < List.length ys ==>
-bc_stack_op El2 (Number (integerFromNat k)::(Block tag ys)::xs) (List_extra.nth ys k::xs)
+el : forall k tag ys xs. k < List.length ys ==>
+bc_stack_op El (Number (integerFromNat k)::(Block tag ys)::xs) (List_extra.nth ys k::xs)
 and
 tagEq : forall t tag ys xs. true ==>
 bc_stack_op (TagEq t) ((Block tag ys)::xs) (bool_to_val (tag = t)::xs)

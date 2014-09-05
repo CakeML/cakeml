@@ -1,13 +1,16 @@
 OPTIONS = QUIT_ON_FAILURE
 INCLUDES = $(HOLDIR)/examples/parsing/ .. ../lem_lib_stub
 
+#LEM_OPT = -wl_pat_comp ign  -wl_pat_exh  ign -wl_pat_fail ign -wl_unused_vars ign
+LEM_OPT = -wl_unused_vars ign
+
 SRC = lib tokens ast semanticPrimitives smallStep bigStep typeSystem initialProgram
 LEMS = $(patsubst %,%.lem,$(SRC))
 GENS = $(patsubst %,%Script.sml,$(SRC))
 
 $(GENS): $(LEMS)
  	if type lem;\
- 	then lem -suppress_renaming -auxiliary_level none -hol $(LEMS);\
+ 	then lem $(LEM_OPT) -suppress_renaming -auxiliary_level none -hol $(LEMS);\
  	else touch $(GENS); fi
 
 ifdef POLY

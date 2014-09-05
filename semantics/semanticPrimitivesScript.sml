@@ -90,7 +90,13 @@ val _ = Hol_datatype `
 
 (* Stores *)
 val _ = Hol_datatype `
- store_v = Refv of 'a | W8array of word8 list`;
+ store_v = 
+  (* A ref cell *) 
+    Refv of 'a 
+  (* A byte array *)
+  | W8array of word8 list 
+  (* An array of values *) 
+  | Varray of 'a list`;
 
 
 (*val store_v_same_type : forall 'a. store_v 'a -> store_v 'a -> bool*)
@@ -99,6 +105,7 @@ val _ = Define `
 ((case (v1,v2) of
     (Refv _, Refv _) => T
   | (W8array _,W8array _) => T
+  | (Varray _,Varray _) => T
   | _ => F
   )))`;
 
@@ -428,6 +435,27 @@ val _ = Define `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn v_to_list_defn;
 
+(*val opn_lookup : opn -> integer -> integer -> integer*)
+val _ = Define `
+ (opn_lookup n : int -> int -> int = ((case n of
+    Plus => (+)
+  | Minus => (-)
+  | Times => ( * )
+  | Divide => (/)
+  | Modulo => (%)
+)))`;
+
+
+(*val opb_lookup : opb -> integer -> integer -> bool*)
+val _ = Define `
+ (opb_lookup n : int -> int -> bool = ((case n of
+    Lt => (<)
+  | Gt => (>)
+  | Leq => (<=)
+  | Geq => (>=)
+)))`;
+
+
 (*val do_app : store v -> op -> list v -> maybe (store v * result v v)*)
 val _ = Define `
  (do_app s op vs =  
@@ -458,7 +486,7 @@ val _ = Define `
             SOME (Refv v) => SOME (s,Rval v)
           | _ => NONE
         )
-    | (Aalloc, [Litv (IntLit n); Litv (Word8 w)]) =>
+    | (Aw8alloc, [Litv (IntLit n); Litv (Word8 w)]) =>
         if n <( 0 : int) then
           SOME (s, Rerr (Rraise (prim_exn "Subscript")))
         else
@@ -466,7 +494,7 @@ val _ = Define `
 (store_alloc (W8array (REPLICATE (Num (ABS ( n))) w)) s)
           in 
             SOME (s', Rval (Loc lnum))
-    | (Asub, [Loc lnum; Litv (IntLit i)]) =>
+    | (Aw8sub, [Loc lnum; Litv (IntLit i)]) =>
         (case store_lookup lnum s of
             SOME (W8array ws) =>
               if i <( 0 : int) then
@@ -479,13 +507,13 @@ val _ = Define `
                     SOME (s, Rval (Litv (Word8 (EL n ws))))
           | _ => NONE
         )
-    | (Alength, [Loc n]) =>
+    | (Aw8length, [Loc n]) =>
         (case store_lookup n s of
             SOME (W8array ws) =>
               SOME (s,Rval (Litv(IntLit(int_of_num(LENGTH ws)))))
           | _ => NONE
          )
-    | (Aupdate, [Loc lnum; Litv(IntLit i); Litv(Word8 w)]) =>
+    | (Aw8update, [Loc lnum; Litv(IntLit i); Litv(Word8 w)]) =>
         (case store_lookup lnum s of
           SOME (W8array ws) =>
             if i <( 0 : int) then
@@ -516,6 +544,51 @@ val _ = Define `
               SOME (s, Rerr (Rraise (prim_exn "Subscript")))
             else 
               SOME (s, Rval (EL n vs))
+    | (Vlength, [Vectorv vs]) =>
+        SOME (s, Rval (Litv (IntLit (int_of_num (LENGTH vs)))))
+    | (Aalloc, [Litv (IntLit n); v]) =>
+        if n <( 0 : int) then
+          SOME (s, Rerr (Rraise (prim_exn "Subscript")))
+        else
+          let (s',lnum) =            
+(store_alloc (Varray (REPLICATE (Num (ABS ( n))) v)) s)
+          in 
+            SOME (s', Rval (Loc lnum))
+    | (Asub, [Loc lnum; Litv (IntLit i)]) =>
+        (case store_lookup lnum s of
+            SOME (Varray vs) =>
+              if i <( 0 : int) then
+                SOME (s, Rerr (Rraise (prim_exn "Subscript")))
+              else
+                let n = (Num (ABS ( i))) in
+                  if n >= LENGTH vs then
+                    SOME (s, Rerr (Rraise (prim_exn "Subscript")))
+                  else 
+                    SOME (s, Rval (EL n vs))
+          | _ => NONE
+        )
+    | (Alength, [Loc n]) =>
+        (case store_lookup n s of
+            SOME (Varray ws) =>
+              SOME (s,Rval (Litv(IntLit(int_of_num(LENGTH ws)))))
+          | _ => NONE
+         )
+    | (Aupdate, [Loc lnum; Litv (IntLit i); v]) =>
+        (case store_lookup lnum s of
+          SOME (Varray vs) =>
+            if i <( 0 : int) then
+              SOME (s, Rerr (Rraise (prim_exn "Subscript")))
+            else 
+              let n = (Num (ABS ( i))) in
+                if n >= LENGTH vs then
+                  SOME (s, Rerr (Rraise (prim_exn "Subscript")))
+                else
+                  (case store_assign lnum (Varray (LUPDATE v n vs)) s of
+                      NONE => NONE
+                    | SOME s' => SOME (s', Rval (Litv Unit))
+                  )
+        | _ => NONE
+      )
     | _ => NONE
   )))`;
 
@@ -590,6 +663,10 @@ val _ = Define `
   )))`;
 
 
+val _ = Define `
+ (remove_count ((count,store),tdecls,mods) = (store,tdecls,mods))`;
+
+
 (* conversions to strings *)
 
  val _ = Define `
@@ -612,6 +689,7 @@ val _ = Define `
   | TC_word8array => "<word8array>"
   | TC_exn => "<exn>"
   | TC_vector => "<vector>"
+  | TC_array => "<array>"
   )))`;
 
 

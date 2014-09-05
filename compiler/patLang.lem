@@ -79,6 +79,7 @@ and
 fo_pat (App_pat op es) =
   op <> (Op_pat (Op_i2 Opapp)) &&
   op <> (Op_pat (Op_i2 Opderef)) &&
+  op <> (Op_pat (Op_i2 Asub)) &&
   (forall n. op <> El_pat n) &&
   fo_list_pat es
 and
@@ -104,10 +105,13 @@ let pure_op op =
   op <> Equality &&
   op <> Opapp &&
   op <> Opassign &&
+  op <> Aw8update &&
+  op <> Aw8alloc &&
+  op <> Aw8sub &&
+  op <> Vsub &&
   op <> Aupdate &&
   op <> Aalloc &&
   op <> Asub &&
-  op <> Vsub &&
   op <> (Opn Divide) &&
   op <> (Opn Modulo)
 
@@ -457,7 +461,7 @@ let do_app_pat ((cnt,s),genv) op vs =
           end
         else
           Nothing
-    | (Op_pat (Op_i2 Aalloc), [Litv_pat (IntLit n); Litv_pat (Word8 w)]) ->
+    | (Op_pat (Op_i2 Aw8alloc), [Litv_pat (IntLit n); Litv_pat (Word8 w)]) ->
         if n < 0 then
           Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
         else
@@ -465,7 +469,7 @@ let do_app_pat ((cnt,s),genv) op vs =
             store_alloc (W8array (List.replicate (natFromInteger n) w)) s
           in
             Just (((cnt,st),genv), Rval (Loc_pat lnum))
-    | (Op_pat (Op_i2 Asub), [Loc_pat lnum; Litv_pat (IntLit i)]) ->
+    | (Op_pat (Op_i2 Aw8sub), [Loc_pat lnum; Litv_pat (IntLit i)]) ->
         match store_lookup lnum s with
           | Just (W8array ws) ->
               if i < 0 then
@@ -478,13 +482,13 @@ let do_app_pat ((cnt,s),genv) op vs =
                     Just (((cnt,s),genv), Rval (Litv_pat (Word8 (List_extra.nth ws n))))
           | _ -> Nothing
         end
-    | (Op_pat (Op_i2 Alength), [Loc_pat n]) ->
+    | (Op_pat (Op_i2 Aw8length), [Loc_pat n]) ->
         match store_lookup n s with
           | Just (W8array ws) ->
               Just (((cnt,s),genv),Rval (Litv_pat (IntLit (integerFromNat (List.length ws)))))
           | _ -> Nothing
         end
-    | (Op_pat (Op_i2 Aupdate), [Loc_pat lnum; Litv_pat (IntLit i); Litv_pat (Word8 w)]) ->
+    | (Op_pat (Op_i2 Aw8update), [Loc_pat lnum; Litv_pat (IntLit i); Litv_pat (Word8 w)]) ->
         match store_lookup lnum s with
         | Just (W8array ws) ->
             if i < 0 then
@@ -515,6 +519,51 @@ let do_app_pat ((cnt,s),genv) op vs =
               Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
             else 
               Just (((cnt,s),genv), Rval (List_extra.nth vs n))
+    | (Op_pat (Op_i2 Vlength), [Vectorv_pat vs]) ->
+        Just (((cnt,s),genv), Rval (Litv_pat (IntLit (integerFromNat (List.length vs)))))
+    | (Op_pat (Op_i2 Aalloc), [Litv_pat (IntLit n); v]) ->
+        if n < 0 then
+          Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
+        else
+          let (s',lnum) =
+            store_alloc (Varray (List.replicate (natFromInteger n) v)) s
+          in 
+            Just (((cnt,s'),genv), Rval (Loc_pat lnum))
+    | (Op_pat (Op_i2 Asub), [Loc_pat lnum; Litv_pat (IntLit i)]) ->
+        match store_lookup lnum s with
+          | Just (Varray vs) ->
+              if i < 0 then
+                Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
+              else
+                let n = natFromInteger i in
+                  if n >= List.length vs then
+                    Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
+                  else 
+                    Just (((cnt,s),genv), Rval (List_extra.nth vs n))
+          | _ -> Nothing
+        end
+    | (Op_pat (Op_i2 Alength), [Loc_pat n]) ->
+        match store_lookup n s with
+          | Just (Varray ws) ->
+              Just (((cnt,s),genv),Rval (Litv_pat (IntLit(integerFromNat(List.length ws)))))
+          | _ -> Nothing
+         end
+    | (Op_pat (Op_i2 Aupdate), [Loc_pat lnum; Litv_pat (IntLit i); v]) ->
+        match store_lookup lnum s with
+        | Just (Varray vs) ->
+            if i < 0 then
+              Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
+            else 
+              let n = natFromInteger i in
+                if n >= List.length vs then
+                  Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
+                else
+                  match store_assign lnum (Varray (List.update vs n v)) s with
+                    | Nothing -> Nothing
+                    | Just s' -> Just (((cnt,s'),genv), Rval (Litv_pat Unit))
+                  end
+        | _ -> Nothing
+      end
     | (Tag_eq_pat n, [Conv_pat tag _]) ->
         Just (((cnt,s),genv), Rval (Litv_pat (Bool (tag = n))))
     | (El_pat n, [Conv_pat _ vs]) ->

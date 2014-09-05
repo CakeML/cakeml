@@ -1,6 +1,6 @@
 structure compute_free_varsLib = struct local
 open HolKernel boolLib bossLib computeLib
-open free_varsTheory 
+open evalPropsTheory free_varsTheory
 in
   val add_free_vars_compset = add_thms
     [closed_prog_def

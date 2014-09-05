@@ -280,26 +280,26 @@ constrain_op op ts =
           () <- add_constraint t (Infer_Tapp [uvar] TC_ref);
           return uvar
        od
-   | (Aalloc, [t1;t2]) =>
-       do () <- add_constraint t1 (Infer_Tapp [] TC_int);
-          () <- add_constraint t2 (Infer_Tapp [] TC_word8);
-          return (Infer_Tapp [] TC_word8array)
-       od
-   | (Asub, [t1;t2]) =>
+    | (Aw8alloc, [t1;t2]) =>
+        do () <- add_constraint t1 (Infer_Tapp [] TC_int);
+           () <- add_constraint t2 (Infer_Tapp [] TC_word8);
+           return (Infer_Tapp [] TC_word8array)
+        od
+    | (Aw8sub, [t1;t2]) =>
        do () <- add_constraint t1 (Infer_Tapp [] TC_word8array);
           () <- add_constraint t2 (Infer_Tapp [] TC_int);
           return (Infer_Tapp [] TC_word8)
-       od
-   | (Alength, [t]) =>
+        od
+    | (Aw8length, [t]) =>
        do () <- add_constraint t1 (Infer_Tapp [] TC_word8array);
           return (Infer_Tapp [] TC_int)
-       od
-   | (Aupdate, [t1;t2;t3]) =>
+        od
+    | (Aw8update, [t1;t2;t3]) =>
        do () <- add_constraint t1 (Infer_Tapp [] TC_word8array);
           () <- add_constraint t2 (Infer_Tapp [] TC_int);
           () <- add_constraint t3 (Infer_Tapp [] TC_word8);
           return (Infer_Tapp [] TC_unit)
-       od
+        od
    | (VfromList, [t]) =>
        do uvar <- fresh_uvar;
           () <- add_constraint t (Infer_Tapp [uvar] (TC_name (Short "list")));
@@ -310,6 +310,31 @@ constrain_op op ts =
           () <- add_constraint t1 (Infer_Tapp [uvar] TC_vector);
           () <- add_constraint t2 (Infer_Tapp [] TC_int);
           return uvar
+       od
+   | (Vlength, [t]) =>
+       do uvar <- fresh_uvar;
+          () <- add_constraint t (Infer_Tapp [uvar] TC_vector);
+          return (Infer_Tapp [] TC_int)
+       od
+   | (Aalloc, [t1;t2]) =>
+       do () <- add_constraint t1 (Infer_Tapp [] TC_int);
+          return (Infer_Tapp [t2] TC_array)
+       od
+   | (Asub, [t1;t2]) =>
+       do uvar <- fresh_uvar;
+          () <- add_constraint t1 (Infer_Tapp [uvar] TC_array);
+          () <- add_constraint t2 (Infer_Tapp [] TC_int);
+          return uvar 
+       od
+   | (Alength, [t]) =>
+       do uvar <- fresh_uvar;
+          () <- add_constraint t (Infer_Tapp [uvar] TC_array);
+          return (Infer_Tapp [] TC_int)
+       od
+   | (Aupdate, [t1;t2;t3]) =>
+       do () <- add_constraint t1 (Infer_Tapp [t3] TC_array);
+          () <- add_constraint t2 (Infer_Tapp [] TC_int);
+          return (Infer_Tapp [] TC_unit)
        od
    | _ => failwith "Wrong number of arguments to primitive"`;
 
@@ -503,12 +528,12 @@ val infer_d_def = Define `
 (infer_d mn decls tenvT menv cenv env (Dtabbrev tvs tn t) =
   do () <- guard (ALL_DISTINCT tvs) "Duplicate type variables";
      () <- guard (check_freevars 0 tvs t ∧ check_type_names tenvT t) "Bad type definition";
-     return (([],[],[]), [(tn, (tvs,t))], [], [])
+     return (([],[],[]), [(tn, (tvs,type_name_subst tenvT t))], [], [])
   od) ∧
 (infer_d mn (mdecls,tdecls,edecls) tenvT menv cenv env (Dexn cn ts) =
-  do () <- guard (check_exn_tenv mn cn ts) "Bad exception definition";
+  do () <- guard (check_exn_tenv mn cn ts ∧ EVERY (check_type_names tenvT) ts ) "Bad exception definition";
      () <- guard (~MEM (mk_id mn cn) edecls) "Duplicate exception definition";
-     return (([],[],[mk_id mn cn]), [], bind cn ([], ts, TypeExn (mk_id mn cn)) emp, [])
+     return (([],[],[mk_id mn cn]), [], bind cn ([],MAP (type_name_subst tenvT) ts, TypeExn (mk_id mn cn)) emp, [])
   od)`;
 
 val append_decls_def = Define `
@@ -551,19 +576,17 @@ val check_specs_def = Define `
      tenvT'' <- return (merge_tenvT ([],new_tenvT) tenvT);
      () <- guard (check_ctor_tenv mn tenvT'' tdefs) "Bad type definition";
      new_tdecls <- return (MAP (\(tvs,tn,ctors). mk_id mn tn) tdefs);
-     () <- guard (EVERY (\new_id. ~MEM new_id tdecls) new_tdecls) "Duplicate type definition";
      check_specs mn (merge_tenvT ([],new_tenvT) tenvT) (mdecls,new_tdecls++tdecls,edecls) (merge new_tenvT tenvT') (merge (build_ctor_tenv mn tenvT'' tdefs) cenv) env specs
   od) ∧
 (check_specs mn tenvT (mdecls,tdecls,edecls) tenvT' cenv env (Stabbrev tvs tn t :: specs) =
   do () <- guard (ALL_DISTINCT tvs) "Duplicate type variables";
      () <- guard (check_freevars 0 tvs t ∧ check_type_names tenvT t) "Bad type definition";
-     new_tenvT <- return (tn, (tvs, t));
+     new_tenvT <- return (tn, (tvs,type_name_subst tenvT t));
      check_specs mn (merge_tenvT ([],[new_tenvT]) tenvT) (mdecls,tdecls,edecls) (new_tenvT::tenvT') cenv env specs
   od) ∧
 (check_specs mn tenvT (mdecls,tdecls,edecls) tenvT' cenv env (Sexn cn ts :: specs) =
-  do () <- guard (check_exn_tenv mn cn ts) "Bad exception definition";
-     () <- guard (~MEM (mk_id mn cn) edecls) "Duplicate exception definition";
-     check_specs mn tenvT (mdecls,tdecls,mk_id mn cn::edecls) tenvT' (bind cn ([], ts, TypeExn (mk_id mn cn)) cenv) env specs
+  do () <- guard (check_exn_tenv mn cn ts ∧ EVERY (check_type_names tenvT) ts ) "Bad exception definition";
+     check_specs mn tenvT (mdecls,tdecls,mk_id mn cn::edecls) tenvT' (bind cn ([],MAP (type_name_subst tenvT) ts, TypeExn (mk_id mn cn)) cenv) env specs
   od) ∧
 (check_specs mn tenvT (mdecls,tdecls,edecls) tenvT' cenv env (Stype_opq tvs tn :: specs) =
   do () <- guard (~MEM (mk_id mn tn) tdecls) "Duplicate type definition";

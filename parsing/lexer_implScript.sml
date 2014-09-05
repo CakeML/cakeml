@@ -150,7 +150,6 @@ val get_token_eqn = Q.store_thm ("get_token_eqn",
  Cases_on `t` >>
  rw []);
 
-val _ = computeLib.del_persistent_consts([``get_token``]);
 val _ = computeLib.add_persistent_funs(["get_token_eqn"]);
 
 (* lex_until_toplevel_semicolon *)

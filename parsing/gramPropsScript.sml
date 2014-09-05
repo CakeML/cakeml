@@ -43,7 +43,6 @@ val NT_rank_def = Define`
         if n = nElist1                 then 16
         else if n = nEseq              then 16
         else if n = nREPLTop           then 16
-        else if n = nREPLPhrase        then 16
         else if n = nElist2            then 16
         else if n = nE                 then 15
         else if n = nE'                then 15

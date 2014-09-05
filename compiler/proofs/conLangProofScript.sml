@@ -401,7 +401,11 @@ val (sv_to_i2_rules, sv_to_i2_ind, sv_to_i2_cases) = Hol_reln `
   ⇒
   sv_to_i2 genv (Refv v) (Refv v')) ∧
 (!genv w.
-  sv_to_i2 genv (W8array w) (W8array w))`;
+  sv_to_i2 genv (W8array w) (W8array w)) ∧
+(!genv vs vs'.
+  vs_to_i2 genv vs vs'
+  ⇒
+  sv_to_i2 genv (Varray vs) (Varray vs'))`;
 
 val sv_to_i2_weakening = Q.prove (
 `(!gtagenv sv sv_i2 gtagenv'.
@@ -934,6 +938,25 @@ val v_to_list_i2_correct = Q.prove (
  fs [] >>
  metis_tac [NOT_SOME_NONE, SOME_11]);
 
+val tac =
+  fs [do_app_i1_def] >>
+  every_case_tac >>
+  fs [vs_to_i2_list_rel] >>
+  rw [do_app_i2_def] >>
+  fs [LET_THM,store_lookup_def, store_alloc_def, store_assign_def, v_to_i2_eqns, result_to_i2_cases, prim_exn_i1_def, prim_exn_i2_def] >>
+  imp_res_tac LIST_REL_LENGTH >>
+  rw [] >>
+  fs [] >>
+  fs [] >>
+  fs[LIST_REL_EL_EQN,sv_to_i2_cases] >>
+  res_tac >>
+  fs [store_v_same_type_def] >>
+  rw [EL_LUPDATE, v_to_i2_eqns] >>
+  rw [] >>
+  fs [v_to_i2_eqns] >>
+  rw [v_to_i2_eqns] >>
+  TRY (fs [gtagenv_wf_def, has_exns_def] >> NO_TAC);
+
 val do_app_i2_correct = Q.prove (
 `!gtagenv s1 s2 op vs r s1_i2 vs_i2.
   do_app_i1 s1 op vs = SOME (s2, r) ∧
@@ -945,108 +968,99 @@ val do_app_i2_correct = Q.prove (
      LIST_REL (sv_to_i2 gtagenv) s2 s2_i2 ∧
      result_to_i2 v_to_i2 gtagenv r r_i2 ∧
      do_app_i2 s1_i2 (Op_i2 op) vs_i2 = SOME (s2_i2, r_i2)`,
- rw [do_app_i1_def] >>
- every_case_tac >>
- fs [do_app_i2_def] >>
- rw [] >>
- fs [v_to_i2_eqns, result_to_i2_cases] >>
- srw_tac [boolSimps.DNF_ss] [] >>
- rw [METIS_PROVE [] ``(!x y. P x y ⇒ Q) ⇔ ((?x y. P x y) ⇒ Q)``, pair_CASES,
-     prim_exn_i1_def, prim_exn_i2_def, v_to_i2_eqns] >>
- imp_res_tac LIST_REL_LENGTH
- >- fs [gtagenv_wf_def, has_exns_def]
- >- fs [gtagenv_wf_def, has_exns_def]
- >- (every_case_tac >>
-     metis_tac [do_eq_i2, eq_result_11, eq_result_distinct])
- >- (every_case_tac
-     >- metis_tac [do_eq_i2, eq_result_11, eq_result_distinct]
-     >- fs [gtagenv_wf_def, has_exns_def]
-     >- metis_tac [do_eq_i2, eq_result_11, eq_result_distinct])
- >- (fs [store_assign_def] >>
-     BasicProvers.CASE_TAC >-
-     metis_tac [EVERY2_LUPDATE_same, sv_to_i2_rules] >>
-     fs[store_v_same_type_def] >>
-     every_case_tac >> fs[LIST_REL_EL_EQN,sv_to_i2_cases] >>
-     metis_tac[store_v_distinct])
- >- (fs [store_alloc_def, LET_THM] >>
-     rw [sv_to_i2_cases, Once v_to_i2_eqns])
- >- (fs [store_lookup_def] >>
-     every_case_tac >>
-     fs [LIST_REL_EL_EQN, sv_to_i2_cases] >>
-     res_tac >>
-     rw [] >>
+ cases_on `op` >>
+ rw []
+ >- tac
+ >- tac
+ >- (fs [do_app_i1_def] >>
+     cases_on `vs` >>
      fs [] >>
-     rw [])
- >- fs [gtagenv_wf_def, has_exns_def]
- >- (fs [LET_THM, store_alloc_def] >>
-     rw [sv_to_i2_cases, v_to_i2_eqns])
- >- (fs [store_lookup_def] >>
-     every_case_tac >>
-     fs [LIST_REL_EL_EQN, sv_to_i2_cases] >>
-     res_tac >>
-     rw [] >>
+     cases_on `t` >>
      fs [] >>
-     rw [] >>
-     qexists_tac `s1_i2` >>
-     rw [markerTheory.Abbrev_def] >>
-     fs [gtagenv_wf_def, has_exns_def])
- >- (fs [LET_THM, store_lookup_def] >>
-     every_case_tac >>
-     fs [LIST_REL_EL_EQN, sv_to_i2_cases] >>
-     res_tac >>
-     rw [] >>
-     fs [] >>
-     rw [prim_exn_i1_def, v_to_i2_eqns] >>
-     fs [gtagenv_wf_def, has_exns_def])
- >- (fs [store_lookup_def] >>
-     every_case_tac >>
-     fs [LIST_REL_EL_EQN, sv_to_i2_cases] >>
-     res_tac >>
-     rw [] >>
-     fs [] >>
-     rw [] >>
-     metis_tac [])
- >- (fs [store_lookup_def] >>
-     every_case_tac >>
-     fs [LIST_REL_EL_EQN, sv_to_i2_cases] >>
-     res_tac >>
-     rw [] >>
-     fs [] >>
-     rw [] >>
-     qexists_tac `s1_i2` >>
-     rw [markerTheory.Abbrev_def] >>
-     fs [gtagenv_wf_def, has_exns_def])
- >- (fs [LET_THM, store_lookup_def] >>
-     every_case_tac >>
-     fs [LIST_REL_EL_EQN, sv_to_i2_cases, store_assign_def] >>
-     res_tac >>
-     rw [] >>
-     fs [] >>
-     rw [markerTheory.Abbrev_def, prim_exn_i1_def, v_to_i2_eqns] >>
-     fs [gtagenv_wf_def, has_exns_def] >>
-     rw [EL_LUPDATE] >>
-     fs[store_v_same_type_def])
- >- (every_case_tac >>
-     rw [] >>
-     imp_res_tac v_to_list_i2_correct >>
-     fs [] >>
-     metis_tac [SOME_11, NOT_SOME_NONE])
- >- (rw [markerTheory.Abbrev_def] >>
-     fs [vs_to_i2_list_rel,gtagenv_wf_def, has_exns_def])
- >- (rw [markerTheory.Abbrev_def] >>
-     fs [LET_THM, vs_to_i2_list_rel, gtagenv_wf_def, has_exns_def] >>
-     imp_res_tac LIST_REL_LENGTH >>
+     cases_on `t'` >>
+     fs [vs_to_i2_list_rel] >>
      rw []
-     >- (qexists_tac `Conv_i1 (SOME ("Subscript", TypeExn (Short "Subscript"))) []` >>
+     >- (every_case_tac >>
+         imp_res_tac do_eq_i2 >>
+         rw [do_app_i2_def, result_to_i2_cases, v_to_i2_eqns, prim_exn_i1_def, prim_exn_i2_def] >>
          rw [] >>
-         fs [] >>
-         rw [prim_exn_i1_def, v_to_i2_eqns])
-     >- (rw [] >>
-         fs [] >>
-         rw [] >>
-         fs [LIST_REL_EL_EQN] >>
-         `Num (ABS i) < LENGTH vs'` by intLib.ARITH_TAC >>
-         metis_tac [])));
+         fs [gtagenv_wf_def, has_exns_def])
+     >- (every_case_tac >>
+         fs []))
+ >- tac
+ >- tac
+ >- tac
+ >- tac
+ >- tac
+ >- (tac >>
+     pop_assum mp_tac >>
+     rw [])
+ >- tac
+ >- (tac >>
+     pop_assum mp_tac >>
+     rw [EL_LUPDATE] >>
+     fs [LENGTH_LUPDATE] >>
+     pop_assum mp_tac >>
+     pop_assum mp_tac >>
+     rw [])
+ >- (fs [do_app_i1_def] >>
+     cases_on `vs` >>
+     fs [] >>
+     cases_on `t` >>
+     fs [] >>
+     TRY (cases_on `t'`) >>
+     fs [vs_to_i2_list_rel] >>
+     rw []
+     >- (every_case_tac >>
+         imp_res_tac v_to_list_i2_correct >>
+         rw [do_app_i2_def, result_to_i2_cases, v_to_i2_eqns, prim_exn_i1_def, prim_exn_i2_def] >>
+         rw [])
+     >- (every_case_tac >>
+         fs []))
+ >- (tac >>
+     fs [vs_to_i2_list_rel] >>
+     imp_res_tac LIST_REL_LENGTH >>
+     fs [] >>
+     rw [v_to_i2_eqns] >>
+     rpt (pop_assum mp_tac) >>
+     rw []
+     >- fs [gtagenv_wf_def, has_exns_def] >>
+     fs [LIST_REL_EL_EQN] >>
+     FIRST_X_ASSUM match_mp_tac >>
+     decide_tac)
+ >- (tac >>
+     fs [vs_to_i2_list_rel] >>
+     imp_res_tac LIST_REL_LENGTH >>
+     fs [])
+ >- (tac >>
+     fs [vs_to_i2_list_rel, LIST_REL_EL_EQN, LENGTH_REPLICATE, EL_REPLICATE] >>
+     rw [v_to_i2_eqns, vs_to_i2_list_rel, LIST_REL_EL_EQN])
+ >- (tac >>
+     fs [vs_to_i2_list_rel] >>
+     imp_res_tac LIST_REL_LENGTH >>
+     fs [] >>
+     rw [v_to_i2_eqns] >>
+     rpt (pop_assum mp_tac) >>
+     rw []
+     >- fs [gtagenv_wf_def, has_exns_def] >>
+     fs [LIST_REL_EL_EQN] >>
+     FIRST_X_ASSUM match_mp_tac >>
+     decide_tac)
+ >- (tac >>
+     fs [vs_to_i2_list_rel, LIST_REL_EL_EQN, LENGTH_REPLICATE, EL_REPLICATE] >>
+     rw [v_to_i2_eqns, vs_to_i2_list_rel, LIST_REL_EL_EQN])
+ >- (tac >>
+     fs [vs_to_i2_list_rel] >>
+     imp_res_tac LIST_REL_LENGTH >>
+     fs [] >>
+     rw [v_to_i2_eqns] >>
+     rpt (pop_assum mp_tac) >>
+     rw []
+     >- fs [gtagenv_wf_def, has_exns_def] >>
+     fs [LIST_REL_EL_EQN] >>
+     rw [EL_LUPDATE] >>
+     full_case_tac >>
+     metis_tac []));
 
 val do_opapp_i2 = Q.prove (
 `!gtagenv vs vs_i2 env e genv env' tagenv envC env_i2.
@@ -1461,13 +1475,6 @@ val lookup_tag_env_insert = Q.prove (
  rw [lookup_tag_env_def, insert_tag_env_def, lookup_tag_flat_def, FLOOKUP_UPDATE] >>
  every_case_tac >>
  fs []);
-
-val check_dup_ctors_flat = Q.prove (
-`!defs.
-  check_dup_ctors (defs:type_def) =
-  ALL_DISTINCT (MAP FST (build_tdefs mn defs))`,
- rw [check_dup_ctors_thm, MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, build_tdefs_def,
-     MAP_REVERSE, ALL_DISTINCT_REVERSE]);
 
 val gtagenv_weak_refl = Q.prove (
 `!gtagenv envC tagenv.

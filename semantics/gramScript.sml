@@ -165,8 +165,7 @@ val cmlG_def = mk_grammar_def ginfo
  OptionalSignatureAscription ::= ":>" SignatureValue | ;
  Structure ::= "structure" StructName OptionalSignatureAscription "=" "struct" Decls "end";
  TopLevelDec ::= Structure | Decl;
- TopLevelDecs ::= TopLevelDec TopLevelDecs | ;
- REPLPhrase ::= TopLevelDecs ";" | E ";" ;
+ TopLevelDecs ::= TopLevelDec TopLevelDecs | ";" TopLevelDecs | ;
  REPLTop ::= TopLevelDec ";" | E ";" ;
 `;
 

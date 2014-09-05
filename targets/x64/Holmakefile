@@ -1,0 +1,6 @@
+INCLUDES = $(HOLDIR)/examples/l3-machine-code/x64/step \
+           $(HOLDIR)/examples/l3-machine-code/x64/prog ..
+
+ifdef POLY
+HOLHEAP = $(HOLDIR)/examples/l3-machine-code/x64/prog/x64-step-heap
+endif
