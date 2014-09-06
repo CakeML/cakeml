@@ -143,7 +143,7 @@ val lookup_var_def = Define `
 
 val lookup_cons_def = zDefine `
   lookup_cons name (env:all_env) =
-    lookup_mod_env (Short name) (FST (SND env))`;
+    lookup_alist_mod_env (Short name) (FST (SND env))`;
 
 val lookup_var_write = store_thm("lookup_var_write",
   ``lookup_var v (write w x env) =
@@ -801,7 +801,7 @@ val Decls_def = Define `
     ?menv1 cenv1 env1 new_tds res_env.
       (env = (menv1,cenv1,env1)) /\
       evaluate_decs F mn env s1 ds (s2,new_tds, Rval res_env) /\
-      (env2 = (menv1,merge_mod_env (FEMPTY,new_tds) cenv1,res_env ++ env1))`;
+      (env2 = (menv1,merge_alist_mod_env ([],new_tds) cenv1,res_env ++ env1))`;
 
 val DeclAssum_def = zDefine `
   DeclAssum mn ds env tys =
@@ -813,7 +813,7 @@ val _ = computeLib.add_funs [DeclAssum_def |> SIMP_RULE (srw_ss()) [initSemEnvTh
 
 val write_tds_def = Define `
   write_tds mn tds ((menv1,cenv1,env1):all_env) =
-    (menv1,merge_mod_env (FEMPTY,build_tdefs mn tds) cenv1,env1):all_env`;
+    (menv1,merge_alist_mod_env ([],build_tdefs mn tds) cenv1,env1):all_env`;
 
 val Decls_Dtype = store_thm("Decls_Dtype",
   ``!mn env s tds env2 s2.
@@ -846,7 +846,7 @@ val Decls_Dlet = store_thm("Decls_Dlet",
        combine_dec_result_def]
   \\ FULL_SIMP_TAC std_ss [PULL_EXISTS] \\ REPEAT STRIP_TAC
   \\ PairCases_on `env` \\ Cases_on `s1` \\ Cases_on `s2`
-  \\ FULL_SIMP_TAC std_ss [write_def,merge_mod_env_def,APPEND, finite_mapTheory.FUNION_FEMPTY_1,
+  \\ FULL_SIMP_TAC std_ss [write_def,merge_alist_mod_env_def,APPEND, finite_mapTheory.FUNION_FEMPTY_1,
                            finite_mapTheory.FUNION_FEMPTY_2]
   \\ METIS_TAC [big_unclocked, pair_CASES]);
 
@@ -868,7 +868,7 @@ val Decls_Dletrec = store_thm("Decls_Dletrec",
        pmatch_def,evaluate_dec_cases,
        combine_dec_result_def,PULL_EXISTS] \\ REPEAT STRIP_TAC
   \\ PairCases_on `env` \\ Cases_on `s1` \\ Cases_on `s2`
-  \\ FULL_SIMP_TAC std_ss [write_def,merge_mod_env_def,
+  \\ FULL_SIMP_TAC std_ss [write_def,merge_alist_mod_env_def,
        APPEND,write_rec_def,APPEND,
        build_rec_env_def,FOLDR_LEMMA]
   \\ fs []
@@ -1054,9 +1054,9 @@ val combine_dec_result_rerr = Q.prove (
   rw [combine_dec_result_def]);
 
 val merge_envC_empty = Q.prove (
-  `!cenv. merge_mod_env (FEMPTY,FEMPTY) cenv = cenv`,
+  `!cenv. merge_alist_mod_env ([],[]) cenv = cenv`,
   rw [] \\ PairCases_on `cenv`
-  \\ rw [merge_mod_env_def]);
+  \\ rw [merge_alist_mod_env_def]);
 
 val merge_env_def = Define `
   merge_env (env1:all_env) (env2:all_env) = (env1:all_env)`;
@@ -1067,7 +1067,7 @@ val Decls_NIL = store_thm("Decls_NIL",
   REPEAT STRIP_TAC \\ PairCases_on `env1`
   \\ FULL_SIMP_TAC std_ss [APPEND,Decls_def,PULL_EXISTS]
   \\ SIMP_TAC std_ss [Once evaluate_decs_cases]
-  \\ SIMP_TAC (srw_ss()) [merge_mod_env_def]
+  \\ SIMP_TAC (srw_ss()) [merge_alist_mod_env_def]
   \\ METIS_TAC []);
 
 val Decls_CONS = store_thm("Decls_CONS",
@@ -1089,7 +1089,7 @@ val Decls_CONS = store_thm("Decls_CONS",
   \\ FULL_SIMP_TAC std_ss [``evaluate_decs F a0 a1 a2 [] a4``
         |> SIMP_CONV (srw_ss()) [Once evaluate_decs_cases]]
   \\ Cases_on `cenv1`
-  \\ FULL_SIMP_TAC std_ss [merge_mod_env_def,APPEND]
+  \\ FULL_SIMP_TAC std_ss [merge_alist_mod_env_def,APPEND]
   THEN1 (POP_ASSUM MP_TAC
     \\ NTAC 3 (Q.PAT_ASSUM `yyy = xxx` (fn th => FULL_SIMP_TAC std_ss [th]))
     \\ Q.PAT_ASSUM `yyy = xxx` MP_TAC
@@ -1538,13 +1538,13 @@ val DeclAssumCons_SNOC_Dtype = store_thm("DeclAssumCons_SNOC_Dtype",
         (MAP (\(tvs,tn,ctors). TypeId
           (case mn of NONE => Short tn
                     | SOME m => Long m tn)) tds ++ conses)
-        (FUNION (build_tdefs mn tds) ce)``,
+        (build_tdefs mn tds ++ ce)``,
   fs [DeclAssumCons_def,DeclAssum_def,Decls_NIL,Decls_APPEND,SNOC_APPEND,
     Decls_Dtype] \\ srw_tac [] [] \\ res_tac
   \\ PairCases_on `s2` \\ fs [] \\ srw_tac [] [] \\ res_tac \\ fs []
   \\ PairCases_on `env2`
   \\ fs [type_defs_to_new_tdecs_def,mk_id_def,write_tds_def,
-         merge_mod_env_def]);
+         merge_alist_mod_env_def]);
 
 val EVERY_lookup_lemma = prove(
   ``!xs. ALL_DISTINCT (MAP FST xs) ==>
@@ -1557,13 +1557,14 @@ val DeclAssumCons_cons_lookup = store_thm("DeclAssumCons_cons_lookup",
   ``DeclAssumCons mn ds conses ce ==>
     !env tys.
        DeclAssum mn ds env tys ==>
-         FEVERY (\(cn,l,tyname). lookup_cons cn env = SOME (l, tyname)) ce``,
+         EVERY (\(cn,l,tyname). lookup_cons cn env = SOME (l, tyname)) ce``,
   fs [DeclAssumCons_def] \\ srw_tac [] [lookup_cons_def] \\ res_tac
-  \\ PairCases_on `env` \\ fs [lookup_mod_env_def]
-  >> rw [finite_mapTheory.FEVERY_DEF] >>
-  Cases_on `ce ' x` >>
-  rw [finite_mapTheory.FLOOKUP_DEF]
-  \\ match_mp_tac EVERY_lookup_lemma \\ fs []);
+  \\ PairCases_on `env` \\ fs [lookup_alist_mod_env_def]
+  \\ match_mp_tac EVERY_lookup_lemma \\ fs [] >>
+  res_tac >>
+  rw [] >>
+  fs [] >>
+  cheat);
 
 (* size lemmas *)
 
@@ -1660,9 +1661,9 @@ val Tmod_lemma = prove(
         ((THE prim_sem_env).sem_envM,(THE prim_sem_env).sem_envC,(THE prim_sem_env).sem_envE)
         (THE prim_sem_env).sem_store
         (Tmod m specs ds)
-        ((s,DeclTys (SOME m) ds,{m}),(FEMPTY |+ (m,tds),FEMPTY),Rval ([(m,env)],[])) /\
+        ((s,DeclTys (SOME m) ds,{m}),([(m,tds)],[]),Rval ([(m,env)],[])) /\
       DeclEnv (SOME m) ds =
-        ([],merge_mod_env (FEMPTY,tds) (THE prim_sem_env).sem_envC,
+        ([],merge_alist_mod_env ([],tds) (THE prim_sem_env).sem_envC,
             env ++ (THE prim_sem_env).sem_envE)``,
   REPEAT STRIP_TAC \\ IMP_RES_TAC DeclEnv
   \\ fs [DeclAssum_def,Decls_def]

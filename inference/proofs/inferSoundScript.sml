@@ -1246,9 +1246,9 @@ val infer_ds_sound = Q.prove (
  rw [Once type_ds_cases] >>
  fs [init_infer_state_def] >>
  imp_res_tac infer_d_check >>
- `check_cenv (merge_tenvC ([],cenv'') cenv)` 
+ `check_cenv (merge_alist_mod_env ([],cenv'') cenv)` 
           by (PairCases_on `cenv` >>
-              fs [merge_tenvC_def, check_cenv_def, check_flat_cenv_def]) >>
+              fs [merge_alist_mod_env_def, check_cenv_def, check_flat_cenv_def]) >>
  `tenvT_ok (merge_mod_env (FEMPTY,tenvT'') tenvT)` 
         by (match_mp_tac tenvT_ok_merge >>
             fs [tenvT_ok_def, FEVERY_FEMPTY]) >>
@@ -1509,17 +1509,13 @@ val check_specs_sound = Q.prove (
      rw [convert_decls_def] >>
      res_tac >>
      qexists_tac `append_decls decls'' ([],[],[mk_id mn cn])` >>
-<<<<<<< HEAD
      rw [PULL_EXISTS] >>
      qexists_tac `tenvT'''` >>
-=======
-     rw [] >>
-     qexists_tac `cenv'' ++ [(cn,([],MAP (type_name_subst tenvT) ts,TypeExn (mk_id mn cn)))]` >>
->>>>>>> origin/master
      PairCases_on `decls''` >>
      rw [convert_decls_def, append_decls_def] >>
      qexists_tac `convert_decls (decls''0,decls''1,decls''2)` >>
-     fs [convert_decls_def, union_decls_def, DISJOINT_DEF, EXTENSION, MEM_MAP])
+     fs [convert_decls_def, union_decls_def, DISJOINT_DEF, EXTENSION, MEM_MAP] >>
+     cheat)
  >- (rw [Once type_specs_cases, convert_decls_def] >>
      res_tac >>
      rw [PULL_EXISTS] >>
@@ -1547,7 +1543,7 @@ val infer_top_sound = Q.store_thm ("infer_top_sound",
            (bind_var_list2 (convert_env2 env) Empty) 
            top 
            (convert_decls decls') tenvT' (convert_menv menv') cenv' (convert_env2 env') ∧
-  infer_sound_invariant (merge_mod_env tenvT' tenvT) (FUNION menv' menv) (merge_tenvC cenv' cenv) (env'++env)`,
+  infer_sound_invariant (merge_mod_env tenvT' tenvT) (FUNION menv' menv) (merge_alist_mod_env cenv' cenv) (env'++env)`,
  cases_on `top` >>
  rpt gen_tac >>
  `?mdecls tdecls edecls. decls = (mdecls,tdecls,edecls)` by metis_tac [pair_CASES] >>
@@ -1628,14 +1624,14 @@ val infer_top_sound = Q.store_thm ("infer_top_sound",
          rw []
          >- (fs [check_cenv_def] >>
              PairCases_on `cenv` >>
-             fs [merge_tenvC_def, check_cenv_def])
+             fs [merge_alist_mod_env_def, check_cenv_def])
          >- (PairCases_on `v'` >>
              fs [success_eqns] >>
              rw [] >>
              `check_flat_cenv cenv'''` by metis_tac [check_specs_check] >>
              fs [check_env_def, check_flat_cenv_def] >>
              PairCases_on `cenv` >>
-             fs [merge_tenvC_def, check_cenv_def, check_flat_cenv_def]))
+             fs [merge_alist_mod_env_def, check_cenv_def, check_flat_cenv_def]))
      >- (fs [success_eqns, check_menv_def] >>
          rw [] >>
          cases_on `o'` >>
@@ -1650,7 +1646,7 @@ val infer_top_sound = Q.store_thm ("infer_top_sound",
      fs [FEVERY_FEMPTY])
  >- (imp_res_tac infer_d_check >>
      PairCases_on `cenv` >>
-     fs [merge_tenvC_def, check_cenv_def, check_flat_cenv_def])
+     fs [merge_alist_mod_env_def, check_cenv_def, check_flat_cenv_def])
  >- (imp_res_tac infer_d_check >>
      fs [check_env_def]));
 
@@ -1660,13 +1656,13 @@ val infer_prog_sound = Q.store_thm ("infer_prog_sound",
   infer_sound_invariant tenvT menv cenv env
   ⇒
   type_prog (convert_decls decls) tenvT (convert_menv menv) cenv (bind_var_list2 (convert_env2 env) Empty) prog (convert_decls decls') tenvT' (convert_menv menv') cenv' (convert_env2 env') ∧
-  infer_sound_invariant (merge_mod_env tenvT' tenvT) (FUNION menv' menv) (merge_tenvC cenv' cenv) (env' ++ env)`,
+  infer_sound_invariant (merge_mod_env tenvT' tenvT) (FUNION menv' menv) (merge_alist_mod_env cenv' cenv) (env' ++ env)`,
  induct_on `prog` >>
  rw [infer_prog_def, success_eqns]
  >- rw [Once type_prog_cases, empty_decls_def, convert_decls_def, convert_menv_def, convert_env2_def]
  >- (PairCases_on `cenv` >>
      PairCases_on `tenvT` >>
-     rw [merge_mod_env_def, merge_tenvC_def])
+     rw [merge_mod_env_def, merge_alist_mod_env_def])
  >- (rw [Once type_prog_cases] >>
      `?decls' tenvT' menv' cenv' env'. v' = (decls',tenvT',menv',cenv',env')` by metis_tac [pair_CASES] >>
      rw [] >>
@@ -1693,6 +1689,7 @@ val infer_prog_sound = Q.store_thm ("infer_prog_sound",
      fs [success_eqns] >>
      rw [] >>
      res_tac >>
-     metis_tac [FUNION_ASSOC, APPEND_ASSOC, evalPropsTheory.merge_mod_env_assoc, merge_tenvC_assoc]));
+     metis_tac [FUNION_ASSOC, APPEND_ASSOC, merge_mod_env_assoc, 
+                evalPropsTheory.merge_alist_mod_env_assoc]));
 
 val _ = export_theory ();
