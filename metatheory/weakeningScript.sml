@@ -114,12 +114,12 @@ val weakC_merge = Q.store_thm ("weakC_merge",
 `!tenvC1 tenvC2 tenvC3.
   weakC tenvC1 tenvC2
   ⇒
-  weakC (merge_tenvC tenvC3 tenvC1) (merge_tenvC tenvC3 tenvC2)`,
+  weakC (merge_alist_mod_env tenvC3 tenvC1) (merge_alist_mod_env tenvC3 tenvC2)`,
  rw [weakC_def] >>
  PairCases_on `tenvC1` >>
  PairCases_on `tenvC2` >>
  PairCases_on `tenvC3` >>
- fs [merge_tenvC_def]
+ fs [merge_alist_mod_env_def]
  >- metis_tac [flat_weakC_merge]
  >- (fs [ALOOKUP_APPEND] >>
      every_case_tac >>
@@ -131,10 +131,10 @@ val weakC_merge_one_mod = Q.store_thm ("weakC_merge_one_mod",
   mn ∉ set (MAP FST (FST tenvC1)) ∧
   weakC tenvC1 tenvC2
   ⇒
-  weakC (merge_tenvC ([(mn, flat_tenvC)],[]) tenvC1) tenvC2`,
+  weakC (merge_alist_mod_env ([(mn, flat_tenvC)],[]) tenvC1) tenvC2`,
  rw [weakC_def] >>
  PairCases_on `tenvC1` >>
- fs [merge_tenvC_def] >>
+ fs [merge_alist_mod_env_def] >>
  every_case_tac >>
  rw [] >>
  res_tac >>
@@ -147,11 +147,11 @@ val weakC_merge_one_mod2 = Q.store_thm ("weakC_merge_one_mod2",
   flat_weakC flat_tenvC1 flat_tenvC2 ∧
   weakC tenvC1 tenvC2
   ⇒
-  weakC (merge_tenvC ([(mn, flat_tenvC1)],[]) tenvC1) (merge_tenvC ([(mn, flat_tenvC2)],[]) tenvC2)`,
+  weakC (merge_alist_mod_env ([(mn, flat_tenvC1)],[]) tenvC1) (merge_alist_mod_env ([(mn, flat_tenvC2)],[]) tenvC2)`,
  rw [weakC_def] >>
  PairCases_on `tenvC1` >>
  PairCases_on `tenvC2` >>
- fs [merge_tenvC_def] >>
+ fs [merge_alist_mod_env_def] >>
  every_case_tac >>
  fs [] >>
  rw []);
@@ -215,13 +215,13 @@ PROVE_TAC []);
 val weak_tenvC_lookup = Q.prove (
 `∀cn tenvC tenvC' tvs ts tn.
   weakC tenvC' tenvC ∧
-  (lookup_tenvC cn tenvC = SOME (tvs,ts,tn))
+  (lookup_alist_mod_env cn tenvC = SOME (tvs,ts,tn))
   ⇒
-  (lookup_tenvC cn tenvC' = SOME (tvs,ts,tn))`,
+  (lookup_alist_mod_env cn tenvC' = SOME (tvs,ts,tn))`,
  rw [weakC_def] >>
  PairCases_on `tenvC` >>
  PairCases_on `tenvC'` >>
- fs [lookup_tenvC_def] >>
+ fs [lookup_alist_mod_env_def] >>
  every_case_tac >>
  fs [flat_weakC_def]
  >- (LAST_X_ASSUM (mp_tac o Q.SPEC `a`) >>
@@ -679,7 +679,7 @@ val consistent_con_env_weakening = Q.store_thm ("consistent_con_env_weakening",
   consistent_con_env ctMap' envC tenvC`,
  rw [weakCT_def, consistent_con_env_def] >>
  PairCases_on `envC` >>
- fs [lookup_tenvC_def, lookup_mod_env_def] >>
+ fs [lookup_alist_mod_env_def, lookup_mod_env_def] >>
  every_case_tac >>
  fs []
  >- (FIRST_X_ASSUM (mp_tac o Q.SPECL [`Short a`, `n`, `t`]) >>
@@ -739,7 +739,7 @@ val type_ds_weakening = Q.store_thm ("type_ds_weakening",
  rw [Once type_ds_cases] >>
  `type_d mn decls''' tenvT tenvM'' tenvC'' tenv d decls' tenvT' cenv' tenv'` by metis_tac [type_d_weakening] >>
  imp_res_tac type_d_ctMap_ok >>
- `tenvC_ok (merge_tenvC ([],cenv') tenvC'')` 
+ `tenvC_ok (merge_alist_mod_env ([],cenv') tenvC'')` 
         by (rw [tenvC_ok_merge] >>
             metis_tac [ctMap_ok_tenvC_ok, MAP_REVERSE, ALL_DISTINCT_REVERSE]) >>
  `weak_decls (union_decls decls' decls''') (union_decls decls' decls)`

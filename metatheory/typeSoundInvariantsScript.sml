@@ -94,17 +94,17 @@ val _ = Define `
 (tenvC_ok tenvC /\
   ctMap_ok ctMap /\
   (! cn n t.    
-(lookup_mod_env cn envC = SOME (n, t))
+(lookup_alist_mod_env cn envC = SOME (n, t))
     ==>    
 (? tvs ts.      
-(lookup_tenvC cn tenvC = SOME (tvs, ts, t)) /\      
+(lookup_alist_mod_env cn tenvC = SOME (tvs, ts, t)) /\      
 (FLOOKUP ctMap (id_to_n cn,t) = SOME (tvs, ts)) /\      
 (LENGTH ts = n)))
   /\
   (! cn.    
-(lookup_mod_env cn envC = NONE)
+(lookup_alist_mod_env cn envC = NONE)
     ==>    
-(lookup_tenvC cn tenvC = NONE))))`;
+(lookup_alist_mod_env cn tenvC = NONE))))`;
 
 
 (* A value has a type *)
@@ -374,7 +374,7 @@ type_ctxt tvs menv all_cenv cenv senv tenv (Clet n ()  e) t1 t2)
 type_vs tvs all_cenv senv (REVERSE vs)
         (MAP (type_subst (FUPDATE_LIST FEMPTY (REVERSE (ZIP (tvs', ts'))))) ts1) /\
 type_es menv cenv (bind_tvar tvs tenv) es (MAP (type_subst (FUPDATE_LIST FEMPTY (REVERSE (ZIP (tvs', ts'))))) ts2) /\
-(lookup_tenvC cn cenv = SOME (tvs', ((ts1++[t])++ts2), tn)))
+(lookup_alist_mod_env cn cenv = SOME (tvs', ((ts1++[t])++ts2), tn)))
 ==>
 type_ctxt tvs menv all_cenv cenv senv tenv (Ccon (SOME cn) vs ()  es) (type_subst (FUPDATE_LIST FEMPTY (REVERSE (ZIP (tvs', ts')))) t)
           (Tapp ts' (tid_exn_to_tc tn)))
@@ -548,8 +548,8 @@ val _ = Define `
  (update_type_sound_inv ((decls1:decls),(tenvT:tenvT),(tenvM:tenvM),(tenvC:tenvC),(tenv:tenvE),(decls2: tid_or_exn set),(envM:envM),(envC:envC),(envE:envE),store) decls1' tenvT' tenvM' tenvC' tenv' store' decls2' envC' r =  
 ((case r of
        Rval (envM',envE') => 
-         (union_decls decls1' decls1,merge_mod_env tenvT' tenvT, FUNION tenvM' tenvM,merge_tenvC tenvC' tenvC,bind_var_list2 tenv' tenv,
-          decls2',(envM'++envM),merge_mod_env envC' envC,(envE'++envE),store')
+         (union_decls decls1' decls1,merge_mod_env tenvT' tenvT, FUNION tenvM' tenvM,merge_alist_mod_env tenvC' tenvC,bind_var_list2 tenv' tenv,
+          decls2',(envM'++envM),merge_alist_mod_env envC' envC,(envE'++envE),store')
      | Rerr _ => (union_decls decls1' decls1,tenvT,tenvM,tenvC,tenv,decls2',envM,envC,envE,store')
   )))`;
 

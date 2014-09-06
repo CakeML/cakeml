@@ -14,6 +14,8 @@ val same_tid_def = semanticPrimitivesTheory.same_tid_def;
 val lookup_var_id_def = semanticPrimitivesTheory.lookup_var_id_def;
 val build_tdefs_cons = evalPropsTheory.build_tdefs_cons;
 val check_dup_ctors_cons = evalPropsTheory.check_dup_ctors_cons;
+val merge_alist_mod_env_def = semanticPrimitivesTheory.merge_alist_mod_env_def;
+val lookup_alist_mod_env_def = semanticPrimitivesTheory.lookup_alist_mod_env_def;
 
 val type_env_cases = List.nth (CONJUNCTS type_v_cases, 2);
 val consistent_mod_cases = List.nth (CONJUNCTS type_v_cases, 3);
@@ -75,6 +77,17 @@ val type_env_length = store_thm("type_env_length",
   first_x_assum match_mp_tac >>
   simp[bind_var_list2_append,bind_var_list2_def] >>
   metis_tac[CONS_APPEND,APPEND_ASSOC])
+
+val merge_mod_env_assoc = Q.store_thm ("merge_mod_env_assoc",
+`∀env1 env2 env3.
+  merge_mod_env env1 (merge_mod_env env2 env3) =
+  merge_mod_env (merge_mod_env env1 env2) env3`,
+rw [] >>
+PairCases_on `env1` >>
+PairCases_on `env2` >>
+PairCases_on `env3` >>
+rw [merge_mod_env_def, FUNION_ASSOC]);
+
 
 (* ---------- check_freevars ---------- *)
 
@@ -441,7 +454,7 @@ val tenvT_ok_lookup = Q.store_thm ("tenvT_ok_lookup",
   ⇒
   check_freevars 0 tvs t`,
  Cases_on `tenvT` >>
- rw [semanticPrimitivesTheory.lookup_mod_env_def, tenvT_ok_def] >>
+ rw [lookup_mod_env_def, tenvT_ok_def] >>
  every_case_tac >>
  imp_res_tac flat_tenvT_ok_lookup >>
  fs [] >>
@@ -482,14 +495,14 @@ val tenvT_ok_merge = Q.store_thm ("tenvT_ok_merge",
  rw [] >>
  PairCases_on `tenvT1` >>
  PairCases_on `tenvT2` >>
- rw [tenvT_ok_def, semanticPrimitivesTheory.merge_mod_env_def, ALL_DISTINCT_APPEND] >>
+ rw [tenvT_ok_def, merge_mod_env_def, ALL_DISTINCT_APPEND] >>
  fs [tenvT_ok_def]
  >- (match_mp_tac fevery_funion >>
      fs []) >>
  metis_tac [flat_tenvT_ok_merge]);
 
 (* ---------- tenvC stuff ----------*)
-(* merge_tenvC, lookup_tenvC, flat_tenvC_ok, tenvC_ok *)
+(* lookup_tenvC, flat_tenvC_ok, tenvC_ok *)
 
 val flat_tenvC_ok_merge = Q.prove (
 `!tenvC1 tenvC2.
@@ -502,12 +515,12 @@ metis_tac []);
 
 val tenvC_ok_merge = Q.store_thm ("tenvC_ok_merge",
 `!tenvC1 tenvC2.
-  tenvC_ok (merge_tenvC tenvC1 tenvC2) = 
+  tenvC_ok (merge_alist_mod_env tenvC1 tenvC2) = 
   (tenvC_ok tenvC1 ∧ tenvC_ok tenvC2)`, 
  rw [] >>
  PairCases_on `tenvC1` >>
  PairCases_on `tenvC2` >>
- rw [tenvC_ok_def, merge_tenvC_def, ALL_DISTINCT_APPEND] >>
+ rw [tenvC_ok_def, merge_alist_mod_env_def, ALL_DISTINCT_APPEND] >>
  eq_tac >>
  rw [EVERY_MEM] >>
  res_tac >>
@@ -529,31 +542,31 @@ metis_tac []);
 
 val lookup_tenvC_merge_emp = Q.store_thm ("lookup_tenvC_merge_emp",
 `(!cn envC1 envC2.
-  lookup_tenvC cn (merge_tenvC ([],envC1) envC2) =
-    case lookup_tenvC cn ([],envC1) of
-       | NONE => lookup_tenvC cn envC2
+  lookup_alist_mod_env cn (merge_alist_mod_env ([],envC1) envC2) =
+    case lookup_alist_mod_env cn ([],envC1) of
+       | NONE => lookup_alist_mod_env cn envC2
        | SOME v => SOME v) ∧
  (!cn envC1 envC2.
-  lookup_tenvC cn (merge_tenvC ([],envC1) envC2) =
-    case lookup_tenvC cn ([],envC1) of
-       | NONE => lookup_tenvC cn envC2
+  lookup_alist_mod_env cn (merge_alist_mod_env ([],envC1) envC2) =
+    case lookup_alist_mod_env cn ([],envC1) of
+       | NONE => lookup_alist_mod_env cn envC2
        | SOME v => SOME v)`,
  rw [] >>
  PairCases_on `envC2` >>
  cases_on `cn` >>
- fs [lookup_tenvC_def, merge_tenvC_def] >>
+ fs [lookup_alist_mod_env_def, merge_alist_mod_env_def] >>
  every_case_tac >>
  fs [ALOOKUP_APPEND]);
 
 val tenvC_ok_lookup = Q.store_thm ("tenvC_ok_lookup",
 `!tenvC cn tvs ts tn.
-  tenvC_ok tenvC ∧ (lookup_tenvC cn tenvC = SOME (tvs,ts,tn))
+  tenvC_ok tenvC ∧ (lookup_alist_mod_env cn tenvC = SOME (tvs,ts,tn))
   ⇒
   EVERY (check_freevars 0 tvs) ts`,
  cases_on `cn` >>
  rw [] >>
  PairCases_on `tenvC` >>
- fs [lookup_tenvC_def, tenvC_ok_def]
+ fs [lookup_alist_mod_env_def, tenvC_ok_def]
  >- metis_tac [flat_tenvC_ok_lookup] >> 
  every_case_tac >>
  fs [] >>
@@ -563,41 +576,41 @@ val tenvC_ok_lookup = Q.store_thm ("tenvC_ok_lookup",
  rw [] >>
  res_tac >>
  fs []);
- 
+
 val merge_tenvC_empty_assoc = Q.store_thm ("merge_tenvC_empty_assoc",
 `!tenvC1 tenvC2 tenvC3.
-  merge_tenvC ([],tenvC1) (merge_tenvC ([],tenvC2) tenvC3)
+  merge_alist_mod_env ([],tenvC1) (merge_alist_mod_env ([],tenvC2) tenvC3)
   =
-  merge_tenvC ([],tenvC1++tenvC2) tenvC3`,
+  merge_alist_mod_env ([],tenvC1++tenvC2) tenvC3`,
  rw [] >>
  PairCases_on `tenvC3` >>
- rw [merge_tenvC_def]);
+ rw [merge_alist_mod_env_def]);
 
 val merge_tenvC_empty = Q.store_thm ("merge_tenvC_empty",
-`(!tenvC. merge_tenvC ([],[]) tenvC = tenvC)`,
+`(!tenvC. merge_alist_mod_env ([],[]) tenvC = tenvC)`,
  rw [] >>
  TRY (PairCases_on `envC`) >>
  TRY (PairCases_on `tenvC`) >>
- rw [merge_tenvC_def]);
+ rw [merge_alist_mod_env_def]);
 
 val lookup_tenvC_mod_cons = Q.store_thm ("lookup_tenvC_mod_cons",
 `!mn cn mn' flat_envC1 envC1 flat_envC2.
-  lookup_tenvC (Long mn cn) ((mn',flat_envC1)::envC1,flat_envC2) =
+  lookup_alist_mod_env (Long mn cn) ((mn',flat_envC1)::envC1,flat_envC2) =
   if mn = mn' then
     ALOOKUP flat_envC1 cn
   else
-    lookup_tenvC (Long mn cn) (envC1,flat_envC2)`,
-rw [lookup_tenvC_def]);
+    lookup_alist_mod_env (Long mn cn) (envC1,flat_envC2)`,
+rw [lookup_alist_mod_env_def]);
 
 val merge_tenvC_assoc = Q.store_thm ("merge_tenvC_assoc",
 `∀tenvC1 tenvC2 tenvC3.
-  merge_tenvC tenvC1 (merge_tenvC tenvC2 tenvC3) =
-  merge_tenvC (merge_tenvC tenvC1 tenvC2) tenvC3`,
+  merge_alist_mod_env tenvC1 (merge_alist_mod_env tenvC2 tenvC3) =
+  merge_alist_mod_env (merge_alist_mod_env tenvC1 tenvC2) tenvC3`,
 rw [] >>
 PairCases_on `tenvC1` >>
 PairCases_on `tenvC2` >>
 PairCases_on `tenvC3` >>
-rw [merge_tenvC_def])
+rw [merge_alist_mod_env_def])
 
 (* ---------- tenv stuff ---------- *)
 (* bind_tvar, bind_var_list, bind_var_list2, lookup_tenv, bind_tenv,
@@ -2128,7 +2141,7 @@ val lookup_ctor_none_lem = Q.prove (
 val lookup_ctor_none = Q.store_thm ("lookup_ctor_none",
 `!tds tenvC envC.
   !x. ALOOKUP (build_ctor_tenv mn tenvT tds) x = NONE ⇔
-      FLOOKUP (build_tdefs mn tds) x = NONE`,
+      ALOOKUP (build_tdefs mn tds) x = NONE`,
  rw [build_ctor_tenv_def, build_tdefs_def, flookup_fupdate_list] >>
  eq_tac >>
  rw [] >>
@@ -2218,13 +2231,13 @@ val ctor_env_to_tdefs = Q.prove (
 `!mn tds cn n t tvs ts.
   ALOOKUP (build_ctor_tenv mn tenvT tds) cn = SOME (tvs,ts,t)
   ⇒
-  FLOOKUP (build_tdefs mn tds) cn = SOME (LENGTH ts,t)`,
+  ALOOKUP (build_tdefs mn tds) cn = SOME (LENGTH ts,t)`,
  induct_on `tds` >>
  rw [build_ctor_tenv_empty] >>
  PairCases_on `h` >>
  fs [build_ctor_tenv_cons, build_tdefs_cons] >>
  fs [ALOOKUP_APPEND, FLOOKUP_FUNION] >>
- cases_on `FLOOKUP (build_tdefs mn tds) cn` >>
+ cases_on `ALOOKUP (build_tdefs mn tds) cn` >>
  rw []
  >- (cases_on `ALOOKUP (build_ctor_tenv mn tenvT tds) cn` >>
      fs []
@@ -2309,20 +2322,19 @@ val extend_consistent_con = Q.store_thm ("extend_consistent_con",
   consistent_con_env ctMap cenv tenvC
   ⇒
   consistent_con_env (flat_to_ctMap (build_ctor_tenv mn tenvT tdefs) ⊌ ctMap)
-                     (merge_mod_env (FEMPTY,build_tdefs mn tdefs) cenv)
-                     (merge_tenvC ([],build_ctor_tenv mn tenvT tdefs) tenvC)`,
+                     (merge_alist_mod_env ([],build_tdefs mn tdefs) cenv)
+                     (merge_alist_mod_env ([],build_ctor_tenv mn tenvT tdefs) tenvC)`,
  rw [consistent_con_env_def, ALOOKUP_APPEND, tenvC_ok_merge, lookup_tenvC_merge_emp]
  >- (rw [tenvC_ok_def] >>
      metis_tac [check_ctor_tenvC_ok])
  >- metis_tac [check_ctor_ctMap_ok, ctMap_ok_merge_imp]
- >- (fs [lookup_tenvC_def] >>
+ >- (fs [lookup_alist_mod_env_def] >>
      PairCases_on `cenv` >>
-     fs [semanticPrimitivesTheory.lookup_mod_env_def, FLOOKUP_FUNION,
-         semanticPrimitivesTheory.merge_mod_env_def] >>
+     fs [lookup_mod_env_def, FLOOKUP_FUNION, merge_mod_env_def] >>
      rpt (FIRST_X_ASSUM (qspecl_then [`cn`] mp_tac)) >>
      Cases_on `cn` >>
      fs []
-     >- (Cases_on `FLOOKUP (build_tdefs mn tdefs) a` >>
+     >- (Cases_on `ALOOKUP (build_tdefs mn tdefs) a` >>
          fs []
          >- (`ALOOKUP (build_ctor_tenv mn tenvT tdefs) a = NONE` by metis_tac [lookup_ctor_none] >>
              rw [] >>
@@ -2344,7 +2356,7 @@ val extend_consistent_con = Q.store_thm ("extend_consistent_con",
              rw [] >>
              imp_res_tac check_ctor_tenv_dups >>
              metis_tac [check_dup_ctors_distinct, to_ctMap_lookup]))
-     >- (Cases_on `FLOOKUP cenv0 s` >>
+     >- (Cases_on `ALOOKUP cenv0 s` >>
          fs [] >>
          rw [id_to_n_def] >>
          MAP_EVERY qexists_tac [`tvs`, `ts`] >>
@@ -2352,13 +2364,12 @@ val extend_consistent_con = Q.store_thm ("extend_consistent_con",
          every_case_tac >>
          fs [FLOOKUP_DEF, DISJOINT_DEF, EXTENSION] >>
          metis_tac []))
- >- (fs [lookup_tenvC_def] >>
+ >- (fs [lookup_alist_mod_env_def] >>
      every_case_tac >>
      fs [] >>
      rw [] >>
      PairCases_on `cenv` >>
-     fs [semanticPrimitivesTheory.lookup_mod_env_def, FLOOKUP_FUNION,
-         semanticPrimitivesTheory.merge_mod_env_def] >>
+     fs [lookup_mod_env_def, ALOOKUP_APPEND, merge_mod_env_def] >>
      every_case_tac >>
      fs [] >>
      metis_tac [NOT_SOME_NONE, pair_CASES,ctor_env_to_tdefs]));
@@ -2371,20 +2382,13 @@ val extend_consistent_con_exn = Q.store_thm ("extend_consistent_con_exn",
   EVERY (check_type_names tenvT) ts ∧
   consistent_con_env ctMap cenv tenvC
   ⇒
-<<<<<<< HEAD
-  consistent_con_env (FUNION (flat_to_ctMap [(cn,([],ts,TypeExn (mk_id mn cn)))]) ctMap)
-                     (merge_mod_env (FEMPTY, FEMPTY |+ (cn,(LENGTH ts,TypeExn (mk_id mn cn)))) cenv)
-                     (merge_tenvC ([], [(cn,([],ts,TypeExn (mk_id mn cn)))]) tenvC)`,
+  consistent_con_env (FUNION (flat_to_ctMap [(cn,([],MAP (type_name_subst tenvT) ts,TypeExn (mk_id mn cn)))]) ctMap)
+                     (merge_alist_mod_env ([], [(cn,(LENGTH ts,TypeExn (mk_id mn cn)))]) cenv)
+                     (merge_alist_mod_env ([], [(cn,([],MAP (type_name_subst tenvT) ts,TypeExn (mk_id mn cn)))]) tenvC)`,
  rw [check_exn_tenv_def, consistent_con_env_def, FEVERY_ALL_FLOOKUP,
-=======
-  consistent_con_env (FUNION (flat_to_ctMap (bind cn ([],MAP (type_name_subst tenvT) ts,TypeExn (mk_id mn cn)) [])) ctMap)
-                     (merge_envC (emp, bind cn (LENGTH ts,TypeExn (mk_id mn cn)) []) cenv)
-                     (merge_tenvC (emp, bind cn ([],MAP (type_name_subst tenvT) ts,TypeExn (mk_id mn cn)) []) tenvC)`,
- rw [check_exn_tenv_def, consistent_con_env_def, bind_def, FEVERY_ALL_FLOOKUP,
->>>>>>> origin/master
      flat_to_ctMap_def, ctMap_ok_def, tenvC_ok_merge, tenvC_ok_def,
      flat_tenvC_ok_def, lookup_tenvC_merge_emp] >>
- fs [flookup_fupdate_list, FLOOKUP_FUNION, lookup_tenvC_def] >>
+ fs [flookup_fupdate_list, FLOOKUP_FUNION, lookup_alist_mod_env_def] >>
  rpt (FIRST_X_ASSUM (qspecl_then [`cn'`] mp_tac)) >>
  rw [] >>
  every_case_tac >>
@@ -2394,28 +2398,21 @@ val extend_consistent_con_exn = Q.store_thm ("extend_consistent_con_exn",
  fs [MEM_MAP, FORALL_PROD] >>
  PairCases_on `tenvC` >>
  PairCases_on `cenv` >>
- fs [semanticPrimitivesTheory.lookup_mod_env_def, FLOOKUP_FUNION,
-     semanticPrimitivesTheory.merge_mod_env_def] >>
- fs [lookup_tenvC_def] >>
+ fs [lookup_mod_env_def, FLOOKUP_FUNION, merge_mod_env_def] >>
+ fs [lookup_alist_mod_env_def] >>
  every_case_tac >>
-<<<<<<< HEAD
- rw [] >>
- fs [FLOOKUP_DEF]);
-=======
- fs [FLOOKUP_DEF]>>
- fs[EVERY_MEM,MEM_MAP]>>
- rpt strip_tac>>
+ fs []>>
+ fs[FLOOKUP_DEF,EVERY_MEM,MEM_MAP]>>
  metis_tac[check_freevars_type_name_subst,check_freevars_def]);
->>>>>>> origin/master
 
 val consistent_con_env_lookup = Q.store_thm ("consistent_con_env_lookup",
 `!ctMap envC tenvC cn tvs ts tn.
   consistent_con_env ctMap envC tenvC ∧
-  lookup_tenvC cn tenvC = SOME (tvs,ts,tn)
+  lookup_alist_mod_env cn tenvC = SOME (tvs,ts,tn)
   ⇒
   FLOOKUP ctMap (id_to_n cn,tn) = SOME (tvs, ts)`,
  rw [consistent_con_env_def] >>
- cases_on `lookup_mod_env cn envC` >>
+ cases_on `lookup_alist_mod_env cn envC` >>
  fs [] >>
  res_tac >>
  fs [] >>
@@ -2426,21 +2423,21 @@ val consistent_con_env_lookup = Q.store_thm ("consistent_con_env_lookup",
 
 val consistent_con_env_to_mod = Q.store_thm ("consistent_con_env_to_mod",
 `!ctMap envC flat_envC tenvC flat_tenvC mn.
-  FDOM flat_envC = set (MAP FST flat_tenvC) ∧
+  MAP FST flat_envC = MAP FST flat_tenvC ∧
   consistent_con_env ctMap envC tenvC ∧
-  consistent_con_env ctMap (merge_mod_env (FEMPTY,flat_envC) envC) (merge_tenvC ([],flat_tenvC) tenvC)
+  consistent_con_env ctMap (merge_alist_mod_env ([],flat_envC) envC) (merge_alist_mod_env ([],flat_tenvC) tenvC)
   ⇒
-  consistent_con_env ctMap (merge_mod_env (FEMPTY |+ (mn,flat_envC),FEMPTY) envC) (merge_tenvC ([(mn,flat_tenvC)],[]) tenvC)`,
+  consistent_con_env ctMap (merge_alist_mod_env ([(mn,flat_envC)],[]) envC) (merge_alist_mod_env ([(mn,flat_tenvC)],[]) tenvC)`,
  rw [consistent_con_env_def] >>
  PairCases_on `tenvC` >>
  PairCases_on `envC` >>
- fs [semanticPrimitivesTheory.merge_mod_env_def, merge_tenvC_def]
+ fs [merge_alist_mod_env_def]
  >- fs [tenvC_ok_def, flat_tenvC_ok_def]
  >- (`(?mn' cn'. cn = Long mn' cn') ∨ (?cn'. cn = Short cn')` by (Cases_on `cn` >> metis_tac []) >>
      fs [lookup_tenvC_mod_cons] >>
      rw []
      >- (FIRST_X_ASSUM (mp_tac o Q.SPECL [`Short cn'`, `n`, `t`]) >>
-         fs [lookup_tenvC_def, semanticPrimitivesTheory.lookup_mod_env_def] >>
+         fs [lookup_alist_mod_env_def] >>
          rw [] >>
          fs [ALOOKUP_APPEND, FLOOKUP_FUNION, FLOOKUP_UPDATE] >>
          every_case_tac >>
@@ -2453,24 +2450,25 @@ val consistent_con_env_to_mod = Q.store_thm ("consistent_con_env_to_mod",
          metis_tac [MEM_MAP, FST, pair_CASES])
      >- (fs [] >>
          FIRST_X_ASSUM (mp_tac o Q.SPECL [`Long mn' cn'`, `n`, `t`]) >>
-         fs [lookup_tenvC_def, semanticPrimitivesTheory.lookup_mod_env_def, 
-             FLOOKUP_FUNION, FLOOKUP_UPDATE] >>
+         fs [lookup_alist_mod_env_def, FLOOKUP_FUNION, FLOOKUP_UPDATE] >>
          rw [])
      >- (LAST_X_ASSUM (mp_tac o Q.SPECL [`Short cn'`, `n`, `t`]) >>
-         fs [lookup_tenvC_def, semanticPrimitivesTheory.lookup_mod_env_def, 
+         fs [lookup_alist_mod_env_def,
              FLOOKUP_FUNION, FLOOKUP_UPDATE] >>
          rw []))
  >- (`(?mn' cn'. cn = Long mn' cn') ∨ (?cn'. cn = Short cn')` by (Cases_on `cn` >> metis_tac []) >>
-     fs [lookup_tenvC_mod_cons, semanticPrimitivesTheory.lookup_mod_env_def,
-         FLOOKUP_FUNION, FLOOKUP_UPDATE] >>
+     fs [lookup_tenvC_mod_cons, lookup_alist_mod_env_def, ALOOKUP_APPEND] >>
      rw [] >>
-     fs [ALOOKUP_FAILS, flookup_thm]
+     fs [ALOOKUP_FAILS]
      >- metis_tac [MEM_MAP, FST, pair_CASES]
-     >- (rpt (LAST_X_ASSUM (mp_tac o Q.SPECL [`Short cn'`])) >>
-         fs [lookup_tenvC_def] >>
+     >- (rpt (LAST_X_ASSUM (mp_tac o Q.SPECL [`Long mn' cn'`])) >>
+         fs [lookup_alist_mod_env_def] >>
          rw [] >>
-         FIRST_X_ASSUM match_mp_tac >>
-         rw [FLOOKUP_DEF])));
+         fs [ALOOKUP_FAILS])
+     >- (rpt (LAST_X_ASSUM (mp_tac o Q.SPECL [`Short cn'`])) >>
+         fs [lookup_alist_mod_env_def] >>
+         rw [] >>
+         fs [ALOOKUP_FAILS])));
 
 (* ---------- type_ctxt, type_ctxts ---------- *)
 
@@ -2558,17 +2556,14 @@ val type_d_tenvT_ok = Q.store_thm ("type_d_tenvT_ok",
  fs [] >>
  imp_res_tac ALOOKUP_MEM >>
  fs [MEM_MAP] >>
+ imp_res_tac check_freevars_type_name_subst >>
  PairCases_on `y` >>
  fs [] >>
  rw [] >>
-<<<<<<< HEAD
-=======
- res_tac >-
- (PairCases_on `x` >>
->>>>>>> origin/master
+ res_tac >> 
+ fs [] >>
  fs [check_freevars_def, EVERY_MAP] >>
- fs [EVERY_MEM])>>
- imp_res_tac check_freevars_type_name_subst)
+ fs [EVERY_MEM]);
 
 val type_d_ctMap_ok = Q.store_thm ("type_d_ctMap_ok",
 `!tvs tdecs tenvT tenvM tenvC tenv d tdecs' tenvT' tenvC' tenv' tenvM'' tenvC''.
@@ -2596,16 +2591,11 @@ val type_d_ctMap_ok = Q.store_thm ("type_d_ctMap_ok",
  >- (imp_res_tac check_ctor_tenv_dups >>
      imp_res_tac check_dup_ctors_distinct >>
      fs [flat_to_ctMap_list_def])
-<<<<<<< HEAD
  >- (fs [check_exn_tenv_def, ctMap_ok_def, FEVERY_ALL_FLOOKUP, flookup_fupdate_list] >>
      rw [] >>
-     rw []));
-=======
- >- (fs [bind_def, check_exn_tenv_def] >>
-     rw []>>fs[EVERY_MEM,MEM_MAP]>>rpt strip_tac>>
-     metis_tac[check_freevars_type_name_subst])
- >- fs [bind_def]);
->>>>>>> origin/master
+     rw [EVERY_MAP] >>
+     fs [EVERY_MEM] >>
+     metis_tac [check_freevars_type_name_subst]));
 
 val ctMap_ok_pres = Q.store_thm ("ctMap_ok_pres",
 `!mn tdecs tenvT tenvM tenvC tenv d tdecs' tenvT' tenvC' tenv' ctMap.
@@ -2749,32 +2739,28 @@ val type_ds_tenvT_ok = Q.store_thm ("type_ds_tenvT_ok",
  ho_match_mp_tac type_ds_strongind >>
  rw []  >>
  imp_res_tac type_d_tenvT_ok >>
-<<<<<<< HEAD
  rw [flat_tenvT_ok_def] >>
  fs [flat_tenvT_ok_def, FEVERY_ALL_FLOOKUP, flookup_fupdate_list, FLOOKUP_FUNION] >>
  rw [] >>
  every_case_tac >>
- fs [] >>
- metis_tac []);
-=======
- rw [merge_def, flat_tenvT_ok_def, emp_def] >>
- `tenvT_ok (emp:(tvarN,flat_tenvT)env,tenvT')` by
-   (fs[tenvT_ok_def,flat_tenvT_ok_def]>>
-   fs[emp_def,EVERY_MEM])>>
+ fs []
+ >- metis_tac [] >>
+ `tenvT_ok (FEMPTY:tvarN |-> flat_tenvT,tenvT')`
+        by (fs[tenvT_ok_def,flat_tenvT_ok_def] >>
+            fs[FEVERY_FEMPTY,FEVERY_ALL_FLOOKUP] >>
+            metis_tac []) >>
   fs[flat_tenvT_ok_def]>>
-  Q.ISPECL_THEN[`emp:(tvarN,flat_tenvT) env,tenvT'`,`tenvT`]
-   assume_tac tenvT_ok_merge>>
-  metis_tac[])
->>>>>>> origin/master
+  Q.ISPECL_THEN[`FEMPTY:(tvarN |-> flat_tenvT),tenvT'`,`tenvT`] assume_tac tenvT_ok_merge >>
+  metis_tac[]);
 
 (* ---------- type_specs ---------- *)
 
 val type_specs_tenv_ok = Q.store_thm ("type_specs_tenv_ok",
 `!tvs tenvT specs decls' tenvT' tenvC' tenv'.
-  type_specs tvs tenvT specs decls' tenvT' tenvC' tenv' ⇒
- tenv_ok (bind_var_list2 tenv' Empty) ∧
- (tenvT_ok tenvT ⇒
- flat_tenvT_ok tenvT')`,
+  type_specs tvs tenvT specs decls' tenvT' tenvC' tenv' 
+  ⇒
+  tenv_ok (bind_var_list2 tenv' Empty) ∧
+  (tenvT_ok tenvT ⇒ flat_tenvT_ok tenvT')`,
  ho_match_mp_tac type_specs_ind >>
  rw [bind_var_list2_def, tenv_ok_def]
  >- rw [flat_tenvT_ok_def, FEVERY_ALL_FLOOKUP]
@@ -2788,28 +2774,55 @@ val type_specs_tenv_ok = Q.store_thm ("type_specs_tenv_ok",
          fs [MEM_GENLIST, check_freevars_def] >>
          metis_tac [check_freevars_add, DECIDE ``!x:num. x ≥ 0``])
      >- (PairCases_on `h` >>
-<<<<<<< HEAD
-         fs [bind_var_list2_def, bind_tenv_def, tenv_ok_def, num_tvs_bvl2, num_tvs_def])) >>
- fs [FEVERY_ALL_FLOOKUP, FLOOKUP_FUNION, flookup_fupdate_list,FLOOKUP_UPDATE, flat_tenvT_ok_def] >>
- rw [] >>
- every_case_tac >>
- fs [] >>
- rw [check_freevars_def, EVERY_MAP, EVERY_MEM]
- >- metis_tac []
- >- (imp_res_tac ALOOKUP_MEM >>
-     fs [MEM_MAP] >>
-     PairCases_on `y` >>
+         fs [bind_var_list2_def, bind_tenv_def, tenv_ok_def, num_tvs_bvl2, num_tvs_def]))
+ >- (`flat_tenvT_ok tenvT'` 
+            by (first_x_assum match_mp_tac >>
+                match_mp_tac tenvT_ok_merge >>
+                rw [tenvT_ok_def, FEVERY_FEMPTY, flat_tenvT_ok_def,
+                    FEVERY_ALL_FLOOKUP, flookup_fupdate_list, FLOOKUP_UPDATE] >>
+                every_case_tac >>
+                imp_res_tac ALOOKUP_MEM >>
+                fs [MEM_MAP, LAMBDA_PROD, EXISTS_PROD] >>
+                rw [check_freevars_def, EVERY_MAP, EVERY_MEM]) >>
+     fs [FEVERY_ALL_FLOOKUP, FLOOKUP_FUNION, flookup_fupdate_list,FLOOKUP_UPDATE, flat_tenvT_ok_def] >>
+     rw [] >>
+     every_case_tac >>
      fs [] >>
+     TRY (first_x_assum match_mp_tac >>
+          qexists_tac `k` >>
+          simp [] >>
+          NO_TAC) >>
+     imp_res_tac ALOOKUP_MEM >>
+     fs [check_ctor_tenv_def, EVERY_MEM, MEM_MAP, LAMBDA_PROD, EXISTS_PROD] >>
      rw [check_freevars_def, EVERY_MAP, EVERY_MEM])
- >> metis_tac []);
-=======
-         fs [bind_def, bind_var_list2_def, bind_tenv_def, tenv_ok_def, num_tvs_bvl2, num_tvs_def])) >>
-  imp_res_tac check_freevars_type_name_subst>>fs[]>>
-  Cases_on`tenvT`>>
-  fs[merge_tenvT_def,merge_def,tenvT_ok_def,flat_tenvT_ok_def,EVERY_MAP,LAMBDA_PROD,check_freevars_def,check_ctor_tenv_def]>>
-  fs[EVERY_MEM]>>rw[]>>PairCases_on`e`>>rw[]>>
-  fs[FORALL_PROD]>>metis_tac[])
->>>>>>> origin/master
+ >- (fs [flat_tenvT_ok_def, FEVERY_ALL_FLOOKUP, FLOOKUP_FUNION, FLOOKUP_UPDATE] >>
+     rw [] >>
+     every_case_tac >>
+     fs [] >>
+     rw []
+     >- (match_mp_tac check_freevars_type_name_subst >>
+         rw []) >>
+     fs [PULL_FORALL, AND_IMP_INTRO] >>
+     first_x_assum match_mp_tac >>
+     qexists_tac `k` >>
+     simp [] >>
+     match_mp_tac tenvT_ok_merge >>
+     rw [tenvT_ok_def, FEVERY_FEMPTY, flat_tenvT_ok_def, FEVERY_FUPDATE] >>
+     match_mp_tac check_freevars_type_name_subst >>
+     rw [])
+ >- (fs [flat_tenvT_ok_def, FEVERY_ALL_FLOOKUP, FLOOKUP_FUNION, FLOOKUP_UPDATE] >>
+     rw [] >>
+     every_case_tac >>
+     fs [] >>
+     rw [] >>
+     fs [check_freevars_def, EVERY_MAP, EVERY_MEM] >>
+     fs [PULL_FORALL, AND_IMP_INTRO] >>
+     first_x_assum match_mp_tac >>
+     qexists_tac `k` >>
+     simp [] >>
+     match_mp_tac tenvT_ok_merge >>
+     rw [tenvT_ok_def, FEVERY_FEMPTY, flat_tenvT_ok_def, FEVERY_FUPDATE] >>
+     fs [check_freevars_def, EVERY_MAP, EVERY_MEM]));
 
 val type_specs_no_mod = Q.store_thm ("type_specs_no_mod",
 `!mn tenvT specs decls' flat_tenvT tenvC tenv.

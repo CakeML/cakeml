@@ -64,17 +64,17 @@ let consistent_con_env ctMap envC tenvC =
   tenvC_ok tenvC &&
   ctMap_ok ctMap &&
   (forall cn n t.
-    lookup_mod_env cn envC = Just (n, t)
+    lookup_alist_mod_env cn envC = Just (n, t)
     -->
     exists tvs ts.
-      lookup_tenvC cn tenvC = Just (tvs, ts, t) &&
+      lookup_alist_mod_env cn tenvC = Just (tvs, ts, t) &&
       Map.lookup (id_to_n cn,t) ctMap = Just (tvs, ts) &&
       List.length ts = n)
   &&
   (forall cn.
-    lookup_mod_env cn envC = Nothing
+    lookup_alist_mod_env cn envC = Nothing
     -->
-    lookup_tenvC cn tenvC = Nothing)
+    lookup_alist_mod_env cn tenvC = Nothing)
 
 (* A value has a type *)
 (* The number is how many deBruijn type variables are bound in the context. *)
@@ -420,7 +420,7 @@ List.length tvs' = List.length ts' &&
 type_vs tvs all_cenv senv (List.reverse vs)
         (List.map (type_subst (Map.fromList (List.reverse (List_extra.zipSameLength tvs' ts')))) ts1) &&
 type_es menv cenv (bind_tvar tvs tenv) es (List.map (type_subst (Map.fromList (List.reverse (List_extra.zipSameLength tvs' ts')))) ts2) &&
-lookup_tenvC cn cenv = Just (tvs', ts1++[t]++ts2, tn)
+lookup_alist_mod_env cn cenv = Just (tvs', ts1++[t]++ts2, tn)
 ==>
 type_ctxt tvs menv all_cenv cenv senv tenv (Ccon (Just cn) vs () es) (type_subst (Map.fromList (List.reverse (List_extra.zipSameLength tvs' ts'))) t)
           (Tapp ts' (tid_exn_to_tc tn))
@@ -583,7 +583,7 @@ let type_sound_invariants r (decls1,tenvT,tenvM,tenvC,tenv,decls2,envM,envC,envE
 let update_type_sound_inv ((decls1:decls),(tenvT:tenvT),(tenvM:tenvM),(tenvC:tenvC),(tenv:tenvE),(decls2:set tid_or_exn),(envM:envM),(envC:envC),(envE:envE),store) decls1' tenvT' tenvM' tenvC' tenv' store' decls2' envC' r =
   match r with
      | Rval (envM',envE') -> 
-         (union_decls decls1' decls1,merge_mod_env tenvT' tenvT, Map.(union) tenvM' tenvM,merge_tenvC tenvC' tenvC,bind_var_list2 tenv' tenv,
-          decls2',envM'++envM,merge_mod_env envC' envC,envE'++envE,store')
+         (union_decls decls1' decls1,merge_mod_env tenvT' tenvT, Map.(union) tenvM' tenvM,merge_alist_mod_env tenvC' tenvC,bind_var_list2 tenv' tenv,
+          decls2',envM'++envM,merge_alist_mod_env envC' envC,envE'++envE,store')
      | Rerr _ -> (union_decls decls1' decls1,tenvT,tenvM,tenvC,tenv,decls2',envM,envC,envE,store')
   end
