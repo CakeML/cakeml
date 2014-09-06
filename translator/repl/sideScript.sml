@@ -160,7 +160,10 @@ rw [add_constraint_side_def, apply_subst_list_side_def] >>
      imp_res_tac infer_e_wfs >>
      fs [],
  match_mp_tac build_ctor_tenv_side_thm >>
- last_x_assum mp_tac >> rw[]]);
+ last_x_assum mp_tac >> rw[],
+ match_mp_tac type_name_subst_side_thm>> every_case_tac>>fs[],
+ match_mp_tac type_name_subst_side_thm>> every_case_tac>>fs[EVERY_MEM]
+ ]);
 
 val infer_ds_side_thm = Q.store_thm ("infer_ds_side_thm",
 `!mn decls z menv cenv env ds st. infer_ds_side mn decls z menv cenv env ds st`,
@@ -174,8 +177,11 @@ val check_specs_side_thm = Q.store_thm ("check_specs_side_thm",
   |> SIMP_RULE std_ss [GSYM FORALL_PROD] |> Q.GEN`v` |> DISCH_ALL
   |> Q.GEN`P` |> ho_match_mp_tac) >>
 rw [] >>
-rw [Once check_specs_side_def, rich_listTheory.LENGTH_COUNT_LIST] >>
-match_mp_tac build_ctor_tenv_side_thm >>rw[]);
+rw [Once check_specs_side_def, rich_listTheory.LENGTH_COUNT_LIST] >-
+TRY (match_mp_tac build_ctor_tenv_side_thm >>rw[])>>
+TRY (match_mp_tac type_name_subst_side_thm>>every_case_tac>>fs[EVERY_MEM])>>
+metis_tac[]
+);
 
 val check_weake_side_thm = Q.store_thm ("check_weake_side_thm",
 `!env specs st. check_weake_side env specs st`,

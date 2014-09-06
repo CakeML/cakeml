@@ -533,7 +533,7 @@ val infer_d_def = Define `
 (infer_d mn (mdecls,tdecls,edecls) tenvT menv cenv env (Dexn cn ts) =
   do () <- guard (check_exn_tenv mn cn ts ∧ EVERY (check_type_names tenvT) ts ) "Bad exception definition";
      () <- guard (~MEM (mk_id mn cn) edecls) "Duplicate exception definition";
-     return (([],[],[mk_id mn cn]), [], bind cn ([],MAP (type_name_subst tenvT) ts, TypeExn (mk_id mn cn)) emp, [])
+     return (([],[],[mk_id mn cn]), [], bind cn ([],MAP (\x. type_name_subst tenvT x) ts, TypeExn (mk_id mn cn)) emp, [])
   od)`;
 
 val append_decls_def = Define `
@@ -586,7 +586,7 @@ val check_specs_def = Define `
   od) ∧
 (check_specs mn tenvT (mdecls,tdecls,edecls) tenvT' cenv env (Sexn cn ts :: specs) =
   do () <- guard (check_exn_tenv mn cn ts ∧ EVERY (check_type_names tenvT) ts ) "Bad exception definition";
-     check_specs mn tenvT (mdecls,tdecls,mk_id mn cn::edecls) tenvT' (bind cn ([],MAP (type_name_subst tenvT) ts, TypeExn (mk_id mn cn)) cenv) env specs
+     check_specs mn tenvT (mdecls,tdecls,mk_id mn cn::edecls) tenvT' (bind cn ([],MAP (\x. type_name_subst tenvT x) ts, TypeExn (mk_id mn cn)) cenv) env specs
   od) ∧
 (check_specs mn tenvT (mdecls,tdecls,edecls) tenvT' cenv env (Stype_opq tvs tn :: specs) =
   do () <- guard (~MEM (mk_id mn tn) tdecls) "Duplicate type definition";
