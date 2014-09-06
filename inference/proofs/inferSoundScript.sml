@@ -1514,8 +1514,7 @@ val check_specs_sound = Q.prove (
      PairCases_on `decls''` >>
      rw [convert_decls_def, append_decls_def] >>
      qexists_tac `convert_decls (decls''0,decls''1,decls''2)` >>
-     fs [convert_decls_def, union_decls_def, DISJOINT_DEF, EXTENSION, MEM_MAP] >>
-     cheat)
+     fs [convert_decls_def, union_decls_def, DISJOINT_DEF, EXTENSION, MEM_MAP])
  >- (rw [Once type_specs_cases, convert_decls_def] >>
      res_tac >>
      rw [PULL_EXISTS] >>

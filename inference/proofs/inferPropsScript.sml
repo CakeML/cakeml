@@ -2459,7 +2459,7 @@ val check_specs_check = Q.store_thm ("check_specs_check",
  >- (fs [check_flat_cenv_def, check_exn_tenv_def,
          tenvT_ok_merge, tenvT_ok_def, flat_tenvT_ok_def, FEVERY_FUPDATE] >>
      fs[EVERY_MAP,EVERY_MEM]>> rw[]>>
-     cheat)
+     metis_tac [check_freevars_type_name_subst])
  >- (rpt gen_tac >>
      strip_tac >>
      FIRST_X_ASSUM match_mp_tac >>
