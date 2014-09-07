@@ -1704,7 +1704,7 @@ val compile_top_thm = store_thm("compile_top_thm",
         bc_next^* bs bs' ∧
         let (new_env,rs',success,str) =
           case env_or_err of Rval(envM,envE) =>
-            ((envM++FST env,merge_mod_env envC (FST(SND env)),envE ++ (SND(SND env))),rss,T,
+            ((envM++FST env,merge_alist_mod_env envC (FST(SND env)),envE ++ (SND(SND env))),rss,T,
              (case types of NONE => "" | SOME types =>
               print_result (convert_env2 types) top env_or_err))
           | Rerr(Rraise _) =>
@@ -2100,7 +2100,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[] >> ntac 2 strip_tac >>
       ntac 10 (first_x_assum(qspec_then`n`mp_tac)) >>
       simp[] >> strip_tac >> simp[] ) >>
-    simp[EXISTS_PROD,merge_mod_env_def] >>
+    simp[EXISTS_PROD,merge_alist_mod_env_def] >>
     PairCases_on`s2` >> simp[env_rs_def] >>
     simp[RIGHT_EXISTS_AND_THM] >>
     conj_asm1_tac >- (
@@ -2151,7 +2151,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[Once s_to_i1_cases,PULL_EXISTS] ) >>
     first_assum(split_pair_match o concl) >> fs[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    fs[merge_mod_env_def] >>
+    fs[merge_alist_mod_env_def] >>
     `FST s2_i2 = s20'` by (
       rator_x_assum`to_i2_invariant`mp_tac >>
       simp[to_i2_invariant_def] >>
@@ -2368,7 +2368,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[Once s_to_i1_cases,PULL_EXISTS] ) >>
     first_assum(split_pair_match o concl) >> fs[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    fs[merge_mod_env_def] >>
+    fs[merge_alist_mod_env_def] >>
     `FST s2_i2 = s20'` by (
       rator_x_assum`to_i2_invariant`mp_tac >>
       simp[to_i2_invariant_def] >>
@@ -2543,7 +2543,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[] >> ntac 2 strip_tac >>
       ntac 9 (first_x_assum(qspec_then`n`mp_tac)) >>
       simp[] >> strip_tac >> simp[]) >>
-    simp[EXISTS_PROD,merge_mod_env_def] >>
+    simp[EXISTS_PROD,merge_alist_mod_env_def] >>
     PairCases_on`s2` >> simp[env_rs_def] >>
     simp[RIGHT_EXISTS_AND_THM] >>
     conj_asm1_tac >- (
@@ -2594,7 +2594,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[Once s_to_i1_cases,PULL_EXISTS] ) >>
     first_assum(split_pair_match o concl) >> fs[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    fs[merge_mod_env_def] >>
+    fs[merge_alist_mod_env_def] >>
     `FST s2_i2 = s20'` by (
       rator_x_assum`to_i2_invariant`mp_tac >>
       simp[to_i2_invariant_def] >>
@@ -2795,7 +2795,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[Once s_to_i1_cases,PULL_EXISTS] ) >>
     first_assum(split_pair_match o concl) >> fs[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    fs[merge_mod_env_def] >>
+    fs[merge_alist_mod_env_def] >>
     `FST s2_i2 = s20'` by (
       rator_x_assum`to_i2_invariant`mp_tac >>
       simp[to_i2_invariant_def] >>
@@ -3613,7 +3613,7 @@ val compile_special_thm = store_thm("compile_special_thm",
       (bs.pc = next_addr bs.inst_length bc0) ∧
       ck ∧ IS_SOME bs.clock ∧
       stm = (s0,tm) ∧
-      res = ((s,tm), (FEMPTY,FEMPTY), Rval([],[]))
+      res = ((s,tm), ([],[]), Rval([],[]))
       ⇒
         ∃bs' grd'.
         bc_next^* bs bs' ∧
@@ -3784,7 +3784,7 @@ val compile_special_thm = store_thm("compile_special_thm",
   fs[Once evaluate_decs_i1_cases] >>
   fs[] >>
   rator_x_assum`to_i2_invariant`assume_tac >>
-  fs[merge_mod_env_def] >>
+  fs[merge_alist_mod_env_def] >>
   rpt BasicProvers.VAR_EQ_TAC >>
   `(*env = [] ∧*) exh = FEMPTY ∧ c = rs.contags_env` by (
     unabbrev_all_tac >>
@@ -4016,7 +4016,7 @@ val compile_initial_prog_thm = store_thm("compile_initial_prog_thm",
       bc_fetch bs' = NONE ∧
       bs'.pc = next_addr bs.inst_length bs.code ∧
       bs'.output = bs.output ∧
-      env_rs (envM++FST env,merge_mod_env envC (FST(SND env)),envE++(SND(SND env))) s grd' rs' bs'``,
+      env_rs (envM++FST env,merge_alist_mod_env envC (FST(SND env)),envE++(SND(SND env))) s grd' rs' bs'``,
   simp[compile_initial_prog_def] >> rw[] >>
   first_assum (split_applied_pair_tac o lhs o concl) >> fs[] >>
   `∃v1 v2 v3 p0. prog_to_i1 rs.next_global m1 m2 prog = (v1,v2,v3,p0)` by simp[GSYM EXISTS_PROD] >> fs[] >>

@@ -22,7 +22,7 @@ infertype_top ((decls, type_name_env, module_type_env, constructor_type_env, typ
         Success ((append_decls new_decls decls,
                   merge_mod_env new_type_name_env type_name_env,
                   FUNION new_module_type_env module_type_env,
-                  merge_tenvC new_constructor_type_env constructor_type_env,
+                  merge_alist_mod_env new_constructor_type_env constructor_type_env,
                   new_type_env ++ type_env),
                  new_type_env)`;
 

@@ -93,7 +93,7 @@ add_to_env e prog =
                  inf_edecls := edecls' ++ e.inf_edecls;
                  inf_tenvT := merge_mod_env tenvT' e.inf_tenvT;
                  inf_tenvM := FUNION tenvM' e.inf_tenvM;
-                 inf_tenvC := merge_tenvC tenvC' e.inf_tenvC;
+                 inf_tenvC := merge_alist_mod_env tenvC' e.inf_tenvC;
                  inf_tenvE := tenvE' ++ e.inf_tenvE;
                  comp_rs := rs' |>,
               code)
@@ -137,7 +137,7 @@ val add_to_env_invariant'_lem = Q.prove (
   ?bs'.
   bc_eval (install_code (code'++code) initial_bc_state) = SOME bs' ∧
   invariant' <| sem_envM := envM' ++ envM;
-               sem_envC := merge_mod_env envC' envC;
+               sem_envC := merge_alist_mod_env envC' envC;
                sem_envE := envE' ++ envE;
                sem_store := ((cnt',s'),tids',mdecls') |>
             e' bs'`,
@@ -191,7 +191,7 @@ val add_to_env_invariant'_lem = Q.prove (
  `?bs'' grd''.
     bc_next^* bs1 bs'' ∧ bc_fetch bs'' = NONE ∧ bs''.pc = next_addr bs1.inst_length bs1.code ∧
     bs''.output = bs1.output ∧
-    env_rs (envM' ++ FST (envM,envC,envE),merge_mod_env cenv2 (FST (SND (envM,envC,envE))), envE' ++ SND (SND (envM,envC,envE))) ((cnt',s'),decls2',set q'''' ∪ set e.inf_mdecls) grd'' rs' bs''`
+    env_rs (envM' ++ FST (envM,envC,envE),merge_alist_mod_env cenv2 (FST (SND (envM,envC,envE))), envE' ++ SND (SND (envM,envC,envE))) ((cnt',s'),decls2',set q'''' ∪ set e.inf_mdecls) grd'' rs' bs''`
                by metis_tac [compile_thm] >>
  fs [] >>
  pop_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] compilerProofTheory.env_rs_change_clock)) >>
@@ -265,7 +265,7 @@ val add_to_env_invariant' = Q.prove (
   ?bs'.
   bc_eval (install_code (code'++code) initial_bc_state) = SOME bs' ∧
   invariant' <| sem_envM := envM' ++ envM;
-               sem_envC := merge_mod_env envC' envC;
+               sem_envC := merge_alist_mod_env envC' envC;
                sem_envE := envE' ++ envE;
                sem_store := ((cnt',s'),tids',mdecls') |>
             e' bs'`,
@@ -348,9 +348,8 @@ val prim_env_inv = Q.store_thm ("prim_env_inv",
          by (rw [to_ctMap_prim_tenvC] >>
              rw [consistent_con_env_def, tenvC_ok_def, prim_env_eq, prim_sem_env_eq,
                  flat_tenvC_ok_def, check_freevars_def, ctMap_ok_def, FEVERY_ALL_FLOOKUP,
-                 alistTheory.flookup_fupdate_list, lookup_tenvC_def,
-                 semanticPrimitivesTheory.lookup_mod_env_def]
-             >- rw [check_freevars_def, type_subst_def, FLOOKUP_UPDATE]
+                 alistTheory.flookup_fupdate_list, semanticPrimitivesTheory.lookup_alist_mod_env_def,
+                 lookup_mod_env_def]
              >- (every_case_tac >>
                  rw [] >>
                  rw [check_freevars_def, type_subst_def, FLOOKUP_UPDATE])

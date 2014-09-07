@@ -1418,7 +1418,7 @@ val evaluate_decs_closed = store_thm("evaluate_decs_closed",
   rfs[FV_decs_def] >> rw[] >>
   qpat_assum`p ⇒ q`mp_tac >>
   (discharge_hyps >- (
-    fsrw_tac[DNF_ss][merge_mod_env_def,SUBSET_DEF,PULL_EXISTS
+    fsrw_tac[DNF_ss][merge_alist_mod_env_def,SUBSET_DEF,PULL_EXISTS
                     ,all_env_closed_def,all_env_dom_def,MEM_MAP,EXISTS_PROD] >>
     metis_tac[] )) >> simp[] >>
   simp[combine_dec_result_def] >>
@@ -1489,7 +1489,7 @@ val evaluate_prog_closed = store_thm("evaluate_prog_closed",
       imp_res_tac evaluate_top_new_top_vs >> fs[] >>
       first_x_assum(mp_tac o MATCH_MP evaluate_top_closed) >>
       Cases_on`new_tds`>>Cases_on`cenv`>>
-      simp[merge_mod_env_def] >>
+      simp[merge_alist_mod_env_def] >>
       fs[all_env_closed_def,SUBSET_DEF,all_env_to_menv_def] >>
       pop_assum mp_tac >>
       IF_CASES_TAC >> strip_tac >>

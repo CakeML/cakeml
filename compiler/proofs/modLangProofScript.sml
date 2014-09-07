@@ -1807,7 +1807,7 @@ val dec_to_i1_correct = Q.prove (
      pop_assum mp_tac >>
      rw [] >>
      pop_assum (qspecl_then [`genv`, `count'`, `ck`] strip_assume_tac) >>
-     MAP_EVERY qexists_tac [`(count',s''')`, `Rval (FEMPTY, MAP SND (REVERSE a))`] >>
+     MAP_EVERY qexists_tac [`(count',s''')`, `Rval ([], MAP SND (REVERSE a))`] >>
      rw [RIGHT_EXISTS_AND_THM] >>
      `pat_bindings p [] = MAP FST env'`
             by (imp_res_tac pmatch_extend >>
@@ -2023,7 +2023,7 @@ val decs_to_i1_correct = Q.prove (
      `global_env_inv (genv ++ MAP SOME (MAP SND env'_i1)) mods (tops |++ tops'') menv ∅ (new_env ++ env)`
              by metis_tac [v_to_i1_weakening, global_env_inv_extend2] >>
      FIRST_X_ASSUM (qspecl_then [`ck`, `mn`, `mods`, `tops |++ tops''`, `menv`,
-                                 `merge_mod_env (FEMPTY,new_tds) cenv`, `new_env ++ env`,
+                                 `merge_alist_mod_env ([],new_tds) cenv`, `new_env ++ env`,
                                  `s2'`, `s'`, `r'`, `genv ++ MAP SOME (MAP SND env'_i1)`, `s'_i1`,
                                  `tdecs2`, `tdecs'`, `next'`, `tops'''`, `ds_i1'`, `new_tds'`] mp_tac) >>
      rw [] >>
@@ -2281,7 +2281,7 @@ val top_to_i1_correct = Q.store_thm ("top_to_i1_correct",
                             `MAP SOME (MAP SND new_genv) ++ GENLIST (λn. NONE) (decs_to_dummy_env ds_i1 − LENGTH (MAP SND new_genv))`,
                             `SOME err_i1`] >>
      rw []
-     >- (MAP_EVERY qexists_tac [`new_tds`, `MAP SND new_genv`] >>
+     >- (MAP_EVERY qexists_tac [`MAP SND new_genv`] >>
          rw [update_mod_state_def] >>
          metis_tac [no_dup_types_to_i1, to_i1_prompt_mods_ok])
      >- (imp_res_tac decs_to_i1_num_bindings >>
@@ -2341,7 +2341,7 @@ val prog_to_i1_correct = Q.store_thm ("prog_to_i1_correct",
                      fs [] >>
                      metis_tac []) >>
      fs [] >>
-     FIRST_X_ASSUM (qspecl_then [`mods''`, `tops''`, `ck`, `new_mods ++ menv`, `merge_mod_env new_tds cenv`, `new_env ++ env`, `s2'`, `s'`, `r'`, `genv++new_genv`, `s'_i1`] mp_tac) >>
+     FIRST_X_ASSUM (qspecl_then [`mods''`, `tops''`, `ck`, `new_mods ++ menv`, `merge_alist_mod_env new_tds cenv`, `new_env ++ env`, `s2'`, `s'`, `r'`, `genv++new_genv`, `s'_i1`] mp_tac) >>
      rw [] >>
      FIRST_X_ASSUM (qspecl_then [`new_tds'`, `tdecs2'`, `mod_names2'`, `tdecs'`, `mod_names'`] mp_tac) >>
      rw [] >>

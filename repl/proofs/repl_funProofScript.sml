@@ -102,7 +102,7 @@ val type_invariants_pres = Q.prove (
                                    new_infer_tenvT (convert_menv new_infer_menv) new_infer_cenv
                                    (convert_env2 new_infer_env) st' envC (Rval (envM,envE)))
          (new_decls, merge_mod_env new_infer_tenvT infer_tenvT,
-          FUNION new_infer_menv infer_menv, merge_tenvC new_infer_cenv infer_cenv,
+          FUNION new_infer_menv infer_menv, merge_alist_mod_env new_infer_cenv infer_cenv,
           new_infer_env ++ infer_env)`,
    simp [update_repl_state_def, type_infer_invariants_def] >>
    gen_tac >>
@@ -119,7 +119,7 @@ val type_invariants_pres = Q.prove (
        rw [])
    >- (cases_on `new_infer_cenv` >>
        cases_on `rs.tenvC` >>
-       fs [merge_tenvC_def, check_cenv_def, check_flat_cenv_def])
+       fs [semanticPrimitivesTheory.merge_alist_mod_env_def, check_cenv_def, check_flat_cenv_def])
    >- fs [check_env_def]
    >- rw [convert_menv_def, o_f_FUNION]
    >- rw [bvl2_append, convert_env2_def]);
@@ -218,7 +218,7 @@ val infer_to_type = Q.prove (
         (Success (new_decls,new_tenvT,new_menv,new_cenv,new_env),st2)) ∧
     (st.rinferencer_state = (decls,tenvT,menv,cenv,env))
     ⇒
-    infer_sound_invariant (merge_mod_env new_tenvT tenvT) (FUNION new_menv menv) (merge_tenvC new_cenv cenv) (new_env++env) ∧
+    infer_sound_invariant (merge_mod_env new_tenvT tenvT) (FUNION new_menv menv) (merge_alist_mod_env new_cenv cenv) (new_env++env) ∧
     type_top rs.tdecs rs.tenvT rs.tenvM rs.tenvC rs.tenv top
              (convert_decls new_decls) new_tenvT (convert_menv new_menv) new_cenv (convert_env2 new_env)`,
    rw [repl_invariant_def, type_infer_invariants_def, type_sound_invariants_def] >>
