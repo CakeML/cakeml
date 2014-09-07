@@ -1223,7 +1223,8 @@ val infer_d_sound = Q.prove (
      rw [MEM_MAP] >>
      metis_tac [])
  >- rw [convert_decls_def, convert_env2_def, empty_decls_def]
- >- rw [convert_decls_def, convert_env2_def]);
+ >- (rw [convert_decls_def, convert_env2_def]>>metis_tac[MAP_ID]));
+
 
 val infer_ds_sound = Q.prove (
 `!mn decls tenvT menv cenv env ds st1 decls' tenvT' cenv' env' st2 tenv.
@@ -1514,7 +1515,8 @@ val check_specs_sound = Q.prove (
      PairCases_on `decls''` >>
      rw [convert_decls_def, append_decls_def] >>
      qexists_tac `convert_decls (decls''0,decls''1,decls''2)` >>
-     fs [convert_decls_def, union_decls_def, DISJOINT_DEF, EXTENSION, MEM_MAP])
+     fs [convert_decls_def, union_decls_def, DISJOINT_DEF, EXTENSION, MEM_MAP] >>
+     metis_tac [])
  >- (rw [Once type_specs_cases, convert_decls_def] >>
      res_tac >>
      rw [PULL_EXISTS] >>
