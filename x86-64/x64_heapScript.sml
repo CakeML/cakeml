@@ -368,6 +368,12 @@ val isValueArray_def = Define`
 val getValueArray_def = Define`
   (getValueArray (ValueArray v) = v)`
 
+val isByteArray_def = Define`
+  (isByteArray (ByteArray _) = T) /\
+  (isByteArray _ = F)`
+val getByteArray_def = Define`
+  (getByteArray (ByteArray v) = v)`
+
 val isCodePtr_def = Define `
   (isCodePtr (CodePtr _) = T) /\ (isCodePtr _ = F)`;
 
@@ -3732,6 +3738,136 @@ gg goal
   val _ = add_compiled [th];
   in th end;
 
+(* get length byte *)
+
+val (x64_get_length_byte_res, x64_get_length_byte_def, x64_get_length_byte_pre_def) = x64_compile `
+  x64_get_length_byte (r0:word64,dm:word64 set,m:word64->word64) =
+      let r0 = m (r0 + 1w) in
+      let r0 = r0 >>> 11 in
+      let r0 = r0 - 32w in
+        (r0,dm,m)`
+
+val LENGTH_bytesToWords = prove(
+  ``∀l. LENGTH (bytesToWords l) = LENGTH l DIV 8 + 1``,
+  HO_MATCH_MP_TAC bytesToWords_ind >>
+  simp[bytesToWords_def] >>
+  simp[ADD1] >> rw[ADD_DIV_RWT,ADD_MODULUS] >>
+  simp[])
+
+val heap_lookup_IMP_heap_length = prove(
+  ``∀heap n l. (heap_lookup n heap = SOME (Bytes l)) ==>
+    LENGTH (l:word8 list) <= 8 * heap_length heap``,
+  Induct THEN1 (EVAL_TAC \\ SIMP_TAC std_ss [])
+  \\ FULL_SIMP_TAC std_ss [heap_lookup_def,heap_length_def,MAP,SUM] >> rw[] >>
+  res_tac >> simp[Bytes_def] >> simp[el_length_def] >>
+  simp[LEFT_ADD_DISTRIB] >>
+  simp[LENGTH_bytesToWords,LEFT_ADD_DISTRIB,MULT_DIV] >>
+  qspecl_then[`3`,`LENGTH l`]mp_tac bitTheory.DIV_MULT_THM >>
+  simp[] >> rw[] >>
+  `LENGTH l MOD 8 < 8` by simp[] >>
+  DECIDE_TAC)
+
+val zHEAP_GET_LENGTH_BYTE = let
+  val th = x64_get_length_byte_res
+  val pc = get_pc th
+  val target = ``~zS * zPC p * zVALS cs vals *
+      cond (heap_inv (cs,x1,x2,x3,x4,refs,stack,s,NONE) vals /\ isRefPtr x1 /\
+            isByteArray (refs ' (getRefPtr x1)))``
+  val (th,goal) = expand_pre th target
+  val lemma = prove(goal, SIMP_TAC (std_ss++star_ss) [zVALS_def,SEP_IMP_REFL])
+  val th = MP th lemma |> DISCH_ALL |> DISCH T
+                       |> PURE_REWRITE_RULE [AND_IMP_INTRO]
+  val th = MATCH_MP SPEC_WEAKEN_LEMMA th
+  val th = th |> Q.SPEC `zHEAP (cs,Number (& (LENGTH (getByteArray (refs ' (getRefPtr x1))))),x2,x3,x4,
+                                refs,stack,s,NONE) * ~zS * ^pc`
+  val goal = th |> concl |> dest_imp |> fst
+(*
+gg goal
+*)
+  val lemma = prove(goal,
+    simp[x64_get_length_byte_def,SEP_EXISTS_THM,SEP_CLAUSES,zHEAP_def,SEP_IMP_def]
+    \\ SIMP_TAC std_ss [Once heap_inv_def] \\ STRIP_TAC
+    \\ Cases_on `x1` \\ FULL_SIMP_TAC std_ss [isRefPtr_def,getRefPtr_def,APPEND]
+    \\ Cases_on `refs ' n` \\ FULL_SIMP_TAC std_ss [isByteArray_def,getByteArray_def]
+    \\ `?f. (r1 = Pointer (f ' n)) /\ bc_ref_inv n refs (f,heap)` by ALL_TAC THEN1
+      (FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,LIST_REL_def,
+        bc_value_inv_def] \\ Q.LIST_EXISTS_TAC [`f`]
+      \\ ASM_SIMP_TAC std_ss []
+      \\ `reachable_refs (RefPtr n::x2::x3::x4::stack) refs n` by ALL_TAC THEN1
+       (FULL_SIMP_TAC std_ss [reachable_refs_def,MEM]
+        \\ Q.LIST_EXISTS_TAC [`RefPtr n`,`n`]
+        \\ FULL_SIMP_TAC std_ss [get_refs_def,MEM,RTC_REFL])
+      \\ res_tac)
+    \\ rfs[bc_ref_inv_def,FLOOKUP_DEF]
+    \\ Cases_on`n ∈ FDOM f` >> fs[]
+    \\ Cases_on`n ∈ FDOM refs` >> fs[]
+    \\ conj_tac >- (
+      simp[x64_get_length_byte_pre_def,x64_addr_def] >>
+      imp_res_tac heap_lookup_SPLIT >>
+      fs[x64_heap_APPEND,x64_heap_def,GSYM word_mul_n2w,x64_el_def,Bytes_def,
+         LET_THM,x64_payload_def] >>
+      FULL_SIMP_TAC (std_ss++star_ss) [] >>
+      FULL_SIMP_TAC (std_ss++sep_cond_ss) [x64_heap_APPEND,x64_heap_def,x64_el_def,
+         x64_payload_def,SEP_CLAUSES,cond_STAR,MAP,LET_DEF,LENGTH,one_list_def,
+         x64_addr_def,WORD_MUL_LSL,BlockRep_def] >>
+      reverse conj_tac >- (
+        fs[heap_vars_ok_def] >>
+        qpat_assum`X && vs.current_heap = Y`mp_tac >>
+        blastLib.BBLAST_TAC ) >>
+      fsrw_tac[ARITH_ss][] >>
+      SEP_R_TAC )
+    \\ REPEAT STRIP_TAC
+    \\ simp[zVALS_def]
+    \\ Q.EXISTS_TAC `vals with <| reg0 := ((0x4w * n2w (LENGTH l)))|>`
+    \\ FULL_SIMP_TAC (srw_ss()) [heap_inv_def]
+    \\ FULL_SIMP_TAC (std_ss++sep_cond_ss) [x64_heap_APPEND,x64_heap_def,x64_el_def,
+         x64_payload_def,SEP_CLAUSES,cond_STAR,MAP,LET_DEF,LENGTH,one_list_def,
+         x64_addr_def,WORD_MUL_LSL,BlockRep_def]
+    \\ conj_tac >- (
+      Q.LIST_EXISTS_TAC [`vs`,`Data (2w * n2w (LENGTH l))`,`r2`,`r3`,`r4`,`roots`,
+                          `heap`,`a`,`sp`] >>
+      simp[x64_addr_def,WORD_MUL_LSL,word_mul_n2w,w2w_def] >>
+      conj_tac >- (
+        simp[GSYM word_mul_n2w] >>
+        MATCH_MP_TAC abs_ml_inv_Num >>
+        map_every qexists_tac[`RefPtr n`,`Pointer (f ' n)`] >> simp[] >>
+        pop_assum kall_tac >> rw[] >>
+        IMP_RES_TAC heap_lookup_IMP_heap_length >>
+        fs[abs_ml_inv_def,heap_ok_def] >> rfs[] >>
+        DECIDE_TAC ) >>
+      simp[MOD_COMMON_FACTOR] ) >>
+    fs[GSYM STAR_ASSOC] >>
+    qmatch_assum_abbrev_tac`(X * (Y * (Z * (zR 0x0w A * B)))) ss` >>
+    qsuff_tac `A = 0x4w * n2w (LENGTH l)` >- (
+      UNABBREV_ALL_TAC >> rw[] >>
+      FULL_SIMP_TAC (std_ss++star_ss)[] >>
+      qpat_assum`X s'`mp_tac >>
+      REWRITE_TAC[GSYM APPEND_ASSOC,APPEND] ) >>
+    UNABBREV_ALL_TAC >>
+    pop_assum kall_tac >>
+    imp_res_tac heap_lookup_SPLIT >>
+    FULL_SIMP_TAC (std_ss++sep_cond_ss) [x64_heap_APPEND,x64_heap_def,x64_el_def,
+         x64_payload_def,SEP_CLAUSES,cond_STAR,MAP,LET_DEF,LENGTH,one_list_def,
+         x64_addr_def,WORD_MUL_LSL,BlockRep_def] >>
+    fs[GSYM word_mul_n2w,x64_el_def,Bytes_def,LET_THM,x64_payload_def] >>
+    SEP_R_TAC >>
+    simp[LENGTH_bytesToWords] >>
+    simp[GSYM word_add_n2w,GSYM word_mul_n2w] >>
+    cheat)
+  val th = MP th lemma
+  val th = Q.GEN `vals` th |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
+  val (th,goal) = SPEC_STRENGTHEN_RULE th
+    ``zHEAP (cs, x1, x2, x3, x4, refs, stack, s, NONE) * ~zS * zPC p *
+      cond (isRefPtr x1 /\
+            isByteArray (refs ' (getRefPtr x1)))``
+  val lemma= prove(goal,
+    SIMP_TAC (std_ss++sep_cond_ss) [zHEAP_def,SEP_IMP_REFL,SEP_CLAUSES,
+         AC CONJ_ASSOC CONJ_COMM]
+    \\ SIMP_TAC (std_ss++star_ss) [zHEAP_def,SEP_IMP_REFL,SEP_CLAUSES,
+         AC CONJ_ASSOC CONJ_COMM])
+  val th = MP th lemma
+  val _ = add_compiled [th];
+  in th end;
 
 (* el *)
 

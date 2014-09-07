@@ -89,7 +89,7 @@ val BlockRep_def = Define `
   BlockRep tag xs = DataElement xs (LENGTH xs) (BlockTag tag,[])`;
 
 val bytesToWords_def = Define`
-  (bytesToWords ([]:word8  list) = []) ∧
+  (bytesToWords ([]:word8  list) = [0w]) ∧
   (bytesToWords (w1::w2::w3::w4::w5::w6::w7::w8::rest) =
     (l2w 256 (MAP w2n [w1;w2;w3;w4;w5;w6;w7;w8]))::(bytesToWords rest)) ∧
   (bytesToWords fewer = [l2w 256 (PAD_RIGHT 0 8 (MAP w2n fewer))])`

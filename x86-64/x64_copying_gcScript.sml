@@ -52,7 +52,7 @@ val x64_payload_def = Define `
      let c = (ys = []) /\ (LENGTH qs = l) /\ l < 2 ** (64 - 16) in
        (h,ts,c)) /\
   (x64_payload ys l (BytesTag n) qs base =
-     let h = n2w l << 16 + (n2w ((n MOD 8) * 8 + 6)) in
+     let h = n2w l << 16 + n2w (n MOD 8) << 13 + 6w in
      let ts = qs in
      let c = (ys = []) /\ (LENGTH qs = l) /\ l < 2 ** (64 - 16) in
        (h,ts,c))`;
