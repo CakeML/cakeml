@@ -43,10 +43,11 @@ val _ = Datatype `
             | Assign num ('a word_exp)
             | Set store_name ('a word_exp)
             | Store ('a word_exp) num
-            | Call ((num # num_set) option) (* return var, cut-set *)
-                               (num option) (* target of call *)
-                                 (num list) (* arguments *)
-                 ((num # word_prog) option) (* handler: varname, handler code *)
+            | Call ((num # num_set # word_prog) option) 
+                   (* return var, cut-set, return-handler code *)
+                   (num option) (* target of call *)
+                   (num list) (* arguments *)
+                   ((num # word_prog) option) (* handler: varname, exception-handler code *)
             | Seq word_prog word_prog
             | If word_prog num word_prog word_prog
             | Alloc num num_set
@@ -481,7 +482,7 @@ val wEval_def = tDefine "wEval" `
                   | (NONE,s) => (SOME Error,s)
                   | (SOME res,s) => (SOME res,s))
                else (SOME Error,s)
-             | SOME (n,names) (* returning call, returns into var n *) =>
+             | SOME (n,names,ret_handler) (* returning call, returns into var n *) =>
                (case cut_env names s.locals of
                 | NONE => (SOME Error,s)
                 | SOME env =>
@@ -492,7 +493,7 @@ val wEval_def = tDefine "wEval" `
                     | NONE => (SOME Error,s2)
                     | SOME s1 =>
                         (if domain s1.locals = domain env
-                         then (NONE, set_var n x s1)
+                         then wEval(ret_handler,set_var n x (check_clock s1 s))
                          else (SOME Error,s1)))
                 | (SOME (Exception x),s2) =>
                    (case handler of (* if handler is present, then handle exc *)
@@ -607,10 +608,14 @@ val wEval_ind = save_thm("wEval_ind",let
     THEN1 (FIRST_X_ASSUM MATCH_MP_TAC
            \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC
            \\ IMP_RES_TAC wEval_clock \\ SRW_TAC [] []
-           \\ `s2.clock <= s.clock` by
+           \\ TRY (`s2.clock <= s.clock` by
             (fs [call_env_def,dec_clock_def,push_env_clock]
              \\ IMP_RES_TAC pop_env_clock \\ DECIDE_TAC)
-           \\ `s2 = check_clock s2 s` by fs [check_clock_def]
+           \\ `s2 = check_clock s2 s` by fs [check_clock_def])
+           \\ TRY (`s1.clock <= s.clock` by
+             (fs [call_env_def,dec_clock_def,push_env_clock]
+             \\ IMP_RES_TAC pop_env_clock \\ DECIDE_TAC)
+           \\ `s1 = check_clock s1 s` by fs[check_clock_def]) 
            \\ POP_ASSUM (fn th => ONCE_REWRITE_TAC [th])
            \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs [])
     \\ FIRST_X_ASSUM (MATCH_MP_TAC)
@@ -644,11 +649,16 @@ val wEval_def = save_thm("wEval_def",let
     \\ REPEAT BasicProvers.CASE_TAC
     \\ SRW_TAC [] [] \\ IMP_RES_TAC wEval_check_clock
     \\ FULL_SIMP_TAC (srw_ss()) [check_clock_def]
-    \\ fs [call_env_def,dec_clock_def,push_env_clock]
+    \\ fs [pop_env_def,call_env_def,dec_clock_def,push_env_clock]
     \\ SRW_TAC [] []
     \\ IMP_RES_TAC wEval_clock
     \\ fs [call_env_def,dec_clock_def,push_env_clock]
+    \\ TRY (`x''.clock = r'''''.clock` by 
+       (BasicProvers.EVERY_CASE_TAC>>fs[fetch "-" "word_state_component_equality"]))
+    \\ TRY (`x''.clock = r''''''.clock` by 
+       (BasicProvers.EVERY_CASE_TAC>>fs[fetch "-" "word_state_component_equality"]))
     \\ `F` by DECIDE_TAC)
+
   val new_def = wEval_def |> CONJUNCTS |> map (fst o dest_eq o concl o SPEC_ALL)
                   |> map (REWR_CONV def THENC SIMP_CONV (srw_ss()) [])
                   |> LIST_CONJ
