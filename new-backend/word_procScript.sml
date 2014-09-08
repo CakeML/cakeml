@@ -37,8 +37,8 @@ val apply_color_def = Define `
   (apply_color f (Store exp num) = Store (apply_color_exp f exp) (f num)) /\
   (apply_color f (Call ret dest args h) = 
     let ret = case ret of NONE => NONE 
-                        | SOME (v,cutset) => 
-                             SOME (f v,apply_nummap_key f cutset) in
+                        | SOME (v,cutset,ret_handler) => 
+                             SOME (f v,apply_nummap_key f cutset,apply_color f ret_handler)in
     let args = MAP f args in
     let h = case h of NONE => NONE
                      | SOME (v,prog) => SOME (f v, apply_color f prog) in
@@ -455,7 +455,7 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
     `ALL_DISTINCT (MAP (f o FST) moves)` by (
       `MAP (f o FST) moves = MAP f (MAP FST moves)` by fs[MAP_MAP_o]>>
       fs[INJ_DEF]>>
-      metis_tac[miscTheory.ALL_DISTINCT_MAP_INJ])>>
+      metis_tac[ALL_DISTINCT_MAP_INJ])>>
     `MAP (f o SND) moves = MAP f (MAP SND moves)` by fs[MAP_MAP_o]>>
     ASSUME_TAC strong_state_rel_get_vars_lemma>>
     first_x_assum(qspecl_then [`f`,`st`,`cst`,`MAP SND moves`,`x`] 
@@ -568,8 +568,8 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
         rfs[abbrev_and_def,weak_state_rel_def]>>fs[]>>
         BasicProvers.EVERY_CASE_TAC>>fs[])>>
        (*SOME i.e. RETURNING CALL*)
-       Cases_on`x'`>>fs[]>>unabbrev_all_tac>>
-       Cases_on`cut_env r' st.locals`>>fs[strong_state_rel_def]>>
+       PairCases_on`x'`>>fs[]>>unabbrev_all_tac>>
+       Cases_on`cut_env x'1 st.locals`>>fs[strong_state_rel_def]>>
        IMP_RES_TAC cut_env_lemma>>fs[]>>rw[]>>
        Q.ABBREV_TAC `envx = call_env q (push_env x' (IS_SOME handler) (dec_clock st))`>>
        Q.ABBREV_TAC `envy = call_env q (push_env y  (IS_SOME 
@@ -592,11 +592,11 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
        (rw[]>>pop_assum (qspec_then `envy.stack` assume_tac)>>rfs[]>>
        qpat_assum `envy = X` (SUBST_ALL_TAC o SYM) >>fs[abbrev_and_def,weak_state_rel_def])>-
          (*Result*)
-         (Cases_on`pop_env r''`>>fs[]>>
+         (Cases_on`pop_env r'`>>fs[]>>
          Q.UNABBREV_TAC `envy`>>
          fs[call_env_def]>>
          qpat_assum `s_key_eq (push_env A B C).stack st'` mp_tac>>
-         `st' = (r'' with stack:=st').stack` by fs[] >> 
+         `st' = (r' with stack:=st').stack` by fs[] >> 
          pop_assum SUBST1_TAC>>
          strip_tac>>
          IMP_RES_TAC push_env_pop_env_s_key_eq>>
@@ -609,7 +609,7 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
          unabbrev_all_tac>>
          fs[pop_env_def,s_key_eq_def,push_env_def,env_to_list_def,LET_THM]>>
          Cases_on`st'`>>fs[]>>Cases_on`h`>>Cases_on`o'`>>
-         Cases_on`r''.stack`>>fs[]>>Cases_on`h`>>Cases_on`o'`>>
+         Cases_on`r'.stack`>>fs[]>>Cases_on`h`>>Cases_on`o'`>>
          fs[s_key_eq_def,s_frame_key_eq_def]>> Cases_on`handler`>>
          fs[s_val_eq_def,s_frame_key_eq_def,s_frame_val_eq_def]>>
          fs[dec_clock_def]>>
@@ -643,7 +643,7 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
              qpat_assum `MAP g l' = MAP FST l` SUBST_ALL_TAC>>
              `domain y'.locals = set(MAP FST l)` by fs[]>>
              metis_tac[])>>
-         fs[]>>`res'=NONE` by fs[]>>pop_assum SUBST1_TAC>>simp[]>>
+         fs[]>>
          `strong_state_rel f x'' y'` by
            (fs[strong_state_rel_def,pop_env_def]>>
            BasicProvers.EVERY_CASE_TAC>>
@@ -659,8 +659,13 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
            ntac 2 (qpat_assum `fromAList L = X.locals` (SUBST1_TAC o SYM))>>
            simp[lookup_fromAList]>>
            metis_tac[ALOOKUP_key_remap]))>>
+         Cases_on`wEval (x'2,set_var x'0 a x'')` >>
+         Cases_on`q'`>>fs[]>>
          IMP_RES_TAC strong_state_rel_set_var_lemma>>
-         metis_tac[strong_state_rel_def])>>
+         first_x_assum (qspecl_then [`f`,`set_var (f x'0) a y'`] assume_tac)>>
+         rfs[strong_state_rel_def]>>
+         first_assum (split_applied_pair_tac o concl)>> fs[]>>
+         BasicProvers.EVERY_CASE_TAC>>fs[])>>
          (*Exception*)
          IMP_RES_TAC s_val_eq_LAST_N_exists>>
          last_x_assum (qspecl_then [`e''`,`ls''`] assume_tac)>>
@@ -717,9 +722,9 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
                metis_tac[LIST_TO_SET_MAP,MAP_MAP_o]>> 
              metis_tac[])>> 
            fs[set_var_def]>>
-           Q.ABBREV_TAC `Y = r'' with <|locals := insert (f q') w (fromAList lss'); 
-                         stack := st';handler := r''.handler|>`>>
-           Q.ABBREV_TAC `X = r'' with locals := insert q' w (fromAList lss)`>>
+           Q.ABBREV_TAC `Y = r' with <|locals := insert (f q') w (fromAList lss'); 
+                         stack := st';handler := r'.handler|>`>>
+           Q.ABBREV_TAC `X = r' with locals := insert q' w (fromAList lss)`>>
            `strong_state_rel f X Y` by 
              (unabbrev_all_tac>>
              fs[strong_state_rel_def]>>CONJ_TAC>-
@@ -738,23 +743,17 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
           fs[strong_state_rel_def,Abbr`X`]>>rfs[]))
 
 val even_list_def = Define `
-  (even_list (0:num) = []) /\
-  (even_list n = 2*(n-1) :: even_list (n-1))`
+  (even_list = GENLIST (\x.2*x))`
 
-val LT_even_list = prove(
-  ``!n x. MEM x (even_list n) ==> x < 2*n``,
-  ho_match_mp_tac (fetch "-" "even_list_ind")>>
-  rw[]>> fs[even_list_def] >> 
-  first_x_assum(qspec_then `x` assume_tac)>> rfs[]>>
-  DECIDE_TAC)
+(*EVAL ``even_list 5``*)
 
 val ALL_DISTINCT_even_list = prove(
  ``!n. ALL_DISTINCT (even_list n)``,
-  Induct>> fs[even_list_def]>>
-  SPOSE_NOT_THEN assume_tac>>
-  IMP_RES_TAC LT_even_list>> fs[])
+  rw[even_list_def]>>
+  simp [ALL_DISTINCT_GENLIST])
 
-(*Adding a move: takes an f and n = num of locals and generates a move*)
+(*Adding a move: takes an f and n = num of locals and generates a move
+e.g. (1,0) (5,2) (9,4)... *)
 val move_locals_def = Define`
   move_locals f n = 
     let names = even_list n in
@@ -884,5 +883,104 @@ val FV_def = Define`
   TypeBase.constructors_of ``:'a word_prog``
 *)
 
+
+(*Start defining the second conversion...
+lim is meant to be an (odd) limit variable i.e. no larger var is mentioned in the program
+conv_args are the converted names for arguments to be restored ..
+*)
+
+val call_conv_trans_def = Define`
+  (*Returning calls*)
+  (call_conv_trans lim (Call (SOME (ret,names,ret_handler)) dest args h) = 
+    (*Forcing args into registers*)
+    let conv_args = even_list (LENGTH args) in
+    let names = MAP FST (toAList names) in 
+    (*numset -> Alist, might want to add nub here to give all_distinct?*)
+    let conv_names = GENLIST (\i. 2*i + lim) (LENGTH names) in
+    (*Move that restores the cutset*)
+    let restore = Move (ZIP (names,conv_names)) in
+    (*Both handlers are recursively renamed 
+      and exceptional return vals are mapped to 0
+      NOTE: 2 Moves required because of possible shadowing of the cut-set values*)
+    let conv_h = case h of NONE => NONE
+                        |  SOME(n,h) => SOME(0, Seq restore 
+                                               (Seq (Move [n,0])
+                                                    (call_conv_trans lim h))) in
+    let conv_ret = Seq restore 
+                  (Seq (Move [ret,0]) 
+                       (call_conv_trans lim ret_handler)) in
+    Seq (Move (ZIP (conv_args++conv_names,args++names)))
+        (Call (SOME (0,fromAList (MAP (\x.(x,())) conv_names),conv_ret)) dest args conv_h))/\
+  (*Tail calls -- Only need to add a move on the args to force args into registers
+    (handler should be NONE)*)
+  (call_conv_trans lim (Call NONE dest args h) = 
+    Seq (Move (ZIP (even_list (LENGTH args),args))) (Call NONE dest args h)) /\
+  (call_conv_trans lim (Seq p p') = Seq (call_conv_trans lim p) (call_conv_trans lim p')) /\
+  (call_conv_trans lim (If g n c1 c2) = If (call_conv_trans lim g) n (call_conv_trans lim c1)
+                                         (call_conv_trans lim c2)) /\
+  (call_conv_trans lim x = x) `
+
+(*
+EVAL ``call_conv_trans 999 (Call (SOME (3, list_insert [1;3;5;7;9] [();();();();()] LN,Skip)) (SOME 400) [7;9] NONE)``
+*)
+
+(*Compute a limit variable satisfying
+1) not mentioned in the program (strictly > than anything USED (not just looked up) 
+   in the program)
+2) odd *)
+
+(*
+EVAL ``FOLDL (\x y. MAX x y) 1 [1;2;3;4;5]``
+*)
+val limit_var_exp_def = tDefine "limit_var_exp" `
+  (limit_var_exp (Const _) = 1) /\
+  (limit_var_exp (Var n) = 2* n +1) /\
+  (limit_var_exp (Get _) = 1) /\
+  (limit_var_exp (Load exp) = limit_var_exp exp) /\
+  (limit_var_exp (Op op exps) = FOLDL (\x y. MAX x (limit_var_exp y)) 1 exps) /\
+  (limit_var_exp (Shift sh exp nexp) = limit_var_exp exp)`
+  (WF_REL_TAC `measure (word_exp_size ARB )`
+  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_word_exp_size
+  \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
+  \\ DECIDE_TAC)
+
+val is_limit_exp_def = tDefine "is_limit_exp" `
+  (is_limit_exp n (Const _) = T) /\
+  (is_limit_exp n (Var y) = (y < n)) /\
+  (is_limit_exp n (Get _) = T) /\
+  (is_limit_exp n (Load exp) = is_limit_exp n exp) /\
+  (is_limit_exp n (Op op exps) = EVERY (is_limit_exp n) exps) /\
+  (is_limit_exp n (Shift sh exp nexp) = is_limit_exp n exp)`
+  (WF_REL_TAC `measure (word_exp_size ARB o SND )`
+  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_word_exp_size
+  \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
+  \\ DECIDE_TAC)
+
+(*TODO
+val FOLDL_MAX_f = prove(
+  ``!exps f. 
+      let n = FOLDL (\x y. MAX x (f y)) 1 exps in
+        EVERY (\y. f y <= n) exps``,
+   Induct>>rw[]>>simp[]>-
+     unabbrev_all_tac>>
+     pop_assum (qspec_then `f` assume_tac)>> fs[LET_THM]
+     fs[arithmeticTheory.MAX_DEF]
+
+
+      let n = FOLDL (\x y. MAX x (limit_var_exp y)) 1 exps in
+          EVERY (is_limit_exp n) exps``,
+  Induct>>fs[LET_THM]>>
+  rw[]
+
+val is_limit_exp_limit_var_exp = prove(
+``!exp n. (limit_var_exp exp <= n) ==> is_limit_exp n exp``,
+  ho_match_mp_tac (fetch "-" "limit_var_exp_ind")>>
+  rw[is_limit_exp_def,limit_var_exp_def]>- DECIDE_TAC>>
+  `EVERY (\x. (limit_var_exp x) ≤ n) exps` by
+    Induct_on`exps`>>fs[]>>rw[]
+  rw[]>>
+
+  rpt strip_tac>>
+*)
 val _ = export_theory();
 
