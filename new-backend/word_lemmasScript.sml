@@ -1,6 +1,7 @@
 open HolKernel Parse boolLib bossLib miscLib word_langTheory
 open listTheory sptreeTheory pred_setTheory pairTheory optionTheory
 open sortingTheory relationTheory
+
 (*open wordsLib*)
 (*TODO: remove the last_n lemmas*)
 open bvp_lemmasTheory miscTheory
@@ -584,41 +585,54 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
     Q.EXISTS_TAC`fromAList lss'`>>fs[word_state_component_equality]>>
     Q.EXISTS_TAC`lss'`>>fs[])>>
     (*Returning call*)
-    Cases_on`x'`>> fs[]>>
-    Cases_on`cut_env r' s.locals`>>fs[]>>
+    PairCases_on`x'`>> fs[]>>
+    Cases_on`cut_env x'1 s.locals`>>fs[]>>
     Cases_on`wEval (r,call_env q (push_env x' (IS_SOME handler) (dec_clock s)))`>>
-    Cases_on`q''`>>fs[]>>Cases_on`x''`>>fs[]>-
+    Cases_on`q'`>>fs[]>>Cases_on`x''`>>fs[]>-
       (*Result*)
       (BasicProvers.FULL_CASE_TAC>>
       BasicProvers.FULL_CASE_TAC>>
       fs[set_var_def,call_env_def]>>
       IMP_RES_TAC push_env_pop_env_s_key_eq>>fs[dec_clock_def,SOME_11]>>
       `s_key_eq s.stack x''.stack` by fs[EQ_SYM_EQ]>>fs[]>>
-      CONJ_TAC>-
-        (Cases_on`handler`>>fs[push_env_def,LET_THM,env_to_list_def,pop_env_def]>>
-        Cases_on`r''.stack`>>fs[s_key_eq_def]>>Cases_on`h`>>Cases_on`o'`>>
-        fs[s_frame_key_eq_def]>>
-        `y.handler = s.handler` by fs[word_state_component_equality]>>rfs[])>>
-       ntac 2 strip_tac>>
-       `s.locals = (s with stack := xs).locals` by fs[word_state_component_equality]>>
-       IMP_RES_TAC get_vars_stack_swap >>
-       first_x_assum(qspec_then `args` (SUBST1_TAC o SYM))>>simp[]>>
-       `!a. s_val_eq (a::s.stack) (a::xs)` by 
-         (strip_tac>> fs[s_val_eq_def]>>Cases_on`a'`>>
-          Cases_on`o'`>>fs[s_frame_val_eq_def])>>
-       fs[push_env_def,LET_THM,env_to_list_def]>>
-       qpat_abbrev_tac `frame = StackFrame ls n`>>
-       first_x_assum (qspec_then `frame` assume_tac)>>
-       first_x_assum(qspec_then `frame::xs` assume_tac)>>
-       rfs[]>>
-       `LENGTH xs = LENGTH s.stack` by fs[s_val_eq_length]>> fs[]>>
-       Cases_on`st`>>fs[s_key_eq_def]>>
-       Cases_on`r''.stack`>>fs[pop_env_def,s_key_eq_def]>>
-       `h = h'` by metis_tac[s_frame_key_eq_sym,s_frame_key_eq_trans,
-                   s_frame_val_and_key_eq,s_val_eq_def]>>
-       Cases_on`h'`>>Cases_on`o'`>>fs[]>>
-       fs[word_state_component_equality]>>
-       IMP_RES_TAC s_val_eq_tail>>metis_tac[EQ_SYM_EQ])>-
+      IF_CASES_TAC>>fs[]>>
+      Cases_on`q'`>>fs[]>> (*Note value restriction on return handler*)
+      CONJ_TAC>- metis_tac[s_key_eq_trans]>>CONJ_ASM1_TAC>-
+      (Cases_on`handler`>>fs[push_env_def,LET_THM,env_to_list_def,pop_env_def]>>
+      Cases_on`r'.stack`>>fs[s_key_eq_def]>>Cases_on`h`>>Cases_on`o'`>>
+      fs[s_frame_key_eq_def]>>
+      fs[word_state_component_equality]>>rfs[])>>
+      ntac 2 strip_tac>>
+      `s.locals = (s with stack := xs).locals` by fs[word_state_component_equality]>>
+      IMP_RES_TAC get_vars_stack_swap >>
+      first_x_assum(qspec_then `args` (SUBST1_TAC o SYM))>>simp[]>>
+      `!a. s_val_eq (a::s.stack) (a::xs)` by 
+       (strip_tac>> fs[s_val_eq_def]>>Cases_on`a'`>>
+        Cases_on`o'`>>fs[s_frame_val_eq_def])>>
+      fs[push_env_def,LET_THM,env_to_list_def]>>
+      qpat_abbrev_tac `frame = StackFrame ls n`>>
+      first_x_assum (qspec_then `frame` assume_tac)>>
+      last_x_assum(qspec_then `frame::xs` assume_tac)>>
+      rfs[]>>
+      `LENGTH xs = LENGTH s.stack` by fs[s_val_eq_length]>> fs[]>>
+      Cases_on`st`>>fs[s_key_eq_def]>>
+      Cases_on`r'.stack`>>fs[pop_env_def,s_key_eq_def]>>
+      `h = h'` by metis_tac[s_frame_key_eq_sym,s_frame_key_eq_trans,
+                            s_frame_val_and_key_eq,s_val_eq_def]>>
+      Cases_on`h'`>>Cases_on`o'`>>fs[]>>
+      fs[word_state_component_equality]>>
+      IMP_RES_TAC s_val_eq_tail>>
+      first_x_assum(qspec_then `t` assume_tac)>> rfs[]>>
+      Q.EXISTS_TAC`st`>> fs[word_state_component_equality]>>
+      TRY (`x'' with <|locals := insert x'0 a x''.locals; stack := t|> =
+           r' with <|locals := insert x'0 a x''.locals; stack := t|>` by
+           (fs[word_state_component_equality]>>NO_TAC)>>
+           pop_assum SUBST_ALL_TAC)>> 
+      TRY (`x'' with <|locals := insert x'0 a x''.locals; stack := t|> =
+            r' with <|locals := insert x'0 a x''.locals; stack := t; handler:=s.handler|>` by
+            fs[word_state_component_equality]>>
+            pop_assum SUBST_ALL_TAC)>> rw[]>>
+       metis_tac[word_state_component_equality,EQ_SYM_EQ,s_key_eq_trans])>-
        (*Exception*)
        (Cases_on`handler`>>fs[]>-
          (*no handler*)
@@ -649,7 +663,7 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
          (*handler*)
          fs[call_env_def,push_env_def,dec_clock_def,LET_THM,env_to_list_def]>>
          Cases_on`x''`>>BasicProvers.EVERY_CASE_TAC>>rfs[set_var_def]>>fs[]>>
-         `r''.handler = s.handler` by (`LENGTH s.stack +1 = 
+         `r'.handler = s.handler` by (`LENGTH s.stack +1 = 
           LENGTH (StackFrame (list_rearrange (s.permute 0) 
              (QSORT key_val_compare (nub (toAList x')))) 
              (SOME s.handler)::s.stack)` by fs[arithmeticTheory.ADD1]>>
@@ -694,7 +708,7 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
              (SOME s.handler)::s.stack)` by fs[arithmeticTheory.ADD1]>>
              pop_assum SUBST_ALL_TAC>>
              fs[LAST_N_LENGTH]>>
-             `LENGTH ls = LENGTH r''.stack` by fs[s_key_eq_length]>>
+             `LENGTH ls = LENGTH r'.stack` by fs[s_key_eq_length]>>
              fs[])>>
              IMP_RES_TAC s_key_eq_LAST_N_exists>>
              Q.EXISTS_TAC`e'''`>>
@@ -709,7 +723,7 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
                (SOME s.handler)::s.stack)` by fs[arithmeticTheory.ADD1]>>
              pop_assum SUBST_ALL_TAC>>
              fs[LAST_N_LENGTH]>>
-             `LENGTH ls = LENGTH r''.stack` by fs[s_key_eq_length]>>
+             `LENGTH ls = LENGTH r'.stack` by fs[s_key_eq_length]>>
              fs[EQ_SYM_EQ])>>
              fs[]>>
              CONJ_TAC>- metis_tac[s_key_eq_trans]>>
@@ -762,7 +776,7 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
               fs[]>>
               first_x_assum(qspec_then `st` assume_tac)>>
               rfs[]>>
-              `r'' with handler := s.handler = r''` by fs[word_state_component_equality]>>
+              `r' with handler := s.handler = r'` by fs[word_state_component_equality]>>
               fs[]>>HINT_EXISTS_TAC>>fs[])>>
       (*Cleanup...*)
       (ntac 2 strip_tac>>
@@ -777,8 +791,7 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
        first_x_assum (qspec_then `frame` assume_tac)>>
        first_x_assum(qspec_then `frame::xs` assume_tac)>>
        rfs[call_env_def]>>
-       `LENGTH xs = LENGTH s.stack` by fs[s_val_eq_length]>> fs[])>>
-       HINT_EXISTS_TAC>>fs[]))
+       `LENGTH xs = LENGTH s.stack` by fs[s_val_eq_length]>> fs[])))
 
 (*DONE*)
 
@@ -858,7 +871,7 @@ exact_colored_locals f x y <=>
 
 val MEM_nub = prove(
  ``!ls x. MEM x (nub ls) <=> MEM x ls``,
-  Induct>> rw[miscTheory.nub_def]>>
+  Induct>> rw[nub_DEF]>>
   metis_tac[])
 
 val toAList_exact_colored_locals_permute = prove(

@@ -493,7 +493,12 @@ val wEval_def = tDefine "wEval" `
                     | NONE => (SOME Error,s2)
                     | SOME s1 =>
                         (if domain s1.locals = domain env
-                         then wEval(ret_handler,set_var n x (check_clock s1 s))
+                         then 
+                           (*Value restriction on the return handler (makes it easier to reason about)
+                             Don't really need it to do fancy things.*)
+                           case wEval(ret_handler,set_var n x (check_clock s1 s)) of
+                           | (NONE,s) => (NONE,s)
+                           | (_,s) => (SOME Error,s)
                          else (SOME Error,s1)))
                 | (SOME (Exception x),s2) =>
                    (case handler of (* if handler is present, then handle exc *)
@@ -653,6 +658,10 @@ val wEval_def = save_thm("wEval_def",let
     \\ SRW_TAC [] []
     \\ IMP_RES_TAC wEval_clock
     \\ fs [call_env_def,dec_clock_def,push_env_clock]
+    \\ `x''.clock <= s.clock` by 
+         (BasicProvers.EVERY_CASE_TAC>>fs[fetch "-" "word_state_component_equality"]>>
+         `F` by DECIDE_TAC)
+    \\ fs[]
     \\ TRY (`x''.clock = r'''''.clock` by 
        (BasicProvers.EVERY_CASE_TAC>>fs[fetch "-" "word_state_component_equality"]))
     \\ TRY (`x''.clock = r''''''.clock` by 
