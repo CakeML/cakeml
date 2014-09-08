@@ -3756,7 +3756,7 @@ val LENGTH_bytesToWords = prove(
 
 val heap_lookup_IMP_heap_length = prove(
   ``∀heap n l. (heap_lookup n heap = SOME (Bytes l)) ==>
-    LENGTH (l:word8 list) <= 8 * heap_length heap``,
+    LENGTH (l:word8 list) + 8 * n < 8 * heap_length heap``,
   Induct THEN1 (EVAL_TAC \\ SIMP_TAC std_ss [])
   \\ FULL_SIMP_TAC std_ss [heap_lookup_def,heap_length_def,MAP,SUM] >> rw[] >>
   res_tac >> simp[Bytes_def] >> simp[el_length_def] >>
@@ -3781,6 +3781,9 @@ val zHEAP_GET_LENGTH_BYTE = let
   val th = th |> Q.SPEC `zHEAP (cs,Number (& (LENGTH (getByteArray (refs ' (getRefPtr x1))))),x2,x3,x4,
                                 refs,stack,s,NONE) * ~zS * ^pc`
   val goal = th |> concl |> dest_imp |> fst
+  val blast_lemma1 =
+    blastLib.BBLAST_PROVE``0w ≤ y ∧ y < 8w ∧ 0w ≤ z ∧ z < 281474976710656w ⇒
+      ((z:word64 << 16 + y << 13 + 0x6w) >>> 11 = z << 5 + y << 2)``
 (*
 gg goal
 *)
@@ -3823,19 +3826,17 @@ gg goal
     \\ FULL_SIMP_TAC (std_ss++sep_cond_ss) [x64_heap_APPEND,x64_heap_def,x64_el_def,
          x64_payload_def,SEP_CLAUSES,cond_STAR,MAP,LET_DEF,LENGTH,one_list_def,
          x64_addr_def,WORD_MUL_LSL,BlockRep_def]
+    \\ `LENGTH l < 8 * 281474976710664 - 72` by (
+        IMP_RES_TAC heap_lookup_IMP_heap_length >>
+        fs[abs_ml_inv_def,heap_ok_def] >> rfs[] >>
+        DECIDE_TAC )
     \\ conj_tac >- (
       Q.LIST_EXISTS_TAC [`vs`,`Data (2w * n2w (LENGTH l))`,`r2`,`r3`,`r4`,`roots`,
                           `heap`,`a`,`sp`] >>
       simp[x64_addr_def,WORD_MUL_LSL,word_mul_n2w,w2w_def] >>
-      conj_tac >- (
-        simp[GSYM word_mul_n2w] >>
-        MATCH_MP_TAC abs_ml_inv_Num >>
-        map_every qexists_tac[`RefPtr n`,`Pointer (f ' n)`] >> simp[] >>
-        pop_assum kall_tac >> rw[] >>
-        IMP_RES_TAC heap_lookup_IMP_heap_length >>
-        fs[abs_ml_inv_def,heap_ok_def] >> rfs[] >>
-        DECIDE_TAC ) >>
-      simp[MOD_COMMON_FACTOR] ) >>
+      simp[GSYM word_mul_n2w] >>
+      MATCH_MP_TAC abs_ml_inv_Num >>
+      map_every qexists_tac[`RefPtr n`,`Pointer (f ' n)`] >> simp[]) >>
     fs[GSYM STAR_ASSOC] >>
     qmatch_assum_abbrev_tac`(X * (Y * (Z * (zR 0x0w A * B)))) ss` >>
     qsuff_tac `A = 0x4w * n2w (LENGTH l)` >- (
@@ -3844,7 +3845,7 @@ gg goal
       qpat_assum`X s'`mp_tac >>
       REWRITE_TAC[GSYM APPEND_ASSOC,APPEND] ) >>
     UNABBREV_ALL_TAC >>
-    pop_assum kall_tac >>
+    qpat_assum`X s'` kall_tac >>
     imp_res_tac heap_lookup_SPLIT >>
     FULL_SIMP_TAC (std_ss++sep_cond_ss) [x64_heap_APPEND,x64_heap_def,x64_el_def,
          x64_payload_def,SEP_CLAUSES,cond_STAR,MAP,LET_DEF,LENGTH,one_list_def,
@@ -3852,8 +3853,35 @@ gg goal
     fs[GSYM word_mul_n2w,x64_el_def,Bytes_def,LET_THM,x64_payload_def] >>
     SEP_R_TAC >>
     simp[LENGTH_bytesToWords] >>
-    simp[GSYM word_add_n2w,GSYM word_mul_n2w] >>
-    cheat)
+    qmatch_abbrev_tac`(z << 16 + y << 13 + 0x6w) >>> 11 + c = d` >>
+    SUBGOAL_THEN(snd(dest_imp(concl blast_lemma1)))SUBST1_TAC THEN1 (
+      match_mp_tac blast_lemma1 >>
+      UNABBREV_ALL_TAC >>
+      simp[word_lt_n2w,WORD_ZERO_LE] >>
+      `LENGTH l MOD 8 < 8` by simp[] >>
+      simp[LESS_MOD] >>
+      qmatch_assum_abbrev_tac`LENGTH l < lim` >>
+      `LENGTH l DIV 8 + 1 < lim` by (
+        match_mp_tac LESS_SUB_ADD_LESS >> simp[Abbr`lim`] >>
+        simp[DIV_LT_X] ) >>
+      fs[Abbr`lim`] >> simp[] >>
+      disj1_tac >>
+      conj_tac >- (
+        match_mp_tac bitTheory.NOT_BIT_GT_TWOEXP >>
+        simp[] >>
+        match_mp_tac LESS_SUB_ADD_LESS >> simp[] >>
+        simp[DIV_LT_X] ) >>
+      match_mp_tac LESS_SUB_ADD_LESS >> simp[] >>
+      simp[DIV_LT_X] ) >>
+    simp[WORD_MUL_LSL,Abbr`z`,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB,Abbr`c`] >>
+    `0x20w:Zimm = 0x4w * 0x8w` by simp[] >> pop_assum SUBST1_TAC >>
+    REWRITE_TAC[GSYM WORD_MULT_ASSOC] >>
+    REWRITE_TAC[GSYM WORD_LEFT_ADD_DISTRIB] >>
+    simp[Abbr`d`] >> AP_TERM_TAC >>
+    simp[Abbr`y`,word_mul_n2w,word_add_n2w] >>
+    qspec_then`8`mp_tac DIVISION >> simp[] >>
+    disch_then(qspec_then`LENGTH l`mp_tac) >>
+    simp[])
   val th = MP th lemma
   val th = Q.GEN `vals` th |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
   val (th,goal) = SPEC_STRENGTHEN_RULE th
