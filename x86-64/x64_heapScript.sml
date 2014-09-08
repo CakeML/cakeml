@@ -11620,6 +11620,7 @@ val zBC_TagEq = zHEAP_TagEq |> fix_code
 val zBC_El = SPEC_COMPOSE_RULE [zHEAP_POP2,zHEAP_EL,zHEAP_NOP] |> fix_code
 val zBC_PushInt = SPEC_COMPOSE_RULE [zHEAP_PUSH1,zHEAP_LOAD_IMM1] |> fix_code
 val zBC_LengthBlock = zHEAP_GET_LENGTH |> fix_code
+val zBC_LengthByte = zHEAP_GET_LENGTH_BYTE |> fix_code
 
 val zBC_ConsNil = SPEC_COMPOSE_RULE [zHEAP_PUSH1,zHEAP_Nil,zHEAP_NOP] |> fix_code
 val zBC_ConsBig = SPEC_COMPOSE_RULE [zHEAP_PUSH1,zHEAP_BIG_CONS]
@@ -11756,6 +11757,7 @@ val x64_def = Define `
      small_offset (Num (ABS j))
        (if j < 0 then ^(get_code zBC_Error) else
           let k = Num j in ^(get_code zBC_PushInt))) /\
+  (x64 i LengthByte = ^(get_code zBC_LengthByte)) /\
   (x64 i (Jump (Addr l)) =
      small_offset6 l (small_offset6 i
        (let imm32 = n2w (2 * l) - n2w i - 6w in ^(get_code zBC_Jump)))) /\
@@ -15378,7 +15380,42 @@ val zBC_HEAP_THM = prove(
     \\ FULL_SIMP_TAC (std_ss++star_ss) [])
   THEN1 (* UpdateByte *) ERROR_TAC
   THEN1 (* Length *) ERROR_TAC
-  THEN1 (* LengthByte *) ERROR_TAC
+  THEN1 (* LengthByte *)
+    (SIMP_TAC std_ss [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF]
+     \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
+     \\ REPEAT STRIP_TAC
+     \\ (prepare zBC_LengthByte
+          |> MATCH_MP SPEC_WEAKEN |> SPEC_ALL
+          |> DISCH_ALL |> RW [AND_IMP_INTRO]
+          |> MATCH_MP_TAC)
+     \\ FULL_SIMP_TAC std_ss [HD,TL,bc_adjust_def,MAP,APPEND,
+          isRefPtr_def,getRefPtr_def,isNumber_def,getNumber_def]
+     \\ FULL_SIMP_TAC (srw_ss()) [word_mul_n2w]
+     \\ Q.PAT_ABBREV_TAC`v:ref_value = a ' b`
+     \\ `v = ByteArray vs`  by (
+       simp[Abbr`v`,ref_adjust_def,FUN_FMAP_DEF,FUNION_DEF] >>
+       reverse IF_CASES_TAC >- (fs[FLOOKUP_DEF] >> METIS_TAC[]) >>
+       fs[FLOOKUP_DEF] >> qmatch_assum_rename_tac`z IN FDOM s1.refs`[] >>
+       `z = ptr` by (Cases_on`ev`>>fsrw_tac[ARITH_ss][]) >>
+       BasicProvers.VAR_EQ_TAC >>
+       Q.PAT_ABBREV_TAC`z = X DIV 2` >>
+       `z = ptr` by (Cases_on`ev`>>simp[Abbr`z`]
+         >- METIS_TAC[MULT_DIV,MULT_COMM,DECIDE``0:num < 2``] >>
+         ONCE_REWRITE_TAC[MULT_COMM] >>
+         simp[ADD_DIV_ADD_DIV]) >>
+       simp[] )
+     \\ Q.UNABBREV_TAC`v` \\ POP_ASSUM SUBST1_TAC
+     \\ SIMP_TAC std_ss [isByteArray_def,getByteArray_def]
+     \\ ASM_SIMP_TAC std_ss [x64_inst_length_def,x64_def,small_offset_def,
+          LEFT_ADD_DISTRIB,GSYM ADD_ASSOC,word_arith_lemma1,x64_length_def,
+          LENGTH]
+     \\ ASM_SIMP_TAC std_ss [SEP_IMP_def,SEP_EXISTS_THM,getContent_def,EL_MAP]
+     \\ REPEAT STRIP_TAC
+     \\ FULL_SIMP_TAC (srw_ss()) [SEP_DISJ_def]
+     \\ simp[bc_adjust_def]
+     \\ Q.LIST_EXISTS_TAC [`x2`,`x3`]
+     \\ simp[SEP_DISJ_def] >>
+     \\ FULL_SIMP_TAC (std_ss++star_ss++ARITH_ss)[ADD1])
   THEN1 (* Galloc *)
     ERROR_TAC
   THEN1 (* Gupdate *)
