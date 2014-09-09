@@ -3747,13 +3747,6 @@ val (x64_get_length_byte_res, x64_get_length_byte_def, x64_get_length_byte_pre_d
       let r0 = r0 - 32w in
         (r0,dm,m)`
 
-val LENGTH_bytesToWords = prove(
-  ``∀l. LENGTH (bytesToWords l) = LENGTH l DIV 8 + 1``,
-  HO_MATCH_MP_TAC bytesToWords_ind >>
-  simp[bytesToWords_def] >>
-  simp[ADD1] >> rw[ADD_DIV_RWT,ADD_MODULUS] >>
-  simp[])
-
 val heap_lookup_IMP_heap_length = prove(
   ``∀heap n l. (heap_lookup n heap = SOME (Bytes l)) ==>
     LENGTH (l:word8 list) + 8 * n < 8 * heap_length heap``,

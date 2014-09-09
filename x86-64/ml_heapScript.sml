@@ -10,6 +10,162 @@ open ml_copying_gcTheory;
 
 infix \\ val op \\ = op THEN;
 
+(* TODO: move *)
+
+val l2n_eq_0 = store_thm("l2n_eq_0",
+  ``∀b. 0 < b ⇒ ∀l. (l2n b l = 0) ⇔ EVERY ($= 0 o combin$C $MOD b) l``,
+  ntac 2 strip_tac >> Induct >> simp[numposrepTheory.l2n_def] >>
+  qx_gen_tac`z` >> Cases_on`0=z MOD b`>>simp[])
+
+val MOD_EQ_0_0 = prove(
+  ``∀n b. 0 < b ⇒ (n MOD b = 0) ⇒ n < b ⇒ (n = 0)``,
+  rw[MOD_EQ_0_DIVISOR] >> Cases_on`d`>>fs[])
+
+val LOG_EQ_0 = store_thm("LOG_EQ_0",
+  ``∀a b. 1 < a ∧ 0 < b ⇒ ((LOG a b = 0) ⇔ b < a)``,
+  rw[logrootTheory.LOG_RWT])
+
+val LOG_MULT = store_thm("LOG_MULT",
+  ``∀b x. 1 < b ∧ 0 < x ⇒ (LOG b (b * x) = SUC (LOG b x))``,
+  rw[] >>
+  `0 < b * x` by (
+    Cases_on`b` >> fs[ADD1,RIGHT_ADD_DISTRIB] >>
+    DECIDE_TAC ) >>
+  simp[logrootTheory.LOG_RWT,SimpLHS] >>
+  REWRITE_TAC[Once MULT_COMM] >>
+  simp[MULT_DIV])
+
+val LOG_add_digit = store_thm("LOG_add_digit",
+  ``∀b x y. 1 < b ∧ 0 < y ∧ x < b ⇒ (LOG b (b * y + x) = SUC (LOG b y))``,
+  rw[] >>
+  `0 < b * y + x` by (
+    Cases_on`x` >> simp[] >>
+    Cases_on`b`>>fs[MULT] >>
+    DECIDE_TAC ) >>
+  simp[logrootTheory.LOG_RWT,SimpLHS] >>
+  rw[] >- (
+    `b ≤ b * y` by simp[] >>
+    DECIDE_TAC ) >>
+  `x + b * y = y * b + x` by simp[] >>
+  pop_assum SUBST1_TAC >>
+  simp[ADD_DIV_ADD_DIV] >>
+  imp_res_tac LESS_DIV_EQ_ZERO >>
+  simp[])
+
+val dropWhile_def = Define`
+  (dropWhile P [] = []) /\
+  (dropWhile P (h::t) = if P h then dropWhile P t else (h::t))`
+
+val dropWhile_splitAtPki = store_thm("dropWhile_splitAtPki",
+  ``∀P. dropWhile P = splitAtPki (combin$C (K o $~ o P)) (K I)``,
+  gen_tac >>
+  simp[FUN_EQ_THM] >>
+  Induct >>
+  simp[dropWhile_def,splitAtPki_DEF] >>
+  rw[] >> AP_THM_TAC >>
+  qmatch_abbrev_tac`f a b = f a' b'` >>
+  `b = b'` by (UNABBREV_ALL_TAC >> simp[FUN_EQ_THM]) >>
+  `a = a'` by (UNABBREV_ALL_TAC >> simp[FUN_EQ_THM]) >>
+  rfs[])
+
+val dropWhile_eq_nil = store_thm("dropWhile_eq_nil",
+  ``∀P ls. (dropWhile P ls = []) ⇔ EVERY P ls``,
+  gen_tac >> Induct >> simp[dropWhile_def] >> rw[])
+
+val MEM_dropWhile_IMP = store_thm("MEM_dropWhile_IMP",
+  ``∀P ls x. MEM x (dropWhile P ls) ⇒ MEM x ls``,
+  gen_tac >> Induct >> simp[dropWhile_def] >> rw[])
+
+val LOG_l2n = store_thm("LOG_l2n",
+  ``∀b. 1 < b ⇒ ∀l. l ≠ [] ∧ 0 < LAST l ∧ EVERY ($> b) l ⇒ (LOG b (l2n b l) = PRE (LENGTH l))``,
+  ntac 2 strip_tac >> Induct >> simp[numposrepTheory.l2n_def] >>
+  rw[] >> fs[LAST_DEF] >>
+  Cases_on`l=[]`>>fs[numposrepTheory.l2n_def] >- (
+    simp[LOG_EQ_0] ) >>
+  qmatch_assum_abbrev_tac`LOG b z = d` >>
+  `h + b * z = b * z + h` by simp[] >> pop_assum SUBST1_TAC >>
+  qspecl_then[`b`,`h`,`z`]mp_tac LOG_add_digit >>
+  simp[Abbr`d`] >>
+  qsuff_tac`0 < z` >- (
+    simp[] >> Cases_on`l`>>fs[] ) >>
+  simp[Abbr`z`] >>
+  Cases_on`l2n b l = 0`>>simp[] >>
+  `0 < b` by simp[] >>
+  fs[l2n_eq_0] >>
+  `∃z. MEM z l ∧ 0 < z` by (
+    qexists_tac`LAST l` >> simp[] >>
+    Cases_on`l`>>simp[rich_listTheory.MEM_LAST] >>
+    fs[] ) >>
+  fs[EVERY_MEM] >>
+  res_tac >>
+  `z = 0` by METIS_TAC[MOD_EQ_0_0,GREATER_DEF] >>
+  fs[])
+
+val l2n_SNOC_0 = store_thm("l2n_SNOC_0",
+  ``∀b ls. 0 < b ⇒ (l2n b (SNOC 0 ls) = l2n b ls)``,
+  gen_tac >> Induct >> simp[numposrepTheory.l2n_def])
+
+val l2n_dropWhile_0 = store_thm("l2n_dropWhile_0",
+  ``∀b ls. 0 < b ⇒ (l2n b (REVERSE (dropWhile ($= 0) (REVERSE ls)))= l2n b ls)``,
+  gen_tac >> ho_match_mp_tac SNOC_INDUCT >>
+  simp[dropWhile_def,REVERSE_SNOC] >> rw[] >>
+  rw[] >> rw[l2n_SNOC_0] >> rw[SNOC_APPEND])
+
+val LAST_REVERSE = store_thm("LAST_REVERSE",
+  ``∀ls. ls ≠ [] ⇒ (LAST (REVERSE ls) = HD ls)``,
+  Induct >> simp[])
+
+val HD_dropWhile = store_thm("HD_dropWhile",
+  ``∀P ls. EXISTS ($~ o P) ls ⇒ ¬ P (HD (dropWhile P ls))``,
+  gen_tac >> Induct >> simp[dropWhile_def] >> rw[])
+
+val LOG_l2n_dropWhile = store_thm("LOG_l2n_dropWhile",
+  ``∀b l. 1 < b ∧ EXISTS ($<> 0) l ∧ EVERY ($>b) l ⇒
+          (LOG b (l2n b l) = PRE (LENGTH (dropWhile ($= 0) (REVERSE l))))``,
+  rpt strip_tac >>
+  `0 < b` by simp[] >>
+  simp[Once(GSYM l2n_dropWhile_0)] >>
+  qmatch_abbrev_tac`x = PRE (LENGTH y)` >>
+  qsuff_tac`x = PRE (LENGTH (REVERSE y))` >- rw[] >>
+  UNABBREV_ALL_TAC >>
+  match_mp_tac (MP_CANON LOG_l2n) >>
+  simp[dropWhile_eq_nil,rich_listTheory.EXISTS_REVERSE,
+       rich_listTheory.EVERY_REVERSE,combinTheory.o_DEF] >>
+  fs[EVERY_MEM] >>
+  reverse conj_tac >- METIS_TAC[MEM_dropWhile_IMP,MEM_REVERSE] >>
+  qmatch_abbrev_tac`0:num < LAST (REVERSE ls)` >>
+  Cases_on`ls = []` >- (
+    fs[Abbr`ls`,dropWhile_eq_nil,EVERY_MEM,EXISTS_MEM] >>
+    METIS_TAC[] ) >>
+  simp[LAST_REVERSE] >>
+  qsuff_tac`~ (($= 0) (HD ls))` >- simp[] >>
+  qunabbrev_tac`ls` >>
+  match_mp_tac HD_dropWhile >>
+  fs[EXISTS_MEM] >> METIS_TAC[])
+
+val LENGTH_dropWhile_LESS_EQ = store_thm("LENGTH_dropWhile_LESS_EQ",
+  ``∀P ls. LENGTH (dropWhile P ls) ≤ LENGTH ls``,
+  gen_tac >> Induct >> simp[dropWhile_def] >> rw[] >> simp[])
+
+val dropWhile_APPEND_EVERY = store_thm("dropWhile_APPEND_EVERY",
+  ``∀P l1 l2. EVERY P l1 ⇒ (dropWhile P (l1 ++ l2) = dropWhile P l2)``,
+  gen_tac >> Induct >> simp[dropWhile_def])
+
+val dropWhile_APPEND_EXISTS = store_thm("dropWhile_APPEND_EXISTS",
+  ``∀P l1 l2. EXISTS ($~ o P) l1 ⇒ (dropWhile P (l1 ++ l2) = dropWhile P l1 ++ l2)``,
+  gen_tac >> Induct >> simp[dropWhile_def] >> rw[])
+
+val EL_LENGTH_dropWhile_REVERSE = store_thm("EL_LENGTH_dropWhile_REVERSE",
+  ``∀P ls k. LENGTH (dropWhile P (REVERSE ls)) ≤ k ∧ k < LENGTH ls ⇒ P (EL k ls)``,
+  gen_tac >> Induct >> simp[dropWhile_def] >> rw[] >>
+  Cases_on`k`>>fs[LENGTH_NIL,dropWhile_eq_nil] >>
+  first_x_assum match_mp_tac >> simp[] >>
+  Cases_on`EVERY P (REVERSE ls)` >- (
+    fs[dropWhile_APPEND_EVERY,GSYM dropWhile_eq_nil] ) >>
+  fs[dropWhile_APPEND_EXISTS,ADD1])
+
+(* -- *)
+
 val EVERY2_IMP_EVERY2 = prove(
   ``!xs ys P1 P2.
       (!x y. MEM x xs /\ MEM y ys /\ P1 x y ==> P2 x y) ==>
@@ -93,6 +249,104 @@ val bytesToWords_def = Define`
   (bytesToWords (w1::w2::w3::w4::w5::w6::w7::w8::rest) =
     (l2w 256 (MAP w2n [w1;w2;w3;w4;w5;w6;w7;w8]))::(bytesToWords rest)) ∧
   (bytesToWords fewer = [l2w 256 (PAD_RIGHT 0 8 (MAP w2n fewer))])`
+
+val wordsToBytes_def = Define`
+  (wordsToBytes ([]:word64 list) = ([]:word8 list)) ∧
+  (wordsToBytes (w::ws) = MAP n2w (PAD_RIGHT 0 8 (w2l 256 w)) ++ wordsToBytes ws)`
+
+val LENGTH_bytesToWords = store_thm("LENGTH_bytesToWords",
+  ``∀l. LENGTH (bytesToWords l) = LENGTH l DIV 8 + 1``,
+  HO_MATCH_MP_TAC bytesToWords_ind >>
+  simp[bytesToWords_def] >>
+  simp[ADD1] >> rw[ADD_DIV_RWT,ADD_MODULUS] >>
+  simp[])
+
+val bytesToWords_ind = theorem"bytesToWords_ind"
+
+val wordsToBytesToWords_lemma = prove(
+  ``∀ls. TAKE (LENGTH (dropWhile ($= k) (REVERSE ls))) ls ++
+         GENLIST (K k) (LENGTH ls - LENGTH (TAKE (LENGTH (dropWhile ($= k) (REVERSE ls))) ls))
+         = ls``,
+  HO_MATCH_MP_TAC SNOC_INDUCT >> rw[dropWhile_def] >>
+  rw[] >> simp[TAKE_APPEND2,ADD1] >>
+  Q.PAT_ABBREV_TAC`m = LENGTH Z` >>
+  `m ≤ LENGTH (REVERSE ls)` by (
+    simp[Abbr`m`,LENGTH_dropWhile_LESS_EQ] ) >>
+  fs[] >> simp[TAKE_APPEND1] >>
+  simp[LIST_EQ_REWRITE] >> gen_tac >> strip_tac >>
+  Cases_on`x < m` >- (
+    simp[rich_listTheory.EL_APPEND1,rich_listTheory.EL_TAKE] ) >>
+  simp[rich_listTheory.EL_APPEND2] >>
+  Cases_on`x = LENGTH ls`>>simp[rich_listTheory.EL_APPEND2] >>
+  `x < LENGTH ls` by DECIDE_TAC >>
+  simp[rich_listTheory.EL_APPEND1] >>
+  fs[NOT_LESS] >>
+  HO_MATCH_MP_TAC EL_LENGTH_dropWhile_REVERSE >>
+  simp[])
+
+val wordsToBytesToWords = store_thm("wordsToBytesToWords",
+  ``∀l. IS_PREFIX (wordsToBytes (bytesToWords l)) l``,
+  simp[rich_listTheory.IS_PREFIX_APPEND,SKOLEM_THM] >>
+  qexists_tac`λl. GENLIST (K 0w) (8 - LENGTH l MOD 8)` >>
+  HO_MATCH_MP_TAC(bytesToWords_ind) >>
+  SIMP_TAC std_ss [bytesToWords_def,wordsToBytes_def,w2l_l2w,PAD_RIGHT] >>
+  rpt strip_tac >- EVAL_TAC >>
+  Q.PAT_ABBREV_TAC`k = l2n 256 ls` >>
+  Q.PAT_ABBREV_TAC`r = k MOD y` >>
+  qmatch_assum_abbrev_tac`Abbrev(r = k MOD n)` >>
+  `r = k` by (
+    qunabbrev_tac`r` >>
+    match_mp_tac LESS_MOD >>
+    simp[Abbr`k`,Abbr`n`] >>
+    qmatch_abbrev_tac`l2n b ls < c` >>
+    match_mp_tac LESS_LESS_EQ_TRANS >>
+    qexists_tac`b ** LENGTH ls` >>
+    conj_tac >- (
+      MATCH_MP_TAC numposrepTheory.l2n_lt >>
+      simp[Abbr`b`]) >>
+    UNABBREV_ALL_TAC >> simp[] ) >>
+  qunabbrev_tac`r` >> pop_assum SUBST1_TAC >>
+  qmatch_assum_abbrev_tac`Abbrev(k = l2n 256 ls)` >>
+  `1 < 256 ∧ EVERY ($> 256) ls` by (
+    assume_tac(SIMP_RULE(srw_ss())[](INST_TYPE[alpha|->``:8``]w2n_lt)) >>
+    simp[Abbr`ls`,GREATER_DEF] ) >>
+  qunabbrev_tac`k` >> qunabbrev_tac`ls` >>
+  ASM_SIMP_TAC std_ss [numposrepTheory.n2l_l2n] >>
+  (IF_CASES_TAC >- (
+     simp[ADD1,ADD_MODULUS_LEFT] >> fs[] >>
+     `0:num < 256` by simp[] >>
+     imp_res_tac l2n_eq_0 >> fs[] >>
+     rpt(qpat_assum`0:num = X`(assume_tac o SYM)) >>
+     fs[GREATER_DEF] >>
+     `0:num < 256` by simp[] >>
+     imp_res_tac MOD_EQ_0_0 >>
+     fs[w2n_eq_0] )) >>
+  CONV_TAC(RAND_CONV(SIMP_CONV(srw_ss()++ARITH_ss)[ADD1,ADD_MODULUS_LEFT])) >>
+  qmatch_abbrev_tac`X ++ Y = Z:word8 list` >>
+  simp[Abbr`Y`,Abbr`Z`] >>
+  qunabbrev_tac`X` >>
+  qmatch_assum_abbrev_tac`l2n 256 ls ≠ 0` >>
+  `EXISTS ($<> 0) ls` by (
+    fs[l2n_eq_0,EXISTS_MEM,EVERY_MEM] >>
+    qexists_tac`e` >> simp[] >>
+    spose_not_then strip_assume_tac >>
+    BasicProvers.VAR_EQ_TAC >>
+    fs[] ) >>
+  simp[LOG_l2n_dropWhile] >>
+  REWRITE_TAC[GSYM MAP_APPEND] >>
+  Q.PAT_ABBREV_TAC`m = LENGTH Z` >>
+  `0 < m` by (
+    simp[Abbr`m`] >>
+    qmatch_abbrev_tac`0 < LENGTH ld` >>
+    reverse(Cases_on`ld=[]`)>-(
+      Cases_on`ld`>>fs[] ) >>
+    fs[Abbr`ld`,dropWhile_eq_nil,EVERY_MEM,EXISTS_MEM] >>
+    METIS_TAC[] ) >>
+  FULL_SIMP_TAC std_ss [SUC_PRE] >>
+  `LENGTH ls = 8` by simp[Abbr`ls`] >>
+  pop_assum(SUBST1_TAC o SYM) >>
+  SIMP_TAC std_ss [wordsToBytesToWords_lemma,Abbr`m`] >>
+  simp[Abbr`ls`])
 
 val Bytes_def = Define`
   Bytes (bs:word8 list) =
