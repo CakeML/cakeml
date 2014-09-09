@@ -38,7 +38,7 @@ val apply_color_def = Define `
   (apply_color f (Call ret dest args h) = 
     let ret = case ret of NONE => NONE 
                         | SOME (v,cutset,ret_handler) => 
-                             SOME (f v,apply_nummap_key f cutset,apply_color f ret_handler)in
+                          SOME (f v,apply_nummap_key f cutset,apply_color f ret_handler) in
     let args = MAP f args in
     let h = case h of NONE => NONE
                      | SOME (v,prog) => SOME (f v, apply_color f prog) in
@@ -889,13 +889,21 @@ lim is meant to be an (odd) limit variable i.e. no larger var is mentioned in th
 conv_args are the converted names for arguments to be restored ..
 *)
 
+val num_set_to_list_def = Define`
+  num_set_to_list (numset:num_set) = MAP FST (toAList numset)`
+
+val list_to_num_set = Define`
+  list_to_num_set ls = fromAList (MAP (\x.(x,())) ls)`
+
 val call_conv_trans_def = Define`
   (*Returning calls*)
   (call_conv_trans lim (Call (SOME (ret,names,ret_handler)) dest args h) = 
     (*Forcing args into registers*)
+    let lim = if lim > 2 * LENGTH args then lim else 2*LENGTH args +1 in
     let conv_args = even_list (LENGTH args) in
-    let names = MAP FST (toAList names) in 
-    (*numset -> Alist, might want to add nub here to give all_distinct?*)
+    let names = num_set_to_list names in 
+    (*numset -> Alist, might want to add nub here to give all_distinct?
+      This transform needs to be monotonic and injective*)
     let conv_names = GENLIST (\i. 2*i + lim) (LENGTH names) in
     (*Move that restores the cutset*)
     let restore = Move (ZIP (names,conv_names)) in
@@ -909,16 +917,218 @@ val call_conv_trans_def = Define`
     let conv_ret = Seq restore 
                   (Seq (Move [ret,0]) 
                        (call_conv_trans lim ret_handler)) in
-    Seq (Move (ZIP (conv_args++conv_names,args++names)))
-        (Call (SOME (0,fromAList (MAP (\x.(x,())) conv_names),conv_ret)) dest args conv_h))/\
+    Seq (Move (ZIP (conv_names++conv_args,names++args)))
+        (Call (SOME (0,list_to_num_set conv_names,conv_ret)) dest conv_args conv_h))/\
   (*Tail calls -- Only need to add a move on the args to force args into registers
     (handler should be NONE)*)
-  (call_conv_trans lim (Call NONE dest args h) = 
-    Seq (Move (ZIP (even_list (LENGTH args),args))) (Call NONE dest args h)) /\
+  (call_conv_trans lim (Call NONE dest args h) =
+    let conv_args = even_list (LENGTH args) in
+    Seq (Move (ZIP (conv_args,args))) (Call NONE dest conv_args h)) /\
   (call_conv_trans lim (Seq p p') = Seq (call_conv_trans lim p) (call_conv_trans lim p')) /\
   (call_conv_trans lim (If g n c1 c2) = If (call_conv_trans lim g) n (call_conv_trans lim c1)
                                          (call_conv_trans lim c2)) /\
   (call_conv_trans lim x = x) `
+
+val _ = export_rewrites ["num_set_to_list_def","list_to_num_set_def"
+                        ,"call_conv_trans_def","even_list_def"]
+
+(*We might only need to check if the cut-set is all odd?*)    
+val odd_calls_def = Define`
+  (odd_calls (Call ret dest args handler) <=>
+    EVERY ODD args) 
+    (*case ret of NONE => T 
+    | SOME (_,names,_) => EVERY ODD (num_set_to_list names)*)/\
+  (odd_calls (Seq p p') <=> odd_calls p /\ odd_calls p') /\
+  (odd_calls (If g n c1 c2) <=> odd_calls g /\ odd_calls c1 /\ odd_calls c2) `
+
+val strong_state_rel_I_refl = prove(
+  ``!s. strong_state_rel I s s``,
+  strip_tac>>fs[strong_state_rel_def]) 
+
+
+(*generalized form for get_vars*)
+val get_vars_list_insert_eq_gen= prove(
+``!ls x locs a b. (LENGTH ls = LENGTH x /\ ALL_DISTINCT ls /\
+                  LENGTH a = LENGTH b /\ !e. MEM e ls ==> ~MEM e a)
+  ==> get_vars ls (st with locals := list_insert (a++ls) (b++x) locs) = SOME x``,
+  ho_match_mp_tac list_insert_ind>>
+  rw[]>-
+    (Cases_on`x`>>fs[get_vars_def])>>
+  fs[get_vars_def,get_var_def,lookup_list_insert]>>
+  `LENGTH (ls::ls') = LENGTH (x::x')` by fs[]>>
+  IMP_RES_TAC rich_listTheory.ZIP_APPEND>>
+  (*Best way I could find...*)
+  ntac 9 (pop_assum (SUBST1_TAC o SYM))>>
+  fs[ALOOKUP_APPEND]>>
+  first_assum(qspec_then `ls` assume_tac)>>fs[]>>
+  `ALOOKUP (ZIP (a,b)) ls = NONE` by metis_tac[ALOOKUP_NONE,MEM_MAP,MAP_ZIP]>>
+  fs[]>>
+  first_x_assum(qspecl_then [`a++[ls]`,`b++[x]`] assume_tac)>>
+  `LENGTH (a++[ls]) = LENGTH (b++[x])` by fs[]>> rfs[]>>
+  `a++[ls]++ls' = a++ls::ls' /\ b++[x]++x' = b++x::x'` by fs[]>>
+  ntac 2 (pop_assum SUBST_ALL_TAC)>> fs[])
+
+val list_insert_append = prove(
+``!x y locs a b. LENGTH a = LENGTH b /\ LENGTH x = LENGTH y ==>
+  list_insert(a++x) (b++y) locs = list_insert a b (list_insert x y locs)``
+  rw[]>>
+  list_
+  ho_match_mp_tac list_insert_ind>>
+  rw[]>-
+    (Cases_on`y`>>fs[list_insert_def])>>
+
+
+val get_vars_list_insert_eq_gen2 = prove(
+``!ls x locs a b. (LENGTH ls = LENGTH x /\ ALL_DISTINCT a /\
+                  LENGTH a = LENGTH b /\ !e. MEM e ls ==> ~MEM e a)
+  ==> get_vars a (st with locals := list_insert (a++ls) (b++x) locs) = SOME b``,
+  ho_match_mp_tac list_insert_ind>>
+  rw[]>-
+    (Cases_on`x`>>fs[]>>
+    assume_tac get_vars_list_insert_eq_gen>>
+    pop_assum(qspecl_then [`a`,`b`,`locs`,`[]`,`[]`] assume_tac)>>
+    fs[])>>
+  `ALL_DISTINCT (a++[ls])` by fs[ALL_DISTINCT_APPEND]>>
+  first_x_assum(qspecl_then [`a++[ls]`,`b++[x]`] assume_tac)>>
+  rfs[]
+  
+  !ls x locs a b. (LENGTH ls = 
+
+val ALL_DISTINCT_even_list_rw =REWRITE_RULE [even_list_def] ALL_DISTINCT_even_list 
+
+val ALL_DISTINCT_offset_list_rw = prove(
+``!n. ALL_DISTINCT (GENLIST (\i.2*i +lim) n)``,
+  fs[ALL_DISTINCT_GENLIST]>>DECIDE_TAC)
+
+val get_vars_append = prove(
+  ``get_vars (a++b) st = case get_vars a st of NONE => NONE | SOME x => 
+             case get_vars b st of NONE => NONE | SOME y => SOME (x++y)``,
+  Induct_on`a`>>
+  fs[get_vars_def]>- BasicProvers.EVERY_CASE_TAC>>
+  rw[]>>
+  Cases_on`get_var h st`>>fs[]>>
+  Cases_on`get_vars a st`>>fs[]>>
+  Cases_on`get_vars b st`>>fs[])
+
+(*Rough statement*)
+val call_conv_trans_correct = store_thm("call_conv_trans_correct",
+``!prog st res rst lim. wEval(prog,st) = (res,rst) /\
+                        (*odd_calls prog /\ -- Only odd vars are mentioned in Calls*)
+                  (*TODO: limit_var lim prog /\ -- Only *)
+                  res <> SOME Error /\
+                  res <> SOME TimeOut 
+  (*TODO: Timeouts break this because timeout is checked BEFORE args are checked*)
+  ==> ?rst'. wEval(call_conv_trans lim prog,st) = (res,rst') /\
+            strong_state_rel I rst rst'``,
+  ho_match_mp_tac (wEval_ind |> Q.SPEC`UNCURRY P` |> SIMP_RULE (srw_ss())[] |> Q.GEN`P`) >>
+  rw[]>>fs[wEval_def,strong_state_rel_I_refl]>>
+
+  (*Call*)
+  Cases_on`ret`>>
+  fs[wEval_def,LET_THM,MAP_ZIP,ALL_DISTINCT_even_list_rw]>-
+  (*Tail call*)
+    (BasicProvers.EVERY_CASE_TAC>>fs[set_vars_def,get_vars_def]>>
+    IMP_RES_TAC get_vars_length_lemma>>
+    pop_assum (assume_tac o SYM)>>
+    assume_tac get_vars_list_insert_eq_gen>>
+    pop_assum(qspecl_then [`even_list (LENGTH args)`,`x`,`st.locals`,`[]`,`[]`] assume_tac)>>
+    fs[]>>rfs[ALL_DISTINCT_even_list_rw]>>
+    fs[call_env_def,dec_clock_def]>>
+    Q.EXISTS_TAC`rst`>>fs[strong_state_rel_I_refl]>>
+    qpat_assum `bla = res` (SUBST1_TAC o SYM)>>
+    fs[])
+  (*Normal call*)
+    qpat_assum `bla = (res,rst)` mp_tac>>
+    IF_CASES_TAC>>fs[]>>
+    PairCases_on`x`>>
+    Cases_on`get_vars args st`>>fs[]>>
+    Cases_on`find_code dest x st.code`>>fs[]>>
+    Cases_on`x'`>>fs[]>>
+    Cases_on`cut_env x1 st.locals`>-
+    fs[cut_env_def]>>
+    fs[LET_THM,wEval_def,MAP_ZIP,ALL_DISTINCT_APPEND
+      ,ALL_DISTINCT_even_list_rw,ALL_DISTINCT_offset_list_rw]>>
+    (*This is true because the args list is bounded by 2* LENGTH args
+      lim is deliberately forced to be greater so it is not a MEM*)
+    Q.ABBREV_TAC `lim' = if lim > 2 * LENGTH args then lim else 2 * LENGTH args + 1`>>
+    Q.ABBREV_TAC `ls = GENLIST (λx. 2 * x) (LENGTH args)`>>
+    Q.ABBREV_TAC `a = GENLIST (λi. 2 * i + lim') (LENGTH (toAList x1))`>>
+
+    `∀e. MEM e a ==> ~ MEM e ls` by cheat>>
+    fs[get_vars_append]>>
+    (*This is true b.c. dom x1 SUBST dom st, but do we need to make this all distinct?
+      Needs some condition on y...*)
+    `get_vars (MAP FST (toAList x1)) st = SOME y` by cheat>>
+    fs[set_vars_def]>>
+    IMP_RES_TAC get_vars_length_lemma>>
+    `get_vars ls (st with locals := list_insert (a ++ ls) (y ++ x) st.locals) = SOME x` by
+    (Q.ISPECL_THEN [`ls`,`x`,`st.locals`,`a`,`y`] assume_tac get_vars_list_insert_eq_gen>>
+    `LENGTH ls = LENGTH x /\ ALL_DISTINCT ls /\ LENGTH a = LENGTH y` by
+      (unabbrev_all_tac>> 
+      fs[ALL_DISTINCT_offset_list_rw,ALL_DISTINCT_even_list_rw])
+    metis_tac[LENGTH_GENLIST,LENGTH_MAP])>>
+    fs[cut_env_def]>>
+    (*Certainly true..*)
+    `domain (fromAList (MAP (λx. (x,())) a)) ⊆
+     domain (list_insert (a ++ ls) (y ++ x) st.locals)` by cheat>>fs[]>>
+    fs[push_env_def,LET_THM,word_state_component_equality,dec_clock_def]>>
+    `IS_SOME (case handler of NONE => NONE 
+                     | SOME (n,h') => SOME (0,Seq (Move (ZIP (MAP FST (toAList x1),a)))
+		                             (Seq (Move [(n,0)]) (call_conv_trans lim' h'))))
+    = IS_SOME handler` by 
+      (BasicProvers.EVERY_CASE_TAC>>fs[])>>
+     fs[env_to_list_monotonic_eq]
+     pop_assum SUBST1_TAC
+     simp[]
+    (*We need to end up with this condition:
+      Probably best to do the entire cut_env in a separate lemma*)
+ 
+    `MAP SND x' = MAP SND (inter (list_insert (a ++ ls) (y ++ x) st.locals)
+     (fromAList (MAP (λx. (x,())) a)))` by cheat>>
+
+
+      = SOME x` by cheat>>
+    fs[cut_env_def] >>
+
+    (*I might have been able to use cut_env_lemma here... the problem is no easy way to 
+      state an INJ f --> one certainly exists...*)>>
+    pop_assum (qspecl_then [`x1`,`st.locals`,`
+
+	    fs[cut_env_def]>>
+    
+    `
+
+    BasicProvers.FULL_CASE_TAC>>fs[]>>
+
+    _CASE_TAC
+       qabbrev_tac `X = st with locals := 
+                       list_insert (GENLIST (λx. 2 * x) (LENGTH args)) x st.locals`>>
+    fs[get_vars_def]>>
+    `get_vars args X = SOME x` by
+      fs[get_vars_def,Abbr`X`,odd_calls_def]>>
+      Induct_on`args`>>fs[get_vars_def,get_var_def]>>
+      rw[]>>
+     
+         
+      `
+      simp [lookup_list_insert,LENGTH_GENLIST]>>
+     
+  Cases_on`st.clock`>>fs[]
+
+  BasicProvers.FULL_CASE_TAC>>fs[]
+every_case_tac
+
+EVERY_CASE_TAC
+  fs[GEN_ALL MAP_ZIP,LENGTH_GENLIST]
+
+,strong_state_rel_def]
+ 
+         let (res',rcst) = wEval(seq_move_locals odd_coloring n prog,s) in
+         res' = res /\ 
+         (case res of
+            NONE => strong_state_rel I rst rcst (*might have extra locals*)
+             | _ => weak_state_rel odd_coloring rst rcst)
+
 
 (*
 EVAL ``call_conv_trans 999 (Call (SOME (3, list_insert [1;3;5;7;9] [();();();();()] LN,Skip)) (SOME 400) [7;9] NONE)``
