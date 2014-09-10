@@ -16,43 +16,11 @@ val MOD_EQ_0_0 = prove(
   ``∀n b. 0 < b ⇒ (n MOD b = 0) ⇒ n < b ⇒ (n = 0)``,
   rw[MOD_EQ_0_DIVISOR] >> Cases_on`d`>>fs[])
 
-val LAST_REVERSE = store_thm("LAST_REVERSE",
-  ``∀ls. ls ≠ [] ⇒ (LAST (REVERSE ls) = HD ls)``,
-  Induct >> simp[])
-
-val dropWhile_def = Define`
-  (dropWhile P [] = []) /\
-  (dropWhile P (h::t) = if P h then dropWhile P t else (h::t))`
-
-val dropWhile_splitAtPki = store_thm("dropWhile_splitAtPki",
-  ``∀P. dropWhile P = splitAtPki (combin$C (K o $~ o P)) (K I)``,
-  gen_tac >>
-  simp[FUN_EQ_THM] >>
-  Induct >>
-  simp[dropWhile_def,splitAtPki_DEF] >>
-  rw[] >> AP_THM_TAC >>
-  qmatch_abbrev_tac`f a b = f a' b'` >>
-  `b = b'` by (UNABBREV_ALL_TAC >> simp[FUN_EQ_THM]) >>
-  `a = a'` by (UNABBREV_ALL_TAC >> simp[FUN_EQ_THM]) >>
-  rfs[])
-
-val dropWhile_eq_nil = store_thm("dropWhile_eq_nil",
-  ``∀P ls. (dropWhile P ls = []) ⇔ EVERY P ls``,
-  gen_tac >> Induct >> simp[dropWhile_def] >> rw[])
-
-val MEM_dropWhile_IMP = store_thm("MEM_dropWhile_IMP",
-  ``∀P ls x. MEM x (dropWhile P ls) ⇒ MEM x ls``,
-  gen_tac >> Induct >> simp[dropWhile_def] >> rw[])
-
 val l2n_dropWhile_0 = store_thm("l2n_dropWhile_0",
   ``∀b ls. 0 < b ⇒ (l2n b (REVERSE (dropWhile ($= 0) (REVERSE ls)))= l2n b ls)``,
   gen_tac >> ho_match_mp_tac SNOC_INDUCT >>
   simp[dropWhile_def,REVERSE_SNOC] >> rw[] >>
   rw[] >> rw[l2n_SNOC_0] >> rw[SNOC_APPEND])
-
-val HD_dropWhile = store_thm("HD_dropWhile",
-  ``∀P ls. EXISTS ($~ o P) ls ⇒ ¬ P (HD (dropWhile P ls))``,
-  gen_tac >> Induct >> simp[dropWhile_def] >> rw[])
 
 val LOG_l2n_dropWhile = store_thm("LOG_l2n_dropWhile",
   ``∀b l. 1 < b ∧ EXISTS ($<> 0) l ∧ EVERY ($>b) l ⇒
@@ -77,27 +45,6 @@ val LOG_l2n_dropWhile = store_thm("LOG_l2n_dropWhile",
   qunabbrev_tac`ls` >>
   match_mp_tac HD_dropWhile >>
   fs[EXISTS_MEM] >> METIS_TAC[])
-
-val LENGTH_dropWhile_LESS_EQ = store_thm("LENGTH_dropWhile_LESS_EQ",
-  ``∀P ls. LENGTH (dropWhile P ls) ≤ LENGTH ls``,
-  gen_tac >> Induct >> simp[dropWhile_def] >> rw[] >> simp[])
-
-val dropWhile_APPEND_EVERY = store_thm("dropWhile_APPEND_EVERY",
-  ``∀P l1 l2. EVERY P l1 ⇒ (dropWhile P (l1 ++ l2) = dropWhile P l2)``,
-  gen_tac >> Induct >> simp[dropWhile_def])
-
-val dropWhile_APPEND_EXISTS = store_thm("dropWhile_APPEND_EXISTS",
-  ``∀P l1 l2. EXISTS ($~ o P) l1 ⇒ (dropWhile P (l1 ++ l2) = dropWhile P l1 ++ l2)``,
-  gen_tac >> Induct >> simp[dropWhile_def] >> rw[])
-
-val EL_LENGTH_dropWhile_REVERSE = store_thm("EL_LENGTH_dropWhile_REVERSE",
-  ``∀P ls k. LENGTH (dropWhile P (REVERSE ls)) ≤ k ∧ k < LENGTH ls ⇒ P (EL k ls)``,
-  gen_tac >> Induct >> simp[dropWhile_def] >> rw[] >>
-  Cases_on`k`>>fs[LENGTH_NIL,dropWhile_eq_nil] >>
-  first_x_assum match_mp_tac >> simp[] >>
-  Cases_on`EVERY P (REVERSE ls)` >- (
-    fs[dropWhile_APPEND_EVERY,GSYM dropWhile_eq_nil] ) >>
-  fs[dropWhile_APPEND_EXISTS,ADD1])
 
 (* -- *)
 
