@@ -10,43 +10,9 @@ open ml_copying_gcTheory;
 
 infix \\ val op \\ = op THEN;
 
-(* TODO: move *)
-
 val MOD_EQ_0_0 = prove(
   ``∀n b. 0 < b ⇒ (n MOD b = 0) ⇒ n < b ⇒ (n = 0)``,
   rw[MOD_EQ_0_DIVISOR] >> Cases_on`d`>>fs[])
-
-val l2n_dropWhile_0 = store_thm("l2n_dropWhile_0",
-  ``∀b ls. 0 < b ⇒ (l2n b (REVERSE (dropWhile ($= 0) (REVERSE ls)))= l2n b ls)``,
-  gen_tac >> ho_match_mp_tac SNOC_INDUCT >>
-  simp[dropWhile_def,REVERSE_SNOC] >> rw[] >>
-  rw[] >> rw[l2n_SNOC_0] >> rw[SNOC_APPEND])
-
-val LOG_l2n_dropWhile = store_thm("LOG_l2n_dropWhile",
-  ``∀b l. 1 < b ∧ EXISTS ($<> 0) l ∧ EVERY ($>b) l ⇒
-          (LOG b (l2n b l) = PRE (LENGTH (dropWhile ($= 0) (REVERSE l))))``,
-  rpt strip_tac >>
-  `0 < b` by simp[] >>
-  simp[Once(GSYM l2n_dropWhile_0)] >>
-  qmatch_abbrev_tac`x = PRE (LENGTH y)` >>
-  qsuff_tac`x = PRE (LENGTH (REVERSE y))` >- rw[] >>
-  UNABBREV_ALL_TAC >>
-  match_mp_tac (MP_CANON numposrepTheory.LOG_l2n) >>
-  simp[dropWhile_eq_nil,rich_listTheory.EXISTS_REVERSE,
-       rich_listTheory.EVERY_REVERSE,combinTheory.o_DEF] >>
-  fs[EVERY_MEM] >>
-  reverse conj_tac >- METIS_TAC[MEM_dropWhile_IMP,MEM_REVERSE] >>
-  qmatch_abbrev_tac`0:num < LAST (REVERSE ls)` >>
-  Cases_on`ls = []` >- (
-    fs[Abbr`ls`,dropWhile_eq_nil,EVERY_MEM,EXISTS_MEM] >>
-    METIS_TAC[] ) >>
-  simp[LAST_REVERSE] >>
-  qsuff_tac`~ (($= 0) (HD ls))` >- simp[] >>
-  qunabbrev_tac`ls` >>
-  match_mp_tac HD_dropWhile >>
-  fs[EXISTS_MEM] >> METIS_TAC[])
-
-(* -- *)
 
 val EVERY2_IMP_EVERY2 = prove(
   ``!xs ys P1 P2.
@@ -149,7 +115,7 @@ val wordsToBytesToWords_lemma = prove(
   ``∀ls. TAKE (LENGTH (dropWhile ($= k) (REVERSE ls))) ls ++
          GENLIST (K k) (LENGTH ls - LENGTH (TAKE (LENGTH (dropWhile ($= k) (REVERSE ls))) ls))
          = ls``,
-  HO_MATCH_MP_TAC SNOC_INDUCT >> rw[dropWhile_def] >>
+  HO_MATCH_MP_TAC SNOC_INDUCT >> rw[dropWhile_DEF] >>
   rw[] >> simp[TAKE_APPEND2,ADD1] >>
   Q.PAT_ABBREV_TAC`m = LENGTH Z` >>
   `m ≤ LENGTH (REVERSE ls)` by (
@@ -197,7 +163,7 @@ val wordsToBytesToWords = store_thm("wordsToBytesToWords",
   (IF_CASES_TAC >- (
      simp[ADD1,ADD_MODULUS_LEFT] >> fs[] >>
      `0:num < 256` by simp[] >>
-     imp_res_tac l2n_eq_0 >> fs[] >>
+     imp_res_tac numposrepTheory.l2n_eq_0 >> fs[] >>
      rpt(qpat_assum`0:num = X`(assume_tac o SYM)) >>
      fs[GREATER_DEF] >>
      `0:num < 256` by simp[] >>
@@ -209,12 +175,12 @@ val wordsToBytesToWords = store_thm("wordsToBytesToWords",
   qunabbrev_tac`X` >>
   qmatch_assum_abbrev_tac`l2n 256 ls ≠ 0` >>
   `EXISTS ($<> 0) ls` by (
-    fs[l2n_eq_0,EXISTS_MEM,EVERY_MEM] >>
+    fs[numposrepTheory.l2n_eq_0,EXISTS_MEM,EVERY_MEM] >>
     qexists_tac`e` >> simp[] >>
     spose_not_then strip_assume_tac >>
     BasicProvers.VAR_EQ_TAC >>
     fs[] ) >>
-  simp[LOG_l2n_dropWhile] >>
+  simp[numposrepTheory.LOG_l2n_dropWhile] >>
   REWRITE_TAC[GSYM MAP_APPEND] >>
   Q.PAT_ABBREV_TAC`m = LENGTH Z` >>
   `0 < m` by (
