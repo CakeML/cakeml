@@ -468,47 +468,48 @@ val wEval_def = tDefine "wEval" `
           | _ => (SOME Error,s1))
      | res => res) /\
   (wEval (Call ret dest args handler,s) =
-     if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := []) else
-       case get_vars args s of
-       | NONE => (SOME Error,s)
-       | SOME xs =>
-         (case find_code dest xs s.code of
-          | NONE => (SOME Error,s)
-          | SOME (args1,prog) =>
-            (case ret of
-             | NONE (* tail call *) =>
-               if handler = NONE then
-                 (case wEval (prog, call_env args1 (dec_clock s)) of
-                  | (NONE,s) => (SOME Error,s)
-                  | (SOME res,s) => (SOME res,s))
-               else (SOME Error,s)
-             | SOME (n,names,ret_handler) (* returning call, returns into var n *) =>
-               (case cut_env names s.locals of
-                | NONE => (SOME Error,s)
-                | SOME env =>
-               (case wEval (prog, call_env args1
-                       (push_env env (IS_SOME handler) (dec_clock s))) of
-                | (SOME (Result x),s2) =>
-                   (case pop_env s2 of
-                    | NONE => (SOME Error,s2)
-                    | SOME s1 =>
-                        (if domain s1.locals = domain env
-                         then 
-                           (*Value restriction on the return handler (makes it easier to reason about)
-                             Don't really need it to do fancy things.*)
-                           case wEval(ret_handler,set_var n x (check_clock s1 s)) of
-                           | (NONE,s) => (NONE,s)
-                           | (_,s) => (SOME Error,s)
-                         else (SOME Error,s1)))
-                | (SOME (Exception x),s2) =>
-                   (case handler of (* if handler is present, then handle exc *)
-                    | NONE => (SOME (Exception x),s2)
-                    | SOME (n,h) =>
-                        (if domain s2.locals = domain env
-                         then wEval (h, set_var n x (check_clock s2 s))
-                         else (SOME Error,s2)))
-                | (NONE,s) => (SOME Error,s)
-                | res => res)))))`
+     case get_vars args s of
+     | NONE => (SOME Error,s)
+     | SOME xs =>
+       (case find_code dest xs s.code of
+	  | NONE => (SOME Error,s)
+	  | SOME (args1,prog) =>
+	    (case ret of
+	     | NONE (* tail call *) =>
+	       if handler = NONE then
+		 if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := []) else
+		 (case wEval (prog, call_env args1 (dec_clock s)) of
+		  | (NONE,s) => (SOME Error,s)
+		  | (SOME res,s) => (SOME res,s))
+	       else (SOME Error,s)
+	     | SOME (n,names,ret_handler) (* returning call, returns into var n *) =>
+	       (case cut_env names s.locals of
+		| NONE => (SOME Error,s)
+		| SOME env =>
+	       if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := []) else
+	       (case wEval (prog, call_env args1
+		       (push_env env (IS_SOME handler) (dec_clock s))) of
+		| (SOME (Result x),s2) =>
+		   (case pop_env s2 of
+		    | NONE => (SOME Error,s2)
+		    | SOME s1 =>
+			(if domain s1.locals = domain env
+			 then 
+			   (*Value restriction on the return handler (makes it easier to reason about)
+			     Don't really need it to do fancy things.*)
+			   case wEval(ret_handler,set_var n x (check_clock s1 s)) of
+			   | (NONE,s) => (NONE,s)
+			   | (_,s) => (SOME Error,s)
+			 else (SOME Error,s1)))
+		| (SOME (Exception x),s2) =>
+		   (case handler of (* if handler is present, then handle exc *)
+		    | NONE => (SOME (Exception x),s2)
+		    | SOME (n,h) =>
+			(if domain s2.locals = domain env
+			 then wEval (h, set_var n x (check_clock s2 s))
+			 else (SOME Error,s2)))
+		| (NONE,s) => (SOME Error,s)
+		| res => res)))))`
  (WF_REL_TAC `(inv_image (measure I LEX measure (word_prog_size (K 0)))
                             (\(xs,(s:'a word_state)). (s.clock,xs)))`
   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
