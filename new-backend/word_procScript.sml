@@ -1023,6 +1023,10 @@ val get_vars_eq = prove(
   Induct_on`ls`>>fs[get_vars_def,get_var_def]>>rw[]>>
   fs[domain_lookup])
 
+val get_var_set_var_cancel = prove(
+  ``get_var x (set_var x v s) = SOME v``,
+  rw[get_var_def,set_var_def])
+
 val domain_list_insert = prove(
   ``!a b locs. LENGTH a = LENGTH b ==> 
     domain (list_insert a b locs) = domain locs UNION set a``,
@@ -1234,6 +1238,7 @@ val call_conv_trans_correct = store_thm("call_conv_trans_correct",
        (*Result*)
        Cases_on`pop_env r'`>>fs[]>>
        Q.UNABBREV_TAC `envy`>>
+       Q.UNABBREV_TAC `envx`>>
        fs[call_env_def]>>
        qpat_assum `s_key_eq (push_env A B C).stack st'` mp_tac>>
        `st' = (r' with stack:=st').stack` by fs[] >> 
@@ -1241,46 +1246,94 @@ val call_conv_trans_correct = store_thm("call_conv_trans_correct",
        strip_tac>>
        IMP_RES_TAC push_env_pop_env_s_key_eq>>
        fs[]>>
-       Cases_on`domain x''.locals = domain x'`>> fs[]>>
-         `(IS_SOME (case handler of NONE => NONE 
-           | SOME (v,prog) => SOME (f v,apply_color f prog))) = IS_SOME handler` by
-           (BasicProvers.EVERY_CASE_TAC>>fs[])>>
-         fs[]>>
-         unabbrev_all_tac>>
-         fs[pop_env_def,s_key_eq_def,push_env_def,env_to_list_def,LET_THM]>>
-         Cases_on`st'`>>fs[]>>Cases_on`h`>>Cases_on`o'`>>
-         Cases_on`r'.stack`>>fs[]>>Cases_on`h`>>Cases_on`o'`>>
-         fs[s_key_eq_def,s_frame_key_eq_def]>> Cases_on`handler`>>
-         fs[s_val_eq_def,s_frame_key_eq_def,s_frame_val_eq_def]>>
-         fs[dec_clock_def]>>
-         IMP_RES_TAC env_to_list_monotonic_eq>>
-         `MAP (f o FST) l' = MAP FST l` by(
-           fs[env_to_list_def,LET_THM]>>
-           last_x_assum (qspec_then `st.permute` assume_tac)>>
-           qpat_assum `MAP FST ls = MAP FST l` (SUBST1_TAC o SYM)>>
-           simp[(GEN_ALL o SYM o SPEC_ALL) MAP_MAP_o]>>
-           qpat_assum `MAP FST ls = MAP FST l'` (SUBST1_TAC o SYM)>>
-           (*got to be a simpler way to do this..*)
-           `MAP FST  (MAP (λ(x,y). (f x,y))
-             (list_rearrange (st.permute 0)
-             (QSORT key_val_compare (nub (toAList x'))))) = MAP FST (
-             list_rearrange (st.permute 0)
-             (QSORT key_val_compare (nub (toAList y))))` by fs[]>>
-           `!ls.MAP f (MAP FST ls) = MAP FST (MAP (\x,y:'a word_loc. (f x,y)) ls)` by
-             (simp[MAP_MAP_o,MAP_EQ_f]>>strip_tac>>Cases>>EVAL_TAC)>>
-           fs[]>>metis_tac[])>>
-         `domain y'.locals = domain y` by
+       Cases_on`domain x'.locals = domain (inter st.locals x1)`>> fs[]>>
+       fs[pop_env_def,s_key_eq_def,push_env_def,env_to_list_def,LET_THM]>>
+       Cases_on`st'`>>fs[]>>Cases_on`h`>>Cases_on`o'`>>
+       Cases_on`r'.stack`>>fs[]>>Cases_on`h`>>Cases_on`o'`>>
+       fs[s_key_eq_def,s_frame_key_eq_def]>> Cases_on`handler`>>
+       fs[s_val_eq_def,s_frame_key_eq_def,s_frame_val_eq_def]>>
+       fs[dec_clock_def]>>
+       IMP_RES_TAC env_to_list_monotonic_eq>>
+       `MAP (f o FST) l' = MAP FST l` by(
+	   fs[env_to_list_def,LET_THM]>>
+	   last_x_assum (qspec_then `st.permute` assume_tac)>>
+	   qpat_assum `MAP FST lss = MAP FST l` (SUBST1_TAC o SYM)>>
+	   simp[(GEN_ALL o SYM o SPEC_ALL) MAP_MAP_o]>>
+	   qpat_assum `MAP FST lss = MAP FST l'` (SUBST1_TAC o SYM)>>
+	   pop_assum (mp_tac o Q.AP_TERM `MAP FST`)>>
+	   simp[MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD])
+
+       `domain y''.locals = domain y'` by
            (fs[exact_colored_locals_def]>>
-            `y'.locals = fromAList l /\ x''.locals = fromAList l'` by 
+            `y''.locals = fromAList l /\ x'.locals = fromAList l'` by 
+              fs[word_state_component_equality]>>
+            assume_tac (INST_TYPE [``:'a``|->``:'a word_loc``] domain_fromAList)>>
+            first_assum(qspec_then `l` assume_tac)>>
+            first_x_assum(qspec_then `l'` assume_tac)>>
+            `set(MAP FST l') = domain (inter st.locals x1)` by fs[]>>
+            `IMAGE f (set (MAP FST l')) = domain y'` by fs[]>>
+            `set (MAP (f o FST) l') = domain y'` by metis_tac[LIST_TO_SET_MAP,MAP_MAP_o]>> 
+             qpat_assum `MAP g l' = MAP FST l` SUBST_ALL_TAC>>
+             `domain y''.locals = set(MAP FST l)` by fs[]>>
+             metis_tac[])>>
+         fs[all_distinct_nub]>>
+	 assume_tac (GEN_ALL get_vars_eq)>>
+	 pop_assum (qspecl_then [`(set_var 0 a' y'')`,`a`] assume_tac)>>
+	 `set a SUBSET domain (set_var 0 a' y'').locals` by 
+	   (fs[Abbr`a`,Abbr`y'`,SUBSET_DEF,set_var_def]>>rw[]>>
+           fs[domain_inter,domain_list_insert]>>DISJ2_TAC>>
+	   fs[domain_fromAList,MEM_MAP]>>
+	   Q.EXISTS_TAC`f (FST y''),()`>>fs[]>>
+	   Q.EXISTS_TAC`FST y''`>>fs[]>>HINT_EXISTS_TAC>>fs[])>>
+	fs[get_vars_def]>>
+	(*TODO: Need to add conditions forcing cutsets to not contain the 
+	return/exceptional value --> 
+	Otherwise, when restoring the cut-names, we will accidentally overwrite 
+	the return value*)
+        `get_var 0
+              (set_var 0 a' y'' with
+               locals :=
+                 list_insert (nub (MAP FST (toAList x1)))
+                   (MAP (λx. THE (lookup x (set_var 0 a' y'').locals))
+                      a) (set_var 0 a' y'').locals) = SOME a'` by cheat>>
+    
+         fs[list_insert_def]>>
+	 Cases_on`wEval(x2,set_var x0 a' x')`>>Cases_on`q'>>fs[]>>
+	 last_x_assum(qspecl_then [`lim'`] assume_tac)>>
+	 fs[]>>
+	 `strong_state_rel I (set_var x0 a' x') 
+	 (set_var 0 a' y'' with
+          locals := insert x0 a' (list_insert (nub (MAP FST (toAList x1)))
+            (MAP (λx. THE (lookup x (set_var 0 a' y'').locals)) a) 
+	    (set_var 0 a' y'').locals))` by
+	 rpt BasicProvers.VAR_EQ_TAC>>
+	 fs[strong_state_rel_def,set_var_def,pop_env_def]>>CONJ_TAC>-
+	   metis_tac[s_key_eq_sym,s_key_eq_trans,s_val_and_key_eq]>>
+	 rw[] >>
+	 Cases_on`n=x0`>>fs[lookup_insert]>>
+	 fs[lookup_list_insert]
+	    
+	    set_var 0 a'
+    
+    
+    
+    
+    
+    
+    
+          (
+            `y''.locals = fromAList l /\ x'.locals = fromAList l'` by 
              fs[word_state_component_equality]>>
              assume_tac (INST_TYPE [``:'a``|->``:'a word_loc``] domain_fromAList)>>
              first_assum(qspec_then `l` assume_tac)>>
              first_x_assum(qspec_then `l'` assume_tac)>>
-             `set(MAP FST l') = domain x'` by fs[]>>
-             `IMAGE f (set (MAP FST l')) = domain y` by fs[]>>
+             `set(MAP FST l') = domain x'.locals` by fs[]>>
+             
+	     `IMAGE f (set (MAP FST l')) = domain y` by fs[]>>
              `set (MAP (f o FST) l') = domain y` by 
                metis_tac[LIST_TO_SET_MAP,MAP_MAP_o]>> 
-             qpat_assum `MAP g l' = MAP FST l` SUBST_ALL_TAC>>
+             
+	     qpat_assum `MAP g l' = MAP FST l` SUBST_ALL_TAC>>
              `domain y'.locals = set(MAP FST l)` by fs[]>>
              metis_tac[])>>
          fs[]>>
