@@ -547,13 +547,6 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
        Cases_on`res`>>fs[abbrev_and_def]>>metis_tac[])>-
    (*Call*) 
      (fs[wEval_def,LET_THM]>>
-     Cases_on`st.clock=0`>-(
-       fs[strong_state_rel_def,wEval_def]>>
-       rfs[]>>
-       rw[abbrev_and_def,call_env_def,weak_state_rel_def,fromList2_def]>>
-       DISJ1_TAC>>
-       fs[word_state_component_equality])>>
-     `cst.clock <> 0` by fs[strong_state_rel_def]>>fs[]>>
      Cases_on`get_vars args st`>>  fs[]>>
      (*get_vars of the new set is equal*)
      IMP_RES_TAC strong_state_rel_get_vars_lemma>> rfs[]>>fs[]>>
@@ -566,11 +559,19 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
        `call_env q (dec_clock cst) = call_env q (dec_clock st)` by
           fs[dec_clock_def,call_env_def,word_state_component_equality]>>
         rfs[abbrev_and_def,weak_state_rel_def]>>fs[]>>
-        BasicProvers.EVERY_CASE_TAC>>fs[])>>
+        BasicProvers.EVERY_CASE_TAC>>fs[call_env_def,fromList2_def]>>
+	DISJ1_TAC>>fs[word_state_component_equality])>>
        (*SOME i.e. RETURNING CALL*)
        PairCases_on`x'`>>fs[]>>unabbrev_all_tac>>
        Cases_on`cut_env x'1 st.locals`>>fs[strong_state_rel_def]>>
        IMP_RES_TAC cut_env_lemma>>fs[]>>rw[]>>
+       Cases_on`st.clock=0`>-(
+        fs[strong_state_rel_def,wEval_def]>>
+	rfs[]>>
+	rw[abbrev_and_def,call_env_def,weak_state_rel_def,fromList2_def]>>
+        DISJ1_TAC>>
+	fs[word_state_component_equality])>>
+       fs[]>> 
        Q.ABBREV_TAC `envx = call_env q (push_env x' (IS_SOME handler) (dec_clock st))`>>
        Q.ABBREV_TAC `envy = call_env q (push_env y  (IS_SOME 
                      (case handler of
