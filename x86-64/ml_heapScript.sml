@@ -1,4 +1,4 @@
-open HolKernel boolLib bossLib Parse lcsymtacs;
+open HolKernel boolLib bossLib Parse lcsymtacs miscLib;
 val _ = new_theory "ml_heap";
 
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
@@ -109,6 +109,23 @@ val LENGTH_bytesToWords = store_thm("LENGTH_bytesToWords",
   HO_MATCH_MP_TAC bytesToWords_ind >>
   simp[bytesToWords_def] >>
   simp[ADD1] >> rw[ADD_DIV_RWT,ADD_MODULUS] >>
+  simp[])
+
+val LENGTH_wordsToBytes = store_thm("LENGTH_wordsToBytes",
+  ``∀l. LENGTH (wordsToBytes l) = LENGTH l * 8``,
+  Induct >> simp[wordsToBytes_def,PAD_RIGHT,ADD1,LEFT_ADD_DISTRIB] >>
+  rw[] >> simp[Once ADD_COMM] >>
+  qsuff_tac`LENGTH (w2l 256 h) ≤ 8` >- simp[] >>
+  simp[w2l_def] >>
+  simp[numposrepTheory.LENGTH_n2l] >>
+  rw[] >>
+  `0 < w2n h` by (Cases_on`w2n h = 0` >> simp[] >> fs[w2n_eq_0]) >>
+  qspecl_then[`256`,`w2n h`]mp_tac logrootTheory.LOG_MULT >> simp[] >>
+  disch_then(SUBST1_TAC o SYM) >>
+  Q.ISPEC_THEN`h`ASSUME_TAC w2n_lt >>
+  qspecl_then[`256`,`256 * w2n h`,`256 * dimword (:64) - 1`]mp_tac logrootTheory.LOG_LE_MONO >>
+  simp[] >> fs[] >>
+  disch_then match_mp_tac >>
   simp[])
 
 val wordsToBytesToWords_lemma = prove(
@@ -1301,6 +1318,80 @@ val deref_thm = store_thm("deref_thm",
   \\ Q.PAT_ASSUM `reachable_refs (RefPtr ptr::stack) refs ptr` (K ALL_TAC)
   \\ FULL_SIMP_TAC std_ss [reachable_refs_def]
   \\ REVERSE (Cases_on `x = EL n l`)
+  THEN1 (FULL_SIMP_TAC std_ss [MEM] \\ METIS_TAC [])
+  \\ Q.EXISTS_TAC `RefPtr ptr` \\ SIMP_TAC std_ss [MEM,get_refs_def]
+  \\ ONCE_REWRITE_TAC [RTC_CASES1] \\ DISJ2_TAC
+  \\ Q.EXISTS_TAC `r` \\ FULL_SIMP_TAC std_ss []
+  \\ FULL_SIMP_TAC (srw_ss()) [ref_edge_def,FLOOKUP_DEF,get_refs_def]
+  \\ FULL_SIMP_TAC (srw_ss()) [MEM_FLAT,MEM_MAP,PULL_EXISTS]
+  \\ Q.EXISTS_TAC `(EL n l)` \\ FULL_SIMP_TAC std_ss []
+  \\ FULL_SIMP_TAC std_ss [MEM_EL] \\ METIS_TAC []);
+
+val heap_el_byte_def = Define`
+  (heap_el_byte (Pointer a) n heap =
+    case heap_lookup a heap of
+    | SOME (DataElement x l (BytesTag y, ws)) =>
+        if n < LENGTH (wordsToBytes ws)
+        then (w2w(EL n (wordsToBytes ws)),T)
+        else (ARB:word64,F)
+    | _ => (ARB,F)) /\
+  (heap_el_byte _ _ _ = (ARB,F))`
+
+val deref_byte_thm = store_thm("deref_byte_thm",
+  ``abs_ml_inv (RefPtr ptr::stack) refs (roots,heap,a,sp) limit ==>
+    ?r roots2.
+      (roots = r::roots2) /\ ptr IN FDOM refs /\
+      case refs ' ptr of
+      | ValueArray _ => T
+      | ByteArray ts =>
+      !n. n < LENGTH ts ==>
+          ?y. (heap_el_byte r n heap = (y,T)) /\
+                abs_ml_inv (Number (&(w2n (EL n ts)))::RefPtr ptr::stack) refs
+                  (Data (0x2w * y)::roots,heap,a,sp) limit``,
+  FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def]
+  \\ REPEAT STRIP_TAC \\ Cases_on `roots` \\ FULL_SIMP_TAC (srw_ss()) [LIST_REL_def]
+  \\ FULL_SIMP_TAC std_ss [bc_value_inv_def]
+  \\ `reachable_refs (RefPtr ptr::stack) refs ptr` by ALL_TAC THEN1
+   (FULL_SIMP_TAC std_ss [reachable_refs_def,MEM] \\ Q.EXISTS_TAC `RefPtr ptr`
+    \\ ASM_SIMP_TAC (srw_ss()) [get_refs_def])
+  \\ RES_TAC \\ POP_ASSUM MP_TAC
+  \\ SIMP_TAC std_ss [Once bc_ref_inv_def]
+  \\ FULL_SIMP_TAC (srw_ss()) [FLOOKUP_DEF]
+  \\ Cases_on `ptr IN FDOM refs` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ reverse (Cases_on `refs ' ptr`) \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ NTAC 3 STRIP_TAC
+  \\ IMP_RES_TAC EVERY2_IMP_LENGTH
+  \\ ASM_SIMP_TAC (srw_ss()) [heap_el_byte_def,Bytes_def,LET_THM]
+  \\ simp[LENGTH_bytesToWords,LEFT_ADD_DISTRIB,MULT_DIV,LENGTH_wordsToBytes]
+  \\ Q.SPECL_THEN[`3`,`LENGTH l`]mp_tac bitTheory.DIV_MULT_THM
+  \\ simp[] \\ disch_then kall_tac
+  \\ `LENGTH l MOD 8 < 8` by simp[MOD_LESS]
+  \\ simp[]
+  \\ SRW_TAC [] [] THEN1
+   (FULL_SIMP_TAC std_ss [roots_ok_def,heap_ok_def]
+    \\ IMP_RES_TAC heap_lookup_MEM
+    \\ STRIP_TAC \\ ONCE_REWRITE_TAC [MEM] \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
+    \\ REPEAT STRIP_TAC \\ RES_TAC
+    \\ FULL_SIMP_TAC std_ss [Bytes_def,LET_THM]
+    \\ RES_TAC \\ FULL_SIMP_TAC std_ss [MEM]
+    \\ FIRST_X_ASSUM MATCH_MP_TAC
+    \\ fs[])
+  \\ Q.EXISTS_TAC `f` \\ FULL_SIMP_TAC std_ss []
+  \\ `EL n (wordsToBytes (bytesToWords l)) = EL n l` by (
+        qspec_then`l`mp_tac wordsToBytesToWords >>
+        simp[rich_listTheory.IS_PREFIX_APPEND] >>
+        rw[] >> simp[rich_listTheory.EL_APPEND1] )
+  \\ IMP_RES_TAC EVERY2_IMP_EL
+  \\ FULL_SIMP_TAC std_ss [w2w_def]
+  \\ STRIP_TAC THEN1 (
+       simp[small_int_def] >>
+       Q.ISPEC_THEN`EL n l`mp_tac w2n_lt >>
+       simp[] )
+  \\ REPEAT STRIP_TAC
+  \\ FIRST_X_ASSUM MATCH_MP_TAC
+  \\ Q.PAT_ASSUM `reachable_refs (RefPtr ptr::stack) refs ptr` (K ALL_TAC)
+  \\ FULL_SIMP_TAC std_ss [reachable_refs_def]
+  \\ REVERSE (Cases_on `x = Number (&w2n(EL n l))`)
   THEN1 (FULL_SIMP_TAC std_ss [MEM] \\ METIS_TAC [])
   \\ Q.EXISTS_TAC `RefPtr ptr` \\ SIMP_TAC std_ss [MEM,get_refs_def]
   \\ ONCE_REWRITE_TAC [RTC_CASES1] \\ DISJ2_TAC
