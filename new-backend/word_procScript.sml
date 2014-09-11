@@ -86,6 +86,24 @@ val strong_state_rel_def = Define`
 val weak_state_rel_def = Define`
   weak_state_rel f s t <=> (t=s \/ strong_state_rel f s t)`
 
+(*Weaken weak_state_rel so that the final locals are allowed to be a subset*)
+
+val very_weak_state_rel_def = Define`
+  very_weak_state_rel f s t <=> 
+  (t.store = s.store /\
+  t.stack = s.stack /\
+  t.memory = s.memory /\
+  t.mdomain = s.mdomain /\
+  t.permute = s.permute /\
+  t.gc_fun = s.gc_fun /\
+  t.handler = s.handler /\
+  t.clock = s.clock /\
+  t.code = s.code /\
+  t.output = s.output /\
+  !n v. (lookup n s.locals = SOME v) ==> (lookup n t.locals = SOME v)) \/
+  strong_state_rel f s t`
+
+
 val strong_imp_weak_state_rel = prove
   (``!f s t. strong_state_rel f s t ==> weak_state_rel f s t``,
      rw[strong_state_rel_def,weak_state_rel_def])
@@ -832,14 +850,14 @@ val odd_coloring_facts = prove(
 
 (*The full theorem for the first conversion*)
 val seq_move_locals_def = Define`
-  seq_move_locals f n prog = Seq (move_locals f n) (apply_color f prog)`
+  seq_move_locals n prog = Seq (move_locals odd_coloring n) (apply_color odd_coloring prog)`
 
 val seq_move_correct = store_thm("seq_move_correct",
   ``!prog s n res rst.
        wEval(prog,s) = (res,rst) /\
        domain s.locals = set(even_list n) /\
        res <> SOME Error ==>
-       let (res',rcst) = wEval(seq_move_locals odd_coloring n prog,s) in
+       let (res',rcst) = wEval(seq_move_locals n prog,s) in
          res' = res /\ 
          (case res of
             NONE => strong_state_rel odd_coloring rst rcst
@@ -851,39 +869,6 @@ val seq_move_correct = store_thm("seq_move_correct",
   pop_assum(qspec_then `odd_coloring` assume_tac)>> rfs[LET_THM]>>
   first_assum (split_applied_pair_tac o concl)>>fs[]>>
   metis_tac[inj_apply_color_invariant,abbrev_and_def])
-
-(*
-val FV_exp_def = tDefine "FV_exp" `
-  (FV_exp (Const c) = {}) /\
-  (FV_exp (Var v) = {v}) /\
-  (FV_exp (Get name) = {}) /\
-  (FV_exp (Load addr) = FV_exp addr) /\
-  (FV_exp (Op op wexps) = BIGUNION (IMAGE (FV_exp) (set wexps)))/\
-  (FV_exp (Shift sh wexp nexp)) = FV_exp wexp`
- (WF_REL_TAC `measure (word_exp_size ARB )`
-  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_word_exp_size
-  \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-  \\ DECIDE_TAC)
-
-(*Local var bindings introduced by the instruction*)
-val BV_def = Define`
-  (BV Skip = {}) /\
-  (BV (Move ls) = set (MAP FST ls)) /\
-  (BV (Assign v exp) = {v}) /\
-  (BV (Set v exps) = {}) /\
-  (BV (Store exp v) = {}) /\
-  (BV Tick = {}) /\
-  (BV (Seq c1 c2) = (BV c1) UNION (BV c2)) /\
-  (BV (Return n) = {}) /\ 
-
- 
-val FV_def = Define`
-  (FV Skip = {}) /\
-  (FV (Move ls) = set (MAP SND ls)) /\
-  (FV (Assign v exp s) = 
-  TypeBase.constructors_of ``:'a word_prog``
-*)
-
 
 (*Start defining the second conversion...
 lim is meant to be an (odd) limit variable i.e. no larger var is mentioned in the program
@@ -972,34 +957,6 @@ val get_vars_list_insert_eq_gen= prove(
   `a++[ls]++ls' = a++ls::ls' /\ b++[x]++x' = b++x::x'` by fs[]>>
   ntac 2 (pop_assum SUBST_ALL_TAC)>> fs[])
 
-(*
-val list_insert_append = prove(
-``!x y locs a b. LENGTH a = LENGTH b /\ LENGTH x = LENGTH y ==>
-  list_insert(a++x) (b++y) locs = list_insert a b (list_insert x y locs)``
-  rw[]>>
-  list_
-  ho_match_mp_tac list_insert_ind>>
-  rw[]>-
-    (Cases_on`y`>>fs[list_insert_def])>>
-
-
-val get_vars_list_insert_eq_gen2 = prove(
-``!ls x locs a b. (LENGTH ls = LENGTH x /\ ALL_DISTINCT a /\
-                  LENGTH a = LENGTH b /\ !e. MEM e ls ==> ~MEM e a)
-  ==> get_vars a (st with locals := list_insert (a++ls) (b++x) locs) = SOME b``,
-  ho_match_mp_tac list_insert_ind>>
-  rw[]>-
-    (Cases_on`x`>>fs[]>>
-    assume_tac get_vars_list_insert_eq_gen>>
-    pop_assum(qspecl_then [`a`,`b`,`locs`,`[]`,`[]`] assume_tac)>>
-    fs[])>>
-  `ALL_DISTINCT (a++[ls])` by fs[ALL_DISTINCT_APPEND]>>
-  first_x_assum(qspecl_then [`a++[ls]`,`b++[x]`] assume_tac)>>
-  rfs[]
-  
-  !ls x locs a b. (LENGTH ls = 
-*)
-
 val ALL_DISTINCT_even_list_rw =REWRITE_RULE [even_list_def] ALL_DISTINCT_even_list 
 
 val ALL_DISTINCT_offset_list_rw = prove(
@@ -1039,21 +996,6 @@ val apply_color_exp_I = prove(
   rw[] >>
   fs[miscTheory.MAP_EQ_ID]) |> SPEC_ALL |>GEN_ALL
 
-(*
-val apply_color_I = prove(
- ``!(f:num->num) prog. apply_color I prog = prog``,,
-  ho_match_mp_tac (fetch "-" "apply_color_ind")>>
-  rw[]>>fs[apply_color_def,ZIP_MAP_MAP_EQ,apply_color_exp_I]>-
-  unabbrev_all_tac>>
-  BasicProvers.EVERY_CASE_TAC>>
-
-val ALOOKUP_INJ_keys
-
-ALOOKUP_ALL_DISTINCT_MEM
-*)
-(*Proof is probably very similar to the apply_color_inj invariant:
-Only difference is this shouldnt need to require WF on the sptrees*)
-
 val strong_state_rel_I_word_exp = prove(
   ``!exp st st' res. strong_state_rel I st st'/\
       word_exp st exp = SOME res ==>
@@ -1063,71 +1005,14 @@ val strong_state_rel_I_word_exp = prove(
   metis_tac[apply_color_exp_I])
 
 val tac = BasicProvers.EVERY_CASE_TAC>> IMP_RES_TAC strong_state_rel_I_word_exp>>fs[]>>
-          qpat_assum `bla = rst` (SUBST_ALL_TAC o SYM)
-  
-
-val strong_state_rel_I_wEval = prove(
-  ``!prog st st' res rst . 
-                  wEval(prog,st) = (res,rst) 
-                  /\ res <> SOME Error
-                  /\ strong_state_rel I st st' ==>
-		  ?rst'. wEval(prog,st') = (res,rst')
-		  /\ strong_state_rel I rst rst'``, 
-  Induct>>rw[]>>fs[wEval_def]>-
-  rw[]>-
-  (BasicProvers.EVERY_CASE_TAC>>fs[]>>
-  IMP_RES_TAC strong_state_rel_get_vars_lemma>>fs[]>>
-  IMP_RES_TAC get_vars_length_lemma>>
-  IMP_RES_TAC strong_state_rel_set_vars_lemma>>
-  qpat_assum `bla = rst` (SUBST_ALL_TAC o SYM)>>
-  first_x_assum (qspecl_then [`x`,`MAP FST l`] mp_tac)>>
-  `LENGTH (MAP FST l) = LENGTH x'` by fs[LENGTH_MAP]>>
-  rw[INJ_DEF])>-
-  (tac>>
-  IMP_RES_TAC strong_state_rel_set_var_lemma>>
-  fs[INJ_DEF])>-
-  (tac>>
-  fs[strong_state_rel_def,set_store_def])>-
-  (tac>>
-  IMP_RES_TAC strong_state_rel_get_var_lemma>>fs[mem_store_def]>>
-  fs[strong_state_rel_def]>>rfs[word_state_component_equality]>>fs[])>-
-  (
-  Cases_on`get_vars l st`>>fs[]>>
-  IMP_RES_TAC strong_state_rel_get_vars_lemma>>fs[]>>
-  Cases_on`find_code o1 x st.code`>>fs[find_code_def,strong_state_rel_def]>>
-  Cases_on`x'`>>fs[]>>
-  Cases_on`o'`>>fs[]>-
-    Cases_on`o''`>>fs[]>>
-    (Cases_on`st.clock`>>fs[call_env_def,fromList2_def,word_state_component_equality]>>
-    Q.EXISTS_TAC`rst`>>fs[])
-    
-  
-  BasicProvers.FULL_CASE_TAC>>
-
-  rpt BasicProvers.VAR_EQ_TAC
-  
-  BasicProvers.EVERY_CASE_TAC>>
-  IMP_RES_TAC strong_state_rel_I_word_exp>>fs[]>>
-  qpat_assum `bla = rst` (SUBST_ALL_TAC o SYM)>>
-  
-
-  metis_tac[]
-  
-  word_exp st w = word_exp st' w`
-
-  metis_tac[LENGTH_MAP,EQ_SYM_EQ,miscTheory.INJ_I]
-  fs[LENGTH_MAP,strong_state_rel_set_vars_lemma]
-  		  
-		  
-		  cheat)
+          qpat_assum `bla = rst` (SUBST_ALL_TAC o SYM)  
 
 val strong_state_rel_I_trans = prove(
   ``!a b c. strong_state_rel I a b /\ strong_state_rel I b c ==>
             strong_state_rel I a c``,
   fs[strong_state_rel_def])
 
-(*For now, only need non-zero restriction but
-  we know that all cutsets will be completely odd after the first transform*)
+(*We only need this cutset condition on Calls*)
 val check_cutset_def = Define`
   check_cutset (cs:num_set) = (lookup (0:num) cs = NONE)`
 
@@ -1142,6 +1027,18 @@ val restrict_cutset_def = Define`
                                     restrict_cutset c2)) /\
   (restrict_cutset _ = T)`
 
+val wf_cutset_def = Define`
+  (wf_cutset (Call ret dest args h) =
+    ((case ret of 
+      SOME(_,cutset,ret_handler) => wf cutset /\ wf_cutset ret_handler
+    | _ => T) /\
+    (case h of SOME (n,h) => wf_cutset h | NONE => T))) /\
+  (wf_cutset (Seq p p') = (wf_cutset p /\ wf_cutset p')) /\
+  (wf_cutset (If g n c1 c2) = (wf_cutset g /\ wf_cutset c1 /\
+                                     wf_cutset c2)) /\
+  (wf_cutset (Alloc _ cutset) = wf cutset) /\
+  (wf_cutset _ = T)`
+
 val MEM_ZIP_weak = prove(
   ``LENGTH A = LENGTH B /\ MEM (k,v) (ZIP(A,B)) ==> MEM k A``,
   rw[]>>
@@ -1149,7 +1046,6 @@ val MEM_ZIP_weak = prove(
   IMP_RES_TAC MEM_ZIP>>
   IMP_RES_TAC MEM_EL>>
   fs[])
-	
 
 val ZIP_ID = prove(
 ``!n ls. MEM n ls ==> ALOOKUP (ZIP (ls,ls)) n = SOME n``,
@@ -1157,15 +1053,55 @@ val ZIP_ID = prove(
   Q.ISPECL_THEN [`ls`,`I`,`I`] assume_tac ZIP_MAP_MAP_EQ>>
   fs[MAP_ID,ALOOKUP_TABULATE])
 
-(*Rough statement*)
+val apply_color_I = prove(
+ ``!(f:num->num) prog. wf_cutset prog
+  ==> apply_color I prog = prog``,
+  ho_match_mp_tac (fetch "-" "apply_color_ind")>>
+  rw[]>>
+  fs[wf_cutset_def,apply_color_def,ZIP_MAP_MAP_EQ,apply_color_exp_I,check_cutset_def]>>
+  unabbrev_all_tac>>
+  BasicProvers.EVERY_CASE_TAC>>
+  fs[fromAList_toAList])
+
+val strong_state_rel_I_wEval = prove(
+  ``!prog st st' res rst . 
+                  wEval(prog,st) = (res,rst) 
+		  /\ wf_cutset prog
+                  /\ res <> SOME Error
+                  /\ strong_state_rel I st st' ==>
+		  ?rst'. wEval(prog,st') = (res,rst')
+		  /\ strong_state_rel I rst rst'``,
+  rw[]>>
+  IMP_RES_TAC inj_apply_color_invariant>>
+  fs[monotonic_color_def,INJ_DEF]>>
+  pop_assum(qspecl_then [`rst`,`prog`] assume_tac)>>
+  rfs[]>>
+  first_x_assum(qspec_then `I` assume_tac)>>fs[]>>
+  first_x_assum(qspec_then `st'` assume_tac)>>rfs[]>>
+  fs[LET_THM,abbrev_and_def]>>
+  first_assum(split_applied_pair_tac o concl)>>
+  IMP_RES_TAC apply_color_I>> 
+  fs[]>>
+  Cases_on`res`>>fs[weak_state_rel_def,strong_state_rel_I_refl])
+
+val call_conv_trans_wf_cutset = prove(
+``!prog lim. wf_cutset prog ==> wf_cutset (call_conv_trans lim prog)``,
+  ho_match_mp_tac (fetch "-" "restrict_cutset_ind")>>
+  rw[wf_cutset_def]>>
+  BasicProvers.EVERY_CASE_TAC>>
+  fs[call_conv_trans_def]>>
+  fs[wf_cutset_def,LET_THM,check_cutset_def,wf_fromAList]>>
+  fs[lookup_fromAList,ALOOKUP_NONE,MEM_MAP]>>
+  rw[])
+ 
 val call_conv_trans_correct = store_thm("call_conv_trans_correct",
 ``!prog st res rst lim. wEval(prog,st) = (res,rst) /\
-                        restrict_cutset prog /\
+                        restrict_cutset prog /\ wf_cutset prog /\
 			res <> SOME Error
   ==> ?rst'. wEval(call_conv_trans lim prog,st) = (res,rst') /\
             strong_state_rel I rst rst'``,
   ho_match_mp_tac (wEval_ind |> Q.SPEC`UNCURRY P` |> SIMP_RULE (srw_ss())[] |> Q.GEN`P`) >>
-  rw[]>>fs[wEval_def,strong_state_rel_I_refl,restrict_cutset_def]>-
+  rw[]>>fs[wEval_def,strong_state_rel_I_refl,restrict_cutset_def,wf_cutset_def]>-
   (*Seq*)
   (fs[LET_THM]>>
   Cases_on`wEval(prog,st)`>>
@@ -1174,7 +1110,7 @@ val call_conv_trans_correct = store_thm("call_conv_trans_correct",
     fs[]>>assume_tac strong_state_rel_I_wEval>>
     first_x_assum(qspecl_then [`call_conv_trans lim prog'`,`r`,`rst'`,`res`,`rst''`] 
       assume_tac)>>
-    metis_tac[strong_state_rel_I_trans])>>
+    metis_tac[strong_state_rel_I_trans,call_conv_trans_wf_cutset])>>
   first_x_assum(qspec_then `lim` assume_tac)>>
   fs[]>>metis_tac[])>-
   (*If*)
@@ -1193,7 +1129,7 @@ val call_conv_trans_correct = store_thm("call_conv_trans_correct",
                               ,`res`,`rst''`] assume_tac)>>
     first_assum(qspecl_then [`call_conv_trans lim prog'`,`r`,`rst'`
                               ,`res`,`rst''`] assume_tac)>>
-    rfs[]>>metis_tac[strong_state_rel_I_trans])>>
+    rfs[]>>metis_tac[strong_state_rel_I_trans,call_conv_trans_wf_cutset])>>
   first_x_assum(qspec_then `lim` assume_tac)>>
   rw[]>>fs[])>-
   (*Call*)
@@ -1454,6 +1390,8 @@ val call_conv_trans_correct = store_thm("call_conv_trans_correct",
 	assume_tac strong_state_rel_I_wEval>>
 	pop_assum (qspecl_then [`call_conv_trans lim' x2`,`s1`,`s2`,`NONE`,`rst'`] 
 	  assume_tac)>> rfs[]>>
+	IMP_RES_TAC call_conv_trans_wf_cutset>>
+	pop_assum (qspec_then `lim'` assume_tac)>>fs[]>>
 	metis_tac[strong_state_rel_I_trans]))>>
         (*Exceptions*)
         IMP_RES_TAC s_val_eq_LAST_N_exists>>
@@ -1555,8 +1493,47 @@ val call_conv_trans_correct = store_thm("call_conv_trans_correct",
 	assume_tac strong_state_rel_I_wEval>>
 	pop_assum (qspecl_then [`call_conv_trans lim' r''`,`s1`,`s2`,`res`,`rst'`] 
 	  assume_tac)>> rfs[]>>
-	metis_tac[strong_state_rel_I_trans]) )
+	metis_tac[strong_state_rel_I_trans,call_conv_trans_wf_cutset]) )
 
+(*Start to link the first transform into the second transform*)
+
+(*Prove that the first conversion produces restrict_cutset and wf_cutset*)
+val seq_move_locals_wf_cutset = prove(
+  ``!prog n. wf_cutset (seq_move_locals n prog)``,
+  ho_match_mp_tac (fetch "-" "wf_cutset_ind")>>
+  fs[wf_cutset_def,seq_move_locals_def,move_locals_def,LET_THM,wf_fromAList]>>rw[]>>
+  BasicProvers.EVERY_CASE_TAC>>
+  metis_tac[wf_fromAList])
+
+val seq_move_locals_restrict_cutset = prove(
+  ``!prog n. restrict_cutset (seq_move_locals n prog)``,
+  ho_match_mp_tac (fetch "-" "restrict_cutset_ind")>>
+  fs[restrict_cutset_def,seq_move_locals_def,move_locals_def,LET_THM]>>rw[]>>
+  BasicProvers.EVERY_CASE_TAC>>
+  fs[check_cutset_def,odd_coloring_def]>>
+  fs[lookup_fromAList,ALOOKUP_NONE]>>
+  SPOSE_NOT_THEN ASSUME_TAC>>
+  fs[MAP_ZIP,MEM_MAP,ZIP_MAP_MAP_EQ,odd_coloring_def]>>
+  fs[])
+
+val seq_move_locals_call_conv_trans_correct = store_thm ("seq_move_locals_call_conv_trans_correct",
+``!prog s n res rst lim.
+  wEval (prog,s) = (res,rst) /\ domain s.locals = set(even_list n) /\ res <> SOME Error
+  ==>
+  let (res',rcst) = wEval (call_conv_trans lim (seq_move_locals n prog), s)
+  in res = res' /\ 
+     case res of NONE => strong_state_rel odd_coloring rst rcst
+              |  _    => very_weak_state_rel odd_coloring rst rcst``,
+  rpt strip_tac>>
+  IMP_RES_TAC seq_move_correct>>
+  fs[LET_THM]>>first_assum (split_applied_pair_tac o concl)>>fs[]>>
+  assume_tac (SPEC_ALL seq_move_locals_wf_cutset)>>
+  assume_tac (SPEC_ALL seq_move_locals_restrict_cutset)>>
+  Cases_on`res`>>fs[]>>
+  Q.ISPECL_THEN [`seq_move_locals n prog`,`s`,`res'`,`rcst`,`lim`] 
+     assume_tac call_conv_trans_correct>>
+  rfs[]>>
+  fs[very_weak_state_rel_def,weak_state_rel_def,strong_state_rel_def])
 
 (*
 EVAL ``call_conv_trans 999 (Call (SOME (3, list_insert [1;3;5;7;9] [();();();();()] LN,Skip)) (SOME 400) [7;9] NONE)``
