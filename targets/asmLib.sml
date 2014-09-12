@@ -73,6 +73,10 @@ local
       Q.GENL [`l2`, `l1`]
          (fst (Thm.EQ_IMP_RULE (Drule.SPEC_ALL bytes_in_memory_concat)))
    val w8 = ``:word8``
+   val pc = Term.mk_var ("pc", ``:'a word``)
+   val icache = Term.mk_var ("icache", ``: ('a word -> word8) option``)
+   val mem = Term.mk_var ("mem", ``: 'a word -> word8``)
+   val mem_domain = Term.mk_var ("mem_domain", ``: 'a word -> bool``)
 in
    fun split_bytes_in_memory_tac n (asl, g) =
       (case List.mapPartial dest_bytes_in_memory asl of
@@ -101,7 +105,7 @@ in
                                                   (Conv.DEPTH_CONV
                                                      listLib.LENGTH_CONV))))))))
             in
-               qpat_assum `bytes_in_memory pc ^l icache mem mem_domain`
+               qpat_assum `asm$bytes_in_memory ^pc ^l ^icache ^mem ^mem_domain`
                   (fn thm =>
                       let
                          val (th1, th2) =

@@ -19,6 +19,7 @@ val x64_config_def = Define`
     ; link_reg := NONE
     ; has_delay_slot := F
     ; has_icache := T
+    ; has_mem_32 := T
     ; two_reg_arith := T
     ; valid_imm := \i. ^min32 <= i /\ i <= ^max32
     ; addr_offset_min := ^min32
@@ -129,8 +130,8 @@ val x64_enc_def = Define`
           x64$encode (Zbinop (if cmp = Test then Ztest else Zcmp, Z64,
                               Zrm_i (reg r, i))) ++
           x64_encode_jcc (x64_cmp cmp) (a - width)) /\
-   (x64_enc (Call _ _) = []) /\
-   (x64_enc (JumpReg _ r) = x64$encode (Zjmp (reg r))) /\
+   (x64_enc (Call _) = []) /\
+   (x64_enc (JumpReg r) = x64$encode (Zjmp (reg r))) /\
    (x64_enc (Loc r i) =
       x64$encode
         (Zlea (Z64, Zr_rm (num2Zreg r, Zm (NONE, (ZripBase, i - 7w)))))) /\
@@ -1091,6 +1092,7 @@ local
       type_frag "asm_config" ``:64 asm_config`` ++
       type_frag "asm" ``:64 asm`` ++
       type_frag "asm" ``:cmp`` ++
+      type_frag "asm" ``:mem_op`` ++
       type_frag "instruction" ``:instruction`` ++
       type_frag "instruction" ``:Zcond`` ++
       type_frag "instruction" ``:Zdest_src`` ++
@@ -1106,7 +1108,7 @@ local
       simpLib.rewrites
         ([combinTheory.K_THM, boolTheory.AND_CLAUSES, boolTheory.IMP_CLAUSES,
           boolTheory.NOT_CLAUSES, boolTheory.COND_CLAUSES,
-          pairTheory.pair_case_thm, boolTheory.EQ_REFL,
+          boolTheory.OR_CLAUSES, pairTheory.pair_case_thm, boolTheory.EQ_REFL,
           pred_setTheory.COMPONENT, DECIDE ``8n < 64``,
           bop_enc_lem, sh_enc_lem, cmp_enc_lem,
           mem_enc_lem, mem_enc_lem2, mem_enc_lem3, mem_enc_lem4, mem_enc_lem5
@@ -1185,7 +1187,7 @@ in
 end
 
 (* -------------------------------------------------------------------------
-   x64_enc_deterministic
+   x64_asm_deterministic
    x64_backend_correct
    ------------------------------------------------------------------------- *)
 
@@ -1457,7 +1459,7 @@ val x64_backend_correct = Count.apply Q.store_thm ("x64_backend_correct",
         --------------*)
       print_tac "JumpReg"
       \\ next_tac `0`
-      \\ qabbrev_tac `r = n2w n0 : word4`
+      \\ qabbrev_tac `r = n2w n : word4`
       \\ lfs enc_rwts
       \\ wordsLib.Cases_on_word_value `(3 >< 3) r: word1`
       \\ lfs []
@@ -1534,10 +1536,10 @@ val x64_backend_correct = Count.apply Q.store_thm ("x64_backend_correct",
 
 (*
 
-val x64_enc_deterministic = proofManagerLib.top_thm ()
+val th = proofManagerLib.top_thm ()
 
-val x64_enc_deterministic = Theory.new_axiom ("x64_enc_deterministic",
-   ``enc_deterministic x64_enc x64_config``)
+val x64_asm_deterministic = Theory.new_axiom ("x64_asm_deterministic",
+   ``asm_deterministic x64_enc x64_config``)
 
    proofManagerLib.r
    set_trace "Goalstack.howmany_printed_subgoals" 60
