@@ -34,93 +34,13 @@ val _ = add_free_vars_compset cs
 val _ = add_x64_compset cs
 val _ = computeLib.add_thms  [basis_env_eq,compile_primitives_def,get_all_asts_def,infer_all_asts_def,remove_labels_all_asts_def] cs
 
+(*TODO: Move into HOL once I figure out where...*)
+val _ = computeLib.add_thms [nub_DEF,rich_listTheory.COUNT_LIST_AUX_def_compute,rich_listTheory.COUNT_LIST_compute] cs
 val _ = compute_basicLib.add_datatype ``:comp_environment`` cs
 
 val eval = computeLib.CBV_CONV cs
 
-(*Some temporary code for testing standalone*)
-(*
-val _ = computeLib.add_thms [compile_all_asts_def,compile_all_asts_no_init_def,all_asts_to_string_def,all_asts_to_encoded_def,prog_to_bytecode_def,prog_to_bytecode_string_def,prog_to_bytecode_encoded_def,basis_program_def] cs
-
-val _ = computeLib.add_thms [initialProgramTheory.mk_binop_def,initialProgramTheory.mk_unop_def] cs
-
-val _ =
-      let
-        fun code_labels_ok_conv tm =
-          EQT_INTRO
-            (get_code_labels_ok_thm
-          (rand tm))
-      in
-        computeLib.add_conv(``code_labels_ok``,1,code_labels_ok_conv) cs ;
-        compute_basicLib.add_datatype ``:bc_inst`` cs;
-        computeLib.add_thms [uses_label_def] cs
-      end
-
-(* labels removal *)
-(*In bytecodeLib*)
-val () = reset_code_labels_ok_db()
-
-val () = computeLib.add_conv (``code_labels``,2,code_labels_conv eval_real_inst_length) cs
-
-val () =
-  let
-    fun code_labels_ok_conv tm =
-      EQT_INTRO
-        (get_code_labels_ok_thm
-          (rand tm))
-  in
-    computeLib.add_conv(``code_labels_ok``,1,code_labels_ok_conv) cs;
-    add_datatype ``:bc_inst``;
-    computeLib.add_thms [uses_label_def] cs
-  end
-
-
-open compilerTheory
-open compilerProofTheory
-
-(*
-val compile_top_code_ok =
-  prove(``∀types rs top ss sf code.
-          (compile_top types rs top = (ss,sf,code)) ⇒
-          (FV_top top ⊆ global_dom rs.globals_env) ⇒
-          code_labels_ok code``,
-  metis_tac[compile_top_labels,pair_CASES,SND])
-(* compile_top *)
-val () =
-  let
-    fun compile_top_conv eval tm =
-      let
-        val th = (REWR_CONV compile_top_def THENC eval) tm
-        val th1 = MATCH_MP compile_top_code_ok th
-        val th2 = MP (CONV_RULE(LAND_CONV eval) th1) TRUTH
-        val () = add_code_labels_ok_thm th2
-      in
-        th
-      end
-  in
-    computeLib.add_conv(``compile_top``,3,(compile_top_conv (computeLib.CBV_CONV cs))) cs
-  end
-*)
-(* compile_prog *)
-val () =
-  let
-    val compile_prog_code_ok = compilerProofTheory.compile_prog_code_labels_ok |> REWRITE_RULE[GSYM AND_IMP_INTRO]
-    fun compile_prog_conv eval tm =
-      let
-        val th = (REWR_CONV compile_prog_def THENC eval) tm
-        val th1 = MATCH_MP compile_prog_code_ok th
-        val th2 = MP (CONV_RULE(LAND_CONV eval) th1) TRUTH
-        val () = add_code_labels_ok_thm th2
-      in
-        th
-      end
-  in
-    computeLib.add_conv(``compile_prog``,1,(compile_prog_conv (computeLib.CBV_CONV cs))) cs
-  end
-*)
-
 in
-
 
 exception compilationError of string;
 type allIntermediates = {
