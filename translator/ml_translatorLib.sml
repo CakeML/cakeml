@@ -2716,26 +2716,15 @@ local
   val lookup_cons_pat = ``lookup_cons cname env = SOME x``
   val imp_lemma = prove(``(f x = y) ==> !z. (f x = f z) ==> ((f:'a->'b) z = y)``,
                         REPEAT STRIP_TAC THEN FULL_SIMP_TAC bool_ss [])
-  val fmap_lemmas = LIST_CONJ [finite_mapTheory.FUNION_FUPDATE_1,
-                               finite_mapTheory.FUNION_FEMPTY_1,
-                               finite_mapTheory.FEVERY_FUPDATE,
-                               finite_mapTheory.FEVERY_STRENGTHEN_THM |> CONJUNCT1,
-                               FEVERY_DRESTRICT_FUPDATE,
-                               finite_mapTheory.DRESTRICT_FEMPTY]
-  fun eval_imp_lhs th =
-    if can dest_imp (concl th) then
-      MP (CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL) th) TRUTH
-    else th
 in
   fun clean_lookup_cons th = let
     val tms = find_terms (can (match_term lookup_cons_pat)) (concl th)
               |> all_distinct
     in if length tms = 0 then th else let
     val lemmas = MATCH_MP (INST_mn DeclAssumCons_cons_lookup) (get_cenv_eq_thm ())
-                 |> CONV_RULE (REWRITE_CONV [fmap_lemmas] THENC
+                 |> CONV_RULE (REWRITE_CONV [EVERY_DEF] THENC
                                DEPTH_CONV PairRules.PBETA_CONV)
                  |> SPEC_ALL |> UNDISCH |> CONJUNCTS
-                 |> map eval_imp_lhs
     fun in_term_list [] t = false
       | in_term_list (tm::tms) t = aconv t tm orelse in_term_list tms t
     val rwt = filter (in_term_list tms o concl) lemmas
