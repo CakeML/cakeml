@@ -109,8 +109,8 @@ val () = Datatype `
   asm = Inst ('a inst)
       | Jump ('a word) ('a inst option) (* delay slot *)
       | JumpCmp cmp reg ('a reg_imm) ('a word) ('a inst option)
-      | Call ('a word) reg
-      | JumpReg num reg
+      | Call ('a word)
+      | JumpReg reg
       | Loc reg ('a word)
       | Cache`
 
@@ -124,6 +124,7 @@ val () = Datatype `
      ; link_reg        : num option
      ; has_delay_slot  : bool
      ; has_icache      : bool
+     ; has_mem_32      : bool
      ; two_reg_arith   : bool
      ; valid_imm       : ('a word -> bool)
      ; addr_offset_min : 'a word
@@ -172,7 +173,9 @@ val inst_ok_def = Define `
   (inst_ok Skip c = T) /\
   (inst_ok (Const r w) c = reg_ok r c) /\
   (inst_ok (Arith x) c = arith_ok x c) /\
-  (inst_ok (Mem m r a) c = reg_ok r c /\ addr_ok a c)`
+  (inst_ok (Mem m r a) c =
+     (((m = Load32) \/ (m = Store32)) ==> c.has_mem_32) /\ reg_ok r c /\
+     addr_ok a c)`
 
 val asm_ok_def = Define `
   (asm_ok (Inst i) c = inst_ok i c) /\
@@ -184,11 +187,10 @@ val asm_ok_def = Define `
      jump_offset_ok w c /\ cmp_ok cmp r ri c /\
      case i of NONE => ~c.has_delay_slot
              | SOME x => inst_ok x c /\ c.has_delay_slot) /\
-  (asm_ok (Call w r) c =
-     case c.link_reg of
-        NONE => F
-      | SOME lr => reg_ok r c /\ (lr = r) /\ jump_offset_ok w c) /\
-  (asm_ok (JumpReg n r) c = (n = c.code_alignment) /\ reg_ok r c) /\
+  (asm_ok (Call w) c =
+     (case c.link_reg of SOME r => reg_ok r c | NONE => F) /\
+     jump_offset_ok w c) /\
+  (asm_ok (JumpReg r) c = reg_ok r c) /\
   (asm_ok (Loc r w) c = reg_ok r c /\ loc_offset_ok w c) /\
   (asm_ok Cache c = c.has_icache)`
 
@@ -201,6 +203,8 @@ val () = Datatype `
      ; mem        : 'a word -> word8
      ; mem_domain : 'a word set
      ; pc         : 'a word
+     ; lr         : reg
+     ; align      : num
      ; failed     : bool
      |>`
 
@@ -296,10 +300,10 @@ val asm_def = Define `
      if word_cmp cmp (read_reg r s) (reg_imm ri s)
      then inst_opt i (jump_to_offset l s)
      else inst_opt i (upd_pc pc s)) /\
-  (asm (Call l r) pc s = jump_to_offset l (upd_reg r pc s)) /\
-  (asm (JumpReg n r) pc s =
+  (asm (Call l) pc s = jump_to_offset l (upd_reg s.lr pc s)) /\
+  (asm (JumpReg r) pc s =
       let a = read_reg r s in
-        upd_pc a (assert (a && n2w (n - 1) = 0w) s)) /\
+        upd_pc a (assert (a && n2w (s.align - 1) = 0w) s)) /\
   (asm (Loc r l) pc s = upd_pc pc (upd_reg r (s.pc + l) s)) /\
   (asm Cache pc s =
       (* this is a hack to simulate x86-64's CPUID instruction *)
@@ -318,6 +322,8 @@ val bytes_in_memory_def = Define `
 val asm_step_def = Define `
   asm_step enc c s1 s2 =
     ?i. bytes_in_memory s1.pc (enc i) s1.icache s1.mem s1.mem_domain /\
+        (case c.link_reg of SOME r => s1.lr = r | NONE => T) /\
+        (s1.align = c.code_alignment) /\
         (asm i (s1.pc + n2w (LENGTH (enc i))) s1 = s2) /\
         ~s2.failed /\ asm_ok i c`
 
@@ -388,12 +394,12 @@ val enc_ok_def = Define `
     (* code alignment *)
     1 <= c.code_alignment /\
     ((c.code_alignment = 1) ==> ODD (LENGTH (enc (Inst Skip)))) /\
-    (!w. LENGTH (enc w) MOD c.code_alignment = 0) /\
+    (!w. asm_ok w c ==> (LENGTH (enc w) MOD c.code_alignment = 0)) /\
     (* label instantiation does not affect length of code *)
     (!w i. same_enc_length enc c (Jump w i) (Jump 0w i)) /\
     (!cmp r ri w i.
        same_enc_length enc c (JumpCmp cmp r ri w i) (JumpCmp cmp r ri 0w i)) /\
-    (!w r. same_enc_length enc c (Call w r) (Call 0w r)) /\
+    (!w. same_enc_length enc c (Call w) (Call 0w)) /\
     (!w r. same_enc_length enc c (Loc r w) (Loc r 0w)) /\
     (* no overlap between instructions with different behaviour *)
     asm_deterministic enc c`

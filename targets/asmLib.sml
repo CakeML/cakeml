@@ -24,7 +24,9 @@ fun add_asm_compset cmp =
        write_mem_word_def, mem_store_def, read_mem_word_def, mem_op_def,
        inst_def, inst_opt_def, jump_to_offset_def, asm_def] cmp
    ; utilsLib.add_datatypes
-        (asm_type0 "cmp" :: List.map asm_type ["asm_config", "asm"]) cmp
+        (List.map asm_type0 ["cmp", "mem_op"] @
+         List.map asm_type  ["asm_config", "asm"])
+        cmp
    )
 
 (* some rewrites ---------------------------------------------------------- *)
@@ -73,6 +75,10 @@ local
       Q.GENL [`l2`, `l1`]
          (fst (Thm.EQ_IMP_RULE (Drule.SPEC_ALL bytes_in_memory_concat)))
    val w8 = ``:word8``
+   val pc = Term.mk_var ("pc", ``:'a word``)
+   val icache = Term.mk_var ("icache", ``: ('a word -> word8) option``)
+   val mem = Term.mk_var ("mem", ``: 'a word -> word8``)
+   val mem_domain = Term.mk_var ("mem_domain", ``: 'a word -> bool``)
 in
    fun split_bytes_in_memory_tac n (asl, g) =
       (case List.mapPartial dest_bytes_in_memory asl of
@@ -101,7 +107,7 @@ in
                                                   (Conv.DEPTH_CONV
                                                      listLib.LENGTH_CONV))))))))
             in
-               qpat_assum `bytes_in_memory pc ^l icache mem mem_domain`
+               qpat_assum `asm$bytes_in_memory ^pc ^l ^icache ^mem ^mem_domain`
                   (fn thm =>
                       let
                          val (th1, th2) =
