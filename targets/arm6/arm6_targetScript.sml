@@ -241,46 +241,6 @@ val arm6_dec_aux_def = Define`
 
 val arm6_dec_def = Define `arm6_dec = arm6_dec_aux o SND o decode_word`
 
-(*
-
-val () = utilsLib.add_to_the_compset ([], armTheory.inventory)
-val () = computeLib.add_convs
-           [(bitstringSyntax.v2w_tm, 1, bitstringLib.v2w_n2w_CONV)]
-
-EVAL ``arm6_dec (arm6_enc (Inst Skip : 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (Loc 1 0xffw : 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (Loc 1 ~0xffw : 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (Inst (Const 1 3w) : 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (Inst (Const 1 ~3w) : 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (Inst (Const 1 0xfffw) : 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (Inst (Arith (Binop Add 1 2 (Imm 3w))) : 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (Inst (Arith (Binop Sub 1 2 (Reg 3))) : 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (Inst (Arith (Shift Lsl 1 2 3)) : 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (Inst (Arith (Shift Asr 1 2 3)) : 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (Inst (Mem Load 1 (Addr 2 4w)) : 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (Inst (Mem Load 1 (Addr 2 (-4w))) : 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (Inst (Mem Load8 1 (Addr 2 4w)) : 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (Inst (Mem Load8 1 (Addr 2 (-4w))) : 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (Inst (Mem Store 1 (Addr 2 4w)) : 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (Inst (Mem Store 1 (Addr 2 (-4w))) : 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (Inst (Mem Store8 1 (Addr 2 4w)) : 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (Inst (Mem Store8 1 (Addr 2 (-4w))) : 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (Jump 4w NONE : 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (Jump (-4w) NONE : 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (Call 4w : 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (Call (-4w) : 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (JumpReg 1 : 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (JumpCmp Equal 1 (Imm 4w) 8w NONE: 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (JumpCmp Test 1 (Imm 4w) 8w NONE: 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (JumpCmp Less 1 (Imm 4w) 8w NONE: 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (JumpCmp Lower 1 (Imm 4w) 8w NONE: 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (JumpCmp Equal 1 (Reg 4) 16w NONE: 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (JumpCmp Test 1 (Reg 4) 16w NONE: 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (JumpCmp Less 1 (Reg 4) 16w NONE: 32 asm))``;
-EVAL ``arm6_dec (arm6_enc (JumpCmp Lower 1 (Reg 4) 16w NONE: 32 asm))``;
-
-*)
-
 (* ------------------------------------------------------------------------- *)
 
 (* some lemmas ---------------------------------------------------------- *)
