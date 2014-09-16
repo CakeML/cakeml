@@ -1338,7 +1338,7 @@ val heap_el_byte_def = Define`
   (heap_el_byte _ _ _ = (ARB,F))`
 
 val deref_byte_thm = store_thm("deref_byte_thm",
-  ``abs_ml_inv (RefPtr ptr::stack) refs (roots,heap,a,sp) limit ==>
+  ``abs_ml_inv (RefPtr ptr::stack) refs ((roots: 63 word heap_address list),heap,a,sp) limit ==>
     ?r roots2.
       (roots = r::roots2) /\ ptr IN FDOM refs /\
       case refs ' ptr of
@@ -1347,7 +1347,7 @@ val deref_byte_thm = store_thm("deref_byte_thm",
       !n. n < LENGTH ts ==>
           ?y. (heap_el_byte r n heap = (y,T)) /\
                 abs_ml_inv (Number (&(w2n (EL n ts)))::RefPtr ptr::stack) refs
-                  (Data (0x2w * y)::roots,heap,a,sp) limit``,
+                  (Data (w2w (0x2w * y))::roots,heap,a,sp) limit``,
   FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def]
   \\ REPEAT STRIP_TAC \\ Cases_on `roots` \\ FULL_SIMP_TAC (srw_ss()) [LIST_REL_def]
   \\ FULL_SIMP_TAC std_ss [bc_value_inv_def]
@@ -1384,7 +1384,7 @@ val deref_byte_thm = store_thm("deref_byte_thm",
   \\ IMP_RES_TAC EVERY2_IMP_EL
   \\ FULL_SIMP_TAC std_ss [w2w_def]
   \\ STRIP_TAC THEN1 (
-       simp[small_int_def] >>
+       simp[small_int_def,word_mul_n2w] >>
        Q.ISPEC_THEN`EL n l`mp_tac w2n_lt >>
        simp[] )
   \\ REPEAT STRIP_TAC
