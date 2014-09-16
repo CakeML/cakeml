@@ -162,6 +162,7 @@ val evaluate_call_repl_step = store_thm("evaluate_call_repl_step",
   Q.PAT_ABBREV_TAC`ss:v count_store = (xx,LUPDATE  a b c)` >>
   first_x_assum(qspec_then`ss`strip_assume_tac) >>
   fs[Abbr`ss`] >>
+  simp[alistTheory.ALOOKUP_APPEND] >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   simp[EL_LUPDATE] >>
   simp[semanticPrimitivesTheory.store_v_same_type_def] >>
