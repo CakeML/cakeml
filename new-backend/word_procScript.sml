@@ -19,6 +19,20 @@ val apply_color_exp_def = tDefine "apply_color_exp" `
   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
   \\ DECIDE_TAC);
 
+(*Coloring instructions*)
+val apply_color_inst_def = Define`
+  (apply_color_inst f Skip = Skip) ∧ 
+  (apply_color_inst f (Const reg w) = Const (f reg) w) ∧
+  (apply_color_inst f (Arith (Binop bop r1 r2 ri)) = 
+    Arith (Binop bop (f r1) (f r2) (case ri of Reg r3 => (Reg (f r3)) | _ => ri))) ∧ 
+  (apply_color_inst f (Arith (Shift shift r1 r2 n)) =
+    Arith (Shift shift (f r1) (f r2) n)) ∧ 
+  (apply_color_inst f (Mem Load r (Addr a w)) =
+    Mem Load (f r) (Addr (f a) w)) ∧ 
+  (apply_color_inst f (Mem Store r (Addr a w)) =
+    Mem Store (f r) (Addr (f a) w)) ∧
+  (apply_color_inst f x = x)` (*Catchall -- for future instructions to be added*) 
+
 (*Apply f to the keys of a num_map, numsets are special cases with values ()*)
 val apply_nummap_key_def = Define `
   apply_nummap_key f nummap = fromAList (
@@ -30,11 +44,13 @@ val apply_numset_key_def = Define `
 
 (*Color a prog*)
 val apply_color_def = Define `
-  (apply_color f Skip = Skip) /\
+  (apply_color f Skip = Skip) ∧
   (apply_color f (Move ls) =
-    Move (ZIP (MAP (f o FST) ls, MAP (f o SND) ls))) /\
-  (apply_color f (Assign num exp) = Assign (f num) (apply_color_exp f exp)) /\
-  (apply_color f (Store exp num) = Store (apply_color_exp f exp) (f num)) /\
+    Move (ZIP (MAP (f o FST) ls, MAP (f o SND) ls))) ∧ 
+  (apply_color f (Inst i) = Inst (apply_color_inst f i)) ∧
+  (apply_color f (Assign num exp) = Assign (f num) (apply_color_exp f exp)) ∧
+  (apply_color f (Get num store) = Get (f num) store) ∧  
+  (apply_color f (Store exp num) = Store (apply_color_exp f exp) (f num)) ∧ 
   (apply_color f (Call ret dest args h) =
     let ret = case ret of NONE => NONE
                         | SOME (v,cutset,ret_handler) =>
@@ -42,19 +58,20 @@ val apply_color_def = Define `
     let args = MAP f args in
     let h = case h of NONE => NONE
                      | SOME (v,prog) => SOME (f v, apply_color f prog) in
-      Call ret dest args h) /\
-  (apply_color f (Seq s1 s2) = Seq (apply_color f s1) (apply_color f s2)) /\
+      Call ret dest args h) ∧ 
+  (apply_color f (Seq s1 s2) = Seq (apply_color f s1) (apply_color f s2)) ∧  
   (apply_color f (If e1 num e2 e3) =
-    If (apply_color f e1) (f num) (apply_color f e2) (apply_color f e3)) /\
+    If (apply_color f e1) (f num) (apply_color f e2) (apply_color f e3)) ∧ 
   (apply_color f (Alloc num numset) =
-    Alloc (f num) (apply_nummap_key f numset)) /\
-  (apply_color f (Raise num) = Raise (f num)) /\
-  (apply_color f (Return num) = Return (f num)) /\
-  (apply_color f Tick = Tick) /\
-  (apply_color f (Set n exp) = Set n (apply_color_exp f exp)) /\
+    Alloc (f num) (apply_nummap_key f numset)) ∧
+  (apply_color f (Raise num) = Raise (f num)) ∧ 
+  (apply_color f (Return num) = Return (f num)) ∧
+  (apply_color f Tick = Tick) ∧
+  (apply_color f (Set n exp) = Set n (apply_color_exp f exp)) ∧
   (apply_color f p = p )
 `
-val _ = export_rewrites ["apply_nummap_key_def","apply_color_exp_def","apply_color_def"];
+val _ = export_rewrites ["apply_nummap_key_def","apply_color_exp_def"
+                        ,"apply_color_inst_def","apply_color_def"];
 
 (*
 EVAL ``apply_color (\x.x+1) (Seq (Call (SOME (5,LN)) (SOME 4) [3;2;1] NONE) Skip)``
@@ -344,6 +361,32 @@ val inj_apply_color_exp_invariant = store_thm("inj_apply_color_exp_invariant",
      >>
     Cases_on`word_exp st exp`>>fs[])
 
+
+val inj_apply_color_inst_invariant = store_thm("inj_apply_color_inst_invariant",
+  ``!st i cst f rst. INJ f UNIV UNIV ∧ wInst i st = SOME rst ∧ strong_state_rel f st cst
+    ⇒ ?rcst. wInst (apply_color_inst f i) cst = SOME rcst ∧ strong_state_rel f rst rcst``,
+  strip_tac>>Induct>>rw[wInst_def,word_assign_def]>-
+    (BasicProvers.EVERY_CASE_TAC>>imp_res_tac inj_apply_color_exp_invariant>>
+    fs[]>>metis_tac[strong_state_rel_set_var_lemma])>-
+    (BasicProvers.EVERY_CASE_TAC>>fs[]>>
+    rpt BasicProvers.VAR_EQ_TAC>>
+    assume_tac (SYM (EVAL ``apply_color_exp f (Op b [Var n0;Var n'])``))>>
+    pop_assum SUBST_ALL_TAC>>
+    assume_tac (SYM (EVAL ``apply_color_exp f (Op b [Var n0;Const c])``))>>
+    pop_assum SUBST_ALL_TAC>>
+    assume_tac (SYM (EVAL ``apply_color_exp f (Shift s (Var n0) (Nat n1))``))>>
+    pop_assum SUBST_ALL_TAC>>     
+    imp_res_tac inj_apply_color_exp_invariant>>
+    fs[strong_state_rel_set_var_lemma])>>
+    BasicProvers.EVERY_CASE_TAC>>fs[]>>
+    rpt BasicProvers.VAR_EQ_TAC>> 
+    assume_tac (SYM (EVAL ``apply_color_exp f (Load (Op Add [Var n''';Const c]))``))>>
+    pop_assum SUBST_ALL_TAC>>
+    imp_res_tac inj_apply_color_exp_invariant>>
+    fs[strong_state_rel_set_var_lemma]>>
+    imp_res_tac strong_state_rel_get_var_lemma>>fs[mem_store_def,strong_state_rel_def]>>
+    rfs[]>>fs[word_state_component_equality])
+    
 val locals_eq_toAList = prove(
   ``!x y f.
      (!z:num. lookup z x = lookup (f z) y)
@@ -487,7 +530,8 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
       ASSUME_TAC strong_state_rel_set_vars_lemma>>
       metis_tac[MAP_MAP_o]) >-
    (*Inst*)
-   cheat >-
+     (fs[wEval_def]>>BasicProvers.EVERY_CASE_TAC>>fs[abbrev_and_def]>>
+     imp_res_tac inj_apply_color_inst_invariant>>rfs[])>-
    (*Assign*)
      (fs[wEval_def]>> pop_assum mp_tac>>last_x_assum mp_tac>>
      BasicProvers.EVERY_CASE_TAC>> fs[abbrev_and_def]>>
@@ -495,7 +539,9 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
        metis_tac[inj_apply_color_exp_invariant]>>rfs[]>>rw[]>>
      metis_tac[strong_state_rel_set_var_lemma])>-
    (*Get*)
-   cheat >-
+     (fs[wEval_def,abbrev_and_def]>>BasicProvers.EVERY_CASE_TAC>>
+     `cst.store = st.store` by fs[strong_state_rel_def]>>rfs[]>>
+     fs[]>>metis_tac[strong_state_rel_set_var_lemma])>-
    (*Set*)
      (fs[wEval_def]>>first_assum mp_tac>>last_x_assum mp_tac>>
      BasicProvers.EVERY_CASE_TAC>>fs[set_store_def,abbrev_and_def]>>
@@ -1000,6 +1046,11 @@ val apply_color_exp_I = prove(
   rw[] >>
   fs[miscTheory.MAP_EQ_ID]) |> SPEC_ALL |>GEN_ALL
 
+val apply_color_inst_I = prove(
+  ``!(f:num->num) inst. apply_color_inst I inst = inst``,
+  ho_match_mp_tac (fetch"-" "apply_color_inst_ind")>>rw[]>>
+  BasicProvers.EVERY_CASE_TAC>>fs[])
+
 val strong_state_rel_I_word_exp = prove(
   ``!exp st st' res. strong_state_rel I st st'/\
       word_exp st exp = SOME res ==>
@@ -1062,7 +1113,8 @@ val apply_color_I = prove(
   ==> apply_color I prog = prog``,
   ho_match_mp_tac (fetch "-" "apply_color_ind")>>
   rw[]>>
-  fs[wf_cutset_def,apply_color_def,ZIP_MAP_MAP_EQ,apply_color_exp_I,check_cutset_def]>>
+  fs[wf_cutset_def,apply_color_def,ZIP_MAP_MAP_EQ,apply_color_exp_I
+    ,apply_color_inst_I,check_cutset_def]>>
   unabbrev_all_tac>>
   BasicProvers.EVERY_CASE_TAC>>
   fs[fromAList_toAList])
