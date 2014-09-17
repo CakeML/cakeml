@@ -57,9 +57,9 @@ compile_print_types ((_,_,cs)::ts) s =
 declare termination_argument compile_print_types = automatic
 
 let rec
-compile_print_dec _ _ (Dtype ts) s = compile_print_types (List.reverse ts) s
+compile_print_dec _ _ (Dtype ts) s = s
 and
-compile_print_dec _ _ (Dexn c xs) s = compile_print_types [(([]:list tvarN),"exn",[(c,xs)])] s
+compile_print_dec _ _ (Dexn c xs) s = s
 and
 compile_print_dec types map _ s =
   compile_print_vals types map s

@@ -93,8 +93,6 @@ fun register name def ind =
     ()
   end;
 
-val _ = export_rewrites["lib.lookup_def"];
-
 val (pmatch_def, pmatch_ind) =
   tprove_no_defn ((pmatch_def, pmatch_ind),
   wf_rel_tac

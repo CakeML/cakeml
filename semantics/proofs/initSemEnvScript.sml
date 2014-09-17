@@ -12,7 +12,7 @@ interp_add_to_sem_env se prog =
      | (store,envC,Rval (envM,envE)) =>
          SOME 
          <| sem_envM := envM ++ se.sem_envM;
-            sem_envC := merge_envC envC se.sem_envC;
+            sem_envC := merge_alist_mod_env envC se.sem_envC;
             sem_envE := envE ++ se.sem_envE;
             sem_store := set_counter (FST (FST (se.sem_store))) store |>
      | _ => NONE`;

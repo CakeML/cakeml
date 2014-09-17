@@ -1,5 +1,5 @@
 open HolKernel boolLib boolSimps bossLib lcsymtacs listTheory alistTheory pairTheory
-open Defn miscLib miscTheory libPropsTheory evalPropsTheory exhLangTheory patLangTheory compilerTerminationTheory
+open Defn miscLib miscTheory evalPropsTheory exhLangTheory patLangTheory compilerTerminationTheory
 open exhLangProofTheory semanticPrimitivesTheory;
 val _ = new_theory"patLangProof"
 
@@ -179,11 +179,11 @@ val do_opapp_pat_correct = prove(
   Cases_on`t`>>simp[]>>
   Cases_on`t'`>>simp[]>>
   Cases_on`h`>>simp[do_opapp_pat_def]>>
-  TRY(rw[libTheory.bind_def] >> rw[]>>NO_TAC) >>
+  TRY(rw[] >> rw[]>>NO_TAC) >>
   BasicProvers.CASE_TAC >>
   BasicProvers.CASE_TAC >>
   strip_tac >> rpt BasicProvers.VAR_EQ_TAC >>
-  fs[find_recfun_ALOOKUP,funs_to_pat_MAP,libTheory.bind_def,build_rec_env_pat_def,build_rec_env_exh_MAP,FST_triple] >>
+  fs[find_recfun_ALOOKUP,funs_to_pat_MAP,build_rec_env_pat_def,build_rec_env_exh_MAP,FST_triple] >>
   imp_res_tac ALOOKUP_find_index_SOME >>
   simp[EL_MAP,UNCURRY,LIST_EQ_REWRITE,funs_to_pat_MAP] >>
   qmatch_assum_rename_tac`(q,exp) = SND p`[] >>
@@ -836,7 +836,7 @@ val row_to_pat_correct = prove(
           evaluate_pat ck (menv4k++(Conv_pat tag (MAP v_to_pat vs))::env) ((count, MAP sv_to_pat s),genv) (f e) res)``,
   ho_match_mp_tac row_to_pat_ind >>
   strip_tac >- (
-    rw[pmatch_exh_def,row_to_pat_def,libTheory.bind_def] >> rw[] >>
+    rw[pmatch_exh_def,row_to_pat_def] >> rw[] >>
     qexists_tac`[v_to_pat v]` >> rw[] ) >>
   strip_tac >- (
     rw[pmatch_exh_def,row_to_pat_def] >> rw[] >>
@@ -2340,6 +2340,15 @@ val csg_rel_unpair = store_thm("csg_rel_unpair",
     LIST_REL (sv_rel R) (SND(FST x1)) (SND(FST x2)) ∧
     LIST_REL (OPTREL R) (SND x1) (SND x2)``,
   PairCases_on`x1`>>PairCases_on`x2`>>simp[csg_rel_def])
+
+val lookup_find_index_SOME = prove(
+  ``∀env. ALOOKUP env n = SOME v ⇒
+      ∀m. ∃i. (find_index (SOME n) (MAP (SOME o FST) env) m = SOME (m+i)) ∧
+          (v = EL i (MAP SND env))``,
+  Induct >> simp[] >> Cases >> rw[find_index_def] >-
+    (qexists_tac`0`>>simp[]) >> fs[] >>
+  first_x_assum(qspec_then`m+1`mp_tac)>>rw[]>>rw[]>>
+  qexists_tac`SUC i`>>simp[]);
 
 val exp_to_pat_correct = store_thm("exp_to_pat_correct",
   ``(∀ck env s exp res. evaluate_exh ck env s exp res ⇒

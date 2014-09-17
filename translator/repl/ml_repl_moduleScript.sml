@@ -641,6 +641,17 @@ val LIST_TYPE_exists = prove(
   simp[ml_repl_stepTheory.LIST_TYPE_def] >>
   METIS_TAC[])
 
+val FMAP_TYPE_exists = prove(
+  ``∀x. (∀a'. MEM a' (fmap_to_alist x) ⇒ ∃v. PAIR_TYPE a b a' v) ⇒
+        ∃l. FMAP_TYPE a b x l``,
+  REPEAT STRIP_TAC \\ fs [FMAP_TYPE_def]
+  \\ HO_MATCH_MP_TAC (METIS_PROVE [] ``(?y x. P x y) ==> (?x y. P x y)``)
+  \\ Q.EXISTS_TAC `fmap_to_alist x`
+  \\ fs [GSYM PULL_EXISTS]
+  \\ REPEAT STRIP_TAC
+  \\ fs [FMAP_EQ_ALIST_def]
+  \\ MATCH_MP_TAC LIST_TYPE_exists \\ METIS_TAC []);
+
 val SPTREE_SPT_TYPE_exists = prove(
   ``∀p. ∃v. SPTREE_SPT_TYPE UNIT_TYPE p v``,
   Induct >>
@@ -809,6 +820,17 @@ val REPL_FUN_REPL_FUN_STATE_TYPE_exists = prove(
     MATCH_MP_TAC LIST_TYPE_exists >>
     tac >> simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
     simp[INFER_T_INFER_T_TYPE_exists] ) >>
+  TRY (
+    MATCH_MP_TAC FMAP_TYPE_exists >>
+    tac >> simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac >>
+    TRY (MATCH_MP_TAC FMAP_TYPE_exists >>
+         tac >> simp[GSYM PULL_EXISTS] >> rw[] >> TRY ltchartac) >>
+    fs [FORALL_PROD,PAIR_TYPE_def] >>
+    REPEAT STRIP_TAC >>
+    fs [GSYM PULL_EXISTS] >> REPEAT STRIP_TAC >>
+    TRY (MATCH_MP_TAC LIST_TYPE_exists) >>
+    TRY (fs [CHAR_def,NUM_def,INT_def] >> NO_TAC) >>
+    simp[AST_T_TYPE_exists,INFER_T_INFER_T_TYPE_exists] >> NO_TAC) >>
   simp[COMPILER_COMPILER_STATE_TYPE_exists])
 
 val INPUT_TYPE_exists = store_thm("INPUT_TYPE_exists",
@@ -842,6 +864,15 @@ val PAIR_TYPE_closed = prove(
   rw[] >>
   MATCH_MP_TAC (CONJUNCT1 (CONJUNCT2 (SPEC_ALL free_varsTheory.closed_rules))) >>
   rw[] >> METIS_TAC[])
+
+val FMAP_TYPE_closed = prove(
+  ``∀x. (∀a v. A a v ⇒ closed v) /\ (∀b v. B b v ⇒ closed v) ⇒
+        ∀l. FMAP_TYPE A B x l ⇒ closed l``,
+  rw[FMAP_TYPE_def] >>
+  match_mp_tac(MP_CANON (Q.ISPEC`PAIR_TYPE A B`(Q.GEN`A`LIST_TYPE_closed))) >>
+  ONCE_REWRITE_TAC[CONJ_COMM] >>
+  first_assum(match_exists_tac o concl) >> rw[] >>
+  METIS_TAC[PAIR_TYPE_closed]);
 
 val OPTION_TYPE_closed = prove(
   ``∀a. (∀x y. A x y ⇒ closed y) ∧ OPTION_TYPE A a b ⇒ closed b``,
@@ -1002,9 +1033,13 @@ val REPL_FUN_REPL_FUN_STATE_TYPE_closed = prove(
       qmatch_assum_abbrev_tac`AST_ID_TYPE A ll x` >>
       Q.ISPEC_THEN`ll`(MATCH_MP_TAC o MP_CANON) AST_ID_TYPE_closed >>
       simp[Abbr`A`]
+    ) ORELSE (
+      qmatch_assum_abbrev_tac`FMAP_TYPE A B ll x` >>
+      Q.ISPEC_THEN`ll`(MATCH_MP_TAC o MP_CANON) FMAP_TYPE_closed >>
+      simp[Abbr`A`,Abbr`B`]
     )) >>
     rw[ml_repl_stepTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
-    unabbrev_all_tac ))
+    unabbrev_all_tac ));
 
 val INPUT_TYPE_closed = store_thm("INPUT_TYPE_closed",
   ``INPUT_TYPE x y ⇒ closed y``,

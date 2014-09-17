@@ -49,8 +49,8 @@ type exp_exh =
 type v_exh =
   | Litv_exh of lit
   | Conv_exh of nat * list v_exh 
-  | Closure_exh of env varN v_exh * varN * exp_exh
-  | Recclosure_exh of env varN v_exh * list (varN * varN * exp_exh) * varN
+  | Closure_exh of alist varN v_exh * varN * exp_exh
+  | Recclosure_exh of alist varN v_exh * list (varN * varN * exp_exh) * varN
   | Loc_exh of nat
   | Vectorv_exh of list v_exh
 
@@ -192,9 +192,9 @@ and
 pats_bindings_exh (p::ps) already_bound =
   pats_bindings_exh ps (pat_bindings_exh p already_bound)
 
-val pmatch_exh : store v_exh -> pat_exh -> v_exh -> env varN v_exh -> match_result (env varN v_exh)
+val pmatch_exh : store v_exh -> pat_exh -> v_exh -> alist varN v_exh -> match_result (alist varN v_exh)
 let rec
-pmatch_exh s (Pvar_exh x) v' env = Match (bind x v' env)
+pmatch_exh s (Pvar_exh x) v' env = Match ((x, v') :: env)
 and
 pmatch_exh s (Plit_exh l) (Litv_exh l') env =
   if l = l' then
@@ -232,10 +232,10 @@ pmatch_list_exh s (p::ps) (v::vs) env =
 and
 pmatch_list_exh s _ _ env = Match_type_error
 
-val build_rec_env_exh : list (varN * varN * exp_exh) -> env varN v_exh -> env varN v_exh -> env varN v_exh
+val build_rec_env_exh : list (varN * varN * exp_exh) -> alist varN v_exh -> alist varN v_exh -> alist varN v_exh
 let build_rec_env_exh funs cl_env add_to_env =
   foldr 
-    (fun (f,x,e) env' -> bind f (Recclosure_exh cl_env funs f) env') 
+    (fun (f,x,e) env' -> (f,Recclosure_exh cl_env funs f) :: env') 
     add_to_env 
     funs
 
@@ -284,15 +284,15 @@ do_eq_list_exh (v1::vs1) (v2::vs2) =
 and
 do_eq_list_exh _ _ = Eq_val false
 
-val do_opapp_exh : list v_exh -> maybe (env varN v_exh * exp_exh)
+val do_opapp_exh : list v_exh -> maybe (alist varN v_exh * exp_exh)
 let do_opapp_exh vs =
   match vs with
     | [Closure_exh env n e; v] ->
-        Just (bind n v env, e)
+        Just ((n,v)::env, e)
     | [Recclosure_exh env funs n; v] ->
         if allDistinct (List.map (fun (f,x,e) -> f) funs) then
           match find_recfun n funs with
-            | Just (n,e) -> Just (bind n v (build_rec_env_exh funs env env), e)
+            | Just (n,e) -> Just ((n,v) :: build_rec_env_exh funs env env, e)
             | Nothing -> Nothing
           end
         else
@@ -473,9 +473,9 @@ let do_if_exh v e1 e2 =
   else
     Nothing
 
-indreln [evaluate_exh : bool -> env varN v_exh -> count_store_genv v_exh -> exp_exh -> count_store_genv v_exh * result v_exh v_exh -> bool]
-and [evaluate_list_exh : bool -> env varN v_exh -> count_store_genv v_exh -> list exp_exh -> count_store_genv v_exh * result (list v_exh) v_exh -> bool]
-and [evaluate_match_exh : bool -> env varN v_exh -> count_store_genv v_exh -> v_exh -> list (pat_exh * exp_exh) -> count_store_genv v_exh * result v_exh v_exh -> bool]
+indreln [evaluate_exh : bool -> alist varN v_exh -> count_store_genv v_exh -> exp_exh -> count_store_genv v_exh * result v_exh v_exh -> bool]
+and [evaluate_list_exh : bool -> alist varN v_exh -> count_store_genv v_exh -> list exp_exh -> count_store_genv v_exh * result (list v_exh) v_exh -> bool]
+and [evaluate_match_exh : bool -> alist varN v_exh -> count_store_genv v_exh -> v_exh -> list (pat_exh * exp_exh) -> count_store_genv v_exh * result v_exh v_exh -> bool]
 
 lit : forall ck env l s.
 true

@@ -1,8 +1,8 @@
 open import Pervasives
+open import Lib
 import List_extra
 import String
 import String_extra
-open import Lib
 open import Ast
 
 (* The type that a constructor builds is either a named datatype or an exception.
@@ -15,13 +15,24 @@ val type_defs_to_new_tdecs : maybe modN -> type_def -> set tid_or_exn
 let type_defs_to_new_tdecs mn tdefs =
   Set.fromList (List.map (fun (tvs,tn,ctors) -> TypeId (mk_id mn tn)) tdefs)
 
-(* Maps each constructor to its arity and which type it is from *)
-type flat_envC = env conN (nat * tid_or_exn)
-type envC = env modN flat_envC * flat_envC
+type alist_mod_env 'k 'v = alist modN (alist 'k 'v) * alist 'k 'v
 
-val merge_envC : envC -> envC -> envC
-let merge_envC (mcenv1,cenv1) (mcenv2,cenv2) = 
-  (merge mcenv1 mcenv2, merge cenv1 cenv2)
+let merge_alist_mod_env (menv1,env1) (menv2,env2) = 
+  (menv1 ++ menv2, env1 ++ env2)
+
+let lookup_alist_mod_env id (mcenv,cenv) =
+  match id with
+    | Short x -> lookup x cenv
+    | Long x y ->
+        match lookup x mcenv with
+          | Nothing -> Nothing
+          | Just cenv -> lookup y cenv
+        end
+  end
+
+(* Maps each constructor to its arity and which type it is from *)
+type flat_envC = alist conN (nat * tid_or_exn)
+type envC = alist_mod_env conN (nat * tid_or_exn)
 
 (* Value forms *)
 type v =
@@ -30,19 +41,20 @@ type v =
   | Conv of maybe (conN * tid_or_exn) * list v 
   (* Function closures
      The environment is used for the free variables in the function *)
-  | Closure of (env modN (env varN v) * envC * env varN v) * varN * exp
+  | Closure of (alist modN (alist varN v) * envC * alist varN v) * varN * exp
   (* Function closure for recursive functions
    * See Closure and Letrec above
    * The last variable name indicates which function from the mutually
    * recursive bundle this closure value represents *)
-  | Recclosure of (env modN (env varN v) * envC * env varN v) * list (varN * varN * exp) * varN
+  | Recclosure of (alist modN (alist varN v) * envC * alist varN v) * list (varN * varN * exp) * varN
   | Loc of nat
   | Vectorv of list v
 
-type envE = env varN v
-
-(* The bindings of a module *)
-type envM = env modN envE
+(* These are alists rather than finite maps because the type of values (v above) 
+ * recurs through them, and HOL4 does not easily support that kind of data type
+ * (although Isabelle/HOL does) *)
+type envE = alist varN v
+type envM = alist modN envE
 
 type all_env = envM * envC * envE
 
@@ -115,17 +127,6 @@ let lookup_var_id id (menv,cenv,env) =
         end
   end
 
-val lookup_con_id : forall 'a. id conN -> env modN (env conN 'a) * env conN 'a -> maybe 'a
-let lookup_con_id id (mcenv,cenv) =
-  match id with
-    | Short x -> lookup x cenv
-    | Long x y ->
-        match lookup x mcenv with
-          | Nothing -> Nothing
-          | Just cenv -> lookup y cenv
-        end
-  end
-
 (* Other primitives *)
 (* Check that a constructor is properly applied *)
 val do_con_check : envC -> maybe (id conN) -> nat -> bool
@@ -133,7 +134,7 @@ let do_con_check cenv n_opt l =
   match n_opt with
     | Nothing -> true
     | Just n ->
-        match lookup_con_id n cenv with
+        match lookup_alist_mod_env n cenv with
           | Nothing -> false
           | Just (l',ns) -> l = l'
         end
@@ -145,7 +146,7 @@ let build_conv envC cn vs =
     | Nothing -> 
         Just (Conv Nothing vs)
     | Just id -> 
-        match lookup_con_id id envC with
+        match lookup_alist_mod_env id envC with
           | Nothing -> Nothing
           | Just (len,t) -> Just (Conv (Just (id_to_n id, t)) vs)
         end
@@ -186,7 +187,7 @@ and same_ctor (cn1, _) (cn2, _) = cn1 = cn2
  * when one of these conditions is violated *)
 val pmatch : envC -> store v -> pat -> v -> envE -> match_result envE
 let rec
-pmatch envC s (Pvar x) v' env = Match (bind x v' env)
+pmatch envC s (Pvar x) v' env = Match ((x,v')::env)
 and
 pmatch envC s (Plit l) (Litv l') env =
   if l = l' then
@@ -197,7 +198,7 @@ pmatch envC s (Plit l) (Litv l') env =
     Match_type_error
 and
 pmatch envC s (Pcon (Just n) ps) (Conv (Just (n', t')) vs) env =
-  match lookup_con_id n envC with
+  match lookup_alist_mod_env n envC with
     | Just (l, t)->
         if same_tid t t' && List.length ps = l then
           if same_ctor (id_to_n n, t) (n',t') then
@@ -239,7 +240,7 @@ pmatch_list envC s _ _ env = Match_type_error
 val build_rec_env : list (varN * varN * exp) -> all_env -> envE -> envE
 let build_rec_env funs cl_env add_to_env =
   foldr 
-    (fun (f,x,e) env' -> bind f (Recclosure cl_env funs f) env') 
+    (fun (f,x,e) env' -> (f, Recclosure cl_env funs f) :: env') 
     add_to_env 
     funs
 
@@ -330,11 +331,11 @@ val do_opapp : list v -> maybe (all_env * exp)
 let do_opapp vs =
   match vs with
   | [Closure (menv, cenv, env) n e; v] ->
-      Just ((menv, cenv, bind n v env), e)
+      Just ((menv, cenv, (n,v)::env), e)
   | [Recclosure (menv, cenv, env) funs n; v] ->
       if allDistinct (List.map (fun (f,x,e) -> f) funs) then
         match find_recfun n funs with
-          | Just (n,e) -> Just ((menv, cenv, bind n v (build_rec_env funs (menv, cenv, env) env)), e)
+          | Just (n,e) -> Just ((menv, cenv, (n,v)::(build_rec_env funs (menv, cenv, env) env)), e)
           | Nothing -> Nothing
         end
       else
@@ -551,18 +552,18 @@ val check_dup_ctors : list (list tvarN * typeN * list (conN * list t)) -> bool
 let check_dup_ctors tds =
   List.allDistinct [ n | forall ((tvs, tn, condefs) MEM tds) ((n, ts) MEM condefs) | true ]
 
-val combine_dec_result : forall 'a 'b 'c. env 'a 'b -> result (env 'a 'b) 'c -> result (env 'a 'b) 'c
+val combine_dec_result : forall 'a 'b 'c. alist 'a 'b -> result (alist 'a 'b) 'c -> result (alist 'a 'b) 'c
 let combine_dec_result env r =
   match r with
     | Rerr e -> Rerr e
-    | Rval env' -> Rval (merge env' env)
+    | Rval env' -> Rval (env'++env)
   end
 
-val combine_mod_result : forall 'a 'b 'c 'd 'e. env 'a 'b -> env 'c 'd -> result (env 'a 'b * env 'c 'd) 'e -> result (env 'a 'b * env 'c 'd) 'e
+val combine_mod_result : forall 'a 'b 'c 'd 'e. alist 'a 'b -> alist 'c 'd -> result (alist 'a 'b * alist 'c 'd) 'e -> result (alist 'a 'b * alist 'c 'd) 'e
 let combine_mod_result menv env r =
   match r with
     | Rerr e -> Rerr e
-    | Rval (menv',env') -> Rval (merge menv' menv, merge env' env)
+    | Rval (menv',env') -> Rval (menv'++menv, env'++env)
   end
 
 let remove_count ((count,store),tdecls,mods) = (store,tdecls,mods)

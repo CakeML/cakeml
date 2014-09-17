@@ -19,7 +19,7 @@ HOLHEAP = heap
 PARENTHEAP=../semantics/proofs/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-SEM_BARE_THYS = proofs/libPropsTheory
+SEM_BARE_THYS = 
 
 UNIF_BARE_THYS = collapseTheory \
 		redUnifTheory \

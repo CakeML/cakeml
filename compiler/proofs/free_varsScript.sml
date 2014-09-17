@@ -87,7 +87,7 @@ val build_rec_env_MAP = store_thm("build_rec_env_MAP",
   qho_match_abbrev_tac `FOLDR (f funs) env funs = MAP (g funs) funs ++ env` >>
   qsuff_tac `∀funs env funs0. FOLDR (f funs0) env funs = MAP (g funs0) funs ++ env` >- rw[]  >>
   unabbrev_all_tac >> simp[] >>
-  Induct >> rw[libTheory.bind_def] >>
+  Induct >> rw[] >>
   PairCases_on`h` >> rw[])
 
 val build_rec_env_i1_MAP = store_thm("build_rec_env_i1_MAP",
@@ -96,7 +96,7 @@ val build_rec_env_i1_MAP = store_thm("build_rec_env_i1_MAP",
   qho_match_abbrev_tac `FOLDR (f funs) env funs = MAP (g funs) funs ++ env` >>
   qsuff_tac `∀funs env funs0. FOLDR (f funs0) env funs = MAP (g funs0) funs ++ env` >- rw[]  >>
   unabbrev_all_tac >> simp[] >>
-  Induct >> rw[libTheory.bind_def] >>
+  Induct >> rw[] >>
   PairCases_on`h` >> rw[])
 
 val free_vars_defs_exh_MAP = store_thm("free_vars_defs_exh_MAP",
@@ -129,7 +129,7 @@ val pmatch_dom = store_thm("pmatch_dom",
       (pmatch_list cenv s ps vs env = Match env') ⇒
       (MAP FST env' = pats_bindings ps [] ++ MAP FST env))``,
   ho_match_mp_tac pmatch_ind >>
-  rw[pmatch_def,pat_bindings_def,libTheory.bind_def] >> rw[] >>
+  rw[pmatch_def,pat_bindings_def] >> rw[] >>
   BasicProvers.EVERY_CASE_TAC >> fs[] >>
   ONCE_REWRITE_TAC[pat_bindings_accum,SimpRHS] >>
   simp[])
@@ -1017,13 +1017,13 @@ val (closed_rules,closed_ind,closed_cases) = Hol_reln`
 (EVERY closed (MAP SND envE) ∧
  EVERY closed (MAP SND (FLAT (MAP SND envM))) ∧
  FV b ⊆ (IMAGE Short ({x} ∪ set (MAP FST envE))) ∪
-        { Long mn x | ∃env. lookup mn envM = SOME env ∧ MEM x (MAP FST env)}
+        { Long mn x | ∃env. ALOOKUP envM mn = SOME env ∧ MEM x (MAP FST env)}
 ⇒ closed (Closure (envM,envC,envE) x b)) ∧
 (EVERY closed (MAP SND envE) ∧
  EVERY closed (MAP SND (FLAT (MAP SND envM))) ∧
  MEM d (MAP FST defs) ∧
  EVERY (λ(f,x,e). FV e ⊆ (IMAGE Short ({x} ∪ set (MAP FST defs) ∪ set (MAP FST envE))) ∪
-                         { Long mn x | ∃env. lookup mn envM = SOME env ∧ MEM x (MAP FST env) }) defs
+                         { Long mn x | ∃env. ALOOKUP envM mn = SOME env ∧ MEM x (MAP FST env) }) defs
 ⇒ closed (Recclosure (envM,envC,envE) defs d)) ∧
 (closed (Loc n)) ∧
 (EVERY closed vs ⇒ closed (Vectorv vs))`;
@@ -1048,10 +1048,10 @@ val build_rec_env_closed = store_thm("build_rec_env_closed",
     ALL_DISTINCT (MAP FST defs) ∧
     (∀d x b. MEM (d,x,b) defs ⇒ FV b ⊆
                          (IMAGE Short ({x} ∪ set (MAP FST defs) ∪ set (MAP FST (all_env_to_env env)))) ∪
-                         { Long mn x | ∃envE. lookup mn (all_env_to_menv env) = SOME envE ∧ MEM x (MAP FST envE) })
+                         { Long mn x | ∃envE. ALOOKUP (all_env_to_menv env) mn = SOME envE ∧ MEM x (MAP FST envE) })
     ⇒ EVERY closed (MAP SND (build_rec_env defs env l))``,
   rpt gen_tac >> PairCases_on`env` >>
-  rw[build_rec_env_def,bind_def,FOLDR_CONS_triple,all_env_closed_def] >>
+  rw[build_rec_env_def,FOLDR_CONS_triple,all_env_closed_def] >>
   rw[MAP_MAP_o,combinTheory.o_DEF,pairTheory.LAMBDA_PROD] >>
   asm_simp_tac(srw_ss())[EVERY_MEM,MEM_MAP,pairTheory.EXISTS_PROD] >>
   rw[Once closed_cases] >>
@@ -1112,7 +1112,7 @@ val pmatch_closed = store_thm("pmatch_closed",
       EVERY closed (MAP SND env') ∧
       (MAP FST env' = pats_bindings ps [] ++ MAP FST env))``,
   ho_match_mp_tac pmatch_ind >>
-  simp[pat_bindings_def,pmatch_def,bind_def] >>
+  simp[pat_bindings_def,pmatch_def] >>
   rw[] >> rw[] >>
   BasicProvers.EVERY_CASE_TAC >> fs[] >>
   fs[store_lookup_def] >> rw[] >>
@@ -1132,7 +1132,7 @@ val do_opapp_closed = store_thm("do_opapp_closed",
   rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
   qpat_assum`closed (X Y)`mp_tac >>
   simp[Once closed_cases] >> strip_tac >>
-  simp[all_env_closed_def,bind_def] >>
+  simp[all_env_closed_def] >>
   simp[all_env_dom_def] >>
   TRY(
     conj_tac >- (
@@ -1142,7 +1142,7 @@ val do_opapp_closed = store_thm("do_opapp_closed",
       fs[SUBSET_DEF,PULL_EXISTS] >>
       metis_tac[] )) >>
   fs[SUBSET_DEF,build_rec_env_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX,find_recfun_lookup] >>
-  imp_res_tac libPropsTheory.lookup_in3 >>
+  imp_res_tac alistTheory.ALOOKUP_MEM >>
   fs[EVERY_MEM,FORALL_PROD] >>
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >> rw[] >>
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >> rw[])
@@ -1193,7 +1193,7 @@ val evaluate_closed = store_thm("evaluate_closed",
   strip_tac (* Handle *) >- (rw[] >> fsrw_tac[DNF_ss][SUBSET_DEF]) >>
   strip_tac (* Handle *) >- (
     rw[] >> fs[] >> rfs[] >>
-    fsrw_tac[DNF_ss][SUBSET_DEF,bind_def,MEM_MAP,EXISTS_PROD] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,EXISTS_PROD] >>
     PROVE_TAC[] ) >>
   strip_tac (* Handle *) >- (rw[] >> fsrw_tac[DNF_ss][SUBSET_DEF]) >>
   strip_tac (* Handle *) >- (rw[] >> fsrw_tac[DNF_ss][SUBSET_DEF]) >>
@@ -1209,7 +1209,8 @@ val evaluate_closed = store_thm("evaluate_closed",
     BasicProvers.EVERY_CASE_TAC >>
     fs[all_env_dom_def,all_env_closed_def] >>
     fs[EVERY_MEM,MAP_FLAT,MEM_FLAT,PULL_EXISTS] >>
-    metis_tac[libPropsTheory.lookup_in,MEM_MAP]) >>
+    imp_res_tac alistTheory.ALOOKUP_MEM >>
+    metis_tac[MEM_MAP, SND, pair_CASES]) >>
   strip_tac (* Var *) >- rw[] >>
   strip_tac (* Fun *) >- (
     rw[] >>
@@ -1248,7 +1249,7 @@ val evaluate_closed = store_thm("evaluate_closed",
   strip_tac (* Mat *) >- rw[] >>
   strip_tac (* Let *) >- (
     rpt gen_tac >> ntac 2 strip_tac >>
-    fs[] >> rfs[bind_def,opt_bind_def] >>
+    fs[] >> rfs[opt_bind_def] >>
     BasicProvers.EVERY_CASE_TAC >> fs[] >>
     fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD,all_env_dom_def,all_env_closed_def] >>
     metis_tac[]) >>
@@ -1353,7 +1354,7 @@ val v_to_i1_closed = store_thm("v_to_i1_closed",
   pop_assum mp_tac >>
   simp[EVERY_MEM] >>
   disch_then(qspec_then`x,y,e`mp_tac) >>
-  discharge_hyps >- metis_tac[find_recfun_lookup,libPropsTheory.lookup_in3] >>
+  discharge_hyps >- metis_tac[find_recfun_lookup,alistTheory.ALOOKUP_MEM] >>
   simp[SUBSET_DEF,PULL_EXISTS] >>
   strip_tac >>
   qx_gen_tac`z` >> strip_tac >>
@@ -1374,7 +1375,7 @@ val evaluate_dec_closed = store_thm("evaluate_dec_closed",
       every_result (λ(envC,envE). EVERY closed (MAP SND envE))
                    closed (SND res)``,
   ho_match_mp_tac evaluate_dec_ind >> rw[] >>
-  imp_res_tac evaluate_closed >> fs[emp_def] >>
+  imp_res_tac evaluate_closed >> fs[] >>
   TRY (
     rator_x_assum`$=`mp_tac >>
     specl_args_of_then``pmatch``(CONJUNCT1 pmatch_closed)mp_tac>>
@@ -1390,17 +1391,17 @@ val evaluate_dec_new_dec_vs = store_thm("evaluate_dec_new_dec_vs",
     evaluate_dec ck mn env s dec res ⇒
     ∀tds vs. (SND res = Rval (tds,vs)) ⇒ MAP FST vs = new_dec_vs dec``,
   ho_match_mp_tac evaluate_dec_ind >>
-  simp[libTheory.emp_def] >> rw[] >>
+  simp[] >> rw[] >>
   imp_res_tac pmatch_dom >>
   fs[build_rec_env_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX])
 
 val evaluate_decs_new_decs_vs = store_thm("evaluate_decs_new_decs_vs",
   ``∀ck mn env s decs res. evaluate_decs ck mn env s decs res ⇒
       ∀env. SND(SND res) = Rval env ⇒ MAP FST env = new_decs_vs decs``,
-  ho_match_mp_tac evaluate_decs_ind >> simp[] >> rw[libTheory.emp_def] >>
+  ho_match_mp_tac evaluate_decs_ind >> simp[] >> rw[] >>
   imp_res_tac evaluate_dec_new_dec_vs >> fs[] >>
   Cases_on`r`>>fs[semanticPrimitivesTheory.combine_dec_result_def]>>
-  rw[libTheory.merge_def])
+  rw[])
 
 val evaluate_decs_closed = store_thm("evaluate_decs_closed",
   ``∀ck mn env s ds res. evaluate_decs ck mn env s ds res ⇒
@@ -1414,22 +1415,22 @@ val evaluate_decs_closed = store_thm("evaluate_decs_closed",
   ho_match_mp_tac evaluate_decs_ind >> rw[] >>
   imp_res_tac evaluate_dec_closed >>
   imp_res_tac evaluate_dec_new_dec_vs >>
-  rfs[emp_def,FV_decs_def] >> rw[] >>
+  rfs[FV_decs_def] >> rw[] >>
   qpat_assum`p ⇒ q`mp_tac >>
   (discharge_hyps >- (
-    fsrw_tac[DNF_ss][merge_def,merge_envC_def,SUBSET_DEF,PULL_EXISTS
+    fsrw_tac[DNF_ss][merge_alist_mod_env_def,SUBSET_DEF,PULL_EXISTS
                     ,all_env_closed_def,all_env_dom_def,MEM_MAP,EXISTS_PROD] >>
     metis_tac[] )) >> simp[] >>
   simp[combine_dec_result_def] >>
   BasicProvers.CASE_TAC >>
-  simp[merge_def])
+  simp[])
 
 val evaluate_decs_new_decs_vs = store_thm("evaluate_decs_new_decs_vs",
   ``∀ck mn env s ds res. evaluate_decs ck mn env s ds res ⇒
     ∀env. SND (SND res) = Rval env ⇒ MAP FST env = new_decs_vs ds``,
-  ho_match_mp_tac evaluate_decs_ind >> simp[libTheory.emp_def] >>
+  ho_match_mp_tac evaluate_decs_ind >> simp[] >>
   rw[] >>
-  Cases_on`r`>>fs[combine_dec_result_def,libTheory.merge_def] >>
+  Cases_on`r`>>fs[combine_dec_result_def] >>
   imp_res_tac evaluate_dec_new_dec_vs >> fs[] >> rw[])
 
 val closed_top_def = Define`
@@ -1452,9 +1453,9 @@ val evaluate_top_closed = store_thm("evaluate_top_closed",
   rpt conj_tac >> rpt gen_tac >> strip_tac >> strip_tac >>
   TRY (
     first_x_assum(mp_tac o MATCH_MP evaluate_dec_closed) >>
-    simp[all_env_closed_def,libTheory.emp_def] ) >>
+    simp[all_env_closed_def] ) >>
   first_x_assum(mp_tac o MATCH_MP evaluate_decs_closed) >>
-  simp[all_env_closed_def,libTheory.emp_def])
+  simp[all_env_closed_def])
 
 val evaluate_top_new_top_vs = store_thm("evaluate_top_new_top_vs",
   ``∀ck env stm top res.
@@ -1464,7 +1465,7 @@ val evaluate_top_new_top_vs = store_thm("evaluate_top_new_top_vs",
       if envM = [] then new_top_vs top = MAP Short (MAP FST envE) else
       ∃mn menvE. envE = [] ∧ envM = [(mn,menvE)] ∧ new_top_vs top = MAP (Long mn) (MAP FST menvE) ∧
                  mn ∉ SND(SND stm) ∧ SND(SND (FST res)) = {mn} ∪ SND(SND stm)``,
-  ho_match_mp_tac evaluate_top_ind >> simp[libTheory.emp_def] >>
+  ho_match_mp_tac evaluate_top_ind >> simp[] >>
   conj_tac >> rpt gen_tac >> strip_tac >>
   imp_res_tac evaluate_dec_new_dec_vs >> fs[] >>
   imp_res_tac evaluate_decs_new_decs_vs >> fs[])
@@ -1479,7 +1480,7 @@ val evaluate_prog_closed = store_thm("evaluate_prog_closed",
       every_result (λ(envM,envE). all_env_closed (envM,ARB,envE)) closed (SND (SND res))``,
   ho_match_mp_tac evaluate_prog_ind >> simp[] >>
   conj_tac >- (
-    simp[all_env_closed_def,libTheory.emp_def] ) >>
+    simp[all_env_closed_def] ) >>
   conj_tac >- (
     rpt gen_tac >> strip_tac >>
     simp[FV_prog_def] >> strip_tac >>
@@ -1488,7 +1489,7 @@ val evaluate_prog_closed = store_thm("evaluate_prog_closed",
       imp_res_tac evaluate_top_new_top_vs >> fs[] >>
       first_x_assum(mp_tac o MATCH_MP evaluate_top_closed) >>
       Cases_on`new_tds`>>Cases_on`cenv`>>
-      simp[libTheory.merge_def,merge_envC_def] >>
+      simp[merge_alist_mod_env_def] >>
       fs[all_env_closed_def,SUBSET_DEF,all_env_to_menv_def] >>
       pop_assum mp_tac >>
       IF_CASES_TAC >> strip_tac >>
@@ -1497,11 +1498,11 @@ val evaluate_prog_closed = store_thm("evaluate_prog_closed",
       first_x_assum(qspec_then`x`mp_tac) >>
       simp[] >>
       Cases_on`x`>>fs[] >> rw[] >>
-      metis_tac[libPropsTheory.lookup_in2,MEM_MAP]) >>
+      metis_tac[alistTheory.ALOOKUP_MEM,MEM_MAP, FST]) >>
     simp[] >>
     Cases_on`r`>>simp[combine_mod_result_def]>>
     BasicProvers.CASE_TAC >> simp[] >>
-    fs[libTheory.merge_def,all_env_closed_def] >>
+    fs[all_env_closed_def] >>
     imp_res_tac evaluate_top_closed >>
     fs[all_env_closed_def] ) >>
   rpt gen_tac >> strip_tac >>
@@ -1747,7 +1748,7 @@ val build_rec_env_i1_closed = store_thm("build_rec_env_i1_closed",
                                 {x} ∪ set (MAP FST defs) ∪ set (MAP FST (SND env)))
     ⇒ EVERY closed_i1 (MAP SND (build_rec_env_i1 defs env l))``,
   rpt gen_tac >> PairCases_on`env` >>
-  rw[build_rec_env_i1_def,bind_def,FOLDR_CONS_triple] >>
+  rw[build_rec_env_i1_def,FOLDR_CONS_triple] >>
   rw[MAP_MAP_o,combinTheory.o_DEF,pairTheory.LAMBDA_PROD] >>
   asm_simp_tac(srw_ss())[EVERY_MEM,MEM_MAP,pairTheory.EXISTS_PROD] >>
   rw[Once closed_i1_cases] >>
@@ -1806,7 +1807,7 @@ val do_opapp_i1_closed = store_thm("do_opapp_i1_closed",
   rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
   qpat_assum`closed_i1 (X Y)`mp_tac >>
   simp[Once closed_i1_cases] >> strip_tac >>
-  simp[all_env_i1_closed_def,bind_def] >>
+  simp[all_env_i1_closed_def] >>
   simp[all_env_i1_dom_def] >>
   TRY(
     conj_tac >- (
@@ -1814,7 +1815,7 @@ val do_opapp_i1_closed = store_thm("do_opapp_i1_closed",
       simp[all_env_i1_closed_def] >> fs[FST_triple] >>
       fs[EVERY_MEM,FORALL_PROD])) >>
   fs[SUBSET_DEF,build_rec_env_i1_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX,find_recfun_lookup] >>
-  imp_res_tac libPropsTheory.lookup_in3 >>
+  imp_res_tac alistTheory.ALOOKUP_MEM >>
   fs[EVERY_MEM,FORALL_PROD] >>
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >> rw[] >>
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >> rw[])
@@ -1833,7 +1834,7 @@ val pmatch_i1_closed = store_thm("pmatch_i1_closed",
       EVERY closed_i1 (MAP SND env') ∧
       (MAP FST env' = pats_bindings ps [] ++ MAP FST env))``,
   ho_match_mp_tac pmatch_i1_ind >>
-  simp[pat_bindings_def,pmatch_i1_def,bind_def] >>
+  simp[pat_bindings_def,pmatch_i1_def] >>
   rw[] >> rw[] >>
   BasicProvers.EVERY_CASE_TAC >> fs[] >>
   fs[store_lookup_def] >> rw[] >>
@@ -1880,7 +1881,7 @@ val evaluate_i1_closed = store_thm("evaluate_i1_closed",
   strip_tac (* Handle *) >- (rw[] >> fsrw_tac[DNF_ss][SUBSET_DEF]) >>
   strip_tac (* Handle *) >- (
     rw[] >> fs[] >> rfs[] >>
-    fsrw_tac[DNF_ss][SUBSET_DEF,bind_def,MEM_MAP,EXISTS_PROD] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,EXISTS_PROD] >>
     PROVE_TAC[] ) >>
   strip_tac (* Handle *) >- (rw[] >> fsrw_tac[DNF_ss][SUBSET_DEF]) >>
   strip_tac (* Handle *) >- (rw[] >> fsrw_tac[DNF_ss][SUBSET_DEF]) >>
@@ -1895,7 +1896,7 @@ val evaluate_i1_closed = store_thm("evaluate_i1_closed",
     rw[all_env_i1_to_env_def,MEM_FLAT,MEM_MAP] >>
     fs[all_env_i1_dom_def,all_env_i1_closed_def] >>
     fs[EVERY_MEM,MAP_FLAT,MEM_FLAT,PULL_EXISTS] >>
-    metis_tac[libPropsTheory.lookup_in,MEM_MAP]) >>
+    metis_tac[alistTheory.ALOOKUP_MEM,MEM_MAP,FST,SND]) >>
   strip_tac (* Var *) >- rw[] >>
   strip_tac (* Var_global *) >- (
     rw[] >>
@@ -1937,7 +1938,7 @@ val evaluate_i1_closed = store_thm("evaluate_i1_closed",
   strip_tac (* Mat *) >- rw[] >>
   strip_tac (* Let *) >- (
     rpt gen_tac >> ntac 2 strip_tac >>
-    fs[] >> rfs[bind_def,opt_bind_def] >>
+    fs[] >> rfs[opt_bind_def] >>
     BasicProvers.EVERY_CASE_TAC >> fs[] >>
     fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD,all_env_i1_dom_def,all_env_i1_closed_def] >>
     metis_tac[]) >>
@@ -1996,7 +1997,7 @@ val evaluate_dec_i1_closed = store_thm("evaluate_dec_i1_closed",
   rpt conj_tac >> rpt gen_tac >> strip_tac >>
   TRY (
     first_x_assum(mp_tac o (MATCH_MP (CONJUNCT1 evaluate_i1_closed))) >>
-    simp[all_env_i1_dom_def,emp_def,all_env_i1_closed_def] ) >>
+    simp[all_env_i1_dom_def,all_env_i1_closed_def] ) >>
   simp[EVERY_MAP,UNCURRY,Once closed_i1_cases] >>
   fs[LIST_TO_SET_EQ_SING,EVERY_MAP,EVERY_MEM,FORALL_PROD,SUBSET_DEF] >>
   fs[EXTENSION] >> metis_tac[])
@@ -2073,7 +2074,7 @@ val global_env_inv_inclusion = store_thm("global_env_inv_inclusion",
      set (MAP FST menv) ⊆ FDOM mods``,
   rw[Once v_to_i1_cases,SUBSET_DEF] >>
   TRY (
-    (libPropsTheory.lookup_notin
+    (alistTheory.ALOOKUP_NONE
      |> SPEC_ALL |> EQ_IMP_RULE |> fst
      |> CONTRAPOS
      |> SIMP_RULE std_ss []
@@ -2082,7 +2083,7 @@ val global_env_inv_inclusion = store_thm("global_env_inv_inclusion",
     res_tac >> fs[FLOOKUP_DEF] >> NO_TAC) >>
   last_x_assum mp_tac >>
   simp[Once v_to_i1_cases] >> strip_tac >>
-  (libPropsTheory.lookup_notin
+  (alistTheory.ALOOKUP_NONE
    |> SPEC_ALL |> EQ_IMP_RULE |> fst
    |> CONTRAPOS
    |> SIMP_RULE std_ss []
@@ -2134,10 +2135,10 @@ val global_env_inv_closed = store_thm("global_env_inv_closed",
     EVERY closed (MAP SND env) ∧
     EVERY closed (MAP SND (FLAT (MAP SND menv))) ∧
     (∀n. n < LENGTH genv ∧ IS_SOME (EL n genv) ⇒
-         (∃x. x ∉ s ∧ IS_SOME (lookup x env) ∧ FLOOKUP tops x = SOME n) ∨
+         (∃x. x ∉ s ∧ IS_SOME (ALOOKUP env x) ∧ FLOOKUP tops x = SOME n) ∨
          (∃mn ee e x.
-           lookup mn menv = SOME ee ∧
-           IS_SOME (lookup x ee) ∧
+           ALOOKUP menv mn = SOME ee ∧
+           IS_SOME (ALOOKUP ee x) ∧
            FLOOKUP mods mn = SOME e ∧
            FLOOKUP e x = SOME n))
     ⇒
@@ -2153,14 +2154,13 @@ val global_env_inv_closed = store_thm("global_env_inv_closed",
     simp[Once v_to_i1_cases] >> rw[] >>
     res_tac >> fs[] >> rw[] >> fs[] >>
     fs[EVERY_MEM,PULL_EXISTS] >>
-    metis_tac[v_to_i1_closed,libPropsTheory.lookup_in] ) >>
+    metis_tac[v_to_i1_closed,alistTheory.ALOOKUP_MEM, MEM_MAP, FST, SND] ) >>
   first_x_assum(qspec_then`mn`mp_tac) >> simp[] >>
   simp[Once v_to_i1_cases] >>
   disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
   simp[] >>
-  imp_res_tac libPropsTheory.lookup_in >>
-  imp_res_tac libPropsTheory.lookup_in2 >>
+  imp_res_tac alistTheory.ALOOKUP_MEM >>
   fs[EVERY_MEM,MAP_FLAT,MEM_MAP,PULL_EXISTS,MEM_FLAT] >>
-  metis_tac[v_to_i1_closed])
+  metis_tac [pair_CASES, SND, v_to_i1_closed])
 
 val _ = export_theory()

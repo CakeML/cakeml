@@ -10,9 +10,9 @@ val _ = new_theory "repl_fun";
 val _ = type_abbrev ("inferencer_state",
   ``:(modN list # conN id list # varN id list) #
      tenvT #
-     (modN, (varN, num # infer_t) env) env #
+     (modN |-> (varN, num # infer_t) alist) #
      tenvC #
-     (varN, num # infer_t) env``);
+     (varN, num # infer_t) alist``);
 
 val infertype_top_def = Define `
 infertype_top ((decls, type_name_env, module_type_env, constructor_type_env, type_env) :inferencer_state) ast_top =
@@ -20,9 +20,9 @@ infertype_top ((decls, type_name_env, module_type_env, constructor_type_env, typ
      | Failure _ => Failure "<type error>"
      | Success (new_decls, new_type_name_env, new_module_type_env, new_constructor_type_env, new_type_env) =>
         Success ((append_decls new_decls decls,
-                  merge_tenvT new_type_name_env type_name_env,
-                  new_module_type_env ++ module_type_env,
-                  merge_tenvC new_constructor_type_env constructor_type_env,
+                  merge_mod_env new_type_name_env type_name_env,
+                  FUNION new_module_type_env module_type_env,
+                  merge_alist_mod_env new_constructor_type_env constructor_type_env,
                   new_type_env ++ type_env),
                  new_type_env)`;
 

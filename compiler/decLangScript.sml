@@ -109,7 +109,7 @@ val _ = Define `
   )))`;
 
 
-val _ = type_abbrev( "all_env_i3" , ``: exh_ctors_env # (varN, v_i2) env``);
+val _ = type_abbrev( "all_env_i3" , ``: exh_ctors_env # (varN, v_i2) alist``);
 
 val _ = Hol_reln ` (! ck env l s.
 T
@@ -154,12 +154,12 @@ evaluate_i3 ck env s (Con_i2 tag es) (s', Rval (Conv_i2 tag vs)))
 evaluate_i3 ck env s (Con_i2 tag es) (s', Rerr err))
 
 /\ (! ck exh env n v s.
-(lookup n env = SOME v)
+(ALOOKUP env n = SOME v)
 ==>
 evaluate_i3 ck (exh,env) s (Var_local_i2 n) (s, Rval v))
 
 /\ (! ck exh env n s.
-(lookup n env = NONE)
+(ALOOKUP env n = NONE)
 ==>
 evaluate_i3 ck (exh,env) s (Var_local_i2 n) (s, Rerr Rtype_error))
 

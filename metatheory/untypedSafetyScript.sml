@@ -83,7 +83,7 @@ val untyped_safety_dec = Q.store_thm ("untyped_safety_dec",
      >- (qexists_tac `(((count',s'),tdecls),Rerr err)` >>
          rw [] >>
          metis_tac [small_big_exp_equiv])
-     >- (cases_on `pmatch (all_env_to_cenv env) s' p v emp` >>
+     >- (cases_on `pmatch (all_env_to_cenv env) s' p v []` >>
          fs []
          >- (MAP_EVERY qexists_tac [`(((count',s'),tdecls), Rerr (Rraise (Conv (SOME ("Bind", TypeExn (Short "Bind"))) [])))`] >>
              rw [] >>
@@ -91,7 +91,7 @@ val untyped_safety_dec = Q.store_thm ("untyped_safety_dec",
          >- (MAP_EVERY qexists_tac [`(((count',s'),tdecls), Rerr Rtype_error)`] >>
              rw [] >>
              metis_tac [small_big_exp_equiv, big_unclocked])
-         >- (fs [merge_def, emp_def] >-
+         >- (fs [] >-
              metis_tac [small_big_exp_equiv, big_unclocked])))
  >- metis_tac []
  >- metis_tac []

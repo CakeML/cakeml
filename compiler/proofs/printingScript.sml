@@ -407,8 +407,8 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
       ⇒
       let str =
         case d of
-        | Dtype ts => print_envC ([],build_tdefs NONE ts)
-        | Dexn cn ts => print_envC ([],[(cn, (LENGTH ts, TypeExn))])
+        | Dtype ts => ""
+        | Dexn cn ts => ""
         | d => print_bv_list tvs bvs in
       let bs' = bs with
         <|pc := next_addr bs.inst_length (bc0++code)
@@ -428,11 +428,16 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
     simp[] >>
     simp[compile_print_dec_def] >>
     ntac 2 gen_tac >>
+    qexists_tac `[]` >>
+    rw [] >>
+    match_mp_tac (PROVE [RTC_REFL] ``x = y ⇒ bc_next^* x y``) >>
+    rw [bc_state_component_equality])
+    (* Proof from when constructor definitions were to be printed 
     Induct_on`REVERSE l` >- (
       simp[compile_print_types_def,Once SWAP_REVERSE] >>
       simp[Once SWAP_REVERSE] >>
-      simp[print_envC_def,semanticPrimitivesTheory.build_tdefs_def,LENGTH_NIL] >>
-      rw[] >> simp[Once RTC_CASES1] >> simp[bc_state_component_equality] ) >>
+      simp[semanticPrimitivesTheory.build_tdefs_def,LENGTH_NIL] >>
+      rw[] >> simp[Once RTC_CASES1] >> simp[bc_state_component_equality, FDOM_FUPDATE_LIST] ) >>
     qx_gen_tac`x` >> PairCases_on`x` >>
     gen_tac >> (disch_then (assume_tac o SYM)) >>
     simp[compile_print_types_def] >>
@@ -471,11 +476,13 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
     `bs2' = bs2` by (
       simp[Abbr`bs2`,Abbr`bs2'`] >>
       simp[bc_state_component_equality] >>
-      simp[semanticPrimitivesTheory.build_tdefs_def,print_envC_def] >>
+      simp[semanticPrimitivesTheory.build_tdefs_def] >>
       simp[MAP_REVERSE,MAP_MAP_o,combinTheory.o_DEF] >>
       simp[UNCURRY,astTheory.mk_id_def] >>
       simp[LAMBDA_PROD] ) >>
+    simp [FDOM_FUPDATE_LIST] >>
     metis_tac[RTC_TRANSITIVE,transitive_def])
+    *)
   >- (
     simp[compile_print_dec_def] >>
     rw[] >>
@@ -486,9 +493,15 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
     simp[compile_print_dec_def] >>
     simp[compile_print_types_def] >>
     rw[] >>
+    qexists_tac `[]` >>
+    rw [] >>
+    match_mp_tac (PROVE [RTC_REFL] ``x = y ⇒ bc_next^* x y``) >>
+    rw [bc_state_component_equality]));
+    (*
     qspecl_then[`[s,l]`,`cs`]mp_tac (INST_TYPE[alpha|->``:t list``]compile_print_ctors_thm) >>
     simp[] >> rw[] >> simp[] >>
-    simp[print_envC_def]))
+    simp[]))
+    *)
 
 val compile_print_err_thm = store_thm("compile_print_err_thm",
   ``∀cs. let cs' = compile_print_err cs in
@@ -671,8 +684,8 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
           | SOME types => (case t of
             | Tmod mn _ _ => "structure "++mn++" = <structure>\n"
             | Tdec d => (case d of
-              | Dtype ts => print_envC ([],build_tdefs NONE ts)
-              | Dexn cn ts => print_envC ([],[(cn, (LENGTH ts, TypeExn))])
+              | Dtype ts => ""
+              | Dexn cn ts => ""
               | d => print_bv_list types bvs))) in
          let bs' = bs with <| pc := pc
                             ; stack := st0
