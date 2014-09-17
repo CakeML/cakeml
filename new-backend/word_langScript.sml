@@ -415,21 +415,22 @@ val word_assign_def = Define `
      | NONE => NONE
      | SOME w => SOME (set_var reg (Word w) s)`;
 
+
 val wInst_def = Define `
   wInst i s =
     case i of
-    | Skip => NONE
+    | Skip => SOME s
     | Const reg w => word_assign reg (Const w) s
     | Arith (Binop bop r1 r2 ri) =>
         word_assign r1
-          (Op bop [Var r2; case ri of Reg r3 => Var r2
+          (Op bop [Var r2; case ri of Reg r3 => Var r3
                                     | Imm w => Const w]) s
     | Arith (Shift shift r1 r2 n) =>
         word_assign r1
           (Shift shift (Var r2) (Nat n)) s
     | Mem Load r (Addr a w) =>
         word_assign r (Load (Op Add [Var a; Const w])) s
-    | Mem Store r (Addr q w) =>
+    | Mem Store r (Addr a w) =>
        (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
         | (SOME a, SOME w) =>
             (case mem_store a w s of
