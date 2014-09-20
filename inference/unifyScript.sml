@@ -250,18 +250,6 @@ val encode_pair_cases = prove(
   Cases >> rw[encode_infer_t_def] >>
   PROVE_TAC[])
 
-(* TODO: move to examples/unification *)
-val unify_same_lemma = prove(
-  ``∀s t1 t2. wfs s ∧ (t1 = t2) ⇒ (unify s t1 t2 = SOME s)``,
-  ho_match_mp_tac unify_ind >> rw[] >>
-  pop_assum mp_tac >>
-  simp_tac std_ss [Once unify_def] >>
-  Cases_on `walk s t1` >> rw[])
-val unify_same = store_thm("unify_same",
- ``∀s. wfs s ⇒ ∀t. unify s t t = SOME s``,
- PROVE_TAC[unify_same_lemma])
-val _ = export_rewrites["unify_same"]
-
 val encode_unify_lemma = Q.prove (
 `!s t1 t2 s' t1' t2'.
   (s = (encode_infer_t o_f s')) ∧
