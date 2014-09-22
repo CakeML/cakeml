@@ -142,8 +142,8 @@ val _ = Parse.overload_on("is_interpretation",``is_interpretation0 ^mem``)
 
 val is_std_type_assignment_def = xDefine "is_std_type_assignment"`
   is_std_type_assignment0 ^mem (δ:'U tyass) ⇔
-    (δ "fun" = λls. case ls of [dom;rng] => Funspace dom rng | _ => ∅) ∧
-    (δ "bool" = λls. case ls of [] => boolset | _ => ∅)`
+    (δ "fun" = λls. case ls of [dom;rng] => Funspace dom rng) ∧
+    (δ "bool" = λls. case ls of [] => boolset)`
 val _ = Parse.overload_on("is_std_type_assignment",``is_std_type_assignment0 ^mem``)
 
 local
