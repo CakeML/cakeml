@@ -42,7 +42,9 @@ tenv_inv s env tenv =
     lookup_tenv x 0 tenv = SOME (tvs, t)
     ⇒
     check_freevars tvs [] t ∧
-    ?t'. unconvert_t t = t_walkstar s t' ∧ ALOOKUP env x = SOME (tvs,t'))`;
+    ?t'. unconvert_t t = t_walkstar s t' ∧ 
+         (tvs > 0 ⇒ t_walkstar s t' = t') ∧ 
+	 ALOOKUP env x = SOME (tvs,t'))`;
 
 
 val t_walk_vwalk_id = prove
@@ -227,10 +229,10 @@ val new_uvars_sub_completion_exists = Q.prove (
 (*Ignore increment on deBrujin vars*)
 val t_walkstar_ignore_inc = prove(
 ``t_wfs s ⇒ 
-(!t.(!uv. uv ∈ FDOM s ⇒ check_t 0 {} (t_walkstar s (Infer_Tuvar uv)))
+(!t.(!uv. uv ∈ FDOM s ⇒ check_t k {} (t_walkstar s (Infer_Tuvar uv)))
 ⇒
 t_walkstar (infer_deBruijn_inc tvs o_f s) t = t_walkstar s t) ∧
-(!ts. (!t.(!uv. uv ∈ FDOM s ⇒ check_t 0 {} (t_walkstar s (Infer_Tuvar uv)))
+(!ts. (!t.(!uv. uv ∈ FDOM s ⇒ check_t k {} (t_walkstar s (Infer_Tuvar uv)))
 ⇒
 EVERY (\t. t_walkstar (infer_deBruijn_inc tvs o_f s) t = t_walkstar s t) ts))``, 
   strip_tac>>
@@ -255,6 +257,50 @@ EVERY (\t. t_walkstar (infer_deBruijn_inc tvs o_f s) t = t_walkstar s t) ts))``,
   `FLOOKUP s n = NONE` by fs[flookup_thm]>>
   fs[infer_deBruijn_inc_def])
 
+
+val debruijn_subst_infer_deBruijn_inc_ignore = prove(
+``
+t_wfs s ∧ 
+(!uv. uv ∈ FDOM s ⇒ check_t n {} (t_walkstar s (Infer_Tuvar uv)))
+⇒
+(!t' t.
+convert_t (t_walkstar s t') = t 
+⇒ 
+deBruijn_subst 0 ls t = 
+deBruijn_subst 0 ls (convert_t (t_walkstar (infer_deBruijn_inc (LENGTH ls) o_f s) t'))) ∧ 
+(!ts' ts. 
+ts = MAP (convert_t o (t_walkstar s)) ts'
+⇒
+MAP (deBruijn_subst 0 ls) ts =
+MAP (deBruijn_subst 0 ls) 
+    (MAP (convert_t o (t_walkstar(infer_deBruijn_inc (LENGTH ls) o_f s))) ts'))``
+
+strip_tac>>
+ho_match_mp_tac infer_tTheory.infer_t_induction>>
+imp_res_tac inc_wfs>>
+rpt strip_tac>>fs[]
+>-
+  fs[t_walkstar_eqn1,convert_t_def,EQ_SYM_EQ]
+>-
+  (pop_assum mp_tac>>
+  fs[t_walkstar_eqn1,convert_t_def,EQ_SYM_EQ,MAP_EQ_ID]>>
+  fs[deBruijn_subst_def,MAP_MAP_o,MAP_EQ_f]>>
+  rw[] 
+  )
+>>
+  fs[walkstar_inc2,convert_inc]>>
+  Cases_on`n' ∈ FDOM s`>> (*dont need cases*)
+  >-
+    res_tac>>
+    imp_res_tac convert_inc>>
+    pop_assum (qspec_then `LENGTH ls` SUBST1_TAC)>>
+    qpat_abbrev_tac `t' = convert_t A`>>
+    assume_tac (fst (CONJ_PAIR subst_inc_cancel))>>
+    pop_assum(qspecl_then [`t`,`ls`,`0`] assume_tac)>>
+    fs[]
+    
+    de
+    pop_assum(qspecl_then [`t`,`
 (*Adding a list of keys that did not already exist is safe*)
 val SUBMAP_FUPDATE_LIST_NON_EXIST = prove(
 ``set (MAP FST ls) ∩ (FDOM s) = {} 
@@ -276,6 +322,36 @@ val SUBMAP_FUPDATE_LIST_NON_EXIST = prove(
       fs[FDOM_FUPDATE_LIST])>>
   metis_tac[SUBMAP_TRANS])
 
+val t_vwalk_o_f_id = prove(
+``t_wfs s ⇒
+  !t. t_vwalk (infer_deBruijn_inc 0 o_f s) t = t_vwalk s t``,
+  strip_tac>>
+  ho_match_mp_tac (Q.INST[`s`|->`s`]t_vwalk_ind)>> 
+  rw[]>>
+  fs[Once t_vwalk_eqn]>>
+  imp_res_tac inc_wfs>>
+  simp[Once t_vwalk_eqn]>>
+  fs[FLOOKUP_o_f]>>
+  BasicProvers.EVERY_CASE_TAC>>
+  fs[FLOOKUP_o_f,infer_deBruijn_inc0]>>
+  metis_tac[])
+
+val t_walkstar_o_f_id = prove(
+``t_wfs s ⇒ 
+  !t. t_walkstar ((infer_deBruijn_inc 0) o_f s) t  = t_walkstar s t``,
+  rw[]>>
+  imp_res_tac t_walkstar_ind>>
+  Q.SPEC_TAC (`t`, `t`) >>
+  pop_assum ho_match_mp_tac >>
+  Cases>>
+  rw[]>>
+  imp_res_tac inc_wfs>>
+  fs[t_walkstar_eqn,t_walk_eqn]>>
+  imp_res_tac t_vwalk_o_f_id>>fs[]
+  >>
+  BasicProvers.EVERY_CASE_TAC>>
+  fs[MAP_EQ_f]>>rw[]>>res_tac>>
+  fs[t_walkstar_eqn])
 
 val infer_e_complete = Q.prove (
 
@@ -285,15 +361,15 @@ val infer_e_complete = Q.prove (
    !s menv tenv st constraints.
      tenvM = convert_menv menv ∧
      t_wfs st.subst ∧
-     sub_completion 0 st.next_uvar st.subst constraints s ∧
-     (*I think these conditions are reasonable... the second one might not*)
+     sub_completion (num_tvs tenvE) st.next_uvar st.subst constraints s ∧
+     (*I think these conditions are reasonable... the second one maybe not*)
      FDOM st.subst ⊆ count st.next_uvar ∧ 
      FDOM s = count st.next_uvar ∧
      tenv_inv s tenv tenvE
      ⇒
      ?t' st' s' constraints'.
        infer_e menv tenvC tenv e st = (Success t', st') ∧
-       sub_completion 0 st'.next_uvar st'.subst constraints' s' ∧
+       sub_completion (num_tvs tenvE) st'.next_uvar st'.subst constraints' s' ∧
        FDOM st'.subst ⊆  count st'.next_uvar ∧ 
        FDOM s' = count st'.next_uvar ∧ 
        t = convert_t (t_walkstar s' t')) ∧
@@ -458,18 +534,27 @@ val infer_e_complete = Q.prove (
 	   fs[Once t_vwalk_eqn]>>
 	   BasicProvers.FULL_CASE_TAC>-
 	     fs[flookup_thm]>>
-	   fs[Abbr`s'`,flookup_fupdate_list]>>
-	   pop_assum mp_tac>>
-	   BasicProvers.FULL_CASE_TAC>>
-	   imp_res_tac ALOOKUP_MEM>>
-	   fs[MEM_REVERSE]>>
-	   fs[LENGTH_COUNT_LIST,MEM_ZIP,EL_MAP]>>
-	   fs[EVERY_MEM,MEM_EL]>>res_tac>>
-	   strip_tac>>
-	   `convert_t x = EL n targs` by
-	     metis_tac[check_freevars_empty_convert_unconvert_id] >>
-           (*Problem here!*)cheat
-	 ))>>
+	   `t_walkstar s' x = x ∧ check_t (num_tvs tenvE) {} x` by 
+	     (
+	     CONJ_ASM2_TAC
+	     >-
+	       metis_tac[t_walkstar_no_vars]
+	     >>
+	     fs[Abbr`s'`,flookup_fupdate_list]>>
+	     pop_assum mp_tac>>
+	     BasicProvers.FULL_CASE_TAC>>
+	     imp_res_tac ALOOKUP_MEM>>
+	     fs[MEM_REVERSE]>>
+	     fs[LENGTH_COUNT_LIST,MEM_ZIP,EL_MAP]>>
+	     fs[EVERY_MEM,MEM_EL]>>res_tac>>
+	     strip_tac>>
+	     metis_tac[check_freevars_empty_convert_unconvert_id
+	              ,check_freevars_to_check_t])>>
+	  Cases_on`x`>> fs[check_t_def]>>
+	  fs[EVERY_MEM,MEM_MAP]>>rw[]>>
+	  first_x_assum (qspec_then `y` mp_tac)>>
+	  metis_tac[t_walkstar_no_vars])
+	 )>>
 	 rw[]>-
 	 (fs[SUBSET_DEF,count_def]>>rw[]>>res_tac>>DECIDE_TAC)>-
 	 (unabbrev_all_tac>>
@@ -489,26 +574,68 @@ val infer_e_complete = Q.prove (
 	   fs[MEM_COUNT_LIST]>>
 	   DECIDE_TAC)>>
 	(*deBruijn_subst*)
-         imp_res_tac check_freevars_to_check_t>>
-	 fs[]>>
-	 `check_t (LENGTH targs) (FDOM s') t'` by 
-	   (imp_res_tac check_t_t_walkstar>>
+	 assume_tac (db_subst_infer_subst_swap|>CONJ_PAIR|>fst)>>
+	 pop_assum (qspecl_then [`t'`,`s'`,`LENGTH targs`
+	                        ,`st.next_uvar`,`num_tvs tenvE`] assume_tac)>>
+	 `check_t (LENGTH targs) (FDOM s') t'` by
+	  (imp_res_tac check_t_t_walkstar>>
 	   `FDOM s ⊆ FDOM s'` by 
 	     fs[Abbr`s'`,FDOM_FUPDATE_LIST]>> 
-	   imp_res_tac check_t_more5)>>
-	 assume_tac (db_subst_infer_subst_swap|>CONJ_PAIR|>fst)>>
-	 pop_assum (qspecl_then [`t'`,`s'`,`LENGTH targs`,`st.next_uvar`,`0`] assume_tac)>>
-	 rfs[]>>
+	   imp_res_tac check_t_more5)>> 
+	 rfs[check_t_more]>>
 	 fs[MAP_MAP_o]>>
          `(MAP (convert_t o t_walkstar s' o (λn. Infer_Tuvar (st.next_uvar + n)))
-               (COUNT_LIST (LENGTH targs))) = targs` by cheat>>
-	 fs[t_walkstar_ignore_inc]>>
-	 AP_TERM_TAC>>
-	 `t_walkstar s' t' = t_walkstar s t'` by 
-	   (imp_res_tac t_walkstar_SUBMAP>>
-	   first_x_assum (qspec_then `t'` assume_tac)>>
-	   imp_res_tac t_walkstar_no_vars)>>
-	 metis_tac[check_freevars_empty_convert_unconvert_id])
+               (COUNT_LIST (LENGTH targs))) = targs` by
+	 (
+	 match_mp_tac LIST_EQ>>
+	 fs[LENGTH_COUNT_LIST]>>rw[]>>
+	 fs[EL_MAP,LENGTH_COUNT_LIST,EL_COUNT_LIST]>>
+	 qpat_abbrev_tac `tar = EL x targs`>>
+	 fs[t_walkstar_eqn,t_walk_eqn,Once t_vwalk_eqn]>>
+	 `FLOOKUP s' (st.next_uvar +x) = SOME (unconvert_t tar)` by
+	 (
+	   fs[Abbr`s'`,flookup_update_list_some]>>DISJ1_TAC>>
+           qmatch_abbrev_tac `ALOOKUP (REVERSE L) k = SOME Y`>>
+	   Q.ISPECL_THEN [`L`,`k`] mp_tac alookup_distinct_reverse>>
+	   `ALL_DISTINCT (MAP FST L)` by
+	   (rw[Abbr`L`,MAP_ZIP,LENGTH_COUNT_LIST]>>
+	    match_mp_tac ALL_DISTINCT_MAP_INJ>>
+	    fs[all_distinct_count_list])>>
+	    rw[]>>
+	    unabbrev_all_tac>>
+	    match_mp_tac ALOOKUP_ALL_DISTINCT_MEM>>fs[]>>
+	    fs[MEM_ZIP,LENGTH_COUNT_LIST]>>HINT_EXISTS_TAC>>
+	    fs[EL_MAP,LENGTH_COUNT_LIST,EL_COUNT_LIST])>>
+	  fs[]>>
+	  fs[EVERY_EL]>>last_x_assum(qspec_then `x` assume_tac)>>
+	  rfs[]>>
+	  imp_res_tac check_freevars_to_check_t>>
+	  imp_res_tac check_freevars_empty_convert_unconvert_id>>
+	  Cases_on`unconvert_t tar`
+	  >-
+	    (fs[]>>metis_tac[])
+	  >-
+	    (fs[check_t_def]>>
+	    `MAP (t_walkstar s') l = l` by
+	      (fs[MAP_EQ_ID,EVERY_MEM]>>rw[]>>
+	      metis_tac[t_walkstar_no_vars])>>fs[])
+	  >>
+	    fs[check_t_def])>>
+	 fs[]>>
+	 Cases_on`LENGTH targs >0`
+	 >-
+	   (fs[]>>
+	   imp_res_tac inc_wfs>>
+	   AP_TERM_TAC>>
+	   metis_tac[t_walkstar_no_vars,check_freevars_empty_convert_unconvert_id])
+	 >>
+	   `LENGTH targs = 0` by DECIDE_TAC>>
+	   fs[t_walkstar_o_f_id]>>
+	   `t_walkstar s' t' = t_walkstar s t'` by
+	     (imp_res_tac t_walkstar_SUBMAP>>
+	     first_x_assum(qspec_then `t'` mp_tac)>>
+	     rw[]>>metis_tac[t_walkstar_no_vars])>>
+	   metis_tac[check_freevars_empty_convert_unconvert_id])
     >-
     (*Long*)
     cheat)
