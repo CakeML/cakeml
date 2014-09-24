@@ -76,7 +76,7 @@ val select_has_model_gen = store_thm("select_has_model_gen",
                  (λp. Abstract boolset boolset
                      (λq. Boolean ((p = True) ⇒ (q = True)))))) ∧
         good_select select
-      ⇒ ∃i'. subinterpretation ctxt i i' ∧
+      ⇒ ∃i'. equal_on ctxt i i' ∧
              i' models (thyof (mk_select_ctxt ctxt)) ∧
              (tmaof i' "@" =
                 (λls. Abstract (Funspace (HD ls) boolset) (HD ls)
@@ -87,7 +87,7 @@ val select_has_model_gen = store_thm("select_has_model_gen",
   imp_res_tac is_std_interpretation_is_type >>
   imp_res_tac typesem_Fun >>
   conj_tac >- (
-    simp[subinterpretation_def,combinTheory.APPLY_UPDATE_THM,term_ok_def] >>
+    simp[equal_on_def,combinTheory.APPLY_UPDATE_THM,term_ok_def] >>
     rw[] >> imp_res_tac ALOOKUP_MEM >> fs[MEM_MAP,EXISTS_PROD] >> metis_tac[] ) >>
   conj_asm1_tac >- (
     conj_asm1_tac >- (
@@ -217,7 +217,7 @@ val select_has_model = store_thm("select_has_model",
           (K (Abstract boolset (Funspace boolset boolset)
                  (λp. Abstract boolset boolset
                      (λq. Boolean ((p = True) ⇒ (q = True))))))
-      ⇒ ∃i'. subinterpretation ctxt i i' ∧
+      ⇒ ∃i'. equal_on ctxt i i' ∧
              i' models (thyof (mk_select_ctxt ctxt))``,
   rw[] >>
   qspec_then`ctxt`mp_tac(UNDISCH select_has_model_gen) >>
@@ -299,7 +299,7 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
           tmaof i interprets "~" on [] as
             K (Abstract boolset boolset (λp. Boolean (p ≠ True))) ∧
           is_infinite ^mem inf
-      ⇒ ∃i'. subinterpretation ctxt i i' ∧
+      ⇒ ∃i'. equal_on ctxt i i' ∧
              i' models (thyof (mk_infinity_ctxt ctxt)) ∧
              (tyaof i' "ind" [] = inf)``,
   rw[models_def] >>
@@ -333,9 +333,9 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
     first_x_assum(qspec_then`{}`mp_tac) >>
     simp[] ) >>
   conj_tac >- (
-    match_mp_tac subinterpretation_trans >>
+    match_mp_tac equal_on_trans >>
     qexists_tac`i1` >> simp[] >>
-    simp[subinterpretation_def,type_ok_def,combinTheory.APPLY_UPDATE_THM] >>
+    simp[equal_on_def,type_ok_def,combinTheory.APPLY_UPDATE_THM] >>
     rw[] >> imp_res_tac ALOOKUP_MEM >>
     fs[MEM_MAP,EXISTS_PROD] >>
     metis_tac[]) >>
@@ -405,7 +405,7 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
     `(∀x y. tyaof int "fun" [x;y] = Funspace x y) ∧
      (tyaof int "ind" [] = inf)` by (
       simp[Abbr`int`,combinTheory.APPLY_UPDATE_THM] >>
-      fs[subinterpretation_def] >> qx_genl_tac[`a`,`b`] >>
+      fs[equal_on_def] >> qx_genl_tac[`a`,`b`] >>
       last_x_assum (qspec_then`"fun"`mp_tac) >>
       simp[type_ok_def] >>
       imp_res_tac theory_ok_sig >>
@@ -419,7 +419,7 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
      (tmaof int "==>" = tmaof i "==>") ∧
      (tmaof int "~" = tmaof i "~")` by (
       simp[Abbr`int`] >>
-      fs[subinterpretation_def] >>
+      fs[equal_on_def] >>
       rpt conj_tac >>
       first_x_assum match_mp_tac >>
       simp[term_ok_def,type_ok_def] >>
@@ -703,7 +703,7 @@ val infinity_has_model = store_thm("infinity_has_model",
                    (λP. Boolean (∃x. x <: (HD l) ∧ Holds P x))) ∧
           tmaof i interprets "~" on [] as
             K (Abstract boolset boolset (λp. Boolean (p ≠ True)))
-      ⇒ ∃i'. subinterpretation ctxt i i' ∧
+      ⇒ ∃i'. equal_on ctxt i i' ∧
              i' models (thyof (mk_infinity_ctxt ctxt))``,
   metis_tac[infinity_has_model_gen])
 

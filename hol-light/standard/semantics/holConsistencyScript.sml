@@ -184,7 +184,7 @@ val hol_has_model = store_thm("hol_has_model",
   discharge_hyps >- (
     simp[] >>
     rpt conj_tac >>
-    match_mp_tac subinterpretation_interprets >>
+    match_mp_tac equal_on_interprets >>
     map_every qexists_tac[`mk_eta_ctxt (mk_bool_ctxt init_ctxt)`,`i2`] >>
     fs[is_bool_interpretation_def] >>
     EVAL_TAC >> simp[] >> EVAL_TAC >> simp[SUBSET_DEF] ) >>

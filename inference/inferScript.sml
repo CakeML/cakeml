@@ -297,7 +297,7 @@ constrain_op op ts =
           return (Infer_Tapp [] TC_word8)
         od
     | (Aw8length, [t]) =>
-       do () <- add_constraint t1 (Infer_Tapp [] TC_word8array);
+       do () <- add_constraint t (Infer_Tapp [] TC_word8array);
           return (Infer_Tapp [] TC_int)
         od
     | (Aw8update, [t1;t2;t3]) =>

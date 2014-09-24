@@ -457,11 +457,11 @@ val alt_small_eval_def = Define `
 (alt_small_eval env s1 e c (s2, Rerr (Rraise err_v)) ⇔
     ∃env' env''.
       e_step_reln^* (env,s1,e,c) (env',s2,Val err_v,[(Craise (), env'')])) ∧
-(alt_small_eval env s e c (s2, Rerr Rtype_error) ⇔
+(alt_small_eval env s1 e c (s2, Rerr Rtype_error) ⇔
     ∃env' e' c'.
       e_step_reln^* (env,s1,e,c) (env',s2,e',c') ∧
       (e_step (env',s2,e',c') = Etype_error)) ∧
-(alt_small_eval env s e c (s2, Rerr Rtimeout) = F)`;
+(alt_small_eval env s1 e c (s2, Rerr Rtimeout) = F)`;
 
 val small_eval_match_thm = Q.prove (
 `!env s v pes err_v r. 
