@@ -5,17 +5,17 @@ val _ = new_theory"holExtension"
 
 val mem = ``mem:'U->'U->bool``
 
-val subinterpretation_def = Define`
-  subinterpretation ctxt i i' ⇔
+val equal_on_def = Define`
+  equal_on ctxt i i' ⇔
   (∀name args. type_ok (tysof ctxt) (Tyapp name args) ⇒ tyaof i' name = tyaof i name) ∧
   (∀name ty. term_ok (sigof ctxt) (Const name ty) ⇒ tmaof i' name = tmaof i name)`
 
-val subinterpretation_reduce = store_thm("subinterpretation_reduce",
-  ``∀ls ctxt i i'. subinterpretation (ls++ctxt) i i' ∧
+val equal_on_reduce = store_thm("equal_on_reduce",
+  ``∀ls ctxt i i'. equal_on (ls++ctxt) i i' ∧
                  DISJOINT (FDOM (tysof ls)) (FDOM (tysof ctxt)) ∧
                  DISJOINT (FDOM (tmsof ls)) (FDOM (tmsof ctxt))
-    ⇒ subinterpretation ctxt i i'``,
-  rw[subinterpretation_def] >>
+    ⇒ equal_on ctxt i i'``,
+  rw[equal_on_def] >>
   first_x_assum match_mp_tac >|
   [qexists_tac`args`>>
    match_mp_tac type_ok_extend >>
@@ -30,24 +30,24 @@ val subinterpretation_reduce = store_thm("subinterpretation_reduce",
   fs[IN_DISJOINT] >>
   metis_tac[])
 
-val subinterpretation_trans = store_thm("subinterpretation_trans",
-  ``∀ctxt i1 i2 i3. subinterpretation ctxt i1 i2 ∧ subinterpretation ctxt i2 i3
-    ⇒ subinterpretation ctxt i1 i3``,
-  rw[subinterpretation_def] >> metis_tac[])
+val equal_on_trans = store_thm("equal_on_trans",
+  ``∀ctxt i1 i2 i3. equal_on ctxt i1 i2 ∧ equal_on ctxt i2 i3
+    ⇒ equal_on ctxt i1 i3``,
+  rw[equal_on_def] >> metis_tac[])
 
-val subinterpretation_refl = store_thm("subinterpretation_refl",
-  ``∀ctxt i. subinterpretation ctxt i i``,
-  rw[subinterpretation_def])
+val equal_on_refl = store_thm("equal_on_refl",
+  ``∀ctxt i. equal_on ctxt i i``,
+  rw[equal_on_def])
 
-val subinterpretation_interprets = store_thm("subinterpretation_interprets",
+val equal_on_interprets = store_thm("equal_on_interprets",
   ``∀ctxt i1 i2 name args ty m.
-      subinterpretation ctxt i1 i2 ∧
+      equal_on ctxt i1 i2 ∧
       tmaof i1 interprets name on args as m ∧
       (FLOOKUP (tmsof ctxt) name = SOME ty) ∧
       type_ok (tysof ctxt) ty ∧
       (set (tyvars ty) = set args) ⇒
       tmaof i2 interprets name on args as m``,
-  rw[subinterpretation_def,interprets_def] >>
+  rw[equal_on_def,interprets_def] >>
   qsuff_tac`tmaof i2 name = tmaof i1 name` >- metis_tac[] >>
   first_x_assum match_mp_tac >>
   rw[term_ok_def] >>
@@ -56,7 +56,7 @@ val subinterpretation_interprets = store_thm("subinterpretation_interprets",
 val consistent_update_def = xDefine"consistent_update"`
   consistent_update0 ^mem ctxt upd ⇔
     ∀i. i models (thyof ctxt) ⇒
-      ∃i'. subinterpretation ctxt i i' ∧
+      ∃i'. equal_on ctxt i i' ∧
            i' models (thyof (upd::ctxt))`
 val _ = Parse.overload_on("consistent_update",``consistent_update0 ^mem``)
 
@@ -67,7 +67,7 @@ val new_constant_correct = store_thm("new_constant_correct",
      name ∉ (FDOM (tmsof ctxt)) ∧
      type_ok (tysof ctxt) ty ⇒
      consistent_update ctxt (NewConst name ty)``,
-  rw[] >> REWRITE_TAC[consistent_update_def,subinterpretation_def] >>
+  rw[] >> REWRITE_TAC[consistent_update_def,equal_on_def] >>
   gen_tac >> strip_tac >>
   qexists_tac`(tyaof i,
     (name =+ λl. @v. v <: typesem (tyaof i) ((K boolset) =++ (REVERSE(ZIP(STRING_SORT (tyvars ty),l)))) ty)
@@ -118,7 +118,7 @@ val new_specification_correct = store_thm("new_specification_correct",
      (∀s. MEM s (MAP FST eqs) ⇒ s ∉ (FDOM (tmsof ctxt))) ∧
      ALL_DISTINCT (MAP FST eqs) ⇒
     consistent_update ctxt (ConstSpec eqs prop)``,
-  rw[] >> REWRITE_TAC[consistent_update_def,subinterpretation_def] >>
+  rw[] >> REWRITE_TAC[consistent_update_def,equal_on_def] >>
   gen_tac >> strip_tac >>
   qexists_tac`(tyaof i,
     (tmaof i) =++
@@ -334,7 +334,7 @@ val new_type_correct = store_thm("new_type_correct",
      theory_ok (thyof ctxt) ∧
      name ∉ FDOM (tysof ctxt) ⇒
      consistent_update ctxt (NewType name arity)``,
-  rw[] >> REWRITE_TAC[consistent_update_def,subinterpretation_def] >>
+  rw[] >> REWRITE_TAC[consistent_update_def,equal_on_def] >>
   gen_tac >> strip_tac >>
   qexists_tac`((name =+ (K boolset)) (tyaof i),tmaof i)` >>
   conj_tac >- (
@@ -393,7 +393,7 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
     rep ∉ (FDOM (tmsof ctxt)) ∧
     abs ≠ rep ⇒
     consistent_update ctxt (TypeDefn name pred abs rep)``,
-  rw[consistent_update_def,subinterpretation_def,models_def,LET_THM] >>
+  rw[consistent_update_def,equal_on_def,models_def,LET_THM] >>
   Q.PAT_ABBREV_TAC`tys' = tysof ctxt |+ X` >>
   Q.PAT_ABBREV_TAC`tms' = tmsof ctxt |+ X |+ Y` >>
   imp_res_tac WELLTYPED_LEMMA >>
@@ -811,7 +811,7 @@ val extends_consistent = store_thm("extends_consistent",
       ∀i. theory_ok (thyof ctxt1) ∧ i models (thyof ctxt1) ∧
           (∀p. MEM (NewAxiom p) ctxt2 ⇒ MEM (NewAxiom p) ctxt1)
         ⇒
-        ∃i'. subinterpretation ctxt1 i i' ∧ i' models (thyof ctxt2)``,
+        ∃i'. equal_on ctxt1 i i' ∧ i' models (thyof ctxt2)``,
   rw[] >>
   Q.ISPEC_THEN
     `λctxt. theory_ok (thyof ctxt) ∧
@@ -819,7 +819,7 @@ val extends_consistent = store_thm("extends_consistent",
                  DISJOINT (FDOM (tysof ls)) (FDOM (tysof ctxt1)) ∧
                  DISJOINT (FDOM (tmsof ls)) (FDOM (tmsof ctxt1)) ∧
               ((∀p. MEM (NewAxiom p) ls ⇒ MEM (NewAxiom p) ctxt1) ⇒
-               ∃i'. subinterpretation ctxt1 i i' ∧
+               ∃i'. equal_on ctxt1 i i' ∧
                     i' models (thyof ctxt))`
     mp_tac extends_ind >>
   discharge_hyps >- (
@@ -841,10 +841,10 @@ val extends_consistent = store_thm("extends_consistent",
       disch_then(imp_res_tac o SIMP_RULE std_ss [consistent_update_def]) >>
       qmatch_assum_rename_tac`z models thyof (upd::(ls++ctxt1))`[] >>
       qexists_tac`z` >> simp[] >>
-      match_mp_tac subinterpretation_trans >>
-      qmatch_assum_rename_tac`subinterpretation ctxt1 i m`[] >>
+      match_mp_tac equal_on_trans >>
+      qmatch_assum_rename_tac`equal_on ctxt1 i m`[] >>
       qexists_tac`m` >> simp[] >>
-      match_mp_tac subinterpretation_reduce >>
+      match_mp_tac equal_on_reduce >>
       qexists_tac`ls` >> fs[IN_DISJOINT] ) >>
     qmatch_assum_rename_tac`j models thyof ctxt`[] >>
     qexists_tac`j` >>
@@ -855,7 +855,7 @@ val extends_consistent = store_thm("extends_consistent",
     metis_tac[]) >>
   disch_then(qspecl_then[`ctxt1`,`ctxt2`]mp_tac) >>
   simp[PULL_EXISTS] >>
-  disch_then(qspec_then`i`mp_tac) >> simp[subinterpretation_refl] >>
+  disch_then(qspec_then`i`mp_tac) >> simp[equal_on_refl] >>
   strip_tac >>
   first_x_assum match_mp_tac >>
   fs[EVERY_MEM])
