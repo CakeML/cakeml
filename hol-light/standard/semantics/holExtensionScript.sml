@@ -385,7 +385,7 @@ val new_type_correct = store_thm("new_type_correct",
 val eqsh_def = new_definition("eqsh",``eqsh = $=``)
 val new_type_definition_correct = store_thm("new_type_definition_correct",
   ``is_set_theory ^mem ⇒
-    ∀ctxt h c name pred abs rep rep_type witness.
+    ∀ctxt name pred abs rep witness.
     (thyof ctxt,[]) |- Comb pred witness ∧
     CLOSED pred ∧
     name ∉ (FDOM (tysof ctxt)) ∧
