@@ -1,4 +1,6 @@
-open HolKernel Parse boolLib bossLib; val _ = new_theory "bvi";
+open HolKernel Parse boolLib bossLib; 
+
+val _ = new_theory "bvi";
 
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
@@ -157,7 +159,7 @@ val iEval_def = tDefine "iEval" `
   (iEval ([Tick x],env,s) =
      if s.clock = 0 then (TimeOut,s) else iEval ([x],env,dec_clock s)) /\
   (iEval ([Call dest xs handler],env,s1) =
-     if IS_NONE dest /\ IS_SOME handler then (Error,s) else
+     if IS_NONE dest /\ IS_SOME handler then (Error,s1) else
      case iEval (xs,env,s1) of
      | (Result vs,s) =>
          (case find_code dest vs s.code of
