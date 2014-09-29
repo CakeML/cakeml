@@ -35,7 +35,7 @@ val bool_sig_instances = store_thm("bool_sig_instances",
   rw[is_bool_sig_def] >> imp_res_tac identity_instance >> rw[FUN_EQ_THM] >>
   rpt AP_TERM_TAC >> rw[FUN_EQ_THM,tyvars_def] >> EVAL_TAC)
 
-val _ = Parse.temp_overload_on("Boolrel",
+val _ = Parse.overload_on("Boolrel",
   ``λr.  (Abstract boolset (Funspace boolset boolset)
            (λp. (Abstract boolset boolset
               (λq. Boolean (r (p = True) (q = True))))))``)
