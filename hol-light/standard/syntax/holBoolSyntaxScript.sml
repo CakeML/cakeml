@@ -3,13 +3,13 @@ open miscLib holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
 val _ = temp_tight_equality()
 val _ = new_theory"holBoolSyntax"
 
-val _ = Parse.overload_on("Truth",``Const "T" Bool``)
+val _ = Parse.overload_on("True",``Const "T" Bool``)
 val _ = Parse.overload_on("And",``λp1 p2. Comb (Comb (Const "/\\" (Fun Bool (Fun Bool Bool))) p1) p2``)
 val _ = Parse.overload_on("Implies",``λp1 p2. Comb (Comb (Const "==>" (Fun Bool (Fun Bool Bool))) p1) p2``)
 val _ = Parse.overload_on("Forall",``λx ty p. Comb (Const "!" (Fun (Fun ty Bool) Bool)) (Abs x ty p)``)
 val _ = Parse.overload_on("Exists",``λx ty p. Comb (Const "?" (Fun (Fun ty Bool) Bool)) (Abs x ty p)``)
 val _ = Parse.overload_on("Or",``λp1 p2. Comb (Comb (Const "\\/" (Fun Bool (Fun Bool Bool))) p1) p2``)
-val _ = Parse.overload_on("Falsity",``Const "F" Bool``)
+val _ = Parse.overload_on("False",``Const "F" Bool``)
 val _ = Parse.overload_on("Not",``λp. Comb (Const "~" (Fun Bool Bool)) p``)
 
 val _ = Parse.temp_overload_on("p",``Var "p" Bool``)
@@ -28,24 +28,25 @@ val _ = Parse.temp_overload_on("AbsP",``Abs "P" (Fun A Bool)``)
 val _ = Parse.temp_overload_on("x",``Var "x" A``)
 val _ = Parse.temp_overload_on("Absx",``Abs "x" A``)
 val _ = Parse.temp_overload_on("FAx",``Forall "x" A``)
-val Truth_def = ``Absp p === Absp p``
-val And_def = ``Absp (Absq (Absf (Comb (Comb f p) q) === Absf (Comb (Comb f Truth) Truth)))``
-val Implies_def = ``Absp (Absq (And p q === p))``
-val Forall_def = ``AbsP (P === Absx Truth)``
-val Exists_def = ``AbsP (FAq (Implies (FAx (Implies (Comb P x) q)) q))``
-val Or_def = ``Absp (Absq (FAr (Implies (Implies p r) (Implies (Implies q r) r))))``
-val Falsity_def = ``FAp p``
-val Not_def = ``Absp (Implies p Falsity)``
+val TrueDef_def = Define`TrueDef = Absp p === Absp p`
+val AndDef_def = Define`AndDef = Absp (Absq (Absf (Comb (Comb f p) q) === Absf (Comb (Comb f True) True)))`
+val ImpliesDef_def = Define`ImpliesDef = Absp (Absq (And p q === p))`
+val ForallDef_def = Define`ForallDef = AbsP (P === Absx True)`
+val ExistsDef_def = Define`ExistsDef = AbsP (FAq (Implies (FAx (Implies (Comb P x) q)) q))`
+val OrDef_def = Define`OrDef = Absp (Absq (FAr (Implies (Implies p r) (Implies (Implies q r) r))))`
+val FalseDef_def = Define`FalseDef = FAp p`
+val NotDef_def = Define`NotDef = Absp (Implies p False)`
+val Defs = [TrueDef_def, AndDef_def, ImpliesDef_def, ForallDef_def, ExistsDef_def, OrDef_def, FalseDef_def, NotDef_def]
 val mk_bool_ctxt_def = Define`
   mk_bool_ctxt ctxt =
-    ConstDef "~" ^Not_def ::
-    ConstDef "F" ^Falsity_def ::
-    ConstDef "\\/" ^Or_def ::
-    ConstDef "?" ^Exists_def ::
-    ConstDef "!" ^Forall_def ::
-    ConstDef "==>" ^Implies_def ::
-    ConstDef "/\\" ^And_def ::
-    ConstDef "T"  ^Truth_def ::
+    ConstDef "~" NotDef ::
+    ConstDef "F" FalseDef ::
+    ConstDef "\\/" OrDef ::
+    ConstDef "?" ExistsDef ::
+    ConstDef "!" ForallDef ::
+    ConstDef "==>" ImpliesDef ::
+    ConstDef "/\\" AndDef ::
+    ConstDef "T"  TrueDef ::
     ctxt`
 
 (* bool is a good extension *)
@@ -110,7 +111,7 @@ val bool_extends = store_thm("bool_extends",
       theory_ok (thyof ctxt) ∧
       DISJOINT (FDOM (tmsof ctxt)) {"T";"F";"==>";"/\\";"\\/";"~";"!";"?"} ⇒
       mk_bool_ctxt ctxt extends ctxt``,
-  REWRITE_TAC[mk_bool_ctxt_def] >>
+  REWRITE_TAC(mk_bool_ctxt_def::Defs) >>
   REWRITE_TAC[extends_def] >>
   ntac 2 strip_tac >>
   pull_tac() >- ConstDef_tac >>
@@ -184,13 +185,13 @@ val is_bool_sig_extends = store_thm("is_bool_sig_extends",
 (* Boolean terms are ok *)
 val bool_term_ok = store_thm("bool_term_ok",
   ``∀sig. is_bool_sig sig ⇒
-    term_ok sig Truth ∧
+    term_ok sig True ∧
     (∀p1 p2. term_ok sig (And p1 p2) ⇔ term_ok sig p1 ∧ term_ok sig p2 ∧ typeof p1 = Bool ∧ typeof p2 = Bool) ∧
     (∀p1 p2. term_ok sig (Implies p1 p2) ⇔ term_ok sig p1 ∧ term_ok sig p2 ∧ typeof p1 = Bool ∧ typeof p2 = Bool) ∧
     (∀z ty p. term_ok sig (Forall z ty p) ⇔ type_ok (tysof sig) ty ∧ term_ok sig p ∧ typeof p = Bool) ∧
     (∀z ty p. term_ok sig (Exists z ty p) ⇔ type_ok (tysof sig) ty ∧ term_ok sig p ∧ typeof p = Bool) ∧
     (∀p1 p2. term_ok sig (Or p1 p2) ⇔ term_ok sig p1 ∧ term_ok sig p2 ∧ typeof p1 = Bool ∧ typeof p2 = Bool) ∧
-    term_ok sig Falsity ∧
+    term_ok sig False ∧
     (∀p. term_ok sig (Not p) ⇔ term_ok sig p ∧ typeof p = Bool)``,
   rw[] >> imp_res_tac is_bool_sig_std >> rw[term_ok_clauses] >>
   rw[term_ok_def] >> fs[is_bool_sig_def] >> rw[term_ok_clauses,tyvar_inst_exists] >>

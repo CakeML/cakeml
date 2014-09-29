@@ -624,7 +624,7 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
       PROVE_TAC[] ) >>
     qmatch_assum_rename_tac`w <: inf`[] >>
     qexists_tac`w` >> simp[] >>
-    qmatch_abbrev_tac`X ≠ True` >>
+    qmatch_abbrev_tac`X:'U ≠ True` >>
     `X <: boolset` by (
       simp[Abbr`X`] >>
       apply_abstract_tac ) >>
@@ -644,7 +644,7 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
     simp[true_neq_false] >> pop_assum mp_tac >> simp[] >>
     qx_gen_tac`z` >>
     Cases_on`z <: inf`>>simp[] >>
-    qmatch_abbrev_tac`X ≠ True` >>
+    qmatch_abbrev_tac`X:'U ≠ True` >>
     `X <: boolset` by (
       simp[Abbr`X`] >>
       apply_abstract_tac ) >>

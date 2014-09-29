@@ -21,14 +21,6 @@ val _ = Parse.temp_overload_on("AbsP",``Abs "P" (Fun A Bool)``)
 val _ = Parse.temp_overload_on("x",``Var "x" A``)
 val _ = Parse.temp_overload_on("Absx",``Abs "x" A``)
 val _ = Parse.temp_overload_on("FAx",``Forall "x" A``)
-val Truth_def = ``Absp p === Absp p``
-val And_def = ``Absp (Absq (Absf (Comb (Comb f p) q) === Absf (Comb (Comb f Truth) Truth)))``
-val Implies_def = ``Absp (Absq (And p q === p))``
-val Forall_def = ``AbsP (P === Absx Truth)``
-val Exists_def = ``AbsP (FAq (Implies (FAx (Implies (Comb P x) q)) q))``
-val Or_def = ``Absp (Absq (FAr (Implies (Implies p r) (Implies (Implies q r) r))))``
-val Falsity_def = ``FAp p``
-val Not_def = ``Absp (Implies p Falsity)``
 
 val bool_sig_instances = store_thm("bool_sig_instances",
   ``is_bool_sig sig ⇒
@@ -71,6 +63,8 @@ val boolrel_in_funspace = store_thm("boolrel_in_funspace",
   match_mp_tac (UNDISCH abstract_in_funspace) >> rw[boolean_in_boolset] )
 val _ = export_rewrites["boolrel_in_funspace"]
 
+val Defs = [TrueDef_def, AndDef_def, ImpliesDef_def, ForallDef_def, ExistsDef_def, OrDef_def, FalseDef_def, NotDef_def]
+
 fun init_tac q =
   fs[models_def] >>
   first_x_assum(qspec_then q mp_tac) >>
@@ -84,6 +78,7 @@ fun init_tac q =
   first_x_assum(qspec_then`(τ,σ)`mp_tac) >> simp[] >>
   qabbrev_tac`v = (τ,σ)` >>
   `is_structure sig i v` by fs[is_structure_def] >>
+  REWRITE_TAC Defs >>
   Q.PAT_ABBREV_TAC`eq = l1 === r1` >>
   `term_ok sig eq` by (
     unabbrev_all_tac >>
@@ -156,12 +151,13 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
     qpat_assum`is_std_sig sig` mp_tac >>
     simp[is_std_sig_def,Abbr`sig`,Abbr`ctx`]) >>
   conj_asm1_tac >- (
-    init_tac`Const "T" Bool === ^Truth_def` >>
-    `term_ok sig (Absp p === Absp p)` by (
-      simp[term_ok_equation,term_ok_clauses] ) >>
+    init_tac`Const "T" Bool === TrueDef` >>
+    `term_ok sig TrueDef` by (
+      simp[term_ok_equation,term_ok_clauses,TrueDef_def] ) >>
+    fs[TrueDef_def] >>
     simp[SIMP_RULE std_ss [] termsem_equation,boolean_eq_true,termsem_def]) >>
   conj_asm1_tac >- (
-    init_tac `Const "/\\" (Fun Bool (Fun Bool Bool)) === ^And_def` >>
+    init_tac `Const "/\\" (Fun Bool (Fun Bool Bool)) === AndDef` >>
     imp_res_tac is_std_interpretation_is_type >>
     imp_res_tac typesem_Bool >> simp[] >>
     match_mp_tac (UNDISCH abstract_eq) >>
@@ -230,7 +226,7 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
       simp[boolean_def,mem_boolset] ) >>
     metis_tac[] ) >>
   conj_asm1_tac >- (
-    init_tac `Const "==>" (Fun Bool (Fun Bool Bool)) === ^Implies_def` >>
+    init_tac `Const "==>" (Fun Bool (Fun Bool Bool)) === ImpliesDef` >>
     imp_res_tac is_std_interpretation_is_type >>
     imp_res_tac typesem_Bool >> simp[] >>
     match_mp_tac (UNDISCH abstract_eq) >>
@@ -278,7 +274,7 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
     simp[boolean_def] >> rw[] >> fs[] >>
     metis_tac[mem_boolset] ) >>
   conj_asm1_tac >- (
-    init_tac `Const "!" (Fun (Fun A Bool) Bool) === ^Forall_def` >>
+    init_tac `Const "!" (Fun (Fun A Bool) Bool) === ForallDef` >>
     `τ = tyvof v` by simp[Abbr`v`] >> fs[] >>
     imp_res_tac is_std_interpretation_is_type >>
     imp_res_tac typesem_Bool >> simp[] >>
@@ -315,7 +311,7 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
     match_mp_tac (UNDISCH abstract_eq) >>
     simp[mem_boolset] ) >>
   conj_asm1_tac >- (
-    init_tac `Const "?" (Fun (Fun A Bool) Bool) === ^Exists_def` >>
+    init_tac `Const "?" (Fun (Fun A Bool) Bool) === ExistsDef` >>
     `τ = tyvof v` by simp[Abbr`v`] >> fs[] >>
     imp_res_tac is_std_interpretation_is_type >>
     imp_res_tac typesem_Bool >> simp[] >>
@@ -373,7 +369,7 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
     simp[boolean_def] >>
     metis_tac[mem_boolset] ) >>
   conj_asm1_tac >- (
-    init_tac `Const "\\/" (Fun Bool (Fun Bool Bool)) === ^Or_def` >>
+    init_tac `Const "\\/" (Fun Bool (Fun Bool Bool)) === OrDef` >>
     pop_assum kall_tac >>
     imp_res_tac is_std_interpretation_is_type >>
     imp_res_tac typesem_Bool >> simp[] >>
@@ -412,7 +408,7 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
     simp[boolean_def] >>
     metis_tac[mem_boolset] ) >>
   conj_asm1_tac >- (
-    init_tac`Const "F" Bool === ^Falsity_def` >>
+    init_tac`Const "F" Bool === FalseDef` >>
     pop_assum kall_tac >>
     imp_res_tac is_std_interpretation_is_type >>
     imp_res_tac typesem_Bool >> simp[] >>
@@ -438,7 +434,7 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
     pop_assum(SUBST1_TAC o SYM) >>
     match_mp_tac apply_abstract_matchable >>
     simp[mem_boolset] ) >>
-  init_tac`Const "~" (Fun Bool Bool) === ^Not_def` >>
+  init_tac`Const "~" (Fun Bool Bool) === NotDef` >>
   pop_assum kall_tac >>
   imp_res_tac is_std_interpretation_is_type >>
   imp_res_tac typesem_Bool >> simp[] >>
