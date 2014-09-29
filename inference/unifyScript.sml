@@ -57,7 +57,8 @@ val decode_infer_t_def = Define `
 (decode_infer_ts (Const Null_tag) =
   []) ∧ 
 (decode_infer_ts (Pair s1 s2) =
-  decode_infer_t s1 :: decode_infer_ts s2)`;
+  decode_infer_t s1 :: decode_infer_ts s2) ∧
+(decode_infer_t _ = Infer_Tuvar 5)`;
 
 val decode_left_inverse = Q.prove (
 `(!t. decode_infer_t (encode_infer_t t) = t) ∧
@@ -1029,5 +1030,71 @@ fs [t_vars_eqn] >>
 rw [] >>
 fs [] >>
 metis_tac [no_vars_lem, MAP_MAP_o, combinTheory.o_DEF]);
+
+
+(*Theorems about unification for completeness proof*)
+
+val t_walk_vwalk_id = store_thm ("t_walk_vwalk_id",
+``t_wfs s ⇒ 
+  !n. t_walk s (t_vwalk s n) = t_vwalk s n``,
+  strip_tac>>
+  ho_match_mp_tac (Q.INST[`s`|->`s`]t_vwalk_ind)>>
+  rw[]>>
+  Cases_on`FLOOKUP s n`>>fs[t_walk_eqn,Once t_vwalk_eqn]>>
+  simp[EQ_SYM_EQ]>>
+  fs[Once t_vwalk_eqn]>>
+  Cases_on`x`
+  >-
+    fs[t_walk_eqn,Once t_vwalk_eqn]
+  >-
+    fs[t_walk_eqn,Once t_vwalk_eqn]
+  >>
+    fs[])
+  
+val t_walk_walk_id = store_thm("t_walk_walk_id",
+``t_wfs s ⇒ 
+  t_walk s (t_walk s h) = t_walk s h``,
+  Cases_on`h`>>
+  fs[t_walk_eqn,t_walk_vwalk_id])
+
+val eqs_t_unify = store_thm( "eqs_t_unify",
+``t_wfs s ∧ t_wfs s2 ∧ 
+  t_walkstar s2 (t_walkstar s t1) = t_walkstar s2 (t_walkstar s t2) 
+  ⇒
+  ?sx. t_unify s t1 t2 = SOME sx``,
+  rw[t_unify_def] >>
+  match_mp_tac (GEN_ALL eqs_unify) >>
+  qexists_tac`encode_infer_t o_f s2` >>
+  conj_asm1_tac >- fs[t_wfs_def] >>
+  conj_asm1_tac >- fs[t_wfs_def] >>
+  simp[encode_walkstar]);
+
+val encode_walkstar_reverse = encode_walkstar |> 
+                              REWRITE_RULE [t_walkstar_def] |> 
+			      SPEC_ALL|>UNDISCH|>SYM |>
+			      DISCH_ALL |> GEN_ALL;
+
+val t_unify_mgu = store_thm ("t_unify_mgu",
+``!s t1 t2 sx s2.
+  t_wfs s ∧ (t_unify s t1 t2 = SOME sx) ∧ t_wfs s2 ∧
+  (t_walkstar s2 (t_walkstar s t1)) = t_walkstar s2 (t_walkstar s t2)
+  ⇒ 
+  ∀t. t_walkstar s2 (t_walkstar sx t) = t_walkstar s2 (t_walkstar s t)``,
+  rw[]>>
+  `t_wfs sx` by metis_tac[t_unify_wfs]>>
+  rfs[t_walkstar_def,encode_walkstar_reverse]>>
+  AP_TERM_TAC>>
+  match_mp_tac unify_mgu>>
+  Q.EXISTS_TAC`encode_infer_t t1`>>
+  Q.EXISTS_TAC`encode_infer_t t2`>>
+  conj_asm1_tac >- fs[t_wfs_def] >>
+  CONJ_TAC>- 
+  (Q.ISPECL_THEN [`encode_infer_t o_f s`,`encode_infer_t t1`,
+                 `encode_infer_t t2`,`s`,`t1`,`t2`] 
+		 mp_tac encode_unify>>
+  miscLib.discharge_hyps>>fs[])>>
+  conj_asm1_tac>- fs[t_wfs_def]>>
+  qpat_assum `decode_infer_t A = B` mp_tac>> 
+  fs[encode_walkstar,decode_left_inverse])
 
 val _ = export_theory ();
