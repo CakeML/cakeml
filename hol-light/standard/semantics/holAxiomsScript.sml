@@ -76,7 +76,7 @@ val select_has_model_gen = store_thm("select_has_model_gen",
                  (λp. Abstract boolset boolset
                      (λq. Boolean ((p = True) ⇒ (q = True)))))) ∧
         good_select select
-      ⇒ ∃i'. equal_on ctxt i i' ∧
+      ⇒ ∃i'. equal_on (sigof ctxt) i i' ∧
              i' models (thyof (mk_select_ctxt ctxt)) ∧
              (tmaof i' "@" =
                 (λls. Abstract (Funspace (HD ls) boolset) (HD ls)
@@ -217,7 +217,7 @@ val select_has_model = store_thm("select_has_model",
           (K (Abstract boolset (Funspace boolset boolset)
                  (λp. Abstract boolset boolset
                      (λq. Boolean ((p = True) ⇒ (q = True))))))
-      ⇒ ∃i'. equal_on ctxt i i' ∧
+      ⇒ ∃i'. equal_on (sigof ctxt) i i' ∧
              i' models (thyof (mk_select_ctxt ctxt))``,
   rw[] >>
   qspec_then`ctxt`mp_tac(UNDISCH select_has_model_gen) >>
@@ -299,7 +299,7 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
           tmaof i interprets "~" on [] as
             K (Abstract boolset boolset (λp. Boolean (p ≠ True))) ∧
           is_infinite ^mem inf
-      ⇒ ∃i'. equal_on ctxt i i' ∧
+      ⇒ ∃i'. equal_on (sigof ctxt) i i' ∧
              i' models (thyof (mk_infinity_ctxt ctxt)) ∧
              (tyaof i' "ind" [] = inf)``,
   rw[models_def] >>
@@ -703,7 +703,7 @@ val infinity_has_model = store_thm("infinity_has_model",
                    (λP. Boolean (∃x. x <: (HD l) ∧ Holds P x))) ∧
           tmaof i interprets "~" on [] as
             K (Abstract boolset boolset (λp. Boolean (p ≠ True)))
-      ⇒ ∃i'. equal_on ctxt i i' ∧
+      ⇒ ∃i'. equal_on (sigof ctxt) i i' ∧
              i' models (thyof (mk_infinity_ctxt ctxt))``,
   metis_tac[infinity_has_model_gen])
 

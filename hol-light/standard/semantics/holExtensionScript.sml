@@ -6,15 +6,38 @@ val _ = new_theory"holExtension"
 val mem = ``mem:'U->'U->bool``
 
 val equal_on_def = Define`
-  equal_on ctxt i i' ⇔
-  (∀name args. type_ok (tysof ctxt) (Tyapp name args) ⇒ tyaof i' name = tyaof i name) ∧
-  (∀name ty. term_ok (sigof ctxt) (Const name ty) ⇒ tmaof i' name = tmaof i name)`
+  equal_on sig i i' ⇔
+  (∀name args. type_ok (tysof sig) (Tyapp name args) ⇒ tyaof i' name = tyaof i name) ∧
+  (∀name ty. term_ok sig (Const name ty) ⇒ tmaof i' name = tmaof i name)`
+
+val equal_on_refl = store_thm("equal_on_refl",
+  ``∀sig i. equal_on sig i i``,
+  rw[equal_on_def])
+
+val equal_on_trans = store_thm("equal_on_trans",
+  ``∀sig i1 i2 i3. equal_on sig i1 i2 ∧ equal_on sig i2 i3
+    ⇒ equal_on sig i1 i3``,
+  rw[equal_on_def] >> metis_tac[])
+
+val equal_on_interprets = store_thm("equal_on_interprets",
+  ``∀sig i1 i2 name args ty m.
+      equal_on sig i1 i2 ∧
+      tmaof i1 interprets name on args as m ∧
+      (FLOOKUP (tmsof sig) name = SOME ty) ∧
+      type_ok (tysof sig) ty ∧
+      (set (tyvars ty) = set args) ⇒
+      tmaof i2 interprets name on args as m``,
+  rw[equal_on_def,interprets_def] >>
+  qsuff_tac`tmaof i2 name = tmaof i1 name` >- metis_tac[] >>
+  first_x_assum match_mp_tac >>
+  rw[term_ok_def] >>
+  qexists_tac`ty`>>rw[])
 
 val equal_on_reduce = store_thm("equal_on_reduce",
-  ``∀ls ctxt i i'. equal_on (ls++ctxt) i i' ∧
+  ``∀ls ctxt i i'. equal_on (sigof (ls++ctxt)) i i' ∧
                  DISJOINT (FDOM (tysof ls)) (FDOM (tysof ctxt)) ∧
                  DISJOINT (FDOM (tmsof ls)) (FDOM (tmsof ctxt))
-    ⇒ equal_on ctxt i i'``,
+    ⇒ equal_on (sigof ctxt) i i'``,
   rw[equal_on_def] >>
   first_x_assum match_mp_tac >|
   [qexists_tac`args`>>
@@ -30,33 +53,10 @@ val equal_on_reduce = store_thm("equal_on_reduce",
   fs[IN_DISJOINT] >>
   metis_tac[])
 
-val equal_on_trans = store_thm("equal_on_trans",
-  ``∀ctxt i1 i2 i3. equal_on ctxt i1 i2 ∧ equal_on ctxt i2 i3
-    ⇒ equal_on ctxt i1 i3``,
-  rw[equal_on_def] >> metis_tac[])
-
-val equal_on_refl = store_thm("equal_on_refl",
-  ``∀ctxt i. equal_on ctxt i i``,
-  rw[equal_on_def])
-
-val equal_on_interprets = store_thm("equal_on_interprets",
-  ``∀ctxt i1 i2 name args ty m.
-      equal_on ctxt i1 i2 ∧
-      tmaof i1 interprets name on args as m ∧
-      (FLOOKUP (tmsof ctxt) name = SOME ty) ∧
-      type_ok (tysof ctxt) ty ∧
-      (set (tyvars ty) = set args) ⇒
-      tmaof i2 interprets name on args as m``,
-  rw[equal_on_def,interprets_def] >>
-  qsuff_tac`tmaof i2 name = tmaof i1 name` >- metis_tac[] >>
-  first_x_assum match_mp_tac >>
-  rw[term_ok_def] >>
-  qexists_tac`ty`>>rw[])
-
 val sound_update_def = xDefine"sound_update"`
   sound_update0 ^mem ctxt upd ⇔
     ∀i. i models (thyof ctxt) ⇒
-      ∃i'. equal_on ctxt i i' ∧
+      ∃i'. equal_on (sigof ctxt) i i' ∧
            i' models (thyof (upd::ctxt))`
 val _ = Parse.overload_on("sound_update",``sound_update0 ^mem``)
 
@@ -811,7 +811,7 @@ val extends_consistent = store_thm("extends_consistent",
       ∀i. theory_ok (thyof ctxt1) ∧ i models (thyof ctxt1) ∧
           (∀p. MEM (NewAxiom p) ctxt2 ⇒ MEM (NewAxiom p) ctxt1)
         ⇒
-        ∃i'. equal_on ctxt1 i i' ∧ i' models (thyof ctxt2)``,
+        ∃i'. equal_on (sigof ctxt1) i i' ∧ i' models (thyof ctxt2)``,
   rw[] >>
   Q.ISPEC_THEN
     `λctxt. theory_ok (thyof ctxt) ∧
@@ -819,7 +819,7 @@ val extends_consistent = store_thm("extends_consistent",
                  DISJOINT (FDOM (tysof ls)) (FDOM (tysof ctxt1)) ∧
                  DISJOINT (FDOM (tmsof ls)) (FDOM (tmsof ctxt1)) ∧
               ((∀p. MEM (NewAxiom p) ls ⇒ MEM (NewAxiom p) ctxt1) ⇒
-               ∃i'. equal_on ctxt1 i i' ∧
+               ∃i'. equal_on (sigof ctxt1) i i' ∧
                     i' models (thyof ctxt))`
     mp_tac extends_ind >>
   discharge_hyps >- (
@@ -842,7 +842,7 @@ val extends_consistent = store_thm("extends_consistent",
       qmatch_assum_rename_tac`z models thyof (upd::(ls++ctxt1))`[] >>
       qexists_tac`z` >> simp[] >>
       match_mp_tac equal_on_trans >>
-      qmatch_assum_rename_tac`equal_on ctxt1 i m`[] >>
+      qmatch_assum_rename_tac`equal_on (sigof ctxt1) i m`[] >>
       qexists_tac`m` >> simp[] >>
       match_mp_tac equal_on_reduce >>
       qexists_tac`ls` >> fs[IN_DISJOINT] ) >>
