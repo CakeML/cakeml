@@ -5,54 +5,6 @@ val _ = new_theory"holExtension"
 
 val mem = ``mem:'U->'U->bool``
 
-val equal_on_def = Define`
-  equal_on sig i i' ⇔
-  (∀name args. type_ok (tysof sig) (Tyapp name args) ⇒ tyaof i' name = tyaof i name) ∧
-  (∀name ty. term_ok sig (Const name ty) ⇒ tmaof i' name = tmaof i name)`
-
-val equal_on_refl = store_thm("equal_on_refl",
-  ``∀sig i. equal_on sig i i``,
-  rw[equal_on_def])
-
-val equal_on_trans = store_thm("equal_on_trans",
-  ``∀sig i1 i2 i3. equal_on sig i1 i2 ∧ equal_on sig i2 i3
-    ⇒ equal_on sig i1 i3``,
-  rw[equal_on_def] >> metis_tac[])
-
-val equal_on_interprets = store_thm("equal_on_interprets",
-  ``∀sig i1 i2 name args ty m.
-      equal_on sig i1 i2 ∧
-      tmaof i1 interprets name on args as m ∧
-      (FLOOKUP (tmsof sig) name = SOME ty) ∧
-      type_ok (tysof sig) ty ∧
-      (set (tyvars ty) = set args) ⇒
-      tmaof i2 interprets name on args as m``,
-  rw[equal_on_def,interprets_def] >>
-  qsuff_tac`tmaof i2 name = tmaof i1 name` >- metis_tac[] >>
-  first_x_assum match_mp_tac >>
-  rw[term_ok_def] >>
-  qexists_tac`ty`>>rw[])
-
-val equal_on_reduce = store_thm("equal_on_reduce",
-  ``∀ls ctxt i i'. equal_on (sigof (ls++ctxt)) i i' ∧
-                 DISJOINT (FDOM (tysof ls)) (FDOM (tysof ctxt)) ∧
-                 DISJOINT (FDOM (tmsof ls)) (FDOM (tmsof ctxt))
-    ⇒ equal_on (sigof ctxt) i i'``,
-  rw[equal_on_def] >>
-  first_x_assum match_mp_tac >|
-  [qexists_tac`args`>>
-   match_mp_tac type_ok_extend >>
-   qexists_tac`tysof ctxt`
-  ,qexists_tac`ty` >>
-   match_mp_tac term_ok_extend >>
-   qexists_tac`tysof ctxt` >>
-   qexists_tac`tmsof ctxt`] >>
-  simp[] >>
-  TRY conj_tac >>
-  match_mp_tac SUBMAP_FUNION >>
-  fs[IN_DISJOINT] >>
-  metis_tac[])
-
 val sound_update_def = xDefine"sound_update"`
   sound_update0 ^mem ctxt upd ⇔
     ∀i. i models (thyof ctxt) ⇒
@@ -97,11 +49,12 @@ val new_constant_correct = store_thm("new_constant_correct",
   match_mp_tac satisfies_extend >>
   map_every qexists_tac[`tysof ctxt`,`tmsof ctxt`] >>
   rw[] >- fs[theory_ok_def] >>
-  match_mp_tac satisfies_consts >>
+  match_mp_tac satisfies_sig >>
   imp_res_tac theory_ok_sig >>
   qexists_tac`i` >> simp[] >>
   conj_tac >- (Cases_on`ctxt`>>fs[]) >>
   conj_tac >- fs[theory_ok_def] >>
+  simp[equal_on_def] >>
   metis_tac[])
 
 val new_specification_correct = store_thm("new_specification_correct",
@@ -194,8 +147,8 @@ val new_specification_correct = store_thm("new_specification_correct",
       match_mp_tac SUBMAP_FUNION >>
       fs[IN_DISJOINT,MAP_MAP_o,combinTheory.o_DEF,ETA_AX,UNCURRY] >>
       metis_tac[] ) >>
-    match_mp_tac satisfies_consts >>
-    qexists_tac`i` >> simp[] >>
+    match_mp_tac satisfies_sig >>
+    qexists_tac`i` >> simp[equal_on_def] >>
     simp[term_ok_def,APPLY_UPDATE_LIST_ALOOKUP,rich_listTheory.MAP_REVERSE,ALOOKUP_MAP] >>
     rw[] >> imp_res_tac ALOOKUP_MEM >>
     BasicProvers.CASE_TAC >> fs[] >>
@@ -222,9 +175,9 @@ val new_specification_correct = store_thm("new_specification_correct",
   `termsem tmenv ii vv tm = termsem (tmsof ctxt) ii vv tm` by (
     metis_tac[termsem_extend] ) >>
   `termsem (tmsof ctxt) ii vv tm = termsem (tmsof ctxt) i vv tm` by (
-    match_mp_tac termsem_consts >>
+    match_mp_tac termsem_sig >>
     qexists_tac`sigof ctxt` >>
-    simp[Abbr`ii`] >>
+    simp[Abbr`ii`,equal_on_def] >>
     imp_res_tac theory_ok_sig >>
     fs[term_ok_def] >>
     simp[APPLY_UPDATE_LIST_ALOOKUP,rich_listTheory.MAP_REVERSE,ALOOKUP_MAP] >>
@@ -348,7 +301,7 @@ val new_type_correct = store_thm("new_type_correct",
     simp[combinTheory.APPLY_UPDATE_THM] >> rw[] >- metis_tac[boolean_in_boolset] >>
     qmatch_abbrev_tac`x <: typesem δ' τ ty` >>
     `typesem δ' τ ty = typesem (tyaof i) τ ty` by (
-      match_mp_tac typesem_consts >>
+      match_mp_tac typesem_sig >>
       rw[Abbr`δ'`,combinTheory.APPLY_UPDATE_THM] >>
       qexists_tac`tysof ctxt` >>
       conj_asm1_tac >- (
@@ -373,9 +326,9 @@ val new_type_correct = store_thm("new_type_correct",
   match_mp_tac satisfies_extend >>
   map_every qexists_tac[`tysof ctxt`,`tmsof ctxt`] >>
   rw[] >- fs[theory_ok_def] >>
-  match_mp_tac satisfies_consts >>
+  match_mp_tac satisfies_sig >>
   imp_res_tac theory_ok_sig >>
-  qexists_tac`i` >> simp[] >>
+  qexists_tac`i` >> simp[equal_on_def] >>
   conj_tac >- (Cases_on`ctxt`>>fs[]) >>
   conj_tac >- fs[theory_ok_def] >>
   rw[type_ok_def,combinTheory.APPLY_UPDATE_THM] >>
@@ -468,7 +421,7 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
     simp[holds_def,Abbr`mpred`] >> NO_TAC) >>
   `∀τ. typesem ((name =+ mty) δ) τ (typeof witness) = typesem δ τ (typeof witness)` by (
     gen_tac >>
-    match_mp_tac typesem_consts >>
+    match_mp_tac typesem_sig >>
     qexists_tac`tysof ctxt` >>
     rw[type_ok_def,combinTheory.APPLY_UPDATE_THM] >>
     imp_res_tac ALOOKUP_MEM >>
@@ -586,7 +539,7 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
     simp[] >> disch_then(qspec_then`τ`mp_tac) >>
     simp[] >>
     `typesem ((name =+ mty) δ) τ v = typesem δ τ v` by (
-      match_mp_tac typesem_consts >>
+      match_mp_tac typesem_sig >>
       qexists_tac`tysof ctxt` >>
       simp[type_ok_def,combinTheory.APPLY_UPDATE_THM] >>
       fs[theory_ok_def] >>
@@ -614,8 +567,8 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
       simp[Abbr`tms'`,SUBMAP_DEF,FAPPLY_FUPDATE_THM] >>
       rw[] ) >>
     conj_tac >- simp[Abbr`tys'`] >>
-    match_mp_tac satisfies_consts >>
-    qexists_tac`i` >> simp[] >>
+    match_mp_tac satisfies_sig >>
+    qexists_tac`i` >> simp[equal_on_def] >>
     simp[type_ok_def,combinTheory.APPLY_UPDATE_THM] >>
     simp[term_ok_def] >>
     rw[] >> imp_res_tac ALOOKUP_MEM >>
@@ -724,9 +677,9 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
       qexists_tac`tysof ctxt` >>
       rw[] ) >>
     `termsem (tmsof ctxt) ii v pred = termsem (tmsof ctxt) i v pred` by (
-      match_mp_tac termsem_consts >>
+      match_mp_tac termsem_sig >>
       qexists_tac`sigof ctxt` >>
-      simp[type_ok_def,term_ok_def,Abbr`ii`,combinTheory.APPLY_UPDATE_THM] >>
+      simp[equal_on_def,type_ok_def,term_ok_def,Abbr`ii`,combinTheory.APPLY_UPDATE_THM] >>
       rw[] >> imp_res_tac ALOOKUP_MEM >>
       fs[MEM_MAP,EXISTS_PROD] >> metis_tac[] ) >>
     simp[Abbr`x`] >>

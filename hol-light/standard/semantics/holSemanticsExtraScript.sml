@@ -472,9 +472,63 @@ val satisfies_extend = store_thm("satisfies_extend",
   rw[satisfies_def] >> fs[EVERY_MEM] >>
   metis_tac[term_ok_extend,termsem_extend,is_valuation_reduce])
 
-(* semantics only depends on interpretation of things in the term *)
+(* one interpretation being compatible with another in a signature *)
 
-val typesem_consts = store_thm("typesem_consts",
+val equal_on_def = Define`
+  equal_on sig i i' ⇔
+  (∀name args. type_ok (tysof sig) (Tyapp name args) ⇒ tyaof i' name = tyaof i name) ∧
+  (∀name ty. term_ok sig (Const name ty) ⇒ tmaof i' name = tmaof i name)`
+
+val equal_on_refl = store_thm("equal_on_refl",
+  ``∀sig i. equal_on sig i i``,
+  rw[equal_on_def])
+
+val equal_on_sym = store_thm("equal_on_sym",
+  ``∀sig i i'. equal_on sig i i' ⇒ equal_on sig i' i``,
+  rw[equal_on_def] >> PROVE_TAC[])
+
+val equal_on_trans = store_thm("equal_on_trans",
+  ``∀sig i1 i2 i3. equal_on sig i1 i2 ∧ equal_on sig i2 i3
+    ⇒ equal_on sig i1 i3``,
+  rw[equal_on_def] >> metis_tac[])
+
+val equal_on_interprets = store_thm("equal_on_interprets",
+  ``∀sig i1 i2 name args ty m.
+      equal_on sig i1 i2 ∧
+      tmaof i1 interprets name on args as m ∧
+      (FLOOKUP (tmsof sig) name = SOME ty) ∧
+      type_ok (tysof sig) ty ∧
+      (set (tyvars ty) = set args) ⇒
+      tmaof i2 interprets name on args as m``,
+  rw[equal_on_def,interprets_def] >>
+  qsuff_tac`tmaof i2 name = tmaof i1 name` >- metis_tac[] >>
+  first_x_assum match_mp_tac >>
+  rw[term_ok_def] >>
+  qexists_tac`ty`>>rw[])
+
+val equal_on_reduce = store_thm("equal_on_reduce",
+  ``∀ls ctxt i i'. equal_on (sigof (ls++ctxt)) i i' ∧
+                 DISJOINT (FDOM (tysof ls)) (FDOM (tysof ctxt)) ∧
+                 DISJOINT (FDOM (tmsof ls)) (FDOM (tmsof ctxt))
+    ⇒ equal_on (sigof ctxt) i i'``,
+  rw[equal_on_def] >>
+  first_x_assum match_mp_tac >|
+  [qexists_tac`args`>>
+   match_mp_tac type_ok_extend >>
+   qexists_tac`tysof ctxt`
+  ,qexists_tac`ty` >>
+   match_mp_tac term_ok_extend >>
+   qexists_tac`tysof ctxt` >>
+   qexists_tac`tmsof ctxt`] >>
+  simp[] >>
+  TRY conj_tac >>
+  match_mp_tac SUBMAP_FUNION >>
+  fs[IN_DISJOINT] >>
+  metis_tac[])
+
+(* semantics only depends on interpretation of things in the term's signature *)
+
+val typesem_sig = store_thm("typesem_sig",
   ``∀ty τ δ δ' tyenv. type_ok tyenv ty ∧ (∀name args. type_ok tyenv (Tyapp name args) ⇒ δ' name = δ name) ⇒
                     typesem δ' τ ty = typesem δ τ ty``,
   ho_match_mp_tac type_ind >> simp[typesem_def,type_ok_def] >> rw[] >>
@@ -488,13 +542,12 @@ val typesem_consts = store_thm("typesem_consts",
   first_x_assum match_mp_tac >>
   metis_tac[])
 
-val termsem_consts = store_thm("termsem_consts",
+val termsem_sig = store_thm("termsem_sig",
   ``∀tm Γ i v i' tmenv.
-      is_std_sig Γ ∧ term_ok Γ tm ∧ tmenv = tmsof Γ ∧
-      (∀name args. type_ok (tysof Γ) (Tyapp name args) ⇒ tyaof i' name = tyaof i name) ∧
-      (∀name ty. term_ok Γ (Const name ty) ⇒ tmaof i' name = tmaof i name)
+      is_std_sig Γ ∧ term_ok Γ tm ∧ tmenv = tmsof Γ ∧ equal_on Γ i i'
       ⇒
       termsem tmenv i' v tm = termsem tmenv i v tm``,
+  REWRITE_TAC[equal_on_def] >>
   Induct >> simp[termsem_def] >- (
     rw[term_ok_def] >>
     imp_res_tac instance_def >>
@@ -507,7 +560,7 @@ val termsem_consts = store_thm("termsem_consts",
       unabbrev_all_tac >>
       simp[FUN_EQ_THM,MAP_EQ_f] >>
       rw[] >>
-      match_mp_tac typesem_consts >>
+      match_mp_tac typesem_sig >>
       imp_res_tac type_ok_TYPE_SUBST_imp >>
       fs[] >> metis_tac[] ) >>
     simp[] >> AP_THM_TAC >>
@@ -518,28 +571,27 @@ val termsem_consts = store_thm("termsem_consts",
   qmatch_abbrev_tac`Abstract d1 r1 f1 = Abstract d2 r2 f2` >>
   `d1 = d2 ∧ r1 = r2` by (
     unabbrev_all_tac >> rw[] >>
-    match_mp_tac typesem_consts >>
+    match_mp_tac typesem_sig >>
     metis_tac[term_ok_type_ok] ) >>
   simp[] >> rpt AP_TERM_TAC >> rw[FUN_EQ_THM] >>
   unabbrev_all_tac >> fs[] >>
   fs[FORALL_PROD] >> res_tac >> fs[])
 
-val satisfies_consts = store_thm("satisfies_consts",
+val satisfies_sig = store_thm("satisfies_sig",
   ``∀i i' sig h c.
     is_std_sig sig ∧
     EVERY (term_ok sig) (c::h) ∧
-    (∀name args. type_ok (tysof sig) (Tyapp name args) ⇒ tyaof i' name = tyaof i name) ∧
-    (∀name ty. term_ok sig (Const name ty) ⇒ tmaof i' name = tmaof i name) ∧
+    equal_on sig i i' ∧
     i satisfies (sig,h,c)
     ⇒
     i' satisfies (sig,h,c)``,
   rw[satisfies_def] >>
-  qsuff_tac`termsem (tmsof sig) i v c = True` >- metis_tac[termsem_consts] >>
+  qsuff_tac`termsem (tmsof sig) i v c = True` >- metis_tac[termsem_sig] >>
   first_x_assum match_mp_tac >>
-  reverse conj_tac >- ( fs[EVERY_MEM] >> metis_tac[termsem_consts] ) >>
+  reverse conj_tac >- ( fs[EVERY_MEM] >> metis_tac[termsem_sig] ) >>
   fs[is_valuation_def] >>
   fs[is_term_valuation_def] >>
-  metis_tac[typesem_consts])
+  metis_tac[typesem_sig,equal_on_def])
 
 (* valuations exist *)
 

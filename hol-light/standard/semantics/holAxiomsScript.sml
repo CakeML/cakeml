@@ -104,10 +104,10 @@ val select_has_model_gen = store_thm("select_has_model_gen",
       map_every qexists_tac[`tysof ctxt`,`tmsof ctxt`] >>
       simp[] >>
       conj_asm1_tac >- fs[theory_ok_def] >>
-      match_mp_tac satisfies_consts >>
+      match_mp_tac satisfies_sig >>
       imp_res_tac theory_ok_sig >>
       fs[] >> qexists_tac`i` >>
-      simp[] >>
+      simp[equal_on_def] >>
       simp[combinTheory.APPLY_UPDATE_THM] >>
       rw[] >> fs[term_ok_def] >>
       imp_res_tac ALOOKUP_MEM >>
@@ -346,14 +346,14 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
       rw[] >- metis_tac[] >>
       rfs[FLOOKUP_UPDATE] >>
       qsuff_tac`typesem (("ind" =+ K inf) (tyaof i1)) τ v = typesem (tyaof i1) τ v` >- rw[] >>
-      match_mp_tac typesem_consts >>
+      match_mp_tac typesem_sig >>
       qexists_tac`tysof ctxt1` >>
       conj_tac >- (
         imp_res_tac extends_theory_ok >>
         fs[theory_ok_def] >>
         first_x_assum match_mp_tac >>
         imp_res_tac ALOOKUP_IN_FRANGE) >>
-      simp[type_ok_def,combinTheory.APPLY_UPDATE_THM] >>
+      simp[equal_on_def,type_ok_def,combinTheory.APPLY_UPDATE_THM] >>
       rw[] >> imp_res_tac ALOOKUP_MEM >>
       fs[MEM_MAP,EXISTS_PROD] >>
       metis_tac[]) >>
@@ -367,9 +367,9 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
       simp[] >>
       imp_res_tac extends_theory_ok >>
       fs[theory_ok_def] >>
-      match_mp_tac satisfies_consts >>
+      match_mp_tac satisfies_sig >>
       qexists_tac`i1` >>
-      simp[combinTheory.APPLY_UPDATE_THM] >>
+      simp[equal_on_def,combinTheory.APPLY_UPDATE_THM] >>
       rw[type_ok_def] >>
       imp_res_tac ALOOKUP_MEM >>
       fs[MEM_MAP,EXISTS_PROD] >>
