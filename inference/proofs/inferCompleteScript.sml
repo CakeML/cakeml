@@ -507,21 +507,6 @@ val t_walk_submap_walkstar = prove(
   fs[])
 
 
-(*For cases where the substitution is exactly known
-we can always partially constrain the pre-map in some way
-val pure_add_constraints_sublist_exists = prove(
-``
-!s constraints s' ts ts'.
-t_wfs s ∧
-pure_add_constraints s constraints s' ∧
-MAP (t_walkstar s') ts = ts'
-⇒
-?s''.
-pure_add_constraints s (ZIP(ts,ts')) s''``, 
-  cheat)
-*)
-
-
 val t_unify_to_pure_add_constraints = prove(
 ``
 !s s' h t constraints s''.
@@ -556,6 +541,7 @@ fs[pure_add_constraints_def,EQ_IMP_THM]>>rw[]
   fs[pure_add_constraints_append]>>
   Q.EXISTS_TAC `<| subst:= s2 ; next_uvar := x|>`>>fs[])
 
+(*
 val t_unify_ignore = prove(
 ``(!s t t'.
   t_wfs s ⇒
@@ -573,7 +559,38 @@ val t_unify_ignore = prove(
   fs[t_walkstar_eqn]>>every_case_tac>>fs[]>>
   metis_tac[])>>
   Cases_on`ts`>>fs[ts_unify_def])
+*)
 
+val t_unify_ignore = prove(
+``(!s t t'.
+  t_wfs s ⇒
+  t_walkstar s t = t_walkstar s t' ⇒ 
+  t_unify s t t' = SOME s) ∧
+  (!s ts ts'.
+  t_wfs s ⇒ 
+  MAP (t_walkstar s) ts = MAP (t_walkstar s) ts' ⇒ 
+  ts_unify s ts ts' = SOME s)``, 
+  ho_match_mp_tac t_unify_strongind>>rw[]>>
+  fs[t_unify_eqn]>-
+  (BasicProvers.FULL_CASE_TAC>>
+  imp_res_tac t_walk_submap_walkstar>>fs[]>>
+  qpat_assum `t_walkstar s t = X` mp_tac>>
+  fs[t_walkstar_eqn]>>every_case_tac>>fs[]>>
+  metis_tac[])>>
+  Cases_on`ts`>>Cases_on`ts'`>>
+  fs[ts_unify_def])
+
+val pure_add_constraints_ignore = prove(
+``!s ls. t_wfs s ∧ EVERY (λx,y. t_walkstar s x = t_walkstar s y) ls 
+  ⇒ pure_add_constraints s ls s``,
+  strip_tac>>Induct>>
+  fs[pure_add_constraints_def]>>
+  rw[]>>
+  Cases_on`h` >>rw[pure_add_constraints_def]>>
+  fs[]>>imp_res_tac t_unify_ignore>>
+  metis_tac[])
+
+(*
 val pure_add_constraints_ignore = prove(
 ``!s ls. t_wfs s ⇒ 
   pure_add_constraints s (ZIP (ls,MAP (t_walkstar s) ls)) s``,
@@ -585,6 +602,7 @@ val pure_add_constraints_ignore = prove(
   fs[t_walkstar_eqn]>>
   imp_res_tac t_unify_ignore>>
   metis_tac[])
+*)
 
 (*t_compat preserves all grounded (no unification variable after walk) terms*)
 val t_compat_ground = prove(
@@ -624,17 +642,14 @@ val t_compat_bi_ground = prove(
   t_compat a b ∧ 
   t_compat b a
   ⇒
+  (!uv. uv ∈ FDOM b ⇒ check_t n {} (t_walkstar b (Infer_Tuvar uv))) ∧ 
   FDOM a = FDOM b ∧ 
-  (!uv. uv ∈ FDOM b ⇒ check_t n {} (t_walkstar b (Infer_Tuvar uv)))``,
+  ((!t. t_walkstar a t= t_walkstar b t) ∧
+  (!ts. MAP (t_walkstar a) ts = MAP (t_walkstar b) ts))``, 
   strip_tac>>
-  CONJ_ASM2_TAC
+  CONJ_ASM1_TAC
   >-
-    (fs[EXTENSION]>>
-    rw[EQ_IMP_THM]>>
-    imp_res_tac t_compat_ground>>
-    res_tac>> metis_tac[])
-  >>
-    fs[t_compat_def]>>
+  (fs[t_compat_def]>>
     rw[]>>
     Cases_on`uv ∈ FDOM a`
     >-
@@ -650,7 +665,125 @@ val t_compat_bi_ground = prove(
       res_tac>>
       `t_walkstar a (Infer_Tuvar k'''') = Infer_Tuvar k` by fs[]>>
       fs[check_t_def])
+  >>
+  CONJ_ASM1_TAC
+  >-
+    (fs[EXTENSION]>>
+    rw[EQ_IMP_THM]>>
+    imp_res_tac t_compat_ground>>
+    res_tac>> metis_tac[])
+  >>
+    ho_match_mp_tac infer_tTheory.infer_t_induction>>rw[]>>
+    fs[t_compat_def]>>
+    TRY(fs[t_walkstar_eqn,t_walk_eqn]>>NO_TAC)>>
+    Cases_on`n' ∈ FDOM a`
+    >- 
+      metis_tac[t_walkstar_no_vars]
+    >>
+      metis_tac[t_walkstar_tuvar_props])
 
+val unconversion_tac = 
+  rpt (qpat_assum `convert_t A = B` (assume_tac o (Q.AP_TERM `unconvert_t`)))>>
+  imp_res_tac check_t_empty_unconvert_convert_id>>
+  fs[unconvert_t_def];
+
+fun pure_add_constraints_combine_tac constraints s = 
+  `pure_add_constraints st.subst (^(constraints) ++ ls) ^(s)` by
+    (fs[pure_add_constraints_append]>>
+    Q.EXISTS_TAC`^(s)`>>fs[])>>
+    Q.SPECL_THEN [`^(s)`,`st.subst`,`ls`,`^(constraints)`] assume_tac 
+      pure_add_constraints_swap>>
+    rfs[];
+    
+fun pure_add_constraints_rest_tac constraints s = 
+  Q.EXISTS_TAC`si`>>
+  Q.EXISTS_TAC`^(constraints)`>>
+  Q.SPECL_THEN [`n`,`si`,`^(s)`] assume_tac (GEN_ALL t_compat_bi_ground)>>
+  rfs[]>>
+  rw[]
+  >-
+    metis_tac[pure_add_constraints_success]
+  >>
+    TRY(`t_wfs si` by metis_tac[pure_add_constraints_wfs]>>
+    fs[pure_add_constraints_wfs,convert_t_def,t_walkstar_eqn,t_walk_eqn]>>NO_TAC);
+
+fun pure_add_constraints_ignore_tac s =
+    `pure_add_constraints ^(s) ls ^(s)` by
+      (match_mp_tac pure_add_constraints_ignore >>
+      fs[Abbr`ls`,t_walkstar_eqn,t_walk_eqn])
+
+val pure_add_constraints_ignore_tac = Q_TAC pure_add_constraints_ignore_tac
+
+(*For grounded ones*)
+val pac_tac = 
+  pure_add_constraints_ignore_tac `s`>>
+  pure_add_constraints_combine_tac ``constraints`` ``s``>>
+  fs[pure_add_constraints_append]>>
+  Q.EXISTS_TAC `<|subst:=s2' ; next_uvar := st.next_uvar |>` >>fs[]>>
+  pure_add_constraints_rest_tac ``constraints`` ``s``;
+
+fun extend_uvar_tac t= 
+  `check_freevars n [] ^(t)` by
+  (imp_res_tac check_t_to_check_freevars>>
+  rfs[check_freevars_def])>>
+  Q.ABBREV_TAC `constraints' = constraints++[Infer_Tuvar st.next_uvar,unconvert_t ^(t)]`>>
+  Q.SPECL_THEN [`s`,`[^(t)]`,`st.next_uvar`,`n`] mp_tac pure_add_constraints_exists>>
+  miscLib.discharge_hyps >-
+     (fs[check_t_def]>>
+     imp_res_tac check_t_to_check_freevars>>
+     rfs[check_freevars_def])>>
+  fs[LET_THM,EVAL``COUNT_LIST 1``]>>
+  qpat_abbrev_tac `s' = s|++ A`>>rw[]>>
+  `pure_add_constraints st.subst constraints' s'` by 
+    metis_tac[Abbr`constraints'`,pure_add_constraints_append]>>
+  imp_res_tac pure_add_constraints_success>>
+  unconversion_tac>>
+  `FDOM s' = count (st.next_uvar +1)` by 
+    (fs[Abbr`s'`,FDOM_FUPDATE_LIST,count_def,EXTENSION]>>
+     rw[]>>DECIDE_TAC)>>
+  `t_walkstar s' (Infer_Tuvar st.next_uvar) = unconvert_t ^(t)` by
+    (fs[t_walkstar_eqn,Abbr`s'`,t_walk_eqn,Once t_vwalk_eqn]>>
+     fs[flookup_fupdate_list]>>
+     Cases_on`unconvert_t ^(t)`
+     >- fs[check_t_def]
+     >-
+       (fs[MAP_EQ_ID,check_t_def,EVERY_MEM]>>rw[]>>
+       res_tac>>metis_tac[t_walkstar_no_vars])
+    >- fs[check_t_def])>>
+  `∀uv. uv ∈ FDOM s' ⇒ check_t n {} (t_walkstar s' (Infer_Tuvar uv))`  by
+    (rw[]>>
+     Cases_on`uv = st.next_uvar`
+     >-
+       fs[check_t_def]
+     >>
+       `uv <st.next_uvar` by DECIDE_TAC>>
+       imp_res_tac t_walkstar_SUBMAP>>
+       metis_tac[t_walkstar_no_vars]);
+
+val replace_uvar_tac = 
+  rpt (qpat_assum `t_walkstar s A = B` (fn th =>     
+  (((Q.SUBGOAL_THEN `t_walkstar s' h = ^(th|>concl|>rhs)` assume_tac))>-
+  (metis_tac[check_t_def,submap_t_walkstar_replace,th]))) )
+    
+val rest_uvar_tac =
+  pure_add_constraints_ignore_tac `s'`>>
+  pure_add_constraints_combine_tac ``constraints'`` ``s'``>>
+  `t_compat s si` by metis_tac[t_compat_trans]>>
+  fs[pure_add_constraints_append]>>
+  Q.EXISTS_TAC `<|subst:=s2' ; next_uvar := st.next_uvar+1 |>` >>fs[]>>
+  pure_add_constraints_rest_tac ``constraints'`` ``s'``>>
+  TRY(metis_tac[check_freevars_empty_convert_unconvert_id]);
+
+val submap_t_walkstar_replace = prove(
+``t_wfs s' ∧
+  s SUBMAP s' ∧ 
+  check_t n {} (t_walkstar s h)
+  ⇒
+  t_walkstar s h = t_walkstar s' h``,
+  rw[]>>
+  imp_res_tac t_walkstar_SUBMAP>>
+  metis_tac[t_walkstar_no_vars])
+  
 val constrain_op_complete = prove(
 ``
 !n. 
@@ -672,106 +805,123 @@ t = convert_t (t_walkstar s' t')``,
   strip_tac>>
   fs[sub_completion_def]>>
   rw[]>>
-    (*Q.SPECL_THEN [`st.subst`,`constraints`,`s`,`ts'`,`MAP unconvert_t ts`] assume_tac
-      pure_add_constraints_sublist_exists>>*)
   rfs[]>>
   imp_res_tac pure_add_constraints_wfs>>
   fs[constrain_op_def,type_op_cases]>>
   BasicProvers.EVERY_CASE_TAC>>
   ntac 2 (fs[unconvert_t_def,MAP]>>rw[])>>
-  fs[add_constraint_success,success_eqns,sub_completion_def]
- >-
+  fs[add_constraint_success,success_eqns,sub_completion_def]>>
+  Q.SPECL_THEN [`st.subst`,`constraints`,`s`] mp_tac pure_add_constraints_success>>
+  miscLib.discharge_hyps>>rw[]
+  >-
     (*int->int->int*)
-    (
-     ntac 2 (qpat_assum `convert_t A = B` (assume_tac o (Q.AP_TERM `unconvert_t`)))>>
-     imp_res_tac check_t_empty_unconvert_convert_id>>
-     fs[unconvert_t_def]>>
-     Q.EXISTS_TAC `Infer_Tapp [] TC_int`>>
-     imp_res_tac pure_add_constraints_success>>
+    (unconversion_tac>>
+    Q.EXISTS_TAC `Infer_Tapp [] TC_int`>>
+    fs[pure_add_constraints_combine]>>
+    qpat_abbrev_tac `ls = [(h,Infer_Tapp [] TC_int);(h',B)]`>>
+    pac_tac)
+  >- (*int->int->bool*)
+    (unconversion_tac>>
+     Q.EXISTS_TAC`Infer_Tapp [] TC_bool`>>
      fs[pure_add_constraints_combine]>>
      qpat_abbrev_tac `ls = [(h,Infer_Tapp [] TC_int);(h',B)]`>>
-     imp_res_tac t_compat_pure_add_constraints_1>>
-     pop_assum(qspec_then `ls` mp_tac)>> miscLib.discharge_hyps
-     >-
-       (unabbrev_all_tac>>fs[t_walkstar_eqn,t_walk_eqn])
-     >>
-    rw[]>>
-    Q.EXISTS_TAC `<|subst:=si ; next_uvar := st.next_uvar |>` >>fs[]>>
-    fs[pure_add_constraints_combine]>>
-    imp_res_tac pure_add_constraints_success>>
-    imp_res_tac t_compat_eqs_t_unify>>
-    first_x_assum(qspecl_then [`h`,`Infer_Tapp [] TC_int`] mp_tac)>>
-    miscLib.discharge_hyps>-
-    (fs[SimpLHS,t_walkstar_eqn,t_walk_eqn]>>metis_tac[])>>
-    rw[]>>
-    assume_tac (Q.SPEC `s` pure_add_constraints_ignore)>>
-    `pure_add_constraints st.subst (constraints++ls) s` by
-      (fs[pure_add_constraints_append]>>
-      Q.EXISTS_TAC`s`>>
-      fs[Abbr`ls`]>>
-      first_x_assum(qspec_then `[h;h']` assume_tac)>>
-      fs[]>>metis_tac[])>>
-    Q.SPECL_THEN [`s`,`st.subst`,`ls`,`constraints`] assume_tac pure_add_constraints_swap>>
-    rfs[]>>
-    Q.EXISTS_TAC`si''`>>
-    Q.EXISTS_TAC`constraints`>>
-    Q.SPECL_THEN [`n`,`si''`,`s`] assume_tac (GEN_ALL t_compat_bi_ground)>>
-    rfs[]>>
-    fs[pure_add_constraints_append]>>
-    `si = s2'` by metis_tac[pure_add_constraints_functional]>>
-    rw[]
-    >-
-      metis_tac[pure_add_constraints_success]
-    >>
-      `t_wfs si''` by metis_tac[pure_add_constraints_wfs]>>
-      fs[pure_add_constraints_wfs,convert_t_def,t_walkstar_eqn,t_walk_eqn]
-    )
-  >- (*int->int->bool*)
-    cheat
+     pac_tac) 
   >- (*Opapp --> Example with fresh unification variable*)
-    (qpat_abbrev_tac `ls = [(h,Infer_Tapp B C)]`>>
-    Q.ABBREV_TAC `constraints' = constraints++
-                 [Infer_Tuvar st.next_uvar,unconvert_t t]`>>
-    Q.SPECL_THEN [`s`,`[t]`,`st.next_uvar`,`n`] 
-      mp_tac pure_add_constraints_exists>>
-    miscLib.discharge_hyps>-
-      (fs[check_t_def]>>
-      imp_res_tac check_t_to_check_freevars>>
-      rfs[check_freevars_def])>>
-    fs[LET_THM,EVAL``COUNT_LIST 1``]>>
-    qpat_abbrev_tac `s' = s|++ A`>>strip_tac>>
-    `pure_add_constraints st.subst constraints' s'` by
-      metis_tac[pure_add_constraints_append]>>
-    imp_res_tac pure_add_constraints_success>>
-    Q.SPECL_THEN [`ls`,`st.subst`,`s'`] mp_tac t_compat_pure_add_constraints_1>>
-    (*should factor this bit out.. probably common across all*)
-    qpat_assum `convert_t A = B` (assume_tac o (Q.AP_TERM `unconvert_t`))>>
-    imp_res_tac check_t_empty_unconvert_convert_id>>
-    fs[unconvert_t_def]>>
-    miscLib.discharge_hyps
-    >-
-      (fs[Abbr`ls`]>>cheat) (*true using s SUBMAP s' and t_walkstar s h = ... *)
-    >>
-      rw[]>>
-      Q.EXISTS_TAC`<|subst:=si ; next_uvar:= st.next_uvar+1|>`>>fs[]>>
-      assume_tac (Q.SPEC `s'` pure_add_constraints_ignore)>>
-      `pure_add_constraints st.subst (constraints'++ls) s'` by
-        (fs[pure_add_constraints_append]>>
-        Q.EXISTS_TAC`s'`>>fs[]>>
-        fs[Abbr`ls`]>>
-        cheat)>> (*Probably looks the same as the cheat above because s' is complete*)
-      Q.SPECL_THEN [`s'`,`st.subst`,`ls`,`constraints'`] mp_tac pure_add_constraints_swap>>
-      rw[]>>
-      Q.EXISTS_TAC`si'`>>
-      Q.EXISTS_TAC`constraints'`>>
-      Q.SPECL_THEN [`n`,`si'`,`s'`] mp_tac (GEN_ALL t_compat_bi_ground)>>
-      miscLib.discharge_hyps_keep>>
-        (fs[]>>cheat)>> (*true by construction of s'*)
-      strip_tac>>
-      rfs[]>>
-     cheat)
-  >> 
-    cheat)
+    ((*First find the extension to s and prove every property of s is carried over*)
+    extend_uvar_tac ``t``>>
+    qpat_abbrev_tac`ls = [(h,Infer_Tapp B C)]`>>
+    `t_walkstar s' h' = t_walkstar s h'` by
+      metis_tac[submap_t_walkstar_replace]>>
+    `t_walkstar s' h = t_walkstar s h` by
+      metis_tac[submap_t_walkstar_replace]>>
+    rest_uvar_tac)
+  >-
+    (unconversion_tac>>
+    qpat_abbrev_tac `ls = [(h,h')]`>> 
+    pac_tac)
+  >-
+    (unconversion_tac>>
+    qpat_abbrev_tac `ls = [(h,Infer_Tapp A B)]`>>
+    pac_tac)
+  >-
+    (Q.EXISTS_TAC`s`>>Q.EXISTS_TAC`constraints`>>
+    fs[t_compat_refl]>>
+    fs[convert_t_def,Once t_walkstar_eqn,Once t_walk_eqn,SimpRHS])
+  >-
+    (extend_uvar_tac ``t``>>
+    qpat_abbrev_tac `ls = [(h,Infer_Tapp A B)]`>>
+    replace_uvar_tac>>
+    rest_uvar_tac)
+  >-
+    (unconversion_tac>>
+    Q.EXISTS_TAC`Infer_Tapp [] TC_word8array`>>
+    fs[pure_add_constraints_combine]>>
+    qpat_abbrev_tac `ls = [(h,Infer_Tapp [] TC_int);(h',B)]`>>
+    pac_tac)
+  >-
+    (unconversion_tac>>
+    Q.EXISTS_TAC`Infer_Tapp [] TC_word8`>>
+    fs[pure_add_constraints_combine]>>
+    qpat_abbrev_tac `ls = [(h,Infer_Tapp [] A);(h',B)]`>>
+    pac_tac)
+  >-
+    (unconversion_tac>>
+    qpat_abbrev_tac `ls = [(h,Infer_Tapp [] A)]`>>
+    pac_tac)
+  >-
+    (unconversion_tac>>
+    Q.EXISTS_TAC`Infer_Tapp [] TC_unit`>>
+    fs[pure_add_constraints_combine]>>
+    qpat_abbrev_tac `ls = [(h,Infer_Tapp [] A);B;C]`>>
+    pac_tac)
+  >-
+    (extend_uvar_tac ``t2``>>
+    qpat_abbrev_tac `ls = [(h,Infer_Tapp A B)]`>>
+    replace_uvar_tac>>
+    rest_uvar_tac>>
+    `t_wfs si` by metis_tac[pure_add_constraints_wfs]>>
+    fs[convert_t_def,t_walkstar_eqn,t_walk_eqn]>>
+    metis_tac[check_freevars_empty_convert_unconvert_id])
+  >-
+    (Q.EXISTS_TAC `Infer_Tuvar st.next_uvar`>>
+    fs[pure_add_constraints_combine]>>
+    extend_uvar_tac ``t``>>
+    qpat_abbrev_tac `ls = [(h,Infer_Tapp A B);C]`>>
+    replace_uvar_tac>>
+    (*Doesn't work because we don't know check_t of RHS in the tactic*)
+    `t_walkstar s' h' = Infer_Tapp [] TC_int` by
+      metis_tac[submap_t_walkstar_replace]>>
+    rest_uvar_tac)
+  >-
+    (extend_uvar_tac ``t1``>>
+    qpat_abbrev_tac `ls = [(h,Infer_Tapp A B)]`>>
+    replace_uvar_tac>>
+    rest_uvar_tac)
+  >-
+    (unconversion_tac>>
+    qpat_abbrev_tac `ls = [(h,Infer_Tapp [] A)]`>>
+    pac_tac)
+  >-
+    (Q.EXISTS_TAC `Infer_Tuvar st.next_uvar`>>
+    fs[pure_add_constraints_combine]>>
+    extend_uvar_tac ``t``>>
+    qpat_abbrev_tac `ls = [(h,Infer_Tapp A B);C]`>>
+    replace_uvar_tac>>
+    `t_walkstar s' h' = Infer_Tapp [] TC_int` by
+      metis_tac[submap_t_walkstar_replace]>>
+    rest_uvar_tac)
+  >-
+    (extend_uvar_tac ``t1``>>
+    qpat_abbrev_tac `ls = [(h,Infer_Tapp A B)]`>>
+    replace_uvar_tac>>
+    rest_uvar_tac)
+  >-
+    (unconversion_tac>>
+    Q.EXISTS_TAC`Infer_Tapp [] TC_unit`>>
+    fs[pure_add_constraints_combine]>>
+    qpat_abbrev_tac `ls = [(h,Infer_Tapp [h''] A);(h',B)]`>>
+    pac_tac)
+  ) 
 
 (*Remove every uvar in the FDOM if we walkstar using a completed map*)
 val check_t_less = prove(
@@ -1219,8 +1369,7 @@ val infer_e_complete = Q.prove (
     metis_tac[check_freevars_empty_convert_unconvert_id,t_walkstar_no_vars]))
  >-
    (*App*)
-   first_x_assum(qspecl_then [`s`,`menv`,`tenv`,`st`,`constraints`] assume_tac)>>rfs[]>>
- 
+   (first_x_assum(qspecl_then [`s`,`menv`,`tenv`,`st`,`constraints`] assume_tac)>>rfs[]>>
    `MAP (convert_t o (t_walkstar s')) ts' = ts ∧ 
     EVERY (check_t (num_tvs tenvE) {}) (MAP (t_walkstar s') ts')` by
      (imp_res_tac infer_e_check_t>>
@@ -1232,21 +1381,11 @@ val infer_e_complete = Q.prove (
      rfs[sub_completion_def]>>
      res_tac>>
      first_x_assum(qspec_then `y` assume_tac)>>
-     `t_wfs s'` by metis_tac[infer_e_wfs,pure_add_constraints_wfs]>>fs[]>>rfs[])
-
-
-     res_tac>>
-     Q.SPEC_THEN `e` assume_tac (Q.INST[`n`|->`num_tvs tenvE`] 
-       (fst(CONJ_PAIR check_t_less)))>>
-     fs[sub_completion_def]
-     
-
-   Q.EXISTS_TAC `t''`>>Q.EXISTS_TAC`st''`>>
-   `constrain_op op ts' st' = (Success t'',st'')` by cheat >>
-   fs[
-   simp[PULL_EXISTS]
-   
-   fs[type_op_def]
+     `t_wfs s'` by metis_tac[infer_e_wfs,pure_add_constraints_wfs]>>fs[]>>rfs[])>>
+   Q.SPECL_THEN [`ts'`,`ts`,`t`,`st'`,`s'`,`op`,`constraints'`,`num_tvs tenvE`] mp_tac
+     (GEN_ALL constrain_op_complete)>>
+   miscLib.discharge_hyps_keep>- (fs[]>>metis_tac[infer_e_wfs])>>
+   fs[]>>metis_tac[t_compat_trans])
  >- (*Log*)
    cheat
  >- (*If *)
