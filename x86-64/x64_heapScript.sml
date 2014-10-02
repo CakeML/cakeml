@@ -12267,6 +12267,9 @@ fun fix_code th = let
   val th = th
   |> SIMP_RULE std_ss [INSERT_UNION_INSERT,UNION_EMPTY]
   |> SORT_CODE
+  |> SIMP_RULE std_ss [INSERT_UNION_EQ,UNION_EMPTY]
+  |> SORT_CODE
+  |> SIMP_RULE std_ss [INSERT_INSERT,AC UNION_ASSOC UNION_COMM,UNION_IDEMPOT]
   |> MERGE_CODE
   |> MATCH_MP SPEC_CODE_ABBREV |> Q.SPEC `code_abbrevs cs`
   |> CONV_RULE ((RATOR_CONV o RAND_CONV) (SIMP_CONV std_ss
@@ -12281,8 +12284,6 @@ fun fix_code th = let
 fun get_code th = let
   val (_,_,c,_) = fix_code th |> UNDISCH_ALL |> concl |> dest_spec
   in c |> rator |> rand |> rand end
-
-
 
 
 (* --- a lemma for each bytecode instruction --- *)
@@ -12346,10 +12347,8 @@ val zBC_LengthBlock = zHEAP_GET_LENGTH |> fix_code
 val zBC_LengthByte = zHEAP_GET_LENGTH_BYTE |> fix_code
 val zBC_Length = zHEAP_GET_LENGTH_ARRAY |> fix_code
 
-val zBC_ConsNil = SPEC_COMPOSE_RULE [zHEAP_PUSH1,zHEAP_Nil,zHEAP_NOP] |> fix_code
-val zBC_ConsBig = SPEC_COMPOSE_RULE [zHEAP_PUSH1,zHEAP_BIG_CONS]
-  |> DISCH_ALL |> Q.GEN `imm64` |> SIMP_RULE std_ss [AND_IMP_INTRO]
-  |> RW [GSYM SPEC_MOVE_COND,GSYM CONJ_ASSOC] |> fix_code
+val zBC_Cons = SPEC_COMPOSE_RULE [zHEAP_BIG_CONS_VAR,zHEAP_NOP]
+  |> DISCH_ALL |> RW [GSYM SPEC_MOVE_COND,GSYM CONJ_ASSOC] |> fix_code
 
 val zBC_Add = SPEC_COMPOSE_RULE [zHEAP_POP2,zHEAP_ADD_SMALL_INT,zHEAP_NOP] |> fix_code
 val zBC_Sub = SPEC_COMPOSE_RULE [zHEAP_POP2,zHEAP_SWAP_12,zHEAP_SUB_SMALL_INT] |> fix_code
@@ -12468,15 +12467,8 @@ val x64_def = Define `
   (x64 i (Stack LengthBlock) = ^(get_code zBC_LengthBlock)) /\
   (x64 i (Stack (Cons tag)) =
      if tag < 4096 then
-       let l = 1 in let n = tag in ^(get_code zBC_ConsBig)
-     else ^(get_code zBC_Error)
-     (*
-     if tag < 4096 /\ len < 32768 then
-       (if len = 0 then
-          let k = tag in ^(get_code zBC_ConsNil)
-        else
-          let l = len in let n = tag in ^(get_code zBC_ConsBig))
-     else ^(get_code zBC_Error)*)) /\
+       let n = tag in ^(get_code zBC_Cons)
+     else ^(get_code zBC_Error)) /\
   (x64 i (Stack (PushInt j)) =
      small_offset (Num (ABS j))
        (if j < 0 then ^(get_code zBC_Error) else
@@ -12535,12 +12527,12 @@ val PushInt_SIMP = prove(
 
 val x64_inst_length_thm = prove(
   ``!bc. x64_inst_length bc = case bc of (Label l) => 0
-                                    | Stack Add => x64_inst_length (Stack Add)
-                                    | Jump (Lab l) => x64_inst_length (Jump (Lab l))
-                                    | JumpIf (Lab l) => x64_inst_length (JumpIf (Lab l))
-                                    | Call (Lab l) => x64_inst_length (Call (Lab l))
-                                    | PushPtr (Lab l) => x64_inst_length (PushPtr (Lab l))
-                                    | i => x64_inst_length i``,
+                              | Stack Add => x64_inst_length (Stack Add)
+                              | Jump (Lab l) => x64_inst_length (Jump (Lab l))
+                              | JumpIf (Lab l) => x64_inst_length (JumpIf (Lab l))
+                              | Call (Lab l) => x64_inst_length (Call (Lab l))
+                              | PushPtr (Lab l) => x64_inst_length (PushPtr (Lab l))
+                              | i => x64_inst_length i``,
   Cases \\ EVAL_TAC \\ TRY (Cases_on `b`) \\ EVAL_TAC
   \\ TRY (Cases_on `l`) \\ EVAL_TAC)
   |> SPEC_ALL |> CONV_RULE (RAND_CONV (REWRITE_CONV [x64_inst_length_def,
@@ -12850,31 +12842,6 @@ val (res,ic_PushInt_def,ic_PushInt_pre_def) = x64_compile `
     else let s = s with code := s.code ++ ^err in (x2,x3,s,cs)`
 
 (*
-(*
-  EVAL ``x64 i (Stack (LoadRev k))``
-*)
-
-val x1 = ``[0x48w; 0x50w; 0x48w; 0x8Bw; 0x85w]:word8 list`` |> gen
-val x2 = ``[0x4Dw; 0x31w; 0xFFw]:word8 list`` |> gen
-
-val (res,ic_LoadRev_def,ic_LoadRev_pre_def) = x64_compile `
-  ic_LoadRev (x1,x2,x3,s,cs:zheap_consts) =
-    if isSmall x2 then
-    if getNumber x2 < 268435456 then
-      let x1 = Number 0 in
-      let x2 = Number (getNumber x2 + 1) in
-      let x2 = Number (getNumber x2 * 8) in
-      let x3 = x2 in
-      let x2 = Number 0 in
-      let s = s with code := s.code ++ ^x1 in
-      let s = s with code := s.code ++ IMM32 (addr_calc x1 x2 x3) in
-      let s = s with code := s.code ++ ^x2 in
-        (x1,x2,x3,s,cs)
-    else let s = s with code := s.code ++ ^err in (x1,x2,x3,s,cs)
-    else let s = s with code := s.code ++ ^err in (x1,x2,x3,s,cs)`
-*)
-
-(*
   EVAL ``x64 i (PrintC c)``
 *)
 
@@ -13052,69 +13019,46 @@ val (res,ic_PushPtr_def,ic_PushPtr_pre_def) = x64_compile `
       let s = s with code := s.code ++ IMM32 (addr_calc x1 x2 x3) in
         (x1,x2,x3,s,cs)`
 
-(* two args *)
-
 (*
-  ``x64 i (Stack (Cons a b))`` |> SIMP_CONV std_ss [x64_def,small_offset_def,LET_DEF]
+  ``x64 i (Stack (Cons a))`` |> SIMP_CONV std_ss [x64_def,small_offset_def,LET_DEF]
+
+  max_print_depth := 500
+
 *)
 
-val cons1 = ``[0x48w; 0x50w; 0xB8w]:word8 list`` |> gen
-val cons2 = ``[0x4Dw; 0x31w; 0xFFw]:word8 list`` |> gen
-val cons3 = ``[0x48w; 0x50w; 0x41w; 0xBEw]:word8 list`` |> gen
-val cons4 = ``[0x4Cw; 0x8Bw; 0xFFw; 0x49w; 0x29w; 0xF7w; 0x4Dw; 0x39w;
-               0xF7w; 0x73w; 0x7w; 0x4Dw; 0x8Bw; 0x69w; 0x30w; 0x49w; 0xFFw;
-               0xD5w; 0x41w; 0xBEw]:word8 list`` |> gen
-val cons5 = ``[0x4Dw; 0x8Bw; 0xFEw; 0x49w; 0xC1w; 0xEFw; 0x10w; 0x48w;
-               0x58w; 0x48w; 0x83w; 0xEFw; 0x8w; 0x48w; 0x89w; 0x47w; 0x1w;
-               0x49w; 0xFFw; 0xCFw; 0x49w; 0x83w; 0xFFw; 0x0w; 0x48w; 0x75w;
-               0xECw; 0x48w; 0x83w; 0xEFw; 0x8w; 0x4Cw; 0x89w; 0x77w; 0x1w;
-               0x48w; 0x8Bw; 0xC7w]:word8 list`` |> gen
+val cons1 = ``[0x48w; 0x83w; 0xF8w; 0x0w; 0x48w; 0x74w; 0x6Fw; 0x48w; 0xA9w;
+      0x3w; 0x0w; 0x0w; 0x0w; 0x48w; 0x75w; 0x9w; 0x48w; 0x3Dw; 0x0w;
+      0x0w; 0x2w; 0x0w; 0x48w; 0x72w; 0x4w; 0x49w; 0xFFw; 0x61w; 0x28w;
+      0x4Cw; 0x8Bw; 0xF0w; 0x49w; 0xD1w; 0xE6w; 0x49w; 0x83w; 0xC6w;
+      0x8w; 0x4Cw; 0x8Bw; 0xFFw; 0x49w; 0x29w; 0xF7w; 0x4Dw; 0x39w;
+      0xF7w; 0x73w; 0x7w; 0x4Dw; 0x8Bw; 0x69w; 0x30w; 0x49w; 0xFFw;
+      0xD5w; 0x41w; 0xBEw]:word8 list`` |> gen
+val cons2 = ``[0x49w; 0xC1w; 0xE6w; 0x4w;
+      0x4Cw; 0x8Bw; 0xF8w; 0x49w; 0xC1w; 0xE7w; 0xEw; 0x4Dw; 0x1w;
+      0xFEw; 0x4Dw; 0x8Bw; 0xFEw; 0x49w; 0xC1w; 0xEFw; 0x10w; 0x48w;
+      0x58w; 0x48w; 0x83w; 0xEFw; 0x8w; 0x48w; 0x89w; 0x47w; 0x1w;
+      0x49w; 0xFFw; 0xCFw; 0x49w; 0x83w; 0xFFw; 0x0w; 0x48w; 0x75w;
+      0xECw; 0x48w; 0x83w; 0xEFw; 0x8w; 0x4Cw; 0x89w; 0x77w; 0x1w;
+      0x48w; 0x8Bw; 0xC7w; 0x48w; 0xEBw; 0x5w; 0xB8w]:word8 list`` |> gen
+val cons3 = ``[0x4Dw; 0x31w; 0xFFw]:word8 list`` |> gen
 
 val (res,ic_Cons_def,ic_Cons_pre_def) = x64_compile `
-  ic_Cons (x1,x2,x3:bc_value,s,cs:zheap_consts) =
+  ic_Cons (x1:bc_value,x2:bc_value,x3:bc_value,s,cs:zheap_consts) =
     if ~isSmall x2 then
-      let s = s with code := s.code ++ ^err in (x1,x2,x3,s,cs) else
-    if ~isSmall x3 then
-      let s = s with code := s.code ++ ^err in (x1,x2,x3,s,cs) else
-    if ~(getNumber x3 < 32768) then
-      let s = s with code := s.code ++ ^err in (x1,x2,x3,s,cs) else
-    if ~(getNumber x2 < 4096) then
+      let s = s with code := s.code ++ ^err in (x1,x2,x3,s,cs)
+    else if ~(getNumber x2 < 4096) then
       let s = s with code := s.code ++ ^err in (x1,x2,x3,s,cs)
     else
-      if getNumber x3 = 0 then
-        let x2 = Number (getNumber x2 * 4) in
-        let x2 = Number (getNumber x2 + 1) in
-        let x2 = Number (getNumber x2 + 1) in
-        let s = s with code := s.code ++ ^cons1 in
-        let s = s with code := s.code ++ IMM32 (n2w (Num (getNumber x2))) in
-        let s = s with code := s.code ++ ^cons2 in
-          (x1:bc_value,x2,x3,s,cs)
-      else
-          let x1 = x2 in
-          let x2 = x3 in
-          let x2 = Number (getNumber x2 + 1) in
-          let x2 = Number (getNumber x2 * 8) in
-          let s = s with code := s.code ++ ^cons3 in
-          let s = s with code := s.code ++ IMM32 (n2w (Num (getNumber x2))) in
-          let s = s with code := s.code ++ ^cons4 in
-          let x1 = Number (getNumber x1 * 4) in
-          let x1 = Number (getNumber x1 * 4) in
-          let x2 = x3 in
-          let x2 = Number (getNumber x2 * 8) in
-          let x2 = Number (getNumber x2 * 8) in
-          let x2 = Number (getNumber x2 * 8) in
-          let x2 = Number (getNumber x2 * 8) in
-          let x2 = Number (getNumber x2 * 8) in
-          let x2 = Number (getNumber x2 * 2) in
-          let x1 = Number (getNumber x1 + getNumber x2) in
-          let x2 = x1 in
-          let s = s with code := s.code ++ IMM32 (n2w (Num (getNumber x2))) in
-          let s = s with code := s.code ++ ^cons5 in
-            (x1:bc_value,x2,x3,s,cs)`
+      let s = s with code := s.code ++ ^cons1 in
+      let s = s with code := s.code ++ IMM32 (n2w (Num (getNumber x2))) in
+      let s = s with code := s.code ++ ^cons2 in
+      let x2 = Number (getNumber x2 * 4) in
+      let x2 = Number (getNumber x2 + 1) in
+      let x2 = Number (getNumber x2 + 1) in
+      let s = s with code := s.code ++ IMM32 (n2w (Num (getNumber x2))) in
+      let s = s with code := s.code ++ ^cons3 in
+        (x1:bc_value,x2,x3,s,cs)`
 
-(*
-  ``x64 i (Stack (Shift a b))`` |> SIMP_CONV std_ss [x64_def,small_offset_def,LET_DEF]
-*)
 
 (* putting them all together *)
 
@@ -13236,50 +13180,24 @@ val ic_Any_thm = prove(
     rw[] >> fs[] >> fsrw_tac[ARITH_ss][x64_def] >>
     simp[theorem"zheap_state_component_equality"] >>
     NO_TAC)
-  \\ cheat (* install code is broken *)
-(*
-  (* only Cons from here on *)
   \\ ASSERT_TAC (fn (_,goal) =>
-       can (find_term (can (match_term ``Stack (Cons m n)``))) goal)
-  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
-  \\ SIMP_TAC std_ss [x64_def]
-  \\ Cases_on `n0 = 0` \\ FULL_SIMP_TAC std_ss [LET_DEF] THEN1
-   (Cases_on `n < 4096`
-    \\ FULL_SIMP_TAC (srw_ss()) [small_int_def,x64_def,LET_DEF,addr_calc_def,
-         small_offset_def,LENGTH,IMM32_def,APPEND_ASSOC,APPEND,
-         SNOC_APPEND,getNumber_def]
-    \\ SIMP_TAC (srw_ss()) [bc_num_def,LET_DEF,ic_Any_def,ic_Any_pre_def,
-         ic_Cons_def,ic_Cons_pre_def,isSmall_def,getNumber_def,
-         canCompare_def,isNumber_def]
-    \\ FULL_SIMP_TAC (srw_ss()) [small_int_def,x64_def,LET_DEF,addr_calc_def,
-      small_offset_def,LENGTH,IMM32_def,APPEND_ASSOC,APPEND,
-      SNOC_APPEND,getNumber_def]
-    \\ SRW_TAC [] []
-    \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND,GSYM ADD_ASSOC]
-    \\ FULL_SIMP_TAC std_ss [AC MULT_COMM MULT_ASSOC,ORD_BOUND_LARGE,lemma]
-    \\ TRY (REPEAT STRIP_TAC \\ intLib.COOPER_TAC)
-    \\ `F` by intLib.COOPER_TAC)
-  THEN1
-   (Cases_on `n < 4096` \\ Cases_on `n0 < 32768`
-    \\ FULL_SIMP_TAC (srw_ss()) [small_int_def,x64_def,LET_DEF,addr_calc_def,
-         small_offset_def,LENGTH,EVAL ``IMM32 (n2w n)``,
-         APPEND_ASSOC,APPEND,SNOC_APPEND,getNumber_def]
-    \\ ASM_SIMP_TAC (srw_ss()) [bc_num_def,LET_DEF,ic_Any_def,ic_Any_pre_def,
-         ic_Cons_def,ic_Cons_pre_def,isSmall_def,getNumber_def,
-         canCompare_def,isNumber_def]
-    \\ `(n * 16 + n0 * 65536) < 18446744073709551616` by DECIDE_TAC
-    \\ FULL_SIMP_TAC (srw_ss()) [small_int_def,x64_def,LET_DEF,addr_calc_def,
-          ``IMM32 (n2w n) ++ xs`` |> REWRITE_CONV [IMM32_def,APPEND] |> GSYM,
-          small_offset_def,LENGTH,EVAL ``IMM32 (n2w n)``,
-          APPEND_ASSOC,APPEND,SNOC_APPEND,getNumber_def]
-    \\ TRY (REPEAT STRIP_TAC \\ intLib.COOPER_TAC)
-    \\ TRY (`F` by intLib.COOPER_TAC)
-    \\ REPEAT STRIP_TAC
-    \\ SRW_TAC [] [WORD_MUL_LSL,word_mul_n2w,w2n_n2w,word_add_n2w]
-    \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND,GSYM ADD_ASSOC]
-    \\ FULL_SIMP_TAC std_ss [AC MULT_COMM MULT_ASSOC,ORD_BOUND_LARGE,lemma]
-    \\ TRY (REPEAT STRIP_TAC \\ intLib.COOPER_TAC)
-    \\ TRY (`F` by intLib.COOPER_TAC)) *));
+       can (find_term (can (match_term ``Stack (Cons n)``))) goal)
+  \\ fs [ic_Cons_def,ic_Cons_pre_def]
+  \\ Cases_on `n < 4096`
+  \\ TRY (`n < 2305843009213693952` by DECIDE_TAC)
+  \\ FULL_SIMP_TAC (srw_ss()) [small_int_def,x64_def,
+        small_offset_def, small_offset6_def, small_offset12_def, small_offset16_def,
+        LENGTH,IMM32_def,APPEND_ASSOC,APPEND,
+        ic_Jump_def,ic_Jump_pre_def,
+        ic_JumpIf_def,ic_JumpIf_pre_def,
+        ic_Call_def,ic_Call_pre_def,
+        ic_PushPtr_def,ic_PushPtr_pre_def,
+        LET_DEF,isSmall_def,
+        isNumber_def,getNumber_def,canCompare_def,addr_calc_def,
+        AC MULT_COMM MULT_ASSOC]
+  \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ fs [fetch "-" "zheap_state_component_equality",lemma]
+  \\ REPEAT STRIP_TAC \\ intLib.COOPER_TAC);
 
 
 (* code install that walks down a list *)
