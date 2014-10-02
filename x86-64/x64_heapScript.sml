@@ -9265,8 +9265,53 @@ gg goal
   val th1 = zHEAP_LIMIT_X1_32768
   val th = SPEC_COMPOSE_RULE [th1,th]
   val th = th |> RW [SPEC_MOVE_COND] |> Q.GEN `x1` |> SIMP_RULE std_ss []
+  val th = SPEC_COMPOSE_RULE [th,compose_specs ["jmp 5"]]
   in th end;
 
+val zHEAP_BIG_CONS_VAR = let
+  val th = zHEAP_BIG_CONS_VAR_NONZERO_CASE
+  val str = get_pc th |> rand |> rand |> rand
+              |> numSyntax.int_of_term |> (fn i => i-5) |> int_to_string
+  val th0 = zHEAP_1EQ0
+  val ((th1,_,_),th2a) = prog_x64Lib.x64_spec_memory64
+          (x64_encodeLib.x64_encode ("je " ^ str))
+  fun the (SOME x) = x | the _ = fail()
+  val th2 = th2a |> the |> #1
+  val thA = SPEC_COMPOSE_RULE [th0,th1]
+  val thB = SPEC_COMPOSE_RULE [th0,th2]
+  val (_,_,sts,_) = prog_x64Lib.x64_tools
+  val thA = HIDE_STATUS_RULE true sts thA
+  val thB = HIDE_STATUS_RULE true sts thB
+  val thA = thA |> SIMP_RULE (std_ss++sep_cond_ss) [precond_def]
+  val thB = thB |> SIMP_RULE (std_ss++sep_cond_ss) [precond_def]
+  val thA = thA |> Q.INST [`x1`|->`Number (&l)`] |> RW [getNumber_def,isNumber_def]
+  val thB = thB |> Q.INST [`x1`|->`Number (&l)`] |> RW [getNumber_def,isNumber_def]
+  val thB = SPEC_COMPOSE_RULE [thB,zHEAP_BIG_CONS_VAR_NONZERO_CASE]
+  val lemma = prove(``((&l = 0) <=> (l = 0)) /\ ~(&l < 0)``,intLib.COOPER_TAC)
+  val thA = thA |> RW [lemma]
+  val thB = thB |> RW [lemma]
+  val thA = SPEC_COMPOSE_RULE [thA,zHEAP_Nil |> Q.INST [`k`|->`n`]]
+  val thA = thA |> RW1 [SPEC_MOVE_COND] |> UNDISCH_ALL
+  val thB = thB |> DISCH ``l <> 0:num`` |> SIMP_RULE std_ss [SEP_CLAUSES]
+                |> RW1 [GSYM SPEC_MOVE_COND]
+  val IF_COMPOSE_UNION_LEMMA = prove(
+    ``SPEC m (p * cond b) c q1 /\ SPEC m (p * cond ~b) c2 q2 ==>
+      SPEC m (p) (c UNION c2) (if b then q1 else q2)``,
+    Cases_on `b` \\ fs [SEP_CLAUSES] \\ METIS_TAC [SPEC_ADD_CODE,UNION_COMM]);
+  val th = MATCH_MP IF_COMPOSE_UNION_LEMMA (CONJ thA thB)
+  val q = thB |> concl |> rand
+  val (th,goal) = SPEC_WEAKEN_RULE th q
+  val lemma = prove(goal,
+    SRW_TAC [] []
+    \\ FULL_SIMP_TAC (std_ss++star_ss) [SEP_IMP_def,SEP_DISJ_def])
+  val th = MP th lemma
+  val lemma = prove(``(n < 4096:num ==> 4 * n + 2 < 2147483648 ==> b) ==>
+                      (n < 4096:num ==> b)``,
+                    Cases_on `b` \\ fs [] \\ DECIDE_TAC);
+  val th = th |> DISCH ``4 * n + 2 < 2147483648:num``
+              |> DISCH ``n < 4096:num`` |> MATCH_MP lemma
+  val th = th |> UNDISCH_ALL
+  in th end;
 
 (* deref *)
 
