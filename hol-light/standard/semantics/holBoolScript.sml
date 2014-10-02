@@ -22,6 +22,9 @@ val _ = Parse.temp_overload_on("x",``Var "x" A``)
 val _ = Parse.temp_overload_on("Absx",``Abs "x" A``)
 val _ = Parse.temp_overload_on("FAx",``Forall "x" A``)
 
+val sigs = [is_true_sig_def, is_false_sig_def, is_implies_sig_def, is_and_sig_def,
+            is_or_sig_def, is_not_sig_def, is_forall_sig_def, is_exists_sig_def]
+
 val bool_sig_instances = store_thm("bool_sig_instances",
   ``is_bool_sig sig ⇒
     instance (tmsof sig) (i:'U interpretation) "T" Bool = (K (tmaof i "T" [])) ∧
@@ -32,34 +35,74 @@ val bool_sig_instances = store_thm("bool_sig_instances",
     instance (tmsof sig) i "~" (Fun Bool Bool) = (K (tmaof i "~" [])) ∧
     instance (tmsof sig) i "!" (Fun (Fun A Bool) Bool) = (λτ. tmaof i "!" [τ "A"]) ∧
     instance (tmsof sig) i "?" (Fun (Fun A Bool) Bool) = (λτ. tmaof i "?" [τ "A"])``,
-  rw[is_bool_sig_def] >> imp_res_tac identity_instance >> rw[FUN_EQ_THM] >>
+  rw[is_bool_sig_def] >> fs sigs >> imp_res_tac identity_instance >> rw[FUN_EQ_THM] >>
   rpt AP_TERM_TAC >> rw[FUN_EQ_THM,tyvars_def] >> EVAL_TAC)
 
-val _ = Parse.overload_on("Boolrel",
-  ``λr.  (Abstract boolset (Funspace boolset boolset)
+val Boolrel_def = xDefine"Boolrel"`
+  Boolrel0 ^mem R =
+      (Abstract boolset (Funspace boolset boolset)
            (λp. (Abstract boolset boolset
-              (λq. Boolean (r (p = True) (q = True))))))``)
+              (λq. Boolean (R (p = True) (q = True))))))`
+val _ = Parse.overload_on("Boolrel",``Boolrel0 ^mem``)
+
+val is_true_interpretation_def = xDefine"is_true_interpretation"`
+  is_true_interpretation0 ^mem γ ⇔ (γ:'U tmass) interprets "T" on [] as K True`
+val _ = Parse.overload_on("is_true_interpretation",``is_true_interpretation0 ^mem``)
+
+val is_and_interpretation_def = xDefine"is_and_interpretation"`
+  is_and_interpretation0 ^mem γ ⇔ γ interprets "/\\" on [] as K (Boolrel $/\)`
+val _ = Parse.overload_on("is_and_interpretation",``is_and_interpretation0 ^mem``)
+
+val is_implies_interpretation_def = xDefine"is_implies_interpretation"`
+  is_implies_interpretation0 ^mem γ ⇔ γ interprets "==>" on [] as K (Boolrel $==>)`
+val _ = Parse.overload_on("is_implies_interpretation",``is_implies_interpretation0 ^mem``)
+
+val is_forall_interpretation_def = xDefine"is_forall_interpretation"`
+  is_forall_interpretation0 ^mem γ ⇔ γ
+    interprets "!" on ["A"] as
+       (λl. Abstract (Funspace (HD l) boolset) boolset
+              (λP. Boolean (∀x. x <: (HD l) ⇒ Holds P x)))`
+val _ = Parse.overload_on("is_forall_interpretation",``is_forall_interpretation0 ^mem``)
+
+val is_exists_interpretation_def = xDefine"is_exists_interpretation"`
+  is_exists_interpretation0 ^mem γ ⇔ γ
+    interprets "?" on ["A"] as
+       (λl. Abstract (Funspace (HD l) boolset) boolset
+              (λP. Boolean (∃x. x <: (HD l) ∧ Holds P x)))`
+val _ = Parse.overload_on("is_exists_interpretation",``is_exists_interpretation0 ^mem``)
+
+val is_or_interpretation_def = xDefine"is_or_interpretation"`
+  is_or_interpretation0 ^mem γ ⇔ γ interprets "\\/" on [] as K (Boolrel $\/)`
+val _ = Parse.overload_on("is_or_interpretation",``is_or_interpretation0 ^mem``)
+
+val is_false_interpretation_def = xDefine"is_false_interpretation"`
+  is_false_interpretation0 ^mem γ ⇔ (γ:'U tmass) interprets "F" on [] as K False`
+val _ = Parse.overload_on("is_false_interpretation",``is_false_interpretation0 ^mem``)
+
+val is_not_interpretation_def = xDefine"is_not_interpretation"`
+  is_not_interpretation0 ^mem γ ⇔ γ interprets "~" on [] as K (Abstract boolset boolset (λp. Boolean (p ≠ True)))`
+val _ = Parse.overload_on("is_not_interpretation",``is_not_interpretation0 ^mem``)
+
+val ints = [is_true_interpretation_def,is_and_interpretation_def,is_implies_interpretation_def,
+            is_forall_interpretation_def,is_exists_interpretation_def,is_or_interpretation_def,
+            is_false_interpretation_def,is_not_interpretation_def]
 
 val is_bool_interpretation_def = xDefine"is_bool_interpretation"`
   is_bool_interpretation0 ^mem i ⇔
     is_std_interpretation i ∧
-    tmaof i interprets "T" on [] as K True ∧
-    tmaof i interprets "/\\" on [] as K (Boolrel $/\) ∧
-    tmaof i interprets "==>" on [] as K (Boolrel $==>) ∧
-    tmaof i interprets "!" on ["A"] as
-       (λl. Abstract (Funspace (HD l) boolset) boolset
-              (λP. Boolean (∀x. x <: (HD l) ⇒ Holds P x))) ∧
-    tmaof i interprets "?" on ["A"] as
-       (λl. Abstract (Funspace (HD l) boolset) boolset
-              (λP. Boolean (∃x. x <: (HD l) ∧ Holds P x))) ∧
-    tmaof i interprets "\\/" on [] as K (Boolrel $\/) ∧
-    tmaof i interprets "F" on [] as K False ∧
-    tmaof i interprets "~" on [] as K (Abstract boolset boolset (λp. Boolean (p ≠ True)))`
+    is_true_interpretation (tmaof i) ∧
+    is_and_interpretation (tmaof i) ∧
+    is_implies_interpretation (tmaof i) ∧
+    is_forall_interpretation (tmaof i) ∧
+    is_exists_interpretation (tmaof i) ∧
+    is_or_interpretation (tmaof i) ∧
+    is_false_interpretation (tmaof i) ∧
+    is_not_interpretation (tmaof i)`
 val _ = Parse.overload_on("is_bool_interpretation",``is_bool_interpretation0 ^mem``)
 
 val boolrel_in_funspace = store_thm("boolrel_in_funspace",
   ``is_set_theory ^mem ⇒ Boolrel R <: Funspace boolset (Funspace boolset boolset)``,
-  strip_tac >> match_mp_tac (UNDISCH abstract_in_funspace) >> rw[] >>
+  rw[Boolrel_def] >> match_mp_tac (UNDISCH abstract_in_funspace) >> rw[] >>
   match_mp_tac (UNDISCH abstract_in_funspace) >> rw[boolean_in_boolset] )
 val _ = export_rewrites["boolrel_in_funspace"]
 
@@ -121,6 +164,7 @@ val apply_boolrel = store_thm("apply_boolrel",
       Boolrel R ' b1 ' b2 = b3 ``,
   rw[] >>
   `Boolrel R ' b1 = Abstract boolset boolset (λb2. Boolean (R (b1 = True) (b2 = True)))` by (
+    rw[Boolrel_def] >>
     match_mp_tac apply_abstract_matchable >>
     rw[] >>
     match_mp_tac (UNDISCH abstract_in_funspace) >>
@@ -150,6 +194,7 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
   `FLOOKUP (tysof sig) "fun" = SOME 2` by (
     qpat_assum`is_std_sig sig` mp_tac >>
     simp[is_std_sig_def,Abbr`sig`,Abbr`ctx`]) >>
+  simp ints >>
   conj_asm1_tac >- (
     init_tac`Const "T" Bool === TrueDef` >>
     `term_ok sig TrueDef` by (
@@ -159,7 +204,7 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
   conj_asm1_tac >- (
     init_tac `Const "/\\" (Fun Bool (Fun Bool Bool)) === AndDef` >>
     imp_res_tac is_std_interpretation_is_type >>
-    imp_res_tac typesem_Bool >> simp[] >>
+    imp_res_tac typesem_Bool >> simp[Boolrel_def] >>
     match_mp_tac (UNDISCH abstract_eq) >>
     imp_res_tac typesem_Fun >>
     qx_gen_tac`b1` >> strip_tac >> simp[] >>
@@ -200,24 +245,30 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
     qmatch_assum_abbrev_tac`f1 = f2` >>
     `f1 ' (Boolrel $/\) = False` by (
       qpat_assum`f1 = f2`kall_tac >>
-      simp[Abbr`f1`] >>
+      simp[Abbr`f1`,Boolrel_def] >>
       match_mp_tac apply_abstract_matchable >> simp[] >>
+      conj_tac >- apply_abstract_tac >>
       conj_asm1_tac >- (
         match_mp_tac (UNDISCH apply_in_rng) >> qexists_tac`boolset` >> simp[] >>
-        match_mp_tac (UNDISCH apply_in_rng) >> qexists_tac`boolset` >> simp[] ) >>
+        match_mp_tac (UNDISCH apply_in_rng) >> qexists_tac`boolset` >> simp[] >>
+        apply_abstract_tac) >>
       `Boolrel $/\ ' b1 = Abstract boolset boolset (λb2. Boolean (b1 = True ∧ b2 = True))` by (
+        simp[Boolrel_def] >>
         match_mp_tac apply_abstract_matchable >>
         simp[] ) >>
-      simp[] >>
+      simp[GSYM Boolrel_def] >>
       match_mp_tac apply_abstract_matchable >>
       simp[boolean_def,mem_boolset] ) >>
     `f2 ' (Boolrel $/\) = True` by (
       simp[Abbr`f2`] >>
       match_mp_tac apply_abstract_matchable >> simp[] >>
       conj_asm1_tac >- (
+        simp[Boolrel_def] >>
         match_mp_tac (UNDISCH apply_in_rng) >> qexists_tac`boolset` >> simp[mem_boolset] >>
-        match_mp_tac (UNDISCH apply_in_rng) >> qexists_tac`boolset` >> simp[mem_boolset] ) >>
+        match_mp_tac (UNDISCH apply_in_rng) >> qexists_tac`boolset` >> simp[mem_boolset] >>
+        apply_abstract_tac) >>
       `Boolrel $/\ ' True = Abstract boolset boolset (λb2. Boolean (b2 = True))` by (
+        simp[Boolrel_def] >>
         match_mp_tac apply_abstract_matchable >> simp[mem_boolset] >>
         match_mp_tac (UNDISCH abstract_in_funspace) >>
         simp[boolean_in_boolset]) >>
@@ -228,7 +279,7 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
   conj_asm1_tac >- (
     init_tac `Const "==>" (Fun Bool (Fun Bool Bool)) === ImpliesDef` >>
     imp_res_tac is_std_interpretation_is_type >>
-    imp_res_tac typesem_Bool >> simp[] >>
+    imp_res_tac typesem_Bool >> simp[Boolrel_def] >>
     match_mp_tac (UNDISCH abstract_eq) >>
     imp_res_tac typesem_Fun >>
     qx_gen_tac`b1` >> strip_tac >> simp[] >>
@@ -266,10 +317,11 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
     simp[bool_sig_instances] >> fs[interprets_def] >>
     ntac 2(last_x_assum(qspec_then`τ`mp_tac)>>simp[]>>strip_tac) >>
     `Boolrel $/\ ' b1 = Abstract boolset boolset (λb2. Boolean (b1 = True ∧ b2 = True))` by (
+      simp[Boolrel_def] >>
       match_mp_tac apply_abstract_matchable >> simp[] >>
       match_mp_tac (UNDISCH abstract_in_funspace) >> simp[boolean_in_boolset]) >>
     `Boolrel $/\ ' b1 ' b2 =  Boolean (b1 = True ∧ b2 = True)` by (
-      simp[] >>
+      simp[Boolrel_def] >>
       match_mp_tac apply_abstract_matchable >> simp[boolean_in_boolset] ) >>
     simp[boolean_def] >> rw[] >> fs[] >>
     metis_tac[mem_boolset] ) >>
@@ -320,7 +372,7 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
     qx_gen_tac`pp` >> strip_tac >>
     simp[boolean_in_boolset] >>
     qspecl_then[`tmsof sig`,`i`,`"!"`,`Fun (Fun Bool Bool) Bool`,`Fun (Fun A Bool) Bool`,`[(Bool,A)]`]mp_tac instance_def >>
-    discharge_hyps >- (fs[is_bool_sig_def] >> EVAL_TAC) >>
+    discharge_hyps >- (fs[is_bool_sig_def,is_exists_sig_def,is_forall_sig_def] >> EVAL_TAC) >>
     simp[] >> disch_then kall_tac >>
     simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def,REV_ASSOCD] >>
     fs[interprets_def] >>
@@ -372,11 +424,11 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
     init_tac `Const "\\/" (Fun Bool (Fun Bool Bool)) === OrDef` >>
     pop_assum kall_tac >>
     imp_res_tac is_std_interpretation_is_type >>
-    imp_res_tac typesem_Bool >> simp[] >>
+    imp_res_tac typesem_Bool >> simp[Boolrel_def] >>
     match_mp_tac (UNDISCH abstract_eq) >>
     imp_res_tac typesem_Fun >>
     qspecl_then[`tmsof sig`,`i`,`"!"`,`Fun (Fun Bool Bool) Bool`,`Fun (Fun A Bool) Bool`,`[(Bool,A)]`]mp_tac instance_def >>
-    discharge_hyps >- (fs[is_bool_sig_def] >> EVAL_TAC) >>
+    discharge_hyps >- (fs[is_bool_sig_def,is_forall_sig_def] >> EVAL_TAC) >>
     simp[] >> disch_then kall_tac >>
     simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def,REV_ASSOCD] >>
     fs[interprets_def] >>
@@ -414,7 +466,7 @@ val bool_has_bool_interpretation = store_thm("bool_has_bool_interpretation",
     imp_res_tac typesem_Bool >> simp[] >>
     imp_res_tac typesem_Fun >>
     qspecl_then[`tmsof sig`,`i`,`"!"`,`Fun (Fun Bool Bool) Bool`,`Fun (Fun A Bool) Bool`,`[(Bool,A)]`]mp_tac instance_def >>
-    discharge_hyps >- (fs[is_bool_sig_def] >> EVAL_TAC) >>
+    discharge_hyps >- (fs[is_bool_sig_def,is_forall_sig_def] >> EVAL_TAC) >>
     simp[] >> disch_then kall_tac >>
     simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def,REV_ASSOCD] >>
     fs[interprets_def] >>

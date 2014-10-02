@@ -66,22 +66,19 @@ val select_has_model_gen = store_thm("select_has_model_gen",
   ``is_set_theory ^mem ⇒
     ∀ctxt.
       "@" ∉ FDOM (tmsof ctxt) ∧
-      (FLOOKUP (tmsof ctxt) "==>" = SOME (Fun Bool (Fun Bool Bool))) ∧
+      is_implies_sig (tmsof ctxt) ∧
       theory_ok (thyof ctxt)
       ⇒
       ∀i select.
         i models (thyof ctxt) ∧
-        tmaof i interprets "==>" on [] as
-          (K (Abstract boolset (Funspace boolset boolset)
-                 (λp. Abstract boolset boolset
-                     (λq. Boolean ((p = True) ⇒ (q = True)))))) ∧
+        is_implies_interpretation (tmaof i) ∧
         good_select select
       ⇒ ∃i'. equal_on (sigof ctxt) i i' ∧
              i' models (thyof (mk_select_ctxt ctxt)) ∧
              (tmaof i' "@" =
                 (λls. Abstract (Funspace (HD ls) boolset) (HD ls)
                         (λp. select (HD ls) (Holds p))))``,
-  rw[good_select_def,models_def,mk_select_ctxt_def,conexts_of_upd_def] >>
+  rw[good_select_def,models_def,mk_select_ctxt_def,conexts_of_upd_def,is_implies_sig_def,is_implies_interpretation_def] >>
   qexists_tac`(tyaof i, ("@" =+ λl. Abstract (Funspace (HD l) boolset) (HD l)
                                       (λp. select (HD l) (Holds p))) (tmaof i))` >>
   imp_res_tac is_std_interpretation_is_type >>
@@ -126,6 +123,7 @@ val select_has_model_gen = store_thm("select_has_model_gen",
     last_x_assum(qspec_then`tyvof v`mp_tac) >>
     discharge_hyps >- fs[is_valuation_def] >>
     simp[] >> disch_then kall_tac >>
+    simp[Boolrel_def] >>
     qmatch_abbrev_tac`(Abstract bs fbs fi ' fz) ' fy = True` >>
     `fi fz <: fbs` by (
       unabbrev_all_tac >> simp[] >>
@@ -208,15 +206,12 @@ val select_has_model = store_thm("select_has_model",
   ``is_set_theory ^mem ⇒
     ∀ctxt.
       "@" ∉ FDOM (tmsof ctxt) ∧
-      (FLOOKUP (tmsof ctxt) "==>" = SOME (Fun Bool (Fun Bool Bool))) ∧
+      is_implies_sig (tmsof ctxt) ∧
       theory_ok (thyof ctxt)
       ⇒
       ∀i.
         i models (thyof ctxt) ∧
-        tmaof i interprets "==>" on [] as
-          (K (Abstract boolset (Funspace boolset boolset)
-                 (λp. Abstract boolset boolset
-                     (λq. Boolean ((p = True) ⇒ (q = True))))))
+        is_implies_interpretation (tmaof i)
       ⇒ ∃i'. equal_on (sigof ctxt) i i' ∧
              i' models (thyof (mk_select_ctxt ctxt))``,
   rw[] >>
@@ -228,10 +223,6 @@ val select_has_model = store_thm("select_has_model",
 
 val _ = Parse.temp_overload_on("h",``Var "f" (Fun Ind Ind)``)
 val _ = Parse.temp_overload_on("Exh",``Exists "f" (Fun Ind Ind)``)
-val _ = Parse.temp_overload_on("Boolrel",
-  ``λr.  (Abstract boolset (Funspace boolset boolset)
-           (λp. (Abstract boolset boolset
-              (λq. Boolean (r (p = True) (q = True))))))``)
 
 val EVAL_STRING_SORT =
   CONV_TAC (DEPTH_CONV (fn tm => if can (match_term ``STRING_SORT (tyvars X)``) tm
@@ -277,32 +268,25 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
       theory_ok (thyof ctxt) ∧
       DISJOINT (FDOM (tmsof ctxt)) {"ONE_ONE";"ONTO"} ∧
       "ind" ∉ FDOM (tysof ctxt) ∧
-      (FLOOKUP (tmsof ctxt) "==>" = SOME (Fun Bool (Fun Bool Bool))) ∧
-      (FLOOKUP (tmsof ctxt) "/\\" = SOME (Fun Bool (Fun Bool Bool))) ∧
-      (FLOOKUP (tmsof ctxt) "!" = SOME (Fun (Fun A Bool) Bool)) ∧
-      (FLOOKUP (tmsof ctxt) "?" = SOME (Fun (Fun A Bool) Bool)) ∧
-      (FLOOKUP (tmsof ctxt) "~" = SOME (Fun Bool Bool))
+      is_implies_sig (tmsof ctxt) ∧
+      is_and_sig (tmsof ctxt) ∧
+      is_forall_sig (tmsof ctxt) ∧
+      is_exists_sig (tmsof ctxt) ∧
+      is_not_sig (tmsof ctxt)
       ⇒
       ∀i inf.
           i models (thyof ctxt) ∧
-          tmaof i interprets "==>" on [] as
-            (K (Abstract boolset (Funspace boolset boolset)
-                   (λp. Abstract boolset boolset
-                       (λq. Boolean ((p = True) ⇒ (q = True)))))) ∧
-          tmaof i interprets "/\\" on [] as K (Boolrel $/\) ∧
-          tmaof i interprets "!" on ["A"] as
-            (λl. Abstract (Funspace (HD l) boolset) boolset
-                   (λP. Boolean (∀x. x <: (HD l) ⇒ Holds P x))) ∧
-          tmaof i interprets "?" on ["A"] as
-            (λl. Abstract (Funspace (HD l) boolset) boolset
-                   (λP. Boolean (∃x. x <: (HD l) ∧ Holds P x))) ∧
-          tmaof i interprets "~" on [] as
-            K (Abstract boolset boolset (λp. Boolean (p ≠ True))) ∧
+          is_implies_interpretation (tmaof i) ∧
+          is_and_interpretation (tmaof i) ∧
+          is_forall_interpretation (tmaof i) ∧
+          is_exists_interpretation (tmaof i) ∧
+          is_not_interpretation (tmaof i) ∧
           is_infinite ^mem inf
       ⇒ ∃i'. equal_on (sigof ctxt) i i' ∧
              i' models (thyof (mk_infinity_ctxt ctxt)) ∧
              (tyaof i' "ind" [] = inf)``,
-  rw[models_def] >>
+  rw[models_def,is_implies_sig_def,is_and_sig_def,is_forall_sig_def,is_exists_sig_def,is_not_sig_def,
+     is_implies_interpretation_def,is_and_interpretation_def,is_forall_interpretation_def,is_exists_interpretation_def,is_not_interpretation_def] >>
   `∃ctxt1 p. mk_infinity_ctxt ctxt = (NewAxiom p)::(NewType "ind" 0)::ctxt1` by simp[mk_infinity_ctxt_def] >>
   `mk_infinity_ctxt ctxt extends ctxt` by (
     match_mp_tac infinity_extends >> simp[] ) >>
@@ -683,26 +667,19 @@ val infinity_has_model = store_thm("infinity_has_model",
       theory_ok (thyof ctxt) ∧
       DISJOINT (FDOM (tmsof ctxt)) {"ONE_ONE";"ONTO"} ∧
       "ind" ∉ FDOM (tysof ctxt) ∧
-      (FLOOKUP (tmsof ctxt) "==>" = SOME (Fun Bool (Fun Bool Bool))) ∧
-      (FLOOKUP (tmsof ctxt) "/\\" = SOME (Fun Bool (Fun Bool Bool))) ∧
-      (FLOOKUP (tmsof ctxt) "!" = SOME (Fun (Fun A Bool) Bool)) ∧
-      (FLOOKUP (tmsof ctxt) "?" = SOME (Fun (Fun A Bool) Bool)) ∧
-      (FLOOKUP (tmsof ctxt) "~" = SOME (Fun Bool Bool))
+      is_implies_sig (tmsof ctxt) ∧
+      is_and_sig (tmsof ctxt) ∧
+      is_forall_sig (tmsof ctxt) ∧
+      is_exists_sig (tmsof ctxt) ∧
+      is_not_sig (tmsof ctxt)
       ⇒
       ∀i. i models (thyof ctxt) ∧
-          tmaof i interprets "==>" on [] as
-            (K (Abstract boolset (Funspace boolset boolset)
-                   (λp. Abstract boolset boolset
-                       (λq. Boolean ((p = True) ⇒ (q = True)))))) ∧
-          tmaof i interprets "/\\" on [] as K (Boolrel $/\) ∧
-          tmaof i interprets "!" on ["A"] as
-            (λl. Abstract (Funspace (HD l) boolset) boolset
-                   (λP. Boolean (∀x. x <: (HD l) ⇒ Holds P x))) ∧
-          tmaof i interprets "?" on ["A"] as
-            (λl. Abstract (Funspace (HD l) boolset) boolset
-                   (λP. Boolean (∃x. x <: (HD l) ∧ Holds P x))) ∧
-          tmaof i interprets "~" on [] as
-            K (Abstract boolset boolset (λp. Boolean (p ≠ True)))
+          i models (thyof ctxt) ∧
+          is_implies_interpretation (tmaof i) ∧
+          is_and_interpretation (tmaof i) ∧
+          is_forall_interpretation (tmaof i) ∧
+          is_exists_interpretation (tmaof i) ∧
+          is_not_interpretation (tmaof i)
       ⇒ ∃i'. equal_on (sigof ctxt) i i' ∧
              i' models (thyof (mk_infinity_ctxt ctxt))``,
   metis_tac[infinity_has_model_gen])

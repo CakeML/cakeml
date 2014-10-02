@@ -196,10 +196,12 @@ val hol_has_model = store_thm("hol_has_model",
   disch_then(qspec_then`i3`mp_tac) >>
   discharge_hyps >- (
     simp[] >>
+    fs[is_bool_interpretation_def] >>
+    fs[is_implies_interpretation_def,is_and_interpretation_def,is_forall_interpretation_def,
+       is_exists_interpretation_def,is_not_interpretation_def] >>
     rpt conj_tac >>
     match_mp_tac equal_on_interprets >>
-    map_every qexists_tac[`sigof(mk_eta_ctxt (mk_bool_ctxt init_ctxt))`,`i2`] >>
-    fs[is_bool_interpretation_def] >>
+    map_every qexists_tac[`sigof(mk_eta_ctxt (mk_bool_ctxt init_ctxt))`,`i2`] >> simp[] >>
     EVAL_TAC >> simp[] >> EVAL_TAC >> simp[SUBSET_DEF] ) >>
   disch_then(qx_choose_then`i4`strip_assume_tac) >>
   fs[GSYM hol_ctxt_def,GSYM fhol_ctxt_def] >>

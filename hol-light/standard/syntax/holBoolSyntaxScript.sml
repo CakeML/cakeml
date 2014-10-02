@@ -129,17 +129,38 @@ val bool_extends_init = store_thm("bool_extends_init",
   match_mp_tac bool_extends >> simp[init_theory_ok] >>
   simp[init_ctxt_def])
 
+(* signatures of Boolean constants *)
+
+val is_true_sig_def = Define`
+  is_true_sig tmsig ⇔ FLOOKUP tmsig "T" = SOME Bool`
+val is_false_sig_def = Define`
+  is_false_sig tmsig ⇔ FLOOKUP tmsig "F" = SOME Bool`
+val is_implies_sig_def = Define`
+  is_implies_sig tmsig ⇔ FLOOKUP tmsig "==>" = SOME (Fun Bool (Fun Bool Bool))`
+val is_and_sig_def = Define`
+  is_and_sig tmsig ⇔ FLOOKUP tmsig "/\\" = SOME (Fun Bool (Fun Bool Bool))`
+val is_or_sig_def = Define`
+  is_or_sig tmsig ⇔ FLOOKUP tmsig "\\/" = SOME (Fun Bool (Fun Bool Bool))`
+val is_not_sig_def = Define`
+  is_not_sig tmsig ⇔ FLOOKUP tmsig "~" = SOME (Fun Bool Bool)`
+val is_forall_sig_def = Define`
+  is_forall_sig tmsig ⇔ FLOOKUP tmsig "!" = SOME (Fun (Fun A Bool) Bool)`
+val is_exists_sig_def = Define`
+  is_exists_sig tmsig ⇔ FLOOKUP tmsig "?" = SOME (Fun (Fun A Bool) Bool)`
+val sigs = [is_true_sig_def, is_false_sig_def, is_implies_sig_def, is_and_sig_def,
+            is_or_sig_def, is_not_sig_def, is_forall_sig_def, is_exists_sig_def]
+
 val is_bool_sig_def = Define`
   is_bool_sig (sig:sig) ⇔
   is_std_sig sig ∧
-  FLOOKUP (tmsof sig) "T" = SOME Bool ∧
-  FLOOKUP (tmsof sig) "F" = SOME Bool ∧
-  FLOOKUP (tmsof sig) "==>" = SOME (Fun Bool (Fun Bool Bool)) ∧
-  FLOOKUP (tmsof sig) "/\\" = SOME (Fun Bool (Fun Bool Bool)) ∧
-  FLOOKUP (tmsof sig) "\\/" = SOME (Fun Bool (Fun Bool Bool)) ∧
-  FLOOKUP (tmsof sig) "~" = SOME (Fun Bool Bool) ∧
-  FLOOKUP (tmsof sig) "!" = SOME (Fun (Fun A Bool) Bool) ∧
-  FLOOKUP (tmsof sig) "?" = SOME (Fun (Fun A Bool) Bool)`
+  is_true_sig (tmsof sig) ∧
+  is_false_sig (tmsof sig) ∧
+  is_implies_sig (tmsof sig) ∧
+  is_and_sig (tmsof sig) ∧
+  is_or_sig (tmsof sig) ∧
+  is_not_sig (tmsof sig) ∧
+  is_forall_sig (tmsof sig) ∧
+  is_exists_sig (tmsof sig)`
 
 val bool_has_bool_sig = store_thm("bool_has_bool_sig",
   ``∀ctxt. is_std_sig (sigof ctxt)
@@ -158,13 +179,15 @@ val is_bool_sig_extends = store_thm("is_bool_sig_extends",
   ho_match_mp_tac updates_ind >>
   conj_tac >- rw[is_bool_sig_def] >>
   conj_tac >- (
-    rw[is_bool_sig_def,is_std_sig_def] >>
+    simp[is_bool_sig_def,is_std_sig_def] >>
+    simp sigs >> rw[] >>
     rw[FLOOKUP_UPDATE] >>
     imp_res_tac ALOOKUP_MEM >>
     fs[MEM_MAP,FORALL_PROD] >>
     metis_tac[] ) >>
   conj_tac >- (
     rw[is_bool_sig_def,is_std_sig_def] >>
+    fs sigs >>
     rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
     BasicProvers.CASE_TAC >>
     imp_res_tac ALOOKUP_MEM >>
@@ -177,12 +200,14 @@ val is_bool_sig_extends = store_thm("is_bool_sig_extends",
     fs[MEM_MAP,FORALL_PROD] >>
     metis_tac[] ) >>
   rw[is_bool_sig_def,is_std_sig_def] >>
+  fs sigs >>
   rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
   imp_res_tac ALOOKUP_MEM >>
   fs[MEM_MAP,FORALL_PROD] >>
   metis_tac[] )
 
 (* Boolean terms are ok *)
+
 val bool_term_ok = store_thm("bool_term_ok",
   ``∀sig. is_bool_sig sig ⇒
     term_ok sig True ∧
@@ -194,7 +219,7 @@ val bool_term_ok = store_thm("bool_term_ok",
     term_ok sig False ∧
     (∀p. term_ok sig (Not p) ⇔ term_ok sig p ∧ typeof p = Bool)``,
   rw[] >> imp_res_tac is_bool_sig_std >> rw[term_ok_clauses] >>
-  rw[term_ok_def] >> fs[is_bool_sig_def] >> rw[term_ok_clauses,tyvar_inst_exists] >>
+  rw[term_ok_def] >> fs[is_bool_sig_def] >> fs sigs >> rw[term_ok_clauses,tyvar_inst_exists] >>
   PROVE_TAC[term_ok_welltyped])
 
 val _ = export_theory()
