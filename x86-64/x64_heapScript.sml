@@ -15133,6 +15133,12 @@ val bv_to_string_bc_adjust = prove(
   Cases \\ FULL_SIMP_TAC std_ss [bc_adjust_def,bv_to_string_def]
   \\ SRW_TAC [] [bvs_to_chars_bc_adjust]);
 
+val TAKE_DROP_MAP_APPEND = prove(
+  ``(TAKE (LENGTH xs) (MAP f xs ++ ys) = MAP f xs) /\
+    (DROP (LENGTH xs) (MAP f xs ++ ys) = ys)``,
+  METIS_TAC [rich_listTheory.TAKE_LENGTH_APPEND,LENGTH_MAP,
+     rich_listTheory.DROP_LENGTH_APPEND]);
+
 val zBC_HEAP_THM = prove(
   ``EVEN (w2n cb) /\ (cs.stack_trunk - n2w (8 * SUC (LENGTH stack)) = sb) ==>
     !s1 s2.
@@ -15146,7 +15152,6 @@ val zBC_HEAP_THM = prove(
         (zBC_HEAP s2 (x,cs,stack,s,out) (cb,sb,ev,f2) *
          zPC (cb + n2w (2 * s2.pc)) * ~zS \/
           zHEAP_ERROR cs)``,
-
   STRIP_TAC \\ HO_MATCH_MP_TAC bc_next_ind \\ REPEAT STRIP_TAC
   \\ TRY (Cases_on `b:bc_stack_op`)
   \\ TRY (Cases_on `l:loc`)
@@ -15226,73 +15231,30 @@ val zBC_HEAP_THM = prove(
     \\ REPEAT STRIP_TAC
     \\ Q.LIST_EXISTS_TAC [`x2`,`x3`]
     \\ FULL_SIMP_TAC (std_ss++star_ss) [GSYM ADD_ASSOC])
-  THEN1 (* Cons
-   (Q.MATCH_ASSUM_RENAME_TAC `bc_fetch s1 = SOME (Stack (Cons tag len))` []
+  THEN1 (* Cons *)
+   (REVERSE (Cases_on `n < 4096`) \\ FULL_SIMP_TAC std_ss [] THEN1 ERROR_TAC
     \\ SIMP_TAC std_ss [LET_DEF]
-    \\ Q.MATCH_ASSUM_RENAME_TAC `s1.stack = ts ++ xs` []
-    \\ REVERSE (Cases_on `tag < 4096`)
-    THEN1 (FULL_SIMP_TAC std_ss [] \\ ERROR_TAC)
-    \\ REVERSE (Cases_on `len < 32768`)
-    THEN1 (FULL_SIMP_TAC std_ss [] \\ ERROR_TAC)
-    \\ FULL_SIMP_TAC std_ss []
-    \\ REVERSE (Cases_on `len = 0`) \\ FULL_SIMP_TAC std_ss [] THEN1
-     (`LENGTH ts < 32768 /\ LENGTH ts <> 0` by DECIDE_TAC
-      \\ SIMP_TAC std_ss [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF]
-      \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
-      \\ ASM_SIMP_TAC std_ss []
-      \\ REPEAT STRIP_TAC
-      \\ Q.PAT_ASSUM `len = LENGTH ts` (ASSUME_TAC o GSYM)
-      \\ Q.PAT_ASSUM `s1.stack = ts ++ xs` (ASSUME_TAC o GSYM)
-      \\ FULL_SIMP_TAC std_ss []
-      \\ (prepare zBC_ConsBig
-           |> DISCH ``n < 4096:num`` |> SIMP_RULE std_ss [] |> UNDISCH
-           |> MATCH_MP SPEC_WEAKEN |> SPEC_ALL
-           |> DISCH_ALL |> RW [AND_IMP_INTRO]
-           |> MATCH_MP_TAC)
-      \\ POP_ASSUM (MP_TAC o GSYM)
-      \\ POP_ASSUM (MP_TAC o GSYM)
-      \\ NTAC 2 STRIP_TAC
-      \\ FULL_SIMP_TAC std_ss [HD,TL,bc_adjust_def,MAP,APPEND,
-           isRefPtr_def,getRefPtr_def]
-      \\ FULL_SIMP_TAC (srw_ss()) [word_mul_n2w,HD_CONS_TL]
-      \\ FULL_SIMP_TAC std_ss [LENGTH_NIL]
-      \\ Cases_on `ts` \\ FULL_SIMP_TAC (srw_ss()) []
-      \\ STRIP_TAC THEN1 DECIDE_TAC
-      \\ `LENGTH t = LENGTH (MAP (bc_adjust (cb,sb,ev)) t)` by
-           FULL_SIMP_TAC std_ss [LENGTH_MAP]
-      \\ FULL_SIMP_TAC std_ss [rich_listTheory.TAKE_LENGTH_APPEND,
-           rich_listTheory.DROP_LENGTH_APPEND,GSYM APPEND_ASSOC,bc_adjust_def,
-           MAP_APPEND,MAP,rich_listTheory.MAP_REVERSE]
-      \\ ASM_SIMP_TAC std_ss [x64_inst_length_def,x64_length_def,x64_def,
-          small_offset_def,IMM32_def,LENGTH,GSYM ADD_ASSOC,LET_DEF,ADD1]
-      \\ SIMP_TAC std_ss [LEFT_ADD_DISTRIB,word_arith_lemma1]
-      \\ SIMP_TAC std_ss [SEP_IMP_def,SEP_EXISTS_THM,SEP_DISJ_def]
-      \\ REPEAT STRIP_TAC
-      \\ Q.LIST_EXISTS_TAC [`x2`,`x3`]
-      \\ FULL_SIMP_TAC (std_ss++star_ss) [GSYM ADD_ASSOC])
-    \\ NTAC 3 (TRY (MATCH_MP_TAC IMP_small_offset \\ REPEAT STRIP_TAC
-                    \\ TRY (SRW_TAC [] [output_simp] \\ NO_TAC)))
-    \\ Cases_on `ts` \\ FULL_SIMP_TAC std_ss [LENGTH,ADD1,REVERSE_DEF,APPEND]
+    \\ Q.MATCH_ASSUM_RENAME_TAC `s1.stack = Number (&LENGTH ts)::(ts ++ xs)` []
     \\ SIMP_TAC std_ss [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF]
     \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
     \\ REPEAT STRIP_TAC
-    \\ (prepare zBC_ConsNil
-         |> MATCH_MP SPEC_WEAKEN |> SPEC_ALL
-         |> DISCH_ALL |> RW [AND_IMP_INTRO]
-         |> MATCH_MP_TAC)
-    \\ FULL_SIMP_TAC std_ss [HD,TL,bc_adjust_def,MAP,APPEND,
-         isRefPtr_def,getRefPtr_def]
-    \\ FULL_SIMP_TAC (srw_ss()) [word_mul_n2w,HD_CONS_TL]
-    \\ STRIP_TAC THEN1 DECIDE_TAC
-    \\ FULL_SIMP_TAC std_ss [bc_adjust_def,MAP]
-    \\ ASM_SIMP_TAC std_ss [x64_inst_length_def,x64_length_def,x64_def,
-        small_offset_def,IMM32_def,LENGTH,GSYM ADD_ASSOC,LET_DEF,ADD1]
-    \\ SIMP_TAC std_ss [LEFT_ADD_DISTRIB,word_arith_lemma1]
-    \\ SIMP_TAC std_ss [SEP_IMP_def,SEP_EXISTS_THM,SEP_DISJ_def]
+    \\ (prepare (zBC_Cons |> RW [ASSUME ``Number (&l) = x1``])
+           |> Q.INST [`l`|->`LENGTH (ts:bc_value list)`]
+           |> DISCH ``n < 4096:num`` |> SIMP_RULE std_ss [SEP_CLAUSES] |> UNDISCH
+           |> MATCH_MP SPEC_WEAKEN |> SPEC_ALL
+           |> DISCH_ALL |> RW [AND_IMP_INTRO]
+           |> MATCH_MP_TAC)
+    \\ ASM_SIMP_TAC std_ss [MAP,bc_adjust_def,HD,TL,APPEND]
+    \\ STRIP_TAC THEN1 (fs [LENGTH_APPEND] \\ DECIDE_TAC)
+    \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,TAKE_DROP_MAP_APPEND]
+    \\ fs [bc_adjust_def,rich_listTheory.MAP_REVERSE]
+    \\ fs [x64_inst_length_def,x64_length_def,x64_def,LET_DEF]
+    \\ fs [LEFT_ADD_DISTRIB,GSYM ADD_ASSOC,word_arith_lemma1]
+    \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,TAKE_DROP_MAP_APPEND]
+    \\ fs [SEP_IMP_def,SEP_EXISTS_THM]
     \\ REPEAT STRIP_TAC
-    \\ Q.LIST_EXISTS_TAC [`x2`,`x3`]
-    \\ FULL_SIMP_TAC (std_ss++star_ss) [GSYM ADD_ASSOC])
-  THEN1 Cons2 *) cheat
+    \\ Q.LIST_EXISTS_TAC [`x2`,`x3`] \\ fs []
+    \\ FULL_SIMP_TAC (std_ss++star_ss) [])
   THEN1 (* Load *)
    (SIMP_TAC std_ss [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF]
     \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
@@ -16056,7 +16018,7 @@ val zBC_HEAP_THM = prove(
      \\ FULL_SIMP_TAC (srw_ss()) [SEP_DISJ_def]
      \\ simp[bc_adjust_def]
      \\ Q.LIST_EXISTS_TAC [`x2`,`x3`]
-     \\ simp[SEP_DISJ_def] >>
+     \\ simp[SEP_DISJ_def]
      \\ FULL_SIMP_TAC (std_ss++star_ss++ARITH_ss)[ADD1])
   THEN1 (* LengthByte *)
     (SIMP_TAC std_ss [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF]
@@ -16092,7 +16054,7 @@ val zBC_HEAP_THM = prove(
      \\ FULL_SIMP_TAC (srw_ss()) [SEP_DISJ_def]
      \\ simp[bc_adjust_def]
      \\ Q.LIST_EXISTS_TAC [`x2`,`x3`]
-     \\ simp[SEP_DISJ_def] >>
+     \\ simp[SEP_DISJ_def]
      \\ FULL_SIMP_TAC (std_ss++star_ss++ARITH_ss)[ADD1])
   THEN1 (* Galloc *)
     ERROR_TAC
