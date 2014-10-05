@@ -1,9 +1,10 @@
 open HolKernel boolLib boolSimps bossLib lcsymtacs pred_setTheory listTheory pairTheory;
-open alistTheory finite_mapTheory; 
+open optionTheory alistTheory finite_mapTheory; 
 open holSyntaxLibTheory;
 open holSyntaxTheory holSyntaxExtraTheory;
 
 val _ = temp_tight_equality();
+val every_case_tac = BasicProvers.EVERY_CASE_TAC;
 
 val _ = new_theory "holConservative";
 
@@ -155,62 +156,108 @@ val update_extension = Q.prove (
      >- (Cases_on `ctxt` >>
          fs [])));
 
-         (*
-val update_conservative = Q.prove (
-`!lhs tm.
-  lhs |- tm
+val get_type_subst_def = tDefine "get_type_subst" `
+(get_type_subst s (Tyvar tv) t =
+  case ALOOKUP s (Tyvar tv) of
+     | NONE => SOME ((Tyvar tv,t)::s)
+     | SOME t' =>
+         if t = t' then
+           SOME s
+         else
+           NONE) ∧
+(get_type_subst s (Tyapp tc ts) (Tyapp tc' ts') =
+  if tc = tc' then
+    get_types_subst s ts ts'
+  else
+    NONE) ∧
+(get_type_subst s _ _ = NONE) ∧
+(get_types_subst s [] [] = SOME s) ∧
+(get_types_subst s (t1::ts1) (t2::ts2) = 
+  case get_type_subst s t1 t2 of
+     | NONE => NONE
+     | SOME s' => get_types_subst s' ts1 ts2) ∧
+(get_types_subst s _ _ = NONE)`
+(WF_REL_TAC `measure (\x. case x of INL (a,b,c) => type_size b | INR (a,b,c) => type1_size b)`);
+
+val get_type_subst_SUBST = Q.prove (
+`!s' t1 t2 s.
+  get_type_subst [] t1 t2 = SOME s'
   ⇒
-  !ctxt tms upd.
-    lhs = (thyof (upd::ctxt),tms) ∧
-    upd updates ctxt
-    ⇒
-    (thyof ctxt,tms) |- tm`,
- ho_match_mp_tac proves_ind >>
- rw []
- >- (rw [Once proves_cases] >>
-     disj1_tac >>
-     MAP_EVERY qexists_tac [`l`, `r`, `ty`, `x`] >>
-     rw [] >>
-     match_mp_tac type_ok_extend >>
-     qexists_tac `tysof (sigof (thyof ctxt))` >>
-     rw [] >>
-     match_mp_tac (hd (tl (CONJUNCTS SUBMAP_FUNION_ID))) >>
-     fs [Once updates_cases])
-         
+  TYPE_SUBST s' t1 = t2`,
+ cheat);
 
-
-
-disj2_tac
-
-
-
-
+val const_subst_ok_def = Define `
+const_subst_ok s = EVERY (\(c,tm). welltyped tm) s`;
 
 val remove_const_def = Define `
-(remove_const c def (Var v ty) = Var v ty) ∧
-(remove_const c def (Const c' ty) =
-  if c = Const c' ty then
-    def
-  else
-    Const c' ty) ∧
-(remove_const c def (Comb tm1 tm2) =
-  Comb (remove_const c def tm1) (remove_const c def tm2)) ∧
-(remove_const c def (Abs x ty tm) =
-  Abs x ty (remove_const c def tm))`;
+(remove_const subst (Var v ty) = Var v ty) ∧
+(remove_const subst (Const c ty) =
+  case ALOOKUP subst c of
+     | NONE => Const c ty
+     | SOME tm =>
+         case get_type_subst [] (typeof tm) ty of
+            | NONE => Const c ty (* Can't happen *)
+            | SOME tysubst => INST tysubst tm) ∧
+(remove_const subst (Comb tm1 tm2) =
+  Comb (remove_const subst tm1) (remove_const subst tm2)) ∧
+(remove_const subst (Abs x ty tm) =
+  Abs x ty (remove_const subst tm))`;
+
+val upd_to_subst_def = Define `
+(upd_to_subst (ConstSpec consts p) =
+  consts) ∧
+(upd_to_subst _ = [])`;
+
+val updates_to_subst = Q.prove (
+`!upd ctxt.
+  upd updates ctxt 
+  ⇒
+  const_subst_ok (upd_to_subst upd) ∧
+  ALOOKUP (upd_to_subst upd) "=" = NONE`,
+ rw [updates_cases] >>
+ rw [upd_to_subst_def, const_subst_ok_def] >>
+ imp_res_tac proves_theory_ok >>
+ imp_res_tac theory_ok_sig
+ >- (imp_res_tac proves_term_ok >>
+     fs [EVERY_MAP] >>
+     fs [EVERY_MEM] >>
+     rw [] >>
+     res_tac >>
+     PairCases_on `e` >>
+     fs [] >>
+     rfs [term_ok_equation] >>
+     metis_tac [term_ok_welltyped])
+ >- (fs [is_std_sig_def] >>
+     CCONTR_TAC >>
+     fs [ALOOKUP_NONE] >>
+     imp_res_tac ALOOKUP_MEM >>
+     res_tac >>
+     fs [MEM_MAP] >>
+     metis_tac [pair_CASES, FST, SND]));
 
 val typeof_remove_const = Q.prove (
-`!c def tm. typeof def = typeof c ⇒ typeof (remove_const c def tm) = typeof tm`,
+`!tm s. const_subst_ok s ⇒ typeof (remove_const s tm) = typeof tm`,
  Induct_on `tm` >>
- rw [remove_const_def]);
+ rw [remove_const_def] >>
+ every_case_tac >>
+ rw [] >>
+ match_mp_tac WELLTYPED_LEMMA >>
+ match_mp_tac INST_HAS_TYPE >>
+ qexists_tac `typeof x` >>
+ rw [GSYM WELLTYPED]
+ >- (fs [const_subst_ok_def] >>
+     imp_res_tac ALOOKUP_MEM >>
+     fs [EVERY_MEM] >>
+     res_tac >>
+     fs []) >>
+ metis_tac [get_type_subst_SUBST]);
 
 val remove_const_eq = Q.prove (
-`typeof c = typeof def ⇒
- remove_const c def (tm1 === tm2) = 
-  if c = Equal (typeof tm1) then
-    Comb (Comb def (remove_const c def tm1)) (remove_const c def tm2)
-  else
-    remove_const c def tm1 === remove_const c def tm2`,
+`const_subst_ok s ∧ ALOOKUP s "=" = NONE ⇒ 
+  remove_const s (tm1 === tm2) = remove_const s tm1 === remove_const s tm2`,
  rw [equation_def, remove_const_def, typeof_remove_const]);
+
+ (*
 
 val vfree_in_remove_const = Q.prove (
 `~VFREE_IN (Var x ty) def ∧ VFREE_IN (Var x ty) (remove_const c def tm) ⇒ VFREE_IN (Var x ty) tm`,
@@ -238,52 +285,32 @@ val theory_ok_vfree_in = Q.prove (
  cheat);
 
 
-val elim_def = Q.prove (
-`!ctxt tm.
-  ctxt |- tm
+
+val update_conservative = Q.prove (
+`!lhs tm.
+  lhs |- tm
   ⇒
-  !c def.
-    (!ty. c ≠ Equal ty) ∧
-    (c === def) ∈ SND (FST ctxt) ⇒
-    ((sigof (FST ctxt), axsof (FST ctxt) DELETE (c === def)),
-     MAP (remove_const c def) (SND ctxt))
-    |- remove_const c def tm`,
-
- ho_match_mp_tac proves_strongind >>
+  !ctxt tms upd.
+    lhs = (thyof (upd::ctxt),tms) ∧
+    upd updates ctxt
+    ⇒
+    (thyof ctxt,MAP (remove_const (upd_to_subst upd)) tms) |- remove_const (upd_to_subst upd) tm`,
+ ho_match_mp_tac proves_ind >>
  rw [] >>
- imp_res_tac proves_theory_ok >>
- fs [] >>
- imp_res_tac theory_ok_types >>
- rw [remove_const_eq, remove_const_def]
- >- (simp [Once proves_cases] >>
+ qabbrev_tac `s = upd_to_subst upd`
+ >- (rw [Once proves_cases] >>
      disj1_tac >>
-     MAP_EVERY qexists_tac [`remove_const c def l`, `remove_const c def r`, `ty`, `x`] >>
-     first_x_assum (qspecl_then [`c`, `def`] mp_tac) >>
-     simp [remove_const_eq, EVERY_MAP] >>
+     MAP_EVERY qexists_tac [`remove_const s l`, `remove_const s r`, `ty`, `x`] >>
      rw [] >>
-     fs [EVERY_MEM] >>
+     imp_res_tac 
+
+     match_mp_tac type_ok_extend >>
+     qexists_tac `tysof (sigof (thyof ctxt))` >>
      rw [] >>
-     metis_tac [vfree_in_remove_const, theory_ok_vfree_in])
- >- (simp [Once proves_cases] >>
-     disj2_tac >>
-     disj1_tac >>
+     match_mp_tac (hd (tl (CONJUNCTS SUBMAP_FUNION_ID))) >>
+     fs [Once updates_cases])
+     *)         
 
-
-
-     metis_tac [remove_const_eq, remove_const_def]
-
- simp [Once proves_cases] >>
- rw []
- metis_tac []
-
- >- (res_tac >>
-
- imp_res_tac 
- `typeof c = typeof def` by 
- 
- remove_const_def, remove_const_eq]
-
- *)
 
 val _ = export_theory ();
 
