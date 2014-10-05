@@ -8,6 +8,10 @@ val every_case_tac = BasicProvers.EVERY_CASE_TAC;
 
 val _ = new_theory "holConservative";
 
+val CLOSED_INST = Q.prove (
+`!tm tysubst. CLOSED tm ⇒ CLOSED (INST tysubst tm)`,
+ cheat);
+
 val updates_disjoint = Q.prove (
 `!upd ctxt.
   upd updates ctxt
@@ -187,7 +191,7 @@ val get_type_subst_SUBST = Q.prove (
  cheat);
 
 val const_subst_ok_def = Define `
-const_subst_ok s = EVERY (\(c,tm). welltyped tm) s`;
+const_subst_ok s = EVERY (\(c,tm). welltyped tm ∧ CLOSED tm) s`;
 
 val remove_const_def = Define `
 (remove_const subst (Var v ty) = Var v ty) ∧
@@ -258,13 +262,32 @@ val remove_const_eq = Q.prove (
  rw [equation_def, remove_const_def, typeof_remove_const]);
 
  (*
+val has_type_remove_const = Q.prove (
+`!tm ty. tm has_type ty ⇒ !s. const_subst_ok s ⇒ remove_const s tm has_type ty`,
+
+ ho_match_mp_tac has_type_ind >>
+ rw [remove_const_def] >>
+ rw [Once has_type_cases]
+
+
 
 val vfree_in_remove_const = Q.prove (
-`~VFREE_IN (Var x ty) def ∧ VFREE_IN (Var x ty) (remove_const c def tm) ⇒ VFREE_IN (Var x ty) tm`,
+`const_subst_ok s ∧ VFREE_IN (Var x ty) (remove_const s tm) ⇒ VFREE_IN (Var x ty) tm`,
  Induct_on `tm` >>
  rw [VFREE_IN_def, remove_const_def] >>
- rw [VFREE_IN_def]);
+ rw [VFREE_IN_def] >>
+ every_case_tac >>
+ fs [] >>
+ CCONTR_TAC >>
+ fs [] >>
+ `CLOSED x'`
+       by (fs [const_subst_ok_def, EVERY_MEM] >>
+           imp_res_tac ALOOKUP_MEM >>
+           res_tac >>
+           fs []) >>
+ metis_tac [CLOSED_INST, CLOSED_def]);
 
+ (*
 val term_ok_remove_const = Q.prove (
 `term_ok sig def ⇒ term_ok sig (remove_const c def tm) = term_ok sig tm`,
 
@@ -283,7 +306,7 @@ val theory_ok_types = Q.prove (
 val theory_ok_vfree_in = Q.prove (
 `theory_ok thy ∧ c === def ∈ axsof thy ⇒ !x ty. ~VFREE_IN (Var x ty) def`,
  cheat);
-
+ *)
 
 
 val update_conservative = Q.prove (
@@ -295,20 +318,38 @@ val update_conservative = Q.prove (
     upd updates ctxt
     ⇒
     (thyof ctxt,MAP (remove_const (upd_to_subst upd)) tms) |- remove_const (upd_to_subst upd) tm`,
+
  ho_match_mp_tac proves_ind >>
  rw [] >>
+ imp_res_tac updates_to_subst >>
  qabbrev_tac `s = upd_to_subst upd`
  >- (rw [Once proves_cases] >>
      disj1_tac >>
      MAP_EVERY qexists_tac [`remove_const s l`, `remove_const s r`, `ty`, `x`] >>
-     rw [] >>
-     imp_res_tac 
+     rw []
+     >- rw [remove_const_eq, remove_const_def]
+     >- (fs [EVERY_MEM] >>
+         rw [] >>
+         fs [MEM_MAP] >>
+         rw [] >>
+         res_tac >>
+         metis_tac [vfree_in_remove_const])
+     >- (match_mp_tac type_ok_extend >>
+         qexists_tac `tysof (sigof (thyof ctxt))` >>
+         rw [] >>
+         cheat)
+     >- (unabbrev_all_tac >>
+         first_x_assum (qspecl_then [`ctxt`, `upd`] mp_tac) >>
+         rw [remove_const_eq, remove_const_def]))
 
-     match_mp_tac type_ok_extend >>
-     qexists_tac `tysof (sigof (thyof ctxt))` >>
-     rw [] >>
-     match_mp_tac (hd (tl (CONJUNCTS SUBMAP_FUNION_ID))) >>
-     fs [Once updates_cases])
+ >- (rw [Once proves_cases] >>
+     disj2_tac >>
+     disj1_tac >>
+     rw []
+     >- cheat
+     >- 
+
+     
      *)         
 
 
