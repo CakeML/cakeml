@@ -1,7 +1,7 @@
 open HolKernel Parse boolLib bossLib lcsymtacs alistTheory listTheory arithmeticTheory combinTheory finite_mapTheory pairTheory monadsyntax
-open miscLib miscTheory hol_kernelTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
+open miscLib miscTheory holKernelTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
 
-val _ = new_theory "hol_verification";
+val _ = new_theory "holKernelProof";
 
 val _ = temp_overload_on ("monad_bind", ``ex_bind``);
 val _ = temp_overload_on ("return", ``ex_return``);
@@ -21,7 +21,7 @@ val rev_assocd_thm = prove(
 val _ = temp_overload_on("impossible_term",``holSyntax$Comb (Var "x" Bool) (Var "x" Bool)``);
 
 val hol_ty_def = tDefine "hol_ty" `
-  (hol_ty (hol_kernel$Tyvar v) = holSyntax$Tyvar v) /\
+  (hol_ty (holKernel$Tyvar v) = holSyntax$Tyvar v) /\
   (hol_ty (Tyapp s tys) = Tyapp s (MAP hol_ty tys))`
  (WF_REL_TAC `measure hol_type_size` \\ REPEAT STRIP_TAC
   \\ SUFF_TAC ``hol_type_size a < hol_type1_size tys`` THEN1 DECIDE_TAC
@@ -29,7 +29,7 @@ val hol_ty_def = tDefine "hol_ty" `
   \\ FULL_SIMP_TAC std_ss [hol_type_size_def] \\ DECIDE_TAC);
 
 val hol_tm_def = Define `
-  (hol_tm (hol_kernel$Var v ty) = holSyntax$Var v (hol_ty ty)) /\
+  (hol_tm (holKernel$Var v ty) = holSyntax$Var v (hol_ty ty)) /\
   (hol_tm (Const s ty) = Const s (hol_ty ty)) /\
   (hol_tm (Comb x y) = Comb (hol_tm x) (hol_tm y)) /\
   (hol_tm (Abs (Var v ty) x) = Abs v (hol_ty ty) (hol_tm x)) /\
@@ -383,9 +383,9 @@ val MEM_union = prove(
 
 val tyvars_thm = prove(
   ``!ty s. MEM s (tyvars ty) = MEM s (tyvars (hol_ty ty))``,
-  HO_MATCH_MP_TAC hol_kernelTheory.tyvars_ind \\ REPEAT STRIP_TAC
+  HO_MATCH_MP_TAC holKernelTheory.tyvars_ind \\ REPEAT STRIP_TAC
   \\ Cases_on `ty` \\ FULL_SIMP_TAC (srw_ss()) [type_11,type_distinct]
-  \\ SIMP_TAC (srw_ss()) [Once hol_kernelTheory.tyvars_def,
+  \\ SIMP_TAC (srw_ss()) [Once holKernelTheory.tyvars_def,
        Once holSyntaxTheory.tyvars_def,hol_ty_def]
   \\ FULL_SIMP_TAC std_ss [rich_listTheory.FOLDR_MAP]
   \\ Induct_on `l`
@@ -440,8 +440,8 @@ val mk_fun_ty_thm = store_thm("mk_fun_ty_thm",
 (* ------------------------------------------------------------------------- *)
 
 val _ = temp_overload_on("aty",``(Tyvar "A"):hol_type``);
-val _ = temp_overload_on("fun",``\x y. hol_kernel$Tyapp "fun" [x;y]``);
-val _ = temp_overload_on("bool_ty",``hol_kernel$Tyapp "bool" []``);
+val _ = temp_overload_on("fun",``\x y. holKernel$Tyapp "fun" [x;y]``);
+val _ = temp_overload_on("bool_ty",``holKernel$Tyapp "bool" []``);
 
 val get_const_type_thm = prove(
   ``!name s z s'.
@@ -620,7 +620,7 @@ val dest_var_thm = store_thm("dest_var_thm",
     (dest_var v s = (res,s')) ==>
     (s' = s) /\ !n ty. (res = HolRes (n,ty)) ==> TYPE defs ty``,
   Cases_on `v`
-  \\ SIMP_TAC (srw_ss()) [hol_kernelTheory.dest_var_def,ex_return_def,Once EQ_SYM_EQ,failwith_def]
+  \\ SIMP_TAC (srw_ss()) [holKernelTheory.dest_var_def,ex_return_def,Once EQ_SYM_EQ,failwith_def]
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC TERM);
 
 val dest_const_thm = store_thm("dest_const_thm",
@@ -1329,7 +1329,7 @@ val vsubst_thm = store_thm("vsubst_thm",
     \\ REPEAT STRIP_TAC \\ STRIP_ASSUME_TAC (Q.SPEC `p_1` type_of_state)
     \\ Cases_on `r'` \\ FULL_SIMP_TAC (srw_ss()) []
     \\ Cases_on `p_2`
-    \\ FULL_SIMP_TAC (srw_ss()) [hol_kernelTheory.dest_var_def,ex_return_def,failwith_def])
+    \\ FULL_SIMP_TAC (srw_ss()) [holKernelTheory.dest_var_def,ex_return_def,failwith_def])
   \\ STRIP_TAC
   \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ Cases_on `a` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
@@ -1343,9 +1343,9 @@ val vsubst_thm = store_thm("vsubst_thm",
     \\ Q.UNABBREV_TAC `test`
     \\ FULL_SIMP_TAC std_ss []
     \\ IMP_RES_TAC type_of_thm
-    \\ FULL_SIMP_TAC (srw_ss()) [hol_kernelTheory.dest_var_def]
+    \\ FULL_SIMP_TAC (srw_ss()) [holKernelTheory.dest_var_def]
     \\ Cases_on `p_2`
-    \\ FULL_SIMP_TAC (srw_ss()) [hol_kernelTheory.dest_var_def,ex_return_def,failwith_def,is_var_def]
+    \\ FULL_SIMP_TAC (srw_ss()) [holKernelTheory.dest_var_def,ex_return_def,failwith_def,is_var_def]
     \\ SIMP_TAC (srw_ss()) [Once term_type_def])
   \\ IMP_RES_TAC (vsubst_aux_thm |> SIMP_RULE std_ss [])
   \\ FULL_SIMP_TAC std_ss []
@@ -1531,7 +1531,7 @@ val inst_aux_thm = prove(
     \\ FULL_SIMP_TAC std_ss [hol_tm_def,type_subst_thm,IS_RESULT_def,CLASH_def])
   THEN1 (FULL_SIMP_TAC std_ss [type_subst_thm,hol_tm_def])
   \\ SIMP_TAC (srw_ss()) [inst_aux_Var,``dest_var (Var v ty) state``
-        |> SIMP_CONV (srw_ss()) [hol_kernelTheory.dest_var_def,ex_return_def]]
+        |> SIMP_CONV (srw_ss()) [holKernelTheory.dest_var_def,ex_return_def]]
   \\ Q.ABBREV_TAC `fresh_name = (VARIANT
                 (RESULT
                    (INST_CORE []
@@ -1572,7 +1572,7 @@ val inst_aux_thm = prove(
     \\ REPEAT STRIP_TAC \\ RES_TAC)
   \\ FULL_SIMP_TAC std_ss []
   \\ SIMP_TAC (srw_ss()) [inst_aux_Var,``dest_var (Var v ty) state``
-        |> SIMP_CONV (srw_ss()) [hol_kernelTheory.dest_var_def,ex_return_def]]
+        |> SIMP_CONV (srw_ss()) [holKernelTheory.dest_var_def,ex_return_def]]
   \\ Q.PAT_ASSUM `!x y z.bbb` (MP_TAC o Q.SPECL
        [`fresh_name`,`ty`,`(type_subst theta ty)`,`r1`])
   \\ FULL_SIMP_TAC std_ss []
@@ -1680,14 +1680,14 @@ val freesin_IMP = prove(
   \\ FULL_SIMP_TAC (srw_ss()) [term_11]);
 
 val ALL_DISTINCT_union = prove(
-  ``!xs. ALL_DISTINCT (hol_kernel$union xs ys) = ALL_DISTINCT ys``,
+  ``!xs. ALL_DISTINCT (holKernel$union xs ys) = ALL_DISTINCT ys``,
   Induct \\ SIMP_TAC (srw_ss()) [union_def,Once itlist_def,insert_def]
   \\ SRW_TAC [] [] \\ FULL_SIMP_TAC std_ss [union_def]);
 
 val ALL_DISTINCT_tyvars_ALT = prove(
   ``!h. ALL_DISTINCT (tyvars (h:hol_type))``,
   HO_MATCH_MP_TAC type_IND \\ REPEAT STRIP_TAC
-  \\ SIMP_TAC (srw_ss()) [Once hol_kernelTheory.tyvars_def]
+  \\ SIMP_TAC (srw_ss()) [Once holKernelTheory.tyvars_def]
   \\ Induct_on `l` \\ SIMP_TAC (srw_ss()) [Once itlist_def,MAP]
   \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT_union]);
 
@@ -2092,7 +2092,7 @@ val INST_thm = store_thm("INST_thm",
     (INST theta th1 s = (res, s')) ==>
     (s' = s) /\ !th. (res = HolRes th) ==> THM defs th``,
   Cases_on `th1` \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
-  \\ SIMP_TAC std_ss [hol_kernelTheory.INST_def,LET_DEF,ex_bind_def]
+  \\ SIMP_TAC std_ss [holKernelTheory.INST_def,LET_DEF,ex_bind_def]
   \\ STRIP_TAC \\ IMP_RES_TAC THM
   \\ Cases_on `map (vsubst theta) l s`
   \\ MP_TAC (map_lemma |> Q.SPECL [`l`,`\tm t. (hol_tm t =
@@ -2271,9 +2271,9 @@ val new_specification_thm = store_thm("new_specification_thm",
     simp[] >>
     simp[Once CONJ_SYM,GSYM CONJ_ASSOC] >>
     Cases_on`v`>>TRY(
-      fs[hol_kernelTheory.dest_var_def,failwith_def] >> NO_TAC) >>
+      fs[holKernelTheory.dest_var_def,failwith_def] >> NO_TAC) >>
     qpat_assum`dest_var Z X = Y`mp_tac >>
-    simp[hol_kernelTheory.dest_var_def,ex_return_def] >> strip_tac >>
+    simp[holKernelTheory.dest_var_def,ex_return_def] >> strip_tac >>
     rpt BasicProvers.VAR_EQ_TAC >>
     conj_tac >- (
       simp[equation_def,hol_tm_def] ) >>

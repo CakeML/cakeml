@@ -1,6 +1,6 @@
 open HolKernel Parse boolLib bossLib;
 open stringTheory listTheory sortingTheory;
-val _ = new_theory "hol_kernel";
+val _ = new_theory "holKernel";
 
 
 (*

@@ -5,7 +5,7 @@ val _ = new_theory "ml_monad";
 open ml_translatorTheory;
 open ml_translatorLib;
 
-open hol_kernelTheory;
+open holKernelTheory;
 open stringTheory listTheory pairTheory;
 open astTheory libTheory bigStepTheory semanticPrimitivesTheory;
 open terminationTheory lcsymtacs;

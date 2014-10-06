@@ -14,7 +14,7 @@ infix \\ val op \\ = op THEN;
 val RW = REWRITE_RULE;
 val RW1 = ONCE_REWRITE_RULE;
 
-open hol_kernelTheory;
+open holKernelTheory;
 open ml_monadTheory;
 
 val _ = translation_extends "ml_monad";
@@ -648,7 +648,7 @@ val res = translate mk_vartype_def;
 val res = translate is_type_def;
 val res = translate is_vartype_def;
 val res = translate rev_assocd_def;
-val res = translate hol_kernelTheory.type_subst_def;
+val res = translate holKernelTheory.type_subst_def;
 val res = translate alphavars_def;
 val res = translate raconv_def;
 val res = translate aconv_def;
