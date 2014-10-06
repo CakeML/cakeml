@@ -1371,6 +1371,8 @@ val infer_p_complete = prove(
        fs[t_compat_def]>>
        metis_tac[t_walkstar_no_vars]))
 
+(*This should be general enough to prove both Mat and Handle cases*)
+
 val infer_pes_complete = prove(
 ``!pes st' constraints' s'. 
   pes ≠ [] ∧
@@ -1384,7 +1386,7 @@ val infer_pes_complete = prove(
       ALL_DISTINCT (pat_bindings (FST x) []) ∧
       type_p (num_tvs tenvE) tenvC (FST x) t1 tenv' ∧
       type_e (convert_menv menv) tenvC (bind_var_list 0 tenv' tenvE)
-        (SND x) (convert_t (t_walkstar s' t2)) ∧
+        (SND x) t2 ∧
       ∀s'' menv' tenv'' st'' constraints''.
         check_menv menv' ∧ check_env (count st''.next_uvar) tenv'' ∧
         convert_menv menv = convert_menv menv' ∧ t_wfs st''.subst ∧
@@ -1400,18 +1402,19 @@ val infer_pes_complete = prove(
             st'''.next_uvar st'''.subst constraints''' s''' ∧
           FDOM st'''.subst ⊆ count st'''.next_uvar ∧
           FDOM s''' = count st'''.next_uvar ∧ t_compat s'' s''' ∧
-          convert_t (t_walkstar s' t2) =
-          convert_t (t_walkstar s''' t'')) ∧ 
+          t2 = convert_t (t_walkstar s''' t'')) ∧ 
   sub_completion (num_tvs tenvE) st'.next_uvar st'.subst constraints' s' ∧ 
   FDOM st'.subst ⊆ count st'.next_uvar ∧ 
-  FDOM s' = count st'.next_uvar 
+  FDOM s' = count st'.next_uvar ∧ 
+  convert_t (t_walkstar s' t1') = t1 ∧
+  convert_t (t_walkstar s' t2') = t2 
   ⇒ 
   ?st'' s'' constraints''.
-  infer_pes menv tenvC tenv pes (unconvert_t t1) t2 st' = (Success (), st'') ∧ 
+  infer_pes menv tenvC tenv pes t1' t2' st' = (Success (), st'') ∧ 
   sub_completion (num_tvs tenvE) st''.next_uvar st''.subst constraints'' s'' ∧ 
   FDOM st''.subst ⊆ count st''.next_uvar ∧ 
   FDOM s'' = count st''.next_uvar ∧
-  t_compat s' s''``,
+  t_compat s' s''``, cheat)
   Induct>- rw[]>>
   rpt GEN_TAC>>
   strip_tac>>
@@ -1425,9 +1428,9 @@ val infer_pes_complete = prove(
   imp_res_tac infer_p_bindings>>
   pop_assum(qspec_then `[]` assume_tac)>>fs[]>>
   (*usual argument*)
-  `unconvert_t (convert_t (t_walkstar s'' t')) = t_walkstar s'' t'` by cheat>>
+  `unconvert_t (convert_t (t_walkstar s'' t'')) = t_walkstar s'' t''` by cheat>>
   simp[]>>
-  qpat_abbrev_tac`ls = [(t_walkstar s'' t',t')]`>>
+  qpat_abbrev_tac`ls = [(t_walkstar s'' t'',t'')]`>>
   pure_add_constraints_ignore_tac `s''`>-
     metis_tac[t_compat_def,t_walkstar_SUBMAP,SUBMAP_DEF]>>
   fs[sub_completion_def]>>
@@ -1464,6 +1467,9 @@ val infer_pes_complete = prove(
     >>
       cheat)
   >>
+  rw[]
+  rw[Abbr`nst`]>>
+
   cheat)
 
 
@@ -1593,16 +1599,26 @@ val infer_e_complete = Q.prove (
    metis_tac[pure_add_constraints_success,t_compat_trans
             ,check_freevars_empty_convert_unconvert_id])
  >- (*Handler*)
-   (last_x_assum (qspecl_then [`s`,`menv`,`tenv`,`st`,`constraints`] assume_tac)>>rfs[]>>
+   (
+   last_x_assum (qspecl_then [`s`,`menv`,`tenv`,`st`,`constraints`] assume_tac)>>rfs[]>>
    fs[UNCURRY]>>
-  
-   rpt (pop_assum mp_tac)>> 
-   qid_spec_tac `st'`>>
-   qid_spec_tac `s'`>>
-   qid_spec_tac `st`>>
-   qid_spec_tac
-   
-   cheat)
+   assume_tac (GEN_ALL infer_pes_complete)>>
+   pop_assum(qspecl_then 
+     [`st.next_uvar`,`tenvE`,`tenvC`,`tenv`,`t'`
+     ,`t`,`Infer_Tapp [] TC_exn`,`Tapp [] TC_exn`
+     ,`menv`,`pes`,`st'`,`constraints'`,`s'`] mp_tac)>>
+   discharge_hyps >-
+     (fs[]>>CONJ_ASM1_TAC>-metis_tac[infer_e_wfs]>>
+     CONJ_TAC >- metis_tac[infer_e_next_uvar_mono]>>
+     imp_res_tac sub_completion_wfs>>
+     fs[t_walkstar_eqn,convert_t_def,t_walk_eqn])>>
+   rw[]>>
+   ntac 3 HINT_EXISTS_TAC>>fs[]>>
+   CONJ_TAC>-metis_tac[t_compat_trans]>>
+   cheat 
+   (*true because s' subcompletes result of an infer_e and 
+     s'' is t_compat with s'*)
+   )
    (*pop_assum kall_tac
      qid_spec_tac
     Q.ID_SPEC_TAC
@@ -1745,7 +1761,7 @@ val infer_e_complete = Q.prove (
          fs[Abbr`s'`,flookup_update_list_some]>>DISJ1_TAC>>
          Q.ISPECL_THEN [`st.next_uvar`,`x`,`MAP unconvert_t targs`] mp_tac ALOOKUP_lemma>>
          discharge_hyps>- metis_tac[LENGTH_MAP]>>
-         rw[EL_MAP])
+         rw[EL_MAP])>>
        fs[]>>
        fs[EVERY_EL]>>last_x_assum(qspec_then `x` assume_tac)>>
        rfs[]>>
@@ -1845,7 +1861,58 @@ val infer_e_complete = Q.prove (
  >- (*If *)
    cheat
  >- (*Mat*)
-   cheat
+   (last_x_assum (qspecl_then [`s`,`menv`,`tenv`,`st`,`constraints`] assume_tac)>>
+   rfs[]>>
+   fs[UNCURRY]>>
+   fs[sub_completion_def]>>
+   (*This seems complicated to prove but I think it is true
+     because of the IH:
+     we know that for some x ∈ pes there is an 
+     infer_e that satisfies all the conditions
+     therefore (using infer_e_check_t)
+     t' = convert_t(t_walkstar s' t'') and so
+     t_walkstar s' t'' has no freevars ⇒ t' satisfies check_fvars*)
+   `check_freevars (num_tvs tenvE) [] t'` by cheat>> 
+   Q.SPECL_THEN [`t'`,`st'`,`s'`,`num_tvs tenvE`,`constraints'`] mp_tac (GEN_ALL extend_one_props)>>
+  discharge_hyps>- 
+  metis_tac[infer_e_wfs,pure_add_constraints_wfs]>>
+  qpat_abbrev_tac `s'' = s'|++A`>>
+  Q.ABBREV_TAC `constraints'' = constraints'++[Infer_Tuvar st'.next_uvar,unconvert_t t']`>>
+  rfs[LET_THM]>>
+  imp_res_tac pure_add_constraints_success>>
+  rw[]>>
+  qpat_abbrev_tac `st'' = st' with next_uvar := A`>>
+  `sub_completion (num_tvs tenvE) st''.next_uvar st''.subst constraints'' s''` by
+    fs[sub_completion_def,Abbr`st''`]>>
+   assume_tac (GEN_ALL infer_pes_complete)>>
+   pop_assum (qspecl_then
+     [`st.next_uvar`,`tenvE`,`tenvC`,`tenv`,`Infer_Tuvar st'.next_uvar`
+     ,`t'`,`t''`,`convert_t (t_walkstar s' t'')`
+     ,`menv`,`pes`,`st''`,`constraints''`,`s''`] mp_tac)>>
+   discharge_hyps>-
+     (fs[Abbr`st''`,sub_completion_def]>>
+     CONJ_ASM1_TAC>-metis_tac[infer_e_wfs]>>
+     fs[]>>rw[]
+     >-
+       (imp_res_tac infer_e_next_uvar_mono>>
+       DECIDE_TAC)
+     >-
+       (`count (st'.next_uvar) ⊆ count(st'.next_uvar+1)` by
+         (fs[SUBSET_DEF,count_def]>>DECIDE_TAC)>>
+       metis_tac[SUBSET_TRANS])
+     >-
+       cheat 
+       (*because t'' is result of infer_e, s' completes it and
+         s'' is a supermap of s'*)
+    >>
+      metis_tac[check_freevars_empty_convert_unconvert_id])>>
+  rw[]>>
+  HINT_EXISTS_TAC>>fs[sub_completion_def]>>
+  Q.LIST_EXISTS_TAC [`s'''`,`constraints'''`]>>fs[]>>
+  CONJ_TAC>-metis_tac[t_compat_trans,SUBMAP_t_compat]>>
+  fs[t_compat_def]>>
+  pop_assum(qspec_then `Infer_Tuvar st'.next_uvar` assume_tac)>>rfs[]>>
+  metis_tac[t_walkstar_no_vars,check_freevars_empty_convert_unconvert_id,check_freevars_to_check_t])
  >- (*Let*)
    (last_x_assum(qspecl_then [`s`,`menv`,`tenv`,`st`,`constraints`] assume_tac)>>
    rfs[]>>
@@ -1919,11 +1986,13 @@ val infer_e_complete = Q.prove (
      fs[MAP_EQ_f,FORALL_PROD]>>
    fs[bind_var_list_def]>>
    qpat_abbrev_tac `new_tenv = A ++ tenv`>>
-   (*last_x_assum (qspecl_then [`s',`menv`,`st with next_uvar:=st.next_uvar + LENGTH funs`,*)
+   (*last_x_assum qspecl_then [`s',`menv`,`st with next_uvar:=st.next_uvar + LENGTH funs`, *)
    cheat)  
  >- 
    (ntac 2 HINT_EXISTS_TAC>>fs[]>>metis_tac[sub_completion_wfs,t_compat_refl])
  >-
+   cheat
+   (*
    (last_x_assum(qspecl_then [`s`,`menv`,`tenv`,`st`,`constraints`] assume_tac)>>
    rfs[]>>
    last_x_assum(qspecl_then [`s'`,`menv`,`tenv`,`st'`,`constraints'`] mp_tac)>>
@@ -1933,7 +2002,7 @@ val infer_e_complete = Q.prove (
    >>
    rw[]>>
    ntac 2 HINT_EXISTS_TAC>>fs[]>>
-   cheat) (*use infer_e lemmas, t_compat and check_t_less on t'*)
+   cheat) (*use infer_e lemmas, t_compat and check_t_less on t'*)*)
  >-
    (ntac 2 HINT_EXISTS_TAC >>fs[]>>metis_tac[sub_completion_wfs,t_compat_refl])
  >>
@@ -1953,10 +2022,6 @@ val infer_e_complete = Q.prove (
   ntac 2 HINT_EXISTS_TAC>>fs[]>>
   cheat)
  
-   last_x_assum(qspecl_then [`s`,`menv`,`tenv`,`st`,`constraints`] assume_tac)>>
-   rfs[bind_tenv_def,num_tvs_def]>>
-   last_x_assum(q
- cheat)
  
  (*(`tenv_inv (bind n (0,Infer_Tuvar st.next_uvar) tenv) (bind_tenv n 0 t1 tenvE)`
               by (rw [bind_def, tenv_inv_def, bind_tenv_def] >>
