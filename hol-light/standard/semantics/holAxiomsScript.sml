@@ -7,11 +7,9 @@ val _ = new_theory"holAxioms"
 val _ = Parse.temp_overload_on("A",``Tyvar "A"``)
 val _ = Parse.temp_overload_on("B",``Tyvar "B"``)
 val _ = Parse.temp_overload_on("x",``Var "x" A``)
-val _ = Parse.temp_overload_on("Absx",``Abs "x" A``)
 val _ = Parse.temp_overload_on("g",``Var "f" (Fun A B)``)
 val _ = Parse.temp_overload_on("B",``Tyvar "B"``)
 val _ = Parse.temp_overload_on("EXx",``Exists "x" A``)
-val _ = Parse.temp_overload_on("Absg",``Abs "f" (Fun A B)``)
 val _ = Parse.temp_overload_on("x1",``Var "x1" A``)
 val _ = Parse.temp_overload_on("FAx1",``Forall "x1" A``)
 val _ = Parse.temp_overload_on("x2",``Var "x2" A``)
@@ -29,7 +27,7 @@ val eta_has_model = store_thm("eta_has_model",
   rw[models_def,mk_eta_ctxt_def,conexts_of_upd_def] >> res_tac >>
   rw[satisfies_def] >>
   `is_structure (sigof ctxt) i v` by simp[is_structure_def] >>
-  `term_ok (sigof ctxt) (Absx (Comb g x) === g)` by (
+  `term_ok (sigof ctxt) (Abs x (Comb g x) === g)` by (
     rw[term_ok_equation,term_ok_def,type_ok_def] >>
     fs[is_std_sig_def] ) >>
   `tmsof ctxt = tmsof (sigof ctxt)` by simp[] >> pop_assum SUBST1_TAC >>
@@ -446,7 +444,7 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
     match_mp_tac apply_abstract_matchable >>
     simp[boolean_in_boolset,boolean_eq_true] >>
     first_assum(qspec_then`Const "ONE_ONE" (Fun (Fun A B) Bool) ===
-                           Absg (FAx1 (FAx2 (Implies (Comb g x1 === Comb g x2) (x1 === x2))))`
+                           Abs g (FAx1 (FAx2 (Implies (Comb g x1 === Comb g x2) (x1 === x2))))`
                 mp_tac) >>
     discharge_hyps >- ( fs[mk_infinity_ctxt_def] >> rw[] >> EVAL_TAC ) >>
     simp[satisfies_def] >>
@@ -484,7 +482,7 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
      (∀x y. tyaof i1 "fun" [x;y] = Funspace x y)` by (
       fs[is_std_type_assignment_def] ) >>
     first_assum(qspec_then`Const "ONTO" (Fun (Fun A B) Bool) ===
-                           Absg (FAy (EXx (y === Comb g x)))`
+                           Abs g (FAy (EXx (y === Comb g x)))`
                 mp_tac) >>
     discharge_hyps >- ( fs[mk_infinity_ctxt_def] >> rw[] >> EVAL_TAC ) >>
     simp[satisfies_def] >>

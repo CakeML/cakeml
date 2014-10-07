@@ -1,4 +1,4 @@
-INCLUDES = ../../.. ../../../translator ../monadic
+INCLUDES = ../../.. ../../../semantics ../../../translator ../monadic
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY

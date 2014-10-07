@@ -6,20 +6,15 @@ val _ = new_theory"holBool"
 val mem = ``mem:'U->'U->bool``
 
 val _ = Parse.temp_overload_on("p",``Var "p" Bool``)
-val _ = Parse.temp_overload_on("Absp",``Abs "p" Bool``)
 val _ = Parse.temp_overload_on("FAp",``Forall "p" Bool``)
 val _ = Parse.temp_overload_on("q",``Var "q" Bool``)
-val _ = Parse.temp_overload_on("Absq",``Abs "q" Bool``)
 val _ = Parse.temp_overload_on("FAq",``Forall "q" Bool``)
 val _ = Parse.temp_overload_on("r",``Var "r" Bool``)
 val _ = Parse.temp_overload_on("FAr",``Forall "r" Bool``)
 val _ = Parse.temp_overload_on("f",``Var "f" (Fun Bool (Fun Bool Bool))``)
-val _ = Parse.temp_overload_on("Absf",``Abs "f" (Fun Bool (Fun Bool Bool))``)
 val _ = Parse.temp_overload_on("A",``Tyvar "A"``)
 val _ = Parse.temp_overload_on("P",``Var "P" (Fun A Bool)``)
-val _ = Parse.temp_overload_on("AbsP",``Abs "P" (Fun A Bool)``)
 val _ = Parse.temp_overload_on("x",``Var "x" A``)
-val _ = Parse.temp_overload_on("Absx",``Abs "x" A``)
 val _ = Parse.temp_overload_on("FAx",``Forall "x" A``)
 
 val sigs = [is_true_sig_def, is_false_sig_def, is_implies_sig_def, is_and_sig_def,

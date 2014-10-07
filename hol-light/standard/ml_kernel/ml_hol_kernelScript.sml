@@ -161,10 +161,10 @@ val mem_derive_case_of = type_mem derive_case_of;
 val ty = ``:'b # 'c``; val _ = mem_derive_case_of ty;
 val ty = ``:'a list``; val _ = mem_derive_case_of ty;
 val ty = ``:'a option``; val _ = mem_derive_case_of ty;
-val ty = ``:hol_type``; val _ = mem_derive_case_of ty;
-val ty = ``:hol_term``; val _ = mem_derive_case_of ty;
+val ty = ``:type``; val _ = mem_derive_case_of ty;
+val ty = ``:term``; val _ = mem_derive_case_of ty;
 val ty = ``:thm``; val _ = mem_derive_case_of ty;
-val ty = ``:def``; val _ = mem_derive_case_of ty;
+val ty = ``:update``; val _ = mem_derive_case_of ty;
 
 fun inst_case_thm_for tm = let
   val (_,_,names) = TypeBase.dest_case tm

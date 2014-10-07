@@ -67,25 +67,25 @@ val res = translate string_ge_def;
 
 (* construct type refinement invariants *)
 
-val _ = register_type ``:hol_type``;
+val _ = register_type ``:type``;
 
-val MEM_hol_type_size = prove(
-  ``!ts t. MEM t ts ==> hol_type_size t < hol_type1_size ts``,
+val MEM_type_size = prove(
+  ``!ts t. MEM t ts ==> type_size t < type1_size ts``,
   Induct \\ FULL_SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC \\ RES_TAC
   \\ EVAL_TAC \\ FULL_SIMP_TAC std_ss [] \\ DECIDE_TAC);
 
-val hol_type_ind = store_thm("hol_type_ind",
+val type_ind = store_thm("type_ind",
   ``(!s ts. (!t. MEM t ts ==> P t) ==> P (Tyapp s ts)) /\
     (!v. P (Tyvar v)) ==> !x. P x``,
-  REPEAT STRIP_TAC \\ completeInduct_on `hol_type_size x`
+  REPEAT STRIP_TAC \\ completeInduct_on `type_size x`
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [PULL_FORALL]
   \\ Cases_on `x` \\ FULL_SIMP_TAC std_ss []
   \\ Q.PAT_ASSUM `!x1 x2. bb` MATCH_MP_TAC
   \\ REPEAT STRIP_TAC \\ Q.PAT_ASSUM `!x.bbb` MATCH_MP_TAC
-  \\ EVAL_TAC \\ IMP_RES_TAC MEM_hol_type_size \\ DECIDE_TAC);
+  \\ EVAL_TAC \\ IMP_RES_TAC MEM_type_size \\ DECIDE_TAC);
 
 val LIST_TYPE_def = fetch "-" "LIST_TYPE_def"
-val (*HOL_KERNEL_*)HOL_TYPE_TYPE_def = fetch "-" "HOL_TYPE_TYPE_def"
+val (*HOL_KERNEL_*)TYPE_TYPE_def = fetch "-" "TYPE_TYPE_def"
 
 val LIST_TYPE_NO_CLOSURES = prove(
   ``!xs v.
@@ -124,23 +124,23 @@ val LIST_TYPE_CHAR_LEMMA = prove(
   ``EqualityType (LIST_TYPE CHAR)``,
   METIS_TAC (eq_lemmas ()));
 
-val EqualityType_HOL_TYPE = prove(
-  ``EqualityType (*HOL_KERNEL_*)HOL_TYPE_TYPE``,
+val EqualityType_TYPE = prove(
+  ``EqualityType (*HOL_KERNEL_*)TYPE_TYPE``,
   SIMP_TAC std_ss [EqualityType_thm] \\ STRIP_TAC THEN1
-   (HO_MATCH_MP_TAC hol_type_ind
-    \\ FULL_SIMP_TAC std_ss [(*HOL_KERNEL_*)HOL_TYPE_TYPE_def]
+   (HO_MATCH_MP_TAC type_ind
+    \\ FULL_SIMP_TAC std_ss [(*HOL_KERNEL_*)TYPE_TYPE_def]
     \\ REPEAT STRIP_TAC
     \\ FULL_SIMP_TAC std_ss [no_closures_def,EVERY_DEF]
     \\ IMP_RES_TAC (LIST_TYPE_NO_CLOSURES |> GEN_ALL)
     \\ METIS_TAC [CHAR_IMP_no_closures])
-  \\ HO_MATCH_MP_TAC hol_type_ind \\ REVERSE STRIP_TAC THEN1
+  \\ HO_MATCH_MP_TAC type_ind \\ REVERSE STRIP_TAC THEN1
    (REPEAT STRIP_TAC
-    \\ Cases_on `x2` \\ FULL_SIMP_TAC (srw_ss()) [(*HOL_KERNEL_*)HOL_TYPE_TYPE_def]
+    \\ Cases_on `x2` \\ FULL_SIMP_TAC (srw_ss()) [(*HOL_KERNEL_*)TYPE_TYPE_def]
     \\ FULL_SIMP_TAC (srw_ss()) [types_match_def]
     \\ ASSUME_TAC LIST_TYPE_CHAR_LEMMA
     \\ FULL_SIMP_TAC std_ss [EqualityType_def] \\ RES_TAC)
   \\ REPEAT GEN_TAC \\ STRIP_TAC \\ REPEAT GEN_TAC \\ STRIP_TAC
-  \\ Cases_on `x2` \\ FULL_SIMP_TAC (srw_ss()) [(*HOL_KERNEL_*)HOL_TYPE_TYPE_def]
+  \\ Cases_on `x2` \\ FULL_SIMP_TAC (srw_ss()) [(*HOL_KERNEL_*)TYPE_TYPE_def]
   \\ FULL_SIMP_TAC (srw_ss()) [types_match_def]
   \\ MATCH_MP_TAC (METIS_PROVE [] ``(b1 /\ (x1 = y1)) /\ (b2 /\ (x2 = y2)) ==>
        (b1 /\ b2) /\ ((x1 /\ x2 <=> y1 /\ y2))``)
@@ -149,20 +149,20 @@ val EqualityType_HOL_TYPE = prove(
     \\ FULL_SIMP_TAC std_ss [EqualityType_def] \\ RES_TAC
     \\ ASM_SIMP_TAC std_ss [])
   \\ MATCH_MP_TAC LIST_TYPE_11
-  \\ Q.EXISTS_TAC `(*HOL_KERNEL_*)HOL_TYPE_TYPE`
+  \\ Q.EXISTS_TAC `(*HOL_KERNEL_*)TYPE_TYPE`
   \\ FULL_SIMP_TAC std_ss []
   \\ REPEAT STRIP_TAC \\ RES_TAC)
   |> store_eq_thm;
 
-val _ = register_type ``:hol_term``;
+val _ = register_type ``:term``;
 val _ = register_type ``:thm``;
-val _ = register_type ``:def``;
+val _ = register_type ``:update``;
 
 (*
   fetch "-" "PAIR_TYPE_def";
   fetch "-" "LIST_TYPE_def";
-  fetch "-" "HOL_TYPE_TYPE_def";
-  fetch "-" "HOL_TERM_TYPE_def";
+  fetch "-" "TYPE_TYPE_def";
+  fetch "-" "TERM_TYPE_def";
   fetch "-" "(*HOL_KERNEL_*)THM_TYPE_def";
 *)
 
@@ -176,10 +176,10 @@ val HOL_STORE_def = Define `
     5 <= LENGTH s /\
     isRefv ((LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) NUM))
             refs.the_type_constants) (EL 0 s) /\
-    isRefv ((LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) HOL_TYPE_TYPE))
+    isRefv ((LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) TYPE_TYPE))
             refs.the_term_constants) (EL 1 s) /\
-    isRefv (LIST_TYPE DEF_TYPE refs.the_definitions) (EL 2 s) /\
-    isRefv (HOL_TERM_TYPE refs.the_clash_var) (EL 3 s) /\
+    isRefv (LIST_TYPE UPDATE_TYPE refs.the_definitions) (EL 2 s) /\
+    isRefv (TERM_TYPE refs.the_clash_var) (EL 3 s) /\
     isRefv (LIST_TYPE THM_TYPE refs.the_axioms) (EL 4 s)`;
 
 val EvalM_def = Define `
@@ -333,22 +333,22 @@ val Eval_IMP_PURE = store_thm("Eval_IMP_PURE",
   \\ IMP_RES_TAC evaluate_empty_store_IMP
   \\ ASM_SIMP_TAC std_ss []);
 
-val HOL_TYPE_TYPE_EXISTS = prove(
-  ``?ty v. HOL_TYPE_TYPE ty v``,
+val TYPE_TYPE_EXISTS = prove(
+  ``?ty v. TYPE_TYPE ty v``,
   Q.EXISTS_TAC `Tyvar []`
-  \\ fs [fetch "-" "HOL_TYPE_TYPE_def", fetch "-" "LIST_TYPE_def"]);
+  \\ fs [fetch "-" "TYPE_TYPE_def", fetch "-" "LIST_TYPE_def"]);
 
-val HOL_TERM_TYPE_EXISTS = prove(
-  ``?tm v. HOL_TERM_TYPE tm v``,
-  STRIP_ASSUME_TAC HOL_TYPE_TYPE_EXISTS
+val TERM_TYPE_EXISTS = prove(
+  ``?tm v. TERM_TYPE tm v``,
+  STRIP_ASSUME_TAC TYPE_TYPE_EXISTS
   \\ Q.EXISTS_TAC `Var [] ty`
-  \\ fs [fetch "-" "HOL_TERM_TYPE_def",fetch "-" "LIST_TYPE_def"]
+  \\ fs [fetch "-" "TERM_TYPE_def",fetch "-" "LIST_TYPE_def"]
   \\ Q.EXISTS_TAC `v` \\ FULL_SIMP_TAC std_ss []);
 
 val HOL_STORE_EXISTS = prove(
   ``?s refs. HOL_STORE s refs``,
   SIMP_TAC std_ss [HOL_STORE_def]
-  \\ STRIP_ASSUME_TAC HOL_TERM_TYPE_EXISTS
+  \\ STRIP_ASSUME_TAC TERM_TYPE_EXISTS
   \\ Q.EXISTS_TAC `[Refv (Conv (SOME ("nil",TypeId (Short "list"))) []);
                     Refv (Conv (SOME ("nil",TypeId (Short "list"))) []);
                     Refv (Conv (SOME ("nil",TypeId (Short "list"))) []);
@@ -801,7 +801,7 @@ val th = store_cert th [TRUTH] (DeclAssumExists_lemma lemma);
 
 (* ref 2 *)
 
-val lemma = hol2deep ``[]:def list`` |> D |> SIMP_RULE std_ss []
+val lemma = hol2deep ``[]:update list`` |> D |> SIMP_RULE std_ss []
 val exp = lemma |> UNDISCH_ALL |> concl |> rator |> rand
 val dec = ``(Dlet (Pvar n) (App Opref [^exp])) : dec``
 val tm = get_DeclAssum () |> rator |> rator |> rand;
@@ -891,20 +891,20 @@ val get_type_constants_thm = store_thm("get_the_type_constants_thm",
 val get_term_constants_thm = store_thm("get_the_term_constants_thm",
   ``Eval env (Var (Short "the_term_constants")) ($= the_term_constants) ==>
     EvalM env (App Opderef [Var (Short "the_term_constants")])
-      (HOL_MONAD (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) HOL_TYPE_TYPE))
+      (HOL_MONAD (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) TYPE_TYPE))
                  get_the_term_constants)``,
   read_tac ``1:num``);
 
 val get_the_definitions_thm = store_thm("get_the_definitions_thm",
   ``Eval env (Var (Short "the_definitions")) ($= the_definitions) ==>
     EvalM env (App Opderef [Var (Short "the_definitions")])
-      (HOL_MONAD (LIST_TYPE DEF_TYPE) get_the_definitions)``,
+      (HOL_MONAD (LIST_TYPE UPDATE_TYPE) get_the_definitions)``,
   read_tac ``2:num``);
 
 val get_the_clash_var_thm = store_thm("get_the_clash_var_thm",
   ``Eval env (Var (Short "the_clash_var")) ($= the_clash_var) ==>
     EvalM env (App Opderef [Var (Short "the_clash_var")])
-      (HOL_MONAD HOL_TERM_TYPE get_the_clash_var)``,
+      (HOL_MONAD TERM_TYPE get_the_clash_var)``,
   read_tac ``3:num``);
 
 val get_the_axioms_thm = store_thm("get_the_axioms_thm",
@@ -953,21 +953,21 @@ val set_the_type_constants_thm = store_thm("set_the_type_constants_thm",
 
 val set_the_term_constants_thm = store_thm("set_the_term_constants_thm",
   ``Eval env (Var (Short "the_term_constants")) ($= the_term_constants) ==>
-    Eval env exp (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) HOL_TYPE_TYPE) x) ==>
+    Eval env exp (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) TYPE_TYPE) x) ==>
     EvalM env (App Opassign [Var (Short "the_term_constants"); exp])
       ((HOL_MONAD UNIT_TYPE) (set_the_term_constants x))``,
   update_tac `LUPDATE (Refv res) 1 s` `refs with the_term_constants := x`);
 
 val set_the_definitions_thm = store_thm("set_the_definitions_thm",
   ``Eval env (Var (Short "the_definitions")) ($= the_definitions) ==>
-    Eval env exp (LIST_TYPE DEF_TYPE x) ==>
+    Eval env exp (LIST_TYPE UPDATE_TYPE x) ==>
     EvalM env (App Opassign [Var (Short "the_definitions"); exp])
       ((HOL_MONAD UNIT_TYPE) (set_the_definitions x))``,
   update_tac `LUPDATE (Refv res) 2 s` `refs with the_definitions := x`);
 
 val set_the_clash_var_thm = store_thm("set_the_clash_var_thm",
   ``Eval env (Var (Short "the_clash_var")) ($= the_clash_var) ==>
-    Eval env exp (HOL_TERM_TYPE x) ==>
+    Eval env exp (TERM_TYPE x) ==>
     EvalM env (App Opassign [Var (Short "the_clash_var"); exp])
       ((HOL_MONAD UNIT_TYPE) (set_the_clash_var x))``,
   update_tac `LUPDATE (Refv res) 3 s` `refs with the_clash_var := x`);

@@ -23,15 +23,17 @@ val binary_inference_rule = store_thm("binary_inference_rule",
   first_x_assum match_mp_tac >>
   conj_tac >- ( rw[is_structure_def] >> Cases_on`thy` >> fs[models_def,theory_ok_def] ) >>
   rw[] >> first_x_assum match_mp_tac >> rw[] >>
-  fs[EVERY_MEM] >>
-  metis_tac[TERM_UNION_NONEW,TERM_UNION_THM,termsem_aconv,welltyped_def])
+  fs[EVERY_MEM] >> rw[] >>
+  qmatch_assum_abbrev_tac`MEM t h` >>
+  qspecl_then[`h1`,`h2`,`t`]mp_tac TERM_UNION_THM >> simp[] >> strip_tac >>
+  metis_tac[TERM_UNION_NONEW,termsem_aconv,term_ok_welltyped])
 
 val ABS_correct = store_thm("ABS_correct",
   ``is_set_theory ^mem ⇒
     ∀thy x ty h l r.
     ¬EXISTS (VFREE_IN (Var x ty)) h ∧ type_ok (tysof thy) ty ∧
     (thy,h) |= l === r
-    ⇒ (thy,h) |= Abs x ty l === Abs x ty r``,
+    ⇒ (thy,h) |= Abs (Var x ty) l === Abs (Var x ty) r``,
   rw[] >> fs[entails_def] >>
   imp_res_tac theory_ok_sig >>
   conj_asm1_tac >- fs[term_ok_equation,term_ok_def] >>
@@ -63,7 +65,7 @@ val ABS_correct = store_thm("ABS_correct",
   qsuff_tac`termsem (tmsof (sigof thy)) i vv t = termsem (tmsof (sigof thy)) i v t`>-metis_tac[] >>
   match_mp_tac termsem_frees >>
   simp[Abbr`vv`,combinTheory.APPLY_UPDATE_THM] >>
-  rw[] >> metis_tac[])
+  rw[] >> metis_tac[term_ok_welltyped])
 
 val ASSUME_correct = store_thm("ASSUME_correct",
   ``∀thy p.
@@ -75,7 +77,7 @@ val BETA_correct = store_thm("BETA_correct",
   ``is_set_theory ^mem ⇒
     ∀thy x ty t.
       theory_ok thy ∧ type_ok (tysof thy) ty ∧ term_ok (sigof thy) t ⇒
-      (thy,[]) |= Comb (Abs x ty t) (Var x ty) === t``,
+      (thy,[]) |= Comb (Abs (Var x ty) t) (Var x ty) === t``,
   rw[] >> simp[entails_def] >>
   imp_res_tac theory_ok_sig >>
   imp_res_tac term_ok_welltyped >>
@@ -166,7 +168,7 @@ val EQ_MP_correct = store_thm("EQ_MP_correct",
   conj_asm1_tac >- metis_tac[ACONV_TYPE,WELLTYPED,WELLTYPED_LEMMA] >> rw[] >>
   `term_ok (sigof thy) (p === q)` by metis_tac[term_ok_equation] >>
   imp_res_tac (UNDISCH termsem_equation) >> rfs[boolean_eq_true] >>
-  metis_tac[termsem_aconv])
+  metis_tac[termsem_aconv,term_ok_welltyped])
 
 val INST_correct = store_thm("INST_correct",
   ``is_set_theory ^mem ⇒

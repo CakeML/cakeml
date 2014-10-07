@@ -111,8 +111,10 @@ val new_specification_correct = store_thm("new_specification_correct",
       match_mp_tac termsem_frees >>
       simp[Abbr`v`] >>
       imp_res_tac ALOOKUP_MEM >>
+      imp_res_tac proves_term_ok >>
       fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,CLOSED_def] >>
-      metis_tac[] ) >>
+      rfs[term_ok_equation] >>
+      metis_tac[term_ok_welltyped] ) >>
     rw[] >>
     match_mp_tac (UNDISCH termsem_typesem) >>
     unabbrev_all_tac >> simp[] >>
@@ -228,8 +230,11 @@ val new_specification_correct = store_thm("new_specification_correct",
       rw[typesem_def] >> metis_tac[]) >>
     `termsem tmenv i (τ,v2) tt = termsem tmenv i (τ,σ) tt` by (
        match_mp_tac termsem_frees >>
-       fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,CLOSED_def] >>
-       metis_tac[] ) >>
+       imp_res_tac proves_term_ok >>
+       fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,CLOSED_def,MEM_MAP,PULL_EXISTS] >>
+       imp_res_tac theory_ok_sig >>
+       fs[term_ok_equation] >>
+       metis_tac[term_ok_welltyped] ) >>
     rw[Abbr`tysem`,Abbr`ty`] >>
     match_mp_tac (UNDISCH termsem_typesem) >>
     qexists_tac`sigof ctxt` >>
@@ -277,8 +282,10 @@ val new_specification_correct = store_thm("new_specification_correct",
     rw[typesem_def] >> metis_tac[]) >>
   `termsem tmenv i (v3,v2) tt = termsem tmenv i (v3,v4) tt` by (
     match_mp_tac termsem_frees >> simp[] >>
-    fs[EVERY_MAP,LAMBDA_PROD,EVERY_MEM,FORALL_PROD,CLOSED_def] >>
-    metis_tac[] ) >>
+    imp_res_tac proves_term_ok >>
+    fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,CLOSED_def,MEM_MAP,PULL_EXISTS] >>
+    imp_res_tac theory_ok_sig >> fs[term_ok_equation] >>
+    metis_tac[term_ok_welltyped] ) >>
   rw[Abbr`v4`])
 
 val new_type_correct = store_thm("new_type_correct",

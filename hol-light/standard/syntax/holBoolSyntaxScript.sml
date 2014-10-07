@@ -6,36 +6,31 @@ val _ = new_theory"holBoolSyntax"
 val _ = Parse.overload_on("True",``Const "T" Bool``)
 val _ = Parse.overload_on("And",``λp1 p2. Comb (Comb (Const "/\\" (Fun Bool (Fun Bool Bool))) p1) p2``)
 val _ = Parse.overload_on("Implies",``λp1 p2. Comb (Comb (Const "==>" (Fun Bool (Fun Bool Bool))) p1) p2``)
-val _ = Parse.overload_on("Forall",``λx ty p. Comb (Const "!" (Fun (Fun ty Bool) Bool)) (Abs x ty p)``)
-val _ = Parse.overload_on("Exists",``λx ty p. Comb (Const "?" (Fun (Fun ty Bool) Bool)) (Abs x ty p)``)
+val _ = Parse.overload_on("Forall",``λx ty p. Comb (Const "!" (Fun (Fun ty Bool) Bool)) (Abs (Var x ty) p)``)
+val _ = Parse.overload_on("Exists",``λx ty p. Comb (Const "?" (Fun (Fun ty Bool) Bool)) (Abs (Var x ty) p)``)
 val _ = Parse.overload_on("Or",``λp1 p2. Comb (Comb (Const "\\/" (Fun Bool (Fun Bool Bool))) p1) p2``)
 val _ = Parse.overload_on("False",``Const "F" Bool``)
 val _ = Parse.overload_on("Not",``λp. Comb (Const "~" (Fun Bool Bool)) p``)
 
 val _ = Parse.temp_overload_on("p",``Var "p" Bool``)
-val _ = Parse.temp_overload_on("Absp",``Abs "p" Bool``)
 val _ = Parse.temp_overload_on("FAp",``Forall "p" Bool``)
 val _ = Parse.temp_overload_on("q",``Var "q" Bool``)
-val _ = Parse.temp_overload_on("Absq",``Abs "q" Bool``)
 val _ = Parse.temp_overload_on("FAq",``Forall "q" Bool``)
 val _ = Parse.temp_overload_on("r",``Var "r" Bool``)
 val _ = Parse.temp_overload_on("FAr",``Forall "r" Bool``)
 val _ = Parse.temp_overload_on("f",``Var "f" (Fun Bool (Fun Bool Bool))``)
-val _ = Parse.temp_overload_on("Absf",``Abs "f" (Fun Bool (Fun Bool Bool))``)
 val _ = Parse.temp_overload_on("A",``Tyvar "A"``)
 val _ = Parse.temp_overload_on("P",``Var "P" (Fun A Bool)``)
-val _ = Parse.temp_overload_on("AbsP",``Abs "P" (Fun A Bool)``)
 val _ = Parse.temp_overload_on("x",``Var "x" A``)
-val _ = Parse.temp_overload_on("Absx",``Abs "x" A``)
 val _ = Parse.temp_overload_on("FAx",``Forall "x" A``)
-val TrueDef_def = Define`TrueDef = Absp p === Absp p`
-val AndDef_def = Define`AndDef = Absp (Absq (Absf (Comb (Comb f p) q) === Absf (Comb (Comb f True) True)))`
-val ImpliesDef_def = Define`ImpliesDef = Absp (Absq (And p q === p))`
-val ForallDef_def = Define`ForallDef = AbsP (P === Absx True)`
-val ExistsDef_def = Define`ExistsDef = AbsP (FAq (Implies (FAx (Implies (Comb P x) q)) q))`
-val OrDef_def = Define`OrDef = Absp (Absq (FAr (Implies (Implies p r) (Implies (Implies q r) r))))`
+val TrueDef_def = Define`TrueDef = Abs p p === Abs p p`
+val AndDef_def = Define`AndDef = Abs p (Abs q (Abs f (Comb (Comb f p) q) === Abs f (Comb (Comb f True) True)))`
+val ImpliesDef_def = Define`ImpliesDef = Abs p (Abs q (And p q === p))`
+val ForallDef_def = Define`ForallDef = Abs P (P === Abs x True)`
+val ExistsDef_def = Define`ExistsDef = Abs P (FAq (Implies (FAx (Implies (Comb P x) q)) q))`
+val OrDef_def = Define`OrDef = Abs p (Abs q (FAr (Implies (Implies p r) (Implies (Implies q r) r))))`
 val FalseDef_def = Define`FalseDef = FAp p`
-val NotDef_def = Define`NotDef = Absp (Implies p False)`
+val NotDef_def = Define`NotDef = Abs p (Implies p False)`
 val Defs = [TrueDef_def, AndDef_def, ImpliesDef_def, ForallDef_def, ExistsDef_def, OrDef_def, FalseDef_def, NotDef_def]
 val mk_bool_ctxt_def = Define`
   mk_bool_ctxt ctxt =
@@ -64,7 +59,7 @@ val term_ok_clauses = store_thm("term_ok_clauses",
     (type_ok (tysof sig) (Fun ty1 ty2) ⇔ type_ok (tysof sig) ty1 ∧ type_ok (tysof sig) ty2) ∧
     (term_ok sig (Comb t1 t2) ⇔ term_ok sig t1 ∧ term_ok sig t2 ∧ welltyped (Comb t1 t2)) ∧
     (term_ok sig (t1 === t2) ⇔ term_ok sig t1 ∧ term_ok sig t2 ∧ typeof t1 = typeof t2) ∧
-    (term_ok sig (Abs s ty t) ⇔ type_ok (tysof sig) ty ∧ term_ok sig t)``,
+    (term_ok sig (Abs (Var s ty) t) ⇔ type_ok (tysof sig) ty ∧ term_ok sig t)``,
   rw[term_ok_def,type_ok_def,term_ok_equation] >>
   fs[is_std_sig_def] >> metis_tac[])
 

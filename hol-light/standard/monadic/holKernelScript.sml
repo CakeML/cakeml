@@ -8,12 +8,6 @@ val _ = new_theory "holKernel";
                 | Tyapp of string * hol_type list
 *)
 
-val _ = Hol_datatype `
-  hol_type = Tyvar of string
-           | Tyapp of string => hol_type list`;
-
-val hol_type_size_def = fetch "-" "hol_type_size_def"
-
 (*
   type term = Var of string * hol_type
             | Const of string * hol_type
@@ -21,30 +15,16 @@ val hol_type_size_def = fetch "-" "hol_type_size_def"
             | Abs of term * term
 *)
 
-val _ = Hol_datatype `
-  hol_term = Var of string => hol_type
-           | Const of string => hol_type
-           | Comb of hol_term => hol_term
-           | Abs of hol_term => hol_term`;
+(* we reuse the datatypes of types and terms from the inference system *)
+
+val type_size_def = holSyntaxTheory.type_size_def
 
 (*
   type thm = Sequent of (term list * term)
 *)
 
 val _ = Hol_datatype `
-  thm = Sequent of hol_term list => hol_term`;
-
-(*
-  For purposes of stating our final soundness theorem, we also keep
-  track of what definitions and other context updates have happened.
-*)
-
-val _ = Hol_datatype `
-  def = NewAxiom of hol_term
-      | NewConst of string => hol_type
-      | NewType of string => num
-      | ConstSpec of (string # hol_term) list => hol_term
-      | TypeDefn of string => hol_term => string => string`;
+  thm = Sequent of term list => term`;
 
 (*
   We define a record that holds the state, i.e.
@@ -61,10 +41,10 @@ val _ = Hol_datatype `
 
 val _ = Hol_datatype `
   hol_refs = <| the_type_constants : (string # num) list ;
-                the_term_constants : (string # hol_type) list ;
+                the_term_constants : (string # type) list ;
                 the_axioms : thm list ;
-                the_definitions : def list ;
-                the_clash_var : hol_term |>`;
+                the_definitions : update list ;
+                the_clash_var : term |>`;
 
 (* the state-exception monad *)
 
@@ -323,8 +303,8 @@ val _ = tDefine "tyvars" `
   tyvars x =
     case x of (Tyapp _ args) => itlist union (MAP tyvars args) []
             | (Tyvar tv) => [tv]`
- (WF_REL_TAC `measure (hol_type_size)` THEN Induct_on `args`
-  THEN FULL_SIMP_TAC (srw_ss()) [hol_type_size_def]
+ (WF_REL_TAC `measure (type_size)` THEN Induct_on `args`
+  THEN FULL_SIMP_TAC (srw_ss()) [type_size_def]
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC
   THEN REPEAT (POP_ASSUM (MP_TAC o SPEC_ALL)) THEN REPEAT STRIP_TAC
   THEN DECIDE_TAC);
@@ -352,8 +332,8 @@ val _ = tDefine "type_subst" `
          let args' = MAP (type_subst i) args in
          if args' = args then ty else Tyapp tycon args'
     | _ => rev_assocd ty i ty`
- (WF_REL_TAC `measure (hol_type_size o SND)` THEN Induct_on `args`
-  THEN FULL_SIMP_TAC (srw_ss()) [hol_type_size_def]
+ (WF_REL_TAC `measure (type_size o SND)` THEN Induct_on `args`
+  THEN FULL_SIMP_TAC (srw_ss()) [type_size_def]
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC
   THEN REPEAT (POP_ASSUM (MP_TAC o SPEC_ALL)) THEN REPEAT STRIP_TAC
   THEN DECIDE_TAC);
@@ -639,7 +619,7 @@ val MEM_subtract = prove(
   FULL_SIMP_TAC std_ss [fetch "-" "subtract_def",MEM_FILTER] THEN METIS_TAC []);
 
 val vfree_in_IMP = prove(
-  ``!(t:hol_term) x v. vfree_in (Var v ty) x ==> MEM (Var v ty) (frees x)``,
+  ``!(t:term) x v. vfree_in (Var v ty) x ==> MEM (Var v ty) (frees x)``,
   HO_MATCH_MP_TAC (SIMP_RULE std_ss [] (fetch "-" "vfree_in_ind"))
   THEN REPEAT STRIP_TAC THEN Cases_on `x` THEN POP_ASSUM MP_TAC
   THEN ONCE_REWRITE_TAC [fetch "-" "vfree_in_def",fetch "-" "frees_def"]
@@ -772,7 +752,7 @@ val my_term_size_vsubst_aux = prove(
   Induct THEN1
    (FULL_SIMP_TAC (srw_ss()) [my_term_size_def,Once (fetch "-" "vsubst_aux_def")]
     THEN Induct_on `xs` THEN1 (EVAL_TAC THEN SRW_TAC [] [my_term_size_def])
-    THEN Cases_on `h'`
+    THEN Cases
     THEN ASM_SIMP_TAC (srw_ss()) [EVERY_DEF,Once (fetch "-" "rev_assocd_def")]
     THEN FULL_SIMP_TAC (srw_ss()) []
     THEN Cases THEN SRW_TAC [] [] THEN Cases_on `q`
@@ -793,7 +773,7 @@ val ZERO_LT_term_size = prove(
   Cases THEN EVAL_TAC THEN DECIDE_TAC);
 
 val inst_aux_def = tDefine "inst_aux" `
-  (inst_aux (env:(hol_term # hol_term) list) tyin tm) : hol_term M =
+  (inst_aux (env:(term # term) list) tyin tm) : term M =
     case tm of
       Var n ty   => let ty' = type_subst tyin ty in
                     let tm' = if ty' = ty then tm else Var n ty' in
@@ -805,7 +785,7 @@ val inst_aux_def = tDefine "inst_aux" `
                        x' <- inst_aux env tyin x ;
                        if (f = f') /\ (x = x') then return tm
                                                else return (Comb f' x') od
-    | Abs y t    => do (y':hol_term) <- inst_aux [] tyin y ;
+    | Abs y t    => do (y':term) <- inst_aux [] tyin y ;
                        env' <- return ((y,y')::env) ;
                        handle_clash
                         (do t' <- inst_aux env' tyin t ;

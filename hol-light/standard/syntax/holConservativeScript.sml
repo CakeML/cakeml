@@ -204,8 +204,8 @@ val remove_const_def = Define `
             | SOME tysubst => INST tysubst tm) ∧
 (remove_const subst (Comb tm1 tm2) =
   Comb (remove_const subst tm1) (remove_const subst tm2)) ∧
-(remove_const subst (Abs x ty tm) =
-  Abs x ty (remove_const subst tm))`;
+(remove_const subst (Abs v tm) =
+  Abs v (remove_const subst tm))`;
 
 val upd_to_subst_def = Define `
 (upd_to_subst (ConstSpec consts p) =
