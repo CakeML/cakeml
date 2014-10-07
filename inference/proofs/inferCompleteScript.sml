@@ -2185,58 +2185,79 @@ val infer_e_complete = Q.prove (
        rw[]>>simp[]>>
        ntac 2 HINT_EXISTS_TAC>>fs[]>>metis_tac[t_compat_trans])
  >-
-   (*Letrec*)
+   (*Letrec
+   use type_funs_lookup and type_funs_Tfn to get an inversion and extend the sub_completed map with LENGTH n funs
+   not sure about order yet..
+   *)
    (imp_res_tac type_funs_distinct>>
    `MAP (\x,y,z. x) funs = MAP FST funs` by
      fs[MAP_EQ_f,FORALL_PROD]>>
    fs[bind_var_list_def]>>
    qpat_abbrev_tac `new_tenv = A ++ tenv`>>
-   (*last_x_assum qspecl_then [`s',`menv`,`st with next_uvar:=st.next_uvar + LENGTH funs`, *)
+   (*last_x_assum (qspecl_then [`s'`,`menv`,`new_tenv`,`st with next_uvar:=st.next_uvar + LENGTH funs`] mp_tac)>>*)
    cheat)  
  >- 
    (ntac 2 HINT_EXISTS_TAC>>fs[]>>metis_tac[sub_completion_wfs,t_compat_refl])
  >-
-   cheat
-   (*
    (last_x_assum(qspecl_then [`s`,`menv`,`tenv`,`st`,`constraints`] assume_tac)>>
    rfs[]>>
    last_x_assum(qspecl_then [`s'`,`menv`,`tenv`,`st'`,`constraints'`] mp_tac)>>
    discharge_hyps>>fs[]
-   >-
-     cheat (*Use infer_e lemmas*)
-   >>
+   >- metis_tac[t_compat_def,tenv_inv_t_compat,infer_e_wfs,check_env_more,infer_e_next_uvar_mono]>>
    rw[]>>
+   fs[PULL_EXISTS]>>
    ntac 2 HINT_EXISTS_TAC>>fs[]>>
-   cheat) (*use infer_e lemmas, t_compat and check_t_less on t'*)*)
+   CONJ_TAC>- metis_tac[t_compat_trans]>>
+   imp_res_tac infer_e_check_t>>
+   fs[sub_completion_def]>>
+   rfs[]>>
+   AP_TERM_TAC>>
+   imp_res_tac sub_completion_completes>>
+   fs[t_compat_def]>>metis_tac[t_walkstar_no_vars])
  >-
    (ntac 2 HINT_EXISTS_TAC >>fs[]>>metis_tac[sub_completion_wfs,t_compat_refl])
  >>
   (*similar to Fun*)
-  last_x_assum(qspecl_then[`s'`,`menv`,
-    `(n,0,Infer_Tuvar st.next_uvar)::tenv`,
-    `st with next_uvar:= st.next_uvar+1`,`constraints'`] mp_tac)>>
-  discharge_hyps>>fs[bind_tenv_def,num_tvs_def]
-  >- cheat
-  >>
-  rw[]>>fs[]>>
-  first_x_assum(qspecl_then[`s''`,`menv`,`tenv`,`st'`,`constraints'`] mp_tac)>>
-  discharge_hyps>>fs[]
-  >- cheat
-  >>
-  rw[]>>fs[]>>
-  ntac 2 HINT_EXISTS_TAC>>fs[]>>
-  cheat)
- 
- 
- (*(`tenv_inv (bind n (0,Infer_Tuvar st.next_uvar) tenv) (bind_tenv n 0 t1 tenvE)`
-              by (rw [bind_def, tenv_inv_def, bind_tenv_def] >>
-                  cheat) >>
-     `convert_menv menv = convert_menv menv` by cheat
+   fs[check_freevars_def]>>
+   fs[sub_completion_def]>>
+   imp_res_tac pure_add_constraints_success>>
+   Q.SPECL_THEN [`t1`,`st`,`s`,`num_tvs tenvE`,`constraints`]
+     mp_tac (GEN_ALL extend_one_props)>>
+   discharge_hyps>>
+   fs[LET_THM]>>
+   qpat_abbrev_tac `constraints' = constraints ++A`>>
+   qpat_abbrev_tac `s' = s|++B`>>
+   strip_tac>>
+   last_x_assum(qspecl_then[`s'`,`menv`,
+     `(n,0,Infer_Tuvar st.next_uvar)::tenv`,
+     `st with next_uvar:= st.next_uvar+1`,`constraints'`] mp_tac)>>
+   discharge_hyps>>fs[bind_tenv_def,num_tvs_def]>-cheat>>
+   rw[]>>
+   fs[PULL_EXISTS]>>
+   first_x_assum(qspecl_then[`s''`,`menv`,
+     `tenv`,`st''`,`constraints''`] mp_tac)>>
+   discharge_hyps>> fs[]
+   >-
+     (rw[]
+     >-
+       (`st.next_uvar ≤ st''.next_uvar` by 
+         (imp_res_tac infer_e_next_uvar_mono>>
+         fs[]>>DECIDE_TAC)>>
+       metis_tac[check_env_more])
+     >-
+       metis_tac[infer_e_wfs,infer_st_rewrs]
+     >>
+       metis_tac[SUBMAP_t_compat,t_compat_trans
+                ,t_compat_def,tenv_inv_t_compat])
+   >>
+     rw[]>>
+     ntac 4 HINT_EXISTS_TAC>>fs[]>>
+     CONJ_ASM1_TAC>-metis_tac[SUBMAP_t_compat,t_compat_trans]>>
+     fs[t_compat_def]>>
+     simp[Once t_walkstar_eqn,convert_t_def,SimpRHS,Once t_walk_eqn]>>
+     cheat)
+     (*true because s'' subcompletes over t' and the properties of t1 
+       is carried over from 27*)
 
-     res_tac >>
-     fs []
-     rw []
-
-     *)
 
 val _ = export_theory ();
