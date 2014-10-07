@@ -1385,8 +1385,17 @@ val sub_completion_completes = prove(
   first_x_assum(qspecl_then[`count n`,`s`,`num_tvs tenvE`,`t`] mp_tac)>>
   discharge_hyps>>fs[])
 
-(*This should be general enough to prove both Mat and Handle cases*)
+val lookup_tenv_bind_var_list = prove(
+``!tenv. 
+  lookup_tenv x 0 (bind_var_list 0 tenv tenvE) =
+  case ALOOKUP tenv x of 
+    SOME t => SOME (0,t)
+  | NONE => lookup_tenv x 0 tenvE``,
+  Induct>>rw[bind_var_list_def]>>
+  Cases_on`h`>>rw[bind_var_list_def,lookup_tenv_def,bind_tenv_def,deBruijn_inc0])
 
+
+(*This should be general enough to prove both Mat and Handle cases*)
 val infer_pes_complete = prove(
 ``!pes st' constraints' s'. 
   pes ≠ [] ∧
@@ -1394,7 +1403,8 @@ val infer_pes_complete = prove(
   t_wfs st'.subst ∧
   check_menv menv ∧
   check_env (count uvar) tenv ∧ 
-  uvar ≤ st'.next_uvar ∧  
+  uvar ≤ st'.next_uvar ∧
+  tenv_inv s' tenv tenvE ∧ 
   (∀x::set pes.
     ∃tenv'.
       ALL_DISTINCT (pat_bindings (FST x) []) ∧
@@ -1484,7 +1494,35 @@ val infer_pes_complete = prove(
     >-
       metis_tac[pure_add_constraints_success]
     >>
-      cheat) (*looks like the most important thing to prove here*)
+      `t_compat s' si` by metis_tac[t_compat_trans]>>
+      `t_wfs si` by metis_tac[pure_add_constraints_wfs]>>
+      imp_res_tac tenv_inv_t_compat>>
+      ntac 10 (pop_assum kall_tac)>>
+      fs[tenv_inv_def,simp_tenv_inv_def]>>
+      rw[]>>fs[lookup_tenv_bind_var_list]
+      >-
+        (BasicProvers.FULL_CASE_TAC>>fs[]>>
+        metis_tac[])
+      >-
+        (BasicProvers.FULL_CASE_TAC>>fs[Abbr`ntenv`]>>
+        fs[ALOOKUP_APPEND,ALOOKUP_MAP]>>
+        Cases_on`ALOOKUP tenv'' x`>-
+          (fs[]>>metis_tac[])>>
+        first_x_assum(qspecl_then [`x`,`x'`] assume_tac)>>rfs[])
+      >-
+        (BasicProvers.FULL_CASE_TAC>>fs[]>>
+        metis_tac[])
+      >>
+        BasicProvers.FULL_CASE_TAC>>fs[Abbr`ntenv`]
+        >-
+        (fs[ALOOKUP_APPEND,ALOOKUP_MAP]>>
+        Cases_on`ALOOKUP tenv'' x`>-
+          (fs[]>>metis_tac[])>>
+        first_x_assum(qspecl_then [`x`,`x'`] assume_tac)>>rfs[])
+        >>
+        first_x_assum(qspecl_then [`x`,`t`] assume_tac)>>rfs[]>>
+        qexists_tac`t''`>>
+        fs[ALOOKUP_APPEND,ALOOKUP_MAP])
   >>
   rw[]>> 
   `t_wfs st''''.subst` by metis_tac[infer_e_wfs]>>
@@ -1531,6 +1569,10 @@ val infer_pes_complete = prove(
         imp_res_tac infer_e_next_uvar_mono>>
         fs[]>>DECIDE_TAC)
       >-
+        (`t_compat s' si'` by metis_tac[t_compat_trans]>>
+        `t_wfs si'` by metis_tac[pure_add_constraints_wfs]>>
+        imp_res_tac tenv_inv_t_compat)
+      >-
         metis_tac[pure_add_constraints_success]
       >>
       rfs[]>>
@@ -1541,7 +1583,6 @@ val infer_pes_complete = prove(
     fs[Abbr`nst`]>>
     ntac 2 HINT_EXISTS_TAC>> fs[]>>
     metis_tac[t_compat_trans])
-
 
 val infer_e_complete = Q.prove (
 `
@@ -1672,28 +1713,34 @@ val infer_e_complete = Q.prove (
    (
    last_x_assum (qspecl_then [`s`,`menv`,`tenv`,`st`,`constraints`] assume_tac)>>rfs[]>>
    fs[UNCURRY]>>
+   imp_res_tac infer_e_wfs>>
+   fs[sub_completion_def]>>
+   imp_res_tac infer_e_check_t>>
+   rfs[]>>
+   imp_res_tac pure_add_constraints_wfs>>
+   `check_t (num_tvs tenvE) {} (t_walkstar s' t')` by
+     metis_tac[sub_completion_completes]>>
    assume_tac (GEN_ALL infer_pes_complete)>>
    pop_assum(qspecl_then 
      [`st.next_uvar`,`tenvE`,`tenvC`,`tenv`,`t'`
      ,`t`,`Infer_Tapp [] TC_exn`,`Tapp [] TC_exn`
      ,`menv`,`pes`,`st'`,`constraints'`,`s'`] mp_tac)>>
-   discharge_hyps >-
-     (fs[]>>CONJ_ASM1_TAC>-metis_tac[infer_e_wfs]>>
-     CONJ_TAC >- metis_tac[infer_e_next_uvar_mono]>>
-     imp_res_tac sub_completion_wfs>>
-     CONJ_TAC>-fs[t_walkstar_eqn,unconvert_t_def,t_walk_eqn]>>
-     fs[sub_completion_def]>>
-     imp_res_tac infer_e_check_t>>
-     metis_tac[sub_completion_completes,check_t_empty_unconvert_convert_id])>>
+   discharge_hyps_keep >-
+     (fs[sub_completion_def]>>rw[]
+     >-
+       metis_tac[infer_e_next_uvar_mono]
+     >-
+       metis_tac[tenv_inv_t_compat]
+     >-
+       fs[t_walkstar_eqn,unconvert_t_def,t_walk_eqn]>>
+     >>
+       metis_tac[sub_completion_completes,check_t_empty_unconvert_convert_id])>>
    rw[]>>
-   ntac 3 HINT_EXISTS_TAC>>fs[]>>
+   ntac 3 HINT_EXISTS_TAC>>fs[sub_completion_def]>>
    CONJ_TAC>-metis_tac[t_compat_trans]>>
    AP_TERM_TAC>>
-
-   cheat 
-   (*true because s' subcompletes result of an infer_e and 
-     s'' is t_compat with s'*)
-   )
+   fs[t_compat_def]>>
+   metis_tac[t_walkstar_no_vars])
    (*pop_assum kall_tac
      qid_spec_tac
     Q.ID_SPEC_TAC
