@@ -178,7 +178,7 @@ val HOL_STORE_def = Define `
             refs.the_type_constants) (EL 0 s) /\
     isRefv ((LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) TYPE_TYPE))
             refs.the_term_constants) (EL 1 s) /\
-    isRefv (LIST_TYPE UPDATE_TYPE refs.the_definitions) (EL 2 s) /\
+    isRefv (LIST_TYPE UPDATE_TYPE refs.the_context) (EL 2 s) /\
     isRefv (TERM_TYPE refs.the_clash_var) (EL 3 s) /\
     isRefv (LIST_TYPE THM_TYPE refs.the_axioms) (EL 4 s)`;
 
@@ -357,7 +357,7 @@ val HOL_STORE_EXISTS = prove(
   \\ FULL_SIMP_TAC (srw_ss()) [LENGTH,EL,HD,TL,isRefv_def]
   \\ Q.EXISTS_TAC `<| the_type_constants := [] ;
                       the_term_constants := [] ;
-                      the_definitions := [] ;
+                      the_context := [] ;
                       the_axioms      := [] ;
                       the_clash_var := tm |>`
   \\ FULL_SIMP_TAC (srw_ss()) [fetch "-" "LIST_TYPE_def"]);
@@ -806,13 +806,13 @@ val exp = lemma |> UNDISCH_ALL |> concl |> rator |> rand
 val dec = ``(Dlet (Pvar n) (App Opref [^exp])) : dec``
 val tm = get_DeclAssum () |> rator |> rator |> rand;
 
-val the_definitions_def = Define `
-    the_definitions = Loc 2`;
+val the_context_def = Define `
+    the_context = Loc 2`;
 
 val th = prove(
   ``DeclAssum (SOME "Kernel") (SNOC ^dec ^tm) env tys ==>
-    Eval env (Var (Short n)) ($= the_definitions)``,
-  tac ()) |> Q.INST [`n`|->`"the_definitions"`] |> UNDISCH;
+    Eval env (Var (Short n)) ($= the_context)``,
+  tac ()) |> Q.INST [`n`|->`"the_context"`] |> UNDISCH;
 
 val th = store_cert th [TRUTH] (DeclAssumExists_lemma lemma);
 
@@ -864,7 +864,7 @@ fun read_tac n =
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
   \\ fs [the_type_constants_def,
-       the_term_constants_def,the_axioms_def,the_definitions_def,
+       the_term_constants_def,the_axioms_def,the_context_def,
        the_clash_var_def,PULL_EXISTS,evaluate_list_cases,do_app_def,
        store_lookup_def,option_CASE_LEMMA2]
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [HOL_STORE_def]
@@ -878,7 +878,7 @@ fun read_tac n =
   \\ FULL_SIMP_TAC std_ss []
   \\ FULL_SIMP_TAC (srw_ss()) [HOL_MONAD_def,get_the_type_constants_def,
         get_the_term_constants_def,get_the_axioms_def,get_the_clash_var_def,
-        get_the_definitions_def,EL,isRefv_def]
+        get_the_context_def,EL,isRefv_def]
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ fs [];
 
 val get_type_constants_thm = store_thm("get_the_type_constants_thm",
@@ -895,10 +895,10 @@ val get_term_constants_thm = store_thm("get_the_term_constants_thm",
                  get_the_term_constants)``,
   read_tac ``1:num``);
 
-val get_the_definitions_thm = store_thm("get_the_definitions_thm",
-  ``Eval env (Var (Short "the_definitions")) ($= the_definitions) ==>
-    EvalM env (App Opderef [Var (Short "the_definitions")])
-      (HOL_MONAD (LIST_TYPE UPDATE_TYPE) get_the_definitions)``,
+val get_the_context_thm = store_thm("get_the_context_thm",
+  ``Eval env (Var (Short "the_context")) ($= the_context) ==>
+    EvalM env (App Opderef [Var (Short "the_context")])
+      (HOL_MONAD (LIST_TYPE UPDATE_TYPE) get_the_context)``,
   read_tac ``2:num``);
 
 val get_the_clash_var_thm = store_thm("get_the_clash_var_thm",
@@ -930,7 +930,7 @@ fun update_tac r q =
   \\ fs [] \\ SIMP_TAC (srw_ss()) [Once do_app_def]
   \\ FULL_SIMP_TAC std_ss [option_CASE_LEMMA2,PULL_EXISTS]
   \\ FULL_SIMP_TAC std_ss [the_type_constants_def,the_axioms_def,
-       the_term_constants_def,the_definitions_def,the_clash_var_def]
+       the_term_constants_def,the_context_def,the_clash_var_def]
   \\ `0 < LENGTH s` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
   \\ `1 < LENGTH s` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
   \\ `2 < LENGTH s` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
@@ -958,12 +958,12 @@ val set_the_term_constants_thm = store_thm("set_the_term_constants_thm",
       ((HOL_MONAD UNIT_TYPE) (set_the_term_constants x))``,
   update_tac `LUPDATE (Refv res) 1 s` `refs with the_term_constants := x`);
 
-val set_the_definitions_thm = store_thm("set_the_definitions_thm",
-  ``Eval env (Var (Short "the_definitions")) ($= the_definitions) ==>
+val set_the_context_thm = store_thm("set_the_context_thm",
+  ``Eval env (Var (Short "the_context")) ($= the_context) ==>
     Eval env exp (LIST_TYPE UPDATE_TYPE x) ==>
-    EvalM env (App Opassign [Var (Short "the_definitions"); exp])
-      ((HOL_MONAD UNIT_TYPE) (set_the_definitions x))``,
-  update_tac `LUPDATE (Refv res) 2 s` `refs with the_definitions := x`);
+    EvalM env (App Opassign [Var (Short "the_context"); exp])
+      ((HOL_MONAD UNIT_TYPE) (set_the_context x))``,
+  update_tac `LUPDATE (Refv res) 2 s` `refs with the_context := x`);
 
 val set_the_clash_var_thm = store_thm("set_the_clash_var_thm",
   ``Eval env (Var (Short "the_clash_var")) ($= the_clash_var) ==>

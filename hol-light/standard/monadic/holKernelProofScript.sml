@@ -40,7 +40,7 @@ val THM_def = Define `
 
 val STATE_def = Define `
   STATE ctxt state =
-      (ctxt = state.the_definitions) /\ CONTEXT ctxt /\
+      (ctxt = state.the_context) /\ CONTEXT ctxt /\
       (state.the_type_constants = type_list ctxt) /\
       (state.the_term_constants = const_list ctxt) /\
       TERM ctxt state.the_clash_var`;
@@ -258,8 +258,8 @@ val get_type_arity_thm = prove(
 
 val mk_vartype_thm = store_thm("mk_vartype_thm",
   ``!name s.
-      STATE s.the_definitions s ⇒
-      TYPE s.the_definitions (mk_vartype name)``,
+      STATE s.the_context s ⇒
+      TYPE s.the_context (mk_vartype name)``,
   SIMP_TAC (srw_ss()) [mk_vartype_def,TYPE_def,type_ok_def,STATE_def]);
 
 val mk_type_thm = store_thm("mk_type_thm",
@@ -2104,7 +2104,7 @@ val new_specification_thm = store_thm("new_specification_thm",
   Cases_on`q`>>simp[] >>
   simp[oneTheory.one] >>
   strip_tac >>
-  simp[add_def_def,ex_bind_def,get_the_definitions_def,set_the_definitions_def] >>
+  simp[add_def_def,ex_bind_def,get_the_context_def,set_the_context_def] >>
   qpat_assum`map f l r = X`kall_tac >>
   qunabbrev_tac`f` >>
   Q.PAT_ABBREV_TAC`theta:(term#term)list = MAP X (MAP FST a)` >>
@@ -2297,10 +2297,10 @@ val new_basic_type_definition_thm = store_thm("new_basic_type_definition_thm",
     METIS_TAC[] ) >>
   `s1.the_term_constants = s.the_term_constants` by simp[Abbr`s1`] >>
   fs[oneTheory.one] >>
-  simp[Once ex_bind_def,add_def_def,get_the_definitions_def] >>
-  simp[Once ex_bind_def,set_the_definitions_def] >>
-  Q.PAT_ABBREV_TAC`s2 = s1 with <|the_term_constants := X; the_definitions := Y|>` >>
-  `STATE s2.the_definitions s2` by (
+  simp[Once ex_bind_def,add_def_def,get_the_context_def] >>
+  simp[Once ex_bind_def,set_the_context_def] >>
+  Q.PAT_ABBREV_TAC`s2 = s1 with <|the_term_constants := X; the_context := Y|>` >>
+  `STATE s2.the_context s2` by (
     fs[STATE_def] >>
     conj_asm1_tac >- (
       simp[Abbr`s2`] >>
@@ -2359,7 +2359,7 @@ val new_basic_type_definition_thm = store_thm("new_basic_type_definition_thm",
   Q.PAT_ABBREV_TAC`a = mk_var X` >>
   rpt(qpat_assum`Z = s`kall_tac)>>
   Cases_on`mk_comb (Const repname repty,a) s2` >>
-  MP_TAC (mk_comb_thm |> Q.INST [`f`|->`Const repname repty`,`res`|->`q`,`s1`|->`r`,`s`|->`s2`,`defs`|->`s2.the_definitions`]) >>
+  MP_TAC (mk_comb_thm |> Q.INST [`f`|->`Const repname repty`,`res`|->`q`,`s1`|->`r`,`s`|->`s2`,`defs`|->`s2.the_context`]) >>
   discharge_hyps >- (
     simp[] >>
     conj_asm1_tac >- METIS_TAC[mk_const_thm,EVERY_DEF] >>
@@ -2413,7 +2413,7 @@ val new_basic_type_definition_thm = store_thm("new_basic_type_definition_thm",
   simp[dest_type_def,ex_return_def] >>
   simp[Once ex_bind_def] >>
   rpt(qpat_assum`Z = s2`kall_tac)>>
-  `TERM s2.the_definitions (Comb P x)` by (
+  `TERM s2.the_context (Comb P x)` by (
     imp_res_tac THM_term_ok_bool >> fs[] >>
     simp[TERM_def] >>
     match_mp_tac term_ok_extend >>
@@ -2428,7 +2428,7 @@ val new_basic_type_definition_thm = store_thm("new_basic_type_definition_thm",
     rw[] >> METIS_TAC[]) >>
   `mk_comb (P,Var "r" (term_type x)) s2 = (HolRes (Comb P (Var "r" (term_type x))), s2)` by (
     Cases_on`mk_comb (P,Var "r" (term_type x)) s2` >>
-    MP_TAC (mk_comb_thm |> Q.INST [`f`|->`P`,`a`|->`Var "r" (term_type x)`,`res`|->`q`,`s1`|->`r`,`s`|->`s2`,`defs`|->`s2.the_definitions`]) >>
+    MP_TAC (mk_comb_thm |> Q.INST [`f`|->`P`,`a`|->`Var "r" (term_type x)`,`res`|->`q`,`s1`|->`r`,`s`|->`s2`,`defs`|->`s2.the_context`]) >>
     discharge_hyps >- (
       rfs[STATE_def,TERM_Comb,TERM_Var_SIMP] >>
       imp_res_tac term_type ) >>
@@ -2465,7 +2465,7 @@ val new_basic_type_definition_thm = store_thm("new_basic_type_definition_thm",
   simp[mk_eq_def,try_def,otherwise_def,Once type_of_def,Once ex_bind_def] >>
   simp[Once ex_bind_def] >>
   simp[Once ex_bind_def] >>
-  `CONTEXT s2.the_definitions` by fs[STATE_def] >>
+  `CONTEXT s2.the_context` by fs[STATE_def] >>
   fs[TERM_Comb] >>
   imp_res_tac type_of_thm >>
   imp_res_tac term_type >>
@@ -2499,7 +2499,7 @@ val new_basic_type_definition_thm = store_thm("new_basic_type_definition_thm",
   simp[Once type_of_def] >>
   simp[Once ex_bind_def,dest_type_def,ex_return_def] >>
   simp[Once ex_bind_def] >>
-  `∃ds. s2.the_definitions = ds ++ defs` by (
+  `∃ds. s2.the_context = ds ++ defs` by (
     fs[Abbr`s2`,Abbr`s1`,STATE_def] ) >>
   qexists_tac`ds` >>
   pop_assum(ASSUME_TAC o SYM) >>
@@ -2527,7 +2527,7 @@ val new_type_thm = store_thm("new_type_thm",
   BasicProvers.CASE_TAC >>
   imp_res_tac assoc_thm >>
   rw[set_the_type_constants_def,add_def_def,ex_bind_def
-    ,get_the_definitions_def,set_the_definitions_def] >>
+    ,get_the_context_def,set_the_context_def] >>
   qexists_tac`NewType name arity` >>
   fs[STATE_def] >>
   conj_asm1_tac >- (
@@ -2552,7 +2552,7 @@ val new_constant_thm = store_thm("new_constant_thm",
   Cases_on`add_constants [(name,ty)] s`>>simp[] >>
   Cases_on`q`>>simp[oneTheory.one] >>
   imp_res_tac STATE_ALL_DISTINCT >> rw[] >>
-  rw[add_def_def,ex_bind_def,get_the_definitions_def,set_the_definitions_def] >>
+  rw[add_def_def,ex_bind_def,get_the_context_def,set_the_context_def] >>
   qexists_tac`NewConst name ty` >>
   fs[STATE_def] >>
   conj_asm1_tac >- (
@@ -2578,7 +2578,7 @@ val new_axiom_thm = store_thm("new_axiom_thm",
   Cases_on`q`>>simp[]>>strip_tac>>
   BasicProvers.CASE_TAC >> simp[failwith_def,ex_return_def] >>
   simp[get_the_axioms_def,set_the_axioms_def] >>
-  simp[add_def_def,ex_bind_def,get_the_definitions_def,set_the_definitions_def] >>
+  simp[add_def_def,ex_bind_def,get_the_context_def,set_the_context_def] >>
   qexists_tac`NewAxiom p` >>
   conj_asm2_tac >- (
     REWRITE_TAC[THM_def] >>

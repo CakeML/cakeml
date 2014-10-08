@@ -43,7 +43,7 @@ val _ = Hol_datatype `
   hol_refs = <| the_type_constants : (string # num) list ;
                 the_term_constants : (string # type) list ;
                 the_axioms : thm list ;
-                the_definitions : update list ;
+                the_context : update list ;
                 the_clash_var : term |>`;
 
 (* the state-exception monad *)
@@ -64,8 +64,8 @@ val get_the_term_constants_def = Define `
 val get_the_axioms_def = Define `
   get_the_axioms = (\state. (HolRes (state.the_axioms),state))`;
 
-val get_the_definitions_def = Define `
-  get_the_definitions = (\state. (HolRes (state.the_definitions),state))`;
+val get_the_context_def = Define `
+  get_the_context = (\state. (HolRes (state.the_context),state))`;
 
 val get_the_clash_var_def = Define `
   get_the_clash_var = (\state. (HolRes (state.the_clash_var),state))`;
@@ -82,9 +82,9 @@ val set_the_axioms_def = Define `
   set_the_axioms x =
     (\state. (HolRes (), (state with the_axioms := x))):unit M`;
 
-val set_the_definitions_def = Define `
-  set_the_definitions x =
-    (\state. (HolRes (), (state with the_definitions := x))):unit M`;
+val set_the_context_def = Define `
+  set_the_context x =
+    (\state. (HolRes (), (state with the_context := x))):unit M`;
 
 val set_the_clash_var_def = Define `
   set_the_clash_var x =
@@ -210,8 +210,8 @@ val _ = Define `
 *)
 
 val add_def = Define `
-  add_def d = do defs <- get_the_definitions ;
-                 set_the_definitions (d::defs) od`;
+  add_def d = do defs <- get_the_context ;
+                 set_the_context (d::defs) od`;
 
 val _ = Define`
   add_type (name,arity) =
