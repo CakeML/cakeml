@@ -36,20 +36,24 @@ val _ = Hol_datatype `
 
   let the_axioms = ref ([]:thm list)
 
-  Also to emulate the clash exception we include a clash_var.
+  The context is the global theory context tracked by the inference system, and
+  subsumes the above references. But we use them instead for efficiency (and to
+  be close to HOL Light).
 *)
 
 val _ = Hol_datatype `
   hol_refs = <| the_type_constants : (string # num) list ;
                 the_term_constants : (string # type) list ;
                 the_axioms : thm list ;
-                the_context : update list ;
-                the_clash_var : term |>`;
+                the_context : update list |>`;
 
 (* the state-exception monad *)
 
+val _ = Hol_datatype`
+  hol_exn = Fail of string | Clash of term`
+
 val _ = Hol_datatype `
-  hol_result = HolRes of 'a | HolErr of string`;
+  hol_result = HolRes of 'a | HolErr of hol_exn`;
 
 val _ = type_abbrev("M", ``:hol_refs -> 'a hol_result # hol_refs``);
 
@@ -67,9 +71,6 @@ val get_the_axioms_def = Define `
 val get_the_context_def = Define `
   get_the_context = (\state. (HolRes (state.the_context),state))`;
 
-val get_the_clash_var_def = Define `
-  get_the_clash_var = (\state. (HolRes (state.the_clash_var),state))`;
-
 val set_the_type_constants_def = Define `
   set_the_type_constants x =
     (\state. (HolRes (), (state with the_type_constants := x))):unit M`;
@@ -85,10 +86,6 @@ val set_the_axioms_def = Define `
 val set_the_context_def = Define `
   set_the_context x =
     (\state. (HolRes (), (state with the_context := x))):unit M`;
-
-val set_the_clash_var_def = Define `
-  set_the_clash_var x =
-    (\state. (HolRes (), (state with the_clash_var := x))):unit M`;
 
 (* composition and return *)
 
@@ -114,15 +111,15 @@ val _ = temp_overload_on ("return", ``ex_return``);
 (* failwith and otherwise *)
 
 val failwith_def = Define `
-  ((failwith msg) :'a M) = \state. (HolErr msg, state)`;
+  ((failwith msg) :'a M) = \state. (HolErr (Fail msg), state)`;
+
+val _ = add_infix("otherwise",400,HOLgrammars.RIGHT)
 
 val otherwise_def = Define `
-  otherwise x y = \state.
+  x otherwise y = \state.
     case (x state) of
       (HolRes y, state) => (HolRes y, state)
     | (HolErr e, state) => y state`;
-
-val _ = add_infix("otherwise",400,HOLgrammars.RIGHT)
 
 (* others *)
 
@@ -134,10 +131,13 @@ val _ = Define `
   try f x msg = (f x otherwise failwith msg)`;
 
 val raise_clash_def = Define `
-  ((raise_clash c) :'a M) = do set_the_clash_var c ; failwith "clash" od`;
+  ((raise_clash c) :'a M) = \state. (HolErr (Clash c), state)`
 
 val handle_clash_def = Define `
-  handle_clash x f = (x otherwise do v <- get_the_clash_var ; f v od)`;
+  handle_clash x f = \state.
+    case (x state) of
+    | (HolErr (Clash t), state) => f t state
+    | other => other`;
 
 (* define failing lookup function *)
 
@@ -773,7 +773,7 @@ val ZERO_LT_term_size = prove(
   Cases THEN EVAL_TAC THEN DECIDE_TAC);
 
 val inst_aux_def = tDefine "inst_aux" `
-  (inst_aux (env:(term # term) list) tyin tm) : term M =
+  (inst_aux (env:(term # term) list) tyin tm) =
     case tm of
       Var n ty   => let ty' = type_subst tyin ty in
                     let tm' = if ty' = ty then tm else Var n ty' in
