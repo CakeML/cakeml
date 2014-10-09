@@ -171,7 +171,7 @@ val abs2let_thm = prove(
   \\ Q.LIST_EXISTS_TAC [`h`,(`count',s2`)] \\ FULL_SIMP_TAC std_ss []
   \\ Q.PAT_ASSUM `evaluate F env s (Fun s' e) ((s2',Rval v1))` MP_TAC
   \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
-  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) [opt_bind_def,bind_def]);
+  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) [opt_bind_def]);
 
 
 (* rewrite optimisation: let x = y in x --> y *)
@@ -188,7 +188,7 @@ val let_id_thm = prove(
   \\ FULL_SIMP_TAC std_ss [let_id_def] \\ SRW_TAC [] [] \\ POP_ASSUM MP_TAC
   \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
   \\ REPEAT STRIP_TAC \\ POP_ASSUM MP_TAC
-  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases,bind_def,lookup_def]
+  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
   \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [lookup_var_id_def,opt_bind_def]);
 

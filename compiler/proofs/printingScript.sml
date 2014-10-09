@@ -2,7 +2,7 @@ open HolKernel boolLib boolSimps bossLib lcsymtacs listTheory stringTheory relat
 open miscLib miscTheory bytecodeTheory bytecodeExtraTheory bytecodeEvalTheory bytecodeLabelsTheory bytecodeTerminationTheory
 open intLangTheory intLangExtraTheory toBytecodeTheory compilerTheory compilerTerminationTheory
 open modLangProofTheory conLangProofTheory exhLangProofTheory patLangProofTheory intLangProofTheory bytecodeProofTheory free_varsTheory 
-open replTheory printTheory inferSoundTheory terminationTheory
+open replTheory printTheory inferPropsTheory inferSoundTheory terminationTheory
 
 val _ = new_theory"printing"
 
@@ -51,6 +51,25 @@ val LIST_REL_OPTREL_exh_Cv_syneq_trans = store_thm("LIST_REL_OPTREL_exh_Cv_syneq
   rw[EVERY2_EVERY,EVERY_MEM] >> rfs[MEM_ZIP,PULL_EXISTS] >>
   fs[optionTheory.OPTREL_def] >>
   metis_tac[exh_Cv_syneq_trans,optionTheory.SOME_11,optionTheory.NOT_SOME_NONE])
+
+val LIST_REL_sv_rel_exh_Cv_syneq_trans = store_thm("LIST_REL_sv_rel_exh_Cv_syneq_trans",
+  ``∀vs Cvs Cvs2.
+     LIST_REL (sv_rel syneq) Cvs Cvs2 ∧
+     LIST_REL (sv_rel exh_Cv) vs Cvs ⇒
+     LIST_REL (sv_rel exh_Cv) vs Cvs2``,
+  rw[LIST_REL_EL_EQN] >>
+  fs[evalPropsTheory.sv_rel_cases,PULL_EXISTS] >>
+  rpt(first_x_assum(qspec_then`n`mp_tac)) >> simp[] >> rw[] >> fs[] >>
+  metis_tac[exh_Cv_syneq_trans,LIST_REL_exh_Cv_syneq_trans])
+
+val Cv_bv_can_Print = save_thm("Cv_bv_can_Print",prove(
+  ``(∀Cv bv. Cv_bv pp Cv bv ⇒ IS_SOME (bv_to_string bv)) ∧
+    (∀bvs ce env defs. benv_bvs pp bvs ce env defs ⇒ T)``,
+  ho_match_mp_tac Cv_bv_ind >> simp[bv_to_string_def,bvs_to_chars_thm] >>
+  rw[] >> pop_assum mp_tac >> simp[] >>
+  simp[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >> rw[] >>
+  rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,MEM_EL,EL_MAP])
+  |> CONJUNCT1)
 
 (* printing *)
 
@@ -389,8 +408,8 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
       ⇒
       let str =
         case d of
-        | Dtype ts => print_envC ([],build_tdefs NONE ts)
-        | Dexn cn ts => print_envC ([],[(cn, (LENGTH ts, TypeExn))])
+        | Dtype ts => ""
+        | Dexn cn ts => ""
         | d => print_bv_list tvs bvs in
       let bs' = bs with
         <|pc := next_addr bs.inst_length (bc0++code)
@@ -410,11 +429,16 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
     simp[] >>
     simp[compile_print_dec_def] >>
     ntac 2 gen_tac >>
+    qexists_tac `[]` >>
+    rw [] >>
+    match_mp_tac (PROVE [RTC_REFL] ``x = y ⇒ bc_next^* x y``) >>
+    rw [bc_state_component_equality])
+    (* Proof from when constructor definitions were to be printed 
     Induct_on`REVERSE l` >- (
       simp[compile_print_types_def,Once SWAP_REVERSE] >>
       simp[Once SWAP_REVERSE] >>
-      simp[print_envC_def,semanticPrimitivesTheory.build_tdefs_def,LENGTH_NIL] >>
-      rw[] >> simp[Once RTC_CASES1] >> simp[bc_state_component_equality] ) >>
+      simp[semanticPrimitivesTheory.build_tdefs_def,LENGTH_NIL] >>
+      rw[] >> simp[Once RTC_CASES1] >> simp[bc_state_component_equality, FDOM_FUPDATE_LIST] ) >>
     qx_gen_tac`x` >> PairCases_on`x` >>
     gen_tac >> (disch_then (assume_tac o SYM)) >>
     simp[compile_print_types_def] >>
@@ -453,11 +477,13 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
     `bs2' = bs2` by (
       simp[Abbr`bs2`,Abbr`bs2'`] >>
       simp[bc_state_component_equality] >>
-      simp[semanticPrimitivesTheory.build_tdefs_def,print_envC_def] >>
+      simp[semanticPrimitivesTheory.build_tdefs_def] >>
       simp[MAP_REVERSE,MAP_MAP_o,combinTheory.o_DEF] >>
       simp[UNCURRY,astTheory.mk_id_def] >>
       simp[LAMBDA_PROD] ) >>
+    simp [FDOM_FUPDATE_LIST] >>
     metis_tac[RTC_TRANSITIVE,transitive_def])
+    *)
   >- (
     simp[compile_print_dec_def] >>
     rw[] >>
@@ -468,9 +494,15 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
     simp[compile_print_dec_def] >>
     simp[compile_print_types_def] >>
     rw[] >>
+    qexists_tac `[]` >>
+    rw [] >>
+    match_mp_tac (PROVE [RTC_REFL] ``x = y ⇒ bc_next^* x y``) >>
+    rw [bc_state_component_equality]));
+    (*
     qspecl_then[`[s,l]`,`cs`]mp_tac (INST_TYPE[alpha|->``:t list``]compile_print_ctors_thm) >>
     simp[] >> rw[] >> simp[] >>
-    simp[print_envC_def]))
+    simp[]))
+    *)
 
 val compile_print_err_thm = store_thm("compile_print_err_thm",
   ``∀cs. let cs' = compile_print_err cs in
@@ -653,8 +685,8 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
           | SOME types => (case t of
             | Tmod mn _ _ => "structure "++mn++" = <structure>\n"
             | Tdec d => (case d of
-              | Dtype ts => print_envC ([],build_tdefs NONE ts)
-              | Dexn cn ts => print_envC ([],[(cn, (LENGTH ts, TypeExn))])
+              | Dtype ts => ""
+              | Dexn cn ts => ""
               | d => print_bv_list types bvs))) in
          let bs' = bs with <| pc := pc
                             ; stack := st0

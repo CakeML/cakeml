@@ -5,116 +5,41 @@ open modLangTheory conLangTheory decLangTheory exhLangTheory intLangTheory toInt
 
 val _ = new_theory"compilerProof"
 
-(* TODO: move *)
+(* misc (TODO: move?) *)
 
-val ZIP_EQ_NIL = store_thm("ZIP_EQ_NIL",
-  ``∀l1 l2. LENGTH l1 = LENGTH l2 ⇒ (ZIP (l1,l2) = [] ⇔ (l1 = [] ∧ l2 = []))``,
-  rpt gen_tac >> Cases_on`l1`>>rw[LENGTH_NIL_SYM]>> Cases_on`l2`>>fs[])
+val to_i1_invariant_change_clock = store_thm("to_i1_invariant_change_clock",
+  ``to_i1_invariant genv mods tops menv env s s_i1 mod_names ∧
+    SND s' = SND s ∧ SND s_i1' = SND s_i1 ∧ FST s' = FST s_i1'
+    ⇒
+    to_i1_invariant genv mods tops menv env s' s_i1' mod_names``,
+  simp[to_i1_invariant_def] >>
+  rw[Once s_to_i1_cases] >>
+  rw[Once s_to_i1_cases] >>
+  metis_tac[pair_CASES,PAIR_EQ,SND,FST])
 
-val FUPDATE_LIST_EQ_FEMPTY = store_thm("FUPDATE_LIST_EQ_FEMPTY",
-  ``∀fm ls. fm |++ ls = FEMPTY ⇔ fm = FEMPTY ∧ ls = []``,
-  rw[EQ_IMP_THM,FUPDATE_LIST_THM] >>
-  fs[GSYM fmap_EQ_THM,FDOM_FUPDATE_LIST])
+val to_i2_invariant_change_clock = store_thm("to_i2_invariant_change_clock",
+  ``to_i2_invariant mods tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ∧
+    SND s' = SND s ∧ SND s_i2' = SND s_i2 ∧ FST s' = FST s_i2'
+    ⇒
+    to_i2_invariant mods tids envC exh tagenv_st gtagenv s' s_i2' genv genv_i2``,
+  simp[to_i2_invariant_def] >>
+  rw[Once s_to_i2_cases] >>
+  rw[Once s_to_i2_cases] >>
+  metis_tac[pair_CASES,PAIR_EQ,SND,FST])
 
-val EVERY_sv_every_MAP_map_sv = store_thm("EVERY_sv_every_MAP_map_sv",
-  ``∀P f ls. EVERY P (MAP f (store_vs ls)) ⇒ EVERY (sv_every P) (MAP (map_sv f) ls)``,
-  rpt gen_tac >>
-  simp[EVERY_MAP,EVERY_MEM,store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_FLAT] >>
-  strip_tac >> Cases >> simp[] >> rw[] >> res_tac >> fs[EVERY_MEM,MEM_MAP,PULL_EXISTS])
+val to_i1_invariant_change_store = store_thm("to_i1_invariant_change_store",
+  ``to_i1_invariant genv mods tops menv env s s_i1 mod_names ∧
+    s_to_i1 genv s' s_i1'
+    ⇒
+    to_i1_invariant genv mods tops menv env s' s_i1' mod_names``,
+  simp[to_i1_invariant_def])
 
-val LIST_REL_store_vs_intro = store_thm("LIST_REL_store_vs_intro",
-  ``∀P l1 l2. LIST_REL (sv_rel P) l1 l2 ⇒ LIST_REL P (store_vs l1) (store_vs l2)``,
-  gen_tac >>
-  Induct >- simp[store_vs_def] >>
-  Cases >> simp[PULL_EXISTS,sv_rel_cases] >>
-  fs[store_vs_def] >> rw[] >>
-  match_mp_tac EVERY2_APPEND_suff >> simp[])
-
-val vs_to_i2_MAP = store_thm("vs_to_i2_MAP",
-  ``∀g vs1 vs2. vs_to_i2 g vs1 vs2 ⇔ LIST_REL (v_to_i2 g) vs1 vs2``,
-  gen_tac >> Induct >> simp[Once v_to_i2_cases])
-
-val vs_to_i1_MAP = store_thm("vs_to_i1_MAP",
-  ``∀g vs1 vs2. vs_to_i1 g vs1 vs2 ⇔ LIST_REL (v_to_i1 g) vs1 vs2``,
-  gen_tac >> Induct >> simp[Once v_to_i1_cases])
-
-val sv_to_i2_sv_rel = store_thm("sv_to_i2_sv_rel",
-  ``∀g. sv_to_i2 g = sv_rel (v_to_i2 g)``,
-  rw[FUN_EQ_THM,sv_to_i2_cases,EQ_IMP_THM,sv_rel_cases,vs_to_i2_MAP])
-
-val sv_to_i1_sv_rel = store_thm("sv_to_i1_sv_rel",
-  ``∀g. sv_to_i1 g = sv_rel (v_to_i1 g)``,
-  rw[FUN_EQ_THM,sv_to_i1_cases,EQ_IMP_THM,sv_rel_cases,vs_to_i1_MAP])
-
-val EVERY_sv_every_EVERY_store_vs = store_thm("EVERY_sv_every",
-  ``∀P ls. EVERY (sv_every P ) ls ⇔ EVERY P (store_vs ls)``,
-  rw[EVERY_MEM,EQ_IMP_THM,store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_FLAT] >>
-  res_tac >> TRY(Cases_on`e`) >> TRY(Cases_on`y`) >> fs[] >>
-  fs[EVERY_MEM])
-
-val EVERY_store_vs_intro = store_thm("EVERY_store_vs_intro",
-  ``∀P ls. EVERY (sv_every P) ls ⇒ EVERY P (store_vs ls)``,
-  rw[EVERY_MEM,store_vs_def,MEM_MAP,MEM_FILTER,MEM_FLAT] >>
-  res_tac >>
-  qmatch_assum_rename_tac`sv_every P x`[] >>
-  Cases_on`x`>>fs[EVERY_MEM])
-
-val map_sv_compose = store_thm("map_sv_compose",
-  ``map_sv f (map_sv g x) = map_sv (f o g) x``,
-  Cases_on`x`>>simp[MAP_MAP_o])
-
-val Cv_bv_can_Print = save_thm("Cv_bv_can_Print",prove(
-  ``(∀Cv bv. Cv_bv pp Cv bv ⇒ IS_SOME (bv_to_string bv)) ∧
-    (∀bvs ce env defs. benv_bvs pp bvs ce env defs ⇒ T)``,
-  ho_match_mp_tac Cv_bv_ind >> simp[bv_to_string_def,bvs_to_chars_thm] >>
-  rw[] >> pop_assum mp_tac >> simp[] >>
-  simp[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >> rw[] >>
-  rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,MEM_EL,EL_MAP] >>
-  metis_tac[ORD_ONTO])
-  |> CONJUNCT1)
-
-val LIST_REL_sv_rel_exh_Cv_syneq_trans = store_thm("LIST_REL_sv_rel_exh_Cv_syneq_trans",
-  ``∀vs Cvs Cvs2.
-     LIST_REL (sv_rel syneq) Cvs Cvs2 ∧
-     LIST_REL (sv_rel exh_Cv) vs Cvs ⇒
-     LIST_REL (sv_rel exh_Cv) vs Cvs2``,
-  rw[LIST_REL_EL_EQN] >>
-  fs[sv_rel_cases,PULL_EXISTS] >>
-  rpt(first_x_assum(qspec_then`n`mp_tac)) >> simp[] >> rw[] >> fs[] >>
-  metis_tac[exh_Cv_syneq_trans,LIST_REL_exh_Cv_syneq_trans])
-
-val bc_next_gvrel = store_thm("bc_next_gvrel",
-  ``∀bs1 bs2. bc_next bs1 bs2 ⇒ gvrel bs1.globals bs2.globals``,
-  ho_match_mp_tac bytecodeTheory.bc_next_ind >>
-  simp[bytecodeTheory.bump_pc_def] >>
-  rw[] >- ( BasicProvers.CASE_TAC >> simp[] ) >>
-  simp[bytecodeProofTheory.gvrel_def] >> rw[EL_LUPDATE] >>
-  simp[rich_listTheory.EL_APPEND1])
-
-val RTC_bc_next_gvrel = store_thm("RTC_bc_next_gvrel",
-  ``∀bs1 bs2. RTC bc_next bs1 bs2 ⇒
-    gvrel bs1.globals bs2.globals``,
-  ho_match_mp_tac relationTheory.RTC_lifts_reflexive_transitive_relations >>
-  rw[relationTheory.reflexive_def,relationTheory.transitive_def,bc_next_gvrel] >>
-  metis_tac[bytecodeProofTheory.gvrel_trans])
-
-val same_length_gvrel_same = store_thm("same_length_gvrel_same",
-  ``∀l1 l2. LENGTH l1 = LENGTH l2 ∧ EVERY IS_SOME l1 ∧ gvrel l1 l2 ⇒ l1 = l2``,
-  rw[gvrel_def,LIST_EQ_REWRITE,EVERY_MEM,MEM_EL,PULL_EXISTS,IS_SOME_EXISTS] >>
-  metis_tac[])
-
-val exps_to_i1_MAP = store_thm("exps_to_i1_MAP",
-  ``∀es. exps_to_i1 a b es = MAP (exp_to_i1 a b) es``,
-  Induct >> simp[exp_to_i1_def])
-val exps_to_i2_MAP = store_thm("exps_to_i2_MAP",
-  ``∀es. exps_to_i2 a es = MAP (exp_to_i2 a) es``,
-  Induct >> simp[exp_to_i2_def])
-val exps_to_exh_MAP = store_thm("exps_to_exh_MAP",
-  ``∀es. exps_to_exh a es = MAP (exp_to_exh a) es``,
-  Induct >> simp[exp_to_exh_def])
-val exps_to_pat_MAP = store_thm("exps_to_pat_MAP",
-  ``∀es. exps_to_pat a es = MAP (exp_to_pat a) es``,
-  Induct >> simp[exp_to_pat_def])
+val to_i2_invariant_change_store = store_thm("to_i2_invariant_change_store",
+  ``to_i2_invariant mods tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ∧
+    s_to_i2 gtagenv s' s_i2'
+    ⇒
+    to_i2_invariant mods tids envC exh tagenv_st gtagenv s' s_i2' genv genv_i2``,
+  simp[to_i2_invariant_def] >> metis_tac[])
 
 val evaluate_prompt_i1_success_globals = store_thm("evaluate_prompt_i1_success_globals",
   ``∀ck genv cenv s prompt_i1 s' cenv' new_genv.
@@ -149,8 +74,6 @@ val FILTER_is_Label_local_labels = store_thm("FILTER_is_Label_local_labels[simp]
 val MEM_Label_local_labels = store_thm("MEM_Label_local_labels[simp]",
   ``∀l c. MEM (Label l) (local_labels c) ⇔ MEM (Label l) c``,
   rw[local_labels_def,MEM_FILTER])
-
-(* misc *)
 
 val code_env_cd_append = store_thm("code_env_cd_append",
   ``∀code cd code'. code_env_cd code cd ∧ ALL_DISTINCT (FILTER is_Label (code ++ code')) ⇒ code_env_cd (code ++ code') cd``,
@@ -1346,41 +1269,6 @@ val env_rs_def = Define`
       closed_vlabs [] ((cnt,Cs),Cg) bs.code ∧
       Cenv_bs rd ((cnt,Cs),Cg) [] [] 0 bs`
 
-(* TODO: move *)
-val to_i1_invariant_change_clock = store_thm("to_i1_invariant_change_clock",
-  ``to_i1_invariant genv mods tops menv env s s_i1 mod_names ∧
-    SND s' = SND s ∧ SND s_i1' = SND s_i1 ∧ FST s' = FST s_i1'
-    ⇒
-    to_i1_invariant genv mods tops menv env s' s_i1' mod_names``,
-  simp[to_i1_invariant_def] >>
-  rw[Once s_to_i1_cases] >>
-  rw[Once s_to_i1_cases] >>
-  metis_tac[pair_CASES,PAIR_EQ,SND,FST])
-
-val to_i2_invariant_change_clock = store_thm("to_i2_invariant_change_clock",
-  ``to_i2_invariant mods tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ∧
-    SND s' = SND s ∧ SND s_i2' = SND s_i2 ∧ FST s' = FST s_i2'
-    ⇒
-    to_i2_invariant mods tids envC exh tagenv_st gtagenv s' s_i2' genv genv_i2``,
-  simp[to_i2_invariant_def] >>
-  rw[Once s_to_i2_cases] >>
-  rw[Once s_to_i2_cases] >>
-  metis_tac[pair_CASES,PAIR_EQ,SND,FST])
-
-val to_i1_invariant_change_store = store_thm("to_i1_invariant_change_store",
-  ``to_i1_invariant genv mods tops menv env s s_i1 mod_names ∧
-    s_to_i1 genv s' s_i1'
-    ⇒
-    to_i1_invariant genv mods tops menv env s' s_i1' mod_names``,
-  simp[to_i1_invariant_def])
-
-val to_i2_invariant_change_store = store_thm("to_i2_invariant_change_store",
-  ``to_i2_invariant mods tids envC exh tagenv_st gtagenv s s_i2 genv genv_i2 ∧
-    s_to_i2 gtagenv s' s_i2'
-    ⇒
-    to_i2_invariant mods tids envC exh tagenv_st gtagenv s' s_i2' genv genv_i2``,
-  simp[to_i2_invariant_def] >> metis_tac[])
-
 val env_rs_change_clock = store_thm("env_rs_change_clock",
    ``∀env stm grd rs bs stm' ck bs' new_clock.
      env_rs env stm grd rs bs ∧ stm' = ((ck,SND(FST stm)),SND stm) ∧
@@ -1816,12 +1704,12 @@ val compile_top_thm = store_thm("compile_top_thm",
         bc_next^* bs bs' ∧
         let (new_env,rs',success,str) =
           case env_or_err of Rval(envM,envE) =>
-            ((envM++FST env,merge_envC envC (FST(SND env)),envE ++ (SND(SND env))),rss,T,
+            ((envM++FST env,merge_alist_mod_env envC (FST(SND env)),envE ++ (SND(SND env))),rss,T,
              (case types of NONE => "" | SOME types =>
-              print_result (convert_env2 types) top envC env_or_err))
+              print_result (convert_env2 types) top env_or_err))
           | Rerr(Rraise _) =>
             (env,rsf,F,
-             print_result (convert_env2 (THE types)) top envC env_or_err) in
+             print_result (convert_env2 (THE types)) top env_or_err) in
         bc_fetch bs' = SOME (Stop success) ∧
         bs'.output = bs.output ++ str ∧
         (success ∧ EVERY IS_SOME bs.globals ⇒ EVERY IS_SOME bs'.globals) ∧
@@ -1955,7 +1843,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       last_x_assum mp_tac >>
       Cases_on`d`>>fs[] >>
       simp[Once evaluate_dec_cases,PULL_EXISTS] >>
-      simp[libTheory.emp_def,FST_triple] >>
+      simp[FST_triple] >>
       simp[build_rec_env_MAP] >>
       rpt gen_tac >> strip_tac >>
       `LENGTH bvs = LENGTH new_env` by (
@@ -1999,11 +1887,11 @@ val compile_top_thm = store_thm("compile_top_thm",
         simp[to_i1_invariant_def] >>
         simp[Once v_to_i1_cases] >>
         simp[Once v_to_i1_cases] >>
-        fs[libTheory.emp_def] >>
-        simp[libPropsTheory.lookup_append] >>
+        fs[] >>
+        simp[alistTheory.ALOOKUP_APPEND] >>
         disch_then(qspec_then`pv`mp_tac o CONJUNCT1 o CONJUNCT1 o CONJUNCT2) >>
         (BasicProvers.CASE_TAC >- (
-          imp_res_tac libPropsTheory.lookup_notin >>
+          imp_res_tac alistTheory.ALOOKUP_NONE >>
           imp_res_tac pmatch_dom >>
           fs[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX,MEM_MAP,PULL_EXISTS] >>
           metis_tac[MEM_EL,EL_MAP,LENGTH_MAP] )) >>
@@ -2057,19 +1945,19 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[to_i1_invariant_def] >>
       simp[Once v_to_i1_cases] >>
       simp[Once v_to_i1_cases] >>
-      fs[libTheory.emp_def] >>
-      simp[libPropsTheory.lookup_append] >>
+      fs[] >>
+      simp[alistTheory.ALOOKUP_APPEND] >>
       disch_then(qspec_then`pv`mp_tac o CONJUNCT1 o CONJUNCT1 o CONJUNCT2) >>
       (BasicProvers.CASE_TAC >- (
-        imp_res_tac libPropsTheory.lookup_notin >>
+        imp_res_tac alistTheory.ALOOKUP_NONE >>
         imp_res_tac pmatch_dom >>
         fs[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX,MEM_MAP,PULL_EXISTS] >>
         metis_tac[MEM_EL,EL_MAP,LENGTH_MAP] )) >>
-      ((qmatch_assum_abbrev_tac`lookup pv (MAP X ls) = Z` >>
+      ((qmatch_assum_abbrev_tac`ALOOKUP (MAP X ls) pv = Z` >>
         `ALL_DISTINCT (MAP FST (MAP X ls))` by (
           simp[MAP_MAP_o,Abbr`X`,Abbr`ls`,combinTheory.o_DEF,UNCURRY,ETA_AX] ) >>
         map_every qunabbrev_tac[`ls`,`Z`] >>
-        imp_res_tac libPropsTheory.lookup_all_distinct >>
+        imp_res_tac alistTheory.ALOOKUP_ALL_DISTINCT_MEM >>
         pop_assum kall_tac >> pop_assum mp_tac >>
         simp[MEM_MAP,Abbr`X`,PULL_EXISTS,UNCURRY] >>
         disch_then(qspec_then`EL n l`mp_tac) >>
@@ -2078,7 +1966,7 @@ val compile_top_thm = store_thm("compile_top_thm",
        ORELSE
        (`MEM (EL n new_env) new_env` by metis_tac[MEM_EL] >>
         `ALL_DISTINCT (MAP FST new_env)` by metis_tac[] >>
-        imp_res_tac libPropsTheory.lookup_all_distinct >>
+        imp_res_tac alistTheory.ALOOKUP_ALL_DISTINCT_MEM >>
         pop_assum(qspecl_then[`SND (EL n new_env)`,`FST (EL n new_env)`]mp_tac))) >>
       simp[] >> strip_tac >>
       TRY strip_tac >>
@@ -2148,8 +2036,8 @@ val compile_top_thm = store_thm("compile_top_thm",
       last_x_assum mp_tac >>
       BasicProvers.CASE_TAC >>
       simp[Once evaluate_dec_cases] >>
-      simp[libTheory.emp_def] >> strip_tac >>
-      simp[print_envC_def,print_envE_def,libTheory.bind_def] >>
+      simp[] >> strip_tac >>
+      simp[(*print_envC_def,*)print_envE_def] >>
       TRY (
         rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
         qunabbrev_tac`bvs` >> fs[print_envE_def,inferSoundTheory.convert_env2_def] >>
@@ -2173,10 +2061,10 @@ val compile_top_thm = store_thm("compile_top_thm",
       first_x_assum(qspec_then`n`mp_tac) >>
       simp[] >> ntac 2 strip_tac >>
       ((qmatch_rename_tac`convert_t tt = X ⇔ Y`["X","Y"] >>
-        Cases_on`tt`>>fs[inferSoundTheory.convert_t_def])
+        Cases_on`tt`>>fs[inferPropsTheory.convert_t_def])
        ORELSE
        (qmatch_rename_tac`convert_t tt ≠ X`["X"] >>
-       Cases_on`tt`>>fs[inferSoundTheory.convert_t_def] ))) >>
+       Cases_on`tt`>>fs[inferPropsTheory.convert_t_def] ))) >>
     conj_asm2_tac >- (
       first_x_assum(strip_assume_tac o MATCH_MP evaluate_prompt_i1_success_globals) >>
       simp[Abbr`bs2`] >> rw[] >>
@@ -2212,7 +2100,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[] >> ntac 2 strip_tac >>
       ntac 10 (first_x_assum(qspec_then`n`mp_tac)) >>
       simp[] >> strip_tac >> simp[] ) >>
-    simp[EXISTS_PROD,libTheory.emp_def,merge_envC_def,libTheory.merge_def] >>
+    simp[EXISTS_PROD,merge_alist_mod_env_def] >>
     PairCases_on`s2` >> simp[env_rs_def] >>
     simp[RIGHT_EXISTS_AND_THM] >>
     conj_asm1_tac >- (
@@ -2256,14 +2144,14 @@ val compile_top_thm = store_thm("compile_top_thm",
       fs[SUBSET_DEF] >>
       res_tac >> fs[]) >>
     rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
-    fs[libTheory.emp_def] >>
+    fs[] >>
     `FST s2_i1 = s20'` by (
       rator_x_assum`to_i1_invariant`mp_tac >>
       simp[to_i1_invariant_def] >>
       simp[Once s_to_i1_cases,PULL_EXISTS] ) >>
     first_assum(split_pair_match o concl) >> fs[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    fs[merge_envC_def,libTheory.merge_def] >>
+    fs[merge_alist_mod_env_def] >>
     `FST s2_i2 = s20'` by (
       rator_x_assum`to_i2_invariant`mp_tac >>
       simp[to_i2_invariant_def] >>
@@ -2473,14 +2361,14 @@ val compile_top_thm = store_thm("compile_top_thm",
       first_x_assum(mp_tac o MATCH_MP evaluate_dec_closed) >>
       fs[closed_top_def,all_env_closed_def]) >>
     rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
-    fs[libTheory.emp_def] >>
+    fs[] >>
     `FST s2_i1 = s20'` by (
       rator_x_assum`to_i1_invariant`mp_tac >>
       simp[to_i1_invariant_def] >>
       simp[Once s_to_i1_cases,PULL_EXISTS] ) >>
     first_assum(split_pair_match o concl) >> fs[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    fs[merge_envC_def,libTheory.merge_def] >>
+    fs[merge_alist_mod_env_def] >>
     `FST s2_i2 = s20'` by (
       rator_x_assum`to_i2_invariant`mp_tac >>
       simp[to_i2_invariant_def] >>
@@ -2655,7 +2543,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[] >> ntac 2 strip_tac >>
       ntac 9 (first_x_assum(qspec_then`n`mp_tac)) >>
       simp[] >> strip_tac >> simp[]) >>
-    simp[EXISTS_PROD,libTheory.emp_def,merge_envC_def,libTheory.merge_def] >>
+    simp[EXISTS_PROD,merge_alist_mod_env_def] >>
     PairCases_on`s2` >> simp[env_rs_def] >>
     simp[RIGHT_EXISTS_AND_THM] >>
     conj_asm1_tac >- (
@@ -2699,14 +2587,14 @@ val compile_top_thm = store_thm("compile_top_thm",
       fs[SUBSET_DEF] >>
       res_tac >> fs[]) >>
     rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
-    fs[libTheory.emp_def] >>
+    fs[] >>
     `FST s2_i1 = s20'` by (
       rator_x_assum`to_i1_invariant`mp_tac >>
       simp[to_i1_invariant_def] >>
       simp[Once s_to_i1_cases,PULL_EXISTS] ) >>
     first_assum(split_pair_match o concl) >> fs[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    fs[merge_envC_def,libTheory.merge_def] >>
+    fs[merge_alist_mod_env_def] >>
     `FST s2_i2 = s20'` by (
       rator_x_assum`to_i2_invariant`mp_tac >>
       simp[to_i2_invariant_def] >>
@@ -2900,14 +2788,14 @@ val compile_top_thm = store_thm("compile_top_thm",
       first_x_assum(mp_tac o MATCH_MP evaluate_decs_closed) >>
       fs[closed_top_def,all_env_closed_def]) >>
     rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
-    fs[libTheory.emp_def] >>
+    fs[] >>
     `FST s2_i1 = s20'` by (
       rator_x_assum`to_i1_invariant`mp_tac >>
       simp[to_i1_invariant_def] >>
       simp[Once s_to_i1_cases,PULL_EXISTS] ) >>
     first_assum(split_pair_match o concl) >> fs[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    fs[merge_envC_def,libTheory.merge_def] >>
+    fs[merge_alist_mod_env_def] >>
     `FST s2_i2 = s20'` by (
       rator_x_assum`to_i2_invariant`mp_tac >>
       simp[to_i2_invariant_def] >>
@@ -3106,7 +2994,7 @@ val compile_prog_thm = store_thm("compile_prog_thm",
       env_rs env stm grd rs (bs with code := bc0) ∧
       closed_prog prog ∧
       (∀p. "it" ∈ FDOM (FST(SND(SND(prog_to_i1 rs.next_global (FST rs.globals_env) (SND rs.globals_env) prog)))) ∧
-           SND(SND(res)) = Rval p ⇒ ∃v. lookup "it" (SND p) = SOME v ∧ ∀w. v ≠ Litv (Word8 w)) ∧
+           SND(SND(res)) = Rval p ⇒ ∃v. ALOOKUP (SND p) "it" = SOME v ∧ ∀w. v ≠ Litv (Word8 w)) ∧
       (∀v. SND(SND(res)) = Rerr(Rraise v) ⇒ ∀w. v ≠ Litv (Word8 w)) ∧
       (bs.code = bc0 ++ compile_prog rs prog) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
@@ -3119,7 +3007,7 @@ val compile_prog_thm = store_thm("compile_prog_thm",
         bc_next^* bs bs' ∧
         let (success,str) =
           case env_or_err of Rval(envM,envE) =>
-            (T,(case lookup "it" envE of NONE => "" | SOME v => (print_v v)++"\n"))
+            (T,(case ALOOKUP envE "it" of NONE => "" | SOME v => (print_v v)++"\n"))
           | Rerr(Rraise v) =>
             (F,"raise "++(print_v v)++"\n") in
         bc_fetch bs' = SOME (Stop success) ∧
@@ -3274,8 +3162,9 @@ val compile_prog_thm = store_thm("compile_prog_thm",
       simp[to_i1_invariant_def] >>
       CCONTR_TAC >> fs[] >>
       imp_res_tac global_env_inv_inclusion >>
-      imp_res_tac libPropsTheory.lookup_in2 >>
-      fs[FLOOKUP_DEF,SUBSET_DEF]) >>
+      imp_res_tac alistTheory.ALOOKUP_MEM >>
+      fs[FLOOKUP_DEF,SUBSET_DEF, MEM_MAP] >>
+      metis_tac [FST]) >>
     strip_tac >>
     qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
     qmatch_assum_abbrev_tac`bc_next^* bs2 bs3` >>
@@ -3319,7 +3208,7 @@ val compile_prog_thm = store_thm("compile_prog_thm",
     simp[to_i1_invariant_def] >>
     simp[Once v_to_i1_cases] >>
     simp[Once v_to_i1_cases] >> strip_tac >>
-    simp[libPropsTheory.lookup_append] >>
+    simp[alistTheory.ALOOKUP_APPEND] >>
     BasicProvers.CASE_TAC >> fs[] >- fs[FLOOKUP_DEF] >>
     strip_tac >>
     rator_x_assum`to_i2_invariant`mp_tac >>
@@ -3730,6 +3619,7 @@ val compile_special_thm = store_thm("compile_special_thm",
         bc_next^* bs bs' ∧
         bc_fetch bs' = SOME (Stop T) ∧
         bs'.output = bs.output ∧
+        bs'.handler = bs.handler ∧
         (EVERY IS_SOME bs.globals ⇒ bs'.globals = bs.globals) ∧
         env_rs env (s,tm) grd' rs bs'``,
   ho_match_mp_tac evaluate_top_ind >> simp[] >>
@@ -3738,7 +3628,7 @@ val compile_special_thm = store_thm("compile_special_thm",
   rpt gen_tac >> strip_tac >>
   `∃m1 m2. rs.globals_env = (m1,m2)` by simp[GSYM EXISTS_PROD] >> fs[] >>
   qspecl_then[`m1`,`m2`,`Tdec d`]mp_tac top_to_i1_correct >>
-  fs[libTheory.emp_def] >>
+  fs[] >>
   rpt BasicProvers.VAR_EQ_TAC >> rpt(qpat_assum`T`kall_tac) >>
   PairCases_on`grd`>>PairCases_on`env`>>PairCases_on`s1`>>fs[env_rs_def] >>
   REWRITE_TAC[Once CONJ_COMM] >>
@@ -3892,9 +3782,9 @@ val compile_special_thm = store_thm("compile_special_thm",
   fs[Once evaluate_prompt_i1_cases] >>
   fs[Once evaluate_decs_i1_cases] >>
   fs[Once evaluate_decs_i1_cases] >>
-  fs[libTheory.emp_def] >>
+  fs[] >>
   rator_x_assum`to_i2_invariant`assume_tac >>
-  fs[merge_envC_def,libTheory.merge_def] >>
+  fs[merge_alist_mod_env_def] >>
   rpt BasicProvers.VAR_EQ_TAC >>
   `(*env = [] ∧*) exh = FEMPTY ∧ c = rs.contags_env` by (
     unabbrev_all_tac >>
@@ -4126,7 +4016,7 @@ val compile_initial_prog_thm = store_thm("compile_initial_prog_thm",
       bc_fetch bs' = NONE ∧
       bs'.pc = next_addr bs.inst_length bs.code ∧
       bs'.output = bs.output ∧
-      env_rs (envM++FST env,merge_envC envC (FST(SND env)),envE++(SND(SND env))) s grd' rs' bs'``,
+      env_rs (envM++FST env,merge_alist_mod_env envC (FST(SND env)),envE++(SND(SND env))) s grd' rs' bs'``,
   simp[compile_initial_prog_def] >> rw[] >>
   first_assum (split_applied_pair_tac o lhs o concl) >> fs[] >>
   `∃v1 v2 v3 p0. prog_to_i1 rs.next_global m1 m2 prog = (v1,v2,v3,p0)` by simp[GSYM EXISTS_PROD] >> fs[] >>

@@ -1,0 +1,6 @@
+INCLUDES = $(HOLDIR)/examples/l3-machine-code/arm/step \
+           $(HOLDIR)/examples/l3-machine-code/arm/prog ..
+
+ifdef POLY
+HOLHEAP = $(HOLDIR)/examples/l3-machine-code/arm/prog/arm-step-heap
+endif

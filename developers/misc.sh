@@ -27,7 +27,6 @@ function displaymem() {
 
 function displayline() {
   local U=$1
-  local K=$2
-  local M=$3
-  printf 'avg:%5s max:%5s %8s\n' $(displaymem $K) $(displaymem $M) $(displaytime $U)
+  local M=$2
+  printf '%5s %8s\n' $(displaymem $M) $(displaytime $U)
 }

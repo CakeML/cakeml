@@ -14,7 +14,7 @@ infix \\ val op \\ = op THEN;
 val RW = REWRITE_RULE;
 val RW1 = ONCE_REWRITE_RULE;
 
-open hol_kernelTheory;
+open holKernelTheory;
 open ml_monadTheory;
 
 val _ = translation_extends "ml_monad";
@@ -134,8 +134,8 @@ fun derive_case_of ty = let
         THEN1 (IMP_RES_TAC evaluate_empty_store_IMP \\ FULL_SIMP_TAC std_ss [])
         \\ PairCases_on `env`
         \\ REWRITE_TAC [evaluate_match_Conv,LENGTH,pmatch_def]
-        \\ FULL_SIMP_TAC (srw_ss()) [pmatch_def,bind_def,pat_bindings_def,
-              lookup_con_id_def,lookup_cons_def,same_tid_def,id_to_n_def,
+        \\ FULL_SIMP_TAC (srw_ss()) [pmatch_def,pat_bindings_def,
+              lookup_alist_mod_env_def,lookup_cons_def,same_tid_def,id_to_n_def,
               same_ctor_def,write_def]
 (*
   val _ = set_goal([],goal)
@@ -161,10 +161,10 @@ val mem_derive_case_of = type_mem derive_case_of;
 val ty = ``:'b # 'c``; val _ = mem_derive_case_of ty;
 val ty = ``:'a list``; val _ = mem_derive_case_of ty;
 val ty = ``:'a option``; val _ = mem_derive_case_of ty;
-val ty = ``:hol_type``; val _ = mem_derive_case_of ty;
-val ty = ``:hol_term``; val _ = mem_derive_case_of ty;
+val ty = ``:type``; val _ = mem_derive_case_of ty;
+val ty = ``:term``; val _ = mem_derive_case_of ty;
 val ty = ``:thm``; val _ = mem_derive_case_of ty;
-val ty = ``:def``; val _ = mem_derive_case_of ty;
+val ty = ``:update``; val _ = mem_derive_case_of ty;
 
 fun inst_case_thm_for tm = let
   val (_,_,names) = TypeBase.dest_case tm
@@ -231,7 +231,7 @@ fun inst_case_thm tm m2deep = let
     val (x1,x2) = dest_conj x handle HOL_ERR _ => (T,x)
     val (z1,z2) = dest_imp (concl lemma)
     val thz =
-      QCONV (SIMP_CONV std_ss [ASSUME x1,Eval_Var_SIMP,lookup_def] THENC
+      QCONV (SIMP_CONV std_ss [ASSUME x1,Eval_Var_SIMP] THENC
              ONCE_REWRITE_CONV [EvalM_Var_SIMP] THENC
              ONCE_REWRITE_CONV [EvalM_Var_SIMP] THENC
              REWRITE_CONV [lookup_cons_write,lookup_var_write] THENC
@@ -269,7 +269,7 @@ fun inst_EvalM_env v th = let
   val th = thx |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
                |> DISCH_ALL |> DISCH assum |> SIMP_RULE bool_ss []
                |> INST [old_env|->new_env]
-               |> SIMP_RULE bool_ss [Eval_Var_SIMP,lookup_def,lookup_var_write]
+               |> SIMP_RULE bool_ss [Eval_Var_SIMP,lookup_var_write]
                |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
                |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
                |> REWRITE_RULE [lookup_cons_write,lookup_var_write]
@@ -301,7 +301,7 @@ fun apply_EvalM_Recclosure fname v th = let
   val thx = th |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
                |> DISCH_ALL |> DISCH assum |> SIMP_RULE bool_ss []
                |> INST [old_env|->new_env]
-               |> SIMP_RULE bool_ss [Eval_Var_SIMP,lookup_def]
+               |> SIMP_RULE bool_ss [Eval_Var_SIMP]
                |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
                |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
                |> REWRITE_RULE [lookup_cons_write,lookup_var_write,write_rec_one]
@@ -338,16 +338,14 @@ fun var_hol2deep tm =
 val read_refs =
   [(``get_the_type_constants``,``the_type_constants``,get_the_type_constants_thm),
    (``get_the_term_constants``,``the_term_constants``,get_the_term_constants_thm),
-   (``get_the_definitions``,``the_definitions``,get_the_definitions_thm),
-   (``get_the_clash_var``,``the_clash_var``,get_the_clash_var_thm),
-   (``get_the_axioms``,``the_axioms``,get_the_axioms_thm)];
+   (``get_the_axioms``,``the_axioms``,get_the_axioms_thm),
+   (``get_the_context``,``the_context``,get_the_context_thm)];
 
 val write_refs =
   [(``set_the_type_constants x``,``the_type_constants``,set_the_type_constants_thm),
    (``set_the_term_constants x``,``the_term_constants``,set_the_term_constants_thm),
-   (``set_the_definitions x``,``the_definitions``,set_the_definitions_thm),
-   (``set_the_clash_var x``,``the_clash_var``,set_the_clash_var_thm),
-   (``set_the_axioms x``,``the_axioms``,set_the_axioms_thm)];
+   (``set_the_axioms x``,``the_axioms``,set_the_axioms_thm),
+   (``set_the_context x``,``the_context``,set_the_context_thm)];
 
 (*
 val tm = rhs
@@ -367,7 +365,11 @@ fun m2deep tm =
   if can (match_term ``(failwith str):'a M``) tm then let
     val ty = dest_monad_type (type_of tm)
     val inv = smart_get_type_inv ty
+    val th = hol2deep (rand tm)
+    val asms = List.mapPartial (Lib.total DECIDE) (hyp th)
+    val th = List.foldl (Lib.uncurry PROVE_HYP) th asms
     val result = EvalM_failwith |> SPEC (rand tm) |> ISPEC inv
+                 |> UNDISCH |> Lib.C MATCH_MP th
     in check_inv "failwith" tm result end
   (* return *)
   else if can (match_term ``(ex_return x):'a M``) tm then let
@@ -392,7 +394,7 @@ fun m2deep tm =
     val th1 = m2deep x
     val th2 = m2deep y
     val th2 = th2 |> DISCH_ALL |> Q.INST [`env`|->`write "v" i env`]
-                  |> REWRITE_RULE [Eval_Var_SIMP2,lookup_def,lookup_cons_write]
+                  |> REWRITE_RULE [Eval_Var_SIMP2,lookup_cons_write]
                   |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
                   |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
                   |> REWRITE_RULE [lookup_cons_write,lookup_var_write]
@@ -648,7 +650,7 @@ val res = translate mk_vartype_def;
 val res = translate is_type_def;
 val res = translate is_vartype_def;
 val res = translate rev_assocd_def;
-val res = translate hol_kernelTheory.type_subst_def;
+val res = translate holKernelTheory.type_subst_def;
 val res = translate alphavars_def;
 val res = translate raconv_def;
 val res = translate aconv_def;

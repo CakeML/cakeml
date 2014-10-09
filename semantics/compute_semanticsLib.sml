@@ -9,22 +9,18 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
 
     val () = computeLib.add_thms
     [gramTheory.nt_distinct_ths
-    ,libTheory.merge_def
-    ,libTheory.bind_def
-    ,libTheory.lookup_def
     ,libTheory.opt_bind_def
-    ,libTheory.emp_def
     ,terminationTheory.is_value_def
     ,astTheory.pat_bindings_def
     ,astTheory.mk_id_def
-    ,typeSystemTheory.merge_tenvC_def
-    ,typeSystemTheory.merge_tenvT_def
     ,typeSystemTheory.check_ctor_tenv_def
+    ,terminationTheory.type_subst_def
     ,terminationTheory.check_freevars_def
     ,terminationTheory.check_type_names_def
     ,terminationTheory.type_name_subst_def
-    ,typeSystemTheory.lookup_type_name_def
     ,typeSystemTheory.check_exn_tenv_def
+    ,typeSystemTheory.merge_mod_env_def
+    ,typeSystemTheory.lookup_mod_env_def
     ,typeSystemTheory.tid_exn_to_tc_def
     ,typeSystemTheory.build_ctor_tenv_def
     ,terminationTheory.check_dup_ctors_thm
@@ -36,9 +32,10 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
     ,semanticPrimitivesTheory.all_env_to_cenv_def
     ,semanticPrimitivesTheory.all_env_to_env_def
     ,semanticPrimitivesTheory.result_case_def
-    ,semanticPrimitivesTheory.merge_envC_def
+    ,semanticPrimitivesTheory.merge_alist_mod_env_def
     ,semanticPrimitivesTheory.match_result_case_def
     ,semanticPrimitivesTheory.combine_dec_result_def
+    ,semanticPrimitivesTheory.lookup_alist_mod_env_def
     ,semanticPrimitivesTheory.build_rec_env_def
     ,terminationTheory.pmatch_def
     ,bigStepTheory.no_dup_mods_def

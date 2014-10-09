@@ -4,7 +4,6 @@ open miscLib miscTheory;
 open astTheory;
 open semanticPrimitivesTheory;
 open libTheory;
-open libPropsTheory;
 open conLangTheory;
 open decLangTheory;
 open exhLangTheory;
@@ -247,7 +246,7 @@ val build_rec_env_i2_MAP = prove(
   qho_match_abbrev_tac `FOLDR (f funs) env funs = MAP (g funs) funs ++ env` >>
   qsuff_tac `∀funs env funs0. FOLDR (f funs0) env funs = MAP (g funs0) funs ++ env` >- rw[]  >>
   unabbrev_all_tac >> simp[] >>
-  Induct >> rw[libTheory.bind_def] >>
+  Induct >> rw[] >>
   PairCases_on`h` >> rw[])
 
 val build_rec_env_exh_MAP = prove(
@@ -256,7 +255,7 @@ val build_rec_env_exh_MAP = prove(
   qho_match_abbrev_tac `FOLDR (f funs) env funs = MAP (g funs) funs ++ env` >>
   qsuff_tac `∀funs env funs0. FOLDR (f funs0) env funs = MAP (g funs0) funs ++ env` >- rw[]  >>
   unabbrev_all_tac >> simp[] >>
-  Induct >> rw[libTheory.bind_def] >>
+  Induct >> rw[] >>
   PairCases_on`h` >> rw[])
 
 val env_to_exh_LIST_REL = Q.prove(
@@ -358,7 +357,7 @@ val pmatch_exh_correct = Q.prove (
     match_result_to_exh exh r r_exh)`,
  ho_match_mp_tac pmatch_i2_ind >>
  rw [pmatch_i2_def, pmatch_exh_def, pat_to_exh_def, match_result_to_exh_def] >>
- fs [match_result_to_exh_def, bind_def, v_to_exh_eqn] >>
+ fs [match_result_to_exh_def, v_to_exh_eqn] >>
  rw [pmatch_exh_def, match_result_to_exh_def, match_result_error] >>
  imp_res_tac LIST_REL_LENGTH >>
  fs []
@@ -653,8 +652,8 @@ val do_opapp_exh = prove(
   rw[do_opapp_i2_def,do_opapp_exh_def] >>
   every_case_tac >> fs[] >> rw[] >>
   TRY (fs[Once v_to_exh_cases]>>NO_TAC) >>
-  fs[Q.SPECL[`exh`,`Closure_i2 X Y Z`](CONJUNCT1 v_to_exh_cases),bind_def,env_to_exh_LIST_REL] >>
-  fs[Q.SPECL[`exh`,`Recclosure_i2 X Y Z`](CONJUNCT1 v_to_exh_cases),bind_def,env_to_exh_LIST_REL] >>
+  fs[Q.SPECL[`exh`,`Closure_i2 X Y Z`](CONJUNCT1 v_to_exh_cases),env_to_exh_LIST_REL] >>
+  fs[Q.SPECL[`exh`,`Recclosure_i2 X Y Z`](CONJUNCT1 v_to_exh_cases),env_to_exh_LIST_REL] >>
   rw[] >> fs[find_recfun_funs_to_exh] >> rw[] >>
   fs[funs_to_exh_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,FST_triple,ETA_AX]
   >- metis_tac[SUBMAP_REFL] >>
@@ -1041,7 +1040,7 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
  strip_tac >- (
    simp[exp_to_exh_def] >>
    rw[add_default_def] >>
-   simp[Once evaluate_exh_cases,exp_to_exh_def,pat_bindings_exh_def,pat_to_exh_def,pmatch_exh_def,bind_def] >>
+   simp[Once evaluate_exh_cases,exp_to_exh_def,pat_bindings_exh_def,pat_to_exh_def,pmatch_exh_def] >>
    rw[Once evaluate_exh_cases] >>
    fs[Once result_to_exh_cases,PULL_EXISTS,v_to_exh_eqn] >>
    fs[exists_match_def] >>
@@ -1120,6 +1119,13 @@ val csg_rel_count = store_thm("csg_rel_count",
   PairCases_on`csg2` >>
   simp[csg_rel_def])
 
+val map_count_store_genv_def = Define`
+  map_count_store_genv f (csg:'a count_store_genv) =
+    ((FST(FST csg), MAP (map_sv f) (SND(FST csg))), MAP (OPTION_MAP f) (SND csg))`
+
+val csg_every_def = Define`
+  csg_every P ((c,s),g) ⇔ EVERY (sv_every P) s ∧ EVERY (OPTION_EVERY P) g`
+
 (* exhLangExtra *)
 
 val free_vars_exh_def = tDefine"free_vars_exh"`
@@ -1160,5 +1166,104 @@ val sv_to_exh_sv_rel = store_thm("sv_to_exh_sv_rel",
 val store_to_exh_csg_rel = store_thm("store_to_exh_csg_rel",
   ``store_to_exh exh = csg_rel (v_to_exh exh)``,
   simp[FUN_EQ_THM,FORALL_PROD,store_to_exh_def,csg_rel_def,sv_to_exh_sv_rel])
+
+val build_rec_env_exh_MAP = store_thm("build_rec_env_exh_MAP",
+  ``build_rec_env_exh funs cle env = MAP (λ(f,cdr). (f, (Recclosure_exh cle funs f))) funs ++ env``,
+  rw[build_rec_env_exh_def] >>
+  qho_match_abbrev_tac `FOLDR (f funs) env funs = MAP (g funs) funs ++ env` >>
+  qsuff_tac `∀funs env funs0. FOLDR (f funs0) env funs = MAP (g funs0) funs ++ env` >- rw[]  >>
+  unabbrev_all_tac >> simp[] >>
+  Induct >> rw[] >>
+  PairCases_on`h` >> rw[])
+
+val pmatch_exh_any_match = store_thm("pmatch_exh_any_match",
+  ``(∀s p v env env'. pmatch_exh s p v env = Match env' ⇒
+       ∀env. ∃env'. pmatch_exh s p v env = Match env') ∧
+    (∀s ps vs env env'. pmatch_list_exh s ps vs env = Match env' ⇒
+       ∀env. ∃env'. pmatch_list_exh s ps vs env = Match env')``,
+  ho_match_mp_tac pmatch_exh_ind >>
+  rw[pmatch_exh_def] >>
+  pop_assum mp_tac >>
+  BasicProvers.CASE_TAC >>
+  fs[] >> strip_tac >> fs[] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  metis_tac[match_result_distinct])
+
+val pmatch_exh_any_no_match = store_thm("pmatch_exh_any_no_match",
+  ``(∀s p v env. pmatch_exh s p v env = No_match ⇒
+       ∀env. pmatch_exh s p v env = No_match) ∧
+    (∀s ps vs env. pmatch_list_exh s ps vs env = No_match ⇒
+       ∀env. pmatch_list_exh s ps vs env = No_match)``,
+  ho_match_mp_tac pmatch_exh_ind >>
+  rw[pmatch_exh_def] >>
+  pop_assum mp_tac >>
+  BasicProvers.CASE_TAC >>
+  fs[] >> strip_tac >> fs[] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  imp_res_tac pmatch_exh_any_match >>
+  metis_tac[match_result_distinct])
+
+val pmatch_exh_any_match_error = store_thm("pmatch_exh_any_match_error",
+  ``(∀s p v env. pmatch_exh s p v env = Match_type_error ⇒
+       ∀env. pmatch_exh s p v env = Match_type_error) ∧
+    (∀s ps vs env. pmatch_list_exh s ps vs env = Match_type_error ⇒
+       ∀env. pmatch_list_exh s ps vs env = Match_type_error)``,
+  rw[] >> qmatch_abbrev_tac`X = Y` >> Cases_on`X` >> fs[markerTheory.Abbrev_def] >>
+  metis_tac[match_result_distinct
+           ,pmatch_exh_any_no_match,pmatch_exh_any_match])
+
+val pmatch_list_exh_pairwise = store_thm("pmatch_list_exh_pairwise",
+  ``∀ps vs s env env'. pmatch_list_exh s ps vs env = Match env' ⇒
+      EVERY2 (λp v. ∀env. ∃env'. pmatch_exh s p v env = Match env') ps vs``,
+  Induct >> Cases_on`vs` >> simp[pmatch_exh_def] >>
+  rpt gen_tac >> BasicProvers.CASE_TAC >> strip_tac >>
+  res_tac >> simp[] >> metis_tac[pmatch_exh_any_match])
+
+val pmatch_list_exh_SNOC_nil = store_thm("pmatch_list_exh_SNOC_nil",
+  ``∀p ps v vs s env.
+      (pmatch_list_exh s [] (SNOC v vs) env = Match_type_error) ∧
+      (pmatch_list_exh s (SNOC p ps) [] env = Match_type_error)``,
+  Cases_on`ps`>>Cases_on`vs`>>simp[pmatch_exh_def])
+val _ = export_rewrites["pmatch_list_exh_SNOC_nil"]
+
+val pmatch_list_exh_SNOC = store_thm("pmatch_list_exh_SNOC",
+  ``∀ps vs p v s env. LENGTH ps = LENGTH vs ⇒
+      pmatch_list_exh s (SNOC p ps) (SNOC v vs) env =
+      case pmatch_list_exh s ps vs env of
+      | Match env' => pmatch_exh s p v env'
+      | res => res``,
+  Induct >> Cases_on`vs` >> simp[pmatch_exh_def] >> rw[] >>
+  BasicProvers.CASE_TAC)
+
+val pmatch_exh_APPEND = store_thm("pmatch_exh_APPEND",
+  ``(∀s p v env n.
+      (pmatch_exh s p v env =
+       map_match (combin$C APPEND (DROP n env)) (pmatch_exh s p v (TAKE n env)))) ∧
+    (∀s ps vs env n.
+      (pmatch_list_exh s ps vs env =
+       map_match (combin$C APPEND (DROP n env)) (pmatch_list_exh s ps vs (TAKE n env))))``,
+  ho_match_mp_tac pmatch_exh_ind >>
+  rw[pmatch_exh_def]
+  >- ( BasicProvers.CASE_TAC >> fs[] >>
+       BasicProvers.CASE_TAC >> fs[]) >>
+  pop_assum (qspec_then`n`mp_tac) >>
+  Cases_on `pmatch_exh s p v (TAKE n env)`>>fs[] >>
+  strip_tac >> res_tac >>
+  qmatch_assum_rename_tac`pmatch_exh s p v (TAKE n env) = Match env1`[] >>
+  pop_assum(qspec_then`LENGTH env1`mp_tac) >>
+  simp_tac(srw_ss())[rich_listTheory.TAKE_LENGTH_APPEND,rich_listTheory.DROP_LENGTH_APPEND] )
+
+val pmatch_exh_nil = save_thm("pmatch_exh_nil",
+  LIST_CONJ [
+    pmatch_exh_APPEND
+    |> CONJUNCT1
+    |> Q.SPECL[`s`,`p`,`v`,`env`,`0`]
+    |> SIMP_RULE(srw_ss())[]
+  ,
+    pmatch_exh_APPEND
+    |> CONJUNCT2
+    |> Q.SPECL[`s`,`ps`,`vs`,`env`,`0`]
+    |> SIMP_RULE(srw_ss())[]
+  ])
 
 val _ = export_theory ();

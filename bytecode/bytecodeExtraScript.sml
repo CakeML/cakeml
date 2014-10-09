@@ -473,4 +473,36 @@ val code_executes_ok_def = Define `
       (* or divergence with no output *)
       !n. ?s2. NRC bc_next n s1 s2 /\ (s2.output = s1.output)`;
 
+val gvrel_def = Define`
+  gvrel gv1 gv2 ⇔ LENGTH gv1 ≤ LENGTH gv2 ∧
+    (∀n x. n < LENGTH gv1 ∧ (EL n gv1 = SOME x) ⇒ (EL n gv2 = SOME x))`
+
+val gvrel_refl = store_thm("gvrel_refl",
+  ``gvrel g g``, rw[gvrel_def])
+val _ = export_rewrites["gvrel_refl"]
+
+val gvrel_trans = store_thm("gvrel_trans",
+  ``gvrel gv1 gv2 ∧ gvrel gv2 gv3 ⇒ gvrel gv1 gv3``,
+  rw[gvrel_def] >> fsrw_tac[ARITH_ss][])
+
+val bc_next_gvrel = store_thm("bc_next_gvrel",
+  ``∀bs1 bs2. bc_next bs1 bs2 ⇒ gvrel bs1.globals bs2.globals``,
+  ho_match_mp_tac bytecodeTheory.bc_next_ind >>
+  simp[bytecodeTheory.bump_pc_def] >>
+  rw[] >- ( BasicProvers.CASE_TAC >> simp[] ) >>
+  simp[gvrel_def] >> rw[EL_LUPDATE] >>
+  simp[rich_listTheory.EL_APPEND1])
+
+val RTC_bc_next_gvrel = store_thm("RTC_bc_next_gvrel",
+  ``∀bs1 bs2. RTC bc_next bs1 bs2 ⇒
+    gvrel bs1.globals bs2.globals``,
+  ho_match_mp_tac relationTheory.RTC_lifts_reflexive_transitive_relations >>
+  rw[relationTheory.reflexive_def,relationTheory.transitive_def,bc_next_gvrel] >>
+  metis_tac[gvrel_trans])
+
+val same_length_gvrel_same = store_thm("same_length_gvrel_same",
+  ``∀l1 l2. LENGTH l1 = LENGTH l2 ∧ EVERY IS_SOME l1 ∧ gvrel l1 l2 ⇒ l1 = l2``,
+  rw[gvrel_def,LIST_EQ_REWRITE,EVERY_MEM,MEM_EL,PULL_EXISTS,IS_SOME_EXISTS] >>
+  metis_tac[])
+
 val _ = export_theory()

@@ -113,7 +113,7 @@ val termsem_def = xDefine "termsem"`
   (termsem0 ^mem tmsig i v (Const name ty) = instance tmsig i name ty (tyvof v)) ∧
   (termsem0 ^mem tmsig i v (Comb t1 t2) =
    termsem0 ^mem tmsig i v t1 ' (termsem0 ^mem tmsig i v t2)) ∧
-  (termsem0 ^mem tmsig i v (Abs x ty b) =
+  (termsem0 ^mem tmsig i v (Abs (Var x ty) b) =
    Abstract (typesem (tyaof i) (tyvof v) ty) (typesem (tyaof i) (tyvof v) (typeof b))
      (λm. termsem0 ^mem tmsig i (tyvof v, ((x,ty)=+m)(tmvof v)) b))`
 val _ = Parse.overload_on("termsem",``termsem0 ^mem``)
@@ -142,8 +142,8 @@ val _ = Parse.overload_on("is_interpretation",``is_interpretation0 ^mem``)
 
 val is_std_type_assignment_def = xDefine "is_std_type_assignment"`
   is_std_type_assignment0 ^mem (δ:'U tyass) ⇔
-    (δ "fun" = λls. case ls of [dom;rng] => Funspace dom rng | _ => ∅) ∧
-    (δ "bool" = λls. case ls of [] => boolset | _ => ∅)`
+    (∀dom rng. δ "fun" [dom;rng] = Funspace dom rng) ∧
+    (δ "bool" [] = boolset)`
 val _ = Parse.overload_on("is_std_type_assignment",``is_std_type_assignment0 ^mem``)
 
 local

@@ -1,7 +1,7 @@
 open HolKernel boolLib boolSimps bossLib lcsymtacs preamble miscLib miscTheory arithmeticTheory rich_listTheory
 open typeSystemTheory typeSoundTheory typeSoundInvariantsTheory typeSysPropsTheory untypedSafetyTheory
 open replTheory printTheory evalPropsTheory free_varsTheory
-open inferTheory inferSoundTheory
+open inferTheory inferPropsTheory inferSoundTheory
 open lexer_implTheory cmlParseTheory pegSoundTheory pegCompleteTheory
 open bytecodeTheory bytecodeExtraTheory bytecodeClockTheory bytecodeEvalTheory compilerProofTheory
 open initCompEnvTheory repl_funTheory
@@ -101,8 +101,8 @@ val type_invariants_pres = Q.prove (
          (update_repl_state top rs (convert_decls new_decls)
                                    new_infer_tenvT (convert_menv new_infer_menv) new_infer_cenv
                                    (convert_env2 new_infer_env) st' envC (Rval (envM,envE)))
-         (new_decls, merge_tenvT new_infer_tenvT infer_tenvT,
-          new_infer_menv ++ infer_menv, merge_tenvC new_infer_cenv infer_cenv,
+         (new_decls, merge_mod_env new_infer_tenvT infer_tenvT,
+          FUNION new_infer_menv infer_menv, merge_alist_mod_env new_infer_cenv infer_cenv,
           new_infer_env ++ infer_env)`,
    simp [update_repl_state_def, type_infer_invariants_def] >>
    gen_tac >>
@@ -114,12 +114,14 @@ val type_invariants_pres = Q.prove (
               by metis_tac [inferPropsTheory.infer_top_invariant] >>
    rw []
    >- rw [tenvT_ok_merge]
-   >- fs [check_menv_def]
+   >- (fs [check_menv_def] >>
+       match_mp_tac fevery_funion >>
+       rw [])
    >- (cases_on `new_infer_cenv` >>
        cases_on `rs.tenvC` >>
-       fs [merge_tenvC_def, libTheory.merge_def, check_cenv_def, check_flat_cenv_def])
+       fs [semanticPrimitivesTheory.merge_alist_mod_env_def, check_cenv_def, check_flat_cenv_def])
    >- fs [check_env_def]
-   >- rw [convert_menv_def]
+   >- rw [convert_menv_def, o_f_FUNION]
    >- rw [bvl2_append, convert_env2_def]);
 
 val type_invariants_pres_err = Q.prove (
@@ -170,6 +172,7 @@ val get_type_error_mask_def = Define `
   (get_type_error_mask (Result r rs) =
      (r = "<type error>\n")::get_type_error_mask rs)`;
 
+     (*
 val print_envC_not_type_error = prove(``ls ≠ "<type error>\n" ⇒ print_envC envc ++ ls ≠ "<type error>\n"``,
   PairCases_on`envc`>>
   simp[print_envC_def]>>
@@ -177,6 +180,7 @@ val print_envC_not_type_error = prove(``ls ≠ "<type error>\n" ⇒ print_envC e
   Cases>>simp[]>>
   Induct_on`q`>>simp[id_to_string_def]>>
   lrw[LIST_EQ_REWRITE])
+  *)
 
 val print_envE_not_type_error = prove(``!types en.
   LENGTH types = LENGTH en ⇒ print_envE types en ≠ "<type error>\n"``,
@@ -186,14 +190,14 @@ val print_envE_not_type_error = prove(``!types en.
 val print_result_not_type_error = prove(``
   r ≠ Rerr Rtype_error ⇒
   (∀v. r = Rval v ⇒ LENGTH types = LENGTH (SND v)) ⇒
-  print_result types top envc r ≠ "<type error>\n"``,
+  print_result types top r ≠ "<type error>\n"``,
   Cases_on`r`>>
   TRY(Cases_on`e`)>>
   TRY(PairCases_on`a`)>>
   simp[print_result_def]>>
   Cases_on`top`>>simp[print_result_def]>>
   strip_tac >>
-  match_mp_tac print_envC_not_type_error >>
+  (*match_mp_tac print_envC_not_type_error >>*)
   simp[print_envE_not_type_error])
 (* -- *)
 
@@ -214,7 +218,7 @@ val infer_to_type = Q.prove (
         (Success (new_decls,new_tenvT,new_menv,new_cenv,new_env),st2)) ∧
     (st.rinferencer_state = (decls,tenvT,menv,cenv,env))
     ⇒
-    infer_sound_invariant (merge_tenvT new_tenvT tenvT) (new_menv ++ menv) (merge_tenvC new_cenv cenv) (new_env++env) ∧
+    infer_sound_invariant (merge_mod_env new_tenvT tenvT) (FUNION new_menv menv) (merge_alist_mod_env new_cenv cenv) (new_env++env) ∧
     type_top rs.tdecs rs.tenvT rs.tenvM rs.tenvC rs.tenv top
              (convert_decls new_decls) new_tenvT (convert_menv new_menv) new_cenv (convert_env2 new_env)`,
    rw [repl_invariant_def, type_infer_invariants_def, type_sound_invariants_def] >>
@@ -267,8 +271,8 @@ val inv_pres_tac =
       fs[Once modLangProofTheory.v_to_i1_cases] >>
       qmatch_assum_rename_tac`MEM z (MAP FST e)`[] >>
       first_x_assum(qspec_then`z`mp_tac) >>
-      reverse(Cases_on`lookup z e`)>>simp[FLOOKUP_DEF] >- metis_tac[] >>
-      imp_res_tac libPropsTheory.lookup_notin ) >>
+      reverse(Cases_on`ALOOKUP e z`)>>simp[FLOOKUP_DEF] >- metis_tac[] >>
+      imp_res_tac alistTheory.ALOOKUP_NONE ) >>
     rw[] ) >>
   simp[code_executes_ok_def] >>
   disj1_tac >>
@@ -1154,27 +1158,32 @@ val simple_repl_fun_basis_thm = store_thm("simple_repl_fun_basis_thm",
 val simple_repl_fun_basis_thm = save_thm("simple_repl_fun_basis_thm",
    simple_repl_basis_lemma)
 
+val basis_output = store_thm("basis_output",
+  ``(THE (bc_eval (install_code (SND(SND basis_state)) initial_bc_state))).output = ""``,
+  simp[basis_state_def] >>
+  strip_assume_tac basis_env_inv >>
+  imp_res_tac add_stop_invariant >>
+  simp[] >> fs[invariant_def])
+
 val unrolled_repl_fun_basis_thm = store_thm("unrolled_repl_fun_basis_thm",
   ``∀input.
     let (output',b) = unrolled_repl_fun (SND basis_state) input in
       ∃output.
-        let res = (THE (bc_eval (install_code (SND(SND basis_state)) initial_bc_state))).output in
-        output' = Result res output ∧
+        output' = Result "" output ∧
         repl basis_repl_env (get_type_error_mask output) input output ∧
         b``,
   rw[LET_THM] >>
   qspec_then`input`mp_tac simple_repl_fun_basis_thm >>
   simp[UNCURRY] >> strip_tac >>
   qspecl_then[`SND basis_state`,`input`]mp_tac unrolled_repl_thm >>
-  simp[initial_bc_state_side_basis_state] >>
+  simp[initial_bc_state_side_basis_state,basis_output] >>
   Cases_on`simple_repl_fun (SND basis_state) input`>>fs[])
 
 val unlabelled_repl_fun_basis_thm = store_thm("unlabelled_repl_fun_basis_thm",
   ``∀input.
     let (output',b) = unlabelled_repl_fun (SND basis_state) input in
     ∃output.
-      let res = (THE (bc_eval (install_code (SND(SND basis_state)) initial_bc_state))).output in
-      output' = Result res output ∧
+      output' = Result "" output ∧
       repl basis_repl_env (get_type_error_mask output) input output ∧
       b``,
   rw[LET_THM] >>
@@ -1225,8 +1234,7 @@ val basis_repl_fun_thm = store_thm("basis_repl_fun_thm",
   ``∀input.
     let (output',b) = basis_repl_fun input in
     ∃output.
-      let res = (THE (bc_eval (install_code (SND(SND basis_state)) initial_bc_state))).output in
-      output' = Result res output ∧
+      output' = Result "" output ∧
       repl basis_repl_env (get_type_error_mask output) input output ∧
       b``,
   rw[LET_THM] >>

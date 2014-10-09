@@ -1,18 +1,12 @@
 open HolKernel Parse boolLib bossLib;
 open stringTheory listTheory sortingTheory;
-val _ = new_theory "hol_kernel";
+val _ = new_theory "holKernel";
 
 
 (*
   type hol_type = Tyvar of string
                 | Tyapp of string * hol_type list
 *)
-
-val _ = Hol_datatype `
-  hol_type = Tyvar of string
-           | Tyapp of string => hol_type list`;
-
-val hol_type_size_def = fetch "-" "hol_type_size_def"
 
 (*
   type term = Var of string * hol_type
@@ -21,30 +15,16 @@ val hol_type_size_def = fetch "-" "hol_type_size_def"
             | Abs of term * term
 *)
 
-val _ = Hol_datatype `
-  hol_term = Var of string => hol_type
-           | Const of string => hol_type
-           | Comb of hol_term => hol_term
-           | Abs of hol_term => hol_term`;
+(* we reuse the datatypes of types and terms from the inference system *)
+
+val type_size_def = holSyntaxTheory.type_size_def
 
 (*
   type thm = Sequent of (term list * term)
 *)
 
 val _ = Hol_datatype `
-  thm = Sequent of hol_term list => hol_term`;
-
-(*
-  For purposes of stating our final soundness theorem, we also keep
-  track of what definitions and other context updates have happened.
-*)
-
-val _ = Hol_datatype `
-  def = NewAxiom of hol_term
-      | NewConst of string => hol_type
-      | NewType of string => num
-      | ConstSpec of (string # hol_term) list => hol_term
-      | TypeDefn of string => hol_term => string => string`;
+  thm = Sequent of term list => term`;
 
 (*
   We define a record that holds the state, i.e.
@@ -56,20 +36,24 @@ val _ = Hol_datatype `
 
   let the_axioms = ref ([]:thm list)
 
-  Also to emulate the clash exception we include a clash_var.
+  The context is the global theory context tracked by the inference system, and
+  subsumes the above references. But we use them instead for efficiency (and to
+  be close to HOL Light).
 *)
 
 val _ = Hol_datatype `
   hol_refs = <| the_type_constants : (string # num) list ;
-                the_term_constants : (string # hol_type) list ;
+                the_term_constants : (string # type) list ;
                 the_axioms : thm list ;
-                the_definitions : def list ;
-                the_clash_var : hol_term |>`;
+                the_context : update list |>`;
 
 (* the state-exception monad *)
 
+val _ = Hol_datatype`
+  hol_exn = Fail of string | Clash of term`
+
 val _ = Hol_datatype `
-  hol_result = HolRes of 'a | HolErr of string`;
+  hol_result = HolRes of 'a | HolErr of hol_exn`;
 
 val _ = type_abbrev("M", ``:hol_refs -> 'a hol_result # hol_refs``);
 
@@ -84,11 +68,8 @@ val get_the_term_constants_def = Define `
 val get_the_axioms_def = Define `
   get_the_axioms = (\state. (HolRes (state.the_axioms),state))`;
 
-val get_the_definitions_def = Define `
-  get_the_definitions = (\state. (HolRes (state.the_definitions),state))`;
-
-val get_the_clash_var_def = Define `
-  get_the_clash_var = (\state. (HolRes (state.the_clash_var),state))`;
+val get_the_context_def = Define `
+  get_the_context = (\state. (HolRes (state.the_context),state))`;
 
 val set_the_type_constants_def = Define `
   set_the_type_constants x =
@@ -102,13 +83,9 @@ val set_the_axioms_def = Define `
   set_the_axioms x =
     (\state. (HolRes (), (state with the_axioms := x))):unit M`;
 
-val set_the_definitions_def = Define `
-  set_the_definitions x =
-    (\state. (HolRes (), (state with the_definitions := x))):unit M`;
-
-val set_the_clash_var_def = Define `
-  set_the_clash_var x =
-    (\state. (HolRes (), (state with the_clash_var := x))):unit M`;
+val set_the_context_def = Define `
+  set_the_context x =
+    (\state. (HolRes (), (state with the_context := x))):unit M`;
 
 (* composition and return *)
 
@@ -134,15 +111,15 @@ val _ = temp_overload_on ("return", ``ex_return``);
 (* failwith and otherwise *)
 
 val failwith_def = Define `
-  ((failwith msg) :'a M) = \state. (HolErr msg, state)`;
+  ((failwith msg) :'a M) = \state. (HolErr (Fail msg), state)`;
+
+val _ = add_infix("otherwise",400,HOLgrammars.RIGHT)
 
 val otherwise_def = Define `
-  otherwise x y = \state.
+  x otherwise y = \state.
     case (x state) of
       (HolRes y, state) => (HolRes y, state)
     | (HolErr e, state) => y state`;
-
-val _ = add_infix("otherwise",400,HOLgrammars.RIGHT)
 
 (* others *)
 
@@ -154,10 +131,13 @@ val _ = Define `
   try f x msg = (f x otherwise failwith msg)`;
 
 val raise_clash_def = Define `
-  ((raise_clash c) :'a M) = do set_the_clash_var c ; failwith "clash" od`;
+  ((raise_clash c) :'a M) = \state. (HolErr (Clash c), state)`
 
 val handle_clash_def = Define `
-  handle_clash x f = (x otherwise do v <- get_the_clash_var ; f v od)`;
+  handle_clash x f = \state.
+    case (x state) of
+    | (HolErr (Clash t), state) => f t state
+    | other => other`;
 
 (* define failing lookup function *)
 
@@ -230,8 +210,8 @@ val _ = Define `
 *)
 
 val add_def = Define `
-  add_def d = do defs <- get_the_definitions ;
-                 set_the_definitions (d::defs) od`;
+  add_def d = do defs <- get_the_context ;
+                 set_the_context (d::defs) od`;
 
 val _ = Define`
   add_type (name,arity) =
@@ -323,8 +303,8 @@ val _ = tDefine "tyvars" `
   tyvars x =
     case x of (Tyapp _ args) => itlist union (MAP tyvars args) []
             | (Tyvar tv) => [tv]`
- (WF_REL_TAC `measure (hol_type_size)` THEN Induct_on `args`
-  THEN FULL_SIMP_TAC (srw_ss()) [hol_type_size_def]
+ (WF_REL_TAC `measure (type_size)` THEN Induct_on `args`
+  THEN FULL_SIMP_TAC (srw_ss()) [type_size_def]
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC
   THEN REPEAT (POP_ASSUM (MP_TAC o SPEC_ALL)) THEN REPEAT STRIP_TAC
   THEN DECIDE_TAC);
@@ -352,8 +332,8 @@ val _ = tDefine "type_subst" `
          let args' = MAP (type_subst i) args in
          if args' = args then ty else Tyapp tycon args'
     | _ => rev_assocd ty i ty`
- (WF_REL_TAC `measure (hol_type_size o SND)` THEN Induct_on `args`
-  THEN FULL_SIMP_TAC (srw_ss()) [hol_type_size_def]
+ (WF_REL_TAC `measure (type_size o SND)` THEN Induct_on `args`
+  THEN FULL_SIMP_TAC (srw_ss()) [type_size_def]
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC
   THEN REPEAT (POP_ASSUM (MP_TAC o SPEC_ALL)) THEN REPEAT STRIP_TAC
   THEN DECIDE_TAC);
@@ -639,7 +619,7 @@ val MEM_subtract = prove(
   FULL_SIMP_TAC std_ss [fetch "-" "subtract_def",MEM_FILTER] THEN METIS_TAC []);
 
 val vfree_in_IMP = prove(
-  ``!(t:hol_term) x v. vfree_in (Var v ty) x ==> MEM (Var v ty) (frees x)``,
+  ``!(t:term) x v. vfree_in (Var v ty) x ==> MEM (Var v ty) (frees x)``,
   HO_MATCH_MP_TAC (SIMP_RULE std_ss [] (fetch "-" "vfree_in_ind"))
   THEN REPEAT STRIP_TAC THEN Cases_on `x` THEN POP_ASSUM MP_TAC
   THEN ONCE_REWRITE_TAC [fetch "-" "vfree_in_def",fetch "-" "frees_def"]
@@ -772,7 +752,7 @@ val my_term_size_vsubst_aux = prove(
   Induct THEN1
    (FULL_SIMP_TAC (srw_ss()) [my_term_size_def,Once (fetch "-" "vsubst_aux_def")]
     THEN Induct_on `xs` THEN1 (EVAL_TAC THEN SRW_TAC [] [my_term_size_def])
-    THEN Cases_on `h'`
+    THEN Cases
     THEN ASM_SIMP_TAC (srw_ss()) [EVERY_DEF,Once (fetch "-" "rev_assocd_def")]
     THEN FULL_SIMP_TAC (srw_ss()) []
     THEN Cases THEN SRW_TAC [] [] THEN Cases_on `q`
@@ -793,7 +773,7 @@ val ZERO_LT_term_size = prove(
   Cases THEN EVAL_TAC THEN DECIDE_TAC);
 
 val inst_aux_def = tDefine "inst_aux" `
-  (inst_aux (env:(hol_term # hol_term) list) tyin tm) : hol_term M =
+  (inst_aux (env:(term # term) list) tyin tm) =
     case tm of
       Var n ty   => let ty' = type_subst tyin ty in
                     let tm' = if ty' = ty then tm else Var n ty' in
@@ -805,7 +785,7 @@ val inst_aux_def = tDefine "inst_aux" `
                        x' <- inst_aux env tyin x ;
                        if (f = f') /\ (x = x') then return tm
                                                else return (Comb f' x') od
-    | Abs y t    => do (y':hol_term) <- inst_aux [] tyin y ;
+    | Abs y t    => do (y':term) <- inst_aux [] tyin y ;
                        env' <- return ((y,y')::env) ;
                        handle_clash
                         (do t' <- inst_aux env' tyin t ;

@@ -426,8 +426,6 @@ val _ = translate (infer_def ``add_constraint``);
 val _ = translate (infer_def ``add_constraints``);
 val _ = translate (aggr_infer_def ``constrain_op``);
 val _ = translate (infer_def ``t_to_freevars``);
-val _ = translate (infer_def ``bind``);
-val _ = translate (infer_def ``merge``);
 
 val _ = translate (typeSystemTheory.build_ctor_tenv_def
                    |> CONV_RULE(((STRIP_QUANT_CONV o funpow 3 RAND_CONV o

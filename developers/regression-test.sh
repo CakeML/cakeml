@@ -19,7 +19,7 @@ source misc.sh
 cd ..
 
 case $(uname -a) in
-  Linux* ) TIMECMD="/usr/bin/time -o timing.log -f '%U %K %M'";;
+  Linux* ) TIMECMD="/usr/bin/time -o timing.log -f '%U %M'";;
 esac
 
 echo

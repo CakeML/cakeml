@@ -1,8 +1,14 @@
+(*Pretty printing for intLang*)
 structure intPP =
 struct
 open astPP conPP modPP exhPP patPP
-(*This is stateful!*)
+
+(*This is stateful annotation collection!*)
 val collectAnnotations :(term list ref)= ref ([]:term list);
+
+val intPrettyPrinters = ref []: (string * term * term_grammar.userprinter) list ref
+
+fun add_intPP hd = intPrettyPrinters:= (hd:: !intPrettyPrinters)
 
 (*cexp_Nested mutually recursive letrec
 Collects annotations statefully when called*)
@@ -33,7 +39,7 @@ fun cexp_letrecPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
      >>add_newline>>str "in">>add_newline>>str"  ">>sys (Top,Top,Top) d expr >>add_newline>> str "end")
   end handle HOL_ERR _ => raise term_pp_types.UserPP_Failed;
 
-val _ = temp_add_user_printer ("cexp_letrecprint", ``CLetrec x y``,cexp_letrecPrint);
+val _ = add_intPP ("cexp_letrecprint", ``CLetrec x y``,cexp_letrecPrint);
 
 (*TODO: find an example where this occurs??*)
 (*cexp_CUpd*)
@@ -43,7 +49,7 @@ fun cexp_cupdPrint sys d t Top str brk blk =
     blk CONSISTENT 0 (sys(Top,Top,Top) d l >>str " =">>brk(1,2) >>sys(Top,Top,Top) d r)
   end;
 
-val _ = temp_add_user_printer("cexp_cupdprint", ``CUpd x y``,genPrint cexp_cupdPrint);
+val _ = add_intPP("cexp_cupdprint", ``CUpd x y``,genPrint cexp_cupdPrint);
 
 fun cexp_equalityPrint sys d t pg str brk blk =
   let val (l,r) = dest_comb t
@@ -52,7 +58,7 @@ fun cexp_equalityPrint sys d t pg str brk blk =
 
   end;
 (*cexp_Apply Equality*)
-val _ = temp_add_user_printer ("cexp_equalityprint", ``CPrim2 (P2p CEq) x y``, genPrint cexp_equalityPrint);
+val _ = add_intPP ("cexp_equalityprint", ``CPrim2 (P2p CEq) x y``, genPrint cexp_equalityPrint);
 
 (*cexp_Call*)
 (*Or maybe call (...) with [...]*)
@@ -65,17 +71,17 @@ fun cexp_ccallPrint sys d t pg str brk blk =
      >>brk(1,0)>>str"with ">>sys (Top,Top,Top) d ls))
   end;
 
-val _ = temp_add_user_printer ("cexp_ccallprint", ``CCall b f x``, genPrint cexp_ccallPrint);
+val _ = add_intPP ("cexp_ccallprint", ``CCall b f x``, genPrint cexp_ccallPrint);
 
 (*cexp_prim1*)
 (*NOTE: these actually seem rather superfluous...*)
 fun cexp_isblockPrint sys d t pg str brk blk =
   str"is_block";
 
-val _ = temp_add_user_printer("cexp_cisblockprint",``CIsBlock``,genPrint cexp_isblockPrint);
+val _ = add_intPP("cexp_cisblockprint",``CIsBlock``,genPrint cexp_isblockPrint);
 
-val _ = temp_add_user_printer("cexp_ctageqprint",``CTagEq x``,genPrint (pat_uopPrint "tag_eq"));
-val _ = temp_add_user_printer("cexp_cprojprint",``CProj x``,genPrint (pat_uopPrint "elem"));
+val _ = add_intPP("cexp_ctageqprint",``CTagEq x``,genPrint (pat_uopPrint "tag_eq"));
+val _ = add_intPP("cexp_cprojprint",``CProj x``,genPrint (pat_uopPrint "elem"));
 
 fun cexp_uappPrint sys d t pg str brk blk =
   let val (l,r)= dest_comb t;
@@ -83,7 +89,7 @@ fun cexp_uappPrint sys d t pg str brk blk =
     m_brack str pg (sys(pg,pg,pg) d (strip l) >>str " ">> sys (pg,pg,pg) d r)
   end;
 
-val _ = temp_add_user_printer("cexp_prim1print",``CPrim1 x y``,genPrint cexp_uappPrint);
+val _ = add_intPP("cexp_prim1print",``CPrim1 x y``,genPrint cexp_uappPrint);
 
 fun cexp_initglobalPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
   let
@@ -95,13 +101,13 @@ fun cexp_initglobalPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t 
     sty [FG DarkBlue] (str"g" >> sys (Top,Top,Top) d num) >>str " := " >> blk CONSISTENT 0 (sys (Top,Top,Top) (d-1) x)
   end handle HOL_ERR _ => raise term_pp_types.UserPP_Failed;
 
-val _ = temp_add_user_printer("cexp_initgprint",``CPrim1 (CInitG x) y``,cexp_initglobalPrint);
+val _ = add_intPP("cexp_initgprint",``CPrim1 (CInitG x) y``,cexp_initglobalPrint);
 
 (*cexp_ constructors*)
-val _ = temp_add_user_printer ("cexp_conprint", ``CCon x y``,i2_pconPrint);
+val _ = add_intPP ("cexp_conprint", ``CCon x y``,i2_pconPrint);
 
 (*cexpextend global*)
-val _ = temp_add_user_printer("cexp_extendglobal",``CExtG n``,genPrint i2_extendglobalPrint);
+val _ = add_intPP("cexp_extendglobal",``CExtG n``,genPrint i2_extendglobalPrint);
 
 (*cexp_Let*)
 fun cexp_letpatPrint sys d t pg str brk blk =
@@ -116,30 +122,36 @@ fun cexp_letpatPrint sys d t pg str brk blk =
       letnonePrint sys d t pg str brk blk
     end;
 
-val _ = temp_add_user_printer ("cexp_letprint",``CLet b y z ``,genPrint cexp_letpatPrint);
+val _ = add_intPP ("cexp_letprint",``CLet b y z ``,genPrint cexp_letpatPrint);
 
 (*cexp_Literals*)
 (*cexp_Pattern lit*)
-val _ = temp_add_user_printer ("cexp_litprint", ``CLit x``, genPrint plitPrint);
-val _ = temp_add_user_printer ("cexp_unitprint", ``CLit Unit``,genPrint unitPrint);
+val _ = add_intPP ("cexp_litprint", ``CLit x``, genPrint plitPrint);
+val _ = add_intPP ("cexp_unitprint", ``CLit Unit``,genPrint unitPrint);
 
-val _ = temp_add_user_printer("cexp_truelitprint",``CLit (Bool T)``,genPrint (boolPrint "true"));
-val _ = temp_add_user_printer("cexp_falselitprint",``CLit (Bool F)``,genPrint (boolPrint "false"));
+val _ = add_intPP("cexp_truelitprint",``CLit (Bool T)``,genPrint (boolPrint "true"));
+val _ = add_intPP("cexp_falselitprint",``CLit (Bool F)``,genPrint (boolPrint "false"));
 
 (*cexp local var name debrujin indices*)
-val _ = temp_add_user_printer ("cexp_varlocalprint", ``CVar x``,pat_varlocalPrint);
+val _ = add_intPP ("cexp_varlocalprint", ``CVar x``,pat_varlocalPrint);
 
 (*cexp global Var name*)
-val _ = temp_add_user_printer ("cexp_varglobalprint", ``CGvar n``,i1_varglobalPrint);
+val _ = add_intPP ("cexp_varglobalprint", ``CGvar n``,i1_varglobalPrint);
 
 (*cexp_raise expr*) 
-val _ = temp_add_user_printer ("cexp_raiseprint", ``CRaise x``,genPrint raisePrint);
+val _ = add_intPP ("cexp_raiseprint", ``CRaise x``,genPrint raisePrint);
 
 (*cexp_handle*)
-val _ = temp_add_user_printer ("cexp_handleprint", ``CHandle x y``,genPrint (pat_handlePrint));
+val _ = add_intPP ("cexp_handleprint", ``CHandle x y``,genPrint (pat_handlePrint));
 
 (*cexp_If-then-else*)
-val _ = temp_add_user_printer("cexp_ifthenelseprint", ``CIf x y z``,genPrint ifthenelsePrint);
+val _ = add_intPP("cexp_ifthenelseprint", ``CIf x y z``,genPrint ifthenelsePrint);
 
-(*TODO: add the globals for binops?*)
+(*TODO: add the globals for binops?--not currently in here because it looks weird.. *)
+
+fun enable_intPP_verbose () = map temp_add_user_printer (!intPrettyPrinters); 
+fun enable_intPP () = (enable_intPP_verbose();())
+fun disable_intPP_verbose () = map (fn (x,y,z) => temp_remove_user_printer x) (!intPrettyPrinters);
+fun disable_intPP () = (disable_intPP_verbose();())
+
 end;

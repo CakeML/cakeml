@@ -28,9 +28,12 @@ val _ = Hol_datatype`term
   = Var of string => type
   | Const of string => type
   | Comb of term => term
-  | Abs of string => type => term`
+  | Abs of term => term`
 
 val _ = Parse.overload_on("Equal",``λty. Const "=" (Fun ty (Fun ty Bool))``)
+
+val dest_var_def = Define`dest_var (Var x ty) = (x,ty)`
+val _ = export_rewrites["dest_var_def"]
 
 (* Assignment of types to terms (where possible) *)
 
@@ -44,7 +47,7 @@ val (has_type_rules,has_type_ind,has_type_cases) = Hol_reln`
    ⇒
    (Comb s t) has_type rty) ∧
   (t has_type rty ⇒
-   (Abs n dty t) has_type (Fun dty rty))`
+   (Abs (Var n dty) t) has_type (Fun dty rty))`
 
 (* A term is welltyped if it has a type. typeof calculates it. *)
 
@@ -55,7 +58,7 @@ val typeof_def = Define`
   (typeof (Var n   ty) = ty) ∧
   (typeof (Const n ty) = ty) ∧
   (typeof (Comb s t)   = codomain (typeof s)) ∧
-  (typeof (Abs n ty t) = Fun ty (typeof t))`
+  (typeof (Abs v t) = Fun (typeof v) (typeof t))`
 val _ = export_rewrites["typeof_def"]
 
 (* Auxiliary relation used to define alpha-equivalence. This relation is
@@ -67,8 +70,8 @@ val (RACONV_rules,RACONV_ind,RACONV_cases) = Hol_reln`
   (RACONV env (Const x ty,Const x ty)) ∧
   (RACONV env (s1,s2) ∧ RACONV env (t1,t2)
     ⇒ RACONV env (Comb s1 t1,Comb s2 t2)) ∧
-  ((ty1 = ty2) ∧ RACONV ((Var x1 ty1,Var x2 ty2)::env) (t1,t2)
-    ⇒ RACONV env (Abs x1 ty1 t1,Abs x2 ty2 t2))`
+  (typeof v1 = typeof v2 ∧ RACONV ((v1,v2)::env) (t1,t2)
+    ⇒ RACONV env (Abs v1 t1,Abs v2 t2))`
 
 (* Alpha-equivalence. *)
 
@@ -90,7 +93,7 @@ val VFREE_IN_def = Define`
   (VFREE_IN v (Var x ty) ⇔ (Var x ty = v)) ∧
   (VFREE_IN v (Const x ty) ⇔ (Const x ty = v)) ∧
   (VFREE_IN v (Comb s t) ⇔ VFREE_IN v s ∨ VFREE_IN v t) ∧
-  (VFREE_IN v (Abs x ty t) ⇔ (Var x ty ≠ v) ∧ VFREE_IN v t)`
+  (VFREE_IN v (Abs w t) ⇔ (w ≠ v) ∧ VFREE_IN v t)`
 val _ = export_rewrites["VFREE_IN_def"]
 
 (* Closed terms: those with no free variables. *)
@@ -167,14 +170,15 @@ val VSUBST_def = Define`
   (VSUBST ilist (Var x ty) = REV_ASSOCD (Var x ty) ilist (Var x ty)) ∧
   (VSUBST ilist (Const x ty) = Const x ty) ∧
   (VSUBST ilist (Comb s t) = Comb (VSUBST ilist s) (VSUBST ilist t)) ∧
-  (VSUBST ilist (Abs x ty t) =
-    let ilist' = FILTER (λ(s',s). ¬(s = Var x ty)) ilist in
+  (VSUBST ilist (Abs v t) =
+    let ilist' = FILTER (λ(s',s). ¬(s = v)) ilist in
     let t' = VSUBST ilist' t in
-    if EXISTS (λ(s',s). VFREE_IN (Var x ty) s' ∧ VFREE_IN s t) ilist'
-    then let z = VARIANT t' x ty in
-         let ilist'' = CONS (Var z ty,Var x ty) ilist' in
-         Abs z ty (VSUBST ilist'' t)
-    else Abs x ty t')`
+    if EXISTS (λ(s',s). VFREE_IN v s' ∧ VFREE_IN s t) ilist'
+    then let (x,ty) = dest_var v in
+         let z = Var (VARIANT t' x ty) ty in
+         let ilist'' = CONS (z,v) ilist' in
+         Abs z (VSUBST ilist'' t)
+    else Abs v t')`
 
 (* A measure on terms, used in proving
    termination of type instantiation. *)
@@ -183,7 +187,7 @@ val sizeof_def = Define`
   sizeof (Var x ty) = 1 ∧
   sizeof (Const x ty) = 1 ∧
   sizeof (Comb s t) = 1 + sizeof s + sizeof t ∧
-  sizeof (Abs x ty t) = 2 + sizeof t`
+  sizeof (Abs v t) = 2 + sizeof t`
 val _ = export_rewrites["sizeof_def"]
 
 val SIZEOF_VSUBST = store_thm("SIZEOF_VSUBST",
@@ -193,6 +197,7 @@ val SIZEOF_VSUBST = store_thm("SIZEOF_VSUBST",
     Q.ISPECL_THEN[`ilist`,`Var s t`,`Var s t`]mp_tac REV_ASSOCD_MEM >>
     rw[] >> res_tac >> pop_assum SUBST1_TAC >> simp[] )
   >- metis_tac[] >>
+  simp[pairTheory.UNCURRY] >> rw[] >> simp[] >>
   first_x_assum match_mp_tac >>
   simp[MEM_FILTER] >>
   rw[] >> res_tac >> fs[] )
@@ -217,19 +222,21 @@ val INST_CORE_def = tDefine"INST_CORE"`
     if IS_CLASH tres then tres else
     let s' = RESULT sres and t' = RESULT tres in
     Result (Comb s' t')) ∧
-  (INST_CORE env tyin (Abs x ty t) =
+  (INST_CORE env tyin (Abs v t) =
+    let (x,ty) = dest_var v in
     let ty' = TYPE_SUBST tyin ty in
-    let env' = (Var x ty,Var x ty')::env in
+    let v' = Var x ty' in
+    let env' = (v,v')::env in
     let tres = INST_CORE env' tyin t in
-    if IS_RESULT tres then Result(Abs x ty' (RESULT tres)) else
+    if IS_RESULT tres then Result(Abs v' (RESULT tres)) else
     let w = CLASH tres in
-    if (w ≠ Var x ty') then tres else
+    if (w ≠ v') then tres else
     let x' = VARIANT (RESULT(INST_CORE [] tyin t)) x ty' in
     let t' = VSUBST [Var x' ty,Var x ty] t in
     let ty' = TYPE_SUBST tyin ty in
     let env' = (Var x' ty,Var x' ty')::env in
     let tres = INST_CORE env' tyin t' in
-    if IS_RESULT tres then Result(Abs x' ty' (RESULT tres)) else tres)`
+    if IS_RESULT tres then Result(Abs (Var x' ty') (RESULT tres)) else tres)`
 (WF_REL_TAC`measure (sizeof o SND o SND)` >> simp[SIZEOF_VSUBST])
 
 val INST_def = Define`INST tyin tm = RESULT(INST_CORE [] tyin tm)`
@@ -247,7 +254,7 @@ val tvars_def = Define`
   (tvars (Var n ty) = tyvars ty) ∧
   (tvars (Const n ty) = tyvars ty) ∧
   (tvars (Comb s t) = LIST_UNION (tvars s) (tvars t)) ∧
-  (tvars (Abs n ty t) = LIST_UNION (tyvars ty) (tvars t))`
+  (tvars (Abs v t) = LIST_UNION (tvars v) (tvars t))`
 
 (* Syntax for equations *)
 
@@ -284,9 +291,11 @@ val term_ok_def = Define`
      term_ok sig tm1 ∧
      term_ok sig tm2 ∧
      welltyped (Comb tm1 tm2)) ∧
-  (term_ok sig (Abs x ty tm) ⇔
-     type_ok (tysof sig) ty ∧
-     term_ok sig tm)`
+  (term_ok sig (Abs v tm) ⇔
+     ∃x ty.
+       v = Var x ty ∧
+       type_ok (tysof sig) ty ∧
+       term_ok sig tm)`
 
 (* A theory is a signature together with a set of axioms. It is well-formed if
    the types of the constants are all ok, the axioms are all ok terms of type
@@ -320,7 +329,7 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
   (* ABS *)
   (¬(EXISTS (VFREE_IN (Var x ty)) h) ∧ type_ok (tysof thy) ty ∧
    (thy, h) |- l === r
-   ⇒ (thy, h) |- (Abs x ty l) === (Abs x ty r)) ∧
+   ⇒ (thy, h) |- (Abs (Var x ty) l) === (Abs (Var x ty) r)) ∧
 
   (* ASSUME *)
   (theory_ok thy ∧ p has_type Bool ∧ term_ok (sigof thy) p
@@ -328,7 +337,7 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
 
   (* BETA *)
   (theory_ok thy ∧ type_ok (tysof thy) ty ∧ term_ok (sigof thy) t
-   ⇒ (thy, []) |- Comb (Abs x ty t) (Var x ty) === t) ∧
+   ⇒ (thy, []) |- Comb (Abs (Var x ty) t) (Var x ty) === t) ∧
 
   (* DEDUCT_ANTISYM *)
   ((thy, h1) |- c1 ∧

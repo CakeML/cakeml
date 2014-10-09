@@ -99,7 +99,7 @@ val _ = Define `
       (case CHOICE res of
           (s,envC,Rval (envM,envE)) =>
            SOME <| sem_envM := (envM ++ se.sem_envM);
-                   sem_envC := (merge_envC envC se.sem_envC);
+                   sem_envC := (merge_alist_mod_env envC se.sem_envC);
                    sem_envE := (envE ++ se.sem_envE);
                    sem_store := s |>
         | _ => NONE

@@ -2,7 +2,6 @@ open preamble finite_mapTheory optionTheory libTheory astTheory;
 open unifPropsTheory unifDefTheory walkTheory walkstarTheory collapseTheory;
 open substTheory;
 open infer_tTheory;
-open libPropsTheory;
 
 val option_map_case = prove (
   ``!f opt. 
@@ -250,18 +249,6 @@ val encode_pair_cases = prove(
        (∃tc ts. t2 = Pair (Const (TC_tag tc)) (encode_infer_ts ts))))``,
   Cases >> rw[encode_infer_t_def] >>
   PROVE_TAC[])
-
-(* TODO: move to examples/unification *)
-val unify_same_lemma = prove(
-  ``∀s t1 t2. wfs s ∧ (t1 = t2) ⇒ (unify s t1 t2 = SOME s)``,
-  ho_match_mp_tac unify_ind >> rw[] >>
-  pop_assum mp_tac >>
-  simp_tac std_ss [Once unify_def] >>
-  Cases_on `walk s t1` >> rw[])
-val unify_same = store_thm("unify_same",
- ``∀s. wfs s ⇒ ∀t. unify s t t = SOME s``,
- PROVE_TAC[unify_same_lemma])
-val _ = export_rewrites["unify_same"]
 
 val encode_unify_lemma = Q.prove (
 `!s t1 t2 s' t1' t2'.
@@ -991,30 +978,29 @@ val no_vars_extend_subst_vwalk = Q.store_thm ("no_vars_extend_subst_vwalk",
          (!n'. t_vwalk s n ≠ Infer_Tuvar n')
          ⇒
          t_vwalk (s |++ s') n = t_vwalk s n`,
-strip_tac >>
-strip_tac >>
-imp_res_tac (DISCH_ALL t_vwalk_ind) >>
-pop_assum ho_match_mp_tac >>
-rw [] >>
-pop_assum mp_tac >>
-imp_res_tac t_vwalk_eqn >>
-ONCE_ASM_REWRITE_TAC [] >>
-pop_assum (fn _ => all_tac) >>
-pop_assum (fn _ => all_tac) >>
-cases_on `FLOOKUP (s |++ s') n` >>
-rw [] >>
-fs [flookup_update_list_none, flookup_update_list_some] >>
-cases_on `FLOOKUP s n` >>
-fs [t_vars_eqn] >|
-[fs [DISJOINT_DEF, EXTENSION, FLOOKUP_DEF, FDOM_FUPDATE_LIST] >>
-     imp_res_tac lookup_in2 >>
-     fs [MEM_MAP] >>
-     metis_tac [],
- cases_on `x` >>
-     fs [] >>
-     rw [] >>
-     fs [] >>
-     metis_tac [t_vwalk_eqn]]);
+ strip_tac >>
+ strip_tac >>
+ imp_res_tac (DISCH_ALL t_vwalk_ind) >>
+ pop_assum ho_match_mp_tac >>
+ rw [] >>
+ pop_assum mp_tac >>
+ imp_res_tac t_vwalk_eqn >>
+ ONCE_ASM_REWRITE_TAC [] >>
+ pop_assum (fn _ => all_tac) >>
+ pop_assum (fn _ => all_tac) >>
+ cases_on `FLOOKUP (s |++ s') n` >>
+ rw [] >>
+ cases_on `FLOOKUP s n` >>
+ fs [t_vars_eqn]
+ >- fs [DISJOINT_DEF, EXTENSION, flookup_thm, FLOOKUP_DEF, FDOM_FUPDATE_LIST]
+ >- (fs [alistTheory.flookup_fupdate_list] >>
+     Cases_on `ALOOKUP (REVERSE s') n` >>
+     fs [alistTheory.ALOOKUP_FAILS]
+     >- (every_case_tac >>
+         fs []) >>
+     imp_res_tac alistTheory.ALOOKUP_MEM >>
+     fs [FLOOKUP_DEF, DISJOINT_DEF, EXTENSION, FDOM_FUPDATE_LIST, MEM_MAP] >>
+     metis_tac [FST, pair_CASES]));
 
 val no_vars_extend_subst = Q.store_thm ("no_vars_extend_subst",
 `!s. t_wfs s ⇒

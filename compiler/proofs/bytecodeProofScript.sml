@@ -51,33 +51,6 @@ val Cv_bv_only_ind =
 |> SIMP_RULE std_ss []
 |> GEN_ALL
 
-(* TODO - need a different approach to printing to avoid confusing words with integers
-val Cv_bv_ov = store_thm("Cv_bv_ov",
-  ``∀m pp Cv bv. Cv_bv pp Cv bv ⇒ (Cv_to_ov Cv = bv_to_ov bv)``,
-  ntac 2 gen_tac >>
-  ho_match_mp_tac Cv_bv_only_ind >>
-  strip_tac >- rw[bv_to_ov_def] >>
-  strip_tac >- rw[bv_to_ov_def] >>
-  strip_tac >- (
-    rw[bv_to_ov_def] >>
-    rw[bvs_to_chars_thm,EVERY_MAP] >>
-    rw[LIST_EQ_REWRITE,
-       stringTheory.IMPLODE_EXPLODE_I,
-       integerTheory.INT_ABS_NUM,
-       EL_MAP,stringTheory.CHR_ORD]) >>
-  strip_tac >- (
-    rw[bv_to_ov_def] >>
-    Cases_on `b` >> fs[] ) >>
-  strip_tac >- rw[bv_to_ov_def] >>
-  strip_tac >- rw[bv_to_ov_def,el_check_def] >>
-  strip_tac >- (
-    rw[bv_to_ov_def] >>
-    fsrw_tac[ARITH_ss][] >>
-    rw[MAP_EQ_EVERY2] >>
-    fs[EVERY2_EVERY] ) >>
-  rw[bv_to_ov_def])
-*)
-
 val Cv_bv_strongind = theorem"Cv_bv_strongind"
 
 val Cv_bv_syneq = store_thm("Cv_bv_syneq",
@@ -210,61 +183,6 @@ val Cv_bv_SUBMAP = store_thm("Cv_bv_SUBMAP",
   simp[GSYM FORALL_AND_THM] >> gen_tac >>
   rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
   metis_tac[FLOOKUP_SUBMAP,ADD_SYM])
-
-(* TODO: Cv_bv is no longer injective because of representation of words. How much of a problem is this?
-val no_closures_Cv_bv_equal = store_thm("no_closures_Cv_bv_equal",
-  ``∀pp cv bv. Cv_bv pp cv bv ⇒
-      ∀cv' bv'. Cv_bv pp cv' bv' ∧
-        no_closures cv ∧
-        no_closures cv' ∧
-        ALL_DISTINCT (FST pp).sm
-        ⇒ ((cv = cv') = (bv = bv'))``,
-  gen_tac >> ho_match_mp_tac Cv_bv_only_ind >> rw[]
-  >- (
-    rw[EQ_IMP_THM] >> rw[] >>
-    fs[Once Cv_bv_cases] )
-  >- (
-    rw[EQ_IMP_THM] >> rw[] >>
-    fs[Once Cv_bv_cases] >>
-    rw[] >> (TRY(Cases_on`b`)) >> fsrw_tac[ARITH_ss][] >>
-    fs[LIST_EQ_REWRITE] >> rfs[EL_MAP] >>
-    metis_tac[stringTheory.ORD_11])
-  >- (
-    rw[EQ_IMP_THM] >> rw[] >>
-    Cases_on `b` >>
-    fsrw_tac[ARITH_ss][Once Cv_bv_cases] >>
-    Cases_on `b` >> fs[])
-  >- (
-    rw[EQ_IMP_THM] >>
-    fs[Once Cv_bv_cases] >>
-    fsrw_tac[ARITH_ss][] >>
-    Cases_on`b` >> fsrw_tac[ARITH_ss][] )
-  >- (
-    rw[EQ_IMP_THM] >>
-    fs[Once Cv_bv_cases,el_check_def] >> rw[] >>
-    fs[EL_ALL_DISTINCT_EL_EQ] >>
-    metis_tac[]) >>
-  rw[EQ_IMP_THM] >- (
-    fs[Once (Q.SPEC`CConv cn vs`(CONJUNCT1 (SPEC_ALL Cv_bv_cases)))] >>
-    rw[LIST_EQ_REWRITE] >>
-    fs[EVERY2_EVERY] >>
-    qpat_assum`LENGTH X = LENGTH bvs` assume_tac >>
-    fsrw_tac[DNF_ss][EVERY_MEM,FORALL_PROD,MEM_ZIP] >>
-    qpat_assum`LENGTH vs = X` assume_tac >>
-    fsrw_tac[DNF_ss][MEM_EL] >>
-    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_EL] >>
-    metis_tac[EL_ZIP] ) >>
-  qpat_assum`Cv_bv X Y Z` mp_tac >>
-  rw[Once Cv_bv_cases] >>
-  fsrw_tac[ARITH_ss][] >>
-  TRY (Cases_on `b` >> fsrw_tac[ARITH_ss][]) >>
-  fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
-  rpt (qpat_assum `LENGTH X = Y` mp_tac) >> rpt strip_tac >>
-  fsrw_tac[DNF_ss][MEM_ZIP] >>
-  rw[LIST_EQ_REWRITE] >> fsrw_tac[DNF_ss][MEM_EL] >>
-  fsrw_tac[DNF_ss][SUBSET_DEF,MEM_EL] >>
-  metis_tac[])
-*)
 
 val Cv_bv_l2a_mono = store_thm("Cv_bv_l2a_mono",
   ``∀pp.
@@ -860,18 +778,6 @@ val Cenv_bs_DOMSUB = store_thm("Cenv_bs_DOMSUB",
   ntac 2 gen_tac >> Cases >> simp[] >> Cases >> simp[] >>
   rw[Cenv_bs_def,EVERY2_EVERY,env_renv_def,fmap_rel_def] >>
   metis_tac[o_f_FAPPLY])
-
-val gvrel_def = Define`
-  gvrel gv1 gv2 ⇔ LENGTH gv1 ≤ LENGTH gv2 ∧
-    (∀n x. n < LENGTH gv1 ∧ (EL n gv1 = SOME x) ⇒ (EL n gv2 = SOME x))`
-
-val gvrel_refl = store_thm("gvrel_refl",
-  ``gvrel g g``, rw[gvrel_def])
-val _ = export_rewrites["gvrel_refl"]
-
-val gvrel_trans = store_thm("gvrel_trans",
-  ``gvrel gv1 gv2 ∧ gvrel gv2 gv3 ⇒ gvrel gv1 gv3``,
-  rw[gvrel_def] >> fsrw_tac[ARITH_ss][])
 
 val env_renv_change_store = store_thm("env_renv_change_store",
   ``env_renv rd rsz bs env renv ∧

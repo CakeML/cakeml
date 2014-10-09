@@ -1,117 +1,7 @@
 open HolKernel boolLib boolSimps bossLib lcsymtacs listTheory alistTheory pairTheory
-open Defn miscLib miscTheory libPropsTheory evalPropsTheory exhLangTheory patLangTheory compilerTerminationTheory
+open Defn miscLib miscTheory evalPropsTheory exhLangTheory patLangTheory compilerTerminationTheory
 open exhLangProofTheory semanticPrimitivesTheory;
 val _ = new_theory"patLangProof"
-
-(* TODO: move *)
-
-val map_count_store_genv_def = Define`
-  map_count_store_genv f (csg:'a count_store_genv) =
-    ((FST(FST csg), MAP (map_sv f) (SND(FST csg))), MAP (OPTION_MAP f) (SND csg))`
-
-val csg_every_def = Define`
-  csg_every P ((c,s),g) ⇔ EVERY (sv_every P) s ∧ EVERY (OPTION_EVERY P) g`
-
-val build_rec_env_exh_MAP = store_thm("build_rec_env_exh_MAP",
-  ``build_rec_env_exh funs cle env = MAP (λ(f,cdr). (f, (Recclosure_exh cle funs f))) funs ++ env``,
-  rw[build_rec_env_exh_def] >>
-  qho_match_abbrev_tac `FOLDR (f funs) env funs = MAP (g funs) funs ++ env` >>
-  qsuff_tac `∀funs env funs0. FOLDR (f funs0) env funs = MAP (g funs0) funs ++ env` >- rw[]  >>
-  unabbrev_all_tac >> simp[] >>
-  Induct >> rw[libTheory.bind_def] >>
-  PairCases_on`h` >> rw[])
-
-val pmatch_exh_any_match = store_thm("pmatch_exh_any_match",
-  ``(∀s p v env env'. pmatch_exh s p v env = Match env' ⇒
-       ∀env. ∃env'. pmatch_exh s p v env = Match env') ∧
-    (∀s ps vs env env'. pmatch_list_exh s ps vs env = Match env' ⇒
-       ∀env. ∃env'. pmatch_list_exh s ps vs env = Match env')``,
-  ho_match_mp_tac pmatch_exh_ind >>
-  rw[pmatch_exh_def] >>
-  pop_assum mp_tac >>
-  BasicProvers.CASE_TAC >>
-  fs[] >> strip_tac >> fs[] >>
-  BasicProvers.CASE_TAC >> fs[] >>
-  metis_tac[match_result_distinct])
-
-val pmatch_exh_any_no_match = store_thm("pmatch_exh_any_no_match",
-  ``(∀s p v env. pmatch_exh s p v env = No_match ⇒
-       ∀env. pmatch_exh s p v env = No_match) ∧
-    (∀s ps vs env. pmatch_list_exh s ps vs env = No_match ⇒
-       ∀env. pmatch_list_exh s ps vs env = No_match)``,
-  ho_match_mp_tac pmatch_exh_ind >>
-  rw[pmatch_exh_def] >>
-  pop_assum mp_tac >>
-  BasicProvers.CASE_TAC >>
-  fs[] >> strip_tac >> fs[] >>
-  BasicProvers.CASE_TAC >> fs[] >>
-  imp_res_tac pmatch_exh_any_match >>
-  metis_tac[match_result_distinct])
-
-val pmatch_exh_any_match_error = store_thm("pmatch_exh_any_match_error",
-  ``(∀s p v env. pmatch_exh s p v env = Match_type_error ⇒
-       ∀env. pmatch_exh s p v env = Match_type_error) ∧
-    (∀s ps vs env. pmatch_list_exh s ps vs env = Match_type_error ⇒
-       ∀env. pmatch_list_exh s ps vs env = Match_type_error)``,
-  rw[] >> qmatch_abbrev_tac`X = Y` >> Cases_on`X` >> fs[markerTheory.Abbrev_def] >>
-  metis_tac[match_result_distinct
-           ,pmatch_exh_any_no_match,pmatch_exh_any_match])
-
-val pmatch_list_exh_pairwise = store_thm("pmatch_list_exh_pairwise",
-  ``∀ps vs s env env'. pmatch_list_exh s ps vs env = Match env' ⇒
-      EVERY2 (λp v. ∀env. ∃env'. pmatch_exh s p v env = Match env') ps vs``,
-  Induct >> Cases_on`vs` >> simp[pmatch_exh_def] >>
-  rpt gen_tac >> BasicProvers.CASE_TAC >> strip_tac >>
-  res_tac >> simp[] >> metis_tac[pmatch_exh_any_match])
-
-val pmatch_list_exh_SNOC_nil = store_thm("pmatch_list_exh_SNOC_nil",
-  ``∀p ps v vs s env.
-      (pmatch_list_exh s [] (SNOC v vs) env = Match_type_error) ∧
-      (pmatch_list_exh s (SNOC p ps) [] env = Match_type_error)``,
-  Cases_on`ps`>>Cases_on`vs`>>simp[pmatch_exh_def])
-val _ = export_rewrites["pmatch_list_exh_SNOC_nil"]
-
-val pmatch_list_exh_SNOC = store_thm("pmatch_list_exh_SNOC",
-  ``∀ps vs p v s env. LENGTH ps = LENGTH vs ⇒
-      pmatch_list_exh s (SNOC p ps) (SNOC v vs) env =
-      case pmatch_list_exh s ps vs env of
-      | Match env' => pmatch_exh s p v env'
-      | res => res``,
-  Induct >> Cases_on`vs` >> simp[pmatch_exh_def] >> rw[] >>
-  BasicProvers.CASE_TAC)
-
-val pmatch_exh_APPEND = store_thm("pmatch_exh_APPEND",
-  ``(∀s p v env n.
-      (pmatch_exh s p v env =
-       map_match (combin$C APPEND (DROP n env)) (pmatch_exh s p v (TAKE n env)))) ∧
-    (∀s ps vs env n.
-      (pmatch_list_exh s ps vs env =
-       map_match (combin$C APPEND (DROP n env)) (pmatch_list_exh s ps vs (TAKE n env))))``,
-  ho_match_mp_tac pmatch_exh_ind >>
-  rw[pmatch_exh_def,libTheory.bind_def]
-  >- ( BasicProvers.CASE_TAC >> fs[] >>
-       BasicProvers.CASE_TAC >> fs[]) >>
-  pop_assum (qspec_then`n`mp_tac) >>
-  Cases_on `pmatch_exh s p v (TAKE n env)`>>fs[] >>
-  strip_tac >> res_tac >>
-  qmatch_assum_rename_tac`pmatch_exh s p v (TAKE n env) = Match env1`[] >>
-  pop_assum(qspec_then`LENGTH env1`mp_tac) >>
-  simp_tac(srw_ss())[rich_listTheory.TAKE_LENGTH_APPEND,rich_listTheory.DROP_LENGTH_APPEND] )
-
-val pmatch_exh_nil = save_thm("pmatch_exh_nil",
-  LIST_CONJ [
-    pmatch_exh_APPEND
-    |> CONJUNCT1
-    |> Q.SPECL[`s`,`p`,`v`,`env`,`0`]
-    |> SIMP_RULE(srw_ss())[]
-  ,
-    pmatch_exh_APPEND
-    |> CONJUNCT2
-    |> Q.SPECL[`s`,`ps`,`vs`,`env`,`0`]
-    |> SIMP_RULE(srw_ss())[]
-  ])
-
-(* --- *)
 
 (* patLang extra lemmas, used elsewhere *)
 
@@ -289,11 +179,11 @@ val do_opapp_pat_correct = prove(
   Cases_on`t`>>simp[]>>
   Cases_on`t'`>>simp[]>>
   Cases_on`h`>>simp[do_opapp_pat_def]>>
-  TRY(rw[libTheory.bind_def] >> rw[]>>NO_TAC) >>
+  TRY(rw[] >> rw[]>>NO_TAC) >>
   BasicProvers.CASE_TAC >>
   BasicProvers.CASE_TAC >>
   strip_tac >> rpt BasicProvers.VAR_EQ_TAC >>
-  fs[find_recfun_ALOOKUP,funs_to_pat_MAP,libTheory.bind_def,build_rec_env_pat_def,build_rec_env_exh_MAP,FST_triple] >>
+  fs[find_recfun_ALOOKUP,funs_to_pat_MAP,build_rec_env_pat_def,build_rec_env_exh_MAP,FST_triple] >>
   imp_res_tac ALOOKUP_find_index_SOME >>
   simp[EL_MAP,UNCURRY,LIST_EQ_REWRITE,funs_to_pat_MAP] >>
   qmatch_assum_rename_tac`(q,exp) = SND p`[] >>
@@ -946,7 +836,7 @@ val row_to_pat_correct = prove(
           evaluate_pat ck (menv4k++(Conv_pat tag (MAP v_to_pat vs))::env) ((count, MAP sv_to_pat s),genv) (f e) res)``,
   ho_match_mp_tac row_to_pat_ind >>
   strip_tac >- (
-    rw[pmatch_exh_def,row_to_pat_def,libTheory.bind_def] >> rw[] >>
+    rw[pmatch_exh_def,row_to_pat_def] >> rw[] >>
     qexists_tac`[v_to_pat v]` >> rw[] ) >>
   strip_tac >- (
     rw[pmatch_exh_def,row_to_pat_def] >> rw[] >>
@@ -2450,6 +2340,15 @@ val csg_rel_unpair = store_thm("csg_rel_unpair",
     LIST_REL (sv_rel R) (SND(FST x1)) (SND(FST x2)) ∧
     LIST_REL (OPTREL R) (SND x1) (SND x2)``,
   PairCases_on`x1`>>PairCases_on`x2`>>simp[csg_rel_def])
+
+val lookup_find_index_SOME = prove(
+  ``∀env. ALOOKUP env n = SOME v ⇒
+      ∀m. ∃i. (find_index (SOME n) (MAP (SOME o FST) env) m = SOME (m+i)) ∧
+          (v = EL i (MAP SND env))``,
+  Induct >> simp[] >> Cases >> rw[find_index_def] >-
+    (qexists_tac`0`>>simp[]) >> fs[] >>
+  first_x_assum(qspec_then`m+1`mp_tac)>>rw[]>>rw[]>>
+  qexists_tac`SUC i`>>simp[]);
 
 val exp_to_pat_correct = store_thm("exp_to_pat_correct",
   ``(∀ck env s exp res. evaluate_exh ck env s exp res ⇒

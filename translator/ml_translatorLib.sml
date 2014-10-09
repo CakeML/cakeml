@@ -5,7 +5,7 @@ open HolKernel boolLib bossLib;
 
 open astTheory libTheory semanticPrimitivesTheory bigStepTheory print_astTheory;
 open terminationTheory print_astTerminationTheory stringLib;
-open ml_translatorTheory intLib;
+open ml_translatorTheory intLib lcsymtacs;
 open arithmeticTheory listTheory combinTheory pairTheory pairLib;
 open integerTheory intLib ml_optimiseTheory;
 
@@ -222,34 +222,8 @@ in
     if can (match_term ``(Dtype x) : dec``) decl then
       MATCH_MP (INST_mn DeclAssumCons_SNOC_Dtype) (!cenv_eq_thm)
       |> SPEC (decl |> rand)
-      (* |> (fn th => (print_term(th |> concl |> rator |> rand); print"\n"; th)) *)
-      (*
-      |> print_time "EVAL build_tdefs"
-        (CONV_RULE ((RATOR_CONV o RAND_CONV o RAND_CONV o RAND_CONV o RATOR_CONV o RAND_CONV) eval))
-      |> print_time "REWR MAP FST"
-        (CONV_RULE ((RATOR_CONV o RAND_CONV o RAND_CONV) (REWR_CONV MAP_APPEND)))
-      |> print_time "EVAL MAP 1"
-        (CONV_RULE ((RATOR_CONV o RAND_CONV o RAND_CONV o RATOR_CONV o RAND_CONV) eval))
-      |> print_time "EVAL MAP 2"
-        (CONV_RULE ((RATOR_CONV o RAND_CONV o RAND_CONV o RAND_CONV) eval))
-      |> (fn th =>
-          let
-            val goal = th |> concl |> rator |> rand
-            val eval_tac = CONV_TAC eval
-            fun WARN_ACCEPT_TAC th = ACCEPT_TAC th ORELSE (print_thm th; FAIL_TAC(" failed to be accepted"))
-            val tac =
-              CONV_TAC(REWR_CONV ALL_DISTINCT_APPEND) THEN
-              CONJ_TAC THEN1 eval_tac THEN
-              CONJ_TAC THEN1 (WARN_ACCEPT_TAC (!previous_all_distinct) ORELSE eval_tac) THEN
-              eval_tac THEN GEN_TAC THEN STRIP_TAC THEN BasicProvers.VAR_EQ_TAC THEN eval_tac
-            val lemma = auto_prove "DeclAssumCons_SNOC_Dtype: ALL_DISTINCT tdefs" (goal,tac)
-            val () = previous_all_distinct := (CONV_RULE (RAND_CONV eval) lemma)
-          in
-            MY_MP "DeclAssumCons_SNOC_Dtype" th lemma
-          end)
-      *)
       |> print_time "EVAL ALL_DISTINCT" (CONV_RULE ((RATOR_CONV o RAND_CONV) eval))
-      |> (fn th => MY_MP "DeclAssumCons_SNOC_Dtype" th TRUTH)
+     (* |> (fn th => MY_MP "DeclAssumCons_SNOC_Dtype" th TRUTH) *)
       |> print_time "EVAL2" (
          CONV_RULE (RAND_CONV EVAL THENC
                     (RATOR_CONV o RAND_CONV) EVAL))
@@ -301,9 +275,10 @@ in
       val tac =
         REPEAT STRIP_TAC
         THEN1 (SIMP_TAC std_ss [check_dup_ctors_def,LET_DEF,FOLDR] THEN EVAL_TAC)
+        THEN1 EVAL_TAC
         THEN SIMP_TAC std_ss [type_defs_to_new_tdecs_def,MAP,
                DISJOINT_set_SIMP,mk_id_def]
-        THEN (lemma |> RW1 [DeclAssumCons_def] |> CONJUNCT2 |> SPEC_ALL
+        THEN (lemma |> RW1 [DeclAssumCons_def] |> SPEC_ALL
                     |> UNDISCH |> CONJUNCT1 |> ASSUME_TAC)
         THEN POP_ASSUM (fn th => ONCE_REWRITE_TAC [th])
         THEN EVAL_TAC
@@ -512,6 +487,11 @@ in
          if name = "prod" then ``Tapp [^(el 1 tt);^(el 2 tt)] TC_tup`` else
          if name = "list" then ``Tapp ^tt_list (TC_name (Short ^name_tm))`` else
                                ``Tapp ^tt_list (TC_name (^(full_id name_tm)))`` end
+  val vector_type_pat = ``:'a ml_translator$vector``
+  fun dest_vector_type ty =
+    if can (match_type vector_type_pat) ty then
+      dest_type ty |> snd |> hd
+    else failwith "not vector type"
   fun inst_type_inv (ty,inv) ty0 = let
     val i = match_type ty ty0
     val ii = map (fn {redex = x, residue = y} => (x,y)) i
@@ -533,6 +513,11 @@ in
     if ty = ``:word8`` then ``WORD8`` else
     if ty = ``:num`` then ``NUM`` else
     if ty = ``:int`` then ``INT`` else
+    if can dest_vector_type ty then let
+      val inv = get_type_inv (dest_vector_type ty)
+      in VECTOR_TYPE_def |> ISPEC inv |> SPEC_ALL
+         |> concl |> dest_eq |> fst |> rator |> rator end
+    else
       list_inst_type_inv ty (!other_types)
       handle HOL_ERR _ => raise UnsupportedType ty
   fun new_type_inv ty inv = (other_types := (ty,inv) :: (!other_types))
@@ -954,7 +939,7 @@ fun list_dest f tm =
   handle HOL_ERR _ => [tm];
 
 (*
-  val ty = ``:v``
+  val ty = ``:'a list``
   val tys = find_mutrec_types ty
 *)
 
@@ -1048,7 +1033,8 @@ fun define_ref_inv tys = let
 (*
   Define [ANTIQUOTE def_tm]
 *)
-  val inv_def = tDefine name [ANTIQUOTE def_tm] tac
+  val inv_def = if is_list_type then LIST_TYPE_def else
+                  tDefine name [ANTIQUOTE def_tm] tac
   val inv_def = CONV_RULE (DEPTH_CONV ETA_CONV) inv_def
   val inv_def = REWRITE_RULE [GSYM rw_lemmas] inv_def
   val _ = save_thm(name ^ "_def",inv_def)
@@ -1163,7 +1149,6 @@ val ty = ``:'a # 'b``; derive_thms_for_type ty
 val ty = ``:'a + num``; derive_thms_for_type ty
 val ty = ``:num option``; derive_thms_for_type ty
 val ty = ``:unit``; derive_thms_for_type ty
-
 *)
 
 fun derive_thms_for_type ty = let
@@ -1378,13 +1363,13 @@ fun derive_thms_for_type ty = let
           \\ ASM_REWRITE_TAC [evaluate_Mat]
           \\ Q.LIST_EXISTS_TAC [`v`,`0,empty_store`] \\ ASM_REWRITE_TAC []
           \\ PairCases_on `env`
-          \\ FULL_SIMP_TAC (srw_ss()) [pmatch_def,bind_def,pat_bindings_def,
+          \\ FULL_SIMP_TAC (srw_ss()) [pmatch_def,pat_bindings_def,
                   lookup_cons_def,same_tid_def,id_to_n_def,
                   same_ctor_def,write_def]
           \\ NTAC n
             (ONCE_REWRITE_TAC [evaluate_match_rw]
              \\ ASM_SIMP_TAC (srw_ss()) [pat_bindings_def,pmatch_def,
-                  same_ctor_def,same_tid_def,id_to_n_def,write_def,bind_def])
+                  same_ctor_def,same_tid_def,id_to_n_def,write_def])
     val tac = init_tac THENL (map (fn (n,f,fxs,pxs,tm,exp,xs) => case_tac n) ts)
 (*
 val n = 1
@@ -1446,7 +1431,6 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
     val input = mk_var("input",type_of x)
     val inv_lhs = subst [x|->input] inv_lhs
     val (case_lemma,ts) = prove_case_of_lemma (ty,case_th,inv_lhs,inv_def)
-
     val conses = print_time "conses" (map (derive_cons ty inv_lhs inv_def)) ts
     in (ty,eq_lemma,inv_def,conses,case_lemma,ts) end
   val res = map make_calls (zip case_thms inv_defs)
@@ -1601,7 +1585,7 @@ fun inst_case_thm tm hol2deep = let
     val (z1,z2) = dest_imp (concl lemma)
     val thz =
       QCONV (SIMP_CONV std_ss [ASSUME x1,Eval_Var_SIMP,
-               lookup_def,lookup_var_write] THENC
+               lookup_var_write] THENC
              DEPTH_CONV stringLib.string_EQ_CONV THENC
              SIMP_CONV std_ss []) z1 |> DISCH x1
     val lemma = MATCH_MP sat_hyp_lemma (CONJ thz lemma)
@@ -2066,7 +2050,7 @@ fun inst_Eval_env v th = let
   val assum = ``Eval env (Var (Short ^str)) (^inv ^v)``
   val new_env = ``write ^str (v:v) env``
   val old_env = new_env |> rand
-  val c = SIMP_CONV bool_ss [Eval_Var_SIMP,lookup_def,lookup_var_write]
+  val c = SIMP_CONV bool_ss [Eval_Var_SIMP,lookup_var_write]
           THENC DEPTH_CONV stringLib.string_EQ_CONV
           THENC REWRITE_CONV []
   val c = (RATOR_CONV o RAND_CONV) c THENC
@@ -2112,7 +2096,7 @@ fun apply_Eval_Recclosure recc fname v th = let
               |> CONV_RULE ((FORALL_CONV o FORALL_CONV o
                              RATOR_CONV o RAND_CONV) EVAL)
   val pat = lemma |> concl |> find_term (can
-               (match_term ``find_recfun name (funs :(tvarN, tvarN # exp) env)``))
+               (match_term ``find_recfun name (funs:('a,'b # 'c) alist)``))
   val lemma = SIMP_RULE std_ss [EVAL pat] lemma
   val inv = get_type_inv (type_of v)
   val pat = lemma |> concl |> find_term (can (match_term ``Eval env``))
@@ -2123,7 +2107,7 @@ fun apply_Eval_Recclosure recc fname v th = let
   val thx = th |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
                |> DISCH_ALL |> DISCH assum (* |> SIMP_RULE bool_ss [] *)
                |> INST [old_env|->new_env]
-               |> PURE_REWRITE_RULE [Eval_Var_SIMP,lookup_def,
+               |> PURE_REWRITE_RULE [Eval_Var_SIMP,
                                      lookup_var_write,lookup_cons_write]
                |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
                |> REWRITE_RULE [SafeVar_def]
@@ -2135,10 +2119,10 @@ fun apply_Eval_Recclosure recc fname v th = let
   val th2 = MATCH_MP lemma (Q.INST [`env`|->`cl_env`] (GEN ``v:v`` th1))
   val assum = ASSUME (fst (dest_imp (concl th2)))
   val th3 = D th2 |> REWRITE_RULE [assum]
-                  |> REWRITE_RULE [Eval_Var_SIMP,lookup_def,
+                  |> REWRITE_RULE [Eval_Var_SIMP,
                        lookup_var_write,FOLDR,write_rec_thm]
                   |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV)
-                  |> REWRITE_RULE [Eval_Var_SIMP,lookup_def,lookup_var_write,FOLDR]
+                  |> REWRITE_RULE [Eval_Var_SIMP,lookup_var_write,FOLDR]
                   |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
                   |> REWRITE_RULE [SafeVar_def]
   val lemma = Eval_Eq_Recclosure |> UNDISCH
@@ -2240,6 +2224,13 @@ val Num_ABS_pat = Eval_Num_ABS |> concl |> rand |> rand |> rand
 val int_of_num_pat = Eval_int_of_num |> concl |> rand |> rand |> rand
 val int_of_num_o_pat = Eval_int_of_num_o |> concl |> rand |> rand |> rand
 val o_int_of_num_pat = Eval_o_int_of_num |> concl |> rand |> rand |> rand
+
+val vec_vec_pat = Eval_vector |> SPEC_ALL |> RW [AND_IMP_INTRO]
+  |> concl |> dest_imp |> snd |> rand |> rand
+val vec_sub_pat = Eval_sub |> SPEC_ALL |> RW [AND_IMP_INTRO]
+  |> concl |> dest_imp |> snd |> rand |> rand
+val vec_len_pat = Eval_length |> SPEC_ALL |> RW [AND_IMP_INTRO]
+  |> concl |> dest_imp |> snd |> rand |> rand
 
 (*
 val tm = rhs
@@ -2424,6 +2415,22 @@ fun hol2deep tm =
     val thi = SIMP_RULE std_ss [EVERY_MEM_CONTAINER] thi
     val result = thi |> UNDISCH_ALL
     in check_inv "map" tm result end handle HOL_ERR _ =>
+  (* vectors *)
+  if can (match_term vec_vec_pat) tm then let
+    val th1 = hol2deep (rand tm)
+    val result = MATCH_MP Eval_vector th1
+    in check_inv "vec_vec" tm result end else
+  if can (match_term vec_sub_pat) tm then let
+    val th1 = hol2deep (rand (rator tm))
+    val th2 = hol2deep (rand tm)
+    val result = MATCH_MP Eval_sub th1
+    val result = MATCH_MP result th2
+    val result = result |> UNDISCH
+    in check_inv "vec_sub" tm result end else
+  if can (match_term vec_len_pat) tm then let
+    val th1 = hol2deep (rand tm)
+    val result = MATCH_MP Eval_length th1
+    in check_inv "vec_len" tm result end else
   (* normal function applications *)
   if is_comb tm then let
     val (f,x) = dest_comb tm
@@ -2975,8 +2982,7 @@ val _ = (max_print_depth := 25)
         \\ REPEAT STRIP_TAC
         \\ MATCH_MP_TAC PreImp_IMP
         \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV pres))
-        \\ STRIP_TAC
-        THENL (map MATCH_MP_TAC (map (fst o snd) goals))
+        \\ (STRIP_TAC THENL (map MATCH_MP_TAC (map (fst o snd) goals)))
         \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
         \\ REPEAT STRIP_TAC
         \\ FULL_SIMP_TAC (srw_ss()) [ADD1]

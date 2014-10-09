@@ -134,8 +134,8 @@ fun derive_case_of ty = let
         THEN1 (IMP_RES_TAC evaluate_empty_store_IMP \\ FULL_SIMP_TAC std_ss [])
         \\ PairCases_on `env`
         \\ REWRITE_TAC [evaluate_match_Conv,LENGTH,pmatch_def]
-        \\ FULL_SIMP_TAC (srw_ss()) [pmatch_def,bind_def,pat_bindings_def,
-              lookup_con_id_def,lookup_cons_def,same_tid_def,id_to_n_def,
+        \\ FULL_SIMP_TAC (srw_ss()) [pmatch_def,pat_bindings_def,
+              lookup_alist_mod_env_def,lookup_cons_def,same_tid_def,id_to_n_def,
               same_ctor_def,write_def]
 (*
   val _ = set_goal([],goal)
@@ -231,7 +231,7 @@ fun inst_case_thm tm m2deep = let
     val (x1,x2) = dest_conj x handle HOL_ERR _ => (T,x)
     val (z1,z2) = dest_imp (concl lemma)
     val thz =
-      QCONV (SIMP_CONV std_ss [ASSUME x1,Eval_Var_SIMP,lookup_def] THENC
+      QCONV (SIMP_CONV std_ss [ASSUME x1,Eval_Var_SIMP] THENC
              ONCE_REWRITE_CONV [EvalM_Var_SIMP] THENC
              ONCE_REWRITE_CONV [EvalM_Var_SIMP] THENC
              REWRITE_CONV [lookup_cons_write,lookup_var_write] THENC
@@ -269,7 +269,7 @@ fun inst_EvalM_env v th = let
   val th = thx |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
                |> DISCH_ALL |> DISCH assum |> SIMP_RULE bool_ss []
                |> INST [old_env|->new_env]
-               |> SIMP_RULE bool_ss [Eval_Var_SIMP,lookup_def,lookup_var_write]
+               |> SIMP_RULE bool_ss [Eval_Var_SIMP,lookup_var_write]
                |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
                |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
                |> REWRITE_RULE [lookup_cons_write,lookup_var_write]
@@ -301,7 +301,7 @@ fun apply_EvalM_Recclosure fname v th = let
   val thx = th |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
                |> DISCH_ALL |> DISCH assum |> SIMP_RULE bool_ss []
                |> INST [old_env|->new_env]
-               |> SIMP_RULE bool_ss [Eval_Var_SIMP,lookup_def]
+               |> SIMP_RULE bool_ss [Eval_Var_SIMP]
                |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
                |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
                |> REWRITE_RULE [lookup_cons_write,lookup_var_write,write_rec_one]
@@ -391,7 +391,7 @@ fun m2deep tm =
     val th1 = m2deep x
     val th2 = m2deep y
     val th2 = th2 |> DISCH_ALL |> Q.INST [`env`|->`write "v" i env`]
-                  |> REWRITE_RULE [Eval_Var_SIMP2,lookup_def,lookup_cons_write]
+                  |> REWRITE_RULE [Eval_Var_SIMP2,lookup_cons_write]
                   |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
                   |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
                   |> REWRITE_RULE [lookup_cons_write,lookup_var_write]
