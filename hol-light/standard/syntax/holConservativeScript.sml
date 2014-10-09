@@ -297,18 +297,94 @@ val vfree_in_remove_const = Q.prove (
            fs []) >>
  metis_tac [CLOSED_INST, CLOSED_def]);
 
- (*
 val type_ok_remove_upd = Q.prove (
 `!sig ty.
   type_ok sig ty
   ⇒
   !ctxt upd.
+    (!name arity. upd ≠ NewType name arity) ∧
+    (!name pred v2 v3. upd ≠ TypeDefn name pred v2 v3) ∧
     sig = alist_to_fmap (types_of_upd upd) ⊌ tysof ctxt
     ⇒
     type_ok (tysof ctxt) ty`,
  ho_match_mp_tac type_ok_ind >>
- rw [type_ok_def] >>
+ rw [type_ok_def]
+ >- (Cases_on `upd` >>
+     fs [FLOOKUP_UPDATE, FLOOKUP_FUNION] >>
+     every_case_tac >>
+     fs []) >>
+ fs [EVERY_MEM] >>
+ rw [] >>
+ metis_tac []);
 
+val term_ok_remove_upd = Q.prove (
+`!upd ctxt tm.
+  term_ok (alist_to_fmap (types_of_upd upd) ⊌ tysof ctxt, alist_to_fmap (consts_of_upd upd) ⊌ tmsof ctxt) tm ∧
+  upd updates ctxt ∧
+  (!consts p. upd = ConstSpec consts p)
+  ⇒
+  term_ok (sigof ctxt) (remove_const (upd_to_subst upd) tm)`,
+ Induct_on `tm` >>
+ rw [term_ok_def, remove_const_def]
+ >- metis_tac [type_ok_remove_upd, update_distinct]
+ >- (fs [updates_cases] >>
+     rw [] >>
+     every_case_tac >>
+     fs [term_ok_def] >>
+     cheat)
+ >- (fs [welltyped_def] >>
+     qexists_tac `ty` >>
+     match_mp_tac (SIMP_RULE (srw_ss()) [AND_IMP_INTRO, PULL_FORALL] has_type_remove_const) >>
+     rw [] >>
+     metis_tac [updates_to_subst])
+ >- (fs [welltyped_def] >>
+     qexists_tac `ty'` >>
+     match_mp_tac (SIMP_RULE (srw_ss()) [AND_IMP_INTRO, PULL_FORALL] has_type_remove_const) >>
+     rw [] >>
+     metis_tac [updates_to_subst])
+ >- (imp_res_tac updates_to_subst >>
+     rw [typeof_remove_const])
+ >- metis_tac [type_ok_remove_upd, update_distinct]);
+
+ (*
+val theory_ok_remove_upd = Q.prove (
+`!sig ty.
+  theory_ok ((alist_to_fmap (types_of_upd upd) ⊌ tysof ctxt,
+              alist_to_fmap (consts_of_upd upd) ⊌ tmsof ctxt),
+             set (axexts_of_upd upd) ∪ set (conexts_of_upd upd) ∪ axsof ctxt) ∧
+    upd updates ctxt ∧
+    (!name arity. upd ≠ NewType name arity) ∧
+    (!name pred v2 v3. upd ≠ TypeDefn name pred v2 v3)
+  ⇒
+  theory_ok (thyof ctxt)`,
+
+ rw [theory_ok_def]
+ >- (fs [FRANGE_FLOOKUP, FLOOKUP_FUNION] >>
+     fs [PULL_EXISTS] >>
+     last_x_assum (qspecl_then [`ty`, `k`] assume_tac) >>
+     every_case_tac >>
+     rfs []
+     >- metis_tac [type_ok_remove_upd] >>
+     fs [updates_cases] >>
+     rfs [] >>
+     rw []
+     >- (imp_res_tac ALOOKUP_MEM >>
+         fs [MEM_MAP] >>
+         metis_tac [FST])
+     >- (imp_res_tac ALOOKUP_MEM >>
+         fs [MEM_MAP] >>
+         PairCases_on `y` >>
+         fs [] >>
+         metis_tac [FST]))
+ >- (res_tac >>
+ *)
+
+     
+
+
+
+
+ (*
 val term_ok_remove_const = Q.prove (
 `term_ok sig def ⇒ term_ok sig (remove_const c def tm) = term_ok sig tm`,
 
@@ -336,7 +412,8 @@ val update_conservative = Q.prove (
   ⇒
   !ctxt tms upd.
     lhs = (thyof (upd::ctxt),tms) ∧
-    upd updates ctxt
+    upd updates ctxt ∧
+    (!consts p. upd = ConstSpec consts p)
     ⇒
     (thyof ctxt,MAP (remove_const (upd_to_subst upd)) tms) |- remove_const (upd_to_subst upd) tm`,
  ho_match_mp_tac proves_ind >>
@@ -357,25 +434,28 @@ val update_conservative = Q.prove (
      >- (match_mp_tac type_ok_extend >>
          qexists_tac `tysof (sigof (thyof ctxt))` >>
          rw [] >>
-         cheat)
+         fs [] >>
+         metis_tac [type_ok_remove_upd, update_distinct])
      >- (unabbrev_all_tac >>
          first_x_assum (qspecl_then [`ctxt`, `upd`] mp_tac) >>
          rw [remove_const_eq, remove_const_def]))
  >- (rw [Once proves_cases] >>
      disj2_tac >>
      disj1_tac >>
-     rw []
+     rw [] >>
+     fs []
      >- cheat
      >- metis_tac [has_type_remove_const]
-     >- cheat)
+     >- metis_tac [term_ok_remove_upd])
  >- (rw [Once proves_cases] >>
      disj2_tac >>
      disj1_tac >>
      MAP_EVERY qexists_tac [`remove_const s t`, `ty`, `x`] >>
-     rw [remove_const_eq, remove_const_def]
+     rw [remove_const_eq, remove_const_def] >>
+     fs []
      >- cheat
-     >- cheat
-     >- cheat)
+     >- metis_tac [type_ok_remove_upd, update_distinct]
+     >- metis_tac [term_ok_remove_upd])
  >- (rw [Once proves_cases] >>
      ntac 3 disj2_tac >>
      disj1_tac >>
@@ -397,10 +477,12 @@ val update_conservative = Q.prove (
      ntac 6 disj2_tac >>
      disj1_tac >>
      MAP_EVERY qexists_tac [`remove_const s tm`, `MAP (remove_const s) h`, `tyin`] >>
-     rw []
+     rw [] >>
+     fs []
      >- cheat
      >- cheat
-     >- cheat
+     >- (fs [EVERY_MEM, MEM_MAP] >>
+         metis_tac [type_ok_remove_upd, update_distinct])
      >- cheat)
  >- (rw [Once proves_cases] >>
      ntac 7 disj2_tac >>
@@ -410,9 +492,10 @@ val update_conservative = Q.prove (
      ntac 7 disj2_tac >>
      disj1_tac >>
      qexists_tac `remove_const s t` >>
-     rw [remove_const_eq]
+     rw [remove_const_eq] >>
+     fs []
      >- cheat
-     >- cheat)
+     >- metis_tac [term_ok_remove_upd])
  >- (rw [Once proves_cases] >>
      ntac 9 disj2_tac >>
      disj1_tac >>
@@ -420,4 +503,3 @@ val update_conservative = Q.prove (
  >- (cheat));
 
 val _ = export_theory ();
-
