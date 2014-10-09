@@ -10,10 +10,7 @@ val real_inst_length_def = zDefine `
    | Stack (Pops v25) => if v25 <= 268435455 then 4 else 1
    | Stack (PushInt v28) =>
        if v28 <= 268435455 then if v28 < 0 then 1 else 4 else 1
-   | Stack (Cons v29 v30) =>
-       if v29 < 4096 /\ v30 < 32768 then
-         if v30 = 0 then 4 else if v30 < 32768 then 34 else 1
-       else 1
+   | Stack (Cons v29) => if v29 < 4096 then 34 else 1
    | Stack (Load v31) => if v31 <= 268435455 then 4 else 1
    | Stack (Store v32) => if v32 <= 268435455 then 4 else 1
    | Stack El => 6
@@ -62,11 +59,10 @@ val bc_num_def = Define `
        Stack Pop => (0:num,0:num,0:num)
      | Stack (Pops n) => (1,n,0)
      | Stack (PushInt i) => (3,Num (ABS i),if i < 0 then 1 else 0)
-     | Stack (Cons n m) => (4,n,m)
      | Stack (Load n) => (5,n,0)
      | Stack (Store n) => (6,n,0)
-     | Stack El => (50,0,0)
-     | Stack (Cons2 n) => (51,n,0)
+     | Stack El => (8,0,0)
+     | Stack (Cons n) => (4,n,0)
      | Stack (TagEq n) => (9,n,0)
      | Stack LengthBlock => (48,0,0)
      | Stack IsBlock => (10,0,0)
@@ -114,14 +110,13 @@ val num_bc_def = Define `
     else if n = 1 then Stack (Pops x1)
     else if n = 2 then Galloc x1
     else if n = 3 then Stack (PushInt (if x2 = 0 then &x1 else 0 - &x1))
-    else if n = 4 then Stack (Cons x1 x2)
     else if n = 5 then Stack (Load x1)
     else if n = 6 then Stack (Store x1)
     else if n = 7 then Gread x1
     else if n = 9 then Stack (TagEq x1)
     else if n = 48 then Stack LengthBlock
-    else if n = 50 then Stack El
-    else if n = 51 then Stack (Cons2 x1)
+    else if n = 8 then Stack El
+    else if n = 4 then Stack (Cons x1)
     else if n = 10 then Stack IsBlock
     else if n = 11 then Stack Equal
     else if n = 12 then Stack Add
@@ -447,13 +442,18 @@ val RTC_bc_next_output_squeeze = store_thm("RTC_bc_next_output_squeeze",
   REPEAT STRIP_TAC \\ IMP_RES_TAC RTC_bc_next_output_IS_PREFIX
   \\ METIS_TAC [rich_listTheory.IS_PREFIX_ANTISYM]);
 
+val is_Char_def = Define`
+  (is_Char (Number i) ⇔ 0 <= i ∧ i < 256) ∧
+  (is_Char _ = F)`
+val _ = export_rewrites["is_Char_def"]
+
 val bvs_to_chars_thm = store_thm("bvs_to_chars_thm",
   ``∀bvs ac. bvs_to_chars bvs ac =
-      if EVERY is_Number bvs then
+      if EVERY is_Char bvs then
          SOME(REVERSE ac ++ MAP (CHR o Num o ABS o dest_Number) bvs)
       else NONE``,
   Induct >> simp[bvs_to_chars_def] >>
-  Cases >> rw[bvs_to_chars_def])
+  Cases >> rw[bvs_to_chars_def] >> fs[])
 
 val between_labels_def = Define`
   between_labels bc l1 l2 ⇔

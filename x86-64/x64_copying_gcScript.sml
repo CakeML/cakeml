@@ -1,4 +1,4 @@
-open HolKernel Parse boolLib bossLib; val _ = new_theory "x64_copying_gc";
+open HolKernel Parse boolLib bossLib lcsymtacs; val _ = new_theory "x64_copying_gc";
 
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
@@ -44,10 +44,15 @@ val x64_payload_def = Define `
   (x64_payload ys l (RefTag) qs base =
      let h = n2w l << 16 + 1w in
      let ts = MAP (x64_addr base) ys in
-     let c = (qs = []) /\ (LENGTH ys = 1) /\ (l = 1) in
+     let c = (qs = []) /\ (LENGTH ys = l) /\ (l < 2 ** (64 - 16)) in
        (h,ts,c)) /\
   (x64_payload ys l (NumTag b) qs base =
      let h = n2w l << 16 + 2w + b2w b in
+     let ts = qs in
+     let c = (ys = []) /\ (LENGTH qs = l) /\ l < 2 ** (64 - 16) in
+       (h,ts,c)) /\
+  (x64_payload ys l (BytesTag n) qs base =
+     let h = n2w l << 16 + n2w (n MOD 8) << 13 + 6w in
      let ts = qs in
      let c = (ys = []) /\ (LENGTH qs = l) /\ l < 2 ** (64 - 16) in
        (h,ts,c))`;
@@ -197,20 +202,35 @@ val blast_lemma2 = blastLib.BBLAST_PROVE ``
 val x64_payload_test = prove(
   ``!x1 x2 x3.
       (x64_payload ys l x qs base = (x1,x2,T)) ==>
-      if x1 && 2w = 0w then (x2 = MAP (x64_addr base) ys) else (ys = []) /\ ?b. x = NumTag b``,
+      if x1 && 2w = 0w then (x2 = MAP (x64_addr base) ys) else (ys = []) /\
+        ((?b. x = NumTag b) ∨ (?n. x = BytesTag n))``,
   Cases_on `x` \\ FULL_SIMP_TAC std_ss [x64_payload_def,LET_DEF]
   \\ REPEAT STRIP_TAC
   THEN1 (DISJ1_TAC \\ blastLib.BBLAST_TAC) THEN1 (DISJ1_TAC \\ blastLib.BBLAST_TAC)
-  \\ Cases_on `b` \\ FULL_SIMP_TAC (srw_ss()) [b2w_def]
-  \\ POP_ASSUM MP_TAC \\ blastLib.BBLAST_TAC);
+  THEN1 (
+    Cases_on `b` \\ FULL_SIMP_TAC (srw_ss()) [b2w_def]
+  \\ POP_ASSUM MP_TAC \\ blastLib.BBLAST_TAC)
+  \\ (
+    REV_FULL_SIMP_TAC (srw_ss()) [GSYM word_add_n2w,GSYM word_mul_n2w]
+    \\ rpt strip_tac >> spose_not_then strip_assume_tac
+    \\ pop_assum kall_tac >> pop_assum mp_tac >> simp[]
+    \\ blastLib.BBLAST_TAC));
 
 val x64_payload_new = prove(
   ``(x64_payload ys l x qs base = (x1,x2,T)) /\ (x1 && 2w = 0w) /\
     (LENGTH ys2 = LENGTH ys) ==>
     (x64_payload ys2 l x qs base2 = (x1,MAP (x64_addr base2) ys2,T))``,
   Cases_on `x` \\ FULL_SIMP_TAC std_ss [x64_payload_def,LET_DEF]
-  \\ REPEAT STRIP_TAC \\ Cases_on `b` \\ FULL_SIMP_TAC std_ss [b2w_def]
-  \\ REPEAT (POP_ASSUM MP_TAC) \\ blastLib.BBLAST_TAC);
+  THEN1 (
+    REPEAT STRIP_TAC \\ Cases_on `b` \\ FULL_SIMP_TAC std_ss [b2w_def]
+  \\ REPEAT (POP_ASSUM MP_TAC) \\ blastLib.BBLAST_TAC)
+  THEN (
+    rw[] >> fs[LENGTH_NIL] >>
+    spose_not_then kall_tac >>
+    pop_assum kall_tac >> pop_assum mp_tac >>
+    simp[] >>
+    simp[GSYM word_mul_n2w,GSYM word_add_n2w] >>
+    blastLib.BBLAST_TAC));
 
 val x64_heap_APPEND = store_thm("x64_heap_APPEND",
   ``!xs ys a bf bd.
@@ -238,7 +258,11 @@ val x64_payload_not_ptr = prove(
    (`n MOD 4096 < 4096` by FULL_SIMP_TAC (srw_ss()) []
     \\ `n MOD 4096 < 18446744073709551616` by DECIDE_TAC
     \\ FULL_SIMP_TAC (srw_ss()) [WORD_LO])
-  \\ POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC \\ blastLib.BBLAST_TAC);
+  \\ `n2w (n MOD 8) = (w2w:3 word -> word64) (n2w (n MOD 8))` by (simp[w2w_def])
+  \\ fs[GSYM word_add_n2w,GSYM word_mul_n2w]
+  \\ pop_assum kall_tac
+  \\ TRY (POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC \\ blastLib.BBLAST_TAC \\ NO_TAC)
+  \\ qpat_assum`X = Y`mp_tac \\ fs[] \\ blastLib.BBLAST_TAC);
 
 val LESS_EQ_APPEND = prove(
   ``!xs n. n <= LENGTH xs ==> ?ys1 ys2. (xs = ys1 ++ ys2) /\ (LENGTH ys1 = n)``,
@@ -557,7 +581,8 @@ val x64_move_loop_thm = prove(
   \\ IMP_RES_TAC x64_payload_test
   \\ IMP_RES_TAC x64_payload_not_ptr
   \\ IMP_RES_TAC x64_payload_length
-  \\ REVERSE (Cases_on `x1 && 0x2w = 0x0w`) \\ FULL_SIMP_TAC std_ss [] THEN1
+  \\ REVERSE (Cases_on `x1 && 0x2w = 0x0w`) \\ FULL_SIMP_TAC std_ss [] THEN
+  TRY
    (FULL_SIMP_TAC std_ss [GSYM word_mul_n2w,blast_lemma2,
       AC WORD_AND_COMM WORD_AND_ASSOC]
     \\ Q.PAT_ABBREV_TAC `dd = DataElement [] n' xx : (bool[63], tag # bool[64] list) heap_element`
@@ -593,12 +618,15 @@ val x64_move_loop_thm = prove(
     \\ Q.UNABBREV_TAC `dd` \\ FULL_SIMP_TAC std_ss [x64_el_def]
     \\ `x64_payload [] n' (NumTag b') qs b2 = x64_payload [] n' (NumTag b') qs b1` by
           FULL_SIMP_TAC std_ss [x64_payload_def]
+    \\ `x64_payload [] n' (BytesTag n''') qs b2 = x64_payload [] n' (BytesTag n''') qs b1` by
+          FULL_SIMP_TAC std_ss [x64_payload_def]
     \\ FULL_SIMP_TAC std_ss [LET_DEF,STAR_ASSOC,SEP_CLAUSES]
     \\ FULL_SIMP_TAC (srw_ss()) [heap_length_APPEND,heap_length_def,el_length_def,LEFT_ADD_DISTRIB]
     \\ FULL_SIMP_TAC (std_ss++star_ss) []
     \\ FULL_SIMP_TAC std_ss [STAR_ASSOC]
     \\ Q.PAT_ASSUM `xxx (fun2set yyy)` MP_TAC
-    \\ FULL_SIMP_TAC std_ss [gc_move_list_def,word_arith_lemma1])
+    \\ FULL_SIMP_TAC std_ss [gc_move_list_def,word_arith_lemma1]
+    \\ NO_TAC)
   \\ Q.MATCH_ASSUM_RENAME_TAC `LENGTH x2 = k` []
   \\ MP_TAC (Q.SPECL [`l`,`[]`,`n`,`h2`,`c`,`limit`,`ys3`,`b3`] x64_move_list_thm)
   \\ FULL_SIMP_TAC std_ss [EVAL ``heap_length []``,SUM,ADD_0]

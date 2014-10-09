@@ -8,9 +8,7 @@ val bc_eval_stack_def = Define`
    if k ≤ LENGTH xs then SOME (x::(DROP k xs)) else NONE)
 ∧ (bc_eval_stack (PushInt n) xs =
    SOME (Number n::xs))
-∧ (bc_eval_stack (Cons tag k) xs =
-   if k ≤ LENGTH xs then SOME (Block tag (REVERSE (TAKE k xs))::(DROP k xs)) else NONE)
-∧ (bc_eval_stack (Cons2 tag) (Number k::xs) =
+∧ (bc_eval_stack (Cons tag) (Number k::xs) =
    if 0 ≤ k ∧ Num k ≤ LENGTH xs then SOME (Block tag (REVERSE (TAKE (Num k) xs))::(DROP (Num k) xs)) else NONE)
 ∧ (bc_eval_stack (Load k) xs =
    if k < LENGTH xs then SOME (EL k xs::xs) else NONE)
@@ -66,8 +64,6 @@ fs[bc_eval_stack_def,bc_stack_op_cases] >> rw[]
 >- (
   qmatch_assum_rename_tac `n ≤ LENGTH t` [] >>
   qexists_tac `TAKE n t` >> rw[])
->- (
-  Cases_on`n0`>>fsrw_tac[ARITH_ss][] )
 >- (
   Cases_on`h`>>fs[bc_eval_stack_def] >> rw[] >>
   rw[INT_OF_NUM] )
