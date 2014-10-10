@@ -370,6 +370,16 @@ fun m2deep tm =
     val th = List.foldl (Lib.uncurry PROVE_HYP) th asms
     val result = EvalM_failwith |> SPEC (rand tm) |> ISPEC inv
                  |> UNDISCH |> Lib.C MATCH_MP th
+    in check_inv "failwith" tm result end else
+  (* clash *)
+  if can (match_term ``(\state. (HolErr (Clash t),state)):'a M``) tm then let
+    val ty = dest_monad_type (type_of tm)
+    val inv = smart_get_type_inv ty
+    val th = hol2deep (rand tm)
+    val asms = List.mapPartial (Lib.total DECIDE) (hyp th)
+    val th = List.foldl (Lib.uncurry PROVE_HYP) th asms
+    val result = EvalM_clash |> SPEC (rand tm) |> ISPEC inv
+                 |> UNDISCH |> Lib.C MATCH_MP th
     in check_inv "failwith" tm result end
   (* return *)
   else if can (match_term ``(ex_return x):'a M``) tm then let

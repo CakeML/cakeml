@@ -58,13 +58,6 @@ val Eval_CHAR_LT = prove(
   |> MATCH_MP (MATCH_MP Eval_WEAKEN (hol2deep ``\m n. m < n:num``))
   |> store_eval_thm;
 
-(*
-val res = translate string_lt_def;
-val res = translate string_le_def;
-val res = translate string_gt_def;
-val res = translate string_ge_def;
-*)
-
 (* construct type refinement invariants *)
 
 val _ = register_type ``:type``;
@@ -85,7 +78,7 @@ val type_ind = store_thm("type_ind",
   \\ EVAL_TAC \\ IMP_RES_TAC MEM_type_size \\ DECIDE_TAC);
 
 val LIST_TYPE_def = fetch "-" "LIST_TYPE_def"
-val (*HOL_KERNEL_*)TYPE_TYPE_def = fetch "-" "TYPE_TYPE_def"
+val TYPE_TYPE_def = fetch "-" "TYPE_TYPE_def"
 
 val LIST_TYPE_NO_CLOSURES = prove(
   ``!xs v.
@@ -125,22 +118,22 @@ val LIST_TYPE_CHAR_LEMMA = prove(
   METIS_TAC (eq_lemmas ()));
 
 val EqualityType_TYPE = prove(
-  ``EqualityType (*HOL_KERNEL_*)TYPE_TYPE``,
+  ``EqualityType TYPE_TYPE``,
   SIMP_TAC std_ss [EqualityType_thm] \\ STRIP_TAC THEN1
    (HO_MATCH_MP_TAC type_ind
-    \\ FULL_SIMP_TAC std_ss [(*HOL_KERNEL_*)TYPE_TYPE_def]
+    \\ FULL_SIMP_TAC std_ss [TYPE_TYPE_def]
     \\ REPEAT STRIP_TAC
     \\ FULL_SIMP_TAC std_ss [no_closures_def,EVERY_DEF]
     \\ IMP_RES_TAC (LIST_TYPE_NO_CLOSURES |> GEN_ALL)
     \\ METIS_TAC [CHAR_IMP_no_closures])
   \\ HO_MATCH_MP_TAC type_ind \\ REVERSE STRIP_TAC THEN1
    (REPEAT STRIP_TAC
-    \\ Cases_on `x2` \\ FULL_SIMP_TAC (srw_ss()) [(*HOL_KERNEL_*)TYPE_TYPE_def]
+    \\ Cases_on `x2` \\ FULL_SIMP_TAC (srw_ss()) [TYPE_TYPE_def]
     \\ FULL_SIMP_TAC (srw_ss()) [types_match_def]
     \\ ASSUME_TAC LIST_TYPE_CHAR_LEMMA
     \\ FULL_SIMP_TAC std_ss [EqualityType_def] \\ RES_TAC)
   \\ REPEAT GEN_TAC \\ STRIP_TAC \\ REPEAT GEN_TAC \\ STRIP_TAC
-  \\ Cases_on `x2` \\ FULL_SIMP_TAC (srw_ss()) [(*HOL_KERNEL_*)TYPE_TYPE_def]
+  \\ Cases_on `x2` \\ FULL_SIMP_TAC (srw_ss()) [TYPE_TYPE_def]
   \\ FULL_SIMP_TAC (srw_ss()) [types_match_def]
   \\ MATCH_MP_TAC (METIS_PROVE [] ``(b1 /\ (x1 = y1)) /\ (b2 /\ (x2 = y2)) ==>
        (b1 /\ b2) /\ ((x1 /\ x2 <=> y1 /\ y2))``)
@@ -149,7 +142,7 @@ val EqualityType_TYPE = prove(
     \\ FULL_SIMP_TAC std_ss [EqualityType_def] \\ RES_TAC
     \\ ASM_SIMP_TAC std_ss [])
   \\ MATCH_MP_TAC LIST_TYPE_11
-  \\ Q.EXISTS_TAC `(*HOL_KERNEL_*)TYPE_TYPE`
+  \\ Q.EXISTS_TAC `TYPE_TYPE`
   \\ FULL_SIMP_TAC std_ss []
   \\ REPEAT STRIP_TAC \\ RES_TAC)
   |> store_eq_thm;
@@ -158,12 +151,14 @@ val _ = register_type ``:term``;
 val _ = register_type ``:thm``;
 val _ = register_type ``:update``;
 
+val _ = register_exn_type ``:hol_exn``;
+
 (*
   fetch "-" "PAIR_TYPE_def";
   fetch "-" "LIST_TYPE_def";
   fetch "-" "TYPE_TYPE_def";
   fetch "-" "TERM_TYPE_def";
-  fetch "-" "(*HOL_KERNEL_*)THM_TYPE_def";
+  fetch "-" "THM_TYPE_def";
 *)
 
 (* definition of EvalM *)
@@ -187,20 +182,6 @@ val EvalM_def = Define `
              ?s2 res refs2. evaluate F env (0,s) exp ((0,s2),res) /\
                             P (refs,s) (refs2,s2,res) /\ HOL_STORE s2 refs2`;
 
-val EXN1_TYPE_def = Define`
-  EXN1_TYPE id P v ⇔
-    ∃w. v = Conv (SOME (id_to_n id, TypeExn id)) [w] ∧
-        P w`
-
-val HOL_ERR_def = Define`
-  HOL_ERR (Fail msg) = EXN1_TYPE (Short "Fail") (LIST_TYPE CHAR msg) ∧
-  HOL_ERR (Clash tm) = EXN1_TYPE (Long "Kernel" "Clash") (TERM_TYPE tm)`
-
-val contains_exceptions_def = Define`
-  contains_exceptions (cenv:envC) ⇔
-  lookup_alist_mod_env (Short "Fail") cenv = SOME (1,TypeExn(Short"Fail")) ∧
-  lookup_alist_mod_env (Long "Kernel" "Clash") cenv = SOME (1,TypeExn(Long"Kernel""Clash"))`
-
 (* refinement invariant for ``:'a M`` *)
 
 val _ = type_abbrev("M", ``:hol_refs -> 'a hol_result # hol_refs``);
@@ -211,7 +192,8 @@ val HOL_MONAD_def = Define `
                                       res: (v,v) result) =
     case (x state1, res) of
       ((HolRes y, state), Rval v) => (state = state2) /\ a y v
-    | ((HolErr e, state), Rerr (Rraise v)) => (state = state2) /\ HOL_ERR e v
+    | ((HolErr e, state), Rerr (Rraise v)) => (state = state2) /\
+                                              HOL_EXN_TYPE e v
     | _ => F`
 
 (* return *)
@@ -495,9 +477,10 @@ val M_FUN_QUANT_SIMP = save_thm("M_FUN_QUANT_SIMP",
 
 val EvalM_failwith = store_thm("EvalM_failwith",
   ``!x a.
-      contains_exceptions (all_env_to_cenv env) ⇒
-      Eval env exp1 (LIST_TYPE CHAR x) ⇒
-      EvalM env (Raise (Con(SOME(Short"Fail"))[exp1])) (HOL_MONAD a (failwith x))``,
+      (lookup_cons "Fail" env = SOME (1,TypeExn (Long "Kernel" "Fail"))) ==>
+      Eval env exp1 (LIST_TYPE CHAR x) ==>
+      EvalM env (Raise (Con (SOME (Short "Fail")) [exp1]))
+        (HOL_MONAD a (failwith x))``,
   rw[Eval_def,EvalM_def,HOL_MONAD_def,failwith_def] >>
   rw[Once evaluate_cases] >>
   rw[Once evaluate_cases] >>
@@ -506,8 +489,32 @@ val EvalM_failwith = store_thm("EvalM_failwith",
   fs[evaluate_empty_store_EQ] >>
   rw[Once(CONJUNCT2 evaluate_cases)] >>
   rw[do_con_check_def,build_conv_def] >>
-  fs[contains_exceptions_def] >>
-  rw[HOL_ERR_def,EXN1_TYPE_def] >>
+  fs [lookup_cons_def] >>
+  PairCases_on `env` >>
+  fs [lookup_alist_mod_env_def,all_env_to_cenv_def] >>
+  fs[theorem "HOL_EXN_TYPE_def",id_to_n_def] >>
+  METIS_TAC[]);
+
+(* clash *)
+
+val EvalM_clash = store_thm("EvalM_clash",
+  ``!x a.
+      (lookup_cons "Clash" env = SOME (1,TypeExn (Long "Kernel" "Clash"))) ==>
+      Eval env exp1 (TERM_TYPE tm) ==>
+      EvalM env (Raise (Con (SOME (Short "Clash")) [exp1]))
+        (HOL_MONAD a ((\state. (HolErr (Clash tm),state))))``,
+  rw[Eval_def,EvalM_def,HOL_MONAD_def,failwith_def] >>
+  rw[Once evaluate_cases] >>
+  rw[Once evaluate_cases] >>
+  srw_tac[boolSimps.DNF_ss][] >> disj1_tac >>
+  rw[Once evaluate_cases,PULL_EXISTS] >>
+  fs[evaluate_empty_store_EQ] >>
+  rw[Once(CONJUNCT2 evaluate_cases)] >>
+  rw[do_con_check_def,build_conv_def] >>
+  fs [lookup_cons_def] >>
+  PairCases_on `env` >>
+  fs [lookup_alist_mod_env_def,all_env_to_cenv_def] >>
+  fs[theorem "HOL_EXN_TYPE_def",id_to_n_def] >>
   METIS_TAC[]);
 
 (* otherwise *)
@@ -715,6 +722,7 @@ val obviously_pure_def = tDefine "obviously_pure" `
 
 val simple_decl_def = Define `
   (simple_decl (Dtype y) = T) /\
+  (simple_decl (Dexn n l) = T) /\
   (simple_decl (Dlet (Pvar k) (App Opref [exp])) = obviously_pure exp) /\
   (simple_decl _ = F)`
 
@@ -735,6 +743,8 @@ val obviously_pure_IMP = prove(
   \\ Induct_on `xs` \\ SIMP_TAC (srw_ss()) [evaluate_SIMP,PULL_EXISTS]
   \\ REPEAT STRIP_TAC \\ RES_TAC \\ FULL_SIMP_TAC std_ss []);
 
+
+
 val LENGTH_FILTER_decl_let = prove(
   ``!ds s1 s2 env env2 tys.
       EVERY simple_decl ds /\ Decls mn env ((0,s1),tys) ds env2 s2 ==>
@@ -745,6 +755,7 @@ val LENGTH_FILTER_decl_let = prove(
   \\ TRY (Cases_on `e`) \\ FULL_SIMP_TAC std_ss [decl_let_def,simple_decl_def]
   \\ TRY (Cases_on `p`) \\ FULL_SIMP_TAC std_ss [decl_let_def,simple_decl_def]
   \\ TRY (Cases_on `u`) \\ FULL_SIMP_TAC std_ss [decl_let_def,simple_decl_def]
+  \\ FULL_SIMP_TAC std_ss [Decls_Dexn] \\ SRW_TAC [] [] \\ RES_TAC
   \\ FULL_SIMP_TAC std_ss [Decls_Dtype] \\ SRW_TAC [] [] \\ RES_TAC
   \\ FULL_SIMP_TAC std_ss [Decls_Dlet]
   \\ Cases_on `o'` \\ fs [simple_decl_def]
