@@ -809,7 +809,9 @@ val DeclAssum_def = zDefine `
           ((THE prim_sem_env).sem_envM,(THE prim_sem_env).sem_envC,(THE prim_sem_env).sem_envE)
           (FST (THE prim_sem_env).sem_store,FST(SND(THE prim_sem_env).sem_store))
           ds env ((0,s),tys)`;
-val _ = computeLib.add_funs [DeclAssum_def |> SIMP_RULE (srw_ss()) [initSemEnvTheory.prim_sem_env_eq]]
+
+val _ = computeLib.add_funs
+  [DeclAssum_def |> SIMP_RULE (srw_ss()) [initSemEnvTheory.prim_sem_env_eq]];
 
 val write_tds_def = Define `
   write_tds mn tds ((menv1,cenv1,env1):all_env) =
@@ -831,6 +833,26 @@ val Decls_Dtype = store_thm("Decls_Dtype",
   \\ Cases_on `s` \\ SIMP_TAC std_ss [PULL_EXISTS,write_tds_def]
   \\ REPEAT STRIP_TAC \\ PairCases_on `env`
   \\ FULL_SIMP_TAC std_ss [write_tds_def,AC CONJ_COMM CONJ_ASSOC,APPEND]);
+
+val write_exn_def = Define `
+  write_exn mn n l ((menv1,cenv1,env1):all_env) =
+    (menv1,merge_alist_mod_env ([],[(n,LENGTH l,TypeExn (mk_id mn n))]) cenv1,
+       env1):all_env`;
+
+val Decls_Dexn = store_thm("Decls_Dexn",
+  ``!mn env s n l env2 s2.
+      Decls mn env s [Dexn n l] env2 s2 <=>
+      TypeExn (mk_id mn n) NOTIN (SND s) /\
+      s2 = (FST s,{TypeExn (mk_id mn n)} UNION (SND s)) /\
+      env2 = write_exn mn n l env``,
+  SIMP_TAC std_ss [Decls_def]
+  \\ ONCE_REWRITE_TAC [evaluate_decs_cases] \\ SIMP_TAC (srw_ss()) []
+  \\ ONCE_REWRITE_TAC [evaluate_decs_cases] \\ SIMP_TAC (srw_ss()) []
+  \\ SIMP_TAC (srw_ss()) [evaluate_dec_cases, combine_dec_result_def,
+                          all_env_to_cenv_def]
+  \\ Cases_on `s` \\ SIMP_TAC std_ss [PULL_EXISTS,write_tds_def]
+  \\ REPEAT STRIP_TAC \\ PairCases_on `env`
+  \\ fs [write_tds_def,AC CONJ_COMM CONJ_ASSOC,APPEND,write_exn_def]);
 
 val Decls_Dlet = store_thm("Decls_Dlet",
   ``!mn env s1 v e s2 env2.
@@ -1127,6 +1149,19 @@ val DeclAssum_Dtype = store_thm("DeclAssum_Dtype",
   \\ fs [Once evaluate_cases]
   \\ fs [Once evaluate_cases,lookup_var_id_def]);
 
+val DeclAssum_Dexn = store_thm("DeclAssum_Dexn",
+  ``(!env tys. DeclAssum mn ds env tys ==> Eval env (Var n) P) ==>
+    !m l. (!env tys. DeclAssum mn (SNOC (Dexn m l) ds) env tys ==>
+                     Eval env (Var n) P)``,
+  SRW_TAC [] []
+  \\ FULL_SIMP_TAC std_ss [DeclAssum_def,SNOC_APPEND,Decls_APPEND,Decls_Dexn]
+  \\ Cases_on `s2` \\ FULL_SIMP_TAC std_ss [] \\ SRW_TAC [] []
+  \\ RES_TAC \\ POP_ASSUM MP_TAC
+  \\ PairCases_on `env2`
+  \\ SIMP_TAC std_ss [Eval_def,write_exn_def]
+  \\ fs [Once evaluate_cases]
+  \\ fs [Once evaluate_cases,lookup_var_id_def]);
+
 val DeclAssum_Dlet = store_thm("DeclAssum_Dlet",
   ``!ds n P.
       (!env. DeclAssum mn ds env tys ==> Eval env (Var (Short n)) P) ==>
@@ -1343,6 +1378,19 @@ val DeclAssumExists_SNOC_Dtype = store_thm("DeclAssumExists_SNOC_Dtype",
   \\ RES_TAC \\ Q.LIST_EXISTS_TAC [`s`,`env`,`((0,s),tys)`]
   \\ FULL_SIMP_TAC std_ss []);
 
+val DeclAssumExists_SNOC_Dexn = store_thm("DeclAssumExists_SNOC_Dexn",
+  ``!funs ds.
+      DeclAssumExists mn ds ==>
+      !n l.
+         (!env tys.
+            DeclAssum mn ds env tys ==>
+            TypeExn (mk_id mn n) NOTIN tys) ==>
+         DeclAssumExists mn (SNOC (Dexn n l) ds)``,
+  SIMP_TAC std_ss [DeclAssumExists_def,PULL_EXISTS] \\ REPEAT STRIP_TAC
+  \\ FULL_SIMP_TAC std_ss [DeclAssum_def,Decls_APPEND,SNOC_APPEND,Decls_Dexn]
+  \\ FULL_SIMP_TAC std_ss [PULL_EXISTS] \\ RES_TAC
+  \\ Q.LIST_EXISTS_TAC [`s`,`env`,`((0,s),tys)`] \\ fs []);
+
 val DeclAssumExists_SNOC_Dlet_Fun = store_thm("DeclAssumExists_SNOC_Dlet_Fun",
   ``!ds name n exp.
       DeclAssumExists mn ds ==>
@@ -1545,6 +1593,19 @@ val DeclAssumCons_SNOC_Dtype = store_thm("DeclAssumCons_SNOC_Dtype",
   \\ PairCases_on `env2`
   \\ fs [type_defs_to_new_tdecs_def,mk_id_def,write_tds_def,
          merge_alist_mod_env_def]);
+
+val DeclAssumCons_SNOC_Dexn = store_thm("DeclAssumCons_SNOC_Dexn",
+  ``DeclAssumCons mn ds conses ce ==>
+    !n l.
+      DeclAssumCons mn (SNOC (Dexn n l) ds)
+        (TypeExn (mk_id mn n) :: conses)
+        ((n,LENGTH l,TypeExn (mk_id mn n)) :: ce)``,
+  fs [DeclAssumCons_def,DeclAssum_def,Decls_NIL,Decls_APPEND,SNOC_APPEND,
+    Decls_Dexn] \\ srw_tac [] [] \\ res_tac
+  \\ PairCases_on `s2` \\ fs [] \\ srw_tac [] [] \\ res_tac \\ fs []
+  \\ fs [pred_setTheory.INSERT_UNION_EQ]
+  \\ PairCases_on `env2`
+  \\ fs [write_exn_def,merge_alist_mod_env_def]);
 
 val EVERY_lookup_lemma = prove(
   ``!xs. ALL_DISTINCT (MAP FST xs) ==>
