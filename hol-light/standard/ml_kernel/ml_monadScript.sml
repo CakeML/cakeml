@@ -153,6 +153,8 @@ val _ = register_type ``:update``;
 
 val _ = register_exn_type ``:hol_exn``;
 
+val HOL_EXN_TYPE_def = theorem"HOL_EXN_TYPE_def"
+
 (*
   fetch "-" "PAIR_TYPE_def";
   fetch "-" "LIST_TYPE_def";
@@ -492,18 +494,18 @@ val EvalM_failwith = store_thm("EvalM_failwith",
   fs [lookup_cons_def] >>
   PairCases_on `env` >>
   fs [lookup_alist_mod_env_def,all_env_to_cenv_def] >>
-  fs[theorem "HOL_EXN_TYPE_def",id_to_n_def] >>
+  fs[HOL_EXN_TYPE_def,id_to_n_def] >>
   METIS_TAC[]);
 
 (* clash *)
 
-val EvalM_clash = store_thm("EvalM_clash",
+val EvalM_raise_clash = store_thm("EvalM_raise_clash",
   ``!x a.
       (lookup_cons "Clash" env = SOME (1,TypeExn (Long "Kernel" "Clash"))) ==>
-      Eval env exp1 (TERM_TYPE tm) ==>
+      Eval env exp1 (TERM_TYPE x) ==>
       EvalM env (Raise (Con (SOME (Short "Clash")) [exp1]))
-        (HOL_MONAD a ((\state. (HolErr (Clash tm),state))))``,
-  rw[Eval_def,EvalM_def,HOL_MONAD_def,failwith_def] >>
+        (HOL_MONAD a (raise_clash x))``,
+  rw[Eval_def,EvalM_def,HOL_MONAD_def,raise_clash_def] >>
   rw[Once evaluate_cases] >>
   rw[Once evaluate_cases] >>
   srw_tac[boolSimps.DNF_ss][] >> disj1_tac >>
@@ -514,7 +516,7 @@ val EvalM_clash = store_thm("EvalM_clash",
   fs [lookup_cons_def] >>
   PairCases_on `env` >>
   fs [lookup_alist_mod_env_def,all_env_to_cenv_def] >>
-  fs[theorem "HOL_EXN_TYPE_def",id_to_n_def] >>
+  fs[HOL_EXN_TYPE_def,id_to_n_def] >>
   METIS_TAC[]);
 
 (* otherwise *)
@@ -546,6 +548,47 @@ val EvalM_otherwise = store_thm("EvalM_otherwise",
   \\ Q.LIST_EXISTS_TAC [`0,s2`,`a'`] \\ ASM_SIMP_TAC std_ss []
   \\ SIMP_TAC (srw_ss()) [Once evaluate_cases,pat_bindings_def,pmatch_def]
   \\ PairCases_on `env` \\ FULL_SIMP_TAC (srw_ss()) [write_def]);
+
+(* handle_clash *)
+
+val EvalM_handle_clash = store_thm("EvalM_handle_clash",
+  ``!n. (lookup_cons "Clash" env = SOME (1,TypeExn (Long "Kernel" "Clash"))) ==>
+        EvalM env exp1 (HOL_MONAD a x1) ==>
+        (!t v.
+          TERM_TYPE t v ==>
+          EvalM (write n v env) exp2 (HOL_MONAD a (x2 t))) ==>
+        EvalM env (Handle exp1 [(Pcon (SOME (Short "Clash")) [Pvar n],exp2)])
+          (HOL_MONAD a (handle_clash x1 x2))``,
+  SIMP_TAC std_ss [EvalM_def] \\ REPEAT STRIP_TAC
+  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
+  \\ Q.PAT_ASSUM `!s refs. HOL_STORE s refs ==> bbb` (MP_TAC o Q.SPECL [`s`,`refs`])
+  \\ FULL_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
+  \\ Cases_on `res` THEN1
+   (Q.LIST_EXISTS_TAC [`s2`,`Rval a'`,`refs2`]
+    \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ FULL_SIMP_TAC std_ss [HOL_MONAD_def]
+    \\ Cases_on `x1 refs` \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [handle_clash_def])
+  \\ Q.PAT_ASSUM `HOL_MONAD xx yy t1 t2` MP_TAC
+  \\ SIMP_TAC std_ss [Once HOL_MONAD_def] \\ STRIP_TAC
+  \\ Cases_on `x1 refs` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [handle_clash_def]
+  \\ Cases_on `e` \\ FULL_SIMP_TAC (srw_ss()) [handle_clash_def]
+  \\ Cases_on `h` >> fs[HOL_EXN_TYPE_def] >>
+  srw_tac[boolSimps.DNF_ss][] >> disj2_tac >> disj1_tac >>
+  simp[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS,pat_bindings_def] >>
+  first_assum(miscLib.match_exists_tac o concl) >>
+  simp[pmatch_def] >> fs[lookup_cons_def] >>
+  PairCases_on`env`>>fs[same_tid_def,id_to_n_def,same_ctor_def] >- (
+    simp[Once evaluate_cases,HOL_MONAD_def,HOL_EXN_TYPE_def] ) >>
+  res_tac >> fs[write_def] >>
+  first_assum(miscLib.match_exists_tac o concl) >>
+  rw[] >>
+  fs[HOL_MONAD_def] >>
+  Cases_on`x2 t r`>>fs[]>>
+  Cases_on`q`>>fs[]>>
+  Cases_on`res`>>fs[]>>
+  Cases_on`e`>>fs[])
 
 (* if *)
 

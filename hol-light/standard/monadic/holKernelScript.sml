@@ -804,7 +804,7 @@ val inst_aux_def = tDefine "inst_aux" `
    THEN SIMP_TAC (srw_ss()) [my_term_size_def]
    THEN REPEAT STRIP_TAC
    THEN FULL_SIMP_TAC std_ss [my_term_size_vsubst_aux]
-   THEN DECIDE_TAC) |> SIMP_RULE std_ss [handle_clash_def,raise_clash_def]
+   THEN DECIDE_TAC)
 
 val _ = save_thm("inst_aux_def",inst_aux_def);
 

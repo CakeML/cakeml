@@ -371,16 +371,14 @@ fun m2deep tm =
     val result = EvalM_failwith |> SPEC (rand tm) |> ISPEC inv
                  |> UNDISCH |> Lib.C MATCH_MP th
     in check_inv "failwith" tm result end else
-  (* clash *)
-  if can (match_term ``(\state. (HolErr (Clash t),state)):'a M``) tm then let
+  (* raise_clash *)
+  if can (match_term ``(raise_clash t):'a M``) tm then let
     val ty = dest_monad_type (type_of tm)
     val inv = smart_get_type_inv ty
     val th = hol2deep (rand tm)
-    val asms = List.mapPartial (Lib.total DECIDE) (hyp th)
-    val th = List.foldl (Lib.uncurry PROVE_HYP) th asms
-    val result = EvalM_clash |> SPEC (rand tm) |> ISPEC inv
+    val result = EvalM_raise_clash |> SPEC (rand tm) |> ISPEC inv
                  |> UNDISCH |> Lib.C MATCH_MP th
-    in check_inv "failwith" tm result end
+    in check_inv "raise_clash" tm result end
   (* return *)
   else if can (match_term ``(ex_return x):'a M``) tm then let
     val th = hol2deep (rand tm)
@@ -414,6 +412,24 @@ fun m2deep tm =
     val lemma = Q.SPEC `"v"` EvalM_otherwise
     val result = MATCH_MP (MATCH_MP lemma th1) th2
     in check_inv "otherwise" tm result end else
+  (* handle_clash *)
+  if can (match_term ``handle_clash (x:'a M) y``) tm then let
+    val x = tm |> rator |> rand
+    val y = tm |> rand
+    val th1 = m2deep x
+    val th2 = m2deep y
+    val th3 = th2 |> DISCH_ALL |> Q.INST [`env`|->`write "v" v env`]
+                  |> REWRITE_RULE [Eval_Var_SIMP2,lookup_cons_write]
+                  |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
+                  |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
+                  |> REWRITE_RULE [lookup_cons_write,lookup_var_write]
+                  |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
+                  |> REWRITE_RULE []
+                  |> UNDISCH_ALL |> Q.GEN `v`
+    val lemma = Q.SPEC `"v"` EvalM_handle_clash |> UNDISCH
+    hyp th3
+    val result = MATCH_MP (MATCH_MP lemma th1) th3
+    in check_inv "handle_clash" tm result end else
   (* try *)
   if can (match_term ``try (f:'a->'b M) x msg``) tm then let
     val lemma = tm |> SIMP_CONV (srw_ss()) [try_def]

@@ -1236,7 +1236,7 @@ val inst_aux_thm = prove(
       else Var s (type_subst theta t)) = Var s (type_subst theta t)` by METIS_TAC [] >>
     simp[] >> POP_ASSUM (K ALL_TAC)
     \\ FULL_SIMP_TAC (srw_ss()) [GSYM type_subst_thm,ex_return_def] >>
-    rw[] >> rw[] >> fs[ex_bind_def,failwith_def] >> rw[] >>
+    rw[] >> rw[] >> fs[ex_bind_def,failwith_def,raise_clash_def] >> rw[] >>
     fs[STATE_def]
     \\ MATCH_MP_TAC (TERM_Var |> GEN_ALL)
     \\ FULL_SIMP_TAC std_ss [TYPE_def,type_subst_thm]
@@ -1291,7 +1291,7 @@ val inst_aux_thm = prove(
   \\ SIMP_TAC (srw_ss()) [Once inst_aux_def]
   \\ `!ty'. (if ty' = ty then Var v ty else Var v ty') = Var v ty'` by METIS_TAC []
   \\ FULL_SIMP_TAC std_ss [rev_assocd_thm,REV_ASSOCD,LET_DEF,ex_return_def]
-  \\ SIMP_TAC (srw_ss()) [ex_bind_def,otherwise_def]
+  \\ SIMP_TAC (srw_ss()) [ex_bind_def,otherwise_def,handle_clash_def,raise_clash_def]
   \\ Cases_on `inst_aux ((Var v ty,Var v (type_subst theta ty))::env) theta t0 s`
   \\ Q.PAT_ASSUM `!x yy.bbb` (K ALL_TAC)
   \\ first_x_assum(MP_TAC o Q.SPECL
