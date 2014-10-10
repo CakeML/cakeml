@@ -415,20 +415,13 @@ fun m2deep tm =
   (* handle_clash *)
   if can (match_term ``handle_clash (x:'a M) y``) tm then let
     val x = tm |> rator |> rand
-    val y = tm |> rand
+    val (v,y) = tm |> rand |> dest_abs
     val th1 = m2deep x
     val th2 = m2deep y
-    val th3 = th2 |> DISCH_ALL |> Q.INST [`env`|->`write "v" v env`]
-                  |> REWRITE_RULE [Eval_Var_SIMP2,lookup_cons_write]
-                  |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
-                  |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
-                  |> REWRITE_RULE [lookup_cons_write,lookup_var_write]
-                  |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
-                  |> REWRITE_RULE []
-                  |> UNDISCH_ALL |> Q.GEN `v`
-    val lemma = Q.SPEC `"v"` EvalM_handle_clash |> UNDISCH
-    hyp th3
-    val result = MATCH_MP (MATCH_MP lemma th1) th3
+    val th3 = inst_EvalM_env v th2 |> Q.GEN`v` |> FORCE_GEN v
+    val lemma = SPEC_ALL EvalM_handle_clash |> UNDISCH
+    val th4 = MATCH_MP lemma th1
+    val result = MATCH_MP th4 th3 handle HOL_ERR _ => HO_MATCH_MP th4 th3
     in check_inv "handle_clash" tm result end else
   (* try *)
   if can (match_term ``try (f:'a->'b M) x msg``) tm then let
