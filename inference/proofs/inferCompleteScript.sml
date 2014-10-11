@@ -9,6 +9,14 @@ open miscLib
 
 val _ = new_theory "inferComplete";
 
+(*Move to type sys props*)
+val type_funs_MAP_FST = prove(
+``!funs tenvM tenvC tenv env.
+  type_funs tenvM tenvC tenv funs env ⇒ 
+  MAP FST funs = MAP FST env``,
+  Induct>>rw[]>>
+  pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
+  fs[]>>metis_tac[])
 
 (* Move to unification theory *)
 
@@ -2121,7 +2129,8 @@ val infer_e_complete = Q.prove (
    use type_funs_lookup and type_funs_Tfn to get an inversion and extend the sub_completed map with LENGTH n funs
    not sure about order yet..
    *)
-   (imp_res_tac type_funs_distinct>>
+   (imp_res_tac type_funs_MAP_FST>>
+   imp_res_tac type_funs_distinct>>
    `MAP (λx,y,z. x) funs = MAP FST funs` by
      fs[MAP_EQ_f,FORALL_PROD]>>
    fs[bind_var_list_def]>>
@@ -2129,9 +2138,6 @@ val infer_e_complete = Q.prove (
    fs[sub_completion_def] >>
    (*
    qabbrev_tac `fun_tys = MAP (THE o (ALOOKUP env) o FST) funs`>>*)
-   (*these should be the correct types for the functions
-     probably needs a type sys lemma that MAP FST funs = MAP FST env*)
-   `MAP FST funs = MAP FST env` by cheat>>
    qabbrev_tac `fun_tys = MAP SND env` >>
    Q.SPECL_THEN [`st`,`constraints`,`s`,`fun_tys`,`num_tvs tenvE`] 
      mp_tac extend_multi_props>>
@@ -2142,14 +2148,24 @@ val infer_e_complete = Q.prove (
      >> 
        imp_res_tac type_funs_lookup>>
        imp_res_tac type_funs_Tfn>>
-       fs[num_tvs_bind_var_list]>>cheat
-       (*looks provable more or less*))
+       fs[num_tvs_bind_var_list,EVERY_MEM]>>
+       rw[Abbr`fun_tys`,MEM_MAP]>>
+       Cases_on`y`>>
+       `MEM q (MAP FST env)` by 
+         (fs[MEM_MAP]>>
+         Q.EXISTS_TAC`q,r`>>fs[])>>
+       `MEM q (MAP FST funs)` by fs[]>>
+       fs[MEM_MAP]>>
+       PairCases_on`y'`>>
+       first_x_assum(qspecl_then[`y'1`,`y'0`,`y'2`] assume_tac)>>rfs[]>>
+       imp_res_tac ALOOKUP_ALL_DISTINCT_MEM>>
+       metis_tac[])
    >>
    BasicProvers.LET_ELIM_TAC>>
    qpat_abbrev_tac `st' = st with next_uvar:=A`>>
-   last_x_assum(qspecl_then 
-     [`s'`,`menv`,`new_tenv`,`st'`,`constraints++new_constraints`] mp_tac)>>
-   discharge_hyps>-
+   last_x_assum(qspecl_then [`s'`,`menv`,`new_tenv`,`st'`
+                            ,`constraints++new_constraints`] mp_tac)>>
+   discharge_hyps_keep>-
      (fs[Abbr`st'`,num_tvs_bind_var_list]>>
      `LENGTH env = LENGTH funs` by metis_tac[LENGTH_MAP]>>
      rw[Abbr`fun_tys`]
@@ -2173,19 +2189,137 @@ val infer_e_complete = Q.prove (
      >-
        (fs[SUBSET_DEF]>>rw[]>>res_tac>>DECIDE_TAC)
      >>
-       cheat) (*probably the hardest one to be proved here*)
-   >>
+       `t_compat s s'` by metis_tac[SUBMAP_t_compat]>>
+       imp_res_tac tenv_inv_t_compat>>
+       ntac 5 (pop_assum kall_tac)>>
+       fs[tenv_inv_def,Abbr`new_tenv`]>>
+       qpat_abbrev_tac `ls = MAP2 (λ(f,x,e) uvar. (f,0:num,uvar)) funs
+                            (MAP (λn. Infer_Tuvar (st.next_uvar + n))
+                            (COUNT_LIST (LENGTH funs)))`>>
+       `LENGTH ls = LENGTH funs` by
+         fs[Abbr`ls`,LENGTH_MAP2,LENGTH_COUNT_LIST]>>
+       `!n. n < LENGTH ls ⇒
+        EL n ls =  
+        (λ(f,x,e). (f,0,Infer_Tuvar (st.next_uvar+n))) (EL n funs)` by
+          (rw[Abbr`ls`]>>
+          fs[MAP2_MAP,LENGTH_COUNT_LIST,EL_MAP,EL_ZIP]>>
+          qabbrev_tac `v = EL n funs`>>PairCases_on`v`>>
+          fs[EL_COUNT_LIST])>>
+       `!k. ALOOKUP env k = NONE ⇒  ALOOKUP ls k = NONE` by
+         (rw[]>>
+         SPOSE_NOT_THEN assume_tac>>
+         `?v. ALOOKUP ls k  = SOME v` by
+           metis_tac[NOT_SOME_NONE]>>
+         imp_res_tac ALOOKUP_MEM>>
+         fs[MEM_EL]>>
+         fs[ALOOKUP_NONE]>>
+         first_x_assum(qspec_then`n` assume_tac)>>rfs[]>>
+         Cases_on`EL n funs`>>Cases_on`r`>>fs[]>>
+         `MEM q (MAP FST funs)` by 
+           (fs[MEM_MAP,MEM_EL,EXISTS_PROD]>>
+           metis_tac[])>>
+         metis_tac[])>>
+       rw[]>>fs[lookup_tenv_bind_var_list]
+        >-
+          (BasicProvers.FULL_CASE_TAC>>fs[]>>
+          metis_tac[])
+        >-
+          (BasicProvers.FULL_CASE_TAC>>
+          fs[ALOOKUP_APPEND,ALOOKUP_MAP]>>
+          metis_tac[])
+        >-
+          (BasicProvers.FULL_CASE_TAC>>fs[]>>
+          metis_tac[type_funs_Tfn])
+        >>
+        BasicProvers.FULL_CASE_TAC>>fs[ALOOKUP_APPEND]
+        >-
+          metis_tac[]
+        >>
+          imp_res_tac ALOOKUP_MEM>>
+          `MEM x (MAP FST env)` by 
+            (fs[EXISTS_PROD,MEM_MAP]>>metis_tac[])>>
+          qpat_assum `A = MAP FST env` (SUBST_ALL_TAC o SYM)>>
+          fs[MEM_MAP,MEM_EL]>>
+          first_x_assum(qspec_then `n'` assume_tac)>>rfs[]>>
+          Cases_on`EL n' funs`>>Cases_on`r`>>fs[]>>
+          `n' < LENGTH ls` by fs[]>>
+          imp_res_tac EL_MEM>>rfs[]>>
+          imp_res_tac ALOOKUP_ALL_DISTINCT_MEM>>
+          pop_assum mp_tac>>discharge_hyps>>
+          `MAP FST ls = MAP FST funs` by
+          (rw[Abbr`ls`,MAP2_MAP,LENGTH_COUNT_LIST,MAP_ZIP]>>
+          match_mp_tac LIST_EQ>>CONJ_ASM1_TAC
+          >-
+            fs[LENGTH_ZIP,LENGTH_COUNT_LIST]
+          >>
+          rw[]>>fs[EL_MAP,EL_ZIP,LENGTH_COUNT_LIST]>>
+          Cases_on`EL x funs`>>Cases_on`r`>>fs[])>>
+          fs[]>>
+          rw[Abbr`targs`]>>
+          fs[EL_MAP]>>
+          `n = n'` by 
+            (`q = EL n (MAP FST env)` by 
+              (fs[EL_MAP]>>
+              qpat_assum`A = EL n env` (SUBST1_TAC o SYM)>>
+              fs[])>>
+            imp_res_tac type_funs_MAP_FST >>
+            pop_assum (SUBST_ALL_TAC o SYM)>>
+            `q = EL n' (MAP FST funs)` by
+              (FULL_SIMP_TAC arith_ss [EL_MAP])>>
+            fs[]>>
+            Q.ISPEC_THEN `MAP FST funs`assume_tac EL_ALL_DISTINCT_EL_EQ>>
+            pop_assum (assume_tac o (fst o EQ_IMP_RULE)) >>rfs[]>>
+            metis_tac[])>>
+         fs[]>>
+         qpat_assum `A = EL n' env` (SUBST1_TAC o SYM)>>
+         fs[])>>
+   qunabbrev_tac `fun_tys`>>
    rw[]>>
    fs[PULL_EXISTS]>>
    qpat_abbrev_tac `ls=ZIP(MAP (λn.Infer_Tuvar(st.next_uvar+n))A,env')`>>
+   imp_res_tac infer_funs_length>>
+   fs[LENGTH_COUNT_LIST]>>
    pure_add_constraints_ignore_tac `s''`>-
-     (fs[t_compat_def]>>
-     cheat)>> (*usual stuff*)
+     (fs[t_compat_def,EVERY_MEM,LENGTH_COUNT_LIST,MEM_ZIP]>>rw[]>>
+     fs[LENGTH_COUNT_LIST,EL_MAP,EL_COUNT_LIST]>>
+     `LENGTH funs = LENGTH env` by
+       (qpat_assum `MAP FST funs = B` (assume_tac o Q.AP_TERM`LENGTH`)>>
+       fs[LENGTH_MAP])>>
+    imp_res_tac infer_e_check_t>>
+    first_x_assum(qspec_then `Infer_Tuvar (st.next_uvar+n)` (SUBST_ALL_TAC o SYM))>>
+     last_x_assum(qspec_then `n` assume_tac)>>
+     fs[]>>rfs[]>>
+     qunabbrev_tac`targs`>>
+     simp[EL_MAP,LENGTH_MAP]>>
+     fs[EVERY_EL]>>
+     first_x_assum(qspec_then`n` assume_tac)>>rfs[]>>
+     fs[num_tvs_bind_var_list]>>
+     imp_res_tac sub_completion_completes>>
+     imp_res_tac check_t_empty_unconvert_convert_id>>
+     simp[]>>
+     metis_tac[t_walkstar_no_vars])>>
    pure_add_constraints_combine_tac ``st''`` ``constraints''`` ``s''``>>
-   imp_res_tac infer_e_wfs>>rfs[Abbr`st'`]>>
+   pop_assum mp_tac >>discharge_hyps_keep>- 
+     metis_tac[infer_e_wfs]>> 
+   rw[]>>
+   Q.SPECL_THEN [`num_tvs tenvE`,`si`,`s''`] assume_tac (GEN_ALL t_compat_bi_ground)>>
+   rfs[num_tvs_bind_var_list]>>
    fs[pure_add_constraints_append]>>
-   (*Usual stuff again*)
-   cheat)  
+   CONV_TAC (RESORT_EXISTS_CONV List.rev)>>
+   qabbrev_tac`nst = <|next_uvar:=st''.next_uvar;subst:=s2'''|>`>>
+   qexists_tac`nst`>>
+   first_x_assum(qspecl_then [`si`,`menv`,`new_tenv`
+                             ,`nst`,`constraints''`] mp_tac)>>
+   discharge_hyps>-
+     (imp_res_tac infer_e_next_uvar_mono>>
+     fs[Abbr`st'`,Abbr`nst`]>>
+     metis_tac[check_env_more,pure_add_constraints_wfs
+              ,pure_add_constraints_success
+              ,tenv_inv_t_compat,t_compat_def,t_compat_trans])>>
+   rw[]>>
+   Q.LIST_EXISTS_TAC [`constraints'''`,`s'''`,`st'''`,`t'`]>>
+   fs[Abbr`nst`]>>
+   metis_tac[t_compat_trans,SUBMAP_t_compat])
  >- 
    (ntac 2 HINT_EXISTS_TAC>>fs[]>>metis_tac[sub_completion_wfs,t_compat_refl])
  >-
