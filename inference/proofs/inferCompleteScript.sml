@@ -2126,32 +2126,65 @@ val infer_e_complete = Q.prove (
      fs[MAP_EQ_f,FORALL_PROD]>>
    fs[bind_var_list_def]>>
    qpat_abbrev_tac `new_tenv = A ++ tenv`>>
+   fs[sub_completion_def] >>
    (*
    qabbrev_tac `fun_tys = MAP (THE o (ALOOKUP env) o FST) funs`>>*)
    (*these should be the correct types for the functions
      probably needs a type sys lemma that MAP FST funs = MAP FST env*)
    `MAP FST funs = MAP FST env` by cheat>>
    qabbrev_tac `fun_tys = MAP SND env` >>
-   (*These constraints extend *)
-   qabbrev_tac `constraints' = constraints++(ZIP 
-	       (MAP (λn. Infer_Tuvar (st.next_uvar + n)) (COUNT_LIST (LENGTH funs))
-         ,MAP unconvert_t fun_tys))`>>
-   
-   Q.SPECL_THEN [`s`,`fun_tys`,`st.next_uvar`,`tvs`] mp_tac pure_add_constraints_exists>>
-   discharge_hyps_keep>-
+   Q.SPECL_THEN [`st`,`constraints`,`s`,`fun_tys`,`num_tvs tenvE`] 
+     mp_tac extend_multi_props>>
+   discharge_hyps_keep
+   >-
      (fs[]>>rw[]
-     >-
-       metis_tac[sub_completion_wfs]
-     >>
+     >- metis_tac[pure_add_constraints_wfs]
+     >> 
        imp_res_tac type_funs_lookup>>
        imp_res_tac type_funs_Tfn>>
-       cheat)>> (*looks more or less provable with the above 2*)
-   (*TODO: Extract the extension props from Var and one of the cases in iinfer_p_complete*)
-   
-   
-   fs[LET_THM]>>
-   type_funs_lookup
-   (*last_x_assum (qspecl_then [`s'`,`menv`,`new_tenv`,`st with next_uvar:=st.next_uvar + LENGTH funs`] mp_tac)>>*)
+       fs[num_tvs_bind_var_list]>>cheat
+       (*looks provable more or less*))
+   >>
+   BasicProvers.LET_ELIM_TAC>>
+   qpat_abbrev_tac `st' = st with next_uvar:=A`>>
+   last_x_assum(qspecl_then 
+     [`s'`,`menv`,`new_tenv`,`st'`,`constraints++new_constraints`] mp_tac)>>
+   discharge_hyps>-
+     (fs[Abbr`st'`,num_tvs_bind_var_list]>>
+     `LENGTH env = LENGTH funs` by metis_tac[LENGTH_MAP]>>
+     rw[Abbr`fun_tys`]
+     >-
+       (fs[Abbr`new_tenv`]>>
+       simp[check_env_merge]>>CONJ_TAC
+       >-
+         (fs[check_env_def]>>
+         qpat_abbrev_tac `ls = MAP (λn.Infer_Tuvar(n+st.next_uvar))A` >>
+         `LENGTH funs = LENGTH ls` by 
+           metis_tac[LENGTH_MAP,LENGTH_COUNT_LIST]>>
+         simp[EL_MAP,EL_ZIP,MAP2_MAP,EVERY_EL]>>
+         rw[Abbr`ls`]>>
+         fs[EL_MAP,EL_COUNT_LIST,LENGTH_COUNT_LIST]>>
+         qpat_abbrev_tac `x= EL n funs`>>
+         PairCases_on`x`>>fs[check_t_def,EL_COUNT_LIST])
+       >>
+         imp_res_tac check_env_more>>
+         pop_assum(qspec_then `LENGTH funs + st.next_uvar` mp_tac)>>
+         discharge_hyps>-DECIDE_TAC>>fs[])
+     >-
+       (fs[SUBSET_DEF]>>rw[]>>res_tac>>DECIDE_TAC)
+     >>
+       cheat) (*probably the hardest one to be proved here*)
+   >>
+   rw[]>>
+   fs[PULL_EXISTS]>>
+   qpat_abbrev_tac `ls=ZIP(MAP (λn.Infer_Tuvar(st.next_uvar+n))A,env')`>>
+   pure_add_constraints_ignore_tac `s''`>-
+     (fs[t_compat_def]>>
+     cheat)>> (*usual stuff*)
+   pure_add_constraints_combine_tac ``st''`` ``constraints''`` ``s''``>>
+   imp_res_tac infer_e_wfs>>rfs[Abbr`st'`]>>
+   fs[pure_add_constraints_append]>>
+   (*Usual stuff again*)
    cheat)  
  >- 
    (ntac 2 HINT_EXISTS_TAC>>fs[]>>metis_tac[sub_completion_wfs,t_compat_refl])
