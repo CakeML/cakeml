@@ -7,12 +7,11 @@ val mem = ``mem:'U->'U->bool``
 val _ = Parse.temp_overload_on("A",``Tyvar "A"``)
 val _ = Parse.temp_overload_on("B",``Tyvar "B"``)
 val _ = Parse.temp_overload_on("x",``Var "x" A``)
-val _ = Parse.temp_overload_on("Absx",``Abs "x" A``)
 val _ = Parse.temp_overload_on("g",``Var "f" (Fun A B)``)
 
 (* ETA_AX *)
 val mk_eta_ctxt_def = Define`
-  mk_eta_ctxt ctxt = NewAxiom ((Absx (Comb g x)) === g)::ctxt`
+  mk_eta_ctxt ctxt = NewAxiom ((Abs x (Comb g x)) === g)::ctxt`
 
 val eta_extends = store_thm("eta_extends",
   ``∀ctxt. is_std_sig (sigof ctxt) ⇒ mk_eta_ctxt ctxt extends ctxt``,
@@ -51,7 +50,6 @@ val _ = Parse.overload_on("Onto",``λf. Comb (Const "ONTO" (Fun (typeof f) Bool)
 val _ = Parse.overload_on("Ind",``Tyapp "ind" []``)
 
 val _ = Parse.temp_overload_on("EXx",``Exists "x" A``)
-val _ = Parse.temp_overload_on("Absg",``Abs "f" (Fun A B)``)
 val _ = Parse.temp_overload_on("x1",``Var "x1" A``)
 val _ = Parse.temp_overload_on("FAx1",``Forall "x1" A``)
 val _ = Parse.temp_overload_on("x2",``Var "x2" A``)
@@ -66,9 +64,9 @@ val mk_infinity_ctxt_def = Define`
   mk_infinity_ctxt ctxt =
     NewAxiom (Exh (And (One_One h) (Not (Onto h)))) ::
     NewType "ind" 0 ::
-    ConstDef "ONTO" (Absg (FAy (EXx (y === Comb g x)))) ::
+    ConstDef "ONTO" (Abs g (FAy (EXx (y === Comb g x)))) ::
     ConstDef "ONE_ONE"
-      (Absg (FAx1 (FAx2 (Implies (Comb g x1 === Comb g x2) (x1 === x2))))) ::
+      (Abs g (FAx1 (FAx2 (Implies (Comb g x1 === Comb g x2) (x1 === x2))))) ::
     ctxt`
 
 val tyvar_inst_exists = prove(

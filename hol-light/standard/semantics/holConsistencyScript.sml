@@ -6,12 +6,16 @@ val _ = new_theory"holConsistency"
 
 val mem = ``mem:'U->'U->bool``
 
+val consistent_context_def = Define`
+  consistent_context ctxt ⇔
+        (thyof ctxt,[]) |- (Var "x" Bool === Var "x" Bool) ∧
+      ¬((thyof ctxt,[]) |- (Var "x" Bool === Var "y" Bool))`
+
 val proves_consistent = store_thm("proves_consistent",
   ``is_set_theory ^mem ⇒
     ∀ctxt. theory_ok (thyof ctxt) ∧ (∃i. i models (thyof ctxt)) ⇒
-      (thyof ctxt,[]) |- (Var "x" Bool === Var "x" Bool) ∧
-      ¬((thyof ctxt,[]) |- (Var "x" Bool === Var "y" Bool))``,
-  rw[] >- (
+      consistent_context ctxt``,
+  rw[consistent_context_def] >- (
     match_mp_tac (List.nth(CONJUNCTS proves_rules,8)) >>
     simp[term_ok_def,type_ok_def] >>
     imp_res_tac theory_ok_sig >>
@@ -63,8 +67,7 @@ val init_ctxt_has_model = store_thm("init_ctxt_has_model",
 val min_hol_consistent = store_thm("min_hol_consistent",
   ``is_set_theory ^mem ⇒
     ∀ctxt. ctxt extends init_ctxt ∧ (∀p. MEM (NewAxiom p) ctxt ⇒ MEM (NewAxiom p) init_ctxt) ⇒
-      (thyof ctxt,[]) |- (Var "x" Bool === Var "x" Bool) ∧
-      ¬((thyof ctxt,[]) |- (Var "x" Bool === Var "y" Bool))``,
+      consistent_context ctxt``,
   strip_tac >> gen_tac >> strip_tac >>
   match_mp_tac (UNDISCH proves_consistent) >>
   metis_tac[extends_theory_ok,extends_consistent,init_theory_ok,init_ctxt_has_model])
@@ -140,6 +143,16 @@ val fhol_has_model = store_thm("fhol_has_model",
   qspecl_then[`fhol_ctxt`,`ctxt`]mp_tac(UNDISCH extends_consistent) >> simp[] >>
   metis_tac[])
 
+val _ = store_thm("fhol_consistent",
+  ``is_set_theory ^mem ⇒
+    ∀ctxt.
+      ctxt extends fhol_ctxt ∧
+      (∀p. MEM (NewAxiom p) ctxt ⇒ MEM (NewAxiom p) fhol_ctxt) ⇒
+      consistent_context ctxt``,
+  strip_tac >> gen_tac >> strip_tac >>
+  match_mp_tac (UNDISCH proves_consistent) >>
+  metis_tac[fhol_has_model])
+
 val hol_ctxt_def = Define`
   hol_ctxt = mk_infinity_ctxt fhol_ctxt`
 
@@ -183,10 +196,12 @@ val hol_has_model = store_thm("hol_has_model",
   disch_then(qspec_then`i3`mp_tac) >>
   discharge_hyps >- (
     simp[] >>
+    fs[is_bool_interpretation_def] >>
+    fs[is_implies_interpretation_def,is_and_interpretation_def,is_forall_interpretation_def,
+       is_exists_interpretation_def,is_not_interpretation_def] >>
     rpt conj_tac >>
     match_mp_tac equal_on_interprets >>
-    map_every qexists_tac[`mk_eta_ctxt (mk_bool_ctxt init_ctxt)`,`i2`] >>
-    fs[is_bool_interpretation_def] >>
+    map_every qexists_tac[`sigof(mk_eta_ctxt (mk_bool_ctxt init_ctxt))`,`i2`] >> simp[] >>
     EVAL_TAC >> simp[] >> EVAL_TAC >> simp[SUBSET_DEF] ) >>
   disch_then(qx_choose_then`i4`strip_assume_tac) >>
   fs[GSYM hol_ctxt_def,GSYM fhol_ctxt_def] >>
@@ -198,8 +213,7 @@ val _ = store_thm("hol_consistent",
     ∀ctxt.
       ctxt extends hol_ctxt ∧
       (∀p. MEM (NewAxiom p) ctxt ⇒ MEM (NewAxiom p) hol_ctxt) ⇒
-      (thyof ctxt,[]) |- Var "x" Bool === Var "x" Bool ∧
-      ¬((thyof ctxt,[]) |- Var "x" Bool === Var "y" Bool)``,
+      consistent_context ctxt``,
   strip_tac >> gen_tac >> strip_tac >>
   match_mp_tac (UNDISCH proves_consistent) >>
   metis_tac[hol_has_model])

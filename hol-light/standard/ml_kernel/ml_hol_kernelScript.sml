@@ -14,7 +14,7 @@ infix \\ val op \\ = op THEN;
 val RW = REWRITE_RULE;
 val RW1 = ONCE_REWRITE_RULE;
 
-open hol_kernelTheory;
+open holKernelTheory;
 open ml_monadTheory;
 
 val _ = translation_extends "ml_monad";
@@ -161,10 +161,10 @@ val mem_derive_case_of = type_mem derive_case_of;
 val ty = ``:'b # 'c``; val _ = mem_derive_case_of ty;
 val ty = ``:'a list``; val _ = mem_derive_case_of ty;
 val ty = ``:'a option``; val _ = mem_derive_case_of ty;
-val ty = ``:hol_type``; val _ = mem_derive_case_of ty;
-val ty = ``:hol_term``; val _ = mem_derive_case_of ty;
+val ty = ``:type``; val _ = mem_derive_case_of ty;
+val ty = ``:term``; val _ = mem_derive_case_of ty;
 val ty = ``:thm``; val _ = mem_derive_case_of ty;
-val ty = ``:def``; val _ = mem_derive_case_of ty;
+val ty = ``:update``; val _ = mem_derive_case_of ty;
 
 fun inst_case_thm_for tm = let
   val (_,_,names) = TypeBase.dest_case tm
@@ -338,16 +338,14 @@ fun var_hol2deep tm =
 val read_refs =
   [(``get_the_type_constants``,``the_type_constants``,get_the_type_constants_thm),
    (``get_the_term_constants``,``the_term_constants``,get_the_term_constants_thm),
-   (``get_the_definitions``,``the_definitions``,get_the_definitions_thm),
-   (``get_the_clash_var``,``the_clash_var``,get_the_clash_var_thm),
-   (``get_the_axioms``,``the_axioms``,get_the_axioms_thm)];
+   (``get_the_axioms``,``the_axioms``,get_the_axioms_thm),
+   (``get_the_context``,``the_context``,get_the_context_thm)];
 
 val write_refs =
   [(``set_the_type_constants x``,``the_type_constants``,set_the_type_constants_thm),
    (``set_the_term_constants x``,``the_term_constants``,set_the_term_constants_thm),
-   (``set_the_definitions x``,``the_definitions``,set_the_definitions_thm),
-   (``set_the_clash_var x``,``the_clash_var``,set_the_clash_var_thm),
-   (``set_the_axioms x``,``the_axioms``,set_the_axioms_thm)];
+   (``set_the_axioms x``,``the_axioms``,set_the_axioms_thm),
+   (``set_the_context x``,``the_context``,set_the_context_thm)];
 
 (*
 val tm = rhs
@@ -367,8 +365,20 @@ fun m2deep tm =
   if can (match_term ``(failwith str):'a M``) tm then let
     val ty = dest_monad_type (type_of tm)
     val inv = smart_get_type_inv ty
+    val th = hol2deep (rand tm)
+    val asms = List.mapPartial (Lib.total DECIDE) (hyp th)
+    val th = List.foldl (Lib.uncurry PROVE_HYP) th asms
     val result = EvalM_failwith |> SPEC (rand tm) |> ISPEC inv
-    in check_inv "failwith" tm result end
+                 |> UNDISCH |> Lib.C MATCH_MP th
+    in check_inv "failwith" tm result end else
+  (* raise_clash *)
+  if can (match_term ``(raise_clash t):'a M``) tm then let
+    val ty = dest_monad_type (type_of tm)
+    val inv = smart_get_type_inv ty
+    val th = hol2deep (rand tm)
+    val result = EvalM_raise_clash |> SPEC (rand tm) |> ISPEC inv
+                 |> UNDISCH |> Lib.C MATCH_MP th
+    in check_inv "raise_clash" tm result end
   (* return *)
   else if can (match_term ``(ex_return x):'a M``) tm then let
     val th = hol2deep (rand tm)
@@ -402,6 +412,17 @@ fun m2deep tm =
     val lemma = Q.SPEC `"v"` EvalM_otherwise
     val result = MATCH_MP (MATCH_MP lemma th1) th2
     in check_inv "otherwise" tm result end else
+  (* handle_clash *)
+  if can (match_term ``handle_clash (x:'a M) y``) tm then let
+    val x = tm |> rator |> rand
+    val (v,y) = tm |> rand |> dest_abs
+    val th1 = m2deep x
+    val th2 = m2deep y
+    val th3 = inst_EvalM_env v th2 |> Q.GEN`v` |> FORCE_GEN v
+    val lemma = SPEC_ALL EvalM_handle_clash |> UNDISCH
+    val th4 = MATCH_MP lemma th1
+    val result = MATCH_MP th4 th3 handle HOL_ERR _ => HO_MATCH_MP th4 th3
+    in check_inv "handle_clash" tm result end else
   (* try *)
   if can (match_term ``try (f:'a->'b M) x msg``) tm then let
     val lemma = tm |> SIMP_CONV (srw_ss()) [try_def]
@@ -648,7 +669,7 @@ val res = translate mk_vartype_def;
 val res = translate is_type_def;
 val res = translate is_vartype_def;
 val res = translate rev_assocd_def;
-val res = translate hol_kernelTheory.type_subst_def;
+val res = translate holKernelTheory.type_subst_def;
 val res = translate alphavars_def;
 val res = translate raconv_def;
 val res = translate aconv_def;
