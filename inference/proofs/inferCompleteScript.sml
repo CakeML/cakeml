@@ -9,15 +9,6 @@ open miscLib
 
 val _ = new_theory "inferComplete";
 
-(*Move to type sys props*)
-val type_funs_MAP_FST = prove(
-``!funs tenvM tenvC tenv env.
-  type_funs tenvM tenvC tenv funs env ⇒ 
-  MAP FST funs = MAP FST env``,
-  Induct>>rw[]>>
-  pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
-  fs[]>>metis_tac[])
-
 (* Move to unification theory *)
 
 val unify_fresh_uvar = Q.store_thm ("unify_fresh_uvar",
@@ -34,62 +25,9 @@ val unify_fresh_uvar = Q.store_thm ("unify_fresh_uvar",
  rw [t_ext_s_check_eqn, oc_tvar_db] >>
  cheat);
 
-val t_walkstar_tuvar_props = prove(
-``t_wfs s 
-  ⇒
-  (uv ∉ FDOM s ⇔  t_walkstar s (Infer_Tuvar uv) = Infer_Tuvar uv)``,
-  rw[EQ_IMP_THM]
-  >-
-    (fs[t_walkstar_eqn,t_walk_eqn,Once t_vwalk_eqn]>>
-    imp_res_tac flookup_thm>>fs[])
-  >>
-    imp_res_tac t_walkstar_vars_notin>>
-    pop_assum (Q.SPECL_THEN [`uv`,`Infer_Tuvar uv`] mp_tac)>>
-    fs[t_vars_eqn])
-
-
-(*COMPAT for t_unification
-  Note that the order is swapped: 
-  t_compat s s' is s << s'
-*)
-val t_compat_def = Define`
-  t_compat s s' ⇔
-  t_wfs s ∧ t_wfs s' ∧
-  !t. t_walkstar s' (t_walkstar s t) = t_walkstar s' t`
-
-val t_compat_refl = prove(
-``t_wfs s ⇒ t_compat s s``,
-  rw[t_compat_def]>>fs[t_walkstar_SUBMAP])
-
-val t_compat_trans = prove(
-``t_compat a b ∧ t_compat b c ⇒ t_compat a c``,
-  rw[t_compat_def]>>metis_tac[])
-
-val SUBMAP_t_compat = prove(
-``t_wfs s' ∧ s SUBMAP s' ⇒ t_compat s s'``,
-  rw[t_compat_def]
-  >-
-    metis_tac[t_wfs_SUBMAP]>>
-  fs[t_walkstar_SUBMAP])
-
-(*t_compat is preserved under certain types of unification
-  Proof basically from HOL*)
-val t_compat_eqs_t_unify = prove(
-``!s t1 t2 sx.
-    t_compat s sx ∧ (t_walkstar sx t1 = t_walkstar sx t2)
-    ⇒ 
-    ?si. (t_unify s t1 t2 = SOME si) ∧ t_compat si sx``,
-  rw[t_compat_def]>>
-  Q.ISPECL_THEN [`t2`,`t1`,`sx`,`s`] assume_tac (GEN_ALL eqs_t_unify)>>
-  rfs[]>>
-  CONJ_ASM1_TAC>-metis_tac[t_unify_wfs]>>
-  rw[]>>
-  Q.ISPECL_THEN [`s`,`t1`,`t2`,`sx'`,`sx`] assume_tac t_unify_mgu>>
-  rfs[])
-
-
 (* End unification stuff *)
 
+(*Some of these might need to go into a props script*)
 
 (*Useful lemmas about pure add constraints, some of these imply the others*)
 val pure_add_constraints_success = prove(
@@ -280,9 +218,6 @@ val check_freevars_to_check_t = prove(
   fs[unconvert_t_def,check_freevars_def,check_t_def]>>
   fs[EVERY_MAP,EVERY_MEM])
 
-(*TODO: Extend this to give extra properties on the new map!
- This may be too specific to the Var case, it provides a witness to 
-  pure_add_constraints where we unify with unbound unification vars with tyvars*)
 val pure_add_constraints_exists = Q.prove (
 `!s ts next_uvar lim.
   t_wfs s ∧
@@ -345,44 +280,6 @@ val check_t_t_walkstar = prove
     fs[EVERY_MEM]>>rw[]>> 
     res_tac>>
     metis_tac[MEM_MAP])
-
-(*
-val new_uvars_sub_completion_exists = Q.prove (
-`!s constraints s' ts next_uvar.
-  t_wfs s ∧
-  EVERY (check_t 0 (count next_uvar)) ts ∧
-  check_s 0 (count next_uvar) s ∧
-  sub_completion 0 next_uvar s constraints s'
-  ⇒
-  ∃s''.
-    sub_completion 0 (next_uvar + LENGTH ts) s
-      (constraints++ZIP
-         (MAP (λn. Infer_Tuvar (next_uvar + n))
-            (COUNT_LIST (LENGTH ts)),ts)) s''`,
-
- rw [sub_completion_def, pure_add_constraints_append] >>
- rw [PULL_EXISTS] >>
- rw [Once SWAP_EXISTS_THM] >>
- qexists_tac `s'` >>
- rw []
-
-
- induct_on `constraints` >>
- rw [] >>
- >- (
-
-
- fs [sub_completion_def] >>
- PairCases_on `h` >>
- fs [pure_add_constraints_def] >>
- FIRST_X_ASSUM match_mp_tac >>
- qexists_tac `s'` >>
- rw [] >>
- metis_tac [{{{{{{{{{{{, t_unify_check_s]);
-
- rw [ZIP_COUNT_LIST, LENGTH_COUNT_LIST]
-
-*)
 
 (*Ignore increment on deBrujin vars*)
 val t_walkstar_ignore_inc = prove(
@@ -564,26 +461,6 @@ fs[pure_add_constraints_def,EQ_IMP_THM]>>rw[]
   fs[pure_add_constraints_append]>>
   Q.EXISTS_TAC `<| subst:= s2 ; next_uvar := x|>`>>fs[])
 
-(*
-val t_unify_ignore = prove(
-``(!s t t'.
-  t_wfs s ⇒
-  t' = t_walkstar s t ⇒ 
-  t_unify s t t' = SOME s) ∧
-  (!s ts ts'.
-  t_wfs s ⇒ 
-  ts' = MAP (t_walkstar s) ts ⇒ 
-  ts_unify s ts ts' = SOME s)``, 
-  ho_match_mp_tac t_unify_strongind>>rw[]>>
-  fs[t_unify_eqn]>-
-  (BasicProvers.FULL_CASE_TAC>>
-  imp_res_tac t_walk_submap_walkstar>>fs[]>>
-  qpat_assum `t_walkstar s t = X` mp_tac>>
-  fs[t_walkstar_eqn]>>every_case_tac>>fs[]>>
-  metis_tac[])>>
-  Cases_on`ts`>>fs[ts_unify_def])
-*)
-
 val t_unify_ignore = prove(
 ``(!s t t'.
   t_wfs s ⇒
@@ -612,20 +489,6 @@ val pure_add_constraints_ignore = prove(
   Cases_on`h` >>rw[pure_add_constraints_def]>>
   fs[]>>imp_res_tac t_unify_ignore>>
   metis_tac[])
-
-(*
-val pure_add_constraints_ignore = prove(
-``!s ls. t_wfs s ⇒ 
-  pure_add_constraints s (ZIP (ls,MAP (t_walkstar s) ls)) s``,
-  strip_tac>>Induct>>
-  fs[pure_add_constraints_def]>>
-  rw[]>>
-  fs[t_unify_eqn,t_walk_submap_walkstar]>>
-  Cases_on`t_walk s h`>>
-  fs[t_walkstar_eqn]>>
-  imp_res_tac t_unify_ignore>>
-  metis_tac[])
-*)
 
 (*t_compat preserves all grounded (no unification variable after walk) terms*)
 val t_compat_ground = prove(
@@ -904,7 +767,9 @@ val extend_multi_props = prove(
         first_x_assum(qspec_then `uv-st.next_uvar` mp_tac)>>
         discharge_hyps>- DECIDE_TAC>>
         metis_tac[check_freevars_to_check_t])
-    
+   
+(*Useful tactics, mainly for constrain_op*)
+ 
 val unconversion_tac = 
   rpt (qpat_assum `convert_t A = B` (assume_tac o (Q.AP_TERM `unconvert_t`)))>>
   imp_res_tac check_t_empty_unconvert_convert_id>>

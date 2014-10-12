@@ -1457,6 +1457,14 @@ fs [] >>
 rw [] >>
 metis_tac []);
 
+val type_funs_MAP_FST = store_thm("type_funs_MAP_FST",
+``!funs tenvM tenvC tenv env.
+  type_funs tenvM tenvC tenv funs env ⇒ 
+  MAP FST funs = MAP FST env``,
+  Induct>>rw[]>>
+  pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
+  fs[]>>metis_tac[])
+
 (* Functions in the type environment can be found *)
 val type_funs_find_recfun = Q.store_thm ("type_funs_find_recfun",
 `∀fn env tenvM tenvC funs tenv' e tenv t.

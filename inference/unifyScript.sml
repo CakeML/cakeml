@@ -1031,7 +1031,6 @@ rw [] >>
 fs [] >>
 metis_tac [no_vars_lem, MAP_MAP_o, combinTheory.o_DEF]);
 
-
 (*Theorems about unification for completeness proof*)
 
 val t_walk_vwalk_id = store_thm ("t_walk_vwalk_id",
@@ -1096,5 +1095,59 @@ val t_unify_mgu = store_thm ("t_unify_mgu",
   conj_asm1_tac>- fs[t_wfs_def]>>
   qpat_assum `decode_infer_t A = B` mp_tac>> 
   fs[encode_walkstar,decode_left_inverse])
+
+val t_walkstar_tuvar_props = store_thm("t_walkstar_tuvar_props",
+``t_wfs s 
+  ⇒
+  (uv ∉ FDOM s ⇔  t_walkstar s (Infer_Tuvar uv) = Infer_Tuvar uv)``,
+  rw[EQ_IMP_THM]
+  >-
+    (fs[t_walkstar_eqn,t_walk_eqn,Once t_vwalk_eqn]>>
+    imp_res_tac flookup_thm>>fs[])
+  >>
+    imp_res_tac t_walkstar_vars_notin>>
+    pop_assum (Q.SPECL_THEN [`uv`,`Infer_Tuvar uv`] mp_tac)>>
+    fs[t_vars_eqn])
+
+(*t_compat theorems*)
+val t_compat_def = Define`
+  t_compat s s' ⇔
+  t_wfs s ∧ t_wfs s' ∧
+  !t. t_walkstar s' (t_walkstar s t) = t_walkstar s' t`
+
+val t_compat_refl = store_thm("t_compat_refl",
+``t_wfs s ⇒ t_compat s s``,
+  rw[t_compat_def]>>fs[t_walkstar_SUBMAP])
+
+val t_compat_trans = store_thm("t_compat_trans",
+``t_compat a b ∧ t_compat b c ⇒ t_compat a c``,
+  rw[t_compat_def]>>metis_tac[])
+
+val SUBMAP_t_compat = store_thm("SUBMAP_t_compat",
+``t_wfs s' ∧ s SUBMAP s' ⇒ t_compat s s'``,
+  rw[t_compat_def]
+  >-
+    metis_tac[t_wfs_SUBMAP]>>
+  fs[t_walkstar_SUBMAP])
+
+(*t_compat is preserved under certain types of unification
+  Proof basically from HOL*)
+val t_compat_eqs_t_unify = store_thm("t_compat_eqs_t_unify",
+``!s t1 t2 sx.
+    t_compat s sx ∧ (t_walkstar sx t1 = t_walkstar sx t2)
+    ⇒ 
+    ?si. (t_unify s t1 t2 = SOME si) ∧ t_compat si sx``,
+  rw[t_compat_def]>>
+  Q.ISPECL_THEN [`t2`,`t1`,`sx`,`s`] assume_tac (GEN_ALL eqs_t_unify)>>
+  rfs[]>>
+  CONJ_ASM1_TAC>-metis_tac[t_unify_wfs]>>
+  rw[]>>
+  Q.ISPECL_THEN [`s`,`t1`,`t2`,`sx'`,`sx`] assume_tac t_unify_mgu>>
+  rfs[])
+
+
+
+
+
 
 val _ = export_theory ();
