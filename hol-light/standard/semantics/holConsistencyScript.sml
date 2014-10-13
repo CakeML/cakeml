@@ -6,16 +6,16 @@ val _ = new_theory"holConsistency"
 
 val mem = ``mem:'U->'U->bool``
 
-val consistent_context_def = Define`
-  consistent_context ctxt ⇔
-        (thyof ctxt,[]) |- (Var "x" Bool === Var "x" Bool) ∧
-      ¬((thyof ctxt,[]) |- (Var "x" Bool === Var "y" Bool))`
+val consistent_theory_def = Define`
+  consistent_theory thy ⇔
+        (thy,[]) |- (Var "x" Bool === Var "x" Bool) ∧
+      ¬((thy,[]) |- (Var "x" Bool === Var "y" Bool))`
 
 val proves_consistent = store_thm("proves_consistent",
   ``is_set_theory ^mem ⇒
-    ∀ctxt. theory_ok (thyof ctxt) ∧ (∃i. i models (thyof ctxt)) ⇒
-      consistent_context ctxt``,
-  rw[consistent_context_def] >- (
+    ∀thy. theory_ok thy ∧ (∃i. i models thy) ⇒
+      consistent_theory thy``,
+  rw[consistent_theory_def] >- (
     match_mp_tac (List.nth(CONJUNCTS proves_rules,8)) >>
     simp[term_ok_def,type_ok_def] >>
     imp_res_tac theory_ok_sig >>
@@ -37,8 +37,8 @@ val proves_consistent = store_thm("proves_consistent",
     imp_res_tac typesem_Bool >>
     rw[mem_boolset] >>
     metis_tac[typesem_inhabited] ) >>
-  qmatch_abbrev_tac`termsem (tmsof ctxt) i v (s === t) ≠ True` >>
-  qspecl_then[`sigof ctxt`,`i`,`v`,`s`,`t`]mp_tac(UNDISCH termsem_equation) >>
+  qmatch_abbrev_tac`termsem (tmsof (sigof thy)) i v (s === t) ≠ True` >>
+  qspecl_then[`sigof thy`,`i`,`v`,`s`,`t`]mp_tac(UNDISCH termsem_equation) >>
   simp[] >>
   discharge_hyps >- (
     simp[term_ok_equation,is_structure_def] >>
@@ -67,7 +67,7 @@ val init_ctxt_has_model = store_thm("init_ctxt_has_model",
 val min_hol_consistent = store_thm("min_hol_consistent",
   ``is_set_theory ^mem ⇒
     ∀ctxt. ctxt extends init_ctxt ∧ (∀p. MEM (NewAxiom p) ctxt ⇒ MEM (NewAxiom p) init_ctxt) ⇒
-      consistent_context ctxt``,
+      consistent_theory (thyof ctxt)``,
   strip_tac >> gen_tac >> strip_tac >>
   match_mp_tac (UNDISCH proves_consistent) >>
   metis_tac[extends_theory_ok,extends_consistent,init_theory_ok,init_ctxt_has_model])
@@ -148,7 +148,7 @@ val _ = store_thm("fhol_consistent",
     ∀ctxt.
       ctxt extends fhol_ctxt ∧
       (∀p. MEM (NewAxiom p) ctxt ⇒ MEM (NewAxiom p) fhol_ctxt) ⇒
-      consistent_context ctxt``,
+      consistent_theory (thyof ctxt)``,
   strip_tac >> gen_tac >> strip_tac >>
   match_mp_tac (UNDISCH proves_consistent) >>
   metis_tac[fhol_has_model])
@@ -213,7 +213,7 @@ val _ = store_thm("hol_consistent",
     ∀ctxt.
       ctxt extends hol_ctxt ∧
       (∀p. MEM (NewAxiom p) ctxt ⇒ MEM (NewAxiom p) hol_ctxt) ⇒
-      consistent_context ctxt``,
+      consistent_theory (thyof ctxt)``,
   strip_tac >> gen_tac >> strip_tac >>
   match_mp_tac (UNDISCH proves_consistent) >>
   metis_tac[hol_has_model])
