@@ -12,6 +12,13 @@ val CLOSED_INST = Q.prove (
 `!tm tysubst. CLOSED tm ⇒ CLOSED (INST tysubst tm)`,
  cheat);
 
+val type_ok_subst = Q.prove (
+`!tys i ty.
+  type_ok tys (TYPE_SUBST i ty)
+  ⇒
+  ?i'. EVERY (type_ok tys) (MAP FST i') ∧ TYPE_SUBST i' ty = TYPE_SUBST i ty`,
+ cheat);
+
 val updates_disjoint = Q.prove (
 `!upd ctxt.
   upd updates ctxt
@@ -299,7 +306,7 @@ val term_ok_remove_upd = Q.prove (
   upd updates ctxt ∧
   (?consts p. upd = ConstSpec consts p)
   ⇒
-  term_ok (sigof ctxt) (remove_const thy (upd_to_subst upd) tm)`,
+  term_ok (sigof ctxt) (remove_const (tysof ctxt) (upd_to_subst upd) tm)`,
  Induct_on `tm` >>
  rw [term_ok_def, remove_const_def] >>
  rw [upd_to_subst_def]
@@ -322,8 +329,7 @@ val term_ok_remove_upd = Q.prove (
                     metis_tac [SOME_11]) >>
          rw [] >>
          fs [some_def] >>
-         cheat >>
-         metis_tac [])
+         metis_tac [type_ok_subst, EVERY_NOT_EXISTS])
      >- (imp_res_tac ALOOKUP_MEM >>
          fs [ALOOKUP_NONE, MEM_MAP] >>
          fs [] >>
@@ -348,7 +354,12 @@ val term_ok_remove_upd = Q.prove (
          >- (PairCases_on `e` >>
              fs [some_def] >>
              rw [] >>
-             cheat)))
+             qabbrev_tac `tysubst = (@tysubst.  (∀e. MEM e tysubst ⇒ (λ(p1,p2).  type_ok (tysof ctxt) p1) e) ∧ TYPE_SUBST tysubst (typeof x) = TYPE_SUBST i (typeof x))` >>
+             `(∀e. MEM e tysubst' ⇒ (λ(p1,p2). type_ok (tysof ctxt) p1) e) ∧
+              TYPE_SUBST tysubst' (typeof x) = TYPE_SUBST i (typeof x)`
+                   by metis_tac [SELECT_THM] >>
+             res_tac >>
+             fs [])))
  >- (fs [welltyped_def] >>
      qexists_tac `ty` >>
      match_mp_tac (SIMP_RULE (srw_ss()) [AND_IMP_INTRO, PULL_FORALL] has_type_remove_const) >>
@@ -373,6 +384,31 @@ val theory_ok_remove_upd = Q.prove (
  rw [updates_cases] >>
  imp_res_tac proves_theory_ok >>
  fs []);
+
+val remove_const_term_union = Q.prove (
+`!tms1 tms2.
+  MAP (remove_const thy consts) (TERM_UNION tms1 tms2)
+  =
+  TERM_UNION (MAP (remove_const thy consts) tms1) (MAP (remove_const thy consts) tms2)`,
+ Induct_on `tms1` >>
+ rw [TERM_UNION_def] >>
+ every_case_tac >>
+ rw [] >>
+ unabbrev_all_tac >>
+ fs [EVERY_MEM, EXISTS_MEM] >>
+ imp_res_tac TERM_UNION_NONEW >>
+ cheat);
+
+val remove_const_inst = Q.prove (
+`!tys consts tyin tm.
+  remove_const tys consts (INST tyin tm) = INST tyin (remove_const tys consts tm)`,
+ Induct_on `tm` >>
+ rw [remove_const_def] >>
+ cheat);
+
+val remove_const_aconv = Q.prove (
+`!tm1 tm2. ACONV tm1 tm2 ⇒ ACONV (remove_const (tysof ctxt) consts tm1) (remove_const (tysof ctxt) consts tm2)`,
+ cheat);
 
 val update_conservative = Q.prove (
 `!lhs tm.
@@ -432,14 +468,27 @@ val update_conservative = Q.prove (
      MAP_EVERY qexists_tac [`remove_const (tysof ctxt) consts tm`, `remove_const (tysof ctxt) consts tm'`, 
                             `MAP (remove_const (tysof ctxt) consts) h1`, `MAP (remove_const (tysof ctxt) consts) h2`] >>
      rw [remove_const_eq, remove_const_def] >>
-     fs [upd_to_subst_def]
+     fs [upd_to_subst_def, remove_const_term_union, rich_listTheory.FILTER_MAP]
      >- cheat
-     >- cheat
-     >- cheat)
+     >- (LAST_X_ASSUM (qspecl_then [`ctxt`, `ConstSpec consts p`] mp_tac) >>
+         rw [upd_to_subst_def])
+     >- (FIRST_X_ASSUM (qspecl_then [`ctxt`, `ConstSpec consts p`] mp_tac) >>
+         rw [upd_to_subst_def]))
  >- (rw [Once proves_cases] >>
      ntac 4 disj2_tac >>
      disj1_tac >>
-     cheat)
+     rw [remove_const_term_union] >>
+     fs [upd_to_subst_def] >>
+     MAP_EVERY qexists_tac [`MAP (remove_const (tysof ctxt) consts) h1`,
+                            `MAP (remove_const (tysof ctxt) consts) h2`,
+                            `remove_const (tysof ctxt) consts p`,
+                            `remove_const (tysof ctxt) consts tm`] >>
+     rw [] >>
+     LAST_X_ASSUM (qspecl_then [`ctxt`, `ConstSpec consts p'`] mp_tac) >>
+     LAST_X_ASSUM (qspecl_then [`ctxt`, `ConstSpec consts p'`] mp_tac) >>
+     rw [upd_to_subst_def] >>
+     rfs [upd_to_subst_def, remove_const_eq] >>
+     metis_tac [remove_const_aconv])
  >- (rw [Once proves_cases] >>
      ntac 5 disj2_tac >>
      disj1_tac >>
@@ -450,12 +499,26 @@ val update_conservative = Q.prove (
      MAP_EVERY qexists_tac [`remove_const (tysof ctxt) consts tm`, `MAP (remove_const (tysof ctxt) consts) h`, `tyin`] >>
      rw [] >>
      fs [upd_to_subst_def]
-     >- cheat
-     >- cheat
-     >- cheat)
+     >- (rw [MAP_MAP_o, combinTheory.o_DEF] >>
+         rw [remove_const_inst])
+     >- rw [remove_const_inst]
+     >- (LAST_X_ASSUM (qspecl_then [`ctxt`, `ConstSpec consts p`] mp_tac) >>
+         rw [upd_to_subst_def]))
  >- (rw [Once proves_cases] >>
      ntac 7 disj2_tac >>
      disj1_tac >>
+     fs [upd_to_subst_def, remove_const_term_union, remove_const_eq] >>
+     MAP_EVERY qexists_tac [`MAP (remove_const (tysof ctxt) consts) h1`,
+                            `MAP (remove_const (tysof ctxt) consts) h2`,
+                            `remove_const (tysof ctxt) consts l1`,
+                            `remove_const (tysof ctxt) consts l2`,
+                            `remove_const (tysof ctxt) consts r1`,
+                            `remove_const (tysof ctxt) consts r2`] >>
+     rw [remove_const_def] >>
+     LAST_X_ASSUM (qspecl_then [`ctxt`, `ConstSpec consts p`] mp_tac) >>
+     LAST_X_ASSUM (qspecl_then [`ctxt`, `ConstSpec consts p`] mp_tac) >>
+     rw [] >>
+     rfs [remove_const_eq, upd_to_subst_def] >>
      cheat)
  >- (rw [Once proves_cases] >>
      ntac 7 disj2_tac >>
@@ -470,7 +533,19 @@ val update_conservative = Q.prove (
  >- (rw [Once proves_cases] >>
      ntac 9 disj2_tac >>
      disj1_tac >>
-     cheat)
+     fs [upd_to_subst_def, remove_const_term_union, remove_const_eq] >>
+     MAP_EVERY qexists_tac [`MAP (remove_const (tysof ctxt) consts) h1`,
+                            `MAP (remove_const (tysof ctxt) consts) h2`,
+                            `remove_const (tysof ctxt) consts l`,
+                            `remove_const (tysof ctxt) consts m1`,
+                            `remove_const (tysof ctxt) consts m2`,
+                            `remove_const (tysof ctxt) consts r`] >>
+     rw [remove_const_def] >>
+     LAST_X_ASSUM (qspecl_then [`ctxt`, `ConstSpec consts p`] mp_tac) >>
+     LAST_X_ASSUM (qspecl_then [`ctxt`, `ConstSpec consts p`] mp_tac) >>
+     rw [] >>
+     rfs [remove_const_eq, upd_to_subst_def] >>
+     metis_tac [remove_const_aconv])
  >- (cheat));
 
 val _ = export_theory ();
