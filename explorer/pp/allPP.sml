@@ -36,6 +36,7 @@ val _ = computeLib.add_thms  [basis_env_eq,compile_primitives_def,get_all_asts_d
 
 (*TODO: Move into HOL once I figure out where...*)
 val _ = computeLib.add_thms [nub_DEF,rich_listTheory.COUNT_LIST_AUX_def_compute,rich_listTheory.COUNT_LIST_compute] cs
+
 val _ = compute_basicLib.add_datatype ``:comp_environment`` cs
 
 val eval = computeLib.CBV_CONV cs
@@ -174,6 +175,9 @@ end
 (*Helper for test calls*)
 
 (*
+
+val collectAnnotations :(term list ref)= ref ([]:term list);
+
 val () = set_trace "pp_avoids_symbol_merges" 0
 
 fun take 0 (x::xs) = x

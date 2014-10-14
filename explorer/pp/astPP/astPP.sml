@@ -314,7 +314,6 @@ fun pconsomePrint sys d t pg str brk blk=
     |   printTerms [x] = sys (Top,pg,pg) (d-1) x
     |   printTerms (x::xs) = sys (Top,pg,pg) (d-1) x >> str ",">> (printTerms xs);
     val (ty,ls) = strip_comb (rand l);
-    (*Special case for cons and handle long names*)
     val ctor = 
       if (term_to_string ty = "Short") then 
         toString(hd ls)
@@ -329,22 +328,40 @@ fun pconsomePrint sys d t pg str brk blk=
 val _=add_astPP ("pconsomeprint", ``Pcon (SOME x) y``,genPrint pconsomePrint);
 val _=add_astPP ("consomeprint", ``Con (SOME x) y``,genPrint pconsomePrint);
 
-(*Special case for list syntax*)
-fun pconconsPrint sys d t pg str brk blk =
+(*Special case for list syntax 
+check_tail checks whether it is a fully specified list*)
+fun check_tail t =
+  let val (x,y) = dest_comb t in
+    if x = ``Con (SOME (Short "nil"))`` then true
+    else 
+      if x = ``Con (SOME (Short "::"))`` then
+           check_tail (hd (tl (#1(listSyntax.dest_list y))))
+    else false 
+  end;
+
+fun pconconsPrint check_tail sys d t pg str brk blk =
   let
     val (temp,r) = dest_comb t
     val [hd,tl] = #1(listSyntax.dest_list r)
   in
-    str (case pg of (Prec(_,"list")) => "," | _=>"[")>>
-    sys(Top,pg,pg) (d-1) hd >>
-    sys(Prec(0,"list"),pg,pg) (d-1) tl
+    case pg of 
+      Prec(_,"full_list") =>
+        str "," >> sys(Top,pg,pg) (d-1) hd >> sys(pg,pg,pg) (d-1) tl
+    | Prec(_,"non_list") =>
+        sys(Top,pg,pg) (d-1) hd >> str"::" >> sys (pg,pg,pg) (d-1) tl
+    | _ => 
+      if check_tail tl then 
+        str"[">> sys (Top,pg,pg) (d-1) hd >> 
+        sys (Prec(0,"full_list"),pg,pg) (d-1) tl
+      else sys(Top,pg,pg) (d-1) hd >> str"::" >>
+           sys(Prec(0,"non_list"),pg,pg)(d-1) tl
   end;
 
-val _ = add_astPP("conconsprint",``Con (SOME (Short"::")) y``,genPrint pconconsPrint);
-val _ = add_astPP("pconconsprint",``Pcon (SOME (Short"::")) y``,genPrint pconconsPrint);
+val _ = add_astPP("conconsprint",``Con (SOME (Short"::")) y``,genPrint (pconconsPrint check_tail));
+val _ = add_astPP("pconconsprint",``Pcon (SOME (Short"::")) y``,genPrint (pconconsPrint check_tail));
 
 fun pconnilPrint sys d t pg str brk blk = 
-  case pg of Prec(0,"list") => str"]" | _ => str"[]";
+  case pg of Prec(0,"full_list") => str"]" | _ => str"[]";
 
 val _=add_astPP ("connilprint",``Con (SOME (Short "nil")) y``,genPrint pconnilPrint);
 val _=add_astPP ("pconnilprint",``Pcon (SOME (Short "nil")) y``,genPrint pconnilPrint);
