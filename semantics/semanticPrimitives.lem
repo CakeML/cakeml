@@ -156,6 +156,7 @@ val lit_same_type : lit -> lit -> bool
 let lit_same_type l1 l2 =
   match (l1,l2) with
     | (IntLit _, IntLit _) -> true
+    | (Char _, Char _) -> true
     | (StrLit _, StrLit _) -> true
     | (Bool _, Bool _) -> true
     | (Unit, Unit) -> true
@@ -360,6 +361,27 @@ and v_to_list (Conv (Just (cn,TypeId (Short tn))) [v1;v2]) =
     Nothing
 and v_to_list _ = Nothing
 
+val v_to_char_list : v -> maybe (list char)
+let rec v_to_char_list (Conv (Just (cn, TypeId (Short tn))) []) =
+  if cn = "nil" && tn = "list" then
+    Just []
+  else
+    Nothing
+and v_to_char_list (Conv (Just (cn,TypeId (Short tn))) [Litv (Char c);v]) =
+  if cn = "::"  && tn = "list" then
+    match v_to_char_list v with
+      | Just cs -> Just (c::cs)
+      | Nothing -> Nothing
+    end
+  else
+    Nothing
+and v_to_char_list _ = Nothing
+
+val char_list_to_v : list char -> v
+let rec char_list_to_v [] = Conv (Just ("nil", TypeId (Short "list"))) []
+and char_list_to_v (c::cs) =
+  Conv (Just ("::", TypeId (Short "list"))) [Litv (Char c); char_list_to_v cs]
+
 val opn_lookup : opn -> integer -> integer -> integer
 let opn_lookup n : integer -> integer -> integer = match n with
   | Plus -> (+)
@@ -449,6 +471,14 @@ let do_app s op vs =
                   end
         | _ -> Nothing
       end
+    | (Implode, [v]) ->
+          match v_to_char_list v with
+          | Just ls ->
+              Just (s, Rval (Litv (StrLit (toString ls))))
+          | Nothing -> Nothing
+          end
+    | (Explode, [Litv (StrLit str)]) ->
+        Just (s, Rval (char_list_to_v (toCharList str)))
     | (VfromList, [v]) ->
           match v_to_list v with
             | Just vs ->
@@ -579,6 +609,7 @@ let tc_to_string tc =
   match tc with
     TC_name id -> id_to_string id
   | TC_int -> "<int>"
+  | TC_char -> "<char>"
   | TC_string -> "<string>"
   | TC_bool -> "<bool>"
   | TC_unit -> "<unit>"

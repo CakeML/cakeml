@@ -88,6 +88,14 @@ val do_app_cases = Q.store_thm ("do_app_cases",
       Num (ABS i) < LENGTH ws ∧
       store_assign lnum (W8array (LUPDATE w (Num (ABS i)) ws)) st = SOME st' ∧
       v = Rval (Litv Unit)))) ∨
+  (?vs' str.
+    (op = Explode) ∧ (vs = [Litv(StrLit str)]) ∧
+    st = st' ∧
+    v = Rval (char_list_to_v (EXPLODE str))) ∨
+  (?vs' v'.
+    (op = Implode) ∧ (vs = [v']) ∧ (SOME vs' = v_to_char_list v') ∧
+    st = st' ∧
+    v = Rval (Litv (StrLit (IMPLODE vs')))) ∨
   (?vs' v'.
     (op = VfromList) ∧ (vs = [v']) ∧ (SOME vs' = v_to_list v') ∧
     st = st' ∧

@@ -4,6 +4,7 @@ open import Lib
 (* Literal constants *)
 type lit =
   | IntLit of integer
+  | Char of char
   | StrLit of string
   | Bool of bool
   | Unit
@@ -63,6 +64,9 @@ type op =
   | Aw8sub
   | Aw8length
   | Aw8update
+  (* String operations *)
+  | Explode
+  | Implode
   (* Vector operations *)
   | VfromList
   | Vsub
@@ -86,6 +90,7 @@ type tctor =
   | TC_name of id typeN
   (* Built-in types *)
   | TC_int
+  | TC_char
   | TC_string
   | TC_bool
   | TC_unit
@@ -109,6 +114,7 @@ type t =
 
 (* Some abbreviations *)
 let Tint = Tapp [] TC_int
+let Tchar = Tapp [] TC_char
 let Tstring = Tapp [] TC_string
 let Tunit = Tapp [] TC_unit
 let Tbool = Tapp [] TC_bool

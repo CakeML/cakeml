@@ -15,6 +15,7 @@ val _ = new_theory "ast"
 val _ = Hol_datatype `
  lit =
     IntLit of int
+  | Char of char
   | StrLit of string
   | Bool of bool
   | Unit
@@ -86,6 +87,9 @@ val _ = Hol_datatype `
   | Aw8sub
   | Aw8length
   | Aw8update
+  (* String operations *)
+  | Explode
+  | Implode
   (* Vector operations *)
   | VfromList
   | Vsub
@@ -113,6 +117,7 @@ val _ = Hol_datatype `
     TC_name of typeN id
   (* Built-in types *)
   | TC_int
+  | TC_char
   | TC_string
   | TC_bool
   | TC_unit
@@ -140,6 +145,9 @@ val _ = Hol_datatype `
 (* Some abbreviations *)
 val _ = Define `
  (Tint = (Tapp [] TC_int))`;
+
+val _ = Define `
+ (Tchar = (Tapp [] TC_char))`;
 
 val _ = Define `
  (Tstring = (Tapp [] TC_string))`;

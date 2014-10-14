@@ -205,6 +205,7 @@ val _ = Define `
  (lit_same_type l1 l2 =  
 ((case (l1,l2) of
       (IntLit _, IntLit _) => T
+    | (Char _, Char _) => T
     | (StrLit _, StrLit _) => T
     | (Bool _, Bool _) => T
     | (Unit, Unit) => T
@@ -436,6 +437,33 @@ val _ = Define `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn v_to_list_defn;
 
+(*val v_to_char_list : v -> maybe (list char)*)
+ val v_to_char_list_defn = Hol_defn "v_to_char_list" `
+ (v_to_char_list (Conv (SOME (cn, TypeId (Short tn))) []) =  
+(if (cn = "nil") /\ (tn = "list") then
+    SOME []
+  else
+    NONE))
+/\ (v_to_char_list (Conv (SOME (cn,TypeId (Short tn))) [Litv (Char c);v]) =  
+(if (cn = "::")  /\ (tn = "list") then
+    (case v_to_char_list v of
+        SOME cs => SOME (c::cs)
+      | NONE => NONE
+    )
+  else
+    NONE))
+/\ (v_to_char_list _ = NONE)`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn v_to_char_list_defn;
+
+(*val char_list_to_v : list char -> v*)
+ val char_list_to_v_defn = Hol_defn "char_list_to_v" `
+ (char_list_to_v [] = (Conv (SOME ("nil", TypeId (Short "list"))) []))
+/\ (char_list_to_v (c::cs) =  
+(Conv (SOME ("::", TypeId (Short "list"))) [Litv (Char c); char_list_to_v cs]))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn char_list_to_v_defn;
+
 (*val opn_lookup : opn -> integer -> integer -> integer*)
 val _ = Define `
  (opn_lookup n : int -> int -> int = ((case n of
@@ -530,6 +558,14 @@ val _ = Define `
                   )
         | _ => NONE
       )
+    | (Implode, [v]) =>
+          (case v_to_char_list v of
+            SOME ls =>
+              SOME (s, Rval (Litv (StrLit (IMPLODE ls))))
+          | NONE => NONE
+          )
+    | (Explode, [Litv (StrLit str)]) =>
+        SOME (s, Rval (char_list_to_v (EXPLODE str)))
     | (VfromList, [v]) =>
           (case v_to_list v of
               SOME vs =>
@@ -682,6 +718,7 @@ val _ = Define `
 ((case tc of
     TC_name id => id_to_string id
   | TC_int => "<int>"
+  | TC_char => "<char>"
   | TC_string => "<string>"
   | TC_bool => "<bool>"
   | TC_unit => "<unit>"
