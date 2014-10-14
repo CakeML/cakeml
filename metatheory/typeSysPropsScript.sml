@@ -965,6 +965,8 @@ val type_op_cases = Q.store_thm ("type_op_cases",
    ((op = Aw8sub) ∧ ts = [Tword8array; Tint] ∧ t3 = Tword8) ∨
    ((op = Aw8length) ∧ ts = [Tword8array] ∧ t3 = Tint) ∨
    ((op = Aw8update) ∧ ts = [Tword8array; Tint; Tword8] ∧ t3 = Tunit) ∨
+   ((op = Explode) ∧ ts = [Tstring] ∧ t3 = Tapp [Tchar] (TC_name (Short "list"))) ∨
+   ((op = Implode) ∧ ts = [Tapp [Tchar] (TC_name (Short "list"))] ∧ t3 = Tstring) ∨
    ((op = VfromList) ∧ ?t2. ts = [Tapp [t2] (TC_name (Short "list"))] ∧ t3 = Tapp [t2] TC_vector) ∨
    ((op = Vsub) ∧ ts = [Tapp [t3] TC_vector; Tint]) ∨
    ((op = Vlength) ∧ ?t1. ts = [Tapp [t1] TC_vector] ∧ t3 = Tint) ∨
@@ -974,7 +976,7 @@ val type_op_cases = Q.store_thm ("type_op_cases",
    ((op = Aupdate) ∧ ?t1. ts = [Tapp [t1] TC_array; Tint; t1] ∧ t3 = Tunit))`,
  rw [type_op_def] >>
  every_case_tac >>
- fs [] >>
+ fs [Tchar_def] >>
  metis_tac []);
 
 (* ---------- type_p ---------- *)
@@ -1112,7 +1114,7 @@ val type_e_freevars = Q.store_thm ("type_e_freevars",
  ho_match_mp_tac type_e_strongind >>
  rw [check_freevars_def, bind_tenv_def, num_tvs_def, type_op_cases,
      tenv_ok_def, bind_tvar_def, bind_var_list_def, opt_bind_tenv_def] >>
- fs [check_freevars_def]
+ fs [check_freevars_def,Tchar_def]
  >- metis_tac [deBruijn_subst_check_freevars]
  >- metis_tac [type_e_freevars_lem4, arithmeticTheory.ADD]
  >- metis_tac [type_e_freevars_lem4, arithmeticTheory.ADD]
@@ -1267,7 +1269,7 @@ val type_e_subst = Q.store_thm ("type_e_subst",
      metis_tac [type_e_subst_lem3])
  >- (fs [type_op_cases] >>
      rw [] >>
-     fs [deBruijn_subst_def] >>
+     fs [deBruijn_subst_def,Tchar_def] >>
      metis_tac [])
  >- (fs [RES_FORALL] >>
      qexists_tac `deBruijn_subst (num_tvs tenvE1) (MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs) t` >>
