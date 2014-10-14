@@ -40,6 +40,7 @@ val consistent_mod_cases = SIMP_RULE (srw_ss()) [] (List.nth (CONJUNCTS type_v_c
 val tid_exn_not = Q.prove (
 `(!tn. tid_exn_to_tc tn ≠ TC_bool) ∧
  (!tn. tid_exn_to_tc tn ≠ TC_int) ∧
+ (!tn. tid_exn_to_tc tn ≠ TC_char) ∧
  (!tn. tid_exn_to_tc tn ≠ TC_string) ∧
  (!tn. tid_exn_to_tc tn ≠ TC_ref) ∧
  (!tn. tid_exn_to_tc tn ≠ TC_unit) ∧
@@ -59,14 +60,15 @@ val has_lists_v_to_list = Q.prove (
   ctMap_has_lists ctMap ∧
   type_v tvs ctMap tenvS v (Tapp [t3] (TC_name (Short "list")))
   ⇒
-  ?vs. v_to_list v = SOME vs`,
+  ?vs. v_to_list v = SOME vs ∧
+  (t3 = Tchar ⇒ ?vs. v_to_char_list v = SOME vs)`,
  measureInduct_on `v_size v` >>
  rw [] >>
  pop_assum mp_tac >>
  rw [Once type_v_cases] >>
  fs [] >>
  imp_res_tac type_funs_Tfn >>
- fs [tid_exn_to_tc_def] >>
+ fs [tid_exn_to_tc_def,Tchar_def] >>
  cases_on `tn` >>
  fs [] >>
  rw [] >>
@@ -77,14 +79,22 @@ val has_lists_v_to_list = Q.prove (
  rw [] >>
  ntac 3 (fs [Once type_vs_cases_eqn]) >>
  fs [] >>
- rw [v_to_list_def] >>
+ rw [v_to_list_def,v_to_char_list_def] >>
  fs [type_subst_def] >>
  LAST_X_ASSUM (mp_tac o Q.SPEC `v'`) >>
  rw [v_size_def, basicSizeTheory.option_size_def, basicSizeTheory.pair_size_def,
      id_size_def, list_size_def, tid_or_exn_size_def] >>
  full_simp_tac (srw_ss()++ARITH_ss) [] >>
- res_tac >>
- rw []);
+ res_tac >> rw[] >>
+ fs[flookup_fupdate_list] >> rw[] >> fs[GSYM Tchar_def] >>
+ qpat_assum`type_v X Y Z v Tchar`mp_tac >>
+ simp[Once type_v_cases,Tchar_def] >>
+ rw[] >> rw [v_to_char_list_def] >>
+ TRY (
+   fs[tid_exn_to_tc_def] >>
+   qpat_assum`TC_char = X`mp_tac >>
+   BasicProvers.CASE_TAC ) >>
+ imp_res_tac type_funs_Tfn >> fs[]);
 
 (* Classifying values of basic types *)
 val canonical_values_thm = Q.store_thm ("canonical_values_thm",
@@ -100,7 +110,8 @@ val canonical_values_thm = Q.store_thm ("canonical_values_thm",
   (type_v tvs ctMap tenvS v Tword8 ⇒ (∃n. v = Litv (Word8 n))) ∧
   (type_v tvs ctMap tenvS v Tword8array ⇒ (∃n. v = Loc n)) ∧
   (!t3. ctMap_has_lists ctMap ∧ type_v tvs ctMap tenvS v (Tapp [t3] (TC_name (Short "list"))) ⇒ 
-        ?vs. v_to_list v = SOME vs) ∧
+        (?vs. v_to_list v = SOME vs) ∧
+        ((t3 = Tchar) ⇒ ?vs. v_to_char_list v = SOME vs)) ∧
   (!t3. type_v tvs ctMap tenvS v (Tapp [t3] TC_vector) ⇒ (?vs. v = Vectorv vs)) ∧
   (!t3. type_v tvs ctMap tenvS v (Tapp [t3] TC_array) ⇒ (∃n. v = Loc n))`,
  rw [] >>
@@ -108,13 +119,16 @@ val canonical_values_thm = Q.store_thm ("canonical_values_thm",
  fs [] >>
  rw [] >>
  TRY (Cases_on `tn`) >>
+ TRY (fs[Tchar_def]>>NO_TAC) >>
  fs [tid_exn_to_tc_def] >>
  imp_res_tac type_funs_Tfn >>
  fs [] >>
  rw [] >>
  imp_res_tac has_lists_v_to_list >>
  fs [] >>
- pop_assum match_mp_tac >>
+ fsrw_tac[][GSYM PULL_EXISTS] >>
+ fsrw_tac[boolSimps.DNF_ss][] >>
+ first_x_assum match_mp_tac >>
  rw [Once type_v_cases_eqn, tid_exn_to_tc_def] >>
  metis_tac []);
 
@@ -123,7 +137,7 @@ fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
 rw [] >>
 fs [deBruijn_subst_def, tid_exn_not] >>
 imp_res_tac type_funs_Tfn >>
-fs [] >>
+fs [Tchar_def] >>
 metis_tac [tid_exn_not];
 
 (* Well-typed pattern matches either match or not, but they don't raise type
@@ -151,7 +165,7 @@ val pmatch_type_progress = Q.prove (
  fs [lit_same_type_def] 
  >- (fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
      rw [] >>
-     fs [])
+     fs [Tchar_def])
  >- (fs [Once type_v_cases_eqn, Once (hd (CONJUNCTS type_p_cases))] >>
      rw [] >>
      cases_on `lookup_alist_mod_env n cenv` >>
@@ -273,7 +287,7 @@ val eq_same_type = Q.prove (
  ONCE_REWRITE_TAC [type_v_cases_eqn] >>
  rw [] >>
  CCONTR_TAC >>
- fs [] >>
+ fs [Tchar_def] >>
  rw [] >>
  imp_res_tac type_funs_Tfn >>
  fs [lit_same_type_def]
@@ -467,6 +481,7 @@ val exp_type_progress = Q.prove (
              every_case_tac >>
              fs [] >>
              fs[store_v_same_type_def])
+         >- every_case_tac
          >- srw_tac [boolSimps.DNF_ss] [markerTheory.Abbrev_def]
          >- (every_case_tac >>
              fs [store_alloc_def])
@@ -843,6 +858,38 @@ val v_to_list_type = Q.prove (
  res_tac >>
  FIRST_X_ASSUM (mp_tac o SIMP_RULE (srw_ss()) [Once type_v_cases_eqn]) >>
  rw []);
+
+val char_list_to_v_type = Q.prove (
+  `ctMap_has_lists ctMap
+   ⇒
+   type_v tvs ctMap tenvS (char_list_to_v (EXPLODE str)) (Tapp [Tchar] (TC_name (Short "list")))`,
+    Induct_on`str` >> rw[char_list_to_v_def] >>
+    simp[Once type_v_cases,tid_exn_to_tc_def,Tchar_def] >>
+    fs[ctMap_has_lists_def,check_freevars_def] >>
+    simp[Once type_v_cases] >>
+    conj_tac >- (
+      simp[Once type_v_cases] >>
+      simp[type_subst_def,flookup_fupdate_list,Tchar_def] ) >>
+    simp[Once type_v_cases,GSYM Tchar_def,type_subst_def,flookup_fupdate_list] >>
+    simp[Once type_v_cases])
+
+val v_to_char_list_type = Q.prove (
+`!v vs.
+  ctMap_has_lists ctMap ∧
+  v_to_char_list v = SOME vs ∧
+  type_v 0 ctMap tenvS v (Tapp [t] (TC_name (Short "list")))
+  ⇒
+  type_v tvs ctMap tenvS (Litv (StrLit (IMPLODE vs))) (Tstring)`,
+ ho_match_mp_tac v_to_char_list_ind >>
+ rw [v_to_char_list_def]
+ >- fs [Once type_v_cases_eqn] >>
+ every_case_tac >>
+ fs [] >>
+ rw [] >>
+ qpat_assum `type_v x0 x1 x2 (Conv x3 x4) x5` (mp_tac o SIMP_RULE (srw_ss()) [Once type_v_cases_eqn]) >>
+ rw [] >>
+ ntac 4 (fs [Once type_vs_cases_eqn]) >>
+ rw [Once type_v_cases_eqn])
 
 (* If a step can be taken from a well-typed state, the resulting state has the
 * same type *)
@@ -1304,6 +1351,8 @@ val exp_type_preservation = Q.prove (
              fs [])
          >- do_app_exn_tac
          >- do_app_exn_tac
+         >- metis_tac[char_list_to_v_type]
+         >- metis_tac[v_to_char_list_type,Tstring_def]
          >- metis_tac [v_to_list_type]
          >- (qpat_assum `type_v 0 ctMap tenvS (Vectorv vs') (Tapp [t2] TC_vector)`
                         (mp_tac o SIMP_RULE (srw_ss()) [Once type_v_cases_eqn]) >>

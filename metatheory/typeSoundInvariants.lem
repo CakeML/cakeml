@@ -134,6 +134,13 @@ type_v tvs cenv senv (Litv (IntLit n)) Tint
 
 and
 
+lit_char : forall tvs cenv senv c.
+true
+==>
+type_v tvs cenv senv (Litv (Char c)) Tchar
+
+and
+
 lit_string : forall tvs cenv senv s.
 true
 ==>

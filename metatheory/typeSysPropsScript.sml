@@ -1827,7 +1827,7 @@ val type_v_freevars = Q.store_thm ("type_v_freevars",
  (!tenvS tenvC envM tenvM. consistent_mod_env tenvS tenvC envM tenvM ⇒
    T)`,
  ho_match_mp_tac type_v_strongind >>
- rw [check_freevars_def, tenv_ok_def, bind_tenv_def, num_tvs_def, bind_tvar_def] >-
+ rw [check_freevars_def, tenv_ok_def, bind_tenv_def, num_tvs_def, bind_tvar_def, Tchar_def] >-
  metis_tac [] >>
  res_tac
  >- metis_tac [num_tvs_def, type_e_freevars, bind_tenv_def, bind_tvar_def,
@@ -1981,7 +1981,7 @@ val type_subst = Q.store_thm ("type_subst",
  pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
  rw [deBruijn_inc_def, deBruijn_subst_def] >>
  rw [deBruijn_inc_def, deBruijn_subst_def] >>
- fs [check_freevars_def] >>
+ fs [check_freevars_def, Tchar_def] >>
  rw [deBruijn_inc_def, deBruijn_subst_def] >>
  rw [nil_deBruijn_inc, deBruijn_subst_check_freevars, type_subst_lem3,
      nil_deBruijn_subst]
