@@ -351,6 +351,13 @@ type_p tvs cenv (Plit (IntLit n)) Tint []
 
 and
 
+plit_char : forall tvs cenv c.
+true
+==>
+type_p tvs cenv (Plit (Char c)) Tchar []
+
+and
+
 plit_string : forall tvs cenv s.
 true
 ==>
@@ -425,6 +432,13 @@ lit_int : forall menv cenv tenv n.
 true
 ==>
 type_e menv cenv tenv (Lit (IntLit n)) Tint
+
+and
+
+lit_char : forall menv cenv tenv c.
+true
+==>
+type_e menv cenv tenv (Lit (Char c)) Tchar
 
 and
 

@@ -1000,7 +1000,7 @@ val type_p_freevars = Q.store_thm ("type_p_freevars",
    EVERY (check_freevars tvs []) (MAP SND env'))`,
 ho_match_mp_tac type_p_ind >>
 rw [check_freevars_def, bind_tenv_def,
-    tenv_ok_def, bind_tvar_def, bind_var_list_def] >>
+    tenv_ok_def, bind_tvar_def, bind_var_list_def, Tchar_def] >>
 metis_tac []);
 
 val type_p_subst = Q.store_thm ("type_p_subst",
@@ -1029,7 +1029,7 @@ val type_p_subst = Q.store_thm ("type_p_subst",
 ho_match_mp_tac type_p_strongind >>
 rw [] >>
 ONCE_REWRITE_TAC [type_p_cases] >>
-rw [deBruijn_subst_def, OPTION_MAP_DEF] >|
+rw [deBruijn_subst_def, OPTION_MAP_DEF, Tchar_def] >|
 [metis_tac [check_freevars_lem],
  rw [EVERY_MAP] >>
      fs [EVERY_MEM] >>
@@ -1184,7 +1184,7 @@ val type_e_subst = Q.store_thm ("type_e_subst",
      num_tvs_db_merge, num_tvs_deBruijn_subst_tenvE] >>
  fs [deBruijn_subst_def, deBruijn_subst_tenvE_def, opt_bind_tenv_def, 
      bind_tvar_rewrites, bind_tenv_def, num_tvs_def, OPTION_MAP_DEF,
-     num_tvs_db_merge, num_tvs_deBruijn_subst_tenvE, tenv_ok_def] >>
+     num_tvs_db_merge, num_tvs_deBruijn_subst_tenvE, tenv_ok_def, Tchar_def] >>
  `tenv_ok tenvE2` by metis_tac [tenv_ok_db_merge, bind_tvar_def, tenv_ok_def]
  >- metis_tac [check_freevars_lem]
  >- (fs [RES_FORALL] >>
@@ -2906,6 +2906,7 @@ val type_e_closed = prove(
       type_funs tmenv tcenv tenv funs ts ⇒
       FV_defs funs ⊆ (IMAGE Short (tenv_names tenv)) ∪ tmenv_dom tmenv)``,
   ho_match_mp_tac type_e_strongind >>
+  strip_tac >- simp[] >>
   strip_tac >- simp[] >>
   strip_tac >- simp[] >>
   strip_tac >- simp[] >>

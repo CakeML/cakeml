@@ -218,6 +218,8 @@ val infer_p_def = tDefine "infer_p" `
   return (Infer_Tapp [] TC_bool, [])) ∧
 (infer_p cenv (Plit (IntLit i)) =
   return (Infer_Tapp [] TC_int, [])) ∧
+(infer_p cenv (Plit (Char s)) =
+  return (Infer_Tapp [] TC_char, [])) ∧
 (infer_p cenv (Plit (StrLit s)) =
   return (Infer_Tapp [] TC_string, [])) ∧
 (infer_p cenv (Plit Unit) =
@@ -306,6 +308,14 @@ constrain_op op ts =
           () <- add_constraint t3 (Infer_Tapp [] TC_word8);
           return (Infer_Tapp [] TC_unit)
         od
+   | (Explode, [t]) =>
+       do () <- add_constraint t (Infer_Tapp [] TC_string);
+          return (Infer_Tapp [Infer_Tapp [] TC_char] (TC_name (Short "list")))
+       od
+   | (Implode, [t]) =>
+       do () <- add_constraint t (Infer_Tapp [Infer_Tapp [] TC_char] (TC_name (Short "list")));
+          return (Infer_Tapp [] TC_string)
+       od
    | (VfromList, [t]) =>
        do uvar <- fresh_uvar;
           () <- add_constraint t (Infer_Tapp [uvar] (TC_name (Short "list")));
@@ -363,6 +373,8 @@ val infer_e_def = tDefine "infer_e" `
   return (Infer_Tapp [] TC_bool)) ∧
 (infer_e menv cenv tenv (Lit (IntLit i)) =
   return (Infer_Tapp [] TC_int)) ∧
+(infer_e menv cenv tenv (Lit (Char c)) =
+  return (Infer_Tapp [] TC_char)) ∧
 (infer_e menv cenv tenv (Lit (StrLit s)) =
   return (Infer_Tapp [] TC_string)) ∧
 (infer_e menv cenv tenv (Lit Unit) =

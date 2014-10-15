@@ -252,6 +252,7 @@ fs [] >|
  metis_tac [APPEND, sub_completion_more_vars],
  metis_tac [APPEND, sub_completion_more_vars],
  metis_tac [APPEND, sub_completion_more_vars],
+ metis_tac [APPEND, sub_completion_more_vars],
  PairCases_on `v'` >>
      fs [] >>
      metis_tac [APPEND_ASSOC, APPEND, sub_completion_more_vars],
@@ -412,7 +413,7 @@ rw [infer_p_def, success_eqns, remove_pair_lem] >>
 rw [Once type_p_cases, convert_env_def] >>
 imp_res_tac sub_completion_wfs >>
 fs [] >>
-rw [t_walkstar_eqn1, convert_t_def, Tbool_def, Tint_def, Tstring_def, Tunit_def] >|
+rw [t_walkstar_eqn1, convert_t_def, Tbool_def, Tint_def, Tstring_def, Tunit_def, Tchar_def] >|
 [match_mp_tac check_t_to_check_freevars >>
      rw [] >>
      fs [sub_completion_def] >>
@@ -509,7 +510,7 @@ imp_res_tac sub_completion_apply >>
 imp_res_tac t_unify_wfs >>
 imp_res_tac sub_completion_wfs >>
 fs [t_walkstar_eqn, t_walk_eqn, convert_t_def, deBruijn_inc_def, check_t_def] >>
-rw [type_op_cases, Tint_def, Tstring_def, Tbool_def, Tref_def, Tfn_def, Tunit_def, Texn_def] >>
+rw [type_op_cases, Tint_def, Tstring_def, Tbool_def, Tref_def, Tfn_def, Tunit_def, Texn_def, Tchar_def] >>
 metis_tac [MAP, infer_e_next_uvar_mono, check_env_more];
 
 val constrain_op_sub_completion = Q.prove (
@@ -535,7 +536,7 @@ val constrain_op_sound = Q.prove (
  every_case_tac >>
  fs [success_eqns] >>
  rw [] >>
- fs [infer_st_rewrs] >>
+ fs [infer_st_rewrs,Tchar_def] >>
  binop_tac);
 
 val infer_e_sound = Q.prove (
@@ -587,7 +588,7 @@ rw [infer_e_def, success_eqns, remove_pair_lem] >>
 rw [check_t_def] >>
 fs [check_t_def, check_env_bind, check_env_merge] >>
 ONCE_REWRITE_TAC [type_e_cases] >>
-rw [Tbool_def, Tint_def, Tunit_def] >|
+rw [Tbool_def, Tint_def, Tunit_def, Tchar_def] >|
 [(* Raise *)
      fs [sub_completion_def, flookup_thm, count_add1, SUBSET_DEF] >>
      `st''.next_uvar < st''.next_uvar + 1` by decide_tac >>
@@ -629,6 +630,8 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
  (* Lit bool *)
      binop_tac,
  (* Lit int *)
+     binop_tac,
+ (* Lit char *)
      binop_tac,
  (* Lit string *)
      binop_tac,
