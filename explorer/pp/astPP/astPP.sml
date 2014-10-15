@@ -241,6 +241,20 @@ fun lambdaPrint sys d t pg str brk blk =
 
 val _=add_astPP ("lambdaprint", ``Fun x y``,genPrint lambdaPrint);
 
+(*Toplevel declaration of a function *)
+fun dletfunPrint sys d t pg str brk blk =
+  let
+    open Portable smpp
+    val (_,[l,r]) = strip_comb t;
+    val (_,[name]) = strip_comb l;
+    val (_,[arg,expr]) = strip_comb r;
+  in
+    add_newline>>blk CONSISTENT 2
+    (str "fun " >> str (toString name) >> str " " >> str (toString arg) >> str " = " >> brk (1,0) >>
+     sys (pg,pg,pg) (d-1) expr)
+  end
+val _ = add_astPP("dletfunPrint", ``Dlet (Pvar x) (Fun y z)``,genPrint dletfunPrint);
+
 (*Toplevel Dlet  pat*expr *)
 fun dletvalPrint sys d t pg str brk blk=
   let
