@@ -12,7 +12,7 @@ open import ConLang
 (* pure applicative primitives with bytecode counterparts *)
 type Cprim1 = CRef | CDer | CIsBlock | CLen | CLenB | CLenV
             | CTagEq of nat | CProj of nat | CInitG of nat
-            | CVfromList
+            | CVfromList | CExplode | CImplode
 type Cprim2p = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq | CDerV
 type Cprim2s = CRefB | CDerB | CRefA | CDerA
 type Cprim2 = P2p of Cprim2p | P2s of Cprim2s

@@ -172,6 +172,79 @@ val _ = Define `
 val _ = Define `
  (VfromListLabs =( 3))`;
 
+(*val ImplodeLab : nat*)
+val _ = Define `
+ (ImplodeLab = (VfromListLab + VfromListLabs))`;
+
+(*val ImplodeCode : list bc_inst*)
+val _ = Define `
+ (ImplodeCode = ([
+  Label ImplodeLab;
+  Stack (PushInt(( 0 : int)));
+  Label (ImplodeLab+ 1);
+  Stack (Load( 1));
+  Stack (TagEq (block_tag+conLang$nil_tag));
+  JumpIf (Lab (ImplodeLab+ 2));
+  Stack (PushInt(( 1 : int)));
+  Stack Add;
+  Stack (Load( 1));
+  Stack (PushInt(( 1 : int)));
+  Stack El;
+  Stack (Load( 2));
+  Stack (PushInt(( 0 : int)));
+  Stack El;
+  Stack (Store( 2));
+  Stack (Load( 0));
+  Stack (Load( 2));
+  Stack (Store( 1));
+  Stack (Store( 1));
+  Jump (Lab (ImplodeLab+ 1));
+  Label (ImplodeLab+ 2);
+  Stack (Pops( 1));
+  Stack (Cons string_tag);
+  Return]))`;
+
+(*val ImplodeLabs : nat*)
+val _ = Define `
+ (ImplodeLabs =( 3))`;
+
+(*val ExplodeLab : nat*)
+val _ = Define `
+ (ExplodeLab = (ImplodeLab + ImplodeLabs))`;
+
+(*val ExplodeCode : list bc_inst*)
+val _ = Define `
+ (ExplodeCode = ([
+  Label ExplodeLab;
+  Stack (Load( 0));
+  Stack LengthBlock;
+  Stack (PushInt(( 0 : int)));
+  Stack (Cons (block_tag+conLang$nil_tag));
+  Label (ExplodeLab+ 1);
+  Stack (Load( 2));
+  Stack (Load( 2));
+  Stack (PushInt(( 0 : int)));
+  Stack Equal;
+  JumpIf (Lab (ExplodeLab+ 2));
+  Stack (PushInt(( 1 : int)));
+  Stack Sub;
+  Stack (Load( 0));
+  Stack (Store( 3));
+  Stack El;
+  Stack (Load( 1));
+  Stack (PushInt(( 2 : int)));
+  Stack (Cons (block_tag+conLang$cons_tag));
+  Stack (Store( 0));
+  Jump (Lab (ExplodeLab+ 1));
+  Label (ExplodeLab+ 2);
+  Stack Pop;
+  Stack (Pops( 2));
+  Return]))`;
+
+(*val ExplodeLabs : nat*)
+val _ = Define `
+ (ExplodeLabs =( 3))`;
+
 
  val _ = Define `
 
@@ -192,6 +265,10 @@ val _ = Define `
 (prim1_to_bc (CProj n) = ([Stack (PushInt (int_of_num n)); Stack El]))
 /\
 (prim1_to_bc (CInitG n) = ([Gupdate n; Stack (PushInt(( 0 : int))); Stack (Cons unit_tag)]))
+/\
+(prim1_to_bc CExplode = ([Call (Lab ExplodeLab)]))
+/\
+(prim1_to_bc CImplode = ([Call (Lab ImplodeLab)]))
 /\
 (prim1_to_bc CVfromList = ([Call (Lab VfromListLab)]))`;
 
@@ -458,6 +535,9 @@ a b c x y z
 /\
 (compile _ t _ s (CLit (IntLit i)) =  
 (pushret t (emit s [Stack (PushInt i)])))
+/\
+(compile _ t _ s (CLit (Char c)) =  
+(pushret t (emit s [Stack (PushInt (int_of_num (ORD c)))])))
 /\
 (compile _ t _ s (CLit (StrLit r)) =  
 (let r = (EXPLODE r) in

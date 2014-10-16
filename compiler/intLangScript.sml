@@ -23,7 +23,7 @@ val _ = new_theory "intLang"
 val _ = Hol_datatype `
  Cprim1 = CRef | CDer | CIsBlock | CLen | CLenB | CLenV
             | CTagEq of num | CProj of num | CInitG of num
-            | CVfromList`;
+            | CVfromList | CExplode | CImplode`;
 
 val _ = Hol_datatype `
  Cprim2p = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq | CDerV`;

@@ -147,6 +147,67 @@ let VfromListCode = [
   Return]
 val VfromListLabs : nat
 let VfromListLabs = 3
+val ImplodeLab : nat
+let ImplodeLab = VfromListLab + VfromListLabs
+val ImplodeCode : list bc_inst
+let ImplodeCode = [
+  Label ImplodeLab;
+  Stack (PushInt 0);
+  Label (ImplodeLab+1);
+  Stack (Load 1);
+  Stack (TagEq (block_tag+ConLang.nil_tag));
+  JumpIf (Lab (ImplodeLab+2));
+  Stack (PushInt 1);
+  Stack Add;
+  Stack (Load 1);
+  Stack (PushInt 1);
+  Stack El;
+  Stack (Load 2);
+  Stack (PushInt 0);
+  Stack El;
+  Stack (Store 2);
+  Stack (Load 0);
+  Stack (Load 2);
+  Stack (Store 1);
+  Stack (Store 1);
+  Jump (Lab (ImplodeLab+1));
+  Label (ImplodeLab+2);
+  Stack (Pops 1);
+  Stack (Cons string_tag);
+  Return]
+val ImplodeLabs : nat
+let ImplodeLabs = 3
+val ExplodeLab : nat
+let ExplodeLab = ImplodeLab + ImplodeLabs
+val ExplodeCode : list bc_inst
+let ExplodeCode = [
+  Label ExplodeLab;
+  Stack (Load 0);
+  Stack LengthBlock;
+  Stack (PushInt 0);
+  Stack (Cons (block_tag+ConLang.nil_tag));
+  Label (ExplodeLab+1);
+  Stack (Load 2);
+  Stack (Load 2);
+  Stack (PushInt 0);
+  Stack Equal;
+  JumpIf (Lab (ExplodeLab+2));
+  Stack (PushInt 1);
+  Stack Sub;
+  Stack (Load 0);
+  Stack (Store 3);
+  Stack El;
+  Stack (Load 1);
+  Stack (PushInt 2);
+  Stack (Cons (block_tag+ConLang.cons_tag));
+  Stack (Store 0);
+  Jump (Lab (ExplodeLab+1));
+  Label (ExplodeLab+2);
+  Stack Pop;
+  Stack (Pops 2);
+  Return]
+val ExplodeLabs : nat
+let ExplodeLabs = 3
 
 let rec
 prim1_to_bc CRef = [Stack (PushInt 1); Ref]
@@ -166,6 +227,10 @@ and
 prim1_to_bc (CProj n) = [Stack (PushInt (integerFromNat n)); Stack El]
 and
 prim1_to_bc (CInitG n) = [Gupdate n; Stack (PushInt 0); Stack (Cons unit_tag)]
+and
+prim1_to_bc CExplode = [Call (Lab ExplodeLab)]
+and
+prim1_to_bc CImplode = [Call (Lab ImplodeLab)]
 and
 prim1_to_bc CVfromList = [Call (Lab VfromListLab)]
 
@@ -398,6 +463,9 @@ compile env t sz s (CHandle e1 e2) =
 and
 compile _ t _ s (CLit (IntLit i)) =
   pushret t (emit s [Stack (PushInt i)])
+and
+compile _ t _ s (CLit (Char c)) =
+  pushret t (emit s [Stack (PushInt (integerFromNat (String_extra.ord c)))])
 and
 compile _ t _ s (CLit (StrLit r)) =
   let r = String.toCharList r in
