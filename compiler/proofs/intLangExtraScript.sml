@@ -89,6 +89,10 @@ val CvFromList_vlabs = store_thm("CvFromList_vlabs",
   ho_match_mp_tac CvFromList_ind >> rw[CvFromList_def] >> rw[vlabs_def] >>
   BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[])
 
+val Cexplode_vlabs = store_thm("Cexplode_vlabs[simp]",
+  ``∀ls. vlabs (Cexplode ls) = {}``,
+  Induct >> simp[Cexplode_def])
+
 val tac =
   TRY (
     qmatch_assum_rename_tac`x ∈ vlabs (EL n ls)`[] >>
@@ -223,7 +227,8 @@ val Cevaluate_vlabs = store_thm("Cevaluate_vlabs",
   strip_tac >- (
     ntac 2 gen_tac >>
     reverse Cases
-    >- rw[] >- rw[]
+    >- ( rw[] >> BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] )
+    >- ( rw[] >> Cases_on`v` >> fs[] >> Cases_on`l` >> fs[] >> rw[] )
     >- (
       rw[] >> BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
       imp_res_tac CvFromList_vlabs >> rw[] )
@@ -334,6 +339,14 @@ val CvFromList_all_vlabs = prove(
   ho_match_mp_tac CvFromList_ind >> rw[CvFromList_def] >> rw[all_vlabs_def] >>
   BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[])
 
+val Cexplode_no_vlabs = prove(
+  ``∀ls. no_vlabs (Cexplode ls)``,
+  Induct >> simp[Cexplode_def])
+
+val Cexplode_all_vlabs = prove(
+  ``∀ls. all_vlabs (Cexplode ls)``,
+  Induct >> simp[Cexplode_def])
+
 val tac1 =
   ho_match_mp_tac Cevaluate_ind >>
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
@@ -372,6 +385,12 @@ val tac1 =
   strip_tac >- (
     ntac 2 gen_tac >>
     reverse Cases
+    >- (
+      simp[] >> rw[] >>
+      BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] )
+    >- (
+      simp[] >> rw[] >>
+      Cases_on`v`>>fs[]>>Cases_on`l`>>fs[]>>rw[Cexplode_no_vlabs,Cexplode_all_vlabs])
     >- (
       simp[] >> rw[] >>
       BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
@@ -500,6 +519,18 @@ val Cevaluate_var = store_thm(
 rw[Once Cevaluate_cases] >> PROVE_TAC[])
 
 val _ = export_rewrites["Cevaluate_lit","Cevaluate_var"]
+
+val Cimplode_cases = store_thm("Cimplode_cases",
+  ``∀v w. Cimplode v = SOME w ⇔
+          v = CConv nil_tag [] ∧ w = [] ∨
+          ∃c vs y.
+            v = CConv cons_tag [CLitv (Char c); vs] ∧
+            Cimplode vs = SOME y ∧
+            w = c::y``,
+  ho_match_mp_tac Cimplode_ind >>
+  rw[Cimplode_def] >>
+  rw[EQ_IMP_THM] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[])
 
 (* syneq equivalence relation lemmas *)
 
@@ -1137,7 +1168,8 @@ val Cevaluate_store_SUBSET = store_thm("Cevaluate_store_SUBSET",
     Cases_on`uop`>>fs[]>>srw_tac[ARITH_ss][] >>
     Cases_on`v`>>fs[] >>
     BasicProvers.EVERY_CASE_TAC >>
-    fsrw_tac[ARITH_ss][])
+    fsrw_tac[ARITH_ss][] >>
+    Cases_on`l`>>fs[])
   >- (
     PairCases_on`s'`>>
     Cases_on`p2`>>fs[LET_THM,UNCURRY] >>
@@ -1501,6 +1533,13 @@ val CvFromList_syneq_sym = prove(
   BasicProvers.CASE_TAC >> rw[] >>
   res_tac >> simp[])
 
+val Cimplode_syneq = prove(
+  ``∀v1 v2. syneq v1 v2 ⇒ Cimplode v1 = Cimplode v2``,
+  ho_match_mp_tac Cimplode_ind >> rw[Cimplode_def] >>
+  fs[Q.SPEC`CConv X Y`syneq_cases] >> rw[Cimplode_def] >>
+  fs[Q.SPEC`CVectorv X`syneq_cases,Q.SPEC`CRecClos A B C`syneq_cases] >>
+  rw[Cimplode_def] >> res_tac >> BasicProvers.CASE_TAC)
+
 val CevalPrim1_syneq = store_thm("CevalPrim1_syneq",
   ``∀uop s1 s2 v1 v2. EVERY2 (sv_rel syneq) (FST s1) (FST s2) ∧ LIST_REL (OPTREL syneq) (SND s1) (SND s2) ∧ syneq v1 v2 ⇒
     EVERY2 (sv_rel syneq) (FST (FST (CevalPrim1 uop s1 v1))) (FST (FST (CevalPrim1 uop s2 v2))) ∧
@@ -1522,6 +1561,16 @@ val CevalPrim1_syneq = store_thm("CevalPrim1_syneq",
     fs[Q.SPECL[`ZZ`,`CConv X Y`]syneq_cases,PULL_EXISTS] >>
     simp[Q.SPEC`CVectorv Y`syneq_cases] >>
     metis_tac[optionTheory.NOT_SOME_NONE,optionTheory.SOME_11] ) >>
+  TRY (
+    Cases_on`l:lit`>>rw[]>>NO_TAC) >>
+  TRY (
+    simp[Cimplode_def] >>
+    Q.PAT_ABBREV_TAC`X = Cimplode Y` >> rw[Abbr`X`] >>
+    BasicProvers.CASE_TAC >>
+    TRY(BasicProvers.CASE_TAC) >> simp[]>>
+    imp_res_tac(
+      SIMP_RULE(srw_ss())[Q.SPEC`CConv A B`syneq_cases](Q.SPECL[`CConv A B`,`CConv A C`]Cimplode_syneq)) >>
+    fs[] >> NO_TAC) >>
   rw[el_check_def,EVERY2_EVERY] >>
   rfs[EVERY_MEM,MEM_ZIP,FORALL_PROD] >>
   fsrw_tac[DNF_ss][] >>
@@ -2156,6 +2205,10 @@ val CvFromList_closed = prove(
   last_x_assum mp_tac >> simp[Once Cclosed_cases] >> rw[] >> fs[] >>
   BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[])
 
+val Cexplode_closed = prove(
+  ``∀ls. Cclosed (Cexplode ls)``,
+  Induct >> simp[Cexplode_def,Once Cclosed_cases])
+
 val CevalPrim1_closed = store_thm("CevalPrim1_closed",
   ``∀s uop v. EVERY (sv_every Cclosed) (FST s) ∧ EVERY (OPTION_EVERY Cclosed) (SND s) ∧ Cclosed v ⇒
     EVERY (sv_every Cclosed) (FST (FST (CevalPrim1 uop s v))) ∧
@@ -2173,7 +2226,8 @@ val CevalPrim1_closed = store_thm("CevalPrim1_closed",
     rator_x_assum`Cclosed`mp_tac >>
     simp[Once Cclosed_cases,EVERY_MEM,MEM_EL,PULL_EXISTS]) >>
   imp_res_tac CvFromList_closed >>
-  simp[Once Cclosed_cases])
+  simp[Once Cclosed_cases] >>
+  Cases_on`l`>>fs[Cexplode_def,Cexplode_closed])
 
 val CevalUpd_closed = store_thm("CevalUpd_closed",
   ``(∀b s v1 v2 v3. Cclosed v2 ⇒ every_result Cclosed Cclosed (SND (CevalUpd b s v1 v2 v3))) ∧

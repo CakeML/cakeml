@@ -1384,6 +1384,21 @@ val v_to_list_pat_v_pat = prove(
   BasicProvers.CASE_TAC >> rw[] >>
   res_tac >> simp[])
 
+val v_pat_to_char_list_v_pat = prove(
+  ``∀l1 l2 n l3.
+    v_pat l1 l2 ∧ v_pat_to_char_list l1 = SOME l3 ⇒
+    v_pat_to_char_list l2 = SOME l3``,
+  ho_match_mp_tac v_pat_to_char_list_ind >>
+  simp[v_pat_to_char_list_def] >> rw[] >- (
+    fs[Once v_pat_cases]>>
+    simp[v_pat_to_char_list_def] ) >>
+  last_x_assum mp_tac >>
+  simp[Once v_pat_cases] >> rw[] >>
+  simp[v_pat_to_char_list_def] >>
+  last_x_assum mp_tac >>
+  BasicProvers.CASE_TAC >> rw[] >>
+  res_tac >> simp[])
+
 val do_app_pat_v_pat = store_thm("do_app_pat_v_pat",
   ``∀env s op env' s' vs vs'.
       LIST_REL v_pat vs vs' ⇒
@@ -1408,8 +1423,9 @@ val do_app_pat_v_pat = store_thm("do_app_pat_v_pat",
       fs[LIST_REL_EL_EQN,optionTheory.OPTREL_def] >>
       fs[Once v_pat_cases,store_lookup_def] >>
       rw[] >>
-      fs[v_to_list_pat_def] >>
+      fs[v_to_list_pat_def,v_pat_to_char_list_def,v_to_list_pat_def] >>
       imp_res_tac v_to_list_pat_v_pat >>
+      imp_res_tac v_pat_to_char_list_v_pat >>
       metis_tac[v_pat_cases,v_pat_sym,optionTheory.NOT_SOME_NONE,LIST_REL_LENGTH,sv_rel_def] ) >>
     rw[] >> fs[] >>
     Cases_on`xs`>>fs[] >- (
@@ -1487,6 +1503,7 @@ val do_app_pat_v_pat = store_thm("do_app_pat_v_pat",
   imp_res_tac LIST_REL_LENGTH >> rw[]>>fs[]>>rw[csg_rel_def,sv_rel_def] >>
   imp_res_tac do_eq_pat_v_pat >> fs[] >>
   imp_res_tac v_to_list_pat_v_pat >> simp[] >>
+  imp_res_tac v_pat_to_char_list_v_pat >> simp[] >>
   BasicProvers.EVERY_CASE_TAC>>fs[]>>rw[csg_rel_def]>>
   fs[LIST_REL_EL_EQN,EL_LUPDATE]>>rw[sv_rel_def] >>
   fs[rich_listTheory.LENGTH_REPLICATE,rich_listTheory.EL_REPLICATE] >>
