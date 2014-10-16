@@ -37,8 +37,6 @@ val _ = new_theory "balanced_map";
  is_fmap
  o_f
 
- TODO           delete
-
  *)
 
 (* ------------------------ Preliminaries ------------------------ *)
