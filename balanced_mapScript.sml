@@ -1,5 +1,5 @@
 open HolKernel boolLib bossLib BasicProvers;
-open optionTheory pairTheory;
+open optionTheory pairTheory stringTheory;
 open arithmeticTheory pred_setTheory listTheory finite_mapTheory alistTheory sortingTheory;
 open lcsymtacs;
 
@@ -159,12 +159,27 @@ val list_cmp_def = Define `
 val list_cmp_ind = fetch "-" "list_cmp_ind";
 
 val pair_cmp_def = Define `
-(pair_cmp cmp1 cmp2 x y =
+pair_cmp cmp1 cmp2 x y =
   case cmp1 (FST x) (FST y)  of
      | Equal => cmp2 (SND x) (SND y)
      | Less => Less
-     | Greater => Greater)`;
-  
+     | Greater => Greater`;
+
+val num_cmp_def = Define `
+num_cmp n1 n2 =
+  if n1 = n2 then
+    Equal
+  else if n1 < n2 then
+    Less
+  else
+    Greater`;
+
+val char_cmp_def = Define `
+char_cmp c1 c2 = num_cmp (ORD c1) (ORD c2)`;
+
+val string_cmp_def = Define `
+string_cmp = list_cmp char_cmp`;
+
 val option_cmp_good = Q.store_thm ("option_cmp_good",
 `!cmp. good_cmp cmp ⇒ good_cmp (option_cmp cmp)`,
  rw [good_cmp_def] >>
@@ -209,6 +224,32 @@ val pair_cmp_good = Q.store_thm ("pair_cmp_good",
  every_case_tac >>
  metis_tac [pair_cmp_def, comparison_distinct, comparison_case_def, comparison_nchotomy]);
 
+val num_cmp_good = Q.prove (
+`good_cmp num_cmp`,
+ simp [good_cmp_def] >>
+ rpt conj_tac >>
+ TRY (Cases_on `x`) >>
+ TRY (Cases_on `y`) >>
+ TRY (Cases_on `z`) >>
+ REWRITE_TAC [num_cmp_def] >>
+ every_case_tac >>
+ fs []);
+
+val char_cmp_good = Q.prove (
+`good_cmp char_cmp`,
+ simp [good_cmp_def] >>
+ rpt conj_tac >>
+ TRY (Cases_on `x`) >>
+ TRY (Cases_on `y`) >>
+ TRY (Cases_on `z`) >>
+ REWRITE_TAC [char_cmp_def, num_cmp_def] >>
+ every_case_tac >>
+ fs []);
+
+val string_cmp_good = Q.prove (
+`good_cmp string_cmp`,
+ metis_tac [string_cmp_def, char_cmp_good, list_cmp_good]);
+ 
 val good_cmp_trans = Q.store_thm ("good_cmp_trans",
 `!cmp. good_cmp cmp ⇒ transitive (λ(k,v) (k',v'). cmp k k' = Less)`,
  rw [relationTheory.transitive_def] >>
