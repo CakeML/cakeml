@@ -73,9 +73,9 @@ val _ = Define `
 
  val _ = Define `
 
-(compile_print_dec _ _ (Dtype ts) s = s)
+(compile_print_dec _ _ (Dtype _) s = s)
 /\
-(compile_print_dec _ _ (Dexn c xs) s = s)
+(compile_print_dec _ _ (Dexn _ _) s = s)
 /\
 (compile_print_dec types map _ s =  
 (compile_print_vals types map s))`;
