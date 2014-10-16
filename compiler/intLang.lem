@@ -229,6 +229,21 @@ and CvFromList (CConv g [h;t]) = if g = cons_tag then
 and CvFromList _ = Nothing
 declare termination_argument CvFromList = automatic
 
+val Cimplode : Cv -> maybe (list char)
+let rec Cimplode (CConv g []) = if g = nil_tag then Just [] else Nothing
+and Cimplode (CConv g [CLitv(Char c);t]) = if g = cons_tag then
+  match Cimplode t with
+  | Just t -> Just (c::t)
+  | Nothing -> Nothing
+  end
+                                  else Nothing
+and Cimplode _ = Nothing
+declare termination_argument Cimplode = automatic
+
+val Cexplode : list char -> Cv
+let rec Cexplode [] = CConv nil_tag []
+and Cexplode (c::cs) = CConv cons_tag [CLitv(Char c);Cexplode cs]
+
 val CevalPrim1 : Cprim1 -> store_genv Cv -> Cv -> store_genv Cv * result Cv Cv
 let rec
 CevalPrim1 CRef (s,g) v = ((s++[Refv v],g), Rval (CLoc (List.length s)))
@@ -271,6 +286,15 @@ CevalPrim1 (CInitG n) (s,g) v =
   if n < List.length g && List_extra.nth g n = Nothing
   then ((s,List.update g n (Just v)),Rval (CLitv Unit))
   else ((s,g), Rerr Rtype_error)
+and
+CevalPrim1 CExplode sg (CLitv (StrLit s)) =
+  (sg, Rval (Cexplode (toCharList s)))
+and
+CevalPrim1 CImplode sg v =
+  (sg, match Cimplode v with
+       | Just s -> Rval (CLitv (StrLit (toString s)))
+       | Nothing -> Rerr Rtype_error
+       end)
 and
 CevalPrim1 CVfromList sg v =
   (sg, match CvFromList v with

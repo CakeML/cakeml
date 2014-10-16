@@ -223,6 +223,7 @@ val Cevaluate_vlabs = store_thm("Cevaluate_vlabs",
   strip_tac >- (
     ntac 2 gen_tac >>
     reverse Cases
+    >- rw[] >- rw[]
     >- (
       rw[] >> BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
       imp_res_tac CvFromList_vlabs >> rw[] )

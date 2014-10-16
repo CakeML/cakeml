@@ -366,6 +366,31 @@ val _ = Define `
 /\ (v_to_list_exh _ = NONE)`;
 
 
+(*val v_exh_to_char_list : v_exh -> maybe (list char)*)
+ val _ = Define `
+ (v_exh_to_char_list (Conv_exh tag []) =  
+(if tag = nil_tag then
+    SOME []
+  else
+    NONE))
+/\ (v_exh_to_char_list (Conv_exh tag [Litv_exh (Char c);v]) =  
+(if tag = cons_tag then
+    (case v_exh_to_char_list v of
+        SOME cs => SOME (c::cs)
+      | NONE => NONE
+    )
+  else
+    NONE))
+/\ (v_exh_to_char_list _ = NONE)`;
+
+
+(*val char_list_to_v_exh : list char -> v_exh*)
+ val char_list_to_v_exh_defn = Hol_defn "char_list_to_v_exh" `
+ (char_list_to_v_exh [] = (Conv_exh nil_tag []))
+/\ (char_list_to_v_exh (c::cs) =  
+(Conv_exh cons_tag [Litv_exh (Char c); char_list_to_v_exh cs]))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn char_list_to_v_exh_defn;
 
 (*val do_app_exh : count_store_genv v_exh -> op_i2 -> list v_exh -> maybe (count_store_genv v_exh * result v_exh v_exh)*)
 val _ = Define `
@@ -448,6 +473,14 @@ val _ = Define `
                   )
         | _ => NONE
       )
+    | (Op_i2 Implode, [v]) =>
+          (case v_exh_to_char_list v of
+            SOME ls =>
+              SOME (((count,s),genv), Rval (Litv_exh (StrLit (IMPLODE ls))))
+          | NONE => NONE
+          )
+    | (Op_i2 Explode, [Litv_exh (StrLit str)]) =>
+        SOME (((count,s),genv), Rval (char_list_to_v_exh (EXPLODE str)))
     | (Op_i2 VfromList, [v]) =>
           (case v_to_list_exh v of
               SOME vs =>

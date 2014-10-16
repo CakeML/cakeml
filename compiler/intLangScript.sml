@@ -274,6 +274,25 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\ (CvFromList _ = NONE)`;
 
 
+(*val Cimplode : Cv -> maybe (list char)*)
+ val _ = Define `
+ (Cimplode (CConv g []) = (if g = nil_tag then SOME [] else NONE))
+/\ (Cimplode (CConv g [CLitv(Char c);t]) = (if g = cons_tag then
+  (case Cimplode t of
+    SOME t => SOME (c::t)
+  | NONE => NONE
+  )
+                                  else NONE))
+/\ (Cimplode _ = NONE)`;
+
+
+(*val Cexplode : list char -> Cv*)
+ val Cexplode_defn = Hol_defn "Cexplode" `
+ (Cexplode [] = (CConv nil_tag []))
+/\ (Cexplode (c::cs) = (CConv cons_tag [CLitv(Char c);Cexplode cs]))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn Cexplode_defn;
+
 (*val CevalPrim1 : Cprim1 -> store_genv Cv -> Cv -> store_genv Cv * result Cv Cv*)
  val _ = Define `
 
@@ -317,6 +336,15 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (if (n < LENGTH g) /\ (EL n g = NONE)
   then ((s,LUPDATE (SOME v) n g),Rval (CLitv Unit))
   else ((s,g), Rerr Rtype_error)))
+/\
+(CevalPrim1 CExplode sg (CLitv (StrLit s)) =
+  (sg, Rval (Cexplode (EXPLODE s))))
+/\
+(CevalPrim1 CImplode sg v =
+  (sg, (case Cimplode v of
+         SOME s => Rval (CLitv (StrLit (IMPLODE s)))
+       | NONE => Rerr Rtype_error
+       )))
 /\
 (CevalPrim1 CVfromList sg v =
   (sg, (case CvFromList v of

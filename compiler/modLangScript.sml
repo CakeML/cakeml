@@ -375,6 +375,32 @@ val _ = Define `
 /\ (v_to_list_i1 _ = NONE)`;
 
 
+(*val v_i1_to_char_list : v_i1 -> maybe (list char)*)
+ val _ = Define `
+ (v_i1_to_char_list (Conv_i1 (SOME (cn, TypeId (Short tn))) []) =  
+(if (cn = "nil") /\ (tn = "list") then
+    SOME []
+  else
+    NONE))
+/\ (v_i1_to_char_list (Conv_i1 (SOME (cn,TypeId (Short tn))) [Litv_i1 (Char c);v]) =  
+(if (cn = "::")  /\ (tn = "list") then
+    (case v_i1_to_char_list v of
+        SOME cs => SOME (c::cs)
+      | NONE => NONE
+    )
+  else
+    NONE))
+/\ (v_i1_to_char_list _ = NONE)`;
+
+
+(*val char_list_to_v_i1 : list char -> v_i1*)
+ val char_list_to_v_i1_defn = Hol_defn "char_list_to_v_i1" `
+ (char_list_to_v_i1 [] = (Conv_i1 (SOME ("nil", TypeId (Short "list"))) []))
+/\ (char_list_to_v_i1 (c::cs) =  
+(Conv_i1 (SOME ("::", TypeId (Short "list"))) [Litv_i1 (Char c); char_list_to_v_i1 cs]))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn char_list_to_v_i1_defn;
+
 (*val do_app_i1 : store v_i1 -> op -> list v_i1 -> maybe (store v_i1 * result v_i1 v_i1)*)
 val _ = Define `
  (do_app_i1 s op vs =  
@@ -448,6 +474,14 @@ val _ = Define `
                   )
         | _ => NONE
         )
+    | (Implode, [v]) =>
+          (case v_i1_to_char_list v of
+            SOME ls =>
+              SOME (s, Rval (Litv_i1 (StrLit (IMPLODE ls))))
+          | NONE => NONE
+          )
+    | (Explode, [Litv_i1 (StrLit str)]) =>
+        SOME (s, Rval (char_list_to_v_i1 (EXPLODE str)))
     | (VfromList, [v]) =>
           (case v_to_list_i1 v of
               SOME vs =>

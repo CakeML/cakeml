@@ -488,6 +488,22 @@ val v_to_list_exh_correct = Q.prove (
  rw [] >>
  metis_tac [NOT_SOME_NONE, SOME_11]);
 
+val char_list_to_v_exh_correct = prove(
+  ``∀ls. v_to_exh exh (char_list_to_v_i2 ls) (char_list_to_v_exh ls)``,
+  Induct >> simp[char_list_to_v_i2_def,char_list_to_v_exh_def] >>
+  simp[v_to_exh_eqn])
+
+val v_exh_to_char_list_correct = Q.prove (
+`!v1 v2 vs1.
+  v_to_exh genv v1 v2 ∧
+  v_i2_to_char_list v1 = SOME vs1
+  ⇒
+  v_exh_to_char_list v2 = SOME vs1`,
+ ho_match_mp_tac v_i2_to_char_list_ind >>
+ rw [v_i2_to_char_list_def] >>
+ every_case_tac >>
+ fs [v_to_exh_eqn, v_exh_to_char_list_def]);
+
 val do_app_i2_cases = Q.store_thm("do_app_i2_cases",
   `do_app_i2 s op vs = SOME x ⇒
     (∃z n1 n2. op = (Op_i2 (Opn z)) ∧ vs = [Litv_i2 (IntLit n1); Litv_i2 (IntLit n2)]) ∨
@@ -500,6 +516,8 @@ val do_app_i2_cases = Q.store_thm("do_app_i2_cases",
     (∃lnum i. op = (Op_i2 Aw8sub) ∧ vs = [Loc_i2 lnum; Litv_i2 (IntLit i)]) ∨
     (∃n. op = (Op_i2 Aw8length) ∧ vs = [Loc_i2 n]) ∨
     (∃lnum i w. op = (Op_i2 Aw8update) ∧ vs = [Loc_i2 lnum; Litv_i2 (IntLit i); Litv_i2 (Word8 w)]) ∨
+    (∃v s. op = (Op_i2 Explode) ∧ vs = [Litv_i2 (StrLit s)]) ∨
+    (∃v ls. op = (Op_i2 Implode) ∧ vs = [v] ∧ (v_i2_to_char_list v = SOME ls)) ∨
     (∃v vs'. op = (Op_i2 VfromList) ∧ vs = [v] ∧ (v_to_list_i2 v = SOME vs')) ∨
     (∃vs' i. op = (Op_i2 Vsub) ∧ vs = [Vectorv_i2 vs'; Litv_i2 (IntLit i)]) ∨
     (∃vs'. op = (Op_i2 Vlength) ∧ vs = [Vectorv_i2 vs']) ∨
@@ -508,8 +526,13 @@ val do_app_i2_cases = Q.store_thm("do_app_i2_cases",
     (∃n. op = (Op_i2 Alength) ∧ vs = [Loc_i2 n]) ∨
     (∃lnum i v. op = (Op_i2 Aupdate) ∧ vs = [Loc_i2 lnum; Litv_i2 (IntLit i); v])`,
   rw[do_app_i2_def] >>
-  every_case_tac >> 
-  fs[]);
+  pop_assum mp_tac >>
+  BasicProvers.CASE_TAC >- (
+    every_case_tac >> fs[]) >>
+  Cases_on`op` >- (
+    simp[] >>
+    every_case_tac >> fs[] ) >>
+  every_case_tac >> fs[]);
 
 val tac =
   rw [do_app_exh_def, result_to_exh_cases, store_to_exh_def, prim_exn_i2_def,
@@ -562,6 +585,8 @@ val do_app_exh_i2 = Q.prove (
  >- tac
  >- (tac >>
      metis_tac [v_to_exh_eqn, store_v_distinct, sv_to_exh_def])
+ >- ( tac >> metis_tac[char_list_to_v_exh_correct] )
+ >- ( imp_res_tac v_exh_to_char_list_correct >> tac)
  >- (imp_res_tac v_to_list_exh_correct >>
      rw [do_app_exh_def, result_to_exh_cases, v_to_exh_eqn, store_to_exh_def] >>
      fs [vs_to_exh_LIST_REL])

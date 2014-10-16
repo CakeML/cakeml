@@ -423,6 +423,27 @@ and v_to_list_pat (Conv_pat tag [v1;v2]) =
 and v_to_list_pat _ = Nothing
 declare termination_argument v_to_list_pat = automatic
 
+val v_pat_to_char_list : v_pat -> maybe (list char)
+let rec v_pat_to_char_list (Conv_pat tag []) =
+  if tag = nil_tag then
+    Just []
+  else
+    Nothing
+and v_pat_to_char_list (Conv_pat tag [Litv_pat (Char c);v]) =
+  if tag = cons_tag then
+    match v_pat_to_char_list v with
+      | Just cs -> Just (c::cs)
+      | Nothing -> Nothing
+    end
+  else
+    Nothing
+and v_pat_to_char_list _ = Nothing
+declare termination_argument v_pat_to_char_list = automatic
+
+val char_list_to_v_pat : list char -> v_pat
+let rec char_list_to_v_pat [] = Conv_pat nil_tag []
+and char_list_to_v_pat (c::cs) =
+  Conv_pat cons_tag [Litv_pat (Char c); char_list_to_v_pat cs]
 
 val do_app_pat : count_store_genv v_pat -> op_pat -> list v_pat -> maybe (count_store_genv v_pat * result v_pat v_pat)
 let do_app_pat ((cnt,s),genv) op vs =
@@ -504,6 +525,14 @@ let do_app_pat ((cnt,s),genv) op vs =
                   end
         | _ -> Nothing
         end
+    | (Op_pat (Op_i2 Implode), [v]) ->
+          match v_pat_to_char_list v with
+          | Just ls ->
+              Just (((cnt,s),genv), Rval (Litv_pat (StrLit (toString ls))))
+          | Nothing -> Nothing
+          end
+    | (Op_pat (Op_i2 Explode), [Litv_pat (StrLit str)]) ->
+        Just (((cnt,s),genv), Rval (char_list_to_v_pat (toCharList str)))
     | (Op_pat (Op_i2 VfromList), [v]) ->
           match v_to_list_pat v with
             | Just vs ->

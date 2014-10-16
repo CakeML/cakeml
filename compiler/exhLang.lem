@@ -320,6 +320,27 @@ and v_to_list_exh (Conv_exh tag [v1;v2]) =
 and v_to_list_exh _ = Nothing
 declare termination_argument v_to_list_exh = automatic
 
+val v_exh_to_char_list : v_exh -> maybe (list char)
+let rec v_exh_to_char_list (Conv_exh tag []) =
+  if tag = nil_tag then
+    Just []
+  else
+    Nothing
+and v_exh_to_char_list (Conv_exh tag [Litv_exh (Char c);v]) =
+  if tag = cons_tag then
+    match v_exh_to_char_list v with
+      | Just cs -> Just (c::cs)
+      | Nothing -> Nothing
+    end
+  else
+    Nothing
+and v_exh_to_char_list _ = Nothing
+declare termination_argument v_exh_to_char_list = automatic
+
+val char_list_to_v_exh : list char -> v_exh
+let rec char_list_to_v_exh [] = Conv_exh nil_tag []
+and char_list_to_v_exh (c::cs) =
+  Conv_exh cons_tag [Litv_exh (Char c); char_list_to_v_exh cs]
 
 val do_app_exh : count_store_genv v_exh -> op_i2 -> list v_exh -> maybe (count_store_genv v_exh * result v_exh v_exh)
 let do_app_exh ((count,s),genv) op vs =
@@ -401,6 +422,14 @@ let do_app_exh ((count,s),genv) op vs =
                   end
         | _ -> Nothing
       end
+    | (Op_i2 Implode, [v]) ->
+          match v_exh_to_char_list v with
+          | Just ls ->
+              Just (((count,s),genv), Rval (Litv_exh (StrLit (toString ls))))
+          | Nothing -> Nothing
+          end
+    | (Op_i2 Explode, [Litv_exh (StrLit str)]) ->
+        Just (((count,s),genv), Rval (char_list_to_v_exh (toCharList str)))
     | (Op_i2 VfromList, [v]) ->
           match v_to_list_exh v with
             | Just vs ->
