@@ -158,6 +158,13 @@ val list_cmp_def = Define `
 
 val list_cmp_ind = fetch "-" "list_cmp_ind";
 
+val pair_cmp_def = Define `
+(pair_cmp cmp1 cmp2 x y =
+  case cmp1 (FST x) (FST y)  of
+     | Equal => cmp2 (SND x) (SND y)
+     | Less => Less
+     | Greater => Greater)`;
+  
 val option_cmp_good = Q.store_thm ("option_cmp_good",
 `!cmp. good_cmp cmp ⇒ good_cmp (option_cmp cmp)`,
  rw [good_cmp_def] >>
@@ -187,6 +194,20 @@ val list_cmp_good = Q.store_thm ("list_cmp_good",
  rpt strip_tac >>
  every_case_tac >>
  metis_tac [list_cmp_def, comparison_distinct, comparison_case_def, comparison_nchotomy]);
+
+val pair_cmp_good = Q.store_thm ("pair_cmp_good",
+`!cmp1 cmp2. good_cmp cmp1 ∧ good_cmp cmp2 ⇒ good_cmp (pair_cmp cmp1 cmp2)`,
+ simp [good_cmp_def] >>
+ rpt gen_tac >>
+ strip_tac >>
+ rpt conj_tac >>
+ TRY (Cases_on `x`) >>
+ TRY (Cases_on `y`) >>
+ TRY (Cases_on `z`) >>
+ REWRITE_TAC [pair_cmp_def] >>
+ rpt strip_tac >>
+ every_case_tac >>
+ metis_tac [pair_cmp_def, comparison_distinct, comparison_case_def, comparison_nchotomy]);
 
 val good_cmp_trans = Q.store_thm ("good_cmp_trans",
 `!cmp. good_cmp cmp ⇒ transitive (λ(k,v) (k',v'). cmp k k' = Less)`,
