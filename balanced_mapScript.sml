@@ -748,6 +748,9 @@ isSubmapOfBy cmp f t1 t2 ⇔ size t1 ≤ size t2 ∧ submap' cmp f t1 t2`;
 val isSubmapOf_def = Define `
 isSubmapOf cmp t1 t2 ⇔ isSubmapOfBy cmp (=) t1 t2`;
 
+(* TODO: The ghc implementation is more complex and efficient *)
+val fromList_def = Define `
+fromList cmp l = FOLDR (λ(k,v) t. insert cmp k v t) empty l`;
 
 (* ----------------------- proofs ------------------------ *)
 
@@ -2622,7 +2625,7 @@ val toAscList_thm = Q.store_thm ("toAscList_thm",
   invariant cmp t
   ⇒
   SORTED (\(x,y) (x',y'). cmp x x' = Less) (toAscList t) ∧
-  lift_key cmp  (set (toAscList t)) = set (fmap_to_alist (to_fmap cmp t))`,
+  lift_key cmp (set (toAscList t)) = set (fmap_to_alist (to_fmap cmp t))`,
  rpt gen_tac >>
  strip_tac >>
  qspecl_then [`cmp`, `[]`, `t`] mp_tac toAscList_helper >>
@@ -2806,5 +2809,22 @@ val submap'_thm = Q.prove (
      strip_tac >>
      cheat));
      *)
+
+val fromList_thm = Q.store_thm ("fromList_thm",
+`!cmp l.
+  good_cmp cmp
+  ⇒
+  invariant cmp (fromList cmp l) ∧
+  to_fmap cmp (fromList cmp l) = alist_to_fmap (MAP (\(k,v). (key_set cmp k, v)) l)`,
+ Induct_on `l` >>
+ simp [fromList_def, empty_thm] >>
+ rpt gen_tac >>
+ strip_tac >>
+ PairCases_on `h` >>
+ simp [] >>
+ inv_mp_tac insert_thm >>
+ strip_tac >>
+ simp [] >>
+ fs [fromList_def]);
 
 val _ = export_theory ();
