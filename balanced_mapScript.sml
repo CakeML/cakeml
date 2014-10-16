@@ -249,7 +249,61 @@ val char_cmp_good = Q.prove (
 val string_cmp_good = Q.prove (
 `good_cmp string_cmp`,
  metis_tac [string_cmp_def, char_cmp_good, list_cmp_good]);
- 
+
+val list_cmp_cong = Q.store_thm ("list_cmp_cong",
+`!cmp l1 l2 cmp' l1' l2'.
+  (l1 = l1') ∧
+  (l2 = l2') ∧
+  (!x x'. MEM x l1' ∧ MEM x' l2' ⇒ cmp x x' = cmp' x x')
+  ⇒
+  list_cmp cmp l1 l2 = list_cmp cmp' l1' l2'`,
+ ho_match_mp_tac list_cmp_ind >>
+ rw [list_cmp_def] >>
+ rw [list_cmp_def] >>
+ every_case_tac >>
+ rw []);
+
+val option_cmp_cong = Q.store_thm ("option_cmp_cong",
+`!cmp v1 v2 cmp' v1' v2'.
+  (v1 = v1') ∧
+  (v2 = v2') ∧
+  (!x x'. v1' = SOME x ∧ v2' = SOME x' ⇒ cmp x x' = cmp' x x')
+  ⇒
+  option_cmp cmp v1 v2 = option_cmp cmp' v1' v2'`,
+ ho_match_mp_tac (fetch "-" "option_cmp_ind") >>
+ rw [option_cmp_def] >>
+ rw [option_cmp_def]);
+
+val option_cmp2_cong = Q.store_thm ("option_cmp2_cong",
+`!cmp v1 v2 cmp' v1' v2'.
+  (v1 = v1') ∧
+  (v2 = v2') ∧
+  (!x x'. v1' = SOME x ∧ v2' = SOME x' ⇒ cmp x x' = cmp' x x')
+  ⇒
+  option_cmp2 cmp v1 v2 = option_cmp2 cmp' v1' v2'`,
+ ho_match_mp_tac (fetch "-" "option_cmp2_ind") >>
+ rw [option_cmp2_def] >>
+ rw [option_cmp2_def]);
+
+val pair_cmp_cong = Q.store_thm ("pair_cmp_cong",
+`!cmp1 cmp2 v1 v2 cmp1' cmp2' v1' v2'.
+  (v1 = v1') ∧
+  (v2 = v2') ∧
+  (!a b c d. v1' = (a,b) ∧ v2' = (c,d) ⇒ cmp1 a c = cmp1' a c) ∧
+  (!a b c d. v1' = (a,b) ∧ v2' = (c,d) ⇒ cmp2 b d = cmp2' b d)
+  ⇒
+  pair_cmp cmp1 cmp2 v1 v2 = pair_cmp cmp1' cmp2' v1' v2'`,
+ rw [pair_cmp_def] >>
+ every_case_tac >>
+ Cases_on `v1` >>
+ Cases_on `v2` >>
+ fs []);
+
+val _ = DefnBase.export_cong "list_cmp_cong";
+val _ = DefnBase.export_cong "option_cmp_cong";
+val _ = DefnBase.export_cong "option_cmp2_cong";
+val _ = DefnBase.export_cong "pair_cmp_cong";
+
 val good_cmp_trans = Q.store_thm ("good_cmp_trans",
 `!cmp. good_cmp cmp ⇒ transitive (λ(k,v) (k',v'). cmp k k' = Less)`,
  rw [relationTheory.transitive_def] >>
