@@ -19,6 +19,8 @@ val do_app_cases = store_thm("do_app_cases",
     (∃lnum i. op = Aw8sub ∧ vs = [Loc lnum; Litv (IntLit i)]) ∨
     (∃n. op = Aw8length ∧ vs = [Loc n]) ∨
     (∃lnum i w. op = Aw8update ∧ vs = [Loc lnum; Litv (IntLit i); Litv (Word8 w)]) ∨
+    (∃s. op = Explode ∧ vs = [Litv (StrLit s)]) ∨
+    (∃v cs. op = Implode ∧ vs = [v] ∧ v_to_char_list v = SOME cs) ∨
     (∃v ls. op = VfromList ∧ vs = [v] ∧ v_to_list v = SOME ls) ∨
     (∃ls i. op = Vsub ∧ vs = [Vectorv ls; Litv (IntLit i)]) ∨
     (∃ls. op = Vlength ∧ vs = [Vectorv ls]) ∨
@@ -41,6 +43,8 @@ val do_app_i1_cases = store_thm("do_app_i1_cases",
     (∃lnum i. op = Aw8sub ∧ vs = [Loc_i1 lnum; Litv_i1 (IntLit i)]) ∨
     (∃n. op = Aw8length ∧ vs = [Loc_i1 n]) ∨
     (∃lnum i w. op = Aw8update ∧ vs = [Loc_i1 lnum; Litv_i1 (IntLit i); Litv_i1 (Word8 w)]) ∨
+    (∃s. op = Explode ∧ vs = [Litv_i1 (StrLit s)]) ∨
+    (∃v cs. op = Implode ∧ vs = [v] ∧ v_i1_to_char_list v = SOME cs) ∨
     (∃v ls. op = VfromList ∧ vs = [v] ∧ v_to_list_i1 v = SOME ls) ∨
     (∃ls i. op = Vsub ∧ vs = [Vectorv_i1 ls; Litv_i1 (IntLit i)]) ∨
     (∃ls. op = Vlength ∧ vs = [Vectorv_i1 ls]) ∨
@@ -705,6 +709,10 @@ val v_to_list_pat_closed = prove(
   simp[v_to_list_pat_def] >> rw[] >>
   BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[])
 
+val char_list_to_v_pat_closed = prove(
+  ``∀ls. closed_pat (char_list_to_v_pat ls)``,
+  Induct >> simp[char_list_to_v_pat_def])
+
 val evaluate_pat_closed = store_thm("evaluate_pat_closed",
   ``(∀ck env s e res. evaluate_pat ck env s e res ⇒
        set (free_vars_pat e) ⊆ count (LENGTH env) ∧
@@ -771,6 +779,7 @@ val evaluate_pat_closed = store_thm("evaluate_pat_closed",
       rw[] >>
       last_x_assum(qspec_then`lnum`mp_tac) >>
       simp[EVERY_MEM,MEM_EL,PULL_EXISTS] >> NO_TAC) >>
+    simp[char_list_to_v_pat_closed] >>
     metis_tac[MEM_LUPDATE_E,sv_every_def,MEM_EL,OPTION_EVERY_def,NOT_LESS_EQUAL,GREATER_EQ] ) >>
   strip_tac >- (
     ntac 4 gen_tac >>
@@ -1067,6 +1076,10 @@ val v_to_list_closed = prove(
   simp[v_to_list_def] >> rw[] >>
   BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[])
 
+val char_list_to_v_closed = prove(
+  ``∀ls. closed (char_list_to_v ls)``,
+  Induct >> simp[char_list_to_v_def])
+
 val do_app_closed = store_thm("do_app_closed",
   ``∀s op vs s' res.
     EVERY closed vs ∧ EVERY (sv_every closed) s ∧
@@ -1096,6 +1109,7 @@ val do_app_closed = store_thm("do_app_closed",
     first_x_assum(qspec_then`lnum`mp_tac) >>
     simp[EL_LUPDATE,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
     rw[] >> NO_TAC) >>
+  simp[char_list_to_v_closed] >>
   metis_tac[MEM_LUPDATE_E,sv_every_def,MEM_EL,GREATER_EQ,NOT_LESS_EQUAL])
 
 val pmatch_closed = store_thm("pmatch_closed",
@@ -1763,6 +1777,10 @@ val v_to_list_i1_closed = prove(
   simp[v_to_list_i1_def] >> rw[] >>
   BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[])
 
+val char_list_to_v_i1_closed = prove(
+  ``∀ls. closed_i1 (char_list_to_v_i1 ls)``,
+  Induct >> simp[char_list_to_v_i1_def])
+
 val do_app_i1_closed = store_thm("do_app_i1_closed",
   ``∀s op vs s' res.
     EVERY closed_i1 vs ∧ EVERY (sv_every closed_i1) s ∧
@@ -1792,6 +1810,7 @@ val do_app_i1_closed = store_thm("do_app_i1_closed",
     first_x_assum(qspec_then`lnum`mp_tac) >>
     simp[EL_LUPDATE,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
     rw[] >> NO_TAC) >>
+  simp[char_list_to_v_i1_closed] >>
   metis_tac[MEM_LUPDATE_E,sv_every_def,MEM_EL,GREATER_EQ,NOT_LESS_EQUAL])
 
 val do_opapp_i1_closed = store_thm("do_opapp_i1_closed",

@@ -697,6 +697,21 @@ val v_to_list_i1_correct = Q.prove (
  rw [] >>
  metis_tac [NOT_SOME_NONE, SOME_11]);
 
+val char_list_to_v_i1_correct = prove(
+  ``∀ls. v_to_i1 genv (char_list_to_v ls) (char_list_to_v_i1 ls)``,
+  Induct >> simp[char_list_to_v_def,char_list_to_v_i1_def,v_to_i1_eqns])
+
+val v_i1_to_char_list_correct = Q.prove (
+`!v1 v2 vs1.
+  v_to_i1 genv v1 v2 ∧
+  v_to_char_list v1 = SOME vs1
+  ⇒
+  v_i1_to_char_list v2 = SOME vs1`,
+ ho_match_mp_tac v_to_char_list_ind >>
+ rw [v_to_char_list_def] >>
+ every_case_tac >>
+ fs [v_to_i1_eqns, v_i1_to_char_list_def]);
+
 val do_app_i1 = Q.prove (
 `!genv s1 s2 op vs r s1_i1 vs_i1.
   do_app s1 op vs = SOME (s2, r) ∧
@@ -789,6 +804,9 @@ val do_app_i1 = Q.prove (
      >- decide_tac >>
      rw [EL_LUPDATE] >>
      fs[store_v_same_type_def])
+ >- simp[char_list_to_v_i1_correct]
+ >- (qpat_assum`SOME X = Y`(assume_tac o SYM) >>
+     imp_res_tac v_i1_to_char_list_correct >> fs[] )
  >- (every_case_tac >>
      rw [] >>
      imp_res_tac v_to_list_i1_correct >>

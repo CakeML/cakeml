@@ -431,6 +431,29 @@ val CvFromList_syneq = prove(
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
   BasicProvers.CASE_TAC >> fs[optionTheory.OPTREL_def])
 
+val Cexplode_correct = prove(
+  ``∀ls. Cexplode ls = v_to_Cv (char_list_to_v_pat ls)``,
+  Induct >> simp[char_list_to_v_pat_def,Cexplode_def])
+
+val Cimplode_correct = prove(
+  ``∀v ls. v_pat_to_char_list v = SOME ls ⇒
+           Cimplode (v_to_Cv v) = SOME ls``,
+  ho_match_mp_tac v_pat_to_char_list_ind >>
+  simp[v_pat_to_char_list_def,Cimplode_def] >>
+  rw[] >> BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[])
+
+val Cimplode_syneq = prove(
+  ``∀v1 v2. syneq v1 v2 ⇒ Cimplode v1 = Cimplode v2``,
+  ho_match_mp_tac Cimplode_ind >>
+  rw[Cimplode_def] >>
+  TRY(fs[Once syneq_cases,Cimplode_def]>>NO_TAC)>>
+  fs[Q.SPEC`CConv X Y`syneq_cases] >> rw[] >>
+  fs[Q.SPEC`CRecClos X Y Z`syneq_cases] >> rw[] >>
+  fs[Q.SPEC`CVectorv X`syneq_cases] >> rw[] >>
+  rw[Cimplode_def] >>
+  first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
+  BasicProvers.CASE_TAC >> fs[optionTheory.OPTREL_def])
+
 val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
   ``(∀ck env s e res. evaluate_pat ck env s e res ⇒
        ck ∧
@@ -986,6 +1009,15 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
       fs[EVERY2_MAP] >>
       fs[LIST_REL_EL_EQN] >>
       metis_tac[sv_rel_syneq_trans] )
+    >- (* CExplode *) (
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      use_assum_tac >> simp[Cexplode_correct])
+    >- (* CImplode *) (
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      use_assum_tac >>
+      imp_res_tac Cimplode_syneq >>
+      imp_res_tac Cimplode_correct >>
+      BasicProvers.CASE_TAC >> fs[])
     >- (* CVfromList *) (
       srw_tac[DNF_ss][Once Cevaluate_cases] >>
       use_assum_tac >>

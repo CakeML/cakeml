@@ -914,6 +914,31 @@ val v_to_list_i2_correct = Q.prove (
  fs [] >>
  metis_tac [NOT_SOME_NONE, SOME_11]);
 
+val char_list_to_v_i2_correct = prove(
+  ``gtagenv_wf gtagenv ⇒
+    ∀ls. v_to_i2 gtagenv (char_list_to_v_i1 ls) (char_list_to_v_i2 ls)``,
+  strip_tac >>
+  Induct >> simp[char_list_to_v_i1_def,char_list_to_v_i2_def,v_to_i2_eqns] >>
+  fs[gtagenv_wf_def,has_lists_def])
+
+val v_i2_to_char_list_correct = Q.prove (
+`!v1 v2 vs1.
+  gtagenv_wf gtagenv ∧
+  v_to_i2 gtagenv v1 v2 ∧
+  v_i1_to_char_list v1 = SOME vs1
+  ⇒
+    v_i2_to_char_list v2 = SOME vs1`,
+ ho_match_mp_tac v_i1_to_char_list_ind >>
+ rw [v_i1_to_char_list_def] >>
+ every_case_tac >>
+ fs [v_to_i2_eqns, v_i2_to_char_list_def] >>
+ rw [] >>
+ every_case_tac >>
+ fs [v_to_i2_eqns, v_i2_to_char_list_def] >>
+ rw [] >>
+ res_tac >>
+ fs [gtagenv_wf_def, has_lists_def])
+
 val tac =
   fs [do_app_i1_def] >>
   every_case_tac >>
@@ -979,6 +1004,19 @@ val do_app_i2_correct = Q.prove (
      pop_assum mp_tac >>
      pop_assum mp_tac >>
      rw [])
+ >- (
+   tac >>
+   simp[char_list_to_v_i2_correct] )
+ >- (
+   fs[do_app_i1_def]>>
+   Cases_on`vs`>>fs[]>>
+   Cases_on`t`>>fs[]>>
+   TRY (cases_on `t'`) >>
+   fs [vs_to_i2_list_rel] >> rw [] >- (
+     every_case_tac >>
+     imp_res_tac v_i2_to_char_list_correct >>
+     fs[] >> rw[do_app_i2_def,result_to_i2_cases,v_to_i2_eqns]) >>
+   every_case_tac >> fs[])
  >- (fs [do_app_i1_def] >>
      cases_on `vs` >>
      fs [] >>
