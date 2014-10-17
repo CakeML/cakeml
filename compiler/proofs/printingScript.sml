@@ -103,11 +103,14 @@ val code_labels_ok_MAP_PrintC = store_thm("code_labels_ok_MAP_PrintC",
 val _ = export_rewrites["code_labels_ok_MAP_PrintC"]
 
 val word8 = ``Infer_Tapp [] TC_word8``
+val char = ``Infer_Tapp [] TC_char``
 
 val print_bv_def = Define`
   print_bv ty bv =
     if ty = ^word8 then
       STRCAT "0wx" (word_to_hex_string ((n2w (Num (dest_Number bv))):word8))
+    else if ty = ^char then
+      STRCAT "#" (string_to_string [CHR (Num (dest_Number bv))])
     else THE (bv_to_string bv)`
 
 val print_bv_print_v = prove(
@@ -116,7 +119,8 @@ val print_bv_print_v = prove(
         v_to_i2 gtagenv v1 v2 ∧
         v_to_exh exh v2 vh ∧ exh_Cv vh Cv ∧
         Cv_bv pp Cv bv ∧
-        (ty = ^word8 ⇔ ∃w. v = Litv (Word8 w))
+        (ty = ^word8 ⇔ ∃w. v = Litv (Word8 w)) ∧
+        (ty = ^char ⇔ ∃c. v = Litv (Char c))
         ⇒
         print_bv ty bv = print_v v) ∧
     (∀genv vs vs1. vs_to_i1 genv vs vs1 ⇒ T) ∧
@@ -128,7 +132,7 @@ val print_bv_print_v = prove(
     simp[Once v_to_i2_cases,exh_Cv_def] >> rw[] >>
     simp[print_bv_def,print_v_def] >>
     fs[Once Cv_bv_cases,print_lit_def] >>
-    rw[] >> fs[bv_to_string_def,bvs_to_chars_thm] >- (
+    rw[] >> fs[bv_to_string_def,bvs_to_chars_thm,CHR_ORD] >- (
       simp[EVERY_MAP,IMPLODE_EXPLODE_I,MAP_MAP_o,combinTheory.o_DEF,integerTheory.INT_ABS_NUM,CHR_ORD] >>
       rw[] >> fs[EXISTS_MEM] >> metis_tac[ORD_ONTO]) >>
     Cases_on`b`>>simp[print_v_def,print_lit_def] ) >>
@@ -158,7 +162,11 @@ val print_bv_list_print_envE = store_thm("print_bv_list_print_envE",
     LIST_REL (v_bv data) (MAP SND env) bvs ∧
     types = convert_env2 tvs ∧
     EVERY (λt. (∀n. t ≠ Infer_Tuvar n) ∧ inf_type_to_string t = type_to_string (convert_t t)) (MAP (SND o SND) tvs) ∧
-    LIST_REL (λ(x,_,t) (y,v). x = y ∧ (t = Tapp [] TC_word8 ⇔ ∃w. v = Litv (Word8 w))) types env
+    LIST_REL (λ(x,_,t) (y,v).
+      x = y ∧
+      (t = Tapp [] TC_word8 ⇔ ∃w. v = Litv (Word8 w)) ∧
+      (t = Tapp [] TC_char ⇔ ∃c. v = Litv (Char c)))
+    types env
     ⇒
     print_bv_list tvs bvs = print_envE types env``,
   REWRITE_TAC[convert_env2_def] >>
@@ -178,7 +186,7 @@ val print_bv_list_print_envE = store_thm("print_bv_list_print_envE",
   disch_then(fn th => first_x_assum (mp_tac o MATCH_MP th)) >>
   disch_then(fn th => first_x_assum (mp_tac o MATCH_MP th)) >>
   disch_then(fn th => first_x_assum (mp_tac o MATCH_MP th)) >>
-  disch_then match_mp_tac >>
+  disch_then (match_mp_tac o MP_CANON) >>
   Cases_on`tv2`>>fs[convert_t_def])
 
 val compile_print_vals_thm = store_thm("compile_print_vals_thm",
@@ -194,7 +202,9 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
                            el_check n bs.globals = SOME (SOME bv) ∧
                            IS_SOME (bv_to_string bv) ∧
                            (t = ^word8 ⇒
-                            ∃w. bv = Number &(w2n(w:word8)))) tvs bvs
+                            ∃w. bv = Number &(w2n(w:word8))) ∧
+                           (t = ^char ⇒
+                            ∃c. bv = Number &(ORD c))) tvs bvs
     ⇒
     let bs' = bs with <|pc := next_addr bs.inst_length (bc0++code)
                        ;output := bs.output ++ print_bv_list tvs bvs|> in
@@ -227,7 +237,7 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
   rpt gen_tac >>
   strip_tac >>
   fs[IMPLODE_EXPLODE_I] >>
-  Q.PAT_ABBREV_TAC`PrintI = if v2 = Z then Y else [Print]` >>
+  Q.PAT_ABBREV_TAC`PrintI = if v2 = Infer_Tapp [] TC_word8 then Y else (Z:bc_inst list)` >>
   `bs.code = bc0 ++ (MAP PrintC ("val "++v0++":"++inf_type_to_string v2++" = ")) ++ ([Gread n] ++ PrintI ++[PrintC(#"\n")]) ++ c1` by (
     simp[] ) >>
   qmatch_assum_abbrev_tac`bs.code = bc0 ++ l1 ++ l2 ++ c1` >>
@@ -247,7 +257,7 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
   `bc_next^* bs1 (bs1 with <|pc:=next_addr bs.inst_length(bc0++l1++l2)
                             ;output := STRCAT bs1.output (print_bv v2 bv)++"\n"|>)` by (
     qunabbrev_tac`PrintI` >> qunabbrev_tac`l2` >>
-    BasicProvers.CASE_TAC >- (
+    IF_CASES_TAC >- (
       srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
       simp[bc_eval1_thm,bc_eval1_def] >>
       fs[libTheory.el_check_def] >>
@@ -284,6 +294,69 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
       simp[Abbr`bs3`,Abbr`bs2`,bc_state_component_equality] >>
       simp[SUM_APPEND,FILTER_APPEND] >>
       simp[print_bv_def] ) >>
+    IF_CASES_TAC >- (
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      simp[bc_eval1_thm,bc_eval1_def] >>
+      fs[libTheory.el_check_def] >>
+      simp[bump_pc_def] >> simp[Abbr`bs1`] >>
+      qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+      qspecl_then[`"#"`,`bs1`,`bc0++l1++[Gread n]`]mp_tac MAP_PrintC_thm >>
+      simp[Abbr`bs1`] >>
+      discharge_hyps >- simp[SUM_APPEND,FILTER_APPEND] >>
+      qmatch_abbrev_tac`bc_next^* bs1 bs3 ⇒ bc_next^* bs1' bs2` >>
+      `bs1' = bs1` by (
+        simp[Abbr`bs1`,Abbr`bs1'`,bc_state_component_equality,SUM_APPEND,FILTER_APPEND] ) >>
+      pop_assum SUBST1_TAC >>
+      map_every qunabbrev_tac[`bs1`,`bs1'`] >>
+      strip_tac >>
+      srw_tac[DNF_ss][Once RTC_CASES_RTC_TWICE] >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      pop_assum kall_tac >>
+      `bc_fetch bs3 = SOME (Stack(PushInt 1))` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs3`] >>
+        CONV_TAC SWAP_EXISTS_CONV >>
+        qexists_tac`[Stack (Cons string_tag); Print; PrintC #"\n"]++c1` >>
+        simp[SUM_APPEND,FILTER_APPEND] ) >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      simp[bc_eval1_thm,bc_eval1_def,Abbr`bs3`,bump_pc_def,bc_eval_stack_def] >>
+      qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+      `bc_fetch bs1 = SOME (Stack(Cons string_tag))` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs1`] >>
+        CONV_TAC SWAP_EXISTS_CONV >>
+        qexists_tac`[Print; PrintC #"\n"]++c1` >>
+        simp[SUM_APPEND,FILTER_APPEND] ) >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      simp[bc_eval1_thm,bc_eval1_def,Abbr`bs1`,bump_pc_def,bc_eval_stack_def] >>
+      pop_assum kall_tac >>
+      pop_assum kall_tac >>
+      qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+      `bc_fetch bs1 = SOME Print` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs1`] >>
+        CONV_TAC SWAP_EXISTS_CONV >>
+        qexists_tac`[PrintC #"\n"]++c1` >>
+        simp[SUM_APPEND,FILTER_APPEND] ) >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      simp[bc_eval1_thm,bc_eval1_def,Abbr`bs1`,bump_pc_def,bc_eval_stack_def] >>
+      pop_assum kall_tac >>
+      simp[bv_to_string_def,bvs_to_chars_thm,ORD_ONTO] >>
+      reverse IF_CASES_TAC >- metis_tac[] >> simp[] >>
+      qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+      `bc_fetch bs1 = SOME (PrintC #"\n")` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs1`] >>
+        CONV_TAC SWAP_EXISTS_CONV >>
+        qexists_tac`c1` >>
+        simp[SUM_APPEND,FILTER_APPEND] ) >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      simp[bc_eval1_thm,bc_eval1_def,Abbr`bs1`,bump_pc_def,bc_eval_stack_def] >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+      simp[Abbr`bs2`,bc_state_component_equality,IMPLODE_EXPLODE_I,print_bv_def] >>
+      conj_tac >- ( simp[SUM_APPEND,FILTER_APPEND] ) >>
+      rpt AP_TERM_TAC >> AP_THM_TAC >> rpt AP_TERM_TAC >>
+      simp[integerTheory.INT_ABS_NUM]) >>
     simp[RTC_eq_NRC] >>
     qexists_tac`SUC(SUC(SUC 0))` >>
     simp[NRC] >>
@@ -312,7 +385,9 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
       simp[FILTER_APPEND,SUM_APPEND] ) >>
     simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
     simp[Abbr`bs1`,Abbr`bs2`,bc_state_component_equality,IMPLODE_EXPLODE_I] >>
-    simp[FILTER_APPEND,SUM_APPEND,print_bv_def] ) >>
+    simp[FILTER_APPEND,SUM_APPEND,print_bv_def] >>
+    rw[]
+    ) >>
   qmatch_assum_abbrev_tac`bc_next^* bs1 bs2` >>
   `bc_next^* bs bs2` by metis_tac[RTC_TRANSITIVE,transitive_def] >>
   pop_assum mp_tac >>
@@ -404,7 +479,9 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
                     el_check n bs.globals = SOME (SOME bv) ∧
                     IS_SOME (bv_to_string bv) ∧
                     (t = ^word8 ⇒
-                     ∃w. bv = Number &(w2n(w:word8))))
+                     ∃w. bv = Number &(w2n(w:word8))) ∧
+                    (t = ^char ⇒
+                     ∃c. bv = Number &(ORD c)))
         tvs bvs
       ⇒
       let str =
@@ -677,7 +754,8 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
          (λ(v,_,t) bv. ∃n. FLOOKUP map v = SOME n ∧
                      el_check n bs.globals = SOME (SOME bv) ∧
                      IS_SOME (bv_to_string bv) ∧
-                     (t = ^word8 ⇒ ∃w. bv = Number &(w2n(w:word8))))
+                     (t = ^word8 ⇒ ∃w. bv = Number &(w2n(w:word8))) ∧
+                     (t = ^char ⇒ ∃c. bv = Number &(ORD c)))
          tvs bvs | NONE => T)
         ⇒ ∃pc.
         (let str =

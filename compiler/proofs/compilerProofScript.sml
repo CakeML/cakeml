@@ -48,11 +48,13 @@ val evaluate_prompt_i1_success_globals = store_thm("evaluate_prompt_i1_success_g
   rw[evaluate_prompt_i1_cases] >> rw[EVERY_MAP])
 
 val local_labels_def = Define`
-  local_labels code = FILTER ($~ o inst_uses_label VfromListLab) code`
+  local_labels code = FILTER (λi. ¬ EXISTS (combin$C inst_uses_label i) [VfromListLab;ImplodeLab;ExplodeLab]) code`
 
 val local_labels_cons = store_thm("local_labels_cons",
   ``∀l ls. local_labels (l::ls) =
-           if inst_uses_label VfromListLab l
+           if inst_uses_label VfromListLab l ∨
+              inst_uses_label ImplodeLab l ∨
+              inst_uses_label ExplodeLab l
            then local_labels ls
            else l::(local_labels ls)``,
   rw[local_labels_def] >> fs[])
@@ -885,7 +887,7 @@ val FOLDL_cce_aux_thm = store_thm("FOLDL_cce_aux_thm",
      EVERY (λn. MEM n (MAP (FST o FST) c) ∨ between s.next_label s'.next_label n)
        (MAP dest_Label (FILTER is_Label code)) ∧
      (EVERY all_labs (MAP (SND o SND) c) ⇒ ∀l. uses_label code l ⇒
-       l = VfromListLab ∨ MEM (Label l) code ∨
+       l ∈ {VfromListLab;ImplodeLab;ExplodeLab} ∨ MEM (Label l) code ∨
        MEM l (MAP (FST o FST o SND) (FLAT (MAP (λ(p,p3,p4). free_labs (LENGTH (FST(SND p))) p4) c)))) ∧
      (∀l. MEM l (MAP (FST o FST) c) ⇒ MEM (Label l) code) ∧
      ∃cs.
@@ -966,7 +968,7 @@ val compile_code_env_thm = store_thm("compile_code_env_thm",
       EVERY (λn. MEM n (MAP (FST o FST o SND) (free_labs ez e)) ∨ between s.next_label s'.next_label n)
         (MAP dest_Label (FILTER is_Label code)) ∧
       (EVERY all_labs (MAP (SND o SND o SND) (free_labs ez e)) ⇒
-       ∀l. uses_label code l ⇒ MEM (Label l) code ∨ l = VfromListLab ∨
+       ∀l. uses_label code l ⇒ MEM (Label l) code ∨ l ∈ {VfromListLab;ImplodeLab;ExplodeLab} ∨
          MEM l (MAP (FST o FST o SND)
            (FLAT (MAP (λ(p,p3,p4). free_labs (LENGTH (FST (SND p))) p4) (MAP SND (free_labs ez e)))))) ∧
       (∀l. MEM l (MAP (FST o FST o SND) (free_labs ez e)) ⇒ MEM (Label l) code) ∧
@@ -1688,7 +1690,8 @@ val compile_top_thm = store_thm("compile_top_thm",
              y = x ∧
              (∀n. t ≠ Infer_Tuvar n) ∧
              (inf_type_to_string t = type_to_string (convert_t t)) ∧
-             (t = Infer_Tapp [] TC_word8 ⇔ ∃w. v = Litv(Word8 w)))
+             (t = Infer_Tapp [] TC_word8 ⇔ ∃w. v = Litv(Word8 w)) ∧
+             (t = Infer_Tapp [] TC_char ⇔ ∃c. v = Litv(Char c)))
            (THE types) envE
        | Rerr(Rraise v) => ∀l. v ≠ Litv l
        | _ => T) ∧
@@ -1904,6 +1907,7 @@ val compile_top_thm = store_thm("compile_top_thm",
            simp[] >>
            TRY conj_tac >- (
              metis_tac[Cv_bv_can_Print] ) >>
+           conj_tac >>
            rpt strip_tac >> fs[] >>
            rpt BasicProvers.VAR_EQ_TAC >>
            TRY(rfs[EL_MAP,UNCURRY] >> NO_TAC) >>
@@ -1915,7 +1919,8 @@ val compile_top_thm = store_thm("compile_top_thm",
            BasicProvers.VAR_EQ_TAC >>
            fs[exh_Cv_def] >>
            BasicProvers.VAR_EQ_TAC >>
-           fs[Q.SPECL[`CLitv Y`] (CONJUNCT1 (SPEC_ALL Cv_bv_cases))] )) >>
+           fs[Q.SPECL[`CLitv Y`] (CONJUNCT1 (SPEC_ALL Cv_bv_cases))] >>
+           PROVE_TAC[] )) >>
         rator_x_assum`to_i2_invariant`mp_tac >>
         simp[to_i2_invariant_def] >>
         ntac 5 disj2_tac >> disj1_tac >>
@@ -2994,8 +2999,8 @@ val compile_prog_thm = store_thm("compile_prog_thm",
       env_rs env stm grd rs (bs with code := bc0) ∧
       closed_prog prog ∧
       (∀p. "it" ∈ FDOM (FST(SND(SND(prog_to_i1 rs.next_global (FST rs.globals_env) (SND rs.globals_env) prog)))) ∧
-           SND(SND(res)) = Rval p ⇒ ∃v. ALOOKUP (SND p) "it" = SOME v ∧ ∀w. v ≠ Litv (Word8 w)) ∧
-      (∀v. SND(SND(res)) = Rerr(Rraise v) ⇒ ∀w. v ≠ Litv (Word8 w)) ∧
+           SND(SND(res)) = Rval p ⇒ ∃v. ALOOKUP (SND p) "it" = SOME v ∧ (∀w. v ≠ Litv (Word8 w)) ∧ (∀c. v ≠ Litv (Char c))) ∧
+      (∀v. SND(SND(res)) = Rerr(Rraise v) ⇒ ∀l. v ≠ Litv l) ∧
       (bs.code = bc0 ++ compile_prog rs prog) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
       ck ∧ IS_SOME bs.clock ∧

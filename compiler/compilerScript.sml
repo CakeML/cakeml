@@ -49,7 +49,12 @@ val _ = Define `
 (let ty = (inf_type_to_string t) in
   let s = (emit s (MAP PrintC (EXPLODE (CONCAT ["val ";x;":"; ty;" = "])))) in
   let s = (emit s [Gread (fapply( 0) x map)]) in
-  let s = (emit s (if t = (Infer_Tapp [] TC_word8) then (MAP PrintC (EXPLODE "0wx"))++[PrintWord8] else [Print])) in
+  let s = (emit s (if t = (Infer_Tapp [] TC_word8)
+                    then (MAP PrintC (EXPLODE "0wx"))++[PrintWord8]
+                  else if t = (Infer_Tapp [] TC_char)
+                    then (MAP PrintC (EXPLODE "#"))++[
+                      Stack (PushInt(( 1 : int))); Stack(Cons string_tag); Print]
+                  else [Print])) in
   let s = (emit s (MAP PrintC (EXPLODE "\n"))) in
     compile_print_vals types map s))`;
 

@@ -36,7 +36,12 @@ compile_print_vals ((x,((_:nat),t))::types) map s =
   let ty = inf_type_to_string t in
   let s = emit s (List.map PrintC (toCharList (String_extra.stringConcat ["val ";x;":"; ty;" = "]))) in
   let s = emit s [Gread (fapply 0 x map)] in
-  let s = emit s (if t = (Infer_Tapp [] TC_word8) then (List.map PrintC (toCharList "0wx"))++[PrintWord8] else [Print]) in
+  let s = emit s (if t = (Infer_Tapp [] TC_word8)
+                    then (List.map PrintC (toCharList "0wx"))++[PrintWord8]
+                  else if t = (Infer_Tapp [] TC_char)
+                    then (List.map PrintC (toCharList "#"))++[
+                      Stack (PushInt 1); Stack(Cons string_tag); Print]
+                  else [Print]) in
   let s = emit s (List.map PrintC (toCharList "\n")) in
     compile_print_vals types map s
 declare termination_argument compile_print_vals = automatic

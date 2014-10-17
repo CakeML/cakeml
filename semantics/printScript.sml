@@ -23,6 +23,7 @@ print_envM envM = CONCAT (MAP (λ(x,m). "module " ++ x ++ " = <structure>\n") en
 
 val print_lit_def = Define `
 (print_lit (IntLit i) = int_to_string i) ∧
+(print_lit (Char c) = "#"++(string_to_string [c])) ∧
 (print_lit (StrLit s) = string_to_string s) ∧
 (print_lit (Word8 w) = "0wx"++(word_to_hex_string w)) ∧
 (print_lit (Bool T) = "true") ∧
