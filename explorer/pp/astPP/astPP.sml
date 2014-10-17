@@ -6,6 +6,9 @@ open Portable smpp term_pp_types
 
 val astPrettyPrinters = ref []: (string * term * term_grammar.userprinter) list ref
 
+(*Control whether lists are printed as Cons(1,Cons...) or in list syntax*)
+val prettify_lists = true;
+
 fun add_astPP hd = astPrettyPrinters:= (hd:: !astPrettyPrinters)
 
 fun strip t = #2 (dest_comb t);
@@ -238,6 +241,20 @@ fun lambdaPrint sys d t pg str brk blk =
 
 val _=add_astPP ("lambdaprint", ``Fun x y``,genPrint lambdaPrint);
 
+(*Toplevel declaration of a function *)
+fun dletfunPrint sys d t pg str brk blk =
+  let
+    open Portable smpp
+    val (_,[l,r]) = strip_comb t;
+    val (_,[name]) = strip_comb l;
+    val (_,[arg,expr]) = strip_comb r;
+  in
+    add_newline>>blk CONSISTENT 2
+    (str "fun " >> str (toString name) >> str " " >> str (toString arg) >> str " = " >> brk (1,0) >>
+     sys (pg,pg,pg) (d-1) expr)
+  end
+val _ = add_astPP("dletfunPrint", ``Dlet (Pvar x) (Fun y z)``,genPrint dletfunPrint);
+
 (*Toplevel Dlet  pat*expr *)
 fun dletvalPrint sys d t pg str brk blk=
   let
@@ -311,24 +328,56 @@ fun pconsomePrint sys d t pg str brk blk=
     |   printTerms [x] = sys (Top,pg,pg) (d-1) x
     |   printTerms (x::xs) = sys (Top,pg,pg) (d-1) x >> str ",">> (printTerms xs);
     val (ty,ls) = strip_comb (rand l);
-    (*Special case for cons and handle long names*)
-    val ctor = if (term_to_string ty = "Short") then (let val ctort = toString (hd ls) in 
-                                                      (if (ctort = "::") then "Cons" else ctort) end)
-               else case ls of [l,r] => (toString l)^"."^(toString r)
+    val ctor = 
+      if (term_to_string ty = "Short") then 
+        toString(hd ls)
+      else (case ls of [l,r] => (toString l)^"."^(toString r))
     (*Properly handle LONG names*)
   in
     case args of [] => str ctor
-    | _ => m_brack str pg (str ctor >> str "(">> (blk INCONSISTENT 0 (printTerms args)) >>str ")")
+    | _ => m_brack str pg (str ctor >> str "(">> 
+           (blk INCONSISTENT 0 (printTerms args)) >>str ")")
   end;
 
 val _=add_astPP ("pconsomeprint", ``Pcon (SOME x) y``,genPrint pconsomePrint);
 val _=add_astPP ("consomeprint", ``Con (SOME x) y``,genPrint pconsomePrint);
 
-(*Special case for list syntax*)
+(*Special case for list syntax 
+check_tail checks whether it is a fully specified list*)
+fun check_tail t =
+  let val (x,y) = dest_comb t in
+    if x = ``Con (SOME (Short "nil"))`` then true
+    else 
+      if x = ``Con (SOME (Short "::"))`` then
+           check_tail (hd (tl (#1(listSyntax.dest_list y))))
+    else false 
+  end;
 
-fun pconnilPrint sys d t pg str brk blk = str "[]";
+fun pconconsPrint check_tail sys d t pg str brk blk =
+  let
+    val (temp,r) = dest_comb t
+    val [hd,tl] = #1(listSyntax.dest_list r)
+  in
+    case pg of 
+      Prec(_,"full_list") =>
+        str "," >> sys(Top,pg,pg) (d-1) hd >> sys(pg,pg,pg) (d-1) tl
+    | Prec(_,"non_list") =>
+        sys(Top,pg,pg) (d-1) hd >> str"::" >> sys (pg,pg,pg) (d-1) tl
+    | _ => 
+      if check_tail tl then 
+        str"[">> sys (Top,pg,pg) (d-1) hd >> 
+        sys (Prec(0,"full_list"),pg,pg) (d-1) tl
+      else sys(Top,pg,pg) (d-1) hd >> str"::" >>
+           sys(Prec(0,"non_list"),pg,pg)(d-1) tl
+  end;
 
-val _=add_astPP ("pconnilprint",``Con (SOME (Short "nil")) y``,genPrint pconnilPrint);
+val _ = add_astPP("conconsprint",``Con (SOME (Short"::")) y``,genPrint (pconconsPrint check_tail));
+val _ = add_astPP("pconconsprint",``Pcon (SOME (Short"::")) y``,genPrint (pconconsPrint check_tail));
+
+fun pconnilPrint sys d t pg str brk blk = 
+  case pg of Prec(0,"full_list") => str"]" | _ => str"[]";
+
+val _=add_astPP ("connilprint",``Con (SOME (Short "nil")) y``,genPrint pconnilPrint);
 val _=add_astPP ("pconnilprint",``Pcon (SOME (Short "nil")) y``,genPrint pconnilPrint);
 
 (*Literals*)

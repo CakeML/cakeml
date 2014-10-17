@@ -1,6 +1,6 @@
 structure compute_inferenceLib = struct
   open HolKernel boolLib bossLib lcsymtacs
-
+  
   fun add_inference_compset compset =
   let
 
@@ -50,6 +50,9 @@ structure compute_inferenceLib = struct
     ,check_weakE_def
     ,check_weak_decls_def
     ,list_subset_def
+    ,flookup_st_ex_def
+    ,alistTheory.alist_to_fmap_def
+    ,alistTheory.ALOOKUP_def
     ] compset
 
     val () = compute_basicLib.add_datatype ``:infer_t`` compset

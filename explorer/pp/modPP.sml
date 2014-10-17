@@ -84,6 +84,19 @@ val _=add_modPP ("i1_conprint", ``Con_i1 NONE x``,genPrint pconPrint);
 (*i1_Con SOME*)
 val _=add_modPP ("i1_consomeprint", ``Con_i1 (Some x) y``,genPrint pconsomePrint);
 
+
+(*Special case for list syntax 
+check_tail checks whether it is a fully specified list*)
+fun check_tail t =
+  let val (x,y) = dest_comb t in
+    if x = ``Con_i1 (SOME (Short "nil"))`` then true
+    else 
+      if x = ``Con_i1 (SOME (Short "::"))`` then
+           check_tail (hd (tl (#1(listSyntax.dest_list y))))
+    else false 
+  end;
+
+val _=add_modPP ("i1_conconsprint",``Con_i1 (SOME (Short "::")) y``, genPrint (pconconsPrint check_tail));
 val _=add_modPP ("i1_connilprint",``Con_i1 (SOME (Short "nil")) y``,genPrint pconnilPrint);
 
 (*i1_Literals*)
