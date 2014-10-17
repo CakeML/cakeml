@@ -386,9 +386,9 @@ val pr_CASE = prove(
   SRW_TAC [] []);
 
 val op_apply = prove(
-  ``!op. (op_CASE op x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18) y =
+  ``!op. (op_CASE op x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20) y =
          (op_CASE op (\z. x1 z y) (\z. x2 z y) (x3 y) (x4 y) (x5 y)
-            (x6 y) (x7 y) (x8 y) (x9 y) (x10 y) (x11 y) (x12 y) (x13 y) (x14 y) (x15 y) (x16 y) (x17 y) (x18 y))``,
+            (x6 y) (x7 y) (x8 y) (x9 y) (x10 y) (x11 y) (x12 y) (x13 y) (x14 y) (x15 y) (x16 y) (x17 y) (x18 y) (x19 y) (x20 y))``,
   Cases THEN SRW_TAC [] []);
 
 val list_apply = prove(
