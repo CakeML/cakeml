@@ -2309,6 +2309,54 @@ val prim1_to_bc_thm = store_thm("prim1_to_bc_thm",
       rw[] ) >>
     match_mp_tac s_refs_with_irr >>
     HINT_EXISTS_TAC >> simp[]) >>
+  Cases_on`op = CImplode` >- (
+    fs[] >> rw[] >>
+    Cases_on`Cimplode v1`>>fs[]>>rw[]>>
+    qspec_then`bce`mp_tac ImplodeCode_correct >>
+    simp[] >>
+    disch_then(qspecl_then[`bs`,`bcr`]mp_tac)>>simp[]>>
+    disch_then(qspec_then`v1`mp_tac)>>simp[]>>
+    qmatch_assum_abbrev_tac`Cv_bv pp v1 bv1` >>
+    disch_then(qspec_then`pp`mp_tac)>>simp[]>>
+    strip_tac >>
+    simp[Cv_bv_cases_lit,PULL_EXISTS] >>
+    map_every qexists_tac[`bs.refs`,`bs.globals`,`rd.sm`] >>
+    simp[] >>
+    conj_tac >- (
+      qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
+      qmatch_abbrev_tac`bc_next^* bs bs1'` >>
+      `bs1 = bs1'` by (
+        simp[Abbr`bs1`,Abbr`bs1'`] >>
+        simp[bump_pc_def,bc_state_component_equality] >>
+        simp[SUM_APPEND,FILTER_APPEND,stringTheory.IMPLODE_EXPLODE_I] ) >>
+      rw[] ) >>
+    match_mp_tac s_refs_with_irr >>
+    HINT_EXISTS_TAC >> simp[]) >>
+  Cases_on`op = CExplode` >- (
+    fs[] >> rw[] >>
+    Cases_on`v1`>>fs[]>>rw[]>>
+    Cases_on`l`>>fs[]>>rw[]>>
+    fs[Cv_bv_cases_lit] >> rw[] >>
+    CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
+    qexists_tac`rd.sm` >> simp[] >>
+    Q.PAT_ABBREV_TAC`pp = X:(refs_data#(num->num option))` >>
+    qspec_then`bce`mp_tac ExplodeCode_correct >>
+    simp[] >>
+    disch_then(qspecl_then[`bs`,`bcr`]mp_tac)>>simp[]>>
+    disch_then(qspecl_then[`s''`,`pp`]mp_tac)>>simp[]>>
+    strip_tac >>
+    map_every qexists_tac[`bs.globals`,`bs.refs`,`bv`] >>
+    simp[stringTheory.IMPLODE_EXPLODE_I] >>
+    conj_tac >- (
+      qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
+      qmatch_abbrev_tac`bc_next^* bs bs1'` >>
+      `bs1 = bs1'` by (
+        simp[Abbr`bs1`,Abbr`bs1'`] >>
+        simp[bump_pc_def,bc_state_component_equality] >>
+        simp[SUM_APPEND,FILTER_APPEND] ) >>
+      rw[] ) >>
+    match_mp_tac s_refs_with_irr >>
+    HINT_EXISTS_TAC >> simp[]) >>
   simp[Once RTC_CASES1] >>
   srw_tac[DNF_ss][] >> disj2_tac >>
   simp[bc_eval1_thm] >>
@@ -3553,19 +3601,19 @@ val compile_append_out = store_thm("compile_append_out",
            cs.next_label ≤ (compile env t sz cs exp).next_label ∧
            ALL_DISTINCT (FILTER is_Label bc) ∧
            EVERY (between cs.next_label (compile env t sz cs exp).next_label) (MAP dest_Label (FILTER is_Label bc))
-           ∧ (all_labs exp ⇒ ∀l. uses_label bc l ⇒ l = VfromListLab ∨ MEM (Label l) bc ∨ MEM l (MAP (FST o FST o SND) (free_labs (LENGTH env) exp)))) ∧
+           ∧ (all_labs exp ⇒ ∀l. uses_label bc l ⇒ l ∈ {VfromListLab;ImplodeLab;ExplodeLab} ∨ MEM (Label l) bc ∨ MEM l (MAP (FST o FST o SND) (free_labs (LENGTH env) exp)))) ∧
     (∀env t sz exp n cs xs.
       ∃bc. ((compile_bindings env t sz exp n cs xs).out = bc ++ cs.out) ∧
            cs.next_label ≤ (compile_bindings env t sz exp n cs xs).next_label ∧
            ALL_DISTINCT (FILTER is_Label bc) ∧
            EVERY (between cs.next_label (compile_bindings env t sz exp n cs xs).next_label) (MAP dest_Label (FILTER is_Label bc))
-           ∧ (all_labs exp ⇒ ∀l. uses_label bc l ⇒ l = VfromListLab ∨ MEM (Label l) bc ∨ MEM l (MAP (FST o FST o SND) (free_labs (LENGTH env + xs) exp)))) ∧
+           ∧ (all_labs exp ⇒ ∀l. uses_label bc l ⇒ l ∈ {VfromListLab;ImplodeLab;ExplodeLab} ∨ MEM (Label l) bc ∨ MEM l (MAP (FST o FST o SND) (free_labs (LENGTH env + xs) exp)))) ∧
     (∀env sz cs exps.
       ∃bc. ((compile_nts env sz cs exps).out = bc ++ cs.out) ∧
            cs.next_label ≤ (compile_nts env sz cs exps).next_label ∧
            ALL_DISTINCT (FILTER is_Label bc) ∧
            EVERY (between cs.next_label (compile_nts env sz cs exps).next_label) (MAP dest_Label (FILTER is_Label bc))
-           ∧ (all_labs_list exps ⇒ ∀l. uses_label bc l ⇒ l = VfromListLab ∨ MEM (Label l) bc ∨ MEM l (MAP (FST o FST o SND) (free_labs_list (LENGTH env) exps))))``,
+           ∧ (all_labs_list exps ⇒ ∀l. uses_label bc l ⇒ l ∈ {VfromListLab;ImplodeLab;ExplodeLab} ∨ MEM (Label l) bc ∨ MEM l (MAP (FST o FST o SND) (free_labs_list (LENGTH env) exps))))``,
   ho_match_mp_tac compile_ind >>
   strip_tac >- (
     simp[compile_def] >> rw[] >> rw[] >> fs[uses_label_thm]) >>
@@ -3582,6 +3630,7 @@ val compile_append_out = store_thm("compile_append_out",
       fs[]) >>
     fs[uses_label_thm,code_labels_ok_def] >>
     rw[] >> metis_tac[] ) >>
+  strip_tac >- tac >>
   strip_tac >- tac >>
   strip_tac >- (
     simp[compile_def] >> rw[] >>
@@ -7249,7 +7298,8 @@ fun tac18 t =
     Cases_on`uop`>>fs[]>>
     Cases_on`e`>>simp[]>>
     Cases_on`v`>>fs[] >> rw[]>>
-    BasicProvers.EVERY_CASE_TAC >> fs[]) >>
+    BasicProvers.EVERY_CASE_TAC >> fs[] >>
+    Cases_on`l`>>fs[]) >>
   strip_tac >- (
     simp[] >>
     rpt gen_tac >> strip_tac >>
