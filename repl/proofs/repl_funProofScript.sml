@@ -32,16 +32,37 @@ val code_labels_ok_append_local = store_thm("code_labels_ok_append_local",
   fs[local_labels_def,EXISTS_MEM,MEM_FILTER,PULL_EXISTS] >>
   Cases_on`l = VfromListLab` >- (
     fs[bytecodeProofTheory.contains_primitives_def,toBytecodeTheory.VfromListCode_def] ) >>
+  Cases_on`l = ImplodeLab` >- (
+    fs[bytecodeProofTheory.contains_primitives_def,toBytecodeTheory.ImplodeCode_def] ) >>
+  Cases_on`l = ExplodeLab` >- (
+    fs[bytecodeProofTheory.contains_primitives_def,toBytecodeTheory.ExplodeCode_def] ) >>
   `¬inst_uses_label VfromListLab e` by (
+    Cases_on`e`>>fs[]>>
+    Cases_on`l'`>>fs[]) >>
+  `¬inst_uses_label ImplodeLab e` by (
+    Cases_on`e`>>fs[]>>
+    Cases_on`l'`>>fs[]) >>
+  `¬inst_uses_label ExplodeLab e` by (
     Cases_on`e`>>fs[]>>
     Cases_on`l'`>>fs[]) >>
   metis_tac[])
 
-val code_labels_ok_VfromListCode = store_thm("code_labels_ok_VfromListCode",
-  ``code_labels_ok VfromListCode``,
+val code_labels_ok_microcode = store_thm("code_labels_ok_microcode",
+  ``code_labels_ok (VfromListCode++ImplodeCode++ExplodeCode)``,
+  match_mp_tac bytecodeLabelsTheory.code_labels_ok_append >>
+  reverse conj_tac >- (
+    simp[bytecodeLabelsTheory.code_labels_ok_def,
+         bytecodeLabelsTheory.uses_label_thm] >>
+    simp[toBytecodeTheory.ExplodeCode_def]) >>
+  match_mp_tac bytecodeLabelsTheory.code_labels_ok_append >>
+  reverse conj_tac >- (
+    simp[bytecodeLabelsTheory.code_labels_ok_def,
+         bytecodeLabelsTheory.uses_label_thm] >>
+    simp[toBytecodeTheory.ImplodeCode_def]) >>
   simp[bytecodeLabelsTheory.code_labels_ok_def,
        bytecodeLabelsTheory.uses_label_thm] >>
   simp[toBytecodeTheory.VfromListCode_def])
+
 (* -- *)
 
 (* TODO: move? *)
@@ -339,11 +360,45 @@ val type_string_word8 = Q.prove (
    cases_on `t''` >>
    fs [convert_t_def, check_t_def]);
 
+val type_string_char = Q.prove (
+  `∀envE tenvE n m envE' tenvE' ctMap tenvS ctMap' tenvS'.
+    n < LENGTH tenvE ∧
+    (?m. check_t m ∅ (SND (SND (EL n tenvE)))) ∧
+    type_env ctMap tenvS envE' tenvE' ∧
+    type_env ctMap' tenvS' (envE++envE') (bind_var_list2 (convert_env2 tenvE) tenvE')
+    ⇒
+    (SND (SND (EL n tenvE)) = Infer_Tapp [] TC_char ⇔ ∃c. SND (EL n envE) = Litv (Char c))`,
+   rw [] >>
+   imp_res_tac type_env_length >>
+   imp_res_tac type_env_list_rel_append >>
+   fs [LIST_REL_EL_EQN, convert_env2_def] >>
+   `n < LENGTH envE` by metis_tac [] >>
+   res_tac >>
+   fs [] >>
+   `?x v1. EL n envE = (x,v1)` by metis_tac [pair_CASES] >>
+   fs [] >>
+   `?x' n' t'. EL n (MAP (λ(x,tvs,t). (x,tvs,convert_t t)) tenvE) = (x',n',t')` by metis_tac [pair_CASES] >>
+   fs [] >>
+   rw [] >>
+   pop_assum mp_tac >>
+   rw [EL_MAP] >>
+   `?x' n' t'. EL n tenvE = (x',n',t')` by metis_tac [pair_CASES] >>
+   fs [] >>
+   rw [] >>
+   eq_tac >>
+   rw [] >>
+   fs [convert_t_def] >>
+   imp_res_tac (SIMP_RULE (bool_ss) [astTheory.Tchar_def] canonical_values_thm)
+   >- metis_tac [] >>
+   `convert_t t'' = Tchar` by fs [Once type_v_cases] >>
+   cases_on `t''` >>
+   fs [convert_t_def, check_t_def, astTheory.Tchar_def]);
+
 val word8_help_tac =
   reverse BasicProvers.CASE_TAC >- (
         fs[update_type_sound_inv_def,type_sound_invariants_def] >>
         Cases_on`e`>>fs[]>>
-        fs [Once type_v_cases]) >>
+        fs [Once type_v_cases,astTheory.Tchar_def]) >>
       BasicProvers.CASE_TAC >>
       fs[update_type_sound_inv_def,type_sound_invariants_def] >>
       imp_res_tac type_env_list_rel_append >>
@@ -369,7 +424,7 @@ val word8_help_tac =
       conj_tac >- (
         match_mp_tac (CONJUNCT1 type_to_string_lem) >>
         metis_tac [] ) >>
-      metis_tac [convert_env2_def, type_string_word8];
+      metis_tac [convert_env2_def, type_string_word8, type_string_char];
 
 val and_shadow_def = zDefine`and_shadow = $/\`
 
@@ -804,7 +859,7 @@ val unrolled_repl_thm = store_thm("unrolled_repl_thm",
   `code_assert` by (
     simp[Abbr`code_assert`] >>
     simp[initial_bc_state_def] >>
-    ACCEPT_TAC code_labels_ok_VfromListCode) >>
+    ACCEPT_TAC code_labels_ok_microcode) >>
   fs[Abbr`code_assert`] >>
   fs[initial_bc_state_side_def,LET_THM] >>
   `code_assert'` by (
@@ -1008,7 +1063,7 @@ val unlabelled_repl_thm = store_thm("unlabelled_repl_thm",
   `code_assert` by (
     simp[Abbr`code_assert`,Abbr`code`] >>
     simp[initial_bc_state_def] >>
-    ACCEPT_TAC code_labels_ok_VfromListCode) >>
+    ACCEPT_TAC code_labels_ok_microcode) >>
   fs[Abbr`code_assert`] >>
   fs[install_bc_lists_thm] >>
   `bs' = strip_labels bs''` by (
@@ -1023,8 +1078,8 @@ val unlabelled_repl_thm = store_thm("unlabelled_repl_thm",
     qspecl_then[`code`,`code'`,`real_inst_length`]mp_tac code_labels_APPEND >>
     discharge_hyps >- (
       simp[Abbr`code`,initial_bc_state_def] >>
-      simp[GSYM code_labels_ok_def] >>
-      ACCEPT_TAC code_labels_ok_VfromListCode ) >>
+      mp_tac code_labels_ok_microcode >>
+      simp[code_labels_ok_def]) >>
     simp[] >>
     disch_then SUBST1_TAC >>
     UNABBREV_ALL_TAC >>
@@ -1094,7 +1149,7 @@ val convert_invariants = Q.prove (
  >- fs [type_infer_invariants_def, infer_sound_invariant_def, convert_decls_def]
  >- fs [convert_decls_def]
  >- metis_tac []
- >- metis_tac [code_labels_ok_local_to_all,contains_primitives_MEM_Label_VfromListLab,env_rs_def]
+ >- metis_tac [code_labels_ok_local_to_all,contains_primitives_MEM_Label,env_rs_def]
  >- (fs [init_code_executes_ok_def, code_executes_ok_def] >>
      metis_tac []));
 

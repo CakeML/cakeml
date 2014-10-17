@@ -298,8 +298,8 @@ val basis_state_eq = save_thm("basis_state_eq",
    initCompEnvTheory.empty_bc_state_def]
   THENC computeLib.CBV_CONV cs
   THENC REWRITE_CONV[
-   initCompEnvTheory.code_length_VfromListCode,
-   initCompEnvTheory.collect_labels_VfromListCode]
+   initCompEnvTheory.code_length_microcode,
+   initCompEnvTheory.collect_labels_microcode]
   THENC computeLib.CBV_CONV cs))
 
 val _ = export_theory()

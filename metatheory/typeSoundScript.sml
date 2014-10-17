@@ -101,6 +101,7 @@ val canonical_values_thm = Q.store_thm ("canonical_values_thm",
 `∀tvs tenvC tenvS v t1 t2.
   (type_v tvs tenvC tenvS v (Tref t1) ⇒ (∃n. v = Loc n)) ∧
   (type_v tvs tenvC tenvS v Tint ⇒ (∃n. v = Litv (IntLit n))) ∧
+  (type_v tvs tenvC tenvS v Tchar ⇒ (∃c. v = Litv (Char c))) ∧
   (type_v tvs tenvC tenvS v Tstring ⇒ (∃s. v = Litv (StrLit s))) ∧
   (type_v tvs tenvC tenvS v Tbool ⇒ (∃n. v = Litv (Bool n))) ∧
   (type_v tvs tenvC tenvS v Tunit ⇒ (∃n. v = Litv Unit)) ∧
@@ -122,6 +123,7 @@ val canonical_values_thm = Q.store_thm ("canonical_values_thm",
  TRY (fs[Tchar_def]>>NO_TAC) >>
  fs [tid_exn_to_tc_def] >>
  imp_res_tac type_funs_Tfn >>
+ TRY (fs[Tchar_def]>>NO_TAC) >>
  fs [] >>
  rw [] >>
  imp_res_tac has_lists_v_to_list >>
