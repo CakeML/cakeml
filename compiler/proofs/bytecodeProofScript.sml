@@ -1975,6 +1975,292 @@ val ImplodeCode_correct = prove(
   match_mp_tac RTC_SUBSET >>
   simp[bc_eval1_thm,bc_eval1_def,Abbr`bs1`,Abbr`bs2`,bump_pc_def])
 
+val ls = fst(listSyntax.dest_list(rhs(concl ExplodeCode_def)))
+fun next_addr_tac s =
+    `bc_fetch bs1 = SOME ^(List.nth(ls,valOf(Int.fromString s)))` by (
+      match_mp_tac bc_fetch_next_addr >> simp[Abbr`bs1`] >>
+      qexists_tac`bc0 ++ (DROP 5 (TAKE ^(Parse.Term [QUOTE (s^":num")]) ExplodeCode))` >>
+      simp[ExplodeCode_def] >>
+      REWRITE_TAC[SUM_APPEND,FILTER_APPEND,MAP_APPEND] >>
+      EVAL_TAC >> simp[])
+
+val ExplodeCode_aux_correct = prove(
+  ``∀cs tag bs bc0 bc1 bstr btl ctl st cnt pp loopcode.
+      loopcode = DROP 5 (TAKE 24 ExplodeCode) ∧
+      bs.code = bc0 ++ loopcode ++ bc1 ∧
+      ALL_DISTINCT (FILTER is_Label (bc0 ++ loopcode)) ∧
+      bstr = Block tag (MAP (Number o $& o ORD) (cs++ctl)) ∧
+      bs.stack = btl::Number (&(LENGTH cs))::bstr::st ∧
+      bs.pc = next_addr bs.inst_length bc0 ∧
+      Cv_bv pp (Cexplode ctl) btl
+      ⇒
+      ∃bls.
+      let bs' = bs with <| pc := next_addr bs.inst_length (bc0++loopcode);
+                           stack := bls::Number 0::bstr::st |> in
+      bc_next^* bs bs' ∧
+      Cv_bv pp (Cexplode (cs++ctl)) bls``,
+  ho_match_mp_tac SNOC_INDUCT >> simp[] >> rw[] >- (
+    qexists_tac`btl` >> rw[] >>
+    qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+    next_addr_tac"6" >>
+    srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+    simp[bc_eval1_thm,bc_eval1_def,bump_pc_def,bc_eval_stack_def,Abbr`bs2`,Abbr`bs1`] >>
+    pop_assum kall_tac >>
+    qho_match_abbrev_tac`bc_next^* bs1 bs2` >>
+    srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+    next_addr_tac"7" >>
+    simp[bc_eval1_thm,bc_eval1_def,bump_pc_def,bc_eval_stack_def,Abbr`bs1`] >>
+    pop_assum kall_tac >>
+    qho_match_abbrev_tac`bc_next^* bs1 bs2` >>
+    srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+    next_addr_tac"8" >>
+    simp[bc_eval1_thm,bc_eval1_def,bump_pc_def,bc_eval_stack_def,Abbr`bs1`] >>
+    pop_assum kall_tac >>
+    qho_match_abbrev_tac`bc_next^* bs1 bs2` >>
+    srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+    next_addr_tac"9" >>
+    simp[bc_eval1_thm,bc_eval1_def,bump_pc_def,bc_eval_stack_def,bc_equal_def,Abbr`bs1`] >>
+    pop_assum kall_tac >>
+    qho_match_abbrev_tac`bc_next^* bs1 bs2` >>
+    srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+    next_addr_tac"10" >>
+    simp[bc_eval1_thm,bc_eval1_def,Abbr`bs1`,PULL_EXISTS] >>
+    qexists_tac`next_addr bs.inst_length (bc0 ++ DROP 5 (TAKE 23 ExplodeCode))` >>
+    conj_tac >- (
+      simp[bc_find_loc_def] >>
+      match_mp_tac bc_find_loc_aux_append_code >>
+      match_mp_tac bc_find_loc_aux_ALL_DISTINCT >>
+      qexists_tac`LENGTH bc0 + 17` >>
+      rfs[] >>
+      simp[ExplodeCode_def,EL_APPEND1,EL_APPEND2] >>
+      simp[TAKE_APPEND1,TAKE_APPEND2] >>
+      REWRITE_TAC[FILTER_APPEND] >>
+      EVAL_TAC) >>
+    pop_assum kall_tac >>
+    match_mp_tac RTC_SUBSET >>
+    qho_match_abbrev_tac`bc_next bs1 bs2` >>
+    next_addr_tac"23" >>
+    simp[bc_eval1_thm,bc_eval1_def,Abbr`bs1`,bc_eval_stack_def,bump_pc_def] >>
+    simp[Abbr`bs2`,bc_state_component_equality] >>
+    simp[ExplodeCode_def] >>
+    REWRITE_TAC[SUM_APPEND,FILTER_APPEND,MAP_APPEND] >>
+    EVAL_TAC >> simp[]) >>
+  qho_match_abbrev_tac`∃btl. bc_next^* bs1 (bs2 btl) ∧ P btl` >>
+  next_addr_tac"6" >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  simp[bc_eval1_thm,bc_eval1_def,bump_pc_def,bc_eval_stack_def,Abbr`bs1`] >>
+  pop_assum kall_tac >>
+  qho_match_abbrev_tac`∃btl. bc_next^* bs1 (bs2 btl) ∧ P btl` >>
+  next_addr_tac"7" >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  simp[bc_eval1_thm,bc_eval1_def,bump_pc_def,bc_eval_stack_def,Abbr`bs1`] >>
+  pop_assum kall_tac >>
+  qho_match_abbrev_tac`∃btl. bc_next^* bs1 (bs2 btl) ∧ P btl` >>
+  next_addr_tac"8" >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  simp[bc_eval1_thm,bc_eval1_def,bump_pc_def,bc_eval_stack_def,Abbr`bs1`] >>
+  pop_assum kall_tac >>
+  qho_match_abbrev_tac`∃btl. bc_next^* bs1 (bs2 btl) ∧ P btl` >>
+  next_addr_tac"9" >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  simp[bc_eval1_thm,bc_eval1_def,bump_pc_def,bc_eval_stack_def,bc_equal_def,Abbr`bs1`] >>
+  pop_assum kall_tac >>
+  qho_match_abbrev_tac`∃btl. bc_next^* bs1 (bs2 btl) ∧ P btl` >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  next_addr_tac"10" >>
+  simp[bc_eval1_thm,bc_eval1_def,Abbr`bs1`,PULL_EXISTS] >>
+  CONV_TAC SWAP_EXISTS_CONV >>
+  qexists_tac`next_addr bs.inst_length (bc0 ++ DROP 5 (TAKE 23 ExplodeCode))` >>
+  simp[GSYM PULL_EXISTS] >>
+  conj_tac >- (
+    simp[bc_find_loc_def] >>
+    match_mp_tac bc_find_loc_aux_append_code >>
+    match_mp_tac bc_find_loc_aux_ALL_DISTINCT >>
+    qexists_tac`LENGTH bc0 + 17` >>
+    rfs[] >>
+    simp[ExplodeCode_def,EL_APPEND1,EL_APPEND2] >>
+    simp[TAKE_APPEND1,TAKE_APPEND2] >>
+    REWRITE_TAC[FILTER_APPEND] >>
+    EVAL_TAC) >>
+  simp[bump_pc_with_stack] >>
+  fs[bump_pc_def,bc_fetch_with_stack] >>
+  pop_assum kall_tac >>
+  qho_match_abbrev_tac`∃btl. bc_next^* bs1 (bs2 btl) ∧ P btl` >>
+  next_addr_tac"11" >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  simp[bc_eval1_thm,bc_eval1_def,Abbr`bs1`,bc_eval_stack_def,bump_pc_def] >>
+  pop_assum kall_tac >>
+  qho_match_abbrev_tac`∃btl. bc_next^* bs1 (bs2 btl) ∧ P btl` >>
+  next_addr_tac"12" >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  simp[bc_eval1_thm,bc_eval1_def,Abbr`bs1`,bc_eval_stack_def,bump_pc_def] >>
+  pop_assum kall_tac >>
+  qho_match_abbrev_tac`∃btl. bc_next^* bs1 (bs2 btl) ∧ P btl` >>
+  next_addr_tac"13" >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  simp[bc_eval1_thm,bc_eval1_def,Abbr`bs1`,bc_eval_stack_def,bump_pc_def] >>
+  pop_assum kall_tac >>
+  qho_match_abbrev_tac`∃btl. bc_next^* bs1 (bs2 btl) ∧ P btl` >>
+  next_addr_tac"14" >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  simp[bc_eval1_thm,bc_eval1_def,Abbr`bs1`,bc_eval_stack_def,bump_pc_def] >>
+  pop_assum kall_tac >>
+  qho_match_abbrev_tac`∃btl. bc_next^* bs1 (bs2 btl) ∧ P btl` >>
+  next_addr_tac"15" >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  simp[bc_eval1_thm,bc_eval1_def,Abbr`bs1`,bc_eval_stack_def,bump_pc_def] >>
+  pop_assum kall_tac >>
+  qho_match_abbrev_tac`∃btl. bc_next^* bs1 (bs2 btl) ∧ P btl` >>
+  next_addr_tac"16" >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  simp[bc_eval1_thm,bc_eval1_def,Abbr`bs1`,bc_eval_stack_def,bump_pc_def,ADD1] >>
+  simp[integerTheory.INT_SUB] >>
+  pop_assum kall_tac >>
+  qho_match_abbrev_tac`∃btl. bc_next^* bs1 (bs2 btl) ∧ P btl` >>
+  next_addr_tac"17" >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  simp[bc_eval1_thm,bc_eval1_def,Abbr`bs1`,bc_eval_stack_def,bump_pc_def] >>
+  pop_assum kall_tac >>
+  qho_match_abbrev_tac`∃btl. bc_next^* bs1 (bs2 btl) ∧ P btl` >>
+  next_addr_tac"18" >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  simp[bc_eval1_thm,bc_eval1_def,Abbr`bs1`,bc_eval_stack_def,bump_pc_def] >>
+  pop_assum kall_tac >>
+  qho_match_abbrev_tac`∃btl. bc_next^* bs1 (bs2 btl) ∧ P btl` >>
+  next_addr_tac"19" >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  simp[bc_eval1_thm,bc_eval1_def,Abbr`bs1`,bc_eval_stack_def,bump_pc_def] >>
+  pop_assum kall_tac >>
+  qho_match_abbrev_tac`∃btl. bc_next^* bs1 (bs2 btl) ∧ P btl` >>
+  next_addr_tac"20" >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  simp[bc_eval1_thm,bc_eval1_def,Abbr`bs1`,bc_eval_stack_def,bump_pc_def] >>
+  pop_assum kall_tac >>
+  qho_match_abbrev_tac`∃btl. bc_next^* bs1 (bs2 btl) ∧ P btl` >>
+  next_addr_tac"21" >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  simp[bc_eval1_thm,bc_eval1_def,Abbr`bs1`,PULL_EXISTS] >>
+  pop_assum kall_tac >>
+  CONV_TAC(RESORT_EXISTS_CONV(sort_vars["n"])) >>
+  qexists_tac`next_addr bs.inst_length bc0` >>
+  simp[RIGHT_EXISTS_AND_THM] >>
+  conj_tac >- (
+    simp[bc_find_loc_def] >>
+    match_mp_tac bc_find_loc_aux_append_code >>
+    match_mp_tac bc_find_loc_aux_ALL_DISTINCT >>
+    qexists_tac`LENGTH bc0` >>
+    rfs[] >>
+    simp[ExplodeCode_def,EL_APPEND1,EL_APPEND2] >>
+    simp[TAKE_APPEND1,TAKE_APPEND2]) >>
+  qho_match_abbrev_tac`∃btl. bc_next^* bs1 (bs2 btl) ∧ P btl` >>
+  first_x_assum(qspecl_then[`tag`,`bs1`,`bc0`]mp_tac) >>
+  rfs[] >> simp[Abbr`bs1`] >>
+  disch_then(qspecl_then[`x::ctl`,`pp`]mp_tac) >> simp[] >>
+  discharge_hyps >- (
+    simp[Cexplode_def,Cv_bv_cases_conv,Cv_bv_cases_lit,EL_APPEND1,EL_APPEND2] ) >>
+  strip_tac >>
+  srw_tac[DNF_ss][Once RTC_CASES_RTC_TWICE] >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+  simp[bc_state_component_equality,Abbr`bs2`,arithmeticTheory.ADD1] >>
+  simp[Abbr`P`] >>
+  simp[APPEND_SNOC1])
+
+fun next_addr_tac s =
+    `bc_fetch bs1 = SOME ^(List.nth(ls,valOf(Int.fromString s)))` by (
+      match_mp_tac bc_fetch_next_addr >> simp[Abbr`bs1`] >>
+      qexists_tac`bc0 ++ VfromListCode ++ ImplodeCode ++ (TAKE ^(Parse.Term [QUOTE (s^":num")]) ExplodeCode)` >>
+      simp[ExplodeCode_def] >>
+      REWRITE_TAC[SUM_APPEND,FILTER_APPEND,MAP_APPEND] >>
+      EVAL_TAC >> simp[])
+
+val ExplodeCode_correct = prove(
+  ``∀bce. contains_primitives bce ⇒
+      ∀bs bcr cs st pp tag.
+      bs.code = bce ++ bcr ∧
+      bc_fetch bs = SOME (Call (Lab ExplodeLab)) ∧
+      bs.stack = Block tag (MAP (Number o $& o ORD) cs)::st
+      ⇒
+      ∃bv.
+      let bs' = bump_pc bs with stack := bv::st in
+      bc_next^* bs bs' ∧ Cv_bv pp (Cexplode cs) bv``,
+  simp[] >> rw[] >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  simp[bc_eval1_thm,bc_eval1_def] >>
+  fs[contains_primitives_def,bc_find_loc_def] >>
+  simp[PULL_EXISTS] >>
+  CONV_TAC SWAP_EXISTS_CONV >>
+  qexists_tac`next_addr bs.inst_length (TAKE (LENGTH bc0 + LENGTH VfromListCode + LENGTH ImplodeCode) bs.code)` >>
+  simp[RIGHT_EXISTS_AND_THM] >>
+  conj_tac >- (
+    BasicProvers.VAR_EQ_TAC >>
+    match_mp_tac bc_find_loc_aux_append_code >>
+    match_mp_tac bc_find_loc_aux_ALL_DISTINCT >>
+    qexists_tac`LENGTH bc0 + LENGTH VfromListCode + LENGTH ImplodeCode` >> rfs[] >>
+    simp[EL_APPEND1,EL_APPEND2,ExplodeCode_def] >>
+    simp[TAKE_APPEND1,TAKE_APPEND2]) >>
+  simp[TAKE_APPEND1,TAKE_LENGTH_ID_rwt] >>
+  qho_match_abbrev_tac`∃bv. bc_next^* bs1 (bs2 bv) ∧ P bv` >>
+  next_addr_tac"1" >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  simp[bc_eval1_thm,bc_eval1_def,bc_eval_stack_def,bump_pc_def,Abbr`bs1`] >>
+  pop_assum kall_tac >>
+  qho_match_abbrev_tac`∃bv. bc_next^* bs1 (bs2 bv) ∧ P bv` >>
+  next_addr_tac"2" >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  simp[bc_eval1_thm,bc_eval1_def,bc_eval_stack_def,bump_pc_def,Abbr`bs1`] >>
+  pop_assum kall_tac >>
+  qho_match_abbrev_tac`∃bv. bc_next^* bs1 (bs2 bv) ∧ P bv` >>
+  next_addr_tac"3" >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  simp[bc_eval1_thm,bc_eval1_def,bc_eval_stack_def,bump_pc_def,Abbr`bs1`] >>
+  pop_assum kall_tac >>
+  qho_match_abbrev_tac`∃bv. bc_next^* bs1 (bs2 bv) ∧ P bv` >>
+  next_addr_tac"4" >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  simp[bc_eval1_thm,bc_eval1_def,bc_eval_stack_def,bump_pc_def,Abbr`bs1`] >>
+  pop_assum kall_tac >>
+  qho_match_abbrev_tac`∃bv. bc_next^* bs1 (bs2 bv) ∧ P bv` >>
+  qspecl_then[`cs`,`tag`,`bs1`,`bc0++VfromListCode++ImplodeCode++(TAKE 5 ExplodeCode)`]
+    mp_tac ExplodeCode_aux_correct >>
+  simp[Abbr`bs1`] >>
+  simp[Once ExplodeCode_def] >>
+  simp[Once ExplodeCode_def] >>
+  simp[Once ExplodeCode_def] >>
+  simp[Cexplode_def,Cv_bv_cases_conv] >>
+  disch_then(qspec_then`pp`mp_tac) >>
+  discharge_hyps >- (
+    conj_tac >- (
+      rator_x_assum`ALL_DISTINCT`mp_tac >>
+      simp[ALL_DISTINCT_APPEND,FILTER_APPEND] >>
+      EVAL_TAC >> rw[] >> res_tac >> fs[] >>
+      metis_tac[] ) >>
+    simp[Once ExplodeCode_def] >>
+    simp[FILTER_APPEND,SUM_APPEND] ) >>
+  strip_tac >>
+  qho_match_abbrev_tac`∃bv. bc_next^* bs1 (bs2 bv) ∧ P bv` >>
+  qmatch_assum_abbrev_tac`bc_next^* bs1' bs3` >>
+  `bs1' = bs1` by (
+    simp[Abbr`bs1`,Abbr`bs1'`,bc_state_component_equality] >>
+    simp[ExplodeCode_def,SUM_APPEND,FILTER_APPEND] ) >>
+  fs[Abbr`bs1'`] >> pop_assum kall_tac >>
+  srw_tac[DNF_ss][Once RTC_CASES_RTC_TWICE] >>
+  first_assum(match_exists_tac o concl) >>
+  simp[Abbr`bs1`] >> qpat_assum`bc_next^* X Y`kall_tac >>
+  qmatch_assum_rename_tac`Abbrev(bs1 = X)`["X"]>>
+  next_addr_tac"24" >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  simp[bc_eval1_thm,bc_eval1_def,bc_eval_stack_def,bump_pc_def,Abbr`bs1`] >>
+  pop_assum kall_tac >>
+  qho_match_abbrev_tac`∃bv. bc_next^* bs1 (bs2 bv) ∧ P bv` >>
+  next_addr_tac"25" >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  simp[bc_eval1_thm,bc_eval1_def,bc_eval_stack_def,bump_pc_def,Abbr`bs1`] >>
+  pop_assum kall_tac >>
+  qho_match_abbrev_tac`∃bv. bc_next^* bs1 (bs2 bv) ∧ P bv` >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+  simp[Abbr`bs1`,Abbr`bs2`,bump_pc_def,bc_state_component_equality,Abbr`P`])
+
 val prim1_to_bc_thm = store_thm("prim1_to_bc_thm",
   ``∀rd op ck s v1 s' v bs bc0 bc1 bce bcr st bv1.
     (bs.code = bc0 ++ prim1_to_bc op ++ bc1) ∧

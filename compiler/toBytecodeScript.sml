@@ -226,6 +226,7 @@ val _ = Define `
   Stack (PushInt(( 0 : int)));
   Stack Equal;
   JumpIf (Lab (ExplodeLab+ 2));
+  Stack (Load( 2));
   Stack (PushInt(( 1 : int)));
   Stack Sub;
   Stack (Load( 0));

@@ -192,6 +192,7 @@ let ExplodeCode = [
   Stack (PushInt 0);
   Stack Equal;
   JumpIf (Lab (ExplodeLab+2));
+  Stack (Load 2);
   Stack (PushInt 1);
   Stack Sub;
   Stack (Load 0);
