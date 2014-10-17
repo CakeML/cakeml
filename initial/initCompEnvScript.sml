@@ -28,16 +28,29 @@ init_code_executes_ok s1 ⇔
   (∃s2. bc_next^* s1 s2 ∧ bc_fetch s2 = SOME (Stop T))`;
 
 val code_labels_ok_local_to_all = store_thm("code_labels_ok_local_to_all",
-  ``∀code. code_labels_ok (local_labels code) ∧ MEM (Label VfromListLab) code ⇒ code_labels_ok code``,
+  ``∀code. code_labels_ok (local_labels code) ∧
+          MEM (Label VfromListLab) code ∧
+          MEM (Label ImplodeLab) code ∧
+          MEM (Label ExplodeLab) code
+    ⇒ code_labels_ok code``,
   rw[compilerProofTheory.local_labels_def,code_labels_ok_def,
      uses_label_thm,EXISTS_MEM,PULL_EXISTS,MEM_FILTER] >>
   Cases_on`inst_uses_label VfromListLab e` >- (
     Cases_on`e` >> fs[inst_uses_label_def] >>
     Cases_on`l'`>> fs[inst_uses_label_def] ) >>
+  Cases_on`inst_uses_label ExplodeLab e` >- (
+    Cases_on`e` >> fs[inst_uses_label_def] >>
+    Cases_on`l'`>> fs[inst_uses_label_def] ) >>
+  Cases_on`inst_uses_label ImplodeLab e` >- (
+    Cases_on`e` >> fs[inst_uses_label_def] >>
+    Cases_on`l'`>> fs[inst_uses_label_def] ) >>
   metis_tac[])
 
-val contains_primitives_MEM_Label_VfromListLab = store_thm("contains_primitives_MEM_Label_VfromListLab",
-  ``∀code. contains_primitives code ⇒ MEM (Label VfromListLab) code``,
+val contains_primitives_MEM_Label = store_thm("contains_primitives_MEM_Label",
+  ``∀code. contains_primitives code ⇒
+      MEM (Label VfromListLab) code ∧
+      MEM (Label ImplodeLab) code ∧
+      MEM (Label ExplodeLab) code``,
   EVAL_TAC >> rw[] >> rw[])
 
 val invariant'_def = Define `
@@ -115,7 +128,7 @@ empty_bc_state = <|
       clock := NONE |>`;
 
 val initial_bc_state_def = Define`
-  initial_bc_state = empty_bc_state with code := VfromListCode`
+  initial_bc_state = empty_bc_state with code := VfromListCode++ImplodeCode++ExplodeCode`
 
 val install_code_def = Define `
   install_code code bs =
@@ -294,7 +307,7 @@ add_to_env <| inf_mdecls := [];
                             globals_env := (FEMPTY, FEMPTY);
                             contags_env := (1, (FEMPTY,FEMPTY), FEMPTY);
                             exh := FEMPTY;
-                            rnext_label := VfromListLabs |> |>
+                            rnext_label := ExplodeLab+ExplodeLabs |> |>
         prim_types_program`;
 
 val prim_bs_def = Define `
@@ -304,13 +317,18 @@ val the_compiler_compset = the_compiler_compset false
 
 val prim_env_eq = save_thm ("prim_env_eq",
   ``prim_env``
-  |> SIMP_CONV(srw_ss())[prim_env_def,add_to_env_def,LET_THM,prim_types_program_def,toBytecodeTheory.VfromListLabs_def]
+  |> SIMP_CONV(srw_ss())[prim_env_def,add_to_env_def,LET_THM,prim_types_program_def,
+                         toBytecodeTheory.ExplodeLab_def,toBytecodeTheory.ExplodeLabs_def,
+                         toBytecodeTheory.ImplodeLab_def,toBytecodeTheory.ImplodeLabs_def,
+                         toBytecodeTheory.VfromListLab_def,toBytecodeTheory.VfromListLabs_def]
   |> CONV_RULE(computeLib.CBV_CONV the_inference_compset)
   |> CONV_RULE(computeLib.CBV_CONV the_compiler_compset));
 
 val cs = the_bytecode_compset()
 val () = computeLib.add_thms[bc_fetch_def,bc_fetch_aux_def,is_Label_def,bc_find_loc_aux_def] cs
-val () = computeLib.add_thms[toBytecodeTheory.VfromListCode_def |> CONV_RULE (RAND_CONV EVAL)] cs
+val () = computeLib.add_thms[toBytecodeTheory.VfromListCode_def |> CONV_RULE (RAND_CONV EVAL),
+                             toBytecodeTheory.ImplodeCode_def |> CONV_RULE (RAND_CONV EVAL),
+                             toBytecodeTheory.ExplodeCode_def |> CONV_RULE (RAND_CONV EVAL)] cs
 val () = computeLib.add_datatype_info cs (valOf(TypeBase.fetch``:bc_inst``))
 val () = computeLib.add_conv(``real_inst_length``,1,eval_real_inst_length) cs
 val prim_bs_eq = save_thm("prim_bs_eq",
@@ -562,10 +580,10 @@ val add_stop_invariant = Q.store_thm ("add_stop_invariant",
  >- (fs [init_code_executes_ok_def, code_executes_ok'_def] >>
      metis_tac [RTC_REFL]));
 
-val code_length_VfromListCode = save_thm("code_length_VfromListCode",
-  ``code_length real_inst_length VfromListCode`` |> EVAL)
+val code_length_microcode = save_thm("code_length_microcode",
+  ``code_length real_inst_length (VfromListCode++ImplodeCode++ExplodeCode)`` |> EVAL)
 
-val collect_labels_VfromListCode = save_thm("collect_labels_VfromListCode",
-  ``collect_labels VfromListCode 0 real_inst_length`` |> EVAL)
+val collect_labels_microcode = save_thm("collect_labels_microcode",
+  ``collect_labels (VfromListCode++ImplodeCode++ExplodeCode) 0 real_inst_length`` |> EVAL)
 
 val _ = export_theory();
