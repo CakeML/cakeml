@@ -24,7 +24,7 @@ val bootstrap_code_labels_ok0 = prove(
   ``code_labels_ok ^(rand(rhs(concl bootstrap_code_def)))``,
   match_mp_tac repl_funProofTheory.code_labels_ok_append_local >>
   conj_tac >- simp[initCompEnvTheory.initial_bc_state_def,
-                   repl_funProofTheory.code_labels_ok_VfromListCode] >>
+                   repl_funProofTheory.code_labels_ok_microcode] >>
   reverse conj_tac >- (
     simp[bytecodeProofTheory.contains_primitives_def,
          initCompEnvTheory.initial_bc_state_def] >>
