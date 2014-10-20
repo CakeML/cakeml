@@ -26,4 +26,14 @@ val explode_11 = store_thm("explode_11",
   ``∀s1 s2. explode s1 = explode s2 ⇔ s1 = s2``,
   Cases >> Cases >> simp[])
 
+(* TODO: don't explode/implode once CakeML supports string append *)
+val strcat_def = Define`
+  strcat s1 s2 = implode(explode s1 ++ explode s2)`
+val _ = Parse.add_infix("^",480,Parse.LEFT)
+val _ = Parse.overload_on("^",``λx y. strcat x y``)
+
+(* TODO: don't explode once CakeML supports string length *)
+val strlen_def = Define`
+  strlen s = LENGTH (explode s)`
+
 val _ = export_theory()
