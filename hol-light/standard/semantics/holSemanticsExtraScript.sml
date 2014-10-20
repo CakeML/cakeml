@@ -93,7 +93,8 @@ val termsem_typesem = store_thm("termsem_typesem",
       fs[is_valuation_def] >> metis_tac[] ) >>
     qmatch_abbrev_tac`a <: b ⇒ a' <: b'` >>
     `a' = a` by (
-      unabbrev_all_tac >> rpt AP_TERM_TAC >> simp[MAP_EQ_f] ) >>
+      unabbrev_all_tac >> rpt AP_TERM_TAC >> simp[MAP_EQ_f] >>
+      simp[MEM_MAP,PULL_EXISTS,mlstringTheory.implode_explode]) >>
     `b' = b` by (
       unabbrev_all_tac >>
       match_mp_tac typesem_tyvars >> rw[] ) >>
@@ -126,11 +127,11 @@ val termsem_Equal = store_thm("termsem_Equal",
       is_structure Γ i v ∧ type_ok (tysof Γ) ty ⇒
       termsem (tmsof Γ) i v (Equal ty) = ^Equalsem [typesem (FST i) (FST v) ty]``,
   rw[termsem_def,LET_THM] >> fs[is_structure_def] >>
-  qspecl_then[`tmsof Γ`,`i`,`"="`]mp_tac instance_def >> fs[is_std_sig_def]>>
-  disch_then(qspec_then`[(ty,Tyvar"A")]`mp_tac)>>
+  qspecl_then[`tmsof Γ`,`i`,`(strlit "=")`]mp_tac instance_def >> fs[is_std_sig_def]>>
+  disch_then(qspec_then`[(ty,Tyvar(strlit "A"))]`mp_tac)>>
   simp[REV_ASSOCD] >> disch_then kall_tac >>
   Q.PAT_ABBREV_TAC`aa = tyvars X` >>
-  `aa = ["A"]` by simp[tyvars_def,Abbr`aa`,LIST_UNION_def,LIST_INSERT_def] >>
+  `aa = [(strlit "A")]` by simp[tyvars_def,Abbr`aa`,LIST_UNION_def,LIST_INSERT_def] >>
   Q.PAT_ABBREV_TAC`tt = typesem (tyaof i) Y o TYPE_SUBST Z o Tyvar` >>
   `is_type_valuation tt` by (
     simp[Abbr`tt`,is_type_valuation_def] >>
@@ -141,7 +142,8 @@ val termsem_Equal = store_thm("termsem_Equal",
     fs[is_valuation_def,is_type_valuation_def] ) >>
   qunabbrev_tac`aa` >>
   fs[is_std_interpretation_def,interprets_def] >>
-  `STRING_SORT ["A"] = ["A"]` by simp[STRING_SORT_def,INORDER_INSERT_def] >>
+  `MAP implode (STRING_SORT ["A"]) = [strlit "A"]` by
+    simp[STRING_SORT_def,INORDER_INSERT_def,mlstringTheory.implode_def] >>
   simp[] >> simp[Abbr`tt`,REV_ASSOCD])
 
 (* equations *)
@@ -252,7 +254,8 @@ val termsem_tyfrees = store_thm("termsem_tyfrees",
     rw[] >>
     first_x_assum match_mp_tac >>
     rw[tyvars_TYPE_SUBST] >>
-    metis_tac[] ) >>
+    fs[MEM_MAP] >>
+    metis_tac[mlstringTheory.implode_explode] ) >>
   rw[] >- (res_tac >> PROVE_TAC[]) >>
   rw[termsem_def] >> fs[tvars_def] >>
   qmatch_abbrev_tac`Abstract d1 r1 f1 = Abstract d2 r2 f2` >>
@@ -568,7 +571,8 @@ val termsem_sig = store_thm("termsem_sig",
       rw[] >>
       match_mp_tac typesem_sig >>
       imp_res_tac type_ok_TYPE_SUBST_imp >>
-      fs[] >> metis_tac[] ) >>
+      fs[MEM_MAP,mlstringTheory.implode_explode] >>
+      metis_tac[] ) >>
     simp[] >> AP_THM_TAC >>
     unabbrev_all_tac >>
     metis_tac[]) >>
@@ -642,7 +646,7 @@ val extend_valuation_exists = store_thm("extend_valuation_exists",
 
 val identity_instance = store_thm("identity_instance",
   ``∀tmenv (i:'U interpretation) name ty τ. FLOOKUP tmenv name = SOME ty ⇒
-      instance tmenv i name ty = λτ. tmaof i name (MAP τ (STRING_SORT (tyvars ty)))``,
+      instance tmenv i name ty = λτ. tmaof i name (MAP τ (MAP implode (STRING_SORT (MAP explode (tyvars ty)))))``,
   rw[] >>
   qspecl_then[`tmenv`,`i`,`name`,`ty`,`ty`,`[]`]mp_tac instance_def >>
   rw[FUN_EQ_THM,typesem_def,combinTheory.o_DEF,ETA_AX])

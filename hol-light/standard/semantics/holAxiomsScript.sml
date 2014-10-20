@@ -4,18 +4,18 @@ open setSpecTheory holSemanticsTheory holSemanticsExtraTheory holExtensionTheory
 
 val _ = new_theory"holAxioms"
 
-val _ = Parse.temp_overload_on("A",``Tyvar "A"``)
-val _ = Parse.temp_overload_on("B",``Tyvar "B"``)
-val _ = Parse.temp_overload_on("x",``Var "x" A``)
-val _ = Parse.temp_overload_on("g",``Var "f" (Fun A B)``)
-val _ = Parse.temp_overload_on("B",``Tyvar "B"``)
-val _ = Parse.temp_overload_on("EXx",``Exists "x" A``)
-val _ = Parse.temp_overload_on("x1",``Var "x1" A``)
-val _ = Parse.temp_overload_on("FAx1",``Forall "x1" A``)
-val _ = Parse.temp_overload_on("x2",``Var "x2" A``)
-val _ = Parse.temp_overload_on("FAx2",``Forall "x2" A``)
-val _ = Parse.temp_overload_on("y",``Var "y" B``)
-val _ = Parse.temp_overload_on("FAy",``Forall "y" B``)
+val _ = Parse.temp_overload_on("A",``Tyvar (strlit "A")``)
+val _ = Parse.temp_overload_on("B",``Tyvar (strlit "B")``)
+val _ = Parse.temp_overload_on("x",``Var (strlit "x") A``)
+val _ = Parse.temp_overload_on("g",``Var (strlit "f") (Fun A B)``)
+val _ = Parse.temp_overload_on("B",``Tyvar (strlit "B")``)
+val _ = Parse.temp_overload_on("EXx",``Exists (strlit "x") A``)
+val _ = Parse.temp_overload_on("x1",``Var (strlit "x1") A``)
+val _ = Parse.temp_overload_on("FAx1",``Forall (strlit "x1") A``)
+val _ = Parse.temp_overload_on("x2",``Var (strlit "x2") A``)
+val _ = Parse.temp_overload_on("FAx2",``Forall (strlit "x2") A``)
+val _ = Parse.temp_overload_on("y",``Var (strlit "y") B``)
+val _ = Parse.temp_overload_on("FAy",``Forall (strlit "y") B``)
 
 val mem = ``mem:'U->'U->bool``
 
@@ -42,13 +42,13 @@ val eta_has_model = store_thm("eta_has_model",
     fs[is_std_sig_def]) >>
   rfs[termsem_def] >>
   rfs[typesem_def] >>
-  qspecl_then[`tmvof v ("f",Fun A B)`,`tyvof v "A"`,`tyvof v "B"`]mp_tac (UNDISCH in_funspace_abstract) >>
+  qspecl_then[`tmvof v ((strlit "f"),Fun A B)`,`tyvof v (strlit "A")`,`tyvof v (strlit "B")`]mp_tac (UNDISCH in_funspace_abstract) >>
   discharge_hyps >- ( fs[is_valuation_def,is_type_valuation_def] ) >>
   rw[] >> rw[] >>
   match_mp_tac (UNDISCH abstract_eq) >>
   rw[] >- (
     match_mp_tac (UNDISCH apply_in_rng) >>
-    qexists_tac`tyvof v "A"` >>
+    qexists_tac`tyvof v (strlit "A")` >>
     rw[combinTheory.APPLY_UPDATE_THM] >>
     match_mp_tac (UNDISCH abstract_in_funspace) >>
     rw[] ) >>
@@ -63,7 +63,7 @@ val _ = Parse.overload_on("good_select",``good_select0 ^mem``)
 val select_has_model_gen = store_thm("select_has_model_gen",
   ``is_set_theory ^mem ⇒
     ∀ctxt.
-      "@" ∉ FDOM (tmsof ctxt) ∧
+      (strlit "@") ∉ FDOM (tmsof ctxt) ∧
       is_implies_sig (tmsof ctxt) ∧
       theory_ok (thyof ctxt)
       ⇒
@@ -73,11 +73,11 @@ val select_has_model_gen = store_thm("select_has_model_gen",
         good_select select
       ⇒ ∃i'. equal_on (sigof ctxt) i i' ∧
              i' models (thyof (mk_select_ctxt ctxt)) ∧
-             (tmaof i' "@" =
+             (tmaof i' (strlit "@") =
                 (λls. Abstract (Funspace (HD ls) boolset) (HD ls)
                         (λp. select (HD ls) (Holds p))))``,
   rw[good_select_def,models_def,mk_select_ctxt_def,conexts_of_upd_def,is_implies_sig_def,is_implies_interpretation_def] >>
-  qexists_tac`(tyaof i, ("@" =+ λl. Abstract (Funspace (HD l) boolset) (HD l)
+  qexists_tac`(tyaof i, (strlit "@" =+ λl. Abstract (Funspace (HD l) boolset) (HD l)
                                       (λp. select (HD l) (Holds p))) (tmaof i))` >>
   imp_res_tac is_std_interpretation_is_type >>
   imp_res_tac typesem_Fun >>
@@ -89,7 +89,7 @@ val select_has_model_gen = store_thm("select_has_model_gen",
       fs[is_interpretation_def,is_term_assignment_def,FEVERY_ALL_FLOOKUP,FLOOKUP_UPDATE] >>
       rw[] >> rw[combinTheory.APPLY_UPDATE_THM] >>
       rw[typesem_def,tyvars_def,STRING_SORT_def,LIST_UNION_def,INORDER_INSERT_def,LIST_INSERT_def] >>
-      fs[is_std_type_assignment_def] >>
+      fs[is_std_type_assignment_def,mlstringTheory.implode_def] >>
       match_mp_tac (UNDISCH abstract_in_funspace) >>
       rw[holds_def] >> fs[is_type_valuation_def]) >>
     conj_tac >- (
@@ -111,8 +111,8 @@ val select_has_model_gen = store_thm("select_has_model_gen",
     simp[satisfies_def] >>
     gen_tac >> strip_tac >>
     qmatch_abbrev_tac`termsem tmsig ii v tm = True` >>
-    `FLOOKUP tmsig "@" = SOME (Fun (Fun A Bool) A)` by simp[Abbr`tmsig`,FLOOKUP_UPDATE] >>
-    `FLOOKUP tmsig "==>" = SOME (Fun Bool (Fun Bool Bool))` by simp[Abbr`tmsig`,FLOOKUP_UPDATE] >>
+    `FLOOKUP tmsig (strlit "@") = SOME (Fun (Fun A Bool) A)` by simp[Abbr`tmsig`,FLOOKUP_UPDATE] >>
+    `FLOOKUP tmsig (strlit "==>") = SOME (Fun Bool (Fun Bool Bool))` by simp[Abbr`tmsig`,FLOOKUP_UPDATE] >>
     imp_res_tac identity_instance >>
     simp[Abbr`tm`,termsem_def] >>
     simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def] >>
@@ -128,15 +128,15 @@ val select_has_model_gen = store_thm("select_has_model_gen",
       match_mp_tac (UNDISCH abstract_in_funspace) >>
       simp[boolean_in_boolset] ) >>
     qmatch_assum_abbrev_tac`Abbrev(fz = fp ' fx)` >>
-    Q.PAT_ABBREV_TAC`fa = tyvof v "A"` >>
+    Q.PAT_ABBREV_TAC`fa = tyvof v (implode "A")` >>
     `fx <: fa ∧ fp <: Funspace fa boolset` by (
       fs[is_valuation_def,is_term_valuation_def] >>
-      first_assum(qspecl_then[`"P"`,`Fun A Bool`]mp_tac) >>
-      first_x_assum(qspecl_then[`"x"`,`A`]mp_tac) >>
+      first_assum(qspecl_then[`strlit "P"`,`Fun A Bool`]mp_tac) >>
+      first_x_assum(qspecl_then[`strlit "x"`,`A`]mp_tac) >>
       imp_res_tac typesem_Bool >>
       simp[type_ok_def,typesem_def] >>
       imp_res_tac theory_ok_sig >>
-      fs[is_std_sig_def] ) >>
+      fs[is_std_sig_def,mlstringTheory.implode_def] ) >>
     `fz <: bs` by (
       unabbrev_all_tac >>
       match_mp_tac (UNDISCH apply_in_rng) >>
@@ -203,7 +203,7 @@ val good_select_base_select = store_thm("good_select_base_select",
 val select_has_model = store_thm("select_has_model",
   ``is_set_theory ^mem ⇒
     ∀ctxt.
-      "@" ∉ FDOM (tmsof ctxt) ∧
+      (strlit "@") ∉ FDOM (tmsof ctxt) ∧
       is_implies_sig (tmsof ctxt) ∧
       theory_ok (thyof ctxt)
       ⇒
@@ -219,11 +219,11 @@ val select_has_model = store_thm("select_has_model",
   disch_then(qspec_then`base_select` mp_tac) >>
   metis_tac[good_select_base_select])
 
-val _ = Parse.temp_overload_on("h",``Var "f" (Fun Ind Ind)``)
-val _ = Parse.temp_overload_on("Exh",``Exists "f" (Fun Ind Ind)``)
+val _ = Parse.temp_overload_on("h",``Var (strlit "f") (Fun Ind Ind)``)
+val _ = Parse.temp_overload_on("Exh",``Exists (strlit "f") (Fun Ind Ind)``)
 
 val EVAL_STRING_SORT =
-  CONV_TAC (DEPTH_CONV (fn tm => if can (match_term ``STRING_SORT (tyvars X)``) tm
+  CONV_TAC (DEPTH_CONV (fn tm => if can (match_term ``STRING_SORT (MAP explode (tyvars X))``) tm
                         then EVAL tm else raise UNCHANGED))
 
 val apply_abstract_tac = rpt ( (
@@ -264,8 +264,8 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
   ``is_set_theory ^mem  ⇒
     ∀ctxt.
       theory_ok (thyof ctxt) ∧
-      DISJOINT (FDOM (tmsof ctxt)) {"ONE_ONE";"ONTO"} ∧
-      "ind" ∉ FDOM (tysof ctxt) ∧
+      DISJOINT (FDOM (tmsof ctxt)) {strlit "ONE_ONE";strlit "ONTO"} ∧
+      (strlit "ind") ∉ FDOM (tysof ctxt) ∧
       is_implies_sig (tmsof ctxt) ∧
       is_and_sig (tmsof ctxt) ∧
       is_forall_sig (tmsof ctxt) ∧
@@ -282,10 +282,10 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
           is_infinite ^mem inf
       ⇒ ∃i'. equal_on (sigof ctxt) i i' ∧
              i' models (thyof (mk_infinity_ctxt ctxt)) ∧
-             (tyaof i' "ind" [] = inf)``,
+             (tyaof i' (strlit "ind") [] = inf)``,
   rw[models_def,is_implies_sig_def,is_and_sig_def,is_forall_sig_def,is_exists_sig_def,is_not_sig_def,
      is_implies_interpretation_def,is_and_interpretation_def,is_forall_interpretation_def,is_exists_interpretation_def,is_not_interpretation_def] >>
-  `∃ctxt1 p. mk_infinity_ctxt ctxt = (NewAxiom p)::(NewType "ind" 0)::ctxt1` by simp[mk_infinity_ctxt_def] >>
+  `∃ctxt1 p. mk_infinity_ctxt ctxt = (NewAxiom p)::(NewType (strlit "ind") 0)::ctxt1` by simp[mk_infinity_ctxt_def] >>
   `mk_infinity_ctxt ctxt extends ctxt` by (
     match_mp_tac infinity_extends >> simp[] ) >>
   `ctxt1 extends ctxt` by (
@@ -304,8 +304,8 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
     fs[mk_infinity_ctxt_def] >> rw[] ) >>
   disch_then(qx_choose_then`i1`strip_assume_tac) >>
   simp[conexts_of_upd_def] >>
-  qexists_tac`(("ind" =+ (K inf)) (tyaof i1), tmaof i1)` >>
-  `¬(MEM "ind" (MAP FST (type_list ctxt1)))` by (
+  qexists_tac`(((strlit "ind") =+ (K inf)) (tyaof i1), tmaof i1)` >>
+  `¬(MEM (strlit "ind") (MAP FST (type_list ctxt1)))` by (
     qpat_assum`X = Y::Z`mp_tac >>
     simp[mk_infinity_ctxt_def] >>
     rw[] >> rw[] ) >>
@@ -327,7 +327,7 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
         ,FEVERY_ALL_FLOOKUP,combinTheory.APPLY_UPDATE_THM] >>
       rw[] >- metis_tac[] >>
       rfs[FLOOKUP_UPDATE] >>
-      qsuff_tac`typesem (("ind" =+ K inf) (tyaof i1)) τ v = typesem (tyaof i1) τ v` >- rw[] >>
+      qsuff_tac`typesem ((strlit "ind" =+ K inf) (tyaof i1)) τ v = typesem (tyaof i1) τ v` >- rw[] >>
       match_mp_tac typesem_sig >>
       qexists_tac`tysof ctxt1` >>
       conj_tac >- (
@@ -369,37 +369,36 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
     ntac 7 (pop_assum kall_tac) >>
     Q.PAT_ABBREV_TAC`tmsig:tmsig = X` >>
     Q.PAT_ABBREV_TAC`int:'U interpretation = X` >>
-    qspecl_then[`tmsig`,`int`,`"/\\"`]mp_tac identity_instance >>
-    qspecl_then[`tmsig`,`int`,`"~"`]mp_tac identity_instance >>
-    qspecl_then[`tmsig`,`int`,`"?"`]mp_tac instance_def >>
-    `(FLOOKUP tmsig "?" = FLOOKUP (tmsof ctxt) "?") ∧
-     (FLOOKUP tmsig "/\\" = FLOOKUP (tmsof ctxt) "/\\") ∧
-     (FLOOKUP tmsig "~" = FLOOKUP (tmsof ctxt) "~")` by (
+    qspecl_then[`tmsig`,`int`,`strlit "/\\"`]mp_tac identity_instance >>
+    qspecl_then[`tmsig`,`int`,`strlit "~"`]mp_tac identity_instance >>
+    qspecl_then[`tmsig`,`int`,`strlit "?"`]mp_tac instance_def >>
+    `(FLOOKUP tmsig (strlit "?") = FLOOKUP (tmsof ctxt) (strlit "?")) ∧
+     (FLOOKUP tmsig (strlit "/\\") = FLOOKUP (tmsof ctxt) (strlit "/\\")) ∧
+     (FLOOKUP tmsig (strlit "~") = FLOOKUP (tmsof ctxt) (strlit "~"))` by (
       simp[Abbr`tmsig`,FLOOKUP_UPDATE] >>
       fs[mk_infinity_ctxt_def] >> rw[] ) >>
     simp[Abbr`tmsig`] >>
     disch_then(qspec_then`[(Fun Ind Ind,A)]`mp_tac) >>
     simp[REV_ASSOCD] >> disch_then kall_tac >>
     ntac 2 (disch_then kall_tac) >>
-    CONV_TAC (DEPTH_CONV (fn tm => if can (match_term ``STRING_SORT (tyvars X)``) tm
-                          then EVAL tm else raise UNCHANGED)) >>
+    CHANGED_TAC EVAL_STRING_SORT >>
     simp[typesem_def,combinTheory.APPLY_UPDATE_THM,REV_ASSOCD] >>
-    `(∀x y. tyaof int "fun" [x;y] = Funspace x y) ∧
-     (tyaof int "ind" [] = inf)` by (
+    `(∀x y. tyaof int (strlit "fun") [x;y] = Funspace x y) ∧
+     (tyaof int (strlit "ind") [] = inf)` by (
       simp[Abbr`int`,combinTheory.APPLY_UPDATE_THM] >>
       fs[equal_on_def] >> qx_genl_tac[`a`,`b`] >>
-      last_x_assum (qspec_then`"fun"`mp_tac) >>
+      last_x_assum (qspec_then`strlit "fun"`mp_tac) >>
       simp[type_ok_def] >>
       imp_res_tac theory_ok_sig >>
       fs[is_std_sig_def] >>
       disch_then(qspec_then`[A;A]`mp_tac) >>
       simp[type_ok_def] >>
       fs[is_std_interpretation_def,is_std_type_assignment_def]) >>
-    `(tmaof int "?" = tmaof i "?") ∧
-     (tmaof int "/\\" = tmaof i "/\\") ∧
-     (tmaof int "!" = tmaof i "!") ∧
-     (tmaof int "==>" = tmaof i "==>") ∧
-     (tmaof int "~" = tmaof i "~")` by (
+    `(tmaof int (strlit "?") = tmaof i (strlit "?")) ∧
+     (tmaof int (strlit "/\\") = tmaof i (strlit "/\\")) ∧
+     (tmaof int (strlit "!") = tmaof i (strlit "!")) ∧
+     (tmaof int (strlit "==>") = tmaof i (strlit "==>")) ∧
+     (tmaof int (strlit "~") = tmaof i (strlit "~"))` by (
       simp[Abbr`int`] >>
       fs[equal_on_def] >>
       rpt conj_tac >>
@@ -410,13 +409,13 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
       qexists_tac`Fun (Fun A Bool) Bool` >>
       simp[type_ok_def] >>qexists_tac`[]` >> simp[REV_ASSOCD]) >>
     simp[] >>
-    `(FLOOKUP (tmsof ctxt1) "ONE_ONE" = SOME (Fun (Fun A B) Bool)) ∧
-     (FLOOKUP (tmsof ctxt1) "ONTO"    = SOME (Fun (Fun A B) Bool))` by (
+    `(FLOOKUP (tmsof ctxt1) (strlit "ONE_ONE") = SOME (Fun (Fun A B) Bool)) ∧
+     (FLOOKUP (tmsof ctxt1) (strlit "ONTO")    = SOME (Fun (Fun A B) Bool))` by (
       simp[] >>
       fs[mk_infinity_ctxt_def] >>
       rw[] ) >>
-    qspecl_then[`tmsof ctxt1`,`int`,`"ONE_ONE"`]mp_tac instance_def >>
-    qspecl_then[`tmsof ctxt1`,`int`,`"ONTO"`]mp_tac instance_def >>
+    qspecl_then[`tmsof ctxt1`,`int`,`strlit "ONE_ONE"`]mp_tac instance_def >>
+    qspecl_then[`tmsof ctxt1`,`int`,`strlit "ONTO"`]mp_tac instance_def >>
     simp[] >>
     ntac 2(disch_then(qspec_then`[(Ind,A);(Ind,B)]`strip_assume_tac)) >>
     ntac 2 (pop_assum mp_tac) >>
