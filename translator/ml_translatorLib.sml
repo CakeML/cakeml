@@ -1530,7 +1530,7 @@ fun register_term_types tm = let
     ((if is_abs tm then every_term f (snd (dest_abs tm))
       else if is_comb tm then (every_term f (rand tm); every_term f (rator tm))
       else ()); f tm)
-  val special_types = [``:num``,``:int``,``:bool``,``:word8``,``:unit``]
+  val special_types = [``:num``,``:int``,``:bool``,``:word8``,``:unit``,``:char``]
                       @ get_user_supplied_types ()
   fun ignore_type ty =
     if can (first (fn ty1 => can (match_type ty1) ty)) special_types then true else
@@ -2303,6 +2303,7 @@ fun hol2deep tm =
   if intSyntax.is_int_literal tm then SPEC tm Eval_Val_INT else
   if is_word8_literal tm then
     SPEC (tm |> rand) Eval_Val_WORD8 |> SIMP_RULE std_ss [] else
+  if stringSyntax.is_char_literal tm then SPEC tm Eval_Val_CHAR else
   if (tm = T) orelse (tm = F) then SPEC tm Eval_Val_BOOL else
   if (tm = ``TRUE``) orelse (tm = ``FALSE``) then SPEC tm Eval_Val_BOOL else
   (* data-type constructor *)

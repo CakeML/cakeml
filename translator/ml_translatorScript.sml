@@ -54,6 +54,9 @@ val BOOL_def = Define `
 val WORD8_def = Define `
   WORD8 (w:word8) = NUM (w2n w)`;
 
+val CHAR_def = Define`
+  CHAR (c:char) = \v:v. (v = Litv (Char c))`;
+
 val CONTAINER_def = Define `CONTAINER x = x`;
 
 val TAG_def = Define `TAG n x = x`;
@@ -199,6 +202,10 @@ val Eval_Val_BOOL = store_thm("Eval_Val_BOOL",
 val Eval_Val_WORD8 = store_thm("Eval_Val_WORD8",
   ``!n. n < 256 ==> Eval env (Lit (IntLit (& n))) (WORD8 (n2w n))``,
   SIMP_TAC (srw_ss()) [WORD8_def,wordsTheory.w2n_n2w,Eval_Val_NUM]);
+
+val Eval_Val_CHAR = store_thm("Eval_Val_CHAR",
+  ``!c. Eval env (Lit (Char c)) (CHAR c)``,
+  SIMP_TAC (srw_ss()) [CHAR_def,Eval_def,Once evaluate_cases])
 
 val Eval_Or = store_thm("Eval_Or",
   ``Eval env x1 (BOOL b1) ==>
@@ -658,9 +665,11 @@ val EqualityType_def = Define `
 val EqualityType_NUM_BOOL = store_thm("EqualityType_NUM_BOOL",
   ``EqualityType NUM /\ EqualityType INT /\
     EqualityType BOOL /\ EqualityType WORD8 /\
+    EqualityType CHAR /\
     EqualityType UNIT_TYPE``,
   EVAL_TAC \\ fs [no_closures_def,
-    types_match_def, lit_same_type_def]);
+    types_match_def, lit_same_type_def,
+    stringTheory.ORD_11]);
 
 val no_closures_IMP_NOT_contains_closure = store_thm(
    "no_closures_IMP_NOT_contains_closure",
