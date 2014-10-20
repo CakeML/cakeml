@@ -1,4 +1,4 @@
-open HolKernel boolLib boolSimps bossLib lcsymtacs pairTheory listTheory finite_mapTheory alistTheory relationTheory pred_setTheory sortingTheory stringTheory
+open HolKernel boolLib boolSimps bossLib lcsymtacs pairTheory listTheory finite_mapTheory alistTheory relationTheory pred_setTheory sortingTheory stringTheory mlstringTheory
 open miscLib miscTheory holSyntaxLibTheory holSyntaxTheory
 val _ = temp_tight_equality()
 val _ = new_theory"holSyntaxExtra"
@@ -267,8 +267,8 @@ val VFREE_IN_VSUBST = store_thm("VFREE_IN_VSUBST",
       rw[] >>
       pop_assum mp_tac >> rw[VFREE_IN_def] >> fs[] >>
       metis_tac[] ) >>
-    qmatch_assum_abbrev_tac`Abbrev(vx = VARIANT t x xty)` >>
-    qspecl_then[`t`,`x`,`xty`]mp_tac VARIANT_THM >> strip_tac >>
+    qmatch_assum_abbrev_tac`Abbrev(vx = VARIANT t xx xty)` >>
+    qspecl_then[`t`,`xx`,`xty`]mp_tac VARIANT_THM >> strip_tac >>
     qmatch_assum_abbrev_tac`Abbrev(t = VSUBST ll tm)` >>
     rfs[Abbr`t`] >>
     fs[Abbr`vx`] >> strip_tac >>
@@ -534,7 +534,7 @@ val term_ok_equation = store_thm("term_ok_equation",
   imp_res_tac term_ok_welltyped >>
   imp_res_tac term_ok_type_ok >>
   fs[is_std_sig_def,type_ok_def] >>
-  qexists_tac`[(typeof s,Tyvar "A")]` >>
+  qexists_tac`[(typeof s,Tyvar (strlit "A"))]` >>
   rw[holSyntaxLibTheory.REV_ASSOCD_def])
 
 val term_ok_VSUBST = store_thm("term_ok_VSUBST",
@@ -622,9 +622,9 @@ val term_ok_VFREE_IN = store_thm("term_ok_VFREE_IN",
    by substitution and instantiation *)
 
 val _ = Hol_datatype` dbterm =
-    dbVar of string => type
+    dbVar of mlstring => type
   | dbBound of num
-  | dbConst of string => type
+  | dbConst of mlstring => type
   | dbComb of dbterm => dbterm
   | dbAbs of type => dbterm`
 
@@ -679,7 +679,7 @@ val bind_dbVSUBST = store_thm("bind_dbVSUBST",
   Induct >> simp[] >>
   CONV_TAC (RESORT_FORALL_CONV List.rev) >>
   rw[] >- (
-    `REV_ASSOCD (dbVar s t) ls (dbVar s t) = dbVar s t` by (
+    `REV_ASSOCD (dbVar m t) ls (dbVar m t) = dbVar m t` by (
       fs[MEM_MAP,EXISTS_PROD] >>
       metis_tac[REV_ASSOCD_MEM,MEM_MAP] ) >>
     rw[] ) >>
@@ -826,7 +826,7 @@ val VSUBST_dbVSUBST = store_thm("VSUBST_dbVSUBST",
   qunabbrev_tac`ilist''` >> rw[] >>
   qmatch_abbrev_tac`bind v n (dbVSUBST ((zz,x)::ls) tt) = X` >>
   qmatch_assum_rename_tac`Abbrev(z = Var (VARIANT ta s tb) bty)`[] >>
-  qspecl_then[`tt`,`v`,`(s,tb)`,`n`,`ls`]mp_tac bind_dbVSUBST_cons >>
+  qspecl_then[`tt`,`v`,`(b,tb)`,`n`,`ls`]mp_tac bind_dbVSUBST_cons >>
   simp[Abbr`v`] >>
   discharge_hyps >- (
     qunabbrev_tac`zz` >>
@@ -1479,7 +1479,7 @@ val FINITE_MEM_Var = store_thm("FINITE_MEM_Var",
   Cases >> simp[] >>
   qmatch_assum_abbrev_tac`FINITE P` >>
   qmatch_abbrev_tac`FINITE Q` >>
-  `Q = (s,t) INSERT P` by (
+  `Q = (m,t) INSERT P` by (
     simp[Abbr`P`,Abbr`Q`,EXTENSION] >>
     metis_tac[] ) >>
   pop_assum SUBST1_TAC >>
@@ -1494,17 +1494,24 @@ val fresh_term_def = new_specification("fresh_term_def",["fresh_term"],
                      ALL_DISTINCT (bv_names (f s tm)) ∧
                      DISJOINT (set (bv_names (f s tm))) s``,
     simp[GSYM SKOLEM_THM] >> rw[RIGHT_EXISTS_IMP_THM] >>
-    qspecl_then[`s ∪ set (bv_names tm) ∪ {x | ∃ty. VFREE_IN (Var x ty) tm}`,`LENGTH (bv_names tm)`]mp_tac fresh_names_exist >> rw[] >>
-    qexists_tac`SND (rename_bvars names [] tm)` >>
+    qspecl_then[`IMAGE explode (s ∪ set (bv_names tm) ∪ {x | ∃ty. VFREE_IN (Var x ty) tm})`,`LENGTH (bv_names tm)`]
+      mp_tac fresh_names_exist >> rw[] >>
+    qexists_tac`SND (rename_bvars (MAP implode names) [] tm)` >>
     conj_tac >- metis_tac[rename_bvars_welltyped] >>
     conj_tac >- (
       match_mp_tac rename_bvars_ACONV >>
-      fs[IN_DISJOINT] >>
-      metis_tac[] ) >>
-    qspecl_then[`names`,`[]`,`tm`]mp_tac bv_names_rename_bvars >>
+      fs[IN_DISJOINT,MEM_MAP,implode_def] >>
+      conj_tac >- (
+        match_mp_tac ALL_DISTINCT_MAP_INJ >> simp[] ) >>
+      Cases >> simp[] >>
+      metis_tac[explode_implode,implode_def] ) >>
+    qspecl_then[`MAP implode names`,`[]`,`tm`]mp_tac bv_names_rename_bvars >>
     simp[TAKE_LENGTH_ID_rwt] >>
-    fs[IN_DISJOINT] >>
-    metis_tac[]))
+    fs[IN_DISJOINT,MEM_MAP,implode_def] >>
+    strip_tac >> conj_tac >- (
+      match_mp_tac ALL_DISTINCT_MAP_INJ >> simp[] ) >>
+    Cases >> simp[] >>
+    metis_tac[explode_implode,implode_def] ))
 
 (* provable terms are ok and of type bool *)
 
@@ -1688,7 +1695,7 @@ val updates_theory_ok = store_thm("updates_theory_ok",
     metis_tac[type_ok_extend,term_ok_type_ok] ) >>
   simp[] >>
   imp_res_tac WELLTYPED_LEMMA >>
-  `name ∉ {"fun";"bool"}` by (
+  `name ∉ {strlit "fun";strlit "bool"}` by (
     fs[is_std_sig_def] >>
     imp_res_tac ALOOKUP_MEM >>
     fs[MEM_MAP,EXISTS_PROD] >>

@@ -3,26 +3,26 @@ open miscLib holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
 val _ = temp_tight_equality()
 val _ = new_theory"holBoolSyntax"
 
-val _ = Parse.overload_on("True",``Const "T" Bool``)
-val _ = Parse.overload_on("And",``λp1 p2. Comb (Comb (Const "/\\" (Fun Bool (Fun Bool Bool))) p1) p2``)
-val _ = Parse.overload_on("Implies",``λp1 p2. Comb (Comb (Const "==>" (Fun Bool (Fun Bool Bool))) p1) p2``)
-val _ = Parse.overload_on("Forall",``λx ty p. Comb (Const "!" (Fun (Fun ty Bool) Bool)) (Abs (Var x ty) p)``)
-val _ = Parse.overload_on("Exists",``λx ty p. Comb (Const "?" (Fun (Fun ty Bool) Bool)) (Abs (Var x ty) p)``)
-val _ = Parse.overload_on("Or",``λp1 p2. Comb (Comb (Const "\\/" (Fun Bool (Fun Bool Bool))) p1) p2``)
-val _ = Parse.overload_on("False",``Const "F" Bool``)
-val _ = Parse.overload_on("Not",``λp. Comb (Const "~" (Fun Bool Bool)) p``)
+val _ = Parse.overload_on("True",``Const (strlit "T") Bool``)
+val _ = Parse.overload_on("And",``λp1 p2. Comb (Comb (Const (strlit "/\\") (Fun Bool (Fun Bool Bool))) p1) p2``)
+val _ = Parse.overload_on("Implies",``λp1 p2. Comb (Comb (Const (strlit "==>") (Fun Bool (Fun Bool Bool))) p1) p2``)
+val _ = Parse.overload_on("Forall",``λx ty p. Comb (Const (strlit "!") (Fun (Fun ty Bool) Bool)) (Abs (Var x ty) p)``)
+val _ = Parse.overload_on("Exists",``λx ty p. Comb (Const (strlit "?") (Fun (Fun ty Bool) Bool)) (Abs (Var x ty) p)``)
+val _ = Parse.overload_on("Or",``λp1 p2. Comb (Comb (Const (strlit "\\/") (Fun Bool (Fun Bool Bool))) p1) p2``)
+val _ = Parse.overload_on("False",``Const (strlit "F") Bool``)
+val _ = Parse.overload_on("Not",``λp. Comb (Const (strlit "~") (Fun Bool Bool)) p``)
 
-val _ = Parse.temp_overload_on("p",``Var "p" Bool``)
-val _ = Parse.temp_overload_on("FAp",``Forall "p" Bool``)
-val _ = Parse.temp_overload_on("q",``Var "q" Bool``)
-val _ = Parse.temp_overload_on("FAq",``Forall "q" Bool``)
-val _ = Parse.temp_overload_on("r",``Var "r" Bool``)
-val _ = Parse.temp_overload_on("FAr",``Forall "r" Bool``)
-val _ = Parse.temp_overload_on("f",``Var "f" (Fun Bool (Fun Bool Bool))``)
-val _ = Parse.temp_overload_on("A",``Tyvar "A"``)
-val _ = Parse.temp_overload_on("P",``Var "P" (Fun A Bool)``)
-val _ = Parse.temp_overload_on("x",``Var "x" A``)
-val _ = Parse.temp_overload_on("FAx",``Forall "x" A``)
+val _ = Parse.temp_overload_on("p",``Var (strlit "p") Bool``)
+val _ = Parse.temp_overload_on("FAp",``Forall (strlit "p") Bool``)
+val _ = Parse.temp_overload_on("q",``Var (strlit "q") Bool``)
+val _ = Parse.temp_overload_on("FAq",``Forall (strlit "q") Bool``)
+val _ = Parse.temp_overload_on("r",``Var (strlit "r") Bool``)
+val _ = Parse.temp_overload_on("FAr",``Forall (strlit "r") Bool``)
+val _ = Parse.temp_overload_on("f",``Var (strlit "f") (Fun Bool (Fun Bool Bool))``)
+val _ = Parse.temp_overload_on("A",``Tyvar (strlit "A")``)
+val _ = Parse.temp_overload_on("P",``Var (strlit "P") (Fun A Bool)``)
+val _ = Parse.temp_overload_on("x",``Var (strlit "x") A``)
+val _ = Parse.temp_overload_on("FAx",``Forall (strlit "x") A``)
 val TrueDef_def = Define`TrueDef = Abs p p === Abs p p`
 val AndDef_def = Define`AndDef = Abs p (Abs q (Abs f (Comb (Comb f p) q) === Abs f (Comb (Comb f True) True)))`
 val ImpliesDef_def = Define`ImpliesDef = Abs p (Abs q (And p q === p))`
@@ -34,14 +34,14 @@ val NotDef_def = Define`NotDef = Abs p (Implies p False)`
 val Defs = [TrueDef_def, AndDef_def, ImpliesDef_def, ForallDef_def, ExistsDef_def, OrDef_def, FalseDef_def, NotDef_def]
 val mk_bool_ctxt_def = Define`
   mk_bool_ctxt ctxt =
-    ConstDef "~" NotDef ::
-    ConstDef "F" FalseDef ::
-    ConstDef "\\/" OrDef ::
-    ConstDef "?" ExistsDef ::
-    ConstDef "!" ForallDef ::
-    ConstDef "==>" ImpliesDef ::
-    ConstDef "/\\" AndDef ::
-    ConstDef "T"  TrueDef ::
+    ConstDef (strlit "~") NotDef ::
+    ConstDef (strlit "F") FalseDef ::
+    ConstDef (strlit "\\/") OrDef ::
+    ConstDef (strlit "?") ExistsDef ::
+    ConstDef (strlit "!") ForallDef ::
+    ConstDef (strlit "==>") ImpliesDef ::
+    ConstDef (strlit "/\\") AndDef ::
+    ConstDef (strlit "T")  TrueDef ::
     ctxt`
 
 (* bool is a good extension *)
@@ -104,7 +104,7 @@ fun pull_tac () =
 val bool_extends = store_thm("bool_extends",
   ``∀ctxt.
       theory_ok (thyof ctxt) ∧
-      DISJOINT (FDOM (tmsof ctxt)) {"T";"F";"==>";"/\\";"\\/";"~";"!";"?"} ⇒
+      DISJOINT (FDOM (tmsof ctxt)) (IMAGE strlit {"T";"F";"==>";"/\\";"\\/";"~";"!";"?"}) ⇒
       mk_bool_ctxt ctxt extends ctxt``,
   REWRITE_TAC(mk_bool_ctxt_def::Defs) >>
   REWRITE_TAC[extends_def] >>
@@ -127,21 +127,21 @@ val bool_extends_init = store_thm("bool_extends_init",
 (* signatures of Boolean constants *)
 
 val is_true_sig_def = Define`
-  is_true_sig tmsig ⇔ FLOOKUP tmsig "T" = SOME Bool`
+  is_true_sig tmsig ⇔ FLOOKUP tmsig (strlit "T") = SOME Bool`
 val is_false_sig_def = Define`
-  is_false_sig tmsig ⇔ FLOOKUP tmsig "F" = SOME Bool`
+  is_false_sig tmsig ⇔ FLOOKUP tmsig (strlit "F") = SOME Bool`
 val is_implies_sig_def = Define`
-  is_implies_sig tmsig ⇔ FLOOKUP tmsig "==>" = SOME (Fun Bool (Fun Bool Bool))`
+  is_implies_sig tmsig ⇔ FLOOKUP tmsig (strlit "==>") = SOME (Fun Bool (Fun Bool Bool))`
 val is_and_sig_def = Define`
-  is_and_sig tmsig ⇔ FLOOKUP tmsig "/\\" = SOME (Fun Bool (Fun Bool Bool))`
+  is_and_sig tmsig ⇔ FLOOKUP tmsig (strlit "/\\") = SOME (Fun Bool (Fun Bool Bool))`
 val is_or_sig_def = Define`
-  is_or_sig tmsig ⇔ FLOOKUP tmsig "\\/" = SOME (Fun Bool (Fun Bool Bool))`
+  is_or_sig tmsig ⇔ FLOOKUP tmsig (strlit "\\/") = SOME (Fun Bool (Fun Bool Bool))`
 val is_not_sig_def = Define`
-  is_not_sig tmsig ⇔ FLOOKUP tmsig "~" = SOME (Fun Bool Bool)`
+  is_not_sig tmsig ⇔ FLOOKUP tmsig (strlit "~") = SOME (Fun Bool Bool)`
 val is_forall_sig_def = Define`
-  is_forall_sig tmsig ⇔ FLOOKUP tmsig "!" = SOME (Fun (Fun A Bool) Bool)`
+  is_forall_sig tmsig ⇔ FLOOKUP tmsig (strlit "!") = SOME (Fun (Fun A Bool) Bool)`
 val is_exists_sig_def = Define`
-  is_exists_sig tmsig ⇔ FLOOKUP tmsig "?" = SOME (Fun (Fun A Bool) Bool)`
+  is_exists_sig tmsig ⇔ FLOOKUP tmsig (strlit "?") = SOME (Fun (Fun A Bool) Bool)`
 val sigs = [is_true_sig_def, is_false_sig_def, is_implies_sig_def, is_and_sig_def,
             is_or_sig_def, is_not_sig_def, is_forall_sig_def, is_exists_sig_def]
 

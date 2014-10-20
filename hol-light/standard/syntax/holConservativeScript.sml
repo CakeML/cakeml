@@ -194,7 +194,7 @@ val updates_to_subst = Q.prove (
   upd updates ctxt 
   ⇒
   const_subst_ok (upd_to_subst upd) ∧
-  ALOOKUP (upd_to_subst upd) "=" = NONE`,
+  ALOOKUP (upd_to_subst upd) (strlit "=") = NONE`,
  rw [updates_cases] >>
  rw [upd_to_subst_def, const_subst_ok_def] >>
  imp_res_tac proves_theory_ok >>
@@ -237,7 +237,7 @@ val typeof_remove_const = Q.prove (
  metis_tac [SELECT_THM]);
 
 val remove_const_eq = Q.prove (
-`const_subst_ok s ∧ ALOOKUP s "=" = NONE ⇒ 
+`const_subst_ok s ∧ ALOOKUP s (strlit "=") = NONE ⇒ 
   remove_const thy s (tm1 === tm2) = remove_const thy s tm1 === remove_const thy s tm2`,
  rw [equation_def, remove_const_def, typeof_remove_const]);
 

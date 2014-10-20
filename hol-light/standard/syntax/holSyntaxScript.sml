@@ -1,15 +1,15 @@
-open HolKernel boolLib boolSimps bossLib lcsymtacs pred_setTheory listTheory alistTheory holSyntaxLibTheory
+open HolKernel boolLib boolSimps bossLib lcsymtacs pred_setTheory listTheory alistTheory holSyntaxLibTheory mlstringTheory
 val _ = temp_tight_equality()
 val _ = new_theory "holSyntax"
 
 (* HOL types *)
 
 val _ = Hol_datatype`type
-  = Tyvar of string
-  | Tyapp of string => type list`
+  = Tyvar of mlstring
+  | Tyapp of mlstring => type list`
 
-val _ = Parse.overload_on("Fun",``λs t. Tyapp "fun" [s;t]``)
-val _ = Parse.overload_on("Bool",``Tyapp "bool" []``)
+val _ = Parse.overload_on("Fun",``λs t. Tyapp (strlit "fun") [s;t]``)
+val _ = Parse.overload_on("Bool",``Tyapp (strlit "bool") []``)
 
 val domain_def = Define`domain (Fun s t) = s`
 val codomain_def = Define`codomain (Fun s t) = t`
@@ -25,12 +25,12 @@ fun type_rec_tac proj =
 (* HOL terms *)
 
 val _ = Hol_datatype`term
-  = Var of string => type
-  | Const of string => type
+  = Var of mlstring => type
+  | Const of mlstring => type
   | Comb of term => term
   | Abs of term => term`
 
-val _ = Parse.overload_on("Equal",``λty. Const "=" (Fun ty (Fun ty Bool))``)
+val _ = Parse.overload_on("Equal",``λty. Const (strlit "=") (Fun ty (Fun ty Bool))``)
 
 val dest_var_def = Define`dest_var (Var x ty) = (x,ty)`
 val _ = export_rewrites["dest_var_def"]
@@ -121,15 +121,15 @@ val VFREE_IN_FINITE = store_thm("VFREE_IN_FINITE",
   metis_tac[IN_SING])
 
 val VFREE_IN_FINITE_ALT = store_thm("VFREE_IN_FINITE_ALT",
-  ``∀t ty. FINITE {x | VFREE_IN (Var x ty) t}``,
+  ``∀t ty. FINITE {x | VFREE_IN (Var (implode x) ty) t}``,
   rw[] >> match_mp_tac (MP_CANON SUBSET_FINITE) >>
-  qexists_tac`IMAGE (λt. case t of Var x y => x) {x | VFREE_IN x t}` >>
+  qexists_tac`IMAGE (λt. case t of Var x y => explode x) {x | VFREE_IN x t}` >>
   simp[VFREE_IN_FINITE,IMAGE_FINITE] >>
   simp[SUBSET_DEF] >> rw[] >>
-  HINT_EXISTS_TAC >> simp[])
+  HINT_EXISTS_TAC >> simp[explode_implode])
 
 val PRIMED_NAME_EXISTS = store_thm("PRIMED_NAME_EXISTS",
-  ``∃n. ¬(VFREE_IN (Var (APPEND x (GENLIST (K #"'") n)) ty) t)``,
+  ``∃n. ¬(VFREE_IN (Var (implode (APPEND x (GENLIST (K #"'") n))) ty) t)``,
   qspecl_then[`t`,`ty`]mp_tac VFREE_IN_FINITE_ALT >>
   disch_then(mp_tac o CONJ PRIMED_INFINITE) >>
   disch_then(mp_tac o MATCH_MP INFINITE_DIFF_FINITE) >>
@@ -148,7 +148,7 @@ val VARIANT_PRIMES_def = new_specification
    |> SIMP_RULE std_ss [SKOLEM_THM]))
 
 val VARIANT_def = Define`
-  VARIANT t x ty = APPEND x (GENLIST (K #"'") (VARIANT_PRIMES t x ty))`
+  VARIANT t x ty = implode (APPEND x (GENLIST (K #"'") (VARIANT_PRIMES t x ty)))`
 
 val VARIANT_THM = store_thm("VARIANT_THM",
   ``∀t x ty. ¬VFREE_IN (Var (VARIANT t x ty) ty) t``,
@@ -175,7 +175,7 @@ val VSUBST_def = Define`
     let t' = VSUBST ilist' t in
     if EXISTS (λ(s',s). VFREE_IN v s' ∧ VFREE_IN s t) ilist'
     then let (x,ty) = dest_var v in
-         let z = Var (VARIANT t' x ty) ty in
+         let z = Var (VARIANT t' (explode x) ty) ty in
          let ilist'' = CONS (z,v) ilist' in
          Abs z (VSUBST ilist'' t)
     else Abs v t')`
@@ -194,7 +194,7 @@ val SIZEOF_VSUBST = store_thm("SIZEOF_VSUBST",
   ``∀t ilist. (∀s' s. MEM (s',s) ilist ⇒ ∃x ty. s' = Var x ty)
               ⇒ sizeof (VSUBST ilist t) = sizeof t``,
   Induct >> simp[VSUBST_def] >> rw[VSUBST_def] >> simp[] >- (
-    Q.ISPECL_THEN[`ilist`,`Var s t`,`Var s t`]mp_tac REV_ASSOCD_MEM >>
+    Q.ISPECL_THEN[`ilist`,`Var m t`,`Var m t`]mp_tac REV_ASSOCD_MEM >>
     rw[] >> res_tac >> pop_assum SUBST1_TAC >> simp[] )
   >- metis_tac[] >>
   simp[pairTheory.UNCURRY] >> rw[] >> simp[] >>
@@ -231,7 +231,7 @@ val INST_CORE_def = tDefine"INST_CORE"`
     if IS_RESULT tres then Result(Abs v' (RESULT tres)) else
     let w = CLASH tres in
     if (w ≠ v') then tres else
-    let x' = VARIANT (RESULT(INST_CORE [] tyin t)) x ty' in
+    let x' = VARIANT (RESULT(INST_CORE [] tyin t)) (explode x) ty' in
     let t' = VSUBST [Var x' ty,Var x ty] t in
     let ty' = TYPE_SUBST tyin ty in
     let env' = (Var x' ty,Var x' ty')::env in
@@ -266,8 +266,8 @@ val equation_def = xDefine "equation"`
 (* Signature of a theory: indicates the defined type operators, with arities,
    and defined constants, with types. *)
 
-val _ = Parse.type_abbrev("tysig",``:string |-> num``)
-val _ = Parse.type_abbrev("tmsig",``:string |-> type``)
+val _ = Parse.type_abbrev("tysig",``:mlstring |-> num``)
+val _ = Parse.type_abbrev("tmsig",``:mlstring |-> type``)
 val _ = Parse.type_abbrev("sig",``:tysig # tmsig``)
 val _ = Parse.overload_on("tysof",``FST:sig->tysig``)
 val _ = Parse.overload_on("tmsof",``SND:sig->tmsig``)
@@ -311,9 +311,9 @@ val _ = Parse.overload_on("tmsof",``tmsof o sigof``)
 
 val is_std_sig_def = Define`
   is_std_sig (sig:sig) ⇔
-    FLOOKUP (tysof sig) "fun" = SOME 2 ∧
-    FLOOKUP (tysof sig) "bool" = SOME 0 ∧
-    FLOOKUP (tmsof sig) "=" = SOME (Fun (Tyvar"A") (Fun (Tyvar"A") Bool))`
+    FLOOKUP (tysof sig) (strlit "fun") = SOME 2 ∧
+    FLOOKUP (tysof sig) (strlit "bool") = SOME 0 ∧
+    FLOOKUP (tmsof sig) (strlit "=") = SOME (Fun (Tyvar(strlit "A")) (Fun (Tyvar(strlit "A")) Bool))`
 
 val theory_ok_def = Define`
   theory_ok (thy:thy) ⇔
@@ -387,14 +387,14 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
 val _ = Hol_datatype`update
   (* Definition of new constants by specification
      ConstSpec witnesses proposition *)
-  = ConstSpec of (string # term) list => term
+  = ConstSpec of (mlstring # term) list => term
   (* Definition of a new type operator
      TypeDefn name predicate abs_name rep_name *)
-  | TypeDefn of string => term => string => string
+  | TypeDefn of mlstring => term => mlstring => mlstring
   (* NewType name arity *)
-  | NewType of string => num
+  | NewType of mlstring => num
   (* NewConst name type *)
-  | NewConst of string => type
+  | NewConst of mlstring => type
   (* NewAxiom proposition *)
   | NewAxiom of term`
 
@@ -412,7 +412,7 @@ val consts_of_upd_def = Define`
   (consts_of_upd (ConstSpec eqs prop) = MAP (λ(s,t). (s, typeof t)) eqs) ∧
   (consts_of_upd (TypeDefn name pred abs rep) =
      let rep_type = domain (typeof pred) in
-     let abs_type = Tyapp name (MAP Tyvar (STRING_SORT (tvars pred))) in
+     let abs_type = Tyapp name (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred))))) in
        [(abs, Fun rep_type abs_type);
         (rep, Fun abs_type rep_type)]) ∧
   (consts_of_upd (NewType _ _) = []) ∧
@@ -438,12 +438,12 @@ val conexts_of_upd_def = Define`
     let ilist = MAP (λ(s,t). let ty = typeof t in (Const s ty,Var s ty)) eqs in
       [VSUBST ilist prop]) ∧
   (conexts_of_upd (TypeDefn name pred abs_name rep_name) =
-    let abs_type = Tyapp name (MAP Tyvar (STRING_SORT (tvars pred))) in
+    let abs_type = Tyapp name (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred))))) in
     let rep_type = domain (typeof pred) in
     let abs = Const abs_name (Fun rep_type abs_type) in
     let rep = Const rep_name (Fun abs_type rep_type) in
-    let a = Var "a" abs_type in
-    let r = Var "r" rep_type in
+    let a = Var (strlit "a") abs_type in
+    let r = Var (strlit "r") rep_type in
       [Comb abs (Comb rep a) === a;
        Comb pred r === (Comb rep (Comb abs r) === r)]) ∧
   (conexts_of_upd _ = [])`
@@ -507,8 +507,8 @@ val _ = Parse.add_infix("extends",450,Parse.NONASSOC)
 (* Initial theory context *)
 
 val init_ctxt_def = Define`
-  init_ctxt = [NewConst "=" (Fun (Tyvar"A") (Fun (Tyvar"A") Bool))
-              ;NewType "bool" 0
-              ;NewType "fun" 2]`
+  init_ctxt = [NewConst (strlit "=") (Fun (Tyvar(strlit "A")) (Fun (Tyvar(strlit "A")) Bool))
+              ;NewType (strlit "bool") 0
+              ;NewType (strlit "fun") 2]`
 
 val _ = export_theory()
