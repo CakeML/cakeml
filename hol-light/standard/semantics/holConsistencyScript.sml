@@ -8,8 +8,8 @@ val mem = ``mem:'U->'U->bool``
 
 val consistent_theory_def = Define`
   consistent_theory thy ⇔
-        (thy,[]) |- (Var "x" Bool === Var "x" Bool) ∧
-      ¬((thy,[]) |- (Var "x" Bool === Var "y" Bool))`
+        (thy,[]) |- (Var (strlit"x") Bool === Var (strlit"x") Bool) ∧
+      ¬((thy,[]) |- (Var (strlit"x") Bool === Var (strlit"y") Bool))`
 
 val proves_consistent = store_thm("proves_consistent",
   ``is_set_theory ^mem ⇒
@@ -26,8 +26,8 @@ val proves_consistent = store_thm("proves_consistent",
   first_x_assum(qspec_then`i`mp_tac) >>
   simp[satisfies_def] >>
   qexists_tac`(K boolset),
-              λ(x,ty). if (x,ty) = ("x",Bool) then True else
-                       if (x,ty) = ("y",Bool) then False else
+              λ(x,ty). if (x,ty) = (strlit"x",Bool) then True else
+                       if (x,ty) = (strlit"y",Bool) then False else
                        @v. v <: typesem (tyaof i) (K boolset) ty` >>
   conj_asm1_tac >- (
     simp[is_valuation_def] >>
@@ -50,14 +50,14 @@ val init_ctxt_has_model = store_thm("init_ctxt_has_model",
   rw[models_def,init_ctxt_def,conexts_of_upd_def] >>
   rw[is_std_interpretation_def,is_std_type_assignment_def,EXISTS_PROD] >>
   qho_match_abbrev_tac`∃f g. P f g ∧ (Q f ∧ f x2 z2 = y2) ∧ (g interprets x3 on z3 as y3)` >>
-  qexists_tac`λx. if x = "fun" then (λls. Funspace (HD ls) (HD (TL ls))) else if x = x2 then (K y2) else ARB` >>
+  qexists_tac`λx. if x = strlit"fun" then (λls. Funspace (HD ls) (HD (TL ls))) else if x = x2 then (K y2) else ARB` >>
   qexists_tac`K y3` >>
   rw[Abbr`x2`,Abbr`P`,Abbr`Q`,interprets_def] >>
   rw[is_interpretation_def,is_type_assignment_def,is_term_assignment_def] >>
   rw[FEVERY_FUPDATE,Abbr`y2`,Abbr`y3`,FEVERY_FEMPTY,Abbr`z3`] >>
   rw[typesem_def,tyvars_def] >- metis_tac[boolean_in_boolset] >>
   TRY (
-    rw[INORDER_INSERT_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def] >>
+    rw[INORDER_INSERT_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,mlstringTheory.implode_def] >>
     match_mp_tac (UNDISCH abstract_in_funspace) >> rw[] >>
     match_mp_tac (UNDISCH abstract_in_funspace) >> rw[boolean_in_boolset] ) >>
   Cases_on`ls`>>fs[]>>Cases_on`t`>>fs[listTheory.LENGTH_NIL] >>

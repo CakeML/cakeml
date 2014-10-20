@@ -382,7 +382,7 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
     simp[REV_ASSOCD] >> disch_then kall_tac >>
     ntac 2 (disch_then kall_tac) >>
     CHANGED_TAC EVAL_STRING_SORT >>
-    simp[typesem_def,combinTheory.APPLY_UPDATE_THM,REV_ASSOCD] >>
+    simp[typesem_def,combinTheory.APPLY_UPDATE_THM,REV_ASSOCD,mlstringTheory.implode_def] >>
     `(∀x y. tyaof int (strlit "fun") [x;y] = Funspace x y) ∧
      (tyaof int (strlit "ind") [] = inf)` by (
       simp[Abbr`int`,combinTheory.APPLY_UPDATE_THM] >>
@@ -421,12 +421,12 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
     ntac 2 (pop_assum mp_tac) >>
     simp[REV_ASSOCD] >> ntac 2 (disch_then kall_tac) >>
     EVAL_STRING_SORT >>
-    simp[TYPE_SUBST_def,REV_ASSOCD,typesem_def] >>
+    simp[TYPE_SUBST_def,REV_ASSOCD,typesem_def,mlstringTheory.implode_def] >>
     simp[Abbr`int`] >>
     fs[interprets_def] >>
     first_x_assum(qspec_then`K boolset`mp_tac) >>
     discharge_hyps >- (simp[is_type_valuation_def,mem_boolset]>>PROVE_TAC[]) >> strip_tac >>
-    first_assum(qspec_then`("A" =+ (Funspace inf inf)) (K boolset)`mp_tac) >>
+    first_assum(qspec_then`(strlit "A" =+ (Funspace inf inf)) (K boolset)`mp_tac) >>
     discharge_hyps >- (
       simp[is_type_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
       reverse(rw[mem_boolset])>-metis_tac[]>>
@@ -434,7 +434,7 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
       match_mp_tac (UNDISCH abstract_in_funspace) >>
       rw[] ) >>
     simp[combinTheory.APPLY_UPDATE_THM] >> disch_then kall_tac >>
-    first_x_assum(qspec_then`("A" =+ inf) (K boolset)`mp_tac) >>
+    first_x_assum(qspec_then`(strlit "A" =+ inf) (K boolset)`mp_tac) >>
     discharge_hyps >- (
       simp[is_type_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
       rw[mem_boolset]>>
@@ -442,12 +442,12 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
     simp[combinTheory.APPLY_UPDATE_THM] >> strip_tac >>
     match_mp_tac apply_abstract_matchable >>
     simp[boolean_in_boolset,boolean_eq_true] >>
-    first_assum(qspec_then`Const "ONE_ONE" (Fun (Fun A B) Bool) ===
+    first_assum(qspec_then`Const (strlit "ONE_ONE") (Fun (Fun A B) Bool) ===
                            Abs g (FAx1 (FAx2 (Implies (Comb g x1 === Comb g x2) (x1 === x2))))`
                 mp_tac) >>
     discharge_hyps >- ( fs[mk_infinity_ctxt_def] >> rw[] >> EVAL_TAC ) >>
     simp[satisfies_def] >>
-    qabbrev_tac`τ = ("A" =+ inf) (("B" =+ inf) (K boolset))` >>
+    qabbrev_tac`τ = (strlit "A" =+ inf) ((strlit "B" =+ inf) (K boolset))` >>
     `is_type_valuation τ` by (
       simp[is_type_valuation_def,Abbr`τ`,combinTheory.APPLY_UPDATE_THM] >>
       rw[] >> metis_tac[boolean_in_boolset] ) >>
@@ -460,11 +460,11 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
       imp_res_tac theory_ok_sig >>
       fs[] ) >>
     `is_structure (sigof ctxt1) i1 (τ,σ)` by fs[is_structure_def] >>
-    `(ALOOKUP (const_list ctxt1) "==>" = ALOOKUP (const_list ctxt) "==>") ∧
-     (ALOOKUP (const_list ctxt1) "!" = ALOOKUP (const_list ctxt) "!") ∧
-     (ALOOKUP (const_list ctxt1) "?" = ALOOKUP (const_list ctxt) "?") ∧
-     (ALOOKUP (const_list ctxt1) "ONE_ONE" = SOME (Fun (Fun A B) Bool)) ∧
-     (ALOOKUP (const_list ctxt1) "ONTO"    = SOME (Fun (Fun A B) Bool))` by (
+    `(ALOOKUP (const_list ctxt1) (strlit "==>") = ALOOKUP (const_list ctxt) (strlit "==>")) ∧
+     (ALOOKUP (const_list ctxt1) (strlit "!") = ALOOKUP (const_list ctxt) (strlit "!")) ∧
+     (ALOOKUP (const_list ctxt1) (strlit "?") = ALOOKUP (const_list ctxt) (strlit "?")) ∧
+     (ALOOKUP (const_list ctxt1) (strlit "ONE_ONE") = SOME (Fun (Fun A B) Bool)) ∧
+     (ALOOKUP (const_list ctxt1) (strlit "ONTO")    = SOME (Fun (Fun A B) Bool))` by (
        fs[mk_infinity_ctxt_def] >> rw[] ) >>
     Q.PAT_ABBREV_TAC`eq = X === Y` >>
     `term_ok (sigof ctxt1) eq` by (
@@ -472,15 +472,15 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
       fs[is_std_sig_def] ) >>
     `tmsof ctxt1 = tmsof (sigof ctxt1)` by simp[] >> pop_assum SUBST1_TAC >>
     simp[Abbr`eq`,SIMP_RULE std_ss [] termsem_equation,boolean_eq_true] >>
-    simp[termsem_def,identity_instance] >>
+    simp[Once termsem_def,identity_instance] >>
     EVAL_STRING_SORT >>
-    `(τ"A" = inf) ∧ (τ"B" = inf)` by (
+    `(τ(strlit "A") = inf) ∧ (τ(strlit "B") = inf)` by (
       simp[Abbr`τ`,combinTheory.APPLY_UPDATE_THM] ) >>
-    simp[] >> disch_then kall_tac >>
-    `(tyaof i1 "bool" [] = boolset) ∧
-     (∀x y. tyaof i1 "fun" [x;y] = Funspace x y)` by (
+    simp[mlstringTheory.implode_def] >> disch_then kall_tac >>
+    `(tyaof i1 (strlit "bool") [] = boolset) ∧
+     (∀x y. tyaof i1 (strlit "fun") [x;y] = Funspace x y)` by (
       fs[is_std_type_assignment_def] ) >>
-    first_assum(qspec_then`Const "ONTO" (Fun (Fun A B) Bool) ===
+    first_assum(qspec_then`Const (strlit "ONTO") (Fun (Fun A B) Bool) ===
                            Abs g (FAy (EXx (y === Comb g x)))`
                 mp_tac) >>
     discharge_hyps >- ( fs[mk_infinity_ctxt_def] >> rw[] >> EVAL_TAC ) >>
@@ -493,19 +493,21 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
       qexists_tac`[(B,A)]` >> simp[REV_ASSOCD]) >>
     `tmsof ctxt1 = tmsof (sigof ctxt1)` by simp[] >> pop_assum SUBST1_TAC >>
     simp[SIMP_RULE std_ss [] termsem_equation,Abbr`eq`,boolean_eq_true] >>
-    simp[termsem_def,identity_instance] >>
+    simp[Once termsem_def,identity_instance] >>
     EVAL_STRING_SORT >>
-    simp[] >> disch_then kall_tac >>
+    simp[mlstringTheory.implode_def] >> disch_then kall_tac >>
     ntac 2 (last_x_assum(qspec_then`τ`mp_tac)) >>
     discharge_hyps >- rw[] >> strip_tac >>
     discharge_hyps >- rw[] >> strip_tac >>
     simp[] >>
-    qspecl_then[`tmsof ctxt1`,`i1`,`"!"`]mp_tac instance_def >>
+    simp[termsem_def,identity_instance] >>
+    qspecl_then[`tmsof ctxt1`,`i1`,`strlit "!"`]mp_tac instance_def >>
     simp[] >>
     disch_then(qspec_then`[B,A]`mp_tac) >>
-    simp[REV_ASSOCD] >> disch_then kall_tac >>
+    simp[REV_ASSOCD] >>
     EVAL_STRING_SORT >>
-    simp[typesem_def,REV_ASSOCD] >>
+    simp[typesem_def,REV_ASSOCD,mlstringTheory.implode_def] >>
+    disch_then kall_tac >>
     first_x_assum(qspec_then`τ`mp_tac) >>
     simp[] >> disch_then kall_tac >>
     simp[typeof_equation,EQUATION_HAS_TYPE_BOOL,welltyped_equation] >>
@@ -650,7 +652,7 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
     simp[SIMP_RULE std_ss [] termsem_equation,boolean_in_boolset,Abbr`eq`] >>
     rw[boolean_def] >> pop_assum mp_tac >>
     simp[termsem_def,Abbr`tt`,combinTheory.APPLY_UPDATE_THM] >>
-    `Abstract (τ"B") (τ"B") f ' z = f z` by (
+    `Abstract (τ(strlit "B")) (τ(strlit "B")) f ' z = f z` by (
       match_mp_tac (UNDISCH apply_abstract) >>
       simp[] >>
       qpat_assum`INJ f X Y`mp_tac >>
@@ -662,8 +664,8 @@ val infinity_has_model = store_thm("infinity_has_model",
   ``is_set_theory ^mem ∧ (∃inf. is_infinite ^mem inf) ⇒
     ∀ctxt.
       theory_ok (thyof ctxt) ∧
-      DISJOINT (FDOM (tmsof ctxt)) {"ONE_ONE";"ONTO"} ∧
-      "ind" ∉ FDOM (tysof ctxt) ∧
+      DISJOINT (FDOM (tmsof ctxt)) {strlit"ONE_ONE";strlit"ONTO"} ∧
+      strlit"ind" ∉ FDOM (tysof ctxt) ∧
       is_implies_sig (tmsof ctxt) ∧
       is_and_sig (tmsof ctxt) ∧
       is_forall_sig (tmsof ctxt) ∧
