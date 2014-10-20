@@ -550,6 +550,8 @@ in
     if ty = ``:word8`` then ``WORD8`` else
     if ty = ``:num`` then ``NUM`` else
     if ty = ``:int`` then ``INT`` else
+    if ty = ``:char`` then ``CHAR`` else
+    if ty = ``:mlstring`` then ``STRING_TYPE`` else
     if can dest_vector_type ty then let
       val inv = get_type_inv (dest_vector_type ty)
       in VECTOR_TYPE_def |> ISPEC inv |> SPEC_ALL
