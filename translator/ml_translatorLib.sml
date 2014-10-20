@@ -1530,7 +1530,7 @@ fun register_term_types tm = let
     ((if is_abs tm then every_term f (snd (dest_abs tm))
       else if is_comb tm then (every_term f (rand tm); every_term f (rator tm))
       else ()); f tm)
-  val special_types = [``:num``,``:int``,``:bool``,``:word8``,``:unit``,``:char``]
+  val special_types = [``:num``,``:int``,``:bool``,``:word8``,``:unit``,``:char``,``:mlstring``]
                       @ get_user_supplied_types ()
   fun ignore_type ty =
     if can (first (fn ty1 => can (match_type ty1) ty)) special_types then true else
@@ -2285,6 +2285,11 @@ val vec_sub_pat = Eval_sub |> SPEC_ALL |> RW [AND_IMP_INTRO]
 val vec_len_pat = Eval_length |> SPEC_ALL |> RW [AND_IMP_INTRO]
   |> concl |> dest_imp |> snd |> rand |> rand
 
+val implode_pat = Eval_implode |> SPEC_ALL
+  |> concl |> dest_imp |> snd |> rand |> rand
+val explode_pat = Eval_explode |> SPEC_ALL
+  |> concl |> dest_imp |> snd |> rand |> rand
+
 (*
 val tm = rhs
 *)
@@ -2304,6 +2309,8 @@ fun hol2deep tm =
   if is_word8_literal tm then
     SPEC (tm |> rand) Eval_Val_WORD8 |> SIMP_RULE std_ss [] else
   if stringSyntax.is_char_literal tm then SPEC tm Eval_Val_CHAR else
+  if mlstringSyntax.is_mlstring_literal tm then
+    SPEC (rand tm) Eval_Val_STRING else
   if (tm = T) orelse (tm = F) then SPEC tm Eval_Val_BOOL else
   if (tm = ``TRUE``) orelse (tm = ``FALSE``) then SPEC tm Eval_Val_BOOL else
   (* data-type constructor *)
@@ -2355,6 +2362,17 @@ fun hol2deep tm =
     val th2 = hol2deep x2
     val result = MATCH_MP (MATCH_MP lemma th1) (UNDISCH_ALL th2) |> UNDISCH_ALL
     in check_inv "binop" tm result end else
+  (* strings *)
+  if can (match_term implode_pat) tm then let
+    val x1 = rand tm
+    val th1 = hol2deep x1
+    val result = MATCH_MP Eval_implode th1
+    in check_inv "implode" tm result end else
+  if can (match_term explode_pat) tm then let
+    val x1 = rand tm
+    val th1 = hol2deep x1
+    val result = MATCH_MP Eval_explode th1
+    in check_inv "explode" tm result end else
   (* boolean not *)
   if can (match_term ``~(b:bool)``) tm then let
     val x1 = rand tm

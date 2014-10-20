@@ -3,7 +3,7 @@ val _ = new_theory "ml_translator";
 local open intLib in end;
 open astTheory libTheory semanticPrimitivesTheory bigStepTheory;
 open terminationTheory determTheory evalPropsTheory bigClockTheory;
-open arithmeticTheory listTheory combinTheory pairTheory;
+open arithmeticTheory listTheory combinTheory pairTheory mlstringTheory;
 open wordsTheory wordsLib;
 open integerTheory terminationTheory;
 open lcsymtacs;
@@ -56,6 +56,9 @@ val WORD8_def = Define `
 
 val CHAR_def = Define`
   CHAR (c:char) = \v:v. (v = Litv (Char c))`;
+
+val STRING_TYPE_def = Define`
+  STRING_TYPE (s:mlstring) = \v:v. (v = Litv (StrLit (explode s)))`;
 
 val CONTAINER_def = Define `CONTAINER x = x`;
 
@@ -206,6 +209,10 @@ val Eval_Val_WORD8 = store_thm("Eval_Val_WORD8",
 val Eval_Val_CHAR = store_thm("Eval_Val_CHAR",
   ``!c. Eval env (Lit (Char c)) (CHAR c)``,
   SIMP_TAC (srw_ss()) [CHAR_def,Eval_def,Once evaluate_cases])
+
+val Eval_Val_STRING = store_thm("Eval_Val_STRING",
+  ``!s. Eval env (Lit (StrLit s)) (STRING_TYPE (strlit s))``,
+  SIMP_TAC (srw_ss()) [STRING_TYPE_def,Eval_def,Once evaluate_cases])
 
 val Eval_Or = store_thm("Eval_Or",
   ``Eval env x1 (BOOL b1) ==>
@@ -665,11 +672,11 @@ val EqualityType_def = Define `
 val EqualityType_NUM_BOOL = store_thm("EqualityType_NUM_BOOL",
   ``EqualityType NUM /\ EqualityType INT /\
     EqualityType BOOL /\ EqualityType WORD8 /\
-    EqualityType CHAR /\
+    EqualityType CHAR /\ EqualityType STRING_TYPE /\
     EqualityType UNIT_TYPE``,
   EVAL_TAC \\ fs [no_closures_def,
     types_match_def, lit_same_type_def,
-    stringTheory.ORD_11]);
+    stringTheory.ORD_11,mlstringTheory.explode_11]);
 
 val no_closures_IMP_NOT_contains_closure = store_thm(
    "no_closures_IMP_NOT_contains_closure",
@@ -727,6 +734,44 @@ val LIST_TYPE_def = Define `
   !a v.
      LIST_TYPE a [] v <=>
      v = Conv (SOME ("nil",TypeId (Short "list"))) []`
+
+(* strings *)
+
+val LIST_TYPE_CHAR_v_to_char_list = store_thm("LIST_TYPE_CHAR_v_to_char_list",
+  ``∀l v. LIST_TYPE CHAR l v ⇒ v_to_char_list v = SOME l``,
+  Induct >>
+  simp[LIST_TYPE_def,v_to_char_list_def,PULL_EXISTS,CHAR_def])
+
+val LIST_TYPE_CHAR_char_list_to_v = store_thm("LIST_TYPE_CHAR_char_list_to_v",
+  ``∀l. LIST_TYPE CHAR l (char_list_to_v l)``,
+  Induct >> simp[char_list_to_v_def,LIST_TYPE_def,CHAR_def])
+
+val Eval_implode = store_thm("Eval_implode",
+  ``!env x1 l.
+      Eval env x1 (LIST_TYPE CHAR l) ==>
+      Eval env (App Implode [x1]) (STRING_TYPE (implode l))``,
+  rw[Eval_def] >>
+  rw[Once evaluate_cases] >>
+  rw[Once evaluate_cases,PULL_EXISTS] >>
+  first_assum(miscLib.match_exists_tac o concl) >> rw[] >>
+  rw[Once evaluate_cases] >>
+  rw[do_app_cases,PULL_EXISTS] >>
+  rw[STRING_TYPE_def] >>
+  imp_res_tac LIST_TYPE_CHAR_v_to_char_list >>
+  simp[stringTheory.IMPLODE_EXPLODE_I,mlstringTheory.explode_implode])
+
+val Eval_explode = store_thm("Eval_explode",
+  ``!env x1 s.
+      Eval env x1 (STRING_TYPE s) ==>
+      Eval env (App Explode [x1]) (LIST_TYPE CHAR (explode s))``,
+  rw[Eval_def] >>
+  rw[Once evaluate_cases] >>
+  rw[Once evaluate_cases,PULL_EXISTS] >>
+  first_assum(miscLib.match_exists_tac o concl) >> rw[] >>
+  rw[Once evaluate_cases] >>
+  rw[do_app_cases,PULL_EXISTS] >>
+  fs[STRING_TYPE_def,stringTheory.IMPLODE_EXPLODE_I,
+     LIST_TYPE_CHAR_char_list_to_v])
 
 (* vectors *)
 
