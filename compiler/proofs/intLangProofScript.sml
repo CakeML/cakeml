@@ -273,6 +273,16 @@ val app_to_il_err = prove(
       first_disj(first_assum(match_exists_tac o concl)) >> rw[])
     >-(first_disj(first_assum(match_exists_tac o concl)) >> rw[])
     >-(first_disj(first_assum(match_exists_tac o concl)) >> rw[])
+    >-(
+      simp[markerTheory.Abbrev_def] >> srw_tac[DNF_ss][] >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >> simp[GSYM DISJ_ASSOC] >>
+      first_disj(first_assum(match_exists_tac o concl)) >> rw[] )
+    >-(simp[markerTheory.Abbrev_def] >> srw_tac[DNF_ss][] >>
+      first_disj(first_assum(match_exists_tac o concl)) >> rw[] )
+    >-(simp[markerTheory.Abbrev_def] >> srw_tac[DNF_ss][] >>
+      first_disj(first_assum(match_exists_tac o concl)) >> rw[] )
+    >-(simp[markerTheory.Abbrev_def] >> srw_tac[DNF_ss][] >>
+      first_disj(first_assum(match_exists_tac o concl)) >> rw[] )
     >-(first_disj(first_assum(match_exists_tac o concl)) >> rw[] >>
        first_assum(match_exists_tac o concl) >> rw[])
     >-(first_disj(first_assum(match_exists_tac o concl)) >> rw[] >>
@@ -317,6 +327,34 @@ val app_to_il_err = prove(
        rpt(CHANGED_TAC(rw[Once (CONJUNCT2 Cevaluate_cases)])) >>
        srw_tac[DNF_ss][] >> disj2_tac >>
        syneq_shift_tac >> use_assum_tac)
+    >-(
+      simp[markerTheory.Abbrev_def] >> srw_tac[DNF_ss][] >>
+      first_disj(use_assum_tac) >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      disj2_tac >>
+      syneq_shift_tac >>
+      use_assum_tac )
+    >- (
+      simp[markerTheory.Abbrev_def] >> srw_tac[DNF_ss][] >>
+      first_disj(use_assum_tac) >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      disj2_tac >>
+      syneq_shift_tac >>
+      use_assum_tac )
+    >- (
+      simp[markerTheory.Abbrev_def] >> srw_tac[DNF_ss][] >>
+      first_disj(use_assum_tac) >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      disj2_tac >>
+      syneq_shift_tac >>
+      use_assum_tac )
+    >- (
+      simp[markerTheory.Abbrev_def] >> srw_tac[DNF_ss][] >>
+      first_disj(use_assum_tac) >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      disj2_tac >>
+      syneq_shift_tac >>
+      use_assum_tac )
     >-(first_disj(first_assum(match_exists_tac o concl)) >> rw[] >>
        rw[Once Cevaluate_cases] >>
        rpt(CHANGED_TAC(rw[Once (CONJUNCT2 Cevaluate_cases)])) >>
@@ -1009,6 +1047,63 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
       fs[EVERY2_MAP] >>
       fs[LIST_REL_EL_EQN] >>
       metis_tac[sv_rel_syneq_trans] )
+    >- (* COrd *) (
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      use_assum_tac )
+    >- (* Chr *) (
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      disj1_tac >> use_assum_tac >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      disj1_tac >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      rpt(CHANGED_TAC(srw_tac[DNF_ss][Once(CONJUNCT2(Cevaluate_cases))])) >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      simp[Once syneq_cases,prim_exn_pat_def] )
+    >- (* Chr *) (
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      disj1_tac >> use_assum_tac >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      disj1_tac >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      rpt(CHANGED_TAC(srw_tac[DNF_ss][Once(CONJUNCT2(Cevaluate_cases))])) >-
+        (qsuff_tac`F`>-rw[]>>intLib.COOPER_TAC) >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      rpt(CHANGED_TAC(srw_tac[DNF_ss][Once(CONJUNCT2(Cevaluate_cases))])) >-
+        (qsuff_tac`F`>-rw[]>>intLib.COOPER_TAC) >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      simp[Once syneq_cases,prim_exn_pat_def] )
+    >- (* Chr *) (
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      use_assum_tac >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      rpt(CHANGED_TAC(srw_tac[DNF_ss][Once(CONJUNCT2(Cevaluate_cases))])) >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      reverse(rpt(CHANGED_TAC(srw_tac[DNF_ss][Once(CONJUNCT2(Cevaluate_cases))]))) >-
+        (qsuff_tac`F`>-rw[]>>intLib.COOPER_TAC) >>
+      srw_tac[DNF_ss][Once Cevaluate_cases])
+    >- (* Chr *) (
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      use_assum_tac >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      syneq_shift_tac >>
+      use_assum_tac >>
+      BasicProvers.CASE_TAC >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      rpt(CHANGED_TAC(srw_tac[DNF_ss][Once(CONJUNCT2(Cevaluate_cases))])) >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      srw_tac[DNF_ss,ARITH_ss][Once Cevaluate_cases,opb_lookup_def] >>
+      rpt(CHANGED_TAC(srw_tac[DNF_ss][Once(CONJUNCT2(Cevaluate_cases))])) >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      srw_tac[DNF_ss,ARITH_ss][Once Cevaluate_cases] >>
+      TRY(intLib.COOPER_TAC) >>
+      metis_tac[csg_rel_syneq_trans] )
     >- (* CExplode *) (
       srw_tac[DNF_ss][Once Cevaluate_cases] >>
       use_assum_tac >> simp[Cexplode_correct])
@@ -1018,6 +1113,9 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
       imp_res_tac Cimplode_syneq >>
       imp_res_tac Cimplode_correct >>
       BasicProvers.CASE_TAC >> fs[])
+    >- (* StrLen *) (
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      use_assum_tac )
     >- (* CVfromList *) (
       srw_tac[DNF_ss][Once Cevaluate_cases] >>
       use_assum_tac >>

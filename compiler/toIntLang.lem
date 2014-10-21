@@ -124,18 +124,16 @@ binop_to_il (Opb opb) Ce1 Ce2 =
   end
 and
 binop_to_il (Chopb opb) Ce1 Ce2 =
-  match opb with
-  | Lt -> CPrim2 (P2p CLt) (CPrim1 COrd Ce1) (CPrim1 COrd Ce2)
-  | Leq -> CPrim2 (P2p CLt) (CPrim2 (P2p CSub) (CPrim1 COrd Ce1) (CPrim1 COrd Ce2)) (CLit (IntLit 1))
-  | opb ->
-      CLet true (CPrim1 COrd Ce1) (
-        CLet true (shift 1 0 (CPrim1 COrd Ce2)) (
-          match opb with
-          | Gt ->  CPrim2 (P2p CLt) (CVar 0) (CVar 1)
-          | Geq -> CPrim2 (P2p CLt) (CPrim2 (P2p CSub) (CVar 0) (CVar 1)) (CLit (IntLit 1))
-          | _ -> CLit (IntLit 0) (* should not happen *)
-          end))
-  end
+  CLet true Ce1 (
+    CLet true (shift 1 0 Ce2) (
+      let Ce1 = CPrim1 COrd (CVar 1) in
+      let Ce2 = CPrim1 COrd (CVar 0) in
+      match opb with
+      | Lt -> CPrim2 (P2p CLt) Ce1 Ce2
+      | Leq -> CPrim2 (P2p CLt) (CPrim2 (P2p CSub) Ce1 Ce2) (CLit (IntLit 1))
+      | Gt ->  CPrim2 (P2p CLt) Ce2 Ce1
+      | Geq -> CPrim2 (P2p CLt) (CPrim2 (P2p CSub) Ce2 Ce1) (CLit (IntLit 1))
+      end))
 and
 binop_to_il Equality Ce1 Ce2 =
   CLet true (CPrim2 (P2p CEq) Ce1 Ce2)
@@ -229,7 +227,7 @@ unop_to_il Strlen Ce  = CPrim1 CLenS Ce
 and
 unop_to_il Chr Ce =
   CLet true Ce
-    (CIf (CPrim2 (P2p CLt) (CLit (IntLit 0)) (CVar 0))
+    (CIf (CPrim2 (P2p CLt) (CVar 0) (CLit (IntLit 0)))
          (CRaise (CCon chr_tag []))
          (CIf (CPrim2 (P2p CLt) (CVar 0) (CLit (IntLit 256)))
               (CPrim1 CChr (CVar 0))

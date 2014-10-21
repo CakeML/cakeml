@@ -168,7 +168,8 @@ val exp_pat_syneq_exp = store_thm("exp_pat_syneq_exp",
         Cases_on`o'`>>simp[]>-(
           rw[] >> fs[]>>
           Cases_on`o''`>>simp[]>>
-          simp[Once syneq_exp_cases])>>
+          simp[Once syneq_exp_cases] >>
+          ntac 15 (simp[Once syneq_exp_cases]))>>
         rw[]>>fs[]>>
         simp[Once syneq_exp_cases])>>
       rw[]>>fs[]>>
