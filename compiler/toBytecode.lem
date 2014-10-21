@@ -223,11 +223,17 @@ prim1_to_bc CLenB = [LengthByte]
 and
 prim1_to_bc CLenV = [Stack LengthBlock]
 and
+prim1_to_bc CLenS = [Stack LengthBlock]
+and
 prim1_to_bc (CTagEq n) = [Stack (TagEq (n+block_tag))]
 and
 prim1_to_bc (CProj n) = [Stack (PushInt (integerFromNat n)); Stack El]
 and
 prim1_to_bc (CInitG n) = [Gupdate n; Stack (PushInt 0); Stack (Cons unit_tag)]
+and
+prim1_to_bc CChr = []
+and
+prim1_to_bc COrd = []
 and
 prim1_to_bc CExplode = [Call (Lab ExplodeLab)]
 and

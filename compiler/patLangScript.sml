@@ -576,6 +576,16 @@ val _ = Define `
                   )
         | _ => NONE
         )
+    | (Op_pat (Op_i2 Ord), [Litv_pat (Char c)]) =>
+          SOME (((cnt,s),genv), Rval (Litv_pat(IntLit(int_of_num(ORD c)))))
+    | (Op_pat (Op_i2 Chr), [Litv_pat (IntLit i)]) =>
+        SOME (((cnt,s),genv),          
+(if (i <( 0 : int)) \/ (i >( 255 : int)) then
+            Rerr (Rraise (prim_exn_pat chr_tag))
+          else
+            Rval (Litv_pat(Char(CHR(Num (ABS ( i))))))))
+    | (Op_pat (Op_i2 (Chopb op)), [Litv_pat (Char c1); Litv_pat (Char c2)]) =>
+        SOME (((cnt,s),genv), Rval (Litv_pat (Bool (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2))))))
     | (Op_pat (Op_i2 Implode), [v]) =>
           (case v_pat_to_char_list v of
             SOME ls =>
@@ -584,6 +594,8 @@ val _ = Define `
           )
     | (Op_pat (Op_i2 Explode), [Litv_pat (StrLit str)]) =>
         SOME (((cnt,s),genv), Rval (char_list_to_v_pat (EXPLODE str)))
+    | (Op_pat (Op_i2 Strlen), [Litv_pat (StrLit str)]) =>
+        SOME (((cnt,s),genv), Rval (Litv_pat(IntLit(int_of_num(STRLEN str)))))
     | (Op_pat (Op_i2 VfromList), [v]) =>
           (case v_to_list_pat v of
               SOME vs =>

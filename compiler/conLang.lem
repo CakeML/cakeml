@@ -48,17 +48,20 @@ let eq_tag = 3
 val subscript_tag : nat
 let subscript_tag = 4
 
+val chr_tag : nat
+let chr_tag = 5
+
 val nil_tag : nat
-let nil_tag = 5
+let nil_tag = 6
 
 val cons_tag : nat
-let cons_tag = 6
+let cons_tag = 7
 
 val none_tag : nat
-let none_tag = 7
+let none_tag = 8
 
 val some_tag : nat
-let some_tag = 8
+let some_tag = 9
 
 type exh_ctors_env = Map.map (id typeN) nat_set
 
@@ -490,6 +493,16 @@ let do_app_i2 s op vs =
                   end
         | _ -> Nothing
       end
+    | (Op_i2 Ord, [Litv_i2 (Char c)]) ->
+          Just (s, Rval (Litv_i2(IntLit(integerFromNat(String_extra.ord c)))))
+    | (Op_i2 Chr, [Litv_i2 (IntLit i)]) ->
+        Just (s,
+          if i < 0 || i > 255 then
+            Rerr (Rraise (prim_exn_i2 chr_tag "Chr"))
+          else
+            Rval (Litv_i2(Char(String_extra.chr(natFromInteger i)))))
+    | (Op_i2 (Chopb op), [Litv_i2 (Char c1); Litv_i2 (Char c2)]) ->
+        Just (s, Rval (Litv_i2 (Bool (opb_lookup op (integerFromNat(String_extra.ord c1)) (integerFromNat(String_extra.ord c2))))))
     | (Op_i2 Implode, [v]) ->
           match v_i2_to_char_list v with
           | Just ls ->
@@ -498,6 +511,8 @@ let do_app_i2 s op vs =
           end
     | (Op_i2 Explode, [Litv_i2 (StrLit str)]) ->
         Just (s, Rval (char_list_to_v_i2 (toCharList str)))
+    | (Op_i2 Strlen, [Litv_i2 (StrLit str)]) ->
+        Just (s, Rval (Litv_i2(IntLit(integerFromNat(stringLength str)))))
     | (Op_i2 VfromList, [v]) ->
           match v_to_list_i2 v with
             | Just vs ->

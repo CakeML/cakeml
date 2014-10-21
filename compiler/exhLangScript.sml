@@ -473,6 +473,16 @@ val _ = Define `
                   )
         | _ => NONE
       )
+    | (Op_i2 Ord, [Litv_exh (Char c)]) =>
+          SOME (((count,s),genv), Rval (Litv_exh(IntLit(int_of_num(ORD c)))))
+    | (Op_i2 Chr, [Litv_exh (IntLit i)]) =>
+        SOME (((count,s),genv),          
+(if (i <( 0 : int)) \/ (i >( 255 : int)) then
+            Rerr (Rraise (prim_exn_exh chr_tag))
+          else
+            Rval (Litv_exh(Char(CHR(Num (ABS ( i))))))))
+    | (Op_i2 (Chopb op), [Litv_exh (Char c1); Litv_exh (Char c2)]) =>
+        SOME (((count,s),genv), Rval (Litv_exh (Bool (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2))))))
     | (Op_i2 Implode, [v]) =>
           (case v_exh_to_char_list v of
             SOME ls =>
@@ -481,6 +491,8 @@ val _ = Define `
           )
     | (Op_i2 Explode, [Litv_exh (StrLit str)]) =>
         SOME (((count,s),genv), Rval (char_list_to_v_exh (EXPLODE str)))
+    | (Op_i2 Strlen, [Litv_exh (StrLit str)]) =>
+        SOME (((count,s),genv), Rval (Litv_exh(IntLit(int_of_num(STRLEN str)))))
     | (Op_i2 VfromList, [v]) =>
           (case v_to_list_exh v of
               SOME vs =>

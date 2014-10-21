@@ -68,24 +68,29 @@ val _ = Define `
  (subscript_tag =( 4))`;
 
 
+(*val chr_tag : nat*)
+val _ = Define `
+ (chr_tag =( 5))`;
+
+
 (*val nil_tag : nat*)
 val _ = Define `
- (nil_tag =( 5))`;
+ (nil_tag =( 6))`;
 
 
 (*val cons_tag : nat*)
 val _ = Define `
- (cons_tag =( 6))`;
+ (cons_tag =( 7))`;
 
 
 (*val none_tag : nat*)
 val _ = Define `
- (none_tag =( 7))`;
+ (none_tag =( 8))`;
 
 
 (*val some_tag : nat*)
 val _ = Define `
- (some_tag =( 8))`;
+ (some_tag =( 9))`;
 
 
 val _ = type_abbrev( "exh_ctors_env" , ``: (( typeN id),  unit spt) fmap``);
@@ -575,6 +580,16 @@ val _ = Define `
                   )
         | _ => NONE
       )
+    | (Op_i2 Ord, [Litv_i2 (Char c)]) =>
+          SOME (s, Rval (Litv_i2(IntLit(int_of_num(ORD c)))))
+    | (Op_i2 Chr, [Litv_i2 (IntLit i)]) =>
+        SOME (s,          
+(if (i <( 0 : int)) \/ (i >( 255 : int)) then
+            Rerr (Rraise (prim_exn_i2 chr_tag "Chr"))
+          else
+            Rval (Litv_i2(Char(CHR(Num (ABS ( i))))))))
+    | (Op_i2 (Chopb op), [Litv_i2 (Char c1); Litv_i2 (Char c2)]) =>
+        SOME (s, Rval (Litv_i2 (Bool (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2))))))
     | (Op_i2 Implode, [v]) =>
           (case v_i2_to_char_list v of
             SOME ls =>
@@ -583,6 +598,8 @@ val _ = Define `
           )
     | (Op_i2 Explode, [Litv_i2 (StrLit str)]) =>
         SOME (s, Rval (char_list_to_v_i2 (EXPLODE str)))
+    | (Op_i2 Strlen, [Litv_i2 (StrLit str)]) =>
+        SOME (s, Rval (Litv_i2(IntLit(int_of_num(STRLEN str)))))
     | (Op_i2 VfromList, [v]) =>
           (case v_to_list_i2 v of
               SOME vs =>

@@ -261,11 +261,17 @@ val _ = Define `
 /\
 (prim1_to_bc CLenV = ([Stack LengthBlock]))
 /\
+(prim1_to_bc CLenS = ([Stack LengthBlock]))
+/\
 (prim1_to_bc (CTagEq n) = ([Stack (TagEq (n+block_tag))]))
 /\
 (prim1_to_bc (CProj n) = ([Stack (PushInt (int_of_num n)); Stack El]))
 /\
 (prim1_to_bc (CInitG n) = ([Gupdate n; Stack (PushInt(( 0 : int))); Stack (Cons unit_tag)]))
+/\
+(prim1_to_bc CChr = ([]))
+/\
+(prim1_to_bc COrd = ([]))
 /\
 (prim1_to_bc CExplode = ([Call (Lab ExplodeLab)]))
 /\
