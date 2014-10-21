@@ -927,6 +927,19 @@ t = convert_t (t_walkstar s' t')``,
     fs[pure_add_constraints_combine]>>
     qpat_abbrev_tac `ls = [(h,Infer_Tapp [] A);B;C]`>>
     pac_tac)
+  >-(fs[Tchar_def] >>
+     unconversion_tac >>
+     qpat_abbrev_tac `ls = [(h,Infer_Tapp [] A)]`>>
+     pac_tac)
+  >-(fs[Tchar_def] >>
+     unconversion_tac >>
+     qpat_abbrev_tac `ls = [(h,Infer_Tapp [] A)]`>>
+     pac_tac)
+  >-(fs[Tchar_def] >> unconversion_tac >>
+     qexists_tac`Infer_Tapp [] TC_bool` >>
+     fs[pure_add_constraints_combine] >>
+     qpat_abbrev_tac `ls = [(h,Infer_Tapp [] A);zZ]`>>
+     pac_tac)
   >-
     (unconversion_tac >>
      qpat_abbrev_tac `ls = [(h,Infer_Tapp [] A)]`>>
@@ -941,6 +954,10 @@ t = convert_t (t_walkstar s' t')``,
      fs[pure_add_constraints_append]>>
      Q.EXISTS_TAC `<|subst:=s2' ; next_uvar := st.next_uvar |>` >>fs[]>>
      pure_add_constraints_rest_tac ``constraints`` ``s``)
+  >-(fs[Tchar_def] >> unconversion_tac >>
+     fs[pure_add_constraints_combine] >>
+     qpat_abbrev_tac `ls = [(h,Infer_Tapp [] A)]`>>
+     pac_tac)
   >-
     (extend_uvar_tac ``t2``>>
     qpat_abbrev_tac `ls = [(h,Infer_Tapp A B)]`>>
