@@ -227,8 +227,12 @@ val do_app_exh_cases = Q.store_thm("do_app_exh_cases",
     (∃lnum i. op = (Op_i2 Aw8sub) ∧ vs = [Loc_exh lnum; Litv_exh (IntLit i)]) ∨
     (∃n. op = (Op_i2 Aw8length) ∧ vs = [Loc_exh n]) ∨
     (∃lnum i w. op = (Op_i2 Aw8update) ∧ vs = [Loc_exh lnum; Litv_exh (IntLit i); Litv_exh (Word8 w)]) ∨
+    (∃c. op = (Op_i2 Ord) ∧ vs = [Litv_exh (Char c)]) ∨
+    (∃n. op = (Op_i2 Chr) ∧ vs = [Litv_exh (IntLit n)]) ∨
+    (∃z c1 c2. op = (Op_i2 (Chopb z)) ∧ vs = [Litv_exh (Char c1); Litv_exh (Char c2)]) ∨
     (∃v s. op = (Op_i2 Explode) ∧ vs = [Litv_exh (StrLit s)]) ∨
     (∃v ls. op = (Op_i2 Implode) ∧ vs = [v] ∧ (v_exh_to_char_list v = SOME ls)) ∨
+    (∃s. op = (Op_i2 Strlen) ∧ vs = [Litv_exh (StrLit s)]) ∨
     (∃v vs'. op = (Op_i2 VfromList) ∧ vs = [v] ∧ (v_to_list_exh v = SOME vs')) ∨
     (∃vs' i. op = (Op_i2 Vsub) ∧ vs = [Vectorv_exh vs'; Litv_exh (IntLit i)]) ∨
     (∃vs'. op = (Op_i2 Vlength) ∧ vs = [Vectorv_exh vs']) ∨
@@ -307,8 +311,12 @@ val do_app_pat_correct = prove(
      metis_tac [EL_MAP, sv_to_pat_def, store_v_distinct, store_v_11])
  >- (tac >>
      metis_tac [EL_MAP, sv_to_pat_def, store_v_distinct, store_v_11])
+ >- tac
+ >- tac
+ >- tac
  >- (tac >> simp[char_list_to_v_pat_correct])
  >- (imp_res_tac v_pat_to_char_list_correct >> tac)
+ >- tac
  >- (rw [do_app_pat_def] >>
      BasicProvers.EVERY_CASE_TAC >>
      imp_res_tac v_to_list_pat_correct >>
@@ -378,8 +386,12 @@ val do_app_pat_cases = store_thm("do_app_pat_cases",
     (∃lnum i. op = Op_pat (Op_i2 Aw8sub) ∧ vs = [Loc_pat lnum; Litv_pat (IntLit i)]) ∨
     (∃n. op = Op_pat (Op_i2 Aw8length) ∧ vs = [Loc_pat n]) ∨
     (∃lnum i w. op = Op_pat (Op_i2 Aw8update) ∧ vs = [Loc_pat lnum; Litv_pat (IntLit i); Litv_pat (Word8 w)]) ∨
+    (∃c. op = Op_pat (Op_i2 Ord) ∧ vs = [Litv_pat (Char c)]) ∨
+    (∃n. op = Op_pat (Op_i2 Chr) ∧ vs = [Litv_pat (IntLit n)]) ∨
+    (∃z c1 c2. op = Op_pat (Op_i2 (Chopb z)) ∧ vs = [Litv_pat (Char c1); Litv_pat (Char c2)]) ∨
     (∃v s. op = Op_pat (Op_i2 Explode) ∧ vs = [Litv_pat (StrLit s)]) ∨
     (∃v ls. op = Op_pat (Op_i2 Implode) ∧ vs = [v] ∧ (v_pat_to_char_list v = SOME ls)) ∨
+    (∃s. op = Op_pat (Op_i2 Strlen) ∧ vs = [Litv_pat (StrLit s)]) ∨
     (∃v vs'. op = Op_pat (Op_i2 VfromList) ∧ vs = [v] ∧ (v_to_list_pat v = SOME vs')) ∨
     (∃vs' i. op = Op_pat (Op_i2 Vsub) ∧ vs = [Vectorv_pat vs'; Litv_pat (IntLit i)]) ∨
     (∃vs'. op = Op_pat (Op_i2 Vlength) ∧ vs = [Vectorv_pat vs']) ∨
@@ -1460,6 +1472,7 @@ val do_app_pat_v_pat = store_thm("do_app_pat_v_pat",
         fs[LIST_REL_EL_EQN] >>
         BasicProvers.EVERY_CASE_TAC >> fs[] >>
         metis_tac[sv_rel_def] )
+      >- (BasicProvers.EVERY_CASE_TAC >> fs[])
       >- (
         Cases_on`x`>>fs[]>>TRY(Cases_on`l:lit`)>>fs[]>>
         Cases_on`y`>>fs[]>>TRY(Cases_on`l:lit`)>>fs[]>>

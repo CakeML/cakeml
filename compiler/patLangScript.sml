@@ -127,6 +127,7 @@ val _ = Define `
 (op <> Aw8alloc) /\  
 (op <> Aw8sub) /\  
 (op <> Vsub) /\  
+(op <> Chr) /\  
 (op <> Aupdate) /\  
 (op <> Aalloc) /\  
 (op <> Asub) /\  

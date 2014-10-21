@@ -516,8 +516,12 @@ val do_app_i2_cases = Q.store_thm("do_app_i2_cases",
     (∃lnum i. op = (Op_i2 Aw8sub) ∧ vs = [Loc_i2 lnum; Litv_i2 (IntLit i)]) ∨
     (∃n. op = (Op_i2 Aw8length) ∧ vs = [Loc_i2 n]) ∨
     (∃lnum i w. op = (Op_i2 Aw8update) ∧ vs = [Loc_i2 lnum; Litv_i2 (IntLit i); Litv_i2 (Word8 w)]) ∨
-    (∃v s. op = (Op_i2 Explode) ∧ vs = [Litv_i2 (StrLit s)]) ∨
+    (∃c. op = (Op_i2 Ord) ∧ vs = [Litv_i2 (Char c)]) ∨
+    (∃n. op = (Op_i2 Chr) ∧ vs = [Litv_i2 (IntLit n)]) ∨
+    (∃z c1 c2. op = (Op_i2 (Chopb z)) ∧ vs = [Litv_i2 (Char c1); Litv_i2 (Char c2)]) ∨
+    (∃s. op = (Op_i2 Explode) ∧ vs = [Litv_i2 (StrLit s)]) ∨
     (∃v ls. op = (Op_i2 Implode) ∧ vs = [v] ∧ (v_i2_to_char_list v = SOME ls)) ∨
+    (∃s. op = (Op_i2 Strlen) ∧ vs = [Litv_i2 (StrLit s)]) ∨
     (∃v vs'. op = (Op_i2 VfromList) ∧ vs = [v] ∧ (v_to_list_i2 v = SOME vs')) ∨
     (∃vs' i. op = (Op_i2 Vsub) ∧ vs = [Vectorv_i2 vs'; Litv_i2 (IntLit i)]) ∨
     (∃vs'. op = (Op_i2 Vlength) ∧ vs = [Vectorv_i2 vs']) ∨
@@ -585,8 +589,12 @@ val do_app_exh_i2 = Q.prove (
  >- tac
  >- (tac >>
      metis_tac [v_to_exh_eqn, store_v_distinct, sv_to_exh_def])
+ >- tac
+ >- tac
+ >- tac
  >- ( tac >> metis_tac[char_list_to_v_exh_correct] )
  >- ( imp_res_tac v_exh_to_char_list_correct >> tac)
+ >- tac
  >- (imp_res_tac v_to_list_exh_correct >>
      rw [do_app_exh_def, result_to_exh_cases, v_to_exh_eqn, store_to_exh_def] >>
      fs [vs_to_exh_LIST_REL])

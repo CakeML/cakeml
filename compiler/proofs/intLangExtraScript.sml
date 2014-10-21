@@ -226,13 +226,13 @@ val Cevaluate_vlabs = store_thm("Cevaluate_vlabs",
   strip_tac >- ( srw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[] ) >>
   strip_tac >- (
     ntac 2 gen_tac >>
-    reverse Cases
-    >- ( rw[] >> BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] )
-    >- ( rw[] >> Cases_on`v` >> fs[] >> Cases_on`l` >> fs[] >> rw[] )
-    >- (
+    reverse Cases >>
+    TRY ( rw[] >> Cases_on`v` >> fs[] >> Cases_on`l` >> fs[] >> rw[] >>
+          pop_assum mp_tac >> rw[] >> fs[] >> NO_TAC) >>
+    TRY (
       rw[] >> BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
-      imp_res_tac CvFromList_vlabs >> rw[] )
-    >- (
+      imp_res_tac CvFromList_vlabs >> rw[] >> NO_TAC) >>
+    TRY (
       rw[] >>
       fsrw_tac[DNF_ss][SUBSET_DEF,vlabs_list_MAP,vlabs_csg_def] >>
       rw[] >- metis_tac[] >>
@@ -385,17 +385,15 @@ val tac1 =
   strip_tac >- (
     ntac 2 gen_tac >>
     reverse Cases
-    >- (
-      simp[] >> rw[] >>
-      BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] )
-    >- (
-      simp[] >> rw[] >>
-      Cases_on`v`>>fs[]>>Cases_on`l`>>fs[]>>rw[Cexplode_no_vlabs,Cexplode_all_vlabs])
-    >- (
+    >> TRY (
       simp[] >> rw[] >>
       BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
       imp_res_tac CvFromList_no_vlabs >>
-      imp_res_tac CvFromList_all_vlabs)
+      imp_res_tac CvFromList_all_vlabs >> NO_TAC) >>
+    TRY (
+      simp[] >> rw[] >>
+      Cases_on`v`>>fs[]>>Cases_on`l`>>fs[]>>rw[Cexplode_no_vlabs,Cexplode_all_vlabs] >>
+      BasicProvers.EVERY_CASE_TAC >> fs[] >> NO_TAC)
     >- (
       simp[] >> rw[] >>
       fs[no_vlabs_csg_def,all_vlabs_csg_def,store_vs_def,EVERY_MAP,EVERY_MEM,MEM_FILTER,MEM_LUPDATE,PULL_EXISTS] >>
@@ -2222,12 +2220,13 @@ val CevalPrim1_closed = store_thm("CevalPrim1_closed",
   simp[CvFromList_def] >>
   BasicProvers.EVERY_CASE_TAC >> simp[] >-
     metis_tac[sv_every_def]
-  >- (
+  >> TRY (
     rator_x_assum`Cclosed`mp_tac >>
-    simp[Once Cclosed_cases,EVERY_MEM,MEM_EL,PULL_EXISTS]) >>
+    simp[Once Cclosed_cases,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
+    NO_TAC) >>
   imp_res_tac CvFromList_closed >>
   simp[Once Cclosed_cases] >>
-  Cases_on`l`>>fs[Cexplode_def,Cexplode_closed])
+  Cases_on`l`>>fs[Cexplode_def,Cexplode_closed] >> rw[])
 
 val CevalUpd_closed = store_thm("CevalUpd_closed",
   ``(∀b s v1 v2 v3. Cclosed v2 ⇒ every_result Cclosed Cclosed (SND (CevalUpd b s v1 v2 v3))) ∧
