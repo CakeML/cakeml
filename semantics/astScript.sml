@@ -87,9 +87,14 @@ val _ = Hol_datatype `
   | Aw8sub
   | Aw8length
   | Aw8update
+  (* Char operations *)
+  | Ord
+  | Chr
+  | Chopb of opb
   (* String operations *)
   | Explode
   | Implode
+  | Strlen
   (* Vector operations *)
   | VfromList
   | Vsub
