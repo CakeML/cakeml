@@ -470,6 +470,7 @@ val _ = Define `
 val _ = Define `
  (ctMap_has_exns ctMap =  
 ((FLOOKUP ctMap ("Bind", TypeExn (Short "Bind")) = SOME ([],[])) /\
+  (FLOOKUP ctMap ("Chr", TypeExn (Short "Chr")) = SOME ([],[])) /\
   (FLOOKUP ctMap ("Div", TypeExn (Short "Div")) = SOME ([],[])) /\
   (FLOOKUP ctMap ("Eq", TypeExn (Short "Eq")) = SOME ([],[])) /\
   (FLOOKUP ctMap ("Subscript", TypeExn (Short "Subscript")) = SOME ([],[]))))`;

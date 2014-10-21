@@ -521,6 +521,7 @@ let weakC tenvC tenvC' =
 val ctMap_has_exns : ctMap -> bool
 let ctMap_has_exns ctMap =
   (Map.lookup ("Bind", TypeExn (Short "Bind")) ctMap = Just ([],[])) &&
+  (Map.lookup ("Chr", TypeExn (Short "Chr")) ctMap = Just ([],[])) &&
   (Map.lookup ("Div", TypeExn (Short "Div")) ctMap = Just ([],[])) &&
   (Map.lookup ("Eq", TypeExn (Short "Eq")) ctMap = Just ([],[])) &&
   (Map.lookup ("Subscript", TypeExn (Short "Subscript")) ctMap = Just ([],[]))
