@@ -728,6 +728,70 @@ val LIST_TYPE_def = Define `
      LIST_TYPE a [] v <=>
      v = Conv (SOME ("nil",TypeId (Short "list"))) []`
 
+(* characters *)
+
+val Eval_Ord = store_thm("Eval_Ord",
+  ``Eval env x (CHAR c) ==>
+    Eval env (App Ord [x]) (NUM (ORD c))``,
+  rw[Eval_def] >>
+  rw[Once evaluate_cases] >>
+  rw[Once evaluate_cases,PULL_EXISTS] >>
+  first_assum(miscLib.match_exists_tac o concl) >> rw[] >>
+  rw[Once evaluate_cases,PULL_EXISTS] >>
+  rw[do_app_cases,PULL_EXISTS] >>
+  fs[CHAR_def,NUM_def,INT_def])
+
+val Eval_Chr = store_thm("Eval_Chr",
+  ``Eval env x (NUM n) ==>
+    n < 256 ==>
+    Eval env (App Chr [x]) (CHAR (CHR n))``,
+  rw[Eval_def] >>
+  rw[Once evaluate_cases] >>
+  rw[Once evaluate_cases,PULL_EXISTS] >>
+  first_assum(miscLib.match_exists_tac o concl) >> rw[] >>
+  rw[Once evaluate_cases,PULL_EXISTS] >>
+  rw[do_app_cases,PULL_EXISTS] >>
+  fs[CHAR_def,NUM_def,INT_def] >>
+  conj_tac >- intLib.COOPER_TAC >>
+  simp[integerTheory.INT_ABS_NUM])
+
+val tac =
+  rw[Eval_def] >>
+  rw[Once evaluate_cases] >>
+  rpt(CHANGED_TAC(rw[Once(CONJUNCT2 evaluate_cases),PULL_EXISTS])) >>
+  first_assum(miscLib.match_exists_tac o concl) >> rw[] >>
+  first_assum(miscLib.match_exists_tac o concl) >> rw[] >>
+  rw[do_app_cases,PULL_EXISTS] >> fs[CHAR_def] >>
+  rw[BOOL_def,opb_lookup_def]
+
+val Eval_char_lt = store_thm("Eval_char_lt",
+  ``!c1 c2.
+        Eval env x1 (CHAR c1) ==>
+        Eval env x2 (CHAR c2) ==>
+        Eval env (App (Chopb Lt) [x1;x2]) (BOOL (c1 < c2))``,
+  tac >> rw[stringTheory.char_lt_def])
+
+val Eval_char_le = store_thm("Eval_char_le",
+  ``!c1 c2.
+        Eval env x1 (CHAR c1) ==>
+        Eval env x2 (CHAR c2) ==>
+        Eval env (App (Chopb Leq) [x1;x2]) (BOOL (c1 ≤ c2))``,
+  tac >> rw[stringTheory.char_le_def])
+
+val Eval_char_gt = store_thm("Eval_char_gt",
+  ``!c1 c2.
+        Eval env x1 (CHAR c1) ==>
+        Eval env x2 (CHAR c2) ==>
+        Eval env (App (Chopb Gt) [x1;x2]) (BOOL (c1 > c2))``,
+  tac >> rw[stringTheory.char_gt_def] >> intLib.COOPER_TAC)
+
+val Eval_char_ge = store_thm("Eval_char_ge",
+  ``!c1 c2.
+        Eval env x1 (CHAR c1) ==>
+        Eval env x2 (CHAR c2) ==>
+        Eval env (App (Chopb Geq) [x1;x2]) (BOOL (c1 ≥ c2))``,
+  tac >> rw[stringTheory.char_ge_def] >> intLib.COOPER_TAC)
+
 (* vectors *)
 
 val _ = Datatype `

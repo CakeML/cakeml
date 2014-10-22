@@ -2082,6 +2082,10 @@ fun dest_builtin_binop tm = let
             if p = ``($<=):num->num->bool`` then SPEC_ALL Eval_NUM_LESS_EQ else
             if p = ``($>):num->num->bool`` then SPEC_ALL Eval_NUM_GREATER else
             if p = ``($>=):num->num->bool`` then SPEC_ALL Eval_NUM_GREATER_EQ else
+            if p = ``($<):char->char->bool`` then SPEC_ALL Eval_char_lt else
+            if p = ``($<=):char->char->bool`` then SPEC_ALL Eval_char_le else
+            if p = ``($>):char->char->bool`` then SPEC_ALL Eval_char_gt else
+            if p = ``($>=):char->char->bool`` then SPEC_ALL Eval_char_ge else
             if p = ``($+):int->int->int`` then SPEC_ALL Eval_INT_ADD else
             if p = ``($-):int->int->int`` then SPEC_ALL Eval_INT_SUB else
             if p = ``($*):int->int->int`` then SPEC_ALL Eval_INT_MULT else
@@ -2287,6 +2291,9 @@ val vec_sub_pat = Eval_sub |> SPEC_ALL |> RW [AND_IMP_INTRO]
 val vec_len_pat = Eval_length |> SPEC_ALL |> RW [AND_IMP_INTRO]
   |> concl |> dest_imp |> snd |> rand |> rand
 
+val chr_pat = Eval_Chr |> concl |> funpow 4 rand
+val ord_pat = Eval_Ord |> concl |> funpow 3 rand
+
 (*
 val tm = rhs
 *)
@@ -2398,6 +2405,15 @@ fun hol2deep tm =
       val th = MATCH_MP Eval_If (LIST_CONJ [D th1, D th2, D th3])
       val result = UNDISCH th
       in check_inv "if" tm result end else
+  (* chr and ord *)
+  if can (match_term ord_pat) tm then let
+    val th = hol2deep (rand tm)
+    val result = MATCH_MP Eval_Ord th
+    in check_inv "ord" tm result end else
+  if can (match_term chr_pat) tm then let
+    val th = hol2deep (rand tm)
+    val result = MATCH_MP Eval_Chr th |> UNDISCH
+    in check_inv "chr" tm result end else
   (* Num (ABS i) *)
   if can (match_term Num_ABS_pat) tm then let
     val x1 = tm |> rand |> rand
