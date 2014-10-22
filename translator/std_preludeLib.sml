@@ -165,55 +165,10 @@ val res = translate (DECIDE ``PRE n = n-1``);
 
 (* string *)
 
-val CHAR_def = Define `
-  CHAR (c:char) = NUM (ORD c)`;
-
-val _ = add_type_inv ``CHAR`` ``:num``
-
-val EqualityType_CHAR = prove(
-  ``EqualityType CHAR``,
-  EVAL_TAC THEN SRW_TAC [] [] THEN EVAL_TAC)
-  |> store_eq_thm;
-
-val Eval_Val_CHAR = prove(
-  ``NUMERAL n < 256 ==>
-    Eval env (Lit (IntLit (&(NUMERAL n)))) (CHAR (CHR (NUMERAL n)))``,
-  SIMP_TAC (srw_ss()) [Eval_Val_NUM,CHAR_def])
-  |> store_eval_thm;
-
-val Eval_CHR = prove(
-  ``n < 256 ==> !v. ((NUM --> NUM) (\x.x)) v ==> ((Eq NUM n --> CHAR) CHR) v``,
-  SIMP_TAC std_ss [Arrow_def,AppReturns_def,CHAR_def,Eq_def,
-    stringTheory.ORD_CHR_RWT]) |> UNDISCH
-  |> MATCH_MP (MATCH_MP Eval_WEAKEN (hol2deep ``\x.x:num``))
-  |> store_eval_thm;
-
-val Eval_ORD = prove(
-  ``!v. ((NUM --> NUM) (\x.x)) v ==> ((CHAR --> NUM) ORD) v``,
-  SIMP_TAC std_ss [Arrow_def,AppReturns_def,CHAR_def])
-  |> MATCH_MP (MATCH_MP Eval_WEAKEN (hol2deep ``\x.x:num``))
-  |> store_eval_thm;
-
-val Eval_CHR = prove(
-  ``!v. ((NUM --> NUM) (\n. n MOD 256)) v ==>
-        ((NUM --> CHAR) (\n. CHR (n MOD 256))) v``,
-  SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,CHAR_def])
-  |> MATCH_MP (MATCH_MP Eval_WEAKEN (hol2deep ``\n. n MOD 256``))
-  |> store_eval_thm;
-
-val Eval_CHAR_LT = prove(
-  ``!v. ((NUM --> NUM --> BOOL) (\m n. m < n)) v ==>
-        ((CHAR --> CHAR --> BOOL) char_lt) v``,
-  SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,CHAR_def,char_lt_def]
-  THEN METIS_TAC [])
-  |> MATCH_MP (MATCH_MP Eval_WEAKEN (hol2deep ``\m n. m < n:num``))
-  |> store_eval_thm;
-
 val res = translate string_lt_def;
 val res = translate string_le_def;
 val res = translate string_gt_def;
 val res = translate string_ge_def;
-
 
 (* number to string conversion *)
 
