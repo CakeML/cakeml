@@ -502,6 +502,7 @@ in
     if ty = ``:word8`` then ``Tapp [] TC_word8`` else
     if ty = ``:int`` then ``Tapp [] TC_int`` else
     if ty = ``:num`` then ``Tapp [] TC_int`` else
+    if ty = ``:char`` then ``Tapp [] TC_char`` else
     if can dest_vartype ty then
       mk_comb(``Tvar``,stringSyntax.fromMLstring ((* string_tl *) (dest_vartype ty)))
     else let
@@ -550,6 +551,7 @@ in
     if ty = ``:word8`` then ``WORD8`` else
     if ty = ``:num`` then ``NUM`` else
     if ty = ``:int`` then ``INT`` else
+    if ty = ``:char`` then ``CHAR`` else
     if can dest_vector_type ty then let
       val inv = get_type_inv (dest_vector_type ty)
       in VECTOR_TYPE_def |> ISPEC inv |> SPEC_ALL
