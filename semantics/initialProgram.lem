@@ -14,6 +14,7 @@ let mk_unop name prim =
 val prim_types_program : prog
 let prim_types_program =
   [Tdec (Dexn "Bind" []);
+   Tdec (Dexn "Chr" []);
    Tdec (Dexn "Div" []);
    Tdec (Dexn "Eq" []);
    Tdec (Dexn "Subscript" []);

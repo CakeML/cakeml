@@ -39,17 +39,17 @@ let tuple_tag = 0
 val bind_tag : nat
 let bind_tag = 1
 
+val chr_tag : nat
+let chr_tag = 2
+
 val div_tag : nat
-let div_tag = 2
+let div_tag = 3
 
 val eq_tag : nat
-let eq_tag = 3
+let eq_tag = 4
 
 val subscript_tag : nat
-let subscript_tag = 4
-
-val chr_tag : nat
-let chr_tag = 5
+let subscript_tag = 5
 
 val nil_tag : nat
 let nil_tag = 6

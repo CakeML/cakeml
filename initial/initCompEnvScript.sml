@@ -416,6 +416,7 @@ val prim_env_inv = Q.store_thm ("prim_env_inv",
               (("nil",TypeId (Short "list")), (nil_tag, 0:num));
               (("::",TypeId (Short "list")), (cons_tag, 2));
               (("Bind",TypeExn (Short "Bind")), (bind_tag,0));
+              (("Chr",TypeExn (Short "Chr")), (chr_tag,0));
               (("Div",TypeExn (Short "Div")), (div_tag,0));
               (("Eq",TypeExn (Short "Eq")), (eq_tag,0));
               (("Subscript",TypeExn(Short"Subscript")),(subscript_tag,0))]` >>
@@ -436,6 +437,7 @@ val prim_env_inv = Q.store_thm ("prim_env_inv",
            rpt gen_tac >>
            BasicProvers.CASE_TAC >>
            IF_CASES_TAC >- rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
+           IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
            IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
            IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
            IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>

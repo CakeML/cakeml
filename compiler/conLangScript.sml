@@ -53,24 +53,24 @@ val _ = Define `
  (bind_tag =( 1))`;
 
 
+(*val chr_tag : nat*)
+val _ = Define `
+ (chr_tag =( 2))`;
+
+
 (*val div_tag : nat*)
 val _ = Define `
- (div_tag =( 2))`;
+ (div_tag =( 3))`;
 
 
 (*val eq_tag : nat*)
 val _ = Define `
- (eq_tag =( 3))`;
+ (eq_tag =( 4))`;
 
 
 (*val subscript_tag : nat*)
 val _ = Define `
- (subscript_tag =( 4))`;
-
-
-(*val chr_tag : nat*)
-val _ = Define `
- (chr_tag =( 5))`;
+ (subscript_tag =( 5))`;
 
 
 (*val nil_tag : nat*)
