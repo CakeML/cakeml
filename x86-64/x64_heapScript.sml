@@ -8513,7 +8513,7 @@ val zHEAP_NEW_REF = let
   val th = th |> Q.SPEC `zHEAP (cs,RefPtr ptr,x2,x3,x4,
                                 refs |+ (ptr,x1),stack,s,NONE) * ~zS * ^pc`
   val goal = th |> concl |> dest_imp |> fst
-  val lemma = prove(goal,cheat)
+  val lemma = prove(goal,cheat) (* ref cheat *)
 (*
     SIMP_TAC std_ss [LET_DEF,SEP_CLAUSES]
     \\ SIMP_TAC std_ss [zHEAP_def,SEP_IMP_def,SEP_CLAUSES,SEP_EXISTS_THM]
@@ -14795,7 +14795,7 @@ val bc_adjust_def = tDefine "bc_adjust" `
      StackPtr ((w2n ((sb:word64) - n2w (8 * i)) DIV 2))) /\
   (bc_adjust (cb,sb,ev) (Number n) = Number n) /\
   (bc_adjust (cb,sb,ev) (RefPtr r) =
-     RefPtr (if ev then 2 * r else 2 * r + 1)) /\
+     RefPtr (if ev then 2 * (r + 1) else 2 * (r + 1) + 1)) /\
   (bc_adjust (cb,sb,ev) (Block tag data) =
      Block tag (MAP (bc_adjust (cb,sb,ev)) data))`
   (WF_REL_TAC `measure (bc_value_size o SND)`
@@ -14805,8 +14805,8 @@ val bc_adjust_def = tDefine "bc_adjust" `
 
 val ref_adjust_def = Define `
   ref_adjust (cb,sb,ev) (refs1:num |-> ref_value) =
-    let adj = (\n. if ev then 2 * n else 2 * n + 1) in
-      FUN_FMAP (\n. case refs1 ' (n DIV 2) of
+    let adj = (\n. if ev then 2 * (n + 1) else 2 * (n + 1) + 1) in
+      FUN_FMAP (\n. case refs1 ' (n DIV 2 - 1) of
                     | ValueArray vs => ValueArray (MAP (bc_adjust (cb,sb,ev)) vs)
                     | x => x)
                (IMAGE adj (FDOM refs1))`;
@@ -15139,6 +15139,15 @@ val TAKE_DROP_MAP_APPEND = prove(
   METIS_TAC [rich_listTheory.TAKE_LENGTH_APPEND,LENGTH_MAP,
      rich_listTheory.DROP_LENGTH_APPEND]);
 
+val ref_lemma = prove(
+  ``(if ev then 2 * (ptr + 1) else (2 * (ptr + 1) + 1)) DIV 2 = ptr + 1``,
+  SRW_TAC [] [DIV_EQ_X] \\ DECIDE_TAC);
+
+val ref_lemma2 = prove(
+  ``((if ev then 2 * (n' + 1) else 2 * (n' + 1) + 1) =
+     (if ev then 2 * (ptr + 1) else 2 * (ptr + 1) + 1)) <=> (n' = ptr:num)``,
+  Cases_on `ev` \\ DECIDE_TAC);
+
 val zBC_HEAP_THM = prove(
   ``EVEN (w2n cb) /\ (cs.stack_trunk - n2w (8 * SUC (LENGTH stack)) = sb) ==>
     !s1 s2.
@@ -15152,6 +15161,7 @@ val zBC_HEAP_THM = prove(
         (zBC_HEAP s2 (x,cs,stack,s,out) (cb,sb,ev,f2) *
          zPC (cb + n2w (2 * s2.pc)) * ~zS \/
           zHEAP_ERROR cs)``,
+
   STRIP_TAC \\ HO_MATCH_MP_TAC bc_next_ind \\ REPEAT STRIP_TAC
   \\ TRY (Cases_on `b:bc_stack_op`)
   \\ TRY (Cases_on `l:loc`)
@@ -15893,18 +15903,17 @@ val zBC_HEAP_THM = prove(
          isRefPtr_def,getRefPtr_def]
     \\ FULL_SIMP_TAC (srw_ss()) [word_mul_n2w,isNumber_def,getNumber_def]
     \\ Q.PAT_ABBREV_TAC`v:ref_value = a ' b`
-    \\ `v = ValueArray (MAP (bc_adjust (cb,sb,ev)) vs)`  by (
-      simp[Abbr`v`,ref_adjust_def,FUN_FMAP_DEF,FUNION_DEF] >>
+    \\ `v = ValueArray (MAP (bc_adjust (cb,sb,ev)) vs)` by
+     (simp[Abbr`v`,ref_adjust_def,FUN_FMAP_DEF,FUNION_DEF] >>
       reverse IF_CASES_TAC >- (fs[FLOOKUP_DEF] >> METIS_TAC[]) >>
       fs[FLOOKUP_DEF] >> qmatch_assum_rename_tac`z IN FDOM s1.refs`[] >>
       `z = ptr` by (Cases_on`ev`>>fsrw_tac[ARITH_ss][]) >>
       BasicProvers.VAR_EQ_TAC >>
-      Q.PAT_ABBREV_TAC`z = X DIV 2` >>
-      `z = ptr` by (Cases_on`ev`>>simp[Abbr`z`]
-        >- METIS_TAC[MULT_DIV,MULT_COMM,DECIDE``0:num < 2``] >>
-        ONCE_REWRITE_TAC[MULT_COMM] >>
-        simp[ADD_DIV_ADD_DIV]) >>
-      simp[] )
+      Q.PAT_ABBREV_TAC `z = X DIV 2` >>
+      `z = ptr + 1` by ALL_TAC THEN1
+       (UNABBREV_ALL_TAC \\ SRW_TAC [] []
+        \\ fs [DIV_EQ_X] \\ DECIDE_TAC)
+      \\ fs [])
     \\ Q.UNABBREV_TAC`v` \\ POP_ASSUM SUBST1_TAC
     \\ SIMP_TAC std_ss [isValueArray_def,getValueArray_def]
     \\ ASM_SIMP_TAC std_ss [x64_inst_length_def,x64_def,small_offset_def,
@@ -15913,9 +15922,9 @@ val zBC_HEAP_THM = prove(
     \\ ASM_SIMP_TAC std_ss [SEP_IMP_def,SEP_EXISTS_THM,getContent_def,EL_MAP]
     \\ REPEAT STRIP_TAC
     \\ FULL_SIMP_TAC (srw_ss()) [SEP_DISJ_def]
-    \\ Q.LIST_EXISTS_TAC [`RefPtr (if ev then 2 * ptr else 2 * ptr + 1)`,`x3`]
+    \\ Q.LIST_EXISTS_TAC [`RefPtr (if ev then 2 * (ptr+1) else 2 * (ptr+1) + 1)`,`x3`]
     \\ FULL_SIMP_TAC (std_ss++star_ss) [GSYM ADD_ASSOC,bc_adjust_def,
-         MAP,getTag_def])
+         MAP,getTag_def] \\ fs [LEFT_ADD_DISTRIB,GSYM ADD_ASSOC])
   THEN1 (* DerefByte *) ERROR_TAC
   THEN1 (* Update *)
    (SIMP_TAC std_ss [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF]
@@ -15929,18 +15938,17 @@ val zBC_HEAP_THM = prove(
          isRefPtr_def,getRefPtr_def,isNumber_def,getNumber_def]
     \\ FULL_SIMP_TAC (srw_ss()) [word_mul_n2w]
     \\ Q.PAT_ABBREV_TAC`v:ref_value = a ' b`
-    \\ `v = ValueArray (MAP (bc_adjust (cb,sb,ev)) vs)`  by (
-      simp[Abbr`v`,ref_adjust_def,FUN_FMAP_DEF,FUNION_DEF] >>
+    \\ `v = ValueArray (MAP (bc_adjust (cb,sb,ev)) vs)` by
+     (simp[Abbr`v`,ref_adjust_def,FUN_FMAP_DEF,FUNION_DEF] >>
       reverse IF_CASES_TAC >- (fs[FLOOKUP_DEF] >> METIS_TAC[]) >>
       fs[FLOOKUP_DEF] >> qmatch_assum_rename_tac`z IN FDOM s1.refs`[] >>
       `z = ptr` by (Cases_on`ev`>>fsrw_tac[ARITH_ss][]) >>
       BasicProvers.VAR_EQ_TAC >>
-      Q.PAT_ABBREV_TAC`z = X DIV 2` >>
-      `z = ptr` by (Cases_on`ev`>>simp[Abbr`z`]
-        >- METIS_TAC[MULT_DIV,MULT_COMM,DECIDE``0:num < 2``] >>
-        ONCE_REWRITE_TAC[MULT_COMM] >>
-        simp[ADD_DIV_ADD_DIV]) >>
-      simp[] )
+      Q.PAT_ABBREV_TAC `z = X DIV 2` >>
+      `z = ptr + 1` by ALL_TAC THEN1
+       (UNABBREV_ALL_TAC \\ SRW_TAC [] []
+        \\ fs [DIV_EQ_X] \\ DECIDE_TAC)
+      \\ fs [])
     \\ Q.UNABBREV_TAC`v` \\ POP_ASSUM SUBST1_TAC
     \\ SIMP_TAC std_ss [isValueArray_def,getValueArray_def]
     \\ ASM_SIMP_TAC std_ss [x64_inst_length_def,x64_def,small_offset_def,
@@ -15949,40 +15957,29 @@ val zBC_HEAP_THM = prove(
     \\ ASM_SIMP_TAC std_ss [SEP_IMP_def,SEP_EXISTS_THM,getContent_def,EL_MAP]
     \\ REPEAT STRIP_TAC
     \\ FULL_SIMP_TAC (srw_ss()) [SEP_DISJ_def]
-    \\ Q.LIST_EXISTS_TAC [`Number (&n)`,`RefPtr (if ev then 2 * ptr else 2 * ptr + 1)`]
-    \\ `FUNION (ref_adjust (cb,sb,ev) (s1.refs |+ (ptr,ValueArray (LUPDATE x' n vs)))) f2 =
+    \\ Q.LIST_EXISTS_TAC [`Number (&n)`,
+         `RefPtr (if ev then 2 * (ptr+1) else 2 * (ptr+1) + 1)`]
+    \\ `FUNION (ref_adjust (cb,sb,ev)
+           (s1.refs |+ (ptr,ValueArray (LUPDATE x' n vs)))) f2 =
         FUNION (ref_adjust (cb,sb,ev) s1.refs) f2 |+
-           (if ev then 2 * ptr else 2 * ptr + 1,
-            ValueArray (LUPDATE (bc_adjust (cb,sb,ev) x') n (MAP (bc_adjust (cb,sb,ev)) vs)))` by (
-         simp[ref_adjust_def,GSYM fmap_EQ,FDOM_FUPDATE,FUN_EQ_THM,FUNION_DEF] >>
-         conj_tac >- METIS_TAC[] >>
-         simp[FUN_FMAP_DEF] >>
-         gen_tac >>
-         reverse IF_CASES_TAC >- (
-           simp[FAPPLY_FUPDATE_THM,FUNION_DEF] >>
-           rw[] >> fs[] >> rw[] >> fs[] >>
-           METIS_TAC[] ) >>
-         fs[] >- (
-           qmatch_assum_abbrev_tac`z = nn` >>
-           `nn DIV 2 = ptr` by (
-             UNABBREV_ALL_TAC >>
-             rw[] >> simp[DIV_EQ_X] ) >>
-           simp[FAPPLY_FUPDATE_THM,LUPDATE_MAP] ) >>
-         qmatch_assum_rename_tac`z ∈ FDOM s1.refs`[] >>
-         qmatch_assum_abbrev_tac`y = nn` >>
-         `nn DIV 2 = z` by (
-             UNABBREV_ALL_TAC >>
-             rw[] >> simp[DIV_EQ_X] ) >>
-         simp[FAPPLY_FUPDATE_THM] >>
-         Cases_on`z=ptr`>>simp[]>-(
-           simp[Abbr`nn`,LUPDATE_MAP]) >>
-         IF_CASES_TAC >- (
-           fs[Abbr`nn`] >> pop_assum mp_tac >>
-           rw[] >> fsrw_tac[ARITH_ss][DIV_EQ_X] ) >>
-         simp[FUNION_DEF,FUN_FMAP_DEF] >>
-         IF_CASES_TAC >> simp[] >>
-         METIS_TAC[] )
-    \\ FULL_SIMP_TAC (std_ss++star_ss) [])
+           (if ev then 2 * (ptr+1) else 2 * (ptr+1) + 1,
+            ValueArray (LUPDATE (bc_adjust (cb,sb,ev) x') n
+                       (MAP (bc_adjust (cb,sb,ev)) vs)))` by ALL_TAC
+    \\ TRY (FULL_SIMP_TAC (std_ss++star_ss) [LEFT_ADD_DISTRIB,GSYM ADD_ASSOC]
+            \\ NO_TAC)
+    \\ simp[ref_adjust_def,GSYM fmap_EQ,FDOM_FUPDATE,FUN_EQ_THM,FUNION_DEF] >>
+    conj_tac >- METIS_TAC[] >>
+    simp[FUN_FMAP_DEF] >>
+    gen_tac >>
+    reverse IF_CASES_TAC >- (
+      simp[FAPPLY_FUPDATE_THM,FUNION_DEF] >>
+      rw[] >> fs[] >> rw[] >> fs[] >>
+      METIS_TAC[]) >>
+    fs[ref_lemma]
+    \\ fs [LUPDATE_MAP]
+    \\ simp[FAPPLY_FUPDATE_THM,ref_lemma,ref_lemma2]
+    \\ Cases_on `n' = ptr` \\ fs [LUPDATE_MAP]
+    \\ fs [FUN_FMAP_DEF,FDOM_FINITE,IMAGE_FINITE,FUNION_DEF,ref_lemma2,ref_lemma])
   THEN1 (* UpdateByte *) ERROR_TAC
   THEN1 (* Length *)
     (SIMP_TAC std_ss [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF]
@@ -15996,18 +15993,17 @@ val zBC_HEAP_THM = prove(
           isRefPtr_def,getRefPtr_def,isNumber_def,getNumber_def]
      \\ FULL_SIMP_TAC (srw_ss()) [word_mul_n2w]
      \\ Q.PAT_ABBREV_TAC`v:ref_value = a ' b`
-     \\ `v = ValueArray (MAP (bc_adjust (cb,sb,ev)) vs)`  by (
-       simp[Abbr`v`,ref_adjust_def,FUN_FMAP_DEF,FUNION_DEF] >>
-       reverse IF_CASES_TAC >- (fs[FLOOKUP_DEF] >> METIS_TAC[]) >>
-       fs[FLOOKUP_DEF] >> qmatch_assum_rename_tac`z IN FDOM s1.refs`[] >>
-       `z = ptr` by (Cases_on`ev`>>fsrw_tac[ARITH_ss][]) >>
-       BasicProvers.VAR_EQ_TAC >>
-       Q.PAT_ABBREV_TAC`z = X DIV 2` >>
-       `z = ptr` by (Cases_on`ev`>>simp[Abbr`z`]
-         >- METIS_TAC[MULT_DIV,MULT_COMM,DECIDE``0:num < 2``] >>
-         ONCE_REWRITE_TAC[MULT_COMM] >>
-         simp[ADD_DIV_ADD_DIV]) >>
-       simp[] )
+    \\ `v = ValueArray (MAP (bc_adjust (cb,sb,ev)) vs)` by
+     (simp[Abbr`v`,ref_adjust_def,FUN_FMAP_DEF,FUNION_DEF] >>
+      reverse IF_CASES_TAC >- (fs[FLOOKUP_DEF] >> METIS_TAC[]) >>
+      fs[FLOOKUP_DEF] >> qmatch_assum_rename_tac`z IN FDOM s1.refs`[] >>
+      `z = ptr` by (Cases_on`ev`>>fsrw_tac[ARITH_ss][]) >>
+      BasicProvers.VAR_EQ_TAC >>
+      Q.PAT_ABBREV_TAC `z = X DIV 2` >>
+      `z = ptr + 1` by ALL_TAC THEN1
+       (UNABBREV_ALL_TAC \\ SRW_TAC [] []
+        \\ fs [DIV_EQ_X] \\ DECIDE_TAC)
+      \\ fs [])
      \\ Q.UNABBREV_TAC`v` \\ POP_ASSUM SUBST1_TAC
      \\ SIMP_TAC std_ss [isValueArray_def,getValueArray_def]
      \\ ASM_SIMP_TAC std_ss [x64_inst_length_def,x64_def,small_offset_def,
@@ -16032,18 +16028,17 @@ val zBC_HEAP_THM = prove(
           isRefPtr_def,getRefPtr_def,isNumber_def,getNumber_def]
      \\ FULL_SIMP_TAC (srw_ss()) [word_mul_n2w]
      \\ Q.PAT_ABBREV_TAC`v:ref_value = a ' b`
-     \\ `v = ByteArray vs`  by (
-       simp[Abbr`v`,ref_adjust_def,FUN_FMAP_DEF,FUNION_DEF] >>
-       reverse IF_CASES_TAC >- (fs[FLOOKUP_DEF] >> METIS_TAC[]) >>
-       fs[FLOOKUP_DEF] >> qmatch_assum_rename_tac`z IN FDOM s1.refs`[] >>
-       `z = ptr` by (Cases_on`ev`>>fsrw_tac[ARITH_ss][]) >>
-       BasicProvers.VAR_EQ_TAC >>
-       Q.PAT_ABBREV_TAC`z = X DIV 2` >>
-       `z = ptr` by (Cases_on`ev`>>simp[Abbr`z`]
-         >- METIS_TAC[MULT_DIV,MULT_COMM,DECIDE``0:num < 2``] >>
-         ONCE_REWRITE_TAC[MULT_COMM] >>
-         simp[ADD_DIV_ADD_DIV]) >>
-       simp[] )
+     \\ `v = ByteArray vs`  by
+     (simp[Abbr`v`,ref_adjust_def,FUN_FMAP_DEF,FUNION_DEF] >>
+      reverse IF_CASES_TAC >- (fs[FLOOKUP_DEF] >> METIS_TAC[]) >>
+      fs[FLOOKUP_DEF] >> qmatch_assum_rename_tac`z IN FDOM s1.refs`[] >>
+      `z = ptr` by (Cases_on`ev`>>fsrw_tac[ARITH_ss][]) >>
+      BasicProvers.VAR_EQ_TAC >>
+      Q.PAT_ABBREV_TAC `z = X DIV 2` >>
+      `z = ptr + 1` by ALL_TAC THEN1
+       (UNABBREV_ALL_TAC \\ SRW_TAC [] []
+        \\ fs [DIV_EQ_X] \\ DECIDE_TAC)
+      \\ fs [])
      \\ Q.UNABBREV_TAC`v` \\ POP_ASSUM SUBST1_TAC
      \\ SIMP_TAC std_ss [isByteArray_def,getByteArray_def]
      \\ ASM_SIMP_TAC std_ss [x64_inst_length_def,x64_def,small_offset_def,
@@ -16056,12 +16051,14 @@ val zBC_HEAP_THM = prove(
      \\ Q.LIST_EXISTS_TAC [`x2`,`x3`]
      \\ simp[SEP_DISJ_def]
      \\ FULL_SIMP_TAC (std_ss++star_ss++ARITH_ss)[ADD1])
+
   THEN1 (* Galloc *)
     ERROR_TAC
   THEN1 (* Gupdate *)
     ERROR_TAC
   THEN1 (* Gread *)
     ERROR_TAC
+
   THEN1 (* Tick *)
    (SIMP_TAC std_ss [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF]
     \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
