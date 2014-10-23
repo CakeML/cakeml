@@ -2003,7 +2003,8 @@ val AUTO_ETA_EXPAND_CONV = let (* ``K ($=) --> K (\x y. x = y)`` *)
   val expand_ops = [``($+):num->num->num``, ``($-):num->num->num``,
     ``($*):num->num->num``, ``($DIV):num->num->num``,
     ``($MOD):num->num->num``, ``($+):int->int->int``,
-    ``($-):int->int->int``, ``($*):int->int->int``]
+    ``($-):int->int->int``, ``($*):int->int->int``,
+    ``implode:(char list)->mlstring``,``explode:mlstring->(char list)``]
   val eq_const = ``($=):'a->'a->bool``
   fun must_eta_expand tm =
     TypeBase.is_constructor tm orelse
