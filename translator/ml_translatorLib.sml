@@ -2296,6 +2296,8 @@ val implode_pat = Eval_implode |> SPEC_ALL
   |> concl |> dest_imp |> snd |> rand |> rand
 val explode_pat = Eval_explode |> SPEC_ALL
   |> concl |> dest_imp |> snd |> rand |> rand
+val strlen_pat = Eval_strlen |> SPEC_ALL
+  |> concl |> dest_imp |> snd |> rand |> rand
 
 val chr_pat = Eval_Chr |> concl |> funpow 4 rand
 val ord_pat = Eval_Ord |> concl |> funpow 3 rand
@@ -2383,6 +2385,11 @@ fun hol2deep tm =
     val th1 = hol2deep x1
     val result = MATCH_MP Eval_explode th1
     in check_inv "explode" tm result end else
+  if can (match_term strlen_pat) tm then let
+    val x1 = rand tm
+    val th1 = hol2deep x1
+    val result = MATCH_MP Eval_strlen th1
+    in check_inv "strlen" tm result end else
   (* boolean not *)
   if can (match_term ``~(b:bool)``) tm then let
     val x1 = rand tm

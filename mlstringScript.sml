@@ -32,7 +32,6 @@ val strcat_def = Define`
 val _ = Parse.add_infix("^",480,Parse.LEFT)
 val _ = Parse.overload_on("^",``λx y. strcat x y``)
 
-(* TODO: don't explode once CakeML supports string length *)
 val strlen_def = Define`
   strlen s = LENGTH (explode s)`
 

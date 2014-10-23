@@ -810,16 +810,19 @@ val LIST_TYPE_CHAR_char_list_to_v = store_thm("LIST_TYPE_CHAR_char_list_to_v",
   ``∀l. LIST_TYPE CHAR l (char_list_to_v l)``,
   Induct >> simp[char_list_to_v_def,LIST_TYPE_def,CHAR_def])
 
-val Eval_implode = store_thm("Eval_implode",
-  ``!env x1 l.
-      Eval env x1 (LIST_TYPE CHAR l) ==>
-      Eval env (App Implode [x1]) (STRING_TYPE (implode l))``,
+val tac =
   rw[Eval_def] >>
   rw[Once evaluate_cases] >>
   rw[Once evaluate_cases,PULL_EXISTS] >>
   first_assum(miscLib.match_exists_tac o concl) >> rw[] >>
   rw[Once evaluate_cases] >>
-  rw[do_app_cases,PULL_EXISTS] >>
+  rw[do_app_cases,PULL_EXISTS]
+
+val Eval_implode = store_thm("Eval_implode",
+  ``!env x1 l.
+      Eval env x1 (LIST_TYPE CHAR l) ==>
+      Eval env (App Implode [x1]) (STRING_TYPE (implode l))``,
+  tac >>
   rw[STRING_TYPE_def] >>
   imp_res_tac LIST_TYPE_CHAR_v_to_char_list >>
   simp[stringTheory.IMPLODE_EXPLODE_I,mlstringTheory.explode_implode])
@@ -828,14 +831,16 @@ val Eval_explode = store_thm("Eval_explode",
   ``!env x1 s.
       Eval env x1 (STRING_TYPE s) ==>
       Eval env (App Explode [x1]) (LIST_TYPE CHAR (explode s))``,
-  rw[Eval_def] >>
-  rw[Once evaluate_cases] >>
-  rw[Once evaluate_cases,PULL_EXISTS] >>
-  first_assum(miscLib.match_exists_tac o concl) >> rw[] >>
-  rw[Once evaluate_cases] >>
-  rw[do_app_cases,PULL_EXISTS] >>
+  tac >>
   fs[STRING_TYPE_def,stringTheory.IMPLODE_EXPLODE_I,
      LIST_TYPE_CHAR_char_list_to_v])
+
+val Eval_strlen = store_thm("Eval_strlen",
+  ``!env x1 s.
+      Eval env x1 (STRING_TYPE s) ==>
+      Eval env (App Strlen [x1]) (NUM (strlen s))``,
+  tac >>
+  fs[STRING_TYPE_def,NUM_def,INT_def,mlstringTheory.strlen_def])
 
 (* vectors *)
 
