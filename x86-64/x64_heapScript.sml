@@ -14811,23 +14811,44 @@ val ref_adjust_def = Define `
                     | x => x)
                (IMAGE adj (FDOM refs1))`;
 
+val globals_count_def = Define `
+  globals_count = 10000:num`;
+
+val ref_globals_list_def = Define `
+  (ref_globals_list x 0 = []) /\
+  (ref_globals_list [] (SUC n) = Number 0 :: ref_globals_list [] n) /\
+  (ref_globals_list (NONE::xs) (SUC n) = Number 0 :: ref_globals_list xs n) /\
+  (ref_globals_list (SOME x::xs) (SUC n) = x :: ref_globals_list xs n)`;
+
+val ref_globals_def = Define `
+  ref_globals ev globals =
+    FEMPTY |+ (if ev then 0 else (1:num),
+      ValueArray (ref_globals_list globals globals_count))`;
+
+val ref_addr_def = Define `
+  ref_addr ev x = Block 0 [if ev then RefPtr 0 else RefPtr 1; x]`;
+
 val zBC_HEAP_def = Define `
   zBC_HEAP bs (x,cs,stack,s,out) (cb,sb,ev,f2) =
     SEP_EXISTS x2 x3.
       let ss = MAP (bc_adjust (cb,sb,ev)) bs.stack ++ (Number 0) :: stack in
-        zHEAP (cs,HD ss,x2,x3,x,FUNION (ref_adjust (cb,sb,ev) bs.refs) f2,TL ss,
-                  s with <| output := (if s.local.printing_on = 0w then out
-                                       else out ++ bs.output) ;
-                            handler := bs.handler + SUC (LENGTH stack) |>,NONE)`;
+        zHEAP (cs,HD ss,x2,x3,ref_addr ev x,
+               FUNION (ref_adjust (cb,sb,ev) bs.refs)
+                      (FUNION (ref_globals ev bs.globals) f2),TL ss,
+               s with <| output := (if s.local.printing_on = 0w then out
+                                    else out ++ bs.output) ;
+                         handler := bs.handler + SUC (LENGTH stack) |>,NONE)`;
 
 val zBC_HEAP_1_def = Define `
   zBC_HEAP_1 bs y (x,cs,stack,s,out) (cb,sb,ev,f2) =
     SEP_EXISTS x2 x3.
-      zHEAP (cs,y,x2,x3,x,FUNION (ref_adjust (cb,sb,ev) bs.refs) f2,
+      zHEAP (cs,y,x2,x3,ref_addr ev x,
+             FUNION (ref_adjust (cb,sb,ev) bs.refs)
+                    (FUNION (ref_globals ev bs.globals) f2),
              MAP (bc_adjust (cb,sb,ev)) bs.stack ++ (Number 0) :: stack,
-                s with <| output := (if s.local.printing_on = 0w then out
-                                     else out ++ bs.output) ;
-                          handler := bs.handler + SUC (LENGTH stack) |>,NONE)`;
+             s with <| output := (if s.local.printing_on = 0w then out
+                                  else out ++ bs.output) ;
+                       handler := bs.handler + SUC (LENGTH stack) |>,NONE)`;
 
 fun prepare th = let
   val th = if can (find_term (fn tm => tm = ``zS``)) (concl th)
@@ -15960,8 +15981,10 @@ val zBC_HEAP_THM = prove(
     \\ Q.LIST_EXISTS_TAC [`Number (&n)`,
          `RefPtr (if ev then 2 * (ptr+1) else 2 * (ptr+1) + 1)`]
     \\ `FUNION (ref_adjust (cb,sb,ev)
-           (s1.refs |+ (ptr,ValueArray (LUPDATE x' n vs)))) f2 =
-        FUNION (ref_adjust (cb,sb,ev) s1.refs) f2 |+
+           (s1.refs |+ (ptr,ValueArray (LUPDATE x' n vs))))
+               (FUNION (ref_globals ev s1.globals) f2) =
+        FUNION (ref_adjust (cb,sb,ev) s1.refs)
+          (FUNION (ref_globals ev s1.globals) f2) |+
            (if ev then 2 * (ptr+1) else 2 * (ptr+1) + 1,
             ValueArray (LUPDATE (bc_adjust (cb,sb,ev) x') n
                        (MAP (bc_adjust (cb,sb,ev)) vs)))` by ALL_TAC
@@ -16399,6 +16422,9 @@ val full_s_with_stop_def = Define `
     full_s init with
          local := (full_s init).local with stop_addr := stop_addr`;
 
+
+(* following broken because globals ref not properly set up
+
 val zBC_HEAP_INIT = let
   val th0 = SPEC_COMPOSE_RULE [zHEAP_INIT,zHEAP_ABBREVS,zHEAP_PUSH1,
               zHEAP_SET_PRINTING_ON,zWRITE_HANDLER,zHEAP_POP1,zHEAP_SET_STOP_TO_TERMINATE]
@@ -16420,6 +16446,12 @@ val zBC_HEAP_INIT = let
     THEN1 EVAL_TAC \\ fs [AC STAR_ASSOC STAR_COMM]);
   val th = MP th lemma
   in th end
+
+*)
+
+
+
+
 
 
 
