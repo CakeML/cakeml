@@ -422,6 +422,16 @@ let do_app_exh ((count,s),genv) op vs =
                   end
         | _ -> Nothing
       end
+    | (Op_i2 Ord, [Litv_exh (Char c)]) ->
+          Just (((count,s),genv), Rval (Litv_exh(IntLit(integerFromNat(String_extra.ord c)))))
+    | (Op_i2 Chr, [Litv_exh (IntLit i)]) ->
+        Just (((count,s),genv),
+          if i < 0 || i > 255 then
+            Rerr (Rraise (prim_exn_exh chr_tag))
+          else
+            Rval (Litv_exh(Char(String_extra.chr(natFromInteger i)))))
+    | (Op_i2 (Chopb op), [Litv_exh (Char c1); Litv_exh (Char c2)]) ->
+        Just (((count,s),genv), Rval (Litv_exh (Bool (opb_lookup op (integerFromNat(String_extra.ord c1)) (integerFromNat(String_extra.ord c2))))))
     | (Op_i2 Implode, [v]) ->
           match v_exh_to_char_list v with
           | Just ls ->
@@ -430,6 +440,8 @@ let do_app_exh ((count,s),genv) op vs =
           end
     | (Op_i2 Explode, [Litv_exh (StrLit str)]) ->
         Just (((count,s),genv), Rval (char_list_to_v_exh (toCharList str)))
+    | (Op_i2 Strlen, [Litv_exh (StrLit str)]) ->
+        Just (((count,s),genv), Rval (Litv_exh(IntLit(integerFromNat(stringLength str)))))
     | (Op_i2 VfromList, [v]) ->
           match v_to_list_exh v with
             | Just vs ->

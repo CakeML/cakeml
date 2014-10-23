@@ -466,28 +466,32 @@ val lookup_tenvC_st_ex_success = Q.prove (
  fs [st_ex_return_def]);
 
 val op_case_expand = Q.prove (
-`!f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 op st v st'.
+`!f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 op st v st'.
   ((case op of
        Opn opn => f1
      | Opb opb => f2
      | Equality => f3
      | Opapp => f4
-     | Opassign => f5 
+     | Opassign => f5
      | Opref => f6
      | Opderef => f7
      | Aw8length => f8
      | Aw8alloc => f9
      | Aw8sub => f10
      | Aw8update => f11
-     | Explode => f12
-     | Implode => f13
-     | VfromList => f14
-     | Vsub => f15
-     | Vlength => f16
-     | Alength => f17 
-     | Aalloc => f18
-     | Asub => f19
-     | Aupdate => f20) st
+     | Ord => f12
+     | Chr => f13
+     | Chopb opb => f14
+     | Explode => f15
+     | Implode => f16
+     | Strlen => f17
+     | VfromList => f18
+     | Vsub => f19
+     | Vlength => f20
+     | Alength => f21
+     | Aalloc => f22
+     | Asub => f23
+     | Aupdate => f24) st
    = (Success v, st'))
   =
   ((?opn. (op = Opn opn) ∧ (f1 st = (Success v, st'))) ∨
@@ -501,15 +505,19 @@ val op_case_expand = Q.prove (
    ((op = Aw8alloc) ∧ (f9 st = (Success v, st'))) ∨
    ((op = Aw8sub) ∧ (f10 st = (Success v, st'))) ∨
    ((op = Aw8update) ∧ (f11 st = (Success v, st'))) ∨
-   ((op = Explode) ∧ (f12 st = (Success v, st'))) ∨
-   ((op = Implode) ∧ (f13 st = (Success v, st'))) ∨
-   ((op = VfromList) ∧ (f14 st = (Success v, st'))) ∨
-   ((op = Vsub) ∧ (f15 st = (Success v, st'))) ∨
-   ((op = Vlength) ∧ (f16 st = (Success v, st'))) ∨
-   ((op = Alength) ∧ (f17 st = (Success v, st'))) ∨
-   ((op = Aalloc) ∧ (f18 st = (Success v, st'))) ∨
-   ((op = Asub) ∧ (f19 st = (Success v, st'))) ∨
-   ((op = Aupdate) ∧ (f20 st = (Success v, st'))))`,
+   ((op = Ord) ∧ (f12 st = (Success v, st'))) ∨
+   ((op = Chr) ∧ (f13 st = (Success v, st'))) ∨
+   (?opb. (op = Chopb opb)) ∧ (f14 st = (Success v, st')) ∨
+   ((op = Explode) ∧ (f15 st = (Success v, st'))) ∨
+   ((op = Implode) ∧ (f16 st = (Success v, st'))) ∨
+   ((op = Strlen) ∧ (f17 st = (Success v, st'))) ∨
+   ((op = VfromList) ∧ (f18 st = (Success v, st'))) ∨
+   ((op = Vsub) ∧ (f19 st = (Success v, st'))) ∨
+   ((op = Vlength) ∧ (f20 st = (Success v, st'))) ∨
+   ((op = Alength) ∧ (f21 st = (Success v, st'))) ∨
+   ((op = Aalloc) ∧ (f22 st = (Success v, st'))) ∨
+   ((op = Asub) ∧ (f23 st = (Success v, st'))) ∨
+   ((op = Aupdate) ∧ (f24 st = (Success v, st'))))`,
 rw [] >>
 cases_on `op` >>
 rw []);
@@ -1475,7 +1483,20 @@ val constrain_op_check_s = Q.prove (
      `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_char)` by rw [check_t_def] >>
      metis_tac[check_t_more2, arithmeticTheory.ADD_0])
  >- (match_mp_tac t_unify_check_s >>
+     metis_tac[check_t_more2, arithmeticTheory.ADD_0])
+ >- (match_mp_tac t_unify_check_s >>
+     CONV_TAC(STRIP_QUANT_CONV(miscLib.lift_conjunct_conv(same_const``t_unify`` o fst o strip_comb o lhs))) >>
+     first_assum(miscLib.match_exists_tac o concl) >>
+     `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_char)` by rw [check_t_def] >>
+     metis_tac[t_unify_check_s, t_unify_wfs, check_t_more2, arithmeticTheory.ADD_0])
+ >- (match_mp_tac t_unify_check_s >>
+     CONV_TAC(STRIP_QUANT_CONV(miscLib.lift_conjunct_conv(same_const``t_unify`` o fst o strip_comb o lhs))) >>
+     first_assum(miscLib.match_exists_tac o concl) >>
+     metis_tac[t_unify_check_s, t_unify_wfs, check_t_more2, arithmeticTheory.ADD_0])
+ >- (match_mp_tac t_unify_check_s >>
      `!uvs tvs. check_t tvs uvs (Infer_Tapp [Infer_Tapp [] TC_char] (TC_name (Short "list")))` by rw [check_t_def] >>
+     metis_tac[check_t_more2, arithmeticTheory.ADD_0])
+ >- (match_mp_tac t_unify_check_s >>
      metis_tac[check_t_more2, arithmeticTheory.ADD_0])
  >- (`check_t 0 (count (st.next_uvar + 1)) h`
                     by metis_tac [EVERY_DEF, check_t_more4, DECIDE ``x ≤ x + 1:num``] >>

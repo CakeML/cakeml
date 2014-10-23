@@ -109,6 +109,7 @@ let pure_op op =
   op <> Aw8alloc &&
   op <> Aw8sub &&
   op <> Vsub &&
+  op <> Chr &&
   op <> Aupdate &&
   op <> Aalloc &&
   op <> Asub &&
@@ -525,6 +526,16 @@ let do_app_pat ((cnt,s),genv) op vs =
                   end
         | _ -> Nothing
         end
+    | (Op_pat (Op_i2 Ord), [Litv_pat (Char c)]) ->
+          Just (((cnt,s),genv), Rval (Litv_pat(IntLit(integerFromNat(String_extra.ord c)))))
+    | (Op_pat (Op_i2 Chr), [Litv_pat (IntLit i)]) ->
+        Just (((cnt,s),genv),
+          if i < 0 || i > 255 then
+            Rerr (Rraise (prim_exn_pat chr_tag))
+          else
+            Rval (Litv_pat(Char(String_extra.chr(natFromInteger i)))))
+    | (Op_pat (Op_i2 (Chopb op)), [Litv_pat (Char c1); Litv_pat (Char c2)]) ->
+        Just (((cnt,s),genv), Rval (Litv_pat (Bool (opb_lookup op (integerFromNat(String_extra.ord c1)) (integerFromNat(String_extra.ord c2))))))
     | (Op_pat (Op_i2 Implode), [v]) ->
           match v_pat_to_char_list v with
           | Just ls ->
@@ -533,6 +544,8 @@ let do_app_pat ((cnt,s),genv) op vs =
           end
     | (Op_pat (Op_i2 Explode), [Litv_pat (StrLit str)]) ->
         Just (((cnt,s),genv), Rval (char_list_to_v_pat (toCharList str)))
+    | (Op_pat (Op_i2 Strlen), [Litv_pat (StrLit str)]) ->
+        Just (((cnt,s),genv), Rval (Litv_pat(IntLit(integerFromNat(stringLength str)))))
     | (Op_pat (Op_i2 VfromList), [v]) ->
           match v_to_list_pat v with
             | Just vs ->

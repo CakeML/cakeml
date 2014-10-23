@@ -423,6 +423,16 @@ let do_app_i1 s op vs =
                   end
         | _ -> Nothing
         end
+    | (Ord, [Litv_i1 (Char c)]) ->
+          Just (s, Rval (Litv_i1(IntLit(integerFromNat(String_extra.ord c)))))
+    | (Chr, [Litv_i1 (IntLit i)]) ->
+        Just (s,
+          if i < 0 || i > 255 then
+            Rerr (Rraise (prim_exn_i1 "Chr"))
+          else
+            Rval (Litv_i1(Char(String_extra.chr(natFromInteger i)))))
+    | (Chopb op, [Litv_i1 (Char c1); Litv_i1 (Char c2)]) ->
+        Just (s, Rval (Litv_i1 (Bool (opb_lookup op (integerFromNat(String_extra.ord c1)) (integerFromNat(String_extra.ord c2))))))
     | (Implode, [v]) ->
           match v_i1_to_char_list v with
           | Just ls ->
@@ -431,6 +441,8 @@ let do_app_i1 s op vs =
           end
     | (Explode, [Litv_i1 (StrLit str)]) ->
         Just (s, Rval (char_list_to_v_i1 (toCharList str)))
+    | (Strlen, [Litv_i1 (StrLit str)]) ->
+        Just (s, Rval (Litv_i1(IntLit(integerFromNat(stringLength str)))))
     | (VfromList, [v]) ->
           match v_to_list_i1 v with
             | Just vs ->

@@ -88,7 +88,18 @@ val do_app_cases = Q.store_thm ("do_app_cases",
       Num (ABS i) < LENGTH ws ∧
       store_assign lnum (W8array (LUPDATE w (Num (ABS i)) ws)) st = SOME st' ∧
       v = Rval (Litv Unit)))) ∨
-  (?vs' str.
+  (?n.
+    (op = Chr) ∧ (vs = [Litv(IntLit n)]) ∧ st = st' ∧
+    ((n < 0 ∧ v = Rerr (Rraise (prim_exn "Chr"))) ∨
+     (n > 255 ∧ v = Rerr (Rraise (prim_exn "Chr"))) ∨
+     (~(n < 0) ∧ ~(n > 255) ∧ v = Rval (Litv(Char(CHR(Num(ABS n)))))))) ∨
+  (?c.
+    (op = Ord) ∧ (vs = [Litv(Char c)]) ∧ st = st' ∧
+    (v = Rval(Litv(IntLit(&(ORD c)))))) ∨
+  (?opb c1 c2.
+    (op = Chopb opb) ∧ (vs = [Litv(Char c1);Litv(Char c2)]) ∧
+    (st = st') ∧ (v = Rval(Litv(Bool(opb_lookup opb (&(ORD c1)) (&(ORD c2))))))) ∨
+  (?str.
     (op = Explode) ∧ (vs = [Litv(StrLit str)]) ∧
     st = st' ∧
     v = Rval (char_list_to_v (EXPLODE str))) ∨
@@ -96,6 +107,10 @@ val do_app_cases = Q.store_thm ("do_app_cases",
     (op = Implode) ∧ (vs = [v']) ∧ (SOME vs' = v_to_char_list v') ∧
     st = st' ∧
     v = Rval (Litv (StrLit (IMPLODE vs')))) ∨
+  (?str.
+    (op = Strlen) ∧ (vs = [Litv(StrLit str)]) ∧
+    st = st' ∧
+    v = Rval (Litv(IntLit(&(STRLEN str))))) ∨
   (?vs' v'.
     (op = VfromList) ∧ (vs = [v']) ∧ (SOME vs' = v_to_list v') ∧
     st = st' ∧

@@ -10,9 +10,9 @@ open import ConLang
 (* Syntax *)
 
 (* pure applicative primitives with bytecode counterparts *)
-type Cprim1 = CRef | CDer | CIsBlock | CLen | CLenB | CLenV
+type Cprim1 = CRef | CDer | CIsBlock | CLen | CLenB | CLenV | CLenS
             | CTagEq of nat | CProj of nat | CInitG of nat
-            | CVfromList | CExplode | CImplode
+            | CVfromList | CExplode | CImplode | CChr | COrd
 type Cprim2p = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq | CDerV
 type Cprim2s = CRefB | CDerB | CRefA | CDerA
 type Cprim2 = P2p of Cprim2p | P2s of Cprim2s
@@ -270,6 +270,9 @@ and
 CevalPrim1 CLenV sg (CVectorv vs) =
   (sg, Rval (CLitv (IntLit (integerFromNat (List.length vs)))))
 and
+CevalPrim1 CLenS sg (CLitv (StrLit str)) =
+  (sg, Rval (CLitv (IntLit (integerFromNat (stringLength str)))))
+and
 CevalPrim1 CIsBlock sg (CLitv l) =
   (sg, Rval (CLitv (Bool (match l with IntLit _ -> false | Word8 _ -> false | Char _ -> false | _ -> true end))))
 and
@@ -301,6 +304,13 @@ CevalPrim1 CVfromList sg v =
        | Just vs -> Rval (CVectorv vs)
        | Nothing -> Rerr Rtype_error
        end)
+and
+CevalPrim1 CChr sg (CLitv (IntLit i)) =
+  (sg, if i < 0 || i > 255 then Rerr Rtype_error
+       else Rval (CLitv (Char (String_extra.chr (natFromInteger i)))))
+and
+CevalPrim1 COrd sg (CLitv (Char c)) =
+  (sg, Rval (CLitv (IntLit (integerFromNat (String_extra.ord c)))))
 and
 CevalPrim1 _ sg _ = (sg, Rerr Rtype_error)
 

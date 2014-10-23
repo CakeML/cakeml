@@ -29,6 +29,7 @@ val _ = Define `
 val _ = Define `
  (prim_types_program =  
 ([Tdec (Dexn "Bind" []);
+   Tdec (Dexn "Chr" []);
    Tdec (Dexn "Div" []);
    Tdec (Dexn "Eq" []);
    Tdec (Dexn "Subscript" []);

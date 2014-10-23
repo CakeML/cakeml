@@ -2281,6 +2281,40 @@ val prim1_to_bc_thm = store_thm("prim1_to_bc_thm",
       gvrel bs.globals gv ∧
       rd.sm ≼ sm'``,
   simp[] >> rw[] >>
+  Cases_on`op = CChr` >- (
+    fs[] >> Cases_on`v1`>>fs[] >>
+    Cases_on`l`>>fs[] >>
+    BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
+    fs[Cv_bv_cases_lit] >> rw[] >>
+    simp[integerTheory.INT_ABS] >>
+    `Num i < 256` by intLib.COOPER_TAC >>
+    simp[stringTheory.ORD_CHR_RWT] >>
+    `0 <= i` by intLib.COOPER_TAC >>
+    fs[GSYM integerTheory.INT_OF_NUM] >>
+    map_every qexists_tac[`bs.refs`,`bs.globals`,`rd.sm`] >>
+    simp[] >>
+    Q.PAT_ABBREV_TAC`bs':bc_state = X Y` >>
+    `bs' = bs` by (
+      simp[Abbr`bs'`,bc_state_component_equality] ) >>
+    rw[Abbr`bs'`] >>
+    Q.PAT_ABBREV_TAC`bs':bc_state = X Y` >>
+    `bs' = bs with code := bce` by (
+      simp[Abbr`bs'`,bc_state_component_equality] ) >>
+    rw[Abbr`bs'`] ) >>
+  Cases_on`op = COrd` >- (
+    fs[] >> Cases_on`v1`>>fs[] >>
+    Cases_on`l`>>fs[] >> rw[] >>
+    fs[Cv_bv_cases_lit] >> rw[] >>
+    map_every qexists_tac[`bs.refs`,`bs.globals`,`rd.sm`] >>
+    simp[] >>
+    Q.PAT_ABBREV_TAC`bs':bc_state = X Y` >>
+    `bs' = bs` by (
+      simp[Abbr`bs'`,bc_state_component_equality] ) >>
+    rw[Abbr`bs'`] >>
+    Q.PAT_ABBREV_TAC`bs':bc_state = X Y` >>
+    `bs' = bs with code := bce` by (
+      simp[Abbr`bs'`,bc_state_component_equality] ) >>
+    rw[Abbr`bs'`] ) >>
   `bc_fetch bs = SOME (HD (prim1_to_bc op))` by (
     match_mp_tac bc_fetch_next_addr >>
     map_every qexists_tac[`bc0`,`(TL (prim1_to_bc op)) ++ bc1`] >>
@@ -2538,6 +2572,15 @@ val prim1_to_bc_thm = store_thm("prim1_to_bc_thm",
     simp[Cv_bv_cases_lit] >>
     qexists_tac`rd.sm` >> simp[] >>
     imp_res_tac LIST_REL_LENGTH >> simp[] >>
+    match_mp_tac s_refs_with_irr >>
+    HINT_EXISTS_TAC >> simp[] )
+  >- ((*LengthBlock (string) *)
+    Cases_on`v1`>>fs[Cv_bv_cases_lit]>>fs[]>>rw[]>>
+    simp[bc_eval_stack_def] >>
+    srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+    simp[bc_state_component_equality,FILTER_APPEND,SUM_APPEND] >>
+    simp[Cv_bv_cases_lit] >>
+    qexists_tac`rd.sm` >> simp[] >>
     match_mp_tac s_refs_with_irr >>
     HINT_EXISTS_TAC >> simp[] )
   >- ( (*TagEq*)
@@ -7299,7 +7342,8 @@ fun tac18 t =
     Cases_on`e`>>simp[]>>
     Cases_on`v`>>fs[] >> rw[]>>
     BasicProvers.EVERY_CASE_TAC >> fs[] >>
-    Cases_on`l`>>fs[]) >>
+    Cases_on`l`>>fs[] >>
+    BasicProvers.EVERY_CASE_TAC >> fs[]) >>
   strip_tac >- (
     simp[] >>
     rpt gen_tac >> strip_tac >>

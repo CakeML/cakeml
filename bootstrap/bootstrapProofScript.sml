@@ -386,7 +386,7 @@ val LIST_TYPE_CHAR_BlockList = prove(
   simp[PULL_EXISTS] >> simp conv_rws >>
   simp[PULL_EXISTS] >> simp conv_rws >>
   simp[BlockList_def,BlockCons_def] >>
-  simp[ml_repl_stepTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+  simp[ml_translatorTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
   simp conv_rws >>
   simp[Chr_def] >> rw[] >>
   fs[printingTheory.v_bv_def,printingTheory.exh_Cv_def] >>
@@ -466,7 +466,7 @@ val LEXER_FUN_SYMBOL_TYPE_v_bv = prove(
    |> (fn th => first_x_assum(mp_tac o MATCH_MP th))) >>
   disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
   disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
-  simp[ml_repl_stepTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def,Chr_def] >>
+  simp[ml_translatorTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def,Chr_def] >>
   simp[printingTheory.v_bv_def,printingTheory.exh_Cv_def,PULL_EXISTS,GSYM CONJ_ASSOC] >>
   disch_then(qspecl_then[`d0`,`d2`,`d3`,`d4`]mp_tac) >>
   (discharge_hyps >- (

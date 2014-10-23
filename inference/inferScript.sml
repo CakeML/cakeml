@@ -308,6 +308,19 @@ constrain_op op ts =
           () <- add_constraint t3 (Infer_Tapp [] TC_word8);
           return (Infer_Tapp [] TC_unit)
         od
+   | (Chr, [t]) =>
+       do () <- add_constraint t (Infer_Tapp [] TC_int);
+          return (Infer_Tapp [] TC_char)
+       od
+   | (Ord, [t]) =>
+       do () <- add_constraint t (Infer_Tapp [] TC_char);
+          return (Infer_Tapp [] TC_int)
+       od
+   | (Chopb opb, [t1;t2]) =>
+       do () <- add_constraint t1 (Infer_Tapp [] TC_char);
+          () <- add_constraint t2 (Infer_Tapp [] TC_char);
+          return (Infer_Tapp [] TC_bool)
+       od
    | (Explode, [t]) =>
        do () <- add_constraint t (Infer_Tapp [] TC_string);
           return (Infer_Tapp [Infer_Tapp [] TC_char] (TC_name (Short "list")))
@@ -315,6 +328,10 @@ constrain_op op ts =
    | (Implode, [t]) =>
        do () <- add_constraint t (Infer_Tapp [Infer_Tapp [] TC_char] (TC_name (Short "list")));
           return (Infer_Tapp [] TC_string)
+       od
+   | (Strlen, [t]) =>
+       do () <- add_constraint t (Infer_Tapp [] TC_string);
+          return (Infer_Tapp [] TC_int)
        od
    | (VfromList, [t]) =>
        do uvar <- fresh_uvar;

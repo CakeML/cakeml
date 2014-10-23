@@ -19,8 +19,12 @@ val do_app_cases = store_thm("do_app_cases",
     (∃lnum i. op = Aw8sub ∧ vs = [Loc lnum; Litv (IntLit i)]) ∨
     (∃n. op = Aw8length ∧ vs = [Loc n]) ∨
     (∃lnum i w. op = Aw8update ∧ vs = [Loc lnum; Litv (IntLit i); Litv (Word8 w)]) ∨
+    (∃c. op = Ord ∧ vs = [Litv (Char c)]) ∨
+    (∃n. op = Chr ∧ vs = [Litv (IntLit n)]) ∨
+    (∃z c1 c2. op = (Chopb z) ∧ vs = [Litv (Char c1); Litv (Char c2)]) ∨
     (∃s. op = Explode ∧ vs = [Litv (StrLit s)]) ∨
     (∃v cs. op = Implode ∧ vs = [v] ∧ v_to_char_list v = SOME cs) ∨
+    (∃s. op = Strlen ∧ vs = [Litv (StrLit s)]) ∨
     (∃v ls. op = VfromList ∧ vs = [v] ∧ v_to_list v = SOME ls) ∨
     (∃ls i. op = Vsub ∧ vs = [Vectorv ls; Litv (IntLit i)]) ∨
     (∃ls. op = Vlength ∧ vs = [Vectorv ls]) ∨
@@ -43,8 +47,12 @@ val do_app_i1_cases = store_thm("do_app_i1_cases",
     (∃lnum i. op = Aw8sub ∧ vs = [Loc_i1 lnum; Litv_i1 (IntLit i)]) ∨
     (∃n. op = Aw8length ∧ vs = [Loc_i1 n]) ∨
     (∃lnum i w. op = Aw8update ∧ vs = [Loc_i1 lnum; Litv_i1 (IntLit i); Litv_i1 (Word8 w)]) ∨
+    (∃c. op = Ord ∧ vs = [Litv_i1 (Char c)]) ∨
+    (∃n. op = Chr ∧ vs = [Litv_i1 (IntLit n)]) ∨
+    (∃z c1 c2. op = (Chopb z) ∧ vs = [Litv_i1 (Char c1); Litv_i1 (Char c2)]) ∨
     (∃s. op = Explode ∧ vs = [Litv_i1 (StrLit s)]) ∨
     (∃v cs. op = Implode ∧ vs = [v] ∧ v_i1_to_char_list v = SOME cs) ∨
+    (∃s. op = Strlen ∧ vs = [Litv_i1 (StrLit s)]) ∨
     (∃v ls. op = VfromList ∧ vs = [v] ∧ v_to_list_i1 v = SOME ls) ∨
     (∃ls i. op = Vsub ∧ vs = [Vectorv_i1 ls; Litv_i1 (IntLit i)]) ∨
     (∃ls. op = Vlength ∧ vs = [Vectorv_i1 ls]) ∨

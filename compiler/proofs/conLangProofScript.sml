@@ -53,6 +53,7 @@ val has_exns_def = Define `
 has_exns gtagenv ⇔
   FLOOKUP gtagenv ("Subscript", TypeExn (Short "Subscript")) = SOME (subscript_tag,0:num) ∧
   FLOOKUP gtagenv ("Bind", TypeExn (Short "Bind")) = SOME (bind_tag,0) ∧
+  FLOOKUP gtagenv ("Chr", TypeExn (Short "Chr")) = SOME (chr_tag,0) ∧
   FLOOKUP gtagenv ("Div", TypeExn (Short "Div")) = SOME (div_tag,0) ∧
   FLOOKUP gtagenv ("Eq", TypeExn (Short "Eq")) = SOME (eq_tag,0)`;
 
@@ -1004,6 +1005,9 @@ val do_app_i2_correct = Q.prove (
      pop_assum mp_tac >>
      pop_assum mp_tac >>
      rw [])
+ >- tac
+ >- tac
+ >- tac
  >- (
    tac >>
    simp[char_list_to_v_i2_correct] )
@@ -1017,6 +1021,7 @@ val do_app_i2_correct = Q.prove (
      imp_res_tac v_i2_to_char_list_correct >>
      fs[] >> rw[do_app_i2_def,result_to_i2_cases,v_to_i2_eqns]) >>
    every_case_tac >> fs[])
+ >- tac
  >- (fs [do_app_i1_def] >>
      cases_on `vs` >>
      fs [] >>

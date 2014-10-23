@@ -815,6 +815,7 @@ metis_tac [NOT_EVERY]);
 val type_v_exn = SIMP_RULE (srw_ss()) [] (Q.prove (
 `!tvs cenv senv.
   ctMap_has_exns cenv ⇒
+  type_v tvs cenv senv (Conv (SOME ("Chr",TypeExn (Short "Chr"))) []) Texn ∧
   type_v tvs cenv senv (Conv (SOME ("Subscript",TypeExn (Short "Subscript"))) []) Texn ∧
   type_v tvs cenv senv (Conv (SOME ("Bind",TypeExn (Short "Bind"))) []) Texn ∧
   type_v tvs cenv senv (Conv (SOME ("Div",TypeExn (Short "Div"))) []) Texn ∧
@@ -1353,8 +1354,18 @@ val exp_type_preservation = Q.prove (
              fs [])
          >- do_app_exn_tac
          >- do_app_exn_tac
+         >- (rw [Once type_v_cases_eqn] >>
+             metis_tac[])
+         >- (rw [Once type_v_cases_eqn] >>
+             metis_tac[])
+         >- do_app_exn_tac
+         >- do_app_exn_tac
+         >- (rw [Once type_v_cases_eqn] >>
+             metis_tac[])
          >- metis_tac[char_list_to_v_type]
          >- metis_tac[v_to_char_list_type,Tstring_def]
+         >- (rw [Once type_v_cases_eqn] >>
+             metis_tac[])
          >- metis_tac [v_to_list_type]
          >- (qpat_assum `type_v 0 ctMap tenvS (Vectorv vs') (Tapp [t2] TC_vector)`
                         (mp_tac o SIMP_RULE (srw_ss()) [Once type_v_cases_eqn]) >>

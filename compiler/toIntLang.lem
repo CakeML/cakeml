@@ -123,6 +123,18 @@ binop_to_il (Opb opb) Ce1 Ce2 =
           end))
   end
 and
+binop_to_il (Chopb opb) Ce1 Ce2 =
+  CLet true Ce1 (
+    CLet true (shift 1 0 Ce2) (
+      let Ce1 = CPrim1 COrd (CVar 1) in
+      let Ce2 = CPrim1 COrd (CVar 0) in
+      match opb with
+      | Lt -> CPrim2 (P2p CLt) Ce1 Ce2
+      | Leq -> CPrim2 (P2p CLt) (CPrim2 (P2p CSub) Ce1 Ce2) (CLit (IntLit 1))
+      | Gt ->  CPrim2 (P2p CLt) Ce2 Ce1
+      | Geq -> CPrim2 (P2p CLt) (CPrim2 (P2p CSub) Ce2 Ce1) (CLit (IntLit 1))
+      end))
+and
 binop_to_il Equality Ce1 Ce2 =
   CLet true (CPrim2 (P2p CEq) Ce1 Ce2)
     (CIf (CPrim1 CIsBlock (CVar 0)) (CVar 0) (CRaise (CCon eq_tag [])))
@@ -188,9 +200,15 @@ binop_to_il Opref     Ce1 Ce2 = CCon tuple_tag [Ce1;Ce2] (* should not happen *)
 and
 binop_to_il Opderef   Ce1 Ce2 = CCon tuple_tag [Ce1;Ce2] (* should not happen *)
 and
+binop_to_il Chr       Ce1 Ce2 = CCon tuple_tag [Ce1;Ce2] (* should not happen *)
+and
+binop_to_il Ord       Ce1 Ce2 = CCon tuple_tag [Ce1;Ce2] (* should not happen *)
+and
 binop_to_il Explode   Ce1 Ce2 = CCon tuple_tag [Ce1;Ce2] (* should not happen *)
 and
 binop_to_il Implode   Ce1 Ce2 = CCon tuple_tag [Ce1;Ce2] (* should not happen *)
+and
+binop_to_il Strlen    Ce1 Ce2 = CCon tuple_tag [Ce1;Ce2] (* should not happen *)
 and
 binop_to_il VfromList Ce1 Ce2 = CCon tuple_tag [Ce1;Ce2] (* should not happen *)
 
@@ -205,6 +223,18 @@ unop_to_il Vlength Ce = CPrim1 CLenV Ce
 and
 unop_to_il Alength Ce = CPrim1 CLen Ce
 and
+unop_to_il Strlen Ce  = CPrim1 CLenS Ce
+and
+unop_to_il Chr Ce =
+  CLet true Ce
+    (CIf (CPrim2 (P2p CLt) (CVar 0) (CLit (IntLit 0)))
+         (CRaise (CCon chr_tag []))
+         (CIf (CPrim2 (P2p CLt) (CVar 0) (CLit (IntLit 256)))
+              (CPrim1 CChr (CVar 0))
+              (CRaise (CCon chr_tag []))))
+and
+unop_to_il Ord       Ce = CPrim1 COrd Ce
+and
 unop_to_il Explode   Ce = CPrim1 CExplode Ce
 and
 unop_to_il Implode   Ce = CPrim1 CImplode Ce
@@ -214,6 +244,8 @@ and
 unop_to_il (Opn _)   Ce = Ce (* should not happen *)
 and
 unop_to_il (Opb _)   Ce = Ce (* should not happen *)
+and
+unop_to_il (Chopb _) Ce = Ce (* should not happen *)
 and
 unop_to_il Equality  Ce = Ce (* should not happen *)
 and

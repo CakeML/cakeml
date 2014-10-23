@@ -669,7 +669,7 @@ val tac =
 
 val ltchartac =
   MATCH_MP_TAC LIST_TYPE_exists >>
-  simp[ml_repl_stepTheory.CHAR_def] >>
+  simp[ml_translatorTheory.CHAR_def] >>
   simp[ml_repl_stepTheory.PAIR_TYPE_def,PULL_EXISTS] >>
   simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def]
 
@@ -889,7 +889,7 @@ val AST_ID_TYPE_closed = prove(
   qmatch_assum_rename_tac`B c d`[] >>
   qmatch_assum_abbrev_tac`LIST_TYPE A ll x` >>
   Q.ISPEC_THEN`ll`(MATCH_MP_TAC o MP_CANON) LIST_TYPE_closed >>
-  simp[Abbr`A`,ml_repl_stepTheory.CHAR_def] >>
+  simp[Abbr`A`,ml_translatorTheory.CHAR_def] >>
   rw[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def])
 
 val AST_TCTOR_TYPE_closed = prove(
@@ -909,7 +909,7 @@ val AST_TCTOR_TYPE_closed = prove(
   qmatch_assum_abbrev_tac`LIST_TYPE A ll x` >>
   Q.ISPEC_THEN`ll`(MATCH_MP_TAC o MP_CANON) LIST_TYPE_closed >>
   simp[Abbr`A`] >>
-  rw[ml_repl_stepTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] )
+  rw[ml_translatorTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] )
 
 val INFER_T_INFER_T_TYPE_closed = prove(
   ``∀a b. INFER_T_INFER_T_TYPE a b ⇒ closed b``,
@@ -937,7 +937,7 @@ val AST_T_TYPE_closed = prove(
   qmatch_assum_abbrev_tac`LIST_TYPE A ll x` >>
   Q.ISPEC_THEN`ll`(MATCH_MP_TAC o MP_CANON) LIST_TYPE_closed >>
   simp[Abbr`A`] >>
-  rw[ml_repl_stepTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+  rw[ml_translatorTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
   fs[EVERY_MEM] >> METIS_TAC[])
 
 val SEMANTICPRIMITIVES_TID_OR_EXN_TYPE_closed = prove(
@@ -955,7 +955,7 @@ val SEMANTICPRIMITIVES_TID_OR_EXN_TYPE_closed = prove(
   qmatch_assum_abbrev_tac`LIST_TYPE A ll x` >>
   Q.ISPEC_THEN`ll`(MATCH_MP_TAC o MP_CANON) LIST_TYPE_closed >>
   simp[Abbr`A`] >>
-  rw[ml_repl_stepTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def])
+  rw[ml_translatorTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def])
 
 val SPTREE_SPT_TYPE_UNIT_TYPE_closed = prove(
   ``∀a b. SPTREE_SPT_TYPE UNIT_TYPE a b ⇒ closed b``,
@@ -1000,7 +1000,7 @@ val COMPILER_COMPILER_STATE_TYPE_closed = prove(
       simp[Abbr`A`]
     )) >>
     fs[ml_repl_stepTheory.FMAP_TYPE_def,ml_repl_stepTheory.FMAP_EQ_ALIST_def] >>
-    rw[ml_repl_stepTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+    rw[ml_translatorTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
     unabbrev_all_tac ))
 
 val REPL_FUN_REPL_FUN_STATE_TYPE_closed = prove(
@@ -1038,7 +1038,7 @@ val REPL_FUN_REPL_FUN_STATE_TYPE_closed = prove(
       Q.ISPEC_THEN`ll`(MATCH_MP_TAC o MP_CANON) FMAP_TYPE_closed >>
       simp[Abbr`A`,Abbr`B`]
     )) >>
-    rw[ml_repl_stepTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+    rw[ml_translatorTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
     unabbrev_all_tac ));
 
 val INPUT_TYPE_closed = store_thm("INPUT_TYPE_closed",
@@ -1063,7 +1063,7 @@ val INPUT_TYPE_closed = store_thm("INPUT_TYPE_closed",
     rw[] >>
     qmatch_assum_abbrev_tac`LIST_TYPE B s bb` >>
     Q.ISPECL_THEN[`B`,`s`](match_mp_tac o MP_CANON) (GEN_ALL LIST_TYPE_closed) >>
-    simp[Abbr`B`,ml_repl_stepTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] )
+    simp[Abbr`B`,ml_translatorTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] )
   >- (
     qmatch_rename_tac`closed ls`[] >>
     qmatch_assum_abbrev_tac`LIST_TYPE A vv ls` >>

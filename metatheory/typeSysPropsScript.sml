@@ -965,8 +965,12 @@ val type_op_cases = Q.store_thm ("type_op_cases",
    ((op = Aw8sub) ∧ ts = [Tword8array; Tint] ∧ t3 = Tword8) ∨
    ((op = Aw8length) ∧ ts = [Tword8array] ∧ t3 = Tint) ∨
    ((op = Aw8update) ∧ ts = [Tword8array; Tint; Tword8] ∧ t3 = Tunit) ∨
+   ((op = Ord) ∧ ts = [Tchar] ∧ t3 = Tint) ∨
+   ((op = Chr) ∧ ts = [Tint] ∧ t3 = Tchar) ∨
+   ((∃op'. op = Chopb op') ∧ ts = [Tchar; Tchar] ∧ (t3 = Tbool)) ∨
    ((op = Explode) ∧ ts = [Tstring] ∧ t3 = Tapp [Tchar] (TC_name (Short "list"))) ∨
    ((op = Implode) ∧ ts = [Tapp [Tchar] (TC_name (Short "list"))] ∧ t3 = Tstring) ∨
+   ((op = Strlen) ∧ ts = [Tstring] ∧ t3 = Tint) ∨
    ((op = VfromList) ∧ ?t2. ts = [Tapp [t2] (TC_name (Short "list"))] ∧ t3 = Tapp [t2] TC_vector) ∨
    ((op = Vsub) ∧ ts = [Tapp [t3] TC_vector; Tint]) ∨
    ((op = Vlength) ∧ ?t1. ts = [Tapp [t1] TC_vector] ∧ t3 = Tint) ∨
