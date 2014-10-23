@@ -272,7 +272,6 @@ val zHEAP_ERROR_def = Define `
   zHEAP_ERROR cs =
     SEP_EXISTS output. zHEAP_OUTPUT (cs,output ++ error_msg)`;
 
-
 (* define INIT_STATE *)
 
 val _ = Hol_datatype ` (* called init *)
@@ -340,6 +339,9 @@ val INIT_STATE_def = Define `
 
 
 (* helpers theorems *)
+
+val globals_count_def = Define `
+  globals_count = 10000:num`;
 
 fun take n [] = []
   | take 0 xs = []
@@ -1900,6 +1902,10 @@ val zHEAP_MOVE_23 = zHEAP_Move (x3,x2)
 val zHEAP_MOVE_34 = zHEAP_Move (x4,x3)
 val zHEAP_MOVE_14 = zHEAP_Move (x4,x1)
 val zHEAP_MOVE_41 = zHEAP_Move (x1,x4)
+val zHEAP_MOVE_24 = zHEAP_Move (x4,x2)
+val zHEAP_MOVE_42 = zHEAP_Move (x2,x4)
+val zHEAP_MOVE_34 = zHEAP_Move (x4,x3)
+val zHEAP_MOVE_43 = zHEAP_Move (x3,x4)
 
 
 (* load const number *)
@@ -5205,6 +5211,9 @@ fun pow2 0 = 1
 
 val _ = map zHEAP_LESS_CONST [pow2 1, pow2 2, pow2 3, pow2 4,
                               pow2 8, pow2 12, pow2 15, pow2 28]
+
+val _ = zHEAP_LESS_CONST
+          (globals_count_def |> concl |> rand |> numSyntax.int_of_term);
 
 
 (* shift small_int *)
@@ -12358,6 +12367,27 @@ val zBC_Div = SPEC_COMPOSE_RULE [zHEAP_POP2,zHEAP_DIV_SMALL_INT] |> fix_code
 val zBC_Mod = SPEC_COMPOSE_RULE [zHEAP_POP2,zHEAP_MOD_SMALL_INT,zHEAP_NOP] |> fix_code
 val zBC_Less = SPEC_COMPOSE_RULE [zHEAP_POP2,zHEAP_SMALL_INT] |> fix_code
 
+val zBC_Galloc = zBC_Tick
+
+val zBC_Gread = let
+  val Num0 =
+    zHEAP_LOAD_IMM1 |> Q.INST [`k`|->`0`] |> SIMP_RULE std_ss [SEP_CLAUSES]
+      |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL)
+  val th = SPEC_COMPOSE_RULE [zHEAP_PUSH1,zHEAP_MOVE_42,
+          Num0,zHEAP_EL,zHEAP_MOVE_12,zHEAP_LOAD_IMM1,zHEAP_DEREF]
+    |> SIMP_RULE (srw_ss()) [getNumber_def,isNumber_def]
+  in th end
+
+val zBC_Gupdate = let
+  val Num0 =
+    zHEAP_LOAD_IMM1 |> Q.INST [`k`|->`0`] |> SIMP_RULE std_ss [SEP_CLAUSES]
+      |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL)
+  val th = SPEC_COMPOSE_RULE [zHEAP_PUSH1,zHEAP_MOVE_42,
+          Num0,zHEAP_EL,zHEAP_MOVE_13,zHEAP_LOAD_IMM2,zHEAP_POP1,
+          zHEAP_UPDATE_REF,zHEAP_POP1]
+    |> SIMP_RULE (srw_ss()) [getNumber_def,isNumber_def,SEP_CLAUSES]
+  in th end
+
 val zBC_Shift0 = SPEC_COMPOSE_RULE [zHEAP_POPS,zHEAP_POP1,zHEAP_NOP]
    |> RW [IMM32_def] |> fix_code
 val zBC_Shift1 = SPEC_COMPOSE_RULE [zHEAP_NOP,zHEAP_POPS] |> fix_code
@@ -12498,6 +12528,15 @@ val x64_def = Define `
   (x64 i (Ref) = ^(get_code zBC_Ref)) /\
 *)
   (x64 i (Update) = ^(get_code zBC_Update)) /\
+  (x64 i (Galloc k) = ^(get_code zBC_Galloc)) /\
+  (x64 i (Gread k) =
+     if k < globals_count
+     then ^(get_code zBC_Gread)
+     else ^(get_code zBC_Error)) /\
+  (x64 i (Gupdate k) =
+     if k < globals_count
+     then ^(get_code zBC_Gupdate)
+     else ^(get_code zBC_Error)) /\
   (x64 i (PopExc) = ^(get_code zBC_PopExc)) /\
   (x64 i (PushExc) = ^(get_code zBC_PushExc)) /\
   (x64 i (Label l) = []) /\
@@ -12870,6 +12909,49 @@ val (res,ic_PrintC_def,ic_PrintC_pre_def) = x64_compile `
       (x2,s,cs)`
 
 (*
+  EVAL ``x64 i (Gread k)``
+*)
+
+val gread1 = ``[0x48w; 0x50w; 0x48w; 0x8Bw; 0xCBw; 0x48w; 0x31w; 0xC0w; 0x5w;
+      0x0w; 0x0w; 0x0w; 0x0w; 0x48w; 0x8Bw; 0x44w; 0x41w; 0x9w; 0x48w;
+      0x8Bw; 0xC8w; 0x48w; 0x31w; 0xC0w; 0x5w]:word8 list`` |> gen
+val gread2 = ``[0x48w; 0x8Bw; 0x44w; 0x41w; 0x9w]:word8 list`` |> gen
+
+val (res,ic_Gread_def,ic_Gread_pre_def) = x64_compile `
+  ic_Gread (x2,s,cs:zheap_consts) =
+    if isSmall x2 then
+    if getNumber x2 < &^(globals_count_def |> concl |> rand) then
+      let x2 = Number (getNumber x2 * 4) in
+      let s = s with code := s.code ++ ^gread1 in
+      let s = s with code := s.code ++ IMM32 (n2w (Num (getNumber x2))) in
+      let s = s with code := s.code ++ ^gread2 in
+        (x2,s,cs)
+    else let s = s with code := s.code ++ ^err in (x2,s,cs)
+    else let s = s with code := s.code ++ ^err in (x2,s,cs)`
+
+(*
+  EVAL ``x64 i (Gupdate k)``
+*)
+
+val gupdate1 = ``[0x48w; 0x50w; 0x48w; 0x8Bw; 0xCBw; 0x48w; 0x31w; 0xC0w; 0x5w;
+      0x0w; 0x0w; 0x0w; 0x0w; 0x48w; 0x8Bw; 0x44w; 0x41w; 0x9w; 0x48w;
+      0x8Bw; 0xD0w; 0x48w; 0x31w; 0xC9w; 0x48w; 0x81w; 0xC1w]:word8 list`` |> gen
+val gupdate2 = ``[0x48w; 0x58w; 0x48w; 0x89w;
+      0x44w; 0x4Aw; 0x9w; 0x48w; 0x58w]:word8 list`` |> gen
+
+val (res,ic_Gupdate_def,ic_Gupdate_pre_def) = x64_compile `
+  ic_Gupdate (x2,s,cs:zheap_consts) =
+    if isSmall x2 then
+    if getNumber x2 < &^(globals_count_def |> concl |> rand) then
+      let x2 = Number (getNumber x2 * 4) in
+      let s = s with code := s.code ++ ^gupdate1 in
+      let s = s with code := s.code ++ IMM32 (n2w (Num (getNumber x2))) in
+      let s = s with code := s.code ++ ^gupdate2 in
+        (x2,s,cs)
+    else let s = s with code := s.code ++ ^err in (x2,s,cs)
+    else let s = s with code := s.code ++ ^err in (x2,s,cs)`
+
+(*
   EVAL ``x64 i (Stack (Store x))``
 *)
 
@@ -13078,6 +13160,10 @@ val (res,ic_Any_def,ic_Any_pre_def) = x64_compile `
       let (x2,s,cs) = ic_Load (x2,s,cs) in (x1,x2,x3,s,cs)
     else if getNumber x1 = & ^(index ``Stack (Store a)``) then
       let (x2,s,cs) = ic_Store (x2,s,cs) in (x1,x2,x3,s,cs)
+    else if getNumber x1 = & ^(index ``Gread k``) then
+      let (x2,s,cs) = ic_Gread (x2,s,cs) in (x1,x2,x3,s,cs)
+    else if getNumber x1 = & ^(index ``Gupdate k``) then
+      let (x2,s,cs) = ic_Gupdate (x2,s,cs) in (x1,x2,x3,s,cs)
     else if getNumber x1 = & ^(index ``PrintC c``) then
       let (x2,s,cs) = ic_PrintC (x2,s,cs) in (x1,x2,x3,s,cs)
     else if getNumber x1 = & ^(index ``Label l``) then
@@ -13112,7 +13198,7 @@ val ic_PrintC_test_thm = prove(
     (Num (getNumber (ic_PrintC_test (Number (&n)))) = if n < 256 then n else 0) /\
     small_int (getNumber (ic_PrintC_test (Number (&n)))) /\
     isNumber (ic_PrintC_test (Number (&n))) /\
-    ¬(getNumber (ic_PrintC_test (Number (&n))) < 0)``,
+    ~(getNumber (ic_PrintC_test (Number (&n))) < 0)``,
   SIMP_TAC (srw_ss()) [ic_PrintC_test_pre_def,ic_PrintC_test_def,
     getNumber_def,LET_DEF,isSmall_def,canCompare_def,small_int_def]
   \\ SRW_TAC [] [isNumber_def,getNumber_def] \\ intLib.COOPER_TAC);
@@ -13148,6 +13234,8 @@ val ic_Any_thm = prove(
        ic_PrintC_def,ic_PrintC_pre_def,
        ic_Load_def,ic_Load_pre_def,
        ic_Store_def,ic_Store_pre_def,
+       ic_Gread_def,ic_Gread_pre_def,
+       ic_Gupdate_def,ic_Gupdate_pre_def,
        ic_PushInt_def,ic_PushInt_pre_def,
        ic_TagEq_def,ic_TagEq_pre_def,
        isSmall_def,canCompare_def]
@@ -13157,6 +13245,14 @@ val ic_Any_thm = prove(
     \\ FULL_SIMP_TAC (srw_ss()) [small_int_def,x64_def,LET_DEF,addr_calc_def,
       small_offset_def,LENGTH,IMM32_def,APPEND_ASSOC,APPEND,ic_PrintC_test_thm,
       SNOC_APPEND,getNumber_def]
+    \\ SRW_TAC [] []
+    \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND,GSYM ADD_ASSOC]
+    \\ FULL_SIMP_TAC std_ss [AC MULT_COMM MULT_ASSOC,ORD_BOUND_LARGE,lemma]
+    \\ CCONTR_TAC \\ intLib.COOPER_TAC)
+  \\ TRY (Cases_on `n < ^(globals_count_def |> concl |> rand)`
+    \\ FULL_SIMP_TAC (srw_ss()) [small_int_def,x64_def,LET_DEF,addr_calc_def,
+      small_offset_def,LENGTH,IMM32_def,APPEND_ASSOC,APPEND,ic_PrintC_test_thm,
+      SNOC_APPEND,getNumber_def,globals_count_def]
     \\ SRW_TAC [] []
     \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND,GSYM ADD_ASSOC]
     \\ FULL_SIMP_TAC std_ss [AC MULT_COMM MULT_ASSOC,ORD_BOUND_LARGE,lemma]
@@ -14811,9 +14907,6 @@ val ref_adjust_def = Define `
                     | x => x)
                (IMAGE adj (FDOM refs1))`;
 
-val globals_count_def = Define `
-  globals_count = 10000:num`;
-
 val ref_globals_list_def = Define `
   (ref_globals_list x 0 = []) /\
   (ref_globals_list [] (SUC n) = Number 0 :: ref_globals_list [] n) /\
@@ -15168,6 +15261,18 @@ val ref_lemma2 = prove(
   ``((if ev then 2 * (n' + 1) else 2 * (n' + 1) + 1) =
      (if ev then 2 * (ptr + 1) else 2 * (ptr + 1) + 1)) <=> (n' = ptr:num)``,
   Cases_on `ev` \\ DECIDE_TAC);
+
+val ref_globals_list_alloc = prove(
+  ``!n l k. ref_globals_list (l ++ REPLICATE k NONE) n = ref_globals_list l n``,
+  Induct \\ fs [ref_globals_list_def] \\ Cases
+  \\ fs [ref_globals_list_def,rich_listTheory.REPLICATE]
+  THEN1 (Cases_on `k` \\ fs [ref_globals_list_def,rich_listTheory.REPLICATE]
+         \\ POP_ASSUM (ASSUME_TAC o Q.SPEC `[]`) \\ fs [])
+  \\ Cases_on `h` \\ fs [ref_globals_list_def,rich_listTheory.REPLICATE]);
+
+val ref_globals_alloc = prove(
+  ``ref_globals ev (l ++ REPLICATE n NONE) = ref_globals ev l``,
+  fs [ref_globals_def,ref_globals_list_alloc]);
 
 val zBC_HEAP_THM = prove(
   ``EVEN (w2n cb) /\ (cs.stack_trunk - n2w (8 * SUC (LENGTH stack)) = sb) ==>
@@ -16074,14 +16179,27 @@ val zBC_HEAP_THM = prove(
      \\ Q.LIST_EXISTS_TAC [`x2`,`x3`]
      \\ simp[SEP_DISJ_def]
      \\ FULL_SIMP_TAC (std_ss++star_ss++ARITH_ss)[ADD1])
-
   THEN1 (* Galloc *)
-    ERROR_TAC
+   (SIMP_TAC std_ss [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF]
+    \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
+    \\ REPEAT STRIP_TAC
+    \\ (prepare zBC_Tick
+         |> MATCH_MP SPEC_WEAKEN |> SPEC_ALL
+         |> DISCH_ALL |> RW [AND_IMP_INTRO]
+         |> MATCH_MP_TAC)
+    \\ FULL_SIMP_TAC std_ss [HD,TL,bc_adjust_def,MAP,APPEND,
+         isRefPtr_def,getRefPtr_def]
+    \\ FULL_SIMP_TAC (srw_ss()) [word_mul_n2w]
+    \\ FULL_SIMP_TAC std_ss [APPEND,TL,HD,x64_length_def,x64_def,
+         LENGTH,x64_inst_length_def,LEFT_ADD_DISTRIB,word_arith_lemma1]
+    \\ SIMP_TAC std_ss [SEP_IMP_def,SEP_EXISTS_THM] \\ REPEAT STRIP_TAC
+    \\ FULL_SIMP_TAC (srw_ss()) [SEP_DISJ_def,ref_globals_alloc]
+    \\ Q.LIST_EXISTS_TAC [`x2`,`x3`]
+    \\ FULL_SIMP_TAC (std_ss++star_ss) [GSYM ADD_ASSOC])
   THEN1 (* Gupdate *)
-    ERROR_TAC
+    cheat (* globals *)
   THEN1 (* Gread *)
-    ERROR_TAC
-
+    cheat (* globals *)
   THEN1 (* Tick *)
    (SIMP_TAC std_ss [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF]
     \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
