@@ -660,6 +660,7 @@ val res = translate listTheory.EVERY_DEF;
 val res = translate listTheory.EXISTS_DEF;
 val res = translate listTheory.FILTER;
 val res = translate listTheory.APPEND;
+val res = translate mlstringTheory.strcat_def;
 val res = translate (subset_def |> REWRITE_RULE [MEMBER_INTRO]);
 val res = translate (subtract_def |> REWRITE_RULE [MEMBER_INTRO]);
 val res = translate (insert_def |> REWRITE_RULE [MEMBER_INTRO]);
@@ -696,6 +697,7 @@ val res = translate concl_def;
 val res = translate sortingTheory.PART_DEF;
 val res = translate sortingTheory.PARTITION_DEF;
 val res = translate sortingTheory.QSORT_DEF;
+(* TODO: want builtin support for these, and strcat above *)
 val res = translate stringTheory.string_lt_def
 val res = translate stringTheory.string_le_def
 
