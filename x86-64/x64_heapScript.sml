@@ -15336,17 +15336,18 @@ val ODD_NOT_ZERO_ETC = prove(
 
 val LUPDATE_ref_globals_list = prove(
   ``!xs k n.
-      LUPDATE (f x') n (ref_globals_list (OPT_MAP f xs) k) =
-      ref_globals_list (OPT_MAP f (LUPDATE (SOME x') n xs)) k``,
+      n < LENGTH xs ==>
+      (LUPDATE (f x') n (ref_globals_list (OPT_MAP f xs) k) =
+       ref_globals_list (OPT_MAP f (LUPDATE (SOME x') n xs)) k)``,
   Induct \\ Cases_on `k` \\ fs [ref_globals_list_def,LUPDATE_def,OPT_MAP_def]
-  \\ Cases_on `n` \\ fs [ref_globals_list_def,LUPDATE_def,OPT_MAP_def]
-  \\ cheat);
+  \\ Cases_on `n'` \\ fs [ref_globals_list_def,LUPDATE_def,OPT_MAP_def]
+  \\ Cases \\ fs [ref_globals_list_def,EL,OPT_MAP_def,LUPDATE_def]);
 
 val EL_ref_globals_list = prove(
-  ``!xs n k v. (EL n xs = SOME v) /\ n < k ==>
+  ``!xs n k v. (EL n xs = SOME v) /\ n < k /\ n < LENGTH xs ==>
                (EL n (ref_globals_list (OPT_MAP f xs) k) = f v)``,
   Induct \\ Cases_on `k` \\ fs [ref_globals_list_def,EL,OPT_MAP_def]
-  \\ cheat);
+  \\ Cases \\ Cases_on `n'` \\ fs [ref_globals_list_def,EL,OPT_MAP_def]);
 
 val zBC_HEAP_THM = prove(
   ``EVEN (w2n cb) /\ (cs.stack_trunk - n2w (8 * SUC (LENGTH stack)) = sb) ==>
