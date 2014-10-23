@@ -12376,7 +12376,7 @@ val zBC_Gread = let
   val th = SPEC_COMPOSE_RULE [zHEAP_PUSH1,zHEAP_MOVE_42,
           Num0,zHEAP_EL,zHEAP_MOVE_12,zHEAP_LOAD_IMM1,zHEAP_DEREF]
     |> SIMP_RULE (srw_ss()) [getNumber_def,isNumber_def]
-  in th end
+  in th end |> fix_code
 
 val zBC_Gupdate = let
   val Num0 =
@@ -12386,7 +12386,7 @@ val zBC_Gupdate = let
           Num0,zHEAP_EL,zHEAP_MOVE_13,zHEAP_LOAD_IMM2,zHEAP_POP1,
           zHEAP_UPDATE_REF,zHEAP_POP1]
     |> SIMP_RULE (srw_ss()) [getNumber_def,isNumber_def,SEP_CLAUSES]
-  in th end
+  in th end |> fix_code
 
 val zBC_Shift0 = SPEC_COMPOSE_RULE [zHEAP_POPS,zHEAP_POP1,zHEAP_NOP]
    |> RW [IMM32_def] |> fix_code
@@ -14913,10 +14913,15 @@ val ref_globals_list_def = Define `
   (ref_globals_list (NONE::xs) (SUC n) = Number 0 :: ref_globals_list xs n) /\
   (ref_globals_list (SOME x::xs) (SUC n) = x :: ref_globals_list xs n)`;
 
+val OPT_MAP_def = Define `
+  (OPT_MAP f [] = []) /\
+  (OPT_MAP f (NONE::xs) = NONE :: OPT_MAP f xs) /\
+  (OPT_MAP f (SOME x::xs) = SOME (f x) :: OPT_MAP f xs)`;
+
 val ref_globals_def = Define `
-  ref_globals ev globals =
+  ref_globals (cb,sb,ev) globals =
     FEMPTY |+ (if ev then 0 else (1:num),
-      ValueArray (ref_globals_list globals globals_count))`;
+      ValueArray (ref_globals_list (OPT_MAP (bc_adjust (cb,sb,ev)) globals) globals_count))`;
 
 val ref_addr_def = Define `
   ref_addr ev x = Block 0 [if ev then RefPtr 0 else RefPtr 1; x]`;
@@ -14927,7 +14932,7 @@ val zBC_HEAP_def = Define `
       let ss = MAP (bc_adjust (cb,sb,ev)) bs.stack ++ (Number 0) :: stack in
         zHEAP (cs,HD ss,x2,x3,ref_addr ev x,
                FUNION (ref_adjust (cb,sb,ev) bs.refs)
-                      (FUNION (ref_globals ev bs.globals) f2),TL ss,
+                      (FUNION (ref_globals (cb,sb,ev) bs.globals) f2),TL ss,
                s with <| output := (if s.local.printing_on = 0w then out
                                     else out ++ bs.output) ;
                          handler := bs.handler + SUC (LENGTH stack) |>,NONE)`;
@@ -14937,7 +14942,7 @@ val zBC_HEAP_1_def = Define `
     SEP_EXISTS x2 x3.
       zHEAP (cs,y,x2,x3,ref_addr ev x,
              FUNION (ref_adjust (cb,sb,ev) bs.refs)
-                    (FUNION (ref_globals ev bs.globals) f2),
+                    (FUNION (ref_globals (cb,sb,ev) bs.globals) f2),
              MAP (bc_adjust (cb,sb,ev)) bs.stack ++ (Number 0) :: stack,
              s with <| output := (if s.local.printing_on = 0w then out
                                   else out ++ bs.output) ;
@@ -14953,7 +14958,9 @@ fun prepare th = let
   val (_,pre,_,_) = th |> concl |> dest_spec
   val tm = ``(zHEAP
      (cs,HD (MAP (bc_adjust (cb,sb,ev)) s1.stack ++ Number 0::stack),x2,
-      x3,x,FUNION (ref_adjust (cb,sb,ev) s1.refs) f2,
+      x3,ref_addr ev x,
+      FUNION (ref_adjust (cb,sb,ev) s1.refs)
+        (FUNION (ref_globals (cb,sb,ev) s1.globals) f2),
       TL (MAP (bc_adjust (cb,sb,ev)) s1.stack ++ Number 0::stack),
       s with <| output := if s.local.printing_on = 0x0w then out
           else STRCAT out s1.output ; handler := h |>,NONE) *
@@ -15058,6 +15065,32 @@ val IMP_small_offset16 = prove(
   \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
   \\ REPEAT STRIP_TAC \\ SIMP_TAC (srw_ss()) []
   \\ MATCH_MP_TAC (MATCH_MP SPEC_WEAKEN (prepare zBC_Error16) |> SPEC_ALL
+                |> DISCH_ALL |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO]
+                |> Q.INST [`base`|->`cb`])
+  \\ FULL_SIMP_TAC (srw_ss()) [SEP_IMP_def,SEP_DISJ_def,SEP_EXISTS_THM]);
+
+val IMP_globals_count = prove(
+  ``(n < globals_count ==>
+     SPEC X64_MODEL
+     (zBC_HEAP s1 (x,cs,stack,s,out) (cb,sb,ev,f2) *
+      zPC (cb + n2w (2 * s1.pc)) * ~zS)
+     ((cb + n2w (2 * s1.pc), xs) INSERT code_abbrevs cs)
+     (post \/
+      zHEAP_ERROR cs)) ==>
+    SPEC X64_MODEL
+     (zBC_HEAP s1 (x,cs,stack,s,out) (cb,sb,ev,f2) *
+      zPC (cb + n2w (2 * s1.pc)) * ~zS)
+     ((cb + n2w (2 * s1.pc),
+      if n < globals_count then xs else ^err) INSERT code_abbrevs cs)
+     (post \/
+      zHEAP_ERROR cs)``,
+  REPEAT STRIP_TAC \\ SIMP_TAC std_ss [small_offset16_def]
+  \\ SRW_TAC [] [] \\ FULL_SIMP_TAC std_ss []
+  \\ SIMP_TAC std_ss [x64_def,LET_DEF] \\ REPEAT STRIP_TAC
+  \\ SIMP_TAC (srw_ss()) [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF,MAP_APPEND,MAP]
+  \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
+  \\ REPEAT STRIP_TAC \\ SIMP_TAC (srw_ss()) []
+  \\ MATCH_MP_TAC (MATCH_MP SPEC_WEAKEN (prepare zBC_Error) |> SPEC_ALL
                 |> DISCH_ALL |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO]
                 |> Q.INST [`base`|->`cb`])
   \\ FULL_SIMP_TAC (srw_ss()) [SEP_IMP_def,SEP_DISJ_def,SEP_EXISTS_THM]);
@@ -15270,9 +15303,50 @@ val ref_globals_list_alloc = prove(
          \\ POP_ASSUM (ASSUME_TAC o Q.SPEC `[]`) \\ fs [])
   \\ Cases_on `h` \\ fs [ref_globals_list_def,rich_listTheory.REPLICATE]);
 
+val OPT_MAP_APPEND = prove(
+  ``!xs ys f. OPT_MAP f (xs ++ ys) = OPT_MAP f xs ++ OPT_MAP f ys``,
+  Induct \\ fs [OPT_MAP_def] \\ Cases \\ fs [OPT_MAP_def]);
+
+val OPT_MAP_NONE = prove(
+  ``!n f. OPT_MAP f (REPLICATE n NONE) = REPLICATE n NONE``,
+  Induct \\ fs [OPT_MAP_def,rich_listTheory.REPLICATE]);
+
 val ref_globals_alloc = prove(
-  ``ref_globals ev (l ++ REPLICATE n NONE) = ref_globals ev l``,
-  fs [ref_globals_def,ref_globals_list_alloc]);
+  ``ref_globals (cb,sb,ev) (l ++ REPLICATE n NONE) = ref_globals (cb,sb,ev) l``,
+  fs [ref_globals_def,ref_globals_list_alloc,OPT_MAP_APPEND,OPT_MAP_NONE]);
+
+val ref_globals_lemma = prove(
+  ``~(getRefPtr (if ev then RefPtr 0 else RefPtr 1) IN
+      FDOM (ref_adjust (cb,sb,ev) s1.refs)) /\
+    getRefPtr (if ev then RefPtr 0 else RefPtr 1) IN
+       FDOM (ref_globals (cb,sb,ev) xs)``,
+  Cases_on `ev` \\ fs [getRefPtr_def,ref_adjust_def,LET_DEF,ref_globals_def]
+  \\ REPEAT STRIP_TAC \\ CCONTR_TAC \\ fs [] \\ DECIDE_TAC);
+
+val LENGTH_ref_globals_list = prove(
+  ``!n xs. LENGTH (ref_globals_list xs n) = n``,
+  Induct \\ Cases_on `xs` \\ fs [ref_globals_list_def]
+  \\ Cases_on `h` \\ fs [ref_globals_list_def]);
+
+val ODD_NOT_ZERO_ETC = prove(
+  ``(ODD n ==> (n <> 0)) /\ (EVEN n ==> (n <> 1)) /\
+    (x IN FDOM (ref_adjust (cb,sb,ev) s1.refs) ==> x <> 0 /\ x <> 1)``,
+  REPEAT STRIP_TAC \\ fs [] \\ fs []
+  \\ fs [ref_adjust_def,LET_DEF] \\ Cases_on `ev` \\ fs [] \\ DECIDE_TAC);
+
+val LUPDATE_ref_globals_list = prove(
+  ``!xs k n.
+      LUPDATE (f x') n (ref_globals_list (OPT_MAP f xs) k) =
+      ref_globals_list (OPT_MAP f (LUPDATE (SOME x') n xs)) k``,
+  Induct \\ Cases_on `k` \\ fs [ref_globals_list_def,LUPDATE_def,OPT_MAP_def]
+  \\ Cases_on `n` \\ fs [ref_globals_list_def,LUPDATE_def,OPT_MAP_def]
+  \\ cheat);
+
+val EL_ref_globals_list = prove(
+  ``!xs n k v. (EL n xs = SOME v) /\ n < k ==>
+               (EL n (ref_globals_list (OPT_MAP f xs) k) = f v)``,
+  Induct \\ Cases_on `k` \\ fs [ref_globals_list_def,EL,OPT_MAP_def]
+  \\ cheat);
 
 val zBC_HEAP_THM = prove(
   ``EVEN (w2n cb) /\ (cs.stack_trunk - n2w (8 * SUC (LENGTH stack)) = sb) ==>
@@ -15305,6 +15379,8 @@ val zBC_HEAP_THM = prove(
   \\ NTAC 3 (TRY (MATCH_MP_TAC IMP_small_offset12 \\ REPEAT STRIP_TAC
                   \\ TRY (SRW_TAC [] [output_simp] \\ NO_TAC)))
   \\ NTAC 3 (TRY (MATCH_MP_TAC IMP_small_offset16 \\ REPEAT STRIP_TAC
+                  \\ TRY (SRW_TAC [] [output_simp] \\ NO_TAC)))
+  \\ NTAC 3 (TRY (MATCH_MP_TAC IMP_globals_count \\ REPEAT STRIP_TAC
                   \\ TRY (SRW_TAC [] [output_simp] \\ NO_TAC)))
   THEN1 (* Pop *)
    (SIMP_TAC (srw_ss()) [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF,MAP_APPEND,MAP]
@@ -16087,9 +16163,9 @@ val zBC_HEAP_THM = prove(
          `RefPtr (if ev then 2 * (ptr+1) else 2 * (ptr+1) + 1)`]
     \\ `FUNION (ref_adjust (cb,sb,ev)
            (s1.refs |+ (ptr,ValueArray (LUPDATE x' n vs))))
-               (FUNION (ref_globals ev s1.globals) f2) =
+               (FUNION (ref_globals (cb,sb,ev) s1.globals) f2) =
         FUNION (ref_adjust (cb,sb,ev) s1.refs)
-          (FUNION (ref_globals ev s1.globals) f2) |+
+          (FUNION (ref_globals (cb,sb,ev) s1.globals) f2) |+
            (if ev then 2 * (ptr+1) else 2 * (ptr+1) + 1,
             ValueArray (LUPDATE (bc_adjust (cb,sb,ev) x') n
                        (MAP (bc_adjust (cb,sb,ev)) vs)))` by ALL_TAC
@@ -16197,9 +16273,74 @@ val zBC_HEAP_THM = prove(
     \\ Q.LIST_EXISTS_TAC [`x2`,`x3`]
     \\ FULL_SIMP_TAC (std_ss++star_ss) [GSYM ADD_ASSOC])
   THEN1 (* Gupdate *)
-    cheat (* globals *)
+   (SIMP_TAC std_ss [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF]
+    \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
+    \\ REPEAT STRIP_TAC
+    \\ (prepare zBC_Gupdate
+         |> MATCH_MP SPEC_WEAKEN |> SPEC_ALL
+         |> DISCH_ALL |> RW [AND_IMP_INTRO]
+         |> MATCH_MP_TAC)
+    \\ FULL_SIMP_TAC std_ss [HD,TL,bc_adjust_def,MAP,APPEND,
+         isRefPtr_def,getRefPtr_def,ref_addr_def,getContent_def,
+         ref_globals_lemma]
+    \\ Q.PAT_ABBREV_TAC`v:ref_value = a ' b`
+    \\ `v = ValueArray (ref_globals_list (OPT_MAP (bc_adjust (cb,sb,ev))
+          s1.globals) globals_count)` by
+     (UNABBREV_ALL_TAC \\ fs [FUNION_DEF,ref_globals_lemma]
+      \\ Cases_on `ev` \\ fs [ref_globals_def,getRefPtr_def])
+    \\ fs [getValueArray_def,isBlock_def,isValueArray_def,LENGTH_ref_globals_list]
+    \\ STRIP_TAC
+    THEN1 (SRW_TAC [] [isRefPtr_def] \\ fs [globals_count_def] \\ DECIDE_TAC)
+    \\ FULL_SIMP_TAC (srw_ss()) [word_mul_n2w]
+    \\ FULL_SIMP_TAC std_ss [APPEND,TL,HD,x64_length_def,x64_def,
+         LENGTH,x64_inst_length_def,LEFT_ADD_DISTRIB,word_arith_lemma1]
+    \\ SIMP_TAC std_ss [SEP_IMP_def,SEP_EXISTS_THM] \\ REPEAT STRIP_TAC
+    \\ FULL_SIMP_TAC (srw_ss()) [SEP_DISJ_def]
+    \\ Q.LIST_EXISTS_TAC [`Number (&n)`,`if ev then RefPtr 0 else RefPtr 1`]
+    \\ FULL_SIMP_TAC (std_ss++star_ss) [GSYM ADD_ASSOC]
+    \\ DISJ1_TAC \\ POP_ASSUM MP_TAC
+    \\ MATCH_MP_TAC (METIS_PROVE [] ``(b1 = b2) ==> (b1 ==> b2)``)
+    \\ REPEAT (AP_TERM_TAC ORELSE AP_THM_TAC)
+    \\ fs [GSYM fmap_EQ_THM] \\ REPEAT STRIP_TAC THEN1
+     (Cases_on `ev` \\ fs [ref_globals_def,ref_adjust_def,LET_DEF,getRefPtr_def]
+      \\ fs [EXTENSION] \\ REPEAT STRIP_TAC \\ fs [] \\ EQ_TAC \\ REPEAT STRIP_TAC
+      \\ fs [] \\ METIS_TAC [])
+    \\ fs [FUNION_DEF,FAPPLY_FUPDATE_THM,ref_lemma,ref_globals_lemma]
+    \\ Cases_on `ev`
+    \\ fs [ref_globals_def,FAPPLY_FUPDATE_THM,getRefPtr_def,
+           GSYM LUPDATE_ref_globals_list]
+    \\ RES_TAC \\ IMP_RES_TAC ODD_NOT_ZERO_ETC \\ fs []
+    \\ SRW_TAC [] [] \\ RES_TAC \\ IMP_RES_TAC ODD_NOT_ZERO_ETC \\ fs [])
   THEN1 (* Gread *)
-    cheat (* globals *)
+   (SIMP_TAC std_ss [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF]
+    \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
+    \\ REPEAT STRIP_TAC
+    \\ (prepare zBC_Gread
+         |> MATCH_MP SPEC_WEAKEN |> SPEC_ALL
+         |> DISCH_ALL |> RW [AND_IMP_INTRO]
+         |> MATCH_MP_TAC)
+    \\ FULL_SIMP_TAC std_ss [HD,TL,bc_adjust_def,MAP,APPEND,
+         isRefPtr_def,getRefPtr_def,ref_addr_def,getContent_def,
+         ref_globals_lemma]
+    \\ Q.PAT_ABBREV_TAC`vv:ref_value = a ' b`
+    \\ `vv = ValueArray (ref_globals_list (OPT_MAP (bc_adjust (cb,sb,ev))
+          s1.globals) globals_count)` by
+     (UNABBREV_ALL_TAC \\ fs [FUNION_DEF,ref_globals_lemma]
+      \\ Cases_on `ev` \\ fs [ref_globals_def,getRefPtr_def])
+    \\ fs [getValueArray_def,isBlock_def,isValueArray_def,LENGTH_ref_globals_list]
+    \\ STRIP_TAC
+    THEN1 (SRW_TAC [] [isRefPtr_def] \\ fs [globals_count_def] \\ DECIDE_TAC)
+    \\ FULL_SIMP_TAC (srw_ss()) [word_mul_n2w]
+    \\ FULL_SIMP_TAC std_ss [APPEND,TL,HD,x64_length_def,x64_def,
+         LENGTH,x64_inst_length_def,LEFT_ADD_DISTRIB,word_arith_lemma1]
+    \\ SIMP_TAC std_ss [SEP_IMP_def,SEP_EXISTS_THM] \\ REPEAT STRIP_TAC
+    \\ FULL_SIMP_TAC (srw_ss()) [SEP_DISJ_def]
+    \\ Q.LIST_EXISTS_TAC [`if ev then RefPtr 0 else RefPtr 1`,`x3`]
+    \\ FULL_SIMP_TAC (std_ss++star_ss) [GSYM ADD_ASSOC]
+    \\ DISJ1_TAC \\ POP_ASSUM MP_TAC
+    \\ MATCH_MP_TAC (METIS_PROVE [] ``(b1 = b2) ==> (b1 ==> b2)``)
+    \\ REPEAT (AP_TERM_TAC ORELSE AP_THM_TAC) \\ fs [HD_CONS_TL]
+    \\ fs [EL_ref_globals_list])
   THEN1 (* Tick *)
    (SIMP_TAC std_ss [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF]
     \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
