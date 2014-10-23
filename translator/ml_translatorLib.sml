@@ -2056,7 +2056,7 @@ fun preprocess_def def = let
     val def = if def |> SPEC_ALL |> concl |> dest_eq |> fst |> is_const
               then SPEC_ALL (RW1 [FUN_EQ_THM] def) else def
     val def = PURE_REWRITE_RULE ([ADD1,boolTheory.literal_case_DEF,
-                num_case_thm] @ get_preprocessor_rws()) def
+                num_case_thm,mlstring_CASE_thm] @ get_preprocessor_rws()) def
     val def = CONV_RULE (AUTO_ETA_EXPAND_CONV THENC REDEPTH_CONV BETA_CONV) def
     val def = rename_bound_vars_rule "v" (GEN_ALL def) |> SPEC_ALL
     in def end;
