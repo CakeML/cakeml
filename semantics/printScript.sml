@@ -21,11 +21,9 @@ val type_to_string_def = tDefine "type_to_string" `
 val print_envM_def = Define `
 print_envM envM = CONCAT (MAP (λ(x,m). "module " ++ x ++ " = <structure>\n") envM)`;
 
-val print_envC_def = Define `
-print_envC (menvC,envC) = CONCAT (MAP (λ(x,c). x ++ " = <constructor>\n") envC)`;
-
 val print_lit_def = Define `
 (print_lit (IntLit i) = int_to_string i) ∧
+(print_lit (Char c) = "#"++(string_to_string [c])) ∧
 (print_lit (StrLit s) = string_to_string s) ∧
 (print_lit (Word8 w) = "0wx"++(word_to_hex_string w)) ∧
 (print_lit (Bool T) = "true") ∧
@@ -46,15 +44,15 @@ val print_envE_def = Define `
   "val " ++ x ++ ":" ++ type_to_string t ++ " = " ++ print_v v ++ "\n" ++ print_envE types envE)`;
 
 val print_result_def = Define `
-(print_result types (Tdec _) envC (Rval (envM,envE)) = print_envC envC ++ print_envE types envE) ∧
-(print_result _ (Tmod mn _ _) _ (Rval _) = "structure "++mn++" = <structure>\n") ∧
-(print_result _ _ _ (Rerr Rtimeout_error) = "<timeout error>\n") ∧
-(print_result _ _ _ (Rerr Rtype_error) = "<type error>\n") ∧
-(print_result _ _ _ (Rerr (Rraise e)) = "raise " ++ print_v e ++ "\n")`;
+(print_result types (Tdec _) (Rval (envM,envE)) = print_envE types envE) ∧
+(print_result _ (Tmod mn _ _) (Rval _) = "structure "++mn++" = <structure>\n") ∧
+(print_result _ _ (Rerr Rtimeout_error) = "<timeout error>\n") ∧
+(print_result _ _ (Rerr Rtype_error) = "<type error>\n") ∧
+(print_result _ _ (Rerr (Rraise e)) = "raise " ++ print_v e ++ "\n")`;
 
 val print_prog_result_def = Define`
   (print_prog_result types (Rval (envM,envE)) =
-   case lookup "it" envE of
+   case ALOOKUP envE "it" of
      SOME v => print_v v ++ "\n"
    | NONE => "") ∧
   (print_prog_result _ (Rerr Rtimeout_error) = "<timeout error>\n") ∧

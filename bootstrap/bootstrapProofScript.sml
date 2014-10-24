@@ -136,7 +136,7 @@ val bootstrap_bc_state_exists = prove(
     first_x_assum match_mp_tac >>
     simp[initCompEnvTheory.prim_bs_eq] ) >>
   `(THE prim_sem_env).sem_envM = []` by fs[initSemEnvTheory.prim_sem_env_eq] >>
-  fs[libTheory.emp_def] >>
+  fs[] >>
   METIS_TAC[env_rs_change_clock,SND,FST])
 
 val bootstrap_bc_state_def = new_specification("bootstrap_bc_state_def",["bootstrap_bc_state","bootstrap_grd"],bootstrap_bc_state_exists)
@@ -386,7 +386,7 @@ val LIST_TYPE_CHAR_BlockList = prove(
   simp[PULL_EXISTS] >> simp conv_rws >>
   simp[PULL_EXISTS] >> simp conv_rws >>
   simp[BlockList_def,BlockCons_def] >>
-  simp[ml_repl_stepTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+  simp[ml_translatorTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
   simp conv_rws >>
   simp[Chr_def] >> rw[] >>
   fs[printingTheory.v_bv_def,printingTheory.exh_Cv_def] >>
@@ -466,7 +466,7 @@ val LEXER_FUN_SYMBOL_TYPE_v_bv = prove(
    |> (fn th => first_x_assum(mp_tac o MATCH_MP th))) >>
   disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
   disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
-  simp[ml_repl_stepTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def,Chr_def] >>
+  simp[ml_translatorTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def,Chr_def] >>
   simp[printingTheory.v_bv_def,printingTheory.exh_Cv_def,PULL_EXISTS,GSYM CONJ_ASSOC] >>
   disch_then(qspecl_then[`d0`,`d2`,`d3`,`d4`]mp_tac) >>
   (discharge_hyps >- (
@@ -581,7 +581,7 @@ val COMPILER_RUN_INV_references = store_thm("COMPILER_RUN_INV_references",
       v_bv d input ibc ∧ v_bv d output obc ∧
       has_primitive_types gtagenv ∧
       (∀n a t.
-        (lookup n (Tmod_tys "REPL" ml_repl_module_decls) = SOME (a,t)) ⇒
+        (ALOOKUP (Tmod_tys "REPL" ml_repl_module_decls) n = SOME (a,t)) ⇒
         let tag = FST(lookup_tag_flat n repl_contags_env) in
           (FLOOKUP gtagenv (n,t) = SOME(tag,a)))``,
   rpt gen_tac >>
@@ -695,9 +695,12 @@ val COMPILER_RUN_INV_references = store_thm("COMPILER_RUN_INV_references",
     first_x_assum(qspec_then`Short"SOME"`mp_tac) >>
     ASM_REWRITE_TAC[] >>
     REWRITE_TAC[initSemEnvTheory.prim_sem_env_eq,optionTheory.THE_DEF] >>
+    SIMP_TAC std_ss [
+      initialProgramTheory.sem_environment_accfupds,
+      combinTheory.K_DEF] >>
     REWRITE_TAC[
-      semanticPrimitivesTheory.lookup_con_id_def,
-      semanticPrimitivesTheory.merge_envC_def] >>
+      semanticPrimitivesTheory.lookup_alist_mod_env_def,
+      semanticPrimitivesTheory.merge_alist_mod_env_def] >>
     EVAL_TAC >> simp[] >>
     REWRITE_TAC[short_contags_env_eq] >>
     EVAL_TAC >> rw[]) >>
@@ -707,15 +710,15 @@ val COMPILER_RUN_INV_references = store_thm("COMPILER_RUN_INV_references",
   simp[conLangProofTheory.envC_tagged_def] >>
   strip_tac >>
   first_x_assum(qspec_then`Long"REPL"n`mp_tac) >>
-  Q.PAT_ABBREV_TAC`p:envC = merge_envC X init_envC` >>
+  Q.PAT_ABBREV_TAC`p:envC = merge_alist_mod_env X init_envC` >>
   `∃x y. p = (x,y)` by METIS_TAC[pair_CASES] >>
   qunabbrev_tac`p` >>
-  simp[semanticPrimitivesTheory.lookup_con_id_def] >>
-  qmatch_assum_abbrev_tac`merge_envC([("REPL",e)],emp) init_envC = X` >>
-  `lookup "REPL" x = SOME e` by (
-    qmatch_assum_rename_tac`merge_envC Y p = X`["Y"] >>
-    Cases_on`p`>>fs[semanticPrimitivesTheory.merge_envC_def] >>
-    fs[libTheory.merge_def,Abbr`X`] >> rw[] ) >>
+  simp[semanticPrimitivesTheory.lookup_alist_mod_env_def] >>
+  qmatch_assum_abbrev_tac`merge_alist_mod_env([("REPL",e)],emp) init_envC = X` >>
+  `ALOOKUP x "REPL" = SOME e` by (
+    qmatch_assum_rename_tac`merge_alist_mod_env Y p = X`["Y"] >>
+    Cases_on`p`>>fs[semanticPrimitivesTheory.merge_alist_mod_env_def] >>
+    fs[Abbr`X`] >> rw[] ) >>
   Cases_on`FST(SND(FST compile_repl_decs).contags_env)` >>
   simp[conLangTheory.lookup_tag_env_def,astTheory.id_to_n_def] >>
   strip_tac >>

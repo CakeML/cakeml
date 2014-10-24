@@ -4,7 +4,6 @@ open miscLib miscTheory;
 open astTheory;
 open semanticPrimitivesTheory;
 open libTheory;
-open libPropsTheory;
 open conLangTheory;
 open decLangTheory;
 open exhLangTheory;
@@ -247,7 +246,7 @@ val build_rec_env_i2_MAP = prove(
   qho_match_abbrev_tac `FOLDR (f funs) env funs = MAP (g funs) funs ++ env` >>
   qsuff_tac `∀funs env funs0. FOLDR (f funs0) env funs = MAP (g funs0) funs ++ env` >- rw[]  >>
   unabbrev_all_tac >> simp[] >>
-  Induct >> rw[libTheory.bind_def] >>
+  Induct >> rw[] >>
   PairCases_on`h` >> rw[])
 
 val build_rec_env_exh_MAP = prove(
@@ -256,7 +255,7 @@ val build_rec_env_exh_MAP = prove(
   qho_match_abbrev_tac `FOLDR (f funs) env funs = MAP (g funs) funs ++ env` >>
   qsuff_tac `∀funs env funs0. FOLDR (f funs0) env funs = MAP (g funs0) funs ++ env` >- rw[]  >>
   unabbrev_all_tac >> simp[] >>
-  Induct >> rw[libTheory.bind_def] >>
+  Induct >> rw[] >>
   PairCases_on`h` >> rw[])
 
 val env_to_exh_LIST_REL = Q.prove(
@@ -358,7 +357,7 @@ val pmatch_exh_correct = Q.prove (
     match_result_to_exh exh r r_exh)`,
  ho_match_mp_tac pmatch_i2_ind >>
  rw [pmatch_i2_def, pmatch_exh_def, pat_to_exh_def, match_result_to_exh_def] >>
- fs [match_result_to_exh_def, bind_def, v_to_exh_eqn] >>
+ fs [match_result_to_exh_def, v_to_exh_eqn] >>
  rw [pmatch_exh_def, match_result_to_exh_def, match_result_error] >>
  imp_res_tac LIST_REL_LENGTH >>
  fs []
@@ -489,6 +488,22 @@ val v_to_list_exh_correct = Q.prove (
  rw [] >>
  metis_tac [NOT_SOME_NONE, SOME_11]);
 
+val char_list_to_v_exh_correct = prove(
+  ``∀ls. v_to_exh exh (char_list_to_v_i2 ls) (char_list_to_v_exh ls)``,
+  Induct >> simp[char_list_to_v_i2_def,char_list_to_v_exh_def] >>
+  simp[v_to_exh_eqn])
+
+val v_exh_to_char_list_correct = Q.prove (
+`!v1 v2 vs1.
+  v_to_exh genv v1 v2 ∧
+  v_i2_to_char_list v1 = SOME vs1
+  ⇒
+  v_exh_to_char_list v2 = SOME vs1`,
+ ho_match_mp_tac v_i2_to_char_list_ind >>
+ rw [v_i2_to_char_list_def] >>
+ every_case_tac >>
+ fs [v_to_exh_eqn, v_exh_to_char_list_def]);
+
 val do_app_i2_cases = Q.store_thm("do_app_i2_cases",
   `do_app_i2 s op vs = SOME x ⇒
     (∃z n1 n2. op = (Op_i2 (Opn z)) ∧ vs = [Litv_i2 (IntLit n1); Litv_i2 (IntLit n2)]) ∨
@@ -501,6 +516,12 @@ val do_app_i2_cases = Q.store_thm("do_app_i2_cases",
     (∃lnum i. op = (Op_i2 Aw8sub) ∧ vs = [Loc_i2 lnum; Litv_i2 (IntLit i)]) ∨
     (∃n. op = (Op_i2 Aw8length) ∧ vs = [Loc_i2 n]) ∨
     (∃lnum i w. op = (Op_i2 Aw8update) ∧ vs = [Loc_i2 lnum; Litv_i2 (IntLit i); Litv_i2 (Word8 w)]) ∨
+    (∃c. op = (Op_i2 Ord) ∧ vs = [Litv_i2 (Char c)]) ∨
+    (∃n. op = (Op_i2 Chr) ∧ vs = [Litv_i2 (IntLit n)]) ∨
+    (∃z c1 c2. op = (Op_i2 (Chopb z)) ∧ vs = [Litv_i2 (Char c1); Litv_i2 (Char c2)]) ∨
+    (∃s. op = (Op_i2 Explode) ∧ vs = [Litv_i2 (StrLit s)]) ∨
+    (∃v ls. op = (Op_i2 Implode) ∧ vs = [v] ∧ (v_i2_to_char_list v = SOME ls)) ∨
+    (∃s. op = (Op_i2 Strlen) ∧ vs = [Litv_i2 (StrLit s)]) ∨
     (∃v vs'. op = (Op_i2 VfromList) ∧ vs = [v] ∧ (v_to_list_i2 v = SOME vs')) ∨
     (∃vs' i. op = (Op_i2 Vsub) ∧ vs = [Vectorv_i2 vs'; Litv_i2 (IntLit i)]) ∨
     (∃vs'. op = (Op_i2 Vlength) ∧ vs = [Vectorv_i2 vs']) ∨
@@ -509,8 +530,13 @@ val do_app_i2_cases = Q.store_thm("do_app_i2_cases",
     (∃n. op = (Op_i2 Alength) ∧ vs = [Loc_i2 n]) ∨
     (∃lnum i v. op = (Op_i2 Aupdate) ∧ vs = [Loc_i2 lnum; Litv_i2 (IntLit i); v])`,
   rw[do_app_i2_def] >>
-  every_case_tac >> 
-  fs[]);
+  pop_assum mp_tac >>
+  BasicProvers.CASE_TAC >- (
+    every_case_tac >> fs[]) >>
+  Cases_on`op` >- (
+    simp[] >>
+    every_case_tac >> fs[] ) >>
+  every_case_tac >> fs[]);
 
 val tac =
   rw [do_app_exh_def, result_to_exh_cases, store_to_exh_def, prim_exn_i2_def,
@@ -563,6 +589,12 @@ val do_app_exh_i2 = Q.prove (
  >- tac
  >- (tac >>
      metis_tac [v_to_exh_eqn, store_v_distinct, sv_to_exh_def])
+ >- tac
+ >- tac
+ >- tac
+ >- ( tac >> metis_tac[char_list_to_v_exh_correct] )
+ >- ( imp_res_tac v_exh_to_char_list_correct >> tac)
+ >- tac
  >- (imp_res_tac v_to_list_exh_correct >>
      rw [do_app_exh_def, result_to_exh_cases, v_to_exh_eqn, store_to_exh_def] >>
      fs [vs_to_exh_LIST_REL])
@@ -653,8 +685,8 @@ val do_opapp_exh = prove(
   rw[do_opapp_i2_def,do_opapp_exh_def] >>
   every_case_tac >> fs[] >> rw[] >>
   TRY (fs[Once v_to_exh_cases]>>NO_TAC) >>
-  fs[Q.SPECL[`exh`,`Closure_i2 X Y Z`](CONJUNCT1 v_to_exh_cases),bind_def,env_to_exh_LIST_REL] >>
-  fs[Q.SPECL[`exh`,`Recclosure_i2 X Y Z`](CONJUNCT1 v_to_exh_cases),bind_def,env_to_exh_LIST_REL] >>
+  fs[Q.SPECL[`exh`,`Closure_i2 X Y Z`](CONJUNCT1 v_to_exh_cases),env_to_exh_LIST_REL] >>
+  fs[Q.SPECL[`exh`,`Recclosure_i2 X Y Z`](CONJUNCT1 v_to_exh_cases),env_to_exh_LIST_REL] >>
   rw[] >> fs[find_recfun_funs_to_exh] >> rw[] >>
   fs[funs_to_exh_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,FST_triple,ETA_AX]
   >- metis_tac[SUBMAP_REFL] >>
@@ -1041,7 +1073,7 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
  strip_tac >- (
    simp[exp_to_exh_def] >>
    rw[add_default_def] >>
-   simp[Once evaluate_exh_cases,exp_to_exh_def,pat_bindings_exh_def,pat_to_exh_def,pmatch_exh_def,bind_def] >>
+   simp[Once evaluate_exh_cases,exp_to_exh_def,pat_bindings_exh_def,pat_to_exh_def,pmatch_exh_def] >>
    rw[Once evaluate_exh_cases] >>
    fs[Once result_to_exh_cases,PULL_EXISTS,v_to_exh_eqn] >>
    fs[exists_match_def] >>
@@ -1174,7 +1206,7 @@ val build_rec_env_exh_MAP = store_thm("build_rec_env_exh_MAP",
   qho_match_abbrev_tac `FOLDR (f funs) env funs = MAP (g funs) funs ++ env` >>
   qsuff_tac `∀funs env funs0. FOLDR (f funs0) env funs = MAP (g funs0) funs ++ env` >- rw[]  >>
   unabbrev_all_tac >> simp[] >>
-  Induct >> rw[libTheory.bind_def] >>
+  Induct >> rw[] >>
   PairCases_on`h` >> rw[])
 
 val pmatch_exh_any_match = store_thm("pmatch_exh_any_match",
@@ -1244,7 +1276,7 @@ val pmatch_exh_APPEND = store_thm("pmatch_exh_APPEND",
       (pmatch_list_exh s ps vs env =
        map_match (combin$C APPEND (DROP n env)) (pmatch_list_exh s ps vs (TAKE n env))))``,
   ho_match_mp_tac pmatch_exh_ind >>
-  rw[pmatch_exh_def,libTheory.bind_def]
+  rw[pmatch_exh_def]
   >- ( BasicProvers.CASE_TAC >> fs[] >>
        BasicProvers.CASE_TAC >> fs[]) >>
   pop_assum (qspec_then`n`mp_tac) >>

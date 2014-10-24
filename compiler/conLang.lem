@@ -39,26 +39,29 @@ let tuple_tag = 0
 val bind_tag : nat
 let bind_tag = 1
 
+val chr_tag : nat
+let chr_tag = 2
+
 val div_tag : nat
-let div_tag = 2
+let div_tag = 3
 
 val eq_tag : nat
-let eq_tag = 3
+let eq_tag = 4
 
 val subscript_tag : nat
-let subscript_tag = 4
+let subscript_tag = 5
 
 val nil_tag : nat
-let nil_tag = 5
+let nil_tag = 6
 
 val cons_tag : nat
-let cons_tag = 6
+let cons_tag = 7
 
 val none_tag : nat
-let none_tag = 7
+let none_tag = 8
 
 val some_tag : nat
-let some_tag = 8
+let some_tag = 9
 
 type exh_ctors_env = Map.map (id typeN) nat_set
 
@@ -97,8 +100,8 @@ type prompt_i2 =
 type v_i2 =
   | Litv_i2 of lit
   | Conv_i2 of (nat * maybe tid_or_exn) * list v_i2 
-  | Closure_i2 of env varN v_i2 * varN * exp_i2
-  | Recclosure_i2 of env varN v_i2 * list (varN * varN * exp_i2) * varN
+  | Closure_i2 of alist varN v_i2 * varN * exp_i2
+  | Recclosure_i2 of alist varN v_i2 * list (varN * varN * exp_i2) * varN
   | Loc_i2 of nat
   | Vectorv_i2 of list v_i2
 
@@ -299,10 +302,10 @@ prog_to_i2 st (p::ps) =
 
 declare termination_argument prog_to_i2 = automatic
 
-val build_rec_env_i2 : list (varN * varN * exp_i2) -> env varN v_i2 -> env varN v_i2 -> env varN v_i2
+val build_rec_env_i2 : list (varN * varN * exp_i2) -> alist varN v_i2 -> alist varN v_i2 -> alist varN v_i2
 let build_rec_env_i2 funs cl_env add_to_env =
   foldr 
-    (fun (f,x,e) env' -> bind f (Recclosure_i2 cl_env funs f) env') 
+    (fun (f,x,e) env' -> (f, Recclosure_i2 cl_env funs f) :: env') 
     add_to_env 
     funs
 
@@ -351,23 +354,23 @@ do_eq_list_i2 (v1::vs1) (v2::vs2) =
 and
 do_eq_list_i2 _ _ = Eq_val false
 
-type all_env_i2 = (exh_ctors_env * list (maybe v_i2) * env varN v_i2)
+type all_env_i2 = (exh_ctors_env * list (maybe v_i2) * alist varN v_i2)
 
 let all_env_i2_to_genv (exh,genv,env) = genv
 let all_env_i2_to_env (exh,genv,env) = env
 
-val exn_env_i2 : env varN v_i2
-let exn_env_i2 = emp
+val exn_env_i2 : alist varN v_i2
+let exn_env_i2 = []
 
-val do_opapp_i2 : list v_i2 -> maybe (env varN v_i2 * exp_i2)
+val do_opapp_i2 : list v_i2 -> maybe (alist varN v_i2 * exp_i2)
 let do_opapp_i2 vs =
   match vs with
     | [Closure_i2 env n e; v] ->
-        Just (bind n v env, e)
+        Just ((n,v)::env, e)
     | [Recclosure_i2 env funs n; v] ->
         if allDistinct (List.map (fun (f,x,e) -> f) funs) then
           match find_recfun n funs with
-            | Just (n,e) -> Just (bind n v (build_rec_env_i2 funs env env), e)
+            | Just (n,e) -> Just ((n,v)::build_rec_env_i2 funs env env, e)
             | Nothing -> Nothing
           end
         else
@@ -395,6 +398,27 @@ and v_to_list_i2 (Conv_i2 (tag,Just (TypeId (Short tn))) [v1;v2]) =
 and v_to_list_i2 _ = Nothing
 declare termination_argument v_to_list_i2 = automatic
 
+val v_i2_to_char_list : v_i2 -> maybe (list char)
+let rec v_i2_to_char_list (Conv_i2 (tag, Just (TypeId (Short tn))) []) =
+  if tag = nil_tag && tn = "list" then
+    Just []
+  else
+    Nothing
+and v_i2_to_char_list (Conv_i2 (tag, Just (TypeId (Short tn))) [Litv_i2 (Char c);v]) =
+  if tag = cons_tag  && tn = "list" then
+    match v_i2_to_char_list v with
+      | Just cs -> Just (c::cs)
+      | Nothing -> Nothing
+    end
+  else
+    Nothing
+and v_i2_to_char_list _ = Nothing
+declare termination_argument v_i2_to_char_list = automatic
+
+val char_list_to_v_i2 : list char -> v_i2
+let rec char_list_to_v_i2 [] = Conv_i2 (nil_tag, Just (TypeId (Short "list"))) []
+and char_list_to_v_i2 (c::cs) =
+  Conv_i2 (cons_tag, Just (TypeId (Short "list"))) [Litv_i2 (Char c); char_list_to_v_i2 cs]
 
 val do_app_i2 : store v_i2 -> op_i2 -> list v_i2 -> maybe (store v_i2 * result v_i2 v_i2)
 let do_app_i2 s op vs =
@@ -469,6 +493,26 @@ let do_app_i2 s op vs =
                   end
         | _ -> Nothing
       end
+    | (Op_i2 Ord, [Litv_i2 (Char c)]) ->
+          Just (s, Rval (Litv_i2(IntLit(integerFromNat(String_extra.ord c)))))
+    | (Op_i2 Chr, [Litv_i2 (IntLit i)]) ->
+        Just (s,
+          if i < 0 || i > 255 then
+            Rerr (Rraise (prim_exn_i2 chr_tag "Chr"))
+          else
+            Rval (Litv_i2(Char(String_extra.chr(natFromInteger i)))))
+    | (Op_i2 (Chopb op), [Litv_i2 (Char c1); Litv_i2 (Char c2)]) ->
+        Just (s, Rval (Litv_i2 (Bool (opb_lookup op (integerFromNat(String_extra.ord c1)) (integerFromNat(String_extra.ord c2))))))
+    | (Op_i2 Implode, [v]) ->
+          match v_i2_to_char_list v with
+          | Just ls ->
+              Just (s, Rval (Litv_i2 (StrLit (toString ls))))
+          | Nothing -> Nothing
+          end
+    | (Op_i2 Explode, [Litv_i2 (StrLit str)]) ->
+        Just (s, Rval (char_list_to_v_i2 (toCharList str)))
+    | (Op_i2 Strlen, [Litv_i2 (StrLit str)]) ->
+        Just (s, Rval (Litv_i2(IntLit(integerFromNat(stringLength str)))))
     | (Op_i2 VfromList, [v]) ->
           match v_to_list_i2 v with
             | Just vs ->
@@ -541,9 +585,9 @@ let do_if_i2 v e1 e2 =
   else
     Nothing
 
-val pmatch_i2 : exh_ctors_env -> store v_i2 -> pat_i2 -> v_i2 -> env varN v_i2 -> match_result (env varN v_i2)
+val pmatch_i2 : exh_ctors_env -> store v_i2 -> pat_i2 -> v_i2 -> alist varN v_i2 -> match_result (alist varN v_i2)
 let rec
-pmatch_i2 exh s (Pvar_i2 x) v' env = Match (bind x v' env)
+pmatch_i2 exh s (Pvar_i2 x) v' env = Match ((x,v')::env)
 and
 pmatch_i2 exh s (Plit_i2 l) (Litv_i2 l') env =
   if l = l' then
@@ -912,7 +956,7 @@ evaluate_match_i2 ck env s v ((p,e)::pes) err_v (s, Rerr Rtype_error)
 indreln [evaluate_dec_i2 : bool -> exh_ctors_env -> list (maybe v_i2) -> count_store v_i2 -> dec_i2 -> count_store v_i2 * result (list v_i2) v_i2 -> bool]
 
 dlet1 : forall ck exh genv n e vs s1 s2.
-evaluate_i2 ck (exh,genv,emp) s1 e (s2, Rval (Conv_i2 (tuple_tag,Nothing) vs)) &&
+evaluate_i2 ck (exh,genv,[]) s1 e (s2, Rval (Conv_i2 (tuple_tag,Nothing) vs)) &&
 List.length vs = n
 ==>
 evaluate_dec_i2 ck exh genv s1 (Dlet_i2 n e) (s2, Rval vs)
@@ -920,7 +964,7 @@ evaluate_dec_i2 ck exh genv s1 (Dlet_i2 n e) (s2, Rval vs)
 and
 
 dlet3 : forall ck exh genv n e vs s1 s2.
-evaluate_i2 ck (exh,genv,emp) s1 e (s2, Rval (Conv_i2 (tuple_tag,Nothing) vs)) &&
+evaluate_i2 ck (exh,genv,[]) s1 e (s2, Rval (Conv_i2 (tuple_tag,Nothing) vs)) &&
 List.length vs <> n
 ==>
 evaluate_dec_i2 ck exh genv s1 (Dlet_i2 n e) (s2, Rerr Rtype_error)
@@ -928,7 +972,7 @@ evaluate_dec_i2 ck exh genv s1 (Dlet_i2 n e) (s2, Rerr Rtype_error)
 and
 
 dlet4 : forall ck exh genv n e v s1 s2.
-evaluate_i2 ck (exh,genv,emp) s1 e (s2, Rval v) &&
+evaluate_i2 ck (exh,genv,[]) s1 e (s2, Rval v) &&
 not (exists vs. v = Conv_i2 (tuple_tag,Nothing) vs)
 ==>
 evaluate_dec_i2 ck exh genv s1 (Dlet_i2 n e) (s2, Rerr Rtype_error)
@@ -936,7 +980,7 @@ evaluate_dec_i2 ck exh genv s1 (Dlet_i2 n e) (s2, Rerr Rtype_error)
 and
 
 dlet5 : forall ck exh genv n e err s s'.
-evaluate_i2 ck (exh,genv,emp) s e (s', Rerr err)
+evaluate_i2 ck (exh,genv,[]) s e (s', Rerr err)
 ==>
 evaluate_dec_i2 ck exh genv s (Dlet_i2 n e) (s', Rerr err)
 

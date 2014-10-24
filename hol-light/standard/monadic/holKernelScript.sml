@@ -1,18 +1,12 @@
 open HolKernel Parse boolLib bossLib;
-open stringTheory listTheory sortingTheory;
-val _ = new_theory "hol_kernel";
+open stringTheory mlstringTheory listTheory sortingTheory;
+val _ = new_theory "holKernel";
 
 
 (*
   type hol_type = Tyvar of string
                 | Tyapp of string * hol_type list
 *)
-
-val _ = Hol_datatype `
-  hol_type = Tyvar of string
-           | Tyapp of string => hol_type list`;
-
-val hol_type_size_def = fetch "-" "hol_type_size_def"
 
 (*
   type term = Var of string * hol_type
@@ -21,30 +15,16 @@ val hol_type_size_def = fetch "-" "hol_type_size_def"
             | Abs of term * term
 *)
 
-val _ = Hol_datatype `
-  hol_term = Var of string => hol_type
-           | Const of string => hol_type
-           | Comb of hol_term => hol_term
-           | Abs of hol_term => hol_term`;
+(* we reuse the datatypes of types and terms from the inference system *)
+
+val type_size_def = holSyntaxTheory.type_size_def
 
 (*
   type thm = Sequent of (term list * term)
 *)
 
 val _ = Hol_datatype `
-  thm = Sequent of hol_term list => hol_term`;
-
-(*
-  For purposes of stating our final soundness theorem, we also keep
-  track of what definitions and other context updates have happened.
-*)
-
-val _ = Hol_datatype `
-  def = NewAxiom of hol_term
-      | NewConst of string => hol_type
-      | NewType of string => num
-      | ConstSpec of (string # hol_term) list => hol_term
-      | TypeDefn of string => hol_term => string => string`;
+  thm = Sequent of term list => term`;
 
 (*
   We define a record that holds the state, i.e.
@@ -56,20 +36,24 @@ val _ = Hol_datatype `
 
   let the_axioms = ref ([]:thm list)
 
-  Also to emulate the clash exception we include a clash_var.
+  The context is the global theory context tracked by the inference system, and
+  subsumes the above references. But we use them instead for efficiency (and to
+  be close to HOL Light).
 *)
 
 val _ = Hol_datatype `
-  hol_refs = <| the_type_constants : (string # num) list ;
-                the_term_constants : (string # hol_type) list ;
+  hol_refs = <| the_type_constants : (mlstring # num) list ;
+                the_term_constants : (mlstring # type) list ;
                 the_axioms : thm list ;
-                the_definitions : def list ;
-                the_clash_var : hol_term |>`;
+                the_context : update list |>`;
 
 (* the state-exception monad *)
 
+val _ = Hol_datatype`
+  hol_exn = Fail of mlstring | Clash of term`
+
 val _ = Hol_datatype `
-  hol_result = HolRes of 'a | HolErr of string`;
+  hol_result = HolRes of 'a | HolErr of hol_exn`;
 
 val _ = type_abbrev("M", ``:hol_refs -> 'a hol_result # hol_refs``);
 
@@ -84,11 +68,8 @@ val get_the_term_constants_def = Define `
 val get_the_axioms_def = Define `
   get_the_axioms = (\state. (HolRes (state.the_axioms),state))`;
 
-val get_the_definitions_def = Define `
-  get_the_definitions = (\state. (HolRes (state.the_definitions),state))`;
-
-val get_the_clash_var_def = Define `
-  get_the_clash_var = (\state. (HolRes (state.the_clash_var),state))`;
+val get_the_context_def = Define `
+  get_the_context = (\state. (HolRes (state.the_context),state))`;
 
 val set_the_type_constants_def = Define `
   set_the_type_constants x =
@@ -102,13 +83,9 @@ val set_the_axioms_def = Define `
   set_the_axioms x =
     (\state. (HolRes (), (state with the_axioms := x))):unit M`;
 
-val set_the_definitions_def = Define `
-  set_the_definitions x =
-    (\state. (HolRes (), (state with the_definitions := x))):unit M`;
-
-val set_the_clash_var_def = Define `
-  set_the_clash_var x =
-    (\state. (HolRes (), (state with the_clash_var := x))):unit M`;
+val set_the_context_def = Define `
+  set_the_context x =
+    (\state. (HolRes (), (state with the_context := x))):unit M`;
 
 (* composition and return *)
 
@@ -134,15 +111,15 @@ val _ = temp_overload_on ("return", ``ex_return``);
 (* failwith and otherwise *)
 
 val failwith_def = Define `
-  ((failwith msg) :'a M) = \state. (HolErr msg, state)`;
+  ((failwith msg) :'a M) = \state. (HolErr (Fail msg), state)`;
+
+val _ = add_infix("otherwise",400,HOLgrammars.RIGHT)
 
 val otherwise_def = Define `
-  otherwise x y = \state.
+  x otherwise y = \state.
     case (x state) of
       (HolRes y, state) => (HolRes y, state)
     | (HolErr e, state) => y state`;
-
-val _ = add_infix("otherwise",400,HOLgrammars.RIGHT)
 
 (* others *)
 
@@ -154,17 +131,20 @@ val _ = Define `
   try f x msg = (f x otherwise failwith msg)`;
 
 val raise_clash_def = Define `
-  ((raise_clash c) :'a M) = do set_the_clash_var c ; failwith "clash" od`;
+  ((raise_clash c) :'a M) = \state. (HolErr (Clash c), state)`
 
 val handle_clash_def = Define `
-  handle_clash x f = (x otherwise do v <- get_the_clash_var ; f v od)`;
+  handle_clash x f = \state.
+    case (x state) of
+    | (HolErr (Clash t), state) => f t state
+    | other => other`;
 
 (* define failing lookup function *)
 
 val _ = Define `
   assoc s l =
     case l of
-      [] => failwith "not in list"
+      [] => failwith (strlit "not in list")
     | ((x:'a,y:'b)::xs) => if s = x then do return y od else assoc s xs`;
 
 val _ = Define `
@@ -230,13 +210,13 @@ val _ = Define `
 *)
 
 val add_def = Define `
-  add_def d = do defs <- get_the_definitions ;
-                 set_the_definitions (d::defs) od`;
+  add_def d = do defs <- get_the_context ;
+                 set_the_context (d::defs) od`;
 
 val _ = Define`
   add_type (name,arity) =
     do ok <- can get_type_arity name ;
-       if ok then failwith ("new_type: " ++ name ++ " has already been declared")
+       if ok then failwith ((strlit"new_type: ") ^ name ^ (strlit" has already been declared"))
              else do ts <- get_the_type_constants ;
                      set_the_type_constants ((name,arity)::ts) od od`
 
@@ -257,10 +237,10 @@ val _ = Define `
 val _ = Define `
   mk_type (tyop,args) =
     do arity <- try get_type_arity tyop
-         ("mk_type: type " ++ tyop ++ " has not been defined");
+         ((strlit"mk_type: type ") ^ tyop ^ (strlit" has not been defined"));
        if arity = LENGTH args then
          return (Tyapp tyop args)
-       else failwith ("mk_type: wrong number of arguments to " ++ tyop)
+       else failwith ((strlit"mk_type: wrong number of arguments to ") ^ tyop)
     od`;
 
 (*
@@ -281,7 +261,7 @@ val _ = Define `
   dest_type t =
     case t of
       Tyapp s ty => do return (s,ty) od
-    | Tyvar _ => do failwith "dest_type: type variable not a constructor" od`;
+    | Tyvar _ => do failwith (strlit"dest_type: type variable not a constructor") od`;
 
 (*
   let dest_vartype =
@@ -293,7 +273,7 @@ val _ = Define `
 val _ = Define `
   dest_vartype t =
     case t of
-      Tyapp _ _ => do failwith "dest_vartype: type constructor not a variable" od
+      Tyapp _ _ => do failwith (strlit "dest_vartype: type constructor not a variable") od
     | Tyvar s => do return s od`;
 
 (*
@@ -323,8 +303,8 @@ val _ = tDefine "tyvars" `
   tyvars x =
     case x of (Tyapp _ args) => itlist union (MAP tyvars args) []
             | (Tyvar tv) => [tv]`
- (WF_REL_TAC `measure (hol_type_size)` THEN Induct_on `args`
-  THEN FULL_SIMP_TAC (srw_ss()) [hol_type_size_def]
+ (WF_REL_TAC `measure (type_size)` THEN Induct_on `args`
+  THEN FULL_SIMP_TAC (srw_ss()) [type_size_def]
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC
   THEN REPEAT (POP_ASSUM (MP_TAC o SPEC_ALL)) THEN REPEAT STRIP_TAC
   THEN DECIDE_TAC);
@@ -352,8 +332,8 @@ val _ = tDefine "type_subst" `
          let args' = MAP (type_subst i) args in
          if args' = args then ty else Tyapp tycon args'
     | _ => rev_assocd ty i ty`
- (WF_REL_TAC `measure (hol_type_size o SND)` THEN Induct_on `args`
-  THEN FULL_SIMP_TAC (srw_ss()) [hol_type_size_def]
+ (WF_REL_TAC `measure (type_size o SND)` THEN Induct_on `args`
+  THEN FULL_SIMP_TAC (srw_ss()) [type_size_def]
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC
   THEN REPEAT (POP_ASSUM (MP_TAC o SPEC_ALL)) THEN REPEAT STRIP_TAC
   THEN DECIDE_TAC);
@@ -365,10 +345,10 @@ val _ = tDefine "type_subst" `
   let bty = mk_vartype "B";;
 *)
 
-val _ = temp_overload_on("bool_ty",``mk_type("bool",[])``);
-val _ = Define `mk_fun_ty ty1 ty2 = mk_type("fun",[ty1; ty2])`;
-val _ = temp_overload_on("aty",``mk_vartype "A"``);
-val _ = temp_overload_on("bty",``mk_vartype "B"``);
+val _ = temp_overload_on("bool_ty",``mk_type(strlit"bool",[])``);
+val _ = Define `mk_fun_ty ty1 ty2 = mk_type(strlit"fun",[ty1; ty2])`;
+val _ = temp_overload_on("aty",``mk_vartype (strlit "A")``);
+val _ = temp_overload_on("bty",``mk_vartype (strlit "B")``);
 
 (*
   let get_const_type s = assoc s (!the_term_constants)
@@ -395,10 +375,10 @@ val _ = Define `
     | Comb s _ => do ty <- type_of s ;
                      x <- dest_type ty ;
                      case x of (_,_::ty1::_) => return ty1
-                             | _ => failwith "match"
+                             | _ => failwith (strlit "match")
                   od
     | Abs (Var _ ty) t => do x <- type_of t; mk_fun_ty ty x od
-    | _ => failwith "match" `
+    | _ => failwith (strlit "match") `
 
 (*
   let aconv =
@@ -472,7 +452,7 @@ val _ = Define `mk_var(v,ty) = Var v ty`;
 val _ = Define `
   mk_const(name,theta) =
     do uty <- try get_const_type name
-         "mk_const: not a constant name" ;
+         (strlit "mk_const: not a constant name") ;
        return (Const name (type_subst theta uty))
     od`;
 
@@ -487,7 +467,7 @@ val _ = Define `
   mk_abs(bvar,bod) =
     case bvar of
       Var n ty => return (Abs bvar bod)
-    | _ => failwith "mk_abs: not a variable"`;
+    | _ => failwith (strlit "mk_abs: not a variable")`;
 
 (*
   let mk_comb(f,a) =
@@ -501,9 +481,9 @@ val _ = Define `
     do tyf <- type_of f ;
        tya <- type_of a ;
        case tyf of
-         Tyapp "fun" [ty;_] => if tya = ty then return (Comb f a) else
-                                 failwith "mk_comb: types do not agree"
-       | _ => failwith "mk_comb: types do not agree"
+         Tyapp (strlit "fun") [ty;_] => if tya = ty then return (Comb f a) else
+                                 failwith (strlit "mk_comb: types do not agree")
+       | _ => failwith (strlit "mk_comb: types do not agree")
     od`;
 
 (*
@@ -522,19 +502,19 @@ val _ = Define `
 
 val _ = Define `
   dest_var tm = case tm of Var s ty => return (s,ty)
-                         | _ => failwith "dest_var: not a variable"`;
+                         | _ => failwith (strlit "dest_var: not a variable")`;
 
 val _ = Define `
   dest_const tm = case tm of Const s ty => return (s,ty)
-                           | _ => failwith "dest_const: not a constant"`;
+                           | _ => failwith (strlit "dest_const: not a constant")`;
 
 val _ = Define `
   dest_comb tm = case tm of Comb f x => return (f,x)
-                          | _ => failwith "dest_comb: not a combination"`;
+                          | _ => failwith (strlit "dest_comb: not a combination")`;
 
 val _ = Define `
   dest_abs tm = case tm of Abs v b => return (v,b)
-                         | _ => failwith "dest_abs: not an abstraction"`;
+                         | _ => failwith (strlit "dest_abs: not an abstraction")`;
 
 (*
   let rec frees tm =
@@ -639,7 +619,7 @@ val MEM_subtract = prove(
   FULL_SIMP_TAC std_ss [fetch "-" "subtract_def",MEM_FILTER] THEN METIS_TAC []);
 
 val vfree_in_IMP = prove(
-  ``!(t:hol_term) x v. vfree_in (Var v ty) x ==> MEM (Var v ty) (frees x)``,
+  ``!(t:term) x v. vfree_in (Var v ty) x ==> MEM (Var v ty) (frees x)``,
   HO_MATCH_MP_TAC (SIMP_RULE std_ss [] (fetch "-" "vfree_in_ind"))
   THEN REPEAT STRIP_TAC THEN Cases_on `x` THEN POP_ASSUM MP_TAC
   THEN ONCE_REWRITE_TAC [fetch "-" "vfree_in_def",fetch "-" "frees_def"]
@@ -651,14 +631,14 @@ val _ = tDefine "variant" `
   variant avoid v =
     if EXISTS (vfree_in v) avoid then
     case v of
-       Var s ty => variant avoid (Var(s++"'") ty)
+       Var s ty => variant avoid (Var(s ^ (strlit "'")) ty)
     | _ => v else v`
   (WF_REL_TAC `measure (\(avoid,v).
-     let s = \v. case v of Var s ty => LENGTH s + 1 | _ => 0 in
+     let s = \v. case v of Var s ty => strlen s + 1 | _ => 0 in
      let n = SUM (MAP s (FLAT (MAP frees avoid))) in
        n - (s v - 1))`
    THEN REPEAT STRIP_TAC
-   THEN FULL_SIMP_TAC (srw_ss()) [LET_DEF,LENGTH,LENGTH_APPEND]
+   THEN FULL_SIMP_TAC (srw_ss()) [LET_DEF,LENGTH,LENGTH_APPEND,strlen_def,strcat_def,explode_implode]
    THEN REPEAT STRIP_TAC THEN1 DECIDE_TAC
    THEN IMP_RES_TAC EXISTS_IMP
    THEN FULL_SIMP_TAC std_ss [MEM_SPLIT,MAP,MAP_APPEND,
@@ -717,7 +697,7 @@ val vsubst_def = Define `
                                 return (ty = SND vty) od) theta ;
        if ok
        then return (vsubst_aux theta tm)
-       else failwith "vsubst: Bad substitution list" od`
+       else failwith (strlit "vsubst: Bad substitution list") od`
 
 (*
   let inst =
@@ -772,7 +752,7 @@ val my_term_size_vsubst_aux = prove(
   Induct THEN1
    (FULL_SIMP_TAC (srw_ss()) [my_term_size_def,Once (fetch "-" "vsubst_aux_def")]
     THEN Induct_on `xs` THEN1 (EVAL_TAC THEN SRW_TAC [] [my_term_size_def])
-    THEN Cases_on `h'`
+    THEN Cases
     THEN ASM_SIMP_TAC (srw_ss()) [EVERY_DEF,Once (fetch "-" "rev_assocd_def")]
     THEN FULL_SIMP_TAC (srw_ss()) []
     THEN Cases THEN SRW_TAC [] [] THEN Cases_on `q`
@@ -793,7 +773,7 @@ val ZERO_LT_term_size = prove(
   Cases THEN EVAL_TAC THEN DECIDE_TAC);
 
 val inst_aux_def = tDefine "inst_aux" `
-  (inst_aux (env:(hol_term # hol_term) list) tyin tm) : hol_term M =
+  (inst_aux (env:(term # term) list) tyin tm) =
     case tm of
       Var n ty   => let ty' = type_subst tyin ty in
                     let tm' = if ty' = ty then tm else Var n ty' in
@@ -805,13 +785,13 @@ val inst_aux_def = tDefine "inst_aux" `
                        x' <- inst_aux env tyin x ;
                        if (f = f') /\ (x = x') then return tm
                                                else return (Comb f' x') od
-    | Abs y t    => do (y':hol_term) <- inst_aux [] tyin y ;
+    | Abs y t    => do (y':term) <- inst_aux [] tyin y ;
                        env' <- return ((y,y')::env) ;
                        handle_clash
                         (do t' <- inst_aux env' tyin t ;
                             return (Abs y' t') od)
                         (\w'.
-                         if w' <> y' then failwith "clash" else
+                         if w' <> y' then failwith (strlit "clash") else
                          do temp <- inst_aux [] tyin t ;
                             y' <- return (variant (frees temp) y') ;
                             (v1,ty') <- dest_var y' ;
@@ -824,7 +804,7 @@ val inst_aux_def = tDefine "inst_aux" `
    THEN SIMP_TAC (srw_ss()) [my_term_size_def]
    THEN REPEAT STRIP_TAC
    THEN FULL_SIMP_TAC std_ss [my_term_size_vsubst_aux]
-   THEN DECIDE_TAC) |> SIMP_RULE std_ss [handle_clash_def,raise_clash_def]
+   THEN DECIDE_TAC)
 
 val _ = save_thm("inst_aux_def",inst_aux_def);
 
@@ -847,13 +827,13 @@ val _ = Define `
   rator tm =
     case tm of
       Comb l r => return l
-    | _ => failwith "rator: Not a combination"`;
+    | _ => failwith (strlit "rator: Not a combination")`;
 
 val _ = Define `
   rand tm =
     case tm of
       Comb l r => return r
-    | _ => failwith "rand: Not a combination"`;
+    | _ => failwith (strlit "rand: Not a combination")`;
 
 (*
   let mk_eq =
@@ -869,12 +849,12 @@ val _ = Define `
   mk_eq (l,r) =
     try (\(l,r).
            do ty <- type_of l ;
-              eq <- mk_const("=",[]) ;
+              eq <- mk_const(strlit"=",[]) ;
               eq_tm <- inst [(ty,aty)] eq ;
               t <- mk_comb(eq_tm,l) ;
               t <- mk_comb(t,r) ;
               return t
-           od) (l,r) "mk_eq"`
+           od) (l,r) (strlit "mk_eq")`
 
 (*
   let dest_eq tm =
@@ -891,13 +871,13 @@ val _ = Define `
 val _ = Define `
   dest_eq tm =
     case tm of
-      Comb (Comb (Const "=" _) l) r => return (l,r)
-    | _ => failwith "dest_eq"`;
+      Comb (Comb (Const (strlit "=") _) l) r => return (l,r)
+    | _ => failwith (strlit "dest_eq")`;
 
 val _ = Define `
   is_eq tm =
     case tm of
-      Comb (Comb (Const "=" _) l) r => T
+      Comb (Comb (Const (strlit "=") _) l) r => T
     | _ => F`;
 
 (*
@@ -951,11 +931,11 @@ val _ = Define `
 val _ = Define `
   TRANS (Sequent asl1 c1) (Sequent asl2 c2) =
     case (c1,c2) of
-      (Comb (Comb (Const "=" _) l) m1, Comb (Comb (Const "=" _) m2) r) =>
+      (Comb (Comb (Const (strlit "=") _) l) m1, Comb (Comb (Const (strlit "=") _) m2) r) =>
         if aconv m1 m2 then do eq <- mk_eq(l,r);
                                return (Sequent (term_union asl1 asl2) eq) od
-        else failwith "TRANS"
-    | _ => failwith "TRANS"`
+        else failwith (strlit "TRANS")
+    | _ => failwith (strlit "TRANS")`
 
 (*
   let MK_COMB (Sequent(asl1,c1),Sequent(asl2,c2)) =
@@ -968,12 +948,12 @@ val _ = Define `
 val _ = Define `
   MK_COMB (Sequent asl1 c1,Sequent asl2 c2) =
    case (c1,c2) of
-     (Comb (Comb (Const "=" _) l1) r1, Comb (Comb (Const "=" _) l2) r2) =>
+     (Comb (Comb (Const (strlit "=") _) l1) r1, Comb (Comb (Const (strlit "=") _) l2) r2) =>
        do x1 <- mk_comb(l1,l2) ;
           x2 <- mk_comb(r1,r2) ;
           eq <- mk_eq(x1,x2) ;
           return (Sequent(term_union asl1 asl2) eq) od
-   | _ => failwith "MK_COMB"`
+   | _ => failwith (strlit "MK_COMB")`
 
 (*
   let ABS v (Sequent(asl,c)) =
@@ -988,14 +968,14 @@ val _ = Define `
 val _ = Define `
   ABS v (Sequent asl c) =
     case c of
-      Comb (Comb (Const "=" _) l) r =>
+      Comb (Comb (Const (strlit "=") _) l) r =>
         if EXISTS (vfree_in v) asl
-        then failwith "ABS: variable is free in assumptions"
+        then failwith (strlit "ABS: variable is free in assumptions")
         else do a1 <- mk_abs(v,l) ;
                 a2 <- mk_abs(v,r) ;
                 eq <- mk_eq(a1,a2) ;
                 return (Sequent asl eq) od
-    | _ => failwith "ABS: not an equation"`
+    | _ => failwith (strlit "ABS: not an equation")`
 
 (*
   let BETA tm =
@@ -1009,8 +989,8 @@ val _ = Define `
     case tm of
       Comb (Abs v bod) arg =>
         if arg = v then do eq <- mk_eq(tm,bod) ; return (Sequent [] eq) od
-        else failwith "BETA: not a trivial beta-redex"
-    | _ => failwith "BETA: not a trivial beta-redex"`
+        else failwith (strlit "BETA: not a trivial beta-redex")
+    | _ => failwith (strlit "BETA: not a trivial beta-redex")`
 
 (*
   let ASSUME tm =
@@ -1023,7 +1003,7 @@ val _ = Define `
     do ty <- type_of tm ;
        bty <- bool_ty ;
        if ty = bty then return (Sequent [tm] tm)
-       else failwith "ASSUME: not a proposition" od`;
+       else failwith (strlit "ASSUME: not a proposition") od`;
 
 (*
   let EQ_MP (Sequent(asl1,eq)) (Sequent(asl2,c)) =
@@ -1036,10 +1016,10 @@ val _ = Define `
 val _ = Define `
   EQ_MP (Sequent asl1 eq) (Sequent asl2 c) =
     case eq of
-      Comb (Comb (Const "=" _) l) r =>
+      Comb (Comb (Const (strlit "=") _) l) r =>
         if aconv l c then return (Sequent (term_union asl1 asl2) r)
-                     else failwith "EQ_MP"
-    | _ => failwith "EQ_MP"`
+                     else failwith (strlit "EQ_MP")
+    | _ => failwith (strlit "EQ_MP")`
 
 (*
   let DEDUCT_ANTISYM_RULE (Sequent(asl1,c1)) (Sequent(asl2,c2)) =
@@ -1105,7 +1085,7 @@ val new_axiom_def = Define `
             add_def (NewAxiom tm) ;
             return th od
        else
-         failwith "new_axiom: Not a proposition"
+         failwith (strlit "new_axiom: Not a proposition")
     od`;
 
 val _ = Define`
@@ -1119,7 +1099,7 @@ val _ = Define `
   add_constants ls =
     do cs <- get_the_term_constants ;
        case first_dup (MAP FST ls) (MAP FST cs) of
-       | SOME name => failwith ("add_constants: "++name++" appears twice or has already been declared")
+       | SOME name => failwith ((strlit "add_constants: ") ^ name ^ (strlit " appears twice or has already been declared"))
        | NONE => set_the_term_constants (ls++cs) od`;
 
 val _ = Define`
@@ -1128,13 +1108,13 @@ val _ = Define`
          map (\e. do (l,r) <- dest_eq e;
                      (s,ty) <- dest_var l;
                      if ~(freesin [] r) then
-                       failwith ("new_specification: witness for "++s++" not closed")
+                       failwith ((strlit "new_specification: witness for ") ^ s ^ (strlit " not closed"))
                      else if ~(subset (type_vars_in_term r) (tyvars ty)) then
-                       failwith ("new_specification: type variables for "++s++" not contained in the type")
+                       failwith ((strlit "new_specification: type variables for ") ^ s ^ (strlit " not contained in the type"))
                      else return ((s,ty),r) od) eqs ;
        let vars = MAP FST eqs in
        if ~(freesin (MAP (UNCURRY Var) vars) p) then
-         failwith "new_specification: specification not closed by the definitions"
+         failwith (strlit "new_specification: specification not closed by the definitions")
        else do
          add_constants vars ;
          add_def (ConstSpec (MAP (\((s,ty),r). (s,r)) eqs) p) ;
@@ -1217,15 +1197,15 @@ val new_basic_type_definition_def = Define `
     do ok0 <- can get_type_arity tyname ;
        ok1 <- can get_const_type absname ;
        ok2 <- can get_const_type repname ;
-    if ok0 then failwith "new_basic_type_definition: Type already defined" else
-    if ok1 \/ ok2 then failwith "new_basic_type_definition: Constant(s) already in use" else
-    if absname = repname then failwith "new_basic_type_definition: Constants must be distinct" else
+    if ok0 then failwith (strlit "new_basic_type_definition: Type already defined") else
+    if ok1 \/ ok2 then failwith (strlit "new_basic_type_definition: Constant(s) already in use") else
+    if absname = repname then failwith (strlit "new_basic_type_definition: Constants must be distinct") else
     if ~(asl = []) then
-      failwith "new_basic_type_definition: Assumptions in theorem" else
-    do (P,x) <- try dest_comb c "new_basic_type_definition: Not a combination" ;
+      failwith (strlit "new_basic_type_definition: Assumptions in theorem") else
+    do (P,x) <- try dest_comb c (strlit "new_basic_type_definition: Not a combination") ;
     if ~(freesin [] P) then
-      failwith "new_basic_type_definition: Predicate is not closed" else
-    let tyvars = MAP Tyvar (QSORT string_le (type_vars_in_term P)) in
+      failwith (strlit "new_basic_type_definition: Predicate is not closed") else
+    let tyvars = MAP Tyvar (MAP implode (QSORT string_le (MAP explode (type_vars_in_term P)))) in
     do rty <- type_of x ;
        add_type (tyname, LENGTH tyvars) ;
        aty <- mk_type(tyname,tyvars) ;
@@ -1235,8 +1215,8 @@ val new_basic_type_definition_def = Define `
        add_def (TypeDefn tyname P absname repname) ;
        rep <- mk_const(repname,[]) ;
        abs <- mk_const(absname,[]) ;
-       a <- return (mk_var("a",aty)) ;
-       r <- return (mk_var("r",rty)) ;
+       a <- return (mk_var((strlit "a"),aty)) ;
+       r <- return (mk_var((strlit "r"),rty)) ;
        x1 <- mk_comb(rep,a) ;
        x2 <- mk_comb(abs,x1) ;
        eq1 <- mk_eq(x2,a) ;

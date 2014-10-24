@@ -19,8 +19,7 @@ type
     Pop                     (* pop top of stack *)
   | Pops of nat             (* pop n elements under stack top *)
   | PushInt of integer      (* push int onto stack *)
-  | Cons of nat * nat       (* push new cons with tag m and n elements *)
-  | Cons2 of nat            (* push new cons with tag m and given elements *)
+  | Cons of nat             (* push new cons with tag m and given elements *)
   | Load of nat             (* push stack[n] *)
   | Store of nat            (* pop and store in stack[n] *)
   | LengthBlock             (* read length of cons block *)
@@ -222,7 +221,9 @@ let rec
 bvs_to_chars [] ac = Just (List.reverse ac)
 and
 bvs_to_chars (Number i::vs) ac =
-  bvs_to_chars vs ((String_extra.chr (natFromInteger i))::ac)
+  if 0 <= i && i < 256 then
+    bvs_to_chars vs ((String_extra.chr (natFromInteger i))::ac)
+  else Nothing
 and
 bvs_to_chars _ _ = Nothing
 declare termination_argument bvs_to_chars = automatic
@@ -263,10 +264,7 @@ pushInt : forall n xs. true ==>
 bc_stack_op (PushInt n) (xs) (Number n::xs)
 and
 cons : forall tag ys xs. true ==>
-bc_stack_op (Cons tag (List.length ys)) (ys++xs) (Block tag (List.reverse ys)::xs)
-and
-cons2 : forall tag ys xs. true ==>
-bc_stack_op (Cons2 tag) (Number (integerFromNat (List.length ys))::ys++xs) (Block tag (List.reverse ys)::xs)
+bc_stack_op (Cons tag) (Number (integerFromNat (List.length ys))::ys++xs) (Block tag (List.reverse ys)::xs)
 and
 load : forall k xs. k < List.length xs ==>
 bc_stack_op (Load k) xs (List_extra.nth xs k::xs)

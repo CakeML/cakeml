@@ -4,6 +4,8 @@ open ml_repl_moduleTheory
 
 val _ = new_theory"evaluateReplDecs"
 
+val () = Globals.max_print_depth := 20
+
 (* Environment produced by evaluating the repl decs *)
 
 val (repl_store,repl_res) =
@@ -14,7 +16,7 @@ val (repl_store,repl_res) =
 val (x,y) = dest_pair repl_res
 val y = rand y
 val (y,z) = dest_pair y
-val repl_all_env = ``^y,merge_envC ^x (THE prim_sem_env).sem_envC,(THE prim_sem_env).sem_envE``
+val repl_all_env = ``^y,merge_alist_mod_env ^x (THE prim_sem_env).sem_envC,(THE prim_sem_env).sem_envE``
 
 val repl_decs_cs =
   let
@@ -45,7 +47,7 @@ val iloc_repl_env_exist =
 val repl_env_def = new_specification("repl_env_def",["iloc","repl_env"],iloc_repl_env_exist)
 
 val sum_idx = ``21:num``
-val sym_idx = ``77:num``
+val sym_idx = ``79:num``
 val el_sum = computeLib.CBV_CONV repl_decs_cs ``EL ^sum_idx ml_repl_module_decls``
 val take_sum = computeLib.CBV_CONV repl_decs_cs ``TAKE ^sum_idx ml_repl_module_decls``
 val drop_sum = computeLib.CBV_CONV repl_decs_cs ``DROP (^sum_idx + 1) ml_repl_module_decls``
@@ -107,7 +109,7 @@ val evaluate_call_repl_step = store_thm("evaluate_call_repl_step",
       ∃out'. OUTPUT_TYPE (basis_repl_step x) out' ∧
       evaluate_top F ^repl_all_env (update_io inp out ^repl_store) ^call_dec
         (update_io inp out' ^repl_store, ([],[]), Rval ([],[]))``,
-  rw[evaluate_top_cases,evaluate_dec_cases,Once evaluate_cases,libTheory.emp_def] >>
+  rw[evaluate_top_cases,evaluate_dec_cases,Once evaluate_cases] >>
   rw[Once evaluate_cases,semanticPrimitivesTheory.lookup_var_id_def] >>
   rw[Once evaluate_cases,astTheory.pat_bindings_def] >>
   mp_tac(CONJUNCT2 evaluate_repl_decs) >>
@@ -116,30 +118,30 @@ val evaluate_call_repl_step = store_thm("evaluate_call_repl_step",
   simp[semanticPrimitivesTheory.do_app_def] >>
   rw[Once evaluate_cases] >>
   rw[Once evaluate_cases] >>
-  rw[semanticPrimitivesTheory.lookup_var_id_def,libTheory.bind_def] >>
-  rw[semanticPrimitivesTheory.all_env_to_cenv_def,libTheory.merge_def] >>
+  rw[semanticPrimitivesTheory.lookup_var_id_def] >>
+  rw[semanticPrimitivesTheory.all_env_to_cenv_def] >>
   rw[Once evaluate_cases] >>
-  rw[semanticPrimitivesTheory.lookup_var_id_def,libTheory.bind_def] >>
-  rw[libPropsTheory.lookup_append] >> fs[] >>
+  rw[semanticPrimitivesTheory.lookup_var_id_def] >>
+  rw[] >> fs[] >>
   rw[semanticPrimitivesTheory.do_opapp_def] >>
   simp[PULL_EXISTS] >>
   rw[Once evaluate_cases] >>
   rw[Once evaluate_cases] >>
   rw[Once evaluate_cases] >>
-  rw[semanticPrimitivesTheory.lookup_var_id_def,libTheory.bind_def] >>
+  rw[semanticPrimitivesTheory.lookup_var_id_def] >>
   rw[Once evaluate_cases] >>
   rw[Once evaluate_cases] >>
   rw[Once evaluate_cases] >>
   simp[PULL_EXISTS] >>
   rw[Once evaluate_cases] >>
-  rw[semanticPrimitivesTheory.lookup_var_id_def,libTheory.bind_def] >>
-  rw[libPropsTheory.lookup_append] >>
+  rw[semanticPrimitivesTheory.lookup_var_id_def] >>
+  rw[] >>
   rw[Once evaluate_cases] >>
   rw[Once evaluate_cases] >>
   rw[Once evaluate_cases] >>
   simp[PULL_EXISTS] >>
   rw[Once evaluate_cases] >>
-  rw[semanticPrimitivesTheory.lookup_var_id_def,libTheory.bind_def] >>
+  rw[semanticPrimitivesTheory.lookup_var_id_def] >>
   rw[Once evaluate_cases] >>
   rw[Once evaluate_cases] >>
   rw[semanticPrimitivesTheory.do_app_def] >>
@@ -160,6 +162,7 @@ val evaluate_call_repl_step = store_thm("evaluate_call_repl_step",
   Q.PAT_ABBREV_TAC`ss:v count_store = (xx,LUPDATE  a b c)` >>
   first_x_assum(qspec_then`ss`strip_assume_tac) >>
   fs[Abbr`ss`] >>
+  simp[alistTheory.ALOOKUP_APPEND] >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   simp[EL_LUPDATE] >>
   simp[semanticPrimitivesTheory.store_v_same_type_def] >>

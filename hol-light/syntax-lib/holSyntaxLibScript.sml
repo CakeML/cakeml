@@ -291,4 +291,11 @@ val ALL_DISTINCT_LIST_UNION = store_thm("ALL_DISTINCT_LIST_UNION",
   ``∀l1 l2. ALL_DISTINCT l2 ⇒ ALL_DISTINCT (LIST_UNION l1 l2)``,
   Induct >> fs[LIST_UNION_def,LIST_INSERT_def] >> rw[])
 
+val ALL_DISTINCT_MAP_explode = store_thm("ALL_DISTINCT_MAP_explode",
+  ``∀ls. ALL_DISTINCT (MAP explode ls) ⇔ ALL_DISTINCT ls``,
+  gen_tac >> EQ_TAC >- MATCH_ACCEPT_TAC ALL_DISTINCT_MAP >>
+  STRIP_TAC >> MATCH_MP_TAC ALL_DISTINCT_MAP_INJ >>
+  simp[mlstringTheory.explode_11])
+val _ = export_rewrites["ALL_DISTINCT_MAP_explode"]
+
 val _ = export_theory()

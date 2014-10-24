@@ -92,8 +92,8 @@ val _ = Hol_datatype `
  v_i1 =
     Litv_i1 of lit
   | Conv_i1 of  (conN # tid_or_exn)option => v_i1 list 
-  | Closure_i1 of (envC # (varN, v_i1) env) => varN => exp_i1
-  | Recclosure_i1 of (envC # (varN, v_i1) env) => (varN # varN # exp_i1) list => varN
+  | Closure_i1 of (envC # (varN, v_i1) alist) => varN => exp_i1
+  | Recclosure_i1 of (envC # (varN, v_i1) alist) => (varN # varN # exp_i1) list => varN
   | Loc_i1 of num
   | Vectorv_i1 of v_i1 list`;
 
@@ -186,7 +186,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 ((x,next) :: alloc_defs (next + 1) xs))`;
 
 
-(*val dec_to_i1 : nat -> maybe modN -> map modN (map varN nat) -> map varN nat -> dec -> nat * env varN nat * dec_i1*)
+(*val dec_to_i1 : nat -> maybe modN -> map modN (map varN nat) -> map varN nat -> dec -> nat * alist varN nat * dec_i1*)
 val _ = Define `
  (dec_to_i1 next mn menv env d =  
 ((case d of
@@ -212,10 +212,10 @@ val _ = Define `
   )))`;
 
 
-(*val decs_to_i1 : nat -> maybe modN -> map modN (map varN nat) -> map varN nat -> list dec -> nat * env varN nat * list dec_i1*)
+(*val decs_to_i1 : nat -> maybe modN -> map modN (map varN nat) -> map varN nat -> list dec -> nat * alist varN nat * list dec_i1*)
  val decs_to_i1_defn = Hol_defn "decs_to_i1" `
  
-(decs_to_i1 next mn menv env [] = (next, emp, []))
+(decs_to_i1 next mn menv env [] = (next, [], []))
 /\
 (decs_to_i1 next mn menv env (d::ds) =  
 (let (next1, new_env1, d') = (dec_to_i1 next mn menv env d) in
@@ -250,7 +250,7 @@ val _ = Define `
     (next'',menv'',env'',(p'::ps'))))`;
 
 
-val _ = type_abbrev( "all_env_i1" , ``: ( ( v_i1 option)list # envC # (varN, v_i1) env)``);
+val _ = type_abbrev( "all_env_i1" , ``: ( ( v_i1 option)list # envC # (varN, v_i1) alist)``);
 
 val _ = Define `
  (all_env_i1_to_genv (genv,cenv,env) = genv)`;
@@ -269,18 +269,18 @@ val _ = Define `
       NONE => 
         SOME (Conv_i1 NONE vs)
     | SOME id => 
-        (case lookup_con_id id envC of
+        (case lookup_alist_mod_env id envC of
             NONE => NONE
           | SOME (len,t) => SOME (Conv_i1 (SOME (id_to_n id, t)) vs)
         )
   )))`;
 
 
-(*val build_rec_env_i1 : list (varN * varN * exp_i1) -> (envC * env varN v_i1) -> env varN v_i1 -> env varN v_i1*)
+(*val build_rec_env_i1 : list (varN * varN * exp_i1) -> (envC * alist varN v_i1) -> alist varN v_i1 -> alist varN v_i1*)
 val _ = Define `
  (build_rec_env_i1 funs cl_env add_to_env =  
 (FOLDR 
-    (\ (f,x,e) env' .  bind f (Recclosure_i1 cl_env funs f) env') 
+    (\ (f,x,e) env' .  (f, Recclosure_i1 cl_env funs f) :: env') 
     add_to_env 
     funs))`;
 
@@ -344,11 +344,11 @@ val _ = Define `
  (do_opapp_i1 genv vs =  
 ((case vs of
     [Closure_i1 (cenv, env) n e; v] =>
-      SOME ((genv, cenv, bind n v env), e)
+      SOME ((genv, cenv, ((n,v) :: env)), e)
   | [Recclosure_i1 (cenv, env) funs n; v] =>
       if ALL_DISTINCT (MAP (\ (f,x,e) .  f) funs) then
         (case find_recfun n funs of
-            SOME (n,e) => SOME ((genv, cenv, bind n v (build_rec_env_i1 funs (cenv, env) env)), e)
+            SOME (n,e) => SOME ((genv, cenv, ((n,v) :: build_rec_env_i1 funs (cenv, env) env)), e)
           | NONE => NONE
         )
       else
@@ -374,6 +374,32 @@ val _ = Define `
     NONE))
 /\ (v_to_list_i1 _ = NONE)`;
 
+
+(*val v_i1_to_char_list : v_i1 -> maybe (list char)*)
+ val _ = Define `
+ (v_i1_to_char_list (Conv_i1 (SOME (cn, TypeId (Short tn))) []) =  
+(if (cn = "nil") /\ (tn = "list") then
+    SOME []
+  else
+    NONE))
+/\ (v_i1_to_char_list (Conv_i1 (SOME (cn,TypeId (Short tn))) [Litv_i1 (Char c);v]) =  
+(if (cn = "::")  /\ (tn = "list") then
+    (case v_i1_to_char_list v of
+        SOME cs => SOME (c::cs)
+      | NONE => NONE
+    )
+  else
+    NONE))
+/\ (v_i1_to_char_list _ = NONE)`;
+
+
+(*val char_list_to_v_i1 : list char -> v_i1*)
+ val char_list_to_v_i1_defn = Hol_defn "char_list_to_v_i1" `
+ (char_list_to_v_i1 [] = (Conv_i1 (SOME ("nil", TypeId (Short "list"))) []))
+/\ (char_list_to_v_i1 (c::cs) =  
+(Conv_i1 (SOME ("::", TypeId (Short "list"))) [Litv_i1 (Char c); char_list_to_v_i1 cs]))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn char_list_to_v_i1_defn;
 
 (*val do_app_i1 : store v_i1 -> op -> list v_i1 -> maybe (store v_i1 * result v_i1 v_i1)*)
 val _ = Define `
@@ -448,6 +474,26 @@ val _ = Define `
                   )
         | _ => NONE
         )
+    | (Ord, [Litv_i1 (Char c)]) =>
+          SOME (s, Rval (Litv_i1(IntLit(int_of_num(ORD c)))))
+    | (Chr, [Litv_i1 (IntLit i)]) =>
+        SOME (s,          
+(if (i <( 0 : int)) \/ (i >( 255 : int)) then
+            Rerr (Rraise (prim_exn_i1 "Chr"))
+          else
+            Rval (Litv_i1(Char(CHR(Num (ABS ( i))))))))
+    | (Chopb op, [Litv_i1 (Char c1); Litv_i1 (Char c2)]) =>
+        SOME (s, Rval (Litv_i1 (Bool (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2))))))
+    | (Implode, [v]) =>
+          (case v_i1_to_char_list v of
+            SOME ls =>
+              SOME (s, Rval (Litv_i1 (StrLit (IMPLODE ls))))
+          | NONE => NONE
+          )
+    | (Explode, [Litv_i1 (StrLit str)]) =>
+        SOME (s, Rval (char_list_to_v_i1 (EXPLODE str)))
+    | (Strlen, [Litv_i1 (StrLit str)]) =>
+        SOME (s, Rval (Litv_i1(IntLit(int_of_num(STRLEN str)))))
     | (VfromList, [v]) =>
           (case v_to_list_i1 v of
               SOME vs =>
@@ -523,10 +569,10 @@ val _ = Define `
     NONE))`;
 
 
-(*val pmatch_i1 : envC -> store v_i1 -> pat -> v_i1 -> env varN v_i1 -> match_result (env varN v_i1)*)
+(*val pmatch_i1 : envC -> store v_i1 -> pat -> v_i1 -> alist varN v_i1 -> match_result (alist varN v_i1)*)
  val pmatch_i1_defn = Hol_defn "pmatch_i1" `
 
-(pmatch_i1 envC s (Pvar x) v' env = (Match (bind x v' env)))
+(pmatch_i1 envC s (Pvar x) v' env = (Match ((x,v') :: env)))
 /\
 (pmatch_i1 envC s (Plit l) (Litv_i1 l') env =  
 (if l = l' then
@@ -537,7 +583,7 @@ val _ = Define `
     Match_type_error))
 /\
 (pmatch_i1 envC s (Pcon (SOME n) ps) (Conv_i1 (SOME (n', t')) vs) env =  
-((case lookup_con_id n envC of
+((case lookup_alist_mod_env n envC of
       SOME (l, t)=>
         if same_tid t t' /\ (LENGTH ps = l) then
           if same_ctor (id_to_n n, t) (n',t') then
@@ -627,12 +673,12 @@ evaluate_list_i1 ck env s es (s', Rerr err))
 evaluate_i1 ck env s (Con_i1 cn es) (s', Rerr err))
 
 /\ (! ck env n v s.
-(lookup n (all_env_i1_to_env env) = SOME v)
+(ALOOKUP (all_env_i1_to_env env) n = SOME v)
 ==>
 evaluate_i1 ck env s (Var_local_i1 n) (s, Rval v))
 
 /\ (! ck env n s.
-(lookup n (all_env_i1_to_env env) = NONE)
+(ALOOKUP (all_env_i1_to_env env) n = NONE)
 ==>
 evaluate_i1 ck env s (Var_local_i1 n) (s, Rerr Rtype_error))
 
@@ -802,31 +848,31 @@ evaluate_match_i1 ck (genv,cenv,env) (count,s) v ((p,e)::pes) err_v ((count,s), 
 evaluate_match_i1 ck env s v ((p,e)::pes) err_v (s, Rerr Rtype_error))`;
 
 val _ = Hol_reln ` (! ck genv cenv n e vs s1 s2 tdecs.
-(evaluate_i1 ck (genv,cenv,emp) s1 e (s2, Rval (Conv_i1 NONE vs)) /\
+(evaluate_i1 ck (genv,cenv,[]) s1 e (s2, Rval (Conv_i1 NONE vs)) /\
 (LENGTH vs = n))
 ==>
-evaluate_dec_i1 ck genv cenv (s1,tdecs) (Dlet_i1 n e) ((s2,tdecs), Rval (emp, vs)))
+evaluate_dec_i1 ck genv cenv (s1,tdecs) (Dlet_i1 n e) ((s2,tdecs), Rval ([], vs)))
 
 /\ (! ck genv cenv n e vs s1 s2 tdecs.
-(evaluate_i1 ck (genv,cenv,emp) s1 e (s2, Rval (Conv_i1 NONE vs)) /\ ~ ((LENGTH vs) = n))
+(evaluate_i1 ck (genv,cenv,[]) s1 e (s2, Rval (Conv_i1 NONE vs)) /\ ~ ((LENGTH vs) = n))
 ==>
 evaluate_dec_i1 ck genv cenv (s1,tdecs) (Dlet_i1 n e) ((s2,tdecs), Rerr Rtype_error))
 
 /\ (! ck genv cenv n e v s1 s2 tdecs.
-(evaluate_i1 ck (genv,cenv,emp) s1 e (s2, Rval v) /\
+(evaluate_i1 ck (genv,cenv,[]) s1 e (s2, Rval v) /\
 ~ (? vs. v = Conv_i1 NONE vs))
 ==>
 evaluate_dec_i1 ck genv cenv (s1,tdecs) (Dlet_i1 n e) ((s2,tdecs), Rerr Rtype_error))
 
 /\ (! ck genv cenv n e err s s' tdecs.
-(evaluate_i1 ck (genv,cenv,emp) s e (s', Rerr err))
+(evaluate_i1 ck (genv,cenv,[]) s e (s', Rerr err))
 ==>
 evaluate_dec_i1 ck genv cenv (s,tdecs) (Dlet_i1 n e) ((s',tdecs), Rerr err))
 
 /\ (! ck genv cenv funs s.
 T
 ==>
-evaluate_dec_i1 ck genv cenv s (Dletrec_i1 funs) (s, Rval (emp, MAP (\ (f,x,e) .  Closure_i1 (cenv,[]) x e) funs)))
+evaluate_dec_i1 ck genv cenv s (Dletrec_i1 funs) (s, Rval ([], MAP (\ (f,x,e) .  Closure_i1 (cenv,[]) x e) funs)))
 
 /\ (! ck mn genv cenv tds s tdecs new_tdecs.
 (check_dup_ctors tds /\
@@ -846,7 +892,7 @@ evaluate_dec_i1 ck genv cenv (s,tdecs) (Dtype_i1 mn tds) ((s,tdecs), Rerr Rtype_
 /\ (! ck mn genv cenv cn ts s tdecs.
 (~ (TypeExn (mk_id mn cn) IN tdecs))
 ==>
-evaluate_dec_i1 ck genv cenv (s,tdecs) (Dexn_i1 mn cn ts) ((s, ({TypeExn (mk_id mn cn)} UNION tdecs)), Rval (bind cn (LENGTH ts, TypeExn (mk_id mn cn)) emp, [])))
+evaluate_dec_i1 ck genv cenv (s,tdecs) (Dexn_i1 mn cn ts) ((s, ({TypeExn (mk_id mn cn)} UNION tdecs)), Rval ([(cn, (LENGTH ts, TypeExn (mk_id mn cn)))], [])))
 
 /\ (! ck mn genv cenv cn ts s tdecs.
 (TypeExn (mk_id mn cn) IN tdecs)
@@ -856,25 +902,25 @@ evaluate_dec_i1 ck genv cenv (s,tdecs) (Dexn_i1 mn cn ts) ((s,tdecs), Rerr Rtype
 val _ = Hol_reln ` (! ck genv cenv s.
 T
 ==>
-evaluate_decs_i1 ck genv cenv s [] (s, emp, [], NONE))
+evaluate_decs_i1 ck genv cenv s [] (s, [], [], NONE))
 
 /\ (! ck s1 s2 genv cenv d ds e.
 (evaluate_dec_i1 ck genv cenv s1 d (s2, Rerr e))
 ==>
-evaluate_decs_i1 ck genv cenv s1 (d::ds) (s2, emp, [], SOME e))
+evaluate_decs_i1 ck genv cenv s1 (d::ds) (s2, [], [], SOME e))
 
 /\ (! ck s1 s2 s3 genv cenv d ds new_tds' new_tds new_env new_env' r.
 (evaluate_dec_i1 ck genv cenv s1 d (s2, Rval (new_tds,new_env)) /\
-evaluate_decs_i1 ck (genv ++ MAP SOME new_env) (merge_envC (emp,new_tds) cenv) s2 ds (s3, new_tds', new_env', r))
+evaluate_decs_i1 ck (genv ++ MAP SOME new_env) (merge_alist_mod_env ([],new_tds) cenv) s2 ds (s3, new_tds', new_env', r))
 ==>
-evaluate_decs_i1 ck genv cenv s1 (d::ds) (s3, merge new_tds' new_tds, (new_env ++ new_env'), r))`;
+evaluate_decs_i1 ck genv cenv s1 (d::ds) (s3, (new_tds' ++ new_tds), (new_env ++ new_env'), r))`;
 
 (*val mod_cenv : maybe modN -> flat_envC -> envC*)
 val _ = Define `
  (mod_cenv mn cenv =  
 ((case mn of
       NONE => ([],cenv)
-    | SOME mn => ([(mn,cenv)],[])
+    | SOME mn => ([(mn,cenv)], [])
   )))`;
 
 
@@ -974,9 +1020,9 @@ evaluate_prog_i1 ck genv cenv s [] (s, ([],[]), [], NONE))
 
 /\ (! ck genv cenv s1 prompt prompts s2 cenv2 env2 s3 cenv3 env3 r.
 (evaluate_prompt_i1 ck genv cenv s1 prompt (s2, cenv2, env2, NONE) /\
-evaluate_prog_i1 ck (genv++env2) (merge_envC cenv2 cenv) s2 prompts (s3, cenv3, env3, r))
+evaluate_prog_i1 ck (genv++env2) (merge_alist_mod_env cenv2 cenv) s2 prompts (s3, cenv3, env3, r))
 ==>
-evaluate_prog_i1 ck genv cenv s1 (prompt::prompts) (s3, merge_envC cenv3 cenv2, (env2++env3), r))
+evaluate_prog_i1 ck genv cenv s1 (prompt::prompts) (s3, merge_alist_mod_env cenv3 cenv2, (env2++env3), r))
 
 /\ (! ck genv cenv s1 prompt prompts s2 cenv2 env2 err.
 (evaluate_prompt_i1 ck genv cenv s1 prompt (s2, cenv2, env2, SOME err))

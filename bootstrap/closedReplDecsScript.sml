@@ -9,7 +9,7 @@ val FV_decs_ml_repl_module_decls = save_thm("FV_decs_ml_repl_module_decls",
 val all_env_dom_init =
   ``all_env_dom ((THE prim_sem_env).sem_envM,(THE prim_sem_env).sem_envC,(THE prim_sem_env).sem_envE)``
   |> (REWRITE_CONV [initSemEnvTheory.prim_sem_env_eq] THENC
-      SIMP_CONV std_ss [evalPropsTheory.all_env_dom_def,libTheory.lookup_def] THENC
+      SIMP_CONV std_ss [evalPropsTheory.all_env_dom_def] THENC
       SIMP_CONV (srw_ss()) [pred_setTheory.EXTENSION] THENC
       EVAL)
 

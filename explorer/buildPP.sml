@@ -172,6 +172,13 @@ fun io2() =
                | _ => Error "Unknown error"))
   in
   foldl (fn (x,y) => (genIntermediates x y;y+1)) 0 [
+"[1,2,3,4,5];",
+
+"val x = 5; [1,2,3,4,x];",
+
+"val xs = [1,2,3,4]; 1::2::3::xs;",
+
+"case [5] of (x::y::z) => x::z | _ => [];",
 
 "exception Fail; val x = 5+4; if((if(x>4 andalso x>5) then 5 else 4) > 3 ) then (if x>5 then 4 else 5) else (if x<2 orelse x>100 then 3 else raise Fail);",
 

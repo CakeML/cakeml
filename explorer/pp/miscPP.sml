@@ -1,6 +1,7 @@
 (*Pretty print for bytecode, asm*)
 structure miscPP =
 struct
+open compute_bytecodeLib
 open astPP
 open x64DisassembleLib
 (*x64DisassembleLib.sig is missing include Abbrev*)

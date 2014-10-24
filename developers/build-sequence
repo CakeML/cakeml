@@ -15,6 +15,8 @@ translator/repl
 bootstrap
 x86-64
 standalone
+explorer/pp/astPP
+explorer/pp
 explorer
 hol-light/set-theory
 hol-light/syntax-lib
@@ -25,6 +27,7 @@ hol-light/standard/ml_kernel
 new-backend
 targets
 targets/x64
+targets/arm6
 hol-light/stateless
 hol-light/stateless/stateful
 hol-light/stateless/monadic

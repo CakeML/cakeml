@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib
-open lcsymtacs asmTheory x64_stepLib;
+open lcsymtacs asmTheory asmLib x64_stepLib;
 
 val () = new_theory "x64_target"
 
@@ -19,6 +19,7 @@ val x64_config_def = Define`
     ; link_reg := NONE
     ; has_delay_slot := F
     ; has_icache := T
+    ; has_mem_32 := T
     ; two_reg_arith := T
     ; valid_imm := \i. ^min32 <= i /\ i <= ^max32
     ; addr_offset_min := ^min32
@@ -129,7 +130,7 @@ val x64_enc_def = Define`
           x64$encode (Zbinop (if cmp = Test then Ztest else Zcmp, Z64,
                               Zrm_i (reg r, i))) ++
           x64_encode_jcc (x64_cmp cmp) (a - width)) /\
-   (x64_enc (Call _ _) = []) /\
+   (x64_enc (Call _) = []) /\
    (x64_enc (JumpReg r) = x64$encode (Zjmp (reg r))) /\
    (x64_enc (Loc r i) =
       x64$encode
@@ -460,22 +461,6 @@ val cmp_lem7 = Q.prove(
    \\ fs [wordsTheory.NUMERAL_LESS_THM, x64Theory.num2Zreg_thm]
    )
 
-val bytes_in_memory_concat = Q.prove(
-   `!l1 l2 pc icache mem mem_domain.
-       bytes_in_memory pc (l1 ++ l2) icache mem mem_domain =
-       bytes_in_memory pc l1 icache mem mem_domain /\
-       bytes_in_memory (pc + n2w (LENGTH l1)) l2 icache mem mem_domain`,
-   Induct
-   \\ asm_simp_tac list_ss
-         [bytes_in_memory_def, wordsTheory.WORD_ADD_0, wordsTheory.word_add_n2w,
-          GSYM wordsTheory.WORD_ADD_ASSOC, arithmeticTheory.ADD1]
-   \\ decide_tac
-   )
-
-val bytes_in_memory_concat =
-   Q.GENL [`l2`, `l1`]
-      (fst (Thm.EQ_IMP_RULE (Drule.SPEC_ALL bytes_in_memory_concat)))
-
 val tac =
    rewrite_tac [DECIDE ``~(3n < n) = n < 4``]
    \\ NTAC 3 strip_tac
@@ -702,14 +687,6 @@ val bop_neq2 =
 
 (* some rewrites ---------------------------------------------------------- *)
 
-fun read_mem_word n =
-   EVAL ``(read_mem_word (b: word64) ^n s): word64 # 64 asm_state``
-   |> SIMP_RULE (srw_ss()) []
-
-fun write_mem_word n =
-   EVAL ``(write_mem_word (b: word64) ^n d s): 64 asm_state``
-   |> SIMP_RULE (srw_ss()) []
-
 val encode_rwts =
    let
       open x64Theory
@@ -723,36 +700,15 @@ val encode_rwts =
        ]
    end
 
-val asm_ok_rwts =
-   [asm_ok_def, inst_ok_def, addr_ok_def, reg_ok_def, arith_ok_def, cmp_ok_def,
-    reg_imm_ok_def, addr_offset_ok_def, jump_offset_ok_def, loc_offset_ok_def]
-
-val asm_rwts =
-   [upd_pc_def, upd_reg_def, upd_mem_def, read_reg_def, read_mem_def,
-    assert_def, reg_imm_def, binop_upd_def, word_cmp_def, word_shift_def,
-    arith_upd_def, addr_def, mem_load_def, write_mem_word_def, mem_store_def,
-    read_mem_word ``1n``, read_mem_word ``4n``, read_mem_word ``8n``,
-    write_mem_word ``1n``, write_mem_word ``4n``, write_mem_word ``8n``,
-    mem_op_def, inst_def, inst_opt_def, jump_to_offset_def, asm_def]
-
 val enc_rwts =
-  [x64_config_def, Zreg2num_num2Zreg_imp] @ encode_rwts @ asm_ok_rwts @ asm_rwts
+  [x64_config_def, Zreg2num_num2Zreg_imp] @ encode_rwts @ asmLib.asm_ok_rwts @
+  asmLib.asm_rwts
+
 val enc_ok_rwts =
-  encode_rwts @ asm_ok_rwts @ [enc_ok_def, x64_config_def, same_enc_length_def]
+  encode_rwts @ asmLib.asm_ok_rwts @
+  [enc_ok_def, x64_config_def, same_enc_length_def]
 
 (* some custom tactics ---------------------------------------------------- *)
-
-fun using_first n thms_tac =
-   POP_ASSUM_LIST
-      (fn thms =>
-          let
-             val x = List.rev (List.take (thms, n))
-             val y = List.rev (List.drop (thms, n))
-          in
-             MAP_EVERY assume_tac y
-             \\ thms_tac x
-             \\ MAP_EVERY assume_tac x
-          end)
 
 local
    val rip = ``state.RIP``
@@ -830,43 +786,6 @@ in
       (case List.mapPartial dest_bytes_in_memory asl of
           [] => NO_TAC
         | l => assume_tac (step P state (pick l))) (asl, g)
-   fun split_bytes_in_memory_tac n (asl, g) =
-      (case List.mapPartial dest_bytes_in_memory asl of
-          [] => NO_TAC
-        | l :: _ =>
-            let
-               val l1 = listSyntax.mk_list (List.take (l, n), w8)
-               val l2 = listSyntax.mk_list (List.drop (l, n), w8)
-               val l = listSyntax.mk_list (l, w8)
-               val th =
-                  bytes_in_memory_concat
-                  |> Drule.ISPECL [l1, l2]
-                  |> Conv.CONV_RULE
-                       (Conv.LAND_CONV
-                          (Conv.RATOR_CONV
-                             (Conv.RATOR_CONV
-                                (Conv.RATOR_CONV
-                                   (Conv.RAND_CONV listLib.APPEND_CONV))))
-                        THENC Conv.RAND_CONV
-                                (Conv.RAND_CONV
-                                   (Conv.RATOR_CONV
-                                      (Conv.RATOR_CONV
-                                         (Conv.RATOR_CONV
-                                            (Conv.RATOR_CONV
-                                               (Conv.RAND_CONV
-                                                  (Conv.DEPTH_CONV
-                                                     listLib.LENGTH_CONV))))))))
-            in
-               qpat_assum `bytes_in_memory pc ^l icache mem mem_domain`
-                  (fn thm =>
-                      let
-                         val (th1, th2) =
-                            Drule.CONJ_PAIR (Drule.MATCH_MP th thm)
-                      in
-                         assume_tac th1
-                         \\ assume_tac th2
-                      end)
-            end) (asl, g)
 end
 
 val next_state_tac0 =
@@ -876,7 +795,7 @@ val next_state_tac0 =
 
 fun next_state_tac_cmp n =
    bytes_in_memory_tac
-   \\ split_bytes_in_memory_tac n
+   \\ asmLib.split_bytes_in_memory_tac n
    \\ next_state_tac List.last (K false) `state`
    \\ rfs [const_lem2]
    \\ (fn (asl, g) =>
@@ -977,11 +896,11 @@ fun load_store_tac tac (asl, g) =
              then `~r2 ' 3` by imp_res_tac mem_lem12
           else all_tac)
       \\ Cases_on `(c = 0w) /\ (2 >< 0) r2 <> 5w: word3`
-      \\ using_first 1 (fn thms => fs (loc_lem2 :: thms))
+      \\ asmLib.using_first 1 (fn thms => fs (loc_lem2 :: thms))
       >- tac2 true
       \\ pop_assum (K all_tac)
       \\ Cases_on `0xFFFFFFFFFFFFFF80w <= c /\ c <= 0x7Fw`
-      \\ using_first 1 (fn thms => fs thms)
+      \\ asmLib.using_first 1 (fn thms => fs thms)
       >- tac2 false
       \\ pop_assum (K all_tac)
       \\ fs [const_lem2]
@@ -1000,7 +919,7 @@ val store_tac =
 
 val cmp_tac =
    Cases_on `0xFFFFFFFFFFFFFF80w <= c' /\ c' <= 0x7fw`
-   \\ using_first 1
+   \\ asmLib.using_first 1
         (fn thms => fs ([const_lem2, jump_lem1, jump_lem4] @ thms))
    >- (
       rule_assum_tac (REWRITE_RULE [cmp_lem4])
@@ -1173,6 +1092,7 @@ local
       type_frag "asm_config" ``:64 asm_config`` ++
       type_frag "asm" ``:64 asm`` ++
       type_frag "asm" ``:cmp`` ++
+      type_frag "asm" ``:mem_op`` ++
       type_frag "instruction" ``:instruction`` ++
       type_frag "instruction" ``:Zcond`` ++
       type_frag "instruction" ``:Zdest_src`` ++
@@ -1188,7 +1108,7 @@ local
       simpLib.rewrites
         ([combinTheory.K_THM, boolTheory.AND_CLAUSES, boolTheory.IMP_CLAUSES,
           boolTheory.NOT_CLAUSES, boolTheory.COND_CLAUSES,
-          pairTheory.pair_case_thm, boolTheory.EQ_REFL,
+          boolTheory.OR_CLAUSES, pairTheory.pair_case_thm, boolTheory.EQ_REFL,
           pred_setTheory.COMPONENT, DECIDE ``8n < 64``,
           bop_enc_lem, sh_enc_lem, cmp_enc_lem,
           mem_enc_lem, mem_enc_lem2, mem_enc_lem3, mem_enc_lem4, mem_enc_lem5
@@ -1267,7 +1187,7 @@ in
 end
 
 (* -------------------------------------------------------------------------
-   x64_enc_deterministic
+   x64_asm_deterministic
    x64_backend_correct
    ------------------------------------------------------------------------- *)
 
@@ -1316,7 +1236,7 @@ val x64_backend_correct = Count.apply Q.store_thm ("x64_backend_correct",
          \\ qabbrev_tac `r = n2w n : word4`
          \\ Cases_on `0w <= c /\ c <= 0x7FFFFFFFw`
          \\ Cases_on `word_bit 3 r`
-         \\ using_first 2
+         \\ asmLib.using_first 2
               (fn thms =>
                  lfs ([const_lem1, const_lem2] @ thms @ enc_rwts)
                  \\ next_state_tac0
@@ -1347,7 +1267,7 @@ val x64_backend_correct = Count.apply Q.store_thm ("x64_backend_correct",
                \\ lfs ([loc_lem2, binop_lem1] @ enc_rwts)
                \\ (
                    Cases_on `0xFFFFFFFFFFFFFF80w <= c /\ c <= 0x7fw`
-                   \\ using_first 1 fs
+                   \\ asmLib.using_first 1 fs
                    >- (rule_assum_tac (REWRITE_RULE [binop_lem5])
                        \\ next_state_tac0
                        \\ state_tac [] [`r1`, `r2`])
@@ -1616,10 +1536,10 @@ val x64_backend_correct = Count.apply Q.store_thm ("x64_backend_correct",
 
 (*
 
-val x64_enc_deterministic = proofManagerLib.top_thm ()
+val th = proofManagerLib.top_thm ()
 
-val x64_enc_deterministic = Theory.new_axiom ("x64_enc_deterministic",
-   ``enc_deterministic x64_enc x64_config``)
+val x64_asm_deterministic = Theory.new_axiom ("x64_asm_deterministic",
+   ``asm_deterministic x64_enc x64_config``)
 
    proofManagerLib.r
    set_trace "Goalstack.howmany_printed_subgoals" 60

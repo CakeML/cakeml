@@ -15,8 +15,7 @@ val bc_inst_to_string_def = Define `
 (bc_inst_to_string (Stack Pop) = "pop") ∧
 (bc_inst_to_string (Stack (Pops n)) = "pops " ++ toString n) ∧
 (bc_inst_to_string (Stack (PushInt i)) = "pushInt " ++ int_to_string2 i) ∧
-(bc_inst_to_string (Stack (Cons n1 n2)) = "cons " ++ toString n1 ++ " " ++ toString n2) ∧
-(bc_inst_to_string (Stack (Cons2 n1)) = "cons2 " ++ toString n1) ∧
+(bc_inst_to_string (Stack (Cons n1)) = "cons " ++ toString n1) ∧
 (bc_inst_to_string (Stack (Load n)) = "load " ++ toString n) ∧
 (bc_inst_to_string (Stack (Store n)) = "store " ++ toString n) ∧
 (bc_inst_to_string (Stack El) = "el") ∧
@@ -81,9 +80,7 @@ val encode_bc_inst_def = Define `
     OPTION_MAP (\w. [3w; w]) (encode_num (Num (-i)))
   else
     OPTION_MAP (\w. [4w; w]) (encode_num (Num (i)))) ∧
-(encode_bc_inst (Stack (Cons n1 n2)) =
-  OPTION_BIND (encode_num n1) (\w1. OPTION_BIND (encode_num n2) (\w2. SOME [5w; w1; w2]))) ∧
-(encode_bc_inst (Stack (Cons2 n1)) =
+(encode_bc_inst (Stack (Cons n1)) =
   OPTION_BIND (encode_num n1) (\w1. SOME [48w; w1])) ∧
 (encode_bc_inst (Stack (Load n)) =
   OPTION_MAP (\w. [6w; w]) (encode_num n)) ∧
@@ -119,7 +116,7 @@ val encode_bc_inst_def = Define `
 (encode_bc_inst UpdateByte = SOME [44w]) ∧
 (encode_bc_inst Length = SOME [40w]) ∧
 (encode_bc_inst LengthByte = SOME [41w]) ∧
-(encode_bc_inst (Galloc n) = 
+(encode_bc_inst (Galloc n) =
   OPTION_MAP (\w. [36w; w]) (encode_num n)) ∧
 (encode_bc_inst (Gupdate n) =
   OPTION_MAP (\w. [37w; w]) (encode_num n)) ∧
@@ -129,7 +126,7 @@ val encode_bc_inst_def = Define `
 (encode_bc_inst Tick = SOME [8w]) ∧
 (encode_bc_inst Print = SOME [26w]) ∧
 (encode_bc_inst PrintWord8 = SOME [45w]) ∧
-(encode_bc_inst (PrintC c) = 
+(encode_bc_inst (PrintC c) =
   OPTION_MAP (\w. [2w; w]) (encode_char c))`;
 
 val decode_num_def = Define `
@@ -166,9 +163,7 @@ decode_bc_inst wl =
          else if tag = 4w then
            option_map_fst (\n. Stack (PushInt (&n))) (decode_num rest)
          else if tag = 48w then
-           option_map_fst (\n. Stack (Cons2 (&n))) (decode_num rest)
-         else if tag = 5w then
-           OPTION_BIND (decode_num rest) (\(n1, rest). OPTION_BIND (decode_num rest) (\(n2, rest). SOME (Stack (Cons n1 n2), rest)))
+           option_map_fst (\n. Stack (Cons (&n))) (decode_num rest)
          else if tag = 6w then
            option_map_fst (\n. Stack (Load n)) (decode_num rest)
          else if tag = 7w then

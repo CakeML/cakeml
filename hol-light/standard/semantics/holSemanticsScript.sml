@@ -17,7 +17,7 @@ val _ = Parse.overload_on("inhabited",``λs. ∃x. x <: s``)
    with respect to a type signature, and is only constrained for defined type
    operators applied to the right number of non-empty arguments. *)
 
-val _ = Parse.type_abbrev("tyass",``:string -> 'U list -> 'U``)
+val _ = Parse.type_abbrev("tyass",``:mlstring -> 'U list -> 'U``)
 
 val is_type_assignment_def = xDefine "is_type_assignment"`
   is_type_assignment0 ^mem tysig (δ:'U tyass) ⇔
@@ -30,7 +30,7 @@ val _ = Parse.overload_on("is_type_assignment",``is_type_assignment0 ^mem``)
 
 (* A type valuation is a map from type variable names to non-empty sets. *)
 
-val _ = Parse.type_abbrev("tyval",``:string -> 'U``)
+val _ = Parse.type_abbrev("tyval",``:mlstring -> 'U``)
 
 val is_type_valuation_def = xDefine "is_type_valuation"`
   is_type_valuation0 ^mem (τ:'U tyval) ⇔ ∀x. inhabited (τ x)`
@@ -48,14 +48,14 @@ val typesem_def = tDefine "typesem"`
    free type variables to a value for the constant. The assignment is with
    respect to a signature and is only constrained for defined constants. *)
 
-val _ = Parse.type_abbrev("tmass",``:string -> 'U list -> 'U``)
+val _ = Parse.type_abbrev("tmass",``:mlstring -> 'U list -> 'U``)
 
 val is_term_assignment_def = xDefine "is_term_assignment"`
   is_term_assignment0 ^mem tmsig δ (γ:'U tmass) ⇔
     FEVERY
       (λ(name,ty).
         ∀τ. is_type_valuation τ ⇒
-              γ name (MAP τ (STRING_SORT (tyvars ty))) <: typesem δ τ ty)
+              γ name (MAP τ (MAP implode (STRING_SORT (MAP explode (tyvars ty))))) <: typesem δ τ ty)
       tmsig`
 val _ = Parse.overload_on("is_term_assignment",``is_term_assignment0 ^mem``)
 
@@ -63,7 +63,7 @@ val _ = Parse.overload_on("is_term_assignment",``is_term_assignment0 ^mem``)
    result is not polymorphic: term valuations are specialised for particular
    type valuations. *)
 
-val _ = Parse.type_abbrev("tmval",``:string # type -> 'U``)
+val _ = Parse.type_abbrev("tmval",``:mlstring # type -> 'U``)
 
 val is_term_valuation_def = xDefine "is_term_valuation"`
   is_term_valuation0 ^mem tysig δ τ (σ:'U tmval) ⇔
@@ -95,7 +95,7 @@ val instance_def = new_specification("instance_def",["instance"],
               ⇒
               f tmsig i name ty =
               λτ. tmaof i name
-                (MAP (typesem (tyaof i) τ o TYPE_SUBST tyin o Tyvar) (STRING_SORT (tyvars ty0)))``,
+                (MAP (typesem (tyaof i) τ o TYPE_SUBST tyin o Tyvar) (MAP implode (STRING_SORT (MAP explode (tyvars ty0)))))``,
     simp[GSYM SKOLEM_THM] >> rw[] >>
     Cases_on`FLOOKUP tmsig name`>>simp[] >>
     qmatch_assum_rename_tac`FLOOKUP tmsig name = SOME ty0`[] >>
@@ -104,7 +104,9 @@ val instance_def = new_specification("instance_def",["instance"],
     qho_match_abbrev_tac`∃f. ∀tyin. P tyin ⇒ f = Q tyin` >>
     qexists_tac`Q tyin` >>
     rw[Abbr`P`,Abbr`Q`,FUN_EQ_THM] >> rpt AP_TERM_TAC >>
-    rw[listTheory.MAP_EQ_f] >> rw[] >> metis_tac[TYPE_SUBST_tyvars]))
+    rw[listTheory.MAP_EQ_f] >> rw[] >>
+    fs[listTheory.MEM_MAP,mlstringTheory.implode_explode] >>
+    metis_tac[TYPE_SUBST_tyvars]))
 
 (* Semantics of terms. *)
 
@@ -113,7 +115,7 @@ val termsem_def = xDefine "termsem"`
   (termsem0 ^mem tmsig i v (Const name ty) = instance tmsig i name ty (tyvof v)) ∧
   (termsem0 ^mem tmsig i v (Comb t1 t2) =
    termsem0 ^mem tmsig i v t1 ' (termsem0 ^mem tmsig i v t2)) ∧
-  (termsem0 ^mem tmsig i v (Abs x ty b) =
+  (termsem0 ^mem tmsig i v (Abs (Var x ty) b) =
    Abstract (typesem (tyaof i) (tyvof v) ty) (typesem (tyaof i) (tyvof v) (typeof b))
      (λm. termsem0 ^mem tmsig i (tyvof v, ((x,ty)=+m)(tmvof v)) b))`
 val _ = Parse.overload_on("termsem",``termsem0 ^mem``)
@@ -142,8 +144,8 @@ val _ = Parse.overload_on("is_interpretation",``is_interpretation0 ^mem``)
 
 val is_std_type_assignment_def = xDefine "is_std_type_assignment"`
   is_std_type_assignment0 ^mem (δ:'U tyass) ⇔
-    (δ "fun" = λls. case ls of [dom;rng] => Funspace dom rng | _ => ∅) ∧
-    (δ "bool" = λls. case ls of [] => boolset | _ => ∅)`
+    (∀dom rng. δ (strlit "fun") [dom;rng] = Funspace dom rng) ∧
+    (δ (strlit "bool") [] = boolset)`
 val _ = Parse.overload_on("is_std_type_assignment",``is_std_type_assignment0 ^mem``)
 
 local
@@ -164,7 +166,7 @@ val _ = Parse.overload_on("interprets",``interprets0 ^mem``)
 val is_std_interpretation_def = xDefine "is_std_interpretation"`
   is_std_interpretation0 ^mem (i:'U interpretation) ⇔
     is_std_type_assignment (tyaof i) ∧
-    tmaof i interprets "=" on ["A"] as
+    tmaof i interprets (strlit "=") on [(strlit "A")] as
     λl. (Abstract (HD l) (Funspace (HD l) boolset)
           (λx. Abstract (HD l) boolset (λy. Boolean (x = y))))`
 val _ = Parse.overload_on("is_std_interpretation",``is_std_interpretation0 ^mem``)

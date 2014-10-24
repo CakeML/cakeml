@@ -24,7 +24,7 @@ val application_thm = Q.prove (
  rw [application_def] >>
  cases_on `op` >>
  rw []);
-      
+
 val small_eval_prefix = Q.prove (
 `∀s env e c cenv' s' env' e' c' r.
   e_step_reln^* (env,s,Exp e,c) (env',s',Exp e',c') ∧
@@ -47,7 +47,7 @@ val e_single_step_add_ctxt = Q.prove (
   (e_step (env,s,e,c++c'') = Estep (env',s',e',c'++c''))`,
  rw [e_step_def] >>
  cases_on `e` >>
- fs [push_def, return_def, emp_def] >>
+ fs [push_def, return_def] >>
  rw [] >>
  fs [] >>
  rw [] >>
@@ -78,7 +78,7 @@ val e_single_error_add_ctxt = Q.prove (
   (e_step (env,s,e,c++c') = Etype_error)`,
 rw [e_step_def] >>
 cases_on `e` >>
-fs [push_def, return_def, emp_def] >>
+fs [push_def, return_def] >>
 rw [] >>
 fs [] >>
 rw [] >>
@@ -101,7 +101,6 @@ rw []
      fs [application_thm] >>
      every_case_tac >>
      fs [return_def]));
-
 
 val e_step_add_ctxt_help = Q.prove (
 `!st1 st2. e_step_reln^* st1 st2 ⇒
@@ -458,11 +457,11 @@ val alt_small_eval_def = Define `
 (alt_small_eval env s1 e c (s2, Rerr (Rraise err_v)) ⇔
     ∃env' env''.
       e_step_reln^* (env,s1,e,c) (env',s2,Val err_v,[(Craise (), env'')])) ∧
-(alt_small_eval env s e c (s2, Rerr Rtype_error) ⇔
+(alt_small_eval env s1 e c (s2, Rerr Rtype_error) ⇔
     ∃env' e' c'.
       e_step_reln^* (env,s1,e,c) (env',s2,e',c') ∧
       (e_step (env',s2,e',c') = Etype_error)) ∧
-(alt_small_eval env s e c (s2, Rerr Rtimeout) = F)`;
+(alt_small_eval env s1 e c (s2, Rerr Rtimeout) = F)`;
 
 val small_eval_match_thm = Q.prove (
 `!env s v pes err_v r. 

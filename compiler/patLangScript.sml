@@ -127,6 +127,7 @@ val _ = Define `
 (op <> Aw8alloc) /\  
 (op <> Aw8sub) /\  
 (op <> Vsub) /\  
+(op <> Chr) /\  
 (op <> Aupdate) /\  
 (op <> Aalloc) /\  
 (op <> Asub) /\  
@@ -469,6 +470,31 @@ val _ = Define `
 /\ (v_to_list_pat _ = NONE)`;
 
 
+(*val v_pat_to_char_list : v_pat -> maybe (list char)*)
+ val _ = Define `
+ (v_pat_to_char_list (Conv_pat tag []) =  
+(if tag = nil_tag then
+    SOME []
+  else
+    NONE))
+/\ (v_pat_to_char_list (Conv_pat tag [Litv_pat (Char c);v]) =  
+(if tag = cons_tag then
+    (case v_pat_to_char_list v of
+        SOME cs => SOME (c::cs)
+      | NONE => NONE
+    )
+  else
+    NONE))
+/\ (v_pat_to_char_list _ = NONE)`;
+
+
+(*val char_list_to_v_pat : list char -> v_pat*)
+ val char_list_to_v_pat_defn = Hol_defn "char_list_to_v_pat" `
+ (char_list_to_v_pat [] = (Conv_pat nil_tag []))
+/\ (char_list_to_v_pat (c::cs) =  
+(Conv_pat cons_tag [Litv_pat (Char c); char_list_to_v_pat cs]))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn char_list_to_v_pat_defn;
 
 (*val do_app_pat : count_store_genv v_pat -> op_pat -> list v_pat -> maybe (count_store_genv v_pat * result v_pat v_pat)*)
 val _ = Define `
@@ -551,6 +577,26 @@ val _ = Define `
                   )
         | _ => NONE
         )
+    | (Op_pat (Op_i2 Ord), [Litv_pat (Char c)]) =>
+          SOME (((cnt,s),genv), Rval (Litv_pat(IntLit(int_of_num(ORD c)))))
+    | (Op_pat (Op_i2 Chr), [Litv_pat (IntLit i)]) =>
+        SOME (((cnt,s),genv),          
+(if (i <( 0 : int)) \/ (i >( 255 : int)) then
+            Rerr (Rraise (prim_exn_pat chr_tag))
+          else
+            Rval (Litv_pat(Char(CHR(Num (ABS ( i))))))))
+    | (Op_pat (Op_i2 (Chopb op)), [Litv_pat (Char c1); Litv_pat (Char c2)]) =>
+        SOME (((cnt,s),genv), Rval (Litv_pat (Bool (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2))))))
+    | (Op_pat (Op_i2 Implode), [v]) =>
+          (case v_pat_to_char_list v of
+            SOME ls =>
+              SOME (((cnt,s),genv), Rval (Litv_pat (StrLit (IMPLODE ls))))
+          | NONE => NONE
+          )
+    | (Op_pat (Op_i2 Explode), [Litv_pat (StrLit str)]) =>
+        SOME (((cnt,s),genv), Rval (char_list_to_v_pat (EXPLODE str)))
+    | (Op_pat (Op_i2 Strlen), [Litv_pat (StrLit str)]) =>
+        SOME (((cnt,s),genv), Rval (Litv_pat(IntLit(int_of_num(STRLEN str)))))
     | (Op_pat (Op_i2 VfromList), [v]) =>
           (case v_to_list_pat v of
               SOME vs =>

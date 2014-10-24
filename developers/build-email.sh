@@ -8,7 +8,7 @@ tmpfile=/tmp/vml-build-email.txt
 
 if developers/regression-test.sh > $tmpfile 2>&1
 then
-  mail -S from='"CakeML Builds" <builds@cakeml.org>' -s "OK" -q $tmpfile builds@cakeml.org
+  cat $tmpfile | mail -S from='"CakeML Builds" <builds@cakeml.org>' -s "OK" builds@cakeml.org
   echo "build succeeded"
 else
   subject=$(tail -n1 $tmpfile)

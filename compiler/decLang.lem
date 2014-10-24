@@ -94,7 +94,7 @@ let do_app_i3 ((count,s),genv) op vs =
     | _ -> Nothing
   end
 
-type all_env_i3 = exh_ctors_env * env varN v_i2
+type all_env_i3 = exh_ctors_env * alist varN v_i2
 
 indreln [evaluate_i3 : bool -> all_env_i3 -> count_store_genv v_i2 -> exp_i2 -> count_store_genv v_i2 * result v_i2 v_i2 -> bool]
 and [evaluate_list_i3 : bool -> all_env_i3 -> count_store_genv v_i2 -> list exp_i2 -> count_store_genv v_i2 * result (list v_i2) v_i2 -> bool]

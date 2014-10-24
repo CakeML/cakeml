@@ -144,6 +144,18 @@ val _ = Define `
           )))
   )))
 /\
+(binop_to_il (Chopb opb) Ce1 Ce2 =  
+(CLet T Ce1 (
+    CLet T (shift( 1)( 0) Ce2) (
+      let Ce1 = (CPrim1 COrd (CVar( 1))) in
+      let Ce2 = (CPrim1 COrd (CVar( 0))) in
+      (case opb of
+        Lt => CPrim2 (P2p CLt) Ce1 Ce2
+      | Leq => CPrim2 (P2p CLt) (CPrim2 (P2p CSub) Ce1 Ce2) (CLit (IntLit(( 1 : int))))
+      | Gt =>  CPrim2 (P2p CLt) Ce2 Ce1
+      | Geq => CPrim2 (P2p CLt) (CPrim2 (P2p CSub) Ce2 Ce1) (CLit (IntLit(( 1 : int))))
+      )))))
+/\
 (binop_to_il Equality Ce1 Ce2 =  
 (CLet T (CPrim2 (P2p CEq) Ce1 Ce2)
     (CIf (CPrim1 CIsBlock (CVar( 0))) (CVar( 0)) (CRaise (CCon eq_tag [])))))
@@ -209,6 +221,16 @@ val _ = Define `
 /\
 (binop_to_il Opderef   Ce1 Ce2 = (CCon tuple_tag [Ce1;Ce2])) (* should not happen *)
 /\
+(binop_to_il Chr       Ce1 Ce2 = (CCon tuple_tag [Ce1;Ce2])) (* should not happen *)
+/\
+(binop_to_il Ord       Ce1 Ce2 = (CCon tuple_tag [Ce1;Ce2])) (* should not happen *)
+/\
+(binop_to_il Explode   Ce1 Ce2 = (CCon tuple_tag [Ce1;Ce2])) (* should not happen *)
+/\
+(binop_to_il Implode   Ce1 Ce2 = (CCon tuple_tag [Ce1;Ce2])) (* should not happen *)
+/\
+(binop_to_il Strlen    Ce1 Ce2 = (CCon tuple_tag [Ce1;Ce2])) (* should not happen *)
+/\
 (binop_to_il VfromList Ce1 Ce2 = (CCon tuple_tag [Ce1;Ce2]))`;
  (* should not happen *)
 
@@ -224,11 +246,29 @@ val _ = Define `
 /\
 (unop_to_il Alength Ce = (CPrim1 CLen Ce))
 /\
+(unop_to_il Strlen Ce  = (CPrim1 CLenS Ce))
+/\
+(unop_to_il Chr Ce =  
+(CLet T Ce
+    (CIf (CPrim2 (P2p CLt) (CVar( 0)) (CLit (IntLit(( 0 : int)))))
+         (CRaise (CCon chr_tag []))
+         (CIf (CPrim2 (P2p CLt) (CVar( 0)) (CLit (IntLit(( 256 : int)))))
+              (CPrim1 CChr (CVar( 0)))
+              (CRaise (CCon chr_tag []))))))
+/\
+(unop_to_il Ord       Ce = (CPrim1 COrd Ce))
+/\
+(unop_to_il Explode   Ce = (CPrim1 CExplode Ce))
+/\
+(unop_to_il Implode   Ce = (CPrim1 CImplode Ce))
+/\
 (unop_to_il VfromList Ce = (CPrim1 CVfromList Ce))
 /\
 (unop_to_il (Opn _)   Ce = Ce) (* should not happen *)
 /\
 (unop_to_il (Opb _)   Ce = Ce) (* should not happen *)
+/\
+(unop_to_il (Chopb _) Ce = Ce) (* should not happen *)
 /\
 (unop_to_il Equality  Ce = Ce) (* should not happen *)
 /\

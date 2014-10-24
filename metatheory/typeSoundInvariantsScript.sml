@@ -24,19 +24,20 @@ val _ = Hol_datatype `
 
 
 (* Store typing *)
-val _ = type_abbrev( "tenvS" , ``: (num, store_t) env``);
+val _ = type_abbrev( "tenvS" , ``: (num, store_t) fmap``);
 
 (* Check that the type names map to valid types *)
 (*val flat_tenvT_ok : flat_tenvT -> bool*)
 val _ = Define `
  (flat_tenvT_ok tenvT =  
-(EVERY (\ (tn,(tvs,t)) .  check_freevars( 0) tvs t) tenvT))`;
+(FEVERY (UNCURRY (\ tn (tvs,t) .  check_freevars( 0) tvs t)) tenvT))`;
 
 
 (*val tenvT_ok : tenvT -> bool*)
 val _ = Define `
  (tenvT_ok (mtenvT, tenvT) =  
-(EVERY (\p .  (case (p ) of ( (_,tenvT) ) => flat_tenvT_ok tenvT )) mtenvT /\
+(FEVERY (UNCURRY (\s tenvT .  
+  (case (s ,tenvT ) of ( _ , tenvT ) => flat_tenvT_ok tenvT ))) mtenvT /\
   flat_tenvT_ok tenvT))`;
 
 
@@ -63,7 +64,7 @@ val _ = Define `
 
 
 (* Convert from a lexically scoped constructor environment to the global one *)
-(*val flat_to_ctMap_list : flat_tenvC -> env (conN * tid_or_exn) (list tvarN * list t)*)
+(*val flat_to_ctMap_list : flat_tenvC -> alist (conN * tid_or_exn) (list tvarN * list t)*)
 val _ = Define `
  (flat_to_ctMap_list tenvC =  
  (MAP (\ (cn,(tvs,ts,t)) .  ((cn,t),(tvs,ts))) tenvC))`;
@@ -93,17 +94,17 @@ val _ = Define `
 (tenvC_ok tenvC /\
   ctMap_ok ctMap /\
   (! cn n t.    
-(lookup_con_id cn envC = SOME (n, t))
+(lookup_alist_mod_env cn envC = SOME (n, t))
     ==>    
 (? tvs ts.      
-(lookup_con_id cn tenvC = SOME (tvs, ts, t)) /\      
+(lookup_alist_mod_env cn tenvC = SOME (tvs, ts, t)) /\      
 (FLOOKUP ctMap (id_to_n cn,t) = SOME (tvs, ts)) /\      
 (LENGTH ts = n)))
   /\
   (! cn.    
-(lookup_con_id cn envC = NONE)
+(lookup_alist_mod_env cn envC = NONE)
     ==>    
-(lookup_con_id cn tenvC = NONE))))`;
+(lookup_alist_mod_env cn tenvC = NONE))))`;
 
 
 (* A value has a type *)
@@ -140,7 +141,7 @@ val _ = Define `
 
 
 val _ = Define `
- (tenvM_ok tenvM = (EVERY (\ (mn,tenv) .  tenv_ok (bind_var_list2 tenv Empty)) tenvM))`;
+ (tenvM_ok tenvM = (FEVERY (UNCURRY (\ mn tenv .  tenv_ok (bind_var_list2 tenv Empty))) tenvM))`;
 
 
 val _ = Hol_reln ` (! tvs cenv senv b.
@@ -152,6 +153,11 @@ type_v tvs cenv senv (Litv (Bool b)) Tbool)
 T
 ==>
 type_v tvs cenv senv (Litv (IntLit n)) Tint)
+
+/\ (! tvs cenv senv c.
+T
+==>
+type_v tvs cenv senv (Litv (Char c)) Tchar)
 
 /\ (! tvs cenv senv s.
 T
@@ -171,7 +177,7 @@ type_v tvs cenv senv (Litv (Word8 w)) Tword8)
 /\ (! tvs cenv senv cn vs tvs' tn ts' ts.
 (EVERY (check_freevars tvs []) ts' /\
 (LENGTH tvs' = LENGTH ts') /\
-type_vs tvs cenv senv vs (MAP (type_subst (ZIP (tvs', ts'))) ts) /\
+type_vs tvs cenv senv vs (MAP (type_subst (FUPDATE_LIST FEMPTY (REVERSE (ZIP (tvs', ts'))))) ts) /\
 (FLOOKUP cenv (cn, tn) = SOME (tvs',ts)))
 ==>
 type_v tvs cenv senv (Conv (SOME (cn,tn)) vs) (Tapp ts' (tid_exn_to_tc tn)))
@@ -197,7 +203,7 @@ tenvM_ok menv /\
 consistent_mod_env senv ctMap envM menv /\
 type_env ctMap senv env tenv /\
 type_funs menv tenvC (bind_var_list( 0) tenv' (bind_tvar tvs tenv)) funs tenv' /\
-(lib$lookup n tenv' = SOME t) /\
+(ALOOKUP tenv' n = SOME t) /\
 ALL_DISTINCT (MAP (\ (f,x,e) .  f) funs) /\
 MEM n (MAP (\ (f,x,e) .  f) funs))
 ==>
@@ -205,18 +211,18 @@ type_v tvs ctMap senv (Recclosure (envM, envC, env) funs n) t)
 
 /\ (! tvs cenv senv n t.
 (check_freevars( 0) [] t /\
-(lib$lookup n senv = SOME (Ref_t t)))
+(FLOOKUP senv n = SOME (Ref_t t)))
 ==>
 type_v tvs cenv senv (Loc n) (Tref t))
 
 /\ (! tvs cenv senv n.
-(lib$lookup n senv = SOME W8array_t)
+(FLOOKUP senv n = SOME W8array_t)
 ==>
 type_v tvs cenv senv (Loc n) Tword8array)
 
 /\ (! tvs cenv senv n t.
 (check_freevars( 0) [] t /\
-(lib$lookup n senv = SOME (Varray_t t)))
+(FLOOKUP senv n = SOME (Varray_t t)))
 ==>
 type_v tvs cenv senv (Loc n) (Tapp [t] TC_array))
 
@@ -240,31 +246,30 @@ type_vs tvs cenv senv (v::vs) (t::ts))
 /\ (! cenv senv.
 T
 ==>
-type_env cenv senv emp Empty)
+type_env cenv senv [] Empty)
 
 /\ (! cenv senv n v env t tenv tvs.
 (type_v tvs cenv senv v t /\
 type_env cenv senv env tenv)
 ==>
-type_env cenv senv (bind n v env) (bind_tenv n tvs t tenv))
+type_env cenv senv ((n,v)::env) (bind_tenv n tvs t tenv))
 
 /\ (! tenvS tenvC.
 T
 ==>
-consistent_mod_env tenvS tenvC [] [])
+consistent_mod_env tenvS tenvC [] FEMPTY)
 
-/\ (! tenvS tenvC mn env menv mn' tenv tenvM.
-((mn = mn') /\
-type_env tenvC tenvS env (bind_var_list2 tenv Empty) /\
+/\ (! tenvS tenvC mn env menv tenv tenvM.
+(type_env tenvC tenvS env (bind_var_list2 tenv Empty) /\
 consistent_mod_env tenvS tenvC menv tenvM)
 ==>
-consistent_mod_env tenvS tenvC ((mn,env)::menv) ((mn',tenv)::tenvM))`;
+consistent_mod_env tenvS tenvC ((mn,env)::menv) (tenvM |+ (mn, tenv)))`;
 
 val _ = Define `
  (type_s cenv senv s =  
 (! l. 
-    ((? st. lib$lookup l senv = SOME st) <=> (? v. store_lookup l s = SOME v)) /\
-    (! st sv. ((lib$lookup l senv = SOME st) /\ (store_lookup l s = SOME sv)) ==> 
+    ((? st. FLOOKUP senv l = SOME st) <=> (? v. store_lookup l s = SOME v)) /\
+    (! st sv. ((FLOOKUP senv l = SOME st) /\ (store_lookup l s = SOME sv)) ==> 
        (case (sv,st) of
            (Refv v, Ref_t t) => type_v( 0) cenv senv v t
          | (W8array es, W8array_t) => T
@@ -372,11 +377,11 @@ type_ctxt tvs menv all_cenv cenv senv tenv (Clet n ()  e) t1 t2)
 (EVERY (check_freevars tvs []) ts' /\
 (LENGTH tvs' = LENGTH ts') /\
 type_vs tvs all_cenv senv (REVERSE vs)
-        (MAP (type_subst (ZIP (tvs', ts'))) ts1) /\
-type_es menv cenv (bind_tvar tvs tenv) es (MAP (type_subst (ZIP (tvs', ts'))) ts2) /\
-(lookup_con_id cn cenv = SOME (tvs', ((ts1++[t])++ts2), tn)))
+        (MAP (type_subst (FUPDATE_LIST FEMPTY (REVERSE (ZIP (tvs', ts'))))) ts1) /\
+type_es menv cenv (bind_tvar tvs tenv) es (MAP (type_subst (FUPDATE_LIST FEMPTY (REVERSE (ZIP (tvs', ts'))))) ts2) /\
+(lookup_alist_mod_env cn cenv = SOME (tvs', ((ts1++[t])++ts2), tn)))
 ==>
-type_ctxt tvs menv all_cenv cenv senv tenv (Ccon (SOME cn) vs ()  es) (type_subst (ZIP (tvs', ts')) t)
+type_ctxt tvs menv all_cenv cenv senv tenv (Ccon (SOME cn) vs ()  es) (type_subst (FUPDATE_LIST FEMPTY (REVERSE (ZIP (tvs', ts')))) t)
           (Tapp ts' (tid_exn_to_tc tn)))
 
 /\ (! tvs menv all_cenv cenv senv tenv vs es t ts1 ts2.
@@ -445,9 +450,9 @@ type_state dec_tvs ctMap senv ((envM, envC, env), s, Val v, c) t2)`;
 val _ = Define `
  (weakM tenvM tenvM' =  
 (! mn tenv'.
-    (lib$lookup mn tenvM' = SOME tenv')
+    (FLOOKUP tenvM' mn = SOME tenv')
     ==>
-    (? tenv. (lib$lookup mn tenvM = SOME tenv) /\ weakE tenv tenv')))`;
+    (? tenv. (FLOOKUP tenvM mn = SOME tenv) /\ weakE tenv tenv')))`;
 
 
 (*val weakC_def : tenvC -> tenvC -> bool*)
@@ -455,9 +460,9 @@ val _ = Define `
  (weakC tenvC tenvC' =  
 (flat_weakC (SND tenvC) (SND tenvC') /\  
 (! mn flat_tenvC'.    
-(lib$lookup mn (FST tenvC') = SOME flat_tenvC')
+(ALOOKUP (FST tenvC') mn = SOME flat_tenvC')
     ==>    
-(? flat_tenvC. (lib$lookup mn (FST tenvC) = SOME flat_tenvC) /\ flat_weakC flat_tenvC flat_tenvC'))))`;
+(? flat_tenvC. (ALOOKUP (FST tenvC) mn = SOME flat_tenvC) /\ flat_weakC flat_tenvC flat_tenvC'))))`;
 
 
 (* The global constructor type environment has the primitive exceptions in it *)
@@ -465,6 +470,7 @@ val _ = Define `
 val _ = Define `
  (ctMap_has_exns ctMap =  
 ((FLOOKUP ctMap ("Bind", TypeExn (Short "Bind")) = SOME ([],[])) /\
+  (FLOOKUP ctMap ("Chr", TypeExn (Short "Chr")) = SOME ([],[])) /\
   (FLOOKUP ctMap ("Div", TypeExn (Short "Div")) = SOME ([],[])) /\
   (FLOOKUP ctMap ("Eq", TypeExn (Short "Eq")) = SOME ([],[])) /\
   (FLOOKUP ctMap ("Subscript", TypeExn (Short "Subscript")) = SOME ([],[]))))`;
@@ -548,8 +554,8 @@ val _ = Define `
  (update_type_sound_inv ((decls1:decls),(tenvT:tenvT),(tenvM:tenvM),(tenvC:tenvC),(tenv:tenvE),(decls2: tid_or_exn set),(envM:envM),(envC:envC),(envE:envE),store) decls1' tenvT' tenvM' tenvC' tenv' store' decls2' envC' r =  
 ((case r of
        Rval (envM',envE') => 
-         (union_decls decls1' decls1,merge_tenvT tenvT' tenvT, (tenvM'++tenvM),merge_tenvC tenvC' tenvC,bind_var_list2 tenv' tenv,
-          decls2',(envM'++envM),merge_envC envC' envC,(envE'++envE),store')
+         (union_decls decls1' decls1,merge_mod_env tenvT' tenvT, FUNION tenvM' tenvM,merge_alist_mod_env tenvC' tenvC,bind_var_list2 tenv' tenv,
+          decls2',(envM'++envM),merge_alist_mod_env envC' envC,(envE'++envE),store')
      | Rerr _ => (union_decls decls1' decls1,tenvT,tenvM,tenvC,tenv,decls2',envM,envC,envE,store')
   )))`;
 

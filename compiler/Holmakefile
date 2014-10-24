@@ -3,7 +3,7 @@ INCLUDES = .. ../semantics ../bytecode ../lem_lib_stub ../inference
 OPTIONS = QUIT_ON_FAILURE
 
 #LEM_OPT = -wl_pat_comp ign  -wl_pat_exh  ign -wl_pat_fail ign -wl_unused_vars ign
-LEM_OPT = -wl_unused_vars ign
+LEM_OPT = -suppress_renaming -auxiliary_level none
 
 SEMANTICSI = lib ast semanticPrimitives bigStep
 BYTECODEI = bytecode
@@ -16,7 +16,7 @@ LEMH = $(patsubst %,%.lem,$(COMPILER))
 
 $(GEN_SCRIPTS): $(LEMI) $(LEMH)
 	if type lem;\
-	then lem $(LEM_OPT) -suppress_renaming -auxiliary_level none $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMH));\
+	then lem $(LEM_OPT) $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMH));\
 	else touch $(GEN_SCRIPTS); fi
 
 ifdef POLY

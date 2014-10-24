@@ -93,8 +93,6 @@ fun register name def ind =
     ()
   end;
 
-val _ = export_rewrites["lib.lookup_def"];
-
 val (pmatch_def, pmatch_ind) =
   tprove_no_defn ((pmatch_def, pmatch_ind),
   wf_rel_tac
@@ -191,6 +189,11 @@ val (v_to_list_def,v_to_list_ind) =
   tprove_no_defn ((v_to_list_def,v_to_list_ind),
 wf_rel_tac `measure v_size`);
 val _ = register "v_to_list" v_to_list_def v_to_list_ind;
+
+val (v_to_char_list_def,v_to_char_list_ind) =
+  tprove_no_defn ((v_to_char_list_def,v_to_char_list_ind),
+wf_rel_tac `measure v_size`);
+val _ = register "v_to_char_list" v_to_char_list_def v_to_char_list_ind;
 
 val check_ctor_foldr_flat_map = Q.prove (
 `!c. (FOLDR

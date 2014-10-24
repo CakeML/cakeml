@@ -165,55 +165,10 @@ val res = translate (DECIDE ``PRE n = n-1``);
 
 (* string *)
 
-val CHAR_def = Define `
-  CHAR (c:char) = NUM (ORD c)`;
-
-val _ = add_type_inv ``CHAR`` ``:num``
-
-val EqualityType_CHAR = prove(
-  ``EqualityType CHAR``,
-  EVAL_TAC THEN SRW_TAC [] [] THEN EVAL_TAC)
-  |> store_eq_thm;
-
-val Eval_Val_CHAR = prove(
-  ``NUMERAL n < 256 ==>
-    Eval env (Lit (IntLit (&(NUMERAL n)))) (CHAR (CHR (NUMERAL n)))``,
-  SIMP_TAC (srw_ss()) [Eval_Val_NUM,CHAR_def])
-  |> store_eval_thm;
-
-val Eval_CHR = prove(
-  ``n < 256 ==> !v. ((NUM --> NUM) (\x.x)) v ==> ((Eq NUM n --> CHAR) CHR) v``,
-  SIMP_TAC std_ss [Arrow_def,AppReturns_def,CHAR_def,Eq_def,
-    stringTheory.ORD_CHR_RWT]) |> UNDISCH
-  |> MATCH_MP (MATCH_MP Eval_WEAKEN (hol2deep ``\x.x:num``))
-  |> store_eval_thm;
-
-val Eval_ORD = prove(
-  ``!v. ((NUM --> NUM) (\x.x)) v ==> ((CHAR --> NUM) ORD) v``,
-  SIMP_TAC std_ss [Arrow_def,AppReturns_def,CHAR_def])
-  |> MATCH_MP (MATCH_MP Eval_WEAKEN (hol2deep ``\x.x:num``))
-  |> store_eval_thm;
-
-val Eval_CHR = prove(
-  ``!v. ((NUM --> NUM) (\n. n MOD 256)) v ==>
-        ((NUM --> CHAR) (\n. CHR (n MOD 256))) v``,
-  SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,CHAR_def])
-  |> MATCH_MP (MATCH_MP Eval_WEAKEN (hol2deep ``\n. n MOD 256``))
-  |> store_eval_thm;
-
-val Eval_CHAR_LT = prove(
-  ``!v. ((NUM --> NUM --> BOOL) (\m n. m < n)) v ==>
-        ((CHAR --> CHAR --> BOOL) char_lt) v``,
-  SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,CHAR_def,char_lt_def]
-  THEN METIS_TAC [])
-  |> MATCH_MP (MATCH_MP Eval_WEAKEN (hol2deep ``\m n. m < n:num``))
-  |> store_eval_thm;
-
 val res = translate string_lt_def;
 val res = translate string_le_def;
 val res = translate string_gt_def;
 val res = translate string_ge_def;
-
 
 (* number to string conversion *)
 
@@ -309,6 +264,47 @@ val Eval_FEMPTY = prove(
   THEN FULL_SIMP_TAC (srw_ss()) [ALOOKUP_def,FUN_EQ_THM,
          finite_mapTheory.FLOOKUP_DEF])
   |> MATCH_MP (MATCH_MP Eval_WEAKEN NIL_eval)
+  |> store_eval_thm;
+
+val AEVERY_AUX_def = Define `
+  (AEVERY_AUX aux P [] = T) /\
+  (AEVERY_AUX aux P ((x:'a,y:'b)::xs) =
+     if MEMBER x aux then AEVERY_AUX aux P xs else
+       P (x,y) /\ AEVERY_AUX (x::aux) P xs)`;
+val AEVERY_def = Define `AEVERY = AEVERY_AUX []`;
+val _ = translate AEVERY_AUX_def;
+val AEVERY_eval = translate AEVERY_def;
+
+val AEVERY_AUX_THM = prove(
+  ``!l aux P. AEVERY_AUX aux P l <=>
+              !x y. (ALOOKUP l x = SOME y) /\ ~(MEM x aux) ==> P (x,y)``,
+  Induct
+  THEN FULL_SIMP_TAC std_ss [ALOOKUP_def,AEVERY_AUX_def,FORALL_PROD,
+    MEM,GSYM MEMBER_INTRO] THEN REPEAT STRIP_TAC
+  THEN SRW_TAC [] [] THEN METIS_TAC [SOME_11]);
+
+val AEVERY_THM = prove(
+  ``AEVERY P l <=> !x y. (ALOOKUP l x = SOME y) ==> P (x,y)``,
+  SIMP_TAC (srw_ss()) [AEVERY_def,AEVERY_AUX_THM]);
+
+val AEVERY_EQ_FEVERY = prove(
+  ``FMAP_EQ_ALIST f l ==> (AEVERY P l <=> FEVERY P f)``,
+  FULL_SIMP_TAC std_ss [FMAP_EQ_ALIST_def,FEVERY_DEF,AEVERY_THM]
+  THEN FULL_SIMP_TAC std_ss [FLOOKUP_DEF]);
+
+val Eval_FEVERY = prove(
+  ``!v. (((PAIR_TYPE (a:'a->v->bool) (b:'b->v->bool) --> BOOL) -->
+         LIST_TYPE (PAIR_TYPE a b) --> BOOL) AEVERY) v ==>
+        (((PAIR_TYPE (a:'a->v->bool) (b:'b->v->bool) --> BOOL) -->
+         FMAP_TYPE a b --> BOOL) FEVERY) v``,
+  SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,FMAP_TYPE_def,
+    PULL_EXISTS] THEN REPEAT STRIP_TAC
+  THEN RES_TAC THEN Q.EXISTS_TAC `u` THEN FULL_SIMP_TAC std_ss []
+  THEN REPEAT STRIP_TAC THEN RES_TAC
+  THEN Q.MATCH_ASSUM_RENAME_TAC `BOOL (AEVERY x l) u1` []
+  THEN Q.LIST_EXISTS_TAC [`u1`]
+  THEN FULL_SIMP_TAC (srw_ss()) [BOOL_def,AEVERY_EQ_FEVERY])
+  |> MATCH_MP (MATCH_MP Eval_WEAKEN AEVERY_eval)
   |> store_eval_thm;
 
 val AMAP_def = Define `

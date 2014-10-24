@@ -64,8 +64,8 @@ val _ = Hol_datatype `
  v_exh =
     Litv_exh of lit
   | Conv_exh of num => v_exh list 
-  | Closure_exh of (varN, v_exh) env => varN => exp_exh
-  | Recclosure_exh of (varN, v_exh) env => (varN # varN # exp_exh) list => varN
+  | Closure_exh of (varN, v_exh) alist => varN => exp_exh
+  | Recclosure_exh of (varN, v_exh) alist => (varN # varN # exp_exh) list => varN
   | Loc_exh of num
   | Vectorv_exh of v_exh list`;
 
@@ -225,10 +225,10 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn pat_bindings_exh_defn;
 
-(*val pmatch_exh : store v_exh -> pat_exh -> v_exh -> env varN v_exh -> match_result (env varN v_exh)*)
+(*val pmatch_exh : store v_exh -> pat_exh -> v_exh -> alist varN v_exh -> match_result (alist varN v_exh)*)
  val pmatch_exh_defn = Hol_defn "pmatch_exh" `
 
-(pmatch_exh s (Pvar_exh x) v' env = (Match (bind x v' env)))
+(pmatch_exh s (Pvar_exh x) v' env = (Match ((x, v') :: env)))
 /\
 (pmatch_exh s (Plit_exh l) (Litv_exh l') env =  
 (if l = l' then
@@ -268,11 +268,11 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn pmatch_exh_defn;
 
-(*val build_rec_env_exh : list (varN * varN * exp_exh) -> env varN v_exh -> env varN v_exh -> env varN v_exh*)
+(*val build_rec_env_exh : list (varN * varN * exp_exh) -> alist varN v_exh -> alist varN v_exh -> alist varN v_exh*)
 val _ = Define `
  (build_rec_env_exh funs cl_env add_to_env =  
 (FOLDR 
-    (\ (f,x,e) env' .  bind f (Recclosure_exh cl_env funs f) env') 
+    (\ (f,x,e) env' .  (f,Recclosure_exh cl_env funs f) :: env') 
     add_to_env 
     funs))`;
 
@@ -325,16 +325,16 @@ val _ = Define `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn do_eq_exh_defn;
 
-(*val do_opapp_exh : list v_exh -> maybe (env varN v_exh * exp_exh)*)
+(*val do_opapp_exh : list v_exh -> maybe (alist varN v_exh * exp_exh)*)
 val _ = Define `
  (do_opapp_exh vs =  
 ((case vs of
       [Closure_exh env n e; v] =>
-        SOME (bind n v env, e)
+        SOME (((n,v)::env), e)
     | [Recclosure_exh env funs n; v] =>
         if ALL_DISTINCT (MAP (\ (f,x,e) .  f) funs) then
           (case find_recfun n funs of
-              SOME (n,e) => SOME (bind n v (build_rec_env_exh funs env env), e)
+              SOME (n,e) => SOME (((n,v) :: build_rec_env_exh funs env env), e)
             | NONE => NONE
           )
         else
@@ -366,6 +366,31 @@ val _ = Define `
 /\ (v_to_list_exh _ = NONE)`;
 
 
+(*val v_exh_to_char_list : v_exh -> maybe (list char)*)
+ val _ = Define `
+ (v_exh_to_char_list (Conv_exh tag []) =  
+(if tag = nil_tag then
+    SOME []
+  else
+    NONE))
+/\ (v_exh_to_char_list (Conv_exh tag [Litv_exh (Char c);v]) =  
+(if tag = cons_tag then
+    (case v_exh_to_char_list v of
+        SOME cs => SOME (c::cs)
+      | NONE => NONE
+    )
+  else
+    NONE))
+/\ (v_exh_to_char_list _ = NONE)`;
+
+
+(*val char_list_to_v_exh : list char -> v_exh*)
+ val char_list_to_v_exh_defn = Hol_defn "char_list_to_v_exh" `
+ (char_list_to_v_exh [] = (Conv_exh nil_tag []))
+/\ (char_list_to_v_exh (c::cs) =  
+(Conv_exh cons_tag [Litv_exh (Char c); char_list_to_v_exh cs]))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn char_list_to_v_exh_defn;
 
 (*val do_app_exh : count_store_genv v_exh -> op_i2 -> list v_exh -> maybe (count_store_genv v_exh * result v_exh v_exh)*)
 val _ = Define `
@@ -448,6 +473,26 @@ val _ = Define `
                   )
         | _ => NONE
       )
+    | (Op_i2 Ord, [Litv_exh (Char c)]) =>
+          SOME (((count,s),genv), Rval (Litv_exh(IntLit(int_of_num(ORD c)))))
+    | (Op_i2 Chr, [Litv_exh (IntLit i)]) =>
+        SOME (((count,s),genv),          
+(if (i <( 0 : int)) \/ (i >( 255 : int)) then
+            Rerr (Rraise (prim_exn_exh chr_tag))
+          else
+            Rval (Litv_exh(Char(CHR(Num (ABS ( i))))))))
+    | (Op_i2 (Chopb op), [Litv_exh (Char c1); Litv_exh (Char c2)]) =>
+        SOME (((count,s),genv), Rval (Litv_exh (Bool (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2))))))
+    | (Op_i2 Implode, [v]) =>
+          (case v_exh_to_char_list v of
+            SOME ls =>
+              SOME (((count,s),genv), Rval (Litv_exh (StrLit (IMPLODE ls))))
+          | NONE => NONE
+          )
+    | (Op_i2 Explode, [Litv_exh (StrLit str)]) =>
+        SOME (((count,s),genv), Rval (char_list_to_v_exh (EXPLODE str)))
+    | (Op_i2 Strlen, [Litv_exh (StrLit str)]) =>
+        SOME (((count,s),genv), Rval (Litv_exh(IntLit(int_of_num(STRLEN str)))))
     | (Op_i2 VfromList, [v]) =>
           (case v_to_list_exh v of
               SOME vs =>
@@ -566,12 +611,12 @@ evaluate_exh ck env s (Con_exh tag es) (s', Rval (Conv_exh tag vs)))
 evaluate_exh ck env s (Con_exh tag es) (s', Rerr err))
 
 /\ (! ck env n v s.
-(lookup n env = SOME v)
+(ALOOKUP env n = SOME v)
 ==>
 evaluate_exh ck env s (Var_local_exh n) (s, Rval v))
 
 /\ (! ck env n s.
-(lookup n env = NONE)
+(ALOOKUP env n = NONE)
 ==>
 evaluate_exh ck env s (Var_local_exh n) (s, Rerr Rtype_error))
 
