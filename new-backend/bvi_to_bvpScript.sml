@@ -64,8 +64,8 @@ val iComp_def = tDefine "iComp" `
      let (c1,vs,n1) = iComp n env F live xs in
      let (c2,v,n2) = iComp (n1+1) (n1::env) F live [handler] in
      let ret = SOME (n2, list_to_num_set (live ++ env)) in
-     let c3 = Seq c1 (Call ret dest vs (SOME (n1,c2))) in
-       (if tail then Seq c3 (Return n2) else c3, [n2], n2+1))`
+     let c3 = (if tail then Return n2 else Skip) in
+       (Seq c1 (Seq (Call ret dest vs (SOME (n1,c2))) c3), [n2], n2+1))`
  (WF_REL_TAC `measure (bvi_exp2_size o SND o SND o SND o SND)`);
 
 val pOptimise_def = Define `
@@ -959,9 +959,8 @@ val iComp_correct = prove(
                 bviTheory.dec_clock_def]
                  \\ FULL_SIMP_TAC (srw_ss()) [jump_exc_def]
                  \\ REPEAT BasicProvers.FULL_CASE_TAC))
-    \\ REVERSE (Cases_on `tail`) (* non-tail Call with handler *)
-
-     (`?c1 vs n1. iComp n corr F live xs = (c1,vs,n1)` by METIS_TAC [PAIR]
+    \\ (* Call with handle *)
+      `?c1 vs n1. iComp n corr F live xs = (c1,vs,n1)` by METIS_TAC [PAIR]
       \\ `?c2 v n2. iComp (n1+1) (n1::corr) F live [x] = (c2,v,n2)` by
             METIS_TAC [PAIR]
       \\ FULL_SIMP_TAC std_ss [LET_DEF,pEval_def,call_env_def,iComp_def]
@@ -994,15 +993,14 @@ val iComp_correct = prove(
          (`lookup x' t1.locals <> NONE` by METIS_TAC []
           \\ Cases_on `lookup x' t1.locals` \\ fs [] \\ METIS_TAC [])
         \\ fs [var_corr_def,get_var_def]
-        \\ IMP_RES_TAC MEM_LIST_REL \\ fs [])
+        \\ IMP_RES_TAC MEM_LIST_REL \\ fs [] \\ NO_TAC)
       \\ fs [cut_env_def]
       \\ Cases_on `iEval ([exp],args,dec_clock r)`
       \\ Q.MATCH_ASSUM_RENAME_TAC `iEval ([exp],args,dec_clock r) = (res4,r4)` []
       \\ Cases_on `isException res4`
-      THEN1 cheat (* exception must be caught and handled ... *)
+      THEN1 cheat (* exception is caught and handled ... *)
       \\ `(res4,r4) = (res,s2)` by ALL_TAC
-      THEN1 (Cases_on `res4` \\ fs [isException_def])
-      \\ fs []
+      THEN1 (Cases_on `res4` \\ fs [isException_def]) \\ fs []
       \\ Q.ABBREV_TAC `env2 = (inter t2.locals (list_to_num_set (live ++ corr)))`
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL
           [`call_env args (push_env env2 T (dec_clock t2))`,
@@ -1030,7 +1028,8 @@ val iComp_correct = prove(
       \\ Cases_on `pres` \\ FULL_SIMP_TAC (srw_ss()) [call_env_def]
       \\ FULL_SIMP_TAC std_ss []
       \\ REVERSE (Cases_on `x'`) \\ FULL_SIMP_TAC (srw_ss()) []
-      \\ FULL_SIMP_TAC std_ss [res_list_def] \\ SRW_TAC [] [isResult_def]
+      \\ FULL_SIMP_TAC std_ss [res_list_def]
+      \\ BasicProvers.VAR_EQ_TAC
       \\ FULL_SIMP_TAC std_ss [isResult_def,isException_def]
       \\ `pop_env t2' = SOME (t2' with
          <| stack := t2.stack; locals := env2
@@ -1039,6 +1038,8 @@ val iComp_correct = prove(
         \\ FULL_SIMP_TAC (srw_ss()) [call_env_def,push_env_def,
            pop_env_def,bvpTheory.dec_clock_def,bviTheory.dec_clock_def])
       \\ fs [set_var_def,state_rel_def]
+      \\ Cases_on `tail` \\ fs [pEval_def]
+      THEN1 (fs [get_var_def,call_env_def,res_list_def])
       \\ IMP_RES_TAC iComp_LESS_EQ
       \\ REPEAT STRIP_TAC THEN1 DECIDE_TAC
       THEN1
@@ -1090,9 +1091,7 @@ val iComp_correct = prove(
                 call_env_def,push_env_def,bvpTheory.dec_clock_def,
                 bviTheory.dec_clock_def]
                  \\ FULL_SIMP_TAC (srw_ss()) [jump_exc_def]
-                 \\ REPEAT BasicProvers.FULL_CASE_TAC))
-
-);
+                 \\ REPEAT BasicProvers.FULL_CASE_TAC)));
 
 val option_case_NONE = prove(
   ``(case pres of NONE => F | SOME x => p x) <=> ?r. (pres = SOME r) /\ p r``,
