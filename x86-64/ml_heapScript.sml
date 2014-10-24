@@ -132,7 +132,7 @@ val wordsToBytesToWords_lemma = prove(
   ``∀ls. TAKE (LENGTH (dropWhile ($= k) (REVERSE ls))) ls ++
          GENLIST (K k) (LENGTH ls - LENGTH (TAKE (LENGTH (dropWhile ($= k) (REVERSE ls))) ls))
          = ls``,
-  HO_MATCH_MP_TAC SNOC_INDUCT >> rw[dropWhile_DEF] >>
+  HO_MATCH_MP_TAC SNOC_INDUCT >> rw[dropWhile_def] >>
   rw[] >> simp[TAKE_APPEND2,ADD1] >>
   Q.PAT_ABBREV_TAC`m = LENGTH Z` >>
   `m ≤ LENGTH (REVERSE ls)` by (
