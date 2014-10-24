@@ -1266,6 +1266,19 @@ val new_ref_thm = store_thm("new_ref_thm",
   \\ MATCH_MP_TAC bc_value_inv_SUBMAP
   \\ FULL_SIMP_TAC (srw_ss()) []);
 
+(* new ref -- replicate *)
+
+val new_ref_replicate_thm = store_thm("new_ref_replicate_thm",
+  ``abs_ml_inv (x1::x2::stack) refs (roots,heap,a,sp) limit /\
+    ~(ptr IN FDOM refs) /\ l + 1 <= sp ==>
+    ?p rs r1 r2 roots2 heap2.
+      (roots = r1 :: r2 :: roots2) /\
+      (heap_store_unused a sp (RefBlock (REPLICATE l r2)) heap = (heap2,T)) /\
+      abs_ml_inv ((RefPtr ptr)::x2::stack) (refs |+ (ptr,ValueArray (REPLICATE l x2)))
+                 (Pointer (a+sp-(l + 1))::r2::roots2,heap2,a,
+                  sp - (l + 1)) limit``,
+  cheat);
+
 (* deref *)
 
 val heap_el_def = Define `
