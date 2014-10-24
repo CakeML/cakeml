@@ -63,9 +63,9 @@ val iComp_def = tDefine "iComp" `
   (iComp n env tail live [Call dest xs (SOME handler)] =
      let (c1,vs,n1) = iComp n env F live xs in
      let (c2,v,n2) = iComp (n1+1) (n1::env) F live [handler] in
-     let ret = SOME (n2, list_to_num_set (live ++ env)) in
-     let c3 = (if tail then Return n2 else Skip) in
-       (Seq c1 (Seq (Call ret dest vs (SOME (n1,c2))) c3), [n2], n2+1))`
+     let ret = SOME (HD v, list_to_num_set (live ++ env)) in
+     let c3 = (if tail then Return (HD v) else Skip) in
+       (Seq c1 (Seq (Call ret dest vs (SOME (n1,c2))) c3), v, n2))`
  (WF_REL_TAC `measure (bvi_exp2_size o SND o SND o SND o SND)`);
 
 val pOptimise_def = Define `
@@ -997,8 +997,50 @@ val iComp_correct = prove(
       \\ fs [cut_env_def]
       \\ Cases_on `iEval ([exp],args,dec_clock r)`
       \\ Q.MATCH_ASSUM_RENAME_TAC `iEval ([exp],args,dec_clock r) = (res4,r4)` []
-      \\ Cases_on `isException res4`
-      THEN1 cheat (* exception is caught and handled ... *)
+      \\ Cases_on `isException res4` THEN1
+       (Cases_on `res4` \\ fs [isException_def,isResult_def,LET_DEF]
+        \\ Q.ABBREV_TAC `env2 = (inter t2.locals (list_to_num_set (live ++ corr)))`
+        \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL
+            [`call_env args (push_env env2 T (dec_clock t2))`,
+             `LENGTH (args:bc_value list)`,
+             `GENLIST I (LENGTH (args:bc_value list))`,`T`,`[]`])
+        \\ FULL_SIMP_TAC std_ss []
+        \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
+         (FULL_SIMP_TAC (srw_ss()) [state_rel_def,bvpTheory.dec_clock_def,
+            bviTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE,
+            LIST_REL_lookup_fromList,lookup_fromList_NONE,push_env_def,call_env_def]
+          \\ fs [jump_exc_def,LAST_N_LENGTH |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]])
+        \\ REPEAT STRIP_TAC
+        \\ Cases_on `pres` \\ fs []
+        \\ Cases_on `x'` \\ fs [res_list_def]
+        \\ MP_TAC (Q.SPECL [`prog`,`call_env args
+           (push_env env2 T (dec_clock t2))`] pEval_pOptimise) \\ fs []
+        \\ SIMP_TAC std_ss [call_env_def] \\ REPEAT STRIP_TAC \\ fs []
+        \\ Cases_on `pEval (c2,set_var n1 b t2')` \\ fs []
+        \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL
+              [`set_var n1 b t2'`,`n1+1`,`n1::corr`,`F`,`live`]) \\ fs []
+        \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1 cheat
+        \\ REPEAT STRIP_TAC
+        \\ REVERSE (Cases_on `q`) \\ fs [] THEN1
+         (REPEAT STRIP_TAC \\ fs [set_var_def,jump_exc_def,call_env_def,
+            push_env_def,bvpTheory.dec_clock_def]
+          \\ fs [jump_exc_def,LAST_N_LENGTH |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]]
+          \\ NTAC 2 (POP_ASSUM MP_TAC)
+          \\ Q.PAT_ASSUM `xxx = t2'` (fn th => ONCE_REWRITE_TAC [GSYM th]) \\ fs [])
+        \\ Cases_on `res` \\ fs []
+        \\ Q.EXISTS_TAC `r'` \\ fs []
+        \\ `(t2'.stack = t2.stack) /\ (t2'.handler = t2.handler)` by ALL_TAC THEN1
+         (REPEAT STRIP_TAC \\ fs [set_var_def,jump_exc_def,call_env_def,
+            push_env_def,bvpTheory.dec_clock_def]
+          \\ fs [jump_exc_def,LAST_N_LENGTH |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]]
+          \\ fs [bvp_state_component_equality])
+        \\ Cases_on `tail` \\ fs [pEval_def,isResult_def,isException_def]
+        THEN1
+         (IMP_RES_TAC iComp_LENGTH
+          \\ `?v1. v = [v1]` by (Cases_on `v` \\ fs [LENGTH_NIL])
+          \\ fs [var_corr_def,res_list_def,set_var_def]
+          \\ cheat (* false! *))
+        \\ cheat (* provable *))
       \\ `(res4,r4) = (res,s2)` by ALL_TAC
       THEN1 (Cases_on `res4` \\ fs [isException_def]) \\ fs []
       \\ Q.ABBREV_TAC `env2 = (inter t2.locals (list_to_num_set (live ++ corr)))`
@@ -1042,6 +1084,7 @@ val iComp_correct = prove(
       THEN1 (fs [get_var_def,call_env_def,res_list_def])
       \\ IMP_RES_TAC iComp_LESS_EQ
       \\ REPEAT STRIP_TAC THEN1 DECIDE_TAC
+      THEN1 cheat
       THEN1
        (UNABBREV_ALL_TAC
         \\ fs [lookup_insert,lookup_inter]
