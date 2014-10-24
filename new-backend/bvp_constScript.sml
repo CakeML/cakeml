@@ -11,7 +11,7 @@ infix \\ val op \\ = op THEN;
    assignments as far forward as possible. It pushes them past GC
    points so that known constants aren't stored on the stack past
    subroutine calls. Pushing the constants as far forward as possible
-   also make the work of the lower-level constant folding
+   also makes the work of the lower-level constant folding
    optimisations more likely to be effective. *)
 
 val pSeq2_def = Define `
@@ -46,9 +46,6 @@ val set_foldi_values = prove(
       | SOME x => SOME x
       | NONE => ALOOKUP acc v``
   Induct
-  THEN1 cheat
-  THEN1 cheat
-  THEN1 cheat
 
     fs [lookup_def,foldi_def,LET_DEF]
 
