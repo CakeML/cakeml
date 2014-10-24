@@ -9231,6 +9231,14 @@ val one_list_exists_ADD = prove(
   Induct \\ ASM_SIMP_TAC std_ss [one_list_exists_ZERO,SEP_CLAUSES,STAR_ASSOC,
       WORD_ADD_0,ADD_CLAUSES,one_list_exists_SUC,word_arith_lemma1,MULT_CLAUSES]);
 
+val one_list_exists_2 = prove(
+  ``one_list_exists a 2 = SEP_EXISTS x1 x2. one (a,x1:word64) * one (a+8w,x2)``,
+  SIMP_TAC std_ss [FUN_EQ_THM,one_list_exists_def,SEP_EXISTS_THM,cond_STAR]
+  \\ `!xs. (LENGTH xs = 2) <=> ?x1 x2. xs = [x1;x2:word64]` by ALL_TAC THEN1
+   (Cases \\ FULL_SIMP_TAC std_ss [LENGTH,NOT_CONS_NIL] \\ Cases_on `t`
+    \\ FULL_SIMP_TAC std_ss [LENGTH,NOT_CONS_NIL,CONS_11,LENGTH_NIL])
+  \\ FULL_SIMP_TAC std_ss [PULL_EXISTS,one_list_def,SEP_CLAUSES]);
+
 val heap_store_unused_STAR = prove(
   ``(heap_store_unused a sp x heap1 = (heap2,T)) ==>
     ?frame.
@@ -9264,14 +9272,6 @@ val heap_store_unused_STAR = prove(
   \\ FULL_SIMP_TAC (std_ss++star_ss) []
   \\ FULL_SIMP_TAC (srw_ss()) [STAR_ASSOC])
   |> SIMP_RULE std_ss [LET_DEF] |> GEN_ALL;
-
-val one_list_exists_2 = prove(
-  ``one_list_exists a 2 = SEP_EXISTS x1 x2. one (a,x1:word64) * one (a+8w,x2)``,
-  SIMP_TAC std_ss [FUN_EQ_THM,one_list_exists_def,SEP_EXISTS_THM,cond_STAR]
-  \\ `!xs. (LENGTH xs = 2) <=> ?x1 x2. xs = [x1;x2:word64]` by ALL_TAC THEN1
-   (Cases \\ FULL_SIMP_TAC std_ss [LENGTH,NOT_CONS_NIL] \\ Cases_on `t`
-    \\ FULL_SIMP_TAC std_ss [LENGTH,NOT_CONS_NIL,CONS_11,LENGTH_NIL])
-  \\ FULL_SIMP_TAC std_ss [PULL_EXISTS,one_list_def,SEP_CLAUSES]);
 
 val (x64_ref_loop_res, x64_ref_loop_def, x64_ref_loop_pre_def) = x64_compile `
   x64_ref_loop (r1,r7,r14:word64,r15:word64,dm:word64 set,m:word64->word64) =
