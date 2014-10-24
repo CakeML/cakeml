@@ -12443,6 +12443,20 @@ val INSERT_UNION_INSERT = store_thm("INSERT_UNION_INSERT",
 val th = zHEAP_NEW_REF
 
 fun fix_code th = let
+  val (_,_,c,_) = dest_spec (concl th)
+  val tms = find_terms (can (match_term ``(x:'a) INSERT y``)) (concl th)
+              |> map rator
+  val id_tm = ``I:(word64 # word8 list) set -> (word64 # word8 list) set``
+  val rest_code = c |> subst (map (fn tm => tm |-> id_tm) tms)
+                    |> REWRITE_CONV [I_THM,UNION_EMPTY] |> concl |> rand
+  fun iset [] t = t
+    | iset (x::xs) t = pred_setSyntax.mk_insert(x,iset xs t)
+  val c = iset (map rand (rev tms)) rest_code
+  val th = MATCH_MP SPEC_SUBSET_CODE th |> SPEC c
+  val goal = concl th |> dest_imp |> fst
+  val lemma = prove(goal,
+    SIMP_TAC (srw_ss()) [SUBSET_DEF,IN_INSERT,AC DISJ_COMM DISJ_ASSOC])
+  val th = MP th lemma
   val th = th
   |> SIMP_RULE std_ss [INSERT_UNION_INSERT,UNION_EMPTY]
   |> SORT_CODE
@@ -15515,6 +15529,8 @@ val EL_ref_globals_list = prove(
   Induct \\ Cases_on `k` \\ fs [ref_globals_list_def,EL,OPT_MAP_def]
   \\ Cases \\ Cases_on `n'` \\ fs [ref_globals_list_def,EL,OPT_MAP_def]);
 
+
+
 val zBC_HEAP_THM = prove(
   ``EVEN (w2n cb) /\ (cs.stack_trunk - n2w (8 * SUC (LENGTH stack)) = sb) ==>
     !s1 s2.
@@ -16201,7 +16217,8 @@ val zBC_HEAP_THM = prove(
     \\ Q.LIST_EXISTS_TAC [`x2`,`x3`]
     \\ FULL_SIMP_TAC std_ss [reintro_word_sub]
     \\ FULL_SIMP_TAC (std_ss++star_ss) [])
-  THEN1 (* Ref *) ERROR_TAC
+
+  THEN1 (* Ref *) cheat (* new ref *)
 (*
    (SIMP_TAC std_ss [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF]
     \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
