@@ -172,6 +172,9 @@ fun io2() =
                | _ => Error "Unknown error"))
   in
   foldl (fn (x,y) => (genIntermediates x y;y+1)) 0 [
+
+"val a = let val x = 5 val y = 4 fun f x = g x and g y = if(y<0) then y else f (y-1) val z = 3 in x+f y+ f z end;",
+
 "[1,2,3,4,5];",
 
 "val x = 5; [1,2,3,4,x];",

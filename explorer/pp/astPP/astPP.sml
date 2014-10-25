@@ -7,7 +7,7 @@ open Portable smpp term_pp_types
 val astPrettyPrinters = ref []: (string * term * term_grammar.userprinter) list ref
 
 (*Control whether lists are printed as Cons(1,Cons...) or in list syntax*)
-val prettify_lists = true;
+(*NOT IMPLEMENTED: val prettify_lists = true;*)
 
 fun add_astPP hd = astPrettyPrinters:= (hd:: !astPrettyPrinters)
 
@@ -201,7 +201,7 @@ fun dletrecPrint sys d t pg str brk blk =
     fun printTerms [] = str ""
     |   printTerms [t] = let val (x::y::[z]) = pairSyntax.strip_pair t
         in
-         blk CONSISTENT ~2 (str (toString x) >> str " ">> str (toString y)>> str " =" >> brk(1,0)>> sys (pg,pg,pg) (d-1) z)
+         blk CONSISTENT ~2 (str (toString x) >> str " ">> str (toString y)>> str " =" >> brk(1,0)>> sys (Top,pg,pg) (d-1) z)
         end
     |   printTerms (t::xs) = printTerms [t] >>add_newline>>str "and " >> (printTerms xs)
   in
@@ -210,6 +210,11 @@ fun dletrecPrint sys d t pg str brk blk =
 
 val _=add_astPP ("dletrecprint", ``Dletrec x``, genPrint dletrecPrint);
 
+fun next_is_let body = 
+      ((match_term ``Let (SOME x) y z`` body; true)
+      handle _ => ((match_term ``Letrec x y`` body; true)
+                  handle _ => false))
+   
 (*Nested mutually recursive letrec*)
 
 fun letrecPrint sys d t pg str brk blk =
@@ -224,9 +229,24 @@ fun letrecPrint sys d t pg str brk blk =
           >> str " =">>brk(1,0) >> sys (Top,pg,pg) (d-1) z)
         end
     |   printTerms (t::xs) = printTerms [t] >>add_newline>>str "and ">> (printTerms xs)
+    val next_is_let = next_is_let expr 
+    val next_sym = if next_is_let then (Prec(0,"nested_let")) else Top
   in
-     m_brack str pg (blk CONSISTENT 0 (str "let " >> (blk CONSISTENT 0 (str "fun ">>printTerms fundef))
-     >>add_newline>>str "in">>add_newline>>str"  ">>sys (Top,pg,pg) d expr >>add_newline>> str "end"))
+    case pg of
+    (*Skip bracketizing if it is a nested let*)
+    (Prec(_,"nested_let")) =>
+      (blk CONSISTENT 0 (str "    " >> 
+      (blk CONSISTENT 0 (str "fun ">>printTerms fundef))
+      >>add_newline>>
+      (if next_is_let then str"" else str "in">>add_newline>>str"  ")>>
+      sys (next_sym,pg,pg) d expr >>
+      (if next_is_let then str"" else (add_newline>>str "end"))))
+    | _ => 
+      m_brack str pg (blk CONSISTENT 0 (str "let " >>
+      (blk CONSISTENT 0 (str "fun ">>printTerms fundef))>>add_newline>>
+      (if next_is_let then str"" else str "in">>add_newline>>str"  ")>>
+      sys (next_sym,pg,pg) d expr >>
+      (if next_is_let then str"" else (add_newline>>str "end"))))
   end;
 
 val _=add_astPP ("letrecprint", ``Letrec x y``,genPrint letrecPrint);
@@ -251,7 +271,7 @@ fun dletfunPrint sys d t pg str brk blk =
   in
     add_newline>>blk CONSISTENT 2
     (str "fun " >> str (toString name) >> str " " >> str (toString arg) >> str " = " >> brk (1,0) >>
-     sys (pg,pg,pg) (d-1) expr)
+     sys (Top,pg,pg) (d-1) expr)
   end
 val _ = add_astPP("dletfunPrint", ``Dlet (Pvar x) (Fun y z)``,genPrint dletfunPrint);
 
@@ -263,7 +283,7 @@ fun dletvalPrint sys d t pg str brk blk=
   in
     add_newline>>blk CONSISTENT 2 (str "val " >>
     sys (pg,pg,pg) (d-1) l >>
-    str " =" >> brk (1,0) >> sys (pg,pg,pg) (d-1) r)
+    str " =" >> brk (1,0) >> sys (Top,pg,pg) (d-1) r)
   end;
 
 val _=add_astPP ("dletvalprint", ``Dlet x y``,genPrint dletvalPrint);
@@ -274,13 +294,28 @@ fun letvalPrint sys d t pg str brk blk =
     val (t,body) = dest_comb t
     val (t,eq) = dest_comb t
     val name = toString (strip (strip t))
+    val next_is_let = next_is_let body
+    val next_sym = if next_is_let then (Prec(0,"nested_let")) else Top
   in
-    m_brack str pg (blk CONSISTENT 0 (blk CONSISTENT 2(str "let val " >> str name >>str" =">>brk(1,0)>> sys (Top,pg,pg) d eq)
-    >> add_newline >> str "in">>add_newline >> str"  ">>(sys (Top,pg,pg) d body) >>add_newline>>str"end"))
+    case pg of
+    (*Skip bracketizing if it is a nested let*)
+    (Prec(_,"nested_let")) =>
+      (blk CONSISTENT 0 (blk CONSISTENT 2(
+      str "    val " >>str name >>str" =">>brk(1,0)>>sys (Top,pg,pg) d eq)
+      >> add_newline >> 
+      (if next_is_let then str"" else str"in">>add_newline>>str"  ")>>
+      (sys (next_sym,pg,pg) d body) >>
+      (if next_is_let then str"" else (add_newline>>str "end"))))
+    | _ => 
+    m_brack str pg (blk CONSISTENT 0 (blk CONSISTENT 2(
+    str "let val " >> str name >>str" =">>brk(1,0)>> sys (Top,pg,pg) d eq)
+    >> add_newline >> 
+    (if next_is_let then str"" else str "in">>add_newline>>str"  ")>>
+    (sys (next_sym,pg,pg) d body) >>
+    (if next_is_let then str"" else (add_newline>>str "end"))))
   end;
 
 val _=add_astPP ("letvalprint", ``Let (SOME x) y z``,genPrint letvalPrint);
-
 (*Inner Let NONE*)
 (*This should be sequencing*)
 fun letnonePrint sys d t pg str brk blk =
