@@ -885,7 +885,7 @@ exact_colored_locals f x y <=>
 
 val MEM_nub = prove(
  ``!ls x. MEM x (nub ls) <=> MEM x ls``,
-  Induct>> rw[nub_DEF]>>
+  Induct>> rw[nub_def]>>
   metis_tac[])
 
 val toAList_exact_colored_locals_permute = prove(
