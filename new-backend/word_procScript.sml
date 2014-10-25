@@ -74,7 +74,7 @@ val _ = export_rewrites ["apply_nummap_key_def","apply_color_exp_def"
                         ,"apply_color_inst_def","apply_color_def"];
 
 (*
-EVAL ``apply_color (\x.x+1) (Seq (Call (SOME (5,LN)) (SOME 4) [3;2;1] NONE) Skip)``
+EVAL ``apply_color (\x.x+1) (Seq (Call (SOME (5,LN,Skip)) (SOME 4) [3;2;1] NONE) Skip)``
 *)
 (*Note that we cannot use get_var v s = get_var f v t because t is allowed to contain extra variables ==> get_var (f v) t may succeed*)
 
