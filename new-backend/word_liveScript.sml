@@ -172,10 +172,13 @@ val get_live_sets_def = Define`
 val merge_pair_def = Define`
   merge_pair = \x,y. x::y`
 
-(*EVAL ``MAP toAList (merge_pair (get_live_sets
+(*
+EVAL ``MAP toAList (merge_pair (get_live_sets
   (Seq (Move [1,2;3,4;5,6]) 
   (Call (SOME (3, list_insert [1;3;5;7;9] [();();();();()] LN,Skip)) (SOME 400) [7;9] NONE))
-  (insert 100 () LN)))``*)
+  (insert 100 () LN)))``
+
+*)
 
 (*Alternative to coloring_ok for get_live_sets*)
 val coloring_ok_alt_def = Define`
@@ -214,7 +217,7 @@ val INJ_UNION = prove(
   metis_tac[INJ_SUBSET,SUBSET_DEF,SUBSET_UNION])
 
 (*Cant find this anywhere...*)
-val SUBSET_OF_INSERT = prove(
+val SUBSET_OF_INSERT = store_thm("SUBSET_OF_INSERT",
 ``!s x. s ⊆ x INSERT s``,
   rw[SUBSET_DEF])
 
