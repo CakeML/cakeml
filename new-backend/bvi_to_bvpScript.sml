@@ -432,7 +432,6 @@ val iComp_correct = prove(
                    case res of
                    | Result xs => var_corr xs vs t2
                    | _ => F)``,
-
   SIMP_TAC std_ss [Once EQ_SYM_EQ]
   \\ recInduct iEval_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [iComp_def,pEval_def,iEval_def]
@@ -824,11 +823,8 @@ val iComp_correct = prove(
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
     \\ FULL_SIMP_TAC (srw_ss()) [var_corr_def,bvpTheory.dec_clock_def,
          get_var_def,state_rel_def,bviTheory.dec_clock_def,jump_exc_NONE])
-
   THEN1 (* Call *)
-   (
-
-    Cases_on `handler` THEN1 (* Call without handler *)
+   (Cases_on `handler` THEN1 (* Call without handler *)
      (`?c1 vs n1. iComp n corr F live xs = (c1,vs,n1)` by METIS_TAC [PAIR]
       \\ FULL_SIMP_TAC std_ss [LET_DEF,pEval_def,call_env_def,iComp_def]
       \\ Cases_on `iEval (xs,env,s1)`
@@ -1016,7 +1012,6 @@ val iComp_correct = prove(
       \\ Cases_on `iEval ([exp],args,dec_clock r)`
       \\ Q.MATCH_ASSUM_RENAME_TAC `iEval ([exp],args,dec_clock r) = (res4,r4)` []
       \\ Cases_on `isException res4` THEN1
-
        (Cases_on `res4` \\ fs [isException_def,isResult_def,LET_DEF]
         \\ Q.ABBREV_TAC `env2 = (inter t2.locals (list_to_num_set (live ++ corr)))`
         \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL
@@ -1046,7 +1041,20 @@ val iComp_correct = prove(
           \\ Q.PAT_ASSUM `env2 = t2'.locals` (ASSUME_TAC o GSYM) \\ fs []
           \\ Q.UNABBREV_TAC `env2` \\ fs [lookup_inter_alt]
           \\ fs [domain_lookup,lookup_list_to_num_set]
-          \\ cheat (* likely to be provable *))
+          \\ REPEAT STRIP_TAC THEN1
+           (fs [LIST_REL_EL_EQN] \\ REPEAT STRIP_TAC
+            \\ Q.MATCH_ASSUM_RENAME_TAC `n3 < LENGTH env` []
+            \\ `MEM (EL n3 corr) corr` by METIS_TAC [MEM_EL] \\ fs []
+            \\ SRW_TAC [] []
+            \\ `EL n3 corr <= EL n3 corr` by fs [] \\ RES_TAC \\ fs [])
+          THEN1 (`k <> n1 /\ n1 <= k` by DECIDE_TAC \\ fs [])
+          THEN1
+           (fs [EVERY_MEM] \\ REPEAT STRIP_TAC
+            \\ Cases_on `n' = n1` \\ RES_TAC \\ fs []
+            \\ Cases_on `lookup n' t1.locals` \\ fs []
+            \\ RES_TAC \\ fs [] \\ Cases_on `lookup n' t2.locals` \\ fs [])
+          \\ Cases_on `LAST_N (t2'.handler + 1) t2'.stack` \\ fs []
+          \\ Cases_on `h` \\ fs [])
         \\ REPEAT STRIP_TAC
         \\ REVERSE (Cases_on `q`) \\ fs [] THEN1
          (REPEAT STRIP_TAC \\ fs [set_var_def,jump_exc_def,call_env_def,
