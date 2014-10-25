@@ -8,6 +8,7 @@ open bvp_lemmasTheory bvp_simpTheory bvp_liveTheory bvp_spaceTheory;
 open sptreeTheory lcsymtacs bviTheory;
 
 infix \\ val op \\ = op THEN;
+val RW = REWRITE_RULE;
 
 (* compilation from BVI to BVP *)
 
@@ -132,6 +133,23 @@ val iEval_SING_IMP = prove(
   REPEAT STRIP_TAC \\ IMP_RES_TAC iEval_IMP_LENGTH
   \\ Cases_on `vs` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ Cases_on `t` \\ FULL_SIMP_TAC (srw_ss()) []);
+
+val iComp_RANGE_lemma = prove(
+  ``!n env tail live xs.
+      EVERY (\v. n <= v /\ v < (SND (SND (iComp n env tail live xs))))
+        (FST (SND (iComp n env tail live xs)))``,
+  HO_MATCH_MP_TAC (fetch "-" "iComp_ind") \\ REPEAT STRIP_TAC
+  \\ SIMP_TAC std_ss [iComp_def] \\ SRW_TAC [] []
+  \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ IMP_RES_TAC iComp_SING_IMP
+  \\ fs [EVERY_MEM]
+  \\ REPEAT STRIP_TAC \\ RES_TAC
+  \\ IMP_RES_TAC iComp_LESS_EQ
+  \\ TRY (Cases_on `tail`) \\ fs [] \\ DECIDE_TAC);
+
+val iComp_RANGE = prove(
+  ``(iComp n env tail live xs = (ys,vs,k)) ==> EVERY (\v. n <= v /\ v < k) vs``,
+  REPEAT STRIP_TAC \\ MP_TAC (iComp_RANGE_lemma |> SPEC_ALL) \\ fs []);
 
 val EL_LENGTH_APPEND = prove(
   ``!xs ys a. EL (LENGTH xs + a) (xs ++ ys) = EL a ys``,
@@ -998,6 +1016,7 @@ val iComp_correct = prove(
       \\ Cases_on `iEval ([exp],args,dec_clock r)`
       \\ Q.MATCH_ASSUM_RENAME_TAC `iEval ([exp],args,dec_clock r) = (res4,r4)` []
       \\ Cases_on `isException res4` THEN1
+
        (Cases_on `res4` \\ fs [isException_def,isResult_def,LET_DEF]
         \\ Q.ABBREV_TAC `env2 = (inter t2.locals (list_to_num_set (live ++ corr)))`
         \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL
@@ -1019,7 +1038,15 @@ val iComp_correct = prove(
         \\ Cases_on `pEval (c2,set_var n1 b t2')` \\ fs []
         \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL
               [`set_var n1 b t2'`,`n1+1`,`n1::corr`,`F`,`live`]) \\ fs []
-        \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1 cheat
+        \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
+         (fs [var_corr_def,state_rel_def,set_var_def,lookup_insert,get_var_def]
+          \\ fs [jump_exc_def,call_env_def,push_env_def,bvpTheory.dec_clock_def]
+          \\ fs [jump_exc_def,LAST_N_LENGTH |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]]
+          \\ fs [bvp_state_component_equality]
+          \\ Q.PAT_ASSUM `env2 = t2'.locals` (ASSUME_TAC o GSYM) \\ fs []
+          \\ Q.UNABBREV_TAC `env2` \\ fs [lookup_inter_alt]
+          \\ fs [domain_lookup,lookup_list_to_num_set]
+          \\ cheat (* likely to be provable *))
         \\ REPEAT STRIP_TAC
         \\ REVERSE (Cases_on `q`) \\ fs [] THEN1
          (REPEAT STRIP_TAC \\ fs [set_var_def,jump_exc_def,call_env_def,
@@ -1027,8 +1054,7 @@ val iComp_correct = prove(
           \\ fs [jump_exc_def,LAST_N_LENGTH |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]]
           \\ NTAC 2 (POP_ASSUM MP_TAC)
           \\ Q.PAT_ASSUM `xxx = t2'` (fn th => ONCE_REWRITE_TAC [GSYM th]) \\ fs [])
-        \\ Cases_on `res` \\ fs []
-        \\ Q.EXISTS_TAC `r'` \\ fs []
+        \\ Cases_on `res` \\ fs [] \\ fs []
         \\ `(t2'.stack = t2.stack) /\ (t2'.handler = t2.handler)` by ALL_TAC THEN1
          (REPEAT STRIP_TAC \\ fs [set_var_def,jump_exc_def,call_env_def,
             push_env_def,bvpTheory.dec_clock_def]
@@ -1038,9 +1064,35 @@ val iComp_correct = prove(
         THEN1
          (IMP_RES_TAC iComp_LENGTH
           \\ `?v1. v = [v1]` by (Cases_on `v` \\ fs [LENGTH_NIL])
-          \\ fs [var_corr_def,res_list_def,set_var_def]
-          \\ cheat (* false! *))
-        \\ cheat (* provable *))
+          \\ fs [var_corr_def,res_list_def,set_var_def,call_env_def]
+          \\ fs [state_rel_def])
+        \\ REPEAT STRIP_TAC
+        THEN1 DECIDE_TAC
+        THEN1
+         (IMP_RES_TAC iComp_RANGE \\ fs [EVERY_MEM]
+          \\ REPEAT STRIP_TAC \\ RES_TAC \\ DECIDE_TAC)
+        THEN1 (fs [var_corr_def])
+        THEN1
+         (FIRST_X_ASSUM MATCH_MP_TAC \\ REVERSE STRIP_TAC THEN1 METIS_TAC []
+          \\ fs [set_var_def,lookup_insert]
+          \\ `k <> n1` by ALL_TAC \\ fs [] THEN1
+           (REPEAT STRIP_TAC \\ fs []
+            \\ `n <= n1` by DECIDE_TAC \\ RES_TAC \\ fs [])
+          \\ UNABBREV_ALL_TAC
+          \\ REPEAT STRIP_TAC \\ fs [set_var_def,jump_exc_def,call_env_def,
+            push_env_def,bvpTheory.dec_clock_def]
+          \\ fs [jump_exc_def,LAST_N_LENGTH |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]]
+          \\ fs [bvp_state_component_equality]
+          \\ Q.PAT_ASSUM `xxx = t2'.locals` (ASSUME_TAC o GSYM)
+          \\ fs [lookup_inter_alt]
+          \\ fs [domain_lookup,lookup_list_to_num_set] \\ METIS_TAC [])
+        \\ fs [set_var_def]
+        \\ fs [jump_exc_def]
+        \\ Cases_on `LAST_N (t1.handler + 1) t1.stack` \\ fs []
+        \\ Cases_on `h` \\ fs []
+        \\ fs [call_env_def,push_env_def,bvpTheory.dec_clock_def]
+        \\ Cases_on `LAST_N (r'.handler + 1) r'.stack` \\ fs []
+        \\ Cases_on `h` \\ fs [])
       \\ `(res4,r4) = (res,s2)` by ALL_TAC
       THEN1 (Cases_on `res4` \\ fs [isException_def]) \\ fs []
       \\ Q.ABBREV_TAC `env2 = (inter t2.locals (list_to_num_set (live ++ corr)))`
@@ -1083,22 +1135,19 @@ val iComp_correct = prove(
       \\ Cases_on `tail` \\ fs [pEval_def]
       THEN1 (fs [get_var_def,call_env_def,res_list_def])
       \\ IMP_RES_TAC iComp_LESS_EQ
-      \\ REPEAT STRIP_TAC THEN1 DECIDE_TAC
-      THEN1 cheat
+      \\ IMP_RES_TAC iComp_SING_IMP
+      \\ fs [] \\ IMP_RES_TAC iComp_RANGE \\ fs [EVERY_DEF]
+      \\ IMP_RES_TAC iComp_LESS_EQ
+      \\ REPEAT STRIP_TAC
+      THEN1 DECIDE_TAC
+      THEN1 DECIDE_TAC
       THEN1
        (UNABBREV_ALL_TAC
-        \\ fs [lookup_insert,lookup_inter]
-        \\ SRW_TAC [] [] THEN1 DECIDE_TAC
-        \\ `lookup k t2.locals = NONE` by ALL_TAC \\ fs []
+        \\ fs [lookup_insert,lookup_inter_alt]
+        \\ `k <> t'` by DECIDE_TAC \\ fs []
+        \\ REPEAT STRIP_TAC
         \\ FIRST_X_ASSUM MATCH_MP_TAC
         \\ DECIDE_TAC)
-      THEN1
-       (FULL_SIMP_TAC (srw_ss()) [var_corr_def,get_var_def,lookup_insert]
-        \\ `k <> n2` by DECIDE_TAC
-        \\ FULL_SIMP_TAC std_ss [listTheory.LIST_REL_EL_EQN]
-        \\ REPEAT STRIP_TAC
-        \\ UNABBREV_ALL_TAC \\ fs [lookup_inter]
-        \\ `n1 <= k` by DECIDE_TAC \\ RES_TAC \\ fs [])
       THEN1
        (FULL_SIMP_TAC (srw_ss()) [var_corr_def,get_var_def,lookup_insert]
         \\ FULL_SIMP_TAC std_ss [listTheory.LIST_REL_EL_EQN]
@@ -1113,16 +1162,16 @@ val iComp_correct = prove(
         \\ RES_TAC \\ fs [])
       THEN1
        (FULL_SIMP_TAC (srw_ss()) [var_corr_def,get_var_def,lookup_insert]
-        \\ Cases_on `k = n2` \\ FULL_SIMP_TAC std_ss []
+        \\ Cases_on `k = t'` \\ FULL_SIMP_TAC std_ss []
         \\ CCONTR_TAC \\ `n2 <= k` by DECIDE_TAC
         \\ RES_TAC \\ FULL_SIMP_TAC std_ss []
         \\ `n1 <= k` by DECIDE_TAC \\ RES_TAC
-        \\ UNABBREV_ALL_TAC \\ fs [lookup_inter])
+        \\ UNABBREV_ALL_TAC \\ fs [lookup_inter_alt])
       THEN1
        (FULL_SIMP_TAC (srw_ss()) [var_corr_def,get_var_def,lookup_insert]
-        \\ `k <> n2` by ALL_TAC
+        \\ `k <> t'` by ALL_TAC
         THEN1 (REPEAT STRIP_TAC \\ `n1 <= k` by DECIDE_TAC \\ RES_TAC \\ fs [])
-        \\ fs [] \\ Cases_on `n1 <= k` \\ RES_TAC \\ fs []
+        \\ fs [] \\ Cases_on `n1 <= t'` \\ RES_TAC \\ fs []
         \\ UNABBREV_ALL_TAC \\ fs [lookup_inter_alt]
         \\ fs [domain_lookup,lookup_list_to_num_set]
         \\ METIS_TAC [])
