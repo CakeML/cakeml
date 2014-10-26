@@ -13405,8 +13405,8 @@ val ic_PrintC_test_thm = prove(
   \\ SRW_TAC [] [isNumber_def,getNumber_def] \\ intLib.COOPER_TAC);
 
 val real_inst_length_limit = prove(
-  ``!bc. real_inst_length bc < 35``,
-  Cases \\ SIMP_TAC (srw_ss()) [bytecodeExtraTheory.real_inst_length_def]
+  ``!bc. real_inst_length bc < 100``,
+  Cases \\ SIMP_TAC (srw_ss()) [real_inst_length_def]
   \\ TRY (Cases_on `b`) \\ SRW_TAC [] []);
 
 fun ASSERT_TAC P goal = if P goal then ALL_TAC goal
@@ -13575,7 +13575,9 @@ val ic_List_thm = prove(
   \\ MP_TAC (Q.SPECL [`h1`,`h2`,`h3`] ic_Any_thm)
   \\ FULL_SIMP_TAC std_ss []
   \\ MATCH_MP_TAC IMP_IMP
-  \\ STRIP_TAC THEN1 cheat (* req. check for space in code heap *)
+  \\ STRIP_TAC
+
+ THEN1 cheat (* req. check for space in code heap *)
   \\ FULL_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [install_x64_code_lists_def,x64_code_def,APPEND_NIL]
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`x1`,`x2`,`x3`,
