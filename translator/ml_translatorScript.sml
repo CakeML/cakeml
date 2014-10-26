@@ -1663,13 +1663,89 @@ val DISJOINT_set_SIMP = store_thm("DISJOINT_set_SIMP",
     (DISJOINT (set (x::xs)) s <=> ~(x IN s) /\ DISJOINT (set xs) s)``,
   REPEAT STRIP_TAC THEN1 (SRW_TAC [] []) \\ Cases_on `x IN s` \\ fs []);
 
+(* removing shadowed elements from an alist *)
+
+val ASHADOW_def = tDefine "ASHADOW" `
+  (ASHADOW [] = []) /\
+  (ASHADOW (x::xs) =
+     if EXISTS (\y. FST x = FST y) xs
+     then x :: ASHADOW (FILTER (\y. FST x <> FST y) xs)
+     else x :: ASHADOW xs)`
+ (WF_REL_TAC `measure LENGTH` \\ fs [LENGTH] \\ REPEAT STRIP_TAC
+  \\ MATCH_MP_TAC LESS_EQ_LESS_TRANS
+  \\ Q.EXISTS_TAC `LENGTH xs` \\ fs [rich_listTheory.LENGTH_FILTER_LEQ])
+
+val ASHADOW_PREFIX = prove(
+  ``!xs ys.
+      ALL_DISTINCT (MAP FST xs) /\
+      EVERY (\y. ~(MEM y (MAP FST ys))) (MAP FST xs) ==>
+      (ASHADOW (xs ++ ys) = xs ++ ASHADOW ys)``,
+  Induct \\ fs [FORALL_PROD,ASHADOW_def]
+  \\ REPEAT STRIP_TAC \\ SRW_TAC [] []
+  \\ fs [EVERY_MEM,FORALL_PROD,EXISTS_MEM,MEM_MAP,EXISTS_PROD,PULL_EXISTS]
+  \\ Cases_on `y` \\ fs [] \\ RES_TAC);
+
+val MEM_MAP_ASHADOW = prove(
+  ``!xs y. MEM y (MAP FST (ASHADOW xs)) = MEM y (MAP FST xs)``,
+  STRIP_TAC \\ completeInduct_on `LENGTH xs`
+  \\ REPEAT STRIP_TAC \\ fs [PULL_FORALL]
+  \\ Cases_on `xs` \\ fs[] THEN1 (EVAL_TAC \\ SIMP_TAC std_ss [])
+  \\ fs [FORALL_PROD,ASHADOW_def]
+  \\ REPEAT STRIP_TAC \\ SRW_TAC [] []
+  \\ `LENGTH (FILTER (\y. FST h <> FST y) t) <= LENGTH t` by ALL_TAC
+  THEN1 fs [rich_listTheory.LENGTH_FILTER_LEQ]
+  \\ `LENGTH (FILTER (\y. FST h <> FST y) t) < SUC (LENGTH t)` by DECIDE_TAC
+  \\ RES_TAC \\ fs[]
+  \\ fs [MEM_MAP,MEM_FILTER] \\ METIS_TAC []);
+
+val EVERY_ALOOKUP_LEMMA = prove(
+  ``!xs:flat_envC. ALL_DISTINCT (MAP FST xs) ==>
+         EVERY (\(x,y,z). ALOOKUP xs x = SOME (y,z)) xs``,
+  Induct \\ srw_tac [] [] \\ PairCases_on `h` \\ fs []
+  \\ fs [EVERY_MEM,FORALL_PROD] \\ rpt strip_tac
+  \\ res_tac \\ Cases_on `h0 = p_1`
+  \\ fs [MEM_MAP,FORALL_PROD] \\ metis_tac []);
+
+val ALOOKUP_FILTER = prove(
+  ``!t a q. q <> a ==> (ALOOKUP (FILTER (\y. q <> FST y) t) a = ALOOKUP t a)``,
+  Induct THEN1 (EVAL_TAC \\ SIMP_TAC std_ss [])
+  \\ fs [alistTheory.ALOOKUP_def,FORALL_PROD]
+  \\ REPEAT STRIP_TAC \\ Cases_on `p_1 = a` \\ fs []
+  \\ SRW_TAC [] []);
+
+val ALOOKUP_ASHADOW = prove(
+  ``!xs a. ALOOKUP (ASHADOW xs) a = ALOOKUP xs a``,
+  STRIP_TAC \\ completeInduct_on `LENGTH xs`
+  \\ REPEAT STRIP_TAC \\ fs [PULL_FORALL]
+  \\ Cases_on `xs` \\ fs [] THEN1 EVAL_TAC
+  \\ Cases_on `h` \\ fs [FORALL_PROD,ASHADOW_def]
+  \\ SRW_TAC [] []
+  \\ `LENGTH (FILTER (\y. q <> FST y) t) < SUC (LENGTH t)` by ALL_TAC
+  \\ RES_TAC \\ fs [ALOOKUP_FILTER]
+  \\ MATCH_MP_TAC LESS_EQ_LESS_TRANS
+  \\ Q.EXISTS_TAC `LENGTH t`
+  \\ fs [rich_listTheory.LENGTH_FILTER_LEQ]);
+
+val ALL_DISTINCT_MAP_FST_ASHADOW = prove(
+  ``!xs. ALL_DISTINCT (MAP FST (ASHADOW xs))``,
+  STRIP_TAC \\ completeInduct_on `LENGTH xs`
+  \\ REPEAT STRIP_TAC \\ fs [PULL_FORALL]
+  \\ Cases_on `xs` \\ fs [] THEN1 EVAL_TAC
+  \\ Cases_on `h` \\ fs [ASHADOW_def]
+  \\ SRW_TAC [] [MEM_MAP_ASHADOW]
+  \\ fs [EXISTS_MEM,MEM_MAP,MEM_FILTER,FORALL_PROD,EVERY_MEM]
+  \\ FIRST_X_ASSUM MATCH_MP_TAC
+  \\ MATCH_MP_TAC LESS_EQ_LESS_TRANS
+  \\ Q.EXISTS_TAC `LENGTH t` \\ fs []
+  \\ fs [rich_listTheory.LENGTH_FILTER_LEQ]);
+
 (* DeclAssum for cons *)
 
 val DeclAssumCons_def = Define `
   DeclAssumCons mn ds conses cons_env <=>
     !env tys. DeclAssum mn ds env tys ==>
               (tys = set conses) /\
-              (SND (FST (SND env)) = cons_env)`;
+              (ASHADOW (SND (FST (SND env))) = cons_env)`;
 
 local
   val eval = SIMP_CONV (srw_ss()) [initSemEnvTheory.prim_sem_env_eq]
@@ -1686,7 +1762,7 @@ in
     fs [DeclAssumCons_def,DeclAssum_def,Decls_NIL,lemma,lemma2]
     \\ fs [pred_setTheory.EXTENSION]
     \\ rw[initSemEnvTheory.prim_sem_env_eq]
-    \\ EQ_TAC \\ REPEAT STRIP_TAC \\ fs []);
+    \\ TRY (EVAL_TAC \\ NO_TAC) \\ EQ_TAC \\ REPEAT STRIP_TAC \\ fs []);
 end
 
 val DeclAssumCons_SNOC_Dlet = store_thm("DeclAssumCons_SNOC_Dlet",
@@ -1709,6 +1785,9 @@ val DeclAssumCons_SNOC_Dletrec = store_thm("DeclAssumCons_SNOC_Dletrec",
 val DeclAssumCons_SNOC_Dtype = store_thm("DeclAssumCons_SNOC_Dtype",
   ``DeclAssumCons mn ds conses ce ==>
     !tds.
+    (let xs = MAP FST (build_tdefs mn tds) in
+     let ys = MAP FST ce in
+      ALL_DISTINCT xs /\ EVERY (\y. ~(MEM y ys)) xs) ==>
       DeclAssumCons mn (SNOC (Dtype tds) ds)
         (MAP (\(tvs,tn,ctors). TypeId
           (case mn of NONE => Short tn
@@ -1719,11 +1798,15 @@ val DeclAssumCons_SNOC_Dtype = store_thm("DeclAssumCons_SNOC_Dtype",
   \\ PairCases_on `s2` \\ fs [] \\ srw_tac [] [] \\ res_tac \\ fs []
   \\ PairCases_on `env2`
   \\ fs [type_defs_to_new_tdecs_def,mk_id_def,write_tds_def,
-         merge_alist_mod_env_def]);
+         merge_alist_mod_env_def]
+  \\ SRW_TAC [] [] \\ fs [LET_DEF]
+  \\ MATCH_MP_TAC ASHADOW_PREFIX
+  \\ fs [PULL_EXISTS] \\ RES_TAC \\ fs [MEM_MAP_ASHADOW]);
 
 val DeclAssumCons_SNOC_Dexn = store_thm("DeclAssumCons_SNOC_Dexn",
   ``DeclAssumCons mn ds conses ce ==>
     !n l.
+      ~EXISTS (\c. FST c = n) ce ==>
       DeclAssumCons mn (SNOC (Dexn n l) ds)
         (TypeExn (mk_id mn n) :: conses)
         ((n,LENGTH l,TypeExn (mk_id mn n)) :: ce)``,
@@ -1732,14 +1815,15 @@ val DeclAssumCons_SNOC_Dexn = store_thm("DeclAssumCons_SNOC_Dexn",
   \\ PairCases_on `s2` \\ fs [] \\ srw_tac [] [] \\ res_tac \\ fs []
   \\ fs [pred_setTheory.INSERT_UNION_EQ]
   \\ PairCases_on `env2`
-  \\ fs [write_exn_def,merge_alist_mod_env_def]);
-
-val EVERY_lookup_lemma = prove(
-  ``!xs. ALL_DISTINCT (MAP FST xs) ==>
-         EVERY (\(x,y,z). ALOOKUP xs x = SOME (y,z)) xs``,
-  Induct \\ srw_tac [] [] \\ PairCases_on `h` \\ fs []
-  \\ fs [EVERY_MEM,FORALL_PROD] \\ rpt strip_tac
-  \\ res_tac \\ Cases_on `h0 = p_1` \\ fs [MEM_MAP,FORALL_PROD] \\ metis_tac []);
+  \\ fs [write_exn_def,merge_alist_mod_env_def]
+  \\ SRW_TAC [] []
+  \\ MATCH_MP_TAC
+       (ASHADOW_PREFIX |> Q.SPEC `[x]` |> SIMP_RULE std_ss [APPEND])
+  \\ fs [EVERY_MEM,MEM_MAP,FORALL_PROD]
+  \\ fs [PULL_EXISTS] \\ RES_TAC \\ fs [MEM_MAP_ASHADOW]
+  \\ REPEAT STRIP_TAC
+  \\ METIS_TAC [MEM_MAP_ASHADOW |>
+       SIMP_RULE std_ss [MEM_MAP,EXISTS_PROD],PAIR]);
 
 val DeclAssumCons_cons_lookup = store_thm("DeclAssumCons_cons_lookup",
   ``DeclAssumCons mn ds conses ce ==>
@@ -1748,11 +1832,12 @@ val DeclAssumCons_cons_lookup = store_thm("DeclAssumCons_cons_lookup",
          EVERY (\(cn,l,tyname). lookup_cons cn env = SOME (l, tyname)) ce``,
   fs [DeclAssumCons_def] \\ srw_tac [] [lookup_cons_def] \\ res_tac
   \\ PairCases_on `env` \\ fs [lookup_alist_mod_env_def]
-  \\ match_mp_tac EVERY_lookup_lemma \\ fs [] >>
-  res_tac >>
-  rw [] >>
-  fs [] >>
-  cheat);
+  \\ `ALL_DISTINCT (MAP FST ce)` by ALL_TAC
+  THEN1 SRW_TAC [] [ALL_DISTINCT_MAP_FST_ASHADOW]
+  \\ IMP_RES_TAC EVERY_ALOOKUP_LEMMA
+  \\ fs [EVERY_MEM,FORALL_PROD]
+  \\ REPEAT STRIP_TAC \\ RES_TAC
+  \\ SRW_TAC [] [] \\ fs [ALOOKUP_ASHADOW]);
 
 (* size lemmas *)
 
