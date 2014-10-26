@@ -7,14 +7,15 @@ val real_inst_length_def = zDefine `
   real_inst_length bc =
    case bc of
      Stack Pop => 0
-   | Stack (Pops v25) => if v25 <= 268435455 then 4 else 1
-   | Stack (PushInt v28) =>
-       if v28 <= 268435455 then if v28 < 0 then 1 else 4 else 1
-   | Stack (Cons v29) => if v29 < 4096 then 34 else 1
-   | Stack (Load v31) => if v31 <= 268435455 then 4 else 1
-   | Stack (Store v32) => if v32 <= 268435455 then 4 else 1
-   | Stack El => 6
-   | Stack (TagEq v35) => if v35 <= 268435455 then 28 else 1
+   | Stack (Pops v28) => if v28 < 268435456 then 4 else 1
+   | Stack (PushInt v29) =>
+       if v29 < 268435456 then if v29 < 0 then 1 else 4 else 1
+   | Stack (Cons v30) => if v30 < 4096 then 62 else 1
+   | Stack (Load v31) => if v31 < 268435456 then 4 else 1
+   | Stack (Store v32) => if v32 < 268435456 then 4 else 1
+   | Stack LengthBlock => 16
+   | Stack El => 4
+   | Stack (TagEq v33) => if v33 < 268435456 then 28 else 1
    | Stack IsBlock => 25
    | Stack Equal => 5
    | Stack Add => 3
@@ -24,22 +25,31 @@ val real_inst_length_def = zDefine `
    | Stack Mod => 23
    | Stack Less => 24
    | Label l => 0
-   | Jump _ => 2
-   | JumpIf _ => 5
-   | Call _ => 2
+   | Jump (Lab l') => 2
+   | Jump (Addr v37) => 2
+   | JumpIf (Lab l'') => 5
+   | JumpIf (Addr v41) => 5
+   | Call (Lab l''') => 2
+   | Call (Addr v45) => 2
    | CallPtr => 3
-   | PushPtr _ => 7
+   | PushPtr (Lab l'''') => 7
+   | PushPtr (Addr v49) => 7
    | Return => 0
    | PushExc => 3
    | PopExc => 5
-   | Ref => 23
-   | Deref => 1
-   | Update => 3
-   | Stop b => 9
+   | Ref => 50
+   | Deref => 4
+   | Update => 6
+   | Length => 3
+   | LengthByte => 5
+   | Galloc v17 => 1
+   | Gupdate v18 => if v18 < 10000 then 19 else 1
+   | Gread v19 => if v19 < 10000 then 16 else 1
+   | Stop v20 => 9
    | Tick => 1
    | Print => 5
-   | PrintC v13 => 33:num
-   | _ => 1`;
+   | PrintC v21 => 33
+   | _ => 1:num`;
 
 val thms = ([],``!bc. x = real_inst_length bc``)
   |> (Cases THEN TRY (Cases_on `b`)) |> fst |> map (rand o snd)

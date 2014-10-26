@@ -12769,6 +12769,11 @@ val PushInt_SIMP = prove(
     if v28 < 268435456 then if v28 < 0 then 1 else 4 else 1:num``,
   intLib.COOPER_TAC);
 
+val lemma = prove(
+  ``((if b then x else y) DIV 2 = (if b then x DIV 2 else y DIV 2)) /\
+    ((if b then x else y) - 1 = (if b then x - 1 else y - 1))``,
+  SRW_TAC [] []);
+
 val x64_inst_length_thm = prove(
   ``!bc. x64_inst_length bc = case bc of (Label l) => 0
                               | Stack Add => x64_inst_length (Stack Add)
@@ -12776,31 +12781,22 @@ val x64_inst_length_thm = prove(
                               | JumpIf (Lab l) => x64_inst_length (JumpIf (Lab l))
                               | Call (Lab l) => x64_inst_length (Call (Lab l))
                               | PushPtr (Lab l) => x64_inst_length (PushPtr (Lab l))
+                              | Stop F => x64_inst_length (Stop F)
+                              | Stop T => x64_inst_length (Stop T)
                               | i => x64_inst_length i``,
   Cases \\ EVAL_TAC \\ TRY (Cases_on `b`) \\ EVAL_TAC
   \\ TRY (Cases_on `l`) \\ EVAL_TAC)
   |> SPEC_ALL |> CONV_RULE (RAND_CONV (REWRITE_CONV [x64_inst_length_def,
        x64_length_def,x64_def,LENGTH]))
-  |> SIMP_RULE std_ss [LET_DEF,LENGTH,small_offset_def,LENGTH_IF,
+  |> SIMP_RULE std_ss [LET_DEF,LENGTH,small_offset_def,LENGTH_IF,lemma,
        small_offset16_def,small_offset12_def,small_offset6_def,PushInt_SIMP,
-       IMM32_def,LENGTH_NTIMES,LENGTH_APPEND,ADD1,GSYM ADD_ASSOC];
+       IMM32_def,LENGTH_NTIMES,LENGTH_APPEND,ADD1,GSYM ADD_ASSOC,globals_count_def];
 
 val real_inst_length_thm = store_thm("real_inst_length_thm",
   ``x64_inst_length = real_inst_length``,
-  cheat) (* fix def of real_inst_length *)
-(*
-  SIMP_TAC std_ss [FUN_EQ_THM] \\ Cases \\ TRY (Cases_on `b`)
-  \\ SIMP_TAC (srw_ss()) [bytecodeExtraTheory.real_inst_length_def]
-  \\ SIMP_TAC (srw_ss()) [x64_inst_length_def,x64_length_def,x64_def,
-       small_offset_def,LET_DEF,LENGTH]
-  \\ TRY (SRW_TAC [] [] \\ EVAL_TAC \\ ASM_SIMP_TAC std_ss []
-          \\ intLib.COOPER_TAC)
-  \\ TRY (Cases_on `l`)
-  \\ SIMP_TAC (srw_ss()) [x64_inst_length_def,x64_length_def,x64_def,
-       small_offset_def,LET_DEF,LENGTH] \\ EVAL_TAC
-  \\ TRY (SRW_TAC [] [] \\ EVAL_TAC \\ ASM_SIMP_TAC std_ss []
-          \\ intLib.COOPER_TAC));
-*)
+  fs [x64_inst_length_thm,real_inst_length_def,FUN_EQ_THM]
+  \\ Cases \\ SRW_TAC [] [] \\ TRY (Cases_on `b`) \\ fs []
+  \\ TRY (Cases_on `l`) \\ fs []);
 
 val EVEN_LENGTH_small_offset = prove(
   ``EVEN (LENGTH x) ==> EVEN (LENGTH (small_offset n x))``,
