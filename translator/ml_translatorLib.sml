@@ -212,7 +212,7 @@ in
   (* functions for appending a new declaration *)
   val cs = listLib.list_compset()
   val () = computeLib.scrub_thms [LIST_TO_SET_THM,MEM,ALL_DISTINCT] cs
-  val () = computeLib.add_thms [MEM,ALL_DISTINCT] cs
+  val () = computeLib.add_thms [MEM,ALL_DISTINCT,FST,SND,EVERY_DEF,EXISTS_DEF] cs
   val () = stringLib.add_string_compset cs
   val () = pairLib.add_pair_compset cs
   val () = computeLib.add_thms [evalPropsTheory.build_tdefs_cons] cs
@@ -222,6 +222,9 @@ in
     if can (match_term ``(Dtype x) : dec``) decl then
       MATCH_MP (INST_mn DeclAssumCons_SNOC_Dtype) (!cenv_eq_thm)
       |> SPEC (decl |> rand)
+      |> print_time "DeclAssumCons_SNOC_Dtype pre"
+            (CONV_RULE ((RATOR_CONV o RAND_CONV) eval))
+      |> (fn th => MP th TRUTH)
       |> print_time "EVAL ALL_DISTINCT" (CONV_RULE ((RATOR_CONV o RAND_CONV) eval))
       |> print_time "EVAL2" (
          CONV_RULE (RAND_CONV EVAL THENC
@@ -231,6 +234,9 @@ in
       MATCH_MP (INST_mn DeclAssumCons_SNOC_Dexn) (!cenv_eq_thm)
       |> SPEC (decl |> rator |> rand)
       |> SPEC (decl |> rand)
+      |> print_time "DeclAssumCons_SNOC_Dexn pre"
+            (CONV_RULE ((RATOR_CONV o RAND_CONV) eval))
+      |> (fn th => MP th TRUTH)
       |> print_time "EVAL ALL_DISTINCT" (CONV_RULE ((RATOR_CONV o RAND_CONV) eval))
       |> print_time "EVAL2" (
          CONV_RULE (RAND_CONV EVAL THENC
