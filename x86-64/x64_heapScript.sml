@@ -2046,6 +2046,27 @@ val _ = map (derive_const_assign zHEAP_Num2) (up_to 256)
 val _ = map (derive_const_assign zHEAP_Num3) (up_to 256)
 val _ = map (derive_const_assign zHEAP_Num4) (up_to 256)
 
+val zHEAP_Num1_globals_count =
+  zHEAP_Num1 |> Q.INST [`k`|->`globals_count`]
+    |> CONV_RULE (RATOR_CONV (SIMP_CONV std_ss [globals_count_def,SEP_CLAUSES]))
+    |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL)
+
+val zHEAP_Num1_0 =
+  zHEAP_Num1 |> Q.INST [`k`|->`0`]
+    |> CONV_RULE (RATOR_CONV (SIMP_CONV std_ss [globals_count_def,SEP_CLAUSES]))
+    |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL)
+
+val zHEAP_Num2_0 =
+  zHEAP_Num2 |> Q.INST [`k`|->`0`]
+    |> CONV_RULE (RATOR_CONV (SIMP_CONV std_ss [globals_count_def,SEP_CLAUSES]))
+    |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL)
+
+val zHEAP_Num3_0 =
+  zHEAP_Num3 |> Q.INST [`k`|->`0`]
+    |> CONV_RULE (RATOR_CONV (SIMP_CONV std_ss [globals_count_def,SEP_CLAUSES]))
+    |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL)
+
+
 (* cons with NIL *)
 
 val abs_ml_inv_Block_NIL = prove(
@@ -5482,6 +5503,8 @@ gg goal
 val _ = map zHEAP_SWAP reg_combs;
 
 val zHEAP_SWAP_12 = zHEAP_SWAP (1,2)
+val zHEAP_SWAP_13 = zHEAP_SWAP (1,3)
+val zHEAP_SWAP_14 = zHEAP_SWAP (1,4)
 
 
 (* isBlock *)
@@ -10231,6 +10254,8 @@ fun BlockConsPair tag (n,m) = let
                 SEP_CLAUSES,GSYM BlockCons_def,GSYM BlockPair_def]
   val _ = add_compiled [th]
   in th end
+
+val BlockConsPair12 = BlockConsPair `0` (2,1)
 
 val _ = map (fn (n,m) =>
     (BlockConsPair `pair_tag` (n,m), BlockConsPair `cons_tag` (n,m)))
@@ -16832,7 +16857,8 @@ val full_s_def = Define `
 
 val init_bc_state_def = Define `
   init_bc_state s =
-    s with <| stack := [];
+    s with <| globals := [];
+              stack := [];
               handler := 0;
               refs := FEMPTY;
               output := "" |>`
@@ -16862,18 +16888,41 @@ val full_s_with_stop_def = Define `
          local := (full_s init).local with stop_addr := stop_addr`;
 
 
-(* following broken because globals ref not properly set up
+val set_ref_addr = let
+  val th1 =
+    SPEC_COMPOSE_RULE [zHEAP_Num1_globals_count,zHEAP_Num2_0,
+      zHEAP_NEW_REF,zHEAP_MOVE_13]
+     |> Q.INST [`l`|->`globals_count`,`ptr`|->`0`]
+     |> SIMP_RULE std_ss []
+  val th2 =
+    SPEC_COMPOSE_RULE [zHEAP_Num1_globals_count,zHEAP_Num2_0,
+      zHEAP_NEW_REF,zHEAP_MOVE_12]
+     |> Q.INST [`l`|->`globals_count`,`ptr`|->`1`]
+     |> SIMP_RULE std_ss []
+  val th =
+    SPEC_COMPOSE_RULE [th1,th2,zHEAP_MOVE_31,BlockConsPair12,
+      zHEAP_Num3_0,zHEAP_MOVE_32,zHEAP_SWAP_14]
+    |> RW [GSYM ref_addr_def |> Q.SPEC `T` |> RW []]
+  in th end
+
+val ref_globals_list_NIL = prove(
+  ``!n. ref_globals_list [] n = REPLICATE n (Number 0)``,
+  Induct \\ fs [ref_globals_list_def,rich_listTheory.REPLICATE]);
 
 val zBC_HEAP_INIT = let
   val th0 = SPEC_COMPOSE_RULE [zHEAP_INIT,zHEAP_ABBREVS,zHEAP_PUSH1,
-              zHEAP_SET_PRINTING_ON,zWRITE_HANDLER,zHEAP_POP1,zHEAP_SET_STOP_TO_TERMINATE]
-            |> SIMP_RULE std_ss [LENGTH,HD,TL,NOT_CONS_NIL,SEP_CLAUSES,GSYM full_s_def,
+              zHEAP_SET_PRINTING_ON,zWRITE_HANDLER,zHEAP_POP1,
+              zHEAP_SET_STOP_TO_TERMINATE,set_ref_addr]
+            |> SIMP_RULE std_ss [LENGTH,HD,TL,NOT_CONS_NIL,
+                 SEP_CLAUSES,GSYM full_s_def,
                  GSYM full_s_with_stop_def]
   val tm = find_term (can (match_term ``full_s_with_stop xx yy``)) (concl th0)
   val pc = get_pc th0
   val (th,goal) = SPEC_WEAKEN_RULE th0
-    ``(zBC_HEAP (init_bc_state i) (Number 0,full_cs init p,[],^tm,"")
-              (cb,cs.stack_trunk - 0x8w,ev,FEMPTY) * ^pc * ~zS)``
+    ``(zBC_HEAP (init_bc_state i) (RefPtr 1,full_cs init p,[],^tm,"")
+              (cb,cs.stack_trunk - 0x8w,T,FEMPTY |+
+                (1,ValueArray (REPLICATE globals_count (Number 0)))) * ^pc * ~zS) \/
+      zHEAP_ERROR (full_cs init p)``
 (*
   gg goal
 *)
@@ -16882,13 +16931,17 @@ val zBC_HEAP_INIT = let
     \\ fs [SEP_IMP_def,SEP_EXISTS_THM] \\ REPEAT STRIP_TAC
     \\ Q.LIST_EXISTS_TAC [`Number 0`,`Number 0`] \\ fs []
     \\ `^tm with <|output := ""; handler := 1|> = ^tm` by ALL_TAC
-    THEN1 EVAL_TAC \\ fs [AC STAR_ASSOC STAR_COMM]);
+    THEN1 EVAL_TAC \\ fs [AC STAR_ASSOC STAR_COMM]
+    \\ fs [ref_globals_def,OPT_MAP_def,ref_globals_list_NIL]
+    \\ POP_ASSUM (K ALL_TAC)
+    \\ POP_ASSUM MP_TAC
+    \\ MATCH_MP_TAC (METIS_PROVE [] ``(x1=x2)==>(x1==>x2)``)
+    \\ REPEAT (AP_TERM_TAC ORELSE AP_THM_TAC)
+    \\ fs [GSYM fmap_EQ_THM]
+    \\ REPEAT STRIP_TAC \\ fs [FUNION_DEF,FAPPLY_FUPDATE_THM]
+    \\ fs [EXTENSION] \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC \\ fs []);
   val th = MP th lemma
   in th end
-
-*)
-
-
 
 
 
