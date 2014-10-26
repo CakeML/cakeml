@@ -12489,7 +12489,7 @@ val zBC_Store = SPEC_COMPOSE_RULE [zHEAP_STORE,zHEAP_POP1]
 
 val zBC_Error = zHEAP_TERMINATE_WITH_ERROR |> fix_code
 
-val zBC_Ref = SPEC_COMPOSE_RULE [zHEAP_NEW_REF] |> fix_code
+val zBC_Ref = SPEC_COMPOSE_RULE [zHEAP_POP2,zHEAP_NEW_REF] |> fix_code
 val zBC_Deref = SPEC_COMPOSE_RULE [zHEAP_POP2,zHEAP_DEREF,zHEAP_NOP] |> fix_code
 val zBC_Update = SPEC_COMPOSE_RULE [zHEAP_POP2,zHEAP_POP3,zHEAP_UPDATE_REF,zHEAP_POP1,zHEAP_NOP] |> fix_code
 
@@ -15279,11 +15279,17 @@ val EXISTS_NOT_FDOM_NUM = prove(
   ``!f. ?m:num. ~(m IN FDOM f)``,
   METIS_TAC [IN_INFINITE_NOT_FINITE,FDOM_FINITE,INFINITE_NUM_UNIV]);
 
-val ODD_EVEN_SIMP = prove(
+val ODD_EVEN_SIMP_LEMMA = prove(
   ``!n. ~ODD (2 * n) /\ ~EVEN (2 * n + 1)``,
   ONCE_REWRITE_TAC [MULT_COMM]
   \\ SIMP_TAC (srw_ss()) [EVEN_MOD2,ODD_EVEN,MOD_MULT,
        MOD_MULT |> Q.SPECL [`n`,`0`] |> RW [ADD_0]]);
+
+val ODD_EVEN_SIMP = prove(
+  ``!n. ~ODD (2 * n) /\ ~EVEN (2 * n + 1) /\
+        ~ODD (2 * n + 2) /\ ~EVEN (2 * n + 3)``,
+  fs [ODD_EVEN_SIMP_LEMMA,ODD_EVEN_SIMP_LEMMA |> Q.SPEC `n+1`
+         |> SIMP_RULE std_ss [LEFT_ADD_DISTRIB,GSYM ADD_ASSOC]]);
 
 val bc_fetch_ignore_stack = prove(
   ``bc_fetch (s with stack := ss) = bc_fetch s``,
@@ -15528,8 +15534,6 @@ val EL_ref_globals_list = prove(
                (EL n (ref_globals_list (OPT_MAP f xs) k) = f v)``,
   Induct \\ Cases_on `k` \\ fs [ref_globals_list_def,EL,OPT_MAP_def]
   \\ Cases \\ Cases_on `n'` \\ fs [ref_globals_list_def,EL,OPT_MAP_def]);
-
-
 
 val zBC_HEAP_THM = prove(
   ``EVEN (w2n cb) /\ (cs.stack_trunk - n2w (8 * SUC (LENGTH stack)) = sb) ==>
@@ -16217,14 +16221,12 @@ val zBC_HEAP_THM = prove(
     \\ Q.LIST_EXISTS_TAC [`x2`,`x3`]
     \\ FULL_SIMP_TAC std_ss [reintro_word_sub]
     \\ FULL_SIMP_TAC (std_ss++star_ss) [])
-
-  THEN1 (* Ref *) cheat (* new ref *)
-(*
+  THEN1 (* Ref *)
    (SIMP_TAC std_ss [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF]
     \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
     \\ REPEAT STRIP_TAC
     \\ (prepare zBC_Ref
-         |> Q.INST [`ptr`|->`if ev then 2 * ptr else 2 * ptr + 1`]
+         |> Q.INST [`ptr`|->`if ev then 2 * (ptr+1) else 2 * (ptr+1) + 1`,`l`|->`n`]
          |> MATCH_MP SPEC_WEAKEN |> SPEC_ALL
          |> DISCH_ALL |> RW [AND_IMP_INTRO]
          |> MATCH_MP_TAC)
@@ -16236,46 +16238,40 @@ val zBC_HEAP_THM = prove(
     \\ FULL_SIMP_TAC std_ss [GSYM ADD_ASSOC]
     \\ REPEAT STRIP_TAC THEN1
      (FULL_SIMP_TAC (srw_ss()) [ref_adjust_def,LET_DEF]
-      \\ `n = ptr` by (Cases_on `ev` \\ FULL_SIMP_TAC std_ss [] \\ DECIDE_TAC)
+      \\ `n' = ptr` by (Cases_on `ev` \\ FULL_SIMP_TAC std_ss [] \\ DECIDE_TAC)
       \\ FULL_SIMP_TAC std_ss []
       \\ `?x. (\x. x NOTIN FDOM s1.refs) x` by ALL_TAC
       THEN1 (FULL_SIMP_TAC std_ss [EXISTS_NOT_FDOM_NUM])
       \\ IMP_RES_TAC whileTheory.LEAST_INTRO
       \\ FULL_SIMP_TAC std_ss []
       \\ METIS_TAC [])
+    THEN1 (Cases_on `ev` \\ fs [ref_globals_def] \\ DECIDE_TAC)
     THEN1 (RES_TAC \\ Cases_on `ev` \\ FULL_SIMP_TAC (srw_ss()) [ODD_EVEN_SIMP])
     \\ SIMP_TAC std_ss [SEP_IMP_def,SEP_EXISTS_THM] \\ REPEAT STRIP_TAC
     \\ FULL_SIMP_TAC (srw_ss()) [SEP_DISJ_def]
-    \\ Q.LIST_EXISTS_TAC [`x2`,`x3`]
-    \\ `FUNION (ref_adjust (cb,sb,ev) (s1.refs |+ (ptr,x'))) f2 =
-        FUNION (ref_adjust (cb,sb,ev) s1.refs) f2 |+
-           (if ev then 2 * ptr else 2 * ptr + 1,
-            bc_adjust (cb,sb,ev) x')` by ALL_TAC
+    \\ Q.LIST_EXISTS_TAC [`bc_adjust (cb,sb,ev) v`,`x3`]
+    \\ DISJ1_TAC
+    \\ POP_ASSUM MP_TAC
+    \\ MATCH_MP_TAC (METIS_PROVE [] ``(b1 = b2) ==> (b1 ==> b2)``)
     \\ FULL_SIMP_TAC (std_ss++star_ss) []
-    \\ FULL_SIMP_TAC std_ss [ref_adjust_def,LET_DEF,FDOM_FUPDATE,
-        IMAGE_INSERT,bc_adjust_def,FAPPLY_FUPDATE_THM]
-    \\ ONCE_REWRITE_TAC [GSYM fmap_EQ]
-    \\ FULL_SIMP_TAC (srw_ss()) [INSERT_UNION_EQ]
-    \\ FULL_SIMP_TAC (srw_ss()) [FUN_EQ_THM,FUNION_DEF,FAPPLY_FUPDATE_THM]
-    \\ STRIP_TAC
-    \\ `(if ev then 2 * ptr else (2 * ptr + 1)) DIV 2 = ptr` by ALL_TAC
-    THEN1 (SRW_TAC [] [DIV_EQ_X] \\ DECIDE_TAC)
-    \\ Cases_on `x'' = if ev then 2 * ptr else 2 * ptr + 1`
-    THEN1 FULL_SIMP_TAC (srw_ss()) [FUN_FMAP_DEF,IN_INSERT]
-    \\ FULL_SIMP_TAC (srw_ss()) []
-    \\ MATCH_MP_TAC (METIS_PROVE [] ``(b1 ==> (x1 = x2)) /\ (y1 = y2) ==>
-       ((if b1 then x1 else y1) = (if b1 then x2 else y2))``)
-    \\ FULL_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
-    \\ ASM_SIMP_TAC (srw_ss()) [FUN_FMAP_DEF,IN_INSERT]
-    \\ `(if ev then 2 * n else 2 * n + 1) IN
-        IMAGE (\n. if ev then 2 * n else 2 * n + 1) (FDOM s1.refs)` by ALL_TAC
-    THEN1 (FULL_SIMP_TAC std_ss [IN_IMAGE] \\ METIS_TAC [])
-    \\ ASM_SIMP_TAC (srw_ss()) [FUN_FMAP_DEF,IN_INSERT]
-    \\ `n <> ptr` by (Cases_on `ev` \\ FULL_SIMP_TAC std_ss [] \\ DECIDE_TAC)
-    \\ `(if ev then 2 * n else (2 * n + 1)) DIV 2 <> ptr` by ALL_TAC
-    THEN1 (SRW_TAC [] [DIV_EQ_X] \\ DECIDE_TAC)
-    \\ ASM_SIMP_TAC std_ss [])
-*)
+    \\ REPEAT (AP_TERM_TAC ORELSE AP_THM_TAC)
+    \\ simp[ref_adjust_def,GSYM fmap_EQ,FDOM_FUPDATE,FUN_EQ_THM,FUNION_DEF]
+    \\ REPEAT STRIP_TAC \\ fs [LEFT_ADD_DISTRIB,GSYM ADD_ASSOC]
+    THEN1 METIS_TAC[]
+    \\ simp[FUN_FMAP_DEF]
+    \\ fs [FUN_FMAP_DEF,FDOM_FINITE,IMAGE_FINITE,FUNION_DEF,ref_lemma2,ref_lemma,
+           FAPPLY_FUPDATE_THM]
+    \\ fs [LEFT_ADD_DISTRIB,GSYM ADD_ASSOC]
+    \\ Cases_on `x = if ev then 2 * ptr + 2 else 2 * ptr + 3` \\ fs []
+    THEN1 (fs [ref_lemma,ref_lemma2,MAP_REPLICATE,ref_lemma
+            |> SIMP_RULE std_ss [LEFT_ADD_DISTRIB,GSYM ADD_ASSOC]])
+    \\ MATCH_MP_TAC (METIS_PROVE [] ``(x2 = y2) /\ (b1 ==> (x1 = y1)) ==>
+         ((if b1 then x1 else x2) = (if b1 then y1 else y2))``)
+    \\ REPEAT STRIP_TAC \\ TRY (SRW_TAC [] [] \\ NO_TAC)
+    \\ fs [ref_lemma,ref_lemma2,MAP_REPLICATE,ref_lemma
+            |> SIMP_RULE std_ss [LEFT_ADD_DISTRIB,GSYM ADD_ASSOC]]
+    \\ `n' <> ptr` by ALL_TAC \\ fs []
+    \\ REPEAT STRIP_TAC \\ fs [])
   THEN1 (* RefByte *) ERROR_TAC
   THEN1 (* Deref *)
    (SIMP_TAC std_ss [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF]
