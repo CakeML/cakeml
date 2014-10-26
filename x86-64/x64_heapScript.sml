@@ -8470,6 +8470,12 @@ val (x64_cons_res, x64_cons_def, x64_cons_pre_def) = x64_compile `
 
 val blast_lemma = blast_align_lemma;
 
+val LENGTH_APPEND_11 = prove(
+  ``!xs xs1 ys ys1.
+     (LENGTH xs = LENGTH xs1) ==>
+     ((xs ++ ys = xs1 ++ ys1) <=> (xs = xs1) /\ (ys = ys1))``,
+  Induct \\ Cases_on `xs1`  \\ SRW_TAC [] [] \\ METIS_TAC []);
+
 val one_list_exists_1 = prove(
   ``one_list_exists a 1 = SEP_EXISTS x. one (a,x)``,
   ONCE_REWRITE_TAC [GSYM (EVAL ``SUC 0``)]
@@ -8482,6 +8488,12 @@ val one_list_exists_2 = prove(
    (Cases \\ FULL_SIMP_TAC std_ss [LENGTH,NOT_CONS_NIL] \\ Cases_on `t`
     \\ FULL_SIMP_TAC std_ss [LENGTH,NOT_CONS_NIL,CONS_11,LENGTH_NIL])
   \\ FULL_SIMP_TAC std_ss [PULL_EXISTS,one_list_def,SEP_CLAUSES]);
+
+val one_list_exists_ADD = prove(
+  ``!m a n. one_list_exists a (m + n) =
+            one_list_exists a m * one_list_exists (a + n2w (8 * m)) n``,
+  Induct \\ ASM_SIMP_TAC std_ss [one_list_exists_ZERO,SEP_CLAUSES,STAR_ASSOC,
+      WORD_ADD_0,ADD_CLAUSES,one_list_exists_SUC,word_arith_lemma1,MULT_CLAUSES]);
 
 val x64_cons_loop_thm = prove(
   ``!xs m r.
@@ -8535,12 +8547,6 @@ val x64_cons_loop_thm = prove(
   \\ SEP_R_TAC \\ FULL_SIMP_TAC (std_ss++star_ss) []
   \\ Q.PAT_ASSUM `r7 && 0x7w = 0x0w` MP_TAC
   \\ blastLib.BBLAST_TAC);
-
-val LENGTH_APPEND_11 = prove(
-  ``!xs xs1 ys ys1.
-     (LENGTH xs = LENGTH xs1) ==>
-     ((xs ++ ys = xs1 ++ ys1) <=> (xs = xs1) /\ (ys = ys1))``,
-  Induct \\ Cases_on `xs1`  \\ SRW_TAC [] [] \\ METIS_TAC []);
 
 val cons_lemma =
   abs_ml_inv_stack_permute
@@ -9255,12 +9261,6 @@ val heap_length_heap_expand = prove(
   ``heap_length (heap_expand n) = n``,
   Cases_on `n` \\ SIMP_TAC std_ss [heap_length_def,ADD1,MAP] \\ EVAL_TAC
   \\ SIMP_TAC std_ss [SUM,MAP,el_length_def,SUM_ACC_DEF]);
-
-val one_list_exists_ADD = prove(
-  ``!m a n. one_list_exists a (m + n) =
-            one_list_exists a m * one_list_exists (a + n2w (8 * m)) n``,
-  Induct \\ ASM_SIMP_TAC std_ss [one_list_exists_ZERO,SEP_CLAUSES,STAR_ASSOC,
-      WORD_ADD_0,ADD_CLAUSES,one_list_exists_SUC,word_arith_lemma1,MULT_CLAUSES]);
 
 val heap_store_unused_STAR = prove(
   ``(heap_store_unused a sp x heap1 = (heap2,T)) ==>
@@ -13588,6 +13588,26 @@ gg goal
     \\ fs [zCODE_HEAP_def,SEP_CLAUSES,SEP_EXISTS_THM]
     \\ FULL_SIMP_TAC (std_ss++sep_cond_ss) [cond_STAR] \\ DECIDE_TAC)
   val th = MP th lemma
+  in th end;
+
+val zHEAP_CODE_LIMIT_TEST = let
+  val th0 = zHEAP_CODE_LIMIT
+  val ((th1,_,_),th2a) = prog_x64Lib.x64_spec_memory64
+          (x64_encodeLib.x64_encode "jb 4")
+  fun the (SOME x) = x | the _ = fail()
+  val th2 = th2a |> the |> #1
+  val thA = SPEC_COMPOSE_RULE [th0,th1]
+  val thB = SPEC_COMPOSE_RULE [th0,th2]
+  val (_,_,sts,_) = prog_x64Lib.x64_tools
+  val thA = HIDE_STATUS_RULE true sts thA
+  val thB = HIDE_STATUS_RULE true sts thB
+  val thA = thA |> SIMP_RULE (std_ss++sep_cond_ss) [precond_def]
+  val thB = thB |> SIMP_RULE (std_ss++sep_cond_ss) [precond_def]
+  val IF_COMPOSE_LEMMA = prove(
+    ``SPEC m (p * cond (b /\ d)) c q1 /\ SPEC m (p * cond (~b /\ d)) c q2 ==>
+      SPEC m (p * cond d) c (if b then q1 else q2)``,
+    Cases_on `b` \\ fs [SEP_CLAUSES]);
+  val th = MATCH_MP IF_COMPOSE_LEMMA (CONJ thA thB)
   in th end;
 
 (*
