@@ -50,6 +50,8 @@ val FV_decs_ml_repl_module_decls = save_thm("FV_decs_ml_repl_module_decls",let
             pred_setTheory.EMPTY_DELETE])) th
   val INSERT_DELETE_pat = ``(x INSERT s) DELETE y``
   val DELETE_DELETE_pat = ``(s DELETE x) DELETE y``
+  val IF_T = prove(``(if T then x else y) = x``,SIMP_TAC std_ss [])
+  val IF_F = prove(``(if F then x else y) = y``,SIMP_TAC std_ss [])
   fun push_delete_conv tm =
     if can (match_term DELETE_DELETE_pat) tm then
       (REWR_CONV pred_setTheory.DELETE_COMM
