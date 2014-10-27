@@ -2717,7 +2717,7 @@ val SPEC_NTIMES = prove(
   \\ MATCH_MP_TAC (prog_x64Theory.SPEC_X64_MERGE_CODE
        |> RW [AND_IMP_INTRO] |> GEN_ALL)
   \\ FULL_SIMP_TAC std_ss []
-  \\ MATCH_MP_TAC (SPEC_COMPOSE |> Q.SPECL [`x`,`p`,`{t}`,`m`,`{t'}`]
+  \\ MATCH_MP_TAC (progTheory.SPEC_COMPOSE |> Q.SPECL [`x`,`p`,`{t}`,`m`,`{t'}`]
        |> RW [INSERT_UNION_EQ,UNION_EMPTY] |> GEN_ALL)
   \\ Q.EXISTS_TAC `(p (f x) * zPC (t + n2w (LENGTH ys)))`
   \\ FULL_SIMP_TAC std_ss [LENGTH_APPEND,GSYM word_arith_lemma1,WORD_ADD_ASSOC])
@@ -12939,7 +12939,7 @@ val append_imm_code = prove(
     \\ FULL_SIMP_TAC std_ss [SPEC_REFL])
   \\ REPEAT STRIP_TAC
   \\ SIMP_TAC std_ss [append_imm_code_def,Once INSERTS_LEMMA]
-  \\ MATCH_MP_TAC SPEC_COMPOSE
+  \\ MATCH_MP_TAC progTheory.SPEC_COMPOSE
   \\ Q.EXISTS_TAC `(zHEAP (cs,x1,x2,x3,x4,refs,stack,
        s with code := SNOC h s.code,NONE) * ~zS * zPC (p + 15w))`
   \\ REPEAT STRIP_TAC THEN1
