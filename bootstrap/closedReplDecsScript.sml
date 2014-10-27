@@ -1,7 +1,7 @@
 open HolKernel boolLib bossLib compute_free_varsLib
 val _ = new_theory"closedReplDecs"
 
-val _ = max_print_depth := 60;
+val _ = max_print_depth := 10;
 
 val eval_fvs = computeLib.CBV_CONV (the_free_vars_compset())
 
@@ -48,18 +48,43 @@ val FV_decs_ml_repl_module_decls = save_thm("FV_decs_ml_repl_module_decls",let
             pred_setTheory.EMPTY_DIFF,
             pred_setTheory.DIFF_EMPTY,
             pred_setTheory.EMPTY_DELETE])) th
-  val th = CONV_RULE (RAND_CONV eval_fvs) th
+  val INSERT_DELETE_pat = ``(x INSERT s) DELETE y``
+  val DELETE_DELETE_pat = ``(s DELETE x) DELETE y``
+  fun push_delete_conv tm =
+    if can (match_term DELETE_DELETE_pat) tm then
+      (REWR_CONV pred_setTheory.DELETE_COMM
+       THENC (RATOR_CONV o RAND_CONV) push_delete_conv) tm
+    else if can (match_term INSERT_DELETE_pat) tm then let
+      val (s,x) = pred_setSyntax.dest_delete tm
+      val (y,s) = pred_setSyntax.dest_insert s
+      in if aconv x y then
+          (REWR_CONV pred_setTheory.DELETE_INSERT
+           THENC (RATOR_CONV o RATOR_CONV o RAND_CONV) eval_fvs
+           THENC REWR_CONV IF_T THENC push_delete_conv) tm
+         else
+          (REWR_CONV pred_setTheory.DELETE_INSERT
+           THENC (RATOR_CONV o RATOR_CONV o RAND_CONV) eval_fvs
+           THENC REWR_CONV IF_F THENC RAND_CONV push_delete_conv) tm
+      end
+    else TRY_CONV (REWR_CONV pred_setTheory.EMPTY_DELETE) tm
+  val th = CONV_RULE (RAND_CONV (REPEATC push_delete_conv)) th
   in th end);
 
 val all_env_dom_init =
-  ``all_env_dom ((THE prim_sem_env).sem_envM,(THE prim_sem_env).sem_envC,(THE prim_sem_env).sem_envE)``
+  ``all_env_dom ((THE prim_sem_env).sem_envM,
+                 (THE prim_sem_env).sem_envC,
+                 (THE prim_sem_env).sem_envE)``
   |> (REWRITE_CONV [initSemEnvTheory.prim_sem_env_eq] THENC
       SIMP_CONV std_ss [evalPropsTheory.all_env_dom_def] THENC
       SIMP_CONV (srw_ss()) [pred_setTheory.EXTENSION] THENC
       EVAL)
 
 val closed_top_REPL = store_thm("closed_top_REPL",
-  ``closed_top ((THE prim_sem_env).sem_envM,(THE prim_sem_env).sem_envC,(THE prim_sem_env).sem_envE) (Tmod "REPL" NONE ml_repl_module_decls)``,
-  lcsymtacs.simp[free_varsTheory.closed_top_def,all_env_dom_init,FV_decs_ml_repl_module_decls])
+  ``closed_top ((THE prim_sem_env).sem_envM,
+                (THE prim_sem_env).sem_envC,
+                (THE prim_sem_env).sem_envE)
+               (Tmod "REPL" NONE ml_repl_module_decls)``,
+  lcsymtacs.simp[free_varsTheory.closed_top_def,all_env_dom_init,
+                 FV_decs_ml_repl_module_decls])
 
 val _ = export_theory()
