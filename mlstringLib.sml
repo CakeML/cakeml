@@ -44,17 +44,21 @@ fun mlstring_case_conv tm =
       (simpLib.std_conv_ss{conv=stringLib.char_EQ_CONV,
                            name="char_EQ_CONV",
                            pats=[``x:char = y``]})
+    val the_rws = [
+      mlstringTheory.mlstring_11,
+      mlstringTheory.mlstring_case_def]
     val th = prove(g, (* (set_goal([],g)) *)
       rpt gen_tac >>
       CONV_TAC(RAND_CONV(PairedLambda.let_CONV)) >>
       BasicProvers.PURE_CASE_TAC >>
-      SIMP_TAC pure_ss [mlstringTheory.mlstring_11,
-                        mlstringTheory.mlstring_case_def] >>
+      SIMP_TAC pure_ss the_rws >>
       rpt(BasicProvers.PURE_CASE_TAC >> FULL_SIMP_TAC the_ss []))
     val ith = SPECL (realt::d::(map snd ls)) th
     val sth = CONV_RULE (RAND_CONV(PURE_REWRITE_CONV[boolTheory.bool_case_ID])) ith
+    val g2 = mk_eq(tm,lhs(concl sth))
+    val th1 = prove(g2, SIMP_TAC bool_ss [])
   in
-    assert (aconv tm o lhs o concl) sth
+    TRANS th1 sth
   end
 
 end
