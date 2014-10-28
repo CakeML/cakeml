@@ -928,7 +928,7 @@ val _ = Define `
     | _ -> failwith "TRANS"
 *)
 
-val _ = Define `
+val _ = PmatchHeuristics.with_classic_heuristic Define `
   TRANS (Sequent asl1 c1) (Sequent asl2 c2) =
     case (c1,c2) of
       (Comb (Comb (Const (strlit "=") _) l) m1, Comb (Comb (Const (strlit "=") _) m2) r) =>
@@ -945,7 +945,7 @@ val _ = Define `
      | _ -> failwith "MK_COMB"
 *)
 
-val _ = Define `
+val _ = PmatchHeuristics.with_classic_heuristic Define `
   MK_COMB (Sequent asl1 c1,Sequent asl2 c2) =
    case (c1,c2) of
      (Comb (Comb (Const (strlit "=") _) l1) r1, Comb (Comb (Const (strlit "=") _) l2) r2) =>
