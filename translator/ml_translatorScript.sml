@@ -1478,10 +1478,6 @@ val MEMBER_INTRO = store_thm("MEMBER_INTRO",
   ``(MEM = MEMBER) /\ (MEM x = MEMBER x) /\ (MEM x ys = MEMBER x ys)``,
   FULL_SIMP_TAC std_ss [FUN_EQ_THM,MEM_EQ_MEMBER]);
 
-val mlstring_CASE_thm = store_thm("mlstring_CASE_thm",
-  ``mlstring_CASE = \s f. f (explode s)``,
-  fs [FUN_EQ_THM] \\ Cases \\ EVAL_TAC \\ fs []);
-
 (* DeclAssum exists *)
 
 val DeclAssumExists_def = Define `
