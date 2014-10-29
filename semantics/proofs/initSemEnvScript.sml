@@ -114,7 +114,38 @@ val basis_sem_env_SOME = Q.store_thm ("basis_sem_env_SOME",
      REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
      Q.PAT_ABBREV_TAC`cl11 = (":=",Closure X Y Z)` >>
      Q.PAT_ABBREV_TAC`cl12 = ("~",Closure X Y Z)` >>
+     REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+     REWRITE_TAC[Once mk_unop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+     Q.PAT_ABBREV_TAC`cl13 = ("!",Closure X Y Z)` >>
+     REWRITE_TAC[Once mk_unop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+     Q.PAT_ABBREV_TAC`cl14 = ("ref",Closure X Y Z)` >>
+     REWRITE_TAC[Once mk_unop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+     REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+     REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+     Q.PAT_ABBREV_TAC`cl15 = ("array",Closure X Y Z)` >>
+     REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+     REWRITE_TAC[Once mk_unop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+     Q.PAT_ABBREV_TAC`cl16 = ("sub",Closure X Y Z)` >>
+     Q.PAT_ABBREV_TAC`cl17 = ("length",Closure X Y Z)` >>
+     Q.PAT_ABBREV_TAC`cl18 = ("update",Closure X Y Z)` >>
      REWRITE_TAC[mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+     REWRITE_TAC[Once mk_unop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+     REWRITE_TAC[Once mk_unop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+     CHANGED_TAC(REWRITE_TAC[Once mk_unop_def]) >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+     Q.PAT_ABBREV_TAC`cl19 = ("fromList",Closure X Y Z)` >>
+     CHANGED_TAC(REWRITE_TAC[Once mk_unop_def]) >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+     Q.PAT_ABBREV_TAC`cl20 = ("length",Closure X Y Z)` >>
+     Q.PAT_ABBREV_TAC`cl21 = ("sub",Closure X Y Z)` >>
+     Q.PAT_ABBREV_TAC`cl22 = ("array",Closure X Y Z)` >>
+     CHANGED_TAC(REWRITE_TAC[Once mk_unop_def]) >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+     Q.PAT_ABBREV_TAC`cl23 = ("sub",Closure X Y Z)` >>
+     CHANGED_TAC(REWRITE_TAC[Once mk_unop_def]) >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+     Q.PAT_ABBREV_TAC`cl24 = ("length",Closure X Y Z)` >>
+     Q.PAT_ABBREV_TAC`cl25 = ("update",Closure X Y Z)` >>
+     CHANGED_TAC(REWRITE_TAC[Once mk_unop_def]) >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+     CHANGED_TAC(REWRITE_TAC[Once mk_unop_def]) >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+     CHANGED_TAC(REWRITE_TAC[Once mk_unop_def]) >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
+     Q.PAT_ABBREV_TAC`cl26 = ("ord",Closure X Y Z)` >>
      REWRITE_TAC[mk_unop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
      rw[]) >>
  fs [] >>
