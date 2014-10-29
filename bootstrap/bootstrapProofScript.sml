@@ -727,6 +727,14 @@ val COMPILER_RUN_INV_references = store_thm("COMPILER_RUN_INV_references",
   simp[repl_contags_env_def,finite_mapTheory.FLOOKUP_DEF] >>
   IF_CASES_TAC >> fs[] >> METIS_TAC[])
 
+val COMPILER_RUN_INV_ptrs = store_thm("COMPILER_RUN_INV_ptrs",
+  ``∀bs grd inp out.
+      COMPILER_RUN_INV bs grd inp out ⇒
+      EL ^(rhs(concl iind_eq)) bs.globals = SOME (RefPtr iptr) ∧
+      EL ^(rhs(concl oind_eq)) bs.globals = SOME (RefPtr optr)``,
+  rw[COMPILER_RUN_INV_def,GSYM iind_eq,GSYM oind_eq] >>
+  rw[ptrs_def])
+
 (* Changing the references preserves the invariant *)
 
 fun just_exists_suff_tac th (g as (_,w)) =
