@@ -209,12 +209,12 @@ val MEM_nub = prove(``
   rw[])
 
 val coloring_satisfactory_coloring_ok_alt = prove(``
-  ∀prog f.
-  let ls = merge_pair (get_live_sets prog LN) in
+  ∀prog f live.
+  let ls = merge_pair (get_live_sets prog live) in
   let cg = sp_g_to_cg (live_sets_to_sp_g ls) in 
   coloring_satisfactory f cg
   ⇒ 
-  coloring_ok_alt f prog LN``,
+  coloring_ok_alt f prog live``,
   rw[coloring_ok_alt_def,coloring_satisfactory_def]>>
   fs[EVERY_MEM,Abbr`cg`]>>rw[]>>
   imp_res_tac live_sets_clique>>
@@ -233,9 +233,8 @@ val coloring_satisfactory_coloring_ok_alt = prove(``
   fs[MEM_EL]>>pop_assum (SUBST1_TAC o SYM)>>
   simp[]>>
   metis_tac[EL_MAP])
-  
+(* 
 EVAL ``get_cg
   (Seq (Move [1,2;3,4;5,6]) 
   (Call (SOME (3, list_insert [1;3;5;7;9] [();();();();()] LN,Skip)) (SOME 400) [7;9] NONE))``
-
-
+*)

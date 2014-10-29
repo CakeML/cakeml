@@ -1,6 +1,7 @@
 open HolKernel Parse boolLib bossLib miscLib
 open listTheory sptreeTheory pred_setTheory pairTheory
 open word_langTheory
+open word_procTheory
 open alistTheory
 open BasicProvers
 
@@ -260,4 +261,350 @@ val coloring_ok_alt_thm = prove(
       rw[]>>
       metis_tac[INJ_UNION,INJ_SUBSET,SUBSET_DEF]))
 
+(*
+  States equal on all components except:
+  1) permute (which needs to be changed to reorder the keys)
+  2) locals  (because vars are renamed)
+*)
+
+val word_state_eq_rel_def = Define`
+  word_state_eq_rel s t ⇔ 
+  t.store = s.store ∧ 
+  t.stack = s.stack ∧ 
+  t.memory = s.memory ∧ 
+  t.mdomain = s.mdomain ∧ 
+  t.gc_fun = s.gc_fun ∧ 
+  t.handler = s.handler ∧ 
+  t.clock = s.clock ∧ 
+  t.code = s.code ∧ 
+  t.output = s.output`
+
+(*tlocs is a supermap of slocs under f*)
+val strong_locals_rel_def = Define`
+  strong_locals_rel f slocs tlocs ⇔
+  ∀n v. (lookup n slocs = SOME v) ==> (lookup (f n) tlocs = SOME v)`
+
+val weak_locals_rel_def = Define`
+  weak_locals_rel f slocs tlocs ⇔ 
+    slocs = tlocs ∨ strong_locals_rel f slocs tlocs`
+
+val ignore_inc = prove(``
+∀perm:num->num->num.
+  (λn. perm(n+0)) = perm``,rw[FUN_EQ_THM]) 
+
+val ignore_perm = prove(``
+∀st. st with permute := st.permute = st`` ,
+ rw[]>>fs[word_state_component_equality])
+
+val get_vars_perm = prove(``
+∀args.get_vars args (st with permute:=perm) = get_vars args st``,
+  Induct>>rw[get_vars_def,get_var_def])
+
+val pop_env_perm = prove(``
+  pop_env (rst with permute:=perm) =
+  (case pop_env rst of
+    NONE => NONE 
+  | SOME rst' => SOME (rst' with permute:=perm))``,
+  fs[pop_env_def]>>EVERY_CASE_TAC>>
+  fs[word_state_component_equality])
+
+val set_var_perm = prove(``
+  set_var v x (s with permute:=perm) =
+  (set_var v x s) with permute:=perm``,
+  fs[set_var_def])
+
+val word_state_rewrites = prove(``
+  (st with clock:=A) with permute:=B =
+  (st with <|clock:=A ;permute:=B|>)``,
+  fs[])
+
+val perm_assum_tac = (first_x_assum(qspec_then`perm`assume_tac)>>
+          fs[dec_clock_def,push_env_def,env_to_list_def,LET_THM]>>
+          qexists_tac`λx. if x = 0 then st.permute 0 else perm' (x-1)`>>
+          fs[call_env_def]>>
+          `(λn. perm' n) = perm'` by fs[FUN_EQ_THM]>>
+          simp[]);
+
+(*For any target result permute, we can find an initial permute such that the resulting permutation is the same*)
+val permute_swap_lemma = prove(``
+∀prog st perm.
+  let (res,rst) = wEval(prog,st) in 
+    res ≠ SOME Error  (*Provable without this assum*)
+    ⇒ 
+    ∃perm'. wEval(prog,st with permute := perm') = 
+    (res,rst with permute:=perm)``,
+  ho_match_mp_tac (wEval_ind |> Q.SPEC`UNCURRY P` |> SIMP_RULE (srw_ss())[] |> Q.GEN`P`) >> rw[]>>cheat)
+  >-
+    (fs[wEval_def]>>metis_tac[ignore_perm])
+  >- ...
+
+  >- (*Seq*)
+    fs[wEval_def,LET_THM]>>
+    Cases_on`wEval(prog,st)`>>fs[]>>
+    Cases_on`q`>>fs[]
+    >-
+      (last_x_assum(qspec_then `perm` assume_tac)>>fs[]>>
+      last_x_assum(qspec_then `perm'` assume_tac)>>fs[]>>
+      qexists_tac`perm''`>>fs[])
+    >>
+      qexists_tac`st.permute`>>fs[ignore_perm]>>
+      first_assum(qspecl_then[`
+  >- (*Call*)
+    (fs[wEval_def,LET_THM]>>
+    fs[get_vars_perm]>>
+    Cases_on`get_vars args st`>>fs[]>>
+    Cases_on`find_code dest x st.code`>>fs[]>>
+    Cases_on`x'`>>
+    Cases_on`ret`>>fs[]
+    >- (*Tail Call*)
+      (EVERY_CASE_TAC>>
+      TRY(qexists_tac`perm`>>
+        fs[word_state_component_equality,call_env_def]>>NO_TAC)>>
+      Cases_on`x'`>>
+      fs[dec_clock_def]>>
+      first_x_assum(qspec_then`perm`assume_tac)>>fs[]>>
+      qexists_tac`perm'`>>
+      fs[word_state_component_equality,call_env_def]>>
+      qpat_assum`A=res`(SUBST1_TAC o SYM)>>fs[])
+    >>
+      PairCases_on`x'`>>fs[]>>
+      Cases_on`cut_env x'1 st.locals`>>fs[]>>
+      Cases_on`st.clock=0`>>fs[]
+      >-
+        (fs[call_env_def]>>
+        qexists_tac`perm`>>fs[word_state_component_equality])
+      >>
+      Cases_on`wEval(r,call_env q(push_env x' 
+              (IS_SOME handler) (dec_clock st)))`>>
+      Cases_on`q'`>>fs[]>>
+      Cases_on`x''`>>fs[]
+      >-
+        (Cases_on`pop_env r'`>>fs[]>>
+        Cases_on`domain x''.locals = domain x'`>>fs[]>>
+        Cases_on`wEval(x'2,set_var x'0 a x'')`>>
+        Cases_on`q'`>>fs[]>>
+        last_x_assum(qspec_then`perm`assume_tac)>>fs[]>>
+        last_x_assum(qspec_then`perm'`assume_tac)>>fs[]>>
+        qexists_tac`λx. if x = 0 then st.permute 0 else perm'' (x-1)`>>
+        fs[dec_clock_def,push_env_def,env_to_list_def,LET_THM]>>
+        `(λn. perm'' n) = perm''` by fs[FUN_EQ_THM]>>
+        fs[word_state_component_equality,call_env_def]>>
+        fs[pop_env_perm]>>
+        fs[set_var_perm]>>Cases_on`res`>>
+        qpat_assum`A=res` (SUBST1_TAC o SYM)>>fs[])
+      >-
+        (FULL_CASE_TAC>>fs[]
+        >- 
+          (perm_assum_tac>>
+          qpat_assum`A=res` (SUBST1_TAC o SYM)>>fs[])
+        >>
+        Cases_on`x''`>>fs[]>>
+        Cases_on`domain r'.locals = domain x'`>>fs[]>>
+        Cases_on`wEval (r'',set_var q' w r')`>>
+        Cases_on`q'' = SOME Error`>>fs[]>>
+        first_x_assum(qspec_then`perm`assume_tac)>>fs[]>>
+        last_x_assum(qspec_then`perm'`assume_tac)>>fs[]>>
+        qexists_tac`λx. if x = 0 then st.permute 0 else perm'' (x-1)`>>
+        fs[dec_clock_def,push_env_def,env_to_list_def,LET_THM]>>
+        `(λn. perm'' n) = perm''` by fs[FUN_EQ_THM]>>
+        fs[word_state_component_equality,call_env_def]>>
+        fs[set_var_perm]>>
+        metis_tac[word_state_component_equality])
+      >>
+        perm_assum_tac>>
+        qpat_assum`A=res` (SUBST1_TAC o SYM)>>fs[])
+        
+
+val liveness_theorem = prove(``
+∀prog st cst f live.
+  coloring_ok f prog live ∧
+  word_state_eq_rel st cst ∧
+  strong_locals_rel f st.locals cst.locals
+  (*Not necessary? permute already quantified
+  ∧ cst.permute = perm*)
+  ⇒ 
+  ∃perm'.  
+  let (res,rst) = wEval(prog,st with permute:=perm') in
+  if (res = SOME Error) then T else 
+  let (res',rcst) = wEval(apply_color f prog,cst) in
+    res = res' ∧ 
+    word_state_eq_rel rst rcst ∧ 
+    (case res of 
+      NONE => strong_locals_rel f rst.locals rcst.locals
+    | _    => weak_locals_rel f rst.locals rcst.locals)``,
+  Induct>>cheat
+  ...
+  >- (*Seq*)
+    (rw[]>>fs[wEval_def,coloring_ok_def,LET_THM]>>
+    last_x_assum(qspecl_then[`st`,`cst`,`f`,`get_live prog' live`]
+      assume_tac)>> rfs[]>>
+    Cases_on`wEval(prog,st with permute:=perm')`>>fs[]
+    >- (qexists_tac`perm'`>>fs[]) >>
+    Cases_on`wEval(apply_color f prog,cst)`>>fs[]>>
+    REVERSE (Cases_on`q`)>>fs[]
+    >- (qexists_tac`perm'`>>rw[])
+    >>
+    first_x_assum(qspecl_then[`r`,`r'`,`f`,`live`] assume_tac)>>rfs[]>>
+    (*temp should be the permute composition of perm' and perm''
+      such that wEval(prog,st with permute:=temp) gives
+      (NONE,r with permute:=perm'')
+    *)
+    qspecl_then[`prog`,`st with permute:=perm'`,`perm''`]
+      assume_tac permute_swap_lemma>>
+    rfs[LET_THM]>>qpat_assum`A=q'` (SUBST_ALL_TAC o SYM)>>
+    fs[]>>
+    qexists_tac`perm'''`>>rw[]>>fs[])
+
+    `wEval(prog,st with permute:=temp) = (NONE,r with permute:=perm'')` 
+      by cheat >>
+    fs[]
+    
+    Cases_on`wEval(prog',r with permute := perm'')`>>fs[]
+    >- 
+      
+    qpat_assum `NONE = q'` (SUBST_ALL_TAC o SYM)>>
+    qexists_tac`perm'`>>rw[]
+    )
+    >>
+      
+        
+    fs[]>>rw[])
+    qexists_tac`st.permute`>>fs[word_state_component_equality]
+
+(*
+∀prog f live.
+  coloring_ok f prog live
+  ⇒ 
+  ∀perm cst.
+  cst.permute = perm
+  ⇒  
+  ∃perm'.
+  ∀st res rst. 
+    word_state_eq_rel st cst ∧
+    strong_locals_rel f st.locals cst.locals ∧
+    st.permute = perm' ∧ 
+    wEval(prog,st) = (res,rst) ∧
+    res ≠ SOME Error
+    ⇒ 
+    ∃rcst.
+      wEval(apply_color f prog,cst) = (res,rcst) ∧
+      word_state_eq_rel rst rcst ∧
+      (case res of 
+        NONE => strong_locals_rel f rst.locals rcst.locals
+      | _    => weak_locals_rel f rst.locals rcst.locals)``,
+
+
+completeInduct_on`word_prog_size (K 0) prog`>>
+rpt strip_tac>>
+fs[PULL_FORALL]>>
+Cases_
+(*Cant do homatchmptac*)
+  Induct>>rw[]
+  >-
+    simp[wEval_def] (*??? too easy.. might be something wrong*)
+  >-
+   ...
+  >-(*Seq*) 
+    fs[coloring_ok_def,wEval_def,LET_THM]>>
+    res_tac>>
+    first_x_assum(qspec_then`cst` assume_tac)>>fs[]>>
+
+
+∀prog st rst f cst res live.
+  (*I think these are safe outside the exists*)
+  coloring_ok f qprog live ∧ 
+  ⇒
+  ∀perm. 
+    ∃perm'.
+      ∀st.
+      word_state_eq_rel st cst ∧ 
+      strong_locals_rel f st.locals cst.locals
+      st.permute = perm' ∧ 
+      cst.permute = perm ∧ 
+      wEval(prog,st) = (res,rst) ∧
+      res ≠ SOME Error
+      ⇒ 
+      ∃rcst (*i*).
+          (*I think structural induction works better than induction 
+    on evaluation relation for this proof because of I need to do a
+    swap of the permute midway through the induction for Seq and If
+    TODO: need to match the induction thm correctly for Call
+    *)
+  Induct>>
+
+  >-(rw[wEval_def]>>EVERY_CASE_TAC>>metis_tac[])
+
+  (*Seq*)
+  rw[wEval_def,coloring_ok_def,LET_THM]>>
+  Cases_on`wEval(prog,st)`>>fs[]>>
+  IF_CASES_TAC>>fs[]
+  last_x_assum(qspecl_then [`st`,`rst`,`f`,`cst`,`res`
+              ,`(get_live prog' live)`] assume_tac)>>rfs[]
+  fs[wEval_def,coloring_ok_def,LET_THM]>>
+    Cases_on`wEval(prog,st)`>>fs[]>>
+    IF_CASES_TAC>>fs[]
+    >-
+     (
+     first_x_assum(qspecl_then[`st`,`r`,`f`,`cst`,`NONE`
+                               ,`(get_live prog' live)`]assume_tac)>>
+     rfs[]>>
+     (*Proof idea:
+     wEval(prog,st) -> (NONE,r)
+
+     
+     
+     *)
+
+
+     qexists_tac`perm'`>>rw[]>>rfs[]>>
+     
+     last_x_assum(qspecl_then[`perm`,`r`,`f`,`cst`
+                                ,`q`,`live`]assume_tac)>>
+      rfs[]>>
+      qexists_tac`perm'`>>rw[]>>rfs[])
+    >>
+      (first_x_assum(qspecl_then[`perm`,`r`,`f`,`cst`
+                                ,`q`,`(get_live prog' live)`]assume_tac)>>
+      fs[]>>qexists_tac`perm'`>>rw[]>>rfs[]>>metis_tac[])
+
+
+  
+  ho_match_mp_tac (wEval_ind |> Q.SPEC`UNCURRY P` |> SIMP_RULE (srw_ss())[] |> Q.GEN`P`) >> rw[]
+  >-(*Skip*)
+    (fs[wEval_def,word_state_eq_rel_def]>>
+    EVERY_CASE_TAC>>
+    qexists_tac`perm`>>
+    metis_tac[ignore_inc])
+  >-(*Alloc*)
+    (fs[wEval_def]>>
+    cheat)
+  >-(*Move*)
+    cheat
+  >-(*Inst*)
+    cheat
+  >-(*Assign*)
+    cheat*)
+
+
+  >-(*Get*)
+    cheat
+  >-(*Set*)
+    cheat
+  >-(*Store*)
+    cheat
+  >-(*Tick*)
+    (fs[wEval_def,call_env_def,word_state_eq_rel_def]>>
+    qexists_tac `perm`>>fs[]>>
+    IF_CASES_TAC
+    >-
+      (rw[]>>fs[weak_locals_rel_def]>>
+      metis_tac[ignore_inc])
+    >>
+      rw[dec_clock_def,word_state_component_equality]>>
+      fs[strong_locals_rel_def]>>
+      qexists_tac `rst with <|locals:=cst.locals;permute:=cst.permute|>`>>
+      fs[]>>metis_tac[ignore_inc])
+  >-(*Seq*)
+    (*This needs a side lemma*)
+  
 val _ = export_theory();
