@@ -308,10 +308,30 @@ val pop_env_perm = prove(``
   fs[pop_env_def]>>EVERY_CASE_TAC>>
   fs[word_state_component_equality])
 
+val wGC_perm = prove(``
+  wGC st = SOME x ⇒ 
+  wGC (st with permute:=perm) = SOME (x with permute := perm)``,
+  fs[wGC_def,LET_THM]>>EVERY_CASE_TAC>>
+  fs[word_state_component_equality])
+
+val get_var_perm = prove(``
+  get_var n (st with permute:=perm) =
+  (get_var n st)``,fs[get_var_def])
+
 val set_var_perm = prove(``
   set_var v x (s with permute:=perm) =
   (set_var v x s) with permute:=perm``,
   fs[set_var_def])
+
+val get_vars_perm = prove(``
+  ∀ls. get_vars ls (st with permute:=perm) =
+  (get_vars ls st)``,
+  Induct>>fs[get_vars_def,get_var_perm])
+
+val set_vars_perm = prove(``
+  ∀ls. set_vars ls x (st with permute := perm) =
+       (set_vars ls x st) with permute:=perm``,
+  fs[set_vars_def])
 
 val word_state_rewrites = prove(``
   (st with clock:=A) with permute:=B =
@@ -333,11 +353,36 @@ val permute_swap_lemma = prove(``
     ⇒ 
     ∃perm'. wEval(prog,st with permute := perm') = 
     (res,rst with permute:=perm)``,
-  ho_match_mp_tac (wEval_ind |> Q.SPEC`UNCURRY P` |> SIMP_RULE (srw_ss())[] |> Q.GEN`P`) >> rw[]>>cheat)
+  ho_match_mp_tac (wEval_ind |> Q.SPEC`UNCURRY P` |> SIMP_RULE (srw_ss())[] |> Q.GEN`P`) >> rw[]>>fs[wEval_def]
   >-
-    (fs[wEval_def]>>metis_tac[ignore_perm])
-  >- ...
+    metis_tac[ignore_perm]
+  >-
+    (fs[wAlloc_def]>>
+    qexists_tac`λx. if x = 0 then st.permute 0 else perm (x-1)`>>
+    fs[get_var_perm]>>
+    FULL_CASE_TAC>>FULL_CASE_TAC>>fs[]
+    >-
+      (Cases_on`x`>>fs[])
+    >>
+    FULL_CASE_TAC>>fs[]>>
+    Cases_on`wGC (push_env x F(set_store AllocSize (Word c) st))`>>
+    fs[push_env_def,env_to_list_def,LET_THM,set_store_def]>>
+    imp_res_tac wGC_perm>>fs[pop_env_perm]>>
+    ntac 3 (FULL_CASE_TAC>>fs[])>>
+    fs[has_space_def]>>
+    IF_CASES_TAC>>
+    fs[word_state_component_equality,FUN_EQ_THM,call_env_def])
+  >-
+    (qexists_tac`perm`>>fs[get_vars_perm]>>
+    ntac 2 (FULL_CASE_TAC>>fs[])
+    fs[set_vars_perm])
+  >-
+    
+    fs[wGC_perm]
+     
 
+    EVERY_CASE_TAC>>fs[word_st]
+    qexists_tac`
   >- (*Seq*)
     fs[wEval_def,LET_THM]>>
     Cases_on`wEval(prog,st)`>>fs[]>>
