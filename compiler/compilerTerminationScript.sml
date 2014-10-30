@@ -134,6 +134,19 @@ val (compile_def, compile_ind) = register "compile" (
   BasicProvers.CASE_TAC >> fsrw_tac[ARITH_ss][] >>
   BasicProvers.CASE_TAC >> fsrw_tac[ARITH_ss][]))
 
+val _ = register "PushAnyInt" (
+  tprove_no_defn ((PushAnyInt_def,PushAnyInt_ind),
+    WF_REL_TAC`inv_image ($< LEX $<) (λx. (if x < 0 then 1:num else 0, Num(ABS x)))` >>
+    rw[] >- (
+      fs[maxPushInt_def] >>
+      disj1_tac >>
+      Cases_on`i < 0` >> rw[] >>
+      Cases_on`i` >> fs[] )
+    >- (
+      Cases_on`i`>>fs[maxPushInt_def] >>
+      simp[integerTheory.INT_ABS_NUM] )
+    >- intLib.COOPER_TAC))
+
 val zero_vars_def = Lib.with_flag (computeLib.auto_import_definitions, false) (tDefine "zero_vars"`
   (zero_vars (CRaise e) = CRaise (zero_vars e)) ∧
   (zero_vars (CHandle e1 e2) = CHandle (zero_vars e1) (zero_vars e2)) ∧
