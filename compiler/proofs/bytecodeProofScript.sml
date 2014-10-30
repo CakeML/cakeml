@@ -970,6 +970,112 @@ val Cenv_bs_bind_fv = store_thm("Cenv_bs_bind_fv",
   qpat_assum`∀i. i < LENGTH envs ⇒ X`(qspec_then`n - (LENGTH recs + (LENGTH vs + 1))` mp_tac) >>
   simp[] >> strip_tac >> simp[] )
 
+(* PushAnyInt *)
+
+val PushAnyInt_thm = store_thm("PushAnyInt_thm",
+  ``∀i bs bc0 bc1.
+       bs.code = bc0 ++ PushAnyInt i ++ bc1 ∧
+       bs.pc = next_addr bs.inst_length bc0
+       ⇒
+       let bs' = bs with <| pc := next_addr bs.inst_length (bc0 ++ PushAnyInt i);
+                            stack := (Number i)::bs.stack |>
+       in bc_next^* bs bs'``,
+  ho_match_mp_tac PushAnyInt_ind >> simp[] >>
+  gen_tac >> rpt strip_tac >>
+  Cases_on`i < 0` >> fs[] >- (
+    qpat_assum`bs.code = X`mp_tac >>
+    simp[Once PushAnyInt_def] >>
+    strip_tac >>
+    srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+    `bc_fetch bs = SOME(Stack(PushInt 0))` by (
+      match_mp_tac bc_fetch_next_addr >>
+      qexists_tac`bc0` >> simp[] ) >>
+    simp[bc_eval1_def,bc_eval1_thm,bc_eval_stack_def,bump_pc_def] >>
+    qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+    first_x_assum(qspecl_then[`bs1`,`bc0++[Stack(PushInt 0)]`]mp_tac) >>
+    simp[Abbr`bs1`,SUM_APPEND,FILTER_APPEND] >> strip_tac >>
+    srw_tac[DNF_ss][Once RTC_CASES_RTC_TWICE] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    pop_assum kall_tac >>
+    qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+    `bc_fetch bs1 = SOME(Stack(Sub))` by (
+      match_mp_tac bc_fetch_next_addr >>
+      CONV_TAC SWAP_EXISTS_CONV >>
+      qexists_tac`bc1` >> simp[Abbr`bs1`] >>
+      simp[SUM_APPEND,FILTER_APPEND]) >>
+    match_mp_tac RTC_SUBSET >>
+    simp[bc_eval1_def,bc_eval1_thm,bc_eval_stack_def,bump_pc_def,Abbr`bs1`] >>
+    simp[Abbr`bs2`,bc_state_component_equality] >>
+    simp[SUM_APPEND,FILTER_APPEND,Once PushAnyInt_def,SimpRHS] ) >>
+  Cases_on`i <= maxPushInt` >> fs[] >- (
+    fs[Once PushAnyInt_def] >>
+    `bc_fetch bs = SOME(Stack(PushInt i))` by (
+      match_mp_tac bc_fetch_next_addr >>
+      qexists_tac`bc0` >> simp[] ) >>
+    match_mp_tac RTC_SUBSET >>
+    simp[bc_eval1_def,bc_eval1_thm,bc_eval_stack_def,bump_pc_def] >>
+    simp[bc_state_component_equality] >>
+    simp[SUM_APPEND,FILTER_APPEND,Once PushAnyInt_def] ) >>
+  qpat_assum`bs.code =X`mp_tac >>
+  simp[Once PushAnyInt_def] >> strip_tac >>
+  first_x_assum(qspecl_then[`bs`,`bc0`]mp_tac) >>
+  simp[] >> strip_tac >>
+  srw_tac[DNF_ss][Once RTC_CASES_RTC_TWICE] >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  qmatch_assum_abbrev_tac`bs.code = bc0 ++ i1 ++ [i2;i3] ++ l4 ++ bc1` >>
+  `bc_fetch bs1 = SOME(Stack(PushInt maxPushInt))` by (
+    match_mp_tac bc_fetch_next_addr >>
+    qexists_tac`bc0++i1` >>
+    simp[Abbr`bs1`] ) >>
+  simp[bc_eval1_thm,bc_eval1_def,Abbr`i2`,bc_eval_stack_def,bump_pc_def] >>
+  pop_assum kall_tac >> simp[Abbr`bs1`] >>
+  qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  qmatch_assum_abbrev_tac`bs.code = bc0 ++ i1 ++ [i2;i3] ++ l4 ++ bc1` >>
+  `bc_fetch bs1 = SOME(Stack Mult)` by (
+    match_mp_tac bc_fetch_next_addr >>
+    qexists_tac`bc0++i1++[i2]` >>
+    simp[Abbr`bs1`] >>
+    simp[FILTER_APPEND,SUM_APPEND,Abbr`i2`]) >>
+  simp[bc_eval1_thm,bc_eval1_def,Abbr`i3`,bc_eval_stack_def,bump_pc_def,Abbr`bs1`] >>
+  pop_assum kall_tac >>
+  Cases_on`i % maxPushInt = 0` >> fs[Abbr`l4`] >- (
+    srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+    simp[Abbr`bs2`,bc_state_component_equality] >>
+    simp[SUM_APPEND,FILTER_APPEND,Abbr`i2`,Abbr`i1`] >>
+    simp[Once PushAnyInt_def,SimpRHS] >>
+    simp[SUM_APPEND,FILTER_APPEND] >>
+    match_mp_tac integerTheory.INT_DIV_MUL_ID >>
+    fs[maxPushInt_def] ) >>
+  qmatch_assum_abbrev_tac`bs.code = bc0 ++ i1 ++ [i2;i3;i4;i5] ++ bc1` >>
+  qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  `bc_fetch bs1 = SOME(i4)` by (
+    match_mp_tac bc_fetch_next_addr >>
+    qexists_tac`bc0++i1++[i2;i3]` >>
+    simp[Abbr`bs1`] >>
+    simp[FILTER_APPEND,SUM_APPEND,Abbr`i4`,Abbr`i2`,Abbr`i1`,Abbr`i3`]) >>
+  simp[bc_eval1_thm,bc_eval1_def,Abbr`i4`,bc_eval_stack_def,bump_pc_def,Abbr`bs1`] >>
+  pop_assum kall_tac >>
+  qmatch_assum_abbrev_tac`bs.code = bc0 ++ i1 ++ [i2;i3;i4;i5] ++ bc1` >>
+  qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  `bc_fetch bs1 = SOME(i5)` by (
+    match_mp_tac bc_fetch_next_addr >>
+    qexists_tac`bc0++i1++[i2;i3;i4]` >>
+    simp[Abbr`bs1`] >>
+    simp[FILTER_APPEND,SUM_APPEND,Abbr`i4`,Abbr`i2`,Abbr`i1`,Abbr`i3`,Abbr`i5`]) >>
+  simp[bc_eval1_thm,bc_eval1_def,Abbr`i5`,bc_eval_stack_def,bump_pc_def,Abbr`bs1`] >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+  simp[Abbr`bs2`,bc_state_component_equality] >>
+  simp[SUM_APPEND,FILTER_APPEND,Abbr`i2`,Abbr`i1`,Abbr`i3`,Abbr`i4`] >>
+  simp[Once PushAnyInt_def,SimpRHS] >>
+  simp[SUM_APPEND,FILTER_APPEND] >>
+  qspec_then`maxPushInt`mp_tac integerTheory.INT_DIVISION >>
+  simp[maxPushInt_def])
+
 (* compile_varref *)
 
 val compile_varref_thm = store_thm("compile_varref_thm",

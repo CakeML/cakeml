@@ -136,6 +136,24 @@ val _ = Hol_datatype `
    |>`;
 
 
+(*val maxPushInt : integer*)
+val _ = Define `
+ (maxPushInt =(( 200000000 : int)))`;
+
+(*val PushAnyInt : integer -> list bc_inst*)
+ val PushAnyInt_defn = Hol_defn "PushAnyInt" `
+ (PushAnyInt i =  
+(if i <( 0 : int) then    
+([Stack(PushInt(( 0 : int)))] ++ PushAnyInt (~ i)) ++ [Stack(Sub)]
+  else if i <= maxPushInt then
+    [Stack(PushInt i)]
+  else
+    let q = (i/maxPushInt) in let r = (i % maxPushInt) in    
+(PushAnyInt q ++ [Stack(PushInt maxPushInt); Stack(Mult)]) ++    
+(if r =( 0 : int) then [] else [Stack(PushInt r); Stack(Add)])))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn PushAnyInt_defn;
+
 (*val VfromListLab : nat*)
 val _ = Define `
  (VfromListLab =( 0))`;
@@ -265,7 +283,7 @@ val _ = Define `
 /\
 (prim1_to_bc (CTagEq n) = ([Stack (TagEq (n+block_tag))]))
 /\
-(prim1_to_bc (CProj n) = ([Stack (PushInt (int_of_num n)); Stack El]))
+(prim1_to_bc (CProj n) = (PushAnyInt (int_of_num n) ++ [Stack El]))
 /\
 (prim1_to_bc (CInitG n) = ([Gupdate n; Stack (PushInt(( 0 : int))); Stack (Cons unit_tag)]))
 /\
@@ -320,7 +338,7 @@ val _ = Define `
 
 (compile_envref sz s (CCArg n) = (emit s [Stack (Load (sz + n))]))
 /\
-(compile_envref sz s (CCEnv n) = (emit s [Stack (Load sz); Stack (PushInt (int_of_num n)); Stack El]))
+(compile_envref sz s (CCEnv n) = (emit s (([Stack (Load sz)] ++ (PushAnyInt (int_of_num n))) ++ [Stack El])))
 /\
 (compile_envref sz s (CCRef n) = (emit (compile_envref sz s (CCEnv n)) [Stack (PushInt(( 0 : int))); Deref]))`;
 
@@ -392,9 +410,8 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   (case FOLDL (emit_ceenv env0) (z,s) envs of
       (_,s) =>
   (* e_kj, ..., e_k1, CodePtr_k, cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
-  let s = (emit s
-             [Stack (PushInt (int_of_num (LENGTH refs + LENGTH envs))); 
-             Stack (Cons ( 0))]) in
+  let s = (emit s (PushAnyInt (int_of_num (LENGTH refs + LENGTH envs)))) in
+  let s = (emit s [Stack (Cons ( 0))]) in
   (* env_k, CodePtr_k, cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
   let s = (emit s [Stack (PushInt (( 2 : int))); Stack (Cons closure_tag)]) in
   (* cl_k,  cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
@@ -541,7 +558,7 @@ a b c x y z
   emit s [Label n1]))
 /\
 (compile _ t _ s (CLit (IntLit i)) =  
-(pushret t (emit s [Stack (PushInt i)])))
+(pushret t (emit s (PushAnyInt i))))
 /\
 (compile _ t _ s (CLit (Char c)) =  
 (pushret t (emit s [Stack (PushInt (int_of_num (ORD c)))])))
@@ -549,7 +566,8 @@ a b c x y z
 (compile _ t _ s (CLit (StrLit r)) =  
 (let r = (EXPLODE r) in
   let s = (emit s (MAP (Stack o (PushInt o (int_of_num o ORD))) r)) in
-  pushret t (emit s [Stack (PushInt (int_of_num (LENGTH r))); Stack (Cons string_tag)])))
+  let s = (emit s (PushAnyInt (int_of_num (LENGTH r)))) in
+  pushret t (emit s [Stack (Cons string_tag)])))
 /\
 (compile _ t _ s (CLit (Bool b)) =  
 (pushret t (emit s [Stack (PushInt(( 0 : int))); Stack (Cons (bool_to_tag b))])))
@@ -570,9 +588,8 @@ a b c x y z
 (compile _ t sz s (CGvar n) = (pushret t (compile_varref sz s (CTDec n))))
 /\
 (compile env t sz s (CCon n es) =  
-(pushret t (emit (compile_nts env sz s es)
-                  [Stack (PushInt (int_of_num (LENGTH es)));
-                   Stack (Cons (n+block_tag))])))
+(let s = (emit (compile_nts env sz s es) (PushAnyInt (int_of_num (LENGTH es)))) in
+  pushret t (emit s [Stack (Cons (n+block_tag))])))
 /\
 (compile env t sz s (CLet F e1 e2) =  
 (let s = (compile env TCNonTail sz s e1) in

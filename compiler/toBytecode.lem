@@ -117,6 +117,19 @@ type compiler_result =
    ; next_label: nat
    |>
 
+val maxPushInt : integer
+let maxPushInt = 200000000
+val PushAnyInt : integer -> list bc_inst
+let rec PushAnyInt i =
+  if i < 0 then
+    [Stack(PushInt 0)] ++ PushAnyInt (~i) ++ [Stack(Sub)]
+  else if i <= maxPushInt then
+    [Stack(PushInt i)]
+  else
+    let q = i/maxPushInt in let r = i mod maxPushInt in
+    PushAnyInt q ++ [Stack(PushInt maxPushInt); Stack(Mult)] ++
+    if r = 0 then [] else [Stack(PushInt r); Stack(Add)]
+
 val VfromListLab : nat
 let VfromListLab = 0
 val VfromListCode : list bc_inst
@@ -227,7 +240,7 @@ prim1_to_bc CLenS = [Stack LengthBlock]
 and
 prim1_to_bc (CTagEq n) = [Stack (TagEq (n+block_tag))]
 and
-prim1_to_bc (CProj n) = [Stack (PushInt (integerFromNat n)); Stack El]
+prim1_to_bc (CProj n) = PushAnyInt (integerFromNat n) ++ [Stack El]
 and
 prim1_to_bc (CInitG n) = [Gupdate n; Stack (PushInt 0); Stack (Cons unit_tag)]
 and
@@ -274,7 +287,7 @@ get_label s = (<| s with next_label = s.next_label + 1 |>, s.next_label)
 let rec
 compile_envref sz s (CCArg n) = emit s [Stack (Load (sz + n))]
 and
-compile_envref sz s (CCEnv n) = emit s [Stack (Load sz); Stack (PushInt (integerFromNat n)); Stack El]
+compile_envref sz s (CCEnv n) = emit s ([Stack (Load sz)] ++ (PushAnyInt (integerFromNat n)) ++ [Stack El])
 and
 compile_envref sz s (CCRef n) = emit (compile_envref sz s (CCEnv n)) [Stack (PushInt 0); Deref]
 
@@ -334,7 +347,8 @@ cons_closure env0 sz nk (s,k) (refs,envs) =
   let (z,s) = List.foldl (emit_ceref (sz+nk)) (sz+nk+nk+1,s) refs in
   let (_,s) = List.foldl (emit_ceenv env0) (z,s) envs in
   (* e_kj, ..., e_k1, CodePtr_k, cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
-  let s = emit s [Stack (PushInt (integerFromNat (List.length refs + List.length envs))); Stack (Cons 0)] in
+  let s = emit s (PushAnyInt (integerFromNat (List.length refs + List.length envs))) in
+  let s = emit s [Stack (Cons 0)] in
   (* env_k, CodePtr_k, cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
   let s = emit s [Stack (PushInt 2); Stack (Cons closure_tag)] in
   (* cl_k,  cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
@@ -469,7 +483,7 @@ compile env t sz s (CHandle e1 e2) =
   emit s [Label n1]
 and
 compile _ t _ s (CLit (IntLit i)) =
-  pushret t (emit s [Stack (PushInt i)])
+  pushret t (emit s (PushAnyInt i))
 and
 compile _ t _ s (CLit (Char c)) =
   pushret t (emit s [Stack (PushInt (integerFromNat (String_extra.ord c)))])
@@ -477,7 +491,8 @@ and
 compile _ t _ s (CLit (StrLit r)) =
   let r = String.toCharList r in
   let s = emit s (List.map (comb Stack (comb PushInt (comb integerFromNat String_extra.ord))) r) in
-  pushret t (emit s [Stack (PushInt (integerFromNat (List.length r))); Stack (Cons string_tag)])
+  let s = emit s (PushAnyInt (integerFromNat (List.length r))) in
+  pushret t (emit s [Stack (Cons string_tag)])
 and
 compile _ t _ s (CLit (Bool b)) =
   pushret t (emit s [Stack (PushInt 0); Stack (Cons (bool_to_tag b))])
@@ -498,9 +513,8 @@ and
 compile _ t sz s (CGvar n) = pushret t (compile_varref sz s (CTDec n))
 and
 compile env t sz s (CCon n es) =
-  pushret t (emit (compile_nts env sz s es)
-                  [Stack (PushInt (integerFromNat (List.length es)));
-                   Stack (Cons (n+block_tag))])
+  let s = emit (compile_nts env sz s es) (PushAnyInt (integerFromNat (List.length es))) in
+  pushret t (emit s [Stack (Cons (n+block_tag))])
 and
 compile env t sz s (CLet false e1 e2) =
   let s = compile env TCNonTail sz s e1 in
