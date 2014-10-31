@@ -1076,6 +1076,16 @@ val PushAnyInt_thm = store_thm("PushAnyInt_thm",
   qspec_then`maxPushInt`mp_tac integerTheory.INT_DIVISION >>
   simp[maxPushInt_def])
 
+val PushAnyInt_labels = store_thm("PushAnyInt_labels",
+  ``∀i. EVERY ($~ o is_Label) (PushAnyInt i) ∧
+        code_labels_ok (PushAnyInt i)``,
+  ho_match_mp_tac PushAnyInt_ind >> rw[] >>
+  rw[Once PushAnyInt_def] >> fs[] >> rw[] >>
+  rpt(
+    rpt(match_mp_tac code_labels_ok_cons >> simp[]) >>
+    match_mp_tac code_labels_ok_append >> rw[]))
+val _ = export_rewrites["PushAnyInt_labels"]
+
 (* compile_varref *)
 
 val FOLDL_emit_append_out = prove(
@@ -1205,7 +1215,9 @@ val _ = export_rewrites["compile_varref_next_label_inc"]
 
 val compile_envref_append_out = store_thm("compile_envref_append_out",
   ``∀sz cs b. ∃bc. ((compile_envref sz cs b).out = bc ++ cs.out) ∧ (EVERY ($~ o is_Label) bc) ∧ code_labels_ok bc``,
-  ho_match_mp_tac compile_envref_ind >> rw[FOLDL_emit_append_out] >>
+  ho_match_mp_tac compile_envref_ind >> rw[FOLDL_emit_append_out,EVERY_REVERSE,PushAnyInt_labels] >>
+  rpt(match_mp_tac code_labels_ok_cons >> simp[]) >>
+  match_mp_tac code_labels_ok_append >> rw[PushAnyInt_labels] >>
   rpt(match_mp_tac code_labels_ok_cons >> simp[]))
 
 val compile_varref_append_out = store_thm("compile_varref_append_out",
@@ -2417,11 +2429,34 @@ val prim1_to_bc_thm = store_thm("prim1_to_bc_thm",
     `bs' = bs with code := bce` by (
       simp[Abbr`bs'`,bc_state_component_equality] ) >>
     rw[Abbr`bs'`] ) >>
+  Cases_on`∃n. op = CProj n` >> fs[] >- (
+    Cases_on`v1`>>fs[] >> rw[] >>
+    BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
+    fs[Cv_bv_cases_conv] >> rw[] >>
+    qspecl_then[`&n`,`bs`,`bc0`]mp_tac PushAnyInt_thm >>
+    simp[] >> strip_tac >>
+    simp[Once RTC_CASES_RTC_TWICE,PULL_EXISTS] >>
+    first_assum (match_exists_tac o concl) >> simp[] >>
+    pop_assum kall_tac >>
+    Q.PAT_ABBREV_TAC`bs2:bc_state = X Y` >>
+    `bc_fetch bs2 = SOME (Stack El)` by (
+      match_mp_tac bc_fetch_next_addr >>
+      map_every qexists_tac[`bc0 ++ PushAnyInt (&n)`,`bc1`] >>
+      simp[Abbr`bs2`,FILTER_APPEND,SUM_APPEND]) >>
+    simp[bc_eval1_thm,bc_eval1_def,bc_eval_stack_def,bump_pc_def] >>
+    simp[bc_state_component_equality,Abbr`bs2`,bc_eval_stack_def] >>
+    fs[el_check_def] >> BasicProvers.EVERY_CASE_TAC >> fs[] >>
+    rfs[EVERY2_EVERY,EVERY_MEM] >> fs[MEM_ZIP,PULL_EXISTS] >> rw[] >>
+    srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+    simp[bc_eval1_thm,bc_eval1_def,bc_eval_stack_def,bump_pc_def] >>
+    srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+    simp[bc_state_component_equality,SUM_APPEND,FILTER_APPEND] >>
+    qexists_tac`rd.sm`>>simp[] >>
+    fs[s_refs_def,good_rd_def] ) >>
   `bc_fetch bs = SOME (HD (prim1_to_bc op))` by (
     match_mp_tac bc_fetch_next_addr >>
     map_every qexists_tac[`bc0`,`(TL (prim1_to_bc op)) ++ bc1`] >>
-    qpat_assum`bs.code = bce ++ bcr`kall_tac >>
-    Cases_on`op`>>rw[] ) >>
+    Cases_on`op`>>fs[]>>rw[] ) >>
   Cases_on`op = CVfromList` >- (
     fs[] >> rw[] >>
     Cases_on`CvFromList v1`>>fs[]>>rw[]>>
@@ -2695,24 +2730,6 @@ val prim1_to_bc_thm = store_thm("prim1_to_bc_thm",
     qexists_tac`rd.sm`>>simp[] >>
     fs[s_refs_def,good_rd_def] >>
     AP_TERM_TAC >> metis_tac[] )
-  >- ( (*Proj*)
-    simp[Once RTC_CASES1] >> srw_tac[DNF_ss][] >> disj2_tac >>
-    simp[Once RTC_CASES1] >> srw_tac[DNF_ss][] >> disj1_tac >>
-    Cases_on`v1`>>fs[]>>rw[]>>
-    fs[Q.SPEC`CConv X Y`(CONJUNCT1(SPEC_ALL(Cv_bv_cases)))] >>
-    rw[bc_eval_stack_def,bc_eval1_thm] >>
-    Q.PAT_ABBREV_TAC`bs2:bc_state = X Y` >>
-    `bc_fetch bs2 = SOME (Stack El)` by (
-      match_mp_tac bc_fetch_next_addr >>
-      map_every qexists_tac[`bc0 ++ [Stack (PushInt (&n))]`,`bc1`] >>
-      simp[Abbr`bs2`,FILTER_APPEND,SUM_APPEND]) >>
-    simp[bc_eval1_thm,bc_eval1_def,bc_eval_stack_def,bump_pc_def] >>
-    simp[bc_state_component_equality,Abbr`bs2`,bc_eval_stack_def] >>
-    fs[el_check_def] >> BasicProvers.EVERY_CASE_TAC >> fs[] >>
-    rfs[EVERY2_EVERY,EVERY_MEM] >> fs[MEM_ZIP,PULL_EXISTS] >> rw[] >>
-    simp[FILTER_APPEND,SUM_APPEND] >>
-    qexists_tac`rd.sm`>>simp[] >>
-    fs[s_refs_def,good_rd_def] )
   >- ( (*Gupdate*)
     BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
     simp[Once RTC_CASES1] >> srw_tac[DNF_ss][] >> disj2_tac >>
