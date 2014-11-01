@@ -17,11 +17,6 @@ in
     val (Var_tm,mk_Var,dest_Var,is_Var) = s "Var"
     val (Const_tm,mk_Const,dest_Const,is_Const) = s "Const"
     val (Comb_tm,mk_Comb,dest_Comb,is_Comb) = s "Comb"
-  end
-
-  local
-    val s = syntax_fns 3 dest_triop mk_triop
-  in
     val (Abs_tm,mk_Abs,dest_Abs,is_Abs) = s "Abs"
   end
 
