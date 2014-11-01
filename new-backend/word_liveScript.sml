@@ -550,7 +550,7 @@ val apply_nummap_key_domain = prove(``
   fs[MEM_MAP,MAP_MAP_o,EXTENSION,EXISTS_PROD]>>
   metis_tac[MEM_toAList,domain_lookup])
 
-(*
+
 val cut_env_lemma = prove(``
   ∀names sloc tloc x f. 
   INJ f (domain names) UNIV ∧   
@@ -586,20 +586,9 @@ val cut_env_lemma = prove(``
   >>
     fs[domain_inter,SUBSET_INTER_ABSORPTION,INTER_COMM])
 
-(*Main theorem for permutes here!
-  This shows that we can push locals that are exactly matching using 
-  any desired permutation
-*)
 val MEM_nub = prove(``
   ∀x ls. MEM x ls ⇔ MEM x (nub ls)``,
   fs[nub_def])
-
-(*Lookup position mth element of xs in ys*)
-val lookup_pos_def = Define`
-  lookup_pos m ls =
-    (case INDEX_OF m ls of
-            NONE => 0:num (*never happens, makes proof nicer*)
-          | SOME x => x)`
 
 val LENGTH_list_rerrange = prove(``
   LENGTH (list_rearrange mover xs) = LENGTH xs``,
@@ -620,39 +609,10 @@ val list_rearrange_perm = prove(``
   IF_CASES_TAC>>
   fs[BIJ_DEF,INJ_DEF]>>metis_tac[])
 
-
-val toAList_exact_colored_locals_permute = prove(
-  ``!f x y. INJ f UNIV UNIV /\
-            exact_colored_locals f x y
-       ==>  PERM (MAP (\a,b.(f a,b)) (nub (toAList x))) (nub (toAList y))``,
-  rw[]>> fs[exact_colored_locals_def]>>
-  match_mp_tac PERM_ALL_DISTINCT>>
-  rw[]>-
-    (`INJ (\a,b:'a. (f a,b)) UNIV UNIV` by
-      (fs[INJ_DEF]>>rpt strip_tac>> Cases_on`x'`>>Cases_on`y'`>>fs[])>>
-    ASSUME_TAC (INST_TYPE [``:'a``|-> ``:num # 'a``] all_distinct_nub)>>
-    first_assum (qspec_then `toAList x` assume_tac)>>
-    match_mp_tac ALL_DISTINCT_MAP_INJ>>
-    rw[]>- (Cases_on`x'`>>Cases_on`y'`>>fs[INJ_DEF]))>-
-    fs[all_distinct_nub]>>
-  Cases_on`x'`>>
-  rw[EQ_IMP_THM]>-
-    (fs[MEM_MAP]>>Cases_on`y'`>>fs[]>>
-    IMP_RES_TAC MEM_nub>>
-    metis_tac[MEM_toAList,MEM_nub])>>
-  IMP_RES_TAC MEM_nub>>
-  IMP_RES_TAC MEM_toAList>>
-    `?z. lookup z x = SOME r /\ f z = q` by
-      (IMP_RES_TAC domain_lookup>>
-      fs[EXTENSION] >> last_x_assum(qspec_then `q` assume_tac)>>fs[]>>
-      fs[domain_lookup]>>
-      HINT_EXISTS_TAC>>fs[])>>
-      match_mp_tac (GEN_ALL (snd(EQ_IMP_RULE (SPEC_ALL MEM_MAP))))>>
-    Q.EXISTS_TAC `z,r`>>
-    fs[]>>metis_tac[PAIR,MEM_toAList,MEM_nub])
-
-
-
+(*Main theorem for permutes here!
+  This shows that we can push locals that are exactly matching using 
+  any desired permutation
+*)
 
 val env_to_list_perm = prove(``
   domain y = IMAGE f (domain x) ∧
@@ -667,11 +627,11 @@ val env_to_list_perm = prove(``
   rw[]>>
   fs[env_to_list_def,LET_THM,strong_locals_rel_def]>>
   qabbrev_tac `xls = QSORT key_val_compare (nub(toAList x))`>>
-  qabbrev_tac `ls = list_rearrange (perm 0) 
-    (QSORT key_val_compare (nub(toAList y)))`>>
+  qabbrev_tac `yls = QSORT key_val_compare (nub(toAList y))`>>
+  qabbrev_tac `ls = list_rearrange (perm 0) yls`>>
   fs[(GEN_ALL o SYM o SPEC_ALL) list_rearrange_MAP]>>
-  `PERM (MAP (λx,y.f x,y) xls) l` by 
-    match_mp_tac PERM_ALL_DISTINCT >>rw[]
+  `PERM (MAP (λx,y.f x,y) xls) yls` by
+    (match_mp_tac PERM_ALL_DISTINCT >>rw[]
     >-
       (match_mp_tac ALL_DISTINCT_MAP_INJ>>rw[]
       >-
@@ -683,65 +643,44 @@ val env_to_list_perm = prove(``
       fs[Abbr`xls`]>>
       metis_tac[QSORT_PERM,all_distinct_nub,ALL_DISTINCT_PERM])
     >-
-      fs[Abbr`l`,]
-      
-      fs[ALL_DISTINCT]
-  qexists_tac`
-    λn. 
-      if n = 0:num then
-        λm. 
-        if (m < LENGTH ls) then
-          let (k,v) = (EL m ls) in 
-            rev_lookup f k (MAP FST xls)
-        else 0:num (*dont care what happens outside the length*)
-      else permute (n-1)`>>
-  rw[]>>
-  match_mp_tac LIST_EQ>>CONJ_ASM1_TAC>>
-  fs[LENGTH_list_rerrange]>-
-    ((*Should be true because of injectivity*)
-    cheat)
+      metis_tac[QSORT_PERM,all_distinct_nub,ALL_DISTINCT_PERM]
+    >>
+      unabbrev_all_tac>>
+      fs[QSORT_MEM,MEM_MAP]>>
+      fs[EQ_IMP_THM]>>rw[]
+      >-
+        (Cases_on`y'`>>fs[MEM_toAList])
+      >>
+        Cases_on`x'`>>fs[MEM_toAList]>>
+        imp_res_tac domain_lookup>>
+        fs[EXTENSION]>>res_tac>>
+        qexists_tac`x',r`>>fs[]>>
+        fs[MEM_toAList,domain_lookup]>>
+        first_x_assum(qspecl_then[`x'`,`v'`] assume_tac)>>rfs[])
   >>
-  rw[]>>fs[list_rearrange_def]>>
-  fs[LET_THM]>>
-  `∀m.m<LENGTH xls ⇒ 
-  lookup_pos ((λ(x,y). (f x,y)) (EL m xls)) l < LENGTH xls` by
-    cheat>>
-  rfs[]>>
-  fs[EL_MAP]>>
-  Cases_on`EL x' xls`>>fs[]
-  
-  `∀m. m < LENGTH xls ⇒ lookup_pos 
+  `PERM yls ls` by
+    (fs[list_rearrange_def,Abbr`ls`]>>
+    qpat_assum`A=l` (SUBST1_TAC o SYM)>>
+    IF_CASES_TAC>>fs[]>>
+    match_mp_tac PERM_ALL_DISTINCT>>
+    CONJ_ASM1_TAC>-
+      metis_tac[QSORT_PERM,all_distinct_nub,ALL_DISTINCT_PERM]>>
+    CONJ_ASM1_TAC>-
+      (fs[ALL_DISTINCT_GENLIST]>>rw[]>>
+      fs[EL_ALL_DISTINCT_EL_EQ]>>
+      `perm 0 i = perm 0 i'` by
+        (fs[BIJ_DEF,INJ_DEF]>>
+        metis_tac[])>>
+      fs[BIJ_DEF,INJ_DEF])
+    >>
+      fs[MEM_GENLIST,BIJ_DEF,INJ_DEF,SURJ_DEF]>>
+      fs[MEM_EL]>>metis_tac[])>>
+  imp_res_tac PERM_TRANS>>
+  imp_res_tac list_rearrange_perm>>
+  qexists_tac`λn. if n = 0:num then perm' else permute (n-1)`>>
+  fs[FUN_EQ_THM])
 
-  fs[EL_MAP,lookup_pos_def,LET_THM]>>
-
-
-  `∀n. n < LENGTH xls ⇒
-    ∃m. m < LENGTH l ∧ 
-      (λx,y. (f x,y)) (EL n xls) = EL m l` by
-    (
-    rw[]>>qabbrev_tac `xel = EL n xls`>>
-    imp_res_tac MEM_EL>>
-    pop_assum (qspec_then `xel` assume_tac)>>rfs[]>>
-    Cases_on`xel`>>
-    `MEM (q,r) (toAList x)` by metis_tac[MEM_nub]>>
-    fs[MEM_toAList]>>res_tac>>
-    `MEM (f q,r) yls` by metis_tac[MEM_nub,MEM_toAList]>>
-    fs[MEM_EL]>>metis_tac[])>>
-  fs[]
- fs[list_rearrange_def]
-    `MEM (f q,r) yls` by
-    fs[MEM_])
-
-  unabbrev_all_tac>>
-  fs[MEM_EL]
-  rw[]>>fs[MEM_EL]
-  `LENGTH xls = LENGTH yls` by
-    fs[LENG
-  
-  simp[list_rearrange_def]>>
-  (*Permutation should do something like
-
-
+(* 
 val  ``
   (*Stacks originally equal*)
   st.stack = cst.stack ∧ 
@@ -959,6 +898,6 @@ Cases_
       fs[]>>metis_tac[ignore_inc])
   >-(*Seq*)
     (*This needs a side lemma*)
-*)*)
+*)
   
 val _ = export_theory();
