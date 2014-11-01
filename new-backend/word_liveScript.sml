@@ -1,9 +1,7 @@
 open HolKernel Parse boolLib bossLib miscLib
 open listTheory sptreeTheory pred_setTheory pairTheory
-open word_langTheory
-open word_procTheory
-open alistTheory
-open BasicProvers
+open alistTheory BasicProvers sortingTheory miscTheory
+open word_langTheory word_lemmasTheory word_procTheory
 
 val _ = new_theory "word_live";
 
@@ -345,6 +343,35 @@ val perm_assum_tac = (first_x_assum(qspec_then`perm`assume_tac)>>
           `(λn. perm' n) = perm'` by fs[FUN_EQ_THM]>>
           simp[]);
 
+val word_exp_perm = prove(``
+  ∀s exp. word_exp (s with permute:=perm) exp =
+          word_exp s exp``,
+  ho_match_mp_tac word_exp_ind>>rw[word_exp_def]
+  >-
+    (EVERY_CASE_TAC>>fs[mem_load_def])
+  >>
+    `ws=ws'` by 
+      (unabbrev_all_tac>>
+      fs[MAP_EQ_f])>>
+    fs[])
+
+val mem_store_perm = prove(``
+  mem_store a (w:'a word_loc) (s with permute:=perm) =
+  case mem_store a w s of
+    NONE => NONE
+  | SOME x => SOME(x with permute:=perm)``,
+  fs[mem_store_def]>>EVERY_CASE_TAC>>
+  fs[word_state_component_equality])
+
+val jump_exc_perm = prove(``
+  jump_exc (st with permute:=perm) =
+  case jump_exc st of
+    NONE => NONE
+  | SOME x => SOME (x with permute:=perm)``,
+  fs[jump_exc_def]>>
+  EVERY_CASE_TAC>>
+  fs[word_state_component_equality])
+
 (*For any target result permute, we can find an initial permute such that the resulting permutation is the same*)
 val permute_swap_lemma = prove(``
 ∀prog st perm.
@@ -374,17 +401,35 @@ val permute_swap_lemma = prove(``
     fs[word_state_component_equality,FUN_EQ_THM,call_env_def])
   >-
     (qexists_tac`perm`>>fs[get_vars_perm]>>
-    ntac 2 (FULL_CASE_TAC>>fs[])
+    ntac 2 (FULL_CASE_TAC>>fs[])>>
     fs[set_vars_perm])
   >-
-    
-    fs[wGC_perm]
-     
-
-    EVERY_CASE_TAC>>fs[word_st]
-    qexists_tac`
+    (qexists_tac`perm`>>
+    fs[wInst_def,word_assign_def]>>EVERY_CASE_TAC>>
+    fs[set_var_perm,word_exp_perm,get_var_perm,mem_store_perm]>>
+    TRY(metis_tac[word_exp_perm,word_state_component_equality])>>
+    rfs[]>>fs[])
+  >-
+    (fs[word_exp_perm]>>EVERY_CASE_TAC>>
+    fs[set_var_perm]>>
+    metis_tac[word_state_component_equality])
+  >-
+    (EVERY_CASE_TAC>>fs[set_var_perm]>>
+    metis_tac[word_state_component_equality])
+  >-
+    (fs[word_exp_perm]>>EVERY_CASE_TAC>>
+    fs[set_store_def]>>
+    qexists_tac`perm`>>fs[word_state_component_equality])
+  >-
+    (fs[word_exp_perm]>>EVERY_CASE_TAC>>
+    fs[get_var_perm,mem_store_perm]>>
+    metis_tac[word_state_component_equality])
+  >-
+    (qexists_tac`perm`>>
+    EVERY_CASE_TAC>>fs[dec_clock_def,call_env_def]>>
+    fs[word_state_component_equality])
   >- (*Seq*)
-    fs[wEval_def,LET_THM]>>
+    (fs[wEval_def,LET_THM]>>
     Cases_on`wEval(prog,st)`>>fs[]>>
     Cases_on`q`>>fs[]
     >-
@@ -392,8 +437,30 @@ val permute_swap_lemma = prove(``
       last_x_assum(qspec_then `perm'` assume_tac)>>fs[]>>
       qexists_tac`perm''`>>fs[])
     >>
-      qexists_tac`st.permute`>>fs[ignore_perm]>>
-      first_assum(qspecl_then[`
+      first_x_assum(qspecl_then[`perm`]assume_tac)>>rfs[]>>
+      Cases_on`x`>>fs[]>>
+      qexists_tac`perm'`>>fs[]>>
+      qpat_assum`A=res`(SUBST1_TAC o SYM)>>fs[])
+  >-
+    (fs[get_var_perm]>>EVERY_CASE_TAC>>
+    fs[call_env_def,word_state_component_equality])
+  >-
+    (fs[get_var_perm]>>EVERY_CASE_TAC>>
+    fs[jump_exc_perm]>>metis_tac[word_state_component_equality])
+  >-
+    (Cases_on`wEval(prog,st)`>>fs[]>>
+    Cases_on`q`>>fs[]
+    >-
+      (ntac 2(FULL_CASE_TAC>>fs[])>>
+      Cases_on`c=0w`>>fs[]>>
+      first_x_assum(qspec_then `perm` assume_tac)>>fs[LET_THM]>>rfs[]>>
+      first_x_assum(qspec_then `perm'` assume_tac)>>fs[]>>
+      qexists_tac`perm''`>>fs[get_var_perm])
+    >>
+      first_x_assum(qspec_then`perm`assume_tac)>>fs[LET_THM]>>
+      Cases_on`x`>>rfs[]>>
+      qexists_tac`perm'`>>fs[]>>
+      qpat_assum`A=res`(SUBST1_TAC o SYM)>>fs[])
   >- (*Call*)
     (fs[wEval_def,LET_THM]>>
     fs[get_vars_perm]>>
@@ -457,8 +524,235 @@ val permute_swap_lemma = prove(``
         metis_tac[word_state_component_equality])
       >>
         perm_assum_tac>>
-        qpat_assum`A=res` (SUBST1_TAC o SYM)>>fs[])
+        qpat_assum`A=res` (SUBST1_TAC o SYM)>>fs[]))
         
+val size_tac= (fs[word_prog_size_def]>>DECIDE_TAC);
+
+val strong_locals_rel_get_var = prove(``
+  strong_locals_rel f st.locals cst.locals ∧ 
+  get_var n st = SOME x
+  ⇒ 
+  get_var (f n) cst = SOME x``,
+  fs[get_var_def,strong_locals_rel_def])
+
+(*Neater rewrite.. should go into word_proc as the def instead*)
+val apply_nummap_key_rw = prove(``
+  apply_nummap_key f names = 
+  fromAList (MAP (λx,y.f x,y) (toAList names))``,
+  rw[]>>AP_TERM_TAC>>
+  fs[ZIP_MAP,MAP_MAP_o,MAP_EQ_f,FORALL_PROD])
+
+val apply_nummap_key_domain = prove(``
+  ∀f names.
+  domain (apply_nummap_key f names) =
+  IMAGE f (domain names)``,
+  fs[domain_def,apply_nummap_key_rw,domain_fromAList]>>
+  fs[MEM_MAP,MAP_MAP_o,EXTENSION,EXISTS_PROD]>>
+  metis_tac[MEM_toAList,domain_lookup])
+
+(*
+val cut_env_lemma = prove(``
+  ∀names sloc tloc x f. 
+  INJ f (domain names) UNIV ∧   
+  cut_env names sloc = SOME x ∧ 
+  strong_locals_rel f sloc tloc 
+  ⇒ 
+  ∃y. cut_env (apply_nummap_key f names) tloc = SOME y ∧
+      domain y = IMAGE f (domain x) ∧
+      strong_locals_rel f x y ∧
+      INJ f (domain x) UNIV``, 
+      (*this old lemma is too strong: exact_colored_locals f x y
+        not sure if i need the strength though...
+      *)
+  rpt strip_tac>>
+  fs[domain_inter,apply_nummap_key_rw,cut_env_def,apply_nummap_key_domain
+    ,strong_locals_rel_def]>>
+  CONJ_ASM1_TAC>-
+    (fs[SUBSET_DEF,domain_lookup]>>rw[]>>metis_tac[])>>
+  CONJ_ASM1_TAC>-
+    (Q.ISPECL_THEN[`f`,`names`] assume_tac apply_nummap_key_domain>>
+    fs[apply_nummap_key_rw]>>
+    fs[SUBSET_INTER_ABSORPTION,INTER_COMM]>>
+    metis_tac[domain_inter])>>
+  rw[]>-
+    (rw[]>>fs[lookup_inter]>>
+    Cases_on`lookup n sloc`>>fs[]>>
+    Cases_on`lookup n names`>>fs[]>>
+    res_tac>>
+    imp_res_tac MEM_toAList>>
+    fs[lookup_fromAList]>>
+    EVERY_CASE_TAC>>
+    fs[ALOOKUP_NONE,MEM_MAP,FORALL_PROD]>>metis_tac[])
+  >>
+    fs[domain_inter,SUBSET_INTER_ABSORPTION,INTER_COMM])
+
+(*Main theorem for permutes here!
+  This shows that we can push locals that are exactly matching using 
+  any desired permutation
+*)
+val MEM_nub = prove(``
+  ∀x ls. MEM x ls ⇔ MEM x (nub ls)``,
+  fs[nub_def])
+
+(*Lookup position mth element of xs in ys*)
+val lookup_pos_def = Define`
+  lookup_pos m ls =
+    (case INDEX_OF m ls of
+            NONE => 0:num (*never happens, makes proof nicer*)
+          | SOME x => x)`
+
+val LENGTH_list_rerrange = prove(``
+  LENGTH (list_rearrange mover xs) = LENGTH xs``,
+  fs[list_rearrange_def]>>
+  IF_CASES_TAC>>fs[])
+
+(*For any 2 lists that are permutations of each other,
+  We can give a list_rearranger that permutes one to the other
+  Fortunately someone already proved a lemma about this in miscTheory
+*)
+val list_rearrange_perm = prove(``
+  PERM xs ys
+  ⇒
+  ∃perm. list_rearrange perm xs = ys``,
+  rw[]>>
+  imp_res_tac PERM_BIJ>>fs[list_rearrange_def]>>
+  qexists_tac`f`>>
+  IF_CASES_TAC>>
+  fs[BIJ_DEF,INJ_DEF]>>metis_tac[])
+
+
+val toAList_exact_colored_locals_permute = prove(
+  ``!f x y. INJ f UNIV UNIV /\
+            exact_colored_locals f x y
+       ==>  PERM (MAP (\a,b.(f a,b)) (nub (toAList x))) (nub (toAList y))``,
+  rw[]>> fs[exact_colored_locals_def]>>
+  match_mp_tac PERM_ALL_DISTINCT>>
+  rw[]>-
+    (`INJ (\a,b:'a. (f a,b)) UNIV UNIV` by
+      (fs[INJ_DEF]>>rpt strip_tac>> Cases_on`x'`>>Cases_on`y'`>>fs[])>>
+    ASSUME_TAC (INST_TYPE [``:'a``|-> ``:num # 'a``] all_distinct_nub)>>
+    first_assum (qspec_then `toAList x` assume_tac)>>
+    match_mp_tac ALL_DISTINCT_MAP_INJ>>
+    rw[]>- (Cases_on`x'`>>Cases_on`y'`>>fs[INJ_DEF]))>-
+    fs[all_distinct_nub]>>
+  Cases_on`x'`>>
+  rw[EQ_IMP_THM]>-
+    (fs[MEM_MAP]>>Cases_on`y'`>>fs[]>>
+    IMP_RES_TAC MEM_nub>>
+    metis_tac[MEM_toAList,MEM_nub])>>
+  IMP_RES_TAC MEM_nub>>
+  IMP_RES_TAC MEM_toAList>>
+    `?z. lookup z x = SOME r /\ f z = q` by
+      (IMP_RES_TAC domain_lookup>>
+      fs[EXTENSION] >> last_x_assum(qspec_then `q` assume_tac)>>fs[]>>
+      fs[domain_lookup]>>
+      HINT_EXISTS_TAC>>fs[])>>
+      match_mp_tac (GEN_ALL (snd(EQ_IMP_RULE (SPEC_ALL MEM_MAP))))>>
+    Q.EXISTS_TAC `z,r`>>
+    fs[]>>metis_tac[PAIR,MEM_toAList,MEM_nub])
+
+
+
+
+val env_to_list_perm = prove(``
+  domain y = IMAGE f (domain x) ∧
+  INJ f (domain x) UNIV ∧ 
+  strong_locals_rel f x y
+  ⇒ 
+  let (l,permute) = env_to_list y perm in 
+  ∃perm'.
+    let(l',permute') = env_to_list x perm' in
+      permute = permute' ∧ (*Just change the first permute*)
+      MAP (λx,y.f x,y) l' = l``,
+  rw[]>>
+  fs[env_to_list_def,LET_THM,strong_locals_rel_def]>>
+  qabbrev_tac `xls = QSORT key_val_compare (nub(toAList x))`>>
+  qabbrev_tac `ls = list_rearrange (perm 0) 
+    (QSORT key_val_compare (nub(toAList y)))`>>
+  fs[(GEN_ALL o SYM o SPEC_ALL) list_rearrange_MAP]>>
+  `PERM (MAP (λx,y.f x,y) xls) l` by 
+    match_mp_tac PERM_ALL_DISTINCT >>rw[]
+    >-
+      (match_mp_tac ALL_DISTINCT_MAP_INJ>>rw[]
+      >-
+        (fs[INJ_DEF,Abbr`xls`,QSORT_MEM]>>
+        Cases_on`x'`>>Cases_on`y'`>>fs[]>>
+        imp_res_tac MEM_toAList>>
+        fs[domain_lookup])
+      >>
+      fs[Abbr`xls`]>>
+      metis_tac[QSORT_PERM,all_distinct_nub,ALL_DISTINCT_PERM])
+    >-
+      fs[Abbr`l`,]
+      
+      fs[ALL_DISTINCT]
+  qexists_tac`
+    λn. 
+      if n = 0:num then
+        λm. 
+        if (m < LENGTH ls) then
+          let (k,v) = (EL m ls) in 
+            rev_lookup f k (MAP FST xls)
+        else 0:num (*dont care what happens outside the length*)
+      else permute (n-1)`>>
+  rw[]>>
+  match_mp_tac LIST_EQ>>CONJ_ASM1_TAC>>
+  fs[LENGTH_list_rerrange]>-
+    ((*Should be true because of injectivity*)
+    cheat)
+  >>
+  rw[]>>fs[list_rearrange_def]>>
+  fs[LET_THM]>>
+  `∀m.m<LENGTH xls ⇒ 
+  lookup_pos ((λ(x,y). (f x,y)) (EL m xls)) l < LENGTH xls` by
+    cheat>>
+  rfs[]>>
+  fs[EL_MAP]>>
+  Cases_on`EL x' xls`>>fs[]
+  
+  `∀m. m < LENGTH xls ⇒ lookup_pos 
+
+  fs[EL_MAP,lookup_pos_def,LET_THM]>>
+
+
+  `∀n. n < LENGTH xls ⇒
+    ∃m. m < LENGTH l ∧ 
+      (λx,y. (f x,y)) (EL n xls) = EL m l` by
+    (
+    rw[]>>qabbrev_tac `xel = EL n xls`>>
+    imp_res_tac MEM_EL>>
+    pop_assum (qspec_then `xel` assume_tac)>>rfs[]>>
+    Cases_on`xel`>>
+    `MEM (q,r) (toAList x)` by metis_tac[MEM_nub]>>
+    fs[MEM_toAList]>>res_tac>>
+    `MEM (f q,r) yls` by metis_tac[MEM_nub,MEM_toAList]>>
+    fs[MEM_EL]>>metis_tac[])>>
+  fs[]
+ fs[list_rearrange_def]
+    `MEM (f q,r) yls` by
+    fs[MEM_])
+
+  unabbrev_all_tac>>
+  fs[MEM_EL]
+  rw[]>>fs[MEM_EL]
+  `LENGTH xls = LENGTH yls` by
+    fs[LENG
+  
+  simp[list_rearrange_def]>>
+  (*Permutation should do something like
+
+
+val  ``
+  (*Stacks originally equal*)
+  st.stack = cst.stack ∧ 
+  domain y = IMAGE f (domain x) ∧
+  INJ f (domain x) UNIV ∧ 
+  strong_locals_rel f x y
+  ⇒
+  ?perm.
+  s_val_eq (push_env x b (st with permute:=perm)).stack 
+           (push_env y b cst).stack``,
+  rw[]>>fs[push_env_def]
 
 val liveness_theorem = prove(``
 ∀prog st cst f live.
@@ -477,28 +771,42 @@ val liveness_theorem = prove(``
     (case res of 
       NONE => strong_locals_rel f rst.locals rcst.locals
     | _    => weak_locals_rel f rst.locals rcst.locals)``,
-  Induct>>cheat
+  (*Induct on size of program*)
+  completeInduct_on`word_prog_size (K 0) prog`>>
+  rpt strip_tac>>
+  fs[PULL_FORALL]>>
+  Cases_on`prog`>>
   ...
   >- (*Seq*)
     (rw[]>>fs[wEval_def,coloring_ok_def,LET_THM]>>
-    last_x_assum(qspecl_then[`st`,`cst`,`f`,`get_live prog' live`]
-      assume_tac)>> rfs[]>>
-    Cases_on`wEval(prog,st with permute:=perm')`>>fs[]
+    last_assum(qspecl_then[`w`,`st`,`cst`,`f`,`get_live w0 live`]
+      mp_tac)>>
+    discharge_hyps>-size_tac>>
+    rw[]>>
+    Cases_on`wEval(w,st with permute:=perm')`>>fs[]
     >- (qexists_tac`perm'`>>fs[]) >>
-    Cases_on`wEval(apply_color f prog,cst)`>>fs[]>>
+    Cases_on`wEval(apply_color f w,cst)`>>fs[]>>
     REVERSE (Cases_on`q`)>>fs[]
     >- (qexists_tac`perm'`>>rw[])
     >>
-    first_x_assum(qspecl_then[`r`,`r'`,`f`,`live`] assume_tac)>>rfs[]>>
-    (*temp should be the permute composition of perm' and perm''
-      such that wEval(prog,st with permute:=temp) gives
-      (NONE,r with permute:=perm'')
-    *)
-    qspecl_then[`prog`,`st with permute:=perm'`,`perm''`]
+    first_assum(qspecl_then[`w0`,`r`,`r'`,`f`,`live`] mp_tac)>>
+    discharge_hyps>- size_tac>>
+    rw[]>>
+    qspecl_then[`w`,`st with permute:=perm'`,`perm''`]
       assume_tac permute_swap_lemma>>
-    rfs[LET_THM]>>qpat_assum`A=q'` (SUBST_ALL_TAC o SYM)>>
-    fs[]>>
+    rfs[LET_THM]>>
     qexists_tac`perm'''`>>rw[]>>fs[])
+  >- (*If*)
+    cheat 
+  >- (*Alloc*)
+    fs[wEval_def,coloring_ok_def,get_var_perm]>>
+    Cases_on`get_var n st`>>fs[LET_THM]>>
+    imp_res_tac strong_locals_rel_get_var>>fs[]>>
+    Cases_on`x`>>fs[wAlloc_def]>>
+    Cases_on`cut_env s st.locals`>>fs[]>>
+    imp_res_tac cut_env_lemma>>fs[]
+    fs[get_live_def]
+    >- metis_tac[]
 
     `wEval(prog,st with permute:=temp) = (NONE,r with permute:=perm'')` 
       by cheat >>
@@ -651,5 +959,6 @@ Cases_
       fs[]>>metis_tac[ignore_inc])
   >-(*Seq*)
     (*This needs a side lemma*)
+*)*)
   
 val _ = export_theory();
