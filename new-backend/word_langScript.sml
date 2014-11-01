@@ -245,8 +245,10 @@ val call_env_def = Define `
 
 val list_rearrange_def = Define `
   list_rearrange mover xs =
-    (* if the mover function is well-formed, use it *)
-    if (!i. i < LENGTH xs ==> mover i < LENGTH xs) then
+    (* if the mover function is actually a permutation,
+     i.e. it bijects (or injects) the keys 0...n-1 to 0...n-1
+     use it *)
+    if (BIJ mover (count (LENGTH xs)) (count (LENGTH xs))) then
       GENLIST (\i. EL (mover i) xs) (LENGTH xs)
     else (* if it isn't well-formed, just pretend it is I *)
       xs`
@@ -267,7 +269,6 @@ val key_val_compare_def = Define `
 EVAL ``key_val_compare (1,Loc 3 4) (1,Loc 1 2)``
 *)
 
-(*This does not quite work...($< LEX $<=)*)
 val env_to_list_def = Define `
   env_to_list env (bij_seq:num->num->num) =
     let mover = bij_seq 0 in
@@ -547,8 +548,11 @@ val wEval_def = tDefine "wEval" `
                             (\(xs,(s:'a word_state)). (s.clock,xs)))`
   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
   \\ TRY (MATCH_MP_TAC check_clock_lemma \\ DECIDE_TAC)
-  \\ EVAL_TAC \\ Cases_on `s.clock <= s1.clock`
-  \\ FULL_SIMP_TAC (srw_ss()) [push_env_clock]
+  \\ TRY
+    (fs[push_env_clock,call_env_def,dec_clock_def]\\DECIDE_TAC)
+  \\ EVAL_TAC
+   \\ Cases_on `s.clock <= s1.clock`
+ \\ FULL_SIMP_TAC (srw_ss()) [push_env_clock]
   \\ IMP_RES_TAC pop_env_clock \\ fs [] \\ SRW_TAC [] []
   \\ Cases_on `s2.clock < s.clock` \\ fs [] \\ DECIDE_TAC)
 

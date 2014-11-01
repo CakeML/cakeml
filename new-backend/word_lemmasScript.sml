@@ -2,7 +2,9 @@ open HolKernel Parse boolLib bossLib miscLib word_langTheory
 open listTheory sptreeTheory pred_setTheory pairTheory optionTheory
 open sortingTheory relationTheory
 
-(*open wordsLib*)
+(*
+open wordsLib
+*)
 (*TODO: remove the last_n lemmas*)
 open bvp_lemmasTheory miscTheory
 
@@ -819,7 +821,8 @@ val GENLIST_MAP = prove(
 
 val list_rearrange_MAP = store_thm ("list_rearrange_MAP",
   ``!l f m. list_rearrange m (MAP f l) = MAP f (list_rearrange m l)``,
-  SRW_TAC [] [list_rearrange_def] \\ MATCH_MP_TAC GENLIST_MAP \\ fs []);
+  SRW_TAC [] [list_rearrange_def] \\ MATCH_MP_TAC GENLIST_MAP \\
+  fs[BIJ_DEF,INJ_DEF]);
 
 val monotonic_color_def = Define`
   !f. monotonic_color f <=>
