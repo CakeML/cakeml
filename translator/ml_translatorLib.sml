@@ -2292,6 +2292,7 @@ val Num_ABS_pat = Eval_Num_ABS |> concl |> rand |> rand |> rand
 val int_of_num_pat = Eval_int_of_num |> concl |> rand |> rand |> rand
 val int_of_num_o_pat = Eval_int_of_num_o |> concl |> rand |> rand |> rand
 val o_int_of_num_pat = Eval_o_int_of_num |> concl |> rand |> rand |> rand
+val int_negate_pat = Eval_int_negate |> concl |> funpow 3 rand
 
 val vec_vec_pat = Eval_vector |> SPEC_ALL |> RW [AND_IMP_INTRO]
   |> concl |> dest_imp |> snd |> rand |> rand
@@ -2404,6 +2405,12 @@ fun hol2deep tm =
     val th1 = hol2deep x1
     val result = MATCH_MP Eval_Bool_Not th1
     in check_inv "not" tm result end else
+  (* integer negate *)
+  if can (match_term int_negate_pat) tm then let
+    val x1 = rand tm
+    val th1 = hol2deep x1
+    val result = MATCH_MP Eval_int_negate th1
+    in check_inv "negate" tm result end else
   (* equality: n = 0 *)
   if can (match_term ``(n = (0:num))``) tm then let
     val x1 = fst (dest_eq tm)
