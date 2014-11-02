@@ -191,8 +191,30 @@ val wGC_s_val_eq_word_state = store_thm("wGC_s_val_eq_word_state",
   Q.EXISTS_TAC`y'`>>
   fs[word_state_component_equality]>>rfs[])
 
-
-
+(*Most generalized wGC_s_val_eq*)
+val wGC_s_val_eq_gen = store_thm ("wGC_s_val_eq_gen",``
+  !s t s'.
+  s.gc_fun = t.gc_fun ∧
+  s.memory = t.memory ∧
+  s.mdomain = t.mdomain ∧ 
+  s.store = t.store ∧
+  s_val_eq s.stack t.stack ∧
+  wGC s = SOME s' ⇒ 
+  ?t'.
+  wGC t = SOME t' ∧
+  s_val_eq s'.stack t'.stack ∧
+  s_key_eq t.stack t'.stack ∧
+  t'.memory = s'.memory ∧
+  t'.store = s'.store`` ,
+  rw[]>>
+  fs[wGC_def,LET_THM]>>
+  IMP_RES_TAC s_val_eq_enc_stack>>
+  BasicProvers.EVERY_CASE_TAC>>rfs[]>>
+  IMP_RES_TAC s_val_eq_dec_stack>>fs[]>>
+  qpat_assum`A=s'` (SUBST_ALL_TAC o SYM)>>
+  IMP_RES_TAC dec_stack_stack_key_eq>>fs[]>>
+  metis_tac[s_val_eq_sym])
+ 
 (*pushing and popping maintain the stack_key relation*)
 val push_env_pop_env_s_key_eq = store_thm("push_env_pop_env_s_key_eq",
   ``!s t x b. s_key_eq (push_env x b s).stack t.stack ==>
