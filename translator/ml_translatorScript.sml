@@ -540,6 +540,16 @@ val Eval_o_int_of_num = store_thm("Eval_o_int_of_num",
   SIMP_TAC std_ss [NUM_def,Arrow_def,Eval_def]
   \\ METIS_TAC[]);
 
+val Eval_int_negate = store_thm("Eval_int_negate",
+  ``Eval env x1 (INT i) ==>
+    Eval env (App (Opn Minus) [Lit (IntLit 0); x1]) (INT (-i))``,
+  rw[Eval_def] >> rw[Once evaluate_cases] >>
+  rpt(CHANGED_TAC(rw[Once(CONJUNCT2 evaluate_cases)])) >>
+  rw[PULL_EXISTS] >> rw[Once evaluate_cases] >>
+  first_assum(miscLib.match_exists_tac o concl) >> rw[] >>
+  rw[do_app_cases,PULL_EXISTS,opn_lookup_def] >>
+  fs[INT_def])
+
 (* arithmetic for num *)
 
 val Eval_NUM_ADD = save_thm("Eval_NUM_ADD",
