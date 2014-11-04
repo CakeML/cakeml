@@ -5,6 +5,11 @@ ifdef POLY
 HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+all: $(TARGETS) $(HOLHEAP)
+.PHONY: all
+
 BARE_THYS = ../parsing/cmlParseTheory ../inference/inferTheory ../compiler/compilerTerminationTheory ../parsing/lexer_implTheory ../bytecode/bytecodeLabelsTheory ../semantics/typeSystemTheory ../semantics/lexer_funTheory ../compiler/proofs/compilerProofTheory ../initial/initCompEnvTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))

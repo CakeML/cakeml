@@ -6,6 +6,11 @@ HOLHEAP = heap
 PARENTHEAP = ../initial/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+all: $(TARGETS) $(HOLHEAP)
+.PHONY: all
+
 SEM_BARE_THYS = astTheory \
 	        lexer_funTheory \
 	        typeSystemTheory

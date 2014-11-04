@@ -8,18 +8,22 @@ GEN_SCRIPTS =  $(patsubst %,%Script.sml,$(INFER))
 LEMI = $(patsubst %,../semantics/%.lem,$(SEMANTICSI))
 LEMH = $(patsubst %,%.lem,$(INFER))
 
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+all: $(TARGETS)
+.PHONY: all
+
 $(GEN_SCRIPTS): $(LEMI) $(LEMH)
 	if type lem;\
 	then lem -auxiliary_level none $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMH));\
 	else touch $(GEN_SCRIPTS); fi
-
 
 ifdef POLY
 HOLHEAP = heap
 PARENTHEAP=../semantics/proofs/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-SEM_BARE_THYS = 
+SEM_BARE_THYS = terminationTheory
 
 UNIF_BARE_THYS = collapseTheory \
 		redUnifTheory \
@@ -28,7 +32,9 @@ UNIF_BARE_THYS = collapseTheory \
 
 BARE_THYS = $(patsubst %,../semantics/%,$(SEM_BARE_THYS)) $(patsubst %,$(HOLDIR)/examples/unification/triangular/first-order/%,$(UNIF_BARE_THYS))
 
-DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP) 
+DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP)
+
+all: $(HOLHEAP)
 
 $(HOLHEAP): $(DEPS)
 	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENTHEAP) -o $(HOLHEAP) $(BARE_THYS)
