@@ -2563,6 +2563,65 @@ val infer_e_complete = Q.prove (
      imp_res_tac infer_e_check_t>>
      rfs[]>>
      imp_res_tac sub_completion_completes>>
-     AP_TERM_TAC>>metis_tac[t_walkstar_no_vars])
-     
+     AP_TERM_TAC>>metis_tac[t_walkstar_no_vars]);
+
+val infer_e_complete_thm = 
+     infer_e_complete 
+     |> SIMP_RULE (srw_ss()) [PULL_FORALL, AND_IMP_INTRO] 
+     |> SPEC_ALL
+     |> CONJUNCTS
+     |> hd;
+
+val infer_d_complete = Q.prove (
+`!mn mdecls tdecls edecls tenvT menv cenv tenvE d mdecls' tdecls' edecls' tenvT' cenv' tenvE' tenv.
+  check_menv menv ∧
+  check_env {} tenv ∧
+  tenvC_ok cenv ∧
+  tenv_inv FEMPTY tenv tenvE ∧
+  type_d mn (set mdecls,set tdecls,set edecls) tenvT (convert_menv menv) cenv tenvE d (set mdecls',set tdecls',set edecls') tenvT' cenv' tenvE'
+  ⇒
+  ?tenv' st' mdecls'' tdecls'' edecls''.
+    set mdecls'' = set mdecls' ∧
+    set tdecls'' = set tdecls' ∧
+    set edecls'' = set edecls' ∧
+    infer_d mn (mdecls,tdecls,edecls) tenvT menv cenv tenv d init_infer_state = 
+      (Success ((mdecls'',tdecls'',edecls''), tenvT', cenv', tenv'), st')`,
+ rw [type_d_cases] >>
+ rw [infer_d_def, success_eqns, LAMBDA_PROD, EXISTS_PROD, init_state_def] >>
+ fs [empty_decls_def]
+ (* Let generalisation case *)
+ >- cheat
+ (* Non generalised let *)
+ >- (`sub_completion (num_tvs tenvE) 0 FEMPTY [] FEMPTY`
+               by rw [sub_completion_def, pure_add_constraints_def] >>
+     `∃t' st' s' constraints'. 
+        infer_e menv cenv tenv e <|next_uvar := 0; subst := FEMPTY|> = (Success t',st') ∧
+        sub_completion (num_tvs tenvE) st'.next_uvar st'.subst constraints' s' ∧
+        FDOM st'.subst ⊆ count st'.next_uvar ∧
+        FDOM s' = count st'.next_uvar ∧
+        t_compat FEMPTY s' ∧
+        t = convert_t (t_walkstar s' t')`
+              by metis_tac [SIMP_RULE (srw_ss()) [init_infer_state_def, t_wfs_def] (Q.INST [`tenvM`|-> `convert_menv menv`, `tenvC` |-> `cenv`,
+                      `st`|->`init_infer_state`, `s`|-> `FEMPTY`] infer_e_complete_thm)] >>
+     rw [PULL_EXISTS] >>
+     MAP_EVERY qexists_tac [`t'`, `st'`] >>
+     rw [init_infer_state_def] >>
+     cheat)
+ (* generalised letrec *)
+ >- cheat
+ (* Type definition *)
+ >- (rw [PULL_EXISTS] >>
+     PairCases_on `tenvT` >>
+     fs [merge_mod_env_def, EVERY_MAP, EVERY_MEM, DISJOINT_DEF, EXTENSION] >>
+     rw [] >>
+     PairCases_on `x` >>
+     fs [] >>
+     CCONTR_TAC >>
+     fs [METIS_PROVE [] ``x ∨ y ⇔ ~y ⇒ x``] >>
+     res_tac >> 
+     fs [MEM_MAP, LAMBDA_PROD, FORALL_PROD, EXISTS_PROD] >>
+     metis_tac [])
+ (* Exception definition *)
+ >- metis_tac []);
+
 val _ = export_theory ();
