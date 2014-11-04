@@ -5,6 +5,11 @@ ifdef POLY
 HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+all: $(TARGETS) $(HOLHEAP)
+.PHONY: all
+
 BARE_THYS = ../repl/proofs/repl_funProofTheory ../translator/repl/ml_repl_moduleTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))

@@ -9,6 +9,11 @@ EXTRA_CLEANS = heap
 BARE_THYS = ../semantics/tokenUtilsTheory ../semantics/gramTheory ../semantics/cmlPtreeConversionTheory $(HOLDIR)/examples/parsing/pegexecTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP)
 
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+all: $(TARGETS) $(HOLHEAP)
+.PHONY: all
+
 $(HOLHEAP): $(DEPS)
 	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENTHEAP) -o $@ $(BARE_THYS)
 

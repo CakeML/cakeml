@@ -6,6 +6,11 @@ ifdef POLY
 HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+all: $(TARGETS) $(HOLHEAP)
+.PHONY: all
+
 BARE_THYS =  $(HOLDIR)/examples/l3-machine-code/x64/model/x64DisassembleLib $(HOLDIR)/examples/parsing/pegexecTheory ../../compiler/proofs/free_varsTheory ./astPP/astPP ../../x86-64/x64_code_evalTheory ../../x86-64/x64_heapTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))

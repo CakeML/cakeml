@@ -1,6 +1,11 @@
 INCLUDES = .. ../semantics ../parsing ../semantics/proofs ../lem_lib_stub
 OPTIONS = QUIT_ON_FAILURE
 
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+all: $(TARGETS)
+.PHONY: all
+
 print_ast_deps = ../semantics/lib.lem ../semantics/tokens.lem ../semantics/ast.lem
 print_astScript.sml : $(print_ast_deps) print_ast.lem
 	if type lem;\
@@ -11,6 +16,7 @@ ifdef POLY
 HOLHEAP = heap
 PARENT_HOLHEAP = ../semantics/proofs/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+all: $(HOLHEAP)
 
 PRE_BARE_THYS1 = astTheory \
 		tokensTheory \
