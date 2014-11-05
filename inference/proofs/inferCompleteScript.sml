@@ -9,24 +9,6 @@ open miscLib
 
 val _ = new_theory "inferComplete";
 
-(* Move to unification theory *)
-
-val unify_fresh_uvar = Q.store_thm ("unify_fresh_uvar",
-`!s uv t.
-  t_wfs s ∧
-  uv ∉ FDOM s
-  ⇒
-  (t_walk s t ≠ Infer_Tuvar uv ⇒ t_unify s (Infer_Tuvar uv) t = SOME (s |+ (uv, t_walk s t))) ∧
-  (t_walk s t = Infer_Tuvar uv ⇒ t_unify s (Infer_Tuvar uv) t = SOME s)`,
- rw [t_unify_eqn, t_walk_eqn] >>
- `t_vwalk s uv = Infer_Tuvar uv` by rw [Once t_vwalk_eqn, FLOOKUP_DEF] >>
- rw [] >>
- Cases_on `t_walk s t` >>
- rw [t_ext_s_check_eqn, oc_tvar_db] >>
- cheat);
-
-(* End unification stuff *)
-
 (*Some of these might need to go into a props script*)
 
 (*Useful lemmas about pure add constraints, some of these imply the others*)
