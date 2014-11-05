@@ -2554,6 +2554,22 @@ val infer_e_complete_thm =
      |> CONJUNCTS
      |> hd;
 
+
+
+(*
+val tenv_inv_bind_tvar = store_thm("tenv_inv_bind_tvar",
+  ``∀tvs s tenv tenvE.
+      tenv_inv s tenv tenvE ⇒
+      tenv_inv s tenv (bind_tvar tvs tenvE)``,
+  rw[bind_tvar_def] >>
+  fs[tenv_inv_def,lookup_tenv_def] >>
+  rpt gen_tac >> strip_tac >>
+  lookup_tenv_inc
+  lookup_tenv_inc_tvs
+  num_tvs_def
+*)
+
+
 val infer_d_complete = Q.prove (
 `!mn mdecls tdecls edecls tenvT menv cenv tenvE d mdecls' tdecls' edecls' tenvT' cenv' tenvE' tenv.
   check_menv menv ∧
@@ -2572,7 +2588,29 @@ val infer_d_complete = Q.prove (
  rw [infer_d_def, success_eqns, LAMBDA_PROD, EXISTS_PROD, init_state_def] >>
  fs [empty_decls_def]
  (* Let generalisation case *)
- >- cheat
+ >- (
+   rw[PULL_EXISTS] >>
+   (infer_e_complete_thm |> GEN_ALL
+    |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+    |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
+   disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >> simp[] >>
+   disch_then(qspecl_then[`tenv`,`init_infer_state`]mp_tac) >>
+   `t_wfs init_infer_state.subst` by simp[init_infer_state_def,t_wfs_def] >>
+   simp[init_infer_state_def] >>
+   simp[GSYM init_infer_state_def] >>
+   disch_then(qspecl_then[`FEMPTY`,`[]`]mp_tac) >>
+   simp[] >>
+   discharge_hyps >- (
+     simp[sub_completion_def,pure_add_constraints_def] ) >>
+   (* the tenv_inv hypothesis seems like it might be wrong? *)
+   discharge_hyps >- cheat >>
+   strip_tac >> simp[] >>
+   (infer_p_complete |> CONJUNCT1
+    |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
+   disch_then(qspecl_then[`s'`,`st'`]mp_tac) >>
+   imp_res_tac (CONJUNCT1 infer_e_wfs) >>
+   simp[] >>
+   cheat)
  (* Non generalised let *)
  >- (`sub_completion (num_tvs tenvE) 0 FEMPTY [] FEMPTY`
                by rw [sub_completion_def, pure_add_constraints_def] >>
