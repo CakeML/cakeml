@@ -163,7 +163,7 @@ val strong_state_rel_set_vars_lemma = prove(
    last_x_assum(qspecl_then [`f`,`s`,`t`,`t'`] assume_tac)>>
    simp[])
 
-val get_vars_length_lemma = prove(
+val get_vars_length_lemma = store_thm("get_vars_length_lemma",
   ``!ls s y. get_vars ls s = SOME y ==>
            LENGTH y = LENGTH ls``,
   Induct>>fs[get_vars_def]>>
@@ -840,7 +840,7 @@ val get_vars_domain_eq_lemma = prove(
   fs[domain_lookup])
 
 (*TODO: There are multiple defs of list_insert..*)
-val lookup_list_insert = prove(
+val lookup_list_insert = store_thm("lookup_list_insert",
   ``!x y t (z:num). LENGTH x = LENGTH y ==>
     (lookup z (list_insert x y t) =
     case ALOOKUP (ZIP(x,y)) z of SOME a => SOME a | NONE => lookup z t)``,
