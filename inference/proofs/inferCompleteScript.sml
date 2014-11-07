@@ -2547,15 +2547,6 @@ val infer_e_complete = Q.prove (
      imp_res_tac sub_completion_completes>>
      AP_TERM_TAC>>metis_tac[t_walkstar_no_vars]);
 
-val infer_e_complete_thm = 
-     infer_e_complete 
-     |> SIMP_RULE (srw_ss()) [PULL_FORALL, AND_IMP_INTRO] 
-     |> SPEC_ALL
-     |> CONJUNCTS
-     |> hd;
-
-
-
 (*
 val tenv_inv_bind_tvar = store_thm("tenv_inv_bind_tvar",
   ``∀tvs s tenv tenvE.
@@ -2570,18 +2561,41 @@ val tenv_inv_bind_tvar = store_thm("tenv_inv_bind_tvar",
 *)
 
 
+val generalise_no_uvars = Q.prove (
+`(!t m n s dbvars.
+  check_t dbvars {} t
+  ⇒ 
+  ?s' t'. generalise m n s t = (0,s',t')) ∧
+ (!ts m n s dbvars.
+  EVERY (check_t dbvars {}) ts
+  ⇒ 
+  ?s' ts'. generalise_list m n s ts = (0,s',ts'))`,
+ ho_match_mp_tac infer_tTheory.infer_t_induction >>
+ rw [generalise_def, check_t_def]
+ >- metis_tac [PAIR_EQ] >>
+ rw [PULL_FORALL] >>
+ res_tac >>
+ pop_assum (qspecl_then [`s`, `n`, `m`] mp_tac) >>
+ rw [] >>
+ rw [] >>
+ first_x_assum (qspecl_then [`s'`, `n`, `m`] mp_tac) >>
+ rw [] >>
+ rw []);
+
 val infer_d_complete = Q.prove (
 `!mn mdecls tdecls edecls tenvT menv cenv tenvE d mdecls' tdecls' edecls' tenvT' cenv' tenvE' tenv.
   check_menv menv ∧
   check_env {} tenv ∧
   tenvC_ok cenv ∧
   tenv_inv FEMPTY tenv tenvE ∧
+  num_tvs tenvE = 0 ∧
   type_d mn (set mdecls,set tdecls,set edecls) tenvT (convert_menv menv) cenv tenvE d (set mdecls',set tdecls',set edecls') tenvT' cenv' tenvE'
   ⇒
   ?tenv' st' mdecls'' tdecls'' edecls''.
     set mdecls'' = set mdecls' ∧
     set tdecls'' = set tdecls' ∧
     set edecls'' = set edecls' ∧
+    (* Need something relating tenv' with tenvE'. tenv_inv is not the right thing here. It's probably some mapping of unconvert *)
     infer_d mn (mdecls,tdecls,edecls) tenvT menv cenv tenv d init_infer_state = 
       (Success ((mdecls'',tdecls'',edecls''), tenvT', cenv', tenv'), st')`,
  rw [type_d_cases] >>
@@ -2612,21 +2626,44 @@ val infer_d_complete = Q.prove (
    simp[] >>
    cheat)
  (* Non generalised let *)
- >- (`sub_completion (num_tvs tenvE) 0 FEMPTY [] FEMPTY`
-               by rw [sub_completion_def, pure_add_constraints_def] >>
-     `∃t' st' s' constraints'. 
-        infer_e menv cenv tenv e <|next_uvar := 0; subst := FEMPTY|> = (Success t',st') ∧
-        sub_completion (num_tvs tenvE) st'.next_uvar st'.subst constraints' s' ∧
-        FDOM st'.subst ⊆ count st'.next_uvar ∧
-        FDOM s' = count st'.next_uvar ∧
-        t_compat FEMPTY s' ∧
-        t = convert_t (t_walkstar s' t')`
-              by metis_tac [SIMP_RULE (srw_ss()) [init_infer_state_def, t_wfs_def] (Q.INST [`tenvM`|-> `convert_menv menv`, `tenvC` |-> `cenv`,
-                      `st`|->`init_infer_state`, `s`|-> `FEMPTY`] infer_e_complete_thm)] >>
+ >- (
+     (infer_e_complete |> CONJUNCT1 |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
      rw [PULL_EXISTS] >>
-     MAP_EVERY qexists_tac [`t'`, `st'`] >>
-     rw [init_infer_state_def] >>
-     cheat)
+     pop_assum (qspecl_then [`FEMPTY`, `menv`, `tenv`, `init_infer_state`, `[]`] mp_tac) >>
+     rw [init_infer_state_def, t_wfs_def] >>
+     `sub_completion 0 0 FEMPTY [] FEMPTY` by rw [sub_completion_def, pure_add_constraints_def] >>
+     fs [] >>
+     (infer_p_complete |> CONJUNCT1 |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
+     rw [] >>
+     pop_assum (qspecl_then [`s'`, `st'`, `constraints'`] mp_tac) >>
+     rw [] >>
+     `t_wfs <|next_uvar := 0; subst := FEMPTY|>.subst` by rw [t_wfs_def] >>
+     `t_wfs st'.subst` by metis_tac [infer_e_wfs] >>
+     fs [] >>
+     `t_wfs st''.subst` by metis_tac [infer_p_wfs] >>
+     imp_res_tac infer_p_bindings >>
+     pop_assum (qspecl_then [`[]`] assume_tac) >>
+     fs [] >>
+     (* because this is what sub completion does *)
+     `?n m. check_t m {} (t_walkstar s' t') ∧ 
+            check_t n {} (t_walkstar s'' t'')` 
+             by cheat >> 
+     `t_walkstar s'' (t_walkstar s' t') = t_walkstar s'' (t_walkstar s'' t'')` by metis_tac [convert_bi_remove] >>
+     (* by t_compat_def and that t_walkstar should be idempotent *)
+     `t_walkstar s'' t' = t_walkstar s'' t''` by cheat >> 
+     imp_res_tac sub_completion_wfs >>
+     `t_compat st''.subst s''` 
+                  by metis_tac [pure_add_constraints_success, sub_completion_def, t_compat_def] >>
+     `?si. t_unify st''.subst t' t'' = SOME si ∧ t_compat si s''` by metis_tac [t_compat_eqs_t_unify] >>
+     qexists_tac `si` >>
+     rw [] >>
+     (* *)
+     `EVERY (check_t 0 {}) (MAP (t_walkstar si) (MAP SND tenv''))` 
+                 by (rw [EVERY_MAP] >>
+                     rw [EVERY_MEM] >>
+                     match_mp_tac (CONJUNCT1 check_t_walkstar) >>
+                     cheat) >>
+     metis_tac [generalise_no_uvars])
  (* generalised letrec *)
  >- cheat
  (* Type definition *)
