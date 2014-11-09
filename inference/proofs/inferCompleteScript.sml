@@ -2604,14 +2604,16 @@ val infer_d_complete = Q.prove (
  (* Let generalisation case *)
  >- (
    rw[PULL_EXISTS] >>
-   (infer_e_complete_thm |> GEN_ALL
+   (infer_e_complete |> CONJUNCT1 |> GEN_ALL
     |> REWRITE_RULE[GSYM AND_IMP_INTRO]
     |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
    disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >> simp[] >>
-   disch_then(qspecl_then[`tenv`,`init_infer_state`]mp_tac) >>
+   disch_then(mp_tac o CONV_RULE (RESORT_FORALL_CONV (sort_vars["st"]))) >>
+   disch_then(qspecl_then[`init_infer_state`]mp_tac) >>
    `t_wfs init_infer_state.subst` by simp[init_infer_state_def,t_wfs_def] >>
    simp[init_infer_state_def] >>
    simp[GSYM init_infer_state_def] >>
+   disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >> simp[] >>
    disch_then(qspecl_then[`FEMPTY`,`[]`]mp_tac) >>
    simp[] >>
    discharge_hyps >- (
