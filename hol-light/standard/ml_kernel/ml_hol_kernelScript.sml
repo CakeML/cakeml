@@ -4,7 +4,6 @@ val _ = new_theory "ml_hol_kernel";
 
 open astTheory libTheory bigStepTheory semanticPrimitivesTheory;
 open terminationTheory;
-open print_astTheory print_astTerminationTheory intLib;
 open ml_translatorTheory ml_translatorLib;
 open arithmeticTheory listTheory combinTheory pairTheory;
 open integerTheory intLib ml_optimiseTheory;
