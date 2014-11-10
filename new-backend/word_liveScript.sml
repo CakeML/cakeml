@@ -766,10 +766,13 @@ val env_to_list_perm = prove(``
 
 (*This works for what I want*)
 val mem_list_rearrange = prove(``
-  ∀ls x f. MEM x (list_rearrange f ls) ⇒ MEM x ls``,
+  ∀ls x f. MEM x (list_rearrange f ls) ⇔ MEM x ls``,
   fs[MEM_EL]>>rw[list_rearrange_def]>>
+  imp_res_tac BIJ_IFF_INV>>
   fs[BIJ_DEF,INJ_DEF,SURJ_DEF]>>
-  metis_tac[])
+  rw[EQ_IMP_THM]>>fs[EL_GENLIST]
+  >- metis_tac[]>>
+  qexists_tac `g n`>>fs[])
   
 (*Proves s_val_eq and some extra conditions on the resulting lists*)
 val push_env_s_val_eq = prove(``
@@ -900,6 +903,54 @@ val strong_locals_rel_subset = prove(``
   strong_locals_rel f s st.locals cst.locals``,
   rw[strong_locals_rel_def]>>
   metis_tac[SUBSET_DEF])
+
+val env_to_list_keys = prove(``
+  let (l,permute) = env_to_list x perm in
+  set (MAP FST l) = domain x``,
+  fs[LET_THM,env_to_list_def,EXTENSION,MEM_MAP,EXISTS_PROD]>>
+  rw[EQ_IMP_THM]
+  >-
+    (imp_res_tac mem_list_rearrange>>
+    fs[QSORT_MEM,MEM_toAList,domain_lookup])
+  >>
+    fs[mem_list_rearrange,QSORT_MEM,MEM_toAList,domain_lookup])
+
+val list_rearrange_keys = prove(``
+  list_rearrange perm ls = e ⇒ 
+  set(MAP FST e) = set(MAP FST ls)``,
+  fs[LET_THM,EXTENSION]>>rw[EQ_IMP_THM]>>
+  metis_tac[MEM_toAList,mem_list_rearrange,MEM_MAP])
+
+(*Need to strengthen this in word_lemmas,
+  Adds a lot of 
+*)
+val push_env_pop_env_s_key_eq = prove(
+  ``∀s t x b. s_key_eq (push_env x b s).stack t.stack ⇒
+       ∃l ls opt. 
+              t.stack = (StackFrame l opt)::ls ∧ 
+              ∃y. (pop_env t = SOME y ∧
+                   y.locals = fromAList l ∧  
+                   domain x = domain y.locals ∧
+                   s_key_eq s.stack y.stack)``,
+  rw[push_env_def]>>fs[LET_THM,env_to_list_def]>>Cases_on`t.stack`>>
+  fs[s_key_eq_def,pop_env_def]>>BasicProvers.EVERY_CASE_TAC>>
+  fs[domain_fromAList,s_frame_key_eq_def]>>
+  qpat_assum `A = MAP FST l` (SUBST1_TAC o SYM)>>
+  fs[EXTENSION,mem_list_rearrange,MEM_MAP,QSORT_MEM,MEM_toAList
+    ,EXISTS_PROD,domain_lookup])
+
+val pop_env_frame = prove(
+  ``s_val_eq r'.stack st' ∧
+    s_key_eq y'.stack y''.stack ∧ 
+    pop_env (r' with stack:= st') = SOME y'' ∧ 
+    pop_env r' = SOME y'
+    ⇒
+    word_state_eq_rel y' y''``,
+    fs[pop_env_def]>>EVERY_CASE_TAC>>
+    fs[s_val_eq_def,s_frame_val_eq_def,word_state_eq_rel_def
+      ,word_state_component_equality]>>
+    rw[]>>rfs[]>>
+    metis_tac[s_val_and_key_eq])
 
 val liveness_theorem = prove(``
 ∀prog st cst f live.
@@ -1038,8 +1089,166 @@ val liveness_theorem = prove(``
     rw[]>>fs[]>>
     Cases_on`st.clock=0`>>fs[call_env_def]>>
     (*Ideally dont case split here on o0 but nevermind for now*)
-    Cases_on`o0`>>fs[dec_clock_def]
+    `(IS_SOME (case o0 of NONE => NONE
+      | SOME (v,prog) => SOME (f v,apply_color f prog))) = IS_SOME o0` by
+      (EVERY_CASE_TAC>>fs[])>>
+    simp[]>>
+    qpat_abbrev_tac `b = IS_SOME o0`>>
+    assume_tac (GEN_ALL push_env_s_val_eq)>>
+    pop_assum (qspecl_then[
+      `y`,`x'`,`st with clock := st.clock-1`,
+      `f`,`cst with clock := st.clock-1`,`b`,`λn. cst.permute (n+1)`]
+      assume_tac)>>
+    rfs[LET_THM,env_to_list_def,dec_clock_def]>>
+    qabbrev_tac `envx = push_env x' b
+            (st with <|permute := perm; clock := st.clock − 1|>) with
+          locals := fromList2 q`>>
+    qpat_abbrev_tac `envy = (push_env y A B) with locals := C`>>
+    assume_tac wEval_stack_swap>>
+    pop_assum(qspecl_then [`r`,`envx`] mp_tac)>>
+    ntac 2 FULL_CASE_TAC>-
+      (rw[]>>qexists_tac`perm`>>fs[dec_clock_def])>>
+    `envx with stack := envy.stack = envy` by
+      (unabbrev_all_tac>>
+      fs[push_env_def,word_state_component_equality]>>
+      fs[LET_THM,env_to_list_def,dec_clock_def])>>
+    `s_val_eq envx.stack envy.stack` by
+      (unabbrev_all_tac>>
+       fs[word_state_component_equality])>>
+    FULL_CASE_TAC
     >-
+    (*Result*)
+    (
+    strip_tac>>pop_assum(qspec_then`envy.stack` mp_tac)>>
+    discharge_hyps>-
+      (unabbrev_all_tac>>
+       fs[word_state_component_equality,dec_clock_def])>>
+    strip_tac>>fs[]>>
+    rfs[]>>
+    (*Backwards chaining*)
+    fs[Abbr`envy`,Abbr`envx`,word_state_component_equality]>>
+    Q.ISPECL_THEN [`(cst with clock := st.clock-1)`,
+                  `r' with stack := st'`,`y`,`b`] 
+                  assume_tac push_env_pop_env_s_key_eq>>
+    Q.ISPECL_THEN [`(st with <|permute:=perm;clock := st.clock-1|>)`,
+                  `r'`,`x'`,`b`] 
+                  assume_tac push_env_pop_env_s_key_eq>>
+    rfs[]>>
+    (*Now we can finally use the IH*)
+    last_x_assum(qspecl_then[`x'2`,`set_var x'0 a y'`
+                            ,`set_var (f x'0) a y''`,`f`,`live`]mp_tac)>>
+    discharge_hyps>-size_tac>>
+    fs[coloring_ok_def]>>
+    discharge_hyps>-
+      (fs[set_var_def,word_state_component_equality]>>
+      `s_key_eq y'.stack y''.stack` by 
+        metis_tac[s_key_eq_trans,s_key_eq_sym]>>
+      assume_tac pop_env_frame>>rfs[word_state_eq_rel_def]>>
+      fs[coloring_ok_def,LET_THM,strong_locals_rel_def]>>
+      rw[]>>
+
+      Cases_on`n=x'0`>>
+      fs[lookup_insert]>>
+      `f n ≠ f x'0` by cheat>>
+      imp_res_tac domain_lookup>>
+      fs[lookup_fromAList]>>
+      imp_res_tac ALOOKUP_MEM>>
+      `MEM 
+      Cases_on`st'`>>
+
+      cheat)>> (*probably need a strong lemma about pop_envs*)
+    rw[]>>
+    qspecl_then[`r`,`push_env x' F
+            (st with <|permute := perm; clock := st.clock − 1|>) with
+          locals := fromList2 q`,`perm'`]
+      assume_tac permute_swap_lemma>>
+    rfs[LET_THM]>>
+    (*"Hot-swap" the suffix of perm, maybe move into lemma*)
+    qexists_tac`λn. if n = 0:num then perm 0 else perm'' (n-1)`>>
+    qpat_abbrev_tac `env1 = push_env A B C with locals := D`>>
+    qpat_assum `A = (SOME B,C)` mp_tac>>
+    qpat_abbrev_tac `env2 = push_env A B C with
+                     <|locals:=D;permute:=E|>`>>
+    strip_tac>>
+    `env1 = env2` by 
+      (unabbrev_all_tac>>
+      fs[push_env_def,LET_THM,env_to_list_def
+        ,word_state_component_equality,FUN_EQ_THM])>>
+    simp[pop_env_perm]>>
+    IF_CASES_TAC>>
+    cheat)
+    >-
+    (*Exceptions*)
+    (fs[]>>strip_tac
+    imp_res_tac s_val_eq_LAST_N_exists>>
+    first_x_assum(qspecl_then[`envy.stack`,`e'`,`ls'`] assume_tac)>>
+    rfs[]>>
+    Cases_on`o0`
+    >-
+      (*No handler*)
+      (fs[]>>
+      qexists_tac`perm`>>
+      Cases_on`b`>>fs[]>>
+      `ls=ls'` by cheat>> (*because they are common suffixes*)
+      metis_tac[s_val_and_key_eq,s_key_eq_sym,s_key_eq_trans])
+    >>
+      (*Handler*)
+      Cases_on`x''`>>fs[]>>
+      unabbrev_all_tac>>
+      fs[push_env_def,LET_THM,env_to_list_def]>>
+      rpt (qpat_assum `LAST_N A B = C` mp_tac)>>
+      simp[LAST_N_LENGTH_cond]>>
+      rpt strip_tac>>
+      fs[domain_fromAList]>>
+      imp_res_tac list_rearrange_keys>>
+      `set (MAP FST lss') = domain y` by
+        (qpat_assum`A=MAP FST lss'` (SUBST1_TAC o SYM)>>
+        fs[EXTENSION]>>rw[EXISTS_PROD]>>
+        simp[MEM_MAP,QSORT_MEM]>>rw[EQ_IMP_THM]
+        >-
+          (Cases_on`y'`>>
+          fs[MEM_toAList]>>
+          imp_res_tac domain_lookup>>
+          metis_tac[])
+        >>
+          fs[EXISTS_PROD,MEM_toAList]>>
+          metis_tac[domain_lookup])>>
+      fs[]>>
+      qpat_abbrev_tac `cr'=r' with<|locals:= A;stack:=B;handler:=C|>`>>
+      (*Use the IH*)
+      last_x_assum(qspecl_then[`r''`,`set_var q' w r'`
+                            ,`set_var (f q') w cr'`,`f`,`live`]mp_tac)>>
+      discharge_hyps>-size_tac>>
+      fs[coloring_ok_def]>>
+      discharge_hyps>-
+      (fs[set_var_def,word_state_component_equality,Abbr`cr'`]>>
+      fs[coloring_ok_def,LET_THM,strong_locals_rel_def]>>
+      rw[]>>
+      cheat)>>
+      rw[]>>
+      qspecl_then[`r`,`st with <|locals := fromList2 q;stack :=
+            StackFrame (list_rearrange (perm 0)
+              (QSORT key_val_compare (nub (toAList x'))))
+              (SOME r'.handler)::st.stack;
+            permute := (λn. perm (n + 1)); handler := LENGTH st.stack;
+            clock := st.clock − 1|>`,`perm'`]
+        assume_tac permute_swap_lemma>>
+      rfs[LET_THM]
+      (*"Hot-swap" the suffix of perm, maybe move into lemma*)
+      qexists_tac`λn. if n = 0:num then perm 0 else perm'' (n-1)`>>
+      `(λn. perm'' n) = perm''` by fs[FUN_EQ_THM]>>
+      fs[]>>
+      `domain (fromAList lss) = domain x'1` by cheat>>
+      fs[set_var_perm])
+    >>
+    (*The rest*)
+    rw[]>>qexists_tac`perm`>>fs[]>>
+    TRY(pop_assum(qspec_then`envy.stack` mp_tac)>>
+      discharge_hyps>-
+      (unabbrev_all_tac>>fs[word_state_component_equality])>>
+      rw[]>>fs[]>>NO_TAC))
+     
+   (* 
     (*First use the oracle to generate cst.permute rotated*)
     (
     assume_tac (GEN_ALL push_env_s_val_eq)>>
@@ -1133,16 +1342,9 @@ val liveness_theorem = prove(``
       assume_tac)>>
     
     push_env_s_val_eq 
+    *)
     
-    
-    (*The rest*)
-    TRY(
-      rw[]>>qexists_tac`perm`>>fs[]>>
-      pop_assum(qspec_then`envy.stack` mp_tac)>>
-      discharge_hyps>-
-      (unabbrev_all_tac>>fs[word_state_component_equality])>>
-      rw[]>>fs[]>>NO_TAC)>>
-    (*Result*)
+     (*Result*)
     >-
       
 
