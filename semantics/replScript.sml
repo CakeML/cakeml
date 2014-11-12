@@ -38,14 +38,14 @@ val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
   ast_repl state [] [] Terminate) ∧
 
 (!state type_errors asts top rest tdecs' tenvT' tenvM' tenvC' tenv' store' envC' r.
-  (type_top state.tdecs state.tenvT state.tenvM state.tenvC state.tenv top tdecs' tenvT' tenvM' tenvC' tenv') ∧
+  (type_top T state.tdecs state.tenvT state.tenvM state.tenvC state.tenv top tdecs' tenvT' tenvM' tenvC' tenv') ∧
   evaluate_top F (state.sem_env.sem_envM, state.sem_env.sem_envC, state.sem_env.sem_envE) state.sem_env.sem_store top (store',envC',r) ∧
   ast_repl (update_repl_state top state (union_decls tdecs' state.tdecs) tenvT' tenvM' tenvC' tenv' store' envC' r) type_errors asts rest
   ⇒
   ast_repl state (F::type_errors) (SOME top::asts) (Result (print_result tenv' top r) rest)) ∧
 
 (!state type_errors asts top tdecs' tenvT' tenvM' tenvC' tenv'.
-  (type_top state.tdecs state.tenvT state.tenvM state.tenvC state.tenv top tdecs' tenvT' tenvM' tenvC' tenv') ∧
+  (type_top T state.tdecs state.tenvT state.tenvM state.tenvC state.tenv top tdecs' tenvT' tenvM' tenvC' tenv') ∧
   top_diverges (state.sem_env.sem_envM, state.sem_env.sem_envC, state.sem_env.sem_envE) (remove_count state.sem_env.sem_store) top
   ⇒
   ast_repl state (F::type_errors) (SOME top::asts) Diverge) ∧
