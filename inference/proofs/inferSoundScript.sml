@@ -1057,7 +1057,7 @@ val infer_d_sound = Q.prove (
   check_cenv cenv ∧
   check_env {} env
   ⇒
-  type_d mn (convert_decls decls) tenvT (convert_menv menv) cenv (bind_var_list2 (convert_env2 env) Empty) d (convert_decls decls') tenvT' cenv' (convert_env2 env')`,
+  type_d T mn (convert_decls decls) tenvT (convert_menv menv) cenv (bind_var_list2 (convert_env2 env) Empty) d (convert_decls decls') tenvT' cenv' (convert_env2 env')`,
  cases_on `d` >>
  rpt gen_tac >>
  strip_tac >>
@@ -1113,11 +1113,11 @@ val infer_d_sound = Q.prove (
                  imp_res_tac infer_p_wfs >>
                  imp_res_tac t_unify_wfs >>
                  metis_tac [sub_completion_apply, t_unify_apply]) >>
-     cases_on `num_tvs tenv' = 0` >>
+     cases_on `¬(is_value e)` >>
      rw [] >|
-     [disj2_tac >>
-          qexists_tac `convert_t (t_walkstar last_sub t)` >>
+     [qexists_tac `convert_t (t_walkstar last_sub t)` >>
           qexists_tac `(convert_env last_sub env'')` >>
+          `num_tvs tenv' = 0` by metis_tac [] >>
           rw [] >|
           [rw [empty_decls_def, convert_decls_def],
            rw [ZIP_MAP, MAP_MAP_o, combinTheory.o_DEF] >>
@@ -1127,12 +1127,12 @@ val infer_d_sound = Q.prove (
                (PairCases_on `h` >>
                     rw []) >>
                rw [MAP_MAP_o, combinTheory.o_DEF, remove_pair_lem],
+           cheat,
            imp_res_tac infer_p_bindings >>
                fs [],
            metis_tac [],
            fs [bind_tvar_def]],
-      disj1_tac >>
-          qexists_tac `num_tvs tenv'` >>
+      qexists_tac `num_tvs tenv'` >>
           qexists_tac `convert_t (t_walkstar last_sub t)` >>
           qexists_tac `(convert_env last_sub env'')` >>
           rw [] >|
@@ -1228,7 +1228,6 @@ val infer_d_sound = Q.prove (
  >- rw [convert_decls_def, convert_env2_def, empty_decls_def]
  >- (rw [convert_decls_def, convert_env2_def]>>metis_tac[MAP_ID]));
 
-
 val infer_ds_sound = Q.prove (
 `!mn decls tenvT menv cenv env ds st1 decls' tenvT' cenv' env' st2 tenv.
   infer_ds mn decls tenvT menv cenv env ds st1 = (Success (decls',tenvT',cenv',env'), st2) ∧
@@ -1237,7 +1236,7 @@ val infer_ds_sound = Q.prove (
   check_cenv cenv ∧
   check_env {} env
   ⇒
-  type_ds mn (convert_decls decls) tenvT (convert_menv menv) cenv (bind_var_list2 (convert_env2 env) Empty) ds (convert_decls decls') tenvT' cenv' (convert_env2 env')`,
+  type_ds T mn (convert_decls decls) tenvT (convert_menv menv) cenv (bind_var_list2 (convert_env2 env) Empty) ds (convert_decls decls') tenvT' cenv' (convert_env2 env')`,
  induct_on `ds` >>
  rpt gen_tac >>
  `?mdecls tdecls edecls. decls = (mdecls,tdecls,edecls)` by metis_tac [pair_CASES] >>
@@ -1543,7 +1542,7 @@ val infer_top_sound = Q.store_thm ("infer_top_sound",
   (infer_top decls tenvT menv cenv env top st1 = (Success (decls',tenvT',menv', cenv', env'), st2)) ∧
   infer_sound_invariant tenvT menv cenv env
   ⇒
-  type_top (convert_decls decls) tenvT (convert_menv menv) cenv 
+  type_top T (convert_decls decls) tenvT (convert_menv menv) cenv 
            (bind_var_list2 (convert_env2 env) Empty) 
            top 
            (convert_decls decls') tenvT' (convert_menv menv') cenv' (convert_env2 env') ∧
@@ -1659,7 +1658,7 @@ val infer_prog_sound = Q.store_thm ("infer_prog_sound",
   (infer_prog decls tenvT menv cenv env prog st1 = (Success (decls',tenvT',menv',cenv', env'), st2)) ∧
   infer_sound_invariant tenvT menv cenv env
   ⇒
-  type_prog (convert_decls decls) tenvT (convert_menv menv) cenv (bind_var_list2 (convert_env2 env) Empty) prog (convert_decls decls') tenvT' (convert_menv menv') cenv' (convert_env2 env') ∧
+  type_prog T (convert_decls decls) tenvT (convert_menv menv) cenv (bind_var_list2 (convert_env2 env) Empty) prog (convert_decls decls') tenvT' (convert_menv menv') cenv' (convert_env2 env') ∧
   infer_sound_invariant (merge_mod_env tenvT' tenvT) (FUNION menv' menv) (merge_alist_mod_env cenv' cenv) (env' ++ env)`,
  induct_on `prog` >>
  rw [infer_prog_def, success_eqns]
