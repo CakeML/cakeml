@@ -2541,6 +2541,14 @@ val type_ctxts_freevars = Q.store_thm ("type_ctxts_freevars",
 
 (* ---------- type_d ---------- *)
 
+val type_d_check_uniq = Q.store_thm ("type_d_check_uniq",
+`!uniq tvs tdecs tenvT tenvM tenvC tenv d tdecs' tenvT' tenvC' tenv' tenvM'' tenvC''.
+  type_d uniq tvs tdecs tenvT tenvM tenvC tenv d tdecs' tenvT' tenvC' tenv'
+  ⇒
+  type_d F tvs tdecs tenvT tenvM tenvC tenv d tdecs' tenvT' tenvC' tenv'`,
+ rw [type_d_cases] >>
+ metis_tac []);
+
 val type_d_tenv_ok = Q.store_thm ("type_d_tenv_ok",
 `!uniq tvs tdecs tenvT tenvM tenvC tenv d tdecs' tenvT' tenvC' tenv' tenvM'' tenvC''.
   type_d uniq tvs tdecs tenvT tenvM tenvC tenv d tdecs' tenvT' tenvC' tenv' ∧
@@ -2665,6 +2673,16 @@ val type_d_ctMap_disjoint = Q.store_thm ("type_d_ctMap_disjoint",
  metis_tac []);
 
 (* ---------- type_ds ---------- *)
+
+val type_ds_check_uniq = Q.store_thm ("type_ds_check_uniq",
+`!uniq tvs tdecs tenvT tenvM tenvC tenv d tdecs' tenvT' tenvC' tenv'.
+  type_ds uniq tvs tdecs tenvT tenvM tenvC tenv d tdecs' tenvT' tenvC' tenv'
+  ⇒
+  type_ds F tvs tdecs tenvT tenvM tenvC tenv d tdecs' tenvT' tenvC' tenv'`,
+ ho_match_mp_tac type_ds_ind >>
+ rw [] >>
+ rw [Once type_ds_cases] >>
+ metis_tac [type_d_check_uniq]);
 
 val type_ds_tenv_ok = Q.store_thm ("type_ds_tenv_ok",
 `!uniq tvs tdecs tenvT tenvM tenvC tenv ds tdecs' tenvT' tenvC' tenv'.
@@ -2847,6 +2865,25 @@ val type_specs_no_mod = Q.store_thm ("type_specs_no_mod",
  imp_res_tac type_d_mod >>
  PairCases_on `decls'` >>
  fs [union_decls_def]);
+
+(* ---------------- type_top, type_prog uniqueness flag ---------- *)
+val type_top_check_uniq = Q.store_thm ("type_top_check_uniq",
+`!uniq tdecs tenvT tenvM tenvC tenv top tdecs' tenvT' tenvM' tenvC' tenv'.
+  type_top uniq tdecs tenvT tenvM tenvC tenv top tdecs' tenvT' tenvM' tenvC' tenv'
+  ⇒
+  type_top F tdecs tenvT tenvM tenvC tenv top tdecs' tenvT' tenvM' tenvC' tenv'`,
+ rw [type_top_cases] >>
+ metis_tac [type_d_check_uniq, type_ds_check_uniq]);
+
+val type_prog_check_uniq = Q.store_thm ("type_prog_check_uniq",
+`!uniq tdecs tenvT tenvM tenvC tenv prog tdecs' tenvT' tenvM' tenvC' tenv'.
+  type_prog uniq tdecs tenvT tenvM tenvC tenv prog tdecs' tenvT' tenvM' tenvC' tenv'
+  ⇒
+  type_prog F tdecs tenvT tenvM tenvC tenv prog tdecs' tenvT' tenvM' tenvC' tenv'`,
+ ho_match_mp_tac type_prog_ind >>
+ rw [] >>
+ rw [Once type_prog_cases] >>
+ metis_tac [type_top_check_uniq]);
 
 (* closed *)
 

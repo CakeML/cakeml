@@ -2589,7 +2589,7 @@ val infer_d_complete = Q.prove (
   tenvC_ok cenv ∧
   tenv_inv FEMPTY tenv tenvE ∧
   num_tvs tenvE = 0 ∧
-  type_d mn (set mdecls,set tdecls,set edecls) tenvT (convert_menv menv) cenv tenvE d (set mdecls',set tdecls',set edecls') tenvT' cenv' tenvE'
+  type_d T mn (set mdecls,set tdecls,set edecls) tenvT (convert_menv menv) cenv tenvE d (set mdecls',set tdecls',set edecls') tenvT' cenv' tenvE'
   ⇒
   ?tenv' st' mdecls'' tdecls'' edecls''.
     set mdecls'' = set mdecls' ∧
@@ -2704,4 +2704,4 @@ val infer_d_complete = Q.prove (
  (* Exception definition *)
  >- metis_tac []);
 
-sval _ = export_theory ();
+val _ = export_theory ();
