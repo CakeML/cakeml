@@ -2560,7 +2560,6 @@ val tenv_inv_bind_tvar = store_thm("tenv_inv_bind_tvar",
   num_tvs_def
 *)
 
-
 val generalise_no_uvars = Q.prove (
 `(!t m n s dbvars.
   check_t dbvars {} t
@@ -2582,8 +2581,9 @@ val generalise_no_uvars = Q.prove (
  rw [] >>
  rw []);
 
+
 val infer_d_complete = Q.prove (
-`!mn mdecls tdecls edecls tenvT menv cenv tenvE d mdecls' tdecls' edecls' tenvT' cenv' tenvE' tenv.
+`!mn mdecls tdecls edecls tenvT menv cenv tenvE d mdecls' tdecls' edecls' tenvT' cenv' tenvE' tenv st.
   check_menv menv ∧
   check_env {} tenv ∧
   tenvC_ok cenv ∧
@@ -2595,8 +2595,9 @@ val infer_d_complete = Q.prove (
     set mdecls'' = set mdecls' ∧
     set tdecls'' = set tdecls' ∧
     set edecls'' = set edecls' ∧
+    tenvE' = MAP (\(x,(n,t)). (x, (n, convert_t t))) tenv' ∧
     (* Need something relating tenv' with tenvE'. tenv_inv is not the right thing here. It's probably some mapping of unconvert *)
-    infer_d mn (mdecls,tdecls,edecls) tenvT menv cenv tenv d init_infer_state = 
+    infer_d mn (mdecls,tdecls,edecls) tenvT menv cenv tenv d st = 
       (Success ((mdecls'',tdecls'',edecls''), tenvT', cenv', tenv'), st')`,
  rw [type_d_cases] >>
  rw [infer_d_def, success_eqns, LAMBDA_PROD, EXISTS_PROD, init_state_def] >>
@@ -2647,12 +2648,21 @@ val infer_d_complete = Q.prove (
      pop_assum (qspecl_then [`[]`] assume_tac) >>
      fs [] >>
      (* because this is what sub completion does *)
-     `?n m. check_t m {} (t_walkstar s' t') ∧ 
-            check_t n {} (t_walkstar s'' t'')` 
-             by cheat >> 
+     `check_t (num_tvs tenvE) {} (t_walkstar s' t') ∧ check_t (num_tvs tenvE) {} (t_walkstar s'' t'')` 
+             by (conj_tac >>
+                 match_mp_tac (GEN_ALL sub_completion_completes) >>
+                 rw []
+                 >- metis_tac [sub_completion_wfs]
+                 >- (imp_res_tac (CONJUNCT1 infer_e_check_t) >>
+                     fs [])
+                 >- fs [sub_completion_def]
+                 >- metis_tac [sub_completion_wfs]
+                 >- (imp_res_tac (CONJUNCT1 infer_p_check_t) >>
+                     fs [])
+                 >- fs [sub_completion_def]) >>
      `t_walkstar s'' (t_walkstar s' t') = t_walkstar s'' (t_walkstar s'' t'')` by metis_tac [convert_bi_remove] >>
-     (* by t_compat_def and that t_walkstar should be idempotent *)
-     `t_walkstar s'' t' = t_walkstar s'' t''` by cheat >> 
+     `t_walkstar s'' t' = t_walkstar s'' t''` 
+               by metis_tac [t_walkstar_SUBMAP, SUBMAP_REFL, t_compat_def] >> 
      imp_res_tac sub_completion_wfs >>
      `t_compat st''.subst s''` 
                   by metis_tac [pure_add_constraints_success, sub_completion_def, t_compat_def] >>
@@ -2660,12 +2670,23 @@ val infer_d_complete = Q.prove (
      qexists_tac `si` >>
      rw [] >>
      (* *)
-     `EVERY (check_t 0 {}) (MAP (t_walkstar si) (MAP SND tenv''))` 
+     `EVERY (check_t 0 {}) (MAP (t_walkstar s'') (MAP SND tenv''))` 
                  by (rw [EVERY_MAP] >>
                      rw [EVERY_MEM] >>
                      match_mp_tac (CONJUNCT1 check_t_walkstar) >>
-                     cheat) >>
-     metis_tac [generalise_no_uvars])
+                     fs [t_compat_def] >>
+                     imp_res_tac infer_p_check_t >>
+                     fs [EVERY_MEM] >>
+                     res_tac >>
+                     PairCases_on `x` >>
+                     fs [sub_completion_def]) >>
+     cheat)                
+     (*
+     `∃s' t'. generalise_list 0 0 FEMPTY (MAP (t_walkstar si) (MAP SND tenv'')) = (0,s',t')` 
+                by metis_tac [generalise_no_uvars] >>
+     rw [tenv_add_tvs_def, ] >>
+*)
+
  (* generalised letrec *)
  >- cheat
  (* Type definition *)
@@ -2683,4 +2704,4 @@ val infer_d_complete = Q.prove (
  (* Exception definition *)
  >- metis_tac []);
 
-val _ = export_theory ();
+sval _ = export_theory ();
