@@ -638,6 +638,103 @@ val weak_decls_other_mods_refl = Q.store_thm ("weak_decls_other_mods_refl",
  PairCases_on `decls` >>
  rw [weak_decls_other_mods_def]);
 
+val type_p_unweakening = Q.prove (
+`(!tvs tenvC p t tenv. type_p tvs tenvC p t tenv ⇒
+    !tenvC' t' tenv'. weakC tenvC' tenvC ∧ type_p tvs tenvC' p t' tenv' ⇒ type_p tvs tenvC p t' tenv') ∧
+ (!tvs tenvC ps ts tenv. type_ps tvs tenvC ps ts tenv ⇒
+    !tenvC' ts' tenv'. weakC tenvC' tenvC ∧ type_ps tvs tenvC' ps ts' tenv' ⇒ type_ps tvs tenvC ps ts' tenv')`,
+ ho_match_mp_tac type_p_ind >>
+ rw [] >>
+ TRY (fs [Once type_p_cases] >> NO_TAC) >>
+ pop_assum mp_tac >>
+ ONCE_REWRITE_TAC [type_p_cases] >>
+ rw []
+ >- (imp_res_tac weak_tenvC_lookup >>
+     fs [] >>
+     rw [] >>
+     metis_tac []) >>
+ metis_tac []);
+
+val type_e_unweakening = Q.prove (
+`(!tenvM' tenvC' tenv e t'. type_e tenvM' tenvC' tenv e t' ⇒
+    ∀tenvM tenvC t tenv'. num_tvs tenv' = num_tvs tenv ∧
+      weakM tenvM' tenvM ∧ weakC tenvC' tenvC ∧ type_e tenvM tenvC tenv' e t ⇒
+      type_e tenvM tenvC tenv e t') ∧
+ (!tenvM' tenvC' tenv es ts'. type_es tenvM' tenvC' tenv es ts' ⇒
+    ∀tenvM tenvC ts tenv'. num_tvs tenv' = num_tvs tenv ∧
+      weakM tenvM' tenvM ∧ weakC tenvC' tenvC ∧ type_es tenvM tenvC tenv' es ts ⇒
+      type_es tenvM tenvC tenv es ts') ∧
+ (!tenvM' tenvC' tenv funs tenv'''. type_funs tenvM' tenvC' tenv funs tenv''' ⇒
+    ∀tenvM tenvC tenv'' tenv'. num_tvs tenv' = num_tvs tenv ∧
+      weakM tenvM' tenvM ∧ weakC tenvC' tenvC ∧ type_funs tenvM tenvC tenv' funs tenv'' ⇒
+      type_funs tenvM tenvC tenv funs tenv''')`,
+ ho_match_mp_tac type_e_ind >>
+ rw [] >>
+ TRY (fs [Once type_e_cases] >> NO_TAC) >>
+ pop_assum mp_tac >>
+ ONCE_REWRITE_TAC [type_e_cases] >>
+ rw [RES_FORALL, LAMBDA_PROD, FORALL_PROD]
+ >- metis_tac [] 
+ >- metis_tac [] 
+ >- (fs [RES_FORALL, LAMBDA_PROD, FORALL_PROD] >>
+     res_tac >>
+     qexists_tac `tenv'''` >>
+     rw []
+     >- metis_tac [type_p_unweakening] >>
+     PairCases_on `tenvC` >>
+     metis_tac [num_tvs_bind_var_list])
+ >- (imp_res_tac weak_tenvC_lookup >>
+     fs [] >>
+     rw [] >>
+     metis_tac [])
+ >- metis_tac [] 
+ >- (fs [t_lookup_var_id_def] >>
+     every_case_tac >>
+     fs []
+     >- metis_tac [] >>
+     fs [weakM_def] >>
+     res_tac >>
+     fs [weakE_def] >>
+     rw [] >>
+     pop_assum (qspecl_then [`a`] mp_tac) >>
+     rw [] >>
+     cheat)
+ >- metis_tac [bind_tenv_def, num_tvs_def] 
+ >- metis_tac [] 
+ >- metis_tac [] 
+ >- metis_tac [] 
+ >- metis_tac [] 
+ >- metis_tac [] 
+ >- metis_tac [] 
+ >- (fs [RES_FORALL, LAMBDA_PROD, FORALL_PROD] >>
+     res_tac >>
+     qexists_tac `t'` >>
+     rw []
+     >- (PairCases_on `tenvC` >>
+         metis_tac [num_tvs_bind_var_list]) >>
+     res_tac >>
+     qexists_tac `tenv'''` >>
+     rw []
+     >- metis_tac [type_p_unweakening]
+     >- (PairCases_on `tenvC` >>
+         metis_tac [num_tvs_bind_var_list]))
+ >- cheat
+ >- metis_tac [num_tvs_bind_var_list]
+ >- metis_tac [] 
+ >- metis_tac [] 
+ >- metis_tac [bind_tenv_def, num_tvs_def] 
+ >- metis_tac [])
+
+val type_e_determ_weakening = Q.store_thm ("type_e_determ_weakening",
+`!tenvM tenvC tenv e t.
+  weakM tenvM'' tenvM ∧ 
+  weakC tenvC'' tenvC ∧
+  type_e tenvM tenvC tenv e t ∧
+  type_e_determ tenvM tenvC tenv e
+  ⇒
+  type_e_determ tenvM'' tenvC'' tenv e`,
+ metis_tac [type_e_determ_def, type_e_unweakening]);
+
 val type_d_weakening = Q.store_thm ("type_d_weakening",
 `!mn decls tenvT tenvM tenvC tenv d decls' tenvT' tenvC' tenv' decls'' tenvM'' tenvC''.
   type_d mn decls tenvT tenvM tenvC tenv d decls' tenvT' tenvC' tenv' ∧
@@ -650,7 +747,7 @@ val type_d_weakening = Q.store_thm ("type_d_weakening",
   type_d mn decls'' tenvT tenvM'' tenvC'' tenv d decls' tenvT' tenvC' tenv'`,
  rw [type_d_cases]
  >- metis_tac [type_p_weakening, type_e_weakening, weak_tenvE_refl, DECIDE ``!x:num. x ≥ x``]
- >- metis_tac [type_p_weakening, type_e_weakening, weak_tenvE_refl, DECIDE ``!x:num. x ≥ x``]
+ >- metis_tac [type_p_weakening, type_e_weakening, weak_tenvE_refl, DECIDE ``!x:num. x ≥ x``, type_e_determ_weakening]
  >- metis_tac [type_p_weakening, type_e_weakening, weak_tenvE_refl, DECIDE ``!x:num. x ≥ x``]
  >- (`?mdecls'' tdecls'' edecls''. decls'' = (mdecls'',tdecls'',edecls'')` by metis_tac [pair_CASES] >>
      rw []
