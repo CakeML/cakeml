@@ -606,6 +606,12 @@ val _ = Define `
 (MAP (\ (n,t) .  (n,(tvs,t))) tenv))`;
 
 
+(*val type_e_determ : tenvM -> tenvC -> tenvE -> exp -> bool*)
+val _ = Define `
+ (type_e_determ menv cenv tenv e =  
+(! t1 t2. (type_e menv cenv tenv e t1 /\ type_e menv cenv tenv e t2) ==> (t1 = t2)))`;
+
+
 val _ = Hol_reln ` (! tvs mn tenvT menv cenv tenv p e t tenv' decls.
 (is_value e /\
 ALL_DISTINCT (pat_bindings p []) /\
@@ -615,7 +621,11 @@ type_e menv cenv (bind_tvar tvs tenv) e t)
 type_d mn decls tenvT menv cenv tenv (Dlet p e) empty_decls FEMPTY [] (tenv_add_tvs tvs tenv'))
 
 /\ (! mn tenvT menv cenv tenv p e t tenv' decls.
-(ALL_DISTINCT (pat_bindings p []) /\
+(
+(* The following line makes sure that when the value restriction prohibits
+   generalisation, a type error is given rather than picking an arbitrary 
+   instantiation *)~ (is_value e) /\ type_e_determ menv cenv tenv e /\
+ALL_DISTINCT (pat_bindings p []) /\
 type_p( 0) cenv p t tenv' /\
 type_e menv cenv tenv e t)
 ==>
