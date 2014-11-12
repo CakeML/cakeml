@@ -152,7 +152,7 @@ val coloring_ok_def = Define`
   (coloring_ok f (Call (SOME (v,cutset,ret_handler)) dest args h) live =
     (*top level NOTE: maybe put get_live here?*)
     let args_set = numset_list_insert args LN in
-    (INJ f (domain (insert v() (union cutset args_set))) UNIV ∧ 
+    (INJ f (domain (insert v () (union cutset args_set))) UNIV ∧ 
     (*returning handler*)
     (*not sure what to write for the return value yet..
       it probably needs to be colored differently from everything
@@ -166,7 +166,8 @@ val coloring_ok_def = Define`
     (case h of 
     | NONE => T
     | SOME(v,prog) =>
-        (*INJ f (domain(insert v () (get_live prog live))) UNIV ∧ *)
+        (*Generate a whole extra clique?*)
+        INJ f (domain (insert v () (union cutset args_set))) UNIV ∧
         coloring_ok f prog live))) ∧ 
   (coloring_ok f prog live =
     (*live before must be fine, and interference set must be fine*)
@@ -959,6 +960,23 @@ val key_map_implies = prove(
  rw[EL_MAP]>>
  Cases_on`EL x l'`>>fs[])
 
+(*Maybe strengthen*)
+val LAST_N_implies = prove(
+ ``LAST_N n (x::xs) = y::ys ∧ 
+   n ≤ LENGTH (x::xs)
+   ⇒  
+   ?c. LAST_N n (a::xs) = c::ys``,
+   rw[]>>Cases_on`n=LENGTH (x::xs)`
+   >-
+     (Q.ISPECL_THEN [`x::xs`] assume_tac bvp_lemmasTheory.LAST_N_LENGTH>>
+     fs[]>>
+     Q.ISPECL_THEN [`a::ys`] assume_tac bvp_lemmasTheory.LAST_N_LENGTH>>
+     fs[])
+   >>
+   imp_res_tac bvp_lemmasTheory.LAST_N_TL
+   metis_tac[bvp_lemmasTheory.LAST_N_LENGTH]
+
+
 val liveness_theorem = prove(``
 ∀prog st cst f live.
   coloring_ok f prog live ∧
@@ -1058,8 +1076,7 @@ val liveness_theorem = prove(``
   >- (*Store*)
     cheat
   >- (*Call*)
-    (
-    fs[wEval_def,LET_THM,coloring_ok_def,get_live_def,get_vars_perm]>>
+    (fs[wEval_def,LET_THM,coloring_ok_def,get_live_def,get_vars_perm]>>
     Cases_on`get_vars l st`>>fs[]>>
     imp_res_tac strong_locals_rel_get_vars>>
     pop_assum kall_tac>>
@@ -1165,7 +1182,8 @@ val liveness_theorem = prove(``
         FULL_SIMP_TAC bool_ss [INJ_DEF]>>
         SPOSE_NOT_THEN assume_tac>>
         last_x_assum(qspecl_then [`n`,`x'0`] mp_tac)>>
-        fs[domain_union])>>
+        (*takes forever here because of INJ*)
+        rw[domain_union])>>
       fs[lookup_fromAList]>>
       imp_res_tac key_map_implies>>
       rfs[]>>
@@ -1208,9 +1226,16 @@ val liveness_theorem = prove(``
       qexists_tac`perm`>>
       Cases_on`b`>>fs[]>>
       `ls=ls'` by 
-        unabbrev_all_tac>>
+        (unabbrev_all_tac>>
         fs[push_env_def,env_to_list_def,LET_THM]>>
-      cheat>> (*because they are common suffixes*)
+        Cases_on`st.handler < LENGTH st.stack`
+        >-
+          (imp_res_tac bvp_lemmasTheory.LAST_N_TL>>
+          rfs[]>>fs[])
+        >>
+          `st.handler = LENGTH st.stack` by DECIDE_TAC>>
+          rpt (qpat_assum `LAST_N A B = C` mp_tac)>-
+          simp[LAST_N_LENGTH_cond])>>
       metis_tac[s_val_and_key_eq,s_key_eq_sym,s_key_eq_trans])
     >>
       (*Handler*)
@@ -1234,6 +1259,10 @@ val liveness_theorem = prove(``
         >>
           fs[EXISTS_PROD,MEM_toAList]>>
           metis_tac[domain_lookup])>>
+      `domain x' = set (MAP FST lss)` by
+        (qpat_assum `A = MAP FST lss` (SUBST1_TAC o SYM)>>
+          fs[EXTENSION,MEM_MAP,QSORT_MEM,MEM_toAList
+            ,EXISTS_PROD,domain_lookup])>>
       fs[]>>
       qpat_abbrev_tac `cr'=r' with<|locals:= A;stack:=B;handler:=C|>`>>
       (*Use the IH*)
@@ -1244,8 +1273,27 @@ val liveness_theorem = prove(``
       discharge_hyps>-
       (fs[set_var_def,word_state_component_equality,Abbr`cr'`]>>
       fs[coloring_ok_def,LET_THM,strong_locals_rel_def]>>
-      rw[]>>
-      cheat)>>
+      rw[]>-metis_tac[s_key_eq_trans,s_val_and_key_eq]>>
+      Cases_on`q' = n`>>fs[lookup_insert]>>
+      `f n ≠ f q'` by
+        (imp_res_tac domain_lookup>>
+        fs[domain_fromAList]>>
+        qpat_assum `INJ f A B` kall_tac>>
+        qpat_assum `INJ f A B` mp_tac>>
+               `n ∈ set (MAP FST lss)` by fs[]>>
+        FULL_SIMP_TAC bool_ss [INJ_DEF]>>
+        strip_tac>>pop_assum(qspecl_then [`n`,`q'`] mp_tac)>>
+        rw[domain_union]>>
+        metis_tac[])>>
+      fs[lookup_fromAList]>>
+      imp_res_tac key_map_implies>>
+      rfs[]>>
+      `lss' = ZIP(MAP FST lss',MAP SND lss')` by fs[ZIP_MAP_FST_SND_EQ]>>
+      pop_assum SUBST1_TAC>>
+      pop_assum (SUBST1_TAC o SYM)>>
+      match_mp_tac ALOOKUP_key_remap_2>>
+      fs[]>>CONJ_TAC>>
+      metis_tac[LENGTH_MAP,ZIP_MAP_FST_SND_EQ])>>
       rw[]>>
       qspecl_then[`r`,`st with <|locals := fromList2 q;stack :=
             StackFrame (list_rearrange (perm 0)
@@ -1254,12 +1302,12 @@ val liveness_theorem = prove(``
             permute := (λn. perm (n + 1)); handler := LENGTH st.stack;
             clock := st.clock − 1|>`,`perm'`]
         assume_tac permute_swap_lemma>>
-      rfs[LET_THM]
+      rfs[LET_THM]>>
       (*"Hot-swap" the suffix of perm, maybe move into lemma*)
       qexists_tac`λn. if n = 0:num then perm 0 else perm'' (n-1)`>>
       `(λn. perm'' n) = perm''` by fs[FUN_EQ_THM]>>
-      fs[]>>
-      `domain (fromAList lss) = domain x'1` by cheat>>
+      `domain (fromAList lss) = domain x'1` by 
+        metis_tac[domain_fromAList]>>
       fs[set_var_perm])
     >>
     (*The rest*)
