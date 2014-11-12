@@ -3,11 +3,11 @@ open lexer_funTheory printTheory initialProgramTheory gramTheory cmlPtreeConvers
 val _ = new_theory"standalone"
 
 val (ast_standalone_rules,ast_standalone_ind,ast_standalone_cases) = Hol_reln`
-  (type_prog state.tdecs state.tenvT state.tenvM state.tenvC state.tenv prog tdecs' tenvT' tenvM' tenvC' tenv' ∧
+  (type_prog T state.tdecs state.tenvT state.tenvM state.tenvC state.tenv prog tdecs' tenvT' tenvM' tenvC' tenv' ∧
    evaluate_whole_prog F (state.sem_env.sem_envM, state.sem_env.sem_envC, state.sem_env.sem_envE) state.sem_env.sem_store prog (store',envC',r)
    ⇒
    ast_standalone state F prog (SOME (print_prog_result tenv' r))) ∧
-  (type_prog state.tdecs state.tenvT state.tenvM state.tenvC state.tenv prog tdecs' tenvT' tenvM' tenvC' tenv' ∧
+  (type_prog T state.tdecs state.tenvT state.tenvM state.tenvC state.tenv prog tdecs' tenvT' tenvM' tenvC' tenv' ∧
    prog_diverges (state.sem_env.sem_envM, state.sem_env.sem_envC, state.sem_env.sem_envE) (remove_count state.sem_env.sem_store) prog
    ⇒
    ast_standalone state F prog NONE) ∧
