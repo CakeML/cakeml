@@ -12,12 +12,12 @@ val _ = new_theory "inferComplete";
 
 
 (*
-val tenv_inv_bind_tvar = store_thm("tenv_inv_bind_tvar",
+val tenv_invC_bind_tvar = store_thm("tenv_invC_bind_tvar",
   ``∀tvs s tenv tenvE.
-      tenv_inv s tenv tenvE ⇒
-      tenv_inv s tenv (bind_tvar tvs tenvE)``,
+      tenv_invC s tenv tenvE ⇒
+      tenv_invC s tenv (bind_tvar tvs tenvE)``,
   rw[bind_tvar_def] >>
-  fs[tenv_inv_def,lookup_tenv_def] >>
+  fs[tenv_invC_def,lookup_tenv_def] >>
   rpt gen_tac >> strip_tac >>
   lookup_tenv_inc
   lookup_tenv_inc_tvs
@@ -51,7 +51,7 @@ val infer_d_complete = Q.prove (
   check_menv menv ∧
   check_env {} tenv ∧
   tenvC_ok cenv ∧
-  tenv_inv FEMPTY tenv tenvE ∧
+  tenv_invC FEMPTY tenv tenvE ∧
   num_tvs tenvE = 0 ∧
   type_d T mn (set mdecls,set tdecls,set edecls) tenvT (convert_menv menv) cenv tenvE d (set mdecls',set tdecls',set edecls') tenvT' cenv' tenvE'
   ⇒
@@ -60,7 +60,7 @@ val infer_d_complete = Q.prove (
     set tdecls'' = set tdecls' ∧
     set edecls'' = set edecls' ∧
     tenvE' = MAP (\(x,(n,t)). (x, (n, convert_t t))) tenv' ∧
-    (* Need something relating tenv' with tenvE'. tenv_inv is not the right thing here. It's probably some mapping of unconvert *)
+    (* Need something relating tenv' with tenvE'. tenv_invC is not the right thing here. It's probably some mapping of unconvert *)
     infer_d mn (mdecls,tdecls,edecls) tenvT menv cenv tenv d st = 
       (Success ((mdecls'',tdecls'',edecls''), tenvT', cenv', tenv'), st')`,
  rw [type_d_cases] >>
@@ -83,7 +83,7 @@ val infer_d_complete = Q.prove (
    simp[] >>
    discharge_hyps >- (
      simp[sub_completion_def,pure_add_constraints_def] ) >>
-   (* the tenv_inv hypothesis seems like it might be wrong? *)
+   (* the tenv_invC hypothesis seems like it might be wrong? *)
    discharge_hyps >- cheat >>
    strip_tac >> simp[] >>
    (infer_p_complete |> CONJUNCT1
@@ -144,6 +144,7 @@ val infer_d_complete = Q.prove (
                      res_tac >>
                      PairCases_on `x` >>
                      fs [sub_completion_def]) >>
+     fs [type_e_determ_def] >>
      cheat)                
      (*
      `∃s' t'. generalise_list 0 0 FEMPTY (MAP (t_walkstar si) (MAP SND tenv'')) = (0,s',t')` 
