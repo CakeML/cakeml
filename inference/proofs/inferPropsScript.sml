@@ -309,11 +309,11 @@ SIMP_TAC (srw_ss()) [t_vars_eqn, generalise_def, infer_subst_def] >|
           metis_tac [infer_subst_submap]]]);
 
 val generalise_subst_empty = Q.store_thm ("generalise_subst_empty",
-`!ts tvs s ts'.
-  (generalise_list 0 0 FEMPTY ts = (tvs, s, ts'))
+`!n ts tvs s ts'.
+  (generalise_list 0 n FEMPTY ts = (tvs, s, ts'))
   ⇒
   (FDOM s = { uv | uv ∈ BIGUNION (set (MAP t_vars ts)) }) ∧
-  (!uv. uv ∈ FDOM s ⇒ ∃tv. (FAPPLY s uv = tv) ∧ tv < tvs) ∧
+  (!uv. uv ∈ FDOM s ⇒ ∃tv. (FAPPLY s uv = tv) ∧ tv < tvs + n) ∧
   (BIGUNION (set (MAP t_vars ts')) = {}) ∧
   (ts' = MAP (infer_subst s) ts)`,
 rw [] >>
@@ -2015,16 +2015,16 @@ PairCases_on `x` >>
 rw []);
 
 val generalise_complete = Q.store_thm ("generalise_complete",
-`!s l tvs s' ts tvs next_uvar.
+`!n s l tvs s' ts tvs next_uvar.
   t_wfs s ∧
   check_s 0 (count next_uvar) s ∧
   EVERY (\t. check_t 0 (count next_uvar) t) l ∧
-  (generalise_list 0 0 FEMPTY (MAP (t_walkstar s) l) = (tvs,s',ts))
+  (generalise_list 0 n FEMPTY (MAP (t_walkstar s) l) = (tvs,s',ts))
   ⇒
   ?ec1 last_sub. 
     (ts = MAP (t_walkstar last_sub) l) ∧
     t_wfs last_sub ∧
-    sub_completion tvs next_uvar s ec1 last_sub`,
+    sub_completion (tvs + n) next_uvar s ec1 last_sub`,
 rw [] >>
 imp_res_tac generalise_subst_empty >>
 rw [sub_completion_def] >>
@@ -2182,7 +2182,7 @@ rw [] >|
           metis_tac [check_t_def, EVERY_DEF],
       `FLOOKUP (FEMPTY |++ (MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) ts)) uv' = SOME (last_sub ' uv')`
                     by metis_tac [flookup_update_list_some] >>
-          `(!uv. uv ∈ FDOM (FEMPTY |++ (MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) ts)) ⇒ ∃tv. (FEMPTY |++ (MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) ts)) ' uv = Infer_Tvar_db tv ∧ tv < tvs)`
+          `(!uv. uv ∈ FDOM (FEMPTY |++ (MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) ts)) ⇒ ∃tv. (FEMPTY |++ (MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) ts)) ' uv = Infer_Tvar_db tv ∧ tv < tvs + n)`
                    by metis_tac [generalise_complete_lemma] >>
           fs [FLOOKUP_DEF] >>
           metis_tac [check_t_def],
@@ -2227,7 +2227,7 @@ val infer_d_check = Q.store_thm ("infer_d_check",
        (ts = MAP (t_walkstar last_sub) (MAP SND env'')) ∧
        t_wfs last_sub ∧
        sub_completion tvs st''''.next_uvar s ec1 last_sub`
-                  by metis_tac [generalise_complete, infer_d_check_s_helper1] >>
+                  by metis_tac [arithmeticTheory.ADD_0, generalise_complete, infer_d_check_s_helper1] >>
      rw [ZIP_MAP, MAP_MAP_o, combinTheory.o_DEF, EVERY_MAP] >>
      fs [EVERY_MAP] >>
      fs [sub_completion_def] >>
@@ -2260,7 +2260,7 @@ val infer_d_check = Q.store_thm ("infer_d_check",
         (ts = MAP (t_walkstar last_sub) (MAP (λn. Infer_Tuvar n) (COUNT_LIST (LENGTH l)))) ∧
         t_wfs last_sub ∧
         sub_completion tvs st''''.next_uvar st'''''.subst ec1 last_sub`
-                 by metis_tac [generalise_complete, infer_d_check_s_helper2, LENGTH_COUNT_LIST] >>
+                 by metis_tac [arithmeticTheory.ADD_0, generalise_complete, infer_d_check_s_helper2, LENGTH_COUNT_LIST] >>
      rw [] >>
      fs [sub_completion_def] >>
      `LENGTH l = LENGTH (MAP (t_walkstar last_sub) (MAP (λn. Infer_Tuvar n) (COUNT_LIST (LENGTH l))))`
