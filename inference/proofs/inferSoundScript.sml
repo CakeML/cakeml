@@ -102,7 +102,7 @@ val infer_d_sound = Q.prove (
      `?last_sub ec1. sub_completion tvs st''''.next_uvar s ec1 last_sub ∧
                      t_wfs last_sub ∧
                      (ts = MAP (t_walkstar last_sub) (MAP SND env''))`
-                          by metis_tac [generalise_complete, infer_d_check_s_helper1] >>
+                          by metis_tac [arithmeticTheory.ADD_0, generalise_complete, infer_d_check_s_helper1] >>
      `num_tvs tenv' = tvs` 
                   by (Q.UNABBREV_TAC `tenv'` >>
                       fs [bind_tvar_def] >> 
@@ -205,7 +205,7 @@ val infer_d_sound = Q.prove (
      `?last_sub ec1. sub_completion tvs st''''.next_uvar st'''''.subst ec1 last_sub ∧
                      t_wfs last_sub ∧
                      (ts = MAP (t_walkstar last_sub) (MAP (λn. Infer_Tuvar n) (COUNT_LIST (LENGTH l))))`
-                          by metis_tac [generalise_complete, infer_d_check_s_helper2, LENGTH_COUNT_LIST] >>
+                          by metis_tac [arithmeticTheory.ADD_0, generalise_complete, infer_d_check_s_helper2, LENGTH_COUNT_LIST] >>
      imp_res_tac sub_completion_add_constraints >>
      rw [] >>
      `(init_infer_state:(num |-> infer_t) infer_st).subst = FEMPTY` by fs [init_infer_state_def] >>
