@@ -278,6 +278,18 @@ val domain_FOLDR_delete = prove(``
   fs[DIFF_INSERT,EXTENSION]>>
   metis_tac[])
 
+val domain_FOLDR_union_subset = prove(``
+  !ls a.
+  MEM a ls ⇒ 
+  domain (get_live_exp a) ⊆ 
+  domain (FOLDR (λx y.union (get_live_exp x) y) LN ls)``,
+  Induct>>rw[]>>fs[domain_union,SUBSET_UNION,SUBSET_DEF]>>
+  metis_tac[])
+
+val SUBSET_OF_INSERT = store_thm("SUBSET_OF_INSERT",
+``!s x. s ⊆ x INSERT s``,
+  rw[SUBSET_DEF])
+
 (*
 EVAL ``MAP toAList (merge_pair (get_clash_sets
   (Seq (Move [1,2;3,4;5,6]) 
@@ -325,10 +337,6 @@ val INJ_UNION = prove(
   metis_tac[INJ_SUBSET,SUBSET_DEF,SUBSET_UNION])
 
 (*Cant find this anywhere...*)
-val SUBSET_OF_INSERT = store_thm("SUBSET_OF_INSERT",
-``!s x. s ⊆ x INSERT s``,
-  rw[SUBSET_DEF])
-
 val coloring_ok_alt_thm = prove(
 ``!f prog live.
   coloring_ok_alt f prog live ⇒ 
@@ -960,23 +968,64 @@ val key_map_implies = prove(
  rw[EL_MAP]>>
  Cases_on`EL x l'`>>fs[])
 
-(*Maybe strengthen*)
-val LAST_N_implies = prove(
- ``LAST_N n (x::xs) = y::ys ∧ 
-   n ≤ LENGTH (x::xs)
-   ⇒  
-   ?c. LAST_N n (a::xs) = c::ys``,
-   rw[]>>Cases_on`n=LENGTH (x::xs)`
-   >-
-     (Q.ISPECL_THEN [`x::xs`] assume_tac bvp_lemmasTheory.LAST_N_LENGTH>>
-     fs[]>>
-     Q.ISPECL_THEN [`a::ys`] assume_tac bvp_lemmasTheory.LAST_N_LENGTH>>
-     fs[])
-   >>
-   imp_res_tac bvp_lemmasTheory.LAST_N_TL
-   metis_tac[bvp_lemmasTheory.LAST_N_LENGTH]
+val apply_color_exp_lemma = prove(
+  ``∀st w cst f res. 
+    word_exp st w = SOME res ∧ 
+    word_state_eq_rel st cst ∧ 
+    strong_locals_rel f (domain (get_live_exp w)) st.locals cst.locals
+    ⇒ 
+    word_exp cst (apply_color_exp f w) = SOME res``,
+  ho_match_mp_tac word_exp_ind>>rw[]>>
+  fs[word_exp_def,apply_color_exp_def,strong_locals_rel_def
+    ,get_live_exp_def,word_state_eq_rel_def]
+  >-
+    (EVERY_CASE_TAC>>fs[])
+  >-
+    (Cases_on`word_exp st w`>>fs[]>>
+    `mem_load x st = mem_load x cst` by
+      fs[mem_load_def]>>fs[])
+  >-
+    (fs[LET_THM]>>
+    `MAP (\a.word_exp st a) wexps =
+     MAP (\a.word_exp cst a) (MAP (\a. apply_color_exp f a) wexps)` by
+       (simp[MAP_MAP_o] >>
+       simp[MAP_EQ_f] >>
+       gen_tac >>
+       strip_tac >>
+       first_assum(fn th => first_x_assum(mp_tac o C MATCH_MP th)) >>
+       fs[EVERY_MEM,MEM_MAP,PULL_EXISTS
+         ,miscTheory.IS_SOME_EXISTS] >>
+       first_assum(fn th => first_x_assum(mp_tac o C MATCH_MP th)) >>
+       strip_tac >>
+       disch_then(qspecl_then[`cst`,`f`,`x`]mp_tac) >>
+       discharge_hyps
+       >-
+         (fs[]>>
+         imp_res_tac domain_FOLDR_union_subset>>
+         rw[]>>
+         metis_tac[SUBSET_DEF])>>
+       fs[]) >>
+     pop_assum(SUBST1_TAC o SYM) >>
+     simp[EQ_SYM_EQ])
+  >>
+    EVERY_CASE_TAC>>fs[]>>res_tac>>fs[]>>
+    metis_tac[])
 
 
+(*Frequently used tactics*)
+val exists_tac = qexists_tac`cst.permute`>>
+    fs[wEval_def,LET_THM,word_state_eq_rel_def
+      ,get_live_def,coloring_ok_def];    
+
+val exists_tac_2 = 
+    Cases_on`word_exp st w`>>fs[word_exp_perm]>>
+    imp_res_tac apply_color_exp_lemma>>
+    pop_assum (qspecl_then[`f`,`cst`] mp_tac)>>
+    discharge_hyps
+    >-
+      metis_tac[SUBSET_OF_INSERT,domain_union,SUBSET_UNION
+               ,strong_locals_rel_subset];
+    
 val liveness_theorem = prove(``
 ∀prog st cst f live.
   coloring_ok f prog live ∧
@@ -1001,13 +1050,9 @@ val liveness_theorem = prove(``
   fs[PULL_FORALL,wEval_def]>>
   Cases_on`prog`
   >-(*Skip*)
-    (qexists_tac`cst.permute`>>
-    fs[wEval_def,LET_THM,word_state_eq_rel_def
-      ,strong_locals_rel_def,get_live_def])
+    exists_tac
   >- (*Move*)
-    (qexists_tac`cst.permute`>>
-    fs[wEval_def,LET_THM,word_state_eq_rel_def,coloring_ok_def
-      ,get_live_def]>>
+    (exists_tac>>
     fs[MAP_ZIP,get_writes_def,domain_union,domain_numset_list_insert]>>
     Cases_on`ALL_DISTINCT (MAP FST l)`>>fs[]>>
     `ALL_DISTINCT (MAP f (MAP FST l))` by
@@ -1056,12 +1101,25 @@ val liveness_theorem = prove(``
         HINT_EXISTS_TAC>>fs[EL_MAP])>>
       fs[])
   >- (*Inst*)
+    qexists_tac`cst.permute`>>
+    fs[wEval_def,LET_THM,word_state_eq_rel_def,coloring_ok_def]>>
+    Cases_on`i`>> (TRY (Cases_on`a`))>>
+    fs[get_live_def,get_live_inst_def,wInst_def
+      ,word_assign_def,word_exp_def,set_var_def]>>
+    fs[strong_locals_rel_def]
     cheat
   >- (*Assign*)
-    cheat
+    (exists_tac>>exists_tac_2>>
+    rw[word_state_eq_rel_def,set_var_perm,set_var_def]>>
+    fs[strong_locals_rel_def]>>rw[]>>
+    fs[lookup_insert]>>Cases_on`n=n'`>>fs[get_writes_def]>>
+    `f n' ≠ f n` by 
+      (FULL_SIMP_TAC bool_ss [INJ_DEF]>>
+      first_x_assum(qspecl_then [`n`,`n'`] mp_tac)>>
+      rw[domain_union,domain_delete])>>
+    fs[domain_union])
   >- (*Get*)
-    (qexists_tac`cst.permute`>>
-    fs[wEval_def,LET_THM,word_state_eq_rel_def]>>
+    (exists_tac>>
     EVERY_CASE_TAC>>
     fs[coloring_ok_def,set_var_def,strong_locals_rel_def,get_live_def]>>
     fs[LET_THM,get_writes_def]>>rw[]>>
@@ -1072,9 +1130,22 @@ val liveness_theorem = prove(``
       rfs[])>>
     fs[])
   >- (*Set*)
-    cheat
-  >- (*Store*)
-    cheat
+    (exists_tac>>exists_tac_2>>
+    rw[]>>
+    rfs[set_store_def,word_state_eq_rel_def,get_var_perm]>>
+    metis_tac[SUBSET_OF_INSERT,strong_locals_rel_subset
+             ,domain_union,SUBSET_UNION])
+  >-
+    (*Store*)
+    (exists_tac>>exists_tac_2>>
+    rw[]>>
+    rfs[set_store_def,word_state_eq_rel_def,get_var_perm]>>
+    Cases_on`get_var n st`>>fs[]>>
+    imp_res_tac strong_locals_rel_get_var>>
+    fs[mem_store_def]>>
+    EVERY_CASE_TAC>>fs[]>>
+    metis_tac[SUBSET_OF_INSERT,strong_locals_rel_subset
+             ,domain_union,SUBSET_UNION])
   >- (*Call*)
     (fs[wEval_def,LET_THM,coloring_ok_def,get_live_def,get_vars_perm]>>
     Cases_on`get_vars l st`>>fs[]>>
@@ -1179,10 +1250,12 @@ val liveness_theorem = prove(``
       `f n ≠ f x'0` by
         (imp_res_tac domain_lookup>>
         fs[domain_fromAList]>>
+        (*some assumption movements to make this faster*)
+        qpat_assum `INJ f (x'0 INSERT A) B` mp_tac>>
+        rpt (qpat_assum `INJ f A B` kall_tac)>>
+        strip_tac>>
         FULL_SIMP_TAC bool_ss [INJ_DEF]>>
-        SPOSE_NOT_THEN assume_tac>>
-        last_x_assum(qspecl_then [`n`,`x'0`] mp_tac)>>
-        (*takes forever here because of INJ*)
+        pop_assum(qspecl_then [`n`,`x'0`] mp_tac)>>
         rw[domain_union])>>
       fs[lookup_fromAList]>>
       imp_res_tac key_map_implies>>
@@ -1278,9 +1351,9 @@ val liveness_theorem = prove(``
       `f n ≠ f q'` by
         (imp_res_tac domain_lookup>>
         fs[domain_fromAList]>>
+        qpat_assum `INJ f (q' INSERT A) B` mp_tac>>
         qpat_assum `INJ f A B` kall_tac>>
-        qpat_assum `INJ f A B` mp_tac>>
-               `n ∈ set (MAP FST lss)` by fs[]>>
+        `n ∈ set (MAP FST lss)` by fs[]>>
         FULL_SIMP_TAC bool_ss [INJ_DEF]>>
         strip_tac>>pop_assum(qspecl_then [`n`,`q'`] mp_tac)>>
         rw[domain_union]>>
@@ -1316,11 +1389,6 @@ val liveness_theorem = prove(``
       discharge_hyps>-
       (unabbrev_all_tac>>fs[word_state_component_equality])>>
       rw[]>>fs[]>>NO_TAC))
-     
-    >>
-      cheat)
-    >>
-      cheat)
    >- (*Seq*)
     (rw[]>>fs[wEval_def,coloring_ok_def,LET_THM,get_live_def]>>
     last_assum(qspecl_then[`w`,`st`,`cst`,`f`,`get_live w0 live`]
@@ -1386,45 +1454,57 @@ val liveness_theorem = prove(``
       ntac 2(pop_assum mp_tac>>simp[Once s_key_eq_sym])>>
       ntac 2 strip_tac>>
       rpt (qpat_assum `s_key_eq A B` mp_tac)>>
-      qpat_abbrev_tac `ls = list_rearrange (cst.permute 0)
+      qpat_abbrev_tac `lsA = list_rearrange (cst.permute 0)
         (QSORT key_val_compare (nub (toAList y)))`>>
-      qpat_abbrev_tac `ls' = list_rearrange (perm 0)
+      qpat_abbrev_tac `lsB = list_rearrange (perm 0)
         (QSORT key_val_compare (nub (toAList x)))`>>
-      ntac 3 strip_tac>>
+      ntac 4 strip_tac>>
       Q.ISPECL_THEN [`x'.stack`,`y'`,`t'`,`NONE:num option`
-        ,`ls`,`cst.stack`] mp_tac (GEN_ALL s_key_eq_val_eq_pop_env)>>
+        ,`lsA`,`cst.stack`] mp_tac (GEN_ALL s_key_eq_val_eq_pop_env)>>
       discharge_hyps
       >-
         (fs[]>>metis_tac[s_key_eq_sym,s_val_eq_sym])
       >>
       Q.ISPECL_THEN [`t'.stack`,`x''`,`x'`,`NONE:num option`
-        ,`ls'`,`st.stack`] mp_tac (GEN_ALL s_key_eq_val_eq_pop_env)>>
+        ,`lsB`,`st.stack`] mp_tac (GEN_ALL s_key_eq_val_eq_pop_env)>>
       discharge_hyps
       >-
         (fs[]>>metis_tac[s_key_eq_sym,s_val_eq_sym])
       >>
       rw[]
       >-
-        (fs[strong_locals_rel_def,lookup_fromAList]>>
-        `MAP SND ls'' = MAP SND ls'''` by 
+        (
+        simp[]>>
+        fs[strong_locals_rel_def,lookup_fromAList]>>
+        `MAP SND l = MAP SND ls'` by 
           fs[s_val_eq_def,s_frame_val_eq_def]>>
         rw[]>>
-        `MAP FST (MAP (λ(x,y). (f x,y)) ls') =
-         MAP f (MAP FST ls')` by
+        `MAP FST (MAP (λ(x,y). (f x,y)) lsB) =
+         MAP f (MAP FST lsB)` by
           fs[MAP_MAP_o,MAP_EQ_f,FORALL_PROD]>>
         fs[]>>
         match_mp_tac ALOOKUP_key_remap_2>>rw[]>>
         metis_tac[s_key_eq_def,s_frame_key_eq_def,LENGTH_MAP])
       >>
-        fs[word_state_eq_rel_def,pop_env_def
-          ,word_state_component_equality]>>
+        fs[word_state_eq_rel_def,pop_env_def]>>
+        rfs[word_state_component_equality]>>
         metis_tac[s_val_and_key_eq,s_key_eq_sym
           ,s_val_eq_sym,s_key_eq_trans])>>
     fs[word_state_eq_rel_def]>>FULL_CASE_TAC>>fs[has_space_def]>>
     Cases_on`x'''`>>
     EVERY_CASE_TAC>>fs[call_env_def])
-
-
+    >-
+      (exists_tac>>
+      Cases_on`get_var n st`>>fs[get_var_perm]>>
+      imp_res_tac strong_locals_rel_get_var>>fs[jump_exc_def]>>
+      EVERY_CASE_TAC>>fs[])
+    >-
+      (exists_tac>>
+      Cases_on`get_var n st`>>fs[get_var_perm]>>
+      imp_res_tac strong_locals_rel_get_var>>
+      fs[call_env_def])
+    >>
+      (exists_tac>>IF_CASES_TAC>>fs[call_env_def,dec_clock_def]))
 (*
 ∀prog f live.
   coloring_ok f prog live
