@@ -5,11 +5,8 @@ open word_langTheory word_lemmasTheory word_procTheory
 
 val _ = new_theory "word_live";
 
-(*TODO: MOVE TO LEMMAS*)
-
 (*Define a liveness analysis algorithm*)
 
-(*Don't deal with () explicitly*)
 val numset_list_insert_def = Define`
   (numset_list_insert [] t = t) ∧ 
   (numset_list_insert (x::xs) t = insert x () (numset_list_insert xs t))`
@@ -59,7 +56,6 @@ val get_live_exp_def = tDefine "get_live_exp" `
 
 (*This defines the top level live sets for each prog
   i.e. given a live after, returns the liveset before that prog*)
-
 val get_live_def = Define`
   (get_live Skip live = live) ∧ 
   (*All SNDs are read and all FSTs are written*)
@@ -86,10 +82,6 @@ val get_live_def = Define`
     let e2_live = get_live e2 live in 
     let e3_live = get_live e3 live in
       get_live e1 (insert num () (union e2_live e3_live))) ∧
-  (*With cut-sets, the cut-set itself must always be live
-    I think we can probably discard the input live set
-    NOTE: Actually, live should probably always be exactly
-          equivalent to the cut-set*)
   (get_live (Alloc num numset) live = insert num () numset) ∧ 
   (get_live (Raise num) live = insert num () live) ∧
   (get_live (Return num) live = insert num () live) ∧
@@ -99,7 +91,6 @@ val get_live_def = Define`
     For tail calls, there shouldn't be a liveset since control flow will
     never return into the same instance
     Otherwise, both args + cutsets live
-    TODO: Suspiciously simple...
   *) 
   (get_live (Call ret dest args h) live =
     let args_set = numset_list_insert args LN in
@@ -107,17 +98,14 @@ val get_live_def = Define`
                 | SOME (_,cutset,_) => union cutset args_set)`
 
 (* For register allocation, we are concerned with the 
-   interference graph formed from interference sets
+   interference graph formed from clash sets 
+   Therefore we require coloring_ok to check all the clash sets 
+   in the prog
 
-   Current decision:
-   For each instruction n, the interference set is:
-   live_after(n) ∪ writes(n) = coloring_ok_aux f n
+   For each instruction n, the clash set is:
+   live_after(n) ∪ writes(n)
 
    Overall, f must also be injective over the initial liveset
-
-   Alternative:
-   For each instruction n, the interference set is:
-   live_before(n) ∪ undead_writes(n)
 
   NOTE: This differs significantly from David's definition which relies
         on no_dead_code
@@ -137,7 +125,7 @@ val coloring_ok_def = Define`
     let s2_live = get_live s2 live in
     let s1_live = get_live s1 s2_live in
       INJ f (domain s1_live) UNIV ∧  
-      (*Internal interference sets*)
+      (*Internal clash sets*)
       coloring_ok f s2 live ∧ coloring_ok f s1 s2_live) ∧
   (coloring_ok f (If e1 num e2 e3) live =
     let e2_live = get_live e2 live in 
@@ -150,36 +138,27 @@ val coloring_ok_def = Define`
       coloring_ok f e2 live ∧ coloring_ok f e3 live ∧ 
       coloring_ok f e1 merged) ∧ 
   (coloring_ok f (Call (SOME (v,cutset,ret_handler)) dest args h) live =
-    (*top level NOTE: maybe put get_live here?*)
     let args_set = numset_list_insert args LN in
-    (INJ f (domain (insert v () (union cutset args_set))) UNIV ∧ 
+    INJ f (domain (union cutset args_set)) UNIV ∧
+    INJ f (domain (insert v () cutset)) UNIV ∧ 
     (*returning handler*)
-    (*not sure what to write for the return value yet..
-      it probably needs to be colored differently from everything
-      else in the liveset before returning handler because 
-      it might end up overwriting something otherwise 
-      EVEN IF it is not used
-      this may not be the nicest way to state it though..*)
-    (*INJ f (domain(insert v () (get_live ret_handler live))) UNIV ∧*) 
     coloring_ok f ret_handler live ∧
     (*exception handler*)
     (case h of 
     | NONE => T
     | SOME(v,prog) =>
-        (*Generate a whole extra clique?*)
-        INJ f (domain (insert v () (union cutset args_set))) UNIV ∧
-        coloring_ok f prog live))) ∧ 
+        INJ f (domain (insert v () cutset)) UNIV ∧
+        coloring_ok f prog live)) ∧ 
   (coloring_ok f prog live =
-    (*live before must be fine, and interference set must be fine*)
+    (*live before must be fine, and clash set must be fine*)
     let lset = get_live prog live in  
     let iset = union (get_writes prog) live in
       INJ f (domain lset) UNIV ∧ INJ f (domain iset) UNIV)`
 
- 
-(*Slightly smarter version of that returns a tuple 
-  (hdlive,int_sets) where hdlive is the liveset in front of 
-  that program and int_sets is everything induced inside
-  int_sets are inteferences in the clash set
+(*Slightly smarter version that collects clash sets into a list
+  Result is a tuple:
+  (hdlive,clash_sets) where hdlive is the liveset in front of 
+  that program and clash_sets is everything induced inside
 *)
 val get_clash_sets_def = Define`
   (get_clash_sets (Seq s1 s2) live =
@@ -191,28 +170,34 @@ val get_clash_sets_def = Define`
     let (h3,ls3) = get_clash_sets e3 live in
     let merged = insert num () (union h2 h3) in 
     let (h,ls1) = get_clash_sets e1 merged in
-      (h,ls1++ls2++ls3))  ∧    
+      (h,ls1++ls2++ls3)) ∧    
   (get_clash_sets (Call (SOME (v,cutset,ret_handler)) dest args h) live =
     (*top level*)
     let args_set = numset_list_insert args LN in
     let (hd,ls) = get_clash_sets ret_handler live in
-    let hd = insert v () hd in 
+    (*Outer liveset*)
+    let live_set = union cutset args_set in
+    (*Returning clash set*)
+    let ret_clash = insert v () cutset in 
     (case h of
-    (*probably need to union in hd to the front as well 
-      to make proof simpler?*) 
-    | NONE => (union cutset args_set,hd::ls)
+      NONE => (live_set,ret_clash::hd::ls)
     | SOME(v',prog) =>
         let (hd',ls') = get_clash_sets prog live in
-        let ls' = (union (insert v () hd') hd) :: ls' in 
-        (union cutset args_set,ls++ls'))) ∧ 
+        (*Handler clash set*)
+        let h_clash = insert v' () cutset in 
+        (live_set,h_clash::ret_clash::hd::hd'::ls++ls'))) ∧ 
   (*Catchall for cases where we dont have in sub programs live sets*)
   (get_clash_sets prog live =
-    let i_set = live in
-    (get_live prog live,[i_set]))`
+    let i_set = union (get_writes prog) live in
+      (get_live prog live,[i_set]))` 
 
-val merge_pair_def = Define`
-  merge_pair = \x,y. x::y`
+val coloring_ok_alt_def = Define`
+  coloring_ok_alt f prog live = 
+    let (hd,ls) = get_clash_sets prog live in 
+    EVERY (λs. INJ f (domain s) UNIV) ls ∧ 
+    INJ f (domain hd) UNIV`
 
+(*Equivalence on everything except permutation and locals*)
 val word_state_eq_rel_def = Define`
   word_state_eq_rel s t ⇔ 
   t.store = s.store ∧ 
@@ -225,17 +210,13 @@ val word_state_eq_rel_def = Define`
   t.code = s.code ∧ 
   t.output = s.output`
 
-(*tlocs is a supermap of slocs under f for everything in a
+(*tlocs is a supermap of slocs under f for everything in a given
   live set*)
 val strong_locals_rel_def = Define`
   strong_locals_rel f ls slocs tlocs ⇔
   ∀n v. 
     n ∈ ls ∧ lookup n slocs = SOME v ⇒
     lookup (f n) tlocs = SOME v`
-
-val weak_locals_rel_def = Define`
-  weak_locals_rel f ls slocs tlocs ⇔ 
-  slocs = tlocs ∨ strong_locals_rel f ls slocs tlocs`
 
 (*--- FINISHED DEFS ---*)
 
@@ -290,44 +271,6 @@ val SUBSET_OF_INSERT = store_thm("SUBSET_OF_INSERT",
 ``!s x. s ⊆ x INSERT s``,
   rw[SUBSET_DEF])
 
-(*
-EVAL ``MAP toAList (merge_pair (get_clash_sets
-  (Seq (Move [1,2;3,4;5,6]) 
-  (Call 
-  (SOME (3,list_insert [1;3;5;7;9] [();();();();()] LN,Move[100,3])) 
-  (SOME 400) 
-  [7;9] 
-  (SOME(4,Move [100,4])))) (insert 100 () LN)))``
-*)
-
-(*Alternative to coloring_ok for get_live_sets
-val coloring_ok_alt_def = Define`
-  coloring_ok_alt f prog live =
-    EVERY (λs. INJ f (domain s) UNIV) 
-    (merge_pair (get_live_sets prog live))`
-
-val _= export_rewrites["merge_pair_def"];
-
-val get_live_sets_thm = prove(
-``!prog live hd ls.
-  get_live_sets prog live = (hd,ls) ⇒ 
-  get_live prog live = hd``,
-  Induct>>rw[get_live_sets_def]>>fs[LET_THM]
-  >-
-    (Cases_on`o'`>>fs[get_live_sets_def]>>
-    PairCases_on`x`>>fs[get_live_sets_def,get_live_def]>>
-    fs[LET_THM,UNCURRY]>>
-    EVERY_CASE_TAC>>fs[])
-  >-
-    (Cases_on`get_live_sets prog' live`>>fs[]>>
-    Cases_on`get_live_sets prog q`>>fs[]>>
-    metis_tac[get_live_def])
-  >>
-    Cases_on`get_live_sets prog'' live`>>
-    Cases_on`get_live_sets prog' live`>>
-    Cases_on`get_live_sets prog (insert n () (union q' q))`>>fs[]>>
-    fs[get_live_def,LET_THM]>>metis_tac[])
-
 val INJ_UNION = prove(
 ``!f A B.
   INJ f (A ∪ B) UNIV ⇒ 
@@ -336,52 +279,6 @@ val INJ_UNION = prove(
   rw[]>>
   metis_tac[INJ_SUBSET,SUBSET_DEF,SUBSET_UNION])
 
-(*Cant find this anywhere...*)
-val coloring_ok_alt_thm = prove(
-``!f prog live.
-  coloring_ok_alt f prog live ⇒ 
-  coloring_ok f prog live``,
-  ho_match_mp_tac (fetch "-" "coloring_ok_ind")>>
-  rw[]>>
-  fs[get_live_sets_def,coloring_ok_alt_def,coloring_ok_def]
-  >- 
-    (fs[LET_THM]>>
-    Cases_on`get_live_sets prog' live`>>
-    Cases_on`get_live_sets prog q`>>fs[]>>
-    imp_res_tac get_live_sets_thm>>fs[])
-  >- 
-    (fs[LET_THM]>>
-    Cases_on`get_live_sets prog' live`>>
-    Cases_on`get_live_sets prog'' live`>>
-    Cases_on`get_live_sets prog (insert num () (union q q'))`>>fs[]>>
-    imp_res_tac get_live_sets_thm>>fs[]>>
-    fs[domain_insert,domain_union]>>
-    `domain q ∪ domain q' ⊆ num INSERT domain q ∪ domain q'` by
-      fs[SUBSET_DEF]>>
-    metis_tac[INJ_UNION,SUBSET_DEF,INJ_SUBSET])
-  >>
-    (fs[coloring_ok_alt_def,coloring_ok_def,get_live_sets_def]>>
-    EVERY_CASE_TAC>>fs[LET_THM]>>
-    Cases_on`get_live_sets prog live`>>
-    imp_res_tac get_live_sets_thm>>fs[]>>
-    fs[domain_union]
-    >-
-      (`domain q ⊆ f' INSERT domain q` by fs[SUBSET_DEF]>>
-      metis_tac[INJ_UNION,INJ_SUBSET,SUBSET_DEF])
-    >>
-      Cases_on`get_live_sets r live`>>fs[domain_union]>>
-      `domain q' ⊆ f' INSERT domain q'` by fs[SUBSET_DEF]>>
-      `domain q'' ⊆ q INSERT domain q''` by fs[SUBSET_DEF]>>
-      imp_res_tac get_live_sets_thm>>fs[]>>
-      rw[]>>
-      metis_tac[INJ_UNION,INJ_SUBSET,SUBSET_DEF]))
-*)
-
-(*
-  States equal on all components except:
-  1) permute (which needs to be changed to reorder the keys)
-  2) locals  (because vars are renamed)
-*)
 val ignore_inc = prove(``
 ∀perm:num->num->num.
   (λn. perm(n+0)) = perm``,rw[FUN_EQ_THM]) 
@@ -624,7 +521,7 @@ val permute_swap_lemma = prove(``
         
 val size_tac= (fs[word_prog_size_def]>>DECIDE_TAC);
 
-(*Neater rewrite.. should go into word_proc as the def instead*)
+(*Neater rewrite.. maybe should go into word_proc as the def instead*)
 val apply_nummap_key_rw = prove(``
   apply_nummap_key f names = 
   fromAList (MAP (λx,y.f x,y) (toAList names))``,
@@ -698,7 +595,7 @@ val list_rearrange_perm = prove(``
   IF_CASES_TAC>>
   fs[BIJ_DEF,INJ_DEF]>>metis_tac[])
 
-(*Main theorem for permutes here!
+(*Main theorem for permute oracle usage!
   This shows that we can push locals that are exactly matching using 
   any desired permutation
   and we can choose the final permutation to be anything we want
@@ -773,7 +670,6 @@ val env_to_list_perm = prove(``
   qexists_tac`λn. if n = 0:num then perm' else tperm (n-1)`>>
   fs[FUN_EQ_THM])
 
-(*This works for what I want*)
 val mem_list_rearrange = prove(``
   ∀ls x f. MEM x (list_rearrange f ls) ⇔ MEM x ls``,
   fs[MEM_EL]>>rw[list_rearrange_def]>>
@@ -892,7 +788,6 @@ val ALOOKUP_key_remap_2 = prove(``
   first_assum(qspecl_then[`h`,`n`] assume_tac)>>
   IF_CASES_TAC>>fs[])
 
-
 val lookup_list_insert = store_thm("lookup_list_insert",
   ``!x (y:'a word_loc list) t (z:num). LENGTH x = LENGTH y ==>
     (lookup z (list_insert x y t) =
@@ -930,9 +825,6 @@ val list_rearrange_keys = prove(``
   fs[LET_THM,EXTENSION]>>rw[EQ_IMP_THM]>>
   metis_tac[MEM_toAList,mem_list_rearrange,MEM_MAP])
 
-(*Need to strengthen this in word_lemmas,
-  Adds a lot of 
-*)
 val push_env_pop_env_s_key_eq = prove(
   ``∀s t x b. s_key_eq (push_env x b s).stack t.stack ⇒
        ∃l ls opt. 
@@ -967,6 +859,8 @@ val key_map_implies = prove(
  rw[]>>match_mp_tac LIST_EQ>>
  rw[EL_MAP]>>
  Cases_on`EL x l'`>>fs[])
+
+(*Main proof of liveness theorem starts here*)
 
 val apply_color_exp_lemma = prove(
   ``∀st w cst f res. 
@@ -1011,7 +905,6 @@ val apply_color_exp_lemma = prove(
     EVERY_CASE_TAC>>fs[]>>res_tac>>fs[]>>
     metis_tac[])
 
-
 (*Frequently used tactics*)
 val exists_tac = qexists_tac`cst.permute`>>
     fs[wEval_def,LET_THM,word_state_eq_rel_def
@@ -1025,9 +918,16 @@ val exists_tac_2 =
     >-
       metis_tac[SUBSET_OF_INSERT,domain_union,SUBSET_UNION
                ,strong_locals_rel_subset];
-    
-val liveness_theorem = prove(``
-∀prog st cst f live.
+               
+val setup_tac = Cases_on`word_exp st exp`>>fs[]>>
+      imp_res_tac apply_color_exp_lemma>>
+      pop_assum(qspecl_then[`f`,`cst`]mp_tac)>>unabbrev_all_tac;
+     
+
+(*TODO: Find a better name, this is not exactly about liveness*) 
+
+val liveness_theorem = store_thm("liveness_theorem",
+``∀prog st cst f live.
   coloring_ok f prog live ∧
   word_state_eq_rel st cst ∧
   strong_locals_rel f (domain (get_live prog live)) st.locals cst.locals 
@@ -1041,15 +941,13 @@ val liveness_theorem = prove(``
     (case res of 
       NONE => strong_locals_rel f (domain live) 
               rst.locals rcst.locals
-    | _    => T (* Don't need conditions on locals if not NONE 
-              weak_locals_rel f (domain live)
-              rst.locals rcst.locals*))``
+    | _    => T )``,
   (*Induct on size of program*)
   completeInduct_on`word_prog_size (K 0) prog`>>
   rpt strip_tac>>
   fs[PULL_FORALL,wEval_def]>>
   Cases_on`prog`
-  >-(*Skip*)
+  >- (*Skip*)
     exists_tac
   >- (*Move*)
     (exists_tac>>
@@ -1101,13 +999,92 @@ val liveness_theorem = prove(``
         HINT_EXISTS_TAC>>fs[EL_MAP])>>
       fs[])
   >- (*Inst*)
-    qexists_tac`cst.permute`>>
-    fs[wEval_def,LET_THM,word_state_eq_rel_def,coloring_ok_def]>>
-    Cases_on`i`>> (TRY (Cases_on`a`))>>
-    fs[get_live_def,get_live_inst_def,wInst_def
-      ,word_assign_def,word_exp_def,set_var_def]>>
-    fs[strong_locals_rel_def]
-    cheat
+    (exists_tac>>
+    Cases_on`i`>> (TRY (Cases_on`a`))>> (TRY(Cases_on`m`))>>
+    fs[get_live_def,get_live_inst_def,wInst_def,word_assign_def
+      ,word_exp_perm]
+    >-
+      (Cases_on`word_exp st (Const c)`>>
+      fs[word_exp_def,set_var_def,strong_locals_rel_def,get_writes_def
+        ,get_writes_inst_def,domain_union,lookup_insert]>>
+      rw[]>>
+      FULL_SIMP_TAC bool_ss [INJ_DEF]>>
+      first_x_assum(qspecl_then [`n'`,`n`] assume_tac)>>fs[])
+    >-
+      (Cases_on`r`>>fs[]>>
+      qpat_abbrev_tac `exp = (Op b [Var n0;B])`>>setup_tac>>
+      (discharge_hyps
+      >-
+        (fs[get_live_exp_def,domain_union]>>
+        `{n0} ⊆ (n0 INSERT domain live DELETE n)` by fs[SUBSET_DEF]>>
+        TRY(`{n0} ∪ {n'} ⊆ (n0 INSERT n' INSERT domain live DELETE n)` by
+          fs[SUBSET_DEF])>>
+        metis_tac[strong_locals_rel_subset])
+      >>
+      fs[apply_color_exp_def,word_state_eq_rel_def]>>
+      fs[set_var_def,strong_locals_rel_def,lookup_insert,get_writes_def
+        ,get_writes_inst_def]>>
+      rw[]>>
+      TRY(qpat_abbrev_tac `n''=n'`)>>
+      Cases_on`n''=n`>>fs[]>>
+      `f n'' ≠ f n` by 
+        (fs[domain_union]>>
+        FULL_SIMP_TAC bool_ss [INJ_DEF]>>
+        first_x_assum(qspecl_then[`n''`,`n`] mp_tac)>>
+        discharge_hyps>-
+          rw[]>>
+        metis_tac[])>>
+      fs[]))
+    >-
+      (qpat_abbrev_tac`exp = (Shift s (Var n0) B)`>>
+      setup_tac>>
+      discharge_hyps>-
+        (fs[get_live_exp_def]>>
+        `{n0} ⊆ n0 INSERT domain live DELETE n` by fs[SUBSET_DEF]>>
+        metis_tac[SUBSET_OF_INSERT,strong_locals_rel_subset])>>
+      fs[word_exp_def,word_state_eq_rel_def,set_var_def]>>
+      Cases_on`lookup n0 st.locals`>>fs[strong_locals_rel_def]>>
+      res_tac>>
+      fs[lookup_insert]>>
+      rw[]>>
+      Cases_on`n=n'`>>fs[]>>
+      `f n' ≠ f n` by 
+        (fs[domain_union,get_writes_inst_def,get_writes_def]>>
+        FULL_SIMP_TAC bool_ss [INJ_DEF]>>
+        first_x_assum(qspecl_then[`n'`,`n`]mp_tac)>>
+        discharge_hyps>-rw[]>>
+        metis_tac[])>>
+      fs[])
+    >-
+      (qpat_abbrev_tac`exp=(Load (Op Add [Var n';A]))`>>
+      setup_tac>>
+      discharge_hyps>-
+        (fs[get_live_exp_def]>>
+        `{n'} ⊆ n' INSERT domain live DELETE n` by fs[SUBSET_DEF]>>
+        metis_tac[strong_locals_rel_subset])>>
+      fs[word_state_eq_rel_def,LET_THM,set_var_def]>>
+      rw[strong_locals_rel_def]>>
+      fs[lookup_insert]>>
+      Cases_on`n''=n`>>fs[]>>
+      `f n'' ≠ f n` by 
+        (fs[domain_union,get_writes_def,get_writes_inst_def]>>
+        FULL_SIMP_TAC bool_ss [INJ_DEF]>>
+        first_x_assum(qspecl_then[`n''`,`n`]mp_tac)>>
+        discharge_hyps>-rw[]>>
+        metis_tac[])>>
+      fs[strong_locals_rel_def])
+    >>
+      (qpat_abbrev_tac`exp=Op Add [Var n';A]`>>
+      setup_tac>>
+      discharge_hyps>-
+        (fs[get_live_exp_def]>>
+        `{n'} ⊆ n' INSERT n INSERT domain live` by fs[SUBSET_DEF]>>
+        metis_tac[strong_locals_rel_subset])>>
+      fs[word_state_eq_rel_def,LET_THM,set_var_def]>>
+      rw[get_var_perm]>>
+      Cases_on`get_var n st`>>fs[]>>
+      imp_res_tac strong_locals_rel_get_var>>
+      Cases_on`mem_store x x' st`>>fs[mem_store_def,strong_locals_rel_def]))
   >- (*Assign*)
     (exists_tac>>exists_tac_2>>
     rw[word_state_eq_rel_def,set_var_perm,set_var_def]>>
@@ -1410,7 +1387,53 @@ val liveness_theorem = prove(``
     rfs[LET_THM]>>
     qexists_tac`perm'''`>>rw[]>>fs[])
   >- (*If*)
-    cheat 
+    (fs[wEval_def,coloring_ok_def,LET_THM,get_live_def]>>
+    last_assum(qspecl_then[`w`,`st`,`cst`,`f`
+               ,`insert n () (union (get_live w0 live) (get_live w1 live))`] 
+               mp_tac)>>
+    discharge_hyps>- size_tac>>
+    rw[]>>
+    Cases_on`wEval(w,st with permute:=perm')`>>fs[]
+    >- (qexists_tac`perm'`>>fs[])>>
+    Cases_on`wEval(apply_color f w,cst)`>>fs[]>>
+    REVERSE (Cases_on`q`)>>fs[]
+    >- 
+      (qexists_tac`perm'`>>rw[])
+    >>
+    qpat_assum `NONE = q'` (SUBST_ALL_TAC o SYM)>>
+    fs[]>>
+    Cases_on`get_var n r`>>fs[]
+    >-
+      (qexists_tac`perm'`>>rw[])
+    >>
+    imp_res_tac strong_locals_rel_get_var>>fs[]>>
+    REVERSE (Cases_on`x`)
+    >-
+      (qexists_tac`perm'`>>rw[])
+    >>
+    Cases_on`c = 0w`>>fs[]
+    >-
+      (first_assum(qspecl_then[`w1`,`r`,`r'`,`f`,`live`] mp_tac)>>
+      discharge_hyps>- size_tac>>
+      discharge_hyps>-
+        (fs[domain_insert,domain_union]>>
+        metis_tac[SUBSET_OF_INSERT,SUBSET_UNION,strong_locals_rel_subset])>>
+      rw[]>>
+      qspecl_then[`w`,`st with permute:=perm'`,`perm''`]
+        assume_tac permute_swap_lemma>>
+      rfs[LET_THM]>>
+      qexists_tac`perm'''`>>rw[get_var_perm]>>fs[])
+    >>
+      (first_assum(qspecl_then[`w0`,`r`,`r'`,`f`,`live`] mp_tac)>>
+      discharge_hyps>- size_tac>>
+      discharge_hyps>-
+        (fs[domain_insert,domain_union]>>
+        metis_tac[SUBSET_OF_INSERT,SUBSET_UNION,strong_locals_rel_subset])>>
+      rw[]>>
+      qspecl_then[`w`,`st with permute:=perm'`,`perm''`]
+        assume_tac permute_swap_lemma>>
+      rfs[LET_THM]>>
+      qexists_tac`perm'''`>>rw[get_var_perm]>>fs[]))
   >- (*Alloc*)
     (
     fs[wEval_def,coloring_ok_def,get_var_perm,get_live_def]>>
@@ -1505,102 +1528,108 @@ val liveness_theorem = prove(``
       fs[call_env_def])
     >>
       (exists_tac>>IF_CASES_TAC>>fs[call_env_def,dec_clock_def]))
+
 (*
-∀prog f live.
-  coloring_ok f prog live
-  ⇒ 
-  ∀perm cst.
-  cst.permute = perm
-  ⇒  
-  ∃perm'.
-  ∀st res rst. 
-    word_state_eq_rel st cst ∧
-    strong_locals_rel f st.locals cst.locals ∧
-    st.permute = perm' ∧ 
-    wEval(prog,st) = (res,rst) ∧
-    res ≠ SOME Error
-    ⇒ 
-    ∃rcst.
-      wEval(apply_color f prog,cst) = (res,rcst) ∧
-      word_state_eq_rel rst rcst ∧
-      (case res of 
-        NONE => strong_locals_rel f rst.locals rcst.locals
-      | _    => weak_locals_rel f rst.locals rcst.locals)``,
-
-
-completeInduct_on`word_prog_size (K 0) prog`>>
-rpt strip_tac>>
-fs[PULL_FORALL]>>
-Cases_
-(*Cant do homatchmptac*)
-  Induct>>rw[]
-  >-
-    simp[wEval_def] (*??? too easy.. might be something wrong*)
-  >-
-   ...
-  >-(*Seq*) 
-    fs[coloring_ok_def,wEval_def,LET_THM]>>
-    res_tac>>
-    first_x_assum(qspec_then`cst` assume_tac)>>fs[]>>
-
-
-∀prog st rst f cst res live.
-  (*I think these are safe outside the exists*)
-  coloring_ok f qprog live ∧ 
-  ⇒
-  ∀perm. 
-    ∃perm'.
-      ∀st.
-      word_state_eq_rel st cst ∧ 
-      strong_locals_rel f st.locals cst.locals
-      st.permute = perm' ∧ 
-      cst.permute = perm ∧ 
-      wEval(prog,st) = (res,rst) ∧
-      res ≠ SOME Error
-      ⇒ 
-      ∃rcst (*i*).
-          (*I think structural induction works better than induction 
-    on evaluation relation for this proof because of I need to do a
-    swap of the permute midway through the induction for Seq and If
-    TODO: need to match the induction thm correctly for Call
-    *)
-  Induct>>
-
-  >-(rw[wEval_def]>>EVERY_CASE_TAC>>metis_tac[])
-
-  (*Seq*)
-  rw[wEval_def,coloring_ok_def,LET_THM]>>
-  Cases_on`wEval(prog,st)`>>fs[]>>
-  IF_CASES_TAC>>fs[]
-  last_x_assum(qspecl_then [`st`,`rst`,`f`,`cst`,`res`
-              ,`(get_live prog' live)`] assume_tac)>>rfs[]
-  fs[wEval_def,coloring_ok_def,LET_THM]>>
-    Cases_on`wEval(prog,st)`>>fs[]>>
-    IF_CASES_TAC>>fs[]
-    >-
-     (
-     first_x_assum(qspecl_then[`st`,`r`,`f`,`cst`,`NONE`
-                               ,`(get_live prog' live)`]assume_tac)>>
-     rfs[]>>
-     (*Proof idea:
-     wEval(prog,st) -> (NONE,r)
-
-     
-     
-     *)
-
-
-     qexists_tac`perm'`>>rw[]>>rfs[]>>
-     
-     last_x_assum(qspecl_then[`perm`,`r`,`f`,`cst`
-                                ,`q`,`live`]assume_tac)>>
-      rfs[]>>
-      qexists_tac`perm'`>>rw[]>>rfs[])
-    >>
-      (first_x_assum(qspecl_then[`perm`,`r`,`f`,`cst`
-                                ,`q`,`(get_live prog' live)`]assume_tac)>>
-      fs[]>>qexists_tac`perm'`>>rw[]>>rfs[]>>metis_tac[])
-
+EVAL ``MAP toAList ( (λx,y. (x::y)) (get_clash_sets
+  (Seq (Move [1,2;3,4;5,6]) 
+  (Call 
+  (SOME (3,list_insert [1;3;5;7;9] [();();();();()] LN,Move[100,3])) 
+  (SOME 400) 
+  [7;9] 
+  (SOME(4,Move [100,4])))) (insert 100 () LN)))``
 *)
-  
+
+(*Prove that we can substitute get_clash_sets for get_live*)
+
+(*hd element is just get_live*)
+val get_clash_sets_hd = prove(
+``∀prog live hd ls.
+  get_clash_sets prog live = (hd,ls) ⇒ 
+  get_live prog live = hd``,
+  Induct>>rw[get_clash_sets_def]>>fs[LET_THM]
+  >-
+    (Cases_on`o'`>>fs[get_clash_sets_def,LET_THM]>>
+    PairCases_on`x`>>fs[get_clash_sets_def,get_live_def]>>
+    fs[LET_THM,UNCURRY]>>
+    EVERY_CASE_TAC>>fs[])
+  >-
+    (Cases_on`get_clash_sets prog' live`>>fs[]>>
+    Cases_on`get_clash_sets prog q`>>fs[]>>
+    metis_tac[get_live_def])
+  >>
+    Cases_on`get_clash_sets prog'' live`>>
+    Cases_on`get_clash_sets prog' live`>>
+    Cases_on`get_clash_sets prog (insert n () (union q' q))`>>fs[]>>
+    fs[get_live_def,LET_THM]>>metis_tac[])
+
+(*The liveset passed in at the back is always satisfied*)
+val get_clash_sets_tl = prove(
+``∀prog live f.
+  let (hd,ls) = get_clash_sets prog live in 
+  EVERY (λs. INJ f (domain s) UNIV) ls ⇒ 
+  INJ f (domain live) UNIV``,
+  completeInduct_on`word_prog_size (K 0) prog`>>
+  fs[PULL_FORALL]>>
+  rpt strip_tac>>
+  Cases_on`prog`>>
+  fs[coloring_ok_alt_def,LET_THM,get_clash_sets_def,get_live_def]>>
+  fs[get_writes_def]
+  >- metis_tac[INJ_UNION,domain_union,INJ_SUBSET,SUBSET_UNION]
+  >- metis_tac[INJ_UNION,domain_union,INJ_SUBSET,SUBSET_UNION]
+  >- metis_tac[INJ_UNION,domain_union,INJ_SUBSET,SUBSET_UNION]
+  >- metis_tac[INJ_UNION,domain_union,INJ_SUBSET,SUBSET_UNION]
+  >-
+    (Cases_on`o'`>>fs[UNCURRY,get_clash_sets_def,LET_THM]
+    >- metis_tac[INJ_UNION,domain_union,INJ_SUBSET,SUBSET_UNION]
+    >>
+    PairCases_on`x`>>fs[]>>
+    first_x_assum(qspecl_then[`x2`,`live`,`f`] mp_tac)>>
+    discharge_hyps >- size_tac>>rw[]>>
+    fs[get_clash_sets_def,UNCURRY,LET_THM]>>
+    Cases_on`o0`>>TRY (Cases_on`x`)>>fs[])
+  >>
+    (first_x_assum(qspecl_then[`w0`,`live`,`f`]mp_tac)>>
+    discharge_hyps>-size_tac>>rw[]>>
+    fs[UNCURRY]))
+
+val coloring_ok_alt_thm = prove(
+``∀f prog live.
+  coloring_ok_alt f prog live 
+  ⇒ 
+  coloring_ok f prog live``,
+  ho_match_mp_tac (fetch "-" "coloring_ok_ind")>>
+  rw[]>>
+  fs[get_clash_sets_def,coloring_ok_alt_def,coloring_ok_def,LET_THM]
+  >- 
+    (Cases_on`get_clash_sets prog' live`>>
+    Cases_on`get_clash_sets prog q`>>fs[]>>
+    imp_res_tac get_clash_sets_hd>>
+    fs[]>>
+    Q.ISPECL_THEN [`prog`,`q`,`f`] assume_tac get_clash_sets_tl>>
+    rfs[LET_THM])
+  >-
+    (Cases_on`get_clash_sets prog'' live`>>
+    Cases_on`get_clash_sets prog' live`>>
+    Cases_on`get_clash_sets prog (insert num () (union q' q))`>>
+    imp_res_tac get_clash_sets_hd>>
+    fs[]>>
+    Q.ISPECL_THEN [`prog`,`insert num () (union q' q)`,`f`]
+      assume_tac get_clash_sets_tl>>
+    rfs[LET_THM,domain_union]>>
+    `domain q' ⊆ num INSERT domain q' ∪ domain q` by fs[SUBSET_DEF]>>
+    `domain q ⊆ num INSERT domain q' ∪ domain q` by fs[SUBSET_DEF]>>
+    metis_tac[INJ_SUBSET,SUBSET_DEF])
+  >>
+    Cases_on`h`>>fs[LET_THM]
+    >-
+      (Cases_on`get_clash_sets prog live`>>fs[])
+    >>
+    PairCases_on`x`>>fs[]>>
+    Cases_on`get_clash_sets prog live`>>fs[]>>
+    Cases_on`get_clash_sets x1 live`>>fs[]>>
+    EVERY_CASE_TAC>>
+    fs[LET_THM]>>
+    Cases_on`get_clash_sets prog live`>>
+    fs[UNCURRY])
+
 val _ = export_theory();
