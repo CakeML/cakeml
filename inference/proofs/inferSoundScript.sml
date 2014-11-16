@@ -6,6 +6,7 @@ open astPropsTheory;
 open inferPropsTheory;
 open typeSysPropsTheory;
 open infer_eCompleteTheory;
+open type_eDetermTheory;
 open infer_eSoundTheory;
 
 local open typeSoundInvariantsTheory in
@@ -55,6 +56,24 @@ fs [tenv_inv_def] >>
 res_tac >>
 fs [t_walkstar_FEMPTY] >>
 metis_tac [convert_env2_def]);
+
+val tenv_invC_convert_env2 = Q.prove (
+`!env. check_env {} env ⇒ tenv_invC FEMPTY env (bind_var_list2 (convert_env2 env) Empty)`,
+ Induct >>
+ rw [convert_env2_def, bind_var_list2_def, tenv_invC_def, lookup_tenv_def] >>
+ PairCases_on `h` >>
+ fs [check_env_def] >>
+ every_case_tac >>
+ fs [] >>
+ fs [t_walkstar_FEMPTY, deBruijn_inc0, lookup_tenv_def, bind_tenv_def, bind_var_list2_def] >>
+ fs [tenv_invC_def] >>
+ rw [] >>
+ TRY (Cases_on `h0 = x`) >>
+ fs [] >>
+ rw [] >>
+ res_tac >>
+ fs [t_walkstar_FEMPTY] >>
+ metis_tac [convert_env2_def, check_t_to_check_freevars, check_t_empty_unconvert_convert_id]);
 
 val sub_completion_empty = Q.prove (
 `!m n s s'. sub_completion m n s [] s' ⇔ count n ⊆ FDOM s' ∧ (∀uv. uv ∈ FDOM s' ⇒ check_t m ∅ (t_walkstar s' (Infer_Tuvar uv))) ∧ s = s'`,
@@ -139,7 +158,7 @@ val infer_d_sound = Q.prove (
                (PairCases_on `h` >>
                     rw []) >>
                rw [MAP_MAP_o, combinTheory.o_DEF, remove_pair_lem],
-           rw [type_e_determ_def] >>
+           match_mp_tac infer_e_type_e_determ >>
                `tenvC_ok cenv` 
                         by (PairCases_on `cenv` >>
                             fs [typeSoundInvariantsTheory.tenvC_ok_def, check_cenv_def,
@@ -149,15 +168,10 @@ val infer_d_sound = Q.prove (
                             fs [LAMBDA_PROD, FORALL_PROD] >>
                             rw [] >>
                             metis_tac []) >>
-               `tenv_invC FEMPTY env (bind_var_list2 (convert_env2 env) Empty)` by cheat >>
-               (infer_e_complete |> CONJUNCT1 |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
-               ntac 3 (pop_assum mp_tac) >>
-               (infer_e_complete |> CONJUNCT1 |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
-               rw [] >>
-               first_x_assum (qspecl_then [`FEMPTY`, `menv`, `env`, `init_infer_state`, `[]`] mp_tac) >>
-               first_x_assum (qspecl_then [`FEMPTY`, `menv`, `env`, `init_infer_state`, `[]`] mp_tac) >>
-               simp [sub_completion_empty] >>
-               rw [] >>
+               MAP_EVERY qexists_tac [`env`, `st'''`, `t1`] >>
+               rw []
+               >- metis_tac [tenv_invC_convert_env2] >>
+
                cheat,
            imp_res_tac infer_p_bindings >>
                fs [],

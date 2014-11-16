@@ -185,7 +185,7 @@ val check_freevars_empty_convert_unconvert_id = prove(
   rw[]>>fs[unconvert_t_def,convert_t_def,check_freevars_def]>>
   fs[MAP_MAP_o,MAP_EQ_ID,EVERY_MEM])
 
-val check_t_empty_unconvert_convert_id = prove(
+val check_t_empty_unconvert_convert_id = store_thm("check_t_empty_unconvert_convert_id",
 ``!t. check_t n {} t ⇒
   unconvert_t (convert_t t) = t``,
   ho_match_mp_tac convert_t_ind>>rw[]>>

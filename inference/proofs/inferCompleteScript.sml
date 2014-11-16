@@ -6,6 +6,7 @@ open astPropsTheory;
 open typeSysPropsTheory;
 open inferPropsTheory;
 open miscLib;
+open infer_eSoundTheory;
 open infer_eCompleteTheory;
 
 val _ = new_theory "inferComplete";
@@ -44,7 +45,6 @@ val generalise_no_uvars = Q.prove (
  first_x_assum (qspecl_then [`s'`, `n`, `m`] mp_tac) >>
  rw [] >>
  rw []);
-
 
 val infer_d_complete = Q.prove (
 `!mn mdecls tdecls edecls tenvT menv cenv tenvE d mdecls' tdecls' edecls' tenvT' cenv' tenvE' tenv st.
