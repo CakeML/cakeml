@@ -629,9 +629,13 @@ val tenv_add_tvs : nat -> alist varN t -> flat_tenvE
 let tenv_add_tvs tvs tenv =
   List.map (fun (n,t) -> (n,(tvs,t))) tenv
 
-val type_e_determ : tenvM -> tenvC -> tenvE -> exp -> bool
-let type_e_determ menv cenv tenv e =
-  forall t1 t2. type_e menv cenv tenv e t1 && type_e menv cenv tenv e t2 --> t1 = t2
+val type_pe_determ : tenvM -> tenvC -> tenvE -> pat -> exp -> bool
+let type_pe_determ menv cenv tenv p e =
+  forall t1 tenv1 t2 tenv2. 
+    type_p 0 cenv p t1 tenv1 && type_e menv cenv tenv e t1 && 
+    type_p 0 cenv p t2 tenv2 && type_e menv cenv tenv e t2 
+    --> 
+    tenv1 = tenv2
 
 indreln [type_d : bool -> maybe modN -> decls -> tenvT -> tenvM -> tenvC -> tenvE -> dec -> decls -> flat_tenvT -> flat_tenvC -> flat_tenvE -> bool]
 
@@ -650,7 +654,7 @@ dlet_mono : forall check_unique mn tenvT menv cenv tenv p e t tenv' decls.
    generalisation, a type error is given rather than picking an arbitrary 
    instantiation. However, we should only do the check when the check_unique 
    argument tells us to. *)
-(check_unique --> not (is_value e) && type_e_determ menv cenv tenv e) &&
+(check_unique --> not (is_value e) && type_pe_determ menv cenv tenv p e) &&
 List.allDistinct (pat_bindings p []) &&
 type_p 0 cenv p t tenv' &&
 type_e menv cenv tenv e t

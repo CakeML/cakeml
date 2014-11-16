@@ -158,7 +158,7 @@ val infer_d_sound = Q.prove (
                (PairCases_on `h` >>
                     rw []) >>
                rw [MAP_MAP_o, combinTheory.o_DEF, remove_pair_lem],
-           match_mp_tac infer_e_type_e_determ >>
+           match_mp_tac infer_e_type_pe_determ >>
                `tenvC_ok cenv` 
                         by (PairCases_on `cenv` >>
                             fs [typeSoundInvariantsTheory.tenvC_ok_def, check_cenv_def,
@@ -168,10 +168,9 @@ val infer_d_sound = Q.prove (
                             fs [LAMBDA_PROD, FORALL_PROD] >>
                             rw [] >>
                             metis_tac []) >>
-               MAP_EVERY qexists_tac [`env`, `st'''`, `t1`] >>
+               MAP_EVERY qexists_tac [`env`, `st'''`, `st''''`, `t1`] >>
                rw []
                >- metis_tac [tenv_invC_convert_env2] >>
-
                cheat,
            imp_res_tac infer_p_bindings >>
                fs [],

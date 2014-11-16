@@ -606,10 +606,14 @@ val _ = Define `
 (MAP (\ (n,t) .  (n,(tvs,t))) tenv))`;
 
 
-(*val type_e_determ : tenvM -> tenvC -> tenvE -> exp -> bool*)
+(*val type_pe_determ : tenvM -> tenvC -> tenvE -> pat -> exp -> bool*)
 val _ = Define `
- (type_e_determ menv cenv tenv e =  
-(! t1 t2. (type_e menv cenv tenv e t1 /\ type_e menv cenv tenv e t2) ==> (t1 = t2)))`;
+ (type_pe_determ menv cenv tenv p e =  
+(! t1 tenv1 t2 tenv2.    
+ (type_p( 0) cenv p t1 tenv1 /\ type_e menv cenv tenv e t1 /\ 
+    type_p( 0) cenv p t2 tenv2 /\ type_e menv cenv tenv e t2) 
+    ==>    
+ (tenv1 = tenv2)))`;
 
 
 val _ = Hol_reln ` (! check_unique tvs mn tenvT menv cenv tenv p e t tenv' decls.
@@ -625,7 +629,7 @@ type_d check_unique mn decls tenvT menv cenv tenv (Dlet p e) empty_decls FEMPTY 
 (* The following line makes sure that when the value restriction prohibits
    generalisation, a type error is given rather than picking an arbitrary 
    instantiation. However, we should only do the check when the check_unique 
-   argument tells us to. *)(check_unique ==> (~ (is_value e) /\ type_e_determ menv cenv tenv e)) /\
+   argument tells us to. *)(check_unique ==> (~ (is_value e) /\ type_pe_determ menv cenv tenv p e)) /\
 ALL_DISTINCT (pat_bindings p []) /\
 type_p( 0) cenv p t tenv' /\
 type_e menv cenv tenv e t)

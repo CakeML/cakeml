@@ -18,17 +18,22 @@ val sub_completion_empty = Q.prove (
  rw [sub_completion_def, pure_add_constraints_def] >>
  metis_tac []);
 
-val infer_e_type_e_determ = Q.store_thm ("infer_e_type_e_determ",
-`!menv cenv env tenv e st t.
+val infer_e_type_pe_determ = Q.store_thm ("infer_e_type_pe_determ",
+`!menv cenv env tenv p e st st' t t' tenv' s.
   check_menv menv ∧
   tenvC_ok cenv ∧
   check_env {} env ∧
   tenv_invC FEMPTY env tenv ∧
   infer_e menv cenv env e init_infer_state = (Success t, st) ∧
-  check_t 0 {} (t_walkstar st.subst t)
+  infer_p cenv p st = (Success (t', tenv'), st') ∧
+  t_unify st'.subst t t' = SOME s ∧
+  EVERY (\(n, t). check_t 0 {} (t_walkstar s t)) tenv'
   ⇒
-  type_e_determ (convert_menv menv) cenv tenv e`,
- rw [type_e_determ_def] >>
+  type_pe_determ (convert_menv menv) cenv tenv p e`,
+ cheat);
+ (*
+
+ rw [type_pe_determ_def] >>
  (infer_e_complete |> CONJUNCT1 |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
  pop_assum mp_tac >>
  (infer_e_complete |> CONJUNCT1 |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
@@ -41,7 +46,8 @@ val infer_e_type_e_determ = Q.store_thm ("infer_e_type_e_determ",
  fs [sub_completion_def] >>
  imp_res_tac pure_add_constraints_success >>
  fs [t_compat_def] >>
- metis_tac [t_walkstar_no_vars]);
+ metis_tac [t_walkstar_no_vars]
+ *)
 
 val generalise_complete_lem = Q.prove (
 `∀n s t tvs s' t' tvs next_uvar.
@@ -55,6 +61,7 @@ val generalise_complete_lem = Q.prove (
  mp_tac (Q.SPECL [`n`, `s`, `[t]`] generalise_complete) >>
  rw [generalise_def, LET_THM]);
 
+ (*
 val type_e_determ_infer_e = Q.store_thm ("type_e_determ_infer_e",
 `!menv cenv env tenv e st t.
   check_menv menv ∧
@@ -66,7 +73,7 @@ val type_e_determ_infer_e = Q.store_thm ("type_e_determ_infer_e",
   type_e_determ (convert_menv menv) cenv tenv e
   ⇒
   check_t 0 {} (t_walkstar st.subst t)`,
- rw [type_e_determ_def] >>
+ rw [type_pe_determ_def] >>
  `t_wfs init_infer_state.subst` by rw [t_wfs_def, init_infer_state_def] >>
  `t_wfs st.subst` by metis_tac [infer_e_wfs] >>
  `check_t 0 (count st.next_uvar) t`
@@ -94,6 +101,7 @@ val type_e_determ_infer_e = Q.store_thm ("type_e_determ_infer_e",
   * it is therefore in FDOM s1 and FDOM s2 but not in FDOM st.subst. Hence it is in l, and thus
   * mapped to different types in inst1 and inst2. Thus, t_walkstar s1 t ≠ t_walkstar s2 t, a contradiction. *)
  cheat); 
+ *)
 
 val _ = export_theory ();
 
