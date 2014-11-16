@@ -144,7 +144,7 @@ val infer_d_complete = Q.prove (
                      res_tac >>
                      PairCases_on `x` >>
                      fs [sub_completion_def]) >>
-     fs [type_e_determ_def] >>
+     fs [type_pe_determ_def] >>
      cheat)                
      (*
      `∃s' t'. generalise_list 0 0 FEMPTY (MAP (t_walkstar si) (MAP SND tenv'')) = (0,s',t')` 
