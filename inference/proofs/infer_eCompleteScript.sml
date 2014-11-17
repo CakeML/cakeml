@@ -115,34 +115,6 @@ val pure_add_constraints_swap = GEN_ALL pure_add_constraints_swap
 
 (*End pure_add_constraints stuff*)
 
-val unconvert_t_def = tDefine "unconvert_t" `
-(unconvert_t (Tvar_db n) = Infer_Tvar_db n) ∧
-(unconvert_t (Tapp ts tc) = Infer_Tapp (MAP unconvert_t ts) tc)`
-(wf_rel_tac `measure t_size` >>
- rw [] >>
- induct_on `ts` >>
- rw [t_size_def] >>
- full_simp_tac (srw_ss()++ARITH_ss) []);
-
-val tenv_invC_def = Define `
-tenv_invC s tenv tenvE =
-  (!x tvs t.
-    lookup_tenv x 0 tenvE = SOME (tvs, t)
-    ⇒
-    (*tvs >0 ⇒ check_freevars (num_tvs tenvE) [] t ∧ *)
-    (if tvs > 0 then check_freevars tvs [] t
-                else ?n.check_freevars n [] t) ∧
-    ?t'.
-    unconvert_t t = t_walkstar s t' ∧ 
-    (tvs > 0 ⇒ t_walkstar s t' = t') ∧
-    (*
-    (!targs. LENGTH targs ≤ tvs
-    ⇒ 
-    infer_deBruijn_subst targs (unconvert_t t) = 
-    infer_deBruijn_subst targs (t_walkstar s t')) ∧ *)
-
-    ALOOKUP tenv x = SOME (tvs,t'))`;
-
 val extend_t_vR_WF = prove
 (``(check_t lim {} (n) ∧
    WF (t_vR s) )⇒
@@ -181,21 +153,14 @@ val FDOM_extend = prove (
 val check_freevars_empty_convert_unconvert_id = prove(
 ``!t. check_freevars n [] t ⇒ 
   convert_t (unconvert_t t) = t``,
-  ho_match_mp_tac (fetch "-" "unconvert_t_ind")>>
+  ho_match_mp_tac unconvert_t_ind>>
   rw[]>>fs[unconvert_t_def,convert_t_def,check_freevars_def]>>
-  fs[MAP_MAP_o,MAP_EQ_ID,EVERY_MEM])
-
-val check_t_empty_unconvert_convert_id = store_thm("check_t_empty_unconvert_convert_id",
-``!t. check_t n {} t ⇒
-  unconvert_t (convert_t t) = t``,
-  ho_match_mp_tac convert_t_ind>>rw[]>>
-  fs[unconvert_t_def,convert_t_def,check_t_def]>>
   fs[MAP_MAP_o,MAP_EQ_ID,EVERY_MEM])
 
 val check_freevars_to_check_t = prove(
 ``!t z. check_freevars n [] t ⇒
   check_t n {} (unconvert_t t)``,
-  ho_match_mp_tac (fetch "-" "unconvert_t_ind")>>
+  ho_match_mp_tac unconvert_t_ind>>
   rw[]>>
   fs[unconvert_t_def,check_freevars_def,check_t_def]>>
   fs[EVERY_MAP,EVERY_MEM])

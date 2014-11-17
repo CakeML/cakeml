@@ -14,10 +14,6 @@ val tenvT_ok_def = tenvT_ok_def;
 val flat_tenvT_ok_def = flat_tenvT_ok_def;
 end
 
-val o_f_id = Q.prove (
-`!m. (\x.x) o_f m = m`,
-rw [fmap_EXT]);
-
 val _ = new_theory "inferSound";
 
 val letrec_lemma2 = Q.prove (
@@ -39,41 +35,6 @@ fs [] >|
      rw [] >>
      metis_tac [],
  metis_tac []]);
-
-val convert_env2_def = Define `
-convert_env2 env = MAP (λ(x,tvs,t). (x,tvs,convert_t t)) env`;
-
-val tenv_inv_convert_env2 = Q.prove (
-`!env. tenv_inv FEMPTY env (bind_var_list2 (convert_env2 env) Empty)`,
-Induct >>
-rw [convert_env2_def, bind_var_list2_def, tenv_inv_def] >>
-PairCases_on `h` >>
-fs [] >>
-every_case_tac >>
-fs [] >>
-rw [t_walkstar_FEMPTY, deBruijn_inc0, lookup_tenv_def, bind_tenv_def, bind_var_list2_def] >>
-fs [tenv_inv_def] >>
-res_tac >>
-fs [t_walkstar_FEMPTY] >>
-metis_tac [convert_env2_def]);
-
-val tenv_invC_convert_env2 = Q.prove (
-`!env. check_env {} env ⇒ tenv_invC FEMPTY env (bind_var_list2 (convert_env2 env) Empty)`,
- Induct >>
- rw [convert_env2_def, bind_var_list2_def, tenv_invC_def, lookup_tenv_def] >>
- PairCases_on `h` >>
- fs [check_env_def] >>
- every_case_tac >>
- fs [] >>
- fs [t_walkstar_FEMPTY, deBruijn_inc0, lookup_tenv_def, bind_tenv_def, bind_var_list2_def] >>
- fs [tenv_invC_def] >>
- rw [] >>
- TRY (Cases_on `h0 = x`) >>
- fs [] >>
- rw [] >>
- res_tac >>
- fs [t_walkstar_FEMPTY] >>
- metis_tac [convert_env2_def, check_t_to_check_freevars, check_t_empty_unconvert_convert_id]);
 
 val sub_completion_empty = Q.prove (
 `!m n s s'. sub_completion m n s [] s' ⇔ count n ⊆ FDOM s' ∧ (∀uv. uv ∈ FDOM s' ⇒ check_t m ∅ (t_walkstar s' (Infer_Tuvar uv))) ∧ s = s'`,
