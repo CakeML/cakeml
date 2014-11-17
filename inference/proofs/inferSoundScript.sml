@@ -41,6 +41,36 @@ val sub_completion_empty = Q.prove (
  rw [sub_completion_def, pure_add_constraints_def] >>
  metis_tac []);
 
+val generalise_none = Q.prove (
+`(!t s' t' x.
+   check_t 0 x t ∧
+   generalise 0 0 FEMPTY t = (0, s', t')
+   ⇒
+   s' = FEMPTY ∧
+   check_t 0 {} t) ∧
+ (!ts s' ts' x.
+   EVERY (check_t 0 x) ts ∧
+   generalise_list 0 0 FEMPTY ts = (0, s', ts')
+   ⇒
+   s' = FEMPTY ∧
+   EVERY (check_t 0 {}) ts)`,
+ ho_match_mp_tac infer_t_induction >>
+ rw [generalise_def, check_t_def, LET_THM, LAMBDA_PROD]
+ >- (`?n s' t'. generalise_list 0 0 FEMPTY ts = (n,s',t')` by metis_tac [pair_CASES] >>
+     fs [] >>
+     rw [] >>
+     metis_tac [])
+ >- (`?n s' t'. generalise_list 0 0 FEMPTY ts = (n,s',t')` by metis_tac [pair_CASES] >>
+     fs [] >>
+     rw [] >>
+     metis_tac []) >>
+ `?n' s'' t''. generalise 0 0 FEMPTY t = (n',s'',t'')` by metis_tac [pair_CASES] >>
+ fs [] >>
+ `?n s' t'. generalise_list 0 n' s'' ts = (n,s',t')` by metis_tac [pair_CASES] >>
+ fs [] >>
+ rw [] >>
+ metis_tac []);
+
 val infer_d_sound = Q.prove (
 `!mn decls tenvT menv cenv env d st1 st2 decls' tenvT' cenv' env' tenv.
   infer_d mn decls tenvT menv cenv env d st1 = (Success (decls',tenvT',cenv',env'), st2) ∧
@@ -120,18 +150,40 @@ val infer_d_sound = Q.prove (
                     rw []) >>
                rw [MAP_MAP_o, combinTheory.o_DEF, remove_pair_lem],
            match_mp_tac infer_e_type_pe_determ >>
-               `tenvC_ok cenv` 
-                        by (PairCases_on `cenv` >>
-                            fs [typeSoundInvariantsTheory.tenvC_ok_def, check_cenv_def,
-                                EVERY_MEM, check_flat_cenv_def, typeSoundInvariantsTheory.flat_tenvC_ok_def] >>
-                            rw [] >>
-                            PairCases_on `p'` >>
-                            fs [LAMBDA_PROD, FORALL_PROD] >>
-                            rw [] >>
-                            metis_tac []) >>
                MAP_EVERY qexists_tac [`env`, `st'''`, `st''''`, `t1`] >>
-               rw []
+               rw [check_cenv_tenvC_ok]
                >- metis_tac [tenv_invC_convert_env2] >>
+               fs [] >>
+               imp_res_tac generalise_none >>
+               fs [EVERY_MAP, LAMBDA_PROD] >>
+               first_x_assum match_mp_tac >>
+               fs [EVERY_MEM] >>
+               qexists_tac `count st''''.next_uvar` >>
+               rw [] >>
+               PairCases_on `e'` >>
+               rw [] >>
+               res_tac >>
+               fs [] >>
+               match_mp_tac t_walkstar_check >>
+               `check_t 0 (count st''''.next_uvar ∪ FDOM s) e'1 ∧ 
+                check_t 0 (count st''''.next_uvar ∪ FDOM s) t`
+                        by (rw [] >>
+                            match_mp_tac (SIMP_RULE (srw_ss()) [AND_IMP_INTRO, PULL_FORALL] (CONJUNCT1 check_t_more5)) >> 
+                            rw [] >>
+                            qexists_tac `count st''''.next_uvar` >>
+                            simp []) >>
+               `check_t 0 (count st''''.next_uvar ∪ FDOM s) t1` 
+                        by (rw [] >>
+                            match_mp_tac (SIMP_RULE (srw_ss()) [AND_IMP_INTRO, PULL_FORALL] (CONJUNCT1 check_t_more5)) >> 
+                            rw [] >>
+                            qexists_tac `count st'''.next_uvar` >>
+                            imp_res_tac infer_p_next_uvar_mono >>
+                            simp [count_def, SUBSET_DEF]) >>
+               rw [] >>
+               match_mp_tac t_unify_check_s >>
+               MAP_EVERY qexists_tac [`st''''.subst`, `t1`, `t`] >>
+               rw []
+               >- metis_tac [infer_p_wfs] >>
                cheat,
            imp_res_tac infer_p_bindings >>
                fs [],
