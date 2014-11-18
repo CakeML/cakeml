@@ -157,6 +157,7 @@ val infer_d_sound = Q.prove (
            match_mp_tac infer_e_type_pe_determ >>
                MAP_EVERY qexists_tac [`env`, `st'''`, `st''''`, `t1`] >>
                rw [check_cenv_tenvC_ok]
+               >- rw [num_tvs_bvl2, num_tvs_def]
                >- metis_tac [tenv_invC_convert_env2] >>
                fs [] >>
                imp_res_tac generalise_none >>
