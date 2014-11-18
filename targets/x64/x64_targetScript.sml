@@ -21,7 +21,7 @@ val x64_config_def = Define`
     ; has_icache := T
     ; has_mem_32 := T
     ; two_reg_arith := T
-    ; valid_imm := \i. ^min32 <= i /\ i <= ^max32
+    ; valid_imm := \b i. ^min32 <= i /\ i <= ^max32
     ; addr_offset_min := ^min32
     ; addr_offset_max := ^max32
     ; jump_offset_min := ^min32 + 13w

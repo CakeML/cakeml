@@ -28,7 +28,7 @@ val arm6_config_def = Define`
     ; has_icache := F
     ; has_mem_32 := F
     ; two_reg_arith := F
-    ; valid_imm := valid_immediate
+    ; valid_imm := \c i. valid_immediate i
     ; addr_offset_min := ^min12
     ; addr_offset_max := ^max12
     ; jump_offset_min := ^min26
@@ -809,16 +809,6 @@ in
           [] => NO_TAC
         | l => assume_tac (step P state x (pick l))) (asl, g)
 end
-
-(*
-
-   decode_tac [true, false]
-
-   reftm
-
-   val l = fst (listSyntax.dest_list ``[]``)
-
-*)
 
 local
    val is_byte_eq =
