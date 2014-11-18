@@ -32,11 +32,10 @@ val infer_e_type_pe_determ = Q.store_thm ("infer_e_type_pe_determ",
   type_pe_determ (convert_menv menv) cenv tenv p e`,
  cheat);
  (*
-
  rw [type_pe_determ_def] >>
- (infer_e_complete |> CONJUNCT1 |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
- pop_assum mp_tac >>
- (infer_e_complete |> CONJUNCT1 |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
+ (infer_p_complete |> CONJUNCT1 |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
+ ntac 2 (pop_assum mp_tac) >>
+ (infer_p_complete |> CONJUNCT1 |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
  rw [] >>
  `t_wfs init_infer_state.subst` by rw [t_wfs_def, init_infer_state_def] >>
  `t_wfs st.subst` by metis_tac [infer_e_wfs] >>
