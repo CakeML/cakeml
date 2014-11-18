@@ -71,6 +71,11 @@ val generalise_none = Q.prove (
  rw [] >>
  metis_tac []);
 
+val check_s_more5 = Q.prove (
+`!s uvs tvs uvs'. check_s tvs uvs s ∧ uvs ⊆ uvs' ⇒ check_s tvs uvs' s`,
+ rw [check_s_def] >>
+ metis_tac [check_t_more5]);
+
 val infer_d_sound = Q.prove (
 `!mn decls tenvT menv cenv env d st1 st2 decls' tenvT' cenv' env' tenv.
   infer_d mn decls tenvT menv cenv env d st1 = (Success (decls',tenvT',cenv',env'), st2) ∧
@@ -184,7 +189,15 @@ val infer_d_sound = Q.prove (
                MAP_EVERY qexists_tac [`st''''.subst`, `t1`, `t`] >>
                rw []
                >- metis_tac [infer_p_wfs] >>
-               cheat,
+               match_mp_tac check_s_more5 >> 
+               qexists_tac `count st''''.next_uvar` >>
+               rw [SUBSET_DEF] >>
+               match_mp_tac (CONJUNCT1 infer_p_check_s) >>
+               MAP_EVERY qexists_tac [`cenv`, `p`, `st'''`] >>
+               rw [] >>
+               match_mp_tac (CONJUNCT1 infer_e_check_s) >>
+               MAP_EVERY qexists_tac [`menv`, `cenv`, `env`, `e`, `init_infer_state`, `t1`] >>
+               rw [check_s_def],
            imp_res_tac infer_p_bindings >>
                fs [],
            metis_tac [],

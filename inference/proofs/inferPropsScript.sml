@@ -926,7 +926,7 @@ val check_s_more = Q.prove (
 rw [check_s_def] >>
 metis_tac [check_t_more3]);
 
-val check_s_more2 = Q.prove (
+val check_s_more2 = Q.store_thm ("check_s_more2",
 `!s uvs. check_s tvs (count uvs) s ⇒ !uvs'. uvs ≤ uvs' ⇒ check_s tvs (count uvs') s`,
 rw [check_s_def] >>
 metis_tac [check_t_more4]);
