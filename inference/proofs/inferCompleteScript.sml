@@ -109,6 +109,8 @@ val infer_d_complete = Q.prove (
      imp_res_tac infer_p_bindings >>
      pop_assum (qspecl_then [`[]`] assume_tac) >>
      fs [] >>
+     `tenv_inv FEMPTY tenv (bind_var_list2 (convert_env2 tenv) Empty)`
+               by metis_tac [tenv_inv_convert_env2] >>
      imp_res_tac type_pe_determ_infer_e >>
      `EVERY (check_t 0 {}) (MAP (t_walkstar s) (MAP SND tenv'''))`
           by (fs [EVERY_MEM, MEM_MAP] >>

@@ -164,19 +164,19 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
   tenvC_ok cenv ∧
   check_env {} env ∧
   num_tvs tenv = 0 ∧
-  tenv_invC FEMPTY env tenv ∧
+  tenv_inv FEMPTY env tenv ∧
   infer_e menv cenv env e init_infer_state = (Success t, st) ∧
   infer_p cenv p st = (Success (t', tenv'), st') ∧
   t_unify st'.subst t t' = SOME s ∧
   type_pe_determ (convert_menv menv) cenv tenv p e
   ⇒
   EVERY (\(n, t). check_t 0 {} (t_walkstar s t)) tenv'`,
- cheat);
 
- (*
- rw [type_pe_determ_def] >>
+ rw [type_pe_determ_def, check_cenv_tenvC_ok] >>
  `t_wfs init_infer_state.subst` by rw [t_wfs_def, init_infer_state_def] >>
  `t_wfs st.subst` by metis_tac [infer_e_wfs] >>
+ `t_wfs st'.subst` by metis_tac [infer_p_wfs] >>
+ `t_wfs s` by metis_tac [t_unify_wfs] >>
  `check_t 0 (count st.next_uvar) t`
           by (imp_res_tac infer_e_check_t >>
               fs [init_infer_state_def]) >>
@@ -184,25 +184,31 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
            by (match_mp_tac (CONJUNCT1 infer_e_check_s) >>
                MAP_EVERY qexists_tac [`menv`, `cenv`, `env`, `e`, `init_infer_state`] >>
                rw [init_infer_state_def, check_s_def]) >>
- `?l. set l = count st.next_uvar DIFF FDOM st.subst` 
+ `?l. set l = count st'.next_uvar DIFF FDOM st'.subst` 
           by metis_tac [FINITE_COUNT, FINITE_DIFF, SET_TO_LIST_INV] >>
  qabbrev_tac `inst1 = MAP (\n. (Infer_Tuvar n, Infer_Tbool)) l` >>
  qabbrev_tac `inst2 = MAP (\n. (Infer_Tuvar n, Infer_Tint)) l` >>
  (* Because we're instantiating exactly the unconstrained variables *)
- `?s1. sub_completion 0 st.next_uvar st.subst inst1 s1` by cheat >>
- `?s2. sub_completion 0 st.next_uvar st.subst inst2 s2` by cheat >>
+ `?s1. sub_completion 0 st'.next_uvar s inst1 s1` by cheat >>
+ `?s2. sub_completion 0 st'.next_uvar s inst2 s2` by cheat >>
  imp_res_tac sub_completion_wfs >>
+ imp_res_tac sub_completion_unify2 >>
+
+
  mp_tac (Q.SPECL [`menv`, `cenv`, `env`, `e`, `init_infer_state`, `st`, `tenv`, `t`, `inst1`, `s1`] (CONJUNCT1 infer_e_sound)) >>
  mp_tac (Q.SPECL [`menv`, `cenv`, `env`, `e`, `init_infer_state`, `st`, `tenv`, `t`, `inst2`, `s2`] (CONJUNCT1 infer_e_sound)) >>
  imp_res_tac tenv_inv_empty_to >>
  rw [init_infer_state_def] >>
+ 
+
+ (*
  `convert_t (t_walkstar s1 t) = convert_t (t_walkstar s2 t)` by metis_tac [] >>
  CCONTR_TAC >>
  (* From here, we know that there is some unification variable in t_walkstar st.subst t, and that
   * it is therefore in FDOM s1 and FDOM s2 but not in FDOM st.subst. Hence it is in l, and thus
   * mapped to different types in inst1 and inst2. Thus, t_walkstar s1 t ≠ t_walkstar s2 t, a contradiction. *)
- cheat); 
  *)
+ cheat); 
 
 val _ = export_theory ();
 
