@@ -192,7 +192,8 @@ val wGC_s_val_eq_word_state = store_thm("wGC_s_val_eq_word_state",
   fs[word_state_component_equality]>>rfs[])
 
 (*Most generalized wGC_s_val_eq*)
-val wGC_s_val_eq_gen = store_thm ("wGC_s_val_eq_gen",``
+val wGC_s_val_eq_gen = store_thm ("wGC_s_val_eq_gen",
+``
   !s t s'.
   s.gc_fun = t.gc_fun ∧
   s.memory = t.memory ∧

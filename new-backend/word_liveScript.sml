@@ -134,7 +134,7 @@ val coloring_ok_def = Define`
     let merged = insert num () (union e2_live e3_live) in
     let e1_live = get_live e1 merged in  
       INJ f (domain e1_live) UNIV ∧
-      (*Internal interference sets*) 
+      (*Internal clash sets*) 
       coloring_ok f e2 live ∧ coloring_ok f e3 live ∧ 
       coloring_ok f e1 merged) ∧ 
   (coloring_ok f (Call (SOME (v,cutset,ret_handler)) dest args h) live =
