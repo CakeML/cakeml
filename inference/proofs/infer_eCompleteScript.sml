@@ -31,7 +31,7 @@ t_wfs s'``,
 
 (*t_compat is preserved over certain types of pure_add_constraints*)
 val t_compat_pure_add_constraints_1 = prove(
-``!ls s sx. 
+``!ls s sx.
   t_compat s sx ∧ EVERY (\x,y. t_walkstar sx x = t_walkstar sx y) ls
   ⇒ 
   ?si. pure_add_constraints s ls si ∧ t_compat si sx``,
@@ -62,7 +62,7 @@ val t_compat_pure_add_constraints_2 = prove(
     metis_tac[t_unify_wfs])
 
 (*behaves like a function if the first 2 arguments are equal*)
-val pure_add_constraints_functional = prove(
+val pure_add_constraints_functional = store_thm("pure_add_constraints_functional",
 `` !constraints s s' s''.
    t_wfs s ∧ 
    pure_add_constraints s constraints s' ∧
@@ -78,8 +78,8 @@ val pure_add_constraints_functional = prove(
 
 (*1 direction is sufficient to imply the other*)
 val pure_add_constraints_swap_lemma = prove(
-``t_wfs s ∧ 
-  pure_add_constraints s (a++b) sx 
+``t_wfs s ∧
+  pure_add_constraints s (a++b) sx
   ⇒
   ?si. pure_add_constraints s (b++a) si ∧
        t_compat si sx ``,
@@ -97,12 +97,12 @@ val pure_add_constraints_swap_lemma = prove(
   rfs[]>>
   HINT_EXISTS_TAC>>fs[])
 
-val pure_add_constraints_swap = prove(
-``t_wfs s ∧ 
+val pure_add_constraints_swap = store_thm("pure_add_constraints_swap",
+``t_wfs s ∧
   pure_add_constraints s (a++b) sx
-  ⇒ 
-  ?si. pure_add_constraints s (b++a) si ∧ 
-       t_compat si sx ∧ 
+  ⇒
+  ?si. pure_add_constraints s (b++a) si ∧
+       t_compat si sx ∧
        t_compat sx si``,
   rw[]>>
   assume_tac pure_add_constraints_swap_lemma>>rfs[]>>
@@ -360,7 +360,7 @@ metis_tac[optionTheory.option_nchotomy])
 val t_walk_submap_walkstar = prove(
 ``
 !s s'. s SUBMAP s' ∧ t_wfs s ∧ t_wfs s'
-⇒  
+⇒
 (!h. t_walk s (t_walkstar s' h) = t_walkstar s' h) ∧
 (!hs. MAP ((t_walk s) o t_walkstar s') hs = MAP (t_walkstar s') hs)``,
   ntac 3 strip_tac>>
@@ -411,12 +411,12 @@ fs[pure_add_constraints_def,EQ_IMP_THM]>>rw[]
 val t_unify_ignore = prove(
 ``(!s t t'.
   t_wfs s ⇒
-  t_walkstar s t = t_walkstar s t' ⇒ 
+  t_walkstar s t = t_walkstar s t' ⇒
   t_unify s t t' = SOME s) ∧
   (!s ts ts'.
-  t_wfs s ⇒ 
-  MAP (t_walkstar s) ts = MAP (t_walkstar s) ts' ⇒ 
-  ts_unify s ts ts' = SOME s)``, 
+  t_wfs s ⇒
+  MAP (t_walkstar s) ts = MAP (t_walkstar s) ts' ⇒
+  ts_unify s ts ts' = SOME s)``,
   ho_match_mp_tac t_unify_strongind>>rw[]>>
   fs[t_unify_eqn]>-
   (BasicProvers.FULL_CASE_TAC>>
@@ -427,8 +427,8 @@ val t_unify_ignore = prove(
   Cases_on`ts`>>Cases_on`ts'`>>
   fs[ts_unify_def])
 
-val pure_add_constraints_ignore = prove(
-``!s ls. t_wfs s ∧ EVERY (λx,y. t_walkstar s x = t_walkstar s y) ls 
+val pure_add_constraints_ignore = store_thm("pure_add_constraints_ignore",
+``!s ls. t_wfs s ∧ EVERY (λx,y. t_walkstar s x = t_walkstar s y) ls
   ⇒ pure_add_constraints s ls s``,
   strip_tac>>Induct>>
   fs[pure_add_constraints_def]>>
@@ -498,7 +498,7 @@ val check_t_less = prove(
     fs[check_t_def])
 
 (*Double sided t_compat thm*)
-val t_compat_bi_ground = prove(
+val t_compat_bi_ground = store_thm("t_compat_bi_ground",
 ``(!uv. uv ∈ FDOM a ⇒ check_t n {} (t_walkstar a (Infer_Tuvar uv))) ∧
   t_compat a b ∧ 
   t_compat b a
