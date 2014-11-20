@@ -2046,14 +2046,14 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[(*print_envC_def,*)print_envE_def] >>
       TRY (
         rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
-        qunabbrev_tac`bvs` >> fs[print_envE_def,inferSoundTheory.convert_env2_def] >>
+        qunabbrev_tac`bvs` >> fs[print_envE_def,inferPropsTheory.convert_env2_def] >>
         NO_TAC ) >>
       match_mp_tac print_bv_list_print_envE >>
       rpt BasicProvers.VAR_EQ_TAC >>
       HINT_EXISTS_TAC >>
       imp_res_tac pmatch_dom >> fs[] >>
       qpat_assum`LIST_REL X x' Y`mp_tac >>
-      simp[inferSoundTheory.convert_env2_def,EVERY2_MAP,EVERY_MAP] >>
+      simp[inferPropsTheory.convert_env2_def,EVERY2_MAP,EVERY_MAP] >>
       simp[LIST_REL_EL_EQN,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
       strip_tac >>
       imp_res_tac LIST_REL_LENGTH >> fs[build_rec_env_MAP] >>
