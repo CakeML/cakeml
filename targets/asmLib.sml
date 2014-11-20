@@ -24,7 +24,7 @@ fun add_asm_compset cmp =
        mem_load_def, write_mem_word_def, mem_store_def, read_mem_word_def,
        mem_op_def, inst_def, inst_opt_def, jump_to_offset_def, asm_def] cmp
    ; utilsLib.add_datatypes
-        (List.map asm_type0 ["cmp", "mem_op"] @
+        (List.map asm_type0 ["cmp", "mem_op", "binop", "cmp", "shift"] @
          List.map asm_type  ["asm_config", "asm"])
         cmp
    )

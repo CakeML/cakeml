@@ -126,7 +126,7 @@ val () = Datatype `
      ; has_icache       : bool
      ; has_mem_32       : bool
      ; two_reg_arith    : bool
-     ; valid_imm        : 'a word -> bool
+     ; valid_imm        : (binop + cmp) -> 'a word -> bool
      ; addr_offset_min  : 'a word
      ; addr_offset_max  : 'a word
      ; jump_offset_min  : 'a word
@@ -142,20 +142,20 @@ val reg_ok_def = Define `
   reg_ok r c = r < c.reg_count /\ ~MEM r c.avoid_regs`
 
 val reg_imm_ok_def = Define `
-  (reg_imm_ok (Reg r) c = reg_ok r c) /\
-  (reg_imm_ok (Imm w) c = c.valid_imm w)`
+  (reg_imm_ok b (Reg r) c = reg_ok r c) /\
+  (reg_imm_ok b (Imm w) c = c.valid_imm b w)`
 
 val arith_ok_def = Define `
   (arith_ok (Binop b r1 r2 ri) c =
      (c.two_reg_arith ==> (r1 = r2)) /\
-     reg_ok r1 c /\ reg_ok r2 c /\ reg_imm_ok ri c) /\
+     reg_ok r1 c /\ reg_ok r2 c /\ reg_imm_ok (INL b) ri c) /\
   (arith_ok (Shift l r1 r2 n) (c: 'a asm_config) =
      (c.two_reg_arith ==> (r1 = r2)) /\
      reg_ok r1 c /\ reg_ok r2 c /\
      ((n = 0) ==> (l = Lsl)) /\ n < dimindex(:'a))`
 
 val cmp_ok_def = Define `
-  cmp_ok (cmp: cmp) r ri c = reg_ok r c /\ reg_imm_ok ri c`
+  cmp_ok (cmp: cmp) r ri c = reg_ok r c /\ reg_imm_ok (INR cmp) ri c`
 
 val addr_offset_ok_def = Define `
   addr_offset_ok w c = c.addr_offset_min <= w /\ w <= c.addr_offset_max`
