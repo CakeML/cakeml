@@ -117,7 +117,7 @@ val unconvert_11 = Q.prove (
  rfs [EL_MAP] >>
  metis_tac [EL_MEM]);
 
-val type_p_pat_bindings = Q.prove (
+val type_p_pat_bindings = Q.store_thm ("type_p_pat_bindings",
 `(∀tvs cenv p t tenv.
   type_p tvs cenv p t tenv ⇒ MAP FST tenv = pat_bindings p []) ∧
  (∀tvs cenv ps ts tenv.

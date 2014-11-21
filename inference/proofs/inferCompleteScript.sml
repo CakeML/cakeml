@@ -121,6 +121,20 @@ val infer_d_complete = Q.prove (
      imp_res_tac generalise_no_uvars >>
      pop_assum (qspecl_then [`FEMPTY`, `0`, `0`] mp_tac) >>
      rw [init_infer_state_def] >>
+     simp[MAP_MAP_o,ZIP_MAP,combinTheory.o_DEF] >>
+     rator_x_assum`convert_env2`mp_tac >>
+     imp_res_tac type_p_pat_bindings >> rfs[] >>
+     simp[convert_env2_def,tenv_add_tvs_def] >>
+     pop_assum mp_tac >>
+     simp[Once LIST_EQ_REWRITE,GSYM AND_IMP_INTRO,EL_MAP] >>
+     ntac 2 strip_tac >>
+     simp[Once LIST_EQ_REWRITE,GSYM AND_IMP_INTRO,EL_MAP,UNCURRY] >>
+     ntac 2 strip_tac >>
+     simp[Once LIST_EQ_REWRITE,EL_MAP] >>
+     qx_gen_tac`n`>>strip_tac >>
+     Cases_on`EL n tenv'` >>
+     rpt(first_x_assum(qspec_then`n`mp_tac)) >> simp[] >>
+     Cases_on`r`>>simp[] >> rw[] >>
      cheat)                
      (*
      `∃s' t'. generalise_list 0 0 FEMPTY (MAP (t_walkstar si) (MAP SND tenv'')) = (0,s',t')` 
