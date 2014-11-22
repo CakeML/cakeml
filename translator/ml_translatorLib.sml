@@ -3,8 +3,8 @@ struct
 
 open HolKernel boolLib bossLib;
 
-open astTheory libTheory semanticPrimitivesTheory bigStepTheory print_astTheory;
-open terminationTheory print_astTerminationTheory stringLib;
+open astTheory libTheory semanticPrimitivesTheory bigStepTheory;
+open terminationTheory stringLib;
 open ml_translatorTheory intLib lcsymtacs;
 open arithmeticTheory listTheory combinTheory pairTheory pairLib;
 open integerTheory intLib ml_optimiseTheory;
@@ -212,7 +212,7 @@ in
   (* functions for appending a new declaration *)
   val cs = listLib.list_compset()
   val () = computeLib.scrub_thms [LIST_TO_SET_THM,MEM,ALL_DISTINCT] cs
-  val () = computeLib.add_thms [MEM,ALL_DISTINCT] cs
+  val () = computeLib.add_thms [MEM,ALL_DISTINCT,FST,SND,EVERY_DEF,EXISTS_DEF] cs
   val () = stringLib.add_string_compset cs
   val () = pairLib.add_pair_compset cs
   val () = computeLib.add_thms [evalPropsTheory.build_tdefs_cons] cs
@@ -222,6 +222,9 @@ in
     if can (match_term ``(Dtype x) : dec``) decl then
       MATCH_MP (INST_mn DeclAssumCons_SNOC_Dtype) (!cenv_eq_thm)
       |> SPEC (decl |> rand)
+      |> print_time "DeclAssumCons_SNOC_Dtype pre"
+            (CONV_RULE ((RATOR_CONV o RAND_CONV) eval))
+      |> (fn th => MP th TRUTH)
       |> print_time "EVAL ALL_DISTINCT" (CONV_RULE ((RATOR_CONV o RAND_CONV) eval))
       |> print_time "EVAL2" (
          CONV_RULE (RAND_CONV EVAL THENC
@@ -231,6 +234,9 @@ in
       MATCH_MP (INST_mn DeclAssumCons_SNOC_Dexn) (!cenv_eq_thm)
       |> SPEC (decl |> rator |> rand)
       |> SPEC (decl |> rand)
+      |> print_time "DeclAssumCons_SNOC_Dexn pre"
+            (CONV_RULE ((RATOR_CONV o RAND_CONV) eval))
+      |> (fn th => MP th TRUTH)
       |> print_time "EVAL ALL_DISTINCT" (CONV_RULE ((RATOR_CONV o RAND_CONV) eval))
       |> print_time "EVAL2" (
          CONV_RULE (RAND_CONV EVAL THENC
@@ -646,28 +652,6 @@ val quietDefine = (* quiet version of Define -- by Anthony Fox *)
        (Lib.with_flag (Feedback.emit_MESG, false)
           (Feedback.trace ("auto Defn.tgoal", 0) TotalDefn.Define)))
 
-
-(* mapping from dec terms to SML *)
-
-local
-  val _ = computeLib.add_funs [tree_to_list_def,
-                               tok_list_to_string_def,
-                               tok_to_string_def,
-                               ASCIInumbersTheory.n2s_def,
-                               numposrepTheory.n2l_def,
-                               ASCIInumbersTheory.HEX_def]
-  fun dec2str sml d = let (* very slow at the moment *)
-    val result =
-      ``dec_to_sml_string ^d``
-      |> EVAL |> concl |> rand |> stringSyntax.fromHOLstring
-   (* |> (fn str => (print ("\n\n" ^ str ^ "\n\n"); str)) *)
-      handle HOL_ERR _ => failwith("\nUnable to print "^(term_to_string d)^"\n\n")
-    in result end;
-in
-  fun dec2str_sml d = dec2str true d
-end
-
-
 (* printing output e.g. SML syntax *)
 
 val print_asts = ref false;
@@ -716,7 +700,11 @@ local
     val _ = print "done.\n"
     val _ = print "Printing SML syntax ... "
     val _ = print_prelude_comment "_ml.txt"
-    val _ = print_decls_aux ds "_ml.txt" (fn tm => ["\n",print_str (dec2str_sml tm),"\n"])
+    val _ = astPP.enable_astPP()
+    val _ = trace("pp_avoids_symbol_merges",0)
+              (print_decls_aux ds "_ml.txt")
+                (fn tm => ["\n",term_to_string tm,"\n"])
+    val _ = astPP.disable_astPP()
     val _ = print "done.\n"
     in () end;
   fun print_item (InvDef inv_def) = let
@@ -2056,8 +2044,9 @@ fun preprocess_def def = let
     val def = CONV_RULE (DEPTH_CONV split_let_and_conv) def
     val def = if def |> SPEC_ALL |> concl |> dest_eq |> fst |> is_const
               then SPEC_ALL (RW1 [FUN_EQ_THM] def) else def
+    val def = CONV_RULE (DEPTH_CONV mlstringLib.mlstring_case_conv) def
     val def = PURE_REWRITE_RULE ([ADD1,boolTheory.literal_case_DEF,
-                num_case_thm,mlstring_CASE_thm] @ get_preprocessor_rws()) def
+                num_case_thm] @ get_preprocessor_rws()) def
     val def = CONV_RULE (AUTO_ETA_EXPAND_CONV THENC REDEPTH_CONV BETA_CONV) def
     val def = rename_bound_vars_rule "v" (GEN_ALL def) |> SPEC_ALL
     in def end;
@@ -2285,6 +2274,7 @@ val Num_ABS_pat = Eval_Num_ABS |> concl |> rand |> rand |> rand
 val int_of_num_pat = Eval_int_of_num |> concl |> rand |> rand |> rand
 val int_of_num_o_pat = Eval_int_of_num_o |> concl |> rand |> rand |> rand
 val o_int_of_num_pat = Eval_o_int_of_num |> concl |> rand |> rand |> rand
+val int_negate_pat = Eval_int_negate |> concl |> funpow 3 rand
 
 val vec_vec_pat = Eval_vector |> SPEC_ALL |> RW [AND_IMP_INTRO]
   |> concl |> dest_imp |> snd |> rand |> rand
@@ -2397,6 +2387,12 @@ fun hol2deep tm =
     val th1 = hol2deep x1
     val result = MATCH_MP Eval_Bool_Not th1
     in check_inv "not" tm result end else
+  (* integer negate *)
+  if can (match_term int_negate_pat) tm then let
+    val x1 = rand tm
+    val th1 = hol2deep x1
+    val result = MATCH_MP Eval_int_negate th1
+    in check_inv "negate" tm result end else
   (* equality: n = 0 *)
   if can (match_term ``(n = (0:num))``) tm then let
     val x1 = fst (dest_eq tm)

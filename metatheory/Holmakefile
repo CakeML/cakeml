@@ -8,6 +8,11 @@ LEMS = $(patsubst %,%.lem,$(SRC))
 GENS = $(patsubst %,%Script.sml,$(SRC))
 LEM_OPT = -wl_unused_vars ign
 
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+all: $(TARGETS)
+.PHONY: all
+
 $(GENS) : $(LEMI) $(LEMS)
 	if type lem;\
 	then lem $(LEM_OPT) -suppress_renaming -auxiliary_level none $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMS));\
@@ -25,6 +30,8 @@ PRE_BARE_THYS = bigClockTheory \
 BARE_THYS = $(patsubst %,../semantics/proofs/%,$(PRE_BARE_THYS))
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP)
+
+all: $(HOLHEAP)
 
 $(HOLHEAP): $(DEPS)
 	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENTHEAP) -o $(HOLHEAP) $(BARE_THYS)

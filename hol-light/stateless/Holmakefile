@@ -6,6 +6,11 @@ HOLHEAP = heap
 PARENT_HOLHEAP = ../set-theory/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+all: $(TARGETS) $(HOLHEAP)
+.PHONY: all
+
 BARE_THYS = ../../miscLib ../set-theory/setSpecTheory ../syntax-lib/holSyntaxLibTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))

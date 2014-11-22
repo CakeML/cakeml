@@ -132,7 +132,7 @@ val wordsToBytesToWords_lemma = prove(
   ``∀ls. TAKE (LENGTH (dropWhile ($= k) (REVERSE ls))) ls ++
          GENLIST (K k) (LENGTH ls - LENGTH (TAKE (LENGTH (dropWhile ($= k) (REVERSE ls))) ls))
          = ls``,
-  HO_MATCH_MP_TAC SNOC_INDUCT >> rw[dropWhile_DEF] >>
+  HO_MATCH_MP_TAC SNOC_INDUCT >> rw[dropWhile_def] >>
   rw[] >> simp[TAKE_APPEND2,ADD1] >>
   Q.PAT_ABBREV_TAC`m = LENGTH Z` >>
   `m ≤ LENGTH (REVERSE ls)` by (
@@ -1265,6 +1265,19 @@ val new_ref_thm = store_thm("new_ref_thm",
   \\ REPEAT STRIP_TAC
   \\ MATCH_MP_TAC bc_value_inv_SUBMAP
   \\ FULL_SIMP_TAC (srw_ss()) []);
+
+(* new ref -- replicate *)
+
+val new_ref_replicate_thm = store_thm("new_ref_replicate_thm",
+  ``abs_ml_inv (x1::x2::stack) refs (roots,heap,a,sp) limit /\
+    ~(ptr IN FDOM refs) /\ l + 1 <= sp ==>
+    ?p rs r1 r2 roots2 heap2.
+      (roots = r1 :: r2 :: roots2) /\
+      (heap_store_unused a sp (RefBlock (REPLICATE l r2)) heap = (heap2,T)) /\
+      abs_ml_inv ((RefPtr ptr)::x2::stack) (refs |+ (ptr,ValueArray (REPLICATE l x2)))
+                 (Pointer (a+sp-(l + 1))::r2::roots2,heap2,a,
+                  sp - (l + 1)) limit``,
+  cheat);
 
 (* deref *)
 

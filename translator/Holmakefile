@@ -1,16 +1,16 @@
-INCLUDES = .. ../semantics ../parsing ../semantics/proofs ../lem_lib_stub
+INCLUDES = .. ../semantics ../parsing ../semantics/proofs ../lem_lib_stub ../explorer/pp/astPP
 OPTIONS = QUIT_ON_FAILURE
-
-print_ast_deps = ../semantics/lib.lem ../semantics/tokens.lem ../semantics/ast.lem
-print_astScript.sml : $(print_ast_deps) print_ast.lem
-	if type lem;\
-	then lem -auxiliary_level none $(patsubst %,-i %,$(print_ast_deps)) -hol print_ast.lem;\
-	else touch print_astScript.sml; fi
 
 ifdef POLY
 HOLHEAP = heap
 PARENT_HOLHEAP = ../semantics/proofs/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+all: $(HOLHEAP)
+
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+all: $(TARGETS) $(HOLHEAP)
+.PHONY: all
 
 PRE_BARE_THYS1 = astTheory \
 		tokensTheory \
@@ -26,9 +26,8 @@ BARE_THYS1 =  $(patsubst %,../semantics/%,$(PRE_BARE_THYS1))
 BARE_THYS2 =  $(patsubst %,../parsing/%,$(PRE_BARE_THYS2))
 BARE_THYS3 =  $(patsubst %,../semantics/proofs/%,$(PRE_BARE_THYS3))
 
-DEPS = $(patsubst %,%.uo,$(BARE_THYS1)) $(patsubst %,%.uo,$(BARE_THYS2)) $(patsubst %,%.uo,$(BARE_THYS3)) $(PARENTHEAP)
+DEPS = $(patsubst %,%.uo,$(BARE_THYS1)) $(patsubst %,%.uo,$(BARE_THYS2)) $(patsubst %,%.uo,$(BARE_THYS3)) ../explorer/pp/astPP/astPP.uo $(PARENTHEAP)
 
 $(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS1) $(BARE_THYS3) $(BARE_THYS2)
-
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS1) $(BARE_THYS3) $(BARE_THYS2) ../explorer/pp/astPP/astPP
 endif

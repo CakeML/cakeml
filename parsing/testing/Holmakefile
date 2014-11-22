@@ -1,5 +1,5 @@
 INCLUDES = .. ../../semantics
 
 ifdef POLY
-HOL_HEAP = ../parsing-heap
+HOLHEAP = ../heap
 endif

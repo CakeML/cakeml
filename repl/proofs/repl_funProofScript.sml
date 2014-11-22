@@ -240,7 +240,7 @@ val infer_to_type = Q.prove (
     (st.rinferencer_state = (decls,tenvT,menv,cenv,env))
     ⇒
     infer_sound_invariant (merge_mod_env new_tenvT tenvT) (FUNION new_menv menv) (merge_alist_mod_env new_cenv cenv) (new_env++env) ∧
-    type_top rs.tdecs rs.tenvT rs.tenvM rs.tenvC rs.tenv top
+    type_top T rs.tdecs rs.tenvT rs.tenvM rs.tenvC rs.tenv top
              (convert_decls new_decls) new_tenvT (convert_menv new_menv) new_cenv (convert_env2 new_env)`,
    rw [repl_invariant_def, type_infer_invariants_def, type_sound_invariants_def] >>
    fs [] >>

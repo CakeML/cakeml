@@ -1,12 +1,18 @@
 INCLUDES = .. ../bytecode/ ../targets/
 OPTIONS=QUIT_ON_FAILURE
 
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+all: $(TARGETS) $(HOLHEAP)
+.PHONY: all
+
 ifdef POLY
 HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 BARE_THYS = ../bytecode/bytecodeTheory ../bytecode/bytecodeTerminationTheory \
             ../targets/asmTheory
+
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)

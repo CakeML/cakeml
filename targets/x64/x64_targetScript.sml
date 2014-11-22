@@ -21,11 +21,13 @@ val x64_config_def = Define`
     ; has_icache := T
     ; has_mem_32 := T
     ; two_reg_arith := T
-    ; valid_imm := \i. ^min32 <= i /\ i <= ^max32
+    ; valid_imm := \b i. ^min32 <= i /\ i <= ^max32
     ; addr_offset_min := ^min32
     ; addr_offset_max := ^max32
     ; jump_offset_min := ^min32 + 13w
     ; jump_offset_max := ^max32 + 5w
+    ; cjump_offset_min := ^min32 + 13w
+    ; cjump_offset_max := ^max32 + 5w
     ; loc_offset_min := ^min32 + 7w
     ; loc_offset_max := ^max32 + 7w
     ; code_alignment := 1
@@ -705,8 +707,7 @@ val enc_rwts =
   asmLib.asm_rwts
 
 val enc_ok_rwts =
-  encode_rwts @ asmLib.asm_ok_rwts @
-  [enc_ok_def, x64_config_def, same_enc_length_def]
+  encode_rwts @ asmLib.asm_ok_rwts @ [enc_ok_def, x64_config_def]
 
 (* some custom tactics ---------------------------------------------------- *)
 
@@ -810,7 +811,10 @@ fun next_state_tac_cmp n =
    \\ rev_full_simp_tac (srw_ss()++wordsLib.WORD_EXTRACT_ss)
          [combinTheory.APPLY_UPDATE_THM]
 
-val enc_ok_tac = full_simp_tac (srw_ss()++boolSimps.LET_ss) enc_ok_rwts
+val enc_ok_tac =
+   full_simp_tac (srw_ss()++boolSimps.LET_ss)
+      (offset_monotonic_def :: enc_ok_rwts)
+
 fun next_tac n =
    qexists_tac n \\ simp [x64_next_def, numeralTheory.numeral_funpow]
 fun print_tac s gs = (print (s ^ "\n"); ALL_TAC gs)
@@ -1521,9 +1525,17 @@ val x64_backend_correct = Count.apply Q.store_thm ("x64_backend_correct",
    >- (
       (*
         --------------
+          no Call enc_ok
+        --------------*)
+      enc_ok_tac
+      )
+   >- (
+      (*
+        --------------
           Loc enc_ok
         --------------*)
       print_tac "enc_ok: Loc"
+      \\ enc_ok_tac
       \\ rw [loc_lem1]
       )
       (*

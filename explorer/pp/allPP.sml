@@ -35,7 +35,7 @@ val _ = add_x64_compset cs
 val _ = computeLib.add_thms  [basis_env_eq,compile_primitives_def,get_all_asts_def,infer_all_asts_def,remove_labels_all_asts_def] cs
 
 (*TODO: Move into HOL once I figure out where...*)
-val _ = computeLib.add_thms [nub_DEF,rich_listTheory.COUNT_LIST_AUX_def_compute,rich_listTheory.COUNT_LIST_compute] cs
+val _ = computeLib.add_thms [nub_def,rich_listTheory.COUNT_LIST_AUX_def_compute,rich_listTheory.COUNT_LIST_compute] cs
 
 val _ = compute_basicLib.add_datatype ``:comp_environment`` cs
 

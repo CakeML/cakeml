@@ -7,6 +7,11 @@ HOLHEAP = heap
 PARENTHEAP = ../compiler/proofs/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+all: $(TARGETS) $(HOLHEAP)
+.PHONY: all
+
 BARE_THYS = ../semantics/initialProgramTheory ../semantics/proofs/initSemEnvTheory ../semantics/proofs/interpTheory ../inference/proofs/inferSoundTheory ../compiler/proofs/compilerProofTheory ../metatheory/typeSoundTheory ../inference/compute_inferenceLib ../compiler/compute_compilerLib ../compiler/proofs/compute_free_varsLib
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP)

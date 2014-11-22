@@ -118,42 +118,44 @@ val () = Datatype `
 
 val () = Datatype `
   asm_config =
-    <| ISA_name        : string
-     ; reg_count       : num
-     ; avoid_regs      : num list
-     ; link_reg        : num option
-     ; has_delay_slot  : bool
-     ; has_icache      : bool
-     ; has_mem_32      : bool
-     ; two_reg_arith   : bool
-     ; valid_imm       : ('a word -> bool)
-     ; addr_offset_min : 'a word
-     ; addr_offset_max : 'a word
-     ; jump_offset_min : 'a word
-     ; jump_offset_max : 'a word
-     ; loc_offset_min  : 'a word
-     ; loc_offset_max  : 'a word
-     ; code_alignment  : num
+    <| ISA_name         : string
+     ; reg_count        : num
+     ; avoid_regs       : num list
+     ; link_reg         : num option
+     ; has_delay_slot   : bool
+     ; has_icache       : bool
+     ; has_mem_32       : bool
+     ; two_reg_arith    : bool
+     ; valid_imm        : (binop + cmp) -> 'a word -> bool
+     ; addr_offset_min  : 'a word
+     ; addr_offset_max  : 'a word
+     ; jump_offset_min  : 'a word
+     ; jump_offset_max  : 'a word
+     ; cjump_offset_min : 'a word
+     ; cjump_offset_max : 'a word
+     ; loc_offset_min   : 'a word
+     ; loc_offset_max   : 'a word
+     ; code_alignment   : num
      |>`
 
 val reg_ok_def = Define `
   reg_ok r c = r < c.reg_count /\ ~MEM r c.avoid_regs`
 
 val reg_imm_ok_def = Define `
-  (reg_imm_ok (Reg r) c = reg_ok r c) /\
-  (reg_imm_ok (Imm w) c = c.valid_imm w)`
+  (reg_imm_ok b (Reg r) c = reg_ok r c) /\
+  (reg_imm_ok b (Imm w) c = c.valid_imm b w)`
 
 val arith_ok_def = Define `
   (arith_ok (Binop b r1 r2 ri) c =
      (c.two_reg_arith ==> (r1 = r2)) /\
-     reg_ok r1 c /\ reg_ok r2 c /\ reg_imm_ok ri c) /\
+     reg_ok r1 c /\ reg_ok r2 c /\ reg_imm_ok (INL b) ri c) /\
   (arith_ok (Shift l r1 r2 n) (c: 'a asm_config) =
      (c.two_reg_arith ==> (r1 = r2)) /\
      reg_ok r1 c /\ reg_ok r2 c /\
      ((n = 0) ==> (l = Lsl)) /\ n < dimindex(:'a))`
 
 val cmp_ok_def = Define `
-  cmp_ok (cmp: cmp) r ri c = reg_ok r c /\ reg_imm_ok ri c`
+  cmp_ok (cmp: cmp) r ri c = reg_ok r c /\ reg_imm_ok (INR cmp) ri c`
 
 val addr_offset_ok_def = Define `
   addr_offset_ok w c = c.addr_offset_min <= w /\ w <= c.addr_offset_max`
@@ -161,6 +163,10 @@ val addr_offset_ok_def = Define `
 val jump_offset_ok_def = Define `
   jump_offset_ok w c = c.jump_offset_min <= w /\ w <= c.jump_offset_max /\
                        (w2n w MOD c.code_alignment = 0)`
+
+val cjump_offset_ok_def = Define `
+  cjump_offset_ok w c = c.cjump_offset_min <= w /\ w <= c.cjump_offset_max /\
+                        (w2n w MOD c.code_alignment = 0)`
 
 val loc_offset_ok_def = Define `
   loc_offset_ok w c = c.loc_offset_min <= w /\ w <= c.loc_offset_max /\
@@ -184,7 +190,7 @@ val asm_ok_def = Define `
      case i of NONE => ~c.has_delay_slot
              | SOME x => inst_ok x c /\ c.has_delay_slot) /\
   (asm_ok (JumpCmp cmp r ri w i) c =
-     jump_offset_ok w c /\ cmp_ok cmp r ri c /\
+     cjump_offset_ok w c /\ cmp_ok cmp r ri c /\
      case i of NONE => ~c.has_delay_slot
              | SOME x => inst_ok x c /\ c.has_delay_slot) /\
   (asm_ok (Call w) c =
@@ -385,22 +391,25 @@ val bytes_in_memory_concat = Q.store_thm("bytes_in_memory_concat",
 
 (* -- well-formedness of encoding -- *)
 
-val same_enc_length_def = Define `
-   same_enc_length enc c i1 i2 =
-   asm_ok i1 c /\ asm_ok i2 c ==> (LENGTH (enc i1) = LENGTH (enc i2))`
+val offset_monotonic_def = Define `
+   offset_monotonic enc c a1 a2 i1 i2 =
+   asm_ok i1 c /\ asm_ok i2 c ==>
+   (0w <= a1 /\ 0w <= a2 /\ a1 <= a2 ==> LENGTH (enc i1) <= LENGTH (enc i2)) /\
+   (a1 < 0w /\ a2 < 0w /\ a2 <= a1 ==> LENGTH (enc i1) <= LENGTH (enc i2))`
 
 val enc_ok_def = Define `
   enc_ok (enc: 'a asm -> word8 list) c =
     (* code alignment *)
     1 <= c.code_alignment /\
-    ((c.code_alignment = 1) ==> ODD (LENGTH (enc (Inst Skip)))) /\
+    (c.code_alignment = LENGTH (enc (Inst Skip))) /\
     (!w. asm_ok w c ==> (LENGTH (enc w) MOD c.code_alignment = 0)) /\
-    (* label instantiation does not affect length of code *)
-    (!w i. same_enc_length enc c (Jump w i) (Jump 0w i)) /\
-    (!cmp r ri w i.
-       same_enc_length enc c (JumpCmp cmp r ri w i) (JumpCmp cmp r ri 0w i)) /\
-    (!w. same_enc_length enc c (Call w) (Call 0w)) /\
-    (!w r. same_enc_length enc c (Loc r w) (Loc r 0w)) /\
+    (* label instantiation predictably affects length of code *)
+    (!w1 w2 i. offset_monotonic enc c w1 w2 (Jump w1 i) (Jump w2 i)) /\
+    (!cmp r ri w1 w2 i.
+       offset_monotonic enc c w1 w2
+          (JumpCmp cmp r ri w1 i) (JumpCmp cmp r ri w2 i)) /\
+    (!w1 w2. offset_monotonic enc c w1 w2 (Call w1) (Call w2)) /\
+    (!w1 w2 r. offset_monotonic enc c w1 w2 (Loc r w1) (Loc r w2)) /\
     (* no overlap between instructions with different behaviour *)
     asm_deterministic enc c`
 

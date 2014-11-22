@@ -2,6 +2,11 @@ INCLUDES = .. ../semantics ../lem_lib_stub
 
 OPTIONS = QUIT_ON_FAILURE
 
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+all: $(TARGETS)
+.PHONY: all
+
 bytecodeScript.sml: bytecode.lem
 	if type lem;\
 	then lem -auxiliary_level none $(patsubst %,-i ../semantics/%.lem,lib ast semanticPrimitives) -hol bytecode.lem;\
@@ -14,6 +19,8 @@ EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 BARE_THYS = ../semantics/semanticPrimitivesTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP)
+
+all: $(HOLHEAP)
 
 $(HOLHEAP): $(DEPS)
 	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENTHEAP) -o $(HOLHEAP) $(BARE_THYS)

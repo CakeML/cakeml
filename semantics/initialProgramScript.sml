@@ -79,7 +79,20 @@ val _ = Define `
       mk_binop "array" Aalloc;
       mk_binop "sub" Asub;
       mk_unop "length" Alength;
-      Dlet (Pvar "update") (Fun "x" (Fun "y" (Fun "z" (App Aupdate [Var (Short "x"); Var (Short "y"); Var (Short "z")])))) ]]))`;
+      Dlet (Pvar "update") (Fun "x" (Fun "y" (Fun "z" (App Aupdate [Var (Short "x"); Var (Short "y"); Var (Short "z")])))) ];
+   Tmod "Char" NONE
+     [Dtabbrev [] "char" (Tapp [] TC_char);
+      mk_unop "ord" Ord;
+      mk_unop "chr" Chr;
+      mk_binop "<" (Chopb Lt);
+      mk_binop "<=" (Chopb Leq);
+      mk_binop ">" (Chopb Gt);
+      mk_binop ">=" (Chopb Geq)];
+   Tmod "String" NONE
+     [Dtabbrev [] "string" (Tapp [] TC_string);
+      mk_unop "explode" Explode;
+      mk_unop "implode" Implode;
+      mk_unop "size" Strlen] ]))`;
 
 
 val _ = Hol_datatype `

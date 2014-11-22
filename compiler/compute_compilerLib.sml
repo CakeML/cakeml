@@ -139,6 +139,8 @@ fun add_intermediate_compiler_compset compset = let
         ,compile_varref_def
         ,stackshift_def
         ,stackshiftaux_def
+        ,PushAnyInt_def
+        ,maxPushInt_def
         ,prim1_to_bc_def
         ,prim2_to_bc_def
         ,LIST_CONJ l1

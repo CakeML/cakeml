@@ -2,6 +2,11 @@ INCLUDES = .. ../semantics ../bytecode ../lem_lib_stub ../inference
 
 OPTIONS = QUIT_ON_FAILURE
 
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+all: $(TARGETS)
+.PHONY: all
+
 #LEM_OPT = -wl_pat_comp ign  -wl_pat_exh  ign -wl_pat_fail ign -wl_unused_vars ign
 LEM_OPT = -suppress_renaming -auxiliary_level none
 
@@ -23,6 +28,7 @@ ifdef POLY
 HOLHEAP = heap
 PARENT_HOLHEAP = ../semantics/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+all: $(HOLHEAP)
 
 BARE_THYS = ../semantics/terminationTheory ../bytecode/bytecodeExtraTheory ../inference/infer_tTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)

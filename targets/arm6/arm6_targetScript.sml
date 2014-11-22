@@ -3,15 +3,15 @@ open lcsymtacs asmTheory asmLib arm_stepLib;
 
 val () = new_theory "arm6_target"
 
-val () = wordsLib.guess_lengths()
+val () = wordsLib.guess_lengths ()
 
 (* --- Configuration for ARMv6 --- *)
 
 val eval = rhs o concl o EVAL
-val min8 = eval ``-(w2w (UINT_MAXw: word8)) + 8w : word32``
-val max8 = eval ``w2w (UINT_MAXw: word8) + 8w : word32``
 val min12 = eval ``-(w2w (UINT_MAXw: word12)) : word32``
 val max12 = eval ``w2w (UINT_MAXw: word12) : word32``
+val min16 = eval ``-(w2w (UINT_MAXw: word16)) + 8w : word32``
+val max16 = eval ``w2w (UINT_MAXw: word16) + 8w : word32``
 val min26 = eval ``sw2sw (INT_MINw: 26 word) + 12w : word32``
 val max26 = eval ``sw2sw (INT_MAXw: 26 word) + 8w : word32``
 
@@ -28,13 +28,15 @@ val arm6_config_def = Define`
     ; has_icache := F
     ; has_mem_32 := F
     ; two_reg_arith := F
-    ; valid_imm := valid_immediate
+    ; valid_imm := \c i. valid_immediate i
     ; addr_offset_min := ^min12
     ; addr_offset_max := ^max12
     ; jump_offset_min := ^min26
     ; jump_offset_max := ^max26
-    ; loc_offset_min := ^min8
-    ; loc_offset_max := ^max8
+    ; cjump_offset_min := ^min26
+    ; cjump_offset_max := ^max26
+    ; loc_offset_min := ^min16
+    ; loc_offset_max := ^max16
     ; code_alignment := 4
     |>`
 
@@ -152,9 +154,16 @@ val arm6_enc_def = Define`
    (arm6_enc (JumpReg r) = enc (Branch (BranchExchange (n2w r)))) /\
    (arm6_enc (Loc r i) =
        let (opc, imm32) = if 8w <= i then (4w, i - 8w) else (2w, 8w - i) in
-       let imm12 = THE (EncodeARMImmediate imm32)
-       in
-          enc (Data (ArithLogicImmediate (opc, F, n2w r, 15w, imm12)))) /\
+         if imm32 <+ 256w then
+            enc
+              (Data (ArithLogicImmediate (opc, F, n2w r, 15w, (7 >< 0) imm32)))
+         else
+            let imm12t = (12w:word4) @@ (15 >< 8) imm32
+            and imm12b = (7 >< 0) imm32
+            in
+               enc (Data (ArithLogicImmediate (opc, F, n2w r, 15w, imm12t))) ++
+               enc (Data (ArithLogicImmediate (opc, F, n2w r, n2w r, imm12b))))
+        /\
    (arm6_enc Cache = [])`
 
 val arm6_bop_dec_def = Define`
@@ -198,7 +207,17 @@ val arm6_dec_aux_def = Define`
       if opc = 14w then Inst Skip
       else if r2 = 15w then
          let imm32 = decode_imm12 imm12 in
-            Loc (w2n r1) (if opc = 2w then 8w - imm32 else imm32 + 8w)
+            if (11 >< 8) imm12 = 0w then
+               Loc (w2n r1) (if opc = 2w then 8w - imm32 else imm32 + 8w)
+            else
+              (case decode_word rest of
+                  (14w, Data (ArithLogicImmediate (opc2, F, r3, r4, imm12b)),
+                   rest2) =>
+                     let imm32b = decode_imm12 imm12b in
+                        Loc (w2n r1)
+                            (if opc = 2w then 8w - imm32 - imm32b
+                             else imm32 + imm32b + 8w)
+                | _ => ARB)
       else Inst (Arith (Binop (arm6_bop_dec opc) (w2n r1) (w2n r2)
                               (Imm (decode_imm12 imm12))))
    | Data (Move (F, neg, r, imm12)) =>
@@ -387,6 +406,23 @@ val lem16 = Q.prove(
    \\ blastLib.FULL_BBLAST_TAC
    )
 
+val lem18 =
+   blastLib.BBLAST_PROVE
+     ``((11 >< 8) (v2w [F; F; F; F; b7; b6; b5; b4; b3; b2; b1; b0] : word12) =
+        0w: word4) /\
+       ((11 >< 8) (v2w [T; T; F; F; b7; b6; b5; b4; b3; b2; b1; b0] : word12) =
+        12w: word4)``
+
+val lem19 =
+   blastLib.BBLAST_PROVE
+     ``!c: word32.
+          c + 0xFFFFFFF8w <+ 256w ==>
+          (w2w (v2w
+                [c:word32 ' 7 = c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
+                 c ' 6 = c ' 5 \/ c ' 4 \/ c ' 3; c ' 5 = c ' 4 \/ c ' 3;
+                 c ' 4 = c ' 3; ~c ' 3; c ' 2; c ' 1; c ' 0]: word8) =
+           c - 8w: word32)``
+
 val rule = REWRITE_RULE [GSYM arm_stepTheory.Aligned]
 val lem15 = rule lem15
 val lem16 = rule lem16
@@ -488,7 +524,7 @@ val decode_imm8_thm1 = Q.prove(
 val decode_imm8_thm2 =
    blastLib.BBLAST_PROVE
      ``!c: word32.
-         8w <= c /\ c <= 263w ==>
+         8w <= c /\ c + 0xFFFFFFF8w <+ 256w ==>
          (w2w (v2w [c ' 7 <=> c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
                     c ' 6 <=> c ' 5 \/ c ' 4 \/ c ' 3; c ' 5 <=> c ' 4 \/ c ' 3;
                     c ' 4 <=> c ' 3; ~c ' 3; c ' 2; c ' 1; c ' 0]: word8) =
@@ -505,20 +541,103 @@ val decode_imm8_thm3 = Q.prove(
 
 val decode_imm8_thm4 =
    blastLib.BBLAST_PROVE
-     ``!c: word32.
-         ~(8w <= c) /\ 0xFFFFFF09w <= c ==>
-         (-1w *
-          w2w (v2w
-             [c ' 7 <=>
-              ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
-              (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-              c ' 6 <=>
-              ~c ' 5 /\ ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-              c ' 5 <=> ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-              c ' 4 <=> ~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0;
-              c ' 3 <=> c ' 2 \/ c ' 1 \/ c ' 0; c ' 2 <=> ~c ' 1 /\ ~c ' 0;
-              ~c ' 1 <=> c ' 0; c ' 0]: word8) =
-         c - 8w)``
+     ``!c: word32 p.
+         8w <= c /\ c <= 0x10007w /\ ~(c + 0xFFFFFFF8w <+ 256w) ==>
+  (c + p =
+   w2w
+      (v2w
+         [c ' 7 <=> c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
+          c ' 6 <=> c ' 5 \/ c ' 4 \/ c ' 3; c ' 5 <=> c ' 4 \/ c ' 3;
+          c ' 4 <=> c ' 3; ~c ' 3; c ' 2; c ' 1; c ' 0] : word8) +
+    p +
+    w2w
+      (v2w
+         [c ' 15 <=>
+          c ' 14 \/ c ' 13 \/ c ' 12 \/ c ' 11 \/ c ' 10 \/ c ' 9 \/
+          c ' 8 \/ c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
+          c ' 14 <=>
+          c ' 13 \/ c ' 12 \/ c ' 11 \/ c ' 10 \/ c ' 9 \/ c ' 8 \/
+          c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
+          c ' 13 <=>
+          c ' 12 \/ c ' 11 \/ c ' 10 \/ c ' 9 \/ c ' 8 \/ c ' 7 \/ c ' 6 \/
+          c ' 5 \/ c ' 4 \/ c ' 3;
+          c ' 12 <=>
+          c ' 11 \/ c ' 10 \/ c ' 9 \/ c ' 8 \/ c ' 7 \/ c ' 6 \/ c ' 5 \/
+          c ' 4 \/ c ' 3;
+          c ' 11 <=>
+          c ' 10 \/ c ' 9 \/ c ' 8 \/ c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/
+          c ' 3;
+          c ' 10 <=>
+          c ' 9 \/ c ' 8 \/ c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
+          c ' 9 <=> c ' 8 \/ c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
+          c ' 8 <=> c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3] : word8) #>> 24 +
+    8w)``
+
+val decode_imm8_thm5 =
+   blastLib.BBLAST_PROVE
+     ``!c: word32 p.
+         ~(8w <= c) /\ 0xFFFF0009w <= c /\ -1w * c + 8w <+ 256w ==>
+  (c + p =
+   -1w *
+   w2w
+     (v2w
+        [c ' 7 <=>
+         ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
+         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
+         c ' 6 <=>
+         ~c ' 5 /\ ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
+         c ' 5 <=> ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
+         c ' 4 <=> ~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0;
+         c ' 3 <=> c ' 2 \/ c ' 1 \/ c ' 0; c ' 2 <=> ~c ' 1 /\ ~c ' 0;
+         ~c ' 1 <=> c ' 0; c ' 0]: word8) + p + 8w)``
+
+val decode_imm8_thm6 =
+   blastLib.BBLAST_PROVE
+     ``!c: word32 p.
+         ~(8w <= c) /\ 0xFFFF0009w <= c /\ ~(-1w * c + 8w <+ 256w) ==>
+  (c + p =
+   -1w *
+   w2w
+     (v2w
+        [c ' 7 <=>
+         ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
+         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
+         c ' 6 <=>
+         ~c ' 5 /\ ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
+         c ' 5 <=> ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
+         c ' 4 <=> ~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0;
+         c ' 3 <=> c ' 2 \/ c ' 1 \/ c ' 0; c ' 2 <=> ~c ' 1 /\ ~c ' 0;
+         ~c ' 1 <=> c ' 0; c ' 0]: word8) + p +
+   -1w *
+   w2w
+     (v2w
+        [c ' 15 <=>
+         ~c ' 14 /\ ~c ' 13 /\ ~c ' 12 /\ ~c ' 11 /\ ~c ' 10 /\ ~c ' 9 /\
+         ~c ' 8 /\ ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
+         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
+         c ' 14 <=>
+         ~c ' 13 /\ ~c ' 12 /\ ~c ' 11 /\ ~c ' 10 /\ ~c ' 9 /\ ~c ' 8 /\
+         ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
+         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
+         c ' 13 <=>
+         ~c ' 12 /\ ~c ' 11 /\ ~c ' 10 /\ ~c ' 9 /\ ~c ' 8 /\ ~c ' 7 /\
+         ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
+         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
+         c ' 12 <=>
+         ~c ' 11 /\ ~c ' 10 /\ ~c ' 9 /\ ~c ' 8 /\ ~c ' 7 /\ ~c ' 6 /\
+         ~c ' 5 /\ ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
+         c ' 11 <=>
+         ~c ' 10 /\ ~c ' 9 /\ ~c ' 8 /\ ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\
+         ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
+         c ' 10 <=>
+         ~c ' 9 /\ ~c ' 8 /\ ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
+         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
+         c ' 9 <=>
+         ~c ' 8 /\ ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
+         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
+         c ' 8 <=>
+         ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
+         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0)]: word8) #>> 24 + 8w)``
 
 val word_lo_not_carry = Q.prove(
    `!a b. a <+ b = ~CARRY_OUT a (~b) T`,
@@ -579,11 +698,11 @@ val encode_rwts =
    end
 
 val enc_rwts =
-   [arm6_config_def, lem7] @ encode_rwts @ asmLib.asm_ok_rwts @ asmLib.asm_rwts
+   [arm6_config_def, offset_monotonic_def, lem7] @
+   encode_rwts @ asmLib.asm_ok_rwts @ asmLib.asm_rwts
 
 val enc_ok_rwts =
-   encode_rwts @ asmLib.asm_ok_rwts @
-   [enc_ok_def, arm6_config_def, same_enc_length_def]
+   encode_rwts @ asmLib.asm_ok_rwts @ [enc_ok_def, arm6_config_def]
 
 val dec_rwts =
    [arm6_dec_def, decode_word_def, SetPassCondition, fetch_word_def]
@@ -690,16 +809,6 @@ in
           [] => NO_TAC
         | l => assume_tac (step P state x (pick l))) (asl, g)
 end
-
-(*
-
-   decode_tac [true, false]
-
-   reftm
-
-   val l = fst (listSyntax.dest_list ``[]``)
-
-*)
 
 local
    val is_byte_eq =
@@ -874,7 +983,7 @@ val decode_tac0 =
    arm6_backend_correct
    ------------------------------------------------------------------------- *)
 
-val x64_encoding = Count.apply Q.prove (
+val arm6_encoding = Count.apply Q.prove (
    `!i. asm_ok i arm6_config ==>
         let l = arm6_enc i in
            (!x. arm6_dec (l ++ x) = i) /\ (LENGTH l MOD 4 = 0)`,
@@ -992,8 +1101,18 @@ val x64_encoding = Count.apply Q.prove (
           Loc
         --------------*)
       print_tac "Loc"
-      \\ Cases_on `8w <= c`
-      \\ decode_tac0
+      \\ lrw ([Q.ISPEC `LENGTH:'a list -> num` COND_RAND,
+               (SIMP_RULE std_ss [] o Q.ISPEC `\x. x MOD 4`) COND_RAND] @
+              enc_rwts)
+      \\ BasicProvers.CASE_TAC
+      \\ simp dec_rwts
+      \\ SetPassCondition_tac
+      \\ (decode_tac [true] ORELSE decode_tac [true, false])
+      \\ simp [lem18, lem19]
+      \\ simp_tac (srw_ss()++boolSimps.LET_ss++wordsLib.WORD_EXTRACT_ss)
+           dec_rwts
+      \\ TRY (decode_tac [true] ORELSE decode_tac [true, false])
+      \\ blastLib.FULL_BBLAST_TAC
       )
       (*
         --------------
@@ -1004,7 +1123,7 @@ val x64_encoding = Count.apply Q.prove (
 
 val arm6_asm_deterministic = Q.store_thm("arm6_asm_deterministic",
    `asm_deterministic arm6_enc arm6_config`,
-   metis_tac [decoder_asm_deterministic, has_decoder_def, x64_encoding]
+   metis_tac [decoder_asm_deterministic, has_decoder_def, arm6_encoding]
    )
 
 val arm6_asm_deterministic_config =
@@ -1188,11 +1307,32 @@ val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
           Loc
         --------------*)
       print_tac "Loc"
-      \\ next_tac `0`
       \\ Cases_on `8w <= c`
-      \\ lfs ([decode_imm8_thm1, decode_imm8_thm3] @ enc_rwts)
-      \\ next_state_tac01
-      \\ state_tac [lem14, decode_imm8_thm2, decode_imm8_thm4]
+      >| [
+           Cases_on `c + 0xFFFFFFF8w <+ 256w`,
+           Cases_on `-1w * c + 0x8w <+ 256w`
+      ]
+      >| let
+            val tac1 =
+               next_tac `0`
+               \\ lfs enc_rwts
+               \\ next_state_tac01
+               \\ state_tac [lem14, decode_imm8_thm2, decode_imm8_thm5]
+            val tac2 =
+               next_tac `1`
+               \\ lfs enc_rwts
+               \\ asmLib.split_bytes_in_memory_tac 4
+               \\ next_state_tac01
+               \\ next_state_tac1 hd [true]
+               \\ imp_res_tac bytes_in_memory_thm2
+               \\ fs []
+               \\ blast_byte_eq_tac
+               \\ pop_assum SUBST1_TAC
+               \\ state_tac [lem14]
+               \\ asm_simp_tac std_ss [decode_imm8_thm4, decode_imm8_thm6]
+         in
+            [tac1, tac2, tac1, tac2]
+         end
       )
       (*
         --------------
@@ -1205,7 +1345,7 @@ val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
           enc MOD 4 enc_ok
         --------------*)
       simp
-         [SIMP_RULE (bool_ss++boolSimps.LET_ss) [arm6_config_def] x64_encoding]
+         [SIMP_RULE (bool_ss++boolSimps.LET_ss) [arm6_config_def] arm6_encoding]
       )
    >- (
       (*
@@ -1243,7 +1383,9 @@ val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
           Loc enc_ok
         --------------*)
       print_tac "enc_ok: Loc"
+      \\ lrw enc_rwts
       \\ rw []
+      \\ blastLib.FULL_BBLAST_TAC
       )
       (*
         --------------
