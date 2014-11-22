@@ -224,21 +224,21 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
      qpat_assum`ALL_DISTINCT l`mp_tac >>
      qspec_tac(`st'.next_uvar`,`n`) >>
      map_every qid_spec_tac[`s`,`l`] >>
-     Induct >> (
-       simp[pure_add_constraints_def,FUPDATE_LIST_THM] >> rw[] >>
-       qho_match_abbrev_tac`∃s2. P s2 ∧ Q s2` >>
-       qsuff_tac`∃s2. P s2 ∧ (t_wfs s2 ⇒ Q s2)`>-metis_tac[t_unify_wfs] >>
-       simp[Abbr`P`,t_unify_eqn,t_walk_eqn,Infer_Tbool_def,Once t_vwalk_eqn] >>
-       simp[FLOOKUP_DEF] >> rw[] >- (
-         fs[EXTENSION] >> metis_tac[] ) >>
-       simp[t_ext_s_check_eqn,Once t_oc_eqn,t_walk_eqn] >>
-       simp[GSYM Infer_Tbool_def,Abbr`Q`] >> strip_tac >>
-       first_x_assum (match_mp_tac o MP_CANON) >>
-       simp[FDOM_FUPDATE] >> fs[EXTENSION] >> metis_tac[] ) >>
-     conj_tac >- (
-       fs[EXTENSION,SUBSET_DEF,FDOM_FUPDATE_LIST,MEM_MAP,EXISTS_PROD] ) >>
-     simp[FDOM_FUPDATE_LIST,MEM_MAP,EXISTS_PROD] >>
-     cheat ) >>
+     Induct >>
+     simp[pure_add_constraints_def,FUPDATE_LIST_THM] >> rw[] >>
+     qho_match_abbrev_tac`∃s2. P s2 ∧ Q s2` >>
+     qsuff_tac`∃s2. P s2 ∧ (t_wfs s2 ⇒ Q s2)`>-metis_tac[t_unify_wfs] >>
+     simp[Abbr`P`,t_unify_eqn,t_walk_eqn,Infer_Tbool_def,Once t_vwalk_eqn] >>
+     simp[FLOOKUP_DEF] >> rw[] >- (
+       fs[EXTENSION] >> metis_tac[] ) >>
+     simp[t_ext_s_check_eqn,Once t_oc_eqn,t_walk_eqn] >>
+     simp[GSYM Infer_Tbool_def,Abbr`Q`] >> strip_tac >>
+     first_x_assum (match_mp_tac o MP_CANON) >>
+     simp[FDOM_FUPDATE] >> fs[EXTENSION] >> metis_tac[] ) >>
+   conj_tac >- (
+     fs[EXTENSION,SUBSET_DEF,FDOM_FUPDATE_LIST,MEM_MAP,EXISTS_PROD] ) >>
+   simp[FDOM_FUPDATE_LIST,MEM_MAP,EXISTS_PROD] >>
+   cheat ) >>
  `?s2. sub_completion 0 st'.next_uvar s inst2 s2` by cheat >>
  imp_res_tac sub_completion_wfs >>
  imp_res_tac sub_completion_unify2 >>
