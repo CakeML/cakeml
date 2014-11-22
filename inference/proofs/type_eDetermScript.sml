@@ -217,7 +217,7 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
  `?s1. sub_completion 0 st'.next_uvar s inst1 s1` by (
    simp[sub_completion_def] >>
    qexists_tac`s |++ (MAP (λn. (n, Infer_Tbool)) l)` >>
-   conj_tac >- (
+   conj_asm1_tac >- (
      qunabbrev_tac`inst1` >>
      qpat_assum`t_wfs s`mp_tac >>
      qpat_assum`set l = X`mp_tac >>
@@ -238,6 +238,15 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
    conj_tac >- (
      fs[EXTENSION,SUBSET_DEF,FDOM_FUPDATE_LIST,MEM_MAP,EXISTS_PROD] ) >>
    simp[FDOM_FUPDATE_LIST,MEM_MAP,EXISTS_PROD] >>
+   imp_res_tac pure_add_constraints_wfs >>
+   ntac 3 (pop_assum kall_tac) >>
+   reverse(rw[]) >- (
+     rw[t_walkstar_eqn,t_walk_eqn,Once t_vwalk_eqn,flookup_fupdate_list] >>
+     BasicProvers.CASE_TAC >- (
+       imp_res_tac ALOOKUP_FAILS >>
+       fs[MEM_MAP,EXTENSION] >> metis_tac[] ) >>
+     imp_res_tac ALOOKUP_MEM >> fs[MEM_MAP] >>
+     rw[Infer_Tbool_def] >> rw[check_t_def] ) >>
    cheat ) >>
  `?s2. sub_completion 0 st'.next_uvar s inst2 s2` by cheat >>
  imp_res_tac sub_completion_wfs >>
