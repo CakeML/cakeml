@@ -205,16 +205,40 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
  `check_t 0 (count st.next_uvar) t`
           by (imp_res_tac infer_e_check_t >>
               fs [init_infer_state_def]) >>
- `check_s 0 (count st.next_uvar) st.subst` 
+ `check_s 0 (count st.next_uvar) st.subst`
            by (match_mp_tac (CONJUNCT1 infer_e_check_s) >>
                MAP_EVERY qexists_tac [`menv`, `cenv`, `env`, `e`, `init_infer_state`] >>
                rw [init_infer_state_def, check_s_def]) >>
- `?l. set l = count st'.next_uvar DIFF FDOM st'.subst` 
-          by metis_tac [FINITE_COUNT, FINITE_DIFF, SET_TO_LIST_INV] >>
+ `?l. set l = count st'.next_uvar DIFF FDOM s ∧ ALL_DISTINCT l`
+          by metis_tac [FINITE_COUNT, FINITE_DIFF, SET_TO_LIST_INV, ALL_DISTINCT_SET_TO_LIST] >>
  qabbrev_tac `inst1 = MAP (\n. (Infer_Tuvar n, Infer_Tbool)) l` >>
  qabbrev_tac `inst2 = MAP (\n. (Infer_Tuvar n, Infer_Tint)) l` >>
  (* Because we're instantiating exactly the unconstrained variables *)
- `?s1. sub_completion 0 st'.next_uvar s inst1 s1` by cheat >>
+ `?s1. sub_completion 0 st'.next_uvar s inst1 s1` by (
+   simp[sub_completion_def] >>
+   qexists_tac`s |++ (MAP (λn. (n, Infer_Tbool)) l)` >>
+   conj_tac >- (
+     qunabbrev_tac`inst1` >>
+     qpat_assum`t_wfs s`mp_tac >>
+     qpat_assum`set l = X`mp_tac >>
+     qpat_assum`ALL_DISTINCT l`mp_tac >>
+     qspec_tac(`st'.next_uvar`,`n`) >>
+     map_every qid_spec_tac[`s`,`l`] >>
+     Induct >> (
+       simp[pure_add_constraints_def,FUPDATE_LIST_THM] >> rw[] >>
+       qho_match_abbrev_tac`∃s2. P s2 ∧ Q s2` >>
+       qsuff_tac`∃s2. P s2 ∧ (t_wfs s2 ⇒ Q s2)`>-metis_tac[t_unify_wfs] >>
+       simp[Abbr`P`,t_unify_eqn,t_walk_eqn,Infer_Tbool_def,Once t_vwalk_eqn] >>
+       simp[FLOOKUP_DEF] >> rw[] >- (
+         fs[EXTENSION] >> metis_tac[] ) >>
+       simp[t_ext_s_check_eqn,Once t_oc_eqn,t_walk_eqn] >>
+       simp[GSYM Infer_Tbool_def,Abbr`Q`] >> strip_tac >>
+       first_x_assum (match_mp_tac o MP_CANON) >>
+       simp[FDOM_FUPDATE] >> fs[EXTENSION] >> metis_tac[] ) >>
+     conj_tac >- (
+       fs[EXTENSION,SUBSET_DEF,FDOM_FUPDATE_LIST,MEM_MAP,EXISTS_PROD] ) >>
+     simp[FDOM_FUPDATE_LIST,MEM_MAP,EXISTS_PROD] >>
+     cheat ) >>
  `?s2. sub_completion 0 st'.next_uvar s inst2 s2` by cheat >>
  imp_res_tac sub_completion_wfs >>
  imp_res_tac sub_completion_unify2 >>
