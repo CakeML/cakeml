@@ -21,21 +21,21 @@ val sub_completion_empty = Q.prove (
 val infer_pe_complete = Q.store_thm ("infer_pe_complete",
   `check_menv menv ∧
     tenvC_ok cenv ∧
+    num_tvs tenv = tvs ∧
     check_env {} env ∧
-    num_tvs tenv = 0 ∧
     tenv_invC FEMPTY env tenv ∧
-    type_p 0 cenv p t1 tenv1 ∧
+    type_p tvs cenv p t1 tenv1 ∧
     type_e (convert_menv menv) cenv tenv e t1
     ⇒
     ?t t' tenv' st st' s constrs s'.
       infer_e menv cenv env e init_infer_state = (Success t, st) ∧
       infer_p cenv p st = (Success (t', tenv'), st') ∧
       t_unify st'.subst t t' = SOME s ∧
-      sub_completion 0 st.next_uvar s constrs s' ∧
+      sub_completion (num_tvs tenv) st.next_uvar s constrs s' ∧
       t1 = convert_t (t_walkstar s' t') ∧
       t1 = convert_t (t_walkstar s' t) ∧
       t_wfs s ∧
-      simp_tenv_invC s' 0 tenv' tenv1`,
+      simp_tenv_invC s' (num_tvs tenv) tenv' tenv1`,
   rw [] >>
   (infer_e_complete |> CONJUNCT1 |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
   (infer_p_complete |> CONJUNCT1 |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
@@ -92,7 +92,7 @@ val infer_pe_complete = Q.store_thm ("infer_pe_complete",
               CONS_APPEND]) >>
   imp_res_tac infer_p_next_uvar_mono >>
   first_assum(match_exists_tac o concl) >> simp[] >>
-  qspecl_then[`0`,`si2`,`s''`]mp_tac(GEN_ALL t_compat_bi_ground) >>
+  qspecl_then[`num_tvs tenv`,`si2`,`s''`]mp_tac(GEN_ALL t_compat_bi_ground) >>
   discharge_hyps >- simp[] >> strip_tac >> simp[] >>
   conj_tac >- (
     fs[SUBSET_DEF,EXTENSION] >> rw[] >> res_tac >> DECIDE_TAC ) >>
@@ -141,9 +141,9 @@ val infer_e_type_pe_determ = Q.store_thm ("infer_e_type_pe_determ",
   ⇒
   type_pe_determ (convert_menv menv) cenv tenv p e`,
  rw [type_pe_determ_def] >>
- mp_tac (Q.INST [] infer_pe_complete) >>
+ mp_tac (Q.INST [`tvs`|->`0`] infer_pe_complete) >>
  rw [] >>
- mp_tac (Q.INST [`t1`|->`t2`, `tenv1` |-> `tenv2`] infer_pe_complete) >>
+ mp_tac (Q.INST [`t1`|->`t2`, `tenv1` |-> `tenv2`,`tvs`|->`0`] infer_pe_complete) >>
  rw [] >>
  match_mp_tac LIST_EQ >>
  imp_res_tac type_p_pat_bindings >>
