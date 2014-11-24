@@ -53,6 +53,7 @@ val infer_d_complete = Q.prove (
   check_menv menv ∧
   check_env {} tenv ∧
   tenvC_ok cenv ∧
+  check_env ∅ tenv' ∧
   type_d T mn (set mdecls,set tdecls,set edecls) tenvT (convert_menv menv) cenv (bind_var_list2 (convert_env2 tenv) Empty) d (set mdecls',set tdecls',set edecls') tenvT' cenv' (convert_env2 tenv')
   ⇒
   ?st' mdecls'' tdecls'' edecls''.
@@ -111,7 +112,7 @@ val infer_d_complete = Q.prove (
      fs [] >>
      `tenv_inv FEMPTY tenv (bind_var_list2 (convert_env2 tenv) Empty)`
                by metis_tac [tenv_inv_convert_env2] >>
-     imp_res_tac type_pe_determ_infer_e >>
+     `EVERY (λ(n,t). check_t 0 ∅ (t_walkstar s t)) tenv'''` by metis_tac [type_pe_determ_infer_e] >>
      `EVERY (check_t 0 {}) (MAP (t_walkstar s) (MAP SND tenv'''))`
           by (fs [EVERY_MEM, MEM_MAP] >>
               rw [] >>
@@ -155,12 +156,12 @@ val infer_d_complete = Q.prove (
      imp_res_tac t_walkstar_no_vars >> fs[] >>
      qsuff_tac`unconvert_t (convert_t r') = r'`>-metis_tac[]>>
      match_mp_tac (GEN_ALL check_t_empty_unconvert_convert_id) >>
-     cheat)
-     (*
-     `∃s' t'. generalise_list 0 0 FEMPTY (MAP (t_walkstar si) (MAP SND tenv'')) = (0,s',t')` 
-                by metis_tac [generalise_no_uvars] >>
-     rw [tenv_add_tvs_def, ] >>
-*)
+     fs [check_env_def, EVERY_EL] >>
+     res_tac >>
+     pop_assum mp_tac >>
+     ASM_REWRITE_TAC [] >>
+     rw [] >>
+     metis_tac [])
  (* generalised letrec *)
  >- cheat
  (* Type definition *)
