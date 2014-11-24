@@ -135,7 +135,27 @@ val infer_d_complete = Q.prove (
      Cases_on`EL n tenv'` >>
      rpt(first_x_assum(qspec_then`n`mp_tac)) >> simp[] >>
      Cases_on`r`>>simp[] >> rw[] >>
-     cheat)                
+     fs[simp_tenv_invC_def] >>
+     imp_res_tac type_p_pat_bindings >>
+     `ALL_DISTINCT (MAP FST tenv'')` by metis_tac[] >>
+     imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
+     first_x_assum(qspecl_then[`SND (EL n tenv''')`,`FST (EL n tenv''')`]mp_tac) >>
+     first_x_assum(qspecl_then[`SND (EL n tenv'')`,`FST (EL n tenv'')`]mp_tac) >> simp[] >>
+     discharge_hyps >- metis_tac[MEM_EL] >> strip_tac >>
+     discharge_hyps >- metis_tac[MEM_EL] >> strip_tac >>
+     res_tac >> rfs[] >> rw[] >>
+     (* not sure of strategy from this point *)
+     fs[sub_completion_def] >>
+     imp_res_tac pure_add_constraints_success >>
+     fs[t_compat_def] >>
+     first_x_assum(qspec_then`SND (EL n tenv''')`(assume_tac o SYM)) >> fs[] >>
+     fs[EVERY_MEM] >>
+     first_x_assum(qspec_then`EL n tenv'''`mp_tac) >>
+     discharge_hyps >- metis_tac[MEM_EL] >> simp[UNCURRY] >> strip_tac >>
+     imp_res_tac t_walkstar_no_vars >> fs[] >>
+     qsuff_tac`unconvert_t (convert_t r') = r'`>-metis_tac[]>>
+     match_mp_tac (GEN_ALL check_t_empty_unconvert_convert_id) >>
+     cheat)
      (*
      `∃s' t'. generalise_list 0 0 FEMPTY (MAP (t_walkstar si) (MAP SND tenv'')) = (0,s',t')` 
                 by metis_tac [generalise_no_uvars] >>
