@@ -931,6 +931,11 @@ val check_s_more2 = Q.store_thm ("check_s_more2",
 rw [check_s_def] >>
 metis_tac [check_t_more4]);
 
+val check_s_more3 = Q.store_thm ("check_s_more3",
+`!s uvs. check_s tvs uvs s ⇒ !uvs'. uvs ⊆ uvs' ⇒ check_s tvs uvs' s`,
+rw [check_s_def] >>
+metis_tac [check_t_more5]);
+
 val check_t_deBruijn_inc2 = Q.prove (
 `!inc t. check_t tvs {} t ⇒ check_t (inc + tvs) {} (infer_deBruijn_inc inc t)`,
 ho_match_mp_tac infer_deBruijn_inc_ind >>

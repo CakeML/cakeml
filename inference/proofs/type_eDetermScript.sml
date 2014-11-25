@@ -249,6 +249,8 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
      rw[Infer_Tbool_def] >> rw[check_t_def] ) >>
    first_assum(fn th=> mp_tac (MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] (CONJUNCT1 infer_p_check_s)) th)) >>
    simp[] >> disch_then(qspec_then`0`mp_tac) >> simp[] >> strip_tac >>
+   match_mp_tac t_walkstar_check >>
+   simp[check_t_def,FDOM_FUPDATE_LIST] >>
    (t_unify_check_s
     |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(same_const``t_unify`` o fst o strip_comb o lhs))))
     |> REWRITE_RULE[GSYM AND_IMP_INTRO]
@@ -259,10 +261,18 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
    simp[SUBSET_DEF] >> strip_tac >>
    imp_res_tac (CONJUNCT1 infer_p_check_t) >>
    disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >> simp[] >>
-   simp[check_s_def] >>
    strip_tac >>
-   match_mp_tac(CONJUNCT1 check_t_walkstar) >>
-   cheat ) >>
+   (pure_add_constraints_check_s
+    |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(same_const``pure_add_constraints`` o fst o strip_comb))))
+    |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+    |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
+   disch_then(qspecl_then[`0`,`st'.next_uvar`]mp_tac) >> simp[] >>
+   discharge_hyps >- (
+     simp[Abbr`inst1`,EVERY_MEM,MEM_MAP,PULL_EXISTS,check_t_def,Infer_Tbool_def] ) >>
+   strip_tac >>
+   match_mp_tac (MP_CANON check_s_more3) >>
+   first_assum(match_exists_tac o concl) >> simp[] >>
+   simp[SUBSET_DEF,MEM_MAP,PULL_EXISTS] ) >>
  `?s2. sub_completion 0 st'.next_uvar s inst2 s2` by cheat >>
  imp_res_tac sub_completion_wfs >>
  imp_res_tac sub_completion_unify2 >>
