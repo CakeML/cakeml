@@ -196,7 +196,6 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
   type_pe_determ (convert_menv menv) cenv tenv p e
   ⇒
   EVERY (\(n, t). check_t 0 {} (t_walkstar s t)) tenv'`,
-
  rw [type_pe_determ_def, check_cenv_tenvC_ok] >>
  `t_wfs init_infer_state.subst` by rw [t_wfs_def, init_infer_state_def] >>
  `t_wfs st.subst` by metis_tac [infer_e_wfs] >>
@@ -278,7 +277,7 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
    `?s1. sub_completion 0 st'.next_uvar s inst1 s1` by (tac ``Infer_Tbool`` `inst1`) >>
    `?s2. sub_completion 0 st'.next_uvar s inst2 s2` by (tac ``Infer_Tint`` `inst2`)
  end >>
- `t_wfs s1 ∧ t_wfs s2` by metis_tac[sub_completion_wfs] >>
+  `t_wfs s1 ∧ t_wfs s2` by metis_tac[sub_completion_wfs] >>
  imp_res_tac sub_completion_unify2 >>
  imp_res_tac infer_p_constraints >>
  (sub_completion_add_constraints |> REWRITE_RULE[GSYM AND_IMP_INTRO] |>
@@ -298,8 +297,30 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
  discharge_hyps >- metis_tac[tenv_inv_empty_to] >> strip_tac >>
  discharge_hyps >- metis_tac[SUBSET_TRANS] >> simp[] >>
  discharge_hyps >- metis_tac[tenv_inv_empty_to] >> strip_tac >>
-
- (*
+ imp_res_tac infer_p_check_t>>
+ assume_tac (infer_p_sound |> CONJUNCT1)>>
+ first_assum (qspecl_then
+   [`cenv`,`p`,`st`,`t'`,`tenv'`,`st'`,`0`,`(t,t')::inst1`,`s1`]assume_tac)>>
+ first_x_assum (qspecl_then
+   [`cenv`,`p`,`st`,`t'`,`tenv'`,`st'`,`0`,`(t,t')::inst2`,`s2`]assume_tac)>>
+ rfs[sub_completion_def]>>
+ res_tac>>pop_assum kall_tac>>
+ (*Because t,t' is part of the unifications that yielded s1 and s2*)
+ `convert_t (t_walkstar s2 t') = convert_t (t_walkstar s2 t)` by cheat>>
+ pop_assum SUBST_ALL_TAC>>rfs[]>>
+ res_tac>>pop_assum kall_tac>>
+ `convert_t (t_walkstar s1 t') = convert_t (t_walkstar s1 t)` by cheat>>
+ pop_assum SUBST_ALL_TAC>>rfs[]>>
+ fs[convert_env_def]>>
+ (*Suppose tenv' has something that does not satisfy 
+   check_t 0 {} (t_walkstar s t)
+   So t_walkstar s t must contain some unification variables
+   (and they must be within count st'.next_uvar)
+   But we know that s is completed by s1 and s2 therefore those
+   unification variables are exactly bound in s1 and s2 to 
+   Infer_Tbool and Infer_Tint, which is a constradiction with the 
+   latest assumption that the result of walking is equal*) 
+(*
  `convert_t (t_walkstar s1 t) = convert_t (t_walkstar s2 t)` by metis_tac [] >>
  CCONTR_TAC >>
  (* From here, we know that there is some unification variable in t_walkstar st.subst t, and that
