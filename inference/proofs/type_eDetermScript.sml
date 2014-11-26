@@ -306,27 +306,39 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
  rfs[sub_completion_def]>>
  res_tac>>pop_assum kall_tac>>
  (*Because t,t' is part of the unifications that yielded s1 and s2*)
- `convert_t (t_walkstar s2 t') = convert_t (t_walkstar s2 t)` by cheat>>
+ `t_compat s s1 ∧ t_compat s s2` by (
+   imp_res_tac pure_add_constraints_success >> rw[] ) >>
+ `t_walkstar s t = t_walkstar s t'` by (
+   imp_res_tac t_unify_unifier ) >>
+ `convert_t (t_walkstar s2 t') = convert_t (t_walkstar s2 t)` by (
+   fs[t_compat_def] >> metis_tac[] ) >>
  pop_assum SUBST_ALL_TAC>>rfs[]>>
  res_tac>>pop_assum kall_tac>>
- `convert_t (t_walkstar s1 t') = convert_t (t_walkstar s1 t)` by cheat>>
+ `convert_t (t_walkstar s1 t') = convert_t (t_walkstar s1 t)` by (
+   fs[t_compat_def] >> metis_tac[] ) >>
  pop_assum SUBST_ALL_TAC>>rfs[]>>
  fs[convert_env_def]>>
- (*Suppose tenv' has something that does not satisfy 
-   check_t 0 {} (t_walkstar s t)
-   So t_walkstar s t must contain some unification variables
-   (and they must be within count st'.next_uvar)
+ spose_not_then strip_assume_tac >>
+ fs[EXISTS_MEM,EXISTS_PROD] >>
+ qpat_assum`MAP X Y = Z`mp_tac >> simp[] >>
+ simp[LIST_EQ_REWRITE,EL_MAP,UNCURRY] >>
+ qpat_assum`MEM X Y`mp_tac >> simp[MEM_EL] >> strip_tac >>
+ qexists_tac`n` >>
+ pop_assum(assume_tac o SYM) >> simp[] >>
+ fs[EVERY_MEM] >>
+ first_x_assum(qspec_then`EL n tenv'`mp_tac) >>
+ discharge_hyps >- metis_tac[MEM_EL] >> simp[] >> strip_tac >>
+ qmatch_assum_rename_tac`check_t 0 (count st'.next_uvar) tt`[] >>
+ `t_vars tt ⊆ count (st'.next_uvar)` by imp_res_tac check_t_t_vars >>
+ (*From ¬check_t 0 {} (t_walkstar s tt) it should follow that
+   t_walkstar s tt must contain some unification variables.
+   (*
+   first_assum(
+     mp_tac o (MATCH_MP (GEN_ALL(CONTRAPOS(SPEC_ALL(CONJUNCT1 check_t_walkstar)))))) >>
+   *)
    But we know that s is completed by s1 and s2 therefore those
    unification variables are exactly bound in s1 and s2 to 
-   Infer_Tbool and Infer_Tint, which is a constradiction with the 
-   latest assumption that the result of walking is equal*) 
-(*
- `convert_t (t_walkstar s1 t) = convert_t (t_walkstar s2 t)` by metis_tac [] >>
- CCONTR_TAC >>
- (* From here, we know that there is some unification variable in t_walkstar st.subst t, and that
-  * it is therefore in FDOM s1 and FDOM s2 but not in FDOM st.subst. Hence it is in l, and thus
-  * mapped to different types in inst1 and inst2. Thus, t_walkstar s1 t ≠ t_walkstar s2 t, a contradiction. *)
- *)
+   Infer_Tbool and Infer_Tint, hence the walkstars must differ *)
  cheat);
 
 val _ = export_theory ();
