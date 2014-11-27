@@ -20,7 +20,7 @@ sig
     val store_eval_thm : thm -> thm
     val store_eq_thm   : thm -> thm
     val register_type  : hol_type -> unit
-    val store_cert     : thm -> thm -> thm
+    val store_cert     : thm -> thm list -> thm -> thm
     val get_DeclAssum  : unit -> term
 
     (* loading / storing state of translator *)
@@ -34,5 +34,9 @@ sig
     (* simplification of preconditions / sideconditions *)
 
     val update_precondition  : thm -> thm
+
+    (* configuration *)
+
+    val print_asts           : bool ref
 
 end

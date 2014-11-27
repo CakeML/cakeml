@@ -671,6 +671,7 @@ local
     val _ = TextIO.closeOut(t)
     in () end
   fun get_filename () =
+    if not (!print_asts) then "" else
     if !base_filename = "" then let
       val name = current_theory()
       val _ = (base_filename := name)
