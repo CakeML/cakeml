@@ -470,7 +470,7 @@ val t_walkstar_tuvar_props2 = prove(
   fs[])
 
 (*Remove every uvar in the FDOM if we walkstar using a completed map*)
-val check_t_less = prove(
+val check_t_less = store_thm("check_t_less",
 ``
   (!t.
   t_wfs s ∧ 
