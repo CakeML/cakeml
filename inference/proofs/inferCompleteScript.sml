@@ -116,7 +116,7 @@ val infer_d_complete = Q.prove (
        CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``t_unify`` o fst o strip_comb o lhs))) >>
        first_assum(match_exists_tac o concl) >> simp[] >>
        fs[GSYM init_infer_state_def] >>
-       `t_wfs (init_infer_state.subst)` by cheat >>
+       `t_wfs (init_infer_state.subst)` by rw[init_infer_state_def,t_wfs_def] >>
        `t_wfs st.subst` by imp_res_tac infer_e_wfs >>
        `t_wfs st'.subst` by imp_res_tac infer_p_wfs >>
        imp_res_tac infer_p_check_t >> simp[] >>
