@@ -140,6 +140,31 @@ val infer_d_complete = Q.prove (
      metis_tac[] ) >>
    strip_tac >> simp[ZIP_MAP] >>
    simp[MAP_MAP_o,combinTheory.o_DEF] >>
+   fs[convert_env2_def,tenv_add_tvs_def] >>
+   qpat_assum`MAP X Y = MAP A B`mp_tac >>
+   simp[Once LIST_EQ_REWRITE,EL_MAP,UNCURRY,GSYM AND_IMP_INTRO] >>
+   strip_tac >> strip_tac >>
+   simp[LIST_EQ_REWRITE,EL_MAP] >>
+   imp_res_tac type_p_pat_bindings >>
+   `MAP FST tenv'' = MAP FST tenv'''` by metis_tac[APPEND_NIL] >>
+   conj_asm1_tac >- metis_tac[LENGTH_MAP] >>
+   qx_gen_tac`n` >> strip_tac >>
+   first_x_assum(qspec_then`n`mp_tac) >> simp[] >> strip_tac >>
+   `∃x y c z f g h. (EL n tenv' = (x,y,c)) ∧ (EL n tenv'' = (z,f)) ∧ (EL n tenv''' = (g,h))` by metis_tac[pair_CASES] >>
+   simp[] >> rpt BasicProvers.VAR_EQ_TAC >>
+   rfs[] >> fs[] >> rpt BasicProvers.VAR_EQ_TAC >>
+   conj_asm1_tac >- (
+     qpat_assum`MAP X Y = Z`mp_tac >>
+     simp[Once LIST_EQ_REWRITE,EL_MAP] >>
+     disch_then(qspec_then`n`mp_tac) >> simp[] ) >>
+   BasicProvers.VAR_EQ_TAC >>
+   (*
+   first conjunct looks worrying...
+   simp_tenv_invC_def
+   generalise_def
+   imp_res_tac (CONJUNCT2 generalise_subst) >> fs[] >>
+   rfs[PULL_EXISTS,MEM_MAP] >>
+   *)
    cheat)
  (* Non generalised let *)
  >- (
