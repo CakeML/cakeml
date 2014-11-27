@@ -182,6 +182,40 @@ val generalise_complete_lem = Q.prove (
  mp_tac (Q.SPECL [`n`, `s`, `[t]`] generalise_complete) >>
  rw [generalise_def, LET_THM]);
 
+val t_vars_check_t = prove(``
+  (∀t.
+  ¬check_t 0 {} t ∧ 
+  check_t 0 s t ⇒
+  ∃n'. n' ∈ s ∧ n' ∈ t_vars t) ∧ 
+  (∀ts.
+  ∀x.MEM x ts ⇒ 
+    ¬check_t 0 {} x ∧ 
+    check_t 0 s x ⇒ 
+    ∃n'. n' ∈ s ∧ n' ∈ t_vars x)``,
+  ho_match_mp_tac infer_tTheory.infer_t_induction>>
+  rw[check_t_def,t_vars_eqn]>>
+  fs[EXISTS_MEM,EVERY_MEM]>>res_tac>>
+  qexists_tac `n'`>>
+  fs[MEM_MAP]>>
+  metis_tac[])
+
+val t_walkstar_diff = prove(``
+  t_wfs s1 ∧ t_wfs s2 ∧ 
+  (t_walkstar s1 (Infer_Tuvar n) ≠ t_walkstar s2 (Infer_Tuvar n))
+  ⇒ 
+  (∀t.(n ∈ t_vars t) ⇒ t_walkstar s1 t ≠ t_walkstar s2 t) ∧
+  (∀ts. 
+  ∀x. MEM x ts ⇒ 
+    n ∈ t_vars x ⇒ t_walkstar s1 x ≠ t_walkstar s2 x)``,
+  strip_tac>>
+  ho_match_mp_tac infer_tTheory.infer_t_induction>>
+  rw[t_vars_eqn]>>fs[]>>
+  fs[t_walkstar_eqn,t_walk_eqn,MEM_MAP]>>
+  res_tac>>rfs[]>>
+  SPOSE_NOT_THEN assume_tac>>
+  imp_res_tac MAP_EQ_f>>
+  metis_tac[])
+
 val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
 `!menv cenv env tenv p e st st' t t' tenv' s.
   ALL_DISTINCT (MAP FST tenv') ∧
@@ -212,7 +246,7 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
           by metis_tac [FINITE_COUNT, FINITE_DIFF, SET_TO_LIST_INV, ALL_DISTINCT_SET_TO_LIST] >>
  qabbrev_tac `inst1 = MAP (\n. (Infer_Tuvar n, Infer_Tbool)) l` >>
  qabbrev_tac `inst2 = MAP (\n. (Infer_Tuvar n, Infer_Tint)) l` >>
- (* Because we're instantiating exactly the unconstrained variables *)
+(* Because we're instantiating exactly the unconstrained variables *)
  let
    fun tac q q1 =
      simp[sub_completion_def] >>
@@ -330,6 +364,50 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
  discharge_hyps >- metis_tac[MEM_EL] >> simp[] >> strip_tac >>
  qmatch_assum_rename_tac`check_t 0 (count st'.next_uvar) tt`[] >>
  `t_vars tt ⊆ count (st'.next_uvar)` by imp_res_tac check_t_t_vars >>
+ imp_res_tac infer_p_check_s>> ntac 7 (pop_assum kall_tac)>>
+ `check_s 0 (count st'.next_uvar) s` by 
+   (match_mp_tac t_unify_check_s>>
+   Q.LIST_EXISTS_TAC [`st'.subst`,`t`,`t'`]>>fs[]>>
+   `count st.next_uvar ⊆ count st'.next_uvar` by
+     (imp_res_tac infer_p_next_uvar_mono>>
+     rw[count_def,SUBSET_DEF]>>DECIDE_TAC)>>
+   metis_tac[check_t_more5,infer_p_check_t])>>
+ `check_t 0 (count st'.next_uvar) (t_walkstar s tt)` by
+   (match_mp_tac t_walkstar_check>>fs[]>>
+   `count st'.next_uvar ⊆ count st'.next_uvar ∪ FDOM s` by fs[]>>
+   metis_tac[check_t_more5,check_s_more3])>>
+  imp_res_tac t_vars_check_t>>
+  ntac 5 (pop_assum kall_tac)>>
+  imp_res_tac t_walkstar_vars_notin>>
+  `t_walkstar s1 tt ≠ t_walkstar s2 tt` by
+    (Q.ISPECL_THEN [`s2`,`s1`,`n'`]mp_tac (GEN_ALL t_walkstar_diff)>>
+    discharge_hyps>-
+      (rfs[]>>
+      `MEM n' l` by fs[]>>
+      `t_walkstar s1 (Infer_Tuvar n') = Infer_Tbool ∧
+       t_walkstar s2 (Infer_Tuvar n') = Infer_Tint ` by
+        (imp_res_tac pure_add_constraints_apply>>
+        unabbrev_all_tac>>
+        fs[MAP_EQ_f,FORALL_PROD,MEM_MAP]>>
+        ntac 2 (pop_assum kall_tac)>>
+        pop_assum (qspecl_then [`Infer_Tuvar n'`,`Infer_Tint`] mp_tac)>>
+        pop_assum (qspecl_then [`Infer_Tuvar n'`,`Infer_Tbool`] mp_tac)>>
+        ntac 4 (pop_assum kall_tac)>>
+        fs[t_walkstar_eqn,t_walk_eqn,Infer_Tint_def,Infer_Tbool_def])>>
+      fs[Infer_Tint_def,Infer_Tbool_def])>>
+    rw[]>>pop_assum kall_tac>>
+    pop_assum (qspec_then `t_walkstar s tt` assume_tac)>>rfs[]>>
+    metis_tac[t_compat_def])>>
+  assume_tac (GEN_ALL (CONJUNCT1 check_t_less))>>
+  first_assum(qspecl_then [`count st'.next_uvar`,`s1`,`0`,`tt`] assume_tac)>>
+  first_x_assum(qspecl_then [`count st'.next_uvar`,`s2`,`0`,`tt`]assume_tac)>>
+  `count st'.next_uvar ∩ COMPL (FDOM s1) = {} ∧
+   count st'.next_uvar ∩ COMPL (FDOM s2) = {}` by
+    (fs[EXTENSION,SUBSET_DEF]>>metis_tac[])>>
+  fs[]>>rfs[]>>
+  metis_tac[check_t_empty_unconvert_convert_id]);
+
+ 
  (*From ¬check_t 0 {} (t_walkstar s tt) it should follow that
    t_walkstar s tt must contain some unification variables.
    (*
@@ -339,7 +417,6 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
    But we know that s is completed by s1 and s2 therefore those
    unification variables are exactly bound in s1 and s2 to 
    Infer_Tbool and Infer_Tint, hence the walkstars must differ *)
- cheat);
 
 val _ = export_theory ();
 
