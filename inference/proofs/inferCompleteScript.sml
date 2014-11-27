@@ -81,7 +81,13 @@ val infer_d_complete = Q.prove (
      qmatch_assum_abbrev_tac`lookup_tenv x tvs tenvx = SOME y` >>
      `tenv_ok tenvx ∧ num_tvs tenvx = 0` by (
        conj_tac >- (
-         cheat ) >>
+         simp[Abbr`tenvx`] >>
+         match_mp_tac tenv_ok_bind_var_list2 >>
+         simp[typeSoundInvariantsTheory.tenv_ok_def,EVERY_MAP,UNCURRY] >>
+         simp[EVERY_MEM,FORALL_PROD] >> rw[] >>
+         match_mp_tac check_t_to_check_freevars >>
+         fs[check_env_def,EVERY_MEM,num_tvs_def] >>
+         res_tac >> fs[]) >>
        simp[Abbr`tenvx`,num_tvs_bvl2,num_tvs_def] ) >>
      qspecl_then[`tvs`,`FST y`,`tenvx`,`x`]mp_tac lookup_tenv_inc_tvs >>
      simp[Abbr`y`] >>

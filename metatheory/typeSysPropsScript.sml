@@ -674,6 +674,17 @@ PairCases_on `h` >>
 rw [bind_tenv_def, tenv_ok_def, bind_var_list_def] >>
 fs [num_tvs_bind_var_list]);
 
+val tenv_ok_bind_var_list2 = Q.store_thm ("tenv_ok_bind_var_list2",
+`!tenvE env.
+  tenv_ok tenvE ∧ EVERY (λ(x,n,t). check_freevars (n + num_tvs tenvE) [] t) env
+  ⇒
+  tenv_ok (bind_var_list2 env tenvE)`,
+induct_on `env` >>
+rw [tenv_ok_def, bind_var_list2_def] >>
+PairCases_on `h` >>
+rw [bind_tenv_def, tenv_ok_def, bind_var_list2_def] >>
+fs [num_tvs_bvl2]);
+
 val lookup_freevars = Q.store_thm ("lookup_freevars",
 `!n tenv tvs t.
   tenv_ok (bind_var_list2 tenv Empty) ∧
