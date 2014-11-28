@@ -5,6 +5,8 @@ open alistTheory
 open BasicProvers
 open word_liveTheory
 open word_langTheory
+open whileTheory
+open sortingTheory
 
 val _ = new_theory "reg_alloc";
 
@@ -207,6 +209,21 @@ val coloring_satisfactory_coloring_ok_alt = prove(``
   simp[]>>
   metis_tac[EL_MAP])
 
+(*Create a list of preferences from input program
+  Some of these will be invalid preferences (e.g. 0<-2) *)
+
+val get_prefs_def = Define`
+  (get_prefs (Move ls) acc = ls ++ acc) ∧ 
+  (get_prefs (Seq s1 s2) acc =
+    get_prefs s1 (get_prefs s2 acc)) ∧
+  (get_prefs (If e1 num e2 e3) acc =
+    get_prefs e1 (get_prefs e2 (get_prefs e3 acc))) ∧
+  (get_prefs (Call (SOME (v,cutset,ret_handler)) dest args h) acc =
+    case h of 
+      NONE => get_prefs ret_handler acc
+    | SOME (v,prog) => get_prefs prog (get_prefs ret_handler acc)) ∧ 
+  (get_prefs prog acc = acc)`
+
 (*Conventions of wordLang*)
 
 (*Distinguish 3 kinds of variables:
@@ -246,8 +263,13 @@ val coloring_conventional_def = Define`
     if is_stack_var x then
        is_phy_var y ∧ y ≥ 2*k
     else
-    (*x must be an alloc var*)
+    (*x must be an alloc var and it must go to some y*)
        is_phy_var y`
+(*--- 
+Start coloring algorithms
+First phase (alloc_coloring): Produces a bounded coloring (< 2k)
+Second phase (spill_coloring): Produces unbounded coloring (≥ 2k)
+---*)
 
 (*Define the first coloring step:
   Takes arguments:
@@ -255,13 +277,13 @@ val coloring_conventional_def = Define`
   k = number of registers to use,
   prefs = num-> num list -> num (selects a color from the list),
   ls = heuristic order to color vertices,
-
   Result: a num sptree where looking up a vertex gives its coloring
       and a num list of spilled vertices
   TODO: Decide if this should be monadic
 *)
 
 (*Deletes unavailable colors by looking up the current coloring function*)
+(*This terminates early when k becomes empty so that we do not need to lookup every single neighbor... maybe the other way is equally efficient?*)
 (*k is usually small --> just use a list, eventually a bitset*)
 val remove_colors_def = Define`
   (*No more available colors*)
@@ -275,7 +297,7 @@ val remove_colors_def = Define`
             | SOME c => remove_colors col xs
                         (FILTER (λx.x ≠ c) k))`
 
-(*EVAL``remove_colors (list_insert [1;2;3] [1;1;1] LN) [1;2;3;4] [1;2;3;4]``*)
+(*EVAL``remove_colors(list_insert [1;2;3] [1;1;1] LN) [1;2;3;4] [1;2;3;4]``*)
 
 (*Assigns a color or spills
   If assigning a color, use prefs to choose the color
@@ -305,33 +327,29 @@ val assign_color_def = Define`
       | xs => 
         (*Choose a preferred color*) (insert v (prefs v xs col) col,spills)
     else
+      (*Spill if it was not an alloc_var*)
       (col,v::spills)`
 
 (*Auxiliary that colors vertices in the order of the input list*)
-
 (*TODO: Make monadic on the last 2 arguments*)
-val find_coloring_aux = Define`
-  (find_coloring_aux G k prefs [] col spills = (col,spills)) ∧
-  (find_coloring_aux G k prefs (x::xs) col spills =
+val alloc_coloring_aux = Define`
+  (alloc_coloring_aux G k prefs [] col spills = (col,spills)) ∧
+  (alloc_coloring_aux G k prefs (x::xs) col spills =
     let (col,spills) = assign_color G k prefs x col spills in
-      find_coloring_aux G k prefs xs col spills)`
+      alloc_coloring_aux G k prefs xs col spills)`
 
 val id_color_def = Define`
   id_color ls = FOLDR (λx y. insert x x y) LN ls`
 
-(*
-val list_max_def = Define`
-  (list_max [] (lim:num) = lim) ∧
-  (list_max (x::xs) lim = if x > lim then x else lim)`*)
-
 (*First coloring step:
   End result should be a coloring that sends 
   phy_vars to phy_vars,
-  alloc_vars which were safely allocated to phy_vars
+  alloc_vars which were properly allocated to phy_vars
   Everything else should be in the resulting spill list
+  (unallocated alloc_vars and stack_vars)
 *)
-val find_coloring_def = Define`
-  find_coloring (G:sp_graph) k prefs ls =
+val alloc_coloring_def = Define`
+  alloc_coloring (G:sp_graph) k prefs ls =
     (*Setting up*)
     let vertices = MAP FST (toAList G) in
     let (phy_var,others) = PARTITION is_phy_var vertices in
@@ -339,14 +357,260 @@ val find_coloring_def = Define`
     let col = id_color phy_var in
     let colors = GENLIST (λx:num.2*x) k in
     (*First do the ones given in the input list*)
-    let (col,spills) = find_coloring_aux G colors prefs ls col [] in
-    (*Do the rest -- this automatically spills everything is_stack_var*)
-    find_coloring_aux G colors prefs others col spills`
+    let (col,spills) = alloc_coloring_aux G colors prefs ls col [] in
+    (*Do the rest -- this automatically spills everything is_stack_var
+      as well*)
+    alloc_coloring_aux G colors prefs others col spills`
+
+(*Unbounded coloring
+TODO: Add the preference function here
+-- Need to think about exactly what type it should take
+-- The easiest one will be a single lookup that tests for coloring ok-ness
+*)
+val unbound_colors_def = Define `
+  (unbound_colors col [] = col) ∧
+  (unbound_colors col ((x:num)::xs) = 
+    if col < x then 
+      col 
+    else if x = col then
+      unbound_colors (col+2) xs 
+    else
+      unbound_colors col xs)`
+      
+(*EVAL``unbound_colors 2 [2;4;8]``*)
+
+(*Probably already in HOL
+  TODO: Maybe use this in the other coloring def as well?
+*)
+val option_filter_def = Define`
+  option_filter ls = 
+  MAP THE (FILTER IS_SOME ls)`
+
+val assign_color2_def = Define`
+  assign_color2 G k (*prefs*) v col =
+  case lookup v col of
+    SOME x => col (*Actually redundant, may make proof harder?*)
+  | NONE =>
+  case lookup v G of
+    (*Vertex wasn't even in the graph -- ignore*)
+    NONE => col 
+  | SOME x =>
+    let xs = MAP FST (toAList x) in
+    (*Get all the nightbor colors*)
+    let cols = option_filter (MAP (λx. lookup x col) xs) in
+    let c = unbound_colors (2*k) (QSORT (λx y. x<y) cols) in 
+      insert v c col` 
+
+(*ls is a spill list*)
+val spill_coloring_def = Define`
+  (spill_coloring (G:sp_graph) k [] col = col) ∧
+  (spill_coloring G k (x::xs) col =
+    let col = assign_color2 G k x col in 
+    spill_coloring G k xs col)`
+
+(*End coloring definitions*)
+
+(*Define register allocation*)
+open monadsyntax
+open state_transformerTheory
+
+val _ = Hol_datatype `
+  ra_state = <| graph : sp_graph;
+                colors : num;
+                degs : num num_map;(*maybe should become a 2 step O(1)lookup*)
+                simp_worklist : num list;
+                spill_worklist : num list;
+                stack : num list |>`;
+                (*TODO: the other work lists
+                coalesced : num num_map;
+                next_spill_var : num;*)
+(*val _ = temp_overload_on ("monad_bind", ``BIND``);
+val _ = temp_overload_on ("return", ``id_return``);*)
+
+(*Parameterized by P because we only count certain types of adjacency in each coloring step*)
+val count_degrees_def = Define`
+  count_degrees P (e:num_set) =
+  LENGTH (FILTER P (MAP FST (toAList e)))`
+
+(*Initialize state for the first phase*)
+val init_ra_state_def = Define`
+  (init_ra_state (G:sp_graph) (k:num) = 
+  let vertices = FILTER is_alloc_var (MAP FST (toAList G)) in
+  let vdegs = MAP (λv. v,count_degrees (λx. ¬(is_stack_var x)) 
+              (THE(lookup v G))) vertices in
+  let tdegs = fromAList vdegs in
+  let (simp,spill) = PARTITION (λx,(y:num). y<k) vdegs in
+  <|graph := G ; colors := k ; degs := tdegs; 
+    simp_worklist := MAP FST simp ;
+    spill_worklist := MAP FST spill;
+    stack:=[]|>)`
+
+val push_stack_def = Define`
+  push_stack v =
+    λs. s with stack:= v::s.stack`
+
+val dec_deg_def = Define`
+  dec_deg v =
+  λs.
+  let es = lookup v s.graph in
+  case es of 
+    NONE => s (*(NONE,s)*)
+  | SOME es =>
+    let edges = MAP FST(toAList es) in
+    let degs = FOLDR 
+      (λv degs. 
+      case lookup v degs of
+        NONE => degs
+      | SOME (d:num) => insert v (d-1) degs) s.degs edges in
+    (*Not the best way to do it...*)
+    let (ltk,gtk) = PARTITION 
+      (λv. case lookup v degs of 
+        NONE => F
+      | SOME x => x < s.colors)  s.spill_worklist in
+    s with <|simp_worklist:= ltk++s.simp_worklist;spill_worklist:= gtk;
+             degs := degs|>`
+      
+val simplify_def = Define`
+  simplify =
+    λs.
+    case s.simp_worklist of
+      [] => (NONE,s)
+    | (x::xs) => 
+      (SOME x,(dec_deg x (s with simp_worklist:= xs)))`
+     
+val spill_def = Define`
+  spill =
+    λs.
+    case s.spill_worklist of
+      [] => (NONE,s)
+    | (x::xs) =>
+      (SOME x,(dec_deg x (s with spill_worklist:= xs)))`
+
+val do_step_def = Define`
+  do_step =
+    λs.
+    let (res,s) = simplify s in
+    case res of
+    NONE => 
+      (let (res,s) = spill s in
+      case res of 
+        NONE => s
+      | SOME x => push_stack x s)
+    | SOME x => push_stack x s`
+
+val rpt_do_step_def = Define`
+  rpt_do_step =
+    λs. 
+    WHILE (λs. s.simp_worklist ≠ [] ∨ s.spill_worklist ≠ []) do_step s` 
+
+open sptreeSyntax
+sptreeSyntax.temp_add_sptree_printer();
+
+val rhsThm = rhs o concl;
+val st = rhsThm (EVAL ``rpt_do_step (init_ra_state (get_spg
+  (Seq (Move [1,2;3,4;5,6])
+  (Call (SOME (3, list_insert [1;3;5;7;9] [();();();();()] LN,Skip)) (SOME 400) [7;9] NONE)) LN) 3)``)
+
+val G = rhsThm (EVAL ``^(st).graph``)
+val k = rhsThm (EVAL ``^(st).colors``)
+val ls = rhsThm (EVAL ``^(st).stack``)
+val prefs = ``λ(h:num) (ls:num list) (col:num num_map). HD ls``
+EVAL ``alloc_coloring ^(G) ^(k) ^(prefs) ^(ls)``
+
+(*Initialize state for the second phase, here we are given an ls =
+  vertices to consider*)
+val sec_ra_state_def = Define`
+  (sec_ra_state (G:sp_graph) (k:num) vertices = 
+  (*In this instance, we care about the degree w.r.t. to spilled variables*)
+  let vdegs = MAP (λv. v,count_degrees (λx. ¬(is_phy_var x) ∨ x ≥ 2*k)
+              (THE(lookup v G))) vertices in
+  let tdegs = fromAList vdegs in
+  <|graph := G ; colors := k ; degs := tdegs; 
+    simp_worklist := vertices;
+    spill_worklist := [];
+    stack:=[]|>)`
+
+(*Simplifies by removing the smallest degree node...
+  worklist should ideally be a heap structure...*)
+val deg_comparator_def = Define`
+  deg_comparator (deg:num num_map) x y =
+    case lookup x deg of
+      NONE => T (*Never happens*)
+    | SOME dx =>
+      case lookup y deg of 
+      NONE => T (*Never happens*)
+    | SOME dy => dx < dy` 
+
+val full_simplify_def = Define`
+  full_simplify =
+    λs.
+    let ls = QSORT (deg_comparator s.degs) s.simp_worklist in
+    case ls of
+      [] => (NONE,s)
+    | (x::xs) => 
+      (SOME x,(dec_deg x (s with simp_worklist:= xs)))`
+
+val do_step2_def = Define`
+  do_step2 =
+    λs.
+    let (res,s) = simplify s in
+    case res of
+      NONE => s
+    | SOME x => push_stack x s`
+
+val rpt_do_step_2_def = Define`
+  rpt_do_step2 =
+    λs. 
+    WHILE (λs. s.simp_worklist ≠ []) do_step2 s` 
+
+(*No preferences until we get to coalescing*) 
+val aux_pref_def = Define`
+  aux_pref (h:num) (ls:num list) (col:num num_map) = HD ls`
 
 (*Extract a coloring function from the generated sptree*)
 val total_color_def = Define`
   total_color col =
     (λx. case lookup x col of NONE => x | SOME x => x)`
+
+(*TODO: 
+  Need to use the state's graph instead of G when calling the coloring
+  if we add coalescing
+  Currently, the graph does not actually change*)
+val reg_alloc_def =  Define`
+  reg_alloc G k =
+  (*Initialize*)
+  let s = init_ra_state G k in
+  (*First phase*)
+  let s = rpt_do_step s in
+  let (col,ls) = alloc_coloring G k aux_pref s.stack in
+  let s = sec_ra_state G k ls in
+  let s = rpt_do_step2 s in
+  let col = spill_coloring G k s.stack col in
+    (*Unnecessary step if we instead prove that the vertices are
+      maintained*)
+    total_color(spill_coloring G k ls col)` 
+
+val rhsThm = rhs o concl;
+val st = rhsThm (EVAL ``rpt_do_step (init_ra_state (get_spg
+  (Seq (Move [1,2;3,4;5,6])
+  (Call (SOME (3, list_insert [1;3;5;7;9] [();();();();()] LN,Skip)) (SOME 400) [7;9] NONE)) LN) 3)``)
+
+val G = rhsThm (EVAL ``^(st).graph``)
+val k = rhsThm (EVAL ``^(st).colors``)
+val ls = rhsThm (EVAL ``^(st).stack``)
+val prefs = ``λ(h:num) (ls:num list) (col:num num_map). HD ls``
+
+EVAL ``find_coloring ^(G) ^(k) ^(prefs) ^(ls)``
+
+val p1 = EVAL ``reg_alloc (get_spg
+  (Seq (Move [1,2;3,4;5,6])
+  (Call (SOME (3, list_insert [1;3;5;7;9] [();();();();()] LN,Skip)) (SOME 400) [7;9] NONE)) LN) 3``
+
+(*End reg alloc def*)
+
+
+(*Start reg_alloc proofs*)
+
 
 (*Property of an undirected (simple) graph*)
 val undir_graph_def = Define`
@@ -359,7 +623,9 @@ val undir_graph_def = Define`
       ∀y. y ∈ domain es ⇒
       ∃z. lookup y G = SOME z ∧ x ∈ domain z`
 
-(*Property of preference function, it only chooses a color it is given*)
+(*Property of preference function, it only chooses a color it is given
+  TODO: x::xs instead of ls?
+*)
 val satisfactory_pref_def = Define`
   satisfactory_pref prefs ⇔
     ∀h ls col v. prefs h ls col = v ⇒ MEM v ls`
@@ -589,195 +855,6 @@ val find_coloring_ok = store_thm ("find_coloring_ok",``
     rw[Abbr`col'''`]>>fs[domain_lookup]>>
     metis_tac[])
 *)
-
-
-open monadsyntax
-open state_transformerTheory
-
-(*Experiment with WHILE*)
-val _ = Hol_datatype `
-  ra_state = <| graph : sp_graph;
-                colors : num;
-                degs : num num_map;(*maybe should become a 2 step O(1)lookup*)
-                simp_worklist : num list;
-                spill_worklist : num list;
-                stack : num list |>`;
-                (*TODO: the other work lists
-                coalesced : num num_map;
-                next_spill_var : num;*)
-(*val _ = temp_overload_on ("monad_bind", ``BIND``);
-val _ = temp_overload_on ("return", ``id_return``);*)
-
-(*Parameterized by P because we only count certain types of adjacency in each coloring step*)
-val count_degrees_def = Define`
-  count_degrees P (e:num_set) =
-  LENGTH (FILTER P (MAP FST (toAList e)))`
-
-(*Initialize state for the first phase*)
-val init_ra_state_def = Define`
-  (init_ra_state (G:sp_graph) (k:num) = 
-  let vertices = FILTER is_alloc_var (MAP FST (toAList G)) in
-  let vdegs = MAP (λv. v,count_degrees (λx. ¬(is_stack_var x)) 
-              (THE(lookup v G))) vertices in
-  let tdegs = fromAList vdegs in
-  let (simp,spill) = PARTITION (λx,(y:num). y<k) vdegs in
-  <|graph := G ; colors := k ; degs := tdegs; 
-    simp_worklist := MAP FST simp ;
-    spill_worklist := MAP FST spill;
-    stack:=[]|>)`
-
-val push_stack_def = Define`
-  push_stack v =
-    λs. s with stack:= v::s.stack`
-
-val dec_deg_def = Define`
-  dec_deg v =
-  λs.
-  let es = lookup v s.graph in
-  case es of 
-    NONE => s (*(NONE,s)*)
-  | SOME es =>
-    let edges = MAP FST(toAList es) in
-    let degs = FOLDR 
-      (λv degs. 
-      case lookup v degs of
-        NONE => degs
-      | SOME (d:num) => insert v (d-1) degs) s.degs edges in
-    (*Not the best way to do it...*)
-    let (ltk,gtk) = PARTITION 
-      (λv. case lookup v degs of 
-        NONE => F
-      | SOME x => x < s.colors)  s.spill_worklist in
-    s with <|simp_worklist:= ltk++s.simp_worklist;spill_worklist:= gtk;
-             degs := degs|>`
-    (*(NONE,s with degs := degs)`*)
-      
-val simplify_def = Define`
-  simplify =
-    λs.
-    case s.simp_worklist of
-      [] => (NONE,s)
-    | (x::xs) => 
-      (SOME x,(dec_deg x (s with simp_worklist:= xs)))`
-     
-val spill_def = Define`
-  spill =
-    λs.
-    case s.spill_worklist of
-      [] => (NONE,s)
-    | (x::xs) =>
-      (SOME x,(dec_deg x (s with spill_worklist:= xs)))`
-
-val do_step_def = Define`
-  do_step =
-    λs.
-    let (res,s) = simplify s in
-    case res of
-    NONE => 
-      (let (res,s) = spill s in
-      case res of 
-        NONE => s
-      | SOME x => push_stack x s)
-    | SOME x => push_stack x s`
-
-open whileTheory
-open sortingTheory
-
-val rpt_do_step_def = Define`
-  rpt_do_step =
-    λs. 
-    WHILE (λs. s.simp_worklist ≠ [] ∨ s.spill_worklist ≠ []) do_step s` 
-
-open sptreeSyntax
-sptreeSyntax.temp_add_sptree_printer();
-
-val rhsThm = rhs o concl;
-val st = rhsThm (EVAL ``rpt_do_step (init_ra_state (get_spg
-  (Seq (Move [1,2;3,4;5,6])
-  (Call (SOME (3, list_insert [1;3;5;7;9] [();();();();()] LN,Skip)) (SOME 400) [7;9] NONE)) LN) 3)``)
-
-val G = rhsThm (EVAL ``^(st).graph``)
-val k = rhsThm (EVAL ``^(st).colors``)
-val ls = rhsThm (EVAL ``^(st).stack``)
-val prefs = ``λ(h:num) (ls:num list) (col:num num_map). HD ls``
-EVAL ``find_coloring ^(G) ^(k) ^(prefs) ^(ls)``
-
-(*Initialize state for the second phase, here we are given an ls =
-  vertices to consider*)
-val sec_ra_state_def = Define`
-  (sec_ra_state (G:sp_graph) (k:num) vertices = 
-  (*In this instance, we care about the degree w.r.t. to spilled variables*)
-  let vdegs = MAP (λv. v,count_degrees (λx. ¬(is_phy_var x) ∨ x ≥ 2*k)
-              (THE(lookup v G))) vertices in
-  let tdegs = fromAList vdegs in
-  <|graph := G ; colors := k ; degs := tdegs; 
-    simp_worklist := vertices;
-    spill_worklist := [];
-    stack:=[]|>)`
-
-(*Simplifies by removing the smallest degree node...
-  worklist should ideally be a heap structure...
-*)
-val deg_comparator_def = Define`
-  deg_comparator (deg:num num_map) x y =
-    case lookup x deg of
-      NONE => T (*Never happens*)
-    | SOME dx =>
-      case lookup y deg of 
-      NONE => T (*Never happens*)
-    | SOME dy => dx < dy` 
-
-val full_simplify_def = Define`
-  full_simplify =
-    λs.
-    let ls = QSORT (deg_comparator s.degs) s.simp_worklist in
-    case ls of
-      [] => (NONE,s)
-    | (x::xs) => 
-      (SOME x,(dec_deg x (s with simp_worklist:= xs)))`
-
-val do_step2_def = Define`
-  do_step2 =
-    λs.
-    let (res,s) = simplify s in
-    case res of
-      NONE => s
-    | SOME x => push_stack x s`
-
-val rpt_do_step_2_def = Define`
-  rpt_do_step2 =
-    λs. 
-    WHILE (λs. s.simp_worklist ≠ []) do_step2 s` 
-
-(*No preferences until we get to coalescing*) 
-val aux_pref_def = Define`
-  aux_pref (h:num) (ls:num list) (col:num num_map) = HD ls`
-
-val reg_alloc_def =  Define`
-  reg_alloc G k =
-  (*Initialize*)
-  let s = init_ra_state G k in
-  (*First phase*)
-  let s = rpt_do_step s in
-  let (col,ls) = find_coloring s.graph s.colors aux_pref s.stack in
-  let s = sec_ra_state G k ls in
-  let s = rpt_do_step2 s in s`
-
-val rhsThm = rhs o concl;
-val st = rhsThm (EVAL ``rpt_do_step (init_ra_state (get_spg
-  (Seq (Move [1,2;3,4;5,6])
-  (Call (SOME (3, list_insert [1;3;5;7;9] [();();();();()] LN,Skip)) (SOME 400) [7;9] NONE)) LN) 3)``)
-
-val G = rhsThm (EVAL ``^(st).graph``)
-val k = rhsThm (EVAL ``^(st).colors``)
-val ls = rhsThm (EVAL ``^(st).stack``)
-val prefs = ``λ(h:num) (ls:num list) (col:num num_map). HD ls``
-EVAL ``find_coloring ^(G) ^(k) ^(prefs) ^(ls)``
-
-val p1 = EVAL ``reg_alloc (get_spg
-  (Seq (Move [1,2;3,4;5,6])
-  (Call (SOME (3, list_insert [1;3;5;7;9] [();();();();()] LN,Skip)) (SOME 400) [7;9] NONE)) LN) 3``
-
 
 
 (*Takes the worklist and simplifies it, 
