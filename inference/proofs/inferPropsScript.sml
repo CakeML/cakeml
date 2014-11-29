@@ -2607,6 +2607,12 @@ ho_match_mp_tac check_t_ind >>
 rw [check_t_def, check_freevars_def, convert_t_def, EVERY_MAP] >>
 fs [EVERY_MEM]);
 
+val check_freevars_to_check_t = Q.store_thm ("check_freevars_to_check_t",
+`!tvs (n:tvarN list) t. check_freevars tvs [] t ⇒ check_t tvs {} (unconvert_t t)`,
+ho_match_mp_tac check_freevars_ind >>
+rw [check_t_def, check_freevars_def, unconvert_t_def, EVERY_MAP] >>
+fs [EVERY_MEM]);
+
 val convert_inc = Q.store_thm ("convert_inc",
 `!t tvs tvs'. 
   check_t tvs' {} t

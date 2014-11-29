@@ -48,6 +48,36 @@ val generalise_no_uvars = Q.prove (
  rw [] >>
  metis_tac [PAIR_EQ]);
 
+(* this might be totally wrong
+
+val generalise_uvars = prove(
+  ``(∀t m n s u d. FINITE u ∧ check_t d u t ⇒ FST(generalise m n s t) ≤ n + CARD (u DIFF (FDOM s))) ∧
+    (∀ts m n s u d. FINITE u ∧ EVERY (check_t d u) ts ⇒ FST(generalise_list m n s ts) ≤ CARD (u DIFF (FDOM s)))``,
+  ho_match_mp_tac infer_tTheory.infer_t_induction >>
+  rw[generalise_def,check_t_def] >> rw[] >>
+  TRY BasicProvers.CASE_TAC >> simp[] >>
+  fsrw_tac[boolSimps.ETA_ss][] >- metis_tac[FST] >- (
+    fs[FLOOKUP_DEF] >>
+    `FINITE (FDOM s)` by simp[] >>
+    asm_simp_tac std_ss [GSYM(MP_CANON CARD_DIFF)] >>
+    `∃z. u DIFF FDOM s = n INSERT z ∧ n ∉ z ∧ FINITE z` by (
+      qexists_tac`u DIFF (n INSERT (FDOM s))` >>
+      simp[EXTENSION] >> metis_tac[] ) >>
+    first_x_assum (CHANGED_TAC o SUBST1_TAC) >>
+    simp[] ) >>
+  last_x_assum(qspecl_then[`m`,`n`,`s`]mp_tac) >> simp[] >> strip_tac >>
+  last_x_assum(qspecl_then[`m`,`num_gen+n`,`s'`]mp_tac) >> simp[] >> strip_tac >>
+  res_tac >> simp[]
+
+  fs[GSYM AND_IMP_INTRO] >>
+  rpt(first_x_assum(fn th => first_assum(mp_tac o MATCH_MP th))) >>
+  disch_then(fn th => first_assum(mp_tac o MATCH_MP th))
+
+  res_tac
+  metis_tac[FST,arithmeticTheory.ADD_ASSOC,arithmeticTheory.ADD_COMM]
+*)
+
+
 val infer_d_complete = Q.prove (
 `!mn mdecls tdecls edecls tenvT menv cenv d mdecls' tdecls' edecls' tenvT' cenv' tenv st.
   check_menv menv ∧
@@ -60,7 +90,7 @@ val infer_d_complete = Q.prove (
     set mdecls'' = set mdecls' ∧
     set tdecls'' = set tdecls' ∧
     set edecls'' = set edecls' ∧
-    infer_d mn (mdecls,tdecls,edecls) tenvT menv cenv tenv d st = 
+    infer_d mn (mdecls,tdecls,edecls) tenvT menv cenv tenv d st =
       (Success ((mdecls'',tdecls'',edecls''), tenvT', cenv', tenv'), st')`,
  rw [type_d_cases] >>
  rw [infer_d_def, success_eqns, LAMBDA_PROD, EXISTS_PROD, init_state_def] >>
@@ -158,13 +188,34 @@ val infer_d_complete = Q.prove (
      simp[Once LIST_EQ_REWRITE,EL_MAP] >>
      disch_then(qspec_then`n`mp_tac) >> simp[] ) >>
    BasicProvers.VAR_EQ_TAC >>
-   (*
-   first conjunct looks worrying...
-   simp_tenv_invC_def
-   generalise_def
-   imp_res_tac (CONJUNCT2 generalise_subst) >> fs[] >>
-   rfs[PULL_EXISTS,MEM_MAP] >>
-   *)
+   imp_res_tac generalise_subst_empty >>
+   pop_assum mp_tac >>
+   simp[MAP_MAP_o,Once LIST_EQ_REWRITE,EL_MAP] >>
+   disch_then(qspec_then`n`mp_tac) >> simp[] >>
+   disch_then kall_tac >>
+   rator_x_assum`simp_tenv_invC`mp_tac >>
+   simp[simp_tenv_invC_def] >>
+   `ALL_DISTINCT (MAP FST tenv'')` by metis_tac[] >>
+   imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
+   ntac 2 (pop_assum mp_tac) >>
+   simp[MEM_EL,PULL_EXISTS] >>
+   disch_then(qspec_then`n`mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["n"]))) >>
+   simp[] >> strip_tac >>
+   disch_then(qspec_then`n`mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["n'"]))) >>
+   simp[] >> strip_tac >>
+   simp[GSYM FORALL_AND_THM] >>
+   disch_then(qspec_then`g`mp_tac) >> simp[] >>
+   strip_tac >>
+   `check_t y ∅ c'` by (
+     rator_x_assum`check_env`mp_tac >>
+     simp[check_env_def,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
+     disch_then(qspec_then`n`mp_tac)>>simp[] ) >>
+   imp_res_tac check_t_empty_unconvert_convert_id >>
+   reverse conj_tac >- (
+     pop_assum(SUBST1_TAC o SYM) >>
+     first_x_assum(CHANGED_TAC o SUBST1_TAC) >>
+     (* need more assumptions from infer_pe_complete about constrs? )
+     cheat ) >>
    cheat)
  (* Non generalised let *)
  >- (
