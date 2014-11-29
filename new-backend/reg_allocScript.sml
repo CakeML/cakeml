@@ -314,6 +314,8 @@ val assign_color_def = Define`
   case lookup v col of
     SOME x => (col,spills) (*Actually redundant but less constraining*)
   | NONE =>
+  if MEM v spills then (col,spills) (*Another redundant check*)
+  else 
   case lookup v G of
     (*Vertex wasn't even in the graph -- ignore*)
     NONE => (col,spills)
@@ -398,7 +400,7 @@ val assign_color2_def = Define`
     let xs = MAP FST (toAList x) in
     (*Get all the nightbor colors*)
     let cols = option_filter (MAP (λx. lookup x col) xs) in
-    let c = unbound_colors (2*k) (QSORT (λx y. x<y) cols) in 
+    let c = unbound_colors (2*k) (QSORT (λx y. x≤y) cols) in 
       insert v c col` 
 
 (*ls is a spill list*)
@@ -411,8 +413,8 @@ val spill_coloring_def = Define`
 (*End coloring definitions*)
 
 (*Define register allocation*)
-open monadsyntax
-open state_transformerTheory
+(*open monadsyntax
+open state_transformerTheory*)
 
 val _ = Hol_datatype `
   ra_state = <| graph : sp_graph;
@@ -503,6 +505,7 @@ val rpt_do_step_def = Define`
     λs. 
     WHILE (λs. s.simp_worklist ≠ [] ∨ s.spill_worklist ≠ []) do_step s` 
 
+(*
 open sptreeSyntax
 sptreeSyntax.temp_add_sptree_printer();
 
@@ -516,6 +519,7 @@ val k = rhsThm (EVAL ``^(st).colors``)
 val ls = rhsThm (EVAL ``^(st).stack``)
 val prefs = ``λ(h:num) (ls:num list) (col:num num_map). HD ls``
 EVAL ``alloc_coloring ^(G) ^(k) ^(prefs) ^(ls)``
+*)
 
 (*Initialize state for the second phase, here we are given an ls =
   vertices to consider*)
@@ -539,7 +543,7 @@ val deg_comparator_def = Define`
     | SOME dx =>
       case lookup y deg of 
       NONE => T (*Never happens*)
-    | SOME dy => dx < dy` 
+    | SOME dy => dx ≤ dy` 
 
 val full_simplify_def = Define`
   full_simplify =
@@ -586,10 +590,13 @@ val reg_alloc_def =  Define`
   let s = sec_ra_state G k ls in
   let s = rpt_do_step2 s in
   let col = spill_coloring G k s.stack col in
-    (*Unnecessary step if we instead prove that the vertices are
+  let col = spill_coloring G k ls col in
+    col`
+    (*Unnecessary extra call to spill_coloring
+     if we instead prove that the vertices are
       maintained*)
-    total_color(spill_coloring G k ls col)` 
 
+(*
 val rhsThm = rhs o concl;
 val st = rhsThm (EVAL ``rpt_do_step (init_ra_state (get_spg
   (Seq (Move [1,2;3,4;5,6])
@@ -605,14 +612,18 @@ EVAL ``find_coloring ^(G) ^(k) ^(prefs) ^(ls)``
 val p1 = EVAL ``reg_alloc (get_spg
   (Seq (Move [1,2;3,4;5,6])
   (Call (SOME (3, list_insert [1;3;5;7;9] [();();();();()] LN,Skip)) (SOME 400) [7;9] NONE)) LN) 3``
+*)
 
 (*End reg alloc def*)
 
 
-(*Start reg_alloc proofs*)
+(*Start reg_alloc proofs
+  We need to show 2 things:
+  1) The total coloring generated is satisfactory
+  2) The total coloring generated is conventional
+*)
 
-
-(*Property of an undirected (simple) graph*)
+(*Property of an undirected irreflexive (simple) graph*)
 val undir_graph_def = Define`
   undir_graph (G:sp_graph) =
     ∀x.
@@ -624,16 +635,16 @@ val undir_graph_def = Define`
       ∃z. lookup y G = SOME z ∧ x ∈ domain z`
 
 (*Property of preference function, it only chooses a color it is given
-  TODO: x::xs instead of ls?
-*)
+  TODO: x::xs instead of ls?*)
 val satisfactory_pref_def = Define`
   satisfactory_pref prefs ⇔
-    ∀h ls col v. prefs h ls col = v ⇒ MEM v ls`
+    ∀h ls col v. ls ≠ [] ∧ prefs h ls col = v ⇒ MEM v ls`
 
-(*VERY rough statement of the two theorems that must be proved
-  about find_coloring. Missing many assumptions:
-  e.g. prefs must only select something from its input list
-  *)
+val aux_pref_satisfactory = prove(``
+  satisfactory_pref aux_pref``,
+  fs[satisfactory_pref_def,aux_pref_def]>>
+  Cases_on`ls`>>fs[])
+
 (*val split_list_splits = prove(``
   ∀ls P.
   let (L,R) = split_list P ls in
@@ -654,13 +665,14 @@ val id_color_lemma = prove(``
   ∀x. (MEM x ls ⇒ lookup x t = SOME x)``,
   Induct>>fs[id_color_def,LET_THM,lookup_insert]>>rw[])
 
-val find_coloring_aux_never_overwrites = prove(``
+(*alloc_coloring_aux never overwrites an old coloring*)
+val alloc_coloring_aux_never_overwrites_col = prove(``
   ∀xs spill col spill' col'.
   lookup x col = SOME y ∧
-  find_coloring_aux G k prefs xs col spill = (col',spill')
+  alloc_coloring_aux G k prefs xs col spill = (col',spill')
   ⇒
   lookup x col' = SOME y``,
-  Induct>>fs[find_coloring_aux,assign_color_def]>>rw[]>>fs[LET_THM]>>
+  Induct>>fs[alloc_coloring_aux,assign_color_def]>>rw[]>>fs[LET_THM]>>
   Cases_on`x = h`>>fs[]>>rfs[]
   >-
     metis_tac[]
@@ -668,31 +680,21 @@ val find_coloring_aux_never_overwrites = prove(``
   EVERY_CASE_TAC>>fs[]>>TRY(metis_tac[])>>
   res_tac>>fs[lookup_insert])
 
-(*  
-val find_coloring_conventional = store_thm ("find_coloring_conventional",``
-  ∀G k prefs nsv ls.
-  let (nsv',col) = find_coloring G k prefs nsv ls in
-  let col = total_color col in
-  coloring_conventional G k col``,
-  fs[coloring_conventional_def,find_coloring_def]>>rw[]>>
-  unabbrev_all_tac>>
-  IF_CASES_TAC>>
-  TRY (IF_CASES_TAC)>>
-  TRY (`¬is_alloc_var x` by metis_tac[convention_partitions]>>
-  Q.ISPECL_THEN [`G`] assume_tac split_vertices_lemma>>
-  rfs[LET_THM]>>res_tac>>
-  Q.SPECL_THEN [`others`] assume_tac id_color_lemma>>
-  rfs[LET_THM]>>res_tac>>
-  imp_res_tac find_coloring_aux_never_overwrites>>
-  fs[total_color_def])>>
-  `is_alloc_var x` by metis_tac[convention_partitions]>>
-  Q.ISPECL_THEN [`G`] assume_tac split_vertices_lemma>>
-  rfs[LET_THM]>>res_tac>>
-  (*Show that aux picks a conventonal color*)
-  cheat);
-*)
+val alloc_coloring_aux_never_overwrites_spill = prove(``
+  ∀xs spill col spill' col'.
+  MEM x spill ∧
+  alloc_coloring_aux G k prefs xs col spill = (col',spill')
+  ⇒
+  MEM x spill'``,
+  Induct>>fs[alloc_coloring_aux,assign_color_def]>>rw[]>>fs[LET_THM]>>
+  EVERY_CASE_TAC>>fs[]>>
+  TRY(`MEM x (h::spill')` by (fs[]>>NO_TAC))>>
+  metis_tac[])
 
-(*Restricted to a partial coloring*)
+(*Coloring satisfactory but restricted to a partial coloring
+  i.e. only talk about the subgraph induced by the vertices 
+  in the domain of the coloring
+*)
 val partial_coloring_satisfactory_def = Define`
   partial_coloring_satisfactory col (G:sp_graph) ⇔
   ∀v.
@@ -760,26 +762,20 @@ val partial_coloring_satisfactory_extend = prove(``
       last_x_assum(qspec_then`v'`mp_tac)>>discharge_hyps>>fs[]>>rw[]>>
       pop_assum(qspec_then`v''''`assume_tac)>>rfs[])
 
-(*
-(*nsv is greater than any color assigned so far*)
-val nsv_gt_def = Define`
-  nsv_gt (nsv:num) col =
-  ∀x y. x ∈ domain col ∧ lookup x col = SOME y ⇒
-        y < nsv`
-*)
-
-val find_coloring_aux_satisfactory = prove(``
+(*Coloring produced after each alloc_coloring_aux_step is
+  partial_coloring_satisfactory*)
+val alloc_coloring_aux_satisfactory = prove(``
   ∀G k prefs ls col spill.
   undir_graph G ∧
   satisfactory_pref prefs ∧
   partial_coloring_satisfactory col G
   ⇒
-  let (col',spill') = find_coloring_aux G k prefs ls col spill in
+  let (col',spill') = alloc_coloring_aux G k prefs ls col spill in
     partial_coloring_satisfactory col' G``,
-  Induct_on`ls`>>fs[find_coloring_aux,assign_color_def,LET_THM]>>rw[]>>
+  Induct_on`ls`>>fs[alloc_coloring_aux,assign_color_def,LET_THM]>>rw[]>>
   EVERY_CASE_TAC>>fs[]>>
   first_x_assum(qspecl_then
-    [`G`,`k`,`prefs`,`insert h (prefs h (h'::t) col) col`,`spill`] mp_tac)>>
+    [`G`,`k`,`prefs`,`insert h (prefs h (h'::t) col) col`,`spill'`] mp_tac)>>
   discharge_hyps>>fs[]>>
   match_mp_tac partial_coloring_satisfactory_extend>>rw[]>>
   fs[domain_lookup]>>
@@ -791,24 +787,299 @@ val find_coloring_aux_satisfactory = prove(``
   rfs[]>>res_tac>>
   metis_tac[])
 
-val find_coloring_aux_domain = prove(``
+val alloc_coloring_aux_domain_1 = prove(``
   ∀G k prefs ls col spill col' spill'.
-  find_coloring_aux G k prefs ls col spill = (col',spill')
+  domain col ∩ set spill = {} ∧ 
+  alloc_coloring_aux G k prefs ls col spill = (col',spill')
   ⇒
-  (∀x. MEM x spill ⇒ MEM x spill') ∧ 
-  (∀x. MEM x ls ∧ x ∈ domain G ⇒ x ∈ domain col' ∨ MEM x spill')``,
-  Induct_on`ls`>>fs[find_coloring_aux,LET_THM,assign_color_def]>>
-  rw[]>>EVERY_CASE_TAC>>fs[domain_lookup]>>
-  imp_res_tac find_coloring_aux_never_overwrites>>
-  TRY(`MEM x (h::spill)` by (fs[]>>NO_TAC))>>
-  TRY(`MEM h (h::spill)` by (fs[]>>NO_TAC))>>
+  domain col' ∩ set spill' = {}``,
+  Induct_on`ls`>>fs[alloc_coloring_aux,LET_THM,assign_color_def]>>rw[]
+  >-(EVERY_CASE_TAC>>fs[]>>metis_tac[])
+  >>
+  Cases_on`lookup h col`>>fs[]
+  >-
+    (Cases_on`lookup h G`>>fs[]
+    >- metis_tac[]
+    >>
+    `h ∉ domain col` by fs[domain_lookup]>>
+    `domain col ∩ set (h::spill') = {}` by
+      (fs[EXTENSION]>>rw[]>>Cases_on`x'=h`>>fs[])>>
+    Cases_on`is_alloc_var h`>>fs[]
+    >-
+      (FULL_CASE_TAC>>fs[]
+      >-
+        (res_tac>>fs[])
+      >>
+        res_tac>>pop_assum mp_tac>>discharge_hyps>>
+        fs[domain_insert,EXTENSION]>>rw[]>>
+        Cases_on`x'=h`>>fs[])
+    >>
+      res_tac>>fs[])
+  >>
+    metis_tac[domain_lookup])
+
+val alloc_coloring_aux_domain_2 = prove(``
+  ∀G k prefs ls col spill col' spill'.
+  alloc_coloring_aux G k prefs ls col spill = (col',spill')
+  ⇒
+  ∀x. MEM x ls ∧ x ∈ domain G ⇒ 
+    x ∈ domain col' ∨ MEM x spill'``,
+  Induct_on`ls`>>reverse (rw[alloc_coloring_aux,UNCURRY,LET_THM])>>fs[]
+  >- metis_tac[]
+  >>
+  fs[assign_color_def,LET_THM]>>EVERY_CASE_TAC>>
+  imp_res_tac alloc_coloring_aux_never_overwrites_col>>
+  imp_res_tac alloc_coloring_aux_never_overwrites_spill>>
+  fs[domain_lookup]>>
   metis_tac[lookup_insert])
 
+val id_color_always_sat = prove(``
+  undir_graph G ⇒ 
+  partial_coloring_satisfactory (id_color ls) G``,
+  Q.ISPEC_THEN `ls` assume_tac id_color_lemma>>
+  rw[undir_graph_def,partial_coloring_satisfactory_def]>>
+  fs[LET_THM]>>
+  qsuff_tac `v ≠ v'`
+  >-
+    (`MEM v ls ∧ MEM v' ls` by metis_tac[EXTENSION]>>
+    res_tac>>
+    fs[])
+  >>
+    first_x_assum(qspec_then `v` assume_tac)>>
+    fs[domain_lookup]>>rfs[]>>
+    metis_tac[])
+
+
 (*The first coloring should produce a partial coloring such that:
-  Phy var is mapped under I
+  Phy vars are mapped to themselves
   Stack vars are all in spills
-  Temp var is either spilled OR in 
+  Alloc vars are either spilled (exclusive)OR in the coloring 
 *)
+val alloc_coloring_success = prove(``
+  undir_graph G ∧ satisfactory_pref prefs ⇒ 
+  let (col,spills) = alloc_coloring G k prefs ls in
+  partial_coloring_satisfactory col G ∧
+  domain col ∩ set spills = {} ∧ 
+  ∀x. x ∈ domain G ⇒
+    if is_phy_var x then lookup x col = SOME x
+    else if is_stack_var x then MEM x spills
+    else (*is_alloc_var x*)
+      if x ∈ domain col then
+        ∃y. lookup x col = SOME y ∧ is_phy_var y
+      else MEM x spills``,
+  fs[alloc_coloring_def]>>rw[]
+  >-
+    (imp_res_tac alloc_coloring_aux_satisfactory>>
+    ntac 2 (pop_assum kall_tac)>>
+    first_assum(qspec_then`col` mp_tac)>>
+    discharge_hyps
+    >-
+      metis_tac[id_color_always_sat]
+    >>
+    strip_tac>>
+    pop_assum(qspecl_then [`[]`,`ls`,`colors`] assume_tac)>>
+    rfs[LET_THM]>>
+    first_x_assum(qspec_then`col'` assume_tac)>>rfs[]>>
+    pop_assum(qspecl_then [`spills`,`others`,`colors`] assume_tac)>>
+    rfs[])
+  >-
+    (imp_res_tac alloc_coloring_aux_domain_1>>
+    rfs[])
+  >>
+    imp_res_tac alloc_coloring_aux_domain_2>>
+    `MEM x vertices` by 
+      fs[Abbr`vertices`,MEM_toAList,MEM_MAP,EXISTS_PROD,domain_lookup]>>
+    fs[PARTITION_DEF]>>
+    Q.ISPECL_THEN [`is_phy_var`,`vertices`,`phy_var`,`others`,`[]:num list`
+      ,`[]:num list`]assume_tac PARTs_HAVE_PROP>>
+    Q.ISPECL_THEN [`is_phy_var`,`vertices`,`phy_var`,`others`,`[]:num list`
+      ,`[]:num list`]assume_tac PART_MEM>>
+    rfs[]>>
+    IF_CASES_TAC
+    >-
+      (`lookup x col = SOME x` by metis_tac[id_color_lemma]>>
+      metis_tac[alloc_coloring_aux_never_overwrites_col])
+    >>
+    IF_CASES_TAC
+    >-
+      (`MEM x others` by metis_tac[]>>
+      cheat)(*should be obvious when the conventional part of aux is proved*)
+    >>
+      `is_alloc_var x ∧ MEM x others` by metis_tac[convention_partitions]>>
+      fs[]>>
+      cheat)
+
+val spill_coloring_never_overwrites = prove(``
+  ∀ls col col'.
+  lookup x col = SOME y ∧ 
+  spill_coloring G k ls col = col'
+  ⇒ 
+  lookup x col' = SOME y``,
+  Induct>>fs[spill_coloring_def,assign_color2_def]>>rw[]>>
+  Cases_on`x=h`>>fs[]>>rfs[]
+  >-
+    metis_tac[]
+  >>
+  EVERY_CASE_TAC>>fs[LET_THM]>>
+  metis_tac[lookup_insert])
+
+val SORTED_TAIL = prove(``
+  SORTED R (x::xs) ⇒ SORTED R xs``,
+  Cases_on`xs`>>fs[SORTED_DEF])
+
+val SORTED_HEAD_LT = prove(``
+  ∀ls.
+  (col:num) < h ∧ SORTED (λx y. x≤y) (h::ls) ⇒ 
+  ¬MEM col ls``,
+  Induct>>rw[SORTED_DEF]
+  >-
+    DECIDE_TAC
+  >>
+    last_x_assum mp_tac>>discharge_hyps>>
+    Cases_on`ls`>>fs[SORTED_DEF]>>DECIDE_TAC)
+
+(*prove multiple properties in one go*)
+val unbound_colors_props = prove(``
+  ∀col ls col'.
+    is_phy_var col ∧
+    SORTED (λx y.x≤y) ls ∧ 
+    unbound_colors col ls = col'
+    ⇒
+    is_phy_var col' ∧ col' ≥ col ∧
+    ¬MEM col' ls``,
+  Induct_on`ls`>>rw[unbound_colors_def]>>
+  imp_res_tac SORTED_TAIL>>
+  `is_phy_var (col+2)` by
+    (qspec_then `2` assume_tac arithmeticTheory.MOD_PLUS>>fs[]>>
+    pop_assum (qspecl_then [`col`,`2`] assume_tac)>>rfs[is_phy_var_def])>>
+  fs[]
+  >-
+    DECIDE_TAC
+  >-
+    metis_tac[SORTED_HEAD_LT]
+  >>
+    (res_tac>>DECIDE_TAC))
+
+val assign_color2_satisfactory = prove(``
+  undir_graph G ∧ 
+  partial_coloring_satisfactory col G ⇒ 
+  partial_coloring_satisfactory (assign_color2 G k h col) G``,
+  rw[assign_color2_def]>>
+  EVERY_CASE_TAC>>fs[LET_THM]>>
+  match_mp_tac partial_coloring_satisfactory_extend>>rw[]>>
+  fs[domain_lookup]>>
+  qpat_abbrev_tac`ls = QSORT (λx:num y:num. x≤y)  B`>>
+  `SORTED (λx y. x≤y) ls` by
+    (unabbrev_all_tac>>match_mp_tac QSORT_SORTED>>
+    fs[relationTheory.transitive_def,relationTheory.total_def]>>
+    rw[]>>DECIDE_TAC)>>
+  `MEM v ls` by
+    (unabbrev_all_tac>>
+    fs[QSORT_MEM,option_filter_def,MEM_MAP,MEM_FILTER,EXISTS_PROD
+      ,MEM_toAList,PULL_EXISTS]>>
+    HINT_EXISTS_TAC>>fs[])>>
+  `is_phy_var (2*k)` by 
+    (fs[is_phy_var_def]>>
+    (*Decide tac doesnt know about this..*)
+    cheat)>>
+  metis_tac[unbound_colors_props])
+  
+(*Coloring produced after each spill_coloring step is
+  partial_coloring_satisfactory*)
+val spill_coloring_satisfactory = prove(``
+  ∀G k ls col.
+  undir_graph G ∧
+  partial_coloring_satisfactory col G
+  ⇒
+  let col' = spill_coloring G k ls col in
+    partial_coloring_satisfactory col' G``,
+  Induct_on`ls`>>fs[spill_coloring_def,LET_THM]>>rw[]>>
+  EVERY_CASE_TAC>>fs[]>>
+  first_x_assum(qspecl_then
+    [`G`,`k`,`assign_color2 G k h col`] mp_tac)>>
+  discharge_hyps>>
+    metis_tac[assign_color2_satisfactory])
+  
+(*Prove domain and color properties together
+  maybe TODO: Need to upper bound the domain as well?
+*)
+
+val spill_coloring_domain = prove(``
+  ∀G k ls col.
+  let col' = spill_coloring G k ls col in 
+  ∀x. MEM x ls ∧ x ∈ domain G ∧ x ∉ domain col ⇒
+      ∃y. lookup x col' = SOME y ∧ 
+      is_phy_var y``,
+  Induct_on`ls`>>fs[spill_coloring_def,LET_THM]>>rw[]
+  >-
+    (fs[assign_color2_def]>>EVERY_CASE_TAC>>fs[domain_lookup,LET_THM]>>
+    qpat_abbrev_tac `col' = insert h A col`>>
+    qsuff_tac `∃y. lookup h col' = SOME y ∧ is_phy_var y`
+    >-
+      metis_tac[spill_coloring_never_overwrites]
+    >>
+      unabbrev_all_tac>>fs[lookup_insert]>>
+      cheat)
+     (*from unbound_colors_props*)
+  >>
+    Cases_on`x=h`
+    >-
+      cheat (*should be same as above*)
+    >>
+    fs[assign_color2_def]>>EVERY_CASE_TAC>>fs[LET_THM])
+
+val reg_alloc_domain = store_thm ("reg_alloc_domain",``
+  ∀G k.
+  let col = reg_alloc G k in
+  domain col = domain G``
+
+(*
+val reg_alloc_conventional = store_thm ("reg_alloc_conventional",``
+  ∀G k.
+  let col = reg_alloc G k in
+  coloring_conventional G k col``,
+  fs[coloring_conventional_def,reg_alloc_def]>>rw[]>>
+  unabbrev_all_tac>>
+  IF_CASES_TAC>>
+  TRY (IF_CASES_TAC)>>
+  TRY (`¬is_alloc_var x` by metis_tac[convention_partitions]>>
+  Q.ISPECL_THEN [`G`] assume_tac split_vertices_lemma>>
+  rfs[LET_THM]>>res_tac>>
+  Q.SPECL_THEN [`others`] assume_tac id_color_lemma>>
+  rfs[LET_THM]>>res_tac>>
+  imp_res_tac find_coloring_aux_never_overwrites>>
+  fs[total_color_def])>>
+  `is_alloc_var x` by metis_tac[convention_partitions]>>
+  Q.ISPECL_THEN [`G`] assume_tac split_vertices_lemma>>
+  rfs[LET_THM]>>res_tac>>
+  (*Show that aux picks a conventonal color*)
+  cheat);
+*)
+val reg_alloc_satisfactory = store_thm ("reg_alloc_satisfactory",``
+  ∀G k prefs nsv ls.
+  undir_graph G ⇒ 
+  let col = reg_alloc G k in 
+  coloring_satisfactory (total_color col) G``,
+  rw[reg_alloc_def]>>
+  qsuff_tac `partial_coloring_satisfactory col'' G`
+  >-
+    fs[coloring_satisfactory_def,partial_coloring_satisfactory_def
+      ,total_color_def]>>
+    rw[]
+             ∧ domain G ⊆ domain col'`>>
+  imp_res_tac alloc_coloring_success>>
+  pop_assum(qspec_then `aux_pref` mp_tac)>>discharge_hyps
+  >- fs[aux_pref_satisfactory]
+  >>
+  rw[]>>pop_assum(qspecl_then[`s'.stack`,`k`]assume_tac)>>rfs[LET_THM]>>
+  (*domain col ∩ set ls should be equal to domain G*)
+  imp_res_tac spill_coloring_satisfactory>>
+
+  spill_coloring_domain
+  satisfactory
+
+  cheat)
+ 
 (*
 val find_coloring_ok = store_thm ("find_coloring_ok",``
   ∀G k prefs nsv ls.
