@@ -150,21 +150,6 @@ val FDOM_extend = prove (
    Cases_on`x=next_uvar`>>fs[]>>
    `x<next_uvar` by DECIDE_TAC>>fs[])
 
-val check_freevars_empty_convert_unconvert_id = prove(
-``!t. check_freevars n [] t ⇒ 
-  convert_t (unconvert_t t) = t``,
-  ho_match_mp_tac unconvert_t_ind>>
-  rw[]>>fs[unconvert_t_def,convert_t_def,check_freevars_def]>>
-  fs[MAP_MAP_o,MAP_EQ_ID,EVERY_MEM])
-
-val check_freevars_to_check_t = prove(
-``!t z. check_freevars n [] t ⇒
-  check_t n {} (unconvert_t t)``,
-  ho_match_mp_tac unconvert_t_ind>>
-  rw[]>>
-  fs[unconvert_t_def,check_freevars_def,check_t_def]>>
-  fs[EVERY_MAP,EVERY_MEM])
-
 val pure_add_constraints_exists = Q.prove (
 `!s ts next_uvar lim.
   t_wfs s ∧
