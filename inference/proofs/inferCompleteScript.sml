@@ -214,7 +214,7 @@ val infer_d_complete = Q.prove (
    reverse conj_tac >- (
      pop_assum(SUBST1_TAC o SYM) >>
      first_x_assum(CHANGED_TAC o SUBST1_TAC) >>
-     (* need more assumptions from infer_pe_complete about constrs? )
+     (* need more assumptions from infer_pe_complete about constrs? *)
      cheat ) >>
    cheat)
  (* Non generalised let *)
