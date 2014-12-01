@@ -114,10 +114,10 @@ in
   fun get_mn () = (!decl_exists) |> concl |> rator |> rand
   fun INST_mn th = INST [``mn:string option`` |-> get_mn()] th
   fun full_id name =
-    if aconv (get_mn ()) ``NONE:string option`` then ``Short ^name``
-    else ``Long ^(get_mn () |> rand) ^name``
+    ``Long ^(optionSyntax.dest_some (get_mn ())) ^name``
+    handle HOL_ERR _ => ``Short ^name``
   fun translate_into_module name =
-    if not (aconv (!decl_term) ``[]:dec list``) then
+    if not (listSyntax.is_nil (!decl_term)) then
       failwith "translate_into_module can only be used on an empty translation"
     else let
       val _ = print ("\n\nTranslating into module: " ^ name ^ "\n\n")
@@ -133,11 +133,7 @@ in
     val pat = ``(n:string,x:'a)``
     val strs2 = find_terms (can (match_term pat)) (concl th) |> map (rand o rator)
     val strs = strs1 @ strs2
-    fun all_distinct [] = []
-      | all_distinct (x::xs) = let
-        val ys = all_distinct xs
-        in if mem x ys then ys else x::ys end
-    val names = map stringSyntax.fromHOLstring strs |> all_distinct
+    val names = map stringSyntax.fromHOLstring strs |> mk_set
     in names end
   fun get_DeclAssumExists () = !decl_exists
   fun cert_reset () =
