@@ -931,6 +931,13 @@ val alloc_coloring_aux_domain_3 = prove(``
     >>
     res_tac)
 
+val list_mem = prove(``
+  ∀ls ls'. 
+    MEM x ls ∧ (h::ls') = ls ∧ x ≠ h
+    ⇒ 
+    MEM x ls'``,
+  rw[]>>fs[])
+
 (*If not the assigned color then it must have come from before*)
 val assign_color_reverse = prove(``
   ∀G:sp_graph k prefs h col spill col' spill'.
@@ -942,9 +949,7 @@ val assign_color_reverse = prove(``
   rw[assign_color_def]>>EVERY_CASE_TAC>>fs[LET_THM]>>
   EVERY_CASE_TAC>>fs[]>>
   qpat_assum `A = col'` (SUBST_ALL_TAC o SYM)>>
-  TRY(fs[domain_insert]>>metis_tac[])>>
-  (*Should be obvious, dont know which list thm to use*)
-  cheat)
+  fs[domain_insert]>>metis_tac[list_mem])
   
 (*Not in the final state means it must have come from before*)
 val alloc_coloring_aux_domain_4 = prove(``
@@ -1019,7 +1024,11 @@ val alloc_coloring_success = prove(``
     Q.ISPECL_THEN [`is_phy_var`,`vertices`,`phy_var`,`others`,`[]:num list`
       ,`[]:num list`]assume_tac PART_MEM>>
     rfs[]>>
-    `∀x. MEM x colors ⇒ is_phy_var x` by cheat>>
+    `∀x. MEM x colors ⇒ is_phy_var x` by 
+      (rw[Abbr`colors`,MEM_GENLIST,is_phy_var_def]>>
+      `0<2:num` by DECIDE_TAC>>
+      `(2:num)*x''=x''*2` by DECIDE_TAC>>
+      metis_tac[arithmeticTheory.MOD_EQ_0])>>
     IF_CASES_TAC
     >-
       (`lookup x col = SOME x` by metis_tac[id_color_lemma]>>
@@ -1138,8 +1147,9 @@ val SORTED_TAC =
 val is_phy_var_tac = 
    `is_phy_var (2*k)` by 
     (fs[is_phy_var_def]>>
-    (*Decide tac doesnt know about this..*)
-    cheat);
+    `0<2:num` by DECIDE_TAC>>
+    `(2:num)*k=k*2` by DECIDE_TAC>>
+    metis_tac[arithmeticTheory.MOD_EQ_0]);
   
 val assign_color2_satisfactory = prove(``
   undir_graph G ∧ 
@@ -1158,6 +1168,19 @@ val assign_color2_satisfactory = prove(``
     HINT_EXISTS_TAC>>fs[])>>
   is_phy_var_tac>>
   metis_tac[unbound_colors_props])
+ 
+val assign_color2_conventional = prove(``
+  v ∈ domain G ∧ 
+  v ∉ domain col ∧ 
+  assign_color2 G k v col  = col'
+  ⇒ 
+  ∃y. lookup v col' = SOME y ∧ y≥2*k ∧ is_phy_var y``,
+  rw[assign_color2_def]>>
+  EVERY_CASE_TAC>>fs[LET_THM,domain_lookup]>>
+  is_phy_var_tac>>
+  qpat_abbrev_tac`lss = QSORT (λx:num y:num. x≤y)  B`>>
+  SORTED_TAC>>
+  metis_tac[unbound_colors_props])
   
 (*Coloring produced after each spill_coloring step is
   partial_coloring_satisfactory*)
@@ -1174,12 +1197,8 @@ val spill_coloring_satisfactory = prove(``
     [`G`,`k`,`assign_color2 G k h col`] mp_tac)>>
   discharge_hyps>>
     metis_tac[assign_color2_satisfactory])
-  
-(*Prove domain and color properties together
-  maybe 
-  TODO: need a domain2 for conventional
-*)
 
+(*Domain is extended*)
 val spill_coloring_domain_1 = prove(``
   ∀G k ls col.
   let col' = spill_coloring G k ls col in 
@@ -1205,6 +1224,44 @@ val spill_coloring_domain_1 = prove(``
   >>
     metis_tac[])
 
+(*Coloring is extended on the list according to conventions*)
+val spill_coloring_domain_2 = prove(``
+  ∀G k ls col.
+  let col' = spill_coloring G k ls col in 
+  ∀x. MEM x ls ∧ x ∈ domain G ∧ x ∉ domain col ⇒ 
+      ∃y. lookup x col' = SOME y ∧ y ≥ 2*k ∧ is_phy_var y``,
+  Induct_on`ls`>>fs[spill_coloring_def,LET_THM]>>rw[]
+  >-
+    (imp_res_tac assign_color2_conventional>>fs[]>>
+    metis_tac[spill_coloring_never_overwrites])
+  >>
+    Cases_on`x=h`>>fs[]
+    >-
+      (imp_res_tac assign_color2_conventional>>fs[]>>
+      metis_tac[spill_coloring_never_overwrites])
+    >>
+      fs[assign_color2_def]>>EVERY_CASE_TAC>>
+      fs[LET_THM]>>
+      metis_tac[])
+
+val assign_color2_reverse = prove(``
+  ∀G:sp_graph k h col col'.
+  assign_color2 G k h col = col'
+  ⇒ 
+  ∀x. x ≠ h ⇒ 
+  (x ∈ domain col' ⇒ x ∈ domain col)``,
+  rw[assign_color2_def]>>EVERY_CASE_TAC>>fs[LET_THM]>>
+  metis_tac[])
+
+val spill_coloring_domain_3 = prove(``
+  ∀G k ls col.
+  let col' = spill_coloring G k ls col in 
+  ∀x. ¬MEM x ls ⇒ 
+  (x ∈ domain col' ⇒ x ∈ domain col)``,
+  Induct_on`ls`>>rw[spill_coloring_def,LET_THM]>>
+  Cases_on`assign_color2 G k h col`>>fs[]>>
+  metis_tac[assign_color2_reverse])
+
 val reg_alloc_satisfactory = store_thm ("reg_alloc_satisfactory",``
   ∀G k.
   undir_graph G ⇒  
@@ -1228,7 +1285,7 @@ val reg_alloc_satisfactory = store_thm ("reg_alloc_satisfactory",``
     metis_tac[spill_coloring_satisfactory])
 
 val reg_alloc_total_satisfactory = store_thm ("reg_alloc_total_satisfactory",``
-  ∀G k prefs nsv ls.
+  ∀G k.
   undir_graph G ⇒ 
   let col = reg_alloc G k in 
   coloring_satisfactory (total_color col) G``,
@@ -1246,76 +1303,59 @@ val reg_alloc_total_satisfactory = store_thm ("reg_alloc_total_satisfactory",``
   first_x_assum(qspec_then`v'''` assume_tac)>>rfs[LET_THM]>>
   metis_tac[])
 
-val _ = export_theory()
-(*
-val reg_alloc_conventional = store_thm ("reg_alloc_conventional",``
+val reg_alloc_conventional = store_thm("reg_alloc_conventional" ,
+``
   ∀G k.
+  undir_graph G ⇒
   let col = reg_alloc G k in
-  coloring_conventional G k col``,
-  fs[coloring_conventional_def,reg_alloc_def]>>rw[]>>
-  unabbrev_all_tac>>
-  IF_CASES_TAC>>
-  TRY (IF_CASES_TAC)>>
-  TRY (`¬is_alloc_var x` by metis_tac[convention_partitions]>>
-  Q.ISPECL_THEN [`G`] assume_tac split_vertices_lemma>>
-  rfs[LET_THM]>>res_tac>>
-  Q.SPECL_THEN [`others`] assume_tac id_color_lemma>>
-  rfs[LET_THM]>>res_tac>>
-  imp_res_tac find_coloring_aux_never_overwrites>>
-  fs[total_color_def])>>
-  `is_alloc_var x` by metis_tac[convention_partitions]>>
-  Q.ISPECL_THEN [`G`] assume_tac split_vertices_lemma>>
-  rfs[LET_THM]>>res_tac>>
-  (*Show that aux picks a conventonal color*)
-  cheat);
-*)
-
-(*
-val find_coloring_ok = store_thm ("find_coloring_ok",``
-  ∀G k prefs nsv ls.
-  satisfactory_pref prefs ∧
-  undir_graph G
-  ⇒
-  let (col,spill) = find_coloring G k prefs ls in
-  partial_coloring_satisfactory col G ∧
-  ∀x. x ∈ domain G ⇒
-    if is_phy_var x then lookup x col = x ∧ 
-    if is_stack_var x then  
-  
-  ``
-  fs[coloring_satisfactory_def,find_coloring_def]>>rw[]>>
-  fs[domain_lookup,total_color_def]>>
-  Q.ISPECL_THEN [`G`,`colors`,`prefs`,`nsv`,`ls`,`col`] mp_tac
-    find_coloring_aux_satisfactory>>
-  discharge_hyps_keep>-
-    (rfs[]>>cheat)>>
-  rw[LET_THM]>>
-  Q.ISPECL_THEN [`G`,`colors`,`prefs`,`nsv'`,`alloc`,`col'`] mp_tac
-    find_coloring_aux_satisfactory>>
-  discharge_hyps>-
-    (rfs[]>>cheat)>>
-  rw[LET_THM]>>
-  fs[partial_coloring_satisfactory_def,undir_graph_def]>>
-  last_x_assum(qspec_then`v` assume_tac)>>rfs[]>>
-  `e ∈ domain v'` by fs[domain_lookup]>>
-  first_x_assum(qspec_then`e`assume_tac)>>rfs[]>>
-  first_x_assum(qspec_then`e` mp_tac)>> discharge_hyps
-  >- cheat
+  coloring_conventional G k (total_color col)``,
+  rw[]>>imp_res_tac reg_alloc_satisfactory>>
+  pop_assum(qspec_then`k` assume_tac)>>rfs[LET_THM]>>
+  rw[total_color_def,reg_alloc_def,coloring_conventional_def]>>
+  `x ∈ domain col` by 
+    fs[SUBSET_DEF]>>
+  fs[domain_lookup]>>rfs[]>>unabbrev_all_tac>>
+  fs[reg_alloc_def]>>pop_assum mp_tac>>
+  LET_ELIM_TAC>>
+  rfs[LET_THM]>>
+  imp_res_tac alloc_coloring_success>>
+  pop_assum(qspec_then `aux_pref` mp_tac)>>discharge_hyps>>
+  fs[aux_pref_satisfactory]>>strip_tac>>
+  pop_assum(qspecl_then[`s'.stack`,`k`] assume_tac)>>rfs[LET_THM]>>
+  IF_CASES_TAC>-
+    (first_x_assum(qspec_then`x`assume_tac)>>rfs[]>>
+    metis_tac[spill_coloring_never_overwrites,optionTheory.option_CLAUSES])
   >>
-  fs[LET_THM]>>rw[]>>
-  `e ∈ domain G ∧ v ∈ domain G` by fs[domain_lookup]>>
-  (*By construction, we must have colored everything*)
-  `e ∈ domain col'' ∧ v ∈ domain col''` by
-    (imp_res_tac find_coloring_aux_domain>>
-    cheat)>>
-  first_x_assum(qspec_then`v` mp_tac)>>
-  discharge_hyps
+  IF_CASES_TAC>-
+    (`MEM x ls` by metis_tac[]>>
+    `x ∉ domain col` by 
+      (fs[INTER_DEF,EXTENSION]>>metis_tac[])>>
+    Cases_on`MEM x s'''.stack`>>fs[]
+    >-
+      (Q.ISPECL_THEN [`G`,`k`,`s'''.stack`,`col`] assume_tac
+        spill_coloring_domain_2>> rfs[LET_THM]>>
+      metis_tac[spill_coloring_never_overwrites,optionTheory.option_CLAUSES])
+    >>
+      metis_tac[spill_coloring_domain_3,
+        spill_coloring_domain_2,optionTheory.option_CLAUSES])
+  >>
+  first_x_assum(qspec_then`x`assume_tac)>>rfs[]>>
+  Cases_on`x ∈ domain col`
   >-
-    rfs[]
+    metis_tac[spill_coloring_never_overwrites,optionTheory.option_CLAUSES]
   >>
-    rw[Abbr`col'''`]>>fs[domain_lookup]>>
-    metis_tac[])
-*)
+  fs[]>>
+  Cases_on`MEM x s'''.stack`>>fs[]
+    >-
+      (Q.ISPECL_THEN [`G`,`k`,`s'''.stack`,`col`] assume_tac
+        spill_coloring_domain_2>> rfs[LET_THM]>>
+      metis_tac[spill_coloring_never_overwrites,optionTheory.option_CLAUSES])
+    >>
+      metis_tac[spill_coloring_domain_3,
+        spill_coloring_domain_2,optionTheory.option_CLAUSES])
+
+
+val _ = export_theory()
 
 
 (*Takes the worklist and simplifies it, 
@@ -1335,226 +1375,4 @@ val _ = Hol_datatype `
                 next_spill_var : num;
                 coloring : num num_map |>`;
 
-(*Identity monad*)
-val id_bind_def = Define`
-  id_bind f = λs. f s`
-
-val id_return_def = Define`
-  id_return = I`
-
-open monadsyntax;
-
-val _ = temp_overload_on ("monad_bind", ``id_bind``);
-(*
-val _ = temp_overload_on ("monad_unitbind", ``\x y. st_bind x (\z. y)``);
-val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_bind x (\z. y)``);
-*)
-val _ = temp_overload_on ("return", ``id_return``);
-
-
-
-(*
-(*Simplify
-  Takes a graph G,
-  The current working degree list deg_list,
-  The number of colors k
-
-  Returns a tuple (remaining vertices,stack)
-*)
-
-(*SPLITP in rich_listTheory doesn't have many theories with it
-  split_deg splits list into those less than degree and those >=
-*)
-
-val split_deg_def = Define`
-  split_deg k ls = SPLITP (λx,y:num. y<k) ls`
-
-(*EVAL ``split_deg 2 [1,2;2,3;3,1]``*)
-
-val decrement_def = Define`
-  (decrement (es:num_set) [] = []) ∧
-  (decrement es ((v,deg:num)::xs) =
-    let rest = decrement es xs in
-    if lookup v es = SOME () then (v,deg-1)::rest else (v,deg)::rest)`
-
-val dec_deg_def = Define`
-  (dec_deg G [] ls = []) ∧
-  (dec_deg G (x::xs) ls) =
-    let es = lookup x G in
-    case es of NONE => dec_deg G xs ls
-            |  SOME es => dec_deg G xs (decrement es ls)`
-
-(*Single step simplification*)
-val simplify_def = Define `
-  simplify k G deg_list =
-  let (non_simp,simp) = split_deg k deg_list in
-    case simp of
-      [] => (non_simp,[])
-    | simp =>
-      let simp = MAP FST simp in (*Discard degree information*)
-      (dec_deg G simp non_simp,simp)`
-
-(*Single step spill, arbitrarily pick x to be spilled for now*)
-val spill_def = Define `
-  spill ((x,y)::xs) = (x,xs)`
-
-(*Main loop that calls the steps WITH the recursion builtin:
-  Result should be a stack*)
-val reg_alloc_loop_def = tDefine "reg_alloc_loop" `
-  (reg_alloc_loop k G [] stack = stack) ∧
-  (reg_alloc_loop k G deglist stack =
-    let (deglist,newstack) = simplify k G deglist in
-    case newstack of
-      [] => (*Spilling*)
-      let (v,deglist) = spill deglist in
-        reg_alloc_loop k G deglist (v::stack)
-    | xs => reg_alloc_loop k G deglist (xs++stack))` cheat
-
-
-(*TODO:WF_REL_TAC on the size of deg_list
-  WF_REL_TAC `measure LENGTH`*)
-
-(*EVAL ``is_stack_var 7``*)
-
-(*Generate list of vertices and associated degree from spgraph
-  NOTE:
-  1) only need to do  registers
-  2) Ignore stack registers in degree counts
-*)
-val gen_worklist_aux_def = Define`
-  (gen_worklist_aux [] = []) ∧
-  (gen_worklist_aux ((v,es)::xs) =
-    let rest = gen_worklist_aux xs in
-    if is_alloc_var v then
-      let edges = FILTER (λv. ¬ (is_stack_var v)) (MAP FST (toAList es)) in
-      (v,LENGTH edges)::rest
-    else rest)`
-
-val gen_worklist_def = Define`
-  gen_worklist (G:sp_graph) =
-  gen_worklist_aux (toAList G)`
-
-EVAL ``gen_worklist (get_spg
-  (Seq (Move [1,2;3,4;5,6])
-  (Call (SOME (3, list_insert [1;3;5;7;9] [();();();();()] LN,Skip)) (SOME 400) [7;9] NONE)) LN)``
-
-
-(*Graph representation is a list of pairs (v,edgelist)
-  Graph is undirected
-  [
-   v1, (u1 u2 ...);
-   v2, (...);
-   ...
-  ]
-*)
-
-(*Convert clash_sets to a clash graph with David's conventions
-
-First do a conversion to (numset) sptrees
-Then flatten the sets
-*)
-
-(*Convert to clash graph representation*)
-val sp_g_to_cg_def = Define`
-  sp_g_to_cg g =
-    MAP (λx,y. x,nub (MAP FST (toAList y))) (toAList g)`
-
-val get_cg_def = Define`
-  get_cg prog live =
-    let (hd,clash_sets) = get_clash_sets prog live in
-      sp_g_to_cg (clash_sets_to_sp_g (hd::clash_sets))`
-
-
-(*Cliques in cg*)
-val cg_is_clique_def = Define`
-  (cg_is_clique ls g =
-    !x y. MEM x ls ∧ MEM y ls ∧ x ≠ y ⇒
-      (?t. ALOOKUP g x = SOME t ∧ MEM y t) ∧
-      (?t. ALOOKUP g y = SOME t ∧ MEM x t))`
-
-val num_set_domain = prove(``
-  !x (t:num_set) v.
-  x ∈ domain t ⇒ lookup x t = SOME ()``,
-  rw[]>>
-  fs[domain_lookup])
-
-(*Clique preservation*)
-val sp_clique_to_cg_clique = prove(``
-  !ls g.
-  sp_g_is_clique ls g ⇒
-  cg_is_clique ls (sp_g_to_cg g)``,
-  rw[sp_g_is_clique_def,cg_is_clique_def,sp_g_to_cg_def,lookup_g_def]>>
-  fs[ALOOKUP_MAP]>>
-  first_x_assum(qspecl_then [`x`,`y`] assume_tac)>>rfs[]>>
-  EVERY_CASE_TAC>>
-  fs[ALOOKUP_toAList,MEM_MAP,MEM_toAList,EXISTS_PROD]>>
-  metis_tac[num_set_domain,MEM_MAP])
-
-(*Defs from David*)
-(* Coloring satisfies constraints *)
-val coloring_satisfactory_alt = prove(``
-  !g f.
-  coloring_satisfactory f g ⇒
-  ∀x ls. ALOOKUP g x= SOME ls ⇒ ¬(MEM (f x) (MAP f ls))``,
-  Induct>>rw[]>>
-  Cases_on`h`>>fs[coloring_satisfactory_def]>>
-  Cases_on`x=q`>>fs[])
-
-val coloring_satisfactory_cliques = prove(``
-  !ls g f.
-  ALL_DISTINCT ls ∧
-  coloring_satisfactory f g ∧ cg_is_clique ls g
-  ⇒
-  ALL_DISTINCT (MAP f ls)``,
-  Induct>>
-  fs[cg_is_clique_def]>>
-  rw[coloring_satisfactory_def]
-  >-
-    (fs[MEM_MAP]>>rw[]>>
-    first_x_assum(qspecl_then [`h`,`y`] assume_tac)>>rfs[]>>
-    metis_tac[coloring_satisfactory_alt,MEM_MAP])
-  >>
-    first_x_assum(qspecl_then [`g`,`f`] mp_tac)>>rfs[])
-
-val coloring_satisfactory_coloring_ok_alt = prove(``
-  ∀prog f live.
-  let cg = get_cg prog live in
-  coloring_satisfactory f cg
-  ⇒
-  coloring_ok_alt f prog live``,
-  rpt strip_tac>>
-  fs[LET_THM,coloring_ok_alt_def,coloring_satisfactory_def,get_cg_def]>>
-  Cases_on`get_clash_sets prog live`>>fs[]>>
-  strip_tac>>
-  qabbrev_tac `ls = q::r`>>
-  qsuff_tac `EVERY (λs. INJ f (domain s) UNIV) ls`
-  >-
-    fs[Abbr`ls`]
-  >>
-  rw[EVERY_MEM]>>
-  imp_res_tac clash_sets_clique>>
-  imp_res_tac sp_clique_to_cg_clique>>
-  imp_res_tac coloring_satisfactory_cliques>>
-  fs[INJ_DEF,all_distinct_nub]>>rw[]>>
-  fs[domain_lookup]>>
-  `MEM x (MAP FST (toAList s)) ∧
-   MEM y (MAP FST (toAList s))` by
-    (fs[MEM_MAP,EXISTS_PROD]>>
-    metis_tac[domain_lookup,MEM_MAP,EXISTS_PROD,MEM_toAList])>>
-  `ALL_DISTINCT (nub (MAP FST (toAList s)))` by
-    metis_tac[all_distinct_nub]>>
-  fs[EL_ALL_DISTINCT_EL_EQ]>>
-  imp_res_tac MEM_nub>>
-  fs[MEM_EL]>>pop_assum (SUBST1_TAC o SYM)>>
-  simp[]>>
-  metis_tac[EL_MAP])
-
-
-(*
-EVAL ``get_cg
-  (Seq (Move [1,2;3,4;5,6])
-  (Call (SOME (3, list_insert [1;3;5;7;9] [();();();();()] LN,Skip)) (SOME 400) [7;9] NONE)) LN``
-*)
-
-*)
 *)
