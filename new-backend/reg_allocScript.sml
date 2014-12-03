@@ -7,6 +7,9 @@ open word_liveTheory
 open word_langTheory
 open whileTheory
 open sortingTheory
+open monadsyntax
+open state_transformerTheory
+
 
 val _ = new_theory "reg_alloc";
 
@@ -414,8 +417,6 @@ val spill_coloring_def = Define`
 (*End coloring definitions*)
 
 (*Define register allocation*)
-(*open monadsyntax
-open state_transformerTheory*)
 
 val _ = Hol_datatype `
   ra_state = <| graph : sp_graph;
@@ -425,8 +426,7 @@ val _ = Hol_datatype `
                 spill_worklist : num list;
                 stack : num list |>`;
                 (*TODO: the other work lists
-                coalesced : num num_map;
-                next_spill_var : num;*)
+                coalesced : num num_map;*)
 (*val _ = temp_overload_on ("monad_bind", ``BIND``);
 val _ = temp_overload_on ("return", ``id_return``);*)
 
@@ -448,10 +448,79 @@ val init_ra_state_def = Define`
     spill_worklist := MAP FST spill;
     stack:=[]|>)`
 
+val get_stack_def = Define`
+  get_stack = \s. (return s.stack) s`
+
+val get_graph_def = Define`
+  get_graph = \s. (return s.graph) s`
+
 val push_stack_def = Define`
   push_stack v =
-    λs. s with stack:= v::s.stack`
+    λs. ((), s with stack:= v::s.stack)`
 
+val get_degs_def = Define`
+  get_degs = \s. (return s.degs) s` 
+
+val get_deg_def = Define`
+  get_deg v = \s. (return (lookup v s.degs)) s` 
+
+val set_deg_def = Define`
+  set_deg k v = \s. ((), s with degs := insert k v s.degs)`
+
+val add_simp_worklist_def = Define`
+  add_simp_worklist ls = \s. ((), s with simp_worklist := ls++s.simp_worklist )`
+
+val set_spill_worklist_def = Define`
+  set_spill_worklist ls = \s. ((), s with spill_worklist := ls)`
+
+val get_spill_worklist_def = Define`
+  get_spill_worklist = \s. return s.spill_worklist s`
+
+val get_simp_worklist_def = Define`
+  get_simp_worklist = \s. return s.simp_worklist s`
+
+val set_simp_worklist_def = Define`
+  set_simp_worklist ls = \s. ((), s with simp_worklist := ls)`
+
+val get_colors_def = Define`
+  get_colors = \s. return s.colors s`
+
+val dec_deg_def = Define`
+  dec_deg v =
+  do
+    g <- get_graph ;
+    case lookup v g of
+    | NONE => return ()
+    | SOME es =>
+      let edges = MAP FST(toAList es) in
+        FOREACH (edges,
+          (λv. 
+            do
+              optd <- get_deg v ;
+              case optd of
+              | NONE => return ()
+              | SOME (d:num) => set_deg v  (d-1)
+            od) )
+  od`
+
+(*Move vertiecs of suitable degree back*)
+val unspill_def = Define`
+  unspill = 
+  do
+    swl <- get_spill_worklist ;
+    degs <- get_degs ;
+    colors <- get_colors ;
+    let (ltk,gtk) = PARTITION 
+      (λv. case lookup v degs of 
+          NONE => F
+        | SOME x => x < colors) swl in
+      do
+        add_simp_worklist ltk ;
+        set_spill_worklist gtk
+      od
+  od`
+ 
+(*
 val dec_deg_def = Define`
   dec_deg v =
   λs.
@@ -472,62 +541,76 @@ val dec_deg_def = Define`
       | SOME x => x < s.colors)  s.spill_worklist in
     s with <|simp_worklist:= ltk++s.simp_worklist;spill_worklist:= gtk;
              degs := degs|>`
-      
+*)
+    
 val simplify_def = Define`
   simplify =
-    λs.
-    case s.simp_worklist of
-      [] => (NONE,s)
-    | (x::xs) => 
-      (SOME x,(dec_deg x (s with simp_worklist:= xs)))`
-     
+  do
+    simps <- get_simp_worklist;
+    case simps of
+      [] => return NONE
+    | (x::xs) =>
+      do
+        set_simp_worklist xs;
+        dec_deg x;
+        unspill;
+        return (SOME x)
+      od
+  od`
+
 val spill_def = Define`
   spill =
-    λs.
-    case s.spill_worklist of
-      [] => (NONE,s)
+  do
+    spills <- get_spill_worklist;
+    case spills of
+      [] => return NONE
     | (x::xs) =>
-      (SOME x,(dec_deg x (s with spill_worklist:= xs)))`
+      do
+        set_spill_worklist xs;
+        dec_deg x;
+        unspill;
+        return (SOME x)
+      od
+  od`
 
 val do_step_def = Define`
   do_step =
-    λs.
-    let (res,s) = simplify s in
-    case res of
-    NONE => 
-      (let (res,s) = spill s in
-      case res of 
-        NONE => s
-      | SOME x => push_stack x s)
-    | SOME x => push_stack x s`
+  do
+    optx <- simplify;
+    case optx of 
+      NONE =>
+        do
+          optx <- spill;
+          (case optx of
+            NONE =>
+              return ()
+          | SOME x =>
+              push_stack x)
+        od
+    | SOME x =>
+        push_stack x
+  od`
+
+val has_work_def = Define`
+  has_work = 
+  do
+    simp <- get_simp_worklist;
+    spill <- get_spill_worklist;
+    return (simp ≠ [] ∨ spill ≠ [])
+  od`
 
 val rpt_do_step_def = Define`
   rpt_do_step =
-    λs. 
-    WHILE (λs. s.simp_worklist ≠ [] ∨ s.spill_worklist ≠ []) do_step s` 
-
-(*
-open sptreeSyntax
-sptreeSyntax.temp_add_sptree_printer();
-
-val rhsThm = rhs o concl;
-val st = rhsThm (EVAL ``rpt_do_step (init_ra_state (get_spg
-  (Seq (Move [1,2;3,4;5,6])
-  (Call (SOME (3, list_insert [1;3;5;7;9] [();();();();()] LN,Skip)) (SOME 400) [7;9] NONE)) LN) 3)``)
-
-val G = rhsThm (EVAL ``^(st).graph``)
-val k = rhsThm (EVAL ``^(st).colors``)
-val ls = rhsThm (EVAL ``^(st).stack``)
-val prefs = ``λ(h:num) (ls:num list) (col:num num_map). HD ls``
-EVAL ``alloc_coloring ^(G) ^(k) ^(prefs) ^(ls)``
-*)
+  MWHILE (has_work) do_step`  
 
 (*Initialize state for the second phase, here we are given an ls =
   vertices to consider*)
 val sec_ra_state_def = Define`
   (sec_ra_state (G:sp_graph) (k:num) vertices = 
-  (*In this instance, we care about the degree w.r.t. to spilled variables*)
-  let vdegs = MAP (λv. v,count_degrees (λx. ¬(is_phy_var x) ∨ x ≥ 2*k)
+  (*In this instance, we care about the degree w.r.t. to other spilled
+    temporaries or phyvariables ≥ 2*k*)
+  let vdegs = MAP (λv. v,count_degrees 
+    (λx. MEM x vertices ∨ (is_phy_var x ∧ x ≥ 2*k))
               (THE(lookup v G))) vertices in
   let tdegs = fromAList vdegs in
   <|graph := G ; colors := k ; degs := tdegs; 
@@ -548,25 +631,31 @@ val deg_comparator_def = Define`
 
 val full_simplify_def = Define`
   full_simplify =
-    λs.
-    let ls = QSORT (deg_comparator s.degs) s.simp_worklist in
-    case ls of
-      [] => (NONE,s)
-    | (x::xs) => 
-      (SOME x,(dec_deg x (s with simp_worklist:= xs)))`
-
+  do
+    ls <- get_simp_worklist;
+    degs <- get_degs;
+    case QSORT (deg_comparator degs) ls of
+      [] => return NONE
+    | (x::xs) =>
+      do 
+        set_simp_worklist xs;
+        dec_deg x;
+        return (SOME x)
+      od
+  od`
+      
 val do_step2_def = Define`
   do_step2 =
-    λs.
-    let (res,s) = simplify s in
-    case res of
-      NONE => s
-    | SOME x => push_stack x s`
+  do
+    optx <- full_simplify;
+    case optx of
+      NONE => return ()
+    | SOME x => push_stack x
+  od`
 
 val rpt_do_step_2_def = Define`
   rpt_do_step2 =
-    λs. 
-    WHILE (λs. s.simp_worklist ≠ []) do_step2 s` 
+    MWHILE (has_work) do_step2`  
 
 (*No preferences until we get to coalescing*) 
 val aux_pref_def = Define`
@@ -586,10 +675,10 @@ val reg_alloc_def =  Define`
   (*Initialize*)
   let s = init_ra_state G k in
   (*First phase*)
-  let s = rpt_do_step s in
+  let ((),s) = rpt_do_step s in
   let (col,ls) = alloc_coloring G k aux_pref s.stack in
   let s = sec_ra_state G k ls in
-  let s = rpt_do_step2 s in
+  let ((),s) = rpt_do_step2 s in
   let col = spill_coloring G k s.stack col in
   let col = spill_coloring G k ls col in
     col`
@@ -598,21 +687,33 @@ val reg_alloc_def =  Define`
       maintained by the register allocator*)
 
 (*
+open sptreeSyntax
+sptreeSyntax.temp_add_sptree_printer();
+
+val _ = computeLib.add_persistent_funs ["MWHILE_DEF"];
+computeLib.add_funs[MWHILE_DEF]
 val rhsThm = rhs o concl;
-val st = rhsThm (EVAL ``rpt_do_step (init_ra_state (get_spg
-  (Seq (Move [1,2;3,4;5,6])
-  (Call (SOME (3, list_insert [1;3;5;7;9] [();();();();()] LN,Skip)) (SOME 400) [7;9] NONE)) LN) 3)``)
+
+val prog = ``(Seq (Move [1,2;3,4;5,6])
+  (Call (SOME (3, list_insert [1;3;5;7;9] [();();();();()] LN,Skip)) (SOME 400) [7;9] NONE))``
+
+val init_state = rhsThm (EVAL``(init_ra_state (get_spg ^(prog) LN) 3)``)
+
+val st = rhsThm (EVAL ``SND (rpt_do_step ^(init_state))``)
 
 val G = rhsThm (EVAL ``^(st).graph``)
 val k = rhsThm (EVAL ``^(st).colors``)
 val ls = rhsThm (EVAL ``^(st).stack``)
 val prefs = ``λ(h:num) (ls:num list) (col:num num_map). HD ls``
 
-EVAL ``find_coloring ^(G) ^(k) ^(prefs) ^(ls)``
+val st2= rhsThm (EVAL ``sec_ra_state ^(G) ^(k) (SND(alloc_coloring ^(G) ^(k) ^(prefs) ^(ls)))``)
+
+EVAL ``do_step2 ^(st2)``
 
 val p1 = EVAL ``reg_alloc (get_spg
   (Seq (Move [1,2;3,4;5,6])
   (Call (SOME (3, list_insert [1;3;5;7;9] [();();();();()] LN,Skip)) (SOME 400) [7;9] NONE)) LN) 3``
+
 *)
 
 (*End reg alloc def*)
@@ -643,7 +744,8 @@ val satisfactory_pref_def = Define`
 val aux_pref_satisfactory = prove(``
   satisfactory_pref aux_pref``,
   fs[satisfactory_pref_def,aux_pref_def]>>
-  Cases_on`ls`>>fs[])
+  Cases_on`ls`>>fs
+  [])
 
 val id_color_lemma = prove(``
   ∀ls.
@@ -1354,25 +1456,6 @@ val reg_alloc_conventional = store_thm("reg_alloc_conventional" ,
       metis_tac[spill_coloring_domain_3,
         spill_coloring_domain_2,optionTheory.option_CLAUSES])
 
-
 val _ = export_theory()
 
 
-(*Takes the worklist and simplifies it, 
-  returning something to put on the stack*)
-
-(*
-
-(*Defining the register allocator monad*)
-
-val _ = Hol_datatype `
-  ra_state = <| graph : sp_graph;
-                degs : num num_map;(*maybe should become a 2 step O(1)lookup*)
-                simp_worklist : num list;
-                spill_worklist : num list;
-                (*TODO: the other work lists*)
-                coalesced : num num_map;
-                next_spill_var : num;
-                coloring : num num_map |>`;
-
-*)
