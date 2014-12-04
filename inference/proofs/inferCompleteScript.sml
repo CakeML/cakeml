@@ -77,6 +77,57 @@ val generalise_uvars = prove(
   metis_tac[FST,arithmeticTheory.ADD_ASSOC,arithmeticTheory.ADD_COMM]
 *)
 
+val infer_d_not_complete = Q.prove(
+`¬!mn mdecls tdecls edecls tenvT menv cenv d mdecls' tdecls' edecls' tenvT' cenv' tenv tenv' st.
+  check_menv menv ∧
+  check_env {} tenv ∧
+  tenvC_ok cenv ∧
+  check_env ∅ tenv' ∧
+  type_d T mn (set mdecls,set tdecls,set edecls) tenvT (convert_menv menv) cenv (bind_var_list2 (convert_env2 tenv) Empty) d (set mdecls',set tdecls',set edecls') tenvT' cenv' (convert_env2 tenv')
+  ⇒
+  ?st' mdecls'' tdecls'' edecls''.
+    set mdecls'' = set mdecls' ∧
+    set tdecls'' = set tdecls' ∧
+    set edecls'' = set edecls' ∧
+    infer_d mn (mdecls,tdecls,edecls) tenvT menv cenv tenv d st =
+      (Success ((mdecls'',tdecls'',edecls''), tenvT', cenv', tenv'), st')`,
+  simp[]>>
+  Q.LIST_EXISTS_TAC [`NONE`,`[]`,`[]`,`[]`,`(FEMPTY,FEMPTY)`,`FEMPTY`,`([],[])`] >>
+  qexists_tac `Dlet (Pvar x) (Fun y (Var(Short y)))` >>
+  rw[Once type_d_cases,empty_decls_def,Once type_p_cases,is_value_def,
+     pat_bindings_def, Once type_e_cases] >>
+  rw[PULL_EXISTS] >>
+  rw[Once type_e_cases] >>
+  rw[PULL_EXISTS,t_lookup_var_id_def] >>
+  rw[typeSoundInvariantsTheory.tenvC_ok_def,
+     typeSoundInvariantsTheory.flat_tenvC_ok_def] >>
+  rw[check_menv_def,FEVERY_DEF,tenv_add_tvs_def] >>
+  qexists_tac`[]` >>
+  rw[check_freevars_def,check_env_def] >>
+  qexists_tac`[(x,100,Infer_Tapp [unconvert_t Tint;unconvert_t Tint] TC_fn)]` >>
+  rw[convert_env2_def,convert_t_def,check_t_def,unconvert_t_def] >>
+  rw[bind_tenv_def,bind_tvar_def,lookup_tenv_def] >>
+  rw[check_freevars_def,deBruijn_subst_def,deBruijn_inc_def,LENGTH_NIL_SYM] >>
+  rw[infer_d_def,infer_p_def,infer_e_def,success_eqns] >>
+  rw[init_state_def] >>
+  rw[init_infer_state_def,generalise_def,UNCURRY,success_eqns,is_value_def] >>
+  rw[LET_THM] >>
+  `t_wfs FEMPTY` by rw[t_wfs_def] >>
+  rw[METIS_PROVE[]``A ∨ B ⇔ ~A ⇒ B``] >>
+  `t_wfs s` by metis_tac[t_unify_wfs] >>
+  rator_x_assum`t_unify`mp_tac >>
+  simp[t_unify_eqn,t_walk_eqn] >>
+  simp[Once t_vwalk_eqn] >>
+  simp[t_ext_s_check_eqn] >>
+  simp[Once t_oc_eqn,t_walk_eqn] >>
+  simp[Once t_oc_eqn,t_walk_eqn,Once t_vwalk_eqn] >>
+  simp[COUNT_LIST_def,infer_deBruijn_subst_def] >>
+  simp[Once t_oc_eqn,t_walk_eqn,Once t_vwalk_eqn] >>
+  rw[] >>
+  rator_x_assum`generalise`mp_tac >>
+  simp[t_walkstar_eqn,t_walk_eqn,Once t_vwalk_eqn,FLOOKUP_UPDATE] >>
+  simp[Once t_vwalk_eqn,FLOOKUP_UPDATE] >>
+  simp[generalise_def,UNCURRY])
 
 val infer_d_complete = Q.prove (
 `!mn mdecls tdecls edecls tenvT menv cenv d mdecls' tdecls' edecls' tenvT' cenv' tenv st.
