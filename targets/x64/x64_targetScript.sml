@@ -537,6 +537,62 @@ val cmp_lem7 = Q.prove(
    \\ fs [wordsTheory.NUMERAL_LESS_THM, x64Theory.num2Zreg_thm]
    )
 
+val cmp_lem8 =
+   blastLib.BBLAST_PROVE
+      ``!c: word64.
+          0xFFFFFFFF8000000Dw <= c /\ c <= 0x80000004w ==>
+          (sw2sw
+            (((31 >< 24) (c + 0xFFFFFFFFFFFFFFF7w) : word8) @@
+             ((23 >< 16) (c + 0xFFFFFFFFFFFFFFF7w) : word8) @@
+             ((15 >< 8) (c + 0xFFFFFFFFFFFFFFF7w) : word8) @@
+             (w2w (c + 0xFFFFFFFFFFFFFFF7w) : word8)) + 9w = c)``
+
+val cmp_lem9 =
+   blastLib.BBLAST_PROVE
+      ``!c: word64.
+          0xFFFFFFFF8000000Dw <= c /\ c <= 0x80000004w ==>
+          (sw2sw (w2w (c + 0xFFFFFFFFFFFFFFF6w) : word32) + 10w = c)``
+
+val cmp_lem10 =
+   blastLib.BBLAST_PROVE
+      ``!c: word64.
+          0xFFFFFFFF8000000Dw <= c /\ c <= 0x80000004w ==>
+          (sw2sw (w2w (c + 0xFFFFFFFFFFFFFFF4w) : word32) + 12w = c)``
+
+val cmp_lem11 =
+   blastLib.BBLAST_PROVE
+      ``!c: word64.
+          0xFFFFFFFF8000000Dw <= c /\ c <= 0x80000004w ==>
+          (sw2sw (w2w (c + 0xFFFFFFFFFFFFFFF3w) : word32) + 13w = c)``
+
+val cmp_lem12 =
+   blastLib.BBLAST_PROVE
+      ``!c: word64.
+          0xFFFFFFFF8000000Dw <= c /\ c <= 0x80000004w ==>
+          (sw2sw
+            (((31 >< 24) (c + 0xFFFFFFFFFFFFFFF4w) : word8) @@
+             ((23 >< 16) (c + 0xFFFFFFFFFFFFFFF4w) : word8) @@
+             ((15 >< 8) (c + 0xFFFFFFFFFFFFFFF4w) : word8) @@
+             (w2w (c + 0xFFFFFFFFFFFFFFF4w) : word8)) + 12w = c)``
+
+val cmp_lem13 =
+   blastLib.BBLAST_PROVE
+      ``!c: word64.
+          0xFFFFFFFF80000000w <= c /\ c <= 0x7FFFFFFFw ==>
+          (sw2sw
+            (((31 >< 24) c : word8) @@ ((23 >< 16) c : word8) @@
+             ((15 >< 8) c : word8) @@ (w2w c : word8)) = c)``
+
+val cmp_lem14 =
+   blastLib.BBLAST_PROVE
+      ``!c: word64.
+          0xFFFFFFFF8000000Dw <= c /\ c <= 0x80000004w ==>
+          (sw2sw
+            (((31 >< 24) (c + 0xFFFFFFFFFFFFFFF3w) : word8) @@
+             ((23 >< 16) (c + 0xFFFFFFFFFFFFFFF3w) : word8) @@
+             ((15 >< 8) (c + 0xFFFFFFFFFFFFFFF3w) : word8) @@
+             (w2w (c + 0xFFFFFFFFFFFFFFF3w) : word8)) + 13w = c)``
+
 val dec_neq0 = blastLib.BBLAST_PROVE ``!x: word4. (x || 8w) <> 0w``
 
 val is_rax_Zreg2num = Q.prove(
@@ -840,8 +896,9 @@ fun decode_tac1 l =
    \\ decode_tac []
    \\ decode_tac []
    \\ map_every Q.UNABBREV_TAC l
-   \\ lfs [Zreg2num_num2Zreg_imp, x64_cmp_dec_def, x64Theory.Zreg2num_thm]
-   \\ blastLib.FULL_BBLAST_TAC
+   \\ lfs [cmp_lem8, cmp_lem9, cmp_lem10, cmp_lem11, cmp_lem12, cmp_lem13,
+           cmp_lem14, Zreg2num_num2Zreg_imp, x64_cmp_dec_def,
+           x64Theory.Zreg2num_thm]
 
 val decode_cmp_tac =
    Cases_on `0xFFFFFFFFFFFFFF80w <= c' /\ c' <= 0x7fw`
