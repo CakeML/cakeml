@@ -558,10 +558,9 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
       qexists_tac`tysof ctxt` >>
       simp[type_ok_def,combinTheory.APPLY_UPDATE_THM] >>
       fs[theory_ok_def] >>
-      reverse(rw[]) >>
+      rw[] >>
       imp_res_tac ALOOKUP_MEM >>
-      fs[MEM_MAP,EXISTS_PROD] >-
-      metis_tac[] >>
+      fs[MEM_MAP,EXISTS_PROD] >>
       first_x_assum match_mp_tac >>
       imp_res_tac ALOOKUP_SOME_FAPPLY_alist_to_fmap >>
       simp[IN_FRANGE,MEM_MAP,EXISTS_PROD,PULL_EXISTS] >>
