@@ -129,23 +129,62 @@ val infer_d_not_complete = Q.prove(
   simp[Once t_vwalk_eqn,FLOOKUP_UPDATE] >>
   simp[generalise_def,UNCURRY])
 
+(*Rough sketch of generalization of types in the type system
+  There is a substitution of the deBruijn variables in ty that yields ty'
+  Don't think tvs' actually matters here if we externally have a 
+  check_freevars tvs' {} ty'
+*)
+val type_generalize_def = Define`
+  type_generalize (tvs,ty) (tvs',ty') =
+    ∃subst. 
+    LENGTH subst = tvs ∧ 
+    deBruijn_subst 0 subst ty = ty'`
+
+(*Generalization relation on tenvs*)
+val tenv_generalize_def = Define`
+  tenv_generalize inf_tenv ts_tenv =
+    LIST_REL (λ(x,tvs,ty) (x',tvs',ty'). 
+      x=x' ∧
+      type_generalize (tvs,convert_t ty) (tvs',ty')) inf_tenv ts_tenv`
+
+(*
 val infer_d_complete = Q.prove (
-`!mn mdecls tdecls edecls tenvT menv cenv d mdecls' tdecls' edecls' tenvT' cenv' tenv st.
+`!mn mdecls tdecls edecls tenvT menv cenv d mdecls' tdecls' edecls' tenvT' cenv' tenv tenv' st itenv.
   check_menv menv ∧
-  check_env {} tenv ∧
+  (*check_env ∅ tenv ∧ 
+  don't know what to put here, should be the equivalent of check_env for the 
+  type system but not really tenv_ok*)
+  (*This should be implied by the above and generalization condition*)
+  check_env ∅ itenv ∧  
   tenvC_ok cenv ∧
-  check_env ∅ tenv' ∧
-  type_d T mn (set mdecls,set tdecls,set edecls) tenvT (convert_menv menv) cenv (bind_var_list2 (convert_env2 tenv) Empty) d (set mdecls',set tdecls',set edecls') tenvT' cenv' (convert_env2 tenv')
+  (*check_env ∅ tenv' ∧ *)
+  type_d T mn (set mdecls,set tdecls,set edecls) tenvT (convert_menv menv) cenv (bind_var_list2 tenv Empty) d (set mdecls',set tdecls',set edecls') tenvT' cenv' tenv' ∧
+  (*This generalization condition and its counterpart in the RHS
+    are needed for induction in infer_ds because we may end up
+    extending the tenv differently in the following way:
+
+    val f = \x.x
+    val y = f 5;
+    Type System: Puts f: int -> int into tenv
+    Inference: Puts f: 'a -> 'a into tenv
+    I think "over generalization" in the conclusion
+    does not happen due to soundness 
+  *)
+  tenv_generalize itenv tenv 
   ⇒
-  ?st' mdecls'' tdecls'' edecls''.
+  ?st' mdecls'' tdecls'' edecls'' itenv'.
     set mdecls'' = set mdecls' ∧
     set tdecls'' = set tdecls' ∧
     set edecls'' = set edecls' ∧
-    infer_d mn (mdecls,tdecls,edecls) tenvT menv cenv tenv d st =
-      (Success ((mdecls'',tdecls'',edecls''), tenvT', cenv', tenv'), st')`,
+    infer_d mn (mdecls,tdecls,edecls) tenvT menv cenv itenv d st =
+      (Success ((mdecls'',tdecls'',edecls''), tenvT', cenv', itenv'), st') ∧ 
+    (*for induction*)
+    tenv_generalize itenv' tenv' ∧ 
+    (*maybe implied as well*)
+    check_env ∅ itenv'`,
  rw [type_d_cases] >>
  rw [infer_d_def, success_eqns, LAMBDA_PROD, EXISTS_PROD, init_state_def] >>
- fs [empty_decls_def]
+ fs [empty_decls_def,check_env_def]
  (* Let generalisation case *)
  >- (
    rw[PULL_EXISTS] >>
@@ -155,9 +194,9 @@ val infer_d_complete = Q.prove (
     |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
    disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >> simp[] >>
    simp[bind_tvar_rewrites,num_tvs_bvl2,num_tvs_def] >>
-   disch_then(qspec_then`tenv`mp_tac) >>
+   disch_then(qspec_then`itenv`mp_tac) >>
    discharge_hyps >- (
-     fs[convert_env2_def,tenv_add_tvs_def,tenv_invC_def,bind_tvar_rewrites] >>
+     fs[tenv_generalize_def,tenv_add_tvs_def,tenv_invC_def,bind_tvar_rewrites] >>
      rpt gen_tac >> strip_tac >>
      qmatch_assum_abbrev_tac`lookup_tenv x tvs tenvx = SOME y` >>
      `tenv_ok tenvx ∧ num_tvs tenvx = 0` by (
@@ -166,14 +205,26 @@ val infer_d_complete = Q.prove (
          match_mp_tac tenv_ok_bind_var_list2 >>
          simp[typeSoundInvariantsTheory.tenv_ok_def,EVERY_MAP,UNCURRY] >>
          simp[EVERY_MEM,FORALL_PROD] >> rw[] >>
+         cheat
+         (*See first comment in thm statement
          match_mp_tac check_t_to_check_freevars >>
          fs[check_env_def,EVERY_MEM,num_tvs_def] >>
-         res_tac >> fs[]) >>
+         res_tac >> fs[]*)) >>
        simp[Abbr`tenvx`,num_tvs_bvl2,num_tvs_def] ) >>
      qspecl_then[`tvs`,`FST y`,`tenvx`,`x`]mp_tac lookup_tenv_inc_tvs >>
      simp[Abbr`y`] >>
      simp[GSYM bvl2_lookup,Abbr`tenvx`] >>
      disch_then(qspec_then`t'`mp_tac) >> simp[] >>
+     (*tenv_invC is too restrictive
+     1. tenv and itenv needs to allow different tvs to be generalized
+     2. The lookup is not exactly equal under unconversion --> 
+        the inference environment should be allowed to 
+        generalize over the type system's
+        This probably means that the concl of infer_e_complete needs to 
+        change significantly as well
+        *)
+     cheat)>>
+     (*
      Q.ISPECL_THEN[`λ(tvs:num,t). (tvs,convert_t t)`,`tenv`]mp_tac ALOOKUP_MAP >>
      simp[UNCURRY,Once LAMBDA_PROD] >> disch_then kall_tac >>
      simp[EXISTS_PROD] >> strip_tac >> simp[] >>
@@ -183,8 +234,8 @@ val infer_d_complete = Q.prove (
      res_tac >> fs[] >>
      imp_res_tac check_t_to_check_freevars >>
      simp[] >>
-     metis_tac[check_t_empty_unconvert_convert_id] ) >>
-   simp[] >> strip_tac >> simp[] >>
+     metis_tac[check_t_empty_unconvert_convert_id] ) >>*)
+   simp[check_env_def] >> strip_tac >> simp[] >>
    imp_res_tac infer_p_bindings >> fs[] >>
    qho_match_abbrev_tac`∃a b c. tr = (a,b,c) ∧ Q a b c` >>
    `∃a b c. tr = (a,b,c)` by metis_tac[pair_CASES] >> simp[] >> fs[Abbr`Q`,Abbr`tr`] >>
@@ -353,13 +404,10 @@ val infer_d_complete = Q.prove (
          res_tac >> 
          fs [MEM_MAP, LAMBDA_PROD, FORALL_PROD, EXISTS_PROD] >>
          metis_tac [])
-     >- (Cases_on `tenv'` >>
-         fs [convert_env2_def]))
+     >- (fs[tenv_generalize_def]))
  (* Exception definition *)
- >- (Cases_on `tenv'` >>
-     fs [convert_env2_def])
+ >- fs[tenv_generalize_def]
  >- metis_tac []
- >- (Cases_on `tenv'` >>
-     fs [convert_env2_def]));
-
+ >- fs[tenv_generalize_def]);
+*)
 val _ = export_theory ();
