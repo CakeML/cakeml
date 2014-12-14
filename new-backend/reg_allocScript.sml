@@ -1,15 +1,9 @@
 open HolKernel Parse boolLib bossLib miscLib
-open listTheory sptreeTheory pred_setTheory pairTheory
-open rich_listTheory
-open alistTheory
+open listTheory sptreeTheory pred_setTheory pairTheory rich_listTheory alistTheory
 open BasicProvers
-open word_liveTheory
-open word_langTheory
-open whileTheory
+open word_liveTheory word_langTheory
 open sortingTheory
-open monadsyntax
-open state_transformerTheory
-
+open monadsyntax state_transformerTheory
 
 val _ = new_theory "reg_alloc";
 
@@ -393,26 +387,42 @@ val option_filter_def = Define`
   MAP THE (FILTER IS_SOME ls)`
 
 val assign_color2_def = Define`
-  assign_color2 G k (*prefs*) v col =
+  assign_color2 G k prefs v col =
   case lookup v col of
-    SOME x => col (*Actually redundant, may make proof harder?*)
+    SOME x => col 
   | NONE =>
   case lookup v G of
-    (*Vertex wasn't even in the graph -- ignore*)
-    NONE => col 
+    NONE => col (*Vertex wasn't even in the graph -- ignore*)
   | SOME x =>
     let xs = MAP FST (toAList x) in
     (*Get all the nightbor colors*)
     let cols = option_filter (MAP (λx. lookup x col) xs) in
-    let c = unbound_colors (2*k) (QSORT (λx y. x≤y) cols) in 
+    let pref_col = 
+      case lookup v prefs of 
+        NONE => NONE
+      | SOME u => 
+        case lookup u col of
+          NONE => NONE (*Should never occur if coalesces are properly done*)
+        | SOME c => 
+          if MEM c cols ∨ 
+             (¬(is_phy_var c ∧ c≥2*k))
+             (*unnecessary check because the prefs might contain "false" 
+               coalesces -- which never occurs if implemented properly*)
+          then NONE else SOME c in 
+    let c = 
+    case pref_col of 
+      NONE => unbound_colors (2*k) (QSORT (λx y. x≤y) cols)
+    | SOME c => c in
       insert v c col` 
 
-(*ls is a spill list*)
+(*ls is a spill list,
+  prefs is a coalescing oracle
+*)
 val spill_coloring_def = Define`
-  (spill_coloring (G:sp_graph) k [] col = col) ∧
-  (spill_coloring G k (x::xs) col =
-    let col = assign_color2 G k x col in 
-    spill_coloring G k xs col)`
+  (spill_coloring (G:sp_graph) k prefs [] col = col) ∧
+  (spill_coloring G k prefs (x::xs) col =
+    let col = assign_color2 G k prefs x col in 
+    spill_coloring G k prefs xs col)`
 
 (*End coloring definitions*)
 
@@ -520,29 +530,6 @@ val unspill_def = Define`
       od
   od`
  
-(*
-val dec_deg_def = Define`
-  dec_deg v =
-  λs.
-  let es = lookup v s.graph in
-  case es of 
-    NONE => s (*(NONE,s)*)
-  | SOME es =>
-    let edges = MAP FST(toAList es) in
-    let degs = FOLDR 
-      (λv degs. 
-      case lookup v degs of
-        NONE => degs
-      | SOME (d:num) => insert v (d-1) degs) s.degs edges in
-    (*Not the best way to do it...*)
-    let (ltk,gtk) = PARTITION 
-      (λv. case lookup v degs of 
-        NONE => F
-      | SOME x => x < s.colors)  s.spill_worklist in
-    s with <|simp_worklist:= ltk++s.simp_worklist;spill_worklist:= gtk;
-             degs := degs|>`
-*)
-    
 val simplify_def = Define`
   simplify =
   do
@@ -603,20 +590,24 @@ val rpt_do_step_def = Define`
   rpt_do_step =
   MWHILE (has_work) do_step`  
 
-(*Initialize state for the second phase, here we are given an ls =
-  vertices to consider*)
+(*Initialize state for the second phase, here we are given a list of
+  vertices to consider
+  and the map corresponding to already coalesced nodes
+  *)
 val sec_ra_state_def = Define`
-  (sec_ra_state (G:sp_graph) (k:num) vertices = 
+  (sec_ra_state (G:sp_graph) (k:num) vertices coalesce_map = 
   (*In this instance, we care about the degree w.r.t. to other spilled
-    temporaries or phyvariables ≥ 2*k*)
+    temporaries or phy variables ≥ 2*k*)
   let vdegs = MAP (λv. v,count_degrees 
-    (λx. MEM x vertices ∨ (is_phy_var x ∧ x ≥ 2*k))
+  (*The first check corresponds to the pre-allocated spill variables*)
+    (λx. (is_phy_var x ∧ x ≥ 2*k) ∨ MEM x vertices)
               (THE(lookup v G))) vertices in
   let tdegs = fromAList vdegs in
+  let st = MAP FST (toAList coalesce_map) in
   <|graph := G ; colors := k ; degs := tdegs; 
     simp_worklist := vertices;
     spill_worklist := [];
-    stack:=[]|>)`
+    stack:=st|>)`
 
 (*Simplifies by removing the smallest degree node...
   worklist should ideally be a heap structure...*)
@@ -629,6 +620,54 @@ val deg_comparator_def = Define`
       NONE => T (*Never happens*)
     | SOME dy => dx ≤ dy` 
 
+(*TODO:This is the simplified coalesce in the second phase which does 
+  not need to update the degrees in the graph
+  It simply merges y into x
+  Returns the new graph and a coalescing function
+  *)
+val pair_rename_def = Define`
+  pair_rename x y (a,b) =
+    let a = if a=y then x else a in
+    let b = if b=y then x else b in
+      a,b`
+       
+val full_coalesce_aux = Define`
+  (full_coalesce_aux G [] = (G,LN)) ∧ 
+  (full_coalesce_aux G ((x,y)::xs) =
+    (*Edge List for y*)
+    if lookup_g x y G 
+    then full_coalesce_aux G xs 
+    else  
+    let e = THE (lookup y G) in
+      (*For each adjacent vertex to y, make it adjacent to x*)
+      let edges = MAP FST (toAList e) in
+      let G = list_g_insert x edges G in
+      (*A way to work around having to use union find for coalesced aliasing
+        is to completely rename the moves
+        This is an additional O(m) a.k.a. horribly inefficient...
+        But it means termination is not conditional on a wellformedness 
+        condition on the produced aliases
+        TODO: If this turns out to be a bottleneck, maybe check out the 
+        implementation in the inferencer
+        *)
+      let r_xs = MAP (pair_rename x y) xs in
+      let (G,t) = full_coalesce_aux G xs in 
+        (G,insert y x t))`
+      
+(*Given a list of moves and spills,
+  The coalesceable moves are those spilled and not already clashing*)
+val full_coalesce_def = Define`
+  full_coalesce G moves spills =
+  let coalesceable = 
+    FILTER (λx,y. MEM x spills ∧ MEM y spills) moves in
+  (*Maybe more efficient impl possible*)
+  let (G,coalesce_map) = 
+    full_coalesce_aux G coalesceable in
+    G, FILTER (λx. lookup x coalesce_map = NONE) spills, coalesce_map`  
+        
+(*TODO: Maybe change this to use a minheap to get slightly better performance...
+  Or rewrite in a way that allows quick re-sorts?
+*)
 val full_simplify_def = Define`
   full_simplify =
   do
@@ -669,33 +708,48 @@ val total_color_def = Define`
 (*TODO: 
   Need to use the state's graph instead of G when calling the coloring
   if we add coalescing
-  Currently, the graph does not actually change*)
+  Currently, the graph does not actually change in the first phase*)
 val reg_alloc_def =  Define`
-  reg_alloc G k =
-  (*Initialize*)
-  let s = init_ra_state G k in
+  reg_alloc G k moves =
   (*First phase*)
+  let s = init_ra_state G k in
   let ((),s) = rpt_do_step s in
   let (col,ls) = alloc_coloring G k aux_pref s.stack in
-  let s = sec_ra_state G k ls in
+  (*Second phase is much easier because we do not have a fixed number of 
+    colors*)
+  let (G,spills,coalesce_map) = full_coalesce G moves ls in
+  let s = sec_ra_state G k spills coalesce_map in
   let ((),s) = rpt_do_step2 s in
-  let col = spill_coloring G k s.stack col in
-  let col = spill_coloring G k ls col in
+  let col = spill_coloring G k coalesce_map s.stack col in
+  (*NOTE:
+    The second step is not necessary but nice for proof as usual
+    Notice that it does not use the coalescing_map color oracle
+    *)
+  let col = spill_coloring G k LN ls col in
     col`
-    (*2nd call Unnecessary extra call to spill_coloring
-     if we instead prove that the vertices are
-      maintained by the register allocator*)
 
 (*
 open sptreeSyntax
 sptreeSyntax.temp_add_sptree_printer();
+sptreeSyntax.remove_sptree_printer();
 
-val _ = computeLib.add_persistent_funs ["MWHILE_DEF"];
-computeLib.add_funs[MWHILE_DEF]
+val _ = computeLib.add_funs[MWHILE_DEF]
 val rhsThm = rhs o concl;
 
-val prog = ``(Seq (Move [1,2;3,4;5,6])
-  (Call (SOME (3, list_insert [1;3;5;7;9] [();();();();()] LN,Skip)) (SOME 400) [7;9] NONE))``
+val _ = Globals.max_print_depth := ~1
+
+val prog = ``
+Seq
+(Move [15,19])
+(Seq
+(Move [23,15])
+(Seq
+(Move [7,11;13,17;19,23])
+(Seq (Move [1,2;3,4;5,6])
+  (Call (SOME (3, list_insert [1;3;5;7;9] [();();();();()] LN,Skip)) (SOME 400) [7;9] NONE)
+  )))``
+
+val prog_prefs = rhsThm (EVAL ``get_prefs ^(prog) []``)
 
 val init_state = rhsThm (EVAL``(init_ra_state (get_spg ^(prog) LN) 3)``)
 
@@ -706,13 +760,26 @@ val k = rhsThm (EVAL ``^(st).colors``)
 val ls = rhsThm (EVAL ``^(st).stack``)
 val prefs = ``λ(h:num) (ls:num list) (col:num num_map). HD ls``
 
-val st2= rhsThm (EVAL ``sec_ra_state ^(G) ^(k) (SND(alloc_coloring ^(G) ^(k) ^(prefs) ^(ls)))``)
+val col = rhsThm (EVAL ``(SND(alloc_coloring ^(G) ^(k) ^(prefs) ^(ls)))``)
 
-EVAL ``do_step2 ^(st2)``
+val st2= rhsThm (EVAL ``sec_ra_state ^(G) ^(k) ^(col) ``)
 
-val p1 = EVAL ``reg_alloc (get_spg
-  (Seq (Move [1,2;3,4;5,6])
-  (Call (SOME (3, list_insert [1;3;5;7;9] [();();();();()] LN,Skip)) (SOME 400) [7;9] NONE)) LN) 3``
+val it = EVAL ``rpt_do_step2 ^(st2)``
+
+val ra = EVAL ``reg_alloc (get_spg ^(prog) LN) 3 ^(prog_prefs)``;
+
+(*Read a large, generated graph*)
+
+val graph = rhsThm(
+EVAL``
+
+``)
+
+val init_state = rhsThm (EVAL``init_ra_state ^(graph) 6``)
+val t1 = Time.now();
+val p1 = EVAL ``reg_alloc ^(graph) 32``;
+val t2 = Time.now() -t1;
+
 
 *)
 
@@ -1182,11 +1249,11 @@ val alloc_coloring_success = prove(``
         Q.SPECL_THEN [`G`,`colors`,`prefs`,`others`,`col'`,`spills`
           ,`col''`,`spills'`] assume_tac alloc_coloring_aux_domain_3>>
         fs[]>>metis_tac[])
-        
+
 val spill_coloring_never_overwrites = prove(``
   ∀ls col col'.
   lookup x col = SOME y ∧ 
-  spill_coloring G k ls col = col'
+  spill_coloring G k prefs ls col = col'
   ⇒ 
   lookup x col' = SOME y``,
   Induct>>fs[spill_coloring_def,assign_color2_def]>>rw[]>>
@@ -1199,7 +1266,7 @@ val spill_coloring_never_overwrites = prove(``
 
 val spill_coloring_domain_subset = prove(``
   ∀ls col col'.
-  domain col ⊆ domain (spill_coloring G k ls col)``,
+  domain col ⊆ domain (spill_coloring G k prefs ls col)``,
   rw[SUBSET_DEF]>>fs[domain_lookup]>>
   metis_tac[domain_lookup,spill_coloring_never_overwrites])
 
@@ -1256,29 +1323,40 @@ val is_phy_var_tac =
 val assign_color2_satisfactory = prove(``
   undir_graph G ∧ 
   partial_coloring_satisfactory col G ⇒ 
-  partial_coloring_satisfactory (assign_color2 G k h col) G``,
+  partial_coloring_satisfactory (assign_color2 G k prefs h col) G``,
   rw[assign_color2_def]>>
-  EVERY_CASE_TAC>>fs[LET_THM]>>
-  match_mp_tac partial_coloring_satisfactory_extend>>rw[]>>
+  fs[LET_THM]>>
+  EVERY_CASE_TAC>>fs[]>>
+  match_mp_tac (GEN_ALL partial_coloring_satisfactory_extend)>>rw[]>>
   fs[domain_lookup]>>
+  TRY(
   qpat_abbrev_tac`lss = QSORT (λx:num y:num. x≤y)  B`>>
   SORTED_TAC>>
   `MEM v lss` by
     (unabbrev_all_tac>>
     fs[QSORT_MEM,option_filter_def,MEM_MAP,MEM_FILTER,EXISTS_PROD
       ,MEM_toAList,PULL_EXISTS]>>
+    TRY(Q.EXISTS_TAC`y`>>fs[])>>
     HINT_EXISTS_TAC>>fs[])>>
   is_phy_var_tac>>
-  metis_tac[unbound_colors_props])
- 
+  metis_tac[unbound_colors_props])>>
+  qpat_assum `¬A` mp_tac >>
+  qpat_abbrev_tac`lss = option_filter (MAP (λx. lookup x col) A)` >>
+  qsuff_tac `MEM v lss`>-metis_tac[]>>
+  unabbrev_all_tac>>
+  fs[option_filter_def,MEM_MAP,MEM_FILTER,EXISTS_PROD
+    ,PULL_EXISTS,MEM_toAList]>>
+  HINT_EXISTS_TAC>>fs[])
+
 val assign_color2_conventional = prove(``
   v ∈ domain G ∧ 
   v ∉ domain col ∧ 
-  assign_color2 G k v col  = col'
+  assign_color2 G k prefs v col  = col'
   ⇒ 
   ∃y. lookup v col' = SOME y ∧ y≥2*k ∧ is_phy_var y``,
   rw[assign_color2_def]>>
-  EVERY_CASE_TAC>>fs[LET_THM,domain_lookup]>>
+  fs[LET_THM,domain_lookup]>>
+  EVERY_CASE_TAC>>fs[]>>
   is_phy_var_tac>>
   qpat_abbrev_tac`lss = QSORT (λx:num y:num. x≤y)  B`>>
   SORTED_TAC>>
@@ -1287,23 +1365,21 @@ val assign_color2_conventional = prove(``
 (*Coloring produced after each spill_coloring step is
   partial_coloring_satisfactory*)
 val spill_coloring_satisfactory = prove(``
-  ∀G k ls col.
+  ∀G k prefs ls col.
   undir_graph G ∧
   partial_coloring_satisfactory col G
   ⇒
-  let col' = spill_coloring G k ls col in
+  let col' = spill_coloring G k prefs ls col in
     partial_coloring_satisfactory col' G``,
   Induct_on`ls`>>fs[spill_coloring_def,LET_THM]>>rw[]>>
   EVERY_CASE_TAC>>fs[]>>
-  first_x_assum(qspecl_then
-    [`G`,`k`,`assign_color2 G k h col`] mp_tac)>>
-  discharge_hyps>>
-    metis_tac[assign_color2_satisfactory])
+  metis_tac[assign_color2_satisfactory])
 
+(*DONE UP TO HERE REST MAY BE BROKEN*) 
 (*Domain is extended*)
 val spill_coloring_domain_1 = prove(``
-  ∀G k ls col.
-  let col' = spill_coloring G k ls col in 
+  ∀G k prefs ls col.
+  let col' = spill_coloring G k prefs ls col in 
   ∀x. MEM x ls ∧ x ∈ domain G ⇒ 
       x ∈ domain col'``,
   Induct_on`ls`>>fs[spill_coloring_def,LET_THM]>>rw[]
