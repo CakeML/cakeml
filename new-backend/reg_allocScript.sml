@@ -655,7 +655,9 @@ val full_coalesce_aux = Define`
         (G,insert y x t))`
       
 (*Given a list of moves and spills,
-  The coalesceable moves are those spilled and not already clashing*)
+  The coalesceable moves are those spilled and not already clashing
+  This is tricky -- the graph should be ideally edited monadically
+  *)
 val full_coalesce_def = Define`
   full_coalesce G moves spills =
   let coalesceable = 
@@ -1375,7 +1377,6 @@ val spill_coloring_satisfactory = prove(``
   EVERY_CASE_TAC>>fs[]>>
   metis_tac[assign_color2_satisfactory])
 
-(*DONE UP TO HERE REST MAY BE BROKEN*) 
 (*Domain is extended*)
 val spill_coloring_domain_1 = prove(``
   ∀G k prefs ls col.
@@ -1384,9 +1385,10 @@ val spill_coloring_domain_1 = prove(``
       x ∈ domain col'``,
   Induct_on`ls`>>fs[spill_coloring_def,LET_THM]>>rw[]
   >-
-    (fs[assign_color2_def]>>EVERY_CASE_TAC>>fs[domain_lookup,LET_THM]
-    >-
-    (qpat_abbrev_tac `col' = insert h A col`>>
+    (fs[assign_color2_def,domain_lookup,LET_THM]>>
+    EVERY_CASE_TAC>>fs[]
+    >>
+    TRY(qpat_abbrev_tac `col' = insert h A col`>>
     qsuff_tac `∃y. lookup h col' = SOME y ∧ is_phy_var y`
     >-
       metis_tac[spill_coloring_never_overwrites]
@@ -1404,8 +1406,8 @@ val spill_coloring_domain_1 = prove(``
 
 (*Coloring is extended on the list according to conventions*)
 val spill_coloring_domain_2 = prove(``
-  ∀G k ls col.
-  let col' = spill_coloring G k ls col in 
+  ∀G k prefs ls col.
+  let col' = spill_coloring G k prefs ls col in 
   ∀x. MEM x ls ∧ x ∈ domain G ∧ x ∉ domain col ⇒ 
       ∃y. lookup x col' = SOME y ∧ y ≥ 2*k ∧ is_phy_var y``,
   Induct_on`ls`>>fs[spill_coloring_def,LET_THM]>>rw[]
@@ -1423,8 +1425,8 @@ val spill_coloring_domain_2 = prove(``
       metis_tac[])
 
 val assign_color2_reverse = prove(``
-  ∀G:sp_graph k h col col'.
-  assign_color2 G k h col = col'
+  ∀G:sp_graph k prefs h col col'.
+  assign_color2 G k prefs h col = col'
   ⇒ 
   ∀x. x ≠ h ⇒ 
   (x ∈ domain col' ⇒ x ∈ domain col)``,
@@ -1432,43 +1434,77 @@ val assign_color2_reverse = prove(``
   metis_tac[])
 
 val spill_coloring_domain_3 = prove(``
-  ∀G k ls col.
-  let col' = spill_coloring G k ls col in 
+  ∀G k prefs ls col.
+  let col' = spill_coloring G k prefs ls col in 
   ∀x. ¬MEM x ls ⇒ 
   (x ∈ domain col' ⇒ x ∈ domain col)``,
   Induct_on`ls`>>rw[spill_coloring_def,LET_THM]>>
-  Cases_on`assign_color2 G k h col`>>fs[]>>
+  Cases_on`assign_color2 G k prefs h col`>>fs[]>>
   metis_tac[assign_color2_reverse])
 
+val is_subgraph_edges_def = Define`
+  is_subgraph_edges G H ⇔
+    domain H = domain G  ∧  (*We never change the vertex set*)
+   (∀x y. lookup_g x y G ⇒ lookup_g x y H)` 
+
+val partial_coloring_satisfactory_subgraph_edges = prove(``
+  ∀G H col.
+  (*Every edge in G is in H*)
+  undir_graph G ∧ 
+  is_subgraph_edges G H ∧ 
+  (partial_coloring_satisfactory col H) ⇒ 
+  partial_coloring_satisfactory col G``,
+  fs[partial_coloring_satisfactory_def,lookup_g_def,is_subgraph_edges_def]>>
+  rw[]>>fs[domain_lookup,undir_graph_def]>>
+  last_x_assum(qspec_then`v` assume_tac)>>rfs[]>>
+  first_x_assum(qspec_then`v'` assume_tac)>>rfs[]>>
+  last_assum(qspec_then`v` assume_tac)>>
+  pop_assum(qspec_then`v'` assume_tac)>>
+  last_x_assum(qspec_then`v'` assume_tac)>>  
+  pop_assum(qspec_then`v` assume_tac)>>  
+  rfs[]>>
+  EVERY_CASE_TAC>>fs[]>>
+  first_x_assum(qspec_then`v` assume_tac)>>fs[LET_THM]>>
+  rfs[]>>
+  pop_assum(qspec_then`v'` assume_tac)>>
+  rfs[])
+
+(*DONE UP TO HERE REST MAY BE BROKEN*) 
 val reg_alloc_satisfactory = store_thm ("reg_alloc_satisfactory",``
-  ∀G k.
+  ∀G k moves.
   undir_graph G ⇒  
-  let col = reg_alloc G k in
+  let col = reg_alloc G k moves in
   (domain G ⊆ domain col ∧ 
   partial_coloring_satisfactory col G)``,
   rw[reg_alloc_def]>>
   `satisfactory_pref aux_pref` by fs[aux_pref_satisfactory]>>
   imp_res_tac alloc_coloring_success>>
-  pop_assum(qspecl_then [`s'.stack`,`k`] assume_tac)>>rfs[LET_THM]
+  pop_assum(qspecl_then [`s'.stack`,`k`] assume_tac)>>rfs[LET_THM]>>
+  (*need some lemma about full_coalesce*)
+  `is_subgraph_edges G G' ∧ undir_graph G' ∧ 
+   partial_coloring_satisfactory col G'` by cheat
   >-
-    (`domain col ⊆ domain col''` by
+    (fs[is_subgraph_edges_def]>>
+    `domain col ⊆ domain col''` by
       metis_tac[spill_coloring_domain_subset,SUBSET_DEF]>>
-    Q.ISPECL_THEN [`G`,`k`,`ls`,`col'`] assume_tac spill_coloring_domain_1>>
+    Q.ISPECL_THEN [`G'`,`k`,`LN:num num_map`,`ls`,`col'`] assume_tac spill_coloring_domain_1>>
     rfs[LET_THM]>>
     fs[SUBSET_DEF,EXTENSION]>>rw[]>>res_tac>>
     pop_assum mp_tac>>
     rpt (IF_CASES_TAC>-metis_tac[domain_lookup])>>
     fs[])
   >>
+    match_mp_tac partial_coloring_satisfactory_subgraph_edges>>
+    Q.EXISTS_TAC`G'`>>fs[]>>
     metis_tac[spill_coloring_satisfactory])
 
 val reg_alloc_total_satisfactory = store_thm ("reg_alloc_total_satisfactory",``
-  ∀G k.
+  ∀G k moves.
   undir_graph G ⇒ 
-  let col = reg_alloc G k in 
+  let col = reg_alloc G k moves in 
   coloring_satisfactory (total_color col) G``,
   rw[]>>imp_res_tac reg_alloc_satisfactory>>
-  pop_assum(qspec_then`k` assume_tac)>>rfs[LET_THM]>>
+  pop_assum(qspecl_then[`moves`,`k`]assume_tac)>>rfs[LET_THM]>>
   fs[coloring_satisfactory_def,partial_coloring_satisfactory_def
       ,total_color_def,undir_graph_def]>>
   rw[]>>
@@ -1483,12 +1519,12 @@ val reg_alloc_total_satisfactory = store_thm ("reg_alloc_total_satisfactory",``
 
 val reg_alloc_conventional = store_thm("reg_alloc_conventional" ,
 ``
-  ∀G k.
+  ∀G k moves.
   undir_graph G ⇒
-  let col = reg_alloc G k in
+  let col = reg_alloc G k moves in
   coloring_conventional G k (total_color col)``,
   rw[]>>imp_res_tac reg_alloc_satisfactory>>
-  pop_assum(qspec_then`k` assume_tac)>>rfs[LET_THM]>>
+  pop_assum(qspecl_then[`moves`,`k`] assume_tac)>>rfs[LET_THM]>>
   rw[total_color_def,reg_alloc_def,coloring_conventional_def]>>
   `x ∈ domain col` by 
     fs[SUBSET_DEF]>>
@@ -1500,6 +1536,9 @@ val reg_alloc_conventional = store_thm("reg_alloc_conventional" ,
   pop_assum(qspec_then `aux_pref` mp_tac)>>discharge_hyps>>
   fs[aux_pref_satisfactory]>>strip_tac>>
   pop_assum(qspecl_then[`s'.stack`,`k`] assume_tac)>>rfs[LET_THM]>>
+  (*need some lemma about full_coalesce*)
+  `is_subgraph_edges G G' ∧ undir_graph G' ∧ 
+   partial_coloring_satisfactory col G'` by cheat>>
   IF_CASES_TAC>-
     (first_x_assum(qspec_then`x`assume_tac)>>rfs[]>>
     metis_tac[spill_coloring_never_overwrites,optionTheory.option_CLAUSES])
@@ -1510,12 +1549,13 @@ val reg_alloc_conventional = store_thm("reg_alloc_conventional" ,
       (fs[INTER_DEF,EXTENSION]>>metis_tac[])>>
     Cases_on`MEM x s'''.stack`>>fs[]
     >-
-      (Q.ISPECL_THEN [`G`,`k`,`s'''.stack`,`col`] assume_tac
-        spill_coloring_domain_2>> rfs[LET_THM]>>
+      (Q.ISPECL_THEN [`G'`,`k`,`coalesce_map`,`s'''.stack`,`col`] assume_tac
+        spill_coloring_domain_2>> rfs[LET_THM,is_subgraph_edges_def]>>
       metis_tac[spill_coloring_never_overwrites,optionTheory.option_CLAUSES])
     >>
-      metis_tac[spill_coloring_domain_3,
-        spill_coloring_domain_2,optionTheory.option_CLAUSES])
+      Q.ISPECL_THEN [`G'`,`k`,`LN:num num_map`,`ls`,`col'`] assume_tac
+        spill_coloring_domain_2>> rfs[LET_THM,is_subgraph_edges_def]>>
+      metis_tac[spill_coloring_domain_3,optionTheory.option_CLAUSES])
   >>
   first_x_assum(qspec_then`x`assume_tac)>>rfs[]>>
   Cases_on`x ∈ domain col`
@@ -1525,13 +1565,14 @@ val reg_alloc_conventional = store_thm("reg_alloc_conventional" ,
   fs[]>>
   Cases_on`MEM x s'''.stack`>>fs[]
     >-
-      (Q.ISPECL_THEN [`G`,`k`,`s'''.stack`,`col`] assume_tac
-        spill_coloring_domain_2>> rfs[LET_THM]>>
+      (Q.ISPECL_THEN [`G'`,`k`,`coalesce_map`,`s'''.stack`,`col`] assume_tac
+        spill_coloring_domain_2>> rfs[LET_THM,is_subgraph_edges_def]>>
       metis_tac[spill_coloring_never_overwrites,optionTheory.option_CLAUSES])
     >>
-      metis_tac[spill_coloring_domain_3,
-        spill_coloring_domain_2,optionTheory.option_CLAUSES])
-
+      Q.ISPECL_THEN [`G'`,`k`,`LN:num num_map`,`ls`,`col'`] assume_tac
+        spill_coloring_domain_2>> rfs[LET_THM,is_subgraph_edges_def]>>
+      metis_tac[spill_coloring_domain_3,optionTheory.option_CLAUSES])
+      
 val _ = export_theory()
 
 
