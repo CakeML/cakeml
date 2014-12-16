@@ -47,7 +47,7 @@ val iloc_repl_env_exist =
 val repl_env_def = new_specification("repl_env_def",["iloc","repl_env"],iloc_repl_env_exist)
 
 val sum_idx = ``21:num``
-val sym_idx = ``79:num``
+val sym_idx = ``246:num``
 val el_sum = computeLib.CBV_CONV repl_decs_cs ``EL ^sum_idx ml_repl_module_decls``
 val take_sum = computeLib.CBV_CONV repl_decs_cs ``TAKE ^sum_idx ml_repl_module_decls``
 val drop_sum = computeLib.CBV_CONV repl_decs_cs ``DROP (^sum_idx + 1) ml_repl_module_decls``

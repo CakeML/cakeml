@@ -1,5 +1,5 @@
 open HolKernel boolLib bossLib pairTheory listTheory lcsymtacs miscLib
-open ml_translatorTheory repl_funProofTheory compilerProofTheory ml_repl_moduleTheory
+open ml_translatorTheory repl_funProofTheory compilerProofTheory ml_compilerTheory ml_repl_stepTheory ml_repl_moduleTheory
 open evaluateReplDecsTheory compileReplDecsTheory closedReplDecsTheory removeLabelsReplDecsTheory
 
 val _ = temp_tight_equality()
@@ -375,7 +375,7 @@ val LIST_TYPE_CHAR_BlockList = prove(
     ⇒ (b = BlockList (MAP Chr s))``,
   strip_tac >>
   simp[GSYM AND_IMP_INTRO] >>
-  Induct >> simp[ml_repl_stepTheory.LIST_TYPE_def] >- (
+  Induct >> simp[LIST_TYPE_def] >- (
     simp conv_rws >>
     simp[BlockList_def,BlockNil_def]) >>
   simp[PULL_EXISTS] >> simp conv_rws >>
@@ -401,7 +401,7 @@ val LIST_TYPE_code_BlockList = prove(
     ⇒ (b = BlockList (MAP BlockNum3 s))``,
   strip_tac >>
   simp[GSYM AND_IMP_INTRO] >>
-  Induct >> simp[ml_repl_stepTheory.LIST_TYPE_def] >- (
+  Induct >> simp[LIST_TYPE_def] >- (
     simp conv_rws >>
     simp[BlockList_def,BlockNil_def]) >>
   simp[PULL_EXISTS] >> simp conv_rws >>
@@ -412,7 +412,7 @@ val LIST_TYPE_code_BlockList = prove(
   simp[PULL_EXISTS] >> simp conv_rws >>
   simp[PULL_EXISTS] >> simp conv_rws >>
   simp[BlockList_def,BlockCons_def] >>
-  simp[FORALL_PROD,ml_repl_stepTheory.PAIR_TYPE_def,PULL_EXISTS] >>
+  simp[FORALL_PROD,PAIR_TYPE_def,PULL_EXISTS] >>
   simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
   simp conv_rws >>
   simp[BlockNum3_def,BlockPair_def] >>
@@ -426,7 +426,7 @@ val LIST_TYPE_v_bv = prove(
     ∀ls v. LIST_TYPE A ls v ∧ (∀x y. MEM x ls ∧ A x y ⇒ v_bv d y (f x)) ⇒
       v_bv d v (BlockList (MAP f ls))``,
    strip_tac >>
-   Induct >> simp[ml_repl_stepTheory.LIST_TYPE_def] >- (
+   Induct >> simp[LIST_TYPE_def] >- (
      PairCases_on`d` >>
      simp[printingTheory.v_bv_def] >> fs[] >>
      simp (PULL_EXISTS::conv_rws) >>
@@ -451,7 +451,7 @@ val LEXER_FUN_SYMBOL_TYPE_v_bv = prove(
     ⇒
     ∀x y. LEXER_FUN_SYMBOL_TYPE x y ⇒ v_bv d y (BlockSym x)``,
   strip_tac >> PairCases_on`d`>>fs[]>>
-  Cases >> simp[ml_repl_stepTheory.LEXER_FUN_SYMBOL_TYPE_def,PULL_EXISTS] >>
+  Cases >> simp[LEXER_FUN_SYMBOL_TYPE_def,PULL_EXISTS] >>
   simp(ml_translatorTheory.INT_def::PULL_EXISTS::conv_rws) >>
   simp[BlockSym_def] >>
   simp[BlockStringS_def,
@@ -766,8 +766,8 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
   simp[RIGHT_EXISTS_AND_THM] >>
   conj_tac >- fs[finite_mapTheory.FLOOKUP_DEF] >>
   fs[OUTPUT_TYPE_def] >>
-  fs[ml_repl_stepTheory.SUM_TYPE_def] >>
-  fs[ml_repl_stepTheory.PAIR_TYPE_def] >>
+  fs[SUM_TYPE_def] >>
+  fs[PAIR_TYPE_def] >>
   rw[] >>
   fs[LET_THM] >>
   rator_x_assum`v_bv`mp_tac >>
@@ -837,7 +837,7 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
   strip_tac >>
   qmatch_assum_abbrev_tac`v_bv data inp ibc` >>
   `v_bv data w (BlockList (MAP BlockSym ts))` by (
-    fs[INPUT_TYPE_def,ml_repl_stepTheory.OPTION_TYPE_def,ml_repl_stepTheory.PAIR_TYPE_def,Abbr`data`] >>
+    fs[INPUT_TYPE_def,OPTION_TYPE_def,PAIR_TYPE_def,Abbr`data`] >>
     MATCH_MP_TAC (MP_CANON LIST_TYPE_v_bv) >>
     HINT_EXISTS_TAC >> simp[] >> rw[] >>
     match_mp_tac(MP_CANON (GEN_ALL LEXER_FUN_SYMBOL_TYPE_v_bv)) >>
@@ -848,7 +848,8 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
     disch_then(qspec_then`a`mp_tac o CONV_RULE(SWAP_FORALL_CONV)) >>
     simp[Abbr`n`,sym_tags_exist] >>
     rw[Abbr`b`] >>
-    rw[errors_tag_def,others_tag_def,longs_tag_def,numbers_tag_def,strings_tag_def]) >>
+    rw[errors_tag_def,others_tag_def,longs_tag_def,numbers_tag_def,strings_tag_def] >>
+    NO_TAC) >>
   qunabbrev_tac`data` >>
   pop_assum(strip_assume_tac o SIMP_RULE (srw_ss()) [printingTheory.v_bv_def]) >>
   CONV_TAC SWAP_EXISTS_CONV >>
@@ -977,8 +978,8 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
   simp[RIGHT_EXISTS_AND_THM] >>
   conj_tac >- fs[finite_mapTheory.FLOOKUP_DEF] >>
   fs[OUTPUT_TYPE_def] >>
-  fs[ml_repl_stepTheory.SUM_TYPE_def] >>
-  fs[ml_repl_stepTheory.PAIR_TYPE_def] >>
+  fs[SUM_TYPE_def] >>
+  fs[PAIR_TYPE_def] >>
   rw[] >>
   fs[LET_THM] >>
   rator_x_assum`v_bv`mp_tac >>
@@ -1006,7 +1007,7 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
   rpt gen_tac >> strip_tac >>
   qmatch_assum_abbrev_tac`A s v1_2` >>
   `STATE_TYPE (b,s) (Conv NONE [Litv (Bool b); v1_2])` by (
-    simp[STATE_TYPE_def,ml_repl_stepTheory.PAIR_TYPE_def] >>
+    simp[STATE_TYPE_def,PAIR_TYPE_def] >>
     simp[ml_translatorTheory.BOOL_def] ) >>
   imp_res_tac INPUT_TYPE_exists >>
   first_x_assum(qspec_then`ts`strip_assume_tac) >>
@@ -1051,7 +1052,7 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
   strip_tac >>
   qmatch_assum_abbrev_tac`v_bv data inp ibc` >>
   `v_bv data w (BlockList (MAP BlockSym ts))` by (
-    fs[INPUT_TYPE_def,ml_repl_stepTheory.OPTION_TYPE_def,ml_repl_stepTheory.PAIR_TYPE_def,Abbr`data`] >>
+    fs[INPUT_TYPE_def,OPTION_TYPE_def,PAIR_TYPE_def,Abbr`data`] >>
     MATCH_MP_TAC (MP_CANON LIST_TYPE_v_bv) >>
     HINT_EXISTS_TAC >> simp[] >> rw[] >>
     match_mp_tac(MP_CANON (GEN_ALL LEXER_FUN_SYMBOL_TYPE_v_bv)) >>
