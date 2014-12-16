@@ -1,21 +1,15 @@
 open HolKernel Parse boolLib bossLib;
+open arithmeticTheory listTheory finite_mapTheory pred_setTheory;
+open repl_funTheory libTheory;
+open cmlParseTheory cmlPEGTheory;
+open terminationTheory compilerTerminationTheory inferTheory;
+open ml_compilerTheory ml_translatorLib ml_translatorTheory;
 
 val _ = new_theory "ml_repl_step";
 
-open repl_funTheory compilerTheory libTheory;
-open toIntLangTheory toBytecodeTheory terminationTheory;
-open compilerTerminationTheory inferTheory;
-open bytecodeTheory cmlParseTheory cmlPEGTheory;
-open arithmeticTheory listTheory finite_mapTheory pred_setTheory;
-
-open ml_translatorLib ml_translatorTheory;
-open std_preludeTheory;
-
 (* translator setup *)
 
-val _ = translate_into_module "REPL";
-
-val _ = std_preludeLib.std_prelude ();
+val _ = translation_extends "ml_compiler";
 
 val _ = register_type ``:lexer_fun$symbol``;
 
@@ -26,10 +20,6 @@ val _ = add_preferred_thy "compilerTermination";
 val NOT_NIL_AND_LEMMA = prove(
   ``(b <> [] /\ x) = if b = [] then F else x``,
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
-
-val OPTION_BIND_THM = prove(
-  ``!x y. OPTION_BIND x y = case x of NONE => NONE | SOME i => y i``,
-  Cases THEN SRW_TAC [] []);
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
 
@@ -52,49 +42,6 @@ fun def_of_const tm = let
   in def end
 
 val _ = (find_def_for_const := def_of_const);
-
-(* because the original theorems have termination side-conditions *)
-val _ = save_thm("inf_type_to_string_ind",inf_type_to_string_ind)
-val _ = translate inf_type_to_string_def;
-
-(* compiler *)
-
-val _ = translate (def_of_const ``stackshift``);
-
-val _ = rich_listTheory.BUTLASTN_REVERSE |> Q.SPECL [`n`,`REVERSE l`]
-  |> REWRITE_RULE [REVERSE_REVERSE,LENGTH_REVERSE] |> UNDISCH
-  |> translate
-
-val butlastn_side_def = prove(
-  ``!n l. butlastn_side n l = (n <= LENGTH l)``,
-  SIMP_TAC std_ss [fetch "-" "butlastn_side_def"])
-  |> update_precondition;
-
-val _ = translate finite_mapTheory.FUPDATE_LIST_THM;
-
-val option_CASE_thm = prove(
-  ``option_CASE x f g = case x of NONE => f | SOME y => g y``,
-  CONV_TAC (DEPTH_CONV ETA_CONV) THEN SIMP_TAC std_ss []);
-
-val _ = translate (def_of_const ``build_exh_env``
-                   |> ONCE_REWRITE_RULE [option_CASE_thm] |> RW [I_THM])
-
-val NEQ_El_pat = prove(
-  ``(!n. uop <> El_pat n) = case uop of El_pat n => F | _ => T``,
-  Cases_on `uop` THEN SRW_TAC [] []);
-
-val _ = translate (patLangTheory.fo_pat_def |> RW [NEQ_El_pat]);
-val _ = translate patLangTheory.pure_pat_def;
-
-val _ = register_type ``:bc_inst``;
-
-val compile_thm =
-  compilerTerminationTheory.compile_def
-  |> SIMP_RULE std_ss [o_DEF,stringTheory.IMPLODE_EXPLODE_I];
-
-val _ = translate compile_thm;
-
-val _ = translate compile_top_def;
 
 (* parsing: peg_exec and cmlPEG *)
 
@@ -124,6 +71,10 @@ val _ = translate grammarTheory.ptree_head_def
 
 
 (* parsing: ptree converstion *)
+
+val OPTION_BIND_THM = prove(
+  ``!x y. OPTION_BIND x y = case x of NONE => NONE | SOME i => y i``,
+  Cases THEN SRW_TAC [] []);
 
 val _ = (extra_preprocessing :=
   [MEMBER_INTRO,MAP,OPTION_BIND_THM,monad_unitbind_assert]);

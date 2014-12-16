@@ -1,5 +1,5 @@
 open preamble;
-open inferTheory inferSoundTheory inferPropsTheory unifyTheory ml_repl_stepTheory;
+open inferTheory inferSoundTheory inferPropsTheory unifyTheory ml_compilerTheory ml_repl_stepTheory;
 open ml_translatorTheory;
 
 val _ = new_theory "side";
