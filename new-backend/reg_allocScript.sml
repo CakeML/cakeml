@@ -33,6 +33,7 @@ val undir_g_insert_def = Define`
   (undir_g_insert x y g =
     dir_g_insert x y (dir_g_insert y x g))`
 
+(*TODO: maybe insert an empty tree in the list*)
 val list_g_insert_def = Define`
   (list_g_insert x [] g = g) ∧
   (list_g_insert x (y::ys) g =
@@ -1134,6 +1135,23 @@ val alloc_coloring_aux_domain_4 = prove(``
   Cases_on`assign_color G k prefs h col spill'`>>fs[]>>
   metis_tac[assign_color_reverse])
 
+(*Everything appearing in the spills was already in G*)
+val alloc_coloring_aux_domain_5 = prove(``
+  ∀G:sp_graph k prefs ls col spill col' spill'.
+  alloc_coloring_aux G k prefs ls col spill = (col',spill')
+  ⇒
+  ∀x. MEM x spill' ⇒ 
+  x ∈ domain G ∨ MEM x spill``,
+  Induct_on`ls`>>rw[alloc_coloring_aux,LET_THM]>>
+  Cases_on`assign_color G k prefs h col spill'`>>
+  fs[]>>
+  res_tac>>
+  fs[assign_color_def]>>
+  EVERY_CASE_TAC>>fs[LET_THM]>>
+  EVERY_CASE_TAC>>fs[]>>
+  qpat_assum`A=r` (SUBST_ALL_TAC o SYM)>>
+  fs[domain_lookup])
+
 val id_color_always_sat = prove(``
   undir_graph G ⇒ 
   partial_coloring_satisfactory (id_color ls) G``,
@@ -1251,6 +1269,12 @@ val alloc_coloring_success = prove(``
         Q.SPECL_THEN [`G`,`colors`,`prefs`,`others`,`col'`,`spills`
           ,`col''`,`spills'`] assume_tac alloc_coloring_aux_domain_3>>
         fs[]>>metis_tac[])
+
+val alloc_coloring_success_2 = prove(``
+  let (col,spills) = alloc_coloring G k prefs ls in
+  ∀x. MEM x spills ⇒ x ∈ domain G``,
+  fs[alloc_coloring_def]>>rw[]>>
+  imp_res_tac alloc_coloring_aux_domain_5>>fs[])
 
 val spill_coloring_never_overwrites = prove(``
   ∀ls col col'.
@@ -1444,7 +1468,7 @@ val spill_coloring_domain_3 = prove(``
 
 val is_subgraph_edges_def = Define`
   is_subgraph_edges G H ⇔
-    domain H = domain G  ∧  (*We never change the vertex set*)
+    domain G ⊆ domain H  ∧  (*We never change the vertex set*)
    (∀x y. lookup_g x y G ⇒ lookup_g x y H)` 
 
 val partial_coloring_satisfactory_subgraph_edges = prove(``
@@ -1469,7 +1493,170 @@ val partial_coloring_satisfactory_subgraph_edges = prove(``
   pop_assum(qspec_then`v'` assume_tac)>>
   rfs[])
 
-(*DONE UP TO HERE REST MAY BE BROKEN*) 
+val undir_g_preserve = prove(``
+  undir_graph G ∧ 
+  x ≠ y ⇒ 
+  undir_graph (undir_g_insert x y G)``,
+  fs[undir_graph_def,undir_g_insert_def,dir_g_insert_def]>>rw[]>>
+  fs[lookup_insert]>>
+  IF_CASES_TAC >-
+    (rfs[]>>Cases_on`lookup x G`>>fs[Abbr`tree'`,Abbr`tree`]>>
+    first_x_assum(qspec_then`x`assume_tac)>>rfs[]>>rw[]>>
+    Cases_on`lookup y G`>>fs[])>>
+  IF_CASES_TAC >-
+    (rfs[]>>Cases_on`lookup y G`>>fs[Abbr`tree'`,Abbr`tree`]>>
+    first_x_assum(qspec_then`y`assume_tac)>>rfs[]>>rw[]>>
+    Cases_on`lookup x G`>>fs[])>>
+  rfs[]>>FULL_CASE_TAC>>
+  first_x_assum(qspec_then`x'`assume_tac)>>rfs[]>>
+  rw[]>>fs[]
+  >-
+    (first_x_assum(qspec_then`x` assume_tac)>>rfs[]>>
+    fs[Abbr`tree'`])
+  >>
+    (first_x_assum(qspec_then`y` assume_tac)>>rfs[]>>
+    fs[Abbr`tree`]))
+
+val undir_g_insert_domain = prove(``
+  domain (undir_g_insert x y G) =
+  {x;y} ∪ domain G``,
+  rw[undir_g_insert_def,dir_g_insert_def]>>
+  fs[domain_insert,EXTENSION]>>
+  metis_tac[])
+
+val list_g_insert_domain = prove(``
+  ∀ls.
+  q ∈ domain G ⇒ 
+  domain(list_g_insert q ls G) = 
+  domain G ∪ set ls``,
+  Induct>>fs[list_g_insert_def]>>rw[]>>
+  fs[EXTENSION,undir_g_insert_domain]>>
+  metis_tac[])
+
+val finish_tac = 
+  last_x_assum(qspec_then`v` assume_tac)>>rfs[]>>
+  first_x_assum(qspec_then`v'` assume_tac)>>rfs[domain_lookup]>>
+  last_x_assum(qspec_then `v'` assume_tac)>>rfs[]>>
+  pop_assum(qspec_then`v` assume_tac)>>rfs[];
+
+val partial_coloring_satisfactory_extend_2 = prove(``
+  undir_graph G ∧ 
+  partial_coloring_satisfactory col G ∧
+  (x ∉ domain col ∨ y ∉ domain col) ⇒  
+  partial_coloring_satisfactory col (undir_g_insert x y G)``,
+  fs[undir_g_insert_def,dir_g_insert_def
+    ,partial_coloring_satisfactory_def]>>rw[]>>
+  fs[domain_lookup,LET_THM]>>
+  rfs[lookup_insert]>>
+  Cases_on`v=x`>>
+  Cases_on`x=y`>>
+  fs[undir_graph_def]>>
+  unabbrev_all_tac>>
+  TRY(finish_tac>>NO_TAC)>>
+  TRY(Cases_on`v=y`>>
+  Cases_on`lookup y G`>>fs[]>>
+  TRY(qpat_assum`A=v''` (SUBST_ALL_TAC o SYM)>>
+  fs[lookup_insert]>>
+  Cases_on`v'=x`>>fs[lookup_def])>>finish_tac)>>
+  Cases_on`lookup x G`>>
+  qpat_assum`A=v''` (SUBST_ALL_TAC o SYM)>>
+  fs[lookup_insert]>>
+  Cases_on`v'=y`>>fs[lookup_def]>>
+  finish_tac)
+ 
+val list_g_insert_lemma = prove(``
+  ∀ls G col.
+  undir_graph G ∧ 
+  q ∉ domain col ∧ 
+  ¬ MEM q ls ∧
+  partial_coloring_satisfactory col G
+  ⇒ 
+  let G' = list_g_insert q ls G in 
+  is_subgraph_edges G G' ∧ 
+  undir_graph G' ∧ 
+  partial_coloring_satisfactory col G'``,
+  Induct>>rw[list_g_insert_def,is_subgraph_edges_def]>>fs[]>>
+  first_x_assum(qspecl_then[`G`,`col`] mp_tac)>>discharge_hyps>>
+  fs[LET_THM,Abbr`G'`]>>rw[]
+  >-
+    (fs[is_subgraph_edges_def,undir_g_insert_def]>>
+    fs[SUBSET_DEF,domain_lookup]>>rw[]>>
+    fs[dir_g_insert_def,LET_THM]>>EVERY_CASE_TAC>>
+    fs[lookup_insert]>>
+    rpt(IF_CASES_TAC>>fs[]))
+  >-
+    (fs[undir_g_insert_def]>>
+    metis_tac[lookup_dir_g_insert_correct,list_g_insert_correct])
+  >-
+    metis_tac[undir_g_preserve]
+  >>
+    match_mp_tac partial_coloring_satisfactory_extend_2>>rfs[])
+
+val is_subgraph_edges_trans = prove(``
+  is_subgraph_edges A B ∧ 
+  is_subgraph_edges B C ⇒ 
+  is_subgraph_edges A C``,
+  fs[is_subgraph_edges_def]>>rw[SUBSET_DEF])
+
+val full_coalesce_aux_extends = prove(``
+  ∀(G:sp_graph) ls col.
+  partial_coloring_satisfactory col G ∧ 
+  (∀p. MEM p ls ⇒ FST p ∉ domain col ∧ SND p ∉ domain col ∧ 
+                  FST p ∈ domain G ∧ SND p ∈ domain G) ∧ 
+  undir_graph G ⇒ 
+  let (G',ls') = full_coalesce_aux G ls in
+  is_subgraph_edges G G' ∧ 
+  undir_graph G' ∧ 
+  partial_coloring_satisfactory col G'``,
+  Induct_on`ls`>-fs[full_coalesce_aux,LET_THM,is_subgraph_edges_def]>>
+  ntac 4 strip_tac>>
+  Cases_on`h`>>
+  fs[full_coalesce_aux]>>
+  IF_CASES_TAC>- 
+    (fs[]>>metis_tac[])>>
+  fs[LET_THM]>>
+  qpat_abbrev_tac `G'=list_g_insert q A G`>>
+  first_x_assum(qspecl_then[`G'`,`col`] mp_tac)>>
+  rfs[]>>
+  rw[Abbr`G'`]>>
+  qpat_abbrev_tac`lss = MAP FST (toAList A)`>>
+  Q.ISPECL_THEN [`q`,`lss`,`G`,`col`] mp_tac (GEN_ALL list_g_insert_lemma)>>
+  rfs[]>>
+  discharge_hyps_keep>-
+    (rfs[FORALL_PROD,Abbr`lss`,undir_graph_def,lookup_g_def]>>
+    `r ∈ domain G` by fs[]>>
+      CCONTR_TAC>>fs[MEM_MAP,MEM_toAList,domain_lookup]>>
+      rfs[]>>
+      ntac 2 (last_x_assum(qspec_then`r` assume_tac))>>
+      rfs[]>>
+      first_x_assum(qspec_then`q` mp_tac)>>
+      Cases_on`y`>>fs[MEM_toAList]>>
+      Cases_on`lookup q' G`>>fs[])>>
+  fs[LET_THM,UNCURRY]>>strip_tac>>
+  qpat_assum `A ⇒ B` mp_tac>>
+  discharge_hyps>-
+    (`q ∈ domain G` by fs[FORALL_PROD]>>
+    fs[EXTENSION,list_g_insert_domain])>>
+  metis_tac[is_subgraph_edges_trans])
+
+val full_coalesce_lemma = prove(``
+  undir_graph G ∧ 
+  partial_coloring_satisfactory col G ∧
+  (∀x. MEM x ls ⇒ x ∉ domain col ∧ x ∈ domain G) ∧ 
+  full_coalesce G moves ls = (G',spills,coalesce_map)
+  ⇒ 
+  is_subgraph_edges G G' ∧ 
+  undir_graph G' ∧ 
+  partial_coloring_satisfactory col G'``,
+  fs[full_coalesce_def,LET_THM]>>
+  qpat_abbrev_tac `lss = FILTER f moves`>>
+  Cases_on`full_coalesce_aux G lss`>>
+  strip_tac>>fs[]>>
+  imp_res_tac full_coalesce_aux_extends>>
+  ntac 2 (pop_assum kall_tac)>>
+  pop_assum (qspec_then `lss` mp_tac)>>discharge_hyps>>
+  fs[FORALL_PROD,MEM_FILTER,Abbr`lss`,LET_THM])
+
 val reg_alloc_satisfactory = store_thm ("reg_alloc_satisfactory",``
   ∀G k moves.
   undir_graph G ⇒  
@@ -1480,9 +1667,16 @@ val reg_alloc_satisfactory = store_thm ("reg_alloc_satisfactory",``
   `satisfactory_pref aux_pref` by fs[aux_pref_satisfactory]>>
   imp_res_tac alloc_coloring_success>>
   pop_assum(qspecl_then [`s'.stack`,`k`] assume_tac)>>rfs[LET_THM]>>
-  (*need some lemma about full_coalesce*)
+  `∀x. MEM x ls ⇒ x ∈ domain G` by 
+    (Q.ISPECL_THEN [`aux_pref`,`s'.stack`,`k`,`G`] assume_tac
+      (GEN_ALL alloc_coloring_success_2)>>
+    rfs[LET_THM])>>
   `is_subgraph_edges G G' ∧ undir_graph G' ∧ 
-   partial_coloring_satisfactory col G'` by cheat
+   partial_coloring_satisfactory col G'` by 
+     (match_mp_tac full_coalesce_lemma>>
+     rw[]>>
+     fs[INTER_DEF,EXTENSION]>>
+     metis_tac[])
   >-
     (fs[is_subgraph_edges_def]>>
     `domain col ⊆ domain col''` by
@@ -1536,9 +1730,18 @@ val reg_alloc_conventional = store_thm("reg_alloc_conventional" ,
   pop_assum(qspec_then `aux_pref` mp_tac)>>discharge_hyps>>
   fs[aux_pref_satisfactory]>>strip_tac>>
   pop_assum(qspecl_then[`s'.stack`,`k`] assume_tac)>>rfs[LET_THM]>>
-  (*need some lemma about full_coalesce*)
   `is_subgraph_edges G G' ∧ undir_graph G' ∧ 
-   partial_coloring_satisfactory col G'` by cheat>>
+   partial_coloring_satisfactory col G'` by 
+     (`∀x. MEM x ls ⇒ x ∈ domain G` by 
+       (Q.ISPECL_THEN [`aux_pref`,`s'.stack`,`k`,`G`] assume_tac
+         (GEN_ALL alloc_coloring_success_2)>>
+       rfs[LET_THM])>>
+     match_mp_tac full_coalesce_lemma>>
+     rw[]>>
+     fs[INTER_DEF,EXTENSION]>>
+     metis_tac[])>>
+  `x ∈ domain G'` by 
+    fs[is_subgraph_edges_def,SUBSET_DEF]>>
   IF_CASES_TAC>-
     (first_x_assum(qspec_then`x`assume_tac)>>rfs[]>>
     metis_tac[spill_coloring_never_overwrites,optionTheory.option_CLAUSES])
@@ -1574,5 +1777,4 @@ val reg_alloc_conventional = store_thm("reg_alloc_conventional" ,
       metis_tac[spill_coloring_domain_3,optionTheory.option_CLAUSES])
       
 val _ = export_theory()
-
 
