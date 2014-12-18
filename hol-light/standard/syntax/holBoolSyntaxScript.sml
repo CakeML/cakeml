@@ -46,11 +46,6 @@ val mk_bool_ctxt_def = Define`
 
 (* bool is a good extension *)
 
-val tyvar_inst_exists = prove(
-  ``∃i. ty = REV_ASSOCD (Tyvar a) i b``,
-  qexists_tac`[(ty,Tyvar a)]` >>
-  rw[REV_ASSOCD])
-
 val term_ok_clauses = store_thm("term_ok_clauses",
   ``is_std_sig sig ⇒
     (term_ok sig (Var s ty) ⇔ type_ok (tysof sig) ty) ∧
