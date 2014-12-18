@@ -1512,12 +1512,6 @@ val is_Label_prim1_to_bc = store_thm("is_Label_prim1_to_bc",
   Cases >> rw[])
 val _ = export_rewrites["is_Label_prim1_to_bc"]
 
-val contains_primitives_def = Define`
-  contains_primitives code ⇔
-  ∃bc0 bc1.
-    code = bc0 ++ VfromListCode ++ ImplodeCode ++ ExplodeCode ++ bc1 ∧
-    ALL_DISTINCT (FILTER is_Label code)`
-
 fun next_addr_tac [QUOTE s] =
     match_mp_tac bc_fetch_next_addr >> simp[Abbr`bs1`] >>
     qexists_tac`bc0 ++ (DROP 2 (TAKE ^(Parse.Term [QUOTE (s^":num")]) VfromListCode))` >>

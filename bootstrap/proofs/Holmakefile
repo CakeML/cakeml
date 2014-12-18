@@ -1,4 +1,4 @@
-INCLUDES = .. ../repl ../repl/proofs ../compiler ../compiler/proofs ../translator ../translator/repl ../bytecode
+INCLUDES = ../.. ../evaluation ../../repl/proofs
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
@@ -10,10 +10,10 @@ TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 
-BARE_THYS = ../repl/proofs/repl_funProofTheory ../translator/repl/ml_repl_moduleTheory
+BARE_THYS = ../evaluation/removeLabelsReplTheory ../../repl/proofs/repl_funProofTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -b ../repl/proofs/heap -o $(HOLHEAP) $(BARE_THYS)
+	$(protect $(HOLDIR)/bin/buildheap) -b ../evaluation/heap -o $(HOLHEAP) $(BARE_THYS)
 endif

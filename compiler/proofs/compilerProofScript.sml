@@ -47,36 +47,6 @@ val evaluate_prompt_i1_success_globals = store_thm("evaluate_prompt_i1_success_g
     EVERY IS_SOME new_genv``,
   rw[evaluate_prompt_i1_cases] >> rw[EVERY_MAP])
 
-val local_labels_def = Define`
-  local_labels code = FILTER (λi. ¬ EXISTS (combin$C inst_uses_label i) [VfromListLab;ImplodeLab;ExplodeLab]) code`
-
-val local_labels_cons = store_thm("local_labels_cons",
-  ``∀l ls. local_labels (l::ls) =
-           if inst_uses_label VfromListLab l ∨
-              inst_uses_label ImplodeLab l ∨
-              inst_uses_label ExplodeLab l
-           then local_labels ls
-           else l::(local_labels ls)``,
-  rw[local_labels_def] >> fs[])
-
-val local_labels_append = store_thm("local_labels_append[simp]",
-  ``∀l1 l2. local_labels (l1 ++ l2) = local_labels l1 ++ local_labels l2``,
-  rw[local_labels_def,FILTER_APPEND])
-
-val local_labels_reverse = store_thm("local_labels_reverse[simp]",
-  ``∀l1. local_labels (REVERSE l1) = REVERSE (local_labels l1)``,
-  rw[local_labels_def,FILTER_REVERSE])
-
-val FILTER_is_Label_local_labels = store_thm("FILTER_is_Label_local_labels[simp]",
-  ``∀code. FILTER is_Label (local_labels code) = FILTER is_Label code``,
-  rw[local_labels_def,FILTER_FILTER] >>
-  rw[FILTER_EQ,is_Label_rwt,EQ_IMP_THM] >>
-  rw[])
-
-val MEM_Label_local_labels = store_thm("MEM_Label_local_labels[simp]",
-  ``∀l c. MEM (Label l) (local_labels c) ⇔ MEM (Label l) c``,
-  rw[local_labels_def,MEM_FILTER])
-
 val code_env_cd_append = store_thm("code_env_cd_append",
   ``∀code cd code'. code_env_cd code cd ∧ ALL_DISTINCT (FILTER is_Label (code ++ code')) ⇒ code_env_cd (code ++ code') cd``,
   rw[] >> PairCases_on`cd` >>

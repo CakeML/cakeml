@@ -4,7 +4,7 @@ open replTheory printTheory evalPropsTheory free_varsTheory
 open inferTheory inferPropsTheory inferSoundTheory
 open lexer_implTheory cmlParseTheory pegSoundTheory pegCompleteTheory
 open bytecodeTheory bytecodeExtraTheory bytecodeClockTheory bytecodeEvalTheory compilerProofTheory
-open initCompEnvTheory repl_funTheory
+open compilerTerminationTheory initCompEnvTheory repl_funTheory
 
 val _ = new_theory "repl_funProof";
 
@@ -21,48 +21,6 @@ val bc_eval_NONE_NRC = store_thm("bc_eval_NONE_NRC",
   spose_not_then strip_assume_tac >>
   `bc_next^* bs bs'` by metis_tac[RTC_eq_NRC] >>
   imp_res_tac RTC_bc_next_bc_eval >> fs[] )
-
-val code_labels_ok_append_local = store_thm("code_labels_ok_append_local",
-  ``∀l1 l2. code_labels_ok l1 ∧ code_labels_ok (local_labels l2) ∧
-            contains_primitives l1 ⇒
-            code_labels_ok (l1 ++ l2)``,
-  rw[bytecodeLabelsTheory.code_labels_ok_def,
-     bytecodeLabelsTheory.uses_label_thm] >-
-  metis_tac[] >>
-  fs[local_labels_def,EXISTS_MEM,MEM_FILTER,PULL_EXISTS] >>
-  Cases_on`l = VfromListLab` >- (
-    fs[bytecodeProofTheory.contains_primitives_def,toBytecodeTheory.VfromListCode_def] ) >>
-  Cases_on`l = ImplodeLab` >- (
-    fs[bytecodeProofTheory.contains_primitives_def,toBytecodeTheory.ImplodeCode_def] ) >>
-  Cases_on`l = ExplodeLab` >- (
-    fs[bytecodeProofTheory.contains_primitives_def,toBytecodeTheory.ExplodeCode_def] ) >>
-  `¬inst_uses_label VfromListLab e` by (
-    Cases_on`e`>>fs[]>>
-    Cases_on`l'`>>fs[]) >>
-  `¬inst_uses_label ImplodeLab e` by (
-    Cases_on`e`>>fs[]>>
-    Cases_on`l'`>>fs[]) >>
-  `¬inst_uses_label ExplodeLab e` by (
-    Cases_on`e`>>fs[]>>
-    Cases_on`l'`>>fs[]) >>
-  metis_tac[])
-
-val code_labels_ok_microcode = store_thm("code_labels_ok_microcode",
-  ``code_labels_ok (VfromListCode++ImplodeCode++ExplodeCode)``,
-  match_mp_tac bytecodeLabelsTheory.code_labels_ok_append >>
-  reverse conj_tac >- (
-    simp[bytecodeLabelsTheory.code_labels_ok_def,
-         bytecodeLabelsTheory.uses_label_thm] >>
-    simp[toBytecodeTheory.ExplodeCode_def]) >>
-  match_mp_tac bytecodeLabelsTheory.code_labels_ok_append >>
-  reverse conj_tac >- (
-    simp[bytecodeLabelsTheory.code_labels_ok_def,
-         bytecodeLabelsTheory.uses_label_thm] >>
-    simp[toBytecodeTheory.ImplodeCode_def]) >>
-  simp[bytecodeLabelsTheory.code_labels_ok_def,
-       bytecodeLabelsTheory.uses_label_thm] >>
-  simp[toBytecodeTheory.VfromListCode_def])
-
 (* -- *)
 
 (* TODO: move? *)

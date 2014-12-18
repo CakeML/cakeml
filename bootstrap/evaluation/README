@@ -1,0 +1,9 @@
+compileReplScript.sml
+  Evaluate the compiler on the REPL module.
+  Takes around 30 minutes to complete.
+  (also evaluates the compiler on the bit of code required to call repl_step)
+
+removeLabelsReplScript.sml
+  proofs by evaluation about the labels appearing in the generated code for the
+  REPL module, and definition (and evaluation) of the code with labels removed
+  (replaced by concrete addresses).

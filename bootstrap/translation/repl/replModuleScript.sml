@@ -1,10 +1,10 @@
 open preamble miscLib;
-open inferTheory inferSoundTheory inferPropsTheory unifyTheory ml_compilerTheory ml_repl_stepTheory;
-open ml_translatorTheory sideTheory;
+open inferTheory inferSoundTheory inferPropsTheory unifyTheory compilerMLTheory replMLTheory;
+open ml_translatorTheory replSideTheory;
 
-val _ = new_theory "ml_repl_module";
+val _ = new_theory "replModule";
 
-val _ = ml_translatorLib.translation_extends "ml_repl_step";
+val _ = ml_translatorLib.translation_extends "replML";
 val _ = ml_translatorLib.update_precondition basis_repl_step_side_thm;
 
 fun add_Ref_NONE_decl name = let
@@ -1073,7 +1073,7 @@ val INPUT_TYPE_closed = store_thm("INPUT_TYPE_closed",
     simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] )
   >> METIS_TAC[REPL_FUN_REPL_FUN_STATE_TYPE_closed])
 
-val _ = Theory.delete_binding "side_translator_state_thm";
+val _ = Theory.delete_binding "replSide_translator_state_thm";
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
 

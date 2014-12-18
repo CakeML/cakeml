@@ -1,19 +1,10 @@
-evaluate_repl_decsScript.sml
-   Prove properties about evaluation (in the operational semantics) of the REPL
-   module, and of making a call to call_repl_step.
-   Also, define the calls to the compiler that are to be evaluated.
+Proof-grounded bootstrapping of the CakeML compiler and REPL.
 
-compile_repl_decsScript.sml
-  Evaluate the compiler on the REPL module.
-  Takes around 30 minutes to complete.
-  Also, a few other bits of evaluation:
-    - the compiler on the bit of code required to call repl_step,
-    - prove that the above has no labels, and
-    - the free variables of the REPL module.
+translation/
+  Proof-producing translation of the compiler and REPL from HOL functions to CakeML.
 
-bootstrap_lemmasScript.sml
-  Define the invariant on the bytecode state that includes the bootstrapped
-  compiler. Prove that this invariant holds after jumping to the code to call
-  repl_step with a new value in the input reference. Also prove that the code
-  will run and leave the value of repl_step applied to the input in the
-  output reference and the invariant will hold again.
+evaluation/
+  Evaluation in the logic of the compiler on the translation of the compiler.
+
+proofs/
+  Theorems about the results of bootstrapping.

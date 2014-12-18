@@ -33,7 +33,7 @@ val code_labels_ok_local_to_all = store_thm("code_labels_ok_local_to_all",
           MEM (Label ImplodeLab) code ∧
           MEM (Label ExplodeLab) code
     ⇒ code_labels_ok code``,
-  rw[compilerProofTheory.local_labels_def,code_labels_ok_def,
+  rw[compilerTerminationTheory.local_labels_def,code_labels_ok_def,
      uses_label_thm,EXISTS_MEM,PULL_EXISTS,MEM_FILTER] >>
   Cases_on`inst_uses_label VfromListLab e` >- (
     Cases_on`e` >> fs[inst_uses_label_def] >>
@@ -578,7 +578,7 @@ val add_stop_invariant = Q.store_thm ("add_stop_invariant",
      fs [compilerProofTheory.env_rs_def, good_labels_def])
  >- (match_mp_tac code_labels_ok_append >>
      rw [] >>
-     rw [code_labels_ok_def, compilerProofTheory.local_labels_def, uses_label_def])
+     rw [code_labels_ok_def, compilerTerminationTheory.local_labels_def, uses_label_def])
  >- (fs [init_code_executes_ok_def, code_executes_ok'_def] >>
      metis_tac [RTC_REFL]));
 

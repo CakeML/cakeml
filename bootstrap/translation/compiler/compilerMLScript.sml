@@ -1,7 +1,7 @@
 open HolKernel boolLib bossLib lcsymtacs listTheory pred_setTheory compilerTheory
 open HolKernel terminationTheory compilerTerminationTheory ml_translatorLib
 
-val _ = new_theory"ml_compiler"
+val _ = new_theory"compilerML"
 
 (* translator setup *)
 

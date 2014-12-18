@@ -1,8 +1,8 @@
 open preamble;
-open inferTheory inferSoundTheory inferPropsTheory unifyTheory ml_compilerTheory ml_repl_stepTheory;
+open inferTheory inferSoundTheory inferPropsTheory unifyTheory compilerMLTheory replMLTheory;
 open ml_translatorTheory;
 
-val _ = new_theory "side";
+val _ = new_theory "replSide";
 
 val add_constraints_side_thm = Q.prove (
 `!ts1 ts2 st. t_wfs st.subst ⇒ add_constraints_side ts1 ts2 st`,

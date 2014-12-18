@@ -518,4 +518,83 @@ val exps_to_Cexps_MAP = store_thm("exps_to_Cexps_MAP",
   Induct >> simp[])
 val _ = export_rewrites["exps_to_Cexps_MAP"]
 
+(* some simple code_labels-related proofs that don't depend on all the compiler proofs *)
+
+val contains_primitives_def = Define`
+  contains_primitives code ⇔
+  ∃bc0 bc1.
+    code = bc0 ++ VfromListCode ++ ImplodeCode ++ ExplodeCode ++ bc1 ∧
+    ALL_DISTINCT (FILTER is_Label code)`
+
+val local_labels_def = Define`
+  local_labels code = FILTER (λi. ¬ EXISTS (combin$C inst_uses_label i) [VfromListLab;ImplodeLab;ExplodeLab]) code`
+
+val local_labels_cons = store_thm("local_labels_cons",
+  ``∀l ls. local_labels (l::ls) =
+           if inst_uses_label VfromListLab l ∨
+              inst_uses_label ImplodeLab l ∨
+              inst_uses_label ExplodeLab l
+           then local_labels ls
+           else l::(local_labels ls)``,
+  rw[local_labels_def] >> fs[])
+
+val local_labels_append = store_thm("local_labels_append[simp]",
+  ``∀l1 l2. local_labels (l1 ++ l2) = local_labels l1 ++ local_labels l2``,
+  rw[local_labels_def,rich_listTheory.FILTER_APPEND])
+
+val local_labels_reverse = store_thm("local_labels_reverse[simp]",
+  ``∀l1. local_labels (REVERSE l1) = REVERSE (local_labels l1)``,
+  rw[local_labels_def,FILTER_REVERSE])
+
+val FILTER_is_Label_local_labels = store_thm("FILTER_is_Label_local_labels[simp]",
+  ``∀code. FILTER is_Label (local_labels code) = FILTER is_Label code``,
+  rw[local_labels_def,rich_listTheory.FILTER_FILTER] >>
+  rw[rich_listTheory.FILTER_EQ,bytecodeExtraTheory.is_Label_rwt,EQ_IMP_THM] >>
+  rw[])
+
+val MEM_Label_local_labels = store_thm("MEM_Label_local_labels[simp]",
+  ``∀l c. MEM (Label l) (local_labels c) ⇔ MEM (Label l) c``,
+  rw[local_labels_def,MEM_FILTER])
+
+val code_labels_ok_append_local = store_thm("code_labels_ok_append_local",
+  ``∀l1 l2. code_labels_ok l1 ∧ code_labels_ok (local_labels l2) ∧
+            contains_primitives l1 ⇒
+            code_labels_ok (l1 ++ l2)``,
+  rw[bytecodeLabelsTheory.code_labels_ok_def,
+     bytecodeLabelsTheory.uses_label_thm] >-
+  metis_tac[] >>
+  fs[local_labels_def,EXISTS_MEM,MEM_FILTER,PULL_EXISTS] >>
+  Cases_on`l = VfromListLab` >- (
+    fs[contains_primitives_def,toBytecodeTheory.VfromListCode_def] ) >>
+  Cases_on`l = ImplodeLab` >- (
+    fs[contains_primitives_def,toBytecodeTheory.ImplodeCode_def] ) >>
+  Cases_on`l = ExplodeLab` >- (
+    fs[contains_primitives_def,toBytecodeTheory.ExplodeCode_def] ) >>
+  `¬inst_uses_label VfromListLab e` by (
+    Cases_on`e`>>fs[]>>
+    Cases_on`l'`>>fs[]) >>
+  `¬inst_uses_label ImplodeLab e` by (
+    Cases_on`e`>>fs[]>>
+    Cases_on`l'`>>fs[]) >>
+  `¬inst_uses_label ExplodeLab e` by (
+    Cases_on`e`>>fs[]>>
+    Cases_on`l'`>>fs[]) >>
+  metis_tac[])
+
+val code_labels_ok_microcode = store_thm("code_labels_ok_microcode",
+  ``code_labels_ok (VfromListCode++ImplodeCode++ExplodeCode)``,
+  match_mp_tac bytecodeLabelsTheory.code_labels_ok_append >>
+  reverse conj_tac >- (
+    simp[bytecodeLabelsTheory.code_labels_ok_def,
+         bytecodeLabelsTheory.uses_label_thm] >>
+    simp[toBytecodeTheory.ExplodeCode_def]) >>
+  match_mp_tac bytecodeLabelsTheory.code_labels_ok_append >>
+  reverse conj_tac >- (
+    simp[bytecodeLabelsTheory.code_labels_ok_def,
+         bytecodeLabelsTheory.uses_label_thm] >>
+    simp[toBytecodeTheory.ImplodeCode_def]) >>
+  simp[bytecodeLabelsTheory.code_labels_ok_def,
+       bytecodeLabelsTheory.uses_label_thm] >>
+  simp[toBytecodeTheory.VfromListCode_def])
+
 val _ = export_theory()

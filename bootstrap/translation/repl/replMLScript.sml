@@ -3,13 +3,13 @@ open arithmeticTheory listTheory finite_mapTheory pred_setTheory;
 open repl_funTheory libTheory;
 open cmlParseTheory cmlPEGTheory;
 open terminationTheory compilerTerminationTheory inferTheory;
-open ml_compilerTheory ml_translatorLib ml_translatorTheory;
+open compilerMLTheory ml_translatorLib ml_translatorTheory;
 
-val _ = new_theory "ml_repl_step";
+val _ = new_theory "replML";
 
 (* translator setup *)
 
-val _ = translation_extends "ml_compiler";
+val _ = translation_extends "compilerML";
 
 val _ = register_type ``:lexer_fun$symbol``;
 
