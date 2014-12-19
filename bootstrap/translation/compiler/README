@@ -2,4 +2,5 @@ compilerMLScript.sml
   translate the CakeML compiler from HOL to CakeML
 
 compilerSideScript.sml
-  prove side conditions resulting from compiler translation
+  prove side conditions resulting from compiler translation,
+  also prove some EqualityType theorems the translator missed

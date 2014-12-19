@@ -9,7 +9,7 @@ val _ = new_theory "replML";
 
 (* translator setup *)
 
-val _ = translation_extends "compilerML";
+val _ = translation_extends "compilerSide";
 
 val _ = register_type ``:lexer_fun$symbol``;
 

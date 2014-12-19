@@ -1,4 +1,4 @@
-INCLUDES = ../../../translator ../../../compiler ../../../inference
+INCLUDES = ../../.. ../../../translator ../../../compiler ../../../inference
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
