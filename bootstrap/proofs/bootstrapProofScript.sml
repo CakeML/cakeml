@@ -88,7 +88,7 @@ val bootstrap_bc_state_exists = prove(
       bc_fetch bs = SOME (Stop T) ∧
       EVERY IS_SOME bs.globals ∧
       env_rs ^repl_all_env ^repl_store grd (FST compile_repl_module) bs``,
-  mp_tac(MATCH_MP bigClockTheory.top_add_clock (CONJUNCT1 evaluate_repl_decs)) >>
+  mp_tac(MATCH_MP bigClockTheory.top_add_clock (CONJUNCT1 evaluate_replModule)) >>
   simp[] >>
   `∃c r. Tmod_state "REPL" replModule_decls = (c,r)` by METIS_TAC[pair_CASES] >> simp[] >>
   assume_tac(``(THE prim_sem_env).sem_store`` |> SIMP_CONV (srw_ss()) [initSemEnvTheory.prim_sem_env_eq]) >> simp[] >>
