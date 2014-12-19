@@ -11,7 +11,7 @@ TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 
-BARE_THYS = ../../../translator/ml_translatorLib \
+BARE_THYS = ../compiler/compilerSideTheory \
             ../../../parsing/cmlParseTheory \
             ../../../inference/inferTheory \
             ../../../repl/repl_funTheory \

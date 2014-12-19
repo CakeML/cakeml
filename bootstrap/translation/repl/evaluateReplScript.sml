@@ -9,7 +9,7 @@ val () = Globals.max_print_depth := 20
 (* Environment produced by evaluating the repl decs *)
 
 val (repl_store,repl_res) =
-  CONJUNCT1 evaluate_repl_decs
+  CONJUNCT1 evaluate_replModule
   |> concl |> strip_comb
   |> snd |> last
   |> dest_pair
@@ -39,7 +39,7 @@ val append_3 = save_thm("append_3",
   |> prove_hyps_by(CONV_TAC(computeLib.CBV_CONV repl_decs_cs)))
 
 val iloc_repl_env_exist =
-  MATCH_MP evalPropsTheory.evaluate_Tmod_last3 (CONJUNCT1 evaluate_repl_decs)
+  MATCH_MP evalPropsTheory.evaluate_Tmod_last3 (CONJUNCT1 evaluate_replModule)
   |> SIMP_RULE (srw_ss())[]
   |> C MATCH_MP append_3
   |> REWRITE_RULE[GSYM append_3]
@@ -71,7 +71,7 @@ val tdefs_sym = prove(
   simp[rich_listTheory.EL_DROP])
 
 val sum_tags_exist = save_thm("sum_tags_exist",
-  MATCH_MP evalPropsTheory.evaluate_Tmod_tys (CONJUNCT1 evaluate_repl_decs)
+  MATCH_MP evalPropsTheory.evaluate_Tmod_tys (CONJUNCT1 evaluate_replModule)
   |> C MATCH_MP (REWRITE_RULE[el_sum]tdefs_sum) |> GEN_ALL
   |> SIMP_RULE(srw_ss()++boolSimps.DNF_ss)[GSYM AND_IMP_INTRO]
   |> CONJUNCTS
@@ -80,7 +80,7 @@ val sum_tags_exist = save_thm("sum_tags_exist",
   |> LIST_CONJ)
 
 val sym_tags_exist = save_thm("sym_tags_exist",
-  MATCH_MP evalPropsTheory.evaluate_Tmod_tys (CONJUNCT1 evaluate_repl_decs)
+  MATCH_MP evalPropsTheory.evaluate_Tmod_tys (CONJUNCT1 evaluate_replModule)
   |> C MATCH_MP (REWRITE_RULE[el_sym]tdefs_sym) |> GEN_ALL
   |> SIMP_RULE(srw_ss()++boolSimps.DNF_ss)[]
   |> CONJUNCTS
@@ -112,7 +112,7 @@ val evaluate_call_repl_step = store_thm("evaluate_call_repl_step",
   rw[evaluate_top_cases,evaluate_dec_cases,Once evaluate_cases] >>
   rw[Once evaluate_cases,semanticPrimitivesTheory.lookup_var_id_def] >>
   rw[Once evaluate_cases,astTheory.pat_bindings_def] >>
-  mp_tac(CONJUNCT2 evaluate_repl_decs) >>
+  mp_tac(CONJUNCT2 evaluate_replModule) >>
   simp[can_lookup_def] >> strip_tac >>
   strip_assume_tac repl_env_def >>
   simp[semanticPrimitivesTheory.do_app_def] >>

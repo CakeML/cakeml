@@ -1,17 +1,16 @@
 replMLScript.sml
-  - translation from HOL to CakeML of the parser and type inferencer, and,
-    using the previous translation of the compiler, of the packaged up REPL
-    function.
-
-replModuleScript.sml
-  - packages the declarations produced by the script above into a module
-    and inserts three extra declarations at the end
-  - proves some properties about the refinement invariants for the repl_step
-    closure
+  Translation from HOL to CakeML of the parser and type inferencer, and, using
+  the previous translation of the compiler, of the packaged up REPL function.
 
 replSideScript.sml
   Prove side conditions that the translator generates (mostly that the
-  inferencer only uses well-founded substitutions) for the REPL module.
+  inferencer only uses well-founded substitutions) for the REPL declarations.
+  Also proves some EqualityType lemmas that the translator failed on.
+
+replModuleScript.sml
+  Packages the declarations produced in replML into a module and inserts three
+  extra declarations at the end. Proves some properties about the refinement
+  invariants for the repl_step closure
 
 closedReplScript.sml
   Proof that the generated REPL module is closed.
