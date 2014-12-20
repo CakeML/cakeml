@@ -2,25 +2,13 @@ open HolKernel Parse boolLib bossLib; val _ = new_theory "closLang";
 
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
-open lcsymtacs;
+open lcsymtacs bvlTheory;
 
 infix \\ val op \\ = op THEN;
-
-val _ = type_abbrev("num_map",``:'a spt``);
-val _ = type_abbrev("num_set",``:unit spt``);
 
 (* ClosLang -- compilation from this lanugage removes closures, gets to BVL *)
 
 (* --- Syntax of ClosLang --- *)
-
-(* All operations that are uninteresting from a control-flow
-   and binding perspective are lumped together in bvl_op. *)
-
-val _ = Datatype `
-  clos_op = Add           (* + over the integers *)
-            (* TODO ... most operations are currently missing ... *) `
-
-(* There are only a handful of "interesting" operations. *)
 
 (* ClosLang uses De Bruijn indices so there is no need for a variable
    name in the let-expression. *)
@@ -34,9 +22,9 @@ val _ = Datatype `
            | Tick clos_exp
            | Call num (clos_exp list)
            | App clos_exp clos_exp
-           | Fn clos_exp
+           | Fn (num list) clos_exp
            (* TODO: add Letrec *)
-           | Op clos_op (clos_exp list) `
+           | Op bvl_op (clos_exp list) `
 
 (* --- Semantics of ClosLang --- *)
 
@@ -106,6 +94,15 @@ val check_clock_lemma = prove(
    convenience of subsequent proofs, the evaluation function is
    defined to evaluate a list of clos_exp expressions. *)
 
+val lookup_vars_def = Define `
+  (lookup_vars [] env = SOME []) /\
+  (lookup_vars (v::vs) env =
+     if v < LENGTH env then
+       case lookup_vars vs env of
+       | SOME xs => SOME (EL v env :: xs)
+       | NONE => NONE
+     else NONE)`
+
 val cEval_def = tDefine "cEval" `
   (cEval ([],env:clos_val list,s:clos_state) = (Result [],s)) /\
   (cEval (x::y::xs,env,s) =
@@ -142,8 +139,10 @@ val cEval_def = tDefine "cEval" `
                           | NONE => (Error,s)
                           | SOME (v,s) => (Result [v],s))
      | res => res) /\
-  (cEval ([Fn exp],env,s) =
-     (Result [Closure env exp], s)) /\
+  (cEval ([Fn vs exp],env,s) =
+     case lookup_vars vs env of
+     | NONE => (Error,s)
+     | SOME env' => (Result [Closure env' exp], s)) /\
   (cEval ([App x1 x2],env,s) =
      case cEval ([x1],env,s) of
      | (Result y1,s1) =>
