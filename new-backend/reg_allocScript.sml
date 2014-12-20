@@ -1,7 +1,7 @@
 open HolKernel Parse boolLib bossLib miscLib
 open listTheory sptreeTheory pred_setTheory pairTheory rich_listTheory alistTheory
 open BasicProvers
-open word_liveTheory word_langTheory
+open word_procTheory word_liveTheory word_langTheory
 open sortingTheory
 open monadsyntax state_transformerTheory
 
@@ -205,51 +205,6 @@ val coloring_satisfactory_coloring_ok_alt = prove(``
   fs[MEM_EL]>>pop_assum (SUBST1_TAC o SYM)>>
   simp[]>>
   metis_tac[EL_MAP])
-
-(*Create a list of preferences from input program
-  Some of these will be invalid preferences (e.g. 0<-2) 
-  TODO: Check if we should support things like Assign Var Var -- Should be just compiled to Move
-*)
-
-val get_prefs_def = Define`
-  (get_prefs (Move ls) acc = ls ++ acc) ∧ 
-  (get_prefs (Seq s1 s2) acc =
-    get_prefs s1 (get_prefs s2 acc)) ∧
-  (get_prefs (If e1 num e2 e3) acc =
-    get_prefs e1 (get_prefs e2 (get_prefs e3 acc))) ∧
-  (get_prefs (Call (SOME (v,cutset,ret_handler)) dest args h) acc =
-    case h of 
-      NONE => get_prefs ret_handler acc
-    | SOME (v,prog) => get_prefs prog (get_prefs ret_handler acc)) ∧ 
-  (get_prefs prog acc = acc)`
-
-(*Conventions of wordLang*)
-
-(*Distinguish 3 kinds of variables:
-  Evens are physical registers
-  4n+1 are allocatable registers
-  4n+3 are stack registers*)
-
-val is_stack_var_def = Define`
-  is_stack_var (n:num) = (n MOD 4 = 3)`
-val is_phy_var_def = Define`
-  is_phy_var (n:num) = (n MOD 2 = 0)`
-val is_alloc_var_def = Define`
-  is_alloc_var (n:num) = (n MOD 4 = 1)`
-
-val convention_partitions = prove(``
-  ∀n. (is_stack_var n ⇔ (¬is_phy_var n) ∧ ¬(is_alloc_var n)) ∧
-      (is_phy_var n ⇔ (¬is_stack_var n) ∧ ¬(is_alloc_var n)) ∧
-      (is_alloc_var n ⇔ (¬is_phy_var n) ∧ ¬(is_stack_var n))``,
-  rw[is_stack_var_def,is_phy_var_def,is_alloc_var_def,EQ_IMP_THM]
-  \\ `n MOD 2 = (n MOD 4) MOD 2` by
-   (ONCE_REWRITE_TAC [GSYM (EVAL ``2*2:num``)]
-    \\ fs [arithmeticTheory.MOD_MULT_MOD])
-  \\ fs []
-  \\ `n MOD 4 < 4` by fs []
-  \\ IMP_RES_TAC (DECIDE
-       ``n < 4 ==> (n = 0) \/ (n = 1) \/ (n = 2) \/ (n = 3:num)``)
-  \\ fs []);
 
 (*Final coloring conventions*)
 val coloring_conventional_def = Define`
