@@ -22,6 +22,19 @@ val SWAP_IMP = PROVE[]``(P ==> Q ==> R) ==> (Q ==> P ==> R)``
 
 fun prove_hyps_by tac th = PROVE_HYP (prove(list_mk_conj (hyp th),tac)) th
 
+(* from theorems of the form |- P x1, |- P x2, ..., produce |- EVERY P [x1,x2,...] *)
+
+fun join_EVERY P =
+  let
+    val nilth = listTheory.EVERY_DEF |> CONJUNCT1 |> ISPEC P |> EQT_ELIM
+    val consth = listTheory.EVERY_DEF |> CONJUNCT2 |> ISPEC P |> SPEC_ALL |> EQ_IMP_RULE |> snd
+                 |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+    fun f [] = nilth
+      | f (t::ts) = MATCH_MP (MATCH_MP consth t) (f ts)
+  in
+    f
+  end
+
 (* resort conjuncts so that one satisfying P appears first *)
 local
   val finish = TRY_CONV (REWR_CONV (GSYM CONJ_ASSOC))
