@@ -131,8 +131,12 @@ val lookup_vars_IMP = prove(
   \\ fs [bEval_def]
   \\ RES_TAC \\ IMP_RES_TAC LESS_LENGTH_env_rel_IMP \\ fs []);
 
+val cComp_SING = prove(
+  ``(cComp n [x] aux = (c,aux1,n1)) ==> ?d. c = [d]``,
+  cheat);
+
 val cComp_correct = prove(
-  ``!xs env s1 n res s2 t1 n2 ys aux1 aux2 env'.
+  ``!xs env s1 n aux1 t1 env' res s2 n2 ys aux2.
       (cEval (xs,env,s1) = (res,s2)) /\ res <> Error /\
       (cComp n xs aux1 = (ys,aux2,n2)) /\
       code_installed aux2 t1 /\
@@ -165,10 +169,32 @@ val cComp_correct = prove(
     \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM (K ALL_TAC)
     \\ Q.LIST_EXISTS_TAC [`aux1`,`aux3`,`c2`,`n`] \\ fs []
     \\ Q.EXISTS_TAC `x` \\ fs [])
-  THEN1 (* App *) cheat
+  THEN1 (* App *)
+   (fs [cEval_def,cComp_def]
+    \\ `?res5 s5. cEval ([x1],env,s) = (res5,s5)` by METIS_TAC [PAIR]
+    \\ `?res6 s6. cEval ([x2],env,s5) = (res6,s6)` by METIS_TAC [PAIR]
+    \\ `?c7 aux7 n7. cComp n [x1] aux1 = ([c7],aux7,n7)` by
+          METIS_TAC [PAIR,cComp_SING]
+    \\ `?c8 aux8 n8. cComp n7 [x2] aux7 = ([c8],aux8,n8)` by
+          METIS_TAC [PAIR,cComp_SING]
+    \\ fs [LET_DEF] \\ SRW_TAC [] []
+    \\ ONCE_REWRITE_TAC [bEval_def]
+    \\ SIMP_TAC std_ss [Once bEval_def]
+    \\ REVERSE (Cases_on `res5`) \\ fs []
+    \\ SRW_TAC [] []
+    \\ `code_installed aux7 t1` by cheat
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`aux1`,`t1`,`env'`]) \\ fs []
+    \\ REPEAT STRIP_TAC \\ fs []
+    \\ Cases_on `res'` \\ TRY (fs [res_rel_cases] \\ NO_TAC) \\ fs []
+    \\ `code_installed aux2 t2` by cheat
+    \\ `t2.code = t1.code` by cheat
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n7`,`aux7`,`t2`,`env'`]) \\ fs []
+    \\ REPEAT STRIP_TAC
+    \\ REVERSE (Cases_on `res6`) \\ fs []
+    \\ Cases_on `res'`
+    \\ TRY (fs [res_rel_cases] \\ SRW_TAC [] [] \\ NO_TAC) \\ fs []
+    \\ cheat (* looks promising, minor semantics tweak needed *))
   THEN1 (* Tick *) cheat
   THEN1 (* Call *) cheat);
-
-
 
 val _ = export_theory();
