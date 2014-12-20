@@ -7,6 +7,60 @@ open alistTheory
 
 val _ = new_theory "word_proc";
 
+(*TODO: Rework this file into preliminary definitions (and simple helpers) 
+  for word_lang transformations
+  
+  The transformation passes should be moved out
+  *)
+
+(*Variable conventions of wordLang*)
+
+(*Distinguish 3 kinds of variables:
+  Evens are physical registers
+  4n+1 are allocatable registers
+  4n+3 are stack registers*)
+
+val is_stack_var_def = Define`
+  is_stack_var (n:num) = (n MOD 4 = 3)`
+val is_phy_var_def = Define`
+  is_phy_var (n:num) = (n MOD 2 = 0)`
+val is_alloc_var_def = Define`
+  is_alloc_var (n:num) = (n MOD 4 = 1)`
+
+val convention_partitions = store_thm("convention_partitions",``
+  ∀n. (is_stack_var n ⇔ (¬is_phy_var n) ∧ ¬(is_alloc_var n)) ∧
+      (is_phy_var n ⇔ (¬is_stack_var n) ∧ ¬(is_alloc_var n)) ∧
+      (is_alloc_var n ⇔ (¬is_phy_var n) ∧ ¬(is_stack_var n))``,
+  rw[is_stack_var_def,is_phy_var_def,is_alloc_var_def,EQ_IMP_THM]
+  \\ `n MOD 2 = (n MOD 4) MOD 2` by
+   (ONCE_REWRITE_TAC [GSYM (EVAL ``2*2:num``)]
+    \\ fs [arithmeticTheory.MOD_MULT_MOD])
+  \\ fs []
+  \\ `n MOD 4 < 4` by fs []
+  \\ IMP_RES_TAC (DECIDE
+       ``n < 4 ==> (n = 0) \/ (n = 1) \/ (n = 2) \/ (n = 3:num)``)
+  \\ fs []);
+
+
+(*Preference edges*)
+(*Create a list of preferences from input program
+  Some of these will be invalid preferences (e.g. 0<-2) 
+  TODO: Check if we should support things like Assign Var Var -- Should be just compiled to Move when eliminating expressions
+*)
+
+val get_prefs_def = Define`
+  (get_prefs (Move ls) acc = ls ++ acc) ∧ 
+  (get_prefs (Seq s1 s2) acc =
+    get_prefs s1 (get_prefs s2 acc)) ∧
+  (get_prefs (If e1 num e2 e3) acc =
+    get_prefs e1 (get_prefs e2 (get_prefs e3 acc))) ∧
+  (get_prefs (Call (SOME (v,cutset,ret_handler)) dest args h) acc =
+    case h of 
+      NONE => get_prefs ret_handler acc
+    | SOME (v,prog) => get_prefs prog (get_prefs ret_handler acc)) ∧ 
+  (get_prefs prog acc = acc)`
+
+
 (*Coloring expressions*)
 val apply_color_exp_def = tDefine "apply_color_exp" `
   (apply_color_exp f (Var num) = Var (f num)) /\
@@ -72,6 +126,81 @@ val apply_color_def = Define `
 `
 val _ = export_rewrites ["apply_nummap_key_def","apply_color_exp_def"
                         ,"apply_color_inst_def","apply_color_def"];
+
+(*We will frequently need to express a property over every variable in the 
+  program
+  NOTE: This is defined over the current non-faulting instructions
+  specificially, the var check for insts of the form
+    Mem Load8 etc. is not properly defined
+  *)
+val every_var_exp_def = tDefine "every_var_exp" `
+  (every_var_exp P (Var num) = P num) ∧
+  (every_var_exp P (Load exp) = every_var_exp P exp) ∧ 
+  (every_var_exp P (Op wop ls) = EVERY (every_var_exp P) ls) ∧ 
+  (every_var_exp P (Shift sh exp nexp) = every_var_exp P exp) ∧  
+  (every_var_exp P expr = T)`
+(WF_REL_TAC `measure (word_exp_size ARB o SND)`
+  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_word_exp_size
+  \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
+  \\ DECIDE_TAC);
+
+val every_var_inst_def = Define`
+  (every_var_inst P (Const reg w) = P reg) ∧ 
+  (every_var_inst P (Arith (Binop bop r1 r2 ri)) = 
+    (P r1 ∧ P r2 ∧ (case ri of Reg r3 => P r3 | _ => T))) ∧ 
+  (every_var_inst P (Arith (Shift shift r1 r2 n)) = (P r1 ∧ P r2)) ∧ 
+  (every_var_inst P (Mem Load r (Addr a w)) = (P r ∧ P a)) ∧ 
+  (every_var_inst P (Mem Store r (Addr a w)) = (P r ∧ P a)) ∧ 
+  (every_var_inst P inst = T)` (*catchall*)
+
+val every_var_def = Define `
+  (every_var P Skip = T) ∧
+  (every_var P (Move ls) = (EVERY P (MAP FST ls) ∧ EVERY P (MAP SND ls))) ∧ 
+  (every_var P (Inst i) = every_var_inst P i) ∧ 
+  (every_var P (Assign num exp) = (P num ∧ every_var_exp P exp)) ∧ 
+  (every_var P (Get num store) = P num) ∧ 
+  (every_var P (Store exp num) = (P num ∧ every_var_exp P exp)) ∧ 
+  (every_var P (Call ret dest args h) =
+    ((case ret of 
+      NONE => T
+    | SOME (v,cutset,ret_handler) => 
+      (P v ∧
+      (∀x. x ∈ domain cutset ⇒ P x) ∧ 
+      every_var P ret_handler)) ∧
+    (EVERY P args) ∧
+    (case h of 
+      NONE => T
+    | SOME (v,prog) =>
+      (P v ∧ 
+      every_var P prog)))) ∧  
+  (every_var P (Seq s1 s2) = (every_var P s1 ∧ every_var P s2)) ∧ 
+  (every_var P (If e1 num e2 e3) = 
+    (every_var P e1 ∧ every_var P e2 ∧ every_var P e3)) ∧ 
+  (every_var P (Alloc num numset) =
+    (P num ∧ (∀x. x ∈ domain numset ⇒ P x))) ∧ 
+  (every_var P (Raise num) = P num) ∧ 
+  (every_var P (Return num) = P num) ∧ 
+  (every_var P Tick = T) ∧
+  (every_var P (Set n exp) = every_var_exp P exp) ∧ 
+  (every_var P p = T)`
+(*We'll use this to define (part of) the conventions*)
+
+(*Find a value that is larger than everything else
+  For SSA, we will make it 4*n+1
+  For stack locations we will make it 4*n+3
+*)
+(*val limit_var_exp_def = tDefine "limit_var_exp" `
+  (limit_var_exp (Const _) = 1) ∧ 
+  (limit_var_exp (Var n) = 2* n +1) ∧ 
+  (limit_var_exp (Lookup _) = 1) /\
+  (limit_var_exp (Load exp) = limit_var_exp exp) /\
+  (limit_var_exp (Op op exps) = FOLDL (\x y. MAX x (limit_var_exp y)) 1 exps) /\
+  (limit_var_exp (Shift sh exp nexp) = limit_var_exp exp)`
+  (WF_REL_TAC `measure (word_exp_size ARB )`
+  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_word_exp_size
+  \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
+  \\ DECIDE_TAC)
+*)
 
 (*
 EVAL ``apply_color (\x.x+1) (Seq (Call (SOME (5,LN,Skip)) (SOME 4) [3;2;1] NONE) Skip)``
@@ -1603,19 +1732,7 @@ EVAL ``call_conv_trans 999 (Call (SOME (3, list_insert [1;3;5;7;9] [();();();();
 (*
 EVAL ``FOLDL (\x y. MAX x y) 1 [1;2;3;4;5]``
 *)
-val limit_var_exp_def = tDefine "limit_var_exp" `
-  (limit_var_exp (Const _) = 1) /\
-  (limit_var_exp (Var n) = 2* n +1) /\
-  (limit_var_exp (Lookup _) = 1) /\
-  (limit_var_exp (Load exp) = limit_var_exp exp) /\
-  (limit_var_exp (Op op exps) = FOLDL (\x y. MAX x (limit_var_exp y)) 1 exps) /\
-  (limit_var_exp (Shift sh exp nexp) = limit_var_exp exp)`
-  (WF_REL_TAC `measure (word_exp_size ARB )`
-  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_word_exp_size
-  \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-  \\ DECIDE_TAC)
-
-val is_limit_exp_def = tDefine "is_limit_exp" `
+(*val is_limit_exp_def = tDefine "is_limit_exp" `
   (is_limit_exp n (Const _) = T) /\
   (is_limit_exp n (Var y) = (y < n)) /\
   (is_limit_exp n (Lookup _) = T) /\
@@ -1625,6 +1742,6 @@ val is_limit_exp_def = tDefine "is_limit_exp" `
   (WF_REL_TAC `measure (word_exp_size ARB o SND )`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_word_exp_size
   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-  \\ DECIDE_TAC)
+  \\ DECIDE_TAC)*)
 
 val _ = export_theory();

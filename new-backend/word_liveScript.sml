@@ -924,11 +924,7 @@ val setup_tac = Cases_on`word_exp st exp`>>fs[]>>
       pop_assum(qspecl_then[`f`,`cst`]mp_tac)>>unabbrev_all_tac;
 
 
-(*TODO: Find a better name, this is not exactly about liveness*)
-
-(* Magnus: How about wEval_apply_color? *)
-
-val liveness_theorem = store_thm("liveness_theorem",
+val wEval_apply_color = store_thm("wEval_apply_color",
 ``∀prog st cst f live.
   coloring_ok f prog live ∧
   word_state_eq_rel st cst ∧
