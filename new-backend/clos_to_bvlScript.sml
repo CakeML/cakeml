@@ -4,6 +4,8 @@ open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
 open lcsymtacs closLangTheory bvlTheory;
 
+(* compiler definition *)
+
 val free_let_def = Define `
   free_let n = (GENLIST (\n. Op (El (n+1)) [Var 1]) n) : bvl_exp list`;
 
@@ -45,7 +47,7 @@ val cComp_def = tDefine "cComp" `
         aux2, n2)) /\
   (cComp n [Fn vs x1] aux =
      let (c1,aux1,n1) = cComp n [x1] aux in
-     let c2 = Let (Var 0 :: free_let (LENGTH vs)) (HD c1) in
+     let c2 = Let ((Var 0:bvl_exp) :: free_let (LENGTH vs)) (HD c1) in
        ([Op (Cons closure_tag) (Op (Label n1) [] :: MAP Var vs)],
         (n1,c2) :: aux1, n1+1)) /\
   (cComp n [Handle x1 x2] aux =
@@ -58,6 +60,77 @@ val cComp_def = tDefine "cComp" `
  (WF_REL_TAC `measure (clos_exp1_size o FST o SND)`
   \\ REPEAT STRIP_TAC \\ DECIDE_TAC);
 
+(* correctness proof *)
 
+val (val_rel_rules,val_rel_ind,val_rel_cases) = Hol_reln `
+  (val_rel code (Number i) (Number i)) /\
+  (EVERY2 (val_rel code) xs (ys:bc_value list) ==>
+   val_rel code (Block t xs) (Block t ys)) /\
+  (val_rel code (RefPtr p1) (RefPtr p1)) /\ (* <-- needs changing *)
+  (EVERY2 (val_rel code) xs ys /\
+   (cComp n [x] aux = ([c],aux1,n1)) /\
+   (lookup p code = SOME (2:num,c)) ==>
+   val_rel code (Closure env x) (Block closure_tag (CodePtr p :: ys)))`
+
+val opt_val_rel_def = Define `
+  (opt_val_rel code NONE NONE = T) /\
+  (opt_val_rel code (SOME x) (SOME y) = val_rel code x y) /\
+  (opt_val_rel code _ _ = F)`;
+
+val (res_rel_rules,res_rel_ind,res_rel_cases) = Hol_reln `
+  (EVERY2 (val_rel code) xs (ys:bc_value list) ==>
+   res_rel code (Result xs) (Result ys)) /\
+  (val_rel code x y ==>
+   res_rel code (Exception x) (Exception y)) /\
+  (res_rel code TimeOut TimeOut) /\
+  (res_rel code Error Error)`
+
+val env_rel_def = Define `
+  (env_rel code [] [] = T) /\
+  (env_rel code [] ys = T) /\   (* bvl env allowed to contain extra stuff *)
+  (env_rel code (x::xs) [] = F) /\
+  (env_rel code (x::xs) (y::ys) <=> val_rel code x y /\ env_rel code xs ys)`;
+
+val code_installed_def = Define `
+  code_installed aux (t:bvl_state) =
+    EVERY (\(n,exp). lookup n t.code = SOME (2:num,exp)) aux`;
+
+val state_rel_def = Define `
+  state_rel (s:clos_state) (t:bvl_state) <=>
+    (s.clock = t.clock) /\
+    (s.output = t.output) /\
+    (EVERY2 (opt_val_rel t.code) s.globals t.globals /\
+    (* TODO: refs need relating too *)
+    (!name arity c.
+      (FLOOKUP s.code name = SOME (arity,c)) ==>
+      ?n1 aux1 n2 c2 aux2.
+        (cComp n1 [c] aux1 = ([c2],aux2,n2)) /\
+        (lookup name t.code = SOME (arity,c2)) /\
+        code_installed aux2 t))`
+
+val cComp_correct = prove(
+  ``!xs env s1 n res s2 t1 n2 ys aux1 aux2 env'.
+      (cEval (xs,env,s1) = (res,s2)) /\ res <> Error /\
+      (cComp n xs aux1 = (ys,aux2,n2)) /\
+      code_installed aux2 t1 /\
+      env_rel t1.code env env' /\
+      state_rel s1 t1 ==>
+      ?res' t2.
+         (bEval (ys,env',t1) = (res',t2)) /\
+         res_rel t1.code res res' /\
+         state_rel s2 t2``,
+  recInduct cEval_ind \\ REPEAT STRIP_TAC
+  THEN1 (* NIL *) cheat
+  THEN1 (* CONS *) cheat
+  THEN1 (* Var *) cheat
+  THEN1 (* If *) cheat
+  THEN1 (* Let *) cheat
+  THEN1 (* Raise *) cheat
+  THEN1 (* Handle *) cheat
+  THEN1 (* Op *) cheat
+  THEN1 (* Fn *) cheat
+  THEN1 (* App *) cheat
+  THEN1 (* Tick *) cheat
+  THEN1 (* Call *) cheat);
 
 val _ = export_theory();
