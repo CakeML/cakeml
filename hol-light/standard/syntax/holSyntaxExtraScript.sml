@@ -185,6 +185,64 @@ val ACONV_TYPE = store_thm("ACONV_TYPE",
   ``∀s t. ACONV s t ⇒ welltyped s ∧ welltyped t ⇒ (typeof s = typeof t)``,
   rw[ACONV_def] >> imp_res_tac RACONV_TYPE >> fs[])
 
+(* term ordering *)
+
+val type_cmp_refl = store_thm("type_cmp_refl[simp]",
+  ``type_cmp t t = EQUAL``,
+  rw[type_cmp_def,lt_to_cmp_def])
+
+val term_cmp_refl = store_thm("term_cmp_refl[simp]",
+  ``term_cmp t t = EQUAL``,
+  rw[term_cmp_def,lt_to_cmp_def])
+
+val ALPHAVARS_ordav = prove(
+  ``∀env tp. ALPHAVARS env tp ⇒ ordav env (FST tp) (SND tp) = EQUAL``,
+  Induct >> rw[ALPHAVARS_def,ordav_def] >>
+  Cases_on`h`>>rw[ordav_def] >> fs[] >>
+  rfs[term_cmp_def,lt_to_cmp_def] >>
+  ntac 2 (pop_assum mp_tac) >> rw[])
+
+val ordav_ALPHAVARS = prove(
+  ``∀env t1 t2. ordav env t1 t2 = EQUAL ⇒ ALPHAVARS env (t1,t2)``,
+  ho_match_mp_tac ordav_ind >>
+  rw[ALPHAVARS_def,ordav_def] >>
+  fs[term_cmp_def,lt_to_cmp_def] >>
+  rpt(pop_assum mp_tac) >> rw[])
+
+val ALPHAVARS_eq_ordav = store_thm("ALPHAVARS_eq_ordav",
+  ``∀env t1 t2. ALPHAVARS env (t1,t2) ⇔ ordav env t1 t2 = EQUAL``,
+  metis_tac[ALPHAVARS_ordav,ordav_ALPHAVARS,pair_CASES,FST,SND])
+
+val RACONV_orda = prove(
+  ``∀env tp. RACONV env tp ⇒ orda env (FST tp) (SND tp) = EQUAL``,
+  ho_match_mp_tac RACONV_ind >> rw[ALPHAVARS_eq_ordav]
+  >- rw[orda_def] >- rw[orda_def] >- rw[Once orda_def] >>
+  rw[Once orda_def])
+
+val orda_RACONV = prove(
+  ``∀env t1 t2. orda env t1 t2 = EQUAL ⇒ RACONV env (t1,t2)``,
+  ho_match_mp_tac orda_ind >> rw[] >>
+  reverse(Cases_on`t1 ≠ t2 ∨ env ≠ []`) >- (
+    fs[RACONV_REFL] ) >>
+  qmatch_assum_abbrev_tac`p` >> fs[] >>
+  rator_x_assum`orda`mp_tac >>
+  simp[Once orda_def] >>
+  rw[] >- fs[markerTheory.Abbrev_def] >>
+  pop_assum mp_tac >>
+  BasicProvers.CASE_TAC >>
+  BasicProvers.CASE_TAC >>
+  rw[RACONV,ALPHAVARS_eq_ordav] >>
+  TRY (
+    rator_x_assum`term_cmp`mp_tac >>
+    rw[term_cmp_def,lt_to_cmp_def] >>
+    NO_TAC) >> fs[] >>
+  rator_x_assum`type_cmp`mp_tac >>
+  rw[type_cmp_def,lt_to_cmp_def])
+
+val RACONV_eq_orda = store_thm("RACONV_eq_orda",
+  ``∀env t1 t2. RACONV env (t1,t2) ⇔ orda env t1 t2 = EQUAL``,
+  metis_tac[RACONV_orda,orda_RACONV,pair_CASES,FST,SND])
+
 (* VFREE_IN lemmas *)
 
 val VFREE_IN_RACONV = store_thm("VFREE_IN_RACONV",

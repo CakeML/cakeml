@@ -87,6 +87,167 @@ val TERM_UNION_def = Define`
     let subun = TERM_UNION t l2 in
     if EXISTS (ACONV h) subun then subun else h::subun`
 
+(* Term ordering, respecting alpha-equivalence *)
+(* TODO: use this in the inference system instead of
+   ALPHAVARS, ACONV, TERM_UNION, etc., which don't
+   lead to canonical hypothesis sets-as-lists *)
+
+(* TODO: move, see HOL issue #219 *)
+local open pairTheory relationTheory in
+val LEX_CONG = store_thm("LEX_CONG",
+  ``(R1 x1 x2 <=> R1' x1' x2') /\
+    (~(R1 x1 x2) ==> ((x1 = x2) <=> (x1' = x2'))) /\
+    (~(R1 x1 x2) ==> (R2 y1 y2 <=> R2' y1' y2'))
+    ==> ((R1 LEX R2) (x1,y1) (x2,y2) <=> (R1' LEX R2') (x1',y1') (x2',y2'))``,
+  SRW_TAC[][LEX_DEF_THM] THEN METIS_TAC[])
+val () = DefnBase.export_cong"LEX_CONG"
+val LEX_MONO = store_thm("LEX_MONO",
+  ``(!x y. R1 x y ==> R2 x y) /\
+    (!x y. R3 x y ==> R4 x y)
+    ==>
+    (R1 LEX R3) x y ==> (R2 LEX R4) x y``,
+  STRIP_TAC THEN
+  Cases_on`x` THEN Cases_on`y` THEN
+  SRW_TAC[][LEX_DEF_THM] THEN
+  PROVE_TAC[])
+val () = IndDefLib.export_mono"LEX_MONO"
+end
+(* -- *)
+
+val (type_lt_rules,type_lt_ind,type_lt_cases) = Hol_reln`
+  (mlstring_lt x1 x2 ⇒ type_lt (Tyvar x1) (Tyvar x2)) ∧
+  (type_lt (Tyvar x1) (Tyapp x2 args2)) ∧
+  ((mlstring_lt LEX LIST_REL type_lt) (x1,args1) (x2,args2) ⇒
+     type_lt (Tyapp x1 args1) (Tyapp x2 args2))`
+
+val type_lt_thm = prove(
+  ``(type_lt (Tyvar x1) (Tyvar x2) ⇔ mlstring_lt x1 x2) ∧
+    (type_lt (Tyvar _) (Tyapp _ _) ⇔ T) ∧
+    (type_lt (Tyapp _ _) (Tyvar _) ⇔ F) ∧
+    (type_lt (Tyapp x1 args1) (Tyapp x2 args2) ⇔
+       (mlstring_lt LEX LIST_REL type_lt)
+         (x1,args1) (x2,args2))``,
+  rw[] >> rw[Once type_lt_cases])
+  |> CONJUNCTS |> map GEN_ALL |> LIST_CONJ
+  |> curry save_thm "type_lt_thm"
+
+val (term_lt_rules,term_lt_ind,term_lt_cases) = Hol_reln`
+  ((mlstring_lt LEX type_lt) (x1,ty1) (x2,ty2) ⇒
+    term_lt (Var x1 ty1) (Var x2 ty2)) ∧
+  (term_lt (Var x1 ty1) (Const x2 ty2)) ∧
+  (term_lt (Var x1 ty1) (Comb t1 t2)) ∧
+  (term_lt (Var x1 ty1) (Abs t1 t2)) ∧
+  ((mlstring_lt LEX type_lt) (x1,ty1) (x2,ty2) ⇒
+    term_lt (Const x1 ty1) (Const x2 ty2)) ∧
+  (term_lt (Const x1 ty1) (Comb t1 t2)) ∧
+  (term_lt (Const x1 ty1) (Abs t1 t2)) ∧
+  ((term_lt LEX term_lt) (s1,s2) (t1,t2) ⇒
+   term_lt (Comb s1 s2) (Comb t1 t2)) ∧
+  (term_lt (Comb s1 s2) (Abs t1 t2)) ∧
+  ((term_lt LEX term_lt) (s1,s2) (t1,t2) ⇒
+   term_lt (Abs s1 s2) (Abs t1 t2))`
+
+val term_lt_thm = prove(``
+  (term_lt (Var x1 ty1) (Var x2 ty2) ⇔
+     (mlstring_lt LEX type_lt) (x1,ty1) (x2,ty2)) ∧
+  (term_lt (Var _ _) (Const _ _) ⇔ T) ∧
+  (term_lt (Var _ _) (Comb _ _) ⇔ T) ∧
+  (term_lt (Var _ _) (Abs _ _) ⇔ T) ∧
+  (term_lt (Const _ _) (Var _ _) ⇔ F) ∧
+  (term_lt (Const x1 ty1) (Const x2 ty2) ⇔
+     (mlstring_lt LEX type_lt) (x1,ty1) (x2,ty2)) ∧
+  (term_lt (Const _ _) (Comb _ _) ⇔ T) ∧
+  (term_lt (Const _ _) (Abs _ _) ⇔ T) ∧
+  (term_lt (Comb _ _) (Var _ _) ⇔ F) ∧
+  (term_lt (Comb _ _) (Const _ _) ⇔ F) ∧
+  (term_lt (Comb s1 s2) (Comb t1 t2) ⇔
+     (term_lt LEX term_lt) (s1,s2) (t1,t2)) ∧
+  (term_lt (Comb _ _) (Abs _ _) ⇔ T) ∧
+  (term_lt (Abs _ _) (Var _ _) ⇔ F) ∧
+  (term_lt (Abs _ _) (Const _ _) ⇔ F) ∧
+  (term_lt (Abs _ _) (Comb _ _) ⇔ F) ∧
+  (term_lt (Abs s1 s2) (Abs t1 t2) ⇔
+    (term_lt LEX term_lt) (s1,s2) (t1,t2))``,
+  rw[] >> rw[Once term_lt_cases])
+  |> CONJUNCTS |> map GEN_ALL |> LIST_CONJ
+  |> curry save_thm "term_lt_thm"
+
+val _ = Datatype`order = LESS | EQUAL | GREATER`
+
+val lt_to_cmp_def = Define`
+  lt_to_cmp lt x y =
+    if x = y then EQUAL else
+    if lt x y then LESS else GREATER`
+
+val term_cmp_def = Define`
+  term_cmp = lt_to_cmp term_lt`
+
+val type_cmp_def = Define`
+  type_cmp = lt_to_cmp type_lt`
+
+val ordav_def = Define`
+  (ordav [] x1 x2 ⇔ term_cmp x1 x2) ∧
+  (ordav ((t1,t2)::env) x1 x2 ⇔
+    if term_cmp x1 t1 = EQUAL then
+      if term_cmp x2 t2 = EQUAL then
+        EQUAL
+      else LESS
+    else if term_cmp x2 t2 = EQUAL then
+      GREATER
+    else ordav env x1 x2)`
+
+val orda_def = Define`
+  orda env t1 t2 =
+    if t1 = t2 ∧ env = [] then EQUAL else
+      case (t1,t2) of
+      | (Var _ _, Var _ _) => ordav env t1 t2
+      | (Const _ _, Const _ _) => term_cmp t1 t2
+      | (Comb s1 t1, Comb s2 t2) =>
+        (let c = orda env s1 s2 in
+           if c ≠ EQUAL then c else orda env t1 t2)
+      | (Abs s1 t1, Abs s2 t2) =>
+        (let c = type_cmp (typeof s1) (typeof s2) in
+           if c ≠ EQUAL then c else orda ((s1,s2)::env) t1 t2)
+      | (Var _ _, _) => LESS
+      | (_, Var _ _) => GREATER
+      | (Const _ _, _) => LESS
+      | (_, Const _ _) => GREATER
+      | (Comb _ _, _) => LESS
+      | (_, Comb _ _) => GREATER`
+
+val term_union_def = Define`
+  term_union l1 l2 =
+    if l1 = l2 then l1 else
+    case (l1,l2) of
+    | ([],l2) => l2
+    | (l1,[]) => l1
+    | (h1::t1,h2::t2) =>
+      let c = orda [] h1 h2 in
+      if c = EQUAL then h1::(term_union t1 t2)
+      else if c = LESS then h1::(term_union t1 l2)
+      else h2::(term_union (h1::t1) t2)`
+
+val term_remove_def = Define`
+  term_remove t l =
+  case l of
+  | [] => l
+  | (s::ss) =>
+    let c = orda [] t s in
+    if c = GREATER then
+      let ss' = term_remove t ss in
+      if ss' = ss then l else s::ss'
+    else if c = EQUAL then ss else l`
+
+val term_image_def = Define`
+  term_image f l =
+  case l of
+  | [] => l
+  | (h::t) =>
+    let h' = f h in
+    let t' = term_image f t in
+    if h' = h ∧ t' = t then l
+    else term_union [h'] t'`
+
 (* Whether a variables (or constant) occurs free in a term. *)
 
 val VFREE_IN_def = Define`

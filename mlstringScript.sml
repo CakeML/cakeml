@@ -35,4 +35,8 @@ val _ = Parse.overload_on("^",``λx y. strcat x y``)
 val strlen_def = Define`
   strlen s = LENGTH (explode s)`
 
+val mlstring_lt_def = Define`
+  mlstring_lt (strlit s1) (strlit s2) ⇔
+    string_lt s1 s2`
+
 val _ = export_theory()
