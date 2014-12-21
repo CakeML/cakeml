@@ -111,13 +111,24 @@ val LEX_MONO = store_thm("LEX_MONO",
   SRW_TAC[][LEX_DEF_THM] THEN
   PROVE_TAC[])
 val () = IndDefLib.export_mono"LEX_MONO"
+val LLEX_MONO = store_thm("LLEX_MONO",
+  ``(!x y. R1 x y ==> R2 x y)
+    ==>
+    LLEX R1 x y ==> LLEX R2 x y``,
+  STRIP_TAC THEN
+  Q.ID_SPEC_TAC`y` THEN
+  Induct_on`x` THEN
+  Cases_on`y` THEN
+  SRW_TAC[][LLEX_THM] THEN
+  PROVE_TAC[])
+val () = IndDefLib.export_mono"LLEX_MONO"
 end
 (* -- *)
 
 val (type_lt_rules,type_lt_ind,type_lt_cases) = Hol_reln`
   (mlstring_lt x1 x2 ⇒ type_lt (Tyvar x1) (Tyvar x2)) ∧
   (type_lt (Tyvar x1) (Tyapp x2 args2)) ∧
-  ((mlstring_lt LEX LIST_REL type_lt) (x1,args1) (x2,args2) ⇒
+  ((mlstring_lt LEX LLEX type_lt) (x1,args1) (x2,args2) ⇒
      type_lt (Tyapp x1 args1) (Tyapp x2 args2))`
 
 val type_lt_thm = prove(
@@ -125,7 +136,7 @@ val type_lt_thm = prove(
     (type_lt (Tyvar _) (Tyapp _ _) ⇔ T) ∧
     (type_lt (Tyapp _ _) (Tyvar _) ⇔ F) ∧
     (type_lt (Tyapp x1 args1) (Tyapp x2 args2) ⇔
-       (mlstring_lt LEX LIST_REL type_lt)
+       (mlstring_lt LEX LLEX type_lt)
          (x1,args1) (x2,args2))``,
   rw[] >> rw[Once type_lt_cases])
   |> CONJUNCTS |> map GEN_ALL |> LIST_CONJ

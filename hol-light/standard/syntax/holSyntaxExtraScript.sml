@@ -243,6 +243,167 @@ val RACONV_eq_orda = store_thm("RACONV_eq_orda",
   ``∀env t1 t2. RACONV env (t1,t2) ⇔ orda env t1 t2 = EQUAL``,
   metis_tac[RACONV_orda,orda_RACONV,pair_CASES,FST,SND])
 
+(* TODO: move? but too weak
+val irreflexive_LLEX = store_thm("irreflexive_LLEX",
+  ``!R. irreflexive R ==> irreflexive (LLEX R)``,
+  SIMP_TAC std_ss [irreflexive_def] THEN
+  GEN_TAC THEN STRIP_TAC THEN
+  Induct THEN SRW_TAC[][LLEX_THM])
+*)
+
+(* TODO: move *)
+val LLEX_EL_THM = store_thm("LLEX_EL_THM",
+  ``!R l1 l2. LLEX R l1 l2 <=>
+              ∃n. n <= LENGTH l1 /\ n < LENGTH l2 /\
+                  TAKE n l1 = TAKE n l2 /\
+                  (n < LENGTH l1 ==> R (EL n l1) (EL n l2))``,
+  GEN_TAC THEN Induct THEN Cases_on`l2` THEN SRW_TAC[][] THEN
+  SRW_TAC[][EQ_IMP_THM] THEN1 (
+    Q.EXISTS_TAC`0` THEN SRW_TAC[][] )
+  THEN1 (
+    Q.EXISTS_TAC`SUC n` THEN SRW_TAC[][] ) THEN
+  Cases_on`n` THEN FULL_SIMP_TAC(srw_ss())[] THEN
+  METIS_TAC[])
+(* -- *)
+
+val irreflexive_type_lt = prove(
+  ``irreflexive type_lt``,
+  mp_tac StrongLinearOrder_mlstring_lt >>
+  simp[StrongLinearOrder,StrongOrder,irreflexive_def] >>
+  strip_tac >> ho_match_mp_tac type_ind >>
+  simp[type_lt_thm,LEX_DEF] >>
+  Induct >> simp[])
+
+val trichotomous_type_lt = prove(
+  ``trichotomous type_lt``,
+  mp_tac StrongLinearOrder_mlstring_lt >>
+  simp[StrongLinearOrder,trichotomous] >> strip_tac >>
+  ho_match_mp_tac type_ind >>
+  conj_tac >- (
+    gen_tac >> Cases >> simp[type_lt_thm] ) >>
+  gen_tac >> strip_tac >> gen_tac >> Cases >> simp[type_lt_thm,LEX_DEF_THM] >>
+  first_x_assum(qspecl_then[`m`,`m'`]strip_assume_tac) >> simp[] >>
+  fs[StrongOrder,irreflexive_def] >> rw[] >>
+  pop_assum mp_tac >>
+  qspec_tac(`l'`,`l2`) >>
+  Induct_on`l` >>
+  Cases_on`l2`>>simp[]>>
+  rw[] >> fs[] >>
+  metis_tac[])
+
+val transitive_type_lt = prove(
+  ``∀x y. type_lt x y ⇒ ∀z. type_lt y z ⇒ type_lt x z``,
+  ho_match_mp_tac type_lt_strongind >>
+  rpt conj_tac >> rpt gen_tac >> simp[PULL_FORALL] >>
+  Cases_on`z` >> simp[type_lt_thm,LEX_DEF_THM] >-
+    metis_tac[StrongLinearOrder_mlstring_lt,StrongLinearOrder,StrongOrder,transitive_def] >>
+  strip_tac >- metis_tac[StrongLinearOrder_mlstring_lt,StrongLinearOrder,StrongOrder,transitive_def] >>
+  strip_tac >- metis_tac[StrongLinearOrder_mlstring_lt,StrongLinearOrder,StrongOrder,transitive_def] >>
+  rw[] >> disj2_tac >>
+  fs[LLEX_EL_THM] >>
+  qmatch_assum_rename_tac`n2 ≤ LENGTH args2`[] >>
+  Cases_on`n < LENGTH args1`>>fsrw_tac[ARITH_ss][] >- (
+    `EL n args1 ≠ EL n args2` by metis_tac[irreflexive_type_lt,irreflexive_def] >>
+    Cases_on`n < n2` >> fsrw_tac[ARITH_ss][] >- (
+      qexists_tac`n` >> simp[] >>
+      conj_tac >- (
+        simp[LIST_EQ_REWRITE,rich_listTheory.EL_TAKE] >>
+        rfs[LIST_EQ_REWRITE,rich_listTheory.EL_TAKE] >> rw[] >>
+        first_x_assum(qspec_then`x`mp_tac) >>
+        simp[rich_listTheory.EL_TAKE] ) >>
+      `EL n args2 = EL n l` by (
+        rfs[LIST_EQ_REWRITE,rich_listTheory.EL_TAKE] >>
+        fs[rich_listTheory.EL_TAKE] >>
+        first_x_assum(qspec_then`n`mp_tac) >>
+        simp[rich_listTheory.EL_TAKE] ) >>
+      metis_tac[trichotomous_type_lt,trichotomous] ) >>
+    Cases_on`n = n2` >> fs[] >- (
+      rw[] >> rfs[] >>
+      qexists_tac`n`>>simp[] ) >>
+    qexists_tac`n2`>>simp[] >>
+    conj_tac >- (
+      simp[LIST_EQ_REWRITE,rich_listTheory.EL_TAKE] >>
+      rfs[LIST_EQ_REWRITE,rich_listTheory.EL_TAKE] >> rw[] >>
+      last_x_assum(qspec_then`x`mp_tac) >>
+      simp[rich_listTheory.EL_TAKE] ) >>
+    `EL n2 args1 = EL n2 args2` by (
+      rfs[LIST_EQ_REWRITE,rich_listTheory.EL_TAKE] >>
+      fs[rich_listTheory.EL_TAKE] >>
+      last_x_assum(qspec_then`n2`mp_tac) >>
+      simp[rich_listTheory.EL_TAKE] ) >>
+    Cases_on`n2 < LENGTH args2`>>fs[]>>
+    DECIDE_TAC ) >>
+  `n = LENGTH args1` by DECIDE_TAC >>
+  BasicProvers.VAR_EQ_TAC >> fs[] >>
+  Cases_on`n2 ≤ LENGTH args1` >> fs[] >- (
+    qexists_tac`n2` >> simp[] >>
+    conj_tac >- (
+      fs[LIST_EQ_REWRITE,rich_listTheory.EL_TAKE] >>
+      rfs[LIST_EQ_REWRITE,rich_listTheory.EL_TAKE] >> rw[] >>
+      last_x_assum(qspec_then`x`mp_tac) >>
+      simp[rich_listTheory.EL_TAKE] ) >>
+    rw[] >>
+    `n2 < LENGTH args2` by simp[] >> fs[] >>
+    `EL n2 args1 = EL n2 args2` by (
+      fs[LIST_EQ_REWRITE,rich_listTheory.EL_TAKE] >>
+      rfs[LIST_EQ_REWRITE,rich_listTheory.EL_TAKE] >> rw[] >>
+      last_x_assum(qspec_then`n2`mp_tac) >>
+      simp[rich_listTheory.EL_TAKE] ) >>
+    fs[] ) >>
+  qexists_tac`LENGTH args1` >> simp[] >>
+  fs[LIST_EQ_REWRITE,rich_listTheory.EL_TAKE] >>
+  rfs[LIST_EQ_REWRITE,rich_listTheory.EL_TAKE] >>
+  `LENGTH args1 ≤ LENGTH l` by DECIDE_TAC >> simp[] >>
+  simp[rich_listTheory.EL_TAKE])
+
+val StrongLinearOrder_type_lt = store_thm("StrongLinearOrder_type_lt",
+  ``StrongLinearOrder type_lt``,
+  simp[StrongLinearOrder,StrongOrder,irreflexive_type_lt,trichotomous_type_lt] >>
+  metis_tac[transitive_type_lt,transitive_def])
+
+val TotOrd_type_cmp = store_thm("TotOrd_type_cmp",
+  ``TotOrd type_cmp``,
+  rw[type_cmp_def] >>
+  match_mp_tac TotOrd_TO_of_Strong >>
+  ACCEPT_TAC StrongLinearOrder_type_lt)
+
+val irreflexive_term_lt = prove(
+  ``irreflexive term_lt``,
+  mp_tac StrongLinearOrder_mlstring_lt >>
+  mp_tac StrongLinearOrder_type_lt >>
+  simp[StrongLinearOrder,StrongOrder,irreflexive_def] >>
+  ntac 2 strip_tac >> ho_match_mp_tac term_induction >>
+  simp[term_lt_thm,LEX_DEF])
+
+val trichotomous_term_lt = prove(
+  ``trichotomous term_lt``,
+  mp_tac StrongLinearOrder_mlstring_lt >>
+  mp_tac StrongLinearOrder_type_lt >>
+  simp[StrongLinearOrder,trichotomous] >> ntac 2 strip_tac >>
+  ho_match_mp_tac term_induction >>
+  rpt conj_tac >> rpt gen_tac >> TRY(strip_tac) >>
+  Cases_on`b` >> simp[term_lt_thm,LEX_DEF_THM] >>
+  metis_tac[])
+
+val transitive_term_lt = prove(
+  ``∀x y. term_lt x y ⇒ ∀z. term_lt y z ⇒ term_lt x z``,
+  ho_match_mp_tac term_lt_strongind >>
+  rpt conj_tac >> rpt gen_tac >> simp[PULL_FORALL] >>
+  Cases_on`z` >> simp[term_lt_thm,LEX_DEF_THM] >>
+  metis_tac[StrongLinearOrder_mlstring_lt,StrongLinearOrder_type_lt,StrongLinearOrder,
+            StrongOrder,transitive_def])
+
+val StrongLinearOrder_term_lt = store_thm("StrongLinearOrder_term_lt",
+  ``StrongLinearOrder term_lt``,
+  simp[StrongLinearOrder,StrongOrder,irreflexive_term_lt,trichotomous_term_lt] >>
+  metis_tac[transitive_term_lt,transitive_def])
+
+val TotOrd_term_cmp = store_thm("TotOrd_term_cmp",
+  ``TotOrd term_cmp``,
+  rw[term_cmp_def] >>
+  match_mp_tac TotOrd_TO_of_Strong >>
+  ACCEPT_TAC StrongLinearOrder_term_lt)
+
 (* VFREE_IN lemmas *)
 
 val VFREE_IN_RACONV = store_thm("VFREE_IN_RACONV",
