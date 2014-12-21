@@ -404,6 +404,15 @@ val TotOrd_term_cmp = store_thm("TotOrd_term_cmp",
   match_mp_tac TotOrd_TO_of_Strong >>
   ACCEPT_TAC StrongLinearOrder_term_lt)
 
+val ordav_FILTER = store_thm("ordav_FILTER",
+  ``∀env x y. ordav env x y =
+      case FILTER (λ(x',y'). x' = x ∨ y' = y) env of
+      | [] => term_cmp x y
+      | ((x',y')::_) => if x' = x then if y' = y then EQUAL else LESS else GREATER``,
+  ho_match_mp_tac ordav_ind >> simp[ordav_def] >>
+  strip_assume_tac TotOrd_term_cmp >>
+  fs[TotOrd] >> rw[])
+
 (* VFREE_IN lemmas *)
 
 val VFREE_IN_RACONV = store_thm("VFREE_IN_RACONV",
