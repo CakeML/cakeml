@@ -324,6 +324,11 @@ val cEval_IMP_LENGTH = store_thm("cEval_IMP_LENGTH",
   ``(cEval (xs,s,env) = (Result res,s1)) ==> (LENGTH xs = LENGTH res)``,
   REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL cEval_LENGTH) \\ fs []);
 
+val cEval_SING = store_thm("cEval_SING",
+  ``(cEval ([x],s,env) = (Result r,s2)) ==> ?r1. r = [r1]``,
+  REPEAT STRIP_TAC \\ IMP_RES_TAC cEval_IMP_LENGTH
+  \\ Cases_on `r` \\ fs [] \\ Cases_on `t` \\ fs []);
+
 val cEval_CONS = store_thm("cEval_CONS",
   ``cEval (x::xs,env,s) =
       case cEval ([x],env,s) of
