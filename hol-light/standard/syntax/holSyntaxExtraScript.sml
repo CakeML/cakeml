@@ -243,6 +243,10 @@ val RACONV_eq_orda = store_thm("RACONV_eq_orda",
   ``∀env t1 t2. RACONV env (t1,t2) ⇔ orda env t1 t2 = EQUAL``,
   metis_tac[RACONV_orda,orda_RACONV,pair_CASES,FST,SND])
 
+val ACONV_eq_orda = store_thm("ACONV_eq_orda",
+  ``∀t1 t2. ACONV t1 t2 = (orda [] t1 t2 = EQUAL)``,
+  rw[ACONV_def,RACONV_eq_orda])
+
 (* TODO: move? but too weak
 val irreflexive_LLEX = store_thm("irreflexive_LLEX",
   ``!R. irreflexive R ==> irreflexive (LLEX R)``,
@@ -430,6 +434,39 @@ val VFREE_IN_ACONV = store_thm("VFREE_IN_ACONV",
   rw[ACONV_def] >> imp_res_tac VFREE_IN_RACONV >> fs[])
 
 (* TERM_UNION lemmas *)
+
+val term_union_idem = store_thm("term_union_idem[simp]",
+  ``∀ls. term_union ls ls = ls``,
+  Induct >- simp[term_union_def] >>
+  simp[Once term_union_def])
+
+val term_union_thm = store_thm("term_union_thm",
+  ``(∀l2. term_union [] l2 = l2) ∧
+    (∀l1. term_union l1 [] = l1) ∧
+    (∀h1 t1 h2 t2.
+          term_union (h1::t1) (h2::t2) =
+          case orda [] h1 h2 of
+          | EQUAL =>   h1::term_union t1 t2
+          | LESS =>    h1::term_union t1 (h2::t2)
+          | GREATER => h2::term_union (h1::t1) t2)``,
+  rw[] >- rw[term_union_def] >- (
+    rw[term_union_def] >>
+    BasicProvers.CASE_TAC ) >>
+  map_every qid_spec_tac[`h2`,`t2`,`h1`,`t1`] >>
+  `∀x. orda [] x x = EQUAL` by (
+      rw[GSYM ACONV_eq_orda] ) >>
+  Induct >>
+  simp[Once term_union_def] >> rw[] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  BasicProvers.CASE_TAC >> fs[])
+
+val MEM_term_union_imp = store_thm("MEM_term_union_imp",
+  ``∀l1 l2 x. MEM x (term_union l1 l2) ⇒ MEM x l1 ∨ MEM x l2``,
+  Induct >> simp[term_union_thm] >>
+  CONV_TAC(SWAP_FORALL_CONV) >>
+  Induct >> simp[term_union_thm] >> rpt gen_tac >>
+  BasicProvers.CASE_TAC >> rw[] >> fs[] >>
+  res_tac >> fs[])
 
 val TERM_UNION_NONEW = store_thm("TERM_UNION_NONEW",
   ``∀l1 l2 x. MEM x (TERM_UNION l1 l2) ⇒ MEM x l1 ∨ MEM x l2``,
