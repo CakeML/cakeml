@@ -6,6 +6,11 @@ val _ = new_theory "holKernelProof";
 val _ = temp_overload_on ("monad_bind", ``ex_bind``);
 val _ = temp_overload_on ("return", ``ex_return``);
 
+val _ = bring_to_front_overload"term_union"{Name="term_union",Thy="holKernel"}
+val term_union_def = holKernelTheory.term_union_def
+val _ = bring_to_front_overload"term_remove"{Name="term_remove",Thy="holKernel"}
+val term_remove_def = holKernelTheory.term_remove_def
+
 infix \\ val op \\ = op THEN;
 
 val rev_assocd_thm = prove(
