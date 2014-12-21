@@ -385,6 +385,8 @@ val theory_ok_remove_upd = Q.prove (
  imp_res_tac proves_theory_ok >>
  fs []);
 
+(* TODO: update for new sorted distnct hypothesis lists
+
 (* Not true as stated, since removing constants can make terms become equal. *)
 val remove_const_term_union = Q.prove (
 `!tms1 tms2.
@@ -608,5 +610,7 @@ val update_conservative = Q.prove (
          fs [theory_ok_def] >>
          res_tac >>
          metis_tac [remove_const_old_axiom])));
+
+*)
 
 val _ = export_theory ();
