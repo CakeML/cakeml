@@ -1,4 +1,4 @@
-open HolKernel boolLib boolSimps bossLib lcsymtacs pairTheory listTheory finite_mapTheory alistTheory relationTheory pred_setTheory sortingTheory stringTheory mlstringTheory
+open HolKernel boolLib boolSimps bossLib lcsymtacs pairTheory listTheory finite_mapTheory alistTheory relationTheory pred_setTheory sortingTheory stringTheory mlstringTheory totoTheory
 open miscLib miscTheory holSyntaxLibTheory holSyntaxTheory
 val _ = temp_tight_equality()
 val _ = new_theory"holSyntaxExtra"
@@ -189,24 +189,24 @@ val ACONV_TYPE = store_thm("ACONV_TYPE",
 
 val type_cmp_refl = store_thm("type_cmp_refl[simp]",
   ``type_cmp t t = EQUAL``,
-  rw[type_cmp_def,lt_to_cmp_def])
+  rw[type_cmp_def,TO_of_LinearOrder])
 
 val term_cmp_refl = store_thm("term_cmp_refl[simp]",
   ``term_cmp t t = EQUAL``,
-  rw[term_cmp_def,lt_to_cmp_def])
+  rw[term_cmp_def,TO_of_LinearOrder])
 
 val ALPHAVARS_ordav = prove(
   ``∀env tp. ALPHAVARS env tp ⇒ ordav env (FST tp) (SND tp) = EQUAL``,
   Induct >> rw[ALPHAVARS_def,ordav_def] >>
   Cases_on`h`>>rw[ordav_def] >> fs[] >>
-  rfs[term_cmp_def,lt_to_cmp_def] >>
+  rfs[term_cmp_def,TO_of_LinearOrder] >>
   ntac 2 (pop_assum mp_tac) >> rw[])
 
 val ordav_ALPHAVARS = prove(
   ``∀env t1 t2. ordav env t1 t2 = EQUAL ⇒ ALPHAVARS env (t1,t2)``,
   ho_match_mp_tac ordav_ind >>
   rw[ALPHAVARS_def,ordav_def] >>
-  fs[term_cmp_def,lt_to_cmp_def] >>
+  fs[term_cmp_def,TO_of_LinearOrder] >>
   rpt(pop_assum mp_tac) >> rw[])
 
 val ALPHAVARS_eq_ordav = store_thm("ALPHAVARS_eq_ordav",
@@ -234,10 +234,10 @@ val orda_RACONV = prove(
   rw[RACONV,ALPHAVARS_eq_ordav] >>
   TRY (
     rator_x_assum`term_cmp`mp_tac >>
-    rw[term_cmp_def,lt_to_cmp_def] >>
+    rw[term_cmp_def,TO_of_LinearOrder] >>
     NO_TAC) >> fs[] >>
   rator_x_assum`type_cmp`mp_tac >>
-  rw[type_cmp_def,lt_to_cmp_def])
+  rw[type_cmp_def,TO_of_LinearOrder])
 
 val RACONV_eq_orda = store_thm("RACONV_eq_orda",
   ``∀env t1 t2. RACONV env (t1,t2) ⇔ orda env t1 t2 = EQUAL``,

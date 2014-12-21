@@ -1,4 +1,4 @@
-open HolKernel boolLib boolSimps bossLib lcsymtacs pred_setTheory listTheory alistTheory holSyntaxLibTheory mlstringTheory
+open HolKernel boolLib boolSimps bossLib lcsymtacs pred_setTheory listTheory alistTheory holSyntaxLibTheory mlstringTheory totoTheory
 val _ = temp_tight_equality()
 val _ = new_theory "holSyntax"
 
@@ -172,18 +172,11 @@ val term_lt_thm = prove(``
   |> CONJUNCTS |> map GEN_ALL |> LIST_CONJ
   |> curry save_thm "term_lt_thm"
 
-val _ = Datatype`order = LESS | EQUAL | GREATER`
-
-val lt_to_cmp_def = Define`
-  lt_to_cmp lt x y =
-    if x = y then EQUAL else
-    if lt x y then LESS else GREATER`
-
 val term_cmp_def = Define`
-  term_cmp = lt_to_cmp term_lt`
+  term_cmp = TO_of_LinearOrder term_lt`
 
 val type_cmp_def = Define`
-  type_cmp = lt_to_cmp type_lt`
+  type_cmp = TO_of_LinearOrder type_lt`
 
 val ordav_def = Define`
   (ordav [] x1 x2 ⇔ term_cmp x1 x2) ∧
