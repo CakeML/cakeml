@@ -3,6 +3,31 @@ open miscLib miscTheory holSyntaxLibTheory holSyntaxTheory
 val _ = temp_tight_equality()
 val _ = new_theory"holSyntaxExtra"
 
+(* TODO: move *)
+val LLEX_EL_THM = store_thm("LLEX_EL_THM",
+  ``!R l1 l2. LLEX R l1 l2 <=>
+              ∃n. n <= LENGTH l1 /\ n < LENGTH l2 /\
+                  TAKE n l1 = TAKE n l2 /\
+                  (n < LENGTH l1 ==> R (EL n l1) (EL n l2))``,
+  GEN_TAC THEN Induct THEN Cases_on`l2` THEN SRW_TAC[][] THEN
+  SRW_TAC[][EQ_IMP_THM] THEN1 (
+    Q.EXISTS_TAC`0` THEN SRW_TAC[][] )
+  THEN1 (
+    Q.EXISTS_TAC`SUC n` THEN SRW_TAC[][] ) THEN
+  Cases_on`n` THEN FULL_SIMP_TAC(srw_ss())[] THEN
+  METIS_TAC[])
+
+val invert_def = Define`
+  invert GREATER = LESS ∧
+  invert LESS = GREATER ∧
+  invert EQUAL = EQUAL`
+val _ = export_rewrites["invert_def"]
+
+val invert_eq_EQUAL = store_thm("invert_eq_EQUAL[simp]",
+  ``∀x. invert x = EQUAL ⇔ x = EQUAL``,
+  Cases >> simp[])
+(* -- *)
+
 val type_ind = save_thm("type_ind",
   TypeBase.induction_of``:holSyntax$type``
   |> Q.SPECL[`P`,`EVERY P`]
@@ -195,81 +220,6 @@ val term_cmp_refl = store_thm("term_cmp_refl[simp]",
   ``term_cmp t t = EQUAL``,
   rw[term_cmp_def,TO_of_LinearOrder])
 
-val ALPHAVARS_ordav = prove(
-  ``∀env tp. ALPHAVARS env tp ⇒ ordav env (FST tp) (SND tp) = EQUAL``,
-  Induct >> rw[ALPHAVARS_def,ordav_def] >>
-  Cases_on`h`>>rw[ordav_def] >> fs[] >>
-  rfs[term_cmp_def,TO_of_LinearOrder] >>
-  ntac 2 (pop_assum mp_tac) >> rw[])
-
-val ordav_ALPHAVARS = prove(
-  ``∀env t1 t2. ordav env t1 t2 = EQUAL ⇒ ALPHAVARS env (t1,t2)``,
-  ho_match_mp_tac ordav_ind >>
-  rw[ALPHAVARS_def,ordav_def] >>
-  fs[term_cmp_def,TO_of_LinearOrder] >>
-  rpt(pop_assum mp_tac) >> rw[])
-
-val ALPHAVARS_eq_ordav = store_thm("ALPHAVARS_eq_ordav",
-  ``∀env t1 t2. ALPHAVARS env (t1,t2) ⇔ ordav env t1 t2 = EQUAL``,
-  metis_tac[ALPHAVARS_ordav,ordav_ALPHAVARS,pair_CASES,FST,SND])
-
-val RACONV_orda = prove(
-  ``∀env tp. RACONV env tp ⇒ orda env (FST tp) (SND tp) = EQUAL``,
-  ho_match_mp_tac RACONV_ind >> rw[ALPHAVARS_eq_ordav]
-  >- rw[orda_def] >- rw[orda_def] >- rw[Once orda_def] >>
-  rw[Once orda_def])
-
-val orda_RACONV = prove(
-  ``∀env t1 t2. orda env t1 t2 = EQUAL ⇒ RACONV env (t1,t2)``,
-  ho_match_mp_tac orda_ind >> rw[] >>
-  reverse(Cases_on`t1 ≠ t2 ∨ env ≠ []`) >- (
-    fs[RACONV_REFL] ) >>
-  qmatch_assum_abbrev_tac`p` >> fs[] >>
-  rator_x_assum`orda`mp_tac >>
-  simp[Once orda_def] >>
-  rw[] >- fs[markerTheory.Abbrev_def] >>
-  pop_assum mp_tac >>
-  BasicProvers.CASE_TAC >>
-  BasicProvers.CASE_TAC >>
-  rw[RACONV,ALPHAVARS_eq_ordav] >>
-  TRY (
-    rator_x_assum`term_cmp`mp_tac >>
-    rw[term_cmp_def,TO_of_LinearOrder] >>
-    NO_TAC) >> fs[] >>
-  rator_x_assum`type_cmp`mp_tac >>
-  rw[type_cmp_def,TO_of_LinearOrder])
-
-val RACONV_eq_orda = store_thm("RACONV_eq_orda",
-  ``∀env t1 t2. RACONV env (t1,t2) ⇔ orda env t1 t2 = EQUAL``,
-  metis_tac[RACONV_orda,orda_RACONV,pair_CASES,FST,SND])
-
-val ACONV_eq_orda = store_thm("ACONV_eq_orda",
-  ``∀t1 t2. ACONV t1 t2 = (orda [] t1 t2 = EQUAL)``,
-  rw[ACONV_def,RACONV_eq_orda])
-
-(* TODO: move? but too weak
-val irreflexive_LLEX = store_thm("irreflexive_LLEX",
-  ``!R. irreflexive R ==> irreflexive (LLEX R)``,
-  SIMP_TAC std_ss [irreflexive_def] THEN
-  GEN_TAC THEN STRIP_TAC THEN
-  Induct THEN SRW_TAC[][LLEX_THM])
-*)
-
-(* TODO: move *)
-val LLEX_EL_THM = store_thm("LLEX_EL_THM",
-  ``!R l1 l2. LLEX R l1 l2 <=>
-              ∃n. n <= LENGTH l1 /\ n < LENGTH l2 /\
-                  TAKE n l1 = TAKE n l2 /\
-                  (n < LENGTH l1 ==> R (EL n l1) (EL n l2))``,
-  GEN_TAC THEN Induct THEN Cases_on`l2` THEN SRW_TAC[][] THEN
-  SRW_TAC[][EQ_IMP_THM] THEN1 (
-    Q.EXISTS_TAC`0` THEN SRW_TAC[][] )
-  THEN1 (
-    Q.EXISTS_TAC`SUC n` THEN SRW_TAC[][] ) THEN
-  Cases_on`n` THEN FULL_SIMP_TAC(srw_ss())[] THEN
-  METIS_TAC[])
-(* -- *)
-
 val irreflexive_type_lt = prove(
   ``irreflexive type_lt``,
   mp_tac StrongLinearOrder_mlstring_lt >>
@@ -408,6 +358,60 @@ val TotOrd_term_cmp = store_thm("TotOrd_term_cmp",
   match_mp_tac TotOrd_TO_of_Strong >>
   ACCEPT_TAC StrongLinearOrder_term_lt)
 
+(* alpha ordering *)
+
+val ALPHAVARS_ordav = prove(
+  ``∀env tp. ALPHAVARS env tp ⇒ ordav env (FST tp) (SND tp) = EQUAL``,
+  Induct >> rw[ALPHAVARS_def,ordav_def] >>
+  Cases_on`h`>>rw[ordav_def] >> fs[] >>
+  rfs[term_cmp_def,TO_of_LinearOrder] >>
+  ntac 2 (pop_assum mp_tac) >> rw[])
+
+val ordav_ALPHAVARS = prove(
+  ``∀env t1 t2. ordav env t1 t2 = EQUAL ⇒ ALPHAVARS env (t1,t2)``,
+  ho_match_mp_tac ordav_ind >>
+  rw[ALPHAVARS_def,ordav_def] >>
+  fs[term_cmp_def,TO_of_LinearOrder] >>
+  rpt(pop_assum mp_tac) >> rw[])
+
+val ALPHAVARS_eq_ordav = store_thm("ALPHAVARS_eq_ordav",
+  ``∀env t1 t2. ALPHAVARS env (t1,t2) ⇔ ordav env t1 t2 = EQUAL``,
+  metis_tac[ALPHAVARS_ordav,ordav_ALPHAVARS,pair_CASES,FST,SND])
+
+val RACONV_orda = prove(
+  ``∀env tp. RACONV env tp ⇒ orda env (FST tp) (SND tp) = EQUAL``,
+  ho_match_mp_tac RACONV_ind >> rw[ALPHAVARS_eq_ordav]
+  >- rw[orda_def] >- rw[orda_def] >- rw[Once orda_def] >>
+  rw[Once orda_def])
+
+val orda_RACONV = prove(
+  ``∀env t1 t2. orda env t1 t2 = EQUAL ⇒ RACONV env (t1,t2)``,
+  ho_match_mp_tac orda_ind >> rw[] >>
+  reverse(Cases_on`t1 ≠ t2 ∨ env ≠ []`) >- (
+    fs[RACONV_REFL] ) >>
+  qmatch_assum_abbrev_tac`p` >> fs[] >>
+  rator_x_assum`orda`mp_tac >>
+  simp[Once orda_def] >>
+  rw[] >- fs[markerTheory.Abbrev_def] >>
+  pop_assum mp_tac >>
+  BasicProvers.CASE_TAC >>
+  BasicProvers.CASE_TAC >>
+  rw[RACONV,ALPHAVARS_eq_ordav] >>
+  TRY (
+    rator_x_assum`term_cmp`mp_tac >>
+    rw[term_cmp_def,TO_of_LinearOrder] >>
+    NO_TAC) >> fs[] >>
+  rator_x_assum`type_cmp`mp_tac >>
+  rw[type_cmp_def,TO_of_LinearOrder])
+
+val RACONV_eq_orda = store_thm("RACONV_eq_orda",
+  ``∀env t1 t2. RACONV env (t1,t2) ⇔ orda env t1 t2 = EQUAL``,
+  metis_tac[RACONV_orda,orda_RACONV,pair_CASES,FST,SND])
+
+val ACONV_eq_orda = store_thm("ACONV_eq_orda",
+  ``∀t1 t2. ACONV t1 t2 = (orda [] t1 t2 = EQUAL)``,
+  rw[ACONV_def,RACONV_eq_orda])
+
 val ordav_FILTER = store_thm("ordav_FILTER",
   ``∀env x y. ordav env x y =
       case FILTER (λ(x',y'). x' = x ∨ y' = y) env of
@@ -416,6 +420,170 @@ val ordav_FILTER = store_thm("ordav_FILTER",
   ho_match_mp_tac ordav_ind >> simp[ordav_def] >>
   strip_assume_tac TotOrd_term_cmp >>
   fs[TotOrd] >> rw[])
+
+val ordav_sym = store_thm("ordav_sym",
+  ``∀env v1 v2. invert (ordav env v1 v2) = ordav (MAP (λ(x,y). (y,x)) env) v2 v1``,
+  ho_match_mp_tac ordav_ind >> simp[ordav_def] >>
+  conj_tac >- metis_tac[invert_def,TotOrd_term_cmp,TotOrd,cpn_nchotomy,cpn_distinct] >>
+  rw[])
+
+val orda_sym = store_thm("orda_sym",
+  ``∀env t1 t2. invert (orda env t1 t2) = orda (MAP (λ(x,y). (y,x)) env) t2 t1``,
+  ho_match_mp_tac orda_ind >>
+  rpt gen_tac >> rpt strip_tac >>
+  ONCE_REWRITE_TAC[orda_def] >>
+  IF_CASES_TAC >- rw[] >>
+  qmatch_assum_abbrev_tac`¬p` >> fs[] >>
+  IF_CASES_TAC >- fs[Abbr`p`] >>
+  BasicProvers.CASE_TAC >>
+  BasicProvers.CASE_TAC >> simp[ordav_sym] >>
+  rw[] >> fs[] >>
+  metis_tac[invert_def,TotOrd_type_cmp,TotOrd_term_cmp,
+            TotOrd,cpn_nchotomy,cpn_distinct] )
+
+val antisymmetric_alpha_lt = store_thm("antisymmetric_alpha_lt",
+  ``antisymmetric alpha_lt``,
+  rw[antisymmetric_def,alpha_lt_def] >>
+  qspecl_then[`[]`,`x`,`y`]mp_tac orda_sym >>
+  simp[])
+
+val orda_thm = prove(
+  ``∀env t1 t2. orda env t1 t2 = ^(#3(dest_cond(rhs(concl(SPEC_ALL orda_def)))))``,
+  rpt gen_tac >>
+  CONV_TAC(LAND_CONV(REWR_CONV orda_def)) >>
+  reverse IF_CASES_TAC >- rw[] >> rw[] >>
+  BasicProvers.CASE_TAC >> rw[ordav_def] >>
+  fs[Abbr`c`,GSYM RACONV_eq_orda,RACONV_REFL])
+
+val ordav_lx_trans = prove(
+  ``∀t1 t2 t3 env1 env2.
+    ordav env1 t1 t2 ≠ GREATER ∧
+    ordav env2 t2 t3 ≠ GREATER ∧
+    MAP SND env1 = MAP FST env2
+    ⇒ ordav (ZIP (MAP FST env1, MAP SND env2)) t1 t3 ≠ GREATER ∧
+      (ordav env1 t1 t2 = LESS ∨ ordav env2 t2 t3 = LESS ⇒
+       ordav (ZIP (MAP FST env1, MAP SND env2)) t1 t3 = LESS)``,
+  mp_tac TotOrd_term_cmp >> simp[TotOrd] >> strip_tac >>
+  ntac 3 gen_tac >> Induct >> simp[ordav_def] >- (
+    metis_tac[cpn_nchotomy,cpn_distinct] ) >>
+  Cases >> simp[ordav_def] >>
+  Cases >> simp[] >>
+  Cases_on`h` >>
+  rw[ordav_def] >>
+  metis_tac[cpn_nchotomy,cpn_distinct] )
+
+val undo_zip_map_fst = prove(
+  ``p::ZIP(MAP FST l1,MAP SND l2) =
+    ZIP (MAP FST ((FST p,v2)::l1), MAP SND ((v2,SND p)::l2))``,
+  Cases_on`p`>>rw[])
+
+val orda_lx_trans = prove(
+  ``∀env1 t1 t2 env2 t3.
+    orda env1 t1 t2 ≠ GREATER ∧
+    orda env2 t2 t3 ≠ GREATER ∧
+    MAP SND env1 = MAP FST env2
+    ⇒ orda (ZIP (MAP FST env1, MAP SND env2)) t1 t3 ≠ GREATER ∧
+      (orda env1 t1 t2 = LESS ∨ orda env2 t2 t3 = LESS ⇒
+       orda (ZIP (MAP FST env1, MAP SND env2)) t1 t3 = LESS)``,
+  completeInduct_on`term_size t1 + term_size t2 + term_size t3` >>
+  rpt gen_tac >> strip_tac >>
+  BasicProvers.VAR_EQ_TAC >>
+  rpt gen_tac >> strip_tac >>
+  conj_asm2_tac >- (
+    qmatch_assum_abbrev_tac`p ⇒ q` >>
+    Cases_on`p=T` >- ( fs[Abbr`q`] ) >>
+    fs[Abbr`p`] >>
+    `orda env1 t1 t2 = EQUAL ∧
+     orda env2 t2 t3 = EQUAL` by
+    metis_tac[cpn_nchotomy,cpn_distinct] >>
+    fs[GSYM RACONV_eq_orda] >>
+    qspecl_then[`env1`,`t1,t2`]mp_tac RACONV_TRANS >>
+    simp[] >>
+    disch_then(qspecl_then[`MAP SND env2`,`t3`]mp_tac) >>
+    simp[] >>
+    discharge_hyps >- (
+      fs[LIST_EQ_REWRITE,ZIP_MAP,MAP_MAP_o,combinTheory.o_DEF] ) >>
+    simp[RACONV_eq_orda] ) >>
+  qmatch_abbrev_tac`d ⇒ X` >> strip_tac >>
+  qunabbrev_tac`X` >>
+  ONCE_REWRITE_TAC[orda_thm] >> simp[] >>
+  BasicProvers.CASE_TAC >>
+  BasicProvers.CASE_TAC >>
+  TRY ( Cases_on`t2`>>fs[Once orda_thm] >> NO_TAC)
+  >- (
+    qunabbrev_tac`d` >>
+    qpat_assum`∀x. Y`kall_tac >>
+    Cases_on`t2`>>fs[Once orda_thm] >>
+    fs[Once orda_thm] >>
+    metis_tac[ordav_lx_trans] )
+  >- (
+    qunabbrev_tac`d` >>
+    qpat_assum`∀x. Y`kall_tac >>
+    Cases_on`t2`>>fs[Once orda_thm] >>
+    fs[Once orda_thm] >>
+    mp_tac TotOrd_term_cmp >> simp[TotOrd] >> strip_tac >>
+    metis_tac[cpn_nchotomy,cpn_distinct] )
+  >- (
+    Cases_on`t2`>>TRY(fs[Once orda_thm]>>NO_TAC)>>
+    qmatch_assum_rename_tac`orda env1 (Comb t1 t2) (Comb t3 t4) ≠ GREATER`[] >>
+    qmatch_assum_rename_tac`orda env2 (Comb t3 t4) (Comb t5 t6) ≠ GREATER`[] >>
+    fs[Q.SPECL[`env`,`Comb a b`,`Comb c d`]orda_thm,LET_THM] >>
+    rpt(qpat_assum`X ≠ GREATER` mp_tac) >>
+    qpat_assum`d`mp_tac >>
+    simp[Abbr`d`] >> rw[] >> fs[] >> rw[] >>
+    fsrw_tac[DNF_ss][] >>
+    let
+      val tac =
+      first_x_assum(fn th =>
+        match_mp_tac (MP_CANON th) >>
+        simp[term_size_def] >>
+        FIRST (map (fn q =>
+          qexists_tac q >> simp[] >>
+          (fn g as (asl,w) => (Cases_on`^(lhs w)`>>fs[]) g) >>
+          NO_TAC)
+        [`t1`,`t2`,`t3`,`t4`,`t5`,`t6`]))
+    in
+      TRY tac >>
+      TRY (
+        (qsuff_tac`F`>-rw[])>>
+        qpat_assum`orda (ZIP P) X Y = Z` mp_tac >> simp[] >>
+        (fn g as (asl,w) => (qsuff_tac`^(lhs (rand w)) = LESS`>-rw[])g)>>
+        tac ) >>
+      (qsuff_tac`F`>-rw[])>>
+      qpat_assum`orda (ZIP P) X Y ≠ Z` mp_tac >> simp[] >>
+      fs[GSYM RACONV_eq_orda] >>
+      imp_res_tac RACONV_TRANS >> fs[] >>
+      first_x_assum(match_mp_tac o MP_CANON) >>
+      simp[ZIP_MAP,MAP_MAP_o,combinTheory.o_DEF] >>
+      fs[LIST_EQ_REWRITE]
+    end) >>
+  Cases_on`t2`>>TRY(fs[Once orda_thm]>>NO_TAC)>>
+  qmatch_assum_rename_tac`orda env1 (Abs v1 t1) (Abs v2 t2) ≠ GREATER`[] >>
+  qmatch_assum_rename_tac`orda env2 (Abs v2 t2) (Abs v3 t3) ≠ GREATER`[] >>
+  fs[Q.SPECL[`env`,`Abs a b`,`Abs c d`]orda_thm,LET_THM] >>
+  mp_tac TotOrd_type_cmp >>
+  simp[TotOrd] >> strip_tac >> fs[] >>
+  rpt(qpat_assum`X ≠ GREATER` mp_tac) >>
+  qpat_assum`d`mp_tac >>
+  simp[Abbr`d`] >> rw[] >> fs[] >> rw[] >>
+  TRY (
+    fsrw_tac[DNF_ss][] >>
+    REWRITE_TAC[undo_zip_map_fst] >>
+    first_x_assum(fn th =>
+      match_mp_tac (MP_CANON th) >>
+      simp[term_size_def] >>
+      FIRST (map (fn q =>
+        qexists_tac q >> simp[] >>
+        (fn g as (asl,w) => (Cases_on`^(lhs w)`>>fs[]) g) >>
+        NO_TAC)
+      [`t1`,`t2`,`t3`,`t4`,`t5`,`t6`]))) >>
+  metis_tac[cpn_nchotomy,cpn_distinct])
+
+val transitive_alpha_lt = store_thm("transitive_alpha_lt",
+  ``transitive alpha_lt``,
+  rw[transitive_def,alpha_lt_def] >>
+  qspecl_then[`[]`,`x`,`y`]mp_tac orda_lx_trans >>
+  simp[])
 
 (* VFREE_IN lemmas *)
 
@@ -433,7 +601,33 @@ val VFREE_IN_ACONV = store_thm("VFREE_IN_ACONV",
   ``∀s t x ty. ACONV s t ⇒ (VFREE_IN (Var x ty) s ⇔ VFREE_IN (Var x ty) t)``,
   rw[ACONV_def] >> imp_res_tac VFREE_IN_RACONV >> fs[])
 
-(* TERM_UNION lemmas *)
+(* hypset_ok *)
+
+val aconv_distinct_thm = store_thm("aconv_distinct_thm",
+  ``aconv_distinct [] ∧
+    (∀x xs. aconv_distinct (x::xs) ⇔
+            aconv_distinct xs ∧
+            EVERY ($~ o ACONV x) xs)``,
+  rw[aconv_distinct_def,LENGTH_NIL,FILTER_EQ_NIL,combinTheory.o_DEF,EQ_IMP_THM] >>
+  fs[EVERY_MEM] >> rw[] >- (
+    res_tac >>
+    imp_res_tac(CONTRAPOS(SPEC_ALL ACONV_SYM)) >> fs[] ) >>
+  strip_tac >> res_tac >>
+  metis_tac[ACONV_SYM])
+
+val aconv_distinct_nil = store_thm("aconv_distinct_nil[simp]",
+  ``aconv_distinct []``, rw[aconv_distinct_def])
+
+val hypset_ok_nil = store_thm("hypset_ok_nil[simp]",
+  ``hypset_ok []``, rw[hypset_ok_def])
+
+val aconv_distinct_sing = store_thm("aconv_distinct_sing[simp]",
+  ``∀p. aconv_distinct [p]``, rw[aconv_distinct_def])
+
+val hypset_ok_sing = store_thm("hypset_ok_sing[simp]",
+  ``∀p. hypset_ok [p]``, rw[hypset_ok_def])
+
+(* term_union lemmas *)
 
 val term_union_idem = store_thm("term_union_idem[simp]",
   ``∀ls. term_union ls ls = ls``,
@@ -468,18 +662,108 @@ val MEM_term_union_imp = store_thm("MEM_term_union_imp",
   BasicProvers.CASE_TAC >> rw[] >> fs[] >>
   res_tac >> fs[])
 
-val TERM_UNION_NONEW = store_thm("TERM_UNION_NONEW",
-  ``∀l1 l2 x. MEM x (TERM_UNION l1 l2) ⇒ MEM x l1 ∨ MEM x l2``,
-  Induct >> simp[TERM_UNION_def] >> rw[] >> metis_tac[])
+val term_union_SORTED = store_thm("term_union_SORTED",
+  ``∀l1 l2. SORTED alpha_lt l1 ∧ SORTED alpha_lt l2 ⇒
+            SORTED alpha_lt (term_union l1 l2)``,
+  Induct >- simp[term_union_thm] >> qx_gen_tac`h1` >>
+  Induct >- simp[term_union_thm] >> qx_gen_tac`h2` >>
+  strip_tac >>
+  fs[MATCH_MP SORTED_EQ transitive_alpha_lt] >>
+  simp[term_union_thm] >>
+  BasicProvers.CASE_TAC >>
+  simp[MATCH_MP SORTED_EQ transitive_alpha_lt] >>
+  rw[] >> imp_res_tac MEM_term_union_imp >>
+  fs[GSYM alpha_lt_def]
+  >- metis_tac[transitive_alpha_lt,transitive_def]
+  >- (
+    fs[alpha_lt_def] >>
+    qspecl_then[`[]`,`h1`,`h2`]mp_tac orda_lx_trans >>
+    simp[] )
+  >- (
+    qspecl_then[`[]`,`h1`,`h2`]mp_tac orda_sym >>
+    simp[alpha_lt_def] ) >>
+  qspecl_then[`[]`,`h1`,`h2`]mp_tac orda_sym >>
+  fs[alpha_lt_def] >> disch_then(assume_tac o SYM) >>
+  qspecl_then[`[]`,`h2`,`h1`]mp_tac orda_lx_trans >>
+  simp[])
 
-val TERM_UNION_THM = store_thm("TERM_UNION_THM",
-  ``∀l1 l2 x. MEM x l1 ∨ MEM x l2
-              ⇒ ∃y. MEM y (TERM_UNION l1 l2) ∧ ACONV x y``,
-  Induct >> simp[TERM_UNION_def] >> rw[EXISTS_MEM] >> metis_tac[ACONV_REFL])
+val hypset_ok_term_union = store_thm("hypset_ok_term_union[simp]",
+  ``∀h1 h2. hypset_ok h1 ∧ hypset_ok h2 ⇒ hypset_ok (term_union h1 h2)``,
+  Induct >- simp[term_union_thm] >> qx_gen_tac`x1` >>
+  Induct >- simp[term_union_thm] >> qx_gen_tac`x2` >>
+  fs[hypset_ok_def,aconv_distinct_thm] >> strip_tac >> fs[] >>
+  fs[MATCH_MP SORTED_EQ transitive_alpha_lt] >>
+  conj_tac >- metis_tac[term_union_SORTED,SORTED_EQ,transitive_alpha_lt] >>
+  simp[term_union_thm] >>
+  BasicProvers.CASE_TAC >>
+  simp[aconv_distinct_thm] >>
+  fs[EVERY_MEM] >> rw[] >>
+  imp_res_tac MEM_term_union_imp >> fs[] >> rw[] >>
+  fs[ACONV_eq_orda,alpha_lt_def] >- (
+    fsrw_tac[DNF_ss][] >>
+    first_x_assum match_mp_tac >>
+    simp[MATCH_MP SORTED_EQ transitive_alpha_lt,alpha_lt_def] >>
+    simp[aconv_distinct_thm,EVERY_MEM,ACONV_eq_orda] )
+  >- ( qspecl_then[`[]`,`x1`,`x2`]mp_tac orda_lx_trans >> simp[] )
+  >- ( qspecl_then[`[]`,`x1`,`x2`]mp_tac orda_lx_trans >> simp[] )
+  >- ( metis_tac[ACONV_eq_orda,ACONV_SYM,cpn_distinct] )
+  >- ( `orda [] x2 x1 = LESS`  by metis_tac[orda_sym,MAP,invert_def] >>
+       qspecl_then[`[]`,`x2`,`x1`]mp_tac orda_lx_trans >> simp[] ))
 
-val EVERY_TERM_UNION = store_thm("EVERY_TERM_UNION",
-  ``EVERY P l1 ∧ EVERY P l2 ⇒ EVERY P (TERM_UNION l1 l2)``,
-  rw[EVERY_MEM] >> metis_tac[TERM_UNION_NONEW])
+val EVERY_term_union = store_thm("EVERY_term_union",
+  ``EVERY P l1 ∧ EVERY P l2 ⇒ EVERY P (term_union l1 l2)``,
+  metis_tac[EVERY_MEM,MEM_term_union_imp])
+
+(* term_remove *)
+
+val MEM_term_remove_imp = store_thm("MEM_term_remove_imp",
+  ``∀ls x t. MEM t (term_remove x ls) ⇒
+      MEM t ls ∧ (hypset_ok ls ⇒ ¬ACONV x t)``,
+  Induct >> simp[Once term_remove_def] >> rw[] >>
+  fs[hypset_ok_def,
+     MATCH_MP SORTED_EQ transitive_alpha_lt,
+     aconv_distinct_thm,ACONV_eq_orda,EVERY_MEM,EXISTS_MEM] >>
+  res_tac >> fs[] >>
+  fs[GSYM ACONV_eq_orda]
+  >- metis_tac[ACONV_SYM,ACONV_TRANS] >>
+  fs[alpha_lt_def,ACONV_eq_orda] >>
+  qspecl_then[`[]`,`h`,`t`]mp_tac orda_sym >>
+  simp[] >> disch_then(assume_tac o SYM) >>
+  spose_not_then strip_assume_tac >>
+  qspecl_then[`[]`,`x`,`h`]mp_tac orda_lx_trans >>
+  simp[] >> qexists_tac`t` >> simp[])
+
+val hypset_ok_term_remove = store_thm("hypset_ok_term_remove[simp]",
+  ``∀ls. hypset_ok ls ⇒ ∀t. hypset_ok (term_remove t ls)``,
+  Induct >> simp[Once term_remove_def] >>
+  rw[] >> fs[hypset_ok_def] >> rw[] >>
+  fs[aconv_distinct_thm,MATCH_MP SORTED_EQ transitive_alpha_lt,
+     EVERY_MEM,ACONV_eq_orda] >> rw[] >>
+  imp_res_tac MEM_term_remove_imp >>
+  rfs[hypset_ok_def])
+
+val EVERY_term_remove = store_thm("EVERY_term_remove",
+  ``EVERY P ls ⇒ EVERY P (term_remove t ls)``,
+  metis_tac[EVERY_MEM,MEM_term_remove_imp])
+
+(* term_image *)
+
+val MEM_term_image_imp = store_thm("MEM_term_image_imp",
+  ``∀ls f t. MEM t (term_image f ls) ⇒ ∃x. MEM x ls ∧ t = f x``,
+  Induct >> simp[Once term_image_def] >> rw[] >> fs[] >>
+  imp_res_tac MEM_term_union_imp >> fs[] >>
+  metis_tac[])
+
+val hypset_ok_term_image = store_thm("hypset_ok_term_image",
+  ``∀ls f. hypset_ok ls ⇒ hypset_ok (term_image f ls)``,
+  Induct >> simp[Once term_image_def] >>
+  rw[] >> fs[hypset_ok_def] >> rw[] >>
+  fs[aconv_distinct_thm,MATCH_MP SORTED_EQ transitive_alpha_lt,
+     EVERY_MEM,ACONV_eq_orda] >> rw[] >>
+  TRY ( match_mp_tac term_union_SORTED >> simp[] ) >>
+  qspecl_then[`[f h]`,`term_image f ls`]mp_tac hypset_ok_term_union >>
+  (discharge_hyps >- (simp[] >> simp[hypset_ok_def])) >>
+  simp_tac std_ss [hypset_ok_def])
 
 (* VSUBST lemmas *)
 
@@ -1790,6 +2074,7 @@ val theory_ok_sig = store_thm("theory_ok_sig",
 
 val proves_term_ok = store_thm("proves_term_ok",
   ``∀thyh c. thyh |- c ⇒
+      hypset_ok (SND thyh) ∧
       EVERY (λp. term_ok (sigof (FST thyh)) p ∧ p has_type Bool) (c::(SND thyh))``,
   ho_match_mp_tac proves_strongind >>
   strip_tac >- (
@@ -1810,8 +2095,10 @@ val proves_term_ok = store_thm("proves_term_ok",
     fs[term_ok_equation] >>
     imp_res_tac WELLTYPED_LEMMA >> fs[] >>
     simp[WELLTYPED] >>
-    match_mp_tac EVERY_TERM_UNION >>
-    simp[EVERY_FILTER] >> fs[EVERY_MEM] ) >>
+    match_mp_tac EVERY_term_union >>
+    rpt conj_tac >>
+    match_mp_tac EVERY_term_remove >>
+    fs[EVERY_MEM]) >>
   strip_tac >- (
     rw[EQUATION_HAS_TYPE_BOOL] >>
     imp_res_tac proves_theory_ok >>
@@ -1819,19 +2106,21 @@ val proves_term_ok = store_thm("proves_term_ok",
     fs[term_ok_equation] >>
     imp_res_tac ACONV_TYPE >> fs[] >-
       metis_tac[WELLTYPED_LEMMA,WELLTYPED,term_ok_welltyped] >>
-    match_mp_tac EVERY_TERM_UNION >> fs[] ) >>
+    match_mp_tac EVERY_term_union >> fs[] ) >>
   strip_tac >- (
-    rw[term_ok_VSUBST,EVERY_MAP] >> fs[EVERY_MEM] >>
+    rw[term_ok_VSUBST,hypset_ok_term_image,EVERY_MEM] >>
+    imp_res_tac MEM_term_image_imp >> fs[EVERY_MEM] >>
     metis_tac[term_ok_VSUBST,VSUBST_HAS_TYPE] ) >>
   strip_tac >- (
-    rw[term_ok_INST,EVERY_MAP] >> fs[EVERY_MEM] >>
-    metis_tac[SIMP_RULE(srw_ss())[EVERY_MAP,EVERY_MEM]term_ok_INST,INST_HAS_TYPE,TYPE_SUBST_Bool] ) >>
+    rw[term_ok_INST,hypset_ok_term_image] >> fs[EVERY_MEM] >>
+    rw[] >> imp_res_tac MEM_term_image_imp >>
+    metis_tac[SIMP_RULE(srw_ss())[EVERY_MEM]term_ok_INST,INST_HAS_TYPE,TYPE_SUBST_Bool] ) >>
   strip_tac >- (
     rw[EQUATION_HAS_TYPE_BOOL] >>
     imp_res_tac proves_theory_ok >>
     imp_res_tac theory_ok_sig >>
     fs[term_ok_equation,term_ok_def] >>
-    metis_tac[EVERY_TERM_UNION]) >>
+    metis_tac[EVERY_term_union]) >>
   strip_tac >- (
     rw[EQUATION_HAS_TYPE_BOOL] >>
     imp_res_tac term_ok_welltyped >>
@@ -1846,7 +2135,7 @@ val proves_term_ok = store_thm("proves_term_ok",
     fs[EQUATION_HAS_TYPE_BOOL] >>
     imp_res_tac ACONV_TYPE >>
     simp[] >>
-    match_mp_tac EVERY_TERM_UNION >> fs[] ) >>
+    match_mp_tac EVERY_term_union >> fs[] ) >>
   rw[theory_ok_def])
 
 (* extension is transitive *)

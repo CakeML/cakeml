@@ -78,15 +78,6 @@ val (RACONV_rules,RACONV_ind,RACONV_cases) = Hol_reln`
 val ACONV_def = Define`
   ACONV t1 t2 ⇔ RACONV [] (t1,t2)`
 
-(* Alpha-respecting union of two lists of terms.
-   Retain duplicates in the second list. *)
-
-val TERM_UNION_def = Define`
-  TERM_UNION [] l2 = l2 ∧
-  TERM_UNION (h::t) l2 =
-    let subun = TERM_UNION t l2 in
-    if EXISTS (ACONV h) subun then subun else h::subun`
-
 (* Term ordering, respecting alpha-equivalence *)
 (* TODO: use this in the inference system instead of
    ALPHAVARS, ACONV, TERM_UNION, etc., which don't
@@ -462,6 +453,20 @@ val term_ok_def = Define`
        type_ok (tysof sig) ty ∧
        term_ok sig tm)`
 
+(* Well-formed sets of hypotheses, represented as lists,
+   are sorted and all distinct up to alpha-equivalence *)
+
+val alpha_lt_def = Define`
+  alpha_lt t1 t2 ⇔ orda [] t1 t2 = LESS`
+
+val aconv_distinct_def = Define`
+  aconv_distinct ls ⇔
+    EVERY (λtm. LENGTH (FILTER (ACONV tm) ls) = 1) ls`
+
+val hypset_ok_def = Define`
+  hypset_ok ls ⇔
+    SORTED alpha_lt ls ∧ aconv_distinct ls`
+
 (* A theory is a signature together with a set of axioms. It is well-formed if
    the types of the constants are all ok, the axioms are all ok terms of type
    bool, and the signature is standard. *)
@@ -507,31 +512,31 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
   (* DEDUCT_ANTISYM *)
   ((thy, h1) |- c1 ∧
    (thy, h2) |- c2
-   ⇒ (thy, TERM_UNION (FILTER((~) o ACONV c2) h1)
-                      (FILTER((~) o ACONV c1) h2))
+   ⇒ (thy, term_union (term_remove c2 h1)
+                      (term_remove c1 h2))
            |- c1 === c2) ∧
 
   (* EQ_MP *)
   ((thy, h1) |- p === q ∧
    (thy, h2) |- p' ∧ ACONV p p'
-   ⇒ (thy, TERM_UNION h1 h2) |- q) ∧
+   ⇒ (thy, term_union h1 h2) |- q) ∧
 
   (* INST *)
   ((∀s s'. MEM (s',s) ilist ⇒
              ∃x ty. (s = Var x ty) ∧ s' has_type ty ∧ term_ok (sigof thy) s') ∧
    (thy, h) |- c
-   ⇒ (thy, MAP (VSUBST ilist) h) |- VSUBST ilist c) ∧
+   ⇒ (thy, term_image (VSUBST ilist) h) |- VSUBST ilist c) ∧
 
   (* INST_TYPE *)
   ((EVERY (type_ok (tysof thy)) (MAP FST tyin)) ∧
    (thy, h) |- c
-   ⇒ (thy, MAP (INST tyin) h) |- INST tyin c) ∧
+   ⇒ (thy, term_image (INST tyin) h) |- INST tyin c) ∧
 
   (* MK_COMB *)
   ((thy, h1) |- l1 === r1 ∧
    (thy, h2) |- l2 === r2 ∧
    welltyped(Comb l1 l2)
-   ⇒ (thy, TERM_UNION h1 h2) |- Comb l1 l2 === Comb r1 r2) ∧
+   ⇒ (thy, term_union h1 h2) |- Comb l1 l2 === Comb r1 r2) ∧
 
   (* REFL *)
   (theory_ok thy ∧ term_ok (sigof thy) t
@@ -541,7 +546,7 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
   ((thy, h1) |- l === m1 ∧
    (thy, h2) |- m2 === r ∧
    ACONV m1 m2
-   ⇒ (thy, TERM_UNION h1 h2) |- l === r) ∧
+   ⇒ (thy, term_union h1 h2) |- l === r) ∧
 
   (* axioms *)
   (theory_ok thy ∧ c ∈ (axsof thy)
