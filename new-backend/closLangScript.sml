@@ -4,8 +4,6 @@ open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
 open lcsymtacs bvlTheory;
 
-infix \\ val op \\ = op THEN;
-
 (* ClosLang -- compilation from this lanugage removes closures, gets to BVL *)
 
 (* --- Syntax of ClosLang --- *)
@@ -103,6 +101,12 @@ val lookup_vars_def = Define `
        | NONE => NONE
      else NONE)`
 
+val dest_closure_def = Define `
+  dest_closure f x =
+    case f of
+    | Closure env exp => SOME (exp,x::env)
+    | _ => NONE`;
+
 val cEval_def = tDefine "cEval" `
   (cEval ([],env:clos_val list,s:clos_state) = (Result [],s)) /\
   (cEval (x::y::xs,env,s) =
@@ -148,14 +152,12 @@ val cEval_def = tDefine "cEval" `
      | (Result y1,s1) =>
          (case cEval ([x2],env,check_clock s1 s) of
           | (Result y2,s2) =>
-             if (s2.clock = 0) \/ (s1.clock = 0) \/ (s.clock = 0)
-             then (TimeOut,s2)
-             else
-               (case y1 of
-                | [Closure env' exp] =>
-                     cEval ([exp],y2++env',dec_clock (check_clock s2 s))
-                (* TODO Recclosure case here *)
-                | _ => (Error,s2))
+             (case dest_closure (HD y1) (HD y2) of
+              | NONE => (Error,s2)
+              | SOME (exp,env1) =>
+                  if (s2.clock = 0) \/ (s1.clock = 0) \/ (s.clock = 0)
+                  then (TimeOut,s2)
+                  else cEval ([exp],env1,dec_clock (check_clock s2 s)))
           | res => res)
      | res => res) /\
   (cEval ([Tick x],env,s) =
@@ -222,8 +224,9 @@ fun sub f tm = f tm handle HOL_ERR _ =>
   let val (t1,t2) = dest_comb tm in mk_comb (sub f t1, sub f t2) end
   handle HOL_ERR _ => tm
 
+val pat = ``check_clock s1 s2``
 val remove_check_clock = sub (fn tm =>
-  if can (match_term ``check_clock s1 s2``) tm
+  if can (match_term pat) tm
   then tm |> rator |> rand else fail())
 
 val remove_disj = sub (fn tm => if is_disj tm then tm |> rator |> rand else fail())
@@ -291,6 +294,7 @@ val cEval_def = save_thm("cEval_def",let
     \\ IMP_RES_TAC cEval_check_clock
     \\ IMP_RES_TAC cEval_clock
     \\ IMP_RES_TAC check_clock_thm
+    \\ REPEAT BasicProvers.CASE_TAC \\ fs [] \\ rfs []
     \\ SRW_TAC [] []
     \\ fs [check_clock_def] \\ rfs []
     \\ SRW_TAC [] []
