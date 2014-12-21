@@ -454,18 +454,13 @@ val term_ok_def = Define`
        term_ok sig tm)`
 
 (* Well-formed sets of hypotheses, represented as lists,
-   are sorted and all distinct up to alpha-equivalence *)
+   are strictly sorted up to alpha-equivalence *)
 
 val alpha_lt_def = Define`
   alpha_lt t1 t2 ⇔ orda [] t1 t2 = LESS`
 
-val aconv_distinct_def = Define`
-  aconv_distinct ls ⇔
-    EVERY (λtm. LENGTH (FILTER (ACONV tm) ls) = 1) ls`
-
 val hypset_ok_def = Define`
-  hypset_ok ls ⇔
-    SORTED alpha_lt ls ∧ aconv_distinct ls`
+  hypset_ok ls ⇔ SORTED alpha_lt ls`
 
 (* A theory is a signature together with a set of axioms. It is well-formed if
    the types of the constants are all ok, the axioms are all ok terms of type
