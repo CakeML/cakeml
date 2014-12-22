@@ -122,17 +122,6 @@ val (type_lt_rules,type_lt_ind,type_lt_cases) = Hol_reln`
   ((mlstring_lt LEX LLEX type_lt) (x1,args1) (x2,args2) ⇒
      type_lt (Tyapp x1 args1) (Tyapp x2 args2))`
 
-val type_lt_thm = prove(
-  ``(type_lt (Tyvar x1) (Tyvar x2) ⇔ mlstring_lt x1 x2) ∧
-    (type_lt (Tyvar _) (Tyapp _ _) ⇔ T) ∧
-    (type_lt (Tyapp _ _) (Tyvar _) ⇔ F) ∧
-    (type_lt (Tyapp x1 args1) (Tyapp x2 args2) ⇔
-       (mlstring_lt LEX LLEX type_lt)
-         (x1,args1) (x2,args2))``,
-  rw[] >> rw[Once type_lt_cases])
-  |> CONJUNCTS |> map GEN_ALL |> LIST_CONJ
-  |> curry save_thm "type_lt_thm"
-
 val (term_lt_rules,term_lt_ind,term_lt_cases) = Hol_reln`
   ((mlstring_lt LEX type_lt) (x1,ty1) (x2,ty2) ⇒
     term_lt (Var x1 ty1) (Var x2 ty2)) ∧
@@ -148,31 +137,6 @@ val (term_lt_rules,term_lt_ind,term_lt_cases) = Hol_reln`
   (term_lt (Comb s1 s2) (Abs t1 t2)) ∧
   ((term_lt LEX term_lt) (s1,s2) (t1,t2) ⇒
    term_lt (Abs s1 s2) (Abs t1 t2))`
-
-val term_lt_thm = prove(``
-  (term_lt (Var x1 ty1) (Var x2 ty2) ⇔
-     (mlstring_lt LEX type_lt) (x1,ty1) (x2,ty2)) ∧
-  (term_lt (Var _ _) (Const _ _) ⇔ T) ∧
-  (term_lt (Var _ _) (Comb _ _) ⇔ T) ∧
-  (term_lt (Var _ _) (Abs _ _) ⇔ T) ∧
-  (term_lt (Const _ _) (Var _ _) ⇔ F) ∧
-  (term_lt (Const x1 ty1) (Const x2 ty2) ⇔
-     (mlstring_lt LEX type_lt) (x1,ty1) (x2,ty2)) ∧
-  (term_lt (Const _ _) (Comb _ _) ⇔ T) ∧
-  (term_lt (Const _ _) (Abs _ _) ⇔ T) ∧
-  (term_lt (Comb _ _) (Var _ _) ⇔ F) ∧
-  (term_lt (Comb _ _) (Const _ _) ⇔ F) ∧
-  (term_lt (Comb s1 s2) (Comb t1 t2) ⇔
-     (term_lt LEX term_lt) (s1,s2) (t1,t2)) ∧
-  (term_lt (Comb _ _) (Abs _ _) ⇔ T) ∧
-  (term_lt (Abs _ _) (Var _ _) ⇔ F) ∧
-  (term_lt (Abs _ _) (Const _ _) ⇔ F) ∧
-  (term_lt (Abs _ _) (Comb _ _) ⇔ F) ∧
-  (term_lt (Abs s1 s2) (Abs t1 t2) ⇔
-    (term_lt LEX term_lt) (s1,s2) (t1,t2))``,
-  rw[] >> rw[Once term_lt_cases])
-  |> CONJUNCTS |> map GEN_ALL |> LIST_CONJ
-  |> curry save_thm "term_lt_thm"
 
 val term_cmp_def = Define`
   term_cmp = TO_of_LinearOrder term_lt`

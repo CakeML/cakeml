@@ -4,6 +4,32 @@ val _ = temp_tight_equality()
 val _ = new_theory"holSyntaxExtra"
 
 (* TODO: move *)
+val TotOrd_list_cmp = store_thm("TotOrd_list_cmp",
+  ``∀c. TotOrd c ⇒ TotOrd (list_cmp c)``,
+  rw[] >> imp_res_tac list_cmp_ListOrd >> simp[TO_ListOrd])
+
+val StrongLinearOrder_of_TO_TO_of_LinearOrder = store_thm("StrongLinearOrder_of_TO_TO_of_LinearOrder",
+  ``∀R. irreflexive R ⇒ (StrongLinearOrder_of_TO (TO_of_LinearOrder R) = R)``,
+  rw[irreflexive_def] >>
+  rw[FUN_EQ_THM,StrongLinearOrder_of_TO,TO_of_LinearOrder] >>
+  rw[])
+
+val TO_of_LinearOrder_LEX = store_thm("TO_of_LinearOrder_LEX",
+  ``∀R V. irreflexive R ∧ irreflexive V
+    ⇒ TO_of_LinearOrder (R LEX V) = (TO_of_LinearOrder R) lexTO (TO_of_LinearOrder V)``,
+  simp[lexTO,StrongLinearOrder_of_TO_TO_of_LinearOrder])
+
+val TO_of_LinearOrder_LLEX = store_thm("TO_of_LinearOrder_LLEX",
+  ``∀R. irreflexive R ⇒ (TO_of_LinearOrder (LLEX R) = list_cmp (TO_of_LinearOrder R))``,
+  rw[irreflexive_def] >>
+  simp[FUN_EQ_THM] >>
+  Induct >- (
+    Cases >> simp[list_cmp_def,TO_of_LinearOrder] ) >>
+  gen_tac >> Cases >>
+  simp[list_cmp_def,TO_of_LinearOrder] >>
+  pop_assum(assume_tac o GSYM) >> simp[] >>
+  rw[TO_of_LinearOrder] >> fs[] >> rfs[])
+
 val LLEX_EL_THM = store_thm("LLEX_EL_THM",
   ``!R l1 l2. LLEX R l1 l2 <=>
               ∃n. n <= LENGTH l1 /\ n < LENGTH l2 /\
@@ -202,6 +228,42 @@ val ACONV_TYPE = store_thm("ACONV_TYPE",
 
 (* term ordering *)
 
+val type_lt_thm = prove(
+  ``(type_lt (Tyvar x1) (Tyvar x2) ⇔ mlstring_lt x1 x2) ∧
+    (type_lt (Tyvar _) (Tyapp _ _) ⇔ T) ∧
+    (type_lt (Tyapp _ _) (Tyvar _) ⇔ F) ∧
+    (type_lt (Tyapp x1 args1) (Tyapp x2 args2) ⇔
+       (mlstring_lt LEX LLEX type_lt)
+         (x1,args1) (x2,args2))``,
+  rw[] >> rw[Once type_lt_cases])
+  |> CONJUNCTS |> map GEN_ALL |> LIST_CONJ
+  |> curry save_thm "type_lt_thm"
+
+val term_lt_thm = prove(``
+  (term_lt (Var x1 ty1) (Var x2 ty2) ⇔
+     (mlstring_lt LEX type_lt) (x1,ty1) (x2,ty2)) ∧
+  (term_lt (Var _ _) (Const _ _) ⇔ T) ∧
+  (term_lt (Var _ _) (Comb _ _) ⇔ T) ∧
+  (term_lt (Var _ _) (Abs _ _) ⇔ T) ∧
+  (term_lt (Const _ _) (Var _ _) ⇔ F) ∧
+  (term_lt (Const x1 ty1) (Const x2 ty2) ⇔
+     (mlstring_lt LEX type_lt) (x1,ty1) (x2,ty2)) ∧
+  (term_lt (Const _ _) (Comb _ _) ⇔ T) ∧
+  (term_lt (Const _ _) (Abs _ _) ⇔ T) ∧
+  (term_lt (Comb _ _) (Var _ _) ⇔ F) ∧
+  (term_lt (Comb _ _) (Const _ _) ⇔ F) ∧
+  (term_lt (Comb s1 s2) (Comb t1 t2) ⇔
+     (term_lt LEX term_lt) (s1,s2) (t1,t2)) ∧
+  (term_lt (Comb _ _) (Abs _ _) ⇔ T) ∧
+  (term_lt (Abs _ _) (Var _ _) ⇔ F) ∧
+  (term_lt (Abs _ _) (Const _ _) ⇔ F) ∧
+  (term_lt (Abs _ _) (Comb _ _) ⇔ F) ∧
+  (term_lt (Abs s1 s2) (Abs t1 t2) ⇔
+    (term_lt LEX term_lt) (s1,s2) (t1,t2))``,
+  rw[] >> rw[Once term_lt_cases])
+  |> CONJUNCTS |> map GEN_ALL |> LIST_CONJ
+  |> curry save_thm "term_lt_thm"
+
 val type_cmp_refl = store_thm("type_cmp_refl[simp]",
   ``type_cmp t t = EQUAL``,
   rw[type_cmp_def,TO_of_LinearOrder])
@@ -347,6 +409,79 @@ val TotOrd_term_cmp = store_thm("TotOrd_term_cmp",
   rw[term_cmp_def] >>
   match_mp_tac TotOrd_TO_of_Strong >>
   ACCEPT_TAC StrongLinearOrder_term_lt)
+
+val StrongLinearOrder_irreflexive = prove(
+  ``StrongLinearOrder R ⇒ irreflexive R``,
+  rw[StrongLinearOrder,StrongOrder])
+
+val irreflexive_mlstring_lt = MATCH_MP StrongLinearOrder_irreflexive StrongLinearOrder_mlstring_lt
+
+val LLEX_irreflexive = prove(
+  ``∀R. irreflexive R ⇒ irreflexive (LLEX R)``,
+  rw[irreflexive_def] >> Induct_on`x`>>rw[])
+
+val irreflexive_LLEX_type_lt = MATCH_MP LLEX_irreflexive (irreflexive_type_lt)
+
+val type_cmp_thm = store_thm("type_cmp_thm",
+  ``∀t1 t2.  type_cmp t1 t2 =
+    case (t1,t2) of
+    | (Tyvar x1, Tyvar x2) => mlstring_cmp x1 x2
+    | (Tyvar _, _) => LESS
+    | (_, Tyvar _) => GREATER
+    | (Tyapp x1 a1, Tyapp x2 a2) => pair_cmp mlstring_cmp (list_cmp type_cmp) (x1,a1) (x2,a2)``,
+  ho_match_mp_tac type_ind >>
+  conj_tac >- (
+    gen_tac >> Cases >>
+    simp[type_cmp_def,TO_of_LinearOrder,type_lt_thm,mlstring_cmp_def] ) >>
+  ntac 3 strip_tac >>
+  Induct >> simp[] >>
+  simp[Once type_cmp_def,TO_of_LinearOrder,type_lt_thm] >>
+  simp[MATCH_MP pair_cmp_lexTO
+       (CONJ TotOrd_mlstring_cmp (MATCH_MP TotOrd_list_cmp TotOrd_type_cmp))] >>
+  simp[mlstring_cmp_def,type_cmp_def,
+       SYM(MATCH_MP TO_of_LinearOrder_LLEX irreflexive_type_lt),
+       SYM(MATCH_MP TO_of_LinearOrder_LEX (CONJ irreflexive_mlstring_lt irreflexive_LLEX_type_lt))] >>
+  simp[TO_of_LinearOrder])
+
+val term_cmp_thm = store_thm("term_cmp_thm",
+  ``∀t1 t2. term_cmp t1 t2 =
+    case (t1,t2) of
+    | (Var x1 ty1, Var x2 ty2) => pair_cmp mlstring_cmp type_cmp (x1,ty1) (x2,ty2)
+    | (Var _ _, _) => LESS
+    | (_, Var _ _) => GREATER
+    | (Const x1 ty1, Const x2 ty2) => pair_cmp mlstring_cmp type_cmp (x1,ty1) (x2,ty2)
+    | (Const _ _, _) => LESS
+    | (_, Const _ _) => GREATER
+    | (Comb s1 t1, Comb s2 t2) => pair_cmp term_cmp term_cmp (s1,t1) (s2,t2)
+    | (Comb _ _, _) => LESS
+    | (_, Comb _ _) => GREATER
+    | (Abs s1 t1, Abs s2 t2) => pair_cmp term_cmp term_cmp (s1,t1) (s2,t2)
+    | (Abs _ _, _) => LESS
+    | (_, Abs _ _) => GREATER``,
+  ho_match_mp_tac term_induction >>
+  conj_tac >- (
+    ntac 2 gen_tac >> Cases >>
+    simp[term_cmp_def,TO_of_LinearOrder,term_lt_thm,
+         MATCH_MP pair_cmp_lexTO (CONJ TotOrd_mlstring_cmp TotOrd_type_cmp)] >>
+    simp[mlstring_cmp_def,type_cmp_def,TO_of_LinearOrder,
+         SYM(MATCH_MP TO_of_LinearOrder_LEX (CONJ irreflexive_mlstring_lt irreflexive_type_lt))] ) >>
+  conj_tac >- (
+    ntac 2 gen_tac >> Cases >>
+    simp[term_cmp_def,TO_of_LinearOrder,term_lt_thm,
+         MATCH_MP pair_cmp_lexTO (CONJ TotOrd_mlstring_cmp TotOrd_type_cmp)] >>
+    simp[mlstring_cmp_def,type_cmp_def,TO_of_LinearOrder,
+         SYM(MATCH_MP TO_of_LinearOrder_LEX (CONJ irreflexive_mlstring_lt irreflexive_type_lt))] ) >>
+  conj_tac >- (
+    ntac 2 gen_tac >> strip_tac >>
+    Cases >> fs[term_cmp_def,TO_of_LinearOrder,term_lt_thm]>>
+    simp[GSYM term_cmp_def,MATCH_MP pair_cmp_lexTO (CONJ TotOrd_term_cmp TotOrd_term_cmp)] >>
+    simp[term_cmp_def, TO_of_LinearOrder,
+         SYM(MATCH_MP TO_of_LinearOrder_LEX (CONJ irreflexive_term_lt irreflexive_term_lt))] ) >>
+  ntac 2 gen_tac >> strip_tac >>
+  Cases >> fs[term_cmp_def,TO_of_LinearOrder,term_lt_thm]>>
+  simp[GSYM term_cmp_def,MATCH_MP pair_cmp_lexTO (CONJ TotOrd_term_cmp TotOrd_term_cmp)] >>
+  simp[term_cmp_def, TO_of_LinearOrder,
+       SYM(MATCH_MP TO_of_LinearOrder_LEX (CONJ irreflexive_term_lt irreflexive_term_lt))] )
 
 (* alpha ordering *)
 
