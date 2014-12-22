@@ -14,19 +14,19 @@ val binary_inference_rule = store_thm("binary_inference_rule",
            termsem (tmsof thy) i v p2 = True ⇒
            termsem (tmsof thy) i v q = True) ∧
     (thy,h1) |= p1 ∧ (thy,h2) |= p2
-    ⇒ (thy, TERM_UNION h1 h2) |= q``,
+    ⇒ (thy, term_union h1 h2) |= q``,
   strip_tac >>
   rpt gen_tac >> strip_tac >>
-  fs[entails_def,EVERY_TERM_UNION] >> rw[] >>
+  fs[entails_def,EVERY_term_union] >> rw[] >>
   rpt (first_x_assum(qspec_then`i`mp_tac)>>rw[]) >>
-  fs[satisfies_def,EVERY_TERM_UNION] >> rw[] >>
+  fs[satisfies_def,EVERY_term_union] >> rw[] >>
   first_x_assum match_mp_tac >>
   conj_tac >- ( rw[is_structure_def] >> Cases_on`thy` >> fs[models_def,theory_ok_def] ) >>
   rw[] >> first_x_assum match_mp_tac >> rw[] >>
   fs[EVERY_MEM] >> rw[] >>
   qmatch_assum_abbrev_tac`MEM t h` >>
-  qspecl_then[`h1`,`h2`,`t`]mp_tac TERM_UNION_THM >> simp[] >> strip_tac >>
-  metis_tac[TERM_UNION_NONEW,termsem_aconv,term_ok_welltyped])
+  qspecl_then[`h1`,`h2`,`t`]mp_tac MEM_term_union >> simp[] >> strip_tac >>
+  metis_tac[MEM_term_union_imp,termsem_aconv,term_ok_welltyped])
 
 val ABS_correct = store_thm("ABS_correct",
   ``is_set_theory ^mem ⇒
@@ -111,21 +111,25 @@ val DEDUCT_ANTISYM_correct = store_thm("DEDUCT_ANTISYM_correct",
     ∀thy h1 p1 h2 p2.
       (thy,h1) |= p1 ∧ (thy,h2) |= p2 ⇒
       (thy,
-       TERM_UNION (FILTER ($~ o ACONV p2) h1)
-                  (FILTER ($~ o ACONV p1) h2))
+       term_union (term_remove p2 h1)
+                  (term_remove p1 h2))
       |= p1 === p2``,
   rw[] >> fs[entails_def] >>
   imp_res_tac theory_ok_sig >>
   conj_asm1_tac >- (
     simp[term_ok_equation] >>
     imp_res_tac WELLTYPED_LEMMA >> simp[] >>
-    match_mp_tac EVERY_TERM_UNION >>
-    fs[EVERY_MEM,MEM_FILTER] ) >>
+    match_mp_tac EVERY_term_union >>
+    rpt conj_tac >>
+    match_mp_tac EVERY_term_remove >>
+    fs[EVERY_MEM] ) >>
   conj_asm1_tac >- (
     simp[EQUATION_HAS_TYPE_BOOL] >>
     imp_res_tac WELLTYPED_LEMMA >> simp[WELLTYPED] >>
-    match_mp_tac EVERY_TERM_UNION >>
-    fs[EVERY_MEM,MEM_FILTER] ) >>
+    match_mp_tac EVERY_term_union >>
+    rpt conj_tac >>
+    match_mp_tac EVERY_term_remove >>
+    fs[EVERY_MEM] ) >>
   rw[satisfies_def] >>
   `is_structure (sigof thy) i v` by (
     fs[models_def,is_structure_def] ) >>
@@ -137,14 +141,16 @@ val DEDUCT_ANTISYM_correct = store_thm("DEDUCT_ANTISYM_correct",
   fs[EVERY_MEM] >>
   pop_assum kall_tac >>
   ntac 2 (pop_assum mp_tac) >>
-  `∀x y ls. MEM x (FILTER ($~ o ACONV y) ls) ⇔ ¬ACONV y x ∧ MEM x ls` by simp[MEM_FILTER] >>
+  `∀x y ls. hypset_ok ls ⇒
+    (MEM x (term_remove y ls) ⇔ ¬ACONV y x ∧ MEM x ls)` by
+      metis_tac[MEM_term_remove,MEM_term_remove_imp] >>
   qmatch_abbrev_tac`(a ⇒ b) ⇒ (c ⇒ d) ⇒ e` >>
   `d ⇒ a` by (
     unabbrev_all_tac >> rw[] >>
-    metis_tac[TERM_UNION_THM,termsem_aconv,welltyped_def] ) >>
+    metis_tac[MEM_term_union,termsem_aconv,welltyped_def,hypset_ok_term_remove] ) >>
   `b ⇒ c` by (
     unabbrev_all_tac >> rw[] >>
-    metis_tac[TERM_UNION_THM,termsem_aconv,welltyped_def] ) >>
+    metis_tac[MEM_term_union,termsem_aconv,welltyped_def,hypset_ok_term_remove] ) >>
   `termsem (tmsof (sigof thy)) i v p1 <: boolset ∧
    termsem (tmsof (sigof thy)) i v p2 <: boolset` by (
     fs[is_structure_def] >>
@@ -158,7 +164,7 @@ val EQ_MP_correct = store_thm("EQ_MP_correct",
   ``is_set_theory ^mem ⇒
     ∀thy h1 h2 p q p'.
       (thy,h1) |= p === q ∧ (thy,h2) |= p' ∧ ACONV p p' ⇒
-      (thy,TERM_UNION h1 h2) |= q``,
+      (thy,term_union h1 h2) |= q``,
   rw[] >>
   match_mp_tac (UNDISCH binary_inference_rule) >>
   map_every qexists_tac[`p === q`,`p'`] >>
@@ -176,10 +182,12 @@ val INST_correct = store_thm("INST_correct",
       (∀s s'. MEM (s',s) ilist ⇒
               ∃x ty. (s = Var x ty) ∧ s' has_type ty ∧ term_ok (sigof thy) s') ∧
       (thy, h) |= c
-    ⇒ (thy, MAP (VSUBST ilist) h) |= VSUBST ilist c``,
-  rw[entails_def,EVERY_MAP,EVERY_MEM,satisfies_def] >>
+    ⇒ (thy, term_image (VSUBST ilist) h) |= VSUBST ilist c``,
+  rw[entails_def,EVERY_MEM,satisfies_def] >>
+  TRY ( imp_res_tac MEM_term_image_imp >> rw[] ) >>
   TRY ( match_mp_tac term_ok_VSUBST >> metis_tac[] ) >>
   TRY ( match_mp_tac VSUBST_HAS_TYPE >> metis_tac[] ) >>
+  TRY ( match_mp_tac hypset_ok_term_image >> rw[] ) >>
   qspecl_then[`c`,`ilist`]mp_tac termsem_VSUBST >>
   discharge_hyps >- metis_tac[welltyped_def] >>
   disch_then(qspecl_then[`tmsof(sigof thy)`,`i`,`v`]SUBST1_TAC) >>
@@ -197,16 +205,21 @@ val INST_correct = store_thm("INST_correct",
     match_mp_tac (UNDISCH termsem_typesem) >>
     rw[is_valuation_def,is_term_valuation_def] >>
     fs[models_def] >> metis_tac[is_std_interpretation_is_type] ) >>
-  fs[EVERY_MAP,EVERY_MEM] >>
-  metis_tac[termsem_VSUBST,welltyped_def])
+  gen_tac >> strip_tac >>
+  qspecl_then[`h`,`VSUBST ilist`,`t`]mp_tac MEM_term_image >>
+  discharge_hyps >- rw[] >> strip_tac >>
+  first_x_assum(fn th => first_assum (CHANGED_TAC o SUBST1_TAC o SYM o MATCH_MP th)) >>
+  metis_tac[MEM_term_image_imp,termsem_VSUBST,welltyped_def,VSUBST_WELLTYPED,termsem_aconv])
 
 val INST_TYPE_correct = store_thm("INST_TYPE_correct",
   ``is_set_theory ^mem ⇒
     ∀thy h c.
       EVERY (type_ok (tysof thy)) (MAP FST tyin) ∧
       (thy, h) |= c
-    ⇒ (thy, MAP (INST tyin) h) |= INST tyin c``,
+    ⇒ (thy, term_image (INST tyin) h) |= INST tyin c``,
   rw[entails_def,EVERY_MAP,EVERY_MEM,satisfies_def] >>
+  TRY ( match_mp_tac hypset_ok_term_image >> rw[] ) >>
+  TRY ( imp_res_tac MEM_term_image_imp >> rw[] ) >>
   TRY ( match_mp_tac term_ok_INST >> fs[EVERY_MAP,EVERY_MEM] >> metis_tac[] ) >>
   TRY ( match_mp_tac INST_HAS_TYPE >> metis_tac[TYPE_SUBST_Bool] ) >>
   qspecl_then[`sigof thy`,`c`,`tyin`]mp_tac termsem_INST >> simp[] >>
@@ -227,15 +240,19 @@ val INST_TYPE_correct = store_thm("INST_TYPE_correct",
     rw[] >>
     simp[Once (typesem_TYPE_SUBST |> SIMP_RULE(srw_ss())[] |> GSYM)] >>
     metis_tac[type_ok_TYPE_SUBST |> SIMP_RULE(srw_ss())[EVERY_MAP,EVERY_MEM]]) >>
-  fs[EVERY_MAP,EVERY_MEM] >>
-  metis_tac[SIMP_RULE(srw_ss())[]termsem_INST,welltyped_def])
+  gen_tac >> strip_tac >>
+  qspecl_then[`h`,`INST tyin`,`t`]mp_tac MEM_term_image >>
+  discharge_hyps >- rw[] >> strip_tac >>
+  first_x_assum(fn th => first_assum (CHANGED_TAC o SUBST1_TAC o SYM o MATCH_MP th)) >>
+  metis_tac[MEM_term_image_imp,SIMP_RULE(srw_ss())[]termsem_INST,
+            welltyped_def,INST_WELLTYPED,termsem_aconv])
 
 val MK_COMB_correct = store_thm("MK_COMB_correct",
   ``is_set_theory ^mem ⇒
     ∀thy h1 h2 l1 r1 l2 r2.
       (thy,h1) |= l1 === r1 ∧ (thy,h2) |= l2 === r2 ∧
       welltyped (Comb l1 l2)
-      ⇒ (thy,TERM_UNION h1 h2) |= Comb l1 l2 === Comb r1 r2``,
+      ⇒ (thy,term_union h1 h2) |= Comb l1 l2 === Comb r1 r2``,
   rw[] >>
   match_mp_tac (UNDISCH binary_inference_rule) >>
   map_every qexists_tac[`l1 === r1`,`l2 === r2`] >>
@@ -271,7 +288,7 @@ val TRANS_correct = store_thm("TRANS_correct",
   ``is_set_theory ^mem ⇒
     ∀thy h1 h2 l m1 m2 r.
       (thy,h1) |= l === m1 ∧ (thy,h2) |= m2 === r ∧ ACONV m1 m2
-      ⇒ (thy,TERM_UNION h1 h2) |= l === r``,
+      ⇒ (thy,term_union h1 h2) |= l === r``,
   strip_tac >>
   rw[] >> match_mp_tac (UNDISCH binary_inference_rule) >>
   map_every qexists_tac[`l === m1`,`m2 === r`] >>

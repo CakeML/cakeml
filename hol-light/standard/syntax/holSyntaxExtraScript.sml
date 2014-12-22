@@ -680,7 +680,7 @@ val EVERY_term_union = store_thm("EVERY_term_union",
   ``EVERY P l1 ∧ EVERY P l2 ⇒ EVERY P (term_union l1 l2)``,
   metis_tac[EVERY_MEM,MEM_term_union_imp])
 
-val MEM_TERM_UNION = store_thm("MEM_TERM_UNION",
+val MEM_term_union = store_thm("MEM_term_union",
   ``∀h1 h2 t. hypset_ok h1 ∧ hypset_ok h2 ∧ (MEM t h1 ∨ MEM t h2) ⇒
       ∃y. MEM y (term_union h1 h2) ∧ ACONV t y``,
   Induct >> simp[term_union_thm] >-
@@ -725,6 +725,13 @@ val EVERY_term_remove = store_thm("EVERY_term_remove",
   ``EVERY P ls ⇒ EVERY P (term_remove t ls)``,
   metis_tac[EVERY_MEM,MEM_term_remove_imp])
 
+val MEM_term_remove = store_thm("MEM_term_remove",
+  ``∀h x t. MEM t h ∧ ¬ACONV x t ∧ hypset_ok h
+    ⇒ MEM t (term_remove x h)``,
+  Induct >> simp[Once term_remove_def] >>
+  simp[hypset_ok_cons] >> rw[EVERY_MEM] >>
+  res_tac >> fs[alpha_lt_def,GSYM ACONV_eq_orda])
+
 (* term_image *)
 
 val MEM_term_image_imp = store_thm("MEM_term_image_imp",
@@ -736,6 +743,13 @@ val MEM_term_image_imp = store_thm("MEM_term_image_imp",
 val hypset_ok_term_image = store_thm("hypset_ok_term_image",
   ``∀ls f. hypset_ok ls ⇒ hypset_ok (term_image f ls)``,
   Induct >> simp[Once term_image_def] >> rw[hypset_ok_cons])
+
+val MEM_term_image = store_thm("MEM_term_image",
+  ``∀ls f t. MEM t ls ∧ hypset_ok ls ⇒ ∃y. MEM y (term_image f ls) ∧ ACONV (f t) y``,
+  Induct >> simp[Once term_image_def] >> rw[hypset_ok_cons] >> rw[] >>
+  TRY(metis_tac[ACONV_REFL]) >- metis_tac[MEM_term_union,hypset_ok_sing,MEM,hypset_ok_term_image] >>
+  first_x_assum(qspecl_then[`f`,`t`]mp_tac) >> rw[] >>
+  metis_tac[MEM_term_union,hypset_ok_sing,hypset_ok_term_image,ACONV_TRANS])
 
 (* VSUBST lemmas *)
 
