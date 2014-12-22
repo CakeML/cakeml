@@ -659,7 +659,18 @@ val res = translate listTheory.EVERY_DEF;
 val res = translate listTheory.EXISTS_DEF;
 val res = translate listTheory.FILTER;
 val res = translate listTheory.APPEND;
+(* TODO: want builtin support for these *)
 val res = translate mlstringTheory.strcat_def;
+val res = translate stringTheory.string_lt_def
+val res = translate stringTheory.string_le_def
+val res = prove(``mlstring_lt x1 x2 = string_lt (explode x1) (explode x2)``,
+                Cases_on`x1`>>Cases_on`x2`>>rw[mlstringTheory.mlstring_lt_def])
+          |> translate
+val res = translate totoTheory.TO_of_LinearOrder
+val res = translate mlstringTheory.mlstring_cmp_def
+val res = translate comparisonTheory.pair_cmp_def
+val res = translate comparisonTheory.list_cmp_def
+(* -- *)
 val res = translate (subset_def |> REWRITE_RULE [MEMBER_INTRO]);
 val res = translate (subtract_def |> REWRITE_RULE [MEMBER_INTRO]);
 val res = translate (insert_def |> REWRITE_RULE [MEMBER_INTRO]);
@@ -688,18 +699,33 @@ val res = translate type_vars_in_term_def;
 val res = translate variant_def;
 val res = translate vsubst_aux_def;
 val res = translate is_eq_def;
-val res = translate term_remove_def;
-val res = translate term_union_def;
 val res = translate dest_thm_def;
 val res = translate hyp_def;
 val res = translate concl_def;
 val res = translate sortingTheory.PART_DEF;
 val res = translate sortingTheory.PARTITION_DEF;
 val res = translate sortingTheory.QSORT_DEF;
-(* TODO: want builtin support for these, and strcat above *)
-val res = translate stringTheory.string_lt_def
-val res = translate stringTheory.string_le_def
-
+(*
+val list_uneta =
+  prove(``list_cmp R = λx y. list_cmp R x y``,rw[FUN_EQ_THM])
+val mlstring_uneta =
+  prove(``mlstring_cmp = λx y. mlstring_cmp x y``,rw[FUN_EQ_THM])
+val pair_uneta =
+  prove(``pair_cmp R1 R2 = λx y. pair_cmp R1 R2 x y``,rw[FUN_EQ_THM])
+val type_uneta =
+  prove(``type_cmp = λx y. type_cmp x y``,rw[FUN_EQ_THM])
+val () = add_preferred_thy"holSyntaxExtra"
+val def = holSyntaxExtraTheory.type_cmp_thm
+          |> SPEC_ALL
+          |> (ONCE_REWRITE_CONV [list_uneta] |> RAND_CONV |> CONV_RULE)
+          |> (ONCE_REWRITE_CONV [type_uneta] |> RAND_CONV |> CONV_RULE)
+          |> translate
+val res = translate holSyntaxExtraTheory.term_cmp_thm;
+val res = translate holSyntaxTheory.ordav_def;
+val res = translate holSyntaxTheory.orda_def;
+val res = translate holSyntaxTheory.term_remove_def;
+val res = translate holSyntaxTheory.term_union_def;
+*)
 val def = assoc_def  (* rec *) |> m_translate
 val def = map_def    (* rec *) |> m_translate
 val def = forall_def (* rec *) |> m_translate
@@ -721,6 +747,7 @@ val def = get_const_type_def |> m_translate
 val def = mk_comb_def |> m_translate
 val def = can_def |> m_translate
 val def = mk_const_def |> m_translate
+val def = image_def |> m_translate
 
 val fdM_def = new_definition("fdM_def",``fdM = first_dup``)
 val fdM_intro = SYM fdM_def
