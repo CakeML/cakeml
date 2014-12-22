@@ -21,7 +21,7 @@ val _ = Datatype `
            | Call num (clos_exp list)
            | App clos_exp clos_exp
            | Fn (num list) clos_exp
-           (* TODO: add Letrec *)
+           | Letrec ((num list # clos_exp) list) clos_exp
            | Op bvl_op (clos_exp list) `
 
 (* --- Semantics of ClosLang --- *)
@@ -32,7 +32,7 @@ val _ = Datatype `
   | Block num (clos_val list)
   | RefPtr num
   | Closure (clos_val list) clos_exp
-  (* TODO: add Recclosure *)`
+  | Recclosure ((clos_val list # clos_exp) list) num`
 
 val _ = Datatype `
   clos_res = Result 'a
@@ -105,7 +105,28 @@ val dest_closure_def = Define `
   dest_closure f x =
     case f of
     | Closure env exp => SOME (exp,x::env)
+    | Recclosure fns i =>
+        (if LENGTH fns <= i then NONE else
+           let (env,exp) = EL i fns in
+           let rs = GENLIST (Recclosure fns) (LENGTH fns) in
+             SOME (exp,x::rs++env))
     | _ => NONE`;
+
+val build_envs_def = Define `
+  (build_envs env [] = SOME []) /\
+  (build_envs env ((names,exp)::fns) =
+     case lookup_vars names env of
+     | NONE => NONE
+     | SOME xs =>
+         (case build_envs env fns of
+          | NONE => NONE
+          | SOME res => SOME ((xs,exp)::res)))`;
+
+val build_recc_def = Define `
+  build_recc env fns =
+    case build_envs env fns of
+    | SOME envs => SOME (GENLIST (Recclosure envs) (LENGTH fns))
+    | NONE => NONE`
 
 val cEval_def = tDefine "cEval" `
   (cEval ([],env:clos_val list,s:clos_state) = (Result [],s)) /\
@@ -147,6 +168,10 @@ val cEval_def = tDefine "cEval" `
      case lookup_vars vs env of
      | NONE => (Error,s)
      | SOME env' => (Result [Closure env' exp], s)) /\
+  (cEval ([Letrec fns exp],env,s) =
+     case build_recc env fns of
+     | NONE => (Error,s)
+     | SOME rs => cEval ([exp],rs ++ env,s)) /\
   (cEval ([App x1 x2],env,s) =
      case cEval ([x1],env,s) of
      | (Result y1,s1) =>
@@ -171,7 +196,7 @@ val cEval_def = tDefine "cEval" `
               if (s.clock = 0) \/ (s1.clock = 0) then (TimeOut,s) else
                   cEval ([exp],args,dec_clock (check_clock s s1)))
      | res => res)`
- (WF_REL_TAC `(inv_image (measure I LEX measure clos_exp1_size)
+ (WF_REL_TAC `(inv_image (measure I LEX measure clos_exp3_size)
                             (\(xs,env,s). (s.clock,xs)))`
   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
   \\ TRY (MATCH_MP_TAC check_clock_lemma \\ DECIDE_TAC)

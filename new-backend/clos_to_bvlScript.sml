@@ -51,6 +51,8 @@ val cComp_def = tDefine "cComp" `
      let c2 = Let ((Var 0:bvl_exp) :: free_let (LENGTH vs)) (HD c1) in
        ([Op (Cons closure_tag) (Op (Label n1) [] :: MAP Var vs)],
         (n1,c2) :: aux1, n1+1)) /\
+  (cComp n [Letrec fns x1] aux = (* TODO *)
+     cComp n [x1] aux) /\
   (cComp n [Handle x1 x2] aux =
      let (c1,aux1,n1) = cComp n [x1] aux in
      let (c2,aux2,n2) = cComp n1 [x2] aux1 in
@@ -58,7 +60,7 @@ val cComp_def = tDefine "cComp" `
   (cComp n [Call dest xs] aux =
      let (c1,aux1,n1) = cComp n xs aux in
        ([Call (SOME dest) c1],aux1,n1))`
- (WF_REL_TAC `measure (clos_exp1_size o FST o SND)`
+ (WF_REL_TAC `measure (clos_exp3_size o FST o SND)`
   \\ REPEAT STRIP_TAC \\ DECIDE_TAC);
 
 (* correctness proof *)
@@ -217,6 +219,7 @@ val cComp_correct = prove(
     \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM (K ALL_TAC)
     \\ Q.LIST_EXISTS_TAC [`aux1`,`aux3`,`n`] \\ fs []
     \\ IMP_RES_TAC cComp_SING \\ fs [code_installed_def])
+  THEN1 (* Letrec *) cheat
   THEN1 (* App *)
    (fs [cEval_def,cComp_def]
     \\ `?res5 s5. cEval ([x1],env,s) = (res5,s5)` by METIS_TAC [PAIR]
@@ -247,28 +250,39 @@ val cComp_correct = prove(
     \\ fs [bEval_def]
     \\ fs [res_rel_Result,DECIDE ``1 < SUC (1 + n:num)``]
     \\ Cases_on `f1` \\ fs [dest_closure_def] \\ SRW_TAC [] []
-    (* Closure case *)
-    \\ fs [val_rel_Closure] \\ SRW_TAC [] []
-    \\ fs [bEvalOp_def,find_code_def]
-    \\ Q.MATCH_ASSUM_RENAME_TAC `state_rel s6 t6` []
-    \\ `t6.code = t2.code` by IMP_RES_TAC bEval_code \\ fs []
-    \\ `t6.clock = s6.clock` by fs [state_rel_def] \\ fs []
-    \\ Cases_on `s6.clock = 0` \\ fs []
-    THEN1 (SRW_TAC [] [res_rel_cases])
-    \\ SIMP_TAC std_ss [bEval_def]
-    \\ SIMP_TAC std_ss [Once bEval_CONS]
-    \\ fs [bEval_def]
-    \\ IMP_RES_TAC EVERY2_LENGTH
-    \\ fs [bEval_free_let_Block]
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n'`,`aux`,`dec_clock t6`])
-    \\ fs [] \\ REPEAT STRIP_TAC
-    \\ `(dec_clock t6).code = t1.code` by (fs [dec_clock_def]) \\ fs []
-    \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM MATCH_MP_TAC
-    \\ fs [env_rel_def]
-    \\ IMP_RES_TAC list_rel_IMP_env_rel \\ fs []
-    \\ fs [state_rel_def,closLangTheory.dec_clock_def,bvlTheory.dec_clock_def]
-    \\ rfs [])
+    THEN1 (* Closure case *)
+     (fs [val_rel_Closure] \\ SRW_TAC [] []
+      \\ fs [bEvalOp_def,find_code_def]
+      \\ Q.MATCH_ASSUM_RENAME_TAC `state_rel s6 t6` []
+      \\ `t6.code = t2.code` by IMP_RES_TAC bvl_inlineTheory.bEval_code \\ fs []
+      \\ `t6.clock = s6.clock` by fs [state_rel_def] \\ fs []
+      \\ Cases_on `s6.clock = 0` \\ fs []
+      THEN1 (SRW_TAC [] [res_rel_cases])
+      \\ SIMP_TAC std_ss [bEval_def]
+      \\ SIMP_TAC std_ss [Once bEval_CONS]
+      \\ fs [bEval_def]
+      \\ IMP_RES_TAC EVERY2_LENGTH
+      \\ fs [bEval_free_let_Block]
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n'`,`aux`,`dec_clock t6`])
+      \\ fs [] \\ REPEAT STRIP_TAC
+      \\ `(dec_clock t6).code = t1.code` by (fs [dec_clock_def]) \\ fs []
+      \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM MATCH_MP_TAC
+      \\ fs [env_rel_def]
+      \\ IMP_RES_TAC list_rel_IMP_env_rel \\ fs []
+      \\ fs [state_rel_def,closLangTheory.dec_clock_def,bvlTheory.dec_clock_def]
+      \\ rfs [])
+    (* Recclosure case *)
+    \\ fs [GSYM NOT_LESS]
+    \\ Q.MATCH_ASSUM_RENAME_TAC `index < LENGTH l` []
+    \\ `?cl_env body. EL index l = (cl_env,body)` by METIS_TAC [PAIR]
+    \\ fs [LET_DEF] \\ SRW_TAC [] []
+    \\ cheat)
   THEN1 (* Tick *) cheat
   THEN1 (* Call *) cheat);
+
+(*
+val _ = PolyML.SaveState.saveState "heap_state";
+val _ = PolyML.SaveState.loadState "heap_state";
+*)
 
 val _ = export_theory();
