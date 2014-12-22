@@ -92,4 +92,13 @@ val StrongLinearOrder_mlstring_lt = store_thm("StrongLinearOrder_mlstring_lt",
   rw[StrongLinearOrder,trichotomous_mlstring_lt,
      StrongOrder,irreflexive_mlstring_lt,transitive_mlstring_lt])
 
+val mlstring_cmp_def = Define`
+  mlstring_cmp = TO_of_LinearOrder mlstring_lt`
+
+val TotOrd_mlstring_cmp = store_thm("TotOrd_mlstring_cmp",
+  ``TotOrd mlstring_cmp``,
+  simp[mlstring_cmp_def] >>
+  match_mp_tac TotOrd_TO_of_Strong >>
+  simp[StrongLinearOrder_mlstring_lt])
+
 val _ = export_theory()
