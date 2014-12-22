@@ -580,7 +580,7 @@ let do_if v e1 e2 =
 val build_tdefs : maybe modN -> list (list tvarN * typeN * list (conN * list t)) -> flat_envC
 let build_tdefs mn tds =
   List.reverse
-    (concat
+    (List.concat
       (List.map
         (fun (tvs, tn, condefs) ->
            List.map
@@ -612,6 +612,8 @@ let remove_count ((count,store),tdecls,mods) = (store,tdecls,mods)
 
 (* conversions to strings *)
 
+import Show_extra
+
 let rec
 id_to_string (Short s) = s
 and
@@ -635,9 +637,8 @@ let tc_to_string tc =
 
 val int_to_string : integer -> string
 let int_to_string z =
-  if z < 0 then "~"^(String_extra.show (naturalFromInteger (~ z)))
-  else String_extra.show (naturalFromInteger z)
-
+  if z < 0 then "~"^(show (naturalFromInteger (~ z)))
+  else show (naturalFromInteger z)
 
 let rec
 string_escape [] = ""

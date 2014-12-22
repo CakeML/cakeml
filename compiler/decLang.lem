@@ -44,7 +44,7 @@ let rec decs_to_i3 next [] = Lit_i2 Unit
 and decs_to_i3 next (d::ds) =
   match d with
     | Dlet_i2 n e ->
-        let vars = List.genlist (fun n -> "x" ^ String_extra.show n) n in
+        let vars = List.genlist (fun n -> "x" ^ show n) n in
           Let_i2 Nothing (Mat_i2 e [(Pcon_i2 (tuple_tag,Nothing) (List.map Pvar_i2 vars), init_globals vars next)]) (decs_to_i3 (next+n) ds)
     | Dletrec_i2 funs ->
         let n = List.length funs in
