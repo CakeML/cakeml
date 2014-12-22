@@ -1,4 +1,4 @@
-open HolKernel boolLib boolSimps bossLib lcsymtacs pairTheory listTheory finite_mapTheory alistTheory relationTheory pred_setTheory sortingTheory stringTheory mlstringTheory totoTheory
+open HolKernel boolLib boolSimps bossLib lcsymtacs pairTheory listTheory finite_mapTheory alistTheory relationTheory pred_setTheory sortingTheory stringTheory mlstringTheory totoTheory comparisonTheory
 open miscLib miscTheory holSyntaxLibTheory holSyntaxTheory
 val _ = temp_tight_equality()
 val _ = new_theory"holSyntaxExtra"
@@ -16,16 +16,6 @@ val LLEX_EL_THM = store_thm("LLEX_EL_THM",
     Q.EXISTS_TAC`SUC n` THEN SRW_TAC[][] ) THEN
   Cases_on`n` THEN FULL_SIMP_TAC(srw_ss())[] THEN
   METIS_TAC[])
-
-val invert_def = Define`
-  invert GREATER = LESS ∧
-  invert LESS = GREATER ∧
-  invert EQUAL = EQUAL`
-val _ = export_rewrites["invert_def"]
-
-val invert_eq_EQUAL = store_thm("invert_eq_EQUAL[simp]",
-  ``∀x. invert x = EQUAL ⇔ x = EQUAL``,
-  Cases >> simp[])
 (* -- *)
 
 val type_ind = save_thm("type_ind",
