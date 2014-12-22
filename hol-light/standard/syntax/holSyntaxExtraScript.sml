@@ -443,6 +443,24 @@ val type_cmp_thm = store_thm("type_cmp_thm",
        SYM(MATCH_MP TO_of_LinearOrder_LEX (CONJ irreflexive_mlstring_lt irreflexive_LLEX_type_lt))] >>
   simp[TO_of_LinearOrder])
 
+val type_cmp_ind = store_thm("type_cmp_ind",
+  ``∀P.
+      (∀t1 t2.
+        (∀x1 a1 x2 a2 x y.
+          t1 = Tyapp x1 a1 ∧
+          t2 = Tyapp x2 a2 ∧
+          MEM x a1 ∧ MEM y a2 ⇒
+          P x y)
+        ⇒ P t1 t2)
+      ⇒ ∀t1 t2. P t1 t2``,
+  gen_tac >> strip_tac >>
+  ho_match_mp_tac type_ind >>
+  rpt conj_tac >> TRY (gen_tac >> Cases >> rw[] >> NO_TAC) >>
+  rpt gen_tac >> strip_tac >> gen_tac >>
+  ho_match_mp_tac type_ind >> rw[] >>
+  first_x_assum match_mp_tac >> simp[] >>
+  fs[EVERY_MEM])
+
 val term_cmp_thm = store_thm("term_cmp_thm",
   ``∀t1 t2. term_cmp t1 t2 =
     case (t1,t2) of
@@ -482,6 +500,29 @@ val term_cmp_thm = store_thm("term_cmp_thm",
   simp[GSYM term_cmp_def,MATCH_MP pair_cmp_lexTO (CONJ TotOrd_term_cmp TotOrd_term_cmp)] >>
   simp[term_cmp_def, TO_of_LinearOrder,
        SYM(MATCH_MP TO_of_LinearOrder_LEX (CONJ irreflexive_term_lt irreflexive_term_lt))] )
+
+val term_cmp_ind = store_thm("term_cmp_ind",
+  ``∀P.
+      (∀t1 t2.
+        (∀x1 y1 x2 y2.
+          t1 = Comb x1 y1 ∧ t2 = Comb x2 y2 ⇒
+            P x1 x2) ∧
+        (∀x1 y1 x2 y2.
+          t1 = Comb x1 y1 ∧ t2 = Comb x2 y2 ⇒
+            P y1 y2) ∧
+        (∀x1 y1 x2 y2.
+          t1 = Abs x1 y1 ∧ t2 = Abs x2 y2 ⇒
+            P x1 x2) ∧
+        (∀x1 y1 x2 y2.
+          t1 = Abs x1 y1 ∧ t2 = Abs x2 y2 ⇒
+            P y1 y2)
+        ⇒ P t1 t2)
+      ⇒ ∀t1 t2. P t1 t2``,
+  gen_tac >> strip_tac >>
+  ho_match_mp_tac term_induction >>
+  rpt conj_tac >>
+  TRY( ntac 2 gen_tac >> Cases >> simp[] >> NO_TAC ) >>
+  ntac 3 strip_tac >> Cases >> simp[])
 
 (* alpha ordering *)
 
