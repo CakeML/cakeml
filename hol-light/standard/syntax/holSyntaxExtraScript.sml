@@ -897,12 +897,12 @@ val MEM_term_union = store_thm("MEM_term_union",
   fs[GSYM ACONV_eq_orda] >>
   metis_tac[MEM,ACONV_REFL,ACONV_SYM,hypset_ok_cons])
 
-val term_union_sing_lt = store_thm("term_union_sing_lt",
+val term_union_sing_lt = prove(
   ``∀ys x. EVERY (λy. alpha_lt x y) ys ⇒ (term_union [x] ys = x::ys)``,
   Induct >> simp[term_union_thm] >> rw[] >> fs[] >>
   fs[alpha_lt_def])
 
-val term_union_insert_append = store_thm("term_union_insert_append",
+val term_union_insert = store_thm("term_union_insert",
   ``∀ys x zs.
     EVERY (λy. alpha_lt y x) ys ∧
     EVERY (λz. alpha_lt x z) zs
@@ -914,6 +914,17 @@ val term_union_insert_append = store_thm("term_union_insert_append",
     qspecl_then[`[]`,`h`,`x`]mp_tac orda_sym >>
     simp[] ) >>
   simp[])
+
+val term_union_replace = store_thm("term_union_replace",
+  ``∀ys x x' zs.
+    EVERY (λy. alpha_lt y x) ys ∧ ACONV x x' ∧
+    EVERY (λz. alpha_lt x z) zs
+    ⇒
+    term_union [x] (ys ++ x'::zs) = ys ++ x::zs``,
+  Induct >> rw[term_union_thm,ACONV_eq_orda,alpha_lt_def] >>
+  qspecl_then[`[]`,`h`,`x`]mp_tac orda_sym >>
+  simp[] >> disch_then(assume_tac o SYM) >> simp[] >>
+  fs[GSYM ACONV_eq_orda, GSYM alpha_lt_def])
 
 val MEM_term_union_first = store_thm("MEM_term_union_first",
   ``∀h1 h2 t. hypset_ok h1 ∧ hypset_ok h2 ∧ MEM t h1 ⇒ MEM t (term_union h1 h2)``,
