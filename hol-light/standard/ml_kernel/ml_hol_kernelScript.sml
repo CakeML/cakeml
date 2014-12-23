@@ -705,27 +705,105 @@ val res = translate concl_def;
 val res = translate sortingTheory.PART_DEF;
 val res = translate sortingTheory.PARTITION_DEF;
 val res = translate sortingTheory.QSORT_DEF;
-(*
-val list_uneta =
-  prove(``list_cmp R = λx y. list_cmp R x y``,rw[FUN_EQ_THM])
-val mlstring_uneta =
-  prove(``mlstring_cmp = λx y. mlstring_cmp x y``,rw[FUN_EQ_THM])
-val pair_uneta =
-  prove(``pair_cmp R1 R2 = λx y. pair_cmp R1 R2 x y``,rw[FUN_EQ_THM])
-val type_uneta =
-  prove(``type_cmp = λx y. type_cmp x y``,rw[FUN_EQ_THM])
-val () = add_preferred_thy"holSyntaxExtra"
-val def = holSyntaxExtraTheory.type_cmp_thm
-          |> SPEC_ALL
-          |> (ONCE_REWRITE_CONV [list_uneta] |> RAND_CONV |> CONV_RULE)
-          |> (ONCE_REWRITE_CONV [type_uneta] |> RAND_CONV |> CONV_RULE)
-          |> translate
-val res = translate holSyntaxExtraTheory.term_cmp_thm;
+
+val type_compare_def = tDefine "type_compare" `
+  (type_compare t1 t2 =
+     case (t1,t2) of
+     | (Tyvar x1,Tyvar x2) => mlstring_cmp x1 x2
+     | (Tyvar x1,Tyapp _ _) => Less
+     | (Tyapp x1 a1,Tyvar _) => Greater
+     | (Tyapp x1 a1,Tyapp x2 a2) =>
+         case mlstring_cmp x1 x2 of
+         | Equal => type_list_compare a1 a2
+         | other => other) /\
+  (type_list_compare ts1 ts2 =
+     case (ts1,ts2) of
+     | ([],[]) => Equal
+     | ([],t2::ts2) => Less
+     | (t1::ts1,[]) => Greater
+     | (t1::ts1,t2::ts2) =>
+         (case type_compare t1 t2 of
+          | Equal => type_list_compare ts1 ts2
+          | other => other))`
+  (WF_REL_TAC `measure (\x. case x of
+                  INR (x,_) => type1_size x
+                | INL (x,_) => type_size x)`)
+
+val type_cmp_thm = prove(
+  ``(type_cmp = type_compare) /\
+    (list_cmp type_cmp = type_list_compare)``,
+  fs [FUN_EQ_THM]
+  \\ HO_MATCH_MP_TAC (fetch "-" "type_compare_ind")
+  \\ REPEAT STRIP_TAC \\ fs []
+  \\ ONCE_REWRITE_TAC [holSyntaxExtraTheory.type_cmp_thm]
+  \\ ONCE_REWRITE_TAC [type_compare_def]
+  \\ REPEAT BasicProvers.CASE_TAC
+  \\ fs [comparisonTheory.pair_cmp_def,comparisonTheory.list_cmp_def])
+  |> CONJUNCT1;
+
+val _ = add_preferred_thy "-";
+val _ = save_thm("type_cmp_ind",
+          (fetch "-" "type_compare_ind") |> RW [GSYM type_cmp_thm]);
+val res = translate (type_compare_def |> RW [GSYM type_cmp_thm]);
+
+val term_compare_def = Define `
+  term_compare t1 t2 =
+     case (t1,t2) of
+       (Var x1 ty1,Var x2 ty2) =>
+         (case mlstring_cmp x1 x2 of
+            Less => Less
+          | Equal => type_cmp ty1 ty2
+          | Greater => Greater)
+     | (Var x1 ty1,Const v52 v53) => Less
+     | (Var x1 ty1,Comb v54 v55) => Less
+     | (Var x1 ty1,Abs v56 v57) => Less
+     | (Const x1' ty1',Var v66 v67) => Greater
+     | (Const x1' ty1',Const x2' ty2') =>
+         (case mlstring_cmp x1' x2' of
+            Less => Less
+          | Equal => type_cmp ty1' ty2'
+          | Greater => Greater)
+     | (Const x1' ty1',Comb v70 v71) => Less
+     | (Const x1' ty1',Abs v72 v73) => Less
+     | (Comb s1 t1,Var v82 v83) => Greater
+     | (Comb s1 t1,Const v84 v85) => Greater
+     | (Comb s1 t1,Comb s2 t2) =>
+         (case term_compare s1 s2 of
+            Less => Less
+          | Equal => term_compare t1 t2
+          | Greater => Greater)
+     | (Comb s1 t1,Abs v88 v89) => Less
+     | (Abs s1' t1',Var v98 v99) => Greater
+     | (Abs s1' t1',Const v100 v101) => Greater
+     | (Abs s1' t1',Comb v102 v103) => Greater
+     | (Abs s1' t1',Abs s2' t2') =>
+         case term_compare s1' s2' of
+           Less => Less
+         | Equal => term_compare t1' t2'
+         | Greater => Greater`;
+
+val term_cmp_thm = prove(
+  ``term_cmp = term_compare``,
+  fs [FUN_EQ_THM]
+  \\ HO_MATCH_MP_TAC (fetch "-" "term_compare_ind")
+  \\ REPEAT STRIP_TAC \\ fs []
+  \\ ONCE_REWRITE_TAC [holSyntaxExtraTheory.term_cmp_thm]
+  \\ ONCE_REWRITE_TAC [term_compare_def]
+  \\ REPEAT BasicProvers.CASE_TAC
+  \\ fs [comparisonTheory.pair_cmp_def])
+
+val _ = add_preferred_thy "-";
+val _ = save_thm("term_cmp_ind",
+          (fetch "-" "term_compare_ind") |> RW [GSYM term_cmp_thm]);
+val res = translate (term_compare_def |> RW [GSYM term_cmp_thm]);
+
+val res = translate holSyntaxTheory.codomain_raw;
+val res = translate holSyntaxTheory.typeof_def;
 val res = translate holSyntaxTheory.ordav_def;
 val res = translate holSyntaxTheory.orda_def;
 val res = translate holSyntaxTheory.term_remove_def;
 val res = translate holSyntaxTheory.term_union_def;
-*)
+
 val def = assoc_def  (* rec *) |> m_translate
 val def = map_def    (* rec *) |> m_translate
 val def = forall_def (* rec *) |> m_translate

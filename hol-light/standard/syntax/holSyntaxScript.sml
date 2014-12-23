@@ -11,10 +11,22 @@ val _ = Hol_datatype`type
 val _ = Parse.overload_on("Fun",``λs t. Tyapp (strlit "fun") [s;t]``)
 val _ = Parse.overload_on("Bool",``Tyapp (strlit "bool") []``)
 
-val domain_def = Define`domain (Fun s t) = s`
-val codomain_def = Define`codomain (Fun s t) = t`
-val domain_def = save_thm("domain_def",SIMP_RULE(srw_ss())[]domain_def)
-val codomain_def = save_thm("codomain_def",SIMP_RULE(srw_ss())[]codomain_def)
+val domain_raw = Define `
+  domain ty = case ty of Tyapp n (x::xs) => x | _ => ty`;
+
+val domain_def = store_thm("domain_def",
+  ``!t s. domain (Fun s t) = s``,
+  REPEAT STRIP_TAC \\ EVAL_TAC);
+
+val codomain_raw = Define `
+  codomain ty = case ty of Tyapp n (y::x::xs) => x | _ => ty`;
+
+val codomain_def = store_thm("codomain_def",
+  ``!t s. codomain (Fun s t) = t``,
+  REPEAT STRIP_TAC \\ EVAL_TAC);
+
+val _ = save_thm("domain_raw",domain_raw);
+val _ = save_thm("codomain_raw",codomain_raw);
 val _ = export_rewrites["domain_def","codomain_def"]
 
 fun type_rec_tac proj =
