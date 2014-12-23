@@ -881,26 +881,6 @@ val _ = Define `
     | _ => F`;
 
 (*
-  let term_remove t l = filter (fun t' -> not(aconv t t')) l;;
-
-  let rec term_union l1 l2 =
-    match l1 with
-      [] -> l2
-    | (h::t) -> let subun = term_union t l2 in
-                if exists (aconv h) subun then subun else h::subun;;
-*)
-
-val _ = Define `
-  term_remove t l = FILTER (\t'. ~(aconv t t')) l`;
-
-val _ = Define `
-  term_union l1 l2 =
-    case l1 of
-      [] => l2
-    | (h::t) => let subun = term_union t l2 in
-                if EXISTS (aconv h) subun then subun else h::subun`;
-
-(*
   let dest_thm (Sequent(asl,c)) = (asl,c)
 
   let hyp (Sequent(asl,c)) = asl
@@ -1034,6 +1014,15 @@ val _ = Define `
       do eq <- mk_eq(c1,c2) ;
          return (Sequent (term_union asl1' asl2') eq) od`
 
+val _ = Define`
+  image f l =
+  case l of
+    [] => return l
+  | (h::t) => do h' <- f h ;
+                 t' <- image f t ;
+                 return ( if (h' = h) ∧ (t' = t) then l
+                          else term_union [h'] t' ) od`
+
 (*
   let INST_TYPE theta (Sequent(asl,c)) =
     let inst_fun = inst theta in
@@ -1043,7 +1032,7 @@ val _ = Define `
 val _ = Define `
   INST_TYPE theta (Sequent asl c) =
     let inst_fun = inst theta in
-      do l <- map inst_fun asl ;
+      do l <- image inst_fun asl ;
          x <- inst_fun c ;
          return (Sequent l x) od`
 
@@ -1056,7 +1045,7 @@ val _ = Define `
 val _ = Define `
   INST theta (Sequent asl c) =
     let inst_fun = vsubst theta in
-      do l <- map inst_fun asl ;
+      do l <- image inst_fun asl ;
          x <- inst_fun c ;
          return (Sequent l x) od`
 

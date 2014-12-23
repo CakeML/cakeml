@@ -388,34 +388,37 @@ val theory_ok_remove_upd = Q.prove (
 (* Not true as stated, since removing constants can make terms become equal. *)
 val remove_const_term_union = Q.prove (
 `!tms1 tms2.
-  MAP (remove_const thy consts) (TERM_UNION tms1 tms2)
+  MAP (remove_const thy consts) (term_union tms1 tms2)
   =
-  TERM_UNION (MAP (remove_const thy consts) tms1) (MAP (remove_const thy consts) tms2)`,
+  term_union (MAP (remove_const thy consts) tms1) (MAP (remove_const thy consts) tms2)`,
  Induct_on `tms1` >>
- rw [TERM_UNION_def] >>
+ rw [term_union_thm] >>
+ Cases_on `tms2` >>
+ fs [term_union_thm] >>
  every_case_tac >>
  rw [] >>
- unabbrev_all_tac >>
- fs [EVERY_MEM, EXISTS_MEM] >>
- imp_res_tac TERM_UNION_NONEW >>
  cheat);
 
+ (*
 val remove_const_inst = Q.prove (
 `!tys consts tyin tm.
   remove_const tys consts (INST tyin tm) = INST tyin (remove_const tys consts tm)`,
  Induct_on `tm` >>
  rw [remove_const_def] >>
  cheat);
+ *)
 
 val remove_const_aconv = Q.prove (
 `!tm1 tm2. ACONV tm1 tm2 ⇒ ACONV (remove_const tys consts tm1) (remove_const tys consts tm2)`,
  cheat);
 
+ (*
 val remove_const_vsubst = Q.prove (
 `!tys consts tm.
   remove_const tys consts (VSUBST ilist tm) = 
   VSUBST (MAP (λ(x,y). (remove_const tys consts x, y)) ilist) (remove_const tys consts tm)`,
  cheat);
+ *)
 
 val welltyped_remove_const = Q.prove (
 `!tys consts tm.
@@ -528,6 +531,9 @@ val update_conservative = Q.prove (
      rw [upd_to_subst_def] >>
      rfs [upd_to_subst_def, remove_const_eq] >>
      metis_tac [remove_const_aconv])
+ >- cheat
+ >- cheat
+(*
  >- (rw [Once proves_cases] >>
      ntac 5 disj2_tac >>
      disj1_tac >>
@@ -558,6 +564,7 @@ val update_conservative = Q.prove (
      >- rw [remove_const_inst]
      >- (LAST_X_ASSUM (qspecl_then [`ctxt`, `ConstSpec consts p`] mp_tac) >>
          rw [upd_to_subst_def]))
+ *)
  >- (rw [Once proves_cases] >>
      ntac 7 disj2_tac >>
      disj1_tac >>
