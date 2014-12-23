@@ -2370,6 +2370,157 @@ val proves_term_ok = store_thm("proves_term_ok",
     match_mp_tac EVERY_term_union >> fs[] ) >>
   rw[theory_ok_def])
 
+(* a simple derived rule, used below *)
+
+val assume = proves_rules |> CONJUNCTS |> el 2
+val deductAntisym = proves_rules |> CONJUNCTS |> el 4
+val eqMp = proves_rules |> CONJUNCTS |> el 5
+val refl =  proves_rules |> CONJUNCTS |> el 9
+
+val addAssum = store_thm("addAssum",
+  ``∀thy h c a. (thy,h) |- c ∧ term_ok (sigof thy) a ∧ (a has_type Bool) ⇒
+      (thy,term_union [a] h) |- c``,
+  rw[] >>
+  ho_match_mp_tac (MP_CANON eqMp) >>
+  map_every qexists_tac[`c`,`c`] >> simp[] >>
+  qspecl_then[`a`,`thy`]mp_tac assume >>
+  imp_res_tac proves_theory_ok >> fs[] >> strip_tac >>
+  Cases_on`ACONV (c === c) a` >- (
+    qspecl_then[`c === c`,`thy`]mp_tac refl >>
+    imp_res_tac theory_ok_sig >>
+    imp_res_tac proves_term_ok >>
+    fs[term_ok_equation] >> strip_tac >>
+    imp_res_tac eqMp >>
+    fs[term_union_thm] ) >>
+  qspecl_then[`c`,`thy`]mp_tac refl >>
+  imp_res_tac proves_term_ok >> fs[] >> strip_tac >>
+  qspecl_then[`a`,`c === c`,`[a]`,`[]`,`thy`]mp_tac deductAntisym >>
+  simp[term_union_thm] >>
+  `term_remove (c === c) [a] = [a]` by (
+    simp[Once term_remove_def,GSYM ACONV_eq_orda] ) >>
+  rw[] >>
+  imp_res_tac eqMp >>
+  metis_tac[ACONV_REFL,term_union_idem])
+
+(* inference system respects alpha-equivalence *)
+
+val rws = [
+  rich_listTheory.EL_APPEND1,
+  rich_listTheory.EL_APPEND2,
+  rich_listTheory.EL_LENGTH_APPEND_rwt,
+  rich_listTheory.EL_TAKE,
+  rich_listTheory.EL_DROP,
+  rich_listTheory.EL_CONS]
+
+val proves_concl_ACONV = prove(
+  ``∀thyh c c'. thyh |- c ∧ ACONV c c' ∧ welltyped c' ⇒ thyh |- c'``,
+  rw[] >>
+  qspecl_then[`c'`,`FST thyh`]mp_tac refl >>
+  imp_res_tac proves_theory_ok >>
+  imp_res_tac proves_term_ok >> fs[] >>
+  imp_res_tac term_ok_aconv >> pop_assum kall_tac >> simp[] >>
+  Cases_on`thyh`>>fs[]>>
+  metis_tac[eqMp,term_union_thm,ACONV_SYM] )
+
+val proves_ACONV_lemma = prove(
+  ``∀thy c h' h1 h.
+    (thy,h1++h) |- c ∧
+    hypset_ok (h1++h') ∧
+    EVERY (λx. EXISTS (ACONV x) h') h ∧
+    EVERY (λx. term_ok (sigof thy) x ∧ x has_type Bool) h'
+    ⇒ (thy,h1++h') |- c``,
+  ntac 2 gen_tac >> Induct >> rw[] >> rw[] >>
+  imp_res_tac proves_term_ok >> fs[hypset_ok_cons] >>
+  Cases_on`EXISTS (ACONV h) h''` >- (
+    `∃h0 hr. (h'' = h0::hr) ∧ ACONV h h0` by (
+      Cases_on`h''`>>fs[]>-metis_tac[ACONV_SYM]>>
+      fs[EXISTS_MEM] >>
+      `alpha_lt h''' e'` by (
+        fs[hypset_ok_append,hypset_ok_cons,EVERY_MEM] ) >>
+      `alpha_lt h e` by (
+        fs[hypset_ok_append,hypset_ok_cons,EVERY_MEM] ) >>
+      `alpha_lt e e'` by metis_tac[alpha_lt_trans_ACONV,ACONV_SYM] >>
+      `alpha_lt h e'` by metis_tac[transitive_alpha_lt,relationTheory.transitive_def] >>
+      fs[alpha_lt_def,ACONV_eq_orda] ) >>
+    rw[] >>
+    qspecl_then[`thy`,`h1++h0::hr`,`c`,`h`]mp_tac addAssum >>
+    imp_res_tac WELLTYPED_LEMMA >> simp[] >>
+    qspecl_then[`h1`,`h`,`h0`,`hr`]mp_tac term_union_replace >>
+    discharge_hyps >- (
+      simp[EVERY_MEM,MEM_EL,PULL_EXISTS] >>
+      rpt(qpat_assum`EVERY P (X::Y)`kall_tac) >>
+      rw[] >>
+      fs[hypset_ok_el_less] >- (
+        first_x_assum(qspecl_then[`n`,`LENGTH h1`]mp_tac) >>
+        simp rws >>
+        metis_tac[alpha_lt_trans_ACONV,ACONV_SYM]) >>
+      first_x_assum(qspecl_then[`LENGTH h1`,`LENGTH h1 + SUC n`]mp_tac) >>
+      simp rws >>
+      metis_tac[alpha_lt_trans_ACONV,ACONV_SYM]) >>
+    disch_then SUBST1_TAC >> strip_tac >>
+    first_x_assum(qspecl_then[`h1++[h]`,`hr`]mp_tac) >>
+    discharge_hyps >- (
+      conj_tac >- metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC] >>
+      conj_tac >- (
+        imp_res_tac proves_term_ok >> fs[] >>
+        metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC] ) >>
+      qpat_assum`EVERY P1 X`kall_tac >>
+      qmatch_assum_abbrev_tac`EVERY P (h0::hr)` >>
+      qpat_assum`EXISTS X (h0::hr)`kall_tac >>
+      fs[EVERY_MEM] >> rw[] >>
+      `P x` by res_tac >> pop_assum mp_tac >>
+      qpat_assum`P h0`kall_tac >>
+      simp_tac std_ss [Abbr`P`] >>
+      strip_tac >>
+      fs[hypset_ok_el_less,MEM_EL,PULL_EXISTS] >>
+      first_x_assum(qspecl_then[`LENGTH h1`,`LENGTH h1 + SUC n`]mp_tac) >>
+      simp rws >> strip_tac >>
+      `ACONV h0 x` by metis_tac[ACONV_TRANS,ACONV_SYM] >>
+      rfs[ACONV_eq_orda,alpha_lt_def] ) >>
+    metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC] ) >>
+  qspecl_then[`thy`,`h1++h''`,`c`,`h`]mp_tac addAssum >>
+  imp_res_tac WELLTYPED_LEMMA >> simp[] >>
+  qspecl_then[`h1`,`h`,`h''`]mp_tac term_union_insert >>
+  discharge_hyps >- (
+    fs[EVERY_MEM,EXISTS_MEM] >>
+    conj_tac >- (
+      rw[] >>
+      qpat_assum`hypset_ok (h1 ++ h::h')`mp_tac >>
+      simp[hypset_ok_el_less,MEM_EL,PULL_EXISTS] >>
+      fs[MEM_EL,PULL_EXISTS] >>
+      disch_then(qspecl_then[`n`,`LENGTH h1`]mp_tac) >>
+      simp rws ) >>
+    rw[] >>
+    last_x_assum(qspec_then`z`mp_tac) >> simp[] >>
+    strip_tac >- metis_tac[ACONV_SYM] >>
+    fs[hypset_ok_append,hypset_ok_cons,EVERY_MEM] >> rw[] >> fs[] >>
+    metis_tac[ACONV_SYM,alpha_lt_trans_ACONV] ) >>
+  disch_then SUBST1_TAC >> strip_tac >>
+  first_x_assum(qspecl_then[`h1++[h]`,`h''`]mp_tac) >>
+  discharge_hyps >- (
+    conj_tac >- metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC] >>
+    conj_tac >- (
+      imp_res_tac proves_term_ok >> fs[] >>
+      metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC] ) >>
+    qpat_assum`EVERY P1 X`kall_tac >>
+    qpat_assum`EVERY P1 X`kall_tac >>
+    fs[EVERY_MEM,EXISTS_MEM] >>
+    metis_tac[ACONV_SYM] ) >>
+  metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC])
+
+val proves_ACONV = store_thm("proves_ACONV",
+  ``∀thy h' c' h c.
+      (thy,h) |- c ∧ welltyped c' ∧ ACONV c c' ∧
+      hypset_ok h' ∧
+      EVERY (λx. EXISTS (ACONV x) h') h ∧
+      EVERY (λx. term_ok (sigof thy) x ∧ x has_type Bool) h'
+      ⇒ (thy,h') |- c'``,
+  rw[] >>
+  qsuff_tac`(thy,h') |- c` >- metis_tac[proves_concl_ACONV] >>
+  qpat_assum`welltyped c'`kall_tac >>
+  qpat_assum`ACONV c c'`kall_tac >>
+  metis_tac[proves_ACONV_lemma,APPEND])
+
 (* extension is transitive *)
 
 val extends_trans = store_thm("extends_trans",
