@@ -53,10 +53,16 @@ val term_ok_clauses = store_thm("term_ok_clauses",
     (type_ok (tysof sig) Bool ⇔ T) ∧
     (type_ok (tysof sig) (Fun ty1 ty2) ⇔ type_ok (tysof sig) ty1 ∧ type_ok (tysof sig) ty2) ∧
     (term_ok sig (Comb t1 t2) ⇔ term_ok sig t1 ∧ term_ok sig t2 ∧ welltyped (Comb t1 t2)) ∧
+    (term_ok sig (Equal ty) ⇔ type_ok (tysof sig) ty) ∧
     (term_ok sig (t1 === t2) ⇔ term_ok sig t1 ∧ term_ok sig t2 ∧ typeof t1 = typeof t2) ∧
     (term_ok sig (Abs (Var s ty) t) ⇔ type_ok (tysof sig) ty ∧ term_ok sig t)``,
   rw[term_ok_def,type_ok_def,term_ok_equation] >>
-  fs[is_std_sig_def] >> metis_tac[])
+  fs[is_std_sig_def] >>
+  TRY (
+    rw[EQ_IMP_THM] >>
+    qexists_tac`[(ty,Tyvar(strlit"A"))]` >>
+    EVAL_TAC >> NO_TAC) >>
+  metis_tac[])
 
 val ConstDef_tac =
   pop_assum(assume_tac o REWRITE_RULE[GSYM extends_def]) >>
