@@ -751,6 +751,18 @@ val transitive_alpha_lt = store_thm("transitive_alpha_lt",
   qspecl_then[`[]`,`x`,`y`]mp_tac orda_lx_trans >>
   simp[])
 
+val alpha_lt_trans_ACONV = store_thm("alpha_lt_trans_ACONV",
+  ``∀x y z.
+    (ACONV x y ∧ alpha_lt y z ⇒ alpha_lt x z) ∧
+    (alpha_lt x y ∧ ACONV y z ⇒ alpha_lt x z)``,
+  rw[alpha_lt_def,ACONV_eq_orda] >>
+  qspecl_then[`[]`,`x`,`y`]mp_tac orda_lx_trans >>
+  simp[])
+
+val alpha_lt_not_refl = store_thm("alpha_lt_not_refl[simp]",
+  ``∀x. ¬alpha_lt x x``,
+  metis_tac[alpha_lt_def,ACONV_eq_orda,cpn_distinct,ACONV_REFL])
+
 (* VFREE_IN lemmas *)
 
 val VFREE_IN_RACONV = store_thm("VFREE_IN_RACONV",
@@ -780,6 +792,31 @@ val hypset_ok_cons = store_thm("hypset_ok_cons",
     EVERY (alpha_lt h) hs ∧ hypset_ok hs``,
   rw[hypset_ok_def,MATCH_MP SORTED_EQ transitive_alpha_lt,EVERY_MEM]>>
   metis_tac[])
+
+val hypset_ok_ALL_DISTINCT = store_thm("hypset_ok_ALL_DISTINCT",
+  ``∀h. hypset_ok h ⇒ ALL_DISTINCT h``,
+  simp[hypset_ok_def] >> Induct >>
+  simp[MATCH_MP SORTED_EQ transitive_alpha_lt] >>
+  rw[] >> strip_tac >> res_tac >> fs[alpha_lt_def] >>
+  metis_tac[cpn_distinct,ACONV_REFL,ACONV_eq_orda])
+
+val hypset_ok_eq = store_thm("hypset_ok_eq",
+  ``∀h1 h2.  hypset_ok h1 ∧ hypset_ok h2 ⇒
+            ((h1 = h2) ⇔ (set h1 = set h2))``,
+  rw[EQ_IMP_THM] >> fs[EXTENSION] >>
+  metis_tac[
+    hypset_ok_ALL_DISTINCT,PERM_ALL_DISTINCT,
+    SORTED_PERM_EQ,hypset_ok_def,
+    transitive_alpha_lt, antisymmetric_alpha_lt])
+
+val hypset_ok_append = save_thm("hypset_ok_append",
+  MATCH_MP sortingTheory.SORTED_transitive_APPEND_IFF
+           transitive_alpha_lt
+  |> REWRITE_RULE[GSYM hypset_ok_def])
+
+val hypset_ok_el_less = save_thm("hypset_ok_el_less",
+  MATCH_MP sortingTheory.SORTED_EL_LESS transitive_alpha_lt
+  |> REWRITE_RULE[GSYM hypset_ok_def])
 
 (* term_union lemmas *)
 
@@ -860,7 +897,39 @@ val MEM_term_union = store_thm("MEM_term_union",
   fs[GSYM ACONV_eq_orda] >>
   metis_tac[MEM,ACONV_REFL,ACONV_SYM,hypset_ok_cons])
 
+val term_union_sing_lt = store_thm("term_union_sing_lt",
+  ``∀ys x. EVERY (λy. alpha_lt x y) ys ⇒ (term_union [x] ys = x::ys)``,
+  Induct >> simp[term_union_thm] >> rw[] >> fs[] >>
+  fs[alpha_lt_def])
+
+val term_union_insert_append = store_thm("term_union_insert_append",
+  ``∀ys x zs.
+    EVERY (λy. alpha_lt y x) ys ∧
+    EVERY (λz. alpha_lt x z) zs
+    ⇒ (term_union [x] (ys ++ zs) = ys ++ x::zs)``,
+  Induct >> simp[term_union_sing_lt] >> rw[] >>
+  simp[term_union_thm] >>
+  `orda [] x h = Greater` by (
+    fs[alpha_lt_def] >>
+    qspecl_then[`[]`,`h`,`x`]mp_tac orda_sym >>
+    simp[] ) >>
+  simp[])
+
+val MEM_term_union_first = store_thm("MEM_term_union_first",
+  ``∀h1 h2 t. hypset_ok h1 ∧ hypset_ok h2 ∧ MEM t h1 ⇒ MEM t (term_union h1 h2)``,
+  Induct >> simp[hypset_ok_cons] >>
+  gen_tac >> Induct >> simp[term_union_thm] >>
+  rw[hypset_ok_cons] >>
+  BasicProvers.CASE_TAC >> rw[] >>
+  disj2_tac >>
+  first_x_assum match_mp_tac >>
+  rw[hypset_ok_cons])
+
 (* term_remove *)
+
+val term_remove_nil = store_thm("term_remove_nil[simp]",
+  ``∀a. term_remove a [] = []``,
+  rw[Once term_remove_def])
 
 val MEM_term_remove_imp = store_thm("MEM_term_remove_imp",
   ``∀ls x t. MEM t (term_remove x ls) ⇒
