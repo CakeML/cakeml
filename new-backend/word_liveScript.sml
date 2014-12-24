@@ -366,7 +366,7 @@ val jump_exc_perm = prove(``
   fs[word_state_component_equality])
 
 (*For any target result permute, we can find an initial permute such that the resulting permutation is the same*)
-val permute_swap_lemma = prove(``
+val permute_swap_lemma = store_thm("permute_swap_lemma",``
 ∀prog st perm.
   let (res,rst) = wEval(prog,st) in
     res ≠ SOME Error  (*Provable without this assum*)
