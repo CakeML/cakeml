@@ -13,6 +13,32 @@ val free_let_def = Define `
 val closure_tag_def = Define `
   closure_tag = 0:num`;
 
+val code_for_recc_case_def = Define `
+  code_for_recc_case n (c:bvl_exp) =
+    Let [Op (El 1) [Var 0]]
+      (Let (Var 1::GENLIST (\i. Op (Deref) [Var 0; Op (Const (& i)) []]) n) c)`
+
+val build_aux_def = Define `
+  (build_aux i [] aux = (i:num,aux)) /\
+  (build_aux i ((x:bvl_exp)::xs) aux = build_aux (i+1) xs ((i,x) :: aux))`;
+
+val recc_Let_def = Define `
+  recc_Let n hole =
+    Let [Op (Cons closure_tag) [Op (Label n) []; Var 0]]
+      (Let [Op Update [hole; Var 0]] (Var 1 : bvl_exp))`;
+
+val recc_Lets_def = Define `
+  recc_Lets n k rest =
+    if k = 0:num then rest else
+      Let [recc_Let n (Op (El 1) [Var 1])]
+        (recc_Lets (n+1) (k-1) rest)`;
+
+val build_recc_lets_def = Define `
+  build_recc_lets (fns:clos_exp list) vs n1 fns_l (c3:bvl_exp) =
+    Let [Let [Op Ref (MAP (K (Op (Const 0) [])) fns ++ MAP Var vs)]
+           (recc_Let n1 (Var 1))]
+      (recc_Lets (n1+1) (fns_l - 1) c3)`;
+
 val cComp_def = tDefine "cComp" `
   (cComp n [] aux = ([],aux,n)) /\
   (cComp n ((x:clos_exp)::y::xs) aux =
@@ -60,7 +86,15 @@ val cComp_def = tDefine "cComp" `
          let c3 = Let (Var 0 :: Var 1 :: free_let (LENGTH vs)) (HD c1) in
          let c4 = Op (Cons closure_tag) (Op (Label n1) [] :: MAP Var vs) in
            ([Let [c4] (HD c2)], (n1,c3) :: aux2, n2)
-     | _ => cComp n [x1] aux) /\
+     | _ =>
+         let fns_l = LENGTH fns in
+         let l = fns_l + LENGTH vs in
+         let (cs,aux1,n1) = cComp n fns aux in
+         let cs1 = MAP (code_for_recc_case l) cs in
+         let (n2,aux2) = build_aux n1 cs1 aux in
+         let (c3,aux3,n3) = cComp n2 [x1] aux2 in
+         let c4 = build_recc_lets fns vs n1 fns_l (HD c3) in
+           ([c4],aux3,n3)) /\
   (cComp n [Handle x1 x2] aux =
      let (c1,aux1,n1) = cComp n [x1] aux in
      let (c2,aux2,n2) = cComp n1 [x2] aux1 in
@@ -151,6 +185,11 @@ val lookup_vars_IMP = prove(
   \\ fs [bEval_def]
   \\ RES_TAC \\ IMP_RES_TAC LESS_LENGTH_env_rel_IMP \\ fs []);
 
+val build_aux_lemma = prove(
+  ``!k n aux. ?aux1. SND (build_aux n k aux) = aux1 ++ aux``,
+  Induct \\ fs [build_aux_def] \\ REPEAT STRIP_TAC
+  \\ POP_ASSUM (STRIP_ASSUME_TAC o Q.SPECL [`n+1`,`(n,h)::aux`]) \\ fs []);
+
 val cComp_lemma = prove(
   ``!n xs aux.
       let (c,aux1,n1) = cComp n xs aux in
@@ -160,14 +199,21 @@ val cComp_lemma = prove(
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ rfs [] \\ fs []
   \\ Cases_on `cComp n [r] aux` \\ fs []
   \\ Cases_on `r'` \\ fs [] \\ TRY DECIDE_TAC
-  \\ Cases_on `cComp n [h] aux` \\ fs []
-  \\ Cases_on `cComp n [x1] aux` \\ fs []
-  \\ Cases_on `r'` \\ Cases_on `r'''` \\ fs []
+  \\ Q.PAT_ASSUM `xxx = (c,aux1,n1)` MP_TAC
   \\ Cases_on `t` \\ fs []
-  \\ Cases_on `cComp (r'''' + 1) [x1] q''''` \\ fs []
-  \\ Cases_on `r''` \\ fs []
-  \\ Cases_on `r'''` \\ fs []
-  \\ SRW_TAC [] []);
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
+  \\ fs [] \\ REPEAT STRIP_TAC \\ SRW_TAC [] []
+  \\ `?tt. cComp n [h] aux = tt` by fs [] \\ PairCases_on `tt` \\ fs []
+  \\ `?t1. cComp (tt2 + 1) [x1] (ys ++ aux) = t1` by fs []
+  \\ PairCases_on `t1` \\ fs [] \\ rfs [] \\ fs []
+  \\ `?t0. cComp n (h::h'::t') aux = t0` by fs []
+  \\ PairCases_on `t0` \\ fs []
+  \\ Q.ABBREV_TAC `m = (MAP (code_for_recc_case
+           (SUC (SUC (LENGTH t')) + LENGTH vs)) t00)`
+  \\ Cases_on `build_aux t02 m aux` \\ fs []
+  \\ `?t1. cComp q'' [x1] r' = t1` by fs []
+  \\ PairCases_on `t1` \\ fs []
+  \\ ASSUME_TAC (Q.SPECL [`m`,`t02`,`aux`] build_aux_lemma) \\ rfs []);
 
 val cComp_SING = prove(
   ``(cComp n [x] aux = (c,aux1,n1)) ==> ?d. c = [d]``,
@@ -252,9 +298,7 @@ val cComp_correct = prove(
     \\ IMP_RES_TAC cComp_SING \\ fs [code_installed_def])
 
   THEN1 (* Letrec *)
-   (
-
-    fs [cEval_def] \\ BasicProvers.FULL_CASE_TAC
+   (fs [cEval_def] \\ BasicProvers.FULL_CASE_TAC
     \\ fs [] \\ SRW_TAC [] []
     \\ fs [cComp_def]
     \\ fs [build_recc_def]
