@@ -59,7 +59,7 @@ val cComp_def = tDefine "cComp" `
          let (c2,aux2,n2) = cComp (n1+1) [x1] aux1 in
          let c3 = Let (Var 0 :: Var 1 :: free_let (LENGTH vs)) (HD c1) in
          let c4 = Op (Cons closure_tag) (Op (Label n1) [] :: MAP Var vs) in
-           ([Let [c4] (HD c2)], (n1,c3) :: aux1, n2)
+           ([Let [c4] (HD c2)], (n1,c3) :: aux2, n2)
      | _ => cComp n [x1] aux) /\
   (cComp n [Handle x1 x2] aux =
      let (c1,aux1,n1) = cComp n [x1] aux in
@@ -205,13 +205,16 @@ val list_rel_IMP_env_rel = prove(
   Induct \\ Cases_on `ys` \\ fs [env_rel_def]
   \\ Cases_on `ts` \\ fs [env_rel_def]);
 
-val cComp_IMP_code_isntalled = prove(
+val cComp_IMP_code_installed = prove(
   ``(cComp n xs aux = (c,aux1,n1)) /\
     code_installed aux1 code ==>
     code_installed aux code``,
   REPEAT STRIP_TAC
   \\ MP_TAC (SPEC_ALL cComp_lemma) \\ fs [LET_DEF]
   \\ REPEAT STRIP_TAC \\ fs [code_installed_def]);
+
+val IMP_IMP = save_thm("IMP_IMP",
+  METIS_PROVE [] ``b1 /\ (b2 ==> b3) ==> ((b1 ==> b2) ==> b3)``);
 
 val cComp_correct = prove(
   ``!xs env s1 n aux1 t1 env' res s2 n2 ys aux2.
@@ -247,7 +250,44 @@ val cComp_correct = prove(
     \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM (K ALL_TAC)
     \\ Q.LIST_EXISTS_TAC [`aux1`,`aux3`,`n`] \\ fs []
     \\ IMP_RES_TAC cComp_SING \\ fs [code_installed_def])
-  THEN1 (* Letrec *) cheat
+
+  THEN1 (* Letrec *)
+   (
+
+    fs [cEval_def] \\ BasicProvers.FULL_CASE_TAC
+    \\ fs [] \\ SRW_TAC [] []
+    \\ fs [cComp_def]
+    \\ fs [build_recc_def]
+    \\ Cases_on `lookup_vars names env` \\ fs [] \\ SRW_TAC [] []
+    \\ Cases_on `fns` \\ fs []
+    THEN1 (rfs [] \\ FIRST_X_ASSUM MATCH_MP_TAC
+           \\ Q.LIST_EXISTS_TAC [`n`,`aux1`] \\ fs [])
+    \\ Cases_on `t` \\ fs [] \\ rfs []
+    THEN1 (* special case for singly-recursive closure *)
+     (`?c2 aux3 n3. cComp n [h] aux1 = ([c2],aux3,n3)` by
+              METIS_TAC [PAIR,cComp_SING]
+      \\ `?c3 aux4 n4. cComp (n3+1) [exp] aux3 = ([c3],aux4,n4)` by
+              METIS_TAC [PAIR,cComp_SING]
+      \\ fs [LET_DEF] \\ SRW_TAC [] []
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n3+1`,`aux3`,`t1`]) \\ fs []
+      \\ fs [code_installed_def] \\ REPEAT STRIP_TAC
+      \\ fs [bEval_def,bEvalOp_def,domain_lookup]
+      \\ ONCE_REWRITE_TAC [bEval_CONS]
+      \\ fs [bEval_def,bEvalOp_def,domain_lookup]
+      \\ IMP_RES_TAC lookup_vars_IMP \\ fs []
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `Block closure_tag (CodePtr n3::ys)::env'`)
+      \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
+       (fs [env_rel_def] \\ fs [val_rel_cases]
+        \\ Q.LIST_EXISTS_TAC [`aux1`,`aux3`,`n`] \\ fs []
+        \\ IMP_RES_TAC cComp_IMP_code_installed
+        \\ fs [GSYM code_installed_def])
+      \\ REPEAT STRIP_TAC \\ fs []
+      \\ Q.LIST_EXISTS_TAC [`res'`,`t2`] \\ fs []
+      \\ Cases_on `res'` \\ fs []
+      \\ IMP_RES_TAC bEval_IMP_LENGTH
+      \\ Cases_on `a` \\ fs [] \\ Cases_on `t` \\ fs [LENGTH_NIL])
+    (* general case for mutually recursive closures *)
+    \\ cheat)
 
   THEN1 (* App *)
    (
@@ -264,7 +304,7 @@ val cComp_correct = prove(
     \\ SIMP_TAC std_ss [Once bEval_def]
     \\ REVERSE (Cases_on `res5`) \\ fs []
     \\ SRW_TAC [] []
-    \\ `code_installed aux7 t1.code` by IMP_RES_TAC cComp_IMP_code_isntalled
+    \\ `code_installed aux7 t1.code` by IMP_RES_TAC cComp_IMP_code_installed
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`aux1`,`t1`,`env'`]) \\ fs []
     \\ REPEAT STRIP_TAC \\ fs []
     \\ Cases_on `res'` \\ TRY (fs [res_rel_cases] \\ NO_TAC) \\ fs []
