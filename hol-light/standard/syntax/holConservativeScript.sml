@@ -30,7 +30,11 @@ val term_image_term_union = Q.store_thm ("term_image_term_union",
 val term_image_term_image = Q.store_thm ("term_image_term_image",
 `!f g h.
   term_image f (term_image g h) = term_image (f o g) h`,
- cheat);
+  gen_tac >> ho_match_mp_tac term_image_ind >> rw[] >>
+  simp[Once term_image_def,SimpRHS] >>
+  BasicProvers.CASE_TAC >- simp[] >> fs[] >> rw[] >>
+  (* likely not true without some hypset_ok hypotheses *)
+  cheat)
 
 val updates_disjoint = Q.prove (
 `!upd ctxt.
@@ -291,6 +295,8 @@ val vfree_in_remove_const = Q.prove (
            imp_res_tac ALOOKUP_MEM >>
            res_tac >>
            fs []) >>
+ fs[const_subst_ok_def,EVERY_MEM] >>
+ imp_res_tac ALOOKUP_MEM >> res_tac >> fs[] >>
  metis_tac [CLOSED_INST, CLOSED_def]);
 
 val type_ok_remove_upd = Q.prove (

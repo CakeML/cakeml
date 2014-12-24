@@ -980,6 +980,10 @@ val MEM_term_remove = store_thm("MEM_term_remove",
 
 (* term_image *)
 
+val term_image_nil = store_thm("term_image_nil[simp]",
+  ``term_image f [] = []``,
+  simp[Once term_image_def])
+
 val MEM_term_image_imp = store_thm("MEM_term_image_imp",
   ``∀ls f t. MEM t (term_image f ls) ⇒ ∃x. MEM x ls ∧ t = f x``,
   Induct >> simp[Once term_image_def] >> rw[] >> fs[] >>
