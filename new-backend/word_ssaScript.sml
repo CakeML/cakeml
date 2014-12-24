@@ -15,8 +15,13 @@ val _ = new_theory "word_ssa";
   The overall proof should be:
 
   prog (starts with 0,2,4,6... in locals)
-  --> Add moves for each argument e.g. Move(2,2);Move(4,4) 
-  --> 
+  --> Add moves for each argument in the locals e.g. Move(2,2);Move(4,4);prog
+  --> SSA pass changes these uniformly to Move(4n+3,2);Move...;prog
+
+  Properties that should be proved:
+  1) Every Alloc/Call cutsets only contain stack variables
+  2) Every Call uses args [0;2;4...]
+  3) Correctness theorem w.r.t. to the monad
 *)
 val _ = Hol_datatype `
   ssa_state = <| 
@@ -25,10 +30,13 @@ val _ = Hol_datatype `
                 next_alloc : num
              |>`
 
+val option_lookup_def = Define`
+  option_lookup t v = case lookup v t of NONE => v | SOME x => x`
+
 (*Returns renaming under the ssa map for v*)
 val cur_var_rename_def = Define`
   cur_var_rename v =
-  λs. (return case lookup v s.ssa_map of NONE => v | SOME x => x) s`
+  λs. (return (option_lookup s.ssa_map v)) s`
 
 val get_next_alloc_def = Define`
   get_next_alloc = λs. (s.next_alloc, s with next_alloc := s.next_alloc+4)`
@@ -77,15 +85,12 @@ val init_ssa_state_def = Define`
   Our proof will have an assumption like:
   ∀v. v ∈ domain ssa_map ∧  v ∈ st.locals ⇒ ssa_map v ∈ cst.locals
   therefore, we really want to take a special union of the 2 branches:
-  
 
-  
-  (if(__) then x=5 else y=4);z=x --> this produces 2 ssa maps, one with x, one with y.
-
-  To retain the condition, the correct way is to reset the 
-  
-  However, we still add moves to the cur state to make everything nicer for reg alloc
-*)
+  If a variable exists in one branch but not the other, then merge it in
+  Else,
+    if they clash (i.e. both branches assigned to it, giving it different names) then add a move to undo the 
+    renames
+    Otherwise do nothing*)
 
 (*Find all the entries in the list that do not have the same value in map2,
   Ignoring all those that do not appear in the latter <-- not sure*)
@@ -317,8 +322,7 @@ val ssa_cc_trans_def = Define`
         od)
     od)` 
 
-
-  (*
+(*
 EVAL ``ssa_cc_trans 
 
 (Seq
@@ -340,5 +344,105 @@ Move 3,4
 Move 1,5
 
 *)
+ 
+(*TODO: decide whether to prove this with or without permutation oracle machinery
+  It is probably easier without, since we can force the key-vals pushed onto the stack to have
+  the monotonicity properties wherever required
+
+  needs more assumptions on the monad
+*)
+val ssa_locals_rel_def = Define`
+  ssa_locals_rel ssa_map st_locs cst_locs =
+  strong_locals_rel (option_lookup ssa_map) (domain ssa_map) st_locs cst_locs`
+
+val mapM_cur_var_rename = prove(``
+  ∀ls.
+  mapM cur_var_rename ls ssa = (MAP (option_lookup ssa.ssa_map) ls,ssa)``,
+  Induct>>fs[mapM_nil,mapM_cons,BIND_DEF,UNIT_DEF,option_lookup_def,UNCURRY,cur_var_rename_def])
+
+val next_var_rename_rw = prove(``
+  next_var_rename h ssa = (ssa.next_alloc,ssa with 
+    <|ssa_map := insert h ssa.next_alloc ssa.ssa_map;next_alloc := ssa.next_alloc+4|>)``,
+  rw[next_var_rename_def,get_next_alloc_def,BIND_DEF,IGNORE_BIND_DEF,update_ssa_map_def,UNIT_DEF])
+
+val mapM_next_var_rename = prove(``
+  ∀ls ssa.
+  ALL_DISTINCT ls ⇒ 
+  ∃ls' ssa'.
+  mapM next_var_rename ls ssa = (ls',ssa') ∧
+  ALL_DISTINCT ls' ∧
+  ls' = MAP (option_lookup ssa'.ssa_map) ls``,
+  Induct>>
+  fs[mapM_nil,mapM_cons,BIND_DEF,UNIT_DEF,option_lookup_def,next_var_rename_rw]>>rw[]>>
+  qpat_abbrev_tac`ssa' = ssa with <|ssa_map:=A;next_alloc:=B|>`>>
+  qexists_tac`ssa'`>>
+  first_x_assum(qspec_then`ssa'` assume_tac)>>rfs[Abbr`ssa'`]>>
+  cheat)
+  
+val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
+``∀prog st cst ssa live.
+  word_state_eq_rel st cst ∧
+  st.permute = cst.permute ∧ 
+  ssa_locals_rel ssa.ssa_map st.locals cst.locals 
+  ⇒
+  let (prog',ssa') = ssa_cc_trans prog ssa in
+  let (res,rst) = wEval(prog,st) in
+  let (res',rcst) = wEval(prog',cst) in
+  if (res = SOME Error) then T 
+  else
+    res = res' ∧
+    word_state_eq_rel rst rcst ∧
+    rst.permute = rcst.permute ∧ 
+    (case res of
+      NONE => ssa_locals_rel ssa'.ssa_map rst.locals rcst.locals 
+    | _    => T )``,
+  completeInduct_on`word_prog_size (K 0) prog`>>
+  rpt strip_tac>>
+  fs[PULL_FORALL,LET_THM,LAMBDA_PROD]>>
+  Cases_on`prog`>>fs[ssa_cc_trans_def,UNIT_DEF,wEval_def,BIND_DEF,LET_THM]>>
+  cheat)
+  (*
+  >-
+  (*Move*)
+  cheat
+  (*fs[mapM_cur_var_rename]>>
+  IF_CASES_TAC>-
+  imp_res_tac mapM_next_var_rename>>pop_assum(qspec_then`ssa` assume_tac)>>rfs[]>>
+  fs[wEval_def,MAP_ZIP]>>
+  FULL_CASE_TAC>> fs[]>>*)
+  >-
+  (*Inst*)
+    cheat
+  >-
+  (*Assign*)
+    cheat
+  >-
+  (*Get*)
+    fs[next_var_rename_rw,wEval_def,word_state_eq_rel_def]>>
+    EVERY_CASE_TAC>>fs[set_var_def]>>
+
+
+  Cases_on`mapM cur_var_rename (MAP SND l) ssa`>>fs[]>>
+  
+  IF_CASES_TAC>>fs[UNCURRY]>>
+  FULL_CASE_TAC>>fs[]>>
+
+
+  >-
+    FULL_CASE_TAC>>fs[UNCURRY]>>
+
+
+
+  >>
+    fs[UNCURRY]
+
+  Cases_on`get_vars (MAP SND l) st`>>fs[LET_THM]
+
+
+  (*Move*)
+  fs[LET_THM,BIND_DEF,mapM_def,sequence_def,next_var_rename_def]
     
+*) 
+
+
 
