@@ -9,8 +9,11 @@ val every_case_tac = BasicProvers.EVERY_CASE_TAC;
 val _ = new_theory "holConservative";
 
 val CLOSED_INST = Q.prove (
-`!tm tysubst. CLOSED tm ⇒ CLOSED (INST tysubst tm)`,
- cheat);
+`!tm tysubst. CLOSED tm ∧ welltyped tm ⇒ CLOSED (INST tysubst tm)`,
+  rw[INST_def] >>
+  qspecl_then[`sizeof tm`,`tm`,`[]`,`tysubst`]mp_tac INST_CORE_HAS_TYPE >>
+  simp[REV_ASSOCD] >> strip_tac >> simp[] >>
+  fs[CLOSED_def]);
 
 val type_ok_subst = Q.prove (
 `!tys i ty.
