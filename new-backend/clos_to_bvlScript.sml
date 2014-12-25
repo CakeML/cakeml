@@ -15,7 +15,7 @@ val closure_tag_def = Define `
 
 val code_for_recc_case_def = Define `
   code_for_recc_case n (c:bvl_exp) =
-    Let [Op (El 1) [Var 0]]
+    Let [Op (El 1) [Var 1]]
       (Let (Var 1::GENLIST (\i. Op (Deref) [Var 0; Op (Const (& i)) []]) n) c)`
 
 val build_aux_def = Define `
@@ -143,7 +143,7 @@ val (val_rel_rules,val_rel_ind,val_rel_cases) = Hol_reln `
   ((exps = MAP FST exps_ps) /\
    (ps = MAP SND exps_ps) /\
    (rs = MAP (\p. Block closure_tag [CodePtr p; RefPtr r]) ps) /\
-   (FLOOKUP s.refs p = SOME (ValueRef (rs ++ ys))) /\
+   (FLOOKUP s.refs p = SOME (ValueArray (rs ++ ys))) /\
    EVERY2 (val_rel code) env ys /\
    1 < LENGTH exps /\ k < LENGTH exps /\ (p = EL k ps) /\
    closure_code_installed code exps_ps env ==>
@@ -314,7 +314,6 @@ val cComp_correct = prove(
     \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM (K ALL_TAC)
     \\ Q.LIST_EXISTS_TAC [`aux1`,`aux3`,`n`] \\ fs []
     \\ IMP_RES_TAC cComp_SING \\ fs [code_installed_def])
-
   THEN1 (* Letrec *)
    (fs [cEval_def] \\ BasicProvers.FULL_CASE_TAC
     \\ fs [] \\ SRW_TAC [] []
@@ -436,8 +435,36 @@ val cComp_correct = prove(
       \\ IMP_RES_TAC list_rel_IMP_env_rel \\ fs []
       \\ fs [state_rel_def,closLangTheory.dec_clock_def,bvlTheory.dec_clock_def]
       \\ rfs [] \\ fs [val_rel_cases] \\ METIS_TAC [])
-
     (* general case for mutually recursive closures *)
+    \\ Q.PAT_ASSUM `val_rel t1.code xxx y` MP_TAC
+    \\ ONCE_REWRITE_TAC [val_rel_cases] \\ fs []
+    \\ REPEAT STRIP_TAC THEN1 (SRW_TAC [] [] \\ fs [])
+    \\ SRW_TAC [] [] \\ fs []
+    \\ fs [MAP_MAP_o,EL_MAP]
+    \\ SIMP_TAC std_ss [Once bEvalOp_def] \\ fs [find_code_def]
+    \\ fs [closure_code_installed_def,EVERY_MEM]
+    \\ `MEM (EL index exps_ps) exps_ps` by METIS_TAC [MEM_EL]
+    \\ FIRST_ASSUM (MP_TAC o Q.SPEC `EL index exps_ps`)
+    \\ POP_ASSUM (fn th => SIMP_TAC std_ss [th])
+    \\ `?exp p. EL index exps_ps = (exp,p)` by METIS_TAC [PAIR]
+    \\ ASM_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
+    \\ IMP_RES_TAC bvl_inlineTheory.bEval_code \\ fs []
+    \\ Q.MATCH_ASSUM_RENAME_TAC `state_rel s6 t6` []
+    \\ `t6.clock = s6.clock` by fs [state_rel_def]
+    \\ Cases_on `t6.clock = 0` \\ fs []
+    THEN1 (SRW_TAC [] [res_rel_cases])
+    \\ rfs [] \\ fs []
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n'`,`aux`,`dec_clock t6`]) \\ fs []
+    \\ `state_rel (dec_clock s6) (dec_clock t6)` by ALL_TAC THEN1
+      (fs [state_rel_def,closLangTheory.dec_clock_def,bvlTheory.dec_clock_def])
+    \\ `code_installed aux1' (dec_clock t6).code` by ALL_TAC THEN1
+      (fs [bvlTheory.dec_clock_def]) \\ fs [] \\ STRIP_TAC
+    \\ SIMP_TAC std_ss [code_for_recc_case_def]
+    \\ ONCE_REWRITE_TAC [bEval_def]
+
+      fs [bEval_def,bEvalOp_def]
+
+
     \\ cheat)
   THEN1 (* Tick *) cheat
   THEN1 (* Call *) cheat);
