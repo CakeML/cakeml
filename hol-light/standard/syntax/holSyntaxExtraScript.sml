@@ -42,6 +42,15 @@ val LLEX_EL_THM = store_thm("LLEX_EL_THM",
     Q.EXISTS_TAC`SUC n` THEN SRW_TAC[][] ) THEN
   Cases_on`n` THEN FULL_SIMP_TAC(srw_ss())[] THEN
   METIS_TAC[])
+
+local open pred_setTheory in
+val SUM_SET_IN_LT = store_thm("SUM_SET_IN_LT",
+  ``∀s x y. FINITE s ∧ x ∈ s ∧ y < x ⇒ y < SUM_SET s``,
+  simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
+  ho_match_mp_tac FINITE_INDUCT >> simp[] >>
+  simp[SUM_SET_THM] >> rw[] >> simp[] >>
+  res_tac >> simp[SUM_SET_DELETE])
+end
 (* -- *)
 
 val type_ind = save_thm("type_ind",
@@ -2297,6 +2306,214 @@ val fresh_term_def = new_specification("fresh_term_def",["fresh_term"],
       match_mp_tac ALL_DISTINCT_MAP_INJ >> simp[] ) >>
     Cases >> simp[] >>
     metis_tac[explode_implode,implode_def] ))
+
+(* Alternative characterisation of VARIANT, and thereby of VSUBST and INST_CORE.
+   Better for evaluation. *)
+
+val vfree_in_def = Define `
+  vfree_in v tm =
+    case tm of
+      Abs bv bod => v <> bv /\ vfree_in v bod
+    | Comb s t => vfree_in v s \/ vfree_in v t
+    | _ => (tm = v)`;
+
+val vfree_in_thm = store_thm("vfree_in_thm",
+  ``!name ty y. (VFREE_IN (Var name ty) y = vfree_in (Var name ty) y)``,
+  ntac 2 gen_tac >> Induct >> simp[VFREE_IN_def,Once vfree_in_def] >>
+  simp[Once vfree_in_def,SimpRHS] >>
+  BasicProvers.CASE_TAC >>
+  simp[Q.SPECL[`Var x1 ty1`,`Var x2 ty2`]vfree_in_def] >>
+  simp[Q.SPECL[`Var x1 ty1`,`Const x2 ty2`]vfree_in_def] >>
+  simp[Q.SPECL[`Var x1 ty1`,`Comb x2 ty2`]vfree_in_def] >>
+  simp[Q.SPECL[`Var x1 ty1`,`Abs x2 ty2`]vfree_in_def] >>
+  METIS_TAC[])
+
+val variant_def = tDefine "variant" `
+  variant avoid v =
+    if EXISTS (vfree_in v) avoid then
+    case v of
+       Var s ty => variant avoid (Var(s ^ (strlit "'")) ty)
+    | _ => v else v`
+  (WF_REL_TAC `measure (\(avoid,v).
+     let n = SUM_SET (BIGUNION (set (MAP (λa. {strlen x + 1 | ∃ty. VFREE_IN (Var x ty) a}) avoid))) in
+       n - (case v of Var x ty => strlen x | _ => 0))` >>
+   gen_tac >> Cases >> rw[strlen_def,strcat_def,explode_implode] >>
+   qsuff_tac`STRLEN s' < n` >- simp[] >>
+   simp[Abbr`n`] >> fs[GSYM vfree_in_thm,EXISTS_MEM] >>
+   match_mp_tac SUM_SET_IN_LT >>
+   qexists_tac`STRLEN s' + 1` >> simp[MEM_MAP,PULL_EXISTS] >>
+   map_every qexists_tac[`e`,`strlit s'`,`ty`] >> simp[] >> rw[] >>
+   qmatch_abbrev_tac`FINITE s` >>
+   `s = IMAGE (λ(x,ty). strlen x + 1) {(x,ty) | VFREE_IN (Var x ty) a}` by (
+     simp[Abbr`s`,pred_setTheory.EXTENSION,PULL_EXISTS,strlen_def] ) >>
+   pop_assum SUBST1_TAC >>
+   match_mp_tac pred_setTheory.IMAGE_FINITE >>
+   simp[])
+
+val variant_ind = fetch "-" "variant_ind"
+
+val variant_vsubst_thm = save_thm("variant_vsubst_thm",prove(
+  ``!xs v x name.
+      (xs = [x]) /\ (v = (Var name ty)) ==>
+      (variant xs (Var name ty) =
+       Var (VARIANT x (explode name) ty) ty)``,
+  REWRITE_TAC [VARIANT_def] \\ HO_MATCH_MP_TAC variant_ind
+  \\ SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
+  \\ ASM_SIMP_TAC (srw_ss()) [Once variant_def,EXISTS_DEF]
+  \\ MP_TAC (Q.SPECL[`name`,`ty`, `x`] vfree_in_thm) \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
+  \\ FULL_SIMP_TAC (srw_ss()) [EXISTS_DEF]
+  \\ REVERSE IF_CASES_TAC
+  \\ FULL_SIMP_TAC (srw_ss()) [] THEN1
+   (MP_TAC (VARIANT_PRIMES_def |> Q.SPECL [`x`,`explode name`,`ty`])
+    \\ Cases_on `VARIANT_PRIMES x (explode name) ty`
+    THEN1 (FULL_SIMP_TAC (srw_ss()) [rich_listTheory.REPLICATE,mlstringTheory.implode_explode])
+    \\ REPEAT STRIP_TAC \\ POP_ASSUM (MP_TAC o Q.SPEC `0`)
+    \\ FULL_SIMP_TAC (srw_ss()) [rich_listTheory.REPLICATE,mlstringTheory.implode_explode])
+  \\ MP_TAC (VARIANT_PRIMES_def |> Q.SPECL [`x`,`explode name`,`ty`])
+  \\ Cases_on `VARIANT_PRIMES x (explode name) ty`
+  \\ FULL_SIMP_TAC (srw_ss()) [rich_listTheory.REPLICATE,mlstringTheory.implode_explode]
+  \\ REPEAT STRIP_TAC
+  \\ `!m. m < n ==>
+         VFREE_IN (Var (name ^ (implode (REPLICATE (SUC m) #"'"))) ty) x` by ALL_TAC
+  THEN1 (REPEAT STRIP_TAC \\ `SUC m < SUC n` by DECIDE_TAC \\ RES_TAC \\ FULL_SIMP_TAC std_ss [rich_listTheory.REPLICATE_GENLIST]
+         \\ FULL_SIMP_TAC std_ss [mlstringTheory.strcat_def,mlstringTheory.explode_implode])
+  \\ FULL_SIMP_TAC (srw_ss()) [rich_listTheory.REPLICATE_GENLIST,GENLIST_CONS]
+  \\ MP_TAC (VARIANT_PRIMES_def |> Q.SPECL [`x`,`explode (name ^ strlit "'")`,`ty`])
+  \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND,mlstringTheory.strcat_def,mlstringTheory.explode_implode,mlstringTheory.explode_def]
+  \\ Cases_on `VARIANT_PRIMES x (STRCAT (explode name) "'") (ty) = n`
+  \\ FULL_SIMP_TAC std_ss []
+  \\ REPEAT STRIP_TAC
+  \\ `VARIANT_PRIMES x (STRCAT (explode name) "'") ty < n \/
+      n < VARIANT_PRIMES x (STRCAT (explode name) "'") ty` by DECIDE_TAC
+  \\ RES_TAC \\ FULL_SIMP_TAC std_ss [])
+  |> SIMP_RULE std_ss [] |> SPEC_ALL);
+
+val VSUBST_thm = save_thm("VSUBST_thm",
+  REWRITE_RULE[SYM variant_vsubst_thm] VSUBST_def)
+
+val subtract_def = Define `
+  subtract l1 l2 = FILTER (\t. ~(MEM t l2)) l1`;
+
+val insert_def = Define `
+  insert x l = if MEM x l then l else x::l`;
+
+val itlist_def = Define `
+  itlist f l b =
+    case l of
+      [] => b
+    | (h::t) => f h (itlist f t b)`;
+
+val union_def = Define `
+  union l1 l2 = itlist insert l1 l2`;
+
+val MEM_union = store_thm("MEM_union",
+  ``!xs ys x. MEM x (union xs ys) <=> MEM x xs \/ MEM x ys``,
+  Induct \\ FULL_SIMP_TAC std_ss [union_def]
+  \\ ONCE_REWRITE_TAC [itlist_def] \\ SRW_TAC [] [insert_def]
+  \\ METIS_TAC []);
+
+val EXISTS_union = store_thm("EXISTS_union",
+  ``!xs ys. EXISTS P (union xs ys) <=> EXISTS P xs \/ EXISTS P ys``,
+  SIMP_TAC std_ss [EXISTS_MEM,MEM_MAP,MEM_union] \\ METIS_TAC []);
+
+val frees_def = Define `
+  frees tm =
+    case tm of
+      Var _ _ => [tm]
+    | Const _ _ => []
+    | Abs bv bod => subtract (frees bod) [bv]
+    | Comb s t => union (frees s) (frees t)`
+
+val MEM_frees_EQ = store_thm("MEM_frees_EQ",
+  ``!a x. MEM x (frees a) = ?n ty. (x = Var n ty) /\ MEM (Var n ty) (frees a)``,
+  Induct \\ SIMP_TAC (srw_ss()) [Once frees_def,MEM_union]
+  THEN1 (SIMP_TAC (srw_ss()) [Once frees_def,MEM_union])
+  THEN1 (SIMP_TAC (srw_ss()) [Once frees_def,MEM_union])
+  \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
+  \\ SIMP_TAC (srw_ss()) [Once frees_def,MEM_union] THEN1 (METIS_TAC [])
+  \\ SIMP_TAC (srw_ss()) [subtract_def,MEM_FILTER]
+  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC \\ METIS_TAC []);
+
+val variant_inst_thm = save_thm("variant_inst_thm",prove(
+  ``!xs v x name a.
+      welltyped a ∧
+      (xs = frees a) /\
+      (v = (Var name ty1)) ==>
+      (variant (frees a) (Var name ty1) =
+       Var (VARIANT a (explode name) ty1) ty1)``,
+  REWRITE_TAC [VARIANT_def] \\ HO_MATCH_MP_TAC variant_ind
+  \\ SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
+  \\ ASM_SIMP_TAC (srw_ss()) [Once variant_def,EXISTS_DEF]
+  \\ `EXISTS (vfree_in (Var name ty1)) (frees a) =
+      VFREE_IN (Var name ty1) a` by ALL_TAC THEN1
+   (Q.PAT_ASSUM `welltyped a` MP_TAC (* \\ Q.PAT_ASSUM `TYPE defs ty1` MP_TAC *)
+    (* \\ Q.MATCH_ASSUM_RENAME_TAC `STATE defs st` [] *)
+    (* \\ Q.PAT_ASSUM `STATE defs st ` MP_TAC *) \\ REPEAT (POP_ASSUM (K ALL_TAC))
+    \\ Induct_on `a` \\ SIMP_TAC (srw_ss()) [Once frees_def,Once vfree_in_def]
+    THEN1 (REPEAT STRIP_TAC
+      \\ FULL_SIMP_TAC std_ss [EXISTS_union,VFREE_IN_def])
+    \\ REPEAT STRIP_TAC
+    \\ FULL_SIMP_TAC std_ss []
+    \\ BasicProvers.VAR_EQ_TAC
+    \\ FULL_SIMP_TAC std_ss [VFREE_IN_def,WELLTYPED_CLAUSES]
+    \\ FIRST_X_ASSUM (fn th => FULL_SIMP_TAC std_ss [SYM th])
+    \\ FULL_SIMP_TAC (srw_ss()) [EXISTS_MEM,subtract_def,MEM_FILTER,PULL_EXISTS]
+    \\ ONCE_REWRITE_TAC [MEM_frees_EQ]
+    \\ FULL_SIMP_TAC std_ss [term_11,PULL_EXISTS]
+    \\ ONCE_REWRITE_TAC [vfree_in_def] \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ METIS_TAC [])
+  \\ FULL_SIMP_TAC std_ss []
+  \\ REVERSE (Cases_on `VFREE_IN (Var name ty1) a`) THEN1
+   (MP_TAC (VARIANT_PRIMES_def |> Q.SPECL [`a`,`explode name`,`ty1`])
+    \\ Cases_on `VARIANT_PRIMES a (explode name) ty1`
+    THEN1 FULL_SIMP_TAC (srw_ss()) [rich_listTheory.REPLICATE,mlstringTheory.implode_explode]
+    \\ REPEAT STRIP_TAC \\ POP_ASSUM (MP_TAC o Q.SPEC `0`)
+    \\ FULL_SIMP_TAC (srw_ss()) [rich_listTheory.REPLICATE,mlstringTheory.implode_explode])
+  \\ MP_TAC (VARIANT_PRIMES_def |> Q.SPECL [`a`,`explode name`,`ty1`])
+  \\ Cases_on `VARIANT_PRIMES a (explode name) ty1`
+  \\ FULL_SIMP_TAC (srw_ss()) [rich_listTheory.REPLICATE,mlstringTheory.implode_explode]
+  \\ REPEAT STRIP_TAC
+  \\ POP_ASSUM (ASSUME_TAC o Q.GEN `m` o SIMP_RULE std_ss [] o Q.SPEC `SUC m`)
+  \\ MP_TAC (VARIANT_PRIMES_def |> Q.SPECL [`a`,`STRCAT (explode name) "'"`,`ty1`])
+  \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND,mlstringTheory.strcat_def,mlstringTheory.explode_def,mlstringTheory.explode_implode]
+  \\ Q.ABBREV_TAC `k = VARIANT_PRIMES a (STRCAT (explode name) "'") ty1`
+  \\ FULL_SIMP_TAC (srw_ss()) [rich_listTheory.REPLICATE_GENLIST,GENLIST_CONS]
+  \\ Cases_on `k = n` \\ FULL_SIMP_TAC std_ss []
+  \\ REPEAT STRIP_TAC
+  \\ `k < n \/ n < k` by DECIDE_TAC
+  \\ RES_TAC \\ FULL_SIMP_TAC std_ss [])
+  |> SIMP_RULE std_ss [] |> SPEC_ALL);
+
+val INST_CORE_Abs_thm = store_thm("INST_CORE_Abs_thm",
+  ``∀v t env tyin. welltyped (Abs v t) ⇒
+   INST_CORE env tyin (Abs v t) =
+   (let (x,ty) = dest_var v in
+    let ty' = TYPE_SUBST tyin ty in
+    let v' = Var x ty' in
+    let env' = (v,v')::env in
+    let tres = INST_CORE env' tyin t
+    in
+      if IS_RESULT tres then Result (Abs v' (RESULT tres))
+      else
+        (let w = CLASH tres
+         in
+           if w ≠ v' then tres
+           else
+             (let (x',_) =
+               dest_var (variant (frees (RESULT (INST_CORE [] tyin t))) (Var x ty'))
+              in
+              let t' = VSUBST [(Var x' ty,Var x ty)] t in
+              let env'' = (Var x' ty,Var x' ty')::env in
+              let tres' = INST_CORE env'' tyin t'
+              in
+                if IS_RESULT tres' then
+                  Result (Abs (Var x' ty') (RESULT tres'))
+                else tres')))``,
+  rw[] >> simp[Once INST_CORE_def] >> rw[] >>
+  unabbrev_all_tac >> fs[] >>
+  rfs[GSYM INST_def] >>
+  imp_res_tac INST_WELLTYPED >>
+  fs[variant_inst_thm] >> rw[] >> fs[])
 
 (* provable terms are ok and of type bool *)
 

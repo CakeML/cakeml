@@ -300,12 +300,6 @@ val is_vartype_thm = store_thm("is_vartype_thm",
   ``!ty. is_vartype ty = ?s. ty = Tyvar s``,
   Cases \\ SIMP_TAC (srw_ss()) [is_vartype_def]);
 
-val MEM_union = prove(
-  ``!xs ys x. MEM x (union xs ys) <=> MEM x xs \/ MEM x ys``,
-  Induct \\ FULL_SIMP_TAC std_ss [union_def]
-  \\ ONCE_REWRITE_TAC [itlist_def] \\ SRW_TAC [] [insert_def]
-  \\ METIS_TAC []);
-
 val tyvars_thm = prove(
   ``!ty s. MEM s (holKernel$tyvars ty) = MEM s (holSyntax$tyvars ty)``,
   HO_MATCH_MP_TAC holKernelTheory.tyvars_ind \\ REPEAT STRIP_TAC
@@ -746,32 +740,6 @@ val dest_eq_thm = store_thm("dest_eq_thm",
   \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss []
   \\ IMP_RES_TAC TERM_Eq_x);
 
-val vfree_in_thm = prove(
-  ``!y. TERM defs y /\ TYPE defs ty /\ STATE defs s ==>
-        (VFREE_IN (Var name ty) y = vfree_in (Var name ty) y)``,
-  Induct THEN1
-   (FULL_SIMP_TAC std_ss [VFREE_IN_def,term_11]
-    \\ ONCE_REWRITE_TAC [vfree_in_def] \\ SIMP_TAC (srw_ss()) []
-    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC TERM
-    \\ METIS_TAC [])
-  THEN1
-   (FULL_SIMP_TAC std_ss [VFREE_IN_def,term_11] \\ SRW_TAC [] []
-    \\ FULL_SIMP_TAC std_ss [VFREE_IN_def,term_11,term_distinct]
-    \\ ONCE_REWRITE_TAC [vfree_in_def] \\ SIMP_TAC (srw_ss()) [])
-  THEN1
-   (REPEAT STRIP_TAC \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss []
-    \\ FULL_SIMP_TAC std_ss [VFREE_IN_def] \\ REPEAT STRIP_TAC
-    \\ ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ SIMP_TAC (srw_ss()) [Once vfree_in_def])
-  THEN1
-   (REPEAT STRIP_TAC \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss []
-    \\ FULL_SIMP_TAC std_ss [VFREE_IN_def] \\ REPEAT STRIP_TAC
-    \\ ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ SIMP_TAC (srw_ss()) [Once vfree_in_def]
-    \\ IMP_RES_TAC Abs_Var
-    \\ FULL_SIMP_TAC (srw_ss()) [VFREE_IN_def]
-    \\ IMP_RES_TAC TERM
-    \\ FULL_SIMP_TAC std_ss []
-    \\ METIS_TAC []));
-
 val VFREE_IN_IMP = prove(
   ``!y. TERM defs y /\ TYPE defs ty /\ STATE defs s /\
         VFREE_IN (Var name ty) y ==>
@@ -811,47 +779,6 @@ val VSUBST_EMPTY = prove(
   Induct
   \\ FULL_SIMP_TAC (srw_ss()) [VSUBST_def,REV_ASSOCD,EVERY_DEF,FILTER,LET_THM]);
 
-val variant_thm = prove(
-  ``!xs v x name.
-      TERM defs x /\ TYPE defs ty /\ STATE defs s /\
-      (xs = [x]) /\ (v = (Var name ty)) ==>
-      (variant xs (Var name ty) =
-       Var (VARIANT x (explode name) ty) ty)``,
-  REWRITE_TAC [VARIANT_def] \\ HO_MATCH_MP_TAC variant_ind
-  \\ SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
-  \\ ASM_SIMP_TAC (srw_ss()) [Once variant_def,EXISTS_DEF]
-  \\ MP_TAC (Q.SPEC `x` vfree_in_thm) \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
-  \\ FULL_SIMP_TAC (srw_ss()) [EXISTS_DEF]
-  \\ REVERSE (Cases_on `vfree_in (Var name ty) x`)
-  \\ FULL_SIMP_TAC (srw_ss()) [] THEN1
-   (MP_TAC (VARIANT_PRIMES_def |> Q.SPECL [`x`,`explode name`,`ty`])
-    \\ Cases_on `VARIANT_PRIMES x (explode name) ty`
-    THEN1 (FULL_SIMP_TAC (srw_ss()) [rich_listTheory.REPLICATE,mlstringTheory.implode_explode])
-    \\ REPEAT STRIP_TAC \\ POP_ASSUM (MP_TAC o Q.SPEC `0`)
-    \\ FULL_SIMP_TAC (srw_ss()) [rich_listTheory.REPLICATE,mlstringTheory.implode_explode])
-  \\ MP_TAC (VARIANT_PRIMES_def |> Q.SPECL [`x`,`explode name`,`ty`])
-  \\ Cases_on `VARIANT_PRIMES x (explode name) ty`
-  \\ FULL_SIMP_TAC (srw_ss()) [rich_listTheory.REPLICATE,mlstringTheory.implode_explode]
-  \\ REPEAT STRIP_TAC
-  \\ `!m. m < n ==>
-         VFREE_IN (Var (name ^ (implode (REPLICATE (SUC m) #"'"))) ty) x` by ALL_TAC
-  THEN1 (REPEAT STRIP_TAC \\ `SUC m < SUC n` by DECIDE_TAC \\ RES_TAC \\ FULL_SIMP_TAC std_ss [REPLICATE_GENLIST]
-         \\ FULL_SIMP_TAC std_ss [mlstringTheory.strcat_def,mlstringTheory.explode_implode])
-  \\ FULL_SIMP_TAC (srw_ss()) [REPLICATE_GENLIST,GENLIST_CONS]
-  \\ MP_TAC (VARIANT_PRIMES_def |> Q.SPECL [`x`,`explode (name ^ strlit "'")`,`ty`])
-  \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND,mlstringTheory.strcat_def,mlstringTheory.explode_implode,mlstringTheory.explode_def]
-  \\ Cases_on `VARIANT_PRIMES x (STRCAT (explode name) "'") (ty) = n`
-  \\ FULL_SIMP_TAC std_ss []
-  \\ REPEAT STRIP_TAC
-  \\ `VARIANT_PRIMES x (STRCAT (explode name) "'") ty < n \/
-      n < VARIANT_PRIMES x (STRCAT (explode name) "'") ty` by DECIDE_TAC
-  \\ RES_TAC \\ FULL_SIMP_TAC std_ss [])
-  |> SIMP_RULE std_ss [] |> SPEC_ALL;
-
-val EXISTS_union = prove(
-  ``!xs ys. EXISTS P (union xs ys) <=> EXISTS P xs \/ EXISTS P ys``,
-  SIMP_TAC std_ss [EXISTS_MEM,MEM_MAP,MEM_union] \\ METIS_TAC []);
-
 val VFREE_IN_TYPE = prove(
   ``!x. VFREE_IN (Var name oty) x /\ TERM defs x ==>
         ?ty. (oty = ty) /\ TYPE defs ty``,
@@ -881,67 +808,6 @@ val VFREE_IN_IMP_MEM = prove(
   \\ SIMP_TAC (srw_ss()) [subtract_def,MEM_FILTER]
   \\ IMP_RES_TAC VFREE_IN_TYPE \\ FULL_SIMP_TAC std_ss []
   \\ fs[])
-
-val MEM_frees_EQ = prove(
-  ``!a x. MEM x (frees a) = ?n ty. (x = Var n ty) /\ MEM (Var n ty) (frees a)``,
-  Induct \\ SIMP_TAC (srw_ss()) [Once frees_def,MEM_union]
-  THEN1 (SIMP_TAC (srw_ss()) [Once frees_def,MEM_union])
-  THEN1 (SIMP_TAC (srw_ss()) [Once frees_def,MEM_union])
-  \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
-  \\ SIMP_TAC (srw_ss()) [Once frees_def,MEM_union] THEN1 (METIS_TAC [])
-  \\ SIMP_TAC (srw_ss()) [subtract_def,MEM_FILTER]
-  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC \\ METIS_TAC []);
-
-val variant_alt = prove(
-  ``!xs v x name a.
-      TERM defs a /\ TYPE defs (type_subst theta ty) /\ STATE defs s /\
-      (xs = frees a) /\
-      (v = (Var name (type_subst theta ty))) ==>
-      (variant (frees a) (Var name (type_subst theta ty)) =
-       Var (VARIANT a (explode name) (type_subst theta ty))
-              (type_subst theta ty))``,
-  REWRITE_TAC [VARIANT_def] \\ HO_MATCH_MP_TAC variant_ind
-  \\ SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
-  \\ ASM_SIMP_TAC (srw_ss()) [Once variant_def,EXISTS_DEF]
-  \\ Q.ABBREV_TAC `ty1 = type_subst theta ty` \\ POP_ASSUM (K ALL_TAC)
-  \\ `EXISTS (vfree_in (Var name ty1)) (frees a) =
-      VFREE_IN (Var name ty1) a` by ALL_TAC THEN1
-   (Q.PAT_ASSUM `TERM defs a` MP_TAC \\ Q.PAT_ASSUM `TYPE defs ty1` MP_TAC
-    \\ Q.MATCH_ASSUM_RENAME_TAC `STATE defs st` []
-    \\ Q.PAT_ASSUM `STATE defs st ` MP_TAC \\ REPEAT (POP_ASSUM (K ALL_TAC))
-    \\ Induct_on `a` \\ SIMP_TAC (srw_ss()) [Once frees_def,Once vfree_in_def]
-    THEN1 (REPEAT STRIP_TAC \\ IMP_RES_TAC TERM
-      \\ FULL_SIMP_TAC std_ss [EXISTS_union,VFREE_IN_def])
-    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC Abs_Var
-    \\ FULL_SIMP_TAC std_ss [] \\ POP_ASSUM (K ALL_TAC)
-    \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss [VFREE_IN_def]
-    \\ FIRST_X_ASSUM (fn th => FULL_SIMP_TAC std_ss [SYM th])
-    \\ FULL_SIMP_TAC (srw_ss()) [EXISTS_MEM,subtract_def,MEM_FILTER,PULL_EXISTS]
-    \\ ONCE_REWRITE_TAC [MEM_frees_EQ]
-    \\ FULL_SIMP_TAC std_ss [term_11,PULL_EXISTS]
-    \\ ONCE_REWRITE_TAC [vfree_in_def] \\ FULL_SIMP_TAC (srw_ss()) []
-    \\ METIS_TAC [])
-  \\ FULL_SIMP_TAC std_ss []
-  \\ REVERSE (Cases_on `VFREE_IN (Var name ty1) a`) THEN1
-   (MP_TAC (VARIANT_PRIMES_def |> Q.SPECL [`a`,`explode name`,`ty1`])
-    \\ Cases_on `VARIANT_PRIMES a (explode name) ty1`
-    THEN1 FULL_SIMP_TAC (srw_ss()) [rich_listTheory.REPLICATE,mlstringTheory.implode_explode]
-    \\ REPEAT STRIP_TAC \\ POP_ASSUM (MP_TAC o Q.SPEC `0`)
-    \\ FULL_SIMP_TAC (srw_ss()) [rich_listTheory.REPLICATE,mlstringTheory.implode_explode])
-  \\ MP_TAC (VARIANT_PRIMES_def |> Q.SPECL [`a`,`explode name`,`ty1`])
-  \\ Cases_on `VARIANT_PRIMES a (explode name) ty1`
-  \\ FULL_SIMP_TAC (srw_ss()) [rich_listTheory.REPLICATE,mlstringTheory.implode_explode]
-  \\ REPEAT STRIP_TAC
-  \\ POP_ASSUM (ASSUME_TAC o Q.GEN `m` o SIMP_RULE std_ss [] o Q.SPEC `SUC m`)
-  \\ MP_TAC (VARIANT_PRIMES_def |> Q.SPECL [`a`,`STRCAT (explode name) "'"`,`ty1`])
-  \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND,mlstringTheory.strcat_def,mlstringTheory.explode_def,mlstringTheory.explode_implode]
-  \\ Q.ABBREV_TAC `k = VARIANT_PRIMES a (STRCAT (explode name) "'") ty1`
-  \\ FULL_SIMP_TAC (srw_ss()) [REPLICATE_GENLIST,GENLIST_CONS]
-  \\ Cases_on `k = n` \\ FULL_SIMP_TAC std_ss []
-  \\ REPEAT STRIP_TAC
-  \\ `k < n \/ n < k` by DECIDE_TAC
-  \\ RES_TAC \\ FULL_SIMP_TAC std_ss [])
-  |> SIMP_RULE std_ss [] |> SPEC_ALL;
 
 val term_type_Var = prove(
   ``term_type (Var v ty) = ty``,
@@ -1034,7 +900,7 @@ val vsubst_aux_thm = prove(
    (IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss []
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `FILTER (\(t,x). x <> Var s' ty) theta`)
     \\ FULL_SIMP_TAC std_ss [EVERY_MEM,MEM_FILTER])
-  \\ IMP_RES_TAC variant_thm \\ FULL_SIMP_TAC std_ss []
+  \\ FULL_SIMP_TAC std_ss [variant_vsubst_thm]
   \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM (K ALL_TAC)
   \\ FULL_SIMP_TAC std_ss []
   \\ `(vsubst_aux (FILTER (\ (t,x). x <> Var s' ty) theta) tm') =
@@ -1316,20 +1182,8 @@ val inst_aux_thm = prove(
       Var fresh_name (type_subst theta ty)` by ALL_TAC THEN1
    (FULL_SIMP_TAC std_ss [GSYM type_subst_thm,RESULT_def]
     \\ Q.UNABBREV_TAC `fresh_name`
-    \\ MATCH_MP_TAC variant_alt \\ FULL_SIMP_TAC std_ss []
-    \\ REVERSE STRIP_TAC THEN1
-     (IMP_RES_TAC TERM
-      \\ FULL_SIMP_TAC std_ss [TYPE_def,type_subst_thm]
-      \\ MATCH_MP_TAC type_ok_TYPE_SUBST
-      \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss [TYPE_def,
-             EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS] \\ METIS_TAC [])
-    \\ FULL_SIMP_TAC std_ss [TERM_def]
-    \\ qmatch_assum_abbrev_tac`INST_CORE [] tyin tm = Result rr`
-    \\ `rr = RESULT (INST_CORE [] tyin tm)` by rw[] >> pop_assum SUBST1_TAC
-    \\ MATCH_MP_TAC term_ok_INST_CORE
-    \\ simp[Abbr`tyin`,EVERY_MAP,EVERY_MEM,FORALL_PROD] >>
-       fs[EVERY_MEM,TYPE_def,FORALL_PROD]
-    \\ REPEAT STRIP_TAC \\ RES_TAC)
+    \\ MATCH_MP_TAC variant_inst_thm \\ FULL_SIMP_TAC std_ss []
+    \\ METIS_TAC[INST_def,RESULT_def,INST_WELLTYPED,TERM_def,term_ok_welltyped])
   \\ FULL_SIMP_TAC std_ss []
   \\ REV_FULL_SIMP_TAC std_ss []
   \\ SIMP_TAC (srw_ss()) [inst_aux_Var,``dest_var (Var v ty) state``
@@ -1442,7 +1296,7 @@ val freesin_IMP = prove(
   \\ FULL_SIMP_TAC (srw_ss()) [term_11]);
 
 val ALL_DISTINCT_union = prove(
-  ``!xs. ALL_DISTINCT (holKernel$union xs ys) = ALL_DISTINCT ys``,
+  ``!xs. ALL_DISTINCT (holSyntaxExtra$union xs ys) = ALL_DISTINCT ys``,
   Induct \\ SIMP_TAC (srw_ss()) [union_def,Once itlist_def,insert_def]
   \\ SRW_TAC [] [] \\ FULL_SIMP_TAC std_ss [union_def]);
 
