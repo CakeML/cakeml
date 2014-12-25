@@ -1090,6 +1090,11 @@ val VFREE_IN_VSUBST = store_thm("VFREE_IN_VSUBST",
   fs[VFREE_IN_def] >>
   metis_tac[])
 
+val VSUBST_NIL = store_thm("VSUBST_NIL[simp]",
+  ``∀tm. VSUBST [] tm = tm``,
+  ho_match_mp_tac term_induction >>
+  simp[VSUBST_def,REV_ASSOCD])
+
 (* INST lemmas *)
 
 val INST_CORE_HAS_TYPE = store_thm("INST_CORE_HAS_TYPE",
