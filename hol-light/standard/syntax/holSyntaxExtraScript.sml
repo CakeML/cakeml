@@ -945,6 +945,36 @@ val MEM_term_union_first = store_thm("MEM_term_union_first",
   first_x_assum match_mp_tac >>
   rw[hypset_ok_cons])
 
+val term_union_insert_mem = store_thm("term_union_insert_mem",
+  ``∀c h. hypset_ok h ∧ MEM c h ⇒ (term_union [c] h = h)``,
+  gen_tac >> Induct >> simp[hypset_ok_cons,term_union_thm] >>
+  rw[] >> fs[] >- (
+    `ACONV c c` by simp[] >> fs[ACONV_eq_orda] ) >>
+  fs[EVERY_MEM] >> res_tac >>
+  fs[alpha_lt_def] >>
+  qspecl_then[`[]`,`h'`,`c`]mp_tac orda_sym >> simp[] >>
+  disch_then(assume_tac o SYM) >>
+  rw[term_union_thm])
+
+val term_union_insert_remove = store_thm("term_union_insert_remove",
+  ``∀c h. hypset_ok h ∧ MEM c h ∧ ACONV c' c ⇒ (term_union [c] (term_remove c' h) = h)``,
+  gen_tac >> Induct >> simp[hypset_ok_cons] >> rw[] >> fs[] >- (
+    simp[Once term_remove_def] >>
+    fs[ACONV_eq_orda] >>
+    Cases_on`h`>>simp[term_union_thm] >> fs[alpha_lt_def] ) >>
+  simp[Once term_remove_def] >> fs[EVERY_MEM] >>
+  res_tac >>
+  imp_res_tac ACONV_SYM >>
+  imp_res_tac alpha_lt_trans_ACONV >>
+  fs[alpha_lt_def] >>
+  qspecl_then[`[]`,`h'`,`c`]mp_tac orda_sym >> simp[] >>
+  disch_then(assume_tac o SYM) >>
+  qspecl_then[`[]`,`h'`,`c'`]mp_tac orda_sym >> simp[] >>
+  disch_then(assume_tac o SYM) >>
+  rw[term_union_thm] >>
+  match_mp_tac term_union_insert_mem >>
+  rw[])
+
 (* term_remove *)
 
 val term_remove_nil = store_thm("term_remove_nil[simp]",
@@ -986,6 +1016,12 @@ val MEM_term_remove = store_thm("MEM_term_remove",
   Induct >> simp[Once term_remove_def] >>
   simp[hypset_ok_cons] >> rw[EVERY_MEM] >>
   res_tac >> fs[alpha_lt_def,GSYM ACONV_eq_orda])
+
+val term_remove_exists = store_thm("term_remove_exists",
+  ``∀c h. term_remove c h ≠ h ⇒ ∃c'. MEM c' h ∧ ACONV c c'``,
+  gen_tac >> Induct >> simp[] >>
+  simp[Once term_remove_def] >> rw[] >> fs[] >>
+  fs[GSYM ACONV_eq_orda] >> metis_tac[])
 
 (* term_image *)
 
@@ -1291,6 +1327,10 @@ val typeof_equation = store_thm("typeof_equation",
 val vfree_in_equation = store_thm("vfree_in_equation",
   ``VFREE_IN v (s === t) ⇔ (v = Equal (typeof s)) ∨ VFREE_IN v s ∨ VFREE_IN v t``,
   rw[equation_def,VFREE_IN_def] >> metis_tac[])
+
+val equation_intro = store_thm("equation_intro",
+  ``(ty = typeof p) ⇒ (Comb (Comb (Equal ty) p) q = p === q)``,
+  rw[equation_def])
 
 (* type_ok *)
 
