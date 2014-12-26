@@ -330,12 +330,26 @@ val FLOOKUP_SUBMAP_IMP = prove(
     (FLOOKUP refs6 r = SOME x) /\ r NOTIN FRANGE f6``,
   fs [FDIFF_def,SUBMAP_DEF,DRESTRICT_DEF,FLOOKUP_DEF] \\ METIS_TAC []);
 
+val bEval_ValueArray_lemma = prove(
+  ``!zs s r ts.
+      (FLOOKUP s.refs r = SOME (ValueArray (zs ++ ts))) ==>
+      (bEval
+        (GENLIST (\i. Op Deref [Var 0; Op (Const (&i)) []]) (LENGTH zs),
+         RefPtr r::env,s) = (Result zs,s))``,
+  recInduct SNOC_INDUCT \\ REPEAT STRIP_TAC \\ fs [bEval_def,GENLIST]
+  \\ fs [bEval_SNOC] \\ fs [bEval_def,bEvalOp_def]
+  \\ fs [DECIDE ``n < SUC n + m:num``,SNOC_APPEND]
+  \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ fs [rich_listTheory.EL_LENGTH_APPEND]);
+
 val bEval_ValueArray = prove(
   ``(FLOOKUP s.refs r = SOME (ValueArray zs)) /\ (n = LENGTH zs) ==>
     (bEval
       (GENLIST (\i. Op Deref [Var 0; Op (Const (&i)) []]) n,
        RefPtr r::env,s) = (Result zs,s))``,
-  cheat);
+  REPEAT STRIP_TAC \\ fs []
+  \\ MATCH_MP_TAC bEval_ValueArray_lemma
+  \\ Q.EXISTS_TAC `[]` \\ fs []);
 
 val cComp_correct = prove(
   ``!xs env s1 n aux1 t1 env' f1 res s2 n2 ys aux2.
