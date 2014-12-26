@@ -324,6 +324,19 @@ val cComp_IMP_code_installed = prove(
 val IMP_IMP = save_thm("IMP_IMP",
   METIS_PROVE [] ``b1 /\ (b2 ==> b3) ==> ((b1 ==> b2) ==> b3)``);
 
+val FLOOKUP_SUBMAP_IMP = prove(
+  ``(FLOOKUP refs2 r = SOME x) /\ r NOTIN FRANGE f2 /\
+    FDIFF refs2 f2 SUBMAP FDIFF refs6 f6 ==>
+    (FLOOKUP refs6 r = SOME x) /\ r NOTIN FRANGE f6``,
+  fs [FDIFF_def,SUBMAP_DEF,DRESTRICT_DEF,FLOOKUP_DEF] \\ METIS_TAC []);
+
+val bEval_ValueArray = prove(
+  ``(FLOOKUP s.refs r = SOME (ValueArray zs)) /\ (n = LENGTH zs) ==>
+    (bEval
+      (GENLIST (\i. Op Deref [Var 0; Op (Const (&i)) []]) n,
+       RefPtr r::env,s) = (Result zs,s))``,
+  cheat);
+
 val cComp_correct = prove(
   ``!xs env s1 n aux1 t1 env' f1 res s2 n2 ys aux2.
       (cEval (xs,env,s1) = (res,s2)) /\ res <> Error /\
@@ -363,6 +376,7 @@ val cComp_correct = prove(
     \\ Q.LIST_EXISTS_TAC [`aux1`,`aux3`,`n`] \\ fs []
     \\ IMP_RES_TAC cComp_SING \\ fs [code_installed_def])
   THEN1 (* Letrec *)
+
    (fs [cEval_def] \\ BasicProvers.FULL_CASE_TAC
     \\ fs [] \\ SRW_TAC [] []
     \\ fs [cComp_def]
@@ -401,9 +415,7 @@ val cComp_correct = prove(
     \\ cheat)
 
   THEN1 (* App *)
-   (
-
-    fs [cEval_def,cComp_def]
+   (fs [cEval_def,cComp_def]
     \\ `?res5 s5. cEval ([x1],env,s) = (res5,s5)` by METIS_TAC [PAIR]
     \\ `?res6 s6. cEval ([x2],env,s5) = (res6,s6)` by METIS_TAC [PAIR]
     \\ `?c7 aux7 n7. cComp n [x1] aux1 = ([c7],aux7,n7)` by
@@ -518,7 +530,9 @@ val cComp_correct = prove(
     \\ SRW_TAC [] [] \\ fs []
     \\ fs [MAP_MAP_o,EL_MAP]
     \\ SIMP_TAC std_ss [Once bEvalOp_def] \\ fs [find_code_def]
-    \\ fs [closure_code_installed_def,EVERY_MEM]
+    \\ POP_ASSUM (fn th => ASSUME_TAC th THEN
+         ASSUME_TAC (RW [closure_code_installed_def] th))
+    \\ fs [EVERY_MEM]
     \\ `MEM (EL index exps_ps) exps_ps` by METIS_TAC [MEM_EL]
     \\ FIRST_ASSUM (MP_TAC o Q.SPEC `EL index exps_ps`)
     \\ POP_ASSUM (fn th => SIMP_TAC std_ss [th])
@@ -546,12 +560,34 @@ val cComp_correct = prove(
          (GENLIST (\i. Op Deref [Var 0; Op (Const (&i)) []])
             (LENGTH cl_env + LENGTH exps_ps),
           [RefPtr r; y'; Block closure_tag [CodePtr p; RefPtr r]],
-          dec_clock t6) = (Result zs,dec_clock t6)` by cheat
-    \\ fs []
+          dec_clock t6) = (Result zs,dec_clock t6)` by ALL_TAC THEN1
+     (MATCH_MP_TAC bEval_ValueArray
+      \\ UNABBREV_ALL_TAC \\ IMP_RES_TAC EVERY2_LENGTH
+      \\ fs [dec_clock_def,AC ADD_COMM ADD_ASSOC]
+      \\ IMP_RES_TAC FLOOKUP_SUBMAP_IMP) \\ fs []
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`y':: (zs ++ [RefPtr r] ++
              [y'; Block closure_tag [CodePtr p; RefPtr r]])`,`f6`])
     \\ fs [] \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
-     (fs [env_rel_def,dec_clock_def] \\ cheat)
+     (fs [env_rel_def,dec_clock_def]
+      \\ SIMP_TAC std_ss [GSYM APPEND_ASSOC]
+      \\ MATCH_MP_TAC list_rel_IMP_env_rel
+      \\ UNABBREV_ALL_TAC
+      \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff
+      \\ REVERSE (REPEAT STRIP_TAC) THEN1
+       (Q.PAT_ASSUM `LIST_REL xxx cl_env ys` MP_TAC
+        \\ MATCH_MP_TAC listTheory.LIST_REL_mono
+        \\ METIS_TAC [val_rel_SUBMAP])
+      \\ SIMP_TAC std_ss [listTheory.LIST_REL_EL_EQN]
+      \\ fs [LENGTH_MAP,LENGTH_GENLIST,EL_MAP]
+      \\ REPEAT STRIP_TAC
+      \\ Q.MATCH_ASSUM_RENAME_TAC `k7 < LENGTH exps_ps` []
+      \\ SIMP_TAC std_ss [Once val_rel_cases] \\ fs [] \\ DISJ2_TAC
+      \\ Q.LIST_EXISTS_TAC [`exps_ps`,`r`,`ys`]
+      \\ fs [EL_MAP] \\ IMP_RES_TAC FLOOKUP_SUBMAP_IMP \\ fs []
+      \\ fs [MAP_MAP_o,o_DEF]
+      \\ Q.PAT_ASSUM `LIST_REL xxx cl_env ys` MP_TAC
+      \\ MATCH_MP_TAC listTheory.LIST_REL_mono
+      \\ METIS_TAC [val_rel_SUBMAP])
     \\ REPEAT STRIP_TAC \\ fs []
     \\ Cases_on `res'` \\ fs []
     \\ Q.EXISTS_TAC `f2'` \\ fs []
