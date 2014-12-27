@@ -498,16 +498,99 @@ val build_aux_MEM = prove(
          \\ REPEAT STRIP_TAC \\ fs [] \\ METIS_TAC [])
   \\ RES_TAC \\ fs [ADD1,AC ADD_COMM ADD_ASSOC] \\ METIS_TAC []);
 
+val cComp_CONS = store_thm("cComp_CONS",
+  ``!xs x n aux.
+      cComp n (x::xs) aux =
+      (let (c1,aux1,n1) = cComp n [x] aux in
+       let (c2,aux2,n2) = cComp n1 xs aux1 in
+         (c1 ++ c2,aux2,n2))``,
+  Cases_on `xs` \\ fs[cComp_def] \\ fs [LET_DEF]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []);
+
+val cComp_SNOC = store_thm("cComp_SNOC",
+  ``!xs x n aux.
+      cComp n (SNOC x xs) aux =
+      (let (c1,aux1,n1) = cComp n xs aux in
+       let (c2,aux2,n2) = cComp n1 [x] aux1 in
+         (c1 ++ c2,aux2,n2))``,
+  Induct THEN1
+   (fs [cComp_def,LET_DEF]
+    \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs [])
+  \\ fs [SNOC_APPEND]
+  \\ ONCE_REWRITE_TAC [cComp_CONS]
+  \\ ASM_SIMP_TAC std_ss [cComp_def,LET_DEF,APPEND_NIL]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []);
+
+val build_aux_APPEND = prove(
+  ``!xs x n aux.
+      build_aux n (xs ++ [x]) aux =
+        let (n1,aux1) = build_aux n xs aux in
+          (n1+1,(n1,x)::aux1)``,
+  Induct \\ fs [build_aux_def,LET_DEF]);
+
+val build_aux_MOVE = prove(
+  ``!xs n aux n1 aux1.
+      (build_aux n xs aux = (n1,aux1)) <=>
+      ?aux2. (build_aux n xs [] = (n1,aux2)) /\ (aux1 = aux2 ++ aux)``,
+  Induct THEN1 (fs [build_aux_def] \\ METIS_TAC [])
+  \\ ONCE_REWRITE_TAC [build_aux_def]
+  \\ POP_ASSUM (fn th => ONCE_REWRITE_TAC [th])
+  \\ fs [PULL_EXISTS]);
+
+val build_aux_LENGTH = prove(
+  ``!l n aux n1 t.
+      (build_aux n l aux = (n1,t)) ==> (n1 = n + LENGTH l)``,
+  Induct \\ fs [build_aux_def] \\ REPEAT STRIP_TAC \\ RES_TAC \\ DECIDE_TAC);
+
 val cComp_LIST_IMP_cComp_EL = prove(
-  ``(cComp n exps aux1 = (c7,aux7,n7)) /\
-    (build_aux n7 (MAP (code_for_recc_case k) c7) aux7 = (n4,aux5)) /\
-    code_installed aux5 t1.code ==>
-    ?n' aux c aux1' n1.
-      cComp n' [EL i exps] aux = ([c],aux1',n1) /\
-      lookup (i + n7) t1.code =
-      SOME (2,code_for_recc_case k c) /\
-      code_installed aux1' t1.code``,
-  cheat);
+  ``!exps n aux1 c7 aux7 n7 i n8 n4 aux5.
+      (cComp n exps aux1 = (c7,aux7,n7)) /\ i < LENGTH exps /\
+      (build_aux n8 (MAP (code_for_recc_case k) c7) aux7 = (n4,aux5)) /\
+      code_installed aux5 t1.code ==>
+      ?n' aux c aux1' n1.
+        cComp n' [EL i exps] aux = ([c],aux1',n1) /\
+        lookup (i + n8) t1.code =
+        SOME (2,code_for_recc_case k c) /\
+        code_installed aux1' t1.code``,
+  HO_MATCH_MP_TAC SNOC_INDUCT \\ fs [] \\ REPEAT STRIP_TAC
+  \\ Cases_on `i = LENGTH exps` \\ fs [] THEN1
+   (fs [SNOC_APPEND,rich_listTheory.EL_LENGTH_APPEND]
+    \\ fs [GSYM SNOC_APPEND,cComp_SNOC]
+    \\ `?c1 aux2 n1. cComp n exps aux1 = (c1,aux2,n1)` by METIS_TAC [PAIR]
+    \\ `?c3 aux3 n3. cComp n1 [x] aux2 = (c3,aux3,n3)` by METIS_TAC [PAIR]
+    \\ fs [LET_DEF] \\ SRW_TAC [] []
+    \\ Q.LIST_EXISTS_TAC [`n1`,`aux2`] \\ fs []
+    \\ IMP_RES_TAC cComp_SING \\ fs []
+    \\ fs [build_aux_APPEND]
+    \\ IMP_RES_TAC cComp_LENGTH \\ fs []
+    \\ Cases_on `build_aux n8 (MAP (code_for_recc_case k) c1) aux3`
+    \\ fs [LET_DEF] \\ SRW_TAC [] []
+    \\ fs [code_installed_def]
+    \\ IMP_RES_TAC build_aux_LENGTH
+    \\ fs [AC ADD_COMM ADD_ASSOC]
+    \\ MP_TAC (Q.SPECL [`MAP (code_for_recc_case k) c1`,`n8`,`aux3`]
+           build_aux_lemma) \\ fs []
+    \\ REPEAT STRIP_TAC \\ fs [])
+  \\ `i < LENGTH exps` by DECIDE_TAC
+  \\ fs [EL_SNOC]
+  \\ fs [cComp_SNOC]
+  \\ `?c1 aux2 n1. cComp n exps aux1 = (c1,aux2,n1)` by METIS_TAC [PAIR]
+  \\ `?c3 aux3 n3. cComp n1 [x] aux2 = (c3,aux3,n3)` by METIS_TAC [PAIR]
+  \\ fs [LET_DEF]
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`aux1`]) \\ fs []
+  \\ SRW_TAC [] [] \\ POP_ASSUM (MP_TAC o Q.SPECL [`i`,`n8`])
+  \\ fs [] \\ REPEAT STRIP_TAC
+  \\ IMP_RES_TAC cComp_SING \\ SRW_TAC [] []
+  \\ fs [MAP,build_aux_APPEND]
+  \\ Cases_on `build_aux n8 (MAP (code_for_recc_case k) c1) aux3`
+  \\ fs [LET_DEF] \\ NTAC 2 (POP_ASSUM MP_TAC)
+  \\ MP_TAC (Q.SPECL [`n1`,`[x]`,`aux2`] cComp_lemma)
+  \\ fs [LET_DEF] \\ REPEAT STRIP_TAC \\ SRW_TAC [] []
+  \\ FIRST_X_ASSUM MATCH_MP_TAC
+  \\ POP_ASSUM MP_TAC
+  \\ ONCE_REWRITE_TAC [build_aux_MOVE]
+  \\ REPEAT STRIP_TAC \\ fs []
+  \\ fs [code_installed_def]) |> SPEC_ALL;
 
 val cComp_correct = prove(
   ``!xs env s1 n aux1 t1 env' f1 res s2 n2 ys aux2.
@@ -885,11 +968,5 @@ val cComp_correct = prove(
     \\ Cases_on `a` \\ fs [LENGTH_NIL])
   THEN1 (* Tick *) cheat
   THEN1 (* Call *) cheat);
-
-
-(*
-val _ = PolyML.SaveState.saveState "heap_state";
-val _ = PolyML.SaveState.loadState "heap_state";
-*)
 
 val _ = export_theory();
