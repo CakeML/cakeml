@@ -38,19 +38,13 @@ val term_image_term_image = Q.store_thm ("term_image_term_image",
   (* likely not true without some hypset_ok hypotheses *)
   cheat)
 
-val weakening = Q.prove (
-`!thy h1 h2 tm.
-  set h1 ⊆ set h2 ∧ (thy, h1) |- tm ⇒ (thy, h2) |- tm`,
- cheat);
-
-(* This isn't true, we need f to respect ACONV, and for the SUBSET to be up to
- * ACONV *)
 val term_image_term_remove = Q.prove (
-`!f tm tms. 
-  hypset_ok tms
-  ⇒
-  set (term_remove (f tm) (term_image f tms)) SUBSET set (term_image f (term_remove tm tms))`,
- rw [SUBSET_DEF] >>
+`!x f tm tms. 
+  (!t1 t2. ACONV t1 t2 ⇒ ACONV (f t1) (f t2)) ∧
+  hypset_ok tms ∧
+  MEM x (term_remove (f tm) (term_image f tms)) ⇒ 
+  ?x'. MEM x' (term_image f (term_remove tm tms)) ∧ ACONV x x'`,
+ rw [] >>
  imp_res_tac hypset_ok_term_image >>
  imp_res_tac MEM_term_remove_imp >>
  imp_res_tac MEM_term_image_imp >>
@@ -58,16 +52,10 @@ val term_image_term_remove = Q.prove (
  rfs [] >>
  Cases_on `MEM x' (term_remove tm tms)` 
  >- (imp_res_tac MEM_term_remove_imp >>
-     fs [] >>
      imp_res_tac MEM_term_image >>
      `hypset_ok (term_remove tm tms)` by metis_tac [hypset_ok_term_remove] >>
-     fs [] >>
-     first_x_assum (qspecl_then [`f`] mp_tac) >>
-     first_x_assum (qspecl_then [`f`] mp_tac) >>
-     rw [] >>
-     cheat)
- >- (`~ACONV tm x'` by cheat >>
-     metis_tac [MEM_term_remove]));
+     fs [])
+ >- metis_tac [MEM_term_remove]);
 
 val updates_disjoint = Q.prove (
 `!upd ctxt.
@@ -563,11 +551,21 @@ val update_conservative = Q.prove (
                    rw [upd_to_subst_def])
                >- (FIRST_X_ASSUM (qspecl_then [`ctxt`, `ConstSpec consts p`] mp_tac) >>
                    rw [upd_to_subst_def])) >>
-     match_mp_tac weakening >>
+     match_mp_tac proves_ACONV >>
      qexists_tac `term_union (term_remove (rc tm') (term_image rc h1)) 
                              (term_remove (rc tm) (term_image rc h2))` >>
-     rw [] >>
-     cheat)
+     qexists_tac `rc tm === rc tm'` >> 
+     rw [EVERY_MEM, EXISTS_MEM] >>
+     `hypset_ok h1 ∧ hypset_ok h2` by cheat
+     >- cheat
+     >- metis_tac [hypset_ok_term_union, hypset_ok_term_image, hypset_ok_term_remove]
+     >- (imp_res_tac MEM_term_union_imp >>
+         `(∀t1 t2. ACONV t1 t2 ⇒ ACONV (rc t1) (rc t2))` by metis_tac [remove_const_aconv] >>
+         imp_res_tac term_image_term_remove >>
+         metis_tac [MEM_term_union, hypset_ok_term_union, hypset_ok_term_image, 
+                    hypset_ok_term_remove, ACONV_TRANS])
+     >- cheat 
+     >- cheat)
  >- (rw [Once proves_cases] >>
      ntac 4 disj2_tac >>
      disj1_tac >>
