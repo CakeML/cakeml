@@ -417,6 +417,20 @@ val bEval_SNOC = store_thm("bEval_SNOC",
   \\ Cases_on `a''` \\ fs [LENGTH]
   \\ REV_FULL_SIMP_TAC std_ss [LENGTH_NIL] \\ fs []);
 
+val bEval_APPEND = store_thm("bEval_APPEND",
+  ``!xs env s ys.
+      bEval (xs ++ ys,env,s) =
+      case bEval (xs,env,s) of
+        (Result vs,s2) =>
+          (case bEval (ys,env,s2) of
+             (Result ws,s1) => (Result (vs ++ ws),s1)
+           | res => res)
+      | res => res``,
+  Induct \\ fs [APPEND,bEval_def] \\ REPEAT STRIP_TAC
+  THEN1 REPEAT BasicProvers.CASE_TAC
+  \\ ONCE_REWRITE_TAC [bEval_CONS]
+  \\ REPEAT BasicProvers.CASE_TAC \\ fs []);
+
 val bvl_state_explode = store_thm("bvl_state_explode",
   ``!s1 (s2:bvl_state).
       s1 = s2 <=>
