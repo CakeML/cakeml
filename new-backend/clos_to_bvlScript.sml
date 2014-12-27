@@ -23,21 +23,21 @@ val build_aux_def = Define `
   (build_aux i ((x:bvl_exp)::xs) aux = build_aux (i+1) xs ((i,x) :: aux))`;
 
 val recc_Let_def = Define `
-  recc_Let n i hole =
-    Let [Op (Cons closure_tag) [Op (Label n) []; Var 0]]
+  recc_Let n i hole hole2 =
+    Let [Op (Cons closure_tag) [Op (Label n) []; hole2]]
       (Let [Op Update [hole; Op (Const (&i)) []; Var 0]] (Var 1 : bvl_exp))`;
 
 val recc_Lets_def = Define `
   recc_Lets n k rest =
     if k = 0:num then rest else
       let k = k - 1 in
-        Let [recc_Let (n + k) k (Op (El 1) [Var 1])]
+        Let [recc_Let (n + k) k (Op (El 1) [Var 1]) (Op (El 1) [Var 0])]
           (recc_Lets n k rest)`;
 
 val build_recc_lets_def = Define `
   build_recc_lets (fns:clos_exp list) vs n1 fns_l (c3:bvl_exp) =
     Let [Let [Op Ref (MAP (K (Op (Const 0) [])) fns ++ MAP Var vs)]
-           (recc_Let (n1 + (fns_l - 1)) (fns_l - 1) (Var 1))]
+           (recc_Let (n1 + (fns_l - 1)) (fns_l - 1) (Var 1) (Var 0))]
       (recc_Lets n1 (fns_l - 1) c3)`;
 
 val cComp_def = tDefine "cComp" `
@@ -227,6 +227,37 @@ val env_rel_SUBMAP = prove(
   Induct \\ Cases_on `env2` \\ fs [env_rel_def]
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC val_rel_SUBMAP) |> GEN_ALL;
 
+val val_rel_NEW_REF = prove(
+  ``!x y. val_rel f1 refs1 code x y ==> ~(r IN FDOM refs1) ==>
+          val_rel f1 (refs1 |+ (r,t)) code x y``,
+  HO_MATCH_MP_TAC val_rel_ind \\ REPEAT STRIP_TAC
+  \\ ONCE_REWRITE_TAC [val_rel_cases] \\ fs []
+  THEN1 (REPEAT (POP_ASSUM MP_TAC) \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+  THEN1 (Q.LIST_EXISTS_TAC [`aux`,`aux1`,`n'`] \\ fs []
+         \\ REPEAT (POP_ASSUM MP_TAC)
+         \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+  THEN1 (DISJ1_TAC \\ Q.LIST_EXISTS_TAC [`aux`,`aux1`,`n'`] \\ fs []
+         \\ REPEAT (POP_ASSUM MP_TAC)
+         \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+  \\ DISJ2_TAC \\ Q.LIST_EXISTS_TAC [`exps_ps`,`r'`,`ys`] \\ fs []
+  \\ rfs [] \\ Q.PAT_ASSUM `LIST_REL pppat env ys` MP_TAC
+  \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [] \\ STRIP_TAC
+  \\ fs [FDIFF_def,SUBMAP_DEF,DRESTRICT_DEF,FLOOKUP_DEF]
+  \\ fs [FAPPLY_FUPDATE_THM] \\ SRW_TAC [] [] \\ fs [])
+  |> SPEC_ALL |> MP_CANON;
+
+val opt_val_rel_NEW_REF = prove(
+  ``opt_val_rel f1 refs1 code x y /\ ~(r IN FDOM refs1) ==>
+    opt_val_rel f1 (refs1 |+ (r,t)) code x y``,
+  Cases_on `x` \\ Cases_on `y` \\ fs [opt_val_rel_def,val_rel_NEW_REF]);
+
+val env_rel_NEW_REF = prove(
+  ``!x y.
+      env_rel f1 refs1 code x y /\ ~(r IN FDOM refs1) ==>
+      env_rel f1 (refs1 |+ (r,t)) code x y``,
+  Induct \\ Cases_on `y` \\ fs [env_rel_def] \\ REPEAT STRIP_TAC
+  \\ IMP_RES_TAC val_rel_NEW_REF \\ fs []);
+
 val LESS_LENGTH_env_rel_IMP = prove(
   ``!env env2 n.
       n < LENGTH env /\ env_rel f refs code env env2 ==>
@@ -373,24 +404,36 @@ val bEval_MAP_Const = prove(
   Induct \\ fs [bEval_def,bEval_CONS,bEvalOp_def]);
 
 val bEval_recc_Lets = prove(
-  ``bEval
-      ([recc_Lets n7 (LENGTH ll) (HD c8)],
-       Block closure_tag [CodePtr (n7 + LENGTH ll); RefPtr rr]::env',
-       t1 with refs :=
-            t1.refs |+ (rr,
-              ValueArray
-              (MAP (K (Number 0)) ll ++
-               Block closure_tag [CodePtr (n7 + LENGTH ll); RefPtr rr]::ys))) =
-    bEval
-      ([HD c8],
-       GENLIST (\n. Block closure_tag [CodePtr (n7 + n); RefPtr rr])
-                 (LENGTH ll + 1) ++ env',
-       t1 with refs :=
-            t1.refs |+ (rr,
-              ValueArray
-              (GENLIST (\n. Block closure_tag [CodePtr (n7 + n); RefPtr rr])
-                 (LENGTH ll + 1) ++ ys)))``,
-  cheat);
+  ``!ll n n7 rr env' t1 ys c8.
+     EVERY (\n. n7 + n IN domain t1.code) (GENLIST I (LENGTH ll)) ==>
+     (bEval
+       ([recc_Lets n7 (LENGTH ll) (HD c8)],
+        Block closure_tag [CodePtr (n7 + LENGTH ll); RefPtr rr]::env',
+        t1 with refs := t1.refs |+ (rr,
+               ValueArray
+               (MAP (K (Number 0)) ll ++
+                Block closure_tag [CodePtr (n7 + LENGTH ll); RefPtr rr]::ys))) =
+      bEval
+       ([HD c8],
+        GENLIST (\n. Block closure_tag [CodePtr (n7 + n); RefPtr rr])
+                  (LENGTH ll + 1) ++ env',
+        t1 with refs := t1.refs |+ (rr,
+               ValueArray
+               (GENLIST (\n. Block closure_tag [CodePtr (n7 + n); RefPtr rr])
+                  (LENGTH ll + 1) ++ ys))))``,
+  recInduct SNOC_INDUCT \\ fs [] \\ REPEAT STRIP_TAC
+  \\ ONCE_REWRITE_TAC [recc_Lets_def] \\ fs [LET_DEF]
+  \\ fs [bEval_def,recc_Let_def,bEvalOp_def]
+  \\ fs [DECIDE ``0 < k + SUC n:num``,EVERY_SNOC,GENLIST]
+  \\ fs [FLOOKUP_FAPPLY,DECIDE ``n < SUC n + m``,DECIDE ``0 < 1 + SUC n``]
+  \\ FULL_SIMP_TAC std_ss [SNOC_APPEND,MAP_APPEND,MAP]
+  \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ `LENGTH l = LENGTH ((MAP (K (Number 0)) l) : bc_value list)` by fs []
+  \\ POP_ASSUM (fn th => SIMP_TAC std_ss [th])
+  \\ SIMP_TAC std_ss [LUPDATE_LENGTH] \\ fs []
+  \\ FULL_SIMP_TAC std_ss [DECIDE ``SUC n + 1 = SUC (n+1)``,GENLIST]
+  \\ FULL_SIMP_TAC std_ss [ADD1,SNOC_APPEND]
+  \\ SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND]) |> SPEC_ALL;
 
 val NUM_NOT_IN_FDOM =
   MATCH_MP IN_INFINITE_NOT_FINITE (CONJ INFINITE_NUM_UNIV
@@ -400,21 +443,6 @@ val NUM_NOT_IN_FDOM =
 val EXISTS_NOT_IN_refs = prove(
   ``?x. ~(x IN FDOM (t1:bvl_state).refs)``,
   METIS_TAC [NUM_NOT_IN_FDOM])
-
-val val_rel_NEW_REF = prove(
-  ``val_rel f1 refs1 code x y /\ ~(r IN FDOM refs1) ==>
-    val_rel f1 (refs1 |+ (r,t)) code x y``,
-  cheat);
-
-val opt_val_rel_NEW_REF = prove(
-  ``opt_val_rel f1 refs1 code x y /\ ~(r IN FDOM refs1) ==>
-    opt_val_rel f1 (refs1 |+ (r,t)) code x y``,
-  cheat);
-
-val env_rel_NEW_REF = prove(
-  ``env_rel f1 refs1 code x y /\ ~(r IN FDOM refs1) ==>
-    env_rel f1 (refs1 |+ (r,t)) code x y``,
-  cheat);
 
 val FLOOKUP_FAPPLY = prove(
   ``FLOOKUP (f |+ (x,y)) n = if n = x then SOME y else FLOOKUP f n``,
@@ -470,6 +498,17 @@ val build_aux_MEM = prove(
          \\ REPEAT STRIP_TAC \\ fs [] \\ METIS_TAC [])
   \\ RES_TAC \\ fs [ADD1,AC ADD_COMM ADD_ASSOC] \\ METIS_TAC []);
 
+val cComp_LIST_IMP_cComp_EL = prove(
+  ``(cComp n exps aux1 = (c7,aux7,n7)) /\
+    (build_aux n7 (MAP (code_for_recc_case k) c7) aux7 = (n4,aux5)) /\
+    code_installed aux5 t1.code ==>
+    ?n' aux c aux1' n1.
+      cComp n' [EL i exps] aux = ([c],aux1',n1) /\
+      lookup (i + n7) t1.code =
+      SOME (2,code_for_recc_case k c) /\
+      code_installed aux1' t1.code``,
+  cheat);
+
 val cComp_correct = prove(
   ``!xs env s1 n aux1 t1 env' f1 res s2 n2 ys aux2.
       (cEval (xs,env,s1) = (res,s2)) /\ res <> Error /\
@@ -508,11 +547,8 @@ val cComp_correct = prove(
     \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM (K ALL_TAC)
     \\ Q.LIST_EXISTS_TAC [`aux1`,`aux3`,`n`] \\ fs []
     \\ IMP_RES_TAC cComp_SING \\ fs [code_installed_def])
-
   THEN1 (* Letrec *)
-   (
-
-    fs [cEval_def] \\ BasicProvers.FULL_CASE_TAC
+   (fs [cEval_def] \\ BasicProvers.FULL_CASE_TAC
     \\ fs [] \\ SRW_TAC [] []
     \\ fs [cComp_def]
     \\ fs [build_recc_def]
@@ -588,6 +624,21 @@ val cComp_correct = prove(
          by fs [LENGTH_MAP]
     \\ POP_ASSUM (fn th => REWRITE_TAC [th])
     \\ SIMP_TAC std_ss [APPEND,GSYM APPEND_ASSOC,LUPDATE_LENGTH]
+    \\ `EVERY (\n. n7 + n IN domain t1.code) (GENLIST I (LENGTH ll))` by
+     (fs [EVERY_GENLIST]
+      \\ IMP_RES_TAC cComp_IMP_code_installed
+      \\ IMP_RES_TAC cComp_LENGTH
+      \\ POP_ASSUM (fn th => fs [GSYM th])
+      \\ fs [domain_lookup,code_installed_def]
+      \\ IMP_RES_TAC build_aux_MEM \\ fs []
+      \\ REPEAT STRIP_TAC
+      \\ `i < LENGTH c7` by ALL_TAC THEN1
+       (`LENGTH ll <= LENGTH c7` by ALL_TAC
+        \\ IMP_RES_TAC cComp_LENGTH \\ fs [LENGTH_APPEND]
+        \\ DECIDE_TAC)
+      \\ RES_TAC
+      \\ fs [code_installed_def,EVERY_MEM] \\ fs []
+      \\ RES_TAC \\ fs [])
     \\ fs [bEval_recc_Lets]
     \\ Q.PAT_ABBREV_TAC `t1_refs  = t1 with refs := t1.refs |+ xxx`
     \\ `[HD c8] = c8` by (IMP_RES_TAC cComp_SING \\ fs []) \\ fs []
@@ -602,11 +653,8 @@ val cComp_correct = prove(
       \\ ASSUME_TAC (EXISTS_NOT_IN_refs |>
            SIMP_RULE std_ss [whileTheory.LEAST_EXISTS]) \\ fs [])
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
-
     THEN1
-     (
-
-      `t1_refs.code = t1.code` by fs [Abbr`t1_refs`] \\ fs []
+     (`t1_refs.code = t1.code` by fs [Abbr`t1_refs`] \\ fs []
       \\ REVERSE (REPEAT STRIP_TAC) THEN1
        (fs [state_rel_def,Abbr`t1_refs`] \\ STRIP_TAC THEN1
          (Q.PAT_ASSUM `LIST_REL ppp s.globals t1.globals` MP_TAC
@@ -641,11 +689,7 @@ val cComp_correct = prove(
       \\ MATCH_MP_TAC EVERY_ZIP_GENLIST \\ fs [AC ADD_ASSOC ADD_COMM]
       \\ REPEAT STRIP_TAC
       \\ IMP_RES_TAC cComp_IMP_code_installed
-
-
-
-      \\ cheat (* stupid *))
-
+      \\ MATCH_MP_TAC cComp_LIST_IMP_cComp_EL \\ fs [])
     \\ REPEAT STRIP_TAC
     \\ fs [] \\ Q.EXISTS_TAC `f2` \\ IMP_RES_TAC SUBMAP_TRANS
     \\ ASM_SIMP_TAC std_ss []
