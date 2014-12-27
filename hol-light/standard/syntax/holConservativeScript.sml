@@ -8,6 +8,8 @@ val every_case_tac = BasicProvers.EVERY_CASE_TAC;
 
 val _ = new_theory "holConservative";
 
+(* Theorems that should probably be proved elsewhere (perhaps some already are) *)
+
 val CLOSED_INST = Q.prove (
 `!tm tysubst. CLOSED tm ∧ welltyped tm ⇒ CLOSED (INST tysubst tm)`,
   rw[INST_def] >>
@@ -35,6 +37,37 @@ val term_image_term_image = Q.store_thm ("term_image_term_image",
   BasicProvers.CASE_TAC >- simp[] >> fs[] >> rw[] >>
   (* likely not true without some hypset_ok hypotheses *)
   cheat)
+
+val weakening = Q.prove (
+`!thy h1 h2 tm.
+  set h1 ⊆ set h2 ∧ (thy, h1) |- tm ⇒ (thy, h2) |- tm`,
+ cheat);
+
+(* This isn't true, we need f to respect ACONV, and for the SUBSET to be up to
+ * ACONV *)
+val term_image_term_remove = Q.prove (
+`!f tm tms. 
+  hypset_ok tms
+  ⇒
+  set (term_remove (f tm) (term_image f tms)) SUBSET set (term_image f (term_remove tm tms))`,
+ rw [SUBSET_DEF] >>
+ imp_res_tac hypset_ok_term_image >>
+ imp_res_tac MEM_term_remove_imp >>
+ imp_res_tac MEM_term_image_imp >>
+ rw [] >>
+ rfs [] >>
+ Cases_on `MEM x' (term_remove tm tms)` 
+ >- (imp_res_tac MEM_term_remove_imp >>
+     fs [] >>
+     imp_res_tac MEM_term_image >>
+     `hypset_ok (term_remove tm tms)` by metis_tac [hypset_ok_term_remove] >>
+     fs [] >>
+     first_x_assum (qspecl_then [`f`] mp_tac) >>
+     first_x_assum (qspecl_then [`f`] mp_tac) >>
+     rw [] >>
+     cheat)
+ >- (`~ACONV tm x'` by cheat >>
+     metis_tac [MEM_term_remove]));
 
 val updates_disjoint = Q.prove (
 `!upd ctxt.
@@ -183,6 +216,8 @@ val update_extension = Q.prove (
          fs [])
      >- (Cases_on `ctxt` >>
          fs [])));
+
+(* End of theorems for elsewhere *)
 
 val const_subst_ok_def = Define `
 const_subst_ok s = EVERY (\(c,tm). welltyped tm ∧ CLOSED tm) s`;
@@ -508,21 +543,31 @@ val update_conservative = Q.prove (
      >- metis_tac [theory_ok_remove_upd]
      >- (match_mp_tac (SIMP_RULE (srw_ss()) [PULL_EXISTS, upd_to_subst_def] term_ok_remove_upd) >>
          metis_tac []))
- >- (rw [Once proves_cases] >>
-     ntac 3 disj2_tac >>
-     disj1_tac >>
-     MAP_EVERY qexists_tac [`remove_const (tysof ctxt) consts tm`, 
-                            `remove_const (tysof ctxt) consts tm'`, 
-                            `term_image (remove_const (tysof ctxt) consts) h1`,
-                            `term_image (remove_const (tysof ctxt) consts) h2`] >>
-     rw [remove_const_eq, remove_const_def] >>
-     fs [upd_to_subst_def, rich_listTheory.FILTER_MAP]
-     >- (rw [term_image_term_union] >>
-         cheat) (* TODO: probably not true *)
-     >- (LAST_X_ASSUM (qspecl_then [`ctxt`, `ConstSpec consts p`] mp_tac) >>
-         rw [upd_to_subst_def])
-     >- (FIRST_X_ASSUM (qspecl_then [`ctxt`, `ConstSpec consts p`] mp_tac) >>
-         rw [upd_to_subst_def]))
+ >- (rw [remove_const_eq, remove_const_def] >>
+     fs [upd_to_subst_def, rich_listTheory.FILTER_MAP, term_image_term_union] >>
+     qabbrev_tac `rc = remove_const (tysof ctxt) consts` >>
+     `(thyof ctxt, 
+       term_union (term_remove (rc tm') (term_image rc h1))
+                  (term_remove (rc tm) (term_image rc h2))) |- 
+       rc tm === rc tm'`
+           by (rw [Once proves_cases] >>
+               ntac 3 disj2_tac >>
+               disj1_tac >>
+               MAP_EVERY qexists_tac [`remove_const (tysof ctxt) consts tm`, 
+                                      `remove_const (tysof ctxt) consts tm'`, 
+                                      `term_image (remove_const (tysof ctxt) consts) h1`,
+                                      `term_image (remove_const (tysof ctxt) consts) h2`] >>
+               fs [] >>
+               rw []
+               >- (LAST_X_ASSUM (qspecl_then [`ctxt`, `ConstSpec consts p`] mp_tac) >>
+                   rw [upd_to_subst_def])
+               >- (FIRST_X_ASSUM (qspecl_then [`ctxt`, `ConstSpec consts p`] mp_tac) >>
+                   rw [upd_to_subst_def])) >>
+     match_mp_tac weakening >>
+     qexists_tac `term_union (term_remove (rc tm') (term_image rc h1)) 
+                             (term_remove (rc tm) (term_image rc h2))` >>
+     rw [] >>
+     cheat)
  >- (rw [Once proves_cases] >>
      ntac 4 disj2_tac >>
      disj1_tac >>
