@@ -1,5 +1,5 @@
 open HolKernel boolLib boolSimps bossLib lcsymtacs pred_setTheory listTheory pairTheory;
-open optionTheory alistTheory finite_mapTheory; 
+open optionTheory alistTheory finite_mapTheory;
 open holSyntaxLibTheory;
 open holSyntaxTheory holSyntaxExtraTheory;
 
@@ -22,7 +22,14 @@ val type_ok_subst = Q.prove (
   type_ok tys (TYPE_SUBST i ty)
   ⇒
   ?i'. EVERY (type_ok tys) (MAP FST i') ∧ TYPE_SUBST i' ty = TYPE_SUBST i ty`,
- cheat);
+  rpt strip_tac >>
+  imp_res_tac type_ok_TYPE_SUBST_imp >>
+  qexists_tac`MAP (λx. (TYPE_SUBST i (Tyvar x), Tyvar x)) (tyvars ty)` >>
+  conj_tac >- ( fs[EVERY_MAP,EVERY_MEM] ) >>
+  simp[TYPE_SUBST_tyvars] >>
+  rpt(pop_assum kall_tac) >>
+  qspec_tac(`tyvars ty`,`ls`) >>
+  Induct >> simp[REV_ASSOCD] >> rw[]);
 
 val term_image_term_union = Q.store_thm ("term_image_term_union",
 `!f h1 h2.
@@ -39,10 +46,10 @@ val term_image_term_image = Q.store_thm ("term_image_term_image",
   cheat)
 
 val term_image_term_remove = Q.prove (
-`!x f tm tms. 
+`!x f tm tms.
   (!t1 t2. ACONV t1 t2 ⇒ ACONV (f t1) (f t2)) ∧
   hypset_ok tms ∧
-  MEM x (term_remove (f tm) (term_image f tms)) ⇒ 
+  MEM x (term_remove (f tm) (term_image f tms)) ⇒
   ?x'. MEM x' (term_image f (term_remove tm tms)) ∧ ACONV x x'`,
  rw [] >>
  imp_res_tac hypset_ok_term_image >>
