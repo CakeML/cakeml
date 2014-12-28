@@ -333,6 +333,10 @@ val res_rel_Result =
   ``res_rel f refs code (Result x) (Result y)``
   |> SIMP_CONV (srw_ss()) [res_rel_cases]
 
+val res_rel_Result1 =
+  ``res_rel f refs code (Result x) y``
+  |> SIMP_CONV (srw_ss()) [res_rel_cases]
+
 val val_rel_Closure =
   ``val_rel f refs code (Closure env exp) y``
   |> SIMP_CONV (srw_ss()) [val_rel_cases]
@@ -592,6 +596,11 @@ val cComp_LIST_IMP_cComp_EL = prove(
   \\ REPEAT STRIP_TAC \\ fs []
   \\ fs [code_installed_def]) |> SPEC_ALL;
 
+val bEval_SING = prove(
+  ``(bEval ([x],env,s) = (Result a,p1)) ==> ?d1. a = [d1]``,
+  REPEAT STRIP_TAC \\ IMP_RES_TAC bEval_IMP_LENGTH
+  \\ Cases_on `a` \\ fs [LENGTH_NIL]);
+
 val cComp_correct = prove(
   ``!xs env s1 n aux1 t1 env' f1 res s2 n2 ys aux2.
       (cEval (xs,env,s1) = (res,s2)) /\ res <> Error /\
@@ -607,8 +616,40 @@ val cComp_correct = prove(
          (FDIFF t1.refs f1) SUBMAP (FDIFF t2.refs f2)``,
 
   recInduct cEval_ind \\ REPEAT STRIP_TAC
-  THEN1 (* NIL *) cheat
-  THEN1 (* CONS *) cheat
+  THEN1 (* NIL *)
+   (fs [cEval_def,cComp_def] \\ SRW_TAC [] [bEval_def]
+    \\ Q.EXISTS_TAC `f1` \\ fs [res_rel_Result])
+  THEN1 (* CONS *)
+   (fs [cEval_def,cComp_def] \\ SRW_TAC [] [bEval_def]
+    \\ `?p. cEval ([x],env,s) = p` by fs [] \\ PairCases_on `p` \\ fs []
+    \\ `?q. cEval (y::xs,env,p1) = q` by fs [] \\ PairCases_on `q` \\ fs []
+    \\ `?cc. cComp n [x] aux1 = cc` by fs [] \\ PairCases_on `cc` \\ fs []
+    \\ `?dd. cComp cc2 (y::xs) cc1 = dd` by fs [] \\ PairCases_on `dd` \\ fs []
+    \\ fs [LET_DEF,PULL_FORALL]
+    \\ Q.PAT_ASSUM `!(v1:clos_val list) n aux. bbb`
+         (MP_TAC o Q.GEN `v1` o Q.SPECL [`v1`,`cc2`,`cc1`]) \\ fs []
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`aux1`]) \\ fs []
+    \\ SRW_TAC [] []
+    \\ IMP_RES_TAC cComp_IMP_code_installed
+    \\ Q.PAT_ASSUM `!xx yy zz. bbb ==> b` (MP_TAC o Q.SPECL [`t1`,`env'`,`f1`])
+    \\ IMP_RES_TAC cComp_SING \\ fs [] \\ REPEAT STRIP_TAC
+    \\ ONCE_REWRITE_TAC [bEval_CONS]
+    \\ REVERSE (Cases_on `p0`) \\ fs [] \\ SRW_TAC [] []
+    \\ TRY (fs [res_rel_cases] \\ Q.EXISTS_TAC `f2` \\ fs [] \\ NO_TAC)
+    \\ fs [res_rel_Result1] \\ SRW_TAC [] []
+    \\ `q0 <> Error` by (Cases_on `q0` \\ fs []) \\ fs []
+    \\ IMP_RES_TAC bvl_inlineTheory.bEval_code
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t2`,`env'`,`f2`]) \\ fs []
+    \\ IMP_RES_TAC env_rel_SUBMAP \\ fs [] \\ REPEAT STRIP_TAC
+    \\ fs [] \\ IMP_RES_TAC bEval_SING \\ fs []
+    \\ Cases_on `q0` \\ fs [] \\ SRW_TAC [] []
+    \\ fs [res_rel_cases] \\ Q.EXISTS_TAC `f2'`
+    \\ IMP_RES_TAC bvl_inlineTheory.bEval_code
+    \\ IMP_RES_TAC val_rel_SUBMAP \\ fs []
+    \\ IMP_RES_TAC SUBMAP_TRANS \\ fs []
+    \\ Q.PAT_ASSUM `LIST_REL ppp yy tt` MP_TAC
+    \\ MATCH_MP_TAC listTheory.LIST_REL_mono
+    \\ METIS_TAC [val_rel_SUBMAP])
   THEN1 (* Var *) cheat
   THEN1 (* If *) cheat
   THEN1 (* Let *) cheat
@@ -966,7 +1007,24 @@ val cComp_correct = prove(
     \\ `[HD a] = a` by ALL_TAC \\ fs []
     \\ IMP_RES_TAC bEval_IMP_LENGTH
     \\ Cases_on `a` \\ fs [LENGTH_NIL])
-  THEN1 (* Tick *) cheat
+  THEN1 (* Tick *)
+   (fs [cComp_def]
+    \\ `?p. cEval ([x],env,s) = p` by fs [] \\ PairCases_on `p` \\ fs []
+    \\ `?cc. cComp n [x] aux1 = cc` by fs [] \\ PairCases_on `cc` \\ fs []
+    \\ fs [LET_DEF] \\ SRW_TAC [] []
+    \\ IMP_RES_TAC cComp_SING \\ SRW_TAC [] [] \\ fs [bEval_def]
+    \\ `t1.clock = s.clock` by fs [state_rel_def] \\ fs []
+    \\ Cases_on `s.clock = 0` \\ fs [] THEN1
+     (fs [cEval_def] \\ SRW_TAC [] [res_rel_cases]
+      \\ Q.EXISTS_TAC `f1` \\ fs [SUBMAP_REFL])
+    \\ fs [cEval_def]
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`aux1`]) \\ fs []
+    \\ REPEAT STRIP_TAC
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`dec_clock t1`,`env'`,`f1`])
+    \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
+      (fs [dec_clock_def,state_rel_def,closLangTheory.dec_clock_def])
+    \\ REPEAT STRIP_TAC \\ fs []
+    \\ Q.EXISTS_TAC `f2` \\ fs [dec_clock_def])
   THEN1 (* Call *) cheat);
 
 val _ = export_theory();
