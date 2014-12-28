@@ -23,21 +23,27 @@ val build_aux_def = Define `
   (build_aux i ((x:bvl_exp)::xs) aux = build_aux (i+1) xs ((i,x) :: aux))`;
 
 val recc_Let_def = Define `
-  recc_Let n i hole hole2 =
-    Let [Op (Cons closure_tag) [Op (Label n) []; hole2]]
-      (Let [Op Update [hole; Op (Const (&i)) []; Var 0]] (Var 1 : bvl_exp))`;
+  recc_Let n i =
+    Let [Op (El 1) [Var 0]]
+     (Let [Op (Cons closure_tag) [Op (Label n) []; Var 0]]
+       (Let [Op Update [Var 1; Op (Const (&i)) []; Var 0]]
+         (Var 1 : bvl_exp)))`;
 
 val recc_Lets_def = Define `
   recc_Lets n k rest =
     if k = 0:num then rest else
       let k = k - 1 in
-        Let [recc_Let (n + k) k (Op (El 1) [Var 1]) (Op (El 1) [Var 0])]
-          (recc_Lets n k rest)`;
+        Let [recc_Let (n + k) k] (recc_Lets n k rest)`;
+
+val recc_Let0_def = Define `
+  recc_Let0 n i =
+    Let [Op (Cons closure_tag) [Op (Label n) []; Var 0]]
+      (Let [Op Update [Var 1; Op (Const (&i)) []; Var 0]] (Var 1 : bvl_exp))`;
 
 val build_recc_lets_def = Define `
   build_recc_lets (fns:clos_exp list) vs n1 fns_l (c3:bvl_exp) =
     Let [Let [Op Ref (MAP (K (Op (Const 0) [])) fns ++ MAP Var vs)]
-           (recc_Let (n1 + (fns_l - 1)) (fns_l - 1) (Var 1) (Var 0))]
+           (recc_Let0 (n1 + (fns_l - 1)) (fns_l - 1))]
       (recc_Lets n1 (fns_l - 1) c3)`;
 
 val cComp_def = tDefine "cComp" `
@@ -433,7 +439,8 @@ val bEval_recc_Lets = prove(
   \\ ONCE_REWRITE_TAC [recc_Lets_def] \\ fs [LET_DEF]
   \\ fs [bEval_def,recc_Let_def,bEvalOp_def]
   \\ fs [DECIDE ``0 < k + SUC n:num``,EVERY_SNOC,GENLIST]
-  \\ fs [FLOOKUP_FAPPLY,DECIDE ``n < SUC n + m``,DECIDE ``0 < 1 + SUC n``]
+  \\ fs [FLOOKUP_FAPPLY,DECIDE ``n < SUC n + m``,DECIDE ``0 < 1 + SUC n``,
+         DECIDE ``0 < 1 + n:num``,DECIDE ``2 < 1 + (1 + (1 + n:num))``]
   \\ FULL_SIMP_TAC std_ss [SNOC_APPEND,MAP_APPEND,MAP]
   \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND]
   \\ `LENGTH l = LENGTH ((MAP (K (Number 0)) l) : bc_value list)` by fs []
@@ -848,7 +855,7 @@ val cComp_correct = prove(
     \\ IMP_RES_TAC lookup_vars_IMP
     \\ POP_ASSUM (MP_TAC o Q.SPEC `t1`) \\ REPEAT STRIP_TAC \\ fs []
     \\ Q.ABBREV_TAC `rr = LEAST ptr. ptr NOTIN FDOM t1.refs`
-    \\ fs [recc_Let_def]
+    \\ fs [recc_Let0_def]
     \\ `n7 + (LENGTH exps - 1) IN domain t1.code` by
      (IMP_RES_TAC cComp_IMP_code_installed
       \\ IMP_RES_TAC cComp_LENGTH
