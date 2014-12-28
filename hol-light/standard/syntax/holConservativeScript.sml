@@ -445,9 +445,58 @@ val remove_const_inst = Q.prove (
  rw [remove_const_def] >>
  cheat);
 
+val RACONV_REFL2 = Q.prove (
+`!tms tm. EVERY (\(x,y). (x ≠ y) ⇒ ~VFREE_IN x tm ∧ ~VFREE_IN y tm) tms ⇒ RACONV tms (tm,tm)`,
+ Induct_on `tm` >>
+ rw [] >>
+ rw [Once RACONV_cases]
+ >- (pop_assum mp_tac >>
+     Q.SPEC_TAC (`m`, `m`) >>
+     Q.SPEC_TAC (`t`, `t`) >>
+     Induct_on `tms` >>
+     rw [ALPHAVARS_def] >>
+     PairCases_on `h` >>
+     rw [] >>
+     fs [] >>
+     metis_tac [])
+ >- (fs [EVERY_MEM, LAMBDA_PROD, FORALL_PROD] >>
+     metis_tac [])
+ >- (fs [EVERY_MEM, LAMBDA_PROD, FORALL_PROD] >>
+     metis_tac [])
+ >- cheat);
+
+val remove_const_raconv = Q.prove (
+`!tms tm. RACONV tms tm ⇒
+  const_subst_ok consts ⇒
+  RACONV tms (remove_const tys consts (FST tm), remove_const tys consts (SND tm))`,
+ ho_match_mp_tac RACONV_ind >>
+ rw [remove_const_def]
+ >- rw [Once RACONV_cases]
+ >- (Cases_on `ALOOKUP consts x` >>
+     rw []
+     >- rw [Once RACONV_cases] >>
+     every_case_tac >>
+     fs []
+     >- rw [Once RACONV_cases] >>
+     match_mp_tac RACONV_REFL2 >>
+     `CLOSED x' ∧ welltyped x'`
+           by (fs [const_subst_ok_def, EVERY_MEM] >>
+               imp_res_tac ALOOKUP_MEM >>
+               res_tac >>
+               fs []) >>
+     `CLOSED (INST x'' x')` by metis_tac [CLOSED_INST] >>
+     fs [EVERY_MEM, CLOSED_def, LAMBDA_PROD, FORALL_PROD] >>
+     rw [] >>
+     `(?x y. p_1 = Var x y) ∧ (?x y. p_2 = Var x y)` by cheat >>
+     metis_tac [])
+ >- rw [Once RACONV_cases]
+ >- rw [Once RACONV_cases]);
+
 val remove_const_aconv = Q.prove (
-`!tm1 tm2. ACONV tm1 tm2 ⇒ ACONV (remove_const tys consts tm1) (remove_const tys consts tm2)`,
- cheat);
+`!tm1 tm2. const_subst_ok consts ∧ ACONV tm1 tm2 ⇒ ACONV (remove_const tys consts tm1) (remove_const tys consts tm2)`,
+ rw [ACONV_def] >>
+ imp_res_tac remove_const_raconv >>
+ fs []);
 
 val remove_const_vsubst = Q.prove (
 `!tys consts tm.
@@ -551,7 +600,8 @@ val update_conservative = Q.prove (
          metis_tac []))
  >- (rw [remove_const_eq, remove_const_def] >>
      qabbrev_tac `rc = remove_const (tysof ctxt) consts` >>
-     `(∀t1 t2. ACONV t1 t2 ⇒ ACONV (rc t1) (rc t2))` by metis_tac [remove_const_aconv] >>
+     `(∀t1 t2. ACONV t1 t2 ⇒ ACONV (rc t1) (rc t2))` 
+             by metis_tac [updates_to_subst, remove_const_aconv, upd_to_subst_def] >>
      fs [upd_to_subst_def, rich_listTheory.FILTER_MAP, term_image_term_union] >>
      `(thyof ctxt, 
        term_union (term_remove (rc tm') (term_image rc h1))
