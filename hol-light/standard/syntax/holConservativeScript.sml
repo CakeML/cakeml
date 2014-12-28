@@ -33,6 +33,10 @@ val type_ok_subst = Q.prove (
 
 val term_image_term_union = Q.store_thm ("term_image_term_union",
 `!f h1 h2.
+  (!t1 t2. ACONV t1 t2 ⇒ ACONV (f t1) (f t2)) ∧
+  hypset_ok h1 ∧
+  hypset_ok h2
+  ⇒
   term_image f (term_union h1 h2) = term_union (term_image f h1) (term_image f h2)`,
  cheat);
 
@@ -483,6 +487,12 @@ val remove_const_old_axiom = Q.prove (
  imp_res_tac ALOOKUP_MEM >>
  metis_tac []);
 
+val proves_hypset_ok = Q.prove (
+`!thy h c. (thy,h) |- c ⇒ hypset_ok h`,
+ rw [] >>
+ imp_res_tac proves_term_ok >>
+ fs []);
+
 val update_conservative = Q.prove (
 `!lhs tm.
   lhs |- tm
@@ -493,8 +503,9 @@ val update_conservative = Q.prove (
     (?consts p. upd = ConstSpec consts p)
     ⇒
     (thyof ctxt,term_image (remove_const (tysof (upd::ctxt)) (upd_to_subst upd)) tms) |- remove_const (tysof (upd::ctxt)) (upd_to_subst upd) tm`,
- ho_match_mp_tac proves_ind >>
+ ho_match_mp_tac proves_strongind >>
  rw [] >>
+ imp_res_tac proves_hypset_ok >>
  imp_res_tac updates_to_subst >>
  qabbrev_tac `s = upd_to_subst upd`
  >- (rw [Once proves_cases] >>
@@ -539,8 +550,9 @@ val update_conservative = Q.prove (
      >- (match_mp_tac (SIMP_RULE (srw_ss()) [PULL_EXISTS, upd_to_subst_def] term_ok_remove_upd) >>
          metis_tac []))
  >- (rw [remove_const_eq, remove_const_def] >>
-     fs [upd_to_subst_def, rich_listTheory.FILTER_MAP, term_image_term_union] >>
      qabbrev_tac `rc = remove_const (tysof ctxt) consts` >>
+     `(∀t1 t2. ACONV t1 t2 ⇒ ACONV (rc t1) (rc t2))` by metis_tac [remove_const_aconv] >>
+     fs [upd_to_subst_def, rich_listTheory.FILTER_MAP, term_image_term_union] >>
      `(thyof ctxt, 
        term_union (term_remove (rc tm') (term_image rc h1))
                   (term_remove (rc tm) (term_image rc h2))) |- 
@@ -562,15 +574,14 @@ val update_conservative = Q.prove (
      qexists_tac `term_union (term_remove (rc tm') (term_image rc h1)) 
                              (term_remove (rc tm) (term_image rc h2))` >>
      qexists_tac `rc tm === rc tm'` >> 
-     rw [EVERY_MEM, EXISTS_MEM] >>
-     `hypset_ok h1 ∧ hypset_ok h2` by cheat
-     >- cheat
+     rw [EVERY_MEM, EXISTS_MEM]
+     >- (imp_res_tac proves_term_ok >>
+         fs [welltyped_equation])
      >- metis_tac [hypset_ok_term_union, hypset_ok_term_image, hypset_ok_term_remove]
      >- (imp_res_tac MEM_term_union_imp >>
-         `(∀t1 t2. ACONV t1 t2 ⇒ ACONV (rc t1) (rc t2))` by metis_tac [remove_const_aconv] >>
          imp_res_tac term_image_term_remove >>
          metis_tac [MEM_term_union, hypset_ok_term_union, hypset_ok_term_image, 
-                    hypset_ok_term_remove, ACONV_TRANS])
+                    hypset_ok_term_remove, ACONV_TRANS, remove_const_aconv])
      >- cheat 
      >- cheat)
  >- (rw [Once proves_cases] >>
@@ -586,9 +597,8 @@ val update_conservative = Q.prove (
      LAST_X_ASSUM (qspecl_then [`ctxt`, `ConstSpec consts p'`] mp_tac) >>
      LAST_X_ASSUM (qspecl_then [`ctxt`, `ConstSpec consts p'`] mp_tac) >>
      rw [upd_to_subst_def] >>
-     rfs [upd_to_subst_def, remove_const_eq]
-     >- rw [term_image_term_union]
-     >- metis_tac [remove_const_aconv])
+     rfs [upd_to_subst_def, remove_const_eq] >>
+     metis_tac [term_image_term_union, remove_const_aconv])
  >- (rw [Once proves_cases] >>
      ntac 5 disj2_tac >>
      disj1_tac >>
@@ -634,8 +644,8 @@ val update_conservative = Q.prove (
      LAST_X_ASSUM (qspecl_then [`ctxt`, `ConstSpec consts p`] mp_tac) >>
      LAST_X_ASSUM (qspecl_then [`ctxt`, `ConstSpec consts p`] mp_tac) >>
      rw [] >>
-     rfs [remove_const_eq, upd_to_subst_def, typeof_remove_const, welltyped_remove_const]
-     >- rw [term_image_term_union])
+     rfs [remove_const_eq, upd_to_subst_def, typeof_remove_const, welltyped_remove_const] >>
+     metis_tac [term_image_term_union, remove_const_aconv])
  >- (rw [Once proves_cases] >>
      ntac 7 disj2_tac >>
      disj1_tac >>
@@ -660,9 +670,8 @@ val update_conservative = Q.prove (
      LAST_X_ASSUM (qspecl_then [`ctxt`, `ConstSpec consts p`] mp_tac) >>
      LAST_X_ASSUM (qspecl_then [`ctxt`, `ConstSpec consts p`] mp_tac) >>
      rw [] >>
-     rfs [remove_const_eq, upd_to_subst_def]
-     >- rw [term_image_term_union]
-     >- metis_tac [remove_const_aconv])
+     rfs [remove_const_eq, upd_to_subst_def] >>
+     metis_tac [remove_const_aconv, term_image_term_union])
  >- (fs [updates_cases, upd_to_subst_def, conexts_of_upd_def, LET_THM] 
      >- (fs [term_image_def] >>
          metis_tac [use_const_spec])
