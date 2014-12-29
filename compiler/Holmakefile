@@ -13,7 +13,7 @@ LEM_OPT = -suppress_renaming -auxiliary_level none
 SEMANTICSI = lib ast semanticPrimitives bigStep
 BYTECODEI = bytecode
 INFERI = infer_t
-COMPILER = modLang conLang decLang exhLang patLang intLang toIntLang toBytecode compiler
+COMPILER = modLang conLang decLang exhLang patLang mtiLang intLang toIntLang toBytecode compiler
 GEN_SCRIPTS =  $(patsubst %,%Script.sml,$(COMPILER))
 
 LEMI = $(patsubst %,../semantics/%.lem,$(SEMANTICSI)) $(patsubst %,../bytecode/%.lem,$(BYTECODEI)) $(patsubst %,../inference/%.lem,$(INFERI))

@@ -1,0 +1,607 @@
+(* Introduces multi-argument functions *)
+
+open import Pervasives
+open import SemanticPrimitives
+open import Ast
+open import BigStep
+open import ExhLang
+open import ConLang
+open import DecLang
+
+
+type op_mti =
+  | Op_mti of op_i2
+  | Tag_eq_mti of nat
+  | El_mti of nat
+
+type exp_mti =
+  | Raise_mti of exp_mti
+  | Handle_mti of exp_mti * exp_mti
+  | Lit_mti of lit
+  | Con_mti of nat * list exp_mti
+  | Var_local_mti of nat
+  | Var_global_mti of nat
+  | Fun_mti of nat * exp_mti
+  | App_mti of op_mti * list exp_mti
+  | If_mti of exp_mti * exp_mti * exp_mti
+  | Let_mti of exp_mti * exp_mti
+  | Seq_mti of exp_mti * exp_mti
+  | Letrec_mti of list (nat * exp_mti) * exp_mti
+  | Extend_global_mti of nat
+
+type v_mti =
+  | Litv_mti of lit
+  | Conv_mti of nat * list v_mti
+  | Closure_mti of list v_mti * nat * exp_mti
+    (* The first v list is the partially applied arguments, 
+       the second is the closure for the whole letrec *)
+  | Recclosure_mti of list v_mti * list v_mti * list (nat * exp_mti) * nat
+  | Loc_mti of nat
+  | Vectorv_mti of list v_mti
+
+val build_rec_env_mti : list (nat * exp_mti) -> list v_mti -> list v_mti
+let build_rec_env_mti funs cl_env =
+  List.genlist (Recclosure_mti [] cl_env funs) (List.length funs)
+
+type app_res = 
+  | Exp_res of list v_mti * exp_mti
+  | Val_res of v_mti
+
+val do_opapp_mti : v_mti -> list v_mti -> maybe app_res
+let do_opapp_mti v args =
+  match v with
+    | Closure_mti env num_args e ->
+        if List.length args = num_args then
+          Just (Exp_res (List.reverse args ++ env) e)
+        else if List.length args < num_args then
+          Just (Val_res (Closure_mti (List.reverse args ++ env) (num_args - List.length args) e))
+        else
+          Nothing
+    | Recclosure_mti argenv recenv funs n ->
+        if n < List.length funs then
+          let (num_args, e) = List_extra.nth funs n in
+            if List.length args = num_args then
+              Just (Exp_res (List.reverse args ++ argenv ++ build_rec_env_mti funs recenv ++ recenv) e)
+            else if List.length args < num_args then
+              Just (Val_res (Recclosure_mti (List.reverse args ++ argenv) 
+                            recenv  
+                            (List.update funs n (num_args - List.length args, e))
+                            n))
+            else
+              Nothing
+        else
+          Nothing
+    | _ -> Nothing
+    end
+
+val do_eq_mti : v_mti -> v_mti -> eq_result
+let rec
+do_eq_mti (Litv_mti l1) (Litv_mti l2) =
+  if lit_same_type l1 l2 then Eq_val (l1 = l2)
+  else Eq_type_error
+and
+do_eq_mti (Loc_mti l1) (Loc_mti l2) = Eq_val (l1 = l2)
+and
+do_eq_mti (Conv_mti tag1 vs1) (Conv_mti tag2 vs2) =
+  if tag1 = tag2 && (List.length vs1 = List.length vs2) then
+    do_eq_list_mti vs1 vs2
+  else
+    Eq_val false
+and
+do_eq_mti (Vectorv_mti vs1) (Vectorv_mti vs2) =
+  if List.length vs1 = List.length vs2 then
+    do_eq_list_mti vs1 vs2
+  else
+    Eq_val false
+and
+do_eq_mti (Closure_mti _ _ _) (Closure_mti _ _ _) = Eq_closure
+and
+do_eq_mti (Closure_mti _ _ _) (Recclosure_mti _ _ _ _) = Eq_closure
+and
+do_eq_mti (Recclosure_mti _ _ _ _) (Closure_mti _ _ _) = Eq_closure
+and
+do_eq_mti (Recclosure_mti _ _ _ _) (Recclosure_mti _ _ _ _) = Eq_closure
+and
+do_eq_mti _ _ = Eq_type_error
+and
+do_eq_list_mti [] [] = Eq_val true
+and
+do_eq_list_mti (v1::vs1) (v2::vs2) =
+  match do_eq_mti v1 v2 with
+    | Eq_closure -> Eq_closure
+    | Eq_type_error -> Eq_type_error
+    | Eq_val r ->
+        if not r then
+          Eq_val false
+        else
+          do_eq_list_mti vs1 vs2
+  end
+and
+do_eq_list_mti _ _ = Eq_val false
+
+val prim_exn_mti : nat -> v_mti
+let prim_exn_mti tag = Conv_mti tag []
+
+val v_to_list_mti : v_mti -> maybe (list v_mti)
+let rec v_to_list_mti (Conv_mti tag []) = 
+  if tag = nil_tag then
+    Just []
+  else
+    Nothing
+and v_to_list_mti (Conv_mti tag [v1;v2]) =
+  if tag = cons_tag  then
+    match v_to_list_mti v2 with
+      | Just vs -> Just (v1::vs)
+      | Nothing -> Nothing
+    end
+  else
+    Nothing
+and v_to_list_mti _ = Nothing
+declare termination_argument v_to_list_mti = automatic
+
+val v_mti_to_char_list : v_mti -> maybe (list char)
+let rec v_mti_to_char_list (Conv_mti tag []) =
+  if tag = nil_tag then
+    Just []
+  else
+    Nothing
+and v_mti_to_char_list (Conv_mti tag [Litv_mti (Char c);v]) =
+  if tag = cons_tag then
+    match v_mti_to_char_list v with
+      | Just cs -> Just (c::cs)
+      | Nothing -> Nothing
+    end
+  else
+    Nothing
+and v_mti_to_char_list _ = Nothing
+declare termination_argument v_mti_to_char_list = automatic
+
+val char_list_to_v_mti : list char -> v_mti
+let rec char_list_to_v_mti [] = Conv_mti nil_tag []
+and char_list_to_v_mti (c::cs) =
+  Conv_mti cons_tag [Litv_mti (Char c); char_list_to_v_mti cs]
+
+val do_app_mti : count_store_genv v_mti -> op_mti -> list v_mti -> maybe (count_store_genv v_mti * result v_mti v_mti)
+let do_app_mti ((cnt,s),genv) op vs =
+  match (op,vs) with
+    | (Op_mti (Op_i2 (Opn op)), [Litv_mti (IntLit n1); Litv_mti (IntLit n2)]) ->
+        if (op = Divide || (op = Modulo)) && (n2 = 0) then
+          Just (((cnt,s),genv), Rerr (Rraise (prim_exn_mti div_tag)))
+        else
+          Just (((cnt,s),genv), Rval (Litv_mti (IntLit (opn_lookup op n1 n2))))
+    | (Op_mti (Op_i2 (Opb op)), [Litv_mti (IntLit n1); Litv_mti (IntLit n2)]) ->
+        Just (((cnt,s),genv), Rval (Litv_mti (Bool (opb_lookup op n1 n2))))
+    | (Op_mti (Op_i2 Equality), [v1; v2]) ->
+        match do_eq_mti v1 v2 with
+          | Eq_type_error -> Nothing
+          | Eq_closure -> Just (((cnt,s),genv), Rerr (Rraise (prim_exn_mti eq_tag)))
+          | Eq_val b -> Just (((cnt,s),genv), Rval(Litv_mti (Bool b)))
+        end
+    | (Op_mti (Op_i2 Opassign), [Loc_mti lnum; v]) ->
+        match store_assign lnum (Refv v) s with
+        | Just st -> Just (((cnt,st),genv), Rval (Litv_mti Unit))
+        | Nothing -> Nothing
+        end
+    | (Op_mti (Op_i2 Opderef), [Loc_mti n]) ->
+        match store_lookup n s with
+          | Just (Refv v) -> Just (((cnt,s),genv),Rval v)
+          | _ -> Nothing
+        end
+    | (Op_mti (Op_i2 Opref), [v]) ->
+        let (s',n) = store_alloc (Refv v) s in
+          Just (((cnt,s'),genv), Rval (Loc_mti n))
+    | (Op_mti (Init_global_var_i2 idx), [v]) ->
+        if idx < List.length genv then
+          match List_extra.nth genv idx with
+            | Nothing -> Just (((cnt,s), List.update genv idx (Just v)), Rval (Litv_mti Unit))
+            | Just _ -> Nothing
+          end
+        else
+          Nothing
+    | (Op_mti (Op_i2 Aw8alloc), [Litv_mti (IntLit n); Litv_mti (Word8 w)]) ->
+        if n < 0 then
+          Just (((cnt,s),genv), Rerr (Rraise (prim_exn_mti subscript_tag)))
+        else
+          let (st,lnum) =
+            store_alloc (W8array (List.replicate (natFromInteger n) w)) s
+          in
+            Just (((cnt,st),genv), Rval (Loc_mti lnum))
+    | (Op_mti (Op_i2 Aw8sub), [Loc_mti lnum; Litv_mti (IntLit i)]) ->
+        match store_lookup lnum s with
+          | Just (W8array ws) ->
+              if i < 0 then
+                Just (((cnt,s),genv), Rerr (Rraise (prim_exn_mti subscript_tag)))
+              else
+                let n = natFromInteger i in
+                  if n >= List.length ws then
+                    Just (((cnt,s),genv), Rerr (Rraise (prim_exn_mti subscript_tag)))
+                  else
+                    Just (((cnt,s),genv), Rval (Litv_mti (Word8 (List_extra.nth ws n))))
+          | _ -> Nothing
+        end
+    | (Op_mti (Op_i2 Aw8length), [Loc_mti n]) ->
+        match store_lookup n s with
+          | Just (W8array ws) ->
+              Just (((cnt,s),genv),Rval (Litv_mti (IntLit (integerFromNat (List.length ws)))))
+          | _ -> Nothing
+        end
+    | (Op_mti (Op_i2 Aw8update), [Loc_mti lnum; Litv_mti (IntLit i); Litv_mti (Word8 w)]) ->
+        match store_lookup lnum s with
+        | Just (W8array ws) ->
+            if i < 0 then
+              Just (((cnt,s),genv), Rerr (Rraise (prim_exn_mti subscript_tag)))
+            else
+              let n = natFromInteger i in
+                if n >= List.length ws then
+                  Just (((cnt,s),genv), Rerr (Rraise (prim_exn_mti subscript_tag)))
+                else
+                  match store_assign lnum (W8array (List.update ws n w)) s with
+                    | Nothing -> Nothing
+                    | Just st -> Just (((cnt,st),genv), Rval (Litv_mti Unit))
+                  end
+        | _ -> Nothing
+        end
+    | (Op_mti (Op_i2 Ord), [Litv_mti (Char c)]) ->
+          Just (((cnt,s),genv), Rval (Litv_mti(IntLit(integerFromNat(String_extra.ord c)))))
+    | (Op_mti (Op_i2 Chr), [Litv_mti (IntLit i)]) ->
+        Just (((cnt,s),genv),
+          if i < 0 || i > 255 then
+            Rerr (Rraise (prim_exn_mti chr_tag))
+          else
+            Rval (Litv_mti(Char(String_extra.chr(natFromInteger i)))))
+    | (Op_mti (Op_i2 (Chopb op)), [Litv_mti (Char c1); Litv_mti (Char c2)]) ->
+        Just (((cnt,s),genv), Rval (Litv_mti (Bool (opb_lookup op (integerFromNat(String_extra.ord c1)) (integerFromNat(String_extra.ord c2))))))
+    | (Op_mti (Op_i2 Implode), [v]) ->
+          match v_mti_to_char_list v with
+          | Just ls ->
+              Just (((cnt,s),genv), Rval (Litv_mti (StrLit (toString ls))))
+          | Nothing -> Nothing
+          end
+    | (Op_mti (Op_i2 Explode), [Litv_mti (StrLit str)]) ->
+        Just (((cnt,s),genv), Rval (char_list_to_v_mti (toCharList str)))
+    | (Op_mti (Op_i2 Strlen), [Litv_mti (StrLit str)]) ->
+        Just (((cnt,s),genv), Rval (Litv_mti(IntLit(integerFromNat(stringLength str)))))
+    | (Op_mti (Op_i2 VfromList), [v]) ->
+          match v_to_list_mti v with
+            | Just vs ->
+                Just (((cnt,s),genv), Rval (Vectorv_mti vs))
+            | Nothing -> Nothing
+          end
+    | (Op_mti (Op_i2 Vsub), [Vectorv_mti vs; Litv_mti (IntLit i)]) ->
+        if i < 0 then
+          Just (((cnt,s),genv), Rerr (Rraise (prim_exn_mti subscript_tag)))
+        else
+          let n = natFromInteger i in
+            if n >= List.length vs then
+              Just (((cnt,s),genv), Rerr (Rraise (prim_exn_mti subscript_tag)))
+            else 
+              Just (((cnt,s),genv), Rval (List_extra.nth vs n))
+    | (Op_mti (Op_i2 Vlength), [Vectorv_mti vs]) ->
+        Just (((cnt,s),genv), Rval (Litv_mti (IntLit (integerFromNat (List.length vs)))))
+    | (Op_mti (Op_i2 Aalloc), [Litv_mti (IntLit n); v]) ->
+        if n < 0 then
+          Just (((cnt,s),genv), Rerr (Rraise (prim_exn_mti subscript_tag)))
+        else
+          let (s',lnum) =
+            store_alloc (Varray (List.replicate (natFromInteger n) v)) s
+          in 
+            Just (((cnt,s'),genv), Rval (Loc_mti lnum))
+    | (Op_mti (Op_i2 Asub), [Loc_mti lnum; Litv_mti (IntLit i)]) ->
+        match store_lookup lnum s with
+          | Just (Varray vs) ->
+              if i < 0 then
+                Just (((cnt,s),genv), Rerr (Rraise (prim_exn_mti subscript_tag)))
+              else
+                let n = natFromInteger i in
+                  if n >= List.length vs then
+                    Just (((cnt,s),genv), Rerr (Rraise (prim_exn_mti subscript_tag)))
+                  else 
+                    Just (((cnt,s),genv), Rval (List_extra.nth vs n))
+          | _ -> Nothing
+        end
+    | (Op_mti (Op_i2 Alength), [Loc_mti n]) ->
+        match store_lookup n s with
+          | Just (Varray ws) ->
+              Just (((cnt,s),genv),Rval (Litv_mti (IntLit(integerFromNat(List.length ws)))))
+          | _ -> Nothing
+         end
+    | (Op_mti (Op_i2 Aupdate), [Loc_mti lnum; Litv_mti (IntLit i); v]) ->
+        match store_lookup lnum s with
+        | Just (Varray vs) ->
+            if i < 0 then
+              Just (((cnt,s),genv), Rerr (Rraise (prim_exn_mti subscript_tag)))
+            else 
+              let n = natFromInteger i in
+                if n >= List.length vs then
+                  Just (((cnt,s),genv), Rerr (Rraise (prim_exn_mti subscript_tag)))
+                else
+                  match store_assign lnum (Varray (List.update vs n v)) s with
+                    | Nothing -> Nothing
+                    | Just s' -> Just (((cnt,s'),genv), Rval (Litv_mti Unit))
+                  end
+        | _ -> Nothing
+      end
+    | (Tag_eq_mti n, [Conv_mti tag _]) ->
+        Just (((cnt,s),genv), Rval (Litv_mti (Bool (tag = n))))
+    | (El_mti n, [Conv_mti _ vs]) ->
+        if n < List.length vs then
+          Just (((cnt,s),genv), Rval (List_extra.nth vs n))
+        else
+          Nothing
+    | _ -> Nothing
+  end
+
+val do_if_mti : v_mti -> exp_mti -> exp_mti -> maybe exp_mti
+let do_if_mti v e1 e2 =
+  if v = Litv_mti (Bool true) then
+    Just e1
+  else if v = Litv_mti (Bool false) then
+    Just e2
+  else
+    Nothing
+
+val get_num_args : v_mti -> maybe nat
+let get_num_args v =
+  match v with
+    | Closure_mti _ n _ -> Just n
+    | Recclosure_mti _ _ funs n -> 
+        if n < List.length funs then
+          Just (fst (List_extra.nth funs n))
+        else
+          Nothing
+    | _ -> Nothing
+  end
+
+indreln [evaluate_mti : bool -> list v_mti -> count_store_genv v_mti -> exp_mti -> count_store_genv v_mti * result v_mti v_mti -> bool]
+and [evaluate_list_mti : bool -> list v_mti -> count_store_genv v_mti -> list exp_mti -> count_store_genv v_mti * result (list v_mti) v_mti -> bool]
+
+lit : forall ck env l s.
+true
+==>
+evaluate_mti ck env s (Lit_mti l) (s, Rval (Litv_mti l))
+
+and
+
+raise1 : forall ck env e s1 s2 v.
+evaluate_mti ck s1 env e (s2, Rval v)
+==>
+evaluate_mti ck s1 env (Raise_mti e) (s2, Rerr (Rraise v))
+
+and
+
+raise2 : forall ck env e s1 s2 err.
+evaluate_mti ck s1 env e (s2, Rerr err)
+==>
+evaluate_mti ck s1 env (Raise_mti e) (s2, Rerr err)
+
+and
+
+handle1 : forall ck s1 s2 env e1 v e2.
+evaluate_mti ck s1 env e1 (s2, Rval v)
+==>
+evaluate_mti ck s1 env (Handle_mti e1 e2) (s2, Rval v)
+
+and
+
+handle2 : forall ck s1 s2 env e1 e2 v bv.
+evaluate_mti ck env s1 e1 (s2, Rerr (Rraise v)) &&
+evaluate_mti ck (v::env) s2 e2 bv
+==>
+evaluate_mti ck env s1 (Handle_mti e1 e2) bv
+
+and
+
+handle3 : forall ck s1 s2 env e1 e2 err.
+evaluate_mti ck env s1 e1 (s2, Rerr err) &&
+(err = Rtimeout_error || (err = Rtype_error))
+==>
+evaluate_mti ck env s1 (Handle_mti e1 e2) (s2, Rerr err)
+
+and
+
+con1 : forall ck env tag es vs s s'.
+evaluate_list_mti ck env s es (s', Rval vs)
+==>
+evaluate_mti ck env s (Con_mti tag es) (s', Rval (Conv_mti tag vs))
+
+and
+
+con3 : forall ck env tag es err s s'.
+evaluate_list_mti ck env s es (s', Rerr err)
+==>
+evaluate_mti ck env s (Con_mti tag es) (s', Rerr err)
+
+and
+
+var1 : forall ck env n s.
+List.length env > n
+==>
+evaluate_mti ck env s (Var_local_mti n) (s, Rval (List_extra.nth env n))
+
+and
+
+var2 : forall ck env n s.
+not (List.length env > n)
+==>
+evaluate_mti ck env s (Var_local_mti n) (s, Rerr Rtype_error)
+
+and
+
+var3 : forall ck env n v s genv.
+(List.length genv > n) &&
+(List_extra.nth genv n = Just v)
+==>
+evaluate_mti ck env (s,genv) (Var_global_mti n) ((s,genv), Rval v)
+
+and
+
+var4 : forall ck env n s genv.
+(List.length genv > n) &&
+(List_extra.nth genv n = Nothing)
+==>
+evaluate_mti ck env (s,genv) (Var_global_mti n) ((s,genv), Rerr Rtype_error)
+
+and
+
+var5 : forall ck env n s genv.
+not (List.length genv > n)
+==>
+evaluate_mti ck env (s,genv) (Var_global_mti n) ((s,genv), Rerr Rtype_error)
+
+and
+
+fn : forall ck env n e s.
+true
+==>
+evaluate_mti ck env s (Fun_mti n e) (s, Rval (Closure_mti env n e))
+
+and
+
+opapp1 : forall ck env s1 e s2 es count3 s3 genv3 v num_args vs env2 e2 bv.
+evaluate_mti ck env s1 e (s2, Rval v) &&
+get_num_args v = Just num_args &&
+evaluate_list_mti ck env s2 (List.take num_args es) (((count3,s3),genv3), Rval vs) &&
+do_opapp_mti v vs = Just (Exp_res env2 e2) &&
+(ck --> count3 <> 0) &&
+List.length es = num_args &&
+evaluate_mti ck env2 (((if ck then count3-num_args else count3),s3),genv3) e2 bv
+(* TODO, deal with the leftover arguments in es *)
+==>
+evaluate_mti ck env s1 (App_mti (Op_mti (Op_i2 Opapp)) (e::es)) bv
+
+and
+
+opapp2 : forall ck env s1 e s2 es count3 s3 genv3 v num_args vs.
+evaluate_mti ck env s1 e (s2, Rval v) &&
+get_num_args v = Just num_args &&
+evaluate_list_mti ck env s2 (List.take num_args es) (((count3,s3),genv3), Rval vs) &&
+do_opapp_mti v vs = Just (Val_res v) &&
+(* We know that there aren't any arguments left in es, e.g., (drop num_args es = []) *)
+(ck --> count3 <> 0)
+==>
+evaluate_mti ck env s1 (App_mti (Op_mti (Op_i2 Opapp)) (e::es)) (((count3,s3),genv3), Rval v)
+
+(* TODO: Leaving out all of the Type_error cases. That's probably ok in general *)
+
+and
+
+app4 : forall ck env s1 op es s2 vs s3 res.
+evaluate_list_mti ck env s1 es (s2, Rval vs) &&
+do_app_mti s2 op vs = Just (s3, res) &&
+op <> Op_mti (Op_i2 Opapp)
+==>
+evaluate_mti ck env s1 (App_mti op es) (s3, res)
+
+and
+
+app5 : forall ck env s1 op es s2 vs.
+evaluate_list_mti ck env s1 es (s2, Rval vs) &&
+do_app_mti s2 op vs = Nothing &&
+op <> Op_mti (Op_i2 Opapp)
+==>
+evaluate_mti ck env s1 (App_mti op es) (s2, Rerr Rtype_error)
+
+and
+
+app6 : forall ck env s1 op es s2 err.
+evaluate_list_mti ck env s1 es (s2, Rerr err)
+==>
+evaluate_mti ck env s1 (App_mti op es) (s2, Rerr err)
+
+and
+
+if1 : forall ck env e1 e2 e3 v e' bv s1 s2.
+evaluate_mti ck env s1 e1 (s2, Rval v) &&
+do_if_mti v e2 e3 = Just e' &&
+evaluate_mti ck env s2 e' bv
+==>
+evaluate_mti ck env s1 (If_mti e1 e2 e3) bv
+
+and
+
+if2 : forall ck env e1 e2 e3 v s1 s2.
+evaluate_mti ck env s1 e1 (s2, Rval v) &&
+do_if_mti v e2 e3 = Nothing
+==>
+evaluate_mti ck env s1 (If_mti e1 e2 e3) (s2, Rerr Rtype_error)
+
+and
+
+if3 : forall ck env e1 e2 e3 err s s'.
+evaluate_mti ck env s e1 (s', Rerr err)
+==>
+evaluate_mti ck env s (If_mti e1 e2 e3) (s', Rerr err)
+
+and
+
+let1 : forall ck env e1 e2 v bv s1 s2.
+evaluate_mti ck env s1 e1 (s2, Rval v) &&
+evaluate_mti ck (v::env) s2 e2 bv
+==>
+evaluate_mti ck env s1 (Let_mti e1 e2) bv
+
+and
+
+let2 : forall ck env e1 e2 err s s'.
+evaluate_mti ck env s e1 (s', Rerr err)
+==>
+evaluate_mti ck env s (Let_mti e1 e2) (s', Rerr err)
+
+and
+
+seq1 : forall ck env e1 e2 v bv s1 s2.
+evaluate_mti ck env s1 e1 (s2, Rval v) &&
+evaluate_mti ck env s2 e2 bv
+==>
+evaluate_mti ck env s1 (Seq_mti e1 e2) bv
+
+and
+
+seq2 : forall ck env e1 e2 err s s'.
+evaluate_mti ck env s e1 (s', Rerr err)
+==>
+evaluate_mti ck env s (Seq_mti e1 e2) (s', Rerr err)
+
+and
+
+letrec1 : forall ck env funs e bv s.
+evaluate_mti ck ((build_rec_env_mti funs env)++env) s e bv
+==>
+evaluate_mti ck env s (Letrec_mti funs e) bv
+
+and
+
+extend : forall ck env n s genv.
+true
+==>
+evaluate_mti ck env (s,genv) (Extend_global_mti n) ((s,genv++List.genlist (fun _ -> Nothing) n), Rval (Litv_mti Unit))
+
+and
+
+empty : forall ck env s.
+true
+==>
+evaluate_list_mti ck env s [] (s, Rval [])
+
+and
+
+cons1 : forall ck env e es v vs s1 s2 s3.
+evaluate_mti ck env s1 e (s2, Rval v) &&
+evaluate_list_mti ck env s2 es (s3, Rval vs)
+==>
+evaluate_list_mti ck env s1 (e::es) (s3, Rval (v::vs))
+
+and
+
+cons2 : forall ck env e es err s s'.
+evaluate_mti ck env s e (s', Rerr err)
+==>
+evaluate_list_mti ck env s (e::es) (s', Rerr err)
+
+and
+
+cons3 : forall ck env e es v err s1 s2 s3.
+evaluate_mti ck env s1 e (s2, Rval v) &&
+evaluate_list_mti ck env s2 es (s3, Rerr err)
+==>
+evaluate_list_mti ck env s1 (e::es) (s3, Rerr err)
