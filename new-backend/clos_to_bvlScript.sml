@@ -290,6 +290,10 @@ val env_rel_NEW_REF = prove(
   Induct \\ Cases_on `y` \\ fs [env_rel_def] \\ REPEAT STRIP_TAC
   \\ IMP_RES_TAC val_rel_NEW_REF \\ fs []);
 
+val FLOOKUP_FAPPLY = prove(
+  ``FLOOKUP (f |+ (x,y)) n = if n = x then SOME y else FLOOKUP f n``,
+  fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ SRW_TAC [] [] \\ fs []);
+
 val val_rel_NEW_F = prove(
   ``!x y.
       val_rel f2 t2.refs t2.code x y ==>
@@ -485,10 +489,6 @@ val bEval_MAP_Const = prove(
       bEval (MAP (K (Op (Const 0) [])) (exps:'a list),env,t1) =
         (Result (MAP (K (Number 0)) exps),t1)``,
   Induct \\ fs [bEval_def,bEval_CONS,bEvalOp_def]);
-
-val FLOOKUP_FAPPLY = prove(
-  ``FLOOKUP (f |+ (x,y)) n = if n = x then SOME y else FLOOKUP f n``,
-  fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ SRW_TAC [] [] \\ fs []);
 
 val bEval_recc_Lets = prove(
   ``!ll n n7 rr env' t1 ys c8.
