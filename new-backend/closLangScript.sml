@@ -41,20 +41,143 @@ val _ = Datatype `
            | Error `
 
 val _ = Datatype `
+  clos_ref = ValueArray (clos_val list)`
+
+val _ = Datatype `
   clos_state =
     <| globals : (clos_val option) list
-     ; refs    : num |-> clos_val (* TODO: refs are more complicated *)
+     ; refs    : num |-> clos_ref
      ; clock   : num
      ; code    : num |-> (num # clos_exp)
      ; output  : string |> `
 
 (* helper functions *)
 
+val get_global_def = Define `
+  get_global n globals =
+    if n < LENGTH globals then SOME (EL n globals) else NONE`
+
+val bool_to_val_def = Define `
+  (bool_to_val T = Block 1 []) /\
+  (bool_to_val F = Block 0 [])`;
+
+val clos_equal_def = tDefine "clos_equal" `
+  (clos_equal x y =
+     case x of
+     | Number i =>
+         (case y of
+          | Number j => Eq_val (i = j)
+          | _ => Eq_type_error)
+     | Block t1 xs =>
+         (case y of
+          | Block t2 ys => if (t1 = t2) /\ (LENGTH xs = LENGTH ys) then
+                             clos_equal_list xs ys
+                           else Eq_val F
+          | _ => Eq_type_error)
+     | RefPtr i =>
+         (case y of
+          | RefPtr j => Eq_val (i = j)
+          | _ => Eq_type_error)
+     | _ =>
+         (case y of
+          | Number _ => Eq_type_error
+          | Block _ _ => Eq_type_error
+          | RefPtr _ => Eq_type_error
+          | _ => Eq_closure)) /\
+  (clos_equal_list [] [] = Eq_val T) /\
+  (clos_equal_list (x::xs) (y::ys) =
+     case clos_equal x y of
+     | Eq_val T => clos_equal_list xs ys
+     | res => res) /\
+  (clos_equal_list _ _ = Eq_val F)`
+ (WF_REL_TAC `measure (\x. case x of INL (v,_) => clos_val_size v
+                                   | INR (vs,_) => clos_val1_size vs)`)
+
+val clos_to_chars_def = Define `
+  (clos_to_chars [] ac = SOME (REVERSE ac)) /\
+  (clos_to_chars (((Number i):clos_val)::vs) ac =
+     if 0 <= i /\ i < 256 then
+       clos_to_chars vs (STRING (CHR (Num (ABS i))) ac)
+     else NONE) /\
+  (clos_to_chars _ _ = NONE)`
+
+val clos_to_string_def = Define `
+  (clos_to_string (Number i) = SOME (int_to_string i)) /\
+  (clos_to_string (Block n vs) =
+   (if n = 0 then SOME "false"
+    else if n = 1 then SOME "true"
+    else if n = 2 then SOME "()"
+    else if n = 3 then SOME "<vector>"
+    else if n = 4 then
+      case clos_to_chars vs "" of
+        NONE => NONE
+      | SOME cs => SOME (string_to_string (IMPLODE cs))
+    else SOME "<constructor>")) /\
+  (clos_to_string ((RefPtr v0) : clos_val) = SOME "<ref>") /\
+  (clos_to_string _ = SOME "<fn>")`;
+
 val cEvalOp_def = Define `
-  cEvalOp op vs (s:clos_state) =
+  cEvalOp (op:bvl_op) (vs:clos_val list) (s:clos_state) =
     case (op,vs) of
-    | (Add,[Number n1; Number n2]) => SOME ((Number (n1 + n2)) :clos_val,s)
-    | _ => NONE`;
+    | (Global n,[]:clos_val list) =>
+        (case get_global n s.globals of
+         | SOME (SOME v) => SOME (v,s)
+         | _ => NONE)
+    | (SetGlobal n,[v]) =>
+        (case get_global n s.globals of
+         | SOME NONE => SOME (Number 0,
+             s with globals := (LUPDATE (SOME v) n s.globals))
+         | _ => NONE)
+    | (AllocGlobal,[]) =>
+        SOME (Number 0, s with globals := s.globals ++ [NONE])
+    | (Const i,[]) => SOME (Number i, s)
+    | (Cons tag,xs) => SOME (Block tag xs, s)
+    | (El n,[Block tag xs]) =>
+        if n < LENGTH xs then SOME (EL n xs, s) else NONE
+    | (TagEq n,[Block tag xs]) =>
+        SOME (bool_to_val (tag = n),s)
+    | (Equal,[x1;x2]) =>
+        (case clos_equal x1 x2 of
+         | Eq_val b => SOME (bool_to_val b, s)
+         | Eq_closure => SOME (Number 0, s)
+         | _ => NONE)
+    | (IsBlock,[Number i]) => SOME (bool_to_val F, s)
+    | (IsBlock,[RefPtr ptr]) => SOME (bool_to_val F, s)
+    | (IsBlock,[Block tag ys]) => SOME (bool_to_val T, s)
+    | (Ref,xs) =>
+        let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
+          SOME (RefPtr ptr, s with refs := s.refs |+ (ptr,ValueArray xs))
+    | (Deref,[RefPtr ptr; Number i]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ValueArray xs) =>
+            (if 0 <= i /\ i < & (LENGTH xs)
+             then SOME (EL (Num i) xs, s)
+             else NONE)
+         | _ => NONE)
+    | (Update,[RefPtr ptr; Number i; x]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ValueArray xs) =>
+            (if 0 <= i /\ i < & (LENGTH xs)
+             then SOME (x, s with refs := s.refs |+
+                    (ptr,ValueArray (LUPDATE x (Num i) xs)))
+             else NONE)
+         | _ => NONE)
+    | (Add,[Number n1; Number n2]) => SOME (Number (n1 + n2),s)
+    | (Sub,[Number n1; Number n2]) => SOME (Number (n1 - n2),s)
+    | (Mult,[Number n1; Number n2]) => SOME (Number (n1 * n2),s)
+    | (Div,[Number n1; Number n2]) =>
+         if n2 = 0 then NONE else SOME (Number (n1 / n2),s)
+    | (Mod,[Number n1; Number n2]) =>
+         if n2 = 0 then NONE else SOME (Number (n1 % n2),s)
+    | (Less,[Number n1; Number n2]) =>
+         SOME (bool_to_val (n1 < n2),s)
+    | (Print, [x]) =>
+        (case clos_to_string x of
+         | SOME str => SOME (x, s with output := s.output ++ str)
+         | NONE => NONE)
+    | (PrintC c, []) =>
+          SOME (Number 0, s with output := s.output ++ [c])
+    | _ => NONE`
 
 val dec_clock_def = Define `
   dec_clock (s:clos_state) = s with clock := s.clock - 1`;

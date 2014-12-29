@@ -179,8 +179,8 @@ val env_rel_def = Define `
      val_rel f refs code x y /\ env_rel f refs code xs ys)`;
 
 val (ref_rel_rules,ref_rel_ind,ref_rel_cases) = Hol_reln `
-  (EVERY2 (val_rel f refs code) [x] ys ==>
-   ref_rel f refs code x (ValueArray ys))` (* TODO: needs fixing *)
+  (EVERY2 (val_rel f refs code) xs ys ==>
+   ref_rel f refs code (ValueArray xs) (ValueArray ys))`
 
 val state_rel_def = Define `
   state_rel f (s:clos_state) (t:bvl_state) <=>
@@ -417,6 +417,10 @@ val bEval_MAP_Const = prove(
         (Result (MAP (K (Number 0)) exps),t1)``,
   Induct \\ fs [bEval_def,bEval_CONS,bEvalOp_def]);
 
+val FLOOKUP_FAPPLY = prove(
+  ``FLOOKUP (f |+ (x,y)) n = if n = x then SOME y else FLOOKUP f n``,
+  fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ SRW_TAC [] [] \\ fs []);
+
 val bEval_recc_Lets = prove(
   ``!ll n n7 rr env' t1 ys c8.
      EVERY (\n. n7 + n IN domain t1.code) (GENLIST I (LENGTH ll)) ==>
@@ -458,10 +462,6 @@ val NUM_NOT_IN_FDOM =
 val EXISTS_NOT_IN_refs = prove(
   ``?x. ~(x IN FDOM (t1:bvl_state).refs)``,
   METIS_TAC [NUM_NOT_IN_FDOM])
-
-val FLOOKUP_FAPPLY = prove(
-  ``FLOOKUP (f |+ (x,y)) n = if n = x then SOME y else FLOOKUP f n``,
-  fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ SRW_TAC [] [] \\ fs []);
 
 val env_rel_APPEND = prove(
   ``!xs1 xs2.
@@ -785,7 +785,9 @@ val cComp_correct = prove(
     \\ REPEAT STRIP_TAC \\ fs []
     \\ Q.EXISTS_TAC `f2'` \\ fs []
     \\ IMP_RES_TAC SUBMAP_TRANS \\ fs [])
+
   THEN1 (* Op *) cheat
+
   THEN1 (* Fn *)
    (fs [cEval_def] \\ BasicProvers.FULL_CASE_TAC
     \\ fs [] \\ SRW_TAC [] []
@@ -918,6 +920,8 @@ val cComp_correct = prove(
         \\ REPEAT STRIP_TAC \\ RES_TAC \\ fs [FLOOKUP_FAPPLY]
         \\ `m <> rr` by (REPEAT STRIP_TAC \\ fs [FLOOKUP_DEF]) \\ fs []
         \\ fs [ref_rel_cases]
+        \\ Q.PAT_ASSUM `LIST_REL ppp xs ys'` MP_TAC
+        \\ MATCH_MP_TAC listTheory.LIST_REL_mono
         \\ IMP_RES_TAC val_rel_NEW_REF \\ fs [])
       \\ `LENGTH ll + 1 = LENGTH exps` by fs []
       \\ POP_ASSUM (fn th => FULL_SIMP_TAC std_ss [th])
@@ -1072,7 +1076,7 @@ val cComp_correct = prove(
     \\ fs [MAP_MAP_o,EL_MAP]
     \\ SIMP_TAC std_ss [Once bEvalOp_def] \\ fs [find_code_def]
     \\ POP_ASSUM (fn th => ASSUME_TAC th THEN
-         ASSUME_TAC (RW [closure_code_installed_def] th))
+         ASSUME_TAC (REWRITE_RULE [closure_code_installed_def] th))
     \\ fs [EVERY_MEM]
     \\ `MEM (EL index exps_ps) exps_ps` by METIS_TAC [MEM_EL]
     \\ FIRST_ASSUM (MP_TAC o Q.SPEC `EL index exps_ps`)
