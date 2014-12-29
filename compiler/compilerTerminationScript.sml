@@ -1,6 +1,6 @@
 open HolKernel boolLib boolSimps bossLib Defn pairTheory pred_setTheory listTheory finite_mapTheory state_transformerTheory lcsymtacs
 open terminationTheory libTheory intLangTheory toIntLangTheory toBytecodeTheory compilerTheory bytecodeTheory
-open modLangTheory conLangTheory exhLangTheory patLangTheory;
+open modLangTheory conLangTheory exhLangTheory patLangTheory mtiLangTheory;
 
 val _ = new_theory "compilerTermination"
 
@@ -412,6 +412,46 @@ val (do_eq_pat_def, do_eq_pat_ind) =
                                        | INR (vs1,vs2) => v_pat1_size vs1)`);
 val _ = register "do_eq_pat" (do_eq_pat_def,do_eq_pat_ind);
 
+val (collect_apps_def, collect_apps_ind) = 
+  tprove_no_defn ((collect_apps_def, collect_apps_ind),
+  WF_REL_TAC`measure exp_pat1_size`);
+val _ = register "collect_apps" (collect_apps_def,collect_apps_ind);
+
+val collect_funs_size = Q.store_thm ("collect_funs_size",
+`!n2 e2 n1 e1.
+  (n1,e1) = collect_funs n2 e2
+  ⇒
+  exp_pat_size e1 ≤ exp_pat_size e2`,
+ ho_match_mp_tac collect_funs_ind >>
+ rw [collect_funs_def, exp_pat_size_def] >>
+ res_tac >>
+ decide_tac);
+
+val collect_apps_size = Q.store_thm ("collect_apps_size",
+`!es x.
+  MEM x (collect_apps es)
+  ⇒
+  exp_pat_size x < exp_pat1_size es`,
+ ho_match_mp_tac collect_apps_ind >>
+ rw [collect_apps_def, exp_pat_size_def] >>
+ rw [collect_apps_def, exp_pat_size_def] >>
+ TRY decide_tac >>
+ TRY (Induct_on `v1` >> rw [exp_pat_size_def] >> res_tac >> decide_tac >> NO_TAC)
+ >- (res_tac >> decide_tac)
+ >- TRY (Induct_on `v67` >> rw [exp_pat_size_def] >> res_tac >> decide_tac >> NO_TAC));
+
+val (pat_to_mti_def, pat_to_mti_ind) = 
+  tprove_no_defn ((pat_to_mti_def, pat_to_mti_ind),
+  WF_REL_TAC`measure exp_pat_size` >>
+  rw [] >>
+  TRY decide_tac >>
+  TRY (Induct_on `es` >> rw [exp_pat_size_def] >> res_tac >> decide_tac >> NO_TAC) >>
+  TRY (Induct_on `funs` >> rw [exp_pat_size_def] >> res_tac >> decide_tac >> NO_TAC)
+  >- (imp_res_tac collect_funs_size >>
+      decide_tac)
+  >- (imp_res_tac collect_apps_size >>
+      decide_tac));
+val _ = register "pat_to_mti" (pat_to_mti_def,pat_to_mti_ind);
 
 (* export rewrites *)
 val _ = export_rewrites
