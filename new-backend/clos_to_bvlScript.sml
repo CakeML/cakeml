@@ -264,6 +264,39 @@ val env_rel_NEW_REF = prove(
   Induct \\ Cases_on `y` \\ fs [env_rel_def] \\ REPEAT STRIP_TAC
   \\ IMP_RES_TAC val_rel_NEW_REF \\ fs []);
 
+val val_rel_NEW_F = prove(
+  ``!x y.
+      val_rel f2 t2.refs t2.code x y ==>
+      ~(pp IN FDOM f2) ==>
+      ~(qq IN FDOM t2.refs) ==>
+      val_rel (f2 |+ (pp,qq)) t2.refs t2.code x y``,
+  HO_MATCH_MP_TAC val_rel_ind \\ REPEAT STRIP_TAC
+  \\ ONCE_REWRITE_TAC [val_rel_cases] \\ fs []
+  THEN1 (REPEAT (POP_ASSUM MP_TAC) \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+  THEN1 (fs [FLOOKUP_FAPPLY] \\ SRW_TAC [] [] \\ fs [FLOOKUP_DEF])
+  THEN1 (Q.LIST_EXISTS_TAC [`aux`,`aux1`,`n'`] \\ fs []
+         \\ REPEAT (POP_ASSUM MP_TAC)
+         \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+  THEN1 (DISJ1_TAC \\ Q.LIST_EXISTS_TAC [`aux`,`aux1`,`n'`] \\ fs []
+         \\ REPEAT (POP_ASSUM MP_TAC)
+         \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+  \\ DISJ2_TAC \\ Q.LIST_EXISTS_TAC [`exps_ps`,`r`,`ys`] \\ fs []
+  \\ rfs [] \\ Q.PAT_ASSUM `LIST_REL pppat env ys` MP_TAC
+  \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [] \\ STRIP_TAC
+  \\ REPEAT STRIP_TAC \\ fs [] \\ SRW_TAC [] []
+  \\ fs [FLOOKUP_DEF]
+  \\ fs [FRANGE_DEF,DOMSUB_FAPPLY_THM] \\ rfs []
+  \\ METIS_TAC [])
+  |> SPEC_ALL |> MP_CANON;
+
+val opt_val_rel_NEW_F = prove(
+  ``opt_val_rel f2 t2.refs t2.code x y ==>
+    ~(pp IN FDOM f2) ==>
+    ~(qq IN FDOM t2.refs) ==>
+    opt_val_rel (f2 |+ (pp,qq)) t2.refs t2.code x y``,
+  Cases_on `x` \\ Cases_on `y` \\ fs [opt_val_rel_def]
+  \\ METIS_TAC [val_rel_NEW_F]) |> MP_CANON
+
 val LESS_LENGTH_env_rel_IMP = prove(
   ``!env env2 n.
       n < LENGTH env /\ env_rel f refs code env env2 ==>
@@ -625,6 +658,19 @@ val env_rel_IMP_EL = prove(
   Induct \\ Cases_on `env2` \\ fs [env_rel_def]
   \\ REPEAT STRIP_TAC \\ Cases_on `n` \\ fs []);
 
+val FDOM_FDIFF = prove(
+  ``x IN FDOM (FDIFF refs f2) <=> x IN FDOM refs /\ ~(x IN FRANGE f2)``,
+  fs [FDIFF_def,DRESTRICT_DEF]);
+
+val EXISTS_NOT_IN_FDOM_LEMMA = prove(
+  ``?x. ~(x IN FDOM (refs:num|->'a))``,
+  METIS_TAC [NUM_NOT_IN_FDOM]);
+
+val LEAST_NO_IN_FDOM = prove(
+  ``(LEAST ptr. ptr NOTIN FDOM (refs:num|->'a)) NOTIN FDOM refs``,
+  ASSUME_TAC (EXISTS_NOT_IN_FDOM_LEMMA |>
+           SIMP_RULE std_ss [whileTheory.LEAST_EXISTS]) \\ fs []);
+
 val cComp_correct = prove(
   ``!xs env s1 n aux1 t1 env' f1 res s2 n2 ys aux2.
       (cEval (xs,env,s1) = (res,s2)) /\ res <> Error /\
@@ -786,7 +832,78 @@ val cComp_correct = prove(
     \\ Q.EXISTS_TAC `f2'` \\ fs []
     \\ IMP_RES_TAC SUBMAP_TRANS \\ fs [])
 
-  THEN1 (* Op *) cheat
+  THEN1 (* Op *)
+   (fs [cEval_def,cComp_def] \\ SRW_TAC [] [bEval_def]
+    \\ `?p. cEval (xs,env,s) = p` by fs [] \\ PairCases_on `p` \\ fs []
+    \\ `?cc. cComp n xs aux1 = cc` by fs [] \\ PairCases_on `cc` \\ fs []
+    \\ fs [LET_DEF,PULL_FORALL] \\ SRW_TAC [] []
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`aux1`]) \\ fs []
+    \\ IMP_RES_TAC cComp_IMP_code_installed \\ REPEAT STRIP_TAC
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1`,`env'`,`f1`])
+    \\ IMP_RES_TAC cComp_SING \\ fs [] \\ SRW_TAC [] []
+    \\ fs [bEval_def]
+    \\ REVERSE (Cases_on `p0`) \\ fs [] \\ SRW_TAC [] []
+    \\ TRY (fs [res_rel_cases] \\ Q.EXISTS_TAC `f2` \\ fs [] \\ NO_TAC)
+    \\ fs [res_rel_Result1] \\ SRW_TAC [] []
+    \\ Cases_on `cEvalOp op a p1` \\ fs []
+    \\ Cases_on `x` \\ fs [] \\ SRW_TAC [] []
+    \\ Cases_on `op = Ref` \\ fs []
+    THEN1
+     (fs [cEvalOp_def,LET_DEF] \\ SRW_TAC [] [res_rel_Result1]
+      \\ fs [PULL_EXISTS]
+      \\ Q.ABBREV_TAC `pp = LEAST ptr. ptr NOTIN FDOM p1.refs`
+      \\ Q.ABBREV_TAC `qq = LEAST ptr. ptr NOTIN FDOM t2.refs`
+      \\ fs [bEvalOp_def,LET_DEF]
+      \\ Q.EXISTS_TAC `f2 |+ (pp,qq)` \\ fs []
+      \\ `~(pp IN FDOM p1.refs)` by
+           (UNABBREV_ALL_TAC \\ fs [LEAST_NO_IN_FDOM] \\ NO_TAC)
+      \\ `~(qq IN FDOM t2.refs)` by
+           (UNABBREV_ALL_TAC \\ fs [LEAST_NO_IN_FDOM] \\ NO_TAC)
+      \\ `~(pp IN FDOM f2)` by fs [state_rel_def]
+      \\ `~(qq IN FRANGE f2)` by
+        (REPEAT STRIP_TAC \\ fs [state_rel_def,SUBSET_DEF] \\ RES_TAC \\ NO_TAC)
+      \\ `FRANGE (f2 \\ pp) = FRANGE f2` by ALL_TAC THEN1
+       (fs [FRANGE_DEF,finite_mapTheory.DOMSUB_FAPPLY_THM,EXTENSION]
+        \\ METIS_TAC []) \\ fs []
+      \\ REPEAT STRIP_TAC
+      THEN1 (fs [val_rel_cases,FLOOKUP_FAPPLY])
+      THEN1
+       (fs [state_rel_def,FLOOKUP_FAPPLY]
+        \\ REPEAT STRIP_TAC THEN1
+         (Q.PAT_ASSUM `LIST_REL ppp qqq rrr` MP_TAC
+          \\ MATCH_MP_TAC listTheory.LIST_REL_mono
+          \\ REPEAT STRIP_TAC
+          \\ MATCH_MP_TAC opt_val_rel_NEW_REF \\ fs []
+          \\ MATCH_MP_TAC opt_val_rel_NEW_F \\ fs [])
+        THEN1
+         (Q.PAT_ASSUM `INJ ($' f2) (FDOM f2) (FRANGE f2)` MP_TAC
+          \\ REPEAT (Q.PAT_ASSUM `INJ xx yy zz` (K ALL_TAC))
+          \\ fs [INJ_DEF,FAPPLY_FUPDATE_THM,FRANGE_DEF]
+          \\ REPEAT STRIP_TAC \\ METIS_TAC [])
+        \\ Cases_on `n' = pp` \\ fs [] THEN1
+         (SRW_TAC [] [ref_rel_cases]
+          \\ Q.PAT_ASSUM `LIST_REL (val_rel f2 t2.refs t2.code) a ys` MP_TAC
+          \\ MATCH_MP_TAC listTheory.LIST_REL_mono
+          \\ REPEAT STRIP_TAC
+          \\ MATCH_MP_TAC val_rel_NEW_REF \\ fs []
+          \\ MATCH_MP_TAC val_rel_NEW_F \\ fs [])
+        \\ RES_TAC \\ fs []
+        \\ `qq <> m` by (REPEAT STRIP_TAC \\ fs [FLOOKUP_DEF] \\ SRW_TAC [] [])
+        \\ fs [ref_rel_cases]
+        \\ Q.PAT_ASSUM `LIST_REL (val_rel f2 t2.refs t2.code) xs' ys'` MP_TAC
+        \\ MATCH_MP_TAC listTheory.LIST_REL_mono
+        \\ REPEAT STRIP_TAC
+        \\ MATCH_MP_TAC val_rel_NEW_REF \\ fs []
+        \\ MATCH_MP_TAC val_rel_NEW_F \\ fs [])
+      THEN1
+       (fs [SUBMAP_DEF,FAPPLY_FUPDATE_THM] \\ SRW_TAC [] [] \\ METIS_TAC [])
+      \\ MATCH_MP_TAC SUBMAP_TRANS
+      \\ Q.EXISTS_TAC `FDIFF t2.refs f2` \\ fs []
+      \\ fs [SUBMAP_DEF,FDOM_FDIFF]
+      \\ REPEAT STRIP_TAC
+      \\ fs [FDIFF_def,DRESTRICT_DEF]
+      \\ SRW_TAC [] [] \\ fs [state_rel_def,SUBSET_DEF])
+    \\ cheat (* cases other than Ref, i.e. the easy cases *))
 
   THEN1 (* Fn *)
    (fs [cEval_def] \\ BasicProvers.FULL_CASE_TAC
