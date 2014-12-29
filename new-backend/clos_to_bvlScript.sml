@@ -252,10 +252,36 @@ val val_rel_NEW_REF = prove(
   \\ fs [FAPPLY_FUPDATE_THM] \\ SRW_TAC [] [] \\ fs [])
   |> SPEC_ALL |> MP_CANON;
 
+val val_rel_UPDATE_REF = prove(
+  ``!x y. val_rel f1 refs1 code x y ==>
+          (r IN FRANGE f1) ==>
+          val_rel f1 (refs1 |+ (r,t)) code x y``,
+  HO_MATCH_MP_TAC val_rel_ind \\ REPEAT STRIP_TAC
+  \\ ONCE_REWRITE_TAC [val_rel_cases] \\ fs []
+  THEN1 (REPEAT (POP_ASSUM MP_TAC) \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+  THEN1 (Q.LIST_EXISTS_TAC [`aux`,`aux1`,`n'`] \\ fs []
+         \\ REPEAT (POP_ASSUM MP_TAC)
+         \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+  THEN1 (DISJ1_TAC \\ Q.LIST_EXISTS_TAC [`aux`,`aux1`,`n'`] \\ fs []
+         \\ REPEAT (POP_ASSUM MP_TAC)
+         \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+  \\ DISJ2_TAC \\ Q.LIST_EXISTS_TAC [`exps_ps`,`r'`,`ys`] \\ fs []
+  \\ rfs [] \\ Q.PAT_ASSUM `LIST_REL pppat env ys` MP_TAC
+  \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [] \\ STRIP_TAC
+  \\ fs [FDIFF_def,SUBMAP_DEF,DRESTRICT_DEF,FLOOKUP_DEF]
+  \\ fs [FAPPLY_FUPDATE_THM] \\ SRW_TAC [] []
+  \\ fs [FRANGE_DEF] \\ METIS_TAC [])
+  |> SPEC_ALL |> MP_CANON;
+
 val opt_val_rel_NEW_REF = prove(
   ``opt_val_rel f1 refs1 code x y /\ ~(r IN FDOM refs1) ==>
     opt_val_rel f1 (refs1 |+ (r,t)) code x y``,
   Cases_on `x` \\ Cases_on `y` \\ fs [opt_val_rel_def,val_rel_NEW_REF]);
+
+val opt_val_rel_UPDATE_REF = prove(
+  ``opt_val_rel f1 refs1 code x y /\ r IN FRANGE f1 ==>
+    opt_val_rel f1 (refs1 |+ (r,t)) code x y``,
+  Cases_on `x` \\ Cases_on `y` \\ fs [opt_val_rel_def,val_rel_UPDATE_REF]);
 
 val env_rel_NEW_REF = prove(
   ``!x y.
@@ -383,6 +409,16 @@ val res_rel_Ex =
 val val_rel_Closure =
   ``val_rel f refs code (Closure env exp) y``
   |> SIMP_CONV (srw_ss()) [val_rel_cases]
+
+val val_rel_SIMP = LIST_CONJ
+  [``val_rel f refs code (RefPtr p) y``
+   |> SIMP_CONV (srw_ss()) [val_rel_cases],
+   ``val_rel f refs code (Number i) y``
+   |> SIMP_CONV (srw_ss()) [val_rel_cases],
+   ``val_rel f refs code (Closure env exp) y``
+   |> SIMP_CONV (srw_ss()) [val_rel_cases],
+   ``val_rel f refs code (Recclosure env exp k) y``
+   |> SIMP_CONV (srw_ss()) [val_rel_cases]]
 
 val bEval_free_let_Block = prove(
   ``!ys zs s.
@@ -671,6 +707,24 @@ val LEAST_NO_IN_FDOM = prove(
   ASSUME_TAC (EXISTS_NOT_IN_FDOM_LEMMA |>
            SIMP_RULE std_ss [whileTheory.LEAST_EXISTS]) \\ fs []);
 
+val EVERY2_LUPDATE = prove(
+  ``!xs ys P x y n.
+      P x y /\ EVERY2 P xs ys ==>
+      EVERY2 P (LUPDATE x n xs) (LUPDATE y n ys)``,
+  Induct \\ Cases_on `ys` \\ fs [LUPDATE_def]
+  \\ REPEAT STRIP_TAC \\ Cases_on `n` \\ fs [LUPDATE_def]);
+
+val cEvalOp_correct = prove(
+  ``(cEvalOp op xs s1 = SOME (v,s2)) /\
+    state_rel f s1 t1 /\
+    (op <> Ref) /\ (op <> Update) ==>
+    ?w t2.
+      (bEvalOp op ys t1 = SOME (w,t2)) /\
+      val_rel f t1.refs t1.code v w /\
+      state_rel f s2 t2 /\
+      (t1.refs = t2.refs) /\ (t1.code = t2.code)``,
+  cheat);
+
 val cComp_correct = prove(
   ``!xs env s1 n aux1 t1 env' f1 res s2 n2 ys aux2.
       (cEval (xs,env,s1) = (res,s2)) /\ res <> Error /\
@@ -684,7 +738,6 @@ val cComp_correct = prove(
          state_rel f2 s2 t2 /\
          f1 SUBMAP f2 /\
          (FDIFF t1.refs f1) SUBMAP (FDIFF t2.refs f2)``,
-
   recInduct cEval_ind \\ REPEAT STRIP_TAC
   THEN1 (* NIL *)
    (fs [cEval_def,cComp_def] \\ SRW_TAC [] [bEval_def]
@@ -831,7 +884,6 @@ val cComp_correct = prove(
     \\ REPEAT STRIP_TAC \\ fs []
     \\ Q.EXISTS_TAC `f2'` \\ fs []
     \\ IMP_RES_TAC SUBMAP_TRANS \\ fs [])
-
   THEN1 (* Op *)
    (fs [cEval_def,cComp_def] \\ SRW_TAC [] [bEval_def]
     \\ `?p. cEval (xs,env,s) = p` by fs [] \\ PairCases_on `p` \\ fs []
@@ -903,8 +955,68 @@ val cComp_correct = prove(
       \\ REPEAT STRIP_TAC
       \\ fs [FDIFF_def,DRESTRICT_DEF]
       \\ SRW_TAC [] [] \\ fs [state_rel_def,SUBSET_DEF])
-    \\ cheat (* cases other than Ref, i.e. the easy cases *))
-
+    \\ Cases_on `op = Update` \\ fs [] THEN1
+     (fs [cEvalOp_def,bEvalOp_def]
+      \\ Cases_on `a` \\ fs []
+      \\ Cases_on `t` \\ fs []
+      \\ Cases_on `t'` \\ fs []
+      \\ Cases_on `t` \\ fs []
+      \\ Cases_on `h` \\ fs []
+      \\ Cases_on `h'` \\ fs []
+      \\ Cases_on `FLOOKUP p1.refs n'` \\ fs []
+      \\ Cases_on `x` \\ fs [] \\ SRW_TAC [] []
+      \\ fs [val_rel_SIMP] \\ SRW_TAC [] []
+      \\ `?y m.
+            FLOOKUP f2 n' = SOME m /\ FLOOKUP t2.refs m = SOME y /\
+            ref_rel f2 t2.refs t2.code (ValueArray l) y` by
+              METIS_TAC [state_rel_def]
+      \\ fs [] \\ SRW_TAC [] []
+      \\ fs [ref_rel_cases] \\ SRW_TAC [] []
+      \\ Q.EXISTS_TAC `f2` \\ fs [res_rel_cases] \\ REPEAT STRIP_TAC
+      \\ IMP_RES_TAC EVERY2_LENGTH \\ fs []
+      THEN1
+       (MATCH_MP_TAC val_rel_UPDATE_REF \\ fs []
+        \\ fs [FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
+      THEN1
+       (fs [state_rel_def,FLOOKUP_FAPPLY] \\ REPEAT STRIP_TAC
+        THEN1
+         (Q.PAT_ASSUM `LIST_REL tt yy t2.globals` MP_TAC
+          \\ MATCH_MP_TAC listTheory.LIST_REL_mono
+          \\ REPEAT STRIP_TAC
+          \\ MATCH_MP_TAC opt_val_rel_UPDATE_REF \\ fs []
+          \\ fs [FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
+        THEN1 (fs [EXTENSION,FLOOKUP_DEF] \\ METIS_TAC [])
+        THEN1
+         (`m IN FRANGE f2` by (fs [FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
+          \\ fs [SUBSET_DEF] \\ METIS_TAC [])
+        \\ SRW_TAC [] [] \\ Cases_on `n'' = n'` \\ fs [] \\ SRW_TAC [] []
+        THEN1
+         (fs [ref_rel_cases]
+          \\ MATCH_MP_TAC EVERY2_LUPDATE
+          \\ REPEAT STRIP_TAC THEN1
+           (MATCH_MP_TAC val_rel_UPDATE_REF \\ fs []
+            \\ fs [FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
+          \\ Q.PAT_ASSUM `LIST_REL (val_rel f2 t2.refs t2.code) l ys` MP_TAC
+          \\ MATCH_MP_TAC listTheory.LIST_REL_mono
+          \\ REPEAT STRIP_TAC
+          \\ MATCH_MP_TAC val_rel_UPDATE_REF \\ fs []
+          \\ fs [FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
+        \\ RES_TAC \\ fs []
+        \\ `m' <> m''` by
+         (Q.PAT_ASSUM `INJ ($' f2) (FDOM p1.refs) (FRANGE f2)` MP_TAC
+          \\ SIMP_TAC std_ss [INJ_DEF,FRANGE_DEF] \\ fs [FLOOKUP_DEF]
+          \\ METIS_TAC [])
+        \\ fs [] \\ SRW_TAC [] [] \\ fs [ref_rel_cases] \\ SRW_TAC [] []
+        \\ Q.PAT_ASSUM `LIST_REL pp xs' ys'` MP_TAC
+        \\ MATCH_MP_TAC listTheory.LIST_REL_mono
+        \\ REPEAT STRIP_TAC
+        \\ MATCH_MP_TAC val_rel_UPDATE_REF \\ fs []
+        \\ fs [FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
+      \\ `m IN FRANGE f2` by (fs [FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
+      \\ fs [SUBMAP_DEF,FDIFF_def,DRESTRICT_DEF,FAPPLY_FUPDATE_THM])
+    \\ IMP_RES_TAC cEvalOp_correct \\ POP_ASSUM (K ALL_TAC)
+    \\ POP_ASSUM (MP_TAC o Q.SPEC `ys`) \\ SRW_TAC [] [] \\ fs []
+    \\ Q.EXISTS_TAC `f2` \\ fs [res_rel_Result])
   THEN1 (* Fn *)
    (fs [cEval_def] \\ BasicProvers.FULL_CASE_TAC
     \\ fs [] \\ SRW_TAC [] []
