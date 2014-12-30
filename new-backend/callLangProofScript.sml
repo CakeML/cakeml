@@ -1,5 +1,5 @@
 open HolKernel boolLib boolSimps bossLib lcsymtacs miscLib
-open listTheory patLangTheory callLangTheory
+open listTheory alistTheory finite_mapTheory pred_setTheory patLangTheory callLangTheory
 val _ = new_theory"callLangProof"
 
 val pComp_def = tDefine"pComp"`
@@ -32,6 +32,43 @@ val pComp_def = tDefine"pComp"`
     App (pComp (EL 0 es)) (pComp (EL 1 es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Opn Plus))) es) =
     Op Add (MAP pComp es)) ∧
+  (pComp (App_pat (Op_pat (Op_i2 (Opn Minus))) es) =
+    Op Sub (MAP pComp es)) ∧
+  (pComp (App_pat (Op_pat (Op_i2 (Opn Times))) es) =
+    Op Mult (MAP pComp es)) ∧
+  (pComp (App_pat (Op_pat (Op_i2 (Opn Divide))) es) =
+    Let (MAP pComp es)
+      (If (Op Equal [Var 1; Op (Const 0) []])
+          (Raise (Op (Cons (div_tag+block_tag)) []))
+          (Op Div [Var 0; Var 1]))) ∧
+  (pComp (App_pat (Op_pat (Op_i2 (Opn Modulo))) es) =
+    Let (MAP pComp es)
+      (If (Op Equal [Var 1; Op (Const 0) []])
+          (Raise (Op (Cons (div_tag+block_tag)) []))
+          (Op Mod [Var 0; Var 1]))) ∧
+  (pComp (App_pat (Op_pat (Op_i2 (Opb Lt))) es) =
+    Op Less (MAP pComp es)) ∧
+  (pComp (App_pat (Op_pat (Op_i2 (Opb Gt))) es) =
+    Let (MAP pComp es)
+      (Op Less [Var 1; Var 0])) ∧
+  (pComp (App_pat (Op_pat (Op_i2 (Opb Leq))) es) =
+    Let [Op Sub (MAP pComp es)]
+      (Op Less [Var 0; Op (Const 1) []])) ∧
+  (pComp (App_pat (Op_pat (Op_i2 (Opb Geq))) es) =
+    Let (MAP pComp es)
+      (Op Less [Op Sub [Var 1; Var 0]; Op (Const 1) []])) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Equality)) es) =
+    Op Equal (MAP pComp es)) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Opassign)) es) =
+    Let (MAP pComp es)
+      (Let [Op Update [Var 0; Op (Const 0) []; Var 1]]
+         (Op (Cons unit_tag) []))) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Opderef)) es) =
+    Op Deref (MAP pComp es)) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Opref)) es) =
+    Op Ref (MAP pComp es)) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Ord)) es) =
+    if LENGTH es ≠ 1 then Var 0 else pComp (HD es)) ∧
   (* TODO: rest *)
   (pComp (App_pat (Op_pat (Init_global_var_i2 n)) es) =
     Op (SetGlobal n) (MAP pComp es)) ∧
@@ -319,6 +356,18 @@ val evaluate_pat_closed = store_thm("evaluate_pat_closed",
 
 (* TODO: move? *)
 
+val ALOOKUP_SNOC = store_thm("ALOOKUP_SNOC",
+  ``∀ls p k. ALOOKUP (SNOC p ls) k =
+      case ALOOKUP ls k of SOME v => SOME v |
+        NONE => if k = FST p then SOME (SND p) else NONE``,
+  Induct >> simp[] >>
+  Cases >> simp[] >> rw[])
+
+val ALOOKUP_GENLIST = store_thm("ALOOKUP_GENLIST",
+  ``∀f n k. ALOOKUP (GENLIST (λi. (i,f i)) n) k = if k < n then SOME (f k) else NONE``,
+  gen_tac >> Induct >> simp[GENLIST] >> rw[] >> fs[ALOOKUP_SNOC] >>
+  rw[] >> fsrw_tac[ARITH_ss][])
+
 val tEval_MAP_Op_Const = store_thm("tEval_MAP_Op_Const",
   ``∀f env s ls.
       tEval (MAP (λx. Op (Const (f x)) []) ls,env,s) =
@@ -343,6 +392,13 @@ val evaluate_list_pat_length = store_thm("evaluate_list_pat_length",
   Induct_on`es`>>simp[] >>
   simp[Once evaluate_pat_cases,PULL_EXISTS] >>
   rw[] >> res_tac)
+
+val bool_to_val_thm = store_thm("bool_to_val_thm",
+  ``bool_to_val b = callLang$Block (if b then 1 else 0) []``,
+  Cases_on`b`>>rw[bool_to_val_def])
+val bool_to_tag_thm = store_thm("bool_to_tag_thm",
+  ``bool_to_tag b = if b then 1 else 0``,
+  Cases_on`b`>>rw[bytecodeTheory.bool_to_tag_def])
 (* -- *)
 
 val pComp_correct = store_thm("pComp_correct",
@@ -442,8 +498,35 @@ val pComp_correct = store_thm("pComp_correct",
     fsrw_tac[ARITH_ss][] ) >>
   strip_tac >- simp[tEval_def] >>
   strip_tac >- (
-    simp[tEval_def] >>
-    rw[] >>
+    simp[tEval_def] >> rw[] >>
+    PairCases_on`s2` >>
+    imp_res_tac do_app_pat_cases >>
+    fs[do_app_pat_def] >> rw[] >- (
+      Cases_on`z`>>fs[tEval_def,ETA_AX,tEvalOp_def] >>
+      rw[opn_lookup_def,call_equal_def,bool_to_val_thm] >>
+      TRY IF_CASES_TAC >> fs[] >> fsrw_tac[ARITH_ss][] >>
+      BasicProvers.EVERY_CASE_TAC >> fs[] >>
+      rw[prim_exn_pat_def,opn_lookup_def] )
+    >- (
+      Cases_on`z`>>fs[tEval_def,ETA_AX,tEvalOp_def,bool_to_tag_thm,opb_lookup_def,bool_to_val_thm] >>
+      simp[] >> rw[] >> intLib.COOPER_TAC )
+    >- (
+      simp[tEval_def,ETA_AX,tEvalOp_def] >>
+      cheat (* equality *))
+    >- (
+      simp[tEval_def,ETA_AX,tEvalOp_def] >>
+      fs[store_assign_def,Once s_to_Cs_def] >>
+      BasicProvers.CASE_TAC >- (
+        imp_res_tac ALOOKUP_FAILS >> fs[MEM_GENLIST] ) >>
+      imp_res_tac ALOOKUP_MEM >> fs[MEM_GENLIST] >>
+      Cases_on`EL lnum s21`>> fs[store_v_same_type_def,sv_to_Cref_def] >>
+      rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
+      simp[s_to_Cs_def,fmap_eq_flookup,FLOOKUP_UPDATE] >>
+      simp[ALOOKUP_GENLIST,EL_LUPDATE] >>
+      rw[] >> fs[sv_to_Cref_def] >>
+      simp[LIST_EQ_REWRITE] >>
+      REWRITE_TAC[GSYM EL] >>
+      simp[EL_LUPDATE] ) >>
     cheat ) >>
   strip_tac >- simp[tEval_def] >>
   strip_tac >- (
