@@ -2,22 +2,6 @@ open HolKernel boolLib boolSimps bossLib lcsymtacs miscLib
 open listTheory patLangTheory callLangTheory
 val _ = new_theory"callLangProof"
 
-val dbinc_def = tDefine"dbinc"`
-  (dbinc k (Var n) = Var (n+k)) ∧
-  (dbinc k (If e1 e2 e3) = If (dbinc k e1) (dbinc k e2) (dbinc k e3)) ∧
-  (dbinc k (Raise e) = Raise (dbinc k e)) ∧
-  (dbinc k (Handle e1 e2) = Handle (dbinc k e1) (dbinc (k+1) e2)) ∧
-  (dbinc k (Tick e) = Tick (dbinc k e)) ∧
-  (dbinc k (Call n es) = Call n (MAP (dbinc k) es)) ∧
-  (dbinc k (App e1 e2) = App (dbinc k e1) (dbinc k e2)) ∧
-  (dbinc k (Fn e) = Fn (dbinc (k+1) e)) ∧
-  (dbinc k (Letrec es e) = Letrec (MAP (dbinc (k+1)) es) (dbinc (k+(LENGTH es)) e)) ∧
-  (dbinc k (Op op es) = Op op (MAP (dbinc k) es))`
-    (WF_REL_TAC`measure (call_exp_size o SND)` >>
-     simp[call_exp_size_def] >>
-     rpt conj_tac >> gen_tac >> Induct >> simp[call_exp_size_def] >>
-     rw[] >> res_tac >> fs[] >> simp[call_exp_size_def])
-
 val pComp_def = tDefine"pComp"`
   (pComp (Raise_pat e) =
     Raise (pComp e)) ∧
@@ -56,11 +40,11 @@ val pComp_def = tDefine"pComp"`
   (pComp (App_pat (El_pat n) es) =
     Op (El n) (MAP pComp es)) ∧
   (pComp (If_pat e1 e2 e3) =
-    If (pComp e1) (pComp e2) (pComp e2)) ∧
+    If (pComp e1) (pComp e2) (pComp e3)) ∧
   (pComp (Let_pat e1 e2) =
     Let [pComp e1] (pComp e2)) ∧
   (pComp (Seq_pat e1 e2) =
-    Let [pComp e1] (dbinc 1 (pComp e2))) ∧
+    Let [pComp e1;pComp e2] (Var 1)) ∧
   (pComp (Letrec_pat es e) =
     Letrec (MAP pComp es) (pComp e)) ∧
   (pComp (Extend_global_pat n) =
@@ -73,27 +57,6 @@ val pComp_def = tDefine"pComp"`
      rw[] >> res_tac >> fs[] >> simp[exp_pat_size_def] >>
      Cases_on`es`>>fs[LENGTH_NIL,exp_pat_size_def] >> simp[])
 val _ = export_rewrites["pComp_def"]
-
-(*
-val (val_rel_rules,val_rel_ind,val_rel_cases) = Hol_reln`
-  (val_rel st (Litv_pat (IntLit i)) (Number i)) ∧
-  (val_rel st (Litv_pat (Word8 w)) (Number (&w2n w))) ∧
-  (val_rel st (Litv_pat (Char c)) (Number (& ORD c))) ∧
-  (val_rel st (Litv_pat (StrLit s))
-    (Block string_tag (MAP (Number o $& o ORD) s))) ∧
-  (val_rel st (Litv_pat (Bool b)) (Block (bool_to_tag b) [])) ∧
-  (val_rel st (Litv_pat Unit) (Block unit_tag [])) ∧
-  (m <  LENGTH st ⇒
-    val_rel st (Loc_pat m) (RefPtr (EL m st))) ∧
-  (LIST_REL (val_rel st) vs cvs ⇒
-    val_rel st (Conv_pat cn vs) (Block (cn+block_tag) cvs)) ∧
-  (LIST_REL (val_rel st) vs cvs ⇒
-    val_rel st (Vectorv_pat vs) (Block vector_tag cvs)) ∧
-  (LIST_REL (val_rel st) vs cvs ∧ (pComp e = ce) ⇒
-    val_rel st (Closure_pat vs e) (Closure cvs ce)) ∧
-  (LIST_REL (val_rel st) vs cvs ∧ (MAP pComp es = ces) ⇒
-    val_rel st (Recclosure_pat vs es k) (Recclosure cvs ces k))`
-*)
 
 val v_to_Cv_def = tDefine"v_to_Cv"`
   (v_to_Cv (Litv_pat (IntLit i)) = (Number i)) ∧
@@ -365,6 +328,14 @@ val tEval_MAP_Op_Const = store_thm("tEval_MAP_Op_Const",
   simp[Once tEval_CONS] >>
   simp[tEval_def,tEvalOp_def])
 
+val tEval_REPLICATE_Op_AllocGlobal = store_thm("tEval_REPLICATE_Op_AllocGlobal",
+  ``∀n env s. tEval (REPLICATE n (Op AllocGlobal []),env,s) =
+              (Result (GENLIST (K(Number 0)) n),s with globals := s.globals ++ GENLIST (K NONE) n)``,
+  Induct >> simp[tEval_def,REPLICATE] >- (
+    simp[call_state_component_equality] ) >>
+  simp[Once tEval_CONS,tEval_def,tEvalOp_def,GENLIST_CONS] >>
+  simp[call_state_component_equality])
+
 val evaluate_list_pat_length = store_thm("evaluate_list_pat_length",
   ``∀ck env s es x vs.
     evaluate_list_pat ck env s es (x,Rval vs) ⇒
@@ -374,7 +345,6 @@ val evaluate_list_pat_length = store_thm("evaluate_list_pat_length",
   rw[] >> res_tac)
 (* -- *)
 
-(*
 val pComp_correct = store_thm("pComp_correct",
   ``(∀ck env s e res. evaluate_pat ck env s e res ⇒
        ck ∧
@@ -470,7 +440,79 @@ val pComp_correct = store_thm("pComp_correct",
     Cases_on`h`>>fs[dest_closure_def,s_to_Cs_def,ETA_AX,dec_clock_def] >>
     rw[] >> rw[] >>
     fsrw_tac[ARITH_ss][] ) >>
-  strip_tac
-*)
+  strip_tac >- simp[tEval_def] >>
+  strip_tac >- (
+    simp[tEval_def] >>
+    rw[] >>
+    cheat ) >>
+  strip_tac >- simp[tEval_def] >>
+  strip_tac >- (
+    simp[tEval_def] >> rw[] >>
+    cheat ) >>
+  strip_tac >- (
+    simp[tEval_def] >>
+    rw[] >>
+    Cases_on`v`>>fs[]>>rw[]>>fs[do_if_pat_def]>>
+    Cases_on`l`>>fs[]>>
+    Cases_on`b`>>fs[]>>rw[]>>
+    imp_res_tac evaluate_pat_closed >>fs[]) >>
+  strip_tac >- simp[tEval_def] >>
+  strip_tac >- (
+    simp[tEval_def] >> rw[] >>
+    imp_res_tac evaluate_pat_closed >>fs[] >>
+    Cases_on`err`>>fs[] ) >>
+  strip_tac >- (
+    simp[tEval_def] >> rw[] >>
+    qpat_assum`X ⇒ Y`mp_tac >>
+    discharge_hyps >- (
+      imp_res_tac evaluate_pat_closed >>fs[] >>
+      fs[SUBSET_DEF,PULL_EXISTS] >>
+      Cases >> rw[] >> res_tac >> fs[] >>
+      fsrw_tac[ARITH_ss][]) >>
+    simp[] ) >>
+  strip_tac >- (
+    simp[tEval_def] >> Cases_on`err`>>simp[] ) >>
+  strip_tac >- (
+    simp[tEval_def] >> rw[] >> fs[] >>
+    qpat_assum`X ⇒ Y`mp_tac >>
+    discharge_hyps >- (
+      imp_res_tac evaluate_pat_closed >>fs[] ) >>
+    rw[] >>
+    Cases_on`res`>>fs[]>>
+    Cases_on`r`>>fs[]>>simp[]>>
+    Cases_on`e''`>>simp[]) >>
+  strip_tac >- (
+    simp[tEval_def] >>
+    Cases_on`err`>>simp[] ) >>
+  strip_tac >- (
+    simp[tEval_def] >>
+    rw[] >> fs[] >>
+    qpat_assum`X ⇒ Y`mp_tac >>
+    discharge_hyps >- (
+      imp_res_tac evaluate_pat_closed >>fs[] >>
+      fs[SUBSET_DEF,build_rec_env_pat_def,EVERY_GENLIST,PULL_EXISTS] >>
+      simp[Once closed_pat_cases,SUBSET_DEF,EVERY_MEM,PULL_EXISTS] >>
+      fs[MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+      rw[] >> res_tac >> fs[] >> simp[] >>
+      fs[EVERY_MEM] ) >>
+    rw[build_rec_env_pat_def,build_recc_def,MAP_GENLIST,combinTheory.o_DEF,ETA_AX,MAP_MAP_o] >>
+    fsrw_tac[ETA_ss][] ) >>
+  strip_tac >- (
+    simp[tEval_def] >>
+    simp[tEval_REPLICATE_Op_AllocGlobal,tEvalOp_def] >>
+    Cases_on`s`>>simp[s_to_Cs_def,MAP_GENLIST,combinTheory.o_DEF,combinTheory.K_DEF] ) >>
+  strip_tac >- simp[tEval_def] >>
+  strip_tac >- (
+    simp[tEval_def] >> rw[] >>
+    simp[Once tEval_CONS] >>
+    imp_res_tac evaluate_pat_closed >> fs[] ) >>
+  strip_tac >- (
+    simp[tEval_def] >> rw[] >> fs[] >>
+    simp[Once tEval_CONS] >>
+    Cases_on`err`>>fs[]) >>
+  simp[tEval_def] >> rw[] >>
+  simp[Once tEval_CONS] >>
+  imp_res_tac evaluate_pat_closed >> fs[] >>
+  Cases_on`err`>>fs[])
 
 val _ = export_theory()
