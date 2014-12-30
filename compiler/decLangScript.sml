@@ -158,27 +158,11 @@ evaluate_i3 ck env s (Con_i2 tag es) (s', Rerr err))
 ==>
 evaluate_i3 ck (exh,env) s (Var_local_i2 n) (s, Rval v))
 
-/\ (! ck exh env n s.
-(ALOOKUP env n = NONE)
-==>
-evaluate_i3 ck (exh,env) s (Var_local_i2 n) (s, Rerr Rtype_error))
-
 /\ (! ck env n v s genv.
 ((LENGTH genv > n) /\
 (EL n genv = SOME v))
 ==>
 evaluate_i3 ck env (s,genv) (Var_global_i2 n) ((s,genv), Rval v))
-
-/\ (! ck env n s genv.
-((LENGTH genv > n) /\
-(EL n genv = NONE))
-==>
-evaluate_i3 ck env (s,genv) (Var_global_i2 n) ((s,genv), Rerr Rtype_error))
-
-/\ (! ck env n s genv.
-(~ (LENGTH genv > n))
-==>
-evaluate_i3 ck env (s,genv) (Var_global_i2 n) ((s,genv), Rerr Rtype_error))
 
 /\ (! ck exh env n e s.
 T
@@ -201,25 +185,12 @@ ck)
 ==>
 evaluate_i3 ck env s1 (App_i2 (Op_i2 Opapp) es) ((( 0,s2),genv), Rerr Rtimeout_error))
 
-/\ (! ck env es vs s1 s2.
-(evaluate_list_i3 ck env s1 es (s2, Rval vs) /\
-(do_opapp_i2 vs = NONE))
-==>
-evaluate_i3 ck env s1 (App_i2 (Op_i2 Opapp) es) (s2, Rerr Rtype_error))
-
 /\ (! ck env s1 op es s2 vs s3 res.
 (evaluate_list_i3 ck env s1 es (s2, Rval vs) /\
 (do_app_i3 s2 op vs = SOME (s3, res)) /\
 (op <> Op_i2 Opapp))
 ==>
 evaluate_i3 ck env s1 (App_i2 op es) (s3, res))
-
-/\ (! ck env s1 op es s2 vs.
-(evaluate_list_i3 ck env s1 es (s2, Rval vs) /\
-(do_app_i3 s2 op vs = NONE) /\
-(op <> Op_i2 Opapp))
-==>
-evaluate_i3 ck env s1 (App_i2 op es) (s2, Rerr Rtype_error))
 
 /\ (! ck env s1 op es s2 err.
 (evaluate_list_i3 ck env s1 es (s2, Rerr err))
@@ -232,12 +203,6 @@ evaluate_i3 ck env s1 (App_i2 op es) (s2, Rerr err))
 evaluate_i3 ck env s2 e' bv)
 ==>
 evaluate_i3 ck env s1 (If_i2 e1 e2 e3) bv)
-
-/\ (! ck env e1 e2 e3 v s1 s2.
-(evaluate_i3 ck env s1 e1 (s2, Rval v) /\
-(do_if_i2 v e2 e3 = NONE))
-==>
-evaluate_i3 ck env s1 (If_i2 e1 e2 e3) (s2, Rerr Rtype_error))
 
 /\ (! ck env e1 e2 e3 err s s'.
 (evaluate_i3 ck env s e1 (s', Rerr err))
@@ -271,11 +236,6 @@ evaluate_i3 ck env s (Let_i2 n e1 e2) (s', Rerr err))
 evaluate_i3 ck (exh,build_rec_env_i2 funs env env) s e bv)
 ==>
 evaluate_i3 ck (exh,env) s (Letrec_i2 funs e) bv)
-
-/\ (! ck env funs e s.
-(~ (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs)))
-==>
-evaluate_i3 ck env s (Letrec_i2 funs e) (s, Rerr Rtype_error))
 
 /\ (! ck env n s genv.
 T
@@ -321,16 +281,6 @@ evaluate_match_i3 ck (exh,env) ((count,s),genv) v ((p,e)::pes) err_v bv)
 (pmatch_i2 exh s p v env = No_match) /\
 evaluate_match_i3 ck (exh,env) ((count,s),genv) v pes err_v bv)
 ==>
-evaluate_match_i3 ck (exh,env) ((count,s),genv) v ((p,e)::pes) err_v bv)
-
-/\ (! ck exh genv env v p e pes s count err_v.
-(pmatch_i2 exh s p v env = Match_type_error)
-==>
-evaluate_match_i3 ck (exh,env) ((count,s),genv) v ((p,e)::pes) err_v (((count,s),genv), Rerr Rtype_error))
-
-/\ (! ck env v p e pes s err_v.
-(~ (ALL_DISTINCT (pat_bindings_i2 p [])))
-==>
-evaluate_match_i3 ck env s v ((p,e)::pes) err_v (s, Rerr Rtype_error))`;
+evaluate_match_i3 ck (exh,env) ((count,s),genv) v ((p,e)::pes) err_v bv)`;
 val _ = export_theory()
 

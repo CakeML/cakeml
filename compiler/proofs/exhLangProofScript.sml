@@ -833,7 +833,6 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    Induct >> simp[] >>
    Cases >> fs[env_to_exh_LIST_REL] >>
    rw[EXISTS_PROD] >> simp[] ) >>
- strip_tac >- simp[] >>
  strip_tac >- (
    simp[exp_to_exh_def] >>
    rpt gen_tac >> strip_tac >>
@@ -847,8 +846,6 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    first_x_assum(qspec_then`n`mp_tac) >>
    simp[optionTheory.OPTREL_def] >>
    metis_tac[] ) >>
- strip_tac >- simp[] >>
- strip_tac >- simp[] >>
  strip_tac >- (
    simp[exp_to_exh_def] >>
    rpt gen_tac >> strip_tac >>
@@ -904,7 +901,6 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    first_assum(match_exists_tac o concl) >> simp[] >>
    imp_res_tac do_opapp_exh >>
    metis_tac[vs_to_exh_LIST_REL] ) >>
- strip_tac >- simp[] >>
  strip_tac >- (
    simp[exp_to_exh_def] >>
    rpt gen_tac >> strip_tac >>
@@ -920,7 +916,6 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] do_app_exh_i3)) >>
    disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
    simp[vs_to_exh_LIST_REL] ) >>
- strip_tac >- simp[] >>
  strip_tac >- (
    simp[exp_to_exh_def] >>
    rpt gen_tac >> strip_tac >>
@@ -952,7 +947,6 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    rw[] >> fs[] >> rw[] >>
    every_case_tac >> fs[] >>
    metis_tac[] ) >>
- strip_tac >- simp[] >>
  strip_tac >- (
    simp[exp_to_exh_def] >>
    rpt gen_tac >> strip_tac >>
@@ -1030,7 +1024,6 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    simp[FORALL_PROD] >>
    simp[Once v_to_exh_cases,funs_to_exh_MAP,MAP_EQ_f,FORALL_PROD,env_to_exh_LIST_REL] >>
    metis_tac[] ) >>
- strip_tac >- rw[] >>
  strip_tac >- (
    simp[exp_to_exh_def] >>
    rw[] >>

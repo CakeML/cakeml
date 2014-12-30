@@ -165,33 +165,11 @@ evaluate_i3 ck (exh,env) s (Var_local_i2 n) (s, Rval v)
 
 and
 
-var2 : forall ck exh env n s.
-(lookup n env = Nothing)
-==>
-evaluate_i3 ck (exh,env) s (Var_local_i2 n) (s, Rerr Rtype_error)
-
-and
-
 var3 : forall ck env n v s genv.
 (List.length genv > n) &&
 (List_extra.nth genv n = Just v)
 ==>
 evaluate_i3 ck env (s,genv) (Var_global_i2 n) ((s,genv), Rval v)
-
-and
-
-var4 : forall ck env n s genv.
-(List.length genv > n) &&
-(List_extra.nth genv n = Nothing)
-==>
-evaluate_i3 ck env (s,genv) (Var_global_i2 n) ((s,genv), Rerr Rtype_error)
-
-and
-
-var5 : forall ck env n s genv.
-not (List.length genv > n)
-==>
-evaluate_i3 ck env (s,genv) (Var_global_i2 n) ((s,genv), Rerr Rtype_error)
 
 and
 
@@ -222,29 +200,12 @@ evaluate_i3 ck env s1 (App_i2 (Op_i2 Opapp) es) (((0,s2),genv), Rerr Rtimeout_er
 
 and
 
-app3 : forall ck env es vs s1 s2.
-evaluate_list_i3 ck env s1 es (s2, Rval vs) &&
-do_opapp_i2 vs = Nothing
-==>
-evaluate_i3 ck env s1 (App_i2 (Op_i2 Opapp) es) (s2, Rerr Rtype_error)
-
-and
-
 app4 : forall ck env s1 op es s2 vs s3 res.
 evaluate_list_i3 ck env s1 es (s2, Rval vs) &&
 do_app_i3 s2 op vs = Just (s3, res) &&
 op <> Op_i2 Opapp
 ==>
 evaluate_i3 ck env s1 (App_i2 op es) (s3, res)
-
-and
-
-app5 : forall ck env s1 op es s2 vs.
-evaluate_list_i3 ck env s1 es (s2, Rval vs) &&
-do_app_i3 s2 op vs = Nothing &&
-op <> Op_i2 Opapp
-==>
-evaluate_i3 ck env s1 (App_i2 op es) (s2, Rerr Rtype_error)
 
 and
 
@@ -261,14 +222,6 @@ do_if_i2 v e2 e3 = Just e' &&
 evaluate_i3 ck env s2 e' bv
 ==>
 evaluate_i3 ck env s1 (If_i2 e1 e2 e3) bv
-
-and
-
-if2 : forall ck env e1 e2 e3 v s1 s2.
-evaluate_i3 ck env s1 e1 (s2, Rval v) &&
-do_if_i2 v e2 e3 = Nothing
-==>
-evaluate_i3 ck env s1 (If_i2 e1 e2 e3) (s2, Rerr Rtype_error)
 
 and
 
@@ -314,13 +267,6 @@ List.allDistinct (List.map (fun (x,y,z) -> x) funs) &&
 evaluate_i3 ck (exh,build_rec_env_i2 funs env env) s e bv
 ==>
 evaluate_i3 ck (exh,env) s (Letrec_i2 funs e) bv
-
-and
-
-letrec2 : forall ck env funs e s.
-not (List.allDistinct (List.map (fun (x,y,z) -> x) funs))
-==>
-evaluate_i3 ck env s (Letrec_i2 funs e) (s, Rerr Rtype_error)
 
 and
 
@@ -383,17 +329,3 @@ pmatch_i2 exh s p v env = No_match &&
 evaluate_match_i3 ck (exh,env) ((count,s),genv) v pes err_v bv
 ==>
 evaluate_match_i3 ck (exh,env) ((count,s),genv) v ((p,e)::pes) err_v bv
-
-and
-
-mat_cons3 : forall ck exh genv env v p e pes s count err_v.
-pmatch_i2 exh s p v env = Match_type_error
-==>
-evaluate_match_i3 ck (exh,env) ((count,s),genv) v ((p,e)::pes) err_v (((count,s),genv), Rerr Rtype_error)
-
-and
-
-mat_cons4 : forall ck env v p e pes s err_v.
-not (List.allDistinct (pat_bindings_i2 p []))
-==>
-evaluate_match_i3 ck env s v ((p,e)::pes) err_v (s, Rerr Rtype_error)
