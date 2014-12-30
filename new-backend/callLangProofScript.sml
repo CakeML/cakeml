@@ -1,5 +1,6 @@
-open HolKernel boolLib boolSimps bossLib lcsymtacs miscLib
-open listTheory alistTheory finite_mapTheory pred_setTheory patLangTheory callLangTheory
+open HolKernel boolLib boolSimps bossLib lcsymtacs miscLib intLib
+open listTheory alistTheory finite_mapTheory pred_setTheory stringTheory integerTheory patLangTheory callLangTheory
+open compilerTerminationTheory
 val _ = new_theory"callLangProof"
 
 val pComp_def = tDefine"pComp"`
@@ -58,22 +59,32 @@ val pComp_def = tDefine"pComp"`
     Let (MAP pComp es)
       (Op Less [Op Sub [Var 1; Var 0]; Op (Const 1) []])) ∧
   (pComp (App_pat (Op_pat (Op_i2 Equality)) es) =
-    Op Equal (MAP pComp es)) ∧
+    Let [Op Equal (MAP pComp es)]
+      (If (Op IsBlock [Var 0]) (Var 0)
+          (Raise (Op (Cons (eq_tag+block_tag)) [])))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Opassign)) es) =
     Let (MAP pComp es)
       (Let [Op Update [Var 0; Op (Const 0) []; Var 1]]
          (Op (Cons unit_tag) []))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Opderef)) es) =
-    Op Deref (MAP pComp es)) ∧
+    Op Deref (MAP pComp es ++ [Op (Const 0) []])) ∧
   (pComp (App_pat (Op_pat (Op_i2 Opref)) es) =
     Op Ref (MAP pComp es)) ∧
   (pComp (App_pat (Op_pat (Op_i2 Ord)) es) =
     if LENGTH es ≠ 1 then Var 0 else pComp (HD es)) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Chr)) es) =
+      Let (MAP pComp es)
+        (If (Op Less [Var 0; Op (Const 0) []])
+          (Raise (Op (Cons (chr_tag+block_tag)) []))
+          (If (Op Less [Op (Const 255) []; Var 0])
+            (Raise (Op (Cons (chr_tag+block_tag)) []))
+            (Var 0)))) ∧
   (* TODO: rest *)
   (pComp (App_pat (Op_pat (Init_global_var_i2 n)) es) =
-    Op (SetGlobal n) (MAP pComp es)) ∧
+    Let [Op (SetGlobal n) (MAP pComp es)]
+      (Op (Cons unit_tag) [])) ∧
   (pComp (App_pat (Tag_eq_pat n) es) =
-    Op (TagEq n) (MAP pComp es)) ∧
+    Op (TagEq (n+block_tag)) (MAP pComp es)) ∧
   (pComp (App_pat (El_pat n) es) =
     Op (El n) (MAP pComp es)) ∧
   (pComp (If_pat e1 e2 e3) =
@@ -401,6 +412,32 @@ val bool_to_tag_thm = store_thm("bool_to_tag_thm",
   Cases_on`b`>>rw[bytecodeTheory.bool_to_tag_def])
 (* -- *)
 
+val do_eq_pat_call_equal = store_thm("do_eq_pat_call_equal",
+  ``(∀v1 v2. do_eq_pat v1 v2 ≠ Eq_type_error ⇒
+      (do_eq_pat v1 v2 = call_equal (v_to_Cv v1) (v_to_Cv v2))) ∧
+    (∀vs1 vs2. do_eq_list_pat vs1 vs2 ≠ Eq_type_error ⇒
+      (do_eq_list_pat vs1 vs2 = call_equal_list (MAP v_to_Cv vs1) (MAP v_to_Cv vs2)))``,
+  ho_match_mp_tac do_eq_pat_ind >>
+  simp[do_eq_pat_def,call_equal_def] >>
+  conj_tac >- (
+    Cases >> Cases >> simp[lit_same_type_def,call_equal_def,ORD_11,bool_to_tag_thm] >>
+    TRY(rw[] >> pop_assum mp_tac >> rw[] >> NO_TAC) >>
+    qid_spec_tac`s'` >>
+    Induct_on`s` >> simp[LENGTH_NIL_SYM,call_equal_def] >> rw[] >>
+    TRY (
+      spose_not_then strip_assume_tac >> rw[] >> fs[] >> NO_TAC) >>
+    Cases_on`s'`>>fs[call_equal_def,ORD_11] >> rw[]) >>
+  conj_tac >- rw[ETA_AX] >>
+  conj_tac >- rw[ETA_AX] >>
+  rw[] >>
+  Cases_on`v1`>>fs[]>>TRY(Cases_on`l:lit`>>fs[])>>
+  Cases_on`v2`>>fs[]>>TRY(Cases_on`l:lit`>>fs[])>>
+  fs[do_eq_pat_def,call_equal_def,lit_same_type_def,ORD_11,bool_to_tag_thm] >>
+  rw[]>>fs[]>>rfs[ETA_AX]>>
+  BasicProvers.CASE_TAC>>fs[]>>
+  rw[]>>fs[]>>
+  BasicProvers.CASE_TAC>>fs[])
+
 val pComp_correct = store_thm("pComp_correct",
   ``(∀ck env s e res. evaluate_pat ck env s e res ⇒
        ck ∧
@@ -509,10 +546,13 @@ val pComp_correct = store_thm("pComp_correct",
       rw[prim_exn_pat_def,opn_lookup_def] )
     >- (
       Cases_on`z`>>fs[tEval_def,ETA_AX,tEvalOp_def,bool_to_tag_thm,opb_lookup_def,bool_to_val_thm] >>
-      simp[] >> rw[] >> intLib.COOPER_TAC )
+      simp[] >> rw[] >> COOPER_TAC )
     >- (
       simp[tEval_def,ETA_AX,tEvalOp_def] >>
-      cheat (* equality *))
+      Cases_on`do_eq_pat v1 v2 = Eq_type_error`>>fs[] >>
+      imp_res_tac do_eq_pat_call_equal >> fs[] >>
+      BasicProvers.CASE_TAC >> fs[] >> rw[bool_to_tag_thm,bool_to_val_thm] >>
+      fsrw_tac[ARITH_ss][prim_exn_pat_def])
     >- (
       simp[tEval_def,ETA_AX,tEvalOp_def] >>
       fs[store_assign_def,Once s_to_Cs_def] >>
@@ -526,11 +566,79 @@ val pComp_correct = store_thm("pComp_correct",
       rw[] >> fs[sv_to_Cref_def] >>
       simp[LIST_EQ_REWRITE] >>
       REWRITE_TAC[GSYM EL] >>
-      simp[EL_LUPDATE] ) >>
-    cheat ) >>
+      simp[EL_LUPDATE] )
+    >- (
+      simp[ETA_AX,tEval_def,tEvalOp_def] >>
+      fs[store_lookup_def] >>
+      imp_res_tac evaluate_list_pat_length >>
+      Cases_on`es`>>fs[LENGTH_NIL] >>
+      simp[Once tEval_CONS,tEval_def,tEvalOp_def] >>
+      simp[s_to_Cs_def,ALOOKUP_GENLIST] >>
+      rw[]>>fs[] >>
+      Cases_on`EL n s21`>>fs[sv_to_Cref_def] >>
+      rw[s_to_Cs_def] )
+    >- (
+      simp[ETA_AX,tEval_def,tEvalOp_def] >>
+      fs[store_alloc_def,LET_THM] >>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      simp[s_to_Cs_def,fmap_eq_flookup,FLOOKUP_UPDATE] >>
+      conj_asm1_tac >- (
+        numLib.LEAST_ELIM_TAC >>
+        simp[MEM_MAP,MAP_GENLIST,PULL_EXISTS,MEM_GENLIST] >>
+        qexists_tac`LENGTH s21`>>simp[]>>rw[]>>
+        `¬(LENGTH s21 < LENGTH s21)` by simp[] >>
+        `¬(LENGTH s21 < n)` by metis_tac[] >>
+        DECIDE_TAC ) >>
+      simp[ALOOKUP_GENLIST] >>
+      rw[] >> simp[EL_APPEND1,EL_APPEND2,sv_to_Cref_def] )
+    >- (
+      simp[tEval_def,ETA_AX,tEvalOp_def,s_to_Cs_def,get_global_def,EL_MAP] >>
+      Cases_on`EL idx s22`>>fs[] >>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      simp[s_to_Cs_def,LUPDATE_MAP] )
+    >- ( cheat (* w8 *) )
+    >- ( cheat (* w8 *) )
+    >- ( cheat (* w8 *) )
+    >- ( cheat (* w8 *) )
+    >- (
+      imp_res_tac evaluate_list_pat_length >> fs[] )
+    >- ( Cases_on`es`>>fs[LENGTH_NIL] )
+    >- (
+      simp[tEval_def,ETA_AX,tEvalOp_def,bool_to_val_thm,prim_exn_pat_def] )
+    >- (
+      simp[tEval_def,ETA_AX,tEvalOp_def,bool_to_val_thm,prim_exn_pat_def] >>
+      Cases_on`n < 0` >> fs[] >>
+      `255 < n` by COOPER_TAC >> simp[])
+    >- (
+      simp[tEval_def,ETA_AX,tEvalOp_def,bool_to_val_thm,prim_exn_pat_def] >> fs[] >>
+      `¬(255 < n)` by COOPER_TAC >> simp[] >>
+      `ABS n = n` by COOPER_TAC >>
+      `Num n < 256` by COOPER_TAC >>
+      `0 ≤ n` by COOPER_TAC >>
+      simp[ORD_CHR,INT_OF_NUM])
+    >- cheat (* chopb *)
+    >- cheat (* explode *)
+    >- cheat (* implode *)
+    >- cheat (* strlen *)
+    >- cheat (* vfromlist *)
+    >- cheat (* vsub *)
+    >- cheat (* vlength *)
+    >- cheat (* aalloc *)
+    >- cheat (* asub *)
+    >- cheat (* alength *)
+    >- cheat (* aupdate *)
+    >- (
+      simp[tEval_def,ETA_AX,tEvalOp_def,bool_to_val_thm,bool_to_tag_thm] ) >>
+    >- ( simp[tEval_def,ETA_AX,tEvalOp_def,EL_MAP] )) >>
   strip_tac >- simp[tEval_def] >>
   strip_tac >- (
     simp[tEval_def] >> rw[] >>
+    Cases_on`op`>>simp[tEval_def,ETA_AX] >>
+    TRY( Cases_on`err`>>fs[] >> NO_TAC) >>
+    Cases_on`o'`>>simp[tEval_def,ETA_AX] >>
+    TRY( Cases_on`err`>>fs[] >> NO_TAC) >>
+    Cases_on`o''`>>simp[tEval_def,ETA_AX] >>
+    TRY( Cases_on`err`>>fs[] >> NO_TAC) >>
     cheat ) >>
   strip_tac >- (
     simp[tEval_def] >>
