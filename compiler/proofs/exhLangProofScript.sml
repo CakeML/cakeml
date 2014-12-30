@@ -1154,37 +1154,6 @@ val csg_every_def = Define`
 
 (* exhLangExtra *)
 
-val free_vars_exh_def = tDefine"free_vars_exh"`
-  free_vars_exh (Raise_exh e) = free_vars_exh e ∧
-  free_vars_exh (Handle_exh e pes) = free_vars_exh e ∪ free_vars_pes_exh pes ∧
-  free_vars_exh (Lit_exh _) = {} ∧
-  free_vars_exh (Con_exh _ es) = free_vars_list_exh es ∧
-  free_vars_exh (Var_local_exh n) = {n} ∧
-  free_vars_exh (Var_global_exh _) = {} ∧
-  free_vars_exh (Fun_exh x e) = free_vars_exh e DIFF {x} ∧
-  free_vars_exh (App_exh _ es) = free_vars_list_exh es ∧
-  free_vars_exh (If_exh e1 e2 e3) = free_vars_exh e1 ∪ free_vars_exh e2 ∪ free_vars_exh e3 ∧
-  free_vars_exh (Mat_exh e pes) = free_vars_exh e ∪ free_vars_pes_exh pes ∧
-  free_vars_exh (Let_exh bn e1 e2) = free_vars_exh e1 ∪ (free_vars_exh e2 DIFF (case bn of NONE => {} | SOME x => {x})) ∧
-  free_vars_exh (Letrec_exh defs e) = (free_vars_defs_exh defs ∪ free_vars_exh e) DIFF set(MAP FST defs) ∧
-  free_vars_exh (Extend_global_exh _) = {} ∧
-  free_vars_list_exh [] = {} ∧
-  free_vars_list_exh (e::es) = free_vars_exh e ∪ free_vars_list_exh es ∧
-  free_vars_defs_exh [] = {} ∧
-  free_vars_defs_exh ((f,x,e)::ds) = (free_vars_exh e DIFF {x}) ∪ free_vars_defs_exh ds ∧
-  free_vars_pes_exh [] = {} ∧
-  free_vars_pes_exh ((p,e)::pes) = (free_vars_exh e DIFF (set (pat_bindings_exh p []))) ∪ free_vars_pes_exh pes`
-(WF_REL_TAC`inv_image $< (λx. case x of
-  | INL e => exp_exh_size e
-  | INR (INL es) => exp_exh6_size es
-  | INR (INR (INL defs)) => exp_exh1_size defs
-  | INR (INR (INR pes)) => exp_exh3_size pes)`)
-val _ = export_rewrites["free_vars_exh_def"]
-
-val free_vars_pes_exh_MAP = store_thm("free_vars_pes_exh_MAP",
-  ``∀pes. free_vars_pes_exh pes = BIGUNION (set (MAP (λ(p,e). free_vars_exh e DIFF set (pat_bindings_exh p [])) pes))``,
-  Induct >> simp[] >> Cases >> simp[])
-
 val sv_to_exh_sv_rel = store_thm("sv_to_exh_sv_rel",
   ``sv_to_exh exh = sv_rel (v_to_exh exh)``,
   simp[FUN_EQ_THM] >> Cases >> Cases >> rw[sv_rel_def,sv_to_exh_def])

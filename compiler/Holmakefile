@@ -1,4 +1,4 @@
-INCLUDES = .. ../semantics ../bytecode ../lem_lib_stub ../inference
+INCLUDES = .. ../semantics ../bytecode ../lem_lib_stub ../inference ../semantics/proofs
 
 OPTIONS = QUIT_ON_FAILURE
 
@@ -30,7 +30,7 @@ PARENT_HOLHEAP = ../semantics/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 all: $(HOLHEAP)
 
-BARE_THYS = ../semantics/terminationTheory ../bytecode/bytecodeExtraTheory ../inference/infer_tTheory
+BARE_THYS = ../semantics/terminationTheory ../semantics/proofs/evalPropsTheory ../bytecode/bytecodeExtraTheory ../inference/infer_tTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 
 $(HOLHEAP): $(DEPS)

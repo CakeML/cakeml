@@ -10,7 +10,7 @@ TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 
-BARE_THYS = ../bytecode/bytecodeTheory ../bytecode/bytecodeTerminationTheory ../compiler/compilerTerminationTheory ../semantics/proofs/evalPropsTheory
+BARE_THYS = ../bytecode/bytecodeTheory ../bytecode/bytecodeTerminationTheory ../compiler/compilerTerminationTheory ../compiler/free_varsTheory ../semantics/proofs/evalPropsTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)

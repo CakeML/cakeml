@@ -5,36 +5,9 @@ open libTheory astTheory semanticPrimitivesTheory bigStepTheory terminationTheor
 open bigClockTheory;
 open modLangTheory;
 open evalPropsTheory;
-open compilerTerminationTheory;
+open free_varsTheory compilerTerminationTheory;
 
 val _ = new_theory "modLangProof";
-
-val find_recfun_thm = Q.prove (
-`!n funs f x e.
-  (find_recfun n [] = NONE) ∧
-  (find_recfun n ((f,x,e)::funs) =
-    if f = n then SOME (x,e) else find_recfun n funs)`,
-rw [] >>
-rw [Once find_recfun_def]);
-
-val find_recfun_lookup = Q.store_thm ("find_recfun_lookup",
-`!n funs. find_recfun n funs = ALOOKUP funs n`,
- induct_on `funs` >>
- rw [find_recfun_thm] >>
- PairCases_on `h` >>
- rw [find_recfun_thm]);
-
-val pat_bindings_accum = Q.store_thm ("pat_bindings_accum",
-`(!p acc. pat_bindings p acc = pat_bindings p [] ++ acc) ∧
- (!ps acc. pats_bindings ps acc = pats_bindings ps [] ++ acc)`,
- Induct >>
- rw []
- >- rw [pat_bindings_def]
- >- rw [pat_bindings_def]
- >- metis_tac [APPEND_ASSOC, pat_bindings_def]
- >- metis_tac [APPEND_ASSOC, pat_bindings_def]
- >- rw [pat_bindings_def]
- >- metis_tac [APPEND_ASSOC, pat_bindings_def]);
 
 val pmatch_extend = Q.prove (
 `(!cenv s p v env env' env''.
@@ -722,7 +695,7 @@ val do_app_i1 = Q.prove (
      LIST_REL (sv_to_i1 genv) s2 s2_i1 ∧
      result_to_i1 v_to_i1 genv r r_i1 ∧
      do_app_i1 s1_i1 op vs_i1 = SOME (s2_i1, r_i1)`,
- rw [do_app_cases, do_app_i1_def] >>
+ rw [evalPropsTheory.do_app_cases, do_app_i1_def] >>
  fs [v_to_i1_eqns, result_to_i1_cases] >>
  srw_tac [boolSimps.DNF_ss] [] >>
  rw [METIS_PROVE [] ``(!x y. P x y ⇒ Q) ⇔ ((?x y. P x y) ⇒ Q)``, pair_CASES,
