@@ -41,7 +41,8 @@ val _ = Datatype `
            | Error `
 
 val _ = Datatype `
-  call_ref = ValueArray (call_val list)`
+  call_ref = ValueArray (call_val list)
+           | ByteArray (word8 list)`
 
 val _ = Datatype `
   call_state =
@@ -116,6 +117,21 @@ val call_to_string_def = Define `
   (call_to_string ((RefPtr v0) : call_val) = SOME "<ref>") /\
   (call_to_string _ = SOME "<fn>")`;
 
+val call_from_list_def = Define`
+  (call_from_list (Block tag []) =
+     if tag = nil_tag + block_tag then SOME [] else NONE) ∧
+  (call_from_list (Block tag [h;bt]) =
+     if tag = cons_tag + block_tag then
+       (case call_from_list bt of
+        | SOME t => SOME (h::t)
+        | _ => NONE )
+     else NONE) ∧
+  (call_from_list _ = NONE)`
+
+val call_to_list_def = Define`
+  (call_to_list [] = Block (nil_tag + block_tag) []) ∧
+  (call_to_list (h::t) = Block (cons_tag + block_tag) [h;call_to_list t])`
+
 val tEvalOp_def = Define `
   tEvalOp (op:bvl_op) (vs:call_val list) (s:call_state) =
     case (op,vs) of
@@ -134,6 +150,54 @@ val tEvalOp_def = Define `
     | (Cons tag,xs) => SOME (Block tag xs, s)
     | (El n,[Block tag xs]) =>
         if n < LENGTH xs then SOME (EL n xs, s) else NONE
+    | (El2,[Block tag xs;Number i]) =>
+        if 0 ≤ Num i ∧ Num i < LENGTH xs then SOME (EL (Num i) xs, s) else NONE
+    | (LengthBlock,[Block tag xs]) =>
+        SOME (Number (&LENGTH xs), s)
+    | (Length,[RefPtr ptr]) =>
+        (case FLOOKUP s.refs ptr of
+          | SOME (ValueArray xs) =>
+              SOME (Number (&LENGTH xs), s)
+          | _ => NONE)
+    | (LengthByte,[RefPtr ptr]) =>
+        (case FLOOKUP s.refs ptr of
+          | SOME (ByteArray xs) =>
+              SOME (Number (&LENGTH xs), s)
+          | _ => NONE)
+    | (RefByte,[Number i;Number b]) =>
+         if 0 ≤ i ∧ 0 ≤ b ∧ b < 256 then
+           let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
+             SOME (RefPtr ptr, s with refs := s.refs |+
+               (ptr,ByteArray (REPLICATE (Num i) (n2w (Num b)))))
+         else NONE
+    | (Ref2,[Number i;v]) =>
+        if 0 ≤ i then
+          let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
+            SOME (RefPtr ptr, s with refs := s.refs |+
+              (ptr,ValueArray (REPLICATE (Num i) v)))
+         else NONE
+    | (DerefByte,[RefPtr ptr; Number i]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ByteArray ws) =>
+            (if 0 ≤ i ∧ i < &LENGTH ws
+             then SOME (Number (&(w2n (EL (Num i) ws))),s)
+             else NONE)
+         | _ => NONE)
+    | (UpdateByte,[RefPtr ptr; Number i; Number b]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ByteArray bs) =>
+            (if 0 ≤ i ∧ i < &LENGTH bs ∧ 0 ≤ b ∧ b < 256
+             then
+               (SOME (Number b, s with refs := s.refs |+
+                 (ptr, ByteArray (LUPDATE (n2w (Num b)) (Num i) bs))))
+             else NONE)
+         | _ => NONE)
+    | (FromList n,[lv]) =>
+        (case call_from_list lv of
+         | SOME vs => SOME (Block n vs, s)
+         | _ => NONE)
+    | (ToList,[Block tag xs]) =>
+        SOME (call_to_list xs, s)
     | (TagEq n,[Block tag xs]) =>
         SOME (bool_to_val (tag = n),s)
     | (Equal,[x1;x2]) =>

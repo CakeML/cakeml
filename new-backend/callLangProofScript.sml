@@ -132,26 +132,73 @@ val pComp_def = tDefine"pComp"`
   (pComp (App_pat (Op_pat (Op_i2 Ord)) es) =
     if LENGTH es ≠ 1 then Op Sub (MAP pComp es) else pComp (HD es)) ∧
   (pComp (App_pat (Op_pat (Op_i2 Chr)) es) =
-      Let (MAP pComp es)
-        (If (Op Less [Var 0; Op (Const 0) []])
+    Let (MAP pComp es)
+      (If (Op Less [Var 0; Op (Const 0) []])
+        (Raise (Op (Cons (chr_tag+block_tag)) []))
+        (If (Op Less [Op (Const 255) []; Var 0])
           (Raise (Op (Cons (chr_tag+block_tag)) []))
-          (If (Op Less [Op (Const 255) []; Var 0])
-            (Raise (Op (Cons (chr_tag+block_tag)) []))
-            (Var 0)))) ∧
-  (pComp (App_pat (Op_pat (Op_i2 Aw8alloc)) es) = Op Sub (MAP pComp es)) ∧
-  (pComp (App_pat (Op_pat (Op_i2 Aw8sub)) es) = Op Sub (MAP pComp es)) ∧
-  (pComp (App_pat (Op_pat (Op_i2 Aw8length)) es) = Op Sub (MAP pComp es)) ∧
-  (pComp (App_pat (Op_pat (Op_i2 Aw8update)) es) = Op Sub (MAP pComp es)) ∧
-  (pComp (App_pat (Op_pat (Op_i2 Explode)) es) = Op Sub (MAP pComp es)) ∧
-  (pComp (App_pat (Op_pat (Op_i2 Implode)) es) = Op Sub (MAP pComp es)) ∧
-  (pComp (App_pat (Op_pat (Op_i2 Strlen)) es) = Op Sub (MAP pComp es)) ∧
-  (pComp (App_pat (Op_pat (Op_i2 VFromList)) es) = Op Sub (MAP pComp es)) ∧
-  (pComp (App_pat (Op_pat (Op_i2 Vsub)) es) = Op Sub (MAP pComp es)) ∧
-  (pComp (App_pat (Op_pat (Op_i2 Vlength)) es) = Op Sub (MAP pComp es)) ∧
-  (pComp (App_pat (Op_pat (Op_i2 Aalloc)) es) = Op Sub (MAP pComp es)) ∧
-  (pComp (App_pat (Op_pat (Op_i2 Asub)) es) = Op Sub (MAP pComp es)) ∧
-  (pComp (App_pat (Op_pat (Op_i2 Alength)) es) = Op Sub (MAP pComp es)) ∧
-  (pComp (App_pat (Op_pat (Op_i2 Aupdate)) es) = Op Sub (MAP pComp es)) ∧
+          (Var 0)))) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Aw8alloc)) es) =
+    Let (MAP pComp es)
+      (If (Op Less [Var 0; Op (Const 0) []])
+          (Raise (Op (Cons (subscript_tag + block_tag)) []))
+          (Op RefByte [Var 0; Var 1]))) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Aw8sub)) es) =
+    Let (MAP pComp es)
+      (If (Op Less [Var 1; Op (Const 0) []])
+          (Raise (Op (Cons (subscript_tag + block_tag)) []))
+          (If (Op Less [Var 1; Op LengthByte [Var 0]])
+              (Op DerefByte [Var 0; Var 1])
+              (Raise (Op (Cons (subscript_tag + block_tag)) []))))) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Aw8length)) es) =
+    Op LengthByte (MAP pComp es)) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Aw8update)) es) =
+    Let (MAP pComp es)
+      (If (Op Less [Var 1; Op (Const 0) []])
+          (Raise (Op (Cons (subscript_tag + block_tag)) []))
+          (If (Op Less [Var 1; Op LengthByte [Var 0]])
+              (Let [Op UpdateByte [Var 0; Var 1; Var 2]]
+                 (Op (Cons unit_tag) []))
+              (Raise (Op (Cons (subscript_tag + block_tag)) []))))) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Explode)) es) =
+    Op ToList (MAP pComp es)) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Implode)) es) =
+    Op (FromList string_tag) (MAP pComp es)) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Strlen)) es) =
+    Op LengthBlock (MAP pComp es)) ∧
+  (pComp (App_pat (Op_pat (Op_i2 VfromList)) es) =
+    Op (FromList vector_tag) (MAP pComp es)) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Vsub)) es) =
+    Let (MAP pComp es)
+      (If (Op Less [Var 1; Op (Const 0) []])
+          (Raise (Op (Cons (subscript_tag + block_tag)) []))
+          (If (Op Less [Var 1; Op LengthBlock [Var 0]])
+              (Op El2 [Var 0; Var 1])
+              (Raise (Op (Cons (subscript_tag + block_tag)) []))))) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Vlength)) es) =
+    Op LengthBlock (MAP pComp es)) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Aalloc)) es) =
+    Let (MAP pComp es)
+      (If (Op Less [Var 0; Op (Const 0) []])
+          (Raise (Op (Cons (subscript_tag + block_tag)) []))
+          (Op Ref2 [Var 0; Var 1]))) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Asub)) es) =
+    Let (MAP pComp es)
+      (If (Op Less [Var 1; Op (Const 0) []])
+          (Raise (Op (Cons (subscript_tag + block_tag)) []))
+          (If (Op Less [Var 1; Op Length [Var 0]])
+              (Op Deref [Var 0; Var 1])
+              (Raise (Op (Cons (subscript_tag + block_tag)) []))))) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Alength)) es) =
+    Op Length (MAP pComp es)) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Aupdate)) es) =
+    Let (MAP pComp es)
+      (If (Op Less [Var 1; Op (Const 0) []])
+          (Raise (Op (Cons (subscript_tag + block_tag)) []))
+          (If (Op Less [Var 1; Op Length [Var 0]])
+              (Let [Op Update [Var 0; Var 1; Var 2]]
+                 (Op (Cons unit_tag) []))
+              (Raise (Op (Cons (subscript_tag + block_tag)) []))))) ∧
   (pComp (App_pat (Op_pat (Init_global_var_i2 n)) es) =
     Let [Op (SetGlobal n) (MAP pComp es)]
       (Op (Cons unit_tag) [])) ∧
@@ -201,7 +248,8 @@ val _ = export_rewrites["v_to_Cv_def"]
 
 val sv_to_Cref_def = Define`
   (sv_to_Cref (Refv v) = ValueArray [v_to_Cv v]) ∧
-  (sv_to_Cref (Varray vs) = ValueArray (MAP v_to_Cv vs))`
+  (sv_to_Cref (Varray vs) = ValueArray (MAP v_to_Cv vs)) ∧
+  (sv_to_Cref (W8array bs) = ByteArray bs)`
 
 val s_to_Cs_def = Define`
   s_to_Cs (((c,s),g):v_pat count_store_genv) =
@@ -402,10 +450,69 @@ val pComp_correct = store_thm("pComp_correct",
       Cases_on`EL idx s22`>>fs[] >>
       rpt BasicProvers.VAR_EQ_TAC >>
       simp[s_to_Cs_def,LUPDATE_MAP] )
-    >- ( cheat (* w8alloc *) )
-    >- ( cheat (* w8sub *) )
-    >- ( cheat (* w8length *) )
-    >- ( cheat (* w8update *) )
+    >- (
+      simp[tEval_def,ETA_AX,tEvalOp_def,bool_to_val_thm] >>
+      fs[store_alloc_def,LET_THM] >>
+      Cases_on`n<0`>>fs[prim_exn_pat_def] >- rw[] >>
+      `0 ≤ n` by COOPER_TAC >>
+      Q.ISPEC_THEN`w`mp_tac wordsTheory.w2n_lt >>
+      simp[wordsTheory.dimword_8] >> strip_tac >>
+      rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
+      simp[s_to_Cs_def] >>
+      conj_asm1_tac >- (
+        numLib.LEAST_ELIM_TAC >>
+        simp[MEM_MAP,MAP_GENLIST,PULL_EXISTS,MEM_GENLIST] >>
+        qexists_tac`LENGTH s21`>>simp[]>>rw[]>>
+        `¬(LENGTH s21 < LENGTH s21)` by simp[] >>
+        `¬(LENGTH s21 < n')` by metis_tac[] >>
+        DECIDE_TAC ) >>
+      simp[fmap_eq_flookup,FLOOKUP_UPDATE,ALOOKUP_GENLIST] >>
+      rw[] >> simp[EL_APPEND1,EL_LENGTH_APPEND,sv_to_Cref_def] >>
+      metis_tac[INT_ABS_EQ_ID])
+    >- (
+      simp[tEval_def,ETA_AX,tEvalOp_def,bool_to_val_thm] >>
+      fs[store_lookup_def,LET_THM] >>
+      Cases_on`lnum < LENGTH s21`>>fs[] >>
+      Cases_on`i < 0` >> fs[] >- (
+        Cases_on`EL lnum s21`>>fs[]>>
+        rw[prim_exn_pat_def] ) >>
+      simp[s_to_Cs_def,ALOOKUP_GENLIST] >>
+      Cases_on`EL lnum s21`>>fs[sv_to_Cref_def]>>
+      `0 ≤ i` by COOPER_TAC >>
+      `ABS i = i` by metis_tac[INT_ABS_EQ_ID] >> fs[] >>
+      `i < &LENGTH l ⇔ ¬(Num i ≥ LENGTH l)` by COOPER_TAC >> simp[] >>
+      Cases_on`Num i ≥ LENGTH l`>>fs[] >- (
+        rw[s_to_Cs_def,prim_exn_pat_def] ) >>
+      simp[ALOOKUP_GENLIST,sv_to_Cref_def] >>
+      rw[s_to_Cs_def] )
+    >- (
+      simp[tEval_def,ETA_AX,tEvalOp_def] >>
+      fs[store_lookup_def] >>
+      simp[s_to_Cs_def,ALOOKUP_GENLIST] >>
+      Cases_on`n < LENGTH s21`>>fs[]>>
+      Cases_on`EL n s21`>>fs[sv_to_Cref_def] >>
+      rw[s_to_Cs_def] )
+    >- (
+      simp[tEval_def,ETA_AX,tEvalOp_def,bool_to_val_thm] >>
+      fs[store_lookup_def,LET_THM] >>
+      Cases_on`lnum < LENGTH s21`>>fs[] >>
+      Cases_on`i < 0` >> fs[] >- (
+        Cases_on`EL lnum s21`>>fs[]>>
+        rw[prim_exn_pat_def] ) >>
+      simp[s_to_Cs_def,ALOOKUP_GENLIST] >>
+      Cases_on`EL lnum s21`>>fs[sv_to_Cref_def]>>
+      `0 ≤ i` by COOPER_TAC >>
+      `ABS i = i` by metis_tac[INT_ABS_EQ_ID] >> fs[] >>
+      `i < &LENGTH l ⇔ ¬(Num i ≥ LENGTH l)` by COOPER_TAC >> simp[] >>
+      Cases_on`Num i ≥ LENGTH l`>>fs[] >- (
+        rw[s_to_Cs_def,prim_exn_pat_def] ) >>
+      simp[ALOOKUP_GENLIST,sv_to_Cref_def] >>
+      fs[store_assign_def,store_v_same_type_def] >>
+      Q.ISPEC_THEN`w`mp_tac wordsTheory.w2n_lt >>
+      simp[wordsTheory.dimword_8] >> strip_tac >>
+      rw[s_to_Cs_def,fmap_eq_flookup,FLOOKUP_UPDATE] >>
+      simp[ALOOKUP_GENLIST] >>
+      rw[] >> fs[EL_LUPDATE,sv_to_Cref_def])
     >- (
       imp_res_tac evaluate_list_pat_length >> fs[] )
     >- ( Cases_on`es`>>fs[LENGTH_NIL] )
@@ -425,16 +532,88 @@ val pComp_correct = store_thm("pComp_correct",
     >- (
       Cases_on`z`>>fs[tEval_def,ETA_AX,tEvalOp_def,bool_to_tag_thm,opb_lookup_def,bool_to_val_thm] >>
       simp[] >> rw[] >> COOPER_TAC )
-    >- cheat (* explode *)
-    >- cheat (* implode *)
-    >- cheat (* strlen *)
-    >- cheat (* vfromlist *)
-    >- cheat (* vsub *)
-    >- cheat (* vlength *)
-    >- cheat (* aalloc *)
-    >- cheat (* asub *)
-    >- cheat (* alength *)
-    >- cheat (* aupdate *)
+    >- (
+      simp[tEval_def,ETA_AX,tEvalOp_def] >>
+      cheat )
+    >- (
+      simp[tEval_def,ETA_AX,tEvalOp_def] >>
+      cheat )
+    >- ( simp[tEval_def,ETA_AX,tEvalOp_def] )
+    >- (
+      simp[tEval_def,ETA_AX,tEvalOp_def] >>
+      cheat )
+    >- (
+      simp[tEval_def,ETA_AX,tEvalOp_def,bool_to_val_thm] >>
+      Cases_on`i < 0` >> fs[LET_THM] >- (
+        rw[prim_exn_pat_def] ) >>
+      `0 ≤ i` by COOPER_TAC >>
+      `ABS i = i` by metis_tac[INT_ABS_EQ_ID] >> fs[] >>
+      `i < &LENGTH vs' ⇔ ¬(Num i ≥ LENGTH vs')` by COOPER_TAC >> simp[] >>
+      Cases_on`Num i ≥ LENGTH vs'`>>fs[] >- (
+        rw[s_to_Cs_def,prim_exn_pat_def] ) >>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      simp[EL_MAP] )
+    >- ( simp[tEval_def,ETA_AX,tEvalOp_def])
+    >- (
+      simp[tEval_def,ETA_AX,tEvalOp_def,bool_to_val_thm] >>
+      fs[store_alloc_def,LET_THM] >>
+      Cases_on`n<0`>>fs[prim_exn_pat_def] >- rw[] >>
+      `0 ≤ n` by COOPER_TAC >>
+      rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
+      simp[s_to_Cs_def] >>
+      conj_asm1_tac >- (
+        numLib.LEAST_ELIM_TAC >>
+        simp[MEM_MAP,MAP_GENLIST,PULL_EXISTS,MEM_GENLIST] >>
+        qexists_tac`LENGTH s21`>>simp[]>>rw[]>>
+        `¬(LENGTH s21 < LENGTH s21)` by simp[] >>
+        `¬(LENGTH s21 < n')` by metis_tac[] >>
+        DECIDE_TAC ) >>
+      simp[fmap_eq_flookup,FLOOKUP_UPDATE,ALOOKUP_GENLIST] >>
+      rw[] >> simp[EL_APPEND1,EL_LENGTH_APPEND,sv_to_Cref_def] >>
+      simp[REPLICATE_GENLIST,MAP_GENLIST] >>
+      metis_tac[INT_ABS_EQ_ID])
+    >- (
+      simp[tEval_def,ETA_AX,tEvalOp_def,bool_to_val_thm] >>
+      fs[store_lookup_def,LET_THM] >>
+      Cases_on`lnum < LENGTH s21`>>fs[] >>
+      Cases_on`i < 0` >> fs[] >- (
+        Cases_on`EL lnum s21`>>fs[]>>
+        rw[prim_exn_pat_def] ) >>
+      simp[s_to_Cs_def,ALOOKUP_GENLIST] >>
+      Cases_on`EL lnum s21`>>fs[sv_to_Cref_def]>>
+      `0 ≤ i` by COOPER_TAC >>
+      `ABS i = i` by metis_tac[INT_ABS_EQ_ID] >> fs[] >>
+      `i < &LENGTH l ⇔ ¬(Num i ≥ LENGTH l)` by COOPER_TAC >> simp[] >>
+      Cases_on`Num i ≥ LENGTH l`>>fs[] >- (
+        rw[s_to_Cs_def,prim_exn_pat_def] ) >>
+      simp[ALOOKUP_GENLIST,sv_to_Cref_def,EL_MAP] >>
+      rw[s_to_Cs_def] )
+    >- (
+      simp[tEval_def,ETA_AX,tEvalOp_def] >>
+      fs[store_lookup_def] >>
+      simp[s_to_Cs_def,ALOOKUP_GENLIST] >>
+      Cases_on`n < LENGTH s21`>>fs[]>>
+      Cases_on`EL n s21`>>fs[sv_to_Cref_def] >>
+      rw[s_to_Cs_def] )
+    >- (
+      simp[tEval_def,ETA_AX,tEvalOp_def,bool_to_val_thm] >>
+      fs[store_lookup_def,LET_THM] >>
+      Cases_on`lnum < LENGTH s21`>>fs[] >>
+      Cases_on`i < 0` >> fs[] >- (
+        Cases_on`EL lnum s21`>>fs[]>>
+        rw[prim_exn_pat_def] ) >>
+      simp[s_to_Cs_def,ALOOKUP_GENLIST] >>
+      Cases_on`EL lnum s21`>>fs[sv_to_Cref_def]>>
+      `0 ≤ i` by COOPER_TAC >>
+      `ABS i = i` by metis_tac[INT_ABS_EQ_ID] >> fs[] >>
+      `i < &LENGTH l ⇔ ¬(Num i ≥ LENGTH l)` by COOPER_TAC >> simp[] >>
+      Cases_on`Num i ≥ LENGTH l`>>fs[] >- (
+        rw[s_to_Cs_def,prim_exn_pat_def] ) >>
+      simp[ALOOKUP_GENLIST,sv_to_Cref_def] >>
+      fs[store_assign_def,store_v_same_type_def] >>
+      rw[s_to_Cs_def,fmap_eq_flookup,FLOOKUP_UPDATE] >>
+      simp[ALOOKUP_GENLIST] >>
+      rw[] >> fs[EL_LUPDATE,sv_to_Cref_def,LUPDATE_MAP])
     >- (
       simp[tEval_def,ETA_AX,tEvalOp_def,bool_to_val_thm,bool_to_tag_thm] )
     >- ( simp[tEval_def,ETA_AX,tEvalOp_def,EL_MAP] )) >>
