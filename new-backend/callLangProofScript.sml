@@ -77,7 +77,7 @@ val pComp_def = tDefine"pComp"`
   (pComp (Fun_pat e) =
     Fn (pComp e)) ∧
   (pComp (App_pat (Op_pat (Op_i2 Opapp)) es) =
-    if LENGTH es ≠ 2 then Var 0 else
+    if LENGTH es ≠ 2 then Op Sub (MAP pComp es) else
     App (pComp (EL 0 es)) (pComp (EL 1 es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Opn Plus))) es) =
     Op Add (MAP pComp es)) ∧
@@ -106,6 +106,17 @@ val pComp_def = tDefine"pComp"`
   (pComp (App_pat (Op_pat (Op_i2 (Opb Geq))) es) =
     Let (MAP pComp es)
       (Op Less [Op Sub [Var 1; Var 0]; Op (Const 1) []])) ∧
+  (pComp (App_pat (Op_pat (Op_i2 (Chopb Lt))) es) =
+    Op Less (MAP pComp es)) ∧
+  (pComp (App_pat (Op_pat (Op_i2 (Chopb Gt))) es) =
+    Let (MAP pComp es)
+      (Op Less [Var 1; Var 0])) ∧
+  (pComp (App_pat (Op_pat (Op_i2 (Chopb Leq))) es) =
+    Let [Op Sub (MAP pComp es)]
+      (Op Less [Var 0; Op (Const 1) []])) ∧
+  (pComp (App_pat (Op_pat (Op_i2 (Chopb Geq))) es) =
+    Let (MAP pComp es)
+      (Op Less [Op Sub [Var 1; Var 0]; Op (Const 1) []])) ∧
   (pComp (App_pat (Op_pat (Op_i2 Equality)) es) =
     Let [Op Equal (MAP pComp es)]
       (If (Op IsBlock [Var 0]) (Var 0)
@@ -119,7 +130,7 @@ val pComp_def = tDefine"pComp"`
   (pComp (App_pat (Op_pat (Op_i2 Opref)) es) =
     Op Ref (MAP pComp es)) ∧
   (pComp (App_pat (Op_pat (Op_i2 Ord)) es) =
-    if LENGTH es ≠ 1 then Var 0 else pComp (HD es)) ∧
+    if LENGTH es ≠ 1 then Op Sub (MAP pComp es) else pComp (HD es)) ∧
   (pComp (App_pat (Op_pat (Op_i2 Chr)) es) =
       Let (MAP pComp es)
         (If (Op Less [Var 0; Op (Const 0) []])
@@ -127,7 +138,20 @@ val pComp_def = tDefine"pComp"`
           (If (Op Less [Op (Const 255) []; Var 0])
             (Raise (Op (Cons (chr_tag+block_tag)) []))
             (Var 0)))) ∧
-  (* TODO: rest *)
+  (pComp (App_pat (Op_pat (Op_i2 Aw8alloc)) es) = Op Sub (MAP pComp es)) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Aw8sub)) es) = Op Sub (MAP pComp es)) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Aw8length)) es) = Op Sub (MAP pComp es)) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Aw8update)) es) = Op Sub (MAP pComp es)) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Explode)) es) = Op Sub (MAP pComp es)) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Implode)) es) = Op Sub (MAP pComp es)) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Strlen)) es) = Op Sub (MAP pComp es)) ∧
+  (pComp (App_pat (Op_pat (Op_i2 VFromList)) es) = Op Sub (MAP pComp es)) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Vsub)) es) = Op Sub (MAP pComp es)) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Vlength)) es) = Op Sub (MAP pComp es)) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Aalloc)) es) = Op Sub (MAP pComp es)) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Asub)) es) = Op Sub (MAP pComp es)) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Alength)) es) = Op Sub (MAP pComp es)) ∧
+  (pComp (App_pat (Op_pat (Op_i2 Aupdate)) es) = Op Sub (MAP pComp es)) ∧
   (pComp (App_pat (Op_pat (Init_global_var_i2 n)) es) =
     Let [Op (SetGlobal n) (MAP pComp es)]
       (Op (Cons unit_tag) [])) ∧
@@ -151,7 +175,9 @@ val pComp_def = tDefine"pComp"`
      rpt conj_tac >> rpt gen_tac >>
      Induct_on`es` >> simp[exp_pat_size_def] >>
      rw[] >> res_tac >> fs[] >> simp[exp_pat_size_def] >>
-     Cases_on`es`>>fs[LENGTH_NIL,exp_pat_size_def] >> simp[])
+     Cases_on`es`>>fs[LENGTH_NIL,exp_pat_size_def] >> simp[] >>
+     Cases_on`t`>>fs[exp_pat_size_def] >> rw[] >> simp[]>>
+     Cases_on`t'`>>fs[exp_pat_size_def] >> rw[] >> simp[])
 val _ = export_rewrites["pComp_def"]
 
 val v_to_Cv_def = tDefine"v_to_Cv"`
@@ -376,10 +402,10 @@ val pComp_correct = store_thm("pComp_correct",
       Cases_on`EL idx s22`>>fs[] >>
       rpt BasicProvers.VAR_EQ_TAC >>
       simp[s_to_Cs_def,LUPDATE_MAP] )
-    >- ( cheat (* w8 *) )
-    >- ( cheat (* w8 *) )
-    >- ( cheat (* w8 *) )
-    >- ( cheat (* w8 *) )
+    >- ( cheat (* w8alloc *) )
+    >- ( cheat (* w8sub *) )
+    >- ( cheat (* w8length *) )
+    >- ( cheat (* w8update *) )
     >- (
       imp_res_tac evaluate_list_pat_length >> fs[] )
     >- ( Cases_on`es`>>fs[LENGTH_NIL] )
@@ -396,7 +422,9 @@ val pComp_correct = store_thm("pComp_correct",
       `Num n < 256` by COOPER_TAC >>
       `0 ≤ n` by COOPER_TAC >>
       simp[ORD_CHR,INT_OF_NUM])
-    >- cheat (* chopb *)
+    >- (
+      Cases_on`z`>>fs[tEval_def,ETA_AX,tEvalOp_def,bool_to_tag_thm,opb_lookup_def,bool_to_val_thm] >>
+      simp[] >> rw[] >> COOPER_TAC )
     >- cheat (* explode *)
     >- cheat (* implode *)
     >- cheat (* strlen *)
@@ -418,8 +446,22 @@ val pComp_correct = store_thm("pComp_correct",
     Cases_on`o'`>>simp[tEval_def,ETA_AX] >>
     TRY( Cases_on`err`>>fs[] >> NO_TAC) >>
     Cases_on`o''`>>simp[tEval_def,ETA_AX] >>
+    rw[tEval_def] >>
     TRY( Cases_on`err`>>fs[] >> NO_TAC) >>
-    cheat ) >>
+    TRY(Cases_on`o'`>>simp[tEval_def,ETA_AX] >>
+        Cases_on`err`>>fs[] >> NO_TAC) >>
+    TRY(
+      CHANGED_TAC(REWRITE_TAC[GSYM SNOC_APPEND]) >>
+      simp[Once tEval_SNOC] >>
+      Cases_on`err`>>fs[] >> NO_TAC) >>
+    Cases_on`es`>>fs[LENGTH_NIL] >>
+    Cases_on`t`>>fs[LENGTH_NIL] >>
+    TRY(CHANGED_TAC(fs[Once tEval_CONS]) >>
+        BasicProvers.CASE_TAC>>fs[]>>Cases_on`q`>>fs[tEval_def]>>rw[]>>
+        Cases_on`err`>>fs[]>>
+        BasicProvers.CASE_TAC>>fs[]>>Cases_on`q`>>fs[tEval_def]>>
+        NO_TAC) >>
+    Cases_on`err`>>fs[]) >>
   strip_tac >- (
     simp[tEval_def] >>
     rw[] >>
