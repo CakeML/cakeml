@@ -292,6 +292,34 @@ val do_eq_pat_call_equal = store_thm("do_eq_pat_call_equal",
   rw[]>>fs[]>>
   BasicProvers.CASE_TAC>>fs[])
 
+val call_to_list_correct = store_thm("call_to_list_correct",
+  ``∀ls. call_to_list (MAP (Number o $& o ORD) ls) =
+         v_to_Cv (char_list_to_v_pat ls)``,
+  Induct >> simp[call_to_list_def,char_list_to_v_pat_def])
+
+val call_from_char_list_correct = store_thm("call_from_char_list_correct",
+  ``∀v ls. (v_pat_to_char_list v = SOME ls) ⇒
+           (call_from_list (v_to_Cv v) = SOME (MAP (Number o $& o ORD) ls))``,
+  ho_match_mp_tac v_pat_to_char_list_ind >>
+  simp[v_pat_to_char_list_def,call_from_list_def] >>
+  rw[] >>
+  Cases_on`v`>>fs[v_pat_to_char_list_def] >>
+  Cases_on`l`>>fs[v_pat_to_char_list_def,call_from_list_def] >>
+  rw[]>>fs[]>>
+  Cases_on`h`>>fs[v_pat_to_char_list_def,call_from_list_def] >>
+  Cases_on`l`>>fs[v_pat_to_char_list_def,call_from_list_def] >>
+  Cases_on`t`>>fs[v_pat_to_char_list_def,call_from_list_def] >>
+  Cases_on`t'`>>fs[v_pat_to_char_list_def,call_from_list_def] >>
+  rw[]>>fs[]>>
+  Cases_on`v_pat_to_char_list h`>>fs[]>> rw[])
+
+val call_from_list_correct = store_thm("call_from_list_correct",
+  ``∀v ls. (v_to_list_pat v = SOME ls) ⇒
+           (call_from_list (v_to_Cv v) = SOME (MAP v_to_Cv ls))``,
+  ho_match_mp_tac v_to_list_pat_ind >>
+  simp[v_to_list_pat_def,call_from_list_def] >>
+  rw[] >> Cases_on`v_to_list_pat v`>>fs[]>> rw[])
+
 val pComp_correct = store_thm("pComp_correct",
   ``(∀ck env s e res. evaluate_pat ck env s e res ⇒
        ck ∧
@@ -534,14 +562,16 @@ val pComp_correct = store_thm("pComp_correct",
       simp[] >> rw[] >> COOPER_TAC )
     >- (
       simp[tEval_def,ETA_AX,tEvalOp_def] >>
-      cheat )
+      simp[call_to_list_correct,IMPLODE_EXPLODE_I])
     >- (
       simp[tEval_def,ETA_AX,tEvalOp_def] >>
-      cheat )
+      imp_res_tac call_from_char_list_correct >>
+      simp[IMPLODE_EXPLODE_I])
     >- ( simp[tEval_def,ETA_AX,tEvalOp_def] )
     >- (
       simp[tEval_def,ETA_AX,tEvalOp_def] >>
-      cheat )
+      imp_res_tac call_from_list_correct >>
+      simp[])
     >- (
       simp[tEval_def,ETA_AX,tEvalOp_def,bool_to_val_thm] >>
       Cases_on`i < 0` >> fs[LET_THM] >- (
