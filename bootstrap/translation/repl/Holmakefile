@@ -1,4 +1,4 @@
-INCLUDES = ../../.. ../compiler ../../../repl ../../../compiler/proofs
+INCLUDES = ../../.. ../compiler ../../../repl
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
@@ -15,7 +15,7 @@ BARE_THYS = ../compiler/compilerSideTheory \
             ../../../parsing/cmlParseTheory \
             ../../../inference/inferTheory \
             ../../../repl/repl_funTheory \
-            ../../../compiler/proofs/compute_free_varsLib
+            ../../../compiler/compute_compilerLib
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 

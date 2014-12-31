@@ -1,6 +1,4 @@
-open HolKernel boolLib bossLib compute_free_varsLib
-(* TODO: separate out compute_free_varsLib for source AST, so this directory
-         doesn't have to depend on the compiler proofs *)
+open HolKernel boolLib bossLib compute_compilerLib
 val _ = new_theory"closedRepl"
 
 val _ = max_print_depth := 10;
