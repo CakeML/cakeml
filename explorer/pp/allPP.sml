@@ -2,7 +2,7 @@ structure allPP = struct local
 open astPP modPP conPP exhPP patPP intPP miscPP
 open preamble
 open HolKernel boolLib bossLib Parse
-open compute_basicLib compute_parsingLib compute_compilerLib compute_inferenceLib compute_semanticsLib compute_bytecodeLib compute_free_varsLib compute_x64Lib
+open compute_basicLib compute_parsingLib compute_compilerLib compute_inferenceLib compute_semanticsLib compute_bytecodeLib compute_x64Lib
 open lexer_implTheory
 open initialProgramTheory initCompEnvTheory
 open progToBytecodeTheory
