@@ -19,9 +19,9 @@ val _ = Datatype `
            | Handle clos_exp clos_exp
            | Tick clos_exp
            | Call num (clos_exp list)
-           | App clos_exp clos_exp
-           | Fn (num list) clos_exp
-           | Letrec (num list) (clos_exp list) clos_exp
+           | App (num option) clos_exp clos_exp
+           | Fn num (num list) clos_exp
+           | Letrec num (num list) (clos_exp list) clos_exp
            | Op bvl_op (clos_exp list) `
 
 (* --- Semantics of ClosLang --- *)
@@ -31,8 +31,8 @@ val _ = Datatype `
     Number int
   | Block num (clos_val list)
   | RefPtr num
-  | Closure (clos_val list) clos_exp
-  | Recclosure (clos_val list) (clos_exp list) num`
+  | Closure num (clos_val list) clos_exp
+  | Recclosure num (clos_val list) (clos_exp list) num`
 
 val _ = Datatype `
   clos_res = Result 'a
@@ -224,21 +224,26 @@ val lookup_vars_def = Define `
        | NONE => NONE
      else NONE)`
 
+val check_loc_opt_def = Define `
+  (check_loc NONE loc = T) /\
+  (check_loc (SOME p) loc = (p = loc))`;
+
 val dest_closure_def = Define `
-  dest_closure f x =
+  dest_closure loc_opt f x =
     case f of
-    | Closure env exp => SOME (exp,x::env)
-    | Recclosure env fns i =>
-        (if LENGTH fns <= i then NONE else
+    | Closure loc env exp =>
+        if check_loc loc_opt loc then SOME (exp,x::env) else NONE
+    | Recclosure loc env fns i =>
+        (if LENGTH fns <= i \/ ~(check_loc loc_opt (loc+i)) then NONE else
            let exp = EL i fns in
-           let rs = GENLIST (Recclosure env fns) (LENGTH fns) in
+           let rs = GENLIST (Recclosure loc env fns) (LENGTH fns) in
              SOME (exp,x::rs++env))
     | _ => NONE`;
 
 val build_recc_def = Define `
-  build_recc env names fns =
+  build_recc loc env names fns =
     case lookup_vars names env of
-    | SOME env1 => SOME (GENLIST (Recclosure env1 fns) (LENGTH fns))
+    | SOME env1 => SOME (GENLIST (Recclosure loc env1 fns) (LENGTH fns))
     | NONE => NONE`
 
 val cEval_def = tDefine "cEval" `
@@ -277,20 +282,20 @@ val cEval_def = tDefine "cEval" `
                           | NONE => (Error,s)
                           | SOME (v,s) => (Result [v],s))
      | res => res) /\
-  (cEval ([Fn vs exp],env,s) =
+  (cEval ([Fn loc vs exp],env,s) =
      case lookup_vars vs env of
      | NONE => (Error,s)
-     | SOME env' => (Result [Closure env' exp], s)) /\
-  (cEval ([Letrec names fns exp],env,s) =
-     case build_recc env names fns of
+     | SOME env' => (Result [Closure loc env' exp], s)) /\
+  (cEval ([Letrec loc names fns exp],env,s) =
+     case build_recc loc env names fns of
      | NONE => (Error,s)
      | SOME rs => cEval ([exp],rs ++ env,s)) /\
-  (cEval ([App x1 x2],env,s) =
+  (cEval ([App loc_opt x1 x2],env,s) =
      case cEval ([x1],env,s) of
      | (Result y1,s1) =>
          (case cEval ([x2],env,check_clock s1 s) of
           | (Result y2,s2) =>
-             (case dest_closure (HD y1) (HD y2) of
+             (case dest_closure loc_opt (HD y1) (HD y2) of
               | NONE => (Error,s2)
               | SOME (exp,env1) =>
                   if (s2.clock = 0) \/ (s1.clock = 0) \/ (s.clock = 0)
