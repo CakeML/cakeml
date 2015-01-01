@@ -10,7 +10,7 @@ val _ = new_theory "word_proc";
 (*TODO: Rework this file into preliminary definitions (and simple helpers) 
   for word_lang transformations
   
-  The transformation passes should be moved out
+  The transformation passes should be moved out (deleted after SSA is done)
   *)
 
 (*Variable conventions of wordLang*)
@@ -183,8 +183,74 @@ val every_var_def = Define `
   (every_var P Tick = T) ∧
   (every_var P (Set n exp) = every_var_exp P exp) ∧ 
   (every_var P p = T)`
-(*We'll use this to define (part of) the conventions*)
 
+
+(*Recursor for stack variables
+  TODO: Check whether this is necessary
+*)
+val every_stack_var_def = Define `
+  (every_stack_var P (Call ret dest args h) =
+    (case ret of 
+      NONE => T
+    | SOME (v,cutset,ret_handler) => 
+      (∀x. x ∈ domain cutset ⇒ P x) ∧ 
+      every_stack_var P ret_handler ∧
+    (case h of  (*Does not check the case where Calls are ill-formed*)
+      NONE => T
+    | SOME (v,prog) =>
+      every_stack_var P prog))) ∧ 
+  (every_stack_var P (Alloc num numset) =
+    (∀x. x ∈ domain numset ⇒ P x)) ∧ 
+  (every_stack_var P (Seq s1 s2) = 
+    (every_stack_var P s1 ∧ every_stack_var P s2)) ∧
+  (every_stack_var P (If e1 num e2 e3) = 
+    (every_stack_var P e1 ∧ every_stack_var P e2 ∧ every_stack_var P e3)) ∧ 
+  (every_stack_var P p = T)`
+
+(*Probably needs the restriction that
+  return location and call locations are 0*)
+val call_arg_convention_def = Define`
+  (call_arg_convention (Call ret dest args h) =
+    (args = GENLIST (\x.2*x) (LENGTH args) ∧ 
+    (case ret of 
+      NONE => T
+    | SOME (v,cutset,ret_handler) => 
+      call_arg_convention ret_handler ∧
+    (case h of  (*Does not check the case where Calls are ill-formed*)
+      NONE => T
+    | SOME (v,prog) =>
+      call_arg_convention prog)))) ∧ 
+  (call_arg_convention (Seq s1 s2) = 
+    (call_arg_convention s1 ∧ call_arg_convention s2)) ∧
+  (call_arg_convention (If e1 num e2 e3) = 
+    (call_arg_convention e1 ∧ call_arg_convention e2 ∧ 
+     call_arg_convention e3)) ∧ 
+  (call_arg_convention p = T)`
+
+
+(*Flow of calling conventions:
+
+Input -- Any wordLang program
+⇒ 
+SSA -- Every stack location satisfies is_stack_var and Calls have args 0 ..
+These will be called pre_alloc_conventions
+⇒ 
+RegAlloc k -- Every location satisfies is_phy_var, stack locations satisfy is_stack_var and ≥ 2*k and Calls have args 0 ...
+These will be called post_alloc_conventions
+
+*)
+
+val pre_alloc_conventions_def = Define`
+  pre_alloc_conventions p =
+    (every_stack_var is_stack_var p ∧ 
+    call_arg_convention p)`
+
+val post_alloc_conventions_def = Define`
+  post_alloc_conventions k prog =
+    (every_var is_phy_var prog ∧ 
+    every_stack_var (λx. x ≥ 2*k) prog ∧ 
+    call_arg_convention prog)`     
+    
 (*Find a value that is larger than everything else
   For SSA, we will make it 4*n+1
   For stack locations we will make it 4*n+3

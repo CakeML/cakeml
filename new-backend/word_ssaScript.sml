@@ -2,7 +2,6 @@ open HolKernel Parse boolLib bossLib miscLib
 open listTheory sptreeTheory pred_setTheory pairTheory
 open alistTheory BasicProvers sortingTheory miscTheory
 open word_langTheory word_lemmasTheory word_procTheory word_liveTheory
-open monadsyntax state_transformerTheory
 
 val _ = new_theory "word_ssa";
 
@@ -21,20 +20,14 @@ val _ = new_theory "word_ssa";
   Properties that should be proved:
   1) Every Alloc/Call cutsets only contain stack variables
   2) Every Call uses args [0;2;4...]
-  3) Correctness theorem w.r.t. to the monad
+  3) Correctness theorem 
 *)
-val _ = Hol_datatype `
-  ssa_state = <| 
-                ssa_map :num num_map;
-                next_stack : num;
-                next_alloc : num
-             |>`
 
 (*If it's in the map then lookup the map else dont remap*)
 val option_lookup_def = Define`
   option_lookup t v = case lookup v t of NONE => v | SOME x => x`
 
-(*Consistently sets up the next variable rename for v*)
+(*Consistently sets up the next alloc variable rename for v*)
 val next_var_rename_def = Define`
   next_var_rename v ssa (na:num) = (na,insert v na ssa,na+4)`
 
@@ -46,42 +39,13 @@ val list_next_var_rename_def = Define`
     let (ys,ssa'',na'') = list_next_var_rename xs ssa' na' in
       (y::ys,ssa'',na''))`
 
-(*Returns renaming under the ssa map for v*)
-val cur_var_rename_def = Define`
-  cur_var_rename v =
-  λs. (return (option_lookup s.ssa_map v)) s`
-
-val get_next_alloc_def = Define`
-  get_next_alloc = λs. (s.next_alloc, s with next_alloc := s.next_alloc+4)`
-
-val update_ssa_map_def = Define`
-  update_ssa_map v v' = λs.((), s with ssa_map:= insert v v' s.ssa_map)`
-
-val get_next_stack_def = Define`
-  get_next_stack = λs. (s.next_stack, s with next_stack := s.next_stack+4)`
-
-val get_n_next_stack_def = Define`
-  (get_n_next_stack (0:num) = λs. (return []) s) ∧ 
-  (get_n_next_stack (SUC n) =
-  do
-    v <- get_next_stack;
-    vs <- get_n_next_stack n;
-    return (v::vs)
-  od)`
-
-val get_ssa_map_def = Define`
-  get_ssa_map = λs. (return s.ssa_map) s`
-
-val set_ssa_map_def = Define`
-  set_ssa_map ssa_map = λs. ((), s with ssa_map:=ssa_map)`
-
-val force_ssa_insert_def = Define`
-  force_ssa_insert v v' = λs.((), s with ssa_map:=insert v v' s.ssa_map)`
-
-(*not really correct, just for testing: the easiest way is to find something greater than every var
-  mentioned in the program, then use 4n+3 and 4n+1*)
-val init_ssa_state_def = Define`
-  init_ssa_state = <| ssa_map := LN ; next_stack:=103; next_alloc:=101 |>`
+val list_next_stack_rename_def = Define`
+  (list_next_stack_rename [] (ns:num) = ([],ns)) ∧
+  (list_next_stack_rename (x::xs) ns =
+    (*Write this way to make it ascending, can also use acc passing*)
+    let (y,ns') = (ns,ns+4) in
+    let (ys,ns'') = list_next_stack_rename xs ns' in
+      (y::ys,ns''))`
 
 (*Whenever we have 2 branches, we need to make them consistent at their join positions
   This is an approximation of phi functions
@@ -203,96 +167,173 @@ val ssa_cc_trans_def = Define`
     let ls = toAList ssa2 in
     let (e2_cons,e3_cons,ssa_fin,na_fin) = 
       fix_inconsistencies ls ssa3 na3 in
-    (If e1' num' (Seq e2' e2_cons) (Seq e3' e3_cons),ssa_fin,na_fin,ns3))`
-  (*Done till here*)
+    (If e1' num' (Seq e2' e2_cons) (Seq e3' e3_cons),ssa_fin,na_fin,ns3)) ∧ 
   (ssa_cc_trans (Alloc num numset) ssa na ns = 
-    let num' = option_lookup ssa  num;
-      names <- mapM cur_var_rename (MAP FST (toAList numset));
-      (*move all names into stack locations*)
-      stack_names <- get_n_next_stack (LENGTH names);
-      stack_set <- return (numset_list_insert stack_names LN);
-      (*then move the stack vars into new ssa locations 
-        for their ORIGIINAL names*)
-      ren_names <- mapM next_var_rename names;
-      return 
-        (Seq (Move (ZIP (stack_names,names))) 
-        (Seq (Alloc num' stack_set)
-        (Move (ZIP (ren_names,stack_names)))))
-    od) ∧ 
-  (ssa_cc_trans (Raise num) =
-    do
-      num' <- cur_var_rename num;
-      return (Raise num')
-    od) ∧ 
-  (ssa_cc_trans (Return num) =
-    do
-      num' <- cur_var_rename num;
-      return (Return num')
-    od) ∧ 
-  (ssa_cc_trans Tick = return Tick) ∧ 
-  (ssa_cc_trans (Set n exp) = 
-    do
-      ssa_map <- get_ssa_map;
-      exp' <- return (ssa_cc_trans_exp ssa_map exp);
-      return (Set n exp')
-    od) ∧  
+    let num' = option_lookup ssa num in 
+    let ls = MAP FST (toAList numset) in
+    let cur_ls = MAP (option_lookup ssa) ls in
+    let (stack_ls,ns') = list_next_stack_rename cur_ls ns in 
+    let stack_set = numset_list_insert stack_ls LN in
+    let (ren_ls,ssa',na') = list_next_var_rename ls ssa na in
+    let prog = (Seq (Move (ZIP (stack_ls,cur_ls))) 
+               (Seq (Alloc num' stack_set)
+               (Move (ZIP (ren_ls,stack_ls))))) in
+    (prog,ssa',na',ns')) ∧ 
+  (ssa_cc_trans (Raise num) ssa na ns =
+    let num' = option_lookup ssa num in
+    (Raise num',ssa,na,ns)) ∧ 
+  (ssa_cc_trans (Return num) ssa na ns =
+    let num' = option_lookup ssa num in
+    (Return num',ssa,na,ns)) ∧ 
+  (ssa_cc_trans Tick ssa na ns = (Tick,ssa,na,ns)) ∧ 
+  (ssa_cc_trans (Set n exp) ssa na ns = 
+    let exp' = ssa_cc_trans_exp ssa exp in
+    (Set n exp',ssa,na,ns)) ∧ 
   (*I think it may be easier to split Calls at the top level into 3 different cases
     because they have different control flow properties:
     1) Tail calls ⇒ just need to rename args, handler should be NONE..
     2) No handler ⇒ add a renamer to the returning handler to fixup the cutsets
     3) Handler ⇒ most complex, we will need renamers in both cases and THEN a consistency rename after
   *)
-  (ssa_cc_trans (Call ret dest args h) =
-    do
-      (*args*)
-      names <- mapM cur_var_rename args;
-      conv_args <- return (even_list (LENGTH names));
-      move_args <- return (Move (ZIP (conv_args,args)));
+  (ssa_cc_trans (Call ret dest args h) ssa na ns =
+    let names = MAP (option_lookup ssa) args in 
+    let conv_args = even_list (LENGTH names) in
+    let move_args = (Move (ZIP (conv_args,args))) in
       (case ret of 
         NONE =>
-        return
-          (Seq move_args (Call NONE dest conv_args h))
+          (Seq move_args (Call NONE dest conv_args h),ssa,na,ns)
       | SOME (ret,numset,ret_handler) => 
-        do
-          (*Returning cutset*)
-          names <- mapM cur_var_rename (MAP FST (toAList numset));
-          (*move all names into stack locations*)
-          stack_names <- get_n_next_stack (LENGTH names);
-          stack_set <- return (numset_list_insert stack_names LN);
-          (*fresh names for cutset variables*)
-          ren_names <- mapM next_var_rename names;
-          move_cutset <- return (Move (ZIP (stack_names,names)));
-          restore_cutset <- return (Move (ZIP (ren_names,stack_names)));
-          ssa_map_pre <- get_ssa_map; (*Keep a copy before branch*) 
-          ret' <- next_var_rename ret;
-          ren_ret_handler <- ssa_cc_trans ret_handler;
-          mov_ret_handler <- return 
-            (Seq restore_cutset (Seq (Move[ret',0]) (ren_ret_handler)));  (*order is important*)
+          let ls = MAP FST (toAList numset) in
+          let cur_ls = MAP (option_lookup ssa) ls in
+          let (stack_ls,ns_1) = list_next_stack_rename cur_ls ns in 
+          let stack_set = numset_list_insert stack_ls LN in
+          let (ren_ls,ssa_1,na_1) = list_next_var_rename ls ssa na in
+          let move_cutset = Move (ZIP (stack_ls,cur_ls)) in
+          let restore_cutset = Move (ZIP (ren_ls,stack_ls)) in
+          (*ssa_1 is before branching*)
+          let (ret',ssa_2_p,na_2_p) = next_var_rename ret ssa_1 na_1 in
+          let (ren_ret_handler,ssa_2,na_2,ns_2) = 
+            (ssa_cc_trans ret_handler ssa_2_p na_2_p ns_1) in
+          let mov_ret_handler = 
+            (Seq restore_cutset (Seq (Move[ret',0]) (ren_ret_handler))) in
           (case h of
             NONE =>
-            return
-              (Seq move_args
-              (Seq move_cutset
-              (Call (SOME(0,stack_set,mov_ret_handler)) dest conv_args NONE)))
+            let prog = 
+              (Seq move_args (Seq move_cutset
+              (Call (SOME(0,stack_set,mov_ret_handler)) 
+                dest conv_args NONE))) in
+            (prog,ssa_2,na_2,ns_2)
           | SOME(n,h) => 
-            do
-              ssa_map_post <- get_ssa_map; (*Keep a copy of the ret ssa map*)
-              set_ssa_map ssa_map_pre; (*Restore to the original ssa_map*)
-              n' <- next_var_rename n;
-              ren_exc_handler <- ssa_cc_trans h;
-              mov_exc_handler <- return
-                (Seq restore_cutset (Seq(Move[n',0]) (ren_exc_handler)));
-              ls <- return (toAList ssa_map_post);
-              (ret_cons,exc_cons) <- fix_inconsistencies ls;
-              cons_ret_handler <- return (Seq mov_ret_handler ret_cons);
-              cons_exc_handler <- return (Seq mov_exc_handler exc_cons);
-              return
-                (Seq move_args
-                (Seq move_cutset
-                (Call (SOME(0,stack_set,cons_ret_handler)) dest conv_args (SOME(0,cons_exc_handler)))))
-            od)
-        od)
-    od)` 
+            let (n',ssa_3_p,na_3_p) = next_var_rename n ssa_1 na_2 in
+            let (ren_exc_handler,ssa_3,na_3,ns_3) =
+              (ssa_cc_trans h ssa_3_p na_3_p ns_2) in
+            let mov_exc_handler = 
+              (Seq restore_cutset (Seq(Move[n',0]) (ren_exc_handler))) in
+            let ls = toAList ssa_2 in
+            let (ret_cons,exc_cons,ssa_fin,na_fin) = 
+              fix_inconsistencies ls ssa_3 na_3 in
+            let cons_ret_handler = Seq mov_ret_handler ret_cons in
+            let cons_exc_handler = Seq mov_exc_handler exc_cons in
+            let prog = 
+              (Seq move_args (Seq move_cutset
+              (Call (SOME(0,stack_set,cons_ret_handler))
+               dest conv_args (SOME(0,cons_exc_handler))))) in
+            (prog,ssa_fin,na_fin,ns_3))))` 
+
+val fix_inconsistencies_no_call = prove(``
+  ∀ls ssa na a b c d.
+  fix_inconsistencies ls ssa na = (a,b,c,d) ⇒ 
+  every_stack_var is_stack_var a ∧ 
+  every_stack_var is_stack_var b ∧ 
+  call_arg_convention a ∧
+  call_arg_convention b``,
+  Induct>>
+  fs[fix_inconsistencies_def,call_arg_convention_def,every_stack_var_def]>>rw[]>>
+  Cases_on`h`>>fs[fix_inconsistencies_def]>>
+  first_x_assum(qspecl_then[`ssa`,`na`] assume_tac)>>
+  Cases_on`fix_inconsistencies ls ssa na`>>fs[]>>
+  PairCases_on`r'`>>fs[LET_THM]>>
+  EVERY_CASE_TAC>>fs[next_var_rename_def,call_arg_convention_def]>>
+  pop_assum kall_tac>>rpt (pop_assum (SUBST1_TAC o SYM)>>fs[call_arg_convention_def,every_stack_var_def]))
+
+val list_next_stack_rename_stack_vars = prove(``
+  ∀(ls:num list) ns.
+  is_stack_var ns ⇒ 
+  let (ls',ns') = list_next_stack_rename ls ns in
+  is_stack_var ns' ∧
+  (*TODO:
+  ns ≤ ns' ∧
+  ALL_DISTINCT ls' probably need to prove these for correctness later*)  
+  EVERY is_stack_var ls'``,
+  Induct>>fs[list_next_stack_rename_def,LET_THM]>>rw[]>>
+  `is_stack_var (ns+4)` by 
+    (fs[is_stack_var_def]>>
+    cheat)>>
+  res_tac>>
+  Cases_on`list_next_stack_rename ls (ns+4)`>>fs[])
+  
+val ssa_cc_trans_pre_alloc_conventions = store_thm("ssa_cc_trans_pre_alloc_conventions",
+``∀prog ssa na ns.
+  is_stack_var ns ⇒  
+  let (prog',ssa',na',ns') = ssa_cc_trans prog ssa na ns in
+  pre_alloc_conventions prog' ∧ 
+  is_stack_var ns'``,
+  completeInduct_on`word_prog_size (K 0) prog`>>
+  rpt strip_tac>>
+  fs[PULL_FORALL,LET_THM,LAMBDA_PROD]>>
+  Cases_on`prog`>>
+  TRY(fs[ssa_cc_trans_def,pre_alloc_conventions_def,every_stack_var_def,call_arg_convention_def,LET_THM,UNCURRY]>>rw[]>>NO_TAC)>>
+  fs[ssa_cc_trans_def,pre_alloc_conventions_def]>>rw[]>>
+  fs[call_arg_convention_def,every_stack_var_def]
+  >-
+  (EVERY_CASE_TAC>>
+  TRY(fs[every_stack_var_def,Abbr`move_args`,call_arg_convention_def
+      ,Abbr`conv_args`]>>NO_TAC)>>
+  rw[]>>
+  imp_res_tac list_next_stack_rename_stack_vars>>
+  pop_assum(qspec_then`cur_ls` assume_tac)>>
+  rfs[LET_THM]
+  >-
+    (unabbrev_all_tac>>fs[call_arg_convention_def,every_stack_var_def]>>
+    first_x_assum(qspecl_then[`r'`,`ssa_2_p`,`na_2_p`,`ns_1`] mp_tac)>>
+    discharge_hyps>-(fs[word_prog_size_def]>>DECIDE_TAC)>>
+    discharge_hyps>-fs[]>>rw[]>>
+    fs[domain_numset_list_insert,EVERY_MEM])
+  >>
+    unabbrev_all_tac>>fs[call_arg_convention_def,every_stack_var_def]>>
+    first_assum(qspecl_then[`r''`,`ssa_2_p`,`na_2_p`,`ns_1`] mp_tac)>>
+    discharge_hyps>-(fs[word_prog_size_def]>>DECIDE_TAC)>>
+    discharge_hyps>-fs[]>>strip_tac>>
+    first_assum(qspecl_then[`r`,`ssa_3_p`,`na_3_p`,`ns_2`] mp_tac)>>
+    discharge_hyps>-(fs[word_prog_size_def]>>DECIDE_TAC)>>
+    discharge_hyps>-rfs[]>>
+    strip_tac>>rfs[]>>
+    fs[domain_numset_list_insert,EVERY_MEM]>>
+    metis_tac[fix_inconsistencies_no_call])
+  >-
+  (*Seq*)
+  (first_assum(qspecl_then[`w`,`ssa`,`na`,`ns`] assume_tac)>>
+  first_x_assum(qspecl_then[`w0`,`ssa'`,`na'`,`ns'`] assume_tac)>>
+  rfs[word_prog_size_def]>>
+  ntac 2 (pop_assum mp_tac >> discharge_hyps>-DECIDE_TAC)>>
+  rw[])
+  >-
+  (*If*)
+  (fs[]>>
+  first_assum(qspecl_then[`w`,`ssa`,`na`,`ns`] assume_tac)>>
+  first_assum(qspecl_then[`w0`,`ssa1`,`na1`,`ns1`] assume_tac)>>
+  first_x_assum(qspecl_then[`w1`,`ssa1`,`na2`,`ns2`] assume_tac)>>
+  rfs[word_prog_size_def]>>
+  ntac 3 (pop_assum mp_tac >> discharge_hyps>-DECIDE_TAC)>>
+  rw[]>>
+  metis_tac[fix_inconsistencies_no_call])
+  >>
+  (*Alloc*)
+  fs[Abbr`prog`,every_stack_var_def,call_arg_convention_def]>>
+  imp_res_tac list_next_stack_rename_stack_vars>>
+  pop_assum(qspec_then`cur_ls` assume_tac)>>
+  rfs[LET_THM]>>rw[Abbr`stack_set`]>>
+  fs[domain_numset_list_insert,EVERY_MEM])
 
 (*
 EVAL ``ssa_cc_trans 
@@ -301,7 +342,7 @@ EVAL ``ssa_cc_trans
 (If (Move [(1,2)]) 0 
   (Seq (Move [(1,3)]) Skip) 
   (Seq (Move [(1,5)]) Skip))
-(Seq (Move[(5,1)]) (Move [(6,4)]))) init_ssa_state`` 
+(Seq (Move[(5,1)]) (Move [(6,4)]))) LN 101 103`` 
 
 Skip)
 
@@ -321,48 +362,40 @@ Move 1,5
   It is probably easier without, since we can force the key-vals pushed onto the stack to have
   the monotonicity properties wherever required
 
-  needs more assumptions on the monad
 *)
+
+(*The relation should be that everything that is in st is option_lookup under the ssa_map in cst
+When ssa_map is LN, this is trivially true for cst = st*)
 val ssa_locals_rel_def = Define`
-  ssa_locals_rel ssa_map st_locs cst_locs =
-  strong_locals_rel (option_lookup ssa_map) (domain ssa_map) st_locs cst_locs`
+  ssa_locals_rel ssa st_locs cst_locs =
+  strong_locals_rel (option_lookup ssa) (domain st_locs) st_locs cst_locs`
 
-val mapM_cur_var_rename = prove(``
-  ∀ls.
-  mapM cur_var_rename ls ssa = (MAP (option_lookup ssa.ssa_map) ls,ssa)``,
-  Induct>>fs[mapM_nil,mapM_cons,BIND_DEF,UNIT_DEF,option_lookup_def,UNCURRY,cur_var_rename_def])
+val list_next_var_rename_lemma = prove(``
+  ∀ls ssa na ren_ls ssa' na'.
+  list_next_var_rename ls ssa na = (ren_ls,ssa',na') ⇒ 
+  MAP (option_lookup ssa') ls = ren_ls ∧ 
+  ALL_DISTINCT ren_ls ∧ 
+  na ≤ na'``,
+  Induct>>fs[list_next_var_rename_def,LET_THM,next_var_rename_def]>>
+  rw[]>>fs[]>>
+  Cases_on`list_next_var_rename ls (insert h na ssa) (na+4)`>>
+  Cases_on`r`>>fs[]>>
+  res_tac
+  >-
+    cheat
+  >-
+    cheat
+  >-
+    DECIDE_TAC)
 
-val next_var_rename_rw = prove(``
-  next_var_rename h ssa = (ssa.next_alloc,ssa with 
-    <|ssa_map := insert h ssa.next_alloc ssa.ssa_map;next_alloc := ssa.next_alloc+4|>)``,
-  rw[next_var_rename_def,get_next_alloc_def,BIND_DEF,IGNORE_BIND_DEF,update_ssa_map_def,UNIT_DEF])
-
-val mapM_next_var_rename = prove(``
-  ∀ls ssa.
-  ALL_DISTINCT ls ⇒ 
-  ∃ls' ssa'.
-  mapM next_var_rename ls ssa = (ls',ssa') ∧
-  ALL_DISTINCT ls' ∧
-  ls' = MAP (option_lookup ssa'.ssa_map) ls``,
-  Induct>>
-  fs[mapM_nil,mapM_cons,BIND_DEF,UNIT_DEF,option_lookup_def,next_var_rename_rw]>>rw[]>>
-  qpat_abbrev_tac`ssa' = ssa with <|ssa_map:=A;next_alloc:=B|>`>>
-  qexists_tac`ssa'`>>
-  first_x_assum(qspec_then`ssa'` assume_tac)>>rfs[Abbr`ssa'`]>>
-  cheat)
-
-val mapM_next_var_rename = prove(``
-∃ls' ssa'. mapM next_var_rename ls ssa = (ls',ssa')``,
-Cases_on`mapM next_var_rename ls ssa`>>fs[])
-
-
+(*TODO:need assumptions on na and ns that they are greater than everything in the locals and greater than every program variable so that the insertion is always fresh*)
 val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
-``∀prog st cst ssa live.
+``∀prog st cst ssa na ns.
   word_state_eq_rel st cst ∧
   st.permute = cst.permute ∧ 
-  ssa_locals_rel ssa.ssa_map st.locals cst.locals 
+  ssa_locals_rel ssa st.locals cst.locals 
   ⇒
-  let (prog',ssa') = ssa_cc_trans prog ssa in
+  let (prog',ssa',na',ns') = ssa_cc_trans prog ssa na ns in
   let (res,rst) = wEval(prog,st) in
   let (res',rcst) = wEval(prog',cst) in
   if (res = SOME Error) then T 
@@ -371,61 +404,15 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     word_state_eq_rel rst rcst ∧
     rst.permute = rcst.permute ∧ 
     (case res of
-      NONE => ssa_locals_rel ssa'.ssa_map rst.locals rcst.locals 
+      NONE => ssa_locals_rel ssa' rst.locals rcst.locals 
     | _    => T )``,
   completeInduct_on`word_prog_size (K 0) prog`>>
   rpt strip_tac>>
-  fs[PULL_FORALL,LET_THM,LAMBDA_PROD]>>
-  Cases_on`prog`>>fs[ssa_cc_trans_def,UNIT_DEF,wEval_def,LET_THM]>>
-  fs[BIND_DEF]
+  Cases_on`prog`>>fs[ssa_cc_trans_def]>>rw[]>>
+  fs[wEval_def]
   >-
-    fs[mapM_cur_var_rename]>>
+    (qpat_assum`A=res` (SUBST_ALL_TAC o SYM)>>
+    qpat_assum`A=res'` (SUBST_ALL_TAC o SYM)>>fs[])
+  >>cheat) 
 
-
-  ,UNIT_DEF,wEval_def,BIND_DEF,LET_THM]>>
-  cheat)
-  (*
-  >-
-  (*Move*)
-  cheat
-  (*fs[mapM_cur_var_rename]>>
-  IF_CASES_TAC>-
-  imp_res_tac mapM_next_var_rename>>pop_assum(qspec_then`ssa` assume_tac)>>rfs[]>>
-  fs[wEval_def,MAP_ZIP]>>
-  FULL_CASE_TAC>> fs[]>>*)
-  >-
-  (*Inst*)
-    cheat
-  >-
-  (*Assign*)
-    cheat
-  >-
-  (*Get*)
-    fs[next_var_rename_rw,wEval_def,word_state_eq_rel_def]>>
-    EVERY_CASE_TAC>>fs[set_var_def]>>
-
-
-  Cases_on`mapM cur_var_rename (MAP SND l) ssa`>>fs[]>>
-  
-  IF_CASES_TAC>>fs[UNCURRY]>>
-  FULL_CASE_TAC>>fs[]>>
-
-
-  >-
-    FULL_CASE_TAC>>fs[UNCURRY]>>
-
-
-
-  >>
-    fs[UNCURRY]
-
-  Cases_on`get_vars (MAP SND l) st`>>fs[LET_THM]
-
-
-  (*Move*)
-  fs[LET_THM,BIND_DEF,mapM_def,sequence_def,next_var_rename_def]
-    
-*) 
-
-
-
+val _ = export_theory();
