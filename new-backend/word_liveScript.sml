@@ -221,7 +221,7 @@ val strong_locals_rel_def = Define`
 (*--- FINISHED DEFS ---*)
 
 (*--- LEMMAS --- *)
-val domain_numset_list_insert = prove(``
+val domain_numset_list_insert = store_thm("domain_numset_list_insert",``
   ∀ls locs.
   domain (numset_list_insert ls locs) = domain locs UNION set ls``,
   Induct>>fs[numset_list_insert_def]>>rw[]>>
