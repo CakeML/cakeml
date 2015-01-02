@@ -11,6 +11,9 @@ open lcsymtacs bvlTheory;
 (* ClosLang uses De Bruijn indices so there is no need for a variable
    name in the let-expression. *)
 
+val max_app_def = Define `
+  max_app = 5:num`;
+
 val _ = Datatype `
   clos_exp = Var num
            | If clos_exp clos_exp clos_exp
@@ -19,9 +22,9 @@ val _ = Datatype `
            | Handle clos_exp clos_exp
            | Tick clos_exp
            | Call num (clos_exp list)
-           | App (num option) clos_exp clos_exp
-           | Fn num (num list) clos_exp
-           | Letrec num (num list) (clos_exp list) clos_exp
+           | App (num option) clos_exp (clos_exp list)
+           | Fn num (num list) num clos_exp
+           | Letrec num (num list) ((num # clos_exp) list) clos_exp
            | Op bvl_op (clos_exp list) `
 
 (* --- Semantics of ClosLang --- *)
@@ -31,8 +34,8 @@ val _ = Datatype `
     Number int
   | Block num (clos_val list)
   | RefPtr num
-  | Closure num (clos_val list) clos_exp
-  | Recclosure num (clos_val list) (clos_exp list) num`
+  | Closure num (clos_val list) (clos_val list) num clos_exp
+  | Recclosure num (clos_val list) (clos_val list) ((num # clos_exp) list) num`
 
 val _ = Datatype `
   clos_res = Result 'a
@@ -180,7 +183,7 @@ val cEvalOp_def = Define `
     | _ => NONE`
 
 val dec_clock_def = Define `
-  dec_clock (s:clos_state) = s with clock := s.clock - 1`;
+  dec_clock n (s:clos_state) = s with clock := s.clock - n`;
 
 val find_code_def = Define `
   find_code p args code =
@@ -228,22 +231,42 @@ val check_loc_opt_def = Define `
   (check_loc NONE loc = T) /\
   (check_loc (SOME p) loc = (p = loc))`;
 
+val _ = Datatype `
+  app_kind = 
+    | Partial_app clos_val
+    | Full_app clos_exp (clos_val list) (clos_val list)`;
+
 val dest_closure_def = Define `
-  dest_closure loc_opt f x =
+  dest_closure loc_opt f args =
     case f of
-    | Closure loc env exp =>
-        if check_loc loc_opt loc then SOME (exp,x::env) else NONE
-    | Recclosure loc env fns i =>
-        (if LENGTH fns <= i \/ ~(check_loc loc_opt (loc+i)) then NONE else
-           let exp = EL i fns in
-           let rs = GENLIST (Recclosure loc env fns) (LENGTH fns) in
-             SOME (exp,x::rs++env))
+    | Closure loc arg_env clo_env num_args exp =>
+        if check_loc loc_opt loc then 
+          if LENGTH args + LENGTH arg_env ≥ num_args then
+            SOME (Full_app exp
+                           (REVERSE (TAKE (num_args - LENGTH arg_env) (REVERSE args))++
+                            arg_env++clo_env)
+                           (REVERSE (DROP (num_args - LENGTH arg_env) (REVERSE args))))
+          else
+            SOME (Partial_app (Closure loc (args++arg_env) clo_env num_args exp))
+        else 
+          NONE
+    | Recclosure loc arg_env clo_env fns i =>
+         if LENGTH fns <= i \/ ~(check_loc loc_opt (loc+i)) then NONE else
+           let (num_args,exp) = EL i fns in
+           let rs = GENLIST (Recclosure loc [] clo_env fns) (LENGTH fns) in
+             if num_args ≥ LENGTH args then
+               SOME (Full_app exp
+                              (REVERSE (TAKE (num_args - LENGTH arg_env) (REVERSE args))++
+                               arg_env++rs++clo_env)
+                              (REVERSE (DROP (num_args - LENGTH arg_env) (REVERSE args))))
+             else
+               SOME (Partial_app (Recclosure loc (args++arg_env) clo_env fns i))
     | _ => NONE`;
 
 val build_recc_def = Define `
   build_recc loc env names fns =
     case lookup_vars names env of
-    | SOME env1 => SOME (GENLIST (Recclosure loc env1 fns) (LENGTH fns))
+    | SOME env1 => SOME (GENLIST (Recclosure loc [] env1 fns) (LENGTH fns))
     | NONE => NONE`
 
 val cEval_def = tDefine "cEval" `
@@ -282,29 +305,26 @@ val cEval_def = tDefine "cEval" `
                           | NONE => (Error,s)
                           | SOME (v,s) => (Result [v],s))
      | res => res) /\
-  (cEval ([Fn loc vs exp],env,s) =
+  (cEval ([Fn loc vs num_args exp],env,s) =
      case lookup_vars vs env of
      | NONE => (Error,s)
-     | SOME env' => (Result [Closure loc env' exp], s)) /\
+     | SOME env' => (Result [Closure loc [] env' num_args exp], s)) /\
   (cEval ([Letrec loc names fns exp],env,s) =
      case build_recc loc env names fns of
      | NONE => (Error,s)
      | SOME rs => cEval ([exp],rs ++ env,s)) /\
-  (cEval ([App loc_opt x1 x2],env,s) =
-     case cEval ([x1],env,s) of
-     | (Result y1,s1) =>
-         (case cEval ([x2],env,check_clock s1 s) of
-          | (Result y2,s2) =>
-             (case dest_closure loc_opt (HD y1) (HD y2) of
-              | NONE => (Error,s2)
-              | SOME (exp,env1) =>
-                  if (s2.clock = 0) \/ (s1.clock = 0) \/ (s.clock = 0)
-                  then (TimeOut,s2)
-                  else cEval ([exp],env1,dec_clock (check_clock s2 s)))
-          | res => res)
-     | res => res) /\
+  (cEval ([App loc_opt x1 args],env,s) =
+     if LENGTH args > 0 ∧ LENGTH args ≤ max_app then
+       (case cEval (args,env,s) of
+        | (Result y2,s1) =>
+          (case cEval ([x1],env,check_clock s1 s) of
+           | (Result y1,s2) => cEvalApp loc_opt (HD y1) y2 (check_clock s2 s)
+           | res => res)
+        | res => res)
+     else
+       (Error, s)) /\
   (cEval ([Tick x],env,s) =
-     if s.clock = 0 then (TimeOut,s) else cEval ([x],env,dec_clock s)) /\
+     if s.clock = 0 then (TimeOut,s) else cEval ([x],env,dec_clock 1 s)) /\
   (cEval ([Call dest xs],env,s1) =
      case cEval (xs,env,s1) of
      | (Result vs,s) =>
@@ -312,9 +332,24 @@ val cEval_def = tDefine "cEval" `
           | NONE => (Error,s)
           | SOME (args,exp) =>
               if (s.clock = 0) \/ (s1.clock = 0) then (TimeOut,s) else
-                  cEval ([exp],args,dec_clock (check_clock s s1)))
-     | res => res)`
- (WF_REL_TAC `(inv_image (measure I LEX measure clos_exp1_size)
+                  cEval ([exp],args,dec_clock 1 (check_clock s s1)))
+     | res => res) ∧
+  (cEvalApp loc_opt f [] s = (Result [f], s)) ∧
+  (cEvalApp loc_opt f args s =
+     case dest_closure loc_opt f args of
+     | NONE => (Error,s)
+     | SOME (Partial_app v) => (Result [v], s)
+     | SOME (Full_app exp env rest_args) =>
+         if s.clock < (LENGTH args - LENGTH rest_args)
+         then (TimeOut,s)
+         else
+           case cEval ([exp],env,dec_clock (LENGTH args - LENGTH rest_args) s) of
+           | (Result [v], s1) =>
+               cEvalApp loc_opt v rest_args (check_clock s1 s)
+           | res => res)`
+ cheat;
+ (*
+ (WF_REL_TAC `(inv_image (measure I LEX measure clos_exp3_size)
                             (\(xs,env,s). (s.clock,xs)))`
   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
   \\ TRY (MATCH_MP_TAC check_clock_lemma \\ DECIDE_TAC)
@@ -322,6 +357,7 @@ val cEval_def = tDefine "cEval" `
   \\ Cases_on `s.clock <= s2.clock`
   \\ FULL_SIMP_TAC (srw_ss()) []
   \\ SRW_TAC [] [] \\ DECIDE_TAC);
+  *)
 
 (* We prove that the clock never increases. *)
 
