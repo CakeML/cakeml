@@ -161,18 +161,19 @@ val every_var_def = Define `
   (every_var P (Get num store) = P num) ∧ 
   (every_var P (Store exp num) = (P num ∧ every_var_exp P exp)) ∧ 
   (every_var P (Call ret dest args h) =
-    ((case ret of 
+    ((EVERY P args) ∧
+    (case ret of 
       NONE => T
     | SOME (v,cutset,ret_handler) => 
       (P v ∧
       (∀x. x ∈ domain cutset ⇒ P x) ∧ 
-      every_var P ret_handler)) ∧
-    (EVERY P args) ∧
-    (case h of 
-      NONE => T
-    | SOME (v,prog) =>
-      (P v ∧ 
-      every_var P prog)))) ∧  
+      every_var P ret_handler ∧ 
+      (*TODO: check if this is the best way to handle faulty Calls?*)
+      (case h of 
+        NONE => T
+      | SOME (v,prog) =>
+        (P v ∧ 
+        every_var P prog)))))) ∧  
   (every_var P (Seq s1 s2) = (every_var P s1 ∧ every_var P s2)) ∧ 
   (every_var P (If e1 num e2 e3) = 
     (every_var P e1 ∧ every_var P e2 ∧ every_var P e3)) ∧ 
@@ -250,7 +251,35 @@ val post_alloc_conventions_def = Define`
     (every_var is_phy_var prog ∧ 
     every_stack_var (λx. x ≥ 2*k) prog ∧ 
     call_arg_convention prog)`     
-    
+
+val every_var_inst_mono = store_thm("every_var_inst_mono",``
+  ∀P inst Q.
+  (∀x. P x ⇒ Q x) ∧ 
+  every_var_inst P inst 
+  ⇒ 
+  every_var_inst Q inst``,
+  ho_match_mp_tac every_var_inst_ind>>rw[every_var_inst_def]>>
+  EVERY_CASE_TAC>>fs[])
+
+val every_var_exp_mono = store_thm("every_var_exp_mono",``
+  ∀P exp Q.
+  (∀x. P x ⇒ Q x) ∧ 
+  every_var_exp P exp 
+  ⇒ 
+  every_var_exp Q exp``,
+  ho_match_mp_tac every_var_exp_ind>>rw[every_var_exp_def]>>
+  fs[EVERY_MEM])
+  
+val every_var_mono = store_thm("every_var_mono",``
+  ∀P prog Q.
+  (∀x. P x ⇒ Q x) ∧ 
+  every_var P prog 
+  ⇒ 
+  every_var Q prog``,
+  ho_match_mp_tac every_var_ind>>rw[every_var_def]>>
+  TRY(Cases_on`ret`>>fs[]>>PairCases_on`x`>>Cases_on`h`>>fs[]>>Cases_on`x`>>fs[])>>
+  metis_tac[EVERY_MONOTONIC,every_var_inst_mono,every_var_exp_mono])
+
 (*Find a value that is larger than everything else
   For SSA, we will make it 4*n+1
   For stack locations we will make it 4*n+3

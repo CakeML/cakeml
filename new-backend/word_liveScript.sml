@@ -1630,4 +1630,76 @@ val coloring_ok_alt_thm = prove(
     Cases_on`get_clash_sets prog live`>>
     fs[UNCURRY])
 
+val fs1 = fs[LET_THM,get_clash_sets_def,every_var_def,get_live_def,domain_numset_list_insert,domain_union,EVERY_MEM,get_writes_def,every_var_inst_def,get_live_inst_def]
+
+(*Every variable is in some clash set*)
+val every_var_in_get_clash_set = store_thm("every_var_in_get_clash_set",
+``∀prog live.
+  let (hd,clash_sets) = get_clash_sets prog live in
+  let P = (λx:num. x ∈ domain hd ∨ ∃y. MEM y clash_sets ∧ x ∈ domain y) in
+  (∀x. x ∈ domain live ⇒ P x) ∧ 
+  (every_var P prog)``,
+  completeInduct_on`word_prog_size (K 0) prog`>>
+  ntac 2 (fs[Once PULL_FORALL])>>
+  rpt strip_tac>>
+  Cases_on`prog`>>fs1
+  >-
+    cheat
+  >-
+    cheat
+  >-
+    cheat
+  >-
+    cheat
+  >-
+    cheat
+  (*Cases_on`o'`>>Cases_on`o''`>>fs1>>
+  PairCases_on`x`>>fs1>>
+  rw[]>>
+  fs[get_clash_sets_def,LET_THM,get_live_def]
+  get_clash_sets_def 
+  rw[]*)
+  >-
+  (first_assum(qspecl_then[`w0`,`live`] mp_tac)>>discharge_hyps
+  >-
+    (fs[word_prog_size_def]>>DECIDE_TAC)
+  >>
+  Cases_on`get_clash_sets w0 live`>>rw[]>>
+  first_x_assum(qspecl_then[`w`,`q`] mp_tac)>>discharge_hyps
+  >-
+    (fs[word_prog_size_def]>>DECIDE_TAC)
+  >>
+  Cases_on`get_clash_sets w q`>>rw[]>>
+  TRY (metis_tac[every_var_mono])>>
+  match_mp_tac every_var_mono>>
+  TRY(pop_assum kall_tac>>HINT_EXISTS_TAC)>>
+  TRY HINT_EXISTS_TAC>>
+  rw[]>>metis_tac[])
+  >>
+  (first_assum(qspecl_then[`w0`,`live`] mp_tac)>>discharge_hyps
+  >-
+    (fs[word_prog_size_def]>>DECIDE_TAC)
+  >>
+  Cases_on`get_clash_sets w0 live`>>rw[]>>
+  first_assum(qspecl_then[`w1`,`live`] mp_tac)>>discharge_hyps
+  >-
+    (fs[word_prog_size_def]>>DECIDE_TAC)
+  >>
+  Cases_on`get_clash_sets w1 live`>>rw[]>>
+  first_assum(qspecl_then[`w`,`insert n () (union q q')`] mp_tac)>>
+  discharge_hyps
+  >-
+    (fs[word_prog_size_def]>>DECIDE_TAC)
+  >>
+  Cases_on`get_clash_sets w (insert n () (union q q'))`>>rw[]>>
+  TRY (fs[domain_union]>>metis_tac[every_var_mono])>>
+  qpat_assum `every_var P w0` mp_tac>>
+  qpat_assum `every_var P w1` mp_tac>>
+  ntac 2 strip_tac>>
+  match_mp_tac every_var_mono>>
+  TRY(pop_assum kall_tac>>pop_assum kall_tac>>HINT_EXISTS_TAC)>>
+  TRY(pop_assum kall_tac>>HINT_EXISTS_TAC)>>
+  TRY HINT_EXISTS_TAC>>
+  rw[]>>fs[domain_union]>>metis_tac[domain_union])
+
 val _ = export_theory();
