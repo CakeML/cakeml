@@ -240,7 +240,7 @@ val dest_closure_def = Define `
   dest_closure loc_opt f args =
     case f of
     | Closure loc arg_env clo_env num_args exp =>
-        if check_loc loc_opt loc then 
+        if check_loc loc_opt loc ∧ LENGTH arg_env < num_args then 
           if LENGTH args + LENGTH arg_env ≥ num_args then
             SOME (Full_app exp
                            (REVERSE (TAKE (num_args - LENGTH arg_env) (REVERSE args))++
@@ -251,17 +251,34 @@ val dest_closure_def = Define `
         else 
           NONE
     | Recclosure loc arg_env clo_env fns i =>
-         if LENGTH fns <= i \/ ~(check_loc loc_opt (loc+i)) then NONE else
-           let (num_args,exp) = EL i fns in
-           let rs = GENLIST (Recclosure loc [] clo_env fns) (LENGTH fns) in
-             if num_args ≥ LENGTH args then
-               SOME (Full_app exp
-                              (REVERSE (TAKE (num_args - LENGTH arg_env) (REVERSE args))++
-                               arg_env++rs++clo_env)
-                              (REVERSE (DROP (num_args - LENGTH arg_env) (REVERSE args))))
-             else
-               SOME (Partial_app (Recclosure loc (args++arg_env) clo_env fns i))
+        let (num_args,exp) = EL i fns in
+          if LENGTH fns <= i \/ ~(check_loc loc_opt (loc+i)) ∨ ¬(LENGTH arg_env < num_args) then NONE else
+            let rs = GENLIST (Recclosure loc [] clo_env fns) (LENGTH fns) in
+              if LENGTH args + LENGTH arg_env ≥ num_args then
+                SOME (Full_app exp
+                               (REVERSE (TAKE (num_args - LENGTH arg_env) (REVERSE args))++
+                                arg_env++rs++clo_env)
+                               (REVERSE (DROP (num_args - LENGTH arg_env) (REVERSE args))))
+              else
+                SOME (Partial_app (Recclosure loc (args++arg_env) clo_env fns i))
     | _ => NONE`;
+
+val dest_closure_length = Q.prove (
+`!loc_opt f args exp args1 args2.
+  dest_closure loc_opt f args = SOME (Full_app exp args1 args2)
+  ⇒
+  LENGTH args2 < LENGTH args`,
+ rw [dest_closure_def] >>
+ BasicProvers.EVERY_CASE_TAC >>
+ fs [] >>
+ rw [] >>
+ TRY decide_tac >>
+ Cases_on `EL n l1` >>
+ fs [LET_THM] >>
+ Cases_on `LENGTH args + LENGTH l ≥ q` >>
+ fs [] >>
+ rw [] >>
+ decide_tac);
 
 val build_recc_def = Define `
   build_recc loc env names fns =
@@ -347,19 +364,20 @@ val cEval_def = tDefine "cEval" `
            | (Result [v], s1) =>
                cEvalApp loc_opt v rest_args (check_clock s1 s)
            | res => res)`
- cheat;
- (*
- (WF_REL_TAC `(inv_image (measure I LEX measure clos_exp3_size)
-                            (\(xs,env,s). (s.clock,xs)))`
+ (WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure I)
+                            (\x. case x of INL (xs,env,s) => (s.clock,clos_exp3_size xs,0)
+                                         | INR (l,f,args,s) => (s.clock,0,LENGTH args)))`
   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
   \\ TRY (MATCH_MP_TAC check_clock_lemma \\ DECIDE_TAC)
   \\ EVAL_TAC \\ Cases_on `s.clock <= s1.clock`
   \\ Cases_on `s.clock <= s2.clock`
   \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ SRW_TAC [] [] \\ DECIDE_TAC);
-  *)
-
-(* We prove that the clock never increases. *)
+  \\ SRW_TAC [] [] 
+  \\ TRY DECIDE_TAC >>
+  imp_res_tac dest_closure_length >>
+  full_simp_tac (srw_ss()++ARITH_ss) [])
+  
+ (* We prove that the clock never increases. *)
 
 val check_clock_IMP = prove(
   ``n <= (check_clock r s).clock ==> n <= s.clock``,
@@ -369,15 +387,17 @@ val cEvalOp_const = store_thm("cEvalOp_const",
   ``(cEvalOp op args s1 = SOME (res,s2)) ==>
     (s2.clock = s1.clock) /\ (s2.code = s1.code)``,
   SIMP_TAC std_ss [cEvalOp_def]
-  \\ REPEAT BasicProvers.FULL_CASE_TAC
+  \\ BasicProvers.EVERY_CASE_TAC
   \\ fs [LET_DEF] \\ SRW_TAC [] [] \\ fs []);
 
-val cEval_clock = store_thm("cEval_clock",
-  ``!xs env s1 vs s2.
-      (cEval (xs,env,s1) = (vs,s2)) ==> s2.clock <= s1.clock``,
-  recInduct (fetch "-" "cEval_ind") \\ REPEAT STRIP_TAC
+val cEval_clock_help = prove (
+  ``(!tup vs s2.
+      (cEval tup = (vs,s2)) ==> s2.clock <= (SND (SND tup)).clock) ∧
+    (!loc_opt f args s1 vs s2.
+      (cEvalApp loc_opt f args s1 = (vs,s2)) ==> s2.clock <= s1.clock)``,
+  ho_match_mp_tac (fetch "-" "cEval_ind") \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [cEval_def]
-  \\ FULL_SIMP_TAC std_ss [] \\ REPEAT BasicProvers.FULL_CASE_TAC
+  \\ FULL_SIMP_TAC std_ss [] \\ BasicProvers.EVERY_CASE_TAC
   \\ REPEAT STRIP_TAC \\ SRW_TAC [] [check_clock_def]
   \\ RES_TAC \\ IMP_RES_TAC check_clock_IMP
   \\ FULL_SIMP_TAC std_ss [PULL_FORALL] \\ RES_TAC
@@ -387,8 +407,12 @@ val cEval_clock = store_thm("cEval_clock",
   \\ POP_ASSUM MP_TAC
   \\ TRY (REPEAT (POP_ASSUM (K ALL_TAC))
           \\ SRW_TAC [] [check_clock_def] \\ DECIDE_TAC)
-  \\ rfs [] \\ fs [] \\ rfs [check_clock_def]
-  \\ Cases_on `r'.clock <= s.clock` \\ fs [] \\ DECIDE_TAC);
+  \\ rfs [] \\ fs [] \\ rfs [check_clock_def]);
+
+val cEval_clock = store_thm("cEval_clock",
+``(!xs env s1 vs s2.
+      (cEval (xs,env,s1) = (vs,s2)) ==> s2.clock <= s1.clock)``,
+ metis_tac [cEval_clock_help, SND]);
 
 val cEval_check_clock = prove(
   ``!xs env s1 vs s2.
