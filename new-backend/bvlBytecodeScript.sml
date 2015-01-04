@@ -1,6 +1,6 @@
-open HolKernel boolLib bossLib lcsymtacs
-open listTheory rich_listTheory quantHeuristicsLib quantHeuristicsLibAbbrev arithmeticTheory
-open miscTheory bytecodeTheory bytecodeExtraTheory bvlTheory
+open HolKernel boolLib boolSimps bossLib lcsymtacs
+open pairTheory listTheory rich_listTheory relationTheory quantHeuristicsLib quantHeuristicsLibAbbrev arithmeticTheory
+open miscLib miscTheory bytecodeTheory bytecodeExtraTheory bytecodeEvalTheory bvlTheory
 val _ = new_theory"bvlBytecode"
 
 val _ = Datatype`
@@ -181,18 +181,6 @@ env = [x0,x1,x2,x3,x4,x5,x6,x7]
 cenv = [11,12,13,5,6,7,2,3]
 *)
 
-val good_code_env_def = Define`
-  good_code_env cmap ls ⇔
-    ∀ptr exp arity. (lookup ptr cmap = SOME (arity,exp)) ⇒
-      ∃cs l0 cc l1.
-        ((bvl_bc (GENLIST (λn. arity-n) arity) (TCTail arity 1) (arity+2) cs exp).out = cc ++ cs.out) ∧
-        EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label l0) ∧ ptr < cs.next_label ∧
-        (ls = l0 ++ [Label ptr] ++ REVERSE cc ++ l1)`
-
-val good_env_def = Define`
-  good_env sz st =
-      LIST_REL (λv n. n ≤ sz ∧ (sz-n) < LENGTH st ∧ (EL (sz-n) st = v))`
-
 val pushret_append_out = store_thm("pushret_append_out",
   ``∀t s. ((pushret t s).next_label = s.next_label) ∧
           ∃bc. ((pushret t s).out = bc ++ s.out) ∧
@@ -274,7 +262,102 @@ val bvl_bc_append_out = store_thm("bvl_bc_append_out",
     spose_not_then strip_assume_tac >> rw[] >> res_tac >> fsrw_tac[ARITH_ss][] >>
     fs[FILTER_EQ_NIL,EVERY_MEM,is_Label_rwt] >> res_tac >> fs[]))
 
-(*
+val good_code_env_def = Define`
+  good_code_env cmap ls ⇔
+    ∀ptr exp arity. (lookup ptr cmap = SOME (arity,exp)) ⇒
+      ∃cs l0 cc l1.
+        ((bvl_bc (GENLIST (λn. arity-n) arity) (TCTail arity 1) (arity+2) cs [exp]).out = cc ++ cs.out) ∧
+        EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label l0) ∧ ptr < cs.next_label ∧
+        (ls = l0 ++ [Label ptr] ++ REVERSE cc ++ l1)`
+
+val good_env_def = Define`
+  good_env sz st =
+      LIST_REL (λv n. n ≤ sz ∧ (sz-n) < LENGTH st ∧ (EL (sz-n) st = v))`
+
+val good_env_cons = store_thm("good_env_cons",
+  ``good_env sz st env cenv ⇒
+    good_env (sz+1) (h::st) env cenv``,
+  rw[good_env_def,LIST_REL_EL_EQN] >> rfs[] >> res_tac >>
+  simp[EL_CONS,PRE_SUB1])
+
+val pushret_correct = store_thm("pushret_correct",
+  ``∀t s bs prc igc code bc0 bc1 bs1 v ret rst.
+      ((pushret t s).out = REVERSE prc ++ s.out) ∧
+      (s.out = REVERSE code ++ igc) ∧
+      (bs.code = bc0 ++ code ++ prc ++ bc1) ∧
+      (bs.pc = next_addr bs.inst_length bc0) ∧
+      (bc_next^* bs bs1) ∧
+      (bs1.stack = v::bs.stack) ∧
+      (bs1.pc = next_addr bs.inst_length (bc0++code)) ∧
+      (case t of TCTail j k =>
+         ∃ig args. bs.stack = ig ++ [CodePtr ret] ++ args ++ rst ∧
+                   LENGTH ig = k ∧ LENGTH args = j
+       | TCNonTail => T)
+      ⇒
+      ∃bs2.
+        bc_next^* bs bs2 ∧
+        case t of TCNonTail => bs2 = bs1
+        | TCTail j k =>
+            bs2 = bs1 with <| stack := v::rst; pc := ret |>``,
+  Cases >> rw[pushret_def,emit_def] >>
+  fs[Once (GSYM SWAP_REVERSE)] >> rw[] >>
+  simp[Once RTC_CASES_RTC_TWICE] >>
+  first_assum(match_exists_tac o concl) >>
+  simp[] >>
+  qmatch_assum_abbrev_tac`bs.code = bc0 ++ code ++ ls ++ bc1` >>
+  imp_res_tac RTC_bc_next_preserves >>
+  qmatch_abbrev_tac`bc_next^* bs0 bs2` >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  `bc_fetch bs0 = SOME(EL 0 ls)` by (
+    match_mp_tac bc_fetch_next_addr >>
+    qexists_tac`bc0++code++(TAKE 0 ls)` >>
+    simp[Abbr`bs0`,Abbr`ls`] ) >>
+  simp[bc_eval1_thm,bc_eval1_def,Abbr`ls`,bc_eval_stack_def,bump_pc_def,Abbr`bs0`] >>
+  simp[DROP_APPEND1,DROP_LENGTH_NIL] >>
+  pop_assum kall_tac >>
+  qmatch_assum_abbrev_tac`bs.code = bc0 ++ code ++ ls ++ bc1` >>
+  qmatch_abbrev_tac`bc_next^* bs0 bs2` >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  `bc_fetch bs0 = SOME(EL 1 ls)` by (
+    match_mp_tac bc_fetch_next_addr >>
+    qexists_tac`bc0++code++(TAKE 1 ls)` >>
+    simp[Abbr`bs0`,Abbr`ls`] >>
+    simp[FILTER_APPEND,SUM_APPEND]) >>
+  simp[bc_eval1_thm,bc_eval1_def,Abbr`ls`,bc_eval_stack_def,bump_pc_def,Abbr`bs0`] >>
+  pop_assum kall_tac >>
+  qmatch_assum_abbrev_tac`bs.code = bc0 ++ code ++ ls ++ bc1` >>
+  qmatch_abbrev_tac`bc_next^* bs0 bs2` >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >- (
+    disj1_tac >> unabbrev_all_tac >> fs[LENGTH_NIL] ) >>
+  disj2_tac >>
+  `bc_fetch bs0 = SOME(EL 2 ls)` by (
+    match_mp_tac bc_fetch_next_addr >>
+    qexists_tac`bc0++code++(TAKE 2 ls)` >>
+    simp[Abbr`bs0`,Abbr`ls`] >>
+    simp[FILTER_APPEND,SUM_APPEND]) >>
+  simp[bc_eval1_thm,bc_eval1_def,Abbr`ls`,bc_eval_stack_def,bump_pc_def,Abbr`bs0`] >>
+  pop_assum kall_tac >>
+  qmatch_assum_abbrev_tac`bs.code = bc0 ++ code ++ ls ++ bc1` >>
+  qmatch_abbrev_tac`bc_next^* bs0 bs2` >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  `bc_fetch bs0 = SOME(EL 3 ls)` by (
+    match_mp_tac bc_fetch_next_addr >>
+    qexists_tac`bc0++code++(TAKE 3 ls)` >>
+    simp[Abbr`bs0`,Abbr`ls`] >>
+    simp[FILTER_APPEND,SUM_APPEND]) >>
+  simp[bc_eval1_thm,bc_eval1_def,Abbr`ls`,bc_eval_stack_def,bump_pc_def,Abbr`bs0`] >>
+  simp[TAKE_APPEND1,DROP_APPEND1,DROP_LENGTH_NIL_rwt] >>
+  pop_assum kall_tac >>
+  qmatch_assum_abbrev_tac`bs.code = bc0 ++ code ++ ls ++ bc1` >>
+  qmatch_abbrev_tac`bc_next^* bs0 bs2` >>
+  srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+  `bc_fetch bs0 = SOME(EL 4 ls)` by (
+    match_mp_tac bc_fetch_next_addr >>
+    qexists_tac`bc0++code++(TAKE 4 ls)` >>
+    simp[Abbr`bs0`,Abbr`ls`] >>
+    simp[FILTER_APPEND,SUM_APPEND]) >>
+  simp[bc_eval1_thm,bc_eval1_def,Abbr`ls`,bc_eval_stack_def,bump_pc_def,Abbr`bs0`])
+
 val bvl_bc_correct = store_thm("bvl_bc_correct",
   ``∀exps env s res s' bs1 bc0 code bc1 cenv t sz cs stw ret sp hdl rst.
       (bEval (exps,env,s) = (res,s')) ∧ res ≠ Error ∧
@@ -283,9 +366,12 @@ val bvl_bc_correct = store_thm("bvl_bc_correct",
       ((bvl_bc cenv t sz cs exps).out = REVERSE code ++ cs.out) ∧
       (bs1.code = bc0 ++ code ++ bc1) ∧
       (bs1.pc = next_addr bs1.inst_length bc0) ∧
-      (bs1.clock = SOME s.clock) ∧ (bs1.globals = s.globals) ∧ (bs1.refs = s.refs) ∧
+      (bs1.output = s.output) ∧ (bs1.clock = SOME s.clock) ∧
+      (bs1.globals = s.globals) ∧ (bs1.refs = s.refs) ∧
       (case t of
-       | TCTail j k => (∃ig args. (bs.stack = ig++(RetPtr ret::args)++rst) ∧ (LENGTH ig = k) ∧ (LENGTH args = j))
+       | TCTail j k =>
+           (LENGTH exps = 1) ∧
+           (∃ig args. (bs1.stack = ig++(CodePtr ret::args)++rst) ∧ (LENGTH ig = k) ∧ (LENGTH args = j))
        | TCNonTail => T) ∧
       (case res of Exception _ =>
         ∃ig. (bs1.stack = ig ++ [StackPtr sp; CodePtr hdl] ++ rst) ∧
@@ -294,21 +380,127 @@ val bvl_bc_correct = store_thm("bvl_bc_correct",
       ⇒
       ∃bs2.
         bc_next^* bs1 bs2 ∧
-        (bs2.clock = SOME s'.clock) ∧ (bs2.globals = s'.globals) ∧ (bs2.refs = s'.refs) ∧
         case res of
         | TimeOut =>
-            (bs2.clock = SOME 0) ∧ (bc_fetch bs2 = SOME Tick) ∧ (bs2.output = bs1.output)
+            (bc_fetch bs2 = SOME Tick) ∧
+            (bs2.output = s'.output) ∧ (bs2.clock = SOME 0) ∧
+            (bs2.globals = s'.globals) ∧ (bs2.refs = s'.refs)
         | Exception v =>
-            (bs2 = bs1 with <|stack := v::rst; pc := hdl; handler := sp|>)
-        | Result v =>
+            (bs2 = bs1 with <|stack := v::rst; pc := hdl; handler := sp;
+                              output := s'.output; clock := SOME s'.clock;
+                              globals := s'.globals; refs := s'.refs|>)
+        | Result vs =>
           (case t of
             | TCNonTail =>
               (bs2 = bs1 with <|
-                stack := v::bs1.stack;
-                pc := next_addr bs2.inst_length (bc0++code)|>)
+                stack := (REVERSE vs)++bs1.stack;
+                pc := next_addr bs2.inst_length (bc0++code);
+                output := s'.output; clock := SOME s'.clock;
+                globals := s'.globals; refs := s'.refs|>)
             | TCTail _ _ =>
-              (bs2 = bs1 with <| stack := v::rst; pc := ret |>))``,
-  bEval_ind
-*)
+              (bs2 = bs1 with <|
+                stack := (HD vs)::rst; pc := ret;
+                output := s'.output; clock := SOME s'.clock;
+                globals := s'.globals; refs := s'.refs|>))``,
+  recInduct bEval_ind >>
+  strip_tac >- (
+    simp[bEval_def,bvl_bc_def] >>
+    simp[Once SWAP_REVERSE] >>
+    Cases_on`t`>>rw[] >>
+    qexists_tac`bs1`>>rw[bc_state_component_equality] ) >>
+  strip_tac >- (
+    simp[bEval_def,bvl_bc_def] >>
+    rw[] >> Cases_on`t`>>fs[] >>
+    `∃res0 s0. bEval ([x],env,s) = (res0,s0)` by metis_tac[pair_CASES] >>
+    `∃res1 s1. bEval (y::xs,env,s0) = (res1,s1)` by metis_tac[pair_CASES] >>
+    qspecl_then[`cenv`,`TCNonTail`,`sz`,`cs`,`[x]`]strip_assume_tac bvl_bc_append_out >>
+    qspecl_then[`cenv`,`TCNonTail`,`sz+1`,`bvl_bc cenv TCNonTail sz cs [x]`,`y::xs`]strip_assume_tac bvl_bc_append_out >>
+    Cases_on`res0`>>fs[] >- (
+      first_x_assum(qspecl_then[`bs1`,`bc0`,`REVERSE bc`,`REVERSE bc'++bc1`,`cenv`,`TCNonTail`,`sz`,`cs`]mp_tac) >>
+      simp[] >> fs[Once SWAP_REVERSE] >> strip_tac >>
+      first_x_assum(qspecl_then[`bs2`,`bc0++REVERSE bc`,`REVERSE bc'`,`bc1`,`cenv`,`TCNonTail`,`sz+1`
+                               ,`bvl_bc cenv TCNonTail sz cs [x]`]mp_tac) >>
+      imp_res_tac bEval_IMP_LENGTH >>
+      Cases_on`a`>>fs[LENGTH_NIL] >>
+      imp_res_tac bEval_code >> simp[] >>
+      Cases_on`res1`>>fs[] >- (
+        rpt BasicProvers.VAR_EQ_TAC >>
+        discharge_hyps >- (
+          qpat_assum`bs2 = X`SUBST1_TAC >>
+          imp_res_tac RTC_bc_next_preserves >> simp[] >>
+          match_mp_tac good_env_cons >> rw[] ) >>
+        strip_tac >> simp[] >>
+        qexists_tac`bs2'` >>
+        conj_tac >- metis_tac[RTC_TRANSITIVE,transitive_def] >>
+        first_x_assum(CHANGED_TAC o SUBST1_TAC) >>
+        simp[bc_state_component_equality] >>
+        first_x_assum(CHANGED_TAC o SUBST1_TAC) >>
+        imp_res_tac RTC_bc_next_preserves >>
+        simp[bc_state_component_equality] ) >>
+      rpt BasicProvers.VAR_EQ_TAC >> fs[] >- (
+        disch_then(qspecl_then[`sp`,`hdl`,`rst`]mp_tac) >>
+        discharge_hyps >- (
+          qpat_assum`bs2 = X`SUBST1_TAC >>
+          imp_res_tac RTC_bc_next_preserves >> simp[] >>
+          match_mp_tac good_env_cons >> fs[] ) >>
+        strip_tac >>
+        match_mp_tac(SIMP_RULE std_ss [transitive_def] RTC_TRANSITIVE) >>
+        first_assum(match_exists_tac o concl) >> simp[] >>
+        qmatch_abbrev_tac`bc_next^* bs2 bs3` >>
+        qmatch_assum_abbrev_tac`bc_next^* bs2 bs3'` >>
+        `bs3 = bs3'` by (
+          unabbrev_all_tac >> simp[bc_state_component_equality] >>
+          imp_res_tac RTC_bc_next_preserves >> simp[] ) >>
+        rw[] ) >>
+      discharge_hyps >- (
+        qpat_assum`bs2 = X`SUBST1_TAC >>
+        imp_res_tac RTC_bc_next_preserves >> simp[] >>
+        match_mp_tac good_env_cons >> fs[] ) >>
+      strip_tac >>
+      qexists_tac`bs2'` >> simp[] >>
+      metis_tac[transitive_def,RTC_TRANSITIVE] ) >>
+    rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
+    first_x_assum(qspecl_then[`bs1`,`bc0`,`REVERSE bc`,`REVERSE bc'++bc1`,`cenv`,`TCNonTail`,`sz`,`cs`]mp_tac) >>
+    simp[] >> fs[Once SWAP_REVERSE]) >>
+  strip_tac >- (
+    simp[bEval_def,bvl_bc_def] >>
+    reverse(rw[]) >> fs[] >- (
+      fs[good_env_def,LIST_REL_EL_EQN] ) >>
+    qmatch_assum_abbrev_tac`(pushret t s0).out = X` >>
+    qspecl_then[`t`,`s0`]mp_tac pushret_append_out >>
+    simp[Abbr`s0`,Abbr`X`,emit_def] >>
+    Q.PAT_ABBREV_TAC`i = Stack X` >> rw[] >>
+    fs[Once SWAP_REVERSE_SYM] >>
+    `bc_fetch bs1 = SOME i` by (
+      match_mp_tac bc_fetch_next_addr >>
+      simp[] >>
+      qexists_tac`bc0`>>simp[Abbr`i`] ) >>
+    mp_tac(Q.REFL `bc_eval1 bs1`) >>
+    CONV_TAC(LAND_CONV(RAND_CONV(SIMP_CONV(srw_ss())[bc_eval1_def]))) >>
+    simp[Abbr`i`,bc_eval_stack_def,bump_pc_def] >>
+    fs[good_env_def,LIST_REL_EL_EQN] >>
+    first_x_assum(qspec_then`n`mp_tac) >> simp[] >> strip_tac >>
+    simp[GSYM bc_eval1_thm] >> strip_tac >>
+    qmatch_assum_abbrev_tac`(pushret t s0).out = X` >>
+    qspecl_then[`t`,`s0`,`bs1`]mp_tac pushret_correct >>
+    simp[Abbr`s0`,Abbr`X`,emit_def,Once SWAP_REVERSE] >>
+    disch_then(qspec_then`cs.out`mp_tac) >> simp[Once SWAP_REVERSE] >>
+    disch_then(qspec_then`bc0`mp_tac) >> simp[] >>
+    first_x_assum(strip_assume_tac o MATCH_MP RTC_SUBSET) >>
+    simp[GSYM AND_IMP_INTRO] >>
+    disch_then(fn th => first_x_assum (mp_tac o MATCH_MP th)) >>
+    simp[FILTER_APPEND,SUM_APPEND] >>
+    disch_then(fn th => first_x_assum (strip_assume_tac o MATCH_MP th)) >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    Cases_on`t`>>fs[bc_state_component_equality,pushret_def,emit_def] >>
+    simp[FILTER_APPEND,SUM_APPEND,FILTER_REVERSE,SUM_REVERSE,MAP_REVERSE,ADD1] >>
+    rw[] ) >>
+  strip_tac >- cheat >> (* If *)
+  strip_tac >- cheat >> (* Let *)
+  strip_tac >- cheat >> (* Raise *)
+  strip_tac >- cheat >> (* Handle *)
+  strip_tac >- cheat >> (* Op *)
+  strip_tac >- cheat >> (* Tick *)
+  cheat (* Call *))
 
 val _ = export_theory()

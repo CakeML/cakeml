@@ -453,6 +453,25 @@ val bvl_state_explode = store_thm("bvl_state_explode",
                         TypeBase.accessors_of ``:bvl_state``)
   \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC \\ fs []);
 
+val bEval_code = store_thm("bEval_code",
+  ``!xs env s1 vs s2.
+      (bEval (xs,env,s1) = (vs,s2)) ==> s2.code = s1.code``,
+  recInduct bEval_ind \\ REPEAT STRIP_TAC
+  \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [bEval_def]
+  \\ FULL_SIMP_TAC std_ss []
+  \\ BasicProvers.FULL_CASE_TAC
+  \\ REPEAT STRIP_TAC \\ SRW_TAC [] [dec_clock_def]
+  \\ Cases_on`q`  \\ FULL_SIMP_TAC (srw_ss())[]
+  \\ POP_ASSUM MP_TAC
+  \\ BasicProvers.CASE_TAC \\ FULL_SIMP_TAC (srw_ss())[]
+  \\ SRW_TAC[][] \\ SRW_TAC[][]
+  \\ POP_ASSUM MP_TAC
+  \\ BasicProvers.CASE_TAC \\ FULL_SIMP_TAC (srw_ss())[]
+  \\ SRW_TAC[][] \\ IMP_RES_TAC bEvalOp_const \\ SRW_TAC[][]
+  \\ POP_ASSUM MP_TAC
+  \\ BasicProvers.CASE_TAC \\ FULL_SIMP_TAC (srw_ss())[]
+  \\ SRW_TAC[][] \\ SRW_TAC[][dec_clock_def]);
+
 (* clean up *)
 
 val _ = map delete_binding ["bEval_AUX_def", "bEval_primitive_def"];
