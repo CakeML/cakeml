@@ -1,4 +1,4 @@
-open HolKernel boolLib boolSimps bossLib lcsymtacs pred_setTheory listTheory alistTheory holSyntaxLibTheory mlstringTheory
+open HolKernel boolLib boolSimps bossLib lcsymtacs pred_setTheory listTheory alistTheory holSyntaxLibTheory mlstringTheory totoTheory
 val _ = temp_tight_equality()
 val _ = new_theory "holSyntax"
 
@@ -11,10 +11,22 @@ val _ = Hol_datatype`type
 val _ = Parse.overload_on("Fun",``λs t. Tyapp (strlit "fun") [s;t]``)
 val _ = Parse.overload_on("Bool",``Tyapp (strlit "bool") []``)
 
-val domain_def = Define`domain (Fun s t) = s`
-val codomain_def = Define`codomain (Fun s t) = t`
-val domain_def = save_thm("domain_def",SIMP_RULE(srw_ss())[]domain_def)
-val codomain_def = save_thm("codomain_def",SIMP_RULE(srw_ss())[]codomain_def)
+val domain_raw = Define `
+  domain ty = case ty of Tyapp n (x::xs) => x | _ => ty`;
+
+val domain_def = store_thm("domain_def",
+  ``!t s. domain (Fun s t) = s``,
+  REPEAT STRIP_TAC \\ EVAL_TAC);
+
+val codomain_raw = Define `
+  codomain ty = case ty of Tyapp n (y::x::xs) => x | _ => ty`;
+
+val codomain_def = store_thm("codomain_def",
+  ``!t s. codomain (Fun s t) = t``,
+  REPEAT STRIP_TAC \\ EVAL_TAC);
+
+val _ = save_thm("domain_raw",domain_raw);
+val _ = save_thm("codomain_raw",codomain_raw);
 val _ = export_rewrites["domain_def","codomain_def"]
 
 fun type_rec_tac proj =
@@ -78,14 +90,134 @@ val (RACONV_rules,RACONV_ind,RACONV_cases) = Hol_reln`
 val ACONV_def = Define`
   ACONV t1 t2 ⇔ RACONV [] (t1,t2)`
 
-(* Alpha-respecting union of two lists of terms.
-   Retain duplicates in the second list. *)
+(* Term ordering, respecting alpha-equivalence *)
+(* TODO: use this in the inference system instead of
+   ALPHAVARS, ACONV, TERM_UNION, etc., which don't
+   lead to canonical hypothesis sets-as-lists *)
 
-val TERM_UNION_def = Define`
-  TERM_UNION [] l2 = l2 ∧
-  TERM_UNION (h::t) l2 =
-    let subun = TERM_UNION t l2 in
-    if EXISTS (ACONV h) subun then subun else h::subun`
+(* TODO: move, see HOL issue #219 *)
+local open pairTheory relationTheory in
+val LEX_CONG = store_thm("LEX_CONG",
+  ``(R1 x1 x2 <=> R1' x1' x2') /\
+    (~(R1 x1 x2) ==> ((x1 = x2) <=> (x1' = x2'))) /\
+    (~(R1 x1 x2) ==> (R2 y1 y2 <=> R2' y1' y2'))
+    ==> ((R1 LEX R2) (x1,y1) (x2,y2) <=> (R1' LEX R2') (x1',y1') (x2',y2'))``,
+  SRW_TAC[][LEX_DEF_THM] THEN METIS_TAC[])
+val () = DefnBase.export_cong"LEX_CONG"
+val LEX_MONO = store_thm("LEX_MONO",
+  ``(!x y. R1 x y ==> R2 x y) /\
+    (!x y. R3 x y ==> R4 x y)
+    ==>
+    (R1 LEX R3) x y ==> (R2 LEX R4) x y``,
+  STRIP_TAC THEN
+  Cases_on`x` THEN Cases_on`y` THEN
+  SRW_TAC[][LEX_DEF_THM] THEN
+  PROVE_TAC[])
+val () = IndDefLib.export_mono"LEX_MONO"
+val LLEX_MONO = store_thm("LLEX_MONO",
+  ``(!x y. R1 x y ==> R2 x y)
+    ==>
+    LLEX R1 x y ==> LLEX R2 x y``,
+  STRIP_TAC THEN
+  Q.ID_SPEC_TAC`y` THEN
+  Induct_on`x` THEN
+  Cases_on`y` THEN
+  SRW_TAC[][LLEX_THM] THEN
+  PROVE_TAC[])
+val () = IndDefLib.export_mono"LLEX_MONO"
+end
+(* -- *)
+
+val (type_lt_rules,type_lt_ind,type_lt_cases) = Hol_reln`
+  (mlstring_lt x1 x2 ⇒ type_lt (Tyvar x1) (Tyvar x2)) ∧
+  (type_lt (Tyvar x1) (Tyapp x2 args2)) ∧
+  ((mlstring_lt LEX LLEX type_lt) (x1,args1) (x2,args2) ⇒
+     type_lt (Tyapp x1 args1) (Tyapp x2 args2))`
+
+val (term_lt_rules,term_lt_ind,term_lt_cases) = Hol_reln`
+  ((mlstring_lt LEX type_lt) (x1,ty1) (x2,ty2) ⇒
+    term_lt (Var x1 ty1) (Var x2 ty2)) ∧
+  (term_lt (Var x1 ty1) (Const x2 ty2)) ∧
+  (term_lt (Var x1 ty1) (Comb t1 t2)) ∧
+  (term_lt (Var x1 ty1) (Abs t1 t2)) ∧
+  ((mlstring_lt LEX type_lt) (x1,ty1) (x2,ty2) ⇒
+    term_lt (Const x1 ty1) (Const x2 ty2)) ∧
+  (term_lt (Const x1 ty1) (Comb t1 t2)) ∧
+  (term_lt (Const x1 ty1) (Abs t1 t2)) ∧
+  ((term_lt LEX term_lt) (s1,s2) (t1,t2) ⇒
+   term_lt (Comb s1 s2) (Comb t1 t2)) ∧
+  (term_lt (Comb s1 s2) (Abs t1 t2)) ∧
+  ((term_lt LEX term_lt) (s1,s2) (t1,t2) ⇒
+   term_lt (Abs s1 s2) (Abs t1 t2))`
+
+val term_cmp_def = Define`
+  term_cmp = TO_of_LinearOrder term_lt`
+
+val type_cmp_def = Define`
+  type_cmp = TO_of_LinearOrder type_lt`
+
+val ordav_def = Define`
+  (ordav [] x1 x2 ⇔ term_cmp x1 x2) ∧
+  (ordav ((t1,t2)::env) x1 x2 ⇔
+    if term_cmp x1 t1 = EQUAL then
+      if term_cmp x2 t2 = EQUAL then
+        EQUAL
+      else LESS
+    else if term_cmp x2 t2 = EQUAL then
+      GREATER
+    else ordav env x1 x2)`
+
+val orda_def = Define`
+  orda env t1 t2 =
+    if t1 = t2 ∧ env = [] then EQUAL else
+      case (t1,t2) of
+      | (Var _ _, Var _ _) => ordav env t1 t2
+      | (Const _ _, Const _ _) => term_cmp t1 t2
+      | (Comb s1 t1, Comb s2 t2) =>
+        (let c = orda env s1 s2 in
+           if c ≠ EQUAL then c else orda env t1 t2)
+      | (Abs s1 t1, Abs s2 t2) =>
+        (let c = type_cmp (typeof s1) (typeof s2) in
+           if c ≠ EQUAL then c else orda ((s1,s2)::env) t1 t2)
+      | (Var _ _, _) => LESS
+      | (_, Var _ _) => GREATER
+      | (Const _ _, _) => LESS
+      | (_, Const _ _) => GREATER
+      | (Comb _ _, _) => LESS
+      | (_, Comb _ _) => GREATER`
+
+val term_union_def = Define`
+  term_union l1 l2 =
+    if l1 = l2 then l1 else
+    case (l1,l2) of
+    | ([],l2) => l2
+    | (l1,[]) => l1
+    | (h1::t1,h2::t2) =>
+      let c = orda [] h1 h2 in
+      if c = EQUAL then h1::(term_union t1 t2)
+      else if c = LESS then h1::(term_union t1 l2)
+      else h2::(term_union (h1::t1) t2)`
+
+val term_remove_def = Define`
+  term_remove t l =
+  case l of
+  | [] => l
+  | (s::ss) =>
+    let c = orda [] t s in
+    if c = GREATER then
+      let ss' = term_remove t ss in
+      if ss' = ss then l else s::ss'
+    else if c = EQUAL then ss else l`
+
+val term_image_def = Define`
+  term_image f l =
+  case l of
+  | [] => l
+  | (h::t) =>
+    let h' = f h in
+    let t' = term_image f t in
+    if h' = h ∧ t' = t then l
+    else term_union [h'] t'`
 
 (* Whether a variables (or constant) occurs free in a term. *)
 
@@ -297,6 +429,15 @@ val term_ok_def = Define`
        type_ok (tysof sig) ty ∧
        term_ok sig tm)`
 
+(* Well-formed sets of hypotheses, represented as lists,
+   are strictly sorted up to alpha-equivalence *)
+
+val alpha_lt_def = Define`
+  alpha_lt t1 t2 ⇔ orda [] t1 t2 = LESS`
+
+val hypset_ok_def = Define`
+  hypset_ok ls ⇔ SORTED alpha_lt ls`
+
 (* A theory is a signature together with a set of axioms. It is well-formed if
    the types of the constants are all ok, the axioms are all ok terms of type
    bool, and the signature is standard. *)
@@ -342,31 +483,31 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
   (* DEDUCT_ANTISYM *)
   ((thy, h1) |- c1 ∧
    (thy, h2) |- c2
-   ⇒ (thy, TERM_UNION (FILTER((~) o ACONV c2) h1)
-                      (FILTER((~) o ACONV c1) h2))
+   ⇒ (thy, term_union (term_remove c2 h1)
+                      (term_remove c1 h2))
            |- c1 === c2) ∧
 
   (* EQ_MP *)
   ((thy, h1) |- p === q ∧
    (thy, h2) |- p' ∧ ACONV p p'
-   ⇒ (thy, TERM_UNION h1 h2) |- q) ∧
+   ⇒ (thy, term_union h1 h2) |- q) ∧
 
   (* INST *)
   ((∀s s'. MEM (s',s) ilist ⇒
              ∃x ty. (s = Var x ty) ∧ s' has_type ty ∧ term_ok (sigof thy) s') ∧
    (thy, h) |- c
-   ⇒ (thy, MAP (VSUBST ilist) h) |- VSUBST ilist c) ∧
+   ⇒ (thy, term_image (VSUBST ilist) h) |- VSUBST ilist c) ∧
 
   (* INST_TYPE *)
   ((EVERY (type_ok (tysof thy)) (MAP FST tyin)) ∧
    (thy, h) |- c
-   ⇒ (thy, MAP (INST tyin) h) |- INST tyin c) ∧
+   ⇒ (thy, term_image (INST tyin) h) |- INST tyin c) ∧
 
   (* MK_COMB *)
   ((thy, h1) |- l1 === r1 ∧
    (thy, h2) |- l2 === r2 ∧
    welltyped(Comb l1 l2)
-   ⇒ (thy, TERM_UNION h1 h2) |- Comb l1 l2 === Comb r1 r2) ∧
+   ⇒ (thy, term_union h1 h2) |- Comb l1 l2 === Comb r1 r2) ∧
 
   (* REFL *)
   (theory_ok thy ∧ term_ok (sigof thy) t
@@ -376,7 +517,7 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
   ((thy, h1) |- l === m1 ∧
    (thy, h2) |- m2 === r ∧
    ACONV m1 m2
-   ⇒ (thy, TERM_UNION h1 h2) |- l === r) ∧
+   ⇒ (thy, term_union h1 h2) |- l === r) ∧
 
   (* axioms *)
   (theory_ok thy ∧ c ∈ (axsof thy)

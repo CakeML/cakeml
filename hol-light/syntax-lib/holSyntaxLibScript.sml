@@ -86,6 +86,10 @@ val REV_ASSOCD_MEM = store_thm("REV_ASSOCD_MEM",
   ``∀l x d. MEM (REV_ASSOCD x l d,x) l ∨ (REV_ASSOCD x l d = d)``,
   Induct >> simp[REV_ASSOCD,FORALL_PROD] >>rw[]>>fs[])
 
+val tyvar_inst_exists = store_thm("tyvar_inst_exists",
+  ``∃i. ty = REV_ASSOCD tyvar i b``,
+  qexists_tac`[(ty,tyvar)]` >> rw[REV_ASSOCD])
+
 val _ = Hol_datatype`result = Clash of 'a | Result of 'a`
 
 val IS_RESULT_def = Define`

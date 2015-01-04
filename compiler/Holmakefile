@@ -1,4 +1,4 @@
-INCLUDES = .. ../semantics ../bytecode ../lem_lib_stub ../inference
+INCLUDES = .. ../semantics ../bytecode ../lem_lib_stub ../inference ../semantics/proofs
 
 OPTIONS = QUIT_ON_FAILURE
 
@@ -13,7 +13,7 @@ LEM_OPT = -suppress_renaming -auxiliary_level none
 SEMANTICSI = lib ast semanticPrimitives bigStep
 BYTECODEI = bytecode
 INFERI = infer_t
-COMPILER = modLang conLang decLang exhLang patLang intLang toIntLang toBytecode compiler
+COMPILER = modLang conLang decLang exhLang patLang mtiLang intLang toIntLang toBytecode compiler
 GEN_SCRIPTS =  $(patsubst %,%Script.sml,$(COMPILER))
 
 LEMI = $(patsubst %,../semantics/%.lem,$(SEMANTICSI)) $(patsubst %,../bytecode/%.lem,$(BYTECODEI)) $(patsubst %,../inference/%.lem,$(INFERI))
@@ -30,7 +30,7 @@ PARENT_HOLHEAP = ../semantics/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 all: $(HOLHEAP)
 
-BARE_THYS = ../semantics/terminationTheory ../bytecode/bytecodeExtraTheory ../inference/infer_tTheory
+BARE_THYS = ../semantics/terminationTheory ../semantics/proofs/evalPropsTheory ../bytecode/bytecodeExtraTheory ../inference/infer_tTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 
 $(HOLHEAP): $(DEPS)

@@ -833,7 +833,6 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    Induct >> simp[] >>
    Cases >> fs[env_to_exh_LIST_REL] >>
    rw[EXISTS_PROD] >> simp[] ) >>
- strip_tac >- simp[] >>
  strip_tac >- (
    simp[exp_to_exh_def] >>
    rpt gen_tac >> strip_tac >>
@@ -847,8 +846,6 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    first_x_assum(qspec_then`n`mp_tac) >>
    simp[optionTheory.OPTREL_def] >>
    metis_tac[] ) >>
- strip_tac >- simp[] >>
- strip_tac >- simp[] >>
  strip_tac >- (
    simp[exp_to_exh_def] >>
    rpt gen_tac >> strip_tac >>
@@ -904,7 +901,6 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    first_assum(match_exists_tac o concl) >> simp[] >>
    imp_res_tac do_opapp_exh >>
    metis_tac[vs_to_exh_LIST_REL] ) >>
- strip_tac >- simp[] >>
  strip_tac >- (
    simp[exp_to_exh_def] >>
    rpt gen_tac >> strip_tac >>
@@ -920,7 +916,6 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] do_app_exh_i3)) >>
    disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
    simp[vs_to_exh_LIST_REL] ) >>
- strip_tac >- simp[] >>
  strip_tac >- (
    simp[exp_to_exh_def] >>
    rpt gen_tac >> strip_tac >>
@@ -952,7 +947,6 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    rw[] >> fs[] >> rw[] >>
    every_case_tac >> fs[] >>
    metis_tac[] ) >>
- strip_tac >- simp[] >>
  strip_tac >- (
    simp[exp_to_exh_def] >>
    rpt gen_tac >> strip_tac >>
@@ -1030,7 +1024,6 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    simp[FORALL_PROD] >>
    simp[Once v_to_exh_cases,funs_to_exh_MAP,MAP_EQ_f,FORALL_PROD,env_to_exh_LIST_REL] >>
    metis_tac[] ) >>
- strip_tac >- rw[] >>
  strip_tac >- (
    simp[exp_to_exh_def] >>
    rw[] >>
@@ -1160,37 +1153,6 @@ val csg_every_def = Define`
   csg_every P ((c,s),g) ⇔ EVERY (sv_every P) s ∧ EVERY (OPTION_EVERY P) g`
 
 (* exhLangExtra *)
-
-val free_vars_exh_def = tDefine"free_vars_exh"`
-  free_vars_exh (Raise_exh e) = free_vars_exh e ∧
-  free_vars_exh (Handle_exh e pes) = free_vars_exh e ∪ free_vars_pes_exh pes ∧
-  free_vars_exh (Lit_exh _) = {} ∧
-  free_vars_exh (Con_exh _ es) = free_vars_list_exh es ∧
-  free_vars_exh (Var_local_exh n) = {n} ∧
-  free_vars_exh (Var_global_exh _) = {} ∧
-  free_vars_exh (Fun_exh x e) = free_vars_exh e DIFF {x} ∧
-  free_vars_exh (App_exh _ es) = free_vars_list_exh es ∧
-  free_vars_exh (If_exh e1 e2 e3) = free_vars_exh e1 ∪ free_vars_exh e2 ∪ free_vars_exh e3 ∧
-  free_vars_exh (Mat_exh e pes) = free_vars_exh e ∪ free_vars_pes_exh pes ∧
-  free_vars_exh (Let_exh bn e1 e2) = free_vars_exh e1 ∪ (free_vars_exh e2 DIFF (case bn of NONE => {} | SOME x => {x})) ∧
-  free_vars_exh (Letrec_exh defs e) = (free_vars_defs_exh defs ∪ free_vars_exh e) DIFF set(MAP FST defs) ∧
-  free_vars_exh (Extend_global_exh _) = {} ∧
-  free_vars_list_exh [] = {} ∧
-  free_vars_list_exh (e::es) = free_vars_exh e ∪ free_vars_list_exh es ∧
-  free_vars_defs_exh [] = {} ∧
-  free_vars_defs_exh ((f,x,e)::ds) = (free_vars_exh e DIFF {x}) ∪ free_vars_defs_exh ds ∧
-  free_vars_pes_exh [] = {} ∧
-  free_vars_pes_exh ((p,e)::pes) = (free_vars_exh e DIFF (set (pat_bindings_exh p []))) ∪ free_vars_pes_exh pes`
-(WF_REL_TAC`inv_image $< (λx. case x of
-  | INL e => exp_exh_size e
-  | INR (INL es) => exp_exh6_size es
-  | INR (INR (INL defs)) => exp_exh1_size defs
-  | INR (INR (INR pes)) => exp_exh3_size pes)`)
-val _ = export_rewrites["free_vars_exh_def"]
-
-val free_vars_pes_exh_MAP = store_thm("free_vars_pes_exh_MAP",
-  ``∀pes. free_vars_pes_exh pes = BIGUNION (set (MAP (λ(p,e). free_vars_exh e DIFF set (pat_bindings_exh p [])) pes))``,
-  Induct >> simp[] >> Cases >> simp[])
 
 val sv_to_exh_sv_rel = store_thm("sv_to_exh_sv_rel",
   ``sv_to_exh exh = sv_rel (v_to_exh exh)``,

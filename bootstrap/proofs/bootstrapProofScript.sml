@@ -1,6 +1,6 @@
 open HolKernel boolLib bossLib pairTheory listTheory lcsymtacs miscLib
-open ml_translatorTheory repl_funProofTheory compilerProofTheory ml_repl_moduleTheory
-open evaluateReplDecsTheory compileReplDecsTheory closedReplDecsTheory removeLabelsReplDecsTheory
+open ml_translatorTheory repl_funProofTheory compilerProofTheory compilerMLTheory replMLTheory replModuleTheory
+open evaluateReplTheory compileReplTheory closedReplTheory removeLabelsReplTheory
 
 val _ = temp_tight_equality()
 val _ = new_theory "bootstrapProof"
@@ -33,9 +33,9 @@ val Cv_bv_lit =
   ``Cv_bv a (CLitv y) z`` |> SIMP_CONV (srw_ss()) [Once bytecodeProofTheory.Cv_bv_cases]
 
 val conv_rws = [printingTheory.v_bv_def,
-  v_to_i1_conv,free_varsTheory.vs_to_i1_MAP,v_to_i1_lit,
-  v_to_i2_conv,free_varsTheory.vs_to_i2_MAP,v_to_i2_lit,
-  v_to_exh_conv,free_varsTheory.vs_to_exh_MAP,
+  v_to_i1_conv,free_varsProofTheory.vs_to_i1_MAP,v_to_i1_lit,
+  v_to_i2_conv,free_varsProofTheory.vs_to_i2_MAP,v_to_i2_lit,
+  v_to_exh_conv,free_varsProofTheory.vs_to_exh_MAP,
   printingTheory.exh_Cv_def,
   v_pat_conv,syneq_conv,Cv_bv_conv,Cv_bv_lit]
 
@@ -84,13 +84,13 @@ val repl_store = tm |> funpow 2 rator |> funpow 2 rand
 
 val bootstrap_bc_state_exists = prove(
   ``∃bs grd.
-      bc_eval (install_code ((SND(SND(compile_repl_decs)))++SND(THE prim_env)) initial_bc_state) = SOME bs ∧
+      bc_eval (install_code ((SND(SND(compile_repl_module)))++SND(THE prim_env)) initial_bc_state) = SOME bs ∧
       bc_fetch bs = SOME (Stop T) ∧
       EVERY IS_SOME bs.globals ∧
-      env_rs ^repl_all_env ^repl_store grd (FST compile_repl_decs) bs``,
-  mp_tac(MATCH_MP bigClockTheory.top_add_clock (CONJUNCT1 evaluate_repl_decs)) >>
+      env_rs ^repl_all_env ^repl_store grd (FST compile_repl_module) bs``,
+  mp_tac(MATCH_MP bigClockTheory.top_add_clock (CONJUNCT1 evaluate_replModule)) >>
   simp[] >>
-  `∃c r. Tmod_state "REPL" ml_repl_module_decls = (c,r)` by METIS_TAC[pair_CASES] >> simp[] >>
+  `∃c r. Tmod_state "REPL" replModule_decls = (c,r)` by METIS_TAC[pair_CASES] >> simp[] >>
   assume_tac(``(THE prim_sem_env).sem_store`` |> SIMP_CONV (srw_ss()) [initSemEnvTheory.prim_sem_env_eq]) >> simp[] >>
   disch_then(qx_choose_then`ck`(mp_tac o MATCH_MP compile_top_thm)) >>
   simp[] >>
@@ -99,11 +99,11 @@ val bootstrap_bc_state_exists = prove(
   simp[] >> disch_then(qspecl_then[`ck`,`SOME ck`]mp_tac) >> simp[] >>
   strip_tac >>
   CONV_TAC(LAND_CONV(RESORT_FORALL_CONV(sort_vars["bs","rs","types"]))) >>
-  `∃rss rsf bc. compile_repl_decs = (rss,rsf,bc)` by METIS_TAC[pair_CASES] >>
+  `∃rss rsf bc. compile_repl_module = (rss,rsf,bc)` by METIS_TAC[pair_CASES] >>
   disch_then(qspecl_then[`install_code bc (THE prim_bs with clock := SOME ck)`
                         ,`(FST (THE prim_env)).comp_rs`,`NONE`]mp_tac) >>
   simp[] >>
-  fs[compile_repl_decs_def,closed_top_REPL] >>
+  fs[compile_repl_module_def,closed_top_REPL] >>
   disch_then(qspecl_then[`genv,gtagenv,rd`]mp_tac) >>
   CONV_TAC(LAND_CONV(QUANT_CONV(LAND_CONV(SIMP_CONV(srw_ss())[initCompEnvTheory.install_code_def]))))>>
   simp[] >>
@@ -158,21 +158,21 @@ val repl_bc_state_clock = prove(
 val COMPILER_RUN_INV_def = Define `
   COMPILER_RUN_INV bs grd inp out ⇔
      env_rs ^repl_all_env (update_io inp out ^repl_store) grd
-       (FST compile_repl_decs) bs ∧
+       (FST compile_repl_module) bs ∧
     (∃rf pc. bs = repl_bc_state with <| pc := pc; refs := rf |>) `
 
 val COMPILER_RUN_INV_empty_stack = store_thm("COMPILER_RUN_INV_empty_stack",
   ``COMPILER_RUN_INV bs grd inp out ⇒ (bs.stack = [])``,
   rw[COMPILER_RUN_INV_def]>> PairCases_on`grd` >>
-  Cases_on`Tmod_state "REPL" ml_repl_module_decls`>>
+  Cases_on`Tmod_state "REPL" replModule_decls`>>
   fs[update_io_def,compilerProofTheory.env_rs_def])
 
 val COMPILER_RUN_INV_init = store_thm("COMPILER_RUN_INV_init",
   ``COMPILER_RUN_INV repl_bc_state bootstrap_grd
-       (dest_Refv (EL iloc (SND (Tmod_state "REPL" ml_repl_module_decls))))
-       (dest_Refv (EL (iloc+1) (SND (Tmod_state "REPL" ml_repl_module_decls))))``,
+       (dest_Refv (EL iloc (SND (Tmod_state "REPL" replModule_decls))))
+       (dest_Refv (EL (iloc+1) (SND (Tmod_state "REPL" replModule_decls))))``,
   rw[COMPILER_RUN_INV_def,repl_bc_state_def] >- (
-    Cases_on`Tmod_state "REPL" ml_repl_module_decls` >>
+    Cases_on`Tmod_state "REPL" replModule_decls` >>
     simp[update_io_def] >>
     strip_assume_tac repl_env_def >> rfs[] >>
     Cases_on`EL iloc r`>>fs[]>>Cases_on`EL (iloc+1) r`>>fs[]>>
@@ -215,11 +215,11 @@ val COMPILER_RUN_INV_repl_step = store_thm("COMPILER_RUN_INV_repl_step",
   first_assum(mp_tac o MATCH_MP evaluate_call_repl_step) >>
   disch_then(qspec_then`out1`strip_assume_tac) >>
   pop_assum (mp_tac o MATCH_MP bigClockTheory.top_add_clock) >>
-  Cases_on`Tmod_state"REPL"ml_repl_module_decls`>>
+  Cases_on`Tmod_state"REPL"replModule_decls`>>
   fs[update_io_def] >>
   disch_then(qx_choose_then`ck`STRIP_ASSUME_TAC) >>
   pop_assum(mp_tac o MATCH_MP compile_special_thm) >> simp[] >>
-  disch_then(qspecl_then[`FST compile_repl_decs`]mp_tac) >>
+  disch_then(qspecl_then[`FST compile_repl_module`]mp_tac) >>
   simp[GSYM compile_call_repl_step_def] >>
   simp[free_varsTheory.closed_top_def,evalPropsTheory.all_env_dom_def] >>
   disch_then(qspecl_then[`grd1`,`bootstrap_bc_state.code`
@@ -301,13 +301,13 @@ val COMPILER_RUN_INV_repl_step = store_thm("COMPILER_RUN_INV_repl_step",
 
 (* Data representation (TODO: move for easier re-use by x86-64?) *)
 
-val map0 = ``FST(SND(FST compile_repl_decs).contags_env)``
+val map0 = ``FST(SND(FST compile_repl_module).contags_env)``
 val short_contags_env_def = Define`
   short_contags_env = SND ^map0`
 val short_contags_env_eq =
   ``short_contags_env``
   |> (REWR_CONV short_contags_env_def THENC
-      PURE_ONCE_REWRITE_CONV[compile_repl_decs_eq]
+      PURE_ONCE_REWRITE_CONV[compile_repl_module_eq]
       THENC EVAL)
 
 val repl_contags_env_def = Define`
@@ -315,7 +315,7 @@ val repl_contags_env_def = Define`
 val repl_contags_env_eq =
   ``repl_contags_env``
   |> (REWR_CONV repl_contags_env_def THENC
-      PURE_ONCE_REWRITE_CONV[compile_repl_decs_eq]
+      PURE_ONCE_REWRITE_CONV[compile_repl_module_eq]
       THENC EVAL)
 
 fun mktm s = ``FST(lookup_tag_flat ^(stringSyntax.fromMLstring s) repl_contags_env)``
@@ -375,7 +375,7 @@ val LIST_TYPE_CHAR_BlockList = prove(
     ⇒ (b = BlockList (MAP Chr s))``,
   strip_tac >>
   simp[GSYM AND_IMP_INTRO] >>
-  Induct >> simp[ml_repl_stepTheory.LIST_TYPE_def] >- (
+  Induct >> simp[LIST_TYPE_def] >- (
     simp conv_rws >>
     simp[BlockList_def,BlockNil_def]) >>
   simp[PULL_EXISTS] >> simp conv_rws >>
@@ -401,7 +401,7 @@ val LIST_TYPE_code_BlockList = prove(
     ⇒ (b = BlockList (MAP BlockNum3 s))``,
   strip_tac >>
   simp[GSYM AND_IMP_INTRO] >>
-  Induct >> simp[ml_repl_stepTheory.LIST_TYPE_def] >- (
+  Induct >> simp[LIST_TYPE_def] >- (
     simp conv_rws >>
     simp[BlockList_def,BlockNil_def]) >>
   simp[PULL_EXISTS] >> simp conv_rws >>
@@ -412,7 +412,7 @@ val LIST_TYPE_code_BlockList = prove(
   simp[PULL_EXISTS] >> simp conv_rws >>
   simp[PULL_EXISTS] >> simp conv_rws >>
   simp[BlockList_def,BlockCons_def] >>
-  simp[FORALL_PROD,ml_repl_stepTheory.PAIR_TYPE_def,PULL_EXISTS] >>
+  simp[FORALL_PROD,PAIR_TYPE_def,PULL_EXISTS] >>
   simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
   simp conv_rws >>
   simp[BlockNum3_def,BlockPair_def] >>
@@ -426,7 +426,7 @@ val LIST_TYPE_v_bv = prove(
     ∀ls v. LIST_TYPE A ls v ∧ (∀x y. MEM x ls ∧ A x y ⇒ v_bv d y (f x)) ⇒
       v_bv d v (BlockList (MAP f ls))``,
    strip_tac >>
-   Induct >> simp[ml_repl_stepTheory.LIST_TYPE_def] >- (
+   Induct >> simp[LIST_TYPE_def] >- (
      PairCases_on`d` >>
      simp[printingTheory.v_bv_def] >> fs[] >>
      simp (PULL_EXISTS::conv_rws) >>
@@ -451,7 +451,7 @@ val LEXER_FUN_SYMBOL_TYPE_v_bv = prove(
     ⇒
     ∀x y. LEXER_FUN_SYMBOL_TYPE x y ⇒ v_bv d y (BlockSym x)``,
   strip_tac >> PairCases_on`d`>>fs[]>>
-  Cases >> simp[ml_repl_stepTheory.LEXER_FUN_SYMBOL_TYPE_def,PULL_EXISTS] >>
+  Cases >> simp[LEXER_FUN_SYMBOL_TYPE_def,PULL_EXISTS] >>
   simp(ml_translatorTheory.INT_def::PULL_EXISTS::conv_rws) >>
   simp[BlockSym_def] >>
   simp[BlockStringS_def,
@@ -478,14 +478,14 @@ val LEXER_FUN_SYMBOL_TYPE_v_bv = prove(
 (* Relationship between the invariant and the references *)
 
 val repl_globals_env_def = Define`
-  repl_globals_env = THE (FLOOKUP (FST(FST compile_repl_decs).globals_env) "REPL")`
+  repl_globals_env = THE (FLOOKUP (FST(FST compile_repl_module).globals_env) "REPL")`
 val repl_globals_env_eq =
   ``repl_globals_env``
   |> (REWR_CONV repl_globals_env_def THENC
-      PURE_ONCE_REWRITE_CONV[compile_repl_decs_eq]
+      PURE_ONCE_REWRITE_CONV[compile_repl_module_eq]
       THENC EVAL)
 val repl_globals_env_flookup = prove(
-  ``FLOOKUP (FST (FST compile_repl_decs).globals_env) "REPL" = SOME map ⇒
+  ``FLOOKUP (FST (FST compile_repl_module).globals_env) "REPL" = SOME map ⇒
     map = repl_globals_env``,
   rw[repl_globals_env_def])
 
@@ -520,7 +520,7 @@ val ptrs_exist = prove(
   assume_tac COMPILER_RUN_INV_init >>
   fs[COMPILER_RUN_INV_def] >>
   pop_assum kall_tac >>
-  Cases_on`Tmod_state"REPL"ml_repl_module_decls`>>fs[update_io_def] >>
+  Cases_on`Tmod_state"REPL"replModule_decls`>>fs[update_io_def] >>
   `∃x y z. bootstrap_grd = (x,y,z)` by METIS_TAC[pair_CASES] >>
   fs[env_rs_def]>>
   rator_x_assum`to_i1_invariant`mp_tac >>
@@ -577,16 +577,16 @@ val COMPILER_RUN_INV_references = store_thm("COMPILER_RUN_INV_references",
       FLOOKUP bs.refs iptr = SOME (ValueArray [ibc]) ∧
       FLOOKUP bs.refs optr = SOME (ValueArray [obc]) ∧
       let gtagenv = FST(SND grd) in
-      let d = (FST grd,gtagenv,(FST compile_repl_decs).exh,mk_pp (SND (SND grd)) bs) in
+      let d = (FST grd,gtagenv,(FST compile_repl_module).exh,mk_pp (SND (SND grd)) bs) in
       v_bv d input ibc ∧ v_bv d output obc ∧
       has_primitive_types gtagenv ∧
       (∀n a t.
-        (ALOOKUP (Tmod_tys "REPL" ml_repl_module_decls) n = SOME (a,t)) ⇒
+        (ALOOKUP (Tmod_tys "REPL" replModule_decls) n = SOME (a,t)) ⇒
         let tag = FST(lookup_tag_flat n repl_contags_env) in
           (FLOOKUP gtagenv (n,t) = SOME(tag,a)))``,
   rpt gen_tac >>
   simp[COMPILER_RUN_INV_def] >> strip_tac >>
-  Cases_on`Tmod_state"REPL"ml_repl_module_decls`>>fs[update_io_def] >>
+  Cases_on`Tmod_state"REPL"replModule_decls`>>fs[update_io_def] >>
   PairCases_on`grd`>> fs[env_rs_def]>>
   rator_x_assum`to_i1_invariant`mp_tac >>
   simp[modLangProofTheory.to_i1_invariant_def] >>
@@ -687,7 +687,7 @@ val COMPILER_RUN_INV_references = store_thm("COMPILER_RUN_INV_references",
     simp[conLangProofTheory.cenv_inv_def] >>
     simp[conLangProofTheory.envC_tagged_def] >>
     strip_tac >>
-    `∃x. FST(SND(FST compile_repl_decs).contags_env) = (x, short_contags_env)` by (
+    `∃x. FST(SND(FST compile_repl_module).contags_env) = (x, short_contags_env)` by (
       simp[short_contags_env_def] >>
       METIS_TAC[pair_CASES,SND,PAIR_EQ] ) >>
     first_assum(qspec_then`Short"nil"`mp_tac) >>
@@ -719,7 +719,7 @@ val COMPILER_RUN_INV_references = store_thm("COMPILER_RUN_INV_references",
     qmatch_assum_rename_tac`merge_alist_mod_env Y p = X`["Y"] >>
     Cases_on`p`>>fs[semanticPrimitivesTheory.merge_alist_mod_env_def] >>
     fs[Abbr`X`] >> rw[] ) >>
-  Cases_on`FST(SND(FST compile_repl_decs).contags_env)` >>
+  Cases_on`FST(SND(FST compile_repl_module).contags_env)` >>
   simp[conLangTheory.lookup_tag_env_def,astTheory.id_to_n_def] >>
   strip_tac >>
   fs[conLangProofTheory.gtagenv_wf_def] >>
@@ -766,8 +766,8 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
   simp[RIGHT_EXISTS_AND_THM] >>
   conj_tac >- fs[finite_mapTheory.FLOOKUP_DEF] >>
   fs[OUTPUT_TYPE_def] >>
-  fs[ml_repl_stepTheory.SUM_TYPE_def] >>
-  fs[ml_repl_stepTheory.PAIR_TYPE_def] >>
+  fs[SUM_TYPE_def] >>
+  fs[PAIR_TYPE_def] >>
   rw[] >>
   fs[LET_THM] >>
   rator_x_assum`v_bv`mp_tac >>
@@ -807,7 +807,7 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
   PairCases_on`grd` >>
   qexists_tac`grd0` >> qexists_tac`grd1` >>
   rator_x_assum`env_rs`mp_tac >>
-  Cases_on`Tmod_state"REPL"ml_repl_module_decls` >>
+  Cases_on`Tmod_state"REPL"replModule_decls` >>
   simp[update_io_def] >>
   simp[env_rs_def] >> strip_tac >>
   simp[RIGHT_EXISTS_AND_THM] >>
@@ -837,7 +837,7 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
   strip_tac >>
   qmatch_assum_abbrev_tac`v_bv data inp ibc` >>
   `v_bv data w (BlockList (MAP BlockSym ts))` by (
-    fs[INPUT_TYPE_def,ml_repl_stepTheory.OPTION_TYPE_def,ml_repl_stepTheory.PAIR_TYPE_def,Abbr`data`] >>
+    fs[INPUT_TYPE_def,OPTION_TYPE_def,PAIR_TYPE_def,Abbr`data`] >>
     MATCH_MP_TAC (MP_CANON LIST_TYPE_v_bv) >>
     HINT_EXISTS_TAC >> simp[] >> rw[] >>
     match_mp_tac(MP_CANON (GEN_ALL LEXER_FUN_SYMBOL_TYPE_v_bv)) >>
@@ -848,7 +848,8 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
     disch_then(qspec_then`a`mp_tac o CONV_RULE(SWAP_FORALL_CONV)) >>
     simp[Abbr`n`,sym_tags_exist] >>
     rw[Abbr`b`] >>
-    rw[errors_tag_def,others_tag_def,longs_tag_def,numbers_tag_def,strings_tag_def]) >>
+    rw[errors_tag_def,others_tag_def,longs_tag_def,numbers_tag_def,strings_tag_def] >>
+    NO_TAC) >>
   qunabbrev_tac`data` >>
   pop_assum(strip_assume_tac o SIMP_RULE (srw_ss()) [printingTheory.v_bv_def]) >>
   CONV_TAC SWAP_EXISTS_CONV >>
@@ -977,8 +978,8 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
   simp[RIGHT_EXISTS_AND_THM] >>
   conj_tac >- fs[finite_mapTheory.FLOOKUP_DEF] >>
   fs[OUTPUT_TYPE_def] >>
-  fs[ml_repl_stepTheory.SUM_TYPE_def] >>
-  fs[ml_repl_stepTheory.PAIR_TYPE_def] >>
+  fs[SUM_TYPE_def] >>
+  fs[PAIR_TYPE_def] >>
   rw[] >>
   fs[LET_THM] >>
   rator_x_assum`v_bv`mp_tac >>
@@ -1006,7 +1007,7 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
   rpt gen_tac >> strip_tac >>
   qmatch_assum_abbrev_tac`A s v1_2` >>
   `STATE_TYPE (b,s) (Conv NONE [Litv (Bool b); v1_2])` by (
-    simp[STATE_TYPE_def,ml_repl_stepTheory.PAIR_TYPE_def] >>
+    simp[STATE_TYPE_def,PAIR_TYPE_def] >>
     simp[ml_translatorTheory.BOOL_def] ) >>
   imp_res_tac INPUT_TYPE_exists >>
   first_x_assum(qspec_then`ts`strip_assume_tac) >>
@@ -1021,7 +1022,7 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
   PairCases_on`grd` >>
   qexists_tac`grd0` >> qexists_tac`grd1` >>
   rator_x_assum`env_rs`mp_tac >>
-  Cases_on`Tmod_state"REPL"ml_repl_module_decls` >>
+  Cases_on`Tmod_state"REPL"replModule_decls` >>
   simp[update_io_def] >>
   simp[env_rs_def] >> strip_tac >>
   simp[RIGHT_EXISTS_AND_THM] >>
@@ -1051,7 +1052,7 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
   strip_tac >>
   qmatch_assum_abbrev_tac`v_bv data inp ibc` >>
   `v_bv data w (BlockList (MAP BlockSym ts))` by (
-    fs[INPUT_TYPE_def,ml_repl_stepTheory.OPTION_TYPE_def,ml_repl_stepTheory.PAIR_TYPE_def,Abbr`data`] >>
+    fs[INPUT_TYPE_def,OPTION_TYPE_def,PAIR_TYPE_def,Abbr`data`] >>
     MATCH_MP_TAC (MP_CANON LIST_TYPE_v_bv) >>
     HINT_EXISTS_TAC >> simp[] >> rw[] >>
     match_mp_tac(MP_CANON (GEN_ALL LEXER_FUN_SYMBOL_TYPE_v_bv)) >>

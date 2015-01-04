@@ -35,6 +35,16 @@ val _ = Datatype `
          | SetGlobal num (* assign a value to a global *)
          | Cons num      (* construct a Block with given tag *)
          | El num        (* read Block field index *)
+         | El2           (* read Block field index *)
+         | LengthBlock   (* get length of Block *)
+         | Length        (* get length of reference *)
+         | LengthByte    (* get length of byte array *)
+         | RefByte       (* makes a byte array *)
+         | Ref2          (* makes a reference *)
+         | DerefByte     (* loads a byte from a byte array *)
+         | UpdateByte    (* updates a byte array *)
+         | FromList num  (* convert list to packed Block *)
+         | ToList        (* convert packed Block to list *)
          | Const int     (* integer *)
          | TagEq num     (* check whether Block's tag is eq *)
          | IsBlock       (* is it a Block value? *)
@@ -417,6 +427,20 @@ val bEval_SNOC = store_thm("bEval_SNOC",
   \\ Cases_on `a''` \\ fs [LENGTH]
   \\ REV_FULL_SIMP_TAC std_ss [LENGTH_NIL] \\ fs []);
 
+val bEval_APPEND = store_thm("bEval_APPEND",
+  ``!xs env s ys.
+      bEval (xs ++ ys,env,s) =
+      case bEval (xs,env,s) of
+        (Result vs,s2) =>
+          (case bEval (ys,env,s2) of
+             (Result ws,s1) => (Result (vs ++ ws),s1)
+           | res => res)
+      | res => res``,
+  Induct \\ fs [APPEND,bEval_def] \\ REPEAT STRIP_TAC
+  THEN1 REPEAT BasicProvers.CASE_TAC
+  \\ ONCE_REWRITE_TAC [bEval_CONS]
+  \\ REPEAT BasicProvers.CASE_TAC \\ fs []);
+
 val bvl_state_explode = store_thm("bvl_state_explode",
   ``!s1 (s2:bvl_state).
       s1 = s2 <=>
@@ -428,6 +452,25 @@ val bvl_state_explode = store_thm("bvl_state_explode",
   Cases \\ Cases \\ fs (TypeBase.updates_of ``:bvl_state`` @
                         TypeBase.accessors_of ``:bvl_state``)
   \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC \\ fs []);
+
+val bEval_code = store_thm("bEval_code",
+  ``!xs env s1 vs s2.
+      (bEval (xs,env,s1) = (vs,s2)) ==> s2.code = s1.code``,
+  recInduct bEval_ind \\ REPEAT STRIP_TAC
+  \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [bEval_def]
+  \\ FULL_SIMP_TAC std_ss []
+  \\ BasicProvers.FULL_CASE_TAC
+  \\ REPEAT STRIP_TAC \\ SRW_TAC [] [dec_clock_def]
+  \\ Cases_on`q`  \\ FULL_SIMP_TAC (srw_ss())[]
+  \\ POP_ASSUM MP_TAC
+  \\ BasicProvers.CASE_TAC \\ FULL_SIMP_TAC (srw_ss())[]
+  \\ SRW_TAC[][] \\ SRW_TAC[][]
+  \\ POP_ASSUM MP_TAC
+  \\ BasicProvers.CASE_TAC \\ FULL_SIMP_TAC (srw_ss())[]
+  \\ SRW_TAC[][] \\ IMP_RES_TAC bEvalOp_const \\ SRW_TAC[][]
+  \\ POP_ASSUM MP_TAC
+  \\ BasicProvers.CASE_TAC \\ FULL_SIMP_TAC (srw_ss())[]
+  \\ SRW_TAC[][] \\ SRW_TAC[][dec_clock_def]);
 
 (* clean up *)
 

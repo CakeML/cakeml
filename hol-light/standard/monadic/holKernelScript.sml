@@ -1,5 +1,6 @@
 open HolKernel Parse boolLib bossLib;
 open stringTheory mlstringTheory listTheory sortingTheory;
+open holSyntaxExtraTheory;
 val _ = new_theory "holKernel";
 
 
@@ -178,21 +179,6 @@ val _ = Define `
 
 val _ = Define `
   subset l1 l2 = EVERY (\t. MEM t l2) l1`;
-
-val _ = Define `
-  subtract l1 l2 = FILTER (\t. ~(MEM t l2)) l1`;
-
-val _ = Define `
-  insert x l = if MEM x l then l else x::l`;
-
-val _ = Define `
-  itlist f l b =
-    case l of
-      [] => b
-    | (h::t) => f h (itlist f t b)`;
-
-val _ = Define `
-  union l1 l2 = itlist insert l1 l2`;
 
 (*
   let get_type_arity s = assoc s (!the_type_constants)
@@ -525,14 +511,6 @@ val _ = Define `
     | Comb(s,t) -> union (frees s) (frees t)
 *)
 
-val _ = Define `
-  frees tm =
-    case tm of
-      Var _ _ => [tm]
-    | Const _ _ => []
-    | Abs bv bod => subtract (frees bod) [bv]
-    | Comb s t => union (frees s) (frees t)`
-
 (*
   let freesl tml = itlist (union o frees) tml []
 *)
@@ -564,13 +542,6 @@ val _ = Define `
     | Comb(s,t) -> vfree_in v s or vfree_in v t
     | _ -> tm = v
 *)
-
-val _ = Define `
-  vfree_in v tm =
-    case tm of
-      Abs bv bod => v <> bv /\ vfree_in v bod
-    | Comb s t => vfree_in v s \/ vfree_in v t
-    | _ => (tm = v)`;
 
 (*
   let rec type_vars_in_term tm =
@@ -606,47 +577,18 @@ val EXISTS_IMP = prove(
   ``!xs p. EXISTS p xs ==> ?x. MEM x xs /\ p x``,
   Induct THEN SIMP_TAC (srw_ss()) [EXISTS_DEF] THEN METIS_TAC []);
 
-val MEM_union = prove(
-  ``!y z x. MEM x (union y z) = (MEM x y \/ MEM x z)``,
-  Induct
-  THEN FULL_SIMP_TAC std_ss [fetch "-" "union_def"]
-  THEN ONCE_REWRITE_TAC [fetch "-" "itlist_def"]
-  THEN ASM_SIMP_TAC (srw_ss()) [fetch "-" "insert_def"]
-  THEN SRW_TAC [] [] THEN METIS_TAC []);
-
 val MEM_subtract = prove(
   ``!y z x. MEM x (subtract y z) = (MEM x y /\ ~MEM x z)``,
-  FULL_SIMP_TAC std_ss [fetch "-" "subtract_def",MEM_FILTER] THEN METIS_TAC []);
+  FULL_SIMP_TAC std_ss [subtract_def,MEM_FILTER] THEN METIS_TAC []);
 
 val vfree_in_IMP = prove(
   ``!(t:term) x v. vfree_in (Var v ty) x ==> MEM (Var v ty) (frees x)``,
-  HO_MATCH_MP_TAC (SIMP_RULE std_ss [] (fetch "-" "vfree_in_ind"))
+  HO_MATCH_MP_TAC (SIMP_RULE std_ss [] (vfree_in_ind))
   THEN REPEAT STRIP_TAC THEN Cases_on `x` THEN POP_ASSUM MP_TAC
-  THEN ONCE_REWRITE_TAC [fetch "-" "vfree_in_def",fetch "-" "frees_def"]
+  THEN ONCE_REWRITE_TAC [vfree_in_def,frees_def]
   THEN FULL_SIMP_TAC (srw_ss()) []
   THEN FULL_SIMP_TAC (srw_ss()) [MEM_union,MEM_subtract]
   THEN REPEAT STRIP_TAC THEN RES_TAC THEN ASM_SIMP_TAC std_ss []);
-
-val _ = tDefine "variant" `
-  variant avoid v =
-    if EXISTS (vfree_in v) avoid then
-    case v of
-       Var s ty => variant avoid (Var(s ^ (strlit "'")) ty)
-    | _ => v else v`
-  (WF_REL_TAC `measure (\(avoid,v).
-     let s = \v. case v of Var s ty => strlen s + 1 | _ => 0 in
-     let n = SUM (MAP s (FLAT (MAP frees avoid))) in
-       n - (s v - 1))`
-   THEN REPEAT STRIP_TAC
-   THEN FULL_SIMP_TAC (srw_ss()) [LET_DEF,LENGTH,LENGTH_APPEND,strlen_def,strcat_def,explode_implode]
-   THEN REPEAT STRIP_TAC THEN1 DECIDE_TAC
-   THEN IMP_RES_TAC EXISTS_IMP
-   THEN FULL_SIMP_TAC std_ss [MEM_SPLIT,MAP,MAP_APPEND,
-          rich_listTheory.FLAT_APPEND,FLAT,SUM,SUM_APPEND]
-   THEN IMP_RES_TAC vfree_in_IMP
-   THEN FULL_SIMP_TAC (srw_ss()) [MEM_SPLIT,MAP,MAP_APPEND,SUM,SUM_APPEND]
-   THEN SIMP_TAC std_ss [arithmeticTheory.ADD_ASSOC]
-   THEN DECIDE_TAC)
 
 (*
   let vsubst =
@@ -732,16 +674,16 @@ val my_term_size_def = Define `
 
 val my_term_size_variant = prove(
   ``!avoid t. my_term_size (variant avoid t) = my_term_size t``,
-  HO_MATCH_MP_TAC (fetch"-" "variant_ind") THEN REPEAT STRIP_TAC
-  THEN ONCE_REWRITE_TAC [fetch "-" "variant_def"]
+  HO_MATCH_MP_TAC (variant_ind) THEN REPEAT STRIP_TAC
+  THEN ONCE_REWRITE_TAC [variant_def]
   THEN Cases_on `t` THEN FULL_SIMP_TAC (srw_ss()) []
   THEN SRW_TAC [] [] THEN RES_TAC
   THEN FULL_SIMP_TAC std_ss [my_term_size_def]);
 
 val is_var_variant = prove(
   ``!avoid t. is_var (variant avoid t) = is_var t``,
-  HO_MATCH_MP_TAC (fetch"-" "variant_ind") THEN REPEAT STRIP_TAC
-  THEN ONCE_REWRITE_TAC [fetch "-" "variant_def"]
+  HO_MATCH_MP_TAC (variant_ind) THEN REPEAT STRIP_TAC
+  THEN ONCE_REWRITE_TAC [variant_def]
   THEN Cases_on `t` THEN FULL_SIMP_TAC (srw_ss()) []
   THEN SRW_TAC [] [] THEN RES_TAC
   THEN FULL_SIMP_TAC (srw_ss()) [my_term_size_def,fetch "-" "is_var_def"]);
@@ -881,26 +823,6 @@ val _ = Define `
     | _ => F`;
 
 (*
-  let term_remove t l = filter (fun t' -> not(aconv t t')) l;;
-
-  let rec term_union l1 l2 =
-    match l1 with
-      [] -> l2
-    | (h::t) -> let subun = term_union t l2 in
-                if exists (aconv h) subun then subun else h::subun;;
-*)
-
-val _ = Define `
-  term_remove t l = FILTER (\t'. ~(aconv t t')) l`;
-
-val _ = Define `
-  term_union l1 l2 =
-    case l1 of
-      [] => l2
-    | (h::t) => let subun = term_union t l2 in
-                if EXISTS (aconv h) subun then subun else h::subun`;
-
-(*
   let dest_thm (Sequent(asl,c)) = (asl,c)
 
   let hyp (Sequent(asl,c)) = asl
@@ -1034,6 +956,15 @@ val _ = Define `
       do eq <- mk_eq(c1,c2) ;
          return (Sequent (term_union asl1' asl2') eq) od`
 
+val _ = Define`
+  image f l =
+  case l of
+    [] => return l
+  | (h::t) => do h' <- f h ;
+                 t' <- image f t ;
+                 return ( if (h' = h) ∧ (t' = t) then l
+                          else term_union [h'] t' ) od`
+
 (*
   let INST_TYPE theta (Sequent(asl,c)) =
     let inst_fun = inst theta in
@@ -1043,7 +974,7 @@ val _ = Define `
 val _ = Define `
   INST_TYPE theta (Sequent asl c) =
     let inst_fun = inst theta in
-      do l <- map inst_fun asl ;
+      do l <- image inst_fun asl ;
          x <- inst_fun c ;
          return (Sequent l x) od`
 
@@ -1056,7 +987,7 @@ val _ = Define `
 val _ = Define `
   INST theta (Sequent asl c) =
     let inst_fun = vsubst theta in
-      do l <- map inst_fun asl ;
+      do l <- image inst_fun asl ;
          x <- inst_fun c ;
          return (Sequent l x) od`
 

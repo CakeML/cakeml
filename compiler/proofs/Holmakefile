@@ -11,7 +11,7 @@ TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 
-BARE_THYS = ../../semantics/terminationTheory ../compilerTerminationTheory ../../bytecode/bytecodeExtraTheory ../../semantics/proofs/evalPropsTheory ../../inference/proofs/inferSoundTheory
+BARE_THYS = ../../semantics/terminationTheory ../compilerTerminationTheory ../free_varsTheory ../../bytecode/bytecodeExtraTheory ../../semantics/proofs/evalPropsTheory ../../inference/proofs/inferSoundTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 
 $(HOLHEAP): $(DEPS)

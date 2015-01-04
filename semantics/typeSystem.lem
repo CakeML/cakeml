@@ -299,7 +299,7 @@ let check_ctor_tenv mn tenvT tds =
 val build_ctor_tenv : maybe modN -> tenvT -> list (list tvarN * typeN * list (conN * list t)) -> flat_tenvC
 let build_ctor_tenv mn tenvT tds =
   List.reverse
-    (concat
+    (List.concat
       (List.map
          (fun (tvs,tn,ctors) ->
             List.map (fun (cn,ts) -> (cn,(tvs,List.map (type_name_subst tenvT) ts, TypeId (mk_id mn tn)))) ctors)

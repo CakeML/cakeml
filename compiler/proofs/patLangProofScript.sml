@@ -1,115 +1,7 @@
 open HolKernel boolLib boolSimps bossLib lcsymtacs listTheory alistTheory pairTheory
-open Defn miscLib miscTheory evalPropsTheory exhLangTheory patLangTheory compilerTerminationTheory
-open exhLangProofTheory semanticPrimitivesTheory;
+open Defn miscLib miscTheory evalPropsTheory exhLangTheory patLangTheory
+open exhLangProofTheory free_varsTheory semanticPrimitivesTheory compilerTerminationTheory
 val _ = new_theory"patLangProof"
-
-(* patLang extra lemmas, used elsewhere *)
-
-val row_to_pat_acc = store_thm("row_to_pat_acc",
-  ``(∀Nbvs p bvs1 N. Nbvs = N::bvs1 ⇒
-       ∀bvs2 r1 n1 f1 r2 n2 f2.
-         row_to_pat (N::bvs1) p = (r1,n1,f1) ∧
-         row_to_pat (N::bvs2) p = (r2,n2,f2) ⇒
-         n1 = n2 ∧ f1 = f2 ∧
-         ∃ls. r1 = ls ++ bvs1 ∧
-              r2 = ls ++ bvs2 ∧
-              LENGTH ls = SUC n1) ∧
-    (∀bvsk0 n k ps bvsk N bvs1.
-        bvsk0 = bvsk ++ (N::bvs1) ∧ LENGTH bvsk = n ⇒
-      ∀bvs2 r1 n1 f1 r2 n2 f2.
-        cols_to_pat (bvsk++(N::bvs1)) n k ps = (r1,n1,f1) ∧
-        cols_to_pat (bvsk++(N::bvs2)) n k ps = (r2,n2,f2) ⇒
-        n1 = n2 ∧ f1 = f2 ∧
-        ∃ls. r1 = ls ++ bvsk ++ (N::bvs1) ∧
-             r2 = ls ++ bvsk ++ (N::bvs2) ∧
-             LENGTH ls = n1)``,
-  ho_match_mp_tac row_to_pat_ind >>
-  strip_tac >- (
-    rpt gen_tac >> strip_tac >> fs[] >>
-    rpt BasicProvers.VAR_EQ_TAC >>
-    rw[row_to_pat_def] >> simp[] ) >>
-  strip_tac >- (
-    rpt gen_tac >> strip_tac >> fs[] >>
-    rpt BasicProvers.VAR_EQ_TAC >>
-    rw[row_to_pat_def] >> simp[] ) >>
-  strip_tac >- (
-    rpt gen_tac >> simp[LENGTH_NIL] >>
-    strip_tac >> rpt gen_tac >> strip_tac >>
-    rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
-    simp_tac std_ss [row_to_pat_def] >>
-    rpt gen_tac >> strip_tac >>
-    first_x_assum(qspec_then`bvs2`mp_tac) >>
-    simp[] >> strip_tac >>
-    qexists_tac`ls++[N]` >>
-    simp[]) >>
-  strip_tac >- (
-    rpt gen_tac >> strip_tac >>
-    rpt gen_tac >> strip_tac >>
-    rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
-    simp_tac std_ss [row_to_pat_def] >>
-    simp[] >>
-    `∃r1 n1 f1. row_to_pat (NONE::N::bvs1) p = (r1,n1,f1)` by simp[GSYM EXISTS_PROD] >>
-    fs[] >> rpt gen_tac >>
-    `∃r2 n2 f2. row_to_pat (NONE::N::bvs2) p = (r2,n2,f2)` by simp[GSYM EXISTS_PROD] >>
-    fs[] >> strip_tac >>
-    rpt BasicProvers.VAR_EQ_TAC >>
-    first_x_assum(qspec_then`N::bvs2`mp_tac) >>
-    simp[] >> rw[] >> simp[] ) >>
-  strip_tac >- rw[] >>
-  strip_tac >- (
-    rpt gen_tac >> simp[] >> strip_tac >>
-    rpt BasicProvers.VAR_EQ_TAC >>
-    simp[row_to_pat_def] ) >>
-  strip_tac >- simp[row_to_pat_def] >>
-  rpt gen_tac >> strip_tac >>
-  rpt gen_tac >> strip_tac >>
-  rpt BasicProvers.VAR_EQ_TAC >>
-  rpt gen_tac >>
-  simp_tac std_ss [row_to_pat_def] >>
-  `∃r01 n01 f01. row_to_pat (NONE::(bvsk ++ (N::bvs1))) p = (r01,n01,f01)` by simp[GSYM EXISTS_PROD] >>
-  `∃r02 n02 f02. row_to_pat (NONE::(bvsk ++ (N::bvs2))) p = (r02,n02,f02)` by simp[GSYM EXISTS_PROD] >>
-  ntac 2 (pop_assum mp_tac) >>
-  simp_tac (srw_ss()) [LET_THM] >>
-  `∃r11 n11 f11. cols_to_pat r01 (LENGTH bvsk + 1 + n01) (k+1) ps = (r11,n11,f11)` by simp[GSYM EXISTS_PROD] >>
-  `∃r12 n12 f12. cols_to_pat r02 (LENGTH bvsk + 1 + n02) (k+1) ps = (r12,n12,f12)` by simp[GSYM EXISTS_PROD] >>
-  ntac 2 (pop_assum mp_tac) >>
-  simp_tac (srw_ss()) [LET_THM] >>
-  ntac 5 strip_tac >>
-  rpt BasicProvers.VAR_EQ_TAC >>
-  qpat_assum`∀X. Y`mp_tac >>
-  ntac 2 (pop_assum mp_tac) >>
-  simp_tac (std_ss++listSimps.LIST_ss) [] >>
-  ntac 2 strip_tac >>
-  disch_then(qspec_then`bvsk ++ N::bvs2`mp_tac) >>
-  ntac 2 (pop_assum mp_tac) >>
-  simp_tac (std_ss++listSimps.LIST_ss) [] >>
-  ntac 3 strip_tac >>
-  rpt BasicProvers.VAR_EQ_TAC >>
-  qpat_assum`∀X. Y`mp_tac >>
-  ntac 3 (pop_assum mp_tac) >>
-  simp_tac (std_ss++listSimps.LIST_ss) [] >>
-  ntac 3 strip_tac >>
-  disch_then(qspec_then`ls ++ bvsk`mp_tac) >>
-  pop_assum mp_tac >>
-  simp_tac (std_ss++listSimps.LIST_ss++ARITH_ss) [arithmeticTheory.ADD1] >>
-  strip_tac >>
-  disch_then(qspec_then`bvs2`mp_tac) >>
-  ntac 2 (last_x_assum mp_tac) >>
-  simp_tac (std_ss++listSimps.LIST_ss++ARITH_ss) [arithmeticTheory.ADD1] >>
-  ntac 3 strip_tac >>
-  rpt BasicProvers.VAR_EQ_TAC >>
-  simp[])
-
-val row_to_pat_nil = store_thm("row_to_pat_nil",
-  ``row_to_pat (N::bvs1) p = let (r1,n1,f1) = row_to_pat [N] p in (r1++bvs1,n1,f1)``,
-  rw[] >>
-  qspecl_then[`[N]`,`p`]mp_tac (CONJUNCT1 row_to_pat_acc) >>
-  simp[] >>
-  disch_then(qspec_then`bvs1`mp_tac) >>
-  `∃x y z. row_to_pat (N::bvs1) p = (x,y,z)` by simp[GSYM EXISTS_PROD] >>
-  simp[])
-
-(* --- *)
 
 val v_to_pat_def = tDefine"v_to_pat"`
   (v_to_pat (Litv_exh l) = Litv_pat l) ∧
@@ -139,10 +31,6 @@ val vs_to_pat_MAP = store_thm("vs_to_pat_MAP",
   ``∀vs. vs_to_pat vs = MAP v_to_pat vs``,
   Induct >> simp[])
 val _ = export_rewrites["vs_to_pat_MAP"]
-
-val funs_to_pat_MAP = store_thm("funs_to_pat_MAP",
-  ``∀funs bvs. funs_to_pat bvs funs = MAP (λ(f,x,e). exp_to_pat (SOME x::bvs) e) funs``,
-  Induct >> simp[FORALL_PROD])
 
 val do_eq_pat_correct = prove(
   ``(∀v1 v2. do_eq_exh v1 v2 = do_eq_pat (v_to_pat v1) (v_to_pat v2)) ∧
@@ -372,37 +260,6 @@ val evaluate_pat_raise_rval = store_thm("evaluate_pat_raise_rval",
   ``∀ck env s e s' v. ¬evaluate_pat ck env s (Raise_pat e) (s', Rval v)``,
   rw[Once evaluate_pat_cases])
 val _ = export_rewrites["evaluate_pat_raise_rval"]
-
-val do_app_pat_cases = store_thm("do_app_pat_cases",
-  ``do_app_pat s op vs = SOME x ⇒
-    (∃z n1 n2. op = Op_pat (Op_i2 (Opn z)) ∧ vs = [Litv_pat (IntLit n1); Litv_pat (IntLit n2)]) ∨
-    (∃z n1 n2. op = Op_pat (Op_i2 (Opb z)) ∧ vs = [Litv_pat (IntLit n1); Litv_pat (IntLit n2)]) ∨
-    (∃v1 v2. op = Op_pat (Op_i2 Equality) ∧ vs = [v1; v2]) ∨
-    (∃lnum v. op = Op_pat (Op_i2 Opassign) ∧ vs = [Loc_pat lnum; v]) ∨
-    (∃n. op = Op_pat (Op_i2 Opderef) ∧ vs = [Loc_pat n]) ∨
-    (∃v. op = Op_pat (Op_i2 Opref) ∧ vs = [v]) ∨
-    (∃idx v. op = Op_pat (Init_global_var_i2 idx) ∧ vs = [v]) ∨
-    (∃n w. op = Op_pat (Op_i2 Aw8alloc) ∧ vs = [Litv_pat (IntLit n); Litv_pat (Word8 w)]) ∨
-    (∃lnum i. op = Op_pat (Op_i2 Aw8sub) ∧ vs = [Loc_pat lnum; Litv_pat (IntLit i)]) ∨
-    (∃n. op = Op_pat (Op_i2 Aw8length) ∧ vs = [Loc_pat n]) ∨
-    (∃lnum i w. op = Op_pat (Op_i2 Aw8update) ∧ vs = [Loc_pat lnum; Litv_pat (IntLit i); Litv_pat (Word8 w)]) ∨
-    (∃c. op = Op_pat (Op_i2 Ord) ∧ vs = [Litv_pat (Char c)]) ∨
-    (∃n. op = Op_pat (Op_i2 Chr) ∧ vs = [Litv_pat (IntLit n)]) ∨
-    (∃z c1 c2. op = Op_pat (Op_i2 (Chopb z)) ∧ vs = [Litv_pat (Char c1); Litv_pat (Char c2)]) ∨
-    (∃v s. op = Op_pat (Op_i2 Explode) ∧ vs = [Litv_pat (StrLit s)]) ∨
-    (∃v ls. op = Op_pat (Op_i2 Implode) ∧ vs = [v] ∧ (v_pat_to_char_list v = SOME ls)) ∨
-    (∃s. op = Op_pat (Op_i2 Strlen) ∧ vs = [Litv_pat (StrLit s)]) ∨
-    (∃v vs'. op = Op_pat (Op_i2 VfromList) ∧ vs = [v] ∧ (v_to_list_pat v = SOME vs')) ∨
-    (∃vs' i. op = Op_pat (Op_i2 Vsub) ∧ vs = [Vectorv_pat vs'; Litv_pat (IntLit i)]) ∨
-    (∃vs'. op = Op_pat (Op_i2 Vlength) ∧ vs = [Vectorv_pat vs']) ∨
-    (∃v n. op = Op_pat (Op_i2 Aalloc) ∧ vs = [Litv_pat (IntLit n); v]) ∨
-    (∃lnum i. op = Op_pat (Op_i2 Asub) ∧ vs = [Loc_pat lnum; Litv_pat (IntLit i)]) ∨
-    (∃n. op = Op_pat (Op_i2 Alength) ∧ vs = [Loc_pat n]) ∨
-    (∃lnum i v. op = Op_pat (Op_i2 Aupdate) ∧ vs = [Loc_pat lnum; Litv_pat (IntLit i); v]) ∨
-    (∃n tag v. op = Tag_eq_pat n ∧ vs = [Conv_pat tag v]) ∨
-    (∃n tag v. op = El_pat n ∧ vs = [Conv_pat tag v])``,
-  PairCases_on`s`>>rw[do_app_pat_def] >>
-  BasicProvers.EVERY_CASE_TAC >> fs[]);
 
 val v_to_list_no_closures = Q.prove (
 `!v vs.

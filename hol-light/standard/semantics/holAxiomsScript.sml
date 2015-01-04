@@ -366,7 +366,7 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
     imp_res_tac typesem_Bool >>
     fs[] >>
     simp[termsem_def] >>
-    ntac 7 (pop_assum kall_tac) >>
+    ntac 6 (pop_assum kall_tac) >>
     Q.PAT_ABBREV_TAC`tmsig:tmsig = X` >>
     Q.PAT_ABBREV_TAC`int:'U interpretation = X` >>
     qspecl_then[`tmsig`,`int`,`strlit "/\\"`]mp_tac identity_instance >>
@@ -391,8 +391,8 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
       simp[type_ok_def] >>
       imp_res_tac theory_ok_sig >>
       fs[is_std_sig_def] >>
-      disch_then(qspec_then`[A;A]`mp_tac) >>
-      simp[type_ok_def] >>
+      imp_res_tac ALOOKUP_MEM >>
+      simp[MEM_MAP,EXISTS_PROD,PULL_EXISTS] >>
       fs[is_std_interpretation_def,is_std_type_assignment_def]) >>
     `(tmaof int (strlit "?") = tmaof i (strlit "?")) ∧
      (tmaof int (strlit "/\\") = tmaof i (strlit "/\\")) ∧
@@ -406,8 +406,9 @@ val infinity_has_model_gen = store_thm("infinity_has_model_gen",
       simp[term_ok_def,type_ok_def] >>
       imp_res_tac theory_ok_sig >>
       fs[is_std_sig_def] >>
-      qexists_tac`Fun (Fun A Bool) Bool` >>
-      simp[type_ok_def] >>qexists_tac`[]` >> simp[REV_ASSOCD]) >>
+      simp[MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
+      imp_res_tac ALOOKUP_MEM >>
+      metis_tac[]) >>
     simp[] >>
     `(FLOOKUP (tmsof ctxt1) (strlit "ONE_ONE") = SOME (Fun (Fun A B) Bool)) ∧
      (FLOOKUP (tmsof ctxt1) (strlit "ONTO")    = SOME (Fun (Fun A B) Bool))` by (

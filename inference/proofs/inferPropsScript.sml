@@ -931,6 +931,11 @@ val check_s_more2 = Q.store_thm ("check_s_more2",
 rw [check_s_def] >>
 metis_tac [check_t_more4]);
 
+val check_s_more3 = Q.store_thm ("check_s_more3",
+`!s uvs. check_s tvs uvs s ⇒ !uvs'. uvs ⊆ uvs' ⇒ check_s tvs uvs' s`,
+rw [check_s_def] >>
+metis_tac [check_t_more5]);
+
 val check_t_deBruijn_inc2 = Q.prove (
 `!inc t. check_t tvs {} t ⇒ check_t (inc + tvs) {} (infer_deBruijn_inc inc t)`,
 ho_match_mp_tac infer_deBruijn_inc_ind >>
@@ -2898,6 +2903,28 @@ val unconvert_t_def = tDefine "unconvert_t" `
  rw [t_size_def] >>
  full_simp_tac (srw_ss()++ARITH_ss) []);
 
+val unconvert_t_ind = theorem"unconvert_t_ind"
+
+val check_freevars_empty_convert_unconvert_id = store_thm("check_freevars_empty_convert_unconvert_id",
+``!t. check_freevars n [] t ⇒ convert_t (unconvert_t t) = t``,
+  ho_match_mp_tac unconvert_t_ind>>
+  rw[]>>fs[unconvert_t_def,convert_t_def,check_freevars_def]>>
+  fs[MAP_MAP_o,MAP_EQ_ID,EVERY_MEM])
+
+val check_t_empty_unconvert_convert_id = store_thm("check_t_empty_unconvert_convert_id",
+``!t. check_t n {} t ⇒
+  unconvert_t (convert_t t) = t``,
+  ho_match_mp_tac (fetch "-" "convert_t_ind") >>
+  rw[]>>
+  fs[unconvert_t_def,convert_t_def,check_t_def]>>
+  fs[MAP_MAP_o,MAP_EQ_ID,EVERY_MEM])
+
+val check_freevars_to_check_t = store_thm("check_freevars_to_check_t",
+``!t z. check_freevars n [] t ⇒ check_t n {} (unconvert_t t)``,
+  ho_match_mp_tac unconvert_t_ind>>rw[]>>
+  fs[unconvert_t_def,check_freevars_def,check_t_def]>>
+  fs[EVERY_MAP,EVERY_MEM])
+
 val tenv_invC_def = Define `
 tenv_invC s tenv tenvE =
   (!x tvs t.
@@ -2916,14 +2943,6 @@ tenv_invC s tenv tenvE =
     infer_deBruijn_subst targs (t_walkstar s t')) ∧ *)
 
     ALOOKUP tenv x = SOME (tvs,t'))`;
-
-val check_t_empty_unconvert_convert_id = store_thm("check_t_empty_unconvert_convert_id",
-``!t. check_t n {} t ⇒
-  unconvert_t (convert_t t) = t``,
-  ho_match_mp_tac (fetch "-" "convert_t_ind") >>
-  rw[]>>
-  fs[unconvert_t_def,convert_t_def,check_t_def]>>
-  fs[MAP_MAP_o,MAP_EQ_ID,EVERY_MEM])
 
 val tenv_invC_convert_env2 = Q.store_thm ("tenv_invC_convert_env2",
 `!env. check_env {} env ⇒ tenv_invC FEMPTY env (bind_var_list2 (convert_env2 env) Empty)`,

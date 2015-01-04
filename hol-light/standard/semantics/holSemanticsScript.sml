@@ -189,6 +189,7 @@ val entails_def = xDefine"entails"`
     theory_ok thy ∧
     EVERY (term_ok (sigof thy)) (c::h) ∧
     EVERY (λp. p has_type Bool) (c::h) ∧
+    hypset_ok h ∧
     ∀i. i models thy
         ⇒ i satisfies (sigof thy,h,c)`
 val _ = Parse.add_infix("|=",450,Parse.NONASSOC)

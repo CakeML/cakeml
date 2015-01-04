@@ -1,0 +1,6 @@
+bootstrapProofScript.sml
+  Define the invariant on the bytecode state that includes the bootstrapped
+  compiler. Prove that this invariant holds after jumping to the code to call
+  repl_step with a new value in the input reference. Also prove that the code
+  will run and leave the value of repl_step applied to the input in the
+  output reference and the invariant will hold again.

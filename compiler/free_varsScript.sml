@@ -1,11 +1,69 @@
 open HolKernel boolLib bossLib lcsymtacs pred_setTheory arithmeticTheory listTheory pairTheory finite_mapTheory rich_listTheory
 open miscLib miscTheory boolSimps bigStepTheory astTheory semanticPrimitivesTheory libTheory terminationTheory evalPropsTheory
-open modLangTheory conLangTheory decLangTheory exhLangTheory patLangTheory toIntLangTheory compilerTerminationTheory
-open modLangProofTheory conLangProofTheory exhLangProofTheory patLangProofTheory
+open modLangTheory conLangTheory decLangTheory exhLangTheory patLangTheory toIntLangTheory
+open compilerTerminationTheory
 
 val _ = new_theory"free_vars"
 
+val free_vars_exh_def = tDefine"free_vars_exh"`
+  free_vars_exh (Raise_exh e) = free_vars_exh e ∧
+  free_vars_exh (Handle_exh e pes) = free_vars_exh e ∪ free_vars_pes_exh pes ∧
+  free_vars_exh (Lit_exh _) = {} ∧
+  free_vars_exh (Con_exh _ es) = free_vars_list_exh es ∧
+  free_vars_exh (Var_local_exh n) = {n} ∧
+  free_vars_exh (Var_global_exh _) = {} ∧
+  free_vars_exh (Fun_exh x e) = free_vars_exh e DIFF {x} ∧
+  free_vars_exh (App_exh _ es) = free_vars_list_exh es ∧
+  free_vars_exh (If_exh e1 e2 e3) = free_vars_exh e1 ∪ free_vars_exh e2 ∪ free_vars_exh e3 ∧
+  free_vars_exh (Mat_exh e pes) = free_vars_exh e ∪ free_vars_pes_exh pes ∧
+  free_vars_exh (Let_exh bn e1 e2) = free_vars_exh e1 ∪ (free_vars_exh e2 DIFF (case bn of NONE => {} | SOME x => {x})) ∧
+  free_vars_exh (Letrec_exh defs e) = (free_vars_defs_exh defs ∪ free_vars_exh e) DIFF set(MAP FST defs) ∧
+  free_vars_exh (Extend_global_exh _) = {} ∧
+  free_vars_list_exh [] = {} ∧
+  free_vars_list_exh (e::es) = free_vars_exh e ∪ free_vars_list_exh es ∧
+  free_vars_defs_exh [] = {} ∧
+  free_vars_defs_exh ((f,x,e)::ds) = (free_vars_exh e DIFF {x}) ∪ free_vars_defs_exh ds ∧
+  free_vars_pes_exh [] = {} ∧
+  free_vars_pes_exh ((p,e)::pes) = (free_vars_exh e DIFF (set (pat_bindings_exh p []))) ∪ free_vars_pes_exh pes`
+(WF_REL_TAC`inv_image $< (λx. case x of
+  | INL e => exp_exh_size e
+  | INR (INL es) => exp_exh6_size es
+  | INR (INR (INL defs)) => exp_exh1_size defs
+  | INR (INR (INR pes)) => exp_exh3_size pes)`)
+val _ = export_rewrites["free_vars_exh_def"]
+
+val free_vars_pes_exh_MAP = store_thm("free_vars_pes_exh_MAP",
+  ``∀pes. free_vars_pes_exh pes = BIGUNION (set (MAP (λ(p,e). free_vars_exh e DIFF set (pat_bindings_exh p [])) pes))``,
+  Induct >> simp[] >> Cases >> simp[])
+
 (* TODO: move? *)
+
+val find_recfun_thm = Q.store_thm("find_recfun_thm",
+`!n funs f x e.
+  (find_recfun n [] = NONE) ∧
+  (find_recfun n ((f,x,e)::funs) =
+    if f = n then SOME (x,e) else find_recfun n funs)`,
+rw [] >>
+rw [Once find_recfun_def]);
+
+val find_recfun_lookup = Q.store_thm ("find_recfun_lookup",
+`!n funs. find_recfun n funs = ALOOKUP funs n`,
+ Induct_on `funs` >>
+ rw [find_recfun_thm] >>
+ PairCases_on `h` >>
+ rw [find_recfun_thm]);
+
+val pat_bindings_accum = Q.store_thm ("pat_bindings_accum",
+`(!p acc. pat_bindings p acc = pat_bindings p [] ++ acc) ∧
+ (!ps acc. pats_bindings ps acc = pats_bindings ps [] ++ acc)`,
+ Induct >>
+ rw []
+ >- rw [pat_bindings_def]
+ >- rw [pat_bindings_def]
+ >- metis_tac [APPEND_ASSOC, pat_bindings_def]
+ >- metis_tac [APPEND_ASSOC, pat_bindings_def]
+ >- rw [pat_bindings_def]
+ >- metis_tac [APPEND_ASSOC, pat_bindings_def]);
 
 val do_app_cases = store_thm("do_app_cases",
   ``do_app s op vs = SOME x ⇒
@@ -63,15 +121,36 @@ val do_app_i1_cases = store_thm("do_app_i1_cases",
   rw[do_app_i1_def] >>
   BasicProvers.EVERY_CASE_TAC >> fs[])
 
-val vs_to_i1_MAP = store_thm("vs_to_i1_MAP",
-  ``∀g vs1 vs2. vs_to_i1 g vs1 vs2 ⇔ LIST_REL (v_to_i1 g) vs1 vs2``,
-  gen_tac >> Induct >> simp[Once v_to_i1_cases])
-val vs_to_i2_MAP = store_thm("vs_to_i2_MAP",
-  ``∀g vs1 vs2. vs_to_i2 g vs1 vs2 ⇔ LIST_REL (v_to_i2 g) vs1 vs2``,
-  gen_tac >> Induct >> simp[Once v_to_i2_cases])
-val vs_to_exh_MAP = store_thm("vs_to_exh_MAP",
-  ``∀exh vs1 vs2. vs_to_exh exh vs1 vs2 = LIST_REL (v_to_exh exh) vs1 vs2``,
-  Induct_on`vs1`>>simp[Once v_to_exh_cases])
+val do_app_pat_cases = store_thm("do_app_pat_cases",
+  ``do_app_pat s op vs = SOME x ⇒
+    (∃z n1 n2. op = Op_pat (Op_i2 (Opn z)) ∧ vs = [Litv_pat (IntLit n1); Litv_pat (IntLit n2)]) ∨
+    (∃z n1 n2. op = Op_pat (Op_i2 (Opb z)) ∧ vs = [Litv_pat (IntLit n1); Litv_pat (IntLit n2)]) ∨
+    (∃v1 v2. op = Op_pat (Op_i2 Equality) ∧ vs = [v1; v2]) ∨
+    (∃lnum v. op = Op_pat (Op_i2 Opassign) ∧ vs = [Loc_pat lnum; v]) ∨
+    (∃n. op = Op_pat (Op_i2 Opderef) ∧ vs = [Loc_pat n]) ∨
+    (∃v. op = Op_pat (Op_i2 Opref) ∧ vs = [v]) ∨
+    (∃idx v. op = Op_pat (Init_global_var_i2 idx) ∧ vs = [v]) ∨
+    (∃n w. op = Op_pat (Op_i2 Aw8alloc) ∧ vs = [Litv_pat (IntLit n); Litv_pat (Word8 w)]) ∨
+    (∃lnum i. op = Op_pat (Op_i2 Aw8sub) ∧ vs = [Loc_pat lnum; Litv_pat (IntLit i)]) ∨
+    (∃n. op = Op_pat (Op_i2 Aw8length) ∧ vs = [Loc_pat n]) ∨
+    (∃lnum i w. op = Op_pat (Op_i2 Aw8update) ∧ vs = [Loc_pat lnum; Litv_pat (IntLit i); Litv_pat (Word8 w)]) ∨
+    (∃c. op = Op_pat (Op_i2 Ord) ∧ vs = [Litv_pat (Char c)]) ∨
+    (∃n. op = Op_pat (Op_i2 Chr) ∧ vs = [Litv_pat (IntLit n)]) ∨
+    (∃z c1 c2. op = Op_pat (Op_i2 (Chopb z)) ∧ vs = [Litv_pat (Char c1); Litv_pat (Char c2)]) ∨
+    (∃v s. op = Op_pat (Op_i2 Explode) ∧ vs = [Litv_pat (StrLit s)]) ∨
+    (∃v ls. op = Op_pat (Op_i2 Implode) ∧ vs = [v] ∧ (v_pat_to_char_list v = SOME ls)) ∨
+    (∃s. op = Op_pat (Op_i2 Strlen) ∧ vs = [Litv_pat (StrLit s)]) ∨
+    (∃v vs'. op = Op_pat (Op_i2 VfromList) ∧ vs = [v] ∧ (v_to_list_pat v = SOME vs')) ∨
+    (∃vs' i. op = Op_pat (Op_i2 Vsub) ∧ vs = [Vectorv_pat vs'; Litv_pat (IntLit i)]) ∨
+    (∃vs'. op = Op_pat (Op_i2 Vlength) ∧ vs = [Vectorv_pat vs']) ∨
+    (∃v n. op = Op_pat (Op_i2 Aalloc) ∧ vs = [Litv_pat (IntLit n); v]) ∨
+    (∃lnum i. op = Op_pat (Op_i2 Asub) ∧ vs = [Loc_pat lnum; Litv_pat (IntLit i)]) ∨
+    (∃n. op = Op_pat (Op_i2 Alength) ∧ vs = [Loc_pat n]) ∨
+    (∃lnum i v. op = Op_pat (Op_i2 Aupdate) ∧ vs = [Loc_pat lnum; Litv_pat (IntLit i); v]) ∨
+    (∃n tag v. op = Tag_eq_pat n ∧ vs = [Conv_pat tag v]) ∨
+    (∃n tag v. op = El_pat n ∧ vs = [Conv_pat tag v])``,
+  PairCases_on`s`>>rw[do_app_pat_def] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[]);
 
 val exps_to_i1_MAP = store_thm("exps_to_i1_MAP",
   ``∀es. exps_to_i1 a b es = MAP (exp_to_i1 a b) es``,
@@ -85,13 +164,9 @@ val exps_to_exh_MAP = store_thm("exps_to_exh_MAP",
 val exps_to_pat_MAP = store_thm("exps_to_pat_MAP",
   ``∀es. exps_to_pat a es = MAP (exp_to_pat a) es``,
   Induct >> simp[exp_to_pat_def])
-
-val env_to_exh_MAP = store_thm("env_to_exh_MAP",
-  ``∀exh env1 env2. env_to_exh exh env1 env2 ⇔ MAP FST env1 = MAP FST env2 ∧
-      LIST_REL (v_to_exh exh) (MAP SND env1) (MAP SND env2)``,
-  Induct_on`env1`>>simp[Once v_to_exh_cases] >>
-  Cases >> Cases_on`env2` >> rw[] >>
-  Cases_on`h`>>rw[] >> metis_tac[])
+val funs_to_pat_MAP = store_thm("funs_to_pat_MAP",
+  ``∀funs bvs. funs_to_pat bvs funs = MAP (λ(f,x,e). exp_to_pat (SOME x::bvs) e) funs``,
+  Induct >> simp[FORALL_PROD])
 
 val build_rec_env_MAP = store_thm("build_rec_env_MAP",
   ``build_rec_env funs cle env = MAP (λ(f,cdr). (f, (Recclosure cle funs f))) funs ++ env``,
@@ -124,14 +199,6 @@ val alloc_defs_GENLIST = store_thm("alloc_defs_GENLIST",
 val pats_bindings_i2_MAP_Pvar_i2 = store_thm("pats_bindings_i2_MAP_Pvar_i2",
   ``∀ls ly. set (pats_bindings_i2 (MAP Pvar_i2 ls) ly) = set ls ∪ set ly``,
   Induct >> simp[pat_bindings_i2_def,EXTENSION] >> metis_tac[])
-
-val sv_to_i1_sv_rel = store_thm("sv_to_i1_sv_rel",
-  ``∀g. sv_to_i1 g = sv_rel (v_to_i1 g)``,
-  rw[FUN_EQ_THM,sv_to_i1_cases,EQ_IMP_THM,sv_rel_cases,vs_to_i1_MAP])
-
-val sv_to_i2_sv_rel = store_thm("sv_to_i2_sv_rel",
-  ``∀g. sv_to_i2 g = sv_rel (v_to_i2 g)``,
-  rw[FUN_EQ_THM,sv_to_i2_cases,EQ_IMP_THM,sv_rel_cases,vs_to_i2_MAP])
 
 val pmatch_dom = store_thm("pmatch_dom",
   ``(∀cenv s p v env env'.
@@ -256,6 +323,110 @@ val pat_bindings_exh_acc = store_thm("pat_bindings_exh_acc",
   simp_tac (srw_ss()) [Once pat_bindings_exh_def] >>
   simp_tac (srw_ss()) [Once pat_bindings_exh_def] >>
   metis_tac[APPEND_ASSOC])
+
+val row_to_pat_acc = store_thm("row_to_pat_acc",
+  ``(∀Nbvs p bvs1 N. Nbvs = N::bvs1 ⇒
+       ∀bvs2 r1 n1 f1 r2 n2 f2.
+         row_to_pat (N::bvs1) p = (r1,n1,f1) ∧
+         row_to_pat (N::bvs2) p = (r2,n2,f2) ⇒
+         n1 = n2 ∧ f1 = f2 ∧
+         ∃ls. r1 = ls ++ bvs1 ∧
+              r2 = ls ++ bvs2 ∧
+              LENGTH ls = SUC n1) ∧
+    (∀bvsk0 n k ps bvsk N bvs1.
+        bvsk0 = bvsk ++ (N::bvs1) ∧ LENGTH bvsk = n ⇒
+      ∀bvs2 r1 n1 f1 r2 n2 f2.
+        cols_to_pat (bvsk++(N::bvs1)) n k ps = (r1,n1,f1) ∧
+        cols_to_pat (bvsk++(N::bvs2)) n k ps = (r2,n2,f2) ⇒
+        n1 = n2 ∧ f1 = f2 ∧
+        ∃ls. r1 = ls ++ bvsk ++ (N::bvs1) ∧
+             r2 = ls ++ bvsk ++ (N::bvs2) ∧
+             LENGTH ls = n1)``,
+  ho_match_mp_tac row_to_pat_ind >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >> fs[] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    rw[row_to_pat_def] >> simp[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >> fs[] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    rw[row_to_pat_def] >> simp[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> simp[LENGTH_NIL] >>
+    strip_tac >> rpt gen_tac >> strip_tac >>
+    rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
+    simp_tac std_ss [row_to_pat_def] >>
+    rpt gen_tac >> strip_tac >>
+    first_x_assum(qspec_then`bvs2`mp_tac) >>
+    simp[] >> strip_tac >>
+    qexists_tac`ls++[N]` >>
+    simp[]) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rpt gen_tac >> strip_tac >>
+    rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
+    simp_tac std_ss [row_to_pat_def] >>
+    simp[] >>
+    `∃r1 n1 f1. row_to_pat (NONE::N::bvs1) p = (r1,n1,f1)` by simp[GSYM EXISTS_PROD] >>
+    fs[] >> rpt gen_tac >>
+    `∃r2 n2 f2. row_to_pat (NONE::N::bvs2) p = (r2,n2,f2)` by simp[GSYM EXISTS_PROD] >>
+    fs[] >> strip_tac >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    first_x_assum(qspec_then`N::bvs2`mp_tac) >>
+    simp[] >> rw[] >> simp[] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rpt gen_tac >> simp[] >> strip_tac >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    simp[row_to_pat_def] ) >>
+  strip_tac >- simp[row_to_pat_def] >>
+  rpt gen_tac >> strip_tac >>
+  rpt gen_tac >> strip_tac >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  rpt gen_tac >>
+  simp_tac std_ss [row_to_pat_def] >>
+  `∃r01 n01 f01. row_to_pat (NONE::(bvsk ++ (N::bvs1))) p = (r01,n01,f01)` by simp[GSYM EXISTS_PROD] >>
+  `∃r02 n02 f02. row_to_pat (NONE::(bvsk ++ (N::bvs2))) p = (r02,n02,f02)` by simp[GSYM EXISTS_PROD] >>
+  ntac 2 (pop_assum mp_tac) >>
+  simp_tac (srw_ss()) [LET_THM] >>
+  `∃r11 n11 f11. cols_to_pat r01 (LENGTH bvsk + 1 + n01) (k+1) ps = (r11,n11,f11)` by simp[GSYM EXISTS_PROD] >>
+  `∃r12 n12 f12. cols_to_pat r02 (LENGTH bvsk + 1 + n02) (k+1) ps = (r12,n12,f12)` by simp[GSYM EXISTS_PROD] >>
+  ntac 2 (pop_assum mp_tac) >>
+  simp_tac (srw_ss()) [LET_THM] >>
+  ntac 5 strip_tac >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  qpat_assum`∀X. Y`mp_tac >>
+  ntac 2 (pop_assum mp_tac) >>
+  simp_tac (std_ss++listSimps.LIST_ss) [] >>
+  ntac 2 strip_tac >>
+  disch_then(qspec_then`bvsk ++ N::bvs2`mp_tac) >>
+  ntac 2 (pop_assum mp_tac) >>
+  simp_tac (std_ss++listSimps.LIST_ss) [] >>
+  ntac 3 strip_tac >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  qpat_assum`∀X. Y`mp_tac >>
+  ntac 3 (pop_assum mp_tac) >>
+  simp_tac (std_ss++listSimps.LIST_ss) [] >>
+  ntac 3 strip_tac >>
+  disch_then(qspec_then`ls ++ bvsk`mp_tac) >>
+  pop_assum mp_tac >>
+  simp_tac (std_ss++listSimps.LIST_ss++ARITH_ss) [arithmeticTheory.ADD1] >>
+  strip_tac >>
+  disch_then(qspec_then`bvs2`mp_tac) >>
+  ntac 2 (last_x_assum mp_tac) >>
+  simp_tac (std_ss++listSimps.LIST_ss++ARITH_ss) [arithmeticTheory.ADD1] >>
+  ntac 3 strip_tac >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  simp[])
+
+val row_to_pat_nil = store_thm("row_to_pat_nil",
+  ``row_to_pat (N::bvs1) p = let (r1,n1,f1) = row_to_pat [N] p in (r1++bvs1,n1,f1)``,
+  rw[] >>
+  qspecl_then[`[N]`,`p`]mp_tac (CONJUNCT1 row_to_pat_acc) >>
+  simp[] >>
+  disch_then(qspec_then`bvs1`mp_tac) >>
+  `∃x y z. row_to_pat (N::bvs1) p = (x,y,z)` by simp[GSYM EXISTS_PROD] >>
+  simp[])
 
 val row_to_pat_pat_bindings = store_thm("row_to_pat_pat_bindings",
   ``(∀Nbvs p bvs2. Nbvs ≠ [] ∧ HD Nbvs = NONE ⇒ set (MAP SOME (pat_bindings_exh p [])) ⊆ set (FST (row_to_pat Nbvs p))) ∧
@@ -818,47 +989,6 @@ val evaluate_pat_closed = store_thm("evaluate_pat_closed",
     simp[] >> metis_tac[] ) >>
   simp[csg_closed_pat_def,EVERY_GENLIST])
 
-val v_to_pat_closed = store_thm("v_to_pat_closed",
-  ``(∀v. closed_exh v ⇒ closed_pat (v_to_pat v)) ∧
-    (∀vs. EVERY closed_exh vs ⇒  EVERY closed_pat (vs_to_pat vs))``,
-  ho_match_mp_tac v_to_pat_ind >>
-  simp[] >>
-  rw[] >- (
-    simp[Once closed_pat_cases] >>
-    pop_assum mp_tac >>
-    simp[Once closed_exh_cases] >>
-    strip_tac >>
-    specl_args_of_then``exp_to_pat``(CONJUNCT1 free_vars_pat_exp_to_pat) mp_tac >>
-    fs[SUBSET_DEF,PULL_EXISTS,EVERY_MAP,MEM_MAP,EVERY_MEM] >> rw[] >>
-    res_tac >> rw[] >>
-    qho_match_abbrev_tac`THE (find_index a ls n) < z` >>
-    qho_match_abbrev_tac`P (THE (find_index a ls n))` >>
-    match_mp_tac THE_find_index_suff >>
-    simp[Abbr`P`,Abbr`n`,Abbr`z`,Abbr`ls`,Abbr`a`,MEM_MAP] ) >>
-  simp[Once closed_pat_cases] >>
-  pop_assum mp_tac >>
-  simp[Once closed_exh_cases] >>
-  strip_tac >>
-  simp[funs_to_pat_MAP] >>
-  fs[EVERY_MAP,EVERY_MEM,SUBSET_DEF,PULL_FORALL,FORALL_PROD,PULL_EXISTS,MEM_MAP,EXISTS_PROD] >>
-  rpt gen_tac >> strip_tac >- metis_tac[] >>
-  strip_tac >- (
-    qho_match_abbrev_tac`the d (find_index a b c) < d` >>
-    qho_match_abbrev_tac`P (the d (find_index a b c))` >>
-    match_mp_tac the_find_index_suff >>
-    simp[Abbr`P`,Abbr`a`,Abbr`d`,Abbr`c`,Abbr`b`,MEM_MAP] >>
-    simp[EXISTS_PROD] >> metis_tac[] ) >>
-  strip_tac >>
-  specl_args_of_then``exp_to_pat``(CONJUNCT1 free_vars_pat_exp_to_pat) mp_tac >>
-  fs[SUBSET_DEF,PULL_EXISTS,EVERY_MAP,MEM_MAP,EVERY_MEM,EXISTS_PROD] >>
-  discharge_hyps >- metis_tac[] >> rw[] >>
-  res_tac >> rw[] >>
-  qho_match_abbrev_tac`THE (find_index a ls n) < z` >>
-  qho_match_abbrev_tac`P (THE (find_index a ls n))` >>
-  match_mp_tac THE_find_index_suff >>
-  simp[Abbr`P`,Abbr`n`,Abbr`z`,Abbr`ls`,Abbr`a`,MEM_MAP,EXISTS_PROD] >>
-  metis_tac[])
-
 val free_vars_i2_def = tDefine"free_vars_i2"`
   free_vars_i2 (Raise_i2 e) = free_vars_i2 e ∧
   free_vars_i2 (Handle_i2 e pes) = free_vars_i2 e ∪ free_vars_pes_i2 pes ∧
@@ -929,22 +1059,6 @@ val closed_i2_lit_loc_conv = store_thm("closed_i2_lit_loc_conv",
   rw[closed_i2_cases])
 val _ = export_rewrites["closed_i2_lit_loc_conv"]
 
-val v_to_exh_closed = store_thm("v_to_exh_closed",
-  ``(∀exh v1 v2. v_to_exh exh v1 v2 ⇒ closed_i2 v1 ⇒ closed_exh v2) ∧
-    (∀exh v1 v2. vs_to_exh exh v1 v2 ⇒ EVERY closed_i2 v1 ⇒ EVERY closed_exh v2) ∧
-    (∀exh v1 v2. env_to_exh exh v1 v2 ⇒ EVERY closed_i2 (MAP SND v1) ⇒ EVERY closed_exh (MAP SND v2))``,
-  ho_match_mp_tac v_to_exh_strongind >> rw[]
-  >- (
-    simp[Once closed_exh_cases] >>
-    pop_assum mp_tac >>
-    simp[Once closed_i2_cases] >>
-    fs[env_to_exh_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] ) >>
-  simp[Once closed_exh_cases] >>
-  pop_assum mp_tac >>
-  simp[Once closed_i2_cases] >>
-  fs[funs_to_exh_MAP,EVERY_MAP,MAP_MAP_o,UNCURRY,combinTheory.o_DEF,ETA_AX] >>
-  fs[LAMBDA_PROD,env_to_exh_MAP,MAP_MAP_o,UNCURRY,combinTheory.o_DEF,FST_pair])
-
 val free_vars_i1_def = tDefine"free_vars_i1"`
   free_vars_i1 (Raise_i1 e) = free_vars_i1 e ∧
   free_vars_i1 (Handle_i1 e pes) = free_vars_i1 e ∪ free_vars_pes_i1 pes ∧
@@ -1010,23 +1124,6 @@ val free_vars_i2_exp_to_i2 = store_thm("free_vars_i2_exp_to_i2",
   simp[exp_to_i2_def] >>
   rw[funs_to_i2_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] )
 val _ = export_rewrites["free_vars_i2_exp_to_i2"]
-
-val v_to_i2_closed = store_thm("v_to_i2_closed",
-  ``(∀g v1 v2. v_to_i2 g v1 v2 ⇒ closed_i1 v1 ⇒ closed_i2 v2) ∧
-    (∀g v1 v2. vs_to_i2 g v1 v2 ⇒ EVERY closed_i1 v1 ⇒ EVERY closed_i2 v2) ∧
-    (∀g v1 v2. env_to_i2 g v1 v2 ⇒
-      set (MAP FST v1) = set (MAP FST v2) ∧
-      (EVERY closed_i1 (MAP SND v1) ⇒ EVERY closed_i2 (MAP SND v2)))``,
-  ho_match_mp_tac v_to_i2_ind >> simp[] >>
-  conj_tac >- (
-    rpt gen_tac >> strip_tac >>
-    simp[Once closed_i1_cases] >>
-    simp[Once closed_i2_cases] ) >>
-  rpt gen_tac >> strip_tac >>
-  simp[Once closed_i1_cases] >>
-  simp[Once closed_i2_cases] >>
-  simp[funs_to_i2_MAP,EVERY_MAP,MAP_MAP_o,UNCURRY,combinTheory.o_DEF,ETA_AX] >>
-  simp[LAMBDA_PROD,MAP_MAP_o,UNCURRY,combinTheory.o_DEF,FST_pair])
 
 val (closed_rules,closed_ind,closed_cases) = Hol_reln`
 (closed (Litv l)) ∧
@@ -1341,51 +1438,6 @@ val free_vars_i1_exp_to_i1 = store_thm("free_vars_i1_exp_to_i1",
     ONCE_REWRITE_TAC[EXTENSION] >>
     simp[] >> metis_tac[] ))
 val _ = export_rewrites["free_vars_i1_exp_to_i1"]
-
-val v_to_i1_closed = store_thm("v_to_i1_closed",
-  ``(∀g v1 v2. v_to_i1 g v1 v2 ⇒ closed v1 ⇒ closed_i1 v2) ∧
-    (∀g v1 v2. vs_to_i1 g v1 v2 ⇒ EVERY closed v1 ⇒ EVERY closed_i1 v2) ∧
-    (∀g v1 v2. env_to_i1 g v1 v2 ⇒
-      set (MAP FST v1) = set (MAP FST v2) ∧
-      (EVERY closed (MAP SND v1) ⇒ EVERY closed_i1 (MAP SND v2))) ∧
-    (∀g m s e. global_env_inv_flat g m s e ⇒ T) ∧
-    (∀g mods tops menv s env. global_env_inv g mods tops menv s env ⇒ T)``,
-  ho_match_mp_tac v_to_i1_ind >> simp[] >>
-  conj_tac >- (
-    rpt gen_tac >> strip_tac >>
-    simp[Once closed_cases] >>
-    simp[Once closed_i1_cases] >>
-    fs[SUBSET_DEF,PULL_EXISTS,FDOM_DRESTRICT] >>
-    rw[] >> res_tac >> fs[] >> metis_tac[]) >>
-  conj_tac >- (
-    rpt gen_tac >> strip_tac >>
-    simp[Once closed_cases] >>
-    simp[Once closed_i1_cases] >>
-    fs[SUBSET_DEF,PULL_EXISTS,FDOM_DRESTRICT] >>
-    simp[funs_to_i1_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX,EVERY_MAP] >>
-    strip_tac >>
-    match_mp_tac (MP_CANON (GEN_ALL MONO_EVERY)) >>
-    HINT_EXISTS_TAC >> simp[] >>
-    simp[FORALL_PROD,PULL_EXISTS,PULL_FORALL,FDOM_DRESTRICT] >>
-    rw[] >> res_tac >> fs[] >>
-    metis_tac[] ) >>
-  rpt gen_tac >> strip_tac >>
-  simp[Once closed_cases] >>
-  simp[Once closed_i1_cases] >>
-  strip_tac >>
-  pop_assum mp_tac >>
-  simp[EVERY_MEM] >>
-  disch_then(qspec_then`x,y,e`mp_tac) >>
-  discharge_hyps >- metis_tac[find_recfun_lookup,alistTheory.ALOOKUP_MEM] >>
-  simp[SUBSET_DEF,PULL_EXISTS] >>
-  strip_tac >>
-  qx_gen_tac`z` >> strip_tac >>
-  first_x_assum(qspec_then`Short z`mp_tac) >>
-  simp[] >>
-  fs[FDOM_FUPDATE_LIST] >>
-  rw[] >>
-  fs[FLOOKUP_DEF,FDOM_FUPDATE_LIST] >>
-  metis_tac[SUBSET_DEF] )
 
 val evaluate_dec_closed = store_thm("evaluate_dec_closed",
   ``∀ck mn env s dec res. evaluate_dec ck mn env s dec res ⇒
@@ -2093,101 +2145,5 @@ val evaluate_prog_i1_closed = store_thm("evaluate_prog_i1_closed",
   simp[free_vars_prog_i1_def] >> strip_tac >>
   imp_res_tac evaluate_prompt_i1_closed >> fs[] >>
   fs[free_vars_prog_i1_def])
-
-val global_env_inv_inclusion = store_thm("global_env_inv_inclusion",
-  ``∀genv mods tops menv s env.
-     global_env_inv genv mods tops menv s env ⇒
-     set (MAP FST env) DIFF s ⊆ FDOM tops ∧
-     set (MAP FST menv) ⊆ FDOM mods``,
-  rw[Once v_to_i1_cases,SUBSET_DEF] >>
-  TRY (
-    (alistTheory.ALOOKUP_NONE
-     |> SPEC_ALL |> EQ_IMP_RULE |> fst
-     |> CONTRAPOS
-     |> SIMP_RULE std_ss []
-     |> imp_res_tac) >>
-    fs[GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS] >>
-    res_tac >> fs[FLOOKUP_DEF] >> NO_TAC) >>
-  last_x_assum mp_tac >>
-  simp[Once v_to_i1_cases] >> strip_tac >>
-  (alistTheory.ALOOKUP_NONE
-   |> SPEC_ALL |> EQ_IMP_RULE |> fst
-   |> CONTRAPOS
-   |> SIMP_RULE std_ss []
-   |> imp_res_tac) >>
-  fs[GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS] >>
-  res_tac >> fs[FLOOKUP_DEF] >> NO_TAC)
-
-val genv_to_pat_closed = store_thm("genv_to_pat_closed",
-  ``∀genv2.
-    EVERY (OPTION_EVERY closed_exh) genv2 ⇒
-    EVERY (OPTION_EVERY closed_pat)
-      (MAP (OPTION_MAP v_to_pat) genv2)``,
-  simp[EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
-  rpt gen_tac >> strip_tac >>
-  Cases >> simp[] >> strip_tac >>
-  res_tac >> fs[] >>
-  metis_tac[v_to_pat_closed])
-
-val genv_to_exh_closed = store_thm("genv_to_exh_closed",
-  ``∀exh genv2 genvh.
-    EVERY (OPTION_EVERY closed_i2) genv2 ∧
-    LIST_REL (OPTREL (v_to_exh exh)) genv2 genvh
-    ⇒
-    EVERY (OPTION_EVERY closed_exh) genvh``,
-  simp[EVERY_MEM,MEM_MAP,PULL_EXISTS,EVERY2_EVERY,EVERY_MEM,MEM_ZIP,GSYM AND_IMP_INTRO] >>
-  simp[MEM_EL,PULL_EXISTS] >>
-  rpt gen_tac >> rpt strip_tac >>
-  res_tac >> fs[] >> res_tac >>
-  fs[optionTheory.OPTREL_def] >>
-  rfs[] >>
-  metis_tac[v_to_exh_closed,OPTION_EVERY_def])
-
-val genv_to_i2_closed = store_thm("genv_to_i2_closed",
-  ``∀g x y.
-    EVERY (OPTION_EVERY closed_i1) x ∧
-    LIST_REL (OPTREL (v_to_i2 g)) x y
-    ⇒ EVERY (OPTION_EVERY closed_i2) y``,
-  simp[EVERY_MEM,MEM_MAP,PULL_EXISTS,EVERY2_EVERY,EVERY_MEM,MEM_ZIP,GSYM AND_IMP_INTRO] >>
-  simp[MEM_EL,PULL_EXISTS] >>
-  rpt gen_tac >> rpt strip_tac >>
-  res_tac >> fs[] >> res_tac >>
-  fs[optionTheory.OPTREL_def] >>
-  rfs[] >>
-  metis_tac[v_to_i2_closed,OPTION_EVERY_def])
-
-val global_env_inv_closed = store_thm("global_env_inv_closed",
-  ``∀genv mods tops menv s env.
-    global_env_inv genv mods tops menv s env ∧
-    EVERY closed (MAP SND env) ∧
-    EVERY closed (MAP SND (FLAT (MAP SND menv))) ∧
-    (∀n. n < LENGTH genv ∧ IS_SOME (EL n genv) ⇒
-         (∃x. x ∉ s ∧ IS_SOME (ALOOKUP env x) ∧ FLOOKUP tops x = SOME n) ∨
-         (∃mn ee e x.
-           ALOOKUP menv mn = SOME ee ∧
-           IS_SOME (ALOOKUP ee x) ∧
-           FLOOKUP mods mn = SOME e ∧
-           FLOOKUP e x = SOME n))
-    ⇒
-    EVERY (OPTION_EVERY closed_i1) genv``,
-  rw[Once v_to_i1_cases] >>
-  rw[EVERY_MEM,MEM_EL] >>
-  Cases_on`EL n genv`>>fs[] >>
-  first_x_assum(qspec_then`n`mp_tac) >>
-  simp[] >> simp[IS_SOME_EXISTS] >>
-  strip_tac >- (
-    res_tac >>
-    rator_x_assum`global_env_inv_flat`mp_tac >>
-    simp[Once v_to_i1_cases] >> rw[] >>
-    res_tac >> fs[] >> rw[] >> fs[] >>
-    fs[EVERY_MEM,PULL_EXISTS] >>
-    metis_tac[v_to_i1_closed,alistTheory.ALOOKUP_MEM, MEM_MAP, FST, SND] ) >>
-  first_x_assum(qspec_then`mn`mp_tac) >> simp[] >>
-  simp[Once v_to_i1_cases] >>
-  disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
-  simp[] >>
-  imp_res_tac alistTheory.ALOOKUP_MEM >>
-  fs[EVERY_MEM,MAP_FLAT,MEM_MAP,PULL_EXISTS,MEM_FLAT] >>
-  metis_tac [pair_CASES, SND, v_to_i1_closed])
 
 val _ = export_theory()

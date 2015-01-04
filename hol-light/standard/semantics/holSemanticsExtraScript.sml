@@ -484,9 +484,9 @@ val satisfies_extend = store_thm("satisfies_extend",
 (* one interpretation being compatible with another in a signature *)
 
 val equal_on_def = Define`
-  equal_on sig i i' ⇔
-  (∀name args. type_ok (tysof sig) (Tyapp name args) ⇒ tyaof i' name = tyaof i name) ∧
-  (∀name ty. term_ok sig (Const name ty) ⇒ tmaof i' name = tmaof i name)`
+  equal_on (sig:sig) i i' ⇔
+  (∀name. name ∈ FDOM (tysof sig) ⇒ tyaof i' name = tyaof i name) ∧
+  (∀name. name ∈ FDOM (tmsof sig) ⇒ tmaof i' name = tmaof i name)`
 
 val equal_on_refl = store_thm("equal_on_refl",
   ``∀sig i. equal_on sig i i``,
@@ -512,33 +512,19 @@ val equal_on_interprets = store_thm("equal_on_interprets",
   rw[equal_on_def,interprets_def] >>
   qsuff_tac`tmaof i2 name = tmaof i1 name` >- metis_tac[] >>
   first_x_assum match_mp_tac >>
-  rw[term_ok_def] >>
-  qexists_tac`ty`>>rw[])
+  fs[FLOOKUP_DEF])
 
 val equal_on_reduce = store_thm("equal_on_reduce",
   ``∀ls ctxt i i'. equal_on (sigof (ls++ctxt)) i i' ∧
                  DISJOINT (FDOM (tysof ls)) (FDOM (tysof ctxt)) ∧
                  DISJOINT (FDOM (tmsof ls)) (FDOM (tmsof ctxt))
     ⇒ equal_on (sigof ctxt) i i'``,
-  rw[equal_on_def] >>
-  first_x_assum match_mp_tac >|
-  [qexists_tac`args`>>
-   match_mp_tac type_ok_extend >>
-   qexists_tac`tysof ctxt`
-  ,qexists_tac`ty` >>
-   match_mp_tac term_ok_extend >>
-   qexists_tac`tysof ctxt` >>
-   qexists_tac`tmsof ctxt`] >>
-  simp[] >>
-  TRY conj_tac >>
-  match_mp_tac SUBMAP_FUNION >>
-  fs[IN_DISJOINT] >>
-  metis_tac[])
+  rw[equal_on_def])
 
 (* semantics only depends on interpretation of things in the term's signature *)
 
 val typesem_sig = store_thm("typesem_sig",
-  ``∀ty τ δ δ' tyenv. type_ok tyenv ty ∧ (∀name args. type_ok tyenv (Tyapp name args) ⇒ δ' name = δ name) ⇒
+  ``∀ty τ δ δ' tyenv. type_ok tyenv ty ∧ (∀name. name ∈ FDOM tyenv ⇒ δ' name = δ name) ⇒
                     typesem δ' τ ty = typesem δ τ ty``,
   ho_match_mp_tac type_ind >> simp[typesem_def,type_ok_def] >> rw[] >>
   qmatch_abbrev_tac`δ' name args1 = δ name args2` >>
@@ -549,7 +535,7 @@ val typesem_sig = store_thm("typesem_sig",
     metis_tac[] ) >>
   simp[] >> AP_THM_TAC >>
   first_x_assum match_mp_tac >>
-  metis_tac[])
+  fs[FLOOKUP_DEF])
 
 val termsem_sig = store_thm("termsem_sig",
   ``∀tm Γ i v i' tmenv.
@@ -571,11 +557,11 @@ val termsem_sig = store_thm("termsem_sig",
       rw[] >>
       match_mp_tac typesem_sig >>
       imp_res_tac type_ok_TYPE_SUBST_imp >>
-      fs[MEM_MAP,mlstringTheory.implode_explode] >>
+      fs[MEM_MAP,mlstringTheory.implode_explode,FLOOKUP_DEF] >>
       metis_tac[] ) >>
     simp[] >> AP_THM_TAC >>
     unabbrev_all_tac >>
-    metis_tac[]) >>
+    fs[FLOOKUP_DEF]) >>
   fs[term_ok_def] >- (fs[FORALL_PROD] >> rw[] >> res_tac >> PROVE_TAC[]) >>
   rw[term_ok_def] >>
   simp[termsem_def] >>

@@ -1,5 +1,5 @@
-open HolKernel boolLib bossLib compute_free_varsLib
-val _ = new_theory"closedReplDecs"
+open HolKernel boolLib bossLib compute_compilerLib
+val _ = new_theory"closedRepl"
 
 val _ = max_print_depth := 10;
 
@@ -15,10 +15,10 @@ in
       else fn s => print (ESC ^ "[1K" ^ "\n" ^ ESC ^ "[A" ^ s)
 end
 
-val FV_decs_ml_repl_module_decls = save_thm("FV_decs_ml_repl_module_decls",let
-  val input = ``FV_decs ml_repl_module_decls``
+val FV_decs_replModule_decls = save_thm("FV_decs_replModule_decls",let
+  val input = ``FV_decs replModule_decls``
   val th =
-    (PURE_ONCE_REWRITE_CONV[ml_repl_moduleTheory.ml_repl_module_decls] THENC
+    (PURE_ONCE_REWRITE_CONV[replModuleTheory.replModule_decls] THENC
      PURE_REWRITE_CONV [evalPropsTheory.FV_decs_def,listTheory.MAP,
        pairTheory.FST,pairTheory.SND,
        pred_setTheory.INSERT_UNION_EQ,
@@ -85,8 +85,8 @@ val closed_top_REPL = store_thm("closed_top_REPL",
   ``closed_top ((THE prim_sem_env).sem_envM,
                 (THE prim_sem_env).sem_envC,
                 (THE prim_sem_env).sem_envE)
-               (Tmod "REPL" NONE ml_repl_module_decls)``,
+               (Tmod "REPL" NONE replModule_decls)``,
   lcsymtacs.simp[free_varsTheory.closed_top_def,all_env_dom_init,
-                 FV_decs_ml_repl_module_decls])
+                 FV_decs_replModule_decls])
 
 val _ = export_theory()

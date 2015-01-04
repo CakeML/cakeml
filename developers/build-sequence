@@ -11,8 +11,10 @@ initial
 repl
 repl/proofs
 translator
-translator/repl
-bootstrap
+bootstrap/translation/compiler
+bootstrap/translation/repl
+bootstrap/evaluation
+bootstrap/proofs
 x86-64
 standalone
 explorer/pp/astPP

@@ -1,0 +1,22 @@
+INCLUDES = ../.. ../translation/repl ../../compiler
+OPTIONS = QUIT_ON_FAILURE
+
+ifdef POLY
+HOLHEAP = heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+all: $(TARGETS) $(HOLHEAP)
+.PHONY: all
+
+BARE_THYS = ../translation/repl/evaluateReplTheory \
+            ../translation/repl/closedReplTheory \
+            ../../compiler/compute_compilerLib \
+            ../../compiler/compilerTerminationTheory
+
+DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -b ../translation/repl/heap -o $(HOLHEAP) $(BARE_THYS)
+endif

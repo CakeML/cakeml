@@ -290,6 +290,24 @@ val new_specification_correct = store_thm("new_specification_correct",
     metis_tac[term_ok_welltyped] ) >>
   rw[Abbr`v4`])
 
+val new_definition_correct = store_thm("new_definition_correct",
+  ``is_set_theory ^mem ⇒
+    ∀ctxt name tm.
+    theory_ok (thyof ctxt) ∧
+    term_ok (sigof ctxt) tm ∧
+    name ∉ FDOM (tmsof ctxt) ∧
+    CLOSED tm ∧
+    set (tvars tm) ⊆ set (tyvars (typeof tm))
+    ⇒ sound_update ctxt (ConstDef name tm)``,
+  rw[] >>
+  ho_match_mp_tac (UNDISCH new_specification_correct) >>
+  simp[] >> fs[SUBSET_DEF,CLOSED_def,vfree_in_equation] >>
+  ho_match_mp_tac(proves_rules |> CONJUNCTS |> el 2) >>
+  imp_res_tac theory_ok_sig >>
+  fs[EQUATION_HAS_TYPE_BOOL,term_ok_equation,term_ok_def] >>
+  imp_res_tac term_ok_welltyped >>
+  imp_res_tac term_ok_type_ok >> fs[])
+
 val new_type_correct = store_thm("new_type_correct",
   ``is_set_theory ^mem ⇒
     ∀ctxt name arity.
@@ -558,10 +576,9 @@ val new_type_definition_correct = store_thm("new_type_definition_correct",
       qexists_tac`tysof ctxt` >>
       simp[type_ok_def,combinTheory.APPLY_UPDATE_THM] >>
       fs[theory_ok_def] >>
-      reverse(rw[]) >>
+      rw[] >>
       imp_res_tac ALOOKUP_MEM >>
-      fs[MEM_MAP,EXISTS_PROD] >-
-      metis_tac[] >>
+      fs[MEM_MAP,EXISTS_PROD] >>
       first_x_assum match_mp_tac >>
       imp_res_tac ALOOKUP_SOME_FAPPLY_alist_to_fmap >>
       simp[IN_FRANGE,MEM_MAP,EXISTS_PROD,PULL_EXISTS] >>
