@@ -1632,11 +1632,12 @@ val coloring_ok_alt_thm = prove(
 
 val fs1 = fs[LET_THM,get_clash_sets_def,every_var_def,get_live_def,domain_numset_list_insert,domain_union,EVERY_MEM,get_writes_def,every_var_inst_def,get_live_inst_def]
 
-(*Every variable is in some clash set*)
+(*Every variable is in some clash set
 val every_var_in_get_clash_set = store_thm("every_var_in_get_clash_set",
 ``∀prog live.
   let (hd,clash_sets) = get_clash_sets prog live in
-  let P = (λx:num. x ∈ domain hd ∨ ∃y. MEM y clash_sets ∧ x ∈ domain y) in
+  let ls = hd::clash_sets in 
+  let P = (λx:num. ∃y. MEM y ls ∧ x ∈ domain y) in
   (∀x. x ∈ domain live ⇒ P x) ∧ 
   (every_var P prog)``,
   completeInduct_on`word_prog_size (K 0) prog`>>
@@ -1700,6 +1701,6 @@ val every_var_in_get_clash_set = store_thm("every_var_in_get_clash_set",
   TRY(pop_assum kall_tac>>pop_assum kall_tac>>HINT_EXISTS_TAC)>>
   TRY(pop_assum kall_tac>>HINT_EXISTS_TAC)>>
   TRY HINT_EXISTS_TAC>>
-  rw[]>>fs[domain_union]>>metis_tac[domain_union])
+  rw[]>>fs[domain_union]>>metis_tac[domain_union])*)
 
 val _ = export_theory();

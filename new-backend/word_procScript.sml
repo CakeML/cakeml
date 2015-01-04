@@ -1,9 +1,9 @@
 open HolKernel Parse boolLib bossLib miscLib
 open listTheory sptreeTheory pred_setTheory pairTheory
 open bvp_lemmasTheory
-open word_langTheory
-open word_lemmasTheory
-open alistTheory
+open word_langTheory word_lemmasTheory
+open alistTheory BasicProvers
+open sptreeTheory
 
 val _ = new_theory "word_proc";
 
@@ -252,13 +252,16 @@ val post_alloc_conventions_def = Define`
     every_stack_var (λx. x ≥ 2*k) prog ∧ 
     call_arg_convention prog)`     
 
+(*Useful lemmas about every_var*)
+
+(*Monotonicity*)
 val every_var_inst_mono = store_thm("every_var_inst_mono",``
   ∀P inst Q.
   (∀x. P x ⇒ Q x) ∧ 
   every_var_inst P inst 
   ⇒ 
   every_var_inst Q inst``,
-  ho_match_mp_tac every_var_inst_ind>>rw[every_var_inst_def]>>
+  ho_match_mp_tac (fetch "-" "every_var_inst_ind")>>rw[every_var_inst_def]>>
   EVERY_CASE_TAC>>fs[])
 
 val every_var_exp_mono = store_thm("every_var_exp_mono",``
@@ -267,7 +270,7 @@ val every_var_exp_mono = store_thm("every_var_exp_mono",``
   every_var_exp P exp 
   ⇒ 
   every_var_exp Q exp``,
-  ho_match_mp_tac every_var_exp_ind>>rw[every_var_exp_def]>>
+  ho_match_mp_tac (fetch "-" "every_var_exp_ind")>>rw[every_var_exp_def]>>
   fs[EVERY_MEM])
   
 val every_var_mono = store_thm("every_var_mono",``
@@ -276,9 +279,124 @@ val every_var_mono = store_thm("every_var_mono",``
   every_var P prog 
   ⇒ 
   every_var Q prog``,
-  ho_match_mp_tac every_var_ind>>rw[every_var_def]>>
+  ho_match_mp_tac (fetch "-" "every_var_ind")>>rw[every_var_def]>>
   TRY(Cases_on`ret`>>fs[]>>PairCases_on`x`>>Cases_on`h`>>fs[]>>Cases_on`x`>>fs[])>>
   metis_tac[EVERY_MONOTONIC,every_var_inst_mono,every_var_exp_mono])
+
+(*Conjunct*)
+val every_var_inst_conj = store_thm("every_var_inst_conj",``
+  ∀P inst Q.
+  every_var_inst P inst ∧ every_var_inst Q inst ⇔ 
+  every_var_inst (λx. P x ∧ Q x) inst``,
+  ho_match_mp_tac (fetch "-" "every_var_inst_ind")>>rw[every_var_inst_def]>>
+  EVERY_CASE_TAC>>fs[]>>
+  metis_tac[])
+
+val every_var_exp_conj = store_thm("every_var_exp_conj",``
+  ∀P exp Q.
+  every_var_exp P exp ∧ every_var_exp Q exp ⇔ 
+  every_var_exp (λx. P x ∧ Q x) exp``,
+  ho_match_mp_tac (fetch "-" "every_var_exp_ind")>>rw[every_var_exp_def]>>
+  fs[EVERY_MEM]>>
+  metis_tac[])
+  
+val every_var_conj = store_thm("every_var_conj",``
+  ∀P prog Q.
+  every_var P prog  ∧ every_var Q prog ⇔ 
+  every_var (λx. P x ∧ Q x) prog``,
+  ho_match_mp_tac (fetch "-" "every_var_ind")>>rw[every_var_def]>>
+  TRY(Cases_on`ret`>>fs[])>>
+  TRY(PairCases_on`x`>>Cases_on`h`>>fs[])>>
+  TRY(Cases_on`x`>>fs[])>>
+  TRY(metis_tac[EVERY_CONJ,every_var_inst_conj,every_var_exp_conj]))
+
+(*Composing with a function using apply_color*)
+val every_var_inst_apply_color_inst = store_thm("every_var_inst_apply_color_inst",``
+  ∀P inst Q f.
+  every_var_inst P inst ∧
+  (∀x. P x ⇒ Q (f x)) ⇒ 
+  every_var_inst Q (apply_color_inst f inst)``,
+  ho_match_mp_tac (fetch "-" "every_var_inst_ind")>>rw[every_var_inst_def]>>
+  EVERY_CASE_TAC>>fs[])
+
+val every_var_exp_apply_color_exp = store_thm("every_var_exp_apply_color_exp",``
+  ∀P exp Q f.
+  every_var_exp P exp ∧ 
+  (∀x. P x ⇒ Q (f x)) ⇒ 
+  every_var_exp Q (apply_color_exp f exp)``,
+  ho_match_mp_tac (fetch "-" "every_var_exp_ind")>>rw[every_var_exp_def]>>
+  fs[EVERY_MAP,EVERY_MEM])
+
+val every_var_apply_color = store_thm("every_var_apply_color",``
+  ∀P prog Q f.
+  every_var P prog ∧
+  (∀x. P x ⇒ Q (f x)) ⇒
+  every_var Q (apply_color f prog)``,
+  ho_match_mp_tac (fetch "-" "every_var_ind")>>rw[every_var_def]>>
+  fs[MAP_ZIP,(GEN_ALL o SYM o SPEC_ALL) MAP_MAP_o]>>
+  fs[EVERY_MAP,EVERY_MEM]
+  >-
+    metis_tac[every_var_inst_apply_color_inst]
+  >-
+    metis_tac[every_var_exp_apply_color_exp]
+  >-
+    metis_tac[every_var_exp_apply_color_exp]
+  >-
+    (EVERY_CASE_TAC>>unabbrev_all_tac>>fs[every_var_def,EVERY_MAP,EVERY_MEM]>>
+    rw[]>>fs[domain_fromAList,MEM_MAP,ZIP_MAP]>>
+    Cases_on`x'`>>fs[MEM_toAList,domain_lookup])
+  >-
+    (fs[domain_fromAList,MEM_MAP,ZIP_MAP]>>
+    Cases_on`x'`>>fs[MEM_toAList,domain_lookup])
+  >>
+    metis_tac[every_var_exp_apply_color_exp])
+
+(*Similar lemmas about every_stack_var*)
+val every_var_imp_every_stack_var = store_thm("every_var_imp_every_stack_var",``
+  ∀P prog.
+  every_var P prog ⇒ every_stack_var P prog``,
+  ho_match_mp_tac (fetch"-" "every_stack_var_ind")>>
+  rw[every_stack_var_def,every_var_def]>>
+  Cases_on`ret`>>
+  Cases_on`h`>>fs[]>>
+  PairCases_on`x`>>fs[]>>
+  Cases_on`x'`>>fs[])
+
+val every_stack_var_mono = store_thm("every_stack_var_mono",``
+  ∀P prog Q.
+  (∀x. P x ⇒ Q x) ∧ 
+  every_stack_var P prog 
+  ⇒ 
+  every_stack_var Q prog``,
+  ho_match_mp_tac (fetch "-" "every_stack_var_ind")>>rw[every_stack_var_def]>>
+  TRY(Cases_on`ret`>>fs[]>>PairCases_on`x`>>Cases_on`h`>>fs[]>>Cases_on`x`>>fs[]))
+
+val every_stack_var_conj = store_thm("every_stack_var_conj",``
+  ∀P prog Q.
+  every_stack_var P prog  ∧ every_stack_var Q prog ⇔ 
+  every_stack_var (λx. P x ∧ Q x) prog``,
+  ho_match_mp_tac (fetch "-" "every_stack_var_ind")>>rw[every_stack_var_def]>>
+  TRY(Cases_on`ret`>>fs[])>>
+  TRY(PairCases_on`x`>>Cases_on`h`>>fs[])>>
+  TRY(Cases_on`x`>>fs[])>>
+  TRY(metis_tac[EVERY_CONJ]))
+
+val every_stack_var_apply_color = store_thm("every_stack_var_apply_color",``
+  ∀P prog Q f.
+  every_stack_var P prog ∧
+  (∀x. P x ⇒ Q (f x)) ⇒
+  every_stack_var Q (apply_color f prog)``,
+  ho_match_mp_tac (fetch "-" "every_stack_var_ind")>>rw[every_stack_var_def]
+  >-
+    (EVERY_CASE_TAC>>unabbrev_all_tac>>fs[every_stack_var_def,EVERY_MAP,EVERY_MEM]>>
+    rw[]>>fs[domain_fromAList,MEM_MAP,ZIP_MAP]>>
+    Cases_on`x'`>>fs[MEM_toAList,domain_lookup])
+  >>
+    (fs[domain_fromAList,MEM_MAP,ZIP_MAP]>>
+    Cases_on`x'`>>fs[MEM_toAList,domain_lookup]))
+
+val in_clash_sets_def = Define`
+  in_clash_sets (ls: ('a num_map) list) x = ∃y. MEM y ls ∧ x ∈ domain y`
 
 (*Find a value that is larger than everything else
   For SSA, we will make it 4*n+1
