@@ -541,6 +541,8 @@ val bvl_bc_correct = store_thm("bvl_bc_correct",
       (bEval (exps,env,s) = (res,s')) ∧ res ≠ Error ∧
       (good_env sz bs1.stack env cenv) ∧
       (good_code_env s.code bs1.code) ∧
+      ALL_DISTINCT (FILTER is_Label bc0) ∧
+      EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc0) ∧
       ((bvl_bc cenv t sz cs exps).out = REVERSE code ++ cs.out) ∧
       (bs1.code = bc0 ++ code ++ bc1) ∧
       (bs1.pc = next_addr bs1.inst_length bc0) ∧
@@ -606,7 +608,11 @@ val bvl_bc_correct = store_thm("bvl_bc_correct",
         discharge_hyps >- (
           qpat_assum`bs2 = X`SUBST1_TAC >>
           imp_res_tac RTC_bc_next_preserves >> simp[] >>
-          match_mp_tac good_env_cons >> rw[] ) >>
+          conj_tac >- (match_mp_tac good_env_cons >> rw[] ) >>
+          simp[FILTER_APPEND,FILTER_REVERSE,ALL_DISTINCT_REVERSE,ALL_DISTINCT_APPEND] >>
+          fs[EVERY_REVERSE,EVERY_MAP,EVERY_FILTER,is_Label_rwt,PULL_EXISTS,between_def,MEM_FILTER] >>
+          fs[EVERY_MEM] >> rw[] >> fsrw_tac[ARITH_ss][] >> res_tac >> fsrw_tac[ARITH_ss][] >>
+          spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
         strip_tac >> simp[] >>
         qexists_tac`bs2'` >>
         conj_tac >- metis_tac[RTC_TRANSITIVE,transitive_def] >>
@@ -620,7 +626,11 @@ val bvl_bc_correct = store_thm("bvl_bc_correct",
         discharge_hyps >- (
           qpat_assum`bs2 = X`SUBST1_TAC >>
           imp_res_tac RTC_bc_next_preserves >> simp[] >>
-          match_mp_tac good_env_cons >> fs[] ) >>
+          conj_tac >- (match_mp_tac good_env_cons >> fs[] ) >>
+          simp[FILTER_APPEND,FILTER_REVERSE,ALL_DISTINCT_REVERSE,ALL_DISTINCT_APPEND] >>
+          fs[EVERY_REVERSE,EVERY_MAP,EVERY_FILTER,is_Label_rwt,PULL_EXISTS,between_def,MEM_FILTER] >>
+          fs[EVERY_MEM] >> rw[] >> fsrw_tac[ARITH_ss][] >> res_tac >> fsrw_tac[ARITH_ss][] >>
+          spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
         strip_tac >>
         match_mp_tac(SIMP_RULE std_ss [transitive_def] RTC_TRANSITIVE) >>
         first_assum(match_exists_tac o concl) >> simp[] >>
@@ -633,7 +643,11 @@ val bvl_bc_correct = store_thm("bvl_bc_correct",
       discharge_hyps >- (
         qpat_assum`bs2 = X`SUBST1_TAC >>
         imp_res_tac RTC_bc_next_preserves >> simp[] >>
-        match_mp_tac good_env_cons >> fs[] ) >>
+        conj_tac >- (match_mp_tac good_env_cons >> fs[] ) >>
+        simp[FILTER_APPEND,FILTER_REVERSE,ALL_DISTINCT_REVERSE,ALL_DISTINCT_APPEND] >>
+        fs[EVERY_REVERSE,EVERY_MAP,EVERY_FILTER,is_Label_rwt,PULL_EXISTS,between_def,MEM_FILTER] >>
+        fs[EVERY_MEM] >> rw[] >> fsrw_tac[ARITH_ss][] >> res_tac >> fsrw_tac[ARITH_ss][] >>
+        spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
       strip_tac >>
       qexists_tac`bs2'` >> simp[] >>
       metis_tac[transitive_def,RTC_TRANSITIVE] ) >>
@@ -699,6 +713,12 @@ val bvl_bc_correct = store_thm("bvl_bc_correct",
             simp[EL_APPEND1,EL_REVERSE,PRE_SUB1] ) >>
           first_x_assum(qspec_then`n-LENGTH a`mp_tac) >>
           simp[EL_APPEND2] ) >>
+        REWRITE_TAC[Once CONJ_ASSOC] >>
+        conj_tac >- (
+          simp[FILTER_APPEND,FILTER_REVERSE,ALL_DISTINCT_REVERSE,ALL_DISTINCT_APPEND] >>
+          fs[EVERY_REVERSE,EVERY_MAP,EVERY_FILTER,is_Label_rwt,PULL_EXISTS,between_def,MEM_FILTER] >>
+          fs[EVERY_MEM] >> rw[] >> fsrw_tac[ARITH_ss][] >> res_tac >> fsrw_tac[ARITH_ss][] >>
+          spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
         conj_tac >- (
           qunabbrev_tac`t1` >>
           Cases_on`t`>>fs[] >>
@@ -785,8 +805,94 @@ val bvl_bc_correct = store_thm("bvl_bc_correct",
     simp[Abbr`bs3`] ) >>
   strip_tac >- (
     simp[bEval_def,bvl_bc_def] >> rw[] >>
-    (* Handle *)
-    cheat) >>
+    `∃res0 s0. bEval ([x1],env,s1) = (res0,s0)` by metis_tac[pair_CASES] >>
+    fs[get_label_def] >>
+    qmatch_assum_abbrev_tac`(emit (bvl_bc cenv1 t sz1 (emit (pushret t (emit (bvl_bc cenv TCNonTail sz2 s3 [x1]) l3)) l2) [x2]) l1).out =
+      REVERSE code ++ cs.out` >>
+    qspecl_then[`cenv`,`TCNonTail`,`sz2`,`s3`,`[x1]`]strip_assume_tac bvl_bc_append_out >>
+    qmatch_assum_abbrev_tac`(emit (bvl_bc cenv1 t sz1 (emit (pushret t s2) l2) [x2]) l1).out =
+      REVERSE code ++ cs.out` >>
+    qspecl_then[`t`,`s2`]strip_assume_tac pushret_append_out >>
+    qmatch_assum_abbrev_tac`(emit (bvl_bc cenv1 t sz1 s4 [x2]) l1).out =
+      REVERSE code ++ cs.out` >>
+    qspecl_then[`cenv1`,`t`,`sz1`,`s4`,`[x2]`]strip_assume_tac bvl_bc_append_out >>
+    rfs[FOLDL_emit_append_out] >> fs[] >>
+    mp_tac(Q.REFL`s4.out`) >>
+    first_assum(fn th => CONV_TAC(LAND_CONV(RAND_CONV(RAND_CONV(REWR_CONV(REWRITE_RULE[markerTheory.Abbrev_def]th)))))) >>
+    simp[] >>
+    qpat_assum`Abbrev(s2 = X)`(fn th => CONV_TAC(LAND_CONV(REWRITE_CONV[REWRITE_RULE[markerTheory.Abbrev_def]th])) >>
+      assume_tac th) >> simp[] >>
+    qpat_assum`Abbrev(s3 = X)`(fn th => CONV_TAC(LAND_CONV(REWRITE_CONV[REWRITE_RULE[markerTheory.Abbrev_def]th])) >>
+      assume_tac th) >> simp[] >>
+    strip_tac >> fs[Once (GSYM SWAP_REVERSE)] >>
+    mp_tac(Q.REFL `bc_eval1 bs1`) >>
+    `bc_fetch bs1 = SOME (PushPtr(Lab cs.next_label))` by (
+      match_mp_tac bc_fetch_next_addr >> simp[] >>
+      qexists_tac`bc0` >> simp[] ) >>
+    CONV_TAC(LAND_CONV(RAND_CONV(SIMP_CONV(srw_ss())[bc_eval1_def]))) >>
+    simp[bump_pc_def,bc_find_loc_def] >>
+    Q.PAT_ABBREV_TAC`ptro = bc_find_loc_aux X Y Z 0` >>
+    `ptro = SOME (next_addr bs1.inst_length (bc0 ++ [PushPtr(Lab cs.next_label);PushExc] ++ REVERSE bc ++ l3 ++ REVERSE bc' ++ [HD l2]))` by (
+      simp[Abbr`ptro`] >>
+      ONCE_REWRITE_TAC[Q.SPECL[`x`,`y::(a++b)`]CONS_APPEND] >>
+      ONCE_REWRITE_TAC[Q.SPECL[`x`,`(a++b)`]CONS_APPEND] >>
+      REWRITE_TAC[APPEND_ASSOC] >>
+      match_mp_tac bc_find_loc_aux_append_code >>
+      match_mp_tac bc_find_loc_aux_append_code >>
+      match_mp_tac bc_find_loc_aux_append_code >>
+      match_mp_tac bc_find_loc_aux_ALL_DISTINCT >>
+      qexists_tac`LENGTH bc0 + 2 + LENGTH bc + LENGTH l3 + LENGTH bc' + 1` >>
+      simp[EL_APPEND1,EL_APPEND2,TAKE_APPEND1,TAKE_APPEND2] >>
+      conj_tac >- (
+        ntac 2 (last_x_assum kall_tac) >>
+        unabbrev_all_tac >>
+        simp[FILTER_APPEND,FILTER_REVERSE,ALL_DISTINCT_REVERSE,ALL_DISTINCT_APPEND] >>
+        fs[EVERY_REVERSE,EVERY_MAP,EVERY_FILTER,is_Label_rwt,PULL_EXISTS,between_def,MEM_FILTER] >>
+        fs[EVERY_MEM] >> rw[] >> fsrw_tac[ARITH_ss][] >> res_tac >> fsrw_tac[ARITH_ss][] >>
+        spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
+      unabbrev_all_tac >> simp[] >>
+      simp[FILTER_APPEND,SUM_APPEND,FILTER_REVERSE,SUM_REVERSE,MAP_REVERSE] ) >>
+    simp[GSYM bc_eval1_thm] >> strip_tac >>
+    qmatch_assum_abbrev_tac`bc_next bs1 bs2` >>
+    `bc_fetch bs2 = SOME PushExc` by (
+      match_mp_tac bc_fetch_next_addr >>
+      simp[Abbr`bs2`] >>
+      qexists_tac`bc0 ++ [PushPtr (Lab cs.next_label)]` >>
+      simp[SUM_APPEND,FILTER_APPEND] ) >>
+    mp_tac(Q.REFL `bc_eval1 bs2`) >>
+    CONV_TAC(LAND_CONV(RAND_CONV(SIMP_CONV(srw_ss())[bc_eval1_def]))) >>
+    simp[bump_pc_def] >>
+    simp[GSYM bc_eval1_thm] >> strip_tac >>
+    qmatch_assum_abbrev_tac`bc_next bs2 bs3` >>
+    first_x_assum(qspecl_then[`bs3`,`bc0++[PushPtr(Lab cs.next_label);PushExc]`,`REVERSE bc`,`l3++REVERSE bc'++l2++REVERSE bc''++l1++bc1`]mp_tac) >>
+    `bs3.code = bs1.code` by simp[Abbr`bs3`,Abbr`bs2`] >>
+    simp[] >>
+    `∃hdl2. HD bs2.stack = CodePtr hdl2` by ( simp[Abbr`bs2`] ) >>
+    disch_then(qspecl_then[`cenv`,`TCNonTail`,`sz2`,`s3`,`ret`,`bs1.handler`,`hdl2`,`bs1.stack`]mp_tac) >>
+    discharge_hyps >- (
+      simp[Abbr`bs3`,Abbr`bs2`,Abbr`sz2`] >>
+      conj_tac >- ( Cases_on`res0`>>fs[] ) >>
+      conj_tac >- (
+        `sz + 2 = (sz + 1) + 1` by simp[Abbr`sz1`] >>
+        metis_tac[good_env_cons] ) >>
+      ONCE_REWRITE_TAC[CONJ_ASSOC] >>
+      conj_tac >- (
+        ntac 2 (last_x_assum kall_tac) >>
+        unabbrev_all_tac >>
+        simp[FILTER_APPEND,FILTER_REVERSE,ALL_DISTINCT_REVERSE,ALL_DISTINCT_APPEND] >>
+        fs[EVERY_REVERSE,EVERY_MAP,EVERY_FILTER,is_Label_rwt,PULL_EXISTS,between_def,MEM_FILTER] >>
+        fs[EVERY_MEM] >> rw[] >> fsrw_tac[ARITH_ss][] >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
+      simp[FILTER_APPEND,SUM_APPEND] >>
+      Cases_on`res0`>>fs[Abbr`l2`,ADD1] >>
+      BasicProvers.VAR_EQ_TAC >>
+      simp[FILTER_APPEND,SUM_APPEND] ) >>
+    disch_then(qx_choose_then`bs4`strip_assume_tac) >> fs[] >>
+    Cases_on`res0`>>fs[]>>rpt BasicProvers.VAR_EQ_TAC>>fs[]>-(
+      cheat )
+    >- (
+      cheat ) >>
+    qexists_tac`bs4` >> simp[] >>
+    metis_tac[RTC_TRANSITIVE,transitive_def,RTC_SUBSET]) >>
   strip_tac >- cheat >> (* Op *)
   strip_tac >- (
     simp[bEval_def,bvl_bc_def] >> rw[] >- (
