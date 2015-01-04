@@ -1,7 +1,7 @@
 open HolKernel Parse boolLib bossLib miscLib
 open listTheory sptreeTheory pred_setTheory pairTheory rich_listTheory alistTheory
 open BasicProvers
-open word_procTheory word_liveTheory word_langTheory
+open word_procTheory word_langTheory
 open sortingTheory
 open monadsyntax state_transformerTheory
 
@@ -34,7 +34,10 @@ val undir_g_insert_def = Define`
     dir_g_insert x y (dir_g_insert y x g))`
 
 val list_g_insert_def = Define`
-  (list_g_insert x [] g = g) ∧
+  (list_g_insert x [] g = 
+    (*Single node with no adjacent edges*)
+    case lookup x g of NONE => insert x LN g 
+                     | SOME y => g) ∧
   (list_g_insert x (y::ys) g =
     undir_g_insert x y (list_g_insert x ys g))`
 
@@ -78,14 +81,17 @@ val lookup_dir_g_insert_correct = prove(``
     fs[domain_insert,lookup_insert,lookup_def])
 
 val list_g_insert_correct = prove(``
-  !ls x g.
+  ∀ls x g.
   let g' = list_g_insert x ls g in
     ∀u v.
       lookup_g u v g' = ((u = x ∧ MEM v ls)
                       ∨ (v = x ∧ MEM u ls)
                       ∨ lookup_g u v g)``,
   Induct>>rw[list_g_insert_def,undir_g_insert_def]>>
-  unabbrev_all_tac>>fs[]>>
+  unabbrev_all_tac>>fs[]>-
+    (fs[lookup_g_def]>>EVERY_CASE_TAC>>fs[lookup_insert]>>
+    EVERY_CASE_TAC>>fs[]>>qpat_assum`LN = x'` (SUBST_ALL_TAC o SYM)>>
+    fs[lookup_def])>>
   metis_tac[lookup_dir_g_insert_correct])
 
 val clique_g_insert_correct = prove(``
@@ -131,8 +137,8 @@ val clique_g_insert_preserves_clique = prove(``
   rw[clique_g_insert_def,sp_g_is_clique_def]>>
   metis_tac[clique_g_insert_correct])
 
-val clash_sets_clique = prove(``
-  !ls x.
+val clash_sets_clique = store_thm("clash_sets_clique",``
+  ∀ls x.
   MEM x ls ⇒
   sp_g_is_clique (nub (MAP FST (toAList x))) (clash_sets_to_sp_g ls)``,
   Induct>>fs[clash_sets_to_sp_g_def]>>rw[]>>
@@ -140,12 +146,7 @@ val clash_sets_clique = prove(``
   metis_tac[clique_g_insert_is_clique
            ,clique_g_insert_preserves_clique,all_distinct_nub])
 
-val get_spg_def = Define`
-  get_spg prog live =
-    let (hd,clash_sets) = get_clash_sets prog live in
-      (clash_sets_to_sp_g (hd::clash_sets))`
-
-val coloring_satisfactory_cliques = prove(``
+val coloring_satisfactory_cliques = store_thm("coloring_satisfactory_cliques",``
   ∀ls g (f:num->num).
   ALL_DISTINCT ls ∧
   coloring_satisfactory f g ∧ sp_g_is_clique ls g
@@ -164,47 +165,6 @@ val coloring_satisfactory_cliques = prove(``
     Cases_on`lookup y g`>>fs[])
   >>
     first_x_assum(qspecl_then [`g`,`f`] mp_tac)>>rfs[])
-
-val MEM_nub = prove(``
-  ∀ls x. MEM x ls ⇒ MEM x (nub ls)``,
-  rw[])
-
-val coloring_satisfactory_coloring_ok_alt = prove(``
-  ∀prog f live.
-  let spg = get_spg prog live in
-  coloring_satisfactory (f:num->num) spg
-  ⇒
-  coloring_ok_alt f prog live``,
-  rpt strip_tac>>
-  fs[LET_THM,coloring_ok_alt_def,coloring_satisfactory_def,get_spg_def]>>
-  Cases_on`get_clash_sets prog live`>>fs[]>>
-  strip_tac>>
-  qabbrev_tac `ls = q::r`>>
-  qsuff_tac `EVERY (λs. INJ f (domain s) UNIV) ls`
-  >-
-    fs[Abbr`ls`]
-  >>
-  rw[EVERY_MEM]>>
-  imp_res_tac clash_sets_clique>>
-  imp_res_tac coloring_satisfactory_cliques>>
-  pop_assum(qspec_then`f`mp_tac)>>
-  discharge_hyps
-  >- fs[coloring_satisfactory_def,LET_THM]>>
-  discharge_hyps
-  >- fs[all_distinct_nub]>>
-  fs[INJ_DEF,all_distinct_nub]>>rw[]>>
-  fs[domain_lookup]>>
-  `MEM x (MAP FST (toAList s)) ∧
-   MEM y (MAP FST (toAList s))` by
-    (fs[MEM_MAP,EXISTS_PROD]>>
-    metis_tac[domain_lookup,MEM_MAP,EXISTS_PROD,MEM_toAList])>>
-  `ALL_DISTINCT (nub (MAP FST (toAList s)))` by
-    metis_tac[all_distinct_nub]>>
-  fs[EL_ALL_DISTINCT_EL_EQ]>>
-  imp_res_tac MEM_nub>>
-  fs[MEM_EL]>>pop_assum (SUBST1_TAC o SYM)>>
-  simp[]>>
-  metis_tac[EL_MAP])
 
 (*Final coloring conventions*)
 val coloring_conventional_def = Define`
@@ -992,65 +952,6 @@ val reg_alloc_def =  Define`
   let col = spill_coloring G k LN ls col in
     col`
 
-(*
-Simple evaluation to use while coding: TODO: move somewhere else soon
-open sptreeSyntax
-sptreeSyntax.temp_add_sptree_printer();
-sptreeSyntax.remove_sptree_printer();
-
-val _ = computeLib.add_funs[MWHILE_DEF]
-val rhsThm = rhs o concl;
-
-val _ = Globals.max_print_depth := ~1
-
-val prog = ``
-Seq
-(Assign 21 (Const 5w))
-(Seq
-(Move [15,19])
-(Seq
-(Move [23,15])
-(Seq
-(Move [7,11;13,17;19,23])
-(Seq (Move [1,2;5,4;3,6])
-  (Call (SOME (3, list_insert [1;3;5;7;9] [();();();();()] LN,Skip)) (SOME 400) [7;9] NONE)
-  ))))``
-
-val prog_prefs = rhsThm (EVAL ``get_prefs ^(prog) []``)
-
-val state = rhsThm (EVAL``(init_ra_state (get_spg ^(prog) LN) 3 ^(prog_prefs))``)
-
-val state = rhsThm (EVAL ``SND (do_step ^(state))``)
-
-val G = rhsThm (EVAL ``^(st).graph``)
-val k = rhsThm (EVAL ``^(st).colors``)
-val ls = rhsThm (EVAL ``^(st).stack``)
-val prefs = ``λ(h:num) (ls:num list) (col:num num_map). HD ls``
-
-val col = rhsThm (EVAL ``(SND(alloc_coloring ^(G) ^(k) ^(prefs) ^(ls)))``)
-
-val st2= rhsThm (EVAL ``sec_ra_state ^(G) ^(k) ^(col) ``)
-
-val it = EVAL ``rpt_do_step2 ^(st2)``
-
-val ra = EVAL ``reg_alloc (get_spg ^(prog) LN) 3 ^(prog_prefs)``;
-
-val fin_prog = EVAL ``apply_color (total_color ^(rhsThm ra)) ^(prog)`` 
-
-(*Read a large, generated graph*)
-
-val graph = rhsThm(
-EVAL``
-
-``)
-
-val init_state = rhsThm (EVAL``init_ra_state ^(graph) 6``)
-val t1 = Time.now();
-val p1 = EVAL ``reg_alloc ^(graph) 32``;
-val t2 = Time.now() -t1;
-
-
-*)
 
 (*End reg alloc def*)
 
@@ -1793,11 +1694,11 @@ val undir_g_insert_domain = prove(``
 
 val list_g_insert_domain = prove(``
   ∀ls.
-  q ∈ domain G ⇒ 
   domain(list_g_insert q ls G) = 
-  domain G ∪ set ls``,
+  domain G ∪ set ls ∪ {q}``,
   Induct>>fs[list_g_insert_def]>>rw[]>>
   fs[EXTENSION,undir_g_insert_domain]>>
+  EVERY_CASE_TAC>>fs[domain_insert,domain_lookup,lookup_insert]>>
   metis_tac[])
 
 val finish_tac = 
@@ -1830,7 +1731,26 @@ val partial_coloring_satisfactory_extend_2 = prove(``
   fs[lookup_insert]>>
   Cases_on`v'=y`>>fs[lookup_def]>>
   finish_tac)
- 
+
+val list_g_insert_undir = prove(``
+  ∀ls G col.
+  undir_graph G ∧ 
+  ¬MEM q ls ⇒
+  let G' = list_g_insert q ls G in 
+  undir_graph G'``,
+  Induct>>rw[list_g_insert_def]>>
+  fs[Abbr`G'`]
+  >-
+    (EVERY_CASE_TAC>>fs[undir_graph_def,lookup_insert]>>
+    rw[]>>fs[]>>FULL_CASE_TAC>>
+    last_x_assum(qspec_then`x` assume_tac)>>fs[domain_lookup]>>rfs[]>>
+    rw[]>>
+    first_x_assum(qspec_then`q` assume_tac)>>
+    rfs[])
+  >>
+    metis_tac[undir_g_preserve])
+
+(*TODO: delete the parts about insert_undir*) 
 val list_g_insert_lemma = prove(``
   ∀ls G col.
   undir_graph G ∧ 
@@ -1842,7 +1762,21 @@ val list_g_insert_lemma = prove(``
   is_subgraph_edges G G' ∧ 
   undir_graph G' ∧ 
   partial_coloring_satisfactory col G'``,
-  Induct>>rw[list_g_insert_def,is_subgraph_edges_def]>>fs[]>>
+  Induct
+  >-
+    (rw[list_g_insert_def,is_subgraph_edges_def]>>
+    EVERY_CASE_TAC>>unabbrev_all_tac>>
+    fs[domain_insert,SUBSET_DEF,lookup_g_def,lookup_insert,undir_graph_def
+      ,partial_coloring_satisfactory_def]>>
+    rw[]>>fs[]>>
+    FULL_CASE_TAC>>
+    last_x_assum(qspec_then`x` assume_tac)>>fs[domain_lookup]>>rfs[]>>
+    rw[]>>
+    first_x_assum(qspec_then`q` assume_tac)>>
+    rfs[])
+  >>
+  rw[list_g_insert_def,is_subgraph_edges_def]>>
+  fs[]>>
   first_x_assum(qspecl_then[`G`,`col`] mp_tac)>>discharge_hyps>>
   fs[LET_THM,Abbr`G'`]>>rw[]
   >-
@@ -2059,6 +1993,46 @@ val reg_alloc_conventional = store_thm("reg_alloc_conventional" ,
       Q.ISPECL_THEN [`G'`,`k`,`LN:num num_map`,`ls`,`col'`] assume_tac
         spill_coloring_domain_2>> rfs[LET_THM,is_subgraph_edges_def]>>
       metis_tac[spill_coloring_domain_3,optionTheory.option_CLAUSES])
+
+(*Various side theorems necessary to link up proofs:
+  - clash_sets_to_sp_g captures everything appearing in the clashsets
+  - clash_sets_to_sp_g produces undirected graphs
+*)
+
+val clique_g_insert_undir = prove(``
+  ∀ls G.
+  undir_graph G ∧ 
+  ALL_DISTINCT ls
+  ⇒ 
+  undir_graph (clique_g_insert ls G)``,
+  Induct>>fs[clique_g_insert_def]>>rw[]>>
+  metis_tac[list_g_insert_undir])
+
+val clash_sets_to_sp_g_undir = store_thm("clash_sets_to_sp_g_undir",``
+∀ls.
+  undir_graph (clash_sets_to_sp_g ls)``,
+  Induct>-rw[clash_sets_to_sp_g_def,undir_graph_def,lookup_def]>>
+  rw[clash_sets_to_sp_g_def]>>
+  match_mp_tac clique_g_insert_undir>>
+  unabbrev_all_tac>>
+  fs[all_distinct_nub])
+
+val clique_g_insert_domain = prove(``
+  ∀ls.
+  domain (clique_g_insert ls G) = 
+  domain G ∪ set ls``,
+  Induct>>fs[clique_g_insert_def]>>rw[]>>
+  fs[list_g_insert_domain]>>
+  rw[EXTENSION]>>metis_tac[])
+
+(*Every variable that appears in the clash sets will also be in the domain of the graph*)
+val clash_sets_to_sp_g_domain = store_thm("clash_sets_to_sp_g_domain",``
+∀ls x.
+  in_clash_sets ls x ⇒ 
+  x ∈ domain (clash_sets_to_sp_g ls)``,
+  Induct>>fs[in_clash_sets_def,clash_sets_to_sp_g_def,LET_THM]>>rw[]>>res_tac>>
+  fs[clique_g_insert_domain]>>
+  fs[domain_lookup,MEM_MAP,MEM_toAList,EXISTS_PROD])
       
 val _ = export_theory()
 
