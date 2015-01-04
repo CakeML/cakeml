@@ -46,6 +46,9 @@ val build_recc_lets_def = Define `
            (recc_Let0 (n1 + (fns_l - 1)) (fns_l - 1))]
       (recc_Lets n1 (fns_l - 1) c3)`;
 
+val num_stubs_def = Define `
+  num_stubs = max_app * max_app`;
+
 val cComp_def = tDefine "cComp" `
   (cComp [] aux = ([],aux)) /\
   (cComp ((x:clos_exp)::y::xs) aux =
@@ -71,21 +74,29 @@ val cComp_def = tDefine "cComp" `
   (cComp [Op op xs] aux =
      let (c1,aux1) = cComp xs aux in
        ([Op op c1],aux1)) /\
-  (cComp [App loc_opt x1 x2] aux =
-     let (c1,aux1) = cComp [x1] aux in
-     let (c2,aux2) = cComp [x2] aux1 in
+  (cComp [App loc_opt x1 xs2] aux =
+     let ([c1],aux1) = cComp [x1] aux in
+     let (c2,aux2) = cComp xs2 aux1 in
+     let num_args = LENGTH c2 in
+     let arg_vars = REVERSE (GENLIST (\n. Var (n + 1)) num_args) in
        ([case loc_opt of
-         | NONE => Let (c1++c2)
-             (Call NONE ((Var 0) ::          (* closure itself *)
-                         (Var 1) ::          (* argument *)
-                         [Op (El 0) [Var 0]] (* code pointer *)))
-         | SOME loc => Call (SOME loc) (c1 ++ c2)],
+         | NONE => 
+             Let (c1++c2)
+               Call NONE ((Var 0) ::          (* closure itself *)
+                          arg_vars ++         (* arguments *)
+                          [Op (El (num_args - 1)) (Op (El 0) [Var 0])] (* code pointer *))
+         | SOME (loc,num_params) => 
+             if num_args = num_params then
+               Let (c1++c2)
+                 Call (SOME (loc + num_stubs)) (Var 0 :: arg_vars)
+             else
+               ARB (* TODO *)],
         aux2)) /\
-  (cComp [Fn loc vs x1] aux =
+  (cComp [Fn loc vs num_args x1] aux =
      let (c1,aux1) = cComp [x1] aux in
      let c2 = Let ((Var 1:bvl_exp) :: free_let (LENGTH vs)) (HD c1) in
-       ([Op (Cons closure_tag) (Op (Label loc) [] :: MAP Var vs)],
-        (loc,c2) :: aux1)) /\
+       ([Op (Cons closure_tag) (Op (Label (loc + num_stubs)) [] :: MAP Var vs)],
+        (loc + num_stubs,num_args,c2) :: aux1)) /\
   (cComp [Letrec loc vs fns x1] aux =
      case fns of
      | [] => cComp [x1] aux
@@ -93,16 +104,16 @@ val cComp_def = tDefine "cComp" `
          let (c1,aux1) = cComp [exp] aux in
          let (c2,aux2) = cComp [x1] aux1 in
          let c3 = Let (Var 1 :: Var 0 :: free_let (LENGTH vs)) (HD c1) in
-         let c4 = Op (Cons closure_tag) (Op (Label loc) [] :: MAP Var vs) in
-           ([Let [c4] (HD c2)], (loc,c3) :: aux2)
+         let c4 = Op (Cons closure_tag) (Op (Label (loc + num_stubs)) [] :: MAP Var vs) in
+           ([Let [c4] (HD c2)], ((loc + num_stubs),c3) :: aux2)
      | _ =>
          let fns_l = LENGTH fns in
          let l = fns_l + LENGTH vs in
          let (cs,aux1) = cComp fns aux in
          let cs1 = MAP (code_for_recc_case l) cs in
-         let (n2,aux2) = build_aux loc cs1 aux1 in
+         let (n2,aux2) = build_aux (loc + num_stubs) cs1 aux1 in
          let (c3,aux3) = cComp [x1] aux2 in
-         let c4 = build_recc_lets fns vs loc fns_l (HD c3) in
+         let c4 = build_recc_lets fns vs (loc + num_stubs) fns_l (HD c3) in
            ([c4],aux3)) /\
   (cComp [Handle x1 x2] aux =
      let (c1,aux1) = cComp [x1] aux in
@@ -110,7 +121,7 @@ val cComp_def = tDefine "cComp" `
        ([Handle (HD c1) (HD c2)], aux2)) /\
   (cComp [Call dest xs] aux =
      let (c1,aux1) = cComp xs aux in
-       ([Call (SOME dest) c1],aux1))`
+       ([Call (SOME (dest + num_stubs) c1],aux1))`
  (WF_REL_TAC `measure (clos_exp1_size o FST)`
   \\ REPEAT STRIP_TAC \\ DECIDE_TAC);
 
