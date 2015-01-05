@@ -1,4 +1,4 @@
-INCLUDES = .. ../bytecode ../compiler ../semantics/proofs
+INCLUDES = .. ../bytecode ../compiler ../semantics/proofs ../targets
 OPTIONS=QUIT_ON_FAILURE
 
 ifdef POLY
@@ -10,7 +10,8 @@ TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 
-BARE_THYS = ../bytecode/bytecodeTheory ../bytecode/bytecodeTerminationTheory ../compiler/compilerTerminationTheory ../compiler/free_varsTheory ../semantics/proofs/evalPropsTheory
+BARE_THYS =  ../targets/asmTheory ../bytecode/bytecodeTheory ../bytecode/bytecodeTerminationTheory ../compiler/compilerTerminationTheory ../compiler/free_varsTheory ../semantics/proofs/evalPropsTheory
+
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)

@@ -941,7 +941,11 @@ val reg_alloc_def =  Define`
   let (col,ls) = alloc_coloring s.graph k (aux_pref s.coalesced) s.stack in
   (*Second phase is much easier because we do not have a fixed number of 
     colors*)
-  let (G,spills,coalesce_map) = full_coalesce G moves ls in
+  (*I think using s.graph here is fine because any coalesced nodes are 
+  necessarily colorable under both conditions.
+  We are really only concerned when spilled nodes get coalesced
+  It makes the proof easier -- 1 less assum on rpt_do_step*)
+  let (G,spills,coalesce_map) = full_coalesce s.graph moves ls in 
   let s = sec_ra_state G k spills coalesce_map in
   let ((),s) = rpt_do_step2 s in
   let col = spill_coloring G k coalesce_map s.stack col in
@@ -1858,6 +1862,14 @@ val full_coalesce_lemma = prove(``
   pop_assum (qspec_then `lss` mp_tac)>>discharge_hyps>>
   fs[FORALL_PROD,MEM_FILTER,Abbr`lss`,LET_THM])
 
+val rpt_do_step_graph_lemma = prove(``
+  ∀s.
+    let ((),s') = rpt_do_step s in
+    undir_graph s'.graph ∧ 
+    is_subgraph_edges s.graph s'.graph``,
+  fs[rpt_do_step_def,MWHILE_DEF,has_work_def,do_step_def,LET_THM]>>
+  cheat) (*TODO: figure out how this works*)
+
 val reg_alloc_satisfactory = store_thm ("reg_alloc_satisfactory",``
   ∀G k moves.
   undir_graph G ⇒  
@@ -1869,8 +1881,7 @@ val reg_alloc_satisfactory = store_thm ("reg_alloc_satisfactory",``
   (*Should be true by construction.. the domain part might be iffy but it should be 
   easy to force*)
   `undir_graph s'.graph ∧
-   is_subgraph_edges G s'.graph ∧ 
-   domain s'.graph = domain G` by cheat >> 
+   is_subgraph_edges G s'.graph` by cheat>>
   imp_res_tac alloc_coloring_success>>
   pop_assum kall_tac>>
   pop_assum(qspecl_then [`s'.stack`,`k`] assume_tac)>>rfs[LET_THM]>>
@@ -1880,12 +1891,13 @@ val reg_alloc_satisfactory = store_thm ("reg_alloc_satisfactory",``
     rfs[LET_THM])>>
   `partial_coloring_satisfactory col G` by
     metis_tac[partial_coloring_satisfactory_subgraph_edges]>>
-  `is_subgraph_edges G G' ∧ undir_graph G' ∧ 
+  `is_subgraph_edges s'.graph G' ∧ undir_graph G' ∧ 
    partial_coloring_satisfactory col G'` by 
      (match_mp_tac full_coalesce_lemma>>
      rw[]>>
      fs[INTER_DEF,EXTENSION]>>
-     metis_tac[])
+     metis_tac[])>>
+  `is_subgraph_edges G G'` by metis_tac[is_subgraph_edges_trans]
   >-
     (fs[is_subgraph_edges_def]>>
     `domain col ⊆ domain col''` by
@@ -1893,7 +1905,7 @@ val reg_alloc_satisfactory = store_thm ("reg_alloc_satisfactory",``
     Q.ISPECL_THEN [`G'`,`k`,`LN:num num_map`,`ls`,`col'`] assume_tac spill_coloring_domain_1>>
     rfs[LET_THM]>>
     fs[SUBSET_DEF,EXTENSION]>>rw[]>>res_tac>>
-    pop_assum kall_tac>>
+    res_tac>>
     pop_assum mp_tac>>
     rpt (IF_CASES_TAC>-metis_tac[domain_lookup])>>
     fs[])
@@ -1921,8 +1933,7 @@ val reg_alloc_total_satisfactory = store_thm ("reg_alloc_total_satisfactory",``
   first_x_assum(qspec_then`v'''` assume_tac)>>rfs[LET_THM]>>
   metis_tac[])
 
-val reg_alloc_conventional = store_thm("reg_alloc_conventional" ,
-``
+val reg_alloc_conventional = store_thm("reg_alloc_conventional" ,``
   ∀G k moves.
   undir_graph G ⇒
   let col = reg_alloc G k moves in
@@ -1939,8 +1950,7 @@ val reg_alloc_conventional = store_thm("reg_alloc_conventional" ,
   (*Should be true by construction.. the domain part might be iffy but it should be 
   easy to force*)
   `undir_graph s'.graph ∧
-   is_subgraph_edges G s'.graph ∧ 
-   domain s'.graph = domain G` by cheat >> 
+   is_subgraph_edges G s'.graph` by cheat>> 
   imp_res_tac alloc_coloring_success>>
   pop_assum kall_tac>>
   pop_assum(qspec_then `aux_pref s'.coalesced` mp_tac)>>discharge_hyps>>
@@ -1948,7 +1958,7 @@ val reg_alloc_conventional = store_thm("reg_alloc_conventional" ,
   pop_assum(qspecl_then[`s'.stack`,`k`] assume_tac)>>rfs[LET_THM]>>
   `partial_coloring_satisfactory col G` by
     metis_tac[partial_coloring_satisfactory_subgraph_edges]>>
-  `is_subgraph_edges G G' ∧ undir_graph G' ∧ 
+  `is_subgraph_edges s'.graph G' ∧ undir_graph G' ∧ 
    partial_coloring_satisfactory col G'` by 
      (`∀x. MEM x ls ⇒ x ∈ domain s'.graph` by 
        (Q.ISPECL_THEN [`aux_pref s'.coalesced`,`s'.stack`,`k`,`s'.graph`] assume_tac
@@ -1958,7 +1968,7 @@ val reg_alloc_conventional = store_thm("reg_alloc_conventional" ,
      rw[]>>
      fs[INTER_DEF,EXTENSION]>>
      metis_tac[])>>
-  `x ∈ domain G'` by 
+  `x ∈ domain G' ∧ x ∈ domain s'.graph` by 
     fs[is_subgraph_edges_def,SUBSET_DEF]>>
   IF_CASES_TAC>-
     (first_x_assum(qspec_then`x`assume_tac)>>rfs[]>>

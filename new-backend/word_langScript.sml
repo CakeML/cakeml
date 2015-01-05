@@ -416,7 +416,6 @@ val word_assign_def = Define `
      | NONE => NONE
      | SOME w => SOME (set_var reg (Word w) s)`;
 
-
 val wInst_def = Define `
   wInst i s =
     case i of
@@ -426,9 +425,9 @@ val wInst_def = Define `
         word_assign r1
           (Op bop [Var r2; case ri of Reg r3 => Var r3
                                     | Imm w => Const w]) s
-    | Arith (Shift shift r1 r2 n) =>
+    | Arith (Shift sh r1 r2 n) =>
         word_assign r1
-          (Shift shift (Var r2) (Nat n)) s
+          (Shift sh (Var r2) (Nat n)) s
     | Mem Load r (Addr a w) =>
         word_assign r (Load (Op Add [Var a; Const w])) s
     | Mem Store r (Addr a w) =>
