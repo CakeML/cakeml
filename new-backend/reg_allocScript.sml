@@ -1850,7 +1850,7 @@ val full_coalesce_lemma = prove(``
   (∀x. MEM x ls ⇒ x ∉ domain col ∧ x ∈ domain G) ∧ 
   full_coalesce G moves ls = (G',spills,coalesce_map)
   ⇒ 
-  is_subgraph_edges G G' ∧ 
+  is_subgraph_edges G G' ∧
   undir_graph G' ∧ 
   partial_coloring_satisfactory col G'``,
   fs[full_coalesce_def,LET_THM]>>
@@ -1862,13 +1862,202 @@ val full_coalesce_lemma = prove(``
   pop_assum (qspec_then `lss` mp_tac)>>discharge_hyps>>
   fs[FORALL_PROD,MEM_FILTER,Abbr`lss`,LET_THM])
 
+fun fsm ls = fs (ls@[BIND_DEF,UNIT_DEF,IGNORE_BIND_DEF,FOREACH_def]);
+
+val foreach_graph = prove(``
+  ∀ls s.
+    ∃s'. 
+    FOREACH (ls,dec_one) s = ((),s') ∧ 
+    s'.graph = s.graph``,
+    Induct>>rw[]>>fsm[dec_one_def,get_deg_def,set_deg_def]>>
+    EVERY_CASE_TAC>>fsm[]>>
+    first_x_assum(qspec_then`s with degs := insert h (x-1) s.degs` assume_tac)>>
+    rw[]>>metis_tac[])
+
+val rest_tac = 
+  Q.ISPECL_THEN [`MAP FST (toAList x)`,`sopt`] assume_tac foreach_graph>>
+  fsm[]>>
+  qpat_assum `A = ((),s'')` SUBST_ALL_TAC>>
+  fsm[]>>
+  TRY(qpat_abbrev_tac`lsrs = PARTITION P r`)>>
+  TRY(qpat_abbrev_tac`lsrs = PARTITION P s.spill_worklist`)>>
+  TRY(qpat_abbrev_tac`lsrs = PARTITION P s''.spill_worklist`)>>
+  Cases_on`lsrs`>>fsm[]>>
+  TRY(qpat_abbrev_tac`lsrs = PARTITION P q`)>>
+  TRY(qpat_abbrev_tac`lsrs = PARTITION P q'`)>>
+  Cases_on`lsrs`>>fsm[set_spill_worklist_def,add_freeze_worklist_def,add_simp_worklist_def]>>
+  rw[Abbr`sopt`]>>fs[fetch "-" "ra_state_nchotomy"]
+
+(*Simplify neverchanges the graph*)
+val simplify_graph = prove(``
+  ∀s G s' opt.
+    simplify s = (opt,s') ⇒
+    s'.graph = s.graph``,
+  rw[]>>
+  fsm[simplify_def,get_simp_worklist_def,get_coalesced_def]>>
+  Cases_on`s.simp_worklist`>>fsm[first_non_coalesced_def,set_simp_worklist_def]>>
+  rw[]>>EVERY_CASE_TAC>>
+  fsm[dec_deg_def,get_graph_def]>>rw[]>>
+  EVERY_CASE_TAC>>
+  fsm[unspill_def,get_spill_worklist_def,get_degs_def,get_colors_def,get_move_rel_def,LET_THM]>>
+  pop_assum mp_tac>>
+  qpat_abbrev_tac`sopt = s with simp_worklist := A`>>
+  rest_tac)
+
+val freeze_graph = prove(``
+∀s G s' opt.
+    freeze s = (opt,s') ⇒
+    s'.graph = s.graph``,
+  rw[]>>
+  fsm[freeze_def,get_coalesced_def,get_freeze_worklist_def,freeze_node_def]>>
+  Cases_on`s.freeze_worklist`>>fsm[first_non_coalesced_def,set_freeze_worklist_def]>>
+  rw[]>>EVERY_CASE_TAC>>
+  fsm[dec_deg_def,get_graph_def]>>rw[]>>
+  EVERY_CASE_TAC>>
+  fsm[unspill_def,get_spill_worklist_def,get_degs_def,get_colors_def,get_move_rel_def,LET_THM]>>
+  pop_assum mp_tac>>
+  qpat_abbrev_tac`sopt = s with <|freeze_worklist:=A;move_related:=B|>`>>
+  rest_tac)
+  
+val spill_graph = prove(``
+∀s G s' opt.
+    spill s = (opt,s') ⇒
+    s'.graph = s.graph``,
+  rw[]>>
+  fsm[spill_def,get_coalesced_def,get_spill_worklist_def]>>
+  Cases_on`s.spill_worklist`>>fsm[first_non_coalesced_def,set_spill_worklist_def]>>
+  rw[]>>EVERY_CASE_TAC>>
+  fsm[dec_deg_def,get_graph_def]>>rw[]>>
+  EVERY_CASE_TAC>>
+  fsm[unspill_def,get_spill_worklist_def,get_degs_def,get_colors_def,get_move_rel_def,LET_THM]>>
+  pop_assum mp_tac>>
+  qpat_abbrev_tac`sopt = s with spill_worklist :=A`>>
+  rest_tac)
+
+val rest_tac2 = 
+    first_x_assum(qspec_then`sopt`mp_tac)>>
+    unabbrev_all_tac>>fs[]>>
+    discharge_hyps>-
+    (match_mp_tac undir_g_preserve>>rfs[])>>
+    rw[]>>HINT_EXISTS_TAC >>rfs[]>>
+    fs[undir_g_insert_domain]>>
+    fs[undir_g_insert_def]>>
+    rw[]>>
+    metis_tac[lookup_dir_g_insert_correct]
+
+val foreach_graph_extend = prove(``
+  ∀ls s.
+  undir_graph s.graph ∧ 
+  (∀y. MEM y ls ⇒ x ≠ y)⇒ 
+  ∃s'.
+  FOREACH (ls,
+          (λv. 
+            if lookup v x_edges = NONE then
+              do
+                inc_one x;
+                force_add (x,v)
+              od
+            else
+              dec_one v)) s = ((),s') ∧ 
+   is_subgraph_edges s.graph s'.graph ∧
+   undir_graph s'.graph``,
+  Induct>>rw[]>>fsm[is_subgraph_edges_def]>>
+  IF_CASES_TAC>>fsm[force_add_def,inc_one_def,get_deg_def]>>
+  EVERY_CASE_TAC>>
+  fsm[set_deg_def,dec_one_def,get_deg_def]>>EVERY_CASE_TAC>>
+  fsm[]>>rw[]
+  >-
+    (qpat_abbrev_tac`sopt = s with graph:=undir_g_insert x h s.graph`>>
+    rest_tac2)
+  >-
+    (qpat_abbrev_tac`sopt = s with <|graph:=A;degs:=B|>`>>
+    rest_tac2)   
+  >>
+    (qpat_abbrev_tac`sopt = s with degs:=insert h (x'-1) s.degs`>>
+    first_x_assum(qspec_then`sopt`mp_tac)>>
+    unabbrev_all_tac>>fs[]))
+
+val split_avail_filter = prove(``
+  ∀ls acc B C.
+  split_avail (is_valid_move G A) Q ls acc = (SOME (x,y),B,C)
+  ⇒ 
+  ¬ lookup_g x y G``,
+  Induct>>
+  rw[split_avail_def,LET_THM]
+  >-
+  fs[is_valid_move_def]
+  >>
+  metis_tac[])
+
+val coalesce_graph = prove(``
+∀s G s' opt.
+    undir_graph s.graph ∧
+    is_subgraph_edges G s.graph ∧ 
+    coalesce s = (opt,s') ⇒
+    undir_graph s'.graph ∧ 
+    is_subgraph_edges G s'.graph``,
+  rw[]>>
+  fsm[coalesce_def,get_avail_moves_def,get_graph_def,get_colors_def,get_degs_def,get_move_rel_def]>>
+  EVERY_CASE_TAC>>
+  fsm[set_avail_moves_def,add_unavail_moves_def,do_coalesce_def,add_coalesce_def,get_edges_def
+     ,get_degs_def,get_colors_def]>>
+  EVERY_CASE_TAC>>
+  fsm[get_unavail_moves_def,LET_THM,set_unavail_moves_def]>>
+  rw[]>>
+  pop_assum mp_tac>>
+  qpat_abbrev_tac `ls = FILTER P (MAP FST (toAList x'))`>>
+  qpat_abbrev_tac `s''=s with <|coalesced:=A;avail_moves:=B;unavail_moves:=C|>`>>
+  Q.ISPECL_THEN [`x`,`q`,`ls`,`s''`] mp_tac (GEN_ALL foreach_graph_extend)>>
+  (discharge_hyps>-
+   (unabbrev_all_tac>>fs[MEM_FILTER]>>
+   imp_res_tac split_avail_filter>>
+   DISJ2_TAC>>
+   fs[lookup_g_def,undir_graph_def]>>FULL_CASE_TAC>>
+   CCONTR_TAC>>fs[]>>
+   `lookup q x' = SOME ()` by 
+     (fs[MEM_MAP]>>Cases_on`y`>>fs[MEM_toAList])>>
+   first_x_assum(qspec_then`r'` assume_tac)>>rfs[domain_lookup]>>
+   first_x_assum(qspec_then`q` assume_tac)>>rfs[]))>>
+  rw[]>>fsm[]>>
+  qpat_assum`A=((),s''')` SUBST_ALL_TAC>>
+  fs[]>>
+  pop_assum (SUBST_ALL_TAC o SYM)>>
+  rfs[Abbr`s''`]>>
+  metis_tac[is_subgraph_edges_trans])
+  
+val do_step_graph_lemma = prove(``
+  ∀s G s'.
+    undir_graph s.graph ∧
+    is_subgraph_edges G s.graph ∧ 
+    do_step s = ((),s') ⇒
+    undir_graph s'.graph ∧ 
+    is_subgraph_edges G s'.graph``,
+    rw[]>>
+    fsm[do_step_def]>>
+    Cases_on`simplify s`>>Cases_on`q`>>fs[]>>
+    Cases_on`coalesce r`>>Cases_on`q`>>fs[]>>
+    Cases_on`freeze r'`>>Cases_on`q`>>fs[]>>
+    Cases_on`spill r''`>>Cases_on`q`>>fs[]>>
+    fsm[push_stack_def]>>
+    TRY(qpat_assum`A=s'` (SUBST_ALL_TAC o SYM))>>fs[]>>
+    metis_tac[spill_graph,coalesce_graph,freeze_graph,simplify_graph])
+
+(*
 val rpt_do_step_graph_lemma = prove(``
-  ∀s.
+  ∀s G.
+    undir_graph s.graph ∧ 
+    is_subgraph_edges 
+    ⇒ 
     let ((),s') = rpt_do_step s in
     undir_graph s'.graph ∧ 
     is_subgraph_edges s.graph s'.graph``,
+  rw[rpt_do_step_def]>>
+  Q.ISPECL_THEN [`has_work`,`do_step`] assume_tac MWHILE_DEF>>
+  pop_assum (SUBST_ALL_TAC)>>
+  rfs[BIND_DEF,UNIT_DEF,has_work_def,UNCURRY]>>
   fs[rpt_do_step_def,MWHILE_DEF,has_work_def,do_step_def,LET_THM]>>
   cheat) (*TODO: figure out how this works*)
+*)
 
 val reg_alloc_satisfactory = store_thm ("reg_alloc_satisfactory",``
   ∀G k moves.
@@ -1878,8 +2067,6 @@ val reg_alloc_satisfactory = store_thm ("reg_alloc_satisfactory",``
   partial_coloring_satisfactory col G)``,
   rw[reg_alloc_def]>>
   `satisfactory_pref (aux_pref s'.coalesced)` by fs[aux_pref_satisfactory]>>
-  (*Should be true by construction.. the domain part might be iffy but it should be 
-  easy to force*)
   `undir_graph s'.graph ∧
    is_subgraph_edges G s'.graph` by cheat>>
   imp_res_tac alloc_coloring_success>>
@@ -1947,8 +2134,6 @@ val reg_alloc_conventional = store_thm("reg_alloc_conventional" ,``
   fs[reg_alloc_def]>>pop_assum mp_tac>>
   LET_ELIM_TAC>>
   rfs[LET_THM]>>
-  (*Should be true by construction.. the domain part might be iffy but it should be 
-  easy to force*)
   `undir_graph s'.graph ∧
    is_subgraph_edges G s'.graph` by cheat>> 
   imp_res_tac alloc_coloring_success>>
