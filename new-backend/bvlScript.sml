@@ -280,7 +280,7 @@ val bEvalOp_const = store_thm("bEvalOp_const",
   ``(bEvalOp op args s1 = SOME (res,s2)) ==>
     (s2.clock = s1.clock) /\ (s2.code = s1.code)``,
   SIMP_TAC std_ss [bEvalOp_def]
-  \\ REPEAT BasicProvers.FULL_CASE_TAC
+  \\ BasicProvers.EVERY_CASE_TAC
   \\ fs [LET_DEF] \\ SRW_TAC [] [] \\ fs []);
 
 val bEval_clock = store_thm("bEval_clock",
@@ -288,7 +288,7 @@ val bEval_clock = store_thm("bEval_clock",
       (bEval (xs,env,s1) = (vs,s2)) ==> s2.clock <= s1.clock``,
   recInduct (fetch "-" "bEval_ind") \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [bEval_def]
-  \\ FULL_SIMP_TAC std_ss [] \\ REPEAT BasicProvers.FULL_CASE_TAC
+  \\ FULL_SIMP_TAC std_ss [] \\ BasicProvers.EVERY_CASE_TAC
   \\ REPEAT STRIP_TAC \\ SRW_TAC [] [check_clock_def]
   \\ RES_TAC \\ IMP_RES_TAC check_clock_IMP
   \\ FULL_SIMP_TAC std_ss [PULL_FORALL] \\ RES_TAC
@@ -380,7 +380,7 @@ val bEval_LENGTH = prove(
   HO_MATCH_MP_TAC bEval_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [bEval_def]
   \\ SRW_TAC [] [] \\ SRW_TAC [] []
-  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ BasicProvers.EVERY_CASE_TAC \\ FULL_SIMP_TAC (srw_ss()) []
   \\ REV_FULL_SIMP_TAC std_ss [] \\ FULL_SIMP_TAC (srw_ss()) [])
   |> SIMP_RULE std_ss [];
 
