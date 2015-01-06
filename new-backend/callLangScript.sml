@@ -168,7 +168,7 @@ val tEvalOp_def = Define `
              SOME (RefPtr ptr, s with refs := s.refs |+
                (ptr,ByteArray (REPLICATE (Num i) (n2w (Num b)))))
          else NONE
-    | (Ref2,[Number i;v]) =>
+    | (RefArray,[Number i;v]) =>
         if 0 ≤ i then
           let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
             SOME (RefPtr ptr, s with refs := s.refs |+

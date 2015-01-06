@@ -39,7 +39,7 @@ val _ = Datatype `
          | Length        (* get length of reference *)
          | LengthByte    (* get length of byte array *)
          | RefByte       (* makes a byte array *)
-         | Ref2          (* makes a reference *)
+         | RefArray      (* makes an array by replicating a value *)
          | DerefByte     (* loads a byte from a byte array *)
          | UpdateByte    (* updates a byte array *)
          | FromList num  (* convert list to packed Block *)
