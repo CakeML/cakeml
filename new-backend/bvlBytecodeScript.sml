@@ -1,6 +1,7 @@
 open HolKernel boolLib boolSimps bossLib lcsymtacs
-open pairTheory listTheory rich_listTheory relationTheory quantHeuristicsLib quantHeuristicsLibAbbrev arithmeticTheory
-open miscLib miscTheory bytecodeTheory bytecodeExtraTheory bytecodeEvalTheory bvlTheory
+open pairTheory listTheory rich_listTheory relationTheory quantHeuristicsLib quantHeuristicsLibAbbrev arithmeticTheory finite_mapTheory stringTheory
+open intLib miscLib miscTheory bytecodeTheory bytecodeExtraTheory bytecodeEvalTheory bvlTheory
+open bytecodeTerminationTheory
 val _ = new_theory"bvlBytecode"
 
 val _ = Datatype`
@@ -305,8 +306,8 @@ val bvl_bc_def = C (tDefine "bvl_bc")
     let s = bvl_bc f cenv TCNonTail sz s es in
     let s = emit s (case op of
     | Global n => [Gread n]
-    | AllocGlobal => [Galloc 1]
-    | SetGlobal n => [Gupdate n]
+    | AllocGlobal => [Galloc 1; Stack(PushInt 0)]
+    | SetGlobal n => [Gupdate n; Stack(PushInt 0)]
     | Cons n => [Stack(PushInt (&(LENGTH es))); Stack (Cons n)]
     | El => [Stack El]
     | LengthBlock => [Stack LengthBlock]
@@ -324,10 +325,10 @@ val bvl_bc_def = C (tDefine "bvl_bc")
     | Equal => [Stack Equal]
     | Ref => [] (* TODO *)
     | Deref => [Deref]
-    | Update => [Update]
-    | Label n => [PushPtr (Lab n)]
-    | Print => [Print]
-    | PrintC c => [PrintC c]
+    | Update => [Stack(Load 2);Stack(Load 2);Stack(Load 2);Update;Stack(Pops 2)]
+    | Label n => [PushPtr (Addr (f n))]
+    | Print => [Stack(Load 0);Print]
+    | PrintC c => [PrintC c; Stack(PushInt 0)]
     | Add => [Stack Add]
     | Sub => [Stack Sub]
     | Mult => [Stack Mult]
@@ -549,6 +550,25 @@ val refv_map_def = Define`
   refv_map f (ValueArray vs) = ValueArray (MAP f vs) ∧
   refv_map f (ByteArray bs) = ByteArray bs`
 val _ = export_rewrites["refv_map_def"]
+
+val bc_equal_bvl_to_bc_value = prove(
+  ``(∀x y. (bc_equal (bvl_to_bc_value f x) (bvl_to_bc_value f y) = bc_equal x y)) ∧
+    (∀xs ys. (bc_equal_list (MAP (bvl_to_bc_value f) xs) (MAP (bvl_to_bc_value f) ys) = bc_equal_list xs ys))``,
+  ho_match_mp_tac bc_equal_ind >>
+  simp[bc_equal_def,bvl_to_bc_value_def] >>
+  rw[] >> fs[] >> rfs[] >> srw_tac[ETA_ss][] >>
+  BasicProvers.CASE_TAC >> fs[])
+
+val bvs_to_chars_bvl_to_bc_value = prove(
+  ``∀vs acc. bvs_to_chars (MAP (bvl_to_bc_value f) vs) acc = bvs_to_chars vs acc``,
+  Induct >> simp[] >>
+  Cases >> simp[bvl_to_bc_value_def,bvs_to_chars_def])
+
+val bv_to_string_bvl_to_bc_value = prove(
+  ``∀v. bv_to_string (bvl_to_bc_value f v) = bv_to_string v``,
+  ho_match_mp_tac bv_to_string_ind >>
+  simp[bvl_to_bc_value_def,bv_to_string_def] >>
+  srw_tac[ETA_ss][bvs_to_chars_bvl_to_bc_value])
 
 val bvl_bc_correct = store_thm("bvl_bc_correct",
   ``∀exps env s res s' bs1 bc0 code bc1 cenv t sz cs stw ret sp hdl rst1 rst2.
@@ -1363,7 +1383,429 @@ val bvl_bc_correct = store_thm("bvl_bc_correct",
       srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
       simp[bc_state_component_equality] >>
       simp[SUM_APPEND,FILTER_APPEND] )
-    >> cheat) >>
+    >- (
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      `bc_fetch bs2 = SOME (Galloc 1)` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs2`] >>
+        qexists_tac`bc0++REVERSE bc` >>
+        fs[GSYM(Once SWAP_REVERSE)] ) >>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      qmatch_abbrev_tac`bc_next^* bs3 bs4` >>
+      `bc_fetch bs3 = SOME (Stack(PushInt 0))` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs3`,Abbr`bs2`] >>
+        fs[GSYM(Once SWAP_REVERSE)] >>
+        CONV_TAC SWAP_EXISTS_CONV >>
+        qexists_tac`REVERSE bc' ++ bc1`>>simp[] >>
+        simp[SUM_APPEND,FILTER_APPEND] ) >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      simp[Abbr`bs3`,bc_eval_stack_def] >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+      simp[Abbr`bs4`,Abbr`bs2`,bc_state_component_equality,bvl_to_bc_value_def] >>
+      simp[SUM_APPEND,FILTER_APPEND] )
+    >- (
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      `bc_fetch bs2 = SOME (Gupdate n)` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs2`] >>
+        qexists_tac`bc0++REVERSE bc` >>
+        fs[GSYM(Once SWAP_REVERSE)] ) >>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      Cases_on`t'`>>fs[] >>
+      fs[get_global_def] >>
+      qpat_assum`X = SOME (y,Z)`mp_tac >>
+      BasicProvers.CASE_TAC >>
+      BasicProvers.CASE_TAC >>
+      strip_tac >>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      simp[Abbr`bs2`,EL_MAP,LUPDATE_MAP] >>
+      qmatch_abbrev_tac`bc_next^* bs3 bs4` >>
+      `bc_fetch bs3 = SOME (Stack(PushInt 0))` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs3`] >>
+        fs[GSYM(Once SWAP_REVERSE)] >>
+        CONV_TAC SWAP_EXISTS_CONV >>
+        qexists_tac`REVERSE bc' ++ bc1`>>simp[] >>
+        simp[SUM_APPEND,FILTER_APPEND] ) >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      simp[Abbr`bs3`,bc_eval_stack_def] >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+      simp[Abbr`bs4`,bc_state_component_equality,bvl_to_bc_value_def] >>
+      simp[SUM_APPEND,FILTER_APPEND] )
+    >- (
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      `bc_fetch bs2 = SOME (Stack(PushInt(&LENGTH xs)))` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs2`] >>
+        qexists_tac`bc0++REVERSE bc` >>
+        fs[GSYM(Once SWAP_REVERSE)] ) >>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      simp[Abbr`bs2`,bc_eval_stack_def] >>
+      qmatch_abbrev_tac`bc_next^* bs3 bs4` >>
+      `bc_fetch bs3 = SOME (Stack(Cons n))` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs3`] >>
+        fs[GSYM(Once SWAP_REVERSE)] >>
+        CONV_TAC SWAP_EXISTS_CONV >>
+        qexists_tac`REVERSE bc' ++ bc1`>>simp[] >>
+        simp[SUM_APPEND,FILTER_APPEND] ) >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      simp[Abbr`bs3`,bc_eval_stack_def] >>
+      imp_res_tac bEval_IMP_LENGTH >> fs[LENGTH_NIL] >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+      simp[Abbr`bs4`,bc_state_component_equality,bvl_to_bc_value_def] >>
+      simp[SUM_APPEND,FILTER_APPEND] )
+    >- (
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      `bc_fetch bs2 = SOME (Stack(PushInt(&LENGTH xs)))` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs2`] >>
+        qexists_tac`bc0++REVERSE bc` >>
+        fs[GSYM(Once SWAP_REVERSE)] ) >>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      simp[Abbr`bs2`,bc_eval_stack_def] >>
+      qmatch_abbrev_tac`bc_next^* bs3 bs4` >>
+      `bc_fetch bs3 = SOME (Stack(Cons n))` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs3`] >>
+        fs[GSYM(Once SWAP_REVERSE)] >>
+        CONV_TAC SWAP_EXISTS_CONV >>
+        qexists_tac`REVERSE bc' ++ bc1`>>simp[] >>
+        simp[SUM_APPEND,FILTER_APPEND] ) >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      simp[Abbr`bs3`,bc_eval_stack_def] >>
+      imp_res_tac bEval_IMP_LENGTH >> fs[] >> simp[] >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+      simp[Abbr`bs4`,bc_state_component_equality,bvl_to_bc_value_def] >>
+      simp[TAKE_APPEND2,DROP_APPEND2,ADD1] >>
+      simp[SUM_APPEND,FILTER_APPEND] >>
+      srw_tac[ETA_ss][])
+    >- (
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      `bc_fetch bs2 = SOME (Stack El)` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs2`] >>
+        qexists_tac`bc0++REVERSE bc` >>
+        fs[GSYM(Once SWAP_REVERSE)] ) >>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      Cases_on`h`>>fs[]>>
+      Cases_on`t'`>>fs[]>>
+      Cases_on`h`>>fs[]>>
+      Cases_on`t''`>>fs[]>>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      simp[Abbr`bs2`,bc_eval_stack_def,bvl_to_bc_value_def,EL_MAP] >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+      simp[bc_state_component_equality] >>
+      simp[FILTER_APPEND,SUM_APPEND] )
+    >- (
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      `bc_fetch bs2 = SOME (Stack (PushInt i))` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs2`] >>
+        qexists_tac`bc0++REVERSE bc` >>
+        fs[GSYM(Once SWAP_REVERSE)] ) >>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      simp[Abbr`bs2`,bc_eval_stack_def] >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+      simp[bc_state_component_equality,bvl_to_bc_value_def] >>
+      simp[FILTER_APPEND,SUM_APPEND] )
+    >- (
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      `bc_fetch bs2 = SOME (Stack (TagEq n))` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs2`] >>
+        qexists_tac`bc0++REVERSE bc` >>
+        fs[GSYM(Once SWAP_REVERSE)] ) >>
+      Cases_on`h`>>fs[]>>
+      Cases_on`t'`>>fs[]>>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      simp[Abbr`bs2`,bc_eval_stack_def,bvl_to_bc_value_def] >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+      simp[bc_state_component_equality] >>
+      simp[FILTER_APPEND,SUM_APPEND] )
+    >- (
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      Cases_on`t'`>>fs[]>>
+      `bc_fetch bs2 = SOME (Stack IsBlock)` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs2`] >>
+        qexists_tac`bc0++REVERSE bc` >>
+        fs[GSYM(Once SWAP_REVERSE)] ) >>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      simp[Abbr`bs2`,bc_eval_stack_def] >>
+      Cases_on`h`>>fs[bvl_to_bc_value_def,bc_eval_stack_def] >>
+      rw[bvl_to_bc_value_def] >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+      simp[bc_state_component_equality] >>
+      simp[FILTER_APPEND,SUM_APPEND] )
+    >- (
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      `bc_fetch bs2 = SOME (Stack Equal)` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs2`] >>
+        qexists_tac`bc0++REVERSE bc` >>
+        fs[GSYM(Once SWAP_REVERSE)] ) >>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      simp[Abbr`bs2`,bc_eval_stack_def] >>
+      Cases_on`t'`>>fs[]>>
+      Cases_on`t''`>>fs[]>>
+      simp[bc_equal_bvl_to_bc_value,bc_eval_stack_def] >>
+      BasicProvers.CASE_TAC >> fs[] >> rw[bvl_to_bc_value_def] >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+      simp[bc_state_component_equality] >>
+      simp[FILTER_APPEND,SUM_APPEND] )
+    >- cheat
+    >- cheat
+    >- (
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      `bc_fetch bs2 = SOME (Deref)` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs2`] >>
+        qexists_tac`bc0++REVERSE bc` >>
+        fs[GSYM(Once SWAP_REVERSE)] ) >>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      Cases_on`t'`>>fs[]>>
+      Cases_on`h'`>>fs[]>>
+      Cases_on`h`>>fs[]>>
+      Cases_on`t''`>>fs[]>>
+      Cases_on`FLOOKUP s0.refs n`>>fs[]>>
+      Cases_on`x`>>fs[]>>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      simp[Abbr`bs2`,bvl_to_bc_value_def,FLOOKUP_o_f] >>
+      conj_asm1_tac >- COOPER_TAC >>
+      simp[EL_MAP] >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+      simp[bc_state_component_equality] >>
+      simp[FILTER_APPEND,SUM_APPEND] )
+    >- (
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      `bc_fetch bs2 = SOME (Stack(Load 2))` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs2`] >>
+        qexists_tac`bc0++REVERSE bc` >>
+        fs[GSYM(Once SWAP_REVERSE)] ) >>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      Cases_on`t'`>>fs[]>>
+      Cases_on`t''`>>fs[]>>
+      Cases_on`h'`>>fs[]>>
+      Cases_on`h`>>fs[]>>
+      Cases_on`t'`>>fs[]>>
+      Cases_on`FLOOKUP s0.refs n`>>fs[]>>
+      Cases_on`x`>>fs[]>>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      simp[Abbr`bs2`,bc_eval_stack_def,bvl_to_bc_value_def] >>
+      qmatch_abbrev_tac`bc_next^* bs2 bs3` >>
+      `bc_fetch bs2 = SOME (Stack(Load 2))` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs2`] >>
+        qexists_tac`bc0++REVERSE bc++[Stack(Load 2)]` >>
+        fs[GSYM(Once SWAP_REVERSE)] >>
+        simp[SUM_APPEND,FILTER_APPEND]) >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      simp[Abbr`bs2`,bc_eval_stack_def] >>
+      qmatch_abbrev_tac`bc_next^* bs2 bs3` >>
+      `bc_fetch bs2 = SOME (Stack(Load 2))` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs2`] >>
+        qexists_tac`bc0++REVERSE bc++[Stack(Load 2);Stack(Load 2)]` >>
+        fs[GSYM(Once SWAP_REVERSE)] >>
+        simp[SUM_APPEND,FILTER_APPEND]) >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      simp[Abbr`bs2`,bc_eval_stack_def] >>
+      qmatch_abbrev_tac`bc_next^* bs2 bs3` >>
+      `bc_fetch bs2 = SOME Update` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs2`] >>
+        qexists_tac`bc0++REVERSE bc++[Stack(Load 2);Stack(Load 2);Stack(Load 2)]` >>
+        fs[GSYM(Once SWAP_REVERSE)] >>
+        simp[SUM_APPEND,FILTER_APPEND]) >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      simp[Abbr`bs2`,bvl_to_bc_value_def,FLOOKUP_o_f] >>
+      conj_asm1_tac >- COOPER_TAC >>
+      simp[LUPDATE_MAP] >>
+      qmatch_abbrev_tac`bc_next^* bs2 bs3` >>
+      `bc_fetch bs2 = SOME (Stack (Pops 2))` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs2`] >>
+        qexists_tac`bc0++REVERSE bc++[Stack(Load 2);Stack(Load 2);Stack(Load 2);Update]` >>
+        fs[GSYM(Once SWAP_REVERSE)] >>
+        simp[SUM_APPEND,FILTER_APPEND]) >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      simp[Abbr`bs2`,bc_eval_stack_def] >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+      simp[Abbr`bs3`,bc_state_component_equality] >>
+      simp[FILTER_APPEND,SUM_APPEND] >>
+      simp[fmap_eq_flookup,FLOOKUP_UPDATE,DOMSUB_FLOOKUP_THM,FLOOKUP_o_f] >>
+      rw[LUPDATE_MAP])
+    >- (
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      `bc_fetch bs2 = SOME (PushPtr(Addr (f n)))` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs2`] >>
+        qexists_tac`bc0++REVERSE bc` >>
+        fs[GSYM(Once SWAP_REVERSE)] ) >>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def,bc_find_loc_def,bvl_to_bc_value_def] >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+      simp[Abbr`bs2`,bc_state_component_equality] >>
+      simp[FILTER_APPEND,SUM_APPEND])
+    >- (
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      `bc_fetch bs2 = SOME (Stack(Load 0))` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs2`] >>
+        qexists_tac`bc0++REVERSE bc` >>
+        fs[GSYM(Once SWAP_REVERSE)] ) >>
+      Cases_on`t'`>>fs[]>>
+      Cases_on`bv_to_string h`>>fs[]>>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      simp[Abbr`bs2`,bc_eval_stack_def] >>
+      qmatch_abbrev_tac`bc_next^* bs2 bs3` >>
+      `bc_fetch bs2 = SOME (Print)` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs2`] >>
+        qexists_tac`bc0++REVERSE bc++[Stack(Load 0)]` >>
+        fs[GSYM(Once SWAP_REVERSE)] >>
+        simp[SUM_APPEND,FILTER_APPEND]) >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      simp[Abbr`bs2`,bv_to_string_bvl_to_bc_value] >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+      simp[Abbr`bs3`,bc_state_component_equality] >>
+      simp[FILTER_APPEND,SUM_APPEND])
+    >- (
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      `bc_fetch bs2 = SOME (PrintC c)` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs2`] >>
+        qexists_tac`bc0++REVERSE bc` >>
+        fs[GSYM(Once SWAP_REVERSE)] ) >>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      qmatch_abbrev_tac`bc_next^* bs3 bs4` >>
+      `bc_fetch bs3 = SOME (Stack(PushInt 0))` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs3`] >>
+        qexists_tac`bc0++REVERSE bc++[PrintC c]` >>
+        fs[GSYM(Once SWAP_REVERSE),Abbr`bs2`] >>
+        simp[SUM_APPEND,FILTER_APPEND]) >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      simp[Abbr`bs3`,bc_eval_stack_def] >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+      simp[Abbr`bs4`,Abbr`bs2`,bc_state_component_equality,bvl_to_bc_value_def] >>
+      simp[FILTER_APPEND,SUM_APPEND,IMPLODE_EXPLODE_I])
+    >- (
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      `bc_fetch bs2 = SOME (Stack Add)` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs2`] >>
+        qexists_tac`bc0++REVERSE bc` >>
+        fs[GSYM(Once SWAP_REVERSE)] ) >>
+      Cases_on`t'`>>fs[]>>
+      Cases_on`h'`>>fs[]>>
+      Cases_on`h`>>fs[]>>
+      Cases_on`t''`>>fs[]>>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      simp[Abbr`bs2`,bc_eval_stack_def,bvl_to_bc_value_def] >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+      simp[bc_state_component_equality] >>
+      simp[FILTER_APPEND,SUM_APPEND])
+    >- (
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      `bc_fetch bs2 = SOME (Stack Sub)` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs2`] >>
+        qexists_tac`bc0++REVERSE bc` >>
+        fs[GSYM(Once SWAP_REVERSE)] ) >>
+      Cases_on`t'`>>fs[]>>
+      Cases_on`h'`>>fs[]>>
+      Cases_on`h`>>fs[]>>
+      Cases_on`t''`>>fs[]>>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      simp[Abbr`bs2`,bc_eval_stack_def,bvl_to_bc_value_def] >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+      simp[bc_state_component_equality] >>
+      simp[FILTER_APPEND,SUM_APPEND])
+    >- (
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      `bc_fetch bs2 = SOME (Stack Mult)` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs2`] >>
+        qexists_tac`bc0++REVERSE bc` >>
+        fs[GSYM(Once SWAP_REVERSE)] ) >>
+      Cases_on`t'`>>fs[]>>
+      Cases_on`h'`>>fs[]>>
+      Cases_on`h`>>fs[]>>
+      Cases_on`t''`>>fs[]>>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      simp[Abbr`bs2`,bc_eval_stack_def,bvl_to_bc_value_def] >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+      simp[bc_state_component_equality] >>
+      simp[FILTER_APPEND,SUM_APPEND])
+    >- (
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      `bc_fetch bs2 = SOME (Stack Div)` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs2`] >>
+        qexists_tac`bc0++REVERSE bc` >>
+        fs[GSYM(Once SWAP_REVERSE)] ) >>
+      Cases_on`t'`>>fs[]>>
+      Cases_on`h'`>>fs[]>>
+      Cases_on`h`>>fs[]>>
+      Cases_on`t''`>>fs[]>>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      simp[Abbr`bs2`,bc_eval_stack_def,bvl_to_bc_value_def] >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+      simp[bc_state_component_equality] >>
+      simp[FILTER_APPEND,SUM_APPEND])
+    >- (
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      `bc_fetch bs2 = SOME (Stack Mod)` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs2`] >>
+        qexists_tac`bc0++REVERSE bc` >>
+        fs[GSYM(Once SWAP_REVERSE)] ) >>
+      Cases_on`t'`>>fs[]>>
+      Cases_on`h'`>>fs[]>>
+      Cases_on`h`>>fs[]>>
+      Cases_on`t''`>>fs[]>>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      simp[Abbr`bs2`,bc_eval_stack_def,bvl_to_bc_value_def] >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+      simp[bc_state_component_equality] >>
+      simp[FILTER_APPEND,SUM_APPEND])
+    >- (
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
+      `bc_fetch bs2 = SOME (Stack Less)` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs2`] >>
+        qexists_tac`bc0++REVERSE bc` >>
+        fs[GSYM(Once SWAP_REVERSE)] ) >>
+      Cases_on`t'`>>fs[]>>
+      Cases_on`h'`>>fs[]>>
+      Cases_on`h`>>fs[]>>
+      Cases_on`t''`>>fs[]>>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      simp[Abbr`bs2`,bc_eval_stack_def,bvl_to_bc_value_def] >>
+      srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
+      simp[bc_state_component_equality] >>
+      simp[FILTER_APPEND,SUM_APPEND])) >>
   strip_tac >- (
     simp[bEval_def,bvl_bc_def] >> rw[] >- (
       qexists_tac`bs1` >> simp[] >>
