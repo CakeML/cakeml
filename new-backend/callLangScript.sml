@@ -149,7 +149,7 @@ val tEvalOp_def = Define `
     | (Const i,[]) => SOME (Number i, s)
     | (Cons tag,xs) => SOME (Block tag xs, s)
     | (El,[Block tag xs;Number i]) =>
-        if 0 ≤ Num i ∧ Num i < LENGTH xs then SOME (EL (Num i) xs, s) else NONE
+        if 0 ≤ i ∧ Num i < LENGTH xs then SOME (EL (Num i) xs, s) else NONE
     | (LengthBlock,[Block tag xs]) =>
         SOME (Number (&LENGTH xs), s)
     | (Length,[RefPtr ptr]) =>
