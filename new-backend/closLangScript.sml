@@ -132,8 +132,8 @@ val cEvalOp_def = Define `
         SOME (Number 0, s with globals := s.globals ++ [NONE])
     | (Const i,[]) => SOME (Number i, s)
     | (Cons tag,xs) => SOME (Block tag xs, s)
-    | (El n,[Block tag xs]) =>
-        if n < LENGTH xs then SOME (EL n xs, s) else NONE
+    | (El,[Block tag xs;Number i]) =>
+        if 0 ≤ Num i ∧ Num i < LENGTH xs then SOME (EL (Num i) xs, s) else NONE
     | (TagEq n,[Block tag xs]) =>
         SOME (bool_to_val (tag = n),s)
     | (Equal,[x1;x2]) =>

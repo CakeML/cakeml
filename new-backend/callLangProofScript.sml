@@ -173,7 +173,7 @@ val pComp_def = tDefine"pComp"`
       (If (Op Less [Var 1; Op (Const 0) []])
           (Raise (Op (Cons (subscript_tag + block_tag)) []))
           (If (Op Less [Var 1; Op LengthBlock [Var 0]])
-              (Op El2 [Var 0; Var 1])
+              (Op El [Var 0; Var 1])
               (Raise (Op (Cons (subscript_tag + block_tag)) []))))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Vlength)) es) =
     Op LengthBlock (MAP pComp es)) ∧
@@ -205,7 +205,8 @@ val pComp_def = tDefine"pComp"`
   (pComp (App_pat (Tag_eq_pat n) es) =
     Op (TagEq (n+block_tag)) (MAP pComp es)) ∧
   (pComp (App_pat (El_pat n) es) =
-    Op (El n) (MAP pComp es)) ∧
+    Let (MAP pComp es)
+      (Op El [Var 0; Op (Const &n) []])) ∧
   (pComp (If_pat e1 e2 e3) =
     If (pComp e1) (pComp e2) (pComp e3)) ∧
   (pComp (Let_pat e1 e2) =

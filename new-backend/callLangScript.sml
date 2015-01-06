@@ -148,9 +148,7 @@ val tEvalOp_def = Define `
         SOME (Number 0, s with globals := s.globals ++ [NONE])
     | (Const i,[]) => SOME (Number i, s)
     | (Cons tag,xs) => SOME (Block tag xs, s)
-    | (El n,[Block tag xs]) =>
-        if n < LENGTH xs then SOME (EL n xs, s) else NONE
-    | (El2,[Block tag xs;Number i]) =>
+    | (El,[Block tag xs;Number i]) =>
         if 0 ≤ Num i ∧ Num i < LENGTH xs then SOME (EL (Num i) xs, s) else NONE
     | (LengthBlock,[Block tag xs]) =>
         SOME (Number (&LENGTH xs), s)

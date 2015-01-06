@@ -34,8 +34,7 @@ val _ = Datatype `
          | AllocGlobal   (* make space for a new global *)
          | SetGlobal num (* assign a value to a global *)
          | Cons num      (* construct a Block with given tag *)
-         | El num        (* read Block field index *)
-         | El2           (* read Block field index *)
+         | El            (* read Block field index *)
          | LengthBlock   (* get length of Block *)
          | Length        (* get length of reference *)
          | LengthByte    (* get length of byte array *)
@@ -119,8 +118,8 @@ val bEvalOp_def = Define `
         SOME (Number 0, s with globals := s.globals ++ [NONE])
     | (Const i,[]) => SOME (Number i, s)
     | (Cons tag,xs) => SOME (Block tag xs, s)
-    | (El n,[Block tag xs]) =>
-        if n < LENGTH xs then SOME (EL n xs, s) else NONE
+    | (El,[Block tag xs;Number i]) =>
+        if 0 ≤ Num i ∧ Num i < LENGTH xs then SOME (EL (Num i) xs, s) else NONE
     | (TagEq n,[Block tag xs]) =>
         SOME (bool_to_val (tag = n),s)
     | (Equal,[x1;x2]) =>

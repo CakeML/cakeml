@@ -8,14 +8,14 @@ open sptreeTheory
 (* compiler definition *)
 
 val free_let_def = Define `
-  free_let n = (GENLIST (\n. Op (El (n+1)) [Var 0]) n) : bvl_exp list`;
+  free_let n = (GENLIST (\n. Op El [Var 0; Op (Const &(n+1)) []]) n) : bvl_exp list`;
 
 val closure_tag_def = Define `
   closure_tag = 0:num`;
 
 val code_for_recc_case_def = Define `
   code_for_recc_case n (c:bvl_exp) =
-    Let [Op (El 1) [Var 0]]
+    Let [Op El [Var 0; Op (Const 1) []]]
       (Let (Var 2::GENLIST (\i. Op (Deref) [Var 0; Op (Const (& i)) []]) n) c)`
 
 val build_aux_def = Define `
@@ -24,7 +24,7 @@ val build_aux_def = Define `
 
 val recc_Let_def = Define `
   recc_Let n i =
-    Let [Op (El 1) [Var 0]]
+    Let [Op El [Var 0; Op (Const 1) []]]
      (Let [Op (Cons closure_tag) [Op (Label n) []; Var 0]]
        (Let [Op Update [Var 1; Op (Const (&i)) []; Var 0]]
          (Var 1 : bvl_exp)))`;
@@ -78,7 +78,7 @@ val cComp_def = tDefine "cComp" `
          | NONE => Let (c1++c2)
              (Call NONE ((Var 0) ::          (* closure itself *)
                          (Var 1) ::          (* argument *)
-                         [Op (El 0) [Var 0]] (* code pointer *)))
+                         [Op El [Var 0; Op (Const 0) []]] (* code pointer *)))
          | SOME loc => Call (SOME loc) (c1 ++ c2)],
         aux2)) /\
   (cComp [Fn loc vs x1] aux =
@@ -1263,7 +1263,7 @@ val cComp_correct = prove(
     \\ `bEval
          ([case loc_opt of
            | NONE =>
-               Let [c7; c8] (Call NONE [Var 0; Var 1; Op (El 0) [Var 0]])
+               Let [c7; c8] (Call NONE [Var 0; Var 1; Op El [Var 0; Op (Const 0) []]])
            | SOME loc => Call (SOME loc) [c7; c8]],env',t1) =
         bEval ([Call (SOME (closure_ptr g1)) [c7; c8]],env',t1)` by ALL_TAC
     THEN1
