@@ -10,9 +10,6 @@ open sptreeTheory
 val free_let_def = Define `
   free_let n = (GENLIST (\n. Op (El (n+1)) [Var 0]) n) : bvl_exp list`;
 
-val closure_tag_def = Define `
-  closure_tag = 0:num`;
-
 val code_for_recc_case_def = Define `
   code_for_recc_case n (c:bvl_exp) =
     Let [Op (El 1) [Var 0]]
@@ -47,7 +44,37 @@ val build_recc_lets_def = Define `
       (recc_Lets n1 (fns_l - 1) c3)`;
 
 val num_stubs_def = Define `
-  num_stubs = max_app * max_app`;
+  num_stubs = max_app * max_app + max_app`;
+
+  (*
+(* generic application of a function to n arguments *)
+val generate_generic_app_def = Define `
+  generate_generic_app n =
+    (n - 1,
+     Let [Op Sub [Op (El 1) [Var 0]; Op (Const (&n)) []]] (* The number of arguments remaining *)
+         (If (Op Less [Var 0; Op (Const (&1)) []])
+             ARB (* Do something for over-application *)
+             (Op (Cons closure_tag) 
+                 (Op El2 [ARB; (* A table with the labels to do a (Var 0 - n)ary app leading to an n-app *)
+                          Op Add [Op (Const (&(n * max_app))) []; Var 0]]::
+                  Var 0 ::
+                  GENLIST (\n. Var (n + 1)) (n + 1)))))`; (* The actual arguments, and the old closure *)
+
+val generate_app_table_def = Define `
+  generate_app_table m n =
+    FLAT (GENLIST (\m. GENLIST (\n. (m * n + max_app, Op (Label (m * n)) [])) n) m)`;
+
+val generate_app_fun_def = Define `
+  generate_app_fun m n = 
+    (m * n + max_app, 
+    ARB)`;
+
+val init_code_def = Define `
+  init_code = 
+    GENLIST generate_generic_app max_app ++ 
+    FLAT (GENLIST (\m. GENLIST (generate_app_fun m) max_app) max_app)`;    
+    *)
+
 
 val cComp_def = tDefine "cComp" `
   (cComp [] aux = ([],aux)) /\
@@ -75,28 +102,29 @@ val cComp_def = tDefine "cComp" `
      let (c1,aux1) = cComp xs aux in
        ([Op op c1],aux1)) /\
   (cComp [App loc_opt x1 xs2] aux =
-     let ([c1],aux1) = cComp [x1] aux in
+     let (c1,aux1) = cComp [x1] aux in
      let (c2,aux2) = cComp xs2 aux1 in
      let num_args = LENGTH c2 in
      let arg_vars = REVERSE (GENLIST (\n. Var (n + 1)) num_args) in
        ([case loc_opt of
          | NONE => 
              Let (c1++c2)
-               Call NONE ((Var 0) ::          (* closure itself *)
-                          arg_vars ++         (* arguments *)
-                          [Op (El (num_args - 1)) (Op (El 0) [Var 0])] (* code pointer *))
-         | SOME (loc,num_params) => 
-             if num_args = num_params then
-               Let (c1++c2)
-                 Call (SOME (loc + num_stubs)) (Var 0 :: arg_vars)
-             else
-               ARB (* TODO *)],
+               (Call NONE (Var 0 ::            (* closure itself *)
+                           arg_vars ++         (* arguments *)
+                           [If (Op Equal [Op (Const (&num_args)) []; Op (El 1) [Var 0]])
+                               (Op (El 0) [Var 0])
+                               (Op (Label (num_args - 1)) [])]) (* code pointer *))
+         | SOME loc => 
+             Let (c1++c2)
+               (Call (SOME (loc + num_stubs)) (Var 0 :: arg_vars))],
         aux2)) /\
   (cComp [Fn loc vs num_args x1] aux =
      let (c1,aux1) = cComp [x1] aux in
      let c2 = Let ((Var 1:bvl_exp) :: free_let (LENGTH vs)) (HD c1) in
-       ([Op (Cons closure_tag) (Op (Label (loc + num_stubs)) [] :: MAP Var vs)],
-        (loc + num_stubs,num_args,c2) :: aux1)) /\
+       ([Op (Cons closure_tag) 
+            (Op (Label (loc + num_stubs)) [] :: Op (Const (&num_args)) [] :: MAP Var vs)],
+        (loc + num_stubs,c2) :: aux1)) /\
+        (*
   (cComp [Letrec loc vs fns x1] aux =
      case fns of
      | [] => cComp [x1] aux
@@ -115,14 +143,15 @@ val cComp_def = tDefine "cComp" `
          let (c3,aux3) = cComp [x1] aux2 in
          let c4 = build_recc_lets fns vs (loc + num_stubs) fns_l (HD c3) in
            ([c4],aux3)) /\
+           *)
   (cComp [Handle x1 x2] aux =
      let (c1,aux1) = cComp [x1] aux in
      let (c2,aux2) = cComp [x2] aux1 in
        ([Handle (HD c1) (HD c2)], aux2)) /\
   (cComp [Call dest xs] aux =
      let (c1,aux1) = cComp xs aux in
-       ([Call (SOME (dest + num_stubs) c1],aux1))`
- (WF_REL_TAC `measure (clos_exp1_size o FST)`
+       ([Call (SOME (dest + num_stubs)) c1],aux1))`
+ (WF_REL_TAC `measure (clos_exp3_size o FST)`
   \\ REPEAT STRIP_TAC \\ DECIDE_TAC);
 
 (* correctness proof *)
