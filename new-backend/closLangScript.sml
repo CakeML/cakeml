@@ -12,7 +12,7 @@ open lcsymtacs bvlTheory;
    name in the let-expression. *)
 
 val max_app_def = Define `
-  max_app = 5:num`;
+  max_app = 15:num`;
 
 val _ = Datatype `
   clos_exp = Var num
@@ -22,7 +22,7 @@ val _ = Datatype `
            | Handle clos_exp clos_exp
            | Tick clos_exp
            | Call num (clos_exp list)
-           | App ((num # num) option) clos_exp (clos_exp list)
+           | App (num option) clos_exp (clos_exp list)
            | Fn num (num list) num clos_exp
            | Letrec num (num list) ((num # clos_exp) list) clos_exp
            | Op bvl_op (clos_exp list) `
@@ -228,9 +228,8 @@ val lookup_vars_def = Define `
      else NONE)`
 
 val check_loc_opt_def = Define `
-  (check_loc NONE loc num_params num_args = (num_args ≤ max_app)) /\
-  (check_loc (SOME (p,num_params1)) loc num_params2 num_args = 
-    ((p = loc) ∧ (num_params1 = num_params2)))`;
+  (check_loc NONE loc num_params num_args ⇔ num_args ≤ max_app) /\
+  (check_loc (SOME p) loc num_params num_args ⇔ (num_params = num_args) ∧ (p = loc))`;
 
 val _ = Datatype `
   app_kind = 
@@ -420,6 +419,8 @@ val cEval_check_clock = prove(
       (cEval (xs,env,s1) = (vs,s2)) ==> (check_clock s2 s1 = s2)``,
   METIS_TAC [cEval_clock,check_clock_thm]);
 
+(* TODO: fix and uncomment
+
 (* Finally, we remove check_clock from the induction and definition theorems. *)
 
 fun sub f tm = f tm handle HOL_ERR _ =>
@@ -573,5 +574,6 @@ val cEval_SNOC = store_thm("cEval_SNOC",
 (* clean up *)
 
 val _ = map delete_binding ["cEval_AUX_def", "cEval_primitive_def"];
+*)
 
 val _ = export_theory();
