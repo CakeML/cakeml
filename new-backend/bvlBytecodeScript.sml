@@ -343,6 +343,9 @@ val bvl_bc_ref_correct = prove(
     simp[EL_DROP,ADD1] ) >>
   rw[])
 
+val tlookup_def = Define`
+  tlookup t k = case lookup k t of NONE => k | SOME v => v`
+
 val bvl_bc_def = C (tDefine "bvl_bc")
   (WF_REL_TAC`measure (bvl_exp1_size o SND o SND o SND o SND o SND)`)`
   (bvl_bc f cenv t sz s [] = s) ∧
@@ -395,7 +398,7 @@ val bvl_bc_def = C (tDefine "bvl_bc")
            (* ptr::args *)
          | NONE => emit s [Stack(Load 0); CallPtr]
            (* args *)
-         | SOME p => emit s [Stack(PushInt 0); Call (Addr (f p))])
+         | SOME p => emit s [Stack(PushInt 0); Call (Addr (tlookup f p))])
     | TCTail j k =>
       (* args++|k|++ret::|j| *)
         (case dest of
@@ -416,7 +419,7 @@ val bvl_bc_def = C (tDefine "bvl_bc")
            (* ig::ret::args++|k|++ret::|j| *)
              let s = emit s (MAP Stack (stackshift (1+1+n) (k+1+j))) in
            (* ig::ret::args *)
-                     emit s [Jump (Addr (f p))])) ∧
+                     emit s [Jump (Addr (tlookup f p))])) ∧
   (bvl_bc f cenv t sz s [Op op es] =
     let s = bvl_bc f cenv TCNonTail sz s es in
     let s = emit s (case op of
@@ -441,7 +444,7 @@ val bvl_bc_def = C (tDefine "bvl_bc")
     | Ref => [Stack(PushInt 0);Stack(PushInt(&(LENGTH es)));Ref]++(bvl_bc_ref (LENGTH es))
     | Deref => [Deref]
     | Update => [Stack(Load 2);Stack(Load 2);Stack(Load 2);Update;Stack(Pops 2)]
-    | Label n => [PushPtr (Addr (f n))]
+    | Label n => [PushPtr (Addr (tlookup f n))]
     | Print => [Stack(Load 0);Print]
     | PrintC c => [PrintC c; Stack(PushInt 0)]
     | Add => [Stack Add]
@@ -573,10 +576,10 @@ val good_code_env_def = Define`
         EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label l0) ∧
         ALL_DISTINCT (FILTER is_Label l0) ∧
         (ls = l0 ++ REVERSE cc ++ l1) ∧
-        (f ptr = next_addr il l0)`
+        (tlookup f ptr = next_addr il l0)`
 
 val bvl_to_bc_value_def = tDefine"bvl_to_bc_value"`
-  (bvl_to_bc_value f (CodePtr ptr) = CodePtr (f ptr)) ∧
+  (bvl_to_bc_value f (CodePtr ptr) = CodePtr (tlookup f ptr)) ∧
   (bvl_to_bc_value f (Block n vs) = Block n (MAP (bvl_to_bc_value f) vs)) ∧
   (bvl_to_bc_value f v = v)`
 (WF_REL_TAC`measure (bc_value_size o SND)` >>
@@ -1888,7 +1891,7 @@ val bvl_bc_correct = store_thm("bvl_bc_correct",
       rw[LUPDATE_MAP])
     >- (
       srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
-      `bc_fetch bs2 = SOME (PushPtr(Addr (f n)))` by (
+      `bc_fetch bs2 = SOME (PushPtr(Addr (tlookup f n)))` by (
         match_mp_tac bc_fetch_next_addr >>
         simp[Abbr`bs2`] >>
         qexists_tac`bc0++REVERSE bc` >>
@@ -2336,7 +2339,7 @@ val bvl_bc_correct = store_thm("bvl_bc_correct",
       simp[GSYM bc_eval1_thm] >> strip_tac >>
       qmatch_assum_abbrev_tac`bc_next bs3 bs4` >>
       qpat_assum`bc_fetch X = Y`kall_tac >>
-      `bc_fetch bs4 = SOME(Call(Addr (f n)))` by (
+      `bc_fetch bs4 = SOME(Call(Addr (tlookup f n)))` by (
         match_mp_tac bc_fetch_next_addr >>
         simp[Abbr`bs4`] >>
         qexists_tac`bc0++REVERSE bc++[Tick;Stack(PushInt 0)]` >> simp[] >>
@@ -2408,7 +2411,7 @@ val bvl_bc_correct = store_thm("bvl_bc_correct",
     qspecl_then[`(LENGTH a)+2`,`LENGTH args+(LENGTH ig+1)`,`bs5`]mp_tac stackshift_thm >>
     `bs5.code = bs1.code` by simp[Abbr`bs5`,Abbr`bs4`] >>
     simp[] >>
-    disch_then(qspec_then`(Jump(Addr (f n)))::bc1`mp_tac o (CONV_RULE SWAP_FORALL_CONV)) >>
+    disch_then(qspec_then`(Jump(Addr (tlookup f n)))::bc1`mp_tac o (CONV_RULE SWAP_FORALL_CONV)) >>
     simp[ADD1] >>
     disch_then(qspec_then`TAKE (LENGTH a+2) bs5.stack`mp_tac) >>
     simp[Abbr`bs5`,Abbr`bs4`,TAKE_APPEND1,TAKE_LENGTH_ID_rwt] >>
@@ -2425,7 +2428,7 @@ val bvl_bc_correct = store_thm("bvl_bc_correct",
       simp[Abbr`bs5'`,Abbr`bs5`,bc_state_component_equality] >>
       simp[Abbr`bs4`] >> simp[SUM_APPEND,FILTER_APPEND] ) >>
     qunabbrev_tac`bs5'`>>fs[] >> pop_assum kall_tac >>
-    `bc_fetch bs6 = SOME (Jump(Addr(f n)))` by (
+    `bc_fetch bs6 = SOME (Jump(Addr(tlookup f n)))` by (
       match_mp_tac bc_fetch_next_addr >>
       simp[Abbr`bs6`] >>
       CONV_TAC SWAP_EXISTS_CONV >>
@@ -2480,8 +2483,8 @@ val bvl_bc_correct = store_thm("bvl_bc_correct",
 
 val bvl_bc_ptrfun_def = Define`
   bvl_bc_ptrfun il ptr (arity,exp) (f,s) =
-     let f = (ptr =+ next_addr il (REVERSE s.out)) f in
-     let s = bvl_bc I (GENLIST SUC arity) (TCTail arity 1) (arity+2) s [exp] in
+     let f = insert ptr (next_addr il (REVERSE s.out)) f in
+     let s = bvl_bc LN (GENLIST SUC arity) (TCTail arity 1) (arity+2) s [exp] in
        (f,s)`
 
 val bvl_bc_ptrfun_correct = prove(
@@ -2496,18 +2499,18 @@ val bvl_bc_ptrfun_correct = prove(
         ∀ptr exp arity.
           MEM (ptr,(arity,exp)) ls ⇒
             ∃cs l0 cc l1.
-              (bvl_bc I (GENLIST SUC arity) (TCTail arity 1) (arity + 2) cs [exp]).out = cc ++ cs.out ∧
+              (bvl_bc LN (GENLIST SUC arity) (TCTail arity 1) (arity + 2) cs [exp]).out = cc ++ cs.out ∧
               EVERY (combin$C $< cs.next_label o dest_Label)
                 (FILTER is_Label l0) ∧ ALL_DISTINCT (FILTER is_Label l0) ∧
               (REVERSE s.out = l0 ++ REVERSE cc ++ l1) ∧
-              f ptr = next_addr il l0``,
+              tlookup f ptr = next_addr il l0``,
   Induct >> simp[] >>
   qx_gen_tac`p` >> PairCases_on`p` >>
   simp[] >> rw[] >> fs[] >>
   Cases_on`FOLDR (UNCURRY (bvl_bc_ptrfun il)) (f0,s0) ls` >> fs[LET_THM] >>
   simp[bvl_bc_ptrfun_def] >>
   simp[PULL_FORALL] >> rpt gen_tac >>
-  qspecl_then[`I`,`GENLIST SUC p1`,`TCTail p1 1`,`p1+2`,`r`,`[p2]`]strip_assume_tac bvl_bc_append_out >>
+  specl_args_of_then``bvl_bc``bvl_bc_append_out strip_assume_tac >>
   ONCE_REWRITE_TAC[CONJ_ASSOC] >>
   conj_tac >- (
     fs[FILTER_APPEND,ALL_DISTINCT_APPEND] >>
@@ -2519,20 +2522,20 @@ val bvl_bc_ptrfun_correct = prove(
     first_assum(match_exists_tac o concl) >> simp[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
     fs[] >>
-    simp[APPLY_UPDATE_THM] >> rw[] >>
+    simp[tlookup_def,lookup_insert] >> rw[] >>
     fs[MEM_MAP,EXISTS_PROD] >>
-    metis_tac[] ) >>
+    metis_tac[tlookup_def] ) >>
   rpt BasicProvers.VAR_EQ_TAC >>
   qexists_tac`r`>> fs[] >>
-  simp[APPLY_UPDATE_THM] >>
+  simp[tlookup_def] >>
   qexists_tac`REVERSE r.out`>>simp[] >>
   simp[FILTER_REVERSE,ALL_DISTINCT_REVERSE,EVERY_REVERSE])
   |> Q.GENL[`s0`,`f0`]
 
 val update_ptr_def = Define`
-  (update_ptr f (Jump (Addr x)) = Jump(Addr (f x))) ∧
-  (update_ptr f (Call (Addr x)) = Call(Addr (f x))) ∧
-  (update_ptr f (PushPtr (Addr x)) = PushPtr(Addr (f x))) ∧
+  (update_ptr f (Jump (Addr x)) = Jump(Addr (tlookup f x))) ∧
+  (update_ptr f (Call (Addr x)) = Call(Addr (tlookup f x))) ∧
+  (update_ptr f (PushPtr (Addr x)) = PushPtr(Addr (tlookup f x))) ∧
   (update_ptr f i = i)`
 val _ = export_rewrites["update_ptr_def"]
 
@@ -2543,16 +2546,16 @@ val apo = prove(
 val bvl_bc_update_ptr = store_thm("bvl_bc_update_ptr",
   ``∀f cenv t sz s e bc bc0 s0.
       ((bvl_bc f cenv t sz s e).out = bc ++ s.out) ∧
-      ((bvl_bc I cenv t sz s0 e).out = bc0 ++ s0.out) ⇒
+      ((bvl_bc LN cenv t sz s0 e).out = bc0 ++ s0.out) ⇒
       (bc = MAP (update_ptr f) bc0)``,
   ho_match_mp_tac bvl_bc_ind >>
   strip_tac >- simp[bvl_bc_def] >>
   strip_tac >- (
     rw[] >> fs[bvl_bc_def,LET_THM] >>
     qspecl_then[`f`,`cenv`,`TCNonTail`,`sz`,`s`,`[e1]`]strip_assume_tac apo >> fs[] >>
-    qspecl_then[`I`,`cenv`,`TCNonTail`,`sz`,`s0`,`[e1]`]strip_assume_tac apo >> fs[] >>
+    qspecl_then[`LN`,`cenv`,`TCNonTail`,`sz`,`s0`,`[e1]`]strip_assume_tac apo >> fs[] >>
     qspecl_then[`f`,`cenv`,`t`,`sz+1`,`bvl_bc f cenv TCNonTail sz s [e1]`,`e2::es`]strip_assume_tac apo >> fs[] >>
-    qspecl_then[`I`,`cenv`,`t`,`sz+1`,`bvl_bc I cenv TCNonTail sz s0 [e1]`,`e2::es`]strip_assume_tac apo >> fs[] >>
+    qspecl_then[`LN`,`cenv`,`t`,`sz+1`,`bvl_bc LN cenv TCNonTail sz s0 [e1]`,`e2::es`]strip_assume_tac apo >> fs[] >>
     rw[]>>fs[] >>
     res_tac >> rw[] >> fs[] ) >>
   strip_tac >- (
@@ -2562,7 +2565,7 @@ val bvl_bc_update_ptr = store_thm("bvl_bc_update_ptr",
 
 val bvl_bc_table_def = Define`
   bvl_bc_table il cmap =
-    let (f,s) = foldi (bvl_bc_ptrfun il) 0 (I, <|next_label:=0;out:=[]|>) cmap in
+    let (f,s) = foldi (bvl_bc_ptrfun il) 0 (LN, <|next_label:=0;out:=[]|>) cmap in
     (f,s with out := MAP (update_ptr f) s.out)`
 
 val is_Label_o_update_ptr = prove(
@@ -2590,7 +2593,7 @@ val bvl_bc_table_correct = store_thm("bvl_bc_table_correct",
     bvl_bc_table il cmap = (f,s) ⇒
     good_code_env f il cmap (REVERSE s.out)``,
   rw[bvl_bc_table_def,foldi_FOLDR_toAList] >>
-  qspecl_then[`I`,`<|next_label := 0; out:=[]|>`,`toAList cmap`]mp_tac
+  qspecl_then[`LN`,`<|next_label := 0; out:=[]|>`,`toAList cmap`]mp_tac
     (INST_TYPE[alpha|->numSyntax.num] bvl_bc_ptrfun_correct) >>
   discharge_hyps >- (
     simp[ALL_DISTINCT_MAP_FST_toAList] ) >>
