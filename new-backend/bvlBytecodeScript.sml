@@ -2543,25 +2543,146 @@ val apo = prove(
   ``∀f cenv t sz s e. ∃bc. (bvl_bc f cenv t sz s e).out = bc ++ s.out``,
   metis_tac[bvl_bc_append_out])
 
+fun do_apo_tac q tm (g as (asl,w)) =
+  let
+    val ls = free_varsl(w::asl)
+    val a = Parse.parse_in_context ls q
+    val pat = ``bvl_bc f cenv t sz s ^a``
+    fun finder tm =
+      case total (match_term pat) tm of NONE => false
+      | SOME s => last(snd(strip_comb tm)) = a
+    val tm1 = find_term(finder)tm
+    val args = snd (strip_comb tm1)
+    val th = SPECL args apo
+  in
+    strip_assume_tac th g
+  end
+
+val tac =
+  first_x_assum(fn th =>
+    let
+      val tm = th |> concl |> strip_forall |> snd |> dest_imp |> fst |> lhs
+    in
+      first_assum(fn th2 =>
+        let
+          val tm2 = lhs(concl th2)
+          val (_,args) = strip_comb (rand tm2)
+        in
+          case total (match_term tm) tm2 of NONE => NO_TAC
+          | SOME s => if last args = last(snd(strip_comb(rand tm))) then
+            (mp_tac(SPEC(el 5 args)th) >>
+             asm_simp_tac(srw_ss())[]>>
+             strip_tac) else NO_TAC
+        end)
+     end)
+
+val update_ptr_o_Stack = prove(
+  ``update_ptr f o Stack = Stack``,
+  simp[FUN_EQ_THM] >> Cases >> simp[])
+
+val bvl_bc_ref_update_ptr = prove(
+  ``∀n. MAP (update_ptr f) (bvl_bc_ref n) = bvl_bc_ref n``,
+  Induct >> simp[bvl_bc_ref_def])
+
 val bvl_bc_update_ptr = store_thm("bvl_bc_update_ptr",
-  ``∀f cenv t sz s e bc bc0 s0.
-      ((bvl_bc f cenv t sz s e).out = bc ++ s.out) ∧
+  ``∀f cenv t sz s e bc s0 bc0.
+      ((bvl_bc f cenv t sz s e).out = bc ++ s.out) ⇒
       ((bvl_bc LN cenv t sz s0 e).out = bc0 ++ s0.out) ⇒
+      (s.next_label = s0.next_label) ⇒
+      ((bvl_bc f cenv t sz s e).next_label = (bvl_bc LN cenv t sz s0 e).next_label) ∧
       (bc = MAP (update_ptr f) bc0)``,
   ho_match_mp_tac bvl_bc_ind >>
   strip_tac >- simp[bvl_bc_def] >>
   strip_tac >- (
     rw[] >> fs[bvl_bc_def,LET_THM] >>
-    qspecl_then[`f`,`cenv`,`TCNonTail`,`sz`,`s`,`[e1]`]strip_assume_tac apo >> fs[] >>
-    qspecl_then[`LN`,`cenv`,`TCNonTail`,`sz`,`s0`,`[e1]`]strip_assume_tac apo >> fs[] >>
-    qspecl_then[`f`,`cenv`,`t`,`sz+1`,`bvl_bc f cenv TCNonTail sz s [e1]`,`e2::es`]strip_assume_tac apo >> fs[] >>
-    qspecl_then[`LN`,`cenv`,`t`,`sz+1`,`bvl_bc LN cenv TCNonTail sz s0 [e1]`,`e2::es`]strip_assume_tac apo >> fs[] >>
-    rw[]>>fs[] >>
-    res_tac >> rw[] >> fs[] ) >>
+    ASSUM_LIST(fn ls =>
+      do_apo_tac`[e1]`(concl(el 2 ls)) >>
+      do_apo_tac`[e1]`(concl (el 3 ls)) >>
+      do_apo_tac`e2::es`(concl (el 2 ls)) >>
+      do_apo_tac`e2::es`(concl (el 3 ls))) >>
+    fs[] >> rw[]>>fs[] >>
+    res_tac >> rw[] >> fs[]) >>
   strip_tac >- (
     simp[bvl_bc_def] >>
     Cases_on`t`>>simp[pushret_def,emit_def]>>rw[]>>rw[] ) >>
-  cheat)
+  strip_tac >- (
+    rw[] >>
+    fs[bvl_bc_def,LET_THM,get_label_def] >>
+    ASSUM_LIST(fn ls =>
+      do_apo_tac`[e2]`(concl(el 2 ls)) >>
+      do_apo_tac`[e2]`(concl(el 3 ls)) >>
+      do_apo_tac`[e3]`(concl(el 2 ls)) >>
+      do_apo_tac`[e3]`(concl(el 3 ls)) >>
+      do_apo_tac`[e1]`(concl(el 2 ls)) >>
+      do_apo_tac`[e1]`(concl(el 3 ls))) >>
+    fs[FOLDL_emit_append_out] >> rw[] >> fs[] >> rfs[] >>
+    res_tac >> rw[] >> fs[] >>
+    rpt tac) >>
+  strip_tac >- (
+    rw[] >>
+    fs[bvl_bc_def,LET_THM] >>
+    Cases_on`t`>>fs[]>>
+    ASSUM_LIST(fn ls =>
+      do_apo_tac`e`(concl(el 2 ls)) >>
+      do_apo_tac`e`(concl(el 3 ls)) >>
+      do_apo_tac`[e']`(concl(el 2 ls)) >>
+      do_apo_tac`[e']`(concl(el 3 ls))) >>
+    fs[FOLDL_emit_append_out] >> rw[] >> fs[] >> rfs[] >>
+    res_tac >> rw[] >> fs[] >>
+    rpt tac ) >>
+  strip_tac >- (
+    rw[] >>
+    fs[bvl_bc_def,LET_THM] >>
+    ASSUM_LIST(fn ls =>
+      do_apo_tac`[e]`(concl(el 2 ls)) >>
+      do_apo_tac`[e]`(concl(el 3 ls))) >>
+    fs[FOLDL_emit_append_out] >> rw[] >> fs[] >> rfs[] >>
+    res_tac >> rw[] >> fs[] ) >>
+  strip_tac >- (
+    rw[] >>
+    fs[bvl_bc_def,LET_THM,get_label_def] >>
+    Cases_on`t`>>fs[pushret_def]>>
+    ASSUM_LIST(fn ls =>
+      do_apo_tac`[e1]`(concl(el 2 ls)) >>
+      do_apo_tac`[e1]`(concl(el 3 ls)) >>
+      do_apo_tac`[e2]`(concl(el 2 ls)) >>
+      do_apo_tac`[e2]`(concl(el 3 ls))) >>
+    fs[FOLDL_emit_append_out] >> rw[] >> fs[] >> rfs[] >> rw[] >>
+    res_tac >> rw[] >> fs[] >> rw[] >>
+    rpt tac >>
+    Cases_on`n=0`>>fs[]>>rw[]) >>
+  strip_tac >- (
+    rw[] >>
+    fs[bvl_bc_def,LET_THM] >>
+    ASSUM_LIST(fn ls =>
+      do_apo_tac`[e]`(concl(el 2 ls)) >>
+      do_apo_tac`[e]`(concl(el 3 ls))) >>
+    fs[FOLDL_emit_append_out] >> rw[] >> fs[] >> rfs[] >>
+    res_tac >> rw[] >> fs[] >>
+    rpt tac) >>
+  strip_tac >- (
+    rw[] >>
+    fs[bvl_bc_def,LET_THM] >>
+    Cases_on`t`>>Cases_on`dest`>>fs[]>>
+    ASSUM_LIST(fn ls =>
+      do_apo_tac`e`(concl(el 2 ls)) >>
+      do_apo_tac`e`(concl(el 3 ls))) >>
+    fs[FOLDL_emit_append_out] >> rw[] >> fs[] >> rfs[] >> rw[] >>
+    res_tac >> rw[] >> fs[] >> rw[] >>
+    rpt tac >>
+    simp[tlookup_def,lookup_def] >>
+    simp[MAP_REVERSE,MAP_MAP_o,update_ptr_o_Stack] ) >>
+  rw[] >>
+  fs[bvl_bc_def,LET_THM] >>
+  Cases_on`t`>>Cases_on`op`>>fs[pushret_def]>>
+  ASSUM_LIST(fn ls =>
+    do_apo_tac`e`(concl(el 2 ls)) >>
+    do_apo_tac`e`(concl(el 3 ls))) >>
+  fs[FOLDL_emit_append_out] >> rw[] >> fs[] >> rfs[] >> rw[] >>
+  rpt tac >>
+  TRY(Cases_on`n=0`>>fs[]>>rw[]) >>
+  simp[tlookup_def,lookup_def] >>
+  simp[MAP_REVERSE,bvl_bc_ref_update_ptr])
 
 val bvl_bc_table_def = Define`
   bvl_bc_table il cmap =
