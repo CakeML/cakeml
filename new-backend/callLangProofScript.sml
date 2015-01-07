@@ -181,7 +181,7 @@ val pComp_def = tDefine"pComp"`
     Let (MAP pComp es)
       (If (Op Less [Var 0; Op (Const 0) []])
           (Raise (Op (Cons (subscript_tag + block_tag)) []))
-          (Op Ref2 [Var 0; Var 1]))) ∧
+          (Op RefArray [Var 0; Var 1]))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Asub)) es) =
     Let (MAP pComp es)
       (If (Op Less [Var 1; Op (Const 0) []])
