@@ -75,10 +75,10 @@ val pComp_def = tDefine"pComp"`
   (pComp (Var_global_pat n) =
     Op (Global n) []) ∧
   (pComp (Fun_pat e) =
-    Fn (pComp e)) ∧
+    Fn 0 (pComp e)) ∧
   (pComp (App_pat (Op_pat (Op_i2 Opapp)) es) =
     if LENGTH es ≠ 2 then Op Sub (MAP pComp es) else
-    App (pComp (EL 0 es)) (pComp (EL 1 es))) ∧
+    App NONE (pComp (EL 0 es)) (pComp (EL 1 es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Opn Plus))) es) =
     Op Add (MAP pComp es)) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Opn Minus))) es) =
@@ -214,7 +214,7 @@ val pComp_def = tDefine"pComp"`
   (pComp (Seq_pat e1 e2) =
     Let [pComp e1;pComp e2] (Var 1)) ∧
   (pComp (Letrec_pat es e) =
-    Letrec (MAP pComp es) (pComp e)) ∧
+    Letrec 0 (MAP pComp es) (pComp e)) ∧
   (pComp (Extend_global_pat n) =
    Let (REPLICATE n (Op AllocGlobal []))
      (Op (Cons unit_tag) []))`
@@ -239,8 +239,8 @@ val v_to_Cv_def = tDefine"v_to_Cv"`
   (v_to_Cv (Loc_pat m) = (RefPtr m)) ∧
   (v_to_Cv (Conv_pat cn vs) = (Block (cn+block_tag) (MAP (v_to_Cv) vs))) ∧
   (v_to_Cv (Vectorv_pat vs) = (Block vector_tag (MAP (v_to_Cv) vs))) ∧
-  (v_to_Cv (Closure_pat vs e) = (Closure (MAP (v_to_Cv) vs) (pComp e))) ∧
-  (v_to_Cv (Recclosure_pat vs es k) = (Recclosure (MAP (v_to_Cv) vs) (MAP pComp es) k))`
+  (v_to_Cv (Closure_pat vs e) = (Closure 0 (MAP (v_to_Cv) vs) (pComp e))) ∧
+  (v_to_Cv (Recclosure_pat vs es k) = (Recclosure 0 (MAP (v_to_Cv) vs) (MAP pComp es) k))`
     (WF_REL_TAC`measure (v_pat_size)` >> simp[v_pat_size_def] >>
      rpt conj_tac >> rpt gen_tac >>
      Induct_on`vs` >> simp[v_pat_size_def] >>
@@ -380,7 +380,7 @@ val pComp_correct = store_thm("pComp_correct",
     fs[tEval_def] >>
     BasicProvers.CASE_TAC >> fs[] >> Cases_on`q`>>fs[]>>
     BasicProvers.CASE_TAC >> fs[] >> Cases_on`q`>>fs[]>>
-    rw[] >>
+    rw[dest_closure_def] >>
     qpat_assum`X ⇒ Y`mp_tac >>
     discharge_hyps >- (
       imp_res_tac (CONJUNCT2 evaluate_pat_closed) >>
@@ -395,7 +395,7 @@ val pComp_correct = store_thm("pComp_correct",
       `MEM (EL n l0) l0` by metis_tac[MEM_EL] >>
       rw[] >> res_tac >> fs[] ) >>
     strip_tac >>
-    Cases_on`h`>>fs[dest_closure_def,s_to_Cs_def,ETA_AX,dec_clock_def] >>
+    Cases_on`h`>>fs[check_loc_def,s_to_Cs_def,ETA_AX,dec_clock_def] >>
     rw[] >> fs[] >> rfs[EL_MAP] >> fs[build_rec_env_pat_def] >>
     fsrw_tac[ARITH_ss][] >>
     fs[MAP_GENLIST,combinTheory.o_DEF,ETA_AX] >>
@@ -412,8 +412,8 @@ val pComp_correct = store_thm("pComp_correct",
     fs[tEval_def] >>
     BasicProvers.CASE_TAC >> fs[] >> Cases_on`q`>>fs[]>>
     BasicProvers.CASE_TAC >> fs[] >> Cases_on`q`>>fs[]>>
-    rw[] >>
-    Cases_on`h`>>fs[dest_closure_def,s_to_Cs_def,ETA_AX,dec_clock_def] >>
+    rw[dest_closure_def] >>
+    Cases_on`h`>>fs[check_loc_def,s_to_Cs_def,ETA_AX,dec_clock_def] >>
     rw[] >> rw[] >>
     fsrw_tac[ARITH_ss][] ) >>
   strip_tac >- simp[tEval_def] >>
