@@ -1,5 +1,5 @@
 open HolKernel boolLib boolSimps bossLib lcsymtacs
-open pairTheory listTheory rich_listTheory relationTheory quantHeuristicsLib quantHeuristicsLibAbbrev arithmeticTheory finite_mapTheory stringTheory
+open pairTheory listTheory rich_listTheory relationTheory quantHeuristicsLib quantHeuristicsLibAbbrev arithmeticTheory finite_mapTheory stringTheory combinTheory sptreeTheory
 open intLib miscLib miscTheory bytecodeTheory bytecodeExtraTheory bytecodeEvalTheory bvlTheory
 open bytecodeTerminationTheory
 val _ = new_theory"bvlBytecode"
@@ -2477,5 +2477,136 @@ val bvl_bc_correct = store_thm("bvl_bc_correct",
       unabbrev_all_tac >> simp[]) >>
     rw[]) >>
   qexists_tac`bs2`>>simp[])
+
+val bvl_bc_ptrfun_def = Define`
+  bvl_bc_ptrfun il ptr (arity,exp) (f,s) =
+     let f = (ptr =+ next_addr il (REVERSE s.out)) f in
+     let s = bvl_bc I (GENLIST SUC arity) (TCTail arity 1) (arity+2) s [exp] in
+       (f,s)`
+
+val bvl_bc_ptrfun_correct = prove(
+  ``∀ls.
+      ALL_DISTINCT (MAP FST ls) ∧
+      ALL_DISTINCT (FILTER is_Label s0.out) ∧
+      EVERY (combin$C $< s0.next_label o dest_Label) (FILTER is_Label s0.out)
+      ⇒
+      let (f,s) = FOLDR (UNCURRY (bvl_bc_ptrfun il)) (f0,s0) ls in
+        ALL_DISTINCT (FILTER is_Label s.out) ∧
+        EVERY (combin$C $< s.next_label o dest_Label) (FILTER is_Label s.out) ∧
+        ∀ptr exp arity.
+          MEM (ptr,(arity,exp)) ls ⇒
+            ∃cs l0 cc l1.
+              (bvl_bc I (GENLIST SUC arity) (TCTail arity 1) (arity + 2) cs [exp]).out = cc ++ cs.out ∧
+              EVERY (combin$C $< cs.next_label o dest_Label)
+                (FILTER is_Label l0) ∧ ALL_DISTINCT (FILTER is_Label l0) ∧
+              (REVERSE s.out = l0 ++ REVERSE cc ++ l1) ∧
+              f ptr = next_addr il l0``,
+  Induct >> simp[] >>
+  qx_gen_tac`p` >> PairCases_on`p` >>
+  simp[] >> rw[] >> fs[] >>
+  Cases_on`FOLDR (UNCURRY (bvl_bc_ptrfun il)) (f0,s0) ls` >> fs[LET_THM] >>
+  simp[bvl_bc_ptrfun_def] >>
+  simp[PULL_FORALL] >> rpt gen_tac >>
+  qspecl_then[`I`,`GENLIST SUC p1`,`TCTail p1 1`,`p1+2`,`r`,`[p2]`]strip_assume_tac bvl_bc_append_out >>
+  ONCE_REWRITE_TAC[CONJ_ASSOC] >>
+  conj_tac >- (
+    fs[FILTER_APPEND,ALL_DISTINCT_APPEND] >>
+    fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,MEM_FILTER,is_Label_rwt,between_def] >>
+    rw[]>>res_tac>>rfs[]>>spose_not_then strip_assume_tac>>fsrw_tac[ARITH_ss][]>>
+    res_tac>>fsrw_tac[ARITH_ss][]) >>
+  reverse strip_tac >- (
+    res_tac >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    fs[] >>
+    simp[APPLY_UPDATE_THM] >> rw[] >>
+    fs[MEM_MAP,EXISTS_PROD] >>
+    metis_tac[] ) >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  qexists_tac`r`>> fs[] >>
+  simp[APPLY_UPDATE_THM] >>
+  qexists_tac`REVERSE r.out`>>simp[] >>
+  simp[FILTER_REVERSE,ALL_DISTINCT_REVERSE,EVERY_REVERSE])
+  |> Q.GENL[`s0`,`f0`]
+
+val update_ptr_def = Define`
+  (update_ptr f (Jump (Addr x)) = Jump(Addr (f x))) ∧
+  (update_ptr f (Call (Addr x)) = Call(Addr (f x))) ∧
+  (update_ptr f (PushPtr (Addr x)) = PushPtr(Addr (f x))) ∧
+  (update_ptr f i = i)`
+val _ = export_rewrites["update_ptr_def"]
+
+val apo = prove(
+  ``∀f cenv t sz s e. ∃bc. (bvl_bc f cenv t sz s e).out = bc ++ s.out``,
+  metis_tac[bvl_bc_append_out])
+
+val bvl_bc_update_ptr = store_thm("bvl_bc_update_ptr",
+  ``∀f cenv t sz s e bc bc0 s0.
+      ((bvl_bc f cenv t sz s e).out = bc ++ s.out) ∧
+      ((bvl_bc I cenv t sz s0 e).out = bc0 ++ s0.out) ⇒
+      (bc = MAP (update_ptr f) bc0)``,
+  ho_match_mp_tac bvl_bc_ind >>
+  strip_tac >- simp[bvl_bc_def] >>
+  strip_tac >- (
+    rw[] >> fs[bvl_bc_def,LET_THM] >>
+    qspecl_then[`f`,`cenv`,`TCNonTail`,`sz`,`s`,`[e1]`]strip_assume_tac apo >> fs[] >>
+    qspecl_then[`I`,`cenv`,`TCNonTail`,`sz`,`s0`,`[e1]`]strip_assume_tac apo >> fs[] >>
+    qspecl_then[`f`,`cenv`,`t`,`sz+1`,`bvl_bc f cenv TCNonTail sz s [e1]`,`e2::es`]strip_assume_tac apo >> fs[] >>
+    qspecl_then[`I`,`cenv`,`t`,`sz+1`,`bvl_bc I cenv TCNonTail sz s0 [e1]`,`e2::es`]strip_assume_tac apo >> fs[] >>
+    rw[]>>fs[] >>
+    res_tac >> rw[] >> fs[] ) >>
+  strip_tac >- (
+    simp[bvl_bc_def] >>
+    Cases_on`t`>>simp[pushret_def,emit_def]>>rw[]>>rw[] ) >>
+  cheat)
+
+val bvl_bc_table_def = Define`
+  bvl_bc_table il cmap =
+    let (f,s) = foldi (bvl_bc_ptrfun il) 0 (I, <|next_label:=0;out:=[]|>) cmap in
+    (f,s with out := MAP (update_ptr f) s.out)`
+
+val is_Label_o_update_ptr = prove(
+  ``is_Label o (update_ptr f) = is_Label``,
+  simp[FUN_EQ_THM] >> Cases >> simp[] >>
+  Cases_on`l`>>simp[])
+
+val FILTER_is_Label_MAP_update_ptr = prove(
+  ``FILTER is_Label (MAP (update_ptr f) ls) = FILTER is_Label ls``,
+  rw[FILTER_MAP,is_Label_o_update_ptr] >>
+  Induct_on`ls` >> simp[] >>
+  Cases >> simp[])
+
+val next_addr_MAP_update_ptr = prove(
+  ``length_ok il ⇒
+    ∀ls. next_addr il ls = next_addr il (MAP (update_ptr f) ls)``,
+  strip_tac >>
+  Induct >> simp[] >>
+  Cases >> simp[] >>
+  Cases_on`l`>>simp[] >>
+  fs[bytecodeLabelsTheory.length_ok_def])
+
+val bvl_bc_table_correct = store_thm("bvl_bc_table_correct",
+  ``length_ok il ⇒
+    bvl_bc_table il cmap = (f,s) ⇒
+    good_code_env f il cmap (REVERSE s.out)``,
+  rw[bvl_bc_table_def,foldi_FOLDR_toAList] >>
+  qspecl_then[`I`,`<|next_label := 0; out:=[]|>`,`toAList cmap`]mp_tac
+    (INST_TYPE[alpha|->numSyntax.num] bvl_bc_ptrfun_correct) >>
+  discharge_hyps >- (
+    simp[ALL_DISTINCT_MAP_FST_toAList] ) >>
+  fs[LET_THM] >>
+  first_assum (split_applied_pair_tac o lhs o concl) >>
+  fs[] >> rw[] >>
+  rw[good_code_env_def] >>
+  fs[GSYM MEM_toAList] >>
+  first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
+  specl_args_of_then``bvl_bc``bvl_bc_append_out strip_assume_tac >>
+  imp_res_tac bvl_bc_update_ptr >>
+  pop_assum kall_tac >>
+  qexists_tac`cs`>> simp[] >>
+  qexists_tac`MAP (update_ptr f) l0`>>simp[] >>
+  simp[GSYM MAP_REVERSE] >>
+  simp[FILTER_is_Label_MAP_update_ptr] >>
+  simp[next_addr_MAP_update_ptr])
 
 val _ = export_theory()
