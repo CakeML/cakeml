@@ -228,7 +228,7 @@ val lookup_vars_def = Define `
      else NONE)`
 
 val check_loc_opt_def = Define `
-  (check_loc NONE loc num_params num_args ⇔ num_args ≤ max_app) /\
+  (check_loc NONE loc num_params num_args ⇔ num_args < max_app) /\
   (check_loc (SOME p) loc num_params num_args ⇔ (num_params = num_args) ∧ (p = loc))`;
 
 val _ = Datatype `
@@ -241,11 +241,11 @@ val dest_closure_def = Define `
     case f of
     | Closure loc arg_env clo_env num_args exp =>
         if check_loc loc_opt loc num_args (LENGTH args) ∧ LENGTH arg_env < num_args then 
-          if LENGTH args + LENGTH arg_env ≥ num_args then
+          if LENGTH args + LENGTH arg_env > num_args then
             SOME (Full_app exp
-                           (REVERSE (TAKE (num_args - LENGTH arg_env) (REVERSE args))++
+                           (REVERSE (TAKE (num_args + 1 - LENGTH arg_env) (REVERSE args))++
                             arg_env++clo_env)
-                           (REVERSE (DROP (num_args - LENGTH arg_env) (REVERSE args))))
+                           (REVERSE (DROP (num_args + 1 - LENGTH arg_env) (REVERSE args))))
           else
             SOME (Partial_app (Closure loc (args++arg_env) clo_env num_args exp))
         else 
@@ -254,11 +254,11 @@ val dest_closure_def = Define `
         let (num_args,exp) = EL i fns in
           if LENGTH fns <= i \/ ~(check_loc loc_opt (loc+i) num_args (LENGTH args)) ∨ ¬(LENGTH arg_env < num_args) then NONE else
             let rs = GENLIST (Recclosure loc [] clo_env fns) (LENGTH fns) in
-              if LENGTH args + LENGTH arg_env ≥ num_args then
+              if LENGTH args + LENGTH arg_env > num_args then
                 SOME (Full_app exp
-                               (REVERSE (TAKE (num_args - LENGTH arg_env) (REVERSE args))++
+                               (REVERSE (TAKE (num_args + 1 - LENGTH arg_env) (REVERSE args))++
                                 arg_env++rs++clo_env)
-                               (REVERSE (DROP (num_args - LENGTH arg_env) (REVERSE args))))
+                               (REVERSE (DROP (num_args + 1 - LENGTH arg_env) (REVERSE args))))
               else
                 SOME (Partial_app (Recclosure loc (args++arg_env) clo_env fns i))
     | _ => NONE`;
@@ -275,7 +275,7 @@ val dest_closure_length = Q.prove (
  TRY decide_tac >>
  Cases_on `EL n l1` >>
  fs [LET_THM] >>
- Cases_on `LENGTH args + LENGTH l ≥ q` >>
+ Cases_on `LENGTH args + LENGTH l > q` >>
  fs [] >>
  rw [] >>
  decide_tac);
@@ -323,12 +323,12 @@ val cEval_def = tDefine "cEval" `
                           | SOME (v,s) => (Result [v],s))
      | res => res) /\
   (cEval ([Fn loc vs num_args exp],env,s) =
-     if num_args > max_app then (Error, s) else
+     if num_args ≥ max_app then (Error, s) else
        case lookup_vars vs env of
        | NONE => (Error,s)
        | SOME env' => (Result [Closure loc [] env' num_args exp], s)) /\
   (cEval ([Letrec loc names fns exp],env,s) =
-     if EXISTS (\(num_args,e). num_args > max_app) fns then (Error,s) else
+     if EXISTS (\(num_args,e). num_args ≥ max_app) fns then (Error,s) else
        case build_recc loc env names fns of
        | NONE => (Error,s)
        | SOME rs => cEval ([exp],rs ++ env,s)) /\
