@@ -188,6 +188,7 @@ val state_rel_def = Define `
   state_rel f (s:clos_state) (t:bvl_state) <=>
     (s.clock = t.clock) /\
     (s.output = t.output) /\
+    s.restrict_envs /\
     (EVERY2 (opt_val_rel f t.refs t.code) s.globals t.globals /\
     INJ ($' f) (FDOM f) (FRANGE f) /\
     (FDOM f = FDOM s.refs) /\
@@ -1065,6 +1066,8 @@ val cComp_correct = prove(
     \\ fs [LET_DEF] \\ SRW_TAC [] []
     \\ fs [code_installed_def]
     \\ fs [bEval_def,bEval_CONS,bEvalOp_def,domain_lookup]
+    \\ `s.restrict_envs` by fs [state_rel_def]
+    \\ fs [clos_env_def]
     \\ IMP_RES_TAC lookup_vars_IMP
     \\ POP_ASSUM (STRIP_ASSUME_TAC o Q.SPEC `t1`)
     \\ fs [res_rel_cases,val_rel_cases]
@@ -1076,7 +1079,8 @@ val cComp_correct = prove(
    (fs [cEval_def] \\ BasicProvers.FULL_CASE_TAC
     \\ fs [] \\ SRW_TAC [] []
     \\ fs [cComp_def]
-    \\ fs [build_recc_def]
+    \\ `s.restrict_envs` by fs [state_rel_def]
+    \\ fs [build_recc_def,clos_env_def]
     \\ Cases_on `lookup_vars names env` \\ fs [] \\ SRW_TAC [] []
     \\ Cases_on `fns` \\ fs []
     THEN1 (rfs [] \\ FIRST_X_ASSUM MATCH_MP_TAC

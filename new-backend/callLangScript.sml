@@ -380,7 +380,7 @@ val tEvalOp_const = store_thm("tEvalOp_const",
   ``(tEvalOp op args s1 = SOME (res,s2)) ==>
     (s2.clock = s1.clock) /\ (s2.code = s1.code)``,
   SIMP_TAC std_ss [tEvalOp_def]
-  \\ REPEAT BasicProvers.FULL_CASE_TAC
+  \\ BasicProvers.EVERY_CASE_TAC
   \\ fs [LET_DEF] \\ SRW_TAC [] [] \\ fs []);
 
 val tEval_clock = store_thm("tEval_clock",
@@ -388,7 +388,7 @@ val tEval_clock = store_thm("tEval_clock",
       (tEval (xs,env,s1) = (vs,s2)) ==> s2.clock <= s1.clock``,
   recInduct (fetch "-" "tEval_ind") \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [tEval_def]
-  \\ FULL_SIMP_TAC std_ss [] \\ REPEAT BasicProvers.FULL_CASE_TAC
+  \\ FULL_SIMP_TAC std_ss [] \\ BasicProvers.EVERY_CASE_TAC
   \\ REPEAT STRIP_TAC \\ SRW_TAC [] [check_clock_def]
   \\ RES_TAC \\ IMP_RES_TAC check_clock_IMP
   \\ FULL_SIMP_TAC std_ss [PULL_FORALL] \\ RES_TAC
@@ -484,7 +484,7 @@ val tEval_def = save_thm("tEval_def",let
     \\ IMP_RES_TAC tEval_check_clock
     \\ IMP_RES_TAC tEval_clock
     \\ IMP_RES_TAC check_clock_thm
-    \\ REPEAT BasicProvers.CASE_TAC \\ fs [] \\ rfs []
+    \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rfs []
     \\ SRW_TAC [] []
     \\ fs [check_clock_def] \\ rfs []
     \\ SRW_TAC [] []
@@ -504,7 +504,7 @@ val tEval_LENGTH = prove(
   HO_MATCH_MP_TAC tEval_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [tEval_def]
   \\ SRW_TAC [] [] \\ SRW_TAC [] []
-  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ BasicProvers.EVERY_CASE_TAC \\ FULL_SIMP_TAC (srw_ss()) []
   \\ REV_FULL_SIMP_TAC std_ss [] \\ FULL_SIMP_TAC (srw_ss()) [])
   |> SIMP_RULE std_ss [];
 
