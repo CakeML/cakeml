@@ -2,8 +2,9 @@ open HolKernel Parse boolLib bossLib; val _ = new_theory "clos_to_bvl";
 
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
-open lcsymtacs closLangTheory bvlTheory;
-open sptreeTheory
+open lcsymtacs closLangTheory bvlTheory bvl_jumpTheory;
+open sptreeTheory;
+open intLib;
 
 (* compiler definition *)
 
@@ -46,20 +47,119 @@ val build_recc_lets_def = Define `
 val num_stubs_def = Define `
   num_stubs = max_app * max_app + max_app`;
 
-  (*
-(* generic application of a function to n arguments *)
+val mk_const_def = Define `
+  mk_const n : bvl_exp = Op (Const (&n)) []`;
+
+(* Generic application of a function to n+1 arguments *)
 val generate_generic_app_def = Define `
   generate_generic_app n =
-    (n - 1,
-     Let [Op Sub [Op (El 1) [Var 0]; Op (Const (&n)) []]] (* The number of arguments remaining *)
-         (If (Op Less [Var 0; Op (Const (&1)) []])
+    (n,
+     Let [Op Sub [Op El [Var 0; mk_const 1]; mk_const (n + 1)]] (* The number of arguments remaining - 1 *)
+         (If (Op Less [Var 0; mk_const 0])
              ARB (* Do something for over-application *)
-             (Op (Cons closure_tag) 
-                 (Op El2 [ARB; (* A table with the labels to do a (Var 0 - n)ary app leading to an n-app *)
-                          Op Add [Op (Const (&(n * max_app))) []; Var 0]]::
-                  Var 0 ::
-                  GENLIST (\n. Var (n + 1)) (n + 1)))))`; (* The actual arguments, and the old closure *)
+             (If (Op (TagEq closure_tag) [Var 1])
+                 (Op (Cons partial_app_tag)
+                     (Jump (Op El [Var 1; mk_const 1])
+                           (GENLIST 
+                             (\total_args. 
+                                 Op (Label (max_app + total_args * max_app + n)) []) 
+                             max_app) ::
+                      Var 0 ::
+                      GENLIST (\n. Var (n + 1)) (n + 2)))
+                 (Jump (Op Sub [Op El [Op El [Var 1; mk_const 2]; mk_const 1]; 
+                                Op El [Var 1; mk_const 1]])
+                   (GENLIST (\prev_args.
+                     Op (Cons partial_app_tag)
+                        (Jump ARB
+                           (GENLIST ARB ARB) ::
+                         Var 0 ::
+                         Op El [Var 1; mk_const 2] ::
+                         GENLIST (\prev_arg. 
+                           Op El [Var 1; mk_const (prev_arg + 2)]) prev_args ++
+                         GENLIST (\this_arg. Var (this_arg + 2)) (n + 1)))
+                     max_app)))))`;
 
+val bEval_genlist_vars = Q.prove (
+`!x st args. bEval (GENLIST (\n. Var (n+LENGTH x)) (LENGTH args), x++args,st) = (Result args, st)`,
+ Induct_on `args` >>
+ rw [bEval_def, GENLIST_CONS] >>
+ rw [Once bEval_CONS, bEval_def] >>
+ full_simp_tac (srw_ss()++ARITH_ss) [] >>
+ pop_assum (qspecl_then [`x++[h]`] mp_tac) >>
+ srw_tac [ARITH_ss] [combinTheory.o_DEF, ADD1] >>
+ `x ++ h :: args = x ++ [h] ++ args` by metis_tac [APPEND, APPEND_ASSOC] >>
+ rw [el_append3]);
+
+val bEval_genlist_vars1 = Q.prove (
+`!x st args. bEval (GENLIST (\n. Var (n+1)) (LENGTH args), x::args,st) = (Result args, st)`,
+ metis_tac [bEval_genlist_vars, APPEND, LENGTH, DECIDE ``SUC 0 = 1``]);
+
+val bEval_generic_app1 = Q.prove (
+`!n args st total_args l fvs.
+  n + max_app + total_args * max_app ∈ domain st.code ∧
+  n < total_args ∧
+  total_args < max_app ∧
+  n + 2 = LENGTH args ∧
+  HD args = Block closure_tag (CodePtr l :: Number (&total_args) :: fvs)
+  ⇒
+  bEval ([SND (generate_generic_app n)], args, st) = 
+  (Result [Block partial_app_tag (CodePtr (max_app + total_args * max_app + n) ::
+                                  Number (&(total_args - (n + 1))) ::
+                                  args)],
+   st)`,
+ rw [generate_generic_app_def, mk_const_def] >>
+ rw [bEval_def, bEvalOp_def] >>
+ full_simp_tac (srw_ss() ++ ARITH_ss) [] >>
+ `~(&total_args − &(n+1) < 0)` by intLib.ARITH_TAC >>
+ rw [] >>
+ `bEval ([Op El [Var 1; Op (Const (1:int)) []]],
+         Number (&total_args − &(n+1))::args,
+         st) =
+   (Result [Number (&total_args)], st)`
+         by srw_tac [ARITH_ss] [bEval_def, bEvalOp_def, int_arithTheory.INT_NUM_SUB] >>
+ imp_res_tac bEval_Jump >>
+ srw_tac [ARITH_ss] [LENGTH_GENLIST, bEval_def, bEvalOp_def] >>
+ rw [Once bEval_CONS, bEval_def, bEval_genlist_vars1, int_arithTheory.INT_NUM_SUB] >>
+ intLib.ARITH_TAC);
+
+ (*
+val bEval_generic_app2 = Q.prove (
+`!n args st rem_args prev_args l l' clo fvs.
+  n < rem_args ∧
+  n + 2 = LENGTH args ∧
+  LENGTH prev_args > 0 ∧
+  rem_args + LENGTH prev_args < max_app ∧
+  clo = Block closure_tag (CodePtr l' :: Number (&(rem_args + LENGTH prev_args)) :: fvs) ∧
+  HD args = Block partial_app_tag (CodePtr l :: Number (&rem_args) :: clo :: prev_args)
+  ⇒
+  bEval ([SND (generate_generic_app n)], args, st) = 
+  (Result [Block partial_app_tag (CodePtr ARB ::
+                                  Number (&rem_args - &(n+1)) ::
+                                  clo ::
+                                  prev_args ++
+                                  TL args)],
+   st)`,
+
+ rw [generate_generic_app_def, mk_const_def] >>
+ rw [bEval_def, bEvalOp_def] >>
+ full_simp_tac (srw_ss() ++ ARITH_ss) [bytecodeTheory.partial_app_tag_def] >>
+ `~(&rem_args − &(n+1) < 0)` by intLib.ARITH_TAC >>
+ rw [] >>
+ `bEval ([Op Sub [Op El [Op El [Var 1; Op (Const 2) []]; Op (Const 1) []]; 
+                  Op El [Var 1; Op (Const 1) []]]],
+         Number (&rem_args − &(n+1))::args,
+         st) =
+   (Result [Number (&(LENGTH prev_args))], st)`
+         by (srw_tac [ARITH_ss] [bEval_def, bEvalOp_def, int_arithTheory.INT_NUM_SUB] >>
+             intLib.ARITH_TAC) >>
+ imp_res_tac bEval_Jump >>
+ `LENGTH prev_args < max_app` by intLib.ARITH_TAC >>
+ srw_tac [ARITH_ss] [LENGTH_GENLIST, bEval_def, bEvalOp_def] >>
+ *)
+
+
+
+  (*
 val generate_app_table_def = Define `
   generate_app_table m n =
     FLAT (GENLIST (\m. GENLIST (\n. (m * n + max_app, Op (Label (m * n)) [])) n) m)`;
@@ -111,16 +211,16 @@ val cComp_def = tDefine "cComp" `
              Let (c1++c2)
                (Call NONE (Var 0 ::            (* closure itself *)
                            arg_vars ++         (* arguments *)
-                           [If (Op Equal [Op (Const (&num_args)) []; Op (El 1) [Var 0]])
-                               (Op (El 0) [Var 0])
-                               (Op (Label (num_args - 1)) [])]) (* code pointer *))
+                           [If (Op Equal [Op (Const (&(num_args - 1))) []; Op (El 1) [Var 0]])
+                               (Op (El 0) [Var 0]) (* code pointer from closure *)
+                               (Op (Label (num_args - 1)) [])]) (* code pointer to generic apply num_args function *))
          | SOME loc => 
              Call (SOME (loc + num_stubs)) (c1 ++ c2)],
         aux2)) /\
   (cComp [Fn loc vs num_args x1] aux =
      let (c1,aux1) = cComp [x1] aux in
      let c2 = Let ((Var 1:bvl_exp) :: free_let (LENGTH vs)) (HD c1) in
-       ([Op (Cons closure_tag) 
+       ([Op (Cons closure_tag)
             (Op (Label (loc + num_stubs)) [] :: Op (Const (&num_args)) [] :: MAP Var vs)],
         (loc + num_stubs,c2) :: aux1)) /\
         (*
