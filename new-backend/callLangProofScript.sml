@@ -49,6 +49,13 @@ val bool_to_val_thm = store_thm("bool_to_val_thm",
 val bool_to_tag_thm = store_thm("bool_to_tag_thm",
   ``bool_to_tag b = if b then 1 else 0``,
   Cases_on`b`>>rw[bytecodeTheory.bool_to_tag_def])
+
+val SORTED_ALL_DISTINCT = store_thm("SORTED_ALL_DISTINCT",
+  ``irreflexive R /\ transitive R ==> !ls. SORTED R ls ==> ALL_DISTINCT ls``,
+  STRIP_TAC THEN Induct THEN SRW_TAC[][] THEN
+  IMP_RES_TAC sortingTheory.SORTED_EQ THEN
+  FULL_SIMP_TAC (srw_ss()) [sortingTheory.SORTED_DEF] THEN
+  METIS_TAC[relationTheory.irreflexive_def])
 (* -- *)
 
 val pComp_def = tDefine"pComp"`
@@ -75,10 +82,10 @@ val pComp_def = tDefine"pComp"`
   (pComp (Var_global_pat n) =
     Op (Global n) []) ∧
   (pComp (Fun_pat e) =
-    Fn (pComp e)) ∧
+    Fn 0 (pComp e)) ∧
   (pComp (App_pat (Op_pat (Op_i2 Opapp)) es) =
     if LENGTH es ≠ 2 then Op Sub (MAP pComp es) else
-    App (pComp (EL 0 es)) (pComp (EL 1 es))) ∧
+    App NONE (pComp (EL 0 es)) (pComp (EL 1 es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Opn Plus))) es) =
     Op Add (MAP pComp es)) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Opn Minus))) es) =
@@ -173,7 +180,7 @@ val pComp_def = tDefine"pComp"`
       (If (Op Less [Var 1; Op (Const 0) []])
           (Raise (Op (Cons (subscript_tag + block_tag)) []))
           (If (Op Less [Var 1; Op LengthBlock [Var 0]])
-              (Op El2 [Var 0; Var 1])
+              (Op El [Var 0; Var 1])
               (Raise (Op (Cons (subscript_tag + block_tag)) []))))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Vlength)) es) =
     Op LengthBlock (MAP pComp es)) ∧
@@ -181,7 +188,7 @@ val pComp_def = tDefine"pComp"`
     Let (MAP pComp es)
       (If (Op Less [Var 0; Op (Const 0) []])
           (Raise (Op (Cons (subscript_tag + block_tag)) []))
-          (Op Ref2 [Var 0; Var 1]))) ∧
+          (Op RefArray [Var 0; Var 1]))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Asub)) es) =
     Let (MAP pComp es)
       (If (Op Less [Var 1; Op (Const 0) []])
@@ -205,7 +212,8 @@ val pComp_def = tDefine"pComp"`
   (pComp (App_pat (Tag_eq_pat n) es) =
     Op (TagEq (n+block_tag)) (MAP pComp es)) ∧
   (pComp (App_pat (El_pat n) es) =
-    Op (El n) (MAP pComp es)) ∧
+    Let (MAP pComp es)
+      (Op El [Var 0; Op (Const &n) []])) ∧
   (pComp (If_pat e1 e2 e3) =
     If (pComp e1) (pComp e2) (pComp e3)) ∧
   (pComp (Let_pat e1 e2) =
@@ -213,7 +221,7 @@ val pComp_def = tDefine"pComp"`
   (pComp (Seq_pat e1 e2) =
     Let [pComp e1;pComp e2] (Var 1)) ∧
   (pComp (Letrec_pat es e) =
-    Letrec (MAP pComp es) (pComp e)) ∧
+    Letrec 0 (MAP pComp es) (pComp e)) ∧
   (pComp (Extend_global_pat n) =
    Let (REPLICATE n (Op AllocGlobal []))
      (Op (Cons unit_tag) []))`
@@ -238,8 +246,8 @@ val v_to_Cv_def = tDefine"v_to_Cv"`
   (v_to_Cv (Loc_pat m) = (RefPtr m)) ∧
   (v_to_Cv (Conv_pat cn vs) = (Block (cn+block_tag) (MAP (v_to_Cv) vs))) ∧
   (v_to_Cv (Vectorv_pat vs) = (Block vector_tag (MAP (v_to_Cv) vs))) ∧
-  (v_to_Cv (Closure_pat vs e) = (Closure (MAP (v_to_Cv) vs) (pComp e))) ∧
-  (v_to_Cv (Recclosure_pat vs es k) = (Recclosure (MAP (v_to_Cv) vs) (MAP pComp es) k))`
+  (v_to_Cv (Closure_pat vs e) = (Closure 0 (MAP (v_to_Cv) vs) (pComp e))) ∧
+  (v_to_Cv (Recclosure_pat vs es k) = (Recclosure 0 (MAP (v_to_Cv) vs) (MAP pComp es) k))`
     (WF_REL_TAC`measure (v_pat_size)` >> simp[v_pat_size_def] >>
      rpt conj_tac >> rpt gen_tac >>
      Induct_on`vs` >> simp[v_pat_size_def] >>
@@ -379,7 +387,7 @@ val pComp_correct = store_thm("pComp_correct",
     fs[tEval_def] >>
     BasicProvers.CASE_TAC >> fs[] >> Cases_on`q`>>fs[]>>
     BasicProvers.CASE_TAC >> fs[] >> Cases_on`q`>>fs[]>>
-    rw[] >>
+    rw[dest_closure_def] >>
     qpat_assum`X ⇒ Y`mp_tac >>
     discharge_hyps >- (
       imp_res_tac (CONJUNCT2 evaluate_pat_closed) >>
@@ -394,7 +402,7 @@ val pComp_correct = store_thm("pComp_correct",
       `MEM (EL n l0) l0` by metis_tac[MEM_EL] >>
       rw[] >> res_tac >> fs[] ) >>
     strip_tac >>
-    Cases_on`h`>>fs[dest_closure_def,s_to_Cs_def,ETA_AX,dec_clock_def] >>
+    Cases_on`h`>>fs[check_loc_def,s_to_Cs_def,ETA_AX,dec_clock_def] >>
     rw[] >> fs[] >> rfs[EL_MAP] >> fs[build_rec_env_pat_def] >>
     fsrw_tac[ARITH_ss][] >>
     fs[MAP_GENLIST,combinTheory.o_DEF,ETA_AX] >>
@@ -411,8 +419,8 @@ val pComp_correct = store_thm("pComp_correct",
     fs[tEval_def] >>
     BasicProvers.CASE_TAC >> fs[] >> Cases_on`q`>>fs[]>>
     BasicProvers.CASE_TAC >> fs[] >> Cases_on`q`>>fs[]>>
-    rw[] >>
-    Cases_on`h`>>fs[dest_closure_def,s_to_Cs_def,ETA_AX,dec_clock_def] >>
+    rw[dest_closure_def] >>
+    Cases_on`h`>>fs[check_loc_def,s_to_Cs_def,ETA_AX,dec_clock_def] >>
     rw[] >> rw[] >>
     fsrw_tac[ARITH_ss][] ) >>
   strip_tac >- simp[tEval_def] >>
@@ -736,5 +744,209 @@ val pComp_correct = store_thm("pComp_correct",
   simp[Once tEval_CONS] >>
   imp_res_tac evaluate_pat_closed >> fs[] >>
   Cases_on`err`>>fs[])
+
+val code_locs_def = tDefine "code_locs" `
+  (code_locs [] = []) /\
+  (code_locs (x::y::xs) =
+     let c1 = code_locs [x] in
+     let c2 = code_locs (y::xs) in
+       c1 ++ c2) /\
+  (code_locs [Var v] = []) /\
+  (code_locs [If x1 x2 x3] =
+     let c1 = code_locs [x1] in
+     let c2 = code_locs [x2] in
+     let c3 = code_locs [x3] in
+       c1 ++ c2 ++ c3) /\
+  (code_locs [Let xs x2] =
+     let c1 = code_locs xs in
+     let c2 = code_locs [x2] in
+       c1 ++ c2) /\
+  (code_locs [Raise x1] =
+     code_locs [x1]) /\
+  (code_locs [Tick x1] =
+     code_locs [x1]) /\
+  (code_locs [Op op xs] =
+     code_locs xs) /\
+  (code_locs [App loc_opt x1 x2] =
+     let c1 = code_locs [x1] in
+     let c2 = code_locs [x2] in
+         c1++c2) /\
+  (code_locs [Fn loc x1] =
+     let c1 = code_locs [x1] in
+       loc::c1) /\
+  (code_locs [Letrec loc fns x1] =
+     let c1 = code_locs fns in
+     let c2 = code_locs [x1] in
+     GENLIST ($+ loc) (LENGTH fns) ++ c1 ++ c2) /\
+  (code_locs [Handle x1 x2] =
+     let c1 = code_locs [x1] in
+     let c2 = code_locs [x2] in
+       c1 ++ c2) /\
+  (code_locs [Call dest xs] =
+     code_locs xs)`
+ (WF_REL_TAC `measure (call_exp1_size)`
+  \\ REPEAT STRIP_TAC \\ DECIDE_TAC);
+
+val code_locs_cons = store_thm("code_locs_cons",
+  ``∀x xs. code_locs (x::xs) = code_locs [x] ++ code_locs xs``,
+  gen_tac >> Cases >> simp[code_locs_def])
+
+val renumber_code_locs_def = tDefine "renumber_code_locs" `
+  (renumber_code_locs_list n [] = (n,[])) /\
+  (renumber_code_locs_list n (x::xs) =
+     let (n,x) = renumber_code_locs n x in
+     let (n,xs) = renumber_code_locs_list n xs in
+     (n, x::xs)) /\
+  (renumber_code_locs n (Var v) = (n,(Var v))) /\
+  (renumber_code_locs n (If x1 x2 x3) =
+     let (n,x1) = renumber_code_locs n x1 in
+     let (n,x2) = renumber_code_locs n x2 in
+     let (n,x3) = renumber_code_locs n x3 in
+       (n,If x1 x2 x3)) /\
+  (renumber_code_locs n (Let xs x2) =
+     let (n,xs) = renumber_code_locs_list n xs in
+     let (n,x2) = renumber_code_locs n x2 in
+       (n,Let xs x2)) /\
+  (renumber_code_locs n (Raise x1) =
+     let (n,x1) = renumber_code_locs n x1 in
+       (n,Raise x1)) /\
+  (renumber_code_locs n (Tick x1) =
+     let (n,x1) = renumber_code_locs n x1 in
+       (n,Tick x1)) /\
+  (renumber_code_locs n (Op op xs) =
+     let (n,xs) = renumber_code_locs_list n xs in
+       (n,Op op xs)) /\
+  (renumber_code_locs n (App loc_opt x1 x2) =
+     let (n,x1) = renumber_code_locs n x1 in
+     let (n,x2) = renumber_code_locs n x2 in
+       (n,App loc_opt x1 x2)) /\
+  (renumber_code_locs n (Fn loc x1) =
+     let (m,x1) = renumber_code_locs (n+1) x1 in
+       (m,Fn n x1)) /\
+  (renumber_code_locs n (Letrec loc fns x1) =
+     let (m,fns) = renumber_code_locs_list (n+LENGTH fns) fns in
+     let (m,x1) = renumber_code_locs m x1 in
+     (m,Letrec n fns x1)) /\
+  (renumber_code_locs n (Handle x1 x2) =
+     let (n,x1) = renumber_code_locs n x1 in
+     let (n,x2) = renumber_code_locs n x2 in
+     (n,Handle x1 x2)) /\
+  (renumber_code_locs n (Call dest xs) =
+     let (n,xs) = renumber_code_locs_list n xs in
+     (n,Call dest xs))`
+ (WF_REL_TAC `inv_image $< (λx. case x of INL p => call_exp1_size (SND p) | INR p => call_exp_size (SND p))`);
+
+val renumber_code_locs_ind = theorem"renumber_code_locs_ind"
+
+fun tac (g as (asl,w)) =
+  let
+    fun finder tm =
+      let
+        val (f,args) = strip_comb tm
+      in
+        (same_const``renumber_code_locs`` f orelse
+         same_const``renumber_code_locs_list`` f)
+        andalso
+         all is_var args
+        andalso
+         length args = 2
+      end
+    val tms = find_terms finder w
+  in
+    map_every (fn tm => Cases_on [ANTIQUOTE tm]) tms g
+  end
+
+val renumber_code_locs_inc = store_thm("renumber_code_locs_inc",
+  ``(∀n es. n ≤ FST (renumber_code_locs_list n es)) ∧
+    (∀n e. n ≤ FST (renumber_code_locs n e))``,
+  ho_match_mp_tac renumber_code_locs_ind >>
+  simp[renumber_code_locs_def] >> rw[] >>
+  tac >> fs[] >>
+  tac >> fs[] >>
+  tac >> fs[] >> simp[]
+  >- (
+    Cases_on`renumber_code_locs (n+1) e` >> fs[] >>
+    simp[] )
+  >- (
+    Cases_on`renumber_code_locs_list (n+LENGTH es) es` >> fs[] >>
+    tac >> fs[] >>
+    simp[] ))
+
+val renumber_code_locs_imp_inc = prove(
+  ``(renumber_code_locs_list n es = (m,vs) ⇒ n ≤ m) ∧
+    (renumber_code_locs n e = (z,v) ⇒ n ≤ z)``,
+  metis_tac[pairTheory.pair_CASES,pairTheory.FST,renumber_code_locs_inc])
+
+val sorted_append = MATCH_MP sortingTheory.SORTED_transitive_APPEND_IFF transitive_LESS
+val sorted_eq = MATCH_MP sortingTheory.SORTED_EQ transitive_LESS
+
+val SORTED_GENLIST_PLUS = prove(
+  ``∀n k. SORTED $< (GENLIST ($+ k) n)``,
+  Induct >> simp[GENLIST_CONS,sorted_eq,MEM_GENLIST] >> gen_tac >>
+  `$+ k o SUC = $+ (k+1)` by (
+    simp[FUN_EQ_THM] ) >>
+  metis_tac[])
+
+val renumber_code_locs_list_length = prove(
+  ``∀ls n x y. renumber_code_locs_list n ls = (x,y) ⇒ LENGTH y = LENGTH ls``,
+  Induct >> simp[renumber_code_locs_def,LENGTH_NIL] >> rw[] >>
+  Cases_on`renumber_code_locs n h`>>fs[]>>
+  Cases_on`renumber_code_locs_list q ls`>>fs[]>>rw[]>>
+  res_tac)
+
+val renumber_code_locs_correct_lemma = prove(
+  ``(∀n es. SORTED $< (code_locs (SND (renumber_code_locs_list n es))) ∧
+            EVERY ($<= n) (code_locs (SND (renumber_code_locs_list n es))) ∧
+            EVERY ($> (FST (renumber_code_locs_list n es))) (code_locs (SND (renumber_code_locs_list n es)))) ∧
+    (∀n e. SORTED $< (code_locs [SND (renumber_code_locs n e)]) ∧
+            EVERY ($<= n) (code_locs [SND (renumber_code_locs n e)]) ∧
+            EVERY ($> (FST (renumber_code_locs n e))) (code_locs [SND (renumber_code_locs n e)]))``,
+  ho_match_mp_tac renumber_code_locs_ind >>
+  simp[renumber_code_locs_def,code_locs_def,pairTheory.UNCURRY] >>
+  rw[] >> rpt (CHANGED_TAC tac >> fs[]) >> rw[] >>
+  imp_res_tac renumber_code_locs_imp_inc >> simp[] >>
+  simp[EVERY_GENLIST] >>
+  TRY (
+    CHANGED_TAC(simp[EVERY_MEM]) >>
+    fs[EVERY_MEM] >>
+    rw[] >> res_tac >> fsrw_tac[ARITH_ss][] >>
+    NO_TAC ) >>
+  TRY (
+    CHANGED_TAC(simp[EVERY_MEM]) >>
+    fs[EVERY_MEM] >>
+    simp[Once code_locs_cons] >>
+    rw[] >> res_tac >> fsrw_tac[ARITH_ss][] >>
+    NO_TAC ) >>
+  rpt(match_mp_tac sortingTheory.SORTED_APPEND >> simp[] >> TRY conj_tac) >>
+  TRY (
+    rw[] >> fs[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][] >>
+    NO_TAC) >>
+  TRY (
+    simp[Once code_locs_cons] >>
+    match_mp_tac sortingTheory.SORTED_APPEND >> simp[] >>
+    rw[] >> fs[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][] >>
+    NO_TAC ) >>
+  TRY (
+    Cases_on`renumber_code_locs (n+1) e`>>fs[] >>
+    simp[sorted_eq] >>
+    imp_res_tac renumber_code_locs_imp_inc >>
+    rw[] >> fs[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][] >>
+    NO_TAC) >>
+  Cases_on`renumber_code_locs_list (n+LENGTH es) es`>>fs[] >>
+  rpt(CHANGED_TAC tac >> fs[])>>
+  simp[SORTED_GENLIST_PLUS] >>
+  simp[MEM_GENLIST] >>
+  imp_res_tac renumber_code_locs_imp_inc >>
+  imp_res_tac renumber_code_locs_list_length >>
+  rw[] >> fs[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][] >>
+  rw[] >> fs[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][])
+
+val renumber_code_locs_correct = store_thm("renumber_code_locs_correct",
+  ``∀n e. ALL_DISTINCT (code_locs [SND (renumber_code_locs n e)])``,
+  rw[] >>
+  qspecl_then[`n`,`e`]strip_assume_tac (CONJUNCT2 renumber_code_locs_correct_lemma) >>
+  match_mp_tac (MP_CANON (GEN_ALL SORTED_ALL_DISTINCT)) >>
+  qexists_tac`$<` >> simp[] >>
+  simp[relationTheory.irreflexive_def])
 
 val _ = export_theory()

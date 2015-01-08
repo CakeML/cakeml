@@ -19,9 +19,9 @@ val _ = Datatype `
            | Handle call_exp call_exp
            | Tick call_exp
            | Call num (call_exp list)
-           | App call_exp call_exp
-           | Fn call_exp
-           | Letrec (call_exp list) call_exp
+           | App (num option) call_exp call_exp
+           | Fn num call_exp
+           | Letrec num (call_exp list) call_exp
            | Op bvl_op (call_exp list) `
 
 (* --- Semantics of CallLang --- *)
@@ -31,8 +31,8 @@ val _ = Datatype `
     Number int
   | Block num (call_val list)
   | RefPtr num
-  | Closure (call_val list) call_exp
-  | Recclosure (call_val list) (call_exp list) num`
+  | Closure num (call_val list) call_exp
+  | Recclosure num (call_val list) (call_exp list) num`
 
 val _ = Datatype `
   call_res = Result 'a
@@ -148,10 +148,8 @@ val tEvalOp_def = Define `
         SOME (Number 0, s with globals := s.globals ++ [NONE])
     | (Const i,[]) => SOME (Number i, s)
     | (Cons tag,xs) => SOME (Block tag xs, s)
-    | (El n,[Block tag xs]) =>
-        if n < LENGTH xs then SOME (EL n xs, s) else NONE
-    | (El2,[Block tag xs;Number i]) =>
-        if 0 ≤ Num i ∧ Num i < LENGTH xs then SOME (EL (Num i) xs, s) else NONE
+    | (El,[Block tag xs;Number i]) =>
+        if 0 ≤ i ∧ Num i < LENGTH xs then SOME (EL (Num i) xs, s) else NONE
     | (LengthBlock,[Block tag xs]) =>
         SOME (Number (&LENGTH xs), s)
     | (Length,[RefPtr ptr]) =>
@@ -170,7 +168,7 @@ val tEvalOp_def = Define `
              SOME (RefPtr ptr, s with refs := s.refs |+
                (ptr,ByteArray (REPLICATE (Num i) (n2w (Num b)))))
          else NONE
-    | (Ref2,[Number i;v]) =>
+    | (RefArray,[Number i;v]) =>
         if 0 ≤ i then
           let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
             SOME (RefPtr ptr, s with refs := s.refs |+
@@ -279,20 +277,25 @@ val check_clock_lemma = prove(
    convenience of subsequent proofs, the evaluation function is
    defined to evaluate a list of call_exp expressions. *)
 
+val check_loc_opt_def = Define `
+  (check_loc NONE loc = T) /\
+  (check_loc (SOME p) loc = (p = loc))`;
+
 val dest_closure_def = Define `
-  dest_closure f x =
+  dest_closure loc_opt f x =
     case f of
-    | Closure env exp => SOME (exp,x::env)
-    | Recclosure env fns i =>
-        (if LENGTH fns <= i then NONE else
+    | Closure loc env exp =>
+        if check_loc loc_opt loc then SOME (exp,x::env) else NONE
+    | Recclosure loc env fns i =>
+        (if LENGTH fns <= i \/ ~(check_loc loc_opt (loc+i)) then NONE else
            let exp = EL i fns in
-           let rs = GENLIST (Recclosure env fns) (LENGTH fns) in
+           let rs = GENLIST (Recclosure loc env fns) (LENGTH fns) in
              SOME (exp,x::rs++env))
     | _ => NONE`;
 
 val build_recc_def = Define `
-  build_recc env fns =
-    GENLIST (Recclosure env fns) (LENGTH fns)`
+  build_recc loc env fns =
+    GENLIST (Recclosure loc env fns) (LENGTH fns)`
 
 val tEval_def = tDefine "tEval" `
   (tEval ([],env:call_val list,s:call_state) = (Result [],s)) /\
@@ -330,16 +333,16 @@ val tEval_def = tDefine "tEval" `
                           | NONE => (Error,s)
                           | SOME (v,s) => (Result [v],s))
      | res => res) /\
-  (tEval ([Fn exp],env,s) =
-     (Result [Closure env exp], s)) /\
-  (tEval ([Letrec fns exp],env,s) =
-     tEval ([exp],build_recc env fns ++ env,s)) /\
-  (tEval ([App x1 x2],env,s) =
+  (tEval ([Fn loc exp],env,s) =
+     (Result [Closure loc env exp], s)) /\
+  (tEval ([Letrec loc fns exp],env,s) =
+     tEval ([exp],build_recc loc env fns ++ env,s)) /\
+  (tEval ([App loc_opt x1 x2],env,s) =
      case tEval ([x1],env,s) of
      | (Result y1,s1) =>
          (case tEval ([x2],env,check_clock s1 s) of
           | (Result y2,s2) =>
-             (case dest_closure (HD y1) (HD y2) of
+             (case dest_closure loc_opt (HD y1) (HD y2) of
               | NONE => (Error,s2)
               | SOME (exp,env1) =>
                   if (s2.clock = 0) \/ (s1.clock = 0) \/ (s.clock = 0)
