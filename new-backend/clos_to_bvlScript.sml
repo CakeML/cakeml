@@ -56,31 +56,41 @@ val mk_label_def = Define `
 (* Generic application of a function to n+1 arguments *)
 val generate_generic_app_def = Define `
   generate_generic_app n =
-    (n,
-     Let [Op Sub [Op El [Var 0; mk_const 1]; mk_const (n + 1)]] (* The number of arguments remaining - 1 *)
-         (If (Op Less [Var 0; mk_const 0])
-             ARB (* Do something for over-application *)
-             (If (Op (TagEq closure_tag) [Var 1])
-                 (Op (Cons partial_app_tag)
-                     (Jump (Op El [Var 1; mk_const 1])
-                           (GENLIST (\total_args. 
-                             mk_label (max_app + total_args * max_app + n)) 
-                            max_app) ::
-                      Var 0 ::
-                      GENLIST (\n. Var (n + 1)) (n + 2)))
-                 (Jump (Op Sub [Op LengthBlock [Var 1]; mk_const 4])
-                   (GENLIST (\prev_args.
-                     Op (Cons partial_app_tag)
-                        (Jump (Op Add [mk_const (n + prev_args + 2); Var 1])
-                           (GENLIST (\total_args.
-                             mk_label (max_app + total_args * max_app + n))
-                            max_app) ::
-                         Var 1 ::
-                         Op El [Var 2; mk_const 2] ::
-                         GENLIST (\prev_arg.
-                           Op El [Var 2; mk_const (prev_arg + 3)]) (prev_args + 1) ++
-                         GENLIST (\this_arg. Var (this_arg + 3)) (n + 1)))
-                     max_app)))))`;
+    Let [Op Sub [Op El [Var 0; mk_const 1]; mk_const (n + 1)]] (* The number of arguments remaining - 1 *)
+        (If (Op Less [Var 0; mk_const 0])
+            ARB (* Do something for over-application *)
+            (If (Op (TagEq closure_tag) [Var 1])
+                (Op (Cons partial_app_tag)
+                    (Jump (Op El [Var 1; mk_const 1])
+                          (GENLIST (\total_args. 
+                            mk_label (max_app + total_args * max_app + n)) 
+                           max_app) ::
+                     Var 0 ::
+                     GENLIST (\n. Var (n + 1)) (n + 2)))
+                (Jump (Op Sub [Op LengthBlock [Var 1]; mk_const 4])
+                  (GENLIST (\prev_args.
+                    Op (Cons partial_app_tag)
+                       (Jump (Op Add [mk_const (n + prev_args + 2); Var 1])
+                          (GENLIST (\total_args.
+                            mk_label (max_app + total_args * max_app + n))
+                           max_app) ::
+                        Var 1 ::
+                        Op El [Var 2; mk_const 2] ::
+                        GENLIST (\this_arg. Var (this_arg + 3)) (n + 1) ++
+                        GENLIST (\prev_arg.
+                          Op El [Var 2; mk_const (prev_arg + 3)]) (prev_args + 1)))
+                    max_app))))`;
+
+(* The functions to complete the application of a partial closure *)
+val generate_partial_app_closure_fn_def = Define `
+  generate_partial_app_closure_fn total_args prev_args = 
+    Let [Op El [Var 0; mk_const 2]]
+      (Call NONE 
+        (Var 0 ::
+         GENLIST (\this_arg. Var (this_arg + 2)) (total_args - prev_args) ++
+         GENLIST (\prev_arg.
+           Op El [Var 1; mk_const (prev_arg + 3)]) (prev_args + 1) ++
+         [Op El [Var 0; mk_const 0]]))`;
 
 val bEval_genlist_vars = Q.prove (
 `!x st args. bEval (GENLIST (\n. Var (n+LENGTH x)) (LENGTH args), x++args,st) = (Result args, st)`,
@@ -97,14 +107,18 @@ val bEval_genlist_vars1 = Q.prove (
 `!x st args. bEval (GENLIST (\n. Var (n+1)) (LENGTH args), x::args,st) = (Result args, st)`,
  metis_tac [bEval_genlist_vars, APPEND, LENGTH, DECIDE ``SUC 0 = 1``]);
 
+val bEval_genlist_vars2 = Q.prove (
+`!x y st args. bEval (GENLIST (\n. Var (n+2)) (LENGTH args), x::y::args,st) = (Result args, st)`,
+ metis_tac [bEval_genlist_vars, APPEND, LENGTH, DECIDE ``SUC (SUC 0) = 2``]);
+
 val bEval_genlist_vars3 = Q.prove (
 `!x y z st args. bEval (GENLIST (\n. Var (n+3)) (LENGTH args), x::y::z::args,st) = (Result args, st)`,
  metis_tac [bEval_genlist_vars, APPEND, LENGTH, DECIDE ``SUC (SUC (SUC 0)) = 3``]);
 
 val bEval_genlist_prev_args = Q.prove (
-`!prev_args z x y tag p n cl arg_list st.
-  bEval (GENLIST (λprev_arg. Op El [Var 2; Op (Const (&(prev_arg + LENGTH z))) []]) (LENGTH prev_args),
-         x::y::(Block tag (z++prev_args))::arg_list,
+`!prev_args z x tag p n cl arg_list st.
+  bEval (GENLIST (λprev_arg. Op El [Var (LENGTH x); Op (Const (&(prev_arg + LENGTH z))) []]) (LENGTH prev_args),
+         x++(Block tag (z++prev_args))::arg_list,
          st)
   =
   (Result prev_args,st)`,
@@ -116,16 +130,31 @@ val bEval_genlist_prev_args = Q.prove (
  pop_assum (qspecl_then [`z++[h]`] mp_tac) >>
  srw_tac [ARITH_ss] [combinTheory.o_DEF, ADD1] >>
  `z ++ h :: prev_args = z ++ [h] ++ prev_args` by metis_tac [APPEND, APPEND_ASSOC] >>
- rw [el_append3]);
+ rw [el_append3] >>
+ `x ++ Block tag (z ++ [h] ++ prev_args)::arg_list = x ++ [Block tag (z ++ [h] ++ prev_args)] ++ arg_list`
+         by metis_tac [APPEND, APPEND_ASSOC] >>
+ rw [el_append3] >>
+ decide_tac);
 
-val bEval_genlist_prev_args3 = Q.prove (
+val bEval_genlist_prev_args2 = Q.prove (
 `!prev_args x y tag p n cl arg_list st.
   bEval (GENLIST (λprev_arg. Op El [Var 2; Op (Const (&(prev_arg + 3))) []]) (LENGTH prev_args),
          x::y::(Block tag (p::n::cl::prev_args))::arg_list,
          st)
   =
   (Result prev_args,st)`,
- metis_tac [bEval_genlist_prev_args, APPEND, LENGTH, DECIDE ``SUC (SUC (SUC 0)) = 3``]);
+ metis_tac [bEval_genlist_prev_args, APPEND, LENGTH, DECIDE ``SUC (SUC (SUC 0)) = 3``,
+            DECIDE ``SUC (SUC 0) = 2``]);
+
+val bEval_genlist_prev_args1 = Q.prove (
+`!prev_args z tag p n cl arg_list st.
+  bEval (GENLIST (λprev_arg. Op El [Var 1; Op (Const (&(prev_arg + 3))) []]) (LENGTH prev_args),
+         z::(Block tag (p::n::cl::prev_args))::arg_list,
+         st)
+  =
+  (Result prev_args,st)`,
+ metis_tac [bEval_genlist_prev_args, APPEND, LENGTH, DECIDE ``SUC (SUC (SUC 0)) = 3``,
+            DECIDE ``(SUC 0) = 1``]);
 
 val bEval_generic_app1 = Q.prove (
 `!n args st total_args l fvs.
@@ -135,7 +164,7 @@ val bEval_generic_app1 = Q.prove (
   n + 2 = LENGTH args ∧
   HD args = Block closure_tag (CodePtr l :: Number (&total_args) :: fvs)
   ⇒
-  bEval ([SND (generate_generic_app n)], args, st) = 
+  bEval ([generate_generic_app n], args, st) = 
   (Result [Block partial_app_tag (CodePtr (max_app + total_args * max_app + n) ::
                                   Number (&(total_args - (n + 1))) ::
                                   args)],
@@ -164,12 +193,12 @@ val bEval_generic_app2 = Q.prove (
   rem_args + LENGTH prev_args < max_app ∧
   HD args = Block partial_app_tag (CodePtr l :: Number (&rem_args) :: clo :: prev_args)
   ⇒
-  bEval ([SND (generate_generic_app n)], args, st) = 
+  bEval ([generate_generic_app n], args, st) = 
   (Result [Block partial_app_tag (CodePtr (max_app + (rem_args + LENGTH prev_args) * max_app + n) ::
                                   Number (&rem_args - &(n+1)) ::
                                   clo ::
-                                  prev_args ++
-                                  TL args)],
+                                  TL args ++ 
+                                  prev_args)],
    st)`,
  rw [generate_generic_app_def, mk_const_def] >>
  rw [bEval_def, bEvalOp_def] >>
@@ -198,27 +227,34 @@ val bEval_generic_app2 = Q.prove (
  rw [bEval_APPEND] >>
  `?x arg_list. args = x::arg_list` by (Cases_on `args` >> fs []) >>
  rw [] >>
- full_simp_tac (srw_ss()++ARITH_ss) [bEval_genlist_prev_args3, ADD1] >>
+ full_simp_tac (srw_ss()++ARITH_ss) [bEval_genlist_prev_args2, ADD1] >>
  `n + 1 = LENGTH arg_list` by decide_tac >>
  rw [bEval_genlist_vars3]);
 
-
-  (*
-val generate_app_table_def = Define `
-  generate_app_table m n =
-    FLAT (GENLIST (\m. GENLIST (\n. (m * n + max_app, Op (Label (m * n)) [])) n) m)`;
-
-val generate_app_fun_def = Define `
-  generate_app_fun m n = 
-    (m * n + max_app, 
-    ARB)`;
+val bEval_partial_app_fn = Q.prove (
+`!args prev_args tag num tag' num' l l' fvs st exp.
+  LENGTH prev_args > 0 ∧
+  lookup l' st.code = SOME (LENGTH args + LENGTH prev_args + 1, exp)
+  ⇒
+  bEval ([generate_partial_app_closure_fn (LENGTH prev_args + LENGTH args - 1) (LENGTH prev_args - 1)],
+         Block tag (l::num::Block tag' (CodePtr l'::num'::fvs)::prev_args) :: args,
+         st) =
+  if st.clock = 0 then (TimeOut, st) else
+  bEval ([exp],
+         Block tag' (CodePtr l'::num'::fvs)::(args ++ prev_args),
+         dec_clock st)`,
+ rw [bEval_def, generate_partial_app_closure_fn_def, mk_const_def, bEvalOp_def] >>
+ full_simp_tac (srw_ss() ++ ARITH_ss) [] >>
+ rw [Once bEval_CONS, bEval_def, bEval_APPEND, bEval_genlist_vars2] >>
+ rw [bEval_genlist_prev_args1, bEvalOp_def, find_code_def] >>
+ rw [LAST_DEF, FRONT_DEF, rich_listTheory.FRONT_APPEND] >>
+ full_simp_tac (srw_ss()++ARITH_ss) []);
 
 val init_code_def = Define `
   init_code = 
-    GENLIST generate_generic_app max_app ++ 
-    FLAT (GENLIST (\m. GENLIST (generate_app_fun m) max_app) max_app)`;    
-    *)
-
+    GENLIST (\n. (n, generate_generic_app n)) max_app ++ 
+    FLAT (GENLIST (\m. GENLIST (\n. (max_app + m * max_app + n, 
+                                     generate_partial_app_closure_fn m n)) max_app) max_app)`;
 
 val cComp_def = tDefine "cComp" `
   (cComp [] aux = ([],aux)) /\
