@@ -362,7 +362,7 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
  fs[EVERY_MEM] >>
  first_x_assum(qspec_then`EL n tenv'`mp_tac) >>
  discharge_hyps >- metis_tac[MEM_EL] >> simp[] >> strip_tac >>
- qmatch_assum_rename_tac`check_t 0 (count st'.next_uvar) tt`[] >>
+ qmatch_assum_rename_tac`check_t 0 (count st'.next_uvar) tt` >>
  `t_vars tt ⊆ count (st'.next_uvar)` by imp_res_tac check_t_t_vars >>
  imp_res_tac infer_p_check_s>> ntac 7 (pop_assum kall_tac)>>
  `check_s 0 (count st'.next_uvar) s` by 

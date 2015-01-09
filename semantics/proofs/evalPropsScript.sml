@@ -459,7 +459,7 @@ val EVERY_store_vs_intro = store_thm("EVERY_store_vs_intro",
   ``∀P ls. EVERY (sv_every P) ls ⇒ EVERY P (store_vs ls)``,
   rw[EVERY_MEM,store_vs_def,MEM_MAP,MEM_FILTER,MEM_FLAT] >>
   res_tac >>
-  qmatch_assum_rename_tac`sv_every P x`[] >>
+  qmatch_assum_rename_tac`sv_every P x` >>
   Cases_on`x`>>fs[EVERY_MEM])
 
 val map_sv_compose = store_thm("map_sv_compose",

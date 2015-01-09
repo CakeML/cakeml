@@ -647,7 +647,7 @@ val free_vars_pat_exp_to_pat = store_thm("free_vars_pat_exp_to_pat",
       BasicProvers.CASE_TAC >- simp[] >>
       strip_tac >>
       full_simp_tac std_ss [Once find_index_shift_0] >>
-      qmatch_assum_rename_tac`z ∈ free_vars_exh e`[] >>
+      qmatch_assum_rename_tac`z ∈ free_vars_exh e` >>
       Cases_on`find_index (SOME z) ls 0` >- (
         fs[GSYM find_index_NOT_MEM,free_vars_defs_exh_MAP,PULL_EXISTS] >>
         metis_tac[] ) >>
@@ -680,7 +680,7 @@ val free_vars_pat_exp_to_pat = store_thm("free_vars_pat_exp_to_pat",
     strip_tac >>
     fs[SUBSET_DEF,PULL_EXISTS] >> rw[] >>
     res_tac >> fs[] >> rw[] >>
-    qmatch_assum_rename_tac`a ∈ free_vars_exh e`[] >>
+    qmatch_assum_rename_tac`a ∈ free_vars_exh e` >>
     Q.ISPECL_THEN[`x ++ t`,`SOME a`,`0:num`]mp_tac find_index_MEM >>
     discharge_hyps >- metis_tac[MEM_APPEND] >> strip_tac >> fs[] >>
     rator_x_assum`find_index`mp_tac >>
@@ -722,7 +722,7 @@ val free_vars_pat_exp_to_pat = store_thm("free_vars_pat_exp_to_pat",
       imp_res_tac find_index_LESS_LENGTH >>
       fsrw_tac[ARITH_ss][] ) >>
     rw[] >>
-    qmatch_assum_rename_tac`a ∈ free_vars_exh e`[] >>
+    qmatch_assum_rename_tac`a ∈ free_vars_exh e` >>
     fs[Once find_index_shift_0] >>
     Q.ISPECL_THEN[`t`,`SOME a`,`0:num`]mp_tac find_index_MEM >>
     discharge_hyps >- metis_tac[find_index_NOT_MEM,MEM_MAP] >> strip_tac >> fs[] >>
@@ -789,7 +789,7 @@ val free_vars_mkshift = store_thm("free_vars_mkshift",
       simp[Once EXTENSION,MEM_FLAT,MEM_MAP] >>
       srw_tac[DNF_ss][EQ_IMP_THM] >- (
         BasicProvers.EVERY_CASE_TAC >- (
-          qmatch_assum_rename_tac`MEM (NONE,az,b) defs`[] >>
+          qmatch_assum_rename_tac`MEM (NONE,az,b) defs` >>
           first_x_assum(qspecl_then[`az`,`b`]mp_tac) >>
           simp[] >> strip_tac >> fs[] >>
           fsrw_tac[DNF_ss][MEM_MAP,MEM_FILTER] >>
@@ -799,12 +799,12 @@ val free_vars_mkshift = store_thm("free_vars_mkshift",
           HINT_EXISTS_TAC >> simp[] >>
           simp[MEM_MAP,MEM_FILTER] >>
           qexists_tac`v` >> simp[] ) >>
-        qmatch_assum_rename_tac`MEM (SOME p,q,r) defs`[] >>
+        qmatch_assum_rename_tac`MEM (SOME p,q,r) defs` >>
         PairCases_on`p` >>
         fs[] ) >>
       HINT_EXISTS_TAC >>
       simp[] >>
-      qmatch_assum_rename_tac`MEM d defs`[] >>
+      qmatch_assum_rename_tac`MEM d defs` >>
       PairCases_on`d` >> simp[] >>
       Cases_on`d0`>>simp[]>>fs[]>>
       fsrw_tac[DNF_ss][MEM_MAP,MEM_FILTER] >>

@@ -347,8 +347,8 @@ Cases_on `walk es e1` >> fs[] >>
 Cases_on `walk es e2` >> fs[] >>
 TRY (
   strip_tac >> fs[] >>
-  qmatch_assum_rename_tac`walk es e1 = Pair t1a t1d`[] >>
-  qmatch_assum_rename_tac`walk es e2 = Pair t2a t2d`[] >>
+  qmatch_assum_rename_tac`walk es e1 = Pair t1a t1d` >>
+  qmatch_assum_rename_tac`walk es e2 = Pair t2a t2d` >>
   `Pair t1a t1d = encode_infer_t (t_walk s' t1')` by metis_tac[encode_walk,t_wfs_def] >>
   `Pair t2a t2d = encode_infer_t (t_walk s' t2')` by metis_tac[encode_walk,t_wfs_def] >>
   `wfs sx` by metis_tac[unify_unifier] >>
