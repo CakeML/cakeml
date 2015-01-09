@@ -62,7 +62,7 @@ val bc_eval_stack_thm2 = prove(
 Cases >> Cases >>
 fs[bc_eval_stack_def,bc_stack_op_cases] >> rw[]
 >- (
-  qmatch_assum_rename_tac `n ≤ LENGTH t` [] >>
+  qmatch_assum_rename_tac `n ≤ LENGTH t` >>
   qexists_tac `TAKE n t` >> rw[])
 >- (
   Cases_on`h`>>fs[bc_eval_stack_def] >> rw[] >>
@@ -76,37 +76,37 @@ fs[bc_eval_stack_def,bc_stack_op_cases] >> rw[]
   res_tac >> Cases_on`t`>>fs[])
 >- ( Cases_on `h` >> fs[bc_eval_stack_def] )
 >- (
-  qmatch_assum_rename_tac `bc_eval_stack (El) (h::t) = SOME ys` [] >>
+  qmatch_assum_rename_tac `bc_eval_stack (El) (h::t) = SOME ys` >>
   Cases_on `h` >> Cases_on`t` >> fs[bc_eval_stack_def] >>
   Cases_on`h`>>fs[bc_eval_stack_def] >> rw[] >>
   qexists_tac`Num i` >> rw[INT_OF_NUM])
 >- (
-  qmatch_assum_rename_tac `bc_eval_stack (TagEq n) (h::t) = SOME ys` [] >>
+  qmatch_assum_rename_tac `bc_eval_stack (TagEq n) (h::t) = SOME ys` >>
   Cases_on `h` >> fs[bc_eval_stack_def] )
 >- ( Cases_on `h` >> fs[bc_eval_stack_def] )
 >- ( Cases_on `h` >> fs[bc_eval_stack_def] )
 >- ( Cases_on `h` >> fs[bc_eval_stack_def] )
 >- (
-  qmatch_assum_rename_tac `bc_eval_stack Equal (a::t) = SOME ys` [] >>
+  qmatch_assum_rename_tac `bc_eval_stack Equal (a::t) = SOME ys` >>
   Cases_on`t`>>fs[bc_eval_stack_def] >>
   BasicProvers.EVERY_CASE_TAC >> fs[])
 >- (
-  qmatch_assum_rename_tac `bc_eval_stack Add (h::t) = SOME ys` [] >>
+  qmatch_assum_rename_tac `bc_eval_stack Add (h::t) = SOME ys` >>
   Cases_on `h` >> Cases_on `HD t` >> Cases_on `t` >> fs[bc_eval_stack_def] )
 >- (
-  qmatch_assum_rename_tac `bc_eval_stack Sub (h::t) = SOME ys` [] >>
+  qmatch_assum_rename_tac `bc_eval_stack Sub (h::t) = SOME ys` >>
   Cases_on `h` >> Cases_on `HD t` >> Cases_on `t` >> fs[bc_eval_stack_def] )
 >- (
-  qmatch_assum_rename_tac `bc_eval_stack Mult (h::t) = SOME ys` [] >>
+  qmatch_assum_rename_tac `bc_eval_stack Mult (h::t) = SOME ys` >>
   Cases_on `h` >> Cases_on `HD t` >> Cases_on `t` >> fs[bc_eval_stack_def] )
 >- (
-  qmatch_assum_rename_tac `bc_eval_stack Div (h::t) = SOME ys` [] >>
+  qmatch_assum_rename_tac `bc_eval_stack Div (h::t) = SOME ys` >>
   Cases_on `h` >> Cases_on `HD t` >> Cases_on `t` >> fs[bc_eval_stack_def] )
 >- (
-  qmatch_assum_rename_tac `bc_eval_stack Mod (h::t) = SOME ys` [] >>
+  qmatch_assum_rename_tac `bc_eval_stack Mod (h::t) = SOME ys` >>
   Cases_on `h` >> Cases_on `HD t` >> Cases_on `t` >> fs[bc_eval_stack_def] )
 >- (
-  qmatch_assum_rename_tac `bc_eval_stack Less (h::t) = SOME ys` [] >>
+  qmatch_assum_rename_tac `bc_eval_stack Less (h::t) = SOME ys` >>
   Cases_on `h` >> Cases_on `HD t` >> Cases_on `t` >> fs[bc_eval_stack_def] )
 )
 
@@ -232,7 +232,7 @@ val bc_eval1_SOME = store_thm(
 "bc_eval1_SOME",
 ``∀s1 s2. (bc_eval1 s1 = SOME s2) ⇒ bc_next s1 s2``,
 rw[bc_eval1_def] >>
-qmatch_assum_rename_tac `bc_fetch s1 = SOME inst` [] >>
+qmatch_assum_rename_tac `bc_fetch s1 = SOME inst` >>
 Cases_on `inst` >> fs[GSYM bc_eval_stack_thm]
 >- rw[bc_next_rules]
 >- rw[bc_next_rules]
@@ -249,27 +249,27 @@ Cases_on `inst` >> fs[GSYM bc_eval_stack_thm]
   rw[bc_next_cases] )
 >- (
   Cases_on `s1.stack` >> fs[LET_THM] >>
-  qmatch_assum_rename_tac `s1.stack = h::t` [] >>
+  qmatch_assum_rename_tac `s1.stack = h::t` >>
   Cases_on `h` >> Cases_on `t` >> fs[] >>
   rw[bc_next_cases] )
 >- ( rw[bc_next_rules] )
 >- (
   Cases_on `s1.stack` >> fs[LET_THM] >>
-  qmatch_assum_rename_tac `s1.stack = h::t` [] >>
+  qmatch_assum_rename_tac `s1.stack = h::t` >>
   Cases_on `t` >> fs [] >>
-  qmatch_assum_rename_tac `s1.stack = x::y::t` [] >>
+  qmatch_assum_rename_tac `s1.stack = x::y::t` >>
   Cases_on `y` >> fs [] >>
   rw[bc_next_cases] )
 >- ( rw[bc_next_cases] )
 >- (
   Cases_on `s1.stack` >> fs[LET_THM] >>
-  qmatch_assum_rename_tac`s1.stack = x::xs`[] >>
+  qmatch_assum_rename_tac`s1.stack = x::xs` >>
   Cases_on `s1.handler < LENGTH xs` >> fs[LET_THM] >>
   Cases_on `EL s1.handler (REVERSE xs)` >> fs[LET_THM] >>
   rw[bc_next_cases,bytecodeTheory.bc_state_component_equality] >>
   qpat_assum`X = x::xs`kall_tac >>
   qpat_assum`X = SOME PopExc`kall_tac >>
-  qmatch_assum_rename_tac`m < LENGTH xs`[] >>
+  qmatch_assum_rename_tac`m < LENGTH xs` >>
   Induct_on`xs`>>fs[] >>
   fs[ADD1] >> rpt gen_tac >> strip_tac >>
   Cases_on`m < LENGTH xs` >- (
@@ -280,7 +280,7 @@ Cases_on `inst` >> fs[GSYM bc_eval_stack_thm]
 >- ( (* Ref *)
   Cases_on `s1.stack` >> fs[LET_THM] >>
   rw[bc_next_cases] >>
-  qmatch_assum_rename_tac `s1.stack = h::t` [] >>
+  qmatch_assum_rename_tac `s1.stack = h::t` >>
   Cases_on`h`>>fs[]>>
   Cases_on`t`>>fs[]>>
   rw[bc_state_component_equality] >>
@@ -289,12 +289,12 @@ Cases_on `inst` >> fs[GSYM bc_eval_stack_thm]
   BasicProvers.EVERY_CASE_TAC >> fs[] >>
   fs[LET_THM] >>
   rw[bc_next_cases,bc_state_component_equality] >>
-  qmatch_assum_rename_tac`s1.stack = Number n::Number w::t`[] >>
+  qmatch_assum_rename_tac`s1.stack = Number n::Number w::t` >>
   map_every qexists_tac[`Num n`,`n2w(Num w)`] >>
   simp[INT_OF_NUM] )
 >- ( (* Deref *)
   Cases_on `s1.stack` >> fs[LET_THM] >>
-  qmatch_assum_rename_tac `s1.stack = h::t` [] >>
+  qmatch_assum_rename_tac `s1.stack = h::t` >>
   Cases_on `h` >> fs[] >>
   rw[bc_next_cases] >>
   Cases_on`t`>>fs[] >>
@@ -309,9 +309,9 @@ Cases_on `inst` >> fs[GSYM bc_eval_stack_thm]
   qexists_tac`Num i`>>simp[INT_OF_NUM])
 >- ( (* Update *)
   Cases_on `s1.stack` >> fs[LET_THM] >>
-  qmatch_assum_rename_tac `s1.stack = h::t` [] >>
+  qmatch_assum_rename_tac `s1.stack = h::t` >>
   Cases_on `t` >> fs [] >>
-  qmatch_assum_rename_tac `s1.stack = x::y::t` [] >>
+  qmatch_assum_rename_tac `s1.stack = x::y::t` >>
   Cases_on `y` >> fs [] >>
   BasicProvers.EVERY_CASE_TAC >> fs[] >>
   BasicProvers.EVERY_CASE_TAC >> fs[] >>
@@ -322,7 +322,7 @@ Cases_on `inst` >> fs[GSYM bc_eval_stack_thm]
   BasicProvers.EVERY_CASE_TAC >> fs[] >>
   BasicProvers.EVERY_CASE_TAC >> fs[] >>
   rw[bc_next_cases] >>
-  qmatch_assum_rename_tac`s1.stack = Number w::Number m::RefPtr p::t`[] >>
+  qmatch_assum_rename_tac`s1.stack = Number w::Number m::RefPtr p::t` >>
   map_every qexists_tac[`n2w(Num w)`,`Num m`] >>
   simp[INT_OF_NUM] )
 >- (

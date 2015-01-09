@@ -172,7 +172,7 @@ val pEval_pLive = prove(
      \\ fs [pEval_def,get_var_def,LET_DEF]
      \\ REPEAT (BasicProvers.FULL_CASE_TAC \\ fs []) \\ SRW_TAC [] []
      \\ fs [pLive_def,LET_DEF,pEval_def,cut_state_opt_def]
-     \\ Q.MATCH_ASSUM_RENAME_TAC `pEvalOp op vs t = SOME (q,r)` []
+     \\ Q.MATCH_ASSUM_RENAME_TAC `pEvalOp op vs t = SOME (q,r)`
      \\ Cases_on `domain x SUBSET domain s.locals` \\ fs []
      \\ fs [cut_state_def,cut_env_def]
      \\ `domain (inter x (list_insert args (delete dest l2))) SUBSET
@@ -313,7 +313,7 @@ val pEval_pLive = prove(
         call_env q (dec_clock s) with stack := t1.stack` by
       fs [call_env_def,dec_clock_def,state_rel_def,bvp_state_explode]
     \\ fs [] \\ Q.MATCH_ASSUM_RENAME_TAC
-         `pEval (r,call_env q (dec_clock s)) = (SOME res2,s2)` []
+         `pEval (r,call_env q (dec_clock s)) = (SOME res2,s2)`
     \\ MP_TAC (Q.SPECL [`r`,`call_env q (dec_clock s)`] pEval_stack_swap)
     \\ fs [] \\ Cases_on `res2` \\ fs [] THEN1
      (fs [call_env_def,dec_clock_def] \\ REPEAT STRIP_TAC
@@ -325,7 +325,7 @@ val pEval_pLive = prove(
       \\ POP_ASSUM (MP_TAC o Q.SPECL [`t1.stack`])
       \\ Q.PAT_ASSUM `!x.bbb` (MP_TAC o GSYM)
       \\ Q.MATCH_ASSUM_RENAME_TAC
-           `jump_exc (call_env q (dec_clock s)) = SOME s3` []
+           `jump_exc (call_env q (dec_clock s)) = SOME s3`
       \\ Q.PAT_ASSUM `jump_exc (call_env q (dec_clock s)) = SOME s3`
             (MP_TAC o GSYM)
       \\ SIMP_TAC (srw_ss()) [call_env_def,dec_clock_def,Once jump_exc_def]
@@ -345,7 +345,7 @@ val pEval_pLive = prove(
       \\ SRW_TAC [] [state_rel_def]))
   (* Call with SOME ret *)
   \\ Cases_on `x` \\ Q.MATCH_ASSUM_RENAME_TAC
-       `(d,l1) = pLive (Call (SOME (v,names)) dest args handler) l2` []
+       `(d,l1) = pLive (Call (SOME (v,names)) dest args handler) l2`
   \\ Cases_on `handler`
   THEN1 (* Call with handler NONE *)
    (fs [pLive_def,LET_DEF,pEval_def]
@@ -392,7 +392,7 @@ val pEval_pLive = prove(
      (REPEAT STRIP_TAC
       \\ POP_ASSUM (MP_TAC o Q.SPECL [`t5.stack`])
       \\ Q.PAT_ASSUM `!x.bbb` (MP_TAC o GSYM)
-      \\ Q.MATCH_ASSUM_RENAME_TAC `jump_exc t4 = SOME s3` []
+      \\ Q.MATCH_ASSUM_RENAME_TAC `jump_exc t4 = SOME s3`
       \\ Q.PAT_ASSUM `jump_exc t4 = SOME s3` (MP_TAC o GSYM)
       \\ UNABBREV_ALL_TAC
       \\ SIMP_TAC (srw_ss()) [call_env_def,push_env_def,

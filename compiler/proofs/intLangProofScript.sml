@@ -652,7 +652,7 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
       discharge_hyps >- (
         reverse conj_tac >- (
           fs[map_count_store_genv_def] >>
-          qmatch_assum_rename_tac`csg_rel syneq (X,MAP f genv3) (FST Y)`["X","f"] >>
+          qmatch_assum_rename_tac`csg_rel syneq (_,MAP _ genv3) (FST Y)` >>
           PairCases_on`Y`>>fs[csg_rel_def] >>
           metis_tac[EVERY2_syneq_trans,EVERY2_OPTREL_syneq_trans] ) >>
         simp[relationTheory.O_DEF,PULL_EXISTS,syneq_cb_V_def] >>
@@ -663,7 +663,7 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
       discharge_hyps >- (
         reverse conj_tac >- (
           fs[map_count_store_genv_def] >>
-          qmatch_assum_rename_tac`csg_rel syneq (X,MAP f genv3) (FST Y)`["X","f"] >>
+          qmatch_assum_rename_tac`csg_rel syneq (_,MAP _ genv3) (FST Y)` >>
           PairCases_on`Y`>>fs[csg_rel_def] >>
           metis_tac[EVERY2_syneq_trans,EVERY2_OPTREL_syneq_trans] ) >>
         simp[PULL_EXISTS,syneq_cb_V_def] >>
@@ -722,7 +722,7 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
         use_assum_tac >>
         syneq_tac >>
         use_assum_tac >>
-        qmatch_assum_rename_tac`opn_to_prim2 op = X`["X"] >>
+        qmatch_assum_rename_tac`opn_to_prim2 op = _` >>
         Cases_on`op`>> fs[opn_to_prim2_def] >>
         rpt BasicProvers.VAR_EQ_TAC >> simp[] >> fs[opn_lookup_def] >>
         metis_tac[csg_rel_syneq_trans] ) >>
@@ -739,7 +739,7 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
       srw_tac[DNF_ss][Once(CONJUNCT2 Cevaluate_cases)] >>
       simp_tac(srw_ss()++DNF_ss)[Once(CONJUNCT2 Cevaluate_cases)] >>
       simp_tac(srw_ss()++DNF_ss)[Once(CONJUNCT2 Cevaluate_cases)] >>
-      qmatch_assum_rename_tac`opn_to_prim2 op = X`["X"] >>
+      qmatch_assum_rename_tac`opn_to_prim2 op = _` >>
       simp[lit_same_type_def] >>
       Cases_on`op`>>fs[opn_to_prim2_def] >>
       rpt BasicProvers.VAR_EQ_TAC >> simp[] >> fs[opn_lookup_def] >>
@@ -983,7 +983,7 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
       fs[semanticPrimitivesTheory.store_lookup_def] >>
       qpat_assum`X = SOME Y`mp_tac >>
       BasicProvers.CASE_TAC >>
-      qmatch_assum_rename_tac`lnum < LENGTH s21`[] >>
+      qmatch_assum_rename_tac`lnum < LENGTH s21` >>
       Cases_on`EL lnum s21`>>simp[store_assign_def] >>
       strip_tac >>
       srw_tac[DNF_ss][Once Cevaluate_cases] >> disj1_tac >>
@@ -1015,7 +1015,7 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
         rpt(first_x_assum(qspec_then`lnum`mp_tac)) >>
         simp[sv_rel_cases] >> NO_TAC) >>
       simp[] >>
-      qmatch_assum_rename_tac`EL lnum sz = W8array lz`[] >>
+      qmatch_assum_rename_tac`EL lnum sz = W8array lz` >>
       `lz = l` by (
         fs[csg_rel_def,LIST_REL_EL_EQN,map_count_store_genv_def,EL_MAP] >> rw[] >>
         metis_tac[sv_rel_cases,map_sv_def,sv_rel_def] ) >>
@@ -1244,7 +1244,7 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
       simp[Once Cevaluate_cases,libTheory.el_check_def] >>
       rpt conj_tac >>
       TRY (
-        qmatch_assum_rename_tac`EL lnum s21 = Varray l`[] >>
+        qmatch_assum_rename_tac`EL lnum s21 = Varray l` >>
         qmatch_assum_abbrev_tac`LIST_REL R l1 Cres1` >>
         qmatch_assum_abbrev_tac`LIST_REL R Cres1 l2` >>
         `LIST_REL R l1 l2` by metis_tac[EVERY2_sv_rel_syneq_trans] >>
@@ -1305,7 +1305,7 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
       fs[semanticPrimitivesTheory.store_lookup_def] >>
       qpat_assum`X = SOME Y`mp_tac >>
       BasicProvers.CASE_TAC >>
-      qmatch_assum_rename_tac`lnum < LENGTH s21`[] >>
+      qmatch_assum_rename_tac`lnum < LENGTH s21` >>
       Cases_on`EL lnum s21`>>simp[store_assign_def] >>
       strip_tac >>
       srw_tac[DNF_ss][Once Cevaluate_cases] >> disj1_tac >>
@@ -1337,7 +1337,7 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
         rpt(first_x_assum(qspec_then`lnum`mp_tac)) >>
         simp[sv_rel_cases] >> rw[] >> fs[] >> NO_TAC) >>
       simp[] >>
-      qmatch_assum_rename_tac`EL lnum sz = Varray lz`[] >>
+      qmatch_assum_rename_tac`EL lnum sz = Varray lz` >>
       `LIST_REL syneq (MAP v_to_Cv l) lz` by (
         fs[csg_rel_def,map_count_store_genv_def,EVERY2_MAP,LIST_REL_EL_EQN] >>
         rpt(first_x_assum(qspec_then`lnum`mp_tac)) >> simp[sv_rel_cases] >>

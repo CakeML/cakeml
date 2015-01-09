@@ -108,7 +108,7 @@ val BIT_TIMES2 = store_thm("BIT_TIMES2",
     simp[BIT0_ODD] >>
     simp[arithmeticTheory.ODD_EVEN] >>
     simp[arithmeticTheory.EVEN_DOUBLE] ) >>
-  qmatch_rename_tac`BIT (SUC z) (2 * n) ⇔ BIT z n`[] >>
+  qmatch_rename_tac`BIT (SUC z) (2 * n) ⇔ BIT z n` >>
   qspecl_then[`z`,`n`,`1`]mp_tac BIT_SHIFT_THM >>
   simp[arithmeticTheory.ADD1])
 
@@ -251,7 +251,7 @@ val least_from_thm = store_thm("least_from_thm",
   numLib.LEAST_ELIM_TAC >> rw[] >> fs[] >> res_tac >>
   TRY(metis_tac[arithmeticTheory.LESS_OR_EQ]) >- (
     numLib.LEAST_ELIM_TAC >> rw[] >> fs[] >- metis_tac[] >>
-    qmatch_rename_tac`a = b`[] >>
+    qmatch_rename_tac`a = b` >>
     `n ≤ b` by DECIDE_TAC >>
     Cases_on`b < a` >-metis_tac[] >>
     spose_not_then strip_assume_tac >>
@@ -399,7 +399,7 @@ val find_index_LEAST_EL = store_thm("find_index_LEAST_EL",
   numLib.LEAST_ELIM_TAC >>
   conj_tac >- metis_tac[] >>
   rw[] >>
-  qmatch_rename_tac`m = n`[] >>
+  qmatch_rename_tac`m = n` >>
   Cases_on`m < n` >- (res_tac >> fs[]) >>
   Cases_on`n < m` >- (
     `n + 1 < m + 1` by DECIDE_TAC >>
@@ -463,7 +463,7 @@ val find_index_ALL_DISTINCT_REVERSE = store_thm("find_index_ALL_DISTINCT_REVERSE
   `ALL_DISTINCT (REVERSE ls)` by rw[ALL_DISTINCT_REVERSE] >>
   simp[find_index_ALL_DISTINCT_EL_eq] >>
   rw[] >> fsrw_tac[ARITH_ss][] >> rw[] >>
-  qmatch_assum_rename_tac`z < LENGTH ls`[] >>
+  qmatch_assum_rename_tac`z < LENGTH ls` >>
   qexists_tac`LENGTH ls - z - 1` >>
   lrw[EL_REVERSE,PRE_SUB1])
 
@@ -574,7 +574,7 @@ val ALL_DISTINCT_PERM_ALOOKUP_ZIP = store_thm("ALL_DISTINCT_PERM_ALOOKUP_ZIP",
   ``∀l1 l2 l3. ALL_DISTINCT (MAP FST l1) ∧ PERM (MAP FST l1) l2
     ⇒ (set l1 = set (ZIP (l2, MAP (THE o ALOOKUP (l1 ++ l3)) l2)))``,
   rw[EXTENSION,FORALL_PROD,EQ_IMP_THM] >- (
-    qmatch_assum_rename_tac`MEM (x,y) l1`[] >>
+    qmatch_assum_rename_tac`MEM (x,y) l1` >>
     imp_res_tac PERM_LENGTH >> fs[] >>
     simp[MEM_ZIP] >>
     imp_res_tac MEM_PERM >>
@@ -585,7 +585,7 @@ val ALL_DISTINCT_PERM_ALOOKUP_ZIP = store_thm("ALL_DISTINCT_PERM_ALOOKUP_ZIP",
     simp[EL_MAP] >>
     imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
     rw[ALOOKUP_APPEND] ) >>
-  qmatch_rename_tac`MEM (x,y) l1`[] >>
+  qmatch_rename_tac`MEM (x,y) l1` >>
   imp_res_tac PERM_LENGTH >>
   fs[MEM_ZIP] >>
   simp[EL_MAP] >>
@@ -624,9 +624,9 @@ val PERM_ZIP = store_thm("PERM_ZIP",
     Cases>>simp[LENGTH_NIL_SYM] >>
     Cases>>simp[LENGTH_NIL_SYM] >>
     strip_tac >> rpt BasicProvers.VAR_EQ_TAC >>
-    qmatch_assum_rename_tac`LENGTH a = LENGTH b`[] >>
+    qmatch_assum_rename_tac`LENGTH a = LENGTH b` >>
     pop_assum mp_tac >>
-    qmatch_assum_rename_tac`LENGTH c = LENGTH d`[] >>
+    qmatch_assum_rename_tac`LENGTH c = LENGTH d` >>
     strip_tac >>
     Cases_on`a`>>fs[LENGTH_NIL_SYM]>>
     Cases_on`b`>>fs[LENGTH_NIL_SYM]>>
@@ -885,7 +885,7 @@ GEN_TAC THEN Induct THEN SRW_TAC[][] THEN
 `P ls (FOLDR f a ls)` by (
   FIRST_X_ASSUM MATCH_MP_TAC THEN
   SRW_TAC[][] THEN
-  Q.MATCH_ASSUM_RENAME_TAC `P (DROP (SUC n) ls) b` [] THEN
+  Q.MATCH_ASSUM_RENAME_TAC `P (DROP (SUC n) ls) b` THEN
   FIRST_X_ASSUM (Q.SPECL_THEN [`SUC n`,`b`] MP_TAC) THEN
   SRW_TAC[][] ) THEN
 FIRST_X_ASSUM (Q.SPEC_THEN `0` MP_TAC) THEN

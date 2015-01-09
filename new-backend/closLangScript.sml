@@ -44,7 +44,8 @@ val _ = Datatype `
            | Error `
 
 val _ = Datatype `
-  clos_ref = ValueArray (clos_val list)`
+  clos_ref = ValueArray (clos_val list)
+           | ByteArray (word8 list)`
 
 val _ = Datatype `
   clos_state =
@@ -52,7 +53,8 @@ val _ = Datatype `
      ; refs    : num |-> clos_ref
      ; clock   : num
      ; code    : num |-> (num # clos_exp)
-     ; output  : string |> `
+     ; output  : string
+     ; restrict_envs : bool |> `
 
 (* helper functions *)
 
@@ -119,6 +121,21 @@ val clos_to_string_def = Define `
   (clos_to_string ((RefPtr v0) : clos_val) = SOME "<ref>") /\
   (clos_to_string _ = SOME "<fn>")`;
 
+val clos_from_list_def = Define`
+  (clos_from_list (Block tag []) =
+     if tag = nil_tag + block_tag then SOME [] else NONE) ∧
+  (clos_from_list (Block tag [h;bt]) =
+     if tag = cons_tag + block_tag then
+       (case clos_from_list bt of
+        | SOME t => SOME (h::t)
+        | _ => NONE )
+     else NONE) ∧
+  (clos_from_list _ = NONE)`
+
+val clos_to_list_def = Define`
+  (clos_to_list [] = Block (nil_tag + block_tag) []) ∧
+  (clos_to_list (h::t) = Block (cons_tag + block_tag) [h;clos_to_list t])`
+
 val cEvalOp_def = Define `
   cEvalOp (op:bvl_op) (vs:clos_val list) (s:clos_state) =
     case (op,vs) of
@@ -137,6 +154,52 @@ val cEvalOp_def = Define `
     | (Cons tag,xs) => SOME (Block tag xs, s)
     | (El,[Block tag xs;Number i]) =>
         if 0 ≤ i ∧ Num i < LENGTH xs then SOME (EL (Num i) xs, s) else NONE
+    | (LengthBlock,[Block tag xs]) =>
+        SOME (Number (&LENGTH xs), s)
+    | (Length,[RefPtr ptr]) =>
+        (case FLOOKUP s.refs ptr of
+          | SOME (ValueArray xs) =>
+              SOME (Number (&LENGTH xs), s)
+          | _ => NONE)
+    | (LengthByte,[RefPtr ptr]) =>
+        (case FLOOKUP s.refs ptr of
+          | SOME (ByteArray xs) =>
+              SOME (Number (&LENGTH xs), s)
+          | _ => NONE)
+    | (RefByte,[Number i;Number b]) =>
+         if 0 ≤ i ∧ 0 ≤ b ∧ b < 256 then
+           let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
+             SOME (RefPtr ptr, s with refs := s.refs |+
+               (ptr,ByteArray (REPLICATE (Num i) (n2w (Num b)))))
+         else NONE
+    | (RefArray,[Number i;v]) =>
+        if 0 ≤ i then
+          let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
+            SOME (RefPtr ptr, s with refs := s.refs |+
+              (ptr,ValueArray (REPLICATE (Num i) v)))
+         else NONE
+    | (DerefByte,[RefPtr ptr; Number i]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ByteArray ws) =>
+            (if 0 ≤ i ∧ i < &LENGTH ws
+             then SOME (Number (&(w2n (EL (Num i) ws))),s)
+             else NONE)
+         | _ => NONE)
+    | (UpdateByte,[RefPtr ptr; Number i; Number b]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ByteArray bs) =>
+            (if 0 ≤ i ∧ i < &LENGTH bs ∧ 0 ≤ b ∧ b < 256
+             then
+               (SOME (Number b, s with refs := s.refs |+
+                 (ptr, ByteArray (LUPDATE (n2w (Num b)) (Num i) bs))))
+             else NONE)
+         | _ => NONE)
+    | (FromList n,[lv]) =>
+        (case clos_from_list lv of
+         | SOME vs => SOME (Block n vs, s)
+         | _ => NONE)
+    | (ToList,[Block tag xs]) =>
+        SOME (clos_to_list xs, s)
     | (TagEq n,[Block tag xs]) =>
         SOME (bool_to_val (tag = n),s)
     | (Equal,[x1;x2]) =>
@@ -280,9 +343,13 @@ val dest_closure_length = Q.prove (
  rw [] >>
  decide_tac);
 
+val clos_env_def = Define `
+  clos_env restrict names env =
+    if restrict then lookup_vars names env else SOME env`
+
 val build_recc_def = Define `
-  build_recc loc env names fns =
-    case lookup_vars names env of
+  build_recc restrict loc env names fns =
+    case clos_env restrict names env of
     | SOME env1 => SOME (GENLIST (Recclosure loc [] env1 fns) (LENGTH fns))
     | NONE => NONE`
 
@@ -300,8 +367,8 @@ val cEval_def = tDefine "cEval" `
   (cEval ([If x1 x2 x3],env,s) =
      case cEval ([x1],env,s) of
      | (Result vs,s1) =>
-          if Block 1 [] = HD vs then cEval([x2],env,check_clock s1 s) else
-          if Block 0 [] = HD vs then cEval([x3],env,check_clock s1 s) else
+          if Block 1 [] = HD vs then cEval ([x2],env,check_clock s1 s) else
+          if Block 0 [] = HD vs then cEval ([x3],env,check_clock s1 s) else
             (Error,s1)
      | res => res) /\
   (cEval ([Let xs x2],env,s) =
@@ -387,7 +454,9 @@ val check_clock_IMP = prove(
 
 val cEvalOp_const = store_thm("cEvalOp_const",
   ``(cEvalOp op args s1 = SOME (res,s2)) ==>
-    (s2.clock = s1.clock) /\ (s2.code = s1.code)``,
+    (s2.clock = s1.clock) /\
+    (s2.code = s1.code) /\
+    (s2.restrict_envs = s1.restrict_envs)``,
   SIMP_TAC std_ss [cEvalOp_def]
   \\ BasicProvers.EVERY_CASE_TAC
   \\ fs [LET_DEF] \\ SRW_TAC [] [] \\ fs []);
@@ -444,7 +513,7 @@ val cEval_ind = save_thm("cEval_ind",let
   (* set_goal([],goal) *)
   val ind = prove(goal,
     STRIP_TAC \\ STRIP_TAC \\ MATCH_MP_TAC raw_ind
-    \\ REVERSE (REPEAT STRIP_TAC) \\ ASM_REWRITE_TAC []
+    \\ Tactical.REVERSE (REPEAT STRIP_TAC) \\ ASM_REWRITE_TAC []
     THEN1 (Q.PAT_ASSUM `!dest xs env s1. bb ==> bbb` MATCH_MP_TAC
            \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC
            \\ IMP_RES_TAC cEval_clock
@@ -521,7 +590,7 @@ val cEval_LENGTH = prove(
   HO_MATCH_MP_TAC cEval_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [cEval_def]
   \\ SRW_TAC [] [] \\ SRW_TAC [] []
-  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ BasicProvers.EVERY_CASE_TAC \\ FULL_SIMP_TAC (srw_ss()) []
   \\ REV_FULL_SIMP_TAC std_ss [] \\ FULL_SIMP_TAC (srw_ss()) [])
   |> SIMP_RULE std_ss [];
 
@@ -572,6 +641,35 @@ val cEval_SNOC = store_thm("cEval_SNOC",
   \\ IMP_RES_TAC cEval_IMP_LENGTH
   \\ Cases_on `a''` \\ fs [LENGTH]
   \\ REV_FULL_SIMP_TAC std_ss [LENGTH_NIL] \\ fs []);
+
+val cEvalOp_const = store_thm("cEvalOp_const",
+  ``(cEvalOp op args s1 = SOME (res,s2)) ==>
+    (s2.clock = s1.clock) /\
+    (s2.code = s1.code) /\
+    (s2.restrict_envs = s1.restrict_envs)``,
+  SIMP_TAC std_ss [cEvalOp_def]
+  \\ BasicProvers.EVERY_CASE_TAC
+  \\ fs [LET_DEF] \\ SRW_TAC [] [] \\ fs []);
+
+val cEval_const_lemma = prove(
+  ``!xs env s1. (\(xs,env,s1).
+      (case cEval (xs,env,s1) of (_,s2) =>
+         (s2.restrict_envs = s1.restrict_envs) /\
+         (s2.code = s1.code)))
+           (xs,env,s1)``,
+  HO_MATCH_MP_TAC cEval_ind \\ REPEAT STRIP_TAC
+  \\ FULL_SIMP_TAC (srw_ss()) [cEval_def]
+  \\ SRW_TAC [] [] \\ SRW_TAC [] []
+  \\ BasicProvers.EVERY_CASE_TAC \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ REV_FULL_SIMP_TAC std_ss [] \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ IMP_RES_TAC cEvalOp_const \\ FULL_SIMP_TAC std_ss []
+  \\ fs [dec_clock_def])
+  |> SIMP_RULE std_ss [] |> SPEC_ALL;
+
+val cEval_const = store_thm("cEval_const",
+  ``(cEval (xs,env,s1) = (res,s2)) ==>
+    (s2.restrict_envs = s1.restrict_envs) /\ (s2.code = s1.code)``,
+  REPEAT STRIP_TAC \\ MP_TAC cEval_const_lemma \\ fs []);
 
 (* clean up *)
 

@@ -2309,7 +2309,7 @@ val bvl_bc_correct = store_thm("bvl_bc_correct",
       rw[]) >>
     rw[] >>
     Cases_on`lookup x' s0.code`>>fs[] >>
-    qmatch_assum_rename_tac`lookup n s0.code = X`["X"] >>
+    qmatch_assum_rename_tac`lookup n s0.code = _` >>
     `∃args exp. x = (args,exp)` by metis_tac[pair_CASES] >> fs[] >>
     rw[] >>
     rator_assum`good_code_env`mp_tac >>
@@ -2685,8 +2685,8 @@ val bvl_bc_update_ptr = store_thm("bvl_bc_update_ptr",
   simp[MAP_REVERSE,bvl_bc_ref_update_ptr])
 
 val bvl_bc_table_def = Define`
-  bvl_bc_table il cmap =
-    let (f,s) = foldi (bvl_bc_ptrfun il) 0 (LN, <|next_label:=0;out:=[]|>) cmap in
+  bvl_bc_table il nl cmap =
+    let (f,s) = foldi (bvl_bc_ptrfun il) 0 (LN, <|next_label:=nl;out:=[]|>) cmap in
     (f,s with out := MAP (update_ptr f) s.out)`
 
 val is_Label_o_update_ptr = prove(
@@ -2711,10 +2711,10 @@ val next_addr_MAP_update_ptr = prove(
 
 val bvl_bc_table_correct = store_thm("bvl_bc_table_correct",
   ``length_ok il ⇒
-    bvl_bc_table il cmap = (f,s) ⇒
+    bvl_bc_table il nl cmap = (f,s) ⇒
     good_code_env f il cmap (REVERSE s.out)``,
   rw[bvl_bc_table_def,foldi_FOLDR_toAList] >>
-  qspecl_then[`LN`,`<|next_label := 0; out:=[]|>`,`toAList cmap`]mp_tac
+  qspecl_then[`LN`,`<|next_label := nl; out:=[]|>`,`toAList cmap`]mp_tac
     (INST_TYPE[alpha|->numSyntax.num] bvl_bc_ptrfun_correct) >>
   discharge_hyps >- (
     simp[ALL_DISTINCT_MAP_FST_toAList] ) >>

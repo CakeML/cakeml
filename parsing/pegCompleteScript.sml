@@ -2249,7 +2249,7 @@ val completeness = store_thm(
           fs[MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_CONS] >>
           rveq >> conj_tac
           >- (erule mp_tac (MATCH_MP fringe_length_not_nullable nullable_E) >>
-              simp[] >> Q.MATCH_RENAME_TAC `0 < LENGTH f ==> X` ["X"] >>
+              simp[] >> Q.MATCH_RENAME_TAC `0 < LENGTH f ==> _` >>
               Cases_on `f` >> simp[] >> strip_tac >> rveq >> fs[] >>
               IMP_RES_THEN mp_tac firstSet_nonempty_fringe >> simp[]) >>
           DISJ1_TAC >> simp[peg_EbaseParen_def] >> dsimp[] >> DISJ2_TAC >>

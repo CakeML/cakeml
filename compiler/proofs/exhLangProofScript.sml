@@ -1244,7 +1244,7 @@ val pmatch_exh_APPEND = store_thm("pmatch_exh_APPEND",
   pop_assum (qspec_then`n`mp_tac) >>
   Cases_on `pmatch_exh s p v (TAKE n env)`>>fs[] >>
   strip_tac >> res_tac >>
-  qmatch_assum_rename_tac`pmatch_exh s p v (TAKE n env) = Match env1`[] >>
+  qmatch_assum_rename_tac`pmatch_exh s p v (TAKE n env) = Match env1` >>
   pop_assum(qspec_then`LENGTH env1`mp_tac) >>
   simp_tac(srw_ss())[rich_listTheory.TAKE_LENGTH_APPEND,rich_listTheory.DROP_LENGTH_APPEND] )
 
