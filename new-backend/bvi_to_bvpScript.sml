@@ -475,12 +475,12 @@ val iComp_correct = prove(
     \\ FULL_SIMP_TAC std_ss [var_corr_def,LIST_REL_def]
     \\ FULL_SIMP_TAC std_ss [listTheory.LIST_REL_EL_EQN]
     \\ FULL_SIMP_TAC (srw_ss()) [get_var_def,set_var_def,lookup_insert,res_list_def]
-    \\ Q.MATCH_ASSUM_RENAME_TAC `k < LENGTH env` []
+    \\ Q.MATCH_ASSUM_RENAME_TAC `k < LENGTH env`
     \\ FULL_SIMP_TAC (srw_ss()) [state_rel_def,call_env_def,isException_def]
     \\ REPEAT STRIP_TAC
     \\ SRW_TAC [] [] THEN1 DECIDE_TAC
     THEN1 (FIRST_X_ASSUM MATCH_MP_TAC \\ DECIDE_TAC)
-    THEN1 (Q.MATCH_ASSUM_RENAME_TAC `l < LENGTH env` []
+    THEN1 (Q.MATCH_ASSUM_RENAME_TAC `l < LENGTH env`
            \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `EL l corr`)
            \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`)
            \\ FULL_SIMP_TAC std_ss [])
@@ -508,7 +508,7 @@ val iComp_correct = prove(
       \\ IMP_RES_TAC iEval_SING_IMP \\ FULL_SIMP_TAC (srw_ss()) []
       \\ IMP_RES_TAC iComp_SING_IMP \\ FULL_SIMP_TAC (srw_ss()) []
       \\ SRW_TAC [] []
-      \\ Q.MATCH_ASSUM_RENAME_TAC `var_corr [w] [n5] t2` []
+      \\ Q.MATCH_ASSUM_RENAME_TAC `var_corr [w] [n5] t2`
       \\ `get_var n5 t2 = SOME w` by FULL_SIMP_TAC (srw_ss()) [var_corr_def]
       \\ FULL_SIMP_TAC std_ss []
       \\ FULL_SIMP_TAC std_ss [LET_DEF]
@@ -543,7 +543,7 @@ val iComp_correct = prove(
     \\ IMP_RES_TAC iEval_SING_IMP \\ FULL_SIMP_TAC (srw_ss()) []
     \\ IMP_RES_TAC iComp_SING_IMP \\ FULL_SIMP_TAC (srw_ss()) []
     \\ SRW_TAC [] []
-    \\ Q.MATCH_ASSUM_RENAME_TAC `var_corr [w] [n5] t2` []
+    \\ Q.MATCH_ASSUM_RENAME_TAC `var_corr [w] [n5] t2`
     \\ `get_var n5 t2 = SOME w` by FULL_SIMP_TAC (srw_ss()) [var_corr_def]
     \\ FULL_SIMP_TAC std_ss []
     \\ FULL_SIMP_TAC std_ss [LET_DEF]
@@ -563,7 +563,7 @@ val iComp_correct = prove(
       \\ Cases_on `res` \\ FULL_SIMP_TAC (srw_ss()) []
       \\ IMP_RES_TAC iEval_SING_IMP \\ FULL_SIMP_TAC (srw_ss()) []
       \\ SRW_TAC [] []
-      \\ Q.MATCH_ASSUM_RENAME_TAC `var_corr [w7] [n7] t7` []
+      \\ Q.MATCH_ASSUM_RENAME_TAC `var_corr [w7] [n7] t7`
       \\ `get_var n7 t7 = SOME w7` by FULL_SIMP_TAC (srw_ss()) [var_corr_def]
       \\ FULL_SIMP_TAC (srw_ss()) [set_var_def,state_rel_def,
            var_corr_def,get_var_def,lookup_insert]
@@ -575,7 +575,7 @@ val iComp_correct = prove(
       THEN1
        (FULL_SIMP_TAC std_ss [listTheory.LIST_REL_EL_EQN]
         \\ REPEAT STRIP_TAC
-        \\ Q.MATCH_ASSUM_RENAME_TAC `l < LENGTH env` []
+        \\ Q.MATCH_ASSUM_RENAME_TAC `l < LENGTH env`
         \\ `EL l corr <> n3` by ALL_TAC \\ FULL_SIMP_TAC std_ss []
         \\ `n2 <= n3 /\ l < LENGTH corr` by DECIDE_TAC
         \\ `lookup n3 t7.locals = NONE` by METIS_TAC []
@@ -599,7 +599,7 @@ val iComp_correct = prove(
       \\ Cases_on `res` \\ FULL_SIMP_TAC (srw_ss()) []
       \\ IMP_RES_TAC iEval_SING_IMP \\ FULL_SIMP_TAC (srw_ss()) []
       \\ SRW_TAC [] []
-      \\ Q.MATCH_ASSUM_RENAME_TAC `var_corr [w7] [n7] t7` []
+      \\ Q.MATCH_ASSUM_RENAME_TAC `var_corr [w7] [n7] t7`
       \\ `get_var n7 t7 = SOME w7` by FULL_SIMP_TAC (srw_ss()) [var_corr_def]
       \\ FULL_SIMP_TAC (srw_ss()) [set_var_def,state_rel_def,
            var_corr_def,get_var_def,lookup_insert]
@@ -611,7 +611,7 @@ val iComp_correct = prove(
       THEN1
        (FULL_SIMP_TAC std_ss [listTheory.LIST_REL_EL_EQN]
         \\ REPEAT STRIP_TAC
-        \\ Q.MATCH_ASSUM_RENAME_TAC `l < LENGTH env` []
+        \\ Q.MATCH_ASSUM_RENAME_TAC `l < LENGTH env`
         \\ `EL l corr <> n3` by ALL_TAC \\ FULL_SIMP_TAC std_ss []
         \\ `n3 <= n3 /\ l < LENGTH corr` by DECIDE_TAC
         \\ `lookup n3 t7.locals = NONE` by METIS_TAC []
@@ -727,7 +727,7 @@ val iComp_correct = prove(
          \\ `n1 <= k` by DECIDE_TAC \\ fs [])
       THEN1 (fs [LIST_REL_EL_EQN,var_corr_def,get_var_def,lookup_insert]
         \\ REPEAT STRIP_TAC
-        \\ Q.MATCH_ASSUM_RENAME_TAC `l < LENGTH env` []
+        \\ Q.MATCH_ASSUM_RENAME_TAC `l < LENGTH env`
         \\ `EL l corr <> n1` by ALL_TAC \\ FULL_SIMP_TAC std_ss []
         \\ `n1 <= n1 /\ l < LENGTH corr` by DECIDE_TAC
         \\ `lookup n1 t2.locals = NONE` by METIS_TAC []
@@ -761,7 +761,7 @@ val iComp_correct = prove(
          \\ `n1 <= k` by DECIDE_TAC \\ fs [])
       THEN1 (fs [LIST_REL_EL_EQN,var_corr_def,get_var_def,lookup_insert]
         \\ REPEAT STRIP_TAC
-        \\ Q.MATCH_ASSUM_RENAME_TAC `l < LENGTH env` []
+        \\ Q.MATCH_ASSUM_RENAME_TAC `l < LENGTH env`
         \\ `EL l corr <> n1` by ALL_TAC \\ FULL_SIMP_TAC std_ss []
         \\ `n1 <= n1 /\ l < LENGTH corr` by DECIDE_TAC
         \\ `lookup n1 t2.locals = NONE` by METIS_TAC []
@@ -788,7 +788,7 @@ val iComp_correct = prove(
          \\ `n1 <= k` by DECIDE_TAC \\ fs [])
       THEN1 (fs [LIST_REL_EL_EQN,var_corr_def,get_var_def,lookup_insert]
         \\ REPEAT STRIP_TAC
-        \\ Q.MATCH_ASSUM_RENAME_TAC `l < LENGTH env` []
+        \\ Q.MATCH_ASSUM_RENAME_TAC `l < LENGTH env`
         \\ `EL l corr <> n1` by ALL_TAC \\ FULL_SIMP_TAC std_ss []
         \\ `n1 <= n1 /\ l < LENGTH corr` by DECIDE_TAC
         \\ `lookup n1 t2.locals = NONE` by METIS_TAC []
@@ -836,7 +836,7 @@ val iComp_correct = prove(
       \\ FULL_SIMP_TAC (srw_ss()) [isResult_def,isException_def]
       \\ Cases_on `find_code dest a r.code` \\ FULL_SIMP_TAC std_ss []
       \\ Cases_on `x` \\ FULL_SIMP_TAC std_ss []
-      \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest a r.code = SOME (args,exp)` []
+      \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest a r.code = SOME (args,exp)`
       \\ FULL_SIMP_TAC (srw_ss()) []
       \\ `t2.clock = r.clock` by FULL_SIMP_TAC std_ss [state_rel_def]
       \\ FULL_SIMP_TAC std_ss [] \\ Cases_on `r.clock = 0`
@@ -945,7 +945,7 @@ val iComp_correct = prove(
        (FULL_SIMP_TAC (srw_ss()) [var_corr_def,get_var_def,lookup_insert]
         \\ FULL_SIMP_TAC std_ss [listTheory.LIST_REL_EL_EQN]
         \\ REPEAT STRIP_TAC
-        \\ Q.MATCH_ASSUM_RENAME_TAC `l < LENGTH env` []
+        \\ Q.MATCH_ASSUM_RENAME_TAC `l < LENGTH env`
         \\ `EL l corr <> n1` by ALL_TAC \\ FULL_SIMP_TAC std_ss []
         \\ `n1 <= n1 /\ l < LENGTH corr` by DECIDE_TAC
         \\ `lookup n1 t1.locals = NONE` by METIS_TAC []
@@ -988,7 +988,7 @@ val iComp_correct = prove(
       \\ FULL_SIMP_TAC (srw_ss()) [isResult_def,isException_def]
       \\ Cases_on `find_code dest a r.code` \\ FULL_SIMP_TAC std_ss []
       \\ Cases_on `x'` \\ FULL_SIMP_TAC std_ss []
-      \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest a r.code = SOME (args,exp)` []
+      \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest a r.code = SOME (args,exp)`
       \\ FULL_SIMP_TAC (srw_ss()) []
       \\ `t2.clock = r.clock` by FULL_SIMP_TAC std_ss [state_rel_def]
       \\ FULL_SIMP_TAC std_ss [] \\ Cases_on `r.clock = 0`
@@ -1010,7 +1010,7 @@ val iComp_correct = prove(
         \\ IMP_RES_TAC MEM_LIST_REL \\ fs [] \\ NO_TAC)
       \\ fs [cut_env_def]
       \\ Cases_on `iEval ([exp],args,dec_clock r)`
-      \\ Q.MATCH_ASSUM_RENAME_TAC `iEval ([exp],args,dec_clock r) = (res4,r4)` []
+      \\ Q.MATCH_ASSUM_RENAME_TAC `iEval ([exp],args,dec_clock r) = (res4,r4)`
       \\ Cases_on `isException res4` THEN1
        (Cases_on `res4` \\ fs [isException_def,isResult_def,LET_DEF]
         \\ Q.ABBREV_TAC `env2 = (inter t2.locals (list_to_num_set (live ++ corr)))`
@@ -1043,7 +1043,7 @@ val iComp_correct = prove(
           \\ fs [domain_lookup,lookup_list_to_num_set]
           \\ REPEAT STRIP_TAC THEN1
            (fs [LIST_REL_EL_EQN] \\ REPEAT STRIP_TAC
-            \\ Q.MATCH_ASSUM_RENAME_TAC `n3 < LENGTH env` []
+            \\ Q.MATCH_ASSUM_RENAME_TAC `n3 < LENGTH env`
             \\ `MEM (EL n3 corr) corr` by METIS_TAC [MEM_EL] \\ fs []
             \\ SRW_TAC [] []
             \\ `EL n3 corr <= EL n3 corr` by fs [] \\ RES_TAC \\ fs [])
@@ -1160,7 +1160,7 @@ val iComp_correct = prove(
        (FULL_SIMP_TAC (srw_ss()) [var_corr_def,get_var_def,lookup_insert]
         \\ FULL_SIMP_TAC std_ss [listTheory.LIST_REL_EL_EQN]
         \\ REPEAT STRIP_TAC
-        \\ Q.MATCH_ASSUM_RENAME_TAC `l < LENGTH env` []
+        \\ Q.MATCH_ASSUM_RENAME_TAC `l < LENGTH env`
         \\ RES_TAC
         \\ UNABBREV_ALL_TAC \\ fs [lookup_inter_alt]
         \\ fs [domain_lookup,lookup_list_to_num_set]

@@ -13,7 +13,7 @@ val MAP_EQ_CONS = prove(
 fun loseC c =
     first_x_assum
       (K ALL_TAC o assert (can (find_term (same_const c)) o concl))
-fun asm_match q = Q.MATCH_ASSUM_RENAME_TAC q []
+fun asm_match q = Q.MATCH_ASSUM_RENAME_TAC q
 
 fun Store_thm(n,t,tac) = store_thm(n,t,tac) before export_rewrites [n]
 

@@ -367,7 +367,7 @@ val lex_aux_tokens_thm = prove(
   >> ONCE_REWRITE_TAC [lex_aux_tokens_def]
   >> Cases_on `next_token input` >> ASM_SIMP_TAC (srw_ss()) []
   >> Cases_on `x`
-  >> Q.MATCH_ASSUM_RENAME_TAC `next_token input = SOME (t,rest)` []
+  >> Q.MATCH_ASSUM_RENAME_TAC `next_token input = SOME (t,rest)`
   >> FULL_SIMP_TAC (srw_ss()) []
   >> SRW_TAC [] [] >> SRW_TAC [] []
   >> ASM_SIMP_TAC std_ss [GSYM lexer_fun_def]) |> SIMP_RULE std_ss [];

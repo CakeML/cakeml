@@ -957,7 +957,7 @@ val bComp_correct = prove(
       \\ Q.LIST_EXISTS_TAC [`t2`,`b2`,`c`] \\ fs []
       \\ SRW_TAC [] [map_res_def] \\ NO_TAC)
     \\ REPEAT STRIP_TAC
-    \\ Q.MATCH_ASSUM_RENAME_TAC `bEval ([x2],a ++ env,s5) = (res6,s6)` []
+    \\ Q.MATCH_ASSUM_RENAME_TAC `bEval ([x2],a ++ env,s5) = (res6,s6)`
     \\ Q.PAT_ASSUM `!nn mm. bbb` (MP_TAC o Q.SPEC `n1`) \\ fs []
     \\ `res6 <> Error` by (REPEAT STRIP_TAC \\ fs []) \\ fs []
     \\ REPEAT STRIP_TAC
@@ -1263,7 +1263,7 @@ val bComp_correct = prove(
       \\ fs [bvl_bvi_corr_def] \\ RES_TAC
       \\ `?x1 x2 x3. bComp n'' [r] = (x1,x2,x3)` by METIS_TAC [PAIR]
       \\ fs [LET_DEF])
-    \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest a s5.code = SOME (args,body)` []
+    \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest a s5.code = SOME (args,body)`
     \\ `?n7. let (c7,aux7,n8) = bComp n7 [body] in
                (find_code (case dest of NONE => NONE | SOME n => SOME (2 * n))
                  (MAP (adjust_bv b2) a) t2.code =

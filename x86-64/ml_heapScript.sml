@@ -341,7 +341,7 @@ val bc_value_inv_related = prove(
     \\ REVERSE STRIP_TAC THEN1
      (FULL_SIMP_TAC std_ss [get_refs_def,EVERY_MEM,MEM_FLAT,PULL_EXISTS,MEM_MAP]
       \\ FULL_SIMP_TAC std_ss [bc_value_size_def] \\ REPEAT STRIP_TAC
-      \\ Q.MATCH_ASSUM_RENAME_TAC `MEM k (get_f a)` []
+      \\ Q.MATCH_ASSUM_RENAME_TAC `MEM k (get_f a)`
       \\ IMP_RES_TAC MEM_IMP_bc_value_size
       \\ `bc_value_size a < 1 + (n + bc_value1_size l)` by DECIDE_TAC
       \\ `?l1 l2. l = l1 ++ a::l2` by METIS_TAC [MEM_SPLIT]
@@ -352,7 +352,7 @@ val bc_value_inv_related = prove(
     \\ Q.PAT_ASSUM `LENGTH l = LENGTH xs` ASSUME_TAC
     \\ FULL_SIMP_TAC std_ss [MEM_ZIP,LENGTH_ADDR_MAP,PULL_EXISTS]
     \\ STRIP_TAC \\ STRIP_TAC
-    \\ Q.MATCH_ASSUM_RENAME_TAC `t < LENGTH xs` [] \\ RES_TAC
+    \\ Q.MATCH_ASSUM_RENAME_TAC `t < LENGTH xs` \\ RES_TAC
     \\ `MEM (EL t l) l` by (FULL_SIMP_TAC std_ss [MEM_EL] \\ METIS_TAC [])
     \\ `MEM (EL t xs) xs` by (FULL_SIMP_TAC std_ss [MEM_EL] \\ METIS_TAC [])
     \\ `(!ptr. (EL t xs = Pointer ptr) ==> ptr IN FDOM g)` by METIS_TAC []
@@ -696,7 +696,7 @@ val bc_value_inv_SUBMAP = prove(
     \\ IMP_RES_TAC heap_store_rel_lemma \\ FULL_SIMP_TAC (srw_ss()) []
     \\ FULL_SIMP_TAC (srw_ss()) [MEM_ZIP,LENGTH_ADDR_MAP,PULL_EXISTS]
     \\ REPEAT STRIP_TAC
-    \\ Q.MATCH_ASSUM_RENAME_TAC `t < LENGTH xs` [] \\ RES_TAC
+    \\ Q.MATCH_ASSUM_RENAME_TAC `t < LENGTH xs` \\ RES_TAC
     \\ `MEM (EL t l) l` by (FULL_SIMP_TAC std_ss [MEM_EL] \\ METIS_TAC [])
     \\ `bc_value_size (EL t l) < bc_value_size (Block n l)` by ALL_TAC THEN1
      (FULL_SIMP_TAC std_ss [bc_value_size_def]
@@ -962,7 +962,7 @@ val bc_value_inv_Ref = prove(
               METIS_TAC [RefBlock_inv_def,NOT_isRefBlock]
       \\ FULL_SIMP_TAC (srw_ss()) [MEM_ZIP]
       \\ REPEAT STRIP_TAC
-      \\ Q.MATCH_ASSUM_RENAME_TAC `t < LENGTH xs` [] \\ RES_TAC
+      \\ Q.MATCH_ASSUM_RENAME_TAC `t < LENGTH xs` \\ RES_TAC
       \\ `MEM (EL t l) l` by (FULL_SIMP_TAC std_ss [MEM_EL] \\ METIS_TAC [])
       \\ `bc_value_size (EL t l) < bc_value_size (Block n l)` by ALL_TAC THEN1
        (FULL_SIMP_TAC std_ss [bc_value_size_def]
@@ -976,7 +976,7 @@ val bc_value_inv_Ref = prove(
               METIS_TAC [RefBlock_inv_def,NOT_isRefBlock]
       \\ FULL_SIMP_TAC (srw_ss()) [MEM_ZIP]
       \\ REPEAT STRIP_TAC
-      \\ Q.MATCH_ASSUM_RENAME_TAC `t < LENGTH xs` [] \\ RES_TAC
+      \\ Q.MATCH_ASSUM_RENAME_TAC `t < LENGTH xs` \\ RES_TAC
       \\ `MEM (EL t l) l` by (FULL_SIMP_TAC std_ss [MEM_EL] \\ METIS_TAC [])
       \\ `bc_value_size (EL t l) < bc_value_size (Block n l)` by ALL_TAC THEN1
        (FULL_SIMP_TAC std_ss [bc_value_size_def]

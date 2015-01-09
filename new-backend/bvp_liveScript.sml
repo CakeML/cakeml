@@ -172,7 +172,7 @@ val pEval_pLive = prove(
      \\ fs [pEval_def,get_var_def,LET_DEF]
      \\ REPEAT (BasicProvers.FULL_CASE_TAC \\ fs []) \\ SRW_TAC [] []
      \\ fs [pLive_def,LET_DEF,pEval_def,cut_state_opt_def]
-     \\ Q.MATCH_ASSUM_RENAME_TAC `pEvalOp op vs t = SOME (q,r)` []
+     \\ Q.MATCH_ASSUM_RENAME_TAC `pEvalOp op vs t = SOME (q,r)`
      \\ Cases_on `domain x SUBSET domain s.locals` \\ fs []
      \\ fs [cut_state_def,cut_env_def]
      \\ `domain (inter x (list_insert args (delete dest l2))) SUBSET
@@ -392,7 +392,7 @@ val pEval_pLive = prove(
      (REPEAT STRIP_TAC
       \\ POP_ASSUM (MP_TAC o Q.SPECL [`t5.stack`])
       \\ Q.PAT_ASSUM `!x.bbb` (MP_TAC o GSYM)
-      \\ Q.MATCH_ASSUM_RENAME_TAC `jump_exc t4 = SOME s3` []
+      \\ Q.MATCH_ASSUM_RENAME_TAC `jump_exc t4 = SOME s3`
       \\ Q.PAT_ASSUM `jump_exc t4 = SOME s3` (MP_TAC o GSYM)
       \\ UNABBREV_ALL_TAC
       \\ SIMP_TAC (srw_ss()) [call_env_def,push_env_def,

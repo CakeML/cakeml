@@ -1404,7 +1404,7 @@ val cComp_correct = prove(
     THEN1 (* Closure case *)
      (fs [val_rel_Closure] \\ SRW_TAC [] []
       \\ fs [bEvalOp_def,find_code_def]
-      \\ Q.MATCH_ASSUM_RENAME_TAC `state_rel f6 s6 t6` []
+      \\ Q.MATCH_ASSUM_RENAME_TAC `state_rel f6 s6 t6`
       \\ `t6.code = t2.code` by IMP_RES_TAC bvl_inlineTheory.bEval_code \\ fs []
       \\ `t6.clock = s6.clock` by fs [state_rel_def] \\ fs []
       \\ Cases_on `s6.clock = 0` \\ fs []
@@ -1435,7 +1435,7 @@ val cComp_correct = prove(
       \\ rfs [] \\ MATCH_MP_TAC env_rel_SUBMAP \\ METIS_TAC [])
     (* Recclosure case *)
     \\ fs [GSYM NOT_LESS]
-    \\ Q.MATCH_ASSUM_RENAME_TAC `index < LENGTH exps` []
+    \\ Q.MATCH_ASSUM_RENAME_TAC `index < LENGTH exps`
     \\ fs [LET_DEF] \\ SRW_TAC [] []
     \\ Q.ABBREV_TAC `cl_env = l` \\ POP_ASSUM (K ALL_TAC)
     \\ Cases_on `LENGTH exps = 0` \\ fs []
@@ -1443,7 +1443,7 @@ val cComp_correct = prove(
     THEN1 (* special case for singly-recursive closure *)
      (`?exp. exps = [exp]` by (Cases_on `exps` \\ fs [LENGTH_NIL])
       \\ SRW_TAC [] [] \\ POP_ASSUM (K ALL_TAC)
-      \\ Q.MATCH_ASSUM_RENAME_TAC `state_rel f6 s6 t6` []
+      \\ Q.MATCH_ASSUM_RENAME_TAC `state_rel f6 s6 t6`
       \\ Q.PAT_ASSUM `val_rel f2 t2.refs t1.code
            (Recclosure n0 cl_env [exp] 0) y` MP_TAC
       \\ REVERSE (ONCE_REWRITE_TAC [val_rel_cases] \\ fs [] \\ SRW_TAC [] [])
@@ -1497,7 +1497,7 @@ val cComp_correct = prove(
     \\ `?exp p. EL index exps_ps = (exp,p)` by METIS_TAC [PAIR]
     \\ ASM_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
     \\ IMP_RES_TAC bvl_inlineTheory.bEval_code \\ fs []
-    \\ Q.MATCH_ASSUM_RENAME_TAC `state_rel f6 s6 t6` []
+    \\ Q.MATCH_ASSUM_RENAME_TAC `state_rel f6 s6 t6`
     \\ `t6.clock = s6.clock` by fs [state_rel_def]
     \\ `n0 + index = p` by METIS_TAC [EL_index_ps]
     \\ Cases_on `t6.clock = 0` \\ fs []
@@ -1539,7 +1539,7 @@ val cComp_correct = prove(
       \\ SIMP_TAC std_ss [listTheory.LIST_REL_EL_EQN]
       \\ fs [LENGTH_MAP,LENGTH_GENLIST,EL_MAP]
       \\ REPEAT STRIP_TAC
-      \\ Q.MATCH_ASSUM_RENAME_TAC `k7 < LENGTH exps_ps` []
+      \\ Q.MATCH_ASSUM_RENAME_TAC `k7 < LENGTH exps_ps`
       \\ SIMP_TAC std_ss [Once val_rel_cases] \\ fs [] \\ DISJ2_TAC
       \\ Q.LIST_EXISTS_TAC [`exps_ps`,`r`,`ys`]
       \\ fs [EL_MAP] \\ IMP_RES_TAC FLOOKUP_SUBMAP_IMP \\ fs []

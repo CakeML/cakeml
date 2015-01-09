@@ -2309,7 +2309,7 @@ val bvl_bc_correct = store_thm("bvl_bc_correct",
       rw[]) >>
     rw[] >>
     Cases_on`lookup x' s0.code`>>fs[] >>
-    qmatch_assum_rename_tac`lookup n s0.code = X`["X"] >>
+    qmatch_assum_rename_tac`lookup n s0.code = _` >>
     `∃args exp. x = (args,exp)` by metis_tac[pair_CASES] >> fs[] >>
     rw[] >>
     rator_assum`good_code_env`mp_tac >>
