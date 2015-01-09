@@ -296,7 +296,7 @@ val termsem_simple_subst = store_thm("termsem_simple_subst",
     rw[]) >>
   rw[] >>
   Q.PAT_ABBREV_TAC`il = FILTER X ilist` >>
-  qmatch_assum_rename_tac`welltyped tm`[] >>
+  qmatch_assum_rename_tac`welltyped tm` >>
   `simple_subst il tm has_type typeof tm` by (
     match_mp_tac (MP_CANON simple_subst_has_type) >>
     imp_res_tac WELLTYPED >>
@@ -405,7 +405,7 @@ val termsem_simple_inst = store_thm("termsem_simple_inst",
   `d2 = d1` by (
     unabbrev_all_tac >>
     simp[Once typesem_TYPE_SUBST] ) >>
-  qmatch_assum_rename_tac`welltyped tm`[] >>
+  qmatch_assum_rename_tac`welltyped tm` >>
   `r2 = r1` by (
     unabbrev_all_tac >>
     qspecl_then[`tm`,`tyin`]mp_tac simple_inst_has_type >> rw[] >>

@@ -831,14 +831,14 @@ val extends_consistent = store_thm("extends_consistent",
       pop_assum mp_tac >> discharge_hyps >- metis_tac[] >>
       BasicProvers.VAR_EQ_TAC >>
       disch_then(imp_res_tac o SIMP_RULE std_ss [sound_update_def]) >>
-      qmatch_assum_rename_tac`z models thyof (upd::(ls++ctxt1))`[] >>
+      qmatch_assum_rename_tac`z models thyof (upd::(ls++ctxt1))` >>
       qexists_tac`z` >> simp[] >>
       match_mp_tac equal_on_trans >>
-      qmatch_assum_rename_tac`equal_on (sigof ctxt1) i m`[] >>
+      qmatch_assum_rename_tac`equal_on (sigof ctxt1) i m` >>
       qexists_tac`m` >> simp[] >>
       match_mp_tac equal_on_reduce >>
       qexists_tac`ls` >> fs[IN_DISJOINT] ) >>
-    qmatch_assum_rename_tac`j models thyof ctxt`[] >>
+    qmatch_assum_rename_tac`j models thyof ctxt` >>
     qexists_tac`j` >>
     rfs[models_def,conexts_of_upd_def] >>
     `MEM p (axiom_list ctxt1)` by (

@@ -447,7 +447,7 @@ val AST_EXP_TYPE_no_closures = prove(
   ho_match_mp_tac AST_EXP_TYPE_ind >>
   simp[AST_EXP_TYPE_def,PULL_EXISTS,no_closures_def] >> rw[] >>
   TRY (
-    qmatch_assum_rename_tac`LIST_TYPE R x1 y1`["R"] >>
+    qmatch_assum_rename_tac`LIST_TYPE _ x1 y1` >>
     rator_x_assum`LIST_TYPE`mp_tac >>
     TRY(SIMP_RULE std_ss [EqualityType_def] EqualityType_LIST_TYPE_CHAR |> CONJUNCT1 |> MATCH_ACCEPT_TAC)>>
     last_x_assum mp_tac >>
@@ -470,9 +470,9 @@ val AST_EXP_TYPE_types_match = prove(
   simp[AST_EXP_TYPE_def,PULL_EXISTS] >> rw[] >>
   Cases_on`c`>>fs[AST_EXP_TYPE_def,types_match_def] >> rw[] >>
   TRY (
-    qmatch_assum_rename_tac`LIST_TYPE R x1 y1`["R"] >>
+    qmatch_assum_rename_tac`LIST_TYPE _ x1 y1` >>
     rator_x_assum`LIST_TYPE`mp_tac >>
-    qmatch_assum_rename_tac`LIST_TYPE R x2 y2`["R"] >>
+    qmatch_assum_rename_tac`LIST_TYPE _ x2 y2` >>
     rator_x_assum`LIST_TYPE`mp_tac >>
     last_x_assum mp_tac >>
     rpt(pop_assum kall_tac) >>
@@ -498,18 +498,18 @@ val AST_EXP_TYPE_11 = with_flag (metisTools.limit,{infs=SOME 1,time=NONE}) prove
   simp[AST_EXP_TYPE_def,PULL_EXISTS] >> rw[] >>
   Cases_on`c`>>fs[AST_EXP_TYPE_def] >> rw[] >>
   TRY (
-    qmatch_assum_rename_tac`LIST_TYPE R x1 y1`["R"] >>
+    qmatch_assum_rename_tac`LIST_TYPE _ x1 y1` >>
     rator_x_assum`LIST_TYPE`mp_tac >>
-    qmatch_assum_rename_tac`LIST_TYPE R x2 y2`["R"] >>
+    qmatch_assum_rename_tac`LIST_TYPE _ x2 y2` >>
     rator_x_assum`LIST_TYPE`mp_tac >>
     REWRITE_TAC[AND_IMP_INTRO] >>
     last_x_assum mp_tac >>
     MATCH_MP_TAC SWAP_IMP >>
     REWRITE_TAC[GSYM AND_IMP_INTRO] >>
     TRY(
-      qmatch_assum_rename_tac`R a1 b1`["R"] >>
+      qmatch_assum_rename_tac`_ a1 b1` >>
       qpat_assum`R a1 b1`mp_tac >>
-      qmatch_assum_rename_tac`R a2 b2`["R"] >>
+      qmatch_assum_rename_tac`_ a2 b2` >>
       strip_tac >>
       `a2 = a1 ⇔ b2 = b1` by
         METIS_TAC[EqualityType_def,EqualityType_AST_OP_TYPE,

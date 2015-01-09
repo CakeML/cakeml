@@ -248,7 +248,7 @@ val inv_pres_tac =
       first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
       rw[] >> rw[] >>
       fs[Once modLangProofTheory.v_to_i1_cases] >>
-      qmatch_assum_rename_tac`MEM z (MAP FST e)`[] >>
+      qmatch_assum_rename_tac`MEM z (MAP FST e)` >>
       first_x_assum(qspec_then`z`mp_tac) >>
       reverse(Cases_on`ALOOKUP e z`)>>simp[FLOOKUP_DEF] >- metis_tac[] >>
       imp_res_tac alistTheory.ALOOKUP_NONE ) >>
@@ -420,7 +420,7 @@ val repl_correct_lemma = Q.prove (
    TRY (fs[repl_invariant_def] >> NO_TAC) >>
    metis_tac [lexer_correct,FST,SND]) >>
   rw[parse_infertype_compile_def,parser_correct] >>
-  qmatch_assum_rename_tac`repl_invariant rs st bs`[] >>
+  qmatch_assum_rename_tac`repl_invariant rs st bs` >>
   rw [] >>
   `?error_msg next_repl_run_infer_state types.
     infertype_top st.rinferencer_state ast = Failure error_msg ∨
@@ -519,7 +519,7 @@ val repl_correct_lemma = Q.prove (
           fs[] >>
           `bs0 with clock := NONE = bs0` by rw[bytecodeTheory.bc_state_component_equality,Abbr`bs0`,install_code_def] >>
           fs[] >>
-          qmatch_assum_rename_tac`bc_next^* bs0 (bs1 with clock := NONE)`[]>>
+          qmatch_assum_rename_tac`bc_next^* bs0 (bs1 with clock := NONE)`>>
           `(bs1 with clock := NONE).code = bs0.code` by metis_tac[RTC_bc_next_preserves] >>
           res_tac >> pop_assum mp_tac >>
           simp[bc_eval1_thm,bc_eval1_def,bc_fetch_with_clock]
@@ -655,7 +655,7 @@ val repl_correct_lemma = Q.prove (
     simp[install_code_def] ) >>
   strip_tac >>
   first_assum(split_applied_pair_tac o concl) >> fs[] >>
-  qmatch_assum_rename_tac`bc_fetch bs2 = SOME (Stop success)`[] >>
+  qmatch_assum_rename_tac`bc_fetch bs2 = SOME (Stop success)` >>
   imp_res_tac RTC_bc_next_can_be_unclocked >>
   `bc_eval (install_code code bs) = SOME (bs2 with clock := NONE)` by (
     match_mp_tac (MP_CANON RTC_bc_next_bc_eval) >>

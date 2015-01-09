@@ -115,7 +115,7 @@ val PATLANG_EXP_PAT_TYPE_no_closures = prove(
   simp[PATLANG_EXP_PAT_TYPE_def,no_closures_def,PULL_EXISTS] >>
   rw[] >>
   TRY (
-    qmatch_assum_rename_tac`LIST_TYPE PATLANG_EXP_PAT_TYPE x1 y1`[] >>
+    qmatch_assum_rename_tac`LIST_TYPE PATLANG_EXP_PAT_TYPE x1 y1` >>
     rator_x_assum`LIST_TYPE`mp_tac >> last_x_assum mp_tac >>
     rpt(pop_assum kall_tac) >>
     map_every qid_spec_tac[`y1`,`x1`] >>
@@ -129,9 +129,9 @@ val PATLANG_EXP_PAT_TYPE_types_match = prove(
   simp[PATLANG_EXP_PAT_TYPE_def,types_match_def,PULL_EXISTS] >> rw[] >>
   Cases_on`c`>>fs[PATLANG_EXP_PAT_TYPE_def,types_match_def] >> rw[] >>
   TRY (
-    qmatch_assum_rename_tac`LIST_TYPE PATLANG_EXP_PAT_TYPE x1 y1`[] >>
+    qmatch_assum_rename_tac`LIST_TYPE PATLANG_EXP_PAT_TYPE x1 y1` >>
     rator_x_assum`LIST_TYPE`mp_tac >>
-    qmatch_assum_rename_tac`LIST_TYPE PATLANG_EXP_PAT_TYPE x2 y2`[] >>
+    qmatch_assum_rename_tac`LIST_TYPE PATLANG_EXP_PAT_TYPE x2 y2` >>
     rator_x_assum`LIST_TYPE`mp_tac >>
     last_x_assum mp_tac >>
     rpt(pop_assum kall_tac) >>
@@ -148,21 +148,21 @@ val PATLANG_EXP_PAT_TYPE_11 = prove(
   simp[PATLANG_EXP_PAT_TYPE_def,PULL_EXISTS] >> rw[] >>
   Cases_on`c`>>fs[PATLANG_EXP_PAT_TYPE_def] >> rw[] >>
   TRY (
-    qmatch_assum_rename_tac`LIST_TYPE PATLANG_EXP_PAT_TYPE x1 y1`[] >>
+    qmatch_assum_rename_tac`LIST_TYPE PATLANG_EXP_PAT_TYPE x1 y1` >>
     rator_x_assum`LIST_TYPE`mp_tac >>
-    qmatch_assum_rename_tac`LIST_TYPE PATLANG_EXP_PAT_TYPE x2 y2`[] >>
+    qmatch_assum_rename_tac`LIST_TYPE PATLANG_EXP_PAT_TYPE x2 y2` >>
     rator_x_assum`LIST_TYPE`mp_tac >>
-    ((qmatch_assum_rename_tac`PATLANG_EXP_PAT_TYPE a1 b1`[] >>
+    ((qmatch_assum_rename_tac`PATLANG_EXP_PAT_TYPE a1 b1` >>
       rator_x_assum`PATLANG_EXP_PAT_TYPE`mp_tac >>
-      qmatch_assum_rename_tac`PATLANG_EXP_PAT_TYPE c1 d1`[] >>
+      qmatch_assum_rename_tac`PATLANG_EXP_PAT_TYPE c1 d1` >>
       strip_tac) ORELSE
-     (qmatch_assum_rename_tac`NUM a1 b1`[] >>
+     (qmatch_assum_rename_tac`NUM a1 b1` >>
       rator_x_assum`NUM`mp_tac >>
-      qmatch_assum_rename_tac`NUM c1 d1`[] >>
+      qmatch_assum_rename_tac`NUM c1 d1` >>
       strip_tac) ORELSE
-     (qmatch_assum_rename_tac`PATLANG_OP_PAT_TYPE a1 b1`[] >>
+     (qmatch_assum_rename_tac`PATLANG_OP_PAT_TYPE a1 b1` >>
       rator_x_assum`PATLANG_OP_PAT_TYPE`mp_tac >>
-      qmatch_assum_rename_tac`PATLANG_OP_PAT_TYPE c1 d1`[] >>
+      qmatch_assum_rename_tac`PATLANG_OP_PAT_TYPE c1 d1` >>
       strip_tac)) >>
     `c1 = a1 ⇔ d1 = b1` by METIS_TAC[EqualityType_def,EqualityType_PATLANG_OP_PAT_TYPE,EqualityType_NUM] >> simp[] >>
     last_x_assum mp_tac >>
@@ -197,7 +197,7 @@ val INFER_T_INFER_T_TYPE_no_closures = prove(
   ho_match_mp_tac INFER_T_INFER_T_TYPE_ind >>
   simp[INFER_T_INFER_T_TYPE_def,no_closures_def,PULL_EXISTS] >> rw[] >>
   TRY (
-    qmatch_assum_rename_tac`LIST_TYPE R a b`["R"] >>
+    qmatch_assum_rename_tac`LIST_TYPE _ a b` >>
     rator_x_assum`LIST_TYPE`mp_tac >>
     last_x_assum mp_tac >>
     map_every qid_spec_tac[`b`,`a`] >>
@@ -212,9 +212,9 @@ val INFER_T_INFER_T_TYPE_types_match = prove(
   simp[INFER_T_INFER_T_TYPE_def,PULL_EXISTS] >> rw[] >>
   Cases_on`c`>>fs[INFER_T_INFER_T_TYPE_def] >> rw[types_match_def] >>
   TRY (
-    qmatch_assum_rename_tac`LIST_TYPE R a b`["R"] >>
+    qmatch_assum_rename_tac`LIST_TYPE _ a b` >>
     rator_x_assum`LIST_TYPE`mp_tac >>
-    qmatch_assum_rename_tac`LIST_TYPE R c d`["R"] >>
+    qmatch_assum_rename_tac`LIST_TYPE _ c d` >>
     rator_x_assum`LIST_TYPE`mp_tac >>
     last_x_assum mp_tac >>
     map_every qid_spec_tac[`b`,`a`,`d`,`c`] >>
@@ -230,13 +230,13 @@ val INFER_T_INFER_T_TYPE_11 = prove(
   simp[INFER_T_INFER_T_TYPE_def,PULL_EXISTS] >> rw[] >>
   Cases_on`c`>>fs[INFER_T_INFER_T_TYPE_def] >> rw[] >>
   TRY (
-    qmatch_assum_rename_tac`LIST_TYPE R a b`["R"] >>
+    qmatch_assum_rename_tac`LIST_TYPE _ a b` >>
     rator_x_assum`LIST_TYPE`mp_tac >>
-    qmatch_assum_rename_tac`LIST_TYPE R c d`["R"] >>
+    qmatch_assum_rename_tac`LIST_TYPE _ c d` >>
     rator_x_assum`LIST_TYPE`mp_tac >>
     last_x_assum mp_tac >>
-    qmatch_assum_rename_tac`R u v`["R"] >> pop_assum mp_tac >>
-    qmatch_assum_rename_tac`R w x`["R"] >> strip_tac >>
+    qmatch_assum_rename_tac`_ u v` >> pop_assum mp_tac >>
+    qmatch_assum_rename_tac`_ w x` >> strip_tac >>
     `w = u ⇔ x = v` by METIS_TAC[EqualityType_def,EqualityType_AST_TCTOR_TYPE] >> simp[] >>
     map_every qid_spec_tac[`b`,`a`,`d`,`c`] >>
     rpt(pop_assum kall_tac) >>
