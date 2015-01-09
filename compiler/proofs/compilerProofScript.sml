@@ -1560,7 +1560,7 @@ val tac4=
 
 fun tac5() =
   simp[print_result_def,Abbr`bs2`] >>
-  qmatch_rename_tac`THE(bv_to_string bv) = print_v a`[] >>
+  qmatch_rename_tac`THE(bv_to_string bv) = print_v a` >>
   `THE (bv_to_string bv) = print_bv (Infer_Tuvar 0) bv` by (
     simp[print_bv_def] ) >>
   pop_assum SUBST1_TAC >>
@@ -1740,8 +1740,8 @@ val compile_top_thm = store_thm("compile_top_thm",
     first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_exh_correct)) >>
     simp[] >> simp[env_to_exh_MAP] >>
     fs[LIST_REL_O,OPTREL_O,sv_rel_O] >>
-    qmatch_assum_rename_tac`LIST_REL (sv_rel (v_to_exh rs.exh)) s20 sh`[] >>
-    qmatch_assum_rename_tac`LIST_REL R genv2 gh`["R"] >>
+    qmatch_assum_rename_tac`LIST_REL (sv_rel (v_to_exh rs.exh)) s20 sh` >>
+    qmatch_assum_rename_tac`LIST_REL _ genv2 gh` >>
     `store_to_exh (exh ⊌ rs.exh) ((s10,s20),genv2) ((s10,sh),gh)` by tac1 >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     simp[Once result_to_exh_cases] >>
@@ -1982,7 +1982,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       MATCH_MP_TAC SWAP_IMP >> strip_tac >> simp[] >>
       strip_tac >> simp[] >>
       first_assum(match_exists_tac o concl) >> simp[] >>
-      qmatch_assum_rename_tac`syneq (v_to_Cv vp) zz`[] >>
+      qmatch_assum_rename_tac`syneq (v_to_Cv vp) zz` >>
       `closed_pat vp` by (
         first_x_assum(mp_tac o MATCH_MP (CONJUNCT1 evaluate_pat_closed)) >>
         simp[csg_closed_pat_def] >>
@@ -2036,10 +2036,10 @@ val compile_top_thm = store_thm("compile_top_thm",
       first_x_assum(qspec_then`n`mp_tac) >>
       first_x_assum(qspec_then`n`mp_tac) >>
       simp[] >> ntac 2 strip_tac >>
-      ((qmatch_rename_tac`convert_t tt = X ⇔ Y`["X","Y"] >>
+      ((qmatch_rename_tac`convert_t tt = _ ⇔ _` >>
         Cases_on`tt`>>fs[inferPropsTheory.convert_t_def])
        ORELSE
-       (qmatch_rename_tac`convert_t tt ≠ X`["X"] >>
+       (qmatch_rename_tac`convert_t tt ≠ _` >>
        Cases_on`tt`>>fs[inferPropsTheory.convert_t_def] ))) >>
     conj_asm2_tac >- (
       first_x_assum(strip_assume_tac o MATCH_MP evaluate_prompt_i1_success_globals) >>
@@ -2214,8 +2214,8 @@ val compile_top_thm = store_thm("compile_top_thm",
     first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_exh_correct)) >>
     simp[] >> simp[env_to_exh_MAP] >>
     fs[LIST_REL_O,OPTREL_O,sv_rel_O] >>
-    qmatch_assum_rename_tac`LIST_REL (sv_rel (v_to_exh rs.exh)) s20 sh`[] >>
-    qmatch_assum_rename_tac`LIST_REL R genv2 gh`["R"] >>
+    qmatch_assum_rename_tac`LIST_REL (sv_rel (v_to_exh rs.exh)) s20 sh` >>
+    qmatch_assum_rename_tac`LIST_REL _ genv2 gh` >>
     `store_to_exh (exh ⊌ rs.exh) ((s10,s20),genv2) ((s10,sh),gh)` by tac1 >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     simp[Once result_to_exh_cases] >>
@@ -2405,8 +2405,8 @@ val compile_top_thm = store_thm("compile_top_thm",
     first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_exh_correct)) >>
     simp[] >> simp[env_to_exh_MAP] >>
     fs[LIST_REL_O,OPTREL_O,sv_rel_O] >>
-    qmatch_assum_rename_tac`LIST_REL (sv_rel (v_to_exh rs.exh)) s20 sh`[] >>
-    qmatch_assum_rename_tac`LIST_REL R genv2 gh`["R"] >>
+    qmatch_assum_rename_tac`LIST_REL (sv_rel (v_to_exh rs.exh)) s20 sh` >>
+    qmatch_assum_rename_tac`LIST_REL _ genv2 gh` >>
     `store_to_exh (exh ⊌ rs.exh) ((s10,s20),genv2) ((s10,sh),gh)` by tac1 >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     simp[Once result_to_exh_cases] >>
@@ -2641,8 +2641,8 @@ val compile_top_thm = store_thm("compile_top_thm",
     first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_exh_correct)) >>
     simp[] >> simp[env_to_exh_MAP] >>
     fs[LIST_REL_O,OPTREL_O,sv_rel_O] >>
-    qmatch_assum_rename_tac`LIST_REL (sv_rel (v_to_exh rs.exh)) s20 sh`[] >>
-    qmatch_assum_rename_tac`LIST_REL R genv2 gh`["R"] >>
+    qmatch_assum_rename_tac`LIST_REL (sv_rel (v_to_exh rs.exh)) s20 sh` >>
+    qmatch_assum_rename_tac`LIST_REL _ genv2 gh` >>
     `store_to_exh (exh ⊌ rs.exh) ((s10,s20),genv2) ((s10,sh),gh)` by tac1 >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     simp[Once result_to_exh_cases] >>
@@ -2847,8 +2847,8 @@ val compile_top_divergence = store_thm("compile_top_divergence",
   fs[result_to_i3_cases] >>
   simp[env_to_exh_MAP] >>
   fs[LIST_REL_O,OPTREL_O,sv_rel_O] >>
-  qmatch_assum_rename_tac`LIST_REL (sv_rel (v_to_exh rs.exh)) s20 sh`[] >>
-  qmatch_assum_rename_tac`LIST_REL R genv2 gh`["R"] >>
+  qmatch_assum_rename_tac`LIST_REL (sv_rel (v_to_exh rs.exh)) s20 sh` >>
+  qmatch_assum_rename_tac`LIST_REL _ genv2 gh` >>
   `store_to_exh (exh ⊌ rs.exh) ((stm0,s20),genv2) ((stm0,sh),gh)` by tac1 >>
   disch_then(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
   disch_then(qspec_then`exh ⊌ rs.exh`mp_tac) >> simp[] >>
@@ -3043,8 +3043,8 @@ val compile_prog_thm = store_thm("compile_prog_thm",
     first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_exh_correct)) >>
     simp[env_to_exh_MAP] >>
     fs[LIST_REL_O,OPTREL_O,sv_rel_O] >>
-    qmatch_assum_rename_tac`LIST_REL (sv_rel (v_to_exh X)) s2 sh`["X"] >>
-    qmatch_assum_rename_tac`LIST_REL R genv2 gh`["R"] >>
+    qmatch_assum_rename_tac`LIST_REL (sv_rel (v_to_exh _)) s2 sh` >>
+    qmatch_assum_rename_tac`LIST_REL _ genv2 gh` >>
     Q.PAT_ABBREV_TAC`rsexh = rs.exh` >>
     `store_to_exh (exh ⊌ rsexh) ((stm0,s2),genv2) ((stm0,sh),gh)` by tac1 >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
@@ -3246,7 +3246,7 @@ val compile_prog_thm = store_thm("compile_prog_thm",
       match_mp_tac bc_fetch_next_addr >> simp[] >>
       CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`[]` >>
       simp[SUM_APPEND,FILTER_APPEND] ) >>
-    qmatch_assum_rename_tac`bv_to_string bv = SOME str`[] >>
+    qmatch_assum_rename_tac`bv_to_string bv = SOME str` >>
     `str = print_bv (Infer_Tuvar 0) bv` by simp[print_bv_def] >>
     pop_assum SUBST1_TAC >>
     match_mp_tac (MP_CANON print_bv_print_v) >>
@@ -3275,8 +3275,8 @@ val compile_prog_thm = store_thm("compile_prog_thm",
   first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_exh_correct)) >>
   simp[env_to_exh_MAP] >>
   fs[LIST_REL_O,OPTREL_O,sv_rel_O] >>
-  qmatch_assum_rename_tac`LIST_REL (sv_rel (v_to_exh X)) s2 sh`["X"] >>
-  qmatch_assum_rename_tac`LIST_REL R genv2 gh`["R"] >>
+  qmatch_assum_rename_tac`LIST_REL (sv_rel (v_to_exh _)) s2 sh` >>
+  qmatch_assum_rename_tac`LIST_REL _ genv2 gh` >>
   Q.PAT_ABBREV_TAC`rsexh = rs.exh` >>
   `store_to_exh (exh ⊌ rsexh) ((stm0,s2),genv2) ((stm0,sh),gh)` by tac1 >>
   disch_then(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
@@ -3353,7 +3353,7 @@ val compile_prog_thm = store_thm("compile_prog_thm",
       BasicProvers.CASE_TAC >> simp[REVERSE_APPEND] >>
       metis_tac[APPEND_ASSOC] ) >>
     simp[Abbr`bs4`] >>
-    qmatch_rename_tac`THE (bv_to_string bv) = print_v v`[] >>
+    qmatch_rename_tac`THE (bv_to_string bv) = print_v v` >>
     `THE (bv_to_string bv) = print_bv (Infer_Tuvar 0) bv` by simp[print_bv_def] >>
     pop_assum SUBST1_TAC >>
     match_mp_tac (MP_CANON print_bv_print_v) >>
@@ -3454,7 +3454,7 @@ val compile_prog_divergence = store_thm("compile_prog_divergence",
   simp[env_to_exh_MAP] >>
   fs[LIST_REL_O,OPTREL_O,sv_rel_O] >>
   qmatch_assum_abbrev_tac`LIST_REL (sv_rel (v_to_exh rsexh)) s20 sh` >>
-  qmatch_assum_rename_tac`LIST_REL R genv2 gh`["R"] >>
+  qmatch_assum_rename_tac`LIST_REL _ genv2 gh` >>
   `store_to_exh (exh ⊌ rsexh) ((stm0,s20),genv2) ((stm0,sh),gh)` by tac1 >>
   disch_then(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
   disch_then(qspec_then`exh ⊌ rsexh`mp_tac) >> simp[] >>
@@ -3651,7 +3651,7 @@ val compile_special_thm = store_thm("compile_special_thm",
   simp[env_to_exh_MAP,result_to_exh_cases,PULL_EXISTS] >>
   fs[LIST_REL_O,OPTREL_O,sv_rel_O] >>
   qmatch_assum_abbrev_tac`LIST_REL (sv_rel (v_to_exh rsexh)) s20 sh` >>
-  qmatch_assum_rename_tac`LIST_REL R genv2 gh`["R"] >>
+  qmatch_assum_rename_tac`LIST_REL _ genv2 gh` >>
   `store_to_exh (exh ⊌ rsexh) ((s10,s20),genv2) ((s10,sh),gh)` by tac1 >>
   disch_then(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
   disch_then(qspec_then`exh ⊌ rsexh`mp_tac) >> simp[] >>
@@ -4032,8 +4032,8 @@ val compile_initial_prog_thm = store_thm("compile_initial_prog_thm",
   first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_exh_correct)) >>
   simp[env_to_exh_MAP] >>
   fs[LIST_REL_O,OPTREL_O,sv_rel_O] >>
-  qmatch_assum_rename_tac`LIST_REL (sv_rel (v_to_exh X)) so sh`["X"] >>
-  qmatch_assum_rename_tac`LIST_REL R genv2 gh`["R"] >>
+  qmatch_assum_rename_tac`LIST_REL (sv_rel (v_to_exh _)) so sh` >>
+  qmatch_assum_rename_tac`LIST_REL _ genv2 gh` >>
   Q.PAT_ABBREV_TAC`rsexh = rs.exh` >>
   `store_to_exh (exh ⊌ rsexh) ((stm0,so),genv2) ((stm0,sh),gh)` by tac1 >>
   disch_then(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>

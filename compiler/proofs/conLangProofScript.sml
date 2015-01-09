@@ -2480,7 +2480,7 @@ val gtagenv_weak_galloc_tags_build_tdefs = prove(
   spose_not_then strip_assume_tac >> rw[] >>
   fs[MEM_MAP,PULL_EXISTS,EXISTS_PROD] >> rw[] >>
   res_tac >> fs[] >>
-  qmatch_assum_rename_tac`mk_id mn a = mk_id mn b`[] >>
+  qmatch_assum_rename_tac`mk_id mn a = mk_id mn b` >>
   `a = b` by (Cases_on`mn`>>fs[mk_id_def]) >>
   metis_tac[]);
 
@@ -2539,7 +2539,7 @@ val decs_to_i2_exh_wf = prove(
   last_x_assum mp_tac >>
   qid_spec_tac`t` >>
   ho_match_mp_tac IN_FRANGE_FUNION_suff >> rw[] >>
-  qmatch_assum_rename_tac`t ∈ FRANGE (build_exh_env mn p l)`[] >>
+  qmatch_assum_rename_tac`t ∈ FRANGE (build_exh_env mn p l)` >>
   Cases_on`alloc_tags mn st l`>>
   fs[FRANGE_FLOOKUP,build_exh_env_def,flookup_fupdate_list] >>
   every_case_tac >> fs[] >> rw[] >>
@@ -2612,7 +2612,7 @@ val FLOOKUP_build_exh_env_imp = prove(
    ONCE_REWRITE_TAC[CONJ_COMM] >>
    ONCE_REWRITE_TAC[GSYM CONJ_ASSOC] >>
    first_assum(match_exists_tac o concl) >> simp[] >>
-   qmatch_assum_rename_tac`MEM (a,b,c) tds`[] >>
+   qmatch_assum_rename_tac`MEM (a,b,c) tds` >>
    qmatch_abbrev_tac`X = set (MAP f c) ∧ Z` >>
    map_every qunabbrev_tac[`X`,`Z`] >>
    qmatch_abbrev_tac`domain (FOLDL g LN c) = X ∧ Z` >>
@@ -2641,7 +2641,7 @@ val MEM_flat_alloc_tags_REVERSE_build_tdefs_imp = prove(
     ∃tvs constrs a. MEM (tvs,tn,constrs) tdefs ∧ MEM (k,a) constrs``,
   simp[flat_alloc_tags_def,MAP2_MAP,LENGTH_COUNT_LIST,ZIP_COUNT_LIST,MAP_GENLIST,MEM_GENLIST,UNCURRY] >>
   rw[] >>
-  qmatch_assum_rename_tac`n < LENGTH ls`["ls"] >>
+  qmatch_assum_rename_tac`n < LENGTH _` >>
   `∃a b c. EL n (REVERSE (build_tdefs mn tdefs)) = (a,b,c)` by simp[GSYM EXISTS_PROD] >> fs[] >>
   `MEM (a,b,c) (build_tdefs mn tdefs)` by (
     simp[MEM_EL] >> rfs[EL_REVERSE] >>
@@ -2673,7 +2673,7 @@ val MEM_flat_alloc_tags_REVERSE_build_tdefs_imp2 = prove(
   imp_res_tac check_dup_ctors_flat >>
   first_x_assum(qspec_then`mn`strip_assume_tac) >>
   imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
-  qmatch_assum_rename_tac`n < LENGTH ls`["ls"] >>
+  qmatch_assum_rename_tac`n < LENGTH _` >>
   `∃a b c. EL n (REVERSE (build_tdefs mn tdefs)) = (a,b,c)` by simp[GSYM EXISTS_PROD] >> fs[] >>
   `MEM (a,b,c) (build_tdefs mn tdefs)` by (
     simp[MEM_EL] >> rfs[EL_REVERSE] >>
@@ -2931,7 +2931,7 @@ val decs_to_i2_correct = Q.prove (
    first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >> rw[] >>
    imp_res_tac no_dup_types_i1_cons_imp >>
    rfs[] >>
-   qmatch_assum_rename_tac`DISJOINT (X mn tdefs) tids`["X"] >>
+   qmatch_assum_rename_tac`DISJOINT (_ mn tdefs) tids` >>
    fs[] >>
    first_x_assum(fn th => first_assum (mp_tac o (MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th)))) >>
    first_assum(mp_tac o MATCH_MP alloc_tags_inv_weak) >>
@@ -3035,7 +3035,7 @@ val decs_to_i2_correct = Q.prove (
        simp[EXTENSION,MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
        rw[EQ_IMP_THM] >> TRY(metis_tac[]) >>
        simp[mk_id_inj] >>
-       qmatch_assum_rename_tac`MEM (a,b,c) tdefs`[] >>
+       qmatch_assum_rename_tac`MEM (a,b,c) tdefs` >>
        Cases_on`c`>>metis_tac[pair_CASES,MEM] ) >>
      qx_gen_tac`k` >>
      Cases_on`FLOOKUP exh2 k` >- fs[FLOOKUP_DEF] >>
@@ -3079,7 +3079,7 @@ val decs_to_i2_correct = Q.prove (
        BasicProvers.CASE_TAC >- (
          imp_res_tac ALOOKUP_FAILS >>
          fs[flat_alloc_tags_def,MAP2_MAP,LENGTH_COUNT_LIST,MEM_MAP,EXISTS_PROD,PULL_EXISTS,MEM_ZIP] >>
-         qmatch_assum_rename_tac`MEM (a,b) constrs`[] >>
+         qmatch_assum_rename_tac`MEM (a,b) constrs` >>
          qsuff_tac`MEM a (MAP FST (build_tdefs mn tdefs))` >- (
            simp[MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
            metis_tac[MEM_EL,MEM_REVERSE,LENGTH_REVERSE] ) >>
@@ -3098,7 +3098,7 @@ val decs_to_i2_correct = Q.prove (
        `SOME v = SOME w` by metis_tac[ALOOKUP_ALL_DISTINCT_MEM] >>
        fs[Abbr`w`,Abbr`rls`,Abbr`ls`] >>
        metis_tac[] ) >>
-     qmatch_assum_rename_tac`MEM (k,m,X) Y`["X","Y"] >>
+     qmatch_assum_rename_tac`MEM (k,m,_) _` >>
      qexists_tac`k` >>
      BasicProvers.CASE_TAC >- (
        imp_res_tac ALOOKUP_FAILS >> fs[] ) >>
@@ -3212,7 +3212,7 @@ val decs_to_i2_correct = Q.prove (
    first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >> rw[] >>
    imp_res_tac no_dup_types_i1_cons_imp >>
    rfs[] >>
-   qmatch_assum_rename_tac`TypeExn (mk_id mn xn) ∉ tids`[] >>
+   qmatch_assum_rename_tac`TypeExn (mk_id mn xn) ∉ tids` >>
    fs[] >>
    first_x_assum(fn th => first_assum (mp_tac o (MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th)))) >>
    simp[] >>
@@ -4192,13 +4192,13 @@ val exh_disjoint1 = Q.prove (
       tids_of_decs_def,tids_of_prog_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
    spose_not_then strip_assume_tac >>
    every_case_tac >> fs[MEM_MAP] >> rw[] >>
-   qmatch_assum_rename_tac`MEM (Dtype_i1 mno tds) decs`[] >>
-   qmatch_assum_rename_tac`MEM td tds`[] >>
+   qmatch_assum_rename_tac`MEM (Dtype_i1 mno tds) decs` >>
+   qmatch_assum_rename_tac`MEM td tds` >>
    PairCases_on`td` >>
    first_x_assum(qspec_then`td1`mp_tac) >> simp[PULL_EXISTS] >>
    HINT_EXISTS_TAC >> simp[MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
    first_assum(match_exists_tac o concl) >> simp[] >>
-   qmatch_assum_rename_tac`MEM prompt prog`[] >>
+   qmatch_assum_rename_tac`MEM prompt prog` >>
    Cases_on`prompt`>>fs[tids_of_prompt_def] >>
    HINT_EXISTS_TAC >> simp[] >>
    fs[EVERY_MEM] >> res_tac >> fs[] >>
@@ -4224,7 +4224,7 @@ val exh_disjoint1 = Q.prove (
    spose_not_then strip_assume_tac >> every_case_tac >> fs[] >>
    fs[prompt_mods_ok_def,EVERY_MEM] >> res_tac >> fs[] >>
    fs[MEM_MAP,mk_id_def] >> rw[] >>
-   qmatch_assum_rename_tac`MEM p prog`[] >>
+   qmatch_assum_rename_tac`MEM p prog` >>
    Cases_on`p`>>fs[tids_of_prompt_def] >>
    qpat_assum`X ∈ tids_of_decs Y`mp_tac >>
    simp[tids_of_decs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
@@ -4271,7 +4271,7 @@ val exh_disjoint2 = Q.prove (
        fs[MEM_MAP,PULL_EXISTS] >>
        first_assum(match_exists_tac o concl) >> simp[] >>
        simp[UNCURRY] >>
-       qmatch_assum_rename_tac`Short a = mk_id mno X`["X"] >>
+       qmatch_assum_rename_tac`Short a = mk_id mno _` >>
        Cases_on`mno`>>fs[mk_id_def] ) >>
      fs[EVERY_MEM] >>
      res_tac >> fs[] >>
@@ -4281,10 +4281,10 @@ val exh_disjoint2 = Q.prove (
      res_tac >> fs[MEM_MAP,mk_id_def]) >>
    fs[no_dup_mods_i1_def,IN_DISJOINT] >> res_tac >>
    fs[prog_i1_to_mods_def,tids_of_prog_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
-   qmatch_assum_rename_tac`mn ∈ mods`[] >>
+   qmatch_assum_rename_tac`mn ∈ mods` >>
    first_x_assum(qspec_then`mn`mp_tac) >>
    first_x_assum(qspec_then`mn`mp_tac) >>
-   qmatch_assum_rename_tac`MEM prompt prog`[] >>
+   qmatch_assum_rename_tac`MEM prompt prog` >>
    Cases_on`prompt`>>fs[tids_of_prompt_def] >>
    strip_tac >>
    qmatch_assum_abbrev_tac`MEM p prog` >>
@@ -4302,7 +4302,7 @@ val exh_disjoint2 = Q.prove (
  >- (
    fs[IN_DISJOINT] >>
    spose_not_then strip_assume_tac >>
-   qmatch_assum_rename_tac`z ∈ FDOM exh`[] >>
+   qmatch_assum_rename_tac`z ∈ FDOM exh` >>
    Cases_on`z` >- (
      rator_x_assum`no_dup_top_types_i1`mp_tac >>
      res_tac >> simp[no_dup_top_types_i1_def] >>
@@ -4318,7 +4318,7 @@ val exh_disjoint2 = Q.prove (
        fs[MEM_MAP,PULL_EXISTS] >>
        first_assum(match_exists_tac o concl) >> simp[] >>
        simp[UNCURRY] >>
-       qmatch_assum_rename_tac`Short a = mk_id mno X`["X"] >>
+       qmatch_assum_rename_tac`Short a = mk_id mno _` >>
        Cases_on`mno`>>fs[mk_id_def] ) >>
      fs[EVERY_MEM] >>
      res_tac >> fs[] >>
@@ -4328,9 +4328,9 @@ val exh_disjoint2 = Q.prove (
      res_tac >> fs[MEM_MAP,mk_id_def]) >>
    fs[no_dup_mods_i1_def,IN_DISJOINT] >> res_tac >>
    fs[prog_i1_to_mods_def,tids_of_prog_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
-   qmatch_assum_rename_tac`mn ∈ mods`[] >>
+   qmatch_assum_rename_tac`mn ∈ mods` >>
    first_x_assum(qspec_then`mn`mp_tac) >>
-   qmatch_assum_rename_tac`MEM prompt prog`[] >>
+   qmatch_assum_rename_tac`MEM prompt prog` >>
    Cases_on`prompt`>>fs[tids_of_prompt_def] >>
    qmatch_assum_abbrev_tac`MEM p prog` >>
    first_x_assum(qspec_then`p`mp_tac) >> simp[Abbr`p`] >>
@@ -4433,9 +4433,9 @@ val prog_to_i2_correct = Q.store_thm ("prog_to_i2_correct",
          qmatch_assum_abbrev_tac`MEM d l` >>
          first_x_assum(qspec_then`d`mp_tac) >>
          simp[Abbr`d`,MEM_MAP,FORALL_PROD] >>
-         qmatch_assum_rename_tac`MEM (Dtype_i1 mno tds) decs`[] >>
+         qmatch_assum_rename_tac`MEM (Dtype_i1 mno tds) decs` >>
          Cases_on`mno`>>fs[mk_id_def]>>
-         qmatch_assum_rename_tac`MEM p tds`[] >>
+         qmatch_assum_rename_tac`MEM p tds` >>
          PairCases_on`p`>>fs[] >> metis_tac[] ) >>
        simp[EVERY_MEM] >>
        qpat_assum`X ∈ tids_of_decs Y`mp_tac >>

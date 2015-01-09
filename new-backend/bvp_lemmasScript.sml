@@ -201,7 +201,7 @@ val pEval_stack_swap = store_thm("pEval_stack_swap",
       \\ fs [bvp_state_explode])
     \\ Cases_on `x''` \\ fs []
     \\ Q.MATCH_ASSUM_RENAME_TAC `pEval (r,call_env q (push_env x8 T (dec_clock s))) =
-          (SOME (Exception b),s9)` []
+          (SOME (Exception b),s9)`
     \\ Cases_on `pEval (r''',set_var q'' b s9)` \\ fs []
     \\ Q.MATCH_ASSUM_RENAME_TAC `pEval (r''',set_var q'' b s9) = (res,r5)`
     \\ Cases_on `res` \\ fs []

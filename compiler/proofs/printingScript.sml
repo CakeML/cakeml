@@ -253,7 +253,7 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
     simp[Abbr`bs1`] >>
     qexists_tac`bc0++l1` >>
     simp[Abbr`l2`] ) >>
-  qmatch_assum_rename_tac`IS_SOME (bv_to_string bv)`[] >>
+  qmatch_assum_rename_tac`IS_SOME (bv_to_string bv)` >>
   `bc_next^* bs1 (bs1 with <|pc:=next_addr bs.inst_length(bc0++l1++l2)
                             ;output := STRCAT bs1.output (print_bv v2 bv)++"\n"|>)` by (
     qunabbrev_tac`PrintI` >> qunabbrev_tac`l2` >>
