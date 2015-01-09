@@ -6,6 +6,22 @@ open lcsymtacs closLangTheory bvlTheory bvl_jumpTheory;
 open sptreeTheory;
 open intLib;
 
+val take1 = Q.prove (
+`!l. l ≠ [] ⇒ TAKE 1 l = [EL 0 l]`,
+ Induct_on `l` >>
+ rw []);
+
+val hd_drop = Q.prove (
+`!n l. n < LENGTH l ⇒ HD (DROP n l) = EL n l`,
+ Induct_on `l` >>
+ rw [] >>
+ `n - 1 < LENGTH l` by decide_tac >>
+ res_tac >>
+ `0 < n` by decide_tac >>
+ rw [rich_listTheory.EL_CONS] >>
+ `n - 1 = PRE n` by decide_tac >>
+ rw []);
+
 (* compiler definition *)
 
 val free_let_def = Define `
@@ -58,15 +74,23 @@ val generate_generic_app_def = Define `
   generate_generic_app n =
     Let [Op Sub [Op El [Var 0; mk_const 1]; mk_const (n + 1)]] (* The number of arguments remaining - 1 *)
         (If (Op Less [Var 0; mk_const 0])
-            ARB (* Do something for over-application *)
+            (* Over application *)
+            (Jump (Op El [Var 1; mk_const 1])
+              (GENLIST (\num_args. 
+                 Let [Call NONE (Var 2::GENLIST (\arg. Var (arg + 3 + n - num_args)) (num_args + 1) ++ [Op El [Var 2; mk_const 0]])]
+                   (Call NONE (Var 0 :: GENLIST (\n. Var (n + 3)) (n - num_args) ++ [Op El [Var 0; mk_const 0]])))
+               max_app))
+            (* Partial application *)
             (If (Op (TagEq closure_tag) [Var 1])
+                (* Partial application of a normal closure *)
                 (Op (Cons partial_app_tag)
                     (Jump (Op El [Var 1; mk_const 1])
-                          (GENLIST (\total_args. 
-                            mk_label (max_app + total_args * max_app + n)) 
-                           max_app) ::
+                      (GENLIST (\total_args. 
+                        mk_label (max_app + total_args * max_app + n)) 
+                       max_app) ::
                      Var 0 ::
                      GENLIST (\n. Var (n + 1)) (n + 2)))
+                (* Partial application of a partially applied closure *)
                 (Jump (Op Sub [Op LengthBlock [Var 1]; mk_const 4])
                   (GENLIST (\prev_args.
                     Op (Cons partial_app_tag)
@@ -114,6 +138,57 @@ val bEval_genlist_vars2 = Q.prove (
 val bEval_genlist_vars3 = Q.prove (
 `!x y z st args. bEval (GENLIST (\n. Var (n+3)) (LENGTH args), x::y::z::args,st) = (Result args, st)`,
  metis_tac [bEval_genlist_vars, APPEND, LENGTH, DECIDE ``SUC (SUC (SUC 0)) = 3``]);
+
+val bEval_genlist_vars_skip_lem = Q.prove (
+`!skip x rem_args.
+  skip < LENGTH x ⇒ 
+  EL skip x :: TAKE (rem_args + 1) (DROP (1 + skip) x) = TAKE (rem_args + 2) (DROP skip x)`,
+ Induct_on `x` >>
+ srw_tac [ARITH_ss] [rich_listTheory.EL_CONS] >>
+ `PRE skip = skip - 1` by decide_tac >>
+ rw [] >>
+ fs [ADD1] >>
+ first_x_assum (qspecl_then [`skip -1`, `rem_args`] mp_tac) >>
+ rw [] >>
+ `skip < 1 + LENGTH x ∧ 0 < LENGTH x` by decide_tac >>
+ fs [] >>
+ `1 + (skip - 1) = skip` by decide_tac >>
+ fs []);
+
+val bEval_genlist_vars_skip = Q.prove (
+`!arg_list rem_args st skip x.
+  skip + rem_args < LENGTH arg_list + LENGTH x ∧
+  LENGTH x ≤ skip
+  ⇒
+  bEval (GENLIST (λarg. Var (arg + skip)) (rem_args + 1),
+         x++arg_list,
+         st)
+  =
+  (Result (TAKE (rem_args + 1) (DROP skip (x++arg_list))), st)`,
+ Induct_on `rem_args` >>
+ rw [bEval_def, rich_listTheory.DROP_LENGTH_NIL, GSYM ADD1] >>
+ rw [Once GENLIST_CONS] >>
+ rw [Once bEval_CONS, bEval_def] >>
+ full_simp_tac (srw_ss()++ARITH_ss) []
+ >- (rw [rich_listTheory.EL_APPEND2, rich_listTheory.DROP_APPEND2] >>
+     `DROP (skip-LENGTH x) arg_list ≠ []` 
+           by (rw [DROP_NIL] >>
+               decide_tac) >>
+     rw [take1] >>
+     `skip - LENGTH x < LENGTH arg_list` by decide_tac >>
+     rw [hd_drop])
+ >- (rw [ADD1] >>
+     first_x_assum (qspecl_then [`arg_list`, `st`, `skip + 1`, `x`] mp_tac) >>
+     rw [ADD1, combinTheory.o_DEF, GSYM ADD_ASSOC] >>
+     `skip + 1 = 1 + skip ` by decide_tac >>
+     fs [] >>
+     `rem_args + (1 + skip) < LENGTH arg_list + LENGTH x` by decide_tac >>
+     `LENGTH x ≤ 1 + skip` by decide_tac >>
+     fs [] >>
+     rw [] >>
+     match_mp_tac bEval_genlist_vars_skip_lem >>
+     rw [] >>
+     decide_tac));
 
 val bEval_genlist_prev_args = Q.prove (
 `!prev_args z x tag p n cl arg_list st.
@@ -230,6 +305,94 @@ val bEval_generic_app2 = Q.prove (
  full_simp_tac (srw_ss()++ARITH_ss) [bEval_genlist_prev_args2, ADD1] >>
  `n + 1 = LENGTH arg_list` by decide_tac >>
  rw [bEval_genlist_vars3]);
+
+val bEval_generic_app3_lem = Q.prove (
+`!rem_args arg_list.
+ LENGTH arg_list > rem_args
+ ⇒
+ TAKE (rem_args + 1) (DROP (LENGTH arg_list − (rem_args + 1)) arg_list) =
+ DROP (LENGTH arg_list − (rem_args + 1)) arg_list`,
+ Induct_on `arg_list` >>
+ rw []
+ >- (`LENGTH arg_list = rem_args` by decide_tac >>
+     rw []) >>
+ full_simp_tac (srw_ss() ++ ARITH_ss) [ADD1]);
+
+val bEval_generic_app3_lem2 = Q.prove (
+`LENGTH arg_list > rem_args
+ ⇒ 
+ bEval (GENLIST (λarg. Var (arg + (LENGTH arg_list + 2) − rem_args)) (rem_args + 1),
+        a::b::c::arg_list,
+        st) =
+ (Result (DROP (LENGTH arg_list − (rem_args + 1)) arg_list),st)`,
+ assume_tac (Q.SPECL [`arg_list`, `rem_args`, `st`, `(LENGTH (arg_list:bc_value list)+ 2) − rem_args`, `[a;b;c]`] bEval_genlist_vars_skip) >>
+ rw [] >>
+ fs [] >>
+ `LENGTH arg_list + 2 − rem_args + rem_args < LENGTH arg_list + 3 ∧ 3 ≤ LENGTH arg_list + 2 − rem_args` 
+       by decide_tac >>
+ fs [] >>
+ `!a. a + (LENGTH arg_list + 2) − rem_args = a + (LENGTH arg_list + 2 − rem_args)` by decide_tac >>
+ ASM_REWRITE_TAC [] >>
+ fs [] >>
+ `¬(LENGTH arg_list + 2 ≤ rem_args)` by decide_tac >>
+ fs [] >>
+ `¬(LENGTH arg_list + 2 ≤ rem_args + 1)` by decide_tac >>
+ fs [] >>
+ `¬(LENGTH arg_list ≤ rem_args)` by decide_tac >>
+ srw_tac [ARITH_ss] [] >>
+ metis_tac [bEval_generic_app3_lem]);
+
+val bEval_generic_app3 = Q.prove (
+`!n args st rem_args vs l tag exp.
+  lookup l st.code = SOME (rem_args + 2, exp) ∧
+  n + 2 = LENGTH args ∧
+  n > rem_args ∧
+  rem_args < max_app ∧
+  HD args = Block tag (CodePtr l :: Number (&rem_args) :: vs)
+  ⇒
+  bEval ([generate_generic_app n], args, st) = 
+  if st.clock = 0 then (TimeOut, st) else
+    case bEval ([exp],
+                Block tag (CodePtr l::Number (&rem_args)::vs) :: 
+                  DROP (LENGTH (TL args) − (rem_args + 1)) (TL args),
+                dec_clock st) of
+      | (Result vs, st') => P vs st'
+      | x => x`,
+ rw [generate_generic_app_def, mk_const_def] >>
+ rw [bEval_def, bEvalOp_def] >>
+ full_simp_tac (srw_ss() ++ ARITH_ss) [bytecodeTheory.partial_app_tag_def] >>
+ `(&rem_args − &(n+1) < 0)` by intLib.ARITH_TAC >>
+ rw [] >>
+ `bEval ([Op El [Var 1; Op (Const (1:int)) []]],
+         Number (&rem_args − &(n+1))::args,
+         st) =
+   (Result [Number (&rem_args)], st)`
+         by srw_tac [ARITH_ss] [bEval_def, bEvalOp_def, int_arithTheory.INT_NUM_SUB] >>
+ imp_res_tac bEval_Jump >>
+ srw_tac [ARITH_ss] [LENGTH_GENLIST, bEval_def, bEvalOp_def] >>
+ srw_tac [ARITH_ss] [bEval_APPEND, bEvalOp_def, bEval_def] >>
+ srw_tac [ARITH_ss] [Once bEval_CONS, bEval_def, bEval_APPEND] >>
+ `?x arg_list. args = x::arg_list` by (Cases_on `args` >> fs []) >>
+ fs [] >>
+ `n + 1 = LENGTH arg_list` by decide_tac >>
+ `n + 3 = LENGTH arg_list + 2` by decide_tac >>
+ `LENGTH arg_list > rem_args` by decide_tac >>
+ rw [bEval_generic_app3_lem2, bEvalOp_def, find_code_def, LAST_DEF] >>
+ full_simp_tac (srw_ss() ++ ARITH_ss) [ADD1] >>
+ rw [FRONT_DEF, bEval_def, rich_listTheory.FRONT_APPEND] >>
+ qabbrev_tac `res1 = 
+   bEval
+     ([exp],
+      Block tag (CodePtr l::Number (&rem_args)::vs)::
+          DROP (LENGTH arg_list − (rem_args + 1)) arg_list,dec_clock st)` >>
+ rw [Once bEval_CONS, bEval_APPEND, bEval_def] >>
+ srw_tac [ARITH_ss] [] >>
+ Cases_on `res1` >>
+ fs [] >>
+ Cases_on `q` >>
+ fs [] >>
+ `?v. a = [v]`  by cheat >>
+ cheat);
 
 val bEval_partial_app_fn = Q.prove (
 `!args prev_args tag num tag' num' l l' fvs st exp.
