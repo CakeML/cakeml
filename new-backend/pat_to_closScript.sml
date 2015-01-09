@@ -2,7 +2,7 @@ open HolKernel boolLib boolSimps bossLib lcsymtacs miscLib intLib
 open rich_listTheory listTheory alistTheory finite_mapTheory pred_setTheory stringTheory integerTheory arithmeticTheory
 open patLangTheory closLangTheory
 open astTheory semanticPrimitivesTheory
-open terminationTheory free_varsTheory compilerTerminationTheory
+open terminationTheory compilerTerminationTheory
 val _ = new_theory"pat_to_clos"
 
 (* TODO: move? *)
@@ -336,15 +336,11 @@ val s_to_Cs_restrict_envs = prove(
 val pComp_correct = store_thm("pComp_correct",
   ``(∀ck env s e res. evaluate_pat ck env s e res ⇒
        ck ∧
-       set (free_vars_pat e) ⊆ count (LENGTH env) ∧
-       EVERY closed_pat env ∧ csg_closed_pat s ∧
        SND res ≠ Rerr Rtype_error ⇒
        cEval ([pComp e],MAP v_to_Cv env,s_to_Cs s) =
          (res_to_Cres (λv. [v_to_Cv v]) (SND res), s_to_Cs (FST res))) ∧
     (∀ck env s es res. evaluate_list_pat ck env s es res ⇒
        ck ∧
-       set (free_vars_list_pat es) ⊆ count (LENGTH env) ∧
-       EVERY closed_pat env ∧ csg_closed_pat s ∧
        SND res ≠ Rerr Rtype_error ⇒
        cEval (MAP pComp es,MAP v_to_Cv env,s_to_Cs s) =
          (res_to_Cres (MAP v_to_Cv) (SND res), s_to_Cs (FST res)))``,
@@ -361,7 +357,6 @@ val pComp_correct = store_thm("pComp_correct",
   strip_tac >- (
     simp[cEval_def] >>
     rw[] >> first_x_assum match_mp_tac >>
-    imp_res_tac evaluate_pat_closed >> rfs[] >>
     fs[SUBSET_DEF,PULL_EXISTS] >>
     Cases >> rw[] >> res_tac >>
     fsrw_tac[ARITH_ss][] ) >>
@@ -393,20 +388,6 @@ val pComp_correct = store_thm("pComp_correct",
     BasicProvers.CASE_TAC >> fs[] >> Cases_on`q`>>fs[]>>
     BasicProvers.CASE_TAC >> fs[] >> Cases_on`q`>>fs[]>>
     rw[dest_closure_def] >>
-    qpat_assum`X ⇒ Y`mp_tac >>
-    discharge_hyps >- (
-      imp_res_tac (CONJUNCT2 evaluate_pat_closed) >>
-      fs[] >> rfs[] >>
-      Cases_on`h`>>fs[] >>
-      pop_assum mp_tac >> simp[Once closed_pat_cases] >>
-      strip_tac >>
-      rpt BasicProvers.VAR_EQ_TAC >>
-      fs[csg_closed_pat_def,SUBSET_DEF,ADD1] >>
-      fs[EVERY_MEM,PULL_EXISTS,build_rec_env_pat_def,MEM_GENLIST] >>
-      simp[Once closed_pat_cases,EVERY_MEM,PULL_EXISTS,SUBSET_DEF] >>
-      `MEM (EL n l0) l0` by metis_tac[MEM_EL] >>
-      rw[] >> res_tac >> fs[] ) >>
-    strip_tac >>
     Cases_on`h`>>fs[check_loc_def,s_to_Cs_def,ETA_AX,dec_clock_def] >>
     rw[] >> fs[] >> rfs[EL_MAP] >> fs[build_rec_env_pat_def] >>
     fsrw_tac[ARITH_ss][] >>
@@ -432,7 +413,7 @@ val pComp_correct = store_thm("pComp_correct",
   strip_tac >- (
     simp[cEval_def] >> rw[] >>
     PairCases_on`s2` >>
-    imp_res_tac do_app_pat_cases >>
+    imp_res_tac free_varsTheory.do_app_pat_cases >>
     fs[do_app_pat_def] >> rw[] >- (
       Cases_on`z`>>fs[cEval_def,ETA_AX,cEvalOp_def] >>
       rw[opn_lookup_def,clos_equal_def,bool_to_val_thm] >>
@@ -689,29 +670,18 @@ val pComp_correct = store_thm("pComp_correct",
     rw[] >>
     Cases_on`v`>>fs[]>>rw[]>>fs[do_if_pat_def]>>
     Cases_on`l`>>fs[]>>
-    Cases_on`b`>>fs[]>>rw[]>>
-    imp_res_tac evaluate_pat_closed >>fs[]) >>
+    Cases_on`b`>>fs[]>>rw[]>>fs[]) >>
   strip_tac >- simp[cEval_def] >>
   strip_tac >- (
     simp[cEval_def] >> rw[] >>
-    imp_res_tac evaluate_pat_closed >>fs[] >>
     Cases_on`err`>>fs[] ) >>
   strip_tac >- (
     simp[cEval_def] >> rw[] >>
-    qpat_assum`X ⇒ Y`mp_tac >>
-    discharge_hyps >- (
-      imp_res_tac evaluate_pat_closed >>fs[] >>
-      fs[SUBSET_DEF,PULL_EXISTS] >>
-      Cases >> rw[] >> res_tac >> fs[] >>
-      fsrw_tac[ARITH_ss][]) >>
     simp[] ) >>
   strip_tac >- (
     simp[cEval_def] >> Cases_on`err`>>simp[] ) >>
   strip_tac >- (
     simp[cEval_def] >> rw[] >> fs[] >>
-    qpat_assum`X ⇒ Y`mp_tac >>
-    discharge_hyps >- (
-      imp_res_tac evaluate_pat_closed >>fs[] ) >>
     rw[] >>
     Cases_on`res`>>fs[]>>
     Cases_on`r`>>fs[]>>simp[]>>
@@ -722,15 +692,7 @@ val pComp_correct = store_thm("pComp_correct",
   strip_tac >- (
     simp[cEval_def] >>
     rw[] >> fs[] >>
-    qpat_assum`X ⇒ Y`mp_tac >>
-    discharge_hyps >- (
-      imp_res_tac evaluate_pat_closed >>fs[] >>
-      fs[SUBSET_DEF,build_rec_env_pat_def,EVERY_GENLIST,PULL_EXISTS] >>
-      simp[Once closed_pat_cases,SUBSET_DEF,EVERY_MEM,PULL_EXISTS] >>
-      fs[MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
-      rw[] >> res_tac >> fs[] >> simp[] >>
-      fs[EVERY_MEM] ) >>
-    rw[build_rec_env_pat_def,build_recc_def,MAP_GENLIST,s_to_Cs_restrict_envs,
+    fs[build_rec_env_pat_def,build_recc_def,MAP_GENLIST,s_to_Cs_restrict_envs,
        combinTheory.o_DEF,ETA_AX,MAP_MAP_o,clos_env_def] >>
     fsrw_tac[ETA_ss][] ) >>
   strip_tac >- (
@@ -740,15 +702,13 @@ val pComp_correct = store_thm("pComp_correct",
   strip_tac >- simp[cEval_def] >>
   strip_tac >- (
     simp[cEval_def] >> rw[] >>
-    simp[Once cEval_CONS] >>
-    imp_res_tac evaluate_pat_closed >> fs[] ) >>
+    simp[Once cEval_CONS] >> fs[] ) >>
   strip_tac >- (
     simp[cEval_def] >> rw[] >> fs[] >>
     simp[Once cEval_CONS] >>
     Cases_on`err`>>fs[]) >>
   simp[cEval_def] >> rw[] >>
   simp[Once cEval_CONS] >>
-  imp_res_tac evaluate_pat_closed >> fs[] >>
   Cases_on`err`>>fs[])
 
 val code_locs_def = tDefine "code_locs" `
