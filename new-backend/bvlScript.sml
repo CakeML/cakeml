@@ -120,6 +120,8 @@ val bEvalOp_def = Define `
     | (Cons tag,xs) => SOME (Block tag xs, s)
     | (El,[Block tag xs;Number i]) =>
         if 0 ≤ i ∧ Num i < LENGTH xs then SOME (EL (Num i) xs, s) else NONE
+    | (LengthBlock,[Block tag xs]) =>
+        SOME (Number (&LENGTH xs), s)
     | (TagEq n,[Block tag xs]) =>
         SOME (bool_to_val (tag = n),s)
     | (Equal,[x1;x2]) =>

@@ -391,12 +391,12 @@ val cEval_def = tDefine "cEval" `
      | res => res) /\
   (cEval ([Fn loc vs num_args exp],env,s) =
      if num_args ≥ max_app then (Error, s) else
-       case lookup_vars vs env of
+       case clos_env s.restrict_envs vs env of
        | NONE => (Error,s)
        | SOME env' => (Result [Closure loc [] env' num_args exp], s)) /\
   (cEval ([Letrec loc names fns exp],env,s) =
      if EXISTS (\(num_args,e). num_args ≥ max_app) fns then (Error,s) else
-       case build_recc loc env names fns of
+       case build_recc s.restrict_envs loc env names fns of
        | NONE => (Error,s)
        | SOME rs => cEval ([exp],rs ++ env,s)) /\
   (cEval ([App loc_opt x1 args],env,s) =
