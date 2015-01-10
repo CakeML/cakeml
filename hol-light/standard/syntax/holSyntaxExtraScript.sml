@@ -316,7 +316,7 @@ val transitive_type_lt = prove(
   strip_tac >- metis_tac[StrongLinearOrder_mlstring_lt,StrongLinearOrder,StrongOrder,transitive_def] >>
   rw[] >> disj2_tac >>
   fs[LLEX_EL_THM] >>
-  qmatch_assum_rename_tac`n2 ≤ LENGTH args2`[] >>
+  qmatch_assum_rename_tac`n2 ≤ LENGTH args2` >>
   Cases_on`n < LENGTH args1`>>fsrw_tac[ARITH_ss][] >- (
     `EL n args1 ≠ EL n args2` by metis_tac[irreflexive_type_lt,irreflexive_def] >>
     Cases_on`n < n2` >> fsrw_tac[ARITH_ss][] >- (
@@ -700,8 +700,8 @@ val orda_lx_trans = prove(
     metis_tac[cpn_nchotomy,cpn_distinct] )
   >- (
     Cases_on`t2`>>TRY(fs[Once orda_thm]>>NO_TAC)>>
-    qmatch_assum_rename_tac`orda env1 (Comb t1 t2) (Comb t3 t4) ≠ GREATER`[] >>
-    qmatch_assum_rename_tac`orda env2 (Comb t3 t4) (Comb t5 t6) ≠ GREATER`[] >>
+    qmatch_assum_rename_tac`orda env1 (Comb t1 t2) (Comb t3 t4) ≠ GREATER` >>
+    qmatch_assum_rename_tac`orda env2 (Comb t3 t4) (Comb t5 t6) ≠ GREATER` >>
     fs[Q.SPECL[`env`,`Comb a b`,`Comb c d`]orda_thm,LET_THM] >>
     rpt(qpat_assum`X ≠ GREATER` mp_tac) >>
     qpat_assum`d`mp_tac >>
@@ -733,8 +733,8 @@ val orda_lx_trans = prove(
       fs[LIST_EQ_REWRITE]
     end) >>
   Cases_on`t2`>>TRY(fs[Once orda_thm]>>NO_TAC)>>
-  qmatch_assum_rename_tac`orda env1 (Abs v1 t1) (Abs v2 t2) ≠ GREATER`[] >>
-  qmatch_assum_rename_tac`orda env2 (Abs v2 t2) (Abs v3 t3) ≠ GREATER`[] >>
+  qmatch_assum_rename_tac`orda env1 (Abs v1 t1) (Abs v2 t2) ≠ GREATER` >>
+  qmatch_assum_rename_tac`orda env2 (Abs v2 t2) (Abs v3 t3) ≠ GREATER` >>
   fs[Q.SPECL[`env`,`Abs a b`,`Abs c d`]orda_thm,LET_THM] >>
   mp_tac TotOrd_type_cmp >>
   simp[TotOrd] >> strip_tac >> fs[] >>
@@ -1087,7 +1087,7 @@ val VFREE_IN_VSUBST = store_thm("VFREE_IN_VSUBST",
   Induct >> simp[VFREE_IN_def,VSUBST_def] >- metis_tac[] >>
   map_every qx_gen_tac[`u`,`uty`,`ilist`] >>
   disch_then(qx_choosel_then[`b`,`bty`]strip_assume_tac) >> simp[] >>
-  BasicProvers.VAR_EQ_TAC >> qmatch_assum_rename_tac`welltyped tm`[] >>
+  BasicProvers.VAR_EQ_TAC >> qmatch_assum_rename_tac`welltyped tm` >>
   qmatch_abbrev_tac`VFREE_IN vu (if p then Abs (Var vx xty) (VSUBST l1 tm) else Abs (Var x xty) (VSUBST l2 tm)) ⇔ q` >>
   qsuff_tac`VFREE_IN vu (Abs (Var (if p then vx else x) xty) (VSUBST (if p then l1 else l2) tm)) ⇔ q` >- metis_tac[] >>
   simp[VFREE_IN_def,Abbr`vu`] >>
@@ -1182,7 +1182,7 @@ val INST_CORE_HAS_TYPE = store_thm("INST_CORE_HAS_TYPE",
   >- (
     rpt gen_tac >> strip_tac >>
     fs[] >> BasicProvers.VAR_EQ_TAC >>
-    BasicProvers.VAR_EQ_TAC >> qmatch_assum_rename_tac`welltyped tm`[] >>
+    BasicProvers.VAR_EQ_TAC >> qmatch_assum_rename_tac`welltyped tm` >>
     fsrw_tac[ARITH_ss][] >>
     Q.PAT_ABBREV_TAC`env' = X::env` >>
     Q.PAT_ABBREV_TAC`tm' = VSUBST X tm` >>
@@ -1634,7 +1634,7 @@ val VSUBST_dbVSUBST = store_thm("VSUBST_dbVSUBST",
       qx_gen_tac`k` >> strip_tac >> simp[] >>
       simp[MAP_db_FILTER_neq] >>
       simp[REV_ASSOCD_FILTER] >>
-      qmatch_assum_rename_tac`k = db u`[] >>
+      qmatch_assum_rename_tac`k = db u` >>
       `∃x ty. u = Var x ty` by metis_tac[] >>
       qspecl_then[`ilist`,`x`,`ty`]mp_tac REV_ASSOCD_MAP_db >>
       discharge_hyps >- metis_tac[] >>
@@ -1664,7 +1664,7 @@ val VSUBST_dbVSUBST = store_thm("VSUBST_dbVSUBST",
     metis_tac[WELLTYPED_CLAUSES] ) >>
   qunabbrev_tac`ilist''` >> rw[] >>
   qmatch_abbrev_tac`bind v n (dbVSUBST ((zz,x)::ls) tt) = X` >>
-  qmatch_assum_rename_tac`Abbrev(z = Var (VARIANT ta s tb) bty)`[] >>
+  qmatch_assum_rename_tac`Abbrev(z = Var (VARIANT ta s tb) bty)` >>
   qspecl_then[`tt`,`v`,`(b,tb)`,`n`,`ls`]mp_tac bind_dbVSUBST_cons >>
   simp[Abbr`v`] >>
   discharge_hyps >- (
@@ -1686,7 +1686,7 @@ val VSUBST_dbVSUBST = store_thm("VSUBST_dbVSUBST",
       map_every qunabbrev_tac[`c`,`tu`,`d`,`l`,`ilist'`] >>
       strip_tac >> simp[] >> fs[MEM_FILTER] >> metis_tac[]) >>
     rw[] >>
-    qmatch_assum_rename_tac`welltyped tm`[] >>
+    qmatch_assum_rename_tac`welltyped tm` >>
     qspecl_then[`tm`,`Var y ty`]mp_tac dbVFREE_IN_VFREE_IN >>
     rw[Abbr`tt`] >>
     spose_not_then strip_assume_tac >>
@@ -1741,7 +1741,7 @@ val INST_CORE_dbINST = store_thm("INST_CORE_dbINST",
     strip_tac >>
     simp[INST_CORE_def] >>
     rw[] >> fs[] >>
-    qmatch_assum_rename_tac`typeof t1 = Fun (typeof t2) rty`[] >>
+    qmatch_assum_rename_tac`typeof t1 = Fun (typeof t2) rty` >>
     first_assum(qspec_then`sizeof t1`mp_tac) >>
     first_x_assum(qspec_then`sizeof t2`mp_tac) >>
     simp[] >>
@@ -1754,7 +1754,7 @@ val INST_CORE_dbINST = store_thm("INST_CORE_dbINST",
   strip_tac >>
   rpt gen_tac >> simp[GSYM AND_IMP_INTRO] >>
   disch_then(qx_choosel_then[`b`,`bty`]strip_assume_tac) >>
-  qmatch_assum_rename_tac`welltyped tm`[] >>
+  qmatch_assum_rename_tac`welltyped tm` >>
   simp[INST_CORE_def] >>
   rw[] >> fs[] >>
   qmatch_assum_abbrev_tac`IS_RESULT X` >>
@@ -2491,9 +2491,8 @@ val variant_inst_thm = save_thm("variant_inst_thm",prove(
   \\ ASM_SIMP_TAC (srw_ss()) [Once variant_def,EXISTS_DEF]
   \\ `EXISTS (vfree_in (Var name ty1)) (frees a) =
       VFREE_IN (Var name ty1) a` by ALL_TAC THEN1
-   (Q.PAT_ASSUM `welltyped a` MP_TAC (* \\ Q.PAT_ASSUM `TYPE defs ty1` MP_TAC *)
-    (* \\ Q.MATCH_ASSUM_RENAME_TAC `STATE defs st` [] *)
-    (* \\ Q.PAT_ASSUM `STATE defs st ` MP_TAC *) \\ REPEAT (POP_ASSUM (K ALL_TAC))
+   (Q.PAT_ASSUM `welltyped a` MP_TAC
+    \\ REPEAT (POP_ASSUM (K ALL_TAC))
     \\ Induct_on `a` \\ SIMP_TAC (srw_ss()) [Once frees_def,Once vfree_in_def]
     THEN1 (REPEAT STRIP_TAC
       \\ FULL_SIMP_TAC std_ss [EXISTS_union,VFREE_IN_def])

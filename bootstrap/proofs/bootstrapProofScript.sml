@@ -545,8 +545,8 @@ val ptrs_exist = prove(
   fs[Once modLangProofTheory.v_to_i1_cases] >>
   rpt BasicProvers.VAR_EQ_TAC >>
   fs[optionTheory.OPTREL_def] >>
-  qmatch_assum_rename_tac`EL iind grd0 = SOME (Loc_i1 iloc)`[] >>
-  qmatch_assum_rename_tac`EL oind grd0 = SOME (Loc_i1 (iloc+1))`[] >>
+  qmatch_assum_rename_tac`EL iind grd0 = SOME (Loc_i1 iloc)` >>
+  qmatch_assum_rename_tac`EL oind grd0 = SOME (Loc_i1 (iloc+1))` >>
   first_assum(qspec_then`iind`mp_tac) >>
   first_x_assum(qspec_then`oind`mp_tac) >>
   qpat_assum`∀n. n < LENGTH genv2 ⇒ P`(fn th =>
@@ -871,7 +871,7 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
     first_assum(match_exists_tac o concl) >> simp[]) >>
   qunabbrev_tac`data` >>
   pop_assum(strip_assume_tac o SIMP_RULE (srw_ss()) [printingTheory.v_bv_def]) >>
-  qmatch_assum_rename_tac`v_to_i1 grd0 inp2 v12`[] >>
+  qmatch_assum_rename_tac`v_to_i1 grd0 inp2 v12` >>
   qexists_tac`LUPDATE (Refv v12) iloc s1` >>
   simp[RIGHT_EXISTS_AND_THM] >>
   conj_tac >- (
@@ -894,7 +894,7 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
   rator_x_assum`s_to_i2`mp_tac >>
   simp[conLangProofTheory.s_to_i2_cases] >>
   strip_tac >>
-  qmatch_assum_rename_tac`v_to_i2 grd1 v12 v22`[] >>
+  qmatch_assum_rename_tac`v_to_i2 grd1 v12 v22` >>
   qexists_tac`LUPDATE (Refv v22) iloc s2` >>
   simp[RIGHT_EXISTS_AND_THM] >>
   conj_tac >- (
@@ -902,7 +902,7 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
     gen_tac >> strip_tac >>
     rw[] >> rw[conLangProofTheory.sv_to_i2_cases]) >>
   simp[miscTheory.LIST_REL_O,PULL_EXISTS,evalPropsTheory.sv_rel_O] >>
-  qmatch_assum_rename_tac`v_to_exh Z v22 v23`["Z"] >>
+  qmatch_assum_rename_tac`v_to_exh _ v22 v23` >>
   CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
   fs[miscTheory.LIST_REL_O,evalPropsTheory.sv_rel_O] >>
   qexists_tac`LUPDATE (Refv v23) iloc l3` >>
@@ -911,7 +911,7 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
     fs[LIST_REL_EL_EQN,EL_LUPDATE] >>
     gen_tac >> strip_tac >> rw[]) >>
   CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-  qmatch_assum_rename_tac`exh_Cv v23 v24`[] >>
+  qmatch_assum_rename_tac`exh_Cv v23 v24` >>
   qexists_tac`LUPDATE (Refv v24) iloc Cs` >>
   simp[RIGHT_EXISTS_AND_THM] >>
   conj_tac >- (
@@ -1092,7 +1092,7 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
     simp[BlockBool_def]) >>
   qunabbrev_tac`data` >>
   pop_assum(strip_assume_tac o SIMP_RULE (srw_ss()) [printingTheory.v_bv_def]) >>
-  qmatch_assum_rename_tac`v_to_i1 grd0 inp2 v12`[] >>
+  qmatch_assum_rename_tac`v_to_i1 grd0 inp2 v12` >>
   qexists_tac`LUPDATE (Refv v12) iloc s1` >>
   simp[RIGHT_EXISTS_AND_THM] >>
   conj_tac >- (
@@ -1115,7 +1115,7 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
   rator_x_assum`s_to_i2`mp_tac >>
   simp[conLangProofTheory.s_to_i2_cases] >>
   strip_tac >>
-  qmatch_assum_rename_tac`v_to_i2 grd1 v12 v22`[] >>
+  qmatch_assum_rename_tac`v_to_i2 grd1 v12 v22` >>
   qexists_tac`LUPDATE (Refv v22) iloc s2` >>
   simp[RIGHT_EXISTS_AND_THM] >>
   conj_tac >- (
@@ -1123,7 +1123,7 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
     gen_tac >> strip_tac >>
     rw[] >> rw[conLangProofTheory.sv_to_i2_cases]) >>
   simp[miscTheory.LIST_REL_O,PULL_EXISTS,evalPropsTheory.sv_rel_O] >>
-  qmatch_assum_rename_tac`v_to_exh Z v22 v23`["Z"] >>
+  qmatch_assum_rename_tac`v_to_exh _ v22 v23` >>
   CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
   fs[miscTheory.LIST_REL_O,evalPropsTheory.sv_rel_O] >>
   qexists_tac`LUPDATE (Refv v23) iloc l3` >>
@@ -1132,7 +1132,7 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
     fs[LIST_REL_EL_EQN,EL_LUPDATE] >>
     gen_tac >> strip_tac >> rw[]) >>
   CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-  qmatch_assum_rename_tac`exh_Cv v23 v24`[] >>
+  qmatch_assum_rename_tac`exh_Cv v23 v24` >>
   qexists_tac`LUPDATE (Refv v24) iloc Cs` >>
   simp[RIGHT_EXISTS_AND_THM] >>
   conj_tac >- (
