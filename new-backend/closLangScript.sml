@@ -69,22 +69,23 @@ val clos_equal_def = tDefine "clos_equal" `
      | Number i =>
          (case y of
           | Number j => Eq_val (i = j)
-          | _ => Eq_type_error)
+          | _ => Eq_val F)
      | Block t1 xs =>
          (case y of
           | Block t2 ys => if (t1 = t2) /\ (LENGTH xs = LENGTH ys) then
                              clos_equal_list xs ys
                            else Eq_val F
-          | _ => Eq_type_error)
+          | Number _ => Eq_val F
+          | RefPtr _ => Eq_val F
+          | _ => Eq_closure)
      | RefPtr i =>
          (case y of
           | RefPtr j => Eq_val (i = j)
-          | _ => Eq_type_error)
+          | _ => Eq_val F)
      | _ =>
          (case y of
-          | Number _ => Eq_type_error
-          | Block _ _ => Eq_type_error
-          | RefPtr _ => Eq_type_error
+          | Number _ => Eq_val F
+          | RefPtr _ => Eq_val F
           | _ => Eq_closure)) /\
   (clos_equal_list [] [] = Eq_val T) /\
   (clos_equal_list (x::xs) (y::ys) =
