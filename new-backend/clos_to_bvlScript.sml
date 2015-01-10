@@ -200,11 +200,6 @@ val bEval_genlist_vars_skip = Q.prove (
      rw [] >>
      decide_tac));
 
-val bEval_genlist_some_args = Q.prove (
-`!x n args rem_args.
-  bEval (GENLIST (\n. Var (n + LENGTH x)) len, x++args, st) = TAKE leng args`,
-
-
 val bEval_genlist_prev_args = Q.prove (
 `!prev_args z x tag p n cl arg_list st.
   bEval (GENLIST (λprev_arg. Op El [Var (LENGTH x); Op (Const (&(prev_arg + LENGTH z))) []]) (LENGTH prev_args),
