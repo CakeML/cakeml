@@ -2539,7 +2539,7 @@ val decs_to_i2_exh_wf = prove(
   last_x_assum mp_tac >>
   qid_spec_tac`t` >>
   ho_match_mp_tac IN_FRANGE_FUNION_suff >> rw[] >>
-  qmatch_assum_rename_tac`t ∈ FRANGE (build_exh_env mn p l)` >>
+  qmatch_assum_rename_tac`t ∈ FRANGE (build_exh_env mn _ l)` >>
   Cases_on`alloc_tags mn st l`>>
   fs[FRANGE_FLOOKUP,build_exh_env_def,flookup_fupdate_list] >>
   every_case_tac >> fs[] >> rw[] >>
