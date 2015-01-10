@@ -69,6 +69,14 @@ val mk_const_def = Define `
 val mk_label_def = Define `
   mk_label n : bvl_exp = Op (Label n) []`;
 
+val mk_cl_call_def = Define `
+  mk_cl_call args =
+    Call NONE (Var 0 ::
+               args ++
+               [If (Op Equal [mk_const (LENGTH args - 1); Op El [Var 0; mk_const 1]])
+                   (Op El [Var 0; mk_const 0])
+                   (mk_label (LENGTH args - 1))])`;
+
 (* Generic application of a function to n+1 arguments *)
 val generate_generic_app_def = Define `
   generate_generic_app n =
@@ -77,8 +85,10 @@ val generate_generic_app_def = Define `
             (* Over application *)
             (Jump (Op El [Var 1; mk_const 1])
               (GENLIST (\num_args. 
-                 Let [Call NONE (Var 2::GENLIST (\arg. Var (arg + 3 + n - num_args)) (num_args + 1) ++ [Op El [Var 2; mk_const 0]])]
-                   (Call NONE (Var 0 :: GENLIST (\n. Var (n + 3)) (n - num_args) ++ [Op El [Var 0; mk_const 0]])))
+                 Let [Call NONE (Var 2 ::
+                                 GENLIST (\arg. Var (arg + 3 + n - num_args)) (num_args + 1) ++
+                                 [Op El [Var 2; mk_const 0]])]
+                   (mk_cl_call (GENLIST (\n. Var (n + 4)) (n - num_args))))
                max_app))
             (* Partial application *)
             (If (Op (TagEq closure_tag) [Var 1])
@@ -189,6 +199,11 @@ val bEval_genlist_vars_skip = Q.prove (
      match_mp_tac bEval_genlist_vars_skip_lem >>
      rw [] >>
      decide_tac));
+
+val bEval_genlist_some_args = Q.prove (
+`!x n args rem_args.
+  bEval (GENLIST (\n. Var (n + LENGTH x)) len, x++args, st) = TAKE leng args`,
+
 
 val bEval_genlist_prev_args = Q.prove (
 `!prev_args z x tag p n cl arg_list st.
@@ -343,7 +358,7 @@ val bEval_generic_app3_lem2 = Q.prove (
  metis_tac [bEval_generic_app3_lem]);
 
 val bEval_generic_app3 = Q.prove (
-`!n args st rem_args vs l tag exp.
+`!n args st rem_args vs l tag exp clo.
   lookup l st.code = SOME (rem_args + 2, exp) ∧
   n + 2 = LENGTH args ∧
   n > rem_args ∧
@@ -356,7 +371,18 @@ val bEval_generic_app3 = Q.prove (
                 Block tag (CodePtr l::Number (&rem_args)::vs) :: 
                   DROP (LENGTH (TL args) − (rem_args + 1)) (TL args),
                 dec_clock st) of
-      | (Result vs, st') => P vs st'
+      | (Result [v], st') =>
+          (case
+             bEval
+               ([mk_cl_call (GENLIST (λn. Var (n + 4)) (n − rem_args))],
+                v::Number (&rem_args)::Number (&rem_args − &LENGTH (TL args))::
+                    Block tag (CodePtr l::Number (&rem_args)::vs)::(TL args),
+                st')
+           of
+             (Result v,s2) => (Result [HD v],s2)
+           | (Exception v8,s2) => (Exception v8,s2)
+           | (TimeOut,s2) => (TimeOut,s2)
+           | (Error,s2) => (Error,s2))
       | x => x`,
  rw [generate_generic_app_def, mk_const_def] >>
  rw [bEval_def, bEvalOp_def] >>
@@ -391,8 +417,18 @@ val bEval_generic_app3 = Q.prove (
  fs [] >>
  Cases_on `q` >>
  fs [] >>
- `?v. a = [v]`  by cheat >>
- cheat);
+ `?v. a = [v]` 
+        by (fs [markerTheory.Abbrev_def] >>
+            mp_tac (Q.SPECL [`[exp]`,
+                              `Block tag (CodePtr l::Number (&rem_args)::vs)::DROP (LENGTH arg_list − (rem_args + 1)) arg_list`,
+                               `dec_clock st`] bEval_LENGTH) >>
+            pop_assum (mp_tac o GSYM) >>
+            rw [] >>
+            Cases_on `a` >>
+            fs [] >>
+            Cases_on `t` >>
+            fs []) >>
+ rw []);
 
 val bEval_partial_app_fn = Q.prove (
 `!args prev_args tag num tag' num' l l' fvs st exp.
@@ -415,9 +451,9 @@ val bEval_partial_app_fn = Q.prove (
 
 val init_code_def = Define `
   init_code = 
-    GENLIST (\n. (n, generate_generic_app n)) max_app ++ 
-    FLAT (GENLIST (\m. GENLIST (\n. (max_app + m * max_app + n, 
-                                     generate_partial_app_closure_fn m n)) max_app) max_app)`;
+    GENLIST (\n. (n + 2, generate_generic_app n)) max_app ++ 
+    FLAT (GENLIST (\m. GENLIST (\n. (m - n, 
+                                     generate_partial_app_closure_fn m n)) m) max_app)`;
 
 val cComp_def = tDefine "cComp" `
   (cComp [] aux = ([],aux)) /\
@@ -451,12 +487,7 @@ val cComp_def = tDefine "cComp" `
      let arg_vars = REVERSE (GENLIST (\n. Var (n + 1)) num_args) in
        ([case loc_opt of
          | NONE => 
-             Let (c1++c2)
-               (Call NONE (Var 0 ::            (* closure itself *)
-                           arg_vars ++         (* arguments *)
-                           [If (Op Equal [Op (Const (&(num_args - 1))) []; Op (El 1) [Var 0]])
-                               (Op (El 0) [Var 0]) (* code pointer from closure *)
-                               (Op (Label (num_args - 1)) [])]) (* code pointer to generic apply num_args function *))
+             Let (c1++c2) (mk_cl_call arg_vars)
          | SOME loc => 
              Call (SOME (loc + num_stubs)) (c1 ++ c2)],
         aux2)) /\
@@ -523,8 +554,24 @@ val (val_rel_rules,val_rel_ind,val_rel_cases) = Hol_reln `
   (EVERY2 (val_rel f refs code) env ys /\
    (cComp [x] aux = ([c],aux1)) /\
    code_installed aux1 code /\
-   (lookup p code = SOME (2:num,Let (Var 1::free_let (LENGTH env)) c)) ==>
-   val_rel f refs code (Closure p env x) (Block closure_tag (CodePtr p :: ys)))
+   (lookup p code = SOME (num_args + 2:num,Let (Var 1::free_let (LENGTH env)) c)) ==>
+   val_rel f refs code (Closure p [] env num_args x) 
+                       (Block closure_tag (CodePtr p :: Number (&num_args) :: ys)))
+  /\
+  (EVERY2 (val_rel f refs code) env ys /\
+   (arg_env ≠ []) ∧
+   (cComp [x] aux = ([c],aux1)) /\
+   code_installed aux1 code /\
+   (lookup (max_app + total_args * max_app + LENGTH ys - 1) code =
+     SOME (num_args + 2, generate_partial_app_closure_fn total_args (LENGTH ys - 1))) ∧
+   (lookup p code = SOME (total_args + 2:num,Let (Var 1::free_let (LENGTH env)) c)) ==>
+   val_rel f refs code (Closure p arg_env env num_args x) 
+                       (Block partial_app_tag 
+                              (CodePtr (max_app + total_args * max_app + LENGTH ys - 1) :: 
+                               Number (&num_args) ::
+                               Block closure_tag (CodePtr p :: Number (&total_args) :: fvs) ::
+                               ys)))
+  (*
   /\
   (EVERY2 (val_rel f refs code) env ys /\
    (cComp [x] aux = ([c],aux1)) /\
@@ -540,7 +587,7 @@ val (val_rel_rules,val_rel_ind,val_rel_cases) = Hol_reln `
    EVERY2 (val_rel f refs code) env ys /\
    1 < LENGTH exps /\ k < LENGTH exps /\
    closure_code_installed code exps_ps env ==>
-   val_rel f refs code (Recclosure loc env exps k) (EL k rs))`
+   val_rel f refs code (Recclosure loc env exps k) (EL k rs))*)`
 
 val opt_val_rel_def = Define `
   (opt_val_rel f refs code NONE NONE = T) /\
