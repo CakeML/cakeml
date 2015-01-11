@@ -1631,6 +1631,13 @@ val bvl_bc_correct = store_thm("bvl_bc_correct",
       srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
       simp[bc_state_component_equality] >>
       simp[FILTER_APPEND,SUM_APPEND] )
+    >- cheat
+    >- cheat
+    >- cheat
+    >- cheat
+    >- cheat
+    >- cheat
+    >- cheat
     >- (
       srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
       `bc_fetch bs2 = SOME (Stack (PushInt i))` by (
