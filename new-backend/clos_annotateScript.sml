@@ -33,34 +33,6 @@ val clos_free_def = tDefine "clos_free" `
 val clos_exp_ind =
   theorem "clos_free_ind" |> Q.SPEC `K P` |> SIMP_RULE std_ss []
 
-(* specify when the annotations are good *)
-
-val clos_ann_ok_def = tDefine "clos_ann_ok" `
-  (clos_ann_ok [] <=> T) /\
-  (clos_ann_ok ((x:clos_exp)::y::xs) <=>
-     clos_ann_ok [x] /\ clos_ann_ok (y::xs)) /\
-  (clos_ann_ok [Var v] <=> T) /\
-  (clos_ann_ok [If x1 x2 x3] <=>
-     clos_ann_ok [x1] /\ clos_ann_ok [x2] /\ clos_ann_ok [x3]) /\
-  (clos_ann_ok [Let xs x2] <=>
-     clos_ann_ok xs /\ clos_ann_ok [x2]) /\
-  (clos_ann_ok [Raise x1] <=> clos_ann_ok [x1]) /\
-  (clos_ann_ok [Tick x1] <=> clos_ann_ok [x1]) /\
-  (clos_ann_ok [Op op xs] <=> clos_ann_ok xs) /\
-  (clos_ann_ok [App loc_opt x1 x2] <=>
-     clos_ann_ok [x1] /\ clos_ann_ok [x2]) /\
-  (clos_ann_ok [Fn loc vs x1] <=>
-     (!n. clos_free n [Fn loc vs x1] <=> MEM n vs) /\
-     clos_ann_ok [x1]) /\
-  (clos_ann_ok [Letrec loc vs fns x1] <=>
-     (!n. clos_free n [Letrec loc vs fns (Op (Const 0) [])] <=> MEM n vs) /\
-     clos_ann_ok fns /\ clos_ann_ok [x1]) /\
-  (clos_ann_ok [Handle x1 x2] <=>
-     clos_ann_ok [x1] /\ clos_ann_ok [x2]) /\
-  (clos_ann_ok [Call dest xs] <=> clos_ann_ok xs)`
- (WF_REL_TAC `measure (clos_exp1_size)`
-  \\ REPEAT STRIP_TAC \\ DECIDE_TAC);
-
 (* annotate clos_exp Fn and Letrec with free variables, no sem change *)
 
 val cFree_def = tDefine "cFree" `
@@ -142,28 +114,24 @@ val _ = augment_srw_ss [rewrites [has_var_mk_Union, has_var_def]];
 val cFree_thm = prove(
   ``!xs.
       let (ys,l) = cFree xs in
-        clos_ann_ok ys /\ !n. (clos_free n ys = has_var n l) /\
-                              (clos_free n xs = has_var n l)``,
+        !n. (clos_free n ys = has_var n l) /\
+            (clos_free n xs = has_var n l)``,
   recInduct cFree_ind \\ REPEAT STRIP_TAC \\ fs [cFree_def,LET_DEF]
-  \\ TRY (fs [clos_ann_ok_def,has_var_def,clos_free_def] \\ NO_TAC)
+  \\ TRY (fs [has_var_def,clos_free_def] \\ NO_TAC)
   THEN1 (* cons *)
    (`?y1 l1. cFree [x] = ([y1],l1)` by METIS_TAC [PAIR,cFree_SING] \\ fs []
     \\ `?y2 l2. cFree (y::xs) = (y2,l2)` by METIS_TAC [PAIR] \\ fs []
     \\ IMP_RES_TAC cEval_const \\ rfs [] \\ RES_TAC
     \\ IMP_RES_TAC cFree_LENGTH
-    \\ Cases_on `y2` \\ fs [clos_ann_ok_def,has_var_def,clos_free_def])
+    \\ Cases_on `y2` \\ fs [has_var_def,clos_free_def])
   \\ `?y1 l1. cFree fns = (y1,l1)` by METIS_TAC [PAIR,cFree_SING] \\ fs []
   \\ `?y1 l1. cFree [x1] = ([y1],l1)` by METIS_TAC [PAIR,cFree_SING] \\ fs []
   \\ `?y1 l1. cFree xs = (y1,l1)` by METIS_TAC [PAIR,cFree_SING] \\ fs []
   \\ `?y2 l2. cFree [x2] = ([y2],l2)` by METIS_TAC [PAIR,cFree_SING] \\ fs []
   \\ `?y3 l3. cFree [x3] = ([y3],l3)` by METIS_TAC [PAIR,cFree_SING] \\ fs []
   \\ rfs [] \\ RES_TAC \\ IMP_RES_TAC cFree_LENGTH \\ fs []
-  \\ fs [clos_ann_ok_def,has_var_def,clos_free_def,MEM_vars_to_list])
+  \\ fs [has_var_def,clos_free_def,MEM_vars_to_list])
   |> SPEC_ALL;
-
-val cFree_IMP_clos_ann_ok = prove(
-  ``(cFree xs = (ys,l)) ==> clos_ann_ok ys``,
-  REPEAT STRIP_TAC \\ MP_TAC cFree_thm \\ fs [LET_DEF]);
 
 (* cShift renames variables to use only those in the annotations *)
 
