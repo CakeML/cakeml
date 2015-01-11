@@ -708,7 +708,7 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
          Cases_on`x''`>>BasicProvers.EVERY_CASE_TAC>>rfs[set_var_def]>>fs[]>>
          `r'.handler = s.handler` by (`LENGTH s.stack +1 =
           LENGTH (StackFrame (list_rearrange (s.permute 0)
-             (QSORT key_val_compare (nub (toAList x'))))
+             (QSORT key_val_compare (toAList x')))
              (SOME s.handler)::s.stack)` by fs[arithmeticTheory.ADD1]>>
            pop_assum SUBST_ALL_TAC>>
            fs[LAST_N_LENGTH]>>
@@ -718,7 +718,7 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
            (ONCE_REWRITE_TAC[CONJ_ASSOC]>>CONJ_TAC>-
            (`LENGTH s.stack +1 =
              LENGTH (StackFrame (list_rearrange (s.permute 0)
-             (QSORT key_val_compare (nub (toAList x'))))
+             (QSORT key_val_compare (toAList x')))
              (SOME s.handler)::s.stack)` by fs[arithmeticTheory.ADD1]>>
            pop_assum SUBST_ALL_TAC>>
            fs[LAST_N_LENGTH]>>
@@ -746,7 +746,7 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
             (CONJ_TAC >- (
             `LENGTH s.stack +1 =
              LENGTH (StackFrame (list_rearrange (s.permute 0)
-             (QSORT key_val_compare (nub (toAList x'))))
+             (QSORT key_val_compare (toAList x')))
              (SOME s.handler)::s.stack)` by fs[arithmeticTheory.ADD1]>>
              pop_assum SUBST_ALL_TAC>>
              fs[LAST_N_LENGTH]>>
@@ -761,7 +761,7 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
              CONJ_TAC>-
              (`LENGTH s.stack +1 =
                LENGTH (StackFrame (list_rearrange (s.permute 0)
-               (QSORT key_val_compare (nub (toAList x'))))
+               (QSORT key_val_compare (toAList x')))
                (SOME s.handler)::s.stack)` by fs[arithmeticTheory.ADD1]>>
              pop_assum SUBST_ALL_TAC>>
              fs[LAST_N_LENGTH]>>
@@ -909,40 +909,44 @@ exact_colored_locals f x y <=>
   (domain y = IMAGE f (domain x) /\
    !z. lookup z x = lookup (f z) y)`
 
-val MEM_nub = prove(
- ``!ls x. MEM x (nub ls) <=> MEM x ls``,
-  Induct>> rw[nub_def]>>
-  metis_tac[])
+(*probably already in HOL*)
+val ALL_DISTINCT_FST = store_thm("ALL_DISTINCT_FST",``
+  ∀ls. ALL_DISTINCT (MAP FST ls) ⇒ ALL_DISTINCT ls``,
+  Induct>>rw[]>>Cases_on`h`>>fs[MEM_EL]>>rw[]>>
+  first_x_assum(qspec_then`n` assume_tac)>>
+  Cases_on`n<LENGTH ls`>>fs[EL_MAP]>>
+  CCONTR_TAC>>fs[]>>
+  pop_assum (SUBST_ALL_TAC o SYM)>>fs[])
 
 val toAList_exact_colored_locals_permute = prove(
   ``!f x y. INJ f UNIV UNIV /\
             exact_colored_locals f x y
-       ==>  PERM (MAP (\a,b.(f a,b)) (nub (toAList x))) (nub (toAList y))``,
+       ==>  PERM (MAP (\a,b.(f a,b)) (toAList x)) (toAList y)``,
   rw[]>> fs[exact_colored_locals_def]>>
   match_mp_tac PERM_ALL_DISTINCT>>
-  rw[]>-
+  rw[]
+  >-
     (`INJ (\a,b:'a. (f a,b)) UNIV UNIV` by
       (fs[INJ_DEF]>>rpt strip_tac>> Cases_on`x'`>>Cases_on`y'`>>fs[])>>
-    ASSUME_TAC (INST_TYPE [``:'a``|-> ``:num # 'a``] all_distinct_nub)>>
-    first_assum (qspec_then `toAList x` assume_tac)>>
     match_mp_tac ALL_DISTINCT_MAP_INJ>>
-    rw[]>- (Cases_on`x'`>>Cases_on`y'`>>fs[INJ_DEF]))>-
-    fs[all_distinct_nub]>>
+    rw[]>- (Cases_on`x'`>>Cases_on`y'`>>fs[INJ_DEF])>-
+    metis_tac[ALL_DISTINCT_FST,ALL_DISTINCT_MAP_FST_toAList])
+  >-
+    metis_tac[ALL_DISTINCT_FST,ALL_DISTINCT_MAP_FST_toAList]
+  >>
   Cases_on`x'`>>
   rw[EQ_IMP_THM]>-
     (fs[MEM_MAP]>>Cases_on`y'`>>fs[]>>
-    IMP_RES_TAC MEM_nub>>
-    metis_tac[MEM_toAList,MEM_nub])>>
-  IMP_RES_TAC MEM_nub>>
+    metis_tac[MEM_toAList])>>
   IMP_RES_TAC MEM_toAList>>
     `?z. lookup z x = SOME r /\ f z = q` by
       (IMP_RES_TAC domain_lookup>>
       fs[EXTENSION] >> last_x_assum(qspec_then `q` assume_tac)>>fs[]>>
       fs[domain_lookup]>>
       HINT_EXISTS_TAC>>fs[])>>
-      match_mp_tac (GEN_ALL (snd(EQ_IMP_RULE (SPEC_ALL MEM_MAP))))>>
+    match_mp_tac (GEN_ALL (snd(EQ_IMP_RULE (SPEC_ALL MEM_MAP))))>>
     Q.EXISTS_TAC `z,r`>>
-    fs[]>>metis_tac[PAIR,MEM_toAList,MEM_nub])
+    fs[]>>metis_tac[PAIR,MEM_toAList])
 
 val color_fst_monotonic = prove(``
   monotonic_color f ==> rel_monotonic key_val_compare (\x,y.f x,y)``,

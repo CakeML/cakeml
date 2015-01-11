@@ -840,9 +840,9 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
            (*got to be a simpler way to do this..*)
            `MAP FST  (MAP (λ(x,y). (f x,y))
             (list_rearrange (st.permute 0)
-            (QSORT key_val_compare (nub (toAList x))))) = MAP FST (
+            (QSORT key_val_compare (toAList x)))) = MAP FST (
             list_rearrange (st.permute 0)
-            (QSORT key_val_compare (nub (toAList y))))` by fs[]>>
+            (QSORT key_val_compare (toAList y)))` by fs[]>>
             `!ls.MAP f (MAP FST ls) = MAP FST (MAP (\x,y:'a word_loc. (f x,y)) ls)` by
                (simp[MAP_MAP_o,MAP_EQ_f]>>strip_tac>>Cases>>EVAL_TAC)>>
             metis_tac[])>>
@@ -1034,9 +1034,9 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
            (*got to be a simpler way to do this..*)
            `MAP FST  (MAP (λ(x,y). (f x,y))
              (list_rearrange (st.permute 0)
-             (QSORT key_val_compare (nub (toAList x'))))) = MAP FST (
+             (QSORT key_val_compare (toAList x')))) = MAP FST (
              list_rearrange (st.permute 0)
-             (QSORT key_val_compare (nub (toAList y))))` by fs[]>>
+             (QSORT key_val_compare (toAList y)))` by fs[]>>
            `!ls.MAP f (MAP FST ls) = MAP FST (MAP (\x,y:'a word_loc. (f x,y)) ls)` by
              (simp[MAP_MAP_o,MAP_EQ_f]>>strip_tac>>Cases>>EVAL_TAC)>>
            fs[]>>metis_tac[])>>
@@ -1116,9 +1116,9 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
              (*got to be a simpler way to do this..*)
              `MAP FST  (MAP (λ(x,y). (f x,y))
                (list_rearrange (st.permute 0)
-               (QSORT key_val_compare (nub (toAList x'))))) = MAP FST (
+               (QSORT key_val_compare (toAList x')))) = MAP FST (
                list_rearrange (st.permute 0)
-               (QSORT key_val_compare (nub (toAList y))))` by fs[]>>
+               (QSORT key_val_compare (toAList y)))` by fs[]>>
              `!ls.MAP f (MAP FST ls) = MAP FST (MAP (\x,y:'a word_loc. (f x,y)) ls)` by
                (simp[MAP_MAP_o,MAP_EQ_f]>>strip_tac>>Cases>>EVAL_TAC)>>
                fs[]>>metis_tac[])>>
@@ -1277,15 +1277,14 @@ val IS_SOME_case = prove(
   ``IS_SOME (case x of NONE => NONE | SOME x => SOME (f x)) ⇔ IS_SOME x``,
   Cases_on`x`>>rw[])
 
+(*TODO: Delete, this is going away
 val call_conv_trans_def = Define`
   (*Returning calls*)
   (call_conv_trans lim (Call (SOME (ret,names,ret_handler)) dest args h) =
     (*Forcing args into registers*)
     let lim = if lim > 2 * LENGTH args then lim else 2*LENGTH args +1 in
     let conv_args = even_list (LENGTH args) in
-    let names = nub (num_set_to_list names) in
-    (*numset -> Alist, might want to add nub here to give all_distinct?
-      This transform needs to be monotonic and injective on variable names*)
+    let names = num_set_to_list names in
     let conv_names = MAP (\i. 2*i + lim) names in
     (*Move that restores the cutset*)
     let restore = Move (ZIP (names,conv_names)) in
@@ -1556,10 +1555,11 @@ val call_conv_trans_correct = store_thm("call_conv_trans_correct",
       ,ALL_DISTINCT_even_list_rw,ALL_DISTINCT_offset_list_rw]>>
     Q.ABBREV_TAC `lim' = if lim > 2 * LENGTH args then lim else 2 * LENGTH args + 1`>>
     Q.ABBREV_TAC `ls = GENLIST (λx. 2 * x) (LENGTH args)`>>
-    Q.ABBREV_TAC `a = MAP (λi. 2 * i + lim') (nub (MAP FST (toAList x1)))`>>
+    Q.ABBREV_TAC `a = MAP (λi. 2 * i + lim') (MAP FST (toAList x1))`>>
     `ALL_DISTINCT a` by
       (unabbrev_all_tac>>match_mp_tac ALL_DISTINCT_MAP_INJ>>
-      rw[]>-DECIDE_TAC>>fs[all_distinct_nub])>>
+      rw[]>-DECIDE_TAC>>
+      fs[ALL_DISTINCT_MAP_FST_toAList])>>
     (*This is true because the args list is bounded by 2* LENGTH args
     lim is deliberately forced to be greater so it is not a MEM*)
     `∀e. MEM e a ==> ~ MEM e ls` by
@@ -1573,7 +1573,7 @@ val call_conv_trans_correct = store_thm("call_conv_trans_correct",
     fs[get_vars_append]>>
     fs[cut_env_def]>>
     (*domain x1 subset domain st.locals*)
-    `set (nub (MAP FST (toAList x1))) SUBSET domain st.locals` by
+    `set (MAP FST (toAList x1)) SUBSET domain st.locals` by
       (fs[SUBSET_DEF]>>rw[]>>fs[MEM_MAP]>>
       Cases_on`y`>>fs[MEM_toAList,domain_lookup])>>
     IMP_RES_TAC get_vars_eq>>fs[set_vars_def]>>
@@ -1608,49 +1608,50 @@ val call_conv_trans_correct = store_thm("call_conv_trans_correct",
       (*Domain Image*)
       (fs[EXTENSION]>>rw[EQ_IMP_THM]>>
       fs[domain_inter]>>fs[domain_fromAList,Abbr`a`,MEM_MAP]>-
-	(Cases_on`y'''`>>fs[]>>
-	Q.EXISTS_TAC`q'`>>
-	fs[]>>CONJ_ASM2_TAC>- metis_tac[SUBSET_DEF]>>
-	fs[MEM_toAList,domain_lookup])>>
-      fs[domain_list_insert]>>CONJ_ASM2_TAC>-
-        (fs[MEM_MAP]>>Cases_on`y'''`>>DISJ2_TAC>>DISJ1_TAC>>
-	Q.EXISTS_TAC `q'`>>rw[]>>Q.EXISTS_TAC `q',r'`>>fs[])>>
-	`MEM (x'',()) (toAList x1)` by fs[domain_lookup,MEM_toAList]>>
-	Q.EXISTS_TAC`f x'',()`>>fs[]>>
-	Q.EXISTS_TAC `x''`>>fs[]>>HINT_EXISTS_TAC>>fs[])>>
+      (Cases_on`y'''`>>fs[]>>
+      Q.EXISTS_TAC`q'`>>
+      fs[]>>CONJ_ASM2_TAC>- metis_tac[SUBSET_DEF]>>
+      fs[MEM_toAList,domain_lookup])>>
+          fs[domain_list_insert]>>CONJ_ASM2_TAC>-
+            (fs[MEM_MAP]>>Cases_on`y'''`>>DISJ2_TAC>>DISJ1_TAC>>
+      Q.EXISTS_TAC `q'`>>rw[]>>Q.EXISTS_TAC `q',r'`>>fs[])>>
+      `MEM (x'',()) (toAList x1)` by fs[domain_lookup,MEM_toAList]>>
+      Q.EXISTS_TAC`f x'',()`>>fs[]>>
+      Q.EXISTS_TAC `x''`>>fs[]>>HINT_EXISTS_TAC>>fs[])>>
       (*Lookup*)
       fs[lookup_inter]>>
       Cases_on`lookup z st.locals`>>simp[]>>
       fs[lookup_list_insert]>-
-	(*If z is not in st.locals*)
-	(fs[lookup_NONE_domain,Abbr`a`]>>
-	`~(z IN domain x1)` by metis_tac[SUBSET_DEF]>>
-	`lookup (f z) (fromAList (MAP (\x.(x,()))
-	(MAP f (nub (MAP FST (toAList x1)))))) = NONE` by
-	(SPOSE_NOT_THEN ASSUME_TAC>>
-	fs[lookup_fromAList,MAP_MAP_o,ALOOKUP_NONE,MEM_MAP]>>
-	Cases_on`y'''`>>fs[MEM_toAList,domain_lookup,INJ_DEF]>>metis_tac[])>>
-	BasicProvers.EVERY_CASE_TAC)>>
+      (*If z is not in st.locals*)
+      (fs[lookup_NONE_domain,Abbr`a`]>>
+      `~(z IN domain x1)` by metis_tac[SUBSET_DEF]>>
+      `lookup (f z) (fromAList (MAP (\x.(x,()))
+      (MAP f (MAP FST (toAList x1))))) = NONE` by
+      (SPOSE_NOT_THEN ASSUME_TAC>>
+      fs[lookup_fromAList,MAP_MAP_o,ALOOKUP_NONE,MEM_MAP]>>
+      Cases_on`y''`>>fs[MEM_toAList,domain_lookup,INJ_DEF]>>metis_tac[])>>
+      BasicProvers.EVERY_CASE_TAC)>>
       Cases_on`lookup z x1`>-
         (`lookup (f z) (fromAList (MAP (\x.(x,())) a)) = NONE` by
-	  (fs[lookup_fromAList,ALOOKUP_NONE,Abbr`a`]>>
-	  SPOSE_NOT_THEN ASSUME_TAC>>
-	  fs[MEM_MAP]>>Cases_on`y'''`>>fs[MEM_toAList,domain_lookup,INJ_DEF]>>
-	  metis_tac[optionTheory.NOT_NONE_SOME])>>BasicProvers.EVERY_CASE_TAC>>fs[])>>
+        (fs[lookup_fromAList,ALOOKUP_NONE,Abbr`a`]>>
+        SPOSE_NOT_THEN ASSUME_TAC>>
+        fs[MEM_MAP]>>Cases_on`y'''`>>fs[MEM_toAList,domain_lookup,INJ_DEF]>>
+        metis_tac[optionTheory.NOT_NONE_SOME])>>
+        BasicProvers.EVERY_CASE_TAC>>fs[])>>
       IMP_RES_TAC rich_listTheory.ZIP_APPEND>>
       ntac 5 (pop_assum (SUBST1_TAC o SYM))>>
       fs[Abbr`a`,Abbr`y`,ZIP_MAP_MAP_EQ,ALOOKUP_APPEND]>>
-      `MEM z (nub (MAP FST (toAList x1)))` by
-	  (IMP_RES_TAC MEM_toAList>>
-	  fs[MEM_MAP]>>HINT_EXISTS_TAC>>fs[])>>
+      `MEM z (MAP FST (toAList x1))` by
+      (IMP_RES_TAC MEM_toAList>>
+      fs[MEM_MAP]>>HINT_EXISTS_TAC>>fs[])>>
       `ALOOKUP (MAP (λx. (f x,THE (lookup x st.locals)))
-        (nub (MAP FST (toAList x1)))) (f z) = SOME x'` by
+        (MAP FST (toAList x1))) (f z) = SOME x'` by
         (match_mp_tac ALOOKUP_ALL_DISTINCT_MEM>>CONJ_TAC>-
-        (fs[ALL_DISTINCT_MAP_INJ,MAP_MAP_o,all_distinct_nub]>>
-	`FST o (\x. (f x,THE (lookup x st.locals))) = f` by rw[FUN_EQ_THM]>>
+        (fs[ALL_DISTINCT_MAP_INJ]>>simp[Once MAP_MAP_o]>>
+	      `FST o (\x. (f x,THE (lookup x st.locals))) = f` by rw[FUN_EQ_THM]>>
         simp[])>>
-	fs[MEM_MAP]>>Q.EXISTS_TAC`z`>>
-	simp[]>>HINT_EXISTS_TAC>>simp[])>>
+        fs[MEM_MAP]>>Q.EXISTS_TAC`z`>>
+        simp[]>>HINT_EXISTS_TAC>>simp[])>>
       fs[]>>
       simp[lookup_fromAList,MAP_MAP_o]>>
       BasicProvers.FULL_CASE_TAC>>
@@ -1662,7 +1663,7 @@ val call_conv_trans_correct = store_thm("call_conv_trans_correct",
                    (case handler of
                       NONE => NONE
                     | SOME (n,h') =>
-                        SOME (0:num,Seq (Move (ZIP (nub (MAP FST (toAList x1)),a)))
+                        SOME (0:num,Seq (Move (ZIP (MAP FST (toAList x1),a)))
                                (Seq (Move [(n,0:num)]) (call_conv_trans lim' h'))))`>>
       `IS_SOME handler' = IS_SOME handler` by (unabbrev_all_tac>>
         BasicProvers.EVERY_CASE_TAC>>fs[])>>
@@ -1706,13 +1707,13 @@ val call_conv_trans_correct = store_thm("call_conv_trans_correct",
        fs[dec_clock_def]>>
        IMP_RES_TAC env_to_list_monotonic_eq>>
        `MAP (f o FST) l' = MAP FST l` by(
-	   fs[env_to_list_def,LET_THM]>>
-	   last_x_assum (qspec_then `st.permute` assume_tac)>>
-	   qpat_assum `MAP FST lss = MAP FST l` (SUBST1_TAC o SYM)>>
-	   simp[(GEN_ALL o SYM o SPEC_ALL) MAP_MAP_o]>>
-	   qpat_assum `MAP FST lss = MAP FST l'` (SUBST1_TAC o SYM)>>
-	   pop_assum (mp_tac o Q.AP_TERM `MAP FST`)>>
-	   simp[MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD])>>
+         fs[env_to_list_def,LET_THM]>>
+         last_x_assum (qspec_then `st.permute` assume_tac)>>
+         qpat_assum `MAP FST lss = MAP FST l` (SUBST1_TAC o SYM)>>
+         simp[(GEN_ALL o SYM o SPEC_ALL) MAP_MAP_o]>>
+         qpat_assum `MAP FST lss = MAP FST l'` (SUBST1_TAC o SYM)>>
+         pop_assum (mp_tac o Q.AP_TERM `MAP FST`)>>
+         simp[MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD])>>
        `domain y''.locals = domain y'` by
            (fs[exact_colored_locals_def]>>
             `y''.locals = fromAList l /\ x'.locals = fromAList l'` by
@@ -1726,7 +1727,7 @@ val call_conv_trans_correct = store_thm("call_conv_trans_correct",
              qpat_assum `MAP g l' = MAP FST l` SUBST_ALL_TAC>>
              `domain y''.locals = set(MAP FST l)` by fs[]>>
              metis_tac[])>>
-         fs[all_distinct_nub]>>
+         fs[ALL_DISTINCT_MAP_FST_toAList]
 	 assume_tac (GEN_ALL get_vars_eq)>>
 	 pop_assum (qspecl_then [`(set_var 0 a' y'')`,`a`] assume_tac)>>
 	 `set a SUBSET domain (set_var 0 a' y'').locals` by
@@ -1738,52 +1739,52 @@ val call_conv_trans_correct = store_thm("call_conv_trans_correct",
 	fs[get_vars_def,get_var_def]>>
 	IMP_RES_TAC get_vars_length_lemma>>
 	fs[lookup_list_insert,LENGTH_MAP]>>
-        (REVERSE BasicProvers.FULL_CASE_TAC>-
-          (IMP_RES_TAC ALOOKUP_MEM>>
+  (REVERSE BasicProvers.FULL_CASE_TAC>-
+    (IMP_RES_TAC ALOOKUP_MEM>>
 	  IMP_RES_TAC MEM_ZIP_weak>>rfs[MEM_MAP]>>
-       	  Cases_on`y''''`>>fs[MEM_toAList,check_cutset_def])>>
+    Cases_on`y''''`>>fs[MEM_toAList,check_cutset_def])>>
  	qpat_assum `A = (res,rst)` mp_tac>>
 	ntac 2 BasicProvers.FULL_CASE_TAC>> fs[]>>
 	first_x_assum(qspecl_then [`lim'`] assume_tac)>>
 	rw[]>>
 	fs[set_var_def]>>
 	qpat_assum `A = (NONE,rst')` mp_tac>>
-        TRY(
-        qpat_abbrev_tac `s1 = r' with <|locals := X; stack:=Y;handler:=Z|>`>>
-        qpat_abbrev_tac `s2 = r' with <|locals := X; stack:=Y;handler:=Z|>`
-        )>>
-	TRY(
-	qpat_abbrev_tac `s1 = r' with <|locals := X; stack:=Y|>`>>
-        qpat_abbrev_tac `s2 = r' with <|locals := X; stack:=Y|>`
-        )>>
+  TRY(qpat_abbrev_tac `s1 = r' with <|locals := X; stack:=Y;handler:=Z|>`>>
+      qpat_abbrev_tac `s2 = r' with <|locals := X; stack:=Y;handler:=Z|>`)>>
+	TRY(qpat_abbrev_tac `s1 = r' with <|locals := X; stack:=Y|>`>>
+      qpat_abbrev_tac `s2 = r' with <|locals := X; stack:=Y|>`)>>
 	`strong_state_rel I s1 s2` by
-        (fs[Abbr`s1`,Abbr`s2`,strong_state_rel_def]>>CONJ_TAC>-
-	  metis_tac[s_key_eq_sym,s_key_eq_trans,s_val_and_key_eq]>>
-        rpt strip_tac>>fs[list_insert_def]>>
-	Cases_on`n=x0`>>fs[lookup_insert]>>
-	simp[lookup_list_insert]>>
-	`domain (fromAList l') = domain x1` by
-	  fs[domain_inter,INTER_SUBSET_EQN]>>
-	`MEM n (nub (MAP FST (toAList x1)))` by
-	 (fs[lookup_fromAList,MEM_toAList,MEM_MAP,PAIR,domain_fromAList
-	    ,domain_lookup,EXTENSION]>>
-	  pop_assum (qspec_then `n` assume_tac)>>
-	  Q.EXISTS_TAC`n,()`>>fs[]>>
-	  metis_tac[MEM_toAList])>>
-	fs[Abbr`a`,lookup_fromAList,MAP_MAP_o,ZIP_MAP_MAP_EQ,ALOOKUP_ZIP_MAP_SND]>>
-	assume_tac (INST_TYPE [``:'a``|->``:num``] ZIP_ID)>>fs[]>>
-	`n <> 0` by (SPOSE_NOT_THEN assume_tac>> fs[MEM_toAList])>>fs[]>>
-        Q.ISPECL_THEN [`l'`,`f`] assume_tac ALOOKUP_INJ_keys>>
-	rfs[]>>pop_assum (qspec_then `n` assume_tac)>>
-	`f n <> 0` by rw[Abbr`f`]>>fs[]>>
-	`l = MAP (\x,y.(f x,y)) l'` by
-          (match_mp_tac LIST_EQ_MAP_PAIR>>
-          fs[MAP_MAP_o]>>
-	  `FST o (\x,(y:'a word_loc).f x,y) = (f o FST) /\
-	   SND o (\x,(y:'a word_loc).f x,y) = SND` by
-	    (rw[FUN_EQ_THM]>>Cases_on`x'`>>fs[])>>
-          ntac 2 (pop_assum SUBST1_TAC)>>fs[])>>
-        fs[])>>
+    (
+    cheat
+    fs[Abbr`s1`,Abbr`s2`,strong_state_rel_def]>>CONJ_TAC>-
+	    metis_tac[s_key_eq_sym,s_key_eq_trans,s_val_and_key_eq]>>
+    rpt strip_tac>>fs[list_insert_def]>>
+	  Cases_on`n=x0`>>fs[lookup_insert]>>
+    simp[lookup_list_insert]>>
+    `domain (fromAList l') = domain x1` by
+      fs[domain_inter,INTER_SUBSET_EQN]>>
+    `MEM n (MAP FST (toAList x1))` by
+     (fs[lookup_fromAList,MEM_toAList,MEM_MAP,PAIR,domain_fromAList
+        ,domain_lookup,EXTENSION]>>
+      pop_assum (qspec_then `n` assume_tac)>>
+      Q.EXISTS_TAC`n,()`>>fs[]>>
+      metis_tac[MEM_toAList])>>
+	  fs[Abbr`a`,lookup_fromAList,MAP_MAP_o,ZIP_MAP_MAP_EQ
+      ,ALOOKUP_ZIP_MAP_SND]>>
+	  assume_tac (INST_TYPE [``:'a``|->``:num``] ZIP_ID)>>fs[]>>
+	  `n <> 0` by (SPOSE_NOT_THEN assume_tac>> fs[MEM_toAList]>>cheat)>>
+    fs[]>>
+    Q.ISPECL_THEN [`l'`,`f`] assume_tac ALOOKUP_INJ_keys>>
+	  rfs[]>>pop_assum (qspec_then `n` assume_tac)>>
+	  `f n <> 0` by rw[Abbr`f`]>>fs[]>>
+    `l = MAP (\x,y.(f x,y)) l'` by
+      (match_mp_tac LIST_EQ_MAP_PAIR>>
+      fs[MAP_MAP_o]>>
+      `FST o (\x,(y:'a word_loc).f x,y) = (f o FST) /\
+       SND o (\x,(y:'a word_loc).f x,y) = SND` by
+        (rw[FUN_EQ_THM]>>Cases_on`x'`>>fs[])>>
+      ntac 2 (pop_assum SUBST1_TAC)>>fs[])>>
+    fs[])>>
 	rw[]>>
 	assume_tac strong_state_rel_I_wEval>>
 	pop_assum (qspecl_then [`call_conv_trans lim' x2`,`s1`,`s2`,`NONE`,`rst'`]
@@ -1791,11 +1792,11 @@ val call_conv_trans_correct = store_thm("call_conv_trans_correct",
 	IMP_RES_TAC call_conv_trans_wf_cutset>>
 	pop_assum (qspec_then `lim'` assume_tac)>>fs[]>>
 	metis_tac[strong_state_rel_I_trans]))>>
-        (*Exceptions*)
-        IMP_RES_TAC s_val_eq_LAST_N_exists>>
-        last_x_assum (qspecl_then [`e'`,`ls''`] assume_tac)>>
-        rfs[]>>Cases_on`handler`>>fs[]>-
-        (*NO handler*)
+  (*Exceptions*)
+  IMP_RES_TAC s_val_eq_LAST_N_exists>>
+  last_x_assum (qspecl_then [`e'`,`ls''`] assume_tac)>>
+  rfs[]>>Cases_on`handler`>>fs[]>-
+  (*NO handler*)
 	(fs[strong_state_rel_def]>>
         `e = e'' /\ ls' = ls'''` by (
            unabbrev_all_tac>>
@@ -1814,7 +1815,8 @@ val call_conv_trans_correct = store_thm("call_conv_trans_correct",
 	rw[Abbr`handler'`,Abbr`envx`,Abbr`envy`]>>
 	Cases_on`x'`>>fs[]>>
 	Cases_on`domain (fromAList lss) = domain (inter st.locals x1)`>>fs[]>>
-        fs[call_env_def,dec_clock_def,s_key_eq_def,push_env_def,env_to_list_def,LET_THM]>>
+  fs[call_env_def,dec_clock_def,s_key_eq_def,push_env_def
+    ,env_to_list_def,LET_THM]>>
         rpt (qpat_assum `LAST_N A B = C` mp_tac)>>
         simp[LAST_N_LENGTH_cond]>>strip_tac>>strip_tac>>
         IMP_RES_TAC env_to_list_monotonic_eq>>
@@ -1956,5 +1958,5 @@ EVAL ``FOLDL (\x y. MAX x y) 1 [1;2;3;4;5]``
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_word_exp_size
   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
   \\ DECIDE_TAC)*)
-
+*)
 val _ = export_theory();

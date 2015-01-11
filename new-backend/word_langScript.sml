@@ -273,7 +273,7 @@ val env_to_list_def = Define `
   env_to_list env (bij_seq:num->num->num) =
     let mover = bij_seq 0 in
     let permute = (\n. bij_seq (n + 1)) in
-    let l = nub (toAList env) in
+    let l = toAList env in
     let l = QSORT key_val_compare l in
     let l = list_rearrange mover l in
       (l,permute)`

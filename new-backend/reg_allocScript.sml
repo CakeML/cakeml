@@ -50,9 +50,8 @@ val clique_g_insert_def = Define`
 val clash_sets_to_sp_g_def = Define`
   (clash_sets_to_sp_g [] = LN) ∧
   (clash_sets_to_sp_g (x::xs) =
-    (*I think nub probably makes it easier*)
     let subgraph = clash_sets_to_sp_g xs in
-    let clashes = nub (MAP FST (toAList x)) in
+    let clashes = (MAP FST (toAList x)) in
     clique_g_insert clashes subgraph)`
 
 (*
@@ -140,11 +139,11 @@ val clique_g_insert_preserves_clique = prove(``
 val clash_sets_clique = store_thm("clash_sets_clique",``
   ∀ls x.
   MEM x ls ⇒
-  sp_g_is_clique (nub (MAP FST (toAList x))) (clash_sets_to_sp_g ls)``,
+  sp_g_is_clique (MAP FST (toAList x)) (clash_sets_to_sp_g ls)``,
   Induct>>fs[clash_sets_to_sp_g_def]>>rw[]>>
   unabbrev_all_tac>>
   metis_tac[clique_g_insert_is_clique
-           ,clique_g_insert_preserves_clique,all_distinct_nub])
+           ,clique_g_insert_preserves_clique,ALL_DISTINCT_MAP_FST_toAList])
 
 val coloring_satisfactory_cliques = store_thm("coloring_satisfactory_cliques",``
   ∀ls g (f:num->num).
@@ -2352,7 +2351,7 @@ val clash_sets_to_sp_g_undir = store_thm("clash_sets_to_sp_g_undir",``
   rw[clash_sets_to_sp_g_def]>>
   match_mp_tac clique_g_insert_undir>>
   unabbrev_all_tac>>
-  fs[all_distinct_nub])
+  fs[ALL_DISTINCT_MAP_FST_toAList])
 
 val clique_g_insert_domain = prove(``
   ∀ls.

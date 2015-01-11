@@ -1,7 +1,9 @@
 open HolKernel Parse boolLib bossLib miscLib
 open listTheory sptreeTheory pred_setTheory pairTheory rich_listTheory alistTheory
 open BasicProvers
-open word_procTheory word_langTheory word_liveTheory reg_allocTheory word_ssaTheory
+open word_procTheory word_langTheory word_liveTheory
+open reg_allocTheory 
+open word_ssaTheory
 
 val _ = new_theory "word_transform"
 
@@ -56,29 +58,63 @@ sptreeSyntax.remove_sptree_printer();
 
 val _ = computeLib.add_funs[MWHILE_DEF]
 val rhsThm = rhs o concl;
-
-val _ = Globals.max_print_depth := ~1
+val reval = rhsThm o EVAL;
+val _ = Globals.max_print_depth := 100
 
 val prog = ``
 Seq
 (Assign 21 (Const 5w))
 (Seq
-(Move [15,19])
+(Move [1,21])
+(Seq
+(Move [21,1])
+(Seq
+(Move [1,21])
 (Seq
 (Move [23,15])
 (Seq
 (Move [7,11;13,17;19,23])
 (Seq (Move [1,2;5,4;3,6])
   (Call (SOME (3, list_insert [1;3;5;7;9] [();();();();()] LN,Skip)) (SOME 400) [7;9] NONE)
-  ))))``
+  ))))))``
+
+val cg = reval ``get_spg ^(prog) LN``;
+val moves = reval ``get_prefs ^(prog) []``;
+val st = reval ``init_ra_state ^(cg) 5 ^(moves)``
+
+val st = reval``SND(rpt_do_step ^(st))``
+
+
+EVAL ``word_alloc 5 ^(prog)``
+
+val prog2 = reval ``ssa_cc_trans ^(prog) LN 101 103``
 
 EVAL``word_trans 5 ^(prog)``
 
-*)
+val st = reval``SND(do_step ^(st))``
+val st = reval ``init_ra_state ^(graph) 50 ^(moves)``
 
-val MEM_nub = prove(``
-  ∀ls x. MEM x ls ⇒ MEM x (nub ls)``,
-  rw[])
+fun println st = (print st;print"\n");
+
+fun repeat st n = 
+  let val clock = reval``^(st).clock``
+      val ls = reval``LENGTH (let st = ^(st) in FILTER (\x. lookup x (st.coalesced) = NONE) (st.simp_worklist++st.freeze_worklist++st.spill_worklist))``
+      val st = reval``SND(do_step ^(st))`` in
+      (println (term_to_string clock);println (term_to_string ls);
+      if n=0 then st else repeat st (n-1)) end
+
+fun repeat2 st =
+  let val clock = reval``^(st).clock``
+      val movs = reval``let st = ^(st) in LENGTH st.avail_moves,LENGTH st.unavail_moves``
+      val st = reval``SND(do_step ^(st))`` in
+      (println (term_to_string movs);
+      if (term_to_string clock) ="0" then () else repeat2 st) end
+
+repeat st 100;
+
+val st = reval``rpt_do_step st``
+
+*)
 
 val coloring_satisfactory_coloring_ok_alt = prove(``
   ∀prog f live.
@@ -102,20 +138,18 @@ val coloring_satisfactory_coloring_ok_alt = prove(``
   discharge_hyps
   >- fs[coloring_satisfactory_def,LET_THM]>>
   discharge_hyps
-  >- fs[all_distinct_nub]>>
-  fs[INJ_DEF,all_distinct_nub]>>rw[]>>
+  >- fs[ALL_DISTINCT_MAP_FST_toAList]>>
+  fs[INJ_DEF]>>rw[]>>
   fs[domain_lookup]>>
   `MEM x (MAP FST (toAList s)) ∧
    MEM y (MAP FST (toAList s))` by
     (fs[MEM_MAP,EXISTS_PROD]>>
     metis_tac[domain_lookup,MEM_MAP,EXISTS_PROD,MEM_toAList])>>
-  `ALL_DISTINCT (nub (MAP FST (toAList s)))` by
-    metis_tac[all_distinct_nub]>>
+  `ALL_DISTINCT (MAP FST (toAList s))` by
+    metis_tac[ALL_DISTINCT_MAP_FST_toAList]>>
   fs[EL_ALL_DISTINCT_EL_EQ]>>
-  imp_res_tac MEM_nub>>
-  fs[MEM_EL]>>pop_assum (SUBST1_TAC o SYM)>>
-  simp[]>>
-  metis_tac[EL_MAP])
+  fs[MEM_EL]>>rfs[EL_MAP]>>
+  metis_tac[])
 
 val call_arg_convention_preservation = prove(``
   ∀prog f.

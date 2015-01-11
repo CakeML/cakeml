@@ -572,10 +572,6 @@ val cut_env_lemma = prove(``
   >>
     fs[domain_inter,SUBSET_INTER_ABSORPTION,INTER_COMM])
 
-val MEM_nub = prove(``
-  ∀x ls. MEM x ls ⇔ MEM x (nub ls)``,
-  fs[nub_def])
-
 val LENGTH_list_rerrange = prove(``
   LENGTH (list_rearrange mover xs) = LENGTH xs``,
   fs[list_rearrange_def]>>
@@ -616,8 +612,8 @@ val env_to_list_perm = prove(``
       MAP (λx,y.f x,y) l' = l``,
   rw[]>>
   fs[env_to_list_def,LET_THM,strong_locals_rel_def]>>
-  qabbrev_tac `xls = QSORT key_val_compare (nub(toAList x))`>>
-  qabbrev_tac `yls = QSORT key_val_compare (nub(toAList y))`>>
+  qabbrev_tac `xls = QSORT key_val_compare (toAList x)`>>
+  qabbrev_tac `yls = QSORT key_val_compare (toAList y)`>>
   qabbrev_tac `ls = list_rearrange (perm 0) yls`>>
   fs[(GEN_ALL o SYM o SPEC_ALL) list_rearrange_MAP]>>
   `PERM (MAP (λx,y.f x,y) xls) yls` by
@@ -631,9 +627,11 @@ val env_to_list_perm = prove(``
         fs[domain_lookup])
       >>
       fs[Abbr`xls`]>>
-      metis_tac[QSORT_PERM,all_distinct_nub,ALL_DISTINCT_PERM])
+      metis_tac[QSORT_PERM,ALL_DISTINCT_MAP_FST_toAList
+               ,ALL_DISTINCT_FST,ALL_DISTINCT_PERM])
     >-
-      metis_tac[QSORT_PERM,all_distinct_nub,ALL_DISTINCT_PERM]
+      metis_tac[QSORT_PERM,ALL_DISTINCT_MAP_FST_toAList
+               ,ALL_DISTINCT_FST,ALL_DISTINCT_PERM]
     >>
       unabbrev_all_tac>>
       fs[QSORT_MEM,MEM_MAP]>>
@@ -654,7 +652,8 @@ val env_to_list_perm = prove(``
     IF_CASES_TAC>>fs[]>>
     match_mp_tac PERM_ALL_DISTINCT>>
     CONJ_ASM1_TAC>-
-      metis_tac[QSORT_PERM,all_distinct_nub,ALL_DISTINCT_PERM]>>
+      metis_tac[QSORT_PERM,ALL_DISTINCT_MAP_FST_toAList
+               ,ALL_DISTINCT_FST,ALL_DISTINCT_PERM]>>
     CONJ_ASM1_TAC>-
       (fs[ALL_DISTINCT_GENLIST]>>rw[]>>
       fs[EL_ALL_DISTINCT_EL_EQ]>>
@@ -714,7 +713,7 @@ val push_env_s_val_eq = prove(``
     metis_tac[domain_lookup])>>
   EVERY_CASE_TAC>>fs[s_frame_val_eq_def]>>
   qpat_abbrev_tac `q = list_rearrange A
-    (QSORT key_val_compare (nub (toAList x)))`>>
+    (QSORT key_val_compare (toAList x))`>>
   `MAP SND (MAP (λx,y.f x,y) q) = MAP SND q` by
     (fs[MAP_MAP_o]>>AP_THM_TAC>>AP_TERM_TAC>>fs[FUN_EQ_THM]>>
     rw[]>>Cases_on`x'`>>fs[])>>
@@ -1345,7 +1344,7 @@ val wEval_apply_color = store_thm("wEval_apply_color",
       rw[]>>
       qspecl_then[`r`,`st with <|locals := fromList2 q;stack :=
             StackFrame (list_rearrange (perm 0)
-              (QSORT key_val_compare (nub (toAList x'))))
+              (QSORT key_val_compare ( (toAList x'))))
               (SOME r'.handler)::st.stack;
             permute := (λn. perm (n + 1)); handler := LENGTH st.stack;
             clock := st.clock − 1|>`,`perm'`]
@@ -1476,9 +1475,9 @@ val wEval_apply_color = store_thm("wEval_apply_color",
       ntac 2 strip_tac>>
       rpt (qpat_assum `s_key_eq A B` mp_tac)>>
       qpat_abbrev_tac `lsA = list_rearrange (cst.permute 0)
-        (QSORT key_val_compare (nub (toAList y)))`>>
+        (QSORT key_val_compare ( (toAList y)))`>>
       qpat_abbrev_tac `lsB = list_rearrange (perm 0)
-        (QSORT key_val_compare (nub (toAList x)))`>>
+        (QSORT key_val_compare ( (toAList x)))`>>
       ntac 4 strip_tac>>
       Q.ISPECL_THEN [`x'.stack`,`y'`,`t'`,`NONE:num option`
         ,`lsA`,`cst.stack`] mp_tac (GEN_ALL s_key_eq_val_eq_pop_env)>>

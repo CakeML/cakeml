@@ -292,10 +292,10 @@ val ssa_cc_trans_pre_alloc_conventions = store_thm("ssa_cc_trans_pre_alloc_conve
   rw[]>>
   imp_res_tac list_next_stack_rename_stack_vars>>
   pop_assum(qspec_then`cur_ls` assume_tac)>>
-  rfs[LET_THM]
+  unabbrev_all_tac>>
+  rfs[LET_THM,call_arg_convention_def,every_stack_var_def,even_list_def]
   >-
-    (unabbrev_all_tac>>fs[call_arg_convention_def,every_stack_var_def]>>
-    first_x_assum(qspecl_then[`r'`,`ssa_2_p`,`na_2_p`,`ns_1`] mp_tac)>>
+    (first_x_assum(qspecl_then[`r'`,`ssa_2_p`,`na_2_p`,`ns_1`] mp_tac)>>
     discharge_hyps>-(fs[word_prog_size_def]>>DECIDE_TAC)>>
     discharge_hyps>-fs[]>>rw[]>>
     fs[domain_numset_list_insert,EVERY_MEM])
