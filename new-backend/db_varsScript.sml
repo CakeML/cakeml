@@ -53,4 +53,8 @@ val MEM_vars_to_list = store_thm("MEM_vars_to_list",
   fs [vars_to_list_def,MEM_MAP,EXISTS_PROD,MEM_toAList]
   \\ fs [lookup_db_to_set]);
 
+val ALL_DISTINCT_vars_to_list = store_thm("ALL_DISTINCT_vars_to_list",
+  ``ALL_DISTINCT (vars_to_list d)``,
+  fs [vars_to_list_def,ALL_DISTINCT_MAP_FST_toAList]);
+
 val _ = export_theory();

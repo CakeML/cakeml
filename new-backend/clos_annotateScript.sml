@@ -174,6 +174,14 @@ val get_var_def = Define `
   get_var m l i v =
     if v < l then v else l + tlookup (v - l) i`;
 
+val index_of_def = Define `
+  (index_of x [] = 0:num) /\
+  (index_of x (y::ys) = if x = y then 0 else 1 + index_of x ys)`;
+
+val new_env_def = Define `
+  (new_env n [] = LN) /\
+  (new_env n (x::xs) = insert x (n:num) (new_env (n+1) xs))`;
+
 val cShift_def = tDefine "cShift" `
   (cShift [] (m:num) (l:num) (i:num num_map) = []) /\
   (cShift ((x:clos_exp)::y::xs) m l i =
@@ -206,17 +214,17 @@ val cShift_def = tDefine "cShift" `
        ([App loc_opt (HD c1) (HD c2)])) /\
   (cShift [Fn loc vs x1] m l i =
      let k = m + l in
-     let vs = FILTER (\n. n < k) vs in
-     let vars = MAP (\n. (n, get_var m l i n)) vs in
-     let c1 = cShift [x1] (m + l) 1 (fromAList vars) in
-       ([Fn loc (MAP SND vars) (HD c1)])) /\
+     let live = FILTER (\n. n < k) vs in
+     let vars = MAP (get_var m l i) live in
+     let c1 = cShift [x1] (m + l) 1 (new_env 0 live) in
+       ([Fn loc vars (HD c1)])) /\
   (cShift [Letrec loc vs fns x1] m l i =
      let k = m + l in
-     let vs = FILTER (\n. n < k) vs in
-     let vars = MAP (\n. (n, get_var m l i n)) vs in
-     let cs = cShift fns (m + l) (1 + LENGTH fns) (fromAList vars) in
+     let live = FILTER (\n. n < k) vs in
+     let vars = MAP (get_var m l i) live in
+     let cs = cShift fns (m + l) (1 + LENGTH fns) (new_env 0 live) in
      let c1 = cShift [x1] m l i in
-       ([Letrec loc (MAP SND vars) cs (HD c1)])) /\
+       ([Letrec loc vars cs (HD c1)])) /\
   (cShift [Handle x1 x2] m l i =
      let c1 = cShift [x1] m l i in
      let c2 = cShift [x2] m l i in
@@ -385,6 +393,52 @@ val lookup_vars_SOME = prove(
   Induct \\ fs [lookup_vars_def] \\ REPEAT STRIP_TAC
   \\ Cases_on `lookup_vars vs env` \\ fs [] \\ SRW_TAC [] [] \\ RES_TAC);
 
+val lookup_vars_MEM = prove(
+  ``!ys n x (env2:clos_val list).
+      (lookup_vars ys env2 = SOME x) /\ n < LENGTH ys ==>
+      (EL n ys) < LENGTH env2 /\
+      (EL n x = EL (EL n ys) env2)``,
+  Induct \\ fs [lookup_vars_def] \\ NTAC 5 STRIP_TAC
+  \\ Cases_on `lookup_vars ys env2` \\ fs []
+  \\ Cases_on `n` \\ fs [] \\ SRW_TAC [] [] \\ fs []) |> SPEC_ALL;
+
+val lookup_EL_new_env = prove(
+  ``!y n k. n < LENGTH y /\ ALL_DISTINCT y ==>
+            (lookup (EL n y) (new_env k y) = SOME (k + n))``,
+  Induct \\ fs [] \\ Cases_on `n` \\ fs [new_env_def,lookup_insert]
+  \\ SRW_TAC [] [ADD1,AC ADD_COMM ADD_ASSOC]
+  \\ fs [MEM_EL] \\ METIS_TAC []);
+
+val env_ok_new_env = prove(
+  ``env_ok m l i env env2 k /\ MEM k live /\ ALL_DISTINCT live /\
+    (lookup_vars (MAP (get_var m l i) (FILTER (\n. n < m + l) live)) env2 =
+      SOME x) ==>
+    env_ok (m + l) 0 (new_env 0 (FILTER (\n. n < m + l) live)) env x k``,
+  REPEAT STRIP_TAC
+  \\ Q.ABBREV_TAC `y = FILTER (\n. n < m + l) live`
+  \\ `ALL_DISTINCT y` by
+       (UNABBREV_ALL_TAC \\ MATCH_MP_TAC FILTER_ALL_DISTINCT \\ fs [])
+  \\ Cases_on `~(k < m + l)` THEN1 (fs [env_ok_def,NOT_LESS] \\ DECIDE_TAC)
+  \\ fs []
+  \\ `MEM k y` by (UNABBREV_ALL_TAC \\ fs [MEM_FILTER])
+  \\ POP_ASSUM MP_TAC
+  \\ simp [MEM_EL] \\ STRIP_TAC
+  \\ POP_ASSUM (ASSUME_TAC o GSYM)
+  \\ Q.PAT_ASSUM `MEM k live` (K ALL_TAC)
+  \\ Q.PAT_ASSUM `Abbrev vvv` (K ALL_TAC)
+  \\ `(EL n (MAP (get_var m l i) y) = get_var m l i k) /\
+      n < LENGTH (MAP (get_var m l i) y)` by fs [EL_MAP]
+  \\ Q.ABBREV_TAC `ys = (MAP (get_var m l i) y)`
+  \\ MP_TAC lookup_vars_MEM \\ fs [] \\ STRIP_TAC
+  \\ `val_rel (EL k env) (EL (get_var m l i k) env2)` by
+   (fs [env_ok_def] THEN1 (`F` by DECIDE_TAC) \\ fs [get_var_def]
+    \\ `~(k < l)` by DECIDE_TAC \\ fs [tlookup_def])
+  \\ Q.PAT_ASSUM `EL n x = yy` (ASSUME_TAC o GSYM) \\ fs []
+  \\ fs [env_ok_def] \\ DISJ2_TAC
+  \\ TRY (`k < l + m` by DECIDE_TAC) \\ fs []
+  \\ SRW_TAC [] [] \\ fs [lookup_EL_new_env]
+  \\ IMP_RES_TAC lookup_vars_SOME \\ fs []);
+
 val cShift_correct = prove(
   ``!xs env s1 env' t1 res s2 m l i.
       (cEval (xs,env,s1) = (res,s2)) /\ res <> Error /\
@@ -505,9 +559,7 @@ val cShift_correct = prove(
   THEN1 (* Op *) cheat
 
   THEN1 (* Fn *)
-   (
-
-    fs [cFree_def,cEval_def]
+   (fs [cFree_def,cEval_def]
     \\ `~s.restrict_envs /\ t1.restrict_envs` by fs [state_rel_def]
     \\ fs [clos_env_def]
     \\ SRW_TAC [] [] \\ SRW_TAC [] [markerTheory.Abbrev_def]
@@ -516,7 +568,7 @@ val cShift_correct = prove(
            val_rel_simp]
     \\ Q.ABBREV_TAC `live = FILTER (\n. n < m + l) (vars_to_list (Shift 1 l1))`
     \\ fs [MAP_MAP_o,o_DEF]
-    \\ Cases_on `lookup_vars (MAP (\n. get_var m l i n) live) env'`
+    \\ Cases_on `lookup_vars (MAP (get_var m l i) live) env'`
     \\ fs [] THEN1
      (fs [SUBSET_DEF,IN_DEF,clos_free_set_def,clos_free_def]
       \\ fs [lookup_vars_NONE] \\ UNABBREV_ALL_TAC
@@ -527,27 +579,19 @@ val cShift_correct = prove(
       \\ fs [env_ok_def] \\ rfs []
       \\ fs [get_var_def,tlookup_def]
       \\ DECIDE_TAC)
-    \\ Q.EXISTS_TAC `(fromAList (MAP (\n. (n,get_var m l i n)) live))` \\ fs []
+    \\ Q.EXISTS_TAC `new_env 0 live` \\ fs []
     \\ REPEAT STRIP_TAC \\ Cases_on `n` \\ fs []
-    \\ fs [env_ok_def]
-    \\ Q.MATCH_ASSUM_RENAME_TAC `1 <= SUC k` []
-    \\ REVERSE (Cases_on `k < m + l` \\ fs []) THEN1 DECIDE_TAC \\ DISJ2_TAC
-    \\ Q.EXISTS_TAC `get_var m l i k`
-    \\ fs [lookup_fromAList]
-    \\ `MEM k live` by ALL_TAC THEN1
-     (UNABBREV_ALL_TAC \\ fs [MEM_FILTER,MEM_vars_to_list]
-      \\ MP_TAC (Q.INST [`xs`|->`[exp]`] cFree_thm)
-      \\ fs [LET_DEF] \\ REPEAT STRIP_TAC
-      \\ fs [SUBSET_DEF,IN_DEF,clos_free_set_def,clos_free_def,ADD1])
-    \\ fs [alistTheory.ALOOKUP_TABULATE]
-    \\ UNABBREV_ALL_TAC
-    \\ fs [MEM_FILTER,MEM_vars_to_list,MEM_MAP]
     \\ MP_TAC (Q.INST [`xs`|->`[exp]`] cFree_thm)
     \\ fs [LET_DEF] \\ STRIP_TAC
     \\ fs [SUBSET_DEF,IN_DEF,clos_free_set_def,clos_free_def]
-    \\ RES_TAC \\ IMP_RES_TAC lookup_vars_SOME \\ fs [LENGTH_MAP]
-
-    \\ cheat (* hard to prove but true *))
+    \\ fs [ADD1] \\ RES_TAC \\ UNABBREV_ALL_TAC
+    \\ Q.ABBREV_TAC `live = vars_to_list (Shift 1 l1)`
+    \\ `MEM n' live` by (UNABBREV_ALL_TAC \\ fs [MEM_vars_to_list])
+    \\ Q.ABBREV_TAC `k = n'`
+    \\ Q.ABBREV_TAC `env2 = env'`
+    \\ `ALL_DISTINCT live` by
+      (UNABBREV_ALL_TAC \\ fs [ALL_DISTINCT_vars_to_list])
+    \\ IMP_RES_TAC env_ok_new_env)
 
   THEN1 (* Letrec *) cheat
 
