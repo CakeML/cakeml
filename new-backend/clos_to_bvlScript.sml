@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib;
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
 open lcsymtacs closLangTheory bvlTheory;
-open sptreeTheory
+open sptreeTheory intLib
 
 val _ = new_theory "clos_to_bvl";
 (* compiler definition *)
@@ -799,6 +799,38 @@ val bc_equal_clos_equal = prove(
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
   Cases_on`n<3`>>fsrw_tac[ARITH_ss][]>>rfs[])
 
+val clos_to_chars_thm = store_thm("clos_to_chars_thm",
+  ``∀ls acc. clos_to_chars ls acc =
+         if EVERY (λx. ∃i. x = Number i ∧ 0 ≤ i ∧ i < 256) ls then
+           SOME (STRCAT (REVERSE acc) (MAP (CHR o Num o (λx. @i. x = Number i)) ls))
+         else NONE``,
+  ho_match_mp_tac clos_to_chars_ind >>
+  rw[clos_to_chars_def] >> fs[] >>
+  `i = ABS i` by intLib.COOPER_TAC >>
+  PROVE_TAC[])
+
+val bv_to_string_clos_to_string = prove(
+  ``∀x y. val_rel f r c x y ⇒ clos_to_string x = bv_to_string y``,
+  ho_match_mp_tac (theorem"val_rel_strongind") >>
+  rw[clos_to_string_def,bytecodeTheory.bv_to_string_def] >>
+  fsrw_tac[ARITH_ss][EL_MAP,bytecodeTheory.bv_to_string_def] >>
+  fs[bytecodeExtraTheory.bvs_to_chars_thm,clos_to_chars_thm] >>
+  rw[bytecodeExtraTheory.is_Char_def,stringTheory.IMPLODE_EXPLODE_I,EVERY_MEM] >>
+  rpt AP_TERM_TAC >>
+  fs[LIST_REL_EL_EQN] >>
+  simp[LIST_EQ_REWRITE,EL_MAP] >> rw[] >>
+  rpt AP_TERM_TAC >>
+  rfs[PULL_EXISTS,MEM_EL] >> res_tac >>
+  fs[bytecodeExtraTheory.is_Char_def] >- (
+    Cases_on`EL x ys`>>fs[bytecodeExtraTheory.is_Char_def] >>
+    rfs[val_rel_SIMP] >>
+    intLib.COOPER_TAC ) >>
+  rw[] >>
+  Cases_on`EL n ys`>> rfs[val_rel_SIMP] >>
+  TRY intLib.COOPER_TAC >>
+  Cases_on`EL n xs`>>fs[val_rel_SIMP]>>fs[EL_MAP]>>
+  fs[val_rel_cases])
+
 val cEvalOp_correct = prove(
   ``(cEvalOp op xs s1 = SOME (v,s2)) /\
     state_rel f s1 t1 /\
@@ -914,7 +946,8 @@ val cEvalOp_correct = prove(
     intLib.COOPER_TAC)
   >- (
     BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
-    cheat (* bv_to_string clos_to_string *) )
+    imp_res_tac bv_to_string_clos_to_string >> fs[] >>
+    fs[state_rel_def])
   >- (
     BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[val_rel_SIMP] >>
     fs[state_rel_def] )

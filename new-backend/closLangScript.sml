@@ -110,8 +110,8 @@ val clos_to_string_def = Define `
    (if n = 0 then SOME "false"
     else if n = 1 then SOME "true"
     else if n = 2 then SOME "()"
-    else if n = 3 then SOME "<vector>"
-    else if n = 4 then
+    else if n = 4 then SOME "<vector>"
+    else if n = 3 then
       case clos_to_chars vs "" of
         NONE => NONE
       | SOME cs => SOME (string_to_string (IMPLODE cs))
