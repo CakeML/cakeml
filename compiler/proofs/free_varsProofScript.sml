@@ -14,12 +14,6 @@ val vs_to_i2_MAP = store_thm("vs_to_i2_MAP",
 val vs_to_exh_MAP = store_thm("vs_to_exh_MAP",
   ``∀exh vs1 vs2. vs_to_exh exh vs1 vs2 = LIST_REL (v_to_exh exh) vs1 vs2``,
   Induct_on`vs1`>>simp[Once v_to_exh_cases])
-val env_to_exh_MAP = store_thm("env_to_exh_MAP",
-  ``∀exh env1 env2. env_to_exh exh env1 env2 ⇔ MAP FST env1 = MAP FST env2 ∧
-      LIST_REL (v_to_exh exh) (MAP SND env1) (MAP SND env2)``,
-  Induct_on`env1`>>simp[Once v_to_exh_cases] >>
-  Cases >> Cases_on`env2` >> rw[] >>
-  Cases_on`h`>>rw[] >> metis_tac[])
 val sv_to_i1_sv_rel = store_thm("sv_to_i1_sv_rel",
   ``∀g. sv_to_i1 g = sv_rel (v_to_i1 g)``,
   rw[FUN_EQ_THM,sv_to_i1_cases,EQ_IMP_THM,sv_rel_cases,vs_to_i1_MAP])
