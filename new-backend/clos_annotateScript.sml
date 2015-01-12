@@ -430,7 +430,7 @@ val cShift_correct = prove(
     \\ `?r1 s1. cEval ([x],env,s) = (r1,s1)` by METIS_TAC [PAIR] \\ fs []
     \\ `?y3 y4. y2 = y3::y4` by
      (IMP_RES_TAC cFree_LENGTH
-      \\ Cases_on `y2` \\ fs [clos_ann_ok_def,has_var_def,clos_free_def])
+      \\ Cases_on `y2` \\ fs [has_var_def,clos_free_def])
     \\ fs [cShift_def]
     \\ Cases_on `r1` \\ fs []
     \\ SRW_TAC [] [markerTheory.Abbrev_def]
