@@ -473,12 +473,46 @@ val EVERY2_GENLIST = prove(
   \\ fs [GENLIST,rich_listTheory.LIST_REL_APPEND_SING,SNOC_APPEND]
   \\ fs [DECIDE ``i < SUC n <=> i < n \/ (i = n)``] \\ METIS_TAC []);
 
+val val_rel_IMP_clos_to_string = prove(
+  ``!h1 h2. val_rel h1 h2 ==> (clos_to_string h1 = clos_to_string h2)``,
+  Induct \\ fs [val_rel_simp,clos_to_string_def,PULL_EXISTS]
+  \\ SRW_TAC [] [] \\ cheat);
+
 val cEvalOp_thm = prove(
   ``state_rel s1 t1 /\ EVERY2 val_rel xs ys /\
     (cEvalOp op xs s1 = SOME (v,s2)) ==>
     ?w t2. (cEvalOp op ys t1 = SOME (w,t2)) /\
            val_rel v w /\ state_rel s2 t2``,
-  Cases_on `op` \\ fs [cEvalOp_def] \\ REPEAT STRIP_TAC
+  REVERSE (Cases_on `op`) \\ REPEAT STRIP_TAC
+  THEN1 (* Less *)
+   (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
+    \\ SRW_TAC [] [] \\ fs [val_rel_simp] \\ SRW_TAC [] []
+    \\ Cases_on `i < i'` \\ fs [bool_to_val_def,val_rel_simp])
+  THEN1 (* Mod *)
+   (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
+    \\ SRW_TAC [] [] \\ fs [val_rel_simp] \\ SRW_TAC [] [])
+  THEN1 (* Div *)
+   (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
+    \\ SRW_TAC [] [] \\ fs [val_rel_simp] \\ SRW_TAC [] [])
+  THEN1 (* Mult *)
+   (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
+    \\ SRW_TAC [] [] \\ fs [val_rel_simp] \\ SRW_TAC [] [])
+  THEN1 (* Sub *)
+   (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
+    \\ SRW_TAC [] [] \\ fs [val_rel_simp] \\ SRW_TAC [] [])
+  THEN1 (* Add *)
+   (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
+    \\ SRW_TAC [] [] \\ fs [val_rel_simp] \\ SRW_TAC [] [])
+  THEN1 (* PrintC *)
+   (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
+    \\ SRW_TAC [] [] \\ fs [val_rel_simp] \\ SRW_TAC [] []
+    \\ fs [state_rel_def])
+  THEN1 (* Print *)
+   (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
+    \\ SRW_TAC [] [] \\ fs [val_rel_simp] \\ SRW_TAC [] []
+    \\ fs [state_rel_def] \\ IMP_RES_TAC val_rel_IMP_clos_to_string \\ fs [])
+  THEN1 (* Label *)
+   (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs [])
   \\ cheat);
 
 val cShift_correct = prove(
