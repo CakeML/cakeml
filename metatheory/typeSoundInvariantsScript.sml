@@ -342,7 +342,7 @@ type_ctxt tvs menv all_cenv cenv senv tenv (Chandle ()  pes) t t)
 check_freevars tvs [] t2 /\
 type_vs( 0) all_cenv senv vs ts1 /\
 type_es menv cenv tenv es ts2 /\
-type_op op ((REVERSE ts1 ++ [t1]) ++ ts2) t2) 
+type_op op ((REVERSE ts2 ++ [t1]) ++ ts1) t2) 
 ==>
 type_ctxt tvs menv all_cenv cenv senv tenv (Capp op vs ()  es) t1 t2)
 
@@ -379,7 +379,7 @@ type_ctxt tvs menv all_cenv cenv senv tenv (Clet n ()  e) t1 t2)
 type_vs tvs all_cenv senv (REVERSE vs)
         (MAP (type_subst (FUPDATE_LIST FEMPTY (REVERSE (ZIP (tvs', ts'))))) ts1) /\
 type_es menv cenv (bind_tvar tvs tenv) es (MAP (type_subst (FUPDATE_LIST FEMPTY (REVERSE (ZIP (tvs', ts'))))) ts2) /\
-(lookup_alist_mod_env cn cenv = SOME (tvs', ((ts1++[t])++ts2), tn)))
+(lookup_alist_mod_env cn cenv = SOME (tvs', ((ts2++[t])++ts1), tn)))
 ==>
 type_ctxt tvs menv all_cenv cenv senv tenv (Ccon (SOME cn) vs ()  es) (type_subst (FUPDATE_LIST FEMPTY (REVERSE (ZIP (tvs', ts')))) t)
           (Tapp ts' (tid_exn_to_tc tn)))

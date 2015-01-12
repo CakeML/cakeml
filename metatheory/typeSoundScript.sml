@@ -14,6 +14,17 @@ val EVERY_LIST_REL = Q.prove (
  induct_on `l` >>
  rw [REPLICATE]);
 
+val list_rel_split = Q.prove (
+`!r l1 x l2.
+  LIST_REL r (l1 ++ [x]) l2 =
+  ?y l2'. l2 = l2'++[y] ∧ LIST_REL r l1 l2' ∧ r x y`,
+ Induct_on `l1` >>
+ rw [] >>
+ eq_tac >>
+ rw [] >>
+ res_tac >>
+ rw []);
+
 val union_decls_empty = Q.store_thm ("union_decls_empty",
 `!decls. union_decls empty_decls decls = decls`,
  rw [] >>
@@ -424,7 +435,7 @@ val exp_type_progress = Q.prove (
              fs [Once type_v_cases] >>
              imp_res_tac type_funs_find_recfun >>
              fs [])
-         >- (cases_on `do_eq x v` >>
+         >- (cases_on `do_eq v x` >>
              fs [Once context_invariant_cases] >>
              srw_tac [ARITH_ss] [] >> 
              metis_tac [eq_same_type])
@@ -892,7 +903,7 @@ val v_to_char_list_type = Q.prove (
  qpat_assum `type_v x0 x1 x2 (Conv x3 x4) x5` (mp_tac o SIMP_RULE (srw_ss()) [Once type_v_cases_eqn]) >>
  rw [] >>
  ntac 4 (fs [Once type_vs_cases_eqn]) >>
- rw [Once type_v_cases_eqn])
+ rw [Once type_v_cases_eqn]);
 
 (* If a step can be taken from a well-typed state, the resulting state has the
 * same type *)
@@ -943,7 +954,9 @@ val exp_type_preservation = Q.prove (
          rw [] >>
          qpat_assum `type_es tenvM tenvC tenv epat ts`
                   (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
-         fs []
+         fs [] >>
+         fs [SWAP_REVERSE_SYM] >>
+         rw []
          >- metis_tac [do_con_check_build_conv, NOT_SOME_NONE]
          >- metis_tac [do_con_check_build_conv, NOT_SOME_NONE]
          >- (fs [build_conv_def, all_env_to_cenv_def] >>
@@ -968,6 +981,9 @@ val exp_type_preservation = Q.prove (
              rw [Once type_v_cases] >>
              rw [Once type_v_cases] >>
              metis_tac [check_freevars_def])
+         >- cheat
+         >- cheat
+         (*
          >- (fs [build_conv_def, all_env_to_cenv_def] >>
              every_case_tac >>
              fs [] >>
@@ -1024,7 +1040,7 @@ val exp_type_preservation = Q.prove (
              qexists_tac `[]` >>
              qexists_tac `ts'` >>
              rw [] >>
-             metis_tac [type_v_rules, EVERY_DEF, check_freevars_def]))
+             metis_tac [type_v_rules, EVERY_DEF, check_freevars_def])*))
      >- (qexists_tac `tenvS` >>
          rw [] >>
          every_case_tac >>
@@ -1052,7 +1068,7 @@ val exp_type_preservation = Q.prove (
          rw [bind_tvar_def, Once type_v_cases_eqn] >>
          fs [bind_tvar_def, check_freevars_def] >>
          metis_tac [check_freevars_def])
-     >- (cases_on `l` >>
+     >- (cases_on `REVERSE l` >>
          fs [] 
          >- (fs [application_def] >>
              cases_on `o'` >>
@@ -1061,21 +1077,13 @@ val exp_type_preservation = Q.prove (
          rw [Once type_ctxts_cases, type_ctxt_cases] >>
          ONCE_REWRITE_TAC [context_invariant_cases] >>
          rw [] >>
-         fs [bind_tvar_def, check_freevars_def, type_es_list_rel, type_vs_list_rel] >>
+         fs [SWAP_REVERSE_SYM, bind_tvar_def, check_freevars_def, type_es_list_rel, type_vs_list_rel] >>
          rw [] >>
-         qexists_tac `tenvS` >>
+         fs [PULL_EXISTS, list_rel_split, GSYM EVERY2_REVERSE1] >>
+         MAP_EVERY qexists_tac [`tenvS`, `tenvM`, `tenvC`, `y`, `tenv`, `tenvM`, `tenvC`, `tenv`,
+                                `t1`, `REVERSE l2'`] >>
          rw [] >>
-         qexists_tac `tenvM` >>
-         qexists_tac `tenvC` >>
-         rw [] >>
-         qexists_tac `y` >>
-         qexists_tac `tenv` >>
-         rw [] >>
-         qexists_tac `tenvM` >>
-         qexists_tac `tenvC` >>
-         rw [] >>
-         qexists_tac `tenv` >>
-         metis_tac [arithmeticTheory.ADD, arithmeticTheory.ADD_COMM,
+         metis_tac [arithmeticTheory.ADD, arithmeticTheory.ADD_COMM,REVERSE_REVERSE, 
                     num_tvs_def, type_v_freevars, tenv_ok_def, type_e_freevars])
      >- (qpat_assum `type_e x0 x1 x2 x3 x4` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
          rw [Once type_ctxts_cases, type_ctxt_cases] >>
@@ -1241,7 +1249,7 @@ val exp_type_preservation = Q.prove (
                  qexists_tac `menv` >>
                  qexists_tac `tenvC'` >>
                  qexists_tac `t2` >>
-                 qexists_tac `bind_tenv q 0 t1 (bind_var_list 0 tenv'' (bind_tvar 0 tenv'))` >>
+                 qexists_tac `bind_tenv q 0 t2' (bind_var_list 0 tenv'' (bind_tvar 0 tenv'))` >>
                  rw [] >>
                  rw [Once type_env_cases, bind_tenv_def] >>
                  fs [check_freevars_def] >>
@@ -1350,7 +1358,7 @@ val exp_type_preservation = Q.prove (
              fs [type_s_def, store_lookup_def, store_assign_def] >>
              rw [EL_LUPDATE] >>
              res_tac >>
-             cases_on `EL l' st` >>
+             cases_on `EL l st` >>
              fs [])
          >- do_app_exn_tac
          >- do_app_exn_tac
@@ -1382,7 +1390,7 @@ val exp_type_preservation = Q.prove (
              rw [Once type_v_cases_eqn] >>
              fs [FLOOKUP_UPDATE, store_alloc_def, store_lookup_def] >>
              rw [] >>
-             qexists_tac `Tapp [t1] TC_array` >>
+             qexists_tac `Tapp [t1'] TC_array` >>
              qexists_tac `0` >>
              qexists_tac `LENGTH st` >>
              rw [] >>
@@ -1406,7 +1414,8 @@ val exp_type_preservation = Q.prove (
                      fs [] >>
                      cases_on `st'` >>
                      fs [EVERY_MEM] >>
-                     metis_tac [type_v_weakening, weakS_bind, weakCT_refl, weakC_refl, weakM_refl])))
+                     metis_tac [type_v_weakening, weakS_bind, weakCT_refl, weakC_refl, weakM_refl]))
+             >- fs [check_freevars_def])
          >- do_app_exn_tac
          >- (fs [store_lookup_def] >>
              qpat_assum `type_v x0 x1 x2 (Loc l) x3` (assume_tac o SIMP_RULE (srw_ss()) [Once type_v_cases_eqn]) >>
@@ -1428,8 +1437,8 @@ val exp_type_preservation = Q.prove (
              fs [type_s_def, store_lookup_def, store_assign_def] >>
              res_tac >>
              rw [EL_LUPDATE] >>
-             every_case_tac >>
-             fs [SWAP_REVERSE_SYM] >>
+             Cases_on `EL l st` >>
+             fs [] >>
              rw [] >>
              qpat_assum `type_v x0 x1 x2 (Loc l) x3` (assume_tac o SIMP_RULE (srw_ss()) [Once type_v_cases_eqn]) >>
              fs [EVERY_MEM, MEM_LUPDATE] >>
@@ -1445,6 +1454,7 @@ val exp_type_preservation = Q.prove (
          rw [] >>
          fs [bind_tvar_def, type_es_list_rel, type_vs_list_rel] >>
          rw [] >>
+         fs [] >>
          qexists_tac `tenvS` >>
          rw [] >>
          qexists_tac `tenvM` >>
@@ -1509,6 +1519,8 @@ val exp_type_preservation = Q.prove (
      >- metis_tac [do_con_check_build_conv, NOT_SOME_NONE]
      >- metis_tac [do_con_check_build_conv, NOT_SOME_NONE]
      >- metis_tac [do_con_check_build_conv, NOT_SOME_NONE]
+     >> cheat
+     (*
      >- (fs [all_env_to_cenv_def, build_conv_def] >>
          cases_on `lookup_alist_mod_env cn cenv'` >>
          fs [] >>
@@ -1666,7 +1678,7 @@ val exp_type_preservation = Q.prove (
          `check_freevars (num_tvs (bind_tvar tvs tenv)) [] t'''` 
                      by metis_tac [type_e_freevars] >>
          fs [bind_tvar_rewrites] >>
-         metis_tac [type_vs_end, arithmeticTheory.ADD_0])));
+         metis_tac [type_vs_end, arithmeticTheory.ADD_0])*)));
 
 val store_type_extension_def = Define `
 store_type_extension tenvS1 tenvS2 = 
