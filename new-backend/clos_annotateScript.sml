@@ -23,7 +23,7 @@ val clos_free_def = tDefine "clos_free" `
   (clos_free n [Fn loc vs x1] <=>
      clos_free (n + 1) [x1]) /\
   (clos_free n [Letrec loc vs fns x1] <=>
-     clos_free (n + 1) fns \/ clos_free (n + LENGTH fns) [x1]) /\
+     clos_free (n + 1 + LENGTH fns) fns \/ clos_free (n + LENGTH fns) [x1]) /\
   (clos_free n [Handle x1 x2] <=>
      clos_free n [x1] \/ clos_free (n+1) [x2]) /\
   (clos_free n [Call dest xs] <=> clos_free n xs)`
@@ -70,7 +70,7 @@ val cFree_def = tDefine "cFree" `
        ([Fn loc (vars_to_list l2) (HD c1)],l2)) /\
   (cFree [Letrec loc vs fns x1] =
      let (c1,l1) = cFree fns in
-     let l3 = Shift 1 l1 in
+     let l3 = Shift (1 + LENGTH fns) l1 in
      let (c2,l2) = cFree [x1] in
        ([Letrec loc (vars_to_list l3) c1 (HD c2)],
         mk_Union l3 (Shift (LENGTH fns) l2))) /\
@@ -105,6 +105,22 @@ val cFree_SING = prove(
   REPEAT STRIP_TAC \\ IMP_RES_TAC cFree_LENGTH
   \\ Cases_on `ys` \\ fs [LENGTH_NIL]);
 
+val SING_HD = prove(
+  ``(([HD xs] = xs) <=> (LENGTH xs = 1)) /\
+    ((xs = [HD xs]) <=> (LENGTH xs = 1))``,
+  Cases_on `xs` \\ fs [LENGTH_NIL] \\ METIS_TAC []);
+
+val LENGTH_FST_cFree = prove(
+  ``LENGTH (FST (cFree fns)) = LENGTH fns``,
+  Cases_on `cFree fns` \\ fs [] \\ IMP_RES_TAC cFree_LENGTH);
+
+val cFree_CONS = prove(
+  ``FST (cFree (x::xs)) = HD (FST (cFree [x])) :: FST (cFree xs)``,
+  Cases_on `xs` \\ fs [cFree_def,SING_HD,LENGTH_FST_cFree,LET_DEF]
+  \\ Cases_on `cFree [x]` \\ fs []
+  \\ Cases_on `cFree (h::t)` \\ fs [SING_HD]
+  \\ IMP_RES_TAC cFree_SING \\ fs []);
+
 val has_var_mk_Union = prove(
   ``has_var n (mk_Union l1 l2) <=> has_var n l1 \/ has_var n l2``,
   SRW_TAC [] [mk_Union_def,has_var_def]);
@@ -130,7 +146,8 @@ val cFree_thm = prove(
   \\ `?y2 l2. cFree [x2] = ([y2],l2)` by METIS_TAC [PAIR,cFree_SING] \\ fs []
   \\ `?y3 l3. cFree [x3] = ([y3],l3)` by METIS_TAC [PAIR,cFree_SING] \\ fs []
   \\ rfs [] \\ RES_TAC \\ IMP_RES_TAC cFree_LENGTH \\ fs []
-  \\ fs [has_var_def,clos_free_def,MEM_vars_to_list])
+  \\ fs [has_var_def,clos_free_def,MEM_vars_to_list]
+  \\ fs [AC ADD_ASSOC ADD_COMM])
   |> SPEC_ALL;
 
 (* cShift renames variables to use only those in the annotations *)
@@ -191,7 +208,7 @@ val cShift_def = tDefine "cShift" `
      let live = FILTER (\n. n < k) vs in
      let vars = MAP (get_var m l i) live in
      let cs = cShift fns (m + l) (1 + LENGTH fns) (new_env 0 live) in
-     let c1 = cShift [x1] m l i in
+     let c1 = cShift [x1] m (l + LENGTH fns) i in
        ([Letrec loc vars cs (HD c1)])) /\
   (cShift [Handle x1 x2] m l i =
      let c1 = cShift [x1] m l i in
@@ -216,6 +233,13 @@ val cShift_SING = prove(
   \\ Cases_on `cShift [x] m l i` \\ fs [LENGTH_NIL])
   |> SIMP_RULE std_ss [];
 
+val cShift_CONS = store_thm("cEval_CONS",
+  ``cShift ((x:clos_exp)::xs) m l i =
+      let c1 = cShift [x] m l i in
+      let c2 = cShift xs m l i in
+        (HD c1 :: c2:clos_exp list)``,
+  Cases_on `xs` \\ fs [cShift_def,LET_DEF,SING_HD,cShift_LENGTH_LEMMA]);
+
 (* main function *)
 
 val cAnnotate_def = Define `
@@ -238,6 +262,12 @@ val (val_rel_rules,val_rel_ind,val_rel_cases) = Hol_reln `
    (!n. clos_free_set [c] n /\ 1 <= n ==> env_ok m 0 i env env' (n - 1)) /\
    (LENGTH env = m) ==>
    val_rel (Closure p env c) (Closure p env' c'))
+  /\
+  ((cShift (FST (cFree cs)) m (LENGTH cs + 1) i = cs') /\
+   (!n. clos_free_set cs n /\ 1 + LENGTH cs <= n ==>
+        env_ok m 0 i env env' (n - (1 + LENGTH cs))) /\
+   (LENGTH env = m) ==>
+   val_rel (Recclosure p env cs index) (Recclosure p env' cs' index))
   /\
   (l + m <= n ==>
    env_ok m l i (env2:clos_val list) (env2':clos_val list) n)
@@ -349,6 +379,10 @@ val env_ok_1 = env_ok_EXTEND
   |> Q.INST [`env1`|->`[v1]`,`env2`|->`[v2]`,`l`|->`0`] |> Q.GEN `l1`
   |> SIMP_RULE (srw_ss()) []
 
+val env_ok_append = env_ok_EXTEND
+  |> GSYM |> Q.INST [`l`|->`0`]
+  |> SIMP_RULE (srw_ss()) []
+
 val lookup_vars_NONE = prove(
   ``!vs. (lookup_vars vs env = NONE) <=> ?v. MEM v vs /\ LENGTH env <= v``,
   Induct \\ fs [lookup_vars_def]
@@ -411,6 +445,42 @@ val env_ok_new_env = prove(
   \\ SRW_TAC [] [] \\ fs [lookup_EL_new_env]
   \\ IMP_RES_TAC lookup_vars_SOME \\ fs []);
 
+val EL_cShift_cFree = prove(
+  ``!fns index.
+     index < LENGTH fns ==>
+     ([EL index (cShift (FST (cFree fns)) l m i)] =
+      (cShift (FST (cFree [EL index fns])) l m i))``,
+  Induct \\ fs [] \\ REPEAT STRIP_TAC
+  \\ ONCE_REWRITE_TAC [cFree_CONS]
+  \\ SIMP_TAC std_ss [Once cShift_CONS]
+  \\ Cases_on `index` \\ fs []
+  \\ fs [LET_DEF,cFree_def]
+  \\ REPEAT (AP_TERM_TAC ORELSE AP_THM_TAC)
+  \\ fs [SING_HD,LENGTH_FST_cFree]);
+
+val clos_free_EL_IMP = prove(
+  ``!fns n index.
+      clos_free n [EL index fns] /\ index < LENGTH fns ==>
+      clos_free n fns``,
+  Induct \\ fs [] \\ REPEAT STRIP_TAC
+  \\ Cases_on `index` \\ fs [EL]
+  \\ Cases_on `fns` \\ fs [clos_free_def] \\ RES_TAC \\ fs []);
+
+val EVERY2_GENLIST = prove(
+  ``EVERY2 P (GENLIST f l) (GENLIST g l) <=>
+    !i. i < l ==> P (f i) (g i)``,
+  Induct_on `l`
+  \\ fs [GENLIST,rich_listTheory.LIST_REL_APPEND_SING,SNOC_APPEND]
+  \\ fs [DECIDE ``i < SUC n <=> i < n \/ (i = n)``] \\ METIS_TAC []);
+
+val cEvalOp_thm = prove(
+  ``state_rel s1 t1 /\ EVERY2 val_rel xs ys /\
+    (cEvalOp op xs s1 = SOME (v,s2)) ==>
+    ?w t2. (cEvalOp op ys t1 = SOME (w,t2)) /\
+           val_rel v w /\ state_rel s2 t2``,
+  Cases_on `op` \\ fs [cEvalOp_def] \\ REPEAT STRIP_TAC
+  \\ cheat);
+
 val cShift_correct = prove(
   ``!xs env s1 env' t1 res s2 m l i.
       (cEval (xs,env,s1) = (res,s2)) /\ res <> Error /\
@@ -421,7 +491,6 @@ val cShift_correct = prove(
          (cEval (cShift (FST (cFree xs)) m l i,env',t1) = (res',t2)) /\
          res_rel res res' /\
          state_rel s2 t2 ``,
-
   recInduct cEval_ind \\ REPEAT STRIP_TAC
   THEN1 (* NIL *)
    (fs [cFree_def,cShift_def,cEval_def]
@@ -550,9 +619,21 @@ val cShift_correct = prove(
     \\ Cases_on `x` \\ fs []
     \\ Q.PAT_ASSUM `!x.bbb` (K ALL_TAC)
     \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs [ADD1])
-
-  THEN1 (* Op *) cheat
-
+  THEN1 (* Op *)
+   (fs [cFree_def]
+    \\ `?y1 l1. cFree xs = (y1,l1)` by METIS_TAC [PAIR,cFree_SING]
+    \\ fs [LET_DEF,cShift_def,cEval_def]
+    \\ `?r1 s1. cEval (xs,env,s) = (r1,s1)` by METIS_TAC [PAIR] \\ fs []
+    \\ `clos_free_set xs SUBSET env_ok m l i env env'` by
+      (fs [SUBSET_DEF,IN_DEF,clos_free_set_def,clos_free_def])
+    \\ `r1 <> Error` by (REPEAT STRIP_TAC \\ fs [])
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t1`,`m`,`l`,`i`]) \\ fs []
+    \\ REPEAT STRIP_TAC \\ fs []
+    \\ Cases_on `r1` \\ fs [] \\ SRW_TAC [] []
+    \\ fs [res_rel_simp] \\ SRW_TAC [] []
+    \\ Cases_on `cEvalOp op a s1` \\ fs []
+    \\ Cases_on `x` \\ fs [] \\ SRW_TAC [] [res_rel_simp,PULL_EXISTS]
+    \\ IMP_RES_TAC cEvalOp_thm \\ fs [])
   THEN1 (* Fn *)
    (fs [cFree_def,cEval_def]
     \\ `~s.restrict_envs /\ t1.restrict_envs` by fs [state_rel_def]
@@ -587,9 +668,56 @@ val cShift_correct = prove(
     \\ `ALL_DISTINCT live` by
       (UNABBREV_ALL_TAC \\ fs [ALL_DISTINCT_vars_to_list])
     \\ IMP_RES_TAC env_ok_new_env)
-
-  THEN1 (* Letrec *) cheat
-
+  THEN1 (* Letrec *)
+   (fs [cFree_def,cEval_def]
+    \\ `~s.restrict_envs /\ t1.restrict_envs` by fs [state_rel_def]
+    \\ fs [clos_env_def]
+    \\ SRW_TAC [] [] \\ SRW_TAC [] [markerTheory.Abbrev_def]
+    \\ `?y1 l1. cFree fns = (y1,l1)` by METIS_TAC [PAIR,cFree_SING]
+    \\ `?y2 l2. cFree [exp] = ([y2],l2)` by METIS_TAC [PAIR,cFree_SING]
+    \\ fs [cShift_def,LET_DEF,cEval_def,build_recc_def,clos_env_def,
+           cShift_LENGTH_LEMMA]
+    \\ Q.ABBREV_TAC `live = FILTER (\n. n < m + l)
+          (vars_to_list (Shift (1 + LENGTH fns) l1))`
+    \\ Cases_on `lookup_vars (MAP (get_var m l i) live) env'`
+    \\ fs [] THEN1
+     (`F` by ALL_TAC \\ fs []
+      \\ fs [SUBSET_DEF,IN_DEF,clos_free_set_def,clos_free_def]
+      \\ fs [lookup_vars_NONE] \\ UNABBREV_ALL_TAC
+      \\ fs [MEM_FILTER,MEM_vars_to_list,MEM_MAP]
+      \\ MP_TAC (Q.INST [`xs`|->`fns`] cFree_thm)
+      \\ fs [LET_DEF] \\ CCONTR_TAC
+      \\ fs [AC ADD_ASSOC ADD_COMM] \\ RES_TAC
+      \\ SRW_TAC [] [] \\ fs []
+      \\ fs [env_ok_def] \\ rfs []
+      \\ fs [get_var_def,tlookup_def]
+      \\ DECIDE_TAC)
+    \\ FIRST_X_ASSUM MATCH_MP_TAC
+    \\ IMP_RES_TAC cFree_LENGTH \\ fs []
+    \\ fs [AC ADD_COMM ADD_ASSOC]
+    \\ fs [SUBSET_DEF,IN_DEF,clos_free_set_def,clos_free_def]
+    \\ REPEAT STRIP_TAC
+    \\ MATCH_MP_TAC (env_ok_EXTEND |> GEN_ALL)
+    \\ fs [LENGTH_GENLIST]
+    \\ REVERSE (REPEAT STRIP_TAC) THEN1
+     (FIRST_X_ASSUM MATCH_MP_TAC
+      \\ IMP_RES_TAC (DECIDE ``n <= m:num <=> (m - n + n = m)``) \\ fs [])
+    \\ fs [EVERY2_GENLIST] \\ REPEAT STRIP_TAC
+    \\ fs [val_rel_simp]
+    \\ Q.EXISTS_TAC `new_env 0 live` \\ fs []
+    \\ REPEAT STRIP_TAC
+    \\ UNABBREV_ALL_TAC
+    \\ ONCE_REWRITE_TAC [ADD_COMM]
+    \\ MATCH_MP_TAC (GEN_ALL env_ok_new_env)
+    \\ Q.LIST_EXISTS_TAC [`i`,`env'`] \\ fs []
+    \\ fs [AC ADD_COMM ADD_ASSOC,ALL_DISTINCT_vars_to_list]
+    \\ fs [MEM_vars_to_list]
+    \\ MP_TAC (Q.INST [`xs`|->`fns`] cFree_thm)
+    \\ fs [LET_DEF] \\ STRIP_TAC \\ fs []
+    \\ IMP_RES_TAC (DECIDE ``n <= m:num <=> (m - n + n = m)``)
+    \\ fs [clos_free_set_def]
+    \\ FIRST_X_ASSUM MATCH_MP_TAC
+    \\ fs [clos_free_set_def])
   THEN1 (* App *)
    (fs [cFree_def]
     \\ `?y1 l1. cFree [x1] = ([y1],l1)` by METIS_TAC [PAIR,cFree_SING]
@@ -613,18 +741,48 @@ val cShift_correct = prove(
     \\ IMP_RES_TAC cEval_SING \\ fs [] \\ SRW_TAC [] []
     \\ fs [closLangTheory.dest_closure_def]
     \\ Cases_on `r1'` \\ fs []
-    \\ Cases_on `check_loc loc_opt n`
-    \\ fs [val_rel_simp]
+    THEN1 (* Closure case *)
+     (Cases_on `check_loc loc_opt n`
+      \\ fs [val_rel_simp]
+      \\ `t2'.clock = s2'.clock` by fs [state_rel_def] \\ fs []
+      \\ Cases_on `s2'.clock = 0` \\ fs [] \\ SRW_TAC [] [res_rel_simp]
+      \\ Q.PAT_ASSUM `xx = [c']` (fn th => fs [GSYM th])
+      \\ fs [SUBSET_DEF,IN_DEF]
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`y'::env''`,`dec_clock t2'`,
+           `LENGTH (l':clos_val list)`,`1`,`i'`])
+      \\ MATCH_MP_TAC IMP_IMP \\ REPEAT STRIP_TAC \\ fs []
+      \\ REPEAT STRIP_TAC \\ fs [ADD1]
+      THEN1 (MATCH_MP_TAC env_ok_1 \\ fs [])
+      \\ fs [state_rel_def,closLangTheory.dec_clock_def])
+    (* Recclosure case *)
+    \\ Q.MATCH_ASSUM_RENAME_TAC `val_rel (Recclosure dest env3 fns index) y`
+    \\ Cases_on `LENGTH fns <= index` \\ fs []
+    \\ Cases_on `check_loc loc_opt (dest + index)` \\ fs [LET_DEF]
+    \\ fs [val_rel_simp,cShift_LENGTH_LEMMA,LENGTH_FST_cFree]
     \\ `t2'.clock = s2'.clock` by fs [state_rel_def] \\ fs []
     \\ Cases_on `s2'.clock = 0` \\ fs [] \\ SRW_TAC [] [res_rel_simp]
-    \\ Q.PAT_ASSUM `xx = [c']` (fn th => fs [GSYM th])
-    \\ fs [SUBSET_DEF,IN_DEF]
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`y'::env''`,`dec_clock t2'`,
-         `LENGTH (l':clos_val list)`,`1`,`i'`])
-    \\ MATCH_MP_TAC IMP_IMP \\ REPEAT STRIP_TAC \\ fs []
-    \\ REPEAT STRIP_TAC \\ fs [ADD1]
-    THEN1 (MATCH_MP_TAC env_ok_1 \\ fs [])
-    \\ fs [state_rel_def,closLangTheory.dec_clock_def])
+    \\ `index < LENGTH fns` by DECIDE_TAC
+    \\ fs [EL_cShift_cFree]
+    \\ FIRST_X_ASSUM MATCH_MP_TAC
+    \\ simp [AC ADD_ASSOC ADD_COMM,ADD1]
+    \\ REVERSE (REPEAT STRIP_TAC)
+    THEN1 (fs [state_rel_def,closLangTheory.dec_clock_def])
+    \\ fs [SUBSET_DEF,IN_DEF] \\ REPEAT STRIP_TAC
+    \\ MATCH_MP_TAC env_ok_cons \\ fs []
+    \\ REPEAT STRIP_TAC
+    \\ Cases_on `x` \\ fs [ADD1]
+    \\ fs [clos_free_set_def,clos_free_def]
+    \\ MATCH_MP_TAC env_ok_append \\ fs [LENGTH_GENLIST]
+    \\ REVERSE (REPEAT STRIP_TAC) THEN1
+     (FIRST_X_ASSUM (MP_TAC o Q.SPEC `n + 1`)
+      \\ fs [SUB_PLUS] \\ REPEAT STRIP_TAC \\ FIRST_X_ASSUM MATCH_MP_TAC
+      \\ IMP_RES_TAC clos_free_EL_IMP \\ fs [AC ADD_COMM ADD_ASSOC])
+    \\ fs [EVERY2_GENLIST]
+    \\ REPEAT STRIP_TAC
+    \\ fs [val_rel_simp]
+    \\ Q.EXISTS_TAC `i'` \\ fs []
+    \\ REPEAT STRIP_TAC \\ FIRST_X_ASSUM MATCH_MP_TAC
+    \\ fs [clos_free_set_def])
   THEN1 (* Tick *)
    (fs [cFree_def,cEval_def]
     \\ `?y1 l1. cFree [x] = ([y1],l1)` by METIS_TAC [PAIR,cFree_SING]
