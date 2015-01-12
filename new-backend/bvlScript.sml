@@ -132,13 +132,13 @@ val bEvalOp_def = Define `
           | SOME (ByteArray xs) =>
               SOME (Number (&LENGTH xs), s)
           | _ => NONE)
-    | (RefByte,[Number i;Number b]) =>
+    | (RefByte,[Number b;Number i]) =>
          if 0 ≤ i ∧ 0 ≤ b ∧ b < 256 then
            let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
              SOME (RefPtr ptr, s with refs := s.refs |+
                (ptr,ByteArray (REPLICATE (Num i) (n2w (Num b)))))
          else NONE
-    | (RefArray,[Number i;v]) =>
+    | (RefArray,[v;Number i]) =>
         if 0 ≤ i then
           let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
             SOME (RefPtr ptr, s with refs := s.refs |+
