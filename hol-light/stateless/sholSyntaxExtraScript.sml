@@ -320,7 +320,7 @@ val VSUBST_frees = store_thm("VSUBST_frees",
     rw[Abbr`P1`,Abbr`P2`,EXISTS_MEM,FORALL_PROD] >>
     unabbrev_all_tac >> rw[MEM_FILTER] >> rw[EXISTS_PROD] >>
     rw[EQ_IMP_THM] >> fs[REV_ASSOCD_ALOOKUP] >>
-    qmatch_assum_rename_tac`MEM (z:term,y) ill`[] >>
+    qmatch_assum_rename_tac`MEM (z:term,y) ill` >>
     `∃x ty. y = Var x ty` by metis_tac[] >>
     first_x_assum(qspecl_then[`x`,`ty`]mp_tac) >>
     (discharge_hyps >- (rw[] >> fs[])) >>
@@ -346,7 +346,7 @@ val VSUBST_frees = store_thm("VSUBST_frees",
     imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >> fs[] >>
     qunabbrev_tac`q` >>
     rpt BasicProvers.VAR_EQ_TAC >>
-    qmatch_assum_rename_tac`MEM (q,y) ill`[] >>
+    qmatch_assum_rename_tac`MEM (q,y) ill` >>
     map_every qexists_tac[`q`,`y`] >> simp[] >>
     imp_res_tac ALOOKUP_MEM >>
     fs[MEM_MAP,UNCURRY] ) >>
@@ -1129,7 +1129,7 @@ val VSUBST_dbVSUBST = store_thm("VSUBST_dbVSUBST",
       qx_gen_tac`k` >> strip_tac >> simp[] >>
       simp[MAP_db_FILTER_neq] >>
       simp[REV_ASSOCD_FILTER] >>
-      qmatch_assum_rename_tac`k = db u`[] >>
+      qmatch_assum_rename_tac`k = db u` >>
       `∃x ty. u = Var x ty` by metis_tac[] >>
       qspecl_then[`ilist`,`x`,`ty`]mp_tac REV_ASSOCD_MAP_db >>
       discharge_hyps >- metis_tac[] >>
@@ -1323,7 +1323,7 @@ val INST_CORE_dbINST = store_thm("INST_CORE_dbINST",
     strip_tac >>
     simp[INST_CORE_def] >>
     rw[] >> fs[] >>
-    qmatch_assum_rename_tac`typeof t1 = Fun (typeof t2) rty`[] >>
+    qmatch_assum_rename_tac`typeof t1 = Fun (typeof t2) rty` >>
     first_assum(qspec_then`sizeof t1`mp_tac) >>
     first_x_assum(qspec_then`sizeof t2`mp_tac) >>
     simp[] >>
@@ -1336,7 +1336,7 @@ val INST_CORE_dbINST = store_thm("INST_CORE_dbINST",
   strip_tac >>
   simp[INST_CORE_def] >>
   rw[] >> fs[] >>
-  qmatch_assum_rename_tac`welltyped tm`[] >>
+  qmatch_assum_rename_tac`welltyped tm` >>
   qmatch_assum_abbrev_tac`IS_RESULT X` >>
   Cases_on`X`>>
   pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def]) >> fs[] >- (

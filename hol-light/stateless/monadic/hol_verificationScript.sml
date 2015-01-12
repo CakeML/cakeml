@@ -820,7 +820,7 @@ val INST_CORE_term_ok = prove(
     \\ FULL_SIMP_TAC std_ss [PULL_FORALL]
     \\ ONCE_REWRITE_TAC [INST_CORE_def]
     \\ SIMP_TAC std_ss [LET_THM]
-    \\ qmatch_assum_rename_tac`holSyntax$welltyped (Comb a0 a1)`[]
+    \\ qmatch_assum_rename_tac`holSyntax$welltyped (Comb a0 a1)`
     \\ Cases_on `IS_CLASH (INST_CORE env tyin a0)`
     \\ ASM_SIMP_TAC std_ss [] THEN1
      (FULL_SIMP_TAC std_ss [AND_IMP_INTRO] \\ NTAC 2 STRIP_TAC
@@ -848,7 +848,7 @@ val INST_CORE_term_ok = prove(
   \\ ONCE_REWRITE_TAC [INST_CORE_def]
   \\ SIMP_TAC std_ss [LET_THM]
   \\ Q.PAT_ABBREV_TAC `env1 = ((Var a0 a1,Var a0 (TYPE_SUBST tyin a1))::env)`
-  \\ qmatch_assum_rename_tac`term_ok defs (Abs a0 a1 a2)`[]
+  \\ qmatch_assum_rename_tac`term_ok defs (Abs a0 a1 a2)`
   \\ Cases_on `IS_RESULT (INST_CORE env1 tyin a2)`
   \\ FULL_SIMP_TAC std_ss [result_11,result_distinct,term_ok_Abs,term_ok_Var] THEN1
    (REPEAT STRIP_TAC THEN1
@@ -928,7 +928,7 @@ val INST_CORE_EMPTY = prove(
    (FULL_SIMP_TAC std_ss [sizeof_def,term_ok_Comb]
     \\ FULL_SIMP_TAC std_ss [PULL_FORALL]
     \\ ONCE_REWRITE_TAC [INST_CORE_def]
-    \\ qmatch_assum_rename_tac`v = 1 + holSyntax$sizeof a0 + holSyntax$sizeof a1`[]
+    \\ qmatch_assum_rename_tac`v = 1 + holSyntax$sizeof a0 + holSyntax$sizeof a1`
     \\ FIRST_X_ASSUM (fn th => MP_TAC (Q.SPECL [`a0`,`env`] th) THEN
                                MP_TAC (Q.SPECL [`a1`,`env`] th))
     \\ simp[] ) >>
@@ -1226,7 +1226,7 @@ val raconv_thm = prove(
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC Abs_Var
   \\ SRW_TAC [] [RACONV,hol_tm_def]
   \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss []
-  \\ Q.MATCH_ASSUM_RENAME_TAC `TERM defs (Abs (Var s4 ty4) t4)` []
+  \\ Q.MATCH_ASSUM_RENAME_TAC `TERM defs (Abs (Var s4 ty4) t4)`
   \\ Q.PAT_ASSUM `!tm2.bbb` (MP_TAC o Q.SPECL
         [`t4`,`((Var s' ty,Var s4 ty4)::env)`])
   \\ FULL_SIMP_TAC std_ss [EVERY_DEF]
@@ -1813,7 +1813,7 @@ val variant_alt = prove(
   \\ `EXISTS (vfree_in (Var name ty1)) (frees a) =
       VFREE_IN (Var name (hol_ty ty1)) (hol_tm a)` by ALL_TAC THEN1
    (Q.PAT_ASSUM `TERM defs a` MP_TAC \\ Q.PAT_ASSUM `TYPE defs ty1` MP_TAC
-    \\ Q.MATCH_ASSUM_RENAME_TAC `STATE st defs` []
+    \\ Q.MATCH_ASSUM_RENAME_TAC `STATE st defs`
     \\ Q.PAT_ASSUM `STATE st defs` MP_TAC \\ REPEAT (POP_ASSUM (K ALL_TAC))
     \\ Induct_on `a` \\ SIMP_TAC (srw_ss()) [Once frees_def,Once vfree_in_def]
     THEN1 (FULL_SIMP_TAC std_ss [hol_tm_def,VFREE_IN_def,term_11]
@@ -1941,8 +1941,8 @@ val vsubst_aux_thm = prove(
     BasicProvers.CASE_TAC >- (
       fs[EXISTS_MEM,EVERY_MEM,MEM_FILTER,FORALL_PROD,EXISTS_PROD,MEM_MAP] >>
       rpt BasicProvers.VAR_EQ_TAC >>
-      qmatch_assum_rename_tac`VFREE_IN (Var x (hol_ty ty)) (hol_tm pm)`[] >>
-      qmatch_assum_rename_tac`VFREE_IN (hol_tm qm) (hol_tm pm2)`[] >>
+      qmatch_assum_rename_tac`VFREE_IN (Var x (hol_ty ty)) (hol_tm pm)` >>
+      qmatch_assum_rename_tac`VFREE_IN (hol_tm qm) (hol_tm pm2)` >>
       first_x_assum(qspecl_then[`pm`,`qm`]mp_tac) >>
       discharge_hyps >- (
         simp[] >> spose_not_then STRIP_ASSUME_TAC >> fs[hol_tm_def] ) >>
@@ -2003,8 +2003,8 @@ val vsubst_aux_thm = prove(
   \\ reverse BasicProvers.CASE_TAC >- (
       fs[EXISTS_MEM,EVERY_MEM,MEM_FILTER,FORALL_PROD,EXISTS_PROD,MEM_MAP] >>
       rpt BasicProvers.VAR_EQ_TAC >>
-      qmatch_assum_rename_tac`vfree_in (Var x ty) pm`[] >>
-      qmatch_assum_rename_tac`vfree_in qm pm2`[] >>
+      qmatch_assum_rename_tac`vfree_in (Var x ty) pm` >>
+      qmatch_assum_rename_tac`vfree_in qm pm2` >>
       first_x_assum(qspecl_then[`pm`,`qm`]mp_tac) >> simp[] >>
       strip_tac >>
       first_x_assum(qspecl_then[`hol_tm pm`,`hol_tm qm`]mp_tac) >>
@@ -2245,7 +2245,7 @@ val inst_aux_thm = prove(
   \\ SIMP_TAC (srw_ss()) [Once inst_aux_def]
   \\ SIMP_TAC std_ss [GSYM AND_IMP_INTRO] \\ NTAC 7 STRIP_TAC
   \\ IMP_RES_TAC Abs_Var
-  \\ Q.MATCH_ASSUM_RENAME_TAC `h = Var v ty` []
+  \\ Q.MATCH_ASSUM_RENAME_TAC `h = Var v ty`
   \\ FULL_SIMP_TAC std_ss []
   \\ SIMP_TAC (srw_ss()) [Once inst_aux_def]
   \\ `!ty'. (if ty' = ty then Var v ty else Var v ty') = Var v ty'` by METIS_TAC []
@@ -2315,7 +2315,7 @@ val inst_aux_thm = prove(
     THEN1 (FULL_SIMP_TAC std_ss [TERM_def] >> METIS_TAC[term_ok_welltyped])
     \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss [result_distinct])
   \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ Q.MATCH_ASSUM_RENAME_TAC `inst_aux [] theta h0 r = (HolRes a,r1)` []
+  \\ Q.MATCH_ASSUM_RENAME_TAC `inst_aux [] theta h0 r = (HolRes a,r1)`
   \\ `(variant (frees a) (Var v (type_subst theta ty))) =
       Var fresh_name (type_subst theta ty)` by ALL_TAC THEN1
    (FULL_SIMP_TAC std_ss [GSYM type_subst_thm,RESULT_def]
@@ -2476,9 +2476,9 @@ val TRANS_thm = store_thm("TRANS_thm",
   \\ BasicProvers.EVERY_CASE_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
   \\ SRW_TAC [] [ex_bind_def] \\ IMP_RES_TAC THM
-  \\ Q.MATCH_ASSUM_RENAME_TAC `TERM defs (Comb (Comb (Const "=" h1) ll) m1)` []
+  \\ Q.MATCH_ASSUM_RENAME_TAC `TERM defs (Comb (Comb (Const "=" h1) ll) m1)`
   \\ POP_ASSUM MP_TAC
-  \\ Q.MATCH_ASSUM_RENAME_TAC `TERM defs (Comb (Comb (Const "=" h2) m2) rr)` []
+  \\ Q.MATCH_ASSUM_RENAME_TAC `TERM defs (Comb (Comb (Const "=" h2) m2) rr)`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC TERM \\ Cases_on `mk_eq (ll,rr) s`
   \\ MP_TAC (mk_eq_thm |> Q.INST [`x`|->`ll`,`y`|->`rr`,`res`|->`q`,`s'`|->`r`])
   \\ FULL_SIMP_TAC std_ss [] \\ IMP_RES_TAC TERM
@@ -2509,9 +2509,9 @@ val MK_COMB_thm = store_thm("MK_COMB_thm",
   \\ BasicProvers.EVERY_CASE_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
   \\ SRW_TAC [] [ex_bind_def] \\ IMP_RES_TAC THM
-  \\ Q.MATCH_ASSUM_RENAME_TAC `TERM defs (Comb (Comb (Const "=" h1) f1) f2)` []
+  \\ Q.MATCH_ASSUM_RENAME_TAC `TERM defs (Comb (Comb (Const "=" h1) f1) f2)`
   \\ POP_ASSUM MP_TAC
-  \\ Q.MATCH_ASSUM_RENAME_TAC `TERM defs (Comb (Comb (Const "=" h2) x1) x2)` []
+  \\ Q.MATCH_ASSUM_RENAME_TAC `TERM defs (Comb (Comb (Const "=" h2) x1) x2)`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC TERM
   \\ Cases_on `mk_comb (f1,x1) s`
   \\ MP_TAC (mk_comb_thm |> Q.INST [`f`|->`f1`,`a`|->`x1`,`res`|->`q`,`s1`|->`r`])
@@ -2561,7 +2561,7 @@ val ABS_thm = store_thm("ABS_thm",
       FULL_SIMP_TAC std_ss [] \\
       NO_TAC)
   \\ Q.MATCH_ASSUM_RENAME_TAC
-       `THM defs (Sequent l (Comb (Comb (Const "=" h) t1) t2))` []
+       `THM defs (Sequent l (Comb (Comb (Const "=" h) t1) t2))`
   \\ Cases_on `mk_abs (tm,t1) s` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ MP_TAC (mk_abs_thm |> Q.SPECL [`q`] |> Q.INST [`bvar`|->`tm`,
        `bod`|->`t1`,`s1`|->`r`])
@@ -2605,8 +2605,8 @@ val BETA_thm = store_thm("BETA_thm",
   \\ SRW_TAC [] [ex_bind_def,ex_return_def]
   \\ IMP_RES_TAC TERM \\ IMP_RES_TAC Abs_Var
   \\ FULL_SIMP_TAC std_ss []
-  \\ Q.MATCH_ASSUM_RENAME_TAC `t2 = Var name ty` [] \\ POP_ASSUM (K ALL_TAC)
-  \\ Q.MATCH_ASSUM_RENAME_TAC `TERM defs (Abs (Var name ty) bod)` []
+  \\ Q.MATCH_ASSUM_RENAME_TAC `t2 = Var name ty` \\ POP_ASSUM (K ALL_TAC)
+  \\ Q.MATCH_ASSUM_RENAME_TAC `TERM defs (Abs (Var name ty) bod)`
   \\ Cases_on `mk_eq (Comb (Abs (Var name ty) bod) (Var name ty),bod) s`
   \\ IMP_RES_TAC TERM
   \\ MP_TAC (mk_eq_thm |> Q.INST [`x`|->`Comb (Abs (Var name ty) bod) (Var name ty)`,
@@ -2661,7 +2661,7 @@ val EQ_MP_thm = store_thm("EQ_MP_thm",
   \\ SRW_TAC [] [ex_bind_def,ex_return_def] \\ IMP_RES_TAC THM
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC TERM
   \\ Q.MATCH_ASSUM_RENAME_TAC `THM defs (Sequent l
-        (Comb (Comb (Const "=" h1) t1) t2))` []
+        (Comb (Comb (Const "=" h1) t1) t2))`
   \\ FULL_SIMP_TAC std_ss [THM_def]
   \\ SIMP_TAC (srw_ss()) [Once proves_cases,term_11,type_11,term_distinct]
   \\ NTAC 6 DISJ2_TAC \\ DISJ1_TAC
@@ -3007,14 +3007,14 @@ val new_specification_thm = store_thm("new_specification_thm",
       Cases_on`dest_eq tm s`>>simp[]>>
       `TERM defs tm` by simp[TERM_def] >>
       Cases_on`q'`>>simp[]>>
-      qmatch_assum_rename_tac`dest_eq tm s = (HolRes q',X)`["X"] >>
+      qmatch_assum_rename_tac`dest_eq tm s = (HolRes q',_)` >>
       Cases_on`q'`>>simp[] >> strip_tac >>
       BasicProvers.VAR_EQ_TAC >>
-      qmatch_assum_rename_tac`dest_eq tm s = (HolRes(v,t),s)`[] >>
+      qmatch_assum_rename_tac`dest_eq tm s = (HolRes(v,t),s)` >>
       MP_TAC(Q.GENL[`res`,`s'`]dest_var_thm) >>
       Cases_on`dest_var v s`>>simp[]>>
       Cases_on`q'`>>simp[]>>
-      qmatch_assum_rename_tac`dest_var v s = (HolRes q',X)`["X"]>>
+      qmatch_assum_rename_tac`dest_var v s = (HolRes q',_)`>>
       Cases_on`q'`>>simp[] >> strip_tac >>
       BasicProvers.CASE_TAC >>
       BasicProvers.CASE_TAC >>
@@ -3038,14 +3038,14 @@ val new_specification_thm = store_thm("new_specification_thm",
     Cases_on`dest_eq tm s`>>simp[]>>
     Cases_on`q`>>rfs[]>>
     rpt BasicProvers.VAR_EQ_TAC >>
-    qmatch_assum_rename_tac`dest_eq tm s = (HolRes q,X)`["X"] >>
+    qmatch_assum_rename_tac`dest_eq tm s = (HolRes q,_)` >>
     Cases_on`q`>>simp[] >> strip_tac >>
     rpt BasicProvers.VAR_EQ_TAC >>
-    qmatch_assum_rename_tac`dest_eq tm s = (HolRes(v,t),s)`[] >>
+    qmatch_assum_rename_tac`dest_eq tm s = (HolRes(v,t),s)` >>
     MP_TAC(Q.GENL[`res`,`s'`]dest_var_thm) >>
     Cases_on`dest_var v s`>>simp[]>>
     Cases_on`q`>>simp[]>>
-    qmatch_assum_rename_tac`dest_var v s = (HolRes q,X)`["X"]>>
+    qmatch_assum_rename_tac`dest_var v s = (HolRes q,_)`>>
     Cases_on`q`>>simp[] >> strip_tac >>
     rpt BasicProvers.VAR_EQ_TAC >>
     BasicProvers.CASE_TAC>>
@@ -3395,7 +3395,7 @@ val new_basic_type_definition_thm = store_thm("new_basic_type_definition_thm",
   \\ SIMP_TAC std_ss [Once dest_comb_def,failwith_def,ex_return_def]
   \\ Cases_on `h` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ NTAC 3 STRIP_TAC
-  \\ Q.MATCH_ASSUM_RENAME_TAC `THM defs (Sequent [] (Comb P x))` []
+  \\ Q.MATCH_ASSUM_RENAME_TAC `THM defs (Sequent [] (Comb P x))`
   \\ Cases_on `freesin [] P` \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
   \\ IMP_RES_TAC THM \\ IMP_RES_TAC TERM
   \\ IMP_RES_TAC QSORT_type_vars_in_term \\ FULL_SIMP_TAC std_ss []

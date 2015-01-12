@@ -198,7 +198,7 @@ val LENGTH_INORDER_INSERT = prove(
   \\ FULL_SIMP_TAC std_ss [GSYM ADD1,ADD_CLAUSES]
   \\ MATCH_MP_TAC (GSYM LENGTH_EQ_FILTER_FILTER)
   \\ FULL_SIMP_TAC std_ss [EVERY_MEM] \\ REPEAT STRIP_TAC
-  \\ Q.MATCH_ASSUM_RENAME_TAC `MEM y xs` []
+  \\ Q.MATCH_ASSUM_RENAME_TAC `MEM y xs`
   \\ FULL_SIMP_TAC std_ss []
   \\ Cases_on `x = y` \\ FULL_SIMP_TAC std_ss []
   \\ METIS_TAC [stringTheory.string_lt_cases,stringTheory.string_lt_antisym]);

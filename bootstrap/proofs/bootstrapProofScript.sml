@@ -614,8 +614,8 @@ val COMPILER_RUN_INV_references = store_thm("COMPILER_RUN_INV_references",
   fs[Once modLangProofTheory.v_to_i1_cases] >>
   rpt BasicProvers.VAR_EQ_TAC >>
   fs[optionTheory.OPTREL_def] >>
-  qmatch_assum_rename_tac`EL iind grd0 = SOME (Loc_i1 iloc)`[] >>
-  qmatch_assum_rename_tac`EL oind grd0 = SOME (Loc_i1 (iloc+1))`[] >>
+  qmatch_assum_rename_tac`EL iind grd0 = SOME (Loc_i1 iloc)` >>
+  qmatch_assum_rename_tac`EL oind grd0 = SOME (Loc_i1 (iloc+1))` >>
   first_assum(qspec_then`iind`mp_tac) >>
   first_x_assum(qspec_then`oind`mp_tac) >>
   qpat_assum`∀n. n < LENGTH genv2 ⇒ P`(fn th =>
@@ -716,7 +716,7 @@ val COMPILER_RUN_INV_references = store_thm("COMPILER_RUN_INV_references",
   simp[semanticPrimitivesTheory.lookup_alist_mod_env_def] >>
   qmatch_assum_abbrev_tac`merge_alist_mod_env([("REPL",e)],emp) init_envC = X` >>
   `ALOOKUP x "REPL" = SOME e` by (
-    qmatch_assum_rename_tac`merge_alist_mod_env Y p = X`["Y"] >>
+    qmatch_assum_rename_tac`merge_alist_mod_env _ p = X` >>
     Cases_on`p`>>fs[semanticPrimitivesTheory.merge_alist_mod_env_def] >>
     fs[Abbr`X`] >> rw[] ) >>
   Cases_on`FST(SND(FST compile_repl_module).contags_env)` >>

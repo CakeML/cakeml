@@ -1959,7 +1959,7 @@ val proves_IMP = store_thm("proves_IMP",
       qpat_assum`term defs v X`mp_tac >>
       Cases_on`v`>>TRY(simp[Once term_cases] >> NO_TAC) >>
       simp[] >> strip_tac >> BasicProvers.VAR_EQ_TAC >>
-      qmatch_assum_rename_tac`VFREE_IN (Var v vy) c'`[] >>
+      qmatch_assum_rename_tac`VFREE_IN (Var v vy) c'` >>
       first_x_assum(qspecl_then[`v`,`vy`]mp_tac) >>
       simp[MEM_MAP,EXISTS_PROD,MEM_EL,PULL_EXISTS] >>
       rw[] >> pop_assum (assume_tac o SYM) >> simp[] >>
@@ -2375,7 +2375,7 @@ val proves_IMP = store_thm("proves_IMP",
       `∃ty1. x1 has_type ty1 ∧ type defs (Fun (typeof y) Bool) ty1` by METIS_TAC[has_type_IMP] >>
       pop_assum mp_tac >>
       simp[] >> rw[] >>
-      qmatch_assum_rename_tac`type defs (typeof y) ty1`[] >>
+      qmatch_assum_rename_tac`type defs (typeof y) ty1` >>
       CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
       qexists_tac`ty1` >>
       qexists_tac`x1` >>
@@ -2511,7 +2511,7 @@ val proves_IMP = store_thm("proves_IMP",
       fs[welltyped_equation] >>
       simp[Abbr`ll`] >>
       simp[Once term_cases] >> rw[] >>
-      qmatch_assum_rename_tac`[] |- Comb abs1 rep1 === var1`[] >>
+      qmatch_assum_rename_tac`[] |- Comb abs1 rep1 === var1` >>
       qexists_tac`abs1` >> simp[] >>
       simp[Once proves_cases] >>
       ntac 5 disj2_tac >> disj1_tac >>
@@ -2568,10 +2568,10 @@ val proves_IMP = store_thm("proves_IMP",
       fs[welltyped_equation] >>
       simp[Abbr`ll`] >>
       simp[Once term_cases] >> rw[] >>
-      qmatch_assum_rename_tac`[] |- Comb abs1 repa1 === var1`[] >>
+      qmatch_assum_rename_tac`[] |- Comb abs1 repa1 === var1` >>
       qpat_assum`term ddefs X repa1`mp_tac >>
       simp[Once term_cases] >> strip_tac >>
-      qmatch_assum_rename_tac`term ddefs rep rep1`[] >>
+      qmatch_assum_rename_tac`term ddefs rep rep1` >>
       qexists_tac`rep1` >> simp[] >>
       simp[Once proves_cases] >>
       ntac 5 disj2_tac >> disj1_tac >>

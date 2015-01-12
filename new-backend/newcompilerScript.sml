@@ -1,5 +1,5 @@
 open HolKernel boolLib bossLib
-open pat_to_closTheory bvlBytecodeTheory clos_to_bvlTheory
+open pat_to_closTheory bvlBytecodeTheory clos_to_bvlTheory clos_numberTheory clos_annotateTheory
 val _ = new_theory "newcompiler"
 
 val _ = Datatype`
@@ -81,7 +81,7 @@ val compile_top_def = Define `
     let e = exp_to_pat [] e in
     let e = pComp e in
     let (l,e) = renumber_code_locs cs.next_loc e in
-    let (e,aux) = cComp [e] [] in
+    let (e,aux) = cComp (cAnnotate 0 [e]) [] in
     let ct = fromAList (MAP (λ(p,e). (p,(2,e))) aux) in
     let (f,r) = bvl_bc_table real_inst_length cs.rnext_label ct in
     let r = bvl_bc f [] TCNonTail 0 r e in
@@ -102,7 +102,7 @@ val compile_prog_def = Define `
     let e = exp_to_pat [] e in
     let e = pComp e in
     let (l,e) = renumber_code_locs init_compiler_state.next_loc e in
-    let (e,aux) = cComp [e] [] in
+    let (e,aux) = cComp (cAnnotate 0 [e]) [] in
     let ct = fromAList (MAP (λ(p,e). (p,(2,e))) aux) in
     let (f,r) = bvl_bc_table real_inst_length init_compiler_state.rnext_label ct in
     let r = bvl_bc f [] TCNonTail 0 r e in

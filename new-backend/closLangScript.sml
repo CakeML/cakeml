@@ -72,22 +72,23 @@ val clos_equal_def = tDefine "clos_equal" `
      | Number i =>
          (case y of
           | Number j => Eq_val (i = j)
-          | _ => Eq_type_error)
+          | _ => Eq_val F)
      | Block t1 xs =>
          (case y of
           | Block t2 ys => if (t1 = t2) /\ (LENGTH xs = LENGTH ys) then
                              clos_equal_list xs ys
                            else Eq_val F
-          | _ => Eq_type_error)
+          | Number _ => Eq_val F
+          | RefPtr _ => Eq_val F
+          | _ => Eq_closure)
      | RefPtr i =>
          (case y of
           | RefPtr j => Eq_val (i = j)
-          | _ => Eq_type_error)
+          | _ => Eq_val F)
      | _ =>
          (case y of
-          | Number _ => Eq_type_error
-          | Block _ _ => Eq_type_error
-          | RefPtr _ => Eq_type_error
+          | Number _ => Eq_val F
+          | RefPtr _ => Eq_val F
           | _ => Eq_closure)) /\
   (clos_equal_list [] [] = Eq_val T) /\
   (clos_equal_list (x::xs) (y::ys) =
@@ -112,8 +113,8 @@ val clos_to_string_def = Define `
    (if n = 0 then SOME "false"
     else if n = 1 then SOME "true"
     else if n = 2 then SOME "()"
-    else if n = 3 then SOME "<vector>"
-    else if n = 4 then
+    else if n = 4 then SOME "<vector>"
+    else if n = 3 then
       case clos_to_chars vs "" of
         NONE => NONE
       | SOME cs => SOME (string_to_string (IMPLODE cs))

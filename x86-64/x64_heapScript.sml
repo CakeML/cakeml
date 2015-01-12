@@ -14658,7 +14658,7 @@ val next_symbol_thm = prove(
   \\ Cases_on `(read_while isAlphaNumPrime v (STRING h ""))`
   \\ Cases_on `r` \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF,isNumber_def]
   \\ Q.MATCH_ASSUM_RENAME_TAC
-      `read_while isAlphaNumPrime v (STRING h "") = (q,STRING h1 rest)` []
+      `read_while isAlphaNumPrime v (STRING h "") = (q,STRING h1 rest)`
   \\ REVERSE (Cases_on `h1 = #"."`) THEN1 FULL_SIMP_TAC (srw_ss()) [LET_DEF]
   \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
   \\ Cases_on `rest` \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
@@ -19590,7 +19590,7 @@ gg goal
     \\ FULL_SIMP_TAC std_ss []
     \\ Cases_on `x''`
     \\ Q.MATCH_ASSUM_RENAME_TAC `lex_until_top_semicolon_alt s.input =
-         SOME (ts,rest_of_input)` []
+         SOME (ts,rest_of_input)`
     \\ FULL_SIMP_TAC std_ss []
     \\ FIRST_X_ASSUM (STRIP_ASSUME_TAC o Q.SPEC `ts`)
     \\ Q.ABBREV_TAC `bs3 = (bs2' with
