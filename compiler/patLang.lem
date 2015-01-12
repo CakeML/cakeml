@@ -673,14 +673,14 @@ evaluate_pat ck env s1 (Handle_pat e1 e2) (s2, Rerr err)
 and
 
 con1 : forall ck env tag es vs s s'.
-evaluate_list_pat ck env s es (s', Rval vs)
+evaluate_list_pat ck env s (List.reverse es) (s', Rval vs)
 ==>
-evaluate_pat ck env s (Con_pat tag es) (s', Rval (Conv_pat tag vs))
+evaluate_pat ck env s (Con_pat tag es) (s', Rval (Conv_pat tag (List.reverse vs)))
 
 and
 
 con3 : forall ck env tag es err s s'.
-evaluate_list_pat ck env s es (s', Rerr err)
+evaluate_list_pat ck env s (List.reverse es) (s', Rerr err)
 ==>
 evaluate_pat ck env s (Con_pat tag es) (s', Rerr err)
 
@@ -731,8 +731,8 @@ evaluate_pat ck env s (Fun_pat e) (s, Rval (Closure_pat env e))
 and
 
 app1 : forall ck env s1 es count s2 genv2 vs env2 e2 bv.
-evaluate_list_pat ck env s1 es (((count,s2),genv2), Rval vs) &&
-do_opapp_pat vs = Just (env2, e2) &&
+evaluate_list_pat ck env s1 (List.reverse es) (((count,s2),genv2), Rval vs) &&
+do_opapp_pat (List.reverse vs) = Just (env2, e2) &&
 (ck --> count <> 0) &&
 evaluate_pat ck env2 (((if ck then count-1 else count),s2),genv2) e2 bv
 ==>
@@ -741,8 +741,8 @@ evaluate_pat ck env s1 (App_pat (Op_pat (Op_i2 Opapp)) es) bv
 and
 
 app2 : forall ck env s1 es count s2 genv2 vs env2 e2.
-evaluate_list_pat ck env s1 es (((count,s2),genv2), Rval vs) &&
-do_opapp_pat vs = Just (env2, e2) &&
+evaluate_list_pat ck env s1 (List.reverse es) (((count,s2),genv2), Rval vs) &&
+do_opapp_pat (List.reverse vs) = Just (env2, e2) &&
 count = 0 &&
 ck
 ==>
@@ -751,16 +751,16 @@ evaluate_pat ck env s1 (App_pat (Op_pat (Op_i2 Opapp)) es) (((0,s2),genv2), Rerr
 and
 
 app3 : forall ck env s1 es s2 vs.
-evaluate_list_pat ck env s1 es (s2, Rval vs) &&
-do_opapp_pat vs = Nothing
+evaluate_list_pat ck env s1 (List.reverse es) (s2, Rval vs) &&
+do_opapp_pat (List.reverse vs) = Nothing
 ==>
 evaluate_pat ck env s1 (App_pat (Op_pat (Op_i2 Opapp)) es) (s2, Rerr Rtype_error)
 
 and
 
 app4 : forall ck env s1 op es s2 vs s3 res.
-evaluate_list_pat ck env s1 es (s2, Rval vs) &&
-do_app_pat s2 op vs = Just (s3, res) &&
+evaluate_list_pat ck env s1 (List.reverse es) (s2, Rval vs) &&
+do_app_pat s2 op (List.reverse vs) = Just (s3, res) &&
 op <> Op_pat (Op_i2 Opapp)
 ==>
 evaluate_pat ck env s1 (App_pat op es) (s3, res)
@@ -768,8 +768,8 @@ evaluate_pat ck env s1 (App_pat op es) (s3, res)
 and
 
 app5 : forall ck env s1 op es s2 vs.
-evaluate_list_pat ck env s1 es (s2, Rval vs) &&
-do_app_pat s2 op vs = Nothing &&
+evaluate_list_pat ck env s1 (List.reverse es) (s2, Rval vs) &&
+do_app_pat s2 op (List.reverse vs) = Nothing &&
 op <> Op_pat (Op_i2 Opapp)
 ==>
 evaluate_pat ck env s1 (App_pat op es) (s2, Rerr Rtype_error)
@@ -777,7 +777,7 @@ evaluate_pat ck env s1 (App_pat op es) (s2, Rerr Rtype_error)
 and
 
 app6 : forall ck env s1 op es s2 err.
-evaluate_list_pat ck env s1 es (s2, Rerr err)
+evaluate_list_pat ck env s1 (List.reverse es) (s2, Rerr err)
 ==>
 evaluate_pat ck env s1 (App_pat op es) (s2, Rerr err)
 

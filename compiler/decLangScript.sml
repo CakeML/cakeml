@@ -144,12 +144,12 @@ evaluate_i3 ck env s1 (Handle_i2 e pes) bv)
 evaluate_i3 ck env s1 (Handle_i2 e pes) (s2, Rerr err))
 
 /\ (! ck env tag es vs s s'.
-(evaluate_list_i3 ck env s es (s', Rval vs))
+(evaluate_list_i3 ck env s (REVERSE es) (s', Rval vs))
 ==>
-evaluate_i3 ck env s (Con_i2 tag es) (s', Rval (Conv_i2 tag vs)))
+evaluate_i3 ck env s (Con_i2 tag es) (s', Rval (Conv_i2 tag (REVERSE vs))))
 
 /\ (! ck env tag es err s s'.
-(evaluate_list_i3 ck env s es (s', Rerr err))
+(evaluate_list_i3 ck env s (REVERSE es) (s', Rerr err))
 ==>
 evaluate_i3 ck env s (Con_i2 tag es) (s', Rerr err))
 
@@ -170,30 +170,30 @@ T
 evaluate_i3 ck (exh,env) s (Fun_i2 n e) (s, Rval (Closure_i2 env n e)))
 
 /\ (! ck exh genv env es vs env' e bv s1 s2 count genv'.
-(evaluate_list_i3 ck (exh,env) (s1,genv) es (((count,s2),genv'), Rval vs) /\
-(do_opapp_i2 vs = SOME (env', e)) /\
+(evaluate_list_i3 ck (exh,env) (s1,genv) (REVERSE es) (((count,s2),genv'), Rval vs) /\
+(do_opapp_i2 (REVERSE vs) = SOME (env', e)) /\
 (ck ==> ~ (count =( 0))) /\
 evaluate_i3 ck (exh,env') (((if ck then count -  1 else count),s2),genv') e bv)
 ==>
 evaluate_i3 ck (exh,env) (s1,genv) (App_i2 (Op_i2 Opapp) es) bv)
 
 /\ (! ck env es vs env' e s1 s2 count genv.
-(evaluate_list_i3 ck env s1 es (((count,s2), genv), Rval vs) /\
-(do_opapp_i2 vs = SOME (env', e)) /\
+(evaluate_list_i3 ck env s1 (REVERSE es) (((count,s2), genv), Rval vs) /\
+(do_opapp_i2 (REVERSE vs) = SOME (env', e)) /\
 (count = 0) /\
 ck)
 ==>
 evaluate_i3 ck env s1 (App_i2 (Op_i2 Opapp) es) ((( 0,s2),genv), Rerr Rtimeout_error))
 
 /\ (! ck env s1 op es s2 vs s3 res.
-(evaluate_list_i3 ck env s1 es (s2, Rval vs) /\
-(do_app_i3 s2 op vs = SOME (s3, res)) /\
+(evaluate_list_i3 ck env s1 (REVERSE es) (s2, Rval vs) /\
+(do_app_i3 s2 op (REVERSE vs) = SOME (s3, res)) /\
 (op <> Op_i2 Opapp))
 ==>
 evaluate_i3 ck env s1 (App_i2 op es) (s3, res))
 
 /\ (! ck env s1 op es s2 err.
-(evaluate_list_i3 ck env s1 es (s2, Rerr err))
+(evaluate_list_i3 ck env s1 (REVERSE es) (s2, Rerr err))
 ==>
 evaluate_i3 ck env s1 (App_i2 op es) (s2, Rerr err))
 

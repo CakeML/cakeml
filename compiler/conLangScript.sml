@@ -777,12 +777,12 @@ evaluate_i2 ck env s1 (Handle_i2 e pes) bv)
 evaluate_i2 ck env s1 (Handle_i2 e pes) (s2, Rerr err))
 
 /\ (! ck env tag es vs s s'.
-(evaluate_list_i2 ck env s es (s', Rval vs))
+(evaluate_list_i2 ck env s (REVERSE es) (s', Rval vs))
 ==>
-evaluate_i2 ck env s (Con_i2 tag es) (s', Rval (Conv_i2 tag vs)))
+evaluate_i2 ck env s (Con_i2 tag es) (s', Rval (Conv_i2 tag (REVERSE vs))))
 
 /\ (! ck env tag es err s s'.
-(evaluate_list_i2 ck env s es (s', Rerr err))
+(evaluate_list_i2 ck env s (REVERSE es) (s', Rerr err))
 ==>
 evaluate_i2 ck env s (Con_i2 tag es) (s', Rerr err))
 
@@ -819,43 +819,43 @@ T
 evaluate_i2 ck env s (Fun_i2 n e) (s, Rval (Closure_i2 (all_env_i2_to_env env) n e)))
 
 /\ (! ck exh genv env es vs env' e bv s1 s2 count.
-(evaluate_list_i2 ck (exh,genv,env) s1 es ((count,s2), Rval vs) /\
-(do_opapp_i2 vs = SOME (env', e)) /\
+(evaluate_list_i2 ck (exh,genv,env) s1 (REVERSE es) ((count,s2), Rval vs) /\
+(do_opapp_i2 (REVERSE vs) = SOME (env', e)) /\
 (ck ==> ~ (count =( 0))) /\
 evaluate_i2 ck (exh,genv,env') ((if ck then count -  1 else count),s2) e bv)
 ==>
 evaluate_i2 ck (exh,genv,env) s1 (App_i2 (Op_i2 Opapp) es) bv)
 
 /\ (! ck env es vs env' e s1 s2 count.
-(evaluate_list_i2 ck env s1 es ((count,s2), Rval vs) /\
-(do_opapp_i2 vs = SOME (env', e)) /\
+(evaluate_list_i2 ck env s1 (REVERSE es) ((count,s2), Rval vs) /\
+(do_opapp_i2 (REVERSE vs) = SOME (env', e)) /\
 (count = 0) /\
 ck)
 ==>
 evaluate_i2 ck env s1 (App_i2 (Op_i2 Opapp) es) (( 0,s2), Rerr Rtimeout_error))
 
 /\ (! ck env es vs s1 s2.
-(evaluate_list_i2 ck env s1 es (s2, Rval vs) /\
-(do_opapp_i2 vs = NONE))
+(evaluate_list_i2 ck env s1 (REVERSE es) (s2, Rval vs) /\
+(do_opapp_i2 (REVERSE vs) = NONE))
 ==>
 evaluate_i2 ck env s1 (App_i2 (Op_i2 Opapp) es) (s2, Rerr Rtype_error))
 
 /\ (! ck env op es vs res s1 s2 s3 count.
-(evaluate_list_i2 ck env s1 es ((count,s2), Rval vs) /\
-(do_app_i2 s2 op vs = SOME (s3, res)) /\
+(evaluate_list_i2 ck env s1 (REVERSE es) ((count,s2), Rval vs) /\
+(do_app_i2 s2 op (REVERSE vs) = SOME (s3, res)) /\
 (op <> Op_i2 Opapp))
 ==>
 evaluate_i2 ck env s1 (App_i2 op es) ((count,s3), res))
 
 /\ (! ck env op es vs s1 s2 count.
-(evaluate_list_i2 ck env s1 es ((count,s2), Rval vs) /\
-(do_app_i2 s2 op vs = NONE) /\
+(evaluate_list_i2 ck env s1 (REVERSE es) ((count,s2), Rval vs) /\
+(do_app_i2 s2 op (REVERSE vs) = NONE) /\
 (op <> Op_i2 Opapp))
 ==>
 evaluate_i2 ck env s1 (App_i2 op es) ((count,s2), Rerr Rtype_error))
 
 /\ (! ck env op es err s1 s2.
-(evaluate_list_i2 ck env s1 es (s2, Rerr err))
+(evaluate_list_i2 ck env s1 (REVERSE es) (s2, Rerr err))
 ==>
 evaluate_i2 ck env s1 (App_i2 op es) (s2, Rerr err))
 

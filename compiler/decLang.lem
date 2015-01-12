@@ -145,14 +145,14 @@ evaluate_i3 ck env s1 (Handle_i2 e pes) (s2, Rerr err)
 and
 
 con1 : forall ck env tag es vs s s'.
-evaluate_list_i3 ck env s es (s', Rval vs)
+evaluate_list_i3 ck env s (List.reverse es) (s', Rval vs)
 ==>
-evaluate_i3 ck env s (Con_i2 tag es) (s', Rval (Conv_i2 tag vs))
+evaluate_i3 ck env s (Con_i2 tag es) (s', Rval (Conv_i2 tag (List.reverse vs)))
 
 and
 
 con3 : forall ck env tag es err s s'.
-evaluate_list_i3 ck env s es (s', Rerr err)
+evaluate_list_i3 ck env s (List.reverse es) (s', Rerr err)
 ==>
 evaluate_i3 ck env s (Con_i2 tag es) (s', Rerr err)
 
@@ -181,8 +181,8 @@ evaluate_i3 ck (exh,env) s (Fun_i2 n e) (s, Rval (Closure_i2 env n e))
 and
 
 app1 : forall ck exh genv env es vs env' e bv s1 s2 count genv'.
-evaluate_list_i3 ck (exh,env) (s1,genv) es (((count,s2),genv'), Rval vs) &&
-do_opapp_i2 vs = Just (env', e) &&
+evaluate_list_i3 ck (exh,env) (s1,genv) (List.reverse es) (((count,s2),genv'), Rval vs) &&
+do_opapp_i2 (List.reverse vs) = Just (env', e) &&
 (ck --> count <> 0) &&
 evaluate_i3 ck (exh,env') (((if ck then count-1 else count),s2),genv') e bv
 ==>
@@ -191,8 +191,8 @@ evaluate_i3 ck (exh,env) (s1,genv) (App_i2 (Op_i2 Opapp) es) bv
 and
 
 app2 : forall ck env es vs env' e s1 s2 count genv.
-evaluate_list_i3 ck env s1 es (((count,s2), genv), Rval vs) &&
-do_opapp_i2 vs = Just (env', e) &&
+evaluate_list_i3 ck env s1 (List.reverse es) (((count,s2), genv), Rval vs) &&
+do_opapp_i2 (List.reverse vs) = Just (env', e) &&
 count = 0 &&
 ck
 ==>
@@ -201,8 +201,8 @@ evaluate_i3 ck env s1 (App_i2 (Op_i2 Opapp) es) (((0,s2),genv), Rerr Rtimeout_er
 and
 
 app4 : forall ck env s1 op es s2 vs s3 res.
-evaluate_list_i3 ck env s1 es (s2, Rval vs) &&
-do_app_i3 s2 op vs = Just (s3, res) &&
+evaluate_list_i3 ck env s1 (List.reverse es) (s2, Rval vs) &&
+do_app_i3 s2 op (List.reverse vs) = Just (s3, res) &&
 op <> Op_i2 Opapp
 ==>
 evaluate_i3 ck env s1 (App_i2 op es) (s3, res)
@@ -210,7 +210,7 @@ evaluate_i3 ck env s1 (App_i2 op es) (s3, res)
 and
 
 app6 : forall ck env s1 op es s2 err.
-evaluate_list_i3 ck env s1 es (s2, Rerr err)
+evaluate_list_i3 ck env s1 (List.reverse es) (s2, Rerr err)
 ==>
 evaluate_i3 ck env s1 (App_i2 op es) (s2, Rerr err)
 

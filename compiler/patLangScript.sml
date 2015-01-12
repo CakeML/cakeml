@@ -712,12 +712,12 @@ evaluate_pat ck env s1 (Handle_pat e1 e2) bv)
 evaluate_pat ck env s1 (Handle_pat e1 e2) (s2, Rerr err))
 
 /\ (! ck env tag es vs s s'.
-(evaluate_list_pat ck env s es (s', Rval vs))
+(evaluate_list_pat ck env s (REVERSE es) (s', Rval vs))
 ==>
-evaluate_pat ck env s (Con_pat tag es) (s', Rval (Conv_pat tag vs)))
+evaluate_pat ck env s (Con_pat tag es) (s', Rval (Conv_pat tag (REVERSE vs))))
 
 /\ (! ck env tag es err s s'.
-(evaluate_list_pat ck env s es (s', Rerr err))
+(evaluate_list_pat ck env s (REVERSE es) (s', Rerr err))
 ==>
 evaluate_pat ck env s (Con_pat tag es) (s', Rerr err))
 
@@ -754,43 +754,43 @@ T
 evaluate_pat ck env s (Fun_pat e) (s, Rval (Closure_pat env e)))
 
 /\ (! ck env s1 es count s2 genv2 vs env2 e2 bv.
-(evaluate_list_pat ck env s1 es (((count,s2),genv2), Rval vs) /\
-(do_opapp_pat vs = SOME (env2, e2)) /\
+(evaluate_list_pat ck env s1 (REVERSE es) (((count,s2),genv2), Rval vs) /\
+(do_opapp_pat (REVERSE vs) = SOME (env2, e2)) /\
 (ck ==> ~ (count =( 0))) /\
 evaluate_pat ck env2 (((if ck then count -  1 else count),s2),genv2) e2 bv)
 ==>
 evaluate_pat ck env s1 (App_pat (Op_pat (Op_i2 Opapp)) es) bv)
 
 /\ (! ck env s1 es count s2 genv2 vs env2 e2.
-(evaluate_list_pat ck env s1 es (((count,s2),genv2), Rval vs) /\
-(do_opapp_pat vs = SOME (env2, e2)) /\
+(evaluate_list_pat ck env s1 (REVERSE es) (((count,s2),genv2), Rval vs) /\
+(do_opapp_pat (REVERSE vs) = SOME (env2, e2)) /\
 (count = 0) /\
 ck)
 ==>
 evaluate_pat ck env s1 (App_pat (Op_pat (Op_i2 Opapp)) es) ((( 0,s2),genv2), Rerr Rtimeout_error))
 
 /\ (! ck env s1 es s2 vs.
-(evaluate_list_pat ck env s1 es (s2, Rval vs) /\
-(do_opapp_pat vs = NONE))
+(evaluate_list_pat ck env s1 (REVERSE es) (s2, Rval vs) /\
+(do_opapp_pat (REVERSE vs) = NONE))
 ==>
 evaluate_pat ck env s1 (App_pat (Op_pat (Op_i2 Opapp)) es) (s2, Rerr Rtype_error))
 
 /\ (! ck env s1 op es s2 vs s3 res.
-(evaluate_list_pat ck env s1 es (s2, Rval vs) /\
-(do_app_pat s2 op vs = SOME (s3, res)) /\
+(evaluate_list_pat ck env s1 (REVERSE es) (s2, Rval vs) /\
+(do_app_pat s2 op (REVERSE vs) = SOME (s3, res)) /\
 (op <> Op_pat (Op_i2 Opapp)))
 ==>
 evaluate_pat ck env s1 (App_pat op es) (s3, res))
 
 /\ (! ck env s1 op es s2 vs.
-(evaluate_list_pat ck env s1 es (s2, Rval vs) /\
-(do_app_pat s2 op vs = NONE) /\
+(evaluate_list_pat ck env s1 (REVERSE es) (s2, Rval vs) /\
+(do_app_pat s2 op (REVERSE vs) = NONE) /\
 (op <> Op_pat (Op_i2 Opapp)))
 ==>
 evaluate_pat ck env s1 (App_pat op es) (s2, Rerr Rtype_error))
 
 /\ (! ck env s1 op es s2 err.
-(evaluate_list_pat ck env s1 es (s2, Rerr err))
+(evaluate_list_pat ck env s1 (REVERSE es) (s2, Rerr err))
 ==>
 evaluate_pat ck env s1 (App_pat op es) (s2, Rerr err))
 

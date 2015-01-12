@@ -601,12 +601,12 @@ evaluate_exh ck env s1 (Handle_exh e pes) bv)
 evaluate_exh ck env s1 (Handle_exh e pes) (s2, Rerr err))
 
 /\ (! ck env tag es vs s s'.
-(evaluate_list_exh ck env s es (s', Rval vs))
+(evaluate_list_exh ck env s (REVERSE es) (s', Rval vs))
 ==>
-evaluate_exh ck env s (Con_exh tag es) (s', Rval (Conv_exh tag vs)))
+evaluate_exh ck env s (Con_exh tag es) (s', Rval (Conv_exh tag (REVERSE vs))))
 
 /\ (! ck env tag es err s s'.
-(evaluate_list_exh ck env s es (s', Rerr err))
+(evaluate_list_exh ck env s (REVERSE es) (s', Rerr err))
 ==>
 evaluate_exh ck env s (Con_exh tag es) (s', Rerr err))
 
@@ -643,43 +643,43 @@ T
 evaluate_exh ck env s (Fun_exh n e) (s, Rval (Closure_exh env n e)))
 
 /\ (! ck genv env es vs env' e bv s1 s2 count genv'.
-(evaluate_list_exh ck env (s1,genv) es (((count,s2),genv'), Rval vs) /\
-(do_opapp_exh vs = SOME (env', e)) /\
+(evaluate_list_exh ck env (s1,genv) (REVERSE es) (((count,s2),genv'), Rval vs) /\
+(do_opapp_exh (REVERSE vs) = SOME (env', e)) /\
 (ck ==> ~ (count =( 0))) /\
 evaluate_exh ck env' (((if ck then count -  1 else count),s2),genv') e bv)
 ==>
 evaluate_exh ck env (s1,genv) (App_exh (Op_i2 Opapp) es) bv)
 
 /\ (! ck env es vs env' e s1 s2 count genv.
-(evaluate_list_exh ck env s1 es (((count,s2), genv), Rval vs) /\
-(do_opapp_exh vs = SOME (env', e)) /\
+(evaluate_list_exh ck env s1 (REVERSE es) (((count,s2), genv), Rval vs) /\
+(do_opapp_exh (REVERSE vs) = SOME (env', e)) /\
 (count = 0) /\
 ck)
 ==>
 evaluate_exh ck env s1 (App_exh (Op_i2 Opapp) es) ((( 0,s2),genv), Rerr Rtimeout_error))
 
 /\ (! ck env es vs s1 s2.
-(evaluate_list_exh ck env s1 es (s2, Rval vs) /\
-(do_opapp_exh vs = NONE))
+(evaluate_list_exh ck env s1 (REVERSE es) (s2, Rval vs) /\
+(do_opapp_exh (REVERSE vs) = NONE))
 ==>
 evaluate_exh ck env s1 (App_exh (Op_i2 Opapp) es) (s2, Rerr Rtype_error))
 
 /\ (! ck env s1 op es s2 vs s3 res.
-(evaluate_list_exh ck env s1 es (s2, Rval vs) /\
-(do_app_exh s2 op vs = SOME (s3, res)) /\
+(evaluate_list_exh ck env s1 (REVERSE es) (s2, Rval vs) /\
+(do_app_exh s2 op (REVERSE vs) = SOME (s3, res)) /\
 (op <> Op_i2 Opapp))
 ==>
 evaluate_exh ck env s1 (App_exh op es) (s3, res))
 
 /\ (! ck env s1 op es s2 vs.
-(evaluate_list_exh ck env s1 es (s2, Rval vs) /\
-(do_app_exh s2 op vs = NONE) /\
+(evaluate_list_exh ck env s1 (REVERSE es) (s2, Rval vs) /\
+(do_app_exh s2 op (REVERSE vs) = NONE) /\
 (op <> Op_i2 Opapp))
 ==>
 evaluate_exh ck env s1 (App_exh op es) (s2, Rerr Rtype_error))
 
 /\ (! ck env s1 op es s2 err.
-(evaluate_list_exh ck env s1 es (s2, Rerr err))
+(evaluate_list_exh ck env s1 (REVERSE es) (s2, Rerr err))
 ==>
 evaluate_exh ck env s1 (App_exh op es) (s2, Rerr err))
 
