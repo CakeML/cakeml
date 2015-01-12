@@ -738,10 +738,10 @@ val tac =
   >- metis_tac[]
   >- (
     fsrw_tac[ARITH_ss][PRE_SUB1] >>
-    qexists_tac`v-1` >>
+    qexists_tac`m-1` >>
     fsrw_tac[ARITH_ss][] >>
     disj2_tac >>
-    qexists_tac`v` >>
+    qexists_tac`m` >>
     fsrw_tac[ARITH_ss][] )
   >- (
     disj1_tac >>
@@ -751,7 +751,7 @@ val tac =
     fsrw_tac[ARITH_ss][PRE_SUB1] >>
     disj2_tac >>
     srw_tac[ARITH_ss][]
-    >- (qexists_tac`m`>>simp[] >>
+    >- (qexists_tac`m-1`>>simp[] >>
         qexists_tac`m`>>simp[]) >>
     srw_tac[ARITH_ss][PULL_EXISTS] >>
     qexists_tac`m`>>simp[])
@@ -830,7 +830,8 @@ val _ = export_rewrites["free_vars_shift"]
 val free_vars_exp_to_Cexp = store_thm("free_vars_exp_to_Cexp",
   ``(∀e. set (free_vars (exp_to_Cexp e)) = set (free_vars_pat e)) ∧
     (∀es. set (free_vars_list (exps_to_Cexps es)) = set (free_vars_list_pat es))``,
-  ho_match_mp_tac(TypeBase.induction_of``:exp_pat``) >> simp[] >>
+  ho_match_mp_tac(TypeBase.induction_of``:exp_pat``) >> simp[]);
+  (*
   strip_tac >- (
     rw[EXTENSION] >>
     rw[EQ_IMP_THM] >> rw[] >> fsrw_tac[ARITH_ss][] >>
@@ -856,7 +857,7 @@ val free_vars_exp_to_Cexp = store_thm("free_vars_exp_to_Cexp",
   simp[MAP_MAP_o,combinTheory.o_DEF] >>
   fs[MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
   rw[EQ_IMP_THM] >> rw[] >> fsrw_tac[ARITH_ss][] >>
-  metis_tac[])
+  metis_tac[])*)
 val _ = export_rewrites["free_vars_exp_to_Cexp"]
 
 val (closed_pat_rules,closed_pat_ind,closed_pat_cases) = Hol_reln`
