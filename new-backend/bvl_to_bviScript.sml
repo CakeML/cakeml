@@ -902,7 +902,7 @@ val bComp_correct = prove(
     \\ REPEAT STRIP_TAC \\ fs [GSYM PULL_FORALL]
     \\ Q.MATCH_ASSUM_RENAME_TAC
         `iEval (c2,MAP (adjust_bv b3) env,inc_clock c4 t2) =
-           (map_res (adjust_bv b3) res6,t3)` []
+           (map_res (adjust_bv b3) res6,t3)`
     \\ IMP_RES_TAC iEval_inv_clock
     \\ fs [inc_clock_ADD]
     \\ ONCE_REWRITE_TAC [iEval_CONS] \\ fs [map_res_def]
@@ -1004,7 +1004,7 @@ val bComp_correct = prove(
     \\ Q.MATCH_ASSUM_RENAME_TAC
         `iEval ([d],MAP (adjust_bv b3) a ++
                     MAP (adjust_bv b3) env,inc_clock c4 t2) =
-           (map_res (adjust_bv b3) res6,t3)` []
+           (map_res (adjust_bv b3) res6,t3)`
     \\ IMP_RES_TAC iEval_inv_clock
     \\ fs [inc_clock_ADD]
     \\ ONCE_REWRITE_TAC [iEval_def] \\ fs [map_res_def]
