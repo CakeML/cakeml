@@ -87,7 +87,7 @@ val Eval_Arrow = store_thm("Eval_Arrow",
   \\ FULL_SIMP_TAC std_ss [AppReturns_def] \\ RES_TAC
   \\ FULL_SIMP_TAC std_ss [evaluate_closure_def]
   \\ Q.EXISTS_TAC `u` \\ FULL_SIMP_TAC std_ss []
-  \\ Q.LIST_EXISTS_TAC [`[res;res']`,`env'`]
+  \\ Q.LIST_EXISTS_TAC [`[res';res]`,`env'`]
   \\ FULL_SIMP_TAC (srw_ss()) [do_opapp_def]
   \\ Cases_on `res` \\ FULL_SIMP_TAC (srw_ss()) [do_opapp_def]
   \\ ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases)))])
@@ -263,7 +263,7 @@ val Eval_Bool_Not = store_thm("Eval_Bool_Not",
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
   \\ FULL_SIMP_TAC (srw_ss()) [do_app_cases]
   \\ ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases)))])
-  \\ Q.LIST_EXISTS_TAC [`[Litv (Bool b1); Litv (Bool F)]`]
+  \\ Q.LIST_EXISTS_TAC [`[Litv (Bool F); Litv (Bool b1)]`]
   \\ rw [do_eq_def,lit_same_type_def]
   \\ Q.EXISTS_TAC `(0,empty_store)`
   \\ FULL_SIMP_TAC std_ss []
@@ -445,7 +445,7 @@ val Eval_Opn = prove(
   SIMP_TAC std_ss [Eval_def,INT_def] \\ SIMP_TAC std_ss [PRECONDITION_def]
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ Q.LIST_EXISTS_TAC [`[Litv (IntLit n1); Litv (IntLit n2)]`]
+  \\ Q.LIST_EXISTS_TAC [`[Litv (IntLit n2); Litv (IntLit n1)]`]
   \\ FULL_SIMP_TAC (srw_ss()) [do_app_def]
   \\ ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases)))])
   \\ Cases_on `f` \\ FULL_SIMP_TAC (srw_ss()) []
@@ -475,7 +475,7 @@ val Eval_Opb = prove(
   SIMP_TAC std_ss [Eval_def,INT_def,BOOL_def] \\ SIMP_TAC std_ss []
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ Q.LIST_EXISTS_TAC [`[Litv (IntLit n1);Litv (IntLit n2)]`]
+  \\ Q.LIST_EXISTS_TAC [`[Litv (IntLit n2);Litv (IntLit n1)]`]
   \\ FULL_SIMP_TAC (srw_ss()) [do_app_def]
   \\ ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases)))])
   \\ Q.LIST_EXISTS_TAC [`0,empty_store`] \\ FULL_SIMP_TAC std_ss []);
@@ -545,8 +545,9 @@ val Eval_int_negate = store_thm("Eval_int_negate",
     Eval env (App (Opn Minus) [Lit (IntLit 0); x1]) (INT (-i))``,
   rw[Eval_def] >> rw[Once evaluate_cases] >>
   rpt(CHANGED_TAC(rw[Once(CONJUNCT2 evaluate_cases)])) >>
-  rw[PULL_EXISTS] >> rw[Once evaluate_cases] >>
-  first_assum(miscLib.match_exists_tac o concl) >> rw[] >>
+  rw[PULL_EXISTS] >>
+  ONCE_REWRITE_TAC [CONJ_COMM] >>
+  rw[Once evaluate_cases] >>
   rw[do_app_cases,PULL_EXISTS,opn_lookup_def] >>
   fs[INT_def])
 
@@ -726,7 +727,7 @@ val Eval_Equality = store_thm("Eval_Equality",
   SIMP_TAC std_ss [Eval_def,BOOL_def] \\ SIMP_TAC std_ss []
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ Q.LIST_EXISTS_TAC [`[res;res']`]
+  \\ Q.LIST_EXISTS_TAC [`[res';res]`]
   \\ FULL_SIMP_TAC (srw_ss()) [do_app_cases]
   \\ ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases)))])
   \\ IMP_RES_TAC do_eq_succeeds

@@ -86,11 +86,11 @@ val BOTTOM_UP_OPT_LEMMA = prove(
    (ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,isRval_def]
     \\ REPEAT DISJ1_TAC
     \\ METIS_TAC [])
-  THEN1 
+  THEN1
    (ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,isRval_def]
     \\ DISJ2_TAC \\ DISJ1_TAC
     \\ METIS_TAC [])
-  THEN1 
+  THEN1
    (ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,isRval_def]
     \\ DISJ2_TAC \\ DISJ1_TAC
     \\ METIS_TAC [])
@@ -101,7 +101,7 @@ val BOTTOM_UP_OPT_LEMMA = prove(
    (ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,isRval_def]
     \\ REPEAT DISJ1_TAC
     \\ METIS_TAC [])
-  THEN1 
+  THEN1
    (ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,isRval_def]
     \\ DISJ2_TAC \\ DISJ1_TAC
     \\ METIS_TAC [])
