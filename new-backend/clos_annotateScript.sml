@@ -473,10 +473,18 @@ val EVERY2_GENLIST = prove(
   \\ fs [GENLIST,rich_listTheory.LIST_REL_APPEND_SING,SNOC_APPEND]
   \\ fs [DECIDE ``i < SUC n <=> i < n \/ (i = n)``] \\ METIS_TAC []);
 
+val val_rel_IMP_clos_to_chars = prove(
+  ``!xs ys aux.
+      EVERY2 val_rel xs ys ==>
+      (clos_to_chars xs aux = clos_to_chars ys aux)``,
+  Induct \\ Cases_on `ys` \\ fs []
+  \\ Cases_on `h` \\ fs [val_rel_simp,clos_to_chars_def,PULL_EXISTS]
+  \\ SRW_TAC [] [] \\ fs []);
+
 val val_rel_IMP_clos_to_string = prove(
   ``!h1 h2. val_rel h1 h2 ==> (clos_to_string h1 = clos_to_string h2)``,
   Induct \\ fs [val_rel_simp,clos_to_string_def,PULL_EXISTS]
-  \\ SRW_TAC [] [] \\ cheat);
+  \\ SRW_TAC [] [] \\ IMP_RES_TAC val_rel_IMP_clos_to_chars \\ fs []);
 
 val cEvalOp_thm = prove(
   ``state_rel s1 t1 /\ EVERY2 val_rel xs ys /\
