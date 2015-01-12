@@ -59,8 +59,8 @@ evaluate ck env s1 (Handle e pes) (s2, Rerr err))
 
 /\ (! ck env cn es vs s s' v.
 (do_con_check (all_env_to_cenv env) cn (LENGTH es) /\
-(build_conv (all_env_to_cenv env) cn vs = SOME v) /\
-evaluate_list ck env s es (s', Rval vs))
+(build_conv (all_env_to_cenv env) cn (REVERSE vs) = SOME v) /\
+evaluate_list ck env s (REVERSE es) (s', Rval vs))
 ==>
 evaluate ck env s (Con cn es) (s', Rval v))
 
@@ -71,7 +71,7 @@ evaluate ck env s (Con cn es) (s, Rerr Rtype_error))
 
 /\ (! ck env cn es err s s'.
 (do_con_check (all_env_to_cenv env) cn (LENGTH es) /\
-evaluate_list ck env s es (s', Rerr err))
+evaluate_list ck env s (REVERSE es) (s', Rerr err))
 ==>
 evaluate ck env s (Con cn es) (s', Rerr err))
 
@@ -91,43 +91,43 @@ T
 evaluate ck env s (Fun n e) (s, Rval (Closure env n e)))
 
 /\ (! ck env es vs env' e bv s1 s2 count.
-(evaluate_list ck env s1 es ((count,s2), Rval vs) /\
-(do_opapp vs = SOME (env', e)) /\
+(evaluate_list ck env s1 (REVERSE es) ((count,s2), Rval vs) /\
+(do_opapp (REVERSE vs) = SOME (env', e)) /\
 (ck ==> ~ (count =( 0))) /\
 evaluate ck env' ((if ck then count -  1 else count),s2) e bv)
 ==>
 evaluate ck env s1 (App Opapp es) bv)
 
 /\ (! ck env es vs env' e s1 s2 count.
-(evaluate_list ck env s1 es ((count,s2), Rval vs) /\
-(do_opapp vs = SOME (env', e)) /\
+(evaluate_list ck env s1 (REVERSE es) ((count,s2), Rval vs) /\
+(do_opapp (REVERSE vs) = SOME (env', e)) /\
 (count = 0) /\
 ck)
 ==>
 evaluate ck env s1 (App Opapp es) (( 0,s2), Rerr Rtimeout_error))
 
 /\ (! ck env es vs s1 s2.
-(evaluate_list ck env s1 es (s2, Rval vs) /\
-(do_opapp vs = NONE))
+(evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) /\
+(do_opapp (REVERSE vs) = NONE))
 ==>
 evaluate ck env s1 (App Opapp es) (s2, Rerr Rtype_error))
 
 /\ (! ck env op es vs res s1 s2 s3 count.
-(evaluate_list ck env s1 es ((count,s2), Rval vs) /\
-(do_app s2 op vs = SOME (s3, res)) /\
+(evaluate_list ck env s1 (REVERSE es) ((count,s2), Rval vs) /\
+(do_app s2 op (REVERSE vs) = SOME (s3, res)) /\
 (op <> Opapp))
 ==>
 evaluate ck env s1 (App op es) ((count,s3), res))
 
 /\ (! ck env op es vs s1 s2 count.
-(evaluate_list ck env s1 es ((count,s2), Rval vs) /\
-(do_app s2 op vs = NONE) /\
+(evaluate_list ck env s1 (REVERSE es) ((count,s2), Rval vs) /\
+(do_app s2 op (REVERSE vs) = NONE) /\
 (op <> Opapp))
 ==>
 evaluate ck env s1 (App op es) ((count,s2), Rerr Rtype_error))
 
 /\ (! ck env op es err s1 s2.
-(evaluate_list ck env s1 es (s2, Rerr err))
+(evaluate_list ck env s1 (REVERSE es) (s2, Rerr err))
 ==>
 evaluate ck env s1 (App op es) (s2, Rerr err))
 

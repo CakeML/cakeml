@@ -65,8 +65,8 @@ and
 
 con1 : forall ck env cn es vs s s' v.
 do_con_check (all_env_to_cenv env) cn (List.length es) &&
-build_conv (all_env_to_cenv env) cn vs = Just v &&
-evaluate_list ck env s es (s', Rval vs)
+build_conv (all_env_to_cenv env) cn (List.reverse vs) = Just v &&
+evaluate_list ck env s (List.reverse es) (s', Rval vs)
 ==>
 evaluate ck env s (Con cn es) (s', Rval v)
 
@@ -81,7 +81,7 @@ and
 
 con3 : forall ck env cn es err s s'.
 do_con_check (all_env_to_cenv env) cn (List.length es) &&
-evaluate_list ck env s es (s', Rerr err)
+evaluate_list ck env s (List.reverse es) (s', Rerr err)
 ==>
 evaluate ck env s (Con cn es) (s', Rerr err)
 
@@ -109,8 +109,8 @@ evaluate ck env s (Fun n e) (s, Rval (Closure env n e))
 and
 
 app1 : forall ck env es vs env' e bv s1 s2 count.
-evaluate_list ck env s1 es ((count,s2), Rval vs) &&
-do_opapp vs = Just (env', e) &&
+evaluate_list ck env s1 (List.reverse es) ((count,s2), Rval vs) &&
+do_opapp (List.reverse vs) = Just (env', e) &&
 (ck --> count <> 0) &&
 evaluate ck env' ((if ck then count-1 else count),s2) e bv
 ==>
@@ -119,8 +119,8 @@ evaluate ck env s1 (App Opapp es) bv
 and
 
 app2 : forall ck env es vs env' e s1 s2 count.
-evaluate_list ck env s1 es ((count,s2), Rval vs) &&
-do_opapp vs = Just (env', e) &&
+evaluate_list ck env s1 (List.reverse es) ((count,s2), Rval vs) &&
+do_opapp (List.reverse vs) = Just (env', e) &&
 count = 0 &&
 ck
 ==>
@@ -129,16 +129,16 @@ evaluate ck env s1 (App Opapp es) ((0,s2), Rerr Rtimeout_error)
 and
 
 app3 : forall ck env es vs s1 s2.
-evaluate_list ck env s1 es (s2, Rval vs) &&
-do_opapp vs = Nothing
+evaluate_list ck env s1 (List.reverse es) (s2, Rval vs) &&
+do_opapp (List.reverse vs) = Nothing
 ==>
 evaluate ck env s1 (App Opapp es) (s2, Rerr Rtype_error)
 
 and
 
 app4 : forall ck env op es vs res s1 s2 s3 count.
-evaluate_list ck env s1 es ((count,s2), Rval vs) &&
-do_app s2 op vs = Just (s3, res) &&
+evaluate_list ck env s1 (List.reverse es) ((count,s2), Rval vs) &&
+do_app s2 op (List.reverse vs) = Just (s3, res) &&
 op <> Opapp
 ==>
 evaluate ck env s1 (App op es) ((count,s3), res)
@@ -146,8 +146,8 @@ evaluate ck env s1 (App op es) ((count,s3), res)
 and
 
 app5 : forall ck env op es vs s1 s2 count.
-evaluate_list ck env s1 es ((count,s2), Rval vs) &&
-do_app s2 op vs = Nothing &&
+evaluate_list ck env s1 (List.reverse es) ((count,s2), Rval vs) &&
+do_app s2 op (List.reverse vs) = Nothing &&
 op <> Opapp
 ==>
 evaluate ck env s1 (App op es) ((count,s2), Rerr Rtype_error)
@@ -155,7 +155,7 @@ evaluate ck env s1 (App op es) ((count,s2), Rerr Rtype_error)
 and
 
 app6 : forall ck env op es err s1 s2.
-evaluate_list ck env s1 es (s2, Rerr err)
+evaluate_list ck env s1 (List.reverse es) (s2, Rerr err)
 ==>
 evaluate ck env s1 (App op es) (s2, Rerr err)
 

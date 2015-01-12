@@ -155,6 +155,13 @@ val add_clock = Q.prove (
              metis_tac [result_distinct, add_to_counter] >>
      `0+count1'+1 ≠ 0 ∧ 0+count1'+1-1 = count1'` by DECIDE_TAC >>
      metis_tac[arithmeticTheory.ADD_ASSOC] ) >>
+ TRY (
+     srw_tac[DNF_ss][] >> disj1_tac >>
+     fs [] >>
+     `evaluate_list T env (count1+(count1'+1),s0) (REVERSE es) ((0+(count1'+1),s2),Rval vs)` by
+             metis_tac [result_distinct, add_to_counter] >>
+     `0+count1'+1 ≠ 0 ∧ 0+count1'+1-1 = count1'` by DECIDE_TAC >>
+     metis_tac[arithmeticTheory.ADD_ASSOC] ) >>
  tac);
 
 val clock_monotone = Q.prove (
@@ -308,6 +315,11 @@ val evaluate_raise_empty_ctor = Q.prove (
  rw [] >>
  metis_tac [do_con_check_build_conv]);
 
+val exp6_size_rev = Q.prove (
+`!es. exp6_size (REVERSE es) = exp6_size es`,
+ RW_TAC std_ss [GSYM exps_size_def, exps_size_thm] >>
+ rw [rich_listTheory.MAP_REVERSE, rich_listTheory.SUM_REVERSE]);
+
 val big_clocked_total_lem = Q.prove (
 `!count_e env s.
   ∃count' s' r. evaluate T env (FST count_e,s) (SND count_e) ((count',s'), r)`,
@@ -338,27 +350,33 @@ val big_clocked_total_lem = Q.prove (
          metis_tac [])
      >- metis_tac []) 
  >- ((* Con *)
-     `?count2 s2 r2. evaluate_list T env (count',s) l ((count2,s2),r2)`
+     `!i l. exp_size (Con i (REVERSE l)) = exp_size (Con i l)` 
+            by (rw [exp_size_def] >> 
+                metis_tac [exp6_size_rev]) >>
+     `?count2 s2 r2. evaluate_list T env (count',s) (REVERSE l) ((count2,s2),r2)`
                by metis_tac [pair_CASES, eval_list_total] >>
      metis_tac [do_con_check_build_conv, result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, pair_CASES])
  >- ((* Var *)
      cases_on `lookup_var_id i env` >>
          rw []) 
  >- ((* App *)
-     `?count2 s2 r2. evaluate_list T env (count',s) l ((count2,s2),r2)`
+     `!op es. exp_size (App op (REVERSE es)) = exp_size (App op es)` 
+            by (rw [exp_size_def] >> 
+                metis_tac [exp6_size_rev]) >>
+     `?count2 s2 r2. evaluate_list T env (count',s) (REVERSE l) ((count2,s2),r2)`
                by metis_tac [pair_CASES, eval_list_total_app] >>
      `(?err. r2 = Rerr err) ∨ (?v. r2 = Rval v)` by (cases_on `r2` >> metis_tac []) >>
      rw [] >-
      metis_tac [clock_monotone, arithmeticTheory.LESS_OR_EQ] >>
      cases_on `o' = Opapp` >> rw[] >- (
-       `(do_opapp v = NONE) ∨ (?env' e2. do_opapp v = SOME (env',e2))`
+       `(do_opapp (REVERSE v) = NONE) ∨ (?env' e2. do_opapp (REVERSE v) = SOME (env',e2))`
                   by metis_tac [optionTheory.option_nchotomy, pair_CASES] >-
        metis_tac[] >>
        cases_on `count2 = 0` >>
        rw [] >- metis_tac [] >>
        `count2-1 < count2` by srw_tac [ARITH_ss] [] >>
        metis_tac [pair_CASES, clock_monotone, arithmeticTheory.LESS_OR_EQ, arithmeticTheory.LESS_TRANS]) >>
-     `(do_app s2 o' v = NONE) ∨ (?s3 e2. do_app s2 o' v = SOME (s3,e2))`
+     `(do_app s2 o' (REVERSE v) = NONE) ∨ (?s3 e2. do_app s2 o' (REVERSE v) = SOME (s3,e2))`
                 by metis_tac [optionTheory.option_nchotomy, pair_CASES] >-
      metis_tac [] >>
      fs[do_app_cases] >> rw[] >>

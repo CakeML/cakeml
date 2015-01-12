@@ -127,16 +127,16 @@ val run_eval_def = Q.store_thm ("run_eval_def",
   =
   case cn of
       NONE =>
-        do vs <- run_eval_list env es;
-           return (Conv NONE vs)
+        do vs <- run_eval_list env (REVERSE es);
+           return (Conv NONE (REVERSE vs))
         od
     | SOME n =>
        (case lookup_alist_mod_env n (all_env_to_cenv env) of
           | NONE => raise Rtype_error
           | SOME (l,t) =>
               if l = LENGTH es then
-                do vs <- run_eval_list env es;
-                   return (Conv (SOME (id_to_n n,t)) vs)
+                do vs <- run_eval_list env (REVERSE es);
+                   return (Conv (SOME (id_to_n n,t)) (REVERSE vs))
                 od
               else
                 raise Rtype_error)) ∧
@@ -153,17 +153,17 @@ val run_eval_def = Q.store_thm ("run_eval_def",
  (!env op e1 e2.
    run_eval env (App op es)
    =
-   do vs <- run_eval_list env es;
+   do vs <- run_eval_list env (REVERSE es);
       st <- get_store;
       if op = Opapp then
-        case do_opapp vs of
+        case do_opapp (REVERSE vs) of
         | NONE => raise Rtype_error
         | SOME (env', e3) =>
             do () <- dec_clock;
                run_eval env' e3
             od
       else
-        case do_app st op vs of
+        case do_app st op (REVERSE vs) of
         | NONE => raise Rtype_error
         | SOME (st',res) =>
           do () <- set_store st';

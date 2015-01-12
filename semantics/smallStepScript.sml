@@ -73,7 +73,7 @@ val _ = Define `
  (return env s v c = (Estep (env, s, Val v, c)))`;
 
 
-(*val applicaiton : op -> all_env -> store v -> list v -> list ctxt -> e_step_result*)
+(*val application : op -> all_env -> store v -> list v -> list ctxt -> e_step_result*)
 val _ = Define `
  (application op env s vs c =  
  ((case op of
@@ -111,7 +111,7 @@ val _ = Define `
     | (Chandle ()  pes, env) :: c =>
         return env s v c
     | (Capp op vs ()  [], env) :: c =>
-        application op env s (REVERSE (v::vs)) c
+        application op env s (v::vs) c
     | (Capp op vs ()  (e::es), env) :: c =>
         push env s e (Capp op (v::vs) ()  es) c
     | (Clog l ()  e, env) :: c =>
@@ -139,7 +139,7 @@ val _ = Define `
         Estep ((menv, cenv, opt_bind n v env), s, Exp e, c)
     | (Ccon n vs ()  [], env) :: c =>
         if do_con_check (all_env_to_cenv env) n (LENGTH vs + 1) then
-           (case build_conv (all_env_to_cenv env) n (REVERSE (v::vs)) of
+           (case build_conv (all_env_to_cenv env) n (v::vs) of
                NONE => Etype_error
              | SOME v => return env s v c
            )
@@ -174,7 +174,7 @@ val _ = Define `
               push env s e (Chandle ()  pes) c
           | Con n es =>
               if do_con_check (all_env_to_cenv env) n (LENGTH es) then
-                (case es of
+                (case REVERSE es of
                     [] => 
                       (case build_conv (all_env_to_cenv env) n [] of
                           NONE => Etype_error
@@ -193,7 +193,7 @@ val _ = Define `
               )
           | Fun n e => return env s (Closure env n e) c
           | App op es => 
-              (case es of
+              (case REVERSE es of
                   [] => application op env s [] c
                 | (e::es) => push env s e (Capp op [] ()  es) c
               )
