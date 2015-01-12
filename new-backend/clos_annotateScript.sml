@@ -25,7 +25,7 @@ val clos_free_def = tDefine "clos_free" `
   (clos_free n [Letrec loc vs fns x1] <=>
      clos_free (n + 1) fns \/ clos_free (n + LENGTH fns) [x1]) /\
   (clos_free n [Handle x1 x2] <=>
-     clos_free n [x1] \/ clos_free n [x2]) /\
+     clos_free n [x1] \/ clos_free (n+1) [x2]) /\
   (clos_free n [Call dest xs] <=> clos_free n xs)`
  (WF_REL_TAC `measure (clos_exp1_size o SND)`
   \\ REPEAT STRIP_TAC \\ DECIDE_TAC);
@@ -77,7 +77,7 @@ val cFree_def = tDefine "cFree" `
   (cFree [Handle x1 x2] =
      let (c1,l1) = cFree [x1] in
      let (c2,l2) = cFree [x2] in
-       ([Handle (HD c1) (HD c2)],mk_Union l1 l2)) /\
+       ([Handle (HD c1) (HD c2)],mk_Union l1 (Shift 1 l2))) /\
   (cFree [Call dest xs] =
      let (c1,l1) = cFree xs in
        ([Call dest c1],l1))`
@@ -195,7 +195,7 @@ val cShift_def = tDefine "cShift" `
        ([Letrec loc vars cs (HD c1)])) /\
   (cShift [Handle x1 x2] m l i =
      let c1 = cShift [x1] m l i in
-     let c2 = cShift [x2] m l i in
+     let c2 = cShift [x2] m (l+1) i in
        ([Handle (HD c1) (HD c2)])) /\
   (cShift [Call dest xs] m l i =
      let c1 = cShift xs m l i in
@@ -340,6 +340,10 @@ val env_ok_EXTEND = prove(
   \\ fs [rich_listTheory.EL_APPEND2]
   \\ `l + LENGTH env2 + v - LENGTH env2 = l + v` by DECIDE_TAC \\ fs []
   \\ DECIDE_TAC);
+
+val env_ok_cons = env_ok_EXTEND
+  |> Q.INST [`env1`|->`[v1]`,`env2`|->`[v2]`] |> Q.GEN `l1`
+  |> SIMP_RULE (srw_ss()) []
 
 val env_ok_1 = env_ok_EXTEND
   |> Q.INST [`env1`|->`[v1]`,`env2`|->`[v2]`,`l`|->`0`] |> Q.GEN `l1`
@@ -523,7 +527,30 @@ val cShift_correct = prove(
     \\ Cases_on `r1` \\ fs [] \\ SRW_TAC [] []
     \\ fs [res_rel_simp] \\ SRW_TAC [] []
     \\ IMP_RES_TAC cEval_SING \\ fs [])
-  THEN1 (* Handle *) cheat
+  THEN1 (* Handle *)
+   (fs [cFree_def]
+    \\ `?y1 l1. cFree [x1] = ([y1],l1)` by METIS_TAC [PAIR,cFree_SING]
+    \\ `?y2 l2. cFree [x2] = ([y2],l2)` by METIS_TAC [PAIR,cFree_SING]
+    \\ fs [LET_DEF,cShift_def,cEval_def]
+    \\ `?r1 s2. cEval ([x1],env,s1) = (r1,s2)` by METIS_TAC [PAIR] \\ fs []
+    \\ `clos_free_set [x1] SUBSET env_ok m l i env env'` by
+      (fs [SUBSET_DEF,IN_DEF,clos_free_set_def,clos_free_def])
+    \\ `r1 <> Error` by (REPEAT STRIP_TAC \\ fs [])
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t1`,`m`,`l`,`i`]) \\ fs []
+    \\ REPEAT STRIP_TAC \\ fs []
+    \\ Cases_on `r1` \\ fs [] \\ SRW_TAC [] []
+    \\ fs [res_rel_simp] \\ SRW_TAC [] []
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`y'::env'`,`t2`,`m`,`l+1`,`i`]) \\ fs []
+    \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC \\ fs []
+    \\ fs [AC ADD_ASSOC ADD_COMM,ADD1]
+    \\ fs [SUBSET_DEF,IN_DEF] \\ REPEAT STRIP_TAC
+    \\ MATCH_MP_TAC env_ok_cons \\ fs []
+    \\ RES_TAC \\ REPEAT STRIP_TAC
+    \\ fs [clos_free_set_def,clos_free_def]
+    \\ Cases_on `x` \\ fs []
+    \\ Q.PAT_ASSUM `!x.bbb` (K ALL_TAC)
+    \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs [ADD1])
+
   THEN1 (* Op *) cheat
 
   THEN1 (* Fn *)
