@@ -610,7 +610,40 @@ val cShift_correct = prove(
     \\ `state_rel (dec_clock s) (dec_clock t1)` by
           fs [state_rel_def,closLangTheory.dec_clock_def] \\ RES_TAC
     \\ STRIP_ASSUME_TAC (cShift_SING |> Q.INST [`x`|->`y1`]) \\ fs [])
-  THEN1 (* Call *) cheat);
+  THEN1 (* Call *)
+   (fs [cFree_def]
+    \\ `?y1 l1. cFree xs = (y1,l1)` by METIS_TAC [PAIR,cFree_SING]
+    \\ fs [LET_DEF,cShift_def,cEval_def]
+    \\ `?r1 s2. cEval (xs,env,s1) = (r1,s2)` by METIS_TAC [PAIR] \\ fs []
+    \\ `clos_free_set xs SUBSET env_ok m l i env env'` by
+      (fs [SUBSET_DEF,IN_DEF,clos_free_set_def,clos_free_def])
+    \\ `r1 <> Error` by (REPEAT STRIP_TAC \\ fs [])
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t1`,`m`,`l`,`i`]) \\ fs []
+    \\ REPEAT STRIP_TAC \\ fs []
+    \\ Cases_on `r1` \\ fs [] \\ SRW_TAC [] []
+    \\ fs [res_rel_simp] \\ SRW_TAC [] []
+    \\ Cases_on `find_code dest a s2'.code` \\ fs []
+    \\ Cases_on `x` \\ fs []
+    \\ fs [find_code_def]
+    \\ Cases_on `FLOOKUP s2'.code dest` \\ fs []
+    \\ Cases_on `x` \\ fs [] \\ SRW_TAC [] []
+    \\ `?c2. cShift (FST (cFree [r])) 0 (LENGTH a) LN = [c2] /\
+             FLOOKUP t2.code dest = SOME (LENGTH a,c2)` by
+         (fs [state_rel_def] \\ RES_TAC \\ NO_TAC)
+    \\ fs [] \\ IMP_RES_TAC EVERY2_LENGTH \\ fs []
+    \\ `s2'.clock = t2.clock` by fs [state_rel_def] \\ fs []
+    \\ Cases_on `t2.clock = 0` \\ fs []
+    THEN1 (SRW_TAC [] [res_rel_simp])
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`ys`,`dec_clock t2`,`0`,
+         `LENGTH (ys:clos_val list)`,`LN`])
+    \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
+     (fs [] \\ REVERSE (REPEAT STRIP_TAC)
+      THEN1 (fs [state_rel_def,closLangTheory.dec_clock_def])
+      \\ fs [SUBSET_DEF,IN_DEF] \\ REPEAT STRIP_TAC
+      \\ SIMP_TAC std_ss [env_ok_def]
+      \\ REVERSE (Cases_on `x < LENGTH ys`) \\ fs [] THEN1 DECIDE_TAC
+      \\ IMP_RES_TAC EVERY2_EL \\ METIS_TAC [])
+    \\ REPEAT STRIP_TAC \\ fs [] \\ rfs []));
 
 val env_set_default = prove(
   ``x SUBSET env_ok 0 0 LN [] env'``,
