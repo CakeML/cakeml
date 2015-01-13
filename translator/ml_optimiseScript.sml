@@ -68,7 +68,7 @@ val BOTTOM_UP_OPT_LEMMA = prove(
     (!ck x1 s x2 x3 x4 x5. evaluate_match ck x1 s x2 x3 x4 x5 ==> isRval (SND x5) ∧ (ck = F) ==> evaluate_match ck x1 s x2 (MAP (\(p,x). (p,BOTTOM_UP_OPT f x)) x3) x4 x5)``,
   STRIP_TAC \\ ONCE_REWRITE_TAC [two_assums]
   \\ HO_MATCH_MP_TAC evaluate_ind \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [BOTTOM_UP_OPT_def,isRval_def,AND_IMP_INTRO]
+  \\ FULL_SIMP_TAC std_ss [BOTTOM_UP_OPT_def,isRval_def,AND_IMP_INTRO, rich_listTheory.MAP_REVERSE]
   \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ ASM_SIMP_TAC std_ss []
   \\ TRY (ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases] THEN NO_TAC)
   \\ TRY (Q.PAT_ASSUM `!x.bbb` (fn th => MATCH_MP_TAC th THEN ASSUME_TAC th)
@@ -171,8 +171,9 @@ val abs2let_thm = prove(
   \\ Q.LIST_EXISTS_TAC [`h`,(`count',s2`)] \\ FULL_SIMP_TAC std_ss []
   \\ Q.PAT_ASSUM `evaluate F env s (Fun s' e) ((s2',Rval v1))` MP_TAC
   \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
-  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) [opt_bind_def]);
-
+  \\ REPEAT STRIP_TAC 
+  \\ FULL_SIMP_TAC (srw_ss()) [opt_bind_def, SWAP_REVERSE_SYM]
+  \\ METIS_TAC []);
 
 (* rewrite optimisation: let x = y in x --> y *)
 
