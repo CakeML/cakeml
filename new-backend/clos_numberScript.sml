@@ -595,4 +595,18 @@ val renumber_code_locs_correct = store_thm("renumber_code_locs_correct",
       fs[state_rel_def,dec_clock_def] ) >>
     rw[res_rel_simp]))
 
+open pat_to_closTheory boolSimps
+
+val pComp_contains_App_SOME = store_thm("pComp_contains_App_SOME",
+  ``∀e. ¬contains_App_SOME[pComp e]``,
+  ho_match_mp_tac pComp_ind >>
+  simp[pComp_def,contains_App_SOME_def] >>
+  rw[] >> srw_tac[ETA_ss][] >>
+  rw[Once contains_App_SOME_EXISTS,EVERY_MAP] >>
+  rw[contains_App_SOME_def] >> rw[EVERY_MEM] >>
+  rw[Once contains_App_SOME_EXISTS,EVERY_MAP] >>
+  rw[contains_App_SOME_def] >> rw[EVERY_MEM] >>
+  fs[REPLICATE_GENLIST,MEM_GENLIST] >>
+  rw[contains_App_SOME_def])
+
 val _ = export_theory()
