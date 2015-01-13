@@ -13010,7 +13010,7 @@ val append_imm_code = prove(
 
 fun gen_code_for ins = let
   val name = (concat o map (fst o dest_const) o list_dest dest_comb) ins
-  val ty = ``:zheap_state # zheap_consts -> zheap_state # zheap_consts``
+  val ty = ``:zheap_state -> zheap_state``
   val v = mk_var("ic_" ^ name,ty)
   val x = ``x64 0 ^ins``
   val ev = EVAL x
@@ -13021,9 +13021,9 @@ fun gen_code_for ins = let
       |> SIMP_RULE std_ss [] |> CONV_RULE (RAND_CONV (REWRITE_CONV [GSYM ev]))
   val _ = add_compiled [th]
   val (res,def,pre_def) = x64_compile `
-    ^v (s:zheap_state,cs:zheap_consts) =
+    ^v (s:zheap_state) =
       let s = s with code := s.code ++ ^x in
-        (s,cs)`
+        (s)`
   in (ins, CONJ def pre_def |> SIMP_RULE std_ss [LET_DEF]) end
 
 fun closed tm = (length (free_vars tm) = 0)
@@ -13043,11 +13043,11 @@ fun index tm = ``FST (bc_num ^tm)`` |> EVAL |> concl |> rand
 
 val ic_no_args_def = let
   val is_no_args = map gen_code_for no_arg_codes
-  val rest = ``(x1:bc_value,s:zheap_state,cs:zheap_consts)``
+  val rest = ``(x1:bc_value,s:zheap_state)``
   fun mk_ic_case ((ins,defs),rest) = let
     val lhs = defs |> CONJUNCT1 |> concl |> dest_eq |> fst
     in ``if getNumber x1 = & (^(index ins)) then
-           let (s,cs) = ^lhs in (x1,s,cs)
+           let (s) = ^lhs in (x1,s)
          else ^rest`` end
   val tm = foldr mk_ic_case rest is_no_args
   val (res,def,pre_def) = x64_compile `ic_no_args ^rest = ^tm`
@@ -13075,15 +13075,15 @@ val pops = ``[0x4Dw; 0x31w; 0xFFw; 0x48w; 0x81w; 0xC4w]:word8 list`` |> gen
 val err = ``[0x49w; 0xFFw; 0x61w; 0x28w]:word8 list`` |> gen
 
 val (res,ic_Pops_def,ic_Pops_pre_def) = x64_compile `
-  ic_Pops (x2,s,cs:zheap_consts) =
+  ic_Pops (x2,s) =
     if isSmall x2 then
     if getNumber x2 < 268435456 then
       let x2 = Number (getNumber x2 * 8) in
       let s = s with code := s.code ++ ^pops in
       let s = s with code := s.code ++ IMM32 (n2w (Num (getNumber x2))) in
-        (x2,s,cs)
-    else let s = s with code := s.code ++ ^err in (x2,s,cs)
-    else let s = s with code := s.code ++ ^err in (x2,s,cs)`
+        (x2,s)
+    else let s = s with code := s.code ++ ^err in (x2,s)
+    else let s = s with code := s.code ++ ^err in (x2,s)`
 
 (*
   EVAL ``x64 i (Stack (TagEq k))``
@@ -13098,16 +13098,16 @@ val tageq2 = ``[0x48w; 0xA9w; 0x1w; 0x0w; 0x0w;
       0xB8w; 0x2w; 0x0w; 0x0w; 0x0w]:word8 list`` |> gen
 
 val (res,ic_TagEq_def,ic_TagEq_pre_def) = x64_compile `
-  ic_TagEq (x2,s,cs:zheap_consts) =
+  ic_TagEq (x2,s) =
     if isSmall x2 then
     if getNumber x2 < 268435456 then
       let x2 = Number (getNumber x2 * 4) in
       let s = s with code := s.code ++ ^tageq1 in
       let s = s with code := s.code ++ IMM32 (n2w (Num (getNumber x2))) in
       let s = s with code := s.code ++ ^tageq2 in
-        (x2,s,cs)
-    else let s = s with code := s.code ++ ^err in (x2,s,cs)
-    else let s = s with code := s.code ++ ^err in (x2,s,cs)`
+        (x2,s)
+    else let s = s with code := s.code ++ ^err in (x2,s)
+    else let s = s with code := s.code ++ ^err in (x2,s)`
 
 (*
   EVAL ``x64 i (Stack (PushInt k))``
@@ -13116,23 +13116,23 @@ val (res,ic_TagEq_def,ic_TagEq_pre_def) = x64_compile `
 val pushint = ``[0x48w; 0x50w; 0x48w; 0x31w; 0xC0w; 0x5w]:word8 list`` |> gen
 
 val (res,ic_PushInt_def,ic_PushInt_pre_def) = x64_compile `
-  ic_PushInt (x2,x3,s,cs:zheap_consts) =
+  ic_PushInt (x2,x3,s) =
     if isSmall x2 then
     if getNumber x2 < 268435456 then
     if getNumber x3 = 0 then
       let x2 = Number (getNumber x2 * 4) in
       let s = s with code := s.code ++ ^pushint in
       let s = s with code := s.code ++ IMM32 (n2w (Num (getNumber x2))) in
-        (x2,x3,s,cs)
+        (x2,x3,s)
     else if getNumber x2 = 0 then
       let x2 = Number (getNumber x2 * 4) in
       let s = s with code := s.code ++ ^pushint in
       let s = s with code := s.code ++ IMM32 (n2w (Num (getNumber x2))) in
-        (x2,x3,s,cs)
+        (x2,x3,s)
     else
-      let s = s with code := s.code ++ ^err in (x2,x3,s,cs)
-    else let s = s with code := s.code ++ ^err in (x2,x3,s,cs)
-    else let s = s with code := s.code ++ ^err in (x2,x3,s,cs)`
+      let s = s with code := s.code ++ ^err in (x2,x3,s)
+    else let s = s with code := s.code ++ ^err in (x2,x3,s)
+    else let s = s with code := s.code ++ ^err in (x2,x3,s)`
 
 (*
   EVAL ``x64 i (PrintC c)``
@@ -13155,12 +13155,12 @@ val (res,ic_PrintC_test_def,ic_PrintC_test_pre_def) = x64_compile `
     else let x2 = Number 0 in x2`;
 
 val (res,ic_PrintC_def,ic_PrintC_pre_def) = x64_compile `
-  ic_PrintC (x2,s,cs:zheap_consts) =
+  ic_PrintC (x2,s) =
     let s = s with code := s.code ++ ^printc1 in
     let x2 = ic_PrintC_test x2 in
     let s = s with code := SNOC (n2w (Num (getNumber x2))) s.code in
     let s = s with code := s.code ++ ^printc2 in
-      (x2,s,cs)`
+      (x2,s)`
 
 (*
   EVAL ``x64 i (Gread k)``
@@ -13172,16 +13172,16 @@ val gread1 = ``[0x48w; 0x50w; 0x48w; 0x8Bw; 0xCBw; 0x48w; 0x31w; 0xC0w; 0x5w;
 val gread2 = ``[0x48w; 0x8Bw; 0x44w; 0x41w; 0x9w]:word8 list`` |> gen
 
 val (res,ic_Gread_def,ic_Gread_pre_def) = x64_compile `
-  ic_Gread (x2,s,cs:zheap_consts) =
+  ic_Gread (x2,s) =
     if isSmall x2 then
     if getNumber x2 < &^(globals_count_def |> concl |> rand) then
       let x2 = Number (getNumber x2 * 4) in
       let s = s with code := s.code ++ ^gread1 in
       let s = s with code := s.code ++ IMM32 (n2w (Num (getNumber x2))) in
       let s = s with code := s.code ++ ^gread2 in
-        (x2,s,cs)
-    else let s = s with code := s.code ++ ^err in (x2,s,cs)
-    else let s = s with code := s.code ++ ^err in (x2,s,cs)`
+        (x2,s)
+    else let s = s with code := s.code ++ ^err in (x2,s)
+    else let s = s with code := s.code ++ ^err in (x2,s)`
 
 (*
   EVAL ``x64 i (Gupdate k)``
@@ -13194,16 +13194,16 @@ val gupdate2 = ``[0x48w; 0x58w; 0x48w; 0x89w;
       0x44w; 0x4Aw; 0x9w; 0x48w; 0x58w]:word8 list`` |> gen
 
 val (res,ic_Gupdate_def,ic_Gupdate_pre_def) = x64_compile `
-  ic_Gupdate (x2,s,cs:zheap_consts) =
+  ic_Gupdate (x2,s) =
     if isSmall x2 then
     if getNumber x2 < &^(globals_count_def |> concl |> rand) then
       let x2 = Number (getNumber x2 * 4) in
       let s = s with code := s.code ++ ^gupdate1 in
       let s = s with code := s.code ++ IMM32 (n2w (Num (getNumber x2))) in
       let s = s with code := s.code ++ ^gupdate2 in
-        (x2,s,cs)
-    else let s = s with code := s.code ++ ^err in (x2,s,cs)
-    else let s = s with code := s.code ++ ^err in (x2,s,cs)`
+        (x2,s)
+    else let s = s with code := s.code ++ ^err in (x2,s)
+    else let s = s with code := s.code ++ ^err in (x2,s)`
 
 (*
   EVAL ``x64 i (Stack (Store x))``
@@ -13213,16 +13213,16 @@ val store1 = ``[0x48w; 0x89w; 0x84w; 0x24w]:word8 list`` |> gen
 val store2 = ``[0x48w; 0x58w]:word8 list`` |> gen
 
 val (res,ic_Store_def,ic_Store_pre_def) = x64_compile `
-  ic_Store (x2,s,cs:zheap_consts) =
+  ic_Store (x2,s) =
     if isSmall x2 then
     if getNumber x2 < 268435456 then
       let x2 = Number (getNumber x2 * 8) in
       let s = s with code := s.code ++ ^store1 in
       let s = s with code := s.code ++ IMM32 (n2w (Num (getNumber x2))) in
       let s = s with code := s.code ++ ^store2 in
-        (x2,s,cs)
-    else let s = s with code := s.code ++ ^err in (x2,s,cs)
-    else let s = s with code := s.code ++ ^err in (x2,s,cs)`
+        (x2,s)
+    else let s = s with code := s.code ++ ^err in (x2,s)
+    else let s = s with code := s.code ++ ^err in (x2,s)`
 
 (*
   EVAL ``x64 i (Stack (Load x))``
@@ -13231,15 +13231,15 @@ val (res,ic_Store_def,ic_Store_pre_def) = x64_compile `
 val load = ``[0x48w; 0x50w; 0x48w; 0x8Bw; 0x84w; 0x24w]:word8 list`` |> gen
 
 val (res,ic_Load_def,ic_Load_pre_def) = x64_compile `
-  ic_Load (x2,s,cs:zheap_consts) =
+  ic_Load (x2,s) =
     if isSmall x2 then
     if getNumber x2 < 268435456 then
       let x2 = Number (getNumber x2 * 8) in
       let s = s with code := s.code ++ ^load in
       let s = s with code := s.code ++ IMM32 (n2w (Num (getNumber x2))) in
-        (x2,s,cs)
-    else let s = s with code := s.code ++ ^err in (x2,s,cs)
-    else let s = s with code := s.code ++ ^err in (x2,s,cs)`
+        (x2,s)
+    else let s = s with code := s.code ++ ^err in (x2,s)
+    else let s = s with code := s.code ++ ^err in (x2,s)`
 
 (* complicated one args *)
 
@@ -13250,25 +13250,23 @@ val (res,ic_Load_def,ic_Load_pre_def) = x64_compile `
 val jmp = ``[0x48w;0xE9w]:word8 list`` |> gen
 val err6 = ``[0x49w; 0xFFw; 0x61w; 0x28w; 0xFFw; 0xC0w]:word8 list`` |> gen
 
-val _ = hide "ic_Jump"
-
 val (res,ic_Jump_def,ic_Jump_pre_def) = x64_compile `
-  ic_Jump (x1,x2,x3:bc_value,s,cs:zheap_consts) =
+  ic_Jump (x1,x2,x3:bc_value,s) =
     let x3 = Number (&LENGTH s.code) in
     if ~isSmall x2 then
-      let s = s with code := s.code ++ ^err6 in (x1,x2,x3,s,cs) else
+      let s = s with code := s.code ++ ^err6 in (x1,x2,x3,s) else
     if ~isSmall x3 then
-      let s = s with code := s.code ++ ^err6 in (x1,x2,x3,s,cs) else
+      let s = s with code := s.code ++ ^err6 in (x1,x2,x3,s) else
     if ~(getNumber x2 < 268435456) then
-      let s = s with code := s.code ++ ^err6 in (x1,x2,x3,s,cs) else
+      let s = s with code := s.code ++ ^err6 in (x1,x2,x3,s) else
     if ~(getNumber x3 < 268435456) then
-      let s = s with code := s.code ++ ^err6 in (x1,x2,x3,s,cs)
+      let s = s with code := s.code ++ ^err6 in (x1,x2,x3,s)
     else
       let x2 = Number (getNumber x2 * 2) in
       let x1 = Number 6 in
       let s = s with code := s.code ++ ^jmp in
       let s = s with code := s.code ++ IMM32 (addr_calc x1 x2 x3) in
-        (x1,x2,x3,s,cs)`
+        (x1,x2,x3,s)`
 
 (*
   ``x64 i (Call (Addr a))`` |> SIMP_CONV std_ss [x64_def,small_offset_def,LET_DEF]
@@ -13279,22 +13277,22 @@ val call = ``[0x48w;0xE8w]:word8 list`` |> gen
 val _ = hide "ic_Call"
 
 val (res,ic_Call_def,ic_Call_pre_def) = x64_compile `
-  ic_Call (x1,x2,x3:bc_value,s,cs:zheap_consts) =
+  ic_Call (x1,x2,x3:bc_value,s) =
     let x3 = Number (&LENGTH s.code) in
     if ~isSmall x2 then
-      let s = s with code := s.code ++ ^err6 in (x1,x2,x3,s,cs) else
+      let s = s with code := s.code ++ ^err6 in (x1,x2,x3,s) else
     if ~isSmall x3 then
-      let s = s with code := s.code ++ ^err6 in (x1,x2,x3,s,cs) else
+      let s = s with code := s.code ++ ^err6 in (x1,x2,x3,s) else
     if ~(getNumber x2 < 268435456) then
-      let s = s with code := s.code ++ ^err6 in (x1,x2,x3,s,cs) else
+      let s = s with code := s.code ++ ^err6 in (x1,x2,x3,s) else
     if ~(getNumber x3 < 268435456) then
-      let s = s with code := s.code ++ ^err6 in (x1,x2,x3,s,cs)
+      let s = s with code := s.code ++ ^err6 in (x1,x2,x3,s)
     else
       let x2 = Number (getNumber x2 * 2) in
       let x1 = Number 6 in
       let s = s with code := s.code ++ ^call in
       let s = s with code := s.code ++ IMM32 (addr_calc x1 x2 x3) in
-        (x1,x2,x3,s,cs)`
+        (x1,x2,x3,s)`
 
 (*
   ``x64 i (JumpIf (Addr a))`` |> SIMP_CONV std_ss [x64_def,small_offset_def,LET_DEF]
@@ -13308,22 +13306,22 @@ val err12 = ``[0x49w; 0xFFw; 0x61w; 0x28w; 0xFFw; 0xC0w; 0xFFw;
 val _ = hide "ic_JumpIf"
 
 val (res,ic_JumpIf_def,ic_JumpIf_pre_def) = x64_compile `
-  ic_JumpIf (x1,x2,x3:bc_value,s,cs:zheap_consts) =
+  ic_JumpIf (x1,x2,x3:bc_value,s) =
     let x3 = Number (&LENGTH s.code) in
     if ~isSmall x2 then
-      let s = s with code := s.code ++ ^err12 in (x1,x2,x3,s,cs) else
+      let s = s with code := s.code ++ ^err12 in (x1,x2,x3,s) else
     if ~isSmall x3 then
-      let s = s with code := s.code ++ ^err12 in (x1,x2,x3,s,cs) else
+      let s = s with code := s.code ++ ^err12 in (x1,x2,x3,s) else
     if ~(getNumber x2 < 268435456) then
-      let s = s with code := s.code ++ ^err12 in (x1,x2,x3,s,cs) else
+      let s = s with code := s.code ++ ^err12 in (x1,x2,x3,s) else
     if ~(getNumber x3 < 268435456) then
-      let s = s with code := s.code ++ ^err12 in (x1,x2,x3,s,cs)
+      let s = s with code := s.code ++ ^err12 in (x1,x2,x3,s)
     else
       let x2 = Number (getNumber x2 * 2) in
       let x1 = Number 12 in
       let s = s with code := s.code ++ ^jumpif in
       let s = s with code := s.code ++ IMM32 (addr_calc x1 x2 x3) in
-        (x1,x2,x3,s,cs)`
+        (x1,x2,x3,s)`
 
 (*
   ``x64 i (PushPtr (Addr a))`` |> SIMP_CONV std_ss [x64_def,small_offset_def,LET_DEF]
@@ -13338,28 +13336,25 @@ val err16 = ``[0x49w; 0xFFw; 0x61w; 0x28w; 0xFFw; 0xC0w; 0xFFw;
 val _ = hide "ic_PushPtr";
 
 val (res,ic_PushPtr_def,ic_PushPtr_pre_def) = x64_compile `
-  ic_PushPtr (x1,x2,x3:bc_value,s,cs:zheap_consts) =
+  ic_PushPtr (x1,x2,x3:bc_value,s) =
     let x3 = Number (&LENGTH s.code) in
     if ~isSmall x2 then
-      let s = s with code := s.code ++ ^err16 in (x1,x2,x3,s,cs) else
+      let s = s with code := s.code ++ ^err16 in (x1,x2,x3,s) else
     if ~isSmall x3 then
-      let s = s with code := s.code ++ ^err16 in (x1,x2,x3,s,cs) else
+      let s = s with code := s.code ++ ^err16 in (x1,x2,x3,s) else
     if ~(getNumber x2 < 268435456) then
-      let s = s with code := s.code ++ ^err16 in (x1,x2,x3,s,cs) else
+      let s = s with code := s.code ++ ^err16 in (x1,x2,x3,s) else
     if ~(getNumber x3 < 268435456) then
-      let s = s with code := s.code ++ ^err16 in (x1,x2,x3,s,cs)
+      let s = s with code := s.code ++ ^err16 in (x1,x2,x3,s)
     else
       let x2 = Number (getNumber x2 * 2) in
       let x1 = Number 8 in
       let s = s with code := s.code ++ ^pushptr in
       let s = s with code := s.code ++ IMM32 (addr_calc x1 x2 x3) in
-        (x1,x2,x3,s,cs)`
+        (x1,x2,x3,s)`
 
 (*
   ``x64 i (Stack (Cons a))`` |> SIMP_CONV std_ss [x64_def,small_offset_def,LET_DEF]
-
-  max_print_depth := 500
-
 *)
 
 val cons1 = ``[0x48w; 0x83w; 0xF8w; 0x0w; 0x48w; 0x74w; 0x6Fw; 0x48w; 0xA9w;
@@ -13379,11 +13374,11 @@ val cons2 = ``[0x49w; 0xC1w; 0xE6w; 0x4w;
 val cons3 = ``[0x4Dw; 0x31w; 0xFFw]:word8 list`` |> gen
 
 val (res,ic_Cons_def,ic_Cons_pre_def) = x64_compile `
-  ic_Cons (x1:bc_value,x2:bc_value,x3:bc_value,s,cs:zheap_consts) =
+  ic_Cons (x1:bc_value,x2:bc_value,x3:bc_value,s) =
     if ~isSmall x2 then
-      let s = s with code := s.code ++ ^err in (x1,x2,x3,s,cs)
+      let s = s with code := s.code ++ ^err in (x1,x2,x3,s)
     else if ~(getNumber x2 < 4096) then
-      let s = s with code := s.code ++ ^err in (x1,x2,x3,s,cs)
+      let s = s with code := s.code ++ ^err in (x1,x2,x3,s)
     else
       let s = s with code := s.code ++ ^cons1 in
       let s = s with code := s.code ++ IMM32 (n2w (Num (getNumber x2))) in
@@ -13393,43 +13388,43 @@ val (res,ic_Cons_def,ic_Cons_pre_def) = x64_compile `
       let x2 = Number (getNumber x2 + 1) in
       let s = s with code := s.code ++ IMM32 (n2w (Num (getNumber x2))) in
       let s = s with code := s.code ++ ^cons3 in
-        (x1:bc_value,x2,x3,s,cs)`
+        (x1:bc_value,x2,x3,s)`
 
 
 (* putting them all together *)
 
 val (ic_Any_res,ic_Any_def,ic_Any_pre_def) = x64_compile `
-  ic_Any (x1,x2,x3,s,cs:zheap_consts) =
+  ic_Any (x1,x2,x3,s) =
     if getNumber x1 = & ^(index ``Jump (Addr a)``) then
-      let (x1,x2,x3,s,cs) = ic_Jump (x1,x2,x3,s,cs) in (x1,x2,x3,s,cs)
+      let (x1,x2,x3,s) = ic_Jump (x1,x2,x3,s) in (x1,x2,x3,s)
     else if getNumber x1 = & ^(index ``JumpIf (Addr a)``) then
-      let (x1,x2,x3,s,cs) = ic_JumpIf (x1,x2,x3,s,cs) in (x1,x2,x3,s,cs)
+      let (x1,x2,x3,s) = ic_JumpIf (x1,x2,x3,s) in (x1,x2,x3,s)
     else if getNumber x1 = & ^(index ``PushPtr (Addr a)``) then
-      let (x1,x2,x3,s,cs) = ic_PushPtr (x1,x2,x3,s,cs) in (x1,x2,x3,s,cs)
+      let (x1,x2,x3,s) = ic_PushPtr (x1,x2,x3,s) in (x1,x2,x3,s)
     else if getNumber x1 = & ^(index ``Call (Addr a)``) then
-      let (x1,x2,x3,s,cs) = ic_Call (x1,x2,x3,s,cs) in (x1,x2,x3,s,cs)
+      let (x1,x2,x3,s) = ic_Call (x1,x2,x3,s) in (x1,x2,x3,s)
     else if getNumber x1 = & ^(index ``Stack (Pops a)``) then
-      let (x2,s,cs) = ic_Pops (x2,s,cs) in (x1,x2,x3,s,cs)
+      let (x2,s) = ic_Pops (x2,s) in (x1,x2,x3,s)
     else if getNumber x1 = & ^(index ``Stack (Load a)``) then
-      let (x2,s,cs) = ic_Load (x2,s,cs) in (x1,x2,x3,s,cs)
+      let (x2,s) = ic_Load (x2,s) in (x1,x2,x3,s)
     else if getNumber x1 = & ^(index ``Stack (Store a)``) then
-      let (x2,s,cs) = ic_Store (x2,s,cs) in (x1,x2,x3,s,cs)
+      let (x2,s) = ic_Store (x2,s) in (x1,x2,x3,s)
     else if getNumber x1 = & ^(index ``Gread k``) then
-      let (x2,s,cs) = ic_Gread (x2,s,cs) in (x1,x2,x3,s,cs)
+      let (x2,s) = ic_Gread (x2,s) in (x1,x2,x3,s)
     else if getNumber x1 = & ^(index ``Gupdate k``) then
-      let (x2,s,cs) = ic_Gupdate (x2,s,cs) in (x1,x2,x3,s,cs)
+      let (x2,s) = ic_Gupdate (x2,s) in (x1,x2,x3,s)
     else if getNumber x1 = & ^(index ``PrintC c``) then
-      let (x2,s,cs) = ic_PrintC (x2,s,cs) in (x1,x2,x3,s,cs)
+      let (x2,s) = ic_PrintC (x2,s) in (x1,x2,x3,s)
     else if getNumber x1 = & ^(index ``Label l``) then
-      (x1,x2,x3,s,cs)
+      (x1,x2,x3,s)
     else if getNumber x1 = & ^(index ``Stack (TagEq a)``) then
-      let (x2,s,cs) = ic_TagEq (x2,s,cs) in (x1,x2,x3,s,cs)
+      let (x2,s) = ic_TagEq (x2,s) in (x1,x2,x3,s)
     else if getNumber x1 = & ^(index ``Stack (PushInt a)``) then
-      let (x2,x3,s,cs) = ic_PushInt (x2,x3,s,cs) in (x1,x2,x3,s,cs)
+      let (x2,x3,s) = ic_PushInt (x2,x3,s) in (x1,x2,x3,s)
     else if getNumber x1 = & ^(index ``Stack (Cons a)``) then
-      let (x1,x2,x3,s,cs) = ic_Cons (x1,x2,x3,s,cs) in (x1,x2,x3,s,cs)
+      let (x1,x2,x3,s) = ic_Cons (x1,x2,x3,s) in (x1,x2,x3,s)
     else
-      let (x1,s,cs) = ic_no_args (x1,s,cs) in (x1,x2,x3,s,cs)`;
+      let (x1,s) = ic_no_args (x1,s) in (x1,x2,x3,s)`;
 
 val s_with_code = prove(
   ``!s. s = s with code := s.code``,
@@ -13473,10 +13468,10 @@ val ic_Any_thm = prove(
       ?x1 x2 x3.
         (LENGTH s.code + LENGTH (x64 (LENGTH s.code) (num_bc (n1,n2,n3))) <=
           s.code_max_length ==>
-         ic_Any_pre (Number (& n1),Number (& n2),Number (& n3),s,cs)) /\
-        (ic_Any (Number (& n1),Number (& n2),Number (& n3),s,cs) =
+         ic_Any_pre (Number (& n1),Number (& n2),Number (& n3),s)) /\
+        (ic_Any (Number (& n1),Number (& n2),Number (& n3),s) =
            (x1,x2,x3,s with code := s.code ++
-              x64 (LENGTH s.code) (num_bc (n1,n2,n3)),cs))``,
+              x64 (LENGTH s.code) (num_bc (n1,n2,n3))))``,
   REVERSE (Cases \\ NTAC 22 (TRY (Cases_on `n`) \\ TRY (Cases_on `n'`)))
   \\ FULL_SIMP_TAC (srw_ss()) [ADD1,GSYM ADD_ASSOC]
   \\ FULL_SIMP_TAC (srw_ss()) [num_bc_def,DECIDE ``k < n ==> m + n <> k:num``]
@@ -13665,20 +13660,6 @@ val zHEAP_CODE_LIMIT_TEST = let
   val th = MATCH_MP IF_COMPOSE_LEMMA (CONJ thA thB)
   in th end;
 
-val ic_Any_cs_constant = prove(
-  ``(ic_Any (x1,x2,x3,s,cs) = (q,r0,r1,r2,r3)) ==> (r3 = cs)``,
-  MATCH_MP_TAC (METIS_PROVE [] ``(~b2 ==> ~b1) ==> (b1 ==> b2)``)
-  \\ fs [ic_Any_def,ic_no_args_def,ic_Jump_def,ic_JumpIf_def,LET_DEF,
-         ic_PushPtr_def, ic_Call_def,ic_Pops_def,ic_Load_def,ic_Store_def,
-         ic_Gread_def,ic_Gupdate_def,ic_PrintC_def,ic_TagEq_def,
-         ic_PushInt_def,ic_Cons_def]
-  \\ SRW_TAC [] [] \\ REPEAT BasicProvers.FULL_CASE_TAC \\ fs []);
-
-val ic_AnyInst_def = Define `
-  ic_AnyInst (x1,x2,x3,s,cs) =
-    let (x1,x2,x3,s,cs) = ic_Any (x1,x2,x3,s,cs) in
-      (x1,x2,x3,s)`;
-
 val my_imp_def = Define `my_imp b1 b2 = (b1 ==> b2)`;
 
 val ic_Any_with_test = let
@@ -13689,7 +13670,7 @@ val ic_Any_with_test = let
             |> SIMP_RULE std_ss [] |> UNDISCH_ALL
   val th2 = SPEC_COMPOSE_RULE [th2,zHEAP_TERMINATE_WITH_ERROR]
   val th2 = DISCH ``my_imp (LENGTH s.code + 200 < s.code_max_length)
-         (ic_Any_pre (x1,x2,x3,s,cs))`` th2 |> RW [GSYM SPEC_MOVE_COND]
+         (ic_Any_pre (x1,x2,x3,s))`` th2 |> RW [GSYM SPEC_MOVE_COND]
   val (_,_,c,_) = dest_spec (concl th2)
   val th0 = MATCH_MP SPEC_SUBSET_CODE th1 |> SPEC c
             |> SIMP_RULE std_ss [INSERT_SUBSET,IN_INSERT,EMPTY_SUBSET]
@@ -13721,18 +13702,15 @@ val ic_Any_with_test = let
   val th = MP th lemma
   val pc = get_pc th
   val (th,goal) = SPEC_WEAKEN_RULE th ``
-       let (x1,x2,x3,s) = ic_AnyInst (x1,x2,x3,s,cs) in
+       let (x1,x2,x3,s) = ic_Any (x1,x2,x3,s) in
          ~zS * ^pc *
-         zHEAP (cs,x1,x2,x3,x4,refs,stack,s,NONE) (* \/ zHEAP_ERROR cs *)``
-  val lemma = prove(goal,cheat) (* decompiler needs to be made a
-                                   little bit smarter *)
-(*
+         zHEAP (cs,x1,x2,x3,x4,refs,stack,s,NONE) \/ zHEAP_ERROR cs``
+  val lemma = prove(goal,
     fs [ic_AnyInst_def]
-    \\ Cases_on `ic_Any (x1,x2,x3,s,cs)`
+    \\ Cases_on `ic_Any (x1,x2,x3,s)`
     \\ PairCases_on `r` \\ fs[LET_DEF,SEP_IMP_def,cond_STAR]
     \\ REPEAT STRIP_TAC
     \\ IMP_RES_TAC ic_Any_cs_constant \\ fs [])
-*)
   val th = MP th lemma |> SIMP_RULE (std_ss++sep_cond_ss) []
   in th end;
 
@@ -13741,8 +13719,8 @@ val _ = add_compiled [ic_Any_with_test];
 (* code install that walks down a list *)
 
 val (res,ic_List_def,ic_List_pre_def) = x64_compile `
-  ic_List (x1,x2,x3,x4,s,cs:zheap_consts,stack) =
-    if isSmall x4 then (x1,x2,x3,x4,s,cs,stack) else
+  ic_List (x1,x2,x3,x4,s,stack) =
+    if isSmall x4 then (x1,x2,x3,x4,s,stack) else
       let x1 = x4 in
       let x2 = Number 0 in
       let x1 = EL (Num (getNumber x2)) (getContent x1) in (* HD *)
@@ -13770,10 +13748,10 @@ val (res,ic_List_def,ic_List_pre_def) = x64_compile `
       let (x1,stack) = (HD stack,TL stack) in
         if getNumber x1 = 18 then
           let s = s with code_start := s.code in
-            ic_List (x1,x2,x3,x4,s,cs,stack)
+            ic_List (x1,x2,x3,x4,s,stack)
         else
-          let (x1,x2,x3,s,cs) = ic_Any (x1,x2,x3,s,cs) in
-            ic_List (x1,x2,x3,x4,s,cs,stack)`
+          let (x1,x2,x3,s) = ic_Any (x1,x2,x3,s) in
+            ic_List (x1,x2,x3,x4,s,stack)`
 
 val install_x64_code_lists_def = Define `
   (install_x64_code_lists [] s = s) /\
@@ -13784,12 +13762,12 @@ val install_x64_code_lists_def = Define `
        (s with code := s.code ++ x64_code (LENGTH s.code) [num_bc x]))`;
 
 val ic_List_thm = prove(
-  ``!code x1 x2 x3 s cs stack.
+  ``!code x1 x2 x3 s stack.
       (s.code_mode = SOME F) ==>
       ?y1 y2 y3.
-        (ic_List_pre (x1,x2,x3,BlockList (MAP BlockNum3 code),s,cs,stack)) /\
-        (ic_List (x1,x2,x3,BlockList (MAP BlockNum3 code),s,cs,stack) =
-           (y1,y2,y3,BlockList [],install_x64_code_lists code s,cs,stack))``,
+        (ic_List_pre (x1,x2,x3,BlockList (MAP BlockNum3 code),s,stack)) /\
+        (ic_List (x1,x2,x3,BlockList (MAP BlockNum3 code),s,stack) =
+           (y1,y2,y3,BlockList [],install_x64_code_lists code s,stack))``,
   Induct \\ SIMP_TAC std_ss [MAP,APPEND] THEN1
    (FULL_SIMP_TAC std_ss [APPEND] \\ REPEAT STRIP_TAC
     \\ SIMP_TAC std_ss [Once ic_List_def,Once ic_List_pre_def,BlockList_def]
@@ -13816,6 +13794,11 @@ val ic_List_thm = prove(
   \\ MP_TAC (Q.SPECL [`h1`,`h2`,`h3`] ic_Any_thm)
   \\ REPEAT STRIP_TAC \\ fs [] \\ rfs []
   \\ SEP_I_TAC "ic_List" \\ fs [] \\ rfs []
+  \\ REPEAT STRIP_TAC THEN1
+   (fs [my_imp_def]
+    \\ `LENGTH (x64 (LENGTH s.code) (num_bc (h1,h2,h3))) < 200` by
+           fs [LENGTH_x64_LESS] \\ fs [] \\ REPEAT STRIP_TAC
+    \\ FIRST_X_ASSUM MATCH_MP_TAC \\ DECIDE_TAC)
   \\ fs [BlockList_def,install_x64_code_lists_def,x64_code_def]
   \\ REPEAT STRIP_TAC
   \\ FIRST_X_ASSUM MATCH_MP_TAC
@@ -13825,22 +13808,22 @@ val ic_List_thm = prove(
         fs [LENGTH_x64_LESS] \\ DECIDE_TAC);
 
 val (ic_full_res,ic_full_def,ic_full_pre_def) = x64_compile `
-  ic_full (x1,x2,x3,x4,s,cs:zheap_consts,stack) =
+  ic_full (x1,x2,x3,x4,s,stack) =
     let stack = x1 :: stack in
     let stack = x2 :: stack in
     let stack = x3 :: stack in
-    let (x1,x2,x3,x4,s,cs,stack) = ic_List (x1,x2,x3,x4,s,cs,stack) in
+    let (x1,x2,x3,x4,s,stack) = ic_List (x1,x2,x3,x4,s,stack) in
     let (x3,stack) = (HD stack, TL stack) in
     let (x2,stack) = (HD stack, TL stack) in
     let (x1,stack) = (HD stack, TL stack) in
     let x4 = x1 in
-      (x1,x2,x3,x4,s,cs,stack)`
+      (x1,x2,x3,x4,s,stack)`
 
 val ic_full_thm = prove(
   ``(s.code_mode = SOME F) ==>
-    ic_full_pre (x1,x2,x3,BlockList (MAP BlockNum3 code),s,cs,stack) /\
-    (ic_full (x1,x2,x3,BlockList (MAP BlockNum3 code),s,cs,stack) =
-      (x1,x2,x3,x1,install_x64_code_lists code s,cs,stack))``,
+    ic_full_pre (x1,x2,x3,BlockList (MAP BlockNum3 code),s,stack) /\
+    (ic_full (x1,x2,x3,BlockList (MAP BlockNum3 code),s,stack) =
+      (x1,x2,x3,x1,install_x64_code_lists code s,stack))``,
   Q.SPEC_TAC (`x4`,`x4`) \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [ic_full_def,ic_full_pre_def,LET_DEF]
   \\ MP_TAC (ic_List_thm |> SPEC_ALL |> Q.INST [`stack`|->`x3::x2::x1::stack`])
@@ -13852,16 +13835,6 @@ val install_x64_code_lists_code_mode = prove(
        (((install_x64_code_lists code s) with code_mode := mode) =
         ((install_x64_code_lists code (s with code_mode := mode))))``,
   Induct \\ SRW_TAC [] [install_x64_code_lists_def]);
-
-(*
-val zHEAP_WRITE_end_of_code = let
-  val tm = ``end_of_code``
-  val th = append_imm_code |> SPEC tm |> SPEC_ALL
-      |> SIMP_RULE std_ss [LENGTH,ADD1,end_of_code_def]
-      |> PURE_REWRITE_RULE [append_imm_code_def,word_arith_lemma1]
-      |> SIMP_RULE std_ss [GSYM end_of_code_def]
-  in th end;
-*)
 
 val zHEAP_INSTALL_CODE = let
   val th = ic_full_res
@@ -17653,6 +17626,8 @@ val zSTANDALONE_CORRECT = curry save_thm "zSTANDALONE_CORRECT" let
     |> standalone_expand_code
     |> DISCH_ALL
   in th end;
+
+
 
 
 open repl_funTheory
