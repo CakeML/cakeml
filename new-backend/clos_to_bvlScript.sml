@@ -458,6 +458,7 @@ val val_rel_SIMP = LIST_CONJ
    |> SIMP_CONV (srw_ss()) [val_rel_cases],
    ``val_rel f refs code (Recclosure loc env exp k) y``
    |> SIMP_CONV (srw_ss()) [val_rel_cases]]
+  |> curry save_thm "val_rel_SIMP"
 
 val bEval_free_let_Block = prove(
   ``!ys zs s.

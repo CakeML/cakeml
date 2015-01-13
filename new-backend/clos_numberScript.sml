@@ -340,6 +340,7 @@ val val_rel_simp = let
             ``val_rel y (RefPtr x)``,
             ``val_rel y (Closure n l x)``,
             ``val_rel y (Recclosure x1 x2 x3 x4)``] |> LIST_CONJ end
+  |> curry save_thm"val_rel_simp"
 
 val renumber_code_locs_list_els = prove(
   ``∀ls ls' n n'. renumber_code_locs_list n ls = (n',ls') ⇒
