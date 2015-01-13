@@ -697,6 +697,11 @@ val do_opapp_exh = prove(
   simp[UNCURRY,env_to_exh_LIST_REL] >>
   metis_tac[]);
 
+val exps_to_exh_map = Q.prove (
+`!exh es. exps_to_exh exh es = MAP (exp_to_exh exh) es`,
+ Induct_on `es` >>
+ rw [exp_to_exh_def]);
+
 val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
 `(!ck env s e r.
   evaluate_i3 ck env s e r
@@ -810,7 +815,7 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    simp[Once result_to_exh_cases,PULL_EXISTS,v_to_exh_eqn] >>
    simp[Once evaluate_exh_cases] >>
    fs[Once result_to_exh_cases,PULL_EXISTS] >>
-   metis_tac[] ) >>
+   metis_tac[EVERY2_REVERSE, exps_to_exh_map, MAP_REVERSE] ) >>
  strip_tac >- (
    simp[exp_to_exh_def] >>
    rpt gen_tac >> strip_tac >>
@@ -818,7 +823,8 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    simp[Once result_to_exh_cases,PULL_EXISTS,v_to_exh_eqn] >>
    simp[Once evaluate_exh_cases] >>
    fs[Once result_to_exh_cases,PULL_EXISTS] >>
-   metis_tac[] ) >>
+   fs [exps_to_exh_map, MAP_REVERSE] >>
+   metis_tac[EVERY2_REVERSE] ) >>
  strip_tac >- (
    simp[exp_to_exh_def] >>
    rpt gen_tac >> strip_tac >>
@@ -866,10 +872,12 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    exists_lift_conj_tac``evaluate_list_exh`` >>
    PairCases_on`s'` >>
    PairCases_on`s_exh` >>
+   fs [exps_to_exh_map, MAP_REVERSE] >>
    first_assum(match_exists_tac o concl) >>
    simp[] >>
    first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]do_opapp_exh)) >>
    simp[vs_to_exh_LIST_REL] >>
+   imp_res_tac EVERY2_REVERSE >>
    disch_then(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
    first_assum(match_exists_tac o concl) >> simp[] >> fs[] >>
    fs[store_to_exh_def] >>
@@ -891,6 +899,7 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    disch_then(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
    disch_then(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
    strip_tac >>
+   fs [exps_to_exh_map, MAP_REVERSE] >>
    first_assum(match_exists_tac o concl) >> simp[] >>
    simp[Once evaluate_exh_cases] >>
    disj2_tac >> disj1_tac >>
@@ -898,7 +907,7 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    PairCases_on`s''`>>fs[store_to_exh_def]>>rw[]>>
    first_assum(match_exists_tac o concl) >> simp[] >>
    imp_res_tac do_opapp_exh >>
-   metis_tac[vs_to_exh_LIST_REL] ) >>
+   metis_tac[vs_to_exh_LIST_REL, EVERY2_REVERSE] ) >>
  strip_tac >- (
    simp[exp_to_exh_def] >>
    rpt gen_tac >> strip_tac >>
@@ -910,10 +919,11 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    simp[Once evaluate_exh_cases] >>
    srw_tac[DNF_ss][] >> disj1_tac >>
    exists_lift_conj_tac``evaluate_list_exh`` >>
+   fs [exps_to_exh_map, MAP_REVERSE] >>
    first_assum(match_exists_tac o concl) >> simp[] >>
    first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] do_app_exh_i3)) >>
    disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
-   simp[vs_to_exh_LIST_REL] ) >>
+   simp[vs_to_exh_LIST_REL, EVERY2_REVERSE] ) >>
  strip_tac >- (
    simp[exp_to_exh_def] >>
    rpt gen_tac >> strip_tac >>
@@ -927,7 +937,7 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    srw_tac[DNF_ss][] >>
    rpt disj2_tac >>
    fs[result_to_exh_cases,PULL_EXISTS] >> rw[] >>
-   metis_tac[] ) >>
+   metis_tac[exps_to_exh_map, MAP_REVERSE] ) >>
  strip_tac >- (
    simp[exp_to_exh_def] >>
    rpt gen_tac >> strip_tac >>
@@ -1104,7 +1114,7 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    qexists_tac`is_handle`>>simp[] >> rw[] >> fs[] >>
    fs[exists_match_def,PULL_EXISTS] >>
    metis_tac[pmatch_i2_any_no_match] ) >>
- rw[])
+ rw[]);
 
 val v_to_exh_extend_disjoint = store_thm("v_to_exh_extend_disjoint",
   ``∀(exh:exh_ctors_env) v1 v2 exh'. v_to_exh exh v1 v2 ∧ DISJOINT (FDOM exh') (FDOM exh) ⇒

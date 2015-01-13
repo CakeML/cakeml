@@ -1041,6 +1041,12 @@ val lookup_tag_env_NONE = Q.prove (
 PairCases_on `tagenv` >>
 rw [lookup_tag_env_def]);
 
+val exps_to_i2_map = Q.prove (
+`!tagenv es.
+  exps_to_i2 tagenv es = MAP (exp_to_i2 tagenv) es`,
+ Induct_on `es` >>
+ rw [exp_to_i2_def]);
+
 val exp_to_i2_correct = Q.prove (
 `(∀b env s e res.
    evaluate_i1 b env s e res ⇒
@@ -1098,7 +1104,7 @@ val exp_to_i2_correct = Q.prove (
      rw [] >>
      fs [env_all_to_i2_cases, build_conv_i1_def] >>
      rw [] >>
-     MAP_EVERY qexists_tac [`s'_i2`, `Rval (Conv_i2 (lookup_tag_env cn tagenv) v')`] >>
+     MAP_EVERY qexists_tac [`s'_i2`, `Rval (Conv_i2 (lookup_tag_env cn tagenv) (REVERSE v'))`] >>
      rw [] >>
      Cases_on `cn` >>
      fs [] >>
@@ -1109,8 +1115,12 @@ val exp_to_i2_correct = Q.prove (
      rw [v_to_i2_eqns] >>
      fs [cenv_inv_def, envC_tagged_def, gtagenv_wf_def, do_con_check_def] >>
      rw [] >>
-     metis_tac [length_evaluate_list_i2, length_vs_to_i2, FST])
- >- metis_tac []
+     metis_tac [length_evaluate_list_i2, length_vs_to_i2, FST, exps_to_i2_map, MAP_REVERSE,
+                vs_to_i2_list_rel, EVERY2_REVERSE, LENGTH_REVERSE])
+ >- (res_tac >>
+     rw [] >>
+     metis_tac [exps_to_i2_map, MAP_REVERSE, vs_to_i2_list_rel, EVERY2_REVERSE, LENGTH_REVERSE])
+ >- metis_tac [exps_to_i2_map, MAP_REVERSE, vs_to_i2_list_rel, EVERY2_REVERSE, LENGTH_REVERSE]
  >- (* Local variable lookup *)
     (fs [env_all_to_i2_cases, all_env_i2_to_env_def] >>
      rw [] >>
@@ -1137,14 +1147,14 @@ val exp_to_i2_correct = Q.prove (
      fs [all_env_i1_to_genv_def] >>
      `?tagenv env_i2'.
        env_all_to_i2 tagenv env' (FST env_i2, FST (SND env_i2), env_i2') gtagenv ∧
-       do_opapp_i2 v'' = SOME (env_i2', exp_to_i2 tagenv e)`
-                 by metis_tac [do_opapp_i2] >>
+       do_opapp_i2 (REVERSE v'') = SOME (env_i2', exp_to_i2 tagenv e)`
+                 by metis_tac [do_opapp_i2, vs_to_i2_list_rel, EVERY2_REVERSE] >>
      full_simp_tac (srw_ss()++boolSimps.DNF_ss) [s_to_i2_cases] >>
      PairCases_on `s'` >>
      rw [] >>
      PairCases_on `env_i2` >>
      rw [] >>
-     metis_tac [FST,SND])
+     metis_tac [FST,SND, exps_to_i2_map, MAP_REVERSE, vs_to_i2_list_rel, EVERY2_REVERSE, LENGTH_REVERSE])
  >- (* Function application *)
     (pop_assum mp_tac >>
      rw [] >>
@@ -1154,14 +1164,14 @@ val exp_to_i2_correct = Q.prove (
      fs [all_env_i1_to_genv_def] >>
      `?tagenv env_i2'.
        env_all_to_i2 tagenv env' (FST env_i2, FST (SND env_i2), env_i2') gtagenv ∧
-       do_opapp_i2 v'' = SOME (env_i2', exp_to_i2 tagenv e)`
-                 by metis_tac [do_opapp_i2] >>
+       do_opapp_i2 (REVERSE v'') = SOME (env_i2', exp_to_i2 tagenv e)`
+                 by metis_tac [do_opapp_i2, vs_to_i2_list_rel, EVERY2_REVERSE] >>
      full_simp_tac (srw_ss()++boolSimps.DNF_ss) [s_to_i2_cases] >>
      PairCases_on `s'` >>
      rw [] >>
      PairCases_on `env_i2` >>
      rw [] >>
-     metis_tac [FST,SND])
+     metis_tac [FST,SND,exps_to_i2_map, MAP_REVERSE, vs_to_i2_list_rel, EVERY2_REVERSE, LENGTH_REVERSE])
  >- (* Function application *)
     (res_tac >>
      rw [] >>
@@ -1169,10 +1179,10 @@ val exp_to_i2_correct = Q.prove (
      fs [all_env_i1_to_genv_def] >>
      `?tagenv env_i2'.
        env_all_to_i2 tagenv env' (FST env_i2, FST (SND env_i2), env_i2') gtagenv ∧
-       do_opapp_i2 v'' = SOME (env_i2', exp_to_i2 tagenv e)`
-                 by metis_tac [do_opapp_i2] >>
+       do_opapp_i2 (REVERSE v'') = SOME (env_i2', exp_to_i2 tagenv e)`
+                 by metis_tac [do_opapp_i2, vs_to_i2_list_rel, EVERY2_REVERSE] >>
      full_simp_tac (srw_ss()++boolSimps.DNF_ss) [s_to_i2_cases] >>
-     metis_tac [FST,SND])
+     metis_tac [FST,SND, exps_to_i2_map, MAP_REVERSE, vs_to_i2_list_rel, EVERY2_REVERSE, LENGTH_REVERSE])
  >- (* Primitive application *)
     (LAST_X_ASSUM (qspecl_then [`tagenv`, `env_i2`, `s_i2`, `gtagenv`] mp_tac) >>
      rw [] >>
@@ -1183,9 +1193,18 @@ val exp_to_i2_correct = Q.prove (
      rw [] >>
      PairCases_on `env_i2` >>
      fs [] >>
-     metis_tac [])
- >- metis_tac []
- >- metis_tac []
+     metis_tac [FST,SND, exps_to_i2_map, MAP_REVERSE, vs_to_i2_list_rel, EVERY2_REVERSE, LENGTH_REVERSE])
+ >- (LAST_X_ASSUM (qspecl_then [`tagenv`, `env_i2`, `s_i2`, `gtagenv`] mp_tac) >>
+     rw [] >>
+     fs [s_to_i2_cases] >>
+     rw [] >>
+     `gtagenv_wf gtagenv` by fs [env_all_to_i2_cases, cenv_inv_def] >>
+     imp_res_tac do_app_i2_correct >>
+     rw [] >>
+     PairCases_on `env_i2` >>
+     fs [] >>
+     metis_tac [FST,SND, exps_to_i2_map, MAP_REVERSE, vs_to_i2_list_rel, EVERY2_REVERSE, LENGTH_REVERSE])
+ >- metis_tac [exps_to_i2_map, MAP_REVERSE, vs_to_i2_list_rel, EVERY2_REVERSE, LENGTH_REVERSE]
  >- (* If *)
     (fs [do_if_i2_def, do_if_i1_def] >>
      every_case_tac >>
