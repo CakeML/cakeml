@@ -20,6 +20,9 @@ open helperLib;
 open addressTheory
 open x64_copying_gcTheory;
 open progTheory;
+open intLib;
+
+val _ = ParseExtras.temp_loose_equality();
 
 (*
 val _ = PolyML.SaveState.saveState "x64_heap_state";
@@ -112,6 +115,7 @@ val _ = Hol_datatype ` (* called s *)
                    code_mode : bool option ;
                    code : word8 list ;
                    code_start : word8 list ;
+                   code_max_length : num ;
                    local : zheap_local |>`;
 
 val _ = Hol_datatype ` (* called vals *)
@@ -185,11 +189,12 @@ val stack_inv_def = Define `
 val code_heap_inv_def = Define `
   code_heap_inv cs_code_heap_length (cs_code_heap_ptr:word64)
                 (vals_code_option:bool option) (vals_code_list:word8 list)
-                s_code_mode s_code s_code_start
+                s_code_mode s_code s_code_start s_code_max_length
                 vs_code_ptr vs_code_start_ptr =
     cs_code_heap_length < (2**61):num /\
     (vals_code_option = s_code_mode) /\
     (vals_code_list = s_code) /\
+    (s_code_max_length = cs_code_heap_length) /\
     (cs_code_heap_ptr + n2w (LENGTH s_code) = vs_code_ptr) /\
     (cs_code_heap_ptr + n2w (LENGTH s_code_start) = vs_code_start_ptr)`;
 
@@ -212,7 +217,7 @@ val heap_inv_def = Define `
             cs.rest_of_stack /\
       code_heap_inv cs.code_heap_length cs.code_heap_ptr
                 vals.code_option vals.code_list
-                s.code_mode s.code s.code_start
+                s.code_mode s.code s.code_start s.code_max_length
                 vs.code_ptr vs.code_start_ptr /\
       cs.heap_limit < 281474976710656 /\ (* 2**(64-16) *)
       (x64_heap vs.current_heap heap vs.current_heap vs.current_heap *
@@ -558,6 +563,7 @@ val first_s_def = Define `
        code_mode := SOME F ;
        code := [] ;
        code_start := [] ;
+       code_max_length := w2n init.init_code_heap_size ;
        local := local_zero |>`
 
 val first_cs_def = Define `
@@ -813,7 +819,7 @@ val init_inv_IMP_heap_inv = prove(
   \\ SIMP_TAC std_ss [STAR_ASSOC])
   |> SPEC_ALL |> SIMP_RULE std_ss [LET_DEF];
 
-val new_vals = init_inv_IMP_heap_inv |> concl |> rand |> rand |> rand
+val new_vals = init_inv_IMP_heap_inv |> concl |> rand |> rand |> rand;
 
 val zSTACK_SETUP = let
   val th = compose_specs ["mov r5,r4","sub r5,8","mov r11,r5"]
@@ -936,7 +942,7 @@ val zHEAP_CODE_SNOC_IMM = let
   val pc = get_pc th
   val target = ``~zS * zPC p * zVALS cs vals *
       cond (heap_inv (cs,x1,x2,x3,x4,refs,stack,s,NONE) vals /\
-            LENGTH s.code < cs.code_heap_length /\ (s.code_mode = SOME F))``
+            LENGTH s.code < s.code_max_length /\ (s.code_mode = SOME F))``
   val (th,goal) = expand_pre th target
   val lemma = prove(goal, SIMP_TAC (std_ss++star_ss) [zVALS_def,SEP_IMP_REFL])
   val th = MP th lemma |> DISCH_ALL |> DISCH T
@@ -968,6 +974,7 @@ gg goal
     \\ FULL_SIMP_TAC (srw_ss()) [code_heap_inv_def,heap_vars_ok_def]
     \\ FULL_SIMP_TAC std_ss [x64_store_def,one_list_def,word_arith_lemma1]
     \\ FULL_SIMP_TAC (srw_ss()) [STAR_ASSOC,SEP_CLAUSES] \\ SEP_R_TAC
+    \\ fs [] \\ rfs []
     \\ STRIP_TAC
     THEN1 (Q.PAT_ASSUM `0x7w && vs.base_ptr = 0x0w` MP_TAC \\ blastLib.BBLAST_TAC)
     \\ Q.ABBREV_TAC `dm = vals.memory_domain` \\ POP_ASSUM (K ALL_TAC)
@@ -979,7 +986,7 @@ gg goal
   val th = Q.GEN `vals` th |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
   val (th,goal) = SPEC_STRENGTHEN_RULE th
     ``zHEAP (cs, x1, x2, x3, x4, refs, stack, s, NONE) * ~zS * zPC p *
-      cond (LENGTH s.code < cs.code_heap_length /\ (s.code_mode = SOME F))``
+      cond (LENGTH s.code < s.code_max_length /\ (s.code_mode = SOME F))``
   val lemma = prove(goal,
     SIMP_TAC (std_ss++star_ss) [zHEAP_def,SEP_IMP_REFL,SEP_CLAUSES,
        AC CONJ_ASSOC CONJ_COMM])
@@ -1008,7 +1015,7 @@ val zHEAP_CODE_SNOC_X2_BYTE = let
   val pc = get_pc th
   val target = ``~zS * zPC p * zVALS cs vals *
       cond (heap_inv (cs,x1,x2,x3,x4,refs,stack,s,NONE) vals /\
-            LENGTH s.code < cs.code_heap_length /\ (s.code_mode = SOME F) /\
+            LENGTH s.code < s.code_max_length /\ (s.code_mode = SOME F) /\
             isNumber x2 /\ small_int (getNumber x2) /\ ~(getNumber x2 < 0))``
   val (th,goal) = expand_pre th target
   val lemma = prove(goal, SIMP_TAC (std_ss++star_ss) [zVALS_def,SEP_IMP_REFL])
@@ -1043,6 +1050,7 @@ gg goal
     \\ FULL_SIMP_TAC (srw_ss()) [code_heap_inv_def,heap_vars_ok_def]
     \\ FULL_SIMP_TAC std_ss [x64_store_def,one_list_def,word_arith_lemma1]
     \\ FULL_SIMP_TAC (srw_ss()) [STAR_ASSOC,SEP_CLAUSES] \\ SEP_R_TAC
+    \\ fs [] \\ rfs []
     \\ STRIP_TAC
     THEN1 (Q.PAT_ASSUM `0x7w && vs.base_ptr = 0x0w` MP_TAC \\ blastLib.BBLAST_TAC)
     \\ Q.ABBREV_TAC `dm = vals.memory_domain` \\ POP_ASSUM (K ALL_TAC)
@@ -1061,7 +1069,7 @@ gg goal
   val th = Q.GEN `vals` th |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
   val (th,goal) = SPEC_STRENGTHEN_RULE th
     ``zHEAP (cs, x1, x2, x3, x4, refs, stack, s, NONE) * ~zS * zPC p *
-      cond (LENGTH s.code < cs.code_heap_length /\ (s.code_mode = SOME F) /\
+      cond (LENGTH s.code < s.code_max_length /\ (s.code_mode = SOME F) /\
             isNumber x2 /\ small_int (getNumber x2) /\ ~(getNumber x2 < 0))``
   val lemma = prove(goal,
     SIMP_TAC (std_ss++star_ss) [zHEAP_def,SEP_IMP_REFL,SEP_CLAUSES,
@@ -1090,7 +1098,7 @@ val zHEAP_CODE_SNOC_X2_IMM32 = let
   val pc = get_pc th
   val target = ``~zS * zPC p * zVALS cs vals *
       cond (heap_inv (cs,x1,x2,x3,x4,refs,stack,s,NONE) vals /\
-            LENGTH s.code + 4 <= cs.code_heap_length /\ (s.code_mode = SOME F) /\
+            LENGTH s.code + 4 <= s.code_max_length /\ (s.code_mode = SOME F) /\
             isNumber x2 /\ small_int (getNumber x2) /\ ~(getNumber x2 < 0))``
   val (th,goal) = expand_pre th target
   val lemma = prove(goal, SIMP_TAC (std_ss++star_ss) [zVALS_def,SEP_IMP_REFL])
@@ -1149,7 +1157,7 @@ gg goal
   val th = Q.GEN `vals` th |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
   val (th,goal) = SPEC_STRENGTHEN_RULE th
     ``zHEAP (cs, x1, x2, x3, x4, refs, stack, s, NONE) * ~zS * zPC p *
-      cond (LENGTH s.code + 4 <= cs.code_heap_length /\ (s.code_mode = SOME F) /\
+      cond (LENGTH s.code + 4 <= s.code_max_length /\ (s.code_mode = SOME F) /\
             isNumber x2 /\ small_int (getNumber x2) /\ ~(getNumber x2 < 0))``
   val lemma = prove(goal,
     SIMP_TAC (std_ss++star_ss) [zHEAP_def,SEP_IMP_REFL,SEP_CLAUSES,
@@ -1184,7 +1192,7 @@ val zHEAP_CODE_SNOC_X2_X3_IMM32 = let
   val th = th |> Q.INST [`rip`|->`p`]
   val th = th |> SIMP_RULE (std_ss++sep_cond_ss) [SPEC_MOVE_COND] |> UNDISCH_ALL
   val pc = get_pc th
-  val pre = ``LENGTH s.code + 4 <= cs.code_heap_length /\ (s.code_mode = SOME F) /\
+  val pre = ``LENGTH s.code + 4 <= s.code_max_length /\ (s.code_mode = SOME F) /\
               isNumber x1 /\ small_int (getNumber x1) /\ ~(getNumber x1 < 0) /\
               isNumber x2 /\ small_int (getNumber x2) /\ ~(getNumber x2 < 0) /\
               isNumber x3 /\ small_int (getNumber x3) /\ ~(getNumber x3 < 0)``
@@ -1201,7 +1209,6 @@ val zHEAP_CODE_SNOC_X2_X3_IMM32 = let
                                                  n2w (Num (getNumber x1))),NONE) *
                          ~zS * ^pc`
   val goal = th |> concl |> dest_imp |> fst
-
 (*
 gg goal
 *)
@@ -12836,16 +12843,67 @@ val x64_length_EVEN = prove(
   \\ SRW_TAC [] [] \\ FULL_SIMP_TAC std_ss [LENGTH,EVEN,IMM32_def]
   \\ FULL_SIMP_TAC std_ss [EVEN_ADD,EVEN_MULT]);
 
-val x64_length_NOT_ZERO = prove(
-  ``!bc. ~is_Label bc ==> x64_length bc <> 0``,
+val x64_length_LESS = prove(
+  ``!bc. ~is_Label bc ==> 1 < x64_length bc``,
   Cases \\ TRY (Cases_on `b:bc_stack_op`) \\ TRY (Cases_on `l:loc`)
   \\ TRY (Cases_on `b:bool`)
   \\ SIMP_TAC std_ss [x64_length_def,x64_def,LENGTH,EVEN,LET_DEF]
   \\ EVAL_TAC \\ SRW_TAC [] [is_Label_def]);
 
+val x64_length_NOT_ZERO = prove(
+  ``!bc. ~is_Label bc ==> x64_length bc <> 0``,
+  REPEAT STRIP_TAC \\ IMP_RES_TAC x64_length_LESS \\ DECIDE_TAC);
+
+val LENGTH_x64_IGNORE = prove(
+  ``!i n. LENGTH (x64 n i) = LENGTH (x64 0 i)``,
+  Cases \\ TRY (Cases_on `b`)  \\ TRY (Cases_on `l`)
+  \\ EVAL_TAC \\ SIMP_TAC std_ss [] \\ SRW_TAC [] []
+  \\ FULL_SIMP_TAC std_ss [] \\ EVAL_TAC);
+
+val LENGTH_x64_DIV2_TIMES2 = prove(
+  ``!k. ~is_Label bc ==>
+        (2 * (LENGTH (x64 k bc) DIV 2) - 2 + 2 = LENGTH (x64 k bc))``,
+  fs [LENGTH_x64_IGNORE,GSYM x64_length_def]
+  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC x64_length_LESS
+  \\ STRIP_ASSUME_TAC (MATCH_MP (Q.SPEC `2` DIVISION) (DECIDE ``0<2:num``)
+                 |> Q.SPEC `x64_length bc` |> GSYM)
+  \\ `x64_length bc MOD 2 = 0` by METIS_TAC [EVEN_MOD2,x64_length_EVEN]
+  \\ fs [AC MULT_COMM MULT_ASSOC] \\ DECIDE_TAC);
+
 val x64_code_def = zDefine `
   (x64_code i [] = []) /\
   (x64_code i (b::bs) = x64 i b ++ x64_code (i + x64_length b) bs)`;
+
+val x64_code_EQ_x64 = prove(
+  ``!bc_code p n.
+      (bc_fetch_aux bc_code x64_inst_length (p - n) = SOME i) /\ n <= p ==>
+      ?ys1 ys2.
+        (x64_code (2 * n) bc_code = ys1 ++ x64 (2 * p) i ++ ys2) /\
+        (2 * (p - n) = LENGTH ys1)``,
+  Induct \\ fs [bc_fetch_aux_def]
+  \\ REPEAT STRIP_TAC \\ Cases_on `is_Label h` \\ fs []
+  THEN1 (Cases_on `h` \\ fs [is_Label_def,x64_def,x64_code_def,
+           EVAL ``x64_length (Label n')``])
+  \\ Cases_on `p <= n` \\ fs [] THEN1
+   (`p = n` by DECIDE_TAC \\ fs []
+    \\ SRW_TAC [] [] \\ Q.EXISTS_TAC `[]` \\ fs [x64_code_def])
+  \\ fs [GSYM SUB_PLUS] \\ RES_TAC \\ POP_ASSUM (K ALL_TAC)
+  \\ POP_ASSUM MP_TAC
+  \\ MATCH_MP_TAC IMP_IMP
+  \\ STRIP_TAC THEN1 DECIDE_TAC
+  \\ REPEAT STRIP_TAC \\ fs [NOT_LESS]
+  \\ Q.PAT_ASSUM `~is_Label h` ASSUME_TAC
+  \\ fs [x64_code_def,x64_length_def,x64_inst_length_def,LEFT_ADD_DISTRIB,
+         LENGTH_x64_DIV2_TIMES2,LEFT_SUB_DISTRIB]
+  \\ Q.LIST_EXISTS_TAC [`x64 (2 * n) h ++ ys1`,`ys2`]
+  \\ fs [] \\ POP_ASSUM MP_TAC
+  \\ fs [LENGTH_x64_IGNORE]
+  \\ POP_ASSUM (fn th => fs [GSYM th])
+  \\ IMP_RES_TAC (DECIDE ``n <= p ==> 2 * n <= 2 * p:num``)
+  \\ FULL_SIMP_TAC bool_ss [LEFT_ADD_DISTRIB,LEFT_SUB_DISTRIB]
+  \\ REPEAT STRIP_TAC \\ fs [LENGTH_x64_DIV2_TIMES2]
+  \\ DECIDE_TAC)
+  |> Q.SPECL [`bc_code`,`p`,`0`] |> SIMP_RULE std_ss [];
 
 val x64_code_APPEND = prove(
   ``!xs1 xs2 p.
@@ -12854,12 +12912,6 @@ val x64_code_APPEND = prove(
       x64_code (p + SUM (MAP x64_length xs1)) xs2``,
   Induct \\ SIMP_TAC std_ss [APPEND,x64_code_def,MAP,SUM,WORD_ADD_0]
   \\ ASM_SIMP_TAC std_ss [APPEND_ASSOC,LEFT_ADD_DISTRIB,ADD_ASSOC]);
-
-val LENGTH_x64_IGNORE = prove(
-  ``!i n. LENGTH (x64 n i) = LENGTH (x64 0 i)``,
-  Cases \\ TRY (Cases_on `b`)  \\ TRY (Cases_on `l`)
-  \\ EVAL_TAC \\ SIMP_TAC std_ss [] \\ SRW_TAC [] []
-  \\ FULL_SIMP_TAC std_ss [] \\ EVAL_TAC);
 
 val LENGTH_x64_code = prove(
   ``!xs p. LENGTH (x64_code p xs) = SUM (MAP x64_length xs)``,
@@ -12925,7 +12977,7 @@ val INSERTS_LEMMA = prove(
 
 val append_imm_code = prove(
   ``!imms p s.
-      LENGTH s.code + LENGTH imms <= cs.code_heap_length /\
+      LENGTH s.code + LENGTH imms <= s.code_max_length /\
       (s.code_mode = SOME F) ==>
       SPEC X64_MODEL
        (zHEAP (cs,x1,x2,x3,x4,refs,stack,s,NONE) * ~zS * zPC p)
@@ -13420,7 +13472,7 @@ val ic_Any_thm = prove(
       (s.code_mode = SOME F) ==>
       ?x1 x2 x3.
         (LENGTH s.code + LENGTH (x64 (LENGTH s.code) (num_bc (n1,n2,n3))) <=
-          cs.code_heap_length ==>
+          s.code_max_length ==>
          ic_Any_pre (Number (& n1),Number (& n2),Number (& n3),s,cs)) /\
         (ic_Any (Number (& n1),Number (& n2),Number (& n3),s,cs) =
            (x1,x2,x3,s with code := s.code ++
@@ -13518,7 +13570,7 @@ val zHEAP_CODE_LIMIT = let
   val pc = get_pc th
   val target = ``~zS * zPC p * zVALS cs vals *
       cond (heap_inv (cs,x1,x2,x3,x4,refs,stack,s,NONE) vals /\
-            LENGTH s.code <= cs.code_heap_length)``
+            LENGTH s.code <= s.code_max_length)``
   val (th,goal) = expand_pre th target
   val lemma = prove(goal, SIMP_TAC (std_ss++star_ss) [zVALS_def,SEP_IMP_REFL])
   val th = MP th lemma |> DISCH_ALL |> DISCH T
@@ -13526,7 +13578,7 @@ val zHEAP_CODE_LIMIT = let
   val th = MATCH_MP SPEC_WEAKEN_LEMMA th
   val th = th |> Q.SPEC `zHEAP (cs,
        x1,x2,x3,x4,refs,stack,s,NONE) * ~zS1 Z_AF *
-      zS1 Z_CF (SOME (LENGTH s.code + 200 < cs.code_heap_length)) *
+      zS1 Z_CF (SOME (LENGTH s.code + 200 < s.code_max_length)) *
       ~zS1 Z_OF * ~zS1 Z_SF * ~zS1 Z_ZF * ~zS1 Z_PF * ^pc`
   val goal = th |> concl |> dest_imp |> fst
 (*
@@ -13542,7 +13594,7 @@ gg goal
     \\ Q.ABBREV_TAC `t2 = vals.memory (vals.reg9 + 0x60w)`
     \\ Q.ABBREV_TAC `t3 = vals.memory (vals.reg9 + 0x58w)`
     \\ Q.EXISTS_TAC `vals with <| reg14 := t3; reg15 := (t1 + -0x1w * t2 + 200w) |>`
-    \\ `(LENGTH s.code + 200 < cs.code_heap_length <=>
+    \\ `(LENGTH s.code + 200 < s.code_max_length <=>
          t1 + -0x1w * t2 + 200w <+ t3) /\
         vals.reg9 + 0x50w IN vals.memory_domain /\
         (0x7w && vals.reg9 + 0x50w = 0x0w) /\
@@ -13554,7 +13606,7 @@ gg goal
       \\ UNABBREV_ALL_TAC \\ SEP_R_TAC \\ fs [] \\ REVERSE STRIP_TAC THEN1
        (Q.PAT_ASSUM `0x7w && vs.base_ptr = 0x0w` MP_TAC \\ blastLib.BBLAST_TAC)
       \\ Q.PAT_ASSUM `kkk (fun2set (vals.memory,vals.memory_domain))` (K ALL_TAC)
-      \\ fs [code_heap_inv_def]
+      \\ fs [code_heap_inv_def] \\ rfs []
       \\ Q.PAT_ASSUM `xxx = vs.code_ptr` (MP_TAC o GSYM) \\ fs []
       \\ fs [word_add_n2w,WORD_LO]
       \\ `(LENGTH s.code + 200) < 18446744073709551616 /\
@@ -13631,12 +13683,12 @@ val my_imp_def = Define `my_imp b1 b2 = (b1 ==> b2)`;
 
 val ic_Any_with_test = let
   val th = zHEAP_CODE_LIMIT_TEST
-  val th1 = DISCH ``LENGTH s.code + 200 < cs.code_heap_length`` th
+  val th1 = DISCH ``LENGTH s.code + 200 < s.code_max_length`` th
             |> SIMP_RULE std_ss [] |> UNDISCH_ALL
-  val th2 = DISCH ``~(LENGTH s.code + 200 < cs.code_heap_length)`` th
+  val th2 = DISCH ``~(LENGTH s.code + 200 < s.code_max_length)`` th
             |> SIMP_RULE std_ss [] |> UNDISCH_ALL
   val th2 = SPEC_COMPOSE_RULE [th2,zHEAP_TERMINATE_WITH_ERROR]
-  val th2 = DISCH ``my_imp (LENGTH s.code + 200 < cs.code_heap_length)
+  val th2 = DISCH ``my_imp (LENGTH s.code + 200 < s.code_max_length)
          (ic_Any_pre (x1,x2,x3,s,cs))`` th2 |> RW [GSYM SPEC_MOVE_COND]
   val (_,_,c,_) = dest_spec (concl th2)
   val th0 = MATCH_MP SPEC_SUBSET_CODE th1 |> SPEC c
@@ -13651,7 +13703,15 @@ val ic_Any_with_test = let
       (~b1 ==> SPEC m p c2 q2) ==>
       c2 SUBSET c1 ==>
       SPEC m p c1 (q1 \/ q2)``,
-    cheat);
+    Cases_on `b1` \\ fs []
+    \\ REPEAT STRIP_TAC
+    \\ `SEP_IMP q1 (q1 \/ q2)` by fs [SEP_IMP_def,SEP_DISJ_def]
+    \\ `SEP_IMP q2 (q1 \/ q2)` by fs [SEP_IMP_def,SEP_DISJ_def]
+    \\ IMP_RES_TAC SPEC_WEAKEN
+    \\ IMP_RES_TAC SPEC_ADD_CODE
+    \\ REPEAT (FIRST_X_ASSUM (MP_TAC o Q.SPEC `c1`))
+    \\ `c2 UNION c1 = c1` by (fs [SUBSET_DEF,EXTENSION] \\ METIS_TAC [])
+    \\ fs []);
   val th = MATCH_MP lemma (CONJ (DISCH_ALL th1) (DISCH_ALL th2))
   val goal = th |> concl |> dest_imp |> fst
   val lemma = prove(goal,
@@ -13759,7 +13819,7 @@ val ic_List_thm = prove(
   \\ fs [BlockList_def,install_x64_code_lists_def,x64_code_def]
   \\ REPEAT STRIP_TAC
   \\ FIRST_X_ASSUM MATCH_MP_TAC
-  \\ `LENGTH s.code + 200 < cs.code_heap_length` by
+  \\ `LENGTH s.code + 200 < s.code_max_length` by
         cheat (* from future space check *)
   \\ `LENGTH (x64 (LENGTH s.code) (num_bc (h1,h2,h3))) < 200` by
         fs [LENGTH_x64_LESS] \\ DECIDE_TAC);
@@ -16854,6 +16914,52 @@ val T_CONJ_def = Define `
 
 (* SPEC_1 theorem *)
 
+val SPEC_1_zBC_HEAP_THM = prove(
+  ``EVEN (w2n cb) /\ (cs.stack_trunk - n2w (8 * SUC (LENGTH stack)) = sb) ==>
+    !s1 s2.
+      bc_next s1 s2 ==> (s1.inst_length = x64_inst_length) /\
+      (!r. r IN FDOM f2 ==> if ev then ODD r else EVEN r) ==>
+      SPEC_1 X64_MODEL
+         (zBC_HEAP s1 (x,cs,stack,s,out) (cb,sb,ev,f2) *
+          zPC (cb + n2w (2 * s1.pc)) * ~zS)
+        ((cb + n2w (2 * s1.pc),x64 (2 * s1.pc) (THE (bc_fetch s1)))
+         INSERT code_abbrevs cs)
+        (zBC_HEAP s2 (x,cs,stack,s,out) (cb,sb,ev,f2) *
+         zPC (cb + n2w (2 * s2.pc)) * ~zS)
+        (zHEAP_ERROR cs)``,
+  cheat); (* exactly as zBC_HEAP_THM but with SPEC_1 instead of SPEC,
+             eventually zBC_HEAP_THM should prove this theorem *)
+
+val TEMPORAL_APPEND_CODE = prove(
+  ``TEMPORAL X64_MODEL ((w,xs ++ ys) INSERT s) t <=>
+    TEMPORAL X64_MODEL ((w,xs) INSERT (w + n2w (LENGTH xs),ys) INSERT s) t``,
+  fs [TEMPORAL_def,X64_MODEL_def,GSYM CODE_POOL_INSERT_INSERT]);
+
+val CODE_POOL_LEMMA = prove(
+  ``!c c' i. ?r. CODE_POOL i (c UNION c') = CODE_POOL i c * r``,
+  REPEAT STRIP_TAC \\ REWRITE_TAC [CODE_POOL_def,IMAGE_UNION,BIGUNION_UNION,STAR_def]
+  \\ Q.EXISTS_TAC `\s. s = BIGUNION (IMAGE i c') DIFF BIGUNION (IMAGE i c)`
+  \\ ONCE_REWRITE_TAC [FUN_EQ_THM] \\ SIMP_TAC std_ss []
+  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
+  \\ FULL_SIMP_TAC bool_ss [SPLIT_def,EXTENSION,IN_BIGUNION,IN_DIFF,
+       IN_UNION,DISJOINT_DEF,IN_INTER,NOT_IN_EMPTY] \\ METIS_TAC []);
+
+val TEMPORAL_EXTEND_CODE = prove(
+  ``TEMPORAL m c phi ==> !c1. TEMPORAL m (c UNION c1) phi``,
+  PairCases_on `m` \\ fs [TEMPORAL_def] \\ REPEAT STRIP_TAC
+  \\ `?r1. CODE_POOL m2 (c UNION c1) = CODE_POOL m2 c * r1` by
+        METIS_TAC [CODE_POOL_LEMMA]
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`state`,`seq'`,`r1 * r`])
+  \\ fs [STAR_ASSOC]);
+
+val TEMPORAL_SUBSET_CODE = prove(
+  ``TEMPORAL m c p /\ c SUBSET c1 ==> TEMPORAL m c1 p``,
+  REPEAT STRIP_TAC
+  \\ `c1 = c UNION c1` by (fs [SUBSET_DEF,EXTENSION] \\ METIS_TAC [])
+  \\ POP_ASSUM (fn th => ONCE_REWRITE_TAC [th])
+  \\ MATCH_MP_TAC (MP_CANON TEMPORAL_EXTEND_CODE)
+  \\ fs []);
+
 val zBC_HEAP_1 = prove(
   ``EVEN (w2n cb) /\ (cs.stack_trunk - n2w (8 * SUC (LENGTH stack)) = sb) ==>
     !s1 s2.
@@ -16866,7 +16972,17 @@ val zBC_HEAP_1 = prove(
          INSERT code_abbrevs cs)
         (zBC_HEAP s2 (x,cs,stack,s,out) (cb,sb,ev,f2) *
          zPC (cb + n2w (2 * s2.pc)) * ~zS) (zHEAP_ERROR cs)``,
-  cheat) (* same as above but with SPEC_1 instead of SPEC *)
+  REPEAT STRIP_TAC
+  \\ (MP_CANON SPEC_1_zBC_HEAP_THM
+      |> SPEC_ALL |> RW [GSYM AND_IMP_INTRO]
+      |> UNDISCH_ALL |> ASSUME_TAC)
+  \\ `?i. bc_fetch s1 = SOME i` by fs [bc_next_cases]
+  \\ fs [bc_fetch_def] \\ rfs []
+  \\ IMP_RES_TAC x64_code_EQ_x64 \\ fs []
+  \\ fs [TEMPORAL_APPEND_CODE,SPEC_1_def]
+  \\ IMP_RES_TAC TEMPORAL_SUBSET_CODE
+  \\ POP_ASSUM MATCH_MP_TAC
+  \\ fs [SUBSET_DEF])
   |> SIMP_RULE std_ss [PULL_FORALL] |> SPEC_ALL
   |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM PULL_FORALL,GSYM CONJ_ASSOC]
 
@@ -16875,47 +16991,32 @@ val SPEC_N_def = Define `
      TEMPORAL model code
        (T_IMPLIES (NOW pre) (T_OR_F (N_NEXT n (EVENTUALLY (NOW post))) err))`
 
-val zBC_HEAP_N = prove(
-  ``!n s1 s2.
-      NRC bc_next n s1 s2 ==> EVEN (w2n cb) /\
-      (cs.stack_trunk - n2w (8 * SUC (LENGTH stack)) = sb) /\
-      (s1.inst_length = x64_inst_length) /\
-      (!r. r IN FDOM f2 ==> if ev then ODD r else EVEN r) ==>
-      SPEC_N n X64_MODEL
-        (zBC_HEAP s1 (x,cs,stack,s,out) (cb,sb,ev,f2) *
-         zPC (cb + n2w (2 * s1.pc)) * ~zS)
-        ((cb,x64_code 0 s1.code) INSERT code_abbrevs cs)
-        (zBC_HEAP s2 (x,cs,stack,s,out) (cb,sb,ev,f2) *
-         zPC (cb + n2w (2 * s2.pc)) * ~zS) (zHEAP_ERROR cs)``,
-  cheat) (* req some lemmas, but otherwise easy induction *)
+val SPEC_1_EQ_SPEC_N = prove(
+  ``SPEC_1 m p c q e <=> SPEC_N 1 m p c q e``,
+  EVAL_TAC);
 
-val T_OR_F_thm = prove(
-  ``T_OR_F p post = T_DISJ p (EVENTUALLY (NOW post))``,
-  FULL_SIMP_TAC std_ss [FUN_EQ_THM,T_OR_F_def,T_DISJ_def]);
-
-val SPEC_IMP_SPEC_N = prove(
-  ``SPEC model p c (q \/ err) ==> SPEC_N 0 model p c q err``,
-  fs [SPEC_EQ_TEMPORAL,SPEC_N_def,N_NEXT_def,T_OR_F_thm,TEMPORAL_def]
-  \\ PairCases_on `model` \\ fs [TEMPORAL_def,LET_DEF]
-  \\ fs [T_IMPLIES_def,FUN_EQ_THM,EVENTUALLY_def,T_DISJ_def,NOW_def,SEP_CLAUSES]
-  \\ REVERSE (REPEAT STRIP_TAC) THEN1 METIS_TAC []
-  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`state`,`seq'`,`r`]) \\ fs []
-  \\ REVERSE (REPEAT STRIP_TAC) THEN1 METIS_TAC []
-  \\ fs [SEP_REFINE_def,SEP_DISJ_def] \\ METIS_TAC []);
-
-val SPEC_N_Stop =
-  MATCH_MP SPEC_IMP_SPEC_N (UNDISCH zBC_HEAP_Stop)
-
-val N_NEXT_thm = prove(
-  ``!k p f s. N_NEXT k p f s = p f (\n. s (n + k))``,
-  Induct \\ fs [N_NEXT_def,NEXT_def,ADD1,AC ADD_COMM ADD_ASSOC]
-  \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs []);
+val TEMPORAL_IMP_T_OR_F_EVENTUALLY = store_thm("TEMPORAL_IMP_T_OR_F_EVENTUALLY",
+  ``TEMPORAL model code (T_IMPLIES p1 (T_OR_F (EVENTUALLY p1) p2))``,
+  PairCases_on`model` >>
+  rw[TEMPORAL_def,T_IMPLIES_def,T_OR_F_def,EVENTUALLY_def] >>
+  disj1_tac >>
+  qexists_tac`0` >>
+  simp[ETA_AX])
 
 val rel_sequence_shift = prove(
   ``!n seq' s. rel_sequence n seq' s ==> !i. rel_sequence n (\j. seq' (i + j)) (seq' i)``,
   REWRITE_TAC [rel_sequence_def] \\ REPEAT STRIP_TAC \\ SIMP_TAC std_ss []
   \\ Cases_on `?s. n (seq' (i + n')) s` \\ ASM_REWRITE_TAC []
   \\ FULL_SIMP_TAC std_ss [ADD1,ADD_ASSOC] \\ METIS_TAC []);
+
+val N_NEXT_thm = prove(
+  ``!k p f s. N_NEXT k p f s = p f (\n. s (n + k))``,
+  Induct \\ fs [N_NEXT_def,NEXT_def,ADD1,AC ADD_COMM ADD_ASSOC]
+  \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs []);
+
+val T_OR_F_thm = prove(
+  ``T_OR_F p post = T_DISJ p (EVENTUALLY (NOW post))``,
+  FULL_SIMP_TAC std_ss [FUN_EQ_THM,T_OR_F_def,T_DISJ_def]);
 
 val SPEC_N_COMPOSE = prove(
   ``SPEC_N m model p2 c p3 err ==>
@@ -16938,6 +17039,63 @@ val SPEC_N_COMPOSE = prove(
   THEN1 (DISJ2_TAC \\ METIS_TAC [])
   THEN1 (DISJ2_TAC \\ Q.EXISTS_TAC `k+k'+n` \\ fs [AC ADD_COMM ADD_ASSOC])
   THEN1 (DISJ2_TAC \\ METIS_TAC []));
+
+val SPEC_N_1_IMP_SUC = store_thm("SPEC_N_1_IMP_SUC",
+  ``!n model pre1 pre2 post code err.
+      SPEC_N n model pre2 code post err /\ SPEC_1 model pre1 code pre2 err ==>
+      SPEC_N (SUC n) model pre1 code post err``,
+  REPEAT STRIP_TAC \\ fs [ADD1,SPEC_1_EQ_SPEC_N]
+  \\ IMP_RES_TAC SPEC_N_COMPOSE);
+
+val zBC_HEAP_N = prove(
+  ``!n s1 s2.
+      NRC bc_next n s1 s2 ==> EVEN (w2n cb) /\
+      (cs.stack_trunk - n2w (8 * SUC (LENGTH stack)) = sb) /\
+      (s1.inst_length = x64_inst_length) /\
+      (!r. r IN FDOM f2 ==> if ev then ODD r else EVEN r) ==>
+      SPEC_N n X64_MODEL
+        (zBC_HEAP s1 (x,cs,stack,s,out) (cb,sb,ev,f2) *
+         zPC (cb + n2w (2 * s1.pc)) * ~zS)
+        ((cb,x64_code 0 s1.code) INSERT code_abbrevs cs)
+        (zBC_HEAP s2 (x,cs,stack,s,out) (cb,sb,ev,f2) *
+         zPC (cb + n2w (2 * s2.pc)) * ~zS) (zHEAP_ERROR cs)``,
+  Induct >- (
+    rw[NRC,SPEC_N_def,N_NEXT_def] >>
+    MATCH_ACCEPT_TAC TEMPORAL_IMP_T_OR_F_EVENTUALLY ) >>
+  rw[NRC] >>
+  qmatch_assum_rename_tac`bc_next s1 sb` >>
+  first_x_assum(qspecl_then[`sb`,`s2`]mp_tac) >>
+  MATCH_MP_TAC IMP_IMP >>
+  conj_tac >- rw[] >>
+  MATCH_MP_TAC IMP_IMP >>
+  conj_tac >- (
+    rw[] >>
+    imp_res_tac NRC_RTC >>
+    imp_res_tac RTC_bc_next_preserves >>
+    imp_res_tac bc_next_preserves_inst_length >>
+    PROVE_TAC[] ) >>
+  strip_tac >>
+  HO_MATCH_MP_TAC SPEC_N_1_IMP_SUC >>
+  qmatch_assum_abbrev_tac`SPEC_N n model pre code post err` >>
+  qexists_tac`pre` >>
+  conj_tac >- (
+    METIS_TAC[bc_next_preserves_code] ) >>
+  UNABBREV_ALL_TAC >>
+  MATCH_MP_TAC zBC_HEAP_1 >>
+  rw[])
+
+val SPEC_IMP_SPEC_N = prove(
+  ``SPEC model p c (q \/ err) ==> SPEC_N 0 model p c q err``,
+  fs [SPEC_EQ_TEMPORAL,SPEC_N_def,N_NEXT_def,T_OR_F_thm,TEMPORAL_def]
+  \\ PairCases_on `model` \\ fs [TEMPORAL_def,LET_DEF]
+  \\ fs [T_IMPLIES_def,FUN_EQ_THM,EVENTUALLY_def,T_DISJ_def,NOW_def,SEP_CLAUSES]
+  \\ REVERSE (REPEAT STRIP_TAC) THEN1 METIS_TAC []
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`state`,`seq'`,`r`]) \\ fs []
+  \\ REVERSE (REPEAT STRIP_TAC) THEN1 METIS_TAC []
+  \\ fs [SEP_REFINE_def,SEP_DISJ_def] \\ METIS_TAC []);
+
+val SPEC_N_Stop =
+  MATCH_MP SPEC_IMP_SPEC_N (UNDISCH zBC_HEAP_Stop)
 
 val zBYTECODE_DIVERGED_def = Define `
   zBYTECODE_DIVERGED output (cs,cb) =
@@ -17063,7 +17221,6 @@ val full_s_with_stop_def = Define `
     full_s init with
          local := (full_s init).local with stop_addr := stop_addr`;
 
-
 val set_ref_addr = let
   val th1 =
     SPEC_COMPOSE_RULE [zHEAP_Num1_globals_count,zHEAP_Num2_0,
@@ -17117,7 +17274,696 @@ val zBC_HEAP_INIT = let
     \\ REPEAT STRIP_TAC \\ fs [FUNION_DEF,FAPPLY_FUPDATE_THM]
     \\ fs [EXTENSION] \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC \\ fs []);
   val th = MP th lemma
+  val th = th |> SIMP_RULE std_ss [SPEC_MOVE_COND]
+  val goal = th |> concl |> dest_imp |> fst
+  val th = MP th (RW [] (EVAL goal))
   in th end
+
+val standalone_bc_init_state_def = Define `
+  standalone_bc_init_state init_pc bc_code =
+    init_bc_state (ARB with <| pc := init_pc;
+                               code := bc_code;
+                               inst_length := x64_inst_length |>)`;
+
+val standalone_bc_init_state_lemma = prove(
+  ``((standalone_bc_init_state init_pc bc_code).inst_length = x64_inst_length) /\
+    ((standalone_bc_init_state init_pc bc_code).code = bc_code) /\
+    ((standalone_bc_init_state init_pc bc_code).pc = init_pc)``,
+  EVAL_TAC);
+
+val jump = let
+  val ((th,_,_),_) = prog_x64Lib.x64_spec "48E9"
+  val th = th |> RW [GSYM IMM32_def] |> Q.INST [`rip`|->`p`]
+  in th end
+
+val SEP_REFINE_DISJ = prove(
+  ``SEP_REFINE (p \/ q) m1 m2 s <=>
+    SEP_REFINE q m1 m2 s \/ SEP_REFINE p m1 m2 s``,
+  fs [SEP_REFINE_def,SEP_DISJ_def] \\ METIS_TAC []);
+
+val TEMPORAL_LEMMA = prove(
+  ``TEMPORAL m (c1 UNION c2) (T_IMPLIES (NOW p) (T_DISJ q (EVENTUALLY (NOW err)))) ==>
+    SPEC m i (c1 UNION c2) (p \/ err) ==>
+    TEMPORAL m (c1 UNION c2) (T_IMPLIES (NOW i) (T_DISJ (EVENTUALLY q)
+                                            (EVENTUALLY (NOW err))))``,
+  fs [SPEC_EQ_TEMPORAL]
+  \\ Q.SPEC_TAC (`c1 UNION c2`,`c`)
+  \\ REPEAT STRIP_TAC
+  \\ PairCases_on `m`
+  \\ fs [TEMPORAL_def,LET_DEF]
+  \\ fs [T_IMPLIES_def,T_DISJ_def,EVENTUALLY_def,NOW_def]
+  \\ fs [N_NEXT_thm,EVENTUALLY_def,NOW_def]
+  \\ REVERSE (REPEAT STRIP_TAC) THEN1 METIS_TAC []
+  \\ Q.MATCH_ASSUM_RENAME_TAC `rel_sequence m1 s state`
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`state`,`s`,`r`]) \\ fs []
+  \\ REVERSE (REPEAT STRIP_TAC) THEN1 METIS_TAC []
+  \\ fs [SEP_CLAUSES,SEP_REFINE_DISJ] THEN1 METIS_TAC []
+  \\ IMP_RES_TAC rel_sequence_shift
+  \\ POP_ASSUM (ASSUME_TAC o Q.SPEC `k`)
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`(s (k:num))`,`\j. s (k + j:num)`,`r`])
+  \\ fs [] \\ REPEAT STRIP_TAC
+  THEN1 (DISJ1_TAC \\ Q.EXISTS_TAC `k` \\ fs [AC ADD_ASSOC ADD_COMM])
+  \\ METIS_TAC []);
+
+val TEMPORAL_THM = prove(
+  ``TEMPORAL m c2 (T_IMPLIES (NOW p) (T_DISJ q (EVENTUALLY (NOW err)))) ==>
+    SPEC m i c1 (p \/ err) ==>
+    TEMPORAL m (c1 UNION c2) (T_IMPLIES (NOW i)
+      (T_DISJ (EVENTUALLY q) (EVENTUALLY (NOW err))))``,
+  METIS_TAC [TEMPORAL_LEMMA,TEMPORAL_EXTEND_CODE,SPEC_ADD_CODE,UNION_COMM]);
+
+val EVENTUALLY_zBYTECODE_DIVERGED = prove(
+  ``EVENTUALLY (zBYTECODE_DIVERGED y (x,z)) =
+    zBYTECODE_DIVERGED y (x,z)``,
+  fs [EVENTUALLY_def,FUN_EQ_THM,zBYTECODE_DIVERGED_def,ALWAYS_def,EVENTUALLY_def]
+  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC THEN1
+   (POP_ASSUM (MP_TAC o Q.SPEC `k'`) \\ fs []
+    \\ REPEAT STRIP_TAC \\ Q.EXISTS_TAC `k + k''`
+    \\ fs [AC ADD_COMM ADD_ASSOC])
+  \\ Q.EXISTS_TAC `0` \\ fs []);
+
+val zSTANDALONE_DIVERGES = curry save_thm "zSTANDALONE_DIVERGES" let
+  val th = zBC_HEAP_INIT
+  val cb = get_pc th |> rand
+  val cb = ``^cb + 6w``
+  val f2 = find_term (can (match_term ``FEMPTY |+ (1:num,xxx:'a)``)) (concl th)
+  val lemma = prove(
+    ``EVEN (w2n ^cb) = EVEN (w2n (p:word64))``,
+    SIMP_TAC std_ss [EVEN_w2n] \\ blastLib.BBLAST_TAC)
+    |> SIMP_RULE std_ss [word_arith_lemma1,ADD_ASSOC]
+  val s = th |> concl |> find_term (can (match_term ``full_s_with_stop ss ppp``))
+  val th = zBC_HEAP_DIVERGES
+    |> Q.INST [`ev`|->`T`,`stack`|->`[]`,`out`|->`""`,`x`|->`RefPtr 1`,
+               `cs`|->`full_cs init p`,`s`|->`^s`]
+    |> DISCH_ALL |> Q.GEN `sb` |> SIMP_RULE std_ss [LENGTH]
+    |> Q.GEN `cb` |> SPEC cb
+    |> Q.GEN `f2` |> SPEC f2
+    |> CONV_RULE (RATOR_CONV (SIMP_CONV std_ss
+            [FDOM_FUPDATE,FDOM_FEMPTY,IN_INSERT,NOT_IN_EMPTY]))
+    |> SIMP_RULE std_ss [word_arith_lemma1,ADD_ASSOC]
+    |> Q.INST [`s1`|->`standalone_bc_init_state init_pc bc_code`]
+    |> RW [standalone_bc_init_state_lemma,lemma]
+    |> SIMP_RULE std_ss [AC STAR_COMM STAR_ASSOC]
+  val th1 = SPEC_COMPOSE_RULE [zBC_HEAP_INIT,jump]
+    |> SIMP_RULE std_ss [word_arith_lemma1,ADD_ASSOC]
+    |> SIMP_RULE std_ss [AC STAR_COMM STAR_ASSOC]
+    |> Q.INST [`cs`|->`full_cs init p`,`cb`|->`^cb`]
+    |> SIMP_RULE std_ss [word_arith_lemma1,ADD_ASSOC]
+    |> Q.INST [`i`|->`<| pc := init_pc; code := bc_code;
+                         inst_length := x64_inst_length |>`]
+    |> RW [GSYM standalone_bc_init_state_def]
+    |> DISCH ``SIGN_EXTEND 32 64 (w2n (imm32:word32)) = 2 * init_pc``
+    |> SIMP_RULE std_ss [word_arith_lemma1,ADD_ASSOC]
+  val thA = MATCH_MP TEMPORAL_THM (th |> UNDISCH_ALL)
+  in MATCH_MP thA (UNDISCH_ALL th1)
+     |> RW [EVENTUALLY_zBYTECODE_DIVERGED]
+     |> UNDISCH_ALL
+     |> DISCH ``bc_diverges (standalone_bc_init_state init_pc bc_code)`` end;
+
+val NEXT_N_thm = prove(
+  ``!k p f s. N_NEXT k p f s = p f (\n. s (n + k))``,
+  Induct \\ fs [N_NEXT_def]
+  \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [NEXT_def,ADD1,ADD_ASSOC]);
+
+val SPEC_N_IMP_SPEC = store_thm("SPEC_N_IMP_SPEC",
+  ``SPEC_N n model pre code post err ==>
+    SPEC model pre code (post \/ err)``,
+  `?to_set next instr less allow. model = (to_set,next,instr,less,allow)`
+           by METIS_TAC [PAIR]
+  \\ FULL_SIMP_TAC std_ss [SPEC_N_def,SPEC_EQ_TEMPORAL,TEMPORAL_def,LET_DEF]
+  \\ REPEAT STRIP_TAC \\ RES_TAC
+  \\ FULL_SIMP_TAC std_ss [T_IMPLIES_def] \\ REPEAT STRIP_TAC \\ RES_TAC
+  \\ FULL_SIMP_TAC std_ss [T_OR_F_def]
+  \\ FULL_SIMP_TAC std_ss [NEXT_def,EVENTUALLY_def,N_NEXT_thm]
+  THEN1 (Q.EXISTS_TAC `k+n` \\ FULL_SIMP_TAC std_ss [ADD_ASSOC]
+    \\ POP_ASSUM MP_TAC
+    \\ SIMP_TAC std_ss [NOW_def,SEP_REFINE_def,SEP_CLAUSES]
+    \\ SIMP_TAC std_ss [SEP_DISJ_def] \\ METIS_TAC [])
+  THEN1 (Q.EXISTS_TAC `k` \\ FULL_SIMP_TAC std_ss [ADD_ASSOC]
+    \\ POP_ASSUM MP_TAC
+    \\ SIMP_TAC std_ss [NOW_def,SEP_REFINE_def,SEP_CLAUSES]
+    \\ SIMP_TAC std_ss [SEP_DISJ_def] \\ METIS_TAC []));
+
+val bc_terminates_def = Define `
+  bc_terminates s1 s2 =
+    ?n b. NRC bc_next n s1 s2 /\ (bc_fetch s2 = SOME (Stop b))`;
+
+val SPEC_EXTEND_CODE = prove(
+  ``SPEC X64_MODEL p ((a + n2w n,xs) INSERT code) q ==>
+    !zs.
+      (?ys1 ys2. (zs = (ys1 ++ xs ++ ys2)) /\ (n = LENGTH ys1)) ==>
+      SPEC X64_MODEL p ((a,zs) INSERT code) q``,
+  SRW_TAC [] []
+  \\ MATCH_MP_TAC (MP_CANON SPEC_X64_MERGE_CODE |> GEN_ALL) \\ fs []
+  \\ MATCH_MP_TAC (MP_CANON SPEC_X64_MERGE_CODE |> GEN_ALL) \\ fs []
+  \\ IMP_RES_TAC (MP_CANON SPEC_SUBSET_CODE)
+  \\ POP_ASSUM MATCH_MP_TAC
+  \\ fs [SUBSET_DEF]);
+
+val SPEC_ADD_DISJ_BOTH = prove(
+  ``SPEC m p c q ==> !r. SPEC m (p \/ r) c (q \/ r)``,
+  fs [SPEC_PRE_DISJ,SPEC_ADD_DISJ] \\ REPEAT STRIP_TAC
+  \\ `SEP_IMP r (q \/ r)` by fs [SEP_IMP_def,SEP_DISJ_def]
+  \\ METIS_TAC [SPEC_REFL,SPEC_WEAKEN]);
+
+val NRC_bc_next_code = prove(
+  ``!n s1 s2. NRC bc_next n s1 s2 ==> (s1.code = s2.code) /\
+                                      (s1.inst_length = s2.inst_length)``,
+  Induct \\ fs [NRC,PULL_EXISTS] \\ REPEAT STRIP_TAC \\ RES_TAC
+  \\ IMP_RES_TAC bytecodeExtraTheory.bc_next_preserves_code
+  \\ IMP_RES_TAC bytecodeExtraTheory.bc_next_preserves_inst_length
+  \\ METIS_TAC []);
+
+val NRC_bc_next_standalone_bc_init_state = prove(
+  ``NRC bc_next n (standalone_bc_init_state init_pc bc_code) s2 ==>
+    (s2.code = bc_code) /\
+    (s2.inst_length = x64_inst_length)``,
+  REPEAT STRIP_TAC \\ IMP_RES_TAC NRC_bc_next_code
+  \\ fs [standalone_bc_init_state_def,init_bc_state_def]);
+
+val NRC_lemma = prove(
+  ``((((?b. bc_fetch s2 = SOME (Stop b)) /\
+     ?n. NRC bc_next n (standalone_bc_init_state init_pc bc_code) s2) /\
+     (s2.code = bc_code)) /\
+     (s2.inst_length = x64_inst_length) ==> t) ==>
+    (bc_terminates (standalone_bc_init_state init_pc bc_code) s2 ==> t)``,
+  Cases_on `t` \\ fs []
+  \\ REPEAT STRIP_TAC
+  \\ fs [bc_terminates_def] \\ fs []
+  \\ IMP_RES_TAC NRC_bc_next_standalone_bc_init_state
+  \\ METIS_TAC []);
+
+val zSTANDALONE_TERMINATES = curry save_thm "zSTANDALONE_TERMINATES" let
+  val th1 = zBC_HEAP_N
+    |> Q.SPECL [`n`,`standalone_bc_init_state init_pc bc_code`,`s2`]
+    |> UNDISCH_ALL
+    |> MATCH_MP SPEC_N_IMP_SPEC |> DISCH_ALL
+    |> RW [standalone_bc_init_state_lemma]
+    |> Q.INST [`stack`|->`[]`]
+    |> RW [LENGTH,ADD1] |> SIMP_RULE std_ss []
+    |> UNDISCH_ALL
+  val th2 =
+    zBC_HEAP_Stop
+    |> Q.INST [`s1`|->`s2`,`s2`|->`s3`,`stack`|->`[]`]
+    |> UNDISCH_ALL
+  val th3 =
+    MATCH_MP SPEC_EXTEND_CODE th2 |> Q.SPEC `x64_code 0 bc_code`
+    |> DISCH_ALL |> SIMP_RULE std_ss []
+    |> SIMP_RULE std_ss [AND_IMP_INTRO]
+  val goal = concl th3 |> dest_imp |> fst
+  val goal =
+    ``(bc_fetch s2 = SOME (Stop b)) /\ (s2.code = bc_code) /\
+      (s2.inst_length = x64_inst_length) ==> ^goal``
+  val lemma = prove(goal,
+    fs [bc_fetch_def] \\ REPEAT STRIP_TAC
+    \\ MATCH_MP_TAC x64_code_EQ_x64 \\ fs [])
+  val th4 = MP th3 (lemma |> UNDISCH)
+  val set_lemma = prove(
+    ``x INSERT (s UNION (x INSERT s)) = x INSERT s``,
+    fs [EXTENSION] \\ METIS_TAC [])
+  val th5 = SPEC_COMPOSE_RULE [th1,th4] |> RW [set_lemma]
+  val th = zBC_HEAP_INIT
+  val tm1 = find_term (can (match_term ``zBC_HEAP x1 x2 x3``)) (concl th)
+  val tm2 = find_term (can (match_term ``zBC_HEAP x1 x2 x3``)) (concl th5)
+  val x1 = tm1 |> rator |> rand
+  val x2 = tm2 |> rator |> rand
+  val y1 = tm1 |> rand
+  val y2 = tm2 |> rand
+  val th6 = th5 |> INST (fst (match_term x2 x1)) |> INST (fst (match_term y2 y1))
+  val cb = get_pc th |> rand
+  val cb = ``^cb + 6w``
+  val f2 = find_term (can (match_term ``FEMPTY |+ (1:num,xxx:'a)``)) (concl th)
+  val lemma = prove(
+    ``EVEN (w2n ^cb) = EVEN (w2n (p:word64))``,
+    SIMP_TAC std_ss [EVEN_w2n] \\ blastLib.BBLAST_TAC)
+    |> SIMP_RULE std_ss [word_arith_lemma1,ADD_ASSOC]
+  val s = th |> concl |> find_term (can (match_term ``full_s_with_stop ss ppp``))
+  val th = th6
+    |> Q.INST [`ev`|->`T`,`stack`|->`[]`,`out`|->`""`,`x`|->`RefPtr 1`,
+               `cs`|->`full_cs init p`,`s`|->`^s`,`cb:word64`|->`^cb`]
+    |> DISCH_ALL |> RW [AND_IMP_INTRO]
+    |> CONV_RULE (RATOR_CONV (SIMP_CONV (srw_ss())
+            [FDOM_FUPDATE,FDOM_FEMPTY,IN_INSERT,NOT_IN_EMPTY]))
+    |> SIMP_RULE std_ss [word_arith_lemma1,ADD_ASSOC]
+    |> RW [standalone_bc_init_state_lemma,lemma]
+    |> SIMP_RULE std_ss [AC STAR_COMM STAR_ASSOC]
+    |> UNDISCH_ALL
+  val th1 = SPEC_COMPOSE_RULE [zBC_HEAP_INIT,jump]
+    |> SIMP_RULE std_ss [word_arith_lemma1,ADD_ASSOC]
+    |> SIMP_RULE std_ss [AC STAR_COMM STAR_ASSOC]
+    |> Q.INST [`cs`|->`full_cs init p`,`cb`|->`^cb`]
+    |> SIMP_RULE std_ss [word_arith_lemma1,ADD_ASSOC]
+    |> Q.INST [`i`|->`<| pc := init_pc; code := bc_code;
+                         inst_length := x64_inst_length |>`]
+    |> RW [GSYM standalone_bc_init_state_def]
+    |> DISCH ``SIGN_EXTEND 32 64 (w2n (imm32:word32)) = 2 * init_pc``
+    |> SIMP_RULE std_ss [word_arith_lemma1,ADD_ASSOC]
+  val thA = SPEC_COMPOSE_RULE [UNDISCH_ALL th1,th]
+     |> RW [EVAL ``(full_s_with_stop init w).local.stop_addr``]
+  val thB =
+    thA |> SIMP_RULE std_ss [zBC_HEAP_def,LET_DEF,MAP,HD,TL,MAP_APPEND]
+        |> CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss()) []))
+        |> SIMP_RULE std_ss [SEP_CLAUSES]
+  val tm1 = thB |> concl |> rand
+  val tm2 = zHEAP_TERMINATE |> concl
+  val p1 = find_term (can (match_term ``zHEAP pat``)) tm1
+  val p2 = find_term (can (match_term ``zHEAP pat``)) tm2
+  val (i,_) = match_term p2 p1
+  val p = get_pc thB |> rand
+  val th1 = INST i (zHEAP_TERMINATE |> Q.INST [`p`|->`^p`])
+    |> CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss()) []))
+    |> RW [EVAL ``(full_s_with_stop init w).local.printing_on``,
+           EVAL ``1w = 0w:word64``]
+    |> SIMP_RULE std_ss [word_arith_lemma1]
+    |> Q.GENL [`x3`,`x2`]
+    |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
+  val th2 =
+    MATCH_MP SPEC_ADD_DISJ_BOTH th1
+    |> Q.SPEC `zHEAP_ERROR (full_cs init p)`
+    |> SIMP_RULE std_ss [SEP_CLAUSES]
+  val f = SIMP_RULE (srw_ss()++star_ss) []
+          o RW [EVAL ``(full_s_with_stop init w).local.printing_on``,
+             EVAL ``1w = 0w:word64``]
+  val comp = ISPEC ``X64_MODEL`` SPEC_COMPOSE
+  val th = MATCH_MP comp (CONJ (thB |> f) (th2 |> f))
+  val th = th
+    |> DISCH ``(s2:bc_state).inst_length = x64_inst_length``
+    |> DISCH ``(s2:bc_state).code = bc_code``
+    |> DISCH ``NRC bc_next n (standalone_bc_init_state init_pc bc_code) s2``
+    |> DISCH ``bc_fetch s2 = SOME (Stop b)``
+    |> Q.GENL [`n`,`b`] |> SIMP_RULE std_ss [GSYM PULL_EXISTS,AND_IMP_INTRO]
+    |> MATCH_MP NRC_lemma
+  in th end;
+
+val bc_executes_ok_def = Define `
+  bc_executes_ok s <=>
+    bc_diverges s \/ ?s1. bc_terminates s s1`;
+
+val T_DISJ_EVENTUALLY = prove(
+  ``T_DISJ (EVENTUALLY p) (EVENTUALLY q) =
+    EVENTUALLY (T_DISJ p q)``,
+  fs [T_DISJ_def,EVENTUALLY_def,FUN_EQ_THM] \\ METIS_TAC []);
+
+val SPEC_IMP_TEMPORAL = prove(
+  ``SPEC m p c (q \/ q1) ==>
+    TEMPORAL m c (T_IMPLIES (NOW p) (T_DISJ (EVENTUALLY (NOW q))
+      (EVENTUALLY (NOW q1))))``,
+  fs [T_DISJ_EVENTUALLY,SPEC_EQ_TEMPORAL]
+  \\ PairCases_on `m`
+  \\ fs [TEMPORAL_def,LET_DEF,T_IMPLIES_def,EVENTUALLY_def,
+         NOW_def,SEP_REFINE_def,T_DISJ_def,SEP_CLAUSES]
+  \\ fs [SEP_DISJ_def] \\ METIS_TAC []);
+
+val T_DISJ_COMM = prove(
+  ``T_DISJ p q = T_DISJ q p``,
+  fs [FUN_EQ_THM,T_DISJ_def, AC DISJ_COMM DISJ_ASSOC]);
+
+val combine_lemma = prove(
+  ``(!s2.
+       bc_terminates (standalone_bc_init_state init_pc bc_code) s2 ==>
+       TEMPORAL m c1
+         (T_IMPLIES (NOW (INIT_STATE init * (~zS * zPC p)))
+           (EVENTUALLY
+              (NOW
+                 (zHEAP_OUTPUT (full_cs init p,s2.output) \/
+                  zHEAP_ERROR (full_cs init p)))))) /\
+    (bc_diverges (standalone_bc_init_state init_pc bc_code) ==>
+     TEMPORAL m c2
+       (T_IMPLIES (NOW (INIT_STATE init * (~zS * zPC p)))
+        (T_DISJ (zBYTECODE_DIVERGED "" (full_cs init p,w))
+           (EVENTUALLY (NOW (zHEAP_ERROR (full_cs init p))))))) ==>
+    (bc_executes_ok (standalone_bc_init_state init_pc bc_code) ==>
+     TEMPORAL m (c1 UNION c2)
+       (T_IMPLIES (NOW (INIT_STATE init * (~zS * zPC p)))
+         (T_DISJ (EVENTUALLY (NOW (zHEAP_ERROR (full_cs init p))))
+                 (if bc_diverges (standalone_bc_init_state init_pc bc_code) then
+                    (zBYTECODE_DIVERGED "" (full_cs init p,w))
+                  else (EVENTUALLY (NOW (SEP_EXISTS s2.
+                    zHEAP_OUTPUT (full_cs init p,s2.output) *
+                    cond (bc_terminates
+               (standalone_bc_init_state init_pc bc_code) s2))))))))``,
+  Cases_on `bc_diverges (standalone_bc_init_state init_pc bc_code)` \\ fs []
+  \\ REPEAT STRIP_TAC THEN1
+   (ONCE_REWRITE_TAC [T_DISJ_COMM]
+    \\ ONCE_REWRITE_TAC [UNION_COMM]
+    \\ MATCH_MP_TAC (MP_CANON TEMPORAL_EXTEND_CODE) \\ fs [])
+  \\ REPEAT STRIP_TAC
+  \\ fs [bc_executes_ok_def] \\ fs []
+  \\ RES_TAC \\ fs [GSYM SPEC_EQ_TEMPORAL]
+  \\ MATCH_MP_TAC SPEC_IMP_TEMPORAL
+  \\ MATCH_MP_TAC (MP_CANON SPEC_ADD_CODE)
+  \\ IMP_RES_TAC SPEC_WEAKEN \\ POP_ASSUM MATCH_MP_TAC
+  \\ fs [SEP_IMP_def,SEP_CLAUSES,SEP_EXISTS_THM]
+  \\ REPEAT STRIP_TAC
+  \\ Q.EXISTS_TAC `s1` \\ fs [SEP_CLAUSES]
+  \\ fs [SEP_DISJ_def]);
+
+val init_pc_bound = prove(
+  ``init_pc < 2**30 ==>
+    (SIGN_EXTEND 32 64 ((w2n:word32->num) (n2w (2 * init_pc))) = 2 * init_pc)``,
+  fs [n2w_w2n] \\ REPEAT STRIP_TAC
+  \\ `(2 * init_pc) < 2147483648` by DECIDE_TAC
+  \\ `(2 * init_pc) < 4294967296` by DECIDE_TAC
+  \\ fs [bitTheory.SIGN_EXTEND_def,bitTheory.BIT_def,bitTheory.BITS_THM,LET_DEF]
+  \\ IMP_RES_TAC LESS_DIV_EQ_ZERO \\ fs [])
+
+fun standalone_expand_code th = let
+  val tm = th |> concl |> rator |> rand
+  val lemma =
+    (SIMP_CONV (srw_ss()) [fetch "-" "full_cs_def",
+       code_abbrevs_def,full_code_abbrevs_def]
+     THENC REWRITE_CONV [all_code_abbrevs,word_arith_lemma1,
+             INSERT_UNION_EQ,UNION_EMPTY]
+     THENC SIMP_CONV std_ss []) tm
+  val th = th |> RW1 [lemma]
+  in th end
+
+val zSTANDALONE_CORRECT = curry save_thm "zSTANDALONE_CORRECT" let
+  val th1 =
+    zSTANDALONE_TERMINATES
+    |> RW [SPEC_EQ_TEMPORAL]
+    |> Q.GEN `s2`
+  val th2 = zSTANDALONE_DIVERGES
+  val th = MATCH_MP combine_lemma (CONJ th1 th2)
+  val th = th
+    |> DISCH ``SIGN_EXTEND 32 64 (w2n (imm32:word32)) = 2 * init_pc``
+    |> Q.INST [`imm32`|->`n2w (2 * init_pc)`]
+    |> (fn th => MATCH_MP th (UNDISCH init_pc_bound))
+    |> UNDISCH_ALL
+    |> standalone_expand_code
+    |> DISCH_ALL
+  in th end;
+
+
+open repl_funTheory
+open repl_funProofTheory
+
+val x64_repl_implementation_def = Define `
+  x64_repl_implementation = ARB`;
+
+val diverges_def = Define `
+  (diverges (Result x y) = diverges y) /\
+  (diverges Terminates = F) /\
+  (diverges Diverges = T)`
+
+val repl_output_def = Define `
+  (repl_output (Result x y) = x ++ repl_output y) /\
+  (repl_output Terminates = "") /\
+  (repl_output Diverges = "")`
+
+val x64_repl_implementation_thm = prove(
+  ``(basis_repl_fun init.init_input = (output,T)) ==>
+    EVEN (w2n p) ==>
+    TEMPORAL X64_MODEL x64_repl_implementation
+      (T_IMPLIES (NOW (INIT_STATE init * (¬zS * zPC p)))
+        (T_DISJ (EVENTUALLY (NOW (zHEAP_ERROR (full_cs init p))))
+           (if diverges output then
+              zBYTECODE_DIVERGED (repl_output output) (full_cs init p,p)
+            else
+              EVENTUALLY
+                (NOW (zHEAP_OUTPUT (full_cs init p,repl_output output))))))``,
+  cheat);
+
+val T_BOOL_def = Define `T_BOOL b f s = b`
+
+val T_EXISTS = new_binder_definition("T_EXISTS",
+  ``($T_EXISTS) = \g f s. ?y. g y f s``);
+
+val SND_basis_repl_fun = prove(
+  ``SND (basis_repl_fun input)``,
+  MP_TAC (Q.SPEC `input` basis_repl_fun_thm)
+  \\ Cases_on `basis_repl_fun input` \\ fs [LET_DEF] \\ SRW_TAC [] []);
+
+val x64_repl_implementation_lemma =
+  x64_repl_implementation_thm
+  |> ONCE_REWRITE_RULE [GSYM PAIR]
+  |> PURE_REWRITE_RULE [PAIR_EQ]
+  |> Q.GEN `output`
+  |> SIMP_RULE std_ss [SND_basis_repl_fun]
+
+val TEMPORAL_IMP = prove(
+  ``(!f s. q1 f s ==> q2 f s) ==>
+    TEMPORAL m code (T_IMPLIES p q1) ==>
+    TEMPORAL m code (T_IMPLIES p q2)``,
+  PairCases_on `m` \\ fs [TEMPORAL_def,T_IMPLIES_def] \\ METIS_TAC [])
+
+val zREPL_CORRECT = store_thm("zREPL_CORRECT",
+  ``EVEN (w2n p) ==>
+    TEMPORAL X64_MODEL x64_repl_implementation
+      (T_IMPLIES (NOW (INIT_STATE init * (¬zS * zPC p)))
+        (T_DISJ (EVENTUALLY (NOW (zHEAP_ERROR (full_cs init p))))
+           (T_EXISTS output.
+              T_CONJ (T_BOOL (repl basis_repl_env
+                         (get_type_error_mask output) init.init_input output))
+                (if diverges output then
+                  zBYTECODE_DIVERGED (repl_output output) (full_cs init p,p)
+                else
+                  EVENTUALLY
+                    (NOW (zHEAP_OUTPUT (full_cs init p,repl_output output)))))))``,
+  REPEAT STRIP_TAC
+  \\ MP_TAC x64_repl_implementation_lemma \\ fs []
+  \\ MATCH_MP_TAC TEMPORAL_IMP
+  \\ fs [T_DISJ_def] \\ REPEAT STRIP_TAC \\ fs [] \\ DISJ2_TAC
+  \\ fs [T_EXISTS,T_CONJ_def,T_BOOL_def]
+  \\ MP_TAC (Q.SPEC `init.init_input` basis_repl_fun_thm)
+  \\ Cases_on `basis_repl_fun init.init_input` \\ fs [LET_DEF]
+  \\ REPEAT STRIP_TAC \\ fs []
+  \\ Q.EXISTS_TAC `output` \\ fs [diverges_def,repl_output_def]);
+
+
+
+
+
+(* COMMENT *)
+
+
+
+(*
+
+  val (_,_,_,m1) = dest_spec (thB |> f |> concl)
+  val (_,m2,_,_) = dest_spec (th2 |> f |> concl)
+
+  fun term_diff tm1 tm2 =
+    if is_comb tm1 andalso is_comb tm2 then let
+      val (x1,y1) = dest_comb tm1
+      val (x2,y2) = dest_comb tm2
+      in if aconv x1 x2 then term_diff y1 y2 else
+         if aconv y1 y2 then term_diff x1 x2 else
+           (tm1,tm2)
+      end else
+    if is_abs tm1 andalso is_abs tm2 then let
+      val (x1,y1) = dest_abs tm1
+      val (x2,y2) = dest_abs tm2
+      in if aconv x1 x2 then term_diff y1 y2 else
+         if aconv y1 y2 then term_diff x1 x2 else
+           (tm1,tm2)
+      end else (T,T)
+
+val tm1 = m1
+val tm2 = m2
+
+val tm1 = y1
+val tm2 = y2
+
+
+  term_diff m1 m2
+
+
+*)
+
+
+
+(* generate a few tests *)
+
+fun new_write_code_to_file filename th = let
+  val _ = print ("Extracting code to file \"" ^ filename ^ "\" ... ")
+  (* extract code from th *)
+  val (m,pre,c,post) = (dest_spec o concl) th
+  val cs = (list_dest pred_setSyntax.dest_insert c)
+  val _ = pred_setSyntax.is_empty (last cs) orelse
+          (print ("\n\nCode does not end in empty set. Found:\n\n"^
+                  (term_to_string (last cs)) ^"\n\n"); fail())
+  val cs = butlast cs
+  (* turn into ML *)
+  val p = hd cs |> rator |> free_vars |> hd
+  val pat = ``^p + n2w m``
+  fun dest_pc_plus_offset tm =
+    if tm = p then 0 else
+      let
+        val (x,y) = wordsSyntax.dest_word_add tm
+        val _ = if x = p then () else fail ()
+        val n = y |> wordsSyntax.dest_n2w |> fst |> numSyntax.int_of_term
+      in n end handle HOL_ERR _ =>
+        failwith ("Unable to read offset from " ^ (term_to_string tm))
+  val minus_zero = ``-1w:word8``
+  fun dest_byte_list tm =
+    listSyntax.dest_list tm |> fst
+       |> map (fn tm => if tm = minus_zero then 255
+                        else numSyntax.int_of_term (rand tm) mod 256)
+  fun dest_code_pair tm = let
+    val (x,y) = pairSyntax.dest_pair tm
+    val n = dest_pc_plus_offset x
+    in (n, dest_byte_list y) end
+    handle HOL_ERR _ => (print "\n\n"; print_term tm; print "\n\n";
+                         failwith "unable to extract code_pair")
+  val code_pairs = map dest_code_pair cs
+  (* sort, delete duplicates, check for overlaps etc. *)
+  val vs = sort (fn (x,_) => fn (y:int,_) => x <= y) code_pairs
+  fun del_repetations [] = []
+    | del_repetations [x] = [x]
+    | del_repetations (x::y::xs) = if x = y then del_repetations (x::xs) else
+                                            x :: del_repetations (y::xs)
+  val vs = del_repetations vs
+  fun no_holes i [] = true
+    | no_holes i ((j,c)::xs) =
+       if i = j then no_holes (i + length c) xs else
+       if i < j then failwith ("Gap in the code at location " ^ (int_to_string i))
+       else failwith ("Duplicate code at location " ^ (int_to_string j))
+  val _ = no_holes 0 vs
+  (* compute size *)
+  fun sum f [] k = k
+    | sum f (n::ns) k = sum f ns (k + f n)
+  val total = sum (length o snd) vs 0
+  fun fill c d n s = if size s < n then fill c d n (c ^ s ^ d) else s
+  fun num_to_string n =
+    if n < 1000 then int_to_string n else
+      num_to_string (n div 1000) ^ "," ^ fill "0" "" 3 (int_to_string (n mod 1000))
+  val code_size_str = num_to_string total ^ " bytes"
+  val _ = print (code_size_str ^ " ... ")
+  (* produce output *)
+  val t = TextIO.openOut(filename)
+  fun ex str = TextIO.output(t,str)
+  fun print_bytes [] = ()
+    | print_bytes [b] = ex (int_to_string b)
+    | print_bytes (b::bs) = (ex (int_to_string b); ex ", "; print_bytes bs)
+  fun print_lines [] = ()
+    | print_lines ((n,bs)::rest) = let
+    val _ = ex "\t.byte\t"
+    val _ = print_bytes bs
+    val _ = ex "\n"
+    in print_lines rest end
+  val l1 = "Machine code automatically extracted from a HOL4 theorem."
+  val l2 = "The code size: " ^ code_size_str
+  val l3 = "End of automatically extracted machine code."
+  val _ = ex ("\n\t/*  " ^ l1 ^ "  */\n")
+  val _ = ex ("\t/*  " ^ fill "" " " (size l1) l2 ^ "  */\n\n")
+  val _ = print_lines vs
+  val _ = ex ("\n\t/*  " ^ fill "" " " (size l1) l3 ^ "  */\n")
+  val _ = TextIO.closeOut(t)
+  val _ = print "done.\n"
+  in () end;
+
+local
+  val pat = ``NUMERAL m + (NUMERAL n):num``
+  fun ANY_ADD_EVAL_CONV tm =
+    if can (match_term pat) tm then EVAL tm else NO_CONV tm
+  val th0 = SPEC_COMPOSE_RULE [zHEAP_INIT,zHEAP_ABBREVS,
+              zHEAP_SET_PRINTING_ON,zHEAP_SET_PRINTING_ON]
+in
+  fun generate_test th1 path = let
+    val _ = print " [1]\n "
+    val th = SPEC_COMPOSE_RULE [th0,th1,zHEAP_TERMINATE]
+    val _ = print " [2]\n "
+    val th = th |> SIMP_RULE (srw_ss()) [code_abbrevs_def,first_cs_def]
+              |> SIMP_RULE (srw_ss()) [full_code_abbrevs_def,fetch "-" "full_cs_def"]
+              |> RW [all_code_abbrevs,word_arith_lemma1]
+              |> RW [INSERT_UNION_EQ,UNION_EMPTY]
+              |> CONV_RULE ((RATOR_CONV o RAND_CONV) (DEPTH_CONV ANY_ADD_EVAL_CONV))
+    val _ = print " [3]\n "
+    val th = th |> CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss()) [first_cs_def,first_s_def]))
+    val _ = print " [4]\n "
+    val _ = time (new_write_code_to_file ("wrapper/" ^ path ^ "asm_code.s")) th
+    in th end
+end
+
+(* generate some tests *)
+
+val do_nothing_test = let
+  val th0 = SPEC_COMPOSE_RULE [zHEAP_SET_PRINTING_ON]
+            |> SIMP_RULE (srw_ss()) [HD,TL,NOT_CONS_NIL,SEP_CLAUSES,first_s_def]
+  in generate_test th0 "test-do-nothing/" end;
+
+val print_true_test = let
+  val th0 = SPEC_COMPOSE_RULE [print_true]
+            |> SIMP_RULE (srw_ss()) [HD,TL,NOT_CONS_NIL,SEP_CLAUSES,first_s_def]
+  in generate_test th0 "test-print-true/" end;
+
+val read_print_exit_test = let
+  val th0 = SPEC_COMPOSE_RULE [zHEAP_NEXT_INPUT,zHEAP_READ_INPUT,zHEAP_PUT_CHAR]
+            |> SIMP_RULE (srw_ss()) [HD,TL,NOT_CONS_NIL,SEP_CLAUSES,first_s_def]
+  in generate_test th0 "test-read-print-exit/" end;
+
+val (res,echo_loop_def,echo_loop_pre_def) = x64_compile `
+  echo_loop (s:zheap_state,x1) =
+    let s = s with input := DROP 1 s.input in
+    if s.input = "" then (s,x1) else
+      let x1 = Number (&ORD (HD s.input)) in
+      let s = s with output :=
+                  STRCAT s.output (STRING (CHR (Num (getNumber x1))) "") in
+        echo_loop (s:zheap_state,x1)`
+
+val read_print_loop_test = let
+  val res = res |> SIMP_RULE std_ss [LET_DEF]
+                |> CONV_RULE (DEPTH_CONV (PairRules.PBETA_CONV))
+  val th1 = SPEC_COMPOSE_RULE [res]
+            |> SIMP_RULE (srw_ss()) [HD,TL,NOT_CONS_NIL,SEP_CLAUSES,first_s_def]
+  in generate_test th1 "test-read-print-loop/" end;
+
+val (res,push_loop_def,_) = x64_compile `
+  push_loop (s:zheap_state,x1,stack) =
+    let s = s with input := DROP 1 s.input in
+    if s.input = "" then (s,x1,stack) else
+      let x1 = Number (&ORD (HD s.input)) in
+      let stack = x1::stack in
+        push_loop (s:zheap_state,x1,stack)`
+
+val (res,print_loop_def,_) = x64_compile `
+  print_loop (s:zheap_state,x1,stack) =
+    let (x1,stack) = (HD stack, TL stack) in
+      if isNumber x1 then
+        let s = s with output :=
+                    STRCAT s.output (STRING (CHR (Num (getNumber x1))) "") in
+          print_loop (s:zheap_state,x1,stack)
+      else (s:zheap_state,x1,stack)`
+
+val (res,print_rev_def,_) = x64_compile `
+  print_rev (s:zheap_state,stack) =
+    let x1 = BlockNil in
+    let stack = x1::stack in
+    let (s,x1,stack) = push_loop (s,x1,stack) in
+    let (s,x1,stack) = print_loop (s,x1,stack) in
+      (s,x1,stack)`
+
+val print_rev_test = let
+  val res = res |> SIMP_RULE std_ss [LET_DEF]
+                |> CONV_RULE (DEPTH_CONV (PairRules.PBETA_CONV))
+  val th1 = SPEC_COMPOSE_RULE [res]
+            |> SIMP_RULE (srw_ss()) [HD,TL,NOT_CONS_NIL,SEP_CLAUSES,first_s_def]
+  in generate_test th1 "test-read-print-rev/" end;
+
+(* zHEAP_INSTALL_CODE *)
+
+(*
+  install_x64_code_lists_def
+
+  [(18,0,0), (36,65,0), (36,65,0), (36,65,0), (38,0,0)]
+
+   (20,0,0) -- produces an error
+
+
+  num_bc_def
+
+*)
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -17379,7 +18225,7 @@ val zBC_HEAP_RTC = prove(
   THEN1 (MATCH_MP_TAC SPEC_REMOVE_POST \\ SIMP_TAC std_ss [SPEC_REFL])
   \\ IMP_RES_TAC bc_next_inst_length
   \\ FULL_SIMP_TAC std_ss []
-  \\ Q.MATCH_ASSUM_RENAME_TAC `bc_next s1 s3`
+  \\ Q.MATCH_ASSUM_RENAME_TAC `bc_next s1 s3` []
   \\ MP_TAC (zBC_HEAP_THM |> UNDISCH |> Q.SPECL [`s1`,`s3`])
   \\ FULL_SIMP_TAC std_ss []
   \\ Q.PAT_ASSUM `SPEC mm pp cc qq` (MP_TAC o MATCH_MP SPEC_COMPOSE_LEMMA)
@@ -17918,28 +18764,6 @@ val EVEN_w2n_EXTRA = blastLib.BBLAST_PROVE
 
 (*
 
-local
-  val pat = ``NUMERAL m + (NUMERAL n):num``
-  fun ANY_ADD_EVAL_CONV tm =
-    if can (match_term pat) tm then EVAL tm else NO_CONV tm
-  val th0 = SPEC_COMPOSE_RULE [zHEAP_INIT,zHEAP_ABBREVS,
-              zHEAP_SET_PRINTING_ON,zHEAP_SET_PRINTING_ON]
-in
-  fun generate_test th1 = let
-    val _ = print " [1]\n "
-    val th = SPEC_COMPOSE_RULE [th0,th1,zHEAP_TERMINATE]
-    val _ = print " [2]\n "
-    val th = th |> SIMP_RULE (srw_ss()) [code_abbrevs_def,first_cs_def]
-              |> SIMP_RULE (srw_ss()) [full_code_abbrevs_def,fetch "-" "full_cs_def"]
-              |> RW [all_code_abbrevs,word_arith_lemma1]
-              |> RW [INSERT_UNION_EQ,UNION_EMPTY]
-              |> CONV_RULE ((RATOR_CONV o RAND_CONV) (DEPTH_CONV ANY_ADD_EVAL_CONV))
-    val _ = print " [3]\n "
-    val th = th |> CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss()) [first_cs_def,first_s_def]))
-    val _ = print " [4]\n "
-    val _ = time (new_write_code_to_file "wrapper/asm_code.s") th
-    in th end
-end
 
 
 
@@ -19590,7 +20414,7 @@ gg goal
     \\ FULL_SIMP_TAC std_ss []
     \\ Cases_on `x''`
     \\ Q.MATCH_ASSUM_RENAME_TAC `lex_until_top_semicolon_alt s.input =
-         SOME (ts,rest_of_input)`
+         SOME (ts,rest_of_input)` []
     \\ FULL_SIMP_TAC std_ss []
     \\ FIRST_X_ASSUM (STRIP_ASSUME_TAC o Q.SPEC `ts`)
     \\ Q.ABBREV_TAC `bs3 = (bs2' with
@@ -19744,5 +20568,7 @@ val spt_to_bv_def = Define `
 print_compiler_grammar()
 
 *)
+
+open bootstrapProofTheory;
 
 val _ = export_theory();
