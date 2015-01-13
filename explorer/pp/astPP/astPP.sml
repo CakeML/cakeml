@@ -201,7 +201,7 @@ fun strip_func funs =
       handle _ => ([],funs)
 
 fun flat_names str [] = str""
-|   flat_names str (x::xs) = str" ">>str (toString x)
+|   flat_names str (x::xs) = str" ">>str (toString x)>>flat_names str xs
 
 (*top level letrec list varN*varN*exp *)
 fun dletrecPrint sys d t pg str brk blk =
@@ -235,10 +235,11 @@ fun letrecPrint sys d t pg str brk blk =
     val (_,ls) = dest_comb temp
     val fundef = #1(listSyntax.dest_list ls)
     fun printTerms [] = str ""
-    |   printTerms [t] = let val (x::y::[z]) = pairSyntax.strip_pair t
+    |   printTerms [t] =
+        let val (x::y::[z]) = pairSyntax.strip_pair t
+            val (names,z) = strip_func z
         in
-          blk CONSISTENT 0 (str (toString x) >> str " ">> str (toString y)
-          >> str " =">>brk(1,0) >> sys (Top,pg,pg) (d-1) z)
+          blk CONSISTENT 0 (str (toString x) >> str " ">> str (toString y)>>flat_names str names>> str " =">>brk(1,0) >> sys (Top,pg,pg) (d-1) z)
         end
     |   printTerms (t::xs) = printTerms [t] >>add_newline>>str "and ">> (printTerms xs)
     val next_is_let = next_is_let expr 
