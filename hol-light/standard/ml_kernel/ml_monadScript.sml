@@ -757,10 +757,10 @@ val obviously_pure_IMP = prove(
   \\ POP_ASSUM MP_TAC \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM (K ALL_TAC)
   \\ REPEAT (POP_ASSUM MP_TAC) \\ Q.SPEC_TAC (`env2`,`env`)
   \\ Q.SPEC_TAC (`s1`,`s1`) \\ Q.SPEC_TAC (`s2`,`s2`) \\ Q.SPEC_TAC (`vs`,`vs`)
+  \\ ONCE_REWRITE_TAC [GSYM rich_listTheory.EVERY_REVERSE]
+  \\ Q.SPEC_TAC (`REVERSE xs`,`xs`)
   \\ Induct_on `xs` \\ SIMP_TAC (srw_ss()) [evaluate_SIMP,PULL_EXISTS]
   \\ REPEAT STRIP_TAC \\ RES_TAC \\ FULL_SIMP_TAC std_ss []);
-
-
 
 val LENGTH_FILTER_decl_let = prove(
   ``!ds s1 s2 env env2 tys.
