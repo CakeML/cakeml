@@ -13794,18 +13794,12 @@ val ic_List_thm = prove(
   \\ MP_TAC (Q.SPECL [`h1`,`h2`,`h3`] ic_Any_thm)
   \\ REPEAT STRIP_TAC \\ fs [] \\ rfs []
   \\ SEP_I_TAC "ic_List" \\ fs [] \\ rfs []
-  \\ REPEAT STRIP_TAC THEN1
-   (fs [my_imp_def]
-    \\ `LENGTH (x64 (LENGTH s.code) (num_bc (h1,h2,h3))) < 200` by
-           fs [LENGTH_x64_LESS] \\ fs [] \\ REPEAT STRIP_TAC
-    \\ FIRST_X_ASSUM MATCH_MP_TAC \\ DECIDE_TAC)
-  \\ fs [BlockList_def,install_x64_code_lists_def,x64_code_def]
   \\ REPEAT STRIP_TAC
-  \\ FIRST_X_ASSUM MATCH_MP_TAC
-  \\ `LENGTH s.code + 200 < s.code_max_length` by
-        cheat (* from future space check *)
+  \\ fs [BlockList_def,install_x64_code_lists_def,x64_code_def]
+  \\ fs [my_imp_def]
   \\ `LENGTH (x64 (LENGTH s.code) (num_bc (h1,h2,h3))) < 200` by
-        fs [LENGTH_x64_LESS] \\ DECIDE_TAC);
+         fs [LENGTH_x64_LESS] \\ fs [] \\ REPEAT STRIP_TAC
+  \\ FIRST_X_ASSUM MATCH_MP_TAC \\ DECIDE_TAC);
 
 val (ic_full_res,ic_full_def,ic_full_pre_def) = x64_compile `
   ic_full (x1,x2,x3,x4,s,stack) =
@@ -15769,6 +15763,27 @@ val EL_ref_globals_list = prove(
   Induct \\ Cases_on `k` \\ fs [ref_globals_list_def,EL,OPT_MAP_def]
   \\ Cases \\ Cases_on `n'` \\ fs [ref_globals_list_def,EL,OPT_MAP_def]);
 
+(*
+
+val MOD_LEMMA = prove(
+  ``0 < k ==> ((n MOD k = (n + m) MOD k) <=> (m MOD k = 0))``,
+  cheat);
+
+  \\ TRY
+   (ONCE_REWRITE_TAC [STAR_REARRANGE]
+    \\ MATCH_MP_TAC (prog_x64Theory.X64_SPEC_IMP_SPEC_1 |> MP_CANON)
+    \\ REVERSE (REPEAT STRIP_TAC) THEN1
+     (fs [bump_pc_def] \\ rfs [real_inst_length_thm]
+      \\ fs [real_inst_length_def,LEFT_ADD_DISTRIB,MOD_LEMMA]
+      \\ BasicProvers.EVERY_CASE_TAC \\ fs [GSYM ADD_ASSOC]
+      \\ fs [real_inst_length_def,LEFT_ADD_DISTRIB,MOD_LEMMA])
+    \\ ONCE_REWRITE_TAC [GSYM STAR_REARRANGE])
+
+val STAR_REARRANGE =
+  METIS_PROVE [STAR_ASSOC,STAR_COMM] ``x*y*z = STAR (x*z) y``
+
+*)
+
 val zBC_HEAP_THM = prove(
   ``EVEN (w2n cb) /\ (cs.stack_trunk - n2w (8 * SUC (LENGTH stack)) = sb) ==>
     !s1 s2.
@@ -15781,7 +15796,7 @@ val zBC_HEAP_THM = prove(
          INSERT code_abbrevs cs)
         (zBC_HEAP s2 (x,cs,stack,s,out) (cb,sb,ev,f2) *
          zPC (cb + n2w (2 * s2.pc)) * ~zS \/
-          zHEAP_ERROR cs)``,
+         zHEAP_ERROR cs)``,
 
   STRIP_TAC \\ HO_MATCH_MP_TAC bc_next_ind \\ REPEAT STRIP_TAC
   \\ TRY (Cases_on `b:bc_stack_op`)
@@ -15803,8 +15818,11 @@ val zBC_HEAP_THM = prove(
                   \\ TRY (SRW_TAC [] [output_simp] \\ NO_TAC)))
   \\ NTAC 3 (TRY (MATCH_MP_TAC IMP_globals_count \\ REPEAT STRIP_TAC
                   \\ TRY (SRW_TAC [] [output_simp] \\ NO_TAC)))
+
   THEN1 (* Pop *)
-   (SIMP_TAC (srw_ss()) [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF,MAP_APPEND,MAP]
+   (
+
+    SIMP_TAC (srw_ss()) [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF,MAP_APPEND,MAP]
     \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
     \\ REPEAT STRIP_TAC
     \\ MATCH_MP_TAC (MATCH_MP SPEC_WEAKEN (prepare zBC_Pop) |> SPEC_ALL
