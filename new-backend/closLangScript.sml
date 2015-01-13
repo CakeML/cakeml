@@ -296,7 +296,7 @@ val check_loc_opt_def = Define `
   (check_loc (SOME p) loc num_params num_args ⇔ (num_params = num_args) ∧ (p = loc))`;
 
 val _ = Datatype `
-  app_kind = 
+  app_kind =
     | Partial_app clos_val
     | Full_app clos_exp (clos_val list) (clos_val list)`;
 
@@ -304,7 +304,7 @@ val dest_closure_def = Define `
   dest_closure loc_opt f args =
     case f of
     | Closure loc arg_env clo_env num_args exp =>
-        if check_loc loc_opt loc num_args (LENGTH args) ∧ LENGTH arg_env < num_args then 
+        if check_loc loc_opt loc num_args (LENGTH args) ∧ LENGTH arg_env < num_args then
           if LENGTH args + LENGTH arg_env > num_args then
             SOME (Full_app exp
                            (REVERSE (TAKE (num_args + 1 - LENGTH arg_env) (REVERSE args))++
@@ -312,7 +312,7 @@ val dest_closure_def = Define `
                            (REVERSE (DROP (num_args + 1 - LENGTH arg_env) (REVERSE args))))
           else
             SOME (Partial_app (Closure loc (args++arg_env) clo_env num_args exp))
-        else 
+        else
           NONE
     | Recclosure loc arg_env clo_env fns i =>
         let (num_args,exp) = EL i fns in
@@ -421,8 +421,8 @@ val cEval_def = tDefine "cEval" `
               if (s.clock = 0) \/ (s1.clock = 0) then (TimeOut,s) else
                   cEval ([exp],args,dec_clock 1 (check_clock s s1)))
      | res => res) ∧
-  (cEvalApp loc_opt f [] s = (Result [f], s)) ∧
   (cEvalApp loc_opt f args s =
+     if LENGTH args = 0 then (Result [f], s) else
      case dest_closure loc_opt f args of
      | NONE => (Error,s)
      | SOME (Partial_app v) => (Result [v], s)
@@ -435,19 +435,19 @@ val cEval_def = tDefine "cEval" `
                cEvalApp loc_opt v rest_args (check_clock s1 s)
            | res => res)`
  (WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure I)
-                            (\x. case x of INL (xs,env,s) => (s.clock,clos_exp3_size xs,0)
-                                         | INR (l,f,args,s) => (s.clock,0,LENGTH args)))`
+               (\x. case x of INL (xs,env,s) => (s.clock,clos_exp3_size xs,0)
+                              | INR (l,f,args,s) => (s.clock,0,LENGTH args)))`
   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
   \\ TRY (MATCH_MP_TAC check_clock_lemma \\ DECIDE_TAC)
   \\ EVAL_TAC \\ Cases_on `s.clock <= s1.clock`
   \\ Cases_on `s.clock <= s2.clock`
   \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ SRW_TAC [] [] 
+  \\ SRW_TAC [] []
   \\ TRY DECIDE_TAC >>
   imp_res_tac dest_closure_length >>
   full_simp_tac (srw_ss()++ARITH_ss) [])
 
- (* We prove that the clock never increases. *)
+(* We prove that the clock never increases. *)
 
 val check_clock_IMP = prove(
   ``n <= (check_clock r s).clock ==> n <= s.clock``,
@@ -491,8 +491,6 @@ val cEval_check_clock = prove(
       (cEval (xs,env,s1) = (vs,s2)) ==> (check_clock s2 s1 = s2)``,
   METIS_TAC [cEval_clock,check_clock_thm]);
 
-(* TODO: fix and uncomment
-
 (* Finally, we remove check_clock from the induction and definition theorems. *)
 
 fun sub f tm = f tm handle HOL_ERR _ =>
@@ -513,75 +511,55 @@ val cEval_ind = save_thm("cEval_ind",let
   val goal = raw_ind |> concl |> remove_check_clock |> remove_disj
   (* set_goal([],goal) *)
   val ind = prove(goal,
-    STRIP_TAC \\ STRIP_TAC \\ MATCH_MP_TAC raw_ind
+    NTAC 3 STRIP_TAC \\ MATCH_MP_TAC raw_ind
     \\ Tactical.REVERSE (REPEAT STRIP_TAC) \\ ASM_REWRITE_TAC []
-    THEN1 (Q.PAT_ASSUM `!dest xs env s1. bb ==> bbb` MATCH_MP_TAC
-           \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC
-           \\ IMP_RES_TAC cEval_clock
-           \\ `s1.clock <> 0` by DECIDE_TAC
-           \\ SRW_TAC [] []
-           \\ FULL_SIMP_TAC (srw_ss()) []
-           \\ IMP_RES_TAC cEval_check_clock
-           \\ FULL_SIMP_TAC std_ss [])
-    \\ TRY (FIRST_X_ASSUM (MATCH_MP_TAC)
-        \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC \\ RES_TAC
-        \\ REPEAT (Q.PAT_ASSUM `!x.bbb` (K ALL_TAC))
-        \\ IMP_RES_TAC cEval_clock
-        \\ FULL_SIMP_TAC std_ss [check_clock_thm] \\ NO_TAC)
-    \\ FIRST_X_ASSUM (MATCH_MP_TAC)
-    \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC
-    \\ IMP_RES_TAC cEval_clock
-    \\ IMP_RES_TAC check_clock_thm
-    \\ TRY (`s2.clock <= s.clock` by DECIDE_TAC)
-    \\ IMP_RES_TAC check_clock_thm
-    \\ fs [check_clock_thm]
-    \\ FIRST_X_ASSUM (MATCH_MP_TAC)
-    \\ DECIDE_TAC)
+    \\ TRY
+     (FIRST_X_ASSUM (MATCH_MP_TAC) \\ REPEAT STRIP_TAC \\ fs []
+      \\ IMP_RES_TAC cEval_clock
+      \\ IMP_RES_TAC check_clock_thm \\ fs []
+      \\ `s1.clock <= s.clock` by (fs [dec_clock_def] \\ DECIDE_TAC)
+      \\ IMP_RES_TAC check_clock_thm \\ fs [])
+    \\ TRY
+     (FIRST_X_ASSUM (MATCH_MP_TAC)
+      \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC \\ fs []
+      \\ IMP_RES_TAC cEval_clock
+      \\ IMP_RES_TAC check_clock_thm \\ fs []
+      \\ FIRST_X_ASSUM (MATCH_MP_TAC)
+      \\ DECIDE_TAC)
+    \\ TRY
+     (FIRST_X_ASSUM (MATCH_MP_TAC)
+      \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC \\ fs []
+      \\ IMP_RES_TAC cEval_clock \\ IMP_RES_TAC LESS_EQ_TRANS
+      \\ IMP_RES_TAC check_clock_thm \\ fs []
+      \\ FIRST_X_ASSUM (MATCH_MP_TAC)
+      \\ DECIDE_TAC)
+   \\ TRY
+     (IMP_RES_TAC cEval_clock
+      \\ fs [dec_clock_def]
+      \\ IMP_RES_TAC (DECIDE ``n <= m - k:num ==> n <= m``)
+      \\ IMP_RES_TAC LESS_EQ_TRANS
+      \\ IMP_RES_TAC check_clock_thm \\ fs []))
   in ind end);
 
 val cEval_def = save_thm("cEval_def",let
-  val tm = fetch "-" "cEval_AUX_def"
-           |> concl |> rand |> dest_abs |> snd |> rand |> rand
-  val tm = ``^tm cEval (xs,env,s)``
-  val rhs = SIMP_CONV std_ss [EVAL ``pair_CASE (x,y) f``] tm |> concl |> rand
-  val goal = ``!xs env s. cEval (xs,env,s) = ^rhs`` |> remove_check_clock |> remove_disj
+  val goal = cEval_def |> concl |> remove_check_clock |> remove_disj
   (* set_goal([],goal) *)
-  val def = prove(goal,
-    recInduct cEval_ind
-    \\ REPEAT STRIP_TAC
-    \\ SIMP_TAC (srw_ss()) []
-    \\ TRY (SIMP_TAC std_ss [Once cEval_def] \\ NO_TAC)
-    \\ REPEAT (POP_ASSUM (K ALL_TAC))
+  val thm = prove(goal,
+    REPEAT STRIP_TAC
     \\ SIMP_TAC std_ss [Once cEval_def]
-    \\ Cases_on `cEval (xs,env,s1)`
-    \\ Cases_on `cEval (xs,env,s)`
-    \\ Cases_on `cEval ([x],env,s)`
-    \\ Cases_on `cEval ([x1],env,s)`
-    \\ Cases_on `cEval ([x2],env,s)`
-    \\ Cases_on `cEval ([x1],env,s1)`
-    \\ Cases_on `cEval ([x2],env,s1)`
-    \\ IMP_RES_TAC cEval_check_clock
-    \\ IMP_RES_TAC cEval_clock
-    \\ FULL_SIMP_TAC (srw_ss()) [EVAL ``pair_CASE (x,y) f``]
-    \\ Cases_on `r.clock = 0` \\ FULL_SIMP_TAC std_ss []
-    \\ Cases_on `s1.clock = 0` \\ FULL_SIMP_TAC std_ss []
-    \\ Cases_on `q'''` \\ fs []
-    \\ Cases_on `cEval ([x2],env,r''')` \\ fs []
-    \\ Cases_on `q'''` \\ fs []
-    \\ IMP_RES_TAC cEval_check_clock
-    \\ IMP_RES_TAC cEval_clock
-    \\ IMP_RES_TAC check_clock_thm
-    \\ REPEAT BasicProvers.CASE_TAC \\ fs [] \\ rfs []
+    \\ BasicProvers.EVERY_CASE_TAC
+    \\ IMP_RES_TAC cEval_check_clock \\ fs []
     \\ SRW_TAC [] []
-    \\ fs [check_clock_def] \\ rfs []
-    \\ SRW_TAC [] []
-    \\ `F` by DECIDE_TAC)
-  val new_def = cEval_def |> CONJUNCTS |> map (fst o dest_eq o concl o SPEC_ALL)
-                  |> map (REWR_CONV def THENC SIMP_CONV (srw_ss()) [])
-                  |> LIST_CONJ
-  in new_def end);
+    \\ IMP_RES_TAC cEval_clock
+    \\ fs [check_clock_def,dec_clock_def]
+    \\ TRY (`F` by DECIDE_TAC)
+    \\ IMP_RES_TAC LESS_EQ_TRANS
+    \\ fs [check_clock_def])
+  in thm end);
 
 (* lemmas *)
+
+(*
 
 val cEval_LENGTH = prove(
   ``!xs s env. (\(xs,s,env).
@@ -672,9 +650,6 @@ val cEval_const = store_thm("cEval_const",
     (s2.restrict_envs = s1.restrict_envs) /\ (s2.code = s1.code)``,
   REPEAT STRIP_TAC \\ MP_TAC cEval_const_lemma \\ fs []);
 
-(* clean up *)
-
-val _ = map delete_binding ["cEval_AUX_def", "cEval_primitive_def"];
 *)
 
 val _ = export_theory();
