@@ -386,7 +386,7 @@ val cEval_def = tDefine "cEval" `
      | res => res) /\
   (cEval ([Op op xs],env,s) =
      case cEval (xs,env,s) of
-     | (Result vs,s) => (case cEvalOp op vs s of
+     | (Result vs,s) => (case cEvalOp op (REVERSE vs) s of
                           | NONE => (Error,s)
                           | SOME (v,s) => (Result [v],s))
      | res => res) /\
