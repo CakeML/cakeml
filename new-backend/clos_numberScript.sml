@@ -330,6 +330,7 @@ val res_rel_simp = let
             ``res_rel (Exception x) y``,
             ``res_rel Error y``,
             ``res_rel TimeOut y``] |> LIST_CONJ end
+val _ = save_thm("res_rel_simp",res_rel_simp)
 
 val val_rel_simp = let
   val f = SIMP_CONV (srw_ss()) [Once val_rel_cases]

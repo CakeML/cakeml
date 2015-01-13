@@ -971,7 +971,7 @@ val cEvalOp_correct = prove(
     rw[val_rel_SIMP] >>
     Cases_on`i < i'`>> rw[bool_to_val_def,val_rel_cases] ));
 
-val cComp_correct = prove(
+val cComp_correct = store_thm("cComp_correct",
   ``!xs env s1 aux1 t1 env' f1 res s2 ys aux2.
       (cEval (xs,env,s1) = (res,s2)) /\ res <> Error /\
       (cComp xs aux1 = (ys,aux2)) /\

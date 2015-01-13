@@ -329,6 +329,7 @@ val res_rel_simp = let
             ``res_rel (Exception x) y``,
             ``res_rel Error y``,
             ``res_rel TimeOut y``] |> LIST_CONJ end
+val _ = save_thm("res_rel_simp",res_rel_simp)
 
 val HD_cShift = prove(
   ``[HD (cShift [x] m l i)] = cShift [x] m l i``,
