@@ -1018,6 +1018,19 @@ val pmatch_to_i1_correct = Q.prove (
      fs [match_result_to_i1_def] >>
      metis_tac [match_result_to_i1_def, match_result_distinct]));
 
+val exps_to_i1_append = Q.prove (
+`!mods tops es es'.
+  exps_to_i1 mods tops (es ++ es') = 
+  exps_to_i1 mods tops es ++ exps_to_i1 mods tops es'`,
+ Induct_on `es` >>
+ fs [exp_to_i1_def]);
+
+val exps_to_i1_rev = Q.prove (
+`!mods tops es.
+  exps_to_i1 mods tops (REVERSE es) = REVERSE (exps_to_i1 mods tops es)`,
+ Induct_on `es` >>
+ rw [exp_to_i1_def, exps_to_i1_append]);
+
 val exp_to_i1_correct = Q.prove (
 `(∀b env s e res.
    evaluate b env s e res ⇒
@@ -1070,9 +1083,9 @@ val exp_to_i1_correct = Q.prove (
  >- metis_tac []
  >- metis_tac []
  >- metis_tac []
- >- metis_tac [do_con_check_i1, build_conv_i1]
- >- metis_tac [do_con_check_i1]
- >- metis_tac [do_con_check_i1]
+ >- metis_tac [build_conv_i1, do_con_check_i1, EVERY2_REVERSE, vs_to_i1_list_rel, exps_to_i1_rev]
+ >- metis_tac [do_con_check_i1, EVERY2_REVERSE, vs_to_i1_list_rel, exps_to_i1_rev]
+ >- metis_tac [do_con_check_i1, EVERY2_REVERSE, vs_to_i1_list_rel, exps_to_i1_rev]
  >- (* Variable lookup *)
     (fs [env_all_to_i1_cases] >>
      cases_on `n` >>
@@ -1131,7 +1144,7 @@ val exp_to_i1_correct = Q.prove (
      `genv = all_env_i1_to_genv env_i1`
                 by fs [all_env_i1_to_genv_def, env_all_to_i1_cases] >>
      fs [] >>
-     metis_tac [])
+     metis_tac [EVERY2_REVERSE, vs_to_i1_list_rel, exps_to_i1_rev])
  >- (* function application *)
     (srw_tac [boolSimps.DNF_ss] [PULL_EXISTS] >>
      res_tac >>
@@ -1145,7 +1158,7 @@ val exp_to_i1_correct = Q.prove (
      `genv = all_env_i1_to_genv env_i1`
                 by fs [all_env_i1_to_genv_def, env_all_to_i1_cases] >>
      fs [] >>
-     metis_tac [])
+     metis_tac [EVERY2_REVERSE, vs_to_i1_list_rel, exps_to_i1_rev])
  >- (* function application *)
     (srw_tac [boolSimps.DNF_ss] [PULL_EXISTS] >>
      res_tac >>
@@ -1159,7 +1172,7 @@ val exp_to_i1_correct = Q.prove (
      `genv = all_env_i1_to_genv env_i1`
                 by fs [all_env_i1_to_genv_def, env_all_to_i1_cases] >>
      fs [] >>
-     metis_tac [])
+     metis_tac [EVERY2_REVERSE, vs_to_i1_list_rel, exps_to_i1_rev])
  >- (* primitive application *)
     (srw_tac [boolSimps.DNF_ss] [PULL_EXISTS] >>
      res_tac >>
@@ -1173,9 +1186,9 @@ val exp_to_i1_correct = Q.prove (
      `genv = all_env_i1_to_genv env_i1`
                 by fs [all_env_i1_to_genv_def, env_all_to_i1_cases] >>
      fs [] >>
-     metis_tac [])
- >- metis_tac []
- >- metis_tac []
+     metis_tac [EVERY2_REVERSE, vs_to_i1_list_rel, exps_to_i1_rev])
+ >- metis_tac [EVERY2_REVERSE, vs_to_i1_list_rel, exps_to_i1_rev]
+ >- metis_tac [EVERY2_REVERSE, vs_to_i1_list_rel, exps_to_i1_rev]
  >- (fs [do_log_def] >>
      every_case_tac >>
      fs [v_to_i1_eqns, exp_to_i1_def] >>
@@ -1338,14 +1351,14 @@ val evaluate_i1_con = Q.prove (
       (∃vs s' v.
          a4 = (s',Rval v) ∧
          do_con_check (all_env_i1_to_cenv a1) cn (LENGTH es) ∧
-         build_conv_i1 (all_env_i1_to_cenv a1) cn vs = SOME v ∧
-         evaluate_list_i1 a0 a1 a2 es (s',Rval vs)) ∨
+         build_conv_i1 (all_env_i1_to_cenv a1) cn (REVERSE vs) = SOME v ∧
+         evaluate_list_i1 a0 a1 a2 (REVERSE es) (s',Rval vs)) ∨
       (a4 = (a2,Rerr Rtype_error) ∧
        ¬do_con_check (all_env_i1_to_cenv a1) cn (LENGTH es)) ∨
       (∃err s'.
          a4 = (s',Rerr err) ∧
          do_con_check (all_env_i1_to_cenv a1) cn (LENGTH es) ∧
-         evaluate_list_i1 a0 a1 a2 es (s',Rerr err))`,
+         evaluate_list_i1 a0 a1 a2 (REVERSE es) (s',Rerr err))`,
 rw [Once evaluate_i1_cases] >>
 eq_tac >>
 rw []);
@@ -1806,7 +1819,7 @@ val dec_to_i1_correct = Q.prove (
                 rw [] >>
                 metis_tac [LENGTH_MAP, length_env_to_i1])
      >- metis_tac [length_env_to_i1, LENGTH_MAP]
-     >- metis_tac [eval_list_i1_reverse, MAP_REVERSE, PAIR_EQ, big_unclocked]
+     >- metis_tac [eval_list_i1_reverse, MAP_REVERSE, PAIR_EQ, big_unclocked, REVERSE_REVERSE]
      >- (qexists_tac `REVERSE a` >>
          rw []
          >- metis_tac [LENGTH_MAP, length_env_to_i1]
