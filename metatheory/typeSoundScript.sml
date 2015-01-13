@@ -948,17 +948,14 @@ val exp_type_preservation = Q.prove (
          metis_tac [])
      >- (every_case_tac >>
          fs [return_def] >>
-         rw [] >>
+         rw []
+         >- metis_tac [do_con_check_build_conv, NOT_SOME_NONE] >>
          qpat_assum `type_e tenvM tenvC tenv (Con s'' epat) t1`
                   (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
          rw [] >>
-         qpat_assum `type_es tenvM tenvC tenv epat ts`
-                  (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
          fs [] >>
-         fs [SWAP_REVERSE_SYM] >>
+         fs [SWAP_REVERSE_SYM, type_es_list_rel, type_vs_list_rel] >>
          rw []
-         >- metis_tac [do_con_check_build_conv, NOT_SOME_NONE]
-         >- metis_tac [do_con_check_build_conv, NOT_SOME_NONE]
          >- (fs [build_conv_def, all_env_to_cenv_def] >>
              every_case_tac >>
              fs [] >>
@@ -981,66 +978,51 @@ val exp_type_preservation = Q.prove (
              rw [Once type_v_cases] >>
              rw [Once type_v_cases] >>
              metis_tac [check_freevars_def])
-         >- cheat
-         >- cheat
-         (*
          >- (fs [build_conv_def, all_env_to_cenv_def] >>
              every_case_tac >>
              fs [] >>
-             qexists_tac `tenvS` >>
+             rw [PULL_EXISTS, Once type_ctxts_cases, type_ctxt_cases] >>
              rw [] >>
-             rw [Once type_ctxts_cases, type_ctxt_cases] >>
-             qexists_tac `tenvM` >>
-             qexists_tac `tenvC` >>
-             qexists_tac `t''`>>
              ONCE_REWRITE_TAC [context_invariant_cases] >>
              rw [] >>
-             qexists_tac `tenv` >>
-             qexists_tac `tvs` >>
-             rw [] >-
-             metis_tac [] >>
+             fs [type_es_list_rel, type_vs_list_rel, list_rel_split, GSYM
+                 EVERY2_REVERSE1,grammarTheory.MAP_EQ_APPEND, grammarTheory.MAP_EQ_SING] >>
+             rw [] >>
+             MAP_EVERY qexists_tac [`tenvS`, `tenvM`, `tenvC`, `tenv`, `tvs`, 
+                                    `tenvM`, `tenvC`, `tenv`] >>
+             simp [] >>
+             MAP_EVERY qexists_tac [`REVERSE x0`, `ts'`] >>
+             simp [] >>
+             fs [GSYM FUNION_alist_to_fmap, MAP_REVERSE] >>
              fs [is_ccon_def] >>
              imp_res_tac ctxt_inv_not_poly >>
-             qexists_tac `tenvM` >>
-             qexists_tac `tenvC` >>
-             qexists_tac `tenv` >>
-             qexists_tac `Tapp ts' (tid_exn_to_tc tn)`>>
              rw [] >>
-             cases_on `ts` >>
-             fs [] >>
-             rw [] >>
-             rw [] >>
-             qexists_tac `[]` >>
-             qexists_tac `t'''` >>
-             rw [] >>
-             fs [GSYM FUNION_alist_to_fmap] >>
-             metis_tac [type_v_rules, APPEND, check_freevars_def])
+             res_tac >>
+             fs [EVERY_REVERSE] >>
+             metis_tac [check_freevars_def])
          >- (fs [build_conv_def, all_env_to_cenv_def] >>
              every_case_tac >>
              fs [] >>
-             qexists_tac `tenvS` >>
+             rw [PULL_EXISTS, Once type_ctxts_cases, type_ctxt_cases] >>
              rw [] >>
-             rw [Once type_ctxts_cases, type_ctxt_cases] >>
-             qexists_tac `tenvM` >>
-             qexists_tac `tenvC` >>
-             qexists_tac `t''`>>
-             qexists_tac `tenv`>>
              ONCE_REWRITE_TAC [context_invariant_cases] >>
              rw [] >>
-             qexists_tac `tvs` >>
-             rw [] >-
-             metis_tac [] >>
+             fs [type_es_list_rel, type_vs_list_rel, list_rel_split, GSYM
+                 EVERY2_REVERSE1,grammarTheory.MAP_EQ_APPEND, grammarTheory.MAP_EQ_SING] >>
+             rw [] >>
+             MAP_EVERY qexists_tac [`tenvS`, `tenvM`, `tenvC`, `y`, `tenv`, `tvs`, 
+                                    `tenvM`, `tenvC`, `tenv`] >>
+             simp [] >>
+             MAP_EVERY qexists_tac [`REVERSE l2'`] >>
+             simp [] >>
+             fs [GSYM FUNION_alist_to_fmap, MAP_REVERSE] >>
              fs [is_ccon_def] >>
              imp_res_tac ctxt_inv_not_poly >>
-             qexists_tac `tenvM` >>
-             qexists_tac `tenvC` >>
-             qexists_tac `tenv`>>
-             qexists_tac `Tapp (t''::ts') TC_tup`>>
              rw [] >>
-             qexists_tac `[]` >>
-             qexists_tac `ts'` >>
-             rw [] >>
-             metis_tac [type_v_rules, EVERY_DEF, check_freevars_def])*))
+             res_tac >>
+             fs [EVERY_REVERSE] >>
+             fs [check_freevars_def] >>
+             metis_tac []))
      >- (qexists_tac `tenvS` >>
          rw [] >>
          every_case_tac >>
@@ -1201,7 +1183,7 @@ val exp_type_preservation = Q.prove (
          fs [] >>
          metis_tac [opt_bind_tenv_def, tenv_ok_def, arithmeticTheory.ADD_0, num_tvs_def, type_e_freevars, type_v_freevars])
      >- (fs [Once type_ctxts_cases, type_ctxt_cases, Once context_invariant_cases] >>
-         metis_tac [bind_tvar_def, EVERY_DEF, type_e_freevars, type_v_freevars, check_freevars_def, EVERY_APPEND])
+         metis_tac [bind_tvar_def, EVERY_DEF, type_e_freevars, type_v_freevars, check_freevars_def, EVERY_APPEND, EVERY_REVERSE])
      >- metis_tac []
      >- (fs [type_op_cases] >>
          rw [] >>
@@ -1519,8 +1501,6 @@ val exp_type_preservation = Q.prove (
      >- metis_tac [do_con_check_build_conv, NOT_SOME_NONE]
      >- metis_tac [do_con_check_build_conv, NOT_SOME_NONE]
      >- metis_tac [do_con_check_build_conv, NOT_SOME_NONE]
-     >> cheat
-     (*
      >- (fs [all_env_to_cenv_def, build_conv_def] >>
          cases_on `lookup_alist_mod_env cn cenv'` >>
          fs [] >>
@@ -1534,21 +1514,18 @@ val exp_type_preservation = Q.prove (
          `ts2 = []` by
                  (cases_on `ts2` >>
                   fs []) >>
-         fs [] >>
+         fs [type_vs_list_rel] >>
          rw [] >>
-         rw [type_vs_end] >>
          fs [is_ccon_def] >>
          metis_tac [ctxt_inv_not_poly, MAP_REVERSE])
      >- (fs [all_env_to_cenv_def, build_conv_def] >>
          rw [Once type_v_cases_eqn] >>
          imp_res_tac type_es_length >>
          fs [] >>
-         `ts2 = []` by
-         (cases_on `ts2` >>
-         fs []) >>
-         fs [] >>
+         `ts2 = []` by (cases_on `ts2` >> fs []) >>
+         fs [type_vs_list_rel] >>
          rw [] >>
-         rw [type_vs_end] >>
+         rw [] >>
          fs [is_ccon_def] >>
          metis_tac [ctxt_inv_not_poly, MAP_REVERSE, type_vs_end])
      >- (fs [all_env_to_cenv_def, build_conv_def] >>
@@ -1558,64 +1535,34 @@ val exp_type_preservation = Q.prove (
          fs [] >>
          rw [] >>
          imp_res_tac consistent_con_env_thm >>
-         qpat_assum `type_es tenvM tenvC tenv' (e'::t'') ts2`
-               (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
-         fs [] >>
+         fs [type_vs_list_rel, type_es_list_rel, PULL_EXISTS] >>
          rw [type_ctxt_cases, Once type_ctxts_cases] >>
          ONCE_REWRITE_TAC [context_invariant_cases] >>
-         rw [] >>
-         qexists_tac `tenvS` >>
-         rw [] >>
-         qexists_tac `tenvM` >>
-         qexists_tac `tenvC` >>
-         qexists_tac `t''''` >>
-         qexists_tac `tenv` >>
-         qexists_tac `tvs` >>
-         rw [] >>
+         rw [PULL_EXISTS, type_vs_list_rel, type_es_list_rel] >>
          fs [is_ccon_def] >>
-         qexists_tac `tenvM` >>
-         qexists_tac `tenvC` >>
-         qexists_tac `tenv` >>
-         qexists_tac `Tapp ts' (tid_exn_to_tc tn)` >>
-         rw [] >>
-         cases_on `ts2` >>
+         MAP_EVERY qexists_tac [`tenvS`, `tenvM`, `tenvC`, `tenv`, `tvs`, `tenvM`, 
+                                `tenvC`, `tenv`, `t'''::ts1`] >>
+         simp [SWAP_REVERSE_SYM] >>
+         Cases_on `ts2` >>
          fs [] >>
-         rw [] >>
-         qexists_tac `ts1++[t''']` >>
-         rw [] >>
-         metis_tac [type_vs_end])
+         qexists_tac `ts'` >>
+         simp [])
      >- (fs [all_env_to_cenv_def, build_conv_def] >>
          cases_on `lookup_alist_mod_env cn cenv'` >>
          fs [] >>
-         qpat_assum `type_es tenvM tenvC tenv' (e'::t'') ts2`
-               (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
-         fs [] >>
+         rw [] >>
+         imp_res_tac consistent_con_env_thm >>
+         fs [type_vs_list_rel, type_es_list_rel, PULL_EXISTS] >>
          rw [type_ctxt_cases, Once type_ctxts_cases] >>
          ONCE_REWRITE_TAC [context_invariant_cases] >>
-         rw [] >>
-         qexists_tac `tenvS` >>
-         rw [] >>
-         qexists_tac `tenvM` >>
-         qexists_tac `tenvC` >>
-         qexists_tac `t'''` >>
-         qexists_tac `tenv` >>
-         qexists_tac `tvs` >>
-         rw [] >>
+         rw [PULL_EXISTS, type_vs_list_rel, type_es_list_rel] >>
          fs [is_ccon_def] >>
-         qexists_tac `tenvM` >>
-         qexists_tac `tenvC` >>
-         qexists_tac `tenv` >>
-         qexists_tac `Tapp (ts1 ++ [t1] ++ t'''::ts) TC_tup` >>
-         rw [] >>
-         qexists_tac `ts1++[t1]` >>
-         rw [] >>
-         `tenv_ok (bind_tvar tvs tenv) ∧ (num_tvs tenv = 0)` 
-                        by (rw [bind_tvar_rewrites] >>
-                            metis_tac [type_v_freevars]) >>
-         `check_freevars (num_tvs (bind_tvar tvs tenv)) [] t'''` 
-                     by metis_tac [type_e_freevars] >>
-         fs [bind_tvar_rewrites] >>
-         metis_tac [type_vs_end, arithmeticTheory.ADD_0])
+         MAP_EVERY qexists_tac [`tenvS`, `tenvM`, `tenvC`, `y`, `tenv`, `tvs`, `tenvM`, 
+                                `tenvC`, `tenv`, `ys`] >>
+         simp [SWAP_REVERSE_SYM] >>
+         imp_res_tac ctxt_inv_not_poly >>
+         imp_res_tac type_ctxts_freevars >>
+         metis_tac [check_freevars_def, EVERY_APPEND, EVERY_DEF, APPEND, APPEND_ASSOC])
      >- (fs [all_env_to_cenv_def, build_conv_def] >>
          cases_on `lookup_alist_mod_env cn cenv'` >>
          fs [] >>
@@ -1623,62 +1570,34 @@ val exp_type_preservation = Q.prove (
          fs [] >>
          rw [] >>
          imp_res_tac consistent_con_env_thm >>
-         qpat_assum `type_es tenvM tenvC tenv' (e'::t'') ts2`
-                (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
-         fs [] >>
+         fs [type_vs_list_rel, type_es_list_rel, PULL_EXISTS] >>
          rw [type_ctxt_cases, Once type_ctxts_cases] >>
          ONCE_REWRITE_TAC [context_invariant_cases] >>
-         rw [] >>
-         qexists_tac `tenvS` >>
-         rw [] >>
-         qexists_tac `tenvM` >>
-         qexists_tac `tenvC` >>
-         qexists_tac `t''''` >>
-         qexists_tac `tenv` >>
-         qexists_tac `tvs` >>
-         rw [] >>
+         rw [PULL_EXISTS, type_vs_list_rel, type_es_list_rel] >>
          fs [is_ccon_def] >>
-         qexists_tac `tenvM` >>
-         qexists_tac `tenvC` >>
-         qexists_tac `tenv` >>
-         qexists_tac `Tapp ts' (tid_exn_to_tc tn)` >>
-         rw [] >>
-         cases_on `ts2` >>
+         MAP_EVERY qexists_tac [`tenvS`, `tenvM`, `tenvC`, `tenv`, `tvs`, `tenvM`, 
+                                `tenvC`, `tenv`, `t'''::ts1`] >>
+         simp [SWAP_REVERSE_SYM] >>
+         Cases_on `ts2` >>
          fs [] >>
-         rw [] >>
-         qexists_tac `ts1++[t''']` >>
-         rw [] >>
-         metis_tac [type_vs_end])
+         qexists_tac `ts'` >>
+         simp [])
      >- (fs [all_env_to_cenv_def, build_conv_def] >>
-         qpat_assum `type_es tenvM tenvC tenv' (e'::t'') ts2`
-                (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
+         cases_on `lookup_alist_mod_env cn cenv'` >>
          fs [] >>
+         rw [] >>
+         imp_res_tac consistent_con_env_thm >>
+         fs [type_vs_list_rel, type_es_list_rel, PULL_EXISTS] >>
          rw [type_ctxt_cases, Once type_ctxts_cases] >>
          ONCE_REWRITE_TAC [context_invariant_cases] >>
-         rw [] >>
-         qexists_tac `tenvS` >>
-         rw [] >>
-         qexists_tac `tenvM` >>
-         qexists_tac `tenvC` >>
-         qexists_tac `t'''` >>
-         qexists_tac `tenv` >>
-         qexists_tac `tvs` >>
-         rw [] >>
+         rw [PULL_EXISTS, type_vs_list_rel, type_es_list_rel] >>
          fs [is_ccon_def] >>
-         qexists_tac `tenvM` >>
-         qexists_tac `tenvC` >>
-         qexists_tac `tenv` >>
-         qexists_tac `Tapp (ts1 ++ [t1] ++ t'''::ts) TC_tup` >>
-         rw [] >>
-         qexists_tac `ts1++[t1]` >>
-         rw [] >>
-         `tenv_ok (bind_tvar tvs tenv) ∧ (num_tvs tenv = 0)` 
-                        by (rw [bind_tvar_rewrites] >>
-                            metis_tac [type_v_freevars]) >>
-         `check_freevars (num_tvs (bind_tvar tvs tenv)) [] t'''` 
-                     by metis_tac [type_e_freevars] >>
-         fs [bind_tvar_rewrites] >>
-         metis_tac [type_vs_end, arithmeticTheory.ADD_0])*)));
+         MAP_EVERY qexists_tac [`tenvS`, `tenvM`, `tenvC`, `y`, `tenv`, `tvs`, `tenvM`, 
+                                `tenvC`, `tenv`, `ys`] >>
+         simp [SWAP_REVERSE_SYM] >>
+         imp_res_tac ctxt_inv_not_poly >>
+         imp_res_tac type_ctxts_freevars >>
+         metis_tac [check_freevars_def, EVERY_APPEND, EVERY_DEF, APPEND, APPEND_ASSOC])));
 
 val store_type_extension_def = Define `
 store_type_extension tenvS1 tenvS2 = 

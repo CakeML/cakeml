@@ -376,20 +376,20 @@ type_ctxt tvs menv all_cenv cenv senv tenv (Clet n ()  e) t1 t2)
 /\ (! tvs menv all_cenv cenv senv tenv cn vs es ts1 ts2 t tn ts' tvs'.
 (EVERY (check_freevars tvs []) ts' /\
 (LENGTH tvs' = LENGTH ts') /\
-type_vs tvs all_cenv senv (REVERSE vs)
+type_vs tvs all_cenv senv vs
         (MAP (type_subst (FUPDATE_LIST FEMPTY (REVERSE (ZIP (tvs', ts'))))) ts1) /\
 type_es menv cenv (bind_tvar tvs tenv) es (MAP (type_subst (FUPDATE_LIST FEMPTY (REVERSE (ZIP (tvs', ts'))))) ts2) /\
-(lookup_alist_mod_env cn cenv = SOME (tvs', ((ts2++[t])++ts1), tn)))
+(lookup_alist_mod_env cn cenv = SOME (tvs', ((REVERSE ts2++[t])++ts1), tn)))
 ==>
 type_ctxt tvs menv all_cenv cenv senv tenv (Ccon (SOME cn) vs ()  es) (type_subst (FUPDATE_LIST FEMPTY (REVERSE (ZIP (tvs', ts')))) t)
           (Tapp ts' (tid_exn_to_tc tn)))
 
 /\ (! tvs menv all_cenv cenv senv tenv vs es t ts1 ts2.
 (check_freevars tvs [] t /\
-type_vs tvs all_cenv senv (REVERSE vs) ts1 /\
+type_vs tvs all_cenv senv vs ts1 /\
 type_es menv cenv (bind_tvar tvs tenv) es ts2)
 ==>
-type_ctxt tvs menv all_cenv cenv senv tenv (Ccon NONE vs ()  es) t (Tapp ((ts1++[t])++ts2) TC_tup))`;
+type_ctxt tvs menv all_cenv cenv senv tenv (Ccon NONE vs ()  es) t (Tapp ((REVERSE ts2++[t])++ts1) TC_tup))`;
 
 val _ = Define `
  (poly_context cs =  
