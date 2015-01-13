@@ -22,7 +22,7 @@ val JumpList_def = tDefine "JumpList" `
          let k = l DIV 2 in
          let ys = TAKE k xs in
          let zs = DROP k xs in
-           If (Op Less [Var 0; Op (Const (&(n+k))) []])
+           If (Op Less [Op (Const (&(n+k))) []; Var 0])
              (JumpList n ys) (JumpList (n + k) zs))`
   (WF_REL_TAC `measure (LENGTH o SND)` \\ REPEAT STRIP_TAC
    \\ STRIP_ASSUME_TAC (SPEC_ALL SPLIT_LIST) \\ FULL_SIMP_TAC std_ss []

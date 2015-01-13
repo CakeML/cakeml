@@ -19,12 +19,12 @@ val bConstOp_def = Define `
     if EVERY isConst xs then
       let ys = MAP getConst xs in
         (case op of
-         | Add => Op (Const (EL 0 ys + EL 1 ys)) []
-         | Sub => Op (Const (EL 0 ys - EL 1 ys)) []
-         | Mult => Op (Const (EL 0 ys * EL 1 ys)) []
-         | Div => Op (Const (EL 0 ys / EL 1 ys)) []
-         | Mod => Op (Const (EL 0 ys % EL 1 ys)) []
-         | Less => Op (Cons (bool_to_tag (EL 0 ys < EL 1 ys))) []
+         | Add => Op (Const (EL 1 ys + EL 0 ys)) []
+         | Sub => Op (Const (EL 1 ys - EL 0 ys)) []
+         | Mult => Op (Const (EL 1 ys * EL 0 ys)) []
+         | Div => Op (Const (EL 1 ys / EL 0 ys)) []
+         | Mod => Op (Const (EL 1 ys % EL 0 ys)) []
+         | Less => Op (Cons (bool_to_tag (EL 1 ys < EL 0 ys))) []
          | _ => Op op xs)
     else Op op xs`
 
@@ -107,7 +107,7 @@ val bConsts_thm = store_thm("bConsts_thm",
     \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
     \\ SIMP_TAC std_ss [Once bEval_cons]
     \\ FULL_SIMP_TAC std_ss [bConst_SING]
-    \\ REPEAT BasicProvers.FULL_CASE_TAC
+    \\ BasicProvers.EVERY_CASE_TAC
     \\ FULL_SIMP_TAC (srw_ss()) [bConsts_def,bEval_def]
     \\ REV_FULL_SIMP_TAC (srw_ss()) [bConsts_def])
   THEN1
@@ -119,7 +119,7 @@ val bConsts_thm = store_thm("bConsts_thm",
     \\ fs [EVAL ``bool_to_val T``,EVAL ``bool_to_val F``])
   \\ TRY
    (ASM_SIMP_TAC std_ss [bEval_def]
-    \\ REPEAT BasicProvers.FULL_CASE_TAC
+    \\ BasicProvers.EVERY_CASE_TAC
     \\ FULL_SIMP_TAC (srw_ss()) [GSYM bConst_SING]
     \\ REV_FULL_SIMP_TAC (srw_ss()) [] \\ NO_TAC)
   \\ SIMP_TAC std_ss [bEval_def,bConstOp_def]
@@ -132,6 +132,7 @@ val bConsts_thm = store_thm("bConsts_thm",
   \\ IMP_RES_TAC bEval_isConst
   \\ FULL_SIMP_TAC std_ss []
   \\ SRW_TAC [] []
+  \\ cheat (* TODO, broken by right-to-left eval *)
   \\ Cases_on `op` \\ FULL_SIMP_TAC (srw_ss()) [bEval_def]
   \\ Cases_on `xs` \\ fs [bConsts_def,bEvalOp_def]
   \\ Cases_on `t` \\ fs [bConsts_def,bEvalOp_def,getConst_def]
