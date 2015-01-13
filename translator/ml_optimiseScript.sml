@@ -5,7 +5,7 @@ open astTheory libTheory semanticPrimitivesTheory bigStepTheory;
 open terminationTheory;
 open evalPropsTheory bigClockTheory determTheory;
 open arithmeticTheory listTheory combinTheory pairTheory;
-open integerTheory ml_translatorTheory;
+open integerTheory ml_translatorTheory lcsymtacs;
 
 infix \\ val op \\ = op THEN;
 
@@ -171,7 +171,7 @@ val abs2let_thm = prove(
   \\ Q.LIST_EXISTS_TAC [`h`,(`count',s2`)] \\ FULL_SIMP_TAC std_ss []
   \\ Q.PAT_ASSUM `evaluate F env s (Fun s' e) ((s2',Rval v1))` MP_TAC
   \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
-  \\ REPEAT STRIP_TAC 
+  \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [opt_bind_def, SWAP_REVERSE_SYM]
   \\ METIS_TAC []);
 
@@ -239,29 +239,32 @@ val opt_sub_add_thm = prove(
                       evaluate F env s (opt_sub_add exp) (t,Rval res)``,
   STRIP_TAC \\ STRIP_TAC \\ STRIP_TAC \\ SIMP_TAC std_ss [opt_sub_add_def]
   \\ Cases_on `dest_binop exp` \\ FULL_SIMP_TAC std_ss []
-  \\ `?x1 x2 x3. x = (x1,x2,x3)` by METIS_TAC [PAIR]
-  \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ `?x1 x2 x3. x = (x1,x2,x3)` by METIS_TAC [PAIR] \\ fs []
   \\ Cases_on `dest_binop x2` \\ FULL_SIMP_TAC std_ss []
   \\ `?y1 y2 y3. x' = (y1,y2,y3)` by METIS_TAC [PAIR]
   \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] []
   \\ Cases_on `y3` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ Cases_on `x3 = Lit l` \\ FULL_SIMP_TAC std_ss []
   \\ IMP_RES_TAC dest_binop_thm \\ FULL_SIMP_TAC std_ss []
-  \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM (K ALL_TAC)
-  \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM MP_TAC
+  \\ SRW_TAC [] [] \\ POP_ASSUM MP_TAC
+  \\ Cases_on `t` \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
+  \\ NTAC 3 (FULL_SIMP_TAC (srw_ss()) [Once (hd (tl (CONJUNCTS evaluate_cases)))])
+  \\ fs [PULL_EXISTS]
   \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
   \\ NTAC 3 (FULL_SIMP_TAC (srw_ss()) [Once (hd (tl (CONJUNCTS evaluate_cases)))])
-  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
-  \\ NTAC 3 (FULL_SIMP_TAC (srw_ss()) [Once (hd (tl (CONJUNCTS evaluate_cases)))])
-  \\ FULL_SIMP_TAC (srw_ss()) [evaluate_Lit]
+  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases,PULL_EXISTS]
+  \\ FULL_SIMP_TAC (srw_ss()) [Once (hd (tl (CONJUNCTS evaluate_cases))),
+       evaluate_Lit,PULL_EXISTS]
+  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases,PULL_EXISTS]
+  \\ FULL_SIMP_TAC (srw_ss()) [Once (hd (tl (CONJUNCTS evaluate_cases))),
+       evaluate_Lit,PULL_EXISTS]
   \\ REPEAT STRIP_TAC
   \\ SRW_TAC [] []
   \\ IMP_RES_TAC do_app_IMP
   \\ SRW_TAC [] []
   \\ FULL_SIMP_TAC std_ss []
   \\ FULL_SIMP_TAC (srw_ss()) [do_app_def]
-  \\ REPEAT (Q.PAT_ASSUM `Lit xx = yy` (ASSUME_TAC o GSYM))
-  \\ FULL_SIMP_TAC (srw_ss()) [evaluate_Lit]
+  \\ SRW_TAC [] []
   \\ FULL_SIMP_TAC (srw_ss()) [opn_lookup_def, dest_binop_def,
        intLib.COOPER_PROVE ``i + i2 - i2 = i:int``,
        intLib.COOPER_PROVE ``i - i2 + i2 = i:int``]
