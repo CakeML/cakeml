@@ -98,9 +98,9 @@ val instance_def = new_specification("instance_def",["instance"],
                 (MAP (typesem (tyaof i) τ o TYPE_SUBST tyin o Tyvar) (MAP implode (STRING_SORT (MAP explode (tyvars ty0)))))``,
     simp[GSYM SKOLEM_THM] >> rw[] >>
     Cases_on`FLOOKUP tmsig name`>>simp[] >>
-    qmatch_assum_rename_tac`FLOOKUP tmsig name = SOME ty0`[] >>
+    qmatch_assum_rename_tac`FLOOKUP tmsig name = SOME ty0` >>
     Cases_on`is_instance ty0 ty` >> fs[] >>
-    qmatch_assum_rename_tac`ty = TYPE_SUBST tyin ty0`[] >>
+    qmatch_assum_rename_tac`ty = TYPE_SUBST tyin ty0` >>
     qho_match_abbrev_tac`∃f. ∀tyin. P tyin ⇒ f = Q tyin` >>
     qexists_tac`Q tyin` >>
     rw[Abbr`P`,Abbr`Q`,FUN_EQ_THM] >> rpt AP_TERM_TAC >>

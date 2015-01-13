@@ -67,11 +67,11 @@ val code_locs_def = tDefine "code_locs" `
          c1++c2) /\
   (code_locs [Fn loc vs x1] =
      let c1 = code_locs [x1] in
-       loc::c1) /\
+       c1 ++ [loc]) /\
   (code_locs [Letrec loc vs fns x1] =
      let c1 = code_locs fns in
      let c2 = code_locs [x1] in
-     GENLIST ($+ loc) (LENGTH fns) ++ c1 ++ c2) /\
+     c1 ++ GENLIST ($+ loc) (LENGTH fns) ++ c2) /\
   (code_locs [Handle x1 x2] =
      let c1 = code_locs [x1] in
      let c2 = code_locs [x2] in
@@ -115,12 +115,12 @@ val renumber_code_locs_def = tDefine "renumber_code_locs" `
      let (n,x2) = renumber_code_locs n x2 in
        (n,App loc_opt x1 x2)) /\
   (renumber_code_locs n (Fn loc vs x1) =
-     let (m,x1) = renumber_code_locs (n+1) x1 in
-       (m,Fn n vs x1)) /\
+     let (n,x1) = renumber_code_locs n x1 in
+       (n+1,Fn n vs x1)) /\
   (renumber_code_locs n (Letrec loc vs fns x1) =
-     let (m,fns) = renumber_code_locs_list (n+LENGTH fns) fns in
-     let (m,x1) = renumber_code_locs m x1 in
-     (m,Letrec n vs fns x1)) /\
+     let (m,fns) = renumber_code_locs_list n fns in
+     let (n,x1) = renumber_code_locs (m+LENGTH fns) x1 in
+     (n,Letrec m vs fns x1)) /\
   (renumber_code_locs n (Handle x1 x2) =
      let (n,x1) = renumber_code_locs n x1 in
      let (n,x2) = renumber_code_locs n x2 in
@@ -157,14 +157,8 @@ val renumber_code_locs_inc = store_thm("renumber_code_locs_inc",
   simp[renumber_code_locs_def] >> rw[] >>
   tac >> fs[] >>
   tac >> fs[] >>
-  tac >> fs[] >> simp[]
-  >- (
-    Cases_on`renumber_code_locs (n+1) e` >> fs[] >>
-    simp[] )
-  >- (
-    Cases_on`renumber_code_locs_list (n+LENGTH es) es` >> fs[] >>
-    tac >> fs[] >>
-    simp[] ))
+  tac >> fs[] >> simp[] >>
+  Cases_on`renumber_code_locs (q+LENGTH r) e`>>fs[]>>simp[])
 
 val renumber_code_locs_imp_inc = prove(
   ``(renumber_code_locs_list n es = (m,vs) ⇒ n ≤ m) ∧
@@ -226,7 +220,7 @@ val renumber_code_locs_distinct_lemma = prove(
     imp_res_tac renumber_code_locs_imp_inc >>
     rw[] >> fs[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][] >>
     NO_TAC) >>
-  Cases_on`renumber_code_locs_list (n+LENGTH es) es`>>fs[] >>
+  Cases_on`renumber_code_locs (q+LENGTH r) e`>>fs[] >>
   rpt(CHANGED_TAC tac >> fs[])>>
   simp[SORTED_GENLIST_PLUS] >>
   simp[MEM_GENLIST] >>
@@ -236,9 +230,11 @@ val renumber_code_locs_distinct_lemma = prove(
   rw[] >> fs[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][])
 
 val renumber_code_locs_distinct = store_thm("renumber_code_locs_distinct",
-  ``∀n e. ALL_DISTINCT (code_locs [SND (renumber_code_locs n e)])``,
+  ``∀n e. ALL_DISTINCT (code_locs [SND (renumber_code_locs n e)]) ∧
+          EVERY ($<= n) (code_locs [SND (renumber_code_locs n e)]) ∧
+          EVERY ($> (FST (renumber_code_locs n e))) (code_locs [SND (renumber_code_locs n e)])``,
   rw[] >>
-  qspecl_then[`n`,`e`]strip_assume_tac (CONJUNCT2 renumber_code_locs_distinct_lemma) >>
+  qspecl_then[`n`,`e`]strip_assume_tac (CONJUNCT2 renumber_code_locs_distinct_lemma) >> simp[] >>
   match_mp_tac (MP_CANON (GEN_ALL SORTED_ALL_DISTINCT)) >>
   qexists_tac`$<` >> simp[] >>
   simp[relationTheory.irreflexive_def])
@@ -330,6 +326,7 @@ val res_rel_simp = let
             ``res_rel (Exception x) y``,
             ``res_rel Error y``,
             ``res_rel TimeOut y``] |> LIST_CONJ end
+val _ = save_thm("res_rel_simp",res_rel_simp)
 
 val val_rel_simp = let
   val f = SIMP_CONV (srw_ss()) [Once val_rel_cases]
@@ -360,9 +357,9 @@ val contains_App_SOME_EXISTS = prove(
   Induct >> simp[contains_App_SOME_def] >>
   Cases_on`ls`>>fs[contains_App_SOME_def])
 
-val renumber_code_locs_correct_lemma = prove(
+val renumber_code_locs_correct = store_thm("renumber_code_locs_correct",
   ``!xs env s1 env' t1 res s2 n.
-      (cEval (xs,env,s1) = (res,s2)) /\
+      (cEval (xs,env,s1) = (res,s2)) ⇒
       ¬contains_App_SOME xs ∧
       LIST_REL val_rel env env' ∧
       state_rel s1 t1 ==>
@@ -473,14 +470,14 @@ val renumber_code_locs_correct_lemma = prove(
       imp_res_tac LIST_REL_LENGTH >>
       DECIDE_TAC ) >>
     fs[LIST_REL_EL_EQN] >>
-    qexists_tac`n+1`>>simp[] >>
+    qexists_tac`n`>>simp[] >>
     imp_res_tac lookup_vars_SOME >>
     imp_res_tac lookup_vars_MEM >>
     simp[] )
   THEN1 (* Letrec *)
    (fs[renumber_code_locs_def,cEval_def,LET_THM,UNCURRY] >>
     `t1.restrict_envs = s.restrict_envs` by fs[state_rel_def] >>
-    Cases_on`renumber_code_locs_list (n+LENGTH fns) fns`>>fs[]>>
+    Cases_on`renumber_code_locs_list n fns`>>fs[]>>
     fs[build_recc_def,clos_env_def] >> reverse(rw[]) >> fs[contains_App_SOME_def] >> rw[] >- (
       first_x_assum MATCH_MP_TAC >> rw[] >>
       MATCH_MP_TAC EVERY2_APPEND_suff >> rw[] >>
@@ -506,7 +503,7 @@ val renumber_code_locs_correct_lemma = prove(
       rw[val_rel_simp,LIST_REL_EL_EQN] >>
       imp_res_tac lookup_vars_SOME >>
       imp_res_tac lookup_vars_MEM >>
-      qexists_tac`n + LENGTH fns`>>simp[] >>
+      qexists_tac`n`>>simp[] >>
       fs[LIST_REL_EL_EQN]) >>
     imp_res_tac lookup_vars_NONE >>
     imp_res_tac lookup_vars_SOME >>
@@ -594,5 +591,19 @@ val renumber_code_locs_correct_lemma = prove(
       simp[] >>
       fs[state_rel_def,dec_clock_def] ) >>
     rw[res_rel_simp]))
+
+open pat_to_closTheory boolSimps
+
+val pComp_contains_App_SOME = store_thm("pComp_contains_App_SOME",
+  ``∀e. ¬contains_App_SOME[pComp e]``,
+  ho_match_mp_tac pComp_ind >>
+  simp[pComp_def,contains_App_SOME_def] >>
+  rw[] >> srw_tac[ETA_ss][] >>
+  rw[Once contains_App_SOME_EXISTS,EVERY_MAP] >>
+  rw[contains_App_SOME_def] >> rw[EVERY_MEM] >>
+  rw[Once contains_App_SOME_EXISTS,EVERY_MAP] >>
+  rw[contains_App_SOME_def] >> rw[EVERY_MEM] >>
+  fs[REPLICATE_GENLIST,MEM_GENLIST] >>
+  rw[contains_App_SOME_def])
 
 val _ = export_theory()

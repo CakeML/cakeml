@@ -1882,28 +1882,15 @@ val new_specification_thm = store_thm("new_specification_thm",
     simp[holKernelTheory.dest_var_def,ex_return_def] >> strip_tac >>
     rpt BasicProvers.VAR_EQ_TAC >>
     qpat_assum`dest_eq tm r = X`mp_tac >>
-    Cases_on`tm`>>simp_tac(srw_ss())[dest_eq_def,failwith_def] >>
-    BasicProvers.CASE_TAC >>
-    BasicProvers.CASE_TAC >>
-    BasicProvers.CASE_TAC >>
-    BasicProvers.CASE_TAC >>
-    BasicProvers.CASE_TAC >>
-    BasicProvers.CASE_TAC >>
-    simp_tac(srw_ss())[ex_return_def] >> strip_tac >>
-    rpt BasicProvers.VAR_EQ_TAC >>
+    simp_tac(srw_ss())[dest_eq_def,failwith_def,ex_return_def] >>
+    simp[Once equation_def] >>
     qmatch_assum_abbrev_tac`TERM defs (Comb X Y)` >>
     `welltyped (Comb X Y)` by (
       metis_tac[TERM_def,term_ok_welltyped]) >>
     pop_assum mp_tac >>
     simp[Abbr`X`,Abbr`Y`] >> strip_tac >>
     rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
-    rpt BasicProvers.VAR_EQ_TAC >>
-    `t has_type r''` by (
-      `CONTEXT defs` by fs[STATE_def] >>
-      imp_res_tac CONTEXT_std_sig >>
-      fs[equation_def,term_ok_def,is_std_sig_def] >>
-      rfs[WELLTYPED]) >>
-    conj_tac >- (simp[equation_def] >> fs[WELLTYPED_LEMMA]) >> simp[] >>
+    conj_tac >- (metis_tac[WELLTYPED]) >> simp[] >>
     conj_tac >- (
       simp[CLOSED_def] >>
       PROVE_TAC[freesin_IMP,MEM] ) >>
