@@ -1169,10 +1169,11 @@ val ty = ``:num option``; derive_thms_for_type false ty
 
 val _ = Datatype `exn = A num num | B int`;
 val ty = ``:exn``;
-val is_exn_type = true;
 
 val ty = ``:unit``; derive_thms_for_type false ty
 *)
+
+val is_exn_type = false;
 
 fun derive_thms_for_type is_exn_type ty = let
   val (ty,ret_ty) = dest_fun_type (type_of_cases_const ty)
@@ -1448,7 +1449,9 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
       \\ PairCases_on `env`
       \\ FULL_SIMP_TAC (srw_ss()) [inv_def,evaluate_list_SIMP,do_con_check_def,
            all_env_to_cenv_def,lookup_cons_def,build_conv_def,id_to_n_def]
-      \\ EXISTS_TAC witness \\ FULL_SIMP_TAC std_ss [CONS_11,evaluate_list_SIMP])
+      \\ EXISTS_TAC ``REVERSE ^witness``
+      \\ FULL_SIMP_TAC std_ss [CONS_11,evaluate_list_SIMP,REVERSE_REVERSE]
+      \\ FULL_SIMP_TAC std_ss [REVERSE_DEF,evaluate_list_SIMP,APPEND,CONS_11])
     in (pat,lemma) end;
 (*
   val ((ty,case_th),(_,inv_def,eq_lemma)) = hd (zip case_thms inv_defs)
