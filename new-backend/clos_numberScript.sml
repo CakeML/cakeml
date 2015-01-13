@@ -360,9 +360,9 @@ val contains_App_SOME_EXISTS = prove(
   Induct >> simp[contains_App_SOME_def] >>
   Cases_on`ls`>>fs[contains_App_SOME_def])
 
-val renumber_code_locs_correct_lemma = prove(
+val renumber_code_locs_correct = store_thm("renumber_code_locs_correct",
   ``!xs env s1 env' t1 res s2 n.
-      (cEval (xs,env,s1) = (res,s2)) /\
+      (cEval (xs,env,s1) = (res,s2)) ⇒
       ¬contains_App_SOME xs ∧
       LIST_REL val_rel env env' ∧
       state_rel s1 t1 ==>
