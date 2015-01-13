@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib
-open lcsymtacs sptreeLib asmTheory asmLib arm8_stepLib arm8_encodeTheory;
+open lcsymtacs asmTheory asmLib arm8_stepLib;
 
 val () = new_theory "arm8_target"
 
@@ -22,7 +22,7 @@ val valid_immediate_def = Define`
    if c IN {INL Add; INL Sub; INR Less; INR Lower; INR Equal} then
       (~0xFFFw && i = 0w) \/ (~0xFFF000w && i = 0w)
    else
-      IS_SOME (EncodeBitMask (Imm64 i))`
+      IS_SOME (EncodeBitMask i)`
 
 val arm8_config_def = Define`
    arm8_config =
@@ -66,7 +66,7 @@ val arm8_asm_state_def = Define`
 
 val arm8_encode_def = Define`
    arm8_encode i =
-   case InstructionEncode i of
+   case Encode i of
       ARM8 w => [(7 >< 0) w; (15 >< 8) w; (23 >< 16) w; (31 >< 24) w]
     | _ => [] : word8 list`
 
@@ -112,7 +112,7 @@ val arm8_enc_def = Define`
                  arm8_encode
                     (Data (MoveWide@64 (1w, MoveWideOp_N, hw, imm16, n2w r)))
             | NONE =>
-                if IS_SOME (EncodeBitMask (Imm64 i)) then
+                if IS_SOME (EncodeBitMask i) then
                   arm8_encode
                      (Data (LogicalImmediate@64
                               (1w, LogicalOp_ORR, F, i, 0x1Fw, n2w r)))
@@ -326,62 +326,30 @@ val arm8_dec_aux_def = Define`
 
 val arm8_dec_def = Define `arm8_dec = arm8_dec_aux o decode_word`
 
-(* ------------------------------------------------------------------------- *)
-
-val lookup_CONV =
-   RATOR_CONV (RAND_CONV wordsLib.WORD_EVAL_CONV)
-   THENC RAND_CONV (fn t => if t = ``sptree_mask64`` then sptree_mask64_def
-                            else sptree_mask32_def)
-   THENC PURE_REWRITE_CONV [sptreeTheory.lookup_compute]
-
-local
-   val cmp = wordsLib.words_compset ()
-   val () =
-      ( utilsLib.add_base_datatypes cmp
-      ; intReduce.add_int_compset cmp
-      ; integer_wordLib.add_integer_word_compset cmp
-      ; bitstringLib.add_bitstring_compset cmp
-      ; utilsLib.add_theory ([], arm8Theory.inventory) cmp
-      ; computeLib.add_conv
-          (bitstringSyntax.v2w_tm, 1, bitstringLib.v2w_n2w_CONV) cmp
-      )
-in
-   val ARM8_CONV = computeLib.CBV_CONV cmp
-end
-
-fun dom_conv th = Count.apply (RAND_CONV (K th) THENC sptreeLib.domain_CONV)
-
-val dom32 = dom_conv sptree_mask32_def ``domain sptree_mask32``
-val dom64 = dom_conv sptree_mask64_def ``domain sptree_mask64``
-
 (* some lemmas ------------------------------------------------------------- *)
 
 val arm8_asm_state =
    REWRITE_RULE [DECIDE ``n < 31 = n < 32 /\ n <> 31``] arm8_asm_state_def
 
-val Decode_EncodeBitMask = Count.apply Q.store_thm("Decode_EncodeBitMask",
-   `(!w n s r.
-        (EncodeBitMask (Imm32 w) = SOME (n, s, r)) ==>
+fun cases_on_DecodeBitMasks (g as (asl, _)) =
+   let
+      val (_, tm, _) = TypeBase.dest_case (lhs (List.nth (List.rev asl, 1)))
+   in
+      (Cases_on `^tm` \\ fs [] \\ Cases_on `x` \\ fs []) g
+   end
+
+val Decode_EncodeBitMask = Q.store_thm("Decode_EncodeBitMask",
+   `(!w: word32 n s r.
+        (EncodeBitMask w = SOME (n, s, r)) ==>
         (?v. DecodeBitMasks (n, s, r, T) = SOME (w, v))) /\
-    (!w n s r.
-        (EncodeBitMask (Imm64 w) = SOME (n, s, r)) ==>
+    (!w: word64 n s r.
+        (EncodeBitMask w = SOME (n, s, r)) ==>
         (?v. DecodeBitMasks (n, s, r, T) = SOME (w, v)))`,
-   strip_tac
-   \\ Cases
-   \\ rw [EncodeBitMask_def]
-   >| [ `n IN domain sptree_mask32` by simp [sptreeTheory.domain_lookup],
-        `n IN domain sptree_mask64` by simp [sptreeTheory.domain_lookup]
-   ]
-   \\ RULE_ASSUM_TAC (REWRITE_RULE [dom32, dom64, pred_setTheory.IN_INSERT])
+   lrw [arm8Theory.EncodeBitMask_def, arm8Theory.EncodeBitMaskAux_def]
+   \\ BasicProvers.FULL_CASE_TAC
    \\ fs []
-   \\ pop_assum SUBST_ALL_TAC
-   \\ RULE_ASSUM_TAC
-         (CONV_RULE (TRY_CONV (LAND_CONV lookup_CONV
-                               THENC REWRITE_CONV [optionTheory.SOME_11])))
-   \\ pop_assum (assume_tac o REWRITE_RULE [pairTheory.PAIR_EQ] o SYM)
-   \\ asm_rewrite_tac []
-   \\ CONV_TAC ARM8_CONV
-   \\ simp []
+   \\ cases_on_DecodeBitMasks
+   \\ metis_tac []
    )
 
 val word_log2_7 = Q.prove(
@@ -435,12 +403,12 @@ val valid_immediate_thm = Q.prove(
            (0xFFFw && c = 0w) /\ (0xFFFFFFFFFF000000w && c = 0w) \/
            (0xFFFw && c) <> 0w /\ (0xFFFFFFFFFFFFF000w && c = 0w)
         else
-           ?N imms immr. EncodeBitMask (Imm64 c) = SOME (N, imms, immr)`,
+           ?N imms immr. EncodeBitMask c = SOME (N, imms, immr)`,
    Cases
    >| [ Cases_on `x`, Cases_on `y` ]
    \\ rw [valid_immediate_def]
    \\ TRY blastLib.BBLAST_PROVE_TAC
-   \\ Cases_on `EncodeBitMask (Imm64 c)`
+   \\ Cases_on `EncodeBitMask c`
    \\ simp []
    \\ METIS_TAC [pairTheory.ABS_PAIR_THM]
    )
@@ -868,10 +836,10 @@ val encode_rwts =
    let
       open arm8Theory
    in
-      [arm8_enc, arm8_encode_def, arm8_encodeTheory.InstructionEncode_def,
-       Encode_def, e_data_def, e_branch_def, e_load_store_def, e_sf_def,
-       e_LoadStoreImmediate_def, EncodeLogicalOp_def, NoOperation_def,
-       ShiftType2num_thm, SystemHintOp2num_thm, ShiftType2num_thm
+      [arm8_enc, arm8_encode_def, Encode_def, e_data_def, e_branch_def,
+       e_load_store_def, e_sf_def, e_LoadStoreImmediate_def,
+       EncodeLogicalOp_def, NoOperation_def, ShiftType2num_thm,
+       SystemHintOp2num_thm, ShiftType2num_thm
       ]
    end
 
@@ -1117,7 +1085,7 @@ val arm8_encoding = Count.apply Q.prove (
          print_tac "Const"
          \\ Cases_on `arm8_enc_mov_imm c`
          >| [ Cases_on `arm8_enc_mov_imm (~c)`
-              >| [ Cases_on `EncodeBitMask (Imm64 c)`
+              >| [ Cases_on `EncodeBitMask c`
                    >| [
                         simp enc_rwts
                         \\ REPEAT (simp dec_rwts \\ decode_tac)
@@ -1288,7 +1256,7 @@ val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
              \\ imp_res_tac lem27
              \\ state_tac [lem28]
             )
-         \\ REVERSE (Cases_on `EncodeBitMask (Imm64 c)`)
+         \\ REVERSE (Cases_on `EncodeBitMask c`)
          >- (
              next_tac `0`
              \\ Cases_on `x`
