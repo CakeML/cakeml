@@ -559,25 +559,35 @@ val cEval_def = save_thm("cEval_def",let
 
 (* lemmas *)
 
-(*
+val cEval_LENGTH_ind =
+  cEval_ind
+  |> Q.SPEC `\(xs,s,env).
+       (case cEval (xs,s,env) of (Result res,s1) => (LENGTH xs = LENGTH res)
+            | _ => T)`
+  |> Q.SPEC `\x1 x2 x3 x4.
+       (case cEvalApp x1 x2 x3 x4 of (Result res,s1) => (LENGTH res = 1)
+            | _ => T)`
 
-val cEval_LENGTH = prove(
-  ``!xs s env. (\(xs,s,env).
-      (case cEval (xs,s,env) of (Result res,s1) => (LENGTH xs = LENGTH res)
-            | _ => T))
-      (xs,s,env)``,
-  HO_MATCH_MP_TAC cEval_ind \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC (srw_ss()) [cEval_def]
-  \\ SRW_TAC [] [] \\ SRW_TAC [] []
-  \\ BasicProvers.EVERY_CASE_TAC \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ REV_FULL_SIMP_TAC std_ss [] \\ FULL_SIMP_TAC (srw_ss()) [])
-  |> SIMP_RULE std_ss [];
+val cEval_LENGTH = prove(cEval_LENGTH_ind |> concl |> rand,
+  MATCH_MP_TAC cEval_LENGTH_ind
+  \\ REPEAT STRIP_TAC \\ fs []
+  \\ ONCE_REWRITE_TAC [cEval_def] \\ fs []
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rfs [] \\ fs [])
+  |> SIMP_RULE std_ss [FORALL_PROD]
 
 val _ = save_thm("cEval_LENGTH", cEval_LENGTH);
 
 val cEval_IMP_LENGTH = store_thm("cEval_IMP_LENGTH",
   ``(cEval (xs,s,env) = (Result res,s1)) ==> (LENGTH xs = LENGTH res)``,
-  REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL cEval_LENGTH) \\ fs []);
+  REPEAT STRIP_TAC
+  \\ MP_TAC (cEval_LENGTH |> CONJUNCT1 |> Q.SPECL [`xs`,`s`,`env`])
+  \\ fs []);
+
+val cEvalApp_IMP_LENGTH = store_thm("cEvalApp_IMP_LENGTH",
+  ``(cEvalApp x1 x2 x3 x4 = (Result res,s1)) ==> (LENGTH res = 1)``,
+  REPEAT STRIP_TAC
+  \\ MP_TAC (cEval_LENGTH |> CONJUNCT2 |> Q.SPECL [`x1`,`x2`,`x3`,`x4`])
+  \\ fs []);
 
 val cEval_SING = store_thm("cEval_SING",
   ``(cEval ([x],s,env) = (Result r,s2)) ==> ?r1. r = [r1]``,
@@ -630,26 +640,41 @@ val cEvalOp_const = store_thm("cEvalOp_const",
   \\ BasicProvers.EVERY_CASE_TAC
   \\ fs [LET_DEF] \\ SRW_TAC [] [] \\ fs []);
 
+val cEval_const_ind =
+  cEval_ind
+  |> Q.SPEC `\(xs,env,s).
+       (case cEval (xs,env,s) of (_,s1) =>
+          (s1.restrict_envs = s.restrict_envs) /\
+          (s1.code = s.code))`
+  |> Q.SPEC `\x1 x2 x3 x4.
+       (case cEvalApp x1 x2 x3 x4 of (_,s1) =>
+          (s1.restrict_envs = x4.restrict_envs) /\
+          (s1.code = x4.code))`
+
 val cEval_const_lemma = prove(
-  ``!xs env s1. (\(xs,env,s1).
-      (case cEval (xs,env,s1) of (_,s2) =>
-         (s2.restrict_envs = s1.restrict_envs) /\
-         (s2.code = s1.code)))
-           (xs,env,s1)``,
-  HO_MATCH_MP_TAC cEval_ind \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC (srw_ss()) [cEval_def]
-  \\ SRW_TAC [] [] \\ SRW_TAC [] []
-  \\ BasicProvers.EVERY_CASE_TAC \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ REV_FULL_SIMP_TAC std_ss [] \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ IMP_RES_TAC cEvalOp_const \\ FULL_SIMP_TAC std_ss []
-  \\ fs [dec_clock_def])
-  |> SIMP_RULE std_ss [] |> SPEC_ALL;
+  cEval_const_ind |> concl |> rand,
+  MATCH_MP_TAC cEval_const_ind
+  \\ REPEAT STRIP_TAC \\ fs []
+  \\ ONCE_REWRITE_TAC [cEval_def] \\ fs []
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rfs []
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rfs []
+  \\ IMP_RES_TAC cEvalOp_const \\ fs [dec_clock_def])
+  |> SIMP_RULE std_ss [FORALL_PROD]
 
 val cEval_const = store_thm("cEval_const",
-  ``(cEval (xs,env,s1) = (res,s2)) ==>
-    (s2.restrict_envs = s1.restrict_envs) /\ (s2.code = s1.code)``,
-  REPEAT STRIP_TAC \\ MP_TAC cEval_const_lemma \\ fs []);
+  ``(cEval (xs,env,s) = (res,s1)) ==>
+      (s1.restrict_envs = s.restrict_envs) /\
+      (s1.code = s.code)``,
+  REPEAT STRIP_TAC
+  \\ MP_TAC (cEval_const_lemma |> CONJUNCT1 |> Q.SPECL [`xs`,`env`,`s`])
+  \\ fs []);
 
-*)
+val cEvalApp_const = store_thm("cEvalApp_const",
+  ``(cEvalApp x1 x2 x3 x4 = (res,s1)) ==>
+      (s1.restrict_envs = x4.restrict_envs) /\
+      (s1.code = x4.code)``,
+  REPEAT STRIP_TAC
+  \\ MP_TAC (cEval_const_lemma |> CONJUNCT2 |> Q.SPECL [`x1`,`x2`,`x3`,`x4`])
+  \\ fs []);
 
 val _ = export_theory();
