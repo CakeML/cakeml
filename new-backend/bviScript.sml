@@ -301,9 +301,9 @@ val iEval_def = save_thm("iEval_def",let
     \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) []
     \\ Cases_on `find_code dest a r.code` \\ FULL_SIMP_TAC (srw_ss()) []
     \\ Cases_on `x'` \\ FULL_SIMP_TAC (srw_ss()) []
-    \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest a r.code = SOME (q,r2)` []
+    \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest a r.code = SOME (q,r2)`
     \\ Cases_on `iEval ([r2],q,dec_clock r)` \\ Cases_on `q` \\ fs []
-    \\ Q.MATCH_ASSUM_RENAME_TAC `iEval ([r2],q,dec_clock r) = (t1,t2)` []
+    \\ Q.MATCH_ASSUM_RENAME_TAC `iEval ([r2],q,dec_clock r) = (t1,t2)`
     \\ fs [] \\ Cases_on `t1` \\ fs []
     \\ Cases_on `handler` \\ fs []
     \\ IMP_RES_TAC iEval_clock

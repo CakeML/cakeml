@@ -323,7 +323,7 @@ val x64_move_thm = prove(
   \\ FULL_SIMP_TAC std_ss [blast_lemma,WORD_SUB_ADD] THEN1
    (ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ FULL_SIMP_TAC std_ss []
     \\ FULL_SIMP_TAC std_ss [AC WORD_AND_COMM WORD_AND_ASSOC,blast_lemma]
-    \\ Q.MATCH_ASSUM_RENAME_TAC `heap_lookup n1 h2 = SOME (ForwardPointer ptr n2)` []
+    \\ Q.MATCH_ASSUM_RENAME_TAC `heap_lookup n1 h2 = SOME (ForwardPointer ptr n2)`
     \\ IMP_RES_TAC heap_lookup_SPLIT \\ FULL_SIMP_TAC std_ss []
     \\ ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ FULL_SIMP_TAC std_ss [x64_heap_APPEND]
     \\ FULL_SIMP_TAC std_ss [x64_heap_def,x64_el_def,STAR_ASSOC]
@@ -334,7 +334,7 @@ val x64_move_thm = prove(
     \\ NTAC 2 (POP_ASSUM MP_TAC) \\ blastLib.BBLAST_TAC)
   \\ ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ FULL_SIMP_TAC std_ss []
   \\ FULL_SIMP_TAC std_ss [AC WORD_AND_COMM WORD_AND_ASSOC,blast_lemma]
-  \\ Q.MATCH_ASSUM_RENAME_TAC `heap_lookup n1 h2 = SOME (DataElement l n2 b')` []
+  \\ Q.MATCH_ASSUM_RENAME_TAC `heap_lookup n1 h2 = SOME (DataElement l n2 b')`
   \\ IMP_RES_TAC heap_lookup_SPLIT \\ FULL_SIMP_TAC std_ss []
   \\ ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ FULL_SIMP_TAC std_ss [x64_heap_APPEND]
   \\ Cases_on `b'` \\ FULL_SIMP_TAC std_ss [x64_heap_def,x64_el_def,STAR_ASSOC]
@@ -348,7 +348,7 @@ val x64_move_thm = prove(
   \\ FULL_SIMP_TAC std_ss [x64_heap_def,x64_el_def,STAR_ASSOC,SEP_CLAUSES,LET_DEF]
   \\ FULL_SIMP_TAC std_ss [el_length_def,LET_DEF,WORD_SUB_ADD]
   \\ Cases_on `n` THEN1 `F` by DECIDE_TAC
-  \\ Q.MATCH_ASSUM_RENAME_TAC `n2 + 1 <= SUC n` []
+  \\ Q.MATCH_ASSUM_RENAME_TAC `n2 + 1 <= SUC n`
   \\ FULL_SIMP_TAC std_ss [one_list_exists_SUC,SEP_CLAUSES,SEP_EXISTS_THM]
   \\ SEP_W_TAC
   \\ Q.ABBREV_TAC `m3 = (b1 + n2w (8 * b + 8 * heap_length heap) =+ t1)
@@ -627,7 +627,7 @@ val x64_move_loop_thm = prove(
     \\ Q.PAT_ASSUM `xxx (fun2set yyy)` MP_TAC
     \\ FULL_SIMP_TAC std_ss [gc_move_list_def,word_arith_lemma1]
     \\ NO_TAC)
-  \\ Q.MATCH_ASSUM_RENAME_TAC `LENGTH x2 = k` []
+  \\ Q.MATCH_ASSUM_RENAME_TAC `LENGTH x2 = k`
   \\ MP_TAC (Q.SPECL [`l`,`[]`,`n`,`h2`,`c`,`limit`,`ys3`,`b3`] x64_move_list_thm)
   \\ FULL_SIMP_TAC std_ss [EVAL ``heap_length []``,SUM,ADD_0]
   \\ Q.ABBREV_TAC `cc = (b1 + n2w (8 * heap_length h1) + 0x8w)`

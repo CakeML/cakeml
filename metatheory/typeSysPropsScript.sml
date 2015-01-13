@@ -2971,7 +2971,7 @@ val type_e_closed = prove(
     simp[FV_pes_MAP] >>
     simp_tac(srw_ss()++DNF_ss)[SUBSET_DEF,UNCURRY,FORALL_PROD,MEM_MAP] >>
     rw[] >> res_tac >>
-    qmatch_assum_rename_tac`MEM (p1,p2) pes`[] >>
+    qmatch_assum_rename_tac`MEM (p1,p2) pes` >>
     first_x_assum(qspecl_then[`p1`,`p2`]mp_tac) >>
     simp[EXISTS_PROD] >> disch_then(Q.X_CHOOSE_THEN`tv`strip_assume_tac) >>
     imp_res_tac type_p_closed >>
@@ -3012,7 +3012,7 @@ val type_e_closed = prove(
     simp[FV_pes_MAP] >>
     simp_tac(srw_ss()++DNF_ss)[SUBSET_DEF,UNCURRY,FORALL_PROD,MEM_MAP] >>
     rw[] >> res_tac >>
-    qmatch_assum_rename_tac`MEM (p1,p2) pes`[] >>
+    qmatch_assum_rename_tac`MEM (p1,p2) pes` >>
     first_x_assum(qspecl_then[`p1`,`p2`]mp_tac) >>
     simp[EXISTS_PROD] >> disch_then(Q.X_CHOOSE_THEN`tv`strip_assume_tac) >>
     imp_res_tac type_p_closed >>

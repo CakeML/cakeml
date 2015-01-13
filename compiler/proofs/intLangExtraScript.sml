@@ -95,35 +95,35 @@ val Cexplode_vlabs = store_thm("Cexplode_vlabs[simp]",
 
 val tac =
   TRY (
-    qmatch_assum_rename_tac`x ∈ vlabs (EL n ls)`[] >>
+    qmatch_assum_rename_tac`x ∈ vlabs (EL n ls)` >>
     first_x_assum(qspecl_then[`x`,`EL n ls`]mp_tac) >>
     discharge_hyps >- (
       simp[MEM_EL] >> metis_tac[] ) >>
     metis_tac[] ) >>
   TRY (
-    qmatch_assum_rename_tac`x ∈ vlabs v`[] >>
-    qmatch_assum_rename_tac`EL n ls = Refv v`[] >>
+    qmatch_assum_rename_tac`x ∈ vlabs v` >>
+    qmatch_assum_rename_tac`EL n ls = Refv v` >>
     first_x_assum(qspecl_then[`x`,`v`,`Refv v`]mp_tac) >>
     simp[] >>
     discharge_hyps >- (
       simp[MEM_EL] >> metis_tac[] ) >>
     metis_tac[] ) >>
   TRY (
-    qmatch_assum_rename_tac`x ∈ vlabs v`[] >>
-    qmatch_assum_rename_tac`MEM v (store_v_vs ls)`[] >>
-    qmatch_assum_rename_tac`MEM ls l2`[] >>
+    qmatch_assum_rename_tac`x ∈ vlabs v` >>
+    qmatch_assum_rename_tac`MEM v (store_v_vs ls)` >>
+    qmatch_assum_rename_tac`MEM ls l2` >>
     first_x_assum(qspecl_then[`x`,`v`,`ls`]mp_tac) >>
     simp[] >> NO_TAC ) >>
   TRY (
-    qmatch_assum_rename_tac`x ∈ vlabs (THE v)`[] >>
-    qmatch_assum_rename_tac`MEM v ls`[] >>
+    qmatch_assum_rename_tac`x ∈ vlabs (THE v)` >>
+    qmatch_assum_rename_tac`MEM v ls` >>
     first_x_assum(qspecl_then[`x`,`v`]mp_tac) >>
     simp[] >> NO_TAC ) >>
   TRY (
     imp_res_tac MEM_LUPDATE_E >> fs[] >>
-    qmatch_assum_rename_tac`x ∈ vlabs v`[] >>
-    qmatch_assum_rename_tac`MEM v l`[] >>
-    qmatch_assum_rename_tac`EL n ls = Varray l`[] >>
+    qmatch_assum_rename_tac`x ∈ vlabs v` >>
+    qmatch_assum_rename_tac`MEM v l` >>
+    qmatch_assum_rename_tac`EL n ls = Varray l` >>
     first_x_assum(qspecl_then[`x`,`v`,`EL n ls`]mp_tac) >>
     simp[] >>
     (discharge_hyps >- (
@@ -251,7 +251,7 @@ val Cevaluate_vlabs = store_thm("Cevaluate_vlabs",
   strip_tac >- (
     rw [] >> PairCases_on`s'` >> Cases_on `p2` >> fs [] >> rw[] >> fs[LET_THM,UNCURRY] >>
     TRY (
-      qmatch_assum_rename_tac`SND(CevalPrim2s s0 op v1 v2) = res`["res"] >>
+      qmatch_assum_rename_tac`SND(CevalPrim2s s0 op v1 v2) = _` >>
       Cases_on`op`>>Cases_on`v1`>>Cases_on`v2`>>fs[CevalPrim2s_def] >>
       TRY(Cases_on`l:lit`)>>TRY(Cases_on`l':lit`)>>fs[CevalPrim2s_def] >>
       pop_assum mp_tac >> rw[] >>
@@ -259,7 +259,7 @@ val Cevaluate_vlabs = store_thm("Cevaluate_vlabs",
       BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
       fs[vlabs_list_MAP,SUBSET_DEF,PULL_EXISTS,MEM_FLAT,MEM_MAP,MEM_FILTER,REPLICATE_GENLIST,MEM_GENLIST] >>
       fs[libTheory.el_check_def] >>
-      qmatch_assum_rename_tac`EL n s0 = Varray l`[] >> rw[] >>
+      qmatch_assum_rename_tac`EL n s0 = Varray l` >> rw[] >>
       fs[GSYM AND_IMP_INTRO] >>
       last_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
       disch_then(qspec_then`EL n s0`mp_tac) >>
@@ -270,8 +270,8 @@ val Cevaluate_vlabs = store_thm("Cevaluate_vlabs",
         qexists_tac`Num i` >> simp[] ) >>
       simp[] ) >>
     TRY (
-      (qmatch_assum_rename_tac`CevalPrim2s s0 op v1 v2 = (s',res)`[] ORELSE
-       qmatch_assum_rename_tac`SND(CevalPrim2s s0 op v1 v2) = res`["res"]) >>
+      (qmatch_assum_rename_tac`CevalPrim2s s0 op v1 v2 = (s',res)` ORELSE
+       qmatch_assum_rename_tac`SND(CevalPrim2s s0 op v1 v2) = _`) >>
       Cases_on`op`>>Cases_on`v1`>>Cases_on`v2`>>fs[CevalPrim2s_def] >>
       TRY(Cases_on`l:lit`)>>TRY(Cases_on`l':lit`)>>fs[CevalPrim2s_def] >>
       pop_assum mp_tac >> rw[] >>
@@ -279,7 +279,7 @@ val Cevaluate_vlabs = store_thm("Cevaluate_vlabs",
       BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
       fs[vlabs_list_MAP,SUBSET_DEF,PULL_EXISTS,MEM_FLAT,MEM_MAP,MEM_FILTER,REPLICATE_GENLIST,MEM_GENLIST] >>
       metis_tac[]) >>
-    qmatch_assum_rename_tac`CevalPrim2p op v1 v2 = res`["res"] >>
+    qmatch_assum_rename_tac`CevalPrim2p op v1 v2 = _` >>
     Cases_on`op`>>fs[CevalPrim2p_def]>>
     TRY (Cases_on `v1` >> Cases_on `v2` >> fs [] >> TRY(Cases_on `l:lit`) >> TRY (Cases_on `l':lit`) >>
          fs [] >> rw [] >>
@@ -419,7 +419,7 @@ val tac1 =
     fs[EVERY_MEM] >>
     TRY(
       gen_tac >> strip_tac >>
-      qmatch_assum_rename_tac`nn < LENGTH ll + 1`[] >>
+      qmatch_assum_rename_tac`nn < LENGTH ll + 1` >>
       Cases_on`nn < LENGTH ll`>>simp[EL_APPEND1,EL_APPEND2]>>
       `nn = LENGTH ll`by simp[] >> simp[] >>
       simp[EVERY_MEM] ) >>
@@ -429,8 +429,8 @@ val tac1 =
   strip_tac >- (
     rw [] >> PairCases_on`s'` >> Cases_on `p2` >> fs [] >> rw[] >> fs[LET_THM,UNCURRY] >>
     TRY (
-      (qmatch_assum_rename_tac`CevalPrim2s s0 op v1 v2 = (s',res)`[] ORELSE
-       qmatch_assum_rename_tac`SND(CevalPrim2s s0 op v1 v2) = res`["res"]) >>
+      (qmatch_assum_rename_tac`CevalPrim2s s0 op v1 v2 = (s',res)` ORELSE
+       qmatch_assum_rename_tac`SND(CevalPrim2s s0 op v1 v2) = _`) >>
       Cases_on`op`>>Cases_on`v1`>>Cases_on`v2`>>fs[CevalPrim2s_def] >>
       TRY(Cases_on`l:lit`)>>TRY(Cases_on`l':lit`)>>fs[CevalPrim2s_def] >>
       pop_assum mp_tac >> rw[] >>
@@ -438,11 +438,11 @@ val tac1 =
       BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
       simp[EVERY_REPLICATE] >>
       fs[EVERY_MEM,MEM_FLAT,MEM_MAP,PULL_EXISTS,el_check_def] >>
-      qmatch_assum_rename_tac`EL n s0 = Varray l`[] >>
+      qmatch_assum_rename_tac`EL n s0 = Varray l` >>
       rfs[integerTheory.INT_ABS] >>
       last_x_assum(qspecl_then[`EL (Num i) l`,`EL n s0`]match_mp_tac) >>
       simp[MEM_EL] >> fs[arithmeticTheory.NOT_LESS_EQUAL] >> metis_tac[]) >>
-    qmatch_assum_rename_tac`CevalPrim2p op v1 v2 = res`["res"] >>
+    qmatch_assum_rename_tac`CevalPrim2p op v1 v2 = _` >>
     Cases_on`op`>>fs[CevalPrim2p_def]>>
     TRY (Cases_on `v1` >> Cases_on `v2` >> fs [] >> TRY(Cases_on `l:lit`) >> TRY (Cases_on `l':lit`) >>
          fs [] >> rw [] >>
@@ -476,7 +476,7 @@ val tac1 =
     imp_res_tac MEM_LUPDATE_E >> fs[] >> rw[] >>
     fs[el_check_def] >> last_x_assum match_mp_tac >>
     TRY (first_assum(match_exists_tac o concl) >> simp[]) >>
-    qmatch_assum_rename_tac`EL n ls = Varray l`[] >>
+    qmatch_assum_rename_tac`EL n ls = Varray l` >>
     qexists_tac`EL n ls` >> simp[] >>
     metis_tac[MEM_EL] ) >>
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
@@ -1022,8 +1022,8 @@ val syneq_exp_trans = store_thm("syneq_exp_trans",
     simp[Once syneq_exp_cases] >>
     fsrw_tac[DNF_ss][O_DEF] >>
     rw[] >> TRY (res_tac >> NO_TAC) >>
-    qmatch_assum_rename_tac`U' n0 n3`[] >>
-    qmatch_assum_rename_tac`U' n2 n3`[] >>
+    qmatch_assum_rename_tac`U' n0 n3` >>
+    qmatch_assum_rename_tac`U' n2 n3` >>
     ntac 3 (last_x_assum(qspecl_then[`n1`,`n2`]mp_tac)) >> rw[] >>
     ntac 3 (last_x_assum(qspecl_then[`n2`,`n3`]mp_tac)) >> rw[] >>
     rpt (qpat_assum`A = B`(mp_tac o SYM)) >>
@@ -1171,11 +1171,11 @@ val Cevaluate_store_SUBSET = store_thm("Cevaluate_store_SUBSET",
   >- (
     PairCases_on`s'`>>
     Cases_on`p2`>>fs[LET_THM,UNCURRY] >>
-    qmatch_rename_tac`X ≤ LENGTH (FST (CevalPrim2s s0 op v1 v2))`["X"] >>
+    qmatch_rename_tac`_ ≤ LENGTH (FST (CevalPrim2s s0 op v1 v2))` >>
     Cases_on`op`>>Cases_on`v2`>>fs[]>>Cases_on`l`>>fs[]>>rw[]>> simp[] >>
     Cases_on`v1`>>fs[]>>Cases_on`l`>>fs[]>>
     rw[] >> simp[] ) >>
-  qmatch_assum_rename_tac`X = CevalUpd b s0 v1 v2 v3`["X"] >>
+  qmatch_assum_rename_tac`_ = CevalUpd b s0 v1 v2 v3` >>
   Cases_on`b`>>Cases_on`v2`>>fs[]>>
   Cases_on`l`>>fs[]>>
   Cases_on`v1`>>fs[] >>
@@ -1454,7 +1454,7 @@ val CevalPrim2_syneq = store_thm("CevalPrim2_syneq",
   PairCases_on`s1` >> PairCases_on`s2` >>
   gen_tac >>
   `∃op. p2 = P2p op ∨ ∃op. p2 = P2s op` by (Cases_on`p2`>>simp[]) >>
-  qmatch_assum_rename_tac`p2 = X op`["X"] >>
+  qmatch_assum_rename_tac`p2 = _ op` >>
   Cases_on`op` >> simp[] >>
   Cases >> TRY(Cases_on`l:lit`>>simp[]) >>
   Cases >> TRY(Cases_on`l:lit`>>simp[]) >>
@@ -1806,7 +1806,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     simp[Once syneq_cases] >>
     simp_tac(std_ss++DNF_ss)[] >>
     map_every qx_gen_tac[`s2'a`,`s2'b`,`s2'c`,`V'`,`cenv2`,`defs2`,`d2`,`U`] >>
-    strip_tac >> qmatch_assum_rename_tac`U d1 d2`[] >>
+    strip_tac >> qmatch_assum_rename_tac`U d1 d2` >>
     first_assum(match_exists_tac o concl) >> simp[] >>
     first_x_assum(exists_suff_gen_then mp_tac) >>
     simp[GSYM AND_IMP_INTRO] >>
@@ -1958,7 +1958,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     simp[EXISTS_PROD] >>
     simp[Once syneq_cases] >>
     simp_tac(std_ss++DNF_ss)[] >> rw[] >>
-    qmatch_assum_rename_tac`U d1 d2`[] >>
+    qmatch_assum_rename_tac`U d1 d2` >>
     first_assum (match_exists_tac o concl) >> simp[] >>
     first_x_assum(exists_suff_gen_then mp_tac) >>
     simp[ADD1,GSYM AND_IMP_INTRO] >>
@@ -2096,7 +2096,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     rw[] >>
     simp[Once Cevaluate_cases] >>
     fsrw_tac[DNF_ss][EXISTS_PROD] >>
-    qmatch_assum_rename_tac`syneq_exp (LENGTH env1) (LENGTH env2) V e1 e2`[] >>
+    qmatch_assum_rename_tac`syneq_exp (LENGTH env1) (LENGTH env2) V e1 e2` >>
     last_x_assum(qspecl_then[`V`,`s2`,`env2`,`e2`]mp_tac) >>
     simp[GSYM AND_IMP_INTRO] >> disch_then(mp_tac o UNDISCH_ALL) >>
     fsrw_tac[DNF_ss][] >> rw[] >>
@@ -2114,7 +2114,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
   simp[Once Cevaluate_cases] >>
   fsrw_tac[DNF_ss][EXISTS_PROD] >>
   disj2_tac >>
-  qmatch_assum_rename_tac`syneq_exp (LENGTH env1) (LENGTH env2) V e1 e2`[] >>
+  qmatch_assum_rename_tac`syneq_exp (LENGTH env1) (LENGTH env2) V e1 e2` >>
   last_x_assum(qspecl_then[`V`,`s2`,`env2`,`e2`]mp_tac) >>
   simp[GSYM AND_IMP_INTRO] >> disch_then(mp_tac o UNDISCH_ALL) >>
   fsrw_tac[DNF_ss][] >> rw[] >>
@@ -2178,7 +2178,7 @@ val CevalPrim2_closed = store_thm("CevalPrim2_closed",
   rpt gen_tac >>
   PairCases_on`s` >>
   `∃op. p2 = P2p op ∨ ∃op'. p2 = P2s op'` by (Cases_on`p2`>>simp[]) >>
-  qmatch_assum_rename_tac`p2 = X op`["X"] >>
+  qmatch_assum_rename_tac`p2 = _ op` >>
   Cases_on`op`>>simp[UNCURRY] >- (
     Cases_on `do_Ceq v1 v2` >>
     rw [Cclosed_cases]) >>

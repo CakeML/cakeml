@@ -487,14 +487,13 @@ val peg_sound = store_thm(
       rpt strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM] >>
       dsimp[listTheory.APPEND_EQ_CONS, MAP_EQ_SING] >> csimp[] >>
       qmatch_assum_rename_tac
-        `peg_eval cmlPEG (inp, nt(mkNT nTypeName) I) (SOME(EqualsT::inp1,t1))`
-        [] >>
+        `peg_eval cmlPEG (inp, nt(mkNT nTypeName) I) (SOME(EqualsT::inp1,t1))`>>
       first_assum
         (qspecl_then [`mkNT nTypeName`, `inp`, `EqualsT::inp1`, `t1`] mp_tac) >>
       simp_tac (srw_ss()) [] >> ASM_REWRITE_TAC[] >>
       disch_then (qx_choose_then `tree1` strip_assume_tac) >> simp[] >>
       qmatch_assum_rename_tac
-        `peg_eval cmlPEG (inp1, nt(mkNT nType) I) (SOME(inp2,t2))` [] >>
+        `peg_eval cmlPEG (inp1, nt(mkNT nType) I) (SOME(inp2,t2))` >>
       `LENGTH (EqualsT::inp1) < LENGTH inp`
         by metis_tac[not_peg0_LENGTH_decreases, peg0_nTypeName] >> fs[] >>
       `LENGTH inp1 < SUC (LENGTH inp)` by simp[] >>

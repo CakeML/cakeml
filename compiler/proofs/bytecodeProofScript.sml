@@ -472,7 +472,7 @@ val Cenv_bs_syneq_store = store_thm("Cenv_bs_syneq_store",
     fs[LIST_REL_EL_EQN] >>
     metis_tac[Cv_bv_syneq,FST,SND]) >>
   rw[] >>
-  qmatch_assum_rename_tac`LENGTH bs.globals = LENGTH z`[] >>
+  qmatch_assum_rename_tac`LENGTH bs.globals = LENGTH z` >>
   rpt (first_x_assum(qspec_then`n`mp_tac)) >>
   Cases_on`EL n z`>>fs[optionTheory.OPTREL_def] >> rw[] >> fs[] >>
   metis_tac[Cv_bv_syneq,FST,SND])
@@ -664,7 +664,7 @@ val Cenv_bs_append_code = store_thm("Cenv_bs_append_code",
   res_tac >>
   BasicProvers.CASE_TAC >> fs[] >>
   TRY (
-    qmatch_assum_rename_tac`MEM (a,b) X`["X"]>>
+    qmatch_assum_rename_tac`MEM (a,b) _`>>
     first_x_assum(qspecl_then[`b`,`a`]mp_tac) >>
     simp[] >> strip_tac) >>
   match_mp_tac Cv_bv_l2a_mono_mp >>
@@ -1420,7 +1420,7 @@ val prim2_to_bc_thm = store_thm("prim2_to_bc_thm",
   rw[bc_eval1_thm] >>
   simp[bc_eval1_def] >>
   Cases_on`op` >- (
-    qmatch_assum_rename_tac`bc_fetch bs = SOME (prim2_to_bc (P2p op))`[] >>
+    qmatch_assum_rename_tac`bc_fetch bs = SOME (prim2_to_bc (P2p op))` >>
     qexists_tac`FST pp`>>
     qexists_tac`bs.refs` >> simp[] >>
     (Cases_on`op`)>>fs[bump_pc_with_stack] >>
@@ -1455,7 +1455,7 @@ val prim2_to_bc_thm = store_thm("prim2_to_bc_thm",
     first_x_assum match_mp_tac >>
     simp[MEM_ZIP] >>
     metis_tac[arithmeticTheory.LESS_EQ]) >>
-  qmatch_assum_rename_tac`bc_fetch bs = SOME (prim2_to_bc (P2s op))`[] >>
+  qmatch_assum_rename_tac`bc_fetch bs = SOME (prim2_to_bc (P2s op))` >>
   PairCases_on`s` >>
   Cases_on`op`>>simp[bump_pc_with_stack] >>
   fs[LET_THM,UNCURRY] >> rw[] >>
@@ -2360,7 +2360,7 @@ val ExplodeCode_correct = prove(
   srw_tac[DNF_ss][Once RTC_CASES_RTC_TWICE] >>
   first_assum(match_exists_tac o concl) >>
   simp[Abbr`bs1`] >> qpat_assum`bc_next^* X Y`kall_tac >>
-  qmatch_assum_rename_tac`Abbrev(bs1 = X)`["X"]>>
+  qmatch_assum_rename_tac`Abbrev(bs1 = _)`>>
   next_addr_tac"24" >>
   srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
   simp[bc_eval1_thm,bc_eval1_def,bc_eval_stack_def,bump_pc_def,Abbr`bs1`] >>
@@ -3351,7 +3351,7 @@ val num_fold_store_thm = store_thm("num_fold_store_thm",
   lrw[TAKE_APPEND1,DROP_APPEND1,DROP_APPEND2,ADD1] >>
   qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
   fsrw_tac[ARITH_ss][ADD1] >>
-  qmatch_assum_rename_tac`bs.stack = (v::(vs ++ ws ++ st))`[] >>
+  qmatch_assum_rename_tac`bs.stack = (v::(vs ++ ws ++ st))` >>
   rfs[] >>
   first_x_assum(qspecl_then[`bs1`,`bc0++[Stack (Store (LENGTH vs))]`,`bc1`,`vs++[v]`,`(DROP 1 ws)`,`st`]mp_tac) >>
   simp[Abbr`bs1`,SUM_APPEND,FILTER_APPEND] >>
@@ -3867,7 +3867,7 @@ val compile_append_out = store_thm("compile_append_out",
     rw[] >> TRY(metis_tac[]) >>
     fsrw_tac[DNF_ss][free_labs_defs_MAP,MEM_MAP,MEM_FLAT,MEM_GENLIST] >>
     Cases_on`MEM (Label l) code`>>fs[]>>
-    res_tac >> qmatch_assum_rename_tac`MEM def defs`[]>>PairCases_on`def`>>
+    res_tac >> qmatch_assum_rename_tac`MEM def defs`>>PairCases_on`def`>>
     Cases_on`def0`>- (
       fs[EVERY_MEM] >> res_tac >> fs[] ) >>
     disj2_tac >> disj2_tac >> disj1_tac >>
@@ -4164,7 +4164,7 @@ val code_for_push_return = store_thm("code_for_push_return",
     ⇒
     code_for_return rd bs bce st ret hdl v s'``,
     rw[code_for_push_def,code_for_return_def,LET_THM] >>
-    qmatch_assum_rename_tac `Cv_bv pp v bv`["pp"] >>
+    qmatch_assum_rename_tac `Cv_bv _ v bv` >>
     map_every qexists_tac [`bv`,`rf`,`rd'`,`ck`,`gv`] >>
     fs[Cenv_bs_def,s_refs_def,good_rd_def] >>
     qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
@@ -5211,7 +5211,7 @@ fun tac18 t =
         rfs[el_check_def] >>
         metis_tac[APPEND_NIL])
       >- (
-        qmatch_assum_rename_tac `z < LENGTH cenv`[] >>
+        qmatch_assum_rename_tac `z < LENGTH cenv` >>
         qmatch_abbrev_tac`X` >>
         qpat_assum`∀x y z. X ⇒ Y`(qspec_then `z` mp_tac o CONV_RULE (RESORT_FORALL_CONV List.rev)) >>
         simp[option_case_NONE_F,EL_ZIP] >> rw[] >>
@@ -5496,7 +5496,7 @@ fun tac18 t =
         simp[DROP_APPEND1,DROP_LENGTH_NIL_rwt] ) >>
       simp[] >>
       disch_then (strip_assume_tac o SIMP_RULE(srw_ss())[LET_THM,code_for_push_def] o CONJUNCT1) >>
-      qmatch_assum_rename_tac`bvs = [bv]`[] >> BasicProvers.VAR_EQ_TAC >>
+      qmatch_assum_rename_tac`bvs = [bv]` >> BasicProvers.VAR_EQ_TAC >>
       qmatch_assum_abbrev_tac`bc_next^* bs bs2` >>
       `bc_fetch bs2 = SOME (Stack Pop)` by (
         match_mp_tac bc_fetch_next_addr >>
@@ -5734,7 +5734,7 @@ fun tac18 t =
       simp[DROP_APPEND1,DROP_LENGTH_NIL_rwt] ) >>
     simp[] >>
     disch_then (strip_assume_tac o SIMP_RULE(srw_ss())[LET_THM,code_for_push_def] o CONJUNCT1) >>
-    qmatch_assum_rename_tac`bvs = [bv]`[] >> BasicProvers.VAR_EQ_TAC >>
+    qmatch_assum_rename_tac`bvs = [bv]` >> BasicProvers.VAR_EQ_TAC >>
     qmatch_assum_abbrev_tac`bc_next^* bs bs2` >>
     `all_vlabs_csg s' ∧ all_vlabs v ∧
      EVERY (code_env_cd bce) (free_labs (SUC (LENGTH env)) exp') ∧
@@ -5788,7 +5788,7 @@ fun tac18 t =
         fsrw_tac[ARITH_ss][Abbr`cs1`] >>
         rw[] >> spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
       disch_then (strip_assume_tac o SIMP_RULE(srw_ss())[LET_THM,code_for_push_def] o CONJUNCT1) >>
-      qmatch_assum_rename_tac`bvs = [bv']`[] >> BasicProvers.VAR_EQ_TAC >>
+      qmatch_assum_rename_tac`bvs = [bv']` >> BasicProvers.VAR_EQ_TAC >>
       qmatch_assum_abbrev_tac`bc_next^* bs2 bs4` >>
       `bc_next^* bs bs4` by metis_tac[RTC_TRANSITIVE,transitive_def] >>
       pop_assum mp_tac >>
@@ -6575,7 +6575,7 @@ fun tac18 t =
           rfs[s_refs_def,Cenv_bs_def,optionTheory.OPTREL_def] )
       val tac5 =
         fs[el_check_def] >>
-        qmatch_assum_rename_tac`EL n defs = (SOME (l,ccenv,recs,envs),azb)`[]>>
+        qmatch_assum_rename_tac`EL n defs = (SOME (l,ccenv,recs,envs),azb)`>>
         qmatch_assum_abbrev_tac`EL n defs = (SOME cc,azb)`>>
         `code_env_cd bce ((LENGTH fenv,LENGTH defs,n),cc,azb)` by (
           qspecl_then[`s`,`env`,`exp`,`s',Rval(CRecClos fenv defs n)`]mp_tac(CONJUNCT1 Cevaluate_vlabs) >>
@@ -6861,7 +6861,7 @@ fun tac18 t =
         qmatch_assum_abbrev_tac`bc_next^* bs05 bs3`
       fun tac23 st =
         fs[el_check_def] >>
-        qmatch_assum_rename_tac`EL n defs = (SOME (l,ccenv,recs,envs),azb)`[]>>
+        qmatch_assum_rename_tac`EL n defs = (SOME (l,ccenv,recs,envs),azb)`>>
         qmatch_assum_abbrev_tac`EL n defs = (SOME cc,azb)`>>
         `code_env_cd bce ((LENGTH fenv,LENGTH defs,n),cc,azb)` by (
           qspecl_then[`s`,`env`,`exp`,`s',Rval(CRecClos fenv defs n)`]mp_tac(CONJUNCT1 Cevaluate_vlabs) >>
@@ -7132,7 +7132,7 @@ fun tac18 t =
         metis_tac[] ) >>
       conj_tac >- (
         rpt gen_tac >> strip_tac >>
-        qmatch_assum_rename_tac`ig = blvs ++ [benv; CodePtr ret] ++ REVERSE args ++ [cl0] ++ ig'`[] >>
+        qmatch_assum_rename_tac`ig = blvs ++ [benv; CodePtr ret] ++ REVERSE args ++ [cl0] ++ ig'` >>
         (tac2 (
           disch_then(qspecl_then[`ig'++[StackPtr sp; CodePtr hdl]++st`,`REVERSE bvs`]mp_tac o (CONV_RULE(RESORT_FORALL_CONV List.rev))) >> simp[] >>
           disch_then(qspecl_then[`ck`,`REVERSE args`]mp_tac) >> simp[] >>
@@ -7522,7 +7522,7 @@ fun tac18 t =
       rator_x_assum`CevalPrim2`mp_tac >>
       `∃op. p2 = P2p op ∨ ∃op. p2 = P2s op` by (
         Cases_on`p2`>>simp[] ) >>
-      qmatch_assum_rename_tac`p2 = X op`["X"] >>
+      qmatch_assum_rename_tac`p2 = _ op` >>
       Cases_on`op`>>simp[]>>
       Cases_on`v2`>>TRY(Cases_on`l`)>>simp[]>>rw[]>>
       Cases_on`v1`>>TRY(Cases_on`l`)>>fs[semanticPrimitivesTheory.lit_same_type_def]>>rw[]>>
@@ -7876,7 +7876,7 @@ fun tac18 t =
         fs[Q.SPEC`CLitv l`(CONJUNCT1(SPEC_ALL Cv_bv_cases))]>>
         rpt BasicProvers.VAR_EQ_TAC >>
         fs[el_check_def] >>
-        qmatch_assum_rename_tac`EL n s1 = W8array ws`[] >>
+        qmatch_assum_rename_tac`EL n s1 = W8array ws` >>
         `FLOOKUP rfs p = SOME (ByteArray ws)` by (
           fs[Cenv_bs_def,s_refs_def] >>
           rator_x_assum`LIST_REL`kall_tac >>
@@ -8750,7 +8750,7 @@ fun tac18 t =
   simp[code_for_push_def] >>
   disch_then(qx_choosel_then[`xxx`,`rfs`,`rd'`,`ck`,`gv`]mp_tac) >>
   strip_tac >>
-  qmatch_assum_rename_tac`xxx = [bv0]`[] >>
+  qmatch_assum_rename_tac`xxx = [bv0]` >>
   `ck = SOME (FST (FST s'))` by (
     imp_res_tac RTC_bc_next_clock_less >>
     rfs[optionTheory.OPTREL_def,Cenv_bs_def,s_refs_def] ) >>

@@ -232,7 +232,7 @@ val iEvalOp_thm = prove(
     | NONE => (iEvalOp op a (inc_clock n s) = NONE)
     | SOME (v,s1) => (iEvalOp op a (inc_clock n s) = SOME (v,inc_clock n s1))``,
   fs [iEvalOp_def] \\ Cases_on `op` \\ fs [iEvalOpAux_def,bEvalOp_def]
-  \\ REPEAT BasicProvers.FULL_CASE_TAC
+  \\ BasicProvers.EVERY_CASE_TAC
   \\ fs [bvi_to_bvl_def,get_global_def,inc_clock_def,bvl_to_bvi_def,LET_DEF]
   \\ SRW_TAC [] [] \\ REV_FULL_SIMP_TAC std_ss []);
 
@@ -293,13 +293,13 @@ val bEvalOp_refs_SUBSET = prove(
   ``(bEvalOp op a r = SOME (q,t)) ==> FDOM r.refs SUBSET FDOM t.refs``,
   fs [bEvalOp_def]
   \\ NTAC 5 (fs [SUBSET_DEF,IN_INSERT] \\ SRW_TAC [] []
-    \\ REPEAT BasicProvers.FULL_CASE_TAC
+    \\ BasicProvers.EVERY_CASE_TAC
     \\ fs [LET_DEF,bvlTheory.dec_clock_def]));
 
 val bEval_refs_SUBSET_lemma = prove(
   ``!xs env s. FDOM s.refs SUBSET FDOM (SND (bEval (xs,env,s))).refs``,
   recInduct bEval_ind \\ REPEAT STRIP_TAC \\ fs [bEval_def]
-  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ fs []
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs []
   \\ REV_FULL_SIMP_TAC std_ss []
   \\ IMP_RES_TAC SUBSET_TRANS
   \\ fs [bvlTheory.dec_clock_def] \\ fs []
@@ -312,14 +312,14 @@ val bEval_refs_SUBSET = prove(
 val bEval_code_const_lemma = prove(
   ``!xs env s. (SND (iEval (xs,env,s))).code = s.code``,
   recInduct iEval_ind \\ REPEAT STRIP_TAC \\ fs [iEval_def]
-  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ fs []
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs []
   \\ REV_FULL_SIMP_TAC std_ss [] \\ fs [dec_clock_def]
   \\ fs [iEvalOp_def]
   \\ REVERSE (Cases_on `iEvalOpAux op a r`) \\ fs []
-  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ fs []
-  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ fs []
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs []
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs []
   \\ SRW_TAC [] [] \\ fs [bvl_to_bvi_def] \\ fs [iEvalOpAux_def]
-  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ fs []);
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs []);
 
 val iEval_code_const = store_thm("iEval_code_const",
   ``!xs env s res t. (iEval (xs,env,s) = (res,t)) ==> (t.code = s.code)``,
@@ -373,13 +373,13 @@ val bEvalOp_ok_lemma = prove(
   ``bvl_state_ok r /\ EVERY (bv_ok r.refs) a /\
     (bEvalOp op a r = SOME (q,t)) ==>
     bvl_state_ok t /\ bv_ok t.refs q``,
-  Cases_on `op` \\ fs [bEvalOp_def] \\ REPEAT BasicProvers.FULL_CASE_TAC
+  Cases_on `op` \\ fs [bEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC
   \\ TRY (fs [] \\ SRW_TAC [] [bv_ok_def]
     \\ fs [get_global_def]
     \\ fs [bvl_state_ok_def,bv_ok_def] \\ NO_TAC)
   \\ TRY (SRW_TAC [] [] \\ fs [bv_ok_def,EVERY_EL,bool_to_val_def] \\ NO_TAC)
   \\ TRY (SRW_TAC [] [] \\ fs [bv_ok_def,EVERY_MEM] \\ NO_TAC)
-  \\ STRIP_TAC \\ fs [] THEN1
+  \\ STRIP_TAC \\ fs [LET_THM] \\ rpt BasicProvers.VAR_EQ_TAC THEN1
    (fs [get_global_def,bvl_state_ok_def,EVERY_EL]
     \\ RES_TAC \\ fs [] \\ REPEAT (Q.PAT_ASSUM `!x.bb` (K ALL_TAC))
     \\ REV_FULL_SIMP_TAC std_ss [])
@@ -387,9 +387,33 @@ val bEvalOp_ok_lemma = prove(
    (SRW_TAC [] [bv_ok_def] \\ fs [LET_DEF,bvl_state_ok_def]
     \\ MATCH_MP_TAC IMP_EVERY_LUPDATE \\ fs [])
   THEN1
+   (rw[bv_ok_def] \\ fs [bvl_state_ok_def] >>
+    rw[FLOOKUP_UPDATE] >> fs[EVERY_MEM] >> rw[] >>
+    BasicProvers.CASE_TAC >> TRY BasicProvers.CASE_TAC >> rw[] >>
+    MATCH_MP_TAC (Q.ISPEC`(r:bvl_state).refs`bv_ok_SUBSET_IMP) >>
+    first_x_assum(qspec_then`k`strip_assume_tac)>>rfs[]>>
+    simp[] >> res_tac >> fs[] >>
+    simp[SUBSET_DEF])
+  THEN1
+   (rw[bv_ok_def] \\ fs [bvl_state_ok_def] >>
+    rw[FLOOKUP_UPDATE] >> fs[EVERY_MEM] >> rw[] >>
+    rpt BasicProvers.CASE_TAC >> rw[] >>
+    MATCH_MP_TAC (Q.ISPEC`(r:bvl_state).refs`bv_ok_SUBSET_IMP) >>
+    first_x_assum(qspec_then`k`strip_assume_tac)>>rfs[]>>
+    simp[] >> res_tac >> fs[rich_listTheory.REPLICATE_GENLIST,MEM_GENLIST] >>
+    simp[SUBSET_DEF])
+  THEN1
+   (rw[bv_ok_def] \\ fs [bvl_state_ok_def] >>
+    rw[FLOOKUP_UPDATE] >> fs[EVERY_MEM] >> rw[] >>
+    rpt BasicProvers.CASE_TAC >> rw[] >>
+    MATCH_MP_TAC (Q.ISPEC`(r:bvl_state).refs`bv_ok_SUBSET_IMP) >>
+    first_x_assum(qspec_then`k`strip_assume_tac)>>rfs[]>>
+    simp[] >> res_tac >> fs[] >>
+    simp[SUBSET_DEF])
+  THEN1
    (fs [LET_DEF,bvl_state_ok_def]
     \\ SRW_TAC [] [bv_ok_def,FLOOKUP_DEF,EVERY_MEM]
-    \\ REPEAT BasicProvers.FULL_CASE_TAC
+    \\ BasicProvers.EVERY_CASE_TAC
     \\ fs [EVERY_MEM] \\ RES_TAC \\ fs []
     \\ REPEAT STRIP_TAC \\ RES_TAC
     THEN1 (MATCH_MP_TAC (bv_ok_SUBSET_IMP |> Q.ISPEC `(r:bvl_state).refs`)
@@ -412,7 +436,7 @@ val bEvalOp_ok_lemma = prove(
   THEN1
    (fs [bvl_state_ok_def] \\ SRW_TAC [] [] THEN1
      (fs [EVERY_MEM] \\ REPEAT STRIP_TAC
-      \\ REPEAT BasicProvers.FULL_CASE_TAC
+      \\ BasicProvers.EVERY_CASE_TAC
       \\ RES_TAC \\ fs []
       \\ MATCH_MP_TAC (bv_ok_SUBSET_IMP |> Q.ISPEC `(r:bvl_state).refs`)
       \\ fs [] \\ fs [SUBSET_DEF,FLOOKUP_DEF])
@@ -426,7 +450,7 @@ val bEvalOp_ok_lemma = prove(
         \\ MATCH_MP_TAC (bv_ok_SUBSET_IMP |> Q.ISPEC `(r:bvl_state).refs`)
         \\ fs [] \\ fs [SUBSET_DEF,FLOOKUP_DEF])
       \\ Q.PAT_ASSUM `!k:num. bbb` (MP_TAC o Q.SPEC `k`) \\ fs []
-      \\ REPEAT BasicProvers.FULL_CASE_TAC
+      \\ BasicProvers.EVERY_CASE_TAC
       \\ fs [EVERY_MEM] \\ REPEAT STRIP_TAC \\ RES_TAC
       \\ MATCH_MP_TAC (bv_ok_SUBSET_IMP |> Q.ISPEC `(r:bvl_state).refs`)
       \\ fs [] \\ fs [SUBSET_DEF,FLOOKUP_DEF])
@@ -447,13 +471,13 @@ val find_code_EVERY_IMP = prove(
   ``(find_code dest a (r:bvl_state).code = SOME (q,t)) ==>
     EVERY P a ==> EVERY P q``,
   Cases_on `dest` \\ fs [bvlTheory.find_code_def] \\ REPEAT STRIP_TAC
-  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ SRW_TAC [] [] \\ fs []
-  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ SRW_TAC [] [] \\ fs []
+  \\ BasicProvers.EVERY_CASE_TAC \\ SRW_TAC [] [] \\ fs []
+  \\ BasicProvers.EVERY_CASE_TAC \\ SRW_TAC [] [] \\ fs []
   \\ `?x1 l1. a = SNOC x1 l1` by METIS_TAC [SNOC_CASES] \\ fs []
-  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ SRW_TAC [] [] \\ fs []
-  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ SRW_TAC [] [] \\ fs []
-  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ SRW_TAC [] [] \\ fs []
-  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ SRW_TAC [] [] \\ fs []
+  \\ BasicProvers.EVERY_CASE_TAC \\ SRW_TAC [] [] \\ fs []
+  \\ BasicProvers.EVERY_CASE_TAC \\ SRW_TAC [] [] \\ fs []
+  \\ BasicProvers.EVERY_CASE_TAC \\ SRW_TAC [] [] \\ fs []
+  \\ BasicProvers.EVERY_CASE_TAC \\ SRW_TAC [] [] \\ fs []
   \\ FULL_SIMP_TAC std_ss [GSYM SNOC_APPEND,FRONT_SNOC]);
 
 val bEval_ok = prove(
@@ -468,16 +492,16 @@ val bEval_ok = prove(
       EVERY (bv_ok t.refs) env``,
   recInduct bEval_ind \\ REPEAT STRIP_TAC \\ fs [bEval_def]
   \\ SRW_TAC [] []
-  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ fs [bEval_ok_lemma]
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs [bEval_ok_lemma]
   \\ SRW_TAC [] [] \\ REV_FULL_SIMP_TAC std_ss []
-  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ fs [bEval_ok_lemma]
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs [bEval_ok_lemma]
   \\ SRW_TAC [] [] \\ REV_FULL_SIMP_TAC std_ss []
-  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ fs [bEval_ok_lemma]
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs [bEval_ok_lemma]
   \\ SRW_TAC [] [] \\ REV_FULL_SIMP_TAC std_ss []
   \\ IMP_RES_TAC bEval_SING \\ fs []
-  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ fs [bEval_ok_lemma]
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs [bEval_ok_lemma]
   \\ SRW_TAC [] [] \\ REV_FULL_SIMP_TAC std_ss []
-  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ fs [bEval_ok_lemma]
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs [bEval_ok_lemma]
   \\ SRW_TAC [] [] \\ REV_FULL_SIMP_TAC std_ss []
   \\ TRY (fs [EVERY_EL] \\ NO_TAC)
   \\ IMP_RES_TAC bEval_IMP_bv_ok
@@ -554,10 +578,10 @@ val bEval_bVarBound = prove(
       (bEval (xs,vs ++ env,s) = bEval (xs,vs,s))``,
   recInduct bEval_ind \\ REPEAT STRIP_TAC
   \\ fs [bEval_def,bVarBound_def]
-  \\ TRY (REPEAT BasicProvers.FULL_CASE_TAC \\ fs [ADD1] \\ NO_TAC)
+  \\ TRY (BasicProvers.EVERY_CASE_TAC \\ fs [ADD1] \\ NO_TAC)
   THEN1 (`n < LENGTH env + LENGTH env'` by DECIDE_TAC
          \\ fs [rich_listTheory.EL_APPEND1])
-  THEN1 (REPEAT BasicProvers.FULL_CASE_TAC \\ fs []
+  THEN1 (BasicProvers.EVERY_CASE_TAC \\ fs []
          \\ FIRST_X_ASSUM MATCH_MP_TAC \\ IMP_RES_TAC bEval_IMP_LENGTH
          \\ fs [AC ADD_COMM ADD_ASSOC]));
 
@@ -613,7 +637,7 @@ val iEval_bVarBound = prove(
   THEN1
    (FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`vs`]) \\ fs []
     \\ Cases_on `op` \\ fs [bCompOp_def,iEval_def,iInt_thm]
-    \\ REPEAT BasicProvers.FULL_CASE_TAC \\ fs [iEval_def,iInt_thm])
+    \\ BasicProvers.EVERY_CASE_TAC \\ fs [iEval_def,iInt_thm])
   \\ fs [iEval_def]
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n2`]) \\ fs []
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`vs`]) \\ fs []
@@ -722,17 +746,26 @@ val bEvalOp_adjust = prove(
     \\ SRW_TAC [] [adjust_bv_def,MEM_EQ_IMP_MAP_EQ,bvl_to_bvi_id]
     \\ SRW_TAC [] [adjust_bv_def,MEM_EQ_IMP_MAP_EQ,bvl_to_bvi_id])
   THEN1 (* El *)
-   (REPEAT BasicProvers.FULL_CASE_TAC \\ fs [adjust_bv_def,bEvalOp_def]
+   (BasicProvers.EVERY_CASE_TAC \\ fs [adjust_bv_def,bEvalOp_def]
     \\ SRW_TAC [] []
     \\ fs [adjust_bv_def,MEM_EQ_IMP_MAP_EQ,bvl_to_bvi_id,
          bEvalOp_def,EL_MAP] \\ SRW_TAC [] [])
+  THEN1 (* LengthBlock *)
+   (BasicProvers.EVERY_CASE_TAC \\ fs [adjust_bv_def,bEvalOp_def]
+    \\ SRW_TAC [] [] \\ fs[adjust_bv_def,bvl_to_bvi_id])
+  THEN1 (* Length *) cheat
+  THEN1 (* LengthByte *) cheat
+  THEN1 (* RefByte *) cheat
+  THEN1 (* RefArray *) cheat
+  THEN1 (* DerefByte *) cheat
+  THEN1 (* UpdateByte *) cheat
   THEN1 (* TagEq *)
-   (REPEAT BasicProvers.FULL_CASE_TAC \\ fs [adjust_bv_def,bEvalOp_def]
+   (BasicProvers.EVERY_CASE_TAC \\ fs [adjust_bv_def,bEvalOp_def]
     \\ SRW_TAC [] []
     \\ fs [adjust_bv_def,MEM_EQ_IMP_MAP_EQ,bvl_to_bvi_id,
          bEvalOp_def,EL_MAP,bool_to_val_def] \\ SRW_TAC [] [])
   THEN1 (* IsBlock *)
-   (REPEAT BasicProvers.FULL_CASE_TAC \\ fs [adjust_bv_def,bEvalOp_def]
+   (BasicProvers.EVERY_CASE_TAC \\ fs [adjust_bv_def,bEvalOp_def]
     \\ SRW_TAC [] []
     \\ fs [adjust_bv_def,MEM_EQ_IMP_MAP_EQ,bvl_to_bvi_id,
          bEvalOp_def,EL_MAP,bool_to_val_def] \\ SRW_TAC [] [])
@@ -787,17 +820,17 @@ val bEvalOp_adjust = prove(
     \\ fs [INJ_DEF,FLOOKUP_DEF]
     \\ REPEAT STRIP_TAC \\ RES_TAC)
   THEN1 (* Label *)
-   (REPEAT BasicProvers.FULL_CASE_TAC \\ fs [bEvalOp_def,bvl_to_bvi_id]
+   (BasicProvers.EVERY_CASE_TAC \\ fs [bEvalOp_def,bvl_to_bvi_id]
     \\ SRW_TAC [] [] \\ fs [adjust_bv_def])
   THEN1 (* Print *)
-   (REPEAT BasicProvers.FULL_CASE_TAC \\ fs [bEvalOp_def,bvl_to_bvi_id]
-    \\ REPEAT BasicProvers.FULL_CASE_TAC \\ fs [bEvalOp_def,bvl_to_bvi_id]
+   (BasicProvers.EVERY_CASE_TAC \\ fs [bEvalOp_def,bvl_to_bvi_id]
+    \\ BasicProvers.EVERY_CASE_TAC \\ fs [bEvalOp_def,bvl_to_bvi_id]
     THEN1 (fs [bv_to_string_adjust_bv] \\ CCONTR_TAC \\ fs [])
     \\ SRW_TAC [] []
     \\ fs [bv_to_string_adjust_bv,
            bvl_bvi_corr_def,bvi_to_bvl_def,bvl_to_bvi_def,adjust_bv_def])
   THEN1 (* PrintC *)
-   (REPEAT BasicProvers.FULL_CASE_TAC \\ fs [bEvalOp_def,bvl_to_bvi_id]
+   (BasicProvers.EVERY_CASE_TAC \\ fs [bEvalOp_def,bvl_to_bvi_id]
     \\ SRW_TAC [] [adjust_bv_def] \\ SRW_TAC [] [adjust_bv_def]
     \\ fs [bvl_bvi_corr_def,bvi_to_bvl_def,bvl_to_bvi_def,adjust_bv_def])
   \\ TRY (* Add, Sub, Mult, Div, Mod, Less *)
@@ -865,11 +898,11 @@ val bComp_correct = prove(
      (fs [GSYM PULL_FORALL]
       \\ IMP_RES_TAC iEval_code_const \\ fs [inc_clock_def])
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t2`,`b2`]) \\ fs []
-    \\ `s2 = s6` by (REPEAT BasicProvers.FULL_CASE_TAC \\ fs [])
+    \\ `s2 = s6` by (BasicProvers.EVERY_CASE_TAC \\ fs [])
     \\ REPEAT STRIP_TAC \\ fs [GSYM PULL_FORALL]
     \\ Q.MATCH_ASSUM_RENAME_TAC
         `iEval (c2,MAP (adjust_bv b3) env,inc_clock c4 t2) =
-           (map_res (adjust_bv b3) res6,t3)` []
+           (map_res (adjust_bv b3) res6,t3)`
     \\ IMP_RES_TAC iEval_inv_clock
     \\ fs [inc_clock_ADD]
     \\ ONCE_REWRITE_TAC [iEval_CONS] \\ fs [map_res_def]
@@ -957,7 +990,7 @@ val bComp_correct = prove(
       \\ Q.LIST_EXISTS_TAC [`t2`,`b2`,`c`] \\ fs []
       \\ SRW_TAC [] [map_res_def] \\ NO_TAC)
     \\ REPEAT STRIP_TAC
-    \\ Q.MATCH_ASSUM_RENAME_TAC `bEval ([x2],a ++ env,s5) = (res6,s6)` []
+    \\ Q.MATCH_ASSUM_RENAME_TAC `bEval ([x2],a ++ env,s5) = (res6,s6)`
     \\ Q.PAT_ASSUM `!nn mm. bbb` (MP_TAC o Q.SPEC `n1`) \\ fs []
     \\ `res6 <> Error` by (REPEAT STRIP_TAC \\ fs []) \\ fs []
     \\ REPEAT STRIP_TAC
@@ -971,7 +1004,7 @@ val bComp_correct = prove(
     \\ Q.MATCH_ASSUM_RENAME_TAC
         `iEval ([d],MAP (adjust_bv b3) a ++
                     MAP (adjust_bv b3) env,inc_clock c4 t2) =
-           (map_res (adjust_bv b3) res6,t3)` []
+           (map_res (adjust_bv b3) res6,t3)`
     \\ IMP_RES_TAC iEval_inv_clock
     \\ fs [inc_clock_ADD]
     \\ ONCE_REWRITE_TAC [iEval_def] \\ fs [map_res_def]
@@ -1117,7 +1150,7 @@ val bComp_correct = prove(
     \\ TRY (REPEAT STRIP_TAC \\ IMP_RES_TAC bComp_LENGTH \\ fs [iEval_def]
       \\ Q.LIST_EXISTS_TAC [`t2`,`b2`,`c`] \\ fs [map_res_def]
       \\ Cases_on `op` \\ fs [bCompOp_def,iEval_def,iInt_thm]
-      \\ REPEAT BasicProvers.FULL_CASE_TAC \\ fs [iEval_def,iInt_thm] \\ NO_TAC)
+      \\ BasicProvers.EVERY_CASE_TAC \\ fs [iEval_def,iInt_thm] \\ NO_TAC)
     \\ REPEAT STRIP_TAC \\ Cases_on `bEvalOp op a s5` \\ fs []
     \\ Cases_on `x` \\ fs [] \\ SRW_TAC [] [map_res_def,iEval_def]
     \\ fs [GSYM PULL_FORALL]
@@ -1263,7 +1296,7 @@ val bComp_correct = prove(
       \\ fs [bvl_bvi_corr_def] \\ RES_TAC
       \\ `?x1 x2 x3. bComp n'' [r] = (x1,x2,x3)` by METIS_TAC [PAIR]
       \\ fs [LET_DEF])
-    \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest a s5.code = SOME (args,body)` []
+    \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest a s5.code = SOME (args,body)`
     \\ `?n7. let (c7,aux7,n8) = bComp n7 [body] in
                (find_code (case dest of NONE => NONE | SOME n => SOME (2 * n))
                  (MAP (adjust_bv b2) a) t2.code =

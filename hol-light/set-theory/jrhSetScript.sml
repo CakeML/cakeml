@@ -574,13 +574,13 @@ val in_funspace_abstract = store_thm("in_funspace_abstract",
       simp[PRODUCT_def] >>
       srw_tac[DNF_ss][] >>
       simp[RIGHT_EXISTS_AND_THM] >>
-      qmatch_assum_rename_tac`y <: s`[] >>
+      qmatch_assum_rename_tac`y <: s` >>
       qexists_tac`y` >> simp[] >>
       first_x_assum(qspec_then`y`mp_tac) >>
       simp[] >>
       simp[EXISTS_UNIQUE_THM] >>
       strip_tac >>
-      qmatch_assum_rename_tac`pair y x <: z`[] >>
+      qmatch_assum_rename_tac`pair y x <: z` >>
       fs[subset_def] >>
       `pair y x <: product s t` by metis_tac[] >>
       fs[PRODUCT_def,PAIR_INJ] >>

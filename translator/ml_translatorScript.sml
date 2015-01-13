@@ -1405,7 +1405,7 @@ val DeclAssum_Dletrec_INTRO_ALT = store_thm("DeclAssum_Dletrec_INTRO_ALT",
   \\ Q.EXISTS_TAC `env2` \\ FULL_SIMP_TAC std_ss []
   \\ FULL_SIMP_TAC std_ss [FORALL_PROD]
   \\ NTAC 6 STRIP_TAC
-  \\ Q.MATCH_ASSUM_RENAME_TAC `MEM (b,P,v,x,y) funs` []
+  \\ Q.MATCH_ASSUM_RENAME_TAC `MEM (b,P,v,x,y) funs`
   \\ PairCases_on `env2`
   \\ FULL_SIMP_TAC std_ss [write_rec_def,build_rec_env_def]
   \\ Q.SPEC_TAC (`Recclosure (env20,(env21,env22),env23) (MAP (SND o SND) funs)`,

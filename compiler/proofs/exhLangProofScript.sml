@@ -263,14 +263,12 @@ val env_to_exh_LIST_REL = Q.prove(
   Induct_on`env`>>simp[v_to_exh_eqn]>>Cases>>simp[v_to_exh_eqn] >>
   rw [EXISTS_PROD]);
 
-  (*
-val env_to_exh_build_rec_env_i2 = prove(
-  ``∀l1 l2 l3 exh.
-    env_to_exh exh (build_rec_env_i2 l1 l2 l3) =
-    build_rec_env_exh (funs_to_exh exh l1) (env_to_exh exh l2) (env_to_exh exh l3)``,
-  simp[build_rec_env_i2_MAP,build_rec_env_exh_MAP,env_to_exh_MAP,funs_to_exh_MAP
-      ,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,v_to_exh_eqn])
-      *)
+val env_to_exh_MAP = store_thm("env_to_exh_MAP",
+  ``∀exh env1 env2. env_to_exh exh env1 env2 ⇔ MAP FST env1 = MAP FST env2 ∧
+      LIST_REL (v_to_exh exh) (MAP SND env1) (MAP SND env2)``,
+  Induct_on`env1`>>simp[Once v_to_exh_cases] >>
+  Cases >> Cases_on`env2` >> rw[] >>
+  Cases_on`h`>>rw[] >> metis_tac[])
 
 val _ = augment_srw_ss[rewrites[vs_to_exh_LIST_REL,find_recfun_funs_to_exh(*,env_to_exh_build_rec_env_i2*)]]
 
@@ -1244,7 +1242,7 @@ val pmatch_exh_APPEND = store_thm("pmatch_exh_APPEND",
   pop_assum (qspec_then`n`mp_tac) >>
   Cases_on `pmatch_exh s p v (TAKE n env)`>>fs[] >>
   strip_tac >> res_tac >>
-  qmatch_assum_rename_tac`pmatch_exh s p v (TAKE n env) = Match env1`[] >>
+  qmatch_assum_rename_tac`pmatch_exh s p v (TAKE n env) = Match env1` >>
   pop_assum(qspec_then`LENGTH env1`mp_tac) >>
   simp_tac(srw_ss())[rich_listTheory.TAKE_LENGTH_APPEND,rich_listTheory.DROP_LENGTH_APPEND] )
 

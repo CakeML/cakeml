@@ -119,7 +119,7 @@ val COMPILER_COMPILER_STATE_TYPE_no_closures = prove(
   simp[COMPILER_COMPILER_STATE_TYPE_def,PULL_EXISTS,no_closures_def] >>
   rw[] >>
   rpt (
-    qmatch_rename_tac`ml_translator$no_closures z`[] >>
+    qmatch_rename_tac`ml_translator$no_closures z` >>
     qmatch_assum_abbrev_tac`A a z` >>
     qpat_assum`A a z`mp_tac >>
     unabbrev_all_tac >>
@@ -141,7 +141,7 @@ val REPL_FUN_REPL_FUN_STATE_TYPE_no_closures = prove(
   simp[REPL_FUN_REPL_FUN_STATE_TYPE_def,PULL_EXISTS,no_closures_def] >>
   rw[] >>
   rpt (
-    qmatch_rename_tac`ml_translator$no_closures z`[] >>
+    qmatch_rename_tac`ml_translator$no_closures z` >>
     qmatch_assum_abbrev_tac`A a z` >>
     qpat_assum`A a z`mp_tac >>
     unabbrev_all_tac >>
@@ -433,7 +433,7 @@ val AST_ID_TYPE_closed = prove(
   MATCH_MP_TAC (CONJUNCT1 (CONJUNCT2 (SPEC_ALL free_varsTheory.closed_rules))) >>
   rw[] >> TRY(METIS_TAC[]) >>
   qmatch_abbrev_tac`closed z` >>
-  qmatch_assum_rename_tac`B c d`[] >>
+  qmatch_assum_rename_tac`B c d` >>
   qmatch_assum_abbrev_tac`LIST_TYPE A ll x` >>
   Q.ISPEC_THEN`ll`(MATCH_MP_TAC o MP_CANON) LIST_TYPE_closed >>
   simp[Abbr`A`,ml_translatorTheory.CHAR_def] >>
@@ -594,14 +594,14 @@ val INPUT_TYPE_closed = store_thm("INPUT_TYPE_closed",
   Cases_on`x` >>
   simp[OPTION_TYPE_def] >>
   rw[] >> simp[] >>
-  qmatch_assum_rename_tac `PAIR_TYPE X Y s p`["X","Y"] >>
+  qmatch_assum_rename_tac `PAIR_TYPE _ _ s p` >>
   PairCases_on`s` >>
   fs[PAIR_TYPE_def] >>
   rpt BasicProvers.VAR_EQ_TAC >>
   fs[ml_translatorTheory.BOOL_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
   fs[FMAP_TYPE_def] >>
   rw[] >- (
-    qmatch_rename_tac`closed ls`[] >>
+    qmatch_rename_tac`closed ls` >>
     qmatch_assum_abbrev_tac`LIST_TYPE A vv ls` >>
     Q.ISPECL_THEN[`A`,`vv`](match_mp_tac o MP_CANON) (GEN_ALL LIST_TYPE_closed) >>
     simp[Abbr`A`] >>
@@ -612,7 +612,7 @@ val INPUT_TYPE_closed = store_thm("INPUT_TYPE_closed",
     Q.ISPECL_THEN[`B`,`s`](match_mp_tac o MP_CANON) (GEN_ALL LIST_TYPE_closed) >>
     simp[Abbr`B`,ml_translatorTheory.CHAR_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] )
   >- (
-    qmatch_rename_tac`closed ls`[] >>
+    qmatch_rename_tac`closed ls` >>
     qmatch_assum_abbrev_tac`LIST_TYPE A vv ls` >>
     Q.ISPECL_THEN[`A`,`vv`](match_mp_tac o MP_CANON) (GEN_ALL LIST_TYPE_closed) >>
     simp[Abbr`A`] >>
