@@ -132,11 +132,15 @@ val bConsts_thm = store_thm("bConsts_thm",
   \\ IMP_RES_TAC bEval_isConst
   \\ FULL_SIMP_TAC std_ss []
   \\ SRW_TAC [] []
-  \\ cheat (* TODO, broken by right-to-left eval *)
   \\ Cases_on `op` \\ FULL_SIMP_TAC (srw_ss()) [bEval_def]
   \\ Cases_on `xs` \\ fs [bConsts_def,bEvalOp_def]
-  \\ Cases_on `t` \\ fs [bConsts_def,bEvalOp_def,getConst_def]
-  \\ Cases_on `t'` \\ fs [bConsts_def,bEvalOp_def,getConst_def]
-  \\ Cases_on `getConst (bConst h') = 0` \\ fs [bool_to_val_def])
+  \\ Cases_on `t` \\ fs [bConsts_def,bEvalOp_def]
+  \\ `t' = []` by ALL_TAC \\ fs [bConsts_def] \\ SRW_TAC [] [] \\ fs []
+  \\ Cases_on `REVERSE (MAP (Number o getConst) (bConsts t'))` \\ fs []
+  \\ TRY (Cases_on `t'` \\ fs [bConsts_def] \\ NO_TAC)
+  \\ Cases_on `h''` \\ fs []
+  \\ Cases_on `t` \\ fs []
+  \\ Cases_on `h''` \\ fs []
+  \\ Cases_on `t''` \\ fs [])
 
 val _ = export_theory();
