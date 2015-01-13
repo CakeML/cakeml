@@ -230,9 +230,11 @@ val renumber_code_locs_distinct_lemma = prove(
   rw[] >> fs[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][])
 
 val renumber_code_locs_distinct = store_thm("renumber_code_locs_distinct",
-  ``∀n e. ALL_DISTINCT (code_locs [SND (renumber_code_locs n e)])``,
+  ``∀n e. ALL_DISTINCT (code_locs [SND (renumber_code_locs n e)]) ∧
+          EVERY ($<= n) (code_locs [SND (renumber_code_locs n e)]) ∧
+          EVERY ($> (FST (renumber_code_locs n e))) (code_locs [SND (renumber_code_locs n e)])``,
   rw[] >>
-  qspecl_then[`n`,`e`]strip_assume_tac (CONJUNCT2 renumber_code_locs_distinct_lemma) >>
+  qspecl_then[`n`,`e`]strip_assume_tac (CONJUNCT2 renumber_code_locs_distinct_lemma) >> simp[] >>
   match_mp_tac (MP_CANON (GEN_ALL SORTED_ALL_DISTINCT)) >>
   qexists_tac`$<` >> simp[] >>
   simp[relationTheory.irreflexive_def])
