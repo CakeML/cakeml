@@ -12511,6 +12511,25 @@ fun get_code th = let
   val (_,_,c,_) = fix_code th |> UNDISCH_ALL |> concl |> dest_spec
   in c |> rator |> rand |> rand end
 
+(* turn SPEC_1 into SPEC *)
+
+val X64_SPEC_IMP_SPEC_1_ALT = prove(
+  ``SPEC X64_MODEL (p * zPC pc1) code (q * zPC pc2) ==>
+    pc1 <> pc2 ==>
+    SPEC_1 X64_MODEL (p * zPC pc1) code (q * zPC pc2) (zHEAP_ERROR cs)``,
+  REPEAT STRIP_TAC
+  \\ MATCH_MP_TAC (MP_CANON X64_SPEC_IMP_SPEC_1) \\ fs []
+  \\ IMP_RES_TAC SPEC_WEAKEN \\ POP_ASSUM MATCH_MP_TAC
+  \\ fs [SEP_IMP_def,SEP_DISJ_def]);
+
+fun spec_to_spec_1 th = let
+  val th = CONV_RULE (PRE_CONV (MOVE_OUT_CONV ``zPC``)) th
+  val th = CONV_RULE (POST_CONV (MOVE_OUT_CONV ``zPC``)) th
+  val th = MATCH_MP X64_SPEC_IMP_SPEC_1 th handle HOL_ERR _ =>
+           MATCH_MP X64_SPEC_IMP_SPEC_1_ALT th
+  val th = CONV_RULE ((RATOR_CONV o RAND_CONV) (SIMP_CONV (srw_ss())
+             [WORD_EQ_ADD_CANCEL])) th
+  in MP th TRUTH end
 
 (* --- a lemma for each bytecode instruction --- *)
 
@@ -15764,10 +15783,6 @@ val EL_ref_globals_list = prove(
   \\ Cases \\ Cases_on `n'` \\ fs [ref_globals_list_def,EL,OPT_MAP_def]);
 
 (*
-
-val MOD_LEMMA = prove(
-  ``0 < k ==> ((n MOD k = (n + m) MOD k) <=> (m MOD k = 0))``,
-  cheat);
 
   \\ TRY
    (ONCE_REWRITE_TAC [STAR_REARRANGE]
