@@ -635,7 +635,7 @@ val state_rel_def = Define `
       ?aux1 c2 aux2.
         (cComp [c] aux1 = ([c2],aux2)) /\
         (lookup name t.code = SOME (arity,c2)) /\
-        code_installed aux2 t.code))`
+        code_installed aux2 t.code))`;
 
 val FDIFF_def = Define `
   FDIFF f1 f2 = DRESTRICT f1 (COMPL (FRANGE f2))`;
@@ -1396,7 +1396,8 @@ val cEvalOp_correct = prove(
     Cases_on`i < i'`>> rw[bool_to_val_def,val_rel_cases] ));
 
 val cComp_correct = store_thm("cComp_correct",
-  ``!xs env s1 aux1 t1 env' f1 res s2 ys aux2.
+  ``(!tmp xs env s1 aux1 t1 env' f1 res s2 ys aux2.
+      (tmp = (xs,env,s1)) ∧
       (cEval (xs,env,s1) = (res,s2)) /\ res <> Error /\
       (cComp xs aux1 = (ys,aux2)) /\
       code_installed aux2 t1.code /\
@@ -1407,13 +1408,15 @@ val cComp_correct = store_thm("cComp_correct",
          res_rel f2 t2.refs t2.code res res' /\
          state_rel f2 s2 t2 /\
          f1 SUBMAP f2 /\
-         (FDIFF t1.refs f1) SUBMAP (FDIFF t2.refs f2)``,
-  recInduct cEval_ind \\ REPEAT STRIP_TAC
+         (FDIFF t1.refs f1) SUBMAP (FDIFF t2.refs f2)) ∧
+    (!s loc_opt f args res s2. cEvalApp s loc_opt f args = (res,s2) ⇒ T)``,
+  ho_match_mp_tac cEval_ind \\ REPEAT STRIP_TAC
   THEN1 (* NIL *)
-   (fs [cEval_def,cComp_def] \\ SRW_TAC [] [bEval_def]
-    \\ Q.EXISTS_TAC `f1` \\ fs [res_rel_Result])
+   (rw [] >> fs [cEval_def,cComp_def] \\ SRW_TAC [] [bEval_def]
+    \\ Q.EXISTS_TAC `f1` \\ fs [res_rel_Result] \\ metis_tac [] )
   THEN1 (* CONS *)
-   (fs [cEval_def,cComp_def] \\ SRW_TAC [] [bEval_def]
+   (rw [] >>
+    fs [cEval_def,cComp_def] \\ SRW_TAC [] [bEval_def]
     \\ `?p. cEval ([x],env,s) = p` by fs [] \\ PairCases_on `p` \\ fs []
     \\ `?q. cEval (y::xs,env,p1) = q` by fs [] \\ PairCases_on `q` \\ fs []
     \\ `?cc. cComp [x] aux1 = cc` by fs [] \\ PairCases_on `cc` \\ fs []
@@ -2137,7 +2140,7 @@ val cComp_correct = store_thm("cComp_correct",
 
 val cComp_ind = theorem"cComp_ind"
 
-open clos_numberTheory boolSimps
+open (*clos_numberTheory *) boolSimps
 
 val build_aux_thm = prove(
   ``∀c n aux n7 aux7.
