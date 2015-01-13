@@ -180,7 +180,10 @@ val pre_post_conventions_word_alloc = prove(``
     metis_tac[clash_sets_to_sp_g_undir]>>
   imp_res_tac reg_alloc_conventional>>
   pop_assum(qspecl_then[`moves`,`k`] assume_tac)>>rfs[LET_THM]>>
-  `every_var (in_clash_sets (hd::clash_sets)) prog` by cheat>> (*Proof in word_live*)
+  `every_var (in_clash_sets (hd::clash_sets)) prog` by 
+     (Q.ISPECL_THEN [`prog`,`LN:num_set`] assume_tac 
+       every_var_in_get_clash_set>>
+     rfs[LET_THM])>>
   `every_var (λx. x ∈ domain clash_graph) prog` by   
     (match_mp_tac every_var_mono>>
     HINT_EXISTS_TAC>>rw[]>>

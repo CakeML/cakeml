@@ -1629,77 +1629,196 @@ val coloring_ok_alt_thm = prove(
     Cases_on`get_clash_sets prog live`>>
     fs[UNCURRY])
 
-val fs1 = fs[LET_THM,get_clash_sets_def,every_var_def,get_live_def,domain_numset_list_insert,domain_union,EVERY_MEM,get_writes_def,every_var_inst_def,get_live_inst_def]
+val fs1 = fs[LET_THM,get_clash_sets_def,every_var_def,get_live_def,domain_numset_list_insert,domain_union,EVERY_MEM,get_writes_def,every_var_inst_def,get_live_inst_def,in_clash_sets_def]
 
-(*Every variable is in some clash set
+val every_var_exp_get_live_exp = prove(
+``∀exp.
+  every_var_exp (λx. x ∈ domain (get_live_exp exp)) exp``,
+  ho_match_mp_tac (fetch "-" "get_live_exp_ind")>>
+  rw[]>>fs[get_live_exp_def,every_var_exp_def]>>
+  fs[EVERY_MEM]>>rw[]>>res_tac>>
+  match_mp_tac every_var_exp_mono>>
+  HINT_EXISTS_TAC>>fs[]>>
+  metis_tac[SUBSET_DEF,domain_FOLDR_union_subset])
+
+(*Every variable is in some clash set*)
 val every_var_in_get_clash_set = store_thm("every_var_in_get_clash_set",
 ``∀prog live.
   let (hd,clash_sets) = get_clash_sets prog live in
   let ls = hd::clash_sets in 
-  let P = (λx:num. ∃y. MEM y ls ∧ x ∈ domain y) in
-  (∀x. x ∈ domain live ⇒ P x) ∧ 
-  (every_var P prog)``,
+  (∀x. x ∈ domain live ⇒ in_clash_sets ls x) ∧ 
+  (every_var (in_clash_sets ls) prog)``,
   completeInduct_on`word_prog_size (K 0) prog`>>
   ntac 2 (fs[Once PULL_FORALL])>>
   rpt strip_tac>>
   Cases_on`prog`>>fs1
   >-
-    cheat
+    (*Move*)
+    (qpat_abbrev_tac`s1 = numset_list_insert A B`>>
+    qpat_abbrev_tac`s2 = union A live`>>
+    rw[]
+    >-
+      (qexists_tac`s2`>>fs[Abbr`s2`,domain_union])
+    >-
+      (qexists_tac`s2`>>fs[Abbr`s2`,domain_numset_list_insert,domain_union])
+    >>
+      qexists_tac`s1`>>fs[Abbr`s1`,domain_numset_list_insert,domain_union])
   >-
-    cheat
+    (Cases_on`i`>>fs1>>fs[get_writes_inst_def]
+    >-
+      (rw[]>>qexists_tac`union (insert n () LN) live`>>fs[domain_union])
+    >-
+      (Cases_on`a`>>fs1>>fs[get_writes_inst_def]>>
+      EVERY_CASE_TAC>>rw[]>>
+      TRY(qexists_tac`union (insert n () LN) live`>>fs[domain_union]>>
+          NO_TAC)>>
+      TRY(qexists_tac`insert n0 () (insert n' () (delete n live))`>>fs[]>>
+          NO_TAC)>>
+        qexists_tac`insert n0 () (delete n live)`>>fs[])
+    >>
+      Cases_on`m`>>Cases_on`a`>>fs1>>fs[get_writes_inst_def]>>rw[]>>
+      TRY(qexists_tac`union (insert n () LN) live`>>fs[domain_union]>>
+          NO_TAC)>>
+      TRY(qexists_tac`insert n' () (delete n live)`>>fs[]>>NO_TAC)>>
+      TRY(qexists_tac`insert n' () (insert n () live)`>>fs[]>>NO_TAC)>>
+      HINT_EXISTS_TAC>>fs[])
   >-
-    cheat
+    (rw[]>>
+    TRY(qexists_tac`union (insert n () LN) live`>>fs[domain_union])>>
+    Q.ISPEC_THEN `w` assume_tac every_var_exp_get_live_exp>>
+    match_mp_tac every_var_exp_mono>>
+    HINT_EXISTS_TAC>>rw[in_clash_sets_def]>>
+    Cases_on`x=n`
+    >-
+      (qexists_tac`union (insert n () LN) live`>>fs[domain_union])
+    >>
+      (qexists_tac`union (get_live_exp w) (delete n live)`>>
+      fs[domain_union]))
   >-
-    cheat
+    (rw[]>>
+    qexists_tac`union(insert n () LN) live`>>fs[domain_union])
   >-
-    cheat
-  (*Cases_on`o'`>>Cases_on`o''`>>fs1>>
-  PairCases_on`x`>>fs1>>
-  rw[]>>
-  fs[get_clash_sets_def,LET_THM,get_live_def]
-  get_clash_sets_def 
-  rw[]*)
+    (rw[]>-(HINT_EXISTS_TAC>>fs[])>>
+    Q.ISPEC_THEN `w` assume_tac every_var_exp_get_live_exp>>
+    match_mp_tac every_var_exp_mono>>
+    HINT_EXISTS_TAC>>rw[in_clash_sets_def]>>
+    qexists_tac`union (get_live_exp w) live`>>
+    fs[domain_union])
   >-
-  (first_assum(qspecl_then[`w0`,`live`] mp_tac)>>discharge_hyps
+    (rw[]
+    >-
+      (HINT_EXISTS_TAC>>fs[])
+    >-
+      (qexists_tac `insert n () (union (get_live_exp w) live)`>>fs[])
+    >>
+    Q.ISPEC_THEN `w` assume_tac every_var_exp_get_live_exp>>
+    match_mp_tac every_var_exp_mono>>
+    HINT_EXISTS_TAC>>rw[in_clash_sets_def]>>
+    qexists_tac`insert n () (union (get_live_exp w) live)`>>
+    fs[domain_union]) 
   >-
-    (fs[word_prog_size_def]>>DECIDE_TAC)
+    (*Call*)
+    (Cases_on`o'`>>fs1
+    >-
+      (rw[]>-(HINT_EXISTS_TAC>>fs[])>>
+      qexists_tac`numset_list_insert l LN`>>fs[domain_numset_list_insert])
+    >>
+      PairCases_on`x`>>Cases_on`o0`>>fs1
+      >-
+        (first_x_assum(qspecl_then[`x2`,`live`] mp_tac)>>
+        discharge_hyps>- (fs[word_prog_size_def]>>DECIDE_TAC)>>
+        Cases_on`get_clash_sets x2 live`>>rw[]
+        >-
+          (first_x_assum(qspec_then`x'`assume_tac)>>rfs[]>>
+          HINT_EXISTS_TAC>>fs[])
+        >>
+        qpat_abbrev_tac`A = union x1 X`>>
+        qpat_abbrev_tac`B = insert x0 () x1`>>
+        TRY(qexists_tac`A`>>
+          fs[Abbr`A`,domain_union,domain_numset_list_insert]>>NO_TAC)>>
+        TRY(qexists_tac`B`>>fs[Abbr`B`]) >>
+        match_mp_tac every_var_mono>>
+        HINT_EXISTS_TAC>>fs[]>>rw[in_clash_sets_def]>>
+        HINT_EXISTS_TAC>>fs[])
+      >>
+        PairCases_on`x`>>fs[]>>
+        first_assum(qspecl_then[`x2`,`live`] mp_tac)>>
+        discharge_hyps>- (fs[word_prog_size_def]>>DECIDE_TAC)>>
+        first_x_assum(qspecl_then[`x1'`,`live`] mp_tac)>>
+        discharge_hyps>- (fs[word_prog_size_def]>>DECIDE_TAC)>>
+        Cases_on`get_clash_sets x2 live`>>
+        Cases_on`get_clash_sets x1' live`>>rw[]
+        >-
+          (first_x_assum(qspec_then`x'`assume_tac)>>rfs[]>>
+          HINT_EXISTS_TAC>>fs[])
+        >>
+        qpat_abbrev_tac`A = union x1 X`>>
+        qpat_abbrev_tac`B = insert x0 () x1`>>
+        qpat_abbrev_tac`D = insert x0' () x1`>>
+        TRY(qexists_tac`A`>>
+          fs[Abbr`A`,domain_union,domain_numset_list_insert]>>NO_TAC)>>
+        TRY(qexists_tac`B`>>fs[Abbr`B`]>>NO_TAC) >>
+        TRY(qexists_tac`D`>>fs[Abbr`D`]) >>
+        match_mp_tac every_var_mono>>
+        TRY(HINT_EXISTS_TAC)>>
+        TRY(qexists_tac`in_clash_sets (q'::r')`)>>
+        fs[]>>rw[in_clash_sets_def]>>
+        HINT_EXISTS_TAC>>fs[])
+  >-
+    (first_assum(qspecl_then[`w0`,`live`] mp_tac)>>discharge_hyps
+    >-
+      (fs[word_prog_size_def]>>DECIDE_TAC)
+    >>
+    Cases_on`get_clash_sets w0 live`>>rw[]>>
+    first_x_assum(qspecl_then[`w`,`q`] mp_tac)>>discharge_hyps
+    >-
+      (fs[word_prog_size_def]>>DECIDE_TAC)
+    >>
+    Cases_on`get_clash_sets w q`>>rw[]>>
+    TRY (metis_tac[every_var_mono])>>
+    match_mp_tac every_var_mono>>
+    TRY(pop_assum kall_tac>>HINT_EXISTS_TAC)>>
+    TRY HINT_EXISTS_TAC>>
+    fs[in_clash_sets_def]>>
+    metis_tac[])
+  >-
+    (first_assum(qspecl_then[`w0`,`live`] mp_tac)>>discharge_hyps
+    >-
+      (fs[word_prog_size_def]>>DECIDE_TAC)
+    >>
+    Cases_on`get_clash_sets w0 live`>>rw[]>>
+    first_assum(qspecl_then[`w1`,`live`] mp_tac)>>discharge_hyps
+    >-
+      (fs[word_prog_size_def]>>DECIDE_TAC)
+    >>
+    Cases_on`get_clash_sets w1 live`>>rw[]>>
+    first_assum(qspecl_then[`w`,`insert n () (union q q')`] mp_tac)>>
+    discharge_hyps
+    >-
+      (fs[word_prog_size_def]>>DECIDE_TAC)
+    >>
+    Cases_on`get_clash_sets w (insert n () (union q q'))`>>rw[]>>
+    TRY (fs[domain_union]>>metis_tac[every_var_mono])>>
+    qpat_assum `every_var P w0` mp_tac>>
+    qpat_assum `every_var P w1` mp_tac>>
+    ntac 2 strip_tac>>
+    match_mp_tac every_var_mono>>
+    TRY(pop_assum kall_tac>>pop_assum kall_tac>>HINT_EXISTS_TAC)>>
+    TRY(pop_assum kall_tac>>HINT_EXISTS_TAC)>>
+    TRY HINT_EXISTS_TAC>>
+    rw[]>>fs[in_clash_sets_def,domain_union]>>
+    metis_tac[domain_union])
+  >-
+    (rw[]
+    >-
+      (HINT_EXISTS_TAC>>fs[])
+    >>
+      qexists_tac`insert n () s`>>fs[])
+  >-
+    (rw[]>-(HINT_EXISTS_TAC>>fs[])>>
+    qexists_tac`insert n () live`>>fs[])
   >>
-  Cases_on`get_clash_sets w0 live`>>rw[]>>
-  first_x_assum(qspecl_then[`w`,`q`] mp_tac)>>discharge_hyps
-  >-
-    (fs[word_prog_size_def]>>DECIDE_TAC)
-  >>
-  Cases_on`get_clash_sets w q`>>rw[]>>
-  TRY (metis_tac[every_var_mono])>>
-  match_mp_tac every_var_mono>>
-  TRY(pop_assum kall_tac>>HINT_EXISTS_TAC)>>
-  TRY HINT_EXISTS_TAC>>
-  rw[]>>metis_tac[])
-  >>
-  (first_assum(qspecl_then[`w0`,`live`] mp_tac)>>discharge_hyps
-  >-
-    (fs[word_prog_size_def]>>DECIDE_TAC)
-  >>
-  Cases_on`get_clash_sets w0 live`>>rw[]>>
-  first_assum(qspecl_then[`w1`,`live`] mp_tac)>>discharge_hyps
-  >-
-    (fs[word_prog_size_def]>>DECIDE_TAC)
-  >>
-  Cases_on`get_clash_sets w1 live`>>rw[]>>
-  first_assum(qspecl_then[`w`,`insert n () (union q q')`] mp_tac)>>
-  discharge_hyps
-  >-
-    (fs[word_prog_size_def]>>DECIDE_TAC)
-  >>
-  Cases_on`get_clash_sets w (insert n () (union q q'))`>>rw[]>>
-  TRY (fs[domain_union]>>metis_tac[every_var_mono])>>
-  qpat_assum `every_var P w0` mp_tac>>
-  qpat_assum `every_var P w1` mp_tac>>
-  ntac 2 strip_tac>>
-  match_mp_tac every_var_mono>>
-  TRY(pop_assum kall_tac>>pop_assum kall_tac>>HINT_EXISTS_TAC)>>
-  TRY(pop_assum kall_tac>>HINT_EXISTS_TAC)>>
-  TRY HINT_EXISTS_TAC>>
-  rw[]>>fs[domain_union]>>metis_tac[domain_union])*)
-
+    (rw[]>-(HINT_EXISTS_TAC>>fs[])>>
+    qexists_tac`insert n () live`>>fs[]))
+    
 val _ = export_theory();
