@@ -287,7 +287,7 @@ val bEval_def = tDefine "bEval" `
      | res => res) /\
   (bEval ([Op op xs],env,s) =
      case bEval (xs,env,s) of
-     | (Result vs,s) => (case bEvalOp op vs s of
+     | (Result vs,s) => (case bEvalOp op (REVERSE vs) s of
                           | NONE => (Error,s)
                           | SOME (v,s) => (Result [v],s))
      | res => res) /\

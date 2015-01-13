@@ -482,11 +482,9 @@ val cComp_def = tDefine "cComp" `
   (cComp [App loc_opt x1 xs2] aux =
      let (c1,aux1) = cComp [x1] aux in
      let (c2,aux2) = cComp xs2 aux1 in
-     let num_args = LENGTH c2 in
-     let arg_vars = REVERSE (GENLIST (\n. Var (n + 1)) num_args) in
        ([case loc_opt of
          | NONE => 
-             Let (c1++c2) (mk_cl_call arg_vars)
+             Let [c1] (mk_cl_call c2)
          | SOME loc => 
              Call (SOME (loc + num_stubs)) (c1 ++ c2)],
         aux2)) /\
