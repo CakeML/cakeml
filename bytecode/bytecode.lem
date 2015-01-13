@@ -102,9 +102,9 @@ and
 bool_to_tag true = 1
 
 let unit_tag : nat = 2
-let closure_tag : nat = 3
-let string_tag : nat = 4
-let vector_tag : nat = 5
+let string_tag : nat = 3
+let vector_tag : nat = 4
+let closure_tag : nat = 5
 let block_tag : nat = 6
 
 let bool_to_val b = Block (bool_to_tag b) []
