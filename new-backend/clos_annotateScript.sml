@@ -106,12 +106,12 @@ val cFree_SING = prove(
   REPEAT STRIP_TAC \\ IMP_RES_TAC cFree_LENGTH
   \\ Cases_on `ys` \\ fs [LENGTH_NIL]);
 
-val SING_HD = prove(
+val SING_HD = store_thm("SING_HD",
   ``(([HD xs] = xs) <=> (LENGTH xs = 1)) /\
     ((xs = [HD xs]) <=> (LENGTH xs = 1))``,
   Cases_on `xs` \\ fs [LENGTH_NIL] \\ METIS_TAC []);
 
-val LENGTH_FST_cFree = prove(
+val LENGTH_FST_cFree = store_thm("LENGTH_FST_cFree",
   ``LENGTH (FST (cFree fns)) = LENGTH fns``,
   Cases_on `cFree fns` \\ fs [] \\ IMP_RES_TAC cFree_LENGTH);
 
@@ -223,7 +223,7 @@ val cShift_def = tDefine "cShift" `
 
 val cShift_ind = fetch "-" "cShift_ind";
 
-val cShift_LENGTH_LEMMA = prove(
+val cShift_LENGTH_LEMMA = store_thm("cShift_LENGTH_LEMMA",
   ``!xs m l i. LENGTH (cShift xs m l i) = LENGTH xs``,
   recInduct cShift_ind \\ REPEAT STRIP_TAC
   \\ fs [cShift_def,LET_DEF,ADD1,AC ADD_COMM ADD_ASSOC])
