@@ -6,20 +6,12 @@ val _ = new_theory"test"
 
 (* might need EvalMat (using evaluate_match) instead to only evaluate x once *)
 
-(*
-Eval_def
-val EvalMat_def = Define`
-  EvalMat xv env xs P ⇔
-    ∃res. evaluate_match F env (0,empty_store) 
-    type_of``evaluate_match``
-*)
-
 val EvalPatRel_def = Define`
   EvalPatRel env a p pat ⇔
     ∀x av. a x av ⇒
       evaluate_match F env (0,empty_store) av
-        [(p,(Lit(Bool T)))] (Litv(Bool F))
-        ((0,empty_store),Rval(Litv(Bool(∃vars. pat vars = x))))`
+        [(p,(Lit(Unit)))] ARB
+        ((0,empty_store),if ∃vars. pat vars = x then Rval(Litv(Unit)) else Rerr(Rraise ARB))`
 
 (* want version of pmatch that doesn't break apart an all_env, but does bindings with write *)
 val EvalPatBind_def = Define`
@@ -51,7 +43,8 @@ val pmatch_PMATCH_ROW_COND_Match = store_thm("pmatch_PMATCH_ROW_COND_Match",
   rw[EvalPatRel_def,PMATCH_ROW_COND_def] >>
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
   fs[Once evaluate_cases,all_env_to_cenv_def,all_env_to_env_def] >>
-  fs[Once evaluate_cases])
+  fs[Once evaluate_cases] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[] >> PROVE_TAC[])
 
 val Eval_PMATCH_NIL = store_thm("Eval_PMATCH_NIL",
   ``CONTAINER F ⇒
@@ -69,7 +62,7 @@ val Eval_PMATCH = store_thm("Eval_PMATCH",
       Eval env2 e (b (res vars))) ⇒
     p0 ∧
     (∀vars. PMATCH_ROW_COND pat (K T) xv vars ⇒ p2 vars) ∧
-    (∀vars. ¬PMATCH_ROW_COND pat (K T) xv vars ⇒ p1 xv) ⇒
+    ((∀vars. ¬PMATCH_ROW_COND pat (K T) xv vars) ⇒ p1 xv) ⇒
     Eval env (Mat x ((p,e)::ys)) (b (PMATCH xv ((PMATCH_ROW pat (K T) res)::yrs)))``,
   rw[Eval_def] >>
   rw[Once evaluate_cases,PULL_EXISTS] >> fs[] >>
@@ -106,18 +99,17 @@ val Eval_PMATCH = store_thm("Eval_PMATCH",
   fs[all_env_to_cenv_def,all_env_to_env_def] >>
   METIS_TAC[])
 
-(* TODO: now, use the above two theorems to do the tm example below manually *)
-
-(*
-
 val () = set_trace"use pmatch_pp"0
 val () = register_type``:'a list``
 val () = show_assums := true
+val () = computeLib.add_funs [pat_bindings_def]
 
 val tm = ``case x of (y::ys) => y + (3:num)``
 
 val pth = (PMATCH_INTRO_CONV THENC PMATCH_SIMP_CONV) tm
 val ptm = rhs(concl pth)
+val rows = rand ptm |> listSyntax.dest_list |> fst
+val row1 = el 1 rows
 
 fun to_pattern tm =
   if can(match_term``Var(Short x)``)tm then
@@ -134,66 +126,96 @@ fun to_pattern tm =
 
 val xth = hol2deep (rand(rator(ptm)))
 val x = xth |> concl |> rator |> rand
-val pat = hol2deep (ptm |> rand |> rator |> rand |> strip_comb |> snd |> el 1 |> dest_pabs |> snd)
+val xv = xth |> concl |> rand |> rand
+
+val base_case =
+  Eval_PMATCH_NIL |> Q.GENL[`x`,`xv`] |> ISPECL [xv,x]
+
+val pat = row1 |> strip_comb |> snd |> el 1
+val p = hol2deep (pat |> dest_pabs |> snd)
           |> concl |> rator |> rand |> to_pattern
-val eth = hol2deep (ptm |> rand |> rator |> rand |> strip_comb |> snd |> el 3 |> dest_pabs |> snd)
-val exp = eth |> concl |> rator |> rand
-val Eval_Mat =
-  ``Eval env (Mat e pats) P``
-  |> (REWR_CONV Eval_def THENC
-      ONCE_REWRITE_CONV [evaluate_cases] THENC
-      SIMP_CONV (srw_ss())[PULL_EXISTS])
+val ALL_DISTINCT_th =
+  ``ALL_DISTINCT (pat_bindings ^p [])``
+  |> EVAL |> EQT_ELIM
+val pat_11 =
+  ``∀v1 v2. ^pat v1 = ^pat v2 ⇒ v1 = v2``
+  |> SIMP_CONV (std_ss++listSimps.LIST_ss) [FORALL_PROD]
+  |> EQT_ELIM
+val th1 = MATCH_MP Eval_PMATCH ALL_DISTINCT_th
+val th2 = MATCH_MP th1 pat_11
+val th3 = MATCH_MP th2 (DISCH_ALL xth)
+val th4 = HO_MATCH_MP th3 base_case
 
-val evaluate_match_Conv =
-  ``evaluate_match c x env args
-       ((Pcon xx pats,exp2)::pats2) errv (yyy,Rval y)``
-  |> (ONCE_REWRITE_CONV [evaluate_cases] THENC
-      SIMP_CONV (srw_ss()) [pmatch_def])
-val evaluate_match_rw = prove(
-  ``evaluate_match c (menv,cenv,env) (e1,e2) args
-      ((Pcon xx pats,exp2)::pats2) errv (yyy,Rval y) <=>
-    ALL_DISTINCT (pat_bindings (Pcon xx pats) []) /\
-    case pmatch cenv e2 (Pcon xx pats) args env of
-    | No_match =>
-        evaluate_match c (menv,cenv,env) (e1,e2) args pats2 errv (yyy,Rval y)
-    | Match env7 =>
-        evaluate c (menv,cenv,env7) (e1,e2) exp2 (yyy,Rval y)
-    | _ => F``,
-  SIMP_TAC std_ss [evaluate_match_Conv
-    |> Q.INST [`x`|->`(menv,cenv,e)`,`env`|->`(e1,e2)`]
-    |> Q.INST [`e`|->`env`]
-    |> SIMP_RULE std_ss []]
-  \\ Cases_on `pmatch cenv e2 (Pcon xx pats) args env`
-  \\ FULL_SIMP_TAC (srw_ss()) []);
+val res = row1 |> strip_comb |> snd |> el 3
+val eth = hol2deep (res |> dest_pabs |> snd)
+val e = eth |> concl |> rator |> rand
+val b = eth |> concl |> rand |> rator
 
-val thm = prove(
-  ``^(concl xth) ⇒
-    Eval env (Mat ^x [(^pat,^exp)]) (NUM ^ptm)``,
-  strip_tac >>
-  REWRITE_TAC[Eval_Mat] >>
-  FULL_SIMP_TAC pure_ss [Eval_def] >>
-  first_assum(match_exists_tac o concl) >>
-  ASM_SIMP_TAC bool_ss [] >>
-  `∃menv cenv env1. env = (menv,cenv,env1)` by METIS_TAC[pair_CASES] >>
-  BasicProvers.VAR_EQ_TAC >>
-  REWRITE_TAC[evaluate_match_rw] >>
-  simp[pat_bindings_def] >>
-  REWRITE_TAC[PMATCH_def,PMATCH_ROW_def] >>
-  simp[Once evaluate_cases]
-  optionTheory.some_intro
-  f"some"
+val th5 = Q.GENL[`res`,`e`,`b`]th4 |> ISPECL [b,e,res]
 
-val Eval_PMATCH = store_thm("Eval_PMATCH",
-  ``Eval env x (P v) ⇒
-    LIST_REL (λ((p,e),r).???) pes rows
-    Eval env (Mat x pes) (Q (PMATCH x rows)``
-type_of``evaluate_match``
-evaluate_rules
-
-type_of ``PMATCH x``
-PMATCH_def
-PMATCH_ROW_def
-type_of``PMATCH_ROW``
+val asms =
+  [``lookup_cons "::" env = SOME (2,TypeId(Short"list"))``,
+   ``lookup_cons "nil" env = SOME (0,TypeId(Short"nil"))``]
+val gtm = th5 |> concl |> dest_imp |> fst
+(*
+  set_goal(asms,gtm)
 *)
+val gth = TAC_PROOF((asms,gtm),
+  `∃x y z. env = (x,y,z)` by METIS_TAC[PAIR] >>
+  simp[EvalPatRel_def,Once evaluate_cases,ALL_DISTINCT_th] >>
+  fs[lookup_cons_def] >>
+  Cases >> simp[LIST_TYPE_def,pmatch_def,same_tid_def,same_ctor_def,id_to_n_def,EXISTS_PROD] >- (
+    simp[Once evaluate_cases]) >>
+  simp[PULL_EXISTS,pmatch_def,same_tid_def,same_ctor_def,id_to_n_def,EXISTS_PROD] >>
+  simp[Once evaluate_cases])
+
+val th6 = MATCH_MP th5 gth
+
+(*
+val p2 =
+  hyp eth |> list_mk_conj |> curry mk_pabs(res |> dest_pabs |> fst)
+*)
+val p2 = mk_pabs(res |> dest_pabs |> fst, T) (* don't know what this should be *)
+
+val th7 = Q.GEN`p2` th6 |> SPEC p2
+
+val gtm2 = th7 |> concl |> dest_imp |> fst
+(*
+  set_goal(asms,gtm2)
+*)
+val gth2 = TAC_PROOF((asms,gtm2),
+  `∃x y z. env = (x,y,z)` by METIS_TAC[PAIR] >>
+  simp[EvalPatBind_def,all_env_to_cenv_def,all_env_to_env_def,PULL_EXISTS,all_env_to_menv_def] >>
+  simp[UNCURRY,LIST_TYPE_def,PULL_EXISTS] >>
+  fs[lookup_cons_def] >>
+  simp[pmatch_def,same_tid_def,same_ctor_def,id_to_n_def] >>
+  simp[Eval_def] >>
+  simp[Once evaluate_cases,PULL_EXISTS] >>
+  simp[Once evaluate_cases,PULL_EXISTS] >>
+  simp[Once evaluate_cases,PULL_EXISTS,lookup_var_id_def] >>
+  simp[Once evaluate_cases,PULL_EXISTS] >>
+  simp[Once evaluate_cases,PULL_EXISTS] >>
+  simp[Once evaluate_cases,PULL_EXISTS] >>
+  simp[do_app_def,NUM_def,INT_def,opn_lookup_def] >>
+  rw[INT_ADD])
+
+val th8 = MATCH_MP th7 gth2
+
+val th9 = th8
+  |> SIMP_RULE std_ss [PMATCH_ROW_COND_def,FORALL_PROD,CONTAINER_def]
+  |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]
+  |> C MATCH_MP xth
+  |> CONV_RULE(LAND_CONV(STRIP_QUANT_CONV SYM_CONV THENC REWR_CONV(GSYM CONTAINER_def)))
+  |> UNDISCH
+
+val intro_K_T =
+  ``^(mk_pabs(res |> dest_pabs |> fst,T)) = K T``
+  |> SIMP_CONV std_ss [FUN_EQ_THM,FORALL_PROD]
+  |> EQT_ELIM
+
+val th10 =
+  th9 |> ONCE_REWRITE_RULE[pth |> REWRITE_RULE[intro_K_T] |> SYM]
+
+val _ = save_thm("example",th10)
 
 val _ = export_theory()
