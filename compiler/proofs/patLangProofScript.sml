@@ -278,6 +278,31 @@ val char_list_to_v_pat_no_closures = prove(
   ``∀ls. no_closures_pat (char_list_to_v_pat ls)``,
   Induct >> simp[char_list_to_v_pat_def])
 
+val evaluate_list_pat_length = store_thm("evaluate_list_pat_length",
+  ``∀ls ck env s s' vs.
+      evaluate_list_pat ck env s ls (s',Rval vs) ⇒ LENGTH vs = LENGTH ls``,
+  Induct >> simp[Once evaluate_pat_cases,PULL_EXISTS] >>
+  rw[] >> res_tac)
+
+val evaluate_list_pat_append_Rval = store_thm("evaluate_list_pat_append_Rval",
+  ``∀l1 ck env s l2 s' vs.
+    evaluate_list_pat ck env s (l1 ++ l2) (s',Rval vs) ⇒
+    ∃s1 v1 v2. evaluate_list_pat ck env s l1 (s1,Rval v1) ∧
+               evaluate_list_pat ck env s1 l2 (s',Rval v2) ∧
+               vs = v1++v2``,
+  Induct >> simp[Once evaluate_pat_cases,PULL_EXISTS] >> rw[]
+  >- (
+    rw[Once evaluate_pat_cases] >>
+    rw[Once evaluate_pat_cases] )
+  >- (
+    rw[Once evaluate_pat_cases] >>
+    rw[Once evaluate_pat_cases] >>
+    metis_tac[] )
+  >- (
+    rw[Once evaluate_pat_cases,PULL_EXISTS] >>
+    first_assum(match_exists_tac o concl) >> rw[] >> res_tac >>
+    first_assum(match_exists_tac o concl) >> rw[]))
+
 val fo_pat_correct = store_thm("fo_pat_correct",
   ``(∀e. fo_pat e ⇒
        ∀ck env s s' v.
@@ -285,13 +310,21 @@ val fo_pat_correct = store_thm("fo_pat_correct",
          no_closures_pat v) ∧
     (∀es. fo_list_pat es ⇒
        ∀ck env s s' vs.
-         evaluate_list_pat ck env s es (s',Rval vs) ⇒
+         (evaluate_list_pat ck env s es (s',Rval vs) ∨
+          evaluate_list_pat ck env s (REVERSE es) (s',Rval vs)) ⇒
          EVERY no_closures_pat vs)``,
   ho_match_mp_tac(TypeBase.induction_of(``:exp_pat``))>>
   simp[] >> reverse(rpt conj_tac) >> rpt gen_tac >> strip_tac >>
   simp[Once evaluate_pat_cases] >> rpt gen_tac >>
   TRY strip_tac >> fs[] >> simp[PULL_EXISTS,ETA_AX] >>
   TRY (metis_tac[])
+  >- (
+    rw[] >> rw[] >> TRY(metis_tac[]) >>
+    imp_res_tac evaluate_list_pat_append_Rval >>
+    imp_res_tac evaluate_list_pat_length >> fs[] >>
+    Cases_on`v2`>>fs[LENGTH_NIL] >>
+    fs[Q.SPECL[`ck`,`env`,`s1`,`[e]`](CONJUNCT2 evaluate_pat_cases)] >>
+    metis_tac[] )
   >- (pop_assum mp_tac >> simp[Once evaluate_pat_cases])
   >- (pop_assum mp_tac >> simp[Once evaluate_pat_cases,PULL_EXISTS])
   >- (
@@ -307,10 +340,13 @@ val fo_pat_correct = store_thm("fo_pat_correct",
     BasicProvers.EVERY_CASE_TAC >> fs[LET_THM,UNCURRY] >> rw[] >>
     res_tac >> fs[] >>
     TRY (
+      fs[Once SWAP_REVERSE_SYM] >> rw[] >>
       fs[EVERY_MEM,MEM_EL,PULL_EXISTS] >>
       first_x_assum(match_mp_tac) >>
       simp[] >> NO_TAC) >>
-    metis_tac [v_to_list_no_closures, char_list_to_v_pat_no_closures]));
+    metis_tac [v_to_list_no_closures, char_list_to_v_pat_no_closures])
+  >- (
+    metis_tac[rich_listTheory.EVERY_REVERSE]));
 
 val do_eq_no_closures_pat = store_thm("do_eq_no_closures_pat",
   ``(∀v1 v2. no_closures_pat v1 ∧ no_closures_pat v2 ⇒ do_eq_pat v1 v2 ≠ Eq_closure) ∧
