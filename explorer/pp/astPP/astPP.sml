@@ -192,6 +192,16 @@ fun tfnPrint sys d t pg str brk blk =
   
 val _=add_astPP("tfunprint", ``Tfn x y``,genPrint tfnPrint);
 
+(*return a list of strings*)
+fun strip_func funs = 
+  ((match_term ``Fun x y`` funs);
+  let val (_,[name,expr]) = strip_comb funs
+      val (names,rest) = strip_func expr in
+      (name::names,rest) end)
+      handle _ => ([],funs)
+
+fun flat_names str [] = str""
+|   flat_names str (x::xs) = str" ">>str (toString x)>>flat_names str xs
 
 (*top level letrec list varN*varN*exp *)
 fun dletrecPrint sys d t pg str brk blk =
@@ -199,9 +209,11 @@ fun dletrecPrint sys d t pg str brk blk =
     val ls = strip t
     val fundef = #1(listSyntax.dest_list ls)
     fun printTerms [] = str ""
-    |   printTerms [t] = let val (x::y::[z]) = pairSyntax.strip_pair t
+    |   printTerms [t] = 
+        let val (x::y::[z]) = pairSyntax.strip_pair t
+            val (names,z) = strip_func z
         in
-         blk CONSISTENT ~2 (str (toString x) >> str " ">> str (toString y)>> str " =" >> brk(1,0)>> sys (Top,pg,pg) (d-1) z)
+         blk CONSISTENT ~2 (str (toString x) >> str " ">> str (toString y)>>flat_names str names>> str " =" >> brk(1,0)>> sys (Top,pg,pg) (d-1) z)
         end
     |   printTerms (t::xs) = printTerms [t] >>add_newline>>str "and " >> (printTerms xs)
   in
@@ -223,10 +235,11 @@ fun letrecPrint sys d t pg str brk blk =
     val (_,ls) = dest_comb temp
     val fundef = #1(listSyntax.dest_list ls)
     fun printTerms [] = str ""
-    |   printTerms [t] = let val (x::y::[z]) = pairSyntax.strip_pair t
+    |   printTerms [t] =
+        let val (x::y::[z]) = pairSyntax.strip_pair t
+            val (names,z) = strip_func z
         in
-          blk CONSISTENT 0 (str (toString x) >> str " ">> str (toString y)
-          >> str " =">>brk(1,0) >> sys (Top,pg,pg) (d-1) z)
+          blk CONSISTENT 0 (str (toString x) >> str " ">> str (toString y)>>flat_names str names>> str " =">>brk(1,0) >> sys (Top,pg,pg) (d-1) z)
         end
     |   printTerms (t::xs) = printTerms [t] >>add_newline>>str "and ">> (printTerms xs)
     val next_is_let = next_is_let expr 
@@ -462,14 +475,24 @@ fun matPrint sys d t pg str brk blk=
 
 val _=add_astPP ("matprint", ``Mat x y``,genPrint matPrint);
 
-(*Apply*)
+(*Not sure why matching Var A directly fails*)
+(*
+fun rhs_var var = 
+      ((match_term ``Var (Short A)`` var ; true)
+      handle _ => (match_term ``Var (Long A)`` var; true) handle _ => false)
+*)
+
+(*Apply, don't bracketize the LHS of something already in an Apply*)
 fun oppappPrint sys d t pg str brk blk =
   let
     open Portable smpp
     val (_,ls) = dest_comb t
     val (hd::[tl]) = #1(listSyntax.dest_list ls) (*Assumes only 1-arg functions*)
+    val output = sys (Prec(0,"app2"),pg,pg) d hd >> str" ">>sys (Prec(0,"app"),pg,pg) d tl
   in
-    m_brack str pg (sys (Prec(0,"app"),pg,pg) d hd >> str" ">>sys (Prec(0,"app"),pg,pg) d tl)
+    case pg of
+      Prec(0,"app2") => output
+    | _ => m_brack str pg output
     (*
     case pg of Prec(_,_) => (bracketize str (sys (pg,pg,pg) d f >> str" ">> sys (Top,pg,pg) d x))
          |     _         => (sys (Prec(0,"app"),pg,pg) d f >> str " " >> sys (Prec(0,"app"),pg,pg) d x)*)

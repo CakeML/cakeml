@@ -323,6 +323,7 @@ val val_rel_simp = let
             ``val_rel y (RefPtr x)``,
             ``val_rel y (Closure n l x)``,
             ``val_rel y (Recclosure x1 x2 x3 x4)``] |> LIST_CONJ end
+  |> curry save_thm "val_rel_simp"
 
 val res_rel_simp = let
   val f = SIMP_CONV (srw_ss()) [res_rel_cases]
