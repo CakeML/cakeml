@@ -2666,7 +2666,10 @@ val bvl_bc_ptrfun_correct = prove(
       ⇒
       let (f,s) = FOLDR (UNCURRY (bvl_bc_ptrfun il)) (f0,s0) ls in
         ALL_DISTINCT (FILTER is_Label s.out) ∧
-        EVERY (combin$C $< s.next_label o dest_Label) (FILTER is_Label s.out) ∧
+        (∃code.
+           code ++ s0.out = s.out ∧
+           EVERY (between s0.next_label s.next_label o dest_Label) (FILTER is_Label code) ∧
+           s0.next_label ≤ s.next_label) ∧
         ∀ptr exp arity.
           MEM (ptr,(arity,exp)) ls ⇒
             ∃cs l0 cc l1.
@@ -2682,12 +2685,17 @@ val bvl_bc_ptrfun_correct = prove(
   simp[bvl_bc_ptrfun_def] >>
   simp[PULL_FORALL] >> rpt gen_tac >>
   specl_args_of_then``bvl_bc``bvl_bc_append_out strip_assume_tac >>
-  ONCE_REWRITE_TAC[CONJ_ASSOC] >>
   conj_tac >- (
+    qpat_assum`X = r.out`(assume_tac o SYM) >>
     fs[FILTER_APPEND,ALL_DISTINCT_APPEND] >>
     fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,MEM_FILTER,is_Label_rwt,between_def] >>
     rw[]>>res_tac>>rfs[]>>spose_not_then strip_assume_tac>>fsrw_tac[ARITH_ss][]>>
     res_tac>>fsrw_tac[ARITH_ss][]) >>
+  conj_tac >- (
+    qpat_assum`X = r.out`(assume_tac o SYM) >> simp[] >>
+    fs[EVERY_MEM,between_def,MEM_MAP,PULL_EXISTS,FILTER_APPEND] >>
+    fs[MEM_FILTER,is_Label_rwt,PULL_EXISTS] >> rw[] >> simp[] >>
+    res_tac >> fsrw_tac[ARITH_ss][] ) >>
   reverse strip_tac >- (
     res_tac >>
     first_assum(match_exists_tac o concl) >> simp[] >>
@@ -2700,7 +2708,10 @@ val bvl_bc_ptrfun_correct = prove(
   qexists_tac`r`>> fs[] >>
   simp[tlookup_def] >>
   qexists_tac`REVERSE r.out`>>simp[] >>
-  simp[FILTER_REVERSE,ALL_DISTINCT_REVERSE,EVERY_REVERSE])
+  simp[FILTER_REVERSE,ALL_DISTINCT_REVERSE,EVERY_REVERSE] >>
+  qpat_assum`X = r.out`(assume_tac o SYM) >>
+  fs[EVERY_MEM,MEM_FILTER,is_Label_rwt,PULL_EXISTS,between_def,MEM_MAP] >>
+  rw[] >> res_tac >> fsrw_tac[ARITH_ss][])
   |> Q.GENL[`s0`,`f0`]
 
 val update_ptr_def = Define`
@@ -2857,8 +2868,8 @@ val bvl_bc_update_ptr = store_thm("bvl_bc_update_ptr",
 
 val bvl_bc_table_def = Define`
   bvl_bc_table il nl cmap =
-    let (f,s) = foldi (bvl_bc_ptrfun il) 0 (LN, <|next_label:=nl;out:=[]|>) cmap in
-    (f,s with out := MAP (update_ptr f) s.out)`
+    let (f,s) = foldi (bvl_bc_ptrfun il) 0 (LN, <|next_label:=nl+1;out:=[Jump(Lab nl)]|>) cmap in
+    (f,s with out := (Label nl)::(MAP (update_ptr f) s.out))`
 
 val is_Label_o_update_ptr = prove(
   ``is_Label o (update_ptr f) = is_Label``,
@@ -2880,12 +2891,12 @@ val next_addr_MAP_update_ptr = prove(
   Cases_on`l`>>simp[] >>
   fs[bytecodeLabelsTheory.length_ok_def])
 
-val bvl_bc_table_correct = store_thm("bvl_bc_table_correct",
+val bvl_bc_table_good = store_thm("bvl_bc_table_good",
   ``length_ok il ⇒
     bvl_bc_table il nl cmap = (f,s) ⇒
     good_code_env f il cmap (REVERSE s.out)``,
   rw[bvl_bc_table_def,foldi_FOLDR_toAList] >>
-  qspecl_then[`LN`,`<|next_label := nl; out:=[]|>`,`toAList cmap`]mp_tac
+  qspecl_then[`LN`,`<|next_label := nl+1; out:=[Jump(Lab nl)]|>`,`toAList cmap`]mp_tac
     (INST_TYPE[alpha|->numSyntax.num] bvl_bc_ptrfun_correct) >>
   discharge_hyps >- (
     simp[ALL_DISTINCT_MAP_FST_toAList] ) >>
@@ -2903,5 +2914,38 @@ val bvl_bc_table_correct = store_thm("bvl_bc_table_correct",
   simp[GSYM MAP_REVERSE] >>
   simp[FILTER_is_Label_MAP_update_ptr] >>
   simp[next_addr_MAP_update_ptr])
+
+val bvl_bc_table_thm = store_thm("bvl_bc_table_thm",
+  ``bvl_bc_table il nl cmap = (f,s) ⇒
+    ∀bs bc0 bc1.
+    ALL_DISTINCT (FILTER is_Label bc0) ∧
+    EVERY ($> nl o dest_Label) (FILTER is_Label bc0) ∧
+    bs.code = bc0 ++ REVERSE s.out ++ bc1 ∧
+    bs.pc = next_addr bs.inst_length bc0 ⇒
+    bc_next bs (bs with <|pc := next_addr bs.inst_length (bc0++REVERSE s.out)|>)``,
+  rw[bvl_bc_table_def,foldi_FOLDR_toAList] >>
+  qspecl_then[`LN`,`<|next_label := nl+1; out:=[Jump(Lab nl)]|>`,`toAList cmap`]mp_tac
+    (INST_TYPE[alpha|->numSyntax.num] bvl_bc_ptrfun_correct) >>
+  discharge_hyps >- (
+    simp[ALL_DISTINCT_MAP_FST_toAList] ) >>
+  fs[LET_THM] >>
+  first_assum (split_applied_pair_tac o lhs o concl) >>
+  fs[] >> rw[] >>
+  `bc_fetch bs = SOME(Jump(Lab nl))` by (
+    qpat_assum`X = Y.out`(assume_tac o SYM) >> fs[] >>
+    match_mp_tac bc_fetch_next_addr >>
+    qexists_tac`bc0`>>simp[] ) >>
+  simp[bc_eval1_thm,bc_eval1_def] >>
+  simp[bc_state_component_equality] >>
+  simp[bc_find_loc_def] >>
+  match_mp_tac bc_find_loc_aux_append_code >>
+  match_mp_tac bc_find_loc_aux_ALL_DISTINCT >>
+  qexists_tac`LENGTH bc0 + LENGTH s'.out` >>
+  simp[EL_APPEND1,EL_APPEND2,TAKE_APPEND2,TAKE_APPEND1] >>
+  simp[SUM_APPEND,FILTER_APPEND,SUM_REVERSE,FILTER_REVERSE,MAP_REVERSE] >>
+  simp[ALL_DISTINCT_APPEND,ALL_DISTINCT_REVERSE,FILTER_is_Label_MAP_update_ptr] >>
+  fs[ALL_DISTINCT_APPEND,FILTER_APPEND,MEM_FILTER,is_Label_rwt,PULL_EXISTS,EVERY_MEM] >>
+  qpat_assum`X = Y.out`(assume_tac o SYM) >> fs[between_def,FILTER_APPEND,ALL_DISTINCT_APPEND] >>
+  rw[] >> spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][])
 
 val _ = export_theory()
