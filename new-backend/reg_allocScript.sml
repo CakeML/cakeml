@@ -599,25 +599,39 @@ val simplify_def = Define`
       od
   od`
 
-(*TODO: Should use a heuristic here instead of first spillable node*)
+(*Spill the vertex that has maximal degree
+  ⇒ The idea here is that it reduces the degree of adjacent vertices
+    as much as possible
+*)
+val max_non_coalesced_def = Define`
+  (max_non_coalesced (coalesced:num num_map) (degs:num num_map) [] acc (v,deg) = (v,acc)) ∧
+  (max_non_coalesced coalesced degs (x::xs) acc (v,deg) =
+    if lookup x coalesced = NONE then
+      case lookup x degs of 
+        NONE =>  max_non_coalesced coalesced degs xs acc (v,deg)
+      | SOME d => 
+        if d > deg then max_non_coalesced coalesced degs xs (v::acc) (x,d)
+                   else max_non_coalesced coalesced degs xs (x::acc) (v,deg)
+    else
+      max_non_coalesced coalesced degs xs acc (v,deg))`
+
 val spill_def = Define`
   spill =
   do
     spills <- get_spill_worklist;
     coalesced <- get_coalesced;
-    case first_non_coalesced coalesced spills of
-      NONE =>
-      do
-        set_spill_worklist [];
-        return NONE
-      od
-    | SOME (x,xs) =>
-      do
+    degs <- get_degs;
+    (case spills of 
+      [] => return NONE
+    | (x::xs) => 
+     do
+        deg <- return (case lookup x degs of NONE => 0 | SOME d => d);
+        (x,xs) <- return(max_non_coalesced coalesced degs xs [] (x,deg));
         set_spill_worklist xs;
         dec_deg x;
         unspill;
         return (SOME x)
-      od
+      od)
   od`
 
 (*This differs slightly from the standard algorithm:
@@ -2062,14 +2076,18 @@ val spill_graph = prove(``
     s'.clock = s.clock``,
   rw[]>>
   fsm[spill_def,get_coalesced_def,get_spill_worklist_def]>>
-  Cases_on`s.spill_worklist`>>fsm[first_non_coalesced_def,set_spill_worklist_def]>>
+  Cases_on`s.spill_worklist`>>fsm[set_spill_worklist_def]>>
   rw[]>>EVERY_CASE_TAC>>
   fsm[dec_deg_def,get_graph_def]>>rw[]>>
   EVERY_CASE_TAC>>
   fsm[unspill_def,get_spill_worklist_def,get_degs_def,get_colors_def,get_move_rel_def,LET_THM]>>
-  pop_assum mp_tac>>
+  ntac 2 (pop_assum mp_tac)>>
+  qpat_abbrev_tac`A = max_non_coalesced B C D E G`>>
+  Cases_on`A`>>fs[]>>
+  TRY(FULL_CASE_TAC)>>fs[]>>
   qpat_abbrev_tac`sopt = s with spill_worklist :=A`>>
   rest_tac)
+
 
 val rest_tac2 = 
     first_x_assum(qspec_then`sopt`mp_tac)>>
