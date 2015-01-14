@@ -2948,4 +2948,21 @@ val bvl_bc_table_thm = store_thm("bvl_bc_table_thm",
   qpat_assum`X = Y.out`(assume_tac o SYM) >> fs[between_def,FILTER_APPEND,ALL_DISTINCT_APPEND] >>
   rw[] >> spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][])
 
+open clos_to_bvlTheory
+
+val bvl_bc_code_locs = prove(
+  ``∀f cenv t sz s e.
+      EVERY (λl. lookup l f = lookup l f1) (code_locs e) ⇒
+      bvl_bc f cenv t sz s e = bvl_bc f1 cenv t sz s e``,
+  ho_match_mp_tac bvl_bc_ind >>
+  simp[bvl_bc_def,UNCURRY,code_locs_def] >>
+  rw[] >> fs[]
+  >- metis_tac[PAIR,FST]
+  >- metis_tac[PAIR,FST]
+  >- (
+    Cases_on`t`>>Cases_on`dest`>>fs[]>>
+    rw[tlookup_def] )
+  >- ( Cases_on`op`>>fs[tlookup_def] ))
+|> Q.GEN`f1` |> curry save_thm "bvl_bc_code_locs"
+
 val _ = export_theory()

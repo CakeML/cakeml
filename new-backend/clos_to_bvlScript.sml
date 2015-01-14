@@ -1711,7 +1711,7 @@ val cComp_correct = store_thm("cComp_correct",
     \\ Q.EXISTS_TAC `f2'` \\ fs []
     \\ IMP_RES_TAC SUBMAP_TRANS \\ fs [dec_clock_def]));
 
-val cComp_ind = theorem"cComp_ind"
+val cComp_ind = theorem"cComp_ind";
 
 open clos_numberTheory boolSimps
 
@@ -1782,6 +1782,224 @@ val cComp_code_locs = store_thm("cComp_code_locs",
     imp_res_tac build_aux_thm >>
     simp[Abbr`aux1`,ADD1]) >>
   simp[cComp_def,code_locs_def,UNCURRY] >> rw[] >>
-  rpt tac >> rw[] >> fs[] >> rw[])
+  rpt tac >> rw[] >> fs[] >> rw[]);
+
+open clos_annotateTheory
+
+val code_locs_def = tDefine "code_locs" `
+  (code_locs [] = []) /\
+  (code_locs (x::y::xs) =
+     let c1 = code_locs [x] in
+     let c2 = code_locs (y::xs) in
+       c1 ++ c2) /\
+  (code_locs [Var v] = []) /\
+  (code_locs [If x1 x2 x3] =
+     let c1 = code_locs [x1] in
+     let c2 = code_locs [x2] in
+     let c3 = code_locs [x3] in
+       c1 ++ c2 ++ c3) /\
+  (code_locs [Let xs x2] =
+     let c1 = code_locs xs in
+     let c2 = code_locs [x2] in
+       c1 ++ c2) /\
+  (code_locs [Raise x1] =
+     code_locs [x1]) /\
+  (code_locs [Handle x1 x2] =
+     let c1 = code_locs [x1] in
+     let c2 = code_locs [x2] in
+       c1 ++ c2) /\
+  (code_locs [Tick x1] =
+     code_locs [x1]) /\
+  (code_locs [Op op xs] =
+     case op of
+       Label loc => code_locs xs ++ [loc]
+     | _ => code_locs xs) /\
+  (code_locs [Call dest xs] =
+     case dest of NONE => code_locs xs
+                | SOME loc => loc::code_locs xs)`
+ (WF_REL_TAC `measure (bvl_exp1_size)`
+  \\ REPEAT STRIP_TAC \\ DECIDE_TAC);
+
+val code_locs_cons = store_thm("code_locs_cons",
+  ``∀x xs. code_locs (x::xs) = code_locs [x] ++ code_locs xs``,
+  gen_tac >> Cases >> simp[code_locs_def])
+
+val code_locs_append = store_thm("code_locs_append",
+  ``∀l1 l2. clos_to_bvl$code_locs (l1 ++ l2) = code_locs l1 ++ code_locs l2``,
+  Induct >> simp[code_locs_def] >>
+  simp[Once code_locs_cons] >>
+  simp[Once code_locs_cons,SimpRHS])
+
+val code_locs_MAP_Var = store_thm("code_locs_MAP_Var",
+  ``code_locs (MAP Var xs) = []``,
+  Induct_on`xs`>>simp[code_locs_def] >>
+  simp[Once code_locs_cons] >>
+  simp[code_locs_def])
+
+val code_locs_MAP_K_Op_Const = store_thm("code_locs_MAP_K_Op_Const",
+  ``∀ls. code_locs (MAP (K (Op (Const n) [])) ls) = []``,
+  Induct >> simp[code_locs_def] >>
+  simp[Once code_locs_cons] >>
+  simp[code_locs_def])
+
+val cComp_sing_lemma = prove(
+  ``[HD (FST (cComp [x] y))] = (FST (cComp [x] y))``,
+  Cases_on`cComp [x] y` >>
+  imp_res_tac cComp_SING >> rw[])
+
+val contains_Op_Label_def = tDefine "contains_Op_Label" `
+  (contains_Op_Label [] ⇔ F) /\
+  (contains_Op_Label (x::y::xs) ⇔
+     contains_Op_Label [x] ∨
+     contains_Op_Label (y::xs)) /\
+  (contains_Op_Label [Var v] ⇔ F) /\
+  (contains_Op_Label [If x1 x2 x3] ⇔
+     contains_Op_Label [x1] ∨
+     contains_Op_Label [x2] ∨
+     contains_Op_Label [x3]) /\
+  (contains_Op_Label [Let xs x2] ⇔
+     contains_Op_Label [x2] ∨
+     contains_Op_Label xs) /\
+  (contains_Op_Label [Raise x1] ⇔
+     contains_Op_Label [x1]) /\
+  (contains_Op_Label [Tick x1] ⇔
+     contains_Op_Label [x1]) /\
+  (contains_Op_Label [Op op xs] ⇔
+     (∃n. op = Label n) ∨
+     contains_Op_Label xs) /\
+  (contains_Op_Label [App loc_opt x1 x2] ⇔
+     contains_Op_Label [x1] ∨
+     contains_Op_Label [x2]) /\
+  (contains_Op_Label [Fn loc vs x1] ⇔
+     contains_Op_Label [x1]) /\
+  (contains_Op_Label [Letrec loc vs fns x1] ⇔
+     contains_Op_Label fns ∨
+     contains_Op_Label [x1]) /\
+  (contains_Op_Label [Handle x1 x2] ⇔
+     contains_Op_Label [x1] ∨
+     contains_Op_Label [x2]) /\
+  (contains_Op_Label [Call dest xs] ⇔
+     contains_Op_Label xs)`
+ (WF_REL_TAC `measure (clos_exp1_size)`
+  \\ REPEAT STRIP_TAC \\ DECIDE_TAC);
+
+val contains_Op_Label_EXISTS = prove(
+  ``∀ls. contains_Op_Label ls ⇔ EXISTS (λx. contains_Op_Label [x]) ls``,
+  Induct >> simp[contains_Op_Label_def] >>
+  Cases_on`ls`>>fs[contains_Op_Label_def])
+
+val contains_Call_def = tDefine "contains_Call" `
+  (contains_Call [] ⇔ F) /\
+  (contains_Call (x::y::xs) ⇔
+     contains_Call [x] ∨
+     contains_Call (y::xs)) /\
+  (contains_Call [Var v] ⇔ F) /\
+  (contains_Call [If x1 x2 x3] ⇔
+     contains_Call [x1] ∨
+     contains_Call [x2] ∨
+     contains_Call [x3]) /\
+  (contains_Call [Let xs x2] ⇔
+     contains_Call [x2] ∨
+     contains_Call xs) /\
+  (contains_Call [Raise x1] ⇔
+     contains_Call [x1]) /\
+  (contains_Call [Tick x1] ⇔
+     contains_Call [x1]) /\
+  (contains_Call [Op op xs] ⇔
+     contains_Call xs) /\
+  (contains_Call [App loc_opt x1 x2] ⇔
+     contains_Call [x1] ∨
+     contains_Call [x2]) /\
+  (contains_Call [Fn loc vs x1] ⇔
+     contains_Call [x1]) /\
+  (contains_Call [Letrec loc vs fns x1] ⇔
+     contains_Call fns ∨
+     contains_Call [x1]) /\
+  (contains_Call [Handle x1 x2] ⇔
+     contains_Call [x1] ∨
+     contains_Call [x2]) /\
+  (contains_Call [Call dest xs] ⇔ T)`
+ (WF_REL_TAC `measure (clos_exp1_size)`
+  \\ REPEAT STRIP_TAC \\ DECIDE_TAC);
+
+val contains_Call_EXISTS = prove(
+  ``∀ls. contains_Call ls ⇔ EXISTS (λx. contains_Call [x]) ls``,
+  Induct >> simp[contains_Call_def] >>
+  Cases_on`ls`>>fs[contains_Call_def])
+
+open pat_to_closTheory
+
+val pComp_contains_Op_Label = store_thm("pComp_contains_Op_Label",
+  ``∀e. ¬contains_Op_Label[pComp e]``,
+  ho_match_mp_tac pComp_ind >>
+  simp[pComp_def,contains_Op_Label_def] >>
+  rw[] >> srw_tac[ETA_ss][] >>
+  rw[Once contains_Op_Label_EXISTS,EVERY_MAP] >>
+  rw[contains_Op_Label_def] >> rw[EVERY_MEM] >>
+  rw[Once contains_Op_Label_EXISTS,EVERY_MAP] >>
+  rw[contains_Op_Label_def] >> rw[EVERY_MEM] >>
+  fs[rich_listTheory.REPLICATE_GENLIST,MEM_GENLIST] >>
+  rw[contains_Op_Label_def])
+
+val pComp_contains_Call = store_thm("pComp_contains_Call",
+  ``∀e. ¬contains_Call[pComp e]``,
+  ho_match_mp_tac pComp_ind >>
+  simp[pComp_def,contains_Call_def] >>
+  rw[] >> srw_tac[ETA_ss][] >>
+  rw[Once contains_Call_EXISTS,EVERY_MAP] >>
+  rw[contains_Call_def] >> rw[EVERY_MEM] >>
+  rw[Once contains_Call_EXISTS,EVERY_MAP] >>
+  rw[contains_Call_def] >> rw[EVERY_MEM] >>
+  fs[rich_listTheory.REPLICATE_GENLIST,MEM_GENLIST] >>
+  rw[contains_Call_def])
+
+val code_locs_recc_Lets = store_thm("code_locs_recc_Lets",
+  ``∀n loc r. set (code_locs [recc_Lets loc n r]) = IMAGE ($+ loc) (count n) ∪ set (code_locs [r])``,
+  Induct >> simp[Once recc_Lets_def,code_locs_def,recc_Let_def,COUNT_SUC] >>
+  simp[EXTENSION] >> METIS_TAC[])
+
+val code_locs_build_recc_lets = store_thm("code_locs_build_recc_lets",
+  ``∀ls vs loc n r.
+      set (code_locs [build_recc_lets ls vs loc (SUC n) r]) = IMAGE ($+ loc) (count (SUC n)) ∪ set (code_locs [r])``,
+  Induct >> simp[build_recc_lets_def,code_locs_def,code_locs_MAP_Var,recc_Let0_def,code_locs_recc_Lets,COUNT_SUC] >-
+    (rw[EXTENSION] >> METIS_TAC[]) >>
+  rw[Once code_locs_cons,code_locs_def,code_locs_append,code_locs_MAP_Var,code_locs_MAP_K_Op_Const] >>
+  rw[EXTENSION] >> METIS_TAC[])
+
+val code_locs_cComp = store_thm("code_locs_cComp",
+  ``∀xs aux.
+      ¬contains_Op_Label xs ∧ ¬contains_App_SOME xs ∧ ¬contains_Call xs ⇒
+      set (code_locs (FST(cComp xs aux))) ⊆ set (code_locs xs)``,
+  ho_match_mp_tac cComp_ind >> rpt conj_tac >>
+  TRY (
+    simp[contains_Op_Label_def,clos_numberTheory.contains_App_SOME_def,contains_Call_def] >>
+    simp[cComp_def,clos_numberTheory.code_locs_def] >> rw[] >> fs[] >>
+    Cases_on`xs`>>fs[clos_numberTheory.code_locs_def] >>
+    Cases_on`t`>>fs[] >- (
+      tac >>
+      simp[UNCURRY,code_locs_def,cComp_sing_lemma] >>
+      simp[Once code_locs_cons,code_locs_def,code_locs_MAP_Var] >>
+      fs[SUBSET_DEF] ) >>
+    fs[cComp_def,LET_THM] >>
+    Cases_on`cComp[h]aux`>>fs[]>>
+    Cases_on`cComp(h'::t')r`>>fs[]>>
+    Q.PAT_ABBREV_TAC`p = build_aux X Y Z` >>
+    Cases_on`p`>>fs[]>>
+    simp[UNCURRY] >>
+    simp[code_locs_build_recc_lets,cComp_sing_lemma] >>
+    fs[contains_App_SOME_def,contains_Op_Label_def,contains_Call_def] >>
+    fs[SUBSET_DEF,cComp_sing_lemma] >>
+    simp[MEM_GENLIST,PULL_EXISTS] >>
+    NO_TAC) >>
+  simp[cComp_def,clos_numberTheory.code_locs_def,code_locs_def,UNCURRY,
+                 clos_annotateTheory.code_locs_append,code_locs_append,
+                 cComp_sing_lemma,contains_Op_Label_def,
+                 clos_numberTheory.contains_App_SOME_def,
+                 contains_Call_def] >>
+  rw[cComp_sing_lemma] >>
+  rpt tac >> rw[] >> fs[cComp_sing_lemma] >>
+  fs[SUBSET_DEF]
+  >- ( Cases_on`op`>>simp[cCompOp_def]>>fs[] )
+  >- ( simp[Once code_locs_cons,code_locs_def,code_locs_MAP_Var] ))
 
 val _ = export_theory();
