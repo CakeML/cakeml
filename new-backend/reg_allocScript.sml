@@ -991,17 +991,50 @@ val aux_pref_def = Define`
       NONE => HD ls
     | SOME x => x`
 
+val moves_to_sp_def = Define`
+  (moves_to_sp [] acc = acc) ∧ 
+  (moves_to_sp ((x,y)::xs) acc = 
+    moves_to_sp xs (undir_g_insert x y acc))`
+
+val first_match_col_def = Define`
+  (first_match_col ls col [] = NONE) ∧ 
+  (first_match_col ls col (x::xs) = 
+    case lookup x col of 
+      NONE => first_match_col ls col xs
+    | SOME c => if MEM c ls then SOME c else first_match_col ls col xs)`
+
+val move_pref_def = Define`
+  move_pref prefs (v:num) (ls:num list) (col:num num_map) = 
+  let pref_col = 
+      case lookup v prefs of 
+        NONE => NONE
+      | SOME t =>
+        let ts = MAP FST (toAList t) in
+          first_match_col ls col ts in
+    case pref_col of 
+      NONE => HD ls
+    | SOME x => x`
+
 (*Extract a coloring function from the generated sptree*)
 val total_color_def = Define`
   total_color col =
     (λx. case lookup x col of NONE => x | SOME x => x)`
 
+(*flag controls the first phase of the allocator:
+  true: aux_pref coalesces within the allocator (IRC) 
+  false: move_pref coalesces during coloring (naive algorithm)
+
+  The second phase is unaffected (for now?)
+*)
 val reg_alloc_def =  Define`
-  reg_alloc G k moves =
+  reg_alloc flag G k moves =
   (*First phase*)
+  let moves' = if flag then moves else [] in
   let s = init_ra_state G k moves in
   let ((),s) = rpt_do_step s in
-  let (col,ls) = alloc_coloring s.graph k (aux_pref s.coalesced) s.stack in
+  let pref = if flag then (aux_pref s.coalesced)
+             else move_pref (moves_to_sp moves' LN) in
+  let (col,ls) = alloc_coloring s.graph k pref s.stack in
   (*Second phase is much easier because we do not have a fixed number of 
     colors*)
   (*I think using s.graph here is fine because any coalesced nodes are 
@@ -1050,6 +1083,21 @@ val aux_pref_satisfactory = prove(``
   fs[satisfactory_pref_def,aux_pref_def,LET_THM]>>rw[]>>
   EVERY_CASE_TAC>>
   Cases_on`ls`>>fs[])
+
+val first_match_col_mem = prove(``
+  ∀ls.
+  first_match_col cand col ls = SOME x 
+  ⇒ MEM x cand``,
+  Induct>>rw[first_match_col_def]>>
+  EVERY_CASE_TAC>>rfs[])
+
+val move_pref_satisfactory = prove(``
+  ∀moves.
+  satisfactory_pref (move_pref moves)``,
+  fs[satisfactory_pref_def,move_pref_def,LET_THM]>>rw[]>>
+  EVERY_CASE_TAC>>Cases_on`ls`>>fs[]>>
+  `MEM x' (h'::t)` by metis_tac[first_match_col_mem]>>
+  fs[])
 
 val id_color_lemma = prove(``
   ∀ls.
@@ -2194,13 +2242,14 @@ val rpt_do_step_graph_lemma = prove(``
   metis_tac[is_subgraph_edges_trans])
 
 val reg_alloc_satisfactory = store_thm ("reg_alloc_satisfactory",``
-  ∀G k moves.
+  ∀G k moves flag.
   undir_graph G ⇒  
-  let col = reg_alloc G k moves in
+  let col = reg_alloc flag G k moves in
   (domain G ⊆ domain col ∧ 
   partial_coloring_satisfactory col G)``,
   rw[reg_alloc_def]>>
-  `satisfactory_pref (aux_pref s'.coalesced)` by fs[aux_pref_satisfactory]>>
+  `satisfactory_pref pref` by
+    fs[Abbr`pref`,aux_pref_satisfactory,move_pref_satisfactory]>>
   `undir_graph s'.graph ∧ is_subgraph_edges G s'.graph` by 
      (`s.graph = G` by
        (unabbrev_all_tac>>fs[init_ra_state_def,LET_THM,UNCURRY])>>
@@ -2210,7 +2259,7 @@ val reg_alloc_satisfactory = store_thm ("reg_alloc_satisfactory",``
   pop_assum kall_tac>>
   pop_assum(qspecl_then [`s'.stack`,`k`] assume_tac)>>rfs[LET_THM]>>
   `∀x. MEM x ls ⇒ x ∈ domain s'.graph` by 
-    (Q.ISPECL_THEN [`aux_pref s'.coalesced`,`s'.stack`,`k`,`s'.graph`] assume_tac
+    (Q.ISPECL_THEN [`pref`,`s'.stack`,`k`,`s'.graph`] assume_tac
       (GEN_ALL alloc_coloring_success_2)>>
     rfs[LET_THM])>>
   `partial_coloring_satisfactory col G` by
@@ -2222,8 +2271,8 @@ val reg_alloc_satisfactory = store_thm ("reg_alloc_satisfactory",``
      fs[INTER_DEF,EXTENSION]>>
      metis_tac[])>>
   `is_subgraph_edges G G'` by metis_tac[is_subgraph_edges_trans]
-  >-
-    (fs[is_subgraph_edges_def]>>
+  >>
+    TRY(fs[is_subgraph_edges_def]>>
     `domain col ⊆ domain col''` by
       metis_tac[spill_coloring_domain_subset,SUBSET_DEF]>>
     Q.ISPECL_THEN [`G'`,`k`,`LN:num num_map`,`ls`,`col'`] assume_tac spill_coloring_domain_1>>
@@ -2232,16 +2281,16 @@ val reg_alloc_satisfactory = store_thm ("reg_alloc_satisfactory",``
     res_tac>>
     pop_assum mp_tac>>
     rpt (IF_CASES_TAC>-metis_tac[domain_lookup])>>
-    fs[])
+    fs[]>>NO_TAC)
   >>
     match_mp_tac partial_coloring_satisfactory_subgraph_edges>>
     Q.EXISTS_TAC`G'`>>fs[]>>
     metis_tac[spill_coloring_satisfactory])
 
 val reg_alloc_total_satisfactory = store_thm ("reg_alloc_total_satisfactory",``
-  ∀G k moves.
+  ∀flag G k moves.
   undir_graph G ⇒ 
-  let col = reg_alloc G k moves in 
+  let col = reg_alloc flag G k moves in 
   coloring_satisfactory (total_color col) G``,
   rw[]>>imp_res_tac reg_alloc_satisfactory>>
   pop_assum(qspecl_then[`moves`,`k`]assume_tac)>>rfs[LET_THM]>>
@@ -2258,12 +2307,12 @@ val reg_alloc_total_satisfactory = store_thm ("reg_alloc_total_satisfactory",``
   metis_tac[])
 
 val reg_alloc_conventional = store_thm("reg_alloc_conventional" ,``
-  ∀G k moves.
+  ∀flag G k moves.
   undir_graph G ⇒
-  let col = reg_alloc G k moves in
+  let col = reg_alloc flag G k moves in
   coloring_conventional G k (total_color col)``,
   rw[]>>imp_res_tac reg_alloc_satisfactory>>
-  pop_assum(qspecl_then[`moves`,`k`] assume_tac)>>rfs[LET_THM]>>
+  pop_assum(qspecl_then[`moves`,`k`,`flag`] assume_tac)>>rfs[LET_THM]>>
   rw[total_color_def,reg_alloc_def,coloring_conventional_def]>>
   `x ∈ domain col` by 
     fs[SUBSET_DEF]>>
@@ -2279,15 +2328,17 @@ val reg_alloc_conventional = store_thm("reg_alloc_conventional" ,``
       rfs[LET_THM])>>
   imp_res_tac alloc_coloring_success>>
   pop_assum kall_tac>>
-  pop_assum(qspec_then `aux_pref s'.coalesced` mp_tac)>>discharge_hyps>>
-  fs[aux_pref_satisfactory]>>strip_tac>>
+  pop_assum(qspec_then `pref` mp_tac)>>discharge_hyps>-
+    (fs[Abbr`pref`]>>IF_CASES_TAC>>
+    fs[aux_pref_satisfactory,move_pref_satisfactory])>>
+  fs[]>>strip_tac>>
   pop_assum(qspecl_then[`s'.stack`,`k`] assume_tac)>>rfs[LET_THM]>>
   `partial_coloring_satisfactory col G` by
     metis_tac[partial_coloring_satisfactory_subgraph_edges]>>
   `is_subgraph_edges s'.graph G' ∧ undir_graph G' ∧ 
    partial_coloring_satisfactory col G'` by 
      (`∀x. MEM x ls ⇒ x ∈ domain s'.graph` by 
-       (Q.ISPECL_THEN [`aux_pref s'.coalesced`,`s'.stack`,`k`,`s'.graph`] assume_tac
+       (Q.ISPECL_THEN [`pref`,`s'.stack`,`k`,`s'.graph`] assume_tac
          (GEN_ALL alloc_coloring_success_2)>>
        rfs[LET_THM])>>
      match_mp_tac full_coalesce_lemma>>

@@ -39,7 +39,9 @@ val word_alloc_def = Define`
   word_alloc k prog =
   let clash_graph = get_spg prog LN in (*No live after set*)
   let moves = get_prefs prog [] in (*Get the moves in the graph*) 
-  let col = reg_alloc clash_graph k moves in (*Get the register allocation function*)
+  let col = reg_alloc T clash_graph k moves in 
+  (*Get the register allocation function,
+    TODO: choose the flag based on the size of graph/moves*)
     apply_color (total_color col) prog`
 
 (*word_trans is the combination that does SSA/CC then Register Allocation*)
@@ -84,7 +86,6 @@ val st = reval ``init_ra_state ^(cg) 5 ^(moves)``
 
 val st = reval``SND(rpt_do_step ^(st))``
 
-
 EVAL ``word_alloc 5 ^(prog)``
 
 val prog2 = reval ``ssa_cc_trans ^(prog) LN 101 103``
@@ -97,22 +98,51 @@ val st = reval ``init_ra_state ^(graph) 50 ^(moves)``
 fun println st = (print st;print"\n");
 
 fun repeat st n = 
-  let val clock = reval``^(st).clock``
+  let 
       val ls = reval``LENGTH (let st = ^(st) in FILTER (\x. lookup x (st.coalesced) = NONE) (st.simp_worklist++st.freeze_worklist++st.spill_worklist))``
       val st = reval``SND(do_step ^(st))`` in
-      (println (term_to_string clock);println (term_to_string ls);
-      if n=0 then st else repeat st (n-1)) end
+      if n=0 then st else repeat st (n-1) end
 
 fun repeat2 st =
   let val clock = reval``^(st).clock``
-      val movs = reval``let st = ^(st) in LENGTH st.avail_moves,LENGTH st.unavail_moves``
+      val movs = reval``let st = ^(st) in LENGTH (toAList st.avail_moves),LENGTH (toAList st.unavail_moves)``
       val st = reval``SND(do_step ^(st))`` in
       (println (term_to_string movs);
       if (term_to_string clock) ="0" then () else repeat2 st) end
 
-repeat st 100;
+val t1 = Time.now();
+val fin_st = repeat st 125;
+val t2 = Time.now();
+val diff = t2-t1
+val cols = EVAL
+``let s = ^(fin_st) in 
+  let (col,ls) = alloc_coloring s.graph s.colors (aux_pref s.coalesced) s.stack in
+  let (G,spills,coalesce_map) = full_coalesce s.graph ^(moves) ls in 
+  let k = s.colors in
+  let s = sec_ra_state G k spills coalesce_map in
+  let ((),s) = rpt_do_step2 s in
+  let col = spill_coloring G k coalesce_map s.stack col in
+  let col = spill_coloring G k LN ls col in
+    col``
+val t3 = Time.now();
+val diff = t3-t2
 
-val st = reval``rpt_do_step st``
+val t1 = Time.now();
+val fin_st2 = repeat st2 125;
+val t2 = Time.now();
+val diff = t2-t1
+val cols = EVAL
+``let s = ^(fin_st2) in 
+  let (col,ls) = alloc_coloring s.graph s.colors (move_pref (moves_to_sp ^(moves) LN)) s.stack in
+  let (G,spills,coalesce_map) = full_coalesce s.graph ^(moves) ls in 
+  let k = s.colors in
+  let s = sec_ra_state G k spills coalesce_map in
+  let ((),s) = rpt_do_step2 s in
+  let col = spill_coloring G k coalesce_map s.stack col in
+  let col = spill_coloring G k LN ls col in
+    col``
+val t3 = Time.now();
+val diff = t3-t2
 
 *)
 
@@ -179,7 +209,7 @@ val pre_post_conventions_word_alloc = prove(``
   `undir_graph clash_graph` by
     metis_tac[clash_sets_to_sp_g_undir]>>
   imp_res_tac reg_alloc_conventional>>
-  pop_assum(qspecl_then[`moves`,`k`] assume_tac)>>rfs[LET_THM]>>
+  pop_assum(qspecl_then[`moves`,`k`,`T`] assume_tac)>>rfs[LET_THM]>>
   `every_var (in_clash_sets (hd::clash_sets)) prog` by 
      (Q.ISPECL_THEN [`prog`,`LN:num_set`] assume_tac 
        every_var_in_get_clash_set>>
