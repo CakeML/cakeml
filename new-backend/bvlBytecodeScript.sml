@@ -676,7 +676,7 @@ val pushret_correct = store_thm("pushret_correct",
   simp[bc_eval1_thm,bc_eval1_def,Abbr`ls`,bc_eval_stack_def,bump_pc_def,Abbr`bs0`])
 
 val refv_map_def = Define`
-  refv_map f (ValueArray vs) = ValueArray (MAP f vs) ∧
+  refv_map f ((ValueArray vs):ref_value) = (ValueArray (MAP f vs):ref_value) ∧
   refv_map f (ByteArray bs) = ByteArray bs`
 val _ = export_rewrites["refv_map_def"]
 
