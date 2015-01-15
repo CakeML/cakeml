@@ -4,6 +4,13 @@ open intLib miscLib miscTheory bytecodeTheory bytecodeExtraTheory bytecodeEvalTh
 open bytecodeTerminationTheory
 val _ = new_theory"bvlBytecode"
 
+(* TODO: move *)
+val set_MAP_FST_toAList = store_thm("set_MAP_FST_toAList",
+  ``set (MAP FST (toAList t)) = domain t``,
+  rw[pred_setTheory.EXTENSION,domain_lookup,MEM_MAP,EXISTS_PROD] >>
+  metis_tac[MEM_toAList])
+(* -- *)
+
 val _ = Datatype`
   bvl_bc_state = <|
     next_label : num;
@@ -2658,6 +2665,18 @@ val bvl_bc_ptrfun_def = Define`
      let s = bvl_bc LN (GENLIST SUC arity) (TCTail arity 1) (arity+2) s [exp] in
        (f,s)`
 
+val bvl_bc_ptrfun_domain = prove(
+  ``∀ls.
+      let (f,s) = FOLDR (UNCURRY (bvl_bc_ptrfun il)) (f0,s0) ls in
+      domain f = domain f0 ∪ set(MAP FST ls)``,
+  Induct >> simp[] >>
+  qx_gen_tac`p`>>PairCases_on`p`>>
+  fs[LET_THM] >>
+  first_assum(split_applied_pair_tac o concl) >> fs[] >>
+  simp[bvl_bc_ptrfun_def] >>
+  simp[pred_setTheory.EXTENSION] >>
+  metis_tac[])
+
 val bvl_bc_ptrfun_correct = prove(
   ``∀ls.
       ALL_DISTINCT (MAP FST ls) ∧
@@ -2917,20 +2936,24 @@ val bvl_bc_table_good = store_thm("bvl_bc_table_good",
 
 val bvl_bc_table_thm = store_thm("bvl_bc_table_thm",
   ``bvl_bc_table il nl cmap = (f,s) ⇒
+    domain f = domain cmap ∧
     ∀bs bc0 bc1.
     ALL_DISTINCT (FILTER is_Label bc0) ∧
     EVERY ($> nl o dest_Label) (FILTER is_Label bc0) ∧
     bs.code = bc0 ++ REVERSE s.out ++ bc1 ∧
     bs.pc = next_addr bs.inst_length bc0 ⇒
     bc_next bs (bs with <|pc := next_addr bs.inst_length (bc0++REVERSE s.out)|>)``,
-  rw[bvl_bc_table_def,foldi_FOLDR_toAList] >>
+  simp[bvl_bc_table_def,foldi_FOLDR_toAList] >>
   qspecl_then[`LN`,`<|next_label := nl+1; out:=[Jump(Lab nl)]|>`,`toAList cmap`]mp_tac
     (INST_TYPE[alpha|->numSyntax.num] bvl_bc_ptrfun_correct) >>
   discharge_hyps >- (
     simp[ALL_DISTINCT_MAP_FST_toAList] ) >>
-  fs[LET_THM] >>
+  fs[LET_THM] >> ntac 2 strip_tac >>
   first_assum (split_applied_pair_tac o lhs o concl) >>
-  fs[] >> rw[] >>
+  fs[] >> rw[] >- (
+    qspecl_then[`LN`,`<|next_label := nl+1; out:=[Jump(Lab nl)]|>`,`toAList cmap`]mp_tac
+      (INST_TYPE[alpha|->numSyntax.num] (Q.GENL[`s0`,`f0`]bvl_bc_ptrfun_domain)) >>
+    simp[set_MAP_FST_toAList] ) >>
   `bc_fetch bs = SOME(Jump(Lab nl))` by (
     qpat_assum`X = Y.out`(assume_tac o SYM) >> fs[] >>
     match_mp_tac bc_fetch_next_addr >>
