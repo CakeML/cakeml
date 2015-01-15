@@ -1566,12 +1566,14 @@ val evaluate_pat_exp_pat = store_thm("evaluate_pat_exp_pat",
     rw[Once exp_pat_cases] >>
     rw[Once evaluate_pat_cases,PULL_EXISTS] >>
     fs[EXISTS_PROD,PULL_EXISTS] >>
-    rw[Once v_pat_cases] ) >>
+    rw[Once v_pat_cases] >>
+    metis_tac[EVERY2_REVERSE]) >>
   strip_tac >- (
     rpt gen_tac >> strip_tac >>
     rw[Once exp_pat_cases] >>
     rw[Once evaluate_pat_cases,PULL_EXISTS] >>
-    fs[EXISTS_PROD,PULL_EXISTS] ) >>
+    fs[EXISTS_PROD,PULL_EXISTS] >>
+    metis_tac[EVERY2_REVERSE]) >>
   strip_tac >- (
     rpt gen_tac >> strip_tac >>
     rw[Once exp_pat_cases] >>
@@ -1628,14 +1630,14 @@ val evaluate_pat_exp_pat = store_thm("evaluate_pat_exp_pat",
     rpt gen_tac >> strip_tac >>
     rw[Once exp_pat_cases] >>
     rw[Once evaluate_pat_cases,PULL_EXISTS] >>
-    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th) o MATCH_MP EVERY2_REVERSE)) >>
     disch_then(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >> fs[] >>
     srw_tac[DNF_ss][] >> disj1_tac >>
     first_assum(split_pair_match o concl) >> fs[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    imp_res_tac do_opapp_pat_v_pat >>
+    first_assum(strip_assume_tac o MATCH_MP do_opapp_pat_v_pat o MATCH_MP EVERY2_REVERSE) >>
     rfs[OPTREL_SOME] >>
-    qmatch_assum_rename_tac`do_opapp_pat v2 = SOME p` >>
+    qmatch_assum_rename_tac`do_opapp_pat _ = SOME p` >>
     PairCases_on`p`>>fs[GSYM AND_IMP_INTRO] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
     fs[csg_rel_def]) >>
@@ -1644,14 +1646,14 @@ val evaluate_pat_exp_pat = store_thm("evaluate_pat_exp_pat",
     rpt gen_tac >> strip_tac >>
     simp[Once exp_pat_cases,PULL_EXISTS] >>
     simp[Once evaluate_pat_cases] >> rw[] >>
-    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th) o MATCH_MP EVERY2_REVERSE)) >>
     disch_then(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >> fs[] >>
     srw_tac[DNF_ss][] >>
     disj2_tac >> disj1_tac >>
     first_assum(split_pair_match o concl) >> fs[] >>
     fs[csg_rel_def] >> rw[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    imp_res_tac do_opapp_pat_v_pat >>
+    first_assum(strip_assume_tac o MATCH_MP do_opapp_pat_v_pat o MATCH_MP EVERY2_REVERSE) >>
     rfs[OPTREL_SOME] >>
     simp[GSYM EXISTS_PROD] ) >>
   strip_tac >- (
@@ -1659,26 +1661,26 @@ val evaluate_pat_exp_pat = store_thm("evaluate_pat_exp_pat",
     rpt gen_tac >> strip_tac >>
     simp[Once exp_pat_cases,PULL_EXISTS] >>
     simp[Once evaluate_pat_cases] >> rw[] >>
-    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th) o MATCH_MP EVERY2_REVERSE)) >>
     disch_then(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >> fs[] >>
     srw_tac[DNF_ss][] >>
     disj2_tac >> disj1_tac >>
     first_assum(split_pair_match o concl) >> fs[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    imp_res_tac do_opapp_pat_v_pat >>
+    first_assum(strip_assume_tac o MATCH_MP do_opapp_pat_v_pat o MATCH_MP EVERY2_REVERSE) >>
     rfs[optionTheory.OPTREL_def]) >>
   strip_tac >- (
     simp[] >>
     rpt gen_tac >> strip_tac >>
     simp[Once exp_pat_cases,PULL_EXISTS] >>
     simp[Once evaluate_pat_cases] >> rw[] >>
-    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th) o MATCH_MP EVERY2_REVERSE)) >>
     disch_then(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >> fs[] >>
     srw_tac[DNF_ss][] >>
     disj1_tac >>
     first_assum(split_pair_match o concl) >> fs[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    first_assum(mp_tac o MATCH_MP do_app_pat_v_pat) >>
+    first_assum(mp_tac o MATCH_MP do_app_pat_v_pat o MATCH_MP EVERY2_REVERSE) >>
     disch_then(qspec_then`s2`(fn th => (first_assum (mp_tac o (MATCH_MP th))))) >>
     disch_then(qspec_then`op`mp_tac) >>
     simp[optionTheory.OPTREL_def] >>
@@ -1689,13 +1691,13 @@ val evaluate_pat_exp_pat = store_thm("evaluate_pat_exp_pat",
     rpt gen_tac >> strip_tac >>
     simp[Once exp_pat_cases,PULL_EXISTS] >>
     simp[Once evaluate_pat_cases] >> rw[] >>
-    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th) o MATCH_MP EVERY2_REVERSE)) >>
     disch_then(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >> fs[] >>
     srw_tac[DNF_ss][] >>
     disj2_tac >> disj1_tac >>
     first_assum(split_pair_match o concl) >> fs[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    first_assum(mp_tac o MATCH_MP do_app_pat_v_pat) >>
+    first_assum(mp_tac o MATCH_MP do_app_pat_v_pat o MATCH_MP EVERY2_REVERSE) >>
     simp[optionTheory.OPTREL_def] >>
     metis_tac[optionTheory.NOT_SOME_NONE] ) >>
   strip_tac >- (
@@ -1703,7 +1705,7 @@ val evaluate_pat_exp_pat = store_thm("evaluate_pat_exp_pat",
     rpt gen_tac >> strip_tac >>
     simp[Once exp_pat_cases,PULL_EXISTS] >>
     rpt gen_tac >> strip_tac >>
-    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th) o MATCH_MP EVERY2_REVERSE)) >>
     disch_then(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >> fs[] >>
     simp[Once evaluate_pat_cases] >>
     srw_tac[DNF_ss][] >>
