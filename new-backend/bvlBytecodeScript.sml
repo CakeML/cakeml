@@ -583,7 +583,7 @@ val good_code_env_def = Define`
         EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label l0) ∧
         ALL_DISTINCT (FILTER is_Label l0) ∧
         (ls = l0 ++ REVERSE cc ++ l1) ∧
-        (tlookup f ptr = next_addr il l0)`
+        (lookup ptr f = SOME (next_addr il l0))`
 
 val bvl_to_bc_value_def = tDefine"bvl_to_bc_value"`
   (bvl_to_bc_value f (CodePtr ptr) = CodePtr (tlookup f ptr)) ∧
@@ -2342,11 +2342,10 @@ val bvl_bc_correct = store_thm("bvl_bc_correct",
             simp[Abbr`sz1`,Abbr`cenv1`] >>
             simp[good_env_def,LIST_REL_EL_EQN,EL_CONS,PRE_SUB1,EL_APPEND1] >>
             simp[EL_REVERSE,EL_MAP] ) >>
-          (* conj_tac >- ( *)
-            simp[Abbr`t1`] >>
-            qexists_tac`[CodePtr (next_addr bs1.inst_length l0)]` >>
-            simp[] >> fs[] (* ) >>
-          Cases_on`res`>>fs[] *) ) >>
+          simp[tlookup_def] >>
+          simp[Abbr`t1`] >>
+          qexists_tac`[CodePtr (next_addr bs1.inst_length l0)]` >>
+          simp[] >> fs[]) >>
         disch_then(qx_choose_then`bs6`strip_assume_tac) >>
         rw[] >> fs[Abbr`t1`] >>
         Cases_on`res`>>fs[] >- (
@@ -2451,11 +2450,10 @@ val bvl_bc_correct = store_thm("bvl_bc_correct",
           simp[Abbr`cenv1`] >>
           simp[good_env_def,LIST_REL_EL_EQN,EL_CONS,PRE_SUB1,EL_APPEND1] >>
           simp[EL_REVERSE,EL_MAP] ) >>
-        (* conj_tac >- ( *)
-          simp[Abbr`t1`] >>
-          qexists_tac`[Number 0]` >>
-          simp[] >> fs[] (* ) >>
-        Cases_on`res`>>fs[]*) ) >>
+        simp[tlookup_def] >>
+        simp[Abbr`t1`] >>
+        qexists_tac`[Number 0]` >>
+        simp[] >> fs[]) >>
       disch_then(qx_choose_then`bs10`strip_assume_tac) >>
       rw[] >> fs[Abbr`t1`] >>
       `bc_next^* bs1 bs10` by (
@@ -2475,7 +2473,7 @@ val bvl_bc_correct = store_thm("bvl_bc_correct",
           simp[Abbr`bs6'`,bc_state_component_equality] >>
           imp_res_tac RTC_bc_next_preserves >>
           imp_res_tac bc_next_preserves_inst_length >>
-          simp[Abbr`bs9`,Abbr`bs8`] ) >>
+          simp[Abbr`bs9`,Abbr`bs8`] >> fs[]) >>
         rw[] ) >>
       TRY(qexists_tac`bs10`>>simp[])>>
       qmatch_abbrev_tac`bc_next^* bs1 bs6'` >>
@@ -2483,7 +2481,7 @@ val bvl_bc_correct = store_thm("bvl_bc_correct",
         simp[Abbr`bs6'`,bc_state_component_equality] >>
         imp_res_tac RTC_bc_next_preserves >>
         imp_res_tac bc_next_preserves_inst_length >>
-        simp[Abbr`bs9`,Abbr`bs8`] ) >>
+        simp[Abbr`bs9`,Abbr`bs8`] >> fs[]) >>
       rw[]) >>
     rw[] >>
     Cases_on`lookup x' s0.code`>>fs[] >>
@@ -2539,9 +2537,9 @@ val bvl_bc_correct = store_thm("bvl_bc_correct",
           simp[Abbr`sz1`,Abbr`cenv1`] >>
           simp[good_env_def,LIST_REL_EL_EQN,EL_CONS,PRE_SUB1,EL_APPEND1] >>
           simp[EL_REVERSE,EL_MAP] ) >>
-        simp[Abbr`t1`] >>
+        simp[tlookup_def,Abbr`t1`] >>
         qexists_tac`[Number 0]` >>
-        simp[] >> fs[] ) >>
+        simp[] >> rfs[tlookup_def] ) >>
       disch_then(qx_choose_then`bs6`strip_assume_tac) >>
       rw[] >> fs[Abbr`t1`] >>
       Cases_on`res`>>fs[] >- (
@@ -2629,7 +2627,7 @@ val bvl_bc_correct = store_thm("bvl_bc_correct",
       conj_tac >- (
         rator_assum`good_code_env`mp_tac >>
         simp_tac(std_ss++ARITH_ss)[] ) >>
-      simp[Abbr`t1`] >>
+      simp[tlookup_def,Abbr`t1`] >>
       qexists_tac`[Number 0]` >>
       simp[] >> fs[] ) >>
     disch_then(qx_choose_then`bs8`strip_assume_tac) >>
@@ -2696,7 +2694,7 @@ val bvl_bc_ptrfun_correct = prove(
               EVERY (combin$C $< cs.next_label o dest_Label)
                 (FILTER is_Label l0) ∧ ALL_DISTINCT (FILTER is_Label l0) ∧
               (REVERSE s.out = l0 ++ REVERSE cc ++ l1) ∧
-              tlookup f ptr = next_addr il l0``,
+              (lookup ptr f = SOME (next_addr il l0))``,
   Induct >> simp[] >>
   qx_gen_tac`p` >> PairCases_on`p` >>
   simp[] >> rw[] >> fs[] >>
@@ -2923,7 +2921,7 @@ val bvl_bc_table_good = store_thm("bvl_bc_table_good",
   first_assum (split_applied_pair_tac o lhs o concl) >>
   fs[] >> rw[] >>
   rw[good_code_env_def] >>
-  fs[GSYM MEM_toAList] >>
+  pop_assum(assume_tac o REWRITE_RULE[GSYM MEM_toAList]) >>
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
   specl_args_of_then``bvl_bc``bvl_bc_append_out strip_assume_tac >>
   imp_res_tac bvl_bc_update_ptr >>
