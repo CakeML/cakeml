@@ -421,8 +421,8 @@ val cEval_def = tDefine "cEval" `
               if (s.clock = 0) \/ (s1.clock = 0) then (TimeOut,s) else
                   cEval ([exp],args,dec_clock 1 (check_clock s s1)))
      | res => res) ∧
+  (cEvalApp loc_opt f [] s = (Result [f], s)) ∧
   (cEvalApp loc_opt f args s =
-     if LENGTH args = 0 then (Result [f], s) else
      case dest_closure loc_opt f args of
      | NONE => (Error,s)
      | SOME (Partial_app v) => (Result [v], s)

@@ -35,7 +35,7 @@ val mk_el_def = Define `
 val _ = export_rewrites ["mk_const_def", "mk_label_def", "mk_el_def"];
 
 val free_let_def = Define `
-  free_let n = (GENLIST (\n. mk_el (Var 0) (mk_const (n+2))) n) : bvl_exp list`;
+  free_let cl n = (GENLIST (\n. mk_el cl (mk_const (n+2))) n) : bvl_exp list`;
 
 val code_for_recc_case_def = Define `
   code_for_recc_case n num_args (c:bvl_exp) =
@@ -44,7 +44,7 @@ val code_for_recc_case_def = Define `
 
 val build_aux_def = Define `
   (build_aux i [] aux = (i:num,aux)) /\
-  (build_aux i ((x:bvl_exp)::xs) aux = build_aux (i+1) xs ((i,x) :: aux))`;
+  (build_aux i ((x:bvl_exp)::xs) aux = build_aux (i+1) xs ((i,ARB,x) :: aux))`;
 
 val recc_Let_def = Define `
   recc_Let n num_args i =
@@ -74,11 +74,11 @@ val num_stubs_def = Define `
   num_stubs = max_app * max_app + max_app`;
 
 val mk_cl_call_def = Define `
-  mk_cl_call args =
-    Call NONE (Var 0 ::
-               args ++
-               [If (Op Equal [mk_const (LENGTH args - 1); Op El [Var 0; mk_const 1]])
-                   (mk_el (Var 0) (mk_const 0))
+  mk_cl_call cl args =
+    Call NONE (args ++
+               [cl] ++
+               [If (Op Equal [mk_const (LENGTH args - 1); mk_el cl (mk_const 1)])
+                   (mk_el cl (mk_const 0))
                    (mk_label (LENGTH args - 1))])`;
 
 (* Generic application of a function to n+1 arguments *)
@@ -92,7 +92,7 @@ val generate_generic_app_def = Define `
                  Let [Call NONE (Var 2 ::
                                  GENLIST (\arg. Var (arg + 3 + n - num_args)) (num_args + 1) ++
                                  [mk_el (Var 2) (mk_const 0)])]
-                   (mk_cl_call (GENLIST (\n. Var (n + 4)) (n - num_args))))
+                   (mk_cl_call (Var 0) (GENLIST (\n. Var (n + 4)) (n - num_args))))
                max_app))
             (* Partial application *)
             (If (Op (TagEq closure_tag) [Var 1])
@@ -174,26 +174,26 @@ val cComp_def = tDefine "cComp" `
      let (c2,aux2) = cComp xs2 aux1 in
        ([case loc_opt of
          | NONE => 
-             Let c1 (mk_cl_call c2)
+             Let (c2++c1) (mk_cl_call (Var (LENGTH c2)) c2)
          | SOME loc => 
-             Call (SOME (loc + num_stubs)) (c1 ++ c2)],
+             Call (SOME (loc + num_stubs)) (c2 ++ c1)],
         aux2)) /\
   (cComp [Fn loc vs num_args x1] aux =
      let (c1,aux1) = cComp [x1] aux in
      let c2 = 
-       Let (GENLIST (\n. Var (n + 1)) num_args ++ free_let (LENGTH vs)) 
+       Let (GENLIST Var (num_args + 1) ++ free_let (Var (num_args + 1)) (LENGTH vs)) 
            (HD c1) 
      in
        ([Op (Cons closure_tag)
             (REVERSE (mk_label (loc + num_stubs) :: mk_const num_args :: MAP Var vs))],
-        (loc + num_stubs,c2) :: aux1)) /\
+        (loc + num_stubs,num_args+2,c2) :: aux1)) /\
   (cComp [Letrec loc vs fns x1] aux =
      case fns of
      | [] => cComp [x1] aux
      | [(num_args, exp)] =>
          let (c1,aux1) = cComp [exp] aux in
-         let c3 = Let (GENLIST (\n. Var (n + 1)) num_args ++ [Var 0] ++ free_let (LENGTH vs)) (HD c1) in
-         let (c2,aux2) = cComp [x1] ((loc + num_stubs,c3)::aux1) in
+         let c3 = Let (GENLIST Var (num_args + 1) ++ [Var (num_args + 1)] ++ free_let (Var (num_args + 2)) (LENGTH vs)) (HD c1) in
+         let (c2,aux2) = cComp [x1] ((loc + num_stubs,num_args,c3)::aux1) in
          let c4 = 
            Op (Cons closure_tag) 
               (REVERSE (mk_label (loc + num_stubs) :: mk_const num_args :: MAP Var vs)) 
@@ -467,14 +467,15 @@ val bEval_generic_app2 = Q.prove (
  `n + 1 = LENGTH arg_list` by decide_tac >>
  rw [bEval_genlist_vars3] >>
  `bEval ([Op Add [Op (Const (&(n + (LENGTH prev_args + 1)))) []; Var 1]],
-         Number (&(LENGTH prev_args − 1))::Number (&rem_args − &LENGTH arg_list)::Block 4 (CodePtr l::Number (&rem_args)::clo::prev_args)::
+         Number (&(LENGTH prev_args − 1))::Number (&rem_args − &LENGTH arg_list)::Block partial_app_tag (CodePtr l::Number (&rem_args)::clo::prev_args)::
             arg_list,
          st) =
    (Result [Number (&(LENGTH prev_args + rem_args))], st)`
-         by (srw_tac [ARITH_ss] [bEval_def, bEvalOp_def, int_arithTheory.INT_NUM_SUB] >>
+         by (srw_tac [ARITH_ss] [bytecodeTheory.partial_app_tag_def, bEval_def, bEvalOp_def, int_arithTheory.INT_NUM_SUB] >>
              intLib.ARITH_TAC) >>
  imp_res_tac bEval_Jump >>
  `LENGTH prev_args + rem_args < max_app` by decide_tac >>
+ fs [bytecodeTheory.partial_app_tag_def] >>
  srw_tac [ARITH_ss] [bEval_APPEND, REVERSE_APPEND, LENGTH_GENLIST, bEval_def, bEvalOp_def, mk_label_def]);
 
 val bEval_generic_app3_lem = Q.prove (
@@ -530,7 +531,7 @@ val bEval_generic_app3 = Q.prove (
       | (Result [v], st') =>
           (case
              bEval
-               ([mk_cl_call (GENLIST (λn. Var (n + 4)) (n − rem_args))],
+               ([mk_cl_call (Var 0) (GENLIST (λn. Var (n + 4)) (n − rem_args))],
                 v::Number (&rem_args)::Number (&rem_args − &LENGTH (TL args))::
                     Block tag (CodePtr l::Number (&rem_args)::vs)::(TL args),
                 st')
@@ -609,7 +610,7 @@ val bEval_partial_app_fn = Q.prove (
 
 val code_installed_def = Define `
   code_installed aux code =
-    EVERY (\(n,exp). lookup n code = SOME (2:num,exp)) aux`;
+    EVERY (\(n,num_args,exp). lookup n code = SOME (num_args,exp)) aux`;
 
 (*
 val closure_code_installed_def = Define `
@@ -635,9 +636,10 @@ val (val_rel_rules,val_rel_ind,val_rel_cases) = Hol_reln `
   (EVERY2 (val_rel f refs code) env ys /\
    (cComp [x] aux = ([c],aux1)) /\
    code_installed aux1 code /\
-   (lookup p code = SOME (num_args + 2:num,Let (Var 1::free_let (LENGTH env)) c)) ==>
+   (lookup (p + num_stubs) code = 
+     SOME (num_args + 2:num,Let (GENLIST Var (num_args+1)++free_let (Var (num_args+1))(LENGTH env)) c)) ==>
    val_rel f refs code (Closure p [] env num_args x) 
-                       (Block closure_tag (CodePtr p :: Number (&num_args) :: ys)))
+                       (Block closure_tag (CodePtr (p + num_stubs) :: Number (&num_args) :: ys)))
   /\
   (EVERY2 (val_rel f refs code) env ys /\
    (arg_env ≠ []) ∧
@@ -645,7 +647,8 @@ val (val_rel_rules,val_rel_ind,val_rel_cases) = Hol_reln `
    code_installed aux1 code /\
    (lookup (max_app + total_args * max_app + LENGTH ys - 1) code =
      SOME (num_args + 2, generate_partial_app_closure_fn total_args (LENGTH ys - 1))) ∧
-   (lookup p code = SOME (total_args + 2:num,Let (Var 1::free_let (LENGTH env)) c)) ==>
+   (lookup (p + num_stubs) code = 
+     SOME (num_args + 2:num,Let (GENLIST Var (num_args+1)++free_let (Var (num_args+1))(LENGTH env)) c)) ==>
    val_rel f refs code (Closure p arg_env env num_args x) 
                        (Block partial_app_tag 
                               (CodePtr (max_app + total_args * max_app + LENGTH ys - 1) :: 
@@ -715,13 +718,12 @@ val state_rel_def = Define `
       (FLOOKUP s.code name = SOME (arity,c)) ==>
       ?aux1 c2 aux2.
         (cComp [c] aux1 = ([c2],aux2)) /\
-        (lookup name t.code = SOME (arity,c2)) /\
+        (lookup (name + num_stubs) t.code = SOME (arity,c2)) /\
         code_installed aux2 t.code))`;
 
 val FDIFF_def = Define `
   FDIFF f1 f2 = DRESTRICT f1 (COMPL (FRANGE f2))`;
 
-  (*
 val val_rel_SUBMAP = prove(
   ``!x y. val_rel f1 refs1 code x y ==>
       f1 SUBMAP f2 /\ FDIFF refs1 f1 SUBMAP FDIFF refs2 f2 ==>
@@ -733,6 +735,10 @@ val val_rel_SUBMAP = prove(
   THEN1 (Q.LIST_EXISTS_TAC [`aux`,`aux1`] \\ fs []
          \\ REPEAT (POP_ASSUM MP_TAC)
          \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+  THEN1 (Q.LIST_EXISTS_TAC [`aux`,`aux1`] \\ fs []
+         \\ REPEAT (POP_ASSUM MP_TAC)
+         \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+         (* Proabably for letrec 
   THEN1 (DISJ1_TAC \\ Q.LIST_EXISTS_TAC [`aux`,`aux1`] \\ fs []
          \\ REPEAT (POP_ASSUM MP_TAC)
          \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
@@ -740,7 +746,7 @@ val val_rel_SUBMAP = prove(
   \\ rfs [] \\ Q.PAT_ASSUM `LIST_REL pppat env ys` MP_TAC
   \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [] \\ STRIP_TAC
   \\ fs [FDIFF_def,SUBMAP_DEF,DRESTRICT_DEF,FLOOKUP_DEF]
-  \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `r`) \\ fs [])
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `r`) \\ fs []*))
   |> SPEC_ALL |> MP_CANON;
 
 val env_rel_SUBMAP = prove(
@@ -760,6 +766,10 @@ val val_rel_NEW_REF = prove(
   THEN1 (Q.LIST_EXISTS_TAC [`aux`,`aux1`] \\ fs []
          \\ REPEAT (POP_ASSUM MP_TAC)
          \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+  THEN1 (Q.LIST_EXISTS_TAC [`aux`,`aux1`] \\ fs []
+         \\ REPEAT (POP_ASSUM MP_TAC)
+         \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+         (* For letrec
   THEN1 (DISJ1_TAC \\ Q.LIST_EXISTS_TAC [`aux`,`aux1`] \\ fs []
          \\ REPEAT (POP_ASSUM MP_TAC)
          \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
@@ -767,7 +777,7 @@ val val_rel_NEW_REF = prove(
   \\ rfs [] \\ Q.PAT_ASSUM `LIST_REL pppat env ys` MP_TAC
   \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [] \\ STRIP_TAC
   \\ fs [FDIFF_def,SUBMAP_DEF,DRESTRICT_DEF,FLOOKUP_DEF]
-  \\ fs [FAPPLY_FUPDATE_THM] \\ SRW_TAC [] [] \\ fs [])
+  \\ fs [FAPPLY_FUPDATE_THM] \\ SRW_TAC [] [] \\ fs []*))
   |> SPEC_ALL |> MP_CANON;
 
 val val_rel_UPDATE_REF = prove(
@@ -780,6 +790,10 @@ val val_rel_UPDATE_REF = prove(
   THEN1 (Q.LIST_EXISTS_TAC [`aux`,`aux1`] \\ fs []
          \\ REPEAT (POP_ASSUM MP_TAC)
          \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+  THEN1 (Q.LIST_EXISTS_TAC [`aux`,`aux1`] \\ fs []
+         \\ REPEAT (POP_ASSUM MP_TAC)
+         \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+         (* for letrec
   THEN1 (DISJ1_TAC \\ Q.LIST_EXISTS_TAC [`aux`,`aux1`] \\ fs []
          \\ REPEAT (POP_ASSUM MP_TAC)
          \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
@@ -788,7 +802,7 @@ val val_rel_UPDATE_REF = prove(
   \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [] \\ STRIP_TAC
   \\ fs [FDIFF_def,SUBMAP_DEF,DRESTRICT_DEF,FLOOKUP_DEF]
   \\ fs [FAPPLY_FUPDATE_THM] \\ SRW_TAC [] []
-  \\ fs [FRANGE_DEF] \\ METIS_TAC [])
+  \\ fs [FRANGE_DEF] \\ METIS_TAC []*))
   |> SPEC_ALL |> MP_CANON;
 
 val opt_val_rel_NEW_REF = prove(
@@ -807,13 +821,11 @@ val env_rel_NEW_REF = prove(
       env_rel f1 (refs1 |+ (r,t)) code x y``,
   Induct \\ Cases_on `y` \\ fs [env_rel_def] \\ REPEAT STRIP_TAC
   \\ IMP_RES_TAC val_rel_NEW_REF \\ fs []);
-  *)
 
 val FLOOKUP_FAPPLY = prove(
   ``FLOOKUP (f |+ (x,y)) n = if n = x then SOME y else FLOOKUP f n``,
   fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ SRW_TAC [] [] \\ fs []);
 
-  (*
 val val_rel_NEW_F = prove(
   ``!x y.
       val_rel f2 t2.refs t2.code x y ==>
@@ -827,6 +839,10 @@ val val_rel_NEW_F = prove(
   THEN1 (Q.LIST_EXISTS_TAC [`aux`,`aux1`] \\ fs []
          \\ REPEAT (POP_ASSUM MP_TAC)
          \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+  THEN1 (Q.LIST_EXISTS_TAC [`aux`,`aux1`] \\ fs []
+         \\ REPEAT (POP_ASSUM MP_TAC)
+         \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+         (* For letrec
   THEN1 (DISJ1_TAC \\ Q.LIST_EXISTS_TAC [`aux`,`aux1`] \\ fs []
          \\ REPEAT (POP_ASSUM MP_TAC)
          \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
@@ -836,7 +852,7 @@ val val_rel_NEW_F = prove(
   \\ REPEAT STRIP_TAC \\ fs [] \\ SRW_TAC [] []
   \\ fs [FLOOKUP_DEF]
   \\ fs [FRANGE_DEF,DOMSUB_FAPPLY_THM] \\ rfs []
-  \\ METIS_TAC [])
+  \\ METIS_TAC []*))
   |> SPEC_ALL |> MP_CANON;
 
 val opt_val_rel_NEW_F = prove(
@@ -846,7 +862,6 @@ val opt_val_rel_NEW_F = prove(
     opt_val_rel (f2 |+ (pp,qq)) t2.refs t2.code x y``,
   Cases_on `x` \\ Cases_on `y` \\ fs [opt_val_rel_def]
   \\ METIS_TAC [val_rel_NEW_F]) |> MP_CANON
-  *)
 
 val LESS_LENGTH_env_rel_IMP = prove(
   ``!env env2 n.
@@ -873,64 +888,33 @@ val lookup_vars_IMP = prove(
 val build_aux_lemma = prove(
   ``!k n aux. ?aux1. SND (build_aux n k aux) = aux1 ++ aux``,
   Induct \\ fs [build_aux_def] \\ REPEAT STRIP_TAC
-  \\ POP_ASSUM (STRIP_ASSUME_TAC o Q.SPECL [`n+1`,`(n,h)::aux`]) \\ fs []);
+  \\ POP_ASSUM (STRIP_ASSUME_TAC o Q.SPECL [`n+1`,`(n,ARB,h)::aux`]) \\ fs []);
 
-  (*
+val cComp_lem1 = Q.prove (
+`!f x. (\(a,b). f a b) x = f (FST x) (SND x)`,
+ rw [] >>
+ PairCases_on `x` >>
+ fs []);
+
+val cComp_lem2 = Q.prove (
+`!x y z. (x,y) = z ⇔ x = FST z ∧ y = SND z`,
+ rw [] >>
+ PairCases_on `z` >>
+ rw []);
+
 val cComp_lemma = prove(
   ``!xs aux.
       let (c,aux1) = cComp xs aux in
         (LENGTH c = LENGTH xs) /\ ?ys. aux1 = ys ++ aux``,
   recInduct (fetch "-" "cComp_ind") \\ REPEAT STRIP_TAC
   \\ fs [cComp_def] \\ SRW_TAC [] [] \\ fs [LET_DEF,ADD1]
-  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ rfs [] \\ fs []
   \\ fs [AC ADD_COMM ADD_ASSOC]
-  \\ Cases_on `cComp [x] aux` \\ fs []
-  \\ Cases_on `r` \\ fs [] \\ TRY DECIDE_TAC
-  \\ Q.PAT_ASSUM `xxx = (c,aux1)` MP_TAC
-  \\ Cases_on `t` \\ fs []
-  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
-  \\ fs [] \\ REPEAT STRIP_TAC \\ SRW_TAC [] []
-  THEN1
-   (`?tt. cComp [h] aux = tt` by fs [] \\ PairCases_on `tt` \\ fs []
-    \\ first_assum(split_applied_pair_tac o concl) \\ fs[] \\ rfs[])
-  \\ TRY
-   (`?tt. cComp [h] aux = tt` by fs [] \\ PairCases_on `tt` \\ fs []
-    \\ first_assum(split_applied_pair_tac o concl) \\ fs[] \\ rfs[]
-    \\ NO_TAC)
-  THEN1
-   (`?tt. cComp [h] aux = tt` by fs [] \\ PairCases_on `tt` \\ fs []
-    \\ `?t0. cComp (h'::t') tt1 = t0` by fs []
-    \\ PairCases_on `t0` \\ fs []
-    \\ `?t0. cComp (h::h'::t') aux = t0` by fs []
-    \\ PairCases_on `t0` \\ fs []
-    \\ Q.ABBREV_TAC `m = (MAP (code_for_recc_case
-           (LENGTH vs + SUC (SUC (LENGTH t')))) t00')`
-    \\ Cases_on `build_aux loc m t01'` \\ fs []
-    \\ `?t2. cComp [x1] r = t2` by fs []
-    \\ PairCases_on `t2` \\ fs []
-    \\ ASSUME_TAC (Q.SPECL [`m`,`loc`,`t01'`] build_aux_lemma)
-    \\ rfs [] \\ SRW_TAC [] []
-    \\ rfs [] \\ SRW_TAC [] []
-    \\ fs [cComp_def,LET_DEF] \\ SRW_TAC [] []
-    \\ rfs [] \\ SRW_TAC [] []
-    \\ fs [cComp_def,LET_DEF] \\ SRW_TAC [] [])
-  THEN1
-   (`?tt. cComp [h] aux = tt` by fs [] \\ PairCases_on `tt` \\ fs []
-    \\ `?t0. cComp (h''::t'') tt1 = t0` by fs []
-    \\ PairCases_on `t0` \\ fs []
-    \\ `?t0. cComp (h::h''::t'') aux = t0` by fs []
-    \\ PairCases_on `t0` \\ fs []
-    \\ Q.ABBREV_TAC `m = (MAP (code_for_recc_case
-           (LENGTH vs + SUC (SUC (LENGTH t'')))) t00')`
-    \\ Cases_on `build_aux loc m t01'` \\ fs []
-    \\ `?t2. cComp [x1] r = t2` by fs []
-    \\ PairCases_on `t2` \\ fs []
-    \\ ASSUME_TAC (Q.SPECL [`m`,`loc`,`t01'`] build_aux_lemma)
-    \\ rfs [] \\ SRW_TAC [] []
-    \\ rfs [] \\ SRW_TAC [] []
-    \\ fs [cComp_def,LET_DEF] \\ SRW_TAC [] []
-    \\ rfs [] \\ SRW_TAC [] []
-    \\ fs [cComp_def,LET_DEF] \\ SRW_TAC [] []));
+  \\ BasicProvers.EVERY_CASE_TAC \\ rfs [] \\ fs [cComp_lem1] >>
+  rw [] >>
+  fs [cComp_lem2] >>
+  rfs [cComp_def, LET_THM] >>
+  fs [cComp_lem1, cComp_lem2] >>
+  metis_tac [build_aux_lemma, APPEND_ASSOC]);
 
 val cComp_LENGTH = prove(
   ``(cComp xs aux = (c,aux1)) ==> (LENGTH c = LENGTH xs)``,
@@ -943,7 +927,6 @@ val cComp_SING = prove(
   REPEAT STRIP_TAC
   \\ ASSUME_TAC (Q.SPECL [`[x]`,`aux`] cComp_lemma) \\ rfs [LET_DEF]
   \\ Cases_on `c` \\ fs [] \\ Cases_on `t` \\ fs []);
-    *)
 
 val res_rel_Result =
   ``res_rel f refs code (Result x) (Result y)``
@@ -996,7 +979,6 @@ val list_rel_IMP_env_rel = prove(
   Induct \\ Cases_on `ys` \\ fs [env_rel_def]
   \\ Cases_on `ts` \\ fs [env_rel_def]);
 
-  (*
 val cComp_IMP_code_installed = prove(
   ``(cComp xs aux = (c,aux1)) /\
     code_installed aux1 code ==>
@@ -1004,7 +986,6 @@ val cComp_IMP_code_installed = prove(
   REPEAT STRIP_TAC
   \\ MP_TAC (SPEC_ALL cComp_lemma) \\ fs [LET_DEF]
   \\ REPEAT STRIP_TAC \\ fs [code_installed_def]);
-  *)
 
 val IMP_IMP = save_thm("IMP_IMP",
   METIS_PROVE [] ``b1 /\ (b2 ==> b3) ==> ((b1 ==> b2) ==> b3)``);
@@ -1126,6 +1107,7 @@ val EVERY_ZIP_GENLIST = prove(
   \\ `LENGTH xs < SUC (LENGTH xs)` by DECIDE_TAC \\ RES_TAC
   \\ fs [SNOC_APPEND,rich_listTheory.EL_LENGTH_APPEND]);
 
+  (*
 val build_aux_MEM = prove(
   ``!c n aux n7 aux7.
        (build_aux n c aux = (n7,aux7)) ==>
@@ -1137,6 +1119,7 @@ val build_aux_MEM = prove(
   THEN1 (MP_TAC (Q.SPECL [`c`,`n+1`,`(n,h)::aux`] build_aux_lemma) \\ fs []
          \\ REPEAT STRIP_TAC \\ fs [] \\ METIS_TAC [])
   \\ RES_TAC \\ fs [ADD1,AC ADD_COMM ADD_ASSOC] \\ METIS_TAC []);
+  *)
 
 val cComp_CONS = store_thm("cComp_CONS",
   ``!xs x aux.
@@ -1165,7 +1148,7 @@ val build_aux_APPEND = prove(
   ``!xs x n aux.
       build_aux n (xs ++ [x]) aux =
         let (n1,aux1) = build_aux n xs aux in
-          (n1+1,(n1,x)::aux1)``,
+          (n1+1,(n1,ARB,x)::aux1)``,
   Induct \\ fs [build_aux_def,LET_DEF]);
 
 val build_aux_MOVE = prove(
@@ -1291,9 +1274,9 @@ val closure_ptr_def = Define `
 val state_rel_globals = prove(
   ``state_rel f s t ⇒
     LIST_REL (opt_val_rel f t.refs t.code) s.globals t.globals``,
-  rw[state_rel_def])
+  rw[state_rel_def]);
 
-val _ = augment_srw_ss[rewrites[bytecodeTerminationTheory.bc_equal_def]]
+val _ = augment_srw_ss[rewrites[bytecodeTerminationTheory.bc_equal_def]];
 
 (*
 val bc_equal_clos_equal = prove(
@@ -1331,7 +1314,7 @@ val clos_to_chars_thm = store_thm("clos_to_chars_thm",
   ho_match_mp_tac clos_to_chars_ind >>
   rw[clos_to_chars_def] >> fs[] >>
   `i = ABS i` by intLib.COOPER_TAC >>
-  PROVE_TAC[])
+  PROVE_TAC[]);
 
   (*
 val bv_to_string_clos_to_string = prove(
@@ -1501,8 +1484,49 @@ val cEvalOp_correct = prove(
     rw[val_rel_SIMP] >>
     Cases_on`i < i'`>> rw[bool_to_val_def,val_rel_cases] ));
 
-(*
-HERE
+val bEval_rev_var = Q.prove (
+`!vs env s ys s'. 
+  bEval (MAP Var vs, env, s) = (Result ys, s')
+  ⇒
+  bEval (REVERSE (MAP Var vs), env, s) = (Result (REVERSE ys), s')`,
+ Induct_on `vs` >>
+ rw [bEval_def] >>
+ rw [bEval_APPEND] >>
+ fs [Once bEval_CONS, bEval_def] >>
+ BasicProvers.EVERY_CASE_TAC >>
+ fs [] >>
+ rw [] >>
+ res_tac >>
+ fs []);
+
+
+
+val bEval_app_helper = Q.prove (
+`(!x. r ≠ Result x) ∧ bEval (c8,env,s) = (r,s')
+  ⇒
+  bEval ([case loc of
+            NONE => Let (c8++[c7]) (mk_cl_call (Var (LENGTH c8)) c8)
+          | SOME loc => Call (SOME (loc + num_stubs)) (c8++[c7])],env,s) = (r, s')`,
+ rw [] >>
+ Cases_on `loc` >>
+ rw [bEval_def, bEval_APPEND] >>
+ Cases_on `r` >>
+ rw []);
+
+val bEval_app_helper2 = Q.prove (
+`(!x. r ≠ Result x) ∧ bEval (c8,env,s) = (Result x, s') ∧ bEval ([c7],env,s') = (r,s'')
+  ⇒
+  bEval ([case loc of
+            NONE => Let (c8++[c7]) (mk_cl_call (Var (LENGTH c8)) c8)
+          | SOME loc => Call (SOME (loc + num_stubs)) (c8++[c7])],env,s) = (r, s'')`,
+ rw [] >>
+ Cases_on `loc` >>
+ rw [bEval_def, bEval_APPEND] >>
+ Cases_on `r` >>
+ rw []);
+
+
+HERE;
 
 val cComp_correct = store_thm("cComp_correct",
   ``(!tmp xs env s1 aux1 t1 env' f1 res s2 ys aux2.
@@ -1534,7 +1558,7 @@ val cComp_correct = store_thm("cComp_correct",
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux1`]) \\ fs []
     \\ SRW_TAC [] []
     \\ IMP_RES_TAC cComp_IMP_code_installed
-    \\ Q.PAT_ASSUM `!xx yy zz. bbb ==> b` (MP_TAC o Q.SPECL [`t1`,`env'`,`f1`])
+    \\ Q.PAT_ASSUM `!xx yy zz. bbb ==> b` (MP_TAC o Q.SPECL [`t1`,`env''`,`f1`])
     \\ IMP_RES_TAC cComp_SING \\ fs [] \\ REPEAT STRIP_TAC
     \\ ONCE_REWRITE_TAC [bEval_CONS]
     \\ REVERSE (Cases_on `p0`) \\ fs [] \\ SRW_TAC [] []
@@ -1543,7 +1567,7 @@ val cComp_correct = store_thm("cComp_correct",
     \\ fs [res_rel_Result1] \\ SRW_TAC [] []
     \\ `q0 <> Error` by (Cases_on `q0` \\ fs []) \\ fs []
     \\ IMP_RES_TAC bvl_inlineTheory.bEval_code
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t2`,`env'`,`f2`]) \\ fs []
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t2`,`env''`,`f2`]) \\ fs []
     \\ IMP_RES_TAC env_rel_SUBMAP \\ fs [] \\ REPEAT STRIP_TAC
     \\ fs [] \\ IMP_RES_TAC bEval_SING \\ fs []
     \\ Cases_on `q0` \\ fs [] \\ SRW_TAC [] []
@@ -1555,14 +1579,16 @@ val cComp_correct = store_thm("cComp_correct",
     \\ MATCH_MP_TAC listTheory.LIST_REL_mono
     \\ METIS_TAC [val_rel_SUBMAP])
   THEN1 (* Var *)
-   (Cases_on `n < LENGTH env` \\ fs [cComp_def,cEval_def]
+   (rw [] >>
+    Cases_on `n < LENGTH env` \\ fs [cComp_def,cEval_def]
     \\ IMP_RES_TAC env_rel_IMP_LENGTH
-    \\ `n < LENGTH env'` by DECIDE_TAC
+    \\ `n < LENGTH env''` by DECIDE_TAC
     \\ SRW_TAC [] [bEval_def,res_rel_cases]
     \\ Q.EXISTS_TAC `f1` \\ fs [SUBMAP_REFL]
     \\ MATCH_MP_TAC env_rel_IMP_EL \\ fs [])
   THEN1 (* If *)
-   (fs [cComp_def,cEval_def]
+   (rw [] >>
+    fs [cComp_def,cEval_def]
     \\ `?c3 aux3. cComp [x1] aux1 = ([c3],aux3)` by
               METIS_TAC [PAIR,cComp_SING]
     \\ `?c4 aux4. cComp [x2] aux3 = ([c4],aux4)` by
@@ -1574,7 +1600,7 @@ val cComp_correct = store_thm("cComp_correct",
     \\ SRW_TAC [] [] \\ IMP_RES_TAC cComp_IMP_code_installed
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux1`,`t1`])
     \\ fs [] \\ REPEAT STRIP_TAC
-    \\ POP_ASSUM (MP_TAC o Q.SPECL [`env'`,`f1`]) \\ fs []
+    \\ POP_ASSUM (MP_TAC o Q.SPECL [`env''`,`f1`]) \\ fs []
     \\ REVERSE (Cases_on `p0`) \\ fs [] \\ SRW_TAC [] []
     \\ TRY (fs [res_rel_cases] \\ Q.EXISTS_TAC `f2` \\ fs [] \\ NO_TAC)
     \\ IMP_RES_TAC cEval_SING \\ SRW_TAC [] []
@@ -1584,7 +1610,7 @@ val cComp_correct = store_thm("cComp_correct",
       \\ fs [] \\ NTAC 2 (POP_ASSUM (K ALL_TAC))
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux3`]) \\ fs []
       \\ REPEAT STRIP_TAC
-      \\ POP_ASSUM (MP_TAC o Q.SPECL [`t2`,`env'`,`f2`]) \\ fs []
+      \\ POP_ASSUM (MP_TAC o Q.SPECL [`t2`,`env''`,`f2`]) \\ fs []
       \\ IMP_RES_TAC bvl_inlineTheory.bEval_code \\ fs []
       \\ IMP_RES_TAC env_rel_SUBMAP \\ fs []
       \\ REPEAT STRIP_TAC \\ fs []
@@ -1595,14 +1621,15 @@ val cComp_correct = store_thm("cComp_correct",
       \\ SRW_TAC [] []
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux4`]) \\ fs []
       \\ REPEAT STRIP_TAC
-      \\ POP_ASSUM (MP_TAC o Q.SPECL [`t2`,`env'`,`f2`]) \\ fs []
+      \\ POP_ASSUM (MP_TAC o Q.SPECL [`t2`,`env''`,`f2`]) \\ fs []
       \\ IMP_RES_TAC bvl_inlineTheory.bEval_code \\ fs []
       \\ IMP_RES_TAC env_rel_SUBMAP \\ fs []
       \\ REPEAT STRIP_TAC \\ fs []
       \\ Q.EXISTS_TAC `f2'` \\ fs []
       \\ IMP_RES_TAC SUBMAP_TRANS \\ fs []))
   THEN1 (* Let *)
-   (fs [cComp_def,cEval_def]
+   (rw [] >>
+    fs [cComp_def,cEval_def]
     \\ `?c3 aux3. cComp xs aux1 = (c3,aux3)` by METIS_TAC [PAIR]
     \\ `?c4 aux4. cComp [x2] aux3 = ([c4],aux4)` by
               METIS_TAC [PAIR,cComp_SING]
@@ -1611,13 +1638,13 @@ val cComp_correct = store_thm("cComp_correct",
     \\ SRW_TAC [] [] \\ IMP_RES_TAC cComp_IMP_code_installed
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux1`,`t1`])
     \\ fs [] \\ REPEAT STRIP_TAC
-    \\ POP_ASSUM (MP_TAC o Q.SPECL [`env'`,`f1`]) \\ fs []
+    \\ POP_ASSUM (MP_TAC o Q.SPECL [`env''`,`f1`]) \\ fs []
     \\ REVERSE (Cases_on `p0`) \\ fs [] \\ SRW_TAC [] []
     \\ TRY (fs [res_rel_cases] \\ Q.EXISTS_TAC `f2` \\ fs [] \\ NO_TAC)
     \\ fs [res_rel_Result1]
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux3`]) \\ fs []
     \\ REPEAT STRIP_TAC
-    \\ POP_ASSUM (MP_TAC o Q.SPECL [`t2`,`ys ++ env'`,`f2`]) \\ fs []
+    \\ POP_ASSUM (MP_TAC o Q.SPECL [`t2`,`ys ++ env''`,`f2`]) \\ fs []
     \\ IMP_RES_TAC bvl_inlineTheory.bEval_code \\ fs []
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
      (MATCH_MP_TAC env_rel_APPEND \\ fs []
@@ -1626,13 +1653,14 @@ val cComp_correct = store_thm("cComp_correct",
     \\ Q.EXISTS_TAC `f2'` \\ fs []
     \\ IMP_RES_TAC SUBMAP_TRANS \\ fs [])
   THEN1 (* Raise *)
-   (fs [cEval_def,cComp_def] \\ SRW_TAC [] [bEval_def]
+   (rw [] >>
+    fs [cEval_def,cComp_def] \\ SRW_TAC [] [bEval_def]
     \\ `?p. cEval ([x1],env,s) = p` by fs [] \\ PairCases_on `p` \\ fs []
     \\ `?cc. cComp [x1] aux1 = cc` by fs [] \\ PairCases_on `cc` \\ fs []
     \\ fs [LET_DEF,PULL_FORALL] \\ SRW_TAC [] []
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux1`]) \\ fs []
     \\ IMP_RES_TAC cComp_IMP_code_installed \\ REPEAT STRIP_TAC
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1`,`env'`,`f1`])
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1`,`env''`,`f1`])
     \\ IMP_RES_TAC cComp_SING \\ fs [] \\ SRW_TAC [] []
     \\ fs [bEval_def]
     \\ REVERSE (Cases_on `p0`) \\ fs [] \\ SRW_TAC [] []
@@ -1642,7 +1670,8 @@ val cComp_correct = store_thm("cComp_correct",
     \\ IMP_RES_TAC bEval_SING \\ fs [] \\ SRW_TAC [] []
     \\ Q.EXISTS_TAC `f2` \\ fs [res_rel_cases])
   THEN1 (* Handle *)
-   (fs [cComp_def,cEval_def]
+   (rw [] >>
+    fs [cComp_def,cEval_def]
     \\ `?c3 aux3. cComp [x1] aux1 = ([c3],aux3)` by METIS_TAC [PAIR,cComp_SING]
     \\ `?c4 aux4. cComp [x2] aux3 = ([c4],aux4)` by METIS_TAC [PAIR,cComp_SING]
     \\ fs [LET_DEF] \\ SRW_TAC [] [] \\ fs [bEval_def]
@@ -1650,13 +1679,13 @@ val cComp_correct = store_thm("cComp_correct",
     \\ SRW_TAC [] [] \\ IMP_RES_TAC cComp_IMP_code_installed
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux1`,`t1`])
     \\ fs [] \\ REPEAT STRIP_TAC
-    \\ POP_ASSUM (MP_TAC o Q.SPECL [`env'`,`f1`]) \\ fs []
+    \\ POP_ASSUM (MP_TAC o Q.SPECL [`env''`,`f1`]) \\ fs []
     \\ REVERSE (Cases_on `p0`) \\ fs [] \\ SRW_TAC [] []
     \\ TRY (fs [res_rel_cases] \\ Q.EXISTS_TAC `f2` \\ fs [] \\ NO_TAC)
     \\ fs [res_rel_Ex] \\ SRW_TAC [] []
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux3`]) \\ fs []
     \\ REPEAT STRIP_TAC
-    \\ POP_ASSUM (MP_TAC o Q.SPECL [`t2`,`y'::env'`,`f2`]) \\ fs []
+    \\ POP_ASSUM (MP_TAC o Q.SPECL [`t2`,`y'::env''`,`f2`]) \\ fs []
     \\ IMP_RES_TAC bvl_inlineTheory.bEval_code \\ fs []
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
       (fs [env_rel_def] \\ IMP_RES_TAC env_rel_SUBMAP \\ fs [])
@@ -1664,19 +1693,20 @@ val cComp_correct = store_thm("cComp_correct",
     \\ Q.EXISTS_TAC `f2'` \\ fs []
     \\ IMP_RES_TAC SUBMAP_TRANS \\ fs [])
   THEN1 (* Op *)
-   (fs [cEval_def,cComp_def] \\ SRW_TAC [] [bEval_def]
+   (rw [] >>
+    fs [cEval_def,cComp_def] \\ SRW_TAC [] [bEval_def]
     \\ `?p. cEval (xs,env,s) = p` by fs [] \\ PairCases_on `p` \\ fs []
     \\ `?cc. cComp xs aux1 = cc` by fs [] \\ PairCases_on `cc` \\ fs []
     \\ fs [LET_DEF,PULL_FORALL] \\ SRW_TAC [] []
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux1`]) \\ fs []
     \\ IMP_RES_TAC cComp_IMP_code_installed \\ REPEAT STRIP_TAC
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1`,`env'`,`f1`])
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1`,`env''`,`f1`])
     \\ IMP_RES_TAC cComp_SING \\ fs [] \\ SRW_TAC [] []
     \\ fs [bEval_def]
     \\ REVERSE (Cases_on `p0`) \\ fs [] \\ SRW_TAC [] []
     \\ TRY (fs [res_rel_cases] \\ Q.EXISTS_TAC `f2` \\ fs [] \\ NO_TAC)
     \\ fs [res_rel_Result1] \\ SRW_TAC [] []
-    \\ Cases_on `cEvalOp op a p1` \\ fs []
+    \\ Cases_on `cEvalOp op (REVERSE a) p1` \\ fs []
     \\ Cases_on `x` \\ fs [] \\ SRW_TAC [] []
     \\ Cases_on `op = Ref` \\ fs []
     THEN1
@@ -1712,8 +1742,9 @@ val cComp_correct = store_thm("cComp_correct",
           \\ fs [INJ_DEF,FAPPLY_FUPDATE_THM,FRANGE_DEF]
           \\ REPEAT STRIP_TAC \\ METIS_TAC [])
         \\ Cases_on `n = pp` \\ fs [] THEN1
-         (SRW_TAC [] [ref_rel_cases]
-          \\ Q.PAT_ASSUM `LIST_REL (val_rel f2 t2.refs t2.code) a ys` MP_TAC
+         (SRW_TAC [] [ref_rel_cases] >>
+          imp_res_tac EVERY2_REVERSE
+          \\ Q.PAT_ASSUM `LIST_REL (val_rel f2 t2.refs t2.code) (REVERSE a) (REVERSE ys)` MP_TAC
           \\ MATCH_MP_TAC listTheory.LIST_REL_mono
           \\ REPEAT STRIP_TAC
           \\ MATCH_MP_TAC val_rel_NEW_REF \\ fs []
@@ -1736,7 +1767,7 @@ val cComp_correct = store_thm("cComp_correct",
       \\ SRW_TAC [] [] \\ fs [state_rel_def,SUBSET_DEF])
     \\ Cases_on `op = Update` \\ fs [] THEN1
      (fs [cEvalOp_def,bEvalOp_def]
-      \\ Cases_on `a` \\ fs []
+      \\ Cases_on `REVERSE a` \\ fs []
       \\ Cases_on `t` \\ fs []
       \\ Cases_on `t'` \\ fs []
       \\ Cases_on `t` \\ fs []
@@ -1744,6 +1775,9 @@ val cComp_correct = store_thm("cComp_correct",
       \\ Cases_on `h'` \\ fs []
       \\ Cases_on `FLOOKUP p1.refs n` \\ fs []
       \\ Cases_on `x` \\ fs [] \\ SRW_TAC [] []
+      \\ imp_res_tac EVERY2_REVERSE >>
+      rfs [] >>
+      rw []
       \\ fs [val_rel_SIMP] \\ SRW_TAC [] []
       \\ `?y m.
             FLOOKUP f2 n = SOME m /\ FLOOKUP t2.refs m = SOME y /\
@@ -1775,7 +1809,7 @@ val cComp_correct = store_thm("cComp_correct",
           \\ REPEAT STRIP_TAC THEN1
            (MATCH_MP_TAC val_rel_UPDATE_REF \\ fs []
             \\ fs [FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
-          \\ Q.PAT_ASSUM `LIST_REL (val_rel f2 t2.refs t2.code) l ys` MP_TAC
+          \\ Q.PAT_ASSUM `LIST_REL (val_rel f2 t2.refs t2.code) l ys'` MP_TAC
           \\ MATCH_MP_TAC listTheory.LIST_REL_mono
           \\ REPEAT STRIP_TAC
           \\ MATCH_MP_TAC val_rel_UPDATE_REF \\ fs []
@@ -1786,7 +1820,7 @@ val cComp_correct = store_thm("cComp_correct",
           \\ SIMP_TAC std_ss [INJ_DEF,FRANGE_DEF] \\ fs [FLOOKUP_DEF]
           \\ METIS_TAC [])
         \\ fs [] \\ SRW_TAC [] [] \\ fs [ref_rel_cases] \\ SRW_TAC [] []
-        \\ Q.PAT_ASSUM `LIST_REL pp xs' ys'` MP_TAC
+        \\ Q.PAT_ASSUM `LIST_REL pp xs' ys''` MP_TAC
         \\ MATCH_MP_TAC listTheory.LIST_REL_mono
         \\ REPEAT STRIP_TAC
         \\ MATCH_MP_TAC val_rel_UPDATE_REF \\ fs []
@@ -1798,26 +1832,34 @@ val cComp_correct = store_thm("cComp_correct",
     \\ Cases_on `op = UpdateByte` \\ fs[] THEN1 cheat
     \\ first_x_assum(mp_tac o MATCH_MP (GEN_ALL(REWRITE_RULE[GSYM AND_IMP_INTRO]cEvalOp_correct)))
     \\ first_x_assum(fn th => disch_then (mp_tac o C MATCH_MP th))
+    \\ imp_res_tac EVERY2_REVERSE 
     \\ first_x_assum(fn th => disch_then (mp_tac o C MATCH_MP th)) \\ rw[] \\ rw[]
     \\ Q.EXISTS_TAC `f2` \\ fs [res_rel_Result])
   THEN1 (* Fn *)
-   (fs [cEval_def] \\ BasicProvers.FULL_CASE_TAC
+   (rw [] >>
+    fs [cEval_def] \\ BasicProvers.FULL_CASE_TAC
     \\ fs [] \\ SRW_TAC [] []
     \\ fs [cComp_def]
     \\ `?c2 aux3. cComp [exp] aux1 = (c2,aux3)` by METIS_TAC [PAIR]
     \\ fs [LET_DEF] \\ SRW_TAC [] []
     \\ fs [code_installed_def]
-    \\ fs [bEval_def,bEval_CONS,bEvalOp_def,domain_lookup]
+    \\ fs [bEval_def,bEval_APPEND,bEvalOp_def,domain_lookup]
     \\ `s.restrict_envs` by fs [state_rel_def]
     \\ fs [clos_env_def]
     \\ IMP_RES_TAC lookup_vars_IMP
     \\ POP_ASSUM (STRIP_ASSUME_TAC o Q.SPEC `t1`)
+    \\ Cases_on `num_args ≥ max_app` 
+    \\ fs []
+    \\ rw []
     \\ fs [res_rel_cases,val_rel_cases]
+    \\ imp_res_tac bEval_rev_var >>
+    rw []
     \\ Q.EXISTS_TAC `f1` \\ fs []
-    \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM (K ALL_TAC)
     \\ Q.LIST_EXISTS_TAC [`aux1`,`aux3`] \\ fs []
     \\ IMP_RES_TAC cComp_SING \\ fs [code_installed_def])
   THEN1 (* Letrec *)
+    cheat
+  (*
    (fs [cEval_def] \\ BasicProvers.FULL_CASE_TAC
     \\ fs [] \\ SRW_TAC [] []
     \\ fs [cComp_def]
@@ -1977,26 +2019,60 @@ val cComp_correct = store_thm("cComp_correct",
     \\ fs [DRESTRICT_DEF,FAPPLY_FUPDATE_THM]
     \\ REPEAT STRIP_TAC \\ SRW_TAC [] []
     \\ ASSUME_TAC (EXISTS_NOT_IN_refs |>
-         SIMP_RULE std_ss [whileTheory.LEAST_EXISTS]) \\ fs [])
+         SIMP_RULE std_ss [whileTheory.LEAST_EXISTS]) \\ fs [])*)
   THEN1 (* App *)
-   (fs [cEval_def,cComp_def]
-    \\ `?res5 s5. cEval ([x1],env,s) = (res5,s5)` by METIS_TAC [PAIR]
-    \\ `?res6 s6. cEval ([x2],env,s5) = (res6,s6)` by METIS_TAC [PAIR]
+   (rw [] >>
+    fs [cEval_def, cComp_def]
+    \\ `?res6 s6. cEval (args,env,s') = (res6,s6)` by METIS_TAC [PAIR]
+    \\ `?res5 s5. cEval ([x1],env,s6) = (res5,s5)` by METIS_TAC [PAIR]
     \\ `?c7 aux7. cComp [x1] aux1 = ([c7],aux7)` by
           METIS_TAC [PAIR,cComp_SING]
-    \\ `?c8 aux8. cComp [x2] aux7 = ([c8],aux8)` by
+    \\ `?c8 aux8. cComp args aux7 = (c8,aux8)` by
           METIS_TAC [PAIR,cComp_SING]
     \\ fs [LET_DEF] \\ SRW_TAC [] []
-    \\ REVERSE (Cases_on `res5`) \\ fs []
-    \\ SRW_TAC [] []
-    \\ `code_installed aux7 t1.code` by IMP_RES_TAC cComp_IMP_code_installed
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux1`,`t1`,`env'`,`f1`]) \\ fs []
+    \\ Cases_on `LENGTH args > 0` >> fs []
+    \\ REVERSE (Cases_on `res6`) \\ fs []
+    >- (res_tac >>
+        fs [res_rel_cases] >>
+        imp_res_tac bEval_app_helper >>
+        fs [] >>
+        metis_tac [])
+    >- (res_tac >>
+        fs [res_rel_cases] >>
+        imp_res_tac bEval_app_helper >>
+        fs [] >>
+        metis_tac [])
+    \\ `code_installed aux1 t1.code` by IMP_RES_TAC cComp_IMP_code_installed
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux7`,`t1`,`env''`,`f1`]) \\ fs []
     \\ REPEAT STRIP_TAC \\ fs []
+    \\ `?a'. res' = Result a'` by fs [res_rel_cases]
+    \\ `code_installed aux7 t1.code` by IMP_RES_TAC cComp_IMP_code_installed
+    \\ `t2.code = t1.code` by IMP_RES_TAC bvl_inlineTheory.bEval_code
+    \\ `code_installed aux7 t2.code` by metis_tac []
+    \\ `env_rel f2 t2.refs t2.code env env''` by metis_tac [env_rel_SUBMAP]
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux1`,`t2`,`env''`,`f2`]) \\ fs []
+    \\ rw []
+    \\ REVERSE (Cases_on `res5`) \\ fs []
+    >- (fs [res_rel_cases] >>
+        imp_res_tac bEval_app_helper2 >>
+        fs [] >>
+        rw [] >>
+        metis_tac [SUBMAP_TRANS])
+    >- (fs [res_rel_cases] >>
+        imp_res_tac bEval_app_helper2 >>
+        fs [] >>
+        rw [] >>
+        metis_tac [SUBMAP_TRANS])
+    \\ fs [res_rel_Result]
+    \\ imp_res_tac cEval_SING
+    \\ fs []
+    \\ cheat (* Real work here for function application *)
+(*
     \\ Cases_on `res'`
     \\ TRY (Cases_on `loc_opt` \\ fs [res_rel_cases,bEval_def]
             \\ Q.EXISTS_TAC `f2` \\ fs [] \\ NO_TAC) \\ fs []
     \\ `t2.code = t1.code` by IMP_RES_TAC bvl_inlineTheory.bEval_code
-    \\ `code_installed aux2 t2.code` by fs []
+    \\ `code_installed aux7 t2.code` by fs []
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux7`,`t2`,`env'`,`f2`]) \\ fs []
     \\ `env_rel f2 t2.refs t1.code env env'` by
           (MATCH_MP_TAC env_rel_SUBMAP \\ METIS_TAC []) \\ fs []
@@ -2192,9 +2268,10 @@ val cComp_correct = store_thm("cComp_correct",
     \\ ASM_SIMP_TAC std_ss []
     \\ `[HD a] = a` by ALL_TAC \\ fs []
     \\ IMP_RES_TAC bEval_IMP_LENGTH
-    \\ Cases_on `a` \\ fs [LENGTH_NIL])
+    \\ Cases_on `a` \\ fs [LENGTH_NIL] *) )
   THEN1 (* Tick *)
-   (fs [cComp_def]
+   (rw [] >>
+    fs [cComp_def]
     \\ `?p. cEval ([x],env,s) = p` by fs [] \\ PairCases_on `p` \\ fs []
     \\ `?cc. cComp [x] aux1 = cc` by fs [] \\ PairCases_on `cc` \\ fs []
     \\ fs [LET_DEF] \\ SRW_TAC [] []
@@ -2206,20 +2283,21 @@ val cComp_correct = store_thm("cComp_correct",
     \\ fs [cEval_def]
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux1`]) \\ fs []
     \\ REPEAT STRIP_TAC
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`dec_clock t1`,`env'`,`f1`])
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`dec_clock t1`,`env''`,`f1`])
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
       (fs [dec_clock_def,state_rel_def,closLangTheory.dec_clock_def])
     \\ REPEAT STRIP_TAC \\ fs []
     \\ Q.EXISTS_TAC `f2` \\ fs [dec_clock_def])
   THEN1 (* Call *)
-   (fs [cComp_def,cEval_def]
+   (rw [] >>
+    fs [cComp_def,cEval_def]
     \\ `?c3 aux3. cComp xs aux1 = (c3,aux3)` by METIS_TAC [PAIR]
     \\ fs [LET_DEF] \\ SRW_TAC [] [] \\ fs [bEval_def]
     \\ `?p. cEval (xs,env,s1) = p` by fs [] \\ PairCases_on `p` \\ fs []
     \\ SRW_TAC [] [] \\ IMP_RES_TAC cComp_IMP_code_installed
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux1`,`t1`])
     \\ fs [] \\ REPEAT STRIP_TAC
-    \\ POP_ASSUM (MP_TAC o Q.SPECL [`env'`,`f1`]) \\ fs []
+    \\ POP_ASSUM (MP_TAC o Q.SPECL [`env''`,`f1`]) \\ fs []
     \\ REVERSE (Cases_on `p0`) \\ fs [] \\ SRW_TAC [] []
     \\ TRY (fs [res_rel_cases] \\ Q.EXISTS_TAC `f2` \\ fs [] \\ NO_TAC)
     \\ fs [res_rel_Result1]
@@ -2229,7 +2307,7 @@ val cComp_correct = store_thm("cComp_correct",
     \\ Cases_on `q = LENGTH a` \\ fs []
     \\ `?aux1 c2 aux2.
           cComp [r] aux1 = ([c2],aux2) /\
-          lookup dest t2.code = SOME (LENGTH a,c2) /\
+          lookup (dest + num_stubs) t2.code = SOME (LENGTH a,c2) /\
           code_installed aux2 t2.code` by METIS_TAC [state_rel_def]
     \\ IMP_RES_TAC EVERY2_LENGTH \\ fs []
     \\ `t2.clock = p1.clock` by fs [state_rel_def]
@@ -2245,7 +2323,9 @@ val cComp_correct = store_thm("cComp_correct",
       \\ IMP_RES_TAC list_rel_IMP_env_rel \\ METIS_TAC [APPEND_NIL])
     \\ REPEAT STRIP_TAC \\ fs []
     \\ Q.EXISTS_TAC `f2'` \\ fs []
-    \\ IMP_RES_TAC SUBMAP_TRANS \\ fs [dec_clock_def]));
+    \\ IMP_RES_TAC SUBMAP_TRANS \\ fs [dec_clock_def])
+  THEN
+    rw []);
 
 val cComp_ind = theorem"cComp_ind";
 
@@ -2319,7 +2399,6 @@ val cComp_code_locs = store_thm("cComp_code_locs",
     simp[Abbr`aux1`,ADD1]) >>
   simp[cComp_def,code_locs_def,UNCURRY] >> rw[] >>
   rpt tac >> rw[] >> fs[] >> rw[]);
-  *)
 
 open clos_annotateTheory
 
@@ -2464,6 +2543,7 @@ val contains_Call_EXISTS = prove(
   Induct >> simp[contains_Call_def] >>
   Cases_on`ls`>>fs[contains_Call_def])
 
+  (*
 open pat_to_closTheory
 
 val pComp_contains_Op_Label = store_thm("pComp_contains_Op_Label",
@@ -2538,5 +2618,6 @@ val code_locs_cComp = store_thm("code_locs_cComp",
   fs[SUBSET_DEF]
   >- ( Cases_on`op`>>simp[cCompOp_def]>>fs[] )
   >- ( simp[Once code_locs_cons,code_locs_def,code_locs_MAP_Var] ))
+  *)
 
 val _ = export_theory();
