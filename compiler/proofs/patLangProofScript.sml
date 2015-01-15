@@ -2369,6 +2369,10 @@ val lookup_find_index_SOME = prove(
   first_x_assum(qspec_then`m+1`mp_tac)>>rw[]>>rw[]>>
   qexists_tac`SUC i`>>simp[]);
 
+val exps_to_pat_REVERSE = store_thm("exps_to_pat_REVERSE",
+  ``exps_to_pat a (REVERSE ls) = REVERSE (exps_to_pat a ls)``,
+  rw[exps_to_pat_MAP,rich_listTheory.MAP_REVERSE])
+
 val exp_to_pat_correct = store_thm("exp_to_pat_correct",
   ``(∀ck env s exp res. evaluate_exh ck env s exp res ⇒
      (SND res ≠ Rerr Rtype_error) ⇒
@@ -2433,10 +2437,13 @@ val exp_to_pat_correct = store_thm("exp_to_pat_correct",
   strip_tac >- (
     rw[] >> simp[Once evaluate_pat_cases] >>
     srw_tac[DNF_ss][Once v_pat_cases] >>
-    use_assum_tac) >>
+    fs[exps_to_pat_REVERSE] >>
+    use_assum_tac >>
+    simp[rich_listTheory.MAP_REVERSE,EVERY2_REVERSE]) >>
   strip_tac >- (
     rw[] >> simp[Once evaluate_pat_cases] >>
-    fs[EXISTS_PROD] >> metis_tac[]) >>
+    fs[EXISTS_PROD,exps_to_pat_REVERSE] >>
+    metis_tac[]) >>
   strip_tac >- (
     rw[] >>
     imp_res_tac lookup_find_index_SOME >>
@@ -2459,10 +2466,11 @@ val exp_to_pat_correct = store_thm("exp_to_pat_correct",
     fs[] >>
     srw_tac[DNF_ss][] >>
     disj1_tac >>
+    fs[exps_to_pat_REVERSE] >>
     use_assum_tac >>
     imp_res_tac do_opapp_pat_correct >>
-    imp_res_tac do_opapp_pat_v_pat >>
-    rfs[vs_to_pat_MAP,OPTREL_SOME] >>
+    first_assum(strip_assume_tac o MATCH_MP do_opapp_pat_v_pat o MATCH_MP EVERY2_REVERSE) >>
+    rfs[vs_to_pat_MAP,OPTREL_SOME,rich_listTheory.MAP_REVERSE] >>
     first_assum(split_applied_pair_tac o concl) >> fs[] >>
     fs[map_count_store_genv_def,csg_rel_def] >>
     rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
@@ -2480,19 +2488,24 @@ val exp_to_pat_correct = store_thm("exp_to_pat_correct",
     disj2_tac >> disj1_tac >>
     imp_res_tac csg_rel_count >>
     fs[map_count_store_genv_count] >>
+    fs[exps_to_pat_REVERSE] >>
     use_assum_tac >>
     imp_res_tac do_opapp_pat_correct >>
-    imp_res_tac do_opapp_pat_v_pat >>
-    rfs[OPTREL_SOME,GSYM EXISTS_PROD] ) >>
+    first_assum(strip_assume_tac o MATCH_MP do_opapp_pat_v_pat o MATCH_MP EVERY2_REVERSE) >>
+    rfs[OPTREL_SOME,GSYM EXISTS_PROD,rich_listTheory.MAP_REVERSE] ) >>
   strip_tac >- rw[] >>
   strip_tac >- (
     rpt gen_tac >> strip_tac >> strip_tac >> fs[] >>
     asm_simp_tac(srw_ss()++DNF_ss)[Once evaluate_pat_cases] >>
     disj1_tac >>
+    fs[exps_to_pat_REVERSE] >>
     use_assum_tac >>
     imp_res_tac do_app_pat_correct >>
-    imp_res_tac do_app_pat_v_pat >>
+    first_assum(strip_assume_tac o MATCH_MP do_app_pat_v_pat o MATCH_MP EVERY2_REVERSE) >>
+    res_tac >>
     first_x_assum(qspec_then`Op_pat op`mp_tac)  >>
+    pop_assum kall_tac >>
+    fs[vs_to_pat_MAP,rich_listTheory.MAP_REVERSE] >>
     fs[OPTREL_SOME,csg_to_pat_def,map_count_store_genv_def,sv_to_pat_map_sv] >>
     strip_tac >>
     first_assum(split_applied_pair_tac o concl) >> fs[] ) >>
@@ -2501,6 +2514,7 @@ val exp_to_pat_correct = store_thm("exp_to_pat_correct",
     rpt gen_tac >> strip_tac >> strip_tac >> fs[] >>
     asm_simp_tac(srw_ss()++DNF_ss)[Once evaluate_pat_cases] >>
     rpt disj2_tac >>
+    fs[exps_to_pat_REVERSE] >>
     use_assum_tac ) >>
   strip_tac >- (
     rw[] >>
