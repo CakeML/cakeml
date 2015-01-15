@@ -292,8 +292,9 @@ val lookup_vars_def = Define `
      else NONE)`
 
 val check_loc_opt_def = Define `
-  (check_loc NONE loc num_params num_args ⇔ num_args < max_app) /\
-  (check_loc (SOME p) loc num_params num_args ⇔ (num_params = num_args) ∧ (p = loc))`;
+  (check_loc NONE loc num_params num_args so_far ⇔ num_args < max_app) /\
+  (check_loc (SOME p) loc num_params num_args so_far ⇔ 
+    (num_params = num_args + so_far) ∧ (p = loc))`;
 
 val _ = Datatype `
   app_kind =
@@ -304,8 +305,8 @@ val dest_closure_def = Define `
   dest_closure loc_opt f args =
     case f of
     | Closure loc arg_env clo_env num_args exp =>
-        if check_loc loc_opt loc num_args (LENGTH args) ∧ LENGTH arg_env < num_args then
-          if LENGTH args + LENGTH arg_env > num_args then
+        if check_loc loc_opt loc num_args (LENGTH args) (LENGTH arg_env) ∧ LENGTH arg_env < num_args then
+          if ¬(LENGTH args + LENGTH arg_env < num_args) then
             SOME (Full_app exp
                            (REVERSE (TAKE (num_args + 1 - LENGTH arg_env) (REVERSE args))++
                             arg_env++clo_env)
@@ -316,9 +317,11 @@ val dest_closure_def = Define `
           NONE
     | Recclosure loc arg_env clo_env fns i =>
         let (num_args,exp) = EL i fns in
-          if LENGTH fns <= i \/ ~(check_loc loc_opt (loc+i) num_args (LENGTH args)) ∨ ¬(LENGTH arg_env < num_args) then NONE else
+          if LENGTH fns <= i \/ 
+             ~(check_loc loc_opt (loc+i) num_args (LENGTH args) (LENGTH arg_env)) ∨
+             ¬(LENGTH arg_env < num_args) then NONE else
             let rs = GENLIST (Recclosure loc [] clo_env fns) (LENGTH fns) in
-              if LENGTH args + LENGTH arg_env > num_args then
+              if ¬(LENGTH args + LENGTH arg_env < num_args) then
                 SOME (Full_app exp
                                (REVERSE (TAKE (num_args + 1 - LENGTH arg_env) (REVERSE args))++
                                 arg_env++rs++clo_env)
@@ -328,7 +331,7 @@ val dest_closure_def = Define `
     | _ => NONE`;
 
 val dest_closure_length = Q.prove (
-`!loc_opt f args exp args1 args2.
+`!loc_opt f args exp args1 args2 so_far.
   dest_closure loc_opt f args = SOME (Full_app exp args1 args2)
   ⇒
   LENGTH args2 < LENGTH args`,
@@ -339,7 +342,7 @@ val dest_closure_length = Q.prove (
  TRY decide_tac >>
  Cases_on `EL n l1` >>
  fs [LET_THM] >>
- Cases_on `LENGTH args + LENGTH l > q` >>
+ Cases_on `LENGTH args + LENGTH l < q` >>
  fs [] >>
  rw [] >>
  decide_tac);
