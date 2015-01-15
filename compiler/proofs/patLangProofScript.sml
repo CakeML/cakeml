@@ -538,9 +538,11 @@ val ground_pat_correct = store_thm("ground_pat_correct",
     (∀es n. ground_list_pat n es ⇒
       (∀ck env1 env2 s res.
           n ≤ LENGTH env1 ∧ n ≤ LENGTH env2 ∧
-          (TAKE n env2 = TAKE n env1) ∧
-          evaluate_list_pat ck env1 s es res ⇒
-          evaluate_list_pat ck env2 s es res))``,
+          (TAKE n env2 = TAKE n env1) ⇒
+          (evaluate_list_pat ck env1 s es res ⇒
+           evaluate_list_pat ck env2 s es res) ∧
+          (evaluate_list_pat ck env1 s (REVERSE es) res ⇒
+           evaluate_list_pat ck env2 s (REVERSE es) res)))``,
   ho_match_mp_tac(TypeBase.induction_of(``:exp_pat``)) >>
   rw[] >> pop_assum mp_tac >- (
     rw[Once evaluate_pat_cases] >>
@@ -610,7 +612,17 @@ val ground_pat_correct = store_thm("ground_pat_correct",
   >- (
     rw[Once evaluate_pat_cases] >>
     simp[Once evaluate_pat_cases] >>
-    metis_tac[] ))
+    metis_tac[] )
+  >- (
+    last_x_assum(qspec_then`n`mp_tac) >> simp[] >>
+    disch_then(qspecl_then[`ck`,`env1`,`env2`]mp_tac) >> simp[] >> strip_tac >>
+    last_x_assum(qspec_then`n`mp_tac) >> simp[] >>
+    disch_then(qspecl_then[`ck`,`env1`,`env2`]mp_tac) >> simp[] >> strip_tac >>
+    Cases_on`res`>>Cases_on`r`>>
+    rw[evaluate_list_pat_append_Rval_iff,evaluate_list_pat_append_Rerr] >>
+    fs[(Q.SPECL[`ck`,`env`,`Y`,`[X]`](CONJUNCT2(evaluate_pat_cases))),PULL_EXISTS] >>
+    fs[(Q.SPECL[`ck`,`env`,`Y`,`[]`](CONJUNCT2(evaluate_pat_cases))),PULL_EXISTS] >>
+    metis_tac[]))
 
 val sLet_pat_correct = store_thm("sLet_pat_correct",
   ``∀ck env s e1 e2 res.
