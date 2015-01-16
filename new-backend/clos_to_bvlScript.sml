@@ -1785,7 +1785,8 @@ val unpack_closure_thm = Q.prove (
  ?prev_args total_args clo. 
    unpack_closure (Block tag (ptr::Number (&n)::rest)) (prev_args, total_args, clo) ∧
    total_args < max_app ∧
-   n = total_args − LENGTH prev_args`,
+   n = total_args − LENGTH prev_args ∧
+   (tag = closure_tag ⇒ prev_args = [] ∧ clo = Block tag (ptr::Number (&n)::rest))`,
  rw [unpack_closure_cases, val_rel_cases, num_remaining_args_def] >>
  fs [num_remaining_args_def] >>
  srw_tac [boolSimps.DNF_ss] [bytecodeTheory.partial_app_tag_def, int_arithTheory.INT_NUM_SUB] >>
@@ -1793,8 +1794,6 @@ val unpack_closure_thm = Q.prove (
  TRY ARITH_TAC >>
  Cases_on `ys` >>
  fs []);
-
-  HERE;
 
 val cComp_correct = store_thm("cComp_correct",
   ``(!tmp xs env s1 aux1 t1 env' f1 res s2 ys aux2.
@@ -2666,7 +2665,6 @@ val cComp_correct = store_thm("cComp_correct",
     \\ fs []
     \\ rw []
     >- ((* Partial application *)
-
         `LENGTH args = LENGTH args' ∧ LENGTH args ≠ 0` by metis_tac [LIST_REL_LENGTH] >>
         imp_res_tac dest_closure_part_app >>
         rw [res_rel_cases, PULL_EXISTS] >>
@@ -2723,14 +2721,35 @@ val cComp_correct = store_thm("cComp_correct",
                 `t1.clock − 1 − (LENGTH args' − 1) = t1.clock − LENGTH args'`
                             by ARITH_TAC >>
                 metis_tac [state_rel_clocks]) >>
-                (*
+            `args ≠ []` by (Cases_on `args` >> fs []) >>
             fs [val_rel_cases, num_remaining_args_def] >>
             rw [] >>
             fs [num_remaining_args_def, add_args_def, bytecodeTheory.partial_app_tag_def] >>
-            MAP_EVERY qexists_tac [`aux`, `aux1`, `rest`] >>
+            MAP_EVERY qexists_tac [`aux`, `aux1`] >>
             rw []
-            *) 
-            cheat))
+            >- srw_tac [ARITH_ss] [] >>
+            rw [] >>
+            imp_res_tac EVERY2_LENGTH >>
+            rw [] >>
+            `LENGTH prev_args = LENGTH arg_env` 
+                 by (fs [unpack_closure_cases, dest_closure_def] >>
+                     rw [] >>
+                     fs [bytecodeTheory.partial_app_tag_def]) >>
+            `total_args = num_args` by ARITH_TAC >>
+            fs [] >>
+            rw [] >>
+            qexists_tac `fvs` >>
+            rw []
+            >- (fs [unpack_closure_cases, dest_closure_def] >>
+                rw [] >>
+                fs [bytecodeTheory.partial_app_tag_def])
+            >- (match_mp_tac EVERY2_APPEND_suff >>
+                rw [] >>
+                fs [unpack_closure_cases, dest_closure_def] >>
+                rw [] >>
+                fs [bytecodeTheory.partial_app_tag_def])
+            >- ARITH_TAC
+            >- ARITH_TAC))
      >- cheat));
 
 val cComp_ind = theorem"cComp_ind";
