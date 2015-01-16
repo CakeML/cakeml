@@ -1,5 +1,6 @@
 open HolKernel Parse boolLib bossLib;
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
+open rich_listTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
 open lcsymtacs closLangTheory bvlTheory bvl_jumpTheory;
 open sptreeTheory bvl_inlineTheory intLib miscLib;
@@ -21,7 +22,7 @@ val hd_drop = Q.prove (
  `n - 1 < LENGTH l` by decide_tac >>
  res_tac >>
  `0 < n` by decide_tac >>
- rw [rich_listTheory.EL_CONS] >>
+ rw [EL_CONS] >>
  `n - 1 = PRE n` by decide_tac >>
  rw []);
 
@@ -80,11 +81,12 @@ val num_stubs_def = Define `
 
 val mk_cl_call_def = Define `
   mk_cl_call cl args =
-    Call NONE (args ++
-               [cl] ++
-               [If (Op Equal [mk_const (LENGTH args - 1); mk_el cl (mk_const 1)])
-                   (mk_el cl (mk_const 0))
-                   (mk_label (LENGTH args - 1))])`;
+    If (Op Equal [mk_const (LENGTH args - 1); mk_el cl (mk_const 1)])
+       (Call (LENGTH args - 1) NONE (args ++ [cl] ++ [mk_el cl (mk_const 0)]))
+       (Call 0 (SOME (LENGTH args - 1)) (args ++ [cl]))`;
+
+val partial_app_fn_location_def = Define `
+  partial_app_fn_location m n = max_app + max_app * m + n`;
 
 (* Generic application of a function to n+1 arguments *)
 val generate_generic_app_def = Define `
@@ -94,19 +96,21 @@ val generate_generic_app_def = Define `
             (* Over application *)
             (Jump (mk_el (Var 1) (mk_const 1))
               (GENLIST (\num_args. 
-                 Let [Call NONE (Var 2 ::
+                 Let [Call num_args
+                           NONE (Var 2 ::
                                  GENLIST (\arg. Var (arg + 3 + n - num_args)) (num_args + 1) ++
                                  [mk_el (Var 2) (mk_const 0)])]
                    (mk_cl_call (Var 0) (GENLIST (\n. Var (n + 4)) (n - num_args))))
                max_app))
             (* Partial application *)
+            (mk_tick n
             (If (Op (TagEq closure_tag) [Var (n+2)])
                 (* Partial application of a normal closure *)
                 (Op (Cons partial_app_tag)
                     (REVERSE 
                       (Jump (mk_el (Var (n+2)) (mk_const 1))
                         (GENLIST (\total_args. 
-                          mk_label (max_app + total_args * max_app + n)) 
+                          mk_label (partial_app_fn_location total_args n)) 
                          max_app) ::
                        Var 0 ::
                        Var (n + 2) ::
@@ -118,20 +122,21 @@ val generate_generic_app_def = Define `
                        (REVERSE
                          (Jump (Op Add [mk_const (n + prev_args + 2); Var 1])
                             (GENLIST (\total_args.
-                              mk_label (max_app + total_args * max_app + n))
+                              mk_label (partial_app_fn_location total_args (n + prev_args + 1)))
                              max_app) ::
                           Var 1 ::
                           mk_el (Var (n+3)) (mk_const 2) ::
                           GENLIST (\this_arg. Var (this_arg + 2)) (n+1) ++
                           GENLIST (\prev_arg.
                             mk_el (Var (n+3)) (mk_const (prev_arg + 3))) (prev_args + 1))))
-                    max_app))))`;
+                    max_app)))))`;
 
 (* The functions to complete the application of a partial closure *)
 val generate_partial_app_closure_fn_def = Define `
   generate_partial_app_closure_fn total_args prev_args = 
     Let [mk_el (Var 0) (mk_const 2)]
-      (Call NONE 
+      (Call (total_args - prev_args - 1)
+        NONE 
         (Var 0 ::
          GENLIST (\this_arg. Var (this_arg + 2)) (total_args - prev_args) ++
          GENLIST (\prev_arg.
@@ -142,7 +147,7 @@ val init_code_def = Define `
   init_code = 
     GENLIST (\n. (n + 2, generate_generic_app n)) max_app ++ 
     FLAT (GENLIST (\m. GENLIST (\n. (m - n, 
-                                     generate_partial_app_closure_fn m n)) m) max_app)`;
+                                     generate_partial_app_closure_fn m n)) max_app) max_app)`;
 
 val cCompOp_def = Define`
   cCompOp (Cons tag) = (Cons (if tag < closure_tag then tag else tag+1)) ∧
@@ -182,7 +187,7 @@ val cComp_def = tDefine "cComp" `
          | NONE => 
              Let (c2++c1) (mk_cl_call (Var (LENGTH c2)) (GENLIST Var (LENGTH c2)))
          | SOME loc => 
-             Call (SOME (loc + num_stubs)) (c2 ++ c1)],
+             (Call (LENGTH c2 - 1) (SOME (loc + num_stubs)) (c2 ++ c1))],
         aux2)) /\
   (cComp [Fn loc vs num_args x1] aux =
      let (c1,aux1) = cComp [x1] aux in
@@ -220,7 +225,7 @@ val cComp_def = tDefine "cComp" `
        ([Handle (HD c1) (HD c2)], aux2)) /\
   (cComp [Call dest xs] aux =
      let (c1,aux1) = cComp xs aux in
-       ([Call (SOME (dest + num_stubs)) c1],aux1))`
+       ([Call 0 (SOME (dest + num_stubs)) c1],aux1))`
  (WF_REL_TAC `measure (clos_exp3_size o FST)` >>
   srw_tac [ARITH_ss] [clos_exp_size_def] >>
   `!l. clos_exp3_size (MAP SND l) <= clos_exp1_size l` 
@@ -250,10 +255,10 @@ val take_drop_lem = Q.prove (
  `SUC n < LENGTH (DROP skip env)` by decide_tac >>
  `LENGTH (DROP (1 + skip) env) = LENGTH env - (1 + skip)` by rw [LENGTH_DROP] >>
  `n < LENGTH (DROP (1 + skip) env)` by decide_tac >>
- rw [rich_listTheory.TAKE_EL_SNOC, ADD1] >>
+ rw [TAKE_EL_SNOC, ADD1] >>
  `n + (1 + skip) < LENGTH env` by decide_tac >>
  `(n+1) + skip < LENGTH env` by decide_tac >>
- rw [rich_listTheory.EL_DROP] >>
+ rw [EL_DROP] >>
  srw_tac [ARITH_ss] []);
 
 val bEval_genlist_vars = Q.prove (
@@ -263,7 +268,7 @@ val bEval_genlist_vars = Q.prove (
   =
   (Result (TAKE n (DROP skip env)), st)`,
  Induct_on `n` >>
- rw [bEval_def, rich_listTheory.DROP_LENGTH_NIL, GSYM ADD1] >>
+ rw [bEval_def, DROP_LENGTH_NIL, GSYM ADD1] >>
  rw [Once GENLIST_CONS] >>
  rw [Once bEval_CONS, bEval_def] >>
  full_simp_tac (srw_ss()++ARITH_ss) [] >>
@@ -311,6 +316,7 @@ val bEval_genlist_vars_rev = Q.prove (
           by rw [MAP_GENLIST, combinTheory.o_DEF] >>
  fs [] >>
  metis_tac [bEval_var_reverse]);
+
 
  (*
 val bEval_genlist_vars = Q.prove (
@@ -368,7 +374,7 @@ val bEval_genlist_vars_skip_lem = Q.prove (
   skip < LENGTH x ⇒ 
   EL skip x :: TAKE (rem_args + 1) (DROP (1 + skip) x) = TAKE (rem_args + 2) (DROP skip x)`,
  Induct_on `x` >>
- srw_tac [ARITH_ss] [rich_listTheory.EL_CONS] >>
+ srw_tac [ARITH_ss] [EL_CONS] >>
  `PRE skip = skip - 1` by decide_tac >>
  rw [] >>
  fs [ADD1] >>
@@ -390,11 +396,11 @@ val bEval_genlist_vars_skip = Q.prove (
   =
   (Result (TAKE (rem_args + 1) (DROP skip (x++arg_list))), st)`,
  Induct_on `rem_args` >>
- rw [bEval_def, rich_listTheory.DROP_LENGTH_NIL, GSYM ADD1] >>
+ rw [bEval_def, DROP_LENGTH_NIL, GSYM ADD1] >>
  rw [Once GENLIST_CONS] >>
  rw [Once bEval_CONS, bEval_def] >>
  full_simp_tac (srw_ss()++ARITH_ss) []
- >- (rw [rich_listTheory.EL_APPEND2, rich_listTheory.DROP_APPEND2] >>
+ >- (rw [EL_APPEND2, DROP_APPEND2] >>
      `DROP (skip-LENGTH x) arg_list ≠ []` 
            by (rw [DROP_NIL] >>
                decide_tac) >>
@@ -499,44 +505,58 @@ val bEval_generic_app_helper = Q.prove (
  rw [] >>
  full_simp_tac (srw_ss()++ARITH_ss) [ADD1, el_append2]);
 
+val dec_clock_code = Q.store_thm ("dec_clock_code",
+`!n (s:bvl_state). (dec_clock n s).code = s.code`,
+ rw [dec_clock_def]);
+
+val dec_clock_refs = Q.store_thm ("dec_clock_refs",
+`!n (s:bvl_state). (dec_clock n s).refs = s.refs`,
+ rw [dec_clock_def]);
+
+val _ = export_rewrites ["dec_clock_refs", "dec_clock_code"];
+
 val bEval_generic_app1 = Q.prove (
 `!n args st total_args l fvs cl.
-  n + max_app + total_args * max_app ∈ domain st.code ∧
+  partial_app_fn_location total_args n ∈ domain st.code ∧
   n < total_args ∧
   total_args < max_app ∧
   n + 1 = LENGTH args ∧
   cl = Block closure_tag (CodePtr l :: Number (&total_args) :: fvs)
   ⇒
   bEval ([generate_generic_app n], args++[cl], st) = 
-  (Result [Block partial_app_tag (CodePtr (max_app + total_args * max_app + n) ::
-                                  Number (&(total_args - (n + 1))) ::
-                                  cl::
-                                  args)],
-   st)`,
+    if st.clock < n then
+      (TimeOut, st with clock := 0)
+    else
+      (Result [Block partial_app_tag (CodePtr (partial_app_fn_location total_args n) ::
+                                      Number (&(total_args - (n + 1))) ::
+                                      cl::
+                                      args)],
+       dec_clock n st)`,
  rw [generate_generic_app_def] >>
  rw [bEval_def, bEvalOp_def] >>
  full_simp_tac (srw_ss() ++ ARITH_ss) [el_append2] >>
  `~(&total_args − &(n+1) < 0)` by intLib.ARITH_TAC >>
  rw [] >>
- rfs [] >>
+ rfs [bEval_mk_tick, bEval_def, bEvalOp_def] >>
+ full_simp_tac (srw_ss() ++ ARITH_ss) [el_append2] >>
  rw [DECIDE ``x + 2 = SUC (SUC x)``, bEval_generic_app_helper, bEval_APPEND] >>
  srw_tac [ARITH_ss] [ADD1, bEval_genlist_vars_rev, bEval_def] >>
  `bEval ([Op El [Op (Const (1:int)) []; Var (LENGTH args + 1)]],
-         Number (&total_args − &(n+1))::(args++[Block 5 (CodePtr l::Number (&total_args)::fvs)]),
-         st) =
-   (Result [Number (&total_args)], st)`
+         Number (&total_args − &(LENGTH args))::(args++[Block 5 (CodePtr l::Number (&total_args)::fvs)]),
+         dec_clock n st) =
+   (Result [Number (&total_args)], dec_clock n st)`
          by (srw_tac [ARITH_ss] [bEval_def, bEvalOp_def, int_arithTheory.INT_NUM_SUB] >>
-             srw_tac [ARITH_ss][PRE_SUB1, rich_listTheory.EL_CONS, el_append2]) >>
+             srw_tac [ARITH_ss][PRE_SUB1, EL_CONS, el_append2]) >>
  imp_res_tac bEval_Jump >>
  rfs [] >>
  srw_tac [ARITH_ss] [LENGTH_GENLIST, bEval_def, bEvalOp_def, bEval_APPEND] >>
  rw [bEval_def, bEvalOp_def, int_arithTheory.INT_NUM_SUB, el_append2, 
-     rich_listTheory.TAKE_LENGTH_APPEND]
- >> decide_tac);
+     TAKE_LENGTH_APPEND] >> 
+ decide_tac);
 
 val bEval_generic_app2 = Q.prove (
 `!n args st rem_args prev_args l clo cl.
-  n + (max_app + max_app * (rem_args + LENGTH prev_args)) ∈ domain st.code ∧
+  partial_app_fn_location (rem_args + LENGTH prev_args) (n + LENGTH prev_args) ∈ domain st.code ∧
   n < rem_args ∧
   n + 1 = LENGTH args ∧
   LENGTH prev_args > 0 ∧
@@ -544,26 +564,30 @@ val bEval_generic_app2 = Q.prove (
   cl = Block partial_app_tag (CodePtr l :: Number (&rem_args) :: clo :: prev_args)
   ⇒
   bEval ([generate_generic_app n], args++[cl], st) = 
-  (Result [Block partial_app_tag (CodePtr (max_app + (rem_args + LENGTH prev_args) * max_app + n) ::
-                                  Number (&rem_args - &(n+1)) ::
-                                  clo ::
-                                  args ++ 
-                                  prev_args)],
-   st)`,
+    if st.clock < n then
+      (TimeOut, st with clock := 0)
+    else
+      (Result [Block partial_app_tag (CodePtr (partial_app_fn_location (rem_args + LENGTH prev_args) (n + LENGTH prev_args)) ::
+                                      Number (&rem_args - &(n+1)) ::
+                                      clo ::
+                                      args ++ 
+                                      prev_args)],
+       dec_clock n st)`,
  rw [generate_generic_app_def, mk_const_def] >>
  rw [bEval_def, bEvalOp_def] >>
  full_simp_tac (srw_ss() ++ ARITH_ss) [bytecodeTheory.partial_app_tag_def] >>
  `~(&rem_args − &(n+1) < 0)` by intLib.ARITH_TAC >>
  rw [el_append2] >>
- rfs [] >>
+ rfs [bEval_mk_tick] >>
  full_simp_tac (srw_ss()++ARITH_ss) [] >>
+ rw [bEval_def, bEvalOp_def] >>
  rw [DECIDE ``x + 2 = SUC (SUC x)``, bEval_generic_app_helper, bEval_APPEND] >>
  rw [ADD1] >>
  `bEval ([Op Sub [Op (Const 4) []; Op LengthBlock [Var (LENGTH args + 1)]]],
-         Number (&rem_args − &(n+1))::(args++[Block 6 (CodePtr l::Number (&rem_args)::clo::prev_args)]),st) =
-   (Result [Number (&(LENGTH prev_args - 1))], st)`
+         Number (&rem_args − &LENGTH args)::(args++[Block 6 (CodePtr l::Number (&rem_args)::clo::prev_args)]),dec_clock n st) =
+   (Result [Number (&(LENGTH prev_args - 1))], dec_clock n st)`
          by (srw_tac [ARITH_ss] [bEval_def, bEvalOp_def, int_arithTheory.INT_NUM_SUB] >>
-             srw_tac [ARITH_ss] [rich_listTheory.EL_CONS, GSYM ADD1, el_append2] >>
+             srw_tac [ARITH_ss] [EL_CONS, GSYM ADD1, el_append2] >>
              intLib.ARITH_TAC) >>
  imp_res_tac bEval_Jump >>
  rfs [] >>
@@ -571,17 +595,66 @@ val bEval_generic_app2 = Q.prove (
  rw [REVERSE_APPEND, bEval_APPEND] >>
  `n + 3 = LENGTH args + 2` by decide_tac >>
  rw [bEval_genlist_prev_args1] >>
- srw_tac [ARITH_ss] [bEval_genlist_vars_rev, rich_listTheory.EL_CONS, PRE_SUB1, el_append2] >>
+ srw_tac [ARITH_ss] [bEval_genlist_vars_rev, EL_CONS, PRE_SUB1, el_append2] >>
  `bEval ([Op Add [Op (Const (&(n + (LENGTH prev_args + 1)))) []; Var 1]],
          Number (&(LENGTH prev_args − 1))::Number (&rem_args − &LENGTH args)::(args++[Block partial_app_tag (CodePtr l::Number (&rem_args)::clo::prev_args)]),
-         st) =
-   (Result [Number (&(LENGTH prev_args + rem_args))], st)`
+         dec_clock n st) =
+   (Result [Number (&(LENGTH prev_args + rem_args))], dec_clock n st)`
          by (srw_tac [ARITH_ss] [bytecodeTheory.partial_app_tag_def, bEval_def, bEvalOp_def, int_arithTheory.INT_NUM_SUB] >>
              intLib.ARITH_TAC) >>
  imp_res_tac bEval_Jump >>
  `LENGTH prev_args - 1 < max_app` by decide_tac >>
  fs [bytecodeTheory.partial_app_tag_def] >>
- srw_tac [ARITH_ss] [bEval_APPEND, REVERSE_APPEND, rich_listTheory.TAKE_LENGTH_APPEND, LENGTH_GENLIST, bEval_def, bEvalOp_def, mk_label_def]);
+ srw_tac [ARITH_ss] [bEval_APPEND, REVERSE_APPEND, TAKE_LENGTH_APPEND, LENGTH_GENLIST, bEval_def, bEvalOp_def, mk_label_def]);
+
+val (unpack_closure_rules, unpack_closure_ind, unpack_closure_cases) = Hol_reln `
+(total_args ≥ 0
+ ⇒
+ unpack_closure (Block closure_tag (CodePtr l :: Number total_args :: fvs))
+       ([], Num total_args, Block closure_tag (CodePtr l :: Number total_args :: fvs))) ∧
+(prev_args ≠ [] ∧
+ rem_args ≥ 0
+ ⇒
+ unpack_closure (Block partial_app_tag (CodePtr l :: Number rem_args :: clo :: prev_args)) 
+       (prev_args, Num rem_args + LENGTH prev_args, clo))`;
+
+val bEval_generic_app_partial = Q.prove (
+`!total_args prev_args st args cl sub_cl.
+  partial_app_fn_location total_args (LENGTH prev_args + (LENGTH args - 1)) ∈ domain st.code ∧
+  total_args < max_app ∧
+  LENGTH args < (total_args + 1) - LENGTH prev_args ∧
+  LENGTH args ≠ 0 ∧
+  unpack_closure cl (prev_args, total_args, sub_cl)
+  ⇒
+  bEval ([generate_generic_app (LENGTH args - 1)], args++[cl], st) = 
+    if st.clock < LENGTH args - 1 then
+      (TimeOut, st with clock := 0)
+    else
+      (Result [Block partial_app_tag (CodePtr (partial_app_fn_location total_args (LENGTH prev_args + (LENGTH args - 1))) ::
+                                      Number (&(total_args - (LENGTH prev_args + LENGTH args))) ::
+                                      sub_cl::
+                                      args++
+                                      prev_args)],
+       dec_clock (LENGTH args - 1) st)`,
+ rpt GEN_TAC >>
+ strip_tac >>
+ fs [unpack_closure_cases]
+ >- (mp_tac (Q.SPECL [`LENGTH (args : bc_value list) - 1`, `args`, `st`, `total_args`] bEval_generic_app1) >>
+     srw_tac [ARITH_ss] [] >>
+     rfs [] >>
+     `&Num total_args' = total_args'` by ARITH_TAC >>
+     fs [] >>
+     rw [])
+ >- (mp_tac (Q.SPECL [`LENGTH (args : bc_value list) - 1`, `args`, `st`, `Num rem_args`, `prev_args`] bEval_generic_app2) >>
+     full_simp_tac (srw_ss()++ARITH_ss) [] >>
+     srw_tac [ARITH_ss] [] >>
+     Cases_on `prev_args` >>
+     fs [] >>
+     rw [] >>
+     `&Num rem_args = rem_args` by ARITH_TAC >>
+     fs [] >>
+     rw [int_arithTheory.INT_NUM_SUB] >>
+     ARITH_TAC));
 
  (*
 val bEval_generic_app3_lem = Q.prove (
@@ -668,7 +741,7 @@ val bEval_generic_app3 = Q.prove (
  `LENGTH arg_list > rem_args` by decide_tac >>
  rw [bEval_generic_app3_lem2, bEvalOp_def, find_code_def, LAST_DEF] >>
  full_simp_tac (srw_ss() ++ ARITH_ss) [ADD1] >>
- rw [FRONT_DEF, bEval_def, rich_listTheory.FRONT_APPEND] >>
+ rw [FRONT_DEF, bEval_def, FRONT_APPEND] >>
  qabbrev_tac `res1 = 
    bEval
      ([exp],
@@ -710,7 +783,7 @@ val bEval_partial_app_fn = Q.prove (
  full_simp_tac (srw_ss() ++ ARITH_ss) [] >>
  rw [Once bEval_CONS, bEval_def, bEval_APPEND, bEval_genlist_vars2_no_rev] >>
  rw [bEval_genlist_prev_args1_no_rev, bEvalOp_def, find_code_def] >>
- rw [LAST_DEF, FRONT_DEF, rich_listTheory.FRONT_APPEND] >>
+ rw [LAST_DEF, FRONT_DEF, FRONT_APPEND] >>
  full_simp_tac (srw_ss()++ARITH_ss) []);
  *)
 
@@ -742,6 +815,7 @@ val (val_rel_rules,val_rel_ind,val_rel_cases) = Hol_reln `
    val_rel f refs code (RefPtr r1) (RefPtr r2))
   /\
   (EVERY2 (val_rel f refs code) env ys /\
+   num_args < max_app ∧
    (cComp [x] aux = ([c],aux1)) /\
    code_installed aux1 code /\
    (lookup (p + num_stubs) code = 
@@ -750,18 +824,21 @@ val (val_rel_rules,val_rel_ind,val_rel_cases) = Hol_reln `
                        (Block closure_tag (CodePtr (p + num_stubs) :: Number (&num_args) :: ys)))
   /\
   (EVERY2 (val_rel f refs code) env fvs /\
+   EVERY2 (val_rel f refs code) arg_env ys ∧
+   num_args < max_app ∧
    (arg_env ≠ []) ∧
+   LENGTH arg_env < num_args ∧
    (cComp [x] aux = ([c],aux1)) /\
    code_installed aux1 code /\
-   (lookup (max_app + total_args * max_app + LENGTH ys - 1) code =
-     SOME (num_args + 2, generate_partial_app_closure_fn total_args (LENGTH ys - 1))) ∧
+   (lookup (partial_app_fn_location num_args (LENGTH ys - 1)) code =
+     SOME (num_args - LENGTH arg_env + 1, generate_partial_app_closure_fn num_args (LENGTH ys - 1))) ∧
    (lookup (p + num_stubs) code = 
      SOME (num_args + 2:num,Let (GENLIST Var (num_args+1)++free_let (Var (num_args+1))(LENGTH env)) c)) ==>
    val_rel f refs code (Closure p arg_env env num_args x) 
                        (Block partial_app_tag 
-                              (CodePtr (max_app + total_args * max_app + LENGTH ys - 1) :: 
+                              (CodePtr (partial_app_fn_location num_args (LENGTH ys - 1)) :: 
                                Number (&(num_args - LENGTH arg_env)) ::
-                               Block closure_tag (CodePtr p :: Number (&total_args) :: fvs) ::
+                               Block closure_tag (CodePtr (p+num_stubs) :: Number (&num_args) :: fvs) ::
                                ys)))
   (*
   /\
@@ -822,6 +899,9 @@ val state_rel_def = Define `
            ?y m. (FLOOKUP f n = SOME m) /\
                  (FLOOKUP t.refs m = SOME y) /\
                  ref_rel f t.refs t.code x y) /\
+    (!n. n < max_app ⇒ lookup n t.code = SOME (n + 2, generate_generic_app n)) ∧
+    (!m n. m < max_app ∧ n < max_app ⇒ 
+      lookup (partial_app_fn_location m n) t.code = SOME (m - n, generate_partial_app_closure_fn m n)) ∧
     (!name arity c.
       (FLOOKUP s.code name = SOME (arity,c)) ==>
       ?aux1 c2 aux2.
@@ -831,6 +911,10 @@ val state_rel_def = Define `
 
 val FDIFF_def = Define `
   FDIFF f1 f2 = DRESTRICT f1 (COMPL (FRANGE f2))`;
+
+val state_rel_clocks = Q.prove (
+`!s t x. state_rel f s t ⇒ state_rel f (s with clock := x) (t with clock := x)`,
+ rw [state_rel_def]);
 
 val val_rel_SUBMAP = prove(
   ``!x y. val_rel f1 refs1 code x y ==>
@@ -1076,7 +1160,7 @@ val bEval_free_let_Block = prove(
   \\ FULL_SIMP_TAC std_ss [GSYM APPEND,GSYM APPEND_ASSOC]
   \\ `LENGTH l + 1 = LENGTH (y::l)` by fs [ADD1]
   \\ FULL_SIMP_TAC std_ss [EVAL ``[x] ++ l``]
-  \\ fs [rich_listTheory.EL_LENGTH_APPEND])
+  \\ fs [EL_LENGTH_APPEND])
   |> Q.SPECL [`ys`,`[]`,`s`] |> SIMP_RULE std_ss [APPEND_NIL];
    *)
 
@@ -1115,7 +1199,7 @@ val bEval_ValueArray_lemma = prove(
   \\ fs [bEval_SNOC] \\ fs [bEval_def,bEvalOp_def]
   \\ fs [DECIDE ``n < SUC n + m:num``,SNOC_APPEND]
   \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND]
-  \\ fs [rich_listTheory.EL_LENGTH_APPEND]);
+  \\ fs [EL_LENGTH_APPEND]);
 
 val bEval_ValueArray = prove(
   ``(FLOOKUP s.refs r = SOME (ValueArray zs)) /\ (n = LENGTH zs) ==>
@@ -1189,7 +1273,7 @@ val EVERY2_GENLIST = prove(
       (!k. k < n ==> P (f k) (g k)) ==>
       EVERY2 P (GENLIST f n) (GENLIST g n)``,
   Induct \\ fs [GENLIST] \\ REPEAT STRIP_TAC
-  \\ fs [rich_listTheory.LIST_REL_APPEND_SING,SNOC_APPEND]
+  \\ fs [LIST_REL_APPEND_SING,SNOC_APPEND]
   \\ FIRST_X_ASSUM MATCH_MP_TAC
   \\ REPEAT STRIP_TAC
   \\ FIRST_X_ASSUM MATCH_MP_TAC
@@ -1207,13 +1291,13 @@ val EVERY_ZIP_GENLIST = prove(
       (!i. i < LENGTH xs ==> P (EL i xs,f i)) ==>
       EVERY P (ZIP (xs,GENLIST f (LENGTH xs)))``,
   HO_MATCH_MP_TAC SNOC_INDUCT \\ fs [GENLIST] \\ REPEAT STRIP_TAC
-  \\ fs [rich_listTheory.ZIP_SNOC,EVERY_SNOC] \\ REPEAT STRIP_TAC
+  \\ fs [ZIP_SNOC,EVERY_SNOC] \\ REPEAT STRIP_TAC
   THEN1
    (FIRST_X_ASSUM MATCH_MP_TAC \\ REPEAT STRIP_TAC
     \\ IMP_RES_TAC EL_SNOC \\ fs []
     \\ `i < SUC (LENGTH xs)` by DECIDE_TAC \\ RES_TAC \\ METIS_TAC [])
   \\ `LENGTH xs < SUC (LENGTH xs)` by DECIDE_TAC \\ RES_TAC
-  \\ fs [SNOC_APPEND,rich_listTheory.EL_LENGTH_APPEND]);
+  \\ fs [SNOC_APPEND,EL_LENGTH_APPEND]);
 
   (*
 val build_aux_MEM = prove(
@@ -1286,7 +1370,7 @@ val cComp_LIST_IMP_cComp_EL = prove(
         code_installed aux1' t1.code``,
   HO_MATCH_MP_TAC SNOC_INDUCT \\ fs [] \\ REPEAT STRIP_TAC
   \\ Cases_on `i = LENGTH exps` \\ fs [] THEN1
-   (fs [SNOC_APPEND,rich_listTheory.EL_LENGTH_APPEND]
+   (fs [SNOC_APPEND,EL_LENGTH_APPEND]
     \\ fs [GSYM SNOC_APPEND,cComp_SNOC]
     \\ `?c1 aux2. cComp exps aux1 = (c1,aux2)` by METIS_TAC [PAIR]
     \\ `?c3 aux3. cComp [x] aux2 = (c3,aux3)` by METIS_TAC [PAIR]
@@ -1373,7 +1457,7 @@ val EL_index_ps = prove(
   \\ Cases_on `index = LENGTH l` \\ fs [EL_LENGTH_SNOC]
   \\ `index < LENGTH l` by DECIDE_TAC \\ fs []
   \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs []
-  \\ fs [SNOC_APPEND,rich_listTheory.EL_APPEND1]);
+  \\ fs [SNOC_APPEND,EL_APPEND1]);
 
 val closure_ptr_def = Define `
   (closure_ptr (Closure loc _ _ _ _) = loc) /\
@@ -1612,7 +1696,7 @@ val bEval_app_helper = Q.prove (
   ⇒
   bEval ([case loc of
             NONE => Let (c8++[c7]) (mk_cl_call (Var (LENGTH c8)) (GENLIST Var (LENGTH c8)))
-          | SOME loc => Call (SOME (loc + num_stubs)) (c8++[c7])],env,s) = (r, s')`,
+          | SOME loc => Call (LENGTH c8 - 1) (SOME (loc + num_stubs)) (c8++[c7])],env,s) = (r, s')`,
  rw [] >>
  Cases_on `loc` >>
  rw [bEval_def, bEval_APPEND] >>
@@ -1624,7 +1708,7 @@ val bEval_app_helper2 = Q.prove (
   ⇒
   bEval ([case loc of
             NONE => Let (c8++[c7]) (mk_cl_call (Var (LENGTH c8)) (GENLIST Var (LENGTH c8)))
-          | SOME loc => Call (SOME (loc + num_stubs)) (c8++[c7])],env,s) = (r, s'')`,
+          | SOME loc => Call (LENGTH c8 - 1) (SOME (loc + num_stubs)) (c8++[c7])],env,s) = (r, s'')`,
  rw [] >>
  Cases_on `loc` >>
  rw [bEval_def, bEval_APPEND] >>
@@ -1649,7 +1733,7 @@ val bEval_simple_genlist_vars = Q.prove (
  assume_tac (Q.SPECL [`0`, `env1++env2`, `LENGTH (env1:bc_value list)`, `s`] bEval_genlist_vars) >>
  rfs [] >>
  rpt (pop_assum mp_tac) >>
- srw_tac [ARITH_ss] [rich_listTheory.TAKE_LENGTH_APPEND] >>
+ srw_tac [ARITH_ss] [TAKE_LENGTH_APPEND] >>
  metis_tac []);
 
 val add_args_def = Define `
@@ -1673,7 +1757,7 @@ val dest_closure_part_app = Q.prove (
   ⇒
   loc_opt = NONE ∧
   SOME c = add_args func args ∧
-  ?n. num_remaining_args func = SOME n ∧ LENGTH args < n`,
+  ?n. num_remaining_args func = SOME n ∧ LENGTH args < n ∧ LENGTH args < max_app`,
  rw [dest_closure_def] >>
  BasicProvers.EVERY_CASE_TAC >>
  fs [add_args_def, LET_THM, num_remaining_args_def] >>
@@ -1693,6 +1777,22 @@ val val_rel_num_rem_args = Q.prove (
   ?tag ptr rest. v2 = Block tag (ptr::Number (&n)::rest)`,
  rw [val_rel_cases] >>
  fs [num_remaining_args_def]);
+
+val unpack_closure_thm = Q.prove (
+`val_rel f1 t1.refs t1.code func (Block tag (ptr::Number (&n)::rest)) ∧
+ num_remaining_args func = SOME n
+ ⇒
+ ?prev_args total_args clo. 
+   unpack_closure (Block tag (ptr::Number (&n)::rest)) (prev_args, total_args, clo) ∧
+   total_args < max_app ∧
+   n = total_args − LENGTH prev_args`,
+ rw [unpack_closure_cases, val_rel_cases, num_remaining_args_def] >>
+ fs [num_remaining_args_def] >>
+ srw_tac [boolSimps.DNF_ss] [bytecodeTheory.partial_app_tag_def, int_arithTheory.INT_NUM_SUB] >>
+ imp_res_tac EVERY2_LENGTH >>
+ TRY ARITH_TAC >>
+ Cases_on `ys` >>
+ fs []);
 
   HERE;
 
@@ -1729,8 +1829,8 @@ val cComp_correct = store_thm("cComp_correct",
                 (case find_code (SOME (loc + num_stubs)) (args' ++ [func']) t1.code of
                       NONE => (Error,t2)
                     | SOME (args,exp) =>
-                        if t1.clock = 0 then (TimeOut,t1)
-                        else bEval ([exp],args,dec_clock t1)) = 
+                        if t1.clock < (LENGTH args') then (TimeOut,t1 with clock := 0)
+                        else bEval ([exp],args,dec_clock (LENGTH args') t1)) = 
                   (res',t2)) ∧
         res_rel f2 t2.refs t2.code res res' ∧
         state_rel f2 s2 t2 ∧ 
@@ -2050,7 +2150,8 @@ val cComp_correct = store_thm("cComp_correct",
     rw []
     \\ Q.EXISTS_TAC `f1` \\ fs []
     \\ Q.LIST_EXISTS_TAC [`aux1`,`aux3`] \\ fs []
-    \\ IMP_RES_TAC cComp_SING \\ fs [code_installed_def])
+    \\ IMP_RES_TAC cComp_SING \\ fs [code_installed_def]
+    \\ decide_tac)
   THEN1 (* Letrec *)
     cheat
   (*
@@ -2456,7 +2557,7 @@ val cComp_correct = store_thm("cComp_correct",
       \\ SIMP_TAC std_ss [GSYM APPEND_ASSOC]
       \\ MATCH_MP_TAC list_rel_IMP_env_rel
       \\ UNABBREV_ALL_TAC
-      \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff
+      \\ MATCH_MP_TAC EVERY2_APPEND_suff
       \\ REVERSE (REPEAT STRIP_TAC) THEN1
        (Q.PAT_ASSUM `LIST_REL xxx cl_env ys` MP_TAC
         \\ MATCH_MP_TAC listTheory.LIST_REL_mono
@@ -2497,7 +2598,7 @@ val cComp_correct = store_thm("cComp_correct",
     \\ fs [cEval_def]
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux1`]) \\ fs []
     \\ REPEAT STRIP_TAC
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`dec_clock t1`,`env''`,`f1`])
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`dec_clock 1 t1`,`env''`,`f1`])
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
       (fs [dec_clock_def,state_rel_def,closLangTheory.dec_clock_def])
     \\ REPEAT STRIP_TAC \\ fs []
@@ -2526,11 +2627,16 @@ val cComp_correct = store_thm("cComp_correct",
     \\ IMP_RES_TAC EVERY2_LENGTH \\ fs []
     \\ `t2.clock = p1.clock` by fs [state_rel_def]
     \\ Cases_on `t2.clock = 0` \\ fs []
-    THEN1 (SRW_TAC [] [] \\ Q.EXISTS_TAC `f2` \\ fs [res_rel_cases])
+    THEN1 (SRW_TAC [] [] \\ Q.EXISTS_TAC `f2`  >>
+           fs [res_rel_cases] >>
+           `state_rel f2 (p1 with clock := p1.clock) (t2 with clock := p1.clock)` 
+                    by metis_tac [state_rel_clocks] >>
+           `(p1 with clock := p1.clock) = p1` by rw [clos_state_component_equality] >>
+           metis_tac [])
     \\ fs [] \\ rfs [] \\ fs []
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux1'`]) \\ fs []
     \\ REPEAT STRIP_TAC
-    \\ POP_ASSUM (MP_TAC o Q.SPECL [`dec_clock t2`,`ys`,`f2`]) \\ fs []
+    \\ POP_ASSUM (MP_TAC o Q.SPECL [`dec_clock 1 t2`,`ys`,`f2`]) \\ fs []
     \\ IMP_RES_TAC bvl_inlineTheory.bEval_code \\ fs []
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
      (fs [closLangTheory.dec_clock_def,state_rel_def,bvlTheory.dec_clock_def]
@@ -2559,60 +2665,71 @@ val cComp_correct = store_thm("cComp_correct",
     \\ Cases_on `x`
     \\ fs []
     \\ rw []
-
     >- ((* Partial application *)
 
-        `LENGTH args = LENGTH args'` by metis_tac [LIST_REL_LENGTH] >>
-        `LENGTH args ≠ 0` by metis_tac [LIST_REL_LENGTH] >>
+        `LENGTH args = LENGTH args' ∧ LENGTH args ≠ 0` by metis_tac [LIST_REL_LENGTH] >>
         imp_res_tac dest_closure_part_app >>
         rw [res_rel_cases, PULL_EXISTS] >>
-        MAP_EVERY qexists_tac [`t1`, `f1`] >>
-        rw [] >>
         imp_res_tac val_rel_num_rem_args >>
-        rw [mk_cl_call_def, bEval_def, bEval_APPEND] >>
+        rw [mk_cl_call_def, bEval_def, bEval_APPEND, bEvalOp_def] >>
         `0 < LENGTH args'` by COOPER_TAC >>
+        full_simp_tac (srw_ss()++ARITH_ss) [el_append3] >>
         `bEval (GENLIST Var (LENGTH args'),
                 args' ++ [Block tag (ptr::Number (&n)::rest)] ++ env,
                 t1) = (Result args', t1)` 
                     by metis_tac [bEval_simple_genlist_vars, APPEND_ASSOC] >>
-        simp [bEvalOp_def, el_append3] >>
-        `LENGTH args = LENGTH args'` by metis_tac [LIST_REL_LENGTH] >>
+        simp [] >>
         fs [] >>
         `n ≠ LENGTH args' - 1` by decide_tac >>
         simp [] >>
+        `LENGTH args' - 1 < max_app` by decide_tac >>
         `lookup (LENGTH args' - 1) t1.code = SOME (LENGTH args' + 1, generate_generic_app (LENGTH args' - 1))` 
-               (* TODO: set up initial environment with stubs *)
-               by cheat >>
+               by (fs [state_rel_def] >>
+                   decide_tac) >>
         simp [find_code_def] >>
-        REVERSE (rw [])
-        >- metis_tac [domain_lookup] >>
-        rw [FRONT_DEF, rich_listTheory.FRONT_APPEND]
-        >- cheat >> (* TimeOut *)
-        fs [val_rel_cases, num_remaining_args_def] >>
-        rw [] >>
-        fs [num_remaining_args_def, add_args_def]
-        >- ((* A normal closure *)
-            srw_tac [boolSimps.DNF_ss] [] >>
-            disj2_tac >>
-            mp_tac (Q.SPECL [`LENGTH (args' : bc_value list) - 1`, `args'`, `dec_clock t1`, `n`, `p+num_stubs`,
-                             `rest`] bEval_generic_app1) >>
+        `SUC (LENGTH v42) = LENGTH args` by metis_tac [LENGTH] >>
+        `s1.clock = t1.clock` by fs [state_rel_def] >>
+        fs [] >>
+        rw [FRONT_DEF, FRONT_APPEND]
+        >- (qexists_tac `f1` >>
+            simp [SUBMAP_REFL] >>
+            fs [] >>
+            `t1 = t1 with clock := 0` by rw [bvl_state_explode] >>
+            metis_tac [state_rel_clocks]) >>
+        imp_res_tac unpack_closure_thm >>
+        mp_tac (Q.SPECL [`total_args`, `prev_args`, `dec_clock 1 t1`,
+                         `args'`, `Block tag (ptr::Number (&n)::rest)`, `clo`] bEval_generic_app_partial) >>
+        simp [] >>
+        `lookup (partial_app_fn_location total_args (LENGTH args' + LENGTH prev_args − 1)) t1.code =
+             SOME (total_args - (LENGTH args' + LENGTH prev_args − 1), generate_partial_app_closure_fn total_args (LENGTH args' + LENGTH prev_args − 1))`
+                 by (fs [state_rel_def] >>
+                     first_x_assum match_mp_tac >>
+                     rw [] >>
+                     decide_tac) >>
+        simp [domain_lookup] >>
+        rw []
+        >- ((* A TimeOut *)
+            full_simp_tac (srw_ss()++ARITH_ss) [dec_clock_def] >>
+            qexists_tac `f1` >>
+            rw [SUBMAP_REFL] >>
+            metis_tac [state_rel_clocks])
+        >- ((* Result *)
+            `~(t1.clock < LENGTH args')` by (fs [dec_clock_def] >> decide_tac) >>
+            fs [] >>
             rw [] >>
-            `LENGTH args' − 1 + max_app + n * max_app ∈ domain (dec_clock t1).code` by cheat >>
-            `LENGTH (args':bc_value list) < 1 + n ∧ 0 < n` by decide_tac >>
-            `n < max_app` by cheat >>
-            `LENGTH args' − 1 + 1 = LENGTH args'` by ARITH_TAC >>
+            qexists_tac `f1` >>
+            REVERSE (rw [])
+            >- (rw [dec_clock_def, closLangTheory.dec_clock_def] >>
+                `t1.clock − 1 − (LENGTH args' − 1) = t1.clock − LENGTH args'`
+                            by ARITH_TAC >>
+                metis_tac [state_rel_clocks]) >>
+                (*
+            fs [val_rel_cases, num_remaining_args_def] >>
             rw [] >>
-            srw_tac [ARITH_ss] [bytecodeTheory.partial_app_tag_def] >>
-            MAP_EVERY qexists_tac [`aux`, `aux1`] >>
-            simp [] >>
-            cheat (* code stub setup, make the theorem more flexible about the clock *))
-        >- ((* A partial closure already *)
-            srw_tac [boolSimps.DNF_ss] [] >>
-            MAP_EVERY qexists_tac [`aux`, `aux1`, `fvs`, `total_args`, `args'++ys`] >>
-            rw [] >>
-            `dec_clock t1 = t1` by cheat >>
-            rw [] >>
-            (*bEval_generic_app2*)
+            fs [num_remaining_args_def, add_args_def, bytecodeTheory.partial_app_tag_def] >>
+            MAP_EVERY qexists_tac [`aux`, `aux1`, `rest`] >>
+            rw []
+            *) 
             cheat))
      >- cheat));
 
@@ -2628,7 +2745,7 @@ val build_aux_thm = prove(
   qmatch_assum_abbrev_tac`build_aux nn kk auxx = Z` >>
   qspecl_then[`kk`,`nn`,`auxx`]strip_assume_tac build_aux_lemma >>
   Cases_on`build_aux nn kk auxx`>>UNABBREV_ALL_TAC>>fs[]>> rw[] >>
-  full_simp_tac std_ss [Once (rich_listTheory.CONS_APPEND)] >>
+  full_simp_tac std_ss [Once (CONS_APPEND)] >>
   full_simp_tac std_ss [Once (GSYM APPEND_ASSOC)] >> res_tac >>
   rw[GENLIST,REVERSE_APPEND,REVERSE_GENLIST,PRE_SUB1] >>
   simp[LIST_EQ_REWRITE])
@@ -2844,7 +2961,7 @@ val pComp_contains_Op_Label = store_thm("pComp_contains_Op_Label",
   rw[contains_Op_Label_def] >> rw[EVERY_MEM] >>
   rw[Once contains_Op_Label_EXISTS,EVERY_MAP] >>
   rw[contains_Op_Label_def] >> rw[EVERY_MEM] >>
-  fs[rich_listTheory.REPLICATE_GENLIST,MEM_GENLIST] >>
+  fs[REPLICATE_GENLIST,MEM_GENLIST] >>
   rw[contains_Op_Label_def])
 
 val pComp_contains_Call = store_thm("pComp_contains_Call",
@@ -2856,7 +2973,7 @@ val pComp_contains_Call = store_thm("pComp_contains_Call",
   rw[contains_Call_def] >> rw[EVERY_MEM] >>
   rw[Once contains_Call_EXISTS,EVERY_MAP] >>
   rw[contains_Call_def] >> rw[EVERY_MEM] >>
-  fs[rich_listTheory.REPLICATE_GENLIST,MEM_GENLIST] >>
+  fs[REPLICATE_GENLIST,MEM_GENLIST] >>
   rw[contains_Call_def])
 
 val code_locs_recc_Lets = store_thm("code_locs_recc_Lets",
