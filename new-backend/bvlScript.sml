@@ -70,7 +70,9 @@ val _ = Datatype `
    which the call will target. If that component is NONE, then the
    target address is read from the end of the argument list, i.e. in
    case of NONE, the last bvl_exp in the argument list must evaluate
-   to a CodePointer. *)
+   to a CodePointer. This first number in the Call expression is how
+   many additional ticks the Call should do *)
+
 
 val _ = Datatype `
   bvl_exp = Var num
@@ -79,7 +81,7 @@ val _ = Datatype `
           | Raise bvl_exp
           | Handle bvl_exp bvl_exp
           | Tick bvl_exp
-          | Call (num option) (bvl_exp list)
+          | Call num (num option) (bvl_exp list)
           | Op bvl_op (bvl_exp list) `
 
 (* --- Semantics of BVL --- *)
@@ -208,7 +210,7 @@ val bEvalOp_def = Define `
     | _ => NONE`;
 
 val dec_clock_def = Define `
-  dec_clock s = s with clock := s.clock - 1`;
+  dec_clock n s = s with clock := s.clock - n`;
 
 (* Functions for looking up function definitions *)
 
@@ -292,15 +294,15 @@ val bEval_def = tDefine "bEval" `
                           | SOME (v,s) => (Result [v],s))
      | res => res) /\
   (bEval ([Tick x],env,s) =
-     if s.clock = 0 then (TimeOut,s) else bEval ([x],env,dec_clock s)) /\
-  (bEval ([Call dest xs],env,s1) =
+     if s.clock = 0 then (TimeOut,s) else bEval ([x],env,dec_clock 1 s)) /\
+  (bEval ([Call ticks dest xs],env,s1) =
      case bEval (xs,env,s1) of
      | (Result vs,s) =>
          (case find_code dest vs s.code of
           | NONE => (Error,s)
           | SOME (args,exp) =>
-              if (s.clock = 0) \/ (s1.clock = 0) then (TimeOut,s) else
-                  bEval ([exp],args,dec_clock (check_clock s s1)))
+              if (s.clock < ticks + 1) \/ (s1.clock < ticks + 1) then (TimeOut,s with clock := 0) else
+                  bEval ([exp],args,dec_clock (ticks + 1) (check_clock s s1)))
      | res => res)`
  (WF_REL_TAC `(inv_image (measure I LEX measure bvl_exp1_size)
                             (\(xs,env,s). (s.clock,xs)))`
@@ -363,10 +365,10 @@ val bEval_ind = save_thm("bEval_ind",let
   val ind = prove(goal,
     STRIP_TAC \\ STRIP_TAC \\ MATCH_MP_TAC raw_ind
     \\ REVERSE (REPEAT STRIP_TAC) \\ ASM_REWRITE_TAC []
-    THEN1 (Q.PAT_ASSUM `!dest xs env s1. bb ==> bbb` MATCH_MP_TAC
+    THEN1 (Q.PAT_ASSUM `!ticks dest xs env s1. bb ==> bbb` MATCH_MP_TAC
            \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC
            \\ IMP_RES_TAC bEval_clock
-           \\ `s1.clock <> 0` by DECIDE_TAC
+           \\ `¬(s1.clock < ticks + 1)` by DECIDE_TAC
            \\ SRW_TAC [] []
            \\ FULL_SIMP_TAC (srw_ss()) []
            \\ IMP_RES_TAC bEval_check_clock
@@ -402,8 +404,10 @@ val bEval_def = save_thm("bEval_def",let
     \\ IMP_RES_TAC bEval_check_clock
     \\ IMP_RES_TAC bEval_clock
     \\ FULL_SIMP_TAC (srw_ss()) [EVAL ``pair_CASE (x,y) f``]
-    \\ Cases_on `r.clock = 0` \\ FULL_SIMP_TAC std_ss []
-    \\ Cases_on `s1.clock = 0` \\ FULL_SIMP_TAC std_ss [])
+    \\ Cases_on `r.clock < ticks + 1` \\ FULL_SIMP_TAC std_ss []
+    \\ Cases_on `s1.clock < ticks + 1` \\ FULL_SIMP_TAC std_ss [] >>
+    `r.clock = s1.clock` by decide_tac >>
+    fs [])
   val new_def = bEval_def |> CONJUNCTS |> map (fst o dest_eq o concl o SPEC_ALL)
                   |> map (REWR_CONV def THENC SIMP_CONV (srw_ss()) [])
                   |> LIST_CONJ
@@ -510,6 +514,29 @@ val bEval_code = store_thm("bEval_code",
   \\ POP_ASSUM MP_TAC
   \\ BasicProvers.CASE_TAC \\ FULL_SIMP_TAC (srw_ss())[]
   \\ SRW_TAC[][] \\ SRW_TAC[][dec_clock_def]);
+
+val mk_tick_def = Define `
+  mk_tick n e = FUNPOW Tick n e : bvl_exp`;
+
+val bEval_mk_tick = Q.store_thm ("bEval_mk_tick",
+`!exp env s n.
+  bEval ([mk_tick n exp], env, s) = 
+    if s.clock < n then
+      (TimeOut, s with clock := 0)
+    else
+      bEval ([exp], env, dec_clock n s)`,
+ Induct_on `n` >>
+ rw [mk_tick_def, bEval_def, dec_clock_def, FUNPOW] >>
+ fs [mk_tick_def, bEval_def, dec_clock_def] >>
+ rw [] >>
+ full_simp_tac (srw_ss()++ARITH_ss) [dec_clock_def, ADD1]
+ >- (`s with clock := s.clock = s`
+            by rw [bvl_state_explode] >>
+     rw [])
+ >- (`s.clock = n` by decide_tac >>
+     fs []));
+
+
 
 (* clean up *)
 

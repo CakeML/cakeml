@@ -45,7 +45,7 @@ val bConsts_def = tDefine "bConsts" `
   (bConst (Handle x1 x2) = Handle (bConst x1) (bConst x2)) /\
   (bConst (Op op xs) = bConstOp op (bConsts xs)) /\
   (bConst (Tick x) = Tick (bConst x)) /\
-  (bConst (Call dest xs) = Call dest (bConsts xs))`
+  (bConst (Call ticks dest xs) = Call ticks dest (bConsts xs))`
  (WF_REL_TAC `measure (\y. case y of INL xs => bvl_exp1_size xs
                                    | INR x => bvl_exp_size x)`)
 

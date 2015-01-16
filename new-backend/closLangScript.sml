@@ -430,11 +430,11 @@ val cEval_def = tDefine "cEval" `
      | NONE => (Error,s)
      | SOME (Partial_app v) => 
          if s.clock < LENGTH args
-         then (TimeOut,s)
+         then (TimeOut,s with clock := 0)
          else (Result [v], dec_clock (LENGTH args) s)
      | SOME (Full_app exp env rest_args) =>
          if s.clock < (LENGTH args - LENGTH rest_args)
-         then (TimeOut,s)
+         then (TimeOut,s with clock := 0)
          else
            case cEval ([exp],env,dec_clock (LENGTH args - LENGTH rest_args) s) of
            | (Result [v], s1) =>
