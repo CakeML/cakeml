@@ -13751,11 +13751,10 @@ val ic_Any_with_test = let
          ~zS * ^pc *
          zHEAP (cs,x1,x2,x3,x4,refs,stack,s,NONE) \/ zHEAP_ERROR cs``
   val lemma = prove(goal,
-    fs [ic_AnyInst_def]
+    fs []
     \\ Cases_on `ic_Any (x1,x2,x3,s)`
     \\ PairCases_on `r` \\ fs[LET_DEF,SEP_IMP_def,cond_STAR]
-    \\ REPEAT STRIP_TAC
-    \\ IMP_RES_TAC ic_Any_cs_constant \\ fs [])
+    \\ REPEAT STRIP_TAC \\ fs [])
   val th = MP th lemma |> SIMP_RULE (std_ss++sep_cond_ss) []
   in th end;
 
