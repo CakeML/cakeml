@@ -262,8 +262,9 @@ val b = eth |> concl |> rand |> rator
 val th5 = Q.GENL[`res`,`e`,`b`]th4 |> ISPECL [b,e,res]
 
 val asms =
-  [``lookup_cons "::" env = SOME (2,TypeId(Short"list"))``,
-   ``lookup_cons "nil" env = SOME (0,TypeId(Short"nil"))``]
+  hol2deep (pat |> dest_pabs |> snd)
+  |> hyp
+  |> filter(can (assert (same_const``lookup_cons``) o fst o strip_comb o lhs))
 val gtm = th5 |> concl |> dest_imp |> fst
 (*
   set_goal(asms,gtm)
