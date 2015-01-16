@@ -353,7 +353,7 @@ val renumber_code_locs_list_els = prove(
   simp[] >>
   METIS_TAC[pair_CASES,SND])
 
-val contains_App_SOME_EXISTS = prove(
+val contains_App_SOME_EXISTS = store_thm("contains_App_SOME_EXISTS",
   ``∀ls. contains_App_SOME ls ⇔ EXISTS (λx. contains_App_SOME [x]) ls``,
   Induct >> simp[contains_App_SOME_def] >>
   Cases_on`ls`>>fs[contains_App_SOME_def])

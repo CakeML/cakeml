@@ -6630,7 +6630,7 @@ val (_,equal_loop_def,equal_loop_pre_def) = x64_compile `
                if getTag x1 = getTag x2 then
                  let x3 = x1 in
                  let x1 = Number (& (getTag x1)) in
-                 if getNumber x1 = 3 then
+                 if getNumber x1 = 5 then
                    let x1 = Number 0 in
                    let (x2,stack) = pop_all stack in
                      (x1,x2,x3,x4,stack)
@@ -6647,14 +6647,14 @@ val (_,equal_loop_def,equal_loop_pre_def) = x64_compile `
                          (x1,x2,x3,x4,stack)
                else
                  let x1 = Number (& (getTag x1)) in
-                 if getNumber x1 = 3 then
+                 if getNumber x1 = 5 then
                    let x1 = Number 0 in
                    let (x2,stack) = pop_all stack in
                      (x1,x2,x3,x4,stack)
                  else
                    let x1 = x2 in
                    let x1 = Number (& (getTag x1)) in
-                   if getNumber x1 = 3 then
+                   if getNumber x1 = 5 then
                      let x1 = Number 0 in
                      let (x2,stack) = pop_all stack in
                        (x1,x2,x3,x4,stack)
@@ -6796,9 +6796,9 @@ val equal_loop_thm = prove(
     \\ FULL_SIMP_TAC std_ss [isNumber_def,canCompare_def,isBlock_def]
     \\ FULL_SIMP_TAC std_ss [getTag_def,getContent_def,bc_equal_def]
     \\ REVERSE (Cases_on `n' = n`) \\ FULL_SIMP_TAC (srw_ss()) [] THEN1
-     (Cases_on `n' = 3` \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
-      \\ Cases_on `n = 3` \\ FULL_SIMP_TAC std_ss [] \\ EVAL_TAC)
-    \\ Cases_on `n = 3` \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
+     (Cases_on `n' = 5` \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
+      \\ Cases_on `n = 5` \\ FULL_SIMP_TAC std_ss [] \\ EVAL_TAC)
+    \\ Cases_on `n = 5` \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
     \\ SIMP_TAC std_ss [explode_result_def,getContent_def]
     \\ REVERSE (Cases_on `LENGTH l' = LENGTH l`)
     \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
@@ -11267,11 +11267,11 @@ val (bc_print_aux_res,bc_print_aux_def,bc_print_aux_pre_def) = x64_compile `
         else if getNumber x1 = 2 then (* unit_tag *)
           let s = s with output := STRCAT s.output "(" in
           let s = s with output := STRCAT s.output ")" in (x1,x2,s)
-        else if getNumber x1 = 3 then (* closure_tag *)
+        else if getNumber x1 = 5 then (* closure_tag *)
           let s = s with output := STRCAT s.output "<fn>" in (x1,x2,s)
-        else if getNumber x1 = 5 then (* vector_tag *)
+        else if getNumber x1 = 4 then (* vector_tag *)
           let s = s with output := STRCAT s.output "<vector>" in (x1,x2,s)
-        else if getNumber x1 = 4 then (* string_tag *)
+        else if getNumber x1 = 3 then (* string_tag *)
           let x1 = x2 in
           let (x1,s) = bc_print_str (x1,s) in (x1,x2,s)
         else (* constructor *)
@@ -13751,11 +13751,10 @@ val ic_Any_with_test = let
          ~zS * ^pc *
          zHEAP (cs,x1,x2,x3,x4,refs,stack,s,NONE) \/ zHEAP_ERROR cs``
   val lemma = prove(goal,
-    fs [ic_AnyInst_def]
+    fs []
     \\ Cases_on `ic_Any (x1,x2,x3,s)`
     \\ PairCases_on `r` \\ fs[LET_DEF,SEP_IMP_def,cond_STAR]
-    \\ REPEAT STRIP_TAC
-    \\ IMP_RES_TAC ic_Any_cs_constant \\ fs [])
+    \\ REPEAT STRIP_TAC \\ fs [])
   val th = MP th lemma |> SIMP_RULE (std_ss++sep_cond_ss) []
   in th end;
 
@@ -15819,23 +15818,6 @@ val EL_ref_globals_list = prove(
                (EL n (ref_globals_list (OPT_MAP f xs) k) = f v)``,
   Induct \\ Cases_on `k` \\ fs [ref_globals_list_def,EL,OPT_MAP_def]
   \\ Cases \\ Cases_on `n'` \\ fs [ref_globals_list_def,EL,OPT_MAP_def]);
-
-(*
-
-  \\ TRY
-   (ONCE_REWRITE_TAC [STAR_REARRANGE]
-    \\ MATCH_MP_TAC (prog_x64Theory.X64_SPEC_IMP_SPEC_1 |> MP_CANON)
-    \\ REVERSE (REPEAT STRIP_TAC) THEN1
-     (fs [bump_pc_def] \\ rfs [real_inst_length_thm]
-      \\ fs [real_inst_length_def,LEFT_ADD_DISTRIB,MOD_LEMMA]
-      \\ BasicProvers.EVERY_CASE_TAC \\ fs [GSYM ADD_ASSOC]
-      \\ fs [real_inst_length_def,LEFT_ADD_DISTRIB,MOD_LEMMA])
-    \\ ONCE_REWRITE_TAC [GSYM STAR_REARRANGE])
-
-val STAR_REARRANGE =
-  METIS_PROVE [STAR_ASSOC,STAR_COMM] ``x*y*z = STAR (x*z) y``
-
-*)
 
 val SPEC_1_zBC_HEAP_THM = prove(
   ``EVEN (w2n cb) /\ (cs.stack_trunk - n2w (8 * SUC (LENGTH stack)) = sb) ==>

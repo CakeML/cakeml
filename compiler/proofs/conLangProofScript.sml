@@ -1797,7 +1797,7 @@ val FLOOKUP_alloc_tags_to_exh_imp = prove(
   `FINITE P` by (
     unabbrev_all_tac >>
     simp[FINITE_alloc_tags_to_exh_dom]) >>
-  simp[FLOOKUP_FUN_FMAP,Abbr`f`] >> rw[] >- (
+  simp[FLOOKUP_FUN_FMAP,Abbr`f`,Abbr`Z`] >> rw[] >- (
     simp[nat_set_from_list_def] >>
     match_mp_tac wf_nat_set_from_list >>
     rw[sptreeTheory.wf_def] ) >>

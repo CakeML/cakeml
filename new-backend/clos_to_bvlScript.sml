@@ -2909,4 +2909,138 @@ val code_locs_cComp = store_thm("code_locs_cComp",
   >- ( simp[Once code_locs_cons,code_locs_def,code_locs_MAP_Var] ))
   *)
 
+val HD_FST_cFree_sing = prove(
+  ``[HD (FST (cFree [x]))] = FST(cFree [x])``,
+  simp[SING_HD,LENGTH_FST_cFree])
+
+val HD_cShift_sing = prove(
+  ``[HD (cShift [x] y z w)] = cShift [x] y z w``,
+  rw[SING_HD,cShift_LENGTH_LEMMA])
+
+val contains_Call_append = store_thm("contains_Call_append",
+  ``contains_Call (l1 ++ l2) = (contains_Call l1 ∨ contains_Call l2)``,
+  METIS_TAC[contains_Call_EXISTS,EXISTS_APPEND])
+
+val contains_Call_cFree = store_thm("contains_Call_cFree",
+  ``∀v. contains_Call (FST (cFree v)) = contains_Call v``,
+  ho_match_mp_tac cFree_ind >>
+  simp[cFree_def,contains_Call_def,UNCURRY,HD_FST_cFree_sing,contains_Call_append] >>
+  rw[] >> METIS_TAC[PAIR])
+
+val contains_Call_cShift = store_thm("contains_Call_cShift",
+  ``∀a b c d. contains_Call (cShift a b c d) ⇔ contains_Call a``,
+  ho_match_mp_tac cShift_ind >>
+  simp[cShift_def,contains_Call_def,HD_cShift_sing,contains_Call_append])
+
+val contains_Call_cAnnotate = store_thm("contains_Call_cAnnotate",
+  ``∀n e. contains_Call (cAnnotate n e) ⇔ contains_Call e``,
+  rw[cAnnotate_def,contains_Call_cShift,contains_Call_cFree])
+
+val contains_App_SOME_append = store_thm("contains_App_SOME_append",
+  ``contains_App_SOME (l1 ++ l2) = (contains_App_SOME l1 ∨ contains_App_SOME l2)``,
+  METIS_TAC[contains_App_SOME_EXISTS,EXISTS_APPEND])
+
+val contains_App_SOME_cFree = store_thm("contains_App_SOME_cFree",
+  ``∀v. contains_App_SOME (FST (cFree v)) = contains_App_SOME v``,
+  ho_match_mp_tac cFree_ind >>
+  simp[cFree_def,contains_App_SOME_def,UNCURRY,HD_FST_cFree_sing,contains_App_SOME_append] >>
+  rw[] >> METIS_TAC[PAIR])
+
+val contains_App_SOME_cShift = store_thm("contains_App_SOME_cShift",
+  ``∀a b c d. contains_App_SOME (cShift a b c d) ⇔ contains_App_SOME a``,
+  ho_match_mp_tac cShift_ind >>
+  simp[cShift_def,contains_App_SOME_def,HD_cShift_sing,contains_App_SOME_append])
+
+val contains_App_SOME_cAnnotate = store_thm("contains_App_SOME_cAnnotate",
+  ``∀n e. contains_App_SOME (cAnnotate n e) ⇔ contains_App_SOME e``,
+  rw[cAnnotate_def,contains_App_SOME_cShift,contains_App_SOME_cFree])
+
+val contains_Op_Label_append = store_thm("contains_Op_Label_append",
+  ``contains_Op_Label (l1 ++ l2) = (contains_Op_Label l1 ∨ contains_Op_Label l2)``,
+  METIS_TAC[contains_Op_Label_EXISTS,EXISTS_APPEND])
+
+val contains_Op_Label_cFree = store_thm("contains_Op_Label_cFree",
+  ``∀v. contains_Op_Label (FST (cFree v)) = contains_Op_Label v``,
+  ho_match_mp_tac cFree_ind >>
+  simp[cFree_def,contains_Op_Label_def,UNCURRY,HD_FST_cFree_sing,contains_Op_Label_append] >>
+  rw[] >> METIS_TAC[PAIR])
+
+val contains_Op_Label_cShift = store_thm("contains_Op_Label_cShift",
+  ``∀a b c d. contains_Op_Label (cShift a b c d) ⇔ contains_Op_Label a``,
+  ho_match_mp_tac cShift_ind >>
+  simp[cShift_def,contains_Op_Label_def,HD_cShift_sing,contains_Op_Label_append])
+
+val contains_Op_Label_cAnnotate = store_thm("contains_Op_Label_cAnnotate",
+  ``∀n e. contains_Op_Label (cAnnotate n e) ⇔ contains_Op_Label e``,
+  rw[cAnnotate_def,contains_Op_Label_cShift,contains_Op_Label_cFree])
+
+fun tac (g as (asl,w)) =
+  let
+    fun finder tm =
+      let
+        val (f,args) = strip_comb tm
+      in
+        (same_const``renumber_code_locs`` f orelse
+         same_const``renumber_code_locs_list`` f)
+        andalso
+         all is_var args
+        andalso
+         length args = 2
+      end
+    val tms = find_terms finder w
+  in
+    map_every (fn tm => Cases_on [ANTIQUOTE tm]) tms g
+  end
+
+val contains_Call_cons = store_thm("contains_Call_cons",
+  ``contains_Call (e::x) ⇔ contains_Call [e] ∨ contains_Call x``,
+  METIS_TAC[contains_Call_EXISTS,listTheory.EXISTS_DEF])
+
+val contains_Call_renumber_code_locs = store_thm("contains_Call_renumber_code_locs",
+  ``(∀n e m f. renumber_code_locs_list n e = (m,f) ⇒
+      (contains_Call f ⇔ contains_Call e)) ∧
+    (∀n e m f. renumber_code_locs n e = (m,f) ⇒
+      (contains_Call [f] ⇔ contains_Call [e]))``,
+  ho_match_mp_tac renumber_code_locs_ind >>
+  simp[contains_Call_def,renumber_code_locs_def,UNCURRY] >> rw[] >>
+  tac >> fs[] >> rw[] >>
+  tac >> fs[] >> rw[] >>
+  tac >> fs[] >> rw[] >-
+  METIS_TAC[contains_Call_cons] >>
+  Cases_on`renumber_code_locs (q + LENGTH r) e'`>>fs[])
+
+val contains_App_SOME_cons = store_thm("contains_App_SOME_cons",
+  ``contains_App_SOME (e::x) ⇔ contains_App_SOME [e] ∨ contains_App_SOME x``,
+  METIS_TAC[contains_App_SOME_EXISTS,listTheory.EXISTS_DEF])
+
+val contains_App_SOME_renumber_code_locs = store_thm("contains_App_SOME_renumber_code_locs",
+  ``(∀n e m f. renumber_code_locs_list n e = (m,f) ⇒
+      (contains_App_SOME f ⇔ contains_App_SOME e)) ∧
+    (∀n e m f. renumber_code_locs n e = (m,f) ⇒
+      (contains_App_SOME [f] ⇔ contains_App_SOME [e]))``,
+  ho_match_mp_tac renumber_code_locs_ind >>
+  simp[contains_App_SOME_def,renumber_code_locs_def,UNCURRY] >> rw[] >>
+  tac >> fs[] >> rw[] >>
+  tac >> fs[] >> rw[] >>
+  tac >> fs[] >> rw[] >-
+  METIS_TAC[contains_App_SOME_cons] >>
+  Cases_on`renumber_code_locs (q + LENGTH r) e'`>>fs[])
+
+val contains_Op_Label_cons = store_thm("contains_Op_Label_cons",
+  ``contains_Op_Label (e::x) ⇔ contains_Op_Label [e] ∨ contains_Op_Label x``,
+  METIS_TAC[contains_Op_Label_EXISTS,listTheory.EXISTS_DEF])
+
+val contains_Op_Label_renumber_code_locs = store_thm("contains_Op_Label_renumber_code_locs",
+  ``(∀n e m f. renumber_code_locs_list n e = (m,f) ⇒
+      (contains_Op_Label f ⇔ contains_Op_Label e)) ∧
+    (∀n e m f. renumber_code_locs n e = (m,f) ⇒
+      (contains_Op_Label [f] ⇔ contains_Op_Label [e]))``,
+  ho_match_mp_tac renumber_code_locs_ind >>
+  simp[contains_Op_Label_def,renumber_code_locs_def,UNCURRY] >> rw[] >>
+  tac >> fs[] >> rw[] >>
+  tac >> fs[] >> rw[] >>
+  tac >> fs[] >> rw[] >-
+  METIS_TAC[contains_Op_Label_cons] >>
+  Cases_on`renumber_code_locs (q + LENGTH r) e'`>>fs[])
+
 val _ = export_theory();
