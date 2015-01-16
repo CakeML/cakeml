@@ -428,7 +428,10 @@ val cEval_def = tDefine "cEval" `
   (cEvalApp loc_opt f args s =
      case dest_closure loc_opt f args of
      | NONE => (Error,s)
-     | SOME (Partial_app v) => (Result [v], s)
+     | SOME (Partial_app v) => 
+         if s.clock < LENGTH args
+         then (TimeOut,s)
+         else (Result [v], dec_clock (LENGTH args) s)
      | SOME (Full_app exp env rest_args) =>
          if s.clock < (LENGTH args - LENGTH rest_args)
          then (TimeOut,s)
