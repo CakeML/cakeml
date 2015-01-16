@@ -12,39 +12,8 @@ val EvalPatRel_def = Define`
       evaluate_match F env (0,empty_store) av
         [(p,(Lit(Unit)))] ARB
         ((0,empty_store),if ∃vars. pat vars = x then Rval(Litv(Unit)) else Rerr(Rraise ARB))`
-
-(*
 val Pmatch_def = tDefine"Pmatch"`
-  (Pmatch env [] [] = Match env) ∧
-  (Pmatch env (p1::p2::ps) (v1::v2::vs) =
-     case Pmatch env [p1] [v1] of
-     | No_match => No_match
-     | Match_type_error => Match_type_error
-     | Match env' => Pmatch env' (p2::ps) (v2::vs)) ∧
-  (Pmatch env [Pvar x] [v] = Match (write x v env)) ∧
-  (Pmatch env [Plit l] [Litv l'] =
-     if l = l' then Match env
-     else if lit_same_type l l' then No_match
-     else Match_type_error) ∧
-  (Pmatch env [Pcon (SOME n) ps] [Conv (SOME (n',t')) vs] =
-     case lookup_alist_mod_env n (all_env_to_cenv env) of
-     | SOME (l,t) =>
-       if same_tid t t' ∧ LENGTH ps = l then
-         if same_ctor (id_to_n n, t) (n',t') then
-           Pmatch env ps vs
-         else No_match
-       else Match_type_error
-     | _ => Match_type_error) ∧
-  (Pmatch env [Pcon NONE ps] [Conv NONE vs] =
-     if LENGTH ps = LENGTH vs then
-       Pmatch env ps vs
-     else Match_type_error) ∧
-  (Pmatch env [Pref p] [Loc lnum] =
-     Match_type_error)`
-(WF_REL_TAC`measure (pat1_size o FST o SND)`)
-*)
 
-val Pmatch_def = tDefine"Pmatch"`
   (Pmatch env [] [] = SOME env) ∧
   (Pmatch env (p1::p2::ps) (v1::v2::vs) =
      case Pmatch env [p1] [v1] of | NONE => NONE
