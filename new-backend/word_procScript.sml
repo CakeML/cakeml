@@ -186,9 +186,7 @@ val every_var_def = Define `
   (every_var P p = T)`
 
 
-(*Recursor for stack variables
-  TODO: Check whether this is necessary
-*)
+(*Recursor for stack variables*)
 val every_stack_var_def = Define `
   (every_stack_var P (Call ret dest args h) =
     (case ret of 

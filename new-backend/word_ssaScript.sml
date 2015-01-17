@@ -2,6 +2,7 @@ open HolKernel Parse boolLib bossLib miscLib
 open listTheory sptreeTheory pred_setTheory pairTheory
 open alistTheory BasicProvers sortingTheory miscTheory
 open word_langTheory word_lemmasTheory word_procTheory word_liveTheory
+open rich_listTheory
 
 val _ = new_theory "word_ssa";
 
@@ -60,21 +61,42 @@ val list_next_stack_rename_def = Define`
     renames
     Otherwise do nothing*)
 
-(*Find all the entries in the list that do not have the same value in map2,
-  Ignoring all those that do not appear in the latter <-- not sure*)
+(*For each entry that is in
+  1) Ldiff = in R but not L --> Add moves to LHS
+  2) Rdiff = in L but not R --> Add moves to RHS
+  3) clash = in both --> For any inconsistencies, combine them
+*)
+val fake_moves_def = Define`
+  (fake_moves [] = Skip) ∧ 
+  (fake_moves (x::xs) = Seq (Assign x (Const 0w)) (fake_moves xs))`
+
+val merge_moves_def = Define`
+  (merge_moves ssa_L ssa_R [] na ssa_union = (Skip,Skip,na,ssa_union)) ∧ 
+  (merge_moves ssa_L ssa_R (x::xs) na ssa_union = 
+    let (seqL,seqR,na',ssa_union') = 
+      merge_moves ssa_L ssa_R xs na ssa_union in 
+    let Lx = THE (lookup x ssa_L) in
+    let Ly = THE (lookup x ssa_R) in
+    if Lx = Ly then 
+      (seqL,seqR,na',ssa_union')
+    else
+      let (x',ssa_union'',na'') = next_var_rename x ssa_union' na' in
+      let Lmove = Move[(x',Lx)] in
+      let Rmove = Move[(x',Ly)] in
+        (Seq Lmove seqL,Seq Rmove seqR,na'',ssa_union''))`
+
 val fix_inconsistencies_def = Define`
-  (fix_inconsistencies [] ssa na = (Skip,Skip,ssa,na)) ∧ 
-  (fix_inconsistencies ((x,y)::xs) ssa na =
-    let (m1,m2,ssa',na') = fix_inconsistencies xs ssa na in 
-    (case lookup x ssa' of
-      NONE => (m1,m2,insert x y ssa',na')
-    | SOME z =>
-      if y = z then (m1,m2,ssa',na')
-      else
-      let (x',ssa'',na'') = next_var_rename x ssa' na' in
-      let y_move = Move [(x',y)] in
-      let z_move = Move [(x',z)] in 
-        (Seq y_move m1,Seq z_move m2,ssa'',na'')))`
+  fix_inconsistencies ssa_L ssa_R na =
+    let Ldiff = MAP FST (toAList (difference ssa_L ssa_R)) in
+    let Rdiff = MAP FST (toAList (difference ssa_R ssa_L)) in
+    (*We arbitrarily choose the left one to extend*)
+    let ssa_union = union ssa_L ssa_R in 
+    let clash = MAP FST (toAList (inter ssa_L ssa_R)) in 
+    let Lfakemoves = fake_moves Ldiff in
+    let Rfakemoves = fake_moves Rdiff in
+    let (Lmergemoves,Rmergemoves,na',ssa_union') =
+      merge_moves ssa_L ssa_R clash na ssa_union in
+    (Seq Lfakemoves Lmergemoves,Seq Rfakemoves Rmergemoves, na',ssa_union')`
 
 (*ssa_cc_trans_inst does not need to interact with stack*)
 val ssa_cc_trans_inst_def = Define`
@@ -124,6 +146,7 @@ val ssa_cc_trans_exp_def = tDefine "ssa_cc_trans_exp" `
   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
   \\ DECIDE_TAC)
 
+(*TODO: delete option_lookups?*)
 val ssa_cc_trans_def = Define`
   (ssa_cc_trans Skip ssa na ns = (Skip,ssa,na,ns)) ∧ 
   (ssa_cc_trans (Move ls) ssa na ns =
@@ -164,17 +187,19 @@ val ssa_cc_trans_def = Define`
     let (e3',ssa3,na3,ns3) = ssa_cc_trans e3 ssa1 na2 ns2 in
     (*ssa3 is the ssa map for the second branch, notice we
       continued using na2 and ns2 here though!*)
-    let ls = toAList ssa2 in
-    let (e2_cons,e3_cons,ssa_fin,na_fin) = 
-      fix_inconsistencies ls ssa3 na3 in
-    (If e1' num' (Seq e2' e2_cons) (Seq e3' e3_cons),ssa_fin,na_fin,ns3)) ∧ 
+    let (e2_cons,e3_cons,na_fin,ssa_fin) = 
+      fix_inconsistencies ssa2 ssa3 na3 in
+    (If e1' num' (Seq e2' e2_cons) (Seq e3' e3_cons),ssa_fin,na_fin,ns3)) ∧
+  (*For cutsets, we must restart the ssa mapping to maintain consistency*) 
   (ssa_cc_trans (Alloc num numset) ssa na ns = 
     let num' = option_lookup ssa num in 
     let ls = MAP FST (toAList numset) in
     let cur_ls = MAP (option_lookup ssa) ls in
     let (stack_ls,ns') = list_next_stack_rename cur_ls ns in 
     let stack_set = numset_list_insert stack_ls LN in
-    let (ren_ls,ssa',na') = list_next_var_rename ls ssa na in
+    (*Cutdown to only those in numset, maybe shift later*)
+    let ssa' = inter ssa numset in  
+    let (ren_ls,ssa'',na') = list_next_var_rename ls ssa' na in
     let prog = (Seq (Move (ZIP (stack_ls,cur_ls))) 
                (Seq (Alloc num' stack_set)
                (Move (ZIP (ren_ls,stack_ls))))) in
@@ -207,7 +232,9 @@ val ssa_cc_trans_def = Define`
           let cur_ls = MAP (option_lookup ssa) ls in
           let (stack_ls,ns_1) = list_next_stack_rename cur_ls ns in 
           let stack_set = numset_list_insert stack_ls LN in
-          let (ren_ls,ssa_1,na_1) = list_next_var_rename ls ssa na in
+          let (ren_ls,ssa_0,na_1) = list_next_var_rename ls ssa na in
+          (*Cut down the ssa set*)
+          let ssa_1 = inter ssa_0 numset in  
           let move_cutset = Move (ZIP (stack_ls,cur_ls)) in
           let restore_cutset = Move (ZIP (ren_ls,stack_ls)) in
           (*ssa_1 is before branching*)
@@ -229,9 +256,8 @@ val ssa_cc_trans_def = Define`
               (ssa_cc_trans h ssa_3_p na_3_p ns_2) in
             let mov_exc_handler = 
               (Seq restore_cutset (Seq(Move[n',0]) (ren_exc_handler))) in
-            let ls = toAList ssa_2 in
-            let (ret_cons,exc_cons,ssa_fin,na_fin) = 
-              fix_inconsistencies ls ssa_3 na_3 in
+            let (ret_cons,exc_cons,na_fin,ssa_fin) = 
+              fix_inconsistencies ssa_2 ssa_3 na_3 in
             let cons_ret_handler = Seq mov_ret_handler ret_cons in
             let cons_exc_handler = Seq mov_exc_handler exc_cons in
             let prog = 
@@ -240,22 +266,48 @@ val ssa_cc_trans_def = Define`
                dest conv_args (SOME(0,cons_exc_handler))))) in
             (prog,ssa_fin,na_fin,ns_3))))` 
 
-val fix_inconsistencies_no_call = prove(``
-  ∀ls ssa na a b c d.
-  fix_inconsistencies ls ssa na = (a,b,c,d) ⇒ 
+val fake_moves_conventions = prove(``
+  ∀ls.
+  let mov = fake_moves ls in 
+  call_arg_convention mov ∧ 
+  every_stack_var is_stack_var mov``,
+  Induct>>rw[]>>unabbrev_all_tac>>
+  fs[call_arg_convention_def,every_stack_var_def,fake_moves_def,LET_THM])
+
+val merge_moves_conventions = prove(``
+  ∀ls ssaL ssaR na ssaU.
+  let (a:'a word_prog,b:'a word_prog,c,d) = 
+    merge_moves ssaL ssaR ls na ssaU in
   every_stack_var is_stack_var a ∧ 
   every_stack_var is_stack_var b ∧ 
   call_arg_convention a ∧
   call_arg_convention b``,
-  Induct>>
-  fs[fix_inconsistencies_def,call_arg_convention_def,every_stack_var_def]>>rw[]>>
-  Cases_on`h`>>fs[fix_inconsistencies_def]>>
-  first_x_assum(qspecl_then[`ssa`,`na`] assume_tac)>>
-  Cases_on`fix_inconsistencies ls ssa na`>>fs[]>>
-  PairCases_on`r'`>>fs[LET_THM]>>
-  EVERY_CASE_TAC>>fs[next_var_rename_def,call_arg_convention_def]>>
-  pop_assum kall_tac>>rpt (pop_assum (SUBST1_TAC o SYM)>>fs[call_arg_convention_def,every_stack_var_def]))
+  Induct>>rw[merge_moves_def]>>
+  fs[call_arg_convention_def,every_stack_var_def]>>
+  Cases_on`Lx=Ly`>>fs[]>>
+  first_x_assum(qspecl_then[`ssaL`,`ssaR`,`na`,`ssaU`] assume_tac)>>
+  rfs[LET_THM]>>
+  unabbrev_all_tac>>
+  fs[EQ_SYM_EQ,every_stack_var_def,call_arg_convention_def])
 
+val fix_inconsistencies_conventions = prove(``
+  ∀ssaL ssaR na.
+  let (a:'a word_prog,b:'a word_prog,c,d) = 
+    fix_inconsistencies ssaL ssaR na in 
+  every_stack_var is_stack_var a ∧ 
+  every_stack_var is_stack_var b ∧ 
+  call_arg_convention a ∧
+  call_arg_convention b``,
+  fs[fix_inconsistencies_def,call_arg_convention_def,every_stack_var_def,UNCURRY]>>
+  rpt strip_tac>>
+  rw[]>>
+  unabbrev_all_tac>>
+  qabbrev_tac `ls = MAP FST (toAList (inter ssaL ssaR))` >>
+  Q.SPECL_THEN [`ls`,`ssaL`,`ssaR`,`na`,`union ssaL ssaR`] 
+    assume_tac merge_moves_conventions>>rfs[LET_THM]>>
+  fs[every_stack_var_def,call_arg_convention_def]>>
+  metis_tac[fake_moves_conventions])
+  
 val list_next_stack_rename_stack_vars = prove(``
   ∀(ls:num list) ns.
   is_stack_var ns ⇒ 
@@ -309,7 +361,9 @@ val ssa_cc_trans_pre_alloc_conventions = store_thm("ssa_cc_trans_pre_alloc_conve
     discharge_hyps>-rfs[]>>
     strip_tac>>rfs[]>>
     fs[domain_numset_list_insert,EVERY_MEM]>>
-    metis_tac[fix_inconsistencies_no_call])
+    rw[]>>
+    Q.SPECL_THEN [`ssa_2`,`ssa_3`,`na_3`] assume_tac fix_inconsistencies_conventions>>
+    rfs[LET_THM])
   >-
   (*Seq*)
   (first_assum(qspecl_then[`w`,`ssa`,`na`,`ns`] assume_tac)>>
@@ -326,7 +380,8 @@ val ssa_cc_trans_pre_alloc_conventions = store_thm("ssa_cc_trans_pre_alloc_conve
   rfs[word_prog_size_def]>>
   ntac 3 (pop_assum mp_tac >> discharge_hyps>-DECIDE_TAC)>>
   rw[]>>
-  metis_tac[fix_inconsistencies_no_call])
+   Q.SPECL_THEN [`ssa2`,`ssa3`,`na3`] assume_tac fix_inconsistencies_conventions>>
+  rfs[LET_THM])
   >>
   (*Alloc*)
   fs[Abbr`prog`,every_stack_var_def,call_arg_convention_def]>>
@@ -337,12 +392,11 @@ val ssa_cc_trans_pre_alloc_conventions = store_thm("ssa_cc_trans_pre_alloc_conve
 
 (*
 EVAL ``ssa_cc_trans 
-
 (Seq
 (If (Move [(1,2)]) 0 
-  (Seq (Move [(1,3)]) Skip) 
-  (Seq (Move [(1,5)]) Skip))
-(Seq (Move[(5,1)]) (Move [(6,4)]))) LN 101 103`` 
+  (If (Move [(1,2)]) 0 (Move [(42,3)]) Skip) 
+  (Seq (Move [(42,5)]) Skip))
+(Seq (Move[(5,42)]) (Move [(6,4)]))) LN 101 103`` 
 
 Skip)
 
@@ -364,31 +418,45 @@ Move 1,5
 
 *)
 
-(*The relation should be that everything that is in st is option_lookup under the ssa_map in cst
-When ssa_map is LN, this is trivially true for cst = st*)
 val ssa_locals_rel_def = Define`
-  ssa_locals_rel ssa st_locs cst_locs =
-  strong_locals_rel (option_lookup ssa) (domain st_locs) st_locs cst_locs`
+  ssa_locals_rel na ssa st_locs cst_locs =
+  ((∀x y. lookup x ssa = SOME y ⇒ y ∈ domain cst_locs) ∧
+  (∀x y. lookup x st_locs = SOME y ⇒ 
+    x ∈ domain ssa ∧
+    lookup (THE (lookup x ssa)) cst_locs = SOME y ∧ 
+    (is_alloc_var x ⇒ x < na)))`    
 
-val list_next_var_rename_lemma = prove(``
-  ∀ls ssa na ren_ls ssa' na'.
-  list_next_var_rename ls ssa na = (ren_ls,ssa',na') ⇒ 
-  MAP (option_lookup ssa') ls = ren_ls ∧ 
-  ALL_DISTINCT ren_ls ∧ 
-  na ≤ na'``,
-  Induct>>fs[list_next_var_rename_def,LET_THM,next_var_rename_def]>>
-  rw[]>>fs[]>>
+val list_next_var_rename_lemma_1 = prove(``
+  ∀ls ssa na ls' ssa' na'.
+  list_next_var_rename ls ssa na = (ls',ssa',na') ⇒ 
+  let len = LENGTH ls in
+  ALL_DISTINCT ls' ∧ 
+  ls' = (MAP (λx. 4*x+na) (COUNT_LIST len)) ∧ 
+  na' = na + 4* len``,
+  Induct>>
+  fs[list_next_var_rename_def,LET_THM,next_var_rename_def,COUNT_LIST_def]>>
+  ntac 7 strip_tac>>
+  rw[]>>
   Cases_on`list_next_var_rename ls (insert h na ssa) (na+4)`>>
   Cases_on`r`>>fs[]>>
-  res_tac
-  >-
-    cheat
-  >-
-    cheat
-  >-
-    DECIDE_TAC)
+  res_tac>>cheat) (*Should be easy with some decision tacs*)
+ 
+val list_next_var_rename_lemma_2 = prove(``
+  ∀ls ssa na.
+  ALL_DISTINCT ls ⇒ 
+  let (ls',ssa',na') = list_next_var_rename ls ssa na in 
+  ls' = MAP (λx. THE(lookup x ssa')) ls ∧ 
+  domain ssa' = domain ssa ∪ set ls ∧ 
+  ∀x. ¬MEM x ls ⇒ lookup x ssa' = lookup x ssa``,
+  Induct>>fs[list_next_var_rename_def,LET_THM,next_var_rename_def]>>
+  rw[]>>
+  first_x_assum(qspecl_then[`insert h na ssa`,`na+4`] assume_tac)>>
+  rfs[]>>
+  Cases_on`list_next_var_rename ls (insert h na ssa) (na+4)`>>Cases_on`r`>>
+  fs[lookup_insert,EXTENSION]>>rw[]>>
+  metis_tac[])
 
-(*TODO:need assumptions on na and ns that they are greater than everything in the locals and greater than every program variable so that the insertion is always fresh*)
+(*TODO:need assumptions on na and ns that they are greater than everything in the locals and greater than every program variable so that the insertion is always fresh
 val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
 ``∀prog st cst ssa na ns.
   word_state_eq_rel st cst ∧
@@ -414,5 +482,203 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     (qpat_assum`A=res` (SUBST_ALL_TAC o SYM)>>
     qpat_assum`A=res'` (SUBST_ALL_TAC o SYM)>>fs[])
   >>cheat) 
+*)
+
+(*Try proof with oracle
+  The proof of na,ns maintainance should be pulled out
+*)
+
+val exists_tac = qexists_tac`cst.permute`>>
+    fs[wEval_def,LET_THM,word_state_eq_rel_def
+      ,ssa_cc_trans_def];
+
+val ssa_locals_rel_get_var = prove(``
+  ssa_locals_rel na ssa st.locals cst.locals ∧
+  get_var n st = SOME x
+  ⇒
+  get_var (option_lookup ssa n) cst = SOME x``,
+  fs[get_var_def,ssa_locals_rel_def,strong_locals_rel_def,option_lookup_def]>>
+  rw[]>>
+  FULL_CASE_TAC>>fs[domain_lookup]>>
+  first_x_assum(qspecl_then[`n`,`x`] assume_tac)>>rfs[])
+
+val ssa_locals_rel_get_vars = prove(``
+  ∀ls y na ssa st cst.
+  ssa_locals_rel na ssa st.locals cst.locals ∧
+  get_vars ls st = SOME y
+  ⇒
+  get_vars (MAP (option_lookup ssa) ls) cst = SOME y``,
+  Induct>>fs[get_vars_def]>>rw[]>>
+  Cases_on`get_var h st`>>fs[]>>
+  imp_res_tac ssa_locals_rel_get_var>>fs[]>>
+  Cases_on`get_vars ls st`>>fs[]>>
+  res_tac>>fs[])
+
+val ALOOKUP_ZIP_FAIL = prove(``
+  ∀A B x.
+  LENGTH A = LENGTH B ⇒  
+  (ALOOKUP (ZIP (A,B)) x = NONE ⇔ ¬MEM x A)``,
+  rw[]>>Q.ISPECL_THEN [`ZIP(A,B)`,`x`] assume_tac ALOOKUP_NONE >>
+  fs[MAP_ZIP])
+
+val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
+``∀prog st cst ssa na ns.
+  word_state_eq_rel st cst ∧
+  ssa_locals_rel na ssa st.locals cst.locals ∧
+  (*The following 3 assumptions have to be proved to hold
+    separately for the conclusion
+    also, na ≤ na' for the every_var to hold  
+  *)
+  is_alloc_var na ∧
+  every_var (λx. x < na) prog ∧
+  (*This might be a bit strong*)
+  (∀x y. lookup x ssa = SOME y ⇒ is_alloc_var y ∧ y < na) 
+  (*is_stack_var ns  -- probably not needed*)
+  ⇒
+  ∃perm'.
+  let (res,rst) = wEval(prog,st with permute:=perm') in
+  if (res = SOME Error) then T else
+  let (prog',ssa',na',ns') = ssa_cc_trans prog ssa na ns in
+  let (res',rcst) = wEval(prog',cst) in
+    res = res' ∧
+    word_state_eq_rel rst rcst ∧ 
+    (case res of
+      NONE => 
+        ssa_locals_rel na' ssa' rst.locals rcst.locals 
+    | _    => T )``,
+  completeInduct_on`word_prog_size (K 0) prog`>>
+  rpt strip_tac>>
+  fs[PULL_FORALL,wEval_def]>>
+  Cases_on`prog`
+  >-
+    exists_tac
+  >-
+    (exists_tac>>EVERY_CASE_TAC>>fs[set_vars_def]>>
+    Cases_on`list_next_var_rename (MAP FST l) ssa na`>>
+    Cases_on`r`>>
+    fs[wEval_def]>>
+    imp_res_tac list_next_var_rename_lemma_1>>
+    imp_res_tac list_next_var_rename_lemma_2>>
+    fs[LET_THM]>>
+    fs[MAP_ZIP,LENGTH_COUNT_LIST]>>
+    imp_res_tac ssa_locals_rel_get_vars>>
+    pop_assum(qspecl_then[`ssa`,`na`,`cst`] assume_tac)>>
+    rfs[set_vars_def]>>
+    fs[ssa_locals_rel_def]>>
+    first_x_assum(qspecl_then[`ssa`,`na`] assume_tac)>>
+    rfs[]>>
+    imp_res_tac get_vars_length_lemma>>
+    CONJ_ASM1_TAC
+    >-
+      (rw[domain_lookup]>>
+      fs[lookup_list_insert]>>
+      EVERY_CASE_TAC>>
+      rfs[ALOOKUP_NONE,MAP_ZIP]>>
+      `¬ (MEM x' (MAP FST l))` by
+        (CCONTR_TAC>>
+        fs[MEM_MAP]>>
+        first_x_assum(qspec_then`x'` assume_tac)>>
+        rfs[]>>
+        metis_tac[])>>
+      `x' ∈ domain q' ∧ x' ∈ domain ssa` by
+        (CONJ_ASM1_TAC>-
+          fs[domain_lookup]
+        >>
+        fs[EXTENSION]>>metis_tac[])>>
+      metis_tac[domain_lookup])
+    >> 
+    fs[strong_locals_rel_def]>>rw[]>>rfs[lookup_list_insert]
+    >-
+      (Cases_on`MEM x' (MAP FST l)`>>
+      fs[]>>
+      Q.ISPECL_THEN [`MAP FST l`,`x`,`x'`] assume_tac ALOOKUP_ZIP_FAIL>>
+      rfs[]>>fs[])
+    >-
+      (Cases_on`MEM x' (MAP FST l)`>>
+      fs[]
+      >-
+        cheat (*via some ALOOKUP ALL_DISTINCT and key remap
+                reasoning on 25*)
+      >>
+      Q.ISPECL_THEN [`MAP FST l`,`x`,`x'`] assume_tac ALOOKUP_ZIP_FAIL>>
+      rfs[]>>fs[]>>
+      res_tac>>
+      fs[domain_lookup]>>res_tac>>
+      cheat) (*v cannot be in the first part of the ZIP*)
+    >>
+      EVERY_CASE_TAC>>rfs[every_var_def]
+      >-
+        metis_tac[DECIDE``x'<na ⇒ x' < na + 4*LENGTH l``]
+      >>
+        `MEM x' (MAP FST l)` by cheat>>
+        fs[EVERY_MEM]>>
+        metis_tac[DECIDE``x'<na ⇒ x' < na + 4*LENGTH l``])
+  >-(*Inst*) cheat
+  >-(*Assign*)
+    (exists_tac>>cheat)
+  >-(*Get -- Useful for illustrating the need for
+    the various assumptions on na*) 
+    (exists_tac>>EVERY_CASE_TAC>>
+    fs[next_var_rename_def,wEval_def]>>
+    fs[set_var_def,ssa_locals_rel_def]>>
+    rw[]>>fs[lookup_insert]>>Cases_on`x'=n`>>fs[]
+    >-
+      metis_tac[]
+    >-
+      (res_tac>>
+      fs[domain_lookup]>>
+      first_x_assum(qspecl_then[`x'`,`v`]assume_tac)>>
+      (*Next part is a key reasoning step --
+        We only have alloc_vars < na in the range of ssa
+        Otherwise, the new one may overwrite an old mapping
+      *)
+      rfs[]>>
+      `v ≠ na` by DECIDE_TAC >>
+      fs[])
+    >-
+      (*This illustrates need for every_var assumption*)
+      (fs[every_var_def]>>DECIDE_TAC)
+    >>
+      (*Finally, this illustrates need for <na assumption on st.locals*)
+      res_tac>>fs[]>>DECIDE_TAC)
+  >-(*Set*)
+    (exists_tac>>cheat)
+  >- (*Store*)
+    cheat
+  >- (*Call*)
+    cheat
+  >- (*Seq*)
+    (rw[]>>fs[wEval_def,ssa_cc_trans_def,LET_THM]>>
+    last_assum(qspecl_then[`w`,`st`,`cst`,`ssa`,`na`,`ns`] mp_tac)>>
+    discharge_hyps>- (fs[word_prog_size_def]>>DECIDE_TAC)>>
+    rfs[every_var_def]>>
+    discharge_hyps>-fs[]>>rw[]>>
+    Cases_on`ssa_cc_trans w ssa na ns`>>Cases_on`r`>>fs[]>>
+    Cases_on`r'`>>Cases_on`ssa_cc_trans w0 q' q'' r`>>fs[]>>
+    PairCases_on`r'`>>fs[wEval_def,LET_THM]>>
+    Cases_on`wEval(w,st with permute:=perm')`>>fs[]
+    >- (qexists_tac`perm'`>>fs[]) >>
+    Cases_on`wEval(q,cst)`>>fs[]>>
+    reverse (Cases_on`q'''''`)
+    >-
+      (qexists_tac`perm'`>>rw[]>>fs[])
+    >>
+    fs[]>>
+    first_assum(qspecl_then[`w0`,`r'`,`r''`,`q'`,`q''`,`r`] mp_tac)>>
+    discharge_hyps>- (fs[word_prog_size_def]>>DECIDE_TAC)>>
+    discharge_hyps>-
+      (rfs[]>>cheat)>> (*prove this separately I think*)
+    rw[]>>
+    qspecl_then[`w`,`st with permute:=perm'`,`perm''`]
+      assume_tac permute_swap_lemma>>
+    rfs[LET_THM]>>
+    qexists_tac`perm'''`>>rw[]>>fs[])
+  >- (*If -- hard*)
+    cheat
+  >- (*Alloc*)
+    (fs[ssa_cc_trans_def,LET_THM]>>cheat)
+  >>
+    cheat)
+
 
 val _ = export_theory();
