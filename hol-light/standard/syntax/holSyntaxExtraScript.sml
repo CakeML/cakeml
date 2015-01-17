@@ -1652,7 +1652,7 @@ val VSUBST_dbVSUBST = store_thm("VSUBST_dbVSUBST",
         spose_not_then strip_assume_tac >>
         metis_tac[REV_ASSOCD_MEM,VFREE_IN_def,dbVFREE_IN_VFREE_IN] ) >>
       fs[] ) >>
-    rw[Abbr`ls`,Abbr`ilist'`] >>
+    rw[Abbr`ls`,Abbr`ilist'`,Abbr`X`] >>
     match_mp_tac dbVSUBST_frees >>
     simp[MAP_db_FILTER_neq,REV_ASSOCD_FILTER] >>
     rw[Abbr`v`] >>
@@ -1695,7 +1695,7 @@ val VSUBST_dbVSUBST = store_thm("VSUBST_dbVSUBST",
     simp[Abbr`tu`,Abbr`ta`,VFREE_IN_VSUBST] >>
     metis_tac[] ) >>
   rw[] >>
-  simp[Abbr`ls`] >> fs[Abbr`z`,Abbr`zz`] >>
+  simp[Abbr`ls`] >> fs[Abbr`z`,Abbr`zz`,Abbr`X`] >>
   match_mp_tac dbVSUBST_frees >>
   simp[Abbr`ilist'`,MAP_db_FILTER_neq,REV_ASSOCD_FILTER] >>
   rw[Abbr`x`] >>
@@ -1761,7 +1761,7 @@ val INST_CORE_dbINST = store_thm("INST_CORE_dbINST",
   Cases_on`X`>>
   pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def]) >> fs[] >- (
     qmatch_abbrev_tac`bind (x,TYPE_SUBST tyin ty) 0 (db tt) = X` >>
-    pop_assum mp_tac >> ntac 3 (pop_assum kall_tac) >> strip_tac >>
+    ntac 3 (pop_assum kall_tac) >>
     qspecl_then[`db tm`,`x,ty`,`0`,`tyin`]mp_tac dbINST_bind >>
     discharge_hyps >- (
       qx_gen_tac`ty2` >>

@@ -128,6 +128,7 @@ val select_has_model_gen = store_thm("select_has_model_gen",
       match_mp_tac (UNDISCH abstract_in_funspace) >>
       simp[boolean_in_boolset] ) >>
     qmatch_assum_abbrev_tac`Abbrev(fz = fp ' fx)` >>
+    simp[Abbr`fy`] >>
     Q.PAT_ABBREV_TAC`fa = tyvof v (implode "A")` >>
     `fx <: fa ∧ fp <: Funspace fa boolset` by (
       fs[is_valuation_def,is_term_valuation_def] >>
@@ -147,7 +148,7 @@ val select_has_model_gen = store_thm("select_has_model_gen",
     rfs[] >>
     simp[Abbr`fi`] >>
     match_mp_tac apply_abstract_matchable >>
-    qmatch_assum_abbrev_tac`Abbrev(fy = fp ' fm)` >>
+    Q.PAT_ABBREV_TAC`fm = Abstract X fa Y ' fp` >>
     qmatch_assum_abbrev_tac`Abbrev(fm = fo ' fp)` >>
     `fo <: Funspace (Funspace fa bs) fa` by (
       simp[Abbr`fo`] >>
@@ -158,12 +159,12 @@ val select_has_model_gen = store_thm("select_has_model_gen",
       unabbrev_all_tac >>
       match_mp_tac (UNDISCH apply_in_rng) >>
       PROVE_TAC[] ) >>
-    `fy <: bs` by (
+    `fp ' fm <: bs` by (
       unabbrev_all_tac >>
       match_mp_tac (UNDISCH apply_in_rng) >>
       PROVE_TAC[] ) >>
     simp[Abbr`bs`,boolean_in_boolset,boolean_eq_true] >>
-    simp[Abbr`fz`,Abbr`fy`] >>
+    simp[Abbr`fz`] >>
     simp[GSYM holds_def] >> strip_tac >>
     simp[Abbr`fm`] >>
     qmatch_assum_abbrev_tac`Abbrev(fo = Abstract (Funspace fa boolset) fa fs)` >>
