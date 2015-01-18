@@ -63,13 +63,13 @@ val pComp_def = tDefine"pComp"`
   (pComp (Lit_pat (Char c)) =
     Op (Const (& ORD c)) []) ∧
   (pComp (Lit_pat (StrLit s)) =
-    Op (Cons string_tag) (MAP (λc. Op (Const (& ORD c)) []) s)) ∧
+    Op (Cons string_tag) (REVERSE (MAP (λc. Op (Const (& ORD c)) []) s))) ∧
   (pComp (Lit_pat (Bool b)) =
     Op (Cons (bool_to_tag b)) []) ∧
   (pComp (Lit_pat Unit) =
     Op (Cons unit_tag) []) ∧
   (pComp (Con_pat cn es) =
-    Op (Cons (cn+block_tag)) (MAP pComp es)) ∧
+    Op (Cons (cn+block_tag)) (REVERSE (MAP pComp es))) ∧
   (pComp (Var_local_pat n) =
     Var n) ∧
   (pComp (Var_global_pat n) =
@@ -77,16 +77,16 @@ val pComp_def = tDefine"pComp"`
   (pComp (Fun_pat e) =
     Fn 0 [] 1 (pComp e)) ∧
   (pComp (App_pat (Op_pat (Op_i2 Opapp)) es) =
-    if LENGTH es ≠ 2 then Op Sub (MAP pComp es) else
+    if LENGTH es ≠ 2 then Op Sub (REVERSE (MAP pComp es)) else
     App NONE (pComp (EL 0 es)) [pComp (EL 1 es)]) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Opn Plus))) es) =
-    Op Add (MAP pComp es)) ∧
+    Op Add (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Opn Minus))) es) =
-    Op Sub (MAP pComp es)) ∧
+    Op Sub (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Opn Times))) es) =
-    Op Mult (MAP pComp es)) ∧
+    Op Mult (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Opn Divide))) es) =
-    Let (MAP pComp es)
+    Let (REVERSE (MAP pComp es))
       (If (Op Equal [Var 1; Op (Const 0) []])
           (Raise (Op (Cons (div_tag+block_tag)) []))
           (Op Div [Var 0; Var 1]))) ∧
@@ -341,7 +341,7 @@ val pComp_correct = store_thm("pComp_correct",
   strip_tac >- (
     Cases_on`l`>>
     rw[cEval_def,cEvalOp_def] >>
-    simp[cEval_MAP_Op_Const,combinTheory.o_DEF] ) >>
+    simp[GSYM MAP_REVERSE,cEval_MAP_Op_Const,combinTheory.o_DEF] ) >>
   strip_tac >- simp[cEval_def] >>
   strip_tac >- (
     simp[cEval_def] >>
@@ -356,10 +356,10 @@ val pComp_correct = store_thm("pComp_correct",
   strip_tac >- (
     simp[cEval_def] >>
     Cases_on`err`>>simp[] ) >>
-  strip_tac >- simp[cEval_def,ETA_AX,cEvalOp_def] >>
+  strip_tac >- simp[cEval_def,ETA_AX,cEvalOp_def,MAP_REVERSE] >>
   strip_tac >- (
     Cases_on`err`>>
-    simp[cEval_def,ETA_AX,cEvalOp_def] ) >>
+    simp[cEval_def,ETA_AX,cEvalOp_def,MAP_REVERSE] ) >>
   strip_tac >- simp[cEval_def,EL_MAP] >>
   strip_tac >- simp[cEval_def] >>
   strip_tac >- (
@@ -367,41 +367,52 @@ val pComp_correct = store_thm("pComp_correct",
     Cases_on`s`>>simp[s_to_Cs_def,get_global_def,EL_MAP] ) >>
   strip_tac >- simp[cEval_def] >>
   strip_tac >- simp[cEval_def] >>
-  strip_tac >- simp[cEval_def,ETA_AX,s_to_Cs_restrict_envs,clos_env_def] >>
+  strip_tac >- simp[cEval_def,ETA_AX,s_to_Cs_restrict_envs,clos_env_def,max_app_def] >>
   strip_tac >- (
-    simp[cEval_def] >>
+    simp[cEval_def,MAP_REVERSE,ETA_AX] >>
     rw[cEval_def] >>
     imp_res_tac evaluate_list_pat_length >>
-    Cases_on`vs`>>fs[do_opapp_pat_def] >>
+    Cases_on`REVERSE vs`>>fs[do_opapp_pat_def] >>
     Cases_on`t`>>fs[do_opapp_pat_def] >>
     Cases_on`t'`>>fs[do_opapp_pat_def] >>
+    fs[SWAP_REVERSE_SYM] >>
     Cases_on`es`>>fs[]>>
     Cases_on`t`>>fs[LENGTH_NIL]>>
     fs[cEval_def] >>
     BasicProvers.CASE_TAC >> fs[] >> Cases_on`q`>>fs[]>>
     BasicProvers.CASE_TAC >> fs[] >> Cases_on`q`>>fs[]>>
-    rw[dest_closure_def] >>
-    Cases_on`h`>>fs[check_loc_def,s_to_Cs_def,ETA_AX,dec_clock_def] >>
+    imp_res_tac cEval_IMP_LENGTH >>
+    Cases_on`a`>>fs[LENGTH_NIL] >> rw[] >>
+    rw[cEval_def,dest_closure_def] >>
+    Cases_on`h`>>fs[check_loc_def,s_to_Cs_def,ETA_AX,dec_clock_def,max_app_def] >>
     rw[] >> fs[] >> rfs[EL_MAP] >> fs[build_rec_env_pat_def] >>
     fsrw_tac[ARITH_ss][] >>
     fs[MAP_GENLIST,combinTheory.o_DEF,ETA_AX] >>
-    fsrw_tac[ETA_ss][] ) >>
+    fsrw_tac[ETA_ss][] >>
+    BasicProvers.CASE_TAC >>
+    BasicProvers.CASE_TAC >>
+    BasicProvers.CASE_TAC >>
+    rw[cEval_def]) >>
   strip_tac >- (
-    simp[cEval_def] >>
+    simp[cEval_def,MAP_REVERSE,ETA_AX] >>
     rw[cEval_def] >>
     imp_res_tac evaluate_list_pat_length >>
-    Cases_on`vs`>>fs[do_opapp_pat_def] >>
+    Cases_on`REVERSE vs`>>fs[do_opapp_pat_def] >>
     Cases_on`t`>>fs[do_opapp_pat_def] >>
     Cases_on`t'`>>fs[do_opapp_pat_def] >>
+    fs[SWAP_REVERSE_SYM] >>
     Cases_on`es`>>fs[]>>
     Cases_on`t`>>fs[LENGTH_NIL]>>
     fs[cEval_def] >>
     BasicProvers.CASE_TAC >> fs[] >> Cases_on`q`>>fs[]>>
     BasicProvers.CASE_TAC >> fs[] >> Cases_on`q`>>fs[]>>
-    rw[dest_closure_def] >>
-    Cases_on`h`>>fs[check_loc_def,s_to_Cs_def,ETA_AX,dec_clock_def] >>
+    imp_res_tac cEval_IMP_LENGTH >>
+    Cases_on`a`>>fs[LENGTH_NIL] >> rw[] >>
+    rw[cEval_def,dest_closure_def] >>
+    Cases_on`h`>>fs[check_loc_def,s_to_Cs_def,ETA_AX,dec_clock_def,max_app_def] >>
     rw[] >> rw[] >>
-    fsrw_tac[ARITH_ss][] ) >>
+    fsrw_tac[ARITH_ss][] >>
+    rfs[EL_MAP]) >>
   strip_tac >- simp[cEval_def] >>
   strip_tac >- (
     simp[cEval_def] >> rw[] >>
