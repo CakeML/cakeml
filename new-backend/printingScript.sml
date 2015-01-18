@@ -871,7 +871,7 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
     qmatch_abbrev_tac`bc_next^* bs1 bs3 ⇒ Z` >>
     `bs3 = bs2 bs3.pc` by (
       simp[Abbr`bs3`,Abbr`bs2`,bc_state_component_equality,IMPLODE_EXPLODE_I] ) >>
-    rw[] >> qexists_tac`bs3.pc` >> conj_tac >- metis_tac[] >>
+    rw[Abbr`Z`] >> qexists_tac`bs3.pc` >> conj_tac >- metis_tac[] >>
     simp[Abbr`P`,Abbr`bs3`,Abbr`bs2`] >>
     match_mp_tac bc_fetch_next_addr >>
     simp[] >>
