@@ -305,7 +305,7 @@ val wGC_perm = prove(``
   fs[wGC_def,LET_THM]>>EVERY_CASE_TAC>>
   fs[word_state_component_equality])
 
-val get_var_perm = prove(``
+val get_var_perm = store_thm("get_var_perm",``
   get_var n (st with permute:=perm) =
   (get_var n st)``,fs[get_var_def])
 
