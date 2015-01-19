@@ -87,126 +87,126 @@ val pComp_def = tDefine"pComp"`
     Op Mult (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Opn Divide))) es) =
     Let (REVERSE (MAP pComp es))
-      (If (Op Equal [Var 1; Op (Const 0) []])
+      (If (Op Equal [Var 0; Op (Const 0) []])
           (Raise (Op (Cons (div_tag+block_tag)) []))
           (Op Div [Var 0; Var 1]))) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Opn Modulo))) es) =
-    Let (MAP pComp es)
-      (If (Op Equal [Var 1; Op (Const 0) []])
+    Let (REVERSE (MAP pComp es))
+      (If (Op Equal [Var 0; Op (Const 0) []])
           (Raise (Op (Cons (div_tag+block_tag)) []))
           (Op Mod [Var 0; Var 1]))) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Opb Lt))) es) =
-    Op Less (MAP pComp es)) ∧
+    Op Less (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Opb Gt))) es) =
-    Let (MAP pComp es)
+    Let (REVERSE (MAP pComp es))
       (Op Less [Var 1; Var 0])) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Opb Leq))) es) =
-    Let [Op Sub (MAP pComp es)]
-      (Op Less [Var 0; Op (Const 1) []])) ∧
+    Let [Op Sub (REVERSE (MAP pComp es))]
+      (Op Less [Op (Const 1) []; Var 0])) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Opb Geq))) es) =
-    Let (MAP pComp es)
-      (Op Less [Op Sub [Var 1; Var 0]; Op (Const 1) []])) ∧
+    Let (REVERSE (MAP pComp es))
+      (Op Less [Op (Const 1) []; Op Sub [Var 1; Var 0]])) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Chopb Lt))) es) =
-    Op Less (MAP pComp es)) ∧
+    Op Less (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Chopb Gt))) es) =
-    Let (MAP pComp es)
+    Let (REVERSE (MAP pComp es))
       (Op Less [Var 1; Var 0])) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Chopb Leq))) es) =
-    Let [Op Sub (MAP pComp es)]
-      (Op Less [Var 0; Op (Const 1) []])) ∧
+    Let [Op Sub (REVERSE (MAP pComp es))]
+      (Op Less [Op (Const 1) []; Var 0])) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Chopb Geq))) es) =
-    Let (MAP pComp es)
-      (Op Less [Op Sub [Var 1; Var 0]; Op (Const 1) []])) ∧
+    Let (REVERSE (MAP pComp es))
+      (Op Less [Op (Const 1) []; Op Sub [Var 1; Var 0]])) ∧
   (pComp (App_pat (Op_pat (Op_i2 Equality)) es) =
-    Let [Op Equal (MAP pComp es)]
+    Let [Op Equal (REVERSE (MAP pComp es))]
       (If (Op IsBlock [Var 0]) (Var 0)
           (Raise (Op (Cons (eq_tag+block_tag)) [])))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Opassign)) es) =
-    Let (MAP pComp es)
+    Let (REVERSE (MAP pComp es))
       (Let [Op Update [Var 0; Op (Const 0) []; Var 1]]
          (Op (Cons unit_tag) []))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Opderef)) es) =
-    Op Deref (MAP pComp es ++ [Op (Const 0) []])) ∧
+    Op Deref ((Op (Const 0) [])::(REVERSE (MAP pComp es)))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Opref)) es) =
-    Op Ref (MAP pComp es)) ∧
+    Op Ref (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Ord)) es) =
-    if LENGTH es ≠ 1 then Op Sub (MAP pComp es) else pComp (HD es)) ∧
+    if LENGTH es ≠ 1 then Op Sub (REVERSE (MAP pComp es)) else pComp (HD es)) ∧
   (pComp (App_pat (Op_pat (Op_i2 Chr)) es) =
-    Let (MAP pComp es)
-      (If (Op Less [Var 0; Op (Const 0) []])
+    Let (REVERSE (MAP pComp es))
+      (If (Op Less [Op (Const 0) []; Var 0])
         (Raise (Op (Cons (chr_tag+block_tag)) []))
-        (If (Op Less [Op (Const 255) []; Var 0])
+        (If (Op Less [Var 0; Op (Const 255) []])
           (Raise (Op (Cons (chr_tag+block_tag)) []))
           (Var 0)))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Aw8alloc)) es) =
-    Let (MAP pComp es)
-      (If (Op Less [Var 0; Op (Const 0) []])
+    Let (REVERSE (MAP pComp es))
+      (If (Op Less [Op (Const 0) []; Var 1])
           (Raise (Op (Cons (subscript_tag + block_tag)) []))
           (Op RefByte [Var 0; Var 1]))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Aw8sub)) es) =
-    Let (MAP pComp es)
-      (If (Op Less [Var 1; Op (Const 0) []])
+    Let (REVERSE (MAP pComp es))
+      (If (Op Less [Op (Const 0) []; Var 0])
           (Raise (Op (Cons (subscript_tag + block_tag)) []))
-          (If (Op Less [Var 1; Op LengthByte [Var 0]])
+          (If (Op Less [Op LengthByte [Var 1]; Var 0])
               (Op DerefByte [Var 0; Var 1])
               (Raise (Op (Cons (subscript_tag + block_tag)) []))))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Aw8length)) es) =
-    Op LengthByte (MAP pComp es)) ∧
+    Op LengthByte (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Aw8update)) es) =
-    Let (MAP pComp es)
-      (If (Op Less [Var 1; Op (Const 0) []])
+    Let (REVERSE (MAP pComp es))
+      (If (Op Less [Op (Const 0) []; Var 1])
           (Raise (Op (Cons (subscript_tag + block_tag)) []))
-          (If (Op Less [Var 1; Op LengthByte [Var 0]])
+          (If (Op Less [Op LengthByte [Var 2]; Var 1])
               (Let [Op UpdateByte [Var 0; Var 1; Var 2]]
                  (Op (Cons unit_tag) []))
               (Raise (Op (Cons (subscript_tag + block_tag)) []))))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Explode)) es) =
-    Op ToList (MAP pComp es)) ∧
+    Op ToList (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Implode)) es) =
-    Op (FromList string_tag) (MAP pComp es)) ∧
+    Op (FromList string_tag) (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Strlen)) es) =
-    Op LengthBlock (MAP pComp es)) ∧
+    Op LengthBlock (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 VfromList)) es) =
-    Op (FromList vector_tag) (MAP pComp es)) ∧
+    Op (FromList vector_tag) (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Vsub)) es) =
-    Let (MAP pComp es)
-      (If (Op Less [Var 1; Op (Const 0) []])
+    Let (REVERSE (MAP pComp es))
+      (If (Op Less [Op (Const 0) []; Var 0])
           (Raise (Op (Cons (subscript_tag + block_tag)) []))
-          (If (Op Less [Var 1; Op LengthBlock [Var 0]])
+          (If (Op Less [Op LengthBlock [Var 1]; Var 0])
               (Op El [Var 0; Var 1])
               (Raise (Op (Cons (subscript_tag + block_tag)) []))))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Vlength)) es) =
-    Op LengthBlock (MAP pComp es)) ∧
+    Op LengthBlock (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Aalloc)) es) =
-    Let (MAP pComp es)
-      (If (Op Less [Var 0; Op (Const 0) []])
+    Let (REVERSE (MAP pComp es))
+      (If (Op Less [Op (Const 0) []; Var 1])
           (Raise (Op (Cons (subscript_tag + block_tag)) []))
           (Op RefArray [Var 0; Var 1]))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Asub)) es) =
-    Let (MAP pComp es)
-      (If (Op Less [Var 1; Op (Const 0) []])
+    Let (REVERSE (MAP pComp es))
+      (If (Op Less [Op (Const 0) []; Var 0])
           (Raise (Op (Cons (subscript_tag + block_tag)) []))
-          (If (Op Less [Var 1; Op Length [Var 0]])
+          (If (Op Less [Op Length [Var 1]; Var 0])
               (Op Deref [Var 0; Var 1])
               (Raise (Op (Cons (subscript_tag + block_tag)) []))))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Alength)) es) =
-    Op Length (MAP pComp es)) ∧
+    Op Length (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Aupdate)) es) =
-    Let (MAP pComp es)
-      (If (Op Less [Var 1; Op (Const 0) []])
+    Let (REVERSE (MAP pComp es))
+      (If (Op Less [Op (Const 0) []; Var 1])
           (Raise (Op (Cons (subscript_tag + block_tag)) []))
-          (If (Op Less [Var 1; Op Length [Var 0]])
+          (If (Op Less [Op Length [Var 2]; Var 1])
               (Let [Op Update [Var 0; Var 1; Var 2]]
                  (Op (Cons unit_tag) []))
               (Raise (Op (Cons (subscript_tag + block_tag)) []))))) ∧
   (pComp (App_pat (Op_pat (Init_global_var_i2 n)) es) =
-    Let [Op (SetGlobal n) (MAP pComp es)]
+    Let [Op (SetGlobal n) (REVERSE (MAP pComp es))]
       (Op (Cons unit_tag) [])) ∧
   (pComp (App_pat (Tag_eq_pat n) es) =
-    Op (TagEq (n+block_tag)) (MAP pComp es)) ∧
+    Op (TagEq (n+block_tag)) (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (El_pat n) es) =
-    Let (MAP pComp es)
-      (Op El [Var 0; Op (Const &n) []])) ∧
+    Let (REVERSE (MAP pComp es))
+      (Op El [Op (Const &n) []; Var 0])) ∧
   (pComp (If_pat e1 e2 e3) =
     If (pComp e1) (pComp e2) (pComp e3)) ∧
   (pComp (Let_pat e1 e2) =
@@ -419,23 +419,26 @@ val pComp_correct = store_thm("pComp_correct",
     PairCases_on`s2` >>
     imp_res_tac free_varsTheory.do_app_pat_cases >>
     fs[do_app_pat_def] >> rw[] >- (
-      Cases_on`z`>>fs[cEval_def,ETA_AX,cEvalOp_def] >>
+      Cases_on`z`>>fs[cEval_def,ETA_AX,cEvalOp_def,MAP_REVERSE,SWAP_REVERSE_SYM] >>
       rw[opn_lookup_def,clos_equal_def,bool_to_val_thm] >>
       TRY IF_CASES_TAC >> fs[] >> fsrw_tac[ARITH_ss][] >>
       BasicProvers.EVERY_CASE_TAC >> fs[] >>
       rw[prim_exn_pat_def,opn_lookup_def] )
     >- (
-      Cases_on`z`>>fs[cEval_def,ETA_AX,cEvalOp_def,bool_to_tag_thm,opb_lookup_def,bool_to_val_thm] >>
-      simp[] >> rw[] >> COOPER_TAC )
+      Cases_on`z`>>fs[cEval_def,ETA_AX,cEvalOp_def,bool_to_tag_thm,opb_lookup_def,bool_to_val_thm,
+                      MAP_REVERSE,SWAP_REVERSE_SYM] >> simp[] >>
+      rw[] >> COOPER_TAC )
     >- (
       simp[cEval_def,ETA_AX,cEvalOp_def] >>
+      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
       Cases_on`do_eq_pat v1 v2 = Eq_type_error`>>fs[] >>
       imp_res_tac do_eq_pat_clos_equal >> fs[] >>
       BasicProvers.CASE_TAC >> fs[] >> rw[bool_to_tag_thm,bool_to_val_thm] >>
       fsrw_tac[ARITH_ss][prim_exn_pat_def])
     >- (
       simp[cEval_def,ETA_AX,cEvalOp_def] >>
-      fs[store_assign_def,Once s_to_Cs_def] >>
+      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
+      fs[store_assign_def,Once s_to_Cs_def] >> simp[] >>
       BasicProvers.CASE_TAC >- (
         imp_res_tac ALOOKUP_FAILS >> fs[MEM_GENLIST] ) >>
       imp_res_tac ALOOKUP_MEM >> fs[MEM_GENLIST] >>
@@ -449,6 +452,7 @@ val pComp_correct = store_thm("pComp_correct",
       simp[EL_LUPDATE] )
     >- (
       simp[ETA_AX,cEval_def,cEvalOp_def] >>
+      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
       fs[store_lookup_def] >>
       imp_res_tac evaluate_list_pat_length >>
       Cases_on`es`>>fs[LENGTH_NIL] >>
@@ -459,6 +463,7 @@ val pComp_correct = store_thm("pComp_correct",
       rw[s_to_Cs_def] )
     >- (
       simp[ETA_AX,cEval_def,cEvalOp_def] >>
+      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
       fs[store_alloc_def,LET_THM] >>
       rpt BasicProvers.VAR_EQ_TAC >>
       simp[s_to_Cs_def,fmap_eq_flookup,FLOOKUP_UPDATE] >>
@@ -472,12 +477,15 @@ val pComp_correct = store_thm("pComp_correct",
       simp[ALOOKUP_GENLIST] >>
       rw[] >> simp[EL_APPEND1,EL_APPEND2,sv_to_Cref_def] )
     >- (
-      simp[cEval_def,ETA_AX,cEvalOp_def,s_to_Cs_def,get_global_def,EL_MAP] >>
+      simp[cEval_def,ETA_AX,cEvalOp_def] >>
+      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
+      simp[s_to_Cs_def,get_global_def,EL_MAP] >>
       Cases_on`EL idx s22`>>fs[] >>
       rpt BasicProvers.VAR_EQ_TAC >>
       simp[s_to_Cs_def,LUPDATE_MAP] )
     >- (
-      simp[cEval_def,ETA_AX,cEvalOp_def,bool_to_val_thm] >>
+      simp[cEval_def,ETA_AX,cEvalOp_def] >>
+      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >> simp[bool_to_val_thm] >>
       fs[store_alloc_def,LET_THM] >>
       Cases_on`n<0`>>fs[prim_exn_pat_def] >- rw[] >>
       `0 ≤ n` by COOPER_TAC >>
@@ -496,7 +504,8 @@ val pComp_correct = store_thm("pComp_correct",
       rw[] >> simp[EL_APPEND1,EL_LENGTH_APPEND,sv_to_Cref_def] >>
       metis_tac[INT_ABS_EQ_ID])
     >- (
-      simp[cEval_def,ETA_AX,cEvalOp_def,bool_to_val_thm] >>
+      simp[cEval_def,ETA_AX,cEvalOp_def] >>
+      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >> simp[bool_to_val_thm] >>
       fs[store_lookup_def,LET_THM] >>
       Cases_on`lnum < LENGTH s21`>>fs[] >>
       Cases_on`i < 0` >> fs[] >- (
@@ -513,13 +522,15 @@ val pComp_correct = store_thm("pComp_correct",
       rw[s_to_Cs_def] )
     >- (
       simp[cEval_def,ETA_AX,cEvalOp_def] >>
-      fs[store_lookup_def] >>
+      fs[MAP_REVERSE,SWAP_REVERSE_SYM,store_lookup_def] >>
       simp[s_to_Cs_def,ALOOKUP_GENLIST] >>
       Cases_on`n < LENGTH s21`>>fs[]>>
       Cases_on`EL n s21`>>fs[sv_to_Cref_def] >>
       rw[s_to_Cs_def] )
     >- (
-      simp[cEval_def,ETA_AX,cEvalOp_def,bool_to_val_thm] >>
+      simp[cEval_def,ETA_AX,cEvalOp_def] >>
+      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
+      simp[bool_to_val_thm] >>
       fs[store_lookup_def,LET_THM] >>
       Cases_on`lnum < LENGTH s21`>>fs[] >>
       Cases_on`i < 0` >> fs[] >- (
@@ -543,12 +554,15 @@ val pComp_correct = store_thm("pComp_correct",
       imp_res_tac evaluate_list_pat_length >> fs[] )
     >- ( Cases_on`es`>>fs[LENGTH_NIL] )
     >- (
-      simp[cEval_def,ETA_AX,cEvalOp_def,bool_to_val_thm,prim_exn_pat_def] )
+      fs[MAP_REVERSE] >>
+      simp[cEval_def,ETA_AX,cEvalOp_def,bool_to_val_thm,prim_exn_pat_def])
     >- (
+      fs[MAP_REVERSE] >>
       simp[cEval_def,ETA_AX,cEvalOp_def,bool_to_val_thm,prim_exn_pat_def] >>
       Cases_on`n < 0` >> fs[] >>
       `255 < n` by COOPER_TAC >> simp[])
     >- (
+      fs[MAP_REVERSE] >>
       simp[cEval_def,ETA_AX,cEvalOp_def,bool_to_val_thm,prim_exn_pat_def] >> fs[] >>
       `¬(255 < n)` by COOPER_TAC >> simp[] >>
       `ABS n = n` by COOPER_TAC >>
@@ -556,21 +570,26 @@ val pComp_correct = store_thm("pComp_correct",
       `0 ≤ n` by COOPER_TAC >>
       simp[ORD_CHR,INT_OF_NUM])
     >- (
+      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
       Cases_on`z`>>fs[cEval_def,ETA_AX,cEvalOp_def,bool_to_tag_thm,opb_lookup_def,bool_to_val_thm] >>
       simp[] >> rw[] >> COOPER_TAC )
     >- (
+      fs[MAP_REVERSE] >>
       simp[cEval_def,ETA_AX,cEvalOp_def] >>
       simp[clos_to_list_correct,IMPLODE_EXPLODE_I])
     >- (
+      fs[MAP_REVERSE] >>
       simp[cEval_def,ETA_AX,cEvalOp_def] >>
       imp_res_tac clos_from_char_list_correct >>
       simp[IMPLODE_EXPLODE_I])
-    >- ( simp[cEval_def,ETA_AX,cEvalOp_def] )
+    >- ( fs[MAP_REVERSE] >>simp[cEval_def,ETA_AX,cEvalOp_def] )
     >- (
+      fs[MAP_REVERSE] >>
       simp[cEval_def,ETA_AX,cEvalOp_def] >>
       imp_res_tac clos_from_list_correct >>
       simp[])
     >- (
+      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
       simp[cEval_def,ETA_AX,cEvalOp_def,bool_to_val_thm] >>
       Cases_on`i < 0` >> fs[LET_THM] >- (
         rw[prim_exn_pat_def] ) >>
@@ -581,8 +600,9 @@ val pComp_correct = store_thm("pComp_correct",
         rw[s_to_Cs_def,prim_exn_pat_def] ) >>
       rpt BasicProvers.VAR_EQ_TAC >>
       simp[EL_MAP] )
-    >- ( simp[cEval_def,ETA_AX,cEvalOp_def])
+    >- ( fs[MAP_REVERSE] >> simp[cEval_def,ETA_AX,cEvalOp_def])
     >- (
+      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
       simp[cEval_def,ETA_AX,cEvalOp_def,bool_to_val_thm] >>
       fs[store_alloc_def,LET_THM] >>
       Cases_on`n<0`>>fs[prim_exn_pat_def] >- rw[] >>
@@ -601,6 +621,7 @@ val pComp_correct = store_thm("pComp_correct",
       simp[REPLICATE_GENLIST,MAP_GENLIST] >>
       metis_tac[INT_ABS_EQ_ID])
     >- (
+      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
       simp[cEval_def,ETA_AX,cEvalOp_def,bool_to_val_thm] >>
       fs[store_lookup_def,LET_THM] >>
       Cases_on`lnum < LENGTH s21`>>fs[] >>
@@ -617,6 +638,7 @@ val pComp_correct = store_thm("pComp_correct",
       simp[ALOOKUP_GENLIST,sv_to_Cref_def,EL_MAP] >>
       rw[s_to_Cs_def] )
     >- (
+      fs[MAP_REVERSE] >>
       simp[cEval_def,ETA_AX,cEvalOp_def] >>
       fs[store_lookup_def] >>
       simp[s_to_Cs_def,ALOOKUP_GENLIST] >>
@@ -624,6 +646,7 @@ val pComp_correct = store_thm("pComp_correct",
       Cases_on`EL n s21`>>fs[sv_to_Cref_def] >>
       rw[s_to_Cs_def] )
     >- (
+      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
       simp[cEval_def,ETA_AX,cEvalOp_def,bool_to_val_thm] >>
       fs[store_lookup_def,LET_THM] >>
       Cases_on`lnum < LENGTH s21`>>fs[] >>
@@ -643,11 +666,13 @@ val pComp_correct = store_thm("pComp_correct",
       simp[ALOOKUP_GENLIST] >>
       rw[] >> fs[EL_LUPDATE,sv_to_Cref_def,LUPDATE_MAP])
     >- (
+      fs[MAP_REVERSE] >>
       simp[cEval_def,ETA_AX,cEvalOp_def,bool_to_val_thm,bool_to_tag_thm] )
-    >- ( simp[cEval_def,ETA_AX,cEvalOp_def,EL_MAP] )) >>
+    >- ( fs[MAP_REVERSE] >> simp[cEval_def,ETA_AX,cEvalOp_def,EL_MAP] )) >>
   strip_tac >- simp[cEval_def] >>
   strip_tac >- (
     simp[cEval_def] >> rw[] >>
+    fs[MAP_REVERSE] >>
     Cases_on`op`>>simp[cEval_def,ETA_AX] >>
     TRY( Cases_on`err`>>fs[] >> NO_TAC) >>
     Cases_on`o'`>>simp[cEval_def,ETA_AX] >>
@@ -658,8 +683,8 @@ val pComp_correct = store_thm("pComp_correct",
     TRY(Cases_on`o'`>>simp[cEval_def,ETA_AX] >>
         Cases_on`err`>>fs[] >> NO_TAC) >>
     TRY(
-      CHANGED_TAC(REWRITE_TAC[GSYM SNOC_APPEND]) >>
-      simp[Once cEval_SNOC] >>
+      simp[Once cEval_CONS] >>
+      simp[cEval_def,cEvalOp_def] >>
       Cases_on`err`>>fs[] >> NO_TAC) >>
     Cases_on`es`>>fs[LENGTH_NIL] >>
     Cases_on`t`>>fs[LENGTH_NIL] >>
@@ -695,7 +720,7 @@ val pComp_correct = store_thm("pComp_correct",
     Cases_on`err`>>simp[] ) >>
   strip_tac >- (
     simp[cEval_def] >>
-    rw[] >> fs[] >>
+    rw[] >> fs[EXISTS_MAP,max_app_def] >>
     fs[build_rec_env_pat_def,build_recc_def,MAP_GENLIST,s_to_Cs_restrict_envs,
        combinTheory.o_DEF,ETA_AX,MAP_MAP_o,clos_env_def] >>
     fsrw_tac[ETA_ss][] ) >>
