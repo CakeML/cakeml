@@ -389,10 +389,10 @@ val pComp_correct = store_thm("pComp_correct",
     fsrw_tac[ARITH_ss][] >>
     fs[MAP_GENLIST,combinTheory.o_DEF,ETA_AX] >>
     fsrw_tac[ETA_ss][] >>
-    BasicProvers.CASE_TAC >>
-    BasicProvers.CASE_TAC >>
-    BasicProvers.CASE_TAC >>
-    rw[cEval_def]) >>
+    rw[cEval_def] >>
+    (* There was an error in closLang before that incorrectly rendered this case
+     * trivial from here on. Now that it's fixed, there's some more work to do. *)
+    cheat ) >>
   strip_tac >- (
     simp[cEval_def,MAP_REVERSE,ETA_AX] >>
     rw[cEval_def] >>

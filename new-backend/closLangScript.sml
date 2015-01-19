@@ -306,7 +306,7 @@ val dest_closure_def = Define `
     case f of
     | Closure loc arg_env clo_env num_args exp =>
         if check_loc loc_opt loc num_args (LENGTH args) (LENGTH arg_env) ∧ LENGTH arg_env < num_args then
-          if ¬(LENGTH args + LENGTH arg_env < num_args) then
+          if ¬(LENGTH args + LENGTH arg_env < num_args + 1) then
             SOME (Full_app exp
                            (REVERSE (TAKE (num_args + 1 - LENGTH arg_env) (REVERSE args))++
                             arg_env++clo_env)
@@ -321,7 +321,7 @@ val dest_closure_def = Define `
              ~(check_loc loc_opt (loc+i) num_args (LENGTH args) (LENGTH arg_env)) ∨
              ¬(LENGTH arg_env < num_args) then NONE else
             let rs = GENLIST (Recclosure loc [] clo_env fns) (LENGTH fns) in
-              if ¬(LENGTH args + LENGTH arg_env < num_args) then
+              if ¬(LENGTH args + LENGTH arg_env < num_args + 1) then
                 SOME (Full_app exp
                                (REVERSE (TAKE (num_args + 1 - LENGTH arg_env) (REVERSE args))++
                                 arg_env++rs++clo_env)
@@ -342,7 +342,7 @@ val dest_closure_length = Q.prove (
  TRY decide_tac >>
  Cases_on `EL n l1` >>
  fs [LET_THM] >>
- Cases_on `LENGTH args + LENGTH l < q` >>
+ Cases_on `LENGTH args + LENGTH l < q + 1` >>
  fs [] >>
  rw [] >>
  decide_tac);
