@@ -110,10 +110,10 @@ val l_model_exists = store_thm("l_model_exists",
       fs[arithmeticTheory.NOT_LESS_EQUAL] >>
       qpat_assum`BIT X Y`mp_tac >>
       simp[numposrepTheory.BIT_num_from_bin_list] >>
-      fs[Abbr`ll`] >> rw[] >>
+      fs[Abbr`ll`,Abbr`P`] >> rw[] >>
       qexists_tac`INR b` >>
       simp[EVERY_GENLIST] ) >>
-    strip_tac >>
+    qunabbrev_tac`P` >> strip_tac >>
     `aa < LENGTH ll` by (
       fs[Abbr`ll`] >>
       simp[numposrepTheory.num_to_bin_list_def] >>

@@ -248,7 +248,7 @@ val termsem_tyfrees = store_thm("termsem_tyfrees",
     rw[] >>
     qmatch_abbrev_tac`instance (tmsof Γ) i name ty τ = X` >>
     qspecl_then[`tmsof Γ`,`i`,`name`,`ty`]mp_tac instance_def >>
-    simp[Abbr`ty`] >> disch_then kall_tac >>
+    simp[Abbr`ty`,Abbr`X`] >> disch_then kall_tac >>
     rpt AP_TERM_TAC >> simp[FUN_EQ_THM,MAP_EQ_f] >> rw[] >>
     match_mp_tac typesem_frees >>
     rw[] >>
@@ -390,7 +390,7 @@ val termsem_simple_inst = store_thm("termsem_simple_inst",
     rw[] >> rw[TYPE_SUBST_compose] >>
     qmatch_abbrev_tac`instance sig int name (TYPE_SUBST i2 ty0) t1 =
                       instance sig int name (TYPE_SUBST i1 ty0) t2` >>
-    qspecl_then[`sig`,`int`,`name`]mp_tac instance_def >> simp[Abbr`sig`] >>
+    qspecl_then[`sig`,`int`,`name`]mp_tac instance_def >> simp[Abbr`sig`,Abbr`t2`] >>
     disch_then kall_tac >> rpt AP_TERM_TAC >> rw[FUN_EQ_THM,MAP_EQ_f] >> rw[] >>
     rw[Once REV_ASSOCD_ALOOKUP,Abbr`i2`,ALOOKUP_APPEND,MAP_MAP_o,swap_ff] >>
     rw[ff_def,GSYM MAP_MAP_o,ALOOKUP_MAP] >>
@@ -549,7 +549,7 @@ val termsem_sig = store_thm("termsem_sig",
     qmatch_abbrev_tac`instance tmenv i' s ty τ = X` >>
     qmatch_assum_abbrev_tac`Abbrev(ty = TYPE_SUBST tyin ty0)` >>
     first_x_assum(qspecl_then[`tyin`,`ty`]mp_tac) >>
-    simp[Abbr`ty`] >> disch_then kall_tac >>
+    simp[Abbr`X`,Abbr`ty`] >> disch_then kall_tac >>
     qmatch_abbrev_tac`f1 x1 = f2 x2` >>
     `x1 = x2` by (
       unabbrev_all_tac >>

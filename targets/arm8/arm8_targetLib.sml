@@ -2,47 +2,32 @@ structure arm8_targetLib :> arm8_targetLib =
 struct
 
 open HolKernel boolLib bossLib
-open arm8Theory arm8_targetTheory sptreeSyntax utilsLib asmLib
+open arm8Theory arm8_targetTheory utilsLib asmLib
 
 (*
-
 val ERR = Feedback.mk_HOL_ERR "arm8_targetLib"
-
-val () = sptreeSyntax.temp_add_sptree_printer()
-
 *)
 
 fun arm_type s = Type.mk_thy_type {Thy = "arm8", Tyop = s, Args = []}
 
 val arm8_enc = REWRITE_RULE [bop_enc_def, asmTheory.shift_distinct] arm8_enc_def
 
-val lookup_CONV =
-   RATOR_CONV (RAND_CONV wordsLib.WORD_EVAL_CONV)
-   THENC RAND_CONV (fn t => if t = ``sptree_mask64``
-                               then arm8_encodeTheory.sptree_mask64_def
-                            else arm8_encodeTheory.sptree_mask32_def)
-   THENC PURE_REWRITE_CONV [sptreeTheory.lookup_compute]
-
-val EncodeBitMask_CONV =
-   PURE_REWRITE_CONV [arm8_encodeTheory.EncodeBitMask_def] THENC lookup_CONV
-
 fun add_arm8_encode_compset cmp =
    ( computeLib.add_thms
        [arm8_enc, arm8_encode_def, bop_enc_def, bop_dec_def, cmp_cond_def,
-        arm8_enc_mov_imm_def, arm8_encodeTheory.InstructionEncode_def,
-        Encode_def, e_data_def, e_branch_def, e_load_store_def, e_sf_def,
-        e_LoadStoreImmediate_def, EncodeLogicalOp_def, NoOperation_def,
-        ShiftType2num_thm, SystemHintOp2num_thm, ShiftType2num_thm,
-        valid_immediate_def, LSL_def, LSR_def, arm8_config_def,
-        pred_setTheory.IN_INSERT, pred_setTheory.NOT_IN_EMPTY] cmp
+        arm8_enc_mov_imm_def, CountTrailing_def, EncodeBitMaskAux_def,
+        EncodeBitMask_def, Encode_def, e_data_def, e_branch_def,
+        e_load_store_def, e_sf_def, e_LoadStoreImmediate_def,
+        EncodeLogicalOp_def, NoOperation_def, ShiftType2num_thm,
+        SystemHintOp2num_thm, ShiftType2num_thm, valid_immediate_def, LSL_def,
+        LSR_def, arm8_config_def, pred_setTheory.IN_INSERT,
+        pred_setTheory.NOT_IN_EMPTY] cmp
    ; utilsLib.add_datatypes
        (``:('a, 'b) sum`` ::
         List.map arm_type
           ["instruction", "Data", "Branch", "LoadStore", "SystemHintOp",
            "MoveWideOp", "LogicalOp", "MemOp", "BranchType", "ShiftType",
            "MachineCode"]) cmp
-   ; computeLib.add_conv
-       (``arm8_encode$EncodeBitMask``, 1, EncodeBitMask_CONV) cmp
    )
 
 fun add_arm8_decode_compset cmp =
