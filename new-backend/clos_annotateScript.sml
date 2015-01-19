@@ -20,16 +20,20 @@ val clos_free_def = tDefine "clos_free" `
   (clos_free n [Tick x1] <=> clos_free n [x1]) /\
   (clos_free n [Op op xs] <=> clos_free n xs) /\
   (clos_free n [App loc_opt x1 x2] <=>
-     clos_free n [x1] \/ clos_free n [x2]) /\
-  (clos_free n [Fn loc vs x1] <=>
+     clos_free n [x1] \/ clos_free n x2) /\
+  (clos_free n [Fn loc vs num_args x1] <=>
      clos_free (n + 1) [x1]) /\
   (clos_free n [Letrec loc vs fns x1] <=>
-     clos_free (n + 1 + LENGTH fns) fns \/ clos_free (n + LENGTH fns) [x1]) /\
+     clos_free (n + 1 + LENGTH fns) (MAP SND fns) \/ clos_free (n + LENGTH fns) [x1]) /\
   (clos_free n [Handle x1 x2] <=>
      clos_free n [x1] \/ clos_free (n+1) [x2]) /\
   (clos_free n [Call dest xs] <=> clos_free n xs)`
- (WF_REL_TAC `measure (clos_exp1_size o SND)`
-  \\ REPEAT STRIP_TAC \\ DECIDE_TAC);
+ (WF_REL_TAC `measure (clos_exp3_size o SND)`
+  \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC \\
+  Induct_on `fns` >>
+  srw_tac [ARITH_ss] [clos_exp_size_def] >>
+  Cases_on `h` >>
+  srw_tac [ARITH_ss] [clos_exp_size_def]);
 
 val clos_exp_ind =
   theorem "clos_free_ind" |> Q.SPEC `K P` |> SIMP_RULE std_ss []
@@ -61,19 +65,19 @@ val cFree_def = tDefine "cFree" `
   (cFree [Op op xs] =
      let (c1,l1) = cFree xs in
        ([Op op c1],l1)) /\
-  (cFree [App loc_opt x1 x2] =
+  (cFree [App loc_opt x1 xs2] =
      let (c1,l1) = cFree [x1] in
-     let (c2,l2) = cFree [x2] in
-       ([App loc_opt (HD c1) (HD c2)],mk_Union l1 l2)) /\
-  (cFree [Fn loc vs x1] =
+     let (c2,l2) = cFree xs2 in
+       ([App loc_opt (HD c1) c2],mk_Union l1 l2)) /\
+  (cFree [Fn loc vs num_args x1] =
      let (c1,l1) = cFree [x1] in
      let l2 = Shift 1 l1 in
-       ([Fn loc (vars_to_list l2) (HD c1)],l2)) /\
+       ([Fn loc (vars_to_list l2) num_args (HD c1)],l2)) /\
   (cFree [Letrec loc vs fns x1] =
-     let (c1,l1) = cFree fns in
+     let (c1,l1) = cFree (MAP SND fns) in
      let l3 = Shift (1 + LENGTH fns) l1 in
      let (c2,l2) = cFree [x1] in
-       ([Letrec loc (vars_to_list l3) c1 (HD c2)],
+       ([Letrec loc (vars_to_list l3) (ZIP (MAP FST fns, c1)) (HD c2)],
         mk_Union l3 (Shift (LENGTH fns) l2))) /\
   (cFree [Handle x1 x2] =
      let (c1,l1) = cFree [x1] in
@@ -82,8 +86,14 @@ val cFree_def = tDefine "cFree" `
   (cFree [Call dest xs] =
      let (c1,l1) = cFree xs in
        ([Call dest c1],l1))`
- (WF_REL_TAC `measure clos_exp1_size`
-  \\ REPEAT STRIP_TAC \\ DECIDE_TAC);
+ (WF_REL_TAC `measure clos_exp3_size`
+  \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC \\
+  Induct_on `fns` >>
+  srw_tac [ARITH_ss] [clos_exp_size_def] >>
+  Cases_on `h` >>
+  srw_tac [ARITH_ss] [clos_exp_size_def]);
+
+  
 
 val cFree_ind = fetch "-" "cFree_ind";
 
@@ -141,14 +151,15 @@ val cFree_thm = prove(
     \\ IMP_RES_TAC cEval_const \\ rfs [] \\ RES_TAC
     \\ IMP_RES_TAC cFree_LENGTH
     \\ Cases_on `y2` \\ fs [has_var_def,clos_free_def])
-  \\ `?y1 l1. cFree fns = (y1,l1)` by METIS_TAC [PAIR,cFree_SING] \\ fs []
+  \\ `?y1 l1. cFree (MAP SND fns) = (y1,l1)` by METIS_TAC [PAIR,cFree_SING] \\ fs []
   \\ `?y1 l1. cFree [x1] = ([y1],l1)` by METIS_TAC [PAIR,cFree_SING] \\ fs []
   \\ `?y1 l1. cFree xs = (y1,l1)` by METIS_TAC [PAIR,cFree_SING] \\ fs []
+  \\ `?y1 l1. cFree xs2 = (y1,l1)` by METIS_TAC [PAIR,cFree_SING] \\ fs []
   \\ `?y2 l2. cFree [x2] = ([y2],l2)` by METIS_TAC [PAIR,cFree_SING] \\ fs []
   \\ `?y3 l3. cFree [x3] = ([y3],l3)` by METIS_TAC [PAIR,cFree_SING] \\ fs []
   \\ rfs [] \\ RES_TAC \\ IMP_RES_TAC cFree_LENGTH \\ fs []
   \\ fs [has_var_def,clos_free_def,MEM_vars_to_list]
-  \\ fs [AC ADD_ASSOC ADD_COMM])
+  \\ fs [AC ADD_ASSOC ADD_COMM, MAP_ZIP])
   |> SPEC_ALL;
 
 (* cShift renames variables to use only those in the annotations *)
@@ -194,23 +205,23 @@ val cShift_def = tDefine "cShift" `
   (cShift [Op op xs] m l i =
      let c1 = cShift xs m l i in
        ([Op op c1])) /\
-  (cShift [App loc_opt x1 x2] m l i =
+  (cShift [App loc_opt x1 xs2] m l i =
      let c1 = cShift [x1] m l i in
-     let c2 = cShift [x2] m l i in
-       ([App loc_opt (HD c1) (HD c2)])) /\
-  (cShift [Fn loc vs x1] m l i =
+     let c2 = cShift xs2 m l i in
+       ([App loc_opt (HD c1) c2])) /\
+  (cShift [Fn loc vs num_args x1] m l i =
      let k = m + l in
      let live = FILTER (\n. n < k) vs in
      let vars = MAP (get_var m l i) live in
      let c1 = cShift [x1] (m + l) 1 (new_env 0 live) in
-       ([Fn loc vars (HD c1)])) /\
+       ([Fn loc vars num_args (HD c1)])) /\
   (cShift [Letrec loc vs fns x1] m l i =
      let k = m + l in
      let live = FILTER (\n. n < k) vs in
      let vars = MAP (get_var m l i) live in
-     let cs = cShift fns (m + l) (1 + LENGTH fns) (new_env 0 live) in
+     let cs = cShift (MAP SND fns) (m + l) (1 + LENGTH fns) (new_env 0 live) in
      let c1 = cShift [x1] m (l + LENGTH fns) i in
-       ([Letrec loc vars cs (HD c1)])) /\
+       ([Letrec loc vars (ZIP (MAP FST fns, cs)) (HD c1)])) /\
   (cShift [Handle x1 x2] m l i =
      let c1 = cShift [x1] m l i in
      let c2 = cShift [x2] m (l+1) i in
@@ -218,8 +229,12 @@ val cShift_def = tDefine "cShift" `
   (cShift [Call dest xs] m l i =
      let c1 = cShift xs m l i in
        ([Call dest c1]))`
- (WF_REL_TAC `measure (clos_exp1_size o FST)`
-  \\ REPEAT STRIP_TAC \\ DECIDE_TAC);
+ (WF_REL_TAC `measure (clos_exp3_size o FST)`
+  \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC \\
+  Induct_on `fns` >>
+  srw_tac [ARITH_ss] [clos_exp_size_def] >>
+  Cases_on `h` >>
+  srw_tac [ARITH_ss] [clos_exp_size_def]);
 
 val cShift_ind = fetch "-" "cShift_ind";
 
