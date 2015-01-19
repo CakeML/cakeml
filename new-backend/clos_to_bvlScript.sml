@@ -2968,7 +2968,6 @@ val contains_Call_EXISTS = prove(
   Induct >> simp[contains_Call_def] >>
   Cases_on`ls`>>fs[contains_Call_def])
 
-  (*
 open pat_to_closTheory
 
 val pComp_contains_Op_Label = store_thm("pComp_contains_Op_Label",
@@ -3043,7 +3042,6 @@ val code_locs_cComp = store_thm("code_locs_cComp",
   fs[SUBSET_DEF]
   >- ( Cases_on`op`>>simp[cCompOp_def]>>fs[] )
   >- ( simp[Once code_locs_cons,code_locs_def,code_locs_MAP_Var] ))
-  *)
 
 val HD_FST_cFree_sing = prove(
   ``[HD (FST (cFree [x]))] = FST(cFree [x])``,
