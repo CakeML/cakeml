@@ -61,15 +61,15 @@ val code_locs_def = tDefine "code_locs" `
      code_locs [x1]) /\
   (code_locs [Op op xs] =
      code_locs xs) /\
-  (code_locs [App loc_opt x1 x2] =
+  (code_locs [App loc_opt x1 xs] =
      let c1 = code_locs [x1] in
-     let c2 = code_locs [x2] in
+     let c2 = code_locs xs in
          c1++c2) /\
-  (code_locs [Fn loc vs x1] =
+  (code_locs [Fn loc vs num_args x1] =
      let c1 = code_locs [x1] in
        c1 ++ [loc]) /\
   (code_locs [Letrec loc vs fns x1] =
-     let c1 = code_locs fns in
+     let c1 = code_locs (MAP SND fns) in
      let c2 = code_locs [x1] in
      c1 ++ GENLIST ($+ loc) (LENGTH fns) ++ c2) /\
   (code_locs [Handle x1 x2] =
@@ -78,8 +78,13 @@ val code_locs_def = tDefine "code_locs" `
        c1 ++ c2) /\
   (code_locs [Call dest xs] =
      code_locs xs)`
- (WF_REL_TAC `measure (clos_exp1_size)`
-  \\ REPEAT STRIP_TAC \\ DECIDE_TAC);
+ (WF_REL_TAC `measure (clos_exp3_size)`
+  \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
+  Induct_on `fns` >>
+  srw_tac [ARITH_ss] [clos_exp_size_def] >>
+  Cases_on `h` >>
+  fs [clos_exp_size_def] >>
+  decide_tac);
 
 val code_locs_cons = store_thm("code_locs_cons",
   ``∀x xs. code_locs (x::xs) = code_locs [x] ++ code_locs xs``,
@@ -112,15 +117,15 @@ val renumber_code_locs_def = tDefine "renumber_code_locs" `
        (n,Op op xs)) /\
   (renumber_code_locs n (App loc_opt x1 x2) =
      let (n,x1) = renumber_code_locs n x1 in
-     let (n,x2) = renumber_code_locs n x2 in
+     let (n,x2) = renumber_code_locs_list n x2 in
        (n,App loc_opt x1 x2)) /\
-  (renumber_code_locs n (Fn loc vs x1) =
+  (renumber_code_locs n (Fn loc vs num_args x1) =
      let (n,x1) = renumber_code_locs n x1 in
-       (n+1,Fn n vs x1)) /\
+       (n+1,Fn n vs num_args x1)) /\
   (renumber_code_locs n (Letrec loc vs fns x1) =
-     let (m,fns) = renumber_code_locs_list n fns in
-     let (n,x1) = renumber_code_locs (m+LENGTH fns) x1 in
-     (n,Letrec m vs fns x1)) /\
+     let (m,fns') = renumber_code_locs_list n (MAP SND fns) in
+     let (n,x1) = renumber_code_locs (m+LENGTH fns') x1 in
+     (n,Letrec m vs (ZIP (MAP FST fns, fns')) x1)) /\
   (renumber_code_locs n (Handle x1 x2) =
      let (n,x1) = renumber_code_locs n x1 in
      let (n,x2) = renumber_code_locs n x2 in
@@ -128,7 +133,14 @@ val renumber_code_locs_def = tDefine "renumber_code_locs" `
   (renumber_code_locs n (Call dest xs) =
      let (n,xs) = renumber_code_locs_list n xs in
      (n,Call dest xs))`
- (WF_REL_TAC `inv_image $< (λx. case x of INL p => clos_exp1_size (SND p) | INR p => clos_exp_size (SND p))`);
+ (WF_REL_TAC `inv_image $< (λx. case x of INL p => clos_exp3_size (SND p) | INR p => clos_exp_size (SND p))` >>
+ rw [] >>
+ TRY decide_tac >>
+ Induct_on `fns` >>
+ srw_tac [ARITH_ss] [clos_exp_size_def] >>
+ Cases_on `h` >>
+ rw [clos_exp_size_def] >>
+ decide_tac);
 
 val renumber_code_locs_ind = theorem"renumber_code_locs_ind"
 
@@ -158,6 +170,7 @@ val renumber_code_locs_inc = store_thm("renumber_code_locs_inc",
   tac >> fs[] >>
   tac >> fs[] >>
   tac >> fs[] >> simp[] >>
+  Cases_on `renumber_code_locs_list n (MAP SND fns)` >> rw [] >>
   Cases_on`renumber_code_locs (q+LENGTH r) e`>>fs[]>>simp[])
 
 val renumber_code_locs_imp_inc = prove(
