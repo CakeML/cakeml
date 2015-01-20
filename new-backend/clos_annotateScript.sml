@@ -22,9 +22,9 @@ val clos_free_def = tDefine "clos_free" `
   (clos_free n [App loc_opt x1 x2] <=>
      clos_free n [x1] \/ clos_free n x2) /\
   (clos_free n [Fn loc vs num_args x1] <=>
-     clos_free (n + 1) [x1]) /\
+     clos_free (n + num_args) [x1]) /\
   (clos_free n [Letrec loc vs fns x1] <=>
-     clos_free (n + 1 + LENGTH fns) (MAP SND fns) \/ clos_free (n + LENGTH fns) [x1]) /\
+     EXISTS (\(num_args, x). clos_free (n + num_args + LENGTH fns) [x]) fns \/ clos_free (n + LENGTH fns) [x1]) /\
   (clos_free n [Handle x1 x2] <=>
      clos_free n [x1] \/ clos_free (n+1) [x2]) /\
   (clos_free n [Call dest xs] <=> clos_free n xs)`
@@ -32,7 +32,7 @@ val clos_free_def = tDefine "clos_free" `
   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC \\
   Induct_on `fns` >>
   srw_tac [ARITH_ss] [clos_exp_size_def] >>
-  Cases_on `h` >>
+  res_tac >>
   srw_tac [ARITH_ss] [clos_exp_size_def]);
 
 val clos_exp_ind =
@@ -71,7 +71,7 @@ val cFree_def = tDefine "cFree" `
        ([App loc_opt (HD c1) c2],mk_Union l1 l2)) /\
   (cFree [Fn loc vs num_args x1] =
      let (c1,l1) = cFree [x1] in
-     let l2 = Shift 1 l1 in
+     let l2 = Shift num_args l1 in
        ([Fn loc (vars_to_list l2) num_args (HD c1)],l2)) /\
   (cFree [Letrec loc vs fns x1] =
      let (c1,l1) = cFree (MAP SND fns) in
