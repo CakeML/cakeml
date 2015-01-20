@@ -19,6 +19,15 @@ val EXISTS_ZIP = Q.prove (
  fs [] >>
  metis_tac []);
 
+val EVERY_ZIP = Q.prove (
+`!l f. EVERY (\(x,y). f x) l = EVERY f (MAP FST l)`,
+ Induct_on `l` >>
+ rw [] >>
+ Cases_on `h` >>
+ fs [] >>
+ metis_tac []);
+
+
 val list_rel_lastn = Q.prove (
 `!f l1 l2 n.
   n ≤ LENGTH l1 ∧
@@ -519,17 +528,17 @@ val dest_closure_val_rel_full = Q.prove (
  TRY decide_tac >>
  rw [] >>
  TRY decide_tac >>
- TRY (`n' + 1 - LENGTH argenv' ≤ LENGTH args'` by decide_tac) >>
+ TRY (`n' - LENGTH argenv' ≤ LENGTH args'` by decide_tac) >>
  fs [] >>
  rw [DROP_REVERSE, TAKE_REVERSE] >>
- TRY (`n' + 1 - LENGTH argenv' ≤ LENGTH args'` by decide_tac)
+ TRY (`n' - LENGTH argenv' ≤ LENGTH args'` by decide_tac)
  >- metis_tac [list_rel_butlastn, list_rel_lastn, EVERY2_APPEND]
  >- metis_tac [list_rel_butlastn, list_rel_lastn, EVERY2_APPEND] >>
  Cases_on `renumber_code_locs_list n (MAP SND es)` >>
  fs [] >>
  Cases_on `EL k es` >>
  fs [] >>
- Cases_on `LENGTH args' + LENGTH argenv' < q' + 1` >>
+ Cases_on `LENGTH args' + LENGTH argenv' < q'` >>
  fs [] >>
  rw [] >>
  imp_res_tac renumber_code_locs_list_length >>
@@ -650,7 +659,7 @@ val renumber_code_locs_correct = store_thm("renumber_code_locs_correct",
    (fs [renumber_code_locs_def,cEval_def,LET_THM,UNCURRY] >>
     `t1.restrict_envs = s.restrict_envs` by fs[state_rel_def] >>
     fs[clos_env_def] >> rw[] >> fs[contains_App_SOME_def] >> rw[res_rel_simp,val_rel_simp] >>
-    TRY (PROVE_TAC[]) >>
+    TRY (fs [res_rel_cases] >> PROVE_TAC[]) >>
     last_x_assum mp_tac >>
     BasicProvers.CASE_TAC >- (
       imp_res_tac lookup_vars_NONE >>
@@ -677,11 +686,11 @@ val renumber_code_locs_correct = store_thm("renumber_code_locs_correct",
     `t1.restrict_envs = s.restrict_envs` by fs[state_rel_def] >>
     Cases_on`renumber_code_locs_list n (MAP SND fns)`>>fs[]>>
     imp_res_tac renumber_code_locs_list_length >>
-    fs [EXISTS_ZIP, MAP_ZIP] >>
-    rw [] >>
+    fs [EVERY_ZIP, MAP_ZIP] >>
+    reverse (rw []) >>
     full_simp_tac (bool_ss) []
-    >- rw [res_rel_cases]
-    >- (rw [] >> rw []) >>
+    >- (rw [] >> rw [])
+    >- rw [res_rel_cases] >>
     fs [combinTheory.o_DEF, EVERY_MAP, LAMBDA_PROD] >>
     fs[build_recc_def,clos_env_def] >> reverse(rw[]) >> fs[contains_App_SOME_def] >> rw[] >- (
       first_x_assum MATCH_MP_TAC >> rw[] >>
