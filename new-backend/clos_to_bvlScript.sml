@@ -872,6 +872,56 @@ val closure_code_installed_def = Define `
         code_installed aux1 code) exps_ps`
         *)
 
+val (cl_rel_rules,cl_rel_ind,cl_rel_cases) = Hol_reln `
+(
+  num_args ≤ max_app ∧
+  num_args ≠ 0 ∧
+  (cComp [x] aux = ([c],aux1)) /\
+  code_installed aux1 code /\
+  (lookup (p + num_stubs) code = 
+    SOME (num_args + 1:num,Let (GENLIST Var num_args++free_let (Var num_args) (LENGTH env)) c))
+ ⇒
+ cl_rel f refs code 
+        (env,ys)
+        (Closure p [] env num_args x) 
+        (Block closure_tag (CodePtr (p + num_stubs) :: Number (&(num_args-1)) :: ys))) ∧
+(
+  num_args ≤ max_app ∧
+  num_args ≠ 0 ∧
+  cComp [x] aux = ([c],aux1) /\
+  code_installed aux1 code /\
+  lookup (p + num_stubs) code = 
+    SOME (num_args + 1:num,Let (GENLIST Var (num_args+1)++free_let (Var (num_args + 1)) (LENGTH env)) c)
+  ⇒
+  cl_rel f refs code (env,ys)
+         (Recclosure p [] env [(num_args, x)] 0) 
+         (Block closure_tag (CodePtr (p + num_stubs) :: Number (&(num_args-1)) :: ys)))`;
+(*
+  /\
+  ((exps = MAP FST exps_ps) /\
+   (ps = MAP SND exps_ps) /\ (ps = GENLIST (\n. loc + n) (LENGTH exps_ps)) /\
+   (rs = MAP (\p. Block closure_tag [CodePtr p; RefPtr r]) ps) /\
+   ~(r IN FRANGE f) /\
+   (FLOOKUP refs r = SOME (ValueArray (rs ++ ys))) /\
+   EVERY2 (val_rel f refs code) env ys /\
+   1 < LENGTH exps /\ k < LENGTH exps /\
+   closure_code_installed code exps_ps env ==>
+   val_rel f refs code (Recclosure loc env exps k) (EL k rs))*)
+
+val add_args_def = Define `
+(add_args (Closure loc_opt args env num_args exp : clos_val) args' =
+  SOME (Closure loc_opt (args'++args) env num_args exp)) ∧
+(add_args (Recclosure loc_opt args env funs i : clos_val) args' =
+  SOME (Recclosure loc_opt (args'++args) env funs i)) ∧
+(add_args _ _ = NONE)`;
+
+val get_num_args_def = Define `
+(get_num_args (Closure loc_opt args env num_args exp : clos_val) = 
+  SOME num_args) ∧
+(get_num_args (Recclosure loc_opt args env funs i : clos_val) = 
+  SOME (FST (EL i funs))) ∧
+(get_num_args _ = NONE)`;
+
 val (val_rel_rules,val_rel_ind,val_rel_cases) = Hol_reln `
   (val_rel f refs code (Number n) (Number n))
   /\
@@ -882,51 +932,25 @@ val (val_rel_rules,val_rel_ind,val_rel_cases) = Hol_reln `
   ((FLOOKUP f r1 = SOME r2) ==>
    val_rel f refs code (RefPtr r1) (RefPtr r2))
   /\
-  (EVERY2 (val_rel f refs code) env ys /\
-   num_args ≤ max_app ∧
-   num_args ≠ 0 ∧
-   (cComp [x] aux = ([c],aux1)) /\
-   code_installed aux1 code /\
-   (lookup (p + num_stubs) code = 
-     SOME (num_args + 1:num,Let (GENLIST Var num_args++free_let (Var num_args)(LENGTH env)) c)) ==>
-   val_rel f refs code (Closure p [] env num_args x) 
-                       (Block closure_tag (CodePtr (p + num_stubs) :: Number (&(num_args-1)) :: ys)))
+  (EVERY2 (val_rel f refs code) env ys ∧
+   cl_rel f refs code (env,ys) cl (Block closure_tag (CodePtr p :: Number n :: ys))
+   ⇒
+   val_rel f refs code cl (Block closure_tag (CodePtr p :: Number n :: ys)))
   /\
   (EVERY2 (val_rel f refs code) env fvs /\
    EVERY2 (val_rel f refs code) arg_env ys ∧
-   num_args ≤ max_app ∧
-   num_args ≠ 0 ∧
-   (arg_env ≠ []) ∧
+   arg_env ≠ [] ∧
    LENGTH arg_env < num_args ∧
-   (cComp [x] aux = ([c],aux1)) /\
-   code_installed aux1 code /\
    (lookup (partial_app_fn_location (num_args - 1) (LENGTH ys - 1)) code =
      SOME (num_args - LENGTH arg_env, generate_partial_app_closure_fn (num_args-1) (LENGTH ys - 1))) ∧
-   (lookup (p + num_stubs) code = 
-     SOME (num_args + 1:num,Let (GENLIST Var num_args++free_let (Var num_args)(LENGTH env)) c)) ==>
-   val_rel f refs code (Closure p arg_env env num_args x) 
+   add_args cl arg_env = SOME cl_app ∧
+   get_num_args cl = SOME num_args ∧
+   cl_rel f refs code (env,fvs) cl cl'
+   ⇒
+   val_rel f refs code cl_app 
                        (Block partial_app_tag 
                               (CodePtr (partial_app_fn_location (num_args - 1) (LENGTH ys - 1)) :: 
-                               Number (&(num_args - 1 - LENGTH arg_env)) ::
-                               Block closure_tag (CodePtr (p+num_stubs) :: Number (&(num_args-1)) :: fvs) ::
-                               ys)))
-  (*
-  /\
-  (EVERY2 (val_rel f refs code) env ys /\
-   (cComp [x] aux = ([c],aux1)) /\
-   code_installed aux1 code /\
-   (lookup p code = SOME (2:num,Let (Var 1::Var 0::free_let (LENGTH env)) c)) ==>
-   val_rel f refs code (Recclosure p env [x] 0) (Block closure_tag (CodePtr p :: ys)))
-  /\
-  ((exps = MAP FST exps_ps) /\
-   (ps = MAP SND exps_ps) /\ (ps = GENLIST (\n. loc + n) (LENGTH exps_ps)) /\
-   (rs = MAP (\p. Block closure_tag [CodePtr p; RefPtr r]) ps) /\
-   ~(r IN FRANGE f) /\
-   (FLOOKUP refs r = SOME (ValueArray (rs ++ ys))) /\
-   EVERY2 (val_rel f refs code) env ys /\
-   1 < LENGTH exps /\ k < LENGTH exps /\
-   closure_code_installed code exps_ps env ==>
-   val_rel f refs code (Recclosure loc env exps k) (EL k rs))*)`
+                               Number (&(num_args - 1 - LENGTH arg_env)) :: cl' :: ys)))`;
 
 val opt_val_rel_def = Define `
   (opt_val_rel f refs code NONE NONE = T) /\
@@ -986,20 +1010,11 @@ val state_rel_clocks = Q.prove (
 `!s t x. state_rel f s t ⇒ state_rel f (s with clock := x) (t with clock := x)`,
  rw [state_rel_def]);
 
-val val_rel_SUBMAP = prove(
-  ``!x y. val_rel f1 refs1 code x y ==>
-      f1 SUBMAP f2 /\ FDIFF refs1 f1 SUBMAP FDIFF refs2 f2 ==>
-      val_rel f2 refs2 code x y``,
-  HO_MATCH_MP_TAC val_rel_ind \\ REPEAT STRIP_TAC
-  \\ ONCE_REWRITE_TAC [val_rel_cases] \\ fs []
-  THEN1 (REPEAT (POP_ASSUM MP_TAC) \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
-  THEN1 (fs [SUBMAP_DEF,FLOOKUP_DEF])
-  THEN1 (Q.LIST_EXISTS_TAC [`aux`,`aux1`] \\ fs []
-         \\ REPEAT (POP_ASSUM MP_TAC)
-         \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
-  THEN1 (Q.LIST_EXISTS_TAC [`aux`,`aux1`] \\ fs []
-         \\ REPEAT (POP_ASSUM MP_TAC)
-         \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+val cl_rel_SUBMAP = Q.prove (
+`cl_rel f1 refs1 code (env,ys) x y ∧
+ f1 SUBMAP f2 /\ FDIFF refs1 f1 SUBMAP FDIFF refs2 f2 ==>
+ cl_rel f2 refs2 code (env,ys) x y`,
+ rw [cl_rel_cases]);
          (* Proabably for letrec 
   THEN1 (DISJ1_TAC \\ Q.LIST_EXISTS_TAC [`aux`,`aux1`] \\ fs []
          \\ REPEAT (POP_ASSUM MP_TAC)
@@ -1008,7 +1023,30 @@ val val_rel_SUBMAP = prove(
   \\ rfs [] \\ Q.PAT_ASSUM `LIST_REL pppat env ys` MP_TAC
   \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [] \\ STRIP_TAC
   \\ fs [FDIFF_def,SUBMAP_DEF,DRESTRICT_DEF,FLOOKUP_DEF]
-  \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `r`) \\ fs []*))
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `r`) \\ fs []*)
+
+val ETA2_THM = Q.prove (
+`(\x y. f a b c x y) = f a b c`,
+rw [FUN_EQ_THM]);
+
+val val_rel_SUBMAP = prove(
+  ``!x y. val_rel f1 refs1 code x y ==>
+      f1 SUBMAP f2 /\ FDIFF refs1 f1 SUBMAP FDIFF refs2 f2 ==>
+      val_rel f2 refs2 code x y``,
+  HO_MATCH_MP_TAC val_rel_ind \\ REPEAT STRIP_TAC
+  \\ ONCE_REWRITE_TAC [val_rel_cases] \\ fs []
+  THEN1 (REPEAT (POP_ASSUM MP_TAC) \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+  THEN1 (fs [SUBMAP_DEF,FLOOKUP_DEF])
+  THEN1 (imp_res_tac cl_rel_SUBMAP >>
+         disj2_tac >>
+         disj1_tac >>
+         qexists_tac `env` >>
+         fs [ETA2_THM])
+  THEN1 (imp_res_tac cl_rel_SUBMAP >>
+         disj2_tac >>
+         disj2_tac >>
+         fs [ETA2_THM] >>
+         metis_tac [] ))
   |> SPEC_ALL |> MP_CANON;
 
 val env_rel_SUBMAP = prove(
@@ -1019,18 +1057,10 @@ val env_rel_SUBMAP = prove(
   Induct \\ Cases_on `env2` \\ fs [env_rel_def]
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC val_rel_SUBMAP) |> GEN_ALL;
 
-val val_rel_NEW_REF = prove(
-  ``!x y. val_rel f1 refs1 code x y ==> ~(r IN FDOM refs1) ==>
-          val_rel f1 (refs1 |+ (r,t)) code x y``,
-  HO_MATCH_MP_TAC val_rel_ind \\ REPEAT STRIP_TAC
-  \\ ONCE_REWRITE_TAC [val_rel_cases] \\ fs []
-  THEN1 (REPEAT (POP_ASSUM MP_TAC) \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
-  THEN1 (Q.LIST_EXISTS_TAC [`aux`,`aux1`] \\ fs []
-         \\ REPEAT (POP_ASSUM MP_TAC)
-         \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
-  THEN1 (Q.LIST_EXISTS_TAC [`aux`,`aux1`] \\ fs []
-         \\ REPEAT (POP_ASSUM MP_TAC)
-         \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+val cl_rel_NEW_REF = Q.prove (
+`!x y. cl_rel f1 refs1 code (env,ys) x y ==> ~(r IN FDOM refs1) ==>
+       cl_rel f1 (refs1 |+ (r,t)) code (env,ys) x y`,
+ rw [cl_rel_cases]);
          (* For letrec
   THEN1 (DISJ1_TAC \\ Q.LIST_EXISTS_TAC [`aux`,`aux1`] \\ fs []
          \\ REPEAT (POP_ASSUM MP_TAC)
@@ -1039,22 +1069,31 @@ val val_rel_NEW_REF = prove(
   \\ rfs [] \\ Q.PAT_ASSUM `LIST_REL pppat env ys` MP_TAC
   \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [] \\ STRIP_TAC
   \\ fs [FDIFF_def,SUBMAP_DEF,DRESTRICT_DEF,FLOOKUP_DEF]
-  \\ fs [FAPPLY_FUPDATE_THM] \\ SRW_TAC [] [] \\ fs []*))
-  |> SPEC_ALL |> MP_CANON;
+  \\ fs [FAPPLY_FUPDATE_THM] \\ SRW_TAC [] [] \\ fs []*)
 
-val val_rel_UPDATE_REF = prove(
-  ``!x y. val_rel f1 refs1 code x y ==>
-          (r IN FRANGE f1) ==>
+val val_rel_NEW_REF = prove(
+  ``!x y. val_rel f1 refs1 code x y ==> ~(r IN FDOM refs1) ==>
           val_rel f1 (refs1 |+ (r,t)) code x y``,
   HO_MATCH_MP_TAC val_rel_ind \\ REPEAT STRIP_TAC
   \\ ONCE_REWRITE_TAC [val_rel_cases] \\ fs []
   THEN1 (REPEAT (POP_ASSUM MP_TAC) \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
-  THEN1 (Q.LIST_EXISTS_TAC [`aux`,`aux1`] \\ fs []
-         \\ REPEAT (POP_ASSUM MP_TAC)
-         \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
-  THEN1 (Q.LIST_EXISTS_TAC [`aux`,`aux1`] \\ fs []
-         \\ REPEAT (POP_ASSUM MP_TAC)
-         \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+  THEN1 (imp_res_tac cl_rel_NEW_REF >>
+         disj2_tac >>
+         disj1_tac >>
+         qexists_tac `env` >>
+         fs [ETA2_THM])
+  THEN1 (imp_res_tac cl_rel_NEW_REF >>
+         disj2_tac >>
+         disj2_tac >>
+         fs [ETA2_THM] >>
+         metis_tac [] ))
+  |> SPEC_ALL |> MP_CANON;
+
+val cl_rel_UPDATE_REF = prove(
+  ``!x y. cl_rel f1 refs1 code (env,ys) x y ==>
+          (r IN FRANGE f1) ==>
+          cl_rel f1 (refs1 |+ (r,t)) code (env,ys) x y``,
+ rw [cl_rel_cases]);
          (* for letrec
   THEN1 (DISJ1_TAC \\ Q.LIST_EXISTS_TAC [`aux`,`aux1`] \\ fs []
          \\ REPEAT (POP_ASSUM MP_TAC)
@@ -1064,7 +1103,25 @@ val val_rel_UPDATE_REF = prove(
   \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [] \\ STRIP_TAC
   \\ fs [FDIFF_def,SUBMAP_DEF,DRESTRICT_DEF,FLOOKUP_DEF]
   \\ fs [FAPPLY_FUPDATE_THM] \\ SRW_TAC [] []
-  \\ fs [FRANGE_DEF] \\ METIS_TAC []*))
+  \\ fs [FRANGE_DEF] \\ METIS_TAC []*)
+
+val val_rel_UPDATE_REF = prove(
+  ``!x y. val_rel f1 refs1 code x y ==>
+          (r IN FRANGE f1) ==>
+          val_rel f1 (refs1 |+ (r,t)) code x y``,
+  HO_MATCH_MP_TAC val_rel_ind \\ REPEAT STRIP_TAC
+  \\ ONCE_REWRITE_TAC [val_rel_cases] \\ fs []
+  THEN1 (REPEAT (POP_ASSUM MP_TAC) \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+  THEN1 (imp_res_tac cl_rel_UPDATE_REF >>
+         disj2_tac >>
+         disj1_tac >>
+         qexists_tac `env` >>
+         fs [ETA2_THM])
+  THEN1 (imp_res_tac cl_rel_UPDATE_REF >>
+         disj2_tac >>
+         disj2_tac >>
+         fs [ETA2_THM] >>
+         metis_tac [] ))
   |> SPEC_ALL |> MP_CANON;
 
 val opt_val_rel_NEW_REF = prove(
@@ -1088,22 +1145,13 @@ val FLOOKUP_FAPPLY = prove(
   ``FLOOKUP (f |+ (x,y)) n = if n = x then SOME y else FLOOKUP f n``,
   fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ SRW_TAC [] [] \\ fs []);
 
-val val_rel_NEW_F = prove(
+val cl_rel_NEW_F = prove(
   ``!x y.
-      val_rel f2 t2.refs t2.code x y ==>
+      cl_rel f2 t2.refs t2.code (env,ys) x y ==>
       ~(pp IN FDOM f2) ==>
       ~(qq IN FDOM t2.refs) ==>
-      val_rel (f2 |+ (pp,qq)) t2.refs t2.code x y``,
-  HO_MATCH_MP_TAC val_rel_ind \\ REPEAT STRIP_TAC
-  \\ ONCE_REWRITE_TAC [val_rel_cases] \\ fs []
-  THEN1 (REPEAT (POP_ASSUM MP_TAC) \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
-  THEN1 (fs [FLOOKUP_FAPPLY] \\ SRW_TAC [] [] \\ fs [FLOOKUP_DEF])
-  THEN1 (Q.LIST_EXISTS_TAC [`aux`,`aux1`] \\ fs []
-         \\ REPEAT (POP_ASSUM MP_TAC)
-         \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
-  THEN1 (Q.LIST_EXISTS_TAC [`aux`,`aux1`] \\ fs []
-         \\ REPEAT (POP_ASSUM MP_TAC)
-         \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+      cl_rel (f2 |+ (pp,qq)) t2.refs t2.code (env,ys) x y``,
+ rw [cl_rel_cases]);
          (* For letrec
   THEN1 (DISJ1_TAC \\ Q.LIST_EXISTS_TAC [`aux`,`aux1`] \\ fs []
          \\ REPEAT (POP_ASSUM MP_TAC)
@@ -1114,7 +1162,28 @@ val val_rel_NEW_F = prove(
   \\ REPEAT STRIP_TAC \\ fs [] \\ SRW_TAC [] []
   \\ fs [FLOOKUP_DEF]
   \\ fs [FRANGE_DEF,DOMSUB_FAPPLY_THM] \\ rfs []
-  \\ METIS_TAC []*))
+  \\ METIS_TAC []*)
+
+val val_rel_NEW_F = prove(
+  ``!x y.
+      val_rel f2 t2.refs t2.code x y ==>
+      ~(pp IN FDOM f2) ==>
+      ~(qq IN FDOM t2.refs) ==>
+      val_rel (f2 |+ (pp,qq)) t2.refs t2.code x y``,
+  HO_MATCH_MP_TAC val_rel_ind \\ REPEAT STRIP_TAC
+  \\ ONCE_REWRITE_TAC [val_rel_cases] \\ fs []
+  THEN1 (REPEAT (POP_ASSUM MP_TAC) \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+  THEN1 (fs [FLOOKUP_FAPPLY] \\ SRW_TAC [] [] \\ fs [FLOOKUP_DEF])
+  THEN1 (imp_res_tac cl_rel_NEW_F >>
+         disj2_tac >>
+         disj1_tac >>
+         qexists_tac `env` >>
+         fs [ETA2_THM])
+  THEN1 (imp_res_tac cl_rel_NEW_F >>
+         disj2_tac >>
+         disj2_tac >>
+         fs [ETA2_THM] >>
+         metis_tac [] ))
   |> SPEC_ALL |> MP_CANON;
 
 val opt_val_rel_NEW_F = prove(
@@ -1204,17 +1273,19 @@ val res_rel_Ex =
 
 val val_rel_Closure =
   ``val_rel f refs code (Closure loc args env num_args exp) y``
-  |> SIMP_CONV (srw_ss()) [val_rel_cases]
+  |> SIMP_CONV (srw_ss()) [val_rel_cases, cl_rel_cases]
 
 val val_rel_SIMP = LIST_CONJ
   [``val_rel f refs code (RefPtr p) y``
-   |> SIMP_CONV (srw_ss()) [val_rel_cases],
+   |> SIMP_CONV (srw_ss()) [val_rel_cases, cl_rel_cases],
+   ``val_rel f refs code (Block tag xs) y``
+   |> SIMP_CONV (srw_ss()) [val_rel_cases, cl_rel_cases],
    ``val_rel f refs code (Number i) y``
-   |> SIMP_CONV (srw_ss()) [val_rel_cases],
+   |> SIMP_CONV (srw_ss()) [val_rel_cases, cl_rel_cases],
    ``val_rel f refs code (Closure loc args env num_args exp) y``
-   |> SIMP_CONV (srw_ss()) [val_rel_cases],
+   |> SIMP_CONV (srw_ss()) [val_rel_cases, cl_rel_cases],
    ``val_rel f refs code (Recclosure loc args env exp k) y``
-   |> SIMP_CONV (srw_ss()) [val_rel_cases]]
+   |> SIMP_CONV (srw_ss()) [val_rel_cases, cl_rel_cases]]
   |> curry save_thm "val_rel_SIMP"
 
    (*
@@ -1649,25 +1720,26 @@ val cEvalOp_correct = prove(
     BasicProvers.EVERY_CASE_TAC >> fs[val_rel_SIMP]>>rw[]>>
     TRY(fs[val_rel_cases]>>NO_TAC)>>
     fs[Q.SPECL[`f`,`refs`,`code`,`Block a b`,`Block c d`]val_rel_cases] >>
-    fs[LIST_REL_EL_EQN] >> rfs[])
+    fs[LIST_REL_EL_EQN] >> rfs[add_args_def])
   >- (
     BasicProvers.EVERY_CASE_TAC >> fs[val_rel_SIMP]>>rw[]>>
     TRY(fs[val_rel_cases]>>NO_TAC)>>
     simp[val_rel_SIMP] >>
     fs[Q.SPECL[`f`,`refs`,`code`,`Block a b`,`Block c d`]val_rel_cases] >>
-    fs[LIST_REL_EL_EQN] >> rfs[])
+    fs[LIST_REL_EL_EQN] >> rfs[add_args_def])
   >- (
     BasicProvers.EVERY_CASE_TAC >> fs[val_rel_SIMP] >>
     rw[val_rel_SIMP] >>
     rfs[state_rel_def] >> res_tac >> fs[ref_rel_cases] >>
-    rw[] >> fs[] >> fs[LIST_REL_EL_EQN] )
+    rw[] >> fs[] >> fs[LIST_REL_EL_EQN, add_args_def] )
   >- (
     BasicProvers.EVERY_CASE_TAC >> fs[val_rel_SIMP] >>
     rw[val_rel_SIMP] >>
     rfs[state_rel_def] >> res_tac >> fs[ref_rel_cases] )
   >- (
     BasicProvers.EVERY_CASE_TAC >>
-    fs[LET_THM,val_rel_SIMP] >>
+    fs[LET_THM] >>
+    fs [val_rel_SIMP] >>
     rw[val_rel_SIMP] >>
     rfs[state_rel_def] >> res_tac >>
     fs[ref_rel_cases] )
@@ -1680,7 +1752,7 @@ val cEvalOp_correct = prove(
     BasicProvers.EVERY_CASE_TAC >> fs[val_rel_SIMP] >>
     rw[val_rel_SIMP] >>
     TRY(fs[val_rel_cases]>>NO_TAC) >>
-    fs[Q.SPECL[`f`,`refs`,`code`,`Block a b`,`Block c d`]val_rel_cases] >>
+    fs[Q.SPECL[`f`,`refs`,`code`,`Block a b`,`Block c d`]val_rel_cases, add_args_def] >>
     rw[]>>fsrw_tac[ARITH_ss][bool_to_val_def] >>
     TRY(fs[val_rel_cases]>>NO_TAC) >>
     Cases_on`n=n''`>> rw[bool_to_val_def,val_rel_cases] )
@@ -1688,13 +1760,13 @@ val cEvalOp_correct = prove(
     BasicProvers.EVERY_CASE_TAC >> fs[val_rel_SIMP] >>
     rw[val_rel_SIMP] >>
     TRY(fs[val_rel_cases]>>NO_TAC) >>
-    fs[Q.SPECL[`f`,`refs`,`code`,`Block a b`,`Block c d`]val_rel_cases] >>
+    fs[Q.SPECL[`f`,`refs`,`code`,`Block a b`,`Block c d`]val_rel_cases, add_args_def] >>
     rw[]>>fsrw_tac[ARITH_ss][bool_to_val_def] >>
     TRY(fs[val_rel_cases]>>NO_TAC) >>
     Cases_on`n=n''`>> rw[bool_to_val_def,val_rel_cases] )
   >- (
     BasicProvers.EVERY_CASE_TAC >> fs[bool_to_val_def,val_rel_SIMP] >>
-    rw[val_rel_SIMP] >> fs[val_rel_cases] )
+    rw[val_rel_SIMP] >> fs[val_rel_cases, add_args_def] )
   >- (
       cheat (* TODO : equal, has to do with the tag incrementing *)
       (*
@@ -1708,11 +1780,12 @@ val cEvalOp_correct = prove(
     Cases_on`b`>>simp[bool_to_val_def]>>
     simp[val_rel_cases] *))
   >- (
-    BasicProvers.EVERY_CASE_TAC >> fs[val_rel_SIMP] >>
+    BasicProvers.EVERY_CASE_TAC >> fs [] >>
+    fs[val_rel_SIMP] >>
     rw[val_rel_SIMP] >>
     rfs[state_rel_def] >> res_tac >> fs[ref_rel_cases] >>
     rw[] >> fs[] >> fs[LIST_REL_EL_EQN] >>
-    rw[] >> fs[] >>
+    rw[] >> fs[add_args_def] >>
     first_x_assum match_mp_tac >>
     intLib.COOPER_TAC)
   >- (
@@ -1725,24 +1798,25 @@ val cEvalOp_correct = prove(
     BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[val_rel_SIMP] >>
     fs[state_rel_def] )
   >- (
-    BasicProvers.EVERY_CASE_TAC >> fs[val_rel_SIMP] >>
-    rw[val_rel_SIMP] )
+    BasicProvers.EVERY_CASE_TAC >> fs [] >> fs[val_rel_SIMP, add_args_def] >>
+    rw[val_rel_SIMP] >> fs [add_args_def])
   >- (
-    BasicProvers.EVERY_CASE_TAC >> fs[val_rel_SIMP] >>
-    rw[val_rel_SIMP] )
+    BasicProvers.EVERY_CASE_TAC >> fs [] >> fs[val_rel_SIMP, add_args_def] >>
+    rw[val_rel_SIMP] >> fs [add_args_def])
   >- (
-    BasicProvers.EVERY_CASE_TAC >> fs[val_rel_SIMP] >>
-    rw[val_rel_SIMP] )
+    BasicProvers.EVERY_CASE_TAC >> fs [] >> fs[val_rel_SIMP, add_args_def] >>
+    rw[val_rel_SIMP] >> fs [add_args_def])
   >- (
-    BasicProvers.EVERY_CASE_TAC >> fs[val_rel_SIMP] >>
-    rw[val_rel_SIMP] )
+    BasicProvers.EVERY_CASE_TAC >> fs [] >> fs[val_rel_SIMP, add_args_def] >>
+    rw[val_rel_SIMP] >> fs [add_args_def])
   >- (
-    BasicProvers.EVERY_CASE_TAC >> fs[val_rel_SIMP] >>
-    rw[val_rel_SIMP] )
+    BasicProvers.EVERY_CASE_TAC >> fs [] >> fs[val_rel_SIMP, add_args_def] >>
+    rw[val_rel_SIMP] >> fs [add_args_def])
   >- (
-    BasicProvers.EVERY_CASE_TAC >> fs[val_rel_SIMP] >>
+    BasicProvers.EVERY_CASE_TAC >> fs [] >> fs[val_rel_SIMP] >>
     rw[val_rel_SIMP] >>
-    Cases_on`i < i'`>> rw[bool_to_val_def,val_rel_cases] ));
+    Cases_on`i < i'`>> rw[bool_to_val_def,val_rel_cases] >>
+    fs [add_args_def] ));
 
 val bEval_rev_var = Q.prove (
 `!vs env s ys s'. 
@@ -1795,20 +1869,7 @@ val bEval_simple_genlist_vars = Q.prove (
  srw_tac [ARITH_ss] [TAKE_LENGTH_APPEND] >>
  metis_tac []);
 
-val add_args_def = Define `
-(add_args (Closure loc_opt args env num_args exp : clos_val) args' =
-  SOME (Closure loc_opt (args'++args) env num_args exp)) ∧
-(add_args (Recclosure loc_opt args env funs i : clos_val) args' =
-  SOME (Recclosure loc_opt (args'++args) env funs i)) ∧
-(add_args _ _ = NONE)`;
-
-val num_remaining_args_def = Define `
-(num_remaining_args (Closure loc_opt args env num_args exp : clos_val) = 
-  SOME (num_args - LENGTH args)) ∧
-(num_remaining_args (Recclosure loc_opt args env funs i : clos_val) = 
-  SOME (FST (EL i funs) - LENGTH args)) ∧
-(num_remaining_args _ = NONE)`;
-
+ (*
 val dest_closure_part_app = Q.prove (
 `!loc_opt func args c f1 t1.
   LENGTH args ≠ 0 ∧
@@ -1834,9 +1895,20 @@ val val_rel_num_rem_args = Q.prove (
   num_remaining_args v1 = SOME n
   ⇒
   ?tag ptr rest. v2 = Block tag (ptr::Number (&n-1)::rest)`,
+
  rw [val_rel_cases] >>
- fs [num_remaining_args_def, int_arithTheory.INT_NUM_SUB] >>
- ARITH_TAC);
+ fs [num_remaining_args_def]
+ >- (fs [cl_rel_cases] >>
+     rw [] >>
+     fs [num_remaining_args_def, int_arithTheory.INT_NUM_SUB])
+
+ fs [num_remaining_args_def, int_arithTheory.INT_NUM_SUB, add_args_def] >>
+ rw [] >>
+ fs [num_remaining_args_def] >>
+ rw [] >>
+ fs [int_arithTheory.INT_NUM_SUB] >>
+ rw [] >>
+ TRY ARITH_TAC
 
 val unpack_closure_thm = Q.prove (
 `val_rel f1 t1.refs t1.code func (Block tag (ptr::Number (&n-1)::rest)) ∧
@@ -1847,7 +1919,7 @@ val unpack_closure_thm = Q.prove (
    total_args < max_app ∧
    n = total_args − LENGTH prev_args + 1  ∧
    (tag = closure_tag ⇒ prev_args = [] ∧ clo = Block tag (ptr::Number (&n-1)::rest))`,
- rw [unpack_closure_cases, val_rel_cases, num_remaining_args_def] >>
+ rw [unpack_closure_cases, val_rel_cases, cl_rel_cases, num_remaining_args_def] >>
  fs [num_remaining_args_def] >>
  rw_tac bool_ss [] >>
  TRY ARITH_TAC >>
@@ -1879,6 +1951,7 @@ val dest_closure_part_app = Q.prove (
  Cases_on `loc_opt` >>
  fs [check_loc_def] >>
  decide_tac);
+ *)
  *)
 
 val arith_helper_lem = Q.prove (
@@ -2011,7 +2084,7 @@ val cComp_correct = store_thm("cComp_correct",
     \\ IMP_RES_TAC cEval_SING \\ SRW_TAC [] []
     \\ fs [res_rel_Result1]
     \\ Cases_on `Block 1 [] = r1` \\ fs [] THEN1
-     (`Block 1 [] = y` by (SRW_TAC [] [] \\ fs [val_rel_cases] \\ NO_TAC)
+     (`Block 1 [] = y` by (SRW_TAC [] [] \\ fs [val_rel_SIMP] >> rw [] >> fs [add_args_def] \\ NO_TAC)
       \\ fs [] \\ NTAC 2 (POP_ASSUM (K ALL_TAC))
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux3`]) \\ fs []
       \\ REPEAT STRIP_TAC
@@ -2022,7 +2095,7 @@ val cComp_correct = store_thm("cComp_correct",
       \\ Q.EXISTS_TAC `f2'` \\ fs []
       \\ IMP_RES_TAC SUBMAP_TRANS \\ fs [])
     \\ Cases_on `Block 0 [] = r1` \\ fs [] THEN1
-     (`Block 0 [] = y` by (SRW_TAC [] [] \\ fs [val_rel_cases] \\ NO_TAC)
+     (`Block 0 [] = y` by (SRW_TAC [] [] \\ fs [val_rel_SIMP] >> rw [] >> fs [add_args_def] \\ NO_TAC)
       \\ SRW_TAC [] []
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux4`]) \\ fs []
       \\ REPEAT STRIP_TAC
@@ -2231,7 +2304,7 @@ val cComp_correct = store_thm("cComp_correct",
         \\ MATCH_MP_TAC val_rel_UPDATE_REF \\ fs []
         \\ fs [FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
       \\ `m IN FRANGE f2` by (fs [FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
-      \\ fs [SUBMAP_DEF,FDIFF_def,DRESTRICT_DEF,FAPPLY_FUPDATE_THM])
+      \\ fs [SUBMAP_DEF,FDIFF_def,DRESTRICT_DEF,FAPPLY_FUPDATE_THM, add_args_def])
     \\ Cases_on `op = RefArray` \\ fs[] THEN1 cheat
     \\ Cases_on `op = RefByte` \\ fs[] THEN1 cheat
     \\ Cases_on `op = UpdateByte` \\ fs[] THEN1 cheat
@@ -2256,13 +2329,14 @@ val cComp_correct = store_thm("cComp_correct",
     \\ Cases_on `num_args ≤ max_app ∧ num_args ≠ 0` 
     \\ fs []
     \\ rw []
-    \\ fs [res_rel_cases,val_rel_cases]
+    \\ fs [res_rel_cases,val_rel_cases, cl_rel_cases]
     \\ imp_res_tac bEval_rev_var >>
-    rw []
-    \\ Q.EXISTS_TAC `f1` \\ fs []
+    rw [] >>
+    Q.EXISTS_TAC `f1` \\ fs [] >>
+    disj1_tac >>
+    Q.EXISTS_TAC `x` \\ fs [] >>
     \\ Q.LIST_EXISTS_TAC [`aux1`,`aux3`] \\ fs []
-    \\ IMP_RES_TAC cComp_SING \\ fs [code_installed_def]
-    \\ decide_tac)
+    \\ IMP_RES_TAC cComp_SING \\ fs [code_installed_def])
   THEN1 (* Letrec *)
     cheat
   (*
@@ -2835,9 +2909,26 @@ val cComp_correct = store_thm("cComp_correct",
             >- (rw [dec_clock_def, closLangTheory.dec_clock_def] >>
                 metis_tac [state_rel_clocks, arith_helper_lem]) >>
             `args ≠ []` by (Cases_on `args` >> fs []) >>
+
             fs [val_rel_cases, num_remaining_args_def] >>
             rw [] >>
-            fs [num_remaining_args_def, add_args_def, bytecodeTheory.partial_app_tag_def] >>
+            fs [num_remaining_args_def, add_args_def, bytecodeTheory.partial_app_tag_def]
+            >- ((* Wrapping a normal closure *)
+                disj2_tac >>
+                disj2_tac >>
+                `tag = 5` by fs [cl_rel_cases] >>
+                MAP_EVERY qexists_tac [`args`, `env'`, `ys`, `total_args + 1`, `p`] >>
+                fs [] >>
+                rw []
+
+                fs [cl_rel_cases] >>
+                rw [] >>
+                fs [] >>
+                srw_tac [boolSimps.DNF_ss] []
+                disj2_tac >>
+                disj2_tac >>
+                srw_tac [] [cl_rel_cases]
+
             MAP_EVERY qexists_tac [`aux`, `aux1`] >>
             rw []
             >- srw_tac [ARITH_ss] [] >>
