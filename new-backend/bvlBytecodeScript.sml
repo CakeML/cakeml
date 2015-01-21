@@ -395,9 +395,9 @@ val bvl_bc_def = C (tDefine "bvl_bc")
   (bvl_bc f cenv t sz s [Tick e] =
     let s = emit s [Tick] in
             bvl_bc f cenv t sz s [e]) ∧
-  (bvl_bc f cenv t sz s [Call dest es] =
+  (bvl_bc f cenv t sz s [Call num_ticks dest es] =
     let s = bvl_bc f cenv TCNonTail sz s es in
-    let s = emit s [Tick] in
+    let s = FUNPOW (\s. emit s [Tick]) (num_ticks + 1) s in
     let n = LENGTH es in
     case t of
     | TCNonTail =>
