@@ -1907,8 +1907,6 @@ val arith_helper_lem4 = Q.prove (
  num_args − 1 − (LENGTH args' + LENGTH ys − 1) = num_args − (LENGTH args' + LENGTH ys)`,
  decide_tac);
 
-HERE
-
 val cComp_correct = store_thm("cComp_correct",
   ``(!tmp xs env s1 aux1 t1 env' f1 res s2 ys aux2.
       (tmp = (xs,env,s1)) ∧
@@ -2891,7 +2889,7 @@ val cComp_correct = store_thm("cComp_correct",
 
 val cComp_ind = theorem"cComp_ind";
 
-open (*clos_numberTheory *) boolSimps
+open clos_numberTheory boolSimps
 
 val build_aux_thm = prove(
   ``∀c n aux n7 aux7.
@@ -2935,11 +2933,13 @@ fun tac (g as (asl,w)) =
 val cComp_code_locs = store_thm("cComp_code_locs",
   ``∀xs aux ys aux2.
     cComp xs aux = (ys,aux2++aux) ⇒
-    MAP FST aux2 = REVERSE(code_locs xs)``,
+    MAP FST aux2 = MAP ((+) num_stubs) (REVERSE(code_locs xs))``,
+  cheat);
+  (*
   ho_match_mp_tac cComp_ind >> rpt conj_tac >>
   TRY (
     rw[cComp_def] >>
-    Cases_on`xs`>>fs[code_locs_def]>-(
+    Cases_on`fns`>>fs[code_locs_def]>-(
       fs[LET_THM] ) >>
     Cases_on`t`>>fs[code_locs_def]>-(
       rw[] >> tac >> tac  >> rw[] >> fs[LET_THM] >> rw[] ) >>
@@ -2961,9 +2961,11 @@ val cComp_code_locs = store_thm("cComp_code_locs",
     simp[Abbr`aux1`,ADD1]) >>
   simp[cComp_def,code_locs_def,UNCURRY] >> rw[] >>
   rpt tac >> rw[] >> fs[] >> rw[]);
+  *)
 
   (*
 open clos_annotateTheory
+*)
 
 val code_locs_def = tDefine "code_locs" `
   (code_locs [] = []) /\
@@ -2993,7 +2995,7 @@ val code_locs_def = tDefine "code_locs" `
      case op of
        Label loc => code_locs xs ++ [loc]
      | _ => code_locs xs) /\
-  (code_locs [Call dest xs] =
+  (code_locs [Call ticks dest xs] =
      case dest of NONE => code_locs xs
                 | SOME loc => loc::code_locs xs)`
  (WF_REL_TAC `measure (bvl_exp1_size)`
@@ -3046,21 +3048,25 @@ val contains_Op_Label_def = tDefine "contains_Op_Label" `
   (contains_Op_Label [Op op xs] ⇔
      (∃n. op = Label n) ∨
      contains_Op_Label xs) /\
-  (contains_Op_Label [App loc_opt x1 x2] ⇔
+  (contains_Op_Label [App loc_opt x1 xs] ⇔
      contains_Op_Label [x1] ∨
-     contains_Op_Label [x2]) /\
-  (contains_Op_Label [Fn loc vs x1] ⇔
+     contains_Op_Label xs) /\
+  (contains_Op_Label [Fn loc vs num_args x1] ⇔
      contains_Op_Label [x1]) /\
   (contains_Op_Label [Letrec loc vs fns x1] ⇔
-     contains_Op_Label fns ∨
+     contains_Op_Label (MAP SND fns) ∨
      contains_Op_Label [x1]) /\
   (contains_Op_Label [Handle x1 x2] ⇔
      contains_Op_Label [x1] ∨
      contains_Op_Label [x2]) /\
   (contains_Op_Label [Call dest xs] ⇔
      contains_Op_Label xs)`
- (WF_REL_TAC `measure (clos_exp1_size)`
-  \\ REPEAT STRIP_TAC \\ DECIDE_TAC);
+ (WF_REL_TAC `measure (clos_exp3_size)`
+  \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
+  \\ Induct_on `fns` >>
+  srw_tac [ARITH_ss] [clos_exp_size_def] >>
+  Cases_on `h` >>
+  srw_tac [ARITH_ss] [clos_exp_size_def]);
 
 val contains_Op_Label_EXISTS = prove(
   ``∀ls. contains_Op_Label ls ⇔ EXISTS (λx. contains_Op_Label [x]) ls``,
@@ -3086,20 +3092,24 @@ val contains_Call_def = tDefine "contains_Call" `
      contains_Call [x1]) /\
   (contains_Call [Op op xs] ⇔
      contains_Call xs) /\
-  (contains_Call [App loc_opt x1 x2] ⇔
+  (contains_Call [App loc_opt x1 xs] ⇔
      contains_Call [x1] ∨
-     contains_Call [x2]) /\
-  (contains_Call [Fn loc vs x1] ⇔
+     contains_Call xs) /\
+  (contains_Call [Fn loc vs num_args x1] ⇔
      contains_Call [x1]) /\
   (contains_Call [Letrec loc vs fns x1] ⇔
-     contains_Call fns ∨
+     contains_Call (MAP SND fns) ∨
      contains_Call [x1]) /\
   (contains_Call [Handle x1 x2] ⇔
      contains_Call [x1] ∨
      contains_Call [x2]) /\
   (contains_Call [Call dest xs] ⇔ T)`
- (WF_REL_TAC `measure (clos_exp1_size)`
-  \\ REPEAT STRIP_TAC \\ DECIDE_TAC);
+ (WF_REL_TAC `measure (clos_exp3_size)`
+  \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
+  \\ Induct_on `fns` >>
+  srw_tac [ARITH_ss] [clos_exp_size_def] >>
+  Cases_on `h` >>
+  srw_tac [ARITH_ss] [clos_exp_size_def]);
 
 val contains_Call_EXISTS = prove(
   ``∀ls. contains_Call ls ⇔ EXISTS (λx. contains_Call [x]) ls``,
@@ -3117,7 +3127,7 @@ val pComp_contains_Op_Label = store_thm("pComp_contains_Op_Label",
   rw[contains_Op_Label_def] >> rw[EVERY_MEM] >>
   rw[Once contains_Op_Label_EXISTS,EVERY_MAP] >>
   rw[contains_Op_Label_def] >> rw[EVERY_MEM] >>
-  fs[REPLICATE_GENLIST,MEM_GENLIST] >>
+  fs[REPLICATE_GENLIST,MEM_GENLIST, MEM_MAP] >>
   rw[contains_Op_Label_def])
 
 val pComp_contains_Call = store_thm("pComp_contains_Call",
@@ -3129,22 +3139,23 @@ val pComp_contains_Call = store_thm("pComp_contains_Call",
   rw[contains_Call_def] >> rw[EVERY_MEM] >>
   rw[Once contains_Call_EXISTS,EVERY_MAP] >>
   rw[contains_Call_def] >> rw[EVERY_MEM] >>
-  fs[REPLICATE_GENLIST,MEM_GENLIST] >>
+  fs[REPLICATE_GENLIST,MEM_GENLIST, MEM_MAP] >>
   rw[contains_Call_def])
 
 val code_locs_recc_Lets = store_thm("code_locs_recc_Lets",
-  ``∀n loc r. set (code_locs [recc_Lets loc n r]) = IMAGE ($+ loc) (count n) ∪ set (code_locs [r])``,
+  ``∀n loc nargs r. set (code_locs [recc_Lets loc nargs n r]) = IMAGE ($+ loc) (count n) ∪ set (code_locs [r])``,
   Induct >> simp[Once recc_Lets_def,code_locs_def,recc_Let_def,COUNT_SUC] >>
-  simp[EXTENSION] >> METIS_TAC[])
+  simp[EXTENSION] >> METIS_TAC[]);
 
 val code_locs_build_recc_lets = store_thm("code_locs_build_recc_lets",
-  ``∀ls vs loc n r.
-      set (code_locs [build_recc_lets ls vs loc (SUC n) r]) = IMAGE ($+ loc) (count (SUC n)) ∪ set (code_locs [r])``,
-  Induct >> simp[build_recc_lets_def,code_locs_def,code_locs_MAP_Var,recc_Let0_def,code_locs_recc_Lets,COUNT_SUC] >-
-    (rw[EXTENSION] >> METIS_TAC[]) >>
+  ``∀args vs loc n r.
+      set (code_locs [build_recc_lets args vs loc (SUC n) r]) = IMAGE ($+ loc) (count (SUC n)) ∪ set (code_locs [r])``,
+  REWRITE_TAC [build_recc_lets_def, GSYM MAP_REVERSE, REVERSE_APPEND] >>
+  simp[code_locs_def,code_locs_MAP_Var,recc_Let0_def,code_locs_recc_Lets,COUNT_SUC] >>
   rw[Once code_locs_cons,code_locs_def,code_locs_append,code_locs_MAP_Var,code_locs_MAP_K_Op_Const] >>
   rw[EXTENSION] >> METIS_TAC[])
 
+  (*
 val code_locs_cComp = store_thm("code_locs_cComp",
   ``∀xs aux.
       ¬contains_Op_Label xs ∧ ¬contains_App_SOME xs ∧ ¬contains_Call xs ⇒
