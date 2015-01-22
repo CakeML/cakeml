@@ -294,7 +294,7 @@ val lookup_vars_def = Define `
 val check_loc_opt_def = Define `
   (check_loc NONE loc num_params num_args so_far ⇔ num_args ≤ max_app) /\
   (check_loc (SOME p) loc num_params num_args so_far ⇔ 
-    (num_params = num_args + so_far) ∧ (p = loc))`;
+    (num_params = num_args) ∧ (so_far = 0:num) ∧ (p = loc))`;
 
 val _ = Datatype `
   app_kind =
