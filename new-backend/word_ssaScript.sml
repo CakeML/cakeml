@@ -209,12 +209,12 @@ val ssa_cc_trans_def = Define`
     (If e1' num' (Seq e2' e2_cons) (Seq e3' e3_cons),ssa_fin,na_fin)) ∧
   (*For cutsets, we must restart the ssa mapping to maintain consistency*) 
   (ssa_cc_trans (Alloc num numset) ssa na = 
-    let num' = option_lookup ssa num in 
     let ls = MAP FST (toAList numset) in
     (*This trick allows us to not keep the "next stack" variable by 
       simply starting from the next available stack location
       Assuming na is an alloc var of course..*)
     let (stack_mov,ssa',na') = list_next_var_rename_move ssa (na+2) ls in
+    let num' = option_lookup ssa' num in 
     let stack_set = apply_nummap_key (option_lookup ssa') numset in
     (*Restart the ssa map*)
     let ssa_cut = inter ssa' numset in
@@ -884,12 +884,14 @@ val list_next_var_rename_move_preserve = GEN_ALL(prove(``
   ssa_locals_rel na ssa st.locals cst.locals ∧ 
   set ls ⊆ domain st.locals ∧ 
   ALL_DISTINCT ls ∧
-  ssa_map_ok na ssa
+  ssa_map_ok na ssa ∧ 
+  word_state_eq_rel st cst 
   ⇒
   let (mov,ssa',na') = list_next_var_rename_move ssa na ls in
   let (res,rcst) = wEval (mov,cst) in
     res = NONE ∧ 
-    ssa_locals_rel na' ssa' st.locals rcst.locals``,
+    ssa_locals_rel na' ssa' st.locals rcst.locals ∧ 
+    word_state_eq_rel st rcst``,
   fs[list_next_var_rename_move_def,ssa_locals_rel_def]>>
   rw[]>>
   imp_res_tac list_next_var_rename_lemma_1>>
@@ -937,10 +939,11 @@ val list_next_var_rename_move_preserve = GEN_ALL(prove(``
     >>
       (*Shouldn't be in the ZIP*)
       cheat)
+  >-
+    (res_tac>>DECIDE_TAC)
   >>
-    res_tac>>DECIDE_TAC))
+    fs[word_state_eq_rel_def,set_vars_def]))
 
-(*
 val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
 ``∀prog st cst ssa na ns.
   word_state_eq_rel st cst ∧
@@ -972,7 +975,8 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
   >-
     exists_tac
   >-
-    (exists_tac>>EVERY_CASE_TAC>>fs[set_vars_def]>>
+    cheat
+    (*exists_tac>>EVERY_CASE_TAC>>fs[set_vars_def]>>
     Cases_on`list_next_var_rename (MAP FST l) ssa na`>>
     Cases_on`r`>>
     fs[wEval_def]>>
@@ -1037,7 +1041,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       >>
         `MEM x' (MAP FST l)` by cheat>>
         fs[EVERY_MEM]>>
-        metis_tac[DECIDE``x'<na ⇒ x' < na + 4*LENGTH l``])
+        metis_tac[DECIDE``x'<na ⇒ x' < na + 4*LENGTH l``]*)
   >-(*Inst*) cheat
   >-(*Assign*)
     (exists_tac>>cheat)
@@ -1051,7 +1055,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       metis_tac[]
     >-
       (res_tac>>
-      fs[domain_lookup]>>
+      fs[domain_lookup,ssa_map_ok_def]>>
       first_x_assum(qspecl_then[`x'`,`v`]assume_tac)>>
       (*Next part is a key reasoning step --
         We only have alloc_vars < na in the range of ssa
@@ -1065,7 +1069,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       (fs[every_var_def]>>DECIDE_TAC)
     >>
       (*Finally, this illustrates need for <na assumption on st.locals*)
-      res_tac>>fs[]>>DECIDE_TAC)
+      fs[ssa_map_ok_def]>>res_tac>>fs[]>>DECIDE_TAC)
   >-(*Set*)
     (exists_tac>>cheat)
   >- (*Store*)
@@ -1225,7 +1229,6 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     (fs[ssa_cc_trans_def,wEval_def,get_var_perm,LET_THM]>>
     Cases_on`get_var n st`>>
     rw[]>>
-    imp_res_tac ssa_locals_rel_get_var>>fs[]>>
     Cases_on`x`>>fs[wAlloc_def]>>
     Cases_on`cut_env s st.locals`>>fs[]>>
     qpat_abbrev_tac`ls = MAP FST (toAList s)`>>
@@ -1248,272 +1251,35 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
         (match_mp_tac ssa_map_ok_more>>
         fs[]>>DECIDE_TAC))>>
     LET_ELIM_TAC>>fs[]>>
-    cheat
-    (*
-    rw[LET_THM]>>
-    fs[LET_THM]>>rw[]>>
-
-     (MAP (option_lookup ssa) ls) ns`>>fs[]>>
-    PairCases_on`r'`>>fs[wEval_def]>>
-   
-
-    fs[LET_THM]>>
+    `ssa_map_ok na' ssa'` by cheat >> 
+    (*separately provable*)
     imp_res_tac ssa_locals_rel_get_var>>fs[]>>
-    Cases_on`x`>>fs[wAlloc_def]>>
-    
-    Cases_on`cut_env s st.locals`>>fs[]>>
-    qpat_abbrev_tac`ls = MAP FST (toAList s)`>>
-    Cases_on`list_next_stack_rename (MAP (option_lookup ssa) ls) ns`>>fs[]>>
-    Cases_on`list_next_var_rename ls LN na`>>
-    PairCases_on`r'`>>fs[wEval_def]>>
-    imp_res_tac list_next_stack_rename_lemma>>
-    `LENGTH q = LENGTH ls` by   
-      fs[LET_THM,LENGTH_COUNT_LIST]>> 
-    fs[MAP_ZIP,LET_THM]>>
-    fs[]>>
-    `set (MAP (option_lookup ssa) ls) ⊆ domain cst.locals` by
-      (fs[ssa_locals_rel_def,cut_env_def,Abbr`ls`,SUBSET_DEF]>>
-      rw[]>>
-      fs[MEM_MAP,option_lookup_def]>>
-      Cases_on`y'`>>fs[MEM_toAList]>>
-      `q ∈ domain s` by fs[domain_lookup]>>
-      res_tac>>
-      fs[domain_lookup]>>
-      res_tac>>
-      fs[]>>
-      metis_tac[])>>
-    imp_res_tac get_vars_eq>>
-    fs[]>>
-    qpat_abbrev_tac `ls1 = MAP (\x.4*x +ns) (COUNT_LIST (LENGTH ls))`>>
-    qpat_abbrev_tac `ls2 = MAP (\x. THE (lookup x cst.locals)) A`>>
-    imp_res_tac get_var_ignore>>
-    ntac 3 (pop_assum kall_tac)>>
-    pop_assum(qspec_then`ls1`mp_tac)>>
-    discharge_hyps>-
-      (unabbrev_all_tac>>
-      fs[MEM_MAP]>>
-      rw[]>>DISJ1_TAC>>
-      fs[ssa_locals_rel_def,option_lookup_def]>>
-      `n ∈ domain st.locals` by fs[get_var_def,domain_lookup]>>
-      fs[domain_lookup]>>
-      res_tac>>
-      fs[]>>
-      res_tac>>
-      `is_stack_var (4* x' + ns)` by cheat>>
-      metis_tac[convention_partitions])>>
-    rw[]>>
-    pop_assum (qspec_then`ls2`mp_tac)>>
-    discharge_hyps>-
-      (unabbrev_all_tac>>fs[])>>
-    fs[wAlloc_def]>>rw[]>>
+    rfs[wAlloc_def]>>
+    qabbrev_tac`f = option_lookup q'`>>
     (*Try to use cut_env_lemma from word_live*)
-    qpat_abbrev_tac`cst' = set_vars ls1 ls2 cst`>>
-    qpat_abbrev_tac`f = λx. THE(ALOOKUP (ZIP (MAP (option_lookup ssa) ls,ls1)) x)`>>
-    Q.ISPECL_THEN [`s`,`st.locals`,`cst'.locals`,`x`
+    Q.ISPECL_THEN [`s`,`st.locals`,`rcst.locals`,`x`
                   ,`f` ] mp_tac cut_env_lemma>>
     discharge_hyps>-
-      (rfs[]>> 
+      (rfs[Abbr`f`]>> 
       fs[ssa_locals_rel_def,strong_locals_rel_def]>>
-      `domain s ⊆ domain st.locals` by cheat>>
-      (*First conjunct should be true since ls1 ALL_DISTINCT*)
-      rw[]>-cheat>>
-      `LENGTH ls1 = LENGTH ls2` by cheat>>
-      fs[Abbr`cst'`,set_vars_def,lookup_list_insert]>>
-      res_tac>>
-      cheat) 
-    >>
-    rw[]>>
-    fs[set_store_def]>>
-    assume_tac (GEN_ALL push_env_s_val_eq)>>
-    pop_assum (qspecl_then[
-      `y`,`x`,`st with store:= st.store |+ (AllocSize,Word c)`
-      ,`f`,`cst' with store:= cst'.store |+ (AllocSize,Word c)`,`F`,
-      `cst'.permute`]mp_tac)>>
-    discharge_hyps>-
-      rfs[set_vars_def,word_state_eq_rel_def,Abbr`cst'`]
-    >>
-    rw[]>>
-    qexists_tac`perm`>>fs[]>>
-    qpat_abbrev_tac `st'' = push_env x F A`>>
-    qpat_abbrev_tac `cst'' = push_env y F B`>>
-    Cases_on`wGC st''`>>fs[]>>
-    qspecl_then [`st''`,`cst''`,`x'`] mp_tac wGC_s_val_eq_gen>>
-    discharge_hyps_keep>-
-      (unabbrev_all_tac>>
-      fs[push_env_def,LET_THM,env_to_list_def,word_state_eq_rel_def]>>
-      rfs[set_vars_def])
-    >>
-    rw[]>>simp[]>>
-    fs[Abbr`st''`,Abbr`cst''`,Abbr`cst'`]>>
-    imp_res_tac wGC_frame>>
-    imp_res_tac push_env_pop_env_s_key_eq>>
-    Cases_on`pop_env x'`>>fs[set_vars_def]>>
-    `strong_locals_rel f (domain s) x''.locals y'.locals ∧
-     word_state_eq_rel x'' y'` by
-      (imp_res_tac wGC_s_key_eq>>
-      fs[push_env_def,LET_THM,env_to_list_def]>>
-      ntac 2(pop_assum mp_tac>>simp[Once s_key_eq_sym])>>
-      ntac 2 strip_tac>>
-      rpt (qpat_assum `s_key_eq A B` mp_tac)>>
-      qpat_abbrev_tac `lsA = list_rearrange (cst'.permute 0)
-        (QSORT key_val_compare ( (toAList y)))`>>
-      qpat_abbrev_tac `lsB = list_rearrange (perm 0)
-        (QSORT key_val_compare ( (toAList x)))`>>
-      ntac 3 strip_tac>>
-      Q.ISPECL_THEN [`x'.stack`,`y'`,`t'`,`NONE:num option`
-        ,`lsA`,`cst.stack`] mp_tac (GEN_ALL s_key_eq_val_eq_pop_env)>>
-      discharge_hyps
-      >-
-        (fs[]>>metis_tac[s_key_eq_sym,s_val_eq_sym])
-      >>
-      Q.ISPECL_THEN [`t'.stack`,`x''`,`x'`,`NONE:num option`
-        ,`lsB`,`st.stack`] mp_tac (GEN_ALL s_key_eq_val_eq_pop_env)>>
-      discharge_hyps
-      >-
-        (fs[]>>metis_tac[s_key_eq_sym,s_val_eq_sym])
-      >>
-      rw[]
-      >-
-        (simp[]>>
-        fs[strong_locals_rel_def,lookup_fromAList]>>
-        fs[s_val_eq_def,s_frame_val_eq_def]>>
-        rw[]>>
-        `MAP FST (MAP (λ(x,y). (f x,y)) lsB) =
-         MAP f (MAP FST lsB)` by
-          fs[MAP_MAP_o,MAP_EQ_f,FORALL_PROD]>>
+      rw[INJ_DEF]>-
+        (SPOSE_NOT_THEN assume_tac>>
+        `x' ∈ domain st.locals ∧ y ∈ domain st.locals` by
+          fs[SUBSET_DEF,cut_env_def]>>
+        fs[domain_lookup,option_lookup_def,ssa_map_ok_def]>>
+        res_tac>>
         fs[]>>
-        match_mp_tac ALOOKUP_key_remap_2>>rw[]>>
-        metis_tac[s_key_eq_def,s_frame_key_eq_def,LENGTH_MAP])
+        metis_tac[])
       >>
-        fs[word_state_eq_rel_def,pop_env_def]>>
-        rfs[word_state_component_equality]>>
-        metis_tac[s_val_and_key_eq,s_key_eq_sym
-          ,s_val_eq_sym,s_key_eq_trans])>>
-    `domain x''.locals = domain x ∧ domain y''.locals = domain y` by 
-      (imp_res_tac wGC_s_key_eq>>
-      fs[push_env_def,LET_THM,env_to_list_def]>>
-      ntac 2(pop_assum mp_tac>>simp[Once s_key_eq_sym])>>
-      ntac 2 strip_tac>>
-      rpt (qpat_assum `s_key_eq A B` mp_tac)>>
-      qpat_abbrev_tac `lsA = list_rearrange (cst'.permute 0)
-        (QSORT key_val_compare ( (toAList y)))`>>
-      qpat_abbrev_tac `lsB = list_rearrange (perm 0)
-        (QSORT key_val_compare ( (toAList x)))`>>
-      ntac 3 strip_tac>>
-      Q.ISPECL_THEN [`x'.stack`,`y'`,`t'`,`NONE:num option`
-        ,`lsA`,`cst.stack`] mp_tac (GEN_ALL s_key_eq_val_eq_pop_env)>>
-      discharge_hyps
-      >-
-        (fs[]>>metis_tac[s_key_eq_sym,s_val_eq_sym])
-      >>
-      Q.ISPECL_THEN [`t'.stack`,`x''`,`x'`,`NONE:num option`
-        ,`lsB`,`st.stack`] mp_tac (GEN_ALL s_key_eq_val_eq_pop_env)>>
-      discharge_hyps
-      >-
-        (fs[]>>metis_tac[s_key_eq_sym,s_val_eq_sym])
-      >>
-      rw[]
-      >-
-        (simp[]>>
-        fs[strong_locals_rel_def,lookup_fromAList]>>
-        fs[s_val_eq_def,s_frame_val_eq_def]>>
-        rw[]>>
-        `MAP FST (MAP (λ(x,y). (f x,y)) lsB) =
-         MAP f (MAP FST lsB)` by
-          fs[MAP_MAP_o,MAP_EQ_f,FORALL_PROD]>>
+        fs[option_lookup_def,domain_lookup]>>
+        res_tac>>
         fs[]>>
-        match_mp_tac ALOOKUP_key_remap_2>>rw[]>>
-        metis_tac[s_key_eq_def,s_frame_key_eq_def,LENGTH_MAP])
-      >>
-        fs[word_state_eq_rel_def,pop_env_def]>>
-        rfs[word_state_component_equality]>>
-        metis_tac[s_val_and_key_eq,s_key_eq_sym
-          ,s_val_eq_sym,s_key_eq_trans])
-
-    fs[word_state_eq_rel_def]>>Cases_on`FLOOKUP x''.store AllocSize`>>
-    fs[has_space_def]>>
-    Cases_on`x'''`>>fs[]>>
-    imp_res_tac list_next_var_rename_lemma_1>>
-    fs[LET_THM]>>
-    EVERY_CASE_TAC>>fs[call_env_def,Abbr`ls1`,MAP_ZIP]>>
-    (*Use assum 67?*)
-    `domain x''.locals = domain s` by cheat>>
-    qpat_abbrev_tac `ls3 = MAP (\x. 4*x +ns) A`>>
-    fs[strong_locals_rel_def,Abbr`f`]>>
-    `set ls3 ⊆ domain y'.locals` by 
-      fs[SUBSET_DEF,Abbr`ls3`]>>
-      rw[MEM_MAP]>>
-      fs[domain_lookup]
-    qpat_assum`q' = X` (SUBST_ALL_TAC o SYM)>>
-
-      
-    reverse (EVERY_CASE_TAC>>fs[call_env_def])>-
-      (*q' is all distinct*)
-      cheat
-    >>
-    rfs[get_vars_def]
-
-      fs[]>>
-
-
-    Cases_on`FLOOKUP x''.store NextFree`>>fs[]>>
-    Cases_on`x'''`>>fs[]>>
-    Cases_on`FLOO
-    EVERY_CASE_TAC>>fs[call_env_def]
-    
-     qpat_assum`A=SOME y` (SUBST_ALL_TAC o SYM)>>
-      
-      AP_TERM_TAC
-      Q.AP_THM_TAC
-      AP_TERM_TAC
-            (ZIP
-               (MAP ((λx. THE (ALOOKUP ls3 x)) o FST) (toAList s),
-                MAP SND (toAList s)))
-      cheat (*
-      rfs[]>>
-                  ,`ALOOKUP ls3`] mp_tac cut_env_lemma
-    ,`st`,`cst'`,`x`,`ALOOKUP ls3`] mp_tac cut_env_lemma>>
-
-      cheat (*v' is alloc var and 4*x'+ns is stack var*)
-
-      res_tac
-      
-      unabbrev_all_tac>>fs[LENGTH_COUNT_LIST])>>
-    discharge_hyps>-
-      (unabbrev_all_tac>>
-      
-      fs[LENGTH_COUNT_LIST])>>
-      
-    (MAP B ls)`
-    pop_assum
-    get_var (option_lookup ssa n) cst = 
-
-    fs[set_vars_df]
-      metis_tac[]
-      metis_tac[]
-      metis_tac[]
-      FULL_CASE_TAC>>
-
-     get_vars_eq
-    `∃y. get_vars ls st = SOME y` by
-      fs[cut_env_def,Abbr`ls`,get_vars_def]>>
-
-    
-    fs[MAP_ZIP,LET_THM]
-
-    `domain s ⊆ (n INSERT domain s)` by fs[SUBSET_DEF]>>
-    imp_res_tac strong_locals_rel_subset>>
-    imp_res_tac cut_env_lemma>>
-    pop_assum mp_tac>>discharge_hyps
-    >-
-      (match_mp_tac (GEN_ALL INJ_less)>>metis_tac[])
+        qpat_assum`A=SOME v'` SUBST_ALL_TAC>>fs[])
     >>
     rw[]>>fs[set_store_def]>>
-    assume_tac (GEN_ALL push_env_s_val_eq)>>
-    pop_assum (qspecl_then[
-      `y`,`x`,`st with store:= st.store |+ (AllocSize,Word c)`,
-      `f`,`cst with store:= cst.store |+ (AllocSize,Word c)`,`F`,
-      `cst.permute`]assume_tac)>>
+    Q.ISPECL_THEN [`y`,`x`,`st with store:= st.store |+ (AllocSize,Word c)`
+    ,`f`,`rcst with store:= rcst.store |+ (AllocSize,Word c)`
+    ,`F`,`rcst.permute`] assume_tac (GEN_ALL push_env_s_val_eq)>>
     rfs[word_state_eq_rel_def]>>
     qexists_tac`perm`>>fs[]>>
     qpat_abbrev_tac `st' = push_env x F A`>>
@@ -1530,20 +1296,20 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     imp_res_tac wGC_frame>>
     imp_res_tac push_env_pop_env_s_key_eq>>
     Cases_on`pop_env x'`>>fs[]>>
-    `strong_locals_rel f (domain live) x''.locals y'.locals ∧
+    `ssa_locals_rel na' (inter q' s) x''.locals y'.locals ∧
      word_state_eq_rel x'' y'` by
       (imp_res_tac wGC_s_key_eq>>
       fs[push_env_def,LET_THM,env_to_list_def]>>
-      ntac 2(pop_assum mp_tac>>simp[Once s_key_eq_sym])>>
-      ntac 2 strip_tac>>
+      pop_assum mp_tac>>simp[Once s_key_eq_sym]>>
+      strip_tac>>
       rpt (qpat_assum `s_key_eq A B` mp_tac)>>
-      qpat_abbrev_tac `lsA = list_rearrange (cst.permute 0)
+      qpat_abbrev_tac `lsA = list_rearrange (rcst.permute 0)
         (QSORT key_val_compare ( (toAList y)))`>>
       qpat_abbrev_tac `lsB = list_rearrange (perm 0)
         (QSORT key_val_compare ( (toAList x)))`>>
-      ntac 4 strip_tac>>
+      ntac 3 strip_tac>>
       Q.ISPECL_THEN [`x'.stack`,`y'`,`t'`,`NONE:num option`
-        ,`lsA`,`cst.stack`] mp_tac (GEN_ALL s_key_eq_val_eq_pop_env)>>
+        ,`lsA`,`rcst.stack`] mp_tac (GEN_ALL s_key_eq_val_eq_pop_env)>>
       discharge_hyps
       >-
         (fs[]>>metis_tac[s_key_eq_sym,s_val_eq_sym])
@@ -1557,34 +1323,59 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       rw[]
       >-
         (
+        qabbrev_tac`f=option_lookup q'`>>
         simp[]>>
-        fs[strong_locals_rel_def,lookup_fromAList]>>
-        `MAP SND l = MAP SND ls'` by
+        fs[ssa_locals_rel_def,lookup_fromAList]>>
+        `MAP SND ls'' = MAP SND ls'` by
           fs[s_val_eq_def,s_frame_val_eq_def]>>
         rw[]>>
         `MAP FST (MAP (λ(x,y). (f x,y)) lsB) =
          MAP f (MAP FST lsB)` by
           fs[MAP_MAP_o,MAP_EQ_f,FORALL_PROD]>>
-        fs[]>>
-        match_mp_tac ALOOKUP_key_remap_2>>rw[]>>
-        metis_tac[s_key_eq_def,s_frame_key_eq_def,LENGTH_MAP])
-      >>
+        fs[Abbr`f`]>>
+        `LENGTH lsB = LENGTH ls'` by cheat
+        >-
+          (fs[domain_fromAList,MAP_ZIP,LENGTH_MAP]>>
+          cheat) (*x''' is in x*)
+        >-
+          (`MEM x''' (MAP FST lsB)` by cheat>>
+          unabbrev_all_tac>>
+          `MEM x''' (MAP FST (toAList x))` by cheat>>
+          fs[domain_inter]>>cheat)
+        >-
+          (*need to use previous conjunct
+          match_mp_tac ALOOKUP_key_remap_2>>rw[]>>
+          metis_tac[s_key_eq_def,s_frame_key_eq_def,LENGTH_MAP]*)
+          cheat
+        >>
+          (*x''' in x, and dom x = dom s and every_var < na*)
+          cheat
+          )
+        >>
         fs[word_state_eq_rel_def,pop_env_def]>>
         rfs[word_state_component_equality]>>
         metis_tac[s_val_and_key_eq,s_key_eq_sym
-          ,s_val_eq_sym,s_key_eq_trans])>>
-    fs[word_state_eq_rel_def]>>FULL_CASE_TAC>>fs[has_space_def]>>
-    Cases_on`x'''`>>
-    EVERY_CASE_TAC>>fs[call_env_def])
-    
-    
-    
-    
-    )
-  >>
-    cheat)
-*)
-*)
-*)
+          ,s_val_eq_sym,s_key_eq_trans])
+      >>
+      fs[word_state_eq_rel_def]>>FULL_CASE_TAC>>fs[has_space_def]>>
+      Cases_on`x'''`>>
+      EVERY_CASE_TAC>>fs[call_env_def]>>
+      Q.SPECL_THEN [`x''`,`inter q' s`,`na'+2`,`(MAP FST (toAList s))`
+                   ,`y'`] mp_tac list_next_var_rename_move_preserve>>
+      discharge_hyps>-
+      (rw[]
+      >-
+        (match_mp_tac (GEN_ALL ssa_locals_rel_more)>>
+        fs[]>>
+        HINT_EXISTS_TAC>>fs[])
+      >-
+        cheat (*should need to prove this in the previous part*)
+      >-
+        cheat (*because q' is ok on na'*)
+      >>
+        fs[word_state_eq_rel_def])
+      rw[]>>fs[LET_THM]>>
+      Cases_on`wEval (q'',y')`>>fs[word_state_eq_rel_def])
+  >> cheat)
 
 val _ = export_theory();
