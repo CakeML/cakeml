@@ -203,7 +203,7 @@ val cComp_def = tDefine "cComp" `
      | [] => cComp [x1] aux
      | [(num_args, exp)] =>
          let (c1,aux1) = cComp [exp] aux in
-         let c3 = Let (GENLIST Var num_args ++ [Var num_args] ++ free_let (Var (num_args + 1)) (LENGTH vs)) (HD c1) in
+         let c3 = Let (GENLIST Var num_args ++ [Var num_args] ++ free_let (Var num_args) (LENGTH vs)) (HD c1) in
          let (c2,aux2) = cComp [x1] ((loc + num_stubs,num_args+1,c3)::aux1) in
          let c4 = 
            Op (Cons closure_tag) 
@@ -891,7 +891,7 @@ val (cl_rel_rules,cl_rel_ind,cl_rel_cases) = Hol_reln `
   cComp [x] aux = ([c],aux1) /\
   code_installed aux1 code /\
   lookup (p + num_stubs) code = 
-    SOME (num_args + 1:num,Let (GENLIST Var (num_args+1)++free_let (Var (num_args + 1)) (LENGTH env)) c)
+    SOME (num_args + 1:num,Let (GENLIST Var (num_args+1)++free_let (Var num_args) (LENGTH env)) c)
   ⇒
   cl_rel f refs code (env,ys)
          (Recclosure p [] env [(num_args, x)] 0) 
@@ -1288,22 +1288,18 @@ val val_rel_SIMP = LIST_CONJ
    |> SIMP_CONV (srw_ss()) [val_rel_cases, cl_rel_cases]]
   |> curry save_thm "val_rel_SIMP"
 
-   (*
-val bEval_free_let_Block = prove(
-  ``!ys zs s.
-      bEval (free_let (LENGTH ys),(Block n (y::ys ++ zs))::env,s) =
-        (Result ys,s)``,
-  recInduct SNOC_INDUCT \\ REPEAT STRIP_TAC THEN1 EVAL_TAC
-  \\ fs [free_let_def,GENLIST,bEval_SNOC]
-  \\ fs [SNOC_APPEND] \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC] \\ fs []
-  \\ fs [bEval_def,bEvalOp_def]
-  \\ SRW_TAC [] [] \\ TRY (`F` by DECIDE_TAC)
-  \\ FULL_SIMP_TAC std_ss [GSYM APPEND,GSYM APPEND_ASSOC]
-  \\ `LENGTH l + 1 = LENGTH (y::l)` by fs [ADD1]
-  \\ FULL_SIMP_TAC std_ss [EVAL ``[x] ++ l``]
-  \\ fs [EL_LENGTH_APPEND])
-  |> Q.SPECL [`ys`,`[]`,`s`] |> SIMP_RULE std_ss [APPEND_NIL];
-   *)
+val bEval_free_let_Block = Q.prove (
+`!ys zs.
+  bEval ([x],env,s) = (Result [Block n (y::z::ys ++ zs)], s)
+  ⇒
+  bEval (free_let x (LENGTH ys),env,s) = (Result ys,s)`,
+ ho_match_mp_tac SNOC_INDUCT >>
+ rw [free_let_def, bEval_def] >>
+ fs [SNOC_APPEND] \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC] >>
+ res_tac >>
+ fs [GENLIST, bEval_SNOC, bEvalOp_def, bEval_def] >>
+ simp [EL_CONS, PRE_SUB1, el_append3])
+  |> Q.SPECL [`ys`,`[]`] |> SIMP_RULE std_ss [APPEND_NIL];
 
 val list_rel_IMP_env_rel = prove(
   ``!xs ys.
@@ -1946,6 +1942,11 @@ val cl_rel_get_num_args = Q.prove (
  fs [get_num_args_def, int_arithTheory.INT_NUM_SUB] >>
  ARITH_TAC);
 
+val get_loc_def = Define `
+  (get_loc (Closure loc args env num_args exp) = SOME loc) ∧
+  (get_loc (Recclosure loc args env fns i) = SOME (loc + i)) ∧
+  (get_loc _ = NONE)`;
+
 val cl_rel_get_loc = Q.prove (
 `cl_rel f1 refs code (env,ys) func (Block tag (CodePtr p::n::ys))
  ⇒
@@ -1953,11 +1954,6 @@ val cl_rel_get_loc = Q.prove (
  get_loc func = SOME (p-num_stubs)`,
  rw [cl_rel_cases] >>
  rw [get_loc_def]);
-
-val get_loc_def = Define `
-  (get_loc (Closure loc args env num_args exp) = SOME loc) ∧
-  (get_loc (Recclosure loc args env fns i) = SOME (loc + i)) ∧
-  (get_loc _ = NONE)`;
 
 val get_old_args_def = Define `
   (get_old_args (Closure loc args env num_args exp) = SOME args) ∧
@@ -2034,6 +2030,51 @@ val no_partial_args = Q.prove (
  fs [] >>
  decide_tac);
 
+val cl_rel_run_lemma = Q.prove (
+`LENGTH env1 ≠ 0 ⇒ 
+ bEval (GENLIST Var (LENGTH env1 + 1),env1++[x],s) = (Result (env1++[x]),s)`,
+ strip_tac >>
+ `0 < LENGTH env1 + 1` by decide_tac >>
+ `LENGTH env1 + 1 = LENGTH (env1++[x])` by rw [] >>
+ metis_tac [bEval_simple_genlist_vars, APPEND_NIL]);
+
+val cl_rel_run = Q.prove (
+`!f1 (refs : num|-> ref_value) code args args' env env' ptr exp' body new_env func func' t1.
+  func' = Block 5 (CodePtr ptr::Number (&LENGTH args' − 1)::env') ∧
+  dest_closure (SOME (ptr − num_stubs)) func args = SOME (Full_app body new_env []) ∧ 
+  val_rel f1 refs code func func' ∧
+  cl_rel f1 refs code (env,env') func func' ∧
+  lookup ptr code = SOME (LENGTH args' + 1,exp') ∧
+  LIST_REL (val_rel f1 refs code) args args'
+  ⇒
+  ∃body' aux1 aux2 new_env'.
+    cComp [body] aux1 = ([body'],aux2) ∧ code_installed aux2 code ∧
+    env_rel f1 refs code new_env new_env' ∧
+    bEval ([exp'], args'++[func'], t1) = bEval ([body'], new_env', t1)`,
+ rw [cl_rel_cases, dest_closure_def] >>
+ `LIST_REL (val_rel f1 refs code) env env'`
+         by fs [val_rel_cases, cl_rel_cases, bytecodeTheory.partial_app_tag_def] >>
+ fs [] >>
+ BasicProvers.EVERY_CASE_TAC >>
+ fs [check_loc_def, LET_THM] >>
+ rw [] >>
+ qexists_tac `c` >>
+ qexists_tac `aux` >>
+ qexists_tac `aux1` >>
+ imp_res_tac EVERY2_LENGTH >>
+ fs [] >>
+ rw [bEval_def, bEval_APPEND] >>
+ qabbrev_tac `func' = Block 5 (CodePtr (p + num_stubs)::Number (&LENGTH args' − 1):: env')` >>
+ `0 < LENGTH (args'++[func'])` by (rw [] >> decide_tac) >>
+ simp [bEval_simple_genlist_vars, cl_rel_run_lemma] >>
+ `bEval ([Var (LENGTH args)], args'++[func'],t1) = (Result [func'],t1)`
+         by rw [bEval_def, EL_LENGTH_APPEND] >>
+ unabbrev_all_tac >>
+ imp_res_tac bEval_free_let_Block >>
+ rfs [] >>
+ qabbrev_tac `func' = Block 5 (CodePtr (p + num_stubs)::Number (&LENGTH args' − 1):: env')` >>
+ simp [TAKE_REVERSE] >>
+ metis_tac [list_rel_IMP_env_rel, APPEND_ASSOC, LASTN_LENGTH_ID, env_rel_APPEND, LIST_REL_def]);
 
 val arith_helper_lem = Q.prove (
 `LENGTH args' ≠ 0 ⇒ x − 1 − (LENGTH args' − 1) = x − LENGTH args'`,
@@ -3039,14 +3080,13 @@ val cComp_correct = store_thm("cComp_correct",
              `rem_args = LENGTH args` by ARITH_TAC >>
              fs [] >>
              rw [find_code_def] >>
-             qpat_assum `val_rel x0 x1 x2 x3 x4` mp_tac >>
-             simp [val_rel_cases] >>
+             qpat_assum `val_rel x0 x1 x2 x3 x4` (fn x => mp_tac x >> simp [val_rel_cases] >> assume_tac x) >>
              reverse (rw []) >>
              imp_res_tac EVERY2_LENGTH
              >- metis_tac [no_partial_args] >>
              imp_res_tac cl_rel_get_loc >>
              fs [] >>
-             BasicProvers.VAR_EQ_TAC >>
+             TRY BasicProvers.VAR_EQ_TAC >>
              simp [] >>
              `s1.clock = t1.clock` by fs [state_rel_def] >>
              fs [] >>
@@ -3070,12 +3110,15 @@ val cComp_correct = store_thm("cComp_correct",
              rw [] >>
              fs [] >>
              `t1.refs = (dec_clock (LENGTH args') t1).refs` by rw [dec_clock_def] >>
-             pop_assum (fn x => ONCE_REWRITE_TAC [x]) >>
-             first_x_assum match_mp_tac >>
-             rw [closLangTheory.dec_clock_def, dec_clock_def, state_rel_clocks] >>
-             cheat))));
-
-
+             strip_assume_tac (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] (cl_rel_run)) >>
+             rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
+             pop_assum (qspec_then `dec_clock (LENGTH args') t1` strip_assume_tac) >>
+             `state_rel f1 (dec_clock (LENGTH args') s1) (dec_clock (LENGTH args') t1)` 
+                      by rw [closLangTheory.dec_clock_def, dec_clock_def, state_rel_clocks] >>
+             `code_installed aux2 (dec_clock (LENGTH args') t1).code` by rw [] >>
+             first_x_assum (fn x => first_assum (strip_assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] x))) >>
+             pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x)) >>
+             fs []))));
 
 val cComp_ind = theorem"cComp_ind";
 
