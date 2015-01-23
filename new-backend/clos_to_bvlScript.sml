@@ -1898,6 +1898,7 @@ val val_rel_num_rem_args = Q.prove (
   ⇒
   ?tag ptr rest exp. 
     v2 = Block tag (CodePtr ptr::Number (&n-1)::rest) ∧
+    n ≠ 0 ∧
     lookup ptr code = SOME (n+1, exp)`,
  rw [val_rel_cases] >>
  fs [num_remaining_args_def]
@@ -2039,9 +2040,9 @@ val cl_rel_run_lemma = Q.prove (
  metis_tac [bEval_simple_genlist_vars, APPEND_NIL]);
 
 val cl_rel_run = Q.prove (
-`!f1 (refs : num|-> ref_value) code args args' env env' ptr exp' body new_env func func' t1.
+`!f1 (refs : num|-> ref_value) code args args' env env' ptr exp' body new_env func func' t1 rest.
   func' = Block 5 (CodePtr ptr::Number (&LENGTH args' − 1)::env') ∧
-  dest_closure (SOME (ptr − num_stubs)) func args = SOME (Full_app body new_env []) ∧ 
+  dest_closure (SOME (ptr − num_stubs)) func args = SOME (Full_app body new_env rest) ∧ 
   val_rel f1 refs code func func' ∧
   cl_rel f1 refs code (env,env') func func' ∧
   lookup ptr code = SOME (LENGTH args' + 1,exp') ∧
@@ -2959,7 +2960,6 @@ val cComp_correct = store_thm("cComp_correct",
     fs [cEval_def, res_rel_cases] >>
     rw [] >>
     metis_tac [SUBMAP_REFL])
-
   THEN1
    ((* cEvalApp real app *)
 
@@ -3066,6 +3066,9 @@ val cComp_correct = store_thm("cComp_correct",
          fs [check_loc_def] >>
          rw []
          >- ((* App NONE *)
+
+             qabbrev_tac `func' = Block tag (CodePtr ptr::Number (&rem_args − 1)::rest)` >>
+             qabbrev_tac `n = rem_args - 1` >>
              `bEval ([Var (LENGTH args')], args' ++ [func'] ++ env,t1) = 
                  (Result [func'], t1)` 
                       by simp [bEval_def, el_append3] >>
@@ -3075,6 +3078,44 @@ val cComp_correct = store_thm("cComp_correct",
                       by (mp_tac (Q.SPECL [`0`, `args'++[func']++env`, `LENGTH (args':bc_value list)`] bEval_genlist_vars) >>
                           simp [ETA_THM] >>
                           metis_tac [APPEND_ASSOC, TAKE_LENGTH_APPEND]) >>
+             `lookup (LENGTH args' − 1) t1.code = 
+                SOME ((LENGTH args' - 1) + 2,generate_generic_app (LENGTH args' − 1))`
+                         by (fs [state_rel_def] >>
+                             `LENGTH args' - 1 < max_app` by decide_tac >>
+                             metis_tac []) >>
+             `LENGTH args' - 1 + 2  = LENGTH args' + 1` by decide_tac >>
+             fs [] >>
+             `&rem_args - 1 = &n ∧ rem_args + 1 = n + 2` 
+                  by (srw_tac [ARITH_ss] [Abbr `n`,int_arithTheory.INT_NUM_SUB]) >>
+             fs [Abbr `func'`] >>
+             strip_assume_tac (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] (bEval_mk_cl_call)) >>
+             rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
+             pop_assum mp_tac >>
+             simp [] >>
+             DISCH_TAC >>
+             pop_assum (fn x => all_tac) >>
+             simp [] >>
+             `LENGTH args' − (LENGTH args' − rem_args) = rem_args` by decide_tac >>
+             fs [] >>
+             `s1.clock = t1.clock` by fs [state_rel_def] >>
+             Cases_on `t1.clock < rem_args` >>
+             fs [] >>
+             simp []
+             >- ((* Timeout *)
+                 rw [res_rel_cases] >>
+                 metis_tac [SUBMAP_REFL, state_rel_clocks]) >>
+             (* TODO This isn't true, the clock invariant needs to change. 
+              * On a call to a partiallly applied closure that goes through the generic mechanism, with 1 
+              * argument added to some existing arguments, the clos semantics
+              * ticks once, but the bvl has to tick twice: once to call the general
+              * mechanism, and once to actually call the function. *)
+             `t1.clock ≠ rem_args` by cheat >> 
+             simp [] >>
+             (* TODO, first establish that the exp runs. There are 2 cases, 1 for
+              * a normal closure, it should be like the App SOME case and re-use cl_rel_run.
+              * The other for a partially applied closure, and it will use the partial application
+              * stub, and the cl_rel_run. After that, there can be an inductive call to do the remaining
+              * arguments *)
              cheat)
          >- ((* App SOME *)
              `rem_args = LENGTH args` by ARITH_TAC >>
