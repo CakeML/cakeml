@@ -576,15 +576,14 @@ val bvl_bc_append_out = store_thm("bvl_bc_append_out",
     simp[FILTER_is_Label_bvl_bc_ref]))
 
 val good_code_env_def = Define`
-  good_code_env f il offset cmap ls ⇔
+  good_code_env f il cmap ls ⇔
     ∀ptr exp arity. (lookup ptr cmap = SOME (arity,exp)) ⇒
-      ∃cs l0 cc l1 n.
+      ∃cs l0 cc l1.
         ((bvl_bc f (GENLIST SUC arity) (TCTail arity 1) (arity+2) cs [exp]).out = cc ++ cs.out) ∧
         EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label l0) ∧
         ALL_DISTINCT (FILTER is_Label l0) ∧
         (ls = l0 ++ REVERSE cc ++ l1) ∧
-        (lookup ptr f = SOME (offset + n)) ∧
-        (next_addr il l0 = offset + n)`
+        (lookup ptr f = SOME (next_addr il l0))`
 
 val bvl_to_bc_value_def = tDefine"bvl_to_bc_value"`
   (bvl_to_bc_value f (CodePtr ptr) = CodePtr (tlookup f ptr)) ∧
@@ -711,7 +710,7 @@ val bvl_bc_correct = store_thm("bvl_bc_correct",
   ``∀exps env s res s' bs1 bc0 code bc1 cenv t sz cs stw ret sp hdl rst1 rst2.
       (bEval (exps,env,s) = (res,s')) ∧ res ≠ Error ∧
       (good_env f sz bs1.stack env cenv) ∧
-      (good_code_env f bs1.inst_length offset s.code bs1.code) ∧
+      (good_code_env f bs1.inst_length s.code bs1.code) ∧
       ALL_DISTINCT (FILTER is_Label bc0) ∧
       EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc0) ∧
       ((bvl_bc f cenv t sz cs exps).out = REVERSE code ++ cs.out) ∧
@@ -2921,7 +2920,7 @@ val bvl_bc_table_good = store_thm("bvl_bc_table_good",
     ALL_DISTINCT (FILTER is_Label bc0) ∧
     EVERY (combin$C $< nl) (MAP dest_Label (FILTER is_Label bc0)) ⇒
     bvl_bc_table il (next_addr il bc0) nl cmap = (f,s) ⇒
-    good_code_env f il (next_addr il bc0) cmap (bc0++(REVERSE s.out))``,
+    good_code_env f il cmap (bc0++(REVERSE s.out))``,
   rw[bvl_bc_table_def,foldi_FOLDR_toAList] >>
   qspecl_then[`next_addr il bc0`,`LN`,`<|next_label := nl+1; out:=[Jump(Lab nl)]|>`,`toAList cmap`]mp_tac
     (Q.GEN`offset`(INST_TYPE[alpha|->numSyntax.num] bvl_bc_ptrfun_correct)) >>
@@ -2940,7 +2939,6 @@ val bvl_bc_table_good = store_thm("bvl_bc_table_good",
   qexists_tac`cs`>> simp[] >>
   simp[GSYM MAP_REVERSE] >>
   qexists_tac`bc0 ++ MAP (update_ptr f) l0`>>simp[] >>
-  qexists_tac`next_addr il l0` >> simp[] >>
   simp[next_addr_append,next_addr_MAP_update_ptr] >>
   simp[ALL_DISTINCT_APPEND,FILTER_APPEND,FILTER_is_Label_MAP_update_ptr] >>
   fs[EVERY_MEM,MEM_FILTER,is_Label_rwt,PULL_EXISTS,MEM_MAP] >>
