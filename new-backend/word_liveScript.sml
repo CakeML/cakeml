@@ -287,7 +287,7 @@ val ignore_perm = prove(``
 ∀st. st with permute := st.permute = st`` ,
  rw[]>>fs[word_state_component_equality])
 
-val get_vars_perm = prove(``
+val get_vars_perm = store_thm("get_vars_perm",``
 ∀args.get_vars args (st with permute:=perm) = get_vars args st``,
   Induct>>rw[get_vars_def,get_var_def])
 
@@ -536,7 +536,7 @@ val apply_nummap_key_domain = prove(``
   fs[MEM_MAP,MAP_MAP_o,EXTENSION,EXISTS_PROD]>>
   metis_tac[MEM_toAList,domain_lookup])
 
-val cut_env_lemma = prove(``
+val cut_env_lemma = store_thm("cut_env_lemma",``
   ∀names sloc tloc x f.
   INJ f (domain names) UNIV ∧
   cut_env names sloc = SOME x ∧
@@ -547,9 +547,6 @@ val cut_env_lemma = prove(``
       strong_locals_rel f (domain names) x y ∧
       INJ f (domain x) UNIV ∧
       domain x = domain names``,
-      (*this old lemma is too strong: exact_colored_locals f x y
-        not sure if i need the strength though...
-      *)
   rpt strip_tac>>
   fs[domain_inter,apply_nummap_key_rw,cut_env_def,apply_nummap_key_domain
     ,strong_locals_rel_def]>>
@@ -679,7 +676,7 @@ val mem_list_rearrange = prove(``
   qexists_tac `g n`>>fs[])
 
 (*Proves s_val_eq and some extra conditions on the resulting lists*)
-val push_env_s_val_eq = prove(``
+val push_env_s_val_eq = store_thm("push_env_s_val_eq",``
   ∀tperm.
   st.handler = cst.handler ∧
   st.stack = cst.stack ∧
@@ -727,7 +724,7 @@ val INJ_less = prove(``
 
 (*TODO: MOVE TO lemmas
 wGC doesn't touch other components*)
-val wGC_frame = prove(``
+val wGC_frame = store_thm("wGC_frame",``
   wGC st = SOME st'
   ⇒
   st'.mdomain = st.mdomain ∧
@@ -746,7 +743,7 @@ val ZIP_MAP_FST_SND_EQ = prove(``
   Induct>>fs[])
 
 (*Convenient rewrite for pop_env*)
-val s_key_eq_val_eq_pop_env = prove(``
+val s_key_eq_val_eq_pop_env = store_thm("s_key_eq_val_eq_pop_env",``
   pop_env s = SOME s' ∧
   s_key_eq s.stack ((StackFrame ls opt)::keys) ∧
   s_val_eq s.stack vals
