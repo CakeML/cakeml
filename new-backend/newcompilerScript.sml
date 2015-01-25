@@ -48,7 +48,8 @@ val compile_print_err_def = Define `
   (compile_print_err cs =
   (let (cs,n) = (get_label cs) in
     let cs = (emit cs [Stack (Load( 0));
-                      Stack (TagEq (block_tag+none_tag));
+    (* TODO: need block_tag+1 here because clos->bvl increments all tags unnecessarily *)
+                      Stack (TagEq (block_tag+1+none_tag));
                       JumpIf (Lab n);
                       Stack (PushInt(( 0 : int)));
                       Stack El]) in

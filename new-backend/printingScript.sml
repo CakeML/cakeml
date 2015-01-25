@@ -627,27 +627,27 @@ val compile_print_err_thm = store_thm("compile_print_err_thm",
         bs.code = bc0 ++ code ∧
         good_labels cs.next_label bc0 ∧
         bs.pc = next_addr bs.inst_length bc0 ∧
-        bs.stack = (Block(block_tag+tag)(if tag = none_tag then [] else [bv]))::st0 ∧
-        (tag ≠ none_tag ⇒ IS_SOME (bv_to_string bv))
+        bs.stack = (Block(block_tag+tag)(if tag = none_tag+1 then [] else [bv]))::st0 ∧
+        (tag ≠ (none_tag+1) ⇒ IS_SOME (bv_to_string bv))
       ⇒ ∃pc.
-        let str = if tag ≠ none_tag then "raise " ++ (THE (bv_to_string bv)) ++ "\n" else "" in
+        let str = if tag ≠ (none_tag+1) then "raise " ++ (THE (bv_to_string bv)) ++ "\n" else "" in
         let bs' = bs with <| pc := pc
                            ; stack := st0
                            ; output := bs.output ++ str |> in
          bc_next^* bs bs' ∧
-         if tag ≠ none_tag then bc_fetch bs' = SOME (Stop F) else
+         if tag ≠ (none_tag+1) then bc_fetch bs' = SOME (Stop F) else
          pc = next_addr bs.inst_length (bc0 ++ code)``,
   simp[compile_print_err_def,emit_def,get_label_def] >>
   rw[Once SWAP_REVERSE] >- ( EVAL_TAC >> simp[] )
   >- ( rpt(match_mp_tac code_labels_ok_cons >> simp[]) ) >>
-  Q.PAT_ABBREV_TAC`str:string = if tag ≠ none_tag then X else Y` >>
+  Q.PAT_ABBREV_TAC`str:string = if tag ≠ (none_tag+1) then X else Y` >>
   `bc_fetch bs = SOME(Stack(Load 0))` by (
     match_mp_tac bc_fetch_next_addr >>
     qexists_tac`bc0` >> simp[] ) >>
   srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
   simp[bc_eval1_thm,bc_eval1_def,bc_eval_stack_def,bump_pc_def] >>
   qho_match_abbrev_tac`∃p. bc_next^* bs1 (bs2 p) ∧ P p` >>
-  `bc_fetch bs1 = SOME(Stack(TagEq(block_tag+none_tag)))` by (
+  `bc_fetch bs1 = SOME(Stack(TagEq(block_tag+none_tag+1)))` by (
     match_mp_tac bc_fetch_next_addr >>
     simp_tac (srw_ss()) [Abbr`bs1`] >>
     qexists_tac`TAKE (LENGTH bc0 + 1) bs.code` >>
@@ -678,8 +678,9 @@ val compile_print_err_thm = store_thm("compile_print_err_thm",
     EVAL_TAC >> rpt strip_tac >>
     fsrw_tac[ARITH_ss][ALL_DISTINCT_APPEND,MEM_FILTER,is_Label_rwt,PULL_EXISTS,EVERY_MEM,FILTER_MAP] >>
     rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC ) >>
-  reverse(Cases_on`tag=none_tag`>>fs[]) >- (
+  reverse(Cases_on`tag=none_tag+1`>>fs[]) >- (
     rfs[bc_fetch_def] >>
+    `tag+6 ≠ none_tag + 7` by DECIDE_TAC >> fs[] >>
     qho_match_abbrev_tac`∃p. bc_next^* bs1 (bs2 p) ∧ P p` >>
     `bc_fetch bs1 = SOME(Stack(PushInt 0))` by (
       match_mp_tac bc_fetch_next_addr >>
@@ -751,6 +752,7 @@ val compile_print_err_thm = store_thm("compile_print_err_thm",
     srw_tac[DNF_ss][Once RTC_CASES1] >> disj1_tac >>
     simp[Abbr`bs3`,Abbr`bs2`,bc_state_component_equality] >>
     rfs[Abbr`P`,bc_fetch_def]) >>
+  simp[] >>
   qho_match_abbrev_tac`∃p. bc_next^* bs1 (bs2 p) ∧ P p` >>
   `bc_fetch bs1 = SOME(Stack Pop)` by (
     match_mp_tac bc_fetch_next_addr >>
@@ -781,9 +783,9 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
         bs.code = bc0 ++ code ∧
         good_labels cs.next_label bc0 ∧
         bs.pc = next_addr bs.inst_length bc0 ∧
-        bs.stack = (Block(block_tag+tag)(if tag = none_tag then [] else [bv]))::st0 ∧
-        (tag ≠ none_tag ⇒ IS_SOME (bv_to_string bv)) ∧
-        (∀d. tag = none_tag ∧ t = Tdec d ⇒
+        bs.stack = (Block(block_tag+tag)(if tag = none_tag+1 then [] else [bv]))::st0 ∧
+        (tag ≠ (none_tag+1) ⇒ IS_SOME (bv_to_string bv)) ∧
+        (∀d. tag = (none_tag+1) ∧ t = Tdec d ⇒
          case tys of SOME tvs =>
          LIST_REL
          (λ(v,_,t) bv. ∃n. FLOOKUP map v = SOME n ∧
@@ -794,7 +796,7 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
          tvs bvs | NONE => T)
         ⇒ ∃pc.
         (let str =
-          if tag ≠ none_tag then "raise " ++ THE(bv_to_string bv) ++ "\n" else
+          if tag ≠ (none_tag+1) then "raise " ++ THE(bv_to_string bv) ++ "\n" else
           (case tys of NONE => ""
           | SOME types => (case t of
             | Tmod mn _ _ => "structure "++mn++" = <structure>\n"
@@ -806,7 +808,7 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
                             ; stack := st0
                             ; output := bs.output ++ str |> in
           bc_next^* bs bs' ∧
-          bc_fetch bs' = SOME (Stop (tag = none_tag)))``,
+          bc_fetch bs' = SOME (Stop (tag = none_tag+1)))``,
   Cases_on`tys` >> Cases_on`t` >>
   simp[compile_print_top_def,FOLDL_emit_thm,emit_def] >>
   rpt gen_tac >> simp[Once SWAP_REVERSE] >>
@@ -832,7 +834,7 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
      rpt(rator_x_assum`code_labels_ok`mp_tac) >>
      EVAL_TAC >> metis_tac[])) >>
   rpt gen_tac >> strip_tac >>
-  Q.PAT_ABBREV_TAC`str:string = if tag ≠ none_tag then X else Y` >>
+  Q.PAT_ABBREV_TAC`str:string = if tag ≠ none_tag+1 then X else Y` >>
   last_x_assum(qspec_then`bs with code := bc0 ++ bcr`mp_tac) >>
   simp[] >> disch_then(qspec_then`bv`mp_tac) >> simp[] >> strip_tac >>
   qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
@@ -840,7 +842,7 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
     match_mp_tac RTC_bc_next_append_code >>
     first_assum(match_exists_tac o concl) >>
     simp[Abbr`bs0`,Abbr`bs1`,bc_state_component_equality] ) >>
-  (reverse(Cases_on`tag=none_tag`>>fs[]) >- (
+  (reverse(Cases_on`tag=none_tag+1`>>fs[]) >- (
      rfs[bc_fetch_def] >>
      qexists_tac`bs1.pc` >>
      reverse conj_tac >- (
