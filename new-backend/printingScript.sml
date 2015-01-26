@@ -21,11 +21,12 @@ val FOLDL_emit_thm = store_thm("FOLDL_emit_thm",
 
 val v_bv_def = Define`
   v_bv (genv,gtagenv,exh,refs,code,locs) v bv ⇔
-    ∃v1 v2 vh f vc1 vc2 vl.
+    ∃v1 v2 vh vp f vc1 vc2 vl.
     v_to_i1 genv v v1 ∧
     v_to_i2 gtagenv v1 v2 ∧
     v_to_exh exh v2 vh ∧
-    clos_number$val_rel (v_to_Cv (v_to_pat vh)) vc1 ∧
+    v_pat (v_to_pat vh) vp ∧
+    clos_number$val_rel (v_to_Cv vp) vc1 ∧
     clos_annotate$val_rel vc1 vc2 ∧
     val_rel f refs code vc2 vl ∧
     bv = bvl_to_bc_value locs vl`
@@ -148,10 +149,11 @@ val print_bv_def = Define`
 
 val print_bv_print_v = prove(
   ``(∀genv v v1. v_to_i1 genv v v1 ⇒
-      ∀gtagenv v2 exh vh f vc1 vc2 vl refs code locs.
+      ∀gtagenv v2 exh vh vp f vc1 vc2 vl refs code locs.
         v_to_i2 gtagenv v1 v2 ∧
         v_to_exh exh v2 vh ∧
-        clos_number$val_rel (v_to_Cv (v_to_pat vh)) vc1 ∧
+        v_pat (v_to_pat vh) vp ∧
+        clos_number$val_rel (v_to_Cv vp) vc1 ∧
         clos_annotate$val_rel vc1 vc2 ∧
         val_rel f refs code vc2 vl ∧
         (ty = ^word8 ⇔ ∃w. v = Litv (Word8 w)) ∧
@@ -186,6 +188,7 @@ val print_bv_print_v = prove(
     fs[clos_to_bvlTheory.val_rel_SIMP] >>
     rw[bvl_to_bc_value_def,print_bv_def,print_v_def,bv_to_string_def] >>
     NO_TAC) >>
+  fs[Once v_pat_cases] >> rw[] >>
   fs[Once clos_numberTheory.val_rel_cases] >> rw[] >>
   fs[Once clos_annotateTheory.val_rel_cases] >> rw[] >>
   fs[Once clos_to_bvlTheory.val_rel_cases] >> fsrw_tac[ARITH_ss][conLangTheory.tuple_tag_def] >>
