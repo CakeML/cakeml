@@ -623,10 +623,7 @@ val tac12 =
   first_assum (mp_tac o MATCH_MP (GEN_ALL(ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] cComp_correct))) >>
   simp[] >>
   disch_then(qspec_then`[]`mp_tac) >>
-  first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
   simp[renumber_code_locs_def] >>
-  first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
-  first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
   qmatch_assum_abbrev_tac`bvl_bc_table real_inst_length na rs.rnext_label new_code = (f,r)` >>
   disch_then(qspecl_then[`s6 with code := union s6.code new_code`,`[]`,`f1`]mp_tac) >>
   qmatch_assum_abbrev_tac`cComp xs [] = X` >>
@@ -649,8 +646,13 @@ val tac12 =
     simp[IN_DISJOINT] >> spose_not_then strip_assume_tac >>
     rfs[state_rel_def] >> res_tac >>
     fs[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
+  ((
   qpat_assum`X = bc`mp_tac >>
-  qspec_then`union locs f`(C(specl_args_of_then``bvl_bc``)mp_tac)bvl_bc_code_locs >>
+  qspec_then`union locs f`(C(specl_args_of_then``bvl_bc``)mp_tac)bvl_bc_code_locs
+  ) ORELSE
+  qpat_assum`bs.code = X`mp_tac >>
+  qspec_then`union locs f`(C(specl_args_of_then``bvl_bc``)mp_tac)bvl_bc_code_locs
+  ) >>
   discharge_hyps >- tac4 >>
   strip_tac >> simp[] >>
   specl_args_of_then``bvl_bc``bvl_bc_append_out strip_assume_tac >>
@@ -674,8 +676,9 @@ val tac12 =
   `bs2.inst_length = bs.inst_length ∧
    bs2.code = bs.code` by (
     imp_res_tac RTC_bc_next_preserves >> fs[] ) >> fs[] >>
+  TRY (
   qpat_assum`bs2 = X`(fn th => assume_tac(EQ_MP (SYM(ISPEC(concl th)markerTheory.Abbrev_def)) th)) >> fs[] >>
-  tac7
+  tac7 )
 
 val tac14 =
   first_x_assum(strip_assume_tac o MATCH_MP evaluate_prompt_i1_success_globals) >>
@@ -826,6 +829,7 @@ val compile_top_thm = store_thm("compile_top_thm",
     discharge_hyps >- (
       simp[CONJUNCT1 exp_pat_refl] >> fs[csg_to_pat_MAP] ) >>
     disch_then(qx_choosel_then[`res4`]strip_assume_tac) >>
+    ntac 3 (first_assum(split_applied_pair_tac o lhs o concl) >> fs[]) >>
     tac12 >>
     simp[Abbr`bs2`,bvl_to_bc_value_def,Abbr`non`] >>
     disch_then(qspec_then`none_tag+1`mp_tac)>>simp[] >>
@@ -1180,6 +1184,7 @@ val compile_top_thm = store_thm("compile_top_thm",
     discharge_hyps >- (
       simp[CONJUNCT1 exp_pat_refl] >> fs[csg_to_pat_MAP] ) >>
     disch_then(qx_choosel_then[`res4`]strip_assume_tac) >>
+    ntac 3 (first_assum(split_applied_pair_tac o lhs o concl) >> fs[]) >>
     tac12 >>
     simp[Abbr`bs2`,bvl_to_bc_value_def,Abbr`som`] >>
     disch_then(qspec_then`some_tag+1`mp_tac)>>simp[] >>
@@ -1281,6 +1286,7 @@ val compile_top_thm = store_thm("compile_top_thm",
     discharge_hyps >- (
       simp[CONJUNCT1 exp_pat_refl] >> fs[csg_to_pat_MAP] ) >>
     disch_then(qx_choosel_then[`res4`]strip_assume_tac) >>
+    ntac 3 (first_assum(split_applied_pair_tac o lhs o concl) >> fs[]) >>
     tac12 >>
     simp[Abbr`bs2`,bvl_to_bc_value_def,Abbr`non`] >>
     disch_then(qspec_then`none_tag+1`mp_tac)>>simp[] >>
@@ -1387,6 +1393,7 @@ val compile_top_thm = store_thm("compile_top_thm",
     discharge_hyps >- (
       simp[CONJUNCT1 exp_pat_refl] >> fs[csg_to_pat_MAP] ) >>
     disch_then(qx_choosel_then[`res4`]strip_assume_tac) >>
+    ntac 3 (first_assum(split_applied_pair_tac o lhs o concl) >> fs[]) >>
     tac12 >>
     simp[Abbr`bs2`,bvl_to_bc_value_def,Abbr`som`] >>
     disch_then(qspec_then`some_tag+1`mp_tac)>>simp[] >>
@@ -1426,11 +1433,9 @@ val compile_top_thm = store_thm("compile_top_thm",
   strip_tac >- simp[] >>
   simp[])
 
-(*
 val compile_top_divergence = store_thm("compile_top_divergence",
   ``∀env stm top rs grd types bc0 bs ss sf code.
       (∀res. ¬evaluate_top F env stm top res) ∧
-      closed_top env top ∧
       env_rs env stm grd rs (bs with code := bc0) ∧
       (compile_top types rs top = (ss,sf,code)) ∧
       bs.code = bc0 ++ REVERSE code ∧
@@ -1438,13 +1443,10 @@ val compile_top_divergence = store_thm("compile_top_divergence",
       IS_SOME bs.clock
       ⇒
       ∃bs'. bc_next^* bs bs' ∧ bc_fetch bs' = SOME Tick ∧ bs'.clock = SOME 0 ∧ bs'.output = bs.output``,
-  rw[closed_top_def] >>
+  rw[] >>
   imp_res_tac not_evaluate_top_timeout >>
   fs[compile_top_def,LET_THM] >>
-  first_assum (split_applied_pair_tac o lhs o concl) >> fs[] >>
-  first_assum (split_pair_case_tac o lhs o concl) >> fs[] >>
-  first_assum (split_applied_pair_tac o lhs o concl) >> fs[] >>
-  first_assum (split_applied_pair_tac o lhs o concl) >> fs[] >>
+  rpt(first_assum (split_applied_pair_tac o lhs o concl) >> fs[]) >>
   PairCases_on`env` >>
   PairCases_on`stm` >>
   PairCases_on`r` >>
@@ -1489,55 +1491,36 @@ val compile_top_divergence = store_thm("compile_top_divergence",
    |> (fn th => first_assum (mp_tac o MATCH_MP th))) >>
   fs[result_to_i3_cases] >>
   simp[env_to_exh_MAP] >>
-  fs[LIST_REL_O,OPTREL_O,sv_rel_O] >>
-  qmatch_assum_rename_tac`LIST_REL (sv_rel (v_to_exh rs.exh)) s20 sh`[] >>
-  qmatch_assum_rename_tac`LIST_REL R genv2 gh`["R"] >>
-  `store_to_exh (exh ⊌ rs.exh) ((stm0,s20),genv2) ((stm0,sh),gh)` by tac1 >>
+  qmatch_assum_rename_tac`csg_rel (v_to_exh rs.exh) ((s10,s20),genv2) csgh` >>
+  `store_to_exh (exh ⊌ rs.exh) ((s10,s20),genv2) csgh` by tac1 >>
   disch_then(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
+  simp[Once result_to_exh_cases] >>
   disch_then(qspec_then`exh ⊌ rs.exh`mp_tac) >> simp[] >>
   strip_tac >>
-  (exp_to_pat_correct
-   |> CONJUNCT1
-   |> (fn th => first_assum (mp_tac o MATCH_MP th))) >>
-  fs[result_to_exh_cases] >>
-  strip_tac >>
-  first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_Cexp_correct)) >>
+  first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_pat_correct)) >>
   simp[] >>
-  discharge_hyps_keep >- tac2 >>
-  disch_then(qx_choosel_then[`Cres0`]strip_assume_tac) >>
-  qpat_assum`bs.code = X`mp_tac >>
-  specl_args_of_then``compile_Cexp`` compile_Cexp_thm mp_tac >>
-  simp[] >> strip_tac >>
-  first_assum(mp_tac o MATCH_MP (CONJUNCT1 Cevaluate_syneq)) >>
-  simp[] >>
-  Q.PAT_ABBREV_TAC`Cexp = exp_to_Cexp Z` >>
-  qmatch_assum_abbrev_tac`closed_vlabs [] Csg bc0` >>
-  disch_then(qspecl_then[`$=`,`Csg`,`[]`,`Cexp`]mp_tac) >>
-  discharge_hyps >- tac3 >>
-  strip_tac >>
-  first_x_assum(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
-  specl_args_of_then``compile_print_top``compile_print_top_thm mp_tac >>
-  simp[] >>
-  disch_then(qx_choose_then`bcp`strip_assume_tac) >>
-  disch_then(qspecl_then[`grd2`,`bs with code := bc0 ++ c0 ++ code`,`bc0`,`bc0`]mp_tac) >>
+  disch_then(qx_choosel_then[`res3`]strip_assume_tac) >>
+  first_assum (qspec_then`[]`mp_tac o MATCH_MP (CONJUNCT1 evaluate_pat_exp_pat)) >>
+  Q.PAT_ABBREV_TAC`ep = exp_to_pat X Y` >>
+  disch_then(qspecl_then[`sp`,`ep`]mp_tac) >>
   discharge_hyps >- (
-    simp[Abbr`Csg`] >>
-    fs[Cenv_bs_def,s_refs_def,IS_SOME_EXISTS] ) >>
-  strip_tac >>
-  strip_tac >>
-  imp_res_tac RTC_bc_next_preserves >>
-  qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
-  `bc_next^* bs (bs1 with code := bs.code)` by (
-    match_mp_tac RTC_bc_next_append_code >>
-    map_every qexists_tac[`bs0`,`bs1`] >>
-    simp[Abbr`bs0`,Abbr`bs1`,bc_state_component_equality] >>
-    rw[] ) >>
-  `bc_fetch (bs1 with code := bs.code) = SOME Tick` by (
-    first_assum(mp_tac o (MATCH_MP (GEN_ALL bc_fetch_append_code))) >>
-    simp[Abbr`bs0`,REVERSE_APPEND] ) >>
-  HINT_EXISTS_TAC >>
-  simp[Abbr`bs0`])
+    simp[CONJUNCT1 exp_pat_refl] >> fs[csg_to_pat_MAP] ) >>
+  disch_then(qx_choosel_then[`res4`]strip_assume_tac) >>
+  tac12 >>
+  qmatch_assum_abbrev_tac`bc_next bs bs1` >>
+  qmatch_assum_abbrev_tac`bc_next^* bs1' bs2` >>
+  first_x_assum(mp_tac o MATCH_MP RTC_bc_next_prepend_output) >>
+  disch_then(qspec_then`bs.output`assume_tac) >>
+  qmatch_assum_abbrev_tac`bc_next^* bs1'' bs2'` >>
+  `bs1'' = bs1` by (
+    simp[Abbr`bs1''`,Abbr`bs1'`,Abbr`bs1`,bc_state_component_equality] >>
+    fs[clos_to_bvlTheory.state_rel_def,clos_annotateTheory.state_rel_def,clos_numberTheory.state_rel_def,s_to_Cs_unpair] ) >>
+  qexists_tac`bs2'` >>
+  conj_tac >- metis_tac[RTC_TRANSITIVE,transitive_def,RTC_SUBSET] >>
+  simp[Abbr`bs2'`,bc_fetch_with_output] >>
+  fs[clos_to_bvlTheory.state_rel_def,clos_annotateTheory.state_rel_def,clos_numberTheory.state_rel_def,s_to_Cs_unpair] )
 
+(*
 (* prog_to_i3_initial, for compile_initial_prog below *)
 (* defined here for tactic reuse *)
 
