@@ -160,7 +160,7 @@ val renumber_code_locs_inc = store_thm("renumber_code_locs_inc",
   tac >> fs[] >> simp[] >>
   Cases_on`renumber_code_locs (q+LENGTH r) e`>>fs[]>>simp[])
 
-val renumber_code_locs_imp_inc = prove(
+val renumber_code_locs_imp_inc = store_thm("renumber_code_locs_imp_inc",
   ``(renumber_code_locs_list n es = (m,vs) ⇒ n ≤ m) ∧
     (renumber_code_locs n e = (z,v) ⇒ n ≤ z)``,
   metis_tac[pairTheory.pair_CASES,pairTheory.FST,renumber_code_locs_inc])
