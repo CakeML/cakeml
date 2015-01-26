@@ -8,6 +8,29 @@ open free_varsTheory
 val _ = new_theory"compilerProof"
 
 (* misc (TODO: move?) *)
+val global_env_inv_inclusion = store_thm("global_env_inv_inclusion",
+  ``∀genv mods tops menv s env.
+     global_env_inv genv mods tops menv s env ⇒
+     set (MAP FST env) DIFF s ⊆ FDOM tops ∧
+     set (MAP FST menv) ⊆ FDOM mods``,
+  rw[Once v_to_i1_cases,SUBSET_DEF] >>
+  TRY (
+    (alistTheory.ALOOKUP_NONE
+     |> SPEC_ALL |> EQ_IMP_RULE |> fst
+     |> CONTRAPOS
+     |> SIMP_RULE std_ss []
+     |> imp_res_tac) >>
+    fs[GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS] >>
+    res_tac >> fs[FLOOKUP_DEF] >> NO_TAC) >>
+  last_x_assum mp_tac >>
+  simp[Once v_to_i1_cases] >> strip_tac >>
+  (alistTheory.ALOOKUP_NONE
+   |> SPEC_ALL |> EQ_IMP_RULE |> fst
+   |> CONTRAPOS
+   |> SIMP_RULE std_ss []
+   |> imp_res_tac) >>
+  fs[GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS] >>
+  res_tac >> fs[FLOOKUP_DEF] >> NO_TAC)
 
 val to_i1_invariant_change_clock = store_thm("to_i1_invariant_change_clock",
   ``to_i1_invariant genv mods tops menv env s s_i1 mod_names ∧
@@ -377,7 +400,7 @@ val tac1 =
   match_mp_tac (MP_CANON (GEN_ALL EVERY2_mono)) >>
   HINT_EXISTS_TAC >>
   simp[sv_to_exh_sv_rel] >>
-  metis_tac[optionTheory.OPTREL_MONO,v_to_exh_extend_disjoint,FUNION_COMM,sv_rel_mono]
+  metis_tac[optionTheory.OPTREL_MONO,v_to_exh_extend_disjoint,FUNION_COMM,sv_rel_mono,DISJOINT_SYM]
 
 val tac2 =
   simp[Abbr`xs`] >>
@@ -470,6 +493,7 @@ val tac6 =
   imp_res_tac FEVERY_FLOOKUP >> fs[EVERY_MEM]
 
 val tac7 =
+  qpat_assum`bs2 = X`(fn th => assume_tac(EQ_MP (SYM(ISPEC(concl th)markerTheory.Abbrev_def)) th)) >> fs[] >>
   rator_x_assum`v_to_exh`mp_tac >>
   simp[Once v_to_exh_cases,vs_to_exh_MAP] >>
   strip_tac >> BasicProvers.VAR_EQ_TAC >>
@@ -486,8 +510,7 @@ val tac7 =
   strip_tac >> BasicProvers.VAR_EQ_TAC >>
   rator_x_assum`clos_to_bvl$val_rel`mp_tac >>
   simp[Once clos_to_bvlTheory.val_rel_cases] >>
-  strip_tac >> BasicProvers.VAR_EQ_TAC >>
-  first_x_assum(qspec_then`bs2`mp_tac)
+  strip_tac >> BasicProvers.VAR_EQ_TAC
 
 val tac8 =
   fs[good_labels_def,between_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND
@@ -656,7 +679,17 @@ val tac12 =
   discharge_hyps >- tac4 >>
   strip_tac >> simp[] >>
   specl_args_of_then``bvl_bc``bvl_bc_append_out strip_assume_tac >>
-  specl_args_of_then``compile_print_top``compile_print_top_thm mp_tac >>
+  ((
+  specl_args_of_then``compile_print_top``compile_print_top_thm mp_tac
+  ) ORELSE (
+  specl_args_of_then``compile_print_err``compile_print_err_thm mp_tac >>
+  Q.PAT_ABBREV_TAC`ccode:bc_inst list = REVERSE (X Y)` >>
+  simp[] >> strip_tac >>
+  `∃ccode2. ccode = REVERSE r.out ++ REVERSE bc ++ ccode2` by (
+    simp[Abbr`ccode`,emit_def] >>
+    BasicProvers.CASE_TAC >> simp[] ) >>
+  qunabbrev_tac`ccode` >>
+  pop_assum mp_tac)) >>
   simp[] >> ntac 2 strip_tac >>
   first_assum(fn th => qspecl_then[`bs`,`bc0`]mp_tac (CONJUNCT2 (MATCH_MP bvl_bc_table_thm th)) >> assume_tac th) >>
   BasicProvers.VAR_EQ_TAC >> simp[] >>
@@ -675,10 +708,8 @@ val tac12 =
   strip_tac >>
   `bs2.inst_length = bs.inst_length ∧
    bs2.code = bs.code` by (
-    imp_res_tac RTC_bc_next_preserves >> fs[] ) >> fs[] >>
-  TRY (
-  qpat_assum`bs2 = X`(fn th => assume_tac(EQ_MP (SYM(ISPEC(concl th)markerTheory.Abbrev_def)) th)) >> fs[] >>
-  tac7 )
+    imp_res_tac RTC_bc_next_preserves >> fs[] ) >>
+  fs[]
 
 val tac14 =
   first_x_assum(strip_assume_tac o MATCH_MP evaluate_prompt_i1_success_globals) >>
@@ -830,7 +861,8 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[CONJUNCT1 exp_pat_refl] >> fs[csg_to_pat_MAP] ) >>
     disch_then(qx_choosel_then[`res4`]strip_assume_tac) >>
     ntac 3 (first_assum(split_applied_pair_tac o lhs o concl) >> fs[]) >>
-    tac12 >>
+    tac12 >> tac7 >>
+    first_x_assum(qspec_then`bs2`mp_tac) >>
     simp[Abbr`bs2`,bvl_to_bc_value_def,Abbr`non`] >>
     disch_then(qspec_then`none_tag+1`mp_tac)>>simp[] >>
     qmatch_assum_rename_tac`state_rel f2 t5 t6` >>
@@ -1185,7 +1217,8 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[CONJUNCT1 exp_pat_refl] >> fs[csg_to_pat_MAP] ) >>
     disch_then(qx_choosel_then[`res4`]strip_assume_tac) >>
     ntac 3 (first_assum(split_applied_pair_tac o lhs o concl) >> fs[]) >>
-    tac12 >>
+    tac12 >> tac7 >>
+    first_x_assum(qspec_then`bs2`mp_tac) >>
     simp[Abbr`bs2`,bvl_to_bc_value_def,Abbr`som`] >>
     disch_then(qspec_then`some_tag+1`mp_tac)>>simp[] >>
     qmatch_assum_rename_tac`state_rel f2 t5 t6` >>
@@ -1287,7 +1320,8 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[CONJUNCT1 exp_pat_refl] >> fs[csg_to_pat_MAP] ) >>
     disch_then(qx_choosel_then[`res4`]strip_assume_tac) >>
     ntac 3 (first_assum(split_applied_pair_tac o lhs o concl) >> fs[]) >>
-    tac12 >>
+    tac12 >> tac7 >>
+    first_x_assum(qspec_then`bs2`mp_tac) >>
     simp[Abbr`bs2`,bvl_to_bc_value_def,Abbr`non`] >>
     disch_then(qspec_then`none_tag+1`mp_tac)>>simp[] >>
     qmatch_assum_rename_tac`state_rel f2 t5 t6` >>
@@ -1394,7 +1428,8 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[CONJUNCT1 exp_pat_refl] >> fs[csg_to_pat_MAP] ) >>
     disch_then(qx_choosel_then[`res4`]strip_assume_tac) >>
     ntac 3 (first_assum(split_applied_pair_tac o lhs o concl) >> fs[]) >>
-    tac12 >>
+    tac12 >> tac7 >>
+    first_x_assum(qspec_then`bs2`mp_tac) >>
     simp[Abbr`bs2`,bvl_to_bc_value_def,Abbr`som`] >>
     disch_then(qspec_then`some_tag+1`mp_tac)>>simp[] >>
     qmatch_assum_rename_tac`state_rel f2 t5 t6` >>
@@ -1520,81 +1555,13 @@ val compile_top_divergence = store_thm("compile_top_divergence",
   simp[Abbr`bs2'`,bc_fetch_with_output] >>
   fs[clos_to_bvlTheory.state_rel_def,clos_annotateTheory.state_rel_def,clos_numberTheory.state_rel_def,s_to_Cs_unpair] )
 
-(*
-(* prog_to_i3_initial, for compile_initial_prog below *)
-(* defined here for tactic reuse *)
-
-val free_vars_i2_prog_to_i3_initial = store_thm("free_vars_i2_prog_to_i3_initial",
-  ``∀m p n e. prog_to_i3_initial m p = (n,e) ⇒ free_vars_i2 e = free_vars_prog_i2 p``,
-  Induct_on`p` >- simp[prog_to_i3_initial_def,free_vars_prog_i2_def] >>
-  rw[prog_to_i3_initial_def,LET_THM] >>
-  first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
-  first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >> rw[] >>
-  first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
-  rw[free_vars_prog_i2_def] >>
-  Cases_on`h`>>fs[prompt_to_i3_initial_def,LET_THM] >>
-  rw[free_vars_i2_decs_to_i3])
-
 (* compile_prog *)
-
-val tac1 =
-  simp[store_to_exh_def] >>
-  conj_tac >>
-  match_mp_tac (MP_CANON (GEN_ALL EVERY2_mono)) >>
-  ONCE_REWRITE_TAC[CONJ_COMM] >>
-  first_assum(match_exists_tac o concl) >> simp[] >>
-  simp[sv_to_exh_sv_rel] >>
-  metis_tac[optionTheory.OPTREL_MONO,v_to_exh_extend_disjoint,FUNION_COMM,sv_rel_mono,DISJOINT_SYM]
-
-val tac22=
-  conj_asm1_tac >- (
-    specl_args_of_then``exp_to_pat``(CONJUNCT1 free_vars_pat_exp_to_pat)mp_tac >>
-    simp[] >> disch_then match_mp_tac >>
-    imp_res_tac free_vars_i2_prog_to_i3_initial >>
-    imp_res_tac free_vars_i2_prog_to_i3 >>
-    imp_res_tac free_vars_prog_to_i2 >>
-    imp_res_tac FV_prog_to_i1 >>
-    simp[] >>
-    fs[closed_prog_def,all_env_dom_def,SUBSET_DEF,PULL_EXISTS]) >>
-  fs[result_to_exh_cases] >> BasicProvers.VAR_EQ_TAC >> fs[] >>
-  simp[csg_closed_pat_def,map_count_store_genv_def,store_to_exh_def] >>
-  conj_tac >- (
-    match_mp_tac EVERY_sv_every_MAP_map_sv >>
-    (v_to_pat_closed |> CONJUNCT2 |> SIMP_RULE(srw_ss())[] |> match_mp_tac) >>
-    (v_to_exh_closed |> CONJUNCT2 |> CONJUNCT1 |> MP_CANON |> match_mp_tac) >>
-    fs[store_to_exh_def] >>
-    simp[vs_to_exh_MAP] >>
-    imp_res_tac LIST_REL_store_vs_intro >>
-    first_assum(match_exists_tac o concl) >> simp[] >>
-    fs[to_i2_invariant_def] >>
-    fs[Once s_to_i2_cases,sv_to_i2_sv_rel] >>
-    (v_to_i2_closed |> CONJUNCT2 |> CONJUNCT1 |> MP_CANON |> match_mp_tac) >>
-    simp[vs_to_i2_MAP] >>
-    imp_res_tac LIST_REL_store_vs_intro >>
-    first_assum(match_exists_tac o concl) >> simp[] >>
-    (v_to_i1_closed |> CONJUNCT2 |> CONJUNCT1 |> MP_CANON |> match_mp_tac) >>
-    fs[to_i1_invariant_def] >>
-    fs[Once s_to_i1_cases,sv_to_i1_sv_rel] >>
-    simp[vs_to_i1_MAP] >>
-    imp_res_tac LIST_REL_store_vs_intro >>
-    first_assum(match_exists_tac o concl) >> simp[] >>
-    match_mp_tac EVERY_store_vs_intro >> simp[]) >>
-  match_mp_tac genv_to_pat_closed >>
-  match_mp_tac genv_to_exh_closed >>
-  fs[store_to_exh_def] >>
-  ONCE_REWRITE_TAC[CONJ_COMM] >>
-  first_assum(match_exists_tac o concl) >> simp[] >>
-  fs[to_i2_invariant_def] >>
-  match_mp_tac (MP_CANON genv_to_i2_closed) >>
-  first_assum(match_exists_tac o concl) >> simp[]>>
-  first_assum(match_exists_tac o concl) >> simp[]
 
 val compile_prog_thm = store_thm("compile_prog_thm",
   ``∀ck env stm prog res. evaluate_whole_prog ck env stm prog res ⇒
      ∀grd rs rss rsf bc bs bc0.
       FLOOKUP rs.exh (Short "option") = SOME (insert some_tag () (insert none_tag () LN)) ∧
       env_rs env stm grd rs (bs with code := bc0) ∧
-      closed_prog prog ∧
       (∀p. "it" ∈ FDOM (FST(SND(SND(prog_to_i1 rs.next_global (FST rs.globals_env) (SND rs.globals_env) prog)))) ∧
            SND(SND(res)) = Rval p ⇒ ∃v. ALOOKUP (SND p) "it" = SOME v ∧ (∀w. v ≠ Litv (Word8 w)) ∧ (∀c. v ≠ Litv (Char c))) ∧
       (∀v. SND(SND(res)) = Rerr(Rraise v) ⇒ ∀l. v ≠ Litv l) ∧
@@ -1618,8 +1585,9 @@ val compile_prog_thm = store_thm("compile_prog_thm",
   first_assum (split_applied_pair_tac o rand o rhs o concl) >> fs[] >>
   `∃v1 v2 v3 p0. prog_to_i1 rs.next_global m1 m2 prog = (v1,v2,v3,p0)` by simp[GSYM EXISTS_PROD] >> fs[] >>
   `∃v exh p. prog_to_i2 rs.contags_env p0 = (v,exh,p)` by simp[GSYM EXISTS_PROD] >> fs[] >>
-  first_assum (split_pair_case_tac o rand o rhs o concl) >> fs[] >>
-  PairCases_on`res`>>fs[] >>
+  rpt(first_assum (split_applied_pair_tac o rand o rhs o concl) >> fs[]) >>
+  `∃s envC env_or_err. res = (s,envC,env_or_err)` by metis_tac[PAIR] >> fs[] >>
+  PairCases_on`s` >>
   PairCases_on`stm` >> PairCases_on`env` >>
   (whole_prog_to_i1_correct
    |> ONCE_REWRITE_RULE[CONJ_COMM]
@@ -1646,7 +1614,7 @@ val compile_prog_thm = store_thm("compile_prog_thm",
   pop_assum kall_tac >>
   PairCases_on`v`>>simp[] >>
   discharge_hyps >- (
-    Cases_on`res6`>>TRY(PairCases_on`a`)>>fs[result_to_i1_cases] >> rw[] ) >>
+    Cases_on`env_or_err`>>TRY(PairCases_on`a`)>>fs[result_to_i1_cases] >> rw[] ) >>
   strip_tac >>
   (prog_to_i3_correct
    |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]
@@ -1658,146 +1626,75 @@ val compile_prog_thm = store_thm("compile_prog_thm",
   simp[] >>
   (discharge_hyps >- (
      simp[alistTheory.flookup_fupdate_list,FLOOKUP_FUNION] >>
-     Cases_on`res6`>>fs[GSYM FORALL_PROD] >>
+     Cases_on`env_or_err`>>fs[GSYM FORALL_PROD] >>
      TRY (conj_tac >- (fs[result_to_i2_cases,result_to_i1_cases] >> rw[])) >>
      BasicProvers.CASE_TAC >>
      fs[IN_DISJOINT,FLOOKUP_DEF] >>
      fs[FDOM_FUPDATE_LIST] >> metis_tac[])) >>
   simp[result_to_i3_cases] >- (
-    rw[] >> Cases_on`res6` >> fs[] >>
+    rw[] >> Cases_on`env_or_err` >> fs[] >>
     PairCases_on`a`>>fs[]>>
     first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_exh_correct)) >>
     simp[env_to_exh_MAP] >>
-    fs[LIST_REL_O,OPTREL_O,sv_rel_O] >>
-    qmatch_assum_rename_tac`LIST_REL (sv_rel (v_to_exh X)) s2 sh`["X"] >>
-    qmatch_assum_rename_tac`LIST_REL R genv2 gh`["R"] >>
-    Q.PAT_ABBREV_TAC`rsexh = rs.exh` >>
-    `store_to_exh (exh ⊌ rsexh) ((stm0,s2),genv2) ((stm0,sh),gh)` by tac1 >>
+    qmatch_assum_rename_tac`csg_rel (v_to_exh rs.exh) ((s10,s20),genv2) csgh` >>
+    `store_to_exh (exh ⊌ rs.exh) ((s10,s20),genv2) csgh` by tac1 >>
     disch_then(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
-    disch_then(qspec_then`exh ⊌ rsexh`mp_tac) >> simp[] >>
+    simp[Once result_to_exh_cases] >>
+    disch_then(qspec_then`exh ⊌ rs.exh`mp_tac) >> simp[] >>
     strip_tac >>
     first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_pat_correct)) >>
-    discharge_hyps >- ( fs[result_to_exh_cases] ) >>
-    strip_tac >>
-    first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_Cexp_correct)) >>
     simp[] >>
-    discharge_hyps_keep >- tac22 >>
-    disch_then(qx_choosel_then[`Cres0`]strip_assume_tac) >>
-    qpat_assum`bs.code = X`mp_tac >>
-    specl_args_of_then``compile_Cexp`` compile_Cexp_thm mp_tac >>
-    simp[] >> strip_tac >>
-    first_assum(mp_tac o MATCH_MP (CONJUNCT1 Cevaluate_syneq)) >>
-    simp[] >>
-    Q.PAT_ABBREV_TAC`Cexp = exp_to_Cexp Z` >>
-    qmatch_assum_abbrev_tac`closed_vlabs [] Csg bc0` >>
-    disch_then(qspecl_then[`$=`,`Csg`,`[]`,`Cexp`]mp_tac) >>
-    discharge_hyps >- tac3 >>
-    strip_tac >>
-    first_x_assum(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
-    disch_then(qspecl_then[`grd2`,`bs with code := bc0 ++ c0 ++ code`,`bc0`,`bc0`]mp_tac) >>
+    disch_then(qx_choosel_then[`res3`]strip_assume_tac) >>
+    first_assum (qspec_then`[]`mp_tac o MATCH_MP (CONJUNCT1 evaluate_pat_exp_pat)) >>
+    Q.PAT_ABBREV_TAC`ep = exp_to_pat X Y` >>
+    disch_then(qspecl_then[`sp`,`ep`]mp_tac) >>
     discharge_hyps >- (
-      simp[Abbr`Csg`] >>
-      fs[Cenv_bs_def,s_refs_def,IS_SOME_EXISTS] ) >>
-    fs[result_to_exh_cases] >>
-    rpt BasicProvers.VAR_EQ_TAC >> fs[] >> rfs[] >> rfs[] >>
-    strip_tac >>
-    specl_args_of_then``compile_print_err``compile_print_err_thm mp_tac >>
+      simp[CONJUNCT1 exp_pat_refl] >> fs[csg_to_pat_MAP] ) >>
+    disch_then(qx_choosel_then[`res4`]strip_assume_tac) >>
+    tac12 >> tac7 >>
+    first_x_assum(qspec_then`bs2 with code := bc0 ++ REVERSE r.out ++ REVERSE bc ++ code`mp_tac) >>
     simp[] >>
-    disch_then(qx_choose_then`bcp`strip_assume_tac) >>
-    simp[] >>
-    rator_x_assum`code_for_push`mp_tac >>
-    simp[code_for_push_def,PULL_EXISTS] >>
-    rpt gen_tac >> strip_tac >>
-    qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
-    `bc_next^* (bs0 with code := bs0.code++bcp) (bs1 with code := bs1.code++bcp)` by (
-      metis_tac[RTC_bc_next_append_code] ) >>
-    rator_x_assum`v_to_exh`mp_tac >>
-    simp[Once v_to_exh_cases,vs_to_exh_MAP] >>
-    strip_tac >> BasicProvers.VAR_EQ_TAC >>
-    rator_x_assum`v_pat`mp_tac >>
-    simp[Once v_pat_cases] >>
-    strip_tac >> BasicProvers.VAR_EQ_TAC >>
-    rpt (
-      qpat_assum`syneq (X Y) Z`mp_tac >>
-      simp[Once syneq_cases] >> strip_tac >>
-      BasicProvers.VAR_EQ_TAC ) >>
-    rator_x_assum`Cv_bv`mp_tac >>
-    simp[Once Cv_bv_cases] >> strip_tac >>
-    BasicProvers.VAR_EQ_TAC >>
-    first_x_assum(qspec_then`bs1 with code := bs1.code++bcp`mp_tac) >>
-    simp[Abbr`bs1`] >>
-    discharge_hyps >- (
-      rpt (rator_x_assum`good_labels`mp_tac) >>
-      rpt (rator_x_assum`between_labels`mp_tac) >>
-      rpt (BasicProvers.VAR_EQ_TAC) >>
-      rpt (pop_assum kall_tac) >>
-      simp[good_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER,is_Label_rwt,PULL_EXISTS
-          ,EVERY_FILTER,between_labels_def,EVERY_MAP,EVERY_MEM,between_def,PULL_FORALL] >>
-      rw[] >> spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
+    simp[Abbr`bs2`,bvl_to_bc_value_def] >>
+    disch_then(qspec_then`none_tag+1`mp_tac)>>simp[]>>
+    qmatch_assum_rename_tac`state_rel f2 t5 t6` >>
+    discharge_hyps_keep >- tac8 >>
+    qmatch_assum_abbrev_tac`bc_next bs bs1` >>
+    qmatch_assum_abbrev_tac`bc_next^* bs1' bs5` >>
+    `∃ccode3. ccode2 = code ++ ccode3` by (
+      qpat_assum`REVERSE X = Y`mp_tac >>
+      BasicProvers.CASE_TAC >> simp[emit_def] >> rw[] >> simp[] ) >>
+    disch_then(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]RTC_bc_next_append_code)) >>
+    disch_then(qspec_then`ccode3`mp_tac o CONV_RULE(RESORT_FORALL_CONV(List.rev))) >> simp[] >>
     strip_tac >>
+    qmatch_assum_abbrev_tac`bc_next^* bs5' bs2'` >>
+    `bs5' = bs5` by (
+      simp[Abbr`bs5`,Abbr`bs5'`,bvl_to_bc_value_def] >>
+      simp[bc_state_component_equality]) >>
+    `bc_next^* bs1' bs2'` by metis_tac[RTC_TRANSITIVE,transitive_def] >>
+    pop_assum(mp_tac o MATCH_MP RTC_bc_next_prepend_output) >>
+    disch_then(qspec_then`bs.output`assume_tac) >>
+    qmatch_assum_abbrev_tac`bc_next^* bs1'' bs2` >>
+    `bs1'' = bs1` by (
+      simp[Abbr`bs1''`,Abbr`bs1'`,Abbr`bs1`,bc_state_component_equality] >>
+      fs[clos_to_bvlTheory.state_rel_def,clos_annotateTheory.state_rel_def,clos_numberTheory.state_rel_def,s_to_Cs_unpair] ) >>
     BasicProvers.CASE_TAC >> simp[] >- (
-      strip_tac >>
-      qmatch_assum_abbrev_tac`bc_next^* bs2 bs3` >>
-      `bc_next^* (bs2 with code := bs.code) (bs3 with code := bs.code)` by (
-        match_mp_tac RTC_bc_next_append_code >>
-        first_assum(match_exists_tac o concl) >>
-        simp[Abbr`bs2`,Abbr`bs3`,bc_state_component_equality] ) >>
-      fs[Abbr`bs0`] >>
-      qmatch_assum_abbrev_tac`bc_next^* bs1 bs2` >>
-      `bc_next^* (bs1 with code := bs.code) (bs2 with code := bs.code)` by (
-        match_mp_tac RTC_bc_next_append_code >>
-        map_every qexists_tac[`bs1`,`bs2`] >>
-        simp[Abbr`bs1`,Abbr`bs2`,bc_state_component_equality] ) >>
-      qexists_tac`bs3 with code := bs.code` >>
+      qexists_tac`bs2` >>
       reverse conj_tac >- (
-        `bs1 with code := bs.code = bs` by (
-          simp[Abbr`bs1`,bc_state_component_equality] ) >>
-        metis_tac[RTC_TRANSITIVE,transitive_def] ) >>
-      simp[Abbr`bs3`] >>
-      conj_tac >- (
-        match_mp_tac bc_fetch_next_addr >>
-        simp[] >>
-        CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`[]` >>
-        simp[] ) >>
-      BasicProvers.CASE_TAC >>
+        reverse conj_tac >- metis_tac[RTC_TRANSITIVE,transitive_def,RTC_SUBSET] >>
+        simp[Abbr`bs2`,Abbr`bs2'`] >>
+        fs[clos_to_bvlTheory.state_rel_def,clos_annotateTheory.state_rel_def,clos_numberTheory.state_rel_def,s_to_Cs_unpair] ) >>
+      simp[Abbr`bs2`,bc_fetch_with_output] >>
+      match_mp_tac bc_fetch_next_addr >>
+      simp[Abbr`bs2'`] >>
+      qexists_tac`bc0 ++ REVERSE r.out ++ REVERSE bc ++ code` >>
+      simp[] >>
+      qpat_assum`REVERSE X = Y`mp_tac >>
+      BasicProvers.CASE_TAC >> simp[emit_def] >> rw[] >> simp[] >>
       rator_x_assum`to_i1_invariant`mp_tac >>
       simp[to_i1_invariant_def] >>
       CCONTR_TAC >> fs[] >>
       imp_res_tac global_env_inv_inclusion >>
-      imp_res_tac alistTheory.ALOOKUP_MEM >>
-      fs[FLOOKUP_DEF,SUBSET_DEF, MEM_MAP] >>
-      metis_tac [FST]) >>
-    strip_tac >>
-    qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
-    qmatch_assum_abbrev_tac`bc_next^* bs2 bs3` >>
-    `bc_next^* (bs2 with code := bs.code) (bs3 with code := bs.code)` by (
-      match_mp_tac RTC_bc_next_append_code >>
-      first_assum(match_exists_tac o concl) >>
-      simp[Abbr`bs2`,Abbr`bs3`,bc_state_component_equality] ) >>
-    `bc_next^* (bs0 with code := bs.code) (bs1 with code := bs.code)` by (
-      match_mp_tac RTC_bc_next_append_code >>
-      map_every qexists_tac[`bs0`,`bs1`] >>
-      simp[Abbr`bs0`,Abbr`bs1`,bc_state_component_equality] ) >>
-    `bs0 with code := bs.code = bs` by (
-      simp[Abbr`bs0`,bc_state_component_equality] ) >>
-    qabbrev_tac`bs4 = bs3 with code := bs.code` >>
-    `bc_fetch bs4 = SOME (Gread x)` by (
-      match_mp_tac bc_fetch_next_addr >>
-      simp[Abbr`bs4`] >>
-      qexists_tac`bc0++c0++code++bcp` >>
-      simp[Abbr`bs3`] ) >>
-    ONCE_REWRITE_TAC[CONJ_COMM] >>
-    qho_match_abbrev_tac`∃bs3. bc_next^* bs bs3 ∧ P bs3` >>
-    qsuff_tac`∃bs5. bc_next^* bs bs4 ∧ NRC bc_next (SUC(SUC(SUC(0)))) bs4 bs5 ∧ P bs5` >- (
-      metis_tac[NRC_RTC,RTC_TRANSITIVE,transitive_def] ) >>
-    simp[NRC,PULL_EXISTS] >>
-    simp[GSYM CONJ_ASSOC,RIGHT_EXISTS_AND_THM] >>
-    `bs1 with code := bs.code = bs2 with code := bs.code` by (
-      simp[Abbr`bs1`,Abbr`bs2`] ) >>
-    conj_tac >- metis_tac[RTC_TRANSITIVE,transitive_def] >>
-    simp[Once bc_eval1_thm] >>
-    simp[bc_eval1_def,bump_pc_def] >>
-    simp[Abbr`bs4`,Abbr`bs3`] >>
+      fs[FLOOKUP_DEF,SUBSET_DEF, MEM_MAP]) >>
     rator_x_assum`to_i1_invariant`mp_tac >>
     simp[to_i1_invariant_def] >> strip_tac >>
     rator_x_assum`global_env_inv`mp_tac >>
@@ -1805,21 +1702,28 @@ val compile_prog_thm = store_thm("compile_prog_thm",
     rator_x_assum`global_env_inv_flat`mp_tac >>
     simp[Once v_to_i1_cases] >>
     disch_then(qspec_then`"it"`mp_tac) >>
+    simp[ALOOKUP_APPEND] >> strip_tac >>
+    qpat_assum`REVERSE X = Y`mp_tac >>
+    simp[emit_def] >> strip_tac >>
+    `bc_fetch bs2 = SOME (Gread n)` by (
+      match_mp_tac bc_fetch_next_addr >>
+      simp[Abbr`bs2`,Abbr`bs2'`] >>
+      qexists_tac`bc0++REVERSE r.out++REVERSE bc++code` >>
+      simp[] >> rw[] ) >>
+    srw_tac[DNF_ss][Once RTC_CASES_RTC_TWICE] >>
+    CONV_TAC SWAP_EXISTS_CONV >>
+    qexists_tac`bs2` >>
+    `bc_next^* bs bs2` by metis_tac[RTC_TRANSITIVE,transitive_def,RTC_SUBSET] >>
     simp[] >>
-    rator_x_assum`to_i1_invariant`mp_tac >>
-    simp[to_i1_invariant_def] >>
-    simp[Once v_to_i1_cases] >>
-    simp[Once v_to_i1_cases] >> strip_tac >>
-    simp[alistTheory.ALOOKUP_APPEND] >>
-    BasicProvers.CASE_TAC >> fs[] >- fs[FLOOKUP_DEF] >>
-    strip_tac >>
+    srw_tac[DNF_ss][Once RTC_CASES1] >>
+    simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
     rator_x_assum`to_i2_invariant`mp_tac >>
     simp[to_i2_invariant_def] >> strip_tac >>
     rfs[EVERY2_EVERY] >> fs[EVERY_MEM] >>
     qpat_assum`LENGTH genv2 = X`assume_tac >>
     qpat_assum`LENGTH grd0 = X`assume_tac >>
     fs[MEM_ZIP,PULL_EXISTS] >>
-    first_x_assum(qspec_then`x`mp_tac) >>
+    first_x_assum(qspec_then`n`mp_tac) >>
     simp[optionTheory.OPTREL_def] >> strip_tac >>
     rator_x_assum`store_to_exh`mp_tac >>
     simp[store_to_exh_csg_rel,csg_rel_unpair] >>
@@ -1829,188 +1733,160 @@ val compile_prog_thm = store_thm("compile_prog_thm",
     fsrw_tac[ARITH_ss][MEM_ZIP,PULL_EXISTS] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
     simp[optionTheory.OPTREL_def] >> strip_tac >>
-    rpt(rator_x_assum`csg_rel`mp_tac) >>
+    ntac 2 (rator_x_assum`csg_rel`mp_tac) >>
     simp[csg_rel_unpair] >> rpt strip_tac >>
     rfs[EVERY2_EVERY] >> fs[EVERY_MEM,map_count_store_genv_def] >>
     fs[MEM_ZIP,PULL_EXISTS] >>
     last_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
     simp[EL_MAP,optionTheory.OPTREL_def] >> strip_tac >>
-    fs[Cenv_bs_def,s_refs_def] >>
     last_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
     simp[EL_MAP,optionTheory.OPTREL_def] >> strip_tac >>
+    rator_x_assum`clos_number$state_rel`mp_tac >>
+    simp[s_to_Cs_unpair] >>
+    CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[clos_numberTheory.state_rel_def,LIST_REL_EL_EQN])) >>
+    strip_tac >>
     last_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+    qpat_assum`"" = X`(assume_tac o SYM) >>
     simp[EL_MAP,optionTheory.OPTREL_def] >> strip_tac >>
+    fs[] >>
+    rator_x_assum`clos_annotate$state_rel`mp_tac >>
+    CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[clos_annotateTheory.state_rel_def,LIST_REL_EL_EQN])) >>
+    strip_tac >>
     last_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
-    simp[EL_MAP,optionTheory.OPTREL_def] >> strip_tac >>
-    rator_x_assum`LIST_REL`mp_tac >>
-    simp[EVERY2_EVERY,EVERY_MEM] >> strip_tac >>
-    rfs[MEM_ZIP,PULL_EXISTS] >> fs[] >>
-    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
-    simp[optionTheory.OPTREL_def] >> strip_tac >> simp[] >>
-    qunabbrev_tac`bs1` >>
-    qho_match_abbrev_tac`∃bs4 bs3. bc_next bs1 bs3 ∧ bc_next bs3 bs4 ∧ P bs4` >>
-    `bc_fetch bs1 = SOME Print` by (
+    simp[optionTheory.OPTREL_def] >> strip_tac >>
+    fs[] >>
+    rator_x_assum`clos_to_bvl$state_rel`mp_tac >>
+    CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[clos_to_bvlTheory.state_rel_def,LIST_REL_EL_EQN])) >>
+    strip_tac >>
+    last_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+    simp[opt_val_rel_elim,optionTheory.OPTREL_def] >> strip_tac >>
+    simp[Abbr`bs2`,Abbr`bs2'`,EL_MAP] >>
+    Q.PAT_ABBREV_TAC`bs2:bc_state = X Y` >>
+    `bc_fetch bs2 = SOME Print` by (
       match_mp_tac bc_fetch_next_addr >>
-      simp[Abbr`bs1`] >>
-      qexists_tac`bc0++c0++code++bcp++[Gread x]` >>
+      simp[Abbr`bs2`] >>
+      qexists_tac`bc0++REVERSE r.out++REVERSE bc++code++[Gread n]` >>
       simp[SUM_APPEND,FILTER_APPEND] ) >>
+    srw_tac[DNF_ss][Once RTC_CASES1] >>
     simp[Once bc_eval1_thm] >> simp[bc_eval1_def,bump_pc_def] >>
-    simp[Abbr`bs1`,RIGHT_EXISTS_AND_THM] >>
+    simp[Abbr`bs2`,PULL_EXISTS] >>
     Q.PAT_ABBREV_TAC`sss = bv_to_string X` >>
     `∃str. sss = SOME str` by (
-      metis_tac[Cv_bv_can_Print,IS_SOME_EXISTS] ) >>
+      metis_tac[can_print,IS_SOME_EXISTS] ) >>
     simp[Abbr`sss`] >>
-    qho_match_abbrev_tac`∃bs4. bc_next bs1 bs4 ∧ P bs4` >>
-    `bc_fetch bs1 = SOME (PrintC #"\n")` by (
+    Q.PAT_ABBREV_TAC`bs2:bc_state = X Y` >>
+    `bc_fetch bs2 = SOME (PrintC #"\n")` by (
       match_mp_tac bc_fetch_next_addr >>
-      simp[Abbr`bs1`] >>
-      qexists_tac`bc0++c0++code++bcp++[Gread x;Print]` >>
+      simp[Abbr`bs2`] >>
+      qexists_tac`bc0++REVERSE r.out++REVERSE bc++code++[Gread n;Print]` >>
       simp[SUM_APPEND,FILTER_APPEND] ) >>
+    srw_tac[DNF_ss][Once RTC_CASES1] >>
     simp[Once bc_eval1_thm] >> simp[bc_eval1_def,bump_pc_def] >>
-    simp[Abbr`bs1`,IMPLODE_EXPLODE_I,Abbr`P`] >>
+    simp[Abbr`bs2`,IMPLODE_EXPLODE_I] >>
+    Q.PAT_ABBREV_TAC`bs2:bc_state = X Y` >>
+    qexists_tac`bs2`>>simp[] >>
     conj_tac >- (
       match_mp_tac bc_fetch_next_addr >> simp[] >>
       CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`[]` >>
-      simp[SUM_APPEND,FILTER_APPEND] ) >>
-    qmatch_assum_rename_tac`bv_to_string bv = SOME str`[] >>
+      simp[Abbr`bs2`,SUM_APPEND,FILTER_APPEND] ) >>
+    qmatch_assum_abbrev_tac`bv_to_string bv = SOME str` >>
     `str = print_bv (Infer_Tuvar 0) bv` by simp[print_bv_def] >>
-    pop_assum SUBST1_TAC >>
+    simp[Abbr`bs2`] >>
+    `t6.output = ""` by (
+      fs[clos_to_bvlTheory.state_rel_def,clos_annotateTheory.state_rel_def,clos_numberTheory.state_rel_def,s_to_Cs_unpair] ) >>
+    simp[Abbr`bv`] >>
     match_mp_tac (MP_CANON print_bv_print_v) >>
     simp[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    simp[exh_Cv_def] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    simp[PULL_EXISTS] >>
+    imp_res_tac v_pat_trans >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    simp[GSYM CONJ_ASSOC,RIGHT_EXISTS_AND_THM] >>
-    conj_tac >- (
-      first_x_assum(mp_tac o MATCH_MP (CONJUNCT1 evaluate_pat_closed)) >>
-      simp[csg_closed_pat_def] >>
-      simp[EVERY_MEM,MEM_EL,PULL_EXISTS] >>
-      metis_tac[OPTION_EVERY_def,sv_every_def] ) >>
-    qmatch_assum_abbrev_tac`Cv_bv pp Cv bv` >>
-    qexists_tac`Cv` >>
-    conj_tac >- metis_tac[syneq_trans] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    first_x_assum match_mp_tac >>
-    fs[FLOOKUP_DEF]) >>
-  Cases_on`res6`>>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    fs[FLOOKUP_DEF] ) >>
+  Cases_on`env_or_err`>>
   fs[result_to_i2_cases,result_to_i1_cases,GSYM FORALL_PROD] >>
   fs[] >> rw[] >>
   first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_exh_correct)) >>
   simp[env_to_exh_MAP] >>
-  fs[LIST_REL_O,OPTREL_O,sv_rel_O] >>
-  qmatch_assum_rename_tac`LIST_REL (sv_rel (v_to_exh X)) s2 sh`["X"] >>
-  qmatch_assum_rename_tac`LIST_REL R genv2 gh`["R"] >>
-  Q.PAT_ABBREV_TAC`rsexh = rs.exh` >>
-  `store_to_exh (exh ⊌ rsexh) ((stm0,s2),genv2) ((stm0,sh),gh)` by tac1 >>
+  qmatch_assum_rename_tac`csg_rel (v_to_exh rs.exh) ((s10,s20),genv2) csgh` >>
+  `store_to_exh (exh ⊌ rs.exh) ((s10,s20),genv2) csgh` by tac1 >>
   disch_then(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
-  disch_then(qspec_then`exh ⊌ rsexh`mp_tac) >> simp[] >>
+  simp[Once result_to_exh_cases] >>
+  disch_then(qspec_then`exh ⊌ rs.exh`mp_tac) >> simp[] >>
   strip_tac >>
   first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_pat_correct)) >>
-  discharge_hyps >- ( fs[result_to_exh_cases] ) >>
-  strip_tac >>
-  first_assum (mp_tac o MATCH_MP (CONJUNCT1 exp_to_Cexp_correct)) >>
   simp[] >>
-  discharge_hyps_keep >- tac22 >>
-  disch_then(qx_choosel_then[`Cres0`]strip_assume_tac) >>
-  qpat_assum`bs.code = X`mp_tac >>
-  specl_args_of_then``compile_Cexp`` compile_Cexp_thm mp_tac >>
-  simp[] >> strip_tac >>
-  first_assum(mp_tac o MATCH_MP (CONJUNCT1 Cevaluate_syneq)) >>
-  simp[] >>
-  Q.PAT_ABBREV_TAC`Cexp = exp_to_Cexp Z` >>
-  qmatch_assum_abbrev_tac`closed_vlabs [] Csg bc0` >>
-  disch_then(qspecl_then[`$=`,`Csg`,`[]`,`Cexp`]mp_tac) >>
-  discharge_hyps >- tac3 >>
-  strip_tac >>
-  first_x_assum(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
-  disch_then(qspecl_then[`grd2`,`bs with code := bc0 ++ c0 ++ code`,`bc0`,`bc0`]mp_tac) >>
+  disch_then(qx_choosel_then[`res3`]strip_assume_tac) >>
+  first_assum (qspec_then`[]`mp_tac o MATCH_MP (CONJUNCT1 evaluate_pat_exp_pat)) >>
+  Q.PAT_ABBREV_TAC`ep = exp_to_pat X Y` >>
+  disch_then(qspecl_then[`sp`,`ep`]mp_tac) >>
   discharge_hyps >- (
-    simp[Abbr`Csg`] >>
-    fs[Cenv_bs_def,s_refs_def,IS_SOME_EXISTS] ) >>
-  fs[result_to_exh_cases] >>
-  rpt BasicProvers.VAR_EQ_TAC >> fs[] >> rfs[] >> rfs[] >>
-  strip_tac >>
-  specl_args_of_then``compile_print_err``compile_print_err_thm mp_tac >>
+    simp[CONJUNCT1 exp_pat_refl] >> fs[csg_to_pat_MAP] ) >>
+  disch_then(qx_choosel_then[`res4`]strip_assume_tac) >>
+  tac12 >> tac7 >>
+  first_x_assum(qspec_then`bs2 with code := bc0 ++ REVERSE r.out ++ REVERSE bc ++ code`mp_tac) >>
   simp[] >>
-  disch_then(qx_choose_then`bcp`strip_assume_tac) >>
-  simp[] >>
-  rator_x_assum`code_for_push`mp_tac >>
-  simp[code_for_push_def,PULL_EXISTS] >>
-  rpt gen_tac >> strip_tac >>
-  qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
-  `bc_next^* (bs0 with code := bs0.code++bcp) (bs1 with code := bs1.code++bcp)` by (
-    metis_tac[RTC_bc_next_append_code] ) >>
-  rator_x_assum`v_to_exh`mp_tac >>
-  simp[Once v_to_exh_cases,vs_to_exh_MAP] >>
-  strip_tac >> rpt BasicProvers.VAR_EQ_TAC >>
-  rator_x_assum`v_pat`mp_tac >>
-  simp[Once v_pat_cases] >>
-  strip_tac >> rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
-  rpt (
-    qpat_assum`syneq (CConv X Y) Z`mp_tac >>
-    simp[Once syneq_cases] >> strip_tac >>
-    rpt BasicProvers.VAR_EQ_TAC ) >>
-  rator_x_assum`Cv_bv`mp_tac >>
-  simp[Once Cv_bv_cases] >> strip_tac >>
-  rpt BasicProvers.VAR_EQ_TAC >>
-  first_x_assum(qspec_then`bs1 with code := bs1.code++bcp`mp_tac) >>
-  `some_tag ≠ none_tag` by EVAL_TAC >>
-  simp[Abbr`bs1`] >>
+  simp[Abbr`bs2`,bvl_to_bc_value_def] >>
+  disch_then(qspec_then`some_tag+1`mp_tac)>>simp[]>>
+  qmatch_assum_rename_tac`state_rel f2 t5 t6` >>
+  `some_tag ≠ none_tag` by EVAL_TAC >> simp[] >>
+  ONCE_REWRITE_TAC[GSYM AND_IMP_INTRO] >>
+  discharge_hyps_keep >- tac8 >>
+  qmatch_assum_abbrev_tac`bc_next bs bs1` >>
+  qmatch_assum_abbrev_tac`bc_next^* bs1' bs5` >>
   discharge_hyps >- (
-    reverse conj_tac >- metis_tac[Cv_bv_can_Print] >>
-    rpt (rator_x_assum`good_labels`mp_tac) >>
-    rpt (rator_x_assum`between_labels`mp_tac) >>
-    rpt (BasicProvers.VAR_EQ_TAC) >>
-    rpt (pop_assum kall_tac) >>
-    simp[good_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER,is_Label_rwt,PULL_EXISTS
-        ,EVERY_FILTER,between_labels_def,EVERY_MAP,EVERY_MEM,between_def,PULL_FORALL] >>
-    rw[] >> spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    metis_tac[can_print] ) >>
   strip_tac >>
+  `∃ccode3. ccode2 = code ++ ccode3` by (
+    qpat_assum`REVERSE X = Y`mp_tac >>
+    BasicProvers.CASE_TAC >> simp[emit_def] >> rw[] >> simp[] ) >>
+  first_x_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]RTC_bc_next_append_code)) >>
+  disch_then(qspec_then`ccode3`mp_tac o CONV_RULE(RESORT_FORALL_CONV(List.rev))) >> simp[] >>
   strip_tac >>
-  qmatch_assum_abbrev_tac`bc_fetch bs4 = SOME (Stop F)` >>
-  qexists_tac`bs4 with code := bs.code` >>
+  qmatch_assum_abbrev_tac`bc_next^* bs5' bs2'` >>
+  `bs5' = bs5` by (
+    simp[Abbr`bs5`,Abbr`bs5'`,bvl_to_bc_value_def] >>
+    simp[bc_state_component_equality]) >>
+  `bc_next^* bs1' bs2'` by metis_tac[RTC_TRANSITIVE,transitive_def] >>
+  pop_assum(mp_tac o MATCH_MP RTC_bc_next_prepend_output) >>
+  disch_then(qspec_then`bs.output`assume_tac) >>
+  qmatch_assum_abbrev_tac`bc_next^* bs1'' bs2` >>
+  `bs1'' = bs1` by (
+    simp[Abbr`bs1''`,Abbr`bs1'`,Abbr`bs1`,bc_state_component_equality] >>
+    fs[clos_to_bvlTheory.state_rel_def,clos_annotateTheory.state_rel_def,clos_numberTheory.state_rel_def,s_to_Cs_unpair] ) >>
+  qexists_tac`bs2` >>
   conj_tac >- (
-    conj_tac >- (
-      first_x_assum(mp_tac o MATCH_MP(GEN_ALL bc_fetch_append_code)) >>
-      simp[Abbr`bs4`,bc_fetch_def] >>
-      BasicProvers.CASE_TAC >> simp[REVERSE_APPEND] >>
-      metis_tac[APPEND_ASSOC] ) >>
-    simp[Abbr`bs4`] >>
-    qmatch_rename_tac`THE (bv_to_string bv) = print_v v`[] >>
-    `THE (bv_to_string bv) = print_bv (Infer_Tuvar 0) bv` by simp[print_bv_def] >>
-    pop_assum SUBST1_TAC >>
+    simp[Abbr`bs2`,bc_fetch_with_output] >> fs[] >>
+    imp_res_tac bc_fetch_append_code >>
+    first_x_assum(qspec_then`ccode3`mp_tac) >>
+    simp[] ) >>
+  conj_tac >- (
+    simp[Abbr`bs2`,Abbr`bs2'`] >>
+    `t6.output = ""` by (
+      fs[clos_to_bvlTheory.state_rel_def,clos_annotateTheory.state_rel_def,clos_numberTheory.state_rel_def,s_to_Cs_unpair] ) >>
+    Q.PAT_ABBREV_TAC`str = bv_to_string X` >>
+    `∃s. str = SOME s` by metis_tac[can_print,IS_SOME_EXISTS] >>
+    simp[Abbr`str`] >>
+    qmatch_assum_abbrev_tac`bv_to_string bv = SOME str` >>
+    `str = print_bv (Infer_Tuvar 0) bv` by simp[print_bv_def] >>
+    simp[Abbr`bv`] >>
     match_mp_tac (MP_CANON print_bv_print_v) >>
+    simp[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    simp[exh_Cv_def,PULL_EXISTS] >>
+    imp_res_tac v_pat_trans >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    qmatch_assum_abbrev_tac`Cv_bv pp Cv bv` >>
-    qexists_tac`Cv` >> qexists_tac`pp` >> simp[] >>
-    reverse conj_tac >- metis_tac[syneq_trans] >>
-    first_x_assum(mp_tac o MATCH_MP (CONJUNCT1 evaluate_pat_closed)) >>
-    simp[csg_closed_pat_def] ) >>
-  qmatch_assum_abbrev_tac`bc_next^* bs3 bs4` >>
-  qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
-  `bs = bs0 with code := bs.code` by (
-    simp[Abbr`bs0`,bc_state_component_equality] ) >>
-  `bs1 with code := bs.code = bs3 with code := bs.code` by (
-    simp[Abbr`bs1`,Abbr`bs3`,bc_state_component_equality] ) >>
-  `bc_next^* bs (bs1 with code := bs.code)` by (
-    match_mp_tac RTC_bc_next_append_code >>
-    map_every qexists_tac[`bs0`,`bs1`] >>
-    simp[Abbr`bs0`,Abbr`bs1`,bc_state_component_equality] >>
-    BasicProvers.CASE_TAC >> simp[] ) >>
-  `bc_next^* (bs1 with code := bs.code) (bs4 with code := bs.code)` by (
-    match_mp_tac RTC_bc_next_append_code >>
-    map_every qexists_tac[`bs3`,`bs4`] >>
-    simp[Abbr`bs3`,Abbr`bs4`,Abbr`bs1`,bc_state_component_equality] >>
-    BasicProvers.CASE_TAC >> simp[] ) >>
-  metis_tac[RTC_TRANSITIVE,transitive_def])
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    first_assum(match_exists_tac o concl) >> simp[] ) >>
+  metis_tac[RTC_TRANSITIVE,transitive_def,RTC_SUBSET])
 
+(*
 val compile_prog_divergence = store_thm("compile_prog_divergence",
   ``∀env stm prog rs grd types bc0 bs.
       (∀res. ¬evaluate_whole_prog F env stm prog res) ∧
@@ -2797,6 +2673,7 @@ val compile_initial_prog_thm = store_thm("compile_initial_prog_thm",
     simp[contains_primitives_def] >> strip_tac >>
     rw[] >> metis_tac[APPEND_ASSOC]) >>
   conj_tac >- tac7 >>
+  first_x_assum(qspec_then`bs2`mp_tac) >>
   first_assum(mp_tac o MATCH_MP evaluate_prog_i1_closed) >> simp[] >>
   disch_then match_mp_tac >>
   reverse conj_tac >- (
