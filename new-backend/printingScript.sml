@@ -67,42 +67,43 @@ val LIST_REL_sv_rel_exh_Cv_syneq_trans = store_thm("LIST_REL_sv_rel_exh_Cv_syneq
   metis_tac[exh_Cv_syneq_trans,LIST_REL_exh_Cv_syneq_trans])
 *)
 
-(*
+val LIST_REL_val_rel_MAP_Number1 = prove(
+  ``LIST_REL clos_number$val_rel (MAP (Number o f) ls) ys ⇔
+    (ys = MAP (Number o f) ls)``,
+  rw[LIST_REL_EL_EQN,LIST_EQ_REWRITE,EQ_IMP_THM,EL_MAP] >>
+  fs[clos_numberTheory.val_rel_simp])
+
+val LIST_REL_val_rel_MAP_Number2 = prove(
+  ``LIST_REL clos_annotate$val_rel (MAP (Number o f) ls) ys ⇔
+    (ys = MAP (Number o f) ls)``,
+  rw[LIST_REL_EL_EQN,LIST_EQ_REWRITE,EQ_IMP_THM,EL_MAP] >>
+  fs[clos_annotateTheory.val_rel_simp])
+
+val LIST_REL_val_rel_MAP_Number3 = prove(
+  ``LIST_REL (val_rel z refs code) (MAP (Number o f) ls) ys ⇔
+    (ys = MAP (Number o f) ls)``,
+  rw[LIST_REL_EL_EQN,LIST_EQ_REWRITE,EQ_IMP_THM,EL_MAP] >>
+  fs[clos_to_bvlTheory.val_rel_SIMP])
+
 val can_print = save_thm("can_print",prove(
-  ``∀v vl.
-      val_rel f refs code (v_to_Cv v) vl ⇒
+  ``∀v vc1 vc2 vl.
+      clos_number$val_rel (v_to_Cv v) vc1 ∧
+      clos_annotate$val_rel vc1 vc2 ∧
+      val_rel f refs code vc2 vl ⇒
       IS_SOME (bv_to_string (bvl_to_bc_value locs vl))``,
   ho_match_mp_tac v_to_Cv_ind >>
-  rw[v_to_Cv_def] >>
-  TRY (
-    fs[clos_to_bvlTheory.val_rel_cases,bvl_to_bc_value_def,bv_to_string_def] >>
-    Cases_on`b`>>fs[] >>
-    NO_TAC)
-  >- (
-    pop_assum mp_tac >>
-    simp[clos_to_bvlTheory.val_rel_cases]>>
-    rw[] >> rw[bvl_to_bc_value_def,bv_to_string_def] >>
-    rw[bvs_to_chars_thm]>>
-    fs[LIST_REL_EL_EQN,EL_MAP,EXISTS_MEM,MEM_MAP,PULL_EXISTS,MEM_EL] >>
-    first_x_assum(qspec_then`n`mp_tac) >> rw[] >>
-    first_x_assum(qspec_then`n`mp_tac) >> rw[] >>
-
-
-  f"val_rel_simp"
-  m``clos_to_bvl$val_rel``
-  ho_match_mp_tac clos_to_bvlTheory.val_rel_ind >>
-  simp[bvl_to_bc_value_def,bv_to_string_def,EL_MAP] >>
-  rw[bvs_to_chars_thm] >>
-  fs[LIST_REL_EL_EQN,EXISTS_MEM,MEM_MAP,MEM_EL] >>
-  Cases_on`LENGTH xs = LENGTH ys`>>rw[]>>
-  is_Char_def
-
-  pop_assum mp_tac >> simp[] >>
-  simp[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >> rw[] >>
-  rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,MEM_EL,EL_MAP] >>
-  metis_tac[ORD_ONTO])
-  |> CONJUNCT1)
-*)
+  simp[v_to_Cv_def,clos_numberTheory.val_rel_simp,clos_annotateTheory.val_rel_simp,clos_to_bvlTheory.val_rel_SIMP] >>
+  rw[bvl_to_bc_value_def,bv_to_string_def] >>
+  TRY(rator_x_assum`clos_annotate$val_rel`mp_tac) >>
+  rw[Once clos_annotateTheory.val_rel_cases] >>
+  rator_x_assum`clos_to_bvl$val_rel`mp_tac >>
+  rw[Once clos_to_bvlTheory.val_rel_cases] >>
+  simp[bvl_to_bc_value_def,bv_to_string_def] >>
+  fs[LIST_REL_val_rel_MAP_Number1] >> rw[] >>
+  fs[LIST_REL_val_rel_MAP_Number2] >> rw[] >>
+  fs[LIST_REL_val_rel_MAP_Number3] >> rw[] >>
+  simp[bvs_to_chars_thm,EVERY_MAP,bvl_to_bc_value_def,MAP_MAP_o,combinTheory.o_DEF,ORD_BOUND] >>
+  simp[EL_MAP,bvl_to_bc_value_def,bv_to_string_def]))
 
 (* printing *)
 
