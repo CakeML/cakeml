@@ -149,6 +149,38 @@ val closed_locs_union = store_thm("closed_locs_union",
   ho_match_mp_tac closed_locs_ind >>
   rw[domain_union] >> fs[EVERY_MEM])
 
+val bc_fetch_with_output = store_thm("bc_fetch_with_output",
+  ``bc_fetch (s with output := x) = bc_fetch s``,
+  rw[bc_fetch_def])
+
+val bc_find_loc_with_output = store_thm("bc_find_loc_with_output",
+  ``bc_find_loc (s with output := x) = bc_find_loc s``,
+  simp[FUN_EQ_THM] >> Cases >> rw[bc_find_loc_def])
+
+val bc_next_prepend_output = store_thm("bc_next_prepend_output",
+  ``∀x y. bc_next x y ⇒ bc_next (x with output := ls++x.output) (y with output := ls++y.output)``,
+  ho_match_mp_tac bc_next_ind >>
+  rw[bc_eval1_thm] >>
+  simp[bc_eval1_def,bc_fetch_with_output,bump_pc_def,bc_fetch_with_stack,bc_find_loc_with_output] >>
+  rw[bc_state_component_equality,IMPLODE_EXPLODE_I,wordsTheory.w2n_lt,REPLICATE_GENLIST] >>
+  fs[bc_eval_stack_thm] >>
+  TRY (
+    simp[EL_REVERSE,EL_APPEND1,EL_APPEND2,PRE_SUB1,bc_state_component_equality,TAKE_APPEND1,TAKE_REVERSE,LASTN_APPEND1,LASTN] >>
+    simp[combinTheory.K_DEF] >> NO_TAC) >>
+  TRY (
+    BasicProvers.CASE_TAC >>
+    simp[bc_state_component_equality] >>
+    NO_TAC))
+
+val RTC_bc_next_prepend_output = store_thm("RTC_bc_next_prepend_output",
+  ``∀ls x y. RTC bc_next x y ⇒ RTC bc_next (x with output := ls++x.output) (y with output := ls++y.output)``,
+  rw[] >> (
+     RTC_lifts_monotonicities
+  |> Q.GEN`R` |> Q.ISPEC `bc_next`
+  |> Q.GEN`f` |> Q.ISPEC `λs:bc_state. s with output := ls ++ s.output`
+  |> strip_assume_tac) >> fs[] >> pop_assum (match_mp_tac o MP_CANON) >>
+  rw[bc_next_prepend_output])
+
 (*
 probably not true
 
@@ -182,7 +214,7 @@ val state_rel_def = Define`
     FEVERY (refv_every (closed_locs f) o SND) s1.refs ∧
     good_code_env f s2.inst_length s1.code s2.code ∧
     s2.stack = [] ∧
-    s2.output = s1.output ∧
+    (* s2.output = s1.output ∧ *)
     domain f = domain s1.code`
 
 val env_rs_def = Define`
@@ -786,7 +818,7 @@ val compile_top_thm = store_thm("compile_top_thm",
     qmatch_assum_abbrev_tac`bc_next bs bs1` >>
     first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO](Q.GENL[`f`]bvl_bc_correct))) >>
     simp[good_env_def] >>
-    disch_then(qspecl_then[`union locs f`,`bs1`,`TCNonTail`,`0`,`r`]mp_tac o
+    disch_then(qspecl_then[`union locs f`,`bs1 with output := s6.output`,`TCNonTail`,`0`,`r`]mp_tac o
       CONV_RULE (RESORT_FORALL_CONV(sort_vars["f'","bs1'","t","sz","cs"]))) >>
     simp[Once SWAP_REVERSE,Abbr`bs1`] >>
     disch_then(qspecl_then[`bc0++REVERSE r.out`]mp_tac) >>
@@ -1079,25 +1111,35 @@ val compile_top_thm = store_thm("compile_top_thm",
     simp[Abbr`Q`,Abbr`R`,Abbr`Z`] >>
     strip_tac >>
     qmatch_assum_abbrev_tac`bc_next bs bs1` >>
-    qmatch_assum_abbrev_tac`bc_next^* bs1 bs5` >>
-    qmatch_assum_abbrev_tac`bc_next^* bs5' bs2` >>
+    qmatch_assum_abbrev_tac`bc_next^* bs5' bs2'` >>
+    qpat_assum`bc_next^* bs5' bs2'`mp_tac >>
+    qmatch_assum_abbrev_tac`bc_next^* bs1' bs5` >>
     `bs5' = bs5` by (
       simp[Abbr`bs5`,Abbr`bs5'`,bvl_to_bc_value_def]) >>
+    strip_tac >>
+    `bc_next^* bs1' bs2'` by metis_tac[RTC_TRANSITIVE,transitive_def] >>
+    pop_assum(mp_tac o MATCH_MP RTC_bc_next_prepend_output) >>
+    disch_then(qspec_then`bs.output`assume_tac) >>
+    qmatch_assum_abbrev_tac`bc_next^* bs1'' bs2` >>
+    `bs1'' = bs1` by (
+      simp[Abbr`bs1''`,Abbr`bs1'`,Abbr`bs1`,bc_state_component_equality] >>
+      fs[clos_to_bvlTheory.state_rel_def,clos_annotateTheory.state_rel_def,clos_numberTheory.state_rel_def,s_to_Cs_unpair] ) >>
     qexists_tac`bs2` >>
     simp[RIGHT_EXISTS_AND_THM] >>
     conj_tac >- metis_tac[RTC_TRANSITIVE,transitive_def,RTC_SUBSET] >>
     conj_tac >- (
-      simp[Abbr`bs2`] >>
+      fs[Abbr`bs2`,bc_fetch_with_output] ) >>
+    conj_tac >- (
+      simp[Abbr`bs2`,Abbr`bs2'`] >>
       simp[optionTheory.option_case_compute] >>
-      simp[print_result_def] >>
       Q.PAT_ABBREV_TAC`b = IS_SOME Z` >>
-      `t6.output = bs.output` by (
-        fs[state_rel_def,clos_to_bvlTheory.state_rel_def,clos_annotateTheory.state_rel_def,
-           clos_numberTheory.state_rel_def,s_to_Cs_unpair] ) >>
+      `t6.output = ""` by (
+        fs[clos_to_bvlTheory.state_rel_def,clos_annotateTheory.state_rel_def,clos_numberTheory.state_rel_def,s_to_Cs_unpair] ) >>
       Cases_on`b = F` >> simp[] >>
       qunabbrev_tac`b` >>
       fs[GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS] >>
       last_x_assum mp_tac >>
+      simp[print_result_def] >>
       BasicProvers.CASE_TAC >>
       simp[Once evaluate_dec_cases] >>
       simp[] >> strip_tac >>
@@ -1131,9 +1173,9 @@ val compile_top_thm = store_thm("compile_top_thm",
        Cases_on`tt`>>fs[inferPropsTheory.convert_t_def] ))) >>
     conj_asm2_tac >- (
       first_x_assum(strip_assume_tac o MATCH_MP evaluate_prompt_i1_success_globals) >>
-      simp[Abbr`bs2`] >> rw[] >>
+      simp[Abbr`bs2`,Abbr`bs2'`] >> rw[] >>
       imp_res_tac RTC_bc_next_gvrel >>
-      fs[Abbr`bs1`,Abbr`bs5`] >>
+      fs[Abbr`bs1'`,Abbr`bs5`] >>
       fs[gvrel_def,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
       PairCases_on`grd'`>>Cases_on`s2`>>
       fs[env_rs_def] >>
@@ -1172,7 +1214,7 @@ val compile_top_thm = store_thm("compile_top_thm",
     PairCases_on`s2` >> simp[env_rs_def] >>
     simp[RIGHT_EXISTS_AND_THM] >>
     conj_asm1_tac >- (
-      rpt (rator_x_assum`good_labels`mp_tac) >> simp[Abbr`bs2`] >>
+      rpt (rator_x_assum`good_labels`mp_tac) >> simp[Abbr`bs2`,Abbr`bs2'`] >>
       rpt (rator_x_assum`between_labels`mp_tac) >>
       rpt (BasicProvers.VAR_EQ_TAC) >>
       rpt (pop_assum kall_tac) >>
@@ -1186,10 +1228,10 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[to_i2_invariant_def] >> strip_tac >>
       imp_res_tac EVERY2_LENGTH >> rfs[] ) >>
     conj_tac >- (
-      rpt(BasicProvers.VAR_EQ_TAC) >> simp[Abbr`bs2`] >>
+      rpt(BasicProvers.VAR_EQ_TAC) >> simp[Abbr`bs2`,Abbr`bs2'`] >>
       simp[next_addr_append] >>
       simp[FILTER_REVERSE,SUM_REVERSE,MAP_REVERSE] ) >>
-    conj_tac >- simp[Abbr`bs2`] >>
+    conj_tac >- simp[Abbr`bs2`,Abbr`bs2'`] >>
     rpt BasicProvers.VAR_EQ_TAC >> simp[] >> fs[] >>
     `FST s2_i1 = s20'` by (
       rator_x_assum`to_i1_invariant`mp_tac >>
@@ -1254,12 +1296,10 @@ val compile_top_thm = store_thm("compile_top_thm",
       imp_res_tac renumber_code_locs_imp_inc >>
       res_tac >> simp[] ) >>
     fs[state_rel_def] >>
-    simp[Abbr`bs2`] >>
+    simp[Abbr`bs2`,Abbr`bs2'`] >>
     qexists_tac`union locs f` >> simp[] >>
     simp[domain_union] >>
-    fs[REVERSE_APPEND] >>
-    Cases_on`types`>>fs[] >>
-    cheat) >>
+    fs[REVERSE_APPEND]) >>
   cheat )(*
   strip_tac >- (
     simp[] >>
