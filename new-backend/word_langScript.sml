@@ -13,7 +13,7 @@ infix \\ val op \\ = op THEN;
 
 val _ = Datatype `
   store_name =
-    NextFree | LastFree | CurrHeap | OtherHeap | AllocSize`
+    NextFree | LastFree | CurrHeap | OtherHeap | AllocSize | AllocLeft`
 
 val _ = Datatype `
   num_exp = Nat num

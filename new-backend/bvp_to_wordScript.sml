@@ -16,14 +16,15 @@ val adjust_names_def = Define `
 
 val ret_adjust_def = Define `
   (ret_adjust NONE = NONE) /\
-  (ret_adjust (SOME (v,names)) = SOME (var_adjust v, adjust_names names))`;
+  (ret_adjust (SOME (v,names)) =
+     SOME (var_adjust v, adjust_names names, Skip:'a word_prog))`;
 
 val arg_var_def = Define `
   arg_var n args = if n < LENGTH args then Var 0 else Var (EL n args)`;
 
 val pCompAssign_def = Define `
   (pCompAssign dest El args names_opt =
-     Assign dest (Load (Op ADD [Shift LSL (arg_var 0 args) (Nat 2);
+     Assign dest (Load (Op Add [Shift Lsl (arg_var 0 args) (Nat 2);
                                 arg_var 1 args]))) /\
   (pCompAssign dest x args names_opt =
      (* many of these cases are going to be complicated and really
@@ -39,8 +40,8 @@ val pComp_def = Define `
        (OPTION_MAP adjust_names names_opt)) /\
   (pComp (MakeSpace k names) =
      Seq (Set AllocSize (Const (if k < dimword (:'a) then n2w k else ~0w)))
-         (If (Assign 1 (Op UNSIGNED_LESS [Get AllocLeft; Get AllocSize])) 1
-           (Call (SOME (1,adjust_names names)) (SOME 0) [] NONE)
+         (If (Assign 1 (Op Add [Lookup AllocLeft; Lookup AllocSize])) 1
+           (Call (SOME (1,adjust_names names,Skip)) (SOME 0) [] NONE)
            Skip)) /\
   (pComp (Raise n) = Raise (var_adjust n)) /\
   (pComp (Return n) = Return (var_adjust n)) /\
