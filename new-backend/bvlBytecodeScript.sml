@@ -734,7 +734,7 @@ val bEval_closed_locs = store_thm("bEval_closed_locs",
     imp_res_tac bEval_IMP_LENGTH >> fs[length_1] >>
     rpt BasicProvers.VAR_EQ_TAC >> fs[] >> rfs[] >>
     imp_res_tac bEval_code >> fs[] >>
-    metis_tac[bEvalOp_closed_locs]) >>
+    metis_tac[bEvalOp_closed_locs,EVERY_REVERSE]) >>
   conj_tac >- (
     rpt gen_tac >> REWRITE_TAC[bEval_def] >>
     strip_tac >>
