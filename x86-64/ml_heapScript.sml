@@ -72,6 +72,36 @@ val EVERY2_MAP_FST_SND = prove(
   ``!xs. EVERY2 P (MAP FST xs) (MAP SND xs) = EVERY (\(x,y). P x y) xs``,
   Induct \\ SRW_TAC [] [LIST_REL_def] \\ Cases_on `h` \\ SRW_TAC [] []);
 
+val fapply_fupdate_update = store_thm("fapply_fupdate_update",
+  ``$' (f |+ p) = (FST p =+ SND p) ($' f)``,
+  Cases_on`p`>>
+  simp[FUN_EQ_THM,FAPPLY_FUPDATE_THM,APPLY_UPDATE_THM] >> rw[])
+
+val heap_lookup_APPEND1 = prove(
+  ``∀h1 z h2.
+    heap_length h1 ≤ z ⇒
+    (heap_lookup z (h1 ++ h2) = heap_lookup (z - heap_length h1) h2)``,
+  Induct >>fs[heap_lookup_def,heap_length_def] >> rw[] >- (
+    Cases_on`h`>>fs[el_length_def] )
+  >- (
+    fsrw_tac[ARITH_ss][] ) >>
+  simp[])
+
+val heap_lookup_APPEND2 = prove(
+  ``∀h1 z h2.
+    z < heap_length h1 ⇒
+    (heap_lookup z (h1 ++ h2) = heap_lookup z h1)``,
+  Induct >> fs[heap_lookup_def,heap_length_def] >> rw[] >>
+  simp[])
+
+val heap_lookup_APPEND = store_thm("heap_lookup_APPEND",
+  ``heap_lookup a (h1 ++ h2) =
+    if a < heap_length h1 then
+    heap_lookup a h1 else
+    heap_lookup (a-heap_length h1) h2``,
+  rw[heap_lookup_APPEND2] >>
+  simp[heap_lookup_APPEND1])
+
 (* refinement invariant *)
 
 val small_int_def = Define `
@@ -1268,6 +1298,16 @@ val new_ref_thm = store_thm("new_ref_thm",
 
 (* new ref -- replicate *)
 
+val isSomeDataElement_heap_lookup_lemma4 = prove(
+  ``∀ha p hb hc.
+    0 < heap_length hc ∧
+    isSomeDataElement (heap_lookup p (ha ++ Unused (heap_length hc - 1)::hb))
+    ⇒
+    isSomeDataElement (heap_lookup p (ha ++ hc ++ hb))``,
+  simp[heap_lookup_APPEND,heap_length_APPEND] >> rw[] >>
+  fsrw_tac[ARITH_ss][isSomeDataElement_heap_lookup_lemma1] >>
+  REV_FULL_SIMP_TAC(srw_ss()++ARITH_ss)[])
+
 val new_ref_replicate_thm = store_thm("new_ref_replicate_thm",
   ``abs_ml_inv (x1::x2::stack) refs (roots,heap,a,sp) limit /\
     ~(ptr IN FDOM refs) /\ l + 1 <= sp ==>
@@ -1277,6 +1317,86 @@ val new_ref_replicate_thm = store_thm("new_ref_replicate_thm",
       abs_ml_inv ((RefPtr ptr)::x2::stack) (refs |+ (ptr,ValueArray (REPLICATE l x2)))
                  (Pointer (a+sp-(l + 1))::r2::roots2,heap2,a,
                   sp - (l + 1)) limit``,
+  simp[abs_ml_inv_def] >> strip_tac >>
+  fs[bc_stack_ref_inv_def] >> rw[] >>
+  fs[unused_space_inv_def] >>
+  Cases_on`sp=0`>>fs[] >>
+  rw[heap_store_unused_def] >>
+  pop_assum mp_tac >>
+  simp[el_length_def,Once RefBlock_def,rich_listTheory.LENGTH_REPLICATE] >>
+  simp[el_length_def,Once RefBlock_def,rich_listTheory.LENGTH_REPLICATE] >>
+  imp_res_tac heap_lookup_SPLIT >> rw[] >>
+  simp[heap_store_lemma] >>
+  simp[el_length_def,heap_length_heap_expand,heap_length_APPEND] >>
+  simp[Once heap_length_def,Once RefBlock_def,el_length_def,rich_listTheory.LENGTH_REPLICATE] >>
+  conj_asm1_tac >- (
+    fs[roots_ok_def] >>
+    qx_gen_tac`p` >>
+    last_x_assum(qspec_then`p`strip_assume_tac) >>
+    strip_tac >> fs[] >- (
+      simp[Once heap_lookup_APPEND] >>
+      simp[heap_length_APPEND,heap_length_heap_expand] >>
+      simp[Once heap_length_def,el_length_def,Once RefBlock_def] >>
+      simp[Once heap_length_def,el_length_def,Once RefBlock_def,SimpR``arithmetic$+``] >>
+      simp[Once heap_lookup_APPEND] >>
+      simp[heap_length_APPEND,heap_length_heap_expand] >>
+      simp[heap_lookup_def,isSomeDataElement_def,RefBlock_def] ) >>
+    REWRITE_TAC[prove(``a ++ b ++ c ++ d = a ++ (b ++ c) ++ d``,simp[])] >>
+    MATCH_MP_TAC isSomeDataElement_heap_lookup_lemma4 >>
+    simp[heap_length_heap_expand,heap_length_APPEND] >>
+    simp[heap_length_def,el_length_def,RefBlock_def,rich_listTheory.LENGTH_REPLICATE] ) >>
+  conj_tac >- (
+    fs[heap_ok_def,heap_length_APPEND,heap_length_heap_expand] >>
+    fs[heap_length_def,RefBlock_def,el_length_def,rich_listTheory.LENGTH_REPLICATE] >>
+    fsrw_tac[ARITH_ss][] >>
+    fs[rich_listTheory.FILTER_APPEND,isForwardPointer_def] >>
+    conj_tac >- (
+      simp[heap_expand_def] >>
+      rw[isForwardPointer_def] ) >>
+    map_every qx_gen_tac[`a`,`b`,`c`,`d`] >>
+    strip_tac >>
+    TRY (
+      first_x_assum(qspecl_then[`a`,`b`,`c`,`d`]strip_assume_tac) >> fs[] >>
+      REWRITE_TAC[prove(``a ++ b ++ c ++ d = a ++ (b ++ c) ++ d``,simp[])] >>
+      MATCH_MP_TAC isSomeDataElement_heap_lookup_lemma4 >>
+      simp[heap_length_heap_expand,heap_length_APPEND] >>
+      simp[heap_length_def,el_length_def,RefBlock_def,rich_listTheory.LENGTH_REPLICATE] >>
+      NO_TAC) >>
+    TRY (
+      first_x_assum(qspecl_then[`a`,`b`,`c`,`d`]strip_assume_tac) >> fs[] >>
+      qpat_assum`MEM X (heap_expand Y)`mp_tac >>
+      simp[heap_expand_def] >> rw[] >> NO_TAC) >>
+    rw[] >>
+    fs[rich_listTheory.REPLICATE_GENLIST,MEM_GENLIST] >> rw[] >>
+    fs[roots_ok_def] ) >>
+  conj_tac >- (
+    simp[heap_lookup_APPEND,heap_length_APPEND,heap_length_heap_expand] >>
+    simp[heap_expand_def,heap_lookup_def] ) >>
+  simp[bc_value_inv_def] >>
+  Q.PAT_ABBREV_TAC`v = sp + X - Y` >>
+  qexists_tac`f |+ (ptr,v)` >> simp[] >>
+  conj_tac >- (
+    simp[fapply_fupdate_update] >>
+    qmatch_abbrev_tac`INJ ((p =+ y) g) (p INSERT s) z` >>
+    qmatch_assum_abbrev_tac`INJ g s t` >>
+    `z = (y INSERT t)` suffices_by (
+      rw[] >>
+      MATCH_MP_TAC INJ_UPDATE >>
+      simp[Abbr`s`,Abbr`t`,Abbr`y`,Abbr`v`] >>
+      conj_tac >- (
+        fs[SUBSET_DEF] >> PROVE_TAC[]) >>
+      simp[heap_lookup_APPEND,isSomeDataElement_heap_lookup_lemma1] ) >>
+    UNABBREV_ALL_TAC >>
+    simp[EXTENSION,heap_lookup_APPEND,heap_length_APPEND,heap_length_heap_expand] >>
+    simp[heap_length_def,RefBlock_def,el_length_def,rich_listTheory.LENGTH_REPLICATE] >>
+    simp[Once heap_lookup_def,el_length_def] >> gen_tac >>
+    IF_CASES_TAC >> simp[isSomeDataElement_heap_lookup_lemma1] >>
+    reverse IF_CASES_TAC >> simp[isSomeDataElement_heap_lookup_lemma1] >- (
+      rw[] >> fsrw_tac[ARITH_ss][] >>
+      simp[isSomeDataElement_def] ) >>
+    IF_CASES_TAC >> simp[isSomeDataElement_heap_lookup_lemma1] >>
+    simp[heap_expand_def,isSomeDataElement_heap_lookup_lemma1] ) >>
+  conj_tac >- fs[SUBSET_DEF] >>
   cheat);
 
 (* deref *)
