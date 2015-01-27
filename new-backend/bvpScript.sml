@@ -377,44 +377,28 @@ val pEval_ind = save_thm("pEval_ind",let
   val lemma = EVAL ``bool_to_val F = bool_to_val T``
   in ind |> SIMP_RULE std_ss [lemma] end);
 
+val LESS_EQ_dec_clock = prove(
+  ``r.clock <= (dec_clock s).clock ==> r.clock <= s.clock``,
+  SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC);
+
 val pEval_def = save_thm("pEval_def",let
-  val tm = fetch "-" "pEval_AUX_def"
-           |> concl |> rand |> dest_abs |> snd |> rand |> rand
-  val tm = ``^tm pEval (x,s)``
-  val rhs = SIMP_CONV std_ss [EVAL ``pair_CASE (x,y) f``] tm |> concl |> rand
-  val goal = ``!x s. pEval (x,s) = ^rhs`` |> remove_check_clock |> remove_disj
+  val goal = pEval_def |> concl |> remove_check_clock |> remove_disj
   (* set_goal([],goal) *)
   val def = prove(goal,
-    recInduct pEval_ind
-    \\ REPEAT STRIP_TAC
+    REPEAT STRIP_TAC
     \\ SIMP_TAC (srw_ss()) []
-    \\ TRY (SIMP_TAC std_ss [Once pEval_def] \\ NO_TAC)
-    \\ REPEAT (POP_ASSUM (K ALL_TAC))
-    \\ SIMP_TAC std_ss [Once pEval_def]
-    \\ Cases_on `pEval (c1,s)`
-    \\ Cases_on `pEval (p,s)`
-    \\ Cases_on `pEval (g,s)`
-    \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
-    \\ IMP_RES_TAC pEval_check_clock \\ FULL_SIMP_TAC std_ss []
-    \\ Cases_on `q`
-    \\ FULL_SIMP_TAC (srw_ss()) [GSYM set_var_check_clock]
-    \\ FULL_SIMP_TAC (srw_ss()) [check_clock_def]
-    \\ NTAC 3 BasicProvers.CASE_TAC
-    \\ FULL_SIMP_TAC (srw_ss()) []
-    \\ IMP_RES_TAC pEval_check_clock \\ FULL_SIMP_TAC std_ss []
-    \\ Cases_on `q`
-    \\ FULL_SIMP_TAC (srw_ss()) [GSYM set_var_check_clock,GSYM check_clock_def]
-    \\ FULL_SIMP_TAC (srw_ss()) [check_clock_def]
-    \\ Cases_on `s.clock = 0` \\ fs []
-    \\ REPEAT BasicProvers.CASE_TAC
-    \\ IMP_RES_TAC pop_env_clock
-    \\ IMP_RES_TAC pEval_clock \\ FULL_SIMP_TAC std_ss []
-    \\ fs [call_env_def,push_env_def,dec_clock_def]
-    \\ `F` by DECIDE_TAC)
-  val new_def = pEval_def |> CONJUNCTS |> map (fst o dest_eq o concl o SPEC_ALL)
-                  |> map (REWR_CONV def THENC SIMP_CONV (srw_ss()) [])
-                  |> LIST_CONJ
-  in new_def end);
+    \\ BasicProvers.EVERY_CASE_TAC
+    \\ fs [pEval_def] \\ rfs []
+    \\ SRW_TAC [] [] \\ SRW_TAC [] []
+    \\ IMP_RES_TAC pEval_check_clock
+    \\ IMP_RES_TAC pEval_clock
+    \\ fs [check_clock_thm]
+    \\ rfs [check_clock_thm]
+    \\ fs [check_clock_thm]
+    \\ fs [call_env_def,push_env_def]
+    \\ IMP_RES_TAC LESS_EQ_dec_clock
+    \\ fs [check_clock_thm])
+  in def end);
 
 (* clean up *)
 
