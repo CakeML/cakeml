@@ -397,7 +397,7 @@ val bvl_bc_def = C (tDefine "bvl_bc")
             bvl_bc f cenv t sz s [e]) ∧
   (bvl_bc f cenv t sz s [Call num_ticks dest es] =
     let s = bvl_bc f cenv TCNonTail sz s es in
-    let s = FUNPOW (\s. emit s [Tick]) (num_ticks + 1) s in
+    let s = emit s (REPLICATE (num_ticks + 1) Tick) in
     let n = LENGTH es in
     case t of
     | TCNonTail =>
@@ -498,6 +498,10 @@ val FILTER_is_Label_bvl_bc_ref = prove(
   ``∀n. FILTER is_Label (bvl_bc_ref n) = []``,
   Induct >> simp[bvl_bc_ref_def])
 
+val FILTER_is_Label_REPLICATE_Tick = prove(
+  ``FILTER is_Label (REPLICATE x Tick) = []``,
+  simp[FILTER_EQ_NIL,REPLICATE_GENLIST,EVERY_GENLIST])
+
 val bvl_bc_append_out = store_thm("bvl_bc_append_out",
   ``(∀f cenv t sz s e.
        ∃bc. ((bvl_bc f cenv t sz s e).out = bc ++ s.out) ∧
@@ -551,9 +555,10 @@ val bvl_bc_append_out = store_thm("bvl_bc_append_out",
   strip_tac >- (
     simp[bvl_bc_def,emit_def,FOLDL_emit_append_out] >> rw[] >>
     Cases_on`t`>>Cases_on`dest`>>fs[]>>
-    fs[FILTER_APPEND,ALL_DISTINCT_APPEND,EVERY_MAP,MEM_FILTER,EVERY_FILTER,
+    fs[FILTER_APPEND,ALL_DISTINCT_APPEND,EVERY_MAP,MEM_FILTER,EVERY_FILTER,FILTER_is_Label_REPLICATE_Tick,
        FILTER_REVERSE,EVERY_REVERSE,ALL_DISTINCT_REVERSE,is_Label_rwt,PULL_EXISTS] >>
     fs[MEM_MAP] >>
+    simp[REPLICATE_GENLIST,EVERY_GENLIST] >>
     qmatch_abbrev_tac`ALL_DISTINCT ls` >>
     qsuff_tac`ls=[]`>>rw[Abbr`ls`]>>
     rw[FILTER_EQ_NIL,EVERY_MAP]) >>
