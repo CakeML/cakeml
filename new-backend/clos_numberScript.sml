@@ -358,6 +358,48 @@ val contains_App_SOME_EXISTS = store_thm("contains_App_SOME_EXISTS",
   Induct >> simp[contains_App_SOME_def] >>
   Cases_on`ls`>>fs[contains_App_SOME_def])
 
+val state_rel_globals = prove(
+  ``state_rel s t ⇒
+    LIST_REL (OPTREL val_rel) s.globals t.globals``,
+  rw[state_rel_def])
+
+val cEvalOp_rel = store_thm("cEvalOp_rel",
+  ``state_rel s1 s2 ∧
+    LIST_REL val_rel x1 x2 ⇒
+    (cEvalOp op x1 s1 = NONE ⇒
+     cEvalOp op x2 s2 = NONE) ∧
+    (∀v1 w1. cEvalOp op x1 s1 = SOME(v1,w1) ⇒
+             ∃v2 w2. cEvalOp op x2 s2 = SOME(v2,w2) ∧
+                     val_rel v1 v2 ∧ state_rel w1 w2)``,
+  strip_tac >>
+  simp[cEvalOp_def] >>
+  Cases_on`op`>>simp[val_rel_simp]>>
+  Cases_on`x1`>>fs[val_rel_simp] >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  TRY ( fs[state_rel_def,optionTheory.OPTREL_def] >> NO_TAC) >>
+  TRY ( Cases_on`t`>>fs[]>> rpt BasicProvers.VAR_EQ_TAC) >>
+  TRY (
+    CHANGED_TAC(simp[get_global_def]) >>
+    imp_res_tac state_rel_globals >>
+    BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[res_rel_simp,val_rel_simp] >>
+    fs[LIST_REL_EL_EQN,val_rel_simp] >> rfs[] >>
+    TRY (
+      first_x_assum(fn th => first_x_assum(STRIP_ASSUME_TAC o MATCH_MP th)) >>
+      fs[optionTheory.OPTREL_def] >> fs[] >> rw[] >> NO_TAC) >>
+    fs[state_rel_def] >>
+    match_mp_tac EVERY2_LUPDATE_same >>
+    simp[optionTheory.OPTREL_def] >> NO_TAC) >>
+  TRY (
+    Cases_on`h`>>fs[val_rel_simp] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    fs[LIST_REL_EL_EQN] >>
+    Cases_on`h'`>>fs[val_rel_simp] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    Cases_on`t'`>>fs[val_rel_simp] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    NO_TAC) >>
+  cheat)
+
 val renumber_code_locs_correct = store_thm("renumber_code_locs_correct",
   ``!xs env s1 env' t1 res s2 n.
       (cEval (xs,env,s1) = (res,s2)) ⇒
@@ -448,7 +490,13 @@ val renumber_code_locs_correct = store_thm("renumber_code_locs_correct",
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     disch_then(fn th => first_x_assum(qspec_then`n`STRIP_ASSUME_TAC o MATCH_MP th)) >> rfs[] >>
     Cases_on `r1` \\ fs [res_rel_simp] >> rw[res_rel_simp] >> fs[] >>
-    cheat)
+    imp_res_tac cEvalOp_rel >>
+    last_x_assum mp_tac >>
+    BasicProvers.CASE_TAC >> simp[] >- (
+      rw[] >> rw[res_rel_simp] ) >>
+    BasicProvers.CASE_TAC >> rw[] >>
+    res_tac >> simp[] >>
+    simp[res_rel_simp])
   THEN1 (* Fn *)
    (fs [renumber_code_locs_def,cEval_def,LET_THM,UNCURRY] >>
     `t1.restrict_envs = s.restrict_envs` by fs[state_rel_def] >>
