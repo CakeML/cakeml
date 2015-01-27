@@ -12,7 +12,7 @@ infix \\ val op \\ = op THEN;
 
 val _ = Datatype `
   store_name =
-    NextFree | LastFree | CurrHeap | OtherHeap | AllocSize`
+    NextFree | LastFree | CurrHeap | OtherHeap | AllocSize | AllocLeft`
 
 val _ = Datatype `
   num_exp = Nat num
@@ -23,7 +23,7 @@ val _ = Datatype `
           | WordWidth ('a word)`
 
 val _ = Datatype `
-  word_op = AND | ADD | OR | SUB | MUL | XOR`
+  word_op = AND | ADD | OR | SUB | MUL | XOR | UNSIGNED_LESS`
 
 val _ = Datatype `
   word_sh = LSL | LSR | ASR`

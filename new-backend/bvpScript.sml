@@ -15,7 +15,7 @@ infix \\ val op \\ = op THEN;
 
 (* The idea is that the MakeSpace calls can be moved around and lumped
    together. This optimisation reduces the number of calls to the
-   allocator and, thus, simplifies to program.  The MakeSpace function
+   allocator and, thus, simplifies the program.  The MakeSpace function
    can, unfortunately, not be moved across function calls or bignum
    operations, which can internally call the allocator. *)
 
