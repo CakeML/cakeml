@@ -1,8 +1,9 @@
-open HolKernel Parse boolLib bossLib; val _ = new_theory "word_lang";
+open HolKernel Parse boolLib bossLib;
+val _ = new_theory "word_lang";
 
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
-open wordsTheory sptreeTheory lcsymtacs bvpTheory;
+open wordsTheory sptreeTheory lcsymtacs bvpTheory asmTheory;
 
 infix \\ val op \\ = op THEN;
 
@@ -23,29 +24,26 @@ val _ = Datatype `
           | WordWidth ('a word)`
 
 val _ = Datatype `
-  word_op = AND | ADD | OR | SUB | MUL | XOR`
-
-val _ = Datatype `
-  word_sh = LSL | LSR | ASR`
-
-val _ = Datatype `
   word_exp = Const ('a word)
            | Var num
-           | Get store_name
+           | Lookup store_name
            | Load word_exp
-           | Op word_op (word_exp list)
-           | Shift word_sh word_exp ('a num_exp)`
+           | Op binop (word_exp list)
+           | Shift shift word_exp ('a num_exp)`
 
 val _ = Datatype `
   word_prog = Skip
             | Move ((num # num) list)
+            | Inst ('a inst)
             | Assign num ('a word_exp)
+            | Get num store_name
             | Set store_name ('a word_exp)
             | Store ('a word_exp) num
-            | Call ((num # num_set) option) (* return var, cut-set *)
-                               (num option) (* target of call *)
-                                 (num list) (* arguments *)
-                 ((num # word_prog) option) (* handler: varname, handler code *)
+            | Call ((num # num_set # word_prog) option)
+                   (* return var, cut-set, return-handler code *)
+                   (num option) (* target of call *)
+                   (num list) (* arguments *)
+                   ((num # word_prog) option) (* handler: varname, exception-handler code *)
             | Seq word_prog word_prog
             | If word_prog num word_prog word_prog
             | Alloc num num_set
@@ -76,7 +74,7 @@ val _ = Datatype `
      ; mdomain : ('a word) set
      ; permute : num -> num -> num (* sequence of bijective mappings *)
      ; gc_fun  : 'a gc_fun_type
-     ; handler : num
+     ; handler : num (*position of current handle frame on stack*)
      ; clock   : num
      ; code    : (num # ('a word_prog) # num) num_map
      ; output  : string |> `
@@ -121,23 +119,22 @@ val mem_load_def = Define `
 val word_op_def = Define `
   word_op op (ws:('a word) list) =
     case (op,ws) of
-    | (AND,ws) => SOME (FOLDR word_and (~0w) ws)
-    | (ADD,ws) => SOME (FOLDR word_add 0w ws)
-    | (OR,ws) => SOME (FOLDR word_or 0w ws)
-    | (XOR,ws) => SOME (FOLDR word_xor 0w ws)
-    | (SUB,[w1;w2]) => SOME (w1 - w2)
-    | (MUL,[w1;w2]) => SOME (w1 * w2)
+    | (And,ws) => SOME (FOLDR word_and (~0w) ws)
+    | (Add,ws) => SOME (FOLDR word_add 0w ws)
+    | (Or,ws) => SOME (FOLDR word_or 0w ws)
+    | (Xor,ws) => SOME (FOLDR word_xor 0w ws)
+    | (Sub,[w1;w2]) => SOME (w1 - w2)
     | _ => NONE`;
 
 val word_sh_def = Define `
   word_sh sh (w:'a word) n =
     if n <> 0 /\ n < dimindex (:'a) then NONE else
       case sh of
-      | LSL => SOME (w << n)
-      | LSR => SOME (w >>> n)
-      | ASR => SOME (w >> n)`;
+      | Lsl => SOME (w << n)
+      | Lsr => SOME (w >>> n)
+      | Asr => SOME (w >> n)`;
 
-val MEM_IMP_word_exp_size = prove(
+val MEM_IMP_word_exp_size = store_thm("MEM_IMP_word_exp_size",
   ``!xs a. MEM a xs ==> (word_exp_size l a < word_exp1_size l xs)``,
   Induct \\ FULL_SIMP_TAC (srw_ss()) []
   \\ REPEAT STRIP_TAC \\ SRW_TAC [] [fetch "-" "word_exp_size_def"]
@@ -149,7 +146,7 @@ val word_exp_def = tDefine "word_exp" `
      case lookup v s.locals of
      | SOME (Word w) => SOME w
      | _ => NONE) /\
-  (word_exp s (Get name) =
+  (word_exp s (Lookup name) =
      case FLOOKUP s.store name of
      | SOME (Word w) => SOME w
      | _ => NONE) /\
@@ -246,12 +243,39 @@ val call_env_def = Define `
   call_env args (s:'a word_state) =
     s with <| locals := fromList2 args |>`;
 
+val list_rearrange_def = Define `
+  list_rearrange mover xs =
+    (* if the mover function is actually a permutation,
+     i.e. it bijects (or injects) the keys 0...n-1 to 0...n-1
+     use it *)
+    if (BIJ mover (count (LENGTH xs)) (count (LENGTH xs))) then
+      GENLIST (\i. EL (mover i) xs) (LENGTH xs)
+    else (* if it isn't well-formed, just pretend it is I *)
+      xs`
+
+(* Compare on keys, if keys match (never), then compare on
+   the word_loc vals. Treat Words as < Locs *)
+val key_val_compare_def = Define `
+  key_val_compare x y =
+    let (a:num,b) = x in
+    let (a':num,b') = y in
+      (a < a') \/
+      (a = a' /\
+        case b of
+          Word x => (case b' of Word y => x <= y | _ => T)
+        | Loc a b => case b' of Loc a' b' => (a<a') \/ (a=a' /\ b<=b') | _ => F)`
+
+(*
+EVAL ``key_val_compare (1,Loc 3 4) (1,Loc 1 2)``
+*)
+
 val env_to_list_def = Define `
   env_to_list env (bij_seq:num->num->num) =
-    let renamer = bij_seq 0 in
+    let mover = bij_seq 0 in
     let permute = (\n. bij_seq (n + 1)) in
     let l = toAList env in
-    let l = QSORT (\x y. renamer (FST x) <= renamer (FST y)) l in
+    let l = QSORT key_val_compare l in
+    let l = list_rearrange mover l in
       (l,permute)`
 
 val push_env_def = Define `
@@ -261,10 +285,6 @@ val push_env_def = Define `
       s with <| stack := StackFrame l handler :: s.stack
               ; permute := permute
               ; handler := if b then LENGTH s.stack else s.handler |>`;
-
-val fromAList_def = Define `
-  (fromAList [] = LN) /\
-  (fromAList ((x,y)::xs) = insert x y (fromAList xs))`;
 
 val pop_env_def = Define `
   pop_env s =
@@ -342,7 +362,8 @@ val dec_stack_def = Define `
      if LENGTH ws <> LENGTH l then NONE else
        case dec_stack xs st of
        | NONE => NONE
-       | SOME s => SOME (StackFrame (ZIP (MAP FST l,ws)) handler :: s))`
+       | SOME s => SOME (StackFrame (ZIP (MAP FST l,ws)) handler :: s)) /\
+  (dec_stack _ _ = NONE)`
 
 val wGC_def = Define `  (* wGC runs the garbage collector algorithm *)
   wGC s =
@@ -372,7 +393,7 @@ val wAlloc_def = Define `
      (* perform garbage collection *)
      (case wGC (push_env env F (set_store AllocSize (Word w) s)) of
       | NONE => (SOME Error,s)
-      | SOME s1 =>
+      | SOME s =>
        (* restore local variables *)
        (case pop_env s of
         | NONE => (SOME Error, s)
@@ -387,7 +408,36 @@ val wAlloc_def = Define `
             | SOME T => (* success there is that much space *)
                         (NONE,s)
             | SOME F => (* fail, GC didn't free up enough space *)
-                        (SOME NotEnoughSpace,s1)))))`
+                        (SOME NotEnoughSpace,call_env [] s with stack:= [])))))`
+
+val word_assign_def = Define `
+  word_assign reg exp s =
+    case word_exp s exp of
+     | NONE => NONE
+     | SOME w => SOME (set_var reg (Word w) s)`;
+
+val wInst_def = Define `
+  wInst i s =
+    case i of
+    | Skip => SOME s
+    | Const reg w => word_assign reg (Const w) s
+    | Arith (Binop bop r1 r2 ri) =>
+        word_assign r1
+          (Op bop [Var r2; case ri of Reg r3 => Var r3
+                                    | Imm w => Const w]) s
+    | Arith (Shift sh r1 r2 n) =>
+        word_assign r1
+          (Shift sh (Var r2) (Nat n)) s
+    | Mem Load r (Addr a w) =>
+        word_assign r (Load (Op Add [Var a; Const w])) s
+    | Mem Store r (Addr a w) =>
+       (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
+        | (SOME a, SOME w) =>
+            (case mem_store a w s of
+             | SOME s1 => SOME s1
+             | NONE => NONE)
+        | _ => NONE)
+    | _ => NONE`
 
 val wEval_def = tDefine "wEval" `
   (wEval (Skip:'a word_prog,s) = (NONE,s:'a word_state)) /\
@@ -401,18 +451,26 @@ val wEval_def = tDefine "wEval" `
        | NONE => (SOME Error,s)
        | SOME vs => (NONE, set_vars (MAP FST moves) vs s)
      else (SOME Error,s)) /\
+  (wEval (Inst i,s) =
+     case wInst i s of
+     | SOME s1 => (NONE, s1)
+     | NONE => (SOME Error, s)) /\
   (wEval (Assign v exp,s) =
      case word_exp s exp of
      | NONE => (SOME Error, s)
      | SOME w => (NONE, set_var v (Word w) s)) /\
+  (wEval (Get v name,s) =
+     case FLOOKUP s.store name of
+     | NONE => (SOME Error, s)
+     | SOME x => (NONE, set_var v x s)) /\
   (wEval (Set v exp,s) =
      case word_exp s exp of
      | NONE => (SOME Error, s)
      | SOME w => (NONE, set_store v (Word w) s)) /\
   (wEval (Store exp v,s) =
      case (word_exp s exp, get_var v s) of
-     | (SOME addr, SOME w) =>
-         (case mem_store addr w s of
+     | (SOME a, SOME w) =>
+         (case mem_store a w s of
           | SOME s1 => (NONE, s1)
           | NONE => (SOME Error, s))
      | _ => (SOME Error, s)) /\
@@ -443,48 +501,57 @@ val wEval_def = tDefine "wEval" `
           | _ => (SOME Error,s1))
      | res => res) /\
   (wEval (Call ret dest args handler,s) =
-     if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := []) else
-       case get_vars args s of
-       | NONE => (SOME Error,s)
-       | SOME xs =>
-         (case find_code dest xs s.code of
-          | NONE => (SOME Error,s)
-          | SOME (args1,prog) =>
-            (case ret of
-             | NONE (* tail call *) =>
-               if handler = NONE then
-                 (case wEval (prog, call_env args1 (dec_clock s)) of
-                  | (NONE,s) => (SOME Error,s)
-                  | (SOME res,s) => (SOME res,s))
-               else (SOME Error,s)
-             | SOME (n,names) (* returning call, returns into var n *) =>
-               (case cut_env names s.locals of
-                | NONE => (SOME Error,s)
-                | SOME env =>
-               (case wEval (prog, call_env args1
-                       (push_env env (IS_SOME handler) (dec_clock s))) of
-                | (SOME (Result x),s2) =>
-                   (case pop_env s2 of
-                    | NONE => (SOME Error,s2)
-                    | SOME s1 =>
-                        (if domain s1.locals = domain env
-                         then (NONE, set_var n x s1)
-                         else (SOME Error,s1)))
-                | (SOME (Exception x),s2) =>
-                   (case handler of (* if handler is present, then handle exc *)
-                    | NONE => (SOME (Exception x),s2)
-                    | SOME (n,h) =>
-                        (if domain s2.locals = domain env
-                         then wEval (h, set_var n x (check_clock s2 s))
-                         else (SOME Error,s2)))
-                | (NONE,s) => (SOME Error,s)
-                | res => res)))))`
+     case get_vars args s of
+     | NONE => (SOME Error,s)
+     | SOME xs =>
+       (case find_code dest xs s.code of
+	  | NONE => (SOME Error,s)
+	  | SOME (args1,prog) =>
+	    (case ret of
+	     | NONE (* tail call *) =>
+	       if handler = NONE then
+		 if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := []) else
+		 (case wEval (prog, call_env args1 (dec_clock s)) of
+		  | (NONE,s) => (SOME Error,s)
+		  | (SOME res,s) => (SOME res,s))
+	       else (SOME Error,s)
+	     | SOME (n,names,ret_handler) (* returning call, returns into var n *) =>
+	       (case cut_env names s.locals of
+		| NONE => (SOME Error,s)
+		| SOME env =>
+	       if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := []) else
+	       (case wEval (prog, call_env args1
+		       (push_env env (IS_SOME handler) (dec_clock s))) of
+		| (SOME (Result x),s2) =>
+		   (case pop_env s2 of
+		    | NONE => (SOME Error,s2)
+		    | SOME s1 =>
+			(if domain s1.locals = domain env
+			 then
+			   (*Value restriction on the return handler (makes it easier to reason about)
+			     Don't really need it to do fancy things.*)
+			   case wEval(ret_handler,set_var n x (check_clock s1 s)) of
+			   | (NONE,s) => (NONE,s)
+			   | (_,s) => (SOME Error,s)
+			 else (SOME Error,s1)))
+		| (SOME (Exception x),s2) =>
+		   (case handler of (* if handler is present, then handle exc *)
+		    | NONE => (SOME (Exception x),s2)
+		    | SOME (n,h) =>
+			(if domain s2.locals = domain env
+			 then wEval (h, set_var n x (check_clock s2 s))
+			 else (SOME Error,s2)))
+		| (NONE,s) => (SOME Error,s)
+		| res => res)))))`
  (WF_REL_TAC `(inv_image (measure I LEX measure (word_prog_size (K 0)))
                             (\(xs,(s:'a word_state)). (s.clock,xs)))`
   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
   \\ TRY (MATCH_MP_TAC check_clock_lemma \\ DECIDE_TAC)
-  \\ EVAL_TAC \\ Cases_on `s.clock <= s1.clock`
-  \\ FULL_SIMP_TAC (srw_ss()) [push_env_clock]
+  \\ TRY
+    (fs[push_env_clock,call_env_def,dec_clock_def]\\DECIDE_TAC)
+  \\ EVAL_TAC
+   \\ Cases_on `s.clock <= s1.clock`
+ \\ FULL_SIMP_TAC (srw_ss()) [push_env_clock]
   \\ IMP_RES_TAC pop_env_clock \\ fs [] \\ SRW_TAC [] []
   \\ Cases_on `s2.clock < s.clock` \\ fs [] \\ DECIDE_TAC)
 
@@ -505,17 +572,32 @@ val wAlloc_clock = store_thm("wAlloc_clock",
   SIMP_TAC std_ss [wAlloc_def] \\ REPEAT STRIP_TAC
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ SRW_TAC [] [] \\ fs []
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ SRW_TAC [] [] \\ fs []
+  \\ Q.ABBREV_TAC `s3 = set_store AllocSize (Word x) s1`
+  \\ `s3.clock=s1.clock` by Q.UNABBREV_TAC`s3`>>fs[set_store_def]
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ SRW_TAC [] [] \\ fs []
+  >- (IMP_RES_TAC wGC_clock
+     \\ ASSUME_TAC (INST_TYPE [``:'a``|->``:'b``]
+        (Q.GENL [`env`,`b`,`s`] push_env_clock))
+     \\ first_x_assum(qspecl_then [`s3`,`F`,`x'`] assume_tac)\\fs[]\\rfs[])
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ SRW_TAC [] [] \\ fs []
   \\ POP_ASSUM MP_TAC \\ SRW_TAC [] []
   \\ IMP_RES_TAC pop_env_clock \\ IMP_RES_TAC wGC_clock
   \\ fs [push_env_clock,set_store_def] \\ SRW_TAC [] []
-  \\ Cases_on `env_to_list s1.locals s1.permute` \\ fs [LET_DEF]);
+  \\ Cases_on `env_to_list s1.locals s1.permute` \\ fs [LET_DEF]\\rfs[]
+  \\ BasicProvers.EVERY_CASE_TAC
+  \\ fs[call_env_def,fetch "-" "word_state_component_equality"]);
 
 val pop_env_clock = prove(
   ``(pop_env s = SOME t) ==> (s.clock = t.clock)``,
   fs [pop_env_def] \\ REPEAT BasicProvers.FULL_CASE_TAC
   \\ SRW_TAC [] [] \\ fs []);
+
+val wInst_clock = prove(
+  ``wInst i s = SOME s2 ==> s2.clock <= s.clock``,
+  Cases_on `i` \\ fs [wInst_def,word_assign_def]
+  \\ REPEAT BasicProvers.FULL_CASE_TAC
+  \\ SRW_TAC [] [set_var_def] \\ fs []
+  \\ fs [mem_store_def] \\ SRW_TAC [] []);
 
 val wEval_clock = store_thm("wEval_clock",
   ``!xs s1 vs s2. (wEval (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock``,
@@ -524,6 +606,7 @@ val wEval_clock = store_thm("wEval_clock",
   \\ FULL_SIMP_TAC std_ss [cut_state_opt_def]
   \\ REPEAT BasicProvers.FULL_CASE_TAC
   \\ REPEAT STRIP_TAC \\ SRW_TAC [] [check_clock_def,call_env_def]
+  \\ IMP_RES_TAC wInst_clock
   \\ fs [call_env_def]
   \\ RES_TAC \\ IMP_RES_TAC check_clock_IMP
   \\ FULL_SIMP_TAC std_ss [PULL_FORALL] \\ RES_TAC
@@ -575,10 +658,14 @@ val wEval_ind = save_thm("wEval_ind",let
     THEN1 (FIRST_X_ASSUM MATCH_MP_TAC
            \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC
            \\ IMP_RES_TAC wEval_clock \\ SRW_TAC [] []
-           \\ `s2.clock <= s.clock` by
+           \\ TRY (`s2.clock <= s.clock` by
             (fs [call_env_def,dec_clock_def,push_env_clock]
              \\ IMP_RES_TAC pop_env_clock \\ DECIDE_TAC)
-           \\ `s2 = check_clock s2 s` by fs [check_clock_def]
+           \\ `s2 = check_clock s2 s` by fs [check_clock_def])
+           \\ TRY (`s1.clock <= s.clock` by
+             (fs [call_env_def,dec_clock_def,push_env_clock]
+             \\ IMP_RES_TAC pop_env_clock \\ DECIDE_TAC)
+           \\ `s1 = check_clock s1 s` by fs[check_clock_def])
            \\ POP_ASSUM (fn th => ONCE_REWRITE_TAC [th])
            \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs [])
     \\ FIRST_X_ASSUM (MATCH_MP_TAC)
@@ -612,10 +699,17 @@ val wEval_def = save_thm("wEval_def",let
     \\ REPEAT BasicProvers.CASE_TAC
     \\ SRW_TAC [] [] \\ IMP_RES_TAC wEval_check_clock
     \\ FULL_SIMP_TAC (srw_ss()) [check_clock_def]
-    \\ fs [call_env_def,dec_clock_def,push_env_clock]
+    \\ fs [pop_env_def,call_env_def,dec_clock_def,push_env_clock]
     \\ SRW_TAC [] []
     \\ IMP_RES_TAC wEval_clock
     \\ fs [call_env_def,dec_clock_def,push_env_clock]
+    \\ `x''.clock <= s.clock` by
+         (BasicProvers.EVERY_CASE_TAC>>fs[fetch "-" "word_state_component_equality"]>>
+         `F` by DECIDE_TAC) \\ fs[]
+    \\ TRY (`x''.clock = r'''''.clock` by
+       (BasicProvers.EVERY_CASE_TAC>>fs[fetch "-" "word_state_component_equality"]))
+    \\ TRY (`x''.clock = r''''''.clock` by
+       (BasicProvers.EVERY_CASE_TAC>>fs[fetch "-" "word_state_component_equality"]))
     \\ `F` by DECIDE_TAC)
   val new_def = wEval_def |> CONJUNCTS |> map (fst o dest_eq o concl o SPEC_ALL)
                   |> map (REWR_CONV def THENC SIMP_CONV (srw_ss()) [])

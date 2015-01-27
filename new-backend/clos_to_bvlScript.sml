@@ -3505,6 +3505,96 @@ val code_locs_cComp = store_thm("code_locs_cComp",
   >- ( Cases_on`op`>>simp[cCompOp_def]>>fs[] )
   >- ( simp[Once code_locs_cons,code_locs_def,code_locs_MAP_Var] ))
 
+val code_locs_free_let = prove(
+  ``∀n. code_locs (free_let n) = []``,
+  Induct >- simp[free_let_def,code_locs_def] >>
+  fs[free_let_def,GENLIST] >>
+  simp[code_locs_append,code_locs_def])
+
+val build_aux_aux = prove(
+  ``∀k loc s.
+    MAP SND (SND (build_aux loc k s)) =
+    REVERSE k ++ MAP SND s``,
+  Induct >> simp[build_aux_def])
+
+val set_code_locs_reverse = store_thm("set_code_locs_reverse",
+  ``∀ls. set(code_locs (REVERSE ls)) = set (code_locs ls)``,
+  Induct >> simp[code_locs_def,code_locs_append] >>
+  simp[Once code_locs_cons,SimpRHS] >>
+  METIS_TAC[UNION_COMM])
+
+val code_locs_GENLIST_Op = prove(
+  ``(∀loc. op ≠ Label loc) ∧
+    (∀x. code_locs (f x) = [])
+  ⇒ ∀ls. code_locs (GENLIST (λi. Op op (f i)) ls) = []``,
+  strip_tac >>
+  Induct_on`ls`>>simp[code_locs_def,GENLIST,code_locs_append] >>
+  Cases_on`op`>>fs[])
+
+val code_locs_MAP_code_for_recc_case = prove(
+  ``∀ls. code_locs (MAP (code_for_recc_case n) ls) = code_locs ls``,
+  Induct >> simp[code_locs_def,code_for_recc_case_def] >>
+  simp[Once code_locs_cons,code_locs_def] >>
+  simp[Once code_locs_cons,code_locs_def] >>
+  simp[code_locs_append] >>
+  simp[Once code_locs_cons,SimpRHS] >>
+  HO_MATCH_MP_TAC (MP_CANON code_locs_GENLIST_Op) >>
+  simp[code_locs_def])
+
+val code_locs_cComp_aux = store_thm("code_locs_cComp_aux",
+  ``∀xs aux.
+      ¬contains_Op_Label xs ∧ ¬contains_App_SOME xs ∧ ¬contains_Call xs ⇒
+      set (code_locs (MAP SND (SND(cComp xs aux)))) ⊆
+      set (code_locs xs) ∪ set (code_locs (MAP SND aux))``,
+  ho_match_mp_tac cComp_ind >> rpt conj_tac >>
+  TRY (
+    simp[contains_Op_Label_def,clos_numberTheory.contains_App_SOME_def,contains_Call_def] >>
+    simp[cComp_def,clos_numberTheory.code_locs_def] >> rw[] >> fs [] >>
+    simp[UNCURRY] >> rpt tac >> rw[] >> fs[SUBSET_DEF] >>
+    METIS_TAC[] )
+  >- (
+    simp[contains_Op_Label_def,clos_numberTheory.contains_App_SOME_def,contains_Call_def] >>
+    simp[cComp_def,clos_numberTheory.code_locs_def] >> rw[] >> fs [] >>
+    simp[UNCURRY] >> rpt tac >> rw[] >> fs[SUBSET_DEF] >>
+    simp[Once code_locs_cons,code_locs_def] >>
+    simp[cComp_sing_lemma] >>
+    simp[Once code_locs_cons,code_locs_def] >>
+    simp[code_locs_free_let] >>
+    METIS_TAC[code_locs_cComp,SUBSET_DEF] )
+  >- (
+    simp[contains_Op_Label_def,clos_numberTheory.contains_App_SOME_def,contains_Call_def] >>
+    simp[cComp_def,clos_numberTheory.code_locs_def] >> rw[] >> fs [] >>
+    Cases_on`xs`>>fs[clos_numberTheory.code_locs_def] >>
+    Cases_on`t`>>fs[] >- (
+      tac >>
+      simp[UNCURRY,code_locs_def,cComp_sing_lemma] >>
+      fs[SUBSET_DEF] >> rw[] >>
+      res_tac >> rw[] >>
+      pop_assum mp_tac >>
+      simp[Once code_locs_cons,code_locs_def] >>
+      simp[Once code_locs_cons,code_locs_def,code_locs_free_let] >>
+      fs[code_locs_append] >> rw[] >>
+      METIS_TAC[code_locs_cComp,SUBSET_DEF,FST,cComp_sing_lemma]) >>
+    fs[contains_Call_def,contains_Op_Label_def,contains_App_SOME_def] >>
+    fs[cComp_def,LET_THM] >>
+    Cases_on`cComp[h]aux`>>fs[]>>
+    Cases_on`cComp(h'::t')r`>>fs[]>>
+    Q.PAT_ABBREV_TAC`p = build_aux X Y Z` >>
+    Cases_on`p`>>fs[markerTheory.Abbrev_def]>>
+    pop_assum(assume_tac o SYM) >>
+    simp[UNCURRY] >>
+    fs[SUBSET_DEF,clos_numberTheory.code_locs_def,LET_THM] >>
+    rw[] >> res_tac >> rw[] >>
+    qmatch_assum_abbrev_tac`build_aux loc k aux1 = X` >>
+    qspecl_then[`k`,`loc`,`aux1`]strip_assume_tac build_aux_aux >>
+    rfs[Abbr`X`] >> fs[] >>
+    qpat_assum`MEM x Z`mp_tac >>
+    simp[code_locs_append] >>
+    strip_tac >> TRY ( res_tac >> rw[] >> NO_TAC) >>
+    fs[set_code_locs_reverse] >>
+    fs[Abbr`k`,code_locs_append,code_locs_MAP_code_for_recc_case] >>
+    METIS_TAC[code_locs_cComp,FST,cComp_sing_lemma,SUBSET_DEF]))
+
 val HD_FST_cFree_sing = prove(
   ``[HD (FST (cFree [x]))] = FST(cFree [x])``,
   simp[SING_HD,LENGTH_FST_cFree])

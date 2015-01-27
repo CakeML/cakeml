@@ -1,4 +1,4 @@
-open HolKernel Parse boolLib bossLib; 
+open HolKernel Parse boolLib bossLib;
 
 val _ = new_theory "bvi";
 
@@ -199,7 +199,7 @@ val iEvalOp_const = store_thm("iEvalOp_const",
     \\ SRW_TAC [] [bvl_to_bvi_def,bvi_to_bvl_def])
   \\ Cases_on `x'` \\ fs []
   \\ fs [iEvalOpAux_def]
-  \\ REPEAT BasicProvers.FULL_CASE_TAC
+  \\ BasicProvers.EVERY_CASE_TAC
   \\ fs [LET_DEF] \\ SRW_TAC [] [] \\ fs []);
 
 val iEval_clock = store_thm("iEval_clock",
@@ -207,7 +207,7 @@ val iEval_clock = store_thm("iEval_clock",
       (iEval (xs,env,s1) = (vs,s2)) ==> s2.clock <= s1.clock``,
   recInduct (fetch "-" "iEval_ind") \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [iEval_def]
-  \\ FULL_SIMP_TAC std_ss [] \\ REPEAT BasicProvers.FULL_CASE_TAC
+  \\ FULL_SIMP_TAC std_ss [] \\ BasicProvers.EVERY_CASE_TAC
   \\ REPEAT STRIP_TAC \\ SRW_TAC [] [check_clock_def]
   \\ RES_TAC \\ IMP_RES_TAC check_clock_IMP
   \\ FULL_SIMP_TAC std_ss [PULL_FORALL] \\ RES_TAC
@@ -270,49 +270,32 @@ val iEval_ind = save_thm("iEval_ind",let
     \\ FULL_SIMP_TAC std_ss [check_clock_thm])
   in ind end);
 
+val LESS_EQ_dec_clock = prove(
+  ``r.clock <= (dec_clock s).clock ==> r.clock <= s.clock``,
+  SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC);
+
 val iEval_def = save_thm("iEval_def",let
-  val tm = fetch "-" "iEval_AUX_def"
-           |> concl |> rand |> dest_abs |> snd |> rand |> rand
-  val tm = ``^tm iEval (xs,env,s)``
-  val rhs = SIMP_CONV std_ss [EVAL ``pair_CASE (x,y) f``] tm |> concl |> rand
-  val goal = ``!xs env s. iEval (xs,env,s) = ^rhs``
-             |> remove_check_clock |> remove_disj
+  val goal = iEval_def |> concl |> remove_check_clock |> remove_disj
   (* set_goal([],goal) *)
   val def = prove(goal,
-    recInduct iEval_ind
-    \\ REPEAT STRIP_TAC
+    REPEAT STRIP_TAC
     \\ SIMP_TAC (srw_ss()) []
-    \\ TRY (SIMP_TAC std_ss [Once iEval_def] \\ NO_TAC)
-    \\ REPEAT (POP_ASSUM (K ALL_TAC))
-    \\ SIMP_TAC std_ss [Once iEval_def]
-    \\ Cases_on `iEval (xs,env,s1)`
-    \\ Cases_on `iEval (xs,env,s)`
-    \\ Cases_on `iEval ([x],env,s)`
-    \\ Cases_on `iEval ([x1],env,s)`
-    \\ Cases_on `iEval ([x2],env,s)`
-    \\ Cases_on `iEval ([x1],env,s1)`
-    \\ Cases_on `iEval ([x2],env,s1)`
+    \\ BasicProvers.EVERY_CASE_TAC
+    \\ fs [iEval_def] \\ rfs []
     \\ IMP_RES_TAC iEval_check_clock
     \\ IMP_RES_TAC iEval_clock
-    \\ FULL_SIMP_TAC (srw_ss()) [EVAL ``pair_CASE (x,y) f``]
-    \\ Cases_on `r.clock = 0` \\ FULL_SIMP_TAC std_ss []
-    \\ Cases_on `s1.clock = 0` \\ FULL_SIMP_TAC std_ss []
+    \\ IMP_RES_TAC LESS_EQ_TRANS
+    \\ IMP_RES_TAC LESS_EQ_dec_clock
+    \\ REPEAT (Q.PAT_ASSUM `!x. bbb` (K ALL_TAC))
+    \\ IMP_RES_TAC iEvalOp_const
     \\ SRW_TAC [] []
-    \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) []
-    \\ Cases_on `find_code dest a r.code` \\ FULL_SIMP_TAC (srw_ss()) []
-    \\ Cases_on `x'` \\ FULL_SIMP_TAC (srw_ss()) []
-    \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest a r.code = SOME (q,r2)`
-    \\ Cases_on `iEval ([r2],q,dec_clock r)` \\ Cases_on `q` \\ fs []
-    \\ Q.MATCH_ASSUM_RENAME_TAC `iEval ([r2],q,dec_clock r) = (t1,t2)`
-    \\ fs [] \\ Cases_on `t1` \\ fs []
-    \\ Cases_on `handler` \\ fs []
-    \\ IMP_RES_TAC iEval_clock
-    \\ fs [dec_clock_def,check_clock_def]
-    \\ `t2.clock <= s1.clock` by DECIDE_TAC \\ fs [])
-  val new_def = iEval_def |> CONJUNCTS |> map (fst o dest_eq o concl o SPEC_ALL)
-                  |> map (REWR_CONV def THENC SIMP_CONV (srw_ss()) [])
-                  |> LIST_CONJ
-  in new_def end);
+    \\ fs [check_clock_thm]
+    \\ rfs [check_clock_thm]
+    \\ fs [check_clock_thm]
+    \\ IMP_RES_TAC LESS_EQ_TRANS
+    \\ REPEAT (Q.PAT_ASSUM `!x. bbb` (K ALL_TAC))
+    \\ fs [check_clock_thm])
+  in def end);
 
 (* lemmas *)
 

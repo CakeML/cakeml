@@ -270,6 +270,10 @@ val env_to_exh_MAP = store_thm("env_to_exh_MAP",
   Cases >> Cases_on`env2` >> rw[] >>
   Cases_on`h`>>rw[] >> metis_tac[])
 
+val vs_to_exh_MAP = store_thm("vs_to_exh_MAP",
+  ``∀exh vs1 vs2. vs_to_exh exh vs1 vs2 = LIST_REL (v_to_exh exh) vs1 vs2``,
+  Induct_on`vs1`>>simp[Once v_to_exh_cases])
+
 val _ = augment_srw_ss[rewrites[vs_to_exh_LIST_REL,find_recfun_funs_to_exh(*,env_to_exh_build_rec_env_i2*)]]
 
 val do_eq_exh_correct = Q.prove (
