@@ -751,7 +751,9 @@ val init_inv_IMP_heap_inv = prove(
   \\ STRIP_TAC THEN1
    (Cases_on `heap_len = 0` \\ FULL_SIMP_TAC std_ss [heap_expand_def]
     \\ EVAL_TAC \\ SIMP_TAC std_ss [SUM,PULL_EXISTS] \\ Q.EXISTS_TAC `FEMPTY`
-    \\ SRW_TAC [] [INJ_DEF,get_refs_def] \\ TRY DECIDE_TAC \\ EVAL_TAC)
+    \\ SRW_TAC [] [INJ_DEF,get_refs_def] \\ TRY DECIDE_TAC
+    \\ fs [bc_value_inv_def] \\ EVAL_TAC
+    \\ CCONTR_TAC \\ fs [] \\ SRW_TAC [] [] \\ fs [get_refs_def])
   \\ FULL_SIMP_TAC (srw_ss()) [init_inv_def,first_s_def,code_heap_inv_def,
        stack_inv_def] \\ FULL_SIMP_TAC std_ss [reintro_word_sub64]
   \\ `heap_len < 281474976710656 /\
