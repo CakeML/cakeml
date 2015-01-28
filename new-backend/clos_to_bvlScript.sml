@@ -148,13 +148,13 @@ val generate_generic_app_def = Define `
 (* The functions to complete the application of a partial closure *)
 val generate_partial_app_closure_fn_def = Define `
   generate_partial_app_closure_fn total_args prev_args = 
-    Let [mk_el (Var 0) (mk_const 2)]
+    Let [mk_el (Var (total_args - prev_args)) (mk_const 2)]
       (Call (total_args - prev_args - 1)
         NONE 
-        (Var 0 ::
-         GENLIST (\this_arg. Var (this_arg + 2)) (total_args - prev_args) ++
+        (GENLIST (\this_arg. Var (this_arg + 1)) (total_args - prev_args) ++
          GENLIST (\prev_arg.
-           mk_el (Var 1) (mk_const (prev_arg + 3))) (prev_args + 1) ++
+           mk_el (Var (total_args - prev_args + 1)) (mk_const (prev_arg + 3))) (prev_args + 1) ++
+         [Var 0] ++
          [mk_el (Var 0) (mk_const 0)]))`;
 
 val init_code_def = Define `
@@ -485,17 +485,6 @@ val bEval_genlist_prev_args1 = Q.prove (
  assume_tac (Q.SPECL [`prev_args`, `[p;n;cl]`, `x::y::args`] bEval_genlist_prev_args) >>
  full_simp_tac (srw_ss()++ARITH_ss) [ADD1]);
 
- (*
-val bEval_genlist_prev_args1 = Q.prove (
-`!prev_args z tag p n cl arg_list st.
-  bEval (REVERSE (GENLIST (λprev_arg. Op El [Op (Const (&(prev_arg + 3))) []; Var 1]) (LENGTH prev_args)),
-         z::(Block tag (p::n::cl::prev_args))::arg_list,
-         st)
-  =
-  (Result (REVERSE prev_args),st)`,
- metis_tac [bEval_genlist_prev_args, APPEND, LENGTH, DECIDE ``SUC (SUC (SUC 0)) = 3``,
-            DECIDE ``(SUC 0) = 1``]);
-
 val bEval_genlist_prev_args_no_rev = Q.prove (
 `!prev_args z x tag p n cl arg_list st.
   bEval (GENLIST (λprev_arg. Op El [Op (Const (&(prev_arg + LENGTH z))) []; Var (LENGTH x)]) (LENGTH prev_args),
@@ -518,15 +507,14 @@ val bEval_genlist_prev_args_no_rev = Q.prove (
  decide_tac);
 
 val bEval_genlist_prev_args1_no_rev = Q.prove (
-`!prev_args z tag p n cl arg_list st.
-  bEval (GENLIST (λprev_arg. Op El [Op (Const (&(prev_arg + 3))) []; Var 1]) (LENGTH prev_args),
-         z::(Block tag (p::n::cl::prev_args))::arg_list,
+`!prev_args x tag p n cl args st.
+  bEval (GENLIST (λprev_arg. Op El [Op (Const (&(prev_arg + 3))) []; Var (LENGTH args + 1)]) (LENGTH prev_args),
+         x::(args++[Block tag (p::n::cl::prev_args)]),
          st)
   =
   (Result prev_args,st)`,
  metis_tac [bEval_genlist_prev_args_no_rev, APPEND, LENGTH, DECIDE ``SUC (SUC (SUC 0)) = 3``,
-            DECIDE ``(SUC 0) = 1``]);
-            *)
+            DECIDE ``(SUC 0) = 1``, DECIDE ``SUC (SUC 0) = 2``, ADD1]);
 
 val bEval_generic_app_helper = Q.prove (
 `!n args.
@@ -857,26 +845,34 @@ val bEval_mk_cl_call = Q.prove (
  full_simp_tac (srw_ss()++ARITH_ss) [dec_clock_def] >>
  simp [bEval_mk_cl_simpl]);
 
- (*
 val bEval_partial_app_fn = Q.prove (
-`!args prev_args tag num tag' num' l l' fvs st exp.
-  LENGTH prev_args > 0 ∧
-  lookup l' st.code = SOME (LENGTH args + LENGTH prev_args + 1, exp)
+`!num_args args' num_args' args prev_args tag num tag' num' l l' fvs st exp.
+  lookup l st.code = SOME (LENGTH args' + LENGTH prev_args + 1,exp) /\
+  LENGTH prev_args ≠ 0 ∧
+  LENGTH prev_args < num_args ∧
+  num_args = LENGTH prev_args + LENGTH args'
   ⇒
-  bEval ([generate_partial_app_closure_fn (LENGTH prev_args + LENGTH args - 1) (LENGTH prev_args - 1)],
-         Block tag (l::num::Block tag' (CodePtr l'::num'::fvs)::prev_args) :: args,
+  bEval ([generate_partial_app_closure_fn (num_args - 1) (LENGTH prev_args - 1)],
+         DROP (LENGTH args' + LENGTH prev_args − num_args) args' ++
+         [Block tag (l'::num::Block tag' (CodePtr l::num_args'::fvs)::prev_args)],
          st) =
-  if st.clock = 0 then (TimeOut, st) else
-  bEval ([exp],
-         Block tag' (CodePtr l'::num'::fvs)::(args ++ prev_args),
-         dec_clock st)`,
+   if st.clock < LENGTH args' then
+     (TimeOut, st with clock := 0)
+   else
+     bEval ([exp],
+            DROP (LENGTH args' + LENGTH prev_args − num_args) args'++prev_args++[Block tag' (CodePtr l::num_args'::fvs)],
+            dec_clock (LENGTH args') st)`,
  rw [bEval_def, generate_partial_app_closure_fn_def, mk_const_def, bEvalOp_def] >>
- full_simp_tac (srw_ss() ++ ARITH_ss) [] >>
- rw [Once bEval_CONS, bEval_def, bEval_APPEND, bEval_genlist_vars2_no_rev] >>
- rw [bEval_genlist_prev_args1_no_rev, bEvalOp_def, find_code_def] >>
- rw [LAST_DEF, FRONT_DEF, FRONT_APPEND] >>
- full_simp_tac (srw_ss()++ARITH_ss) []);
- *)
+ full_simp_tac (srw_ss()++ARITH_ss) [el_append2, bEval_APPEND] >>
+ rw [bEval_def] >>
+ qabbrev_tac `cl = Block tag (l'::num::Block tag' (CodePtr l::num_args'::fvs):: prev_args)` >>
+ assume_tac (Q.SPECL [`1`, `Block tag' (CodePtr l::num_args'::fvs)::(args' ++ [cl])`,
+                      `LENGTH (args':bc_value list)`, `st`] bEval_genlist_vars) >>
+ full_simp_tac (srw_ss()++ARITH_ss) [ADD1] >>
+ rw [bEval_genlist_prev_args1_no_rev, Abbr `cl`, bEval_def, bEvalOp_def, find_code_def] >>
+ full_simp_tac (srw_ss()++ARITH_ss) [ADD1] >>
+ rw [FRONT_APPEND, TAKE_LENGTH_APPEND]);
+
 
 (* --------------- end partial/over application ----------------------- *)
 
@@ -2133,17 +2129,59 @@ val cl_rel_run = Q.prove (
  simp [TAKE_REVERSE, LASTN_DROP] >>
  metis_tac [list_rel_IMP_env_rel, APPEND_ASSOC, LASTN_LENGTH_ID, env_rel_APPEND, LIST_REL_def, cl_rel_run_lemma3]);
 
+val dest_closure_full_of_part = Q.prove (
+`dest_closure loc func args = SOME (Full_app body new_env rest) ∧
+ LENGTH arg_env ≠ 0 ∧
+ add_args cl arg_env = SOME func ∧
+ get_num_args cl = SOME num_args ∧
+ LENGTH arg_env < num_args
+ ⇒
+ dest_closure loc cl (args++arg_env) = SOME (Full_app body new_env rest)`,
+ rw [dest_closure_def] >>
+ BasicProvers.EVERY_CASE_TAC >>
+ fs [add_args_def, check_loc_def, get_num_args_def] >>
+ rw [] >>
+ fs [] >>
+ TRY decide_tac
+ >- (`LENGTH (REVERSE arg_env) ≤ n - LENGTH l` by (srw_tac [ARITH_ss] []) >>
+     rw [TAKE_APPEND2] >>
+     srw_tac [ARITH_ss] [])
+ >- (`LENGTH (REVERSE arg_env) ≤ n - LENGTH l` by (srw_tac [ARITH_ss] []) >>
+     rw [DROP_APPEND2] >>
+     srw_tac [ARITH_ss] []) 
+ >- cheat
+ >- (fs [LET_THM] >>
+     BasicProvers.EVERY_CASE_TAC >>
+     rw [] >>
+     fs [] >>
+     TRY decide_tac
+     >- cheat
+     >- (`LENGTH (REVERSE arg_env) ≤ num_args' - LENGTH l` by (srw_tac [ARITH_ss] []) >>
+         rw [TAKE_APPEND2] >>
+         srw_tac [ARITH_ss] [])
+     >- (`LENGTH (REVERSE arg_env) ≤ num_args' - LENGTH l` by (srw_tac [ARITH_ss] []) >>
+         rw [DROP_APPEND2] >>
+         srw_tac [ARITH_ss] []))); 
+
+val cl_rel_dest = Q.prove (
+`!f refs code cl cl' fvs fvs'.
+  cl_rel f refs code (fvs,fvs')cl cl' 
+  ⇒
+  ?l num_args fvs.
+    cl' = Block closure_tag (CodePtr l::Number (&num_args)::fvs')`,
+ rw [cl_rel_cases]);
+
 val val_rel_run = Q.prove (
 `!f1 (refs : num|-> ref_value) code args args' env' ptr body new_env func func' t1 rest tag n loc.
   func' = Block tag (CodePtr ptr::Number (&n)::env') ∧
   dest_closure loc func args = SOME (Full_app body new_env rest) ∧ 
-  val_rel f1 refs code func func' ∧
-  LIST_REL (val_rel f1 refs code) args args'
+  val_rel f1 refs t1.code func func' ∧
+  LIST_REL (val_rel f1 refs t1.code) args args'
   ⇒
   ∃body' aux1 aux2 new_env' exp'.
-    lookup ptr code = SOME (n + 2,exp') ∧
-    cComp [body] aux1 = ([body'],aux2) ∧ code_installed aux2 code ∧
-    env_rel f1 refs code new_env new_env' ∧
+    lookup ptr t1.code = SOME (n + 2,exp') ∧
+    cComp [body] aux1 = ([body'],aux2) ∧ code_installed aux2 t1.code ∧
+    env_rel f1 refs t1.code new_env new_env' ∧
     bEval ([exp'], DROP (LENGTH args' - (n + 1)) args' ++ [func'], t1) = bEval ([body'], new_env', t1)`,
  rw [] >>
  qpat_assum `val_rel x0 x1 x2 x3 x4` (fn x => mp_tac x >> simp [val_rel_cases] >> assume_tac x) >>
@@ -2151,7 +2189,45 @@ val val_rel_run = Q.prove (
  imp_res_tac EVERY2_LENGTH >>
  imp_res_tac cl_rel_get_loc
  >- metis_tac [cl_rel_run] >>
- (* TODO: case for a partial application *)
+ CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
+ qexists_tac `generate_partial_app_closure_fn (num_args − 1) (LENGTH ys − 1)` >>
+ srw_tac [ARITH_ss] [] >>
+ imp_res_tac cl_rel_dest >>
+ rw [] >>
+ `val_rel f1 refs t1.code cl (Block closure_tag (CodePtr l::Number (&num_args')::fvs))`
+           by (rw [val_rel_cases, bytecodeTheory.partial_app_tag_def] >>
+               metis_tac [bytecodeTheory.closure_tag_def]) >>
+ `LENGTH arg_env ≠ 0 ∧ LENGTH ys ≠ 0 ∧ LENGTH ys < num_args` by metis_tac [LENGTH_EQ_NUM] >>
+ imp_res_tac dest_closure_full_of_part >>
+ `LIST_REL (val_rel f1 refs t1.code) (args++arg_env) (args'++ys)`
+            by metis_tac [EVERY2_APPEND] >>
+ strip_assume_tac (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] cl_rel_run) >>
+ fs [] >>
+ rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
+ pop_assum (qspec_then `dec_clock (LENGTH args') t1` strip_assume_tac) >>
+ MAP_EVERY qexists_tac [`new_env'`, `aux2`, `aux1`, `body'`] >>
+ rw [] >>
+ `?total_args. &num_args' = &total_args - 1` 
+       by (qexists_tac `&num_args' + 1` >>
+           rw [] >>
+           ARITH_TAC) >>
+ fs [] >>
+ imp_res_tac cl_rel_get_num_args >>
+ fs [] >>
+ rw [] >>
+ `num_args = LENGTH ys + LENGTH args'` by cheat >>
+ `0 < LENGTH args'` by cheat >>
+ imp_res_tac (SIMP_RULE (srw_ss()++ARITH_ss) [] bEval_partial_app_fn) >>
+ pop_assum (qspecl_then [`t1`, `l`] mp_tac) >>
+ rw [] >>
+ `num_args' + 2 = LENGTH args' + (LENGTH ys + 1)` by ARITH_TAC >>
+ fs [] >>
+ simp [] >>
+ `¬(t1.clock < LENGTH args')` by cheat >>
+ rw [] >>
+ `LENGTH args' + LENGTH ys − (num_args' + 1) = 0` by ARITH_TAC >>
+ full_simp_tac (bool_ss) [DROP] >>
+ rw [Once ADD_COMM] >>
  cheat);
 
 val mk_call_simp2 = Q.prove(
