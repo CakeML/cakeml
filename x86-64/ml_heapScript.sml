@@ -1337,13 +1337,6 @@ val reachable_refs_RefPtr = prove(
     fs[ref_edge_def,FLOOKUP_DEF] ) >>
   METIS_TAC[])
 
-val LIST_REL_REPLICATE_same = store_thm("LIST_REL_REPLICATE_same",
-  ``LIST_REL P (REPLICATE n x) (REPLICATE n y) ⇔ (n > 0 ⇒ P x y)``,
-  simp[LIST_REL_EL_EQN,rich_listTheory.REPLICATE_GENLIST] >>
-  Cases_on`n`>>simp[EQ_IMP_THM] >> rw[] >>
-  first_x_assum MATCH_MP_TAC >>
-  qexists_tac`0`>>simp[])
-
 val new_ref_replicate_thm = store_thm("new_ref_replicate_thm",
   ``abs_ml_inv (x1::x2::stack) refs (roots,heap,a,sp) limit /\
     ~(ptr IN FDOM refs) /\ l + 1 <= sp ==>
@@ -1469,7 +1462,7 @@ val new_ref_replicate_thm = store_thm("new_ref_replicate_thm",
       simp[heap_length_def,el_length_def,RefBlock_def] >>
       simp[heap_lookup_def] ) >>
     qexists_tac`REPLICATE l z` >> simp[] >>
-    simp[LIST_REL_REPLICATE_same] >> strip_tac >>
+    simp[miscTheory.LIST_REL_REPLICATE_same] >> strip_tac >>
     METIS_TAC[bc_value_inv_SUBMAP] ) >>
   strip_tac >>
   `reachable_refs (x1::x2::stack) refs n` by (

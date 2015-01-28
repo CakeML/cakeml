@@ -15,6 +15,13 @@ val _ = export_rewrites["finite_map.FUNION_FEMPTY_2"]
 
 (* TODO: move/categorize *)
 
+val LIST_REL_REPLICATE_same = store_thm("LIST_REL_REPLICATE_same",
+  ``LIST_REL P (REPLICATE n x) (REPLICATE n y) ⇔ (n > 0 ⇒ P x y)``,
+  simp[LIST_REL_EL_EQN,rich_listTheory.REPLICATE_GENLIST] >>
+  Cases_on`n`>>simp[EQ_IMP_THM] >> rw[] >>
+  first_x_assum MATCH_MP_TAC >>
+  qexists_tac`0`>>simp[])
+
 val FEMPTY_FUPDATE_EQ = store_thm("FEMPTY_FUPDATE_EQ",
   ``∀x y. (FEMPTY |+ x = FEMPTY |+ y) ⇔ (x = y)``,
   Cases >> Cases >> rw[fmap_eq_flookup,FDOM_FUPDATE,FLOOKUP_UPDATE] >>
