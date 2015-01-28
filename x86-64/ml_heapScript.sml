@@ -1308,6 +1308,42 @@ val isSomeDataElement_heap_lookup_lemma4 = prove(
   fsrw_tac[ARITH_ss][isSomeDataElement_heap_lookup_lemma1] >>
   REV_FULL_SIMP_TAC(srw_ss()++ARITH_ss)[])
 
+val RTC_ref_edge_ValueArray = prove(
+  ``∀x y.
+    (ref_edge (refs |+ (ptr,ValueArray xs)))^* x y ⇒
+    (ref_edge refs)^* x y ∨
+    ∃z.  MEM z (get_refs (Block ARB xs)) ∧
+         (ref_edge refs)^* z y``,
+  HO_MATCH_MP_TAC RTC_INDUCT >>
+  conj_tac >- METIS_TAC[RTC_REFL] >>
+  rw[ref_edge_ValueArray] >> fs[] >>
+  METIS_TAC[RTC_CASES1])
+
+val reachable_refs_UPDATE2 = prove(
+  ``reachable_refs (RefPtr ptr::stack) (refs |+ (ptr,ValueArray xs)) n ==>
+    (!v. MEM v xs ==> MEM v stack) ==>
+    reachable_refs (RefPtr ptr::stack) refs n``,
+  FULL_SIMP_TAC std_ss [reachable_refs_def] \\ REPEAT STRIP_TAC \\
+  imp_res_tac RTC_ref_edge_ValueArray >- METIS_TAC[] >>
+  FULL_SIMP_TAC std_ss [get_refs_def,MEM_FLAT,MEM_MAP] >>
+  METIS_TAC[MEM])
+
+val reachable_refs_RefPtr = prove(
+  ``reachable_refs (RefPtr ptr::stack) refs n ⇒
+    ptr ∉ FDOM refs ⇒
+    (n = ptr) ∨ reachable_refs stack refs n``,
+  rw[reachable_refs_def] >> fs[get_refs_def] >- (
+    fs[Once RTC_CASES1] >> rw[] >>
+    fs[ref_edge_def,FLOOKUP_DEF] ) >>
+  METIS_TAC[])
+
+val LIST_REL_REPLICATE_same = store_thm("LIST_REL_REPLICATE_same",
+  ``LIST_REL P (REPLICATE n x) (REPLICATE n y) ⇔ (n > 0 ⇒ P x y)``,
+  simp[LIST_REL_EL_EQN,rich_listTheory.REPLICATE_GENLIST] >>
+  Cases_on`n`>>simp[EQ_IMP_THM] >> rw[] >>
+  first_x_assum MATCH_MP_TAC >>
+  qexists_tac`0`>>simp[])
+
 val new_ref_replicate_thm = store_thm("new_ref_replicate_thm",
   ``abs_ml_inv (x1::x2::stack) refs (roots,heap,a,sp) limit /\
     ~(ptr IN FDOM refs) /\ l + 1 <= sp ==>
@@ -1345,59 +1381,118 @@ val new_ref_replicate_thm = store_thm("new_ref_replicate_thm",
     MATCH_MP_TAC isSomeDataElement_heap_lookup_lemma4 >>
     simp[heap_length_heap_expand,heap_length_APPEND] >>
     simp[heap_length_def,el_length_def,RefBlock_def,rich_listTheory.LENGTH_REPLICATE] ) >>
+  qmatch_assum_abbrev_tac`bc_value_inv x2 (z,f,heap1)` >>
+  Q.PAT_ABBREV_TAC`heap2 = X ++ hb` >>
+  `heap_store_rel heap1 heap2` by (
+    simp[heap_store_rel_def] >>
+    simp[Abbr`heap1`,Abbr`heap2`] >>
+    simp[heap_lookup_APPEND,heap_length_APPEND,heap_length_heap_expand] >>
+    simp[heap_length_def,RefBlock_def,rich_listTheory.LENGTH_REPLICATE,el_length_def] >>
+    rw[] >> fsrw_tac[ARITH_ss][isSomeDataElement_heap_lookup_lemma1] >>
+    simp[heap_lookup_def,el_length_def] ) >>
   conj_tac >- (
-    fs[heap_ok_def,heap_length_APPEND,heap_length_heap_expand] >>
-    fs[heap_length_def,RefBlock_def,el_length_def,rich_listTheory.LENGTH_REPLICATE] >>
-    fsrw_tac[ARITH_ss][] >>
-    fs[rich_listTheory.FILTER_APPEND,isForwardPointer_def] >>
+    fs[heap_ok_def] >>
     conj_tac >- (
+      fs[Abbr`heap1`,Abbr`heap2`,heap_length_APPEND,heap_length_heap_expand] >>
+      fsrw_tac[ARITH_ss][heap_length_def,el_length_def,RefBlock_def,rich_listTheory.LENGTH_REPLICATE] ) >>
+    conj_tac >- (
+      fs[Abbr`heap1`,Abbr`heap2`,rich_listTheory.FILTER_APPEND,isForwardPointer_def,RefBlock_def] >>
       simp[heap_expand_def] >>
       rw[isForwardPointer_def] ) >>
-    map_every qx_gen_tac[`a`,`b`,`c`,`d`] >>
-    strip_tac >>
-    TRY (
-      first_x_assum(qspecl_then[`a`,`b`,`c`,`d`]strip_assume_tac) >> fs[] >>
-      REWRITE_TAC[prove(``a ++ b ++ c ++ d = a ++ (b ++ c) ++ d``,simp[])] >>
-      MATCH_MP_TAC isSomeDataElement_heap_lookup_lemma4 >>
-      simp[heap_length_heap_expand,heap_length_APPEND] >>
-      simp[heap_length_def,el_length_def,RefBlock_def,rich_listTheory.LENGTH_REPLICATE] >>
-      NO_TAC) >>
-    TRY (
-      first_x_assum(qspecl_then[`a`,`b`,`c`,`d`]strip_assume_tac) >> fs[] >>
-      qpat_assum`MEM X (heap_expand Y)`mp_tac >>
-      simp[heap_expand_def] >> rw[] >> NO_TAC) >>
     rw[] >>
+    qmatch_assum_abbrev_tac`MEM dd heap2` >>
+    Cases_on`MEM dd heap1` >- (
+      METIS_TAC[heap_store_rel_def] ) >>
+    fs[Abbr`heap2`,Abbr`heap1`] >- (
+      qpat_assum`MEM dd X`mp_tac >>
+      simp[Abbr`dd`,heap_expand_def] >>
+      rw[] ) >>
+    fs[Abbr`dd`,RefBlock_def] >> rw[] >>
     fs[rich_listTheory.REPLICATE_GENLIST,MEM_GENLIST] >> rw[] >>
     fs[roots_ok_def] ) >>
   conj_tac >- (
-    simp[heap_lookup_APPEND,heap_length_APPEND,heap_length_heap_expand] >>
+    simp[Abbr`heap2`,heap_lookup_APPEND,heap_length_APPEND,heap_length_heap_expand] >>
     simp[heap_expand_def,heap_lookup_def] ) >>
   simp[bc_value_inv_def] >>
   Q.PAT_ABBREV_TAC`v = sp + X - Y` >>
   qexists_tac`f |+ (ptr,v)` >> simp[] >>
   conj_tac >- (
     simp[fapply_fupdate_update] >>
-    qmatch_abbrev_tac`INJ ((p =+ y) g) (p INSERT s) z` >>
+    qmatch_abbrev_tac`INJ ((p =+ y) g) (p INSERT s) a` >>
     qmatch_assum_abbrev_tac`INJ g s t` >>
-    `z = (y INSERT t)` suffices_by (
+    `a = (y INSERT t)` suffices_by (
       rw[] >>
       MATCH_MP_TAC INJ_UPDATE >>
-      simp[Abbr`s`,Abbr`t`,Abbr`y`,Abbr`v`] >>
+      simp[Abbr`s`,Abbr`t`,Abbr`y`,Abbr`v`,Abbr`heap1`] >>
       conj_tac >- (
         fs[SUBSET_DEF] >> PROVE_TAC[]) >>
       simp[heap_lookup_APPEND,isSomeDataElement_heap_lookup_lemma1] ) >>
     UNABBREV_ALL_TAC >>
-    simp[EXTENSION,heap_lookup_APPEND,heap_length_APPEND,heap_length_heap_expand] >>
+    simp[SET_EQ_SUBSET] >>
+    reverse conj_tac >- (
+      fs[heap_store_rel_def,SUBSET_DEF] >>
+      simp[heap_lookup_APPEND,heap_length_APPEND,heap_length_heap_expand] >>
+      simp[heap_length_def,RefBlock_def,el_length_def,rich_listTheory.LENGTH_REPLICATE] >>
+      simp[heap_lookup_def,el_length_def,isSomeDataElement_def] ) >>
+    simp[SUBSET_DEF,heap_lookup_APPEND,heap_length_APPEND,heap_length_heap_expand] >>
     simp[heap_length_def,RefBlock_def,el_length_def,rich_listTheory.LENGTH_REPLICATE] >>
-    simp[Once heap_lookup_def,el_length_def] >> gen_tac >>
+    gen_tac >>
     IF_CASES_TAC >> simp[isSomeDataElement_heap_lookup_lemma1] >>
-    reverse IF_CASES_TAC >> simp[isSomeDataElement_heap_lookup_lemma1] >- (
-      rw[] >> fsrw_tac[ARITH_ss][] >>
-      simp[isSomeDataElement_def] ) >>
-    IF_CASES_TAC >> simp[isSomeDataElement_heap_lookup_lemma1] >>
-    simp[heap_expand_def,isSomeDataElement_heap_lookup_lemma1] ) >>
+    IF_CASES_TAC >> simp[isSomeDataElement_heap_lookup_lemma1] >- (
+      IF_CASES_TAC >> simp[isSomeDataElement_heap_lookup_lemma1] >>
+      simp[heap_expand_def,isSomeDataElement_heap_lookup_lemma1] ) >>
+    simp[heap_lookup_def] >>
+    IF_CASES_TAC >> simp[isSomeDataElement_def]) >>
   conj_tac >- fs[SUBSET_DEF] >>
-  cheat);
+  `f ⊑ f |+ (ptr,v)` by (
+    simp[SUBMAP_FUPDATE_EQN] >>
+    fs[SUBSET_DEF] >> METIS_TAC[] ) >>
+  conj_tac >- (
+    conj_tac >- (
+      MATCH_MP_TAC (Q.GEN`heap` bc_value_inv_SUBMAP) >>
+      METIS_TAC[] ) >>
+    MATCH_MP_TAC (GEN_ALL (MP_CANON EVERY2_mono)) >>
+    ONCE_REWRITE_TAC[CONJ_COMM] >>
+    first_assum(match_exists_tac o concl) >>
+    simp[] >>
+    METIS_TAC[bc_value_inv_SUBMAP] ) >>
+  rw[] >>
+  imp_res_tac reachable_refs_UPDATE2 >>
+  pop_assum mp_tac >>
+  discharge_hyps >- (
+    simp[rich_listTheory.REPLICATE_GENLIST,MEM_GENLIST,PULL_EXISTS] ) >>
+  disch_then(mp_tac o MATCH_MP reachable_refs_RefPtr) >> simp[] >>
+  Cases_on`n=ptr` >- (
+    simp[bc_ref_inv_def,FLOOKUP_UPDATE] >>
+    `heap_lookup v heap2 = SOME (RefBlock (REPLICATE l z))` by (
+      simp[Abbr`v`,Abbr`heap2`,heap_lookup_APPEND,heap_length_APPEND,heap_length_heap_expand] >>
+      simp[heap_length_def,el_length_def,RefBlock_def] >>
+      simp[heap_lookup_def] ) >>
+    qexists_tac`REPLICATE l z` >> simp[] >>
+    simp[LIST_REL_REPLICATE_same] >> strip_tac >>
+    METIS_TAC[bc_value_inv_SUBMAP] ) >>
+  strip_tac >>
+  `reachable_refs (x1::x2::stack) refs n` by (
+    pop_assum mp_tac >>
+    simp[reachable_refs_def] >>
+    METIS_TAC[] ) >>
+  res_tac >>
+  pop_assum mp_tac >>
+  REWRITE_TAC[bc_ref_inv_def] >>
+  simp[FLOOKUP_UPDATE] >>
+  Cases_on`FLOOKUP f n`>>simp[]>>
+  Cases_on`FLOOKUP refs n`>>simp[]>>
+  reverse BasicProvers.CASE_TAC >- (
+    METIS_TAC[heap_store_rel_def,Bytes_def,isSomeDataElement_def] ) >>
+  strip_tac >>
+  `heap_lookup x'' heap2 = SOME (RefBlock zs)` by (
+    METIS_TAC[heap_store_rel_def,RefBlock_def,isSomeDataElement_def] ) >>
+  simp[] >> qexists_tac`zs`>>simp[] >>
+  MATCH_MP_TAC (GEN_ALL (MP_CANON EVERY2_mono)) >>
+  ONCE_REWRITE_TAC[CONJ_COMM] >>
+  first_assum(match_exists_tac o concl) >>
+  simp[] >>
+  METIS_TAC[bc_value_inv_SUBMAP]);
 
 (* deref *)
 
