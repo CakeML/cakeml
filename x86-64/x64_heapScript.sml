@@ -17892,6 +17892,8 @@ fun new_write_code_to_file filename th = let
   val code_size_str = num_to_string total ^ " bytes"
   val _ = print (code_size_str ^ " ... ")
   (* produce output *)
+  val {dir,...} = OS.Path.splitDirFile filename
+  val () = if OS.FileSys.access (dir,[]) then () else OS.FileSys.mkDir dir
   val t = TextIO.openOut(filename)
   fun ex str = TextIO.output(t,str)
   fun print_bytes [] = ()
