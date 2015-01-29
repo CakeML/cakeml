@@ -2,6 +2,7 @@ open HolKernel Parse boolLib bossLib;
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
 open lcsymtacs closLangTheory sptreeTheory db_varsTheory;
+open clos_numberTheory;
 
 val _ = new_theory "clos_annotate";
 
@@ -272,7 +273,7 @@ val (val_rel_rules,val_rel_ind,val_rel_cases) = Hol_reln `
   (EVERY2 val_rel (xs:clos_val list) (ys:clos_val list) ==>
    val_rel (Block t xs) (Block t ys))
   /\
-  (val_rel (RefPtr r1) (RefPtr r2))
+  (val_rel (RefPtr r1) (RefPtr r1))
   /\
   ((cShift (FST (cFree [c])) m 1 i = [c']) /\
    (!n. clos_free_set [c] n /\ 1 <= n ==> env_ok m 0 i env env' (n - 1)) /\
@@ -320,6 +321,10 @@ val state_rel_def = Define `
     (s.output = t.output) /\
     ~s.restrict_envs /\ t.restrict_envs /\
     EVERY2 (OPTREL val_rel) s.globals t.globals /\
+    (FDOM s.refs = FDOM t.refs) /\
+    (!n r1.
+      (FLOOKUP s.refs n = SOME r1) ==>
+      ?r2. (FLOOKUP t.refs n = SOME r2) /\ ref_rel r1 r2) /\
     (!name arity c.
       (FLOOKUP s.code name = SOME (arity,c)) ==>
       ?c2.
@@ -504,11 +509,17 @@ val val_rel_IMP_clos_to_string = prove(
   Induct \\ fs [val_rel_simp,clos_to_string_def,PULL_EXISTS]
   \\ SRW_TAC [] [] \\ IMP_RES_TAC val_rel_IMP_clos_to_chars \\ fs []);
 
+val EVERY2_LUPDATE = prove(
+  ``!xs ys n.
+      P x y /\ EVERY2 P xs ys ==> EVERY2 P (LUPDATE x n xs) (LUPDATE y n ys)``,
+  Induct \\ Cases_on `ys` \\ Cases_on `n` \\ fs [LUPDATE_def]);
+
 val cEvalOp_thm = prove(
   ``state_rel s1 t1 /\ EVERY2 val_rel xs ys /\
     (cEvalOp op xs s1 = SOME (v,s2)) ==>
     ?w t2. (cEvalOp op ys t1 = SOME (w,t2)) /\
            val_rel v w /\ state_rel s2 t2``,
+
   REVERSE (Cases_on `op`) \\ REPEAT STRIP_TAC
   THEN1 (* Less *)
    (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
@@ -539,7 +550,98 @@ val cEvalOp_thm = prove(
     \\ fs [state_rel_def] \\ IMP_RES_TAC val_rel_IMP_clos_to_string \\ fs [])
   THEN1 (* Label *)
    (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs [])
-  \\ cheat);
+  THEN1 (* Update *)
+   (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
+    \\ fs [val_rel_simp] \\ SRW_TAC [] []
+    \\ fs [state_rel_def,FLOOKUP_DEF]
+    \\ rfs [] \\ fs []
+    \\ TRY (Q.PAT_ASSUM `!x. bb ==> bbb` IMP_RES_TAC
+            \\ rfs [] \\ POP_ASSUM MP_TAC
+            \\ fs [ref_rel_cases]
+            \\ REPEAT STRIP_TAC
+            \\ IMP_RES_TAC EVERY2_LENGTH \\ fs [] \\ NO_TAC)
+    \\ STRIP_TAC \\ Cases_on `n' = n` \\ fs []
+    \\ fs [FAPPLY_FUPDATE_THM] \\ fs [ref_rel_cases]
+    \\ MATCH_MP_TAC EVERY2_LUPDATE \\ fs []
+    \\ RES_TAC \\ rfs []
+    \\ fs [FAPPLY_FUPDATE_THM])
+  THEN1 (* Deref *)
+   (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
+    \\ fs [val_rel_simp] \\ SRW_TAC [] []
+    \\ fs [state_rel_def,FLOOKUP_DEF]
+    \\ rfs [] \\ fs []
+    \\ TRY (Q.PAT_ASSUM `!x. bb ==> bbb` IMP_RES_TAC
+            \\ rfs [] \\ POP_ASSUM MP_TAC
+            \\ fs [ref_rel_cases]
+            \\ REPEAT STRIP_TAC
+            \\ IMP_RES_TAC EVERY2_LENGTH \\ fs [] \\ NO_TAC)
+    \\ Q.PAT_ASSUM `!x. bb ==> bbb` IMP_RES_TAC
+    \\ rfs [] \\ POP_ASSUM MP_TAC
+    \\ ONCE_REWRITE_TAC [ref_rel_cases]
+    \\ fs [] \\ REPEAT STRIP_TAC
+    \\ IMP_RES_TAC EVERY2_EL
+    \\ IMP_RES_TAC EVERY2_LENGTH \\ fs []
+    \\ `Num i < LENGTH l` by intLib.COOPER_TAC
+    \\ RES_TAC)
+  THEN1 (* Ref *) cheat
+  THEN1 (* Equal *) cheat
+  THEN1 (* IsBlock *)
+   (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
+    \\ fs [val_rel_simp] \\ SRW_TAC [] []
+    \\ EVAL_TAC \\ fs [val_rel_simp])
+  THEN1 (* TagEq *)
+   (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
+    \\ fs [val_rel_simp] \\ SRW_TAC [] []
+    \\ Cases_on `n' = n` \\ fs [] \\ EVAL_TAC
+    \\ fs [val_rel_simp])
+  THEN1 (* Const *)
+   (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC
+    \\ SRW_TAC [] [val_rel_simp] \\ fs [])
+  THEN1 (* ToList *) cheat
+  THEN1 (* FromList *) cheat
+  THEN1 (* UpdateByte *) cheat
+  THEN1 (* DerefByte *) cheat
+  THEN1 (* RefArray *) cheat
+  THEN1 (* RefByte *) cheat
+  THEN1 (* LengthByte *) cheat
+  THEN1 (* Length *) cheat
+  THEN1 (* LengthBlock *)
+   (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC
+    \\ SRW_TAC [] [val_rel_simp] \\ fs []
+    \\ fs [val_rel_simp] \\ fs [] \\ SRW_TAC [] []
+    \\ IMP_RES_TAC EVERY2_LENGTH \\ fs [])
+  THEN1 (* El *)
+   (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC
+    \\ SRW_TAC [] [val_rel_simp] \\ fs []
+    \\ fs [val_rel_simp] \\ fs [] \\ SRW_TAC [] []
+    \\ IMP_RES_TAC EVERY2_EL
+    \\ IMP_RES_TAC EVERY2_LENGTH \\ fs [])
+  THEN1 (* Cons *)
+   (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC
+    \\ SRW_TAC [] [val_rel_simp] \\ fs [])
+  THEN1 (* SetGlobal *)
+   (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC
+    \\ SRW_TAC [] [val_rel_simp] \\ fs []
+    \\ fs [state_rel_def,get_global_def] \\ RES_TAC
+    \\ IMP_RES_TAC EVERY2_LENGTH \\ fs []
+    \\ IMP_RES_TAC EVERY2_EL
+    \\ rfs [] \\ POP_ASSUM IMP_RES_TAC
+    \\ rfs [quotient_optionTheory.OPTION_REL_def]
+    \\ MATCH_MP_TAC EVERY2_LUPDATE
+    \\ fs [quotient_optionTheory.OPTION_REL_def])
+  THEN1 (* AllocGlobal *)
+   (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC
+    \\ SRW_TAC [] [val_rel_simp] \\ fs []
+    \\ fs [state_rel_def,get_global_def] \\ RES_TAC
+    \\ fs [quotient_optionTheory.OPTION_REL_def])
+  THEN1 (* Global *)
+   (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC
+    \\ SRW_TAC [] [val_rel_simp] \\ fs []
+    \\ fs [state_rel_def,get_global_def] \\ RES_TAC
+    \\ IMP_RES_TAC EVERY2_LENGTH \\ fs []
+    \\ IMP_RES_TAC EVERY2_EL
+    \\ rfs [] \\ POP_ASSUM IMP_RES_TAC
+    \\ rfs [quotient_optionTheory.OPTION_REL_def]));
 
 val cShift_correct = prove(
   ``!xs env s1 env' t1 res s2 m l i.
@@ -898,8 +1000,6 @@ val cAnnotate_correct = save_thm("cAnnotate_correct",
   cShift_correct
   |> SPEC_ALL |> Q.INST [`m`|->`0`,`l`|->`0`,`i`|->`LN`,`env`|->`[]`]
   |> REWRITE_RULE [GSYM cAnnotate_def,env_set_default,LENGTH,ADD_0]);
-
-open clos_numberTheory
 
 val code_locs_append = store_thm("code_locs_append",
   ``∀l1 l2. code_locs (l1 ++ l2) = code_locs l1 ++ code_locs l2``,
