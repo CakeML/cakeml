@@ -594,6 +594,28 @@ val val_rel_IMP_clos_to_string = prove(
   Induct \\ fs [val_rel_simp,clos_to_string_def,PULL_EXISTS]
   \\ SRW_TAC [] [] \\ IMP_RES_TAC val_rel_IMP_clos_to_chars \\ fs []);
 
+val clos_equal_list_rel = prove(
+  ``∀l1 l2 l3 l4.
+     LENGTH l1 = LENGTH l2 ∧ LENGTH l3 = LENGTH l4 ∧
+     LIST_REL (λp1 p2. UNCURRY clos_equal p1 = UNCURRY clos_equal p2) (ZIP(l1,l2)) (ZIP(l3,l4)) ⇒
+     clos_equal_list l1 l2 = clos_equal_list l3 l4``,
+   Induct >> simp[LENGTH_NIL_SYM] >- (
+     simp[GSYM AND_IMP_INTRO, miscTheory.ZIP_EQ_NIL] ) >>
+   gen_tac >> Cases >> simp[PULL_EXISTS] >>
+   Cases >> simp[LENGTH_NIL_SYM] >>
+   Cases >> simp[CONJUNCT2 clos_equal_def] >>
+   strip_tac >> BasicProvers.CASE_TAC >> rw[])
+
+val clos_equal_rel = store_thm("clos_equal_rel",
+  ``∀x1 y1. val_rel x1 y1 ⇒
+      ∀x2 y2. val_rel x2 y2 ⇒ (clos_equal x1 x2 = clos_equal y1 y2)``,
+  ho_match_mp_tac val_rel_ind >> rw[] >>
+  Cases_on`x2`>>fs[val_rel_simp]>>TRY(fs[clos_equal_def]>>NO_TAC)>> rw[] >>
+  simp[clos_equal_def] >>
+  imp_res_tac LIST_REL_LENGTH >> rw[] >>
+  match_mp_tac clos_equal_list_rel >> rw[] >>
+  fs[LIST_REL_EL_EQN,EL_ZIP])
+
 val cEvalOp_rel = store_thm("cEvalOp_rel",
   ``state_rel s1 s2 ∧
     LIST_REL val_rel x1 x2 ⇒
@@ -697,7 +719,10 @@ val cEvalOp_rel = store_thm("cEvalOp_rel",
     fs[fmap_rel_def,FAPPLY_FUPDATE_THM] >>
     rw[] >> rw[ref_rel_cases,miscTheory.LIST_REL_REPLICATE_same] >>
     rw[val_rel_simp] >> PROVE_TAC[]) >>
-  cheat)
+  Cases_on`t'`>>fs[val_rel_simp] >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  imp_res_tac clos_equal_rel >> simp[] >>
+  BasicProvers.CASE_TAC >> simp[val_rel_simp,bool_to_val_rel])
 
 val renumber_code_locs_correct = store_thm("renumber_code_locs_correct",
   ``(!tmp xs env s1 env' t1 res s2 n.
