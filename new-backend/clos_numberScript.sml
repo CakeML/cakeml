@@ -801,6 +801,7 @@ val renumber_code_locs_correct = store_thm("renumber_code_locs_correct",
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     disch_then(fn th => first_x_assum(qspec_then`n`STRIP_ASSUME_TAC o MATCH_MP th)) >> rfs[] >>
     Cases_on `r1` \\ fs [res_rel_simp] >> rw[res_rel_simp] >> fs[] >>
+    imp_res_tac EVERY2_REVERSE >>
     imp_res_tac cEvalOp_rel >>
     last_x_assum mp_tac >>
     BasicProvers.CASE_TAC >> simp[] >- (
@@ -988,7 +989,7 @@ val renumber_code_locs_correct = store_thm("renumber_code_locs_correct",
         BasicProvers.EVERY_CASE_TAC >>
         fs [res_rel_cases] >>
         metis_tac [])));
-            
+
 open pat_to_closTheory boolSimps
 
 val pComp_contains_App_SOME = store_thm("pComp_contains_App_SOME",
