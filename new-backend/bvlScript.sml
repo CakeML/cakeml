@@ -324,6 +324,16 @@ val bEvalOp_const = store_thm("bEvalOp_const",
   \\ BasicProvers.EVERY_CASE_TAC
   \\ fs [LET_DEF] \\ SRW_TAC [] [] \\ fs []);
 
+val bEvalOp_change_clock = store_thm("bEvalOp_change_clock",
+  ``(bEvalOp op args s1 = SOME (res,s2)) ==>
+    (bEvalOp op args (s1 with clock := ck) = SOME (res,s2 with clock := ck))``,
+  SIMP_TAC std_ss [bEvalOp_def]
+  \\ BasicProvers.EVERY_CASE_TAC
+  \\ fs [LET_DEF] \\ SRW_TAC [] [] \\ fs [] \\
+  CCONTR_TAC >> fs [] >>
+  rw [] >>
+  fs [bc_equal_def]);
+
 val bEval_clock = store_thm("bEval_clock",
   ``!xs env s1 vs s2.
       (bEval (xs,env,s1) = (vs,s2)) ==> s2.clock <= s1.clock``,
@@ -536,7 +546,110 @@ val bEval_mk_tick = Q.store_thm ("bEval_mk_tick",
  >- (`s.clock = n` by decide_tac >>
      fs []));
 
+val inc_clock_def = Define `
+inc_clock ck s = s with clock := s.clock + ck`;
 
+val inc_clock_code = Q.store_thm ("inc_clock_code",
+`!n (s:bvl_state). (inc_clock n s).code = s.code`,
+ rw [inc_clock_def]);
+
+val inc_clock_refs = Q.store_thm ("inc_clock_refs",
+`!n (s:bvl_state). (inc_clock n s).refs = s.refs`,
+ rw [inc_clock_def]);
+
+val _ = export_rewrites ["inc_clock_refs", "inc_clock_code"];
+
+
+val dec_clock_code = Q.store_thm ("dec_clock_code",
+`!n (s:bvl_state). (dec_clock n s).code = s.code`,
+ rw [dec_clock_def]);
+
+val dec_clock_refs = Q.store_thm ("dec_clock_refs",
+`!n (s:bvl_state). (dec_clock n s).refs = s.refs`,
+ rw [dec_clock_def]);
+
+val _ = export_rewrites ["dec_clock_refs", "dec_clock_code"];
+
+
+val bEval_add_clock = Q.store_thm ("bEval_add_clock",
+`!exps env s1 res s2.
+  bEval (exps,env,s1) = (res, s2) ∧
+  res ≠ TimeOut
+  ⇒
+  !ck. bEval (exps,env,inc_clock ck s1) = (res, inc_clock ck s2)`,
+ recInduct bEval_ind >>
+ rw [bEval_def]
+ >- (Cases_on `bEval ([x], env,s)` >>
+     fs [] >>
+     Cases_on `q` >>
+     fs [] >>
+     rw [] >>
+     Cases_on `bEval (y::xs,env,r)` >>
+     fs [] >>
+     Cases_on `q` >>
+     fs [] >>
+     rw [])
+ >- (Cases_on `bEval ([x1],env,s)` >>
+     fs [] >>
+     Cases_on `q` >>
+     fs [] >>
+     BasicProvers.EVERY_CASE_TAC >>
+     fs [] >>
+     rw [])
+ >- (Cases_on `bEval (xs,env,s)` >>
+     fs [] >>
+     Cases_on `q` >>
+     fs [] >>
+     rw [])
+ >- (Cases_on `bEval (xs,env,s)` >>
+     fs [] >>
+     Cases_on `q` >>
+     fs [] >>
+     BasicProvers.EVERY_CASE_TAC >>
+     fs [] >>
+     rw [])
+ >- (Cases_on `bEval ([x1],env,s1)` >>
+     fs [] >>
+     Cases_on `q` >>
+     fs [] >>
+     rw [])
+ >- (Cases_on `bEval (xs,env,s)` >>
+     fs [] >>
+     Cases_on `q` >>
+     fs [] >>
+     Cases_on `bEval (xs,env,s)` >>
+     fs [] >>
+     Cases_on `q` >>
+     fs [] >>
+     rw [inc_clock_def] >>
+     BasicProvers.EVERY_CASE_TAC >>
+     fs [] >>
+     imp_res_tac bEvalOp_const >>
+     imp_res_tac bEvalOp_change_clock >>
+     fs [] >>
+     rw [] >>
+     pop_assum (qspec_then `r.clock` mp_tac) >>
+     rw [] >>
+     `r with clock := r.clock = r` by rw [bvl_state_explode] >>
+     fs [])
+ >- (rw [] >>
+     fs [inc_clock_def, dec_clock_def] >>
+     rw [] >>
+     `s.clock + ck - 1 = s.clock - 1 + ck` by (srw_tac [ARITH_ss] [ADD1]) >>
+     metis_tac [])
+ >- (Cases_on `bEval (xs,env,s1)` >>
+     fs [] >>
+     Cases_on `q` >>
+     fs [] >>
+     rw [] >>
+     BasicProvers.EVERY_CASE_TAC >>
+     fs [] >>
+     rw [] >>
+     rfs [inc_clock_def, dec_clock_def] >>
+     rw []
+     >- decide_tac >>
+     `r.clock + ck - (ticks + 1) = r.clock - (ticks + 1) + ck` by srw_tac [ARITH_ss] [ADD1] >> 
+     metis_tac []));
 
 (* clean up *)
 
