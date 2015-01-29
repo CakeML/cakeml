@@ -20676,4 +20676,5 @@ print_compiler_grammar()
 
 *)
 
+val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = export_theory();
