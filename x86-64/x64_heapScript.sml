@@ -12447,7 +12447,29 @@ val SPEC_CODE_ABBREV = prove(
   ``SPEC m p (c INSERT d) q ==> !d2. d SUBSET d2 ==> SPEC m p (c INSERT d2) q``,
   REPEAT STRIP_TAC \\ REVERSE (`(c INSERT d2) = (c INSERT d) UNION d2` by ALL_TAC)
   THEN1 METIS_TAC [SPEC_ADD_CODE]
-  \\ FULL_SIMP_TAC std_ss [EXTENSION,IN_INSERT,IN_UNION,SUBSET_DEF] \\ METIS_TAC []);
+  \\ FULL_SIMP_TAC std_ss [EXTENSION,IN_INSERT,IN_UNION,SUBSET_DEF]
+  \\ METIS_TAC []);
+
+val SPEC_1_ADD_CODE = prove(
+  ``!x p c q err. SPEC_1 x p c q err ==> !c'. SPEC_1 x p (c UNION c') q err``,
+  cheat);
+
+val SPEC_1_SUBSET_CODE = prove(
+  ``!x p c q err.
+      SPEC_1 x p c q err ==> !c'. c SUBSET c' ==> SPEC_1 x p c' q err``,
+  cheat);
+
+val SPEC_1_CODE_ABBREV = prove(
+  ``SPEC_1 m p (c INSERT d) q err ==>
+    !d2. d SUBSET d2 ==> SPEC_1 m p (c INSERT d2) q err``,
+  REPEAT STRIP_TAC \\ REVERSE (`(c INSERT d2) = (c INSERT d) UNION d2` by ALL_TAC)
+  THEN1 METIS_TAC [SPEC_1_ADD_CODE]
+  \\ FULL_SIMP_TAC std_ss [EXTENSION,IN_INSERT,IN_UNION,SUBSET_DEF]
+  \\ METIS_TAC []);
+
+val SPEC_1_ERR_INTRO = prove(
+  ``SPEC_1 m p c q SEP_F ==> !err. SPEC_1 m p c q err``,
+  cheat);
 
 val (_,_,sts,_) = prog_x64Lib.x64_tools
 
@@ -12477,8 +12499,16 @@ val INSERT_UNION_INSERT = store_thm("INSERT_UNION_INSERT",
 
 val th = zHEAP_NEW_REF
 
+fun dest_spec_1 tm = let
+  val (mxyz,t) = dest_comb tm
+  val (mxy,z) = dest_comb mxyz
+  val (mx,y) = dest_comb mxy
+  val (m,x) = dest_comb mx
+  in (m,x,y,z) end
+
 fun fix_code th = let
   val (_,_,c,_) = dest_spec (concl th)
+                  handle HOL_ERR _ => dest_spec_1 (concl th)
   val tms = find_terms (can (match_term ``(x:'a) INSERT y``)) (concl th)
               |> map rator
   val id_tm = ``I:(word64 # word8 list) set -> (word64 # word8 list) set``
@@ -12488,9 +12518,14 @@ fun fix_code th = let
     | iset (x::xs) t = pred_setSyntax.mk_insert(x,iset xs t)
   val c = iset (map rand (rev tms)) rest_code
   val th = MATCH_MP SPEC_SUBSET_CODE th |> SPEC c
+           handle HOL_ERR _ =>
+           MATCH_MP SPEC_1_SUBSET_CODE th |> SPEC c
   val goal = concl th |> dest_imp |> fst
   val lemma = prove(goal,
     SIMP_TAC (srw_ss()) [SUBSET_DEF,IN_INSERT,AC DISJ_COMM DISJ_ASSOC])
+  fun intro_abbrev th = MATCH_MP SPEC_CODE_ABBREV th
+                        handle HOL_ERR _ =>
+                        MATCH_MP SPEC_1_CODE_ABBREV th
   val th = MP th lemma
   val th = th
   |> SIMP_RULE std_ss [INSERT_UNION_INSERT,UNION_EMPTY]
@@ -12499,11 +12534,12 @@ fun fix_code th = let
   |> SORT_CODE
   |> SIMP_RULE std_ss [INSERT_INSERT,AC UNION_ASSOC UNION_COMM,UNION_IDEMPOT]
   |> MERGE_CODE
-  |> MATCH_MP SPEC_CODE_ABBREV |> Q.SPEC `code_abbrevs cs`
+  |> intro_abbrev |> Q.SPEC `code_abbrevs cs`
   |> CONV_RULE ((RATOR_CONV o RAND_CONV) (SIMP_CONV std_ss
        [SUBSET_DEF,NOT_IN_EMPTY,IN_UNION,code_abbrevs_def,DISJ_IMP])) |> RW []
-  val code_length = th |> concl |> rator |> rand
-                       |> find_term (can (match_term ``(p:word64,(x:word8)::xs)``))
+  val (_,_,c,_) = dest_spec (concl th)
+                  handle HOL_ERR _ => dest_spec_1 (concl th)
+  val code_length = c  |> find_term (can (match_term ``(p:word64,(x:word8)::xs)``))
                        |> rand |> listSyntax.dest_list |> fst |> length
                     handle HOL_ERR _ => 0
   val _ = if (code_length mod 2 = 0) then () else print "\nWARNING: odd length\n"
@@ -12577,6 +12613,14 @@ val zBC_Tick = zHEAP_NOP2 |> fix_code
 val zBC_Equal = zHEAP_EQUAL |> fix_code
 val zBC_Return = zHEAP_RET |> fix_code
 val zBC_PrintC = SPEC_COMPOSE_RULE [zHEAP_COND_PUT_CHAR,zHEAP_NOP] |> fix_code
+
+val zBC_Jump_1 = let
+  val th = x64_ret_raw_spec_1 |> RW [GSYM IMM32_def] |> Q.INST [`rip`|->`p`]
+  val th = MATCH_MP SPEC_1_FRAME th
+    |> Q.SPEC `zHEAP (cs,x1,x2,x3,x4,refs,stack,s,NONE) * ~zS`
+  val th = th |> SIMP_RULE std_ss [STAR_ASSOC,SEP_CLAUSES]
+  val th = MATCH_MP SPEC_1_ERR_INTRO th |> Q.SPEC `zHEAP_ERROR cs`
+  in th end |> fix_code
 
 val zBC_Jump = let
   val ((th,_,_),_) = prog_x64Lib.x64_spec "48E9"
