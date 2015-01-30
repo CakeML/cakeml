@@ -557,8 +557,11 @@ val inc_clock_refs = Q.store_thm ("inc_clock_refs",
 `!n (s:bvl_state). (inc_clock n s).refs = s.refs`,
  rw [inc_clock_def]);
 
-val _ = export_rewrites ["inc_clock_refs", "inc_clock_code"];
+val inc_clock0 = Q.store_thm ("inc_clock0",
+`!n (s:bvl_state). inc_clock 0 s = s`,
+ simp [inc_clock_def, bvl_state_explode]);
 
+val _ = export_rewrites ["inc_clock_refs", "inc_clock_code", "inc_clock0"];
 
 val dec_clock_code = Q.store_thm ("dec_clock_code",
 `!n (s:bvl_state). (dec_clock n s).code = s.code`,
@@ -568,8 +571,11 @@ val dec_clock_refs = Q.store_thm ("dec_clock_refs",
 `!n (s:bvl_state). (dec_clock n s).refs = s.refs`,
  rw [dec_clock_def]);
 
-val _ = export_rewrites ["dec_clock_refs", "dec_clock_code"];
+val dec_clock0 = Q.store_thm ("dec_clock0",
+`!n (s:bvl_state). dec_clock 0 s = s`,
+ simp [dec_clock_def, bvl_state_explode]);
 
+val _ = export_rewrites ["dec_clock_refs", "dec_clock_code", "dec_clock0"];
 
 val bEval_add_clock = Q.store_thm ("bEval_add_clock",
 `!exps env s1 res s2.
