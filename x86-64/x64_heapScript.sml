@@ -407,6 +407,13 @@ val SPEC_WEAKEN_LEMMA = prove(
   Cases_on `i` THEN Cases_on `b` THEN SIMP_TAC std_ss [SPEC_MOVE_COND]
   THEN METIS_TAC [SPEC_WEAKEN]);
 
+val SPEC_1_WEAKEN_LEMMA = prove(
+  ``(b ==> SPEC_1 m (p * cond i) c q1 err) ==>
+    !q2. (i ==> b /\ SEP_IMP q1 q2) ==>
+         SPEC_1 m (p * cond i) c q2 err``,
+  Cases_on `i` THEN Cases_on `b` THEN SIMP_TAC std_ss [SPEC_1_MOVE_COND]
+  THEN METIS_TAC [SPEC_1_WEAKEN]);
+
 val EVERY2_IMP_LENGTH = LIST_REL_LENGTH
 
 val blast_align_lemma = prove(
@@ -443,12 +450,30 @@ fun get_pc th = let
   val (_,_,_,post) = UNDISCH_ALL th |> concl |> dest_spec
   in find_term (can (match_term ``zPC (p + n2w n)``)) post end;
 
+fun dest_spec_1 tm = let
+  val (mxyz,t) = dest_comb tm
+  val (mxy,z) = dest_comb mxyz
+  val (mx,y) = dest_comb mxy
+  val (m,x) = dest_comb mx
+  in (m,x,y,z) end
+
+val SPEC_1_MOVE_COND = prove(
+  ``!x p c q g err.
+      SPEC_1 x (p * cond g) c q err <=> g ==> SPEC_1 x p c q err``,
+  REPEAT STRIP_TAC \\ PairCases_on `x` \\ fs [SPEC_1_def]
+  \\ Cases_on `g` \\ fs [SEP_CLAUSES]
+  \\ fs [TEMPORAL_def,LET_DEF,T_IMPLIES_def,NOW_def,SEP_F_def,SEP_CLAUSES]
+  \\ fs [SEP_REFINE_def,SEP_F_def,T_OR_F_def,EVENTUALLY_def,NOW_def]
+  \\ METIS_TAC []);
+
 fun expand_pre th target = let
-  val th = SIMP_RULE std_ss [SPEC_MOVE_COND,
+  val th = SIMP_RULE std_ss [SPEC_MOVE_COND,SPEC_1_MOVE_COND,
              REWRITE_CONV [SEP_HIDE_def] ``~(zR r)``] th |> UNDISCH_ALL
            |> CONV_RULE (PRE_CONV (SIMP_CONV std_ss [SEP_CLAUSES]))
            |> SIMP_RULE std_ss [GSYM SPEC_PRE_EXISTS] |> SPEC_ALL
   val (_,p,_,_) = dest_spec (concl th)
+                  handle HOL_ERR _ =>
+                  dest_spec_1 (concl th)
   val ps = list_dest dest_star p
   val target_thm = target |> REWRITE_CONV [zVALS_def]
   val tm = target_thm |> concl |> rand
@@ -458,11 +483,15 @@ fun expand_pre th target = let
     in fst (match_term tm j) end handle HOL_ERR _ => []
   val th = INST (flatten (map find_inst ps)) th
   val (_,p,_,post) = dest_spec (concl th)
+                     handle HOL_ERR _ =>
+                     dest_spec_1 (concl th)
   val ps = list_dest dest_star p
   val rs = set_diff (map get_sep_domain ts) (map get_sep_domain ps)
   val rs = filter (fn t => mem (get_sep_domain t) rs) ts
   val frame = list_mk_star rs (type_of (hd ps))
   val th = MATCH_MP SPEC_FRAME th |> SPEC frame
+           handle HOL_ERR _ =>
+           MATCH_MP SPEC_1_FRAME th |> SPEC frame |> RW [SEP_CLAUSES]
   val (th,goal) = SPEC_STRENGTHEN_RULE th target
   in (th,goal) end;
 
@@ -11361,8 +11390,8 @@ val ret_lemma =
               `[(x1,r1);(x2,r2);(x3,r3);(x4,r4)]`]
   |> SIMP_RULE std_ss [MAP,APPEND,SUBSET_DEF,MEM,DISJ_IMP] |> GEN_ALL
 
-val zHEAP_RET = let
-  val th = x64_ret
+val zHEAP_RET_1 = let
+  val th = x64_ret_spec_1
   val th = th |> Q.INST [`rip`|->`p`]
   val target = ``~zS * zPC p * zVALS cs vals *
       cond (heap_inv (cs,x1,x2,x3,x4,refs,stack,s,NONE) vals /\
@@ -11370,7 +11399,7 @@ val zHEAP_RET = let
   val (th,goal) = expand_pre th target
   val lemma = prove(goal, SIMP_TAC (std_ss++star_ss) [zVALS_def,SEP_IMP_REFL])
   val th = MP th lemma |> DISCH_ALL
-  val th = MATCH_MP SPEC_WEAKEN_LEMMA th
+  val th = MATCH_MP SPEC_1_WEAKEN_LEMMA th
   val th = th |> Q.SPEC
     `zHEAP (cs,x1,x2,x3,x4,refs,TL stack,s,NONE) * ~zS *
      zPC (2w * n2w (getCodePtr (HD stack)))`
@@ -11408,7 +11437,7 @@ gg goal
     \\ FULL_SIMP_TAC (std_ss++star_ss) []
     \\ MATCH_MP_TAC ret_lemma \\ METIS_TAC [])
   val th = MP th lemma |> DISCH_ALL |> RW [AND_IMP_INTRO]
-  val th = Q.GEN `vals` th |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
+  val th = Q.GEN `vals` th |> SIMP_RULE std_ss [SPEC_1_PRE_EXISTS]
   val (th,goal) = SPEC_STRENGTHEN_RULE th
     ``zHEAP (cs, x1, x2, x3, x4, refs, stack, s, NONE) * ~zS * zPC p *
       cond (stack <> [] /\ isCodePtr (HD stack))``
@@ -12499,13 +12528,6 @@ val INSERT_UNION_INSERT = store_thm("INSERT_UNION_INSERT",
 
 val th = zHEAP_NEW_REF
 
-fun dest_spec_1 tm = let
-  val (mxyz,t) = dest_comb tm
-  val (mxy,z) = dest_comb mxyz
-  val (mx,y) = dest_comb mxy
-  val (m,x) = dest_comb mx
-  in (m,x,y,z) end
-
 fun fix_code th = let
   val (_,_,c,_) = dest_spec (concl th)
                   handle HOL_ERR _ => dest_spec_1 (concl th)
@@ -12618,15 +12640,11 @@ val zBC_Jump_1 = let
   val th = x64_ret_raw_spec_1 |> RW [GSYM IMM32_def] |> Q.INST [`rip`|->`p`]
   val th = MATCH_MP SPEC_1_FRAME th
     |> Q.SPEC `zHEAP (cs,x1,x2,x3,x4,refs,stack,s,NONE) * ~zS`
-  val th = th |> SIMP_RULE std_ss [STAR_ASSOC,SEP_CLAUSES]
-  val th = MATCH_MP SPEC_1_ERR_INTRO th |> Q.SPEC `zHEAP_ERROR cs`
+  val th = th |> SIMP_RULE std_ss [SEP_CLAUSES]
+  val th = th |> RW [word_arith_lemma1]
   in th end |> fix_code
 
-val zBC_Jump = let
-  val ((th,_,_),_) = prog_x64Lib.x64_spec "48E9"
-  val th = th |> RW [GSYM IMM32_def] |> Q.INST [`rip`|->`p`]
-  val th = SPEC_FRAME_RULE th ``zHEAP (cs,x1,x2,x3,x4,refs,stack,s,NONE) * ~zS``
-  in th end |> fix_code
+val zBC_Jump = MATCH_MP SPEC_1_IMP_SPEC zBC_Jump_1 |> RW [SEP_CLAUSES]
 
 val zHEAP_JumpIf = let
   val SPEC_IF = prove(
