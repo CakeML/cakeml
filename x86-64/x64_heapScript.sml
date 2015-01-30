@@ -342,6 +342,101 @@ val INIT_STATE_def = Define `
     SEP_EXISTS cs vals.
       zVALS cs vals * cond (init_inv cs vals init)`;
 
+(* definition and lemmas for SPEC_N *)
+
+val T_DISJ_def = Define `
+  T_DISJ p q f s = (p f s) \/ (q f s):bool`;
+
+val T_CONJ_def = Define `
+  T_CONJ p q f s = (p f s) /\ (q f s):bool`;
+
+val LATER_def = Define `
+  LATER p = NEXT (EVENTUALLY p)`;
+
+val N_NEXT_def = Define `
+  (N_NEXT 0 = I) /\
+  (N_NEXT (SUC n) = NEXT o N_NEXT n)`;
+
+val N_NEXT_THM = prove(
+  ``!k p f s. N_NEXT k p f s <=> p f (\n. s (n + k))``,
+  Induct \\ ASM_SIMP_TAC std_ss [N_NEXT_def,LATER_def,NEXT_def,EVENTUALLY_def]
+  \\ REPEAT STRIP_TAC \\ RES_TAC
+  THEN1 (CONV_TAC (DEPTH_CONV ETA_CONV) \\ FULL_SIMP_TAC std_ss [])
+  \\ FULL_SIMP_TAC (srw_ss()) [ADD1,AC ADD_COMM ADD_ASSOC]);
+
+val SPEC_N_def = Define `
+  SPEC_N n model pre code post err <=>
+     TEMPORAL model code
+       (T_IMPLIES (NOW pre) (T_OR_F (N_NEXT n (EVENTUALLY (NOW post))) err))`
+
+val SPEC_1_EQ_SPEC_N = prove(
+  ``SPEC_1 m p c q e <=> SPEC_N 1 m p c q e``,
+  EVAL_TAC);
+
+val TEMPORAL_IMP_T_OR_F_EVENTUALLY = store_thm("TEMPORAL_IMP_T_OR_F_EVENTUALLY",
+  ``TEMPORAL model code (T_IMPLIES p1 (T_OR_F (EVENTUALLY p1) p2))``,
+  PairCases_on`model` >>
+  rw[TEMPORAL_def,T_IMPLIES_def,T_OR_F_def,EVENTUALLY_def] >>
+  disj1_tac >>
+  qexists_tac`0` >>
+  simp[ETA_AX])
+
+val rel_sequence_shift = prove(
+  ``!n seq' s. rel_sequence n seq' s ==> !i. rel_sequence n (\j. seq' (i + j)) (seq' i)``,
+  REWRITE_TAC [rel_sequence_def] \\ REPEAT STRIP_TAC \\ SIMP_TAC std_ss []
+  \\ Cases_on `?s. n (seq' (i + n')) s` \\ ASM_REWRITE_TAC []
+  \\ FULL_SIMP_TAC std_ss [ADD1,ADD_ASSOC] \\ METIS_TAC []);
+
+val N_NEXT_thm = prove(
+  ``!k p f s. N_NEXT k p f s = p f (\n. s (n + k))``,
+  Induct \\ fs [N_NEXT_def,NEXT_def,ADD1,AC ADD_COMM ADD_ASSOC]
+  \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs []);
+
+val T_OR_F_thm = prove(
+  ``T_OR_F p post = T_DISJ p (EVENTUALLY (NOW post))``,
+  FULL_SIMP_TAC std_ss [FUN_EQ_THM,T_OR_F_def,T_DISJ_def]);
+
+val SPEC_N_COMPOSE = prove(
+  ``SPEC_N m model p2 c p3 err ==>
+    SPEC_N n model p1 c p2 err ==>
+    SPEC_N (m+n) model p1 c p3 err``,
+  PairCases_on `model`
+  \\ fs [SPEC_N_def,T_OR_F_thm,TEMPORAL_def,LET_DEF]
+  \\ fs [T_IMPLIES_def,T_DISJ_def,EVENTUALLY_def,NOW_def]
+  \\ fs [N_NEXT_thm,EVENTUALLY_def,NOW_def]
+  \\ REVERSE (REPEAT STRIP_TAC) THEN1 METIS_TAC []
+  \\ Q.MATCH_ASSUM_RENAME_TAC `rel_sequence model1 s state`
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`state`,`s`,`r`]) \\ fs []
+  \\ REVERSE (REPEAT STRIP_TAC)
+  THEN1 METIS_TAC [] THEN1 METIS_TAC [] THEN1 METIS_TAC []
+  \\ IMP_RES_TAC rel_sequence_shift
+  \\ POP_ASSUM (ASSUME_TAC o Q.SPEC `k + n`)
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`(s (k + n:num))`,`\j. s (k + n + j:num)`,`r`])
+  \\ fs [] \\ REPEAT STRIP_TAC
+  THEN1 (DISJ1_TAC \\ Q.EXISTS_TAC `k+k'` \\ fs [AC ADD_COMM ADD_ASSOC])
+  THEN1 (DISJ2_TAC \\ METIS_TAC [])
+  THEN1 (DISJ2_TAC \\ Q.EXISTS_TAC `k+k'+n` \\ fs [AC ADD_COMM ADD_ASSOC])
+  THEN1 (DISJ2_TAC \\ METIS_TAC []));
+
+val SPEC_N_1_IMP_SUC = store_thm("SPEC_N_1_IMP_SUC",
+  ``!n model pre1 pre2 post code err.
+      SPEC_N n model pre2 code post err /\ SPEC_1 model pre1 code pre2 err ==>
+      SPEC_N (SUC n) model pre1 code post err``,
+  REPEAT STRIP_TAC \\ fs [ADD1,SPEC_1_EQ_SPEC_N]
+  \\ IMP_RES_TAC SPEC_N_COMPOSE);
+
+val SPEC_IMP_SPEC_N = prove(
+  ``SPEC model p c (q \/ err) ==> SPEC_N 0 model p c q err``,
+  fs [SPEC_EQ_TEMPORAL,SPEC_N_def,N_NEXT_def,T_OR_F_thm,TEMPORAL_def]
+  \\ PairCases_on `model` \\ fs [TEMPORAL_def,LET_DEF]
+  \\ fs [T_IMPLIES_def,FUN_EQ_THM,EVENTUALLY_def,T_DISJ_def,NOW_def,SEP_CLAUSES]
+  \\ REVERSE (REPEAT STRIP_TAC) THEN1 METIS_TAC []
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`state`,`seq'`,`r`]) \\ fs []
+  \\ REVERSE (REPEAT STRIP_TAC) THEN1 METIS_TAC []
+  \\ fs [SEP_REFINE_def,SEP_DISJ_def] \\ METIS_TAC []);
+
+val SPEC_IMP_SPEC_N_ALT =
+  SPEC_IMP_SPEC_N |> Q.INST [`err`|->`SEP_F`] |> RW [SEP_CLAUSES];
 
 (* helpers theorems *)
 
@@ -11447,6 +11542,8 @@ gg goal
   val th = MP th lemma
   in th end;
 
+val zHEAP_RET = MATCH_MP SPEC_1_IMP_SPEC zHEAP_RET_1 |> RW [SEP_CLAUSES];
+
 
 (* call R15 *)
 
@@ -12078,17 +12175,17 @@ val EVEN_LEMMA = prove(
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [MULT_DIV]
   \\ SIMP_TAC std_ss [AC MULT_COMM MULT_ASSOC]);
 
-val zHEAP_CALL_IMM = let
-  val th = x64_call_imm
+val zHEAP_CALL_IMM_1 = let
+  val th = x64_call_imm_spec_1
   val th = th |> RW [GSYM IMM32_def] |> Q.INST [`rip`|->`p`]
-  val th = SPEC_FRAME_RULE th ``~zS``
+  val th = MATCH_MP SPEC_1_FRAME th |> Q.SPEC `~zS` |> RW [SEP_CLAUSES]
   val target = ``~zS * zPC p * zVALS cs vals *
       cond (heap_inv (cs,x1,x2,x3,x4,refs,stack,s,NONE) vals /\
             EVEN (w2n (p+6w:word64)))``
   val (th,goal) = expand_pre th target
   val lemma = prove(goal,SIMP_TAC (std_ss++star_ss) [zVALS_def,SEP_IMP_REFL])
   val th = MP th lemma |> DISCH_ALL |> DISCH T |> PURE_REWRITE_RULE [AND_IMP_INTRO]
-  val th = MATCH_MP SPEC_WEAKEN_LEMMA th
+  val th = MATCH_MP SPEC_1_WEAKEN_LEMMA th
   val th = th |> Q.SPEC `zHEAP (cs,x1,x2,x3,x4,refs,
                            CodePtr ((w2n (p+6w:word64)) DIV 2)::stack,s,NONE) * ~zS *
                            zPC (p + 0x6w + sw2sw (imm32:word32))`
@@ -12131,7 +12228,7 @@ gg goal
     \\ NTAC 2 (POP_ASSUM MP_TAC)
     \\ FULL_SIMP_TAC std_ss [get_refs_def,MEM])
   val th = MP th lemma
-  val th = Q.GEN `vals` th |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
+  val th = Q.GEN `vals` th |> SIMP_RULE std_ss [SPEC_1_PRE_EXISTS]
   val (th,goal) = SPEC_STRENGTHEN_RULE th
     ``zHEAP (cs,x1,x2,x3,x4,refs,stack,s,NONE) * ~zS * zPC p *
       cond (EVEN (w2n (p + 6w)))``
@@ -12140,6 +12237,9 @@ gg goal
                                 AC CONJ_COMM CONJ_ASSOC])
   val th = MP th lemma
   in th end;
+
+val zHEAP_CALL_IMM =
+  MATCH_MP SPEC_1_IMP_SPEC zHEAP_CALL_IMM_1 |> RW [SEP_CLAUSES];
 
 
 (* load pointer *)
@@ -12646,9 +12746,10 @@ val zBC_Jump_1 = let
 
 val zBC_Jump = MATCH_MP SPEC_1_IMP_SPEC zBC_Jump_1 |> RW [SEP_CLAUSES]
 
-val zHEAP_JumpIf = let
+val zBC_JumpIf_1 = let
   val SPEC_IF = prove(
-    ``SPEC m (p * precond b) c (q q1 * t) /\ SPEC m (p * precond ~b) c (q q2 * t) ==>
+    ``SPEC m (p * precond b) c (q q1 * t) /\
+      SPEC m (p * precond ~b) c (q q2 * t) ==>
       SPEC m p c (q (if b then q1 else q2) * t)``,
     Cases_on `b` \\ FULL_SIMP_TAC std_ss [precond_def,SEP_CLAUSES]);
   fun the (SOME x) = x | the _ = fail()
@@ -12657,17 +12758,57 @@ val zHEAP_JumpIf = let
   val ((th3,_,_),th3i) = prog_x64Lib.x64_spec_memory64 "0F85"
   val (th3i,_,_) = the th3i
   val th3 = MATCH_MP SPEC_IF (CONJ th3i th3)
-  val th = SPEC_COMPOSE_RULE [th1,th2,th3]
+  val th23 = SPEC_COMPOSE_RULE [th2,th3]
+  val th23 = SPEC_FRAME_RULE th23 ``~zS1 Z_CF * ~zS1 Z_PF * ~zS1 Z_AF *
+                                    ~zS1 Z_SF * ~zS1 Z_OF``
+  val th23 = Q.INST [`p`|->`p+4w`] th23 |> SIMP_RULE std_ss [word_arith_lemma1]
+  val (_,_,c,_) = dest_spec (concl th1)
+  val th23 = MATCH_MP SPEC_ADD_CODE th23 |> Q.SPEC `^c`
+             |> RW [INSERT_UNION_EQ,UNION_EMPTY]
+  val (_,_,c,_) = dest_spec (concl th23)
+  val th1 = MATCH_MP SPEC_SUBSET_CODE th1 |> SPEC c
+            |> SIMP_RULE std_ss [SUBSET_DEF,IN_INSERT,NOT_IN_EMPTY]
+  val f = UNDISCH_ALL o SIMP_RULE (std_ss++sep_cond_ss) [SPEC_MOVE_COND]
+  val th1 = th1 |> fix_code |> f
+  val th23 = th23 |> fix_code |> f
+  val lemma = X64_SPEC_IMP_SPEC_1 |> Q.INST [`err`|->`SEP_F`]
+                 |> RW [SEP_CLAUSES]
+  val g = RW [STAR_ASSOC] o SIMP_RULE (std_ss++star_ss) []
+  val th1 = th1 |> g
+  val th23 = th23 |> Q.INST [`z_zf`|->`x1 = bool_to_val F`] |> g
+  val th1 = CONV_RULE (POST_CONV (MOVE_OUT_CONV ``zPC``)) th1
+  val th1 = CONV_RULE (PRE_CONV (MOVE_OUT_CONV ``zPC``)) th1
+  val th23 = CONV_RULE (POST_CONV (MOVE_OUT_CONV ``zPC``)) th23
+  val th23 = CONV_RULE (PRE_CONV (MOVE_OUT_CONV ``zPC``)) th23
+  val th1 = MATCH_MP lemma th1 |> RW [WORD_EQ_ADD_CANCEL]
+             |> SIMP_RULE (srw_ss()) [n2w_11]
+  val th1 = RW [SPEC_1_EQ_SPEC_N] th1 |> g
+  val th23 = MATCH_MP SPEC_IMP_SPEC_N_ALT th23
+  val th = MATCH_MP (MATCH_MP SPEC_N_COMPOSE th23
+             |> RW [EVAL ``bool_to_val F``] |> g) (th1)
+             |> RW [GSYM (EVAL ``bool_to_val F``)]
+  val th = SIMP_RULE std_ss [ADD_ASSOC] th
+  val (th,goal) = SPEC_WEAKEN_RULE (th |> RW [GSYM SPEC_1_EQ_SPEC_N])
+    ``zHEAP (cs,HD stack,x2,x3,x4,refs,TL stack,s,NONE) *
+      zPC (if x1 = bool_to_val F then p + 0xCw
+           else p + n2w (12 + SIGN_EXTEND 32 64 (w2n (imm32:word32)))) * ~zS``
   val (_,_,sts,_) = prog_x64Lib.x64_tools
-  val th = HIDE_STATUS_RULE true sts th
+  val lemma = prove(goal,
+    fs [sts] \\ fs [SEP_HIDE_def,SEP_CLAUSES,SEP_IMP_def,SEP_EXISTS_THM]
+    \\ REPEAT STRIP_TAC
+    \\ Q.LIST_EXISTS_TAC [`x'`,`x'''`,`x`,`(SOME (x1 = Block 0 []))`,`x''''`,`x''`]
+    \\ fs [AC STAR_ASSOC STAR_COMM]
+    \\ POP_ASSUM MP_TAC \\ fs [STAR_ASSOC])
+  val th = MP th lemma
+  val th = th |> DISCH_ALL |> RW [AND_IMP_INTRO] |> RW [GSYM SPEC_1_MOVE_COND]
   val th = RW [GSYM word_add_n2w] th
   in th end
 
-val zBC_JumpIf = zHEAP_JumpIf |> fix_code
-
+val zBC_JumpIf = MATCH_MP SPEC_1_IMP_SPEC zBC_JumpIf_1 |> RW [SEP_CLAUSES]
 val zBC_JumpPtr = zHEAP_JMP_PTR |> fix_code
 val zBC_CallPtr = zHEAP_CALL_PTR |> fix_code
 val zBC_Call = zHEAP_CALL_IMM |> fix_code
+val zBC_Call_1 = zHEAP_CALL_IMM_1 |> fix_code
 val zBC_PushPtr = SPEC_COMPOSE_RULE [zHEAP_PUSH1,zHEAP_LOAD_PTR] |> fix_code
 val zBC_PushExc = zBC_PushExc_raw |> fix_code
 val zBC_PopExc = zBC_PopExc_raw |> fix_code
@@ -17029,26 +17170,6 @@ val zBC_HEAP_Stop = prove(
          isRefPtr_def,getRefPtr_def]
     \\ FULL_SIMP_TAC (srw_ss()) [word_mul_n2w,HD_CONS_TL]));
 
-val LATER_def = Define `
-  LATER p = NEXT (EVENTUALLY p)`;
-
-val N_NEXT_def = Define `
-  (N_NEXT 0 = I) /\
-  (N_NEXT (SUC n) = NEXT o N_NEXT n)`;
-
-val N_NEXT_THM = prove(
-  ``!k p f s. N_NEXT k p f s <=> p f (\n. s (n + k))``,
-  Induct \\ ASM_SIMP_TAC std_ss [N_NEXT_def,LATER_def,NEXT_def,EVENTUALLY_def]
-  \\ REPEAT STRIP_TAC \\ RES_TAC
-  THEN1 (CONV_TAC (DEPTH_CONV ETA_CONV) \\ FULL_SIMP_TAC std_ss [])
-  \\ FULL_SIMP_TAC (srw_ss()) [ADD1,AC ADD_COMM ADD_ASSOC]);
-
-val T_DISJ_def = Define `
-  T_DISJ p q f s = (p f s) \/ (q f s):bool`;
-
-val T_CONJ_def = Define `
-  T_CONJ p q f s = (p f s) /\ (q f s):bool`;
-
 (* SPEC_1 theorem *)
 
 val TEMPORAL_APPEND_CODE = prove(
@@ -17107,67 +17228,6 @@ val zBC_HEAP_1 = prove(
   |> SIMP_RULE std_ss [PULL_FORALL] |> SPEC_ALL
   |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM PULL_FORALL,GSYM CONJ_ASSOC]
 
-val SPEC_N_def = Define `
-  SPEC_N n model pre code post err <=>
-     TEMPORAL model code
-       (T_IMPLIES (NOW pre) (T_OR_F (N_NEXT n (EVENTUALLY (NOW post))) err))`
-
-val SPEC_1_EQ_SPEC_N = prove(
-  ``SPEC_1 m p c q e <=> SPEC_N 1 m p c q e``,
-  EVAL_TAC);
-
-val TEMPORAL_IMP_T_OR_F_EVENTUALLY = store_thm("TEMPORAL_IMP_T_OR_F_EVENTUALLY",
-  ``TEMPORAL model code (T_IMPLIES p1 (T_OR_F (EVENTUALLY p1) p2))``,
-  PairCases_on`model` >>
-  rw[TEMPORAL_def,T_IMPLIES_def,T_OR_F_def,EVENTUALLY_def] >>
-  disj1_tac >>
-  qexists_tac`0` >>
-  simp[ETA_AX])
-
-val rel_sequence_shift = prove(
-  ``!n seq' s. rel_sequence n seq' s ==> !i. rel_sequence n (\j. seq' (i + j)) (seq' i)``,
-  REWRITE_TAC [rel_sequence_def] \\ REPEAT STRIP_TAC \\ SIMP_TAC std_ss []
-  \\ Cases_on `?s. n (seq' (i + n')) s` \\ ASM_REWRITE_TAC []
-  \\ FULL_SIMP_TAC std_ss [ADD1,ADD_ASSOC] \\ METIS_TAC []);
-
-val N_NEXT_thm = prove(
-  ``!k p f s. N_NEXT k p f s = p f (\n. s (n + k))``,
-  Induct \\ fs [N_NEXT_def,NEXT_def,ADD1,AC ADD_COMM ADD_ASSOC]
-  \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs []);
-
-val T_OR_F_thm = prove(
-  ``T_OR_F p post = T_DISJ p (EVENTUALLY (NOW post))``,
-  FULL_SIMP_TAC std_ss [FUN_EQ_THM,T_OR_F_def,T_DISJ_def]);
-
-val SPEC_N_COMPOSE = prove(
-  ``SPEC_N m model p2 c p3 err ==>
-    SPEC_N n model p1 c p2 err ==>
-    SPEC_N (m+n) model p1 c p3 err``,
-  PairCases_on `model`
-  \\ fs [SPEC_N_def,T_OR_F_thm,TEMPORAL_def,LET_DEF]
-  \\ fs [T_IMPLIES_def,T_DISJ_def,EVENTUALLY_def,NOW_def]
-  \\ fs [N_NEXT_thm,EVENTUALLY_def,NOW_def]
-  \\ REVERSE (REPEAT STRIP_TAC) THEN1 METIS_TAC []
-  \\ Q.MATCH_ASSUM_RENAME_TAC `rel_sequence model1 s state`
-  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`state`,`s`,`r`]) \\ fs []
-  \\ REVERSE (REPEAT STRIP_TAC)
-  THEN1 METIS_TAC [] THEN1 METIS_TAC [] THEN1 METIS_TAC []
-  \\ IMP_RES_TAC rel_sequence_shift
-  \\ POP_ASSUM (ASSUME_TAC o Q.SPEC `k + n`)
-  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`(s (k + n:num))`,`\j. s (k + n + j:num)`,`r`])
-  \\ fs [] \\ REPEAT STRIP_TAC
-  THEN1 (DISJ1_TAC \\ Q.EXISTS_TAC `k+k'` \\ fs [AC ADD_COMM ADD_ASSOC])
-  THEN1 (DISJ2_TAC \\ METIS_TAC [])
-  THEN1 (DISJ2_TAC \\ Q.EXISTS_TAC `k+k'+n` \\ fs [AC ADD_COMM ADD_ASSOC])
-  THEN1 (DISJ2_TAC \\ METIS_TAC []));
-
-val SPEC_N_1_IMP_SUC = store_thm("SPEC_N_1_IMP_SUC",
-  ``!n model pre1 pre2 post code err.
-      SPEC_N n model pre2 code post err /\ SPEC_1 model pre1 code pre2 err ==>
-      SPEC_N (SUC n) model pre1 code post err``,
-  REPEAT STRIP_TAC \\ fs [ADD1,SPEC_1_EQ_SPEC_N]
-  \\ IMP_RES_TAC SPEC_N_COMPOSE);
-
 val zBC_HEAP_N = prove(
   ``!n s1 s2.
       NRC bc_next n s1 s2 ==> EVEN (w2n cb) /\
@@ -17204,16 +17264,6 @@ val zBC_HEAP_N = prove(
   UNABBREV_ALL_TAC >>
   MATCH_MP_TAC zBC_HEAP_1 >>
   rw[])
-
-val SPEC_IMP_SPEC_N = prove(
-  ``SPEC model p c (q \/ err) ==> SPEC_N 0 model p c q err``,
-  fs [SPEC_EQ_TEMPORAL,SPEC_N_def,N_NEXT_def,T_OR_F_thm,TEMPORAL_def]
-  \\ PairCases_on `model` \\ fs [TEMPORAL_def,LET_DEF]
-  \\ fs [T_IMPLIES_def,FUN_EQ_THM,EVENTUALLY_def,T_DISJ_def,NOW_def,SEP_CLAUSES]
-  \\ REVERSE (REPEAT STRIP_TAC) THEN1 METIS_TAC []
-  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`state`,`seq'`,`r`]) \\ fs []
-  \\ REVERSE (REPEAT STRIP_TAC) THEN1 METIS_TAC []
-  \\ fs [SEP_REFINE_def,SEP_DISJ_def] \\ METIS_TAC []);
 
 val SPEC_N_Stop =
   MATCH_MP SPEC_IMP_SPEC_N (UNDISCH zBC_HEAP_Stop)
