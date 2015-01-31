@@ -276,12 +276,8 @@ val bbEval_mk_tick = Q.store_thm ("bbEval_mk_tick",
  rw [mk_tick_def, bbEval_def, dec_clock_def, FUNPOW] >>
  fs [mk_tick_def, bbEval_def, dec_clock_def] >>
  rw [] >>
- full_simp_tac (srw_ss()++ARITH_ss) [dec_clock_def, ADD1]
- >- (`s with clock := s.clock = s`
-            by rw [bvl_state_explode] >>
-     rw [])
- >- (`s.clock = n` by decide_tac >>
-     fs []));
+ full_simp_tac (srw_ss()++ARITH_ss) [dec_clock_def, ADD1] >>
+ `s.clock = n` by decide_tac >> fs []);
 
 (* clean up *)
 
