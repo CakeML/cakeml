@@ -184,8 +184,8 @@ val EvalM_bind = store_thm("EvalM_bind",
   \\ Cases_on `x refs` \\ Cases_on `q`
   \\ Cases_on `res` \\ FULL_SIMP_TAC (srw_ss()) [] THEN1
    (FULL_SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
-    \\ Q.MATCH_ASSUM_RENAME_TAC `x refs = (HolRes res1,r)` []
-    \\ Q.MATCH_ASSUM_RENAME_TAC `evaluate F env (0,s) e1 ((0,q),Rval (state1))` []
+    \\ Q.MATCH_ASSUM_RENAME_TAC `x refs = (HolRes res1,r)`
+    \\ Q.MATCH_ASSUM_RENAME_TAC `evaluate F env (0,s) e1 ((0,q),Rval (state1))`
     \\ FULL_SIMP_TAC std_ss [PULL_FORALL]
     \\ Q.PAT_ASSUM `!xx.bbb` (MP_TAC o Q.SPECL [`res1`,`state1`,`q`,`r`])
     \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
@@ -200,8 +200,8 @@ val EvalM_bind = store_thm("EvalM_bind",
     \\ ASM_SIMP_TAC std_ss [])
   THEN1
    (FULL_SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
-    \\ Q.MATCH_ASSUM_RENAME_TAC `x refs = (HolErr res1,r)` []
-    \\ Q.MATCH_ASSUM_RENAME_TAC `evaluate F env (0,s) e1 ((0,q),Rerr (state1))` []
+    \\ Q.MATCH_ASSUM_RENAME_TAC `x refs = (HolErr res1,r)`
+    \\ Q.MATCH_ASSUM_RENAME_TAC `evaluate F env (0,s) e1 ((0,q),Rerr (state1))`
     \\ FULL_SIMP_TAC std_ss [PULL_FORALL]
     \\ Q.LIST_EXISTS_TAC [`q`,`Rerr state1`,`refs2`]
     \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
