@@ -7,9 +7,7 @@ HOLDIR=$(heapname | xargs dirname) || exit $?
 echo "HOL revision: $(cd $HOLDIR; git log -1 --oneline --no-color)"
 echo "Machine: $(uname -nmo)"
 
-status=$(git status 2> /dev/null)
-
-if [[ ! ${status} =~ "working directory clean" ]]
+if [ -n "$(git status -z)" ]
 then
     echo "WARNING: working directory is dirty!"
 fi
