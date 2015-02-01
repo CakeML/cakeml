@@ -4960,7 +4960,7 @@ val semantics_falsity = store_thm("semantics_falsity",
   match_mp_tac (UNDISCH semantics_forall) >>
   simp[Abbr`ty`] >>
   simp[Once has_type_cases] >>
-  simp[Once semantics_cases,FLOOKUP_UPDATE])
+  simp[Once semantics_cases,FLOOKUP_UPDATE,Abbr`p`])
 
 val falsity_has_type_bool = store_thm("falsity_has_type_bool",
   ``FF has_type Bool``,
