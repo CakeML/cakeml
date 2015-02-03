@@ -497,8 +497,24 @@ fun oppappPrint sys d t pg str brk blk =
     case pg of Prec(_,_) => (bracketize str (sys (pg,pg,pg) d f >> str" ">> sys (Top,pg,pg) d x))
          |     _         => (sys (Prec(0,"app"),pg,pg) d f >> str " " >> sys (Prec(0,"app"),pg,pg) d x)*)
   end;
- 
+
 val _=add_astPP ("oppappprint", ``App Opapp ls``, genPrint oppappPrint);
+
+(* special case for deref to avoid the space; almost the same as above *)
+fun derefPrint sys d t pg str brk blk =
+  let
+    open Portable smpp
+    val (_,ls) = dest_comb t
+    val (_::[tl]) = #1(listSyntax.dest_list ls)
+    val output = str"!">>sys (Prec(0,"app"),pg,pg) d tl
+  in
+    case pg of
+      Prec(0,"app2") => output
+    | _ => m_brack str pg output
+  end;
+
+val _=add_astPP ("derefprint", ``App Opapp [Var(Short"!"); x]``, genPrint derefPrint);
+
 
 (*Infix apply*)
 
