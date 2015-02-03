@@ -173,8 +173,8 @@ val init_code_def = Define `
                                      generate_partial_app_closure_fn m n)) max_app) max_app)`;
 
 val cCompOp_def = Define`
-  cCompOp (Cons tag) = (Cons (if tag < closure_tag then tag else tag+1)) ∧
-  cCompOp (TagEq tag) = (TagEq (if tag < closure_tag then tag else tag+1)) ∧
+  cCompOp (Cons tag) = (Cons (if tag < closure_tag then tag else tag+2)) ∧
+  cCompOp (TagEq tag) = (TagEq (if tag < closure_tag then tag else tag+2)) ∧
   cCompOp x = x`
 val _ = export_rewrites["cCompOp_def"];
 
@@ -940,10 +940,10 @@ val get_num_args_def = Define `
 (get_num_args _ = NONE)`;
 
 val (val_rel_rules,val_rel_ind,val_rel_cases) = Hol_reln `
-  (val_rel f refs code (Number n) (Number n))
+  (val_rel f (refs:num |-> ref_value) code (Number n) (Number n))
   /\
   (EVERY2 (val_rel f refs code) xs (ys:bc_value list) /\
-   (t' = if t < closure_tag then t else t+1) ==>
+   (t' = if t < closure_tag then t else t+2) ==>
    val_rel f refs code (Block t xs) (Block t' ys))
   /\
   ((FLOOKUP f r1 = SOME r2) ==>
@@ -1624,7 +1624,6 @@ val state_rel_clock = Q.store_thm ("state_rel_clock",
 
 val _ = export_rewrites ["state_rel_clock"];
  
-(*
 val bc_equal_clos_equal = prove(
   ``INJ ($' f) (FDOM f) (FRANGE f) ⇒
     (∀x y x1 y1.
@@ -1637,20 +1636,28 @@ val bc_equal_clos_equal = prove(
            clos_equal_list x y = bc_equal_list x1 y1)``,
   strip_tac >>
   HO_MATCH_MP_TAC clos_equal_ind >>
-  rw[clos_equal_def] >> rw[clos_equal_def] >>
-  BasicProvers.EVERY_CASE_TAC >>
-  fs[val_rel_SIMP] >> rw[] >>
-  fs[Q.SPECL[`f`,`r`,`c`,`Block a b`]val_rel_cases] >>
-  simp[EL_MAP] >> rw[] >> fs[] >> rfs[EL_MAP] >>
-  imp_res_tac LIST_REL_LENGTH >> fs[PULL_EXISTS] >>
-  TRY (
-    CHANGED_TAC(rw[EQ_IMP_THM]) >> fs[INJ_DEF] >>
-    fs[FLOOKUP_DEF] >> NO_TAC) >>
-  fs[GSYM AND_IMP_INTRO] >>
-  first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
-  first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
-  Cases_on`n<3`>>fsrw_tac[ARITH_ss][]>>rfs[])
-  *)
+  rw []
+  >- (rw [clos_equal_def] >>
+      Cases_on `x` >>
+      fs [val_rel_SIMP] >> fs [add_args_def] >> rw[] >>
+      Cases_on `y` >>
+      fs [val_rel_SIMP] >> fs [add_args_def] >> rw[] >>
+      rfs [] >>
+      imp_res_tac EVERY2_LENGTH >>
+      fs [bytecodeTheory.partial_app_tag_def] >>
+      BasicProvers.EVERY_CASE_TAC >>
+      rev_full_simp_tac (srw_ss()++ARITH_ss) [] >>
+      fs [INJ_DEF, FLOOKUP_DEF] >>
+      metis_tac [])
+ >- fs [clos_equal_def]
+ >- (res_tac >>
+     rw [clos_equal_def] >>
+     Cases_on `clos_equal x y` >>
+     fs [] >>
+     qpat_assum `X = bc_equal y'' y'''` (mp_tac o GSYM) >>
+     rw [])
+ >- fs [clos_equal_def]
+ >- fs [clos_equal_def]);
 
 val clos_to_chars_thm = store_thm("clos_to_chars_thm",
   ``∀ls acc. clos_to_chars ls acc =
@@ -1662,11 +1669,10 @@ val clos_to_chars_thm = store_thm("clos_to_chars_thm",
   `i = ABS i` by intLib.COOPER_TAC >>
   PROVE_TAC[]);
 
-  (*
 val bv_to_string_clos_to_string = prove(
   ``∀x y. val_rel f r c x y ⇒ clos_to_string x = bv_to_string y``,
   ho_match_mp_tac (theorem"val_rel_strongind") >>
-  rw[clos_to_string_def,bytecodeTheory.bv_to_string_def] >>
+  rw[cl_rel_cases, clos_to_string_def,bytecodeTheory.bv_to_string_def, bytecodeTheory.partial_app_tag_def] >>
   fsrw_tac[ARITH_ss][EL_MAP,bytecodeTheory.bv_to_string_def] >>
   fs[bytecodeExtraTheory.bvs_to_chars_thm,clos_to_chars_thm] >>
   rw[bytecodeExtraTheory.is_Char_def,stringTheory.IMPLODE_EXPLODE_I,EVERY_MEM] >>
@@ -1675,16 +1681,16 @@ val bv_to_string_clos_to_string = prove(
   simp[LIST_EQ_REWRITE,EL_MAP] >> rw[] >>
   rpt AP_TERM_TAC >>
   rfs[PULL_EXISTS,MEM_EL] >> res_tac >>
-  fs[bytecodeExtraTheory.is_Char_def] >- (
+  fs[bytecodeExtraTheory.is_Char_def, add_args_def] >- (
     Cases_on`EL x ys`>>fs[bytecodeExtraTheory.is_Char_def] >>
     rfs[val_rel_SIMP] >>
     intLib.COOPER_TAC ) >>
-  rw[] >>
+  rw[clos_to_string_def] >>
   Cases_on`EL n ys`>> rfs[val_rel_SIMP] >>
   TRY intLib.COOPER_TAC >>
+  rfs [add_args_def] >>
   Cases_on`EL n xs`>>fs[val_rel_SIMP]>>fs[EL_MAP]>>
-  fs[val_rel_cases])
-  *)
+  fs[val_rel_cases]);
 
 val cEvalOp_correct = prove(
   ``(cEvalOp op xs s1 = SOME (v,s2)) /\
@@ -1783,8 +1789,6 @@ val cEvalOp_correct = prove(
     BasicProvers.EVERY_CASE_TAC >> fs[bool_to_val_def,val_rel_SIMP] >>
     rw[val_rel_SIMP] >> fs[val_rel_cases, add_args_def] )
   >- (
-      cheat (* TODO : equal, has to do with the tag incrementing *)
-      (*
     `INJ ($' f) (FDOM f) (FRANGE f)` by fs[state_rel_def] >>
     Cases_on`xs`>>fs[]>>rw[]>>
     Cases_on`t`>>fs[]>>rw[]>>
@@ -1793,7 +1797,7 @@ val cEvalOp_correct = prove(
     ntac 2 (pop_assum kall_tac) >> fs[] >>
     BasicProvers.CASE_TAC >> fs[]>>rw[val_rel_SIMP] >>
     Cases_on`b`>>simp[bool_to_val_def]>>
-    simp[val_rel_cases] *))
+    simp[val_rel_cases] )
   >- (
     BasicProvers.EVERY_CASE_TAC >> fs [] >>
     fs[val_rel_SIMP] >>
@@ -1804,11 +1808,9 @@ val cEvalOp_correct = prove(
     first_x_assum match_mp_tac >>
     intLib.COOPER_TAC)
   >- (
-    cheat (* TODO : to string. has to do with the tag incrementing *)
-    (*
     BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
     imp_res_tac bv_to_string_clos_to_string >> fs[] >>
-    fs[state_rel_def] *))
+    fs[state_rel_def] )
   >- (
     BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[val_rel_SIMP] >>
     fs[state_rel_def] )
@@ -1997,6 +1999,7 @@ val dest_closure_full_app = Q.prove (
     get_cl_env func = SOME cl_env ∧
     rem_args ≤ LENGTH args ∧
     rem_args ≤ num_args ∧
+    num_args ≤ LENGTH old_args + LENGTH args ∧
     LENGTH args2 = LENGTH args - rem_args ∧
     check_loc loc_opt loc num_args (LENGTH args) (num_args - rem_args)`,
  rw [dest_closure_def] >>
@@ -2214,11 +2217,13 @@ val dest_closure_full_of_part = Q.prove (
 
 val cl_rel_dest = Q.prove (
 `!f refs code cl cl' fvs fvs'.
-  cl_rel f refs code (fvs,fvs')cl cl' 
+  cl_rel f refs code (fvs,fvs') cl cl'
   ⇒
+  get_old_args cl = SOME [] ∧
   ?l num_args fvs.
     cl' = Block closure_tag (CodePtr l::Number (&num_args)::fvs')`,
- rw [cl_rel_cases]);
+ rw [cl_rel_cases] >>
+ rw [get_old_args_def]);
 
 val val_rel_run = Q.prove (
 `!f1 (refs : num|-> ref_value) code args args' env' ptr body new_env func func' rest tag n loc.
@@ -2273,13 +2278,26 @@ val val_rel_run = Q.prove (
  qexists_tac `1` >>
  rw [] >>
  fs [] >>
- `num_args' + 2 = LENGTH (DROP (LENGTH args' + LENGTH ys − num_args) args') + (LENGTH ys + 1)` by cheat >>
+ `num_args' + 2 = LENGTH (DROP (LENGTH args' + LENGTH ys − num_args) args') + (LENGTH ys + 1) ∧
+  (LENGTH args' − (LENGTH args' + LENGTH ys − num_args) + LENGTH ys − 1) = num_args - 1 ∧
+  0 < LENGTH (DROP (LENGTH args' + LENGTH ys − num_args) args')`
+           by (rw [LENGTH_DROP, SUB_LEFT_SUB] >>
+               fs [LESS_OR_EQ] >>
+               TRY ARITH_TAC >>
+               `num_args' = num_args -1`  by ARITH_TAC >>
+               simp [] >>
+               imp_res_tac dest_closure_full_app >>
+               `num_args'' = num_args ∧ LENGTH old_args = LENGTH ys` 
+                        by (Cases_on `cl` >>
+                            fs [add_args_def] >>
+                            qpat_assum `X = func` (assume_tac o GSYM) >>
+                            fs [get_old_args_def, get_num_args_def] >>
+                            rw [] >>
+                            simp []) >>
+               decide_tac) >>
  full_simp_tac bool_ss [] >>
  assume_tac (SIMP_RULE (srw_ss()++ARITH_ss) [GSYM AND_IMP_INTRO] bEval_partial_app_fn) >>
  pop_assum (fn th => first_assum (mp_tac o MATCH_MP th)) >>
- `0 < LENGTH (DROP (LENGTH args' + LENGTH ys − num_args) args')`
-        by (simp []) >>
- `(LENGTH args' − (LENGTH args' + LENGTH ys − num_args) + LENGTH ys − 1) = num_args - 1` by cheat >>
  fs [] >>
  rw [] >>
  fs [] >>
