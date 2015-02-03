@@ -211,8 +211,6 @@ val remove_colors_def = Define`
             | SOME c => remove_colors col xs
                         (FILTER (λx.x ≠ c) k))`
 
-(*EVAL``remove_colors(list_insert [1;2;3] [1;1;1] LN) [1;2;3;4] [1;2;3;4]``*)
-
 (*Assigns a color or spills
   If assigning a color, use prefs to choose the color
   Constrain prefs to always choose from the list of available colors
@@ -350,8 +348,9 @@ val _ = Hol_datatype `
                 stack : num list; (*Coloring stack*)
                 coalesced : num num_map; (*coalesced nodes*)
                 move_related : num_set; (*move_related nodes fast lookup*)
-                avail_moves : (num,num) alist; (*track available moves*)
-                unavail_moves : (num,num) alist; (*track diabled moves which can be re-enabled*)
+                avail_moves_pri : (num # num # num) list; (*track prioritized available moves*)
+                avail_moves : (num # num # num) list; (*Normal priority moves*)
+                unavail_moves : (num # num # num) list; (*track diabled moves which can be re-enabled*)
                 clock : num (*Termination counter*)
              |>`
 
@@ -362,7 +361,7 @@ val count_degrees_def = Define`
 
 val in_moves_def = Define`
   (in_moves [] x = F) ∧ 
-  (in_moves ((x,y)::xs) z = ((x = z) ∨ (y = z) ∨ in_moves xs z))`
+  (in_moves ((pri,x,y)::xs) z = ((x = z) ∨ (y = z) ∨ in_moves xs z))`
 
 val in_moves_set_def = Define`
   (in_moves_set moves [] = LN) ∧ 
@@ -376,11 +375,16 @@ val in_moves_set_def = Define`
 val considered_var_def = Define`
   considered_var k x = (is_alloc_var x ∨ (is_phy_var x ∧ x <2*k))`
 
+val split_priority_def = Define`
+  split_priority ls = PARTITION (λp,x,y. p > 0:num) ls` 
+
 (*Initialize state for the first phase*)
 val init_ra_state_def = Define`
   (init_ra_state (G:sp_graph) (k:num) moves = 
   let moves = 
-    FILTER (λx,y. (considered_var k) x ∧ (considered_var k) y) moves in
+    FILTER (λp,x,y. (considered_var k) x ∧ (considered_var k) y) moves in
+  let (pri_moves,moves) =
+    PARTITION (λp,x,y. p > 0) moves in  
   let vertices = FILTER is_alloc_var (MAP FST (toAList G)) in (*Only care about allocatable vars*)
   let vdegs = MAP (λv. v,count_degrees (considered_var k)
               (THE(lookup v G))) vertices in
@@ -397,6 +401,7 @@ val init_ra_state_def = Define`
     stack:=[];
     coalesced:=LN;
     move_related:= move_rel;
+    avail_moves_pri := pri_moves;
     avail_moves:=moves;
     unavail_moves:=[];
     clock:=LENGTH vertices
@@ -470,11 +475,20 @@ val get_coalesced_def = Define`
 val set_coalesced_def = Define`
   set_coalesced coalesce = \s. ((), s with coalesced := coalesce)`
 
+val get_avail_moves_pri_def = Define`
+  get_avail_moves_pri = \s. return s.avail_moves_pri s`
+
 val get_avail_moves_def = Define`
   get_avail_moves = \s. return s.avail_moves s`
 
+val set_avail_moves_pri_def = Define`
+  set_avail_moves_pri moves = \s. ((), s with avail_moves_pri := moves)`
+
 val set_avail_moves_def = Define`
   set_avail_moves moves = \s. ((), s with avail_moves := moves)`
+
+val add_avail_moves_pri_def = Define`
+  add_avail_moves_pri moves = \s. ((), s with avail_moves_pri := moves++s.avail_moves_pri)`
 
 val add_avail_moves_def = Define`
   add_avail_moves moves = \s. ((), s with avail_moves := moves++s.avail_moves)`
@@ -530,7 +544,9 @@ val dec_deg_def = Define`
   od`
 
 (*Revive all the moves that might have been previously stopped by v because
-  v is now a low degree vertex*)
+  v is now a low degree vertex
+  Also, split into prioritized ones and unprioritized ones
+  *)
 val revive_moves_def = Define`
   revive_moves v =
   do
@@ -542,8 +558,10 @@ val revive_moves_def = Define`
       do
         unavail_moves <- get_unavail_moves;
         let(rev,unavail) = PARTITION 
-          (λx,y. MEM x edges ∨ MEM y edges) unavail_moves in
+          (λp,x,y. MEM x edges ∨ MEM y edges) unavail_moves in
+        let(rev_pri,rev) = split_priority rev in 
         do
+          add_avail_moves_pri rev_pri;
           add_avail_moves rev;
           set_unavail_moves unavail
         od
@@ -636,7 +654,7 @@ val spill_def = Define`
 
 (*This differs slightly from the standard algorithm:
   We immediately simplify instead of moving the frozen node into the simp worklist
-  I think this makes the termination proof easier since the number of vertices monotonically decreases*)
+  This makes the termination clock easier since the number of vertices under consideration strictly decreases by 1*)
 val freeze_def = Define`
   freeze =
   do
@@ -698,7 +716,7 @@ val george_ok_def = Define`
 *) 
 
 val is_valid_move_def = Define`
-  is_valid_move G move_related (x,y) =
+  is_valid_move G move_related (p,x,y) =
   (x ≠ y ∧
   ¬ lookup_g x y G ∧ 
   if is_phy_var x then
@@ -713,12 +731,12 @@ val is_valid_move_def = Define`
   2) otherwise, use briggs criterion*)
 
 val is_coalesceable_move_def = Define`
-  is_coalesceable_move G (k:num) degs (x,y) =
+  is_coalesceable_move G (k:num) degs (p,x,y) =
     if is_phy_var x then george_ok G k degs (x,y)
     else briggs_ok G k degs(x,y)`
 
 val maybe_flip_def = Define`
-  maybe_flip (x:num,y:num) = (if is_phy_var x then (x,y) else (y,x))` 
+  maybe_flip (p,x:num,y:num) = (if is_phy_var x then (p,x,y) else (p,y,x))` 
 
 (*3 way split of the available moves:
   An available move might be 
@@ -774,10 +792,10 @@ val do_coalesce_def = Define`
   od`
 
 val pair_rename_def = Define`
-  pair_rename x y (a,b) =
+  pair_rename x y (p,a,b) =
     let a = if a=y then x else a in
     let b = if b=y then x else b in
-      a,b`
+      (p,a,b)`
 
 val respill_def = Define`
   respill x =
@@ -802,34 +820,53 @@ val respill_def = Define`
 val coalesce_def = Define`
   coalesce =
   do
-    ls <- get_avail_moves;
     G <- get_graph;
     k <- get_colors;
     degs <- get_degs;
     move_related <- get_move_rel;
+    ls_pri <- get_avail_moves_pri;
+    ores <- 
     (case split_avail (is_valid_move G move_related) 
-      (is_coalesceable_move G k degs) ls [] of (ores,nc,rest) =>
+      (is_coalesceable_move G k degs) ls_pri [] of (ores,nc,rest) =>
     do
-      set_avail_moves rest;
+      set_avail_moves_pri rest;
       add_unavail_moves nc;
-      case ores of
-        NONE => return NONE
-      | SOME (x,y) => 
+      return ores
+    od);
+    ores <- (case ores of 
+      SOME (p,x,y) => return ores
+    | NONE =>
+      do
+        ls <- get_avail_moves;
+        (case split_avail (is_valid_move G move_related) 
+        (is_coalesceable_move G k degs) ls [] of (ores,nc,rest) =>
         do
-          do_coalesce (x,y);
-          avail <- get_avail_moves;
-          unavail <- get_unavail_moves;
-          let avail = MAP (pair_rename x y) avail in
-          let unavail = MAP (pair_rename x y) unavail in
-          do
-            set_avail_moves avail;
-            set_unavail_moves unavail;
-            unspill;
-            respill x;
-            return (SOME y)
-          od
+          set_avail_moves rest;
+          add_unavail_moves nc;
+          return ores
+        od)
+      od);
+    (case ores of
+      SOME (p,x,y) => 
+      do
+        do_coalesce (x,y);
+        avail_pri <- get_avail_moves_pri;
+        avail <- get_avail_moves;
+        unavail <- get_unavail_moves;
+        let avail_pri = MAP (pair_rename x y) avail_pri in
+        let avail = MAP (pair_rename x y) avail in
+        let unavail = MAP (pair_rename x y) unavail in
+        do
+          set_avail_moves_pri avail_pri;
+          set_avail_moves avail;
+          set_unavail_moves unavail;
+          unspill;
+          respill x;
+          return (SOME y)
         od
-    od)
+      od
+    | NONE =>
+      return NONE)
   od`
 
 val dec_clock_def = Define`
@@ -903,6 +940,7 @@ val sec_ra_state_def = Define`
     coalesced:=LN;
     move_related:=LN;
     avail_moves:=[];
+    avail_moves_pri:=[];
     unavail_moves:=[];
     clock:=LENGTH vertices
   |>)`
@@ -926,7 +964,7 @@ val deg_comparator_def = Define`
       
 val full_coalesce_aux = Define`
   (full_coalesce_aux G [] = (G,LN)) ∧ 
-  (full_coalesce_aux G ((x,y)::xs) =
+  (full_coalesce_aux G ((p,x,y)::xs) =
     (*Edge List for y*)
     if lookup_g x y G 
     then full_coalesce_aux G xs 
@@ -954,12 +992,13 @@ val full_coalesce_aux = Define`
 val full_coalesce_def = Define`
   full_coalesce G moves spills =
   let coalesceable = 
-    FILTER (λx,y. MEM x spills ∧ MEM y spills) moves in
+    FILTER (λp,x,y. MEM x spills ∧ MEM y spills) moves in
+  let coalesceable = QSORT (λp:num,x,y p',x',y'. p>p') coalesceable in   
   (*Maybe more efficient impl possible*)
   let (G,coalesce_map) = 
     full_coalesce_aux G coalesceable in
     G, FILTER (λx. lookup x coalesce_map = NONE) spills, coalesce_map`  
-        
+   
 (*TODO: Maybe change this to use a minheap to get slightly better performance...
   Or rewrite in a way that allows quick re-sorts?
 *)
@@ -1005,14 +1044,41 @@ val aux_pref_def = Define`
       NONE => HD ls
     | SOME x => x`
 
+(*For the naive algorithm, we now maintain an sptree of
+  lists of edges
+  Note: the naive method is actually able to take advantage of
+  the full range of priorities  
+*)
+
+val pri_move_insert_def = Define`
+  pri_move_insert p x y acc =
+  case lookup x acc of 
+    NONE =>
+      insert x [(p,y)] acc
+  | SOME ls =>
+      insert x ((p,y)::ls) acc`
+
+val undir_move_insert_def = Define`
+  undir_move_insert p x y acc =
+    pri_move_insert p x y (pri_move_insert p y x acc)`
+    
 val moves_to_sp_def = Define`
   (moves_to_sp [] acc = acc) ∧ 
-  (moves_to_sp ((x,y)::xs) acc = 
-    moves_to_sp xs (undir_g_insert x y acc))`
+  (moves_to_sp ((p,x,y)::xs) acc = 
+    moves_to_sp xs (undir_move_insert p x y acc))`
+
+(*Do a consistency sort after setting up the sptree of moves*)
+val resort_moves_def = Define`
+  resort_moves acc = 
+  let ts = toAList acc in
+  let sort_ts = MAP (λv,ls. v, QSORT (λp:num,x p',x'. p>p') ls) ts in
+    fromAList sort_ts`
+ 
+(*EVAL``resort_moves (moves_to_sp [(1,2,3);(6,3,4);(2,2,4);(5,3,1)] LN)``*)
 
 val first_match_col_def = Define`
   (first_match_col ls col [] = NONE) ∧ 
-  (first_match_col ls col (x::xs) = 
+  (first_match_col ls col ((p,x)::xs) = 
     case lookup x col of 
       NONE => first_match_col ls col xs
     | SOME c => if MEM c ls then SOME c else first_match_col ls col xs)`
@@ -1022,9 +1088,8 @@ val move_pref_def = Define`
   let pref_col = 
       case lookup v prefs of 
         NONE => NONE
-      | SOME t =>
-        let ts = MAP FST (toAList t) in
-          first_match_col ls col ts in
+      | SOME es =>
+          first_match_col ls col es in
     case pref_col of 
       NONE => HD ls
     | SOME x => x`
@@ -1103,6 +1168,7 @@ val first_match_col_mem = prove(``
   first_match_col cand col ls = SOME x 
   ⇒ MEM x cand``,
   Induct>>rw[first_match_col_def]>>
+  Cases_on`h`>>fs[first_match_col_def]>>
   EVERY_CASE_TAC>>rfs[])
 
 val move_pref_satisfactory = prove(``
@@ -1930,8 +1996,10 @@ val is_subgraph_edges_trans = prove(``
 val full_coalesce_aux_extends = prove(``
   ∀(G:sp_graph) ls col.
   partial_coloring_satisfactory col G ∧ 
-  (∀p. MEM p ls ⇒ FST p ∉ domain col ∧ SND p ∉ domain col ∧ 
-                  FST p ∈ domain G ∧ SND p ∈ domain G) ∧ 
+  (∀pxy. MEM pxy ls ⇒
+    let (p:num,x,y) = pxy in
+    x ∉ domain col ∧ x ∉ domain col ∧ 
+    x ∈ domain G ∧ y ∈ domain G) ∧ 
   undir_graph G ⇒ 
   let (G',ls') = full_coalesce_aux G ls in
   is_subgraph_edges G G' ∧ 
@@ -1939,32 +2007,32 @@ val full_coalesce_aux_extends = prove(``
   partial_coloring_satisfactory col G'``,
   Induct_on`ls`>-fs[full_coalesce_aux,LET_THM,is_subgraph_edges_def]>>
   ntac 4 strip_tac>>
-  Cases_on`h`>>
+  PairCases_on`h`>>
   fs[full_coalesce_aux]>>
   IF_CASES_TAC>- 
     (fs[]>>metis_tac[])>>
   fs[LET_THM]>>
-  qpat_abbrev_tac `G'=list_g_insert q A G`>>
+  qpat_abbrev_tac `G'=list_g_insert h1 A G`>>
   first_x_assum(qspecl_then[`G'`,`col`] mp_tac)>>
   rfs[]>>
   rw[Abbr`G'`]>>
   qpat_abbrev_tac`lss = MAP FST (toAList A)`>>
-  Q.ISPECL_THEN [`q`,`lss`,`G`,`col`] mp_tac (GEN_ALL list_g_insert_lemma)>>
+  Q.ISPECL_THEN [`h1`,`lss`,`G`,`col`] mp_tac (GEN_ALL list_g_insert_lemma)>>
   rfs[]>>
   discharge_hyps_keep>-
     (rfs[FORALL_PROD,Abbr`lss`,undir_graph_def,lookup_g_def]>>
-    `r ∈ domain G` by fs[]>>
-      CCONTR_TAC>>fs[MEM_MAP,MEM_toAList,domain_lookup]>>
-      rfs[]>>
-      ntac 2 (last_x_assum(qspec_then`r` assume_tac))>>
-      rfs[]>>
-      first_x_assum(qspec_then`q` mp_tac)>>
-      Cases_on`y`>>fs[MEM_toAList]>>
-      Cases_on`lookup q' G`>>fs[])>>
+   `h2 ∈ domain G` by fs[]>>
+    CCONTR_TAC>>fs[MEM_MAP,MEM_toAList,domain_lookup]>>
+    rfs[]>>
+    ntac 2 (last_x_assum(qspec_then`h2` assume_tac))>>
+    rfs[]>>
+    first_x_assum(qspec_then`h1` mp_tac)>>
+    Cases_on`y`>>fs[MEM_toAList]>>
+    Cases_on`lookup q G`>>fs[])>>
   fs[LET_THM,UNCURRY]>>strip_tac>>
   qpat_assum `A ⇒ B` mp_tac>>
   discharge_hyps>-
-    (`q ∈ domain G` by fs[FORALL_PROD]>>
+    (`h1 ∈ domain G` by fs[FORALL_PROD]>>
     fs[EXTENSION,list_g_insert_domain])>>
   metis_tac[is_subgraph_edges_trans])
 
@@ -1978,13 +2046,13 @@ val full_coalesce_lemma = prove(``
   undir_graph G' ∧ 
   partial_coloring_satisfactory col G'``,
   fs[full_coalesce_def,LET_THM]>>
-  qpat_abbrev_tac `lss = FILTER f moves`>>
+  qpat_abbrev_tac `lss = QSORT g (FILTER f moves)`>>
   Cases_on`full_coalesce_aux G lss`>>
   strip_tac>>fs[]>>
   imp_res_tac full_coalesce_aux_extends>>
   ntac 2 (pop_assum kall_tac)>>
-  pop_assum (qspec_then `lss` mp_tac)>>discharge_hyps>>
-  fs[FORALL_PROD,MEM_FILTER,Abbr`lss`,LET_THM])
+  pop_assum (Q.ISPEC_THEN `lss` mp_tac)>>discharge_hyps>>
+  fs[FORALL_PROD,MEM_FILTER,Abbr`lss`,LET_THM,QSORT_MEM])
 
 fun fsm ls = fs (ls@[BIND_DEF,UNIT_DEF,IGNORE_BIND_DEF,FOREACH_def]);
 
@@ -2007,11 +2075,12 @@ val foreach_graph2 = prove(``
     s'.clock = s.clock``,
     Induct>>rw[]>>
     fsm[revive_moves_def,get_graph_def,LET_THM,get_unavail_moves_def,
-        set_unavail_moves_def,add_avail_moves_def]>>
+        set_unavail_moves_def,add_avail_moves_def,add_avail_moves_pri_def]>>
     EVERY_CASE_TAC>>fsm[]>>
     qpat_abbrev_tac`lsrs = PARTITION P s.unavail_moves`>>
     Cases_on`lsrs`>>rw[]>>
-    qpat_abbrev_tac`sfin = s with <|avail_moves:=A;unavail_moves:=B|>`>>
+    Cases_on`split_priority q`>>rw[]>>
+    qpat_abbrev_tac`sfin = s with <|avail_moves_pri:=A;avail_moves:=B;unavail_moves:=C|>`>>
     first_x_assum(qspec_then`sfin` assume_tac)>>
     rw[]>>
     unabbrev_all_tac>>fs[])
@@ -2088,7 +2157,6 @@ val spill_graph = prove(``
   qpat_abbrev_tac`sopt = s with spill_worklist :=A`>>
   rest_tac)
 
-
 val rest_tac2 = 
     first_x_assum(qspec_then`sopt`mp_tac)>>
     unabbrev_all_tac>>fs[]>>
@@ -2135,7 +2203,7 @@ val foreach_graph_extend = prove(``
 
 val split_avail_filter = prove(``
   ∀ls acc B C.
-  split_avail (is_valid_move G A) Q ls acc = (SOME (x,y),B,C)
+  split_avail (is_valid_move G A) Q ls acc = (SOME (p,x,y),B,C)
   ⇒ 
   ¬ lookup_g x y G``,
   Induct>>
@@ -2153,6 +2221,47 @@ val unspill_lem = GEN_ALL (prove(``
   qpat_abbrev_tac`sopt = s`>>
   rest_tac))
 
+val do_coalesce_lem = prove(``
+  undir_graph s.graph ∧ 
+  is_subgraph_edges G s.graph ∧
+  ¬lookup_g q r s.graph ∧  
+  do_coalesce (q,r) s = ((),s') ⇒ 
+  undir_graph s'.graph ∧ 
+  is_subgraph_edges G s'.graph ∧ 
+  s'.clock = s.clock``,
+  fsm[do_coalesce_def,add_coalesce_def,get_edges_def,get_degs_def
+     ,get_colors_def]>>
+  EVERY_CASE_TAC>>fs[]>>
+  TRY(rw[]>>fs[]>>NO_TAC)>>
+  fsm[LET_THM]>>
+  qpat_abbrev_tac `ls = FILTER P (MAP FST (toAList x'))`>>
+  qpat_abbrev_tac `sopt = (s with coalesced:= A)`>>
+  strip_tac>>
+  Q.ISPECL_THEN [`x`,`q`,`ls`,`sopt`] mp_tac (GEN_ALL foreach_graph_extend)>>
+  discharge_hyps>-
+   (unabbrev_all_tac>>fs[MEM_FILTER]>>
+   DISJ2_TAC>>
+   fs[lookup_g_def,undir_graph_def]>>FULL_CASE_TAC>>
+   CCONTR_TAC>>fs[]>>
+   `lookup q x' = SOME ()` by 
+     (fs[MEM_MAP]>>Cases_on`y`>>fs[MEM_toAList])>>
+   first_x_assum(qspec_then`r` assume_tac)>>rfs[domain_lookup]>>
+   first_x_assum(qspec_then`q` assume_tac)>>rfs[])
+  >>
+  rw[]>>fsm[Abbr`sopt`]>>
+  metis_tac[is_subgraph_edges_trans])
+
+val respill_lem = prove(``
+  ∀s v r. respill v s = ((),r) ⇒ 
+  r.graph = s.graph ∧ r.clock = s.clock``,
+  rw[respill_def]>>
+  fsm[get_colors_def,get_deg_def,get_freeze_worklist_def
+     ,add_spill_worklist_def,set_freeze_worklist_def]>>
+  EVERY_CASE_TAC>>fs[]>>
+  Cases_on`MEM v s.freeze_worklist`>>fs[]>>
+  qpat_assum`A=r` (SUBST_ALL_TAC o SYM)>>
+  fs[])
+ 
 val coalesce_graph = prove(``
 ∀s G s' opt.
     undir_graph s.graph ∧
@@ -2161,54 +2270,33 @@ val coalesce_graph = prove(``
     undir_graph s'.graph ∧ 
     is_subgraph_edges G s'.graph ∧ 
     s'.clock = s.clock``,
-  rw[]>>
-  fsm[coalesce_def,get_avail_moves_def,get_graph_def,get_colors_def,get_degs_def,get_move_rel_def]>>
+  ntac 5 strip_tac>>
+  fsm[coalesce_def,get_avail_moves_pri_def,get_avail_moves_def,get_graph_def,get_colors_def,get_degs_def,get_move_rel_def]>>
   EVERY_CASE_TAC>>
-  fsm[set_avail_moves_def,add_unavail_moves_def,do_coalesce_def,add_coalesce_def,get_edges_def
-     ,get_degs_def,get_colors_def]>>
-  EVERY_CASE_TAC>>
-  fsm[get_unavail_moves_def,LET_THM,set_unavail_moves_def
-     ,respill_def]>>
-  rw[]>>
+  fsm[set_avail_moves_pri_def,set_avail_moves_def,add_unavail_moves_def]>>
+  EVERY_CASE_TAC>>fs[]>>
+  EVERY_CASE_TAC>>fs[]>>
+  EVERY_CASE_TAC>>fs[]>-
+    (rw[]>>fs[])>>
   pop_assum mp_tac>>
-  qpat_abbrev_tac`sopt = s with <|coalesced:=A;avail_moves:=B;unavail_moves:=C|>`>>
-  Cases_on`unspill sopt`>>
-  `r.graph = sopt.graph ∧ r.clock = sopt.clock` by
-    metis_tac[unspill_lem]>>
-  `r.graph = s.graph ∧ r.clock = s.clock` by (unabbrev_all_tac>>fs[])>>
-  fsm[get_colors_def,get_deg_def,get_freeze_worklist_def
-     ,add_spill_worklist_def,set_freeze_worklist_def]>>
-  EVERY_CASE_TAC>>
-  rw[]>>
-  fsm[]>>
-  pop_assum mp_tac>>
-  qpat_abbrev_tac `ls = FILTER P (MAP FST (toAList x'))`>>
-  Q.ISPECL_THEN [`x`,`q`,`ls`,`sopt`] mp_tac (GEN_ALL foreach_graph_extend)>>
-  (discharge_hyps>-
-   (unabbrev_all_tac>>fs[MEM_FILTER]>>
-   imp_res_tac split_avail_filter>>
-   DISJ2_TAC>>
-   fs[lookup_g_def,undir_graph_def]>>FULL_CASE_TAC>>
-   CCONTR_TAC>>fs[]>>
-   `lookup q x' = SOME ()` by 
-     (fs[MEM_MAP]>>Cases_on`y`>>fs[MEM_toAList])>>
-   first_x_assum(qspec_then`r'` assume_tac)>>rfs[domain_lookup]>>
-   first_x_assum(qspec_then`q` assume_tac)>>rfs[]))>>
-  rw[]>>fsm[]>>
-  qpat_assum`A=((),s''')` SUBST_ALL_TAC>>
-  fs[]>>
-  pop_assum mp_tac>>
-  qpat_abbrev_tac`sopt' = s'' with <|avail_moves:=B;unavail_moves:=C|>`>>
-  Cases_on`unspill sopt'`>>
-  `r'''.graph = sopt'.graph ∧ r'''.clock = sopt'.clock` by
-    metis_tac[unspill_lem]>>
-  `r'''.graph = s''.graph ∧ r'''.clock = s''.clock` by (unabbrev_all_tac>>fs[])>>
-  rw[]>>fsm[]>>
-  EVERY_CASE_TAC>>rw[]>>fsm[]>>
-  EVERY_CASE_TAC>>rw[]>>fsm[]>>
-  qpat_assum`A=s'` (SUBST_ALL_TAC o SYM)>>fs[]>>
-  unabbrev_all_tac>>fsm[]>>
-  metis_tac[is_subgraph_edges_trans])
+  TRY(qpat_abbrev_tac`s' = s with <|avail_moves_pri:=B;avail_moves:=C;unavail_moves:=D|>`>>Cases_on`do_coalesce (q''',r''') s''`)>>
+  TRY(qpat_abbrev_tac`s' = s with <|avail_moves_pri:=B;unavail_moves:=D|>`>>
+  Cases_on`do_coalesce (q'',r'') s''`)>>
+  fsm[get_unavail_moves_def,LET_THM,set_unavail_moves_def]>>
+  qpat_abbrev_tac`sopt = r with <|avail_moves_pri:=B;avail_moves:=C;unavail_moves:=D|>`>>
+  Cases_on`unspill sopt`>>fs[]>>
+  TRY(Cases_on`respill q''' r''''`)>>
+  TRY(Cases_on`respill q'' r'''`)>>
+  strip_tac>>fs[]>>
+  `s''.graph = s.graph ∧ s''.clock = s.clock` by fs[Abbr`s''`]>>
+  `undir_graph s''.graph ∧ is_subgraph_edges G s''.graph` by fs[]>>
+  imp_res_tac split_avail_filter>>
+  qpat_assum`A = s.graph` (SUBST_ALL_TAC o SYM)>>
+  imp_res_tac do_coalesce_lem>>
+  imp_res_tac respill_lem>> 
+  imp_res_tac unspill_lem>>
+  unabbrev_all_tac>>fs[]>>
+  rfs[])
   
 val do_step_graph_lemma = prove(``
   ∀s G s'.

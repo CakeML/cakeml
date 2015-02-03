@@ -59,7 +59,7 @@ val get_live_exp_def = tDefine "get_live_exp" `
 val get_live_def = Define`
   (get_live Skip live = live) ∧
   (*All SNDs are read and all FSTs are written*)
-  (get_live (Move ls) live =
+  (get_live (Move pri ls) live =
     let killed = FOLDR delete live (MAP FST ls) in
       numset_list_insert (MAP SND ls) killed) ∧
   (get_live (Inst i) live = get_live_inst i live) ∧
@@ -113,7 +113,7 @@ val get_live_def = Define`
 
 (*Single step immediate writes by a prog*)
 val get_writes_def = Define`
-  (get_writes (Move ls) = numset_list_insert (MAP FST ls) LN)∧
+  (get_writes (Move pri ls) = numset_list_insert (MAP FST ls) LN)∧
   (get_writes (Inst i) = get_writes_inst i) ∧
   (get_writes (Assign num exp) = insert num () LN)∧
   (get_writes (Get num store) = insert num () LN) ∧
@@ -962,12 +962,12 @@ val wEval_apply_color = store_thm("wEval_apply_color",
     `LENGTH l = LENGTH x` by
       metis_tac[LENGTH_MAP,get_vars_length_lemma]>>
     fs[lookup_list_insert]>>
-    Cases_on`ALOOKUP (ZIP (MAP FST l,x)) n`>>fs[]
+    Cases_on`ALOOKUP (ZIP (MAP FST l,x)) n'`>>fs[]
     >-
     (*NONE:
       Therefore n is not in l but it is in live and so it is not deleted
      *)
-      (`n ∈ domain (FOLDR delete live (MAP FST l))` by
+      (`n' ∈ domain (FOLDR delete live (MAP FST l))` by
         (fs[domain_FOLDR_delete]>>
         fs[ALOOKUP_NONE]>>rfs[MAP_ZIP])>>
       EVERY_CASE_TAC>>fs[]>>
@@ -976,9 +976,9 @@ val wEval_apply_color = store_thm("wEval_apply_color",
       fs[MEM_ZIP]>>strip_tac>>
       rfs[EL_MAP,ALOOKUP_NONE]>>
       rfs[MAP_ZIP]>>
-      `n = FST (EL n' l)` by
+      `n' = FST (EL n'' l)` by
         (FULL_SIMP_TAC bool_ss [INJ_DEF]>>
-        first_assum(qspecl_then[`n`,`FST (EL n' l)`] mp_tac)>>
+        first_assum(qspecl_then[`n'`,`FST (EL n'' l)`] mp_tac)>>
         discharge_hyps>-
           (rw[]>>DISJ1_TAC>>
           metis_tac[MEM_MAP,MEM_EL])>>
@@ -986,7 +986,7 @@ val wEval_apply_color = store_thm("wEval_apply_color",
       metis_tac[MEM_EL,MEM_MAP])
     >>
       imp_res_tac ALOOKUP_MEM>>
-      `ALOOKUP (ZIP (MAP (f o FST) l ,x)) (f n) = SOME v'` by
+      `ALOOKUP (ZIP (MAP (f o FST) l ,x)) (f n') = SOME v'` by
         (match_mp_tac ALOOKUP_ALL_DISTINCT_MEM>>
         pop_assum mp_tac>>
         fs[MAP_ZIP,MEM_ZIP,LENGTH_MAP]>>strip_tac>>fs[]>>

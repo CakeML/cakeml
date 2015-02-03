@@ -33,7 +33,7 @@ val _ = Datatype `
 
 val _ = Datatype `
   word_prog = Skip
-            | Move ((num # num) list)
+            | Move num ((num # num) list)
             | Inst ('a inst)
             | Assign num ('a word_exp)
             | Get num store_name
@@ -445,7 +445,7 @@ val wEval_def = tDefine "wEval" `
      case get_var n s of
      | SOME (Word w) => wAlloc w names s
      | _ => (SOME Error,s)) /\
-  (wEval (Move moves,s) =
+  (wEval (Move pri moves,s) =
      if ALL_DISTINCT (MAP FST moves) then
        case get_vars (MAP SND moves) s of
        | NONE => (SOME Error,s)

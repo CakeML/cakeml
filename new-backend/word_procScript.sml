@@ -44,12 +44,13 @@ val convention_partitions = store_thm("convention_partitions",``
 
 (*Preference edges*)
 (*Create a list of preferences from input program
-  Some of these will be invalid preferences (e.g. 0<-2) 
+  Some of these will be invalid preferences (e.g. 0<-2)
+  The priority is added to the front of each Move pair
   TODO: Check if we should support things like Assign Var Var -- Should be just compiled to Move when eliminating expressions
 *)
 
 val get_prefs_def = Define`
-  (get_prefs (Move ls) acc = ls ++ acc) ∧ 
+  (get_prefs (Move pri ls) acc = (MAP (λx,y. (pri,x,y)) ls) ++ acc) ∧ 
   (get_prefs (Seq s1 s2) acc =
     get_prefs s1 (get_prefs s2 acc)) ∧
   (get_prefs (If e1 num e2 e3) acc =
@@ -99,8 +100,8 @@ val apply_numset_key_def = Define `
 (*Color a prog*)
 val apply_color_def = Define `
   (apply_color f Skip = Skip) ∧
-  (apply_color f (Move ls) =
-    Move (ZIP (MAP (f o FST) ls, MAP (f o SND) ls))) ∧ 
+  (apply_color f (Move pri ls) =
+    Move pri (ZIP (MAP (f o FST) ls, MAP (f o SND) ls))) ∧ 
   (apply_color f (Inst i) = Inst (apply_color_inst f i)) ∧
   (apply_color f (Assign num exp) = Assign (f num) (apply_color_exp f exp)) ∧
   (apply_color f (Get num store) = Get (f num) store) ∧  
@@ -155,7 +156,7 @@ val every_var_inst_def = Define`
 
 val every_var_def = Define `
   (every_var P Skip = T) ∧
-  (every_var P (Move ls) = (EVERY P (MAP FST ls) ∧ EVERY P (MAP SND ls))) ∧ 
+  (every_var P (Move pri ls) = (EVERY P (MAP FST ls) ∧ EVERY P (MAP SND ls))) ∧ 
   (every_var P (Inst i) = every_var_inst P i) ∧ 
   (every_var P (Assign num exp) = (P num ∧ every_var_exp P exp)) ∧ 
   (every_var P (Get num store) = P num) ∧ 
@@ -184,7 +185,6 @@ val every_var_def = Define `
   (every_var P Tick = T) ∧
   (every_var P (Set n exp) = every_var_exp P exp) ∧ 
   (every_var P p = T)`
-
 
 (*Recursor for stack variables*)
 val every_stack_var_def = Define `
@@ -1166,7 +1166,7 @@ e.g. (1,0) (5,2) (9,4)... *)
 val move_locals_def = Define`
   move_locals f n =
     let names = even_list n in
-      Move ((MAP \n. f n,n) names)`
+      Move 0 ((MAP \n. f n,n) names)`
 
 (*
 EVAL ``move_locals (\x.2*x+1) 10``

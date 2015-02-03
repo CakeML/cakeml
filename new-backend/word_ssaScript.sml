@@ -1019,6 +1019,173 @@ val ssa_locals_rel_ignore_list_insert = prove(``
     metis_tac[EVERY_EL])>>
   fs[])
 
+val is_alloc_var_add = prove(``
+  is_alloc_var na ⇒ is_alloc_var (na+4)``,
+  fs[is_alloc_var_def]>>
+  (qspec_then `4` assume_tac arithmeticTheory.MOD_PLUS>>fs[]>>
+    pop_assum (qspecl_then [`na`,`4`] assume_tac)>>
+    rfs[]))
+
+val is_stack_var_add= prove(``
+  is_stack_var na ⇒ is_stack_var (na+4)``,
+  fs[is_stack_var_def]>>
+  (qspec_then `4` assume_tac arithmeticTheory.MOD_PLUS>>fs[]>>
+    pop_assum (qspecl_then [`na`,`4`] assume_tac)>>
+    rfs[]))
+
+val is_alloc_var_flip = prove(``
+  is_alloc_var na ⇒ is_stack_var (na+2)``,
+  fs[is_alloc_var_def,is_stack_var_def]>>
+  (qspec_then `4` assume_tac arithmeticTheory.MOD_PLUS>>fs[]>>
+    pop_assum (qspecl_then [`na`,`2`] assume_tac)>>
+    rw[]>>fs[]))
+
+val is_stack_var_flip = prove(``
+  is_stack_var na ⇒ is_alloc_var (na+2)``,
+  fs[is_alloc_var_def,is_stack_var_def]>>
+  (qspec_then `4` assume_tac arithmeticTheory.MOD_PLUS>>fs[]>>
+    pop_assum (qspecl_then [`na`,`2`] assume_tac)>>
+    rw[]>>fs[]))
+
+val list_next_var_rename_props = prove(``
+  ∀ls ssa na ls' ssa' na'.
+  (is_alloc_var na ∨ is_stack_var na) ∧ 
+  ssa_map_ok na ssa ∧ 
+  list_next_var_rename ls ssa na = (ls',ssa',na')
+  ⇒
+  na ≤ na' ∧  
+  (is_alloc_var na ⇒ is_alloc_var na') ∧
+  (is_stack_var na ⇒ is_stack_var na') ∧ 
+  ssa_map_ok na' ssa'``,
+  Induct>>fs[list_next_var_rename_def,next_var_rename_def]>>
+  LET_ELIM_TAC>>
+  first_x_assum(qspecl_then[`ssa''`,`na''`,`ys`,`ssa'''`,`na'''`] 
+    mp_tac)>>
+  (discharge_hyps>-
+    (fs[ssa_map_ok_def]>>rw[]
+    >-
+      metis_tac[is_alloc_var_add,is_stack_var_add]
+    >-
+      (fs[lookup_insert]>>Cases_on`x=h`>>fs[]>>
+      metis_tac[convention_partitions])
+    >-
+      (fs[lookup_insert]>>Cases_on`x=h`>>fs[]>>
+      res_tac>>DECIDE_TAC)
+    >>
+      fs[lookup_insert]>>Cases_on`x=h`>>Cases_on`z=h`>>fs[]
+      >-
+        (SPOSE_NOT_THEN assume_tac>>res_tac>>fs[])
+      >>
+        res_tac>>DECIDE_TAC))>>
+  rw[]>> TRY(DECIDE_TAC)>> fs[]>>
+  metis_tac[is_alloc_var_add,is_stack_var_add])
+
+val ssa_cc_trans_inst_props = prove(``
+  ∀i ssa na i' ssa' na'.
+  ssa_cc_trans_inst i ssa na = (i',ssa',na') ∧ 
+  ssa_map_ok na ssa ∧ 
+  is_alloc_var na
+  ⇒
+  na ≤ na' ∧
+  is_alloc_var na' ∧
+  ssa_map_ok na' ssa'``,
+  Induct>>rw[]>>
+  TRY(Cases_on`a`)>>
+  TRY(Cases_on`r`)>>
+  TRY(Cases_on`m`)>>
+  fs[ssa_cc_trans_inst_def,next_var_rename_def]>>rw[]>>
+  fs[LET_THM]>>
+  TRY(DECIDE_TAC)>>
+  metis_tac[ssa_map_ok_extend,convention_partitions,is_alloc_var_add])
+   
+val exp_tac = (LET_ELIM_TAC>>fs[next_var_rename_def]>>
+    TRY(DECIDE_TAC)>>
+    metis_tac[ssa_map_ok_extend,convention_partitions,is_alloc_var_add])
+
+(*Prove the properties that hold of ssa_cc_trans independent of semantics*)
+val ssa_cc_trans_props = prove(``
+  ∀prog ssa na prog' ssa' na'.
+  ssa_cc_trans prog ssa na = (prog',ssa',na') ∧ 
+  ssa_map_ok na ssa ∧ 
+  is_alloc_var na
+  ⇒
+  na ≤ na' ∧
+  is_alloc_var na' ∧
+  ssa_map_ok na' ssa'``,
+  ho_match_mp_tac (fetch "-" "ssa_cc_trans_ind")>>
+  fs[ssa_cc_trans_def]>>
+  strip_tac >-
+    (LET_ELIM_TAC>>
+    fs[]>>
+    metis_tac[list_next_var_rename_props])>>
+  strip_tac >-
+    (LET_ELIM_TAC>>
+    fs[]>>
+    metis_tac[ssa_cc_trans_inst_props])>>
+  strip_tac >-
+    exp_tac>>
+  strip_tac >-
+    exp_tac>>
+  strip_tac >-
+    exp_tac>>
+  strip_tac >-
+    (LET_ELIM_TAC>>fs[]>>
+    DECIDE_TAC)>>
+  strip_tac >-
+    (LET_ELIM_TAC>>fs[]>>
+    cheat)>>
+  strip_tac >-
+    (fs[list_next_var_rename_move_def]>>LET_ELIM_TAC>>fs[]>>
+    `na ≤ na+2 ∧ na'' ≤ na''+2` by DECIDE_TAC>>
+    imp_res_tac is_alloc_var_flip>>
+    imp_res_tac ssa_map_ok_more>>
+    imp_res_tac list_next_var_rename_props>>
+    imp_res_tac is_stack_var_flip>>
+    imp_res_tac list_next_var_rename_props>>
+    fs[]>>
+    (*metis is refusing to solve this for some reason*)
+    
+    metis_tac[is_alloc_var_flip,is_stack_var_flip,ssa_map_ok_more,
+      list_next_var_rename_props,arithmeticTheory.LESS_EQ_TRANS]
+    rfs[])
+    cheat>>
+  strip_tac >-
+    exp_tac>>
+  strip_tac >-
+    exp_tac>>
+  strip_tac >-
+    exp_tac>>
+  strip_tac >-
+    (LET_ELIM_TAC>>fs[]>>
+    rfs[])
+    cheat>>
+  cheat)
+
+    (LET_ELIM_TAC>>fs[next_var_rename_def]>>
+    TRY(DECIDE_TAC)>>
+    metis_tac[ssa_map_ok_extend,convention_partitions,is_alloc_var_add])>>
+  strip_tac >-
+    
+    cheat>>
+  strip_tac
+  >-
+    LET_ELIM_TAC>>
+    fs[next_var_rename_def]>>
+    DECIDE_TAC
+    cheat>>   
+    
+    metis_tac[list_next_var_rename_props]
+    fs[LET_THM]>>
+    DECIDE_TAC>>
+
+    rw[]
+    fs[ssa_cc_t
+    rw[]>>
+  >-
+    Cases_on`list_next_stack_rename (MAP FST ls) 
+    metis_tac[list_next_var_rename_lemma_1]
+  rw[]>>
+
 val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
 ``∀prog st cst ssa na ns.
   word_state_eq_rel st cst ∧
