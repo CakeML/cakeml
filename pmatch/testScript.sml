@@ -261,29 +261,40 @@ end
 
 val lookup_cons_pat = ``lookup_cons n env = x``
 val prove_EvalPatRel_fail = ref T;
+val goal = !prove_EvalPatRel_fail;
 
 fun prove_EvalPatRel goal = let
   val asms =
     goal |> rand |> dest_pabs |> snd |> hol2deep |> hyp
          |> filter (can (match_term lookup_cons_pat))
+  val pat = ``~(x = y:'a)``
+  fun tac (hs,gg) = let
+    val find_neg = find_term (can (match_term pat))
+    val tm = find_neg (first (can find_neg) hs)
+    in (Cases_on `^(tm |> rand |> rand)` \\ fs []) (hs,gg) end
   (*
     set_goal(asms,goal)
   *)
   val th = TAC_PROOF((asms,goal),
     PairCases_on `env` >>
-    simp[EvalPatRel_def,Once evaluate_cases] >>
+    simp[EvalPatRel_def,EXISTS_PROD] >>
+    SRW_TAC [] [] \\ fs [] >>
+    POP_ASSUM MP_TAC >>
+    REPEAT tac
+    \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL)
+    \\ REPEAT STRIP_TAC \\ fs [] >>
+    fs[Once evaluate_cases] >>
     fs[lookup_cons_def] >>
-    Cases >> simp[LIST_TYPE_def,pmatch_def,same_tid_def,
-                  same_ctor_def,id_to_n_def,EXISTS_PROD] >- (
-      simp[Once evaluate_cases] \\ EVAL_TAC) >>
-    simp[PULL_EXISTS,pmatch_def,same_tid_def,
-         same_ctor_def,id_to_n_def,EXISTS_PROD] >>
-    simp[Once evaluate_cases] >>
-    REPEAT STRIP_TAC \\ EVAL_TAC)
+    simp[LIST_TYPE_def,pmatch_def,same_tid_def,
+         same_ctor_def,id_to_n_def,EXISTS_PROD,
+         pat_bindings_def] >>
+    fs[Once evaluate_cases])
   in th end handle HOL_ERR e =>
-  (prove_EvalPatRel_fail := goal; raise (HOL_ERR e));
+  (prove_EvalPatRel_fail := goal;
+   failwith "prove_EvalPatRel failed");
 
 val prove_EvalPatBind_fail = ref T;
+val goal = !prove_EvalPatBind_fail;
 
 fun prove_EvalPatBind goal = let
   val (vars,rhs_tm) = repeat (snd o dest_forall) goal
@@ -314,7 +325,8 @@ fun prove_EvalPatBind goal = let
     \\ SRW_TAC [] [Eval_Var_SIMP]
     \\ EVAL_TAC)
   in th end handle HOL_ERR e =>
-  (prove_EvalPatBind_fail := goal; raise (HOL_ERR e));
+  (prove_EvalPatBind_fail := goal;
+   failwith "prove_EvalPatBind failed");
 
 fun to_pattern tm =
   if can(match_term``Var(Short x)``)tm then
@@ -376,11 +388,11 @@ fun pmatch2deep tm = let
     in th end
   in trans ts end
 
-val tm = ``case f x of (y::ys) => y + (3:num) | _ => 5``
+val tm = ``case f x of (t::y::ys) => t + y + (3:num) | _ => 5``
 val pth = (PMATCH_INTRO_CONV THENC PMATCH_SIMP_CONV
            THENC PMATCH_ROW_K_T_INTRO_CONV) tm
 val tm = rhs(concl pth)
 
-val example = save_thm("example",pmatch2deep tm)
+val example = save_thm("example", pmatch2deep tm)
 
 val _ = export_theory()
