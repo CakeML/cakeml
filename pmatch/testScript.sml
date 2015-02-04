@@ -151,20 +151,20 @@ val pmatch_PMATCH_ROW_COND_Match = store_thm("pmatch_PMATCH_ROW_COND_Match",
   PROVE_TAC[])
 
 val Eval_PMATCH_NIL = store_thm("Eval_PMATCH_NIL",
-  ``CONTAINER F ⇒
+  ``Eval env x (a xv) ==>
+    CONTAINER F ==>
     Eval env (Mat x []) (b (PMATCH xv []))``,
   rw[CONTAINER_def])
 
 val Eval_PMATCH = store_thm("Eval_PMATCH",
   ``ALL_DISTINCT (pat_bindings p []) ⇒
     (∀v1 v2. pat v1 = pat v2 ⇒ v1 = v2) ⇒
-    (p0 ⇒ Eval env x (a xv)) ⇒
+    Eval env x (a xv) ⇒
     (p1 xv ⇒ Eval env (Mat x ys) (b (PMATCH xv yrs))) ⇒
     EvalPatRel env a p pat ⇒
     (∀env2 vars.
       EvalPatBind env a p pat vars env2 ∧ p2 vars ⇒
       Eval env2 e (b (res vars))) ⇒
-    p0 ==>
     (∀vars. PMATCH_ROW_COND pat (K T) xv vars ⇒ p2 vars) ∧
     ((∀vars. ¬PMATCH_ROW_COND pat (K T) xv vars) ⇒ p1 xv) ⇒
     Eval env (Mat x ((p,e)::ys)) (b (PMATCH xv ((PMATCH_ROW pat (K T) res)::yrs)))``,
@@ -345,6 +345,7 @@ fun to_pattern tm =
 
 fun pmatch2deep tm = let
   val (x,ts) = dest_pmatch_K_T tm
+  val v = genvar (type_of x)
   val x_res = hol2deep x |> D
   val x_type = type_of x
   val x_inv = get_type_inv x_type
@@ -354,17 +355,20 @@ fun pmatch2deep tm = let
   val nil_lemma = Eval_PMATCH_NIL
                   |> Q.GEN `b` |> ISPEC pmatch_inv
                   |> Q.GEN `x` |> ISPEC x_exp
-                  |> Q.GEN `xv` |> ISPEC x
-                  |> D
+                  |> Q.GEN `xv` |> ISPEC v
+                  |> Q.GEN `a` |> ISPEC x_inv
   val cons_lemma = Eval_PMATCH
                    |> Q.GEN `b` |> ISPEC pmatch_inv
                    |> Q.GEN `a` |> ISPEC x_inv
+                   |> Q.GEN `x` |> ISPEC x_exp
+                   |> Q.GEN `xv` |> ISPEC v
   fun prove_hyp conv th =
     MP (CONV_RULE ((RATOR_CONV o RAND_CONV) conv) th) TRUTH
+  val assm = nil_lemma |> concl |> dest_imp |> fst
   fun trans [] = nil_lemma
     | trans ((pat,rhs_tm)::xs) = let
     (*
-    val ((pat,rhs_tm)::xs) = ts
+    val ((pat,rhs_tm)::xs) = tl (tl ts)
     *)
     val th = trans xs
     val p = pat |> dest_pabs |> snd |> hol2deep
@@ -373,20 +377,26 @@ fun pmatch2deep tm = let
     val lemma = prove_hyp EVAL lemma
     val lemma = lemma |> Q.GEN `pat` |> ISPEC pat
     val lemma = prove_hyp (SIMP_CONV (srw_ss()) [FORALL_PROD]) lemma
-    val lemma = MATCH_MP lemma x_res
-    val th = D th |> CONV_RULE ((RATOR_CONV o RAND_CONV) (UNBETA_CONV x))
+    val lemma = UNDISCH lemma
+    val th = UNDISCH th
+             |> CONV_RULE ((RATOR_CONV o RAND_CONV) (UNBETA_CONV v))
     val th = MATCH_MP lemma th
+    val th = remove_primes th
     val goal = fst (dest_imp (concl th))
     val th = MP th (prove_EvalPatRel goal)
+    val th = remove_primes th
     val th = th |> Q.GEN `res` |> ISPEC rhs_tm
     val goal = fst (dest_imp (concl th))
     val th = MATCH_MP th (prove_EvalPatBind goal)
-    val th = UNDISCH th
+    val th = remove_primes th
     val th = CONV_RULE ((RATOR_CONV o RAND_CONV)
           (SIMP_CONV std_ss [FORALL_PROD,PMATCH_ROW_COND_def])) th
-    val th = UNDISCH_ALL th
+    val th = DISCH assm th
     in th end
-  in trans ts end
+  val th = trans ts
+  val th = MATCH_MP th (UNDISCH x_res)
+  val th = UNDISCH_ALL th
+  in th end
 
 val tm = ``case f x of (t::y::ys) => t + y + (3:num) | _ => 5``
 val pth = (PMATCH_INTRO_CONV THENC PMATCH_SIMP_CONV
