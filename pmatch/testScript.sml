@@ -293,6 +293,8 @@ fun prove_EvalPatRel goal = let
   (prove_EvalPatRel_fail := goal;
    failwith "prove_EvalPatRel failed");
 
+val IMP_EQ_T = prove(``a ==> (a <=> T)``,fs [])
+
 val prove_EvalPatBind_fail = ref T;
 val goal = !prove_EvalPatBind_fail;
 
@@ -303,28 +305,38 @@ fun prove_EvalPatBind goal = let
   val res = hol2deep rhs_tm
   val exp = res |> concl |> rator |> rand
   val th = D res
+  val var_assum = ``Eval env (Var n) (a (y:'a))``
+  val is_var_assum = can (match_term var_assum)
+  val vs = find_terms is_var_assum (concl th |> rator)
+  fun delete_var tm =
+    if mem tm vs then MATCH_MP IMP_EQ_T (ASSUME tm) else NO_CONV tm
+  val th = CONV_RULE (RATOR_CONV (DEPTH_CONV delete_var)) th
   val th = CONV_RULE ((RATOR_CONV o RAND_CONV)
               (PairRules.UNPBETA_CONV vars)) th
   val p = th |> concl |> dest_imp |> fst |> rator
   val p2 = goal |> dest_forall |> snd |> dest_forall |> snd
                 |> dest_imp |> fst |> rand |> rator
+  val ws = free_vars vars
+  val vs = filter (fn tm => not (mem (rand (rand tm)) ws)) vs
   val new_goal = goal |> subst [``e:exp``|->exp,p2 |-> p]
+  val new_goal = foldr mk_imp new_goal vs
   (*
     set_goal([],new_goal)
   *)
   val th = TAC_PROOF (([],new_goal),
-    STRIP_TAC
+    NTAC (length vs) STRIP_TAC \\ STRIP_TAC
     \\ fs [FORALL_PROD] \\ REPEAT STRIP_TAC
-    \\ MATCH_MP_TAC (D res)
+    \\ MATCH_MP_TAC (D res) \\ fs []
     \\ fs [EvalPatBind_def,Pmatch_def]
     \\ REPEAT (POP_ASSUM MP_TAC)
+    \\ NTAC (length vs) STRIP_TAC
     \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL)
     \\ STRIP_TAC \\ fs [] \\ rfs []
     \\ fs [Pmatch_def,PMATCH_option_case_rwt]
     \\ SRW_TAC [] [Eval_Var_SIMP]
     \\ SRW_TAC [] [Eval_Var_SIMP]
     \\ EVAL_TAC)
-  in th end handle HOL_ERR e =>
+  in UNDISCH_ALL th end handle HOL_ERR e =>
   (prove_EvalPatBind_fail := goal;
    failwith "prove_EvalPatBind failed");
 
@@ -398,7 +410,7 @@ fun pmatch2deep tm = let
   val th = UNDISCH_ALL th
   in th end
 
-val tm = ``case f x of (t::y::ys) => t + y + (3:num) | _ => 5``
+val tm = ``case f x of (t::y::ys) => t + y + (3:num) + k | _ => 5``
 val pth = (PMATCH_INTRO_CONV THENC PMATCH_SIMP_CONV
            THENC PMATCH_ROW_K_T_INTRO_CONV) tm
 val tm = rhs(concl pth)
