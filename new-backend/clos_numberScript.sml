@@ -545,7 +545,25 @@ val dest_closure_val_rel_full = Q.prove (
  rw [] >>
  `k < LENGTH es` by decide_tac >>
  fs [EL_ZIP, EL_MAP] >>
- cheat);
+ `LIST_REL val_rel (GENLIST (Recclosure n0 [] env es) (LENGTH es))
+                   (GENLIST (Recclosure p' [] env' (ZIP (MAP FST es,r))) (LENGTH es))`
+                by (rw [LIST_REL_EL_EQN] >>
+                    rw [val_rel_cases] >>
+                    qexists_tac `n` >>
+                    rw []) >>
+ fs [Once contains_App_SOME_EXISTS] >>
+ fs [EVERY_MAP, EVERY_EL] >>
+ first_x_assum (fn th => first_assum (mp_tac o MATCH_MP th)) >>
+ rw [] >>
+ imp_res_tac renumber_code_locs_list_els >>
+ fs [] >>
+ pop_assum (fn th => first_assum (mp_tac o MATCH_MP th)) >>
+ rw [EL_MAP] >>
+ qexists_tac `m` >>
+ simp [DROP_REVERSE, TAKE_REVERSE] >>
+ `q' - LENGTH argenv' ≤ LENGTH args` by decide_tac >>
+ rw [] >>
+ metis_tac [EVERY2_APPEND, list_rel_lastn, LENGTH_LASTN, LENGTH_GENLIST, EVERY2_LENGTH, list_rel_butlastn]);
 
 val helper = Q.prove (
 `SND ((λ(n',x'). (n',[x'])) x) = [SND x]`,
