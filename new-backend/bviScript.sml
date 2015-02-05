@@ -43,7 +43,7 @@ val _ = Datatype `
           | Let (bvi_exp list) bvi_exp
           | Raise bvi_exp
           | Tick bvi_exp
-          | Call (num option) (bvi_exp list) (bvi_exp option)
+          | Call num (num option) (bvi_exp list) (bvi_exp option)
           | Op bvl_op (bvi_exp list) `
 
 (* --- Semantics of BVI --- *)
@@ -101,7 +101,7 @@ val iEvalOp_def = Define `
                     | SOME (v,t) => SOME (v, bvl_to_bvi t s))`
 
 val dec_clock_def = Define `
-  dec_clock s = s with clock := s.clock - 1`;
+  dec_clock x s = s with clock := s.clock - x`;
 
 (* The evaluation is defined as a clocked functional version of
    a conventional big-step operational semantics. *)
@@ -152,21 +152,21 @@ val iEval_def = tDefine "iEval" `
      | res => res) /\
   (iEval ([Op op xs],env,s) =
      case iEval (xs,env,s) of
-     | (Result vs,s) => (case iEvalOp op vs s of
+     | (Result vs,s) => (case iEvalOp op (REVERSE vs) s of
                           | NONE => (Error,s)
                           | SOME (v,s) => (Result [v],s))
      | res => res) /\
   (iEval ([Tick x],env,s) =
-     if s.clock = 0 then (TimeOut,s) else iEval ([x],env,dec_clock s)) /\
-  (iEval ([Call dest xs handler],env,s1) =
+     if s.clock = 0 then (TimeOut,s) else iEval ([x],env,dec_clock 1 s)) /\
+  (iEval ([Call ticks dest xs handler],env,s1) =
      if IS_NONE dest /\ IS_SOME handler then (Error,s1) else
      case iEval (xs,env,s1) of
      | (Result vs,s) =>
          (case find_code dest vs s.code of
           | NONE => (Error,s)
           | SOME (args,exp) =>
-              if (s.clock = 0) \/ (s1.clock = 0) then (TimeOut,s) else
-                case iEval ([exp],args,dec_clock (check_clock s s1)) of
+              if (s.clock < ticks + 1) \/ (s1.clock < ticks + 1) then (TimeOut,s with clock := 0) else
+                case iEval ([exp],args,dec_clock (ticks+1) (check_clock s s1)) of
                 | (Exception v,s) =>
                      (case handler of
                       | SOME x => iEval ([x],v::env,check_clock s s1)
@@ -178,7 +178,8 @@ val iEval_def = tDefine "iEval" `
   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
   \\ TRY (MATCH_MP_TAC check_clock_lemma \\ DECIDE_TAC)
   \\ EVAL_TAC \\ Cases_on `s.clock <= s1.clock`
-  \\ FULL_SIMP_TAC (srw_ss()) [] \\ DECIDE_TAC)
+  \\ FULL_SIMP_TAC (srw_ss()) [] 
+  \\ DECIDE_TAC);
 
 (* We prove that the clock never increases. *)
 
@@ -255,14 +256,16 @@ val iEval_ind = save_thm("iEval_ind",let
   val ind = prove(goal,
     STRIP_TAC \\ STRIP_TAC \\ MATCH_MP_TAC raw_ind
     \\ REVERSE (REPEAT STRIP_TAC) \\ ASM_REWRITE_TAC []
-    THEN1 (Q.PAT_ASSUM `!dest xs handler env s1. bb ==> bbb` MATCH_MP_TAC
+    THEN1 (first_x_assum match_mp_tac
            \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC \\ fs []
            \\ SRW_TAC [] [] \\ IMP_RES_TAC iEval_clock
            \\ IMP_RES_TAC iEval_check_clock \\ fs []
-           \\ `s1.clock <> 0` by DECIDE_TAC \\ fs []
-           \\ `check_clock s' s1 = s'` by ALL_TAC \\ fs []
-           \\ fs [check_clock_def] \\ SRW_TAC [] []
-           \\ fs [dec_clock_def] \\ `F` by DECIDE_TAC)
+           \\ fs [check_clock_def, dec_clock_def]
+           \\ rfs []
+           \\ TRY (`s'.clock ≤ s1.clock` by decide_tac)
+           \\ fs []
+           \\ first_x_assum match_mp_tac
+           \\ decide_tac)
     \\ FIRST_X_ASSUM (MATCH_MP_TAC)
     \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC \\ RES_TAC
     \\ REPEAT (Q.PAT_ASSUM `!x.bbb` (K ALL_TAC))
@@ -271,7 +274,7 @@ val iEval_ind = save_thm("iEval_ind",let
   in ind end);
 
 val LESS_EQ_dec_clock = prove(
-  ``r.clock <= (dec_clock s).clock ==> r.clock <= s.clock``,
+  ``r.clock <= (dec_clock x s).clock ==> r.clock <= s.clock``,
   SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC);
 
 val iEval_def = save_thm("iEval_def",let
@@ -291,10 +294,11 @@ val iEval_def = save_thm("iEval_def",let
     \\ SRW_TAC [] []
     \\ fs [check_clock_thm]
     \\ rfs [check_clock_thm]
-    \\ fs [check_clock_thm]
+    \\ fs [check_clock_thm, dec_clock_def]
     \\ IMP_RES_TAC LESS_EQ_TRANS
     \\ REPEAT (Q.PAT_ASSUM `!x. bbb` (K ALL_TAC))
-    \\ fs [check_clock_thm])
+    \\ fs [check_clock_thm]
+    \\ imp_res_tac LESS_EQ_LESS_TRANS)
   in def end);
 
 (* lemmas *)

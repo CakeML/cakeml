@@ -75,11 +75,12 @@ val bComp_def = tDefine "bComp" `
      let (c3,aux3,n3) = bComp n2 [x2] in
      let aux4 = [(n3,LENGTH args,HD c2)] in
      let n4 = n3 + 1 in
-       ([Call (SOME (2 * n3 + 1)) c1 (SOME (HD c3))],
+       ([Call 0 (SOME (2 * n3 + 1)) c1 (SOME (HD c3))],
         aux1++aux2++aux3++aux4, n4)) /\
-  (bComp n [Call dest xs] =
+  (bComp n [Call ticks dest xs] =
      let (c1,aux1,n1) = bComp n xs in
-       ([Call (case dest of
+       ([Call ticks
+              (case dest of
                | NONE => NONE
                | SOME n => SOME (2 * n)) c1 NONE],aux1,n1))`
  (WF_REL_TAC `measure (bvl_exp1_size o SND)`
@@ -151,7 +152,7 @@ val bVarBound_def = tDefine "bVarBound" `
   (bVarBound n [Op op xs] <=> bVarBound n xs) /\
   (bVarBound n [Handle x1 x2] <=>
      bVarBound n [x1] /\ bVarBound (n + 1) [x2]) /\
-  (bVarBound n [Call dest xs] <=> bVarBound n xs)`
+  (bVarBound n [Call ticks dest xs] <=> bVarBound n xs)`
  (WF_REL_TAC `measure (bvl_exp1_size o SND)`
   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
   \\ SRW_TAC [] [bvl_exp_size_def] \\ DECIDE_TAC);
@@ -179,7 +180,7 @@ val bEvery_def = tDefine "bEvery" `
   (bEvery P [Op op xs] <=> P (Op op xs) /\ bEvery P xs) /\
   (bEvery P [Handle x1 x2] <=> P (Handle x1 x2) /\
      bEvery P [x1] /\ bEvery P [x2]) /\
-  (bEvery P [Call dest xs] <=> P (Call dest xs) /\ bEvery P xs)`
+  (bEvery P [Call ticks dest xs] <=> P (Call ticks dest xs) /\ bEvery P xs)`
  (WF_REL_TAC `measure (bvl_exp1_size o SND)`
   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
   \\ SRW_TAC [] [bvl_exp_size_def] \\ DECIDE_TAC);
@@ -223,14 +224,19 @@ val aux_code_installed_APPEND = prove(
   Induct \\ fs [APPEND,aux_code_installed_def,FORALL_PROD] \\ METIS_TAC []);
 
 val dec_clock_inv_clock = prove(
+  ``¬(t1.clock < ticks + 1) ==>
+    (dec_clock (ticks + 1) (inc_clock c t1) = inc_clock c (dec_clock (ticks + 1) t1))``,
+  fs [dec_clock_def,inc_clock_def,bvi_state_explode] \\ DECIDE_TAC);
+
+val dec_clock_inv_clock1 = prove(
   ``t1.clock <> 0 ==>
-    (dec_clock (inc_clock c t1) = inc_clock c (dec_clock t1))``,
+    (dec_clock 1 (inc_clock c t1) = inc_clock c (dec_clock 1 t1))``,
   fs [dec_clock_def,inc_clock_def,bvi_state_explode] \\ DECIDE_TAC);
 
 val iEvalOp_thm = prove(
-  ``case iEvalOp op a s of
-    | NONE => (iEvalOp op a (inc_clock n s) = NONE)
-    | SOME (v,s1) => (iEvalOp op a (inc_clock n s) = SOME (v,inc_clock n s1))``,
+  ``case iEvalOp op (REVERSE a) s of
+    | NONE => (iEvalOp op (REVERSE a) (inc_clock n s) = NONE)
+    | SOME (v,s1) => (iEvalOp op (REVERSE a) (inc_clock n s) = SOME (v,inc_clock n s1))``,
   fs [iEvalOp_def] \\ Cases_on `op` \\ fs [iEvalOpAux_def,bEvalOp_def]
   \\ BasicProvers.EVERY_CASE_TAC
   \\ fs [bvi_to_bvl_def,get_global_def,inc_clock_def,bvl_to_bvi_def,LET_DEF]
@@ -253,12 +259,12 @@ val iEval_inv_clock = prove(
     \\ fs [] \\ Cases_on `res5` \\ fs [] \\ SRW_TAC [] [])
   \\ TRY (Cases_on `s.clock = 0` \\ fs []
     \\ `(inc_clock n s).clock <> 0` by (EVAL_TAC \\ DECIDE_TAC)
-    \\ fs [dec_clock_inv_clock] \\ NO_TAC)
+    \\ fs [dec_clock_inv_clock1] \\ NO_TAC)
   THEN1
    (`?res5 s5. iEval (xs,env,s) = (res5,s5)` by METIS_TAC [PAIR]
     \\ fs [] \\ Cases_on `res5` \\ fs [] \\ SRW_TAC [] []
     \\ MP_TAC (iEvalOp_thm |> Q.INST [`s`|->`s5`])
-    \\ Cases_on `iEvalOp op a s5` \\ fs [] \\ SRW_TAC [] []
+    \\ Cases_on `iEvalOp op (REVERSE a) s5` \\ fs [] \\ SRW_TAC [] []
     \\ Cases_on `x` \\ fs [] \\ SRW_TAC [] [])
   THEN1
    (Cases_on `dest = NONE /\ IS_SOME handler` \\ fs []
@@ -267,12 +273,12 @@ val iEval_inv_clock = prove(
     \\ `(inc_clock n r).code = r.code` by SRW_TAC [] [inc_clock_def] \\ fs []
     \\ Cases_on `find_code dest a r.code` \\ fs [] \\ SRW_TAC [] []
     \\ Cases_on `x` \\ fs []
-    \\ Cases_on `r.clock = 0` \\ fs [] \\ SRW_TAC [] []
+    \\ Cases_on `r.clock < ticks + 1` \\ fs [] \\ SRW_TAC [] []
     \\ IMP_RES_TAC dec_clock_inv_clock
     \\ POP_ASSUM (ASSUME_TAC o GSYM)
-    \\ Cases_on `iEval ([r'],q,dec_clock r)` \\ fs []
+    \\ Cases_on `iEval ([r'],q,dec_clock (ticks + 1) r)` \\ fs []
     \\ Cases_on `q'` \\ fs [] \\ SRW_TAC [] []
-    \\ RES_TAC \\ TRY (fs [inc_clock_def] \\ NO_TAC)
+    \\ RES_TAC \\ TRY (fs [inc_clock_def] \\ decide_tac)
     \\ Cases_on `handler` \\ fs []));
 
 val inc_clock_ADD = prove(
@@ -343,8 +349,8 @@ val bvl_state_ok_def = Define `
         | _ => T`;
 
 val bEval_ok_lemma = prove(
-  ``(bvl_state_ok (dec_clock s) = bvl_state_ok s) /\
-    ((dec_clock s).refs = s.refs)``,
+  ``(bvl_state_ok (dec_clock n s) = bvl_state_ok s) /\
+    ((dec_clock n s).refs = s.refs)``,
   fs [bvl_state_ok_def,bvlTheory.dec_clock_def]);
 
 val bv_ok_SUBSET_IMP = prove(
@@ -507,8 +513,9 @@ val bEval_ok = prove(
   \\ IMP_RES_TAC bEval_IMP_bv_ok
   \\ IMP_RES_TAC bEvalOp_ok
   \\ REPEAT (Q.PAT_ASSUM `!xx.bb` (K ALL_TAC))
-  \\ IMP_RES_TAC find_code_EVERY_IMP \\ fs []
-  \\ IMP_RES_TAC bEval_IMP_bv_ok \\ fs [bEval_ok_lemma]);
+  \\ IMP_RES_TAC find_code_EVERY_IMP \\ fs [rich_listTheory.EVERY_REVERSE]
+  \\ IMP_RES_TAC bEval_IMP_bv_ok \\ fs [bEval_ok_lemma]
+  \\ fs [bvl_state_ok_def]);
 
 val MEM_EQ_IMP_MAP_EQ = prove(
   ``!xs f g. (MAP f xs = MAP g xs) <=> (!x. MEM x xs ==> (f x = g x))``,
@@ -655,7 +662,7 @@ val iEval_bVarBound = prove(
   \\ REPEAT STRIP_TAC \\ fs []
   \\ Cases_on `find_code (SOME (2 * n3 + 1)) ts s.code` \\ fs []
   \\ Cases_on `x` \\ fs [] \\ Cases_on `s.clock = 0` \\ fs []
-  \\ Cases_on `iEval ([r],q,dec_clock s)` \\ fs []
+  \\ Cases_on `iEval ([r],q,dec_clock 1 s)` \\ fs []
   \\ Cases_on `q'` \\ fs []
   \\ ONCE_REWRITE_TAC [APPEND |> SPEC_ALL |> CONJUNCT2 |> GSYM]
   \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs [ADD1]);
@@ -711,14 +718,14 @@ val bc_equal_adjust = prove(
 
 val bEvalOp_adjust = prove(
   ``bvl_bvi_corr s5 t2 b2 /\ (!i. op <> Const i) /\ (op <> Ref) /\
-    (bEvalOp op a s5 = SOME (q,r)) /\ EVERY (bv_ok s5.refs) a ==>
-    ?t3. (iEvalOp op (MAP (adjust_bv b2) a) t2 =
+    (bEvalOp op (REVERSE a) s5 = SOME (q,r)) /\ EVERY (bv_ok s5.refs) (REVERSE a) ==>
+    ?t3. (iEvalOp op (MAP (adjust_bv b2) (REVERSE a)) t2 =
            SOME (adjust_bv b2 q,t3)) /\
          bvl_bvi_corr r t3 b2``,
   SIMP_TAC std_ss [Once bEvalOp_def,iEvalOp_def,iEvalOpAux_def]
   \\ Cases_on `op` \\ fs []
   THEN1 (* Global *)
-   (Cases_on `a` \\ fs []
+   (Cases_on `REVERSE a` \\ fs []
     \\ Cases_on `get_global n s5.globals` \\ fs []
     \\ Cases_on `x` \\ fs []
     \\ SRW_TAC [] [bEvalOp_def]
@@ -727,10 +734,10 @@ val bEvalOp_adjust = prove(
     \\ fs [bvl_bvi_corr_def]
     \\ fs [get_global_def,EL_MAP,bvl_to_bvi_id])
   THEN1 (* AllocGlobal *)
-   (Cases_on `a` \\ fs [] \\ SRW_TAC [] [bEvalOp_def,adjust_bv_def]
+   (Cases_on `REVERSE a` \\ fs [] \\ SRW_TAC [] [bEvalOp_def,adjust_bv_def]
     \\ fs [bvl_bvi_corr_def,bvi_to_bvl_def,bvl_to_bvi_def,adjust_bv_def])
   THEN1 (* SeqGlobal *)
-   (Cases_on `a` \\ fs [] \\ Cases_on `t` \\ fs []
+   (Cases_on `REVERSE a` \\ fs [] \\ Cases_on `t` \\ fs []
     \\ Cases_on `get_global n s5.globals` \\ fs []
     \\ Cases_on `x` \\ fs []
     \\ SRW_TAC [] [bEvalOp_def]
@@ -771,7 +778,7 @@ val bEvalOp_adjust = prove(
          bEvalOp_def,EL_MAP,bool_to_val_def] \\ SRW_TAC [] [])
   THEN1 (* Equal *)
    (fs [bEvalOp_def]
-    \\ Cases_on `a` \\ fs []
+    \\ Cases_on `REVERSE a` \\ fs []
     \\ Cases_on `t` \\ fs []
     \\ Cases_on `t'` \\ fs []
     \\ REPEAT STRIP_TAC
@@ -779,7 +786,7 @@ val bEvalOp_adjust = prove(
     \\ Cases_on `bc_equal h h'` \\ fs [bvl_to_bvi_id]
     \\ SRW_TAC [] [adjust_bv_def,bvl_to_bvi_id])
   THEN1 (* Deref *)
-   (Cases_on `a` \\ fs []
+   (Cases_on `REVERSE a` \\ fs []
     \\ Cases_on `t` \\ fs []
     \\ Cases_on `h'` \\ fs []
     \\ Cases_on `h` \\ fs []
@@ -795,7 +802,7 @@ val bEvalOp_adjust = prove(
     \\ fs [] \\ Cases_on `i` \\ fs [EL_MAP,bvl_to_bvi_id]
     \\ Cases_on `l` \\ fs [])
   THEN1 (* Update *)
-   (Cases_on `a` \\ fs []
+   (Cases_on `REVERSE a` \\ fs []
     \\ Cases_on `t` \\ fs []
     \\ Cases_on `t'` \\ fs []
     \\ Cases_on `h'` \\ fs []
@@ -835,7 +842,7 @@ val bEvalOp_adjust = prove(
     \\ fs [bvl_bvi_corr_def,bvi_to_bvl_def,bvl_to_bvi_def,adjust_bv_def])
   \\ TRY (* Add, Sub, Mult, Div, Mod, Less *)
    (REPEAT STRIP_TAC
-    \\ Cases_on `a` \\ fs [] \\ Cases_on `t` \\ fs []
+    \\ Cases_on `REVERSE a` \\ fs [] \\ Cases_on `t` \\ fs []
     \\ Cases_on `h'` \\ fs [] \\ Cases_on `h` \\ fs []
     \\ Cases_on `t'` \\ fs [] \\ SRW_TAC [] []
     \\ fs [bEvalOp_def,adjust_bv_def,bvl_to_bvi_id]
@@ -849,7 +856,7 @@ val INJ_EXTEND = prove(
 val NUM_NOT_IN_FDOM =
   MATCH_MP IN_INFINITE_NOT_FINITE (CONJ INFINITE_NUM_UNIV
     (Q.ISPEC `f:num|->'a` FDOM_FINITE))
-  |> SIMP_RULE std_ss [IN_UNIV]
+  |> SIMP_RULE std_ss [IN_UNIV];
 
 val bComp_correct = prove(
   ``!xs env s1 n res s2 t1 n2 ys aux b1.
@@ -1069,7 +1076,7 @@ val bComp_correct = prove(
       \\ SIMP_TAC std_ss [Once inc_clock_def] \\ fs []
       \\ SIMP_TAC std_ss [Once inc_clock_def] \\ fs []
       \\ Q.LIST_EXISTS_TAC [`t2`,`b2`,`c + 1`] \\ fs []
-      \\ `dec_clock (inc_clock (c + 1) t1) = inc_clock c t1` by
+      \\ `dec_clock 1 (inc_clock (c + 1) t1) = inc_clock c t1` by
         (EVAL_TAC \\ fs [bvi_state_explode] \\ DECIDE_TAC) \\ fs [])
     THEN1 (* Excpetion case *)
      (SRW_TAC [] [] \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `n`)
@@ -1106,7 +1113,7 @@ val bComp_correct = prove(
         \\ IMP_RES_TAC bv_ok_SUBSET_IMP)
       \\ REPEAT STRIP_TAC
       \\ Q.LIST_EXISTS_TAC [`t2'`,`b2'`,`c' + c + 1`] \\ fs []
-      \\ `dec_clock (inc_clock (c' + c + 1) t1) = inc_clock (c' + c) t1` by
+      \\ `dec_clock 1 (inc_clock (c' + c + 1) t1) = inc_clock (c' + c) t1` by
         (EVAL_TAC \\ fs [bvi_state_explode] \\ DECIDE_TAC) \\ fs []
       \\ IMP_RES_TAC iEval_inv_clock \\ fs [inc_clock_ADD]
       \\ `MAP (adjust_bv b2) vs = MAP (adjust_bv b2') vs` by ALL_TAC THEN1
@@ -1138,7 +1145,7 @@ val bComp_correct = prove(
       \\ SIMP_TAC std_ss [Once inc_clock_def] \\ fs []
       \\ SIMP_TAC std_ss [Once inc_clock_def] \\ fs []
       \\ Q.LIST_EXISTS_TAC [`t2`,`b2`,`c + 1`] \\ fs []
-      \\ `dec_clock (inc_clock (c + 1) t1) = inc_clock c t1` by
+      \\ `dec_clock 1 (inc_clock (c + 1) t1) = inc_clock c t1` by
         (EVAL_TAC \\ fs [bvi_state_explode] \\ DECIDE_TAC) \\ fs []))
   THEN1 (* Op *)
    (`?c1 aux1 n1. bComp n xs = (c1,aux1,n1)` by METIS_TAC [PAIR]
@@ -1151,7 +1158,7 @@ val bComp_correct = prove(
       \\ Q.LIST_EXISTS_TAC [`t2`,`b2`,`c`] \\ fs [map_res_def]
       \\ Cases_on `op` \\ fs [bCompOp_def,iEval_def,iInt_thm]
       \\ BasicProvers.EVERY_CASE_TAC \\ fs [iEval_def,iInt_thm] \\ NO_TAC)
-    \\ REPEAT STRIP_TAC \\ Cases_on `bEvalOp op a s5` \\ fs []
+    \\ REPEAT STRIP_TAC \\ Cases_on `bEvalOp op (REVERSE a) s5` \\ fs []
     \\ Cases_on `x` \\ fs [] \\ SRW_TAC [] [map_res_def,iEval_def]
     \\ fs [GSYM PULL_FORALL]
     \\ fs [iEvalOp_def]
@@ -1160,7 +1167,7 @@ val bComp_correct = prove(
       \\ HO_MATCH_MP_TAC SWAP_EXISTS \\ Q.EXISTS_TAC `c`
       \\ fs [map_res_def] \\ fs [bCompOp_def] \\ Cases_on `c1`
       \\ fs [iInt_thm,bEvalOp_def,iEval_def]
-      \\ Cases_on `a` \\ fs [iEval_def,iEvalOp_def]
+      \\ Cases_on `REVERSE a` \\ fs [iEval_def,iEvalOp_def]
       \\ fs [EVAL ``iEvalOpAux (Const 0) [] t2``]
       \\ SRW_TAC [] [adjust_bv_def])
     \\ Cases_on `op = Ref` \\ fs [] THEN1
@@ -1217,9 +1224,9 @@ val bComp_correct = prove(
       \\ fs [bvl_bvi_corr_def,bvl_to_bvi_def,bvi_to_bvl_def,FLOOKUP_FAPPLY]
       \\ STRIP_TAC
       THEN1 (Q.UNABBREV_TAC `b3` \\ MATCH_MP_TAC INJ_EXTEND \\ fs [])
-      \\ REPEAT STRIP_TAC \\ Cases_on `k = x` \\ fs []
+      \\ REPEAT STRIP_TAC \\ Cases_on `k = x` \\ fs [rich_listTheory.MAP_REVERSE]
       THEN1 (Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM])
-      \\ Cases_on `FLOOKUP s5.refs k = NONE` \\ fs []
+      \\ Cases_on `FLOOKUP s5.refs k = NONE` \\ fs [rich_listTheory.MAP_REVERSE]
       \\ `b3 k <> y` by ALL_TAC \\ fs [] THEN1
        (Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM,FLOOKUP_DEF]
         \\ fs [INJ_DEF] \\ RES_TAC \\ REPEAT STRIP_TAC \\ fs [])
@@ -1243,9 +1250,9 @@ val bComp_correct = prove(
     \\ fs [iEval_def,map_res_def]
     \\ HO_MATCH_MP_TAC SWAP_EXISTS \\ Q.EXISTS_TAC `b2`
     \\ HO_MATCH_MP_TAC SWAP_EXISTS \\ Q.EXISTS_TAC `c`
-    \\ `EVERY (bv_ok s5.refs) a` by ALL_TAC
-    THEN1 (IMP_RES_TAC bEval_ok \\ fs [])
-    \\ MP_TAC bEvalOp_adjust \\ fs [] \\ REPEAT STRIP_TAC \\ fs [])
+    \\ `EVERY (bv_ok s5.refs) (REVERSE a)` by ALL_TAC
+    THEN1 (IMP_RES_TAC bEval_ok \\ fs [rich_listTheory.EVERY_REVERSE])
+    \\ MP_TAC bEvalOp_adjust \\ fs [] \\ REPEAT STRIP_TAC \\ fs [rich_listTheory.MAP_REVERSE])
   THEN1 (* Tick *)
    (`?c1 aux1 n1. bComp n [x] = (c1,aux1,n1)` by METIS_TAC [PAIR]
     \\ fs [LET_DEF] \\ SRW_TAC [] [] \\ fs [PULL_FORALL]
@@ -1258,10 +1265,10 @@ val bComp_correct = prove(
       \\ fs [inc_clock_ZERO,map_res_def] \\ fs [bvl_bvi_corr_def]) \\ fs []
     \\ `t1.clock <> 0 /\ !c. (inc_clock c t1).clock <> 0` by
       (EVAL_TAC \\ fs [bvl_bvi_corr_def] \\ DECIDE_TAC) \\ fs []
-    \\ REV_FULL_SIMP_TAC std_ss [dec_clock_inv_clock]
-    \\ `(dec_clock s).refs = s.refs` by EVAL_TAC \\ fs []
-    \\ Q.PAT_ASSUM `!xx yy. bbb` (MP_TAC o Q.SPECL [`dec_clock t1`,`b1`])
-    \\ REV_FULL_SIMP_TAC std_ss [dec_clock_inv_clock]
+    \\ REV_FULL_SIMP_TAC std_ss [dec_clock_inv_clock1]
+    \\ `(dec_clock 1 s).refs = s.refs` by EVAL_TAC \\ fs []
+    \\ Q.PAT_ASSUM `!xx yy. bbb` (MP_TAC o Q.SPECL [`dec_clock 1 t1`,`b1`])
+    \\ REV_FULL_SIMP_TAC std_ss [dec_clock_inv_clock1]
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
     THEN1 (fs [bEval_ok_lemma]
            \\ fs [bvl_bvi_corr_def,dec_clock_def,bvlTheory.dec_clock_def])
@@ -1278,20 +1285,23 @@ val bComp_correct = prove(
     \\ fs [GSYM PULL_FORALL] \\ REPEAT STRIP_TAC
     \\ fs [iEval_def,map_res_def]
     \\ Cases_on `find_code dest a s5.code` \\ fs [] \\ Cases_on `x` \\ fs []
-    \\ Cases_on `s5.clock = 0` \\ fs [] THEN1
-     (Q.LIST_EXISTS_TAC [`t2`,`b2`,`c`] \\ fs []
+    \\ Cases_on `s5.clock < ticks + 1` \\ fs [] THEN1
+     (Q.LIST_EXISTS_TAC [`t2 with clock := 0`,`b2`,`c`] \\ fs []
       \\ SRW_TAC [] [map_res_def]
-      \\ `t2.clock = 0` by fs [bvl_bvi_corr_def] \\ fs []
+      \\ TRY (fs [bvl_bvi_corr_def] \\ NO_TAC)
+      \\ `t2.clock < ticks + 1` by (fs [bvl_bvi_corr_def] \\ rfs [])
+      \\ fs []
       \\ REVERSE (Cases_on `dest`)
-      \\ fs [bvlTheory.find_code_def,find_code_def] THEN1
-       (Cases_on `lookup x s2.code` \\ fs []
+      \\ fs [bvlTheory.find_code_def,find_code_def] 
+      THEN1
+       (Cases_on `lookup x s5.code` \\ fs []
         \\ Cases_on `x'` \\ fs [] \\ SRW_TAC [] []
         \\ fs [bvl_bvi_corr_def] \\ RES_TAC
         \\ `?x1 x2 x3. bComp n' [r] = (x1,x2,x3)` by METIS_TAC [PAIR]
         \\ fs [LET_DEF])
       \\ `?x1 l1. a = SNOC x1 l1` by METIS_TAC [SNOC_CASES]
       \\ fs [] \\ Cases_on `x1` \\ fs [adjust_bv_def]
-      \\ Cases_on `lookup n' s2.code` \\ fs []
+      \\ Cases_on `lookup n' s5.code` \\ fs []
       \\ Cases_on `x` \\ fs [] \\ SRW_TAC [] []
       \\ fs [bvl_bvi_corr_def] \\ RES_TAC
       \\ `?x1 x2 x3. bComp n'' [r] = (x1,x2,x3)` by METIS_TAC [PAIR]
@@ -1322,15 +1332,15 @@ val bComp_correct = prove(
       \\ fs [LET_DEF,adjust_bv_def])
     \\ `?c7 aux7 n8. bComp n7 [body] = (c7,aux7,n8)` by METIS_TAC [PAIR]
     \\ fs [LET_DEF]
-    \\ `t2.clock <> 0` by (fs [bvl_bvi_corr_def] \\ REV_FULL_SIMP_TAC std_ss [])
+    \\ `¬(t2.clock < ticks + 1)` by (fs [bvl_bvi_corr_def] \\ REV_FULL_SIMP_TAC std_ss [])
     \\ fs [] \\ IMP_RES_TAC bComp_LENGTH
     \\ `?d. c7 = [d]` by (Cases_on `c7` \\ fs [LENGTH_NIL]) \\ fs []
     \\ Q.PAT_ASSUM `!nn mm. bbb` (MP_TAC o Q.SPEC `n7`) \\ fs []
     \\ STRIP_TAC
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`dec_clock t2`,`b2`]) \\ fs []
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`dec_clock (ticks + 1) t2`,`b2`]) \\ fs []
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
-     (`(dec_clock t2).code = t2.code` by (EVAL_TAC \\ fs [])
-      \\ `(dec_clock t2).refs = t2.refs` by (EVAL_TAC \\ fs [])
+     (`(dec_clock (ticks + 1) t2).code = t2.code` by (EVAL_TAC \\ fs [])
+      \\ `(dec_clock (ticks + 1) t2).refs = t2.refs` by (EVAL_TAC \\ fs [])
       \\ IMP_RES_TAC bEval_ok
       \\ fs [bEval_ok_lemma] \\ REV_FULL_SIMP_TAC std_ss []
       \\ STRIP_TAC THEN1
@@ -1348,7 +1358,8 @@ val bComp_correct = prove(
       \\ IMP_RES_TAC bEval_refs_SUBSET
       \\ IMP_RES_TAC bv_ok_SUBSET_IMP \\ fs [EVERY_MEM] \\ NO_TAC)
     \\ `(inc_clock c' t2).code = t2.code` by (EVAL_TAC \\ fs []) \\ fs []
-    \\ `(inc_clock c' t2).clock <> 0` by fs [inc_clock_def] \\ fs []
+    \\ `¬((inc_clock c' t2).clock < ticks + 1)` by (fs [inc_clock_def] \\ decide_tac)
+    \\ fs []
     \\ REV_FULL_SIMP_TAC std_ss [dec_clock_inv_clock]
     \\ fs [bvlTheory.dec_clock_def]
     \\ IMP_RES_TAC bEval_refs_SUBSET \\ fs [SUBSET_DEF]
