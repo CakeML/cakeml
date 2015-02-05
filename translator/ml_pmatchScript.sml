@@ -1,10 +1,12 @@
 open HolKernel boolLib bossLib lcsymtacs boolSimps
-open determTheory ml_translatorTheory ml_translatorLib miscLib
-open deepMatchesTheory deepMatchesLib
+open determTheory ml_translatorTheory miscLib
+open deepMatchesTheory deepMatchesLib;
+open astTheory libTheory semanticPrimitivesTheory bigStepTheory;
+open terminationTheory determTheory evalPropsTheory bigClockTheory;
+open arithmeticTheory listTheory combinTheory pairTheory mlstringTheory;
+open integerTheory terminationTheory;
 
-val _ = new_theory"test"
-
-(* might need EvalMat (using evaluate_match) instead to only evaluate x once *)
+val _ = new_theory "ml_pmatch";
 
 val EvalPatRel_def = Define`
   EvalPatRel env a p pat ⇔
@@ -134,7 +136,7 @@ val pmatch_PMATCH_ROW_COND_No_match = store_thm("pmatch_PMATCH_ROW_COND_No_match
   qspecl_then[`envC`,`p`,`res`,`envE`]strip_assume_tac(CONJUNCT1 pmatch_imp_Pmatch) >>
   fs[Eval_def,Once evaluate_cases] >> rfs[] >>
   rpt(pop_assum mp_tac) >>
-  rw[Once evaluate_cases,PMATCH_ROW_COND_def])
+  rw[Once evaluate_cases,PMATCH_ROW_COND_def]);
 
 val pmatch_PMATCH_ROW_COND_Match = store_thm("pmatch_PMATCH_ROW_COND_Match",
   ``EvalPatRel env a p pat ∧
@@ -148,13 +150,13 @@ val pmatch_PMATCH_ROW_COND_Match = store_thm("pmatch_PMATCH_ROW_COND_Match",
   fs[Once evaluate_cases] >> rfs[] >>
   BasicProvers.EVERY_CASE_TAC >> fs[] >>
   fs[Once evaluate_cases] >>
-  PROVE_TAC[])
+  PROVE_TAC[]);
 
 val Eval_PMATCH_NIL = store_thm("Eval_PMATCH_NIL",
   ``Eval env x (a xv) ==>
     CONTAINER F ==>
     Eval env (Mat x []) (b (PMATCH xv []))``,
-  rw[CONTAINER_def])
+  rw[CONTAINER_def]);
 
 val Eval_PMATCH = store_thm("Eval_PMATCH",
   ``ALL_DISTINCT (pat_bindings p []) ⇒
@@ -212,13 +214,15 @@ val Eval_PMATCH = store_thm("Eval_PMATCH",
   pop_assum mp_tac >> BasicProvers.CASE_TAC >- METIS_TAC[] >>
   fs[EvalPatRel_def] >>
   first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
-  simp[Once evaluate_cases] >> rw[])
+  simp[Once evaluate_cases] >> rw[]);
 
 val PMATCH_option_case_rwt = store_thm("PMATCH_option_case_rwt",
   ``((case x of NONE => NONE
       | SOME (y1,y2) => P y1 y2) = SOME env2) <=>
     ?y1 y2. (x = SOME (y1,y2)) /\ (P y1 y2 = SOME env2)``,
   Cases_on `x` \\ fs [] \\ Cases_on `x'` \\ fs []);
+
+(*
 
 val () = set_trace "use pmatch_pp" 0
 val () = register_type``:'a list``
@@ -416,5 +420,7 @@ val pth = (PMATCH_INTRO_CONV THENC PMATCH_SIMP_CONV
 val tm = rhs(concl pth)
 
 val example = save_thm("example", pmatch2deep tm)
+
+*)
 
 val _ = export_theory()

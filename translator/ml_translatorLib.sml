@@ -7,7 +7,7 @@ open astTheory libTheory semanticPrimitivesTheory bigStepTheory;
 open terminationTheory stringLib;
 open ml_translatorTheory intLib lcsymtacs;
 open arithmeticTheory listTheory combinTheory pairTheory pairLib;
-open integerTheory intLib ml_optimiseTheory;
+open integerTheory intLib ml_optimiseTheory ml_pmatchTheory;
 
 infix \\ val op \\ = op THEN;
 
@@ -1666,6 +1666,244 @@ fun SIMP_EqualityType_ASSUMS th = let
     in remove_one th end handle HOL_ERR _ => th
   in remove_one th end;
 
+(* PMATCH translation *)
+
+val () = computeLib.add_funs [pat_bindings_def]
+
+local
+  val pat = ``(PMATCH_ROW f1 f2):('a -> 'c) -> 'b -> 'c option``
+  fun K_T_CONV tm =
+    if not (can (match_term pat) tm) then NO_CONV tm else
+    if aconv (snd (dest_pabs (rand tm))) T then let
+      val t = combinSyntax.mk_K(T,fst (dest_pabs (rand tm))) |> rator
+      val goal = mk_eq(rand tm,t)
+      val lemma = TAC_PROOF(([],goal),fs [FUN_EQ_THM,FORALL_PROD])
+      in (RAND_CONV (fn tm => lemma)) tm end
+    else NO_CONV tm
+in
+  val PMATCH_ROW_K_T_INTRO_CONV = DEPTH_CONV K_T_CONV
+end;
+
+local
+  val pmatch_pat = ``PMATCH x (l :('a -> 'b option) list)``
+  val pmatch_row_pat =
+    ``(PMATCH_ROW (f1:'a->'b) (K T) f3):'b -> 'c option``
+in
+  fun dest_pmatch_row_K_T tm =
+    if can (match_term pmatch_row_pat) tm then let
+      val (ixy,z) = dest_comb tm
+      val (ix,y) = dest_comb ixy
+      val (i,x) = dest_comb ix
+      in (x,z) end
+    else failwith "not a PMATCH_ROW with K T"
+  fun dest_pmatch_K_T tm =
+    if can (match_term pmatch_pat) tm then let
+      val (xy,z) = dest_comb tm
+      val (x,y) = dest_comb xy
+      in (y,map dest_pmatch_row_K_T (fst (listSyntax.dest_list z))) end
+    else failwith "not a PMATCH"
+  val is_pmatch = can (match_term pmatch_pat)
+end
+
+val lookup_cons_pat = ``lookup_cons n env = x``
+val prove_EvalPatRel_fail = ref T;
+val goal = !prove_EvalPatRel_fail;
+
+fun prove_EvalPatRel goal hol2deep = let
+  val asms =
+    goal |> rand |> dest_pabs |> snd |> hol2deep |> hyp
+         |> filter (can (match_term lookup_cons_pat))
+  val pat = ``~(x = y:'a)``
+  fun tac (hs,gg) = let
+    val find_neg = find_term (can (match_term pat))
+    val tm = find_neg (first (can find_neg) hs)
+    in (Cases_on `^(tm |> rand |> rand)` \\ fs []) (hs,gg) end
+  (*
+    set_goal(asms,goal)
+  *)
+  val th = TAC_PROOF((asms,goal),
+    PairCases_on `env` >>
+    simp[EvalPatRel_def,EXISTS_PROD] >>
+    SRW_TAC [] [] \\ fs [] >>
+    POP_ASSUM MP_TAC >>
+    REPEAT tac
+    \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL)
+    \\ REPEAT STRIP_TAC \\ fs [] >>
+    fs[Once evaluate_cases] >>
+    fs[lookup_cons_def] >>
+    simp[LIST_TYPE_def,pmatch_def,same_tid_def,
+         same_ctor_def,id_to_n_def,EXISTS_PROD,
+         pat_bindings_def] >>
+    fs[Once evaluate_cases])
+  in th end handle HOL_ERR e =>
+  (prove_EvalPatRel_fail := goal;
+   failwith "prove_EvalPatRel failed");
+
+val IMP_EQ_T = prove(``a ==> (a <=> T)``,fs [])
+
+val prove_EvalPatBind_fail = ref T;
+val goal = !prove_EvalPatBind_fail;
+
+fun prove_EvalPatBind goal hol2deep = let
+  val (vars,rhs_tm) = repeat (snd o dest_forall) goal
+                      |> rand |> rand |> rand |> rator
+                      |> dest_pabs
+  val res = hol2deep rhs_tm
+  val exp = res |> concl |> rator |> rand
+  val th = D res
+  val var_assum = ``Eval env (Var n) (a (y:'a))``
+  val is_var_assum = can (match_term var_assum)
+  val vs = find_terms is_var_assum (concl th |> rator)
+  fun delete_var tm =
+    if mem tm vs then MATCH_MP IMP_EQ_T (ASSUME tm) else NO_CONV tm
+  val th = CONV_RULE (RATOR_CONV (DEPTH_CONV delete_var)) th
+  val th = CONV_RULE ((RATOR_CONV o RAND_CONV)
+              (PairRules.UNPBETA_CONV vars)) th
+  val p = th |> concl |> dest_imp |> fst |> rator
+  val p2 = goal |> dest_forall |> snd |> dest_forall |> snd
+                |> dest_imp |> fst |> rand |> rator
+  val ws = free_vars vars
+  val vs = filter (fn tm => not (mem (rand (rand tm)) ws)) vs
+  val new_goal = goal |> subst [``e:exp``|->exp,p2 |-> p]
+  val new_goal = foldr mk_imp new_goal vs
+  (*
+    set_goal([],new_goal)
+  *)
+  val th = TAC_PROOF (([],new_goal),
+    NTAC (length vs) STRIP_TAC \\ STRIP_TAC
+    \\ fs [FORALL_PROD] \\ REPEAT STRIP_TAC
+    \\ MATCH_MP_TAC (D res) \\ fs []
+    \\ fs [EvalPatBind_def,Pmatch_def]
+    \\ REPEAT (POP_ASSUM MP_TAC)
+    \\ NTAC (length vs) STRIP_TAC
+    \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL)
+    \\ STRIP_TAC \\ fs [] \\ rfs []
+    \\ fs [Pmatch_def,PMATCH_option_case_rwt]
+    \\ SRW_TAC [] [Eval_Var_SIMP]
+    \\ SRW_TAC [] [Eval_Var_SIMP]
+    \\ EVAL_TAC)
+  in UNDISCH_ALL th end handle HOL_ERR e =>
+  (prove_EvalPatBind_fail := goal;
+   failwith "prove_EvalPatBind failed");
+
+fun to_pattern tm =
+  if can(match_term``Var(Short x)``)tm then
+    ``Pvar ^(rand (rand tm))``
+  else if can(match_term``Con name args``) tm then
+    let
+      val (_,xs) = strip_comb tm
+      val name = el 1 xs
+      val args = el 2 xs
+      val (args,_) = listSyntax.dest_list args
+      val args = listSyntax.mk_list(map to_pattern args,``:pat``)
+    in
+      ``Pcon ^name ^args``
+    end
+  else tm
+
+val pmatch2deep_fail = ref T;
+val tm = !pmatch2deep_fail;
+
+fun pmatch2deep tm hol2deep = let
+  val (x,ts) = dest_pmatch_K_T tm
+  val v = genvar (type_of x)
+  val x_res = hol2deep x |> D
+  val x_type = type_of x
+  val x_inv = get_type_inv x_type
+  val pmatch_type = type_of tm
+  val pmatch_inv = get_type_inv pmatch_type
+  val x_exp = x_res |> UNDISCH |> concl |> rator |> rand
+  val nil_lemma = Eval_PMATCH_NIL
+                  |> Q.GEN `b` |> ISPEC pmatch_inv
+                  |> Q.GEN `x` |> ISPEC x_exp
+                  |> Q.GEN `xv` |> ISPEC v
+                  |> Q.GEN `a` |> ISPEC x_inv
+  val cons_lemma = Eval_PMATCH
+                   |> Q.GEN `b` |> ISPEC pmatch_inv
+                   |> Q.GEN `a` |> ISPEC x_inv
+                   |> Q.GEN `x` |> ISPEC x_exp
+                   |> Q.GEN `xv` |> ISPEC v
+  fun prove_hyp conv th =
+    MP (CONV_RULE ((RATOR_CONV o RAND_CONV) conv) th) TRUTH
+  val assm = nil_lemma |> concl |> dest_imp |> fst
+  fun trans [] = nil_lemma
+    | trans ((pat,rhs_tm)::xs) = let
+    (*
+    val ((pat,rhs_tm)::xs) = tl (tl ts)
+    *)
+    val th = trans xs
+    val p = pat |> dest_pabs |> snd |> hol2deep
+                |> concl |> rator |> rand |> to_pattern
+    val lemma = cons_lemma |> Q.GEN `p` |> ISPEC p
+    val lemma = prove_hyp EVAL lemma
+    val lemma = lemma |> Q.GEN `pat` |> ISPEC pat
+    val lemma = prove_hyp (SIMP_CONV (srw_ss()) [FORALL_PROD]) lemma
+    val lemma = UNDISCH lemma
+    val th = UNDISCH th
+             |> CONV_RULE ((RATOR_CONV o RAND_CONV) (UNBETA_CONV v))
+    val th = MATCH_MP lemma th
+    val th = remove_primes th
+    val goal = fst (dest_imp (concl th))
+    val th = MP th (prove_EvalPatRel goal hol2deep)
+    val th = remove_primes th
+    val th = th |> Q.GEN `res` |> ISPEC rhs_tm
+    val goal = fst (dest_imp (concl th))
+    val th = MATCH_MP th (prove_EvalPatBind goal hol2deep)
+    val th = remove_primes th
+    val th = CONV_RULE ((RATOR_CONV o RAND_CONV)
+          (SIMP_CONV std_ss [FORALL_PROD,deepMatchesTheory.PMATCH_ROW_COND_def])) th
+    val th = DISCH assm th
+    in th end
+  val th = trans ts
+  val th = MATCH_MP th (UNDISCH x_res)
+  val th = UNDISCH_ALL th
+  in th end handle HOL_ERR e =>
+  (pmatch2deep_fail := tm;
+   failwith ("pmatch2deep failed (" ^ #message e ^ ")"));
+
+local
+  (* list_conv: applies c to every xi in a term such as [x1;x2;x3;x4] *)
+  fun list_conv c tm =
+    if listSyntax.is_cons tm then
+      ((RATOR_CONV o RAND_CONV) c THENC
+       RAND_CONV (list_conv c)) tm
+    else if listSyntax.is_nil tm then ALL_CONV tm
+    else NO_CONV tm
+  (* K_T_intro_conv: attempts to reduce the term to K T *)
+  fun K_T_intro_conv tm = let
+    val goal = combinSyntax.mk_K(T,fst (dest_pabs tm)) |> rator
+    val goal = mk_eq(tm,goal)
+    val lemma = TAC_PROOF(([],goal),fs [FUN_EQ_THM,FORALL_PROD,TRUE_def])
+    in lemma end handle HOL_ERR _ => NO_CONV tm
+  val BINOP1_CONV = RATOR_CONV o RAND_CONV
+  val pair_CASE_UNCURRY = prove(
+    ``!x y. pair_CASE x y = UNCURRY y x``,
+    Cases \\ EVAL_TAC \\ fs []);
+  (* pabs_intro_conv: \x. case x of (x,y,z) => ... ---> \(x,y,z). ... *)
+  fun pabs_intro_conv tm =
+    (ABS_CONV (REWR_CONV pair_CASE_UNCURRY
+     THENC (BINOP1_CONV (ABS_CONV pabs_intro_conv))) THENC ETA_CONV) tm
+    handle HOL_ERR _ => ALL_CONV tm
+  fun fix_pmatch_row_names tm = let
+    val (x,y) = dest_pmatch_row_K_T tm
+    val (x1,x2) = dest_pabs x
+    val (y1,y2) = dest_pabs y
+    val i = fst (match_term x1 y1)
+    val goal = mk_eq(x,mk_pabs(y1,subst i x2))
+    val lemma = TAC_PROOF(([],goal),fs [FUN_EQ_THM,FORALL_PROD])
+    in ((RATOR_CONV o RATOR_CONV o RAND_CONV) (K lemma)) tm end
+    handle HOL_ERR _ => (print_term tm; NO_CONV tm)
+  fun pmatch_row_preprocess_conv tm =
+    ((RATOR_CONV o RAND_CONV) K_T_intro_conv THENC
+     RAND_CONV pabs_intro_conv THENC
+     (RATOR_CONV o RATOR_CONV o RAND_CONV) pabs_intro_conv THENC
+     fix_pmatch_row_names) tm
+in
+  fun pmatch_preprocess_conv tm =
+    QCONV (RAND_CONV (list_conv pmatch_row_preprocess_conv)) tm
+    handle HOL_ERR _ => failwith "pmatch_preprocess_conv failed"
+end
+
 (* The preprocessor -- returns (def,ind). Here def is the original
    definition stated as a single line:
 
@@ -2523,6 +2761,14 @@ fun hol2deep tm =
     val th1 = hol2deep (rand tm)
     val result = MATCH_MP Eval_length th1
     in check_inv "vec_len" tm result end else
+  (* PMATCH *)
+  if is_pmatch tm then let
+    val original_tm = tm
+    val lemma = pmatch_preprocess_conv tm
+    val tm = lemma |> concl |> rand
+    val result = pmatch2deep tm hol2deep
+    val result = result |> CONV_RULE (RAND_CONV (RAND_CONV (K (GSYM lemma))))
+    in check_inv "pmatch2deep" original_tm result end else
   (* normal function applications *)
   if is_comb tm then let
     val (f,x) = dest_comb tm
@@ -2835,7 +3081,6 @@ local
   val () = combinLib.add_combin_compset cs
   val () = pairLib.add_pair_compset cs
   val eval = computeLib.CBV_CONV cs
-
   val cs2 = listLib.list_compset()
   val () = computeLib.scrub_thms [LIST_TO_SET_THM,MEM,ALL_DISTINCT] cs2
   val () = computeLib.add_thms [MEM,ALL_DISTINCT] cs2
