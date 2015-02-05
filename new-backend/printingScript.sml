@@ -2,7 +2,7 @@ open HolKernel boolLib boolSimps bossLib lcsymtacs listTheory stringTheory relat
 open miscLib miscTheory bytecodeTheory bytecodeExtraTheory bytecodeEvalTheory bytecodeLabelsTheory bytecodeTerminationTheory
 open modLangProofTheory conLangProofTheory exhLangProofTheory patLangProofTheory pat_to_closTheory clos_to_bvlTheory clos_numberTheory clos_annotateTheory bvlBytecodeTheory
 open newcompilerTheory compilerTerminationTheory
-open replTheory printTheory inferPropsTheory inferSoundTheory terminationTheory
+open replTheory printTheory inferPropsTheory terminationTheory
 
 val _ = new_theory"printing"
 
@@ -94,6 +94,7 @@ val can_print = save_thm("can_print",prove(
       IS_SOME (bv_to_string (bvl_to_bc_value locs vl))``,
   ho_match_mp_tac v_to_Cv_ind >>
   simp[v_to_Cv_def,clos_numberTheory.val_rel_simp,clos_annotateTheory.val_rel_simp,clos_to_bvlTheory.val_rel_SIMP] >>
+  rw[bvl_to_bc_value_def,bv_to_string_def] >>
   rw[bvl_to_bc_value_def,bv_to_string_def] >>
   TRY(rator_x_assum`clos_annotate$val_rel`mp_tac) >>
   rw[Once clos_annotateTheory.val_rel_cases] >>
