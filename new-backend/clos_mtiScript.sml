@@ -91,39 +91,59 @@ val clos_val_size_el = Q.prove (
      fs [] >>
      decide_tac));
 
-val val_comp_def = tDefine "val_comp" `
-(val_comp (Number n) = Number n) ∧
-(val_comp (Block n vs) = Block n (MAP val_comp vs)) ∧
-(val_comp (RefPtr n) = RefPtr n) ∧
-(val_comp (Closure loc args env num_args e) =
-  let (num_args', e') = collect_args num_args e in
-    Closure loc (MAP val_comp args) (MAP val_comp env) num_args' (HD (intro_multi [e']))) ∧
-(val_comp (Recclosure loc args env funs i) =
-  Recclosure loc (MAP val_comp args) (MAP val_comp env)
+val (val_rel_rules, val_rel_ind, val_rel_cases) = Hol_reln `
+(!n. 
+  val_rel (Number n) (Number n)) ∧
+(!n vs vs'.
+  LIST_REL val_rel vs vs'
+  ⇒
+  val_rel (Block n vs) (Block n vs')) ∧
+(!n.
+  val_rel (RefPtr n) (RefPtr n)) ∧
+(!num_args' e' e args' args env env'.
+  num_args ≤ max_app ∧
+  0 < num_args ∧
+  (num_args', e') = collect_args num_args e ∧
+  LIST_REL val_rel args args' ∧
+  LIST_REL val_rel env env'
+  ⇒
+  val_rel (Closure loc args env num_args e) 
+          (Closure loc args' env' num_args' (HD (intro_multi [e'])))) ∧
+(!args args' env env' funs i.
+  EVERY (\(num_args,e). num_args ≤ map_app ∧ 0 < num_args) funs ∧
+  LIST_REL val_rel args args' ∧
+  LIST_REL val_rel env env'
+  ⇒
+  val_rel (Recclosure loc args env funs i)
+          (Recclosure loc args' env'
              (MAP (\(num_args, e). 
                          let (num_args', e') = collect_args num_args e in
                            (num_args', HD (intro_multi [e'])))
                   funs)
-             i)`
-(WF_REL_TAC `measure clos_val_size` >>
- rw [] >>
- fs [MEM_EL] >>
- rw [] >>
- imp_res_tac clos_val_size_el >>
- decide_tac);
+             i))`;
 
-val res_comp_def = Define `
-(res_comp (Result vs) = Result (MAP val_comp vs)) ∧
-(res_comp (Exception vs) = Exception (val_comp vs)) ∧
-(res_comp x = x)`;
+val (res_rel_rules, res_rel_ind, res_rel_cases) = Hol_reln `
+(!vs.
+  LIST_REL val_rel vs vs'
+  ⇒
+  res_rel (Result vs) (Result vs')) ∧
+(!v.
+  res_rel (Exception v) (Exception v)) ∧
+(res_rel TimeOut TimeOut)`;
+
+val (ref_v_rel_rules, ref_v_rel_ind, ref_v_rel_cases) = Hol_reln `
+(!ws.
+  ref_v_rel (ByteArray ws) (ByteArray ws)) ∧
+(!vs vs'.
+  LIST_REL val_rel vs vs'
+  ⇒
+  ref_v_rel (ValueArray vs) (ValueArray vs'))`;
 
 val state_comp_def = Define `
-state_comp (s:clos_state) =
-  s with <| globals := MAP (OPTION_MAP val_comp) s.globals;
-            refs := (\vr. case vr of ValueArray vs => ValueArray (MAP val_comp vs)
-                                   | ByteArray ws => ByteArray ws)
-                    o_f s.refs;
-            code := (\(n,e). (n, HD (intro_multi [e]))) o_f s.code |>`;
+state_comp (s:clos_state) s' ⇔
+  LIST_REL (OPTION_REL val_rel) s.globals s'.globals ∧
+  fmap_rel ref_v_rel s.refs s'.refs ∧
+  s'.code = (\(n,e). (n, HD (intro_multi [e]))) o_f s.code`;
 
 val lookup_vars_map = Q.prove (
 `!vs env f. lookup_vars vs (MAP f env) = OPTION_MAP (MAP f) (lookup_vars vs env)`,
@@ -135,7 +155,7 @@ val lookup_vars_map = Q.prove (
 val collect_args_more = Q.prove (
 `!num_args e num_args' e'.
   num_args ≤ max_app ∧
-  collect_args num_args e = (num_args', e')
+  (num_args', e') = collect_args num_args e
   ⇒
   num_args ≤ num_args' ∧ num_args' ≤ max_app`,
  ho_match_mp_tac (fetch "-" "collect_args_ind") >>
@@ -157,42 +177,47 @@ val intro_multi_sing = Q.prove (
  Cases_on `collect_args n c` >>
  fs []);
 
-val dest_cl_res_comp_def = Define `
-(dest_cl_res_comp (Partial_app v) = Partial_app (val_comp v)) ∧
-(dest_cl_res_comp (Full_app e env args) = 
-  Full_app (HD (intro_multi [e])) (MAP val_comp env) (MAP val_comp args))`;
-
-  (*
-val dest_closure_thm = Q.prove (
-`!loc f args res.
-  dest_closure NONE f args = SOME res
+val (dest_cl_res_rel_rules, dest_cl_res_rel_ind, dest_cl_res_rel_cases) = Hol_reln `
+(!v v'.
+  val_rel v v'
+  ⇒ 
+  dest_cl_res_rel (Partial_app v) (Partial_app v')) ∧
+(!env env' args args'.
+  LIST_REL val_rel env env' ∧
+  LIST_REL val_rel args args'
   ⇒
-  dest_closure NONE (val_comp f) (MAP val_comp args) = SOME (dest_cl_res_comp res)`,
+  (dest_cl_res_rel (Full_app e env args) (Full_app (HD (intro_multi [e])) env' args')))`;
+
+val dest_closure_thm = Q.prove (
+`!loc f args res f' args' res'.
+  dest_closure NONE f args = SOME res ∧
+  0 < LENGTH args ∧
+  val_rel f f' ∧
+  LIST_REL val_rel args args'
+  ⇒
+  ?res'.
+    dest_cl_res_rel res res' ∧
+    dest_closure NONE f' args' = SOME res'`,
 
  rw [dest_closure_def] >>
- Cases_on `f` >>
- rw [val_comp_def] >>
- fs [check_loc_def] >>
- rw [] >>
  ect >>
- fs [] >>
- imp_res_tac collect_args_more >>
- 
-
- fs [val_comp_def] >>
- Cases_on `collect_args n c` >>
- Cases_on `collect_args n' c` >>
- Cases_on `collect_args n' c'` >>
- fs [LET_THM, dest_cl_res_comp_def] >>
+ fs [Once val_rel_cases, dest_cl_res_rel_cases] >>
  rw [] >>
- fs [] >>
- TRY (`n - LENGTH l' ≤ LENGTH args` by decide_tac) >>
- TRY (`n - LENGTH l' ≤ LENGTH (MAP val_comp args)` by (rw_tac list_ss [] >> NO_TAC)) >>
+ fs [check_loc_def] >>
+ imp_res_tac EVERY2_LENGTH >>
+ imp_res_tac collect_args_more >>
+ TRY (`n - LENGTH l ≤ LENGTH args'` by decide_tac) >>
  TRY (`n' - LENGTH l' ≤ LENGTH args` by decide_tac) >>
- TRY (`n' - LENGTH l' ≤ LENGTH (MAP val_comp args)` by (rw_tac list_ss [] >> NO_TAC)) >>
  rw [DROP_REVERSE, TAKE_REVERSE, LASTN_MAP, ETA_THM, BUTLASTN_MAP] >>
  fs [] >>
- fs [val_comp_def, LET_THM, ETA_THM]
+ TRY decide_tac >>
+ rev_full_simp_tac (srw_ss()++ARITH_ss) [NOT_LESS] >>
+ rw []
+
+ Cases_on `c'` >>
+ fs [intro_multi_def, collect_args_def]
+ ect >>
+ fs []
 
 val intro_multi_correct = Q.prove (
 `(!tmp es env s1 res s2.
