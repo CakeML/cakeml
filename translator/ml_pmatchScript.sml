@@ -153,23 +153,25 @@ val pmatch_PMATCH_ROW_COND_Match = store_thm("pmatch_PMATCH_ROW_COND_Match",
   PROVE_TAC[]);
 
 val Eval_PMATCH_NIL = store_thm("Eval_PMATCH_NIL",
-  ``Eval env x (a xv) ==>
-    CONTAINER F ==>
-    Eval env (Mat x []) (b (PMATCH xv []))``,
+  ``!b x xv a.
+      Eval env x (a xv) ==>
+      CONTAINER F ==>
+      Eval env (Mat x []) (b (PMATCH xv []))``,
   rw[CONTAINER_def]);
 
 val Eval_PMATCH = store_thm("Eval_PMATCH",
-  ``ALL_DISTINCT (pat_bindings p []) ⇒
-    (∀v1 v2. pat v1 = pat v2 ⇒ v1 = v2) ⇒
-    Eval env x (a xv) ⇒
-    (p1 xv ⇒ Eval env (Mat x ys) (b (PMATCH xv yrs))) ⇒
-    EvalPatRel env a p pat ⇒
-    (∀env2 vars.
-      EvalPatBind env a p pat vars env2 ∧ p2 vars ⇒
-      Eval env2 e (b (res vars))) ⇒
-    (∀vars. PMATCH_ROW_COND pat (K T) xv vars ⇒ p2 vars) ∧
-    ((∀vars. ¬PMATCH_ROW_COND pat (K T) xv vars) ⇒ p1 xv) ⇒
-    Eval env (Mat x ((p,e)::ys)) (b (PMATCH xv ((PMATCH_ROW pat (K T) res)::yrs)))``,
+  ``!b a x xv.
+      ALL_DISTINCT (pat_bindings p []) ⇒
+      (∀v1 v2. pat v1 = pat v2 ⇒ v1 = v2) ⇒
+      Eval env x (a xv) ⇒
+      (p1 xv ⇒ Eval env (Mat x ys) (b (PMATCH xv yrs))) ⇒
+      EvalPatRel env a p pat ⇒
+      (∀env2 vars.
+        EvalPatBind env a p pat vars env2 ∧ p2 vars ⇒
+        Eval env2 e (b (res vars))) ⇒
+      (∀vars. PMATCH_ROW_COND pat (K T) xv vars ⇒ p2 vars) ∧
+      ((∀vars. ¬PMATCH_ROW_COND pat (K T) xv vars) ⇒ p1 xv) ⇒
+      Eval env (Mat x ((p,e)::ys)) (b (PMATCH xv ((PMATCH_ROW pat (K T) res)::yrs)))``,
   rw[Eval_def] >>
   rw[Once evaluate_cases,PULL_EXISTS] >> fs[] >>
   first_assum(match_exists_tac o concl) >> simp[] >>
@@ -221,206 +223,5 @@ val PMATCH_option_case_rwt = store_thm("PMATCH_option_case_rwt",
       | SOME (y1,y2) => P y1 y2) = SOME env2) <=>
     ?y1 y2. (x = SOME (y1,y2)) /\ (P y1 y2 = SOME env2)``,
   Cases_on `x` \\ fs [] \\ Cases_on `x'` \\ fs []);
-
-(*
-
-val () = set_trace "use pmatch_pp" 0
-val () = register_type``:'a list``
-val () = show_assums := true
-val () = computeLib.add_funs [pat_bindings_def]
-
-local
-  val pat = ``(PMATCH_ROW f1 f2):('a -> 'c) -> 'b -> 'c option``
-  fun K_T_CONV tm =
-    if not (can (match_term pat) tm) then NO_CONV tm else
-    if aconv (snd (dest_pabs (rand tm))) T then let
-      val t = combinSyntax.mk_K(T,fst (dest_pabs (rand tm))) |> rator
-      val goal = mk_eq(rand tm,t)
-      val lemma = TAC_PROOF(([],goal),fs [FUN_EQ_THM,FORALL_PROD])
-      in (RAND_CONV (fn tm => lemma)) tm end
-    else NO_CONV tm
-in
-  val PMATCH_ROW_K_T_INTRO_CONV = DEPTH_CONV K_T_CONV
-end;
-
-local
-  val pmatch_pat = ``PMATCH x (l :('a -> 'b option) list)``
-  val pmatch_row_pat =
-    ``(PMATCH_ROW (f1:'a->'b) (K T) f3):'b -> 'c option``
-in
-  fun dest_pmatch_row_K_T tm =
-    if can (match_term pmatch_row_pat) tm then let
-      val (ixy,z) = dest_comb tm
-      val (ix,y) = dest_comb ixy
-      val (i,x) = dest_comb ix
-      in (x,z) end
-    else failwith "not a PMATCH_ROW with K T"
-  fun dest_pmatch_K_T tm =
-    if can (match_term pmatch_pat) tm then let
-      val (xy,z) = dest_comb tm
-      val (x,y) = dest_comb xy
-      in (y,map dest_pmatch_row_K_T (fst (listSyntax.dest_list z))) end
-    else failwith "not a PMATCH"
-end
-
-val lookup_cons_pat = ``lookup_cons n env = x``
-val prove_EvalPatRel_fail = ref T;
-val goal = !prove_EvalPatRel_fail;
-
-fun prove_EvalPatRel goal = let
-  val asms =
-    goal |> rand |> dest_pabs |> snd |> hol2deep |> hyp
-         |> filter (can (match_term lookup_cons_pat))
-  val pat = ``~(x = y:'a)``
-  fun tac (hs,gg) = let
-    val find_neg = find_term (can (match_term pat))
-    val tm = find_neg (first (can find_neg) hs)
-    in (Cases_on `^(tm |> rand |> rand)` \\ fs []) (hs,gg) end
-  (*
-    set_goal(asms,goal)
-  *)
-  val th = TAC_PROOF((asms,goal),
-    PairCases_on `env` >>
-    simp[EvalPatRel_def,EXISTS_PROD] >>
-    SRW_TAC [] [] \\ fs [] >>
-    POP_ASSUM MP_TAC >>
-    REPEAT tac
-    \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL)
-    \\ REPEAT STRIP_TAC \\ fs [] >>
-    fs[Once evaluate_cases] >>
-    fs[lookup_cons_def] >>
-    simp[LIST_TYPE_def,pmatch_def,same_tid_def,
-         same_ctor_def,id_to_n_def,EXISTS_PROD,
-         pat_bindings_def] >>
-    fs[Once evaluate_cases])
-  in th end handle HOL_ERR e =>
-  (prove_EvalPatRel_fail := goal;
-   failwith "prove_EvalPatRel failed");
-
-val IMP_EQ_T = prove(``a ==> (a <=> T)``,fs [])
-
-val prove_EvalPatBind_fail = ref T;
-val goal = !prove_EvalPatBind_fail;
-
-fun prove_EvalPatBind goal = let
-  val (vars,rhs_tm) = repeat (snd o dest_forall) goal
-                      |> rand |> rand |> rand |> rator
-                      |> dest_pabs
-  val res = hol2deep rhs_tm
-  val exp = res |> concl |> rator |> rand
-  val th = D res
-  val var_assum = ``Eval env (Var n) (a (y:'a))``
-  val is_var_assum = can (match_term var_assum)
-  val vs = find_terms is_var_assum (concl th |> rator)
-  fun delete_var tm =
-    if mem tm vs then MATCH_MP IMP_EQ_T (ASSUME tm) else NO_CONV tm
-  val th = CONV_RULE (RATOR_CONV (DEPTH_CONV delete_var)) th
-  val th = CONV_RULE ((RATOR_CONV o RAND_CONV)
-              (PairRules.UNPBETA_CONV vars)) th
-  val p = th |> concl |> dest_imp |> fst |> rator
-  val p2 = goal |> dest_forall |> snd |> dest_forall |> snd
-                |> dest_imp |> fst |> rand |> rator
-  val ws = free_vars vars
-  val vs = filter (fn tm => not (mem (rand (rand tm)) ws)) vs
-  val new_goal = goal |> subst [``e:exp``|->exp,p2 |-> p]
-  val new_goal = foldr mk_imp new_goal vs
-  (*
-    set_goal([],new_goal)
-  *)
-  val th = TAC_PROOF (([],new_goal),
-    NTAC (length vs) STRIP_TAC \\ STRIP_TAC
-    \\ fs [FORALL_PROD] \\ REPEAT STRIP_TAC
-    \\ MATCH_MP_TAC (D res) \\ fs []
-    \\ fs [EvalPatBind_def,Pmatch_def]
-    \\ REPEAT (POP_ASSUM MP_TAC)
-    \\ NTAC (length vs) STRIP_TAC
-    \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL)
-    \\ STRIP_TAC \\ fs [] \\ rfs []
-    \\ fs [Pmatch_def,PMATCH_option_case_rwt]
-    \\ SRW_TAC [] [Eval_Var_SIMP]
-    \\ SRW_TAC [] [Eval_Var_SIMP]
-    \\ EVAL_TAC)
-  in UNDISCH_ALL th end handle HOL_ERR e =>
-  (prove_EvalPatBind_fail := goal;
-   failwith "prove_EvalPatBind failed");
-
-fun to_pattern tm =
-  if can(match_term``Var(Short x)``)tm then
-    ``Pvar ^(rand (rand tm))``
-  else if can(match_term``Con name args``) tm then
-    let
-      val (_,xs) = strip_comb tm
-      val name = el 1 xs
-      val args = el 2 xs
-      val (args,_) = listSyntax.dest_list args
-      val args = listSyntax.mk_list(map to_pattern args,``:pat``)
-    in
-      ``Pcon ^name ^args``
-    end
-  else tm
-
-fun pmatch2deep tm = let
-  val (x,ts) = dest_pmatch_K_T tm
-  val v = genvar (type_of x)
-  val x_res = hol2deep x |> D
-  val x_type = type_of x
-  val x_inv = get_type_inv x_type
-  val pmatch_type = type_of tm
-  val pmatch_inv = get_type_inv pmatch_type
-  val x_exp = x_res |> UNDISCH |> concl |> rator |> rand
-  val nil_lemma = Eval_PMATCH_NIL
-                  |> Q.GEN `b` |> ISPEC pmatch_inv
-                  |> Q.GEN `x` |> ISPEC x_exp
-                  |> Q.GEN `xv` |> ISPEC v
-                  |> Q.GEN `a` |> ISPEC x_inv
-  val cons_lemma = Eval_PMATCH
-                   |> Q.GEN `b` |> ISPEC pmatch_inv
-                   |> Q.GEN `a` |> ISPEC x_inv
-                   |> Q.GEN `x` |> ISPEC x_exp
-                   |> Q.GEN `xv` |> ISPEC v
-  fun prove_hyp conv th =
-    MP (CONV_RULE ((RATOR_CONV o RAND_CONV) conv) th) TRUTH
-  val assm = nil_lemma |> concl |> dest_imp |> fst
-  fun trans [] = nil_lemma
-    | trans ((pat,rhs_tm)::xs) = let
-    (*
-    val ((pat,rhs_tm)::xs) = tl (tl ts)
-    *)
-    val th = trans xs
-    val p = pat |> dest_pabs |> snd |> hol2deep
-                |> concl |> rator |> rand |> to_pattern
-    val lemma = cons_lemma |> Q.GEN `p` |> ISPEC p
-    val lemma = prove_hyp EVAL lemma
-    val lemma = lemma |> Q.GEN `pat` |> ISPEC pat
-    val lemma = prove_hyp (SIMP_CONV (srw_ss()) [FORALL_PROD]) lemma
-    val lemma = UNDISCH lemma
-    val th = UNDISCH th
-             |> CONV_RULE ((RATOR_CONV o RAND_CONV) (UNBETA_CONV v))
-    val th = MATCH_MP lemma th
-    val th = remove_primes th
-    val goal = fst (dest_imp (concl th))
-    val th = MP th (prove_EvalPatRel goal)
-    val th = remove_primes th
-    val th = th |> Q.GEN `res` |> ISPEC rhs_tm
-    val goal = fst (dest_imp (concl th))
-    val th = MATCH_MP th (prove_EvalPatBind goal)
-    val th = remove_primes th
-    val th = CONV_RULE ((RATOR_CONV o RAND_CONV)
-          (SIMP_CONV std_ss [FORALL_PROD,PMATCH_ROW_COND_def])) th
-    val th = DISCH assm th
-    in th end
-  val th = trans ts
-  val th = MATCH_MP th (UNDISCH x_res)
-  val th = UNDISCH_ALL th
-  in th end
-
-val tm = ``case f x of (t::y::ys) => t + y + (3:num) + k | _ => 5``
-val pth = (PMATCH_INTRO_CONV THENC PMATCH_SIMP_CONV
-           THENC PMATCH_ROW_K_T_INTRO_CONV) tm
-val tm = rhs(concl pth)
-
-val example = save_thm("example", pmatch2deep tm)
-
-*)
 
 val _ = export_theory()

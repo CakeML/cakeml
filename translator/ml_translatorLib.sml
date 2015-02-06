@@ -1784,7 +1784,8 @@ fun prove_EvalPatBind goal hol2deep = let
       \\ EVAL_TAC \\ NO_TAC)
     \\ BasicProvers.EVERY_CASE_TAC \\ fs []
     \\ SRW_TAC [] []
-    \\ SRW_TAC [] [Eval_Var_SIMP] \\ EVAL_TAC)
+    \\ SRW_TAC [] [Eval_Var_SIMP,lookup_cons_write]
+    \\ EVAL_TAC)
   in UNDISCH_ALL th end handle HOL_ERR e =>
   (prove_EvalPatBind_fail := goal;
    failwith "prove_EvalPatBind failed");
@@ -1817,15 +1818,15 @@ fun pmatch2deep tm hol2deep = let
   val pmatch_inv = get_type_inv pmatch_type
   val x_exp = x_res |> UNDISCH |> concl |> rator |> rand
   val nil_lemma = Eval_PMATCH_NIL
-                  |> Q.GEN `b` |> ISPEC pmatch_inv
-                  |> Q.GEN `x` |> ISPEC x_exp
-                  |> Q.GEN `xv` |> ISPEC v
-                  |> Q.GEN `a` |> ISPEC x_inv
+                  |> ISPEC pmatch_inv
+                  |> ISPEC x_exp
+                  |> ISPEC v
+                  |> ISPEC x_inv
   val cons_lemma = Eval_PMATCH
-                   |> Q.GEN `b` |> ISPEC pmatch_inv
-                   |> Q.GEN `a` |> ISPEC x_inv
-                   |> Q.GEN `x` |> ISPEC x_exp
-                   |> Q.GEN `xv` |> ISPEC v
+                   |> ISPEC pmatch_inv
+                   |> ISPEC x_inv
+                   |> ISPEC x_exp
+                   |> ISPEC v
   fun prove_hyp conv th =
     MP (CONV_RULE ((RATOR_CONV o RAND_CONV) conv) th) TRUTH
   val assm = nil_lemma |> concl |> dest_imp |> fst
