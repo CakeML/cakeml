@@ -188,6 +188,7 @@ val (dest_cl_res_rel_rules, dest_cl_res_rel_ind, dest_cl_res_rel_cases) = Hol_re
   ⇒
   (dest_cl_res_rel (Full_app e env args) (Full_app (HD (intro_multi [e])) env' args')))`;
 
+  (*
 val dest_closure_thm = Q.prove (
 `!loc f args res f' args' res'.
   dest_closure NONE f args = SOME res ∧
