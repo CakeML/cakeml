@@ -1,5 +1,4 @@
-open HolKernel Parse boolLib bossLib; val _ = new_theory "bvi_to_bvp";
-
+open HolKernel Parse boolLib bossLib;
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
 open bytecodeTheory bvlTheory bvl_constTheory;
@@ -7,8 +6,15 @@ open bvl_inlineTheory bvpTheory;
 open bvp_lemmasTheory bvp_simpTheory bvp_liveTheory bvp_spaceTheory;
 open sptreeTheory lcsymtacs bviTheory;
 
+val _ = new_theory "bvi_to_bvp";
+
 infix \\ val op \\ = op THEN;
 val RW = REWRITE_RULE;
+
+(* TODO: move *)
+val OPTION_BIND_SOME = store_thm("OPTION_BIND_SOME",
+  ``∀f. OPTION_BIND f SOME = f``,
+  Cases >> simp[])
 
 (* compilation from BVI to BVP *)
 
@@ -427,6 +433,17 @@ val pEval_mk_ticks = Q.prove (
  fs [ADD1, LESS_OR_EQ] >>
  full_simp_tac (srw_ss()++ARITH_ss) []);
 
+val get_vars_append = prove(
+  ``∀l1 l2 s. get_vars (l1 ++ l2) s = OPTION_BIND (get_vars l1 s)(λy1. OPTION_BIND (get_vars l2 s)(λy2. SOME(y1 ++ y2)))``,
+  Induct >> simp[get_vars_def,OPTION_BIND_SOME,ETA_AX] >> rw[] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[])
+
+val get_vars_reverse = prove(
+  ``∀ls s ys. get_vars ls s = SOME ys ⇒ get_vars (REVERSE ls) s = SOME (REVERSE ys)``,
+  Induct >> simp[get_vars_def] >> rw[get_vars_append] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[] >>
+  rw[get_vars_def])
+
 val iComp_correct = prove(
   ``!xs env s1 res s2 t1 n corr tail live.
       (iEval (xs,env,s1) = (res,s2)) /\ res <> Error /\
@@ -714,7 +731,7 @@ val iComp_correct = prove(
     \\ Cases_on `pres`
     \\ FULL_SIMP_TAC (srw_ss()) [isResult_def,isException_def]
     THEN1 SRW_TAC [] [pEval_def] THEN1 SRW_TAC [] [pEval_def]
-    \\ Cases_on `iEvalOp op a r` \\ fs []
+    \\ Cases_on `iEvalOp op (REVERSE a) r` \\ fs []
     \\ PairCases_on `x` \\ fs [] \\ REV_FULL_SIMP_TAC std_ss []
     \\ (fn (hs,goal) => (REVERSE (`let tail = F in ^goal` by ALL_TAC))
            (hs,goal)) THEN1
@@ -723,7 +740,7 @@ val iComp_correct = prove(
       \\ Cases_on `pres` \\ fs [] \\ Cases_on `res` \\ fs []
       \\ fs [var_corr_def,isResult_def,isException_def,call_env_def,
              res_list_def,state_rel_def])
-    \\ `domain (list_to_num_set (vs ++ live ++ corr)) SUBSET
+    \\ `domain (list_to_num_set (REVERSE vs ++ live ++ corr)) SUBSET
         domain t2.locals` by
      (fs [SUBSET_DEF,domain_lookup,lookup_list_to_num_set,EVERY_MEM]
       \\ REPEAT STRIP_TAC \\ RES_TAC
@@ -731,13 +748,13 @@ val iComp_correct = prove(
       \\ IMP_RES_TAC MEM_LIST_REL \\ fs []
       \\ `lookup x t1.locals <> NONE` by METIS_TAC []
       \\ Cases_on `lookup x t1.locals` \\ fs [] \\ METIS_TAC []) \\ fs []
-    \\ Q.ABBREV_TAC `env1 = mk_wf (inter t2.locals (list_to_num_set (vs++live++corr)))`
-    \\ `var_corr a vs (t2 with locals := env1)` by
+    \\ Q.ABBREV_TAC `env1 = mk_wf (inter t2.locals (list_to_num_set (REVERSE vs++live++corr)))`
+    \\ `var_corr (REVERSE a) (REVERSE vs) (t2 with locals := env1)` by
      (UNABBREV_ALL_TAC
       \\ fs [var_corr_def,get_var_def,state_rel_def,
              lookup_inter_EQ,lookup_list_to_num_set]
       \\ Q.PAT_ASSUM `LIST_REL rrr xs1 xs2` MP_TAC
-      \\ ONCE_REWRITE_TAC [LIST_REL_MEM] \\ fs [] \\ NO_TAC)
+      \\ ONCE_REWRITE_TAC [LIST_REL_MEM] \\ fs [EVERY2_REVERSE] \\ NO_TAC)
     \\ IMP_RES_TAC get_vars_thm
     \\ `state_rel r (t2 with <|locals := env1; space := 0|>)` by
           (fs [state_rel_def] \\ NO_TAC)
@@ -776,6 +793,7 @@ val iComp_correct = prove(
          \\ IMP_RES_TAC jump_exc_IMP
          \\ POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC \\ fs [jump_exc_def])
       \\ fs [var_corr_def,get_var_def])
+    \\ imp_res_tac get_vars_reverse
     \\ Cases_on `op_space_req op = 0` \\ fs [pEval_def]
     \\ fs [pEval_def,cut_state_opt_def,cut_state_def,cut_env_def]
     \\ fs [pEvalOp_def,pEvalOpSpace_def,LET_DEF]
