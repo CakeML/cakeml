@@ -1767,7 +1767,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       fs[]>>
       match_mp_tac every_var_mono>>
       HINT_EXISTS_TAC>>
-      fs[]>>DECIDE_TAC)
+      fs[]>>DECIDE_TAC)>>
     rw[]>>
     qspecl_then[`w`,`st with permute:=perm'`,`perm''`]
       assume_tac permute_swap_lemma>>
@@ -1775,12 +1775,12 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     qexists_tac`perm'''`>>rw[]>>fs[])
   >- (*If*)
    (fs[wEval_def,coloring_ok_def,LET_THM,ssa_cc_trans_def]>>
-    last_assum(qspecl_then[`w`,`st`,`cst`,`ssa`,`na`,`ns`] mp_tac)>>
+    last_assum(qspecl_then[`w`,`st`,`cst`,`ssa`,`na`] mp_tac)>>
     size_tac>>discharge_hyps>>fs[every_var_def]>>
     fs[]>>rw[]>>
-    Cases_on`ssa_cc_trans w ssa na ns`>>PairCases_on`r`>>fs[]>>
-    Cases_on`ssa_cc_trans w0 r0 r1 r2`>>PairCases_on`r`>>fs[]>>
-    Cases_on`ssa_cc_trans w1 r0 r1' r2'`>>PairCases_on`r`>>fs[]>>
+    Cases_on`ssa_cc_trans w ssa na`>>PairCases_on`r`>>fs[]>>
+    Cases_on`ssa_cc_trans w0 r0 r1`>>PairCases_on`r`>>fs[]>>
+    Cases_on`ssa_cc_trans w1 r0 r1'`>>PairCases_on`r`>>fs[]>>
     Cases_on`fix_inconsistencies r0' r0'' r1''`>>PairCases_on`r`>>fs[]>>
     Cases_on`wEval(w,st with permute:=perm')`>>fs[wEval_def]
     >- (qexists_tac`perm'`>>fs[])>>
@@ -1801,20 +1801,14 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     >>
     reverse (Cases_on`c = 0w`)>>fs[]
     >-
-      (first_assum(qspecl_then[`w0`,`r`,`r'`,`r0`,`r1`,`r2`] mp_tac)>>
+      (first_assum(qspecl_then[`w0`,`r`,`r'`,`r0`,`r1`] mp_tac)>>
       size_tac>>
       discharge_hyps>-
-        (rfs[]>>
-        `na ≤ r1 ∧ r1 ≤ r1' ∧ is_alloc_var r1' ∧ is_alloc_var r1 ∧ 
-        is_stack_var r2` by cheat>>
-        fs[ssa_locals_rel_def]>>rw[]>>
-        TRY( res_tac>>DECIDE_TAC)
-        >-
-          (match_mp_tac every_var_mono>>
-          qexists_tac`λx.x<na`>>fs[]>>
-          DECIDE_TAC)
-        >>
-          cheat) (*should be proven as side conditions*)
+        (rfs[]>>imp_res_tac ssa_cc_trans_props>>
+        fs[]>>
+        match_mp_tac every_var_mono>>
+        Q.EXISTS_TAC`λx.x<na`>>fs[] >>
+        DECIDE_TAC) 
       >>
       rw[]>>
       qspecl_then[`w`,`st with permute:=perm'`,`perm''`]
@@ -1829,8 +1823,10 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       fs[]>>
       fs[fix_inconsistencies_def,LET_THM]>>
       qabbrev_tac`ls = MAP FST (toAList (union r0' r0''))`>>
-      Cases_on`merge_moves ls r0' r0'' r1''`>>
-      PairCases_on`r'''`>>
+      Cases_on`merge_moves ls r0' r0'' r1''`>>PairCases_on`r'''`>>fs[]>>
+      Cases_on`fake_moves ls r'''2 r'''3 r'''1` >>PairCases_on`r'''`>>fs[]>>
+      cheat)
+      (*PairCases_on`r'''`>>
       rfs[]>>
       Q.SPECL_THEN [`ls`,`r1''`,`r0'`,`r0''`,`r''`,`s1`] mp_tac 
         merge_moves_correctL>>
@@ -1842,21 +1838,20 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
         (`r1' ≤ r1''` by cheat>>
         metis_tac[ssa_locals_rel_more])
       >>
-      Cases_on`wEval(q''',s1)`>>fs[word_state_eq_rel_def])
+      Cases_on`wEval(q''',s1)`>>fs[word_state_eq_rel_def]*)
     >>
-      (first_assum(qspecl_then[`w1`,`r`,`r'`,`r0`,`r1'`,`r2'`] mp_tac)>>
+      (first_assum(qspecl_then[`w1`,`r`,`r'`,`r0`,`r1'`] mp_tac)>>
       size_tac>>
       discharge_hyps>-
-        (rfs[]>>
-        `na ≤ r1 ∧ r1 ≤ r1' ∧ is_alloc_var r1' ∧ is_alloc_var r1` by cheat>>
-        fs[ssa_locals_rel_def]>>rw[]>>
-        TRY( res_tac>>DECIDE_TAC)
+        (rfs[]>>imp_res_tac ssa_cc_trans_props>>rw[]
+        >-
+          metis_tac[ssa_locals_rel_more]
         >-
           (match_mp_tac every_var_mono>>
-          qexists_tac`λx.x<na`>>fs[]>>
+          Q.EXISTS_TAC`λx.x<na`>>fs[] >>
           DECIDE_TAC)
         >>
-          cheat) (*should be proven as side conditions*)
+          metis_tac[ssa_map_ok_more])
       >>
       rw[]>>
       qspecl_then[`w`,`st with permute:=perm'`,`perm''`]
@@ -1871,6 +1866,8 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       fs[]>>
       fs[fix_inconsistencies_def,LET_THM]>>
       qabbrev_tac`ls = MAP FST (toAList (union r0' r0''))`>>
+      cheat))
+      (*
       Cases_on`merge_moves ls r0' r0'' r1''`>>
       PairCases_on`r'''`>>
       rfs[]>>
@@ -1895,7 +1892,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       fs[domain_union]>>
       `x ∉ domain r'''3` by metis_tac[]>>
       `x ∉ domain r'''2` by metis_tac[]>>
-      metis_tac[lookup_NONE_domain]))
+      metis_tac[lookup_NONE_domain])*)
   >- (*Alloc*)
     (fs[ssa_cc_trans_def,wEval_def,get_var_perm,LET_THM]>>
     Cases_on`get_var n st`>>

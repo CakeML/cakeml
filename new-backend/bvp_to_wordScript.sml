@@ -33,7 +33,7 @@ val pCompAssign_def = Define `
 
 val pComp_def = Define `
   (pComp (Skip:bvp_prog) = Skip:'a word_prog) /\
-  (pComp (Move dest src) = Move [(var_adjust dest, var_adjust src)]) /\
+  (pComp (Move dest src) = Move 0 [(var_adjust dest, var_adjust src)]) /\
   (pComp Tick = Tick) /\
   (pComp (Assign dest op args names_opt) =
      pCompAssign (var_adjust dest) op (MAP var_adjust args)
