@@ -2987,7 +2987,7 @@ val cons_closure_thm = store_thm("cons_closure_thm",
   simp[bc_eval_stack_def,Abbr`bs3`,bump_pc_def] >>
   qpat_assum`bc_fetch X = Y`kall_tac >>
   qmatch_abbrev_tac`bc_next^* bs3 bs2` >>
-  `bc_fetch bs3 = SOME (Stack (Cons 3))` by (
+  `bc_fetch bs3 = SOME (Stack (Cons closure_tag))` by (
     match_mp_tac bc_fetch_next_addr >>
     rw[Abbr`bs3`] >>
     Q.PAT_ABBREV_TAC`ls = X ++ bc` >>
@@ -3194,7 +3194,7 @@ val FOLDL_cons_closure_thm = store_thm("FOLDL_cons_closure_thm",
   match_mp_tac(SIMP_RULE std_ss [transitive_def] RTC_TRANSITIVE) >>
   qexists_tac`bs1` >> simp[] >>
   qpat_assum`Abbrev(bs1 = X)`mp_tac >>
-  Q.PAT_ABBREV_TAC`f1 = Block 3 Y` >> strip_tac >>
+  Q.PAT_ABBREV_TAC`f1 = Block CT Y` >> strip_tac >>
   first_x_assum(qspecl_then[`bs1`,`bc0 ++ bc`,`bc1`,`cls`]mp_tac) >>
   `DROP (2 * nk) (LUPDATE f1 k bs.stack) = DROP (2 * nk) bs.stack` by (
     lrw[LIST_EQ_REWRITE,EL_DROP,EL_LUPDATE] ) >>

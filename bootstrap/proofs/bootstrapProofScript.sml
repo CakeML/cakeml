@@ -35,7 +35,7 @@ val Cv_bv_lit =
 val conv_rws = [printingTheory.v_bv_def,
   v_to_i1_conv,free_varsProofTheory.vs_to_i1_MAP,v_to_i1_lit,
   v_to_i2_conv,free_varsProofTheory.vs_to_i2_MAP,v_to_i2_lit,
-  v_to_exh_conv,free_varsProofTheory.vs_to_exh_MAP,
+  v_to_exh_conv,exhLangProofTheory.vs_to_exh_MAP,
   printingTheory.exh_Cv_def,
   v_pat_conv,syneq_conv,Cv_bv_conv,Cv_bv_lit]
 

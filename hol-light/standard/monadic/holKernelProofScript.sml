@@ -1839,6 +1839,7 @@ val new_specification_thm = store_thm("new_specification_thm",
       BasicProvers.CASE_TAC >>
       BasicProvers.CASE_TAC >>
       simp[failwith_def] ) >>
+    BasicProvers.VAR_EQ_TAC >>
     reverse conj_tac >- (
       simp[Once map_def,ex_bind_def] >>
       Cases_on`q`>>fs[]>>
@@ -1851,6 +1852,7 @@ val new_specification_thm = store_thm("new_specification_thm",
     Cases_on`map f l r`>>simp[]>>
     Cases_on`q`>>simp[ex_return_def]>>
     strip_tac >>
+    qmatch_assum_rename_tac`f tm s = _` >>
     qpat_assum`f tm s = X`mp_tac >>
     simp[Abbr`f`] >>
     mp_tac(Q.GENL[`res`,`s'`]dest_eq_thm) >>
@@ -1861,7 +1863,7 @@ val new_specification_thm = store_thm("new_specification_thm",
     qmatch_assum_rename_tac`dest_eq tm s = (HolRes q,_)` >>
     Cases_on`q`>>simp[] >> strip_tac >>
     rpt BasicProvers.VAR_EQ_TAC >>
-    qmatch_assum_rename_tac`dest_eq tm s = (HolRes(v,t),s)` >>
+    qmatch_assum_rename_tac`dest_eq _ s = (HolRes(v,t),s)` >>
     MP_TAC(Q.GENL[`res`,`s'`]dest_var_thm) >>
     Cases_on`dest_var v s`>>simp[]>>
     Cases_on`q`>>simp[]>>

@@ -117,7 +117,7 @@ val new_specification_correct = store_thm("new_specification_correct",
       fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,CLOSED_def] >>
       rfs[term_ok_equation] >>
       metis_tac[term_ok_welltyped] ) >>
-    rw[] >>
+    rw[Abbr`x`] >>
     match_mp_tac (UNDISCH termsem_typesem) >>
     unabbrev_all_tac >> simp[] >>
     fs[is_interpretation_def] >>
@@ -237,7 +237,7 @@ val new_specification_correct = store_thm("new_specification_correct",
        imp_res_tac theory_ok_sig >>
        fs[term_ok_equation] >>
        metis_tac[term_ok_welltyped] ) >>
-    rw[Abbr`tysem`,Abbr`ty`] >>
+    rw[Abbr`tysem`,Abbr`ty`,Abbr`x`] >>
     match_mp_tac (UNDISCH termsem_typesem) >>
     qexists_tac`sigof ctxt` >>
     fs[Abbr`tmenv`] >>
@@ -267,7 +267,7 @@ val new_specification_correct = store_thm("new_specification_correct",
   simp[] >>
   disch_then(qspec_then`[]`mp_tac) >>
   simp[] >> disch_then kall_tac >>
-  simp[Abbr`ii`,APPLY_UPDATE_LIST_ALOOKUP,rich_listTheory.MAP_REVERSE,ALOOKUP_MAP] >>
+  simp[Abbr`X`,Abbr`ii`,APPLY_UPDATE_LIST_ALOOKUP,rich_listTheory.MAP_REVERSE,ALOOKUP_MAP] >>
   qmatch_abbrev_tac`termsem tmenv i (v1,v2) tt = termsem tmenv i (v3,v4) tt` >>
   `termsem tmenv i (v1,v2) tt = termsem tmenv i (v3,v2) tt` by (
     match_mp_tac termsem_tyfrees >>

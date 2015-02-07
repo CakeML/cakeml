@@ -160,7 +160,7 @@ val renumber_code_locs_inc = store_thm("renumber_code_locs_inc",
   tac >> fs[] >> simp[] >>
   Cases_on`renumber_code_locs (q+LENGTH r) e`>>fs[]>>simp[])
 
-val renumber_code_locs_imp_inc = prove(
+val renumber_code_locs_imp_inc = store_thm("renumber_code_locs_imp_inc",
   ``(renumber_code_locs_list n es = (m,vs) ⇒ n ≤ m) ∧
     (renumber_code_locs n e = (z,v) ⇒ n ≤ z)``,
   metis_tac[pairTheory.pair_CASES,pairTheory.FST,renumber_code_locs_inc])
@@ -340,6 +340,7 @@ val val_rel_simp = let
             ``val_rel y (RefPtr x)``,
             ``val_rel y (Closure n l x)``,
             ``val_rel y (Recclosure x1 x2 x3 x4)``] |> LIST_CONJ end
+  |> curry save_thm"val_rel_simp"
 
 val renumber_code_locs_list_els = prove(
   ``∀ls ls' n n'. renumber_code_locs_list n ls = (n',ls') ⇒
@@ -352,10 +353,182 @@ val renumber_code_locs_list_els = prove(
   simp[] >>
   METIS_TAC[pair_CASES,SND])
 
-val contains_App_SOME_EXISTS = prove(
+val contains_App_SOME_EXISTS = store_thm("contains_App_SOME_EXISTS",
   ``∀ls. contains_App_SOME ls ⇔ EXISTS (λx. contains_App_SOME [x]) ls``,
   Induct >> simp[contains_App_SOME_def] >>
   Cases_on`ls`>>fs[contains_App_SOME_def])
+
+val state_rel_globals = prove(
+  ``state_rel s t ⇒
+    LIST_REL (OPTREL val_rel) s.globals t.globals``,
+  rw[state_rel_def])
+
+val state_rel_refs = prove(
+  ``state_rel s t ⇒
+    fmap_rel ref_rel s.refs t.refs``,
+  rw[state_rel_def])
+
+val clos_to_list_rel = store_thm("clos_to_list_rel",
+  ``∀l1 l2. LIST_REL val_rel l1 l2 ⇒
+    val_rel (clos_to_list l1) (clos_to_list l2)``,
+  Induct >> simp[clos_to_list_def,val_rel_simp] >>
+  rw[PULL_EXISTS,clos_to_list_def])
+
+val bool_to_val_rel = prove(
+  ``(x ⇔ y) ⇒ (val_rel (bool_to_val x) (bool_to_val y))``,
+  Cases_on`x`>>simp[bool_to_val_def,val_rel_simp])
+
+val clos_from_list_rel = store_thm("clos_from_list_rel",
+  ``∀x y. val_rel x y ⇒
+          OPTREL (LIST_REL val_rel) (clos_from_list x) (clos_from_list y)``,
+  ho_match_mp_tac clos_from_list_ind >>
+  simp[val_rel_simp,clos_from_list_def,PULL_EXISTS] >>
+  rw[] >> TRY(rw[optionTheory.OPTREL_def]>>NO_TAC) >>
+  first_x_assum(fn th => first_x_assum(STRIP_ASSUME_TAC o MATCH_MP th)) >>
+  fs[optionTheory.OPTREL_def])
+
+val val_rel_IMP_clos_to_chars = prove(
+  ``!xs ys aux.
+      EVERY2 val_rel xs ys ==>
+      (clos_to_chars xs aux = clos_to_chars ys aux)``,
+  Induct \\ Cases_on `ys` \\ fs []
+  \\ Cases_on `h` \\ fs [val_rel_simp,clos_to_chars_def,PULL_EXISTS]
+  \\ SRW_TAC [] [] \\ fs []);
+
+val val_rel_IMP_clos_to_string = prove(
+  ``!h1 h2. val_rel h1 h2 ==> (clos_to_string h1 = clos_to_string h2)``,
+  Induct \\ fs [val_rel_simp,clos_to_string_def,PULL_EXISTS]
+  \\ SRW_TAC [] [] \\ IMP_RES_TAC val_rel_IMP_clos_to_chars \\ fs []);
+
+val clos_equal_list_rel = prove(
+  ``∀l1 l2 l3 l4.
+     LENGTH l1 = LENGTH l2 ∧ LENGTH l3 = LENGTH l4 ∧
+     LIST_REL (λp1 p2. UNCURRY clos_equal p1 = UNCURRY clos_equal p2) (ZIP(l1,l2)) (ZIP(l3,l4)) ⇒
+     clos_equal_list l1 l2 = clos_equal_list l3 l4``,
+   Induct >> simp[LENGTH_NIL_SYM] >- (
+     simp[GSYM AND_IMP_INTRO, miscTheory.ZIP_EQ_NIL] ) >>
+   gen_tac >> Cases >> simp[PULL_EXISTS] >>
+   Cases >> simp[LENGTH_NIL_SYM] >>
+   Cases >> simp[CONJUNCT2 clos_equal_def] >>
+   strip_tac >> BasicProvers.CASE_TAC >> rw[])
+
+val clos_equal_rel = store_thm("clos_equal_rel",
+  ``∀x1 y1. val_rel x1 y1 ⇒
+      ∀x2 y2. val_rel x2 y2 ⇒ (clos_equal x1 x2 = clos_equal y1 y2)``,
+  ho_match_mp_tac val_rel_ind >> rw[] >>
+  Cases_on`x2`>>fs[val_rel_simp]>>TRY(fs[clos_equal_def]>>NO_TAC)>> rw[] >>
+  simp[clos_equal_def] >>
+  imp_res_tac LIST_REL_LENGTH >> rw[] >>
+  match_mp_tac clos_equal_list_rel >> rw[] >>
+  fs[LIST_REL_EL_EQN,EL_ZIP])
+
+val cEvalOp_rel = store_thm("cEvalOp_rel",
+  ``state_rel s1 s2 ∧
+    LIST_REL val_rel x1 x2 ⇒
+    (cEvalOp op x1 s1 = NONE ⇒
+     cEvalOp op x2 s2 = NONE) ∧
+    (∀v1 w1. cEvalOp op x1 s1 = SOME(v1,w1) ⇒
+             ∃v2 w2. cEvalOp op x2 s2 = SOME(v2,w2) ∧
+                     val_rel v1 v2 ∧ state_rel w1 w2)``,
+  strip_tac >>
+  simp[cEvalOp_def] >>
+  Cases_on`op`>>simp[val_rel_simp]>>
+  Cases_on`x1`>>fs[val_rel_simp] >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  TRY ( fs[state_rel_def,optionTheory.OPTREL_def] >> NO_TAC) >>
+  TRY (
+    imp_res_tac state_rel_refs >>
+    fs[fmap_rel_def] >>
+    fs[state_rel_def,fmap_rel_def,FAPPLY_FUPDATE_THM] >>
+    rw[] >> rw[ref_rel_cases] >>
+    NO_TAC ) >>
+  TRY ( Cases_on`t`>>fs[]>> rpt BasicProvers.VAR_EQ_TAC) >>
+  TRY (
+    CHANGED_TAC(simp[get_global_def]) >>
+    imp_res_tac state_rel_globals >>
+    BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[res_rel_simp,val_rel_simp] >>
+    fs[LIST_REL_EL_EQN,val_rel_simp] >> rfs[] >>
+    TRY (
+      first_x_assum(fn th => first_x_assum(STRIP_ASSUME_TAC o MATCH_MP th)) >>
+      fs[optionTheory.OPTREL_def] >> fs[] >> rw[] >> NO_TAC) >>
+    fs[state_rel_def] >>
+    match_mp_tac EVERY2_LUPDATE_same >>
+    simp[optionTheory.OPTREL_def] >> NO_TAC) >>
+  TRY (
+    Cases_on`h`>>fs[val_rel_simp] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    simp[clos_to_list_rel,bool_to_val_rel] >>
+    imp_res_tac state_rel_refs >>
+    fs[fmap_rel_def] >>
+    CHANGED_TAC(simp[FLOOKUP_DEF]) >>
+    IF_CASES_TAC >> simp[] >>
+    first_x_assum(fn th => first_x_assum(STRIP_ASSUME_TAC o MATCH_MP th)) >>
+    fs[ref_rel_cases,val_rel_simp] >>
+    fs[LIST_REL_EL_EQN] >>
+    NO_TAC ) >>
+  TRY (
+    Cases_on`ys'`>>fs[val_rel_simp]>>rpt BasicProvers.VAR_EQ_TAC >>
+    Cases_on`h''`>>fs[val_rel_simp]>>rpt BasicProvers.VAR_EQ_TAC >>
+    Cases_on`h'`>>fs[val_rel_simp]>>rpt BasicProvers.VAR_EQ_TAC >>
+    Cases_on`h`>>fs[val_rel_simp]>>rpt BasicProvers.VAR_EQ_TAC >>
+    Cases_on`xs`>>fs[val_rel_simp]>>rpt BasicProvers.VAR_EQ_TAC >>
+    imp_res_tac state_rel_refs >>
+    fs[fmap_rel_def] >>
+    CHANGED_TAC(simp[FLOOKUP_DEF]) >>
+    IF_CASES_TAC >> simp[] >>
+    first_x_assum(fn th => first_x_assum(STRIP_ASSUME_TAC o MATCH_MP th)) >>
+    fs[ref_rel_cases,val_rel_simp] >>
+    fs[state_rel_def] >>
+    fs[fmap_rel_def,FAPPLY_FUPDATE_THM] >>
+    rw[] >> rw[ref_rel_cases] >>
+    first_x_assum(fn th => first_x_assum(STRIP_ASSUME_TAC o MATCH_MP th)) >>
+    fs[ref_rel_cases,val_rel_simp] >>
+    NO_TAC) >>
+  TRY (
+    imp_res_tac clos_from_list_rel >>
+    fs[optionTheory.OPTREL_def] >>
+    rw[val_rel_simp] >> NO_TAC) >>
+  TRY (
+    imp_res_tac val_rel_IMP_clos_to_string >> simp[] >>
+    BasicProvers.CASE_TAC >> simp[] >>
+    fs[state_rel_def] >> NO_TAC) >>
+  TRY (
+    Cases_on`h`>>fs[val_rel_simp] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    fs[LIST_REL_EL_EQN] >>
+    Cases_on`h'`>>fs[val_rel_simp] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    Cases_on`t'`>>fs[val_rel_simp] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    Cases_on`ys'`>>fs[val_rel_simp] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    simp[bool_to_val_rel] >>
+    TRY(
+      Cases_on`t'`>>fs[val_rel_simp] >>rpt BasicProvers.VAR_EQ_TAC >>
+      Cases_on`t`>>fs[val_rel_simp] >>rpt BasicProvers.VAR_EQ_TAC) >>
+    imp_res_tac state_rel_refs >>
+    fs[fmap_rel_def] >>
+    simp[FLOOKUP_DEF] >>
+    TRY(disch_then STRIP_ASSUME_TAC) >>
+    TRY(
+      IF_CASES_TAC >> simp[] >>
+      first_x_assum(fn th => first_x_assum(STRIP_ASSUME_TAC o MATCH_MP th)) >>
+      fs[ref_rel_cases,val_rel_simp] >>
+      fs[LIST_REL_EL_EQN] >> rw[] >>
+      TRY (first_x_assum match_mp_tac >> intLib.COOPER_TAC) >>
+      fs[state_rel_def,fmap_rel_def,FAPPLY_FUPDATE_THM] >>
+      rw[] >> rw[ref_rel_cases] >>
+      MATCH_MP_TAC EVERY2_LUPDATE_same >>
+      rw[LIST_REL_EL_EQN] >>
+      NO_TAC) >>
+    fs[state_rel_def] >>
+    fs[fmap_rel_def,FAPPLY_FUPDATE_THM] >>
+    rw[] >> rw[ref_rel_cases,miscTheory.LIST_REL_REPLICATE_same] >>
+    rw[val_rel_simp] >> PROVE_TAC[]) >>
+  Cases_on`t'`>>fs[val_rel_simp] >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  imp_res_tac clos_equal_rel >> simp[] >>
+  BasicProvers.CASE_TAC >> simp[val_rel_simp,bool_to_val_rel])
 
 val renumber_code_locs_correct = store_thm("renumber_code_locs_correct",
   ``!xs env s1 env' t1 res s2 n.
@@ -447,7 +620,13 @@ val renumber_code_locs_correct = store_thm("renumber_code_locs_correct",
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     disch_then(fn th => first_x_assum(qspec_then`n`STRIP_ASSUME_TAC o MATCH_MP th)) >> rfs[] >>
     Cases_on `r1` \\ fs [res_rel_simp] >> rw[res_rel_simp] >> fs[] >>
-    cheat)
+    imp_res_tac cEvalOp_rel >>
+    last_x_assum mp_tac >>
+    BasicProvers.CASE_TAC >> simp[] >- (
+      rw[] >> rw[res_rel_simp] ) >>
+    BasicProvers.CASE_TAC >> rw[] >>
+    res_tac >> simp[] >>
+    simp[res_rel_simp])
   THEN1 (* Fn *)
    (fs [renumber_code_locs_def,cEval_def,LET_THM,UNCURRY] >>
     `t1.restrict_envs = s.restrict_envs` by fs[state_rel_def] >>

@@ -10,6 +10,7 @@ val _ = Datatype`
    ; exh : exh_ctors_env
    ; rnext_label : num
    ; next_loc : num
+   ; next_addr : num
    |>`;
 
 val compile_print_vals_def = Define `
@@ -47,7 +48,8 @@ val compile_print_err_def = Define `
   (compile_print_err cs =
   (let (cs,n) = (get_label cs) in
     let cs = (emit cs [Stack (Load( 0));
-                      Stack (TagEq (block_tag+none_tag));
+    (* TODO: need block_tag+1 here because clos->bvl increments all tags unnecessarily *)
+                      Stack (TagEq (block_tag+1+none_tag));
                       JumpIf (Lab n);
                       Stack (PushInt(( 0 : int)));
                       Stack El]) in
@@ -83,10 +85,11 @@ val compile_top_def = Define `
     let (l,e) = renumber_code_locs cs.next_loc e in
     let (e,aux) = cComp (cAnnotate 0 [e]) [] in
     let ct = fromAList (MAP (λ(p,e). (p,(2,e))) aux) in
-    let (f,r) = bvl_bc_table real_inst_length cs.rnext_label ct in
+    let (f,r) = bvl_bc_table real_inst_length cs.next_addr cs.rnext_label ct in
     let r = bvl_bc f [] TCNonTail 0 r e in
     let r = (compile_print_top types m2 top r) in
     let cs = (<| next_global := n ; globals_env := (m1,m2) ; contags_env := c
+               ; next_addr := cs.next_addr + next_addr real_inst_length r.out
                ; next_loc := l ; exh := exh ; rnext_label := r.next_label |>) in
     (cs, (cs with globals_env := (m1,m20)), r.out)`;
 
@@ -104,7 +107,7 @@ val compile_prog_def = Define `
     let (l,e) = renumber_code_locs init_compiler_state.next_loc e in
     let (e,aux) = cComp (cAnnotate 0 [e]) [] in
     let ct = fromAList (MAP (λ(p,e). (p,(2,e))) aux) in
-    let (f,r) = bvl_bc_table real_inst_length init_compiler_state.rnext_label ct in
+    let (f,r) = bvl_bc_table real_inst_length init_compiler_state.next_addr init_compiler_state.rnext_label ct in
     let r = bvl_bc f [] TCNonTail 0 r e in
     let r = compile_print_err r in
     let r = case FLOOKUP m2 "it" of NONE => r
@@ -156,10 +159,12 @@ val compile_initial_prog_def = Define `
     let (l,e) = renumber_code_locs cs.next_loc e in
     let (e,aux) = cComp (cAnnotate 0 [e]) [] in
     let ct = fromAList (MAP (λ(p,e). (p,(2,e))) aux) in
-    let (f,r) = bvl_bc_table real_inst_length cs.rnext_label ct in
+    let (f,r) = bvl_bc_table real_inst_length cs.next_addr cs.rnext_label ct in
     let r = bvl_bc f [] TCNonTail 0 r e in
+    let r = emit r [Stack Pop] in
     let cs = (<| next_global := n ; globals_env := (m1,m2) ; contags_env := c
-              ; exh := exh ; rnext_label := r.next_label |>) in
-      (cs, (emit r [Stack Pop]).out)`;
+               ; next_addr := cs.next_addr + next_addr real_inst_length r.out
+               ; next_loc := l; exh := exh ; rnext_label := r.next_label |>) in
+      (cs, r.out)`;
 
 val _ = export_theory()

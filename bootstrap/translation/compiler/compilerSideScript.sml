@@ -77,7 +77,7 @@ val compile_top_side_thm = store_thm("compile_top_side_thm",
   rw[compile_top_side_def,compile_print_top_side_def,compile_cexp_side_thm] >>
   simp[compile_print_dec_side_def] >> rpt gen_tac >>
   qmatch_abbrev_tac`(a ==> b) ∧ c` >>
-  qsuff_tac`b`>-rw[]>> unabbrev_all_tac >>
+  qsuff_tac`b`>-rw[Abbr`c`]>> unabbrev_all_tac >>
   simp[compile_print_vals_side_thm])
 
 val _ = update_precondition (EQT_INTRO(SPEC_ALL compile_top_side_thm));

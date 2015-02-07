@@ -11,9 +11,6 @@ val vs_to_i1_MAP = store_thm("vs_to_i1_MAP",
 val vs_to_i2_MAP = store_thm("vs_to_i2_MAP",
   ``∀g vs1 vs2. vs_to_i2 g vs1 vs2 ⇔ LIST_REL (v_to_i2 g) vs1 vs2``,
   gen_tac >> Induct >> simp[Once v_to_i2_cases])
-val vs_to_exh_MAP = store_thm("vs_to_exh_MAP",
-  ``∀exh vs1 vs2. vs_to_exh exh vs1 vs2 = LIST_REL (v_to_exh exh) vs1 vs2``,
-  Induct_on`vs1`>>simp[Once v_to_exh_cases])
 val sv_to_i1_sv_rel = store_thm("sv_to_i1_sv_rel",
   ``∀g. sv_to_i1 g = sv_rel (v_to_i1 g)``,
   rw[FUN_EQ_THM,sv_to_i1_cases,EQ_IMP_THM,sv_rel_cases,vs_to_i1_MAP])

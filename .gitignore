@@ -23,3 +23,6 @@ timing.log
 # Compiler Explorer
 *.exe
 *.cgi
+
+# x86-64 tests
+x86-64/wrapper/test*

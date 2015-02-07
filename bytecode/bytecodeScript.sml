@@ -127,13 +127,13 @@ val _ = Define `
  (unit_tag : num =( 2))`;
 
 val _ = Define `
- (closure_tag : num =( 3))`;
+ (string_tag : num =( 3))`;
 
 val _ = Define `
- (string_tag : num =( 4))`;
+ (vector_tag : num =( 4))`;
 
 val _ = Define `
- (vector_tag : num =( 5))`;
+ (closure_tag : num =( 5))`;
 
 val _ = Define `
  (block_tag : num =( 6))`;
