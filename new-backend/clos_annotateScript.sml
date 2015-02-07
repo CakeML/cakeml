@@ -41,6 +41,15 @@ val clos_exp_ind =
 
 (* annotate clos_exp Fn and Letrec with free variables, no sem change *)
 
+val list_mk_Union_def = Define `
+  (list_mk_Union [] = Empty) /\
+  (list_mk_Union (x::xs) = mk_Union x (list_mk_Union xs))`;
+
+val clos_exp1_size_lemma = prove(
+  ``!fns n x. MEM (n,x) fns ==> clos_exp_size x < clos_exp1_size fns``,
+  Induct \\ fs [FORALL_PROD,clos_exp_size_def] \\ REPEAT STRIP_TAC
+  \\ RES_TAC \\ SRW_TAC [] [] \\ DECIDE_TAC);
+
 val cFree_def = tDefine "cFree" `
   (cFree [] = ([],Empty)) /\
   (cFree ((x:clos_exp)::y::xs) =
@@ -75,11 +84,14 @@ val cFree_def = tDefine "cFree" `
      let l2 = Shift num_args l1 in
        ([Fn loc (vars_to_list l2) num_args (HD c1)],l2)) /\
   (cFree [Letrec loc vs fns x1] =
-     let (c1,l1) = cFree (MAP SND fns) in
-     let l3 = Shift (1 + LENGTH fns) l1 in
+     let m = LENGTH fns in
+     let res = MAP (\(n,x). let (c,l) = cFree [x] in
+                              ((n,HD c),Shift (n + m) l)) fns in
+     let c1 = MAP FST res in
+     let l1 = list_mk_Union (MAP SND res) in
      let (c2,l2) = cFree [x1] in
-       ([Letrec loc (vars_to_list l3) (ZIP (MAP FST fns, c1)) (HD c2)],
-        mk_Union l3 (Shift (LENGTH fns) l2))) /\
+       ([Letrec loc (vars_to_list l1) c1 (HD c2)],
+        mk_Union l1 (Shift (LENGTH fns) l2))) /\
   (cFree [Handle x1 x2] =
      let (c1,l1) = cFree [x1] in
      let (c2,l2) = cFree [x2] in
@@ -88,13 +100,7 @@ val cFree_def = tDefine "cFree" `
      let (c1,l1) = cFree xs in
        ([Call dest c1],l1))`
  (WF_REL_TAC `measure clos_exp3_size`
-  \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC \\
-  Induct_on `fns` >>
-  srw_tac [ARITH_ss] [clos_exp_size_def] >>
-  Cases_on `h` >>
-  srw_tac [ARITH_ss] [clos_exp_size_def]);
-
-  
+  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC clos_exp1_size_lemma \\ DECIDE_TAC);
 
 val cFree_ind = fetch "-" "cFree_ind";
 
@@ -137,7 +143,17 @@ val has_var_mk_Union = prove(
   ``has_var n (mk_Union l1 l2) <=> has_var n l1 \/ has_var n l2``,
   SRW_TAC [] [mk_Union_def,has_var_def]);
 
-val _ = augment_srw_ss [rewrites [has_var_mk_Union, has_var_def]];
+val has_var_list_mk_Union = prove(
+  ``!ls. has_var n (list_mk_Union ls) <=> EXISTS (has_var n) ls``,
+  Induct \\ fs [list_mk_Union_def,has_var_mk_Union,has_var_def]);
+
+val _ = augment_srw_ss [rewrites [has_var_mk_Union, has_var_def,
+          has_var_list_mk_Union]];
+
+val IMP_EXISTS_IFF = prove(
+  ``!xs. (!x. MEM x xs ==> (P x <=> Q x)) ==>
+         (EXISTS P xs <=> EXISTS Q xs)``,
+  Induct \\ fs []);
 
 val cFree_thm = prove(
   ``!xs.
@@ -160,7 +176,16 @@ val cFree_thm = prove(
   \\ `?y3 l3. cFree [x3] = ([y3],l3)` by METIS_TAC [PAIR,cFree_SING] \\ fs []
   \\ rfs [] \\ RES_TAC \\ IMP_RES_TAC cFree_LENGTH \\ fs []
   \\ fs [has_var_def,clos_free_def,MEM_vars_to_list]
-  \\ fs [AC ADD_ASSOC ADD_COMM, MAP_ZIP])
+  \\ fs [AC ADD_ASSOC ADD_COMM, MAP_ZIP]
+  \\ fs [MAP_MAP_o,o_DEF]
+  \\ CONV_TAC (DEPTH_CONV (PairRules.PBETA_CONV)) \\ fs []
+  \\ STRIP_TAC \\ Cases_on `has_var (n + LENGTH fns) l1'` \\ fs []
+  \\ fs [EXISTS_MAP]
+  \\ REPEAT STRIP_TAC
+  \\ MATCH_MP_TAC IMP_EXISTS_IFF \\ fs [FORALL_PROD]
+  \\ REPEAT STRIP_TAC \\ RES_TAC
+  \\ Cases_on `cFree [p_2]` \\ fs []
+  \\ IMP_RES_TAC cFree_SING \\ fs [])
   |> SPEC_ALL;
 
 (* cShift renames variables to use only those in the annotations *)
