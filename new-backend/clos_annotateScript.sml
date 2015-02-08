@@ -239,7 +239,7 @@ val cShift_def = tDefine "cShift" `
      let k = m + l in
      let live = FILTER (\n. n < k) vs in
      let vars = MAP (get_var m l i) live in
-     let c1 = cShift [x1] (m + l) num_args (new_env 0 live) in
+     let c1 = cShift [x1] k num_args (new_env 0 live) in
        ([Fn loc vars num_args (HD c1)])) /\
   (cShift [Letrec loc vs fns x1] m l i =
      let k = m + l in
@@ -304,7 +304,7 @@ val (val_rel_rules,val_rel_ind,val_rel_cases) = Hol_reln `
    (!n. clos_free_set [c] n /\ num_args <= n ==>
         env_ok m 0 i env env' (n - num_args)) /\
    (LENGTH env = m) /\ EVERY2 val_rel vals vals' ==>
-   val_rel (Closure p env vals num_args c) (Closure p env' vals' num_args c'))
+   val_rel (Closure p vals env num_args c) (Closure p vals' env' num_args c'))
   /\
   ((EL index cs = (num_args,c1)) /\
    (EL index cs' = (num_args,c1')) /\
@@ -312,7 +312,7 @@ val (val_rel_rules,val_rel_ind,val_rel_cases) = Hol_reln `
    (!n. clos_free_set [c1] n /\ num_args + LENGTH cs <= n ==>
         env_ok m 0 i env env' (n - (num_args + LENGTH cs))) /\
    (LENGTH env = m) /\ EVERY2 val_rel vals vals' ==>
-   val_rel (Recclosure p env vals cs index) (Recclosure p env' vals' cs' index))
+   val_rel (Recclosure p vals env cs index) (Recclosure p vals' env' cs' index))
   /\
   (l + m <= n ==>
    env_ok m l i (env2:clos_val list) (env2':clos_val list) n)
@@ -547,7 +547,6 @@ val cEvalOp_thm = prove(
     (cEvalOp op xs s1 = SOME (v,s2)) ==>
     ?w t2. (cEvalOp op ys t1 = SOME (w,t2)) /\
            val_rel v w /\ state_rel s2 t2``,
-
   REVERSE (Cases_on `op`) \\ REPEAT STRIP_TAC
   THEN1 (* Less *)
    (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
@@ -671,11 +670,8 @@ val cEvalOp_thm = prove(
     \\ rfs [] \\ POP_ASSUM IMP_RES_TAC
     \\ rfs [quotient_optionTheory.OPTION_REL_def]));
 
-
-
-
 val cShift_correct = prove(
-  ``!xs env s1 env' t1 res s2 m l i.
+  ``(!xs env s1 env' t1 res s2 m l i.
       (cEval (xs,env,s1) = (res,s2)) /\ res <> Error /\
       (LENGTH env = m + l) /\
       clos_free_set xs SUBSET env_ok m l i env env' /\
@@ -683,8 +679,12 @@ val cShift_correct = prove(
       ?res' t2.
          (cEval (cShift (FST (cFree xs)) m l i,env',t1) = (res',t2)) /\
          res_rel res res' /\
-         state_rel s2 t2 ``,
-  recInduct cEval_ind \\ REPEAT STRIP_TAC
+         state_rel s2 t2) /\
+    (!(loc_opt:num option) (f:clos_val) (vals:clos_val list) (s:clos_state). T)``,
+
+  HO_MATCH_MP_TAC (cEval_ind |> Q.SPEC `\(x1,x2,x3). P0 x1 x2 x3` |> Q.GEN `P0`
+                             |> SIMP_RULE std_ss [FORALL_PROD])
+  \\ REPEAT STRIP_TAC
   THEN1 (* NIL *)
    (fs [cFree_def,cShift_def,cEval_def]
     \\ SRW_TAC [] [res_rel_cases])
@@ -693,7 +693,7 @@ val cShift_correct = prove(
     \\ `?y1 l1. cFree [x] = ([y1],l1)` by METIS_TAC [PAIR,cFree_SING]
     \\ `?y2 l2. cFree (y::xs) = (y2,l2)` by METIS_TAC [PAIR] \\ fs []
     \\ fs [LET_DEF]
-    \\ `?r1 s1. cEval ([x],env,s) = (r1,s1)` by METIS_TAC [PAIR] \\ fs []
+    \\ `?r1 s2. cEval ([x],env,s1) = (r1,s2)` by METIS_TAC [PAIR] \\ fs []
     \\ `?y3 y4. y2 = y3::y4` by
      (IMP_RES_TAC cFree_LENGTH
       \\ Cases_on `y2` \\ fs [has_var_def,clos_free_def])
@@ -709,7 +709,7 @@ val cShift_correct = prove(
         clos_free_set (y::xs) SUBSET env_ok m l i env env'` by
       (fs [SUBSET_DEF,IN_DEF,clos_free_set_def,clos_free_def])
     \\ fs [] \\ REPEAT STRIP_TAC \\ fs [res_rel_simp]
-    \\ `?r2 s2. cEval (y::xs,env,s1) = (r2,s2)` by METIS_TAC [PAIR] \\ fs []
+    \\ `?r2 s3. cEval (y::xs,env,s2') = (r2,s3)` by METIS_TAC [PAIR] \\ fs []
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t2`])
     \\ Cases_on `r2` \\ fs []
     \\ REPEAT STRIP_TAC \\ POP_ASSUM (MP_TAC o Q.SPECL [`m`,`l`,`i`]) \\ fs []
@@ -733,7 +733,7 @@ val cShift_correct = prove(
     \\ `?y2 l2. cFree [x2] = ([y2],l2)` by METIS_TAC [PAIR,cFree_SING]
     \\ `?y3 l3. cFree [x3] = ([y3],l3)` by METIS_TAC [PAIR,cFree_SING]
     \\ fs [LET_DEF,cShift_def,cEval_def]
-    \\ `?r1 s1. cEval ([x1],env,s) = (r1,s1)` by METIS_TAC [PAIR] \\ fs []
+    \\ `?r1 s2. cEval ([x1],env,s1) = (r1,s2)` by METIS_TAC [PAIR] \\ fs []
     \\ `clos_free_set [x1] SUBSET env_ok m l i env env' /\
         clos_free_set [x2] SUBSET env_ok m l i env env' /\
         clos_free_set [x3] SUBSET env_ok m l i env env'` by
@@ -753,7 +753,7 @@ val cShift_correct = prove(
     \\ `?y1 l1. cFree xs = (y1,l1)` by METIS_TAC [PAIR,cFree_SING]
     \\ `?y2 l2. cFree [x2] = ([y2],l2)` by METIS_TAC [PAIR,cFree_SING]
     \\ fs [LET_DEF,cShift_def,cEval_def]
-    \\ `?r1 s1. cEval (xs,env,s) = (r1,s1)` by METIS_TAC [PAIR] \\ fs []
+    \\ `?r1 s2. cEval (xs,env,s1) = (r1,s2)` by METIS_TAC [PAIR] \\ fs []
     \\ `clos_free_set xs SUBSET env_ok m l i env env'` by
       (fs [SUBSET_DEF,IN_DEF,clos_free_set_def,clos_free_def])
     \\ `r1 <> Error` by (REPEAT STRIP_TAC \\ fs [])
@@ -780,7 +780,7 @@ val cShift_correct = prove(
    (fs [cFree_def]
     \\ `?y1 l1. cFree [x1] = ([y1],l1)` by METIS_TAC [PAIR,cFree_SING]
     \\ fs [LET_DEF,cShift_def,cEval_def]
-    \\ `?r1 s1. cEval ([x1],env,s) = (r1,s1)` by METIS_TAC [PAIR] \\ fs []
+    \\ `?r1 s2. cEval ([x1],env,s1) = (r1,s2)` by METIS_TAC [PAIR] \\ fs []
     \\ `clos_free_set [x1] SUBSET env_ok m l i env env'` by
       (fs [SUBSET_DEF,IN_DEF,clos_free_set_def,clos_free_def])
     \\ `r1 <> Error` by (REPEAT STRIP_TAC \\ fs [])
@@ -816,7 +816,7 @@ val cShift_correct = prove(
    (fs [cFree_def]
     \\ `?y1 l1. cFree xs = (y1,l1)` by METIS_TAC [PAIR,cFree_SING]
     \\ fs [LET_DEF,cShift_def,cEval_def]
-    \\ `?r1 s1. cEval (xs,env,s) = (r1,s1)` by METIS_TAC [PAIR] \\ fs []
+    \\ `?r1 s2. cEval (xs,env,s1) = (r1,s2)` by METIS_TAC [PAIR] \\ fs []
     \\ `clos_free_set xs SUBSET env_ok m l i env env'` by
       (fs [SUBSET_DEF,IN_DEF,clos_free_set_def,clos_free_def])
     \\ `r1 <> Error` by (REPEAT STRIP_TAC \\ fs [])
@@ -824,18 +824,22 @@ val cShift_correct = prove(
     \\ REPEAT STRIP_TAC \\ fs []
     \\ Cases_on `r1` \\ fs [] \\ SRW_TAC [] []
     \\ fs [res_rel_simp] \\ SRW_TAC [] []
-    \\ Cases_on `cEvalOp op a s1` \\ fs []
+    \\ Cases_on `cEvalOp op (REVERSE a) s2'` \\ fs []
     \\ Cases_on `x` \\ fs [] \\ SRW_TAC [] [res_rel_simp,PULL_EXISTS]
+    \\ IMP_RES_TAC EVERY2_REVERSE
     \\ IMP_RES_TAC cEvalOp_thm \\ fs [])
   THEN1 (* Fn *)
    (fs [cFree_def,cEval_def]
-    \\ `~s.restrict_envs /\ t1.restrict_envs` by fs [state_rel_def]
+    \\ `~s1.restrict_envs /\ t1.restrict_envs` by fs [state_rel_def]
     \\ fs [clos_env_def]
     \\ SRW_TAC [] [] \\ SRW_TAC [] [markerTheory.Abbrev_def]
     \\ `?y1 l1. cFree [exp] = ([y1],l1)` by METIS_TAC [PAIR,cFree_SING]
-    \\ fs [cShift_def,LET_DEF,cEval_def,clos_env_def,res_rel_simp,PULL_EXISTS,
-           val_rel_simp]
-    \\ Q.ABBREV_TAC `live = FILTER (\n. n < m + l) (vars_to_list (Shift 1 l1))`
+    \\ Cases_on `num_args <= max_app` \\ fs []
+    \\ Cases_on `num_args <> 0` \\ fs [] \\ SRW_TAC [] []
+    \\ fs [cShift_def,LET_DEF,cEval_def,clos_env_def,res_rel_simp,
+           PULL_EXISTS,val_rel_simp]
+    \\ Q.ABBREV_TAC `live =
+          FILTER (\n. n < m + l) (vars_to_list (Shift num_args l1))`
     \\ fs [MAP_MAP_o,o_DEF]
     \\ Cases_on `lookup_vars (MAP (get_var m l i) live) env'`
     \\ fs [] THEN1
@@ -854,31 +858,50 @@ val cShift_correct = prove(
     \\ fs [LET_DEF] \\ STRIP_TAC
     \\ fs [SUBSET_DEF,IN_DEF,clos_free_set_def,clos_free_def]
     \\ fs [ADD1] \\ RES_TAC \\ UNABBREV_ALL_TAC
-    \\ Q.ABBREV_TAC `live = vars_to_list (Shift 1 l1)`
-    \\ `MEM n' live` by (UNABBREV_ALL_TAC \\ fs [MEM_vars_to_list])
-    \\ Q.ABBREV_TAC `k = n'`
-    \\ Q.ABBREV_TAC `env2 = env'`
-    \\ `ALL_DISTINCT live` by
-      (UNABBREV_ALL_TAC \\ fs [ALL_DISTINCT_vars_to_list])
-    \\ IMP_RES_TAC env_ok_new_env)
+    \\ Q.ABBREV_TAC `live = vars_to_list (Shift num_args l1)`
+    \\ MATCH_MP_TAC (GEN_ALL env_ok_new_env)
+    \\ Q.LIST_EXISTS_TAC [`i`,`env'`] \\ fs []
+    \\ `n' + 1 = (n' + 1 - num_args) + num_args` by DECIDE_TAC
+    \\ STRIP_TAC THEN1 METIS_TAC []
+    \\ STRIP_TAC THEN1 (UNABBREV_ALL_TAC \\ fs [MEM_vars_to_list] \\ METIS_TAC [])
+    \\ UNABBREV_ALL_TAC \\ fs [ALL_DISTINCT_vars_to_list])
   THEN1 (* Letrec *)
    (fs [cFree_def,cEval_def]
-    \\ `~s.restrict_envs /\ t1.restrict_envs` by fs [state_rel_def]
+    \\ `~s1.restrict_envs /\ t1.restrict_envs` by fs [state_rel_def]
     \\ fs [clos_env_def]
     \\ SRW_TAC [] [] \\ SRW_TAC [] [markerTheory.Abbrev_def]
-    \\ `?y1 l1. cFree fns = (y1,l1)` by METIS_TAC [PAIR,cFree_SING]
+    \\ `EVERY (\(num_args,e). num_args <= max_app /\
+                              num_args <> 0) fns` by
+      (CCONTR_TAC \\ FULL_SIMP_TAC std_ss [])
+    \\ Cases_on `build_recc F loc env names fns` \\ fs []
+    \\ Q.ABBREV_TAC `rec_res = MAP
+                        (\(n,x).
+                           (let (c,l) = cFree [x] in
+                              ((n,HD c),Shift (n + LENGTH fns) l))) fns`
     \\ `?y2 l2. cFree [exp] = ([y2],l2)` by METIS_TAC [PAIR,cFree_SING]
     \\ fs [cShift_def,LET_DEF,cEval_def,build_recc_def,clos_env_def,
            cShift_LENGTH_LEMMA]
+    \\ Q.PAT_ABBREV_TAC `ev = EVERY PP xx`
+    \\ `ev` by
+     (UNABBREV_ALL_TAC \\ fs [MAP_MAP_o,o_DEF]
+      \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs [EVERY_MAP]
+      \\ fs [EVERY_MEM,FORALL_PROD] \\ REPEAT STRIP_TAC \\ RES_TAC)
+    \\ fs [] \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM (K ALL_TAC)
     \\ Q.ABBREV_TAC `live = FILTER (\n. n < m + l)
-          (vars_to_list (Shift (1 + LENGTH fns) l1))`
+          (vars_to_list (list_mk_Union (MAP SND rec_res)))`
     \\ Cases_on `lookup_vars (MAP (get_var m l i) live) env'`
     \\ fs [] THEN1
      (`F` by ALL_TAC \\ fs []
       \\ fs [SUBSET_DEF,IN_DEF,clos_free_set_def,clos_free_def]
       \\ fs [lookup_vars_NONE] \\ UNABBREV_ALL_TAC
       \\ fs [MEM_FILTER,MEM_vars_to_list,MEM_MAP]
-      \\ MP_TAC (Q.INST [`xs`|->`fns`] cFree_thm)
+      \\ fs [EXISTS_MEM,PULL_EXISTS,EXISTS_PROD]
+      \\ NTAC 3 (POP_ASSUM MP_TAC)
+      \\ fs [MAP_MAP_o,o_DEF,MEM_MAP,EXISTS_PROD]
+      \\ REPEAT STRIP_TAC
+      \\ Q.MATCH_ASSUM_RENAME_TAC `MEM (p_11,p_21) fns`
+      \\ Cases_on `cFree [p_21]` \\ fs [] \\ SRW_TAC [] [] \\ fs []
+      \\ MP_TAC (Q.INST [`xs`|->`[p_21]`] cFree_thm)
       \\ fs [LET_DEF] \\ CCONTR_TAC
       \\ fs [AC ADD_ASSOC ADD_COMM] \\ RES_TAC
       \\ SRW_TAC [] [] \\ fs []
@@ -887,31 +910,49 @@ val cShift_correct = prove(
       \\ DECIDE_TAC)
     \\ FIRST_X_ASSUM MATCH_MP_TAC
     \\ IMP_RES_TAC cFree_LENGTH \\ fs []
-    \\ fs [AC ADD_COMM ADD_ASSOC]
+    \\ `LENGTH rec_res = LENGTH x` by ALL_TAC THEN1
+      (UNABBREV_ALL_TAC \\ fs [] \\ SRW_TAC [] [] \\ fs [])
+    \\ STRIP_TAC THEN1 (fs [AC ADD_COMM ADD_ASSOC])
     \\ fs [SUBSET_DEF,IN_DEF,clos_free_set_def,clos_free_def]
     \\ REPEAT STRIP_TAC
-    \\ MATCH_MP_TAC (env_ok_EXTEND |> GEN_ALL)
-    \\ fs [LENGTH_GENLIST]
+    \\ MATCH_MP_TAC (env_ok_EXTEND |> GEN_ALL) \\ fs []
     \\ REVERSE (REPEAT STRIP_TAC) THEN1
-     (FIRST_X_ASSUM MATCH_MP_TAC
+     (FIRST_X_ASSUM MATCH_MP_TAC \\ DISJ2_TAC
+      \\ UNABBREV_ALL_TAC \\ fs [] \\ SRW_TAC [] [] \\ fs []
       \\ IMP_RES_TAC (DECIDE ``n <= m:num <=> (m - n + n = m)``) \\ fs [])
+    \\ SRW_TAC [] []
     \\ fs [EVERY2_GENLIST] \\ REPEAT STRIP_TAC
     \\ fs [val_rel_simp]
+    \\ Cases_on `EL i' fns` \\ fs []
+    \\ Q.EXISTS_TAC `HD (cShift (FST (cFree [r])) (m + l)
+                      (LENGTH fns + q) (new_env 0 live))`
     \\ Q.EXISTS_TAC `new_env 0 live` \\ fs []
+    \\ STRIP_TAC THEN1 cheat (* easy *)
+    \\ STRIP_TAC THEN1
+      (Cases_on `cFree [r]` \\ fs [] \\ IMP_RES_TAC cFree_SING \\ fs [])
     \\ REPEAT STRIP_TAC
     \\ UNABBREV_ALL_TAC
-    \\ ONCE_REWRITE_TAC [ADD_COMM]
     \\ MATCH_MP_TAC (GEN_ALL env_ok_new_env)
     \\ Q.LIST_EXISTS_TAC [`i`,`env'`] \\ fs []
     \\ fs [AC ADD_COMM ADD_ASSOC,ALL_DISTINCT_vars_to_list]
     \\ fs [MEM_vars_to_list]
-    \\ MP_TAC (Q.INST [`xs`|->`fns`] cFree_thm)
-    \\ fs [LET_DEF] \\ STRIP_TAC \\ fs []
+    \\ STRIP_TAC THEN1
+     (FIRST_X_ASSUM MATCH_MP_TAC \\ DISJ1_TAC
+      \\ fs [EXISTS_MEM,EXISTS_PROD,clos_free_set_def]
+      \\ Q.LIST_EXISTS_TAC [`q`,`r`] \\ fs []
+      \\ fs [MEM_EL,PULL_EXISTS]
+      \\ `q + (n - (q + LENGTH fns) + LENGTH fns) = n` by DECIDE_TAC
+      \\ METIS_TAC [])
+    \\ fs [EXISTS_MEM,EXISTS_PROD,clos_free_set_def,MEM_EL,PULL_EXISTS]
+    \\ Q.EXISTS_TAC `i'` \\ fs [EL_MAP]
+    \\ Cases_on `cFree [r]` \\ fs []
+    \\ IMP_RES_TAC cFree_SING \\ fs []
     \\ IMP_RES_TAC (DECIDE ``n <= m:num <=> (m - n + n = m)``)
-    \\ fs [clos_free_set_def]
-    \\ FIRST_X_ASSUM MATCH_MP_TAC
-    \\ fs [clos_free_set_def])
+    \\ MP_TAC (Q.INST [`xs`|->`[r]`] cFree_thm)
+    \\ fs [LET_DEF] \\ STRIP_TAC \\ fs [])
   THEN1 (* App *)
+   cheat
+(*
    (fs [cFree_def]
     \\ `?y1 l1. cFree [x1] = ([y1],l1)` by METIS_TAC [PAIR,cFree_SING]
     \\ `?y2 l2. cFree [x2] = ([y2],l2)` by METIS_TAC [PAIR,cFree_SING]
@@ -976,16 +1017,17 @@ val cShift_correct = prove(
     \\ Q.EXISTS_TAC `i'` \\ fs []
     \\ REPEAT STRIP_TAC \\ FIRST_X_ASSUM MATCH_MP_TAC
     \\ fs [clos_free_set_def])
+*)
   THEN1 (* Tick *)
    (fs [cFree_def,cEval_def]
     \\ `?y1 l1. cFree [x] = ([y1],l1)` by METIS_TAC [PAIR,cFree_SING]
     \\ fs [LET_DEF,cShift_def,cEval_def]
-    \\ `t1.clock = s.clock` by fs [state_rel_def] \\ fs []
-    \\ Cases_on `s.clock = 0` \\ fs []
+    \\ `t1.clock = s1.clock` by fs [state_rel_def] \\ fs []
+    \\ Cases_on `s1.clock = 0` \\ fs []
     \\ SRW_TAC [] [res_rel_simp]
     \\ `clos_free_set [x] SUBSET env_ok m l i env env'` by
       (fs [SUBSET_DEF,IN_DEF,clos_free_set_def,clos_free_def])
-    \\ `state_rel (dec_clock s) (dec_clock t1)` by
+    \\ `state_rel (dec_clock 1 s1) (dec_clock 1 t1)` by
           fs [state_rel_def,closLangTheory.dec_clock_def] \\ RES_TAC
     \\ STRIP_ASSUME_TAC (cShift_SING |> Q.INST [`x`|->`y1`]) \\ fs [])
   THEN1 (* Call *)
@@ -1012,7 +1054,7 @@ val cShift_correct = prove(
     \\ `s2'.clock = t2.clock` by fs [state_rel_def] \\ fs []
     \\ Cases_on `t2.clock = 0` \\ fs []
     THEN1 (SRW_TAC [] [res_rel_simp])
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`ys`,`dec_clock t2`,`0`,
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`ys`,`dec_clock 1 t2`,`0`,
          `LENGTH (ys:clos_val list)`,`LN`])
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
      (fs [] \\ REVERSE (REPEAT STRIP_TAC)
@@ -1021,7 +1063,8 @@ val cShift_correct = prove(
       \\ SIMP_TAC std_ss [env_ok_def]
       \\ REVERSE (Cases_on `x < LENGTH ys`) \\ fs [] THEN1 DECIDE_TAC
       \\ IMP_RES_TAC EVERY2_EL \\ METIS_TAC [])
-    \\ REPEAT STRIP_TAC \\ fs [] \\ rfs []));
+    \\ REPEAT STRIP_TAC \\ fs [] \\ rfs [])
+  \\ fs []);
 
 val env_set_default = prove(
   ``x SUBSET env_ok 0 0 LN [] env'``,
@@ -1033,13 +1076,15 @@ val cAnnotate_correct = save_thm("cAnnotate_correct",
   |> REWRITE_RULE [GSYM cAnnotate_def,env_set_default,LENGTH,ADD_0]);
 
 val code_locs_append = store_thm("code_locs_append",
-  ``∀l1 l2. code_locs (l1 ++ l2) = code_locs l1 ++ code_locs l2``,
+  ``!l1 l2. code_locs (l1 ++ l2) = code_locs l1 ++ code_locs l2``,
   Induct >> simp[code_locs_def] >>
   simp[Once code_locs_cons] >>
   simp[Once code_locs_cons,SimpRHS])
 
+
+
 val cShift_code_locs = prove(
-  ``∀xs env s1 env'. code_locs (cShift xs env s1 env') = code_locs xs``,
+  ``!xs env s1 env'. code_locs (cShift xs env s1 env') = code_locs xs``,
   ho_match_mp_tac cShift_ind >>
   simp[cShift_def,code_locs_def,cShift_LENGTH_LEMMA] >>
   rw[code_locs_append])
