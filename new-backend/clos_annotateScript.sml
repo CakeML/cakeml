@@ -1081,43 +1081,44 @@ val code_locs_append = store_thm("code_locs_append",
   simp[Once code_locs_cons] >>
   simp[Once code_locs_cons,SimpRHS])
 
+val code_locs_MAP = prove(
+  ``!xs f. code_locs (MAP f xs) = FLAT (MAP (\x. code_locs [f x]) xs)``,
+  Induct \\ fs [code_locs_def]
+  \\ ONCE_REWRITE_TAC [code_locs_cons] \\ fs [code_locs_def]);
 
+val IF_MAP_EQ = prove(
+  ``!xs f g. (!x. MEM x xs ==> f x = g x) ==> (MAP f xs = MAP g xs)``,
+  Induct \\ fs []);
 
 val cShift_code_locs = prove(
   ``!xs env s1 env'. code_locs (cShift xs env s1 env') = code_locs xs``,
-  ho_match_mp_tac cShift_ind >>
-  simp[cShift_def,code_locs_def,cShift_LENGTH_LEMMA] >>
-  rw[code_locs_append])
+  ho_match_mp_tac cShift_ind
+  \\ simp[cShift_def,code_locs_def,cShift_LENGTH_LEMMA]
+  \\ rw[code_locs_append]
+  \\ fs [MAP_MAP_o,o_DEF]
+  \\ ONCE_REWRITE_TAC [code_locs_MAP]
+  \\ AP_TERM_TAC \\ MATCH_MP_TAC IF_MAP_EQ \\ fs [FORALL_PROD])
 
-fun tac (g as (asl,w)) =
-  let
-    fun finder tm =
-      let
-        val (f,lss) = strip_comb tm
-        val _ = assert (equal 1) (length lss)
-        val (xs,_) = listSyntax.dest_list (hd lss)
-      in
-        same_const``cFree`` f andalso
-        length xs > 0 andalso
-        all is_var xs
-      end
-    fun f tm = case total finder tm of NONE => false | SOME x => x
-    val tm = find_term f w
-  in
-    Cases_on[ANTIQUOTE tm] g
-  end
+val HD_FST_cFree = prove(
+  ``[HD (FST (cFree [x1]))] = FST (cFree [x1])``,
+  Cases_on `cFree [x1]` \\ fs []
+  \\ imp_res_tac cFree_SING \\ fs[]);
 
 val cFree_code_locs = prove(
-  ``∀xs. code_locs (FST (cFree xs)) = code_locs xs``,
+  ``!xs. code_locs (FST (cFree xs)) = code_locs xs``,
   ho_match_mp_tac cFree_ind >>
-  simp[cFree_def,code_locs_def,UNCURRY] >> rw[] >>
-  rpt(tac >> fs[code_locs_append]) >>
-  imp_res_tac cFree_SING >> fs[] >> rw[] >>
-  Cases_on`cFree xs`>>fs[] >>
-  assume_tac cFree_LENGTH_LEMMA >> rfs[])
+  simp[cFree_def,code_locs_def,UNCURRY] >> rw[]
+  \\ Cases_on `cFree [x]` \\ fs [code_locs_append,HD_FST_cFree]
+  \\ Cases_on `cFree [x1]` \\ fs [code_locs_append,HD_FST_cFree]
+  \\ Cases_on `cFree [x2]` \\ fs [code_locs_append,HD_FST_cFree]
+  \\ Cases_on `cFree xs` \\ fs [code_locs_append,HD_FST_cFree]
+  \\ fs [MAP_MAP_o,o_DEF]
+  \\ ONCE_REWRITE_TAC [code_locs_MAP] \\ AP_TERM_TAC
+  \\ MATCH_MP_TAC IF_MAP_EQ \\ fs [FORALL_PROD,HD_FST_cFree]
+  \\ REPEAT STRIP_TAC \\ RES_TAC \\ fs [])
 
 val cAnnotate_code_locs = store_thm("cAnnotate_code_locs",
-  ``∀n ls. code_locs (cAnnotate n ls) = code_locs ls``,
+  ``!n ls. code_locs (cAnnotate n ls) = code_locs ls``,
   rw[cAnnotate_def,cShift_code_locs,cFree_code_locs])
 
 val _ = export_theory();
