@@ -96,7 +96,7 @@ fun PMATCH_CATCHALL_INTRO_CONV tm = let
   val goal = mk_forall(gv,mk_eq(mk_PMATCH gv l1,mk_PMATCH gv l))
   (* set_goal ([],goal) *)
   val lemma = prove(goal,
-    gen_tac >> EQ_TAC >>
+    gen_tac >>
     SIMP_TAC (rc_ss[]) [PMATCH_EVAL, PMATCH_ROW_COND_def] >>
     BasicProvers.EVERY_CASE_TAC >>
     FULL_SIMP_TAC (rc_ss[]) [] >>
@@ -104,7 +104,7 @@ fun PMATCH_CATCHALL_INTRO_CONV tm = let
     FULL_SIMP_TAC (rc_ss[]) [] >>
     fs[] >> rw[] >>
     spose_not_then strip_assume_tac >>
-    BasicProvers.VAR_EQ_TAC >>
+    rpt BasicProvers.VAR_EQ_TAC >>
     FULL_SIMP_TAC (rc_ss[]) [] >>
     rpt (
       first_assum(fn th =>
@@ -121,13 +121,22 @@ val raconv_PMATCH = save_thm("raconv_PMATCH",
    |> (STRIP_QUANT_CONV o RAND_CONV))
   raconv_def)
 
-(*
+(* PMATCH_INTRO_CONV fails because it doesn't know about :term *)
+val t = dest_var_def |> SPEC_ALL |> concl |> rhs
+val t' = convert_case t
+val go = mk_eq(t,t')
+(* set_goal([],go) *)
+val th = prove(go,
+  rpt(CASE_TAC >> FULL_SIMP_TAC (rc_ss[]) [PMATCH_EVAL, PMATCH_ROW_COND_def]) >>
+  fs[])
+
 val dest_var_PMATCH = save_thm("dest_var_PMATCH",
   CONV_RULE
-    ((PMATCH_INTRO_CONV THENC PMATCH_SIMP_CONV)
+    ((REWR_CONV th THENC PMATCH_CATCHALL_INTRO_CONV)
      |> (STRIP_QUANT_CONV o RAND_CONV))
-  dest_var_def
+  dest_var_def)
 
+(*
 val type_of_PMATCH = save_thm("type_of_PMATCH",
   type_of_def
 *)
