@@ -239,15 +239,18 @@ val cShift_def = tDefine "cShift" `
      let k = m + l in
      let live = FILTER (\n. n < k) vs in
      let vars = MAP (get_var m l i) live in
-     let c1 = cShift [x1] (m + l) 1 (new_env 0 live) in
+     let c1 = cShift [x1] (m + l) num_args (new_env 0 live) in
        ([Fn loc vars num_args (HD c1)])) /\
   (cShift [Letrec loc vs fns x1] m l i =
      let k = m + l in
      let live = FILTER (\n. n < k) vs in
      let vars = MAP (get_var m l i) live in
-     let cs = cShift (MAP SND fns) (m + l) (1 + LENGTH fns) (new_env 0 live) in
+     let new_i = new_env 0 live in
+     let fns_len = LENGTH fns in
+     let cs = MAP (\(n,x). let c = cShift [x] k (n + fns_len) new_i in
+                             (n,HD c)) fns in
      let c1 = cShift [x1] m (l + LENGTH fns) i in
-       ([Letrec loc vars (ZIP (MAP FST fns, cs)) (HD c1)])) /\
+       ([Letrec loc vars cs (HD c1)])) /\
   (cShift [Handle x1 x2] m l i =
      let c1 = cShift [x1] m l i in
      let c2 = cShift [x2] m (l+1) i in
@@ -256,11 +259,8 @@ val cShift_def = tDefine "cShift" `
      let c1 = cShift xs m l i in
        ([Call dest c1]))`
  (WF_REL_TAC `measure (clos_exp3_size o FST)`
-  \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC \\
-  Induct_on `fns` >>
-  srw_tac [ARITH_ss] [clos_exp_size_def] >>
-  Cases_on `h` >>
-  srw_tac [ARITH_ss] [clos_exp_size_def]);
+  \\ REPEAT STRIP_TAC
+  \\ IMP_RES_TAC clos_exp1_size_lemma \\ DECIDE_TAC);
 
 val cShift_ind = fetch "-" "cShift_ind";
 
@@ -300,16 +300,19 @@ val (val_rel_rules,val_rel_ind,val_rel_cases) = Hol_reln `
   /\
   (val_rel (RefPtr r1) (RefPtr r1))
   /\
-  ((cShift (FST (cFree [c])) m 1 i = [c']) /\
-   (!n. clos_free_set [c] n /\ 1 <= n ==> env_ok m 0 i env env' (n - 1)) /\
-   (LENGTH env = m) ==>
-   val_rel (Closure p env c) (Closure p env' c'))
+  ((cShift (FST (cFree [c])) m num_args i = [c']) /\
+   (!n. clos_free_set [c] n /\ num_args <= n ==>
+        env_ok m 0 i env env' (n - num_args)) /\
+   (LENGTH env = m) /\ EVERY2 val_rel vals vals' ==>
+   val_rel (Closure p env vals num_args c) (Closure p env' vals' num_args c'))
   /\
-  ((cShift (FST (cFree cs)) m (LENGTH cs + 1) i = cs') /\
-   (!n. clos_free_set cs n /\ 1 + LENGTH cs <= n ==>
-        env_ok m 0 i env env' (n - (1 + LENGTH cs))) /\
-   (LENGTH env = m) ==>
-   val_rel (Recclosure p env cs index) (Recclosure p env' cs' index))
+  ((EL index cs = (num_args,c1)) /\
+   (EL index cs' = (num_args,c1')) /\
+   (cShift (FST (cFree [c1])) m (LENGTH cs + num_args) i = [c1']) /\
+   (!n. clos_free_set [c1] n /\ num_args + LENGTH cs <= n ==>
+        env_ok m 0 i env env' (n - (num_args + LENGTH cs))) /\
+   (LENGTH env = m) /\ EVERY2 val_rel vals vals' ==>
+   val_rel (Recclosure p env vals cs index) (Recclosure p env' vals' cs' index))
   /\
   (l + m <= n ==>
    env_ok m l i (env2:clos_val list) (env2':clos_val list) n)
@@ -361,13 +364,13 @@ val val_rel_simp = let
   in map f [``val_rel (Number x) y``,
             ``val_rel (Block n l) y``,
             ``val_rel (RefPtr x) y``,
-            ``val_rel (Closure n l x) y``,
-            ``val_rel (Recclosure x1 x2 x3 x4) y``,
+            ``val_rel (Closure n l v x w) y``,
+            ``val_rel (Recclosure x1 x2 x3 x4 x5) y``,
             ``val_rel y (Number x)``,
             ``val_rel y (Block n l)``,
             ``val_rel y (RefPtr x)``,
-            ``val_rel y (Closure n l x)``,
-            ``val_rel y (Recclosure x1 x2 x3 x4)``] |> LIST_CONJ end
+            ``val_rel y (Closure n l v x w)``,
+            ``val_rel y (Recclosure x1 x2 x3 x4 x5)``] |> LIST_CONJ end
   |> curry save_thm "val_rel_simp"
 
 val res_rel_simp = let
@@ -667,6 +670,9 @@ val cEvalOp_thm = prove(
     \\ IMP_RES_TAC EVERY2_EL
     \\ rfs [] \\ POP_ASSUM IMP_RES_TAC
     \\ rfs [quotient_optionTheory.OPTION_REL_def]));
+
+
+
 
 val cShift_correct = prove(
   ``!xs env s1 env' t1 res s2 m l i.
