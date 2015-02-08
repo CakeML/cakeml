@@ -113,13 +113,61 @@ fun PMATCH_CATCHALL_INTRO_CONV tm = let
         end)))
   in SPEC x lemma end
 
+fun ONCE_BOT_DEPTH_CONV conv tm =
+  let val c = ONCE_BOT_DEPTH_CONV conv in
+    RATOR_CONV c ORELSEC
+    RAND_CONV c ORELSEC
+    ABS_CONV c ORELSEC
+    conv
+  end tm
+
+fun BOT_SWEEP_CONV conv tm =
+  let val c = BOT_SWEEP_CONV conv in
+    TRY_CONV(RATOR_CONV c) THENC
+    TRY_CONV(RAND_CONV c) THENC
+    TRY_CONV(ABS_CONV c) THENC
+    TRY_CONV conv
+  end tm
+
+(*
+fun RETRY_SWEEP_CONV P conv tm =
+  let
+    val c = RETRY_SWEEP_CONV P conv
+    val d = RATOR_CONV c ORELSEC
+            RAND_CONV c ORELSEC
+            ABS_CONV c
+    fun r tm = (conv ORELSEC (d THENC r)) tm
+  in
+    if P tm then r else d
+  end tm
+*)
+
 val raconv_PMATCH = save_thm("raconv_PMATCH",
+  (PMATCH_INTRO_CONV THENC
+   PMATCH_CATCHALL_INTRO_CONV)
+  |> BOT_SWEEP_CONV
+  |> Lib.with_flag(Feedback.emit_MESG,false)
+     (C CONV_RULE raconv_def))
+(* faster, less general:
   CONV_RULE
   ((funpow 3 (RAND_CONV o funpow 2 ABS_CONV)
      (PMATCH_INTRO_CONV THENC PMATCH_CATCHALL_INTRO_CONV)
     THENC PMATCH_INTRO_CONV THENC PMATCH_CATCHALL_INTRO_CONV)
    |> (STRIP_QUANT_CONV o RAND_CONV))
-  raconv_def)
+  raconv_def
+*)
+
+(* general version doesn't work because BOT_SWEEP_CONV finds a too-deep
+   case-term first that messes up the rest *)
+val type_of_PMATCH = save_thm("type_of_PMATCH",
+  (PMATCH_INTRO_CONV THENC
+   PMATCH_CATCHALL_INTRO_CONV)
+  |> (fn c =>
+      (RATOR_CONV o RAND_CONV o funpow 2 ABS_CONV o
+       funpow 2 (RAND_CONV o ABS_CONV)) c
+      THENC c)
+  |> (STRIP_QUANT_CONV o RAND_CONV)
+  |> C CONV_RULE type_of_def)
 
 (* PMATCH_INTRO_CONV fails because it doesn't know about :term *)
 val t = dest_var_def |> SPEC_ALL |> concl |> rhs
@@ -136,9 +184,65 @@ val dest_var_PMATCH = save_thm("dest_var_PMATCH",
      |> (STRIP_QUANT_CONV o RAND_CONV))
   dest_var_def)
 
-(*
-val type_of_PMATCH = save_thm("type_of_PMATCH",
-  type_of_def
-*)
+(* PMATCH_INTRO_CONV fails because it doesn't know about :term *)
+val t = dest_comb_def |> SPEC_ALL |> concl |> rhs
+val t' = convert_case t
+val go = mk_eq(t,t')
+(* set_goal([],go) *)
+val th = prove(go,
+  rpt(CASE_TAC >> FULL_SIMP_TAC (rc_ss[]) [PMATCH_EVAL, PMATCH_ROW_COND_def]) >>
+  fs[])
+
+val dest_comb_PMATCH = save_thm("dest_comb_PMATCH",
+  CONV_RULE
+    ((REWR_CONV th THENC PMATCH_CATCHALL_INTRO_CONV)
+     |> (STRIP_QUANT_CONV o RAND_CONV))
+  dest_comb_def)
+
+(* PMATCH_INTRO_CONV fails because it doesn't know about :term *)
+val t = dest_abs_def |> SPEC_ALL |> concl |> rhs
+val t' = convert_case t
+val go = mk_eq(t,t')
+(* set_goal([],go) *)
+val th = prove(go,
+  rpt(CASE_TAC >> FULL_SIMP_TAC (rc_ss[]) [PMATCH_EVAL, PMATCH_ROW_COND_def]) >>
+  fs[])
+
+val dest_abs_PMATCH = save_thm("dest_abs_PMATCH",
+  CONV_RULE
+    ((REWR_CONV th THENC PMATCH_CATCHALL_INTRO_CONV)
+     |> (STRIP_QUANT_CONV o RAND_CONV))
+  dest_abs_def)
+
+(* PMATCH_INTRO_CONV fails because it doesn't know about :term *)
+val t = dest_eq_def |> SPEC_ALL |> concl |> rhs
+val t' = convert_case t
+val go = mk_eq(t,t')
+(* set_goal([],go) *)
+val th = prove(go,
+  rpt(CASE_TAC >> FULL_SIMP_TAC (rc_ss[]) [PMATCH_EVAL, PMATCH_ROW_COND_def]) >>
+  fs[])
+
+val dest_eq_PMATCH = save_thm("dest_eq_PMATCH",
+  CONV_RULE
+    ((REWR_CONV th THENC PMATCH_CATCHALL_INTRO_CONV)
+     |> (STRIP_QUANT_CONV o RAND_CONV))
+  dest_eq_def)
+
+(* PMATCH_INTRO_CONV fails because it doesn't know about :term *)
+val t = is_eq_def |> SPEC_ALL |> concl |> rhs
+val t' = convert_case t
+val go = mk_eq(t,t')
+(* set_goal([],go) *)
+val th = prove(go,
+  rpt(CASE_TAC >> FULL_SIMP_TAC (rc_ss[]) [PMATCH_EVAL, PMATCH_ROW_COND_def]) >>
+  fs[] >>
+  rw[EQ_IMP_THM])
+
+val is_eq_PMATCH = save_thm("is_eq_PMATCH",
+  CONV_RULE
+    ((REWR_CONV th THENC PMATCH_CATCHALL_INTRO_CONV)
+     |> (STRIP_QUANT_CONV o RAND_CONV))
+  is_eq_def)
 
 val _ = export_theory()
