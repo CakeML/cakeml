@@ -1,3 +1,5 @@
+open HolKernel Parse boolLib bossLib;
+
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory
 open rich_listTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
@@ -391,3 +393,4 @@ val intro_multi_correct = Q.prove (
      rw []
      *)
 
+val _ = export_theory ();
