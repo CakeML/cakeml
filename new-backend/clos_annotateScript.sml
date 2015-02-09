@@ -434,7 +434,8 @@ val env_ok_1 = env_ok_EXTEND
 
 val env_ok_some = env_ok_EXTEND
   |> DISCH ``l + LENGTH (env1:clos_val list) = k``
-  |> Q.GEN `l1` |> SIMP_RULE std_ss [] |> RW [AND_IMP_INTRO] |> GEN_ALL
+  |> Q.GEN `l1` |> SIMP_RULE std_ss []
+  |> REWRITE_RULE [AND_IMP_INTRO] |> GEN_ALL
 
 val env_ok_append = env_ok_EXTEND
   |> GSYM |> Q.INST [`l`|->`0`]
@@ -548,6 +549,55 @@ val EVERY2_LUPDATE = prove(
       P x y /\ EVERY2 P xs ys ==> EVERY2 P (LUPDATE x n xs) (LUPDATE y n ys)``,
   Induct \\ Cases_on `ys` \\ Cases_on `n` \\ fs [LUPDATE_def]);
 
+val clos_to_list_lemma = prove(
+  ``!l' l. LIST_REL val_rel l' l ==>
+           val_rel (clos_to_list l') (clos_to_list l)``,
+  Induct \\ Cases_on `l` \\ fs [clos_to_list_def,val_rel_simp]);
+
+val clos_from_list_lemma = prove(
+  ``!h h'.
+      val_rel h h' ==>
+      (clos_from_list h = NONE /\
+       clos_from_list h' = NONE) \/
+      ?x x'. (clos_from_list h = SOME x) /\
+             (clos_from_list h' = SOME x') /\
+             EVERY2 val_rel x x'``,
+  HO_MATCH_MP_TAC clos_from_list_ind
+  \\ fs [val_rel_simp]
+  \\ fs [clos_from_list_def]
+  \\ REPEAT STRIP_TAC \\ SRW_TAC [] []
+  \\ fs [clos_from_list_def]
+  \\ Cases_on `clos_from_list h'` \\ fs []
+  \\ Cases_on `clos_from_list y'` \\ fs []
+  \\ CCONTR_TAC \\ RES_TAC \\ fs []
+  \\ RES_TAC \\ fs [] \\ SRW_TAC [] [] \\ fs []);
+
+val clos_equal_lemma = prove(
+  ``(!h1 u1 h2 u2.
+       val_rel h1 h2 /\ val_rel u1 u2 ==>
+       (clos_equal h1 u1 = clos_equal h2 u2)) /\
+    (!h1 u1 h2 u2.
+      EVERY2 val_rel h1 h2 /\ EVERY2 val_rel u1 u2 ==>
+      (clos_equal_list h1 u1 = clos_equal_list h2 u2))``,
+  HO_MATCH_MP_TAC clos_equal_ind
+  \\ REPEAT STRIP_TAC \\ fs []
+  \\ ONCE_REWRITE_TAC [clos_equal_def]
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs [val_rel_simp]
+  \\ RES_TAC \\ SRW_TAC [] []
+  \\ IMP_RES_TAC EVERY2_LENGTH \\ fs []
+  \\ Q.PAT_ASSUM `xx = clos_equal y y'` (ASSUME_TAC o GSYM)
+  \\ fs []) |> CONJUNCT1 ;
+
+val EVERY2_REPLICATE = prove(
+  ``!n x y P. EVERY2 P (REPLICATE n x) (REPLICATE n y) <=> P x y \/ (n = 0)``,
+  Induct \\ fs [rich_listTheory.REPLICATE] \\ METIS_TAC []);
+
+val cEvalOp_IMP_case = prove(
+  ``(cEvalOp UpdateByte xs s1 = SOME x) ==>
+    ?x1 x2 x3. xs = [RefPtr x1; Number x2; Number x3]``,
+  fs [cEvalOp_def]
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs []);
+
 val cEvalOp_thm = prove(
   ``state_rel s1 t1 /\ EVERY2 val_rel xs ys /\
     (cEvalOp op xs s1 = SOME (v,s2)) ==>
@@ -616,8 +666,19 @@ val cEvalOp_thm = prove(
     \\ IMP_RES_TAC EVERY2_LENGTH \\ fs []
     \\ `Num i < LENGTH l` by intLib.COOPER_TAC
     \\ RES_TAC)
-  THEN1 (* Ref *) cheat
-  THEN1 (* Equal *) cheat
+  THEN1 (* Ref *)
+   (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
+    \\ fs [val_rel_simp,LET_DEF] \\ SRW_TAC [] []
+    \\ fs [state_rel_def]
+    \\ fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ STRIP_TAC
+    \\ Cases_on `n = (LEAST ptr. ptr NOTIN FDOM t1.refs)` \\ fs []
+    \\ fs [ref_rel_cases])
+  THEN1 (* Equal *)
+   (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
+    \\ fs [val_rel_simp] \\ SRW_TAC [] []
+    \\ IMP_RES_TAC clos_equal_lemma \\ fs []
+    \\ SRW_TAC [] [] \\ fs []
+    \\ TRY (Cases_on `b`) \\ EVAL_TAC \\ fs [val_rel_simp])
   THEN1 (* IsBlock *)
    (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
     \\ fs [val_rel_simp] \\ SRW_TAC [] []
@@ -630,14 +691,57 @@ val cEvalOp_thm = prove(
   THEN1 (* Const *)
    (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC
     \\ SRW_TAC [] [val_rel_simp] \\ fs [])
-  THEN1 (* ToList *) cheat
-  THEN1 (* FromList *) cheat
-  THEN1 (* UpdateByte *) cheat
-  THEN1 (* DerefByte *) cheat
-  THEN1 (* RefArray *) cheat
-  THEN1 (* RefByte *) cheat
-  THEN1 (* LengthByte *) cheat
-  THEN1 (* Length *) cheat
+  THEN1 (* ToList *)
+   (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC
+    \\ fs [val_rel_simp] \\ SRW_TAC [] [clos_to_list_lemma])
+  THEN1 (* FromList *)
+   (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC
+    \\ fs [val_rel_simp] \\ SRW_TAC [] []
+    \\ IMP_RES_TAC clos_from_list_lemma \\ fs []
+    \\ SRW_TAC [] [])
+  THEN1 (* UpdateByte *)
+   (IMP_RES_TAC cEvalOp_IMP_case
+    \\ fs [val_rel_simp] \\ SRW_TAC [] []
+    \\ fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC
+    \\ fs [] \\ SRW_TAC [] []
+    \\ fs [state_rel_def] \\ RES_TAC \\ fs []
+    \\ SRW_TAC [] [] \\ fs [ref_rel_cases]
+    \\ fs [val_rel_simp]
+    \\ fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
+    \\ SRW_TAC [] [] \\ fs []
+    \\ RES_TAC \\ fs [] \\ rfs [])
+  THEN1 (* DerefByte *)
+   (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
+    \\ fs [val_rel_simp,LET_DEF] \\ SRW_TAC [] []
+    \\ fs [state_rel_def] \\ RES_TAC \\ fs []
+    \\ SRW_TAC [] [] \\ fs [ref_rel_cases]
+    \\ IMP_RES_TAC EVERY2_LENGTH \\ fs [])
+  THEN1 (* RefArray *)
+   (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
+    \\ fs [val_rel_simp,LET_DEF] \\ SRW_TAC [] []
+    \\ fs [state_rel_def]
+    \\ fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ STRIP_TAC
+    \\ Cases_on `n = (LEAST ptr. ptr NOTIN FDOM t1.refs)` \\ fs []
+    \\ fs [ref_rel_cases,EVERY2_REPLICATE])
+  THEN1 (* RefByte *)
+   (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
+    \\ fs [val_rel_simp,LET_DEF] \\ SRW_TAC [] []
+    \\ fs [state_rel_def]
+    \\ fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ STRIP_TAC
+    \\ Cases_on `n = (LEAST ptr. ptr NOTIN FDOM t1.refs)` \\ fs []
+    \\ fs [ref_rel_cases])
+  THEN1 (* LengthByte *)
+   (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC
+    \\ fs [val_rel_simp] \\ SRW_TAC [] []
+    \\ fs [state_rel_def] \\ RES_TAC \\ fs []
+    \\ SRW_TAC [] [] \\ fs [ref_rel_cases]
+    \\ IMP_RES_TAC EVERY2_LENGTH \\ fs [])
+  THEN1 (* Length *)
+   (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC
+    \\ fs [val_rel_simp] \\ SRW_TAC [] []
+    \\ fs [state_rel_def] \\ RES_TAC \\ fs []
+    \\ SRW_TAC [] [] \\ fs [ref_rel_cases]
+    \\ IMP_RES_TAC EVERY2_LENGTH \\ fs [])
   THEN1 (* LengthBlock *)
    (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC
     \\ SRW_TAC [] [val_rel_simp] \\ fs []
