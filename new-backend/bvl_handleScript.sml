@@ -24,7 +24,7 @@ val bHandle_def = tDefine "bHandle" `
        [Handle (Let (GENLIST Var n) y1) y2]) /\
   (bHandle n [Op op xs] = [Op op (bHandle n xs)]) /\
   (bHandle n [Tick x] = [Tick (HD (bHandle n [x]))]) /\
-  (bHandle n [Call dest xs] = [Call dest (bHandle n xs)])`
+  (bHandle n [Call t dest xs] = [Call t dest (bHandle n xs)])`
  (WF_REL_TAC `measure (bvl_exp1_size o SND)`);
 
 (* proof of semantics preservation *)
