@@ -306,13 +306,14 @@ val (val_rel_rules,val_rel_ind,val_rel_cases) = Hol_reln `
    (LENGTH env = m) /\ EVERY2 val_rel vals vals' ==>
    val_rel (Closure p vals env num_args c) (Closure p vals' env' num_args c'))
   /\
-  ((EL index cs = (num_args,c1)) /\
-   (EL index cs' = (num_args,c1')) /\
-   (LENGTH cs = LENGTH cs') /\
-   (cShift (FST (cFree [c1])) m (LENGTH cs + num_args) i = [c1']) /\
-   (!n. clos_free_set [c1] n /\ num_args + LENGTH cs <= n ==>
-        env_ok m 0 i env env' (n - (num_args + LENGTH cs))) /\
-   (LENGTH env = m) /\ EVERY2 val_rel vals vals' ==>
+  (EVERY2 ( \ (num_args,c1) (num_args',c1').
+     ?m i.
+       (num_args' = num_args) /\
+       (cShift (FST (cFree [c1])) m (LENGTH cs + num_args) i = [c1']) /\
+       (!n. clos_free_set [c1] n /\ num_args + LENGTH cs <= n ==>
+          env_ok m 0 i env env' (n - (num_args + LENGTH cs))) /\
+       (LENGTH env = m)) cs cs' /\
+   EVERY2 val_rel vals vals' /\ index < LENGTH cs ==>
    val_rel (Recclosure p vals env cs index) (Recclosure p vals' env' cs' index))
   /\
   (l + m <= n ==>
@@ -673,7 +674,15 @@ val cEvalOp_thm = prove(
 
 val EVERY2_DROP = prove(
   ``EVERY2 P xs ys ==> EVERY2 P (DROP n xs) (DROP n ys)``,
-  cheat);
+  REPEAT STRIP_TAC \\ IMP_RES_TAC EVERY2_LENGTH
+  \\ Q.PAT_ASSUM `LIST_REL P xs ys` MP_TAC
+  \\ ONCE_REWRITE_TAC [GSYM TAKE_DROP] \\ REPEAT STRIP_TAC
+  \\ ONCE_REWRITE_TAC [TAKE_DROP]
+  \\ Cases_on `n <= LENGTH xs`
+  THEN1 (METIS_TAC [rich_listTheory.EVERY2_APPEND,LENGTH_DROP,LENGTH_TAKE])
+  \\ fs [GSYM NOT_LESS] \\ `LENGTH xs <= n` by DECIDE_TAC
+  \\ fs [listTheory.DROP_LENGTH_TOO_LONG]
+  \\ rfs [listTheory.DROP_LENGTH_TOO_LONG]);
 
 val cShift_correct = prove(
   ``(!xs env s1 env' t1 res s2 m l i.
@@ -935,16 +944,14 @@ val cShift_correct = prove(
     \\ SRW_TAC [] []
     \\ fs [EVERY2_GENLIST] \\ REPEAT STRIP_TAC
     \\ fs [val_rel_simp]
-    \\ Cases_on `EL i' fns` \\ fs []
-    \\ Q.EXISTS_TAC `HD (cShift (FST (cFree [r])) (m + l)
-                      (LENGTH fns + q) (new_env 0 live))`
-    \\ Q.EXISTS_TAC `new_env 0 live` \\ fs []
-    \\ STRIP_TAC THEN1
-     (Q.UNABBREV_TAC `rec_res` \\ fs [EL_MAP]
-      \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
-      \\ fs [HD_FST_cFree] \\ fs [AC ADD_COMM ADD_ASSOC])
-    \\ STRIP_TAC THEN1
-      (Cases_on `cFree [r]` \\ fs [] \\ IMP_RES_TAC cFree_SING \\ fs [])
+    \\ Q.UNABBREV_TAC `rec_res`
+    \\ fs [EVERY2_MAP]
+    \\ MATCH_MP_TAC listTheory.EVERY2_refl
+    \\ REPEAT STRIP_TAC
+    \\ PairCases_on `x` \\ fs []
+    \\ `?y1 y2. cFree [x1] = ([y1],y2)` by METIS_TAC [cFree_SING,PAIR]
+    \\ fs [] \\ Q.EXISTS_TAC `new_env 0 live`
+    \\ STRIP_TAC THEN1 SIMP_TAC std_ss [AC ADD_COMM ADD_ASSOC]
     \\ REPEAT STRIP_TAC
     \\ UNABBREV_ALL_TAC
     \\ MATCH_MP_TAC (GEN_ALL env_ok_new_env)
@@ -954,16 +961,16 @@ val cShift_correct = prove(
     \\ STRIP_TAC THEN1
      (FIRST_X_ASSUM MATCH_MP_TAC \\ DISJ1_TAC
       \\ fs [EXISTS_MEM,EXISTS_PROD,clos_free_set_def]
-      \\ Q.LIST_EXISTS_TAC [`q`,`r`] \\ fs []
+      \\ Q.LIST_EXISTS_TAC [`x0`,`x1`] \\ fs []
       \\ fs [MEM_EL,PULL_EXISTS]
-      \\ `q + (n - (q + LENGTH fns) + LENGTH fns) = n` by DECIDE_TAC
+      \\ `x0 + (n - (x0 + LENGTH fns) + LENGTH fns) = n` by DECIDE_TAC
       \\ METIS_TAC [])
-    \\ fs [EXISTS_MEM,EXISTS_PROD,clos_free_set_def,MEM_EL,PULL_EXISTS]
-    \\ Q.EXISTS_TAC `i'` \\ fs [EL_MAP]
-    \\ Cases_on `cFree [r]` \\ fs []
-    \\ IMP_RES_TAC cFree_SING \\ fs []
+    \\ fs [EXISTS_MEM,EXISTS_PROD,clos_free_set_def,PULL_EXISTS]
+    \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS]
+    \\ CONV_TAC (DEPTH_CONV (PairRules.PBETA_CONV)) \\ fs []
+    \\ Q.LIST_EXISTS_TAC [`x0`,`x1`] \\ fs []
+    \\ MP_TAC (Q.INST [`xs`|->`[x1]`] cFree_thm)
     \\ IMP_RES_TAC (DECIDE ``n <= m:num <=> (m - n + n = m)``)
-    \\ MP_TAC (Q.INST [`xs`|->`[r]`] cFree_thm)
     \\ fs [LET_DEF] \\ STRIP_TAC \\ fs [])
   THEN1 (* App *)
    (fs [cFree_def]
@@ -1041,8 +1048,8 @@ val cShift_correct = prove(
     \\ fs [cEval_def] \\ SRW_TAC [] [res_rel_cases])
 
   THEN1 (* cEvalApp CONS *)
-   (
-
+   (cheat
+(*
     fs [cEval_def]
     \\ Cases_on `dest_closure loc_opt f (v41::v42)` \\ fs []
     \\ Cases_on `x` \\ fs []
@@ -1105,7 +1112,9 @@ val cShift_correct = prove(
       \\ MATCH_MP_TAC EVERY2_REVERSE
       \\ MATCH_MP_TAC EVERY2_DROP
       \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ fs []
-      \\ MATCH_MP_TAC EVERY2_REVERSE \\ fs [])));
+      \\ MATCH_MP_TAC EVERY2_REVERSE \\ fs [])
+*)
+));
 
 val env_set_default = prove(
   ``x SUBSET env_ok 0 0 LN [] env'``,
