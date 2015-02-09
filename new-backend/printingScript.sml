@@ -149,6 +149,34 @@ val print_bv_def = Define`
       STRCAT "#" (string_to_string [CHR (Num (dest_Number bv))])
     else THE (bv_to_string bv)`
 
+val cl_rel_simp = let
+  val f = SIMP_CONV (srw_ss()) [Once cl_rel_cases]
+  in map f [``cl_rel f refs code ls (Number x) y``,
+            ``cl_rel f refs code ls (Block n l) y``,
+            ``cl_rel f refs code ls (RefPtr x) y``,
+            ``cl_rel f refs code ls (Closure n l v x w) y``,
+            ``cl_rel f refs code ls (Recclosure x1 x2 x3 x4 x5) y``,
+            ``cl_rel f refs code ls y (Number x)``,
+            ``cl_rel f refs code ls y (Block n l)``,
+            ``cl_rel f refs code ls y (RefPtr x)``] |> LIST_CONJ end
+  |> curry save_thm "cl_rel_simp"
+
+val add_args_NONE = save_thm("add_args_NONE",let
+  val f = SIMP_CONV (srw_ss()) [add_args_def]
+  in map f [``add_args (Number x) y``,
+            ``add_args (Block n l) y``,
+            ``add_args (RefPtr x) y``] |> LIST_CONJ
+  end)
+
+val add_args_not_some = store_thm("add_args_not_some",
+  ``(add_args cl env ≠ SOME (Number i)) ∧
+    (add_args cl env ≠ SOME (Block n l)) ∧
+    (add_args cl env ≠ SOME (RefPtr x))``,
+  Cases_on`cl`>>rw[add_args_def])
+
+val add_args_simp = LIST_CONJ
+  [add_args_NONE,add_args_not_some]
+
 val print_bv_print_v = prove(
   ``(∀genv v v1. v_to_i1 genv v v1 ⇒
       ∀gtagenv v2 exh vh vp f vc1 vc2 vl refs code locs.
@@ -168,14 +196,14 @@ val print_bv_print_v = prove(
     (∀genv mods tops menv sh env. global_env_inv genv mods tops menv sh env ⇒ T)``,
   ho_match_mp_tac v_to_i1_ind >> simp[] >>
   conj_tac >- (
-    Cases>>simp[Once v_to_i2_cases,clos_numberTheory.val_rel_simp] >>
+    Cases>>simp[Once v_to_i2_cases,clos_numberTheory.val_rel_simp,clos_annotateTheory.val_rel_simp] >>
     TRY (
-      simp[Once val_rel_cases,Once clos_to_bvlTheory.val_rel_cases,print_v_def,
+      simp[Once val_rel_cases,Once clos_to_bvlTheory.val_rel_cases,print_v_def,cl_rel_simp,add_args_simp,
            bvl_to_bc_value_def,print_bv_def,print_lit_def,bv_to_string_def,CHR_ORD] >>
       Cases_on`b`>>rw[print_lit_def] >> NO_TAC) >>
     rw[Once val_rel_cases,print_v_def,print_lit_def] >>
-    fs[Once clos_to_bvlTheory.val_rel_cases] >>
-    simp[bvl_to_bc_value_def,print_bv_def,bv_to_string_def,bvs_to_chars_thm,EVERY_MAP,MAP_MAP_o] >>
+    fs[Once clos_to_bvlTheory.val_rel_cases,cl_rel_simp,add_args_simp] >>
+    simp[bvl_to_bc_value_def,print_bv_def,bv_to_string_def,bvs_to_chars_thm,EVERY_MAP,MAP_MAP_o,partial_app_tag_def] >>
     fs[EVERY2_MAP,clos_numberTheory.val_rel_simp,LIST_REL_eq] >> rpt BasicProvers.VAR_EQ_TAC >>
     fs[EVERY2_MAP,clos_annotateTheory.val_rel_simp,LIST_REL_eq] >> rpt BasicProvers.VAR_EQ_TAC >>
     fs[EVERY2_MAP,clos_to_bvlTheory.val_rel_SIMP,LIST_REL_eq] >> rpt BasicProvers.VAR_EQ_TAC >>
@@ -193,8 +221,11 @@ val print_bv_print_v = prove(
   fs[Once v_pat_cases] >> rw[] >>
   fs[Once clos_numberTheory.val_rel_cases] >> rw[] >>
   fs[Once clos_annotateTheory.val_rel_cases] >> rw[] >>
-  fs[Once clos_to_bvlTheory.val_rel_cases] >> fsrw_tac[ARITH_ss][conLangTheory.tuple_tag_def] >>
-  rw[bvl_to_bc_value_def,print_bv_def,print_v_def,bv_to_string_def,EL_MAP] >> fsrw_tac[ARITH_ss][])
+  fs[Once clos_to_bvlTheory.val_rel_cases] >>
+  fsrw_tac[ARITH_ss][conLangTheory.tuple_tag_def,cl_rel_simp,add_args_simp,partial_app_tag_def] >>
+  rw[bvl_to_bc_value_def,print_bv_def,print_v_def,bv_to_string_def,EL_MAP] >>
+  fsrw_tac[ARITH_ss][partial_app_tag_def] >>
+  simp[UNCURRY,bvl_to_bc_value_def,bv_to_string_def])
 val print_bv_print_v = save_thm("print_bv_print_v",CONJUNCT1 print_bv_print_v)
 
 val print_bv_str_def = Define`print_bv_str (v,_,t) w = "val "++v++":"++(inf_type_to_string t)++" = "++(print_bv t w)++"\n"`
@@ -382,7 +413,7 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
       srw_tac[DNF_ss][Once RTC_CASES1] >> disj2_tac >>
       simp[bc_eval1_thm,bc_eval1_def,Abbr`bs1`,bump_pc_def,bc_eval_stack_def] >>
       pop_assum kall_tac >>
-      simp[bv_to_string_def,bvs_to_chars_thm,ORD_ONTO] >>
+      simp[bv_to_string_def,bvs_to_chars_thm,ORD_ONTO,partial_app_tag_def] >>
       reverse IF_CASES_TAC >- metis_tac[] >> simp[] >>
       qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
       `bc_fetch bs1 = SOME (PrintC #"\n")` by (
@@ -686,7 +717,7 @@ val compile_print_err_thm = store_thm("compile_print_err_thm",
     rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC ) >>
   reverse(Cases_on`tag=none_tag+1`>>fs[]) >- (
     rfs[bc_fetch_def] >>
-    `tag+6 ≠ none_tag + 7` by DECIDE_TAC >> fs[] >>
+    `tag+7 ≠ none_tag + 8` by DECIDE_TAC >> fs[] >>
     qho_match_abbrev_tac`∃p. bc_next^* bs1 (bs2 p) ∧ P p` >>
     `bc_fetch bs1 = SOME(Stack(PushInt 0))` by (
       match_mp_tac bc_fetch_next_addr >>
