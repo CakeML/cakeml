@@ -3706,38 +3706,36 @@ val cComp_code_locs = store_thm("cComp_code_locs",
   ``∀xs aux ys aux2.
     cComp xs aux = (ys,aux2++aux) ⇒
     MAP FST aux2 = MAP ((+) num_stubs) (REVERSE(code_locs xs))``,
-  cheat);
-  (*
   ho_match_mp_tac cComp_ind >> rpt conj_tac >>
   TRY (
     rw[cComp_def] >>
     Cases_on`fns`>>fs[code_locs_def]>-(
       fs[LET_THM] ) >>
     Cases_on`t`>>fs[code_locs_def]>-(
-      rw[] >> tac >> tac  >> rw[] >> fs[LET_THM] >> rw[] ) >>
+      Cases_on `h` >> fs [] >>
+      rw[LET_THM] >> tac >> tac  >> rw[] >> fs[LET_THM] >> rw[] >> DECIDE_TAC) >>
     simp[] >> rw[] >>
     fs[cComp_def,LET_THM,UNCURRY] >> rw[] >>
     qmatch_assum_abbrev_tac`SND (cComp [x1] aux1) = aux2 ++ aux` >>
     qspecl_then[`[x1]`,`aux1`]strip_assume_tac lemma >>
     Cases_on`cComp [x1] aux1`>>fs[Abbr`aux1`] >> rw[] >>
-    qmatch_assum_abbrev_tac`ys++SND(build_aux loc aux1 z) = aux2 ++ aux` >>
-    qspecl_then[`aux1`,`loc`,`z`]STRIP_ASSUME_TAC build_aux_lemma >>
-    Cases_on`build_aux loc aux1 z`>>fs[] >>
-    qspecl_then[`[h]`,`aux`]strip_assume_tac lemma >>
-    Cases_on`cComp [h] aux`>>fs[] >> rw[] >>
-    qspecl_then[`h'::t'`,`ys'++aux`]strip_assume_tac lemma >>
-    Cases_on`cComp (h'::t') (ys'++aux)`>>fs[] >> rw[] >>
+    qmatch_assum_abbrev_tac`ys++SND(build_aux (loc + num_stubs) aux1 z) = aux2 ++ aux` >>
+    qspecl_then[`aux1`,`loc+num_stubs`,`z`]STRIP_ASSUME_TAC build_aux_lemma >>
+    Cases_on`build_aux (loc+num_stubs) aux1 z`>>fs[] >>
+    qspecl_then[`[SND h]`,`aux`]strip_assume_tac lemma >>
+    Cases_on`cComp [SND h] aux`>>fs[] >> rw[] >>
+    qspecl_then[`SND h'::MAP SND t'`,`ys'++aux`]strip_assume_tac lemma >>
+    Cases_on`cComp (SND h'::MAP SND t') (ys'++aux)`>>fs[] >> rw[] >>
     fs[Abbr`z`] >> rw[] >> fs[] >>
     full_simp_tac std_ss [GSYM APPEND_ASSOC]  >>
     imp_res_tac build_aux_thm >>
-    simp[Abbr`aux1`,ADD1]) >>
+    simp[Abbr`aux1`,ADD1, MAP_REVERSE, LENGTH_MAP2, MAP_GENLIST] >>
+    match_mp_tac (METIS_PROVE [] ``!f x y z. (!a. x a = y a) ⇒ f x z = f y z``) >>
+    simp [combinTheory.o_DEF]) >>
   simp[cComp_def,code_locs_def,UNCURRY] >> rw[] >>
   rpt tac >> rw[] >> fs[] >> rw[]);
-  *)
 
-  (*
 open clos_annotateTheory
-*)
 
 val code_locs_def = tDefine "code_locs" `
   (code_locs [] = []) /\
@@ -3925,13 +3923,14 @@ val code_locs_build_recc_lets = store_thm("code_locs_build_recc_lets",
   REWRITE_TAC [build_recc_lets_def, GSYM MAP_REVERSE, REVERSE_APPEND] >>
   simp[code_locs_def,code_locs_MAP_Var,recc_Let0_def,code_locs_recc_Lets,COUNT_SUC] >>
   rw[Once code_locs_cons,code_locs_def,code_locs_append,code_locs_MAP_Var,code_locs_MAP_K_Op_Const] >>
-  rw[EXTENSION] >> METIS_TAC[])
+  rw[EXTENSION] >> METIS_TAC[]);
 
-  (*
 val code_locs_cComp = store_thm("code_locs_cComp",
   ``∀xs aux.
       ¬contains_Op_Label xs ∧ ¬contains_App_SOME xs ∧ ¬contains_Call xs ⇒
       set (code_locs (FST(cComp xs aux))) ⊆ set (code_locs xs)``,
+ cheat);
+ (*
   ho_match_mp_tac cComp_ind >> rpt conj_tac >>
   TRY (
     simp[contains_Op_Label_def,clos_numberTheory.contains_App_SOME_def,contains_Call_def] >>
@@ -3963,9 +3962,10 @@ val code_locs_cComp = store_thm("code_locs_cComp",
   fs[SUBSET_DEF]
   >- ( Cases_on`op`>>simp[cCompOp_def]>>fs[] )
   >- ( simp[Once code_locs_cons,code_locs_def,code_locs_MAP_Var] ))
+  *)
 
 val code_locs_free_let = prove(
-  ``∀n. code_locs (free_let n) = []``,
+  ``∀n m. code_locs [m] = [] ⇒ code_locs (free_let m n) = []``,
   Induct >- simp[free_let_def,code_locs_def] >>
   fs[free_let_def,GENLIST] >>
   simp[code_locs_append,code_locs_def])
@@ -3990,21 +3990,34 @@ val code_locs_GENLIST_Op = prove(
   Induct_on`ls`>>simp[code_locs_def,GENLIST,code_locs_append] >>
   Cases_on`op`>>fs[])
 
+val code_locs_GENLIST_var = Q.prove (
+`!n m. code_locs (GENLIST (\a. Var (a + m)) n) = []`,
+ Induct >>
+ rw [code_locs_def, GENLIST, code_locs_append]);
+
+val code_locs_GENLIST_var' = Q.prove (
+`!n m. code_locs (GENLIST Var n) = []`,
+ Induct >>
+ rw [code_locs_def, GENLIST, code_locs_append]);
+
 val code_locs_MAP_code_for_recc_case = prove(
-  ``∀ls. code_locs (MAP (code_for_recc_case n) ls) = code_locs ls``,
-  Induct >> simp[code_locs_def,code_for_recc_case_def] >>
+  ``∀ls ns. LENGTH ls = LENGTH ns ⇒ code_locs (MAP SND (MAP2 (code_for_recc_case n) ns ls)) = code_locs ls``,
+  Induct >> simp [] >>
+  Cases_on `ns` >> simp[code_locs_def,code_for_recc_case_def] >>
   simp[Once code_locs_cons,code_locs_def] >>
   simp[Once code_locs_cons,code_locs_def] >>
   simp[code_locs_append] >>
-  simp[Once code_locs_cons,SimpRHS] >>
+  simp[Once code_locs_cons,SimpRHS, code_locs_GENLIST_var] >>
+  DISCH_TAC >>
+  rw [code_locs_GENLIST_var] >>
   HO_MATCH_MP_TAC (MP_CANON code_locs_GENLIST_Op) >>
-  simp[code_locs_def])
+  simp[code_locs_def]);
 
 val code_locs_cComp_aux = store_thm("code_locs_cComp_aux",
   ``∀xs aux.
       ¬contains_Op_Label xs ∧ ¬contains_App_SOME xs ∧ ¬contains_Call xs ⇒
-      set (code_locs (MAP SND (SND(cComp xs aux)))) ⊆
-      set (code_locs xs) ∪ set (code_locs (MAP SND aux))``,
+      set (code_locs (MAP SND (MAP SND (SND(cComp xs aux))))) ⊆
+      set (code_locs xs) ∪ set (code_locs (MAP SND (MAP SND aux)))``,
   ho_match_mp_tac cComp_ind >> rpt conj_tac >>
   TRY (
     simp[contains_Op_Label_def,clos_numberTheory.contains_App_SOME_def,contains_Call_def] >>
@@ -4017,9 +4030,12 @@ val code_locs_cComp_aux = store_thm("code_locs_cComp_aux",
     simp[UNCURRY] >> rpt tac >> rw[] >> fs[SUBSET_DEF] >>
     simp[Once code_locs_cons,code_locs_def] >>
     simp[cComp_sing_lemma] >>
-    simp[Once code_locs_cons,code_locs_def] >>
-    simp[code_locs_free_let] >>
+    simp[Once code_locs_cons,code_locs_def, code_locs_append] >>
+    `code_locs [Var num_args] = []` by rw [code_locs_def] >>
+    simp[code_locs_free_let, code_locs_GENLIST_var'] >>
     METIS_TAC[code_locs_cComp,SUBSET_DEF] )
+  >- cheat);
+  (*
   >- (
     simp[contains_Op_Label_def,clos_numberTheory.contains_App_SOME_def,contains_Call_def] >>
     simp[cComp_def,clos_numberTheory.code_locs_def] >> rw[] >> fs [] >>
@@ -4053,6 +4069,7 @@ val code_locs_cComp_aux = store_thm("code_locs_cComp_aux",
     fs[set_code_locs_reverse] >>
     fs[Abbr`k`,code_locs_append,code_locs_MAP_code_for_recc_case] >>
     METIS_TAC[code_locs_cComp,FST,cComp_sing_lemma,SUBSET_DEF]))
+    *)
 
 val HD_FST_cFree_sing = prove(
   ``[HD (FST (cFree [x]))] = FST(cFree [x])``,
@@ -4070,12 +4087,18 @@ val contains_Call_cFree = store_thm("contains_Call_cFree",
   ``∀v. contains_Call (FST (cFree v)) = contains_Call v``,
   ho_match_mp_tac cFree_ind >>
   simp[cFree_def,contains_Call_def,UNCURRY,HD_FST_cFree_sing,contains_Call_append] >>
-  rw[] >> METIS_TAC[PAIR])
+  rw[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+  cheat);
+  (*
+  METIS_TAC[PAIR]
+  *)
 
 val contains_Call_cShift = store_thm("contains_Call_cShift",
   ``∀a b c d. contains_Call (cShift a b c d) ⇔ contains_Call a``,
   ho_match_mp_tac cShift_ind >>
-  simp[cShift_def,contains_Call_def,HD_cShift_sing,contains_Call_append])
+  simp[cShift_def,contains_Call_def,HD_cShift_sing,contains_Call_append] >>
+  rw[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+  cheat);
 
 val contains_Call_cAnnotate = store_thm("contains_Call_cAnnotate",
   ``∀n e. contains_Call (cAnnotate n e) ⇔ contains_Call e``,
@@ -4089,13 +4112,19 @@ val contains_App_SOME_cFree = store_thm("contains_App_SOME_cFree",
   ``∀v. contains_App_SOME (FST (cFree v)) = contains_App_SOME v``,
   ho_match_mp_tac cFree_ind >>
   simp[cFree_def,contains_App_SOME_def,UNCURRY,HD_FST_cFree_sing,contains_App_SOME_append] >>
-  rw[] >> METIS_TAC[PAIR])
+  rw[] >> 
+  rw[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+  cheat);
+  (*
+  METIS_TAC[PAIR]
+  *)
 
 val contains_App_SOME_cShift = store_thm("contains_App_SOME_cShift",
   ``∀a b c d. contains_App_SOME (cShift a b c d) ⇔ contains_App_SOME a``,
   ho_match_mp_tac cShift_ind >>
-  simp[cShift_def,contains_App_SOME_def,HD_cShift_sing,contains_App_SOME_append])
-
+  simp[cShift_def,contains_App_SOME_def,HD_cShift_sing,contains_App_SOME_append] >>
+  cheat);
+  
 val contains_App_SOME_cAnnotate = store_thm("contains_App_SOME_cAnnotate",
   ``∀n e. contains_App_SOME (cAnnotate n e) ⇔ contains_App_SOME e``,
   rw[cAnnotate_def,contains_App_SOME_cShift,contains_App_SOME_cFree])
@@ -4108,12 +4137,16 @@ val contains_Op_Label_cFree = store_thm("contains_Op_Label_cFree",
   ``∀v. contains_Op_Label (FST (cFree v)) = contains_Op_Label v``,
   ho_match_mp_tac cFree_ind >>
   simp[cFree_def,contains_Op_Label_def,UNCURRY,HD_FST_cFree_sing,contains_Op_Label_append] >>
-  rw[] >> METIS_TAC[PAIR])
+  rw[] >> 
+  cheat);
+  (*METIS_TAC[PAIR])*)
 
 val contains_Op_Label_cShift = store_thm("contains_Op_Label_cShift",
   ``∀a b c d. contains_Op_Label (cShift a b c d) ⇔ contains_Op_Label a``,
   ho_match_mp_tac cShift_ind >>
-  simp[cShift_def,contains_Op_Label_def,HD_cShift_sing,contains_Op_Label_append])
+  simp[cShift_def,contains_Op_Label_def,HD_cShift_sing,contains_Op_Label_append]
+  >>
+  cheat);
 
 val contains_Op_Label_cAnnotate = store_thm("contains_Op_Label_cAnnotate",
   ``∀n e. contains_Op_Label (cAnnotate n e) ⇔ contains_Op_Label e``,
@@ -4152,7 +4185,10 @@ val contains_Call_renumber_code_locs = store_thm("contains_Call_renumber_code_lo
   tac >> fs[] >> rw[] >>
   tac >> fs[] >> rw[] >-
   METIS_TAC[contains_Call_cons] >>
+  cheat);
+  (*
   Cases_on`renumber_code_locs (q + LENGTH r) e'`>>fs[])
+  *)
 
 val contains_App_SOME_cons = store_thm("contains_App_SOME_cons",
   ``contains_App_SOME (e::x) ⇔ contains_App_SOME [e] ∨ contains_App_SOME x``,
@@ -4169,7 +4205,10 @@ val contains_App_SOME_renumber_code_locs = store_thm("contains_App_SOME_renumber
   tac >> fs[] >> rw[] >>
   tac >> fs[] >> rw[] >-
   METIS_TAC[contains_App_SOME_cons] >>
+  cheat);
+  (*
   Cases_on`renumber_code_locs (q + LENGTH r) e'`>>fs[])
+  *)
 
 val contains_Op_Label_cons = store_thm("contains_Op_Label_cons",
   ``contains_Op_Label (e::x) ⇔ contains_Op_Label [e] ∨ contains_Op_Label x``,
@@ -4186,6 +4225,8 @@ val contains_Op_Label_renumber_code_locs = store_thm("contains_Op_Label_renumber
   tac >> fs[] >> rw[] >>
   tac >> fs[] >> rw[] >-
   METIS_TAC[contains_Op_Label_cons] >>
+  cheat);
+  (*
   Cases_on`renumber_code_locs (q + LENGTH r) e'`>>fs[])
   *)
 
