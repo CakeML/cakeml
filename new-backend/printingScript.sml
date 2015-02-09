@@ -98,6 +98,7 @@ val can_print = save_thm("can_print",prove(
   rw[bvl_to_bc_value_def,bv_to_string_def] >>
   TRY(rator_x_assum`clos_annotate$val_rel`mp_tac) >>
   rw[Once clos_annotateTheory.val_rel_cases] >>
+  TRY(Cases_on `bool_to_tag b < 5` >> fs [bvs_to_chars_thm] >> NO_TAC) >> 
   rator_x_assum`clos_to_bvl$val_rel`mp_tac >>
   rw[Once clos_to_bvlTheory.val_rel_cases] >>
   simp[bvl_to_bc_value_def,bv_to_string_def] >>
