@@ -98,7 +98,7 @@ val (bEvalRel_rules, bEvalRel_ind_raw, bEvalRel_cases) = Hol_reln `
   (!op xs env s vs s1.
      bEvalRel (xs,env,s) (Result vs,s1) ==>
      bEvalRel ([Op op xs],env,s)
-           (case bEvalOp op vs s1 of
+           (case bEvalOp op (REVERSE vs) s1 of
             | NONE => (Error,s1)
             | SOME (v,s2) => (Result [v],s2)))
   /\
@@ -108,30 +108,30 @@ val (bEvalRel_rules, bEvalRel_ind_raw, bEvalRel_cases) = Hol_reln `
   /\
   (!x env s res.
      (s.clock <> 0) /\
-     bEvalRel ([x],env,dec_clock s) (res,s2) ==>
+     bEvalRel ([x],env,dec_clock 1 s) (res,s2) ==>
      bEvalRel ([Tick x],env,s) (res,s2))
   /\
   (!dest xs env s res s1.
      bEvalRel (xs,env,s) (res,s1) /\ ~isResult res ==>
-     bEvalRel ([Call dest xs],env,s) (res,s1))
+     bEvalRel ([Call ticks dest xs],env,s) (res,s1))
   /\
   (!dest xs env s vs s1.
      bEvalRel (xs,env,s) (Result vs,s1) /\
      (find_code dest vs s1.code = NONE) ==>
-     bEvalRel ([Call dest xs],env,s) (Error,s1))
+     bEvalRel ([Call ticks dest xs],env,s) (Error,s1))
   /\
   (!dest xs env s vs s1 args exp.
      bEvalRel (xs,env,s) (Result vs,s1) /\
      (find_code dest vs s1.code = SOME (args,exp)) /\
-     (s1.clock = 0) ==>
-     bEvalRel ([Call dest xs],env,s) (TimeOut,s1))
+     (s1.clock < ticks + 1) ==>
+     bEvalRel ([Call ticks dest xs],env,s) (TimeOut,s1 with clock := 0))
   /\
   (!dest xs env s vs s1 res args exp.
      bEvalRel (xs,env,s) (Result vs,s1) /\
      (find_code dest vs s1.code = SOME (args,exp)) /\
-     (s1.clock <> 0) /\
-     bEvalRel ([exp],args,dec_clock s1) (res,s2) ==>
-     bEvalRel ([Call dest xs],env,s) (res,s2))`;
+     ¬(s1.clock < ticks + 1) /\
+     bEvalRel ([exp],args,dec_clock (ticks+1) s1) (res,s2) ==>
+     bEvalRel ([Call ticks dest xs],env,s) (res,s2))`;
 
 (* Improve ind thm *)
 
@@ -171,7 +171,7 @@ val bEvalRel_LENGTH_LEMMA = prove(
         | _ => T``,
   HO_MATCH_MP_TAC bEvalRel_ind \\ SRW_TAC [] []
   \\ TRY (Cases_on `res`) \\ FULL_SIMP_TAC (srw_ss()) [isResult_def]
-  \\ Cases_on `bEvalOp op vs s1` \\ SRW_TAC [] []
+  \\ Cases_on `bEvalOp op (REVERSE vs) s1` \\ SRW_TAC [] []
   \\ Cases_on `x` \\ FULL_SIMP_TAC (srw_ss()) []);
 
 val bEvalRel_LENGTH = store_thm("bEvalRel_LENGTH",
@@ -202,7 +202,7 @@ val bEvalRel_bEval = store_thm("bEvalRel_bEval",
   \\ TRY (Cases_on `res`
           \\ FULL_SIMP_TAC (srw_ss()) [isResult_def,isException_def] \\ NO_TAC)
   \\ SRW_TAC [] [] \\ FULL_SIMP_TAC std_ss []
-  \\ REPEAT (BasicProvers.FULL_CASE_TAC)
+  \\ BasicProvers.EVERY_CASE_TAC
   \\ FULL_SIMP_TAC std_ss []
   \\ FULL_SIMP_TAC (srw_ss()) []
   \\ POP_ASSUM MP_TAC \\ EVAL_TAC);
