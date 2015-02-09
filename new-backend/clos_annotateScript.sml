@@ -432,6 +432,10 @@ val env_ok_1 = env_ok_EXTEND
   |> Q.INST [`env1`|->`[v1]`,`env2`|->`[v2]`,`l`|->`0`] |> Q.GEN `l1`
   |> SIMP_RULE (srw_ss()) []
 
+val env_ok_some = env_ok_EXTEND
+  |> DISCH ``l + LENGTH (env1:clos_val list) = k``
+  |> Q.GEN `l1` |> SIMP_RULE std_ss [] |> RW [AND_IMP_INTRO] |> GEN_ALL
+
 val env_ok_append = env_ok_EXTEND
   |> GSYM |> Q.INST [`l`|->`0`]
   |> SIMP_RULE (srw_ss()) []
@@ -684,6 +688,23 @@ val EVERY2_DROP = prove(
   \\ fs [listTheory.DROP_LENGTH_TOO_LONG]
   \\ rfs [listTheory.DROP_LENGTH_TOO_LONG]);
 
+val EVERY2_TAKE = prove(
+  ``EVERY2 P xs ys ==> EVERY2 P (TAKE n xs) (TAKE n ys)``,
+  REPEAT STRIP_TAC \\ IMP_RES_TAC EVERY2_LENGTH
+  \\ Q.PAT_ASSUM `LIST_REL P xs ys` MP_TAC
+  \\ ONCE_REWRITE_TAC [GSYM TAKE_DROP] \\ REPEAT STRIP_TAC
+  \\ ONCE_REWRITE_TAC [TAKE_DROP]
+  \\ Cases_on `n <= LENGTH xs`
+  THEN1 (METIS_TAC [rich_listTheory.EVERY2_APPEND,LENGTH_DROP,LENGTH_TAKE])
+  \\ fs [GSYM NOT_LESS] \\ `LENGTH xs <= n` by DECIDE_TAC
+  \\ fs [listTheory.TAKE_LENGTH_TOO_LONG]
+  \\ rfs [listTheory.TAKE_LENGTH_TOO_LONG]);
+
+val LENGTH_TAKE_EQ = prove(
+  ``LENGTH (TAKE n xs) = if n <= LENGTH xs then n else LENGTH xs``,
+  SRW_TAC [] [] \\ fs [GSYM NOT_LESS] \\ AP_TERM_TAC
+  \\ MATCH_MP_TAC TAKE_LENGTH_TOO_LONG \\ DECIDE_TAC);
+
 val cShift_correct = prove(
   ``(!xs env s1 env' t1 res s2 m l i.
       (cEval (xs,env,s1) = (res,s2)) /\ res <> Error /\
@@ -702,7 +723,6 @@ val cShift_correct = prove(
         (cEvalApp loc_opt f' args' s1' = (res',s2')) /\
         res_rel res res' /\
         state_rel s2 s2')``,
-
   HO_MATCH_MP_TAC (cEval_ind |> Q.SPEC `\(x1,x2,x3). P0 x1 x2 x3` |> Q.GEN `P0`
                              |> SIMP_RULE std_ss [FORALL_PROD])
   \\ REPEAT STRIP_TAC
@@ -1046,11 +1066,8 @@ val cShift_correct = prove(
   THEN1 (* cEvalApp NIL *)
    (fs [] \\ SRW_TAC [] []
     \\ fs [cEval_def] \\ SRW_TAC [] [res_rel_cases])
-
   THEN1 (* cEvalApp CONS *)
-   (cheat
-(*
-    fs [cEval_def]
+   (fs [cEval_def]
     \\ Cases_on `dest_closure loc_opt f (v41::v42)` \\ fs []
     \\ Cases_on `x` \\ fs []
     THEN1 (* Partial_app *)
@@ -1067,41 +1084,64 @@ val cShift_correct = prove(
               (b /\ (x1 = SOME y)) \/ (~b /\ (x2 = SOME y))``]
       \\ SRW_TAC [] [] \\ fs [val_rel_simp]
       \\ IMP_RES_TAC EVERY2_LENGTH \\ fs []
-      \\ fs [PULL_EXISTS] \\ Q.EXISTS_TAC `i` \\ fs []
-      \\ REPEAT STRIP_TAC
-      \\ TRY (MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ fs [])
-      \\ rfs [] \\ DECIDE_TAC)
+      THEN1
+       (fs [PULL_EXISTS] \\ Q.EXISTS_TAC `i` \\ fs []
+        \\ REPEAT STRIP_TAC
+        \\ TRY (MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ fs [])
+        \\ rfs [] \\ DECIDE_TAC)
+      \\ Cases_on `EL n cs'` \\ fs []
+      \\ fs [METIS_PROVE [] ``((if b then x1 else x2) = SOME y) <=>
+              (b /\ (x1 = SOME y)) \/ (~b /\ (x2 = SOME y))``]
+      \\ `n < LENGTH l1` by fs []
+      \\ IMP_RES_TAC EVERY2_EL \\ rfs[]
+      \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ fs [])
     (* Full_app *)
     \\ Cases_on `f` \\ fs [dest_closure_def]
     \\ TRY (Cases_on `EL n l1`) \\ fs [LET_DEF]
+    \\ TRY (Cases_on `EL n cs'`) \\ fs [LET_DEF]
     \\ fs [METIS_PROVE [] ``((if b then x1 else x2) = SOME y) <=>
             (b /\ (x1 = SOME y)) \/ (~b /\ (x2 = SOME y))``]
-    \\ SRW_TAC [] [] \\ fs [val_rel_simp]
-    \\ IMP_RES_TAC EVERY2_LENGTH \\ fs []
-    \\ `s1'.clock = s1.clock` by fs [state_rel_def] \\ fs []
-    \\ fs [METIS_PROVE [] ``((if b then x1 else x2) = y) <=>
-            (b /\ (x1 = y)) \/ (~b /\ (x2 = y))``]
-    \\ SRW_TAC [] [] \\ fs [res_rel_simp]
-    \\ TRY (fs [state_rel_def] \\ NO_TAC) \\ rfs []
-    THEN1 cheat
     THEN1
-     (Q.ABBREV_TAC `env3 =
-         REVERSE (TAKE (q - LENGTH vals') (REVERSE v42 ++ [v41])) ++
-            l' ++ GENLIST (Recclosure n0 [] l0' l1) (LENGTH cs') ++ l0'`
+     (SRW_TAC [] [] \\ fs [val_rel_simp]
+      \\ IMP_RES_TAC EVERY2_LENGTH \\ fs []
+      \\ `s1'.clock = s1.clock` by fs [state_rel_def] \\ fs []
+      \\ fs [METIS_PROVE [] ``((if b then x1 else x2) = y) <=>
+              (b /\ (x1 = y)) \/ (~b /\ (x2 = y))``]
+      \\ SRW_TAC [] [] \\ fs [res_rel_simp]
+      \\ TRY (fs [state_rel_def] \\ NO_TAC) \\ rfs []
+      \\ Q.ABBREV_TAC `env3 =
+         REVERSE (TAKE (n - LENGTH vals') (REVERSE v42 ++ [v41])) ++
+            l' ++ l0'`
       \\ Q.ABBREV_TAC `n3 =
-           (SUC (LENGTH ys) - (LENGTH ys + 1 - (q - LENGTH vals')))`
+           (SUC (LENGTH ys) - (LENGTH ys + 1 - (n - LENGTH vals')))`
       \\ Cases_on `cEval ([c],env3,dec_clock n3 s1)` \\ fs []
-      \\ `q' <> Error` by (REPEAT STRIP_TAC \\ fs [])
+      \\ `q <> Error` by (REPEAT STRIP_TAC \\ fs [])
       \\ Q.ABBREV_TAC `env3' =
-           REVERSE (TAKE (q - LENGTH vals') (REVERSE ys ++ [y])) ++ vals' ++
-           GENLIST (Recclosure n0 [] env' cs') (LENGTH cs') ++ env'`
+           REVERSE (TAKE (n - LENGTH vals') (REVERSE ys ++ [y])) ++
+           vals' ++ env'`
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env3'`,`dec_clock n3 s1'`,
-           `LENGTH (l0':clos_val list)`,
-           `LENGTH (cs':(num, clos_exp) alist) + q`,`i`])
+           `LENGTH (l0':clos_val list)`,`n`,`i`])
       \\ fs [] \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
-      THEN1 cheat (* impossible? ... val_rel needs strengening? *)
+      THEN1
+       (REPEAT STRIP_TAC
+        \\ TRY (fs [state_rel_def,dec_clock_def] \\ NO_TAC)
+        THEN1 (fs [LENGTH_TAKE_EQ] \\ SRW_TAC [] [] \\ DECIDE_TAC)
+        \\ fs [SUBSET_DEF,IN_DEF,clos_free_set_def] \\ REPEAT STRIP_TAC
+        \\ Q.UNABBREV_TAC `env3`
+        \\ Q.UNABBREV_TAC `env3'`
+        \\ MATCH_MP_TAC env_ok_some
+        \\ Q.EXISTS_TAC `0` \\ fs []
+        \\ MATCH_MP_TAC (METIS_PROVE []
+             ``b1 /\ (b1 ==> b2) ==> b1 /\ b2``)
+        \\ fs [] \\ REPEAT STRIP_TAC
+        THEN1 (fs [LENGTH_TAKE_EQ] \\ SRW_TAC [] [] \\ DECIDE_TAC)
+        \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ fs []
+        \\ MATCH_MP_TAC EVERY2_REVERSE
+        \\ MATCH_MP_TAC EVERY2_TAKE
+        \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ fs []
+        \\ MATCH_MP_TAC EVERY2_REVERSE \\ fs [])
       \\ REPEAT STRIP_TAC \\ fs []
-      \\ REVERSE (Cases_on `q'`) \\ fs []
+      \\ REVERSE (Cases_on `q`) \\ fs []
       \\ SRW_TAC [] [] \\ fs [res_rel_simp]
       \\ REVERSE (Cases_on `a`) \\ fs []
       \\ SRW_TAC [] [] \\ fs [res_rel_simp]
@@ -1113,8 +1153,72 @@ val cShift_correct = prove(
       \\ MATCH_MP_TAC EVERY2_DROP
       \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ fs []
       \\ MATCH_MP_TAC EVERY2_REVERSE \\ fs [])
-*)
-));
+    \\ SRW_TAC [] [] \\ fs [val_rel_simp]
+    \\ Cases_on `EL n cs'` \\ fs []
+    \\ IMP_RES_TAC EVERY2_LENGTH \\ fs []
+    \\ `q' = q` by
+     (`n < LENGTH l1` by fs []
+      \\ IMP_RES_TAC EVERY2_EL \\ rfs []) \\ fs []
+    \\ fs [METIS_PROVE [] ``((if b then x1 else x2) = y) <=>
+              (b /\ (x1 = y)) \/ (~b /\ (x2 = y))``]
+    \\ `s1'.clock = s1.clock` by fs [state_rel_def] \\ fs []
+    THEN1 (SRW_TAC [] [res_rel_simp] \\ fs [state_rel_def])
+    \\ Q.ABBREV_TAC `env3 =
+         REVERSE (TAKE (q - LENGTH vals') (REVERSE v42 ++ [v41])) ++
+            l' ++ GENLIST (Recclosure n0 [] l0' l1) (LENGTH cs') ++ l0'`
+    \\ Q.ABBREV_TAC `n3 =
+           (SUC (LENGTH ys) - (LENGTH ys + 1 - (q - LENGTH vals')))`
+    \\ Cases_on `cEval ([c],env3,dec_clock n3 s1)` \\ fs []
+    \\ `q'' <> Error` by (REPEAT STRIP_TAC \\ fs [])
+    \\ Q.ABBREV_TAC `env3' =
+           REVERSE (TAKE (q - LENGTH vals') (REVERSE ys ++ [y])) ++ vals' ++
+           GENLIST (Recclosure n0 [] env' cs') (LENGTH cs') ++ env'`
+    \\ `n < LENGTH l1` by fs []
+    \\ IMP_RES_TAC EVERY2_EL
+    \\ rfs []
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env3'`,`dec_clock n3 s1'`,
+           `LENGTH (l0':clos_val list)`,
+           `LENGTH (cs':(num, clos_exp) alist) + q`,`i`])
+    \\ fs [] \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
+    THEN1
+     (REPEAT STRIP_TAC
+      \\ TRY (fs [state_rel_def,dec_clock_def] \\ NO_TAC)
+      THEN1 (fs [LENGTH_TAKE_EQ] \\ SRW_TAC [] [] \\ DECIDE_TAC)
+      \\ fs [SUBSET_DEF,IN_DEF,clos_free_set_def] \\ REPEAT STRIP_TAC
+      \\ Q.UNABBREV_TAC `env3`
+      \\ Q.UNABBREV_TAC `env3'`
+      \\ MATCH_MP_TAC env_ok_some
+      \\ Q.EXISTS_TAC `0` \\ fs []
+      \\ MATCH_MP_TAC (METIS_PROVE []
+           ``b1 /\ (b1 ==> b2) ==> b1 /\ b2``)
+      \\ fs [] \\ REPEAT STRIP_TAC
+      THEN1 (fs [LENGTH_TAKE_EQ] \\ SRW_TAC [] [] \\ DECIDE_TAC)
+      \\ TRY (fs [AC ADD_COMM ADD_ASSOC]
+        \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs []
+        \\ fs [AC ADD_COMM ADD_ASSOC] \\ NO_TAC)
+      \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ fs []
+      \\ REPEAT STRIP_TAC THEN1
+       (MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ fs []
+        \\ MATCH_MP_TAC EVERY2_REVERSE
+        \\ MATCH_MP_TAC EVERY2_TAKE
+        \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ fs []
+        \\ MATCH_MP_TAC EVERY2_REVERSE \\ fs [])
+      \\ fs [EVERY2_GENLIST]
+      \\ fs [val_rel_simp] \\ REPEAT STRIP_TAC
+      \\ fs [clos_free_set_def])
+    \\ REPEAT STRIP_TAC \\ fs []
+    \\ REVERSE (Cases_on `q''`) \\ fs []
+    \\ SRW_TAC [] [] \\ fs [res_rel_simp]
+    \\ REVERSE (Cases_on `a`) \\ fs []
+    \\ SRW_TAC [] [] \\ fs [res_rel_simp]
+    \\ REVERSE (Cases_on `t`) \\ fs []
+    \\ SRW_TAC [] [] \\ fs [res_rel_simp]
+    \\ Q.MATCH_ASSUM_RENAME_TAC `val_rel h h'`
+    \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs []
+    \\ MATCH_MP_TAC EVERY2_REVERSE
+    \\ MATCH_MP_TAC EVERY2_DROP
+    \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ fs []
+    \\ MATCH_MP_TAC EVERY2_REVERSE \\ fs []));
 
 val env_set_default = prove(
   ``x SUBSET env_ok 0 0 LN [] env'``,
