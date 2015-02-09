@@ -4,6 +4,9 @@ open rich_listTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
 open lcsymtacs closLangTheory bvlTheory bvl_jumpTheory;
 open sptreeTheory bvl_inlineTheory intLib miscLib;
+open clos_numberTheory boolSimps;
+open clos_annotateTheory;
+open pat_to_closTheory;
 
 val map2_snoc = Q.prove (
 `!l1 l2 f x y.
@@ -3661,7 +3664,6 @@ val cComp_correct = store_thm("cComp_correct",
 
 val cComp_ind = theorem"cComp_ind";
 
-open clos_numberTheory boolSimps
 
 val build_aux_thm = prove(
   ``∀c n aux n7 aux7.
@@ -3735,7 +3737,6 @@ val cComp_code_locs = store_thm("cComp_code_locs",
   simp[cComp_def,code_locs_def,UNCURRY] >> rw[] >>
   rpt tac >> rw[] >> fs[] >> rw[]);
 
-open clos_annotateTheory
 
 val code_locs_def = tDefine "code_locs" `
   (code_locs [] = []) /\
@@ -3886,7 +3887,6 @@ val contains_Call_EXISTS = prove(
   Induct >> simp[contains_Call_def] >>
   Cases_on`ls`>>fs[contains_Call_def])
 
-open pat_to_closTheory
 
 val pComp_contains_Op_Label = store_thm("pComp_contains_Op_Label",
   ``∀e. ¬contains_Op_Label[pComp e]``,
