@@ -3962,10 +3962,9 @@ val code_locs_cComp = store_thm("code_locs_cComp",
     TRY ( (* 1 of 3 subgoals in App case *)
       qmatch_abbrev_tac`na < num_stubs + 1 ∧ 0 < num_stubs ∨ b ∨ c` >>
       Cases_on`na < num_stubs + 1` >- simp[num_stubs_def,max_app_def] >>
-      disj2_tac >> map_every qunabbrev_tac[`b`,`c`] >>
       `na = LENGTH xs` by METIS_TAC[cComp_LENGTH,FST,PAIR] >>
-      qunabbrev_tac`na`>>fs[] >>
-      cheat (* looks like it might be false? *)) >>
+      fsrw_tac[ARITH_ss][max_app_def,num_stubs_def] >>
+      NO_TAC) >>
     METIS_TAC[] ) >>
   simp[contains_Op_Label_def,clos_numberTheory.contains_App_SOME_def,contains_Call_def] >>
   simp[cComp_def,clos_numberTheory.code_locs_def,code_locs_def] >> rw[] >> fs[] >>

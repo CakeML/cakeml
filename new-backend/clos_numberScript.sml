@@ -325,7 +325,7 @@ val contains_App_SOME_def = tDefine "contains_App_SOME" `
   (contains_App_SOME [Op op xs] ⇔
      contains_App_SOME xs) /\
   (contains_App_SOME [App loc_opt x1 x2] ⇔
-     IS_SOME loc_opt ∨
+     IS_SOME loc_opt ∨ max_app < LENGTH x2 ∨
      contains_App_SOME [x1] ∨
      contains_App_SOME x2) /\
   (contains_App_SOME [Fn loc vs num_args x1] ⇔
@@ -1045,6 +1045,6 @@ val pComp_contains_App_SOME = store_thm("pComp_contains_App_SOME",
   rw[Once contains_App_SOME_EXISTS,EVERY_MAP] >>
   rw[contains_App_SOME_def] >> rw[EVERY_MEM] >>
   fs[REPLICATE_GENLIST,MEM_GENLIST, MEM_MAP] >>
-  rw[contains_App_SOME_def])
+  rw[contains_App_SOME_def,max_app_def])
 
 val _ = export_theory()
