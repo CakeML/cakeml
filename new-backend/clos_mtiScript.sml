@@ -9,6 +9,21 @@ val _ = new_theory "clos_mti";
 
 val ect = BasicProvers.EVERY_CASE_TAC;
 
+val butlastn_ident = Q.prove (
+`!l n. (n ≤ LENGTH l ∧ BUTLASTN n l = l) ⇔ n = 0`,
+ Induct >>
+ rw [] >>
+ Cases_on `n ≤ LENGTH l` >>
+ eq_tac >>
+ fs [BUTLASTN_CONS, NOT_LESS_EQUAL, BUTLASTN] >>
+ rw []
+ >- metis_tac [] >>
+ `n = LENGTH l + 1` by decide_tac >>
+ rw [] >>
+ `LENGTH l + 1 = LENGTH (h::l)` by rw [ADD1] >>
+ full_simp_tac std_ss [BUTLASTN_LENGTH_NIL] >>
+ fs []);
+
 (* Copied from clos_to_bvlScript.sml *)
 val cEval_length_imp = Q.prove (
 `!xs env s1 vs s2.
@@ -228,7 +243,7 @@ val dest_closure_partial_thm = Q.prove (
     dest_closure NONE f' args' = SOME (Partial_app v')`,
  rw [dest_closure_def] >>
  ect >>
- fs [Once val_rel_cases, dest_cl_res_rel_cases, LET_THM] >>
+ fs [Once val_rel_cases, LET_THM] >>
  rw [] >>
  fs [check_loc_def] >>
  imp_res_tac EVERY2_LENGTH >>
@@ -253,6 +268,73 @@ val dest_closure_partial_thm = Q.prove (
  decide_tac);
 
  (*
+val dest_closure_full_thm = Q.prove (
+`!f args f' args' e env rest_args.
+  dest_closure NONE f args = SOME (Full_app e env rest_args) ∧
+  val_rel f f' ∧
+  LIST_REL val_rel args args'
+  ⇒
+  ∃e' n n' env' rest_args'.
+    LIST_REL val_rel env env' ∧
+    LIST_REL val_rel (ARB n n' rest_args) rest_args' ∧
+    exp_rel (n,e) (n',e') ∧
+    dest_closure NONE f' args' = SOME (Full_app e' env' rest_args')`,
+
+ rw [dest_closure_def] >>
+ ect >>
+ fs [Once val_rel_cases, LET_THM] >>
+ rw [] >>
+ fs [check_loc_def] >>
+ fs [NOT_LESS] >>
+ qabbrev_tac `num_args1 = n' - LENGTH l'` >>
+ qabbrev_tac `num_args2 = n - LENGTH l` >>
+ imp_res_tac EVERY2_LENGTH
+ >- (
+     `num_args1 ≤ LENGTH args` by simp [Abbr `num_args1`] >>
+     `num_args2 ≤ LENGTH args'` by simp [Abbr `num_args2`] >>
+     rw [DROP_REVERSE, TAKE_REVERSE, LASTN_MAP, ETA_THM, BUTLASTN_MAP] >>
+     qexists_tac `n'` >>
+     qexists_tac `n` >>
+     simp [] >>
+     fs [exp_rel_def] >>
+     `(n-n')+ARB ≤ LENGTH args` by cheat >>
+     simp [LASTN_BUTLASTN]
+
+
+ `n'-LENGTH l = 0` by metis_tac [butlastn_ident] >>
+ `n' = LENGTH l` by decide_tac >>
+ fs []
+
+
+ Cases_on `EL n l1'` >>
+ fs [] >>
+ Cases_on `q ≤ LENGTH args' + LENGTH l` >>
+ fs [] >>
+ Cases_on `EL n l1` >>
+ fs [] >>
+ rw [] 
+
+ TRY decide_tac
+
+ >- metis_tac [EVERY2_APPEND] >>
+ Cases_on `EL n l1'` >>
+ fs [LET_THM] >>
+ ect >>
+ fs [] >>
+ rw [] >>
+ fs [LIST_REL_EL_EQN] >>
+ `n < LENGTH l1` by decide_tac >>
+ res_tac >>
+ pop_assum mp_tac >>
+ Cases_on `EL n l1` >>
+ simp [exp_rel_def] >>
+ rw [] >>
+ `n' < LENGTH args' ∨ LENGTH args' ≤ n'` by decide_tac >>
+ rw [EL_APPEND1, EL_APPEND2] >>
+ first_x_assum match_mp_tac >>
+ decide_tac);
+
+
 val (dest_cl_res_rel_rules, dest_cl_res_rel_ind, dest_cl_res_rel_cases) = Hol_reln `
 (!v v'.
   val_rel v v'
@@ -319,7 +401,6 @@ val dest_closure_thm = Q.prove (
  fs [intro_multi_def, collect_args_def]
  ect >>
  fs []
- *)
 
 val intro_multi_correct = Q.prove (
 `(!tmp es env s1 res s2 s1' env'.
