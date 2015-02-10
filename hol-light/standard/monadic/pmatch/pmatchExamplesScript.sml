@@ -245,4 +245,8 @@ val is_eq_PMATCH = save_thm("is_eq_PMATCH",
      |> (STRIP_QUANT_CONV o RAND_CONV))
   is_eq_def)
 
+val res = translate is_eq_PMATCH
+
+val _ = finalise_translation()
+
 val _ = export_theory()
