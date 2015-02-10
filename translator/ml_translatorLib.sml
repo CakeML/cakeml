@@ -1803,6 +1803,8 @@ fun to_pattern tm =
     in
       ``Pcon ^name ^args``
     end
+  else if can(match_term``Lit l``) tm then
+    ``Plit ^(rand tm)``
   else tm
 
 val pmatch2deep_fail = ref T;
