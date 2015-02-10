@@ -2292,13 +2292,13 @@ val cl_rel_run = Q.prove (
      rw [Once ADD_COMM]));
 
 val dest_closure_full_of_part = Q.prove (
-`dest_closure loc func args = SOME (Full_app body new_env rest) ∧
+`dest_closure loc func args = SOME (Full_app body newenv rest) ∧
  LENGTH arg_env ≠ 0 ∧
  add_args cl arg_env = SOME func ∧
  get_num_args cl = SOME num_args ∧
  LENGTH arg_env < num_args
  ⇒
- dest_closure' loc cl (args++arg_env) = SOME (Full_app body new_env rest)`,
+ dest_closure' loc cl (args++arg_env) = SOME (Full_app body newenv rest)`,
  rw [dest_closure_def, dest_closure'_def] >>
  BasicProvers.EVERY_CASE_TAC >>
  fs [add_args_def, check_loc_def, check_loc'_def, get_num_args_def] >>
@@ -2338,20 +2338,20 @@ val cl_rel_dest = Q.prove (
  rw []);
 
 val val_rel_run = Q.prove (
-`!f1 (refs : num|-> ref_value) code args args' env' ptr body new_env func func' rest tag n loc.
+`!f1 (refs : num|-> ref_value) code args args' env' ptr body newenv func func' rest tag n loc.
   LENGTH args ≠ 0 ∧
   func' = Block tag (CodePtr ptr::Number (&n)::env') ∧
-  dest_closure loc func args = SOME (Full_app body new_env rest) ∧ 
+  dest_closure loc func args = SOME (Full_app body newenv rest) ∧
   val_rel f1 refs code func func' ∧
   LIST_REL (val_rel f1 refs code) args args'
   ⇒
-  ∃ck' body' aux1 aux2 new_env' exp'.
+  ∃ck' body' aux1 aux2 newenv' exp'.
     lookup ptr code = SOME (n + 2,exp') ∧
     cComp [body] aux1 = ([body'],aux2) ∧ code_installed aux2 code ∧
-    env_rel f1 refs code new_env new_env' ∧
+    env_rel f1 refs code newenv newenv' ∧
     !t1. 
       bEval ([exp'], DROP (LENGTH args' - (n + 1)) args' ++ [func'], inc_clock ck' (t1 with <|refs := refs; code := code|>)) =
-      bEval ([body'], new_env', (t1 with <| refs := refs; code := code |>))`,
+      bEval ([body'], newenv', (t1 with <| refs := refs; code := code |>))`,
  rw [] >>
  qpat_assum `val_rel x0 x1 x2 x3 x4` (fn x => mp_tac x >> simp [val_rel_cases] >> assume_tac x) >>
  rw [] >>
@@ -3531,7 +3531,7 @@ val cComp_correct = store_thm("cComp_correct",
                      fs [] >>
                      rw [] >>
                      `s1.clock − rem_args + ck + ck'' = ck+ck''+s1.clock-rem_args` by ARITH_TAC >>
-                     `bEval ([body'],new_env',t1 with clock := ck + ck'' + s1.clock - rem_args) =
+                     `bEval ([body'],newenv',t1 with clock := ck + ck'' + s1.clock - rem_args) =
                          (Result [v'], inc_clock ck'' t2)`
                                by (imp_res_tac bEval_add_clock >>
                                    rw [] >>
@@ -3887,7 +3887,6 @@ val contains_Call_EXISTS = prove(
   Induct >> simp[contains_Call_def] >>
   Cases_on`ls`>>fs[contains_Call_def])
 
-
 val pComp_contains_Op_Label = store_thm("pComp_contains_Op_Label",
   ``∀e. ¬contains_Op_Label[pComp e]``,
   ho_match_mp_tac pComp_ind >>
@@ -3929,8 +3928,6 @@ val code_locs_cComp = store_thm("code_locs_cComp",
   ``∀xs aux.
       ¬contains_Op_Label xs ∧ ¬contains_App_SOME xs ∧ ¬contains_Call xs ⇒
       set (code_locs (FST(cComp xs aux))) ⊆ set (code_locs xs)``,
- cheat);
- (*
   ho_match_mp_tac cComp_ind >> rpt conj_tac >>
   TRY (
     simp[contains_Op_Label_def,clos_numberTheory.contains_App_SOME_def,contains_Call_def] >>
@@ -3961,8 +3958,7 @@ val code_locs_cComp = store_thm("code_locs_cComp",
   rpt tac >> rw[] >> fs[cComp_sing_lemma] >>
   fs[SUBSET_DEF]
   >- ( Cases_on`op`>>simp[cCompOp_def]>>fs[] )
-  >- ( simp[Once code_locs_cons,code_locs_def,code_locs_MAP_Var] ))
-  *)
+  >- ( simp[Once code_locs_cons,code_locs_def,code_locs_MAP_Var] ));
 
 val code_locs_free_let = prove(
   ``∀n m. code_locs [m] = [] ⇒ code_locs (free_let m n) = []``,
