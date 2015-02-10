@@ -3924,41 +3924,71 @@ val code_locs_build_recc_lets = store_thm("code_locs_build_recc_lets",
   rw[Once code_locs_cons,code_locs_def,code_locs_append,code_locs_MAP_Var,code_locs_MAP_K_Op_Const] >>
   rw[EXTENSION] >> METIS_TAC[]);
 
+val set_code_locs_reverse = store_thm("set_code_locs_reverse",
+  ``∀ls. set(code_locs (REVERSE ls)) = set (code_locs ls)``,
+  Induct >> simp[code_locs_def,code_locs_append] >>
+  simp[Once code_locs_cons,SimpRHS] >>
+  METIS_TAC[UNION_COMM])
+
+val code_locs_GENLIST_var = Q.prove (
+`!n m. code_locs (GENLIST (\a. Var (a + m)) n) = []`,
+ Induct >>
+ rw [code_locs_def, GENLIST, code_locs_append]);
+
+val code_locs_GENLIST_var' = Q.prove (
+`!n m. code_locs (GENLIST Var n) = []`,
+ Induct >>
+ rw [code_locs_def, GENLIST, code_locs_append]);
+
 val code_locs_cComp = store_thm("code_locs_cComp",
   ``∀xs aux.
       ¬contains_Op_Label xs ∧ ¬contains_App_SOME xs ∧ ¬contains_Call xs ⇒
-      set (code_locs (FST(cComp xs aux))) ⊆ set (code_locs xs)``,
+      set (code_locs (FST(cComp xs aux))) ⊆ count num_stubs ∪ IMAGE ($+ num_stubs) (set (code_locs xs))``,
   ho_match_mp_tac cComp_ind >> rpt conj_tac >>
-  TRY (
-    simp[contains_Op_Label_def,clos_numberTheory.contains_App_SOME_def,contains_Call_def] >>
-    simp[cComp_def,clos_numberTheory.code_locs_def] >> rw[] >> fs[] >>
-    Cases_on`xs`>>fs[clos_numberTheory.code_locs_def] >>
-    Cases_on`t`>>fs[] >- (
-      tac >>
-      simp[UNCURRY,code_locs_def,cComp_sing_lemma] >>
-      simp[Once code_locs_cons,code_locs_def,code_locs_MAP_Var] >>
-      fs[SUBSET_DEF] ) >>
-    fs[cComp_def,LET_THM] >>
-    Cases_on`cComp[h]aux`>>fs[]>>
-    Cases_on`cComp(h'::t')r`>>fs[]>>
-    Q.PAT_ABBREV_TAC`p = build_aux X Y Z` >>
-    Cases_on`p`>>fs[]>>
-    simp[UNCURRY] >>
-    simp[code_locs_build_recc_lets,cComp_sing_lemma] >>
-    fs[contains_App_SOME_def,contains_Op_Label_def,contains_Call_def] >>
-    fs[SUBSET_DEF,cComp_sing_lemma] >>
-    simp[MEM_GENLIST,PULL_EXISTS] >>
-    NO_TAC) >>
-  simp[cComp_def,clos_numberTheory.code_locs_def,code_locs_def,UNCURRY,
-                 clos_annotateTheory.code_locs_append,code_locs_append,
-                 cComp_sing_lemma,contains_Op_Label_def,
-                 clos_numberTheory.contains_App_SOME_def,
-                 contains_Call_def] >>
-  rw[cComp_sing_lemma] >>
-  rpt tac >> rw[] >> fs[cComp_sing_lemma] >>
-  fs[SUBSET_DEF]
-  >- ( Cases_on`op`>>simp[cCompOp_def]>>fs[] )
-  >- ( simp[Once code_locs_cons,code_locs_def,code_locs_MAP_Var] ));
+  TRY ( (* all but Letrec *)
+    simp[cComp_def,clos_numberTheory.code_locs_def,code_locs_def,UNCURRY,
+                   clos_annotateTheory.code_locs_append,code_locs_append,
+                   cComp_sing_lemma,contains_Op_Label_def,
+                   clos_numberTheory.contains_App_SOME_def,
+                   contains_Call_def,
+                   mk_cl_call_def,
+                   set_code_locs_reverse, code_locs_MAP_Var,
+                   code_locs_GENLIST_var,code_locs_GENLIST_var'] >>
+    rw[cComp_sing_lemma] >>
+    rpt tac >> rw[] >> fs[cComp_sing_lemma] >>
+    fs[SUBSET_DEF] >>
+    fsrw_tac[ARITH_ss][PULL_EXISTS] >>
+    TRY ( Cases_on`op`>>simp[cCompOp_def]>>fs[] >> NO_TAC) >>
+    TRY ( (* 1 of 3 subgoals in App case *)
+      qmatch_abbrev_tac`na < num_stubs + 1 ∧ 0 < num_stubs ∨ b ∨ c` >>
+      Cases_on`na < num_stubs + 1` >- simp[num_stubs_def,max_app_def] >>
+      disj2_tac >> map_every qunabbrev_tac[`b`,`c`] >>
+      `na = LENGTH xs` by METIS_TAC[cComp_LENGTH,FST,PAIR] >>
+      qunabbrev_tac`na`>>fs[] >>
+      cheat (* looks like it might be false? *)) >>
+    METIS_TAC[] ) >>
+  simp[contains_Op_Label_def,clos_numberTheory.contains_App_SOME_def,contains_Call_def] >>
+  simp[cComp_def,clos_numberTheory.code_locs_def,code_locs_def] >> rw[] >> fs[] >>
+  Cases_on`fns`>>fs[clos_numberTheory.code_locs_def] >>
+  Cases_on`t`>>fs[] >- (
+    PairCases_on`h`>>fs[] >>
+    tac >>
+    simp[UNCURRY,code_locs_def,cComp_sing_lemma] >>
+    simp[Once code_locs_cons,code_locs_def,code_locs_MAP_Var,set_code_locs_reverse,code_locs_append] >>
+    fs[SUBSET_DEF] >>
+    METIS_TAC[]) >>
+  fs[cComp_def,LET_THM] >>
+  Cases_on`cComp[SND h]aux`>>fs[]>>
+  Cases_on`cComp(SND h'::MAP SND t')r`>>fs[]>>
+  Q.PAT_ABBREV_TAC`p = build_aux X Y Z` >>
+  Cases_on`p`>>fs[]>>
+  simp[UNCURRY] >>
+  simp[code_locs_build_recc_lets,cComp_sing_lemma] >>
+  fs[contains_App_SOME_def,contains_Op_Label_def,contains_Call_def] >>
+  fs[SUBSET_DEF,cComp_sing_lemma] >>
+  simp[MEM_GENLIST,PULL_EXISTS] >>
+  fsrw_tac[ARITH_ss][PULL_EXISTS] >>
+  METIS_TAC[]);
 
 val code_locs_free_let = prove(
   ``∀n m. code_locs [m] = [] ⇒ code_locs (free_let m n) = []``,
@@ -3972,12 +4002,6 @@ val build_aux_aux = prove(
     REVERSE k ++ MAP SND s``,
   Induct >> simp[build_aux_def])
 
-val set_code_locs_reverse = store_thm("set_code_locs_reverse",
-  ``∀ls. set(code_locs (REVERSE ls)) = set (code_locs ls)``,
-  Induct >> simp[code_locs_def,code_locs_append] >>
-  simp[Once code_locs_cons,SimpRHS] >>
-  METIS_TAC[UNION_COMM])
-
 val code_locs_GENLIST_Op = prove(
   ``(∀loc. op ≠ Label loc) ∧
     (∀x. code_locs (f x) = [])
@@ -3985,16 +4009,6 @@ val code_locs_GENLIST_Op = prove(
   strip_tac >>
   Induct_on`ls`>>simp[code_locs_def,GENLIST,code_locs_append] >>
   Cases_on`op`>>fs[])
-
-val code_locs_GENLIST_var = Q.prove (
-`!n m. code_locs (GENLIST (\a. Var (a + m)) n) = []`,
- Induct >>
- rw [code_locs_def, GENLIST, code_locs_append]);
-
-val code_locs_GENLIST_var' = Q.prove (
-`!n m. code_locs (GENLIST Var n) = []`,
- Induct >>
- rw [code_locs_def, GENLIST, code_locs_append]);
 
 val code_locs_MAP_code_for_recc_case = prove(
   ``∀ls ns. LENGTH ls = LENGTH ns ⇒ code_locs (MAP SND (MAP2 (code_for_recc_case n) ns ls)) = code_locs ls``,
