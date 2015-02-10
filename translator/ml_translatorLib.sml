@@ -1714,8 +1714,10 @@ fun prove_EvalPatRel goal hol2deep = let
     goal |> rand |> dest_pabs |> snd |> hol2deep |> hyp
          |> filter (can (match_term lookup_cons_pat))
   val pat = ``~(x = y:'a)``
+  fun badtype ty = Lib.mem ty [``:'a list``,``:num``]
   fun tac (hs,gg) = let
-    val find_neg = find_term (can (match_term pat))
+    val find_neg = find_term (fn tm => can (match_term pat) tm andalso
+                                       not(badtype(type_of(boolSyntax.rhs(dest_neg tm)))))
     val tm = find_neg (first (can find_neg) hs)
     in (Cases_on `^(tm |> rand |> rand)` \\ fs []) (hs,gg) end
   (*
@@ -1733,7 +1735,7 @@ fun prove_EvalPatRel goal hol2deep = let
     fs[lookup_cons_def] >>
     simp[LIST_TYPE_def,pmatch_def,same_tid_def,
          same_ctor_def,id_to_n_def,EXISTS_PROD,
-         pat_bindings_def] >>
+         pat_bindings_def,lit_same_type_def] >>
     fs[Once evaluate_cases])
   in th end handle HOL_ERR e =>
   (prove_EvalPatRel_fail := goal;
