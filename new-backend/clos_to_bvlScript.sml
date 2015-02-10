@@ -4230,6 +4230,13 @@ val contains_App_SOME_cons = store_thm("contains_App_SOME_cons",
   ``contains_App_SOME (e::x) ⇔ contains_App_SOME [e] ∨ contains_App_SOME x``,
   METIS_TAC[contains_App_SOME_EXISTS,listTheory.EXISTS_DEF])
 
+val renumber_code_locs_length = store_thm("renumber_code_locs_length",
+  ``(∀x y. LENGTH (SND (renumber_code_locs_list x y)) = LENGTH y) ∧
+    (∀(x:num)(y:clos_exp). T)``,
+    ho_match_mp_tac renumber_code_locs_ind >>
+    simp[renumber_code_locs_def,UNCURRY] >> rw[] >>
+    tac >> fs[])
+
 val contains_App_SOME_renumber_code_locs = store_thm("contains_App_SOME_renumber_code_locs",
   ``(∀n e m f. renumber_code_locs_list n e = (m,f) ⇒
       (contains_App_SOME f ⇔ contains_App_SOME e)) ∧
@@ -4240,11 +4247,12 @@ val contains_App_SOME_renumber_code_locs = store_thm("contains_App_SOME_renumber
   tac >> fs[] >> rw[] >>
   tac >> fs[] >> rw[] >>
   tac >> fs[] >> rw[] >-
-  METIS_TAC[contains_App_SOME_cons] >>
-  cheat);
-  (*
-  Cases_on`renumber_code_locs (q + LENGTH r) e'`>>fs[])
-  *)
+    METIS_TAC[contains_App_SOME_cons]
+  >-
+    METIS_TAC[renumber_code_locs_length,SND] >>
+  Cases_on`renumber_code_locs_list n (MAP SND fns)`>>fs[]>>
+  Cases_on`renumber_code_locs (q + LENGTH r) e`>>fs[]>>
+  METIS_TAC[MAP_ZIP,renumber_code_locs_length,SND,LENGTH_MAP])
 
 val contains_Op_Label_cons = store_thm("contains_Op_Label_cons",
   ``contains_Op_Label (e::x) ⇔ contains_Op_Label [e] ∨ contains_Op_Label x``,
@@ -4261,9 +4269,8 @@ val contains_Op_Label_renumber_code_locs = store_thm("contains_Op_Label_renumber
   tac >> fs[] >> rw[] >>
   tac >> fs[] >> rw[] >-
   METIS_TAC[contains_Op_Label_cons] >>
-  cheat);
-  (*
-  Cases_on`renumber_code_locs (q + LENGTH r) e'`>>fs[])
-  *)
+  Cases_on`renumber_code_locs_list n (MAP SND fns)`>>fs[]>>
+  Cases_on`renumber_code_locs (q + LENGTH r) e`>>fs[]>>
+  METIS_TAC[MAP_ZIP,renumber_code_locs_length,SND,LENGTH_MAP])
 
 val _ = export_theory();
