@@ -9,6 +9,13 @@ val _ = new_theory "clos_mti";
 
 val ect = BasicProvers.EVERY_CASE_TAC;
 
+val el_butlastn = Q.prove (
+`!n m l. n+m < LENGTH l ⇒ EL n (BUTLASTN m l) = EL n l`,
+ rw [] >>
+ `n ≤ LENGTH l ∧ m ≤ LENGTH l` by decide_tac >>
+ `n < LENGTH l - m` by decide_tac >>
+ rw [BUTLASTN_TAKE, EL_TAKE]);
+
 val butlastn_ident = Q.prove (
 `!l n. (n ≤ LENGTH l ∧ BUTLASTN n l = l) ⇔ n = 0`,
  Induct >>
@@ -267,42 +274,81 @@ val dest_closure_partial_thm = Q.prove (
  first_x_assum match_mp_tac >>
  decide_tac);
 
- (*
 val dest_closure_full_thm = Q.prove (
 `!f args f' args' e env rest_args.
   dest_closure NONE f args = SOME (Full_app e env rest_args) ∧
   val_rel f f' ∧
   LIST_REL val_rel args args'
   ⇒
-  ∃e' n n' env' rest_args'.
-    LIST_REL val_rel env env' ∧
-    LIST_REL val_rel (ARB n n' rest_args) rest_args' ∧
+  (?e' n n' arg_env clo_env loc.
+    LIST_REL val_rel env (arg_env++clo_env) ∧
     exp_rel (n,e) (n',e') ∧
-    dest_closure NONE f' args' = SOME (Full_app e' env' rest_args')`,
+    dest_closure NONE f' args' =
+      SOME (Partial_app (Closure loc (TAKE (LENGTH rest_args) args' ++ arg_env) clo_env n' e'))) ∨
+  (∃e' n n' env' rest_args'.
+    LIST_REL val_rel env env' ∧
+    LIST_REL val_rel rest_args rest_args' ∧
+    exp_rel (n,e) (n',e') ∧
+    dest_closure NONE f' args' = 
+      SOME (Full_app e' (LASTN (n'-n) rest_args' ++ env') (BUTLASTN (n'-n) rest_args')))`,
 
  rw [dest_closure_def] >>
  ect >>
  fs [Once val_rel_cases, LET_THM] >>
  rw [] >>
- fs [check_loc_def] >>
- fs [NOT_LESS] >>
+ fs [check_loc_def, NOT_LESS] >>
  qabbrev_tac `num_args1 = n' - LENGTH l'` >>
  qabbrev_tac `num_args2 = n - LENGTH l` >>
  imp_res_tac EVERY2_LENGTH
- >- (
-     `num_args1 ≤ LENGTH args` by simp [Abbr `num_args1`] >>
+ >- (`num_args1 ≤ LENGTH args` by simp [Abbr `num_args1`] >>
      `num_args2 ≤ LENGTH args'` by simp [Abbr `num_args2`] >>
      rw [DROP_REVERSE, TAKE_REVERSE, LASTN_MAP, ETA_THM, BUTLASTN_MAP] >>
-     qexists_tac `n'` >>
-     qexists_tac `n` >>
-     simp [] >>
-     fs [exp_rel_def] >>
-     `(n-n')+ARB ≤ LENGTH args` by cheat >>
-     simp [LASTN_BUTLASTN]
-
+     MAP_EVERY qexists_tac [`n'`, `n`, `LASTN num_args1 args'++l++l0`, 
+                            `BUTLASTN num_args1 args'`] >>
+     rw []
+     >- (rfs [] >>
+         `LIST_REL val_rel (LASTN num_args1 args) (LASTN num_args1 args')` 
+                by (rfs [LIST_REL_EL_EQN, LENGTH_LASTN] >>
+                    rw [] >>
+                    `n'' + (LENGTH args' - num_args1) < LENGTH args'` by decide_tac >>
+                    rw [LASTN_DROP, EL_DROP]) >>
+         metis_tac [EVERY2_APPEND])
+     >- (rfs [] >>
+         rw [LIST_REL_EL_EQN, LENGTH_BUTLASTN] >>
+         `n'' + num_args1 < LENGTH args'` by simp [Abbr `num_args1`] >>
+         fs [LIST_REL_EL_EQN, el_butlastn] >>
+         first_x_assum match_mp_tac >>
+         decide_tac)
+     >- (`(n-n') + num_args1 ≤ LENGTH args'` by simp [Abbr `num_args1`] >>
+         rw [LASTN_BUTLASTN] >>
+         cheat)
+     >- (`(n-n') + num_args1 ≤ LENGTH args'` by simp [Abbr `num_args1`] >>
+         rw [BUTLASTN_BUTLASTN] >>
+         unabbrev_all_tac >>
+         rw [] >>
+         fs [exp_rel_def] >>
+         simp []))
+ >- fs [exp_rel_def]
+ >- (fs [exp_rel_def] >>
+     decide_tac)
+ >- (`num_args1 ≤ LENGTH args` by simp [Abbr `num_args1`] >>
+     MAP_EVERY qexists_tac [`n'`, `DROP (LENGTH args' + LENGTH l-n') args' ++ l`] >>
+     simp [DROP_REVERSE, TAKE_REVERSE, LASTN_MAP, ETA_THM, BUTLASTN_MAP] >>
+     simp [Abbr `num_args1`] >>
+     `LIST_REL val_rel (LASTN (n'-LENGTH l) args) (DROP (LENGTH args' + LENGTH l − n') args')` 
+                by (rfs [LIST_REL_EL_EQN, LENGTH_LASTN] >>
+                    rw []
+                    >- decide_tac >>
+                    `n'' + (LENGTH args' - (n'-LENGTH l)) < LENGTH args` by decide_tac >>
+                    `n'' + (LENGTH args' + LENGTH l - n') < LENGTH args'` by decide_tac >>
+                    rw [LASTN_DROP, EL_DROP] >>
+                    simp []) >>
+     metis_tac [EVERY2_APPEND, LASTN_DROP])
+ >- fs [exp_rel_def]
+ >- (fs [exp_rel_def] >>
+     decide_tac)
 
  `n'-LENGTH l = 0` by metis_tac [butlastn_ident] >>
- `n' = LENGTH l` by decide_tac >>
  fs []
 
 
