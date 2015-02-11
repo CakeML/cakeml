@@ -148,6 +148,10 @@ val Clt = prove(
   ``combin$C prim_rec$< = $>``,
   simp[FUN_EQ_THM])
 
+val ADD_INJ = prove(
+  ``x + y = x + z ⇒ y = (z:num)``,
+  simp[])
+
 val code_locs_FLAT_MAP = store_thm("code_locs_FLAT_MAP",
   ``∀ls. code_locs ls = FLAT (MAP (λx. code_locs [x]) ls)``,
   Induct >> simp[code_locs_def] >>
@@ -264,8 +268,10 @@ val env_rs_def = Define`
       clos_number$state_rel (s_to_Cs sp) s4 ∧
       clos_annotate$state_rel s4 s5 ∧
       state_rel f1 s5 s6 ∧
+      (* TODO: these bits of the invariant probably need to change for num_stubs *)
       (∀k. k ∈ domain s6.code ⇒ k < rs.next_loc) ∧
       (∀ptr arity exp. lookup ptr s6.code = SOME (arity,exp) ⇒ EVERY ($> rs.next_loc) (code_locs [exp])) ∧
+      (* -- *)
       state_rel locs s6 bs`
 
 val env_rs_change_clock = store_thm("env_rs_change_clock",
@@ -441,10 +447,12 @@ val tac3 =
   simp[Abbr`new_code`,lookup_union] >>
   simp[lookup_fromAList,ALOOKUP_MAP] >>
   simp[EVERY_MEM,FORALL_PROD] >>
-  qx_genl_tac[`k`,`z`] >> rw[] >>
-  `ALOOKUP aux k = SOME z` by
-    metis_tac[ALOOKUP_ALL_DISTINCT_MEM,ALL_DISTINCT_REVERSE] >>
+  qx_genl_tac[`k`,`a`,`z`] >> rw[] >>
+  `ALOOKUP aux k = SOME (a,z)` by
+    metis_tac[ALOOKUP_ALL_DISTINCT_MEM,ALL_DISTINCT_REVERSE,
+              ALL_DISTINCT_MAP_INJ,ADD_INJ] >>
   simp[] >> BasicProvers.CASE_TAC >>
+
   `rs.next_loc ≤ k` by (
     fs[EVERY_MEM] >>
     first_x_assum match_mp_tac >>
@@ -659,7 +667,9 @@ val tac11 =
 val tac12 =
   first_assum (mp_tac o MATCH_MP (CONJUNCT1 pComp_correct)) >>
   discharge_hyps >- rfs[] >> strip_tac >>
-  first_x_assum(mp_tac o MATCH_MP renumber_code_locs_correct) >>
+  first_x_assum(mp_tac o MATCH_MP (
+    renumber_code_locs_correct |> CONJUNCT1
+    |> SIMP_RULE std_ss [Once FORALL_PROD])) >>
   simp[pComp_contains_App_SOME,GSYM csg_to_pat_MAP] >>
   disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
   disch_then(qspec_then`rs.next_loc`mp_tac) >>
@@ -669,7 +679,10 @@ val tac12 =
   disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
   disch_then(qspec_then`[]`mp_tac) >>
   simp[clos_annotateTheory.res_rel_simp,PULL_EXISTS] >> rpt gen_tac >> strip_tac >>
-  first_assum (mp_tac o MATCH_MP (GEN_ALL(ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] cComp_correct))) >>
+  first_assum (mp_tac o MATCH_MP (
+    cComp_correct |> CONJUNCT1 |>
+    SIMP_RULE std_ss [Once FORALL_PROD]
+    |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO])) >>
   simp[] >>
   disch_then(qspec_then`[]`mp_tac) >>
   simp[renumber_code_locs_def] >>
@@ -683,11 +696,14 @@ val tac12 =
   qspecl_then[`xs`,`[]`]mp_tac code_locs_cComp_aux >>
   simp[Abbr`X`,Abbr`xs`,cAnnotate_code_locs] >>
   ntac 2 strip_tac >>
-  `domain new_code = set (code_locs [e'])` by (
-    simp[Abbr`new_code`,domain_fromAList,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] ) >>
+  `domain new_code = IMAGE ($+ num_stubs) (set (code_locs [e']))` by (
+    simp[Abbr`new_code`,domain_fromAList,MAP_MAP_o,
+         combinTheory.o_DEF,UNCURRY,ETA_AX,MAP_REVERSE] >>
+    simp[LIST_TO_SET_MAP]) >>
   qmatch_assum_abbrev_tac`renumber_code_locs nn ee = X` >>
   qspecl_then[`nn`,`ee`]mp_tac renumber_code_locs_distinct >>
   simp[Abbr`nn`,Abbr`ee`,Abbr`X`] >> strip_tac >>
+
   discharge_hyps >- tac3 >>
   simp[clos_to_bvlTheory.res_rel_cases,PULL_EXISTS] >> rpt gen_tac >> strip_tac >>
   `domain f = domain new_code` by metis_tac[bvl_bc_table_thm] >>
@@ -890,6 +906,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[CONJUNCT1 exp_pat_refl] >> fs[csg_to_pat_MAP] ) >>
     disch_then(qx_choosel_then[`res4`]strip_assume_tac) >>
     ntac 3 (first_assum(split_applied_pair_tac o lhs o concl) >> fs[]) >>
+
     tac12 >> tac7 >>
     first_x_assum(qspec_then`bs2`mp_tac) >>
     simp[Abbr`bs2`,bvl_to_bc_value_def,Abbr`non`] >>
