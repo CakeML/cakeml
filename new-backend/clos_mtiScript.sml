@@ -41,6 +41,14 @@ val cEval_length_imp = Q.prove (
  assume_tac (Q.SPECL [`xs`, `env`, `s1`] (hd (CONJUNCTS cEval_LENGTH))) >>
  rfs []);
 
+val add_args_def = Define `
+(add_args (Closure loc_opt args env num_args exp : clos_val) args' =
+  SOME (Closure loc_opt (args'++args) env num_args exp)) ∧
+(add_args (Recclosure loc_opt args env funs i : clos_val) args' =
+  SOME (Recclosure loc_opt (args'++args) env funs i)) ∧
+(add_args _ _ = NONE)`;
+(* END COPY *)
+
 val collect_args_def = Define `
 (collect_args max_app num_args (Fn loc fvs num_args' e) =
   if num_args + num_args' ≤ max_app then
@@ -148,6 +156,15 @@ val (val_rel_rules, val_rel_ind, val_rel_cases) = Hol_reln `
   LIST_REL exp_rel funs funs'
   ⇒
   val_rel (Recclosure loc args env funs i)
+          (Recclosure loc args' env' funs' i)) ∧
+(∀args args' env env' funs funs' i loc.
+  LIST_REL val_rel args args' ∧
+  LIST_REL val_rel env env' ∧
+  LIST_REL exp_rel funs funs' ∧
+  i < LENGTH funs ∧
+  EL i funs = (num_args, e)
+  ⇒
+  val_rel (Closure (loc+i) args (GENLIST (Recclosure loc [] env funs) (LENGTH funs) ++ env) num_args e)
           (Recclosure loc args' env' funs' i))`;
 
 val (res_rel_rules, res_rel_ind, res_rel_cases) = Hol_reln `
@@ -256,7 +273,18 @@ val dest_closure_partial_thm = Q.prove (
  imp_res_tac EVERY2_LENGTH >>
  fs [exp_rel_def] >>
  TRY decide_tac
- >- metis_tac [EVERY2_APPEND] >>
+ >- metis_tac [EVERY2_APPEND]
+ >- (
+     `exp_rel (EL n funs) (EL n l1)` by fs [LIST_REL_EL_EQN] >>
+     Cases_on `EL n l1` >>
+     Cases_on `EL n funs` >>
+     fs [exp_rel_def] >>
+     rw [] >>
+     fs [] >>
+     TRY decide_tac >>
+     MAP_EVERY qexists_tac [`env`, `funs`] >>
+     rw [] >>
+     metis_tac [EVERY2_APPEND]) >>
  Cases_on `EL n l1'` >>
  fs [LET_THM] >>
  ect >>
@@ -274,33 +302,70 @@ val dest_closure_partial_thm = Q.prove (
  first_x_assum match_mp_tac >>
  decide_tac);
 
+val lastn_lemma = Q.prove (
+`!l n1 n2 n3.
+  n3 ≤ n2 ∧
+  n2 ≤ n1 ∧
+  n2-n3 ≤ LENGTH l ∧
+  n1-n3 ≤ LENGTH l
+  ⇒
+  LASTN (n1 - n3) l = LASTN (n1 - n2) (BUTLASTN (n2 - n3) l) ++ LASTN (n2 - n3) l`,
+ recInduct SNOC_INDUCT >>
+ rw [] >>
+ Cases_on `n1-n3` >>
+ rw [LASTN]
+ >- (`n2-n3 = 0` by decide_tac >>
+     `n1-n2 = 0` by decide_tac >>
+     rw [BUTLASTN, LASTN])
+ >- (`n2-n3 = 0` by decide_tac >>
+     `n1-n2 = 0` by decide_tac >>
+     rw [BUTLASTN, LASTN])
+ >- full_simp_tac (srw_ss()++ARITH_ss) [BUTLASTN, LASTN]
+ >- (`n1 = n2 ∧ n2 = n3` by decide_tac >>
+     rw [BUTLASTN, LASTN])
+ >- (`n1 = n2 ∧ n2 = n3` by decide_tac >>
+     rw [BUTLASTN, LASTN]) >>
+ rw_tac std_ss [LASTN, GSYM SNOC_APPEND] >> 
+ Cases_on `n2-n3` >>
+ rw [LASTN, BUTLASTN] >>
+ fs []
+ >- (`n2 = n3` by decide_tac >>
+     rw_tac std_ss [LASTN, GSYM SNOC_APPEND]) >>
+ rw_tac std_ss [BUTLASTN, GSYM SNOC_APPEND, LASTN] >> 
+ fs [] >>
+ first_x_assum (qspecl_then [`n1`, `n2`, `n3+1`] mp_tac) >>
+ rw [] >>
+ rev_full_simp_tac (srw_ss()++ARITH_ss) [] >>
+ `n = n1 -(n3 + 1)` by decide_tac >>
+ `n' = n2 -(n3 + 1)` by decide_tac >>
+ rw []);
+
 val dest_closure_full_thm = Q.prove (
 `!f args f' args' e env rest_args.
   dest_closure NONE f args = SOME (Full_app e env rest_args) ∧
   val_rel f f' ∧
   LIST_REL val_rel args args'
   ⇒
-  (?e' n n' arg_env clo_env loc.
-    LIST_REL val_rel env (arg_env++clo_env) ∧
-    exp_rel (n,e) (n',e') ∧
-    dest_closure NONE f' args' =
-      SOME (Partial_app (Closure loc (TAKE (LENGTH rest_args) args' ++ arg_env) clo_env n' e'))) ∨
+  (?f'' loc' fvs' num_args' e'.
+    e = Fn loc' fvs' num_args' e' ∧
+    add_args f' args' = SOME f'' ∧
+    dest_closure NONE f' args' = SOME (Partial_app f'')) ∨
   (∃e' n n' env' rest_args'.
     LIST_REL val_rel env env' ∧
     LIST_REL val_rel rest_args rest_args' ∧
     exp_rel (n,e) (n',e') ∧
+    n'-n ≤ LENGTH rest_args' ∧
     dest_closure NONE f' args' = 
       SOME (Full_app e' (LASTN (n'-n) rest_args' ++ env') (BUTLASTN (n'-n) rest_args')))`,
-
  rw [dest_closure_def] >>
  ect >>
  fs [Once val_rel_cases, LET_THM] >>
  rw [] >>
  fs [check_loc_def, NOT_LESS] >>
- qabbrev_tac `num_args1 = n' - LENGTH l'` >>
- qabbrev_tac `num_args2 = n - LENGTH l` >>
  imp_res_tac EVERY2_LENGTH
- >- (`num_args1 ≤ LENGTH args` by simp [Abbr `num_args1`] >>
+ >- (qabbrev_tac `num_args1 = n' - LENGTH l'` >>
+     qabbrev_tac `num_args2 = n - LENGTH l` >>
+     `num_args1 ≤ LENGTH args` by simp [Abbr `num_args1`] >>
      `num_args2 ≤ LENGTH args'` by simp [Abbr `num_args2`] >>
      rw [DROP_REVERSE, TAKE_REVERSE, LASTN_MAP, ETA_THM, BUTLASTN_MAP] >>
      MAP_EVERY qexists_tac [`n'`, `n`, `LASTN num_args1 args'++l++l0`, 
@@ -319,9 +384,13 @@ val dest_closure_full_thm = Q.prove (
          fs [LIST_REL_EL_EQN, el_butlastn] >>
          first_x_assum match_mp_tac >>
          decide_tac)
-     >- (`(n-n') + num_args1 ≤ LENGTH args'` by simp [Abbr `num_args1`] >>
-         rw [LASTN_BUTLASTN] >>
-         cheat)
+     >- (unabbrev_all_tac >>
+         simp [LENGTH_BUTLASTN])
+     >- (unabbrev_all_tac >>
+         rw [] >>
+         match_mp_tac lastn_lemma >>
+         simp [] >>
+         fs [exp_rel_def])
      >- (`(n-n') + num_args1 ≤ LENGTH args'` by simp [Abbr `num_args1`] >>
          rw [BUTLASTN_BUTLASTN] >>
          unabbrev_all_tac >>
@@ -331,123 +400,92 @@ val dest_closure_full_thm = Q.prove (
  >- fs [exp_rel_def]
  >- (fs [exp_rel_def] >>
      decide_tac)
- >- (`num_args1 ≤ LENGTH args` by simp [Abbr `num_args1`] >>
-     MAP_EVERY qexists_tac [`n'`, `DROP (LENGTH args' + LENGTH l-n') args' ++ l`] >>
-     simp [DROP_REVERSE, TAKE_REVERSE, LASTN_MAP, ETA_THM, BUTLASTN_MAP] >>
-     simp [Abbr `num_args1`] >>
-     `LIST_REL val_rel (LASTN (n'-LENGTH l) args) (DROP (LENGTH args' + LENGTH l − n') args')` 
-                by (rfs [LIST_REL_EL_EQN, LENGTH_LASTN] >>
-                    rw []
-                    >- decide_tac >>
-                    `n'' + (LENGTH args' - (n'-LENGTH l)) < LENGTH args` by decide_tac >>
-                    `n'' + (LENGTH args' + LENGTH l - n') < LENGTH args'` by decide_tac >>
-                    rw [LASTN_DROP, EL_DROP] >>
-                    simp []) >>
-     metis_tac [EVERY2_APPEND, LASTN_DROP])
+ >- (rw [add_args_def] >>
+     fs [exp_rel_def] >>
+     Cases_on `c'` >>
+     fs [collect_args_def] >>
+     rw [] >>
+     fs [intro_multi_def] >>
+     decide_tac)
  >- fs [exp_rel_def]
  >- (fs [exp_rel_def] >>
      decide_tac)
+ >- cheat
+ >- (Cases_on `EL n l1'` >>
+     fs [] >>
+     Cases_on `q ≤ LENGTH args' + LENGTH l` >>
+     fs [] >>
+     Cases_on `EL n l1` >>
+     simp [add_args_def] >>
+     reverse (rw []) >>
+     fs [NOT_LESS_EQUAL] >>
+     `q ≤ q'` by (fs [LIST_REL_EL_EQN] >> metis_tac [exp_rel_def]) 
+     >- (fs [LIST_REL_EL_EQN] >>
+         `exp_rel (q,e) (q',r')` by metis_tac [] >>
+         fs [exp_rel_def] >>
+         Cases_on `e` >>
+         fs [collect_args_def] >>
+         rw [] >>
+         fs [intro_multi_def] >>
+         decide_tac) >>
+     qabbrev_tac `num_args1 = q - LENGTH l` >>
+     qabbrev_tac `num_args2 = q' - LENGTH l` >>
+     `num_args1 ≤ LENGTH args` by simp [Abbr `num_args1`] >>
+     `num_args2 ≤ LENGTH args'` by simp [Abbr `num_args2`] >>
+     rw [DROP_REVERSE, TAKE_REVERSE, LASTN_MAP, ETA_THM, BUTLASTN_MAP] >>
+     MAP_EVERY qexists_tac [`q`, `q'`, `LASTN num_args1 args'++l++GENLIST (Recclosure n0 [] l0 l1) (LENGTH l1)++l0`, 
+                            `BUTLASTN num_args1 args'`] >>
+     rw []
+     >- (rfs [] >>
+         `LIST_REL val_rel (LASTN num_args1 args) (LASTN num_args1 args')` 
+                by (rfs [LIST_REL_EL_EQN, LENGTH_LASTN] >>
+                    rw [] >>
+                    `n' + (LENGTH args' - num_args1) < LENGTH args'` by decide_tac >>
+                    rw [LASTN_DROP, EL_DROP]) >>
+         `LIST_REL val_rel (GENLIST (Recclosure n0 [] l0' l1') (LENGTH l1)) (GENLIST (Recclosure n0 [] l0 l1) (LENGTH l1))`
+                by (rw [LIST_REL_EL_EQN, Once val_rel_cases] >>
+                    fs [LIST_REL_EL_EQN]) >>
+         metis_tac [EVERY2_APPEND])
+     >- (rfs [] >>
+         rw [LIST_REL_EL_EQN, LENGTH_BUTLASTN] >>
+         `n' + num_args1 < LENGTH args'` by simp [Abbr `num_args1`] >>
+         fs [LIST_REL_EL_EQN, el_butlastn] >>
+         first_x_assum match_mp_tac >>
+         decide_tac)
+     >- (fs [LIST_REL_EL_EQN] >>
+         metis_tac [])
+     >- (unabbrev_all_tac >>
+         simp [LENGTH_BUTLASTN])
+     >- decide_tac
+     >- (unabbrev_all_tac >>
+         rw [] >>
+         match_mp_tac lastn_lemma >>
+         simp [] >>
+         fs [exp_rel_def] >>
+         fs [LIST_REL_EL_EQN] >>
+         metis_tac [exp_rel_def])
+     >- (`(q'-q) + num_args1 ≤ LENGTH args'` by simp [Abbr `num_args1`] >>
+         rw [BUTLASTN_BUTLASTN] >>
+         unabbrev_all_tac >>
+         rw [] >>
+         fs [LIST_REL_EL_EQN] >>
+         `q ≤ q'` by metis_tac [exp_rel_def] >>
+         simp [])));
 
- `n'-LENGTH l = 0` by metis_tac [butlastn_ident] >>
- fs []
-
-
- Cases_on `EL n l1'` >>
- fs [] >>
- Cases_on `q ≤ LENGTH args' + LENGTH l` >>
- fs [] >>
- Cases_on `EL n l1` >>
- fs [] >>
- rw [] 
-
- TRY decide_tac
-
- >- metis_tac [EVERY2_APPEND] >>
- Cases_on `EL n l1'` >>
- fs [LET_THM] >>
- ect >>
- fs [] >>
- rw [] >>
- fs [LIST_REL_EL_EQN] >>
- `n < LENGTH l1` by decide_tac >>
- res_tac >>
- pop_assum mp_tac >>
- Cases_on `EL n l1` >>
- simp [exp_rel_def] >>
- rw [] >>
- `n' < LENGTH args' ∨ LENGTH args' ≤ n'` by decide_tac >>
- rw [EL_APPEND1, EL_APPEND2] >>
- first_x_assum match_mp_tac >>
- decide_tac);
-
-
-val (dest_cl_res_rel_rules, dest_cl_res_rel_ind, dest_cl_res_rel_cases) = Hol_reln `
-(!v v'.
-  val_rel v v'
-  ⇒ 
-  dest_cl_res_rel (Partial_app v) (Partial_app v')) ∧
-(!env env' args args'.
+         (*
+val run_exp_rel = Q.prove (
+`!n e n' e' env env' s s' l.
   LIST_REL val_rel env env' ∧
-  LIST_REL val_rel args args' ∧
-  exp_rel 
+  state_rel s s' ∧
+  exp_rel (n,e) (n',e') 
   ⇒
-  dest_cl_res_rel (Full_app e env args) (Full_app (HD (intro_multi [e])) env' args')) ∧
-(!loc fvs num_args e env args v e' s v' s'.
-  collect_args (LENGTH args) num_args e = (LENGTH args, e') ∧ 
-  cEval ([Fn loc fvs (LENGTH args) e'], env, s) = (Result [v], s') ∧
-  val_rel v v'
-  ⇒
-  dest_cl_res_rel (Full_app (Fn loc fvs num_args e) env args) (Partial_app v'))`;
+  cEval ([e], env, s) = cEval ([e'], l++env, dec_clock (n' - n) s)`,
+ rw [exp_rel_def] >>
+ Cases_on `e` >>
+ fs [collect_args_def, intro_multi_def]
+ *)
 
-val dest_closure_thm = Q.prove (
-`!loc f args res f' args' res'.
-  dest_closure NONE f args = SOME res ∧
-  0 < LENGTH args ∧
-  val_rel f f' ∧
-  LIST_REL val_rel args args'
-  ⇒
-  ?res'.
-    dest_cl_res_rel res res' ∧
-    dest_closure NONE f' args' = SOME res'`,
-
- rw [dest_closure_def] >>
- ect >>
- fs [Once val_rel_cases, dest_cl_res_rel_cases] >>
- rw [] >>
- fs [check_loc_def] >>
- imp_res_tac EVERY2_LENGTH >>
- TRY (`n - LENGTH l ≤ LENGTH args'` by decide_tac) >>
- TRY (`n' - LENGTH l' ≤ LENGTH args` by decide_tac) >>
- rw [DROP_REVERSE, TAKE_REVERSE, LASTN_MAP, ETA_THM, BUTLASTN_MAP] >>
- fs [] >>
- rev_full_simp_tac (srw_ss()++ARITH_ss) [NOT_LESS] >>
- rw [] >>
-
- Cases_on `f` >>
- fs []
- Cases_on `f'` >>
- fs [] >>
- fs [Once val_rel_cases] >>
- rw []
- Cases_on `¬(LENGTH args + LENGTH l < n)` >>
- fs []
-
- metis_tac [EVERY2_APPEND]
-
- imp_res_tac EVERY2_LENGTH >>
-
- simp []
- fs [check_loc_def]
- `n ≤ n'` by fs [exp_rel_def] >>
- rw []
-
- `n = n'` by decide_tac
-
- Cases_on `c'` >>
- fs [intro_multi_def, collect_args_def]
- ect >>
- fs []
-
+ (*
 val intro_multi_correct = Q.prove (
 `(!tmp es env s1 res s2 s1' env'.
    tmp = (es,env,s1) ∧
@@ -557,7 +595,8 @@ val intro_multi_correct = Q.prove (
      fs [res_rel_cases] >>
      metis_tac [])
 
- >- (fs [cEval_def] >>
+ >- ((* Real application *)
+     fs [cEval_def] >>
      qabbrev_tac `args = v41::v42` >>
      rw [] >>
      qabbrev_tac `args' = y::ys` >>
@@ -573,16 +612,63 @@ val intro_multi_correct = Q.prove (
      fs [] >>
      Cases_on `x` >>
      fs [] >>
-     `loc_opt = NONE` by cheat >>
+     `loc_opt = NONE` by cheat >> (* TODO forbid App SOME in the input *)
      rw []
-     >- (imp_res_tac dest_closure_partial_thm >>
+     >- ((* A partial application on the unoptimised side *)
+         imp_res_tac dest_closure_partial_thm >>
          imp_res_tac EVERY2_LENGTH >>
          fs [] >>
          Cases_on `s1.clock < LENGTH args'` >>
          fs [] >>
          rw [] >>
          fs [state_rel_def, res_rel_cases, dec_clock_def] >>
-         rfs [])
+         rfs []) >>
+     `s1.clock = s1'.clock` by fs [state_rel_def] >>
+     Cases_on `s1'.clock < LENGTH args - LENGTH l0` >>
+     fs []
+     >- ((* A timeout before running the unoptimised body *)
+         rw [res_rel_cases] >>
+         first_assum (fn th => mp_tac (MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] dest_closure_full_thm) th)) >>
+         rw [] >>
+         rpt (pop_assum (fn th => first_assum (strip_assume_tac o MATCH_MP th))) >>
+         imp_res_tac LIST_REL_LENGTH >>
+         simp [] >>
+         fs [state_rel_def] >>
+         rfs [] >>
+         simp [LENGTH_BUTLASTN]) >>
+     imp_res_tac LIST_REL_LENGTH >>
+     fs [NOT_LESS] >>
+     first_assum (fn th => mp_tac (MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] dest_closure_full_thm) th)) >>
+     rw [] >>
+     rpt (pop_assum (fn th => first_assum (strip_assume_tac o MATCH_MP th))) >>
+     simp []
+
+     >- ((* The optimised code gives a partial function application *)
+         BasicProvers.VAR_EQ_TAC >>
+         fs [add_args_def, cEval_def] >>
+         Cases_on `num_args' ≤ max_app ∧ num_args' ≠ 0` >>
+         fs [] >>
+         fs [] >>
+         Cases_on `clos_env (dec_clock (LENGTH args' − LENGTH l0) s1).restrict_envs fvs' l` >>
+         fs [] >>
+         fs [] >>
+         Cases_on `l0` >>
+         fs [] >>
+         simp []
+         >- (fs [cEval_def] >>
+             rw [res_rel_cases]
+             >- fs [state_rel_def, dec_clock_def] >>
+             simp [Once val_rel_cases] >>
+             qpat_assum `val_rel func func'` mp_tac >>
+             simp [Once val_rel_cases] >>
+             rw [] >>
+             fs [add_args_def] >>
+             rw []
+
+
+
+
+
 
 
      *)
