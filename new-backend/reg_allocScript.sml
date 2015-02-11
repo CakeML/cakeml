@@ -383,8 +383,6 @@ val init_ra_state_def = Define`
   (init_ra_state (G:sp_graph) (k:num) moves = 
   let moves = 
     FILTER (λp,x,y. (considered_var k) x ∧ (considered_var k) y) moves in
-  let (pri_moves,moves) =
-    PARTITION (λp,x,y. p > 0) moves in  
   let vertices = FILTER is_alloc_var (MAP FST (toAList G)) in (*Only care about allocatable vars*)
   let vdegs = MAP (λv. v,count_degrees (considered_var k)
               (THE(lookup v G))) vertices in
@@ -393,6 +391,8 @@ val init_ra_state_def = Define`
   (*Degrees < k can be frozen or simplified, otherwise they go into spill*)
   (*Distinguish move and non-move vertices*) 
   let move_rel = in_moves_set moves vertices in 
+  let (pri_moves,moves) =
+    PARTITION (λp,x,y. p > 0) moves in  
   let (freeze,simp) = PARTITION (λx,y. lookup x move_rel = SOME ()) simp_freeze in 
   <|graph := G ; colors := k ; degs := tdegs; 
     simp_worklist := MAP FST simp;
@@ -452,7 +452,6 @@ val get_simp_worklist_def = Define`
 
 val set_simp_worklist_def = Define`
   set_simp_worklist ls = \s. ((), s with simp_worklist := ls)`
-
 
 val get_freeze_worklist_def = Define`
   get_freeze_worklist = \s. return s.freeze_worklist s`
@@ -590,25 +589,14 @@ val unspill_def = Define`
     od
   od`
 
-(*Filter away all the nodes that are already coalesced and return an option*)
-val first_non_coalesced_def = Define`
-  (first_non_coalesced coalesced [] = NONE) ∧ 
-  (first_non_coalesced coalesced (x::xs) =
-    if lookup x coalesced = NONE then SOME (x,xs)
-    else first_non_coalesced coalesced xs)`
-
 val simplify_def = Define`
   simplify =
   do
     simps <- get_simp_worklist;
-    coalesced <- get_coalesced;
-    case first_non_coalesced coalesced simps of (*Dont think this check is necessary*)
-      NONE =>
-      do
-        set_simp_worklist [];
+    case simps of 
+      [] =>
         return NONE
-      od
-    | SOME (x,xs) =>
+    | (x::xs) =>
       do
         set_simp_worklist xs;
         dec_deg x;
@@ -618,7 +606,7 @@ val simplify_def = Define`
   od`
 
 (*Spill the vertex that has maximal degree
-  ⇒ The idea here is that it reduces the degree of adjacent vertices
+  - The idea here is that it reduces the degree of adjacent vertices
     as much as possible
 *)
 val max_non_coalesced_def = Define`
@@ -654,26 +642,51 @@ val spill_def = Define`
 
 (*This differs slightly from the standard algorithm:
   We immediately simplify instead of moving the frozen node into the simp worklist
-  This makes the termination clock easier since the number of vertices under consideration strictly decreases by 1*)
+  This makes the termination clock easier since the number of vertices under consideration strictly decreases by 1
+  
+  A new trick: we push fixing up move_related into freeze
+  There are corner cases where coalescing might have made invalid, resulting in vertices being marked move_related when they really should be simplified already.
+*)
+
 val freeze_def = Define`
   freeze =
   do
      freezes <- get_freeze_worklist;
+     unavail_moves <- get_unavail_moves;
+     graph <- get_graph;
+     moves <- return (FILTER (λp,x,y. x ≠ y ∧ ¬lookup_g x y graph) unavail_moves);
+     degs <- get_degs;
+     move_rel <- return (in_moves_set moves (MAP FST (toAList degs)));
      coalesced <- get_coalesced;
-     case first_non_coalesced coalesced freezes of
-       NONE =>
-       do
-         set_freeze_worklist [];
-         return NONE
-       od
-     | SOME (x,xs) =>
-       do
-         freeze_node x;
-         set_freeze_worklist xs;
-         dec_deg x;
-         unspill;
-         return (SOME x)
-        od
+     freezes <- return (FILTER (λx. lookup x coalesced = NONE) freezes);
+     () <- set_move_rel move_rel;
+     () <- set_unavail_moves moves;
+     ox <- (
+       let (freeze,simp) = 
+         PARTITION (λx. lookup x move_rel = SOME ()) freezes in
+       (case simp of
+         (x::xs) => 
+         do
+           add_simp_worklist xs;
+           set_freeze_worklist freeze;
+           return (SOME x)
+         od
+       | [] => 
+       (case freeze of
+         (x::xs) => 
+         do
+           set_freeze_worklist xs;
+           return (SOME x)
+         od
+       | [] => return NONE)));
+    (case ox of 
+       SOME x =>
+         do 
+           dec_deg x;
+           unspill;
+           return (SOME x)
+         od
+     | NONE => return NONE)
   od`
 
 (*Briggs criterion:
@@ -1031,6 +1044,7 @@ val rpt_do_step_2_def = Define`
   rpt_do_step2 =
     MWHILE (has_work) do_step2`  
 
+(*Coalesce, no biased selection*)
 val aux_pref_def = Define`
   aux_pref prefs (v:num) (ls:num list) (col:num num_map) = 
   let pref_col = 
@@ -1047,7 +1061,9 @@ val aux_pref_def = Define`
 (*For the naive algorithm, we now maintain an sptree of
   lists of edges
   Note: the naive method is actually able to take advantage of
-  the full range of priorities  
+  the full range of priorities
+
+  This implements biased selection
 *)
 
 val pri_move_insert_def = Define`
@@ -1094,6 +1110,26 @@ val move_pref_def = Define`
       NONE => HD ls
     | SOME x => x`
 
+(*Combine coalescing with biased selector
+  This should be used for Briggs, and possibly for IRC as well
+  It makes IRC slightly more costly in the coloring phase
+*)
+val aux_move_pref_def = Define`
+  aux_move_pref cprefs mprefs (v:num) (ls:num list) (col:num num_map) = 
+  let pref_col = 
+      case lookup v cprefs of 
+        NONE => 
+          (case lookup v mprefs of
+            NONE => NONE
+          | SOME es => first_match_col ls col es)
+      | SOME u => 
+        case lookup u col of
+          NONE => NONE (*Should never occur if coalesces are properly done*)
+        | SOME c => if MEM c ls then SOME c else NONE in
+    case pref_col of 
+      NONE => HD ls
+    | SOME x => x`
+
 (*Extract a coloring function from the generated sptree*)
 val total_color_def = Define`
   total_color col =
@@ -1112,7 +1148,7 @@ val reg_alloc_def =  Define`
   let s = init_ra_state G k moves in
   let ((),s) = rpt_do_step s in
   let pref = if flag then (aux_pref s.coalesced)
-             else move_pref (moves_to_sp moves' LN) in
+             else move_pref (resort_moves (moves_to_sp moves' LN)) in
   let (col,ls) = alloc_coloring s.graph k pref s.stack in
   (*Second phase is much easier because we do not have a fixed number of 
     colors*)
@@ -2112,8 +2148,8 @@ val simplify_graph = prove(``
     s'.graph = s.graph ∧ 
     s'.clock = s.clock``,
   rw[]>>
-  fsm[simplify_def,get_simp_worklist_def,get_coalesced_def]>>
-  Cases_on`s.simp_worklist`>>fsm[first_non_coalesced_def,set_simp_worklist_def]>>
+  fsm[simplify_def,get_simp_worklist_def]>>
+  Cases_on`s.simp_worklist`>>fsm[set_simp_worklist_def]>>
   rw[]>>EVERY_CASE_TAC>>
   fsm[dec_deg_def,get_graph_def]>>rw[]>>
   EVERY_CASE_TAC>>
@@ -2128,14 +2164,18 @@ val freeze_graph = prove(``
     s'.graph = s.graph ∧ 
     s'.clock = s.clock``,
   rw[]>>
-  fsm[freeze_def,get_coalesced_def,get_freeze_worklist_def,freeze_node_def]>>
-  Cases_on`s.freeze_worklist`>>fsm[first_non_coalesced_def,set_freeze_worklist_def]>>
+  fsm[freeze_def,get_coalesced_def,get_freeze_worklist_def,freeze_node_def,get_unavail_moves_def,get_graph_def,get_degs_def,set_move_rel_def,set_unavail_moves_def,LET_THM]>>
+  pop_assum mp_tac>>
+  qpat_abbrev_tac`ls = PARTITION P (FILTER Q s.freeze_worklist)`>>
+  Cases_on`ls`>>fsm[]>>
   rw[]>>EVERY_CASE_TAC>>
   fsm[dec_deg_def,get_graph_def]>>rw[]>>
   EVERY_CASE_TAC>>
-  fsm[unspill_def,get_spill_worklist_def,get_degs_def,get_colors_def,get_move_rel_def,LET_THM]>>
+  fsm[unspill_def,get_spill_worklist_def,get_degs_def,get_colors_def,get_move_rel_def,LET_THM,add_simp_worklist_def,set_freeze_worklist_def]>>
+  EVERY_CASE_TAC>>fs[]>>
   pop_assum mp_tac>>
-  qpat_abbrev_tac`sopt = s with <|freeze_worklist:=A;move_related:=B|>`>>
+  TRY(qpat_abbrev_tac`sopt = s with <|simp_worklist:=A;freeze_worklist:=B;move_related:=C;unavail_moves:=D|>`)>>
+  TRY(qpat_abbrev_tac`sopt = s with <|freeze_worklist:=A;move_related:=B;unavail_moves:=C|>`)>>
   rest_tac)
   
 val spill_graph = prove(``
