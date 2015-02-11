@@ -83,14 +83,10 @@ val csg_to_pat_MAP = store_thm("csg_to_pat_MAP",
   simp[FUN_EQ_THM,FORALL_PROD,csg_to_pat_def,map_count_store_genv_def] >>
   simp[MAP_EQ_f] >> gen_tac >> Cases >> simp[])
 
-val val_rel_add_code = store_thm("val_rel_add_code",
-  ``∀x y. val_rel f r c x y ⇒ val_rel f r (union c new) x y``,
-  ho_match_mp_tac val_rel_ind >>
-  srw_tac[ETA_ss][val_rel_SIMP] >- (
-    simp[val_rel_cases] )
-  >- (
-    simp[val_rel_cases] )
-  >- (
+val cl_rel_add_code = store_thm("cl_rel_add_code",
+  ``∀x y z. cl_rel f r c x y z ⇒ cl_rel f r (union c new) x y z``,
+  ho_match_mp_tac cl_rel_ind >>
+  srw_tac[ETA_ss][cl_rel_simp] >- (
     first_assum(match_exists_tac o concl) >>
     fs[code_installed_def] >>
     simp[lookup_union] >>
@@ -112,6 +108,19 @@ val val_rel_add_code = store_thm("val_rel_add_code",
     first_assum(match_exists_tac o concl) >>
     simp[]))
 
+val val_rel_add_code = store_thm("val_rel_add_code",
+  ``∀x y. val_rel f r c x y ⇒ val_rel f r (union c new) x y``,
+  ho_match_mp_tac val_rel_ind >>
+  rpt conj_tac >> TRY(
+    srw_tac[ETA_ss][val_rel_SIMP]>> NO_TAC) >>
+  rpt strip_tac >|[
+    match_mp_tac(el 4 (CONJUNCTS (SPEC_ALL val_rel_rules))),
+    match_mp_tac(el 5 (CONJUNCTS (SPEC_ALL val_rel_rules)))] >>
+  full_simp_tac (bool_ss++ETA_ss) [] >-
+    metis_tac[cl_rel_add_code] >>
+  simp[lookup_union] >>
+  metis_tac[cl_rel_add_code])
+
 val state_rel_add_code = store_thm("state_rel_add_code",
   ``state_rel f s t ⇒ state_rel f s (t with code := union t.code new)``,
   simp[clos_to_bvlTheory.state_rel_def,LIST_REL_EL_EQN] >> rw[] >- (
@@ -126,6 +135,12 @@ val state_rel_add_code = store_thm("state_rel_add_code",
   >- (
     fs[lookup_union,code_installed_def,EVERY_MEM,FORALL_PROD] >>
     res_tac >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    rw[] >> res_tac >> fs[] )
+  >- ( fs[lookup_union] )
+  >- (
+    res_tac >> fsrw_tac[ARITH_ss][lookup_union] >>
+    fs[lookup_union,code_installed_def,EVERY_MEM,FORALL_PROD] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
     rw[] >> res_tac >> fs[] ))
 
