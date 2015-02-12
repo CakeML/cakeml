@@ -10294,9 +10294,7 @@ val (x64_big_small_res, x64_big_small_def, x64_big_small_pre_def) = x64_compile 
 
 val small_int_to_word_def = Define `
   small_int_to_word i =
-    x64_addr ARB
-       (Data (0x2w * if i < 0 then 0x0w − n2w (Num (-i))
-                              else n2w (Num i) : 63 word))`;
+    x64_addr ARB (Data (0x2w * n2w (Num i) : 63 word))`;
 
 val mw_ok_mw2n_eq_0 = prove(
   ``mw_ok qs ==> ((mw2n qs = 0) <=> (qs = []))``,
@@ -10325,8 +10323,7 @@ val x64_header_IMP_NOT_small_int = prove(
   ``LENGTH qs < 4294967296 /\ mw_ok qs /\
     (x64_header (q,qs) <> 0x0w) /\
     (x64_header (q,qs) <> 0x1w) /\
-    (x64_header (q,qs) <> 0x2w) /\
-    (x64_header (q,qs) <> 0x3w) ==>
+    (x64_header (q,qs) <> 0x2w) ==>
     ~small_int (mw2i (q,qs))``,
   REPEAT STRIP_TAC
   \\ `LENGTH qs < 2` by ALL_TAC
@@ -10334,7 +10331,9 @@ val x64_header_IMP_NOT_small_int = prove(
    (STRIP_ASSUME_TAC (ISPEC ``qs:word64 list`` SNOC_CASES)
     \\ fs [] \\ SRW_TAC [] []
     \\ fs [multiwordTheory.mw_ok_def]
-    \\ Cases_on `q`
+    \\ Cases_on `q` THEN1
+     (fs [small_int_def,multiwordTheory.mw2i_def,
+          multiwordTheory.mw2n_msf,multiwordTheory.dimwords_def])
     \\ fs [multiwordTheory.mw2i_def,multiwordTheory.mw2n_msf,
          small_int_def]
     \\ Cases_on `l` \\ fs [SNOC_APPEND]
@@ -10343,16 +10342,16 @@ val x64_header_IMP_NOT_small_int = prove(
     \\ `2 ** (LENGTH t * 64) <> 0` by fs []
     \\ Cases_on `2 ** (LENGTH t * 64)` \\ fs []
     \\ Cases_on `n'` \\ fs [MULT_CLAUSES]
-    \\ `F` by DECIDE_TAC  )
+    \\ `F` by DECIDE_TAC)
   \\ Cases_on `qs` \\ TRY (Cases_on `t`)
   \\ Cases_on `q` \\ fs []
   \\ REPEAT (POP_ASSUM MP_TAC)
   \\ EVAL_TAC
   \\ REPEAT STRIP_TAC
+  \\ Cases_on `h` \\ fs []
   \\ DECIDE_TAC);
 
 val zBIGNUM_BIG_SMALL = let
-
   val th = x64_big_small_res |> Q.INST [`r15`|->`za`,
               `r10`|->`x64_header (q,qs)`,`r0`|->`za - 9w`]
   val th = MATCH_MP SPEC_FRAME th |> Q.SPEC `zR 0xDw xa * zR 0xEw ya * cond
@@ -10368,13 +10367,10 @@ val zBIGNUM_BIG_SMALL = let
        ~zR 0x1w * ~zR 0x2w * ~zR 0xAw *
        zBIGNUMS_HEADER (xa,xs,ya,ys,z,za,zs,frame))`
   val goal = th |> concl |> dest_imp |> fst
-
 (*
   gg goal
 *)
-
   val lemma = prove(goal,
-
     Cases_on `mw2i (q,qs) = 0` \\ fs []
     THEN1
      (REPEAT STRIP_TAC
@@ -10388,8 +10384,7 @@ val zBIGNUM_BIG_SMALL = let
       \\ fs [SEP_IMP_def,SEP_EXISTS_THM] \\ REPEAT STRIP_TAC
       \\ Q.LIST_EXISTS_TAC [`dm`,`m`]
       \\ fs [AC STAR_COMM STAR_ASSOC,SEP_CLAUSES])
-    \\ REVERSE (Cases_on `x64_header (q,qs) = 2w`)
-    \\ REVERSE (Cases_on `x64_header (q,qs) = 3w`) \\ fs []
+    \\ REVERSE (Cases_on `x64_header (q,qs) = 2w`) \\ fs []
     THEN1
      (REPEAT STRIP_TAC
       \\ `(x64_header (q,qs) <> 0x0w) /\
@@ -10404,51 +10399,39 @@ val zBIGNUM_BIG_SMALL = let
       \\ Q.LIST_EXISTS_TAC [`dm`,`m`]
       \\ fs [AC STAR_ASSOC STAR_COMM,SEP_CLAUSES])
     \\ STRIP_TAC
-    THEN1
-     (`q /\ (LENGTH qs = 1)` by
-       (fs [x64_multiwordTheory.x64_header_def]
-        \\ Cases_on `q` \\ fs [word_add_n2w]
-        \\ `(LENGTH qs * 2 + 1) < 18446744073709551616` by DECIDE_TAC \\ fs []
-        \\ `(LENGTH qs * 2) < 18446744073709551616` by DECIDE_TAC \\ fs []
-        \\ Cases_on `qs` \\ fs []
-        \\ Cases_on `t` \\ fs [] \\ DECIDE_TAC)
-      \\ cheat)
-
-    THEN1
-     (
-
-      `~q /\ (LENGTH qs = 1)` by
-       (fs [x64_multiwordTheory.x64_header_def]
-        \\ Cases_on `q` \\ fs [word_add_n2w]
-        \\ `(LENGTH qs * 2 + 1) < 18446744073709551616` by DECIDE_TAC \\ fs []
-        \\ `(LENGTH qs * 2) < 18446744073709551616` by DECIDE_TAC \\ fs []
-        \\ Cases_on `qs` \\ fs []
-        \\ Cases_on `t` \\ fs [] \\ DECIDE_TAC)
-      \\ fs [x64_big_small_pre_def,x64_big_small_def,LET_DEF,
-             zBIGNUMS_HEADER_def,x64_multiwordTheory.zBIGNUMS_def,SEP_IMP_def,
-             SEP_EXISTS_THM,SEP_CLAUSES]
-      \\ fs [PULL_FORALL,PULL_EXISTS]
-
-
-      \\ `?qq. qs = [qq]` by (Cases_on `qs` \\ fs [LENGTH_NIL])
-      \\ fs [] \\ Cases_on `zs` \\ fs []
-      \\ rpt BasicProvers.VAR_EQ_TAC
-      \\ fs [x64_multiwordTheory.bignum_mem_def]
-      \\ `za IN dm /\ (m za = h)` by
+    \\ `~q /\ (LENGTH qs = 1)` by
+     (fs [x64_multiwordTheory.x64_header_def]
+      \\ Cases_on `q` \\ fs [word_add_n2w]
+      \\ fs [multiwordTheory.mw2i_def,multiwordTheory.mw2n_msf,
+             small_int_def]
+      \\ `(LENGTH qs * 2 + 1) < 18446744073709551616` by DECIDE_TAC \\ fs []
+      \\ `(LENGTH qs * 2) < 18446744073709551616` by DECIDE_TAC \\ fs []
+      \\ Cases_on `qs` \\ fs []
+      \\ Cases_on `t` \\ fs [] \\ DECIDE_TAC)
+    \\ fs [x64_big_small_pre_def,x64_big_small_def,LET_DEF,
+           zBIGNUMS_HEADER_def,x64_multiwordTheory.zBIGNUMS_def,SEP_IMP_def,
+           SEP_EXISTS_THM,SEP_CLAUSES]
+    \\ fs [PULL_FORALL,PULL_EXISTS]
+    \\ `?qq. qs = [qq]` by (Cases_on `qs` \\ fs [LENGTH_NIL])
+    \\ fs [] \\ Cases_on `zs` \\ fs []
+    \\ rpt BasicProvers.VAR_EQ_TAC
+    \\ fs [x64_multiwordTheory.bignum_mem_def]
+    \\ `za IN dm /\ (m za = h)` by
             (Cases_on `xa = ya`
              \\ fs [x64_multiwordTheory.array64_def]
              \\ SEP_R_TAC) \\ fs []
-      \\ `small_int (mw2i (F,[h])) = h <+ 0x4000000000000000w` by cheat
-      \\ fs []
-
-
-
-      \\ cheat))
-
-(*
-  x64_multiwordTheory.x64_header_def
-*)
-
+    \\ `small_int (mw2i (F,[h])) <=> h <+ 0x4000000000000000w` by
+     (fs [multiwordTheory.mw2i_def,multiwordTheory.mw2n_def,small_int_def]
+      \\ Cases_on `h` \\ fs [WORD_LO])
+    \\ `h <+ 0x4000000000000000w ==>
+        (small_int_to_word (mw2i (F,[h])) = h << 2)` by
+     (fs [multiwordTheory.mw2i_def,multiwordTheory.mw2n_def,small_int_def]
+      \\ fs [small_int_to_word_def,x64_addr_def]
+      \\ fs [GSYM w2w_def] \\ blastLib.BBLAST_TAC)
+    \\ fs [] \\ SRW_TAC [] [] \\ rfs []
+    \\ Cases_on `xa = ya` \\ fs []
+    \\ Q.LIST_EXISTS_TAC [`dm`,`m`] \\ fs [] \\ rfs[]
+    \\ fs [AC STAR_COMM STAR_ASSOC,SEP_CLAUSES])
   val th = MP th lemma
   val th = Q.GENL [`m`,`dm`] th |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
   val (th,goal) = SPEC_STRENGTHEN_RULE th
