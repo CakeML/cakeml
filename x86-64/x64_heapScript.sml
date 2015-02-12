@@ -208,7 +208,7 @@ val heap_inv_def = Define `
       (vals.reg1 = x64_addr vs.current_heap r2) /\
       (vals.reg2 = x64_addr vs.current_heap r3) /\
       (vals.reg3 = x64_addr vs.current_heap r4) /\
-      (vals.reg6 = vs.current_heap + n2w (8 * a) - 1w) /\
+      (vals.reg6 = vs.current_heap + n2w (8 *  a) - 1w) /\
       (vals.reg7 = vs.current_heap + n2w (8 * (a + sp)) - 1w) /\
       (vals.reg9 = vs.base_ptr) /\
       (vals.reg10 = HD (MAP (n2w o ORD) s.input ++ [not_0w])) /\
@@ -6942,35 +6942,6 @@ val zHEAP_RAW_EQUAL = equal_full_cert
   |> RW [GSYM SPEC_MOVE_COND];
 
 
-(* small_int LESS -- TODO: delete zHEAP_SMALL_INT *)
-
-val zHEAP_SMALL_INT = let
-  val (x64_signed_less_res,x64_signed_less_def) = x64_decompile "x64_signed_less" `
-      mov r15,9223372036854775808
-      add r0,r15
-      mov r14,r1
-      add r14,r15
-      cmp r14,r0
-      jb L1
-      mov r0,2
-      jmp L2
-    L1: mov r0,6
-    L2:`
-  val th = x64_signed_less_res
-  val pc = get_pc th
-  val (th,goal) = SPEC_WEAKEN_RULE th ``(~zS * ^pc * zHEAP
-        (cs,bool_to_val (getNumber x2 < getNumber x1),x2,x3,x4,refs,stack,s,NONE))``
-  val lemma = prove(goal,cheat) (* bignum *)
-  val th = MP th lemma
-  val (th,goal) = SPEC_STRENGTHEN_RULE th
-    ``(~zS * zPC p * zHEAP (cs,x1,x2,x3,x4,refs,stack,s,NONE) *
-       cond (isNumber x1 /\ isNumber x2))``
-  val lemma = prove(goal,cheat) (* bignum *)
-  val th = MP th lemma
-  val th = RW [fetch "-" "x64_signed_less_x64_def"] th
-  in th end;
-
-
 (* prove that GC is no-op *)
 
 val _ = add_compiled [x64_full_gc_res];
@@ -10358,17 +10329,46 @@ val mw_ok_mw2i_eq_0 = prove(
   Cases_on `q` \\ fs [multiwordTheory.mw2i_def,mw_ok_mw2n_eq_0]);
 
 val not_zero_IMP_x64_header_NOT_0_1 = prove(
-  ``mw_ok qs /\ mw2i (q,qs) <> 0 ==>
+  ``mw_ok qs /\ mw2i (q,qs) <> 0 /\ LENGTH qs < 4294967296 ==>
     (x64_header (q,qs) <> 0x0w) /\
     (x64_header (q,qs) <> 0x1w)``,
-  cheat);
+  REPEAT STRIP_TAC
+  \\ `qs <> []` by METIS_TAC [mw_ok_mw2i_eq_0]
+  \\ Cases_on `q` \\ fs [x64_multiwordTheory.x64_header_def]
+  \\ fs [word_add_n2w]
+  \\ `(LENGTH qs * 2 + 1) < 18446744073709551616 /\
+      (LENGTH qs * 2) < 18446744073709551616` by DECIDE_TAC
+  \\ fs [LENGTH_NIL]);
 
 val x64_header_IMP_NOT_small_int = prove(
   ``LENGTH qs < 4294967296 /\ mw_ok qs /\
+    (x64_header (q,qs) <> 0x0w) /\
+    (x64_header (q,qs) <> 0x1w) /\
     (x64_header (q,qs) <> 0x2w) /\
     (x64_header (q,qs) <> 0x3w) ==>
     ~small_int (mw2i (q,qs))``,
-  cheat);
+  REPEAT STRIP_TAC
+  \\ `LENGTH qs < 2` by ALL_TAC
+  THEN1
+   (STRIP_ASSUME_TAC (ISPEC ``qs:word64 list`` SNOC_CASES)
+    \\ fs [] \\ SRW_TAC [] []
+    \\ fs [multiwordTheory.mw_ok_def]
+    \\ Cases_on `q`
+    \\ fs [multiwordTheory.mw2i_def,multiwordTheory.mw2n_msf,
+         small_int_def]
+    \\ Cases_on `l` \\ fs [SNOC_APPEND]
+    \\ Cases_on `x` \\ fs [multiwordTheory.dimwords_def]
+    \\ fs [MULT_CLAUSES,EXP_ADD]
+    \\ `2 ** (LENGTH t * 64) <> 0` by fs []
+    \\ Cases_on `2 ** (LENGTH t * 64)` \\ fs []
+    \\ Cases_on `n'` \\ fs [MULT_CLAUSES]
+    \\ `F` by DECIDE_TAC  )
+  \\ Cases_on `qs` \\ TRY (Cases_on `t`)
+  \\ Cases_on `q` \\ fs []
+  \\ REPEAT (POP_ASSUM MP_TAC)
+  \\ EVAL_TAC
+  \\ REPEAT STRIP_TAC
+  \\ DECIDE_TAC);
 
 val zBIGNUM_BIG_SMALL = let
 
@@ -10387,11 +10387,13 @@ val zBIGNUM_BIG_SMALL = let
        ~zR 0x1w * ~zR 0x2w * ~zR 0xAw *
        zBIGNUMS_HEADER (xa,xs,ya,ys,z,za,zs,frame))`
   val goal = th |> concl |> dest_imp |> fst
+
 (*
   gg goal
 *)
 
   val lemma = prove(goal,
+
     Cases_on `mw2i (q,qs) = 0` \\ fs []
     THEN1
      (REPEAT STRIP_TAC
@@ -10409,6 +10411,9 @@ val zBIGNUM_BIG_SMALL = let
     \\ REVERSE (Cases_on `x64_header (q,qs) = 3w`) \\ fs []
     THEN1
      (REPEAT STRIP_TAC
+      \\ `(x64_header (q,qs) <> 0x0w) /\
+          (x64_header (q,qs) <> 0x1w)` by
+       (MATCH_MP_TAC not_zero_IMP_x64_header_NOT_0_1 \\ fs [])
       \\ IMP_RES_TAC x64_header_IMP_NOT_small_int
       \\ fs [x64_big_small_pre_def,x64_big_small_def,LET_DEF]
       \\ IMP_RES_TAC not_zero_IMP_x64_header_NOT_0_1 \\ fs []
@@ -10417,7 +10422,47 @@ val zBIGNUM_BIG_SMALL = let
              SEP_EXISTS_THM] \\ REPEAT STRIP_TAC
       \\ Q.LIST_EXISTS_TAC [`dm`,`m`]
       \\ fs [AC STAR_ASSOC STAR_COMM,SEP_CLAUSES])
-    \\ cheat)
+    \\ STRIP_TAC
+    THEN1
+     (`q /\ (LENGTH qs = 1)` by
+       (fs [x64_multiwordTheory.x64_header_def]
+        \\ Cases_on `q` \\ fs [word_add_n2w]
+        \\ `(LENGTH qs * 2 + 1) < 18446744073709551616` by DECIDE_TAC \\ fs []
+        \\ `(LENGTH qs * 2) < 18446744073709551616` by DECIDE_TAC \\ fs []
+        \\ Cases_on `qs` \\ fs []
+        \\ Cases_on `t` \\ fs [] \\ DECIDE_TAC)
+      \\ cheat)
+
+    THEN1
+     (
+
+      `~q /\ (LENGTH qs = 1)` by
+       (fs [x64_multiwordTheory.x64_header_def]
+        \\ Cases_on `q` \\ fs [word_add_n2w]
+        \\ `(LENGTH qs * 2 + 1) < 18446744073709551616` by DECIDE_TAC \\ fs []
+        \\ `(LENGTH qs * 2) < 18446744073709551616` by DECIDE_TAC \\ fs []
+        \\ Cases_on `qs` \\ fs []
+        \\ Cases_on `t` \\ fs [] \\ DECIDE_TAC)
+      \\ fs [x64_big_small_pre_def,x64_big_small_def,LET_DEF,
+             zBIGNUMS_HEADER_def,x64_multiwordTheory.zBIGNUMS_def,SEP_IMP_def,
+             SEP_EXISTS_THM,SEP_CLAUSES]
+      \\ fs [PULL_FORALL,PULL_EXISTS]
+
+
+      \\ `?qq. qs = [qq]` by (Cases_on `qs` \\ fs [LENGTH_NIL])
+      \\ fs [] \\ Cases_on `zs` \\ fs []
+      \\ rpt BasicProvers.VAR_EQ_TAC
+      \\ fs [x64_multiwordTheory.bignum_mem_def]
+      \\ `za IN dm /\ (m za = h)` by
+            (Cases_on `xa = ya`
+             \\ fs [x64_multiwordTheory.array64_def]
+             \\ SEP_R_TAC) \\ fs []
+      \\ `small_int (mw2i (F,[h])) = h <+ 0x4000000000000000w` by cheat
+      \\ fs []
+
+
+
+      \\ cheat))
 
 (*
   x64_multiwordTheory.x64_header_def
@@ -10438,6 +10483,81 @@ val zBIGNUM_BIG_SMALL = let
   in th end;
 
 val thD = SPEC_COMPOSE_RULE [thC,zBIGNUM_BIG_SMALL] |> RW [STAR_ASSOC];
+
+(* tear down code *)
+
+val (x64_tear_down_res, x64_tear_down_def, x64_tear_down_pre_def) = x64_compile `
+  x64_tear_down (r0,r6:word64,r9,dm:word64 set,m:word64->word64) =
+    if r0 && 1w = 0w then
+      let r1 = 0w in
+      let m = (r9 + 160w =+ r1) m in
+      let m = (r9 + 168w =+ r1) m in
+        (r0,r6,r9,m,dm)
+    else
+      let r1 = m (r0 + 1w) in
+      let r1 = r1 >>> 16 in
+      let r1 = r1 + 8w in
+      let r6 = r6 + r1 in
+      let r1 = 0w in
+      let m = (r9 + 160w =+ r1) m in
+      let m = (r9 + 168w =+ r1) m in
+        (r0,r6,r9,m,dm)`
+
+(* set up code *)
+
+val (x64_move_ptr_res, x64_move_ptr_def, x64_move_ptr_pre_def) = x64_compile `
+  x64_move_ptr (r0,r15,dm:word64 set,m:word64->word64) =
+    if r0 = 0w then
+      let r13 = r15 in
+        (r0,r13,dm,m)
+    else if r0 && 1w = 0w then
+      let r0 = r0 >>> 2 in
+      let m = (r15 =+ r0) m in
+      let r13 = 2w in
+        (r0,r13,dm,m)
+    else
+      let r13 = r0 + 9w in
+      let r0 = m (r0 + 1w) in
+      let r15 = r0 && 1w in
+      let r0 = r0 >>> 15 in
+      let r0 = r0 + r15 in
+        (r0,r13,dm,m)`
+
+val (x64_move_ptr2_res, x64_move_ptr2_def, x64_move_ptr2_pre_def) = x64_compile `
+  x64_move_ptr2 (r1,r15,dm:word64 set,m:word64->word64) =
+    if r1 = 0w then
+      let r14 = r15 in
+        (r1,r14,dm,m)
+    else if r1 && 1w = 0w then
+      let r1 = r1 >>> 2 in
+      let m = (r15 =+ r1) m in
+      let r14 = 2w in
+        (r1,r14,dm,m)
+    else
+      let r14 = r1 + 9w in
+      let r1 = m (r1 + 1w) in
+      let r15 = r1 && 1w in
+      let r1 = r1 >>> 15 in
+      let r1 = r1 + r15 in
+        (r1,r14,dm,m)`
+
+val x64_move_ptr2_thm = prove(
+  ``(x64_move_ptr2 = x64_move_ptr) /\
+    (x64_move_ptr2_pre = x64_move_ptr_pre)``,
+  fs [FUN_EQ_THM,FORALL_PROD]
+  \\ fs [x64_move_ptr2_def, x64_move_ptr2_pre_def,
+         x64_move_ptr_def, x64_move_ptr_pre_def,LET_DEF]);
+
+val (x64_big_setup_res, x64_big_setup_def, x64_big_setup_pre_def) = x64_compile `
+  x64_big_setup (r0,r1,r6:word64,r9,dm:word64 set,m:word64->word64) =
+    let r15 = r9 + 160w in
+    let (r0,r13,dm,m) = x64_move_ptr (r0,r15,dm,m) in
+    let r15 = r9 + 168w in
+    let (r1,r14,dm,m) = x64_move_ptr2 (r1,r15,dm,m) in
+    let r15 = m (r9 + 24w) in
+    let m = (r6 + 1w =+ r15) m in
+    let r15 = r6 + 9w in
+      (r6,r9,r15,m,dm)`
 
 (* print string from stack *)
 
@@ -10523,18 +10643,42 @@ val res1 = thD |> CONV_RULE (RAND_CONV
   (REWRITE_CONV [zBIGNUMS_HEADER_def,zBIGNUMS_ALT_THM]))
   |> SIMP_RULE std_ss [SEP_CLAUSES,STAR_ASSOC]
 
-val res2 = compose_specs ["mov r15,r3"]
+val res2 = compose_specs ["mov r15,r3","mov r14,r0"]
 
 val res3 = x64_print_stack_res |> SIMP_RULE std_ss [LET_DEF]
   |> DISCH ``x64_print_stack (r15,output,po,ss) =
                (r15_p,output_p,po_p,ss_p)``
   |> SIMP_RULE std_ss [] |> UNDISCH
 
-val thE = SPEC_COMPOSE_RULE [res1,res2,res3] |> RW [STAR_ASSOC]
+val res4 = compose_specs ["mov r0,r14","mov r14,r15"]
+
+val thE = SPEC_COMPOSE_RULE [res1,res2,res3,res4] |> RW [STAR_ASSOC]
+          |> DISCH ``ss_p = ss:word64 list`` |> SIMP_RULE std_ss []
+          |> UNDISCH
+
+val thZ = let
+  fun f push_th pop_th th = SPEC_COMPOSE_RULE [push_th,th,pop_th]
+                            |> RW [HD,TL,NOT_CONS_NIL]
+  in
+    thE
+    |> f x64_push_r1 x64_pop_r1
+    |> f x64_push_r2 x64_pop_r2
+    |> f x64_push_r3 x64_pop_r3
+    |> f x64_push_r6 x64_pop_r6
+    |> f x64_push_r7 x64_pop_r7
+    |> f x64_push_r8 x64_pop_r8
+    |> f x64_push_r9 x64_pop_r9
+    |> f x64_push_r10 x64_pop_r10
+    |> f x64_push_r11 x64_pop_r11
+  end;
 
 val thF = SPEC_COMPOSE_RULE [thE,x64_pop_r1,x64_pop_r2,x64_pop_r3,
     x64_pop_r6,x64_pop_r7,x64_pop_r8,x64_pop_r9,x64_pop_r10,
     x64_pop_r11,x64_pop_r12,x64_pop_r13,x64_pop_r14,x64_pop_r15]
+
+(*
+x64_multiwordTheory.x64_iop_thmdef
+*)
 
 (* convert small to big *)
 
@@ -12473,6 +12617,36 @@ fun spec_to_spec_1 th = let
           POST_CONV (MOVE_OUT_CONV ``zS``)
   val th = CONV_RULE (RATOR_CONV c) th
   in th end
+
+
+(* small_int LESS -- TODO: delete zHEAP_SMALL_INT *)
+
+val zHEAP_SMALL_INT = let
+  val (x64_signed_less_res,x64_signed_less_def) = x64_decompile "x64_signed_less" `
+      mov r15,9223372036854775808
+      add r0,r15
+      mov r14,r1
+      add r14,r15
+      cmp r14,r0
+      jb L1
+      mov r0,2
+      jmp L2
+    L1: mov r0,6
+    L2:`
+  val th = x64_signed_less_res
+  val pc = get_pc th
+  val (th,goal) = SPEC_WEAKEN_RULE th ``(~zS * ^pc * zHEAP
+        (cs,bool_to_val (getNumber x2 < getNumber x1),x2,x3,x4,refs,stack,s,NONE))``
+  val lemma = prove(goal,cheat) (* bignum *)
+  val th = MP th lemma
+  val (th,goal) = SPEC_STRENGTHEN_RULE th
+    ``(~zS * zPC p * zHEAP (cs,x1,x2,x3,x4,refs,stack,s,NONE) *
+       cond (isNumber x1 /\ isNumber x2))``
+  val lemma = prove(goal,cheat) (* bignum *)
+  val th = MP th lemma
+  val th = RW [fetch "-" "x64_signed_less_x64_def"] th
+  in th end;
+
 
 (* --- a lemma for each bytecode instruction --- *)
 
