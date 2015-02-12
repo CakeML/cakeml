@@ -8,21 +8,36 @@ open clos_numberTheory boolSimps;
 open clos_annotateTheory;
 open pat_to_closTheory;
 
+val twod_table_lemma = Q.prove (
+`!x y z.
+  z ≤ y ⇒
+  GENLIST (λt. f ((t + x * y) DIV y) ((t + x * y) MOD y)) z
+  =
+  GENLIST (λt. f x t) z`,
+ Induct_on `z` >>
+ rw [GENLIST] >>
+ `z < y ∧ z ≤ y` by decide_tac >>
+ fs [] >>
+ `z+x*y = x*y+z` by decide_tac >>
+ rw_tac std_ss [MOD_MULT, DIV_MULT, LESS_DIV_EQ_ZERO]);
+
 val twod_table = Q.prove (
 `!f x y.
+  0 < y ⇒
   FLAT (GENLIST (\m. GENLIST (\n. f m n) y) x) = 
-  GENLIST (\n. f (n DIV x) (n MOD x)) (x * y)`,
+  GENLIST (\n. f (n DIV y) (n MOD y)) (x * y)`,
  Induct_on `x` >>
  rw [GENLIST] >>
- Induct_on `y` >>
- rw [GENLIST] >>
- `!z. z * (y+1) = z * y + z` by decide_tac >>
- fs [ADD1, GENLIST_APPEND] >>
- cheat);
+ `(x+1) * y = y + x * y` by decide_tac >>
+ fs [ADD1, GENLIST_APPEND, twod_table_lemma]);
 
 val less_rectangle = Q.prove (
-`!(x:num) y m n. m < x ∧ n < y ⇒ x * n +m < x * y`,
- cheat);
+ `!(x:num) y m n. m < x ∧ n < y ⇒ x * n +m < x * y`,
+ REPEAT STRIP_TAC
+ \\ `SUC n <= y` by fs [LESS_EQ]
+ \\ `x * (SUC n) <= x * y` by fs []
+ \\ FULL_SIMP_TAC bool_ss [MULT_CLAUSES]
+ \\ DECIDE_TAC);
 
 val less_rectangle2 = Q.prove (
 `!(x:num) y m n. m < x ∧ n < y ⇒ m + n * x< x * y`,
@@ -1031,6 +1046,7 @@ val init_code_ok = Q.store_thm ("init_code_ok",
      metis_tac [less_rectangle])
  >- (`max_app ≤ max_app + max_app * m + n` by decide_tac >>
      simp [EL_APPEND2, LENGTH_GENLIST] >>
+     `0 < max_app` by rw [max_app_def] >>
      rw [twod_table] >>
      `n+m*max_app < max_app*max_app` by metis_tac [less_rectangle2] >>
      rw [EL_GENLIST] >>
