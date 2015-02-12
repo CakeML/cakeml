@@ -10079,28 +10079,9 @@ val bc_value_inv_Num_IMP_x64_num_size1_pre = prove(
      \\ `F` by ALL_TAC \\ fs [lem]
      \\ fs [word_mul_n2w]
      \\ IMP_RES_TAC (intLib.COOPER_PROVE
-          ``¬(i < 0) /\ i < 2305843009213693952 ==>
+          ``0 <= i /\ i < 4611686018427387904 ==>
            (2 * Num i) < 9223372036854775808``) \\ fs []
-     \\ IMP_RES_TAC (intLib.COOPER_PROVE
-          ``¬(i < 0) /\ i <> 0 ==> (Num i <> 0)``)
-     \\ fs [MOD_COMMON_FACTOR,LEFT_SUB_DISTRIB]
-     \\ `Num (-i) <> 0 /\ (2 * Num (-i)) < 18446744073709551616` by ALL_TAC THEN1
-      (Q.PAT_ASSUM `-2305843009213693952 < i` MP_TAC
-       \\ Q.PAT_ASSUM `i < 0` MP_TAC
-       \\ REPEAT (POP_ASSUM (K ALL_TAC))
-       \\ intLib.COOPER_TAC) \\ fs []
-     \\ FULL_SIMP_TAC bool_ss [GSYM (EVAL ``9223372036854775808 * 2:num``)]
-     \\ `0 < 9223372036854775808:num /\ 0 < 2:num` by fs []
-     \\ IMP_RES_TAC MOD_MULT_MOD \\ fs []
-     \\ fs [MOD_EQ_0_DIVISOR]
-     \\ Cases_on `d` \\ fs [MULT_CLAUSES] THEN1 DECIDE_TAC
-     \\ REVERSE (Cases_on `n`) \\ fs [MULT_CLAUSES] THEN1 DECIDE_TAC
-     \\ Q.PAT_ASSUM `nn = 9223372036854775808:num` MP_TAC \\ fs []
-     \\ MATCH_MP_TAC (DECIDE ``k < m /\ n < m /\ (m - n <> k) ==> (m - k <> n:num)``)
-     \\ fs []
-     \\ Q.PAT_ASSUM `-2305843009213693952 < i` MP_TAC
-     \\ Q.PAT_ASSUM `i < 0` MP_TAC
-     \\ REPEAT (POP_ASSUM (K ALL_TAC)) \\ intLib.COOPER_TAC)
+     \\ intLib.COOPER_TAC)
   \\ fs [x64_addr_def,size_lemma]
   \\ REPEAT STRIP_TAC \\ fs []
   \\ `(0x1w && x64_addr vs.current_heap (Pointer ptr)) <> 0x0w` by
@@ -10675,10 +10656,6 @@ val thZ = let
 val thF = SPEC_COMPOSE_RULE [thE,x64_pop_r1,x64_pop_r2,x64_pop_r3,
     x64_pop_r6,x64_pop_r7,x64_pop_r8,x64_pop_r9,x64_pop_r10,
     x64_pop_r11,x64_pop_r12,x64_pop_r13,x64_pop_r14,x64_pop_r15]
-
-(*
-x64_multiwordTheory.x64_iop_thmdef
-*)
 
 (* convert small to big *)
 
