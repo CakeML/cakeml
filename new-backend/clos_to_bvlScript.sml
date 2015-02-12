@@ -8,6 +8,32 @@ open clos_numberTheory boolSimps;
 open clos_annotateTheory;
 open pat_to_closTheory;
 
+val twod_table = Q.prove (
+`!f x y.
+  FLAT (GENLIST (\m. GENLIST (\n. f m n) y) x) = 
+  GENLIST (\n. f (n DIV x) (n MOD x)) (x * y)`,
+ Induct_on `x` >>
+ rw [GENLIST] >>
+ Induct_on `y` >>
+ rw [GENLIST] >>
+ `!z. z * (y+1) = z * y + z` by decide_tac >>
+ fs [ADD1, GENLIST_APPEND] >>
+ cheat);
+
+val less_rectangle = Q.prove (
+`!(x:num) y m n. m < x ∧ n < y ⇒ x * n +m < x * y`,
+ cheat);
+
+val less_rectangle2 = Q.prove (
+`!(x:num) y m n. m < x ∧ n < y ⇒ m + n * x< x * y`,
+ metis_tac [less_rectangle, ADD_COMM, MULT_COMM]);
+
+val sum_genlist_square = Q.prove (
+`!x z. SUM (GENLIST (\y. z) x) = x * z`,
+ Induct >>
+ rw [GENLIST, SUM_SNOC, ADD1] >>
+ decide_tac);
+
 val map2_snoc = Q.prove (
 `!l1 l2 f x y.
   LENGTH l1 = LENGTH l2 ⇒
@@ -209,9 +235,10 @@ val generate_partial_app_closure_fn_def = Define `
 
 val init_code_def = Define `
   init_code = 
-    GENLIST (\n. (n + 2, generate_generic_app n)) max_app ++ 
-    FLAT (GENLIST (\m. GENLIST (\n. (m - n + 1, 
-                                     generate_partial_app_closure_fn m n)) max_app) max_app)`;
+    fromList
+      (GENLIST (\n. (n + 2, generate_generic_app n)) max_app ++ 
+       FLAT (GENLIST (\m. GENLIST (\n. (m - n + 1, 
+                                     generate_partial_app_closure_fn m n)) max_app) max_app))`;
 
 val cCompOp_def = Define`
   cCompOp (Cons tag) = (Cons (if tag < closure_tag then tag else tag+2)) ∧
@@ -989,6 +1016,27 @@ val state_rel_def = Define `
         (cComp [c] aux1 = ([c2],aux2)) /\
         (lookup (name + num_stubs) t.code = SOME (arity,c2)) /\
         code_installed aux2 t.code))`;
+
+val init_code_ok = Q.store_thm ("init_code_ok",
+`(!n. 
+    n < max_app ⇒ lookup n init_code = SOME (n + 2, generate_generic_app n)) ∧
+ (!m n.
+    m < max_app ∧ n < max_app ⇒ 
+      lookup (partial_app_fn_location m n) init_code = 
+        SOME (m - n + 1, generate_partial_app_closure_fn m n))`,
+ rw [init_code_def, lookup_fromList, EL_APPEND1, partial_app_fn_location_def]
+ >- decide_tac
+ >- (rw [LENGTH_FLAT, MAP_GENLIST, combinTheory.o_DEF, sum_genlist_square] >>
+     rw [DECIDE ``!(x:num) y z n. x + y +n < x + z ⇔ y +n < z``] >>
+     metis_tac [less_rectangle])
+ >- (`max_app ≤ max_app + max_app * m + n` by decide_tac >>
+     simp [EL_APPEND2, LENGTH_GENLIST] >>
+     rw [twod_table] >>
+     `n+m*max_app < max_app*max_app` by metis_tac [less_rectangle2] >>
+     rw [EL_GENLIST] >>
+     rw [DIV_MULT, Once ADD_COMM] >>
+     ONCE_REWRITE_TAC [ADD_COMM] >>
+     rw [MOD_MULT]));
 
 val FDIFF_def = Define `
   FDIFF f1 f2 = DRESTRICT f1 (COMPL (FRANGE f2))`;
