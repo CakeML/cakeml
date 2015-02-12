@@ -268,10 +268,8 @@ val env_rs_def = Define`
       clos_number$state_rel (s_to_Cs sp) s4 ∧
       clos_annotate$state_rel s4 s5 ∧
       state_rel f1 s5 s6 ∧
-      (* TODO: these bits of the invariant probably need to change for num_stubs *)
-      (∀k. k ∈ domain s6.code ⇒ k < rs.next_loc) ∧
-      (∀ptr arity exp. lookup ptr s6.code = SOME (arity,exp) ⇒ EVERY ($> rs.next_loc) (code_locs [exp])) ∧
-      (* -- *)
+      (∀k. k + num_stubs ∈ domain s6.code ⇒ k < rs.next_loc) ∧
+      (∀ptr arity exp. lookup (ptr + num_stubs) s6.code = SOME (arity,exp) ⇒ EVERY ($> rs.next_loc) (code_locs [exp])) ∧
       state_rel locs s6 bs`
 
 val env_rs_change_clock = store_thm("env_rs_change_clock",
@@ -452,12 +450,14 @@ val tac3 =
     metis_tac[ALOOKUP_ALL_DISTINCT_MEM,ALL_DISTINCT_REVERSE,
               ALL_DISTINCT_MAP_INJ,ADD_INJ] >>
   simp[] >> BasicProvers.CASE_TAC >>
-
-  `rs.next_loc ≤ k` by (
-    fs[EVERY_MEM] >>
-    first_x_assum match_mp_tac >>
-    metis_tac[MEM_REVERSE,MEM_MAP,FST] ) >>
+  `∃j. k = j + num_stubs ∧ rs.next_loc ≤ j` by (
+    `MEM k (MAP FST aux)` by (
+      simp[MEM_MAP,EXISTS_PROD] >>
+      metis_tac[]) >>
+    rfs[] >> fs[MEM_MAP] >>
+    fsrw_tac[ARITH_ss][EVERY_MEM]) >>
   `k ∈ domain s6.code` by metis_tac[domain_lookup] >>
+  BasicProvers.VAR_EQ_TAC >>
   res_tac >> `F` suffices_by rw[] >> DECIDE_TAC
 
 val tac4 =
@@ -703,7 +703,6 @@ val tac12 =
   qmatch_assum_abbrev_tac`renumber_code_locs nn ee = X` >>
   qspecl_then[`nn`,`ee`]mp_tac renumber_code_locs_distinct >>
   simp[Abbr`nn`,Abbr`ee`,Abbr`X`] >> strip_tac >>
-
   discharge_hyps >- tac3 >>
   simp[clos_to_bvlTheory.res_rel_cases,PULL_EXISTS] >> rpt gen_tac >> strip_tac >>
   `domain f = domain new_code` by metis_tac[bvl_bc_table_thm] >>
@@ -714,10 +713,10 @@ val tac12 =
   ((
   qpat_assum`X = bc`mp_tac >>
   qspec_then`union locs f`(C(specl_args_of_then``bvl_bc``)mp_tac)bvl_bc_code_locs
-  ) ORELSE
+  ) ORELSE (
   qpat_assum`bs.code = X`mp_tac >>
   qspec_then`union locs f`(C(specl_args_of_then``bvl_bc``)mp_tac)bvl_bc_code_locs
-  ) >>
+  )) >>
   discharge_hyps >- tac4 >>
   strip_tac >> simp[] >>
   specl_args_of_then``bvl_bc``bvl_bc_append_out strip_assume_tac >>
