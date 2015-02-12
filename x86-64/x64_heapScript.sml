@@ -10278,19 +10278,30 @@ val (x64_big_small_res, x64_big_small_def, x64_big_small_pre_def) = x64_compile 
   x64_big_small (r0,r10:word64,r15,dm:word64 set,m:word64->word64) =
     if r10 = 0w then (* zero *)
       let r0 = 0w in
-        (r0,r15,dm,m)
+      let r1 = 0w in
+        (r0,r1,r15,dm,m)
     else if r10 = 1w then (* zero *)
       let r0 = 0w in
-        (r0,r15,dm,m)
+      let r1 = 0w in
+        (r0,r1,r15,dm,m)
     else if r10 = 2w then
       let r1 = m r15 in
       let r2 = 1w in
       let r2 = r2 << 62 in
         if r1 <+ r2 then (* can be repr as small_int *)
           let r0 = r1 << 2 in
-            (r0,r15,dm,m)
-        else (r0,r15,dm,m)
-    else (r0,r15,dm,m)`
+          let r1 = 0w in
+            (r0,r1,r15,dm,m)
+        else
+          let r1 = r10 >>> 1 in
+          let r1 = r1 << 3 in
+          let r1 = r1 + 8w in
+            (r0,r1,r15,dm,m)
+    else
+      let r1 = r10 >>> 1 in
+      let r1 = r1 << 3 in
+      let r1 = r1 + 8w in
+        (r0,r1,r15,dm,m)`
 
 val small_int_to_word_def = Define `
   small_int_to_word i =
@@ -10351,6 +10362,12 @@ val x64_header_IMP_NOT_small_int = prove(
   \\ Cases_on `h` \\ fs []
   \\ DECIDE_TAC);
 
+val x64_header_shifts = prove(
+  ``x64_header (q,qs) >>> 1 << 3 + 8w = n2w (8 * LENGTH qs + 8)``,
+  fs [x64_multiwordTheory.x64_header_def,GSYM word_mul_n2w,GSYM word_add_n2w]
+  \\ Q.ABBREV_TAC `qq = n2w (LENGTH (qs:word64 list)):word64`
+  \\ Cases_on `q` \\ fs [] \\ blastLib.BBLAST_TAC);
+
 val zBIGNUM_BIG_SMALL = let
   val th = x64_big_small_res |> Q.INST [`r15`|->`za`,
               `r10`|->`x64_header (q,qs)`,`r0`|->`za - 9w`]
@@ -10364,7 +10381,8 @@ val zBIGNUM_BIG_SMALL = let
      `(~zS * ^pc * zR 0x0w (if small_int (mw2i (q,qs:word64 list))
                             then small_int_to_word (mw2i (q,qs:word64 list))
                             else za - 9w) *
-       ~zR 0x1w * ~zR 0x2w * ~zR 0xAw *
+       zR 0x1w (if small_int (mw2i (q,qs:word64 list)) then 0w else
+                  n2w (8 * LENGTH qs + 8)) * ~zR 0x2w * ~zR 0xAw *
        zBIGNUMS_HEADER (xa,xs,ya,ys,z,za,zs,frame))`
   val goal = th |> concl |> dest_imp |> fst
 (*
@@ -10393,6 +10411,7 @@ val zBIGNUM_BIG_SMALL = let
       \\ IMP_RES_TAC x64_header_IMP_NOT_small_int
       \\ fs [x64_big_small_pre_def,x64_big_small_def,LET_DEF]
       \\ IMP_RES_TAC not_zero_IMP_x64_header_NOT_0_1 \\ fs []
+      \\ fs [x64_header_shifts]
       \\ fs [SEP_CLAUSES,zBIGNUMS_HEADER_def,
              x64_multiwordTheory.zBIGNUMS_def,SEP_IMP_def,
              SEP_EXISTS_THM] \\ REPEAT STRIP_TAC
@@ -10448,25 +10467,6 @@ val zBIGNUM_BIG_SMALL = let
 
 val thD = SPEC_COMPOSE_RULE [thC,zBIGNUM_BIG_SMALL] |> RW [STAR_ASSOC];
 
-(* tear down code *)
-
-val (x64_tear_down_res, x64_tear_down_def, x64_tear_down_pre_def) = x64_compile `
-  x64_tear_down (r0,r6:word64,r9,dm:word64 set,m:word64->word64) =
-    if r0 && 1w = 0w then
-      let r1 = 0w in
-      let m = (r9 + 160w =+ r1) m in
-      let m = (r9 + 168w =+ r1) m in
-        (r0,r6,r9,m,dm)
-    else
-      let r1 = m (r0 + 1w) in
-      let r1 = r1 >>> 16 in
-      let r1 = r1 + 8w in
-      let r6 = r6 + r1 in
-      let r1 = 0w in
-      let m = (r9 + 160w =+ r1) m in
-      let m = (r9 + 168w =+ r1) m in
-        (r0,r6,r9,m,dm)`
-
 (* set up code *)
 
 val (x64_move_ptr_res, x64_move_ptr_def, x64_move_ptr_pre_def) = x64_compile `
@@ -10513,15 +10513,15 @@ val x64_move_ptr2_thm = prove(
          x64_move_ptr_def, x64_move_ptr_pre_def,LET_DEF]);
 
 val (x64_big_setup_res, x64_big_setup_def, x64_big_setup_pre_def) = x64_compile `
-  x64_big_setup (r0,r1,r6:word64,r9,dm:word64 set,m:word64->word64) =
-    let r15 = r9 + 160w in
+  x64_big_setup (r0,r1,r6:word64,r7,r9,dm:word64 set,m:word64->word64) =
+    let r15 = r7 - 7w in
     let (r0,r13,dm,m) = x64_move_ptr (r0,r15,dm,m) in
-    let r15 = r9 + 168w in
+    let r15 = r7 - 15w in
     let (r1,r14,dm,m) = x64_move_ptr2 (r1,r15,dm,m) in
     let r15 = m (r9 + 24w) in
     let m = (r6 + 1w =+ r15) m in
     let r15 = r6 + 9w in
-      (r6,r9,r15,m,dm)`
+      (r0,r1,r6,r7,r9,r13,r14,r15,m,dm)`
 
 (* print string from stack *)
 
@@ -10607,34 +10607,59 @@ val res1 = thD |> CONV_RULE (RAND_CONV
   (REWRITE_CONV [zBIGNUMS_HEADER_def,zBIGNUMS_ALT_THM]))
   |> SIMP_RULE std_ss [SEP_CLAUSES,STAR_ASSOC]
 
-val res2 = compose_specs ["mov r15,r3","mov r14,r0"]
+val res2 = compose_specs ["mov r15,r3","mov r14,r0","mov r13,r1"]
 
 val res3 = x64_print_stack_res |> SIMP_RULE std_ss [LET_DEF]
   |> DISCH ``x64_print_stack (r15,output,po,ss) =
                (r15_p,output_p,po_p,ss_p)``
   |> SIMP_RULE std_ss [] |> UNDISCH
 
-val res4 = compose_specs ["mov r0,r14","mov r14,r15"]
+val res4 = compose_specs ["mov r0,r14","mov r1,r13","mov r14,r15","mov r13,r15"]
+
+val res5 = compose_specs ["add r6,r1"]
+
+fun push_pop push_th pop_th th =
+  SPEC_COMPOSE_RULE [push_th,th,pop_th] |> RW [HD,TL,NOT_CONS_NIL]
 
 val thE = SPEC_COMPOSE_RULE [res1,res2,res3,res4] |> RW [STAR_ASSOC]
           |> DISCH ``ss_p = ss:word64 list`` |> SIMP_RULE std_ss []
           |> UNDISCH
+          |> push_pop x64_push_r6 x64_pop_r6
+          |> (fn th => SPEC_COMPOSE_RULE [th,res5])
 
-val thZ = let
-  fun f push_th pop_th th = SPEC_COMPOSE_RULE [push_th,th,pop_th]
-                            |> RW [HD,TL,NOT_CONS_NIL]
-  in
-    thE
-    |> f x64_push_r1 x64_pop_r1
-    |> f x64_push_r2 x64_pop_r2
-    |> f x64_push_r3 x64_pop_r3
-    |> f x64_push_r6 x64_pop_r6
-    |> f x64_push_r7 x64_pop_r7
-    |> f x64_push_r8 x64_pop_r8
-    |> f x64_push_r9 x64_pop_r9
-    |> f x64_push_r10 x64_pop_r10
-    |> f x64_push_r11 x64_pop_r11
-  end;
+val thE1 = thE
+    |> push_pop x64_push_r2 x64_pop_r2
+    |> push_pop x64_push_r3 x64_pop_r3
+
+val thE2 = thE1
+    |> SIMP_RULE (std_ss++sep_cond_ss) [zBIGNUMS_HEADER_def,
+         x64_multiwordTheory.zBIGNUMS_def,SEP_CLAUSES,
+         GSYM SPEC_PRE_EXISTS,SPEC_MOVE_COND] |> SPEC_ALL |> UNDISCH_ALL
+    |> RW [SEP_CLAUSES,STAR_ASSOC]
+
+val th1 =
+  x64_big_setup_res
+  |> DISCH ``x64_big_setup (r0,r1,r6,r7,r9,dm,m) =
+        (r0j,r1j,r6,r7j,r9j,r13j,r14j,r6 + 9w,mj,dmj)``
+  |> SIMP_RULE std_ss [LET_DEF] |> UNDISCH_ALL
+
+val thE3 =
+  SPEC_COMPOSE_RULE [th1,thE2 |> Q.INST [`dm`|->`dmj`]]
+  |> push_pop x64_push_r1 x64_pop_r1
+  |> push_pop x64_push_r15 x64_pop_r15
+  |> push_pop x64_push_r7 x64_pop_r7
+  |> push_pop x64_push_r8 x64_pop_r8
+  |> push_pop x64_push_r9 x64_pop_r9
+  |> push_pop x64_push_r10 x64_pop_r10
+  |> push_pop x64_push_r11 x64_pop_r11
+  |> push_pop x64_push_r12 x64_pop_r12
+  |> push_pop x64_push_r13 x64_pop_r13
+  |> push_pop x64_push_r14 x64_pop_r14
+  |> RW [WORD_ADD_0,SEP_CLAUSES]
+  |> SIMP_RULE (std_ss++sep_cond_ss) [SEP_CLAUSES,
+         GSYM SPEC_PRE_EXISTS,SPEC_MOVE_COND] |> SPEC_ALL |> UNDISCH_ALL
+
+
 
 val thF = SPEC_COMPOSE_RULE [thE,x64_pop_r1,x64_pop_r2,x64_pop_r3,
     x64_pop_r6,x64_pop_r7,x64_pop_r8,x64_pop_r9,x64_pop_r10,
