@@ -10182,8 +10182,8 @@ gg goal
 val (bignum_th,code_abbrev_def) = let
   val (_,_,code,_) = x64_multiwordTheory.x64_iop_res |> concl |> dest_spec
   val temp_code_def = Define `temp_code (p:word64) = ^code`;
-  val th = x64_multiwordTheory.x64_iop_res |> RW [GSYM temp_code_def]
-  val th = th |> Q.INST [`p:word64 reln -> bool`|->`frame`]
+  val th = x64_multiwordTheory.x64_iop_res |> Q.GEN `p` |> Q.SPEC `frame`
+             |> RW [GSYM temp_code_def]
   in (th,temp_code_def) end
 
 val thA = let
