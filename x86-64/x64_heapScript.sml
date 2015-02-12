@@ -21,6 +21,7 @@ open addressTheory
 open x64_copying_gcTheory;
 open progTheory;
 open intLib;
+open bootstrapProofTheory
 
 val _ = ParseExtras.temp_loose_equality();
 
