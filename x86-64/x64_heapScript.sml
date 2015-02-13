@@ -10815,7 +10815,6 @@ gg goal
   in th end;
 
 (* TODO: add check for too big alloc *)
-(* TODO: push and pop r13 *)
 
 val zHEAP_BIGNUM_OP = let
   val th1 = zHEAP_CALL_BIGNUM
@@ -10827,18 +10826,14 @@ val zHEAP_BIGNUM_OP = let
 *)
   val th2 = SPEC_COMPOSE_RULE [zHEAP_NUM_SIZE,zHEAP_ALLOC,zHEAP_PERFORM_BIGNUM]
             |> RW [SPEC_MOVE_COND] |> UNDISCH_ALL
-  val (th2,goal) = SPEC_STRENGTHEN_RULE th2 ``zHEAP
-        (cs,x1,x2,x3,x4,refs,stack,s,
-         SOME (\(sp,vals). ret = vals.reg13)) * ~zS * zPC p``
-  val lemma = prove(goal,cheat) (* bignum *)
-  val th2 = MP th2 lemma
-  val lemma = prove(
+  val num_lemma = prove(
     ``num_size x1 + num_size x2 + 2 < 4294967296 /\
       num_size x1 + num_size x2 + 2 < 17179869184``,
     cheat);
-  val th = SPEC_COMPOSE_RULE [th1,th2]
-           |> DISCH_ALL |> RW [AND_IMP_INTRO,lemma]
-           |> RW [GSYM SPEC_MOVE_COND,fetch "-" "temp_code_def"]
+  val thA = SPEC_COMPOSE_RULE [zHEAP_PUSH_R13_IN_PARTS,th2,
+                               zHEAP_POP_R13_IN_PARTS]
+            |> Q.INST [`sss`|->`stack`] |> RW [SEP_CLAUSES]
+            |> RW1 [EQ_SYM_EQ]
   val th3 = zHEAP_JMP_r13
   val (th3,goal) = SPEC_WEAKEN_RULE th3 ``(zHEAP
         (cs,x1,x2,x3,x4,refs,stack,s,NONE) * ~zS * zPC ret)``
@@ -10849,19 +10844,18 @@ val zHEAP_BIGNUM_OP = let
     \\ IMP_RES_TAC heap_inv_IMP_NONE)
   val th3 = MP th3 lemma |> Q.INST [`P`|->`\x.T`] |> SIMP_RULE std_ss []
   val pc = find_term (can (match_term ``zPC xxx``)) (th |> concl |> rand)
-  val (th,goal) = SPEC_WEAKEN_RULE th ``
-    zHEAP (cs,Number (int_op (n2iop (getNumber x3)) (getNumber x1) (getNumber x2)),
-           x2,x3,x4,refs,stack,if n2iop (getNumber x3) <> Dec then s else
-       s with output := s.output ++ int_to_str (getNumber (x1)),
-       SOME (\(sp,vals). vals.reg13 = p + 7w)) * ~zS * ^pc
-    \/ zHEAP_ERROR (cs)``
-  val lemma = prove(goal,cheat) (* bignum *)
-  val th = MP th lemma
-  val th = SPEC_COMPOSE_RULE [th,th3]
+  val th = SPEC_COMPOSE_RULE [thA,th3|>RW1[EQ_SYM_EQ]]
+           |> DISCH_ALL |> RW [AND_IMP_INTRO,num_lemma]
+           |> RW [GSYM SPEC_MOVE_COND,fetch "-" "temp_code_def"]
+  val thA = th1
+  val thB = th |> Q.INST [`r13`|->`p+7w`,`p`|->`cs.bignum_ptr + 0x2w`]
+               |> SIMP_RULE std_ss [word_arith_lemma1,SPEC_MOVE_COND]
+               |> UNDISCH_ALL
+  val f = RW [STAR_ASSOC] o SIMP_RULE (std_ss++star_ss) []
+  val th = MATCH_MP SPEC_COMPOSE (CONJ (f thA) (f thB))
+  val th = th |> DISCH_ALL |> RW [GSYM SPEC_MOVE_COND]
   val th = abbreviate_code "bignum" ``cs.bignum_ptr`` th
   in th end
-
-
 
 fun get_INT_OP n = let
   val th = zHEAP_Num3 |> Q.INST [`k`|->`^n`]
