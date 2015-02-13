@@ -17,10 +17,9 @@ val res = translate def;
 (* red-black tree example *)
 
 val _ = Datatype `
-  color = Red | Black`;
-
-val _ = Datatype `
-  tree = Empty | Tree color tree 'a tree`;
+  tree = Empty
+       | Red tree 'a tree
+       | Black tree 'a tree`;
 
 (* causes the normal case-of syntax to be parsed as PMATCH *)
 val _ = set_trace "parse deep cases" 1;
@@ -28,15 +27,11 @@ val _ = set_trace "parse deep cases" 1;
 val balance_black_def = Define `
   balance_black a n b =
     case (a,b) of
-    | (Tree Red (Tree Red a x b) y c,d) =>
-      Tree Red (Tree Black a x b) y (Tree Black c n d)
-    | (Tree Red a x (Tree Red b y c),d) =>
-      Tree Red (Tree Black a x b) y (Tree Black c n d)
-    | (a,Tree Red (Tree Red b y c) z d) =>
-      Tree Red (Tree Black a n b) y (Tree Black c z d)
-    | (a,Tree Red b y (Tree Red c z d)) =>
-      Tree Red (Tree Black a n b) y (Tree Black c z d)
-    | other => Tree Black a n b`
+    | (Red (Red a x b) y c,d) => Red (Black a x b) y (Black c n d)
+    | (Red a x (Red b y c),d) => Red (Black a x b) y (Black c n d)
+    | (a,Red (Red b y c) z d) => Red (Black a n b) y (Black c z d)
+    | (a,Red b y (Red c z d)) => Red (Black a n b) y (Black c z d)
+    | other => Black a n b`
 
 val _ = set_trace "parse deep cases" 0;
 
