@@ -1,5 +1,4 @@
 open HolKernel boolLib bossLib lcsymtacs
-open ml_translatorLib ml_translatorTheory
 open deepMatchesLib deepMatchesSyntax deepMatchesTheory
 open holKernelTheory
 
@@ -143,18 +142,18 @@ fun RETRY_SWEEP_CONV P conv tm =
 *)
 
 val raconv_PMATCH = save_thm("raconv_PMATCH",
-  (PMATCH_INTRO_CONV THENC
-   PMATCH_CATCHALL_INTRO_CONV)
-  |> BOT_SWEEP_CONV
-  |> Lib.with_flag(Feedback.emit_MESG,false)
-     (C CONV_RULE raconv_def))
-(* faster, less general:
   CONV_RULE
   ((funpow 3 (RAND_CONV o funpow 2 ABS_CONV)
      (PMATCH_INTRO_CONV THENC PMATCH_CATCHALL_INTRO_CONV)
     THENC PMATCH_INTRO_CONV THENC PMATCH_CATCHALL_INTRO_CONV)
    |> (STRIP_QUANT_CONV o RAND_CONV))
-  raconv_def
+  raconv_def)
+(* slower, more general:
+  (PMATCH_INTRO_CONV THENC
+   PMATCH_CATCHALL_INTRO_CONV)
+  |> BOT_SWEEP_CONV
+  |> Lib.with_flag(Feedback.emit_MESG,false)
+     (C CONV_RULE raconv_def)
 *)
 
 (* general version doesn't work because BOT_SWEEP_CONV finds a too-deep
@@ -244,9 +243,5 @@ val is_eq_PMATCH = save_thm("is_eq_PMATCH",
     ((REWR_CONV th THENC PMATCH_CATCHALL_INTRO_CONV)
      |> (STRIP_QUANT_CONV o RAND_CONV))
   is_eq_def)
-
-val res = translate is_eq_PMATCH
-
-val _ = finalise_translation()
 
 val _ = export_theory()
