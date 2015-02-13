@@ -1786,7 +1786,7 @@ fun prove_EvalPatBind goal hol2deep = let
       \\ EVAL_TAC \\ NO_TAC)
     \\ BasicProvers.EVERY_CASE_TAC \\ fs []
     \\ SRW_TAC [] []
-    \\ SRW_TAC [] [Eval_Var_SIMP,lookup_cons_write]
+    \\ SRW_TAC [] [Eval_Var_SIMP,lookup_cons_write,lookup_var_write]
     \\ EVAL_TAC)
   in UNDISCH_ALL th end handle HOL_ERR e =>
   (prove_EvalPatBind_fail := goal;
