@@ -12900,8 +12900,7 @@ val x64_inst_length_thm = prove(
 
 val real_inst_length_thm = store_thm("real_inst_length_thm",
   ``x64_inst_length = real_inst_length``,
-  cheat (* real_inst_length *)
-  \\ fs [x64_inst_length_thm,real_inst_length_def,FUN_EQ_THM]
+  fs [x64_inst_length_thm,real_inst_length_def,FUN_EQ_THM]
   \\ Cases \\ SRW_TAC [] [] \\ TRY (Cases_on `b`) \\ fs []
   \\ TRY (Cases_on `l`) \\ fs []);
 
