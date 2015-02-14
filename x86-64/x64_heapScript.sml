@@ -9271,12 +9271,12 @@ gg goal
   val th1 = SPEC_COMPOSE_RULE [th1,zHEAP_set_r14_after_alloc]
   val th = SPEC_COMPOSE_RULE [th1,th |> Q.INST [`x1`|->`Number (&l)`]
                                      |> SIMP_RULE (srw_ss()) []]
-  val lemma = prove(``(l < 32768 ==> (l:num) + 1 < 4294967296 ==> b) ==>
+  val lemma = prove(``(l < 32768 ==> (l:num) + 1 < 17179869184 ==> b) ==>
                       (l < 32768 ==> b)``,
                     Cases_on `b` \\ fs [] \\ DECIDE_TAC);
   val th = th |> RW [SPEC_MOVE_COND,GSYM AND_IMP_INTRO]
               |> Q.GEN `x1` |> SIMP_RULE std_ss [] |> UNDISCH_ALL
-              |> DISCH ``l + (1:num) < 4294967296``
+              |> DISCH ``l + (1:num) < 17179869184``
               |> DISCH ``l < 32768:num``
               |> MATCH_MP lemma |> RW [GSYM SPEC_MOVE_COND]
   val th = th |> RW [GSYM precond_def]
@@ -9534,12 +9534,12 @@ gg goal
   val th1 = SPEC_COMPOSE_RULE [th1,zHEAP_set_r14_after_ref_alloc]
   val th = SPEC_COMPOSE_RULE [th1,th |> Q.INST [`x1`|->`Number (&l)`]
                                      |> SIMP_RULE (srw_ss()) []]
-  val lemma = prove(``(l < 32768 ==> (l:num) + 1 < 4294967296 ==> b) ==>
+  val lemma = prove(``(l < 32768 ==> (l:num) + 1 < 17179869184 ==> b) ==>
                       (l < 32768 ==> b)``,
                     Cases_on `b` \\ fs [] \\ DECIDE_TAC);
   val th = th |> RW [SPEC_MOVE_COND,GSYM AND_IMP_INTRO]
               |> Q.GEN `x1` |> SIMP_RULE std_ss [] |> UNDISCH_ALL
-              |> DISCH ``l + (1:num) < 4294967296``
+              |> DISCH ``l + (1:num) < 17179869184``
               |> DISCH ``l < 32768:num``
               |> MATCH_MP lemma |> RW [GSYM SPEC_MOVE_COND]
   val th = th |> RW [GSYM precond_def]
