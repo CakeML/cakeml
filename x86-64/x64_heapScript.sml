@@ -16190,7 +16190,7 @@ val SPEC_1_zBC_HEAP_THM = prove(
            |> DISCH_ALL |> RW [AND_IMP_INTRO]
            |> MATCH_MP_TAC)
     \\ ASM_SIMP_TAC std_ss [MAP,bc_adjust_def,HD,TL,APPEND]
-    \\ STRIP_TAC THEN1 (fs [LENGTH_APPEND] \\ cheat)
+    \\ STRIP_TAC THEN1 (fs [LENGTH_APPEND] \\ DECIDE_TAC)
     \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,TAKE_DROP_MAP_APPEND]
     \\ fs [bc_adjust_def,rich_listTheory.MAP_REVERSE]
     \\ fs [x64_inst_length_def,x64_length_def,x64_def,LET_DEF]
@@ -16808,7 +16808,6 @@ val SPEC_1_zBC_HEAP_THM = prove(
       \\ METIS_TAC [])
     THEN1 (Cases_on `ev` \\ fs [ref_globals_def] \\ DECIDE_TAC)
     THEN1 (RES_TAC \\ Cases_on `ev` \\ FULL_SIMP_TAC (srw_ss()) [ODD_EVEN_SIMP])
-    THEN1 cheat
     \\ SIMP_TAC std_ss [SEP_IMP_def,SEP_EXISTS_THM] \\ REPEAT STRIP_TAC
     \\ FULL_SIMP_TAC (srw_ss()) [SEP_DISJ_def]
     \\ Q.LIST_EXISTS_TAC [`bc_adjust (cb,sb,ev) v`,`x3`]
