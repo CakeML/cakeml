@@ -505,7 +505,7 @@ val freeze_node_def = Define`
   freeze_node x = \s. ((), s with move_related := delete x s.move_related)`
  
 val add_coalesce_def = Define`
-  add_coalesce (x,y) = \s. ((), s with coalesced := insert y x s.coalesced)`
+  add_coalesce x y = \s. ((), s with coalesced := insert y x s.coalesced)`
 
 val get_edges_def = Define`
   get_edges v = \s. return (lookup v s.graph) s`
@@ -693,7 +693,8 @@ val freeze_def = Define`
   The combined node xy should have less than k neighbors of significant degree
 *)
 val briggs_ok_def = Define`
-  briggs_ok (G:sp_graph) (k:num) degs (x,y) =
+  briggs_ok (G:sp_graph) (k:num) degs move = 
+  let (x,y) = move in 
   case lookup x G of NONE => F
   | SOME x_edges => 
   case lookup y G of NONE => F
@@ -709,7 +710,8 @@ val briggs_ok_def = Define`
   x should be a phy_var
 *)
 val george_ok_def = Define`
-  george_ok (G:sp_graph) (k:num) degs (x,y) =
+  george_ok (G:sp_graph) (k:num) degs move =
+  let (x,y) = move in
   case lookup x G of NONE => F
   | SOME x_edges => 
   case lookup y G of NONE => F
@@ -729,7 +731,8 @@ val george_ok_def = Define`
 *) 
 
 val is_valid_move_def = Define`
-  is_valid_move G move_related (p,x,y) =
+  is_valid_move G move_related move =
+  let (p,x,y) = move in 
   (x ≠ y ∧
   ¬ lookup_g x y G ∧ 
   if is_phy_var x then
@@ -744,12 +747,15 @@ val is_valid_move_def = Define`
   2) otherwise, use briggs criterion*)
 
 val is_coalesceable_move_def = Define`
-  is_coalesceable_move G (k:num) degs (p,x,y) =
+  is_coalesceable_move G (k:num) degs move =
+  let (p,x,y) = move in
     if is_phy_var x then george_ok G k degs (x,y)
     else briggs_ok G k degs(x,y)`
 
 val maybe_flip_def = Define`
-  maybe_flip (p,x:num,y:num) = (if is_phy_var x then (p,x,y) else (p,y,x))` 
+  maybe_flip move = 
+  let (p,x:num,y:num) = move in 
+  (if is_phy_var x then (p,x,y) else (p,y,x))` 
 
 (*3 way split of the available moves:
   An available move might be 
@@ -770,14 +776,15 @@ val split_avail_def = Define`
       split_avail P Q xs acc)`
 
 val force_add_def = Define`
-  force_add (x,y) = \s. ((), s with graph:=undir_g_insert x y s.graph)`
+  force_add x y = \s. ((), s with graph:=undir_g_insert x y s.graph)`
 
 (*TODO: All the coalescing code has to be carefully checked*)
 (*We uniformly force the second half to be coalesced into the first*)
 val do_coalesce_def = Define`
-  do_coalesce (x,y) =
+  do_coalesce move =
+  let (x,y) = move in 
   do
-    add_coalesce (x,y);
+    add_coalesce x y;
     y_edges <- get_edges y;
     x_edges <- get_edges x;
     degs <- get_degs;
@@ -798,14 +805,15 @@ val do_coalesce_def = Define`
             if lookup v x_edges = NONE then
               do
                 inc_one x;
-                force_add (x,v)
+                force_add x v
               od
             else
               dec_one v))
   od`
 
 val pair_rename_def = Define`
-  pair_rename x y (p,a,b) =
+  pair_rename x y move =
+  let (p,a,b) = move in 
     let a = if a=y then x else a in
     let b = if b=y then x else b in
       (p,a,b)`
@@ -977,8 +985,9 @@ val deg_comparator_def = Define`
       
 val full_coalesce_aux = Define`
   (full_coalesce_aux G [] = (G,LN)) ∧ 
-  (full_coalesce_aux G ((p,x,y)::xs) =
+  (full_coalesce_aux G (move::xs) =
     (*Edge List for y*)
+    let (p,x,y) = move in
     if lookup_g x y G 
     then full_coalesce_aux G xs 
     else  
@@ -1080,7 +1089,8 @@ val undir_move_insert_def = Define`
     
 val moves_to_sp_def = Define`
   (moves_to_sp [] acc = acc) ∧ 
-  (moves_to_sp ((p,x,y)::xs) acc = 
+  (moves_to_sp (move::xs) acc = 
+    let (p,x,y) = move in 
     moves_to_sp xs (undir_move_insert p x y acc))`
 
 (*Do a consistency sort after setting up the sptree of moves*)
@@ -1094,7 +1104,8 @@ val resort_moves_def = Define`
 
 val first_match_col_def = Define`
   (first_match_col ls col [] = NONE) ∧ 
-  (first_match_col ls col ((p,x)::xs) = 
+  (first_match_col ls col (x::xs) = 
+    let (p,x) = x in
     case lookup x col of 
       NONE => first_match_col ls col xs
     | SOME c => if MEM c ls then SOME c else first_match_col ls col xs)`
@@ -1245,7 +1256,7 @@ val first_match_col_mem = prove(``
   first_match_col cand col ls = SOME x 
   ⇒ MEM x cand``,
   Induct>>rw[first_match_col_def]>>
-  Cases_on`h`>>fs[first_match_col_def]>>
+  Cases_on`h`>>fs[first_match_col_def,LET_THM]>>
   EVERY_CASE_TAC>>rfs[])
 
 val move_pref_satisfactory = prove(``
@@ -2093,10 +2104,10 @@ val full_coalesce_aux_extends = prove(``
   Induct_on`ls`>-fs[full_coalesce_aux,LET_THM,is_subgraph_edges_def]>>
   ntac 4 strip_tac>>
   PairCases_on`h`>>
-  fs[full_coalesce_aux]>>
+  fs[full_coalesce_aux,LET_THM]>>
   IF_CASES_TAC>- 
     (fs[]>>metis_tac[])>>
-  fs[LET_THM]>>
+  fs[]>>
   qpat_abbrev_tac `G'=list_g_insert h1 A G`>>
   first_x_assum(qspecl_then[`G'`,`col`] mp_tac)>>
   rfs[]>>
@@ -2267,7 +2278,7 @@ val foreach_graph_extend = prove(``
             if lookup v x_edges = NONE then
               do
                 inc_one x;
-                force_add (x,v)
+                force_add x v
               od
             else
               dec_one v)) s = ((),s') ∧ 
@@ -2298,7 +2309,7 @@ val split_avail_filter = prove(``
   Induct>>
   rw[split_avail_def,LET_THM]
   >-
-  fs[is_valid_move_def]
+  fs[is_valid_move_def,LET_THM]
   >>
   metis_tac[])
 
@@ -2319,7 +2330,7 @@ val do_coalesce_lem = prove(``
   is_subgraph_edges G s'.graph ∧ 
   s'.clock = s.clock``,
   fsm[do_coalesce_def,add_coalesce_def,get_edges_def,get_degs_def
-     ,get_colors_def]>>
+     ,get_colors_def,LET_THM]>>
   EVERY_CASE_TAC>>fs[]>>
   TRY(rw[]>>fs[]>>NO_TAC)>>
   fsm[LET_THM]>>
@@ -2387,7 +2398,7 @@ val coalesce_graph = prove(``
   unabbrev_all_tac>>fs[]>>
   rfs[])
   
-val do_step_graph_lemma = prove(``
+val do_step_graph_lemma = store_thm("do_step_graph_lemma",``
   ∀s G s'.
     undir_graph s.graph ∧
     is_subgraph_edges G s.graph ∧
@@ -2409,7 +2420,7 @@ val do_step_graph_lemma = prove(``
     TRY(qpat_assum`A=s'` (SUBST_ALL_TAC o SYM))>>fs[]>>
     metis_tac[spill_graph,coalesce_graph,freeze_graph,simplify_graph])
 
-val rpt_do_step_graph_lemma = prove(``
+val rpt_do_step_graph_lemma = store_thm("rpt_do_step_graph_lemma",``
   ∀s.
     undir_graph s.graph 
     ⇒ 
