@@ -18348,66 +18348,6 @@ val zBC_HEAP_RTC = prove(
   \\ SIMP_TAC std_ss [SUBSET_DEF,IN_INSERT]);
 *)
 
-(* printing a string (the error message, e.g. type error) *)
-
-val (x64_print_str_spec,x64_print_str_def,x64_print_str_pre_def) = x64_compile `
-  x64_print_str (x1,x2,x3,s) =
-    if isSmall x1 then (x1,x2,x3,s) else
-      let x3 = x1 in
-      let x2 = Number 0 in
-      let x1 = EL (Num (getNumber x2)) (getContent x1) in
-      let s = s with output :=
-           STRCAT s.output (STRING (CHR (Num (getNumber x1))) "") in
-      let x1 = x3 in
-      let x2 = Number 1 in
-      let x1 = EL (Num (getNumber x2)) (getContent x1) in
-      let x3 = Number 1 in
-        x64_print_str (x1,x2,x3,s)`
-
-val x64_print_str_thm = prove(
-  ``!xs x2 x3 s. ?y2 y3.
-      x64_print_str_pre (BlockList (MAP Chr xs),x2,x3,s) /\
-      (x64_print_str (BlockList (MAP Chr xs),x2,x3,s) =
-         (BlockList [],y2,y3,s with output := STRCAT s.output xs))``,
-  Induct THEN1
-   (ONCE_REWRITE_TAC [x64_print_str_def,x64_print_str_pre_def]
-    \\ SIMP_TAC std_ss [isSmall_def,BlockList_def,MAP,BlockNil_def]
-    \\ EVAL_TAC \\ Cases \\ SRW_TAC [] (TypeBase.updates_of ``:zheap_state``))
-  \\ SIMP_TAC std_ss [BlockList_def,MAP,Chr_def,BlockCons_def]
-  \\ ONCE_REWRITE_TAC [x64_print_str_def,x64_print_str_pre_def]
-  \\ SIMP_TAC std_ss [isSmall_def,BlockList_def,MAP,BlockNil_def]
-  \\ SIMP_TAC (srw_ss()) [LET_DEF,getNumber_def,getContent_def,EL,isBlock_def,
-       canCompare_def,isNumber_def,ORD_BOUND]
-  \\ REPEAT STRIP_TAC \\ POP_ASSUM (MP_TAC o
-       Q.SPECL [`Number 1`,`Number 1`,
-       `s with output := STRCAT s.output (STRING (CHR (ORD h)) "")`])
-  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [BlockList_def,BlockNil_def]
-  \\ Cases_on `s` \\ SIMP_TAC std_ss [CHR_ORD]
-  \\ SRW_TAC [] (TypeBase.updates_of ``:zheap_state``));
-
-val (x64_print_string_spec,x64_print_string_def,x64_print_string_pre_def) = x64_compile `
-  x64_print_string (x1,x2,x3,s,stack) =
-    let stack = x2::stack in
-    let stack = x3::stack in
-    let (x1,x2,x3,s) = x64_print_str (x1,x2,x3,s) in
-    let (x3,stack) = (HD stack, TL stack) in
-    let (x2,stack) = (HD stack, TL stack) in
-      (x1,x2,x3,s,stack)`
-
-val x64_print_string_thm = prove(
-  ``(x1 = BlockList (MAP Chr xs)) ==>
-    x64_print_string_pre (x1,x2,x3,s,stack) /\
-    (x64_print_string (x1,x2,x3,s,stack) =
-       (BlockList [],x2,x3,s with output := STRCAT s.output xs,stack))``,
-  SIMP_TAC std_ss [x64_print_string_def,LET_DEF,x64_print_string_pre_def,HD,TL]
-  \\ REPEAT STRIP_TAC
-  \\ ASSUME_TAC x64_print_str_thm \\ SEP_I_TAC "x64_print_str"
-  \\ FULL_SIMP_TAC std_ss [NOT_CONS_NIL]);
-
-val zHEAP_PRINT_STRING = x64_print_string_spec
-    |> RW [UNDISCH x64_print_string_thm]
-    |> SIMP_RULE std_ss [LET_DEF,SEP_CLAUSES]
-    |> DISCH_ALL |> RW [GSYM SPEC_MOVE_COND]
 
 
 
@@ -20133,11 +20073,26 @@ val zHEAP_ERASE_end_of_code = let
     |> RW [GSYM SPEC_MOVE_COND]
   in th end;
 
+val zHEAP_1_Number_0 = zHEAP_Num1 |> Q.INST [`k`|->`0`]
+  |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
+
+val zHEAP_2_Number_0 = zHEAP_Num2 |> Q.INST [`k`|->`0`]
+  |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
+
+val zHEAP_3_Number_0 = zHEAP_Num3 |> Q.INST [`k`|->`0`]
+  |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
+
+val zHEAP_1_Number_1 = zHEAP_Num1 |> Q.INST [`k`|->`1`]
+  |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
+
+val zHEAP_1_Number_2 = zHEAP_Num1 |> Q.INST [`k`|->`2`]
+  |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
+
 val zHEAP_LEX_THEN_COND_TERMINATE_UPDATE_JUMP = let
   val th1 = zHEAP_LEX_THEN_COND_TERMINATE
   val ((jmp_th,_,_),_) = prog_x64Lib.x64_spec_memory64 "E9"
   val th2 = SPEC_COMPOSE_RULE [zHEAP_BlockPair,zHEAP_BlockSome,
-    zHEAP_MOVE_32,zHEAP_UPDATE_REF,zHEAP_SET_PRINTING_ON,
+    zHEAP_MOVE_32,zHEAP_2_Number_0,zHEAP_UPDATE_REF,zHEAP_SET_PRINTING_ON,
     zHEAP_POP4,zHEAP_POP1,jmp_th]
     |> SIMP_RULE std_ss [ADD_ASSOC]
   (* composing th1 and th2 *)
@@ -20161,7 +20116,71 @@ val zHEAP_LEX_THEN_COND_TERMINATE_UPDATE_JUMP = let
     Cases_on `b2` \\ Cases_on `b1` \\ FULL_SIMP_TAC std_ss [])
   val th = MATCH_MP lemma (CONJ (DISCH_ALL thA) (DISCH_ALL thB))
            |> SIMP_RULE (srw_ss()) [ADD_ASSOC,GSYM SPEC_MOVE_COND]
+  val th = th |> RW [isNumber_def,getNumber_def]
   in th end
+
+(* printing a string (the error message, e.g. type error) *)
+
+val (x64_print_str_spec,x64_print_str_def,x64_print_str_pre_def) = x64_compile `
+  x64_print_str (x1,x2,x3,s) =
+    if isSmall x1 then (x1,x2,x3,s) else
+      let x3 = x1 in
+      let x2 = Number 0 in
+      let x1 = EL (Num (getNumber x2)) (getContent x1) in
+      let s = s with output :=
+           STRCAT s.output (STRING (CHR (Num (getNumber x1))) "") in
+      let x1 = x3 in
+      let x2 = Number 1 in
+      let x1 = EL (Num (getNumber x2)) (getContent x1) in
+      let x3 = Number 1 in
+        x64_print_str (x1,x2,x3,s)`
+
+val x64_print_str_thm = prove(
+  ``!xs x2 x3 s. ?y2 y3.
+      x64_print_str_pre (BlockList (MAP Chr xs),x2,x3,s) /\
+      (x64_print_str (BlockList (MAP Chr xs),x2,x3,s) =
+         (BlockList [],y2,y3,s with output := STRCAT s.output xs))``,
+  Induct THEN1
+   (ONCE_REWRITE_TAC [x64_print_str_def,x64_print_str_pre_def]
+    \\ SIMP_TAC std_ss [isSmall_def,BlockList_def,MAP,BlockNil_def]
+    \\ EVAL_TAC \\ Cases \\ SRW_TAC [] (TypeBase.updates_of ``:zheap_state``))
+  \\ SIMP_TAC std_ss [BlockList_def,MAP,Chr_def,BlockCons_def]
+  \\ ONCE_REWRITE_TAC [x64_print_str_def,x64_print_str_pre_def]
+  \\ SIMP_TAC std_ss [isSmall_def,BlockList_def,MAP,BlockNil_def]
+  \\ SIMP_TAC (srw_ss()) [LET_DEF,getNumber_def,getContent_def,EL,isBlock_def,
+       canCompare_def,isNumber_def,ORD_BOUND]
+  \\ REPEAT STRIP_TAC \\ POP_ASSUM (MP_TAC o
+       Q.SPECL [`Number 1`,`Number 1`,
+       `s with output := STRCAT s.output (STRING (CHR (ORD h)) "")`])
+  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [BlockList_def,BlockNil_def]
+  \\ Cases_on `s` \\ SIMP_TAC std_ss [CHR_ORD]
+  \\ SRW_TAC [] (TypeBase.updates_of ``:zheap_state``));
+
+val (x64_print_string_spec,x64_print_string_def,x64_print_string_pre_def) = x64_compile `
+  x64_print_string (x1,x2,x3,s,stack) =
+    let stack = x2::stack in
+    let stack = x3::stack in
+    let (x1,x2,x3,s) = x64_print_str (x1,x2,x3,s) in
+    let (x3,stack) = (HD stack, TL stack) in
+    let (x2,stack) = (HD stack, TL stack) in
+      (x1,x2,x3,s,stack)`
+
+val x64_print_string_thm = prove(
+  ``(x1 = BlockList (MAP Chr xs)) ==>
+    x64_print_string_pre (x1,x2,x3,s,stack) /\
+    (x64_print_string (x1,x2,x3,s,stack) =
+       (BlockList [],x2,x3,s with output := STRCAT s.output xs,stack))``,
+  SIMP_TAC std_ss [x64_print_string_def,LET_DEF,x64_print_string_pre_def,HD,TL]
+  \\ REPEAT STRIP_TAC
+  \\ ASSUME_TAC x64_print_str_thm \\ SEP_I_TAC "x64_print_str"
+  \\ FULL_SIMP_TAC std_ss [NOT_CONS_NIL]);
+
+val zHEAP_PRINT_STRING = x64_print_string_spec
+    |> RW [UNDISCH x64_print_string_thm]
+    |> SIMP_RULE std_ss [LET_DEF,SEP_CLAUSES]
+    |> DISCH_ALL |> RW [GSYM SPEC_MOVE_COND]
+
+
 
 (*
 val zEL0 = zHEAP_Block_El |> Q.INST [`k`|->`0`] |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
@@ -20189,7 +20208,32 @@ val zHEAP_IF_INL_JUMP_TRUE =
   zHEAP_IF_INL_JUMP |> DISCH ``getTag x1 = ^inl_tag``
   |> SIMP_RULE std_ss [] |> RW [GSYM SPEC_MOVE_COND]
 
+val tags_eq =
+  ``(bootstrapProof$inr_tag,
+     bootstrapProof$inl_tag,
+     bootstrapProof$errors_tag,
+     bootstrapProof$longs_tag,
+     bootstrapProof$numbers_tag,
+     bootstrapProof$others_tag,
+     bootstrapProof$strings_tag)`` |>
+  (EVAL THENC REWRITE_CONV [bootstrapProofTheory.repl_contags_env_def] THENC
+   EVAL THENC REWRITE_CONV [compileReplTheory.compile_repl_module_eq] THENC
+   EVAL) |> RW [PAIR_EQ]
+  |> CONJ conLangTheory.cons_tag_def
+  |> CONJ conLangTheory.nil_tag_def
+  |> CONJ conLangTheory.some_tag_def
+  |> CONJ conLangTheory.none_tag_def
+  |> CONJ block_tag_def
 
+val Block_FIX = prove(
+  ``(bootstrapProof$BlockInr = x64_heap$BlockInr) /\
+    (bootstrapProof$BlockInl = x64_heap$BlockInl) /\
+    (bootstrapProof$BlockSym = x64_heap$BlockSym) /\
+    (bootstrapProof$BlockPair = x64_heap$BlockPair) /\
+    (bootstrapProof$BlockList = x64_heap$BlockList) /\
+    (bootstrapProof$BlockCons = x64_heap$BlockCons) /\
+    (bootstrapProof$BlockNil = x64_heap$BlockNil)``,
+  cheat); (* tag numbers *)
 
 val ref_adjust_IMP_ODD = prove(
   ``!r. r IN FDOM (ref_adjust (cb2,sb2,F) bs2.refs) ==> ODD r``,
@@ -20322,15 +20366,6 @@ val zHEAP_EVAL_UNTIL_STOP = let
   val th = th |> SIMP_RULE std_ss [word_arith_lemma1]
   in th end
 
-val zHEAP_1_Number_0 = zHEAP_Num1 |> Q.INST [`k`|->`0`]
-  |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
-
-val zHEAP_1_Number_1 = zHEAP_Num1 |> Q.INST [`k`|->`1`]
-  |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
-
-val zHEAP_1_Number_2 = zHEAP_Num1 |> Q.INST [`k`|->`2`]
-  |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
-
 val EL_SIMPS =
   LIST_CONJ [EVAL ``EL 0 (x::xs)``,
              EVAL ``EL 1 (x::x1::xs)``,
@@ -20359,21 +20394,56 @@ val zHEAP_REPL_STEP_UNTIL_INL_IF = let
   val th = th |> SIMP_RULE std_ss [ADD_ASSOC]
   in th end;
 
+val zHEAP_ERROR_ERROR = prove(
+  ``(if b then x \/ y else x2 \/ y) \/ y = if b then x \/ y else SEP_DISJ x2 y``,
+  Cases_on `b` \\ fs [] \\ fs [SEP_DISJ_ASSOC] \\ fs [SEP_DISJ_def]);
+
+val (code_length_inr,zHEAP_REPL_RUN_INR) = let
+  val th = zHEAP_REPL_STEP_UNTIL_INL_IF
+    |> Q.INST [`inl_or_inr`|->`BlockInr (BlockPair (msg_chars,y7))`]
+    |> SIMP_RULE std_ss [EVAL ``getTag (BlockInr x)``]
+  val th = SPEC_COMPOSE_RULE [th,zHEAP_PUSH3,zHEAP_PUSH4]
+  val th =
+    SPEC_COMPOSE_RULE [th,
+       zHEAP_MOVE_12,zHEAP_1_Number_0,zHEAP_EL,zHEAP_MOVE_13,
+       zHEAP_MOVE_12,zHEAP_1_Number_0,zHEAP_EL]
+    |> SIMP_RULE std_ss [EL_SIMPS,SEP_CLAUSES,getRefPtr_def,
+         BlockInr_def,BlockPair_def]
+  val th =
+    SPEC_COMPOSE_RULE [th,zHEAP_PRINT_STRING]
+    |> SIMP_RULE (std_ss++sep_cond_ss) [SPEC_MOVE_COND] |> UNDISCH_ALL
+  val th =
+    SPEC_COMPOSE_RULE [th,
+       zHEAP_MOVE_32,zHEAP_1_Number_1,zHEAP_EL,zHEAP_PUSH1,
+       zHEAP_MOVE_42,zHEAP_1_Number_1,zHEAP_EL,
+       zHEAP_MOVE_12,zHEAP_1_Number_1,zHEAP_EL,
+       zHEAP_2_Number_0,zHEAP_MOVE_13,zHEAP_POP1]
+    |> SIMP_RULE std_ss [EL_SIMPS,SEP_CLAUSES,getRefPtr_def,
+         BlockInr_def,BlockPair_def,HD,TL,NOT_CONS_NIL]
+    |> CONV_RULE (POST_CONV (SIMP_CONV (srw_ss())[]))
+  val th = SPEC_COMPOSE_RULE [th,zHEAP_LEX_THEN_COND_TERMINATE_UPDATE_JUMP]
+    |> SIMP_RULE std_ss [HD,TL,NOT_CONS_NIL,getRefPtr_def,
+         getNumber_def,isNumber_def,isRefPtr_def,EL_SIMPS]
+    |> CONV_RULE (POST_CONV (SIMP_CONV (srw_ss())[]))
+  val th = th
+    |> DISCH ``both_refs cs.stack_trunk cb s2 t1_cb t1 ' iptr = ValueArray [tt]``
+    |> SIMP_RULE std_ss [getValueArray_def,isValueArray_def,ADD_ASSOC,
+         EVAL ``LUPDATE x 0 [y]``,LENGTH,SEP_CLAUSES] |> UNDISCH_ALL
+    |> RW [zHEAP_ERROR_ERROR]
+  val tm = get_pc th
+  val code_length = tm |> rand |> rand |> rand |> rator |> rand
+  val lemma = prove(``0x10000000000000000w:word64 = 0w``,fs [n2w_11])
+  val th =
+    th |> Q.INST [`imm32`|->`0w - n2w ^code_length`]
+       |> CONV_RULE (POST_CONV (SIMP_CONV (srw_ss())[lemma]))
+       |> CONV_RULE ((RATOR_CONV o RAND_CONV) (SIMP_CONV (srw_ss())[]))
+       |> RW [EVAL ``-1w:word8``]
+  val code_length_inr = code_length
+  in (code_length_inr,th) end
+
 (*
   COMPILER_RUN_INV_INR
 *)
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 (* cheat CHEAT
@@ -20400,11 +20470,13 @@ CONJ iind_eq oind_eq
 
 
 
-val inl_tag_eq =
-  ``bootstrapProof$inl_tag`` |>
-  (EVAL THENC REWRITE_CONV [bootstrapProofTheory.repl_contags_env_def] THENC
-   EVAL THENC REWRITE_CONV [compileReplTheory.compile_repl_module_eq] THENC
-   EVAL)
+
+
+
+  ``cons_tag``
+
+
+
 
   zBC_HEAP_N
   zBC_HEAP_DIVERGES
