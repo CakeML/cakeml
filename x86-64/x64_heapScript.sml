@@ -11644,6 +11644,71 @@ val zHEAP_SET_STOP_ADDR = let
   in th end;
 
 
+(* set stop_addr using jump -- alternative version *)
+
+val zHEAP_SET_STOP_ADDR_ALT = let
+  val th0 = x64_call_imm |> Q.INST [`imm32`|->`0w`]
+              |> SIMP_RULE std_ss [EVAL ``(sw2sw:word32->word64) 0w``,
+                    word_arith_lemma1,EVAL ``IMM32 0w``]
+  val th1 = compose_specs ["add r13,18","mov [r9+136],r13"]
+  val ((jmp_imm,_,_),_) = prog_x64Lib.x64_spec "E9"
+  val th = SPEC_COMPOSE_RULE [th0,x64_pop_r13,th1,jmp_imm]
+              |> SIMP_RULE std_ss [NOT_CONS_NIL,HD,TL,
+                   SEP_CLAUSES,word_arith_lemma1,ADD_ASSOC]
+  val th = th |> Q.INST [`rip`|->`p`]
+  val th = th |> DISCH_ALL |> SIMP_RULE (std_ss++sep_cond_ss)
+             [SPEC_MOVE_COND,HD,TL,NOT_CONS_NIL] |> UNDISCH_ALL
+  val target = ``~zS * zPC p * zVALS cs vals *
+      cond (heap_inv (cs,x1,x2,x3,x4,refs,stack,s,NONE) vals)``
+  val (th,goal) = expand_pre th target
+  val lemma = prove(goal, SIMP_TAC (std_ss++star_ss) [zVALS_def,SEP_IMP_REFL])
+  val th = MP th lemma
+  val th = th |> DISCH_ALL |> DISCH T
+              |> PURE_REWRITE_RULE [AND_IMP_INTRO]
+  val pc = get_pc th
+  val th = MATCH_MP SPEC_WEAKEN_LEMMA th
+  val th = th |> Q.SPEC `zHEAP (cs,x1,x2,x3,x4,refs,stack,
+              s with local := (s.local with stop_addr := p + 0x18w),NONE) * ~zS *^pc`
+  val goal = th |> concl |> dest_imp |> fst
+(*
+  gg goal
+*)
+  val lemma = prove(goal,
+    fs [] \\ SIMP_TAC std_ss [LET_DEF,SEP_CLAUSES]
+    \\ SIMP_TAC std_ss [zHEAP_def,SEP_IMP_def,SEP_CLAUSES,SEP_EXISTS_THM]
+    \\ STRIP_TAC \\ STRIP_TAC THEN1
+     (FULL_SIMP_TAC std_ss [heap_inv_def,LENGTH_MAP,LENGTH_APPEND]
+      \\ FULL_SIMP_TAC std_ss [x64_store_def,one_list_def,word_arith_lemma1]
+      \\ SEP_R_TAC \\ FULL_SIMP_TAC std_ss []
+      \\ Q.PAT_ASSUM `heap_vars_ok vs` MP_TAC
+      \\ FULL_SIMP_TAC std_ss [NOT_CONS_NIL,heap_vars_ok_def]
+      \\ blastLib.BBLAST_TAC)
+    \\ REPEAT STRIP_TAC
+    \\ Q.EXISTS_TAC `vals with <| reg13 := p + 0x18w;
+         memory := (vals.reg9 + 0x88w =+ p + 0x18w) vals.memory |>`
+    \\ SIMP_TAC (std_ss++sep_cond_ss) [zVALS_def,cond_STAR]
+    \\ SIMP_TAC (srw_ss()) []
+    \\ FULL_SIMP_TAC (std_ss++star_ss) [] \\ REPEAT STRIP_TAC
+    \\ POP_ASSUM (K ALL_TAC)
+    \\ FULL_SIMP_TAC std_ss [heap_inv_def] \\ ASM_SIMP_TAC (srw_ss()) []
+    \\ Q.LIST_EXISTS_TAC [`vs with local := (s.local with stop_addr := p+0x18w)`,
+         `r1`,`r2`,`r3`,`r4`,`roots`,`heap`,`a`,`sp`]
+    \\ FULL_SIMP_TAC std_ss [MAP,APPEND,HD,TL,x64_store_def]
+    \\ FULL_SIMP_TAC std_ss [x64_store_def,one_list_def,word_arith_lemma1]
+    \\ SEP_R_TAC \\ FULL_SIMP_TAC (srw_ss()) [heap_vars_ok_def,SEP_CLAUSES]
+    \\ Q.ABBREV_TAC `f = vals.memory`
+    \\ Q.ABBREV_TAC `df = vals.memory_domain`
+    \\ SEP_WRITE_TAC)
+  val th = MP th lemma
+  val th = Q.GEN `vals` th |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
+  val (th,goal) = SPEC_STRENGTHEN_RULE th
+    ``zHEAP (cs, x1, x2, x3, x4, refs, stack, s, NONE) * ~zS * zPC p``
+  val lemma = prove(goal,
+    SIMP_TAC (std_ss++star_ss) [zHEAP_def,SEP_IMP_REFL,SEP_CLAUSES])
+  val th = MP th lemma
+  in th end;
+
+
 (* set stop_addr to zero *)
 
 val zHEAP_ZERO_STOP_ADDR = let
@@ -12618,6 +12683,9 @@ val zBC_JumpIf_1 = let
   val th = th |> DISCH_ALL |> RW [AND_IMP_INTRO] |> RW [GSYM SPEC_1_MOVE_COND]
   val th = RW [GSYM word_add_n2w] th
   in th end
+
+val zHEAP_JumpIf =
+  MATCH_MP SPEC_1_IMP_SPEC zBC_JumpIf_1 |> RW [SEP_CLAUSES]
 
 val zHEAP_CALL_PTR_1 = let
   val th1 = zHEAP_MOVE_12
@@ -17680,6 +17748,9 @@ val zSTANDALONE_CORRECT = curry save_thm "zSTANDALONE_CORRECT" let
 
 
 
+
+
+
 val x64_repl_implementation_def = Define `
   x64_repl_implementation = ARB`;
 
@@ -18341,6 +18412,8 @@ val zHEAP_PRINT_STRING = x64_print_string_spec
 
 
 (* eval bootstrap i.e. repl_decs *)
+
+
 
 val ref_adjust_FEMPTY = prove(
   ``ref_adjust (p,x,ev) FEMPTY = FEMPTY``,
@@ -19972,6 +20045,8 @@ val tm = bs_to_term (get_bs dlets)
 
 *)
 
+*)
+
 val zHEAP_COND_TERMINATE = let
   val l = 0x8 + 2
   val (_,_,sts,_) = prog_x64Lib.x64_tools
@@ -20088,8 +20163,10 @@ val zHEAP_LEX_THEN_COND_TERMINATE_UPDATE_JUMP = let
            |> SIMP_RULE (srw_ss()) [ADD_ASSOC,GSYM SPEC_MOVE_COND]
   in th end
 
+(*
 val zEL0 = zHEAP_Block_El |> Q.INST [`k`|->`0`] |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
 val zEL1 = zHEAP_Block_El |> Q.INST [`k`|->`1`] |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
+*)
 
 val bool_to_val_11 = prove(
   ``!b1 b2. (bool_to_val b1 = bool_to_val b2) = (b1 = b2)``,
@@ -20111,6 +20188,183 @@ val zHEAP_IF_INL_JUMP_FALSE =
 val zHEAP_IF_INL_JUMP_TRUE =
   zHEAP_IF_INL_JUMP |> DISCH ``getTag x1 = ^inl_tag``
   |> SIMP_RULE std_ss [] |> RW [GSYM SPEC_MOVE_COND]
+
+
+
+
+val ref_adjust_IMP_ODD = prove(
+  ``!r. r IN FDOM (ref_adjust (cb2,sb2,F) bs2.refs) ==> ODD r``,
+  SIMP_TAC (srw_ss()) [ref_adjust_def,LET_DEF,PULL_EXISTS]
+  \\ FULL_SIMP_TAC std_ss [GSYM ADD1,ODD,EVEN_DOUBLE,GSYM EVEN_ODD]);
+
+val ref_adjust_IMP_EVEN = prove(
+  ``!r. r IN FDOM (ref_adjust (cb2,sb2,T) bs2.refs) ==> EVEN r``,
+  SIMP_TAC (srw_ss()) [ref_adjust_def,LET_DEF,PULL_EXISTS]
+  \\ FULL_SIMP_TAC std_ss [GSYM ADD1,ODD,EVEN_DOUBLE,GSYM EVEN_ODD]);
+
+
+val all_refs_def = Define `
+  all_refs cb ev stack_trunk refs globals =
+    ref_adjust (cb,stack_trunk − 0x8w,ev) refs ⊌
+    ref_globals (cb,stack_trunk − 0x8w,ev) globals`;
+
+val both_refs_def = Define `
+  both_refs stack_trunk cb1 s1 cb2 s2 =
+    FUNION (all_refs cb1 T stack_trunk s1.refs s1.globals)
+           (all_refs cb2 F stack_trunk s2.refs s2.globals)`
+
+val IN_FDOM_all_refs = prove(
+  ``(!x. x IN FDOM (all_refs t1_cb F stack_trunk t1.refs t1.globals) ==> ODD x) /\
+    (!x. x IN FDOM (all_refs t1_cb T stack_trunk t1.refs t1.globals) ==> EVEN x)``,
+  fs [all_refs_def] \\ REPEAT STRIP_TAC
+  \\ IMP_RES_TAC ref_adjust_IMP_EVEN
+  \\ IMP_RES_TAC ref_adjust_IMP_ODD
+  \\ fs [ref_globals_def]);
+
+val zBC_HEAP_EVAL_UNTIL_STOP = let
+  val th1 = zBC_HEAP_N
+    |> Q.SPECL [`n`,`s1`,`s2`]
+    |> UNDISCH_ALL
+    |> MATCH_MP SPEC_N_IMP_SPEC |> DISCH_ALL
+    |> RW [standalone_bc_init_state_lemma]
+    |> Q.INST [`stack`|->`[]`]
+    |> RW [LENGTH,ADD1] |> SIMP_RULE std_ss []
+    |> UNDISCH_ALL
+  val th2 =
+    zBC_HEAP_Stop
+    |> Q.INST [`s1`|->`s2`,`s2`|->`s3`,`stack`|->`[]`]
+    |> UNDISCH_ALL
+  val th3 =
+    MATCH_MP SPEC_EXTEND_CODE th2 |> Q.SPEC `x64_code 0 bc_code`
+    |> DISCH_ALL |> SIMP_RULE std_ss []
+    |> SIMP_RULE std_ss [AND_IMP_INTRO]
+  val goal = concl th3 |> dest_imp |> fst
+  val goal =
+    ``(bc_fetch s2 = SOME (Stop b)) /\ (s2.code = bc_code) /\
+      (s2.inst_length = x64_inst_length) ==> ^goal``
+  val lemma = prove(goal,
+    fs [bc_fetch_def] \\ REPEAT STRIP_TAC
+    \\ MATCH_MP_TAC x64_code_EQ_x64 \\ fs [])
+  val th4 = MP th3 (lemma |> UNDISCH)
+  val set_lemma = prove(
+    ``x INSERT (s UNION (x INSERT s)) = x INSERT s``,
+    fs [EXTENSION] \\ METIS_TAC [])
+  val th5 = SPEC_COMPOSE_RULE [th1,th4]
+            |> Q.INST [`bc_code`|->`s1.code`]
+            |> RW [set_lemma]
+  in th5 end;
+
+val bc_adjust_bool_to_val = prove(
+  ``bc_adjust (cb,sb,ev) (bool_to_val b) = bool_to_val b``,
+  Cases_on `b` \\ EVAL_TAC);
+
+val zHEAP_EVAL_UNTIL_STOP = let
+  val th =
+    zBC_HEAP_EVAL_UNTIL_STOP
+    |> SPEC_ALL
+    |> DISCH ``(s1:bc_state).stack = []``
+    |> DISCH ``(s2:bc_state).stack = []``
+    |> DISCH ``s.local.printing_on = 0w``
+    |> Q.INST [`stack`|->`[]`,`ev`|->`T`,
+              `f2`|->`all_refs t1_cb F cs.stack_trunk t1.refs t1.globals`]
+    |> DISCH ``cs.stack_trunk - 0x8w = sb`` |> Q.GEN `sb`
+    |> SIMP_RULE std_ss [LENGTH,zBC_HEAP_def,LET_DEF,MAP,HD,TL,APPEND,SEP_CLAUSES,
+         FUNION_ASSOC,GSYM all_refs_def,ref_addr_def,IN_FDOM_all_refs,
+         EVAL ``((s2:bc_state) with stack := [x]).stack``,
+         EVAL ``((s2:bc_state) with stack := [x]).refs``,
+         EVAL ``((s2:bc_state) with stack := [x]).globals``,
+         EVAL ``((s2:bc_state) with stack := [x]).handler``,
+         bc_adjust_bool_to_val,GSYM SPEC_PRE_EXISTS]
+    |> UNDISCH_ALL
+    |> SPEC_ALL
+    |> DISCH ``cb + n2w (2 * s1.pc) =
+               p + n2w (24 + SIGN_EXTEND 32 64 (w2n (imm32:word32))):word64``
+    |> SIMP_RULE std_ss [] |> UNDISCH_ALL
+  val SPEC_zHEAP_SWAP = prove(
+    ``SPEC m (zHEAP (cs,x1,x2,x3,x4,refs,stack,s,space) * zPC p * ~zS) c q ==>
+      !t p'. ((cs,x1,x2,x3,x4,refs,stack,s,space) = t) /\ (p = p') ==>
+             SPEC m (zHEAP t * zPC p' * ~zS) c q``,
+    fs []);
+  val th1 =
+    MATCH_MP SPEC_zHEAP_SWAP th
+    |> Q.SPECL [`(cs',x1',x2',x3',x4',refs',stack',s'',space')`,`pp`]
+    |> RW [PAIR_EQ,GSYM AND_IMP_INTRO]
+    |> RW [theorem "zheap_state_component_equality"]
+    |> SIMP_RULE (srw_ss()) []
+    |> Q.INST [`s''`|->`s`] |> RW []
+    |> UNDISCH_ALL
+  val th = th |> Q.INST [`s`|->`s with local := s.local with stop_addr := p + 0x18w`]
+  val th = SPEC_COMPOSE_RULE [zHEAP_SET_STOP_ADDR_ALT,th1]
+  val th = th |> DISCH_ALL |> GEN_ALL |> SIMP_RULE std_ss []
+              |> SPEC_ALL |> UNDISCH_ALL
+  val th = th |> CONV_RULE (POST_CONV (SIMP_CONV (srw_ss()) []))
+  val th = th |> RW [GSYM both_refs_def]
+  in th end;
+
+
+
+(*
+
+
+*)
+
+(*
+
+*)
+
+
+(* cheat CHEAT
+
+repl_funTheory.basis_repl_fun_def
+initCompEnvTheory.initial_bc_state_def
+repl_funTheory.basis_main_loop_def
+
+
+  zBC_HEAP_N
+  zBC_HEAP_DIVERGES
+   - TODO: need code in code heap
+   - TODO: remove zBC_HEAP
+
+  zBC_HEAP_def
+
+  COMPILER_RUN_INV_INL
+  COMPILER_RUN_INV_INR
+  COMPILER_RUN_INV_empty_stack
+  COMPILER_RUN_INV_ptrs
+
+  print_find "repl_bc_state"
+
+  COMPILER_RUN_INV_init
+
+  COMPILER_RUN_INV_repl_step
+
+  zBC_HEAP_N
+
+
+
+ref_globals_def
+
+
+
+
+val TOP_OF_LOOP_def = Define `
+  TOP_OF_LOOP s1 s2 repl_cb cs =
+    (zBC_HEAP s1 (x,cs,[],s,out) (repl_cb,ARB,T,f2))
+  `
+
+
+
+  (basis_repl_step s = INL (code,new_states)) /\
+  (bs' = install_bc_lists code bs) /\
+  code_executes_ok bs' /\
+  (bc_eval bs' = NONE)
+
+
+EVAL ``strip_labels initial_bc_state``
+
+max_print_depth := 50
+
+print_find "initial_bc_state_def"
 
 val zHEAP_INR_CASE_RAW = let (* COMPILER_RUN_INV_INR *)
   val FLOOKUP_SOME_IMP = prove(
@@ -20249,16 +20503,6 @@ val zHEAP_INL_CASE_AFTER_BC_EVAL = let (* COMPILER_RUN_INV_INL *)
                 getRefPtr_def,isRefPtr_def] |> RW [GSYM BlockPair_def]
            |> CONV_RULE (SIMP_CONV (srw_ss()) [ADD_ASSOC,lemma])
   in th end;
-
-val ref_adjust_IMP_ODD = prove(
-  ``!r. r IN FDOM (ref_adjust (cb2,sb2,F) bs2.refs) ==> ODD r``,
-  SIMP_TAC (srw_ss()) [ref_adjust_def,LET_DEF,PULL_EXISTS]
-  \\ FULL_SIMP_TAC std_ss [GSYM ADD1,ODD,EVEN_DOUBLE,GSYM EVEN_ODD]);
-
-val ref_adjust_IMP_EVEN = prove(
-  ``!r. r IN FDOM (ref_adjust (cb2,sb2,T) bs2.refs) ==> EVEN r``,
-  SIMP_TAC (srw_ss()) [ref_adjust_def,LET_DEF,PULL_EXISTS]
-  \\ FULL_SIMP_TAC std_ss [GSYM ADD1,ODD,EVEN_DOUBLE,GSYM EVEN_ODD]);
 
 val zREPL_INV_def = Define `
   zREPL_INV bs2 (x,s,out,stack,cs,cb2,sb2,x1,p) =
@@ -20513,6 +20757,8 @@ val TEMPORAL_FULL_BC_EXEC_TUNED = let
            |> Q.INST [`stack`|->`[]`,`ev`|->`F`]
            |> SIMP_RULE std_ss [LENGTH]
   in th end
+
+
 
 (*
 
