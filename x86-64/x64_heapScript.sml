@@ -20191,7 +20191,6 @@ val zHEAP_IF_INL_JUMP_TRUE =
 
 
 
-
 val ref_adjust_IMP_ODD = prove(
   ``!r. r IN FDOM (ref_adjust (cb2,sb2,F) bs2.refs) ==> ODD r``,
   SIMP_TAC (srw_ss()) [ref_adjust_def,LET_DEF,PULL_EXISTS]
@@ -20258,6 +20257,19 @@ val bc_adjust_bool_to_val = prove(
   ``bc_adjust (cb,sb,ev) (bool_to_val b) = bool_to_val b``,
   Cases_on `b` \\ EVAL_TAC);
 
+val SPEC_NEW_DISJ = prove(
+  ``SPEC m p c q ==> !r. SPEC m (p \/ r) c (q \/ r)``,
+  fs [SPEC_PRE_DISJ] \\ REPEAT STRIP_TAC
+  THEN1
+   (IMP_RES_TAC SPEC_WEAKEN
+    \\ POP_ASSUM MATCH_MP_TAC
+    \\ fs [SEP_IMP_def,SEP_DISJ_def])
+  \\ `SPEC m r c r` by fs [SPEC_REFL]
+  \\ IMP_RES_TAC SPEC_WEAKEN
+  \\ POP_ASSUM (K ALL_TAC)
+  \\ POP_ASSUM MATCH_MP_TAC
+  \\ fs [SEP_IMP_def,SEP_DISJ_def]);
+
 val zHEAP_EVAL_UNTIL_STOP = let
   val th =
     zBC_HEAP_EVAL_UNTIL_STOP
@@ -20299,18 +20311,69 @@ val zHEAP_EVAL_UNTIL_STOP = let
               |> SPEC_ALL |> UNDISCH_ALL
   val th = th |> CONV_RULE (POST_CONV (SIMP_CONV (srw_ss()) []))
   val th = th |> RW [GSYM both_refs_def]
+  val th = th |> Q.INST [`imm32`|->`repl_step_imm32`]
+  val th1 = SPEC_COMPOSE_RULE [zHEAP_POP2,zHEAP_MOVE_23]
+    |> Q.INST [`stack`|->`[Number 0]`]
+    |> RW [HD,TL,NOT_CONS_NIL,SEP_CLAUSES]
+    |> MATCH_MP SPEC_NEW_DISJ |> Q.SPEC `zHEAP_ERROR cs`
+    |> Q.GENL [`x3`,`x2`] |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
+  val lemma = SPEC_COMPOSE |> RW1 [CONJ_COMM] |> RW [GSYM AND_IMP_INTRO]
+  val th = MATCH_MP (MATCH_MP lemma th1) th
+  val th = th |> SIMP_RULE std_ss [word_arith_lemma1]
+  in th end
+
+val zHEAP_1_Number_0 = zHEAP_Num1 |> Q.INST [`k`|->`0`]
+  |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
+
+val zHEAP_1_Number_1 = zHEAP_Num1 |> Q.INST [`k`|->`1`]
+  |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
+
+val zHEAP_1_Number_2 = zHEAP_Num1 |> Q.INST [`k`|->`2`]
+  |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
+
+val EL_SIMPS =
+  LIST_CONJ [EVAL ``EL 0 (x::xs)``,
+             EVAL ``EL 1 (x::x1::xs)``,
+             EVAL ``EL 2 (x::x1::x2::xs)``,
+             EVAL ``EL 3 (x::x1::x2::x3::xs)``,
+             EVAL ``EL 4 (x::x1::x2::x3::x4::xs)``,
+             integerTheory.NUM_OF_INT,
+             getNumber_def,getContent_def,LENGTH,isNumber_def,isBlock_def,
+             integerTheory.INT_LT_CALCULATE,integerTheory.INT_LE_CALCULATE]
+
+val zHEAP_REPL_STEP_UNTIL_INL_IF = let
+  val th =
+    zHEAP_EVAL_UNTIL_STOP
+    |> Q.INST [`x`|->`Block 0 [RefPtr 1; RefPtr iptr; RefPtr optr]`]
+  val th =
+    SPEC_COMPOSE_RULE [th,
+       zHEAP_MOVE_42,zHEAP_1_Number_1,zHEAP_EL,
+       zHEAP_MOVE_12,zHEAP_1_Number_2,zHEAP_EL,
+       zHEAP_MOVE_12,zHEAP_1_Number_0,zHEAP_DEREF]
+    |> SIMP_RULE std_ss [EL_SIMPS,SEP_CLAUSES,getRefPtr_def]
+    |> DISCH ``both_refs cs.stack_trunk cb s2 t1_cb t1 ' optr =
+                 ValueArray (inl_or_inr::ys)``
+    |> SIMP_RULE std_ss [EL_SIMPS,SEP_CLAUSES,getRefPtr_def,getValueArray_def,
+          isRefPtr_def,isValueArray_def] |> UNDISCH_ALL
+  val th = SPEC_COMPOSE_RULE [th,zHEAP_IF_INL_JUMP]
+  val th = th |> SIMP_RULE std_ss [ADD_ASSOC]
   in th end;
 
-
-
 (*
-
-
+  COMPILER_RUN_INV_INR
 *)
 
-(*
 
-*)
+
+
+
+
+
+
+
+
+
+
 
 
 (* cheat CHEAT
@@ -20320,17 +20383,60 @@ initCompEnvTheory.initial_bc_state_def
 repl_funTheory.basis_main_loop_def
 
 
+val iind_eq =
+  ``iind`` |>
+  (EVAL THENC REWRITE_CONV [bootstrapProofTheory.repl_contags_env_def] THENC
+   EVAL THENC REWRITE_CONV [compileReplTheory.compile_repl_module_eq] THENC
+   EVAL)
+
+val oind_eq =
+  ``oind`` |>
+  (EVAL THENC REWRITE_CONV [bootstrapProofTheory.repl_contags_env_def] THENC
+   EVAL THENC REWRITE_CONV [compileReplTheory.compile_repl_module_eq] THENC
+   EVAL)
+
+CONJ iind_eq oind_eq
+
+
+
+
+val inl_tag_eq =
+  ``bootstrapProof$inl_tag`` |>
+  (EVAL THENC REWRITE_CONV [bootstrapProofTheory.repl_contags_env_def] THENC
+   EVAL THENC REWRITE_CONV [compileReplTheory.compile_repl_module_eq] THENC
+   EVAL)
+
   zBC_HEAP_N
   zBC_HEAP_DIVERGES
    - TODO: need code in code heap
    - TODO: remove zBC_HEAP
 
+
+  print_find "inr_tag"
+
+
+  inr_tag_def
+
+
+  on a similar note:
+
+
   zBC_HEAP_def
 
+  COMPILER_RUN_INV_def
+
+
   COMPILER_RUN_INV_INL
-  COMPILER_RUN_INV_INR
   COMPILER_RUN_INV_empty_stack
   COMPILER_RUN_INV_ptrs
+
+print_find "COMPILER_RUN_INV_references"
+
+  COMPILER_RUN_INV_references
+
+  dest_thy_const ``iloc``
+
+
 
   print_find "repl_bc_state"
 
