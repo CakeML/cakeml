@@ -1,4 +1,4 @@
-open HolKernel Parse boolLib bossLib; 
+open HolKernel Parse boolLib bossLib;
 open listTheory arithmeticTheory ml_translatorLib mini_preludeTheory listLib;
 open reg_allocTheory word_procTheory sortingTheory ml_translatorTheory
 open sptreeTheory state_transformerTheory
@@ -45,65 +45,18 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
-(*sptree*)
-val _ = Parse.reveal"lrnext"
+(* translation *)
 
-val DIV2_BIT2 = store_thm("DIV2_BIT2",
-  ``DIV2 (BIT2 x) = SUC x``,
-  metis_tac[numeral_div2,NUMERAL_DEF])
-
-val bit_zero = prove(
-``BIT1 n ≠ 0 ∧ BIT2 n ≠ 0``,
-  simp[Once BIT1,Once BIT2] >>
-  simp[Once BIT2])
-
-val DIV2_PRE = store_thm("DIV2_PRE",
-  ``∀n. DIV2 (PRE n) = if ODD n then DIV2 n else PRE (DIV2 n)``,
-  ho_match_mp_tac bit_induction >>
-  simp[numeral_evenodd] >>
-  conj_tac >- ( simp[ALT_ZERO] ) >>
-  simp[numeral_pre] >>
-  simp[DIV2_BIT1,DIV2_BIT2] >>
-  ho_match_mp_tac bit_induction >>
-  simp[numeral_evenodd,numeral_pre,DIV2_BIT1,DIV2_BIT2,numeral_suc] >>
-  conj_tac >- ( simp[ALT_ZERO] ) >>
-  rpt strip_tac >>
-  metis_tac[SUC_PRE,bit_zero,NOT_ZERO_LT_ZERO])
-
-val lrnext_alt = prove(
-  ``∀n. lrnext n =
-        if n = 0 then 1
-        else 2 * lrnext (DIV2 (PRE n))``,
-  ho_match_mp_tac bit_induction >>
-  conj_tac >- simp[lrnext_thm,ALT_ZERO] >>
-  simp[lrnext_thm,bit_zero] >>
-  conj_tac >> Cases >> simp[lrnext_thm] >>
-  simp[DIV2_PRE,numeral_evenodd,DIV2_BIT1,lrnext_thm,DIV2_BIT2])
-
-val lrnext_ind = store_thm("lrnext_ind",
-``∀P.
-  (∀n:num. (n ≠ 0 ⇒ P ((n-1) DIV 2)) ⇒ P n) ⇒ ∀v. P v``,
-  ntac 2 strip_tac>>
-  completeInduct_on`v`>>
-  fs[]>>
-  last_assum(qspec_then `v` assume_tac)>>
-  Cases_on`v`>>fs[]>>
-  `(n DIV 2) < SUC n` by
-    (Cases_on`n`>>fs[]>>
-    Q.SPECL_THEN [`SUC n'`,`2`] assume_tac arithmeticTheory.DIV_LESS>>
-    DECIDE_TAC)>>
-  metis_tac[])
-
-val _ = lrnext_alt |> REWRITE_RULE[PRE_SUB1,DIV2_def] |> curry save_thm"lrnext_alt" |> translate
+val _ = translate lrnext_def
 
 val option_filter_alt = prove(``
-  (option_filter ([]:'a option list) = []) ∧ 
+  (option_filter ([]:'a option list) = []) ∧
   ∀x:'a option xs.
-  (option_filter (x::xs) = 
+  (option_filter (x::xs) =
     case x of NONE => option_filter xs | SOME y => y :: (option_filter xs))``,
   rw[option_filter_def]>>Cases_on`x`>>fs[])
 
-val def = option_filter_alt |> REWRITE_RULE[] |> curry save_thm"option_filter_alt"  
+val def = option_filter_alt |> REWRITE_RULE[] |> curry save_thm"option_filter_alt"
 val _ = translate def
 
 val _ = translate briggs_ok_def
@@ -125,10 +78,10 @@ val rpt_do_step_alt = prove(``
   Q.ISPECL_THEN [`s`,`s.graph`,`r`] mp_tac do_step_graph_lemma>>
   (*Need to use a different lemma without undir_graph assumption*)
   discharge_hyps>- cheat>>
-  (*Prove that the clock decreases*) 
+  (*Prove that the clock decreases*)
   fsm[]>>ntac 2 strip_tac>>
   simp[Once whileTheory.WHILE,SimpRHS])
-  
+
 val _ = translate rpt_do_step_alt
 
 val rpt_do_step2_alt = prove(``
@@ -144,7 +97,7 @@ val rpt_do_step2_alt = prove(``
   Cases_on`do_step2 s`>>
   first_x_assum(qspec_then`r.clock` mp_tac)>>
   discharge_hyps>- cheat>>
-  (*Prove that the clock decreases*) 
+  (*Prove that the clock decreases*)
   fsm[]>>strip_tac>>
   simp[Once whileTheory.WHILE,SimpRHS])
 
@@ -189,7 +142,7 @@ val init_ra_state_side_def = prove(``
 val full_coalesce_aux_side_def = prove(``
   ∀ls G.
   (∀pxy. MEM pxy ls ⇒let (p:num,x,y) = pxy in
-    x ∈ domain G ∧ y ∈ domain G) ⇒ 
+    x ∈ domain G ∧ y ∈ domain G) ⇒
   full_coalesce_aux_side G ls``,
   Induct>>
   simp[Once (fetch"-""full_coalesce_aux_side_def")]>>
@@ -204,10 +157,10 @@ val irc_alloc_def =  Define`
   irc_alloc (alg:num) G k moves =
   let s = init_ra_state G k moves in
   let ((),s) = rpt_do_step s in
-  let coalesced = s.coalesced in 
+  let coalesced = s.coalesced in
   let pref = aux_move_pref coalesced (resort_moves(moves_to_sp moves LN)) in
   let (col,ls) = alloc_coloring s.graph k pref s.stack in
-  let (G,spills,coalesce_map) = full_coalesce s.graph moves ls in 
+  let (G,spills,coalesce_map) = full_coalesce s.graph moves ls in
   let s = sec_ra_state G k spills coalesce_map in
   let ((),s) = rpt_do_step2 s in
   let col = spill_coloring G k coalesce_map s.stack col in
