@@ -219,7 +219,6 @@ val remove_colors_def = Define`
 *)
 (*NOTE: If we used redundancy in the graph representations,
  then we would use adj lists here*)
-(*TODO: Make monadic on the last 2 arguments*)
 
 val assign_color_def = Define`
   assign_color G k prefs v col spills =
@@ -238,8 +237,10 @@ val assign_color_def = Define`
       case k of
         [] => 
         (*Spill*) (col,v::spills)
-      | xs => 
-        (*Choose a preferred color*) (insert v (prefs v xs col) col,spills)
+      | (x::xs) => 
+        (*Choose a preferred color*)
+        let color = case prefs v (x::xs) col of NONE => x | SOME y => y in
+        (insert v color col,spills)
     else
       (*Spill if it was not an alloc_var*)
       (col,v::spills)`
@@ -289,12 +290,11 @@ val unbound_colors_def = Define `
       
 (*EVAL``unbound_colors 2 [2;4;8]``*)
 
-(*Probably already in HOL
-  TODO: Maybe use this in the other coloring def as well?
-*)
+(*Probably already in HOL*)
 val option_filter_def = Define`
-  option_filter ls = 
-  MAP THE (FILTER IS_SOME ls)`
+  (option_filter [] = []) ∧ 
+  (option_filter (x::xs) = 
+    case x of NONE => option_filter xs | SOME y => y :: (option_filter xs))`
 
 val assign_color2_def = Define`
   assign_color2 G k prefs v col =
@@ -990,8 +990,9 @@ val full_coalesce_aux = Define`
     let (p,x,y) = move in
     if lookup_g x y G 
     then full_coalesce_aux G xs 
-    else  
-    let e = THE (lookup y G) in
+    else 
+    case lookup y G of NONE => full_coalesce_aux G xs (*Simplify translate*)
+    | SOME e =>  
       (*For each adjacent vertex to y, make it adjacent to x*)
       let edges = MAP FST (toAList e) in
       let G = list_g_insert x edges G in
@@ -1056,17 +1057,13 @@ val rpt_do_step_2_def = Define`
 (*Coalesce, no biased selection*)
 val aux_pref_def = Define`
   aux_pref prefs (v:num) (ls:num list) (col:num num_map) = 
-  let pref_col = 
-      case lookup v prefs of 
-        NONE => NONE
-      | SOME u => 
-        case lookup u col of
-          NONE => NONE (*Should never occur if coalesces are properly done*)
-        | SOME c => if MEM c ls then SOME c else NONE in
-    case pref_col of 
-      NONE => HD ls
-    | SOME x => x`
-
+  case lookup v prefs of 
+    NONE => NONE
+  | SOME u => 
+    case lookup u col of
+      NONE => NONE (*Should never occur if coalesces are properly done*)
+    | SOME c => if MEM c ls then SOME c else NONE`
+    
 (*For the naive algorithm, we now maintain an sptree of
   lists of edges
   Note: the naive method is actually able to take advantage of
@@ -1112,34 +1109,21 @@ val first_match_col_def = Define`
 
 val move_pref_def = Define`
   move_pref prefs (v:num) (ls:num list) (col:num num_map) = 
-  let pref_col = 
-      case lookup v prefs of 
-        NONE => NONE
-      | SOME es =>
-          first_match_col ls col es in
-    case pref_col of 
-      NONE => HD ls
-    | SOME x => x`
-
+  case lookup v prefs of 
+    NONE => NONE
+  | SOME es =>
+      first_match_col ls col es`
+      
 (*Combine coalescing with biased selector
   This should be used for Briggs, and possibly for IRC as well
   It makes IRC slightly more costly in the coloring phase
 *)
 val aux_move_pref_def = Define`
   aux_move_pref cprefs mprefs (v:num) (ls:num list) (col:num num_map) = 
-  let pref_col = 
-      case lookup v cprefs of 
-        NONE => 
-          (case lookup v mprefs of
-            NONE => NONE
-          | SOME es => first_match_col ls col es)
-      | SOME u => 
-        case lookup u col of
-          NONE => NONE (*Should never occur if coalesces are properly done*)
-        | SOME c => if MEM c ls then SOME c else NONE in
-    case pref_col of 
-      NONE => HD ls
-    | SOME x => x`
+  case aux_pref cprefs v ls col of
+    NONE => 
+      move_pref mprefs v ls col
+  | SOME c => SOME c`
 
 (*Extract a coloring function from the generated sptree*)
 val total_color_def = Define`
@@ -1221,7 +1205,6 @@ val reg_alloc_def =  Define`
     col`
 (*End reg alloc def*)
 
-
 (*Start reg_alloc proofs
   We need to show 2 things:
   1) The total coloring generated is satisfactory
@@ -1242,14 +1225,15 @@ val undir_graph_def = Define`
 (*Property of preference function, it only chooses a color it is given*)
 val satisfactory_pref_def = Define`
   satisfactory_pref prefs ⇔
-    ∀h ls col v. ls ≠ [] ∧ prefs h ls col = v ⇒ MEM v ls`
+    ∀h ls col v. prefs h ls col = SOME v ⇒ MEM v ls`
 
 val aux_pref_satisfactory = prove(``
   ∀prefs.
   satisfactory_pref (aux_pref prefs)``,
   fs[satisfactory_pref_def,aux_pref_def,LET_THM]>>rw[]>>
   EVERY_CASE_TAC>>
-  Cases_on`ls`>>fs[])
+  Cases_on`ls`>>fs[]>>
+  metis_tac[])
 
 val first_match_col_mem = prove(``
   ∀ls.
@@ -1264,16 +1248,15 @@ val move_pref_satisfactory = prove(``
   satisfactory_pref (move_pref moves)``,
   fs[satisfactory_pref_def,move_pref_def,LET_THM]>>rw[]>>
   EVERY_CASE_TAC>>Cases_on`ls`>>fs[]>>
-  `MEM x' (h'::t)` by metis_tac[first_match_col_mem]>>
+  imp_res_tac first_match_col_mem>>
   fs[])
 
 val aux_move_pref_satisfactory = prove(``
   ∀prefs moves.
   satisfactory_pref (aux_move_pref prefs moves)``,
   fs[satisfactory_pref_def,aux_move_pref_def,LET_THM]>>rw[]>>
-  EVERY_CASE_TAC>>Cases_on`ls`>>fs[]>>
-  `MEM x' (h'::t)` by metis_tac[first_match_col_mem]>>
-  fs[])
+  EVERY_CASE_TAC>>
+  metis_tac[aux_pref_satisfactory,move_pref_satisfactory,satisfactory_pref_def])
 
 val id_color_lemma = prove(``
   ∀ls.
@@ -1391,14 +1374,25 @@ val alloc_coloring_aux_satisfactory = prove(``
     partial_coloring_satisfactory col' G``,
   Induct_on`ls`>>fs[alloc_coloring_aux,assign_color_def,LET_THM]>>rw[]>>
   EVERY_CASE_TAC>>fs[]>>
-  first_x_assum(qspecl_then
-    [`G`,`k`,`prefs`,`insert h (prefs h (h'::t) col) col`,`spill'`] mp_tac)>>
+  TRY
+  (first_x_assum(qspecl_then
+    [`G`,`k`,`prefs`,`insert h h' col`,`spill'`] mp_tac)>>
   discharge_hyps>>fs[]>>
   match_mp_tac partial_coloring_satisfactory_extend>>rw[]>>
   fs[domain_lookup]>>
   imp_res_tac remove_colors_removes>>
   fs[satisfactory_pref_def]>>
-  first_x_assum(qspecl_then[`h`,`h'::t`,`col`] assume_tac)>>
+  first_x_assum(qspecl_then[`h`,`h'::t`,`col`] assume_tac))>>
+  TRY
+  (first_x_assum(qspecl_then
+    [`G`,`k`,`prefs`,`insert h x' col`,`spill'`] mp_tac)>>
+  discharge_hyps>>fs[]>>
+  match_mp_tac partial_coloring_satisfactory_extend>>rw[]>>
+  fs[domain_lookup]>>
+  imp_res_tac remove_colors_removes>>
+  imp_res_tac satisfactory_pref_def>>
+  first_x_assum(qspecl_then[`x'`] assume_tac))>>
+  rfs[]>>
   `MEM y (MAP FST (toAList x))` by
     fs[MEM_MAP,MEM_toAList,EXISTS_PROD,domain_lookup]>>
   rfs[]>>res_tac>>
@@ -1477,8 +1471,8 @@ val assign_color_props = prove(``
   qabbrev_tac `lss = MAP FST (toAList v)`>>
   Cases_on`remove_colors col lss k`>>fs[]>>
   imp_res_tac remove_colors_removes>>
-  fs[satisfactory_pref_def]>>
-  first_x_assum(qspecl_then[`h`,`h'::t`,`col`] assume_tac)>>rfs[]>>
+  EVERY_CASE_TAC>>
+  imp_res_tac satisfactory_pref_def>>
   TRY(`h ∉ domain col` by fs[domain_lookup]>>
   fs[EXTENSION,INTER_DEF]>>metis_tac[]))
 
@@ -1803,7 +1797,11 @@ val is_phy_var_tac =
     `0<2:num` by DECIDE_TAC>>
     `(2:num)*k=k*2` by DECIDE_TAC>>
     metis_tac[arithmeticTheory.MOD_EQ_0]);
-  
+
+val option_filter_eq = prove(``
+  ∀ls. option_filter ls = MAP THE (FILTER IS_SOME ls)``,
+  Induct>>rw[option_filter_def]>>EVERY_CASE_TAC>>fs[])
+
 val assign_color2_satisfactory = prove(``
   undir_graph G ∧ 
   partial_coloring_satisfactory col G ⇒ 
@@ -1818,7 +1816,7 @@ val assign_color2_satisfactory = prove(``
   SORTED_TAC>>
   `MEM v lss` by
     (unabbrev_all_tac>>
-    fs[QSORT_MEM,option_filter_def,MEM_MAP,MEM_FILTER,EXISTS_PROD
+    fs[QSORT_MEM,option_filter_eq,MEM_MAP,MEM_FILTER,EXISTS_PROD
       ,MEM_toAList,PULL_EXISTS]>>
     TRY(Q.EXISTS_TAC`y`>>fs[])>>
     HINT_EXISTS_TAC>>fs[])>>
@@ -1828,7 +1826,7 @@ val assign_color2_satisfactory = prove(``
   qpat_abbrev_tac`lss = option_filter (MAP (λx. lookup x col) A)` >>
   qsuff_tac `MEM v lss`>-metis_tac[]>>
   unabbrev_all_tac>>
-  fs[option_filter_def,MEM_MAP,MEM_FILTER,EXISTS_PROD
+  fs[option_filter_eq,MEM_MAP,MEM_FILTER,EXISTS_PROD
     ,PULL_EXISTS,MEM_toAList]>>
   HINT_EXISTS_TAC>>fs[])
 
@@ -2107,7 +2105,7 @@ val full_coalesce_aux_extends = prove(``
   fs[full_coalesce_aux,LET_THM]>>
   IF_CASES_TAC>- 
     (fs[]>>metis_tac[])>>
-  fs[]>>
+  fs[]>>EVERY_CASE_TAC>>fs[]>>
   qpat_abbrev_tac `G'=list_g_insert h1 A G`>>
   first_x_assum(qspecl_then[`G'`,`col`] mp_tac)>>
   rfs[]>>

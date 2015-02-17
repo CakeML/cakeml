@@ -114,7 +114,7 @@ val pre_post_conventions_word_alloc = prove(``
   `undir_graph clash_graph` by
     metis_tac[clash_sets_to_sp_g_undir]>>
   imp_res_tac reg_alloc_conventional>>
-  pop_assum(qspecl_then[`moves`,`k`,`T`] assume_tac)>>rfs[LET_THM]>>
+  pop_assum(qspecl_then[`moves`,`k`,`3`] assume_tac)>>rfs[LET_THM]>>
   `every_var (in_clash_sets (hd::clash_sets)) prog` by 
      (Q.ISPECL_THEN [`prog`,`LN:num_set`] assume_tac 
        every_var_in_get_clash_set>>
