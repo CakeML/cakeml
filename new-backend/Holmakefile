@@ -1,4 +1,4 @@
-INCLUDES = .. ../bytecode ../compiler ../semantics/proofs ../targets
+INCLUDES = .. ../bytecode ../compiler ../semantics/proofs ../targets ../inference/proofs
 OPTIONS=QUIT_ON_FAILURE
 
 ifdef POLY
