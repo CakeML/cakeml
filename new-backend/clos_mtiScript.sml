@@ -123,6 +123,49 @@ val clos_val_size_el = Q.prove (
      fs [] >>
      decide_tac));
 
+val norm_closure_def = Define `
+(norm_closure max (Closure loc args env num_args e) =
+  let (num_args', e') = collect_args max num_args e in
+  let e'' = intro_multi [e'] in
+    if LENGTH args ≤ num_args' then
+      SOME (args++env, num_args'-LENGTH args, HD e'')
+    else
+      NONE) ∧
+(norm_closure max (Recclosure loc args env funs i) =
+  let (num_args, e) = EL i funs in
+  let (num_args', e') = collect_args max num_args e in
+  let e'' = intro_multi [e'] in
+    if LENGTH args ≤ num_args' then
+      SOME (args ++ GENLIST (Recclosure loc [] env funs) (LENGTH funs) ++ env, num_args'-LENGTH args, HD e'')
+    else
+      NONE) ∧
+(norm_closure max _ = NONE)`;
+
+val cl_ok_def = Define `
+(cl_ok max (Closure loc args env num_args e) ⇔
+  0 < num_args ∧ num_args ≤ max ∧ LENGTH args < num_args) ∧
+(cl_ok max (Recclosure loc args env funs i) ⇔
+  let (num_args, e) = EL i funs in
+    0 < num_args ∧ num_args ≤ max ∧ LENGTH args < num_args)`;
+
+val (val_rel_rules, val_rel_ind, val_rel_cases) = Hol_reln `
+(!n. 
+  val_rel (Number n) (Number n)) ∧
+(!n vs vs'.
+  LIST_REL val_rel vs vs'
+  ⇒
+  val_rel (Block n vs) (Block n vs')) ∧
+(!n.
+  val_rel (RefPtr n) (RefPtr n)) ∧
+(!cl1 cl2 env1 env2 max.
+  cl_ok max cl1 ∧
+  cl_ok max cl2 ∧
+  norm_closure max cl1 = SOME (env1, num_args, e) ∧
+  norm_closure max cl2 = SOME (env2, num_args, e) ∧
+  LIST_REL val_rel env1 env2
+  ⇒
+  val_rel cl1 cl2)`;
+
 val exp_rel_def = Define `
 exp_rel (num_args,e) (num_args',e') ⇔
   num_args ≤ max_app ∧
@@ -134,6 +177,341 @@ exp_rel (num_args,e) (num_args',e') ⇔
     (num_args',e'') = collect_args num_args' num_args e ∧
     e' = HD (intro_multi [e''])`;
 
+val (res_rel_rules, res_rel_ind, res_rel_cases) = Hol_reln `
+(!vs.
+  LIST_REL val_rel vs vs'
+  ⇒
+  res_rel (Result vs) (Result vs')) ∧
+(!v.
+  res_rel (Exception v) (Exception v)) ∧
+(res_rel TimeOut TimeOut)`;
+
+val (ref_v_rel_rules, ref_v_rel_ind, ref_v_rel_cases) = Hol_reln `
+(!ws.
+  ref_v_rel (ByteArray ws) (ByteArray ws)) ∧
+(!vs vs'.
+  LIST_REL val_rel vs vs'
+  ⇒
+  ref_v_rel (ValueArray vs) (ValueArray vs'))`;
+
+val state_rel_def = Define `
+state_rel (s:clos_state) s' ⇔
+  LIST_REL (OPTION_REL val_rel) s.globals s'.globals ∧
+  fmap_rel ref_v_rel s.refs s'.refs ∧
+  s.clock = s'.clock ∧
+  fmap_rel exp_rel s.code s'.code ∧
+  s.output = s'.output ∧
+  s.restrict_envs = s'.restrict_envs`;
+
+val lookup_vars_list_rel = Q.prove (
+`!vs env env' f. 
+  LIST_REL f env env'
+  ⇒
+  OPTION_REL (LIST_REL f) (lookup_vars vs env) (lookup_vars vs env')`,
+ Induct_on `vs` >>
+ rw [lookup_vars_def] >>
+ ect >>
+ fs [OPTREL_def] >>
+ res_tac >>
+ fs [LIST_REL_EL_EQN] >>
+ metis_tac []);
+
+val collect_args_more = Q.prove (
+`!max_app num_args e num_args' e'.
+  num_args ≤ max_app ∧
+  (num_args', e') = collect_args max_app num_args e
+  ⇒
+  num_args ≤ num_args' ∧ num_args' ≤ max_app`,
+ ho_match_mp_tac (fetch "-" "collect_args_ind") >>
+ rw [collect_args_def] >>
+ rw [] >>
+ res_tac >>
+ decide_tac);
+
+val collect_args_mono = Q.prove (
+`!num_args4 num_args2 exp num_args3 exp' num_args1.
+  num_args2 ≤ num_args3 ∧
+  num_args3 ≤ num_args1 ∧
+  num_args4 = num_args3 ∧
+  collect_args num_args1 num_args2 exp = (num_args3, exp')
+  ⇒
+  collect_args num_args4 num_args2 exp = (num_args3, exp')`,
+ ho_match_mp_tac (fetch "-" "collect_args_ind") >>
+ rw [collect_args_def] >>
+ rw [] >>
+ fs [NOT_LESS_EQUAL] >>
+ ect >>
+ fs [] >>
+ fs [NOT_LESS_EQUAL] >>
+ rw [] >>
+ TRY (first_x_assum match_mp_tac) >>
+ full_simp_tac (srw_ss()++ARITH_ss) []
+ >- metis_tac [] >>
+ pop_assum mp_tac >>
+ pop_assum (mp_tac o GSYM) >>
+ rw [] >>
+ imp_res_tac collect_args_more >>
+ full_simp_tac (srw_ss()++ARITH_ss) []);
+
+val intro_multi_length = Q.prove ( 
+`!es. LENGTH (intro_multi es) = LENGTH es`,
+ recInduct (fetch "-" "intro_multi_ind") >>
+ rw [intro_multi_def] >>
+ rw [intro_multi_def]);
+
+val intro_multi_sing = Q.prove (
+`!e. ?e'. intro_multi [e] = [e']`,
+ Cases_on `e` >>
+ rw [intro_multi_def] >>
+ Cases_on `collect_args max_app n c` >>
+ fs []);
+
+ (*
+val dest_closure_partial_thm = Q.prove (
+`!loc f args res f' args' res' v.
+  dest_closure NONE f args = SOME (Partial_app v) ∧
+  val_rel f f' ∧
+  LIST_REL val_rel args args'
+  ⇒
+  ?v'.
+    val_rel v v' ∧
+    dest_closure NONE f' args' = SOME (Partial_app v')`,
+ rw [dest_closure_def] >>
+ ect >>
+ fs [Once val_rel_cases, LET_THM] >>
+ rw [] >>
+ fs [check_loc_def] >>
+ imp_res_tac EVERY2_LENGTH >>
+ fs [cl_ok_def, norm_closure_def, LET_THM] >>
+ TRY decide_tac >>
+ `?num_args1 e1. collect_args max n c = (num_args1, e1)` by metis_tac [pair_CASES] >>
+ `?num_args2 e2. collect_args max n' c' = (num_args2, e2)` by metis_tac [pair_CASES] >>
+ pop_assum (mp_tac o GSYM) >>
+ pop_assum (mp_tac o GSYM) >>
+ DISCH_TAC >>
+ fs [] >>
+ rw [] >>
+ fs [NOT_LESS]
+ imp_res_tac collect_args_more
+ >- metis_tac [EVERY2_APPEND]
+ >- (
+     `exp_rel (EL n funs) (EL n l1)` by fs [LIST_REL_EL_EQN] >>
+     Cases_on `EL n l1` >>
+     Cases_on `EL n funs` >>
+     fs [exp_rel_def] >>
+     rw [] >>
+     fs [] >>
+     TRY decide_tac >>
+     MAP_EVERY qexists_tac [`env`, `funs`] >>
+     rw [] >>
+     metis_tac [EVERY2_APPEND]) >>
+ Cases_on `EL n l1'` >>
+ fs [LET_THM] >>
+ ect >>
+ fs [] >>
+ rw [] >>
+ fs [LIST_REL_EL_EQN] >>
+ `n < LENGTH l1` by decide_tac >>
+ res_tac >>
+ pop_assum mp_tac >>
+ Cases_on `EL n l1` >>
+ simp [exp_rel_def] >>
+ rw [] >>
+ `n' < LENGTH args' ∨ LENGTH args' ≤ n'` by decide_tac >>
+ rw [EL_APPEND1, EL_APPEND2] >>
+ first_x_assum match_mp_tac >>
+ decide_tac);
+
+val intro_multi_correct = Q.prove (
+`(!tmp es env s1 res s2 s1' env'.
+   tmp = (es,env,s1) ∧
+   cEval tmp = (res, s2) ∧
+   res ≠ Error ∧
+   LIST_REL val_rel env env' ∧
+   state_rel s1 s1'
+   ⇒
+   ?res' s2'.
+     state_rel s2 s2' ∧
+     res_rel res res' ∧
+     cEval (intro_multi es, env', s1') = (res', s2')) ∧
+ (!loc_opt func args s1 res s2 func' args' s1'.
+   cEvalApp loc_opt func args s1 = (res, s2) ∧
+   res ≠ Error ∧
+   val_rel func func' ∧
+   LIST_REL val_rel args args' ∧
+   state_rel s1 s1'
+   ⇒
+   ?res' s2'.
+     state_rel s2 s2' ∧
+     res_rel res res' ∧
+     cEvalApp loc_opt func' args' s1' = (res', s2'))`,
+
+ ho_match_mp_tac cEval_ind >>
+ rpt strip_tac
+ >- (fs [cEval_def, intro_multi_def] >>
+     rw [cEval_def, intro_multi_def, res_rel_cases])
+ >- cheat
+ >- (fs [cEval_def, intro_multi_def] >>
+     rw [cEval_def, intro_multi_def] >>
+     imp_res_tac EVERY2_LENGTH >>
+     fs [LIST_REL_EL_EQN] >>
+     rw [res_rel_cases])
+ >- cheat
+ >- cheat
+ >- cheat
+ >- cheat
+ >- cheat
+ >- (fs [cEval_def, intro_multi_def] >>
+     rw [cEval_def, intro_multi_def] >>
+     rw [cEval_def] >>
+     fs [] >>
+     ect >>
+     fs [] >>
+     rw [] >>
+     `s.restrict_envs = s1'.restrict_envs` by fs [state_rel_def] >>
+     fs [res_rel_cases, clos_env_def]
+     >- (ect >>
+         fs [] >>
+         imp_res_tac lookup_vars_list_rel >>
+         pop_assum (qspec_then `vs` mp_tac) >>
+         rw [OPTREL_def]) >>
+     `LIST_REL val_rel x' x`
+           by (ect >>
+               fs [] >>
+               imp_res_tac lookup_vars_list_rel >>
+               pop_assum (qspec_then `vs` mp_tac) >>
+               rw [OPTREL_def]) >>
+     `?num_args' e'. collect_args max_app num_args exp = (num_args', e')` by metis_tac [pair_CASES] >>
+     simp [] >>
+     `num_args' ≤ max_app ∧ num_args ≤ num_args'` by metis_tac [collect_args_more] >>
+     simp [] >>
+     rw [Once val_rel_cases] >>
+     simp [norm_closure_def] >>
+     qexists_tac `e22` >>
+     qexists_tac `FST (collect_args max22 num_args exp)` >>
+     qexists_tac `x'` >>
+     qexists_tac `x` >>
+     qexists_tac `max22` >>
+     Cases_on `collect_args max22 num_args exp` >>
+     Cases_on `collect_args max22 num_args' (HD (intro_multi [e']))` >>
+     simp []
+     cheat)
+ >- cheat
+ >- (fs [cEval_def, intro_multi_def] >>
+     rw [cEval_def, intro_multi_def] >>
+     fs [intro_multi_length] >>
+     `?res1 s1. cEval (args, env, s) = (res1,s1)` by metis_tac [pair_CASES] >>
+     fs [] >>
+     reverse (Cases_on `res1`) >>
+     fs [] >>
+     rw []
+     >- (res_tac >>
+         rw [] >>
+         fs [res_rel_cases] >>
+         rw [])
+     >- (res_tac >>
+         rw [] >>
+         fs [res_rel_cases] >>
+         rw []) >>
+     `?res2 s2. cEval ([x1], env, s1) = (res2,s2)` by metis_tac [pair_CASES] >>
+     `?x1'. intro_multi [x1] = [x1']` by metis_tac [intro_multi_sing] >>
+     fs [] >>
+     reverse (Cases_on `res2`) >>
+     fs [] >>
+     rw [] >>
+     res_tac >>
+     rw [] >>
+     fs [res_rel_cases] >>
+     rw [] >>
+     first_x_assum match_mp_tac >>
+     rw [] >>
+     Cases_on `a'` >>
+     Cases_on `vs'''` >>
+     fs [] >>
+     imp_res_tac cEval_length_imp >>
+     fs [])
+ >- cheat
+ >- cheat
+ >- (fs [cEval_def] >>
+     Cases_on `res` >>
+     fs [res_rel_cases] >>
+     metis_tac [])
+
+>- ((* Real application *)
+     fs [cEval_def] >>
+     qabbrev_tac `args = v41::v42` >>
+     rw [] >>
+     qabbrev_tac `args' = y::ys` >>
+     `SUC (LENGTH v42) = LENGTH args ∧ SUC (LENGTH ys) = LENGTH args'` by rw [Abbr `args`, Abbr `args'`] >>
+     fs [] >>
+     `LIST_REL val_rel args args'` by metis_tac [LIST_REL_def] >>
+     pop_assum mp_tac >>
+     ntac 4 (pop_assum kall_tac) >>
+     pop_assum mp_tac >>
+     ntac 2 (pop_assum kall_tac) >>
+     rw [] >>
+     Cases_on `dest_closure loc_opt func args`  >>
+     fs [] >>
+     Cases_on `x` >>
+     fs [] >>
+     `loc_opt = NONE` by cheat >> (* TODO forbid App SOME in the input *)
+     rw []
+     >- ((* A partial application on the unoptimised side *)
+         imp_res_tac dest_closure_partial_thm >>
+         imp_res_tac EVERY2_LENGTH >>
+         fs [] >>
+         Cases_on `s1.clock < LENGTH args'` >>
+         fs [] >>
+         rw [] >>
+         fs [state_rel_def, res_rel_cases, dec_clock_def] >>
+         rfs []) >>
+     `s1.clock = s1'.clock` by fs [state_rel_def] >>
+     Cases_on `s1'.clock < LENGTH args - LENGTH l0` >>
+     fs []
+     >- ((* A timeout before running the unoptimised body *)
+         rw [res_rel_cases] >>
+         first_assum (fn th => mp_tac (MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] dest_closure_full_thm) th)) >>
+         rw [] >>
+         rpt (pop_assum (fn th => first_assum (strip_assume_tac o MATCH_MP th))) >>
+         imp_res_tac LIST_REL_LENGTH >>
+         simp [] >>
+         fs [state_rel_def] >>
+         rfs [] >>
+         simp [LENGTH_BUTLASTN]) >>
+     imp_res_tac LIST_REL_LENGTH >>
+     fs [NOT_LESS] >>
+     first_assum (fn th => mp_tac (MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] dest_closure_full_thm) th)) >>
+     rw [] >>
+     rpt (pop_assum (fn th => first_assum (strip_assume_tac o MATCH_MP th))) >>
+     simp []
+
+     >- ((* The optimised code gives a partial function application *)
+         BasicProvers.VAR_EQ_TAC >>
+         fs [add_args_def, cEval_def] >>
+         Cases_on `num_args' ≤ max_app ∧ num_args' ≠ 0` >>
+         fs [] >>
+         fs [] >>
+         Cases_on `clos_env (dec_clock (LENGTH args' − LENGTH l0) s1).restrict_envs fvs' l` >>
+         fs [] >>
+         fs [] >>
+         Cases_on `l0` >>
+         fs [] >>
+         simp []
+         >- (fs [cEval_def] >>
+             rw [res_rel_cases]
+             >- fs [state_rel_def, dec_clock_def] >>
+             simp [Once val_rel_cases] >>
+             qpat_assum `val_rel func func'` mp_tac >>
+             simp [Once val_rel_cases] >>
+             rw [] >>
+             fs [add_args_def] >>
+             rw []
+
+             *)
+            
+
+     (*
+     * OLD VALUE RELATION
 val (val_rel_rules, val_rel_ind, val_rel_cases) = Hol_reln `
 (!n. 
   val_rel (Number n) (Number n)) ∧
@@ -143,23 +521,26 @@ val (val_rel_rules, val_rel_ind, val_rel_cases) = Hol_reln `
   val_rel (Block n vs) (Block n vs')) ∧
 (!n.
   val_rel (RefPtr n) (RefPtr n)) ∧
-(!num_args' e' e args' args env env' loc num_args.
+(!num_args' e' e args' args env env' loc num_args extra extra'.
   LIST_REL val_rel args args' ∧
   LIST_REL val_rel env env' ∧
+  LIST_REL val_rel extra extra' ∧
   exp_rel (num_args,e) (num_args',e')
   ⇒
-  val_rel (Closure loc args env num_args e) 
-          (Closure loc args' env' num_args' e')) ∧
-(!args args' env env' funs funs' i.
+  val_rel (Closure loc args (extra++env) num_args e) 
+          (Closure loc (extra'++args') env' num_args' e')) ∧
+(!args args' env env' funs funs' i extra extra'.
   LIST_REL val_rel args args' ∧
   LIST_REL val_rel env env' ∧
+  LIST_REL val_rel extra extra' ∧
   LIST_REL exp_rel funs funs'
   ⇒
-  val_rel (Recclosure loc args env funs i)
-          (Recclosure loc args' env' funs' i)) ∧
+  val_rel (Recclosure loc args (extra++env) funs i)
+          (Recclosure loc (extra'++args') env' funs' i)) ∧
 (∀args args' env env' funs funs' i loc.
   LIST_REL val_rel args args' ∧
   LIST_REL val_rel env env' ∧
+  LIST_REL val_rel extra extra' ∧
   LIST_REL exp_rel funs funs' ∧
   i < LENGTH funs ∧
   EL i funs = (num_args, e)
@@ -669,8 +1050,7 @@ val intro_multi_correct = Q.prove (
 
 
 
-
-
-     *)
+             *)
+             *)
 
 val _ = export_theory ();
