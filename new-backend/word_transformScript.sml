@@ -39,7 +39,7 @@ val word_alloc_def = Define`
   word_alloc k prog =
   let clash_graph = get_spg prog LN in (*No live after set*)
   let moves = get_prefs prog [] in (*Get the moves in the graph*) 
-  let col = reg_alloc T clash_graph k moves in 
+  let col = reg_alloc 3 clash_graph k moves in 
   (*Get the register allocation function,
     TODO: choose the flag based on the size of graph/moves*)
     apply_color (total_color col) prog`
