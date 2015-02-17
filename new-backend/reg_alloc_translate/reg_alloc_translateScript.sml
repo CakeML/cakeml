@@ -156,18 +156,17 @@ val _ = translate full_coalesce_def
 val irc_alloc_def =  Define`
   irc_alloc (alg:num) G k moves =
   let s = init_ra_state G k moves in
-  let ((),s) = rpt_do_step s in
+  let s = SND (rpt_do_step s) in
   let coalesced = s.coalesced in
-  let pref = aux_move_pref coalesced (resort_moves(moves_to_sp moves LN)) in
+  let pref x y z = aux_move_pref coalesced (resort_moves(moves_to_sp moves LN)) x y z in
   let (col,ls) = alloc_coloring s.graph k pref s.stack in
   let (G,spills,coalesce_map) = full_coalesce s.graph moves ls in
   let s = sec_ra_state G k spills coalesce_map in
-  let ((),s) = rpt_do_step2 s in
+  let s = SND (rpt_do_step2 s) in
   let col = spill_coloring G k coalesce_map s.stack col in
   let col = spill_coloring G k LN ls col in
     col`
 
 val _ = translate irc_alloc_def
-
 
 val _ = export_theory();
