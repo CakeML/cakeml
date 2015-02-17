@@ -105,7 +105,7 @@ val heap_lookup_APPEND = store_thm("heap_lookup_APPEND",
 (* refinement invariant *)
 
 val small_int_def = Define `
-  small_int i = - & (2 ** 61) < i /\ (i:int) < & (2 ** 61)`;
+  small_int i = 0 <= i /\ (i:int) < & (2 ** 62)`;
 
 val mw_def = tDefine "mw" `
   mw n = if n = 0 then []:'a word list else
@@ -259,7 +259,7 @@ val _ = type_abbrev("ml_heap",``:('a,'b) ml_el list``);
 val bc_value_inv_def = tDefine "bc_value_inv" `
   (bc_value_inv (Number i) (x,f,heap:('a,'b) ml_heap) =
      if small_int i then
-       (x = Data (((2w * (if i < 0 then 0w - n2w (Num (-i)) else n2w (Num i))))))
+       (x = Data (((2w * (n2w (Num i))))))
      else
        ?ptr. (x = Pointer ptr) /\
              (heap_lookup ptr heap =
