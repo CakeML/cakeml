@@ -655,7 +655,6 @@ val interprets_one = store_thm("interprets_one",
   simp[] >> disch_then match_mp_tac >>
   rw[is_type_valuation_def] >> metis_tac[])
 
-(*
 (* for models, reducing the context *)
 
 val is_type_assignment_reduce = store_thm("is_type_assignment_reduce",
@@ -683,16 +682,71 @@ val is_interpretation_reduce = store_thm("is_interpretation_reduce",
   imp_res_tac is_type_assignment_reduce >>
   imp_res_tac is_term_assignment_reduce)
 
+val is_valuation_extend_sig = store_thm("is_valuation_extend_sig",
+  ``is_set_theory ^mem ⇒
+    ∀tyenv tyenv' tyass v.
+    is_valuation tyenv tyass v ∧
+    is_type_assignment tyenv' tyass ∧
+    tyenv ⊑ tyenv' ⇒
+    ∃v'.
+      (tyvof v' = tyvof v) ∧
+      (∀ty. type_ok tyenv ty ⇒ ∀x. tmvof v' (x,ty) = tmvof v (x,ty)) ∧
+      is_valuation tyenv' tyass v'``,
+  rw[is_valuation_def] >>
+  fs[is_term_valuation_def] >>
+  simp[EXISTS_PROD] >>
+  qexists_tac`λp. if type_ok tyenv (SND p) then tmvof v p else @m. m <: typesem tyass (tyvof v) (SND p)` >>
+  simp[] >> rw[] >>
+  SELECT_ELIM_TAC >> simp[] >>
+  match_mp_tac (UNDISCH typesem_inhabited) >>
+  metis_tac[])
+
+val satisfies_reduce = store_thm("satisfies_reduce",
+  ``is_set_theory ^mem ⇒
+    ∀i tyenv tmenv tyenv' tmenv' h c.
+      is_std_sig (tyenv,tmenv) ∧
+      tyenv ⊑ tyenv' ∧
+      tmenv ⊑ tmenv' ∧
+      EVERY (term_ok (tyenv,tmenv)) (c::h) ∧
+      is_type_assignment tyenv' (tyaof i) ∧
+      i satisfies ((tyenv',tmenv'),h,c) ⇒
+      i satisfies ((tyenv,tmenv),h,c)``,
+  rw[satisfies_def] >>
+  qspecl_then[`tyenv`,`tyenv'`,`tyaof i`,`v`]mp_tac (UNDISCH is_valuation_extend_sig) >>
+  simp[] >> strip_tac >>
+  first_x_assum(qspec_then`v'`mp_tac) >> simp[] >>
+  `∀tm. term_ok (tyenv,tmenv) tm ⇒
+     termsem tmenv' i v' tm = termsem tmenv i v tm` by (
+    rw[] >>
+    match_mp_tac EQ_TRANS >>
+    qexists_tac`termsem tmenv' i v tm` >>
+    reverse conj_tac >- metis_tac[termsem_extend] >>
+    match_mp_tac termsem_frees >>
+    imp_res_tac term_ok_welltyped >>
+    simp[] >> rw[] >>
+    first_x_assum match_mp_tac >>
+    imp_res_tac type_ok_types_in >> fs[] >>
+    last_x_assum match_mp_tac >>
+    imp_res_tac VFREE_IN_types_in >>
+    fs[] ) >>
+  discharge_hyps >- ( fs[EVERY_MEM] ) >>
+  simp[])
+
 val models_reduce = store_thm("models_reduce",
-  ``∀i tyenv tmenv axs tyenv' tmenv' axs'.
+  ``is_set_theory ^mem ⇒
+    ∀i tyenv tmenv axs tyenv' tmenv' axs'.
+     is_std_sig (tyenv,tmenv) ∧
      tyenv ⊑ tyenv' ∧ tmenv ⊑ tmenv' ∧ (axs ⊆ axs') ∧
      i models ((tyenv',tmenv'),axs') ∧
      (∀p. p ∈ axs ⇒ (term_ok (tyenv,tmenv)) p)
      ⇒
      i models ((tyenv,tmenv),axs)``,
+  strip_tac >>
   Cases >> rw[models_def] >>
   imp_res_tac is_interpretation_reduce >>
-  fs[SUBSET_DEF] >> metis_tac[satisfies_extend,EVERY_DEF])
-*)
+  fs[SUBSET_DEF] >>
+  match_mp_tac(MP_CANON satisfies_reduce) >>
+  simp[] >> fs[is_interpretation_def] >>
+  metis_tac[])
 
 val _ = export_theory()
