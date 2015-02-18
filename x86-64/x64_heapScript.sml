@@ -438,6 +438,20 @@ val SPEC_IMP_SPEC_N = prove(
   \\ REVERSE (REPEAT STRIP_TAC) THEN1 METIS_TAC []
   \\ fs [SEP_REFINE_def,SEP_DISJ_def] \\ METIS_TAC []);
 
+val SPEC_N_0 = prove(
+  ``SPEC_N 0 model p c q err <=> SPEC model p c (q \/ err)``,
+  fs [SPEC_N_def,N_NEXT_def,SPEC_EQ_TEMPORAL]
+  \\ PairCases_on `model`
+  \\ fs [T_OR_F_def,EVENTUALLY_def,NOW_def,
+         TEMPORAL_def,T_IMPLIES_def,LET_DEF,SEP_CLAUSES,SEP_REFINE_def]
+  \\ fs [SEP_DISJ_def]
+  \\ REVERSE (REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC)
+  THEN1 (METIS_TAC [])
+  THEN1 (METIS_TAC [])
+  THEN1 (METIS_TAC [])
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`state`,`seq'`,`r`])
+  \\ fs [] \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC \\ METIS_TAC []);
+
 val SPEC_IMP_SPEC_N_ALT =
   SPEC_IMP_SPEC_N |> Q.INST [`err`|->`SEP_F`] |> RW [SEP_CLAUSES];
 
@@ -20652,6 +20666,18 @@ val zBC_HEAP_EVAL_UNTIL_STOP = let
             |> Q.INST [`bc_code`|->`s1.code`]
             |> RW [set_lemma]
   in th5 end;
+
+val SPEC_zBC_HEAP_MOVE_CODE =
+  SPEC_N_zBC_HEAP_MOVE_CODE |> Q.INST [`n`|->`0`] |> RW [SPEC_N_0]
+
+val zBC_HEAP_EVAL_UNTIL_STOP_ALT =
+  zBC_HEAP_EVAL_UNTIL_STOP
+  |> Q.INST [`s`|->`s with code_mode := NONE`]
+  |> MATCH_MP SPEC_zBC_HEAP_MOVE_CODE
+  |> DISCH_ALL
+  |> Q.GEN `cb`
+  |> Q.GEN `sb` |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
+  |> UNDISCH_ALL
 
 val bc_adjust_bool_to_val = prove(
   ``bc_adjust (cb,sb,ev) (bool_to_val b) = bool_to_val b``,
