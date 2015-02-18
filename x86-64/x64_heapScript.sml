@@ -17186,6 +17186,151 @@ val zBC_HEAP_N = prove(
   MATCH_MP_TAC zBC_HEAP_1 >>
   rw[])
 
+val PULL_EXISTS_IMP =
+  METIS_PROVE [] ``(((?x. P x) ==> Q) <=> (!x. P x ==> Q)) /\
+                   (((?x. P x) \/ Q) <=> (?x. P x \/ Q))``
+
+val SPEC_N_APPEND_CODE = prove(
+  ``SPEC_N k X64_MODEL p ((w,xs) INSERT c) q err ==>
+    !ys. SPEC_N k X64_MODEL p ((w,xs++ys) INSERT c) q err``,
+  fs [SPEC_N_def,TEMPORAL_APPEND_CODE] \\ REPEAT STRIP_TAC
+  \\ IMP_RES_TAC TEMPORAL_SUBSET_CODE
+  \\ POP_ASSUM MATCH_MP_TAC
+  \\ fs [SUBSET_DEF,IN_INSERT]);
+
+val fun2set_EMPTY = prove(
+  ``(fun2set (f,df) = ∅) = (df = EMPTY)``,
+  fs [fun2set_def,EXTENSION]);
+
+val zCODE_HEAP_AUX_NIL = prove(
+  ``zCODE_HEAP_AUX T cs.code_heap_ptr [] = emp``,
+  fs [FUN_EQ_THM,zCODE_HEAP_AUX_def,SEP_ARRAY_def,SEP_CLAUSES,
+      SEP_EXISTS_THM]
+  \\ FULL_SIMP_TAC (std_ss++sep_cond_ss) [cond_STAR,emp_def,fun2set_EMPTY]
+  \\ fs [zCODE_SET_def,zCODE_def,CODE_POOL_def]);
+
+val IMP_INTRO = METIS_PROVE [] ``(~b \/ c) <=> (b ==> c)``
+
+val zCODE_HEAP_AUX_TWICE = prove(
+  ``(p *
+     zCODE_HEAP_AUX b cs.code_heap_ptr xs *
+     zCODE_HEAP_AUX T cs.code_heap_ptr ys) s ==>
+    (LENGTH xs = 0) \/ (LENGTH ys = 0)``,
+  cheat);
+
+val CODE_POOL_SPLIT = prove(
+  ``!code a ss pp.
+      (pp * zCODE_HEAP_AUX T a code * CODE_POOL X64_INSTR s) ss ==>
+      (CODE_POOL X64_INSTR ((cb,code) INSERT s) =
+        zCODE_HEAP_AUX T a code * CODE_POOL X64_INSTR s)``,
+  cheat);
+
+val SPEC_N_zBC_HEAP_MOVE_CODE = prove(
+  ``SPEC_N n X64_MODEL
+     (zBC_HEAP s1 (x,cs,stack,s with code_mode := NONE,out) (cb,sb,ev,f2) *
+      zPC p * ¬zS)
+     ((cb,code) INSERT code_abbrevs cs)
+     (zBC_HEAP s2 (x,cs,stack,s with code_mode := NONE,out) (cb,sb,ev,f2) *
+      zPC q * ¬zS)
+     (zHEAP_ERROR cs) ==>
+    (s.code = code) /\ (s.code_mode = SOME T) ==>
+    SPEC_N n X64_MODEL
+     (zBC_HEAP s1 (x,cs,stack,s,out) (cb,sb,ev,f2) * zPC p * ¬zS)
+     (code_abbrevs cs)
+     (zBC_HEAP s2 (x,cs,stack,s,out) (cb,sb,ev,f2) * zPC q * ¬zS)
+     (zHEAP_ERROR cs)``,
+  STRIP_TAC
+  \\ IMP_RES_TAC SPEC_N_APPEND_CODE
+  \\ POP_ASSUM MP_TAC \\ POP_ASSUM (K ALL_TAC)
+  \\ fs [zBC_HEAP_def]
+  \\ Q.ABBREV_TAC `s1ss = MAP (bc_adjust (cb,sb,ev)) s1.stack ++ Number 0::stack`
+  \\ Q.ABBREV_TAC `s2ss = MAP (bc_adjust (cb,sb,ev)) s2.stack ++ Number 0::stack`
+  \\ fs [LET_DEF,SEP_CLAUSES,zHEAP_def,SPEC_N_def,X64_MODEL_def,TEMPORAL_def]
+  \\ fs [T_IMPLIES_def,NOW_def,SEP_EXISTS_THM,SEP_REFINE_def,SEP_CLAUSES,
+         PULL_EXISTS,PULL_EXISTS_IMP,PULL_FORALL]
+  \\ FULL_SIMP_TAC (std_ss++sep_cond_ss) [cond_STAR,T_OR_F_def,
+       N_NEXT_THM,EVENTUALLY_def,NOW_def,SEP_EXISTS_THM,SEP_CLAUSES]
+  \\ REVERSE (REPEAT STRIP_TAC) THEN1 (METIS_TAC [])
+  \\ fs [AND_IMP_INTRO]
+  \\ `(vals.code_option = SOME T) /\
+      (vals.code_list = code)` by fs [heap_inv_def,code_heap_inv_def]
+  \\ `zVALS cs vals = zVALS cs (vals with code_option := NONE) *
+      zOPTION_CODE_HEAP (SOME T) cs.code_heap_length
+       cs.code_heap_ptr vals.code_list` by
+    fs [zVALS_def,zOPTION_CODE_HEAP_def,SEP_CLAUSES,AC STAR_COMM STAR_ASSOC]
+  \\ fs [zOPTION_CODE_HEAP_def,zCODE_HEAP_def,SEP_EXISTS_THM,SEP_CLAUSES]
+  \\ FULL_SIMP_TAC (std_ss++sep_cond_ss) [cond_STAR] \\ rfs []
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`ys`,`state`,`seq'`,`r`,`s'`,`x2`,`x3`,
+       `vals with code_option := NONE`])
+  \\ `CODE_POOL X64_INSTR ((cb,code ++ ys) INSERT code_abbrevs cs) =
+      zCODE_HEAP_AUX T cs.code_heap_ptr (code ++ ys) *
+      CODE_POOL X64_INSTR (code_abbrevs cs)` by ALL_TAC THEN1
+   (rfs [] \\ MATCH_MP_TAC CODE_POOL_SPLIT
+    \\ Q.EXISTS_TAC `x64_2set s'`
+    \\ Q.EXISTS_TAC `zVALS cs (vals with code_option := NONE) *
+         zPC p * ¬zS * r` \\ fs [AC STAR_ASSOC STAR_COMM])
+  \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
+   (fs [AC STAR_COMM STAR_ASSOC] \\ DISJ1_TAC
+    \\ fs [heap_inv_def] \\ fs [code_heap_inv_def] \\ METIS_TAC [])
+  \\ REPEAT STRIP_TAC
+  \\ TRY (DISJ2_TAC \\ Q.LIST_EXISTS_TAC [`k`,`ARB`] \\ fs [] \\ NO_TAC)
+  \\ rfs [AC STAR_COMM STAR_ASSOC] THEN1
+   (DISJ1_TAC \\ Q.LIST_EXISTS_TAC [`k`,`s''`] \\ fs []
+    \\ DISJ1_TAC \\ fs [PULL_EXISTS]
+    \\ Q.LIST_EXISTS_TAC [`x2'`,`x3'`,`vals' with code_option := SOME T`]
+    \\ `(vals'.code_option = NONE) /\
+        (vals'.code_list = code)` by
+          fs [heap_inv_def] \\ fs [code_heap_inv_def]
+    \\ `zVALS cs (vals' with code_option := SOME T) =
+        zVALS cs vals' *
+        zOPTION_CODE_HEAP (SOME T) cs.code_heap_length
+         cs.code_heap_ptr vals'.code_list` by
+      fs [zVALS_def,zOPTION_CODE_HEAP_def,SEP_CLAUSES,AC STAR_COMM STAR_ASSOC]
+    \\ fs [zOPTION_CODE_HEAP_def]
+    \\ STRIP_TAC THEN1
+     (fs [heap_inv_def] \\ fs [code_heap_inv_def] \\ METIS_TAC [])
+    \\ fs [zCODE_HEAP_def,SEP_EXISTS_THM,SEP_CLAUSES]
+    \\ Q.EXISTS_TAC `ys` \\ fs [AC STAR_COMM STAR_ASSOC,SEP_CLAUSES])
+  THEN1 (METIS_TAC [])
+  \\ DISJ2_TAC \\ Q.LIST_EXISTS_TAC [`k`,`s''`] \\ fs []
+  \\ fs [zHEAP_ERROR_def,zHEAP_OUTPUT_def,SEP_CLAUSES,SEP_EXISTS_THM]
+  \\ DISJ1_TAC
+  \\ Cases_on `vals'.code_option = NONE` \\ fs []
+  THEN1
+   (Q.LIST_EXISTS_TAC [`output`,
+       `vals' with <| code_option := SOME T ;
+                      code_list := code |> `]
+    \\ FULL_SIMP_TAC (std_ss++sep_cond_ss) [cond_STAR]
+    \\ fs [zVALS_def,zOPTION_CODE_HEAP_def,zCODE_HEAP_def,SEP_CLAUSES,
+         SEP_EXISTS_THM]
+    \\ FULL_SIMP_TAC (std_ss++sep_cond_ss) [cond_STAR]
+    \\ Q.EXISTS_TAC `ys` \\ rfs [AC STAR_ASSOC STAR_COMM])
+  \\ FULL_SIMP_TAC (std_ss++sep_cond_ss) [cond_STAR]
+  \\ Cases_on `cs.code_heap_length = 0` THEN1
+   (fs [LENGTH_NIL] \\ rfs []
+    \\ Q.LIST_EXISTS_TAC [`output`,`vals'`]
+    \\ fs [zCODE_HEAP_AUX_NIL,AC STAR_COMM STAR_ASSOC,SEP_CLAUSES])
+  \\ `F` by ALL_TAC \\ fs []
+  \\ fs [zVALS_def]
+  \\ Cases_on `vals'.code_option` \\ fs []
+  \\ Q.PAT_ASSUM `xxx (x64_2set s'')` MP_TAC \\ fs []
+  \\ CONV_TAC ((RAND_CONV o RATOR_CONV)
+       (MOVE_OUT_CONV ``zOPTION_CODE_HEAP (SOME x') cs.code_heap_length
+                        cs.code_heap_ptr`` THENC
+        MOVE_OUT_CONV ``zCODE_HEAP_AUX T cs.code_heap_ptr``))
+  \\ Cases_on `x'` \\ fs [zOPTION_CODE_HEAP_def,SEP_CLAUSES,zCODE_HEAP_def]
+  \\ fs [SEP_CLAUSES,SEP_EXISTS_THM]
+  \\ FULL_SIMP_TAC (std_ss++sep_cond_ss) [cond_STAR]
+  \\ REPEAT STRIP_TAC \\ fs [IMP_INTRO] \\ REPEAT STRIP_TAC
+  \\ IMP_RES_TAC zCODE_HEAP_AUX_TWICE
+  \\ fs [] \\ DECIDE_TAC);
+
+val zBC_HEAP_N_ALT =
+  zBC_HEAP_N |> RW [AND_IMP_INTRO] |> SPEC_ALL |> UNDISCH_ALL
+    |> Q.INST [`s`|->`s with code_mode := NONE`]
+    |> MATCH_MP SPEC_N_zBC_HEAP_MOVE_CODE
+    |> DISCH_ALL |> RW [AND_IMP_INTRO,GSYM CONJ_ASSOC]
+
 val SPEC_N_Stop =
   MATCH_MP SPEC_IMP_SPEC_N (UNDISCH zBC_HEAP_Stop)
 
@@ -17264,6 +17409,37 @@ val zBC_HEAP_DIVERGES = let
   in
   zBC_HEAP_N
   |> SPEC_ALL
+  |> UNDISCH_ALL
+  |> MATCH_MP lemma3
+  |> DISCH ``NRC bc_next n s1 s2``
+  |> Q.GENL [`s2`,`n`]
+  |> HO_MATCH_MP lemma4
+  |> RW [GSYM bc_diverges_def]
+  |> UNDISCH_ALL
+  |> RW [SPEC_N_def,T_OR_F_thm]
+  |> MATCH_MP FORALL_TEMPORAL_N_NEXT_IMP_ALWAYS
+  |> RW [GSYM zBYTECODE_DIVERGED_def]
+  end
+
+val zBC_HEAP_DIVERGES_ALT = let
+  val lemma =
+    SPEC_N_WEAKEN
+    |> Q.INST [`q1`|->`zBC_HEAP bs (x,cs,stack,s,output) (cb,sb,ev,f2) *
+                       zPC (cb + n2w (2 * bs.pc)) * ~zS`]
+    |> Q.INST [`q3`|->`SEP_EXISTS bs x stack s sb ev f2.
+                         zBC_HEAP bs (x,cs,stack,s,output) (cb,sb,ev,f2) *
+                         zPC (cb + n2w (2 * bs.pc)) * ~zS`]
+    |> RW [GSYM AND_IMP_INTRO]
+  val lemma2 = prove(lemma |> concl |> dest_imp |> fst,
+    fs [SEP_REFINE_def,SEP_CLAUSES,SEP_EXISTS_THM] \\ METIS_TAC []);
+  val lemma3 = MP lemma lemma2
+  val lemma4 = prove(
+    ``(!n s2. NRC bc_next n s1 s2 ==> P n s1) ==>
+      ((!n. ?s2. NRC bc_next n s1 s2) ==> !n. P n s1)``,
+    METIS_TAC []);
+  in
+  zBC_HEAP_N_ALT
+  |> SPEC_ALL |> DISCH_ALL |> RW [GSYM AND_IMP_INTRO]
   |> UNDISCH_ALL
   |> MATCH_MP lemma3
   |> DISCH ``NRC bc_next n s1 s2``
@@ -20398,7 +20574,7 @@ val zHEAP_ERROR_ERROR = prove(
   ``(if b then x \/ y else x2 \/ y) \/ y = if b then x \/ y else SEP_DISJ x2 y``,
   Cases_on `b` \\ fs [] \\ fs [SEP_DISJ_ASSOC] \\ fs [SEP_DISJ_def]);
 
-val (code_length_inr,zHEAP_REPL_RUN_INR) = let
+val (code_length_inr,zHEAP_REPL_RUN_INR_RAW) = let
   val th = zHEAP_REPL_STEP_UNTIL_INL_IF
     |> Q.INST [`inl_or_inr`|->`BlockInr (BlockPair (msg_chars,y7))`]
     |> SIMP_RULE std_ss [EVAL ``getTag (BlockInr x)``]
@@ -20441,9 +20617,33 @@ val (code_length_inr,zHEAP_REPL_RUN_INR) = let
   val code_length_inr = code_length
   in (code_length_inr,th) end
 
+val (zHEAP_REPL_RUN_INR,zHEAP_REPL_RUN_INL_START) = let
+  val th = zHEAP_REPL_STEP_UNTIL_INL_IF
+    |> Q.INST [`inl_or_inr`|->`BlockInl (BlockPair (x7,y7))`]
+    |> SIMP_RULE std_ss [EVAL ``getTag (BlockInl x)``]
+  val n = get_pc th |> rand |> rand |> rand |> rator |> rand
+  val inl_jump = ``n2w (^code_length_inr - ^n):word32``
+  val lemma = prove(``0x10000000000000000w:word64 = 0w``,fs [n2w_11])
+  val th_inl =
+    th |> Q.INST [`inl_jump`|->`^inl_jump`]
+       |> CONV_RULE (POST_CONV (SIMP_CONV (srw_ss())[lemma]))
+       |> CONV_RULE ((RATOR_CONV o RAND_CONV) (SIMP_CONV (srw_ss())[]))
+  val th_inr = zHEAP_REPL_RUN_INR_RAW
+       |> Q.INST [`inl_jump`|->`^inl_jump`]
+       |> CONV_RULE (POST_CONV (SIMP_CONV (srw_ss())[lemma]))
+       |> CONV_RULE ((RATOR_CONV o RAND_CONV) (SIMP_CONV (srw_ss())[]))
+  in (th_inr,th_inl) end
+
 (*
   COMPILER_RUN_INV_INR
+  COMPILER_RUN_INV_INL
 *)
+
+(*
+  zHEAP_REPL_RUN_INL_START
+*)
+
+
 
 
 (* cheat CHEAT
