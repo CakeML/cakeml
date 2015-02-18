@@ -946,6 +946,8 @@ val sec_ra_state_def = Define`
   (sec_ra_state (G:sp_graph) (k:num) vertices coalesce_map = 
   (*In this instance, we care about the degree w.r.t. to other spilled
     temporaries or phy variables ≥ 2*k*)
+  (*Simplify the preconditions*)
+  let vertices = FILTER (λv. lookup v G ≠ NONE) vertices in 
   let vdegs = MAP (λv. v,count_degrees 
   (*The first check corresponds to the pre-allocated spill variables*)
     (λx. (is_phy_var x ∧ x ≥ 2*k) ∨ MEM x vertices)

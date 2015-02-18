@@ -1383,6 +1383,8 @@ val ALOOKUP_ALL_DISTINCT_REMAP = prove(``
     metis_tac[EL_MAP])>>
   metis_tac[])
 
+fun fcs t r = Cases_on t>>Cases_on r>>fs[]
+(*
 val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
 ``∀prog st cst ssa na ns.
   word_state_eq_rel st cst ∧
@@ -1537,30 +1539,27 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     fs[set_vars_def]>>
     EVERY_CASE_TAC>>
     fs[call_env_def,dec_clock_def]>>
-    cheat) 
-    (*the two states are exactly equal, 
-    probably missing some word_state equality lemmas*)
+    ntac 2 (pop_assum mp_tac)>>
+    qpat_abbrev_tac`cst'=cst with <|locals:=A;clock:=B|>`>>
+    qpat_abbrev_tac`st'=st with <|locals:=A;permute:=B;clock:=C|>`>>
+    `cst'=st'` by 
+      (unabbrev_all_tac>>fs[word_state_component_equality])>>
+    rfs[])
     >>
     (*There is probably some repetition in both cases*)
-    PairCases_on`x`>>Cases_on`o0`
-    >-
+    PairCases_on`x`>>
     (*No handler = No branching reasoning*)
-    (fs[ssa_cc_trans_def,LET_THM]>>
-    Cases_on`list_next_var_rename_move ssa (na+2) (MAP FST (toAList x1))`>>
-    Cases_on`r`>>fs[]>>
-    Cases_on`list_next_var_rename_move (inter q' x1) (r'+2)
-      (MAP FST (toAList x1))`>>
-    Cases_on`r`>>fs[]>>
-    Cases_on`next_var_rename x0 q''' r''`>>fs[]>>
-    Cases_on`r`>>fs[]>>
-    Cases_on`ssa_cc_trans x2 q''''' r'''`>>fs[]>>
-    Cases_on`r`>>fs[wEval_def,LET_THM]>>
-    fs[get_vars_perm]>>
+    Q.PAT_ABBREV_TAC`pp = ssa_cc_trans X Y Z` >>
+    PairCases_on`pp` >> simp[] >>
+    pop_assum(mp_tac o SYM o SIMP_RULE std_ss[markerTheory.Abbrev_def]) >>
+    simp_tac std_ss [ssa_cc_trans_def]>>
+    LET_ELIM_TAC>>
+    fs[wEval_def,get_vars_perm]>>
     Cases_on`get_vars l st`>>fs[]>>
     Cases_on`find_code o1 x st.code`>>fs[]>>
     Cases_on`x'`>>
     Cases_on`cut_env x1 st.locals`>>fs[]>>
-    Q.SPECL_THEN [`st`,`ssa`,`na+2`,`MAP FST (toAList x1)`,`cst`] 
+    Q.SPECL_THEN [`st`,`ssa`,`na+2`,`ls`,`cst`] 
       mp_tac list_next_var_rename_move_preserve>>
     discharge_hyps>-
       (rw[]
@@ -1568,10 +1567,10 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
         (match_mp_tac ssa_locals_rel_more>>
         fs[]>>DECIDE_TAC)
       >-
-        (fs[cut_env_def]>>
+        (fs[cut_env_def,Abbr`ls`]>>
         metis_tac[SUBSET_DEF,toAList_domain])
       >-
-        fs[ALL_DISTINCT_MAP_FST_toAList]
+        fs[Abbr`ls`,ALL_DISTINCT_MAP_FST_toAList]
       >-
         (match_mp_tac ssa_map_ok_more>>
         fs[]>>DECIDE_TAC))
@@ -1580,26 +1579,34 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     `ssa_map_ok na' ssa'` by cheat >> 
     rfs[]>>
     fs[MAP_ZIP,even_list_def]>>
-    qpat_abbrev_tac`ls = GENLIST (λx.2*x) (LENGTH l)`>>
-    `ALL_DISTINCT ls` by
-      (fs[Abbr`ls`,ALL_DISTINCT_GENLIST]>>
+    `ALL_DISTINCT conv_args` by
+      (fs[Abbr`conv_args`,ALL_DISTINCT_GENLIST]>>
       rw[]>>DECIDE_TAC)>>
-    fs[get_vars_perm]>>
-    Cases_on`get_vars l st`>>fs[]>>
+    (*Probably need to case split here*)
+    Cases_on`o0`>>fs[]
+    >-
+    qpat_assum`A=pp0` (SUBST_ALL_TAC o SYM)>>fs[Abbr`prog`]>>
+    qpat_assum`A=stack_mov` (SUBST_ALL_TAC o SYM)>>fs[]>>
+    fs[wEval_def,LET_THM,Abbr`move_args`]>>
+    `LENGTH conv_args = LENGTH names` by 
+      (unabbrev_all_tac >>fs[])>>
+    fs[MAP_ZIP]>>
     imp_res_tac ssa_locals_rel_get_vars>>
+    fs[Abbr`names`]>>
     `LENGTH l = LENGTH x` by
       metis_tac[get_vars_length_lemma]>>
-    `get_vars ls (set_vars ls x rcst) = SOME x` by 
+    `get_vars conv_args (set_vars conv_args x rcst) = SOME x` by 
       (match_mp_tac get_vars_set_vars_eq>>
       fs[Abbr`ls`,get_vars_length_lemma,LENGTH_MAP])>>
     fs[set_vars_def]>>
     qpat_abbrev_tac `rcst' = 
-      rcst with locals:= list_insert ls x rcst.locals`>>
+      rcst with locals:= list_insert conv_args x rcst.locals`>>
     (*Important preservation lemma*)
-    `ssa_locals_rel r' q' st.locals rcst'.locals` by
-      (fs[Abbr`rcst'`,Abbr`ls`]>>
+    `ssa_locals_rel na' ssa' st.locals rcst'.locals` by
+      (fs[Abbr`rcst'`,Abbr`conv_args`]>>
       match_mp_tac ssa_locals_rel_ignore_list_insert>>
-      fs[EVERY_MEM]>>
+      fs[EVERY_MEM,MEM_GENLIST]>>
+      rw[]>>
       cheat) >> 
     (*should be obvious*)
     fs[word_state_eq_rel_def]>>
@@ -2045,5 +2052,5 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       rw[]>>fs[LET_THM]>>
       Cases_on`wEval (q'',y')`>>fs[word_state_eq_rel_def])
       >> cheat)
-
+*)
 val _ = export_theory();
