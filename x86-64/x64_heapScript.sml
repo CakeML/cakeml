@@ -17344,26 +17344,32 @@ val CODE_POOL_INSERT_SPLIT = prove(
   \\ fs [zCODE_def,CODE_POOL_def,zCODE_SET_def,set_lemma]);
 
 val CODE_POOL_SPLIT = prove(
-  ``!code a ss pp.
-      (pp * zCODE_HEAP_AUX T a code * CODE_POOL X64_INSTR s) ss ==>
-      (CODE_POOL X64_INSTR ((a,code) INSERT s) =
-       zCODE_HEAP_AUX T a code * CODE_POOL X64_INSTR s)``,
-  Induct \\ fs [zCODE_HEAP_AUX_NIL,SEP_CLAUSES,CODE_POOL_INSERT_NIL]
+  ``!u t s frame code a pp.
+     (pp * zCODE_HEAP_AUX T a code * CODE_POOL X64_INSTR s) (x64_2set t) ==>
+     ((frame * CODE_POOL X64_INSTR ((a,code) INSERT s)) (x64_2set u) <=>
+      (frame * zCODE_HEAP_AUX T a code * CODE_POOL X64_INSTR s) (x64_2set u))``,
+  Induct_on `code` \\ fs [zCODE_HEAP_AUX_NIL,SEP_CLAUSES,CODE_POOL_INSERT_NIL]
   \\ REPEAT STRIP_TAC
-  \\ `zCODE_HEAP_AUX T a (h::code) =
-      zCODE_HEAP_AUX T a [h] * zCODE_HEAP_AUX T (a+1w) code` by
-        METIS_TAC [zCODE_HEAP_AUX_T_UNROLL]
+  \\ `!frame f2 u.
+       (frame * zCODE_HEAP_AUX T a (h::code) * f2) (x64_2set u) =
+       (frame * zCODE_HEAP_AUX T a [h] * zCODE_HEAP_AUX T (a+1w) code *
+             f2) (x64_2set u)` by ALL_TAC THEN1
+     SIMP_TAC std_ss [Once zCODE_HEAP_AUX_T_UNROLL,STAR_ASSOC] \\ fs []
   \\ `CODE_POOL X64_INSTR ((a,h::code) INSERT s) =
       zCODE_HEAP_AUX T a [h] *
-      CODE_POOL X64_INSTR ((a+1w,code) INSERT s)` by
+      CODE_POOL X64_INSTR ((a+1w,code) INSERT s)` by ALL_TAC THEN1
    (ONCE_REWRITE_TAC [CODE_POOL_INSERT_INSERT |> GSYM |> Q.INST [`xs`|->`[x]`]
           |> RW [APPEND]] \\ fs []
     \\ fs [STAR_ASSOC] \\ RES_TAC
     \\ POP_ASSUM (ASSUME_TAC o GSYM)
     \\ fs [GSYM STAR_ASSOC] \\ fs []
-    \\ MATCH_MP_TAC CODE_POOL_INSERT_SPLIT
-    \\ fs [STAR_ASSOC])
-  \\ fs [STAR_ASSOC] \\ RES_TAC \\ fs [STAR_ASSOC]);
+    \\ MATCH_MP_TAC (GEN_ALL CODE_POOL_INSERT_SPLIT)
+    \\ fs [STAR_ASSOC]
+    \\ METIS_TAC [])
+  \\ fs [STAR_ASSOC]
+  \\ RES_TAC \\ fs [STAR_ASSOC]
+  \\ FIRST_X_ASSUM MATCH_MP_TAC
+  \\ METIS_TAC []);
 
 val SPEC_N_zBC_HEAP_MOVE_CODE = prove(
   ``SPEC_N n X64_MODEL
@@ -17405,11 +17411,15 @@ val SPEC_N_zBC_HEAP_MOVE_CODE = prove(
   \\ FULL_SIMP_TAC (std_ss++sep_cond_ss) [cond_STAR] \\ rfs []
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`ys`,`state`,`seq'`,`r`,`s'`,`x2`,`x3`,
        `vals with code_option := NONE`])
-  \\ `CODE_POOL X64_INSTR ((cs.code_heap_ptr,code ++ ys) INSERT code_abbrevs cs) =
-      zCODE_HEAP_AUX T cs.code_heap_ptr (code ++ ys) *
-      CODE_POOL X64_INSTR (code_abbrevs cs)` by ALL_TAC THEN1
-   (rfs [] \\ MATCH_MP_TAC CODE_POOL_SPLIT
-    \\ Q.EXISTS_TAC `x64_2set s'`
+  \\ FULL_SIMP_TAC std_ss [AC STAR_ASSOC STAR_COMM] \\ fs [STAR_ASSOC]
+  \\ `!t frame.
+        (frame * CODE_POOL X64_INSTR ((cs.code_heap_ptr,code ++ ys)
+           INSERT code_abbrevs cs)) (x64_2set t) =
+        (frame * zCODE_HEAP_AUX T cs.code_heap_ptr (code ++ ys) *
+            CODE_POOL X64_INSTR (code_abbrevs cs)) (x64_2set t)` by ALL_TAC THEN1
+   (REPEAT STRIP_TAC
+    \\ MATCH_MP_TAC CODE_POOL_SPLIT
+    \\ Q.EXISTS_TAC `s'`
     \\ Q.EXISTS_TAC `zVALS cs (vals with code_option := NONE) *
          zPC p * ¬zS * r` \\ fs [AC STAR_ASSOC STAR_COMM])
   \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
