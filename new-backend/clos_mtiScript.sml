@@ -50,16 +50,16 @@ val add_args_def = Define `
 (* END COPY *)
 
 val collect_args_def = Define `
-(collect_args max_app num_args (Fn loc fvs num_args' e) =
+(collect_args num_args (Fn loc fvs num_args' e) =
   if num_args + num_args' ≤ max_app then
-    collect_args max_app (num_args + num_args') e
+    collect_args (num_args + num_args') e
   else 
     (max_app, Fn loc fvs (num_args + num_args' - max_app) e)) ∧
-(collect_args max_app num_args e = (num_args, e))`;
+(collect_args num_args e = (num_args, e))`;
 
 val collect_args_size = Q.prove (
-`!max_app num_args e num_args' e'.
-  (num_args', e') = collect_args max_app num_args e ⇒ 
+`!num_args e num_args' e'.
+  (num_args', e') = collect_args num_args e ⇒ 
   num_args' + clos_exp_size e' ≤ num_args + clos_exp_size e`,
  ho_match_mp_tac (fetch "-" "collect_args_ind") >>
  rw [collect_args_def, clos_exp_size_def] >>
@@ -87,11 +87,11 @@ val intro_multi_def = tDefine "intro_multi"`
 (intro_multi [App loc e es] =
   [App loc (HD (intro_multi [e])) (intro_multi es)]) ∧
 (intro_multi [Fn loc fvs num_args e] =
-  let (num_args', e') = collect_args max_app num_args e in
+  let (num_args', e') = collect_args num_args e in
     [Fn loc fvs num_args' (HD (intro_multi [e']))]) ∧
 (intro_multi [Letrec loc fvs funs e] =
   [Letrec loc fvs (MAP (\(num_args, e). 
-                         let (num_args', e') = collect_args max_app num_args e in
+                         let (num_args', e') = collect_args num_args e in
                            (num_args', HD (intro_multi [e'])))
                        funs)
       (HD (intro_multi [e]))]) ∧
@@ -109,6 +109,177 @@ val intro_multi_def = tDefine "intro_multi"`
               decide_tac) >>
   decide_tac);
 
+val intro_multi_length = Q.prove ( 
+`!es. LENGTH (intro_multi es) = LENGTH es`,
+ recInduct (fetch "-" "intro_multi_ind") >>
+ rw [intro_multi_def] >>
+ rw [intro_multi_def]);
+
+val intro_multi_sing = Q.prove (
+`!e. ?e'. intro_multi [e] = [e']`,
+ Cases_on `e` >>
+ rw [intro_multi_def] >>
+ Cases_on `collect_args n c` >>
+ fs []);
+
+val collect_args_more = Q.prove (
+`!num_args e num_args' e'.
+  num_args ≤ max_app ∧
+  (num_args', e') = collect_args num_args e
+  ⇒
+  num_args' ≤ max_app ∧ num_args ≤ num_args'`,
+ ho_match_mp_tac (fetch "-" "collect_args_ind") >>
+ rw [collect_args_def] >>
+ rw [] >>
+ res_tac >>
+ decide_tac);
+
+val collect_args_zero = Q.prove (
+`!num_args e e'.
+  collect_args num_args e = (0, e')
+  ⇒
+  num_args = 0`,
+ ho_match_mp_tac (fetch "-" "collect_args_ind") >>
+ rw [collect_args_def] >>
+ rw [collect_args_def] >>
+ fs [max_app_def]);
+
+val collect_args_idem = Q.prove (
+`!num_args e num_args' e'.
+  collect_args num_args e = (num_args', e')
+  ⇒
+  collect_args num_args' (HD (intro_multi [e'])) = (num_args', (HD (intro_multi [e'])))`,
+ ho_match_mp_tac (fetch "-" "collect_args_ind") >>
+ rw [collect_args_def, intro_multi_def] >>
+ rw [collect_args_def, intro_multi_def] >>
+ fs [NOT_LESS_EQUAL] >>
+ `num_args'' = 0` by decide_tac >>
+ rw [] >>
+ imp_res_tac collect_args_zero >>
+ fs [] >>
+ `max_app< max_app` by decide_tac >>
+ fs []);
+
+val intro_multi_idem = Q.prove (
+`!e. intro_multi (intro_multi e) = intro_multi e`,
+ ho_match_mp_tac (fetch "-" "intro_multi_ind") >>
+ rw [intro_multi_def] >>
+ rw [intro_multi_def]
+ >- metis_tac [intro_multi_sing, HD]
+ >- metis_tac [intro_multi_sing, HD]
+ >- metis_tac [intro_multi_sing, HD]
+ >- metis_tac [intro_multi_sing, HD]
+ >- metis_tac [intro_multi_sing, HD]
+ >- metis_tac [intro_multi_sing, HD]
+ >- metis_tac [intro_multi_sing, HD]
+ >- metis_tac [intro_multi_sing, HD]
+ >- metis_tac [intro_multi_sing, HD]
+ >- metis_tac [intro_multi_sing, HD]
+ >- metis_tac [intro_multi_sing, HD]
+ >- metis_tac [intro_multi_sing, HD, collect_args_idem, PAIR_EQ]
+ >- (rw [LET_THM, inferPropsTheory.remove_pair_lem, MAP_MAP_o, combinTheory.o_DEF] >>
+     rw [MAP_EQ_f] >>
+     PairCases_on `x` >>
+     simp [] >>
+     Cases_on `collect_args x0 x1` >>
+     simp [] >>
+     res_tac >>
+     rfs [] >>
+     metis_tac [intro_multi_sing, HD, collect_args_idem, PAIR_EQ, FST, SND])
+ >- metis_tac [intro_multi_sing, HD]);
+
+val collect_all_args_def = Define `
+(collect_all_args num_args (Fn loc fvs num_args' e) =
+  collect_all_args (num_args + num_args') e) ∧
+(collect_all_args num_args e = (num_args, e))`;
+
+val count_all_args_def = Define 
+`(count_all_args (Fn loc fvs num_args e) = num_args + count_all_args e) ∧
+ (count_all_args _ = 0)`;
+
+val strip_fns_def = Define 
+`(strip_fns (Fn loc fvs num_args e) = strip_fns e) ∧
+ (strip_fns x = x)`;
+
+val collect_all_args_decomp = Q.prove (
+`!num_args e.
+  collect_all_args num_args e = (num_args + count_all_args e, strip_fns e)`,
+ ho_match_mp_tac (fetch "-" "collect_all_args_ind") >>
+ rw [collect_all_args_def, count_all_args_def, strip_fns_def] >>
+ decide_tac);
+
+val strip_fns_collect_args = Q.prove (
+`!num_args e num_args' e'.
+  collect_args num_args e = (num_args', e')
+  ⇒
+  strip_fns e = strip_fns e'`,
+ ho_match_mp_tac (fetch "-" "collect_args_ind") >>
+ rw [collect_args_def, strip_fns_def] >>
+ rw [collect_args_def, strip_fns_def]);
+
+val count_all_args_collect_args = Q.prove (
+`!num_args e num_args' e'.
+  collect_args num_args e = (num_args', e')
+  ⇒
+  num_args + count_all_args e = num_args' + count_all_args e'`,
+ ho_match_mp_tac (fetch "-" "collect_args_ind") >>
+ rw [collect_args_def, count_all_args_def] >>
+ rw [collect_args_def, count_all_args_def] >>
+ TRY decide_tac >>
+ fs [] >>
+ simp []);
+
+val count_all_args_intro = Q.prove (
+`!e. count_all_args (HD (intro_multi [e])) = count_all_args e`,
+ completeInduct_on `clos_exp_size e` >>
+ Cases_on `e` >>
+ rw [count_all_args_def, intro_multi_def] >>
+ rw [count_all_args_def, intro_multi_def] >>
+ fs [clos_exp_size_def, ADD1] >>
+ imp_res_tac count_all_args_collect_args >>
+ rw [] >>
+ fs [PULL_FORALL] >>
+ first_x_assum match_mp_tac >>
+ pop_assum kall_tac >>
+ pop_assum (assume_tac o GSYM) >>
+ imp_res_tac collect_args_size >>
+ decide_tac);
+
+val strip_fns_intro = Q.prove (
+`!e. strip_fns (HD (intro_multi [e])) = HD (intro_multi [strip_fns e])`,
+ completeInduct_on `clos_exp_size e` >>
+ Cases_on `e` >>
+ rw [strip_fns_def, intro_multi_def] >>
+ rw [strip_fns_def, intro_multi_def] >>
+ fs [clos_exp_size_def, ADD1] >>
+ imp_res_tac strip_fns_collect_args >>
+ rw [] >>
+ fs [PULL_FORALL] >>
+ first_x_assum match_mp_tac >>
+ pop_assum kall_tac >>
+ pop_assum (assume_tac o GSYM) >>
+ imp_res_tac collect_args_size >>
+ decide_tac);
+
+val collect_all_args_intro = Q.prove (
+`!num_args e num_args' e' num_args'' e''.
+  collect_all_args num_args e = (num_args', e') ∧
+  collect_all_args num_args (HD (intro_multi [e])) = (num_args'', e'')
+  ⇒
+  num_args' = num_args''  ∧
+  e'' = HD (intro_multi [e'])`,
+ rw [collect_all_args_decomp] >>
+ metis_tac [strip_fns_intro, count_all_args_intro]);
+
+val collect_args_then_all = Q.prove (
+`!num_args e num_args' e'.
+  collect_args num_args e = (num_args', e')
+  ⇒
+  collect_all_args num_args e = collect_all_args num_args' e'`,
+ ho_match_mp_tac (fetch "-" "collect_args_ind") >>
+ rw [collect_all_args_def, collect_args_def] >>
+ simp [collect_all_args_def]);
+
 val clos_val_size_el = Q.prove (
 `!n es. n < LENGTH es ⇒ clos_val_size (EL n es) ≤ clos_val1_size es`,
  Induct_on `es` >>
@@ -123,30 +294,32 @@ val clos_val_size_el = Q.prove (
      fs [] >>
      decide_tac));
 
+val norm_exp_def = Define `
+norm_exp (num_args, e) =
+  let (num_args', e') = collect_all_args num_args e in
+    (num_args', HD (intro_multi [e']))`;
+
 val norm_closure_def = Define `
-(norm_closure max (Closure loc args env num_args e) =
-  let (num_args', e') = collect_args max num_args e in
-  let e'' = intro_multi [e'] in
+(norm_closure (Closure loc args env num_args e) =
+  let (num_args', e') = norm_exp (num_args, e) in
     if LENGTH args ≤ num_args' then
-      SOME (args++env, num_args'-LENGTH args, HD e'')
+      SOME (args++env, num_args'-LENGTH args, e')
     else
       NONE) ∧
-(norm_closure max (Recclosure loc args env funs i) =
-  let (num_args, e) = EL i funs in
-  let (num_args', e') = collect_args max num_args e in
-  let e'' = intro_multi [e'] in
+(norm_closure (Recclosure loc args env funs i) =
+  let (num_args', e') = norm_exp (EL i funs) in
     if LENGTH args ≤ num_args' then
-      SOME (args ++ GENLIST (Recclosure loc [] env funs) (LENGTH funs) ++ env, num_args'-LENGTH args, HD e'')
+      SOME (args ++ GENLIST (Recclosure loc [] env funs) (LENGTH funs) ++ env, num_args'-LENGTH args, e')
     else
       NONE) ∧
-(norm_closure max _ = NONE)`;
+(norm_closure _ = NONE)`;
 
 val cl_ok_def = Define `
-(cl_ok max (Closure loc args env num_args e) ⇔
-  0 < num_args ∧ num_args ≤ max ∧ LENGTH args < num_args) ∧
-(cl_ok max (Recclosure loc args env funs i) ⇔
+(cl_ok (Closure loc args env num_args e) ⇔
+  0 < num_args ∧ LENGTH args < num_args) ∧
+(cl_ok (Recclosure loc args env funs i) ⇔
   let (num_args, e) = EL i funs in
-    0 < num_args ∧ num_args ≤ max ∧ LENGTH args < num_args)`;
+    i < LENGTH funs ∧ 0 < num_args ∧ LENGTH args < num_args)`;
 
 val (val_rel_rules, val_rel_ind, val_rel_cases) = Hol_reln `
 (!n. 
@@ -157,25 +330,17 @@ val (val_rel_rules, val_rel_ind, val_rel_cases) = Hol_reln `
   val_rel (Block n vs) (Block n vs')) ∧
 (!n.
   val_rel (RefPtr n) (RefPtr n)) ∧
-(!cl1 cl2 env1 env2 max.
-  cl_ok max cl1 ∧
-  cl_ok max cl2 ∧
-  norm_closure max cl1 = SOME (env1, num_args, e) ∧
-  norm_closure max cl2 = SOME (env2, num_args, e) ∧
+(!cl1 cl2 env1 env2.
+  cl_ok cl1 ∧
+  cl_ok cl2 ∧
+  norm_closure cl1 = SOME (env1, num_args, e) ∧
+  norm_closure cl2 = SOME (env2, num_args, e) ∧
   LIST_REL val_rel env1 env2
   ⇒
   val_rel cl1 cl2)`;
 
 val exp_rel_def = Define `
-exp_rel (num_args,e) (num_args',e') ⇔
-  num_args ≤ max_app ∧
-  0 < num_args ∧
-  num_args' ≤ max_app ∧
-  0 < num_args' ∧
-  num_args ≤ num_args' ∧
-  ?e''.
-    (num_args',e'') = collect_args num_args' num_args e ∧
-    e' = HD (intro_multi [e''])`;
+exp_rel e1 e2 ⇔ norm_exp e1 = norm_exp e2`;
 
 val (res_rel_rules, res_rel_ind, res_rel_cases) = Hol_reln `
 (!vs.
@@ -216,18 +381,19 @@ val lookup_vars_list_rel = Q.prove (
  fs [LIST_REL_EL_EQN] >>
  metis_tac []);
 
-val collect_args_more = Q.prove (
-`!max_app num_args e num_args' e'.
-  num_args ≤ max_app ∧
-  (num_args', e') = collect_args max_app num_args e
+val collect_all_args_more = Q.prove (
+`!num_args e num_args' e'.
+  (num_args', e') = collect_all_args num_args e
   ⇒
-  num_args ≤ num_args' ∧ num_args' ≤ max_app`,
- ho_match_mp_tac (fetch "-" "collect_args_ind") >>
- rw [collect_args_def] >>
+  num_args ≤ num_args'`,
+ ho_match_mp_tac (fetch "-" "collect_all_args_ind") >>
+ rw [collect_all_args_def] >>
  rw [] >>
  res_tac >>
  decide_tac);
 
+
+ (*
 val collect_args_mono = Q.prove (
 `!num_args4 num_args2 exp num_args3 exp' num_args1.
   num_args2 ≤ num_args3 ∧
@@ -252,75 +418,100 @@ val collect_args_mono = Q.prove (
  rw [] >>
  imp_res_tac collect_args_more >>
  full_simp_tac (srw_ss()++ARITH_ss) []);
+ *)
 
-val intro_multi_length = Q.prove ( 
-`!es. LENGTH (intro_multi es) = LENGTH es`,
- recInduct (fetch "-" "intro_multi_ind") >>
- rw [intro_multi_def] >>
- rw [intro_multi_def]);
-
-val intro_multi_sing = Q.prove (
-`!e. ?e'. intro_multi [e] = [e']`,
- Cases_on `e` >>
- rw [intro_multi_def] >>
- Cases_on `collect_args max_app n c` >>
- fs []);
-
- (*
-val dest_closure_partial_thm = Q.prove (
-`!loc f args res f' args' res' v.
-  dest_closure NONE f args = SOME (Partial_app v) ∧
+val dest_closure_some_imp = Q.prove (
+`!f args res f' args'.
   val_rel f f' ∧
-  LIST_REL val_rel args args'
+  LIST_REL val_rel args args' ∧
+  dest_closure NONE f args = SOME res
   ⇒
-  ?v'.
-    val_rel v v' ∧
-    dest_closure NONE f' args' = SOME (Partial_app v')`,
+  ?res'. dest_closure NONE f' args' = SOME res'`,
  rw [dest_closure_def] >>
  ect >>
- fs [Once val_rel_cases, LET_THM] >>
+ fs [val_rel_cases, LET_THM] >>
+ fs [check_loc_def] >>
+ imp_res_tac EVERY2_LENGTH >>
+ fs [norm_exp_def, norm_closure_def, LET_THM, inferPropsTheory.remove_pair_lem,
+     NOT_LESS_EQUAL, NOT_LESS, cl_ok_def] >>
+ TRY decide_tac >>
+ rw []);
+
+val dest_closure_partial_partial = Q.prove (
+`!f args f' args' v v'.
+  val_rel f f' ∧
+  LIST_REL val_rel args args' ∧
+  dest_closure NONE f args = SOME (Partial_app v) ∧
+  dest_closure NONE f' args' = SOME (Partial_app v')
+  ⇒
+  val_rel v v'`,
+ rw [dest_closure_def] >>
+ ect >>
+ fs [val_rel_cases, LET_THM] >>
  rw [] >>
  fs [check_loc_def] >>
  imp_res_tac EVERY2_LENGTH >>
- fs [cl_ok_def, norm_closure_def, LET_THM] >>
- TRY decide_tac >>
- `?num_args1 e1. collect_args max n c = (num_args1, e1)` by metis_tac [pair_CASES] >>
- `?num_args2 e2. collect_args max n' c' = (num_args2, e2)` by metis_tac [pair_CASES] >>
- pop_assum (mp_tac o GSYM) >>
- pop_assum (mp_tac o GSYM) >>
- DISCH_TAC >>
- fs [] >>
- rw [] >>
- fs [NOT_LESS]
- imp_res_tac collect_args_more
- >- metis_tac [EVERY2_APPEND]
- >- (
-     `exp_rel (EL n funs) (EL n l1)` by fs [LIST_REL_EL_EQN] >>
-     Cases_on `EL n l1` >>
-     Cases_on `EL n funs` >>
-     fs [exp_rel_def] >>
-     rw [] >>
-     fs [] >>
+ fs [cl_ok_def, norm_exp_def, norm_closure_def, LET_THM, inferPropsTheory.remove_pair_lem]
+ >- (rw [] >>
      TRY decide_tac >>
-     MAP_EVERY qexists_tac [`env`, `funs`] >>
+     metis_tac [EVERY2_APPEND, APPEND_ASSOC, collect_all_args_more, FST, 
+                pair_CASES, LESS_EQ_TRANS, LESS_IMP_LESS_OR_EQ])
+ >- (ect >>
+     fs [] >>
+     rw [norm_closure_def, cl_ok_def] >>
+     `?num_args e. EL n' l1 = (num_args, e)` by metis_tac [pair_CASES] >>
+     fs [norm_exp_def] >>
+     qexists_tac `args++l'++GENLIST (Recclosure n0' [] l0' l1) (LENGTH l1)++l0'` >>
+     simp [] >>
+     `?num_args1 e1. collect_all_args num_args e = (num_args1, e1)` by metis_tac [pair_CASES] >>
+     simp [markerTheory.Abbrev_def] >>
+     fs [LET_THM] >>
      rw [] >>
-     metis_tac [EVERY2_APPEND]) >>
- Cases_on `EL n l1'` >>
- fs [LET_THM] >>
- ect >>
+     TRY decide_tac >>
+     metis_tac [EVERY2_APPEND, APPEND_ASSOC, collect_all_args_more, FST, 
+                pair_CASES, LESS_EQ_TRANS, LESS_IMP_LESS_OR_EQ])
+ >- (ect >>
+     fs [] >>
+     rw [norm_closure_def, cl_ok_def] >>
+     `?num_args e. EL n l1 = (num_args, e)` by metis_tac [pair_CASES] >>
+     fs [norm_exp_def] >>
+     qexists_tac `args'++l++GENLIST (Recclosure n0 [] l0 l1) (LENGTH l1)++l0` >>
+     simp [] >>
+     `?num_args1 e1. collect_all_args num_args e = (num_args1, e1)` by metis_tac [pair_CASES] >>
+     simp [markerTheory.Abbrev_def] >>
+     fs [LET_THM] >>
+     rw [] >>
+     TRY decide_tac >>
+     metis_tac [EVERY2_APPEND, APPEND_ASSOC, collect_all_args_more, FST, 
+                pair_CASES, LESS_EQ_TRANS, LESS_IMP_LESS_OR_EQ])
+ >- (ect >>
+     fs [] >>
+     rw [norm_closure_def, cl_ok_def] >>
+     `?num_args e. EL n l1 = (num_args, e)` by metis_tac [pair_CASES] >>
+     `?num_args2 e2. EL n' l1' = (num_args2, e2)` by metis_tac [pair_CASES] >>
+     rw [norm_exp_def] >>
+     `?num_args3 e3. collect_all_args num_args e = (num_args3, e3)` by metis_tac [pair_CASES] >>
+     `?num_args4 e4. collect_all_args num_args2 e2 = (num_args4, e4)` by metis_tac [pair_CASES] >>
+     simp [] >>
+     fs [norm_exp_def, LET_THM] >>
+     rw [] >>
+     TRY decide_tac >>
+     metis_tac [EVERY2_APPEND, APPEND_ASSOC, collect_all_args_more, FST, 
+                pair_CASES, LESS_EQ_TRANS, LESS_IMP_LESS_OR_EQ]));
+
+val norm_exp_thm = Q.prove (
+`!num_args e num_args' e' e''.
+  collect_args num_args e = (num_args',e') ∧
+  [e''] = intro_multi [e']
+  ⇒
+  norm_exp (num_args', e'') = norm_exp (num_args, e)`,
+ rw [norm_exp_def] >>
+ imp_res_tac collect_args_then_all >>
  fs [] >>
- rw [] >>
- fs [LIST_REL_EL_EQN] >>
- `n < LENGTH l1` by decide_tac >>
- res_tac >>
- pop_assum mp_tac >>
- Cases_on `EL n l1` >>
- simp [exp_rel_def] >>
- rw [] >>
- `n' < LENGTH args' ∨ LENGTH args' ≤ n'` by decide_tac >>
- rw [EL_APPEND1, EL_APPEND2] >>
- first_x_assum match_mp_tac >>
- decide_tac);
+ metis_tac [collect_all_args_intro, HD, intro_multi_sing, intro_multi_idem]);
+
+
+HERE
 
 val intro_multi_correct = Q.prove (
 `(!tmp es env s1 res s2 s1' env'.
@@ -381,21 +572,13 @@ val intro_multi_correct = Q.prove (
                imp_res_tac lookup_vars_list_rel >>
                pop_assum (qspec_then `vs` mp_tac) >>
                rw [OPTREL_def]) >>
-     `?num_args' e'. collect_args max_app num_args exp = (num_args', e')` by metis_tac [pair_CASES] >>
+     `?num_args' e'. collect_args num_args exp = (num_args', e')` by metis_tac [pair_CASES] >>
      simp [] >>
      `num_args' ≤ max_app ∧ num_args ≤ num_args'` by metis_tac [collect_args_more] >>
      simp [] >>
-     rw [Once val_rel_cases] >>
-     simp [norm_closure_def] >>
-     qexists_tac `e22` >>
-     qexists_tac `FST (collect_args max22 num_args exp)` >>
-     qexists_tac `x'` >>
-     qexists_tac `x` >>
-     qexists_tac `max22` >>
-     Cases_on `collect_args max22 num_args exp` >>
-     Cases_on `collect_args max22 num_args' (HD (intro_multi [e']))` >>
-     simp []
-     cheat)
+     rw [val_rel_cases] >>
+     simp [cl_ok_def, norm_closure_def, inferPropsTheory.remove_pair_lem] >>
+     metis_tac [intro_multi_sing, norm_exp_thm, HD, pair_CASES])
  >- cheat
  >- (fs [cEval_def, intro_multi_def] >>
      rw [cEval_def, intro_multi_def] >>
@@ -452,6 +635,7 @@ val intro_multi_correct = Q.prove (
      rw [] >>
      Cases_on `dest_closure loc_opt func args`  >>
      fs [] >>
+
      Cases_on `x` >>
      fs [] >>
      `loc_opt = NONE` by cheat >> (* TODO forbid App SOME in the input *)
