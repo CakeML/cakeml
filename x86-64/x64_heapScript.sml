@@ -17316,7 +17316,32 @@ val CODE_POOL_INSERT_SPLIT = prove(
   ``(pp * zCODE_HEAP_AUX T a [h] * CODE_POOL X64_INSTR s) ss ==>
     (CODE_POOL X64_INSTR ((a,[h]) INSERT s) =
      zCODE_HEAP_AUX T a [h] * CODE_POOL X64_INSTR s)``,
-  cheat);
+  fs [FUN_EQ_THM] \\ fs [STAR_def] \\ REPEAT STRIP_TAC
+  \\ fs [zCODE_HEAP_AUX_def,SEP_CLAUSES,SEP_EXISTS_THM]
+  \\ FULL_SIMP_TAC (std_ss++sep_cond_ss) [cond_STAR]
+  \\ fs [CODE_POOL_def,PULL_EXISTS]
+  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ STRIP_TAC THEN1
+   (fs [SEP_ARRAY_def,SEP_CLAUSES,one_lemma,X64_INSTR_def]
+    \\ Q.EXISTS_TAC `{zMem a (SOME (h,X64_INSTR_PERM T)) T}`
+    \\ Q.LIST_EXISTS_TAC [`{a}`,`f`]
+    \\ fs [SPLIT_SING]
+    \\ fs [INSERT_UNION_EQ,IMP_INTRO]
+    \\ REPEAT STRIP_TAC
+    \\ fs [zCODE_def,CODE_POOL_def,zCODE_SET_def,set_lemma,X64_INSTR_def]
+    \\ `df = {a}` by (fs [EXTENSION] \\ METIS_TAC [])
+    \\ SRW_TAC [] [] \\ fs []
+    \\ SRW_TAC [] [] \\ fs []
+    \\ fs [SPLIT_def,PULL_EXISTS]
+    \\ RES_TAC
+    \\ SRW_TAC [] []
+    \\ fs [set_lemma]
+    \\ fs [DISJOINT_DEF,EXTENSION,X64_INSTR_def])
+  \\ fs [SPLIT_def] \\ SRW_TAC [] []
+  \\ fs [SEP_ARRAY_def,SEP_CLAUSES,one_lemma]
+  \\ SRW_TAC [] []
+  \\ `df' = {a}` by (fs [EXTENSION] \\ METIS_TAC [])
+  \\ SRW_TAC [] [] \\ fs [PULL_EXISTS]
+  \\ fs [zCODE_def,CODE_POOL_def,zCODE_SET_def,set_lemma]);
 
 val CODE_POOL_SPLIT = prove(
   ``!code a ss pp.
