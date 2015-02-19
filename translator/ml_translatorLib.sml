@@ -623,8 +623,16 @@ fun clean_uppercase s = let
             if mem c [#"_",#"'"] then implode [c] else ""
   in String.translate f s end;
 
+val sml_keywords_and_predefined = ["o", "+", "-", "*", "div", "mod",
+  "<", ">", "<=", ">=", "ref", "and", "andalso", "case", "datatype",
+  "else", "end", "eqtype", "exception", "fn", "fun", "handle", "if",
+  "in", "include", "let", "local", "of", "op", "open", "orelse",
+  "raise", "rec", "sharing", "sig", "signature", "struct",
+  "structure", "then", "type", "val", "where", "while", "with",
+  "withtype"]
+
 fun get_unique_name str = let
-  val names = get_names() @ ["o","+","-","*","div","mod","<",">","<=",">=","ref"]
+  val names = get_names() @ sml_keywords_and_predefined
   fun find_name str n = let
     val new_name = str ^ "_" ^ (int_to_string n)
     in if mem new_name names then find_name str (n+1) else new_name end
