@@ -423,14 +423,14 @@ val termsem_simple_inst = store_thm("termsem_simple_inst",
 
 val termsem_INST = store_thm("termsem_INST",
   ``∀Γ tm tyin tmenv.
-      welltyped tm ∧ term_ok Γ tm ∧ tmenv = tmsof Γ ⇒
+      term_ok Γ tm ∧ tmenv = tmsof Γ ⇒
       ∀i v.
         termsem tmenv i v (INST tyin tm) =
         termsem tmenv i
           ((λx. typesem (FST i) (FST v) (TYPE_SUBST tyin (Tyvar x))),
            (λ(x,ty). SND v (x, TYPE_SUBST tyin ty)))
           tm``,
-  rw[] >>
+  rw[] >> imp_res_tac term_ok_welltyped >>
   Q.ISPECL_THEN[`{x | ∃ty. VFREE_IN (Var x ty) tm}`,`tm`]mp_tac fresh_term_def >>
   simp[] >>
   Q.PAT_ABBREV_TAC`fm = fresh_term X tm` >> strip_tac >>
