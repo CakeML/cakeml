@@ -3163,4 +3163,22 @@ val updates_proves = store_thm("updates_proves",
     (thyof (upd::ctxt),h) |- c``,
   metis_tac[update_extension])
 
+(* types occurring in a term *)
+
+val types_in_def = Define`
+  types_in (Var x ty) = {ty} ∧
+  types_in (Const c ty) = {ty} ∧
+  types_in (Comb t1 t2) = types_in t1 ∪ types_in t2 ∧
+  types_in (Abs v t) = types_in v ∪ types_in t`
+val _ = export_rewrites["types_in_def"]
+
+val type_ok_types_in = store_thm("type_ok_types_in",
+  ``∀sig. is_std_sig sig ⇒ ∀tm ty. term_ok sig tm ∧ ty ∈ types_in tm ⇒ type_ok (tysof sig) ty``,
+  gen_tac >> strip_tac >> Induct >> simp[] >> rw[] >>
+  TRY (imp_res_tac term_ok_def >> NO_TAC) >> fs[term_ok_def])
+
+val VFREE_IN_types_in = store_thm("VFREE_IN_types_in",
+  ``∀t2 t1. VFREE_IN t1 t2 ⇒ typeof t1 ∈ types_in t2``,
+  ho_match_mp_tac term_induction >> rw[] >> rw[])
+
 val _ = export_theory()
