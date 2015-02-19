@@ -103,7 +103,8 @@ val init_ra_state_side_def = prove(``
   fs[MEM_FILTER,MEM_MAP]>>Cases_on`y`>>
   fs[MEM_toAList]) |> update_precondition
 
-val _ = translate sec_ra_state_def
+
+val _ = translate (sec_ra_state_def |> REWRITE_RULE[MEMBER_INTRO])
 
 val sec_ra_state_side_def = prove(``
   ∀a b c d. sec_ra_state_side a b c d ⇔ T``,
@@ -142,6 +143,5 @@ val irc_alloc_reg_alloc_3 = prove(``
 val _ = translate irc_alloc_def
 
 val _ = set_trace "pp_avoids_symbol_merges" 0;
-
 
 val _ = export_theory();

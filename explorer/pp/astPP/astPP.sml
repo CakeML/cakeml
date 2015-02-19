@@ -468,7 +468,7 @@ fun matPrint sys d t pg str brk blk=
     val (temp,r) = dest_comb t
     val l = #2(dest_comb temp)
     val cases = #1(listSyntax.dest_list r)
-    fun casePrint x = let val (l,r) = pairSyntax.dest_pair x in sys (pg,pg,pg) (d-1) l >> str " => " >> sys (Top,pg,pg) (d-1) r end;
+    fun casePrint x = let val (l,r) = pairSyntax.dest_pair x in sys (pg,pg,pg) (d-1) l >> str " => " >> sys (Prec(0,"case"),pg,pg) (d-1) r end;
     fun printMatch [] = str ""
     |   printMatch [x] = casePrint x
     |   printMatch (x::xs) = casePrint x>> add_newline>>str"|  ">>(printMatch xs) 
@@ -575,7 +575,7 @@ fun appchrPrint sys d t pg str brk blk =
   let
     open Portable smpp
     val (_,ls) = dest_comb t
-    val (hd::[tl]) = #1(listSyntax.dest_list ls) (*Assumes only 1-arg functions*)
+    val ([tl]) = #1(listSyntax.dest_list ls) 
     val output = str"Char.chr ">>sys (Prec(0,"app"),pg,pg) d tl
   in
     case pg of
