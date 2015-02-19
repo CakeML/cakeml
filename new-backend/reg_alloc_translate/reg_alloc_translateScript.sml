@@ -13,8 +13,6 @@ val _ = std_preludeLib.std_prelude ();
 val _ = add_preferred_thy "reg_alloc";
 val _ = add_preferred_thy "word_proc";
 
-val _ = enable_astPP();
-
 val _ = set_trace "Goalstack.print_goal_at_top" 0; (*/"*)
 
 val NOT_NIL_AND_LEMMA = prove(
@@ -142,6 +140,49 @@ val irc_alloc_reg_alloc_3 = prove(``
 
 val _ = translate irc_alloc_def
 
+val simp_alloc_def =  Define`
+  simp_alloc G k moves =
+  let s = init_ra_state G k [] in
+  let ((),s) = rpt_do_step s in
+  let pref = move_pref (resort_moves (moves_to_sp moves LN)) in
+  let (col,ls) = alloc_coloring s.graph k pref s.stack in
+  let (G,spills,coalesce_map) = full_coalesce s.graph moves ls in 
+  let s = sec_ra_state G k spills coalesce_map in
+  let ((),s) = rpt_do_step2 s in
+  let col = spill_coloring G k coalesce_map s.stack col in
+  let col = spill_coloring G k LN ls col in
+    col`
+
+val simp_alloc_reg_alloc_0 = prove(``
+  ∀G k moves.
+  simp_alloc G k moves = reg_alloc 0 G k moves``,
+  fs[simp_alloc_def,reg_alloc_def]>>
+  rw[]>>
+  `pref = pref'` by 
+    (fs[FUN_EQ_THM]>>
+    unabbrev_all_tac>>fs[])>>
+  unabbrev_all_tac>>
+  fs[]>>rfs[]>>
+  rpt VAR_EQ_TAC>>
+  fs[])
+
+val _ = translate simp_alloc_def
+
+
+(*Dump to file*)
+val _ = enable_astPP();
 val _ = set_trace "pp_avoids_symbol_merges" 0;
 
+val _ = let
+val file = TextIO.openOut "reg_alloc_poly.sml"
+fun print s = TextIO.output(file,s) 
+val _ = finalise_translation()
+val decls = get_decls()
+in
+  print (term_to_string decls)
+end
+
+val _ = disable_astPP();
+
+val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = export_theory();
